@@ -25,6 +25,8 @@ import { looksLikeGmoGroup } from '../../../shared/services/gmo-group';
 import { createCustomerRecord } from '../../../shared/services/company-directory.service';
 import { normalizeDest, type IntakeDest } from './intake-parser.service';
 import { MINUTES_KIND } from '../../sales/services/minutes.service';
+// `neta` 起票の本体作成を `project.service.ts` の `createCore` に寄せる（テーマ4 PR2）
+import { createCore } from '../../sales/services/project.service';
 
 export type IntakeKind = 'freeform' | 'minutes' | 'mail' | 'chat' | 'other';
 export type IntakeStatus = 'pending' | 'committed' | 'discarded' | 'transcribing' | 'failed';
@@ -245,26 +247,6 @@ function toIntake(row: Record<string, unknown>): TaskIntake {
 
 /** `withTransaction` が渡してくる口。ここで要るのは 2 つだけ */
 type Tx = { execute(sql: string, params?: unknown[]): Promise<void>; queryOne(sql: string, params?: unknown[]): Promise<Record<string, unknown> | undefined> };
-
-/**
- * OPP コードを採る。**`sequence.service` を写していない**（同じ SQL）—
- * あちらはプールから別の接続を取るので、このトランザクションの中で
- * 呼ぶと採番だけがロールバックされずに残る（番号が飛ぶ）。
- */
-async function nextOppCode(tx: Tx): Promise<string> {
-  const now = new Date();
-  const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const row = await tx.queryOne(
-    `INSERT INTO sequences (seq_name, prefix, year_month, counter)
-     VALUES ('opp_code', 'OPP', ?, 1)
-     ON CONFLICT (seq_name) DO UPDATE SET
-       counter = CASE WHEN sequences.year_month = EXCLUDED.year_month THEN sequences.counter + 1 ELSE 1 END,
-       year_month = EXCLUDED.year_month
-     RETURNING counter`,
-    [ym]
-  );
-  return `OPP-${ym}-${String(Number(row?.counter ?? 1)).padStart(4, '0')}`;
-}
 
 /**
  * お客様を名前で引く。**作らない。**
@@ -546,7 +528,9 @@ export const taskIntakeService = {
       for (const t of rows) {
         const dest = normalizeDest(t.dest);
         const key = `intake:${intakeId}:${t.draft_key}`;
-        const id = uuidv4();
+        // `neta` 行き先だけは `createCore` が案件の id を採番して返すので、
+        // 下で上書きする（他の行き先はこの id をそのまま主キーに使う）
+        let id = uuidv4();
 
         if (dest === 'task') {
           const isDelegation = !!t.requester_id;
@@ -581,24 +565,52 @@ export const taskIntakeService = {
           );
         } else if (dest === 'neta') {
           const customerId = await findOrCreateCustomer(tx, t.customer_name!.trim(), userId);
-          const code = await nextOppCode(tx);
-          await tx.execute(
-            `INSERT INTO projects
-               (id, code, name, customer_id, stage, project_type, audience, project_category, gls_category,
-                expected_amount, assigned_to, customer_type,
-                intake_channel, idempotency_key, created_by)
-             /* customer_type は internal / external の2値（社内案件か外のお客様か）で、
-                投入口から入るのは外からの引き合いなので external。
-                intake_channel の 'other' も CHECK にある値。どちらも実 DB で確かめた。
+          /*
+            **本体の作成は `project.service.ts` の `createCore` に寄せる**
+            （テーマ4 PR2・docs/project-ledger-phase-c-design.md）。
 
-                2段分類（audience / project_category）は **空を明示して書く**。
-                投入の文面から「客を入れるか」「配信か収録か」は決められないので、
-                旧種類 'other' と同じく人に決めてもらう（案件を直す画面に
-                「まだ分類が入っていません」と出る）。列ごと書かないと
-                書き忘れと見分けが付かないので、NULL と書いてある */
-             VALUES (?, ?, ?, ?, 'neta', 'other', NULL, NULL, ?, 0, ?, 'external', 'other', ?, ?)`,
-            [id, code, t.title.trim(), customerId, t.gls_category, userId, key, userId]
+            以前はここで採番（`nextOppCode`）・生の `INSERT INTO projects`・
+            生の `INSERT INTO project_stage_changes`（初回履歴）を手で複製していて、
+            `customer_type` を常に 'external' に固定していた —
+            **グループ会社からの投入がグループ外扱いになる**バグがあった。
+            `customer_type` をここで渡さなければ `createCore` 内部の
+            `resolveCustomerType` が `companies.is_gmo_group` から自動判定するので、
+            渡さない（このバグ修正が今回の副産物）。
+
+            2段分類（audience / project_category）は**空を明示して渡す** — 投入の
+            文面から「客を入れるか」「配信か収録か」は決められないので、旧種類 'other'
+            と同じく人に決めてもらう（案件を直す画面に「まだ分類が入っていません」と出る）。
+
+            `idempotency_key` は押し直しによる二重登録を防ぐ既存の仕組みなので、
+            そのまま `createCore` に渡す（`data.idempotency_key` を読んで書く）。
+
+            `opts` は `{ tx }` だけ渡す — `allowTerminalStage`（終了系ステージへの
+            直接作成の安全弁を外す）・`externalCode`/`externalGlsNumber`
+            （Excel/決算の旧番号移行用）・`skipBoxFolder` はどれも投入口には不要
+            （`stage: 'neta'` 固定なのでそもそも安全弁に掛からない）。
+            BOXフォルダ作成・メモ書き込み（`addMemoActivity`）は `createCore` の
+            **外**（公開 `create()` 側）の責務なので、`createCore` を単体で呼ぶ限り
+            実行されない — 投入口はもともとBOXフォルダを作っていなかったので
+            この点の挙動は変わらない（メモ書き込みは直後で従来どおり行う）。
+          */
+          const { id: projectId } = await createCore(
+            tx,
+            {
+              name: t.title.trim(),
+              customer_id: customerId,
+              gls_category: t.gls_category,
+              assigned_to: userId,
+              audience: undefined,
+              project_category: undefined,
+              project_type: 'other',
+              intake_channel: 'other',
+              stage: 'neta',
+              idempotency_key: key,
+            },
+            userId,
+            { tx },
           );
+          id = projectId;
           /*
             **投入した本文はやり取りの「メモ」1件にする** (migration 184)。
             `projects.notes` の列はもう無く、ここは**列を落としたときに
@@ -619,13 +631,6 @@ export const taskIntakeService = {
               [uuidv4(), id, customerId, userId, t.detail.trim(), userId, userId]
             );
           }
-          // **最初のステージも履歴に残す**（`project.service` の create と同じ理由 —
-          // 1件目が無いと「ネタでいた期間」が測れない）
-          await tx.execute(
-            `INSERT INTO project_stage_changes (id, project_id, from_stage, to_stage, changed_by)
-             VALUES (?, ?, NULL, 'neta', ?)`,
-            [uuidv4(), id, userId]
-          );
         } else if (dest === 'log') {
           // お客様は**照合するだけ**で作らない。活動記録は相手が分からなくても
           // 記録として成立する（作ると、綴り違いの会社が台帳に増える）

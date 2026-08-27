@@ -43,6 +43,11 @@ import {
   // ⚠️ このファイルも `projectService` を export している（プロジェクト管理のほう）。
   // **別名で受ける** — 同じ名前だと GLS の発番が自分自身を呼びに行く
   projectService as salesProjectService,
+  // 段の履歴・`won_at`/`lost_at` の3点セットは案件管理と共有の1関数に集約
+  // （テーマ2 PR1・docs/project-ledger-phase-c-design.md）。ここに個別ロジックを
+  // 持つと、GPM 経由の見送り（`e_lost`）だけ `lost_at`/`lost_reason` が
+  // 書かれない、という Phase A 未修正の穴が残ったままになる
+  recordStageTransition,
 } from '../../sales/services/project.service';
 /**
  * 議事録は**案件と同じ表・同じサービス**（`project_minutes` / `minutes.service`）。
@@ -404,6 +409,26 @@ export const projectService = {
          kind, input.pm_company ?? null, startedOn, dateOrNull(input.ends_on),
          templateId, userId, userId],
       );
+
+      // **最初のステージも履歴に残す**（案件管理の `create()` と同じ形・migration 164）。
+      // GPM は「既に受注が決まった構築案件」を最初から `a_won` で作るのが正しい既定だが
+      // （このロジック自体は変えない）、履歴が1件も無いまま `stage='a_won'` の行が
+      // できると「いつ受注になったか」が言えず、`recordStageTransition` を経由しない
+      // ぶん `won_at` も NULL のまま残る（テーマ2 PR2・docs/project-ledger-phase-c-design.md）
+      await tx.execute(
+        `INSERT INTO project_stage_changes (id, project_id, from_stage, to_stage, changed_by)
+         VALUES (?, ?, NULL, ?, ?)`,
+        [uuidv4(), id, stage, userId],
+      );
+      if (stage === 'a_won') {
+        // 受注の時刻を残す（`update()` 側の `recordStageTransition` と同じ
+        // `COALESCE(won_at, NOW())`。新規作成なので必ず NULL だが式は揃えておく）
+        await tx.execute(
+          `UPDATE projects SET won_at = COALESCE(won_at, NOW()) WHERE id = ?`,
+          [id],
+        );
+      }
+
       if (templateId) await expandTemplate(tx, id, templateId, startedOn, userId);
     });
     // **メモはやり取りの1件として、行ができたあとに書く。** 取引の外で書くので、
@@ -462,30 +487,28 @@ export const projectService = {
      *
      * **分類が無いときは受注そのものを止めない**（案件側と同じ判断）。
      * 採れなかったことは `gls_error` で返し、画面がそう出します。
+     *
+     * 履歴・`won_at`（受注）は `recordStageTransition` に集約（テーマ2 PR1）。
+     * **`lost_at`/`lost_reason` もここで初めて書かれるようになる** — 今までは
+     * GPM 経由で見送り（`e_lost`）にしても `lost_at` が NULL のまま `updated_at` に
+     * 付け替えられて失注理由分析に集計される穴があった（画面に入力欄はまだ無いため
+     * `input.lost_reason`/`input.lost_reason_note` は今は常に未指定＝NULL のままだが、
+     * MCP などから値が来れば正しく保存される）。GLS 発番は引き続きここが担当する
      */
     let glsError: string | null = null;
-    if (stageChanged) {
-      await execute(
-        `INSERT INTO project_stage_changes (id, project_id, from_stage, to_stage, changed_by)
-         VALUES (?, ?, ?, ?, ?)`,
-        [uuidv4(), id, before.stage ?? null, nextStage, userId],
-      );
-      if (nextStage === 'a_won') {
-        // **受注の時刻を残す**（案件管理側 `project.service.ts` の `changeStage` と同じ考え方）。
-        // 一度受注した案件を戻してまた受注にしたときは**最初の受注日を保つ**
-        // (`won_at IS NULL` のときだけ入れる)。これが無いと GPM（GLS-B）経由の受注が
-        // 「今月の受注」KPI（salesOverview.service.ts が読む）から漏れる
-        await execute(
-          `UPDATE projects SET won_at = COALESCE(won_at, NOW()) WHERE id = ?`,
-          [id],
-        );
-        if (!before.gls_number) {
-          try {
-            await salesProjectService.issueGls(id, {}, userId);
-          } catch (err) {
-            glsError = err instanceof AppError ? err.message : 'GLS番号を採れませんでした';
-            console.warn('[gpm.update] GLS auto-issue failed:', id, glsError);
-          }
+    // `nextStage` を条件にも入れて絞り込む（`stageChanged` は `!!nextStage` 込みの
+    // 別変数なので、TS は `stageChanged` だけでは `nextStage` を string に絞れない）
+    if (stageChanged && nextStage) {
+      await recordStageTransition(id, before.stage ?? null, nextStage, userId, {
+        lost_reason: input.lost_reason,
+        lost_reason_note: input.lost_reason_note,
+      });
+      if (nextStage === 'a_won' && !before.gls_number) {
+        try {
+          await salesProjectService.issueGls(id, {}, userId);
+        } catch (err) {
+          glsError = err instanceof AppError ? err.message : 'GLS番号を採れませんでした';
+          console.warn('[gpm.update] GLS auto-issue failed:', id, glsError);
         }
       }
     }

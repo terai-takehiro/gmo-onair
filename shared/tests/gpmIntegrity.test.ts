@@ -27,23 +27,32 @@ const BILLING = read('client', 'src', 'contexts', 'gpm', 'pages', 'projectDetail
 
 describe('プロジェクト管理が使える', () => {
   it('受注にすると GLS を採り、段の履歴を残す', () => {
-    // 案件管理の `changeStage` と同じことをする（#67）
-    expect(GPM).toMatch(/INSERT INTO project_stage_changes/);
-    // 受注の時刻 (`won_at`) は gls_number の有無に関わらず必ず残す（migration 242 の
-    // 棚卸しで判明したバグ③の修正 — 案件管理側と同じ COALESCE パターン）。
-    // GLS の発番だけは引き続き `!before.gls_number` のときだけ（採り直さない）。
-    expect(GPM).toMatch(/if \(nextStage === 'a_won'\)/);
-    expect(GPM).toMatch(/UPDATE projects SET won_at = COALESCE\(won_at, NOW\(\)\) WHERE id = \?/);
-    expect(GPM).toMatch(/if \(!before\.gls_number\)/);
+    // 段の履歴・`won_at`/`lost_at` の3点セットは案件管理と共有の
+    // `recordStageTransition()` に集約した（テーマ2 PR1・#67 の続き）
+    expect(GPM).toMatch(/await recordStageTransition\(id, before\.stage \?\? null, nextStage, userId, \{/);
+    expect(GPM).toMatch(/lost_reason: input\.lost_reason,/);
+    expect(GPM).toMatch(/lost_reason_note: input\.lost_reason_note,/);
+    // GLS の発番だけは引き続きここが担当（`!before.gls_number` のときだけ・採り直さない）
+    expect(GPM).toMatch(/if \(nextStage === 'a_won' && !before\.gls_number\)/);
     expect(GPM).toMatch(/await salesProjectService\.issueGls\(id, \{\}, userId\)/);
     // 採れなくても受注そのものは止めない（分類が無い古い行を開けなくしない）
     expect(GPM).toMatch(/glsError = err instanceof AppError/);
+  });
+
+  it('新規作成でも最初のステージを履歴に残す', () => {
+    // GPM は既定 `a_won` で作るが（このロジックは変えない）、案件管理の
+    // `create()` と同じ形で初回の履歴行を書く（テーマ2 PR2）
+    expect(GPM).toMatch(/INSERT INTO project_stage_changes \(id, project_id, from_stage, to_stage, changed_by\)\s*\n\s*VALUES \(\?, \?, NULL, \?, \?\)/);
+    expect(GPM).toMatch(/if \(stage === 'a_won'\) \{/);
   });
 
   it('⚠️ 案件管理の service を別名で受ける', () => {
     // このファイルも `projectService` を export しているので、
     // 同じ名前で受けると**発番が自分自身を呼びに行く**
     expect(GPM).toMatch(/projectService as salesProjectService/);
+    // 履歴・`won_at`/`lost_at` の共有関数は別名を要らない（`projectService` と
+    // 名前が衝突しないので、そのままの名前で import できる）
+    expect(GPM).toMatch(/recordStageTransition,\n\} from '\.\.\/\.\.\/sales\/services\/project\.service';/);
   });
 
   it('依頼元の一覧は gpm の口から引く', () => {

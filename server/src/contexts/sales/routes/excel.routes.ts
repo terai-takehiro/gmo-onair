@@ -367,15 +367,38 @@ const PROJECTS_CONFIG: ResourceConfig = {
     const stageRaw = String(raw.stage ?? '').trim().toLowerCase();
     const stage = STAGE_MAP[stageRaw] || 'neta';
 
+    // **想定金額: セルが空なら未設定のまま保持する**（テーマ1 C-1d）。
+    // ここで `?? 0` にすると、update() が「渡された値」と「空セル」を区別できず、
+    // 既存の想定金額を無条件で 0 に上書きしてしまう（実測で確認済みの実害）。
+    // insert（新規行）には「保つべき既存値」が無いので、0で良い分は insert() 側で補う。
+    const expectedAmount = asInt(raw.expected_amount) ?? undefined;
+
+    // **実施日: asString ではなく asDate で読む**（テーマ3 PR-1）。
+    // 同ファイルの episode 取込（recording_date 等）は元々 asDate を使っており、
+    // projects 取込だけが取り残されていた。Excel の日付型セルを asString で読むと
+    // 「45444」のような数値文字列やロケール依存の文字列がそのまま TEXT 列に入り、
+    // 以降の日付範囲フィルタが黙って壊れる。
+    const eventStart = asDate(raw.event_start);
+    const eventEnd = asDate(raw.event_end);
+    // asDate は「セルが空」でも「変換できなかった」でも同じ null を返すため、
+    // ここで元セルに値があったかどうかを見て区別する。dry_run で気づけるように
+    // 警告を積むだけで、保存自体（他の列の取込）は止めない想定。
+    if (eventStart == null && raw.event_start != null && raw.event_start !== '') {
+      errors.push('開始日: 日付として読み取れませんでした');
+    }
+    if (eventEnd == null && raw.event_end != null && raw.event_end !== '') {
+      errors.push('終了日: 日付として読み取れませんでした');
+    }
+
     return {
       data: {
         _displayName: name,
         code, name, customer_id, assigned_to, stage,
         gls_number: asString(raw.gls_number),
         project_type: asString(raw.project_type) || 'other',
-        expected_amount: asInt(raw.expected_amount) ?? 0,
-        event_start: asString(raw.event_start),
-        event_end: asString(raw.event_end),
+        expected_amount: expectedAmount,
+        event_start: eventStart,
+        event_end: eventEnd,
         broadcast_type: asString(raw.broadcast_type),
         media_platform: asString(raw.media_platform),
         notes: asString(raw.notes),
@@ -397,14 +420,17 @@ const PROJECTS_CONFIG: ResourceConfig = {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
       [id, d.code, d.gls_number, d.name, d.customer_id, d.stage,
        cls.project_type, cls.audience, cls.project_category,
-       d.expected_amount, d.event_start, d.event_end, d.broadcast_type, d.media_platform,
+       // 新規行には「保つべき既存値」が無いので、想定金額が空（undefined）なら 0 のままで良い
+       // （update() 側の「渡さなければ今の値を保つ」とは非対称。C-1d の対象は update だけ）。
+       (d.expected_amount as number | undefined) ?? 0,
+       d.event_start, d.event_end, d.broadcast_type, d.media_platform,
        d.assigned_to, userId, userId],
     );
     await upsertProjectMemo(client, id, d.customer_id as string | null, d.notes as string, userId);
   },
   update: async (client, id, d, userId) => {
     const cur = (await client.query(
-      'SELECT project_type, audience, project_category, gls_category FROM projects WHERE id=$1', [id],
+      'SELECT project_type, audience, project_category, gls_category, expected_amount FROM projects WHERE id=$1', [id],
     )).rows[0] as Record<string, unknown> | undefined;
     /**
      * **種類を変えていないなら、人が入れた2段はそのまま残す。**
@@ -419,6 +445,13 @@ const PROJECTS_CONFIG: ResourceConfig = {
     const cls = keeps2
       ? { project_type: d.project_type, audience: cur!.audience, project_category: cur!.project_category }
       : resolveClassification(undefined, undefined, d.project_type, (cur?.gls_category as string | null) ?? null);
+    /**
+     * **想定金額: 渡さなければ今の値を保つ**（`project.service.ts` の `keep()` と同型・テーマ1 C-1d）。
+     * Excel の想定金額セルが空だと `validateRow` は `expected_amount` を undefined にする
+     * （0 は入れない）。ここで既存値にフォールバックしないと、空セルのまま取り込むたびに
+     * 既存の想定金額が無条件で 0 に上書きされる（実測で確認した実害）。
+     */
+    const expectedAmount = d.expected_amount === undefined ? cur?.expected_amount : d.expected_amount;
     await client.query(
       `UPDATE projects SET code=$1, gls_number=$2, name=$3, customer_id=$4, stage=$5,
                            project_type=$6, audience=$7, project_category=$8,
@@ -427,7 +460,7 @@ const PROJECTS_CONFIG: ResourceConfig = {
        WHERE id=$16`,
       [d.code, d.gls_number, d.name, d.customer_id, d.stage,
        cls.project_type, cls.audience, cls.project_category,
-       d.expected_amount, d.event_start, d.event_end, d.broadcast_type, d.media_platform,
+       expectedAmount, d.event_start, d.event_end, d.broadcast_type, d.media_platform,
        d.assigned_to, userId, id],
     );
     await upsertProjectMemo(client, id, d.customer_id as string | null, d.notes as string, userId);
