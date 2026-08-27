@@ -1849,6 +1849,11 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   かんばんのカードドラッグによる工程付け替えを API 実測、権限なし利用者（`v-none`・
   `gpm`/`sales` を持たない `v-keiri`）で 403 になることを確認済み。マイグレーションなし
   （既存の `progress`/`is_milestone`/`start_date` 列を読み書きに使うだけ）。
+- **#466（docs(reviews): PR #464 のマージ後の棚卸しを記録した・2026-08-27）** —
+  `get_reviews` 0件のまま、作成 11:46:33 UTC / CI（`checks`/`build`）両方 green
+  11:48:39 UTC / マージ 13:02:23 UTC（terai-takehiro 本人が手動マージ、CI green から
+  約1時間14分後）。`docs/reviews/codex-findings-v4.md` への追記のみ（コード変更なし）。
+  表に移す指摘はない（レビュー自体が届いていないため）。
 
 ---
 
