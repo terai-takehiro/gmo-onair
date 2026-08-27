@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { localDateStr } from "@/lib/format";
 import { FormDialog, FormDialogFooter } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,7 +61,8 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
       setEndTime(et?.slice(0, 5) || "18:00");
       setNotes(editing.notes || "");
     } else {
-      const today = new Date().toISOString().split("T")[0];
+      // **`toISOString` を使わない** — 深夜0時〜朝9時 (JST) に開くと UTC に寄って前日になる
+      const today = localDateStr(new Date());
       setUserId(currentUser?.id || "");
       setScheduleType("daikyu");
       setTitle("");

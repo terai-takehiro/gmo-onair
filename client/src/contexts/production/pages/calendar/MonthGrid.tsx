@@ -2,7 +2,9 @@
  * ① 予定 / 月表（モックの1枚目）
  *
  * マスは **1日ぶん112px**、中の帯は 17px で「3px の色棒 + 時刻 + 題名」。
- * 3件を超えたら「他 N 件」を出し、**マスを押すと日表へ**移ります
+ * マスを押すと**選ぶだけ**（画面は動かさない・「日」表示は v4 に無い）。
+ * 3件を超えたら「他 N 件」を出し、**そこだけは押すと週表へ切り替わる**
+ * （v4.5.2 まで押しても何も起きず、4件目以降を開く手段が無かった）。
  * （マスの中で無理に全部出すと、その週だけ高さが伸びて表が波打ちます）。
  */
 import { cn } from '@gmo-onair/shared/src/client/utils';
@@ -12,7 +14,7 @@ import type { Holiday } from './useCalendarEvents';
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 
 export function MonthGrid({
-  anchor, today, selected, events, holidays, onPickDay, onOpen,
+  anchor, today, selected, events, holidays, onPickDay, onOpen, onMore,
 }: {
   /** 見ている月の1日 */
   anchor: string;
@@ -27,6 +29,8 @@ export function MonthGrid({
   holidays: Map<string, Holiday>;
   onPickDay: (day: string) => void;
   onOpen: (e: CalEvent) => void;
+  /** 「他 N 件」を押したとき。渡さなければ日を選ぶだけ（マス押下と同じ）になる */
+  onMore?: (day: string) => void;
 }) {
   const weeks = monthWeeks(anchor);
   const month = anchor.slice(0, 7);
@@ -57,15 +61,22 @@ export function MonthGrid({
             const isToday = day === today;
             const isSelected = selected != null && day === selected;
             return (
-              <button
+              // **`<button>` ではなく `role="button"` の `<div>`。** 中に「他 N 件」や
+              // イベント帯自身の役割つき要素（`role="button"`）を入れ子にするため —
+              // `<button>` の中に対話的要素を入れるのは HTML の内容モデル違反で、
+              // 支援技術の読み上げが崩れる（実際に踏んだ）。キーボードは Enter/Space の
+              // 両方に自前で応答させる（`<div>` は既定で応答しない）
+              <div
                 key={day}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => onPickDay(day)}
+                onKeyDown={(x) => { if (x.key === 'Enter' || x.key === ' ') { x.preventDefault(); onPickDay(day); } }}
                 aria-label={`${day} を開く`}
                 className={cn(
                   // **高さを固定する。** 件数で伸ばすと週ごとに段が変わって、
                   // 同じ曜日が縦に並ばなくなる
-                  'flex h-[112px] min-w-0 flex-1 flex-col gap-[3px] border-r border-border-faint p-1.5 text-left last:border-r-0',
+                  'flex h-[112px] min-w-0 flex-1 cursor-pointer flex-col gap-[3px] border-r border-border-faint p-1.5 text-left last:border-r-0',
                   !inMonth && 'bg-surface-subtle',
                   inMonth && (hol || dow === '日') && 'bg-destructive-surface',
                   inMonth && dow === '土' && !hol && 'bg-info-surface',
@@ -102,7 +113,7 @@ export function MonthGrid({
                     role="button"
                     tabIndex={0}
                     onClick={(x) => { x.stopPropagation(); onOpen(e); }}
-                    onKeyDown={(x) => { if (x.key === 'Enter') { x.stopPropagation(); onOpen(e); } }}
+                    onKeyDown={(x) => { if (x.key === 'Enter' || x.key === ' ') { x.preventDefault(); x.stopPropagation(); onOpen(e); } }}
                     className={cn(
                       'rounded-badge-xs flex h-[17px] shrink-0 items-center gap-1 overflow-hidden px-1',
                       e.tentative ? 'border border-dashed' : 'border border-transparent',
@@ -114,16 +125,34 @@ export function MonthGrid({
                   >
                     <span className="h-[11px] w-[3px] shrink-0 rounded-badge-xs" style={{ backgroundColor: e.color }} />
                     <span className="font-number text-badge shrink-0 font-bold text-secondary-foreground">
-                      {e.allDay ? '終日' : e.start.slice(11, 16)}
+                      {/* 複数日にまたがる予定は、初日以外のマスで開始時刻を出さない —
+                          「20:00」とだけ出ると、その日の20時に始まるように読める */}
+                      {e.allDay ? '終日' : e.start.slice(0, 10) === day ? e.start.slice(11, 16) : '→'}
                     </span>
                     <span className="text-badge min-w-0 truncate text-secondary-foreground">{e.title}</span>
                   </span>
                 ))}
 
                 {rows.length > 3 && (
-                  <span className="text-sub-sm shrink-0 text-muted-foreground">他 {rows.length - 3} 件</span>
+                  // 押すと日を選んだうえで週表へ切り替える（月マスは3件までしか出せないため、
+                  // 4件目以降を実際に開く唯一の導線）。`stopPropagation` が無いと親の
+                  // onPickDay と二重に走る（実害は無いが、押した先が読みにくくなる）
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(x) => { x.stopPropagation(); onMore ? onMore(day) : onPickDay(day); }}
+                    onKeyDown={(x) => {
+                      if (x.key === 'Enter' || x.key === ' ') {
+                        x.preventDefault(); x.stopPropagation();
+                        onMore ? onMore(day) : onPickDay(day);
+                      }
+                    }}
+                    className="text-sub-sm shrink-0 text-left font-bold text-primary underline-offset-2 hover:underline"
+                  >
+                    他 {rows.length - 3} 件
+                  </span>
                 )}
-              </button>
+              </div>
             );
           })}
         </div>

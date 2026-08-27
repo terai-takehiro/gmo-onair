@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   ymd, addDays, addMonths, startOfWeek, monthWeeks, weekDays,
-  placeDay, hourMarks, nowTop, eventsOn, sortForList, timeLabel,
+  placeDay, hourMarks, nowTop, eventsOn, eventsInMonth, outsideWindow, sortForList, timeLabel,
+  fracToMin, snapMin, minToHM, MIN_VIS_MIN,
   type CalEvent,
 } from '../../client/src/contexts/production/pages/calendar/calendarLayout';
 
@@ -108,8 +109,26 @@ describe('placeDay — 位置', () => {
     const [p] = placeDay([ev({ start: `${DAY}T10:00`, end: `${DAY}T10:15` })], DAY);
     expect(p.height).toBeGreaterThanOrEqual(2.4);
   });
+  it('**10 分の予定は 1 行が入る高さ**（`MIN_VIS_MIN` 分ぶん）まで底上げする', () => {
+    const [p] = placeDay([ev({ start: `${DAY}T10:00`, end: `${DAY}T10:10` })], DAY);
+    expect(p.height).toBeCloseTo((MIN_VIS_MIN / (14 * 60)) * 100, 3);
+    // 実際の長さは残す（札の中身を1行に畳むかの判定が使う）
+    expect(p.minutes).toBe(10);
+  });
   it('終日は札にしない（別の欄に出すため）', () => {
     expect(placeDay([ev({ start: `${DAY}T00:00`, end: `${DAY}T00:00`, allDay: true })], DAY)).toHaveLength(0);
+  });
+  it('**22:00 際の短い予定は枠の下へはみ出さない**（底上げしたぶん上へ押し戻す）', () => {
+    const [p] = placeDay([ev({ start: `${DAY}T21:50`, end: `${DAY}T22:00` })], DAY);
+    expect(p.top + p.height).toBeLessThanOrEqual(100);
+    expect(p.cutBottom).toBe(false);
+  });
+  it('**「点」の予定の30分の底上げに ↓ を付けない**（21:50 の期限は 22:00 の外へ続かない）', () => {
+    const [p] = placeDay([ev({ start: `${DAY}T21:50`, end: `${DAY}T21:50` })], DAY);
+    expect(p.cutBottom).toBe(false);
+    // 22:00 を実際にまたぐものには従来どおり付く
+    const [q] = placeDay([ev({ start: `${DAY}T21:00`, end: `${DAY}T23:00` })], DAY);
+    expect(q.cutBottom).toBe(true);
   });
 });
 
@@ -139,6 +158,23 @@ describe('placeDay — 重なり', () => {
     ], DAY);
     expect(p.map((x) => x.width)).toEqual([100, 100]);
   });
+  it('**連続する短い予定は重ねない**（底上げで見た目が重なるぶんは列を分ける）', () => {
+    // 10:00–10:10 と 10:10–10:20。実時間は重ならないが、どちらも
+    // MIN_VIS_MIN 分の高さに底上げされるので、同じ列に置くと視覚的に重なる
+    const p = placeDay([
+      ev({ key: 'a', start: `${DAY}T10:00`, end: `${DAY}T10:10` }),
+      ev({ key: 'b', start: `${DAY}T10:10`, end: `${DAY}T10:20` }),
+    ], DAY);
+    expect(p.map((x) => x.width)).toEqual([50, 50]);
+    expect(p.map((x) => x.left)).toEqual([0, 50]);
+  });
+  it('底上げが届かない離れた短い予定どうしは列を分けない', () => {
+    const p = placeDay([
+      ev({ key: 'a', start: `${DAY}T10:00`, end: `${DAY}T10:10` }),
+      ev({ key: 'b', start: `${DAY}T11:00`, end: `${DAY}T11:10` }),
+    ], DAY);
+    expect(p.map((x) => x.width)).toEqual([100, 100]);
+  });
   it('空いた列を使い回す（A 10-11 / B 11-12 / C 10:30-12 なら 2 列）', () => {
     const p = placeDay([
       ev({ key: 'a', start: `${DAY}T10:00`, end: `${DAY}T11:00` }),
@@ -148,6 +184,30 @@ describe('placeDay — 重なり', () => {
     expect(p.every((x) => x.width === 50)).toBe(true);
     // b は a の抜けた列に入る
     expect(p.find((x) => x.ev.key === 'b')!.left).toBe(0);
+  });
+});
+
+describe('ドラッグ操作の計算', () => {
+  it('fracToMin はグリッドの縦位置を 8:00〜22:00 の分に写す（外に出さない）', () => {
+    expect(fracToMin(0)).toBe(8 * 60);
+    expect(fracToMin(1)).toBe(22 * 60);
+    expect(fracToMin(0.5)).toBe(15 * 60);
+    // グリッドの外へはみ出したマウス位置は端に丸める
+    expect(fracToMin(-0.2)).toBe(8 * 60);
+    expect(fracToMin(1.3)).toBe(22 * 60);
+  });
+  it('snapMin は 15 分刻みに丸める', () => {
+    expect(snapMin(607)).toBe(600);
+    expect(snapMin(608)).toBe(615);
+    expect(snapMin(600)).toBe(600);
+    expect(snapMin(605, 30)).toBe(600);
+  });
+  it('minToHM は HH:MM（time 入力と API がそのまま受ける形）', () => {
+    expect(minToHM(600)).toBe('10:00');
+    expect(minToHM(9 * 60 + 5)).toBe('09:05');
+    expect(minToHM(-10)).toBe('00:00');
+    // 24:00 は <input type="time"> に無いので 23:59 に倒す
+    expect(minToHM(24 * 60)).toBe('23:59');
   });
 });
 
@@ -190,5 +250,40 @@ describe('eventsOn / sortForList / timeLabel', () => {
     expect(timeLabel(ev({ start: `${DAY}T10:00`, end: `${DAY}T18:00` }))).toBe('10:00–18:00');
     expect(timeLabel(ev({ start: `${DAY}T22:00`, end: '2026-08-09T02:00' }))).toBe('22:00–翌02:00');
     expect(timeLabel(ev({ start: `${DAY}T00:00`, end: `${DAY}T00:00`, allDay: true }))).toBe('終日');
+  });
+  it('**2日以上またぐものは「翌」でなく日付**（1日短く読めてしまう）', () => {
+    expect(timeLabel(ev({ start: '2026-08-25T20:00', end: '2026-08-27T02:00' }))).toBe('20:00–8/27 02:00');
+  });
+  it('**終わりが始まりより前の壊れたデータも始まりの日に出す**（黙って消さない）', () => {
+    const broken = ev({ key: 'w', start: '2026-08-27T23:00', end: '2026-08-26T01:00' });
+    expect(eventsOn([broken], '2026-08-27').map((r) => r.key)).toEqual(['w']);
+    expect(eventsOn([broken], '2026-08-26')).toHaveLength(0);
+  });
+});
+
+describe('eventsInMonth（一覧ビューの絞り）', () => {
+  it('**前の月から続く予定を落とさない**（開始の月だけで絞ると一覧だけから消える）', () => {
+    const rows = [
+      ev({ key: 'x', start: '2026-08-31T22:00', end: '2026-09-02T02:00' }),
+      ev({ key: 'y', start: '2026-09-10T10:00', end: '2026-09-10T11:00' }),
+      ev({ key: 'z', start: '2026-08-01T10:00', end: '2026-08-01T11:00' }),
+    ];
+    expect(eventsInMonth(rows, '2026-09').map((r) => r.key).sort()).toEqual(['x', 'y']);
+    expect(eventsInMonth(rows, '2026-08').map((r) => r.key).sort()).toEqual(['x', 'z']);
+  });
+});
+
+describe('outsideWindow（8:00〜22:00 の外だけの予定の印）', () => {
+  it('窓の外だけの予定を上下に分けて数える（窓にかかるものは数えない）', () => {
+    const rows = [
+      ev({ key: 'a', start: `${DAY}T06:00`, end: `${DAY}T07:00` }),            // 8時前
+      ev({ key: 'b', start: `${DAY}T23:00`, end: `${DAY}T23:00` }),            // 22時後（点の期限）
+      ev({ key: 'c', start: `${DAY}T10:00`, end: `${DAY}T11:00` }),            // 窓の中
+      ev({ key: 'd', start: `${DAY}T07:00`, end: `${DAY}T09:00` }),            // 窓にかかる（札になる）
+      ev({ key: 'e', start: `${DAY}T00:00`, end: `${DAY}T00:00`, allDay: true }), // 終日は別の欄
+    ];
+    const o = outsideWindow(rows, DAY);
+    expect(o.before.map((r) => r.key)).toEqual(['a']);
+    expect(o.after.map((r) => r.key)).toEqual(['b']);
   });
 });

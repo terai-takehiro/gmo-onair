@@ -3,6 +3,7 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { checkBooking, locationOfRooms, stampOutOfHours } from './business-hours.service';
 import { syncProjectEventDates } from './project-event-dates.service';
+import { isReversedTimeRange } from '../../../shared/utils/timeRange';
 
 /** from〜to (YYYY-MM-DD, 両端含む) の日付を昇順で列挙。UTC 基準で TZ ドリフトを回避。 */
 function enumerateDates(from: string, to: string): string[] {
@@ -197,6 +198,7 @@ export const studioBookingService = {
   async createBooking(input: CreateBookingInput, actorId: string): Promise<any> {
     const { title, booking_type, project_id, episode_id, all_day, start_time, end_time, room_ids, room_details, location_note, notes, status } = input;
     if (!title || !start_time || !end_time) throw new AppError(400, 'VALIDATION_ERROR', 'タイトル・開始・終了は必須です');
+    if (isReversedTimeRange(start_time, end_time)) throw new AppError(400, 'VALIDATION_ERROR', '終了は開始より後にしてください');
 
     const bookingStatus = ['confirmed', 'tentative'].includes(status ?? '') ? status : 'tentative';
     const id = uuidv4();

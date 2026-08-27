@@ -48,14 +48,12 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
-import { invalidateBookingQueries } from '@/lib/bookingQueries';
 import { useSideMenuTopSlot } from '@gmo-onair/shared/src/client/shell/sideMenuSlot';
 import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
-import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import StudioBookingDetailDialog from '../components/studio/StudioBookingDetailDialog';
 import StudioBookingDialog from '../components/studio/StudioBookingDialog';
@@ -64,9 +62,10 @@ import PartnerScheduleDialog from '../components/schedule/PartnerScheduleDialog'
 import PersonalEventDialog from '../components/schedule/PersonalEventDialog';
 import { useIsMobile, type PartnerSchedule, type PersonalEvent } from '../components/schedule/scheduleShared';
 import { MobileToday } from './rooms/MobileToday';
-import { ymd, addDays, addMonths, startOfWeek, weekDays, type CalLayer } from './calendar/calendarLayout';
+import { ymd, addDays, addMonths, startOfWeek, weekDays, eventsInMonth, type CalLayer } from './calendar/calendarLayout';
 import { loadLayers, saveLayers } from './calendar/layerPrefs';
 import { useCalendarEvents, type CalBooking } from './calendar/useCalendarEvents';
+import { useCalendarEdit } from './calendar/useCalendarEdit';
 import { openDeadline } from './calendar/taskLayer';
 import { DesktopToolbar, type DesktopView } from './calendar/DesktopToolbar';
 import { CalSidebarExtras } from './calendar/CalSidebarExtras';
@@ -81,7 +80,6 @@ const VIEW_KEY = 'unified-cal-view';
 const DESKTOP_VIEWS: DesktopView[] = ['month', 'week', 'list', 'kouban'];
 
 function DesktopCalendar() {
-  const qc = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, hasPermission } = useAuth();
@@ -93,7 +91,9 @@ function DesktopCalendar() {
   const sideMenuTopSlot = useSideMenuTopSlot();
 
   const today = ymd(new Date());
-  const now = useMemo(() => new Date(), []);
+  // 「いま」の線。マウント時刻で凍結させない（開きっぱなしの画面で線が止まっていた）
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => { const t = setInterval(() => setNow(new Date()), 60_000); return () => clearInterval(t); }, []);
   const [view, setView] = useState<DesktopView>(() => {
     const stored = localStorage.getItem(VIEW_KEY);
     // **旧「日」は 3 択に無い。** 前の版で保存された値が残っていても落ちないように倒す
@@ -187,6 +187,7 @@ function DesktopCalendar() {
 
   /** マス目・週の見出しを押したときは**選ぶだけ**（モックの `cell.pick`）。画面は動かさない */
   const pickDay = (d: string) => setSelected(d);
+  const showMoreOnDay = (d: string) => { setSelected(d); setAnchor(d); pickView('week'); }; // 月表「他N件」→ 週表で見せる
 
   /** ミニカレンダーの日を押したときは、本体の月・週・選択日をまとめて揃える */
   const miniPick = (d: string) => {
@@ -228,16 +229,13 @@ function DesktopCalendar() {
     studio: cal.can.studio, partner: cal.can.partner, my: cal.can.personal, tasks: cal.can.tasks,
   };
 
-  const del = useMutation({
-    mutationFn: (id: string) => api.delete(`/studios/bookings/${id}`),
-    onSuccess: () => {
-      // 案件詳細の予約一覧も読み直す（消したのに残って見えると、もう一度消しに行く）。
-      // **案件の実施日も残った予約から引き直される**ので案件側も落とす（`lib/bookingQueries.ts`）
-      invalidateBookingQueries(qc);
-      setDetail(null);
-      notifySuccess('予約を消しました');
-    },
-    onError: (e) => notifyApiError('消せませんでした', e),
+  // ダイアログへの持ち込み（preset の同一性・週表のドラッグ新規・下端ドラッグの延長）
+  const edit = useCalendarEdit({
+    selected,
+    koubanDate: koubanPreset?.date ?? null,
+    canStudioEdit, canPartnerEdit,
+    mine: cal.mine,
+    onSelectDay: setSelected, onOpenChooser: () => setChooserOpen(true), onDeleted: () => setDetail(null),
   });
 
   /** 予約を作るダイアログが要る拠点と部屋の一覧 */
@@ -280,7 +278,7 @@ function DesktopCalendar() {
         <DesktopToolbar
           view={view} onView={pickView} title={title}
           onPrev={() => step(-1)} onNext={() => step(1)} onToday={goToday}
-          onAdd={() => setChooserOpen(true)} canAdd={canStudioEdit || canPartnerEdit}
+          onAdd={() => { edit.clearTimePreset(); setChooserOpen(true); }} canAdd={canStudioEdit || canPartnerEdit}
           roomCount={roomIds.length} userCount={userIds.length}
           onPickRooms={() => setRoomFilterOpen(true)} onPickUsers={() => setUserFilterOpen(true)}
           onClearFilters={() => { setRoomIds([]); setUserIds([]); }}
@@ -311,16 +309,19 @@ function DesktopCalendar() {
               <MonthGrid
                 anchor={`${anchor.slice(0, 7)}-01`} today={today} selected={selected}
                 events={cal.events} holidays={cal.holidays}
-                onPickDay={pickDay} onOpen={(e) => open(e.key)}
+                onPickDay={pickDay} onOpen={(e) => open(e.key)} onMore={showMoreOnDay}
               />
             ) : view === 'list' ? (
-              <EventTable events={cal.events.filter((e) => e.start.slice(0, 7) === anchor.slice(0, 7))} holidays={cal.holidays} onOpen={(e) => open(e.key)} />
+              <EventTable events={eventsInMonth(cal.events, anchor.slice(0, 7))} holidays={cal.holidays} onOpen={(e) => open(e.key)} />
             ) : (
               <TimeGrid
                 days={weekDays(anchor)}
                 today={today} now={now} events={cal.events} holidays={cal.holidays}
                 onOpen={(e) => open(e.key)}
                 onPickDay={pickDay}
+                onCreateRange={canStudioEdit || canPartnerEdit ? edit.createFromRange : undefined}
+                onResizeEnd={(ev, end) => edit.resize.mutate({ ev, end })}
+                resizable={edit.canResizeEvent}
               />
             )}
           </div>
@@ -343,26 +344,26 @@ function DesktopCalendar() {
       {/* 部屋を押さえる。**既存のダイアログをそのまま呼ぶ**。新規（チューザー）／香盤のマス押下／編集の3つの入り口をここに集約した */}
       <StudioBookingDialog
         open={newKind === 'room' || !!koubanPreset || !!editBooking}
-        onOpenChange={(v) => { if (!v) { setNewKind(null); setKoubanPreset(null); setEditBooking(null); } }}
+        onOpenChange={(v) => { if (!v) { setNewKind(null); setKoubanPreset(null); setEditBooking(null); edit.clearTimePreset(); } }}
         locations={locations.data ?? []}
         editingBooking={editBooking as never}
-        presetDate={koubanPreset ? koubanPreset.date : { start: selected, end: selected, allDay: false }}
+        presetDate={edit.studioPreset}
         presetRoomIds={koubanPreset?.roomIds}
       />
 
       <PartnerScheduleDialog
         open={newKind === 'partner' || !!editSchedule}
-        onOpenChange={(v) => { if (!v) { setNewKind(null); setEditSchedule(null); } }}
+        onOpenChange={(v) => { if (!v) { setNewKind(null); setEditSchedule(null); edit.clearTimePreset(); } }}
         editing={editSchedule}
-        presetRange={editSchedule ? null : { start: selected, end: selected }}
+        presetRange={editSchedule ? null : edit.partnerPreset}
         isManager={isPartnerManager}
       />
 
       <PersonalEventDialog
         open={newKind === 'mine' || !!editEvent}
-        onOpenChange={(v) => { if (!v) { setNewKind(null); setEditEvent(null); } }}
+        onOpenChange={(v) => { if (!v) { setNewKind(null); setEditEvent(null); edit.clearTimePreset(); } }}
         editing={editEvent}
-        presetRange={editEvent ? null : { start: selected, end: selected, allDay: false }}
+        presetRange={editEvent ? null : edit.personalPreset}
       />
 
       {/* 旧スタジオカレンダーの退役に伴い、ここが「既存の部屋予約を直す唯一の導線」になった（以前は読むだけ） */}
@@ -375,7 +376,7 @@ function DesktopCalendar() {
           title: 'この予約を消しますか',
           description: '押さえていた部屋が空きになります。取り消せません。',
           confirmLabel: '消す', tone: 'danger',
-        }).then((ok) => ok && del.mutate(id))}
+        }).then((ok) => ok && edit.del.mutate(id))}
         canEdit={canStudioEdit}
         canDelete={canDeleteBooking}
       />
