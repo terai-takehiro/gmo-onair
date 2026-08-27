@@ -67,7 +67,18 @@ export function PageHeader({
 
   return (
     <div className={cn('flex flex-wrap items-end gap-3', className)}>
-      <div className="min-w-0 flex-1 empty:hidden">
+      {/*
+        **`flex-1` にしないこと**（v4.5.0 直後に実際に踏んだ）。`flex-1` は
+        `flex-basis: 0%` なので、行分け（flex-wrap）の計算で**見出しの幅が 0 と
+        数えられ**、右の補助操作（children）が多い画面では同じ行に押し込まれて
+        見出しが残り幅しかもらえません。案件を直す（補助操作9個）で
+        「案件を直す」が1文字ずつ縦に折り返れていました。
+        `flex-auto`（basis = 内容の幅）なら、入り切らないときは children が
+        下の行へ折り返します — 「スマホでは見出しの下に折り返る」という
+        この部品の約束そのものです。`min-w-0` は見出し・副題が**単独の行でも**
+        長すぎるときに中で折り返すために残しています。
+      */}
+      <div className="min-w-0 flex-auto empty:hidden">
         {/*
           **画面の名前は本文が出します**（モックの端末枠がそうなっている）。
           M7 で「スマホは上辺バーがページ名を出し、ここは消す」形にしていましたが、
