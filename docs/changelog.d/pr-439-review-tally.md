@@ -1,1 +1,0 @@
-**PR #439（リアルタイムCGのデモ用ダミーデータにダミー顔写真を追加した）のマージ後の棚卸しを記録した**（コード変更なし）。作成からCI green まで約2分6秒、CI green から約49秒（作成から約2分55秒）でterai-takehiro本人が手動マージし、レビューが1件も付いていなかったことを `docs/reviews/codex-findings-v4.md` に記録した（`npm run reviews:debt` は未実行のため、GitHub MCP で直接確認した）。

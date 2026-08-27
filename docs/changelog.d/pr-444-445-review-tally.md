@@ -1,1 +1,0 @@
-**PR #444（棚卸し記録）と PR #445（根源整理 Phase 2）のマージ後の棚卸しを記録した**（コード変更なし）。#444 は CI green から約1時間12分後、#445 は作成からCI green まで約2分12秒・CI green から約8分15秒（作成から約10分27秒）で、いずれもterai-takehiro本人が手動マージし、レビューが1件も付いていなかったことを `docs/reviews/codex-findings-v4.md` に記録した（`npm run reviews:debt` は未実行のため GitHub MCP で直接確認した）。
