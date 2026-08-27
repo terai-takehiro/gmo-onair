@@ -1,0 +1,1 @@
+**PR #463（カレンダーの重複予約を表記揺らぎごと検知できるようにした）のマージ後の棚卸しを記録した**（コード変更なし）。作成からCI green まで約2分37秒、CI green からマージまで約2時間3分空いたが、`get_reviews`・`get_review_comments` とも終始0件のまま terai-takehiro 本人が手動マージしたことを `docs/reviews/codex-findings-v4.md` に記録した（`npm run reviews:debt` は未実行のため GitHub MCP で直接確認した）。
