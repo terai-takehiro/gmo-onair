@@ -29,7 +29,10 @@ export function registerInboxTools(server: McpServer): void {
         'メールで受信した 見積書 / 請求書 / 注文書 を処理トラッキングに登録する。' +
         'doc_type=quote(見積書)/invoice(請求書)/order(注文書)。送付者・件名・内容(要約)・金額(税込)・締月(YYYY-MM)・支払期日(YYYY-MM-DD)・受信日を渡す。' +
         'message_id (メールの Message-ID) を渡すと再取込時に重複せず更新される。' +
-        '登録直後の status は new (受信)。承認/却下/処理完了は人がアプリで操作するため通常 AI は status を送らない。',
+        '登録直後の status は new (受信)。承認/却下/処理完了は人がアプリで操作するため通常 AI は status を送らない。' +
+        '⚠️ doc_type=quote(見積書)は台帳（仕入・販管費）に入らないため「受け取った書類」画面には既定で出ない' +
+        '（記録はされ、突き合わせには使える）。発注や請求を伴わない見積書だけのメールは、' +
+        '登録してもこの画面上の処理は進められない点に注意。',
       inputSchema: {
         doc_type: z.enum(FINANCE_DOC_TYPES).describe('quote=見積書 / invoice=請求書 / order=注文書'),
         sender: z.string().optional().describe('送付者 (取引先・担当者名)'),

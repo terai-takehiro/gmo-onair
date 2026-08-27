@@ -67,6 +67,11 @@ export const financeDocService = {
     const params: unknown[] = [];
     if (filter.status) { assertIn(filter.status, FINANCE_DOC_STATUSES, 'status'); conds.push('status = ?'); params.push(filter.status); }
     if (filter.doc_type) { assertIn(filter.doc_type, FINANCE_DOC_TYPES, 'doc_type'); conds.push('doc_type = ?'); params.push(filter.doc_type); }
+    // **見積書（quote）は既定では出さない**（ユーザー指摘「実際に台帳に入れるのは
+    // 請求書になるので」）。「受け取った書類」画面はこの一覧を doc_type 無指定で呼ぶため、
+    // 承認しても「台帳に入れる」にたどり着けない見積書がキューに並び続けていた。
+    // `doc_type=quote` を明示すれば見える（MCP の一覧・監査用の抜け道は残す）
+    else conds.push(`doc_type <> 'quote'`);
     if (filter.pendingOnly) conds.push(`status NOT IN ('processed','rejected')`);
     return queryAll(
       `SELECT ${FD_COLS} FROM finance_docs WHERE ${conds.join(' AND ')}
@@ -82,7 +87,12 @@ export const financeDocService = {
 
   /** 未処理件数 (アラート用): processed / rejected 以外 */
   async pendingCount(): Promise<number> {
-    const row = await queryOne(`SELECT COUNT(*) AS c FROM finance_docs WHERE deleted_at IS NULL AND status NOT IN ('processed','rejected')`);
+    // list() と同じ条件（見積書は数えない）。ここだけ揃え忘れると
+    // ホームのバッジと画面の件数が食い違う
+    const row = await queryOne(
+      `SELECT COUNT(*) AS c FROM finance_docs
+        WHERE deleted_at IS NULL AND status NOT IN ('processed','rejected') AND doc_type <> 'quote'`,
+    );
     return Number(row?.c ?? 0);
   },
 
