@@ -81,7 +81,7 @@ https://gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY>
 
 URL 自体が秘密情報になるので共有・掲示しないこと。キーをローテーションしたらコネクタ URL も更新する。
 
-## ツール一覧 (143 種 / 22 カテゴリ / v4)
+## ツール一覧 (159 種 / 22 カテゴリ / v4)
 
 > **この一覧は手で書いています。** 実際に登録されているツールは
 > `node scripts/generate-mcp-tools.mjs` が `server/src/contexts/mcp/tools/*.ts` から
@@ -91,8 +91,9 @@ URL 自体が秘密情報になるので共有・掲示しないこと。キー�
 > 2026-08 には「90 種」のまま取り残されたこともありました（qsheet→techops Phase 4 の改名で
 > production に旧名 `*_qsheet` 系 5 種が二重登録された分が未反映だった）。
 >
-> 内訳: projects 6 / gpm 24（読み取り5・書き込み19。2026-08 新設。プロジェクト管理の
-> プロジェクト・工程・タスク・未確認事項・体制・標準工程テンプレート。下記参照）/
+> 内訳: projects 6 / gpm 40（読み取り12・書き込み28。2026-08 新設。プロジェクト管理の
+> プロジェクト・工程・タスク・未確認事項・体制（並び替え含む）・標準工程テンプレート・
+> 見積・議事録・BOXフォルダ。下記参照）/
 > customers 4 / activities 4 / tasks 17（タスク10＋かんばん列 7。2026-08 に列 CRUD・
 > テンプレート適用と work_state / production_step / episode_id / parent_task_id の
 > 細かい編集を追加）/ members 3 / minutes 3 /
@@ -146,8 +147,22 @@ HTTP 側 (`/api/v1/internal/gpm/*`) と同じサービス層を呼ぶので、�
 | `create_gpm_open_item` / `update_gpm_open_item` | write | 未確認事項の追加/部分更新 (status: waiting/checking/resolved) |
 | `delete_gpm_open_item` | write | 未確認事項を削除 |
 | `add_gpm_member` / `update_gpm_member` / `remove_gpm_member` | write | 体制 (組織図) のメンバー。社外の人も名前で登録できる (案件の `add_project_member` とは別の表) |
+| `reorder_gpm_members` | write | 体制のメンバーの並び順を一括更新 (段=tier の中の位置。2026-08 新設・HTTP側にも対で追加) |
 | `create_gpm_template` / `update_gpm_template` | write | 標準工程テンプレートの作成/更新 (⚠️ update の phases は全置換) |
 | `delete_gpm_template` | write | **テンプレート削除 (confirm 2段階・manager)**。is_system は消せない |
+| `list_gpm_estimates` / `get_gpm_estimate` / `get_gpm_estimate_summary` | read | プロジェクトの見積一覧/詳細/全体サマリー。`estimates` を案件と共用 |
+| `create_gpm_estimate` | write | プロジェクトに見積を作る (submit_to=self/client/pm 必須) |
+| `update_gpm_estimate_items` | write | 見積の明細を全置換 (下書き版のみ・合計はサーバーが出し直す) |
+| `approve_gpm_estimate` | write | 値引き承認待ちの見積を承認 (資格が無ければエラー) |
+| `archive_gpm_estimate` / `unarchive_gpm_estimate` | write | 見積の一覧表示/非表示 (状態は変えない) |
+| `list_gpm_minutes` / `get_gpm_minutes` | read | プロジェクトの議事録一覧/詳細 (全文は詳細のみ) |
+| `update_gpm_minutes` | write | 議事録を直す・確定する (confirm:true で AI 出力との差分を自動記録) |
+| `delete_gpm_minutes` | write | 議事録を削除 (manager) |
+| `get_gpm_box_folder_preview` / `list_gpm_box_files` | read | BOX フォルダ構成のプレビュー/中身の一覧 |
+| `create_gpm_box_folder` | write | BOX フォルダを作る (社内限り・社外共有の2系統・既にあれば409) |
+
+⚠️ **見積 PDF 発行・議事録の音声アップロード・BOX へのファイルアップロードは MCP に持ち込んでいない**
+（バイナリ/multipart のため。画面から行う）。
 
 ### 顧客・営業活動・タスク・担当者
 | ツール | 種別 | 概要 |
@@ -469,9 +484,11 @@ server/src/contexts/mcp/
     ├── production.access.ts 制作技術支援ツール専用のゲート (段10・05-mcp.md §3-1)
     ├── equipment.tools.ts   機材管理 7 種 (read 5 / write 2。2026-08 新設)。
     │                        itemService/lendingService/inventoryService を再利用
-    ├── gpm.tools.ts         プロジェクト管理 24 種 (read 5 / write 19。2026-08 新設)。
+    ├── gpm.tools.ts         プロジェクト管理 40 種 (read 12 / write 28。2026-08 新設)。
     │                        gpm.service (templateService/projectService/phaseService/
-    │                        gpmTaskService/openItemService/memberService) を再利用。
+    │                        gpmTaskService/openItemService/memberService) と、
+    │                        見積 (estimateService)・議事録 (minutes.service)・
+    │                        BOX フォルダ (gpm-box-folder.service) を再利用。
     │                        create 系は ai_outputs に記録し、人の修正差分は
     │                        gpm-ai-feedback.service が update の中で自動記録する
     └── … (customers / activities / tasks / members / minutes / analytics / users /
@@ -485,12 +502,13 @@ server/src/contexts/mcp/
 - **OAuth actor** は書き込みツールごとに対応モジュールの権限が要る（`WRITE_TOOL_PERMISSIONS`）。
   `module` は**配列も受ける**（どれか1つを満たせばよい）—
   v4 で `record_finance_doc` を「`dailyops` か `budget`」にした（HTTP 側と揃えた）
-- ⚠️ **読み取りツール（56 種＋制作技術支援の read 7種）はここにはゲートがありません。** OAuth で自分の
+- ⚠️ **読み取りツール（63 種＋制作技術支援の read 7種）はここにはゲートがありません。** OAuth で自分の
   ONAiR アカウントを繋げば、**権限ゼロの人でも `list_projects` / `list_revenues` /
   `list_inquiries` / `list_equipment` などが読めます**。v3.2.2 で `GET /search` に対して塞いだのと
   同じ形の穴が MCP 側に残っています。塞ぐには read ツールにもモジュール表を持たせる必要があり、
-  56 種あるので**別の作業**にしてあります（機材管理の read 5種・プロジェクト管理の read 5種・
-  かんばん列の read 2種もこの 56 種に含む — production のような専用ゲートは持たない）。
+  63 種あるので**別の作業**にしてあります（機材管理の read 5種・プロジェクト管理の read 12種
+  （見積・議事録・BOXフォルダ含む）・かんばん列の read 2種もこの 63 種に含む —
+  production のような専用ゲートは持たない）。
   **制作技術支援の read 7種だけは例外**— `gate.ts` は経由しませんが、
   `production.access.ts` の `requireProductionActor()` を全ツールの先頭で呼んでおり、
   静的キーの拒否と文書ごとのアクセス判定（作成者／共有先／管理者）はそこで行っています

@@ -3,12 +3,24 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
   templateService, projectService, openItemService, phaseService, memberService, gpmTaskService,
   GPM_KINDS, STAGES, OPEN_ITEM_STATUSES, OPEN_ITEM_TO_KINDS, PHASE_STATES,
-  MEMBER_SIDES, MEMBER_TIERS,
+  MEMBER_SIDES, MEMBER_TIERS, assertGpmProjectId, isGpmProjectId, assertGpmMinutesId,
 } from '../../gpm/services/gpm.service';
 import {
   GPM_PROJECT_DRAFT_KIND, GPM_TASK_DRAFT_KIND,
 } from '../../gpm/services/gpm-ai-feedback.service';
 import { recordAiOutput } from '../../../shared/services/ai-output.service';
+/**
+ * 見積・議事録・BOX フォルダは**案件と同じ道具**を再利用する（`gpm/index.ts` と同じ判断・
+ * 同じコメント）。写すと、様式・プロンプト・行き先表を直した日から
+ * プロジェクトの見積/議事録だけ古いままになる。
+ */
+import { estimateService, type Estimate } from '../../sales/services/estimate.service';
+import { gpmEstimateSummary } from '../../gpm/services/gpm-estimate.service';
+import { listMinutes, getMinutes, updateMinutes, deleteMinutes } from '../../sales/services/minutes.service';
+import { createGpmFolderTree, GPM_FOLDER_PREVIEW } from '../../gpm/services/gpm-box-folder.service';
+import { listProjectFolder } from '../../sales/services/project-box-files.service';
+import { queryOne, execute } from '../../../shared/db/connection';
+import { AppError } from '../../../shared/middleware/errorHandler';
 import { ok, runTool, clampLimit, audit, preview, REQUESTED_BY, currentActorId } from '../helpers';
 
 // プロジェクト管理 (GPM = GLS-B の案件を工程で管理する) の MCP ツール。
@@ -624,6 +636,29 @@ export function registerGpmTools(server: McpServer): void {
     }),
   );
 
+  server.registerTool(
+    'reorder_gpm_members',
+    {
+      title: '体制のメンバーを並び替え (GPM)',
+      description:
+        '組織図のメンバーの並び順 (sort_order) を一括更新する。並びは段 (tier) の中の位置。' +
+        '段をまたぐ移動は update_gpm_member の tier で行う。',
+      inputSchema: {
+        project_id: z.string().min(1).describe('プロジェクト ID'),
+        items: z.array(z.object({
+          id: z.string().min(1),
+          sort_order: z.number().int(),
+        })).min(1).describe('{id, sort_order} の配列 (小さいほど上)'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      await memberService.reorder(args.project_id, args.items);
+      audit('reorder_gpm_members', args, { project_id: args.project_id, count: args.items.length }, args.requested_by);
+      return ok({ reordered: true, count: args.items.length });
+    }),
+  );
+
   // ══ 標準工程テンプレート ═══════════════════════════════════
 
   const TEMPLATE_PHASES = z.array(z.object({
@@ -724,6 +759,327 @@ export function registerGpmTools(server: McpServer): void {
       await templateService.remove(args.id);
       audit('delete_gpm_template', args, { deleted_id: args.id, name: row.name }, args.requested_by);
       return ok({ deleted: true, id: args.id });
+    }),
+  );
+
+  // ══ 見積 (⑥ 見積・請求) ═══════════════════════════════════
+  // `estimates` を案件と共用する (`gpm/index.ts` と同じ理由)。この口は
+  // **プロジェクト (GLS-B) の見積しか触らせない** (isGpmProjectId で確かめる)。
+  // PDF 発行 (バイナリ) は screen 専用のままにする — MCP は JSON の read/write に絞る。
+
+  const SUBMIT_TO = ['self', 'client', 'pm'] as const;
+
+  async function assertGpmEstimate(id: string): Promise<Estimate> {
+    const row = await estimateService.getById(id);
+    if (!row || !(await isGpmProjectId(row.project_id))) {
+      throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
+    }
+    return row;
+  }
+
+  server.registerTool(
+    'list_gpm_estimates',
+    {
+      title: 'プロジェクトの見積一覧 (GPM)',
+      description:
+        'プロジェクトの見積を新しい版から一覧する (版はまとめず全部・既定はアーカイブ除く)。' +
+        '承認できるかは approve_gpm_estimate を呼んで判定する (見て判断しない)。',
+      inputSchema: {
+        project_id: z.string().min(1).describe('プロジェクト ID'),
+        include_archived: z.boolean().default(false),
+      },
+    },
+    async (args) => runTool(async () => {
+      await assertGpmProjectId(args.project_id);
+      return ok(await estimateService.listByProject(args.project_id, args.include_archived));
+    }),
+  );
+
+  server.registerTool(
+    'get_gpm_estimate_summary',
+    {
+      title: 'プロジェクト見積のまとめ (GPM)',
+      description: '全プロジェクト横断の見積サマリー (未提出・提出済み・検収待ちの件数と金額)。ダッシュボードのKPI用。',
+      inputSchema: {},
+    },
+    async () => runTool(async () => ok(await gpmEstimateSummary())),
+  );
+
+  server.registerTool(
+    'get_gpm_estimate',
+    {
+      title: 'プロジェクトの見積詳細 (GPM)',
+      description: '見積1本を明細つきで取得する。',
+      inputSchema: { id: z.string().min(1).describe('見積 ID') },
+    },
+    async (args) => runTool(async () => {
+      const row = await assertGpmEstimate(args.id).catch(() => null);
+      if (!row) return ok({ error: '見積が見つかりません', code: 'NOT_FOUND' });
+      return ok(row);
+    }),
+  );
+
+  server.registerTool(
+    'create_gpm_estimate',
+    {
+      title: 'プロジェクトの見積を作成 (GPM)',
+      description:
+        'プロジェクトに見積 (v1) を作る。submit_to (提出先) は必須 — ' +
+        '自社への社内見積か PM会社への見積かで中身が変わるため。明細は update_gpm_estimate_items で追加する。',
+      inputSchema: {
+        project_id: z.string().min(1).describe('プロジェクト ID'),
+        submit_to: z.enum(SUBMIT_TO).describe('self=自社 / client=依頼元 / pm=PM会社'),
+        title: z.string().max(200).optional(),
+        tax_category: z.string().max(20).optional().describe('既定 tax10'),
+        valid_until: z.string().regex(YMD).optional().describe('見積の有効期限'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      const row = await estimateService.createForGpm(
+        args.project_id,
+        { title: args.title, submit_to: args.submit_to, tax_category: args.tax_category, valid_until: args.valid_until },
+        currentActorId(),
+      );
+      audit('create_gpm_estimate', args, { created_id: row.id, project_id: args.project_id }, args.requested_by);
+      return ok({ created: true, estimate: row });
+    }),
+  );
+
+  server.registerTool(
+    'update_gpm_estimate_items',
+    {
+      title: '見積の明細を置き換える (GPM)',
+      description:
+        '見積の明細をまとめて置き換える (**全置換**・下書き=draftの版だけ)。合計はサーバーが出し直す。' +
+        '数量・単価は整数に丸められる。item_date_end は item_date 以降でなければならない。',
+      inputSchema: {
+        id: z.string().min(1).describe('見積 ID'),
+        items: z.array(z.object({
+          description: z.string().max(500).optional(),
+          quantity: z.number().optional(),
+          unit: z.string().max(20).optional(),
+          unit_price: z.number().optional(),
+          cost: z.number().optional().describe('原価 (任意)'),
+          category: z.string().max(50).optional(),
+          item_notes: z.string().max(500).optional(),
+          pricing_item_id: z.string().optional().describe('料金表の品目 ID (list_pricing で解決・任意)'),
+          item_date: z.string().regex(YMD).optional(),
+          item_date_end: z.string().regex(YMD).optional(),
+        })).max(200).describe('置き換える明細一式 (順序どおりに並ぶ)'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      await assertGpmEstimate(args.id);
+      const row = await estimateService.replaceItems(args.id, args.items);
+      audit('update_gpm_estimate_items', args, { updated_id: args.id, item_count: args.items.length }, args.requested_by);
+      return ok({ updated: true, estimate: row });
+    }),
+  );
+
+  server.registerTool(
+    'approve_gpm_estimate',
+    {
+      title: '見積の値引きを承認 (GPM)',
+      description:
+        '値引きが上限を超えて承認待ち (approval_state=pending) の見積を承認する。' +
+        '承認できるのは、見積を作った人の役割に決められた承認者 (または system_admin) だけ — ' +
+        '資格が無ければエラーになる (画面と同じ判定をサーバーが持つ)。',
+      inputSchema: {
+        id: z.string().min(1).describe('見積 ID'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      await assertGpmEstimate(args.id);
+      const row = await estimateService.approve(args.id, currentActorId());
+      audit('approve_gpm_estimate', args, { approved_id: args.id }, args.requested_by);
+      return ok({ approved: true, estimate: row });
+    }),
+  );
+
+  server.registerTool(
+    'archive_gpm_estimate',
+    {
+      title: '見積をアーカイブ (GPM)',
+      description: '見積を一覧から隠す (状態は変えない・送付済み/受注済みの記録はそのまま残る)。何度呼んでも安全。',
+      inputSchema: { id: z.string().min(1).describe('見積 ID'), ...REQUESTED_BY },
+    },
+    async (args) => runTool(async () => {
+      await assertGpmEstimate(args.id);
+      const row = await estimateService.archive(args.id, currentActorId());
+      audit('archive_gpm_estimate', args, { archived_id: args.id }, args.requested_by);
+      return ok({ archived: true, estimate: row });
+    }),
+  );
+
+  server.registerTool(
+    'unarchive_gpm_estimate',
+    {
+      title: '見積のアーカイブを解く (GPM)',
+      description: 'アーカイブした見積を一覧に戻す。',
+      inputSchema: { id: z.string().min(1).describe('見積 ID'), ...REQUESTED_BY },
+    },
+    async (args) => runTool(async () => {
+      await assertGpmEstimate(args.id);
+      const row = await estimateService.unarchive(args.id, currentActorId());
+      audit('unarchive_gpm_estimate', args, { unarchived_id: args.id }, args.requested_by);
+      return ok({ unarchived: true, estimate: row });
+    }),
+  );
+
+  // ══ 議事録 ═════════════════════════════════════════════════
+  // 音声の録音・文字起こし開始 (multipart) は screen 専用のままにする —
+  // MCP は JSON の read/write に絞り、バイナリのアップロードは持ち込まない。
+
+  server.registerTool(
+    'list_gpm_minutes',
+    {
+      title: 'プロジェクトの議事録一覧 (GPM)',
+      description: 'プロジェクトの議事録を一覧する (本文は積まない・重いため get_gpm_minutes で)。',
+      inputSchema: { project_id: z.string().min(1).describe('プロジェクト ID') },
+    },
+    async (args) => runTool(async () => {
+      await assertGpmProjectId(args.project_id);
+      return ok(await listMinutes(args.project_id));
+    }),
+  );
+
+  server.registerTool(
+    'get_gpm_minutes',
+    {
+      title: '議事録の詳細 (GPM・文字起こし全文つき)',
+      description: '議事録1件を文字起こし全文つきで取得する。',
+      inputSchema: { id: z.string().min(1).describe('議事録 ID') },
+    },
+    async (args) => runTool(async () => {
+      await assertGpmMinutesId(args.id);
+      return ok(await getMinutes(args.id));
+    }),
+  );
+
+  server.registerTool(
+    'update_gpm_minutes',
+    {
+      title: '議事録を直す・確定する (GPM)',
+      description:
+        '議事録の内容を直す。confirm: true で確定する — **確定した時点でサーバーが自動で' +
+        'AI出力との差分を比較して記録する**(会社方針「AIを使い捨てにしない」の条件2。人には差分の入力をさせない)。' +
+        '決定事項は quote (引用) が無いものは決定にしない (取引先との合意の記録のため)。',
+      inputSchema: {
+        id: z.string().min(1).describe('議事録 ID'),
+        title: z.string().max(200).optional(),
+        summary: z.string().max(4000).optional(),
+        attendees: z.string().max(500).nullable().optional(),
+        met_on: z.string().regex(YMD).nullable().optional(),
+        next_meeting: z.string().max(500).nullable().optional(),
+        decisions: z.array(z.object({
+          text: z.string().min(1).max(500),
+          quote: z.string().max(1000).optional().describe('決定の根拠となる引用 (推奨)'),
+        })).optional(),
+        open_items: z.array(z.object({
+          text: z.string().min(1).max(500),
+          owner: z.string().max(100).optional(),
+          due: z.string().regex(YMD).optional(),
+        })).optional(),
+        confirm: z.boolean().optional().describe('true で確定する'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      await assertGpmMinutesId(args.id);
+      const input: Record<string, unknown> = {};
+      for (const f of ['title', 'summary', 'attendees', 'met_on', 'next_meeting', 'decisions', 'open_items', 'confirm'] as const) {
+        if ((args as Record<string, unknown>)[f] !== undefined) input[f] = (args as Record<string, unknown>)[f];
+      }
+      const row = await updateMinutes(args.id, input, currentActorId());
+      audit('update_gpm_minutes', args, { updated_id: args.id, confirmed: !!args.confirm }, args.requested_by);
+      return ok({ updated: true, minutes: row });
+    }),
+  );
+
+  server.registerTool(
+    'delete_gpm_minutes',
+    {
+      title: '議事録を削除 (GPM)',
+      description: '議事録を削除する (soft delete)。取引先との合意の記録なので、慎重に。',
+      inputSchema: { id: z.string().min(1).describe('議事録 ID'), ...REQUESTED_BY },
+    },
+    async (args) => runTool(async () => {
+      await assertGpmMinutesId(args.id);
+      await deleteMinutes(args.id, currentActorId());
+      audit('delete_gpm_minutes', args, { deleted_id: args.id }, args.requested_by);
+      return ok({ deleted: true, id: args.id });
+    }),
+  );
+
+  // ══ BOX フォルダ・書類 ═════════════════════════════════════
+  // ファイルの中身のアップロードは multipart/バイナリなので MCP には持ち込まない
+  // (フォルダを作る・中を見るのは JSON だけで完結するのでここまで)。
+
+  server.registerTool(
+    'create_gpm_box_folder',
+    {
+      title: 'BOX フォルダを作る (GPM)',
+      description:
+        'プロジェクトの BOX フォルダ (社内限り・社外共有の2系統) を作る。' +
+        '押したときだけ作られ、プロジェクト作成時には自動で作られない。既に持っていれば409エラー。',
+      inputSchema: {
+        id: z.string().min(1).describe('プロジェクト ID'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      const row = await queryOne(
+        `SELECT name, box_url_internal, box_url_external FROM projects
+          WHERE id = ? AND gls_category = 'B' AND deleted_at IS NULL`,
+        [args.id],
+      ) as { name: string; box_url_internal: string | null; box_url_external: string | null } | null;
+      if (!row) return ok({ error: 'プロジェクトが見つかりません', code: 'NOT_FOUND' });
+      if (row.box_url_internal || row.box_url_external) {
+        return ok({ error: 'このプロジェクトの BOX フォルダはすでに作られています', code: 'ALREADY_EXISTS' });
+      }
+      const made = await createGpmFolderTree(row.name);
+      if (!made.internal && !made.external) {
+        return ok({ error: 'BOX にフォルダを作れませんでした。時間をおいて試してください', code: 'BOX_UNAVAILABLE' });
+      }
+      await execute(
+        'UPDATE projects SET box_url_internal = ?, box_url_external = ?, updated_at = NOW() WHERE id = ?',
+        [made.internal?.folderUrl ?? null, made.external?.folderUrl ?? null, args.id],
+      );
+      audit('create_gpm_box_folder', args, { project_id: args.id }, args.requested_by);
+      return ok({ created: true, project_id: args.id });
+    }),
+  );
+
+  server.registerTool(
+    'get_gpm_box_folder_preview',
+    {
+      title: 'BOX フォルダ構成のプレビュー (GPM)',
+      description: 'create_gpm_box_folder が作るフォルダ構成 (社内限り/社外共有の下の階層) を確認する。',
+      inputSchema: {},
+    },
+    async () => runTool(async () => ok(GPM_FOLDER_PREVIEW)),
+  );
+
+  server.registerTool(
+    'list_gpm_box_files',
+    {
+      title: 'BOX 書類の一覧 (GPM)',
+      description:
+        'プロジェクトの BOX フォルダの中身を一覧する。scope=internal (社内限り) / external (社外共有・既定)。' +
+        'BOX が落ちているときも空リスト+reasonで返す (アップロードは画面から行う)。',
+      inputSchema: {
+        id: z.string().min(1).describe('プロジェクト ID'),
+        scope: z.enum(['internal', 'external']).default('external'),
+      },
+    },
+    async (args) => runTool(async () => {
+      const { items, total, truncated, reason } = await listProjectFolder(
+        args.id, args.scope, 'プロジェクトが見つかりません',
+      );
+      return ok({ items, total, truncated, ...(reason ? { reason } : {}) });
     }),
   );
 }

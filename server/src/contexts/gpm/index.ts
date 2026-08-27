@@ -532,6 +532,13 @@ export function createGpmRoutes(): Router {
   router.put('/members/:id', ...canEdit, async (req, res) => {
     res.json({ success: true, data: await memberService.update(String(req.params.id), req.body ?? {}) });
   });
+  // 並び替え。**案件側の `PATCH /projects/:projectId/members/reorder` と対**
+  // （MCP 整備のときに気づいた非対称を埋めた・新設）
+  router.patch('/projects/:id/members/reorder', ...canEdit, async (req, res) => {
+    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    await memberService.reorder(String(req.params.id), items);
+    res.json({ success: true, data: { reordered: true } });
+  });
   router.delete('/members/:id', ...canEdit, async (req, res) => {
     await memberService.remove(String(req.params.id));
     res.json({ success: true, data: { deleted: true } });

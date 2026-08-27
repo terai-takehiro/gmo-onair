@@ -522,6 +522,35 @@ export const projectService = {
 };
 
 /**
+ * その id がプロジェクト（GLS-B）かを確かめる。案件（A）なら 404。
+ * `gpm/index.ts` の私用ヘルパーと同じ確認を、見積・議事録・BOX の MCP ツール
+ * （`gpm.tools.ts`）からも呼べるように公開したもの — 書き写すと `gls_category`
+ * の確認を1か所でも落としたときに気づけない
+ */
+export async function assertGpmProjectId(id: string): Promise<void> {
+  await assertProject(id);
+}
+
+/** その project_id がプロジェクト（GLS-B）か（見積の所属確認用・404にしない場合） */
+export async function isGpmProjectId(id: string | null | undefined): Promise<boolean> {
+  if (!id) return false;
+  const row = await queryOne(`SELECT id FROM projects p WHERE p.id = ? AND ${IS_PROJECT}`, [id]);
+  return !!row;
+}
+
+/** その議事録がプロジェクト（GLS-B）のものか。案件の議事録を触らせない（`gpm/index.ts` と同じ確認） */
+export async function assertGpmMinutesId(minutesId: string): Promise<{ project_id: string }> {
+  const row = await queryOne(
+    `SELECT m.id, m.project_id FROM project_minutes m
+       JOIN projects p ON p.id = m.project_id
+      WHERE m.id = ? AND m.deleted_at IS NULL AND ${IS_PROJECT}`,
+    [minutesId],
+  ) as { id: string; project_id: string } | null;
+  if (!row) throw new AppError(404, 'NOT_FOUND', '議事録が見つかりません');
+  return row;
+}
+
+/**
  * 体制（組織図）のメンバー (migration 169)。
  *
  * ── 箱は「名前が同じ人の集まり」 ────────────────────────────
@@ -603,6 +632,22 @@ export const memberService = {
     if (!row) throw new AppError(404, 'NOT_FOUND', 'メンバーが見つかりません');
     // **物理削除。** 体制は「いま誰がやっているか」で、履歴を残す表ではない
     await execute('DELETE FROM gpm_members WHERE id = ?', [id]);
+  },
+
+  /**
+   * 並び替え（画面にも HTTP にも今までこの操作は無かった・MCP 整備で新設）。
+   * `sort_order` は段（`tier`）の中の位置なので、**この案件のメンバーだけ**を
+   * 対象にする（`project_id` で絞る・`taskColumnsService.reorder` と同じ形）。
+   * 段をまたぐ並び替えは呼べる（段は `update` の別呼び出しで変える）。
+   */
+  async reorder(projectId: string, items: Array<{ id: string; sort_order: number }>): Promise<void> {
+    await assertProject(projectId);
+    for (const item of items) {
+      await execute(
+        'UPDATE gpm_members SET sort_order = ? WHERE id = ? AND project_id = ?',
+        [item.sort_order, item.id, projectId],
+      );
+    }
   },
 };
 
