@@ -644,6 +644,32 @@ router.get('/tasks/mine', ...canRead, async (req, res) => {
   res.json({ success: true, data: tasks, meta: { can_open_project: canOpen } });
 });
 
+/**
+ * 自分のタスクの期限（カレンダー併載用。根源整理 §3-5）。
+ * `GET /tasks/deadlines?from=YYYY-MM-DD&to=YYYY-MM-DD` —
+ * 統合カレンダー・週間予定が「期限を予定の隣に出す」ために読む。
+ * 自分に割り当てられた未完了タスクだけ・期限は COALESCE 適用済みの ISO 文字列。
+ * 金額は返さない（案件名と GLS 番号まで。要件 D0 の線引きと同じ）。
+ */
+router.get('/tasks/deadlines', ...canRead, async (req, res) => {
+  const userId = me(req);
+  const from = String(req.query.from ?? '');
+  const to = String(req.query.to ?? '');
+  const ymd = /^\d{4}-\d{2}-\d{2}$/;
+  if (!ymd.test(from) || !ymd.test(to)) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'from / to は YYYY-MM-DD で指定してください');
+  }
+  if (from > to) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'from は to 以前の日付にしてください');
+  }
+  // 範囲は最長1年。上限なしだと「全期間」を毎回引く呼び出しが書けてしまう
+  if ((Date.parse(to) - Date.parse(from)) / 86_400_000 > 366) {
+    throw new AppError(400, 'VALIDATION_ERROR', '期間は366日以内で指定してください');
+  }
+  const rows = await myTasksService.listMyDeadlines(userId, from, to);
+  res.json({ success: true, data: rows });
+});
+
 /** 依頼 (受けた / 出した) */
 router.get('/tasks/delegations', ...canRead, async (req, res) => {
   const userId = me(req);

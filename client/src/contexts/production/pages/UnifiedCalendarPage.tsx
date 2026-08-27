@@ -48,30 +48,26 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useLocation } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { invalidateBookingQueries } from '@/lib/bookingQueries';
 import { useSideMenuTopSlot } from '@gmo-onair/shared/src/client/shell/sideMenuSlot';
 import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
-import { useMutation } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import StudioBookingDetailDialog from '../components/studio/StudioBookingDetailDialog';
 import StudioBookingDialog from '../components/studio/StudioBookingDialog';
 import KoubanView from '../components/studio/KoubanView';
 import PartnerScheduleDialog from '../components/schedule/PartnerScheduleDialog';
 import PersonalEventDialog from '../components/schedule/PersonalEventDialog';
-import {
-  useIsMobile, type PartnerSchedule, type PersonalEvent,
-} from '../components/schedule/scheduleShared';
+import { useIsMobile, type PartnerSchedule, type PersonalEvent } from '../components/schedule/scheduleShared';
 import { MobileToday } from './rooms/MobileToday';
-import {
-  ymd, addDays, addMonths, startOfWeek, weekDays, type CalLayer,
-} from './calendar/calendarLayout';
+import { ymd, addDays, addMonths, startOfWeek, weekDays, type CalLayer } from './calendar/calendarLayout';
 import { loadLayers, saveLayers } from './calendar/layerPrefs';
 import { useCalendarEvents, type CalBooking } from './calendar/useCalendarEvents';
+import { openDeadline } from './calendar/taskLayer';
 import { DesktopToolbar, type DesktopView } from './calendar/DesktopToolbar';
 import { CalSidebarExtras } from './calendar/CalSidebarExtras';
 import { MonthGrid } from './calendar/MonthGrid';
@@ -87,6 +83,7 @@ const DESKTOP_VIEWS: DesktopView[] = ['month', 'week', 'list', 'kouban'];
 function DesktopCalendar() {
   const qc = useQueryClient();
   const location = useLocation();
+  const navigate = useNavigate();
   const { currentUser, hasPermission } = useAuth();
   const isAdmin = currentUser?.role === 'system_admin';
   const canStudioEdit = isAdmin || hasPermission('sales', 'editor');
@@ -228,7 +225,7 @@ function DesktopCalendar() {
 
   /** レイヤーのチェックは、その層を読む権限がある人にだけ出す（押しても効かない項目を並べない） */
   const layerVisible: Record<CalLayer, boolean> = {
-    studio: cal.can.studio, partner: cal.can.partner, my: cal.can.personal,
+    studio: cal.can.studio, partner: cal.can.partner, my: cal.can.personal, tasks: cal.can.tasks,
   };
 
   const del = useMutation({
@@ -257,6 +254,8 @@ function DesktopCalendar() {
     if (kind === 'bk') { const b = cal.bookings.find((x) => x.id === id); if (b) setDetail(b); }
     if (kind === 'ps') { const s = cal.partners.find((x) => x.id === id); if (s) setEditSchedule(s); }
     if (kind === 'pe') { const e = cal.mine.find((x) => x.id === id); if (e) setEditEvent(e); }
+    // 期限は案件のタスクタブ（sales を開ける人）か /daily/tasks へ（taskLayer.ts）
+    if (kind === 'tk') openDeadline(navigate, cal.can.studio, cal.deadlines.find((x) => x.id === id));
   };
 
   return (

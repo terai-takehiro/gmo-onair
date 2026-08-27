@@ -33,6 +33,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
+import { DISMISS_LOST_REASON } from '../inbox/useInboxActions';
 import { linkInquiryToProject } from './fromInquiry';
 import type { NewProjectValues } from './fields';
 import type { IntakeSelection } from './useIntakeSeed';
@@ -159,8 +160,10 @@ export function useProjectDecisions(
   const saveExisting = async (id: string, stage: string) => {
     await api.put(`/projects/${id}`, buildProjectBody(v));
     if (selection?.project && selection.project.stage !== stage) {
+      // 理由は受信箱の「不要」と同じ「見送り（案件化せず）」に揃える —
+      // 以前は 'other' で、同じ意味の見送りが失注分析で2つの理由に割れていた
       await api.patch(`/projects/${id}/stage`, stage === 'e_lost'
-        ? { stage, lost_reason: 'other', lost_reason_note: '案件作成で見送り' }
+        ? { stage, lost_reason: DISMISS_LOST_REASON, lost_reason_note: '案件作成で見送り' }
         : { stage });
     } else {
       // **AI が起こしたものは「確認済み」にする。** 印を付けないと、
@@ -213,7 +216,7 @@ export function useProjectDecisions(
     mutationFn: async () => {
       if (existingId) {
         await api.patch(`/projects/${existingId}/stage`, {
-          stage: 'e_lost', lost_reason: 'other', lost_reason_note: '案件作成で見送り',
+          stage: 'e_lost', lost_reason: DISMISS_LOST_REASON, lost_reason_note: '案件作成で見送り',
         });
         return;
       }

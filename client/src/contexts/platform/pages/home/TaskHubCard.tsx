@@ -28,21 +28,30 @@
  *    `GET /dashboard/inbox` は問い合わせ・受け取った書類・期限超過アクション・
  *    AI起票ネタの4種類を実データから数えており（常に0件になる作りではない）、
  *    やめる積極的な理由が実装からは出てこなかったため
+ *
+ * ── 根源整理 Phase 1（docs/core-redesign-plan.md §3-3）───────────────
+ *
+ * ④ **タブ名を「お待たせ中」から「受信箱」に改めた。** 4種は「お客様を待たせて
+ *    いる」という1つの状態ではなく、性質も消し方も別々のもの（AI起票ネタ／
+ *    期限超過／問い合わせ／書類）で、言葉だけで束ねると意味が読めなかったため。
+ *    モックからの逸脱として `docs/v4-mock-deviations.md` に記録済み
+ * ⑤ **種類ごとの節に分けて出す。** 4種を混ぜた1本のリストにしない —
+ *    種類ごとに取るべき行動が違うため（0件の節は出さない）
+ * ⑥ **行にその場のアクションを置いた。** AI起票ネタは「不要」（見送り＝AI の
+ *    教師データになる・`inbox/useInboxActions.ts`）、期限超過は「済んだ」
+ *    （既存の次回アクション完了の口）。開くだけの行を無くす
+ * ⑦ **脚注の「残りN件」は counts（実数）から計算する。** `items` は種類ごとに
+ *    上限つきなので、`items.length` から引くと同一カード内でバッジと食い違っていた
  */
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { UserCheck, Inbox, ArrowRight, Check, CheckCircle2 } from 'lucide-react';
+import { UserCheck, Inbox, ArrowRight, Check } from 'lucide-react';
 import api from '@/lib/api';
 import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
 import { notifyApiError } from '@gmo-onair/shared/src/client/notify';
-import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
-import { formatRelativeTime } from '@gmo-onair/shared/src/client/format';
 import { useAuth } from '@/contexts/platform/AuthContext';
-import {
-  KINDS, titleOf, subtitleOf, inboxHrefOf, inboxAllHrefOf, isCrossApp,
-  type InboxData, type InboxOpenable,
-} from '@/contexts/sales/pages/inbox/kinds';
+import type { InboxData, InboxOpenable } from '@/contexts/sales/pages/inbox/kinds';
+import { InboxTab } from './InboxTab';
 import type { MyTaskRow, MyTaskSummary } from './types';
 
 type TabKey = 'mine' | 'waiting';
@@ -62,7 +71,7 @@ export function TaskHubCard({
 }: {
   /** 「自分のタスク」タブを出せるか（`GET /dailyops/tasks/*` が要る） */
   canSeeDailyops: boolean;
-  /** 「お待たせ中」タブを出せるか（`sales` か `dailyops` のどちらか） */
+  /** 「受信箱」タブを出せるか（`sales` か `dailyops` のどちらか） */
   canSeeSales: boolean;
   data: InboxData | undefined;
   can: InboxOpenable;
@@ -88,7 +97,7 @@ export function TaskHubCard({
             />
             <TabButton
               active={tab === 'waiting'} onClick={() => setTab('waiting')}
-              icon={Inbox} label="お待たせ中" count={waitingCount}
+              icon={Inbox} label="受信箱" count={waitingCount}
             />
           </div>
         ) : (
@@ -96,7 +105,7 @@ export function TaskHubCard({
             {tab === 'mine'
               ? <UserCheck className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
               : <Inbox className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />}
-            <h3 className="text-cardtitle text-primary">{tab === 'mine' ? '自分のタスク' : 'お待たせ中'}</h3>
+            <h3 className="text-cardtitle text-primary">{tab === 'mine' ? '自分のタスク' : '受信箱'}</h3>
             {tab === 'waiting' && waitingCount > 0 && (
               <span className="rounded-chip font-number inline-flex h-[22px] min-w-[22px] items-center justify-center bg-destructive px-1.5 text-sub-sm font-bold text-destructive-foreground">
                 {waitingCount}
@@ -107,7 +116,7 @@ export function TaskHubCard({
       </div>
 
       <div className="mt-2.5 flex flex-1 flex-col">
-        {tab === 'mine' ? <MineTab /> : <WaitingTab data={data} can={can} />}
+        {tab === 'mine' ? <MineTab /> : <InboxTab data={data} can={can} />}
       </div>
     </section>
   );
@@ -245,76 +254,5 @@ function MineTab() {
   );
 }
 
-// ══════════════════════════════════════════════════
-// お待たせ中（旧 WaitingCard の中身。枠と見出しだけ外に出した）
-// ══════════════════════════════════════════════════
-
-function WaitingTab({ data, can }: { data: InboxData | undefined; can: InboxOpenable }) {
-  const navigate = useNavigate();
-  const items = data?.items ?? [];
-  /** **別バンドルへは素の遷移**（`/daily/` は日常業務アプリ・ルーターでは動けない） */
-  const go = (href: string) => {
-    if (isCrossApp(href)) window.location.href = href; else navigate(href);
-  };
-  const all = inboxAllHrefOf(can);
-
-  return (
-    <>
-      <div className="flex justify-end">
-        <span className="text-note text-muted-foreground">古い順</span>
-      </div>
-
-      {items.length === 0 ? (
-        <div className="flex flex-1 items-start gap-2 border-t border-border-subtle pt-3">
-          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden="true" />
-          <p className="text-sub text-secondary-foreground">
-            お客様を待たせているものはありません。
-          </p>
-        </div>
-      ) : (
-        <>
-          {items.slice(0, SHOWN).map((it) => {
-            const kind = KINDS[it.kind];
-            /* ⚠️ **行き先はその人が開ける場所。** 開けない行は押せなくする —
-               押して「権限がありません」に送るのは、API の 403 を画面に
-               移し替えただけ（レビューでの指摘）。中身は読めるので消さない */
-            const href = inboxHrefOf(it, can);
-            const body = (
-              <>
-                <span className="min-w-0 flex-1">
-                  <span className="text-list block [overflow-wrap:anywhere]">{titleOf(it)}</span>
-                  <span className="text-note block truncate text-muted-foreground">
-                    {subtitleOf(it)}
-                    {it.received_at && ` ・ ${formatRelativeTime(it.received_at)}`}
-                  </span>
-                </span>
-                <TableBadge label={kind.label} w={null} className={`shrink-0 ${kind.tone}`} />
-              </>
-            );
-            const cls = 'min-h-tap flex items-start gap-2.5 border-t border-border-subtle py-2.5 text-left';
-            return href ? (
-              <button key={it.key} type="button" onClick={() => go(href)}
-                className={`${cls} hover:bg-surface-subtle`}>
-                {body}
-              </button>
-            ) : (
-              <div key={it.key} className={cls}>{body}</div>
-            );
-          })}
-          {all && (
-            <button
-              type="button"
-              onClick={() => go(all.href)}
-              className="text-sub min-h-tap mt-auto flex items-center justify-center gap-1 border-t border-border-subtle pt-2.5 font-bold text-primary hover:bg-surface-subtle"
-            >
-              {items.length > SHOWN
-                ? `${all.label}で残り ${items.length - SHOWN} 件を見る`
-                : `${all.label}をひらく`}
-              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
-          )}
-        </>
-      )}
-    </>
-  );
-}
+// 受信箱タブの中身は `./InboxTab.tsx`（1ファイル400行の上限で分けた。
+// 節分け・行アクションの理由もそちらの冒頭に書いてある）

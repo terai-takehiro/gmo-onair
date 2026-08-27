@@ -111,6 +111,13 @@ export default function ProjectListPage() {
   const [sort, setSort] = useState(SORT_OPTIONS[0].value);
   const [aiOnly, setAiOnly] = useState(false);
   const [aiUnreviewedOnly, setAiUnreviewedOnly] = useState(true);
+  /**
+   * 「要整理」ビュー（docs/core-redesign-plan.md §3-2）。サーバーの
+   * `?health=stalled`（停滞 = 次の一手が無いままステージ別しきい値超過）で絞り、
+   * 行に4つの手（次の一手/スヌーズ/見送り/失注）を出す。
+   * 期限超過はここに混ぜない — 期限があるものは「おすすめ順」の先頭に出る。
+   */
+  const [tidy, setTidy] = useState(false);
   const [termOpen, setTermOpen] = useState(false);
 
   const now = useMemo(() => new Date(), []);
@@ -134,7 +141,7 @@ export default function ProjectListPage() {
   const limit = view === 'board' ? BOARD_SIZE : PAGE_SIZE;
 
   const { data, isLoading, refetch } = useQuery<ProjectListResponse>({
-    queryKey: ['projects', view, page, limit, search, stageKey, sort, eventRange?.from, eventRange?.to, aiOnly, aiUnreviewedOnly],
+    queryKey: ['projects', view, page, limit, search, stageKey, sort, eventRange?.from, eventRange?.to, aiOnly, aiUnreviewedOnly, tidy],
     queryFn: async () => {
       // **GLS-A（案件）だけ** (migration 179)。GLS-B はプロジェクト管理の一覧に出る。
       // サーバー側でも受付・タスク一覧・ダッシュボードに同じ絞り込みを入れてある
@@ -148,6 +155,8 @@ export default function ProjectListPage() {
         q.ai_created = 1;
         if (aiUnreviewedOnly) q.ai_reviewed = 'unreviewed';
       }
+      // 要整理 = 停滞だけ。判定はサーバー1か所（project-health.ts）が持つ
+      if (tidy) q.health = 'stalled';
       q.sort_by = sortKey;
       q.sort_dir = sortDir;
       return (await api.get('/projects', { params: q })).data;
@@ -188,11 +197,12 @@ export default function ProjectListPage() {
     stageKey !== 'active' ? `ステージ: ${STAGE_CHIPS.find((c) => c.key === stageKey)?.label}` : null,
     period.mode !== 'all' ? `実施日: ${periodLabel(period)}` : null,
     aiOnly ? `AI 作成のみ${aiUnreviewedOnly ? ' (未確認)' : ''}` : null,
+    tidy ? '要整理 (停滞のみ)' : null,
   ].filter((f): f is string => f !== null);
 
   const clearFilters = () => {
     flip.capture();
-    setSearch(''); setStageKey('active'); setPeriod({ ...period, mode: 'all' }); setAiOnly(false); setPage(1);
+    setSearch(''); setStageKey('active'); setPeriod({ ...period, mode: 'all' }); setAiOnly(false); setTidy(false); setPage(1);
   };
 
   /** PC・スマホで**同じ props**（写すと片方だけ絞り込みが増える） */
@@ -203,6 +213,7 @@ export default function ProjectListPage() {
     now,
     aiOnly, onAiOnly: move(setAiOnly),
     aiUnreviewedOnly, onAiUnreviewedOnly: move(setAiUnreviewedOnly),
+    tidyOnly: tidy, onTidyOnly: move(setTidy),
     termOpen, onTermOpen: setTermOpen,
   };
 
@@ -275,7 +286,7 @@ export default function ProjectListPage() {
             />
           )
         ) : view === 'board' ? (
-          <ProjectBoard rows={rows} today={today} onOpen={(id) => navigate(`/sales/projects/${id}`)} />
+          <ProjectBoard rows={rows} onOpen={(id) => navigate(`/sales/projects/${id}`)} />
         ) : isMobile && view === 'list' ? (
           /*
            * ⚠️ **スマホにもページ送りを出す**（レビューでの指摘 #61）。
@@ -286,7 +297,7 @@ export default function ProjectListPage() {
            */
           <div className="space-y-3.5">
             <PullToRefresh onRefresh={refetch} disabled={!isMobile}>
-              <ProjectCards rows={rows} today={today} isNew={flip.isNew} onOpen={(id) => navigate(`/sales/projects/${id}`)} />
+              <ProjectCards rows={rows} today={today} isNew={flip.isNew} tidy={tidy} onOpen={(id) => navigate(`/sales/projects/${id}`)} />
             </PullToRefresh>
             <PageNav
               pagination={pagination}
@@ -318,7 +329,7 @@ export default function ProjectListPage() {
             <div className="overflow-hidden rounded-card border border-border bg-card">
               <ProjectRowsHeader />
               {rows.map((p, i) => (
-                <ProjectRow key={p.id} p={p} today={today} row={{ index: i, isNew: flip.isNew(p.id) }} onOpen={() => navigate(`/sales/projects/${p.id}`)} />
+                <ProjectRow key={p.id} p={p} today={today} tidy={tidy} row={{ index: i, isNew: flip.isNew(p.id) }} onOpen={() => navigate(`/sales/projects/${p.id}`)} />
               ))}
             </div>
 

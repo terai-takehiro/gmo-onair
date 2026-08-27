@@ -29,6 +29,10 @@ import { isKptAiConfigured } from '../../sales/services/kpt-ai.service';
 import { runFormatPass } from '../../sales/services/activity-format.service';
 import { runShortPass } from '../../sales/services/next-action-short.service';
 import { jstParts, shiftYmd } from '../../../shared/utils/jst';
+import {
+  listTidyCandidates, autoLoseStaleNeta, completeElapsedWonProjects,
+  TIDY_CANDIDATE_DAYS, TIDY_AUTO_LOST_DAYS,
+} from '../../sales/services/project-health';
 import { expireOpenProposals, settleDueProposals } from '../../qsheet/ai/settle.service';
 import { runMonthlyReviewIfDue, AI_REVIEW_JOB_KEY, AI_REVIEW_NOTIFY_TEMPLATE_ID } from '../../qsheet/ai/monthly-review.service';
 
@@ -116,13 +120,19 @@ async function tasksDueSoon(today: string): Promise<NotifyInput[]> {
   // **`due_date` は `date` 型**（ほかの表は TEXT なので `substr` で切っているが、
   // ここでやると `function substr(date, ...) does not exist` で落ちる）。
   // 型チェックは SQL の中身を見ないので、実 DB に流して初めて分かった。
+  //
+  // ⚠️ **期限は `COALESCE(due_at::date, due_date)` で見る**（期限一本化・
+  // docs/core-redesign-plan.md §3-4）。以前は `due_date` しか見ておらず、
+  // **`due_at` しか持たないタスク（マイタスク・依頼・投入口・GPM 由来）には
+  // この通知が一度も飛ばなかった**。`due_at` は TIMESTAMP（時刻なし壁時計）なので
+  // `::date` で日に落ちる。
   const rows = await queryAll(
-    `SELECT t.id, t.title, t.due_date, t.assigned_to, p.name AS project_name
+    `SELECT t.id, t.title, t.assigned_to, p.name AS project_name
        FROM project_tasks t
        LEFT JOIN projects p ON p.id = t.project_id
       WHERE t.deleted_at IS NULL AND t.is_completed IS NOT TRUE
         AND t.assigned_to IS NOT NULL
-        AND t.due_date = ?::date`,
+        AND COALESCE(t.due_at::date, t.due_date) = ?::date`,
     [target],
   );
   return rows.map((t) => {
@@ -135,7 +145,9 @@ async function tasksDueSoon(today: string): Promise<NotifyInput[]> {
       userId: String(t.assigned_to), templateId: 'tk_due',
       title: fill('［まもなく期限］{タスク名}', vars),
       body: fill('期限 {期限日} ・ 案件：{案件名}', vars),
-      link: '/sales/tasks/list', refType: 'task', refId: String(t.id), refDate: today,
+      // リンク先は「やること」（/daily/tasks）。以前の /sales/tasks/list は sales 専用で、
+      // **dailyops だけの担当者が通知から 403 に飛ばされていた**
+      link: '/daily/tasks', refType: 'task', refId: String(t.id), refDate: today,
     };
   });
 }
@@ -279,6 +291,80 @@ async function weeklyReportsUnreviewed(today: string): Promise<NotifyInput[]> {
         link: `/daily/weekly/${r.id}`, refType: 'ops_report', refId: String(r.id), refDate: today,
       });
     }
+  }
+  return out;
+}
+
+/**
+ * 案件の自動整理 `project_tidy`（docs/core-redesign-plan.md §3-2）。
+ *
+ * 三段構え（すべて可逆・削除は絶対にしない）:
+ *   (a) 整理候補（60日）… 生存証拠の無いネタを起票者へ「整理候補」として通知
+ *   (b) 自動見送り（90日）… さらに30日誰も触らなければ e_lost
+ *       （理由「自動整理（長期放置）」・**履歴付き**）へ動かして通知。**対象はネタだけ**
+ *   (c) 受注→完了の繰り上げ … `event_end` を過ぎた受注案件を s_completed に（通知不要）
+ *
+ * 判定と実行の中身は **project-health.ts**（健全性の単一定義と同じモジュール）。
+ * ここは通知の組み立てだけを持つ。
+ *
+ * **`templateId: null` で登録する**（裏方の仕事の形）— この仕事はステージも動かすので、
+ * 通知のひな形を無効にしただけで (b)(c) まで黙って止まってはいけない。
+ * ひな形（pj_tidy_candidate / pj_tidy_auto・migration 238）の enabled は
+ * **通知を出すかどうかだけ**をここで個別に見る。仕事ごと止めたいときは
+ * `PROJECT_TIDY_DAILY=off`（他の裏方仕事と同じ形）。
+ *
+ * 毎日再送しない仕掛け: 通知の `ref_date` を「候補になった日」（最後の動き＋しきい値）で
+ * **固定**する。`today` を入れると一意索引（人×ひな形×対象×日）が毎日別の行を許し、
+ * 同じ督促が毎朝出続ける（`TidyRow.ref_date` の理由）。
+ */
+async function tplEnabled(id: string): Promise<boolean> {
+  const tpl = await queryOne(
+    'SELECT enabled FROM notification_templates WHERE id = ?', [id],
+  ) as { enabled?: boolean } | null;
+  return !!tpl?.enabled;
+}
+
+async function projectTidy(_today: string): Promise<NotifyInput[]> {
+  if ((process.env.PROJECT_TIDY_DAILY || '').toLowerCase() === 'off') return [];
+  const out: NotifyInput[] = [];
+
+  // (c) 受注→完了。ダッシュボードの GET /dashboard/check-completed と**同じ1本**を呼ぶ
+  const completed = await completeElapsedWonProjects();
+
+  // (b) 自動見送りを候補より**先に**。90日を超えた行が候補の通知と重ならないようにする
+  const lost = await autoLoseStaleNeta();
+  const autoOn = await tplEnabled('pj_tidy_auto');
+  for (const r of lost) {
+    // 起票者が居ない（退職・AI 起票の静的キー）行は通知しない。**見送り自体は行う** —
+    // 通知できないからといってゴミを残すと、自動整理の意味が無くなる
+    if (!autoOn || !r.creator_id) continue;
+    out.push({
+      userId: r.creator_id, templateId: 'pj_tidy_auto',
+      title: fill('［自動見送り］{案件名} を見送りにしました', { '案件名': r.name }),
+      body: `${TIDY_AUTO_LOST_DAYS}日以上動きが無かったため、自動で「見送り（自動整理・長期放置）」にしました。間違いであれば、案件のステージ帯からいつでも戻せます（削除はしていません）。`,
+      link: `/sales/projects/${r.id}`, refType: 'project', refId: r.id, refDate: r.ref_date,
+    });
+  }
+
+  // (a) 整理候補（60〜90日の帯）
+  if (await tplEnabled('pj_tidy_candidate')) {
+    for (const r of await listTidyCandidates()) {
+      if (!r.creator_id) continue;
+      const vars = { '案件名': r.name, '放置日数': String(r.stalled_days) };
+      out.push({
+        userId: r.creator_id, templateId: 'pj_tidy_candidate',
+        title: fill(`［整理候補］{案件名} が${TIDY_CANDIDATE_DAYS}日動いていません`, vars),
+        body: fill(
+          `次の一手（次回アクション・期限つきタスク・実施日・スヌーズ）が無いまま {放置日数} 日動いていません。`
+          + `このまま${TIDY_AUTO_LOST_DAYS - TIDY_CANDIDATE_DAYS}日動きが無ければ、自動で「見送り」に移します。`, vars),
+        link: `/sales/projects/${r.id}`, refType: 'project', refId: r.id, refDate: r.ref_date,
+      });
+    }
+  }
+
+  // 黙って動かさない。ステージを機械が動かした日は記録に残す（画面には出ない仕事のため）
+  if (completed || lost.length) {
+    console.log('[scheduler] project_tidy:', JSON.stringify({ completed, autoLost: lost.length }));
   }
   return out;
 }
@@ -504,6 +590,10 @@ async function qsheetAiReviewDraft(today: string): Promise<NotifyInput[]> {
 }
 
 const JOBS: Job[] = [
+  // 案件の自動整理。朝いちの通知3本（09:00）より前に済ませる — 繰り上げ（受注→完了）を
+  // 先にしておかないと、その日の他の集計・通知が「終わったのに受注のまま」の行を数える。
+  // templateId は null（ひな形で止めない理由は projectTidy の説明）。止め方は PROJECT_TIDY_DAILY=off
+  { key: 'project_tidy', at: '07:30', templateId: null, run: projectTidy },
   { key: 'tk_due', at: '09:00', templateId: 'tk_due', run: tasksDueSoon },
   { key: 'inv_late', at: '09:00', templateId: 'inv_late', run: overdueInvoices },
   { key: 'eq_return', at: '09:00', templateId: 'eq_return', run: equipmentOverdue },

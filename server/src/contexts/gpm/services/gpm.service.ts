@@ -269,13 +269,17 @@ export const projectService = {
                 WHERE oi.project_id = p.id AND oi.status <> 'resolved' AND oi.deleted_at IS NULL) AS open_items,
               -- 次にやること: 期限がいちばん近い未完了タスク。
               -- **工程に付いていないタスクも数える** — GLS-B 案件のタスクはどれも
-              -- このプロジェクトのものなので、工程の有無で見え方が変わるほうが分かりにくい
+              -- このプロジェクトのものなので、工程の有無で見え方が変わるほうが分かりにくい。
+              -- 期限は COALESCE(due_at, due_date+18:00) で読む（根源整理 §3-4）—
+              -- due_at だけ見ると、カンバン・標準工程で作られた行が常に最後に回る
               (SELECT t.title FROM project_tasks t
                 WHERE t.project_id = p.id AND t.is_completed = false AND t.deleted_at IS NULL
-                ORDER BY t.due_at NULLS LAST LIMIT 1) AS next_task,
-              (SELECT t.due_at FROM project_tasks t
+                ORDER BY COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp) NULLS LAST
+                LIMIT 1) AS next_task,
+              (SELECT COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp) FROM project_tasks t
                 WHERE t.project_id = p.id AND t.is_completed = false AND t.deleted_at IS NULL
-                ORDER BY t.due_at NULLS LAST LIMIT 1) AS next_due,
+                ORDER BY COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp) NULLS LAST
+                LIMIT 1) AS next_due,
               -- お金の列（モックの money = 「個別見積 v2 提出済」）。
               -- 金額は案件一覧と同じ式（ESTIMATE_AMOUNT_LATERAL）、
               -- 版と状態は**いちばん新しい1本**から採る（何本ぶら下がっていても
@@ -614,15 +618,32 @@ async function expandTemplate(
  * 案件管理のタスク一覧には `gls_category = 'A'` の絞り込みで出ません。
  */
 export const gpmTaskService = {
-  async listAll(filter: { status?: string; project_id?: string } = {}): Promise<Record<string, unknown>[]> {
+  async listAll(
+    filter: { status?: string; project_id?: string; viewer_id?: string } = {},
+  ): Promise<Record<string, unknown>[]> {
     const conds = ['t.deleted_at IS NULL', IS_PROJECT];
     const params: unknown[] = [];
 
-    // 状態は**完了したかどうか**が正（`is_completed`）。止まり方は `work_state`
+    // visibility='private' の行は担当者か作成者が本人のときだけ返す
+    // （根源整理 §3-4 の漏れ修正。getTeamLoad と同じ規則）。
+    // 以前はこの一覧が private タスクの全文を gpm 権限者全員に返していた。
+    // **viewer_id が無い呼び出しは private を1行も返さない**（漏らすより隠すほうが安全側）
+    if (filter.viewer_id) {
+      conds.push(`(t.visibility IS DISTINCT FROM 'private' OR t.assigned_to = ? OR t.created_by = ?)`);
+      params.push(filter.viewer_id, filter.viewer_id);
+    } else {
+      conds.push(`t.visibility IS DISTINCT FROM 'private'`);
+    }
+
+    // 状態は**完了したかどうか**が正（`is_completed`）。止まり方は `work_state`。
+    // 期限超過の判定は COALESCE(due_at, due_date+18:00)（根源整理 §3-4）—
+    // due_at だけ見ると、カンバン・標準工程で作られた行の遅れが見えない
     if (filter.status === 'open') conds.push('t.is_completed = false');
     else if (filter.status === 'done') conds.push('t.is_completed = true');
     else if (filter.status === 'overdue') {
-      conds.push("t.is_completed = false AND t.due_at IS NOT NULL AND t.due_at < NOW()");
+      conds.push(`t.is_completed = false
+                  AND COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp) IS NOT NULL
+                  AND COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp) < NOW()`);
     } else if (filter.status && filter.status !== 'all') {
       // **知らない状態は空で返す。** 素通しすると「絞ったのに全件」で気づけない
       conds.push('FALSE');
@@ -631,7 +652,8 @@ export const gpmTaskService = {
 
     return queryAll(
       `SELECT t.id, t.title, t.description, t.is_completed, t.work_state,
-              t.due_at, t.sort_order, t.assigned_to,
+              COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp)::text AS due_at,
+              t.sort_order, t.assigned_to,
               u.name AS assigned_to_name,
               ph.id AS phase_id, ph.label AS phase_label, ph.state AS phase_state,
               p.id AS project_id, p.name AS project_name, p.gpm_kind AS project_kind
@@ -641,7 +663,7 @@ export const gpmTaskService = {
          LEFT JOIN users u ON u.id = t.assigned_to
         WHERE ${conds.join(' AND ')}
         ORDER BY t.is_completed ASC,
-                 t.due_at ASC NULLS LAST,
+                 COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp) ASC NULLS LAST,
                  p.name ASC, ph.sort_order ASC NULLS LAST, t.sort_order ASC`,
       params,
     );
@@ -650,8 +672,10 @@ export const gpmTaskService = {
   /** 1件ぶん。**一覧と同じ形で返す**（画面が同じ型で受けられるように） */
   async getById(taskId: string): Promise<Record<string, unknown> | undefined> {
     const rows = await queryAll(
+      // 期限の読みは一覧と同じ COALESCE（根源整理 §3-4）
       `SELECT t.id, t.title, t.description, t.is_completed, t.work_state,
-              t.due_at, t.sort_order, t.assigned_to,
+              COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp)::text AS due_at,
+              t.sort_order, t.assigned_to,
               u.name AS assigned_to_name,
               ph.id AS phase_id, ph.label AS phase_label, ph.state AS phase_state,
               p.id AS project_id, p.name AS project_name, p.gpm_kind AS project_kind

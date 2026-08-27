@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { queryAll, queryOne, execute } from '../../../shared/db/connection';
+import { queryAll, queryOne } from '../../../shared/db/connection';
 import { requireAuth, requirePermission, requireAnyPermission } from '../../../shared/middleware/auth';
 import { config } from '../../../config';
 import { getSalesOverview } from '../services/salesOverview.service';
 import { getAppBadges } from '../services/appBadges.service';
+import { completeElapsedWonProjects } from '../../sales/services/project-health';
 
 const router = Router();
 
@@ -180,16 +181,18 @@ function countMonths(start: string, end: string): number {
   return (ey - sy) * 12 + (em - sm) + 1;
 }
 
-// Auto-complete: A受注済み → S案件終了 (event_end < today)
+/**
+ * 受注→完了の繰り上げ (event_end < today)。
+ *
+ * ⚠️ **中身は日次ジョブ `project_tidy` と同じ1本**（`project-health.ts` の
+ * `completeElapsedWonProjects`）。以前はここに**生 UPDATE** があり、
+ * 誰もダッシュボードを開かない日は動かず、`project_stage_changes` の履歴も
+ * 残らなかった。正は日次ジョブに移した — **この口は互換のために残してある**だけ
+ * （開いた瞬間に反映される即時性はそのまま）。
+ */
 router.get('/check-completed', async (_req, res) => {
-  const today = new Date().toISOString().split('T')[0];
-  await execute(
-    `UPDATE projects SET stage='s_completed', updated_at=NOW()
-     WHERE stage = 'a_won' AND deleted_at IS NULL
-     AND event_end IS NOT NULL AND event_end < ?`,
-    [today]
-  );
-  res.json({ success: true, data: { updated: true } });
+  const completed = await completeElapsedWonProjects();
+  res.json({ success: true, data: { updated: true, completed } });
 });
 
 router.get('/kpi', async (req, res) => {

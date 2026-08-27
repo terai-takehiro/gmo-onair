@@ -16,16 +16,24 @@
  *   3行目  実施日 ／ 見積金額（右）
  *   4行目  次のタスク（担当・期限つき）。無ければ出さない
  *
- * ── 「止まっている」は出す ──────────────────────────────────
+ * ── 健全性バッジは PC と同じ1部品 ────────────────────────────
  *
- * PC と同じ判定（`isStale`）を使います。**判定を書き写さない** —
- * 片方だけ日数を変えたときに、PC とスマホで違う案件が赤くなります。
+ * サーバーの `health` を描く `HealthBadge`（`projectList/health.tsx`）を使います。
+ * **判定を書き写さない** — 片方だけ変えたときに、PC とスマホで違う案件が赤くなります。
+ *
+ * ── 「要整理」のアクションはカードの**外**に置く ──────────────
+ *
+ * カード全体が `<button>`（開く）なので、中に `TidyActions` のボタンを入れると
+ * button の入れ子になり HTML として無効です（押した判定も二重になる）。
+ * `<li>` の中・カードの下に並べます。
  */
 import { Sparkles, ChevronRight } from 'lucide-react';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { DateRange } from '@gmo-onair/shared/src/client/ui/dateRange';
 import { cn } from '@gmo-onair/shared/src/client/utils';
-import { STAGE_BADGE_LABEL, STAGE_BADGE_TONE, TERMINAL_STAGES, isStale } from './stages';
+import { STAGE_BADGE_LABEL, STAGE_BADGE_TONE, TERMINAL_STAGES } from './stages';
+import { HealthBadge } from './health';
+import { TidyActions } from './TidyActions';
 import { rowInProps } from './rowAnim';
 import type { ProjectListRow } from './types';
 
@@ -45,12 +53,14 @@ function dueLabel(due: string | null, today: string): string | null {
 }
 
 export function ProjectCards({
-  rows, today, isNew, onOpen,
+  rows, today, isNew, tidy, onOpen,
 }: {
   rows: ProjectListRow[];
   today: string;
   /** この更新で新しく現れたか（`client-v4/flip.ts`）。渡さなければ動かさない */
   isNew?: (id: string) => boolean;
+  /** 「要整理」ビューか。カードの下に4つの軽いアクションを出す */
+  tidy?: boolean;
   onOpen: (id: string) => void;
 }) {
   return (
@@ -64,7 +74,6 @@ export function ProjectCards({
         const amount = estimate > 0 ? estimate : expected > 0 ? expected : null;
         const isExpected = estimate === 0 && expected > 0;
         const terminal = TERMINAL_STAGES.includes(p.stage);
-        const stale = isStale(p.stage, p.last_activity_at);
         const due = dueLabel(p.next_task_due, today);
 
         return (
@@ -82,11 +91,8 @@ export function ProjectCards({
                   <span className={cn('rounded-badge border px-1.5 py-0.5 text-badge', STAGE_BADGE_TONE[p.stage])}>
                     {STAGE_BADGE_LABEL[p.stage] ?? p.stage}
                   </span>
-                  {stale && (
-                    <span className="rounded-badge-xs bg-destructive-surface px-1.5 py-0.5 text-badge text-destructive">
-                      止まっている
-                    </span>
-                  )}
+                  {/* 健全性はサーバーの `health` だけを見る（PC の行と同じ1部品） */}
+                  <HealthBadge p={p} />
                   {p.is_ai_created && (
                     <span className="rounded-badge-xs inline-flex items-center gap-0.5 bg-ai-surface px-1.5 py-0.5 text-badge text-ai">
                       <Sparkles className="h-3 w-3" aria-hidden="true" />
@@ -129,6 +135,8 @@ export function ProjectCards({
               </span>
               <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-fg-disabled" aria-hidden="true" />
             </button>
+            {/* カードは `<button>` なので、アクションは**外**（入れ子 button は無効） */}
+            {tidy && <TidyActions p={p} />}
           </li>
         );
       })}

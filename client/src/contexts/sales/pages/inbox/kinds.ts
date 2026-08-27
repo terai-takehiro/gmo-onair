@@ -10,7 +10,8 @@
  * このファイルが残っているのは、**種類の見せ方を2か所が使う**ためです:
  *
  *   ・案件作成の「自動で届いたもの」レール（`projectNew/IntakeRail.tsx`）
- *   ・ホームの「お待たせ中」タブ（`platform/pages/home/TaskHubCard.tsx`）
+ *   ・ホームの「受信箱」タブ（`platform/pages/home/TaskHubCard.tsx` / `InboxTab.tsx`。
+ *     旧「お待たせ中」— 根源整理 Phase 1 で改名・docs/core-redesign-plan.md §3-3）
  *
  * 見出しの作り方を書き写すと、片方だけ直したときに**同じ引き合いが画面によって
  * 違う名前で出ます**。
@@ -24,8 +25,11 @@
  *  ・**期限超過** → 案件管理ダッシュボードの「期限が過ぎたやること」
  *  ・**見積・請求の書類** → 財務の「受け取った書類」（`/budget/documents`）
  *
- * **口そのものは変えません** — ホームの「お待たせ中」とタイルの件数が
+ * **口そのものは変えません** — ホームの「受信箱」とタイルの件数が
  * 同じ口を読んでおり、口を変えると受付以外の数字も動きます。絞るのは画面側だけ。
+ *
+ * 受信箱の**行アクション**（AI起票ネタの「不要」）は `useInboxActions.ts`
+ * （このディレクトリ）に1本化してある。書き写さないこと。
  */
 import { Sparkles, AlertTriangle, MessageSquare, Receipt } from 'lucide-react';
 
@@ -61,7 +65,8 @@ export const KIND_ORDER: InboxKind[] = ['ai_project', 'overdue_action', 'inquiry
 
 /**
  * **案件作成のレールに出す種類**（引き合いだけ）。
- * `KIND_ORDER` は `GET /dashboard/inbox` が返す全部で、ホームの「お待たせ中」が使う。
+ * `KIND_ORDER` は `GET /dashboard/inbox` が返す全部で、ホームの「受信箱」が
+ * **節の並び順**にも使う（種類ごとの節・0件の節は出さない）。
  */
 export const INTAKE_KINDS: InboxKind[] = ['ai_project', 'inquiry'];
 

@@ -39,11 +39,21 @@ router.get('/', wrap(async (req, res) => {
   )) as unknown as { id: string; project_id: string; name: string; color: string | null; sort_order: number }[];
 
   // v2.9.198+: AI 作成判定 (MCP create_task) を mcp_audit_log から逆引き (lateral はパラメータ無しのため $n 採番に影響しない)
+  //
+  // 期限は COALESCE(due_at, due_date+18:00) を唯一の正として読む（根源整理 §3-4）。
+  // due_date はその日付部分（後方互換）。これでマイタスク・依頼・投入口で作られた
+  // タスク（due_at のみ）もこの一覧で「期限なし」にならない。
+  //
+  // visibility='private' の行は担当者か作成者が本人のときだけ返す（§3-4 の漏れ修正）。
+  // 以前は sales 権限者全員に private タスクの全文が出ていた
+  // （getTeamLoad は件数だけに落としているのに、ここは素通しだった）。
   const tasks = await queryAll(
     `SELECT
        t.id, t.project_id, t.episode_id, t.column_id,
        t.title, t.description, t.task_type, t.production_step,
-       t.start_date::text AS start_date, t.due_date::text AS due_date,
+       t.start_date::text AS start_date,
+       COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp)::date::text AS due_date,
+       COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp)::text AS due_at,
        t.assigned_to, u.name AS assigned_to_name,
        t.is_completed, t.completed_at, t.work_state, t.progress, t.is_milestone,
        t.sort_order, t.parent_task_id,
@@ -66,8 +76,10 @@ router.get('/', wrap(async (req, res) => {
      WHERE t.project_id = ANY($1::text[])
        AND t.deleted_at IS NULL
        AND t.parent_task_id IS NULL
+       AND (t.visibility IS DISTINCT FROM 'private'
+            OR t.assigned_to = $2 OR t.created_by = $2)
      ORDER BY p.gls_number NULLS LAST, t.column_id NULLS LAST, t.sort_order, t.created_at`,
-    [projectIds]
+    [projectIds, req.user!.id]
   );
 
   res.json({ success: true, data: { projects, columns, tasks } });

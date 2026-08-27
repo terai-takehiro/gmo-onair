@@ -57,6 +57,7 @@ import {
 } from '../calendar/calendarLayout';
 import { loadLayers, saveLayers } from '../calendar/layerPrefs';
 import { useCalendarEvents, type CalBooking } from '../calendar/useCalendarEvents';
+import { openDeadline } from '../calendar/taskLayer';
 import { MobileMonthGrid } from '../calendar/MobileMonthGrid';
 import { MobileWeekStrip } from '../calendar/MobileWeekStrip';
 import { MobileCalHeader, type MobileCalView } from '../calendar/MobileCalHeader';
@@ -155,9 +156,16 @@ export function MobileToday() {
 
   const dayList = useMemo(() => sortForList(eventsOn(cal.events, selected)), [cal.events, selected]);
 
+  /** その層を読む権限があるか（レイヤーのダイアログも件数の脚注も同じ表を見る） */
+  const layerVisible: Record<CalLayer, boolean> = {
+    studio: cal.can.studio, partner: cal.can.partner, my: cal.can.personal, tasks: cal.can.tasks,
+  };
+
   const lead = useMemo(() => {
-    const show = { studio: cal.can.studio, partner: cal.can.partner, my: cal.can.personal };
-    const keys: CalLayer[] = ['studio', 'partner', 'my'];
+    const show: Record<CalLayer, boolean> = {
+      studio: cal.can.studio, partner: cal.can.partner, my: cal.can.personal, tasks: cal.can.tasks,
+    };
+    const keys: CalLayer[] = ['studio', 'partner', 'my', 'tasks'];
     const on = keys.filter((k) => show[k] && layers[k]).length;
     const all = keys.filter((k) => show[k]).length;
     return `${cal.events.length} 件 ・ 出しているもの ${on}／${all}`;
@@ -177,6 +185,8 @@ export function MobileToday() {
     if (kind === 'bk') { const b = cal.bookings.find((x) => x.id === id); if (b) setDetail(b); }
     if (kind === 'ps') { const s = cal.partners.find((x) => x.id === id); if (s) setEditSchedule(s); }
     if (kind === 'pe') { const e = cal.mine.find((x) => x.id === id); if (e) setEditEvent(e); }
+    // 期限は案件のタスクタブ（sales を開ける人）か /daily/tasks へ（taskLayer.ts）
+    if (kind === 'tk') openDeadline(navigate, cal.can.studio, cal.deadlines.find((x) => x.id === id));
   };
 
   const del = useMutation({
@@ -208,7 +218,7 @@ export function MobileToday() {
     <div className="flex flex-col gap-3 p-3">
       <PageHeader
         title="予定"
-        sub={`スタジオの予約・パートナーの予定・自分の予定を1枚で見ます。${lead}`}
+        sub={`スタジオの予約・パートナーの予定・自分の予定・タスクの期限を1枚で見ます。${lead}`}
         primaryAction={(canStudioEdit || canPartnerEdit) ? (
           <Button onClick={() => setChooserOpen(true)}>予定を入れる</Button>
         ) : undefined}
@@ -300,7 +310,10 @@ export function MobileToday() {
         <DoorOpen className="mr-1.5 h-4 w-4" aria-hidden="true" />部屋の空きを見る
       </Button>
 
-      <LayerFilterDialog open={layerFilterOpen} onOpenChange={setLayerFilterOpen} value={layers} onChange={toggleLayers} />
+      <LayerFilterDialog
+        open={layerFilterOpen} onOpenChange={setLayerFilterOpen}
+        value={layers} onChange={toggleLayers} visible={layerVisible}
+      />
 
       <NewEventChooser
         open={chooserOpen} onOpenChange={setChooserOpen}

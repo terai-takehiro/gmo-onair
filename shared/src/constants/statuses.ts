@@ -44,6 +44,16 @@ export function statusOf<K extends string>(domain: StatusDomain<K>, key: string)
 // ══════════════════════════════════════════════════════════════════
 // 案件 stage — 統合プロジェクトライフサイクル (Phase A)
 // neta → d_hold → c_proposal → b_verbal → a_won → s_completed / e_lost
+//
+// ⚠️ **ここがステージラベルの唯一の正** (docs/core-redesign-plan.md §3-7)。
+// かつて client の型 / 一覧バッジ / MCP の4系統に分裂し、同じ neta が
+// 「ネタ」「E 問合せ」、同じ s_completed が「S 完了」「完了」「S 案件終了」と
+// 画面によって違う名前で出ていた。決定: neta =「ネタ」・s_completed =「S 完了」。
+//  - `client/src/types/stages.ts` はここを import して組み立てる
+//  - `server/src/contexts/mcp/tools/projects.tools.ts` の STAGE_LABELS は
+//    server が shared を import できない (rootDir) ため値を写している —
+//    `shared/tests/stageLabels.test.ts` がズレたら落とす
+//  - 一覧バッジの和文短縮 (`projectList/stages.ts`) だけは表示上の例外
 // ══════════════════════════════════════════════════════════════════
 export const PROJECT_STAGE = {
   neta:         { label: 'ネタ',       variant: 'secondary',   description: '初期接触・未見積' },

@@ -16,8 +16,11 @@
  * ① **通常の業務更新を「AI の誤り」と数えない。** 取込から `CORRECTION_WINDOW_DAYS`
  *    (7日) 以内の更新だけを見ます。3か月後に金額を直したのは AI の間違いではありません。
  * ② **無修正で採用されたことも記録する** (`type: 'none'`)。これが正解ラベルで、
- *    無いと修正率の分母が壊れます。ただし**直した回だけ**積みます
- *    （開くたびに積むと、よく開かれる行ほど精度が高く見える）。
+ *    無いと修正率の分母が壊れます（かつては修正0件のとき何も書かずに戻していた
+ *    バグがあり、この2種の無修正採用率が**構造的に常に0**でした —
+ *    docs/core-redesign-plan.md §3-6 で修正）。ただし**同じ出力に二度は積みません**
+ *    （`hasCorrections` で守る。更新のたびに積むと、よく触られる行ほど
+ *    精度が高く見える）。
  * ③ **人に差分を入力させない。** before/after はサーバーが自動で比べます。
  *
  * ── 数えない列 ────────────────────────────────────────────
@@ -34,6 +37,7 @@
  */
 import {
   findLatestAiOutput,
+  hasCorrections,
   recordCorrections,
   type CorrectionInput,
 } from '../../../shared/services/ai-output.service';
@@ -125,8 +129,19 @@ async function record(
     });
   }
 
-  // **直した回だけ**、直さなかった項目も `none` で積む（無修正採用率の分母）
-  if (diffs.length === 0) return;
+  if (diffs.length === 0) {
+    // **無修正で採用された**ことを残す（`activity-log` / `minutes` と同じ正解ラベル）。
+    // 承認・状態変更だけの更新（冒頭の「数えない列」）でもここに来る。
+    // ここで何も書かずに戻すと、この2種の無修正採用率が永久に0のまま。
+    //
+    // ⚠️ **同じ出力に二度積まない**（`recordProjectAccepted` と同じ守り）。
+    // `activity-log` / `minutes` は確定1回きりだが、ここは7日以内の
+    // 更新のたびに呼ばれるため、`hasCorrections` の確認が必須
+    if (await hasCorrections(output.id)) return;
+    await recordCorrections(output.id, [{ fieldPath: '(全体)', type: 'none' }], userId);
+    return;
+  }
+  // 直した回は、直さなかった項目も `none` で積む（無修正採用率の分母）
   for (const f of fields) {
     if (diffs.some((d) => d.fieldPath === f.path)) continue;
     diffs.push({ fieldPath: f.path, before: after[f.path] ?? null, after: after[f.path] ?? null, type: 'none', note: f.label });

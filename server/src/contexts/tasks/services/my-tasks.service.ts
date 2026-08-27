@@ -15,6 +15,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { recordCorrections, type CorrectionInput } from '../../../shared/services/ai-output.service';
+import { notify, template as notificationTemplate, fill } from '../../platform/services/notification.service';
 
 /**
  * 確定後の修正を「AI の誤り」として数える時間の窓 (時間)。
@@ -157,6 +158,53 @@ async function recordPostCommitCorrections(
   }
 }
 
+// ── 依頼の通知（根源整理 §3-4）────────────────────────────────
+//
+// 依頼は作成・承諾・辞退・相談・振り直しのどこにも通知が無く、
+// 受け手がバッジを偶然見るまで届かなかった。できごと型なので定時実行には
+// 載せず、**操作の場でその場で出す**（ひな形は migration 239）。
+
+/** 受け手が依頼を開ける場所。sales 権限の無い人も 403 にならない口にする */
+const DELEGATION_LINK = '/daily/tasks?tab=delegations';
+
+/** 期限を通知文の形にする（`2026-08-26 18:00:00` → `2026/08/26 18:00`） */
+function dueLabel(dueAt: string | null): string {
+  if (!dueAt) return '（未設定）';
+  const m = dueAt.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  return m ? `${m[1]}/${m[2]}/${m[3]} ${m[4]}:${m[5]}` : dueAt;
+}
+
+/**
+ * 依頼の通知を1件出す。**best-effort** — 通知に失敗しても業務操作
+ * （依頼の作成・返答・振り直し）は壊さない。
+ * ひな形の `enabled` を見るのは scheduler と同じゲート（設定⑦で止められる）。
+ * 重複は migration 177 の一意索引（人 × ひな形 × 対象 × ref_date）が防ぐ。
+ */
+async function notifyDelegation(
+  templateId: 'dg_new' | 'dg_reply',
+  toUserId: string,
+  vars: Record<string, string>,
+  taskId: string,
+  refDate = '',
+): Promise<void> {
+  try {
+    const tpl = await notificationTemplate(templateId);
+    if (!tpl?.enabled) return;
+    await notify({
+      userId: toUserId,
+      templateId,
+      title: fill(tpl.subject, vars),
+      body: fill(tpl.body, vars),
+      link: DELEGATION_LINK,
+      refType: 'task',
+      refId: taskId,
+      refDate,
+    });
+  } catch (e) {
+    console.warn('[my-tasks] 依頼通知の作成に失敗 (業務操作は成功):', (e as Error).message);
+  }
+}
+
 function decorate(row: Record<string, unknown>): MyTask {
   const importance = Number(row.importance ?? 2);
   const urgency = Number(row.urgency ?? 2);
@@ -203,6 +251,41 @@ export const myTasksService = {
       [...params, limit]
     );
     return rows.map(decorate);
+  },
+
+  /**
+   * 自分の未完了タスクの期限（カレンダー併載用。根源整理 §3-5）。
+   *
+   * 統合カレンダー・週間予定が「期限を予定の隣で見る」ために読む。
+   * 期限は COALESCE(due_at, due_date+18:00) 適用済みの ISO 文字列で返し、
+   * **金額は返さない**（案件名と GLS 番号まで。要件 D0 と同じ線引き）。
+   */
+  async listMyDeadlines(userId: string, from: string, to: string): Promise<Array<{
+    id: string; title: string; due_at: string;
+    project_id: string | null; project_name: string | null; gls_number: string | null;
+  }>> {
+    const rows = await queryAll(
+      `SELECT t.id, t.title,
+              to_char(${DUE_EXPR}, 'YYYY-MM-DD"T"HH24:MI:SS') AS due_at,
+              t.project_id, p.name AS project_name, p.gls_number
+         FROM project_tasks t
+         LEFT JOIN projects p ON p.id = t.project_id AND p.deleted_at IS NULL
+        WHERE t.deleted_at IS NULL
+          AND t.parent_task_id IS NULL
+          AND t.assigned_to = ?
+          AND t.is_completed = FALSE
+          AND (t.delegation_status IS NULL
+               OR t.delegation_status NOT IN ('declined', 'consulting'))
+          AND ${DUE_EXPR} >= ?::date
+          AND ${DUE_EXPR} < (?::date + 1)
+        ORDER BY ${DUE_EXPR} ASC, t.created_at ASC
+        LIMIT 500`,
+      [userId, from, to],
+    );
+    return rows as unknown as Array<{
+      id: string; title: string; due_at: string;
+      project_id: string | null; project_name: string | null; gls_number: string | null;
+    }>;
   },
 
   /**
@@ -327,7 +410,16 @@ export const myTasksService = {
         userId,
       ]
     );
-    return this.get(id);
+    const created = await this.get(id);
+    // 依頼なら受け手へ「届いた」を知らせる（§3-4。今まで受け手はバッジを偶然見るだけだった）
+    if (isDelegation && data.assigned_to !== data.requester_id) {
+      await notifyDelegation('dg_new', data.assigned_to, {
+        '依頼者名': created.requester_name ?? '（不明）',
+        'タスク名': created.title,
+        '期限': dueLabel(created.due_at),
+      }, id);
+    }
+    return created;
   },
 
   /**
@@ -366,7 +458,16 @@ export const myTasksService = {
        WHERE id = ?`,
       [decision, decision, appended, userId, taskId]
     );
-    return this.get(taskId);
+    const updated = await this.get(taskId);
+    // 依頼主へ返答を知らせる（§3-4。特に辞退・相談は知らされないと「頼んだのに忘れられた」に戻る）。
+    // ref_date に返答の種類を入れる — 相談→承諾は両方届き、同じ返答の連打は1回になる
+    const decisionLabel = decision === 'accepted' ? '承諾' : decision === 'declined' ? '辞退' : '相談';
+    await notifyDelegation('dg_reply', String(row.requester_id), {
+      '相手名': updated.assigned_to_name ?? '（不明）',
+      'タスク名': updated.title,
+      '返答': decisionLabel,
+    }, taskId, decision);
+    return updated;
   },
 
   /**
@@ -508,7 +609,16 @@ export const myTasksService = {
          WHERE id = ?`,
         [...params, userId, taskId]
       );
-      return this.get(taskId);
+      const updated = await this.get(taskId);
+      // 新しい受け手へ「届いた」を知らせる（§3-4）。
+      // ref_date に振り直しの時刻を入れる — 同じ人へもう一度振り直したときも
+      // 一意索引に潰されず、改めて届く（新しい依頼として答えてほしい）
+      await notifyDelegation('dg_new', payload.assigned_to, {
+        '依頼者名': updated.requester_name ?? '（不明）',
+        'タスク名': updated.title,
+        '期限': dueLabel(updated.due_at),
+      }, taskId, new Date().toISOString());
+      return updated;
     }
 
     // withdraw = 取り下げ。ここだけは消す (依頼者自身が「もう要らない」と決めた場合)

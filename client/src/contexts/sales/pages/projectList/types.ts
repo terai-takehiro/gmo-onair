@@ -31,6 +31,15 @@ export interface ProjectListRow {
   next_task_assignee: string | null;
   /** 案件・タスク・活動記録のうちいちばん新しい時刻 */
   last_activity_at: string | null;
+  /**
+   * 健全性（`server/.../project-health.ts` が唯一の正・docs/core-redesign-plan.md §3-1）。
+   * クライアントで日数を数え直さないこと（旧 `isStale` の轍 — 判定が画面ごとにずれる）。
+   */
+  health: 'ok' | 'snoozed' | 'overdue' | 'stalled';
+  /** `health='stalled'` のときだけ入る「放置◯日」 */
+  stalled_days: number | null;
+  /** スヌーズの再開日（YYYY-MM-DD）。掛かっていなければ NULL */
+  snooze_until: string | null;
   /** 「ネタ」の見え方だけが使う (migration 165)。手で登録した案件は NULL */
   intake_channel?: string | null;
   intake_confidence?: string | null;

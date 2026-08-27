@@ -21,7 +21,7 @@ import { ListChecks } from 'lucide-react';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { EmptyState } from '@gmo-onair/shared/src/client/states';
 import { ProjectStageLabels, type ProjectStage } from '@/types';
-import { isStale } from './stages';
+import { HealthBadge } from './health';
 import type { ProjectListRow } from './types';
 
 /** 左から「まだ何も無い」→「受注済」。終わったもの (完了・失注) は並べない */
@@ -43,11 +43,9 @@ function amountOf(p: ProjectListRow): number {
 
 export function ProjectBoard({
   rows,
-  today,
   onOpen,
 }: {
   rows: ProjectListRow[];
-  today: string;
   onOpen: (id: string) => void;
 }) {
   const columns = BOARD_STAGES.map((stage) => {
@@ -86,8 +84,6 @@ export function ProjectBoard({
             </p>
           ) : (
             col.items.map((p) => {
-              const overdue = p.next_task_due !== null && p.next_task_due < today;
-              const stale = isStale(p.stage, p.last_activity_at);
               return (
                 <button
                   key={p.id}
@@ -106,9 +102,10 @@ export function ProjectBoard({
                       {p.next_task_title || 'タスクがありません'}
                     </span>
                   </div>
-                  {(overdue || stale) && (
-                    <p className="text-sub-sm mt-1.5 font-bold text-destructive">
-                      {overdue ? '期限を過ぎたタスクがあります' : '1週間 動いていません'}
+                  {/* 健全性はリスト・カードと同じ1部品（サーバーの `health`）。ok は何も出ない */}
+                  {p.health !== 'ok' && (
+                    <p className="mt-1.5">
+                      <HealthBadge p={p} />
                     </p>
                   )}
                 </button>

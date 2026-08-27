@@ -102,16 +102,13 @@ export const STAGE_CHIPS: { key: string; label: string; stages: ProjectStage[] }
 ];
 
 /**
- * 「止まっている」と見なす日数。
+ * ⚠️ **案件一覧はもうこの日数を使いません**（docs/core-redesign-plan.md §3-1）。
  *
- * 実施日が先でも、**1週間だれも触っていない生きた案件**は誰かが忘れています。
- * 終わった案件 (完了・失注) には出しません — 動かないのが正しい状態なので。
+ * 「止まっている」のクライアント7日判定（旧 `isStale`）は廃止し、
+ * 一覧・カード・ボードは `GET /projects` が返す `health`
+ * （サーバー1か所 = `server/.../project-health.ts`・ステージ別しきい値＋生存証拠）
+ * を使います。この定数が残っているのは **GPM の「おすすめ順」の近似判定**
+ * （`contexts/gpm/pages/GpmProjectListPage.tsx` — GPM にはまだサーバー側の
+ * health が無い）だけが参照しているためです。GPM が health を持ったら消すこと。
  */
 export const STALE_DAYS = 7;
-
-export function isStale(stage: ProjectStage, lastActivityAt: string | null | undefined): boolean {
-  if (!lastActivityAt || TERMINAL_STAGES.includes(stage)) return false;
-  const t = new Date(lastActivityAt).getTime();
-  if (!Number.isFinite(t)) return false;
-  return Date.now() - t >= STALE_DAYS * 86_400_000;
-}

@@ -194,11 +194,14 @@ export async function apply(
   let order = 0;
   for (const r of chosen) {
     await execute(
-      `INSERT INTO project_tasks (id, project_id, title, due_date, sort_order, source, created_by, updated_by)
-       VALUES (?, ?, ?, ?, ?, 'flow_template', ?, ?)`,
+      // 期限は due_at（時刻つき・唯一の正）にも書く（根源整理 §3-4）。
+      // 日付しか無い工程なので終業 18:00 を補う。due_date は互換のため残す —
+      // due_date だけだと期限前通知（tk_due 以外の COALESCE 読み）から漏れる
+      `INSERT INTO project_tasks (id, project_id, title, due_date, due_at, sort_order, source, created_by, updated_by)
+       VALUES (?, ?, ?, ?::date, (?::date + TIME '18:00')::timestamp, ?, 'flow_template', ?, ?)`,
       // **担当は入れない。** 型が持つのは職種で、誰がやるかは案件ごとに決まる。
       // 適当な人を入れると「自分のタスク」に他人の仕事が並ぶ
-      [uuidv4(), projectId, `${r.phase_name}｜${r.title}`, r.due, order++, userId, userId],
+      [uuidv4(), projectId, `${r.phase_name}｜${r.title}`, r.due, r.due, order++, userId, userId],
     );
   }
 

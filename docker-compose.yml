@@ -98,6 +98,8 @@ services:
       # 毎晩 3:00 のやり取り整形 (v4.0.1+)。off と書くと止まる
       ACTIVITY_FORMAT_NIGHTLY: ${ACTIVITY_FORMAT_NIGHTLY:-}
       NEXT_ACTION_SHORT_NIGHTLY: ${NEXT_ACTION_SHORT_NIGHTLY:-}
+      # 案件の自動整理 (毎日 7:30。候補通知60日→自動見送り90日・受注→完了の繰り上げ)。AI は呼ばない。off で止まる
+      PROJECT_TIDY_DAILY: ${PROJECT_TIDY_DAILY:-}
       # 制作資料 v4 段7: AI 提案の期限切れ(3:15)・締め(3:20)。AI は呼ばない。off で止まる
       QSHEET_AI_EXPIRE_NIGHTLY: ${QSHEET_AI_EXPIRE_NIGHTLY:-}
       QSHEET_AI_SETTLE_NIGHTLY: ${QSHEET_AI_SETTLE_NIGHTLY:-}
@@ -186,6 +188,8 @@ services:
       # 両方が毎晩走ると同じ請求書に2つぶん載る
       ACTIVITY_FORMAT_NIGHTLY: ${ACTIVITY_FORMAT_NIGHTLY_DEV:-${ACTIVITY_FORMAT_NIGHTLY:-}}
       NEXT_ACTION_SHORT_NIGHTLY: ${NEXT_ACTION_SHORT_NIGHTLY_DEV:-${NEXT_ACTION_SHORT_NIGHTLY:-}}
+      # 案件の自動整理。AI は呼ばないが、検証だけ止められるよう他の nightly と同じ形に揃える
+      PROJECT_TIDY_DAILY: ${PROJECT_TIDY_DAILY_DEV:-${PROJECT_TIDY_DAILY:-}}
       # 制作資料 v4 段7。AI は呼ばないので費用の理由で分ける必要は無いが、他の nightly と同じ形に揃える
       QSHEET_AI_EXPIRE_NIGHTLY: ${QSHEET_AI_EXPIRE_NIGHTLY_DEV:-${QSHEET_AI_EXPIRE_NIGHTLY:-}}
       QSHEET_AI_SETTLE_NIGHTLY: ${QSHEET_AI_SETTLE_NIGHTLY_DEV:-${QSHEET_AI_SETTLE_NIGHTLY:-}}
