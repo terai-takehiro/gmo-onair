@@ -151,7 +151,9 @@ export function InvoiceRows({
               </RowSub>
             </RowMain>
             <RowSlot w={96} placeholder="—" hideOnMobile>
-              {r.episode_code && <span className="font-number text-sub-sm truncate">{r.episode_code}</span>}
+              {/* `min-w-0 flex-1` が無いと `truncate` が効かない（同型のバグを
+                  `billing/ClosingRows.tsx` の GLS番号列で実際に踏んだ）*/}
+              {r.episode_code && <span className="font-number min-w-0 flex-1 truncate text-sub-sm">{r.episode_code}</span>}
             </RowSlot>
             <MoneyCell value={r.amount} width={128} />
             <MarkCell
