@@ -122,7 +122,10 @@ export function registerStudioTools(server: McpServer): void {
       description:
         'スタジオ予約を新規作成する。作成した予約はカレンダー UI にすぐ表示される。' +
         'room_ids は list_studio_rooms で確認した部屋 ID を渡す。使用者/用途メモを部屋ごとに付けたい場合は room_details を使う。' +
-        '既定 status は tentative (仮予約)。日時は JST ローカルの ISO 形式 (例 2026-07-15T13:00:00)。',
+        '既定 status は tentative (仮予約)。日時は JST ローカルの ISO 形式 (例 2026-07-15T13:00:00)。' +
+        '作成前に list_studio_bookings 等で同じ枠の予約が既に無いか確認すること — ' +
+        'このツールは重複していても保存は止めない (時間帯が重なり、かつ同じ案件か件名がよく似た既存予約があると ' +
+        '返り値の booking.duplicate_check に印が付くだけで、作成自体は成功する)。',
       inputSchema: {
         title: z.string().min(1).describe('予約タイトル'),
         start_time: z.string().min(1).describe('開始日時 (例 2026-07-15T13:00:00)'),

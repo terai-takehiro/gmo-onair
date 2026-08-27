@@ -113,6 +113,20 @@ describe('予約を直したら時間外の印を付け直す', () => {
 
   it('判定の結果は行とは別に返す（作るときと同じ形）', () => {
     // 列に入れた文言をそのまま出すと、設定を直しても古い文が残る
-    expect(STUDIO).toMatch(/hoursCheck \? \{ \.\.\.after, hours_check: hoursCheck \} : after/);
+    expect(STUDIO).toMatch(/\.\.\.\(hoursCheck \? \{ hours_check: hoursCheck \} : \{\}\)/);
+  });
+});
+
+describe('予約を直したら重複疑いの印も付け直す', () => {
+  it('⚠️ 題名・時刻・部屋・案件のどれが変わっても見直す', () => {
+    // 表記揺らぎだけ直しても（題名が変わっても）、案件を付け替えても見直さないと
+    // 「重複が解消したのに印が残る／新しく重複したのに印が付かない」が起きる
+    expect(STUDIO).toMatch(/const titleChanged = b\.title !== undefined;/);
+    expect(STUDIO).toMatch(/const projectChanged = b\.project_id !== undefined;/);
+    expect(STUDIO).toMatch(/if \(timeChanged \|\| roomsChanged \|\| titleChanged \|\| projectChanged\) \{/);
+  });
+
+  it('中に戻したとき（重複が解消したとき）は印が外れる（false も書く）', () => {
+    expect(STUDIO).toMatch(/await stampPossibleDuplicate\(String\(req\.params\.id\), duplicateCheck\);/);
   });
 });

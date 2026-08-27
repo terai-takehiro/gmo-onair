@@ -14,6 +14,7 @@
  * どの入口にいるかは URL から `appOfPath()` で判定し、その入口の節だけを出します。
  */
 import {
+  AlertTriangle,
   BarChart3,
   Bot,
   Building2,
@@ -232,6 +233,7 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         { label: "予定", to: "/calendar", icon: Calendar, module: "sales" },
         { label: "部屋の空き", to: "/calendar/rooms", icon: Layers, module: "sales" },
         { label: "仮押さえ", to: "/calendar/holds", icon: CalendarClock, module: "sales" },
+        { label: "重複疑い", to: "/calendar/duplicates", icon: AlertTriangle, module: "sales" },
       ],
     },
     {

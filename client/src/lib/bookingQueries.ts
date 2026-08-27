@@ -30,6 +30,7 @@
  */
 
 import { HOLD_KEY } from '../contexts/production/pages/holds/holdLogic';
+import { DUPLICATE_KEY } from '../contexts/production/pages/duplicates/duplicateLogic';
 
 /** `queryClient` のうち、ここで使う分だけ。react-query を持ち込まずに試せるようにする */
 export interface Invalidator {
@@ -55,6 +56,8 @@ export const BOOKING_AFFECTED_KEYS = [
   ['projects'],
   /** ③ 仮押さえ一覧・①予定サイドレールの「仮押さえ」ウィジェット (`holdLogic.ts` の HOLD_KEY と同一) */
   HOLD_KEY,
+  /** ⑤ 重複疑い一覧 (`duplicateLogic.ts` の DUPLICATE_KEY と同一) */
+  DUPLICATE_KEY,
 ] as const;
 
 /**

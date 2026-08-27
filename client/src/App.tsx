@@ -46,6 +46,7 @@ import GpmTemplateListPage from "@/contexts/gpm/pages/GpmTemplateListPage";
 // Production (スタジオ予約)
 import RoomAvailabilityPage from '@/contexts/production/pages/RoomAvailabilityPage';
 import HoldListPage from '@/contexts/production/pages/HoldListPage';
+import DuplicateListPage from '@/contexts/production/pages/DuplicateListPage';
 import CalendarSettingsPage from '@/contexts/production/pages/CalendarSettingsPage';
 import UnifiedCalendarPage from "@/contexts/production/pages/UnifiedCalendarPage";
 import SignagePage from "@/contexts/production/pages/SignagePage";
@@ -306,6 +307,7 @@ function AppRoutes() {
         <Route path="/calendar" element={<PermissionRoute module="sales"><UnifiedCalendarPage /></PermissionRoute>} />
         <Route path="/calendar/rooms" element={<PermissionRoute module="sales"><RoomAvailabilityPage /></PermissionRoute>} />
         <Route path="/calendar/holds" element={<PermissionRoute module="sales"><HoldListPage /></PermissionRoute>} />
+        <Route path="/calendar/duplicates" element={<PermissionRoute module="sales"><DuplicateListPage /></PermissionRoute>} />
         <Route path="/calendar/settings" element={<PermissionRoute module="sales"><CalendarSettingsPage /></PermissionRoute>} />
         {/* ここから旧 `/studio/*` の互換転送。AppKey/パスを `studio`→`calendar` に改名した
             （2026-08・`shared/src/client/apps.ts`）ための後方互換（`RedirectKeepQuery` でクエリを引き継ぐ） */}

@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { checkBooking, locationOfRooms, stampOutOfHours } from './business-hours.service';
+import { checkPossibleDuplicate, stampPossibleDuplicate } from './booking-duplicate.service';
 import { syncProjectEventDates } from './project-event-dates.service';
 import { isReversedTimeRange } from '../../../shared/utils/timeRange';
 
@@ -242,22 +243,33 @@ export const studioBookingService = {
      */
     await syncProjectEventDates(project_id, actorId);
 
+    const roomIdsUsed = Array.isArray(room_details) && room_details.length > 0
+      ? room_details.map((rd) => rd.room_id)
+      : (room_ids ?? []);
+
     // ── 営業時間の外なら印を付ける（v4 設定 ⑥）────────────────
     //
     // **止めません**（ご判断）。当日いま入れたい予約が入らないと業務が止まる。
     // 印を残しておけば、あとから一覧で拾って個別に連絡できる。
     // 拠点が分からない予約（部屋を押さえない予定）は判定しない。
-    const loc = await locationOfRooms(
-      Array.isArray(room_details) && room_details.length > 0
-        ? room_details.map((rd) => rd.room_id)
-        : (room_ids ?? []),
-    );
+    const loc = await locationOfRooms(roomIdsUsed);
     const check = await checkBooking(loc, start_time, end_time);
     if (check.outside) await stampOutOfHours(id, check);
+
+    // ── 重複の疑いがあれば印を付ける（複数経路からの予約の表記揺らぎ対策）───
+    //
+    // **こちらも止めません**（out_of_hours と同じ方針）。同じ枠を指す予約が
+    // 案件ステージ自動生成・MCP・手入力の別経路から題名の言い回し違いで
+    // 二重に入ることが多々あるため、正規化した題名の類似度で拾い、
+    // あとから一覧（GET /studios/bookings/possible-duplicates/list）で確認できるようにする。
+    const dup = await checkPossibleDuplicate({
+      id, title, project_id: project_id || null, start_time, end_time, room_ids: roomIdsUsed,
+    });
+    if (dup) await stampPossibleDuplicate(id, dup);
 
     const row = await queryOne('SELECT * FROM studio_bookings WHERE id = ?', [id]) as Record<string, unknown>;
     // 画面が注意を出せるように、判定の結果を**行とは別に**返す
     // （列に入れた文言をそのまま出すと、設定を直しても古い文が残る）
-    return { ...row, hours_check: check };
+    return { ...row, hours_check: check, duplicate_check: dup };
   },
 };
