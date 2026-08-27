@@ -311,6 +311,10 @@ export default function StudioBookingDialog({
       // 時間外の印(`hours_check`)は保存の返り値にだけ乗る（サーバーは止めない方針）。画面が気づかせる唯一の場所
       const hoursCheck = res?.data?.data?.hours_check;
       if (hoursCheck?.outside) notifyWarning("営業時間外の予約です", { description: hoursCheck.reason || undefined });
+      // 重複疑い(`duplicate_check`)も同じ方針 — 保存は止めず、ここで気づかせるだけ。
+      // 見逃した分は「重複疑い」一覧（/calendar/duplicates）から後でも拾える
+      const duplicateCheck = res?.data?.data?.duplicate_check;
+      if (duplicateCheck) notifyWarning("重複の疑いがある予約です", { description: duplicateCheck.reason || undefined });
       setSaveError(null);
       onOpenChange(false);
     },

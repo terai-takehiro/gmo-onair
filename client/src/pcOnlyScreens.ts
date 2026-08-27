@@ -252,6 +252,7 @@ export const CLIENT_MOBILE_OK: string[] = [
   */
   '/budget/vendors',                    // 取引先（電話の前に相手を調べる）
   '/calendar/holds',                    // 仮押さえ（外で「確定にする」を押す・HoldCards）
+  '/calendar/duplicates',               // ⑤ 重複疑い（仮押さえと同型の一覧・stackOnMobile で縦積み）
   '/gpm/dashboard',                     // プロジェクト管理ダッシュボード（読むだけ）
   '/gpm/projects',                      // プロジェクト一覧（カードで並ぶ）
   '/gpm/tasks',                         // GPM のやること（読む＋消し込み）

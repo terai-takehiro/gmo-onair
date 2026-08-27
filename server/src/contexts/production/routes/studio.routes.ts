@@ -7,9 +7,11 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateICalFeed, ICalEvent } from '../../../shared/utils/ical';
 import { studioBookingService } from '../services/studio-booking.service';
 import { checkBooking, locationOfBooking, stampOutOfHours } from '../services/business-hours.service';
+import { checkPossibleDuplicate, stampPossibleDuplicate } from '../services/booking-duplicate.service';
 import { syncProjectEventDates } from '../services/project-event-dates.service';
 import { isReversedTimeRange } from '../../../shared/utils/timeRange';
 import type { HoursCheck } from '../../../shared/services/businessHours';
+import type { DuplicateResult } from '../../../shared/services/bookingDuplicate';
 
 const router = Router();
 
@@ -429,6 +431,42 @@ router.get('/bookings/availability', async (req, res) => {
   res.json({ success: true, data: result });
 });
 
+// GET /studios/bookings/possible-duplicates/list — 重複疑いの一覧（あとから拾うため）
+// ※ /bookings/:id より前に定義すること (:id に "possible-duplicates" が捕捉されないように)
+router.get('/bookings/possible-duplicates/list', async (req, res) => {
+  const from = String(req.query.from ?? '');
+  const rows = await queryAll(
+    `SELECT b.id, b.title, b.start_time, b.end_time, b.status, b.possible_duplicate_reason,
+            b.project_id, p.name AS project_name, p.gls_number,
+            o.id AS of_id, o.title AS of_title, o.start_time AS of_start_time, o.end_time AS of_end_time
+       FROM studio_bookings b
+       LEFT JOIN projects p ON p.id = b.project_id
+       LEFT JOIN studio_bookings o ON o.id = b.possible_duplicate_of
+      WHERE b.deleted_at IS NULL AND b.possible_duplicate = TRUE
+        ${from ? 'AND substr(b.start_time, 1, 10) >= ?' : ''}
+      ORDER BY b.start_time`,
+    from ? [from] : [],
+  );
+  res.json({ success: true, data: rows });
+});
+
+// PATCH /studios/bookings/:id/dismiss-duplicate — 「重複ではない」と人が判断した印を外す
+// （保存は止めていないので、確認した結果を消すためだけの専用口。他の項目は変えない）
+router.patch('/bookings/:id/dismiss-duplicate', requirePermission('sales', 'editor'), async (req, res) => {
+  const existing = await queryOne(
+    'SELECT id FROM studio_bookings WHERE id = ? AND deleted_at IS NULL', [req.params.id],
+  );
+  if (!existing) throw new AppError(404, 'NOT_FOUND', '予約が見つかりません');
+  await execute(
+    `UPDATE studio_bookings
+        SET possible_duplicate = FALSE, possible_duplicate_of = NULL, possible_duplicate_reason = NULL,
+            updated_at = NOW(), updated_by = ?
+      WHERE id = ?`,
+    [req.user!.id, req.params.id],
+  );
+  res.json({ success: true, message: '重複の印を外しました' });
+});
+
 // GET /studios/bookings/:id
 router.get('/bookings/:id', async (req, res) => {
   const booking = await queryOne(
@@ -575,8 +613,43 @@ router.put('/bookings/:id', requirePermission('sales', 'editor'), async (req, re
     after.out_of_hours_reason = hoursCheck.outside ? hoursCheck.reason : null;
   }
 
+  /**
+   * ⚠️ **重複疑いの印も付け直す**（out_of_hours と同じ理由・レビューでの指摘 #63 を踏襲）。
+   * 題名・時刻・部屋・案件のどれを直しても「重複しているように見えるか」は変わりうるので、
+   * この4つのどれかが変わったときは毎回見直す。直して重複が解消したときも
+   * `stampPossibleDuplicate` が false を書くので印が外れる。
+   */
+  const titleChanged = b.title !== undefined;
+  const projectChanged = b.project_id !== undefined;
+  let duplicateCheck: DuplicateResult | null = null;
+  if (timeChanged || roomsChanged || titleChanged || projectChanged) {
+    const roomIdsAfter = ((await queryAll(
+      `SELECT room_id FROM studio_booking_rooms WHERE booking_id = ?`, [req.params.id],
+    )) as Array<{ room_id: string }>).map((r) => r.room_id);
+    duplicateCheck = await checkPossibleDuplicate({
+      id: String(req.params.id),
+      title: String(after.title),
+      project_id: (after.project_id as string | null) ?? null,
+      start_time: String(after.start_time),
+      end_time: after.end_time ? String(after.end_time) : null,
+      room_ids: roomIdsAfter,
+    });
+    await stampPossibleDuplicate(String(req.params.id), duplicateCheck);
+    after.possible_duplicate = !!duplicateCheck;
+    after.possible_duplicate_reason = duplicateCheck?.reason ?? null;
+    after.possible_duplicate_of = duplicateCheck?.bookingId ?? null;
+  }
+
   // 画面が注意を出せるように、判定の結果を**行とは別に**返す（作るときと同じ形）
-  res.json({ success: true, data: hoursCheck ? { ...after, hours_check: hoursCheck } : after });
+  res.json({
+    success: true,
+    data: {
+      ...after,
+      ...(hoursCheck ? { hours_check: hoursCheck } : {}),
+      ...(duplicateCheck !== null || timeChanged || roomsChanged || titleChanged || projectChanged
+        ? { duplicate_check: duplicateCheck } : {}),
+    },
+  });
 });
 
 // DELETE /studios/bookings/:id
