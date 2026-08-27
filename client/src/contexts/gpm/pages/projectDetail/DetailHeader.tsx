@@ -148,7 +148,7 @@ export function DetailHeader({
         <Link
           to="/gpm/projects"
           aria-label="プロジェクト一覧に戻る"
-          className="rounded-control-lg flex h-10 w-10 shrink-0 items-center justify-center border border-border hover:bg-muted"
+          className="rounded-control-lg flex h-11 w-11 shrink-0 items-center justify-center border border-border hover:bg-muted lg:h-10 lg:w-10"
         >
           <ArrowLeft className="h-4 w-4 text-secondary-foreground" aria-hidden="true" />
         </Link>
@@ -162,7 +162,7 @@ export function DetailHeader({
                 onClick={onEdit}
                 aria-label="プロジェクトの内容を直す"
                 title="プロジェクトの内容を直す"
-                className="rounded-control-md flex h-9 w-9 shrink-0 items-center justify-center hover:bg-muted"
+                className="rounded-control-md flex h-11 w-11 shrink-0 items-center justify-center hover:bg-muted lg:h-9 lg:w-9"
               >
                 <Pencil className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
               </button>
@@ -191,13 +191,21 @@ export function DetailHeader({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-end gap-3 px-4 lg:px-6">
+      {/*
+        **スマホはステージとタブを縦に積む。** 以前は PC と同じ1行
+        （タブ `flex-1` ＋ ステージ `shrink-0`）だったが、`flex-1` は
+        flex-basis 0 なので折り返し計算でタブの幅が 0 と数えられ、
+        375px では約260pxのステージ帯と同じ行に押し込まれてタブの文字が
+        重なって読めなくなっていた（PageHeader の v4.5.1 と同型の壊れ方）。
+        スマホはステージを全幅のセグメント・タブをその下の全幅の行にする
+      */}
+      <div className={cn('px-4 lg:px-6', mobile ? 'flex flex-col' : 'flex flex-wrap items-end gap-3')}>
         {/*
           **スマホは段階で絞った3つを均等割り**（`_rules.md` の考え方どおり、
           横スクロールにしない — スクロールすると「まだ右にタブがある」ことに
           気づけず、押されないタブができる）。PC は今までどおり7タブの横スクロール
         */}
-        <div className={cn('-mb-px flex min-w-0 flex-1', !mobile && 'overflow-x-auto')}>
+        <div className={cn('-mb-px flex min-w-0', mobile ? 'order-2' : 'flex-1 overflow-x-auto')}>
           {tabs.map((t) => {
             const on = t.key === tab;
             const n = counts[t.key];
@@ -225,7 +233,10 @@ export function DetailHeader({
 
         {canEdit ? (
           <div
-            className="mb-2 inline-flex shrink-0 overflow-hidden rounded-control border border-border"
+            className={cn(
+              'overflow-hidden rounded-control border border-border',
+              mobile ? 'order-1 mb-1 flex w-full' : 'mb-2 inline-flex shrink-0',
+            )}
             role="group"
             aria-label="ステージを変える"
           >
@@ -238,7 +249,9 @@ export function DetailHeader({
                   onClick={() => { if (!on) onChangeStage(s); }}
                   aria-pressed={on}
                   className={cn(
-                    'min-h-tap text-sub inline-flex items-center px-3 lg:min-h-[36px]',
+                    'min-h-tap text-sub inline-flex items-center lg:min-h-[36px]',
+                    // スマホは4等分（375pxでも1段あたり約84px取れる）。PC は内容幅のまま
+                    mobile ? 'min-w-0 flex-1 justify-center px-1' : 'px-3',
                     i > 0 && 'border-l border-border',
                     on ? 'bg-primary font-bold text-primary-foreground' : 'text-muted-foreground hover:bg-muted',
                   )}
@@ -249,7 +262,12 @@ export function DetailHeader({
             })}
           </div>
         ) : (
-          <span className="text-sub mb-2 shrink-0 rounded-control border border-border px-3 py-1.5 text-muted-foreground">
+          <span
+            className={cn(
+              'text-sub rounded-control border border-border px-3 py-1.5 text-muted-foreground',
+              mobile ? 'order-1 mb-1 self-start' : 'mb-2 shrink-0',
+            )}
+          >
             {STAGE_BADGE_LABEL[project.stage]}
           </span>
         )}
