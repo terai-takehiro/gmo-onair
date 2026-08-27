@@ -812,11 +812,10 @@ export function registerGpmTools(server: McpServer): void {
       description: '見積1本を明細つきで取得する。',
       inputSchema: { id: z.string().min(1).describe('見積 ID') },
     },
-    async (args) => runTool(async () => {
-      const row = await assertGpmEstimate(args.id).catch(() => null);
-      if (!row) return ok({ error: '見積が見つかりません', code: 'NOT_FOUND' });
-      return ok(row);
-    }),
+    // `assertGpmEstimate` が投げる AppError(404) はそのまま runTool に処理させる —
+    // 素の catch で握ると、DB 接続断のような無関係な失敗まで「見積が見つかりません」
+    // に化けて runTool の isError も付かず、呼び出し側が失敗に気づけなくなる
+    async (args) => runTool(async () => ok(await assertGpmEstimate(args.id))),
   );
 
   server.registerTool(
@@ -1076,6 +1075,12 @@ export function registerGpmTools(server: McpServer): void {
       },
     },
     async (args) => runTool(async () => {
+      // **`listProjectFolder` は GLS-B かを確かめない**（案件の BOX ファイル一覧と共用のため）。
+      // ここで確かめないと、`id` に案件 (GLS-A) の id を渡すと**その案件の BOX の中身
+      // （取引先の書類）が読み取りゲート無しの read ツールから見えてしまう**
+      // （create_gpm_box_folder は自前の SQL で gls_category='B' を見ているが、
+      // 読み取り側は listProjectFolder に素通ししていたため漏れていた）
+      await assertGpmProjectId(args.id);
       const { items, total, truncated, reason } = await listProjectFolder(
         args.id, args.scope, 'プロジェクトが見つかりません',
       );

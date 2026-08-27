@@ -535,9 +535,18 @@ export function createGpmRoutes(): Router {
   // 並び替え。**案件側の `PATCH /projects/:projectId/members/reorder` と対**
   // （MCP 整備のときに気づいた非対称を埋めた・新設）
   router.patch('/projects/:id/members/reorder', ...canEdit, async (req, res) => {
-    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    const raw = Array.isArray(req.body?.items) ? req.body.items : [];
+    // **形が崩れた行は捨てる**（MCP 側の zod と同じ確認をここでも行う）。
+    // 素通しすると `id` が文字列でない行が UPDATE の WHERE に渡り、
+    // 0件更新のまま「並び替えました」を返す（何も起きていないのに気づけない）
+    const items = raw.filter(
+      (it: unknown): it is { id: string; sort_order: number } => {
+        const r = it as Record<string, unknown>;
+        return !!r && typeof r.id === 'string' && r.id.length > 0 && Number.isFinite(Number(r.sort_order));
+      },
+    ).map((it: { id: string; sort_order: number }) => ({ id: it.id, sort_order: Number(it.sort_order) }));
     await memberService.reorder(String(req.params.id), items);
-    res.json({ success: true, data: { reordered: true } });
+    res.json({ success: true, data: { reordered: true, count: items.length } });
   });
   router.delete('/members/:id', ...canEdit, async (req, res) => {
     await memberService.remove(String(req.params.id));
