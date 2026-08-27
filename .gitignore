@@ -49,3 +49,7 @@ client/public/mcp-tools.json
 rental-scraper/__pycache__/
 rental-scraper/rental_items.db
 rental-scraper/crawl.log
+
+# サーバーの UPLOAD_DIR (実行時生成物)。リポジトリ直下でサーバーを起動すると
+# シードがダミー画像 (awards のアバター等) をここへ書き出す。データはコミットしない
+uploads/
