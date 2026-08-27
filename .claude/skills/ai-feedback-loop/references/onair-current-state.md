@@ -18,7 +18,13 @@ ONAiR で AI 機能を設計するとき、この調査をやり直さずに済�
 | **打合せの議事録 (Whisper + LLM)** | `minutes_draft` | ○ (文字起こし全文 + 下書き) | ○ (確定時・**AI 出力と比較**) | ○ (**持ち帰りの追跡率**を読み取り時に導出) | ○ (advice を整形プロンプトに載せる) |
 | **やり取りの整形 (画面 / バックフィル)** | `activity_format` | ○ (原文 + 整形結果) | ○ (保存時に自動比較 / 「整え直す」= reject) | ○ (無修正採用率・期限内完了) | ○ (advice をプロンプトに載せる) |
 | **「次にやること」を1行に (migration 190)** | `next_action_short` | ○ (材料の全文 + 出力) | ○ (人が直すと自動比較 = fix / 「違う」= reject) | ○ (無修正採用率 ＋ 期限内完了) | ○ (advice を次のプロンプトに載せる) |
+| **プロジェクトの起票 (`create_gpm_project`・2026-08)** | `gpm_project_draft` | ○ (全文 payload + prompt_version) | ○ (gpm.service の update 時・7日窓・AI 自身は除外) | ○ (stage×確定売上。案件と同じ導出) | ○ (digest + 月次営業 AI レビュー) |
+| **プロジェクトタスクの起票 (`create_gpm_task`・2026-08)** | `gpm_task_draft` | ○ (全文 payload + prompt_version) | ○ (gpm.service **と** project-tasks.service の update 時 — GLS-B はガント/`update_task` も通るため両方に入れてある) | ○ (期限内完了率 `gpm_tasks`) | ○ (同上) |
 | Slack の返信案・概算見積 | — | ✕ | ✕ | ✕ | ✕ |
+
+⚠️ **プロジェクト管理の残穴**: MCP の `create_task` / `bulk_create_tasks` は GLS-B の
+project_id も受けるが `ai_outputs` を記録しない（GLS-A 向けの既存ギャップと同じ）。
+GPM のタスクを AI に起票させるときは `create_gpm_task` を使うこと。
 
 **議事録の成果 (2026-08 に塞いだ)**: 持ち帰りは案件では**タスク** (`open_items[].task_id`)、
 プロジェクト管理では**未確認事項** (`open_items[].ask_id`) になる。`getFeedbackDigest('minutes_draft')` が

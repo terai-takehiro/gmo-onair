@@ -61,11 +61,15 @@ export const KIND_LABEL: Record<string, string> = {
   inquiry_intake: '問い合わせの取り込み',
   finance_doc_intake: '経理書類の取り込み',
   ops_news_item: 'デイリーニュースの記事',
+  // プロジェクト管理 (GPM)。MCP の create_gpm_project / create_gpm_task が起票する
+  gpm_project_draft: 'プロジェクトの下書き',
+  gpm_task_draft: 'プロジェクトタスクの下書き',
 };
 
 /** 対象テーブルの日本語名。知らない値は素の名前で出す（黙って隠さない） */
 export const TARGET_LABEL: Record<string, string> = {
   projects: '案件',
+  project_tasks: 'プロジェクトタスク',
   activity_logs: '営業活動記録',
   project_minutes: '議事録',
   task_intake: '投入口',

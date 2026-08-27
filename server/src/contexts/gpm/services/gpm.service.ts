@@ -59,8 +59,10 @@ import { getMinutes } from '../../sales/services/minutes.service';
 import { healthSql, stalledDaysSql } from '../../sales/services/project-health';
 /**
  * AI（MCP `create_gpm_project` / `create_gpm_task`）が起票した行を人が直したときの
- * 差分の記録（会社方針「AI を使い捨てにしない」の条件2）。**update の中で呼ぶ** —
- * 画面（HTTP）から直しても MCP 越しに直しても同じ1本を通るのがここだけ。
+ * 差分の記録（会社方針「AI を使い捨てにしない」の条件2）。**update の中で呼ぶ**。
+ * ⚠️ GLS-B のタスクは**この口だけでなく `project-tasks.service` の update も通る**
+ * （案件詳細のガント・MCP の `update_task`）ので、タスクのフックは**両方**に入れてある。
+ * 片方だけにすると、その経路の修正だけが黙って数えられない。
  */
 import { recordGpmProjectCorrections, recordGpmTaskCorrections } from './gpm-ai-feedback.service';
 
@@ -795,7 +797,12 @@ export const gpmTaskService = {
     }
     if ('due_date' in input) {
       const due = dateOrNull(input.due_date);
-      sets.push('due_at = ?'); params.push(due ? `${due}T18:00:00` : null);
+      // **旧 `due_date` 列も一緒に書く**（project-tasks.service の update と同じ形）。
+      // 読み手は全員 COALESCE(due_at, due_date+18:00) なので、due_at だけ NULL にすると
+      // 旧列に日付が残っている行（カンバン/ガント/一括作成で作られたもの）では
+      // 「期限を消したのに消えない」になる
+      sets.push('due_at = ?', 'due_date = ?');
+      params.push(due ? `${due}T18:00:00` : null, due);
     }
     if ('gpm_phase_id' in input) {
       const phaseId = await resolvePhaseId(String(task.project_id), input.gpm_phase_id);

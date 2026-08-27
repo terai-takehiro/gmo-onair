@@ -18,6 +18,9 @@ import { queryAll, queryOne } from '../db/connection';
  * 集計だけが黙って 0 件になる（画面には「まだレビュー済みの出力がない」と出るだけ）。
  */
 import { MINUTES_KIND } from '../../contexts/sales/services/minutes.service';
+import {
+  GPM_PROJECT_DRAFT_KIND, GPM_TASK_DRAFT_KIND,
+} from '../../contexts/gpm/services/gpm-ai-feedback.service';
 // 制作資料 v4 段9（04-ai.md §6-1）。qsheet 系 kind だけの分岐に使う定数。
 import {
   SCRIPT_OUTLINE_KIND, SCRIPT_LINE_KIND, PRODUCTION_CHAT_KIND, QSHEET_AI_KINDS, AI_REVIEW_PRODUCTION_KIND,
@@ -184,7 +187,7 @@ export interface FeedbackDigest {
     note: string | null;
     corrected_at: string;
   }>;
-  /** 成果 (既存データから導出。kind=estimate_draft のときのみ) */
+  /** 成果 (既存データから導出。kind=estimate_draft / project_draft / gpm_project_draft のとき) */
   outcomes?: {
     won: number;
     lost: number;
@@ -242,6 +245,20 @@ export interface FeedbackDigest {
     project: number;
     dropped: number;
     dropped_rate: number | null;
+  };
+  /**
+   * AI が起票したプロジェクトタスクの期限内完了 (kind=gpm_task_draft のときのみ)。
+   * task_intake の期限内完了率と同じ読み方 — **低ければ AI が置いた期限が短すぎる疑い**。
+   * `project_tasks` から読み取り時に導出する (`ai_outcomes` に行を足さない)
+   */
+  gpm_tasks?: {
+    created: number;
+    on_time: number;
+    late: number;
+    overdue: number;
+    still_open: number;
+    /** 完了した中で期限内だった割合 (0〜1)。期限つきで完了した行が無ければ null */
+    on_time_rate: number | null;
   };
   /** AI への助言 (集計から機械的に組み立てた文。プロンプト更新を待たず効かせる) */
   advice: string[];
@@ -412,7 +429,9 @@ export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90
   // `target_id = projects.id` なので、案件のステージがそのまま成果になる。
   // **`ai_outcomes` に行を足さない**: 既存データから導出できるものに
   // 新しいテーブルを作ると、書き忘れた日から数字が嘘になる
-  if (kind === 'estimate_draft' || kind === 'project_draft') {
+  // gpm_project_draft も target_id = projects.id なので同じ形で読める
+  // (プロジェクト = GLS-B の案件。stage と確定売上がそのまま成果になる)
+  if (kind === 'estimate_draft' || kind === 'project_draft' || kind === GPM_PROJECT_DRAFT_KIND) {
     /*
      * ⚠️ **`SUM(DISTINCT 金額)` は使わない**（レビューでの指摘 #52）。
      *
@@ -478,6 +497,36 @@ export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90
       won: num(oc?.won), lost: num(oc?.lost), in_progress: num(oc?.in_progress),
       won_amount_total: num(oc?.won_amount_total),
       won_without_revenue: num(oc?.won_without_revenue),
+    };
+  }
+
+  // AI が起票したプロジェクトタスクの期限内完了 (task_intake の on_time_rate と同じ読み方)。
+  // 同じタスクに出力が複数付くことがあるので、先に1行に畳んでから数える (上の案件側と同じ)。
+  // 期限の読みは COALESCE(due_at, due_date+18:00) の1本 (根源整理 §3-4)
+  if (kind === GPM_TASK_DRAFT_KIND) {
+    const gt = await queryOne(
+      `SELECT COUNT(*) AS created,
+              COUNT(*) FILTER (WHERE is_completed AND due IS NOT NULL AND completed_at <= due) AS on_time,
+              COUNT(*) FILTER (WHERE is_completed AND due IS NOT NULL AND completed_at > due) AS late,
+              COUNT(*) FILTER (WHERE NOT is_completed AND due IS NOT NULL AND due < NOW()) AS overdue,
+              COUNT(*) FILTER (WHERE NOT is_completed AND (due IS NULL OR due >= NOW())) AS still_open
+         FROM (
+           SELECT DISTINCT t.id, t.is_completed, t.completed_at,
+                  COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp) AS due
+             FROM ai_outputs o
+             JOIN project_tasks t ON t.id = o.target_id
+              AND o.target_table = 'project_tasks' AND t.deleted_at IS NULL
+            WHERE o.kind = ?
+              AND o.created_at >= NOW() - (? || ' days')::interval
+         ) AS one_row_per_task`,
+      [kind, w],
+    ) as any;
+    const onTime = num(gt?.on_time);
+    const late = num(gt?.late);
+    digest.gpm_tasks = {
+      created: num(gt?.created), on_time: onTime, late,
+      overdue: num(gt?.overdue), still_open: num(gt?.still_open),
+      on_time_rate: onTime + late > 0 ? onTime / (onTime + late) : null,
     };
   }
 

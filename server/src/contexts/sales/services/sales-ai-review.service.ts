@@ -88,6 +88,11 @@ function kindSection(kind: string, d: FeedbackDigest): string[] {
     lines.push(`- 持ち帰りの追跡率: ${pct(d.minutes.tracked_rate)}`
       + `（${d.minutes.open_items_tracked}/${d.minutes.open_items_total}・確定議事録${d.minutes.confirmed}件）`);
   }
+  if (d.gpm_tasks) {
+    lines.push(`- 期限内完了率: ${pct(d.gpm_tasks.on_time_rate)}`
+      + `（起票${d.gpm_tasks.created}件・期限内${d.gpm_tasks.on_time}/遅れ${d.gpm_tasks.late}`
+      + `・超過中${d.gpm_tasks.overdue}）`);
+  }
   lines.push('');
   return lines;
 }
