@@ -127,6 +127,13 @@ const TREE = [
       '旧実装は部屋の色で塗っており、同じ予約がこの画面だけ違う色に見える食い違いがあった'],
     ['③ 仮押さえ', '/calendar/holds', 'client/src/contexts/production/pages/HoldListPage.tsx'],
     ['④ 設定（部屋・外部カレンダー・サイネージ）', '/calendar/settings', 'client/src/contexts/production/pages/CalendarSettingsPage.tsx'],
+    // v4 で新規追加（複数経路からの重複予約対策）。③ 仮押さえと同型の一覧
+    ['⑤ 重複疑い', '/calendar/duplicates', 'client/src/contexts/production/pages/DuplicateListPage.tsx',
+      undefined,
+      '**複数の経路（案件ステージ自動生成・MCP・手入力）から同じ枠が題名の言い回し違いで二重登録される疑いのある予約を集める**' +
+      '（③ 仮押さえと同型の一覧）。時間帯・部屋・案件・題名の類似度（表記揺らぎ吸収）で判定し、保存そのものは' +
+      '止めない（③④と同じく `possible_duplicate` 系の印を残すだけ）。「別物として確認済みにする」（印を外すだけ・予約は残る）' +
+      'と削除ができる'],
     // **（旧）スタジオカレンダー・（旧）自分の予定は退役した**（v4ネイティブUI化バックログB・
     // 2026-08）。固有機能（香盤ビュー・部屋予約を直す導線・取込元の色分け・外部カレンダー
     // 連携）はすべて① 予定／④ 設定へ吸収済み。ページ自体を削除し、旧URLは
