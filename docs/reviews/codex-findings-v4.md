@@ -1924,6 +1924,22 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   （検証用Postgres）+ Playwrightで実施——空状態・実データ・PC/スマホ双方の高さを実測、
   横はみ出し0・pageerror 0を確認。
 
+- **#475（docs(reviews): PR #473・#474 のマージ後の棚卸しを記録した・2026-08-29）** — #473・
+  #474の直後、この棚卸し自体を記録するために出したPR。作成 11:04:59 UTC / マージ 11:42:52 UTC
+  （terai-takehiro 本人が手動マージ）。`get_reviews`・`get_review_comments` とも0件。
+  表に移す指摘はない（コード変更なし・ドキュメントのみ）。
+- **#476（release: v4.5.5・2026-08-29）** — 利用者の明示的な指示「リリースしましょう」を受けて
+  出した版上げPR。`npm run release:notes -- 4.5.5` が3件の下書き（#472/#473/#474）を集約し、
+  `package.json`/`CLAUDE.md`/`README.md` の3か所と `docs/version-history.md` を更新した
+  （v4.5.4 をアーカイブへ移動）。作成 11:12:27 UTC / CI green（`checks`・`build` とも success）/
+  マージ 11:42:59 UTC（terai-takehiro 本人が手動マージ）。`get_reviews`・`get_review_comments`
+  とも0件。表に移す指摘はない（コード変更なし・版の書き換えのみ）。`check-changelog.mjs` の
+  リリース判定（枝名が `release/` で始まる）が正しく通り、`checks` は成功した。マイグレーション
+  なし。検証は `npm run typecheck:all`・`npm run test`（1572件）・全ワークスペースの `build`・
+  `RELEASE=1 npm run lint`（warning 58件・着手前と同数）・`npm run check:version`（3か所一致）を
+  実施。**本番公開（GitHub Release の Publish）はこのPRのマージだけでは走らない** —
+  利用者の明示的な指示があるまでClaudeからは実施しない（CLAUDE.md の絶対原則）。
+
 ---
 
 ## 一覧（PR の新しい順）
