@@ -1,0 +1,1 @@
+**PR #475（PR #473・#474 の棚卸し記録）と PR #476（release: v4.5.5）のマージ後の棚卸しを記録した**（コード変更なし）。#475 は作成からマージまで約38分、#476 は作成からCI green まで確認後、いずれもterai-takehiro本人が手動マージし、レビューが1件も付いていなかったことを `docs/reviews/codex-findings-v4.md` に記録した（`npm run reviews:debt` は GitHub 401 のためこの環境からは実行できず、GitHub MCP で直接確認した）。#476（版上げPR）は `check-changelog.mjs` のリリース判定（枝名 `release/` プレフィックス）が正しく通ることも確認できた。
