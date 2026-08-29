@@ -56,7 +56,6 @@ import { useSideMenuTopSlot } from '@gmo-onair/shared/src/client/shell/sideMenuS
 import { EmptyState, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
-import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import StudioBookingDetailDialog from '../components/studio/StudioBookingDetailDialog';
 import StudioBookingDialog from '../components/studio/StudioBookingDialog';
@@ -65,16 +64,13 @@ import { CalSidebarExtras } from './calendar/CalSidebarExtras';
 import { RoomAvailabilityToolbar, type SiteOption } from './rooms/RoomAvailabilityToolbar';
 import { MobileRoomAvailability } from './rooms/MobileRoomAvailability';
 import { RoomAvailabilityCards } from './rooms/RoomAvailabilityCards';
-import { OutsideChips } from './rooms/OutsideChips';
+import { RoomLaneGrid } from './rooms/RoomLaneGrid';
 import {
-  DAY_START_H, DAY_END_H, laneBlocks, isAllDay, monthDotEvents,
+  DAY_START_H, DAY_END_H, isAllDay, monthDotEvents,
   type AvailBooking, type AvailRoom,
 } from './rooms/availability';
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
-
-/** 帯1段ぶんの高さ（px）。**段数 × これが部屋の行の高さ**（重なりは段で分ける） */
-const ROW_H = 36;
 
 interface LocationRow { id: string; name: string; rooms: AvailRoom[] }
 
@@ -267,97 +263,7 @@ export default function RoomAvailabilityPage() {
         ) : isMobile ? (
           <RoomAvailabilityCards groups={groups} evs={evs} day={day} onOpen={setDetailId} />
         ) : (
-          <div className="rounded-card overflow-x-auto border border-border bg-card">
-            <div className="min-w-[820px]">
-              {/* 時間の目盛り。**部屋名の幅と揃える**（ずれると帯の位置を読み違える） */}
-              <div className="sticky top-0 z-[1] flex border-b border-border-faint bg-surface-subtle">
-                <span className="w-[196px] shrink-0 px-3 py-2" />
-                <span className="relative min-w-0 flex-1">
-                  {hours.map((h) => (
-                    <span
-                      key={h}
-                      className="font-number text-note absolute top-0 py-2 text-muted-foreground"
-                      style={{ left: `${((h - DAY_START_H) / (DAY_END_H - DAY_START_H)) * 100}%` }}
-                    >
-                      {String(h).padStart(2, '0')}:00
-                    </span>
-                  ))}
-                  <span className="block py-2 opacity-0" aria-hidden="true">0</span>
-                </span>
-              </div>
-
-              {groups.map((g) => (
-                <div key={g.id}>
-                  <div className="bg-surface-subtle px-3 py-1.5">
-                    <span className="text-th text-muted-foreground">{g.name}</span>
-                  </div>
-                  {g.rooms.map((r) => {
-                    // **見ている日を渡す。** 渡さないと日をまたぐ予約を置き違える
-                    // （8/1 20:00〜8/2 10:00 が 8/2 の 20:00〜22:00 に出ていた）
-                    const lane = laneBlocks(evs, r.id, day);
-                    return (
-                      <div key={r.id} className="flex border-b border-border-faint last:border-b-0">
-                        <span className="w-[196px] shrink-0 px-3 py-2.5">
-                          <span className="text-sub flex items-center gap-1.5 font-bold">
-                            <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: r.color || '#94a3b8' }} aria-hidden="true" />
-                            <span className="min-w-0 truncate">{r.abbreviation || r.name}</span>
-                          </span>
-                        </span>
-
-                        <span className="relative min-w-0 flex-1 py-2">
-                          {hours.map((h) => (
-                            <span
-                              key={h}
-                              className="absolute bottom-0 top-0 border-l border-border-faint"
-                              style={{ left: `${((h - DAY_START_H) / (DAY_END_H - DAY_START_H)) * 100}%` }}
-                              aria-hidden="true"
-                            />
-                          ))}
-                          {/* **重なった予約は段を分ける**（`laneBlocks` の `row`/`rows`）。
-                              1本のレーンに重ねて描くと、下になった帯は文字が重畳して
-                              両方読めず、存在にも気づけない */}
-                          <span className="relative block" style={{ height: lane.rows * ROW_H }}>
-                            {lane.blocks.map((b) => (
-                              <button
-                                key={b.id}
-                                type="button"
-                                onClick={() => setDetailId(b.id)}
-                                title={`${b.timeLabel} ${b.title}`}
-                                className={cn(
-                                  'rounded-note absolute flex items-center overflow-hidden px-1.5 text-left',
-                                  // 仮押さえは**破線**。確定と同じ見た目にすると、
-                                  // 押さえただけの枠を「決まっている」と読んでしまう
-                                  b.tentative && 'border border-dashed',
-                                  !b.tentative && 'border',
-                                )}
-                                style={{
-                                  left: b.left,
-                                  width: b.width,
-                                  top: b.row * ROW_H + 1,
-                                  height: ROW_H - 2,
-                                  borderColor: b.color,
-                                  // **終日は斜線。** 時間帯の予約と同じ塗りだと
-                                  // 「8:00〜22:00 に何かある」と読み違える
-                                  background: b.allDay
-                                    ? `repeating-linear-gradient(45deg, ${b.color}22, ${b.color}22 4px, ${b.color}0d 4px, ${b.color}0d 8px)`
-                                    : `${b.color}${b.tentative ? '14' : '1f'}`,
-                                }}
-                              >
-                                <span className="text-note truncate font-bold" style={{ color: b.textColor }}>
-                                  <span className="font-number">{b.timeLabel}</span> {b.title}
-                                </span>
-                              </button>
-                            ))}
-                            <OutsideChips lane={lane} onOpen={setDetailId} />
-                          </span>
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
+          <RoomLaneGrid groups={groups} evs={evs} day={day} hours={hours} onOpen={setDetailId} />
         )}
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
