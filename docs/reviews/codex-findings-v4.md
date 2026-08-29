@@ -1944,6 +1944,11 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   （`checks`・`build` とも success）11:47:40 UTC（約2分20秒）/ マージ 13:32:14 UTC
   （terai-takehiro 本人が手動マージ、**CI green から約1時間44分後**）。`get_reviews`・
   `get_review_comments` とも0件。表に移す指摘はない（コード変更なし・ドキュメントのみ）。
+- **#478（docs(reviews): PR #477 のマージ後の棚卸しを記録した・2026-08-29）** —
+  #477の直後、この棚卸し自体を記録するために出したPR。作成 13:34:25 UTC / CI
+  （`checks`・`build` とも success）13:36:27 UTC（約2分2秒）/ マージ 13:47:26 UTC
+  （terai-takehiro 本人が手動マージ、CI green から約11分後）。`get_reviews`・
+  `get_review_comments` とも0件。表に移す指摘はない（コード変更なし・ドキュメントのみ）。
 
 ---
 
