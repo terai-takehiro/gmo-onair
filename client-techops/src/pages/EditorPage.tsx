@@ -697,7 +697,7 @@ export default function EditorPage() {
               <span className="hidden sm:inline text-xs">ON AIR</span>
             </Button>
             <button
-              className="p-1.5 rounded-control-md hover:bg-accent text-muted-foreground transition-colors hidden lg:block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              className="size-8 rounded-control-md hover:bg-accent text-muted-foreground transition-colors hidden lg:inline-flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               onClick={() => setSidebarOpen(!sidebarOpen)}
               aria-label={sidebarOpen ? "サイドバーを閉じる" : "サイドバーを開く"}
             >

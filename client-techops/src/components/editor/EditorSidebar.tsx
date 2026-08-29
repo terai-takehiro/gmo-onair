@@ -453,9 +453,9 @@ export function EditorSidebarBody({
   return (
     <Tabs defaultValue="blocks" className="flex flex-col h-full">
         <TabsList className="grid grid-cols-3 m-2 mb-0 sticky top-0 z-10 shrink-0">
-          <TabsTrigger value="blocks" className="text-xs">列</TabsTrigger>
-          <TabsTrigger value="masters" className="text-xs">マスター</TabsTrigger>
-          <TabsTrigger value="meta" className="text-xs">メタ</TabsTrigger>
+          <TabsTrigger value="blocks" className="h-8 text-xs">列</TabsTrigger>
+          <TabsTrigger value="masters" className="h-8 text-xs">マスター</TabsTrigger>
+          <TabsTrigger value="meta" className="h-8 text-xs">メタ</TabsTrigger>
         </TabsList>
 
         <TabsContent value="blocks" className="flex-1 overflow-y-auto m-0 mt-2">
