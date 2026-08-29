@@ -78,7 +78,7 @@ function RentalCell({ item, ctx }: { item: EquipmentRecord; ctx: CellContext }) 
   if (!ctx.canSetRental) {
     return (
       <span
-        className={`text-sub-sm truncate ${on ? 'font-bold text-primary' : 'text-fg-disabled'}`}
+        className={`text-sub-sm truncate ${on ? 'font-bold text-primary' : 'text-muted-foreground'}`}
         title="変えるには機材管理の「所有者」権限が要ります"
       >
         {on ? '貸出可' : '常設'}
@@ -93,7 +93,9 @@ function RentalCell({ item, ctx }: { item: EquipmentRecord; ctx: CellContext }) 
         onCheckedChange={() => ctx.onToggleRental(item)}
         aria-label={`${item.name} を貸出可にする`}
       />
-      <span className={`text-sub-sm ${on ? 'font-bold text-primary' : 'text-fg-disabled'}`}>
+      {/* 「常設」は押せない印ではなく**この台帳の中心概念**（読ませる状態）なので
+          薄い文字にしない。「貸出可」との差は太さと色で十分付いている */}
+      <span className={`text-sub-sm ${on ? 'font-bold text-primary' : 'text-muted-foreground'}`}>
         {on ? '貸出可' : '常設'}
       </span>
     </label>
@@ -138,9 +140,12 @@ export function standardCells(
         // （実際に「設備/その他設備」が「RACK1」に重なっていた）。
         // 幅は `COL_W.equipment_type` = 128 でいまの8通り全部が収まりますが、
         // 種別が増えたときに**同じ壊れ方を静かにやり直さない**ための止め具です。
+        //
+        // 帯そのものは 112px にそろえる（`badges.tsx`）— そろえないと
+        // 4〜8字が混ざるこの列だけ**右端が4通り**になり、縦に流し読みできません。
         return (
           <RowSlot key={key} w={COL_W.equipment_type} className="overflow-hidden">
-            <SectionBadge typeCode={item.equipment_type_code} section={item.equipment_section} />
+            <SectionBadge typeCode={item.equipment_type_code} section={item.equipment_section} fixedW={112} />
           </RowSlot>
         );
       case 'location': {

@@ -236,18 +236,22 @@ export function CatalogPanel() {
           合計 <span className="font-number font-bold">{totalQty.toLocaleString('ja-JP')}</span> 本・個
         </p>
         <div className="flex-1" />
+        {/* Excel 取込・出力・印刷は**どれも表に効くもの**で、表が出るのは 640px から
+            （行は `Row stackOnMobile` で縦に積まれる）。スマホで3行ぶん先に並べると
+            本文が押し下がるので畳む — 残すのは「品目を登録」だけ（機材タブと同じ・M8） */}
         {canEdit && (
           <Button
             variant="outline"
+            className="hidden sm:inline-flex"
             onClick={() => { setImportTarget(excelTarget); setImportOpen(true); }}
           >
             <Upload className="mr-1 h-4 w-4" aria-hidden="true" />{excelConfig.label}を Excel 取込
           </Button>
         )}
-        <Button variant="outline" onClick={downloadExcel}>
+        <Button variant="outline" className="hidden sm:inline-flex" onClick={downloadExcel}>
           <Download className="mr-1 h-4 w-4" aria-hidden="true" />{excelConfig.label}を Excel 出力
         </Button>
-        <Button variant="outline" onClick={() => window.print()}>
+        <Button variant="outline" className="hidden sm:inline-flex" onClick={() => window.print()}>
           <Printer className="mr-1 h-4 w-4" aria-hidden="true" />印刷
         </Button>
         {canEdit && (
@@ -264,7 +268,7 @@ export function CatalogPanel() {
 
       {/* Excel はケーブルとコネクタで列が違うので、**いま絞っている種別のぶんだけ**
           出し入れできる。「すべて」のときはケーブル側になることを書いておく */}
-      <p className="text-note text-muted-foreground">
+      <p className="hidden text-note text-muted-foreground sm:block">
         Excel の取込・出力は<strong className="font-bold">{excelConfig.label}</strong>が対象です
         （列が違うので1つのファイルにまとめられません）。種別のチップで切り替えてください。
       </p>
