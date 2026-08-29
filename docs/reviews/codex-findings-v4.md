@@ -1939,6 +1939,11 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   `RELEASE=1 npm run lint`（warning 58件・着手前と同数）・`npm run check:version`（3か所一致）を
   実施。**本番公開（GitHub Release の Publish）はこのPRのマージだけでは走らない** —
   利用者の明示的な指示があるまでClaudeからは実施しない（CLAUDE.md の絶対原則）。
+- **#477（docs(reviews): PR #475・#476 のマージ後の棚卸しを記録した・2026-08-29）** —
+  #475・#476の直後、この棚卸し自体を記録するために出したPR。作成 11:45:20 UTC / CI
+  （`checks`・`build` とも success）11:47:40 UTC（約2分20秒）/ マージ 13:32:14 UTC
+  （terai-takehiro 本人が手動マージ、**CI green から約1時間44分後**）。`get_reviews`・
+  `get_review_comments` とも0件。表に移す指摘はない（コード変更なし・ドキュメントのみ）。
 
 ---
 
