@@ -135,11 +135,13 @@ export function DetailHeader({
    * （完了・A 受注済の案件で実測）。
    */
   const rail = useRail();
+  // `rail` は毎回新しい入れ物で返るので、束ねる関数が依存するのは中の `ref` だけにする
+  const { ref: railRef } = rail;
   const bandRef = useRef<HTMLDivElement | null>(null);
   const setBandRef = useCallback((el: HTMLDivElement | null) => {
     bandRef.current = el;
-    rail.ref(el);
-  }, [rail.ref]);
+    railRef(el);
+  }, [railRef]);
   useEffect(() => {
     bandRef.current
       ?.querySelector('[aria-pressed="true"]')
