@@ -10,6 +10,19 @@
  *
  * `tone="alert"` は「止まっているもの」用。**赤い枠は1枚だけ**にします —
  * 2枚以上あると目が拾わなくなります。
+ *
+ * ── `h-full` は `lg:` 限定にする（実機で見つかった崩れ）───────────
+ *
+ * PC（`lg:grid-cols-3`）では「止まっている」「動いている」の2枚を
+ * `lg:col-span-2` の1つの入れ物にまとめ、隣の「未確認事項」と高さを揃えるために
+ * `h-full` を使っています。ところがスマホでは1列になり、この2枚は**同じ入れ物の
+ * 中に縦に積まれた兄弟**になります。この入れ物（grid item）自体の高さは2枚の
+ * 合計で決まりますが、**各 Panel の `h-full`（`height:100%`）は「決まったあとの
+ * 入れ物の高さ」を基準に解決される**ため、中身が1行しかない枚まで
+ * 「2枚合わせた高さ」に引き伸ばされます（実機で確認：中身が空の「止まっている
+ * プロジェクト」が1200px超の空白カードになっていた）。
+ * PC で高さを揃えたいのは「隣に並ぶとき」だけなので `lg:h-full` にする —
+ * PC の見た目は変えずスマホだけ直る。
  */
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
@@ -31,7 +44,7 @@ export function Panel({
   return (
     <section
       className={cn(
-        'rounded-card flex h-full flex-col border bg-card p-4 lg:px-5',
+        'rounded-card flex flex-col border bg-card p-4 lg:h-full lg:px-5',
         alert ? 'border-destructive-border' : 'border-border',
       )}
     >
