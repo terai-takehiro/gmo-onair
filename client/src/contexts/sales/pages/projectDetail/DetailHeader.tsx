@@ -45,10 +45,11 @@
  * 終わった案件では E〜A のどれも光りません（居ないので嘘になる）。押せば戻せます —
  * 戻すのは間違いを直すときなので、確認の文面で「終わった案件を進行中に戻す」と伝えます。
  */
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Pencil, Plus, AlarmClock } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useRail } from '@gmo-onair/shared/src/client-v4/rail';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/platform/AuthContext';
@@ -127,6 +128,25 @@ export function DetailHeader({
   const snoozed = p?.health === 'snoozed' && !!p?.snooze_until;
   const snooze = useSnooze(id);
 
+  /**
+   * ステージ帯はレール（掴んで滑らせる・続きがある側だけ端が溶ける）。
+   * スマホでは B 以降が画面外に描かれるので、**マウント時に現在のステージを
+   * 視野の中央へ寄せる** — 寄せないと初期表示でこの案件のステージが読めない
+   * （完了・A 受注済の案件で実測）。
+   */
+  const rail = useRail();
+  const bandRef = useRef<HTMLDivElement | null>(null);
+  const setBandRef = useCallback((el: HTMLDivElement | null) => {
+    bandRef.current = el;
+    rail.ref(el);
+  }, [rail.ref]);
+  useEffect(() => {
+    bandRef.current
+      ?.querySelector('[aria-pressed="true"]')
+      ?.scrollIntoView({ inline: 'center', block: 'nearest' });
+    // マウント時だけ。開いたあとの変更は本人が押したボタン＝すでに視野の中
+  }, []);
+
   const mobileKeys = MOBILE_TABS_BY_PHASE[phase];
   const tabs = PROJECT_TABS
     // **スマホは3つだけ。** 7タブを 375px に並べると1つ 40px 弱になり押し分けられない
@@ -181,12 +201,18 @@ export function DetailHeader({
       </div>
 
       {/*
-        ── 1段目（42px）: ステージ ───────────────────────────────
+        ── 1段目（PC 42px・スマホ 52px）: ステージ ─────────────────
         **各104px の等幅**。記号＋名前を常に出すので、選んでも幅が変わりません。
-        スマホでは横に並べきれないので、**押せる帯のまま横スクロール**にします
+        スマホでは横に並べきれないので、**押せる帯のままレール**にします
         （畳んでシートにすると、ステージを変えるのに2タップ増えます）。
+        スマホはタップ 44px（`h-11`）が要るぶん帯を 52px に広げます。
       */}
-      <div className="flex h-[42px] items-center gap-2 overflow-x-auto px-4 lg:px-6">
+      <div
+        ref={setBandRef}
+        onScroll={rail.onScroll}
+        style={rail.style}
+        className="v4-rail flex min-h-[52px] items-center gap-2 overflow-x-auto px-4 lg:min-h-0 lg:h-[42px] lg:px-6"
+      >
         <span className="text-note shrink-0 font-bold text-muted-foreground">ステージ</span>
         <div className="inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="ステージを変える">
           {STAGE_STEPS.map((st, i) => {
@@ -197,7 +223,7 @@ export function DetailHeader({
                 type="button"
                 onClick={() => { if (!on) onChangeStage(st.stage); }}
                 aria-pressed={on}
-                className={`text-sub inline-flex h-8 ${STAGE_W} shrink-0 items-center justify-center gap-1.5 ${
+                className={`text-sub inline-flex h-11 lg:h-8 ${STAGE_W} shrink-0 items-center justify-center gap-1.5 ${
                   i > 0 ? 'border-l border-border' : ''
                 } ${on ? 'bg-primary font-bold text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
               >
@@ -219,7 +245,7 @@ export function DetailHeader({
                 onClick={() => { if (!on) onChangeStage(st.stage); }}
                 aria-pressed={on}
                 title={ProjectStageLabels[st.stage]}
-                className={`text-sub inline-flex h-8 ${END_W} shrink-0 items-center justify-center ${
+                className={`text-sub inline-flex h-11 lg:h-8 ${END_W} shrink-0 items-center justify-center ${
                   i > 0 ? 'border-l border-border' : ''
                 } ${
                   on
@@ -245,7 +271,7 @@ export function DetailHeader({
             type="button"
             onClick={() => setSnoozeOpen(true)}
             aria-pressed={snoozed}
-            className={`text-sub inline-flex h-8 shrink-0 items-center gap-1.5 rounded-control border px-2.5 ${
+            className={`text-sub inline-flex h-11 shrink-0 items-center gap-1.5 rounded-control border px-2.5 lg:h-8 ${
               snoozed
                 ? 'border-border bg-muted font-bold text-foreground'
                 : 'border-border text-muted-foreground hover:bg-muted'

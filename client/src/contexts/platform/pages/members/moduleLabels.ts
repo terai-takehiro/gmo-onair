@@ -52,9 +52,12 @@ export const ALL_MODULE_ORDER = ROLE_MODULE_ORDER;
  * の `sales` は「案件管理」（アプリ切替の名前）だが、この区画はいまや
  * 財務管理・カレンダー・プロジェクト管理も含む。他の区画はアプリ名のままでよい
  * ので `MODULE_LABELS` にフォールバックする。
+ * `qsheet` は techops 改名で `APP_LABELS` のキーが `techops` になり
+ * フォールバックが外れる（区画キーは `qsheet` のまま）ため、ここで持つ。
  */
 export const MODULE_TITLE: Record<string, string> = {
   sales: '案件管理・財務・カレンダー',
+  qsheet: '制作技術支援',
 };
 
 /** 何ができる区画なのかを業務の言葉で */

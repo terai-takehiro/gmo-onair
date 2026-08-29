@@ -660,17 +660,40 @@ export async function seed() {
   // ============================================================
   // Studio Locations & Rooms
   // ============================================================
+  /*
+   * **拠点と部屋は migration が固定 id で入れ終わっている**
+   * (030_studio_default_data.sql ＋ 116_rename_samurai_studios.sql)。
+   * ここで uuid を振って同名を入れ直すと**同じ拠点・部屋が2つずつ並ぶ**
+   * （部屋の空きのタブ・予約ダイアログの部屋チップ・設定・料金表すべてに波及し、
+   * 片方は「料金 未設定」の偽警告まで出す）。名前で引いて既定の行を使い、
+   * 無い名前のときだけ入れる。
+   */
   const locSql = `INSERT INTO studio_locations (id, name, sort_order) VALUES (?, ?, ?)`;
-  const LOC_YOGA = uuidv4();
-  const LOC_SHIBUYA = uuidv4();
-  const LOC_AOYAMA = uuidv4();
-  const LOC_EXTERNAL = uuidv4();
-  await ins(locSql, [LOC_YOGA, 'GMOサムライスタジオ用賀', 1]);
-  await ins(locSql, [LOC_SHIBUYA, 'GMOサムライスタジオ渋谷', 2]);
-  await ins(locSql, [LOC_AOYAMA, 'GMOサムライスタジオ青山', 3]);
-  await ins(locSql, [LOC_EXTERNAL, '外現場', 4]);
+  const locByName = async (name: string, sortOrder: number): Promise<string> => {
+    const row = await queryOne('SELECT id FROM studio_locations WHERE name = ?', [name]);
+    if (row) return row.id as string;
+    const id = uuidv4();
+    await ins(locSql, [id, name, sortOrder]);
+    return id;
+  };
+  const LOC_YOGA = await locByName('GMOサムライスタジオ用賀', 1);
+  const LOC_SHIBUYA = await locByName('GMOサムライスタジオ渋谷', 2);
+  const LOC_AOYAMA = await locByName('GMOサムライスタジオ青山', 3);
+  await locByName('外現場', 4);   // 部屋を持たない拠点。id は使わない
 
   const roomSql = `INSERT INTO studio_rooms (id, location_id, name, room_type, color, sort_order) VALUES (?, ?, ?, ?, ?, ?)`;
+  /** 拠点と同じ理由で、既定の部屋があればその id を使う */
+  const roomByName = async (
+    locationId: string, name: string, roomType: string, color: string, sortOrder: number,
+  ): Promise<string> => {
+    const row = await queryOne(
+      'SELECT id FROM studio_rooms WHERE location_id = ? AND name = ?', [locationId, name],
+    );
+    if (row) return row.id as string;
+    const id = uuidv4();
+    await ins(roomSql, [id, locationId, name, roomType, color, sortOrder]);
+    return id;
+  };
   // 用賀 (GMOサムライスタジオ用賀)
   const ROOMS: Record<string, string> = {};
   const yogaRooms: [string, string, string, number][] = [
@@ -686,9 +709,7 @@ export async function seed() {
     ['VIP LOUNGE', 'greenroom', '#9333ea', 10],
   ];
   for (const [name, roomType, color, order] of yogaRooms) {
-    const id = uuidv4();
-    ROOMS[name] = id;
-    await ins(roomSql, [id, LOC_YOGA, name, roomType, color, order]);
+    ROOMS[name] = await roomByName(LOC_YOGA, name, roomType, color, order);
   }
 
   // 渋谷 (GMOサムライスタジオ渋谷)
@@ -698,17 +719,11 @@ export async function seed() {
     ['第3スタジオ', 'studio', '#ca8a04', 3],
   ];
   for (const [name, roomType, color, order] of shibuyaRooms) {
-    const id = uuidv4();
-    ROOMS[name] = id;
-    await ins(roomSql, [id, LOC_SHIBUYA, name, roomType, color, order]);
+    ROOMS[name] = await roomByName(LOC_SHIBUYA, name, roomType, color, order);
   }
 
   // 青山 (GMOサムライスタジオ青山) — 1スタジオのみのため部屋「STUDIO」1件
-  {
-    const id = uuidv4();
-    ROOMS['AOYAMA STUDIO'] = id;
-    await ins(roomSql, [id, LOC_AOYAMA, 'STUDIO', 'studio', '#16a34a', 1]);
-  }
+  ROOMS['AOYAMA STUDIO'] = await roomByName(LOC_AOYAMA, 'STUDIO', 'studio', '#16a34a', 1);
 
   // ============================================================
   // Studio Bookings (サンプル予約)
@@ -770,6 +785,37 @@ export async function seed() {
   // 外現場
   const bk9 = uuidv4();
   await ins(bkSql, [bk9, 'GLS-A005 GE ドキュメンタリー ロケ', 'performance', PROJECTS['GLS-A005'], EPISODES['GLS-A005-001'], 1, '2026-04-10', '2026-04-12', '富士山麓ロケーション', '3日間ロケ撮影', USERS.staff2]);
+
+  /*
+   * **今日を含む予約。** 上の予約は 2026-03〜04 の固定日付なので、
+   * カレンダー（予定・部屋の空き・香盤）を開くと**今日はいつも空**で、
+   * 画面を確かめるたびに予約を手で入れ直すことになっていた。
+   * 描き分けの要る形（同じ部屋で時間帯が重なる2件・帯が細くなる10分・
+   * 表示窓 8:00–22:00 をまたぐ深夜）を今日の日付で置いておく。
+   */
+  const dayOffset = (n: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const today = dayOffset(0);
+  const todayBookings: [string, string, string, string, string | null][] = [
+    // 同じ部屋・重なる時間帯（後から入れたほうが完全に内側に入る組）
+    ['本番前リハーサル', 'rehearsal', `${today}T10:00`, `${today}T13:00`, 'WORLD STUDIO'],
+    ['音声チェック', 'maintenance', `${today}T10:30`, `${today}T12:30`, 'WORLD STUDIO'],
+    // 帯が細くなる短い予約
+    ['機材の受け渡し', 'other', `${today}T15:00`, `${today}T15:10`, 'SKY STUDIO'],
+    // 表示窓の外へ出る日またぎ
+    ['深夜生放送', 'performance', `${today}T22:00`, `${dayOffset(1)}T02:00`, '第1スタジオ'],
+    // 明日・明後日（週表・香盤で「今日以外」も見えるように）
+    ['収録', 'performance', `${dayOffset(1)}T09:00`, `${dayOffset(1)}T18:00`, 'LOUNGE STUDIO'],
+    ['仮押さえ（企画検討中）', 'hold', `${dayOffset(2)}T13:00`, `${dayOffset(2)}T17:00`, 'SKY STUDIO'],
+  ];
+  for (const [title, type, start, end, room] of todayBookings) {
+    const id = uuidv4();
+    await ins(bkSql, [id, title, type, null, null, 0, start, end, null, null, USERS.staff1]);
+    if (room) await ins(bkRoomSql, [id, ROOMS[room], null, null]);
+  }
 
   // ==========================================================
   // Equipment (機材管理)

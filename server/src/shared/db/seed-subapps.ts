@@ -186,10 +186,17 @@ async function seedSubApps() {
       cells: { blk_s1: s1, blk_v1: v1, blk_a1: a1, blk_r1: r1 },
     });
 
-    // ── Doc 1: GH春季IR説明会 ─────────────────────────────
+    /*
+     * ── Doc 1: GH春季IR説明会 ─────────────────────────────
+     *
+     * **id を `verify-onair` に固定してある。** `scripts/verify-ui.mjs` の
+     * 制作技術支援4画面（編集・OnAir・ランダウン・プロンプター・公開音声）が
+     * この id を URL に書いており、種が無いあいだ**公式の画面検査は
+     * ずっと「文書が無い」ときの表示だけを測っていた**。
+     */
     if (PA001 && EA001) {
       await ins(qSql, [
-        uuidv4(), 'GH春季IR説明会 Qシート', EA001, PA001, '2026-03-28', 'on_air',
+        'verify-onair', 'GH春季IR説明会 Qシート', EA001, PA001, '2026-03-28', 'on_air',
         JSON.stringify({
           _version: 1,
           meta: {

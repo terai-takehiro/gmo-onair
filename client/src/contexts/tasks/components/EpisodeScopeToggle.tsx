@@ -31,7 +31,7 @@ export default function EpisodeScopeToggle({ projectId, selectedEpisodeId, onCha
         type="button"
         size="sm"
         variant={selectedEpisodeId === null ? "default" : "outline"}
-        className="h-7 text-xs"
+        className="text-xs"
         onClick={() => onChange(null)}
       >
         全体
@@ -42,7 +42,7 @@ export default function EpisodeScopeToggle({ projectId, selectedEpisodeId, onCha
           type="button"
           size="sm"
           variant={selectedEpisodeId === ep.id ? "default" : "outline"}
-          className="h-7 text-xs"
+          className="text-xs"
           onClick={() => onChange(ep.id)}
         >
           #{ep.episode_number}

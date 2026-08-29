@@ -43,6 +43,17 @@ const CHANNEL = {
   mail: { label: 'メール', tone: 'bg-primary-surface text-primary', icon: Mail },
   inapp: { label: '社内通知', tone: 'bg-ai-surface text-ai', icon: BellRing },
 } as const;
+/**
+ * ひな形に紐づかない定時ジョブ（`templateId: null`）の表示名。
+ * 通知を出さない裏方の仕事なのでひな形が無く、名前もここでしか持てない
+ * （キーの意味はサーバーの `scheduler.service.ts` の各ジョブ実装が正）。
+ */
+const JOB_LABELS: Record<string, string> = {
+  activity_format: 'やり取り記録の本文をAIで整える（メール取込ぶんの後追い）',
+  next_action_short: '「次にやること」をAIで帯の1行に収める',
+  qsheet_ai_expire: '制作技術支援のAI提案：放置された提案を期限切れにする',
+  qsheet_ai_settle: '制作技術支援のAI提案：期限が来た提案の成果を締める',
+};
 
 export default function NotifyPage() {
   const qc = useQueryClient();
@@ -180,7 +191,7 @@ export default function NotifyPage() {
           {q.data.jobs.map((j) => (
             <span key={j.key} className="rounded-note text-note bg-surface-subtle px-2.5 py-1 text-muted-foreground">
               <strong className="font-number font-bold text-foreground">{j.at}</strong>{' '}
-              {q.data.templates.find((t) => t.id === j.templateId)?.name ?? j.key}
+              {q.data.templates.find((t) => t.id === j.templateId)?.name ?? JOB_LABELS[j.key] ?? j.key}
             </span>
           ))}
         </div>
@@ -194,7 +205,7 @@ export default function NotifyPage() {
               <div key={`${r.job_key}-${r.run_date}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border-faint px-4 py-2 last:border-b-0">
                 <span className="text-sub font-number w-[96px] shrink-0">{r.run_date.slice(5).replace('-', '/')}</span>
                 <span className="text-sub min-w-0 flex-1 truncate">
-                  {q.data.templates.find((t) => t.id === r.job_key)?.name ?? r.job_key}
+                  {q.data.templates.find((t) => t.id === r.job_key)?.name ?? JOB_LABELS[r.job_key] ?? r.job_key}
                 </span>
                 {r.error ? (
                   <span className="text-note shrink-0 text-destructive">失敗：{r.error.slice(0, 60)}</span>

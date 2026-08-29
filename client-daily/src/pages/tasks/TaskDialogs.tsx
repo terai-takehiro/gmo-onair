@@ -51,7 +51,7 @@ function LevelPicker({ label, value, onChange }: {
             type="button"
             onClick={() => onChange(lv)}
             className={cn(
-              'flex-1 rounded-md border py-1.5 text-xs transition-colors',
+              'min-h-tap lg:min-h-[36px] flex-1 rounded-md border py-1.5 text-xs transition-colors',
               value === lv ? 'border-primary bg-primary/15 font-medium text-primary' : 'border-input hover:bg-accent'
             )}
           >
@@ -79,7 +79,7 @@ function DueField({ value, onChange, required }: {
             key={q.label}
             type="button"
             onClick={() => onChange(q.value)}
-            className="rounded-full border border-input px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent"
+            className="min-h-tap lg:min-h-[36px] rounded-full border border-input px-2.5 py-0.5 text-[11px] text-muted-foreground hover:bg-accent"
           >
             {q.label}
           </button>
@@ -147,11 +147,11 @@ export function TaskEditDialog({ task, onClose }: { task: MyTask; onClose: () =>
             <Label className="text-xs">見せる範囲</Label>
             <div className="mt-1 flex gap-1">
               <button type="button" onClick={() => setVis('team')}
-                className={cn('flex-1 rounded-md border py-1.5 text-xs', vis === 'team' ? 'border-primary bg-primary/15 font-medium text-primary' : 'border-input hover:bg-accent')}>
+                className={cn('min-h-tap lg:min-h-[36px] flex-1 rounded-md border py-1.5 text-xs', vis === 'team' ? 'border-primary bg-primary/15 font-medium text-primary' : 'border-input hover:bg-accent')}>
                 チームに見せる
               </button>
               <button type="button" onClick={() => setVis('private')}
-                className={cn('flex-1 rounded-md border py-1.5 text-xs', vis === 'private' ? 'border-primary bg-primary/15 font-medium text-primary' : 'border-input hover:bg-accent')}>
+                className={cn('min-h-tap lg:min-h-[36px] flex-1 rounded-md border py-1.5 text-xs', vis === 'private' ? 'border-primary bg-primary/15 font-medium text-primary' : 'border-input hover:bg-accent')}>
                 自分だけ
               </button>
             </div>

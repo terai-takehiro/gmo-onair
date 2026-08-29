@@ -190,7 +190,7 @@ export function TasksTab({ project, mobile }: { project: ProjectDetail; mobile?:
             <button
               type="button"
               onClick={() => setEpisodesOpen((o) => !o)}
-              className="text-sub flex items-center gap-1 font-bold text-primary hover:underline"
+              className="min-h-tap text-sub flex items-center gap-1 font-bold text-primary hover:underline lg:min-h-[36px]"
             >
               {episodesOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
               回の一覧・回を足す
