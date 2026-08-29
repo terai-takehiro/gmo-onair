@@ -47,20 +47,26 @@
  */
 import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DoorOpen } from 'lucide-react';
 import api from '@/lib/api';
+import { invalidateBookingQueries } from '@/lib/bookingQueries';
+import { useAuth } from '@/contexts/platform/AuthContext';
 import { useSideMenuTopSlot } from '@gmo-onair/shared/src/client/shell/sideMenuSlot';
 import { EmptyState, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
-import { cn } from '@gmo-onair/shared/src/client/utils';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
+import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import StudioBookingDetailDialog from '../components/studio/StudioBookingDetailDialog';
+import StudioBookingDialog from '../components/studio/StudioBookingDialog';
 import { ymd, addDays, addMonths, startOfWeek } from './calendar/calendarLayout';
 import { CalSidebarExtras } from './calendar/CalSidebarExtras';
 import { RoomAvailabilityToolbar, type SiteOption } from './rooms/RoomAvailabilityToolbar';
 import { MobileRoomAvailability } from './rooms/MobileRoomAvailability';
 import { RoomAvailabilityCards } from './rooms/RoomAvailabilityCards';
+import { RoomLaneGrid } from './rooms/RoomLaneGrid';
 import {
-  DAY_START_H, DAY_END_H, laneBlocks, isAllDay, monthDotEvents,
+  DAY_START_H, DAY_END_H, isAllDay, monthDotEvents,
   type AvailBooking, type AvailRoom,
 } from './rooms/availability';
 
@@ -69,10 +75,19 @@ const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 interface LocationRow { id: string; name: string; rooms: AvailRoom[] }
 
 export default function RoomAvailabilityPage() {
+  const qc = useQueryClient();
+  const { currentUser, hasPermission } = useAuth();
+  const isAdmin = currentUser?.role === 'system_admin';
+  const canEdit = isAdmin || hasPermission('sales', 'editor');
+  const canDelete = isAdmin || hasPermission('sales', 'manager');
+
   const today = ymd(new Date());
   const [day, setDay] = useState(today);
   const [site, setSite] = useState('all');
   const [miniAnchor, setMiniAnchor] = useState(today.slice(0, 7));
+  // 帯を押したときに出す詳細。**id で持つ**（読み直しで中身が変わっても追随させるため）
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const sideMenuTopSlot = useSideMenuTopSlot();
   // **薄い親で1回だけ判定する。** 部品ごと入れ替えるだけで、
   // どちらの中でも `if (mobile) return …` のような早期returnはしない
@@ -168,6 +183,31 @@ export default function RoomAvailabilityPage() {
 
   const loading = rooms.isLoading || bookings.isLoading;
 
+  // ── 帯を押したら中身を見せる（監査 B-2）──────────────────────
+  //
+  // 帯の幅は時間の長さなので、10分の予約は文字が1字も入らない。PC の `title`
+  // ツールチップはスマホで効かないため、**何の予約かを確かめる手段が無かった**
+  // （① 予定へ移って探し直すしかない）。① 予定・スマホの「今日」と同じ
+  // `StudioBookingDetailDialog` を開く — 直す・消すの導線もそこに揃っている
+  const detail = useMemo(() => evs.find((b) => b.id === detailId) ?? null, [evs, detailId]);
+  const editing = useMemo(() => evs.find((b) => b.id === editId) ?? null, [evs, editId]);
+
+  const del = useMutation({
+    mutationFn: (id: string) => api.delete(`/studios/bookings/${id}`),
+    onSuccess: () => {
+      invalidateBookingQueries(qc);
+      setDetailId(null);
+      notifySuccess('予約を消しました');
+    },
+    onError: (e) => notifyApiError('消せませんでした', e),
+  });
+
+  const askDelete = (id: string) => confirmAction({
+    title: 'この予約を消しますか',
+    description: '押さえていた部屋が空きになります。取り消せません。',
+    confirmLabel: '消す', tone: 'danger',
+  }).then((ok) => ok && del.mutate(id));
+
   return (
     <div className="flex flex-col">
       {sideMenuTopSlot && createPortal(
@@ -221,91 +261,9 @@ export default function RoomAvailabilityPage() {
             description="設定の「部屋」で拠点と部屋を登録すると、ここに並びます。"
           />
         ) : isMobile ? (
-          <RoomAvailabilityCards groups={groups} evs={evs} day={day} />
+          <RoomAvailabilityCards groups={groups} evs={evs} day={day} onOpen={setDetailId} />
         ) : (
-          <div className="rounded-card overflow-x-auto border border-border bg-card">
-            <div className="min-w-[820px]">
-              {/* 時間の目盛り。**部屋名の幅と揃える**（ずれると帯の位置を読み違える） */}
-              <div className="sticky top-0 z-[1] flex border-b border-border-faint bg-surface-subtle">
-                <span className="w-[196px] shrink-0 px-3 py-2" />
-                <span className="relative min-w-0 flex-1">
-                  {hours.map((h) => (
-                    <span
-                      key={h}
-                      className="font-number text-note absolute top-0 py-2 text-muted-foreground"
-                      style={{ left: `${((h - DAY_START_H) / (DAY_END_H - DAY_START_H)) * 100}%` }}
-                    >
-                      {String(h).padStart(2, '0')}:00
-                    </span>
-                  ))}
-                  <span className="block py-2 opacity-0" aria-hidden="true">0</span>
-                </span>
-              </div>
-
-              {groups.map((g) => (
-                <div key={g.id}>
-                  <div className="bg-surface-subtle px-3 py-1.5">
-                    <span className="text-th text-muted-foreground">{g.name}</span>
-                  </div>
-                  {g.rooms.map((r) => {
-                    // **見ている日を渡す。** 渡さないと日をまたぐ予約を置き違える
-                    // （8/1 20:00〜8/2 10:00 が 8/2 の 20:00〜22:00 に出ていた）
-                    const blocks = laneBlocks(evs, r.id, day);
-                    return (
-                      <div key={r.id} className="flex border-b border-border-faint last:border-b-0">
-                        <span className="w-[196px] shrink-0 px-3 py-2.5">
-                          <span className="text-sub flex items-center gap-1.5 font-bold">
-                            <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: r.color || '#94a3b8' }} aria-hidden="true" />
-                            <span className="min-w-0 truncate">{r.abbreviation || r.name}</span>
-                          </span>
-                        </span>
-
-                        <span className="relative min-w-0 flex-1 py-2">
-                          {hours.map((h) => (
-                            <span
-                              key={h}
-                              className="absolute bottom-0 top-0 border-l border-border-faint"
-                              style={{ left: `${((h - DAY_START_H) / (DAY_END_H - DAY_START_H)) * 100}%` }}
-                              aria-hidden="true"
-                            />
-                          ))}
-                          <span className="relative block h-9">
-                            {blocks.map((b) => (
-                              <span
-                                key={b.id}
-                                title={`${b.timeLabel} ${b.title}`}
-                                className={cn(
-                                  'rounded-note absolute inset-y-0 flex items-center overflow-hidden px-1.5',
-                                  // 仮押さえは**破線**。確定と同じ見た目にすると、
-                                  // 押さえただけの枠を「決まっている」と読んでしまう
-                                  b.tentative && 'border border-dashed',
-                                  !b.tentative && 'border',
-                                )}
-                                style={{
-                                  left: b.left,
-                                  width: b.width,
-                                  borderColor: b.color,
-                                  // **終日は斜線。** 時間帯の予約と同じ塗りだと
-                                  // 「8:00〜22:00 に何かある」と読み違える
-                                  background: b.allDay
-                                    ? `repeating-linear-gradient(45deg, ${b.color}22, ${b.color}22 4px, ${b.color}0d 4px, ${b.color}0d 8px)`
-                                    : `${b.color}${b.tentative ? '14' : '1f'}`,
-                                }}
-                              >
-                                <span className="text-note truncate font-bold" style={{ color: b.textColor }}>
-                                  <span className="font-number">{b.timeLabel}</span> {b.title}
-                                </span>
-                              </span>
-                            ))}
-                          </span>
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
+          <RoomLaneGrid groups={groups} evs={evs} day={day} hours={hours} onOpen={setDetailId} />
         )}
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -322,9 +280,28 @@ export default function RoomAvailabilityPage() {
             斜線は終日です
           </span>
           <span className="text-note text-muted-foreground">
-            横の余白が空きです（前の日から続いている予約もこの日のぶんだけ切って出しています）
+            横の余白が空きです（前の日から続いている予約もこの日のぶんだけ切って出しています）。
+            帯を押すと中身が見られます。
           </span>
         </div>
+
+        <StudioBookingDetailDialog
+          open={!!detail}
+          onOpenChange={(v) => !v && setDetailId(null)}
+          booking={detail as never}
+          onEdit={(b) => { setDetailId(null); setEditId(b.id); }}
+          onDelete={askDelete}
+          canEdit={canEdit}
+          canDelete={canDelete}
+        />
+
+        <StudioBookingDialog
+          open={!!editing}
+          onOpenChange={(v) => { if (!v) setEditId(null); }}
+          locations={(rooms.data ?? []) as never}
+          editingBooking={editing as never}
+          presetDate={null}
+        />
       </div>
     </div>
   );

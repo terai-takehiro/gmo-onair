@@ -42,7 +42,7 @@ import { notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { SearchField } from '@/components/parts/SearchField';
 import { useDebounced } from '@/hooks/useDebounced';
 import { TYPE_CODES, TYPE_LABELS } from '@/lib/constants';
-import { HIDE_UNTIL_WIDE } from '@/lib/rowVisibility';
+import { HIDE_UNTIL_EXTRA_WIDE, HIDE_UNTIL_WIDE } from '@/lib/rowVisibility';
 import { RentalRulesPanel } from './RentalRulesPanel';
 
 interface RentalItem {
@@ -100,7 +100,10 @@ export function RentalRulesTab() {
   });
 
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+    // **パネルが横に並ぶのは 1280px から**（`lg` ではない）。`lg` で並べると
+    // 左のリストは本文 728px − パネル 416px = **312px** しか無く、同じ `lg` で
+    // 出てくる列（512px 分）に押されて商品名が 0px になる（`lib/rowVisibility.ts`）
+    <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
       <div className="flex min-w-0 flex-1 flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-sub text-muted-foreground">
@@ -134,58 +137,65 @@ export function RentalRulesTab() {
             onClearFilters={() => { setSearch(''); setTypeFilter(''); }}
           />
         ) : (
-          <div className="flex flex-col rounded-card border border-border bg-card">
-            <RowHeader className="hidden sm:flex">
-              <RowSlot w={56}>貸出可</RowSlot>
-              <RowMain>商品名 ／ メーカー</RowMain>
-              <RowSlot w={128} className={HIDE_UNTIL_WIDE}>型名</RowSlot>
-              <RowSlot w={96} className={HIDE_UNTIL_WIDE}>No.／ID</RowSlot>
-              <RowSlot w={72} className={HIDE_UNTIL_WIDE}>種別</RowSlot>
-              <RowSlot w={160} className={HIDE_UNTIL_WIDE}>設置場所</RowSlot>
-            </RowHeader>
-            {items.map((item) => (
-              <Row key={item.id} divider interactive stackOnMobile>
-                <RowSlot w={56} align="center">
-                  <Switch
-                    checked={item.is_rental_listed}
-                    onCheckedChange={(v) => toggle.mutate({ id: item.id, is_rental_listed: !!v })}
-                    disabled={toggle.isPending}
-                    aria-label={`${item.name} を貸出の対象にする`}
-                  />
-                </RowSlot>
-                <RowMain>
-                  <RowTitle>{item.name}</RowTitle>
-                  <RowSub>{item.manufacturer_name || 'メーカーなし'}</RowSub>
-                </RowMain>
-                <RowSlot w={128} hideOnMobile className={HIDE_UNTIL_WIDE}>
-                  {item.model_number && (
-                    <span className="truncate text-sub-sm text-secondary-foreground">{item.model_number}</span>
-                  )}
-                </RowSlot>
-                <RowSlot w={96} hideOnMobile className={HIDE_UNTIL_WIDE}>
-                  <span className="font-number truncate text-sub-sm text-muted-foreground">
-                    {item.unit_number != null ? `No.${item.unit_number}` : item.eq_code}
-                  </span>
-                </RowSlot>
-                <RowSlot w={72} hideOnMobile className={HIDE_UNTIL_WIDE}>
-                  <TableBadge
-                    label={TYPE_LABELS[item.equipment_type_code] ?? item.equipment_type_code}
-                    w={null}
-                    className="bg-muted text-muted-foreground border-transparent"
-                  />
-                </RowSlot>
-                <RowSlot w={160} hideOnMobile className={HIDE_UNTIL_WIDE}>
-                  {item.location_name && (
-                    <span className="truncate text-sub-sm text-secondary-foreground">{item.location_name}</span>
-                  )}
-                </RowSlot>
-              </Row>
-            ))}
+          <div className="overflow-x-auto">
+            {/* 列が出る段ごとに、商品名に 200px 残る幅を下限にしておく。
+                足りない容れ物に入れられたときは**潰さず横に流す** */}
+            <div className="flex flex-col rounded-card border border-border bg-card lg:min-w-[548px] 2xl:min-w-[800px]">
+              <RowHeader className="hidden sm:flex">
+                <RowSlot w={56}>貸出可</RowSlot>
+                <RowMain>商品名 ／ メーカー</RowMain>
+                <RowSlot w={128} className={HIDE_UNTIL_WIDE}>型名</RowSlot>
+                <RowSlot w={96} className={HIDE_UNTIL_EXTRA_WIDE}>No.／ID</RowSlot>
+                <RowSlot w={96} className={HIDE_UNTIL_WIDE}>種別</RowSlot>
+                <RowSlot w={160} className={HIDE_UNTIL_EXTRA_WIDE}>設置場所</RowSlot>
+              </RowHeader>
+              {items.map((item) => (
+                <Row key={item.id} divider interactive stackOnMobile>
+                  <RowSlot w={56} align="center">
+                    <Switch
+                      checked={item.is_rental_listed}
+                      onCheckedChange={(v) => toggle.mutate({ id: item.id, is_rental_listed: !!v })}
+                      disabled={toggle.isPending}
+                      aria-label={`${item.name} を貸出の対象にする`}
+                    />
+                  </RowSlot>
+                  <RowMain>
+                    <RowTitle>{item.name}</RowTitle>
+                    <RowSub>{item.manufacturer_name || 'メーカーなし'}</RowSub>
+                  </RowMain>
+                  <RowSlot w={128} hideOnMobile className={HIDE_UNTIL_WIDE}>
+                    {item.model_number && (
+                      <span className="truncate text-sub-sm text-secondary-foreground">{item.model_number}</span>
+                    )}
+                  </RowSlot>
+                  <RowSlot w={96} hideOnMobile className={HIDE_UNTIL_EXTRA_WIDE}>
+                    <span className="font-number truncate text-sub-sm text-muted-foreground">
+                      {item.unit_number != null ? `No.${item.unit_number}` : item.eq_code}
+                    </span>
+                  </RowSlot>
+                  <RowSlot w={96} hideOnMobile className={HIDE_UNTIL_WIDE}>
+                    {/* 「ネットワーク」(6字) は既定の 62px に収まらず自然幅 89px になり、
+                        枠をはみ出して隣の列に乗っていた。**この列だけ**帯を 96px にそろえる */}
+                    <TableBadge
+                      label={TYPE_LABELS[item.equipment_type_code] ?? item.equipment_type_code}
+                      w={null}
+                      fixedW={96}
+                      className="bg-muted text-muted-foreground border-transparent"
+                    />
+                  </RowSlot>
+                  <RowSlot w={160} hideOnMobile className={HIDE_UNTIL_EXTRA_WIDE}>
+                    {item.location_name && (
+                      <span className="truncate text-sub-sm text-secondary-foreground">{item.location_name}</span>
+                    )}
+                  </RowSlot>
+                </Row>
+              ))}
+            </div>
           </div>
         )}
       </div>
 
-      <div className="flex w-full shrink-0 flex-col gap-3 lg:w-[400px]">
+      <div className="flex w-full shrink-0 flex-col gap-3 xl:w-[400px]">
         {/* モックの6つのスイッチ (migration 168)。**保存先ができたので出す** */}
         <RentalRulesPanel />
         <div className="rounded-note border border-info-border bg-info-surface p-4">

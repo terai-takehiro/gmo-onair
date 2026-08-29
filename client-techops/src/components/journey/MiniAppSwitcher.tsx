@@ -18,6 +18,7 @@
  */
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useRail } from "@gmo-onair/shared/src/client-v4/rail";
 import { MINI_APP_BY_KEY, panelPathOf } from "@gmo-onair/shared/src/production/miniapps";
 import type { OwnerContext } from "@/lib/deviceSettingsApi";
 
@@ -50,8 +51,17 @@ export default function MiniAppSwitcher({
   owner: OwnerContext;
   current: SwitchKey;
 }) {
+  // 狭い画面では帯からあふれる。続きがある側だけ端を溶かして「まだ先がある」を出す
+  // （素で切れると、右端の項目が最後だと読めてしまう）
+  const rail = useRail();
+
   return (
-    <div className="-mx-1 flex shrink-0 items-center gap-px overflow-x-auto rounded-control-lg bg-muted p-[3px] sm:mx-0">
+    <div
+      ref={rail.ref}
+      onScroll={rail.onScroll}
+      style={rail.style}
+      className="-mx-1 flex shrink-0 items-center gap-px overflow-x-auto rounded-control-lg bg-muted p-[3px] sm:mx-0"
+    >
       {ORDER.map((key) => {
         const def = MINI_APP_BY_KEY[key];
 

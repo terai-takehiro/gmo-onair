@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
+import { Button } from "@/components/ui/button";
 import { fmtAbs, docTotalSec } from "@/lib/time";
 import { notifySuccess, notifyError } from "@/lib/notify";
 import { useCueActualsRecorder } from "@/hooks/useCueActualsRecorder";
@@ -92,7 +93,7 @@ export default function OnAirPage() {
   const pauseAt = useRef<number | null>(null);
   const activeRef = useRef<HTMLDivElement | null>(null);
 
-  const { data: doc, isLoading } = useQuery({
+  const { data: doc, isLoading, error } = useQuery({
     queryKey: ["qsheet-document", id],
     queryFn: async () => {
       const res = await api.get(`/techops/documents/${id}`);
@@ -327,16 +328,13 @@ export default function OnAirPage() {
     );
   }
 
-  if (!doc || cues.length === 0) {
+  if (error || !doc || cues.length === 0) {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-background text-foreground gap-4">
-        <p className="text-muted-foreground">キューデータがありません</p>
-        <button
-          onClick={() => navigate(`/techops/editor/${id}`)}
-          className="px-4 py-2 border border-border rounded text-sm hover:bg-accent"
-        >
+        <p className="text-muted-foreground">{error || !doc ? "台本が見つかりません" : "キューデータがありません"}</p>
+        <Button variant="outline" size="lg" onClick={() => navigate(`/techops/editor/${id}`)}>
           エディターに戻る
-        </button>
+        </Button>
       </div>
     );
   }
@@ -344,19 +342,19 @@ export default function OnAirPage() {
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden select-none">
       {/* ===== HEADER ===== */}
-      <header className="flex-none h-10 flex items-center justify-between px-5 bg-card border-b border-border">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate(`/techops/editor/${id}`)} className="text-muted-foreground hover:text-foreground">
+      <header className="flex-none h-10 flex items-center justify-between gap-3 px-5 bg-card border-b border-border">
+        <div className="flex min-w-0 items-center gap-3">
+          <button onClick={() => navigate(`/techops/editor/${id}`)} aria-label="エディターに戻る" className="inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center rounded-control-md text-muted-foreground hover:text-foreground hover:bg-accent lg:min-h-[36px] lg:min-w-[36px]">
             <ChevronLeft size={18} />
           </button>
-          <span className="text-base font-bold text-foreground">{doc.data?.meta?.title || doc.title}</span>
+          <span className="min-w-0 truncate text-base font-bold text-foreground">{doc.data?.meta?.title || doc.title}</span>
           {running && !paused && (
-            <span className="ml-2 text-sm font-black tracking-[0.2em] text-red-500 flex items-center gap-1.5">
+            <span className="ml-2 shrink-0 text-sm font-black tracking-[0.2em] text-red-500 flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-destructive animate-pulse" />
               ON AIR
             </span>
           )}
-          {paused && <span className="ml-2 text-sm font-black tracking-wider text-warning">PAUSE</span>}
+          {paused && <span className="ml-2 shrink-0 text-sm font-black tracking-wider text-warning">PAUSE</span>}
         </div>
         <div className="text-sm font-bold text-muted-foreground hidden md:flex gap-6">
           <span>SPACE 次へ</span>
@@ -601,17 +599,11 @@ export default function OnAirPage() {
                     <Square size={22} />
                   </button>
                   <div className="w-px h-8 bg-muted/80 mx-2" />
-                  <button
-                    onClick={() => setOffset((p) => p - 60)}
-                    className="p-2.5 rounded bg-muted hover:bg-muted/80 text-foreground font-bold transition-all active:scale-90"
-                  >
+                  <button onClick={() => setOffset((p) => p - 60)} aria-label="1分戻す" className="inline-flex min-h-tap min-w-tap items-center justify-center rounded bg-muted hover:bg-muted/80 text-foreground font-bold transition-all active:scale-90">
                     <Minus size={16} />
                   </button>
                   <span className="text-sm font-black text-muted-foreground w-8 text-center">±1m</span>
-                  <button
-                    onClick={() => setOffset((p) => p + 60)}
-                    className="p-2.5 rounded bg-muted hover:bg-muted/80 text-foreground font-bold transition-all active:scale-90"
-                  >
+                  <button onClick={() => setOffset((p) => p + 60)} aria-label="1分進める" className="inline-flex min-h-tap min-w-tap items-center justify-center rounded bg-muted hover:bg-muted/80 text-foreground font-bold transition-all active:scale-90">
                     <Plus size={16} />
                   </button>
                 </div>

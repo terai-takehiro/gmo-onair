@@ -31,7 +31,7 @@
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { HIDE_UNTIL_WIDE } from '../../client-equipment/src/lib/rowVisibility';
+import { HIDE_UNTIL_EXTRA_WIDE, HIDE_UNTIL_WIDE } from '../../client-equipment/src/lib/rowVisibility';
 
 const ROOT = join(__dirname, '..', '..');
 const EQUIPMENT_SRC = join(ROOT, 'client-equipment', 'src');
@@ -76,7 +76,7 @@ interface RowBlock {
   always: number[];
   /** 640px から出る列（`hideOnMobile`） */
   fromSm: number[];
-  /** 1024px から出る列（`hideOnMobile` ＋ `HIDE_UNTIL_WIDE`） */
+  /** 1024px 以上で出る列（`hideOnMobile` ＋ `HIDE_UNTIL_WIDE` / `HIDE_UNTIL_EXTRA_WIDE`） */
   fromLg: number[];
   hasMain: boolean;
 }
@@ -98,7 +98,9 @@ function rowBlocks(): RowBlock[] {
         if (!w) continue;                                  // 変数の幅（台帳）はここでは見ない
         const px = Number(w[1]);
         if (!/\bhideOnMobile\b/.test(attrs)) always.push(px);
-        else if (attrs.includes('HIDE_UNTIL_WIDE')) fromLg.push(px);
+        // `HIDE_UNTIL_WIDE`（1024px〜）と `HIDE_UNTIL_EXTRA_WIDE`（1536px〜）の
+        // どちらも「640/768px では出ない」ので、この検査では同じ扱いでよい
+        else if (/\bHIDE_UNTIL_\w+/.test(attrs)) fromLg.push(px);
         else fromSm.push(px);
       }
       if (always.length + fromSm.length + fromLg.length === 0) continue;
@@ -156,7 +158,8 @@ describe('機材管理の行 — 640px で商品名が消えない', () => {
     const expected: Record<string, number> = {
       'RentalGroupRow.tsx': 504,   // 56 + 128 + 96 + 72 + 96 + 56
       'CatalogRows.tsx': 648,      // 72 + 56 + 72 + 160 + 96 + 96 + 96
-      'RentalRulesTab.tsx': 512,   // 56 + 128 + 96 + 72 + 160
+      // 種別は 72 → 96（「ネットワーク」が枠を 17px はみ出して隣に乗っていた）
+      'RentalRulesTab.tsx': 536,   // 56 + 128 + 96 + 96 + 160
     };
     for (const [file, sum] of Object.entries(expected)) {
       const b = blocks.find((x) => x.path.endsWith(file) && x.fromLg.length > 0);
@@ -173,5 +176,11 @@ describe('HIDE_UNTIL_WIDE — 後から渡して `sm:flex` を打ち消す形に
     // `lg:flex` が無いと PC でも列が出てこない（どちらも画面を見るまで気づけない）
     expect(HIDE_UNTIL_WIDE).toContain('sm:hidden');
     expect(HIDE_UNTIL_WIDE).toContain('lg:flex');
+  });
+
+  it('もう1段（`HIDE_UNTIL_EXTRA_WIDE`）も同じ形で、出す幅だけが違う', () => {
+    expect(HIDE_UNTIL_EXTRA_WIDE).toContain('sm:hidden');
+    expect(HIDE_UNTIL_EXTRA_WIDE).toContain('2xl:flex');
+    expect(HIDE_UNTIL_EXTRA_WIDE).not.toContain('lg:flex');
   });
 });

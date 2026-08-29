@@ -62,7 +62,7 @@ export default function PrompterPage() {
   const lastTimeRef = useRef<number>(0);
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const { data: doc, isLoading } = useQuery({
+  const { data: doc, isLoading, error } = useQuery({
     queryKey: ["qsheet-document", id],
     queryFn: async () => {
       const res = await api.get(`/techops/documents/${id}`);
@@ -180,10 +180,23 @@ export default function PrompterPage() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [id, navigate]);
 
-  if (isLoading || !doc) {
+  if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="w-8 h-8 border-2 border-border border-t-foreground rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // 取得に失敗した（存在しない・権限が無い）ときは、進行・ランダウンと同じく
+  // 脱出できる形にする。error を見ないと「読み込み中の輪」のまま手詰まりになる
+  if (error || !doc) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-background text-foreground">
+        <p className="text-muted-foreground">台本が見つかりません</p>
+        <Button variant="outline" size="lg" onClick={() => navigate(`/techops/editor/${id}`)}>
+          エディターに戻る
+        </Button>
       </div>
     );
   }
@@ -200,36 +213,42 @@ export default function PrompterPage() {
     >
       {/* Controls overlay */}
       <div
-        className={`absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 transition-opacity duration-500 ${
+        className={`absolute top-0 left-0 right-0 z-20 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-3 transition-opacity duration-500 ${
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)' }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2">
+        {/* 狭い画面では「戻る＋題名」と操作群を2段に折る。`w-full` を使うのは、
+            `flex-1`（flex-basis 0）だと折り返しの計算で幅0と数えられ、
+            操作群が同じ行に押し込まれて画面外へ出るため */}
+        <div className="flex w-full min-w-0 items-center gap-2 lg:w-auto lg:flex-1">
           <Button
             variant="ghost"
             size="icon"
-            className="text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8"
+            className="min-h-tap min-w-tap shrink-0 text-muted-foreground hover:text-foreground hover:bg-accent lg:h-8 lg:w-8 lg:min-h-0 lg:min-w-0"
+            aria-label="エディターに戻る"
             onClick={() => navigate(`/techops/editor/${id}`)}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-muted-foreground truncate max-w-xs">{doc.title}</span>
+          <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground lg:max-w-xs lg:flex-none">{doc.title}</span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex w-full flex-wrap items-center justify-end gap-x-3 gap-y-1 lg:w-auto">
           {/* Font size */}
           <div className="flex items-center gap-1">
             <button
-              className="text-muted-foreground hover:text-foreground p-1"
+              className="inline-flex min-h-tap min-w-tap items-center justify-center text-muted-foreground hover:text-foreground lg:h-9 lg:w-9 lg:min-h-0 lg:min-w-0"
+              aria-label="文字を小さく"
               onClick={() => setFontSize(p => Math.max(p - 4, 16))}
             >
               <span className="text-xs">A-</span>
             </button>
             <span className="text-xs text-muted-foreground w-8 text-center">{fontSize}px</span>
             <button
-              className="text-muted-foreground hover:text-foreground p-1"
+              className="inline-flex min-h-tap min-w-tap items-center justify-center text-muted-foreground hover:text-foreground lg:h-9 lg:w-9 lg:min-h-0 lg:min-w-0"
+              aria-label="文字を大きく"
               onClick={() => setFontSize(p => Math.min(p + 4, 80))}
             >
               <span className="text-sm font-bold">A+</span>
@@ -250,7 +269,7 @@ export default function PrompterPage() {
 
           {/* Mirror */}
           <button
-            className={`text-xs px-2 py-1 rounded border transition ${mirror ? 'border-foreground/60 text-foreground' : 'border-border text-muted-foreground'}`}
+            className={`inline-flex min-h-tap items-center justify-center rounded border px-2 text-xs transition lg:min-h-0 lg:py-1 ${mirror ? 'border-foreground/60 text-foreground' : 'border-border text-muted-foreground'}`}
             onClick={() => setMirror(p => !p)}
           >
             <Settings2 className="h-3 w-3 inline mr-1" />鏡像
@@ -278,6 +297,10 @@ export default function PrompterPage() {
       {/* Teleprompter text */}
       <div
         ref={textRef}
+        // 台本は画面より高いのが仕様。送るのは自動スクロール（`scrollTop` を
+        // 毎フレーム進める）で、スクロールバーは出さない。検査には
+        // 「切ると決めた箱」だと伝える
+        data-clip-ok
         className="flex-1 overflow-hidden relative"
         style={{
           transform: mirror ? 'scaleX(-1)' : undefined,
@@ -326,7 +349,8 @@ export default function PrompterPage() {
         style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)' }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center gap-4 text-xs text-muted-foreground/80">
+        {/* キーボードの説明。タッチ端末では意味が無く、狭い画面では3列が潰れて台本に重なる */}
+        <div className="hidden lg:flex items-center gap-4 text-xs text-muted-foreground/80">
           <span>クリック / スペース: {isScrolling ? 'スクロール停止' : 'スクロール開始'}</span>
           <span>↑↓: フォントサイズ</span>
           <span>←→: スクロール速度</span>

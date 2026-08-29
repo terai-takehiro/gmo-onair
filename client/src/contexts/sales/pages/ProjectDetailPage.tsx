@@ -312,15 +312,15 @@ function OffPhoneTab({ tab, onBack, onOpenAnyway }: { tab: ProjectTabKey; onBack
   // **見た目と言い回しは共通部品に寄せてある**（`client-v4/pcOnly`）。
   // 以前はこの画面だけ独自の枠で、ほかの9か所と文面も体裁も違っていた
   //
-  // ⚠️ **`thread`（やり取り）は載せていない。** `tabs.ts` の `MOBILE_TABS_BY_PHASE` が
-  // 「ふだん」「終わった案件」の2段階でやり取りをモバイルタブに含めているため、
-  // `everMobile` が常に true になり、この画面（`offPhone`）には**そもそも来ない**
+  // ⚠️ **`thread`（やり取り）と `review`（ふりかえり）は載せていない。** `tabs.ts` の
+  // `MOBILE_TABS_BY_PHASE` がやり取りを「ふだん」「終わった案件」、ふりかえりを
+  // 「終わった案件」のモバイルタブに含めているため、どちらも `everMobile` が
+  // 常に true になり、この画面（`offPhone`）には**そもそも来ない**
   // （来るのは `wrongPhase` = 概要へ自動で送る側）。ここに文言を置くと「開けない」
   // 案内が実際には出ないのに存在する死んだ分岐になるので、混乱を避けるため外した
   const why: Partial<Record<ProjectTabKey, string>> = {
     estimate: '見積は明細・単価・仕入・粗利が横に伸びる表です。この幅では桁が読めません。',
     files: '書類は BOX のフォルダを1階層ずつ開く画面です。',
-    review: 'ふりかえりは金額の内訳を縦にそろえて読む画面です。',
   };
   return (
     <PcOnlyPanel

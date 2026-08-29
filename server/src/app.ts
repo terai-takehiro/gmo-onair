@@ -66,7 +66,10 @@ export function createApp(): express.Express {
           "https://kuroco-img.app", "https://*.kuroco-img.app",
         ],
         connectSrc: ["'self'", "ws:", "wss:"],
-        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        // `data:` は Vite が 4KB 未満の woff2 サブセットを data URI に埋めるため必須
+        // （LINE Seed JP の稀な字域 20 面がこれに当たり、無いと全アプリで
+        //  「Refused to load the font」になって代替書体で描かれる）。
+        fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],
         frameSrc: ["https://www.youtube.com", "https://youtube.com"],

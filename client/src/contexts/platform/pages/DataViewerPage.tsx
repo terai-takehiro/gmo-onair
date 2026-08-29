@@ -619,14 +619,14 @@ export default function DataViewerPage() {
                   {selectedTableInfo?.count ?? 0}件
                 </Badge>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="検索..."
                     value={searchInput}
                     onChange={e => setSearchInput(e.target.value)}
-                    className="pl-9 w-56"
+                    className="pl-9 w-40 sm:w-56"
                   />
                 </div>
                 <Select value={String(limit)} onValueChange={v => { setLimit(Number(v)); setPage(1); }}>
@@ -660,7 +660,7 @@ export default function DataViewerPage() {
                       <TableRow>
                         {isSystemAdmin && (
                           <TableHead className="w-24 sticky left-0 bg-card z-10 whitespace-nowrap">
-                            \u64cd\u4f5c
+                            操作
                           </TableHead>
                         )}
                         {tableData.columns.map(col => (
@@ -694,7 +694,7 @@ export default function DataViewerPage() {
                                   variant="ghost"
                                   size="sm"
                                   className="h-8 w-8 p-0"
-                                  title="\u7de8\u96c6"
+                                  title="編集"
                                   onClick={() => openEdit(row)}
                                 >
                                   <Pencil className="h-3.5 w-3.5" />
@@ -704,7 +704,7 @@ export default function DataViewerPage() {
                                     variant="ghost"
                                     size="sm"
                                     className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    title="\u8ad6\u7406\u524a\u9664"
+                                    title="論理削除"
                                     onClick={() => setDeletingRow(row)}
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />

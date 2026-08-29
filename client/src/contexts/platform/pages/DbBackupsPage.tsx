@@ -173,7 +173,8 @@ export default function DbBackupsPage() {
             VPS での実行手順
           </div>
           <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-            <li>VPS に SSH 接続: <code className="">ssh root@133.117.74.239</code></li>
+            {/* 接続先はここに書かない — クライアントの JS は誰でも取得でき、本番 VPS の IP が漏れる */}
+            <li>VPS に SSH 接続 (接続先は <code>docs/ops/db-backup-restore.md</code> 参照)</li>
             <li>上のテーブルから「コマンドをコピー」ボタンを押す</li>
             <li>VPS のターミナルで貼り付けて実行 (確認プロンプトで <code>yes</code> と入力)</li>
             <li>復元中の出力で進行状況を確認 (4 ステップ・通常 1〜数分)</li>

@@ -257,31 +257,38 @@ export default function CounterpartyPage() {
             />
           ) : (
             <div className="flex flex-col">
+              {/*
+                **固定列は中身が入る最小の段まで落とす。** 主キーである社名が
+                伸びる `RowMain` にしか幅が残らないので、固定列を広く取ると
+                1280px でも社名が 148px（「ケータリングデリシ…」）まで潰れる。
+                担当者（氏名 ≒ 6字）・電話（12字 ≒ 110px）・インボイス登録番号
+                （14字 ≒ 130px）はいずれも中身より広かった。
+              */}
               <RowHeader>
                 <RowMain>{kind === 'vendor' ? '仕入先' : 'お名前'}</RowMain>
-                <RowSlot w={160}>{kind === 'vendor' ? '担当者' : '役割'}</RowSlot>
-                <RowSlot w={160}>電話</RowSlot>
-                <RowSlot w={200}>{def.extraLabel}</RowSlot>
+                <RowSlot w={128}>{kind === 'vendor' ? '担当者' : '役割'}</RowSlot>
+                <RowSlot w={128}>電話</RowSlot>
+                <RowSlot w={160}>{def.extraLabel}</RowSlot>
                 {/* 取引額は仕入先だけ。**パートナーの列に 0 を並べない** */}
                 {kind === 'vendor' && <RowSlot w={128} align="right">今年度の取引</RowSlot>}
                 <RowSlot w={96}>{canEdit ? '操作' : ''}</RowSlot>
               </RowHeader>
 
               {items.map((p) => (
-                <Row key={p.id} onClick={canEdit ? () => crud.openEdit(p) : undefined}>
+                <Row key={p.id} interactive={canEdit} onClick={canEdit ? () => crud.openEdit(p) : undefined}>
                   <RowMain>
                     <RowTitle>{p.name}</RowTitle>
                     <RowSub>{p.email || 'メールなし'}</RowSub>
                   </RowMain>
-                  <RowSlot w={160}>
+                  <RowSlot w={128}>
                     <span className="truncate text-sub text-secondary-foreground">
                       {p.contact_name || p.role_title || '—'}
                     </span>
                   </RowSlot>
-                  <RowSlot w={160}>
+                  <RowSlot w={128}>
                     <span className="font-number truncate text-sub text-secondary-foreground">{p.phone || '—'}</span>
                   </RowSlot>
-                  <RowSlot w={200}>
+                  <RowSlot w={160}>
                     <span className="truncate text-sub text-muted-foreground">{extraOf(p, kind) || '—'}</span>
                   </RowSlot>
                   {kind === 'vendor' && (

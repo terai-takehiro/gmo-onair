@@ -7,7 +7,9 @@
  *
  * 列（モックの並びのまま・幅は7段に寄せた）:
  *
- *   コード         96px  (`RowSlot`)   売上=GLS番号/話数 ／ 仕入=GLS番号 ／ 販管費=勘定科目
+ *   コード         128px (`RowSlot`)   売上=GLS番号/話数 ／ 仕入=GLS番号 ／ 販管費=勘定科目
+ *                                     （96px だとエピソードコード付きの番号が
+ *                                       2行に折り返す。請求・入金の一覧と同じ段にそろえた）
  *   名前・説明     伸びる (`RowMain`)  ここだけが伸びる
  *   相手先         160px (`RowSlot`)   請求先／仕入先／支払先
  *   金額（税抜）   128px (`MoneyCell`) **￥は左端・数字は右端**
@@ -65,7 +67,7 @@ export function LedgerRows({
   return (
     <>
       <RowHeader className="hidden sm:flex">
-        <RowSlot w={96}>{codeLabel}</RowSlot>
+        <RowSlot w={128}>{codeLabel}</RowSlot>
         <RowMain>{titleLabel}</RowMain>
         <RowSlot w={160}>{partyLabel}</RowSlot>
         <RowSlot w={128} align="right">金額（税抜）</RowSlot>
@@ -93,8 +95,8 @@ export function LedgerRows({
         ) : null;
 
         return (
-          <Row key={r.id} stackOnMobile onClick={() => onOpen(r)}>
-            <RowSlot w={96}>
+          <Row key={r.id} stackOnMobile interactive onClick={() => onOpen(r)}>
+            <RowSlot w={128}>
               <span className="font-number text-sub-sm text-primary">{r.code || '—'}</span>
             </RowSlot>
 

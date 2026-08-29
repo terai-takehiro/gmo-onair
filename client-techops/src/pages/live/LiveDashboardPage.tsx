@@ -124,13 +124,19 @@ function DashboardContent({ ownerKey, owner, programId }: {
 
   return (
     <div className="mx-auto max-w-4xl px-3 py-4 sm:px-6 sm:py-6" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      <div className="mb-4 flex items-center gap-3">
+      {/* 狭い画面ではミニアプリの帯を次の行へ回す。同じ行に押し込むと案件名に
+          押されて画面外へ出て、右端の項目が押せないまま素で切れる
+          （`w-full` にするのが要点 — `flex-1` は折り返しの計算で幅0と数えられ、
+           いつまでも同じ行に残る） */}
+      <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
         <BackToOwner owner={owner} />
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-lg font-bold">計時・視聴者</h1>
           <p className="truncate text-xs text-muted-foreground">{owner.glsNumber ?? owner.name}</p>
         </div>
-        <MiniAppSwitcher owner={owner} current="liveops" />
+        <div className="w-full min-w-0 sm:w-auto">
+          <MiniAppSwitcher owner={owner} current="liveops" />
+        </div>
       </div>
 
       <div className="mb-3 flex flex-wrap items-center justify-end gap-1.5">

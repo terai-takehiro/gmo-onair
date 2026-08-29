@@ -35,6 +35,7 @@ import ProjectQuickLinks from '@/contexts/shared/components/ProjectQuickLinks';
 import type { Vendor } from '@/types';
 import { LedgerRows } from './ledger/LedgerRows';
 import { LedgerFooter, LedgerSearch, MonthPicker } from './ledger/LedgerParts';
+import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth';
 import { LedgerTabs } from './ledger/LedgerTabs';
 import { PurchaseDialog, type PurchaseProjectOption } from './ledger/PurchaseDialog';
 import type { LedgerRow, PurchaseRow } from './ledger/types';
@@ -126,6 +127,16 @@ export default function PurchaseListPage() {
     })),
     [items],
   );
+
+  // 0件のときだけ「どの月なら仕入があるか」を引く（今の絞り込みのまま）
+  const latestMonth = useLatestDataMonth('/purchases', {
+    enabled: !crud.isLoading && items.length === 0 && !crud.search,
+    params: {
+      fixed_cost: tab === 'fix' ? '1' : '0',
+      state: cur.state || undefined,
+      project_id: filterProjectId || undefined,
+    },
+  });
 
   return (
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
@@ -221,11 +232,23 @@ export default function PurchaseListPage() {
           />
         ) : (
           <EmptyState
-            title={tab === 'fix' ? '固定原価がありません' : '変動原価がありません'}
+            title={
+              month
+                ? `${month.replace('-', '年')}月の${tab === 'fix' ? '固定原価' : '変動原価'}はありません`
+                : (tab === 'fix' ? '固定原価がありません' : '変動原価がありません')
+            }
             description={
               tab === 'fix'
                 ? '固定原価プロジェクト（FIXED-COGS）に付けた仕入がここに並びます。'
                 : '案件に付けた仕入がここに並びます。'
+            }
+            action={
+              <LatestMonthAction
+                month={latestMonth}
+                current={month}
+                what={tab === 'fix' ? '固定原価' : '変動原価'}
+                onJump={(m) => { setMonth(m); crud.setPage(1); }}
+              />
             }
           />
         )

@@ -39,6 +39,7 @@ import type { SgaExpense, Vendor } from '@/types';
 import SgaDialog, { type SgaFormData, initialFormData } from '../components/SgaDialog';
 import { LedgerRows } from './ledger/LedgerRows';
 import { LedgerFooter, LedgerSearch, MonthPicker } from './ledger/LedgerParts';
+import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth';
 import type { LedgerRow } from './ledger/types';
 
 /** 科目とは別の軸。**どちらも経理が使う**ので両方残す */
@@ -220,6 +221,16 @@ export default function SgaListPage() {
     [items],
   );
 
+  // 0件のときだけ「どの月なら販管費があるか」を引く（今の絞り込みのまま）
+  const latestMonth = useLatestDataMonth('/sga', {
+    enabled: !crud.isLoading && items.length === 0 && !crud.search,
+    params: {
+      source: cur.source || undefined,
+      expense_type: cur.expense_type || undefined,
+      account_title_id: titleKey || undefined,
+    },
+  });
+
   return (
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
       <PageHeader
@@ -301,6 +312,14 @@ export default function SgaListPage() {
           <EmptyState
             title={month ? `${month.replace('-', '年')}月の販管費はありません` : '販管費がありません'}
             description="社員が入れたものと、経理が取り込んだものの両方がここに並びます。"
+            action={
+              <LatestMonthAction
+                month={latestMonth}
+                current={month}
+                what="販管費"
+                onJump={(m) => { setMonth(m); crud.setPage(1); }}
+              />
+            }
           />
         )
       ) : (

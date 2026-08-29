@@ -414,6 +414,12 @@ function measure() {
      * (v4 の案件ボードのカード名で踏んだ)
      */
     if (s.webkitLineClamp && s.webkitLineClamp !== 'none') return;
+    /*
+     * `line-clamp` と同じ「切ると決めた」もの。**中身を自前で送る箱**に付ける印。
+     * スクロールバーを出さずに `scrollTop` を動かすので `overflow-y: hidden` だが
+     * 中身には届く (プロンプターの台本 — 画面より高いのが仕様で、速度は本人が変えられる)。
+     */
+    if (el.closest('[data-clip-ok]')) return;
     // overflow: visible ならはみ出した中身は見えている。祖先のどこかが
     // スクロールを持っていれば到達できるので、それを探す。
     let node = el.parentElement, reachable = s.overflowY === 'visible';

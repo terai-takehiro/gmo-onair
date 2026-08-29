@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -69,6 +69,9 @@ export default function KoubanView({
   onSlotClick,
 }: KoubanViewProps) {
   const [activeTab, setActiveTab] = useState<LocationTab>("yoga");
+  const gridRef = useRef<HTMLDivElement>(null);
+  /** 8:00 まで送るのは**開いた1回だけ**（日を送るたびに戻すと、深夜を見ている人の位置が飛ぶ） */
+  const scrolledRef = useRef(false);
 
   const dateStr = toLocalDateStr(date);
   const dateLabel = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
@@ -176,6 +179,22 @@ export default function KoubanView({
     onSlotClick(roomId, start, end);
   };
 
+  /**
+   * **開いた瞬間に 8:00 が見えるようにする。**
+   *
+   * 00:00 起点のまま出すと、画面に映るのは深夜の空マスだけで
+   * 「この日は予定が無い」と読めてしまう（10 時の予約は 2 画面下）。
+   * 表そのものを縦にスクロールさせる箱にして、8:00 の位置まで送る。
+   */
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el || scrolledRef.current || filteredRooms.length === 0) return;
+    // 8px 手前で止める。**時刻ラベルは罫線に合わせて 8px 上へ出ている**ので、
+    // ぴったり合わせると 8:00 の字が sticky の部屋ヘッダーに隠れる
+    el.scrollTop = (8 - SLOT_START) * SLOTS_PER_HOUR * SLOT_HEIGHT - 10;
+    scrolledRef.current = true;
+  }, [filteredRooms.length]);
+
   const timeSlots = useMemo(() => {
     const slots = [];
     for (let i = 0; i < TOTAL_SLOTS; i++) {
@@ -245,8 +264,11 @@ export default function KoubanView({
               ))}
             </div>
           ))}
+          {/* **縦にもスクロールする箱にする。** 24時間ぶん (2,300px 超) をページに
+              そのまま流すと、開いた瞬間は深夜の空マスしか見えない。中で送るので
+              部屋ヘッダーの sticky もこの箱の上端に留まる */}
           {filteredRooms.length > 0 && (
-        <div className="overflow-x-auto border rounded-lg">
+        <div ref={gridRef} className="overflow-auto border rounded-lg max-h-[70vh]">
           <div className="min-w-[600px]">
             {/* Room headers */}
             <div className="flex border-b bg-muted/30 sticky top-0 z-10">
@@ -282,7 +304,10 @@ export default function KoubanView({
                     )}
                     style={{ height: SLOT_HEIGHT }}
                   >
-                    {slot.label && <span className="-mt-2">{slot.label}</span>}
+                    {/* ラベルは罫線に合わせて上へ引き上げるが、**先頭 (00:00) だけは
+                        引き上げない** — 上に罫線が無く、sticky の部屋ヘッダーへ
+                        潜り込んで上半分が隠れる (実測 8px 重なり) */}
+                    {slot.label && <span className={cn(i > 0 && "-mt-2")}>{slot.label}</span>}
                   </div>
                 ))}
               </div>

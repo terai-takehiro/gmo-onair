@@ -186,7 +186,7 @@ export function DelegationsTab() {
     <div className="space-y-5">
       <button
         onClick={() => setIncludeDone((v) => !v)}
-        className={cn('min-h-tap lg:min-h-0 rounded-md px-3 py-1.5 text-sub', includeDone ? 'bg-primary/15 font-bold text-primary' : 'text-muted-foreground hover:bg-accent')}
+        className={cn('min-h-tap lg:h-9 lg:min-h-0 rounded-md px-3 py-1.5 text-sub', includeDone ? 'bg-primary/15 font-bold text-primary' : 'text-muted-foreground hover:bg-accent')}
       >
         完了した依頼も表示
       </button>

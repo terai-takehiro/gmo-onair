@@ -20,7 +20,7 @@ function ViewBtn({ active, onClick, icon: Icon, children }: {
     <button
       onClick={onClick}
       className={cn(
-        'min-h-tap lg:min-h-0 flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sub transition-colors',
+        'min-h-tap lg:h-9 lg:min-h-0 flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sub transition-colors',
         active ? 'bg-primary/15 font-bold text-primary' : 'text-muted-foreground hover:bg-accent'
       )}
     >
@@ -87,7 +87,7 @@ export function MyTasksTab() {
         </div>
         <button
           onClick={() => setShowDone((v) => !v)}
-          className={cn('min-h-tap lg:min-h-0 rounded-md px-3 py-1.5 text-sub', showDone ? 'bg-primary/15 font-bold text-primary' : 'text-muted-foreground hover:bg-accent')}
+          className={cn('min-h-tap lg:h-9 lg:min-h-0 rounded-md px-3 py-1.5 text-sub', showDone ? 'bg-primary/15 font-bold text-primary' : 'text-muted-foreground hover:bg-accent')}
         >
           完了も表示
         </button>

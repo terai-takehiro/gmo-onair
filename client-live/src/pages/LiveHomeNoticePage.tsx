@@ -31,7 +31,7 @@ export default function LiveHomeNoticePage() {
       </div>
       <a
         href="/techops/top"
-        className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        className="flex min-h-tap items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90"
       >
         制作技術支援のトップを開く
         <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -42,7 +42,7 @@ export default function LiveHomeNoticePage() {
       {canManage && (
         <a
           href="/techops/live-legacy"
-          className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          className="flex min-h-tap items-center px-2 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
         >
           案件に紐づかない旧セッションを探す
         </a>

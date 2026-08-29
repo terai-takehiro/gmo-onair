@@ -56,7 +56,9 @@ function InOut({ label, n }: { label: string; n: number }) {
     <div className="min-w-0 px-1">
       <p className="text-note truncate text-muted-foreground">{label}</p>
       <p className="mt-0.5 flex items-baseline gap-1">
-        <span className={`font-number text-h2 ${n > 0 ? '' : 'text-fg-disabled'}`}>{n}</span>
+        {/* 0 は「押せない」ではなく**読ませる値**（＝予定なし）なので、
+            薄い文字（白地 2.61:1）ではなく `muted` にする（`tokens.css` の決めごと） */}
+        <span className={`font-number text-h2 ${n > 0 ? '' : 'text-muted-foreground'}`}>{n}</span>
         <span className="text-note text-muted-foreground">点</span>
       </p>
     </div>
@@ -158,11 +160,13 @@ export default function DashboardPage() {
 
           <section className="flex flex-col gap-2" aria-labelledby="eq-overdue">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-destructive" aria-hidden="true" />
-              <h2 id="eq-overdue" className="text-h2">返してもらう</h2>
-              <span className="text-sub text-muted-foreground">返却予定日を過ぎているもの・近いもの</span>
+              <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
+              <h2 id="eq-overdue" className="shrink-0 text-h2">返してもらう</h2>
+              {/* 見出しは折らない。狭いときに縮むのは説明のほう（375px で
+                  「返してもら／う」と2行に折れていた） */}
+              <span className="truncate text-sub text-muted-foreground">返却予定日を過ぎているもの・近いもの</span>
               <div className="flex-1" />
-              <Link to="/equipment/lendings" className="v4-tap text-sub text-primary hover:underline">すべて見る</Link>
+              <Link to="/equipment/lendings" className="v4-tap shrink-0 text-sub text-primary hover:underline">すべて見る</Link>
             </div>
             {overdueLendings.length + soonLendings.length === 0 ? (
               <EmptyState
@@ -214,11 +218,11 @@ export default function DashboardPage() {
 
           <section className="flex flex-col gap-2" aria-labelledby="eq-maint">
             <div className="flex items-center gap-2">
-              <Wrench className="h-4 w-4 text-warning" aria-hidden="true" />
-              <h2 id="eq-maint" className="text-h2">稼働停止中の機材</h2>
-              <span className="text-sub text-muted-foreground">修理・点検で使えない状態のもの</span>
+              <Wrench className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
+              <h2 id="eq-maint" className="shrink-0 text-h2">稼働停止中の機材</h2>
+              <span className="truncate text-sub text-muted-foreground">修理・点検で使えない状態のもの</span>
               <div className="flex-1" />
-              <Link to="/equipment/maintenance" className="v4-tap text-sub text-primary hover:underline">すべて見る</Link>
+              <Link to="/equipment/maintenance" className="v4-tap shrink-0 text-sub text-primary hover:underline">すべて見る</Link>
             </div>
             {query.isLoading ? (
               <Delayed><SkeletonRows rows={3} /></Delayed>

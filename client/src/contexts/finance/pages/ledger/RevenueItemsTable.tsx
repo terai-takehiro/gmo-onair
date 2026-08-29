@@ -6,8 +6,8 @@
  * 壊れたときどちらが原因か切り分けられません（前回の刷新が捨てられた原因）。
  * ここは v4 の見た目に**まだ寄せていません**。
  *
- * 変えたのは**色の書き方だけ**です（`bg-emerald-50` → `bg-success-surface` など）。
- * 生の色指定は `check-ui-tokens` が止めるので、同じ意味のトークンに置き換えました。
+ * 変えたのは**色の書き方**（`bg-emerald-50` → `bg-success-surface` など。生の色指定は
+ * `check-ui-tokens` が止めます）と、**PC の表の列幅の配り方**（下記）の2つだけです。
  */
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -33,19 +33,26 @@ export function RevenueItemsTable({
   if (items.length === 0) return null;
   return (
     <div className="rounded border">
-      {/* Desktop table — dialog 幅を超えたら bordered 枠内で横スクロール (列は圧縮しない) */}
+      {/* Desktop table — dialog 幅を超えたら bordered 枠内で横スクロール (列は圧縮しない)
+          **`table-fixed` にしてある。** auto レイアウトだと `<input type="date">` の
+          内在幅 (実測 ~170px) が宣言した列幅を突き破り、余りを取り返すために
+          **金額を扱う列 (単価・カテゴリ) から先に幅を奪う**（単価 76px = `¥ 1,50…` で
+          読めない状態だった）。列幅は宣言どおりに配り、入りきらないぶんは
+          外側の横スクロールで逃がす。`min-w` は下の列幅の合計 (1284px)。 */}
       <div className="hidden sm:block overflow-x-auto">
-        <Table className="min-w-[1180px]">
+        <Table className="min-w-[1290px] table-fixed">
           <TableHeader>
             <TableRow>
-              <TableHead className="min-w-[220px]">内容</TableHead>
+              <TableHead className="w-[220px]">内容</TableHead>
               <TableHead className="w-32">カテゴリ</TableHead>
               <TableHead className="w-20 text-right">数量</TableHead>
+              {/* 単価は `1,500,000` (実測 116px) ＋ 税計算ボタンが並ぶ */}
               <TableHead className="w-40 text-right">単価</TableHead>
               <TableHead className="w-28 text-right">金額</TableHead>
-              <TableHead className="w-[130px]">期間開始</TableHead>
-              <TableHead className="w-[130px]">期間終了</TableHead>
-              <TableHead className="min-w-[180px]">明細備考</TableHead>
+              {/* 日付は `<input type="date">` の内在幅ぶん */}
+              <TableHead className="w-[170px]">期間開始</TableHead>
+              <TableHead className="w-[170px]">期間終了</TableHead>
+              <TableHead className="w-[180px]">明細備考</TableHead>
               <TableHead className="w-16"></TableHead>
             </TableRow>
           </TableHeader>

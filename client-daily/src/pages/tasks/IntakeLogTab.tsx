@@ -50,8 +50,8 @@ export function IntakeLogTab() {
         投げたテキストは切り詰めずに全文残しています。タスクの元になった発言まで遡れます。
       </p>
       <div className="flex items-center gap-1.5 text-sm">
-        <button onClick={() => setAll(false)} className={cn('rounded-md px-3 py-1.5', !all ? 'bg-primary/15 font-medium text-primary' : 'text-muted-foreground hover:bg-accent')}>自分の投入</button>
-        <button onClick={() => setAll(true)} className={cn('rounded-md px-3 py-1.5', all ? 'bg-primary/15 font-medium text-primary' : 'text-muted-foreground hover:bg-accent')}>全員の投入</button>
+        <button onClick={() => setAll(false)} className={cn('min-h-tap lg:min-h-[36px] rounded-md px-3 py-1.5', !all ? 'bg-primary/15 font-medium text-primary' : 'text-muted-foreground hover:bg-accent')}>自分の投入</button>
+        <button onClick={() => setAll(true)} className={cn('min-h-tap lg:min-h-[36px] rounded-md px-3 py-1.5', all ? 'bg-primary/15 font-medium text-primary' : 'text-muted-foreground hover:bg-accent')}>全員の投入</button>
       </div>
 
       {list.length === 0 ? (

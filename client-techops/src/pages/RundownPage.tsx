@@ -190,7 +190,7 @@ export default function RundownPage() {
   // ============================================================
   // Fetch document
   // ============================================================
-  const { data: doc, isLoading } = useQuery({
+  const { data: doc, isLoading, error } = useQuery({
     queryKey: ["qsheet-document", id],
     queryFn: async () => {
       const res = await api.get(`/techops/documents/${id}`);
@@ -421,11 +421,11 @@ export default function RundownPage() {
     );
   }
 
-  if (!doc || flatCues.length === 0) {
+  if (error || !doc || flatCues.length === 0) {
     return (
       <div className={cn("flex h-screen flex-col items-center justify-center gap-4", bg, text)}>
-        <p className={mutedText}>キューデータがありません</p>
-        <Button variant="outline" onClick={() => navigate(`/techops/editor/${id}`)}>
+        <p className={mutedText}>{error || !doc ? "台本が見つかりません" : "キューデータがありません"}</p>
+        <Button variant="outline" size="lg" onClick={() => navigate(`/techops/editor/${id}`)}>
           エディターに戻る
         </Button>
       </div>

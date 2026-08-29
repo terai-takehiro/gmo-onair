@@ -176,7 +176,8 @@ export function NewsRow({ item, canEdit, weeklyLocked = false }: {
                 href={item.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="ml-1 inline-flex align-middle text-primary hover:underline"
+                /* 本文中の小さな印なので、見た目は 14px のまま当たり判定だけ 44px にする */
+                className="v4-tap ml-1 inline-flex align-middle text-primary hover:underline"
                 title={item.url}
                 aria-label="元の記事を開く"
               >

@@ -73,10 +73,25 @@ export interface TableBadgeProps extends Omit<BadgeProps, 'children'> {
    * `<RowSlot>` の中に置くときは `w={null}` にして枠を二重にしないこと。
    */
   w?: SlotWidth | null;
+  /**
+   * **その列だけ帯の幅を変える** (opt-in・単位 px)。
+   *
+   * 既定の 62px は和文4字までの札を想定した幅で、5字以上のラベルが混ざる列では
+   * **帯が自然幅になり右端が行ごとにずれます** (機材の種別は「映像貸出」から
+   * 「ネットワーク設備」まで 4〜8字が同居する)。列でいちばん長い札が収まる幅を
+   * 渡すと、**その列だけ**帯がその幅にそろいます。
+   *
+   * ⚠️ **渡さなければ振る舞いは今までと1ピクセルも変わりません。**
+   * 既定を広げると全アプリの札が太るので、必ず列側から渡すこと。
+   * 渡す値は**実測して決める** (中身に使えるのは padding 6px×2 を引いた幅で、
+   * あふれた分は隠れて読めなくなる)。
+   */
+  fixedW?: number;
 }
 
-export function TableBadge({ label, w = 96, className, style, ...rest }: TableBadgeProps) {
-  const fixed = isJapanese(label) && label.length <= FIXED_MAX;
+export function TableBadge({ label, w = 96, fixedW, className, style, ...rest }: TableBadgeProps) {
+  const fixed = fixedW != null || (isJapanese(label) && label.length <= FIXED_MAX);
+  const width = fixedW ?? FIXED_W;
 
   const badge = (
     <Badge
@@ -102,7 +117,7 @@ export function TableBadge({ label, w = 96, className, style, ...rest }: TableBa
         fixed && 'justify-center overflow-hidden px-1.5',
         className,
       )}
-      style={fixed ? { width: FIXED_W, ...style } : style}
+      style={fixed ? { width, ...style } : style}
       {...rest}
     >
       {label}

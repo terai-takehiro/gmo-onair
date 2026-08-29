@@ -9,7 +9,14 @@
  * 意味を持たない見分けの色 `cat-1`〜`cat-8` を使います
  * (`success` / `warning` を借りると、緑の種別が「良い状態」に読めます)。
  *
- * 幅は `TableBadge` が持ちます (和文2字と4字が同じ帯に収まる)。
+ * ── 種別の帯だけ幅を渡す ────────────────────────────────────
+ *
+ * この列に出るのは `sectionDisplay()` = 種別 ＋ 区分で **4〜8字が同居**します
+ * (「映像貸出」から「ネットワーク設備」まで)。`TableBadge` の既定は
+ * **和文4字までしか幅を固定しない**ので、5字以上は自然幅になり
+ * **同じ列なのに帯の右端が4通り**にずれていました (`docs/design/v4/_rules.md`
+ * 「縦の整列」= 目は色の塊の形で行を追う)。列でいちばん長い札が収まる 112px を
+ * 渡してそろえます (`COL_W.equipment_type` = 128 の枠に padding ごと収まる幅)。
  */
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { ASSET_CLASS_LABELS } from '@/lib/constants';
@@ -26,7 +33,7 @@ const TYPE_TONE: Record<string, string> = {
   E: 'bg-muted text-muted-foreground border-transparent',
 };
 
-export function SectionBadge({ typeCode, section, placeholder = true }: {
+export function SectionBadge({ typeCode, section, placeholder = true, fixedW }: {
   typeCode?: string | null;
   section?: string | null;
   /**
@@ -35,6 +42,12 @@ export function SectionBadge({ typeCode, section, placeholder = true }: {
    * 揃える列が無いので、ID の前に意味の無い横棒が1本付くだけになる。
    */
   placeholder?: boolean;
+  /**
+   * 帯の幅（px）。**表の列に置くときだけ渡す**（右端をそろえるため）。
+   * カードでは渡さないこと — 揃える列が無いので、余った幅のぶん
+   * ID が右に押し出されるだけになる。
+   */
+  fixedW?: number;
 }) {
   const label = sectionDisplay(typeCode, section);
   if (!label || label === '-') {
@@ -44,6 +57,7 @@ export function SectionBadge({ typeCode, section, placeholder = true }: {
     <TableBadge
       label={label}
       w={null}
+      fixedW={fixedW}
       className={TYPE_TONE[typeCode ?? ''] ?? 'bg-muted text-muted-foreground border-transparent'}
     />
   );

@@ -207,7 +207,7 @@ function RemoveRecentButton({ label, onRemove }: { label: string; onRemove: () =
       aria-label={`「${label}」を最近見たものから消す`}
       onClick={(e) => { e.stopPropagation(); onRemove(); }}
       onKeyDown={(e) => e.stopPropagation()}
-      className="v4-tap rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="v4-tap rounded-full p-2.5 text-muted-foreground hover:bg-muted hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <X className="h-4 w-4" aria-hidden="true" />
     </button>
