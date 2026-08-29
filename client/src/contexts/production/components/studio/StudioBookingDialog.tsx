@@ -411,7 +411,8 @@ export default function StudioBookingDialog({
                       type="button"
                       onClick={() => setBookingType(opt.value)}
                       className={cn(
-                        "rounded-full px-4 py-2 text-[13px] font-medium border transition-all whitespace-nowrap",
+                        // スマホでは 44px（`min-h-tap`）・PC は今までどおり 39px
+                        "min-h-tap lg:min-h-0 rounded-full px-4 py-2 text-[13px] font-medium border transition-all whitespace-nowrap",
                         bookingType === opt.value
                           ? "bg-primary text-primary-foreground border-primary"
                           : "border-border bg-background"
@@ -547,16 +548,18 @@ export default function StudioBookingDialog({
                 <div className="flex items-center justify-between mb-2 px-1">
                   <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">スタジオ・部屋</p>
                   <div className="flex gap-3">
+                    {/* `v4-tap` は**見た目を変えずに当たり判定だけ 44px** にする
+                        （文字を大きくすると見出しの行が主役になってしまう） */}
                     <button
                       type="button"
-                      className="text-[12px] text-primary"
+                      className="v4-tap text-[12px] text-primary"
                       onClick={() => setSelectedRoomIds(new Set(roomLocations.flatMap((l) => l.rooms.map((r) => r.id))))}
                     >
                       全選択
                     </button>
                     <button
                       type="button"
-                      className="text-[12px] text-muted-foreground"
+                      className="v4-tap text-[12px] text-muted-foreground"
                       onClick={() => setSelectedRoomIds(new Set())}
                     >
                       全解除
@@ -587,7 +590,7 @@ export default function StudioBookingDialog({
                             <button
                               type="button"
                               onClick={toggleAllInLocation}
-                              className="text-[11px] text-primary hover:underline"
+                              className="v4-tap text-[11px] text-primary hover:underline"
                             >
                               {allInLocationSelected ? "全解除" : "全選択"}
                             </button>
@@ -600,7 +603,8 @@ export default function StudioBookingDialog({
                               type="button"
                               onClick={() => toggleRoom(room.id)}
                               className={cn(
-                                "flex items-center gap-2 rounded-xl px-3 py-2.5 text-[14px] font-medium transition-all text-left",
+                                // スマホでは 44px（`min-h-tap`）・PC は今までどおり
+                                "min-h-tap lg:min-h-0 flex items-center gap-2 rounded-xl px-3 py-2.5 text-[14px] font-medium transition-all text-left",
                                 selectedRoomIds.has(room.id)
                                   ? "text-white shadow-sm"
                                   : "bg-background/80 border border-border"

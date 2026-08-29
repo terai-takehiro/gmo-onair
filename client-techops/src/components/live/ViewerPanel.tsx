@@ -179,7 +179,7 @@ export default function ViewerPanel({ programId, program, canManage }: Props) {
                 onClick={() => setToggle(key, !platformToggles[key])}
                 aria-pressed={conf && on}
                 title={!conf ? `${label} は番組設定で未登録です` : running ? '計測中は変更できません' : on ? `${label} を取得対象から外す` : `${label} を取得対象にする`}
-                className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors min-h-[28px] ${
+                className={`flex min-h-tap items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors lg:min-h-[28px] lg:min-w-0 ${
                   !conf || running
                     ? 'opacity-60 cursor-not-allowed border-border text-muted-foreground'
                     : on

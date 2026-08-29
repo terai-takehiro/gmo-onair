@@ -3,9 +3,10 @@
  *
  * 3つのタブで**同じ行の形**を使います。違うのは右端の状態列だけです。
  *
- *   選ぶ         28px（`RowMain` の中）  タブによっては選べない行がある
- *   GLS番号      96px
+ *   選ぶ         56px   タブによっては選べない行がある
+ *   GLS番号      128px  **エピソードコード付き（12字）が入る幅**
  *   案件 ／ 請求先 伸びる
+ *   請求書番号   96px   入金の確認・検収書を出す だけ（下記）
  *   金額（税抜） 128px  **￥は左端・数字は右端**
  *   期日         96px   入金の確認だけ。**超過は赤**
  *   状態         96px
@@ -72,11 +73,14 @@ export function ClosingRows({
   return (
     <>
       <RowHeader className="hidden sm:flex">
-        <RowSlot w={96}>GLS番号</RowSlot>
+        <RowSlot w={56}>選ぶ</RowSlot>
+        <RowSlot w={128}>GLS番号</RowSlot>
         <RowMain>案件 ／ 請求先</RowMain>
         {/* **出したものだけ番号を持つ。** 出す前の一覧では列ごと出さない
             （空の列が並ぶと「採番に失敗した」ように見える） */}
-        {tab !== 'issue' && <RowSlot w={128}>請求書番号</RowSlot>}
+        {/* 番号は `INV-2026-0001`（実測 82px）。**96px で足りる** —
+            余らせると、そのぶん案件名が削れて行を読み分けられなくなる */}
+        {tab !== 'issue' && <RowSlot w={96}>請求書番号</RowSlot>}
         <RowSlot w={128} align="right">金額（税抜）</RowSlot>
         {tab === 'collect' && <RowSlot w={96}>入金期日</RowSlot>}
         <RowSlot w={96}>{tab === 'issue' ? '状態' : tab === 'collect' ? '入金' : '検収'}</RowSlot>
@@ -88,43 +92,52 @@ export function ClosingRows({
         const on = picked.has(r.id);
         const can = selectable(r);
         return (
-          <Row key={r.id} onClick={can ? () => onPick(r.id, !on) : undefined}>
-            <RowSlot w={96}>
-              {/*
-                **`min-w-0` が無いと `truncate` は何もしません**（実際に踏んだ・
-                レイアウト崩れの報告あり）。この span はチェック枠(18px)+隙間(8px)+
-                番号の3つを持つ入れ子の flex で、flex アイテムは既定で
-                「中身の幅より縮まない」ため、96px の `RowSlot` に収まらない
-                長い番号（エピソードコード付き・例 `GLS-A010-2608`）が枠を
-                突き破って隣の案件名に重なっていた。番号側に `min-w-0 flex-1` を、
-                この外側にも `min-w-0` を足し、縮んでから省略記号を出す形にする。
-              */}
-              <span className="flex min-w-0 items-center gap-2">
-                {can ? (
-                  <span
-                    aria-hidden="true"
-                    className={`rounded-badge-xs flex h-[18px] w-[18px] shrink-0 items-center justify-center border-[1.5px] ${
-                      on ? 'border-primary bg-primary' : 'border-border-disabled'
-                    }`}
-                  >
-                    {on && <Check className="h-3 w-3 text-primary-foreground" />}
-                  </span>
-                ) : (
-                  <span
-                    title="申込書が揃っていないので請求書を出せません"
-                    className="flex h-[18px] w-[18px] shrink-0 items-center justify-center"
-                  >
-                    <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-                  </span>
-                )}
-                <span className="font-number min-w-0 flex-1 truncate text-sub-sm text-primary">
-                  {r.episode_code || r.gls_number || '—'}
+          <Row key={r.id} interactive={can} onClick={can ? () => onPick(r.id, !on) : undefined}>
+            {/*
+              **チェック枠と番号は別の列にする。** 以前は 96px の1列に
+              チェック枠(18px)+隙間(8px)+番号を同居させており、番号に残るのが
+              約 70px しか無くて**全行が `GLS-A00…` に省略され、話数違いの行を
+              番号で区別できなかった**（まとめて選ぶ画面なので、番号で照合しながら
+              選べないと使えない）。列を分けて番号に 128px を渡す。
+            */}
+            <RowSlot w={56}>
+              {can ? (
+                <span
+                  aria-hidden="true"
+                  className={`rounded-badge-xs flex h-[18px] w-[18px] shrink-0 items-center justify-center border-[1.5px] ${
+                    on ? 'border-primary bg-primary' : 'border-border-disabled'
+                  }`}
+                >
+                  {on && <Check className="h-3 w-3 text-primary-foreground" />}
                 </span>
+              ) : (
+                <span
+                  title="申込書が揃っていないので請求書を出せません"
+                  className="flex h-[18px] w-[18px] shrink-0 items-center justify-center"
+                >
+                  <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                </span>
+              )}
+            </RowSlot>
+
+            <RowSlot w={128}>
+              {/* **`min-w-0` が無いと `truncate` は何もしません**（実際に踏んだ）。
+                  128px でも入りきらない番号が来たときに、枠を突き破って隣の
+                  案件名に重ならないよう省略記号で止める。全文は `title` で読める */}
+              <span
+                className="font-number min-w-0 flex-1 truncate text-sub-sm text-primary"
+                title={r.episode_code || r.gls_number || undefined}
+              >
+                {r.episode_code || r.gls_number || '—'}
               </span>
             </RowSlot>
 
             <RowMain>
-              <RowTitle>{r.project_name || '（案件名なし）'}<GroupTag name={r.group_name} /></RowTitle>
+              {/* 案件名は1行で省略する（`RowTitle` の決めごと）。狭い画面では
+                  切れるので、全文を `title` で読めるようにしておく */}
+              <RowTitle title={r.project_name || undefined}>
+                {r.project_name || '（案件名なし）'}<GroupTag name={r.group_name} />
+              </RowTitle>
               <RowSub>
                 {[r.customer_name,
                   tab !== 'collect' && r.payment_due_date ? `期日 ${md(r.payment_due_date)}` : null,
@@ -134,7 +147,7 @@ export function ClosingRows({
             </RowMain>
 
             {tab !== 'issue' && (
-              <RowSlot w={128} hideOnMobile>
+              <RowSlot w={96} hideOnMobile>
                 {r.invoice_no
                   ? <span className="font-number truncate text-sub-sm text-secondary-foreground">{r.invoice_no}</span>
                   // ⚠️ `text-fg-disabled` は白地で 2.61:1 しか無く読ませる文字には使わない決めごと

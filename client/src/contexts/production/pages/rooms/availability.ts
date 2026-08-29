@@ -81,6 +81,30 @@ export interface AvailBlock {
   tentative: boolean;
   /** 終日。**帯は出すが見た目を分ける**（時間の幅を持たないものなので） */
   allDay: boolean;
+  /** 何段目に置くか（0 起点）。**重なった予約は縦に段を分ける**（`AvailLane.rows` を参照） */
+  row: number;
+}
+
+/**
+ * 表示窓（8:00〜22:00）の外にだけある予約。
+ * 帯にする場所が無いので、部屋の行に「↑8時前 N件」の印として出す。
+ */
+export interface AvailOutside {
+  id: string;
+  title: string;
+  /** `22:00–8/30 02:00` のように**日をまたぐときは日付を付ける**（同じ日に見えてしまう） */
+  timeLabel: string;
+}
+
+/** 1つの部屋ぶんの帯と、その行の高さ・窓の外の件数 */
+export interface AvailLane {
+  blocks: AvailBlock[];
+  /** 段数（重なりが無ければ 1）。**行の高さ＝段数 × 1段の高さ** */
+  rows: number;
+  /** 8:00 より前にだけある予約 */
+  before: AvailOutside[];
+  /** 22:00 より後にだけある予約 */
+  after: AvailOutside[];
 }
 
 export function isAllDay(b: AvailBooking): boolean {
@@ -130,30 +154,84 @@ export function clipToDay(b: AvailBooking, day: string): { from: number; to: num
   return { from, to: to < from ? DAY_MIN : to };
 }
 
+/** 窓の外の予約の時刻。**その日でない側には日付を付ける**（`22:00–8/30 02:00`） */
+function outsideLabel(b: AvailBooking, day: string): string {
+  const stamp = (iso: string) => {
+    const d = iso.slice(0, 10);
+    return d === day ? hhmm(iso) : `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))} ${hhmm(iso)}`;
+  };
+  const s = stamp(b.start_time);
+  return b.end_time ? `${s}–${stamp(b.end_time)}` : s;
+}
+
 /**
- * 1つの部屋ぶんの帯。
+ * 重なった予約を縦の段に割り振る（香盤の `assignColumns` と同じグルーピング）。
+ *
+ * **段分けが無いと、後で描いた帯が前の帯を覆って両方読めません**
+ * （10:00–13:00 の上に 10:30–12:30 が完全に重なり、下の予約は存在にも気づけない）。
+ * 重なりの連なりごとに束ね、束の中で「空いている一番上の段」へ順に置く。
+ */
+function assignRows<T extends { a: number; z: number }>(items: T[]): { placed: (T & { row: number })[]; rows: number } {
+  const spans = [...items].sort((x, y) => x.a - y.a || x.z - y.z);
+  const placed: (T & { row: number })[] = [];
+  let rows = 1;
+  let group: T[] = [];
+  let groupEnd = -1;
+  const flush = () => {
+    if (group.length === 0) return;
+    const rowEnd: number[] = [];
+    for (const s of group) {
+      let r = rowEnd.findIndex((e) => e <= s.a);
+      if (r === -1) { r = rowEnd.length; rowEnd.push(0); }
+      rowEnd[r] = s.z;
+      placed.push({ ...s, row: r });
+    }
+    rows = Math.max(rows, rowEnd.length);
+    group = [];
+    groupEnd = -1;
+  };
+  for (const s of spans) {
+    if (group.length > 0 && s.a >= groupEnd) flush();
+    group.push(s);
+    groupEnd = Math.max(groupEnd, s.z);
+  }
+  flush();
+  return { placed, rows };
+}
+
+/**
+ * 1つの部屋ぶんの帯（と、その行の段数・窓の外の件数）。
  *
  * **表示の外にはみ出す予定を捨てない。** 7:00〜9:00 の予定を「8:00 より前だから無し」に
  * すると、朝から使っている部屋が空きに見えます。**端で切って必ず出します。**
+ * まるごと窓の外にある予約（22:00〜翌2:00 など）も捨てず、`before` / `after` に入れて
+ * 行の端に「↓22時後 1件」の印として出します（週表の `outsideWindow` と同じ扱い）。
+ * 落とすと**深夜帯が埋まっている部屋が終日空きに見えます**。
  *
  * `day` は `YYYY-MM-DD`。**渡さないと日をまたぐ予約を置き違えます。**
  */
-export function laneBlocks(bookings: AvailBooking[], roomId: string, day: string): AvailBlock[] {
+export function laneBlocks(bookings: AvailBooking[], roomId: string, day: string): AvailLane {
   const winFrom = DAY_START_H * 60;
   const span = (DAY_END_H - DAY_START_H) * 60;
-  const out: AvailBlock[] = [];
+  const inWindow: (Omit<AvailBlock, 'left' | 'width' | 'row'> & { a: number; z: number })[] = [];
+  const before: AvailOutside[] = [];
+  const after: AvailOutside[] = [];
   for (const b of bookings) {
     if (!b.rooms?.some((r) => r.room_id === roomId)) continue;
     const { from, to } = clipToDay(b, day);
     const a = Math.max(0, Math.min(span, from - winFrom));
     const z = Math.max(0, Math.min(span, to - winFrom));
-    if (z <= 0 || a >= span) continue;   // まるごと表示の外
+    if (z <= 0 || a >= span) {
+      // まるごと表示の外。**幅ゼロ（前の晩に 0:00 で終わった予約）は数えない** —
+      // その日には1分も掛かっていないので、印を出すと「今日の予定」に見える
+      if (to > from) (z <= 0 ? before : after).push({ id: b.id, title: b.title, timeLabel: outsideLabel(b, day) });
+      continue;
+    }
     const color = BOOKING_TYPE_COLORS[b.booking_type] ?? BOOKING_TYPE_COLORS.other;
-    out.push({
+    inWindow.push({
       id: b.id,
-      left: `${((a / span) * 100).toFixed(3)}%`,
-      // **最低幅を持たせる。** 15分の予定が線になると、空いているのと見分けが付かない
-      width: `${Math.max(3, ((z - a) / span) * 100).toFixed(3)}%`,
+      a,
+      z,
       title: b.title,
       timeLabel: isAllDay(b) ? '終日' : `${hhmm(b.start_time)}–${hhmm(b.end_time)}`,
       color,
@@ -162,7 +240,16 @@ export function laneBlocks(bookings: AvailBooking[], roomId: string, day: string
       allDay: isAllDay(b),
     });
   }
-  return out.sort((x, y) => parseFloat(x.left) - parseFloat(y.left));
+  const { placed, rows } = assignRows(inWindow);
+  const blocks = placed
+    .map(({ a, z, ...rest }) => ({
+      ...rest,
+      left: `${((a / span) * 100).toFixed(3)}%`,
+      // **最低幅を持たせる。** 15分の予定が線になると、空いているのと見分けが付かない
+      width: `${Math.max(3, ((z - a) / span) * 100).toFixed(3)}%`,
+    }))
+    .sort((x, y) => x.row - y.row || parseFloat(x.left) - parseFloat(y.left));
+  return { blocks, rows, before, after };
 }
 
 /**

@@ -47,18 +47,25 @@
  */
 import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DoorOpen } from 'lucide-react';
 import api from '@/lib/api';
+import { invalidateBookingQueries } from '@/lib/bookingQueries';
+import { useAuth } from '@/contexts/platform/AuthContext';
 import { useSideMenuTopSlot } from '@gmo-onair/shared/src/client/shell/sideMenuSlot';
 import { EmptyState, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
+import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import StudioBookingDetailDialog from '../components/studio/StudioBookingDetailDialog';
+import StudioBookingDialog from '../components/studio/StudioBookingDialog';
 import { ymd, addDays, addMonths, startOfWeek } from './calendar/calendarLayout';
 import { CalSidebarExtras } from './calendar/CalSidebarExtras';
 import { RoomAvailabilityToolbar, type SiteOption } from './rooms/RoomAvailabilityToolbar';
 import { MobileRoomAvailability } from './rooms/MobileRoomAvailability';
 import { RoomAvailabilityCards } from './rooms/RoomAvailabilityCards';
+import { OutsideChips } from './rooms/OutsideChips';
 import {
   DAY_START_H, DAY_END_H, laneBlocks, isAllDay, monthDotEvents,
   type AvailBooking, type AvailRoom,
@@ -66,13 +73,25 @@ import {
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 
+/** 帯1段ぶんの高さ（px）。**段数 × これが部屋の行の高さ**（重なりは段で分ける） */
+const ROW_H = 36;
+
 interface LocationRow { id: string; name: string; rooms: AvailRoom[] }
 
 export default function RoomAvailabilityPage() {
+  const qc = useQueryClient();
+  const { currentUser, hasPermission } = useAuth();
+  const isAdmin = currentUser?.role === 'system_admin';
+  const canEdit = isAdmin || hasPermission('sales', 'editor');
+  const canDelete = isAdmin || hasPermission('sales', 'manager');
+
   const today = ymd(new Date());
   const [day, setDay] = useState(today);
   const [site, setSite] = useState('all');
   const [miniAnchor, setMiniAnchor] = useState(today.slice(0, 7));
+  // 帯を押したときに出す詳細。**id で持つ**（読み直しで中身が変わっても追随させるため）
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const sideMenuTopSlot = useSideMenuTopSlot();
   // **薄い親で1回だけ判定する。** 部品ごと入れ替えるだけで、
   // どちらの中でも `if (mobile) return …` のような早期returnはしない
@@ -168,6 +187,31 @@ export default function RoomAvailabilityPage() {
 
   const loading = rooms.isLoading || bookings.isLoading;
 
+  // ── 帯を押したら中身を見せる（監査 B-2）──────────────────────
+  //
+  // 帯の幅は時間の長さなので、10分の予約は文字が1字も入らない。PC の `title`
+  // ツールチップはスマホで効かないため、**何の予約かを確かめる手段が無かった**
+  // （① 予定へ移って探し直すしかない）。① 予定・スマホの「今日」と同じ
+  // `StudioBookingDetailDialog` を開く — 直す・消すの導線もそこに揃っている
+  const detail = useMemo(() => evs.find((b) => b.id === detailId) ?? null, [evs, detailId]);
+  const editing = useMemo(() => evs.find((b) => b.id === editId) ?? null, [evs, editId]);
+
+  const del = useMutation({
+    mutationFn: (id: string) => api.delete(`/studios/bookings/${id}`),
+    onSuccess: () => {
+      invalidateBookingQueries(qc);
+      setDetailId(null);
+      notifySuccess('予約を消しました');
+    },
+    onError: (e) => notifyApiError('消せませんでした', e),
+  });
+
+  const askDelete = (id: string) => confirmAction({
+    title: 'この予約を消しますか',
+    description: '押さえていた部屋が空きになります。取り消せません。',
+    confirmLabel: '消す', tone: 'danger',
+  }).then((ok) => ok && del.mutate(id));
+
   return (
     <div className="flex flex-col">
       {sideMenuTopSlot && createPortal(
@@ -221,7 +265,7 @@ export default function RoomAvailabilityPage() {
             description="設定の「部屋」で拠点と部屋を登録すると、ここに並びます。"
           />
         ) : isMobile ? (
-          <RoomAvailabilityCards groups={groups} evs={evs} day={day} />
+          <RoomAvailabilityCards groups={groups} evs={evs} day={day} onOpen={setDetailId} />
         ) : (
           <div className="rounded-card overflow-x-auto border border-border bg-card">
             <div className="min-w-[820px]">
@@ -250,7 +294,7 @@ export default function RoomAvailabilityPage() {
                   {g.rooms.map((r) => {
                     // **見ている日を渡す。** 渡さないと日をまたぐ予約を置き違える
                     // （8/1 20:00〜8/2 10:00 が 8/2 の 20:00〜22:00 に出ていた）
-                    const blocks = laneBlocks(evs, r.id, day);
+                    const lane = laneBlocks(evs, r.id, day);
                     return (
                       <div key={r.id} className="flex border-b border-border-faint last:border-b-0">
                         <span className="w-[196px] shrink-0 px-3 py-2.5">
@@ -269,13 +313,18 @@ export default function RoomAvailabilityPage() {
                               aria-hidden="true"
                             />
                           ))}
-                          <span className="relative block h-9">
-                            {blocks.map((b) => (
-                              <span
+                          {/* **重なった予約は段を分ける**（`laneBlocks` の `row`/`rows`）。
+                              1本のレーンに重ねて描くと、下になった帯は文字が重畳して
+                              両方読めず、存在にも気づけない */}
+                          <span className="relative block" style={{ height: lane.rows * ROW_H }}>
+                            {lane.blocks.map((b) => (
+                              <button
                                 key={b.id}
+                                type="button"
+                                onClick={() => setDetailId(b.id)}
                                 title={`${b.timeLabel} ${b.title}`}
                                 className={cn(
-                                  'rounded-note absolute inset-y-0 flex items-center overflow-hidden px-1.5',
+                                  'rounded-note absolute flex items-center overflow-hidden px-1.5 text-left',
                                   // 仮押さえは**破線**。確定と同じ見た目にすると、
                                   // 押さえただけの枠を「決まっている」と読んでしまう
                                   b.tentative && 'border border-dashed',
@@ -284,6 +333,8 @@ export default function RoomAvailabilityPage() {
                                 style={{
                                   left: b.left,
                                   width: b.width,
+                                  top: b.row * ROW_H + 1,
+                                  height: ROW_H - 2,
                                   borderColor: b.color,
                                   // **終日は斜線。** 時間帯の予約と同じ塗りだと
                                   // 「8:00〜22:00 に何かある」と読み違える
@@ -295,8 +346,9 @@ export default function RoomAvailabilityPage() {
                                 <span className="text-note truncate font-bold" style={{ color: b.textColor }}>
                                   <span className="font-number">{b.timeLabel}</span> {b.title}
                                 </span>
-                              </span>
+                              </button>
                             ))}
+                            <OutsideChips lane={lane} onOpen={setDetailId} />
                           </span>
                         </span>
                       </div>
@@ -322,9 +374,28 @@ export default function RoomAvailabilityPage() {
             斜線は終日です
           </span>
           <span className="text-note text-muted-foreground">
-            横の余白が空きです（前の日から続いている予約もこの日のぶんだけ切って出しています）
+            横の余白が空きです（前の日から続いている予約もこの日のぶんだけ切って出しています）。
+            帯を押すと中身が見られます。
           </span>
         </div>
+
+        <StudioBookingDetailDialog
+          open={!!detail}
+          onOpenChange={(v) => !v && setDetailId(null)}
+          booking={detail as never}
+          onEdit={(b) => { setDetailId(null); setEditId(b.id); }}
+          onDelete={askDelete}
+          canEdit={canEdit}
+          canDelete={canDelete}
+        />
+
+        <StudioBookingDialog
+          open={!!editing}
+          onOpenChange={(v) => { if (!v) setEditId(null); }}
+          locations={(rooms.data ?? []) as never}
+          editingBooking={editing as never}
+          presetDate={null}
+        />
       </div>
     </div>
   );

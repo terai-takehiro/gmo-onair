@@ -33,6 +33,7 @@ import ExcelToolbar from '@/components/ExcelToolbar';
 import ProjectQuickLinks from '@/contexts/shared/components/ProjectQuickLinks';
 import { LedgerRows } from './ledger/LedgerRows';
 import { LedgerFooter, LedgerSearch, MonthPicker } from './ledger/LedgerParts';
+import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth';
 import { RevenueDialog } from './ledger/RevenueDialog';
 import type { LedgerRow, RevenueRow } from './ledger/types';
 
@@ -134,6 +135,16 @@ export default function RevenueListPage() {
 
   const reset = () => { setPage(1); };
 
+  // 0件のときだけ「どの月なら売上があるか」を引く（今の絞り込みのまま）
+  const latestMonth = useLatestDataMonth('/revenues', {
+    enabled: !query.isLoading && rows.length === 0 && !search,
+    params: {
+      status: cur.status,
+      state: cur.state || undefined,
+      project_id: filterProjectId || undefined,
+    },
+  });
+
   return (
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
       <PageHeader
@@ -210,6 +221,14 @@ export default function RevenueListPage() {
           <EmptyState
             title={month ? `${month.replace('-', '年')}月の売上はありません` : '売上がありません'}
             description="案件の売上は、この画面かカレンダーの案件詳細から登録します。"
+            action={
+              <LatestMonthAction
+                month={latestMonth}
+                current={month}
+                what="売上"
+                onJump={(m) => { setMonth(m); reset(); }}
+              />
+            }
           />
         )
       ) : (

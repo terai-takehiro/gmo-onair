@@ -38,6 +38,7 @@ import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/
 import { PeriodBar, type PeriodMode, type ProjectOption } from './financeDashboard/PeriodBar';
 import { ProfitFlow, type FlowStep } from './financeDashboard/ProfitFlow';
 import { BreakdownColumn, type BreakdownItem } from './financeDashboard/Breakdown';
+import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth';
 
 interface MonthlySummary {
   month: string;
@@ -219,6 +220,20 @@ export default function BudgetDashboardPage() {
   const pct = (n: number) => (s.revenue_total > 0 ? (n / s.revenue_total) * 100 : null);
 
   /*
+   * **「全部ゼロ」で行き止まりにしない。** 既定の期間は今月だが、月次の入力は
+   * 締めのあとに入るので、今月を開いた時点では1件も無いのが普通で、以前は
+   * 手掛かりゼロの ¥0 画面が出るだけだった。0 のときだけ「確定売上のある
+   * 最新の月」を引いて、その月へ移れるようにする（サーバーは足していない・
+   * `ledger/LatestDataMonth.tsx`）。**基準は確定売上**（この画面の見出しと同じ）。
+   */
+  const nothingHere = !summaryQuery.isLoading && !summaryQuery.isError
+    && s.revenue_total === 0 && s.purchase_total === 0 && s.sga_total === 0;
+  const latestMonth = useLatestDataMonth('/revenues', {
+    enabled: nothingHere,
+    params: { status: 'confirmed', project_id: projectId || undefined },
+  });
+
+  /*
    * **案件で絞り込み中は3枚だけ。** 販管費は案件に紐づかない（＝どの案件で絞っても
    * 同じ全社の販管費が出るだけで、その案件の損益とは無関係）ので、絞り込み中は
    * 「売上 − 仕入（変動原価） = 限界利益」までしか出さない。固定原価・売上総利益・
@@ -298,6 +313,21 @@ export default function BudgetDashboardPage() {
         <Delayed><SkeletonRows rows={6} /></Delayed>
       ) : (
         <>
+          {nothingHere && latestMonth && !(mode === 'month' && latestMonth === month) && (
+            <div className="rounded-card flex flex-wrap items-center gap-3 border border-border bg-card p-3 lg:px-4">
+              <span className="text-sub text-secondary-foreground">
+                {period.label} には計上がありません。
+              </span>
+              <div className="flex-1" />
+              <LatestMonthAction
+                month={latestMonth}
+                current={mode === 'month' ? month : ''}
+                what="確定売上"
+                onJump={(m) => { setMode('month'); setMonth(m); }}
+              />
+            </div>
+          )}
+
           <ProfitFlow steps={steps} />
 
           <div className={`grid grid-cols-1 gap-3.5 ${projectId ? 'lg:grid-cols-2' : 'lg:grid-cols-3'}`}>

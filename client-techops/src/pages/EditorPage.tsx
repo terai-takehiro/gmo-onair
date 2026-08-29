@@ -30,6 +30,7 @@ import { useExcelIO } from "@/hooks/useExcelIO";
 // （EditorPage.tsx はもともと 400 行上限の超過ファイルなので、ここでは増やさない）。
 // 本番中（進行/ランダウン/プロンプター/公開音声）はこのアプリのどこからも呼ばれない。
 import AiEditorTools from "@/components/ai/AiEditorTools";
+import ToolbarOverflowMenu, { toolbarMenuItemClass } from "@/components/editor/ToolbarOverflowMenu";
 import {
   Loader2,
   Save,
@@ -640,59 +641,47 @@ export default function EditorPage() {
               <Save size={14} aria-hidden />
               <span className="hidden sm:inline">{saveFlash ? "保存しました" : "保存"}</span>
             </button>
-            {/* ゴミ箱 — ロール/行の復元用 */}
-            {(() => {
-              const trashCount = getTrash(doc.data).length;
-              return (
-                <button
-                  onClick={() => setShowTrash(true)}
-                  className="relative hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-control-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-                  title="ゴミ箱（削除したロール/行を復元）"
-                  aria-label={`ゴミ箱 ${trashCount}件`}
-                >
-                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                  <span className="hidden md:inline">ゴミ箱</span>
-                  {trashCount > 0 && (
-                    <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold min-w-[18px] text-center">
-                      {trashCount}
-                    </span>
-                  )}
+            {/*
+              二次アクションは「…」に畳む。1行に全部並べると 1280px で
+              本番系の起動ボタン（ランダウン／プロンプター／ON AIR）が
+              本文幅の外へ押し出され、横スクロールしないと押せなくなる。
+            */}
+            <ToolbarOverflowMenu>
+              {(() => {
+                const trashCount = getTrash(doc.data).length;
+                return (
+                  <button
+                    onClick={() => setShowTrash(true)}
+                    className={toolbarMenuItemClass}
+                    aria-label={`ゴミ箱 ${trashCount}件`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                    ゴミ箱（削除したロール/行を戻す）
+                    {trashCount > 0 && (
+                      <span className="ml-auto px-1.5 py-0.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold min-w-[18px] text-center">
+                        {trashCount}
+                      </span>
+                    )}
+                  </button>
+                );
+              })()}
+              <button onClick={() => setShowPreview(true)} className={toolbarMenuItemClass}>
+                <Eye size={14} aria-hidden />印刷 / PDF
+              </button>
+              <button onClick={() => exportCsv(doc)} className={toolbarMenuItemClass}>
+                <Download className="h-3.5 w-3.5" aria-hidden />CSV に書き出す
+              </button>
+              <button onClick={() => setShowCsvImport(true)} className={toolbarMenuItemClass}>
+                <Upload className="h-3.5 w-3.5" aria-hidden />CSV を取り込む
+              </button>
+              <AiEditorTools variant="menu" documentId={doc.id} projectId={(doc as any).project_id} updateData={updateData} />
+              {/* 音声サポート URL 共有 (マイク香盤ブロックがある時のみ表示) */}
+              {doc.data.blocks.some((b) => b.type === "audio_mic") && (
+                <button onClick={() => setShowAudioShare(true)} className={toolbarMenuItemClass}>
+                  <Mic className="h-4 w-4 text-pink-600" aria-hidden />音声サポートURLを共有
                 </button>
-              );
-            })()}
-            {/* CSV export — desktop only */}
-            <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1 text-xs" onClick={() => exportCsv(doc)} title="CSVエクスポート">
-              <Download className="h-3.5 w-3.5" />
-              <span className="hidden lg:inline">CSV</span>
-            </Button>
-            {/* CSV import — desktop only */}
-            <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1 text-xs" onClick={() => setShowCsvImport(true)} title="CSVインポート">
-              <Upload className="h-3.5 w-3.5" />
-              <span className="hidden lg:inline">CSV取込</span>
-            </Button>
-            {/* PDF export */}
-            <button
-              onClick={() => setShowPreview(true)}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-control-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-              aria-label="印刷 / PDF プレビュー"
-            >
-              <Eye size={13} aria-hidden />
-              <span className="hidden md:inline">印刷 / PDF</span>
-            </button>
-            <AiEditorTools documentId={doc.id} projectId={(doc as any).project_id} updateData={updateData} />
-            {/* 音声サポート URL 共有 (マイク香盤ブロックがある時のみ表示) */}
-            {doc.data.blocks.some((b) => b.type === "audio_mic") && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="hidden md:flex h-8 gap-1"
-                onClick={() => setShowAudioShare(true)}
-                title="音声サポート画面 URL を共有"
-              >
-                <Mic className="h-4 w-4 text-pink-600" />
-                <span className="hidden lg:inline text-xs">音声共有</span>
-              </Button>
-            )}
+              )}
+            </ToolbarOverflowMenu>
 
             {/* Navigation buttons — tablet+ */}
             <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1" onClick={() => navigate(`/techops/rundown/${doc.id}`)}>

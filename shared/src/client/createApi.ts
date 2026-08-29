@@ -7,6 +7,21 @@ interface ApiConfig {
   storageKey: string;
   /** Login redirect path, e.g. '/qsheet/login' */
   loginPath: string;
+  /**
+   * **ログイン不要で開ける公開ページのパス接頭辞**（opt-in・既定は無し）。
+   *
+   * 401 が返ったらログイン画面へ飛ばす、という既定の振る舞いは、
+   * **公開URLでは「開けない」に化ける**。制作技術支援の音声サポート
+   * （`/techops/audio/:id`・旧 `/qsheet/audio/:id`）は認証を付けない決まりだが、
+   * アプリ全体で1回だけ走る `/auth/me` が未ログインだと 401 を返すため、
+   * 公開ページを開いた人がログイン画面へ送り返されていた（本文の取得自体は
+   * 認証不要の別APIなので、この転送さえ止めれば読める）。
+   *
+   * ここに入れた接頭辞で**いま開いているページ**（`window.location.pathname`）が
+   * 始まるときだけ転送を止める。リクエスト側ではなくページ側で判定するのは、
+   * 公開ページの中から呼ぶ認証必須API（将来足すもの）も同じく転送させないため。
+   */
+  publicPaths?: string[];
 }
 
 export function createApi(config: ApiConfig) {
@@ -66,8 +81,10 @@ export function createApi(config: ApiConfig) {
       if (error.response?.status === 401) {
         useUiStore.getState().setCurrentUserId(null);
         localStorage.removeItem(config.storageKey);
+        const path = window.location.pathname;
+        const onPublicPage = (config.publicPaths ?? []).some((p) => path.startsWith(p));
         // Don't redirect if already on login page (prevents infinite loop)
-        if (!window.location.pathname.endsWith('/login')) {
+        if (!path.endsWith('/login') && !onPublicPage) {
           window.location.href = config.loginPath;
         }
       }

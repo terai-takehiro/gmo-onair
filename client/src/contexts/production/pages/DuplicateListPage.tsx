@@ -95,7 +95,9 @@ export default function DuplicateListPage() {
           <RowHeader className="hidden sm:flex">
             <RowMain>予定 ／ 重複の疑いの理由</RowMain>
             <RowSlot w={160}>元になった予約</RowSlot>
-            <RowSlot w={160}>{canEdit ? "決める" : ""}</RowSlot>
+            {/* 「別物として確認済みにする」は 11 文字＋アイコンで 160px に入らない
+                （実測 190px。切り詰めると何のボタンか読めなくなるので幅側で解決する） */}
+            <RowSlot w={200}>{canEdit ? "決める" : ""}</RowSlot>
           </RowHeader>
 
           {rows.map((b) => (
@@ -106,6 +108,11 @@ export default function DuplicateListPage() {
                   {[fmt(b.start_time), b.gls_number, b.project_name].filter(Boolean).join(" ／ ")}
                 </RowSub>
                 <RowSub>{b.possible_duplicate_reason}</RowSub>
+                {/* スマホは「元になった予約」列が落ちるので、**どの予約と重なっているか**を
+                    ここに添える（無いと、何と重複しているか分からないまま消すことになる） */}
+                <RowSub className="whitespace-normal sm:hidden">
+                  {`元になった予約: ${b.of_title ?? "（削除済み）"}${b.of_start_time ? ` ・ ${fmt(b.of_start_time)}` : ""}`}
+                </RowSub>
               </RowMain>
 
               <RowSlot w={160} hideOnMobile>
@@ -115,7 +122,7 @@ export default function DuplicateListPage() {
                 </span>
               </RowSlot>
 
-              <RowSlot w={160}>
+              <RowSlot w={200}>
                 {canEdit && (
                   <span className="flex w-full flex-col gap-1">
                     <Button
