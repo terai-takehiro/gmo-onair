@@ -631,7 +631,7 @@ export default function EditorPage() {
             {/* Manual save button */}
             <button
               onClick={handleManualSave}
-              className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-control-md transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
+              className={`inline-flex min-h-tap items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-control-md transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 lg:h-9 lg:min-h-0 ${
                 saveFlash ? "bg-success text-success-foreground scale-105" : "bg-primary text-primary-foreground hover:bg-primary/90"
               }`}
               aria-label="手動保存"

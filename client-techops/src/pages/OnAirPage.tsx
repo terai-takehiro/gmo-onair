@@ -328,8 +328,6 @@ export default function OnAirPage() {
     );
   }
 
-  // 「台本そのものが無い（404・権限なし）」と「台本はあるがキューが0件」を分ける。
-  // 同じ文言だと、URL の打ち間違いなのか台本が空なのかが読み手に判断できない
   if (error || !doc || cues.length === 0) {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-background text-foreground gap-4">
@@ -346,11 +344,7 @@ export default function OnAirPage() {
       {/* ===== HEADER ===== */}
       <header className="flex-none h-10 flex items-center justify-between gap-3 px-5 bg-card border-b border-border">
         <div className="flex min-w-0 items-center gap-3">
-          <button
-            onClick={() => navigate(`/techops/editor/${id}`)}
-            aria-label="エディターに戻る"
-            className="inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center rounded-control-md text-muted-foreground hover:text-foreground hover:bg-accent lg:min-h-[36px] lg:min-w-[36px]"
-          >
+          <button onClick={() => navigate(`/techops/editor/${id}`)} aria-label="エディターに戻る" className="inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center rounded-control-md text-muted-foreground hover:text-foreground hover:bg-accent lg:min-h-[36px] lg:min-w-[36px]">
             <ChevronLeft size={18} />
           </button>
           <span className="min-w-0 truncate text-base font-bold text-foreground">{doc.data?.meta?.title || doc.title}</span>
@@ -605,19 +599,11 @@ export default function OnAirPage() {
                     <Square size={22} />
                   </button>
                   <div className="w-px h-8 bg-muted/80 mx-2" />
-                  <button
-                    onClick={() => setOffset((p) => p - 60)}
-                    aria-label="1分戻す"
-                    className="inline-flex min-h-tap min-w-tap items-center justify-center rounded bg-muted hover:bg-muted/80 text-foreground font-bold transition-all active:scale-90"
-                  >
+                  <button onClick={() => setOffset((p) => p - 60)} aria-label="1分戻す" className="inline-flex min-h-tap min-w-tap items-center justify-center rounded bg-muted hover:bg-muted/80 text-foreground font-bold transition-all active:scale-90">
                     <Minus size={16} />
                   </button>
                   <span className="text-sm font-black text-muted-foreground w-8 text-center">±1m</span>
-                  <button
-                    onClick={() => setOffset((p) => p + 60)}
-                    aria-label="1分進める"
-                    className="inline-flex min-h-tap min-w-tap items-center justify-center rounded bg-muted hover:bg-muted/80 text-foreground font-bold transition-all active:scale-90"
-                  >
+                  <button onClick={() => setOffset((p) => p + 60)} aria-label="1分進める" className="inline-flex min-h-tap min-w-tap items-center justify-center rounded bg-muted hover:bg-muted/80 text-foreground font-bold transition-all active:scale-90">
                     <Plus size={16} />
                   </button>
                 </div>

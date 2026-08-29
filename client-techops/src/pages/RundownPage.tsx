@@ -421,7 +421,6 @@ export default function RundownPage() {
     );
   }
 
-  // 「台本そのものが無い（404・権限なし）」と「台本はあるがキューが0件」を分ける
   if (error || !doc || flatCues.length === 0) {
     return (
       <div className={cn("flex h-screen flex-col items-center justify-center gap-4", bg, text)}>

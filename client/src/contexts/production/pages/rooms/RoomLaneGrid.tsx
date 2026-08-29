@@ -11,8 +11,11 @@ import { cn } from '@gmo-onair/shared/src/client/utils';
 import { OutsideChips } from './OutsideChips';
 import { DAY_START_H, DAY_END_H, laneBlocks, type AvailBooking, type AvailRoom } from './availability';
 
-/** 帯1段ぶんの高さ（px）。**段数 × これが部屋の行の高さ**（重なりは段で分ける） */
-export const ROW_H = 36;
+/**
+ * 帯1段ぶんの高さ（px）。**段数 × これが部屋の行の高さ**（重なりは段で分ける）。
+ * 帯そのものは段のあいだに 2px の隙間を空けるので 36px＝寸法の段に載る。
+ */
+export const ROW_H = 38;
 
 interface Group { id: string; name: string; rooms: AvailRoom[] }
 

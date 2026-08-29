@@ -239,7 +239,7 @@ export default function PrompterPage() {
           {/* Font size */}
           <div className="flex items-center gap-1">
             <button
-              className="inline-flex min-h-tap min-w-tap items-center justify-center text-muted-foreground hover:text-foreground lg:min-h-0 lg:min-w-0 lg:p-1"
+              className="inline-flex min-h-tap min-w-tap items-center justify-center text-muted-foreground hover:text-foreground lg:h-9 lg:w-9 lg:min-h-0 lg:min-w-0"
               aria-label="文字を小さく"
               onClick={() => setFontSize(p => Math.max(p - 4, 16))}
             >
@@ -247,7 +247,7 @@ export default function PrompterPage() {
             </button>
             <span className="text-xs text-muted-foreground w-8 text-center">{fontSize}px</span>
             <button
-              className="inline-flex min-h-tap min-w-tap items-center justify-center text-muted-foreground hover:text-foreground lg:min-h-0 lg:min-w-0 lg:p-1"
+              className="inline-flex min-h-tap min-w-tap items-center justify-center text-muted-foreground hover:text-foreground lg:h-9 lg:w-9 lg:min-h-0 lg:min-w-0"
               aria-label="文字を大きく"
               onClick={() => setFontSize(p => Math.min(p + 4, 80))}
             >
@@ -297,6 +297,10 @@ export default function PrompterPage() {
       {/* Teleprompter text */}
       <div
         ref={textRef}
+        // 台本は画面より高いのが仕様。送るのは自動スクロール（`scrollTop` を
+        // 毎フレーム進める）で、スクロールバーは出さない。検査には
+        // 「切ると決めた箱」だと伝える
+        data-clip-ok
         className="flex-1 overflow-hidden relative"
         style={{
           transform: mirror ? 'scaleX(-1)' : undefined,
