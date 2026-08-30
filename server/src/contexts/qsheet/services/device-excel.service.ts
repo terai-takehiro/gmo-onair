@@ -4,10 +4,10 @@
 //   1. 台本側の Excel モジュールを import しない・逆も
 //   2. 列定義・ヘッダ生成・検証を共有しない
 //   3. Excel 用の共通レイヤーを新設しない（`shared/utils/excel.ts` の既存 API を直接呼ぶだけ）
-//   4. ExcelJS は使わない（`buildExcelWorkbook` = SheetJS で足りる）
+//   4. Excel ライブラリをこのファイルから直接 import しない（`shared/utils/excel.ts` の中だけが知っている）
 //   5. 2行ヘッダ・隠しシート（台本側が使う定義シート）を混入させない
 // → `shared/tests/deviceExcelIsolation.test.ts` が禁止語（台本側モジュール名・
-//   ExcelJS のパッケージ名・台本側の隠しシート名）がこのファイルに出てこないことを機械的に見張る。
+//   Excel ライブラリのパッケージ名・台本側の隠しシート名）がこのファイルに出てこないことを機械的に見張る。
 import { buildExcelWorkbook, excelResponse } from '../../../shared/utils/excel';
 import { decrypt } from '../../../shared/utils/secret-box';
 import { Deck, Destination } from '../device-settings-types';
@@ -21,8 +21,32 @@ const GUIDE_ROWS: Record<string, string>[] = [
   { 項目: 'セッション名', 説明: '半角英数・32文字以内・前後空白なし。ENC内で重複不可' },
   { 項目: 'ストリームキー', 説明: 'RTMP は新規のとき必須。空欄なら現地のキーを残します' },
   { 項目: '解像度・コーデック', 説明: '機器の綴りと完全一致している必要があります（大小区別・部分一致不可）' },
+  { 項目: '収録先', 説明: '機器の呼び名で出しています（ssd1 / sd1 / usb1 = SSD 1 / SD 1 / USB-C。ネットワーク はそのまま）' },
   { 項目: '取込', 説明: 'この Excel は GMO ONAiR Assistant で取り込みます。1枚目のシートしか読みません' },
 ];
+
+/**
+ * 収録先を、画面の呼び名（`SSD 1` など）から**現地の機器が解決できる呼び名**に直す。
+ *
+ * ⚠️ Assistant の取込は「スロット番号・機器の device 名・ボリューム名・
+ * 現場の言い方（ネットワーク／SSD／SDカード）」しか解決しない（#279 §4-1）。
+ * 画面の `USB-C` は空白とハイフンを落とすと `usbc` になり、機器の device 名
+ * `usb1` に**一致しないため現地で解決されずに行ごと弾かれていた**。
+ * 日本語で安全なのは `ネットワーク` だけなので、それ以外は device 名で出す。
+ * 知らない値（自由入力）はそのまま通す（弾くのは現地の仕事・deckOptions.ts と同じ方針）。
+ */
+const EXPORT_SLOT_MAP: Record<string, string> = {
+  'SSD 1': 'ssd1',
+  'SSD 2': 'ssd2',
+  'SD 1': 'sd1',
+  'SD 2': 'sd2',
+  'USB-C': 'usb1',
+};
+
+export function exportSlotValue(slot: string | undefined): string {
+  if (!slot) return '';
+  return EXPORT_SLOT_MAP[slot] ?? slot;
+}
 
 /** ストリームキーを保存の姿（`streamKeyEnc`）から、Excel に出す文字列に直す */
 function resolveStreamKeyForExport(
@@ -31,6 +55,21 @@ function resolveStreamKeyForExport(
 ): string {
   if (keyMode !== 'plain' || !d.streamKeyEnc) return '';
   return decrypt(d.streamKeyEnc) ?? '';
+}
+
+/**
+ * 「キーを入れて出す」のに**復号できない鍵**を持つ配信先の一覧。
+ *
+ * ⚠️ `decrypt()` は失敗すると null を返す設計（secret-box.ts）なので、
+ * `ENCRYPTION_KEY` が保存時と違うと、**キー列が空欄の Excel が警告ひとつ無く**
+ * 出来上がっていた（見た目は正常・現地で使えない）。点検の赤に出すために数える。
+ */
+export function listUndecryptableKeys(
+  destinations: (Destination & { streamKeyEnc?: string | null })[]
+): string[] {
+  return destinations
+    .filter((d) => d.streamKeyEnc && decrypt(d.streamKeyEnc) === null)
+    .map((d) => `${d.encoderId} / ${d.name || '(名称未設定)'}`);
 }
 
 export interface BuildDeviceWorkbookInput {
@@ -56,37 +95,41 @@ export interface BuildDeviceWorkbookResult {
 function buildSheetSpecs(input: BuildDeviceWorkbookInput) {
   const sheetSpecs = [];
 
-  if (input.sheets.includes('recording')) {
-    // 「使わないと決めた台」（skip）は空行にせず、そもそも出さない（#279 §4-1 の空行禁止）
-    const rows = input.decks
-      .filter((d) => !d.skip)
-      .map((d) => ({
-        deckId: d.deckId,
-        videoFormat: d.videoFormat ?? '',
-        codec: d.codec ?? '',
-        audioChannels: d.audioChannels ?? '',
-        slot: d.slot ?? '',
-        filePrefix: d.filePrefix ?? '',
+  // ⚠️ **`input.sheets` の並び＝シートの並び**（impl doc §6-2「配列を組む順が仕様」）。
+  // 以前は includes() で「収録 → 配信」に固定していたため、配信設定の画面から
+  // 既定（両方選択）で書き出すと**配信設定が2枚目**になり、1枚目しか読まない
+  // Assistant では配信の取込がそのままでは通らなかった。
+  for (const sheet of [...new Set(input.sheets)]) {
+    if (sheet === 'recording') {
+      // 「使わないと決めた台」（skip）は空行にせず、そもそも出さない（#279 §4-1 の空行禁止）
+      const rows = input.decks
+        .filter((d) => !d.skip)
+        .map((d) => ({
+          deckId: d.deckId,
+          videoFormat: d.videoFormat ?? '',
+          codec: d.codec ?? '',
+          audioChannels: d.audioChannels ?? '',
+          slot: exportSlotValue(d.slot),
+          filePrefix: d.filePrefix ?? '',
+        }));
+      sheetSpecs.push({ name: '収録設定', columns: RECORDING_COLUMNS, rows });
+    } else {
+      // 配信先が1件も無い ENC は行を出さない（= destinations に無いものはそもそも書かない）
+      const rows = input.destinations.map((d) => ({
+        encoderId: d.encoderId,
+        name: d.name,
+        protocol: d.protocol ?? '',
+        url: d.url ?? '',
+        port: d.port ?? '',
+        streamKey: resolveStreamKeyForExport(d, input.keyMode),
+        passphrase: d.passphrase ?? '',
+        latencyMs: d.latencyMs ?? '',
+        bandwidthPct: d.bandwidthPct ?? '',
+        mtu: d.mtu ?? '',
+        aes: d.aes ?? '',
       }));
-    sheetSpecs.push({ name: '収録設定', columns: RECORDING_COLUMNS, rows });
-  }
-
-  if (input.sheets.includes('streaming')) {
-    // 配信先が1件も無い ENC は行を出さない（= destinations に無いものはそもそも書かない）
-    const rows = input.destinations.map((d) => ({
-      encoderId: d.encoderId,
-      name: d.name,
-      protocol: d.protocol ?? '',
-      url: d.url ?? '',
-      port: d.port ?? '',
-      streamKey: resolveStreamKeyForExport(d, input.keyMode),
-      passphrase: d.passphrase ?? '',
-      latencyMs: d.latencyMs ?? '',
-      bandwidthPct: d.bandwidthPct ?? '',
-      mtu: d.mtu ?? '',
-      aes: d.aes ?? '',
-    }));
-    sheetSpecs.push({ name: '配信設定', columns: STREAMING_COLUMNS, rows });
+      sheetSpecs.push({ name: '配信設定', columns: STREAMING_COLUMNS, rows });
+    }
   }
 
   // 入力ガイドは常に付ける（#279 §4-4）

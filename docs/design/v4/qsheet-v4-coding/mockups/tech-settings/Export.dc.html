@@ -35,7 +35,7 @@
       <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:8px">
         <span class="num nb" style="width:18px; height:18px; border-radius:999px; background:#1a1d24; color:#fff; font-size:10px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0">1</span>
         <span style="font-size:13px; font-weight:800">出すシートを選ぶ</span>
-        <span class="nb" style="font-size:10.5px; color:#9aa1ab">Assistant は 1 枚目しか読みません</span>
+        <span class="nb" style="font-size:10.5px; color:#9aa1ab">Assistant は 1 枚目しか読みません（開いた画面のシートが 1 枚目）</span>
       </div>
       <div style="display:flex; flex-direction:column; gap:6px">
         <sc-for list="{{ sheets }}" as="sh" hint-placeholder-count="3">
@@ -57,7 +57,7 @@
     <div>
       <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:8px">
         <span class="num nb" style="width:18px; height:18px; border-radius:999px; background:#1a1d24; color:#fff; font-size:10px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0">2</span>
-        <span style="font-size:13px; font-weight:800">1 枚目の見出しを確かめる</span>
+        <span style="font-size:13px; font-weight:800">出るものを確かめる（1 枚目の見本）</span>
       </div>
       <div style="border:1px solid #eef0f3; border-radius:11px; overflow:hidden">
         <div style="overflow-x:auto">
@@ -77,7 +77,7 @@
           </div>
         </div>
       </div>
-      <p style="margin:7px 0 0; font-size:10.5px; color:#9aa1ab; line-height:1.65">薄い橙のセルは<strong class="nb">空欄で出ます</strong>＝現地の設定を変えません。<strong class="nb">TCソースの列は出しません</strong>（現地で必ず弾かれるため）。</p>
+      <p style="margin:7px 0 0; font-size:10.5px; color:#9aa1ab; line-height:1.65">薄い橙のセルは<strong class="nb">空欄で出ます</strong>＝現地の設定を変えません。<strong class="nb">TCソースの列は出しません</strong>（現地で必ず弾かれるため）。ストリームキーは見本では伏せ字（<span class="num">****</span>）で、④の選択が見本にも反映されます。</p>
     </div>
 
     <!-- 3. preflight -->
@@ -150,43 +150,71 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:820,&quot;height&quot;:1240}}">
 class Component extends DCLogic {
-  state = { on: { rec: true, stream: true, guide: true }, keyMode: 'blank', toast: '' };
+  // order の並び＝シートの並び（サーバーの buildSheetSpecs は ?sheets= の並びのまま積む）。
+  // このモックは配信設定の画面から開いた形＝配信設定が1枚目
+  state = { order: ['stream', 'rec'], keyMode: 'blank', toast: '' };
 
   flash(msg) { this.setState({ toast: msg }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: '' }), 2800); }
 
   renderVals() {
     const s = this.state;
     const defs = [
-      { key: 'rec', label: '収録設定', desc: 'HyperDeck 12台。デッキ／解像度／コーデック／音声ch／収録先／ファイル名' },
       { key: 'stream', label: '配信設定', desc: 'ENC ごとの配信先。セッション名・プロトコル・宛先・キーほか' },
-      { key: 'guide', label: '入力ガイド', desc: '決まりごとの説明。現地では読まれませんが、表を触る人のために付けます' },
+      { key: 'rec', label: '収録設定', desc: 'HyperDeck 12台。デッキ／解像度／コーデック／音声ch／収録先／ファイル名' },
+      { key: 'guide', label: '入力ガイド', desc: '決まりごとの説明。現地では読まれませんが、表を触る人のために必ず付きます' },
     ];
-    let pos = 0;
+    // 何枚目か＝ order の並び＋入力ガイドが最後（チェックを入れ直すと末尾に足される）
+    const posOf = (key) => {
+      if (key === 'guide') return String(s.order.length + 1);
+      const i = s.order.indexOf(key);
+      return i < 0 ? '—' : String(i + 1);
+    };
     const sheets = defs.map((d) => {
-      const on = !!s.on[d.key];
-      if (on) pos += 1;
+      const on = d.key === 'guide' ? true : s.order.includes(d.key);
+      const first = posOf(d.key) === '1';
       return {
-        label: d.label, desc: d.desc,
-        pos: on ? String(pos) : '—',
+        label: d.label + (first ? '（1枚目 = Assistant が読むシート）' : ''), desc: d.desc,
+        pos: posOf(d.key),
         numBg: on ? '#fff7ed' : '#f2f4f7', numFg: on ? '#c2410e' : '#c1c7cf',
         bd: on ? '#fed7aa' : '#e6e9ed', bg: on ? '#fffaf5' : '#fff',
         swBg: on ? '#c2410e' : '#dcdfe4', swLeft: on ? 18 : 2,
-        toggle: () => { const o = { ...s.on }; o[d.key] = !on; this.setState({ on: o }); },
+        toggle: d.key === 'guide'
+          ? () => this.flash('入力ガイドは外せません（サーバーが必ず付けます）')
+          : () => {
+              const order = s.order.includes(d.key) ? s.order.filter((k) => k !== d.key) : [...s.order, d.key];
+              if (order.length === 0) { this.flash('出すシートを1つ以上選んでください'); return; }
+              this.setState({ order });
+            },
       };
     });
 
-    const W = [88, 148, 118, 66, 104, 140];
-    const heads = ['デッキ', '解像度', 'コーデック', '音声ch', '収録先', 'ファイル名'];
-    const rows = [
+    // 見本は**1枚目のシート**を出す（1枚目しか現地で読まれないため）。
+    // 収録の収録先は機器の呼び名（ssd1 / usb1 / ネットワーク）で出る
+    const first = s.order[0] || 'guide';
+    const RECW = [88, 148, 118, 66, 104, 140];
+    const RECH = ['デッキ', '解像度', 'コーデック', '音声ch', '収録先', 'ファイル名'];
+    const RECR = [
       ['REC1', '1920x1080p59.94', 'ProRes:HQ', '2', 'ネットワーク', 'GLS-A012_PGM'],
       ['REC5', '', '', '2', 'ssd2', ''],
-      ['REC7', '3840x2160p59.94', 'H.265:High', '4', 'ネットワーク', 'GLS-A012_4K'],
+      ['REC7', '3840x2160p59.94', 'H.265:High', '4', 'usb1', 'GLS-A012_4K'],
     ];
+    const STRW = [58, 122, 92, 200, 56, 104, 88, 66, 76, 56, 72];
+    const STRH = ['ENC', 'セッション名', 'プロトコル', '宛先', 'ポート', 'ストリームキー', 'パスフレーズ', 'Latency', 'Bandwidth', 'MTU', '暗号化'];
+    const STRR = [
+      ['ENC1', 'YouTube Pri', 'RTMP', 'rtmp://a.rtmp.youtube.com/live2', '', s.keyMode === 'plain' ? '****' : '', '', '', '', '', 'なし'],
+      ['ENC2', 'Center SRT', 'SRT Caller', 'srt.example.invalid', '9000', '', '****', '120', '25', '1316', 'AES-128'],
+    ];
+    const W = first === 'stream' ? STRW : RECW;
+    const heads = first === 'stream' ? STRH : RECH;
+    const rows = first === 'stream' ? STRR : RECR;
 
     const redItems = [
       { who: 'ENC1', what: '「YouTube Bkup」は RTMP なのにストリームキーが空です。現地で必ず弾かれます' },
       { who: 'ENC5', what: '「Return Rcv」は SRT Listener ですが待受ポートが空です' },
     ];
+    if (s.keyMode === 'plain') {
+      redItems.push({ who: 'ENC3', what: '「記念式典 本線」の保存済みキーを復号できません（このまま出すとキー列が空欄になります）' });
+    }
     const amberItems = [
       { who: 'REC5', what: '解像度・コーデック・ファイル名が空欄です（現地の値をそのまま残します）' },
       { who: 'REC3-P', what: 'まだ何も決めていません。この台は現地の設定のままになります' },

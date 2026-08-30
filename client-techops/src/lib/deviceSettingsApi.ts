@@ -193,15 +193,36 @@ export async function putStreaming(
  */
 export async function preflight(
   ownerKey: string,
-  opts: { date?: string; sheets?: ('recording' | 'streaming')[] } = {}
+  opts: { date?: string; sheets?: ('recording' | 'streaming')[]; keyMode?: 'blank' | 'plain' } = {}
 ): Promise<PreflightResult> {
   const params = new URLSearchParams();
   if (opts.date) params.set('date', opts.date);
   // 空配列は送らない（サーバーは空文字を「指定なし = 両方」と読む。送っても意味が変わらない）
   if (opts.sheets && opts.sheets.length > 0) params.set('sheets', opts.sheets.join(','));
+  // キーの扱いも見本に映す（'plain' だと復号チェックも走る）。省くと 'blank' 扱い
+  if (opts.keyMode) params.set('keyMode', opts.keyMode);
   const query = params.toString();
   const { data } = await api.post(`${base(ownerKey)}/settings/preflight${query ? `?${query}` : ''}`);
   return data.data;
+}
+
+/**
+ * 失敗したときのサーバーの言い分を取り出す（`client/src/lib/docPdf.ts` の `messageOf` と同じ形）。
+ *
+ * ⚠️ **`responseType: 'blob'` だと、エラーの本文も Blob で返ってくる。**
+ * 以前はそれを `apiErrorMessage`（JSON 前提）に渡していたため、権限が無いのか
+ * 実施日に設定が無いのかに関わらず、**常に「書き出しに失敗しました」しか出なかった**。
+ */
+export async function exportErrorMessage(err: unknown, fallback: string): Promise<string> {
+  const body = (err as { response?: { data?: unknown } })?.response?.data;
+  if (body instanceof Blob) {
+    try {
+      const parsed = JSON.parse(await body.text()) as { error?: { message?: string } };
+      if (parsed?.error?.message) return parsed.error.message;
+    } catch { /* JSON でなければ既定の文言 */ }
+  }
+  const msg = (body as { error?: { message?: string } })?.error?.message;
+  return msg || fallback;
 }
 
 export async function exportXlsx(
