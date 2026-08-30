@@ -25,7 +25,11 @@ import {
 
 /** 部品ごとの入力欄（段1の決め打ち。テンプレートの公開フィールドに置き換わる予定） */
 const PART_FIELDS: Record<GraphicsPartKey, { key: string; label: string; type?: 'datetime-local' }[]> = {
-  name: [{ key: 'subText', label: '肩書・行き先（上の行）' }, { key: 'mainText', label: '氏名（下の行）' }],
+  name: [
+    { key: 'label', label: '賞名・役割（金の見出し・任意）' },
+    { key: 'mainText', label: '氏名（主役の行）' },
+    { key: 'subText', label: '所属・肩書（下の小さな行）' },
+  ],
   title: [{ key: 'text', label: '題字' }],
   list: [{ key: 'text', label: '内容（1行ずつ）' }],
   ticker: [{ key: 'text', label: '流す文言' }],

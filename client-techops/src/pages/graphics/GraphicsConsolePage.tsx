@@ -1,31 +1,36 @@
 // テロップCG — 送出コンソール（`/techops/graphics/:ownerKey/live`・モック②）。
 //
-// 段2の最小機能形（docs/design/v4/graphics.md §4・§9）:
-//   ・スロットごとのオンエア状態レーン（現在ページ＋OUT）＝最終防衛線
-//   ・ページ一覧から「PVWへ」（ローカル選択）→ TAKE（`cg:set` を送出）
-//   ・オールクリア（確認つき）
+// モック②のオペレーター運転モデル（docs/design/v4/graphics.md §4）:
+//   ・PGM / PVW の**本物のプレビュー**（出力画面と同じ renderGraphicsPage を縮尺表示）
+//   ・番号呼出（テンキー → Enter で PVW に立てる）
+//   ・5動詞: スタンバイ ／ TAKE ／ 続き（多段アニメ・後日）／ OUT ／ 次へ（Read Next）
+//   ・キーボード運転: Space=TAKE ／ Enter=次へ ／ ↑↓=スタンバイ移動 ／ テンキー=番号呼出
+//   ・スロットごとのオンエア状態レーン（現在ページ＋経過時間＋OUT）＝最終防衛線
 //   ・校正「未完成」は TAKE をブロック・「未確認」は警告してから
-// まだ無いもの: PGM/PVW の本物のレンダリング・番号呼出・次へ（Read Next）・
-// キーボード運転 — モック②の完成形はこの上に足す。
+// TAKE できるのは PVW に見えているものだけ — 一覧から直接オンエアするボタンは無い。
 //
-// リアルタイムは Socket.IO `/graphics`（`lib/graphicsSocket.ts`・`cg:*` を新設。
-// 本番進行の `cue:*` とは別ネームスペース）。切断中は REST（`POST …/cue`）に
-// 落として操作を失わせない。
-import { useEffect, useRef, useState } from 'react';
+// リアルタイムは Socket.IO `/graphics`（`lib/graphicsSocket.ts`・`cg:*`。本番進行の
+// `cue:*` とは別ネームスペース）。切断中は REST（`POST …/cue`）に落として操作を
+// 失わせない。経過時間・時計はサーバー時刻基準（`cg:sync` の timestamp で skew 補正）。
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { AlertCircle, ChevronLeft, Eraser, Loader2, Radio, Type } from 'lucide-react';
+import { AlertCircle, ChevronLeft, Eraser, Loader2, Type } from 'lucide-react';
 import type { Socket } from 'socket.io-client';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifyError } from '@/lib/notify';
 import {
-  GRAPHICS_SLOTS, SLOT_LABELS, PROOF_LABELS, setGraphicsCue,
+  GRAPHICS_SLOTS, PROOF_LABELS, setGraphicsCue,
   type GraphicsBundle, type GraphicsCueRow, type GraphicsPageRow, type GraphicsSlot,
 } from '@/lib/graphicsApi';
 import { createGraphicsSocket, emitCgSet, type CgSyncPayload } from '@/lib/graphicsSocket';
 import { useGraphicsProject } from './useGraphicsProject';
-import { SlotBadge, ProofBadge } from './badges';
+import { ProofBadge } from './badges';
+import { ConsolePreview } from './ConsolePreview';
+import { ConsoleControls } from './ConsoleControls';
+import { ConsoleSlotLanes } from './ConsoleSlotLanes';
+import { ConsolePageList } from './ConsolePageList';
 
 export default function GraphicsConsolePage() {
   const { ownerKey } = useParams<{ ownerKey: string }>();
@@ -64,12 +69,41 @@ function cuesToMap(cues: GraphicsCueRow[]): Partial<Record<GraphicsSlot, Graphic
   return map;
 }
 
+/**
+ * キーボード運転を止める場面か（入力欄・ダイアログにフォーカスがあるとき）。
+ * 確認ダイアログ（confirmAction）は body 直下の `[data-confirm-host]` に出るので
+ * 存在そのものを見る — 開いている間の Space / Enter は確認側の操作。
+ */
+function shouldIgnoreKeys(target: EventTarget | null): boolean {
+  if (document.querySelector('[data-confirm-host]')) return true;
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.closest('[role="dialog"], [role="alertdialog"]')) return true;
+  const tag = target.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
+}
+
+interface ConsoleActions {
+  pushDigit: (d: string) => void;
+  popDigit: () => void;
+  clearDigits: () => void;
+  hasDigits: boolean;
+  commitCall: () => void;
+  take: () => void;
+  next: () => void;
+  move: (dir: 1 | -1) => void;
+}
+
 function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: GraphicsBundle }) {
   const projectId = bundle.project.id;
   const [cues, setCues] = useState(() => cuesToMap(bundle.cues));
   const [connected, setConnected] = useState(false);
   const [pvwPageId, setPvwPageId] = useState<string | null>(null);
+  /** テンキーで溜めている呼出番号（Enter / スタンバイで確定） */
+  const [callBuffer, setCallBuffer] = useState('');
   const socketRef = useRef<Socket | null>(null);
+  /** サーバー時刻 − クライアント時刻（ms）。経過時間・時計をサーバー基準にする */
+  const serverOffsetRef = useRef(0);
+  const [, forceTick] = useState(0);
 
   useEffect(() => {
     const socket = createGraphicsSocket(projectId);
@@ -78,6 +112,9 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
     socket.on('disconnect', () => setConnected(false));
     socket.on('cg:sync', (payload: CgSyncPayload) => {
       if (Array.isArray(payload?.cues)) setCues(cuesToMap(payload.cues));
+      if (typeof payload?.timestamp === 'number' && Number.isFinite(payload.timestamp)) {
+        serverOffsetRef.current = payload.timestamp - Date.now();
+      }
     });
     return () => {
       socketRef.current = null;
@@ -85,9 +122,41 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
     };
   }, [projectId]);
 
-  const pages = [...bundle.pages].sort((a, b) => (a.sortOrder - b.sortOrder) || (a.callNo - b.callNo));
-  const pageById = new Map(pages.map((p) => [p.id, p]));
+  /** 一覧の表示順（送出リスト順 = sortOrder） */
+  const pages = useMemo(
+    () => [...bundle.pages].sort((a, b) => (a.sortOrder - b.sortOrder) || (a.callNo - b.callNo)),
+    [bundle.pages],
+  );
+  /** 呼出番号順（番号呼出・次へ・↑↓ のスタンバイ移動はこちらの並び） */
+  const callOrder = useMemo(
+    () => [...bundle.pages].sort((a, b) => (a.callNo - b.callNo) || (a.sortOrder - b.sortOrder)),
+    [bundle.pages],
+  );
+  const pageById = useMemo(() => new Map(bundle.pages.map((p) => [p.id, p])), [bundle.pages]);
   const pvwPage = pvwPageId ? pageById.get(pvwPageId) ?? null : null;
+
+  /** いまオンエア中のページ（PGM 合成の材料） */
+  const livePages = useMemo(
+    () =>
+      GRAPHICS_SLOTS
+        .map((slot) => cues[slot]?.pageId)
+        .filter((id): id is string => !!id)
+        .map((id) => pageById.get(id))
+        .filter((p): p is GraphicsPageRow => !!p),
+    [cues, pageById],
+  );
+
+  // 経過時間は 1秒・時計/カウントダウンが見えている間は 250ms で描き直す。
+  // 何も出ていない・選ばれていないときはタイマー自体を回さない
+  const anyLive = livePages.length > 0;
+  const clockVisible = [...livePages, ...(pvwPage ? [pvwPage] : [])]
+    .some((p) => p.slot === 'clock' || p.partKey === 'countdown');
+  useEffect(() => {
+    if (!anyLive && !clockVisible) return;
+    const timer = setInterval(() => forceTick((n) => (n + 1) % 1_000_000), clockVisible ? 250 : 1000);
+    return () => clearInterval(timer);
+  }, [anyLive, clockVisible]);
+  const serverNowMs = Date.now() + serverOffsetRef.current;
 
   /** `cg:set` を1発送る。切断中は REST に落とし、返ってきた cue で画面をそろえる */
   const sendSet = async (slot: GraphicsSlot, pageId: string | null) => {
@@ -104,21 +173,67 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
     }
   };
 
-  const take = async (page: GraphicsPageRow) => {
+  /** 校正の防衛線: 未完成はブロック・未確認は確認してから（TAKE と 次へ で共通） */
+  const guardTake = async (page: GraphicsPageRow): Promise<boolean> => {
     if (page.proofState === 'draft') {
       notifyError('未完成のページは TAKE できません', { description: `「${page.name}」の中身を仕上げて校正に回してください。` });
-      return;
+      return false;
     }
     if (page.proofState === 'unproofed') {
-      if (!(await confirmAction({
+      return await confirmAction({
         title: `校正が「${PROOF_LABELS.unproofed}」のページを出しますか？`,
         description: `「${page.name}」はまだ表記チェックが済んでいません。`,
         confirmLabel: 'TAKE する',
         tone: 'danger',
-      }))) return;
+      });
     }
+    return true;
+  };
+
+  const take = async (page: GraphicsPageRow) => {
+    if (!(await guardTake(page))) return;
     await sendSet(page.slot, page.id);
     setPvwPageId(null);
+  };
+
+  /** 次へ（Read Next）= PVW を TAKE し、呼出番号順の次をスタンバイ（末尾では留まる） */
+  const takeAndNext = async () => {
+    const page = pvwPage;
+    if (!page) return;
+    if (!(await guardTake(page))) return;
+    await sendSet(page.slot, page.id);
+    const idx = callOrder.findIndex((p) => p.id === page.id);
+    const next = idx >= 0 && idx + 1 < callOrder.length ? callOrder[idx + 1] : page;
+    setPvwPageId(next.id);
+  };
+
+  /** OUT（動詞）= PVW と同じスロットのオンエアを下ろす */
+  const outStandby = async () => {
+    if (pvwPage) await sendSet(pvwPage.slot, null);
+  };
+
+  /** ↑↓ のスタンバイ移動（呼出番号順・端で止まる） */
+  const movePvw = (dir: 1 | -1) => {
+    if (callOrder.length === 0) return;
+    const idx = pvwPageId ? callOrder.findIndex((p) => p.id === pvwPageId) : -1;
+    const next = idx < 0
+      ? (dir > 0 ? 0 : callOrder.length - 1)
+      : Math.min(callOrder.length - 1, Math.max(0, idx + dir));
+    setPvwPageId(callOrder[next].id);
+  };
+
+  /** 番号呼出の確定: 溜まった番号のページを PVW に立てる（無い番号は知らせるだけ） */
+  const commitCall = () => {
+    const buf = callBuffer;
+    if (!buf) return;
+    setCallBuffer('');
+    const no = Number(buf);
+    const page = callOrder.find((p) => p.callNo === no);
+    if (!page) {
+      notifyError(`番号 ${no} のページはありません`, { description: '一覧の「番号」列で呼出番号を確認してください。' });
+      return;
+    }
+    setPvwPageId(page.id);
   };
 
   const allClear = async () => {
@@ -132,6 +247,52 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
       if (cues[slot]?.pageId) await sendSet(slot, null);
     }
   };
+
+  // キーボード運転。リスナーは1回だけ張り、最新の操作は ref 経由で引く
+  const actionsRef = useRef<ConsoleActions | null>(null);
+  useEffect(() => {
+    actionsRef.current = {
+      pushDigit: (d) => setCallBuffer((b) => (b + d).slice(0, 4)),
+      popDigit: () => setCallBuffer((b) => b.slice(0, -1)),
+      clearDigits: () => setCallBuffer(''),
+      hasDigits: callBuffer.length > 0,
+      commitCall,
+      take: () => { if (pvwPage) void take(pvwPage); },
+      next: () => { void takeAndNext(); },
+      move: movePvw,
+    };
+  });
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const a = actionsRef.current;
+      if (!a || e.metaKey || e.ctrlKey || e.altKey || shouldIgnoreKeys(e.target)) return;
+      if (/^[0-9]$/.test(e.key)) { e.preventDefault(); a.pushDigit(e.key); return; }
+      switch (e.key) {
+        case 'Backspace': if (a.hasDigits) { e.preventDefault(); a.popDigit(); } return;
+        case 'Escape': a.clearDigits(); return;
+        case 'Enter': e.preventDefault(); if (a.hasDigits) a.commitCall(); else a.next(); return;
+        case ' ': e.preventDefault(); a.take(); return;
+        case 'ArrowDown': e.preventDefault(); a.move(1); return;
+        case 'ArrowUp': e.preventDefault(); a.move(-1); return;
+        default:
+      }
+    };
+    // Space はボタンの activation が keyup で走る（直前に押した「PVWへ」等に
+    // フォーカスが残っていると TAKE と二重発火する）ので keyup 側も止める
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key === ' ' && !shouldIgnoreKeys(e.target)) e.preventDefault();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+    };
+  }, []);
+
+  const pvwContext = pvwPage
+    ? livePages.filter((p) => p.slot !== pvwPage.slot && p.id !== pvwPage.id)
+    : [];
 
   return (
     <div className="px-4 py-6 sm:px-6 sm:py-8">
@@ -164,106 +325,53 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
         </Button>
       </div>
 
-      {/* スロットごとのオンエア状態（最終防衛線 — 今出ているものが一目で分かる） */}
-      <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
-        {GRAPHICS_SLOTS.map((slot) => {
-          const cue = cues[slot];
-          const page = cue?.pageId ? pageById.get(cue.pageId) ?? null : null;
-          const live = !!cue?.pageId;
-          return (
-            <div key={slot} className={`flex flex-col gap-1.5 rounded-card border p-2.5 ${live ? 'border-destructive-border bg-destructive-surface' : 'border-border bg-card'}`}>
-              <div className="flex items-center gap-1.5">
-                <span className={`h-2 w-2 shrink-0 rounded-full ${live ? 'bg-destructive' : 'bg-border-disabled'}`} aria-hidden="true" />
-                <span className="truncate text-th text-muted-foreground">{SLOT_LABELS[slot]}</span>
-              </div>
-              <div className="flex min-h-[28px] items-center gap-1.5">
-                <span className={`min-w-0 flex-1 truncate text-sub ${live ? 'font-bold' : 'text-muted-foreground'}`}>
-                  {page ? page.name : live ? '（不明なページ）' : '—'}
-                </span>
-                {live && (
-                  <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => sendSet(slot, null)}>
-                    OUT
-                  </Button>
-                )}
-              </div>
-            </div>
-          );
-        })}
+      {/* PGM ／ PVW の本物のプレビュー ＋ 操作卓（番号呼出・5動詞） */}
+      <div className="mt-4 flex flex-col items-stretch gap-3 lg:flex-row">
+        <ConsolePreview
+          tone="pgm"
+          title="いま出ている絵（合成後）"
+          right={<span className="font-number shrink-0 text-sub-sm text-muted-foreground">1920×1080</span>}
+          items={livePages.map((page) => ({ page }))}
+          emptyText="オンエアなし"
+          serverNowMs={serverNowMs}
+        />
+        <ConsolePreview
+          tone="pvw"
+          title={pvwPage ? (
+            <>次に出す ・ <span className="font-number">{pvwPage.callNo}</span> {pvwPage.name}</>
+          ) : '次に出す絵（未選択）'}
+          right={pvwPage ? <ProofBadge state={pvwPage.proofState} w={null} /> : undefined}
+          items={pvwPage ? [...pvwContext.map((page) => ({ page, dim: true })), { page: pvwPage }] : []}
+          emptyText="番号呼出か「PVWへ」で選ぶと、ここに映ります"
+          serverNowMs={serverNowMs}
+        />
+        <ConsoleControls
+          callBuffer={callBuffer}
+          pvwPage={pvwPage}
+          onStandby={commitCall}
+          onTake={() => { if (pvwPage) void take(pvwPage); }}
+          onNext={() => { void takeAndNext(); }}
+          onOut={() => { void outStandby(); }}
+        />
       </div>
 
-      {/* PVW（次に出すもの）と TAKE。本物のレンダリングは後の段 — いまは文字情報だけ */}
-      <div className="mt-4 flex flex-col gap-3 rounded-card border border-border bg-card p-4 sm:flex-row sm:items-center">
-        <div className="min-w-0 flex-1">
-          <span className="text-th text-muted-foreground">PVW（次に出す）</span>
-          {pvwPage ? (
-            <div className="mt-1 flex items-center gap-2.5">
-              <span className="font-number text-list font-bold">{pvwPage.callNo}</span>
-              <SlotBadge slot={pvwPage.slot} w={null} />
-              <span className="min-w-0 truncate text-list font-bold">{pvwPage.name}</span>
-              <ProofBadge state={pvwPage.proofState} w={null} />
-            </div>
-          ) : (
-            <p className="mt-1 text-sub text-muted-foreground">下の一覧から「PVWへ」で選ぶと、ここに乗ります。</p>
-          )}
-        </div>
-        <Button
-          type="button"
-          size="lg"
-          className="min-h-[56px] px-8 text-h2"
-          disabled={!pvwPage}
-          onClick={() => { if (pvwPage) void take(pvwPage); }}
-        >
-          <Radio className="mr-2 h-5 w-5" aria-hidden="true" />TAKE
-        </Button>
+      {/* スロットごとのオンエア状態（最終防衛線 — 今出ているもの＋経過時間が一目で分かる） */}
+      <div className="mt-3">
+        <ConsoleSlotLanes
+          cues={cues}
+          pageById={pageById}
+          serverNowMs={serverNowMs}
+          onOut={(slot) => { void sendSet(slot, null); }}
+        />
       </div>
 
-      {/* ページ一覧（送出リスト）。段2では並び＝sortOrder のまま */}
-      <section className="mt-4 overflow-hidden rounded-card border border-border bg-card">
-        <div className="flex items-center gap-3 border-b border-border-faint bg-surface-subtle px-4 py-2 text-th text-muted-foreground">
-          <span className="font-number w-11 shrink-0 text-right">番号</span>
-          <span className="w-24 shrink-0 text-center">スロット</span>
-          <span className="min-w-0 flex-1">ページ</span>
-          <span className="hidden w-[72px] shrink-0 text-center sm:block">校正</span>
-          <span className="w-[96px] shrink-0 text-center">操作</span>
-        </div>
-        {pages.length === 0 ? (
-          <EmptyState
-            title="ページがまだありません"
-            description="ハブ画面（ページと送出リスト）で本番前にページを作っておきます。"
-          />
-        ) : pages.map((p) => {
-          const onAir = cues[p.slot]?.pageId === p.id;
-          const inPvw = p.id === pvwPageId;
-          return (
-            <div
-              key={p.id}
-              className={`flex items-center gap-3 border-b border-border-faint px-4 py-2 last:border-b-0 ${
-                onAir ? 'bg-destructive-surface' : inPvw ? 'bg-primary-surface-weak' : 'hover:bg-surface-subtle'
-              }`}
-            >
-              <span className="font-number w-11 shrink-0 text-right text-list font-bold">{p.callNo}</span>
-              <span className="flex w-24 shrink-0 justify-center"><SlotBadge slot={p.slot} w={null} /></span>
-              <span className="flex min-w-0 flex-1 items-center gap-2">
-                <span className="min-w-0 truncate text-list">{p.name}</span>
-                {onAir && (
-                  <span className="shrink-0 rounded-badge-xs bg-destructive px-1.5 py-0.5 text-badge font-bold text-destructive-foreground">ON AIR</span>
-                )}
-              </span>
-              <span className="hidden w-[72px] shrink-0 justify-center sm:flex"><ProofBadge state={p.proofState} w={null} /></span>
-              <span className="flex w-[96px] shrink-0 justify-end">
-                <Button
-                  type="button"
-                  variant={inPvw ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setPvwPageId(inPvw ? null : p.id)}
-                >
-                  {inPvw ? '選択中' : 'PVWへ'}
-                </Button>
-              </span>
-            </div>
-          );
-        })}
-      </section>
+      {/* ページ一覧（送出リスト）。並び＝sortOrder・PGM/PVW の行は色で追える */}
+      <ConsolePageList
+        pages={pages}
+        cues={cues}
+        pvwPageId={pvwPageId}
+        onSelectPvw={setPvwPageId}
+      />
     </div>
   );
 }

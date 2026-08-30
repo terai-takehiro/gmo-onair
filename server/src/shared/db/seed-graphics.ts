@@ -34,7 +34,12 @@ const PAGES: PageInput[] = [
   {
     callNo: 101, slot: 'lower', partKey: 'name',
     name: '氏名：田島 常務（主催者あいさつ）',
-    fields: { mainText: '田島 慎一', subText: 'GMOグローバルスタジオ 常務取締役', mainTextEn: 'Shinichi Tajima' },
+    fields: {
+      label: '主催者挨拶',
+      mainText: '田島 慎一',
+      subText: 'GMOグローバルスタジオ 常務取締役',
+      mainTextEn: 'Shinichi Tajima',
+    },
     proofState: 'proofed',
   },
   {

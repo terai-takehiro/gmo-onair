@@ -129,7 +129,8 @@ export default function GraphicsOutputPage() {
           overflow: 'hidden',
         }}
       >
-        {livePages.map((p) => renderGraphicsPage(p, serverNowMs))}
+        {livePages.map((p) =>
+          renderGraphicsPage(p, serverNowMs, { tickerLive: livePages.some((q) => q.slot === 'ticker') }))}
       </div>
     </div>
   );
