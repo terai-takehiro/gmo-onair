@@ -493,8 +493,8 @@
       <sc-if value="{{ isTpl }}" hint-placeholder-val="{{ false }}">
       <div style="display:flex; flex-direction:column; gap:14px">
         <div style="display:flex; align-items:baseline; gap:12px">
-          <h1 style="margin:0; font-size:22px; font-weight:800">テロップCG ／ テンプレート（作画）</h1>
-          <span style="font-size:13.5px; color:#5d6470">作画担当の画面。<strong>公開フィールドにした欄だけ</strong>がページ編集に現れます。文字スタイルは名前付きプリセットで揃えます</span>
+          <h1 style="margin:0; font-size:22px; font-weight:800">テロップCG ／ テンプレート（部品の組み合わせ）</h1>
+          <span style="font-size:13.5px; color:#5d6470">部品ライブラリから選んで置き、テーマと文字スタイルを当てる画面。<strong>公開フィールドにした欄だけ</strong>がページ編集に現れます</span>
         </div>
 
         <div style="background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26); animation:screenIn .34s cubic-bezier(.22,.61,.36,1) both">
@@ -529,8 +529,8 @@
               <div style="display:flex; align-items:stretch; gap:13px">
                 <div style="width:230px; flex-shrink:0; background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden; display:flex; flex-direction:column">
                   <div style="display:flex; align-items:center; gap:8px; padding:11px 14px; border-bottom:1px solid #eef0f3">
-                    <i data-lucide="layers" style="width:14px;height:14px;color:#5d6470"></i>
-                    <span style="font-size:12px; font-weight:800; color:#3c424c">レイヤー</span>
+                    <i data-lucide="blocks" style="width:14px;height:14px;color:#5d6470"></i>
+                    <span style="font-size:12px; font-weight:800; color:#3c424c">部品と要素</span>
                     <div style="flex:1"></div>
                     <span onClick="{{ tp.addLayer }}" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:7px; cursor:pointer" style-hover="background:#f2f4f7"><i data-lucide="plus" style="width:13px;height:13px;color:#5d6470"></i></span>
                   </div>
@@ -544,7 +544,7 @@
                     </div>
                   </sc-for>
                   <div style="flex:1"></div>
-                  <p style="margin:0; padding:11px 14px; font-size:10.5px; color:#9aa1ab; line-height:1.65; border-top:1px solid #f2f4f7">「公開」の付いた欄だけがページ編集のフォームに出ます。</p>
+                  <p style="margin:0; padding:11px 14px; font-size:10.5px; color:#9aa1ab; line-height:1.65; border-top:1px solid #f2f4f7">＋で部品ライブラリから追加。「公開」の付いた欄だけがページ編集のフォームに出ます。</p>
                 </div>
 
                 <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:13px">
@@ -635,6 +635,79 @@
       </div>
       </sc-if>
 
+      <sc-if value="{{ isLib }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div style="display:flex; align-items:baseline; gap:12px">
+          <h1 style="margin:0; font-size:22px; font-weight:800">テロップCG ／ 部品ライブラリ</h1>
+          <span style="font-size:13.5px; color:#5d6470">全番組共通の<strong>パッケージ化されたツール</strong>。組み合わせて、その番組のテンプレート＝テロップシステムを作ります</span>
+        </div>
+
+        <div style="background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26); animation:screenIn .34s cubic-bezier(.22,.61,.36,1) both">
+          <dc-import name="AppTopbar" theme="slate" app-label="制作技術支援" app-icon="layout-template" crumb="テロップCG ・ 部品ライブラリ" search-width="260px" sw-open="{{ appSwOpen }}" apps="{{ appSwitchApps }}" on-home="{{ goHome }}" on-toggle="{{ toggleAppSw }}" on-close="{{ closeAppSw }}" hint-size="100%,64px" style="display:block; width:100%"></dc-import>
+
+          <div style="display:flex; align-items:stretch; min-height:660px">
+            <dc-import name="AppSideMenu" items="{{ menu }}" note="1部品 ＝ 描画・フィールド・In/Outアニメ・専用の操作UI・データの口 を1袋にしたパッケージ。部品を足すとフォームと本番の操作が自動でついてきます。" hint-size="248px,100%" style="display:block; align-self:stretch"></dc-import>
+
+            <div style="flex:1; min-width:0; padding:22px 26px 26px; display:flex; flex-direction:column; gap:13px">
+
+              <div style="display:flex; align-items:flex-end; gap:14px">
+                <div style="min-width:0">
+                  <h1 style="margin:0; font-size:23px; font-weight:800">部品ライブラリ</h1>
+                  <p style="margin:3px 0 0; font-size:13px; color:#5d6470">{{ lib.lead }}</p>
+                </div>
+                <div style="flex:1"></div>
+                <button onClick="{{ lib.request }}" style="height:38px; padding:0 13px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                  <i data-lucide="lightbulb" style="width:14px;height:14px;color:#c2410e"></i>新しい部品をリクエスト
+                </button>
+                <button onClick="{{ lib.compose }}" style="height:38px; padding:0 15px; border:none; border-radius:10px; background:#c2410e; color:#fff; font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#ea580c">
+                  <i data-lucide="blocks" style="width:14px;height:14px"></i>組み合わせてテンプレートを作る
+                </button>
+              </div>
+
+              <div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:13px">
+                <sc-for list="{{ lib.cards }}" as="c" hint-placeholder-count="9">
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden; display:flex; flex-direction:column">
+                    <div style="position:relative; aspect-ratio:16/9; background:linear-gradient(160deg,#1b1f2a 0%,#12141b 70%); overflow:hidden">
+                      <sc-for list="{{ c.blocks }}" as="b" hint-placeholder-count="2">
+                        <span style="position:absolute; left:{{ b.l }}; top:{{ b.t }}; width:{{ b.w }}; height:{{ b.h }}; background:{{ b.bg }}; border:{{ b.bd }}; border-radius:2px"></span>
+                      </sc-for>
+                      <span style="position:absolute; right:8px; top:8px; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; height:20px; padding:0 8px; border-radius:6px; background:{{ c.slBg }}; color:{{ c.slFg }}; font-size:10px; font-weight:800; white-space:nowrap">{{ c.slot }}</span>
+                    </div>
+                    <div style="padding:12px 14px 13px; display:flex; flex-direction:column; gap:8px; flex:1">
+                      <div style="display:flex; align-items:center; gap:8px">
+                        <i data-lucide="{{ c.icon }}" style="width:15px;height:15px;color:#c2410e;flex-shrink:0"></i>
+                        <span style="font-size:14px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.name }}</span>
+                        <div style="flex:1"></div>
+                        <span class="num" style="font-size:11px; color:#9aa1ab; white-space:nowrap">{{ c.used }}</span>
+                      </div>
+                      <p style="margin:0; font-size:11.5px; color:#5d6470; line-height:1.65">{{ c.desc }}</p>
+                      <div style="display:flex; flex-wrap:wrap; gap:5px; margin-top:auto">
+                        <span style="display:inline-flex; align-items:center; gap:4px; height:20px; padding:0 7px; border-radius:5px; background:#f2f4f7; color:#5d6470; font-size:10px; font-weight:700; white-space:nowrap">
+                          <i data-lucide="form-input" style="width:10px;height:10px"></i>{{ c.fields }}
+                        </span>
+                        <span style="display:inline-flex; align-items:center; gap:4px; height:20px; padding:0 7px; border-radius:5px; background:#fff7ed; color:#c2410e; font-size:10px; font-weight:700; white-space:nowrap">
+                          <i data-lucide="sliders-horizontal" style="width:10px;height:10px"></i>{{ c.ctl }}
+                        </span>
+                        <span style="display:inline-flex; align-items:center; gap:4px; height:20px; padding:0 7px; border-radius:5px; background:#eaf4fb; color:#005bac; font-size:10px; font-weight:700; white-space:nowrap">
+                          <i data-lucide="plug" style="width:10px;height:10px"></i>{{ c.data }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="display:flex; align-items:flex-start; gap:11px; padding:13px 15px; background:#fff7ed; border:1px solid #fed7aa; border-radius:14px">
+                <i data-lucide="info" style="width:16px;height:16px;color:#c2410e;flex-shrink:0;margin-top:1px"></i>
+                <p style="margin:0; font-size:12px; color:#3c424c; line-height:1.75">部品は<strong>足すたびに全番組の資産</strong>になります。テンプレートは部品の組み合わせ＋テーマ（色・ロゴ・書体）＋公開フィールドの絞り込みで、ゼロから描く場所ではありません。新しい表現が要るときだけ部品そのものを開発します（HTML/CSS・社内で保守）。</p>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
     </div>
   </div>
 </div>
@@ -649,7 +722,8 @@ class Component extends DCLogic {
     { group: 'テロップCG', label: 'ページと送出リスト', key: 'hub' },
     { group: '', label: '送出コンソール（本番）', key: 'live' },
     { group: '', label: 'ページ編集', key: 'page' },
-    { group: '', label: 'テンプレート（作画）', key: 'tpl' },
+    { group: '', label: 'テンプレート（組み合わせ）', key: 'tpl' },
+    { group: '', label: '部品ライブラリ', key: 'lib' },
   ];
 
   APPS = [
@@ -896,7 +970,7 @@ class Component extends DCLogic {
       back: soon('テンプレート一覧（このテーマのパック）はこれから作ります'),
       dup: soon('複製しました。テーマを差し替えれば別番組でそのまま使えます'),
       save: soon('保存して公開しました。この版から新しいページが作られます（既存ページは影響を確認してから差し替え）'),
-      addLayer: soon('テキスト・画像・図形・時計のレイヤーを追加できます'),
+      addLayer: () => this.setState({ screen: 'lib', appSw: false }),
       layers: layers.map((l, i) => ({
         ...l,
         bg: i === sel ? '#fff7ed' : '#fff',
@@ -919,6 +993,56 @@ class Component extends DCLogic {
         { label: '組版', value: '詰め(palt) ON ・ 等幅数字 ON', plain: true, cls: '' },
         { label: '書き方向', value: '横書き（縦書き可）', plain: true, cls: '' },
       ],
+    };
+  }
+
+  PART_TONE = { gold: 'rgba(201,169,97,.32)', goldBd: '1px solid rgba(201,169,97,.75)', red: 'rgba(206,0,0,.32)', redBd: '1px solid rgba(206,0,0,.75)' };
+
+  libVals() {
+    const soon = (msg) => () => this.flash(msg);
+    const g = (l, t, w, h, red) => ({
+      l: l + '%', t: t + '%', w: w + '%', h: h + '%',
+      bg: red ? this.PART_TONE.red : this.PART_TONE.gold,
+      bd: red ? this.PART_TONE.redBd : this.PART_TONE.goldBd,
+    });
+    const cards = [
+      { name: 'ネーム', icon: 'user', slot: '下部テロップ', used: '24番組', desc: '氏名・肩書・所属の定番。1名〜2名並記、日英切替つき。',
+        fields: '4 フィールド', ctl: '名簿から選ぶ', data: '手入力・名簿',
+        blocks: [g(7, 70, 2, 18), g(9, 70, 58, 18)] },
+      { name: '題字＋肩書', icon: 'heading', slot: 'フルスクリーン', used: '11番組', desc: '講演・発表もののタイトル画面。写真枠つき。',
+        fields: '4 フィールド', ctl: '写真の差し替え', data: '手入力・名簿',
+        blocks: [g(24, 32, 52, 13), g(36, 54, 28, 8)] },
+      { name: '一覧表', icon: 'table', slot: 'フルスクリーン', used: '8番組', desc: '受賞者・登壇者・結果の一覧。列数と行数は自動割付。',
+        fields: '列で可変', ctl: 'ページ送り', data: '名簿・Sheets',
+        blocks: [g(14, 22, 20, 12), g(40, 22, 20, 12), g(66, 22, 20, 12), g(14, 42, 20, 12), g(40, 42, 20, 12), g(66, 42, 20, 12), g(14, 62, 20, 12), g(40, 62, 20, 12)] },
+      { name: 'ティッカー', icon: 'move-horizontal', slot: 'ティッカー', used: '9番組', desc: '画面下の流れる案内。項目のローテーションと速度調整。',
+        fields: '項目リスト', ctl: 'ON/OFF・流す組', data: '手入力・Sheets',
+        blocks: [g(0, 85, 100, 10)] },
+      { name: 'カウントダウン・時計', icon: 'clock', slot: '時計・カウント', used: '17番組', desc: '開演までの残り・現在時刻。サーバー時刻に同期し端末の時計ずれを吸収。',
+        fields: '3 フィールド', ctl: '時刻指定・位置と大きさ', data: '自動（サーバー時刻）',
+        blocks: [g(38, 36, 24, 16)] },
+      { name: 'スコアボード', icon: 'trophy', slot: 'サイド', used: '3番組', desc: '対戦・ポイントの常駐表示。±ボタンで即時反映（確定操作なし）。',
+        fields: '6 フィールド', ctl: '±ボタン', data: '手入力・外部フィード',
+        blocks: [g(6, 8, 30, 13)] },
+      { name: '速報帯', icon: 'zap', slot: '速報', used: '5番組', desc: '割込の速報スーパー。最優先スロットで他のテロップより前に出る。',
+        fields: '2 フィールド', ctl: '即TAKE（確認つき）', data: '手入力',
+        blocks: [g(0, 6, 100, 12, true)] },
+      { name: 'サイドスーパー', icon: 'panel-left', slot: 'サイド', used: '14番組', desc: '画面隅の常駐見出し。縦書き対応。',
+        fields: '2 フィールド', ctl: '表示/非表示', data: '手入力',
+        blocks: [g(5, 10, 8, 56)] },
+      { name: '投票・クイズ', icon: 'bar-chart-3', slot: 'フルスクリーン', used: 'アワード継承', desc: '選択肢と票数のリアルタイム表示。インタラクティブ連携。',
+        fields: '選択肢で可変', ctl: '出題→締切→開票', data: '自動（票数push）',
+        blocks: [g(22, 30, 24, 36), g(54, 30, 24, 36)] },
+    ];
+    return {
+      lead: cards.length + ' 部品 ・ どの番組からも同じものを使います（部品の改良は全番組に効きます）',
+      request: soon('部品のリクエストを起票します（発注と同じくスマホからも出せます）'),
+      compose: () => this.setState({ screen: 'tpl', appSw: false }),
+      cards: cards.map((c) => ({
+        ...c,
+        slBg: (this.SLOT_TONE[c.slot] || { bg: '#f2f4f7' }).bg,
+        slFg: (this.SLOT_TONE[c.slot] || { fg: '#5d6470' }).fg,
+      })),
     };
   }
 
@@ -946,15 +1070,18 @@ class Component extends DCLogic {
       isLive: scr === 'live',
       isPage: scr === 'page',
       isTpl: scr === 'tpl',
+      isLib: scr === 'lib',
       hub: this.hubVals(),
       live: this.liveVals(),
       pg: this.pageVals(),
       tp: this.tplVals(),
+      lib: this.libVals(),
       tabs: [
         { key: 'hub', label: '① ページと送出リスト' },
         { key: 'live', label: '② 送出コンソール' },
         { key: 'page', label: '③ ページ編集' },
-        { key: 'tpl', label: '④ テンプレート（作画）' },
+        { key: 'tpl', label: '④ テンプレート（組み合わせ）' },
+        { key: 'lib', label: '⑤ 部品ライブラリ' },
       ].map((t) => {
         const on = t.key === scr;
         const built = true;
