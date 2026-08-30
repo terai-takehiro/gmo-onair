@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&family=Noto+Sans+JP:wght@400;500;600;700&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.470.0/dist/umd/lucide.js"></script>
+<style>
+  body { margin:0; background:#e9ebee; font-family:'LINE Seed JP','Noto Sans JP',-apple-system,'Hiragino Sans',sans-serif; color:#1a1d24; -webkit-font-smoothing:antialiased; font-feature-settings:'palt' 1,'kern' 1; }
+  a { color:#005bac; text-decoration:none; }
+  a:hover { color:#0068b8; text-decoration:underline; }
+  .num { font-family:'LINE Seed JP','Roboto Condensed',sans-serif; font-variant-numeric:tabular-nums; font-feature-settings:'palt' 0,'tnum' 1; }
+  @keyframes screenIn { from { opacity:0; transform:translateY(10px) scale(.995); } to { opacity:1; transform:translateY(0) scale(1); } }
+  @keyframes toastIn { from { opacity:0; transform:translate(-50%,14px) scale(.96); } to { opacity:1; transform:translate(-50%,0) scale(1); } }
+  @keyframes barGrow { from { transform:scaleX(0); } to { transform:scaleX(1); } }
+  button, a, [style*="cursor:pointer"] { transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .2s ease, transform .14s cubic-bezier(.22,.61,.36,1); }
+  button:active, [style*="cursor:pointer"]:active { transform: scale(.985); }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:.001ms !important; transition-duration:.001ms !important; } }
+</style>
+</helmet>
+
+<div style="min-height:100vh; display:flex; flex-direction:column">
+
+  <div style="position:sticky; top:0; z-index:50; background:rgba(233,235,238,.86); backdrop-filter:blur(10px); border-bottom:1px solid #dcdfe4">
+    <div style="max-width:1600px; margin:0 auto; padding:14px 32px; display:flex; align-items:center; gap:16px">
+      <div style="display:flex; align-items:baseline; gap:10px; flex-shrink:0">
+        <span class="num" style="font-size:13px; font-weight:800; color:#005bac; letter-spacing:.1em">v4.0</span>
+        <span style="font-size:17px; font-weight:800">モックアップ</span>
+      </div>
+      <div style="width:1px; height:20px; background:#cbd2da; flex-shrink:0"></div>
+      <span style="display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 15px; border:1px solid #c2410e; border-radius:10px; background:#c2410e; color:#fff; font-size:13.5px; font-weight:800; white-space:nowrap">
+        <i data-lucide="type" style="width:15px;height:15px"></i>テロップCG
+      </span>
+      <a href="v4-mockup-production.dc.html" style="display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 15px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; color:#3c424c; font-size:13.5px; font-weight:700; white-space:nowrap; text-decoration:none">
+        <i data-lucide="layout-template" style="width:15px;height:15px"></i>制作技術支援のほかの画面へ
+      </a>
+      <div style="flex:1"></div>
+      <span style="font-size:12.5px; color:#5d6470; white-space:nowrap">再設計の検討用 ・ 中身はダミー</span>
+    </div>
+    <div style="max-width:1600px; margin:0 auto; padding:0 32px 12px; display:flex; align-items:center; gap:7px; flex-wrap:wrap">
+      <span style="font-size:12px; color:#9aa1ab; white-space:nowrap; flex-shrink:0">テロップCG:</span>
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+        <button onClick="{{ t.go }}" style="height:30px; padding:0 13px; border:1px solid {{ t.bd }}; border-radius:999px; background:{{ t.bg }}; color:{{ t.fg }}; font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; white-space:nowrap" style-hover="border-color:#fdba74">{{ t.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; left:50%; bottom:28px; transform:translateX(-50%); z-index:200; display:flex; align-items:center; gap:10px; padding:13px 20px; border-radius:999px; background:#1a1d24; color:#fff; box-shadow:0 20px 40px -14px rgba(16,24,40,.55); animation:toastIn .26s cubic-bezier(.22,.61,.36,1) both">
+      <i data-lucide="check-circle-2" style="width:17px;height:17px;color:#7dd3a0"></i>
+      <span style="font-size:13.5px; font-weight:700; white-space:nowrap">{{ toast }}</span>
+    </div>
+  </sc-if>
+
+  <div style="flex:1; padding:26px 32px 64px">
+    <div style="width:1440px; margin-inline:auto">
+
+      <sc-if value="{{ isHub }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div style="display:flex; align-items:baseline; gap:12px">
+          <h1 style="margin:0; font-size:22px; font-weight:800">テロップCG ／ ページと送出リスト</h1>
+          <span style="font-size:13.5px; color:#5d6470">番組に紐づく<strong>テンプレート → ページ → 送出リスト</strong>の3層。本番前にここで組み、当日は並びどおり出すだけにします</span>
+        </div>
+
+        <div style="background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26); animation:screenIn .34s cubic-bezier(.22,.61,.36,1) both">
+
+          <dc-import name="AppTopbar" theme="slate" app-label="制作技術支援" app-icon="layout-template" crumb="テロップCG ・ 60周年 記念式典" search-width="260px" sw-open="{{ appSwOpen }}" apps="{{ appSwitchApps }}" on-home="{{ goHome }}" on-toggle="{{ toggleAppSw }}" on-close="{{ closeAppSw }}" hint-size="100%,64px" style="display:block; width:100%"></dc-import>
+
+          <div style="display:flex; align-items:stretch; min-height:660px">
+            <dc-import name="AppSideMenu" items="{{ menu }}" note="テロップCG は番組・案件のハブから開くミニアプリです。出力URLは OBS のブラウザソースに貼るだけで、ログイン不要のまま使えます。" hint-size="248px,100%" style="display:block; align-self:stretch"></dc-import>
+
+            <div style="flex:1; min-width:0; padding:22px 26px 26px; display:flex; flex-direction:column; gap:13px">
+
+              <div style="display:flex; align-items:flex-end; gap:14px">
+                <div style="min-width:0">
+                  <div style="display:flex; align-items:center; gap:9px">
+                    <span onClick="{{ hub.backHub }}" style="display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:700; color:#5d6470; cursor:pointer; white-space:nowrap" style-hover="color:#c2410e">
+                      <i data-lucide="chevron-left" style="width:14px;height:14px"></i>番組ハブ
+                    </span>
+                  </div>
+                  <h1 style="margin:2px 0 0; font-size:23px; font-weight:800">60周年 記念式典 配信・収録</h1>
+                  <p style="margin:3px 0 0; font-size:13px; color:#5d6470">{{ hub.sub }}</p>
+                </div>
+                <div style="flex:1"></div>
+                <button onClick="{{ hub.bulk }}" style="height:38px; padding:0 13px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                  <i data-lucide="table-2" style="width:14px;height:14px;color:#197a4b"></i>名簿から一括生成
+                </button>
+                <button onClick="{{ hub.openLive }}" style="height:38px; padding:0 13px; border:1px solid #fed7aa; border-radius:10px; background:#fff7ed; font-size:12.5px; font-weight:700; color:#c2410e; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="border-color:#fdba74">
+                  <i data-lucide="radio" style="width:14px;height:14px"></i>送出コンソール
+                </button>
+                <button onClick="{{ hub.add }}" style="height:38px; padding:0 15px; border:none; border-radius:10px; background:#c2410e; color:#fff; font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#ea580c">
+                  <i data-lucide="plus" style="width:14px;height:14px"></i>ページを作る
+                </button>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:12px; padding:11px 16px; background:#fff; border:1px solid #e6e9ed; border-radius:14px">
+                <sc-for list="{{ hub.stats }}" as="st" hint-placeholder-count="4">
+                  <span style="display:flex; align-items:center; gap:9px; flex-shrink:0">
+                    <span style="font-size:11.5px; color:#9aa1ab; white-space:nowrap">{{ st.label }}</span>
+                    <span class="num" style="font-size:15px; font-weight:800; color:{{ st.fg }}; white-space:nowrap">{{ st.value }}</span>
+                  </span>
+                  <span style="width:1px; height:20px; background:#e9ecf0; flex-shrink:0"></span>
+                </sc-for>
+                <div style="flex:1"></div>
+                <sc-for list="{{ hub.filters }}" as="f" hint-placeholder-count="3">
+                  <span onClick="{{ f.pick }}" style="display:inline-flex; align-items:center; justify-content:center; height:34px; padding:0 12px; border:1px solid {{ f.bd }}; border-radius:9px; background:{{ f.bg }}; color:{{ f.fg }}; font-size:12.5px; font-weight:{{ f.weight }}; cursor:pointer; white-space:nowrap; flex-shrink:0" style-hover="border-color:#fdba74">{{ f.label }}</span>
+                </sc-for>
+              </div>
+
+              <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                <div style="display:flex; align-items:center; gap:12px; padding:10px 16px; background:#fbfcfd; border-bottom:1px solid #eef0f3; font-size:11.5px; font-weight:800; color:#9aa1ab">
+                  <span class="num" style="width:44px; flex-shrink:0; text-align:right">番号</span>
+                  <span style="width:96px; flex-shrink:0; text-align:center">スロット</span>
+                  <span style="flex:1; min-width:0">ページ ／ テンプレート</span>
+                  <span style="width:104px; flex-shrink:0; text-align:center">差し込み</span>
+                  <span style="width:88px; flex-shrink:0; text-align:center">校正</span>
+                  <span style="width:130px; flex-shrink:0; text-align:center">操作</span>
+                </div>
+                <sc-for list="{{ hub.rows }}" as="r" hint-placeholder-count="8">
+                  <div style="display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:{{ r.rowBg }}" style-hover="background:#fbfcfd">
+                    <span class="num" style="width:44px; flex-shrink:0; text-align:right; font-size:13.5px; font-weight:800; color:#3c424c">{{ r.no }}</span>
+                    <span style="width:96px; flex-shrink:0; display:flex; justify-content:center">
+                      <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:96px; height:22px; border-radius:6px; background:{{ r.slBg }}; color:{{ r.slFg }}; font-size:11px; font-weight:800; white-space:nowrap">{{ r.slot }}</span>
+                    </span>
+                    <span onClick="{{ r.open }}" style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; cursor:pointer">
+                      <span style="font-size:13.5px; font-weight:700; line-height:1.45; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.name }}</span>
+                      <span style="font-size:11px; color:#9aa1ab; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.tpl }}</span>
+                    </span>
+                    <span style="width:104px; flex-shrink:0; display:flex; justify-content:center">
+                      <span style="display:inline-flex; align-items:center; justify-content:center; gap:5px; box-sizing:border-box; width:104px; height:22px; border-radius:6px; background:#f2f4f7; color:#5d6470; font-size:11px; font-weight:700; white-space:nowrap">
+                        <i data-lucide="{{ r.srcIcon }}" style="width:11px;height:11px"></i>{{ r.src }}
+                      </span>
+                    </span>
+                    <span style="width:88px; flex-shrink:0; display:flex; justify-content:center">
+                      <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:80px; height:22px; border-radius:6px; background:{{ r.stBg }}; color:{{ r.stFg }}; font-size:11px; font-weight:700; white-space:nowrap">{{ r.state }}</span>
+                    </span>
+                    <span style="width:130px; flex-shrink:0; display:flex; justify-content:flex-end; gap:6px">
+                      <span onClick="{{ r.edit }}" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:60px; height:30px; border:1px solid #e6e9ed; border-radius:9px; background:#fff; font-size:12px; font-weight:700; color:#3c424c; cursor:pointer; white-space:nowrap" style-hover="background:#f2f4f7">編集</span>
+                      <span onClick="{{ r.standby }}" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:64px; height:30px; border:1px solid #fed7aa; border-radius:9px; background:#fff7ed; font-size:12px; font-weight:700; color:#c2410e; cursor:pointer; white-space:nowrap" style-hover="border-color:#fdba74">PVWへ</span>
+                    </span>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="display:flex; align-items:flex-start; gap:14px">
+                <div style="flex:1; min-width:0; background:#fff; border:1px solid #e6e9ed; border-radius:16px; padding:14px 16px 15px">
+                  <div style="display:flex; align-items:center; gap:9px">
+                    <i data-lucide="share-2" style="width:16px;height:16px;color:#c2410e"></i>
+                    <h3 style="margin:0; font-size:15px; font-weight:800">出力URLの配り方</h3>
+                  </div>
+                  <p style="margin:7px 0 0; font-size:11.5px; color:#5d6470; line-height:1.75">OBS・スイッチャーのブラウザソースに貼る<strong>ログイン不要の公開URL</strong>です。1920×1080・既定は透過。SE を鳴らすのは送出用の1枚だけにします。</p>
+                  <div style="display:flex; flex-direction:column; gap:8px; margin-top:11px">
+                    <sc-for list="{{ hub.outputs }}" as="o" hint-placeholder-count="3">
+                      <div style="display:flex; align-items:center; gap:10px; padding:8px 12px; border:1px solid #eef0f3; border-radius:10px; background:#fbfcfd">
+                        <i data-lucide="{{ o.icon }}" style="width:14px;height:14px;color:#5d6470;flex-shrink:0"></i>
+                        <span style="width:130px; flex-shrink:0; font-size:12px; font-weight:800; white-space:nowrap">{{ o.label }}</span>
+                        <span class="num" style="flex:1; min-width:0; font-size:11.5px; color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ o.url }}</span>
+                        <span onClick="{{ o.copy }}" style="display:inline-flex; align-items:center; justify-content:center; gap:5px; box-sizing:border-box; width:72px; height:28px; border:1px solid #e6e9ed; border-radius:8px; background:#fff; font-size:11.5px; font-weight:700; color:#3c424c; cursor:pointer; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                          <i data-lucide="copy" style="width:12px;height:12px"></i>コピー
+                        </span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+
+                <div style="width:420px; flex-shrink:0; background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                  <div style="display:flex; align-items:center; gap:9px; padding:13px 16px 11px">
+                    <i data-lucide="inbox" style="width:16px;height:16px;color:#5d6470"></i>
+                    <h3 style="margin:0; font-size:15px; font-weight:800">発注（テロ原）の状況</h3>
+                    <div style="flex:1"></div>
+                    <span onClick="{{ hub.orderAll }}" style="font-size:12px; font-weight:700; color:#c2410e; cursor:pointer; white-space:nowrap" style-hover="color:#ea580c">すべて見る</span>
+                  </div>
+                  <sc-for list="{{ hub.orders }}" as="od" hint-placeholder-count="4">
+                    <div style="display:flex; align-items:center; gap:10px; padding:9px 16px; border-top:1px solid #f2f4f7">
+                      <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:64px; height:22px; border-radius:6px; background:{{ od.bg }}; color:{{ od.fg }}; font-size:11px; font-weight:700; white-space:nowrap; flex-shrink:0">{{ od.state }}</span>
+                      <span style="flex:1; min-width:0; font-size:12px; color:#3c424c; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ od.what }}</span>
+                      <span class="num" style="width:64px; flex-shrink:0; text-align:right; font-size:11.5px; color:#9aa1ab; white-space:nowrap">{{ od.when }}</span>
+                    </div>
+                  </sc-for>
+                  <div style="padding:11px 16px; border-top:1px solid #f2f4f7">
+                    <p style="margin:0; font-size:11.5px; color:#5d6470; line-height:1.7">発注はディレクターがスマホから出せます。<strong>発注 → 作画 → 校正 → 送出リスト</strong>の順に進みます。</p>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display:flex; align-items:flex-start; gap:11px; padding:13px 15px; background:#fff7ed; border:1px solid #fed7aa; border-radius:14px">
+                <i data-lucide="info" style="width:16px;height:16px;color:#c2410e;flex-shrink:0;margin-top:1px"></i>
+                <p style="margin:0; font-size:12px; color:#3c424c; line-height:1.75">ページには<strong>呼出番号</strong>が付きます。本番中は送出コンソールで番号を打つか並び順に「次へ」で進めるだけで、ここでの編集は本番前に済ませます。校正が「未確認」のままのページは、本番で TAKE しようとすると警告が出ます。</p>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ isLive }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div style="display:flex; align-items:baseline; gap:12px">
+          <h1 style="margin:0; font-size:22px; font-weight:800">テロップCG ／ 送出コンソール（本番）</h1>
+          <span style="font-size:13.5px; color:#5d6470">動詞は5つだけ — <strong>スタンバイ ・ TAKE ・ 続き ・ OUT ・ 次へ</strong>。TAKE できるのは PVW に見えているものだけです</span>
+        </div>
+
+        <div style="background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26); animation:screenIn .34s cubic-bezier(.22,.61,.36,1) both">
+          <dc-import name="AppTopbar" theme="slate" app-label="制作技術支援" app-icon="layout-template" crumb="テロップCG ・ 送出コンソール" search-width="260px" sw-open="{{ appSwOpen }}" apps="{{ appSwitchApps }}" on-home="{{ goHome }}" on-toggle="{{ toggleAppSw }}" on-close="{{ closeAppSw }}" hint-size="100%,64px" style="display:block; width:100%"></dc-import>
+
+          <div style="display:flex; align-items:stretch; min-height:660px">
+            <dc-import name="AppSideMenu" items="{{ menu }}" note="キーボードで運転できます: テンキー＝番号呼出 ／ ↑↓＝スタンバイ移動 ／ Space＝TAKE ／ Enter＝次へ。マウスは補助です。" hint-size="248px,100%" style="display:block; align-self:stretch"></dc-import>
+
+            <div style="flex:1; min-width:0; padding:22px 26px 26px; display:flex; flex-direction:column; gap:13px">
+
+              <div style="display:flex; align-items:center; gap:14px">
+                <div style="min-width:0">
+                  <h1 style="margin:0; font-size:23px; font-weight:800">60周年 記念式典 ・ 本番</h1>
+                  <p style="margin:3px 0 0; font-size:13px; color:#5d6470">進行台本 第3稿 ・ 12手 ・ 出力2系統が接続中</p>
+                </div>
+                <div style="flex:1"></div>
+                <span style="display:inline-flex; align-items:center; gap:8px; height:34px; padding:0 14px; border-radius:9px; background:#fef6f7; border:1px solid #f6cdd2; color:#c7243a; font-size:12.5px; font-weight:800; white-space:nowrap; flex-shrink:0">
+                  <span style="width:8px; height:8px; border-radius:999px; background:#c7243a"></span>ON AIR
+                </span>
+                <span class="num" style="font-size:13px; font-weight:700; color:#5d6470; white-space:nowrap; flex-shrink:0">サーバー時刻 13:42:18</span>
+                <button onClick="{{ live.allClear }}" style="height:38px; padding:0 13px; border:1px solid #f6cdd2; border-radius:10px; background:#fef6f7; font-size:12.5px; font-weight:700; color:#c7243a; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="border-color:#c7243a">
+                  <i data-lucide="eraser" style="width:14px;height:14px"></i>オールクリア
+                </button>
+              </div>
+
+              <div style="display:flex; align-items:stretch; gap:13px">
+                <div style="flex:1; min-width:0; background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                  <div style="display:flex; align-items:center; gap:8px; padding:9px 14px; border-bottom:1px solid #eef0f3">
+                    <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:52px; height:22px; border-radius:6px; background:#c7243a; color:#fff; font-size:11px; font-weight:800">PGM</span>
+                    <span style="font-size:12px; font-weight:700; color:#3c424c">いま出ている絵（合成後）</span>
+                    <div style="flex:1"></div>
+                    <span class="num" style="font-size:11.5px; color:#9aa1ab">1920×1080 ・ 透過</span>
+                  </div>
+                  <div style="position:relative; aspect-ratio:16/9; background:linear-gradient(160deg,#1b1f2a 0%,#12141b 70%); overflow:hidden">
+                    <span style="position:absolute; top:16px; left:16px; padding:6px 12px; background:rgba(8,11,16,.82); border-left:3px solid #c9a961; color:#f4ecd8; font-size:12px; font-weight:700; letter-spacing:.06em">60周年記念式典</span>
+                    <div style="position:absolute; left:36px; right:36px; bottom:26px; display:flex; align-items:stretch; background:rgba(8,11,16,.88); border:1px solid rgba(201,169,97,.45)">
+                      <div style="width:6px; background:#c9a961; flex-shrink:0"></div>
+                      <div style="padding:12px 18px; min-width:0">
+                        <div style="font-size:11px; font-weight:700; color:#c8c1ae; letter-spacing:.1em">主催者あいさつ</div>
+                        <div style="font-size:22px; font-weight:800; color:#f4ecd8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">田島 慎一 <span style="font-size:13px; font-weight:700; color:#c8c1ae">常務取締役</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="flex:1; min-width:0; background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                  <div style="display:flex; align-items:center; gap:8px; padding:9px 14px; border-bottom:1px solid #eef0f3">
+                    <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:52px; height:22px; border-radius:6px; background:#c2410e; color:#fff; font-size:11px; font-weight:800">PVW</span>
+                    <span style="font-size:12px; font-weight:700; color:#3c424c">次に出す絵 ・ <span class="num">{{ live.pvwNo }}</span> {{ live.pvwName }}</span>
+                    <div style="flex:1"></div>
+                    <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; height:22px; padding:0 8px; border-radius:6px; background:{{ live.pvwStBg }}; color:{{ live.pvwStFg }}; font-size:11px; font-weight:700; white-space:nowrap">{{ live.pvwState }}</span>
+                  </div>
+                  <div style="position:relative; aspect-ratio:16/9; background:linear-gradient(160deg,#1b1f2a 0%,#12141b 70%); overflow:hidden">
+                    <span style="position:absolute; top:16px; left:16px; padding:6px 12px; background:rgba(8,11,16,.82); border-left:3px solid #c9a961; color:#f4ecd8; font-size:12px; font-weight:700; letter-spacing:.06em">60周年記念式典</span>
+                    <div style="position:absolute; left:36px; right:36px; bottom:26px; display:flex; align-items:stretch; background:rgba(8,11,16,.88); border:1px solid rgba(201,169,97,.45)">
+                      <div style="width:6px; background:#c9a961; flex-shrink:0"></div>
+                      <div style="padding:12px 18px; min-width:0">
+                        <div style="font-size:11px; font-weight:700; color:#c8c1ae; letter-spacing:.1em">中継</div>
+                        <div style="font-size:22px; font-weight:800; color:#f4ecd8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">大阪拠点から</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="width:300px; flex-shrink:0; background:#fff; border:1px solid #e6e9ed; border-radius:16px; padding:14px; display:flex; flex-direction:column; gap:9px">
+                  <div style="display:flex; align-items:center; gap:8px">
+                    <span style="flex:1; display:flex; align-items:center; gap:8px; height:40px; padding:0 12px; border:1px solid #e6e9ed; border-radius:10px; background:#fbfcfd">
+                      <i data-lucide="hash" style="width:14px;height:14px;color:#9aa1ab;flex-shrink:0"></i>
+                      <span class="num" style="font-size:15px; font-weight:800; color:#1a1d24">103</span>
+                      <span style="font-size:11.5px; color:#9aa1ab; white-space:nowrap">番号で呼出</span>
+                    </span>
+                    <button onClick="{{ live.standby }}" style="height:40px; padding:0 13px; border:1px solid #fed7aa; border-radius:10px; background:#fff7ed; font-size:12.5px; font-weight:700; color:#c2410e; font-family:inherit; cursor:pointer; white-space:nowrap" style-hover="border-color:#fdba74">スタンバイ</button>
+                  </div>
+                  <button onClick="{{ live.take }}" style="height:56px; border:none; border-radius:12px; background:#c7243a; color:#fff; font-size:17px; font-weight:800; font-family:inherit; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; letter-spacing:.08em" style-hover="background:#d94054">
+                    <i data-lucide="radio" style="width:18px;height:18px"></i>TAKE
+                  </button>
+                  <button onClick="{{ live.next }}" style="height:44px; border:1px solid #fed7aa; border-radius:11px; background:#fff7ed; font-size:13.5px; font-weight:800; color:#c2410e; font-family:inherit; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px" style-hover="border-color:#fdba74">
+                    <i data-lucide="skip-forward" style="width:15px;height:15px"></i>次へ（TAKE ＋ 次をスタンバイ）
+                  </button>
+                  <div style="display:flex; gap:8px">
+                    <button onClick="{{ live.cont }}" style="flex:1; height:38px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; font-family:inherit; cursor:pointer" style-hover="background:#f2f4f7">続き</button>
+                    <button onClick="{{ live.out }}" style="flex:1; height:38px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; font-family:inherit; cursor:pointer" style-hover="background:#f2f4f7">OUT</button>
+                  </div>
+                  <p style="margin:2px 0 0; font-size:11px; color:#9aa1ab; line-height:1.65">Space＝TAKE ／ Enter＝次へ ／ ↑↓＝スタンバイ移動。本番中の文字修正はできません（値の差し替えのみ・反映ボタンつき）。</p>
+                </div>
+              </div>
+
+              <div style="display:flex; align-items:stretch; gap:8px">
+                <sc-for list="{{ live.slots }}" as="sl" hint-placeholder-count="6">
+                  <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:5px; padding:9px 11px; background:#fff; border:1px solid {{ sl.bd }}; border-radius:12px">
+                    <div style="display:flex; align-items:center; gap:6px">
+                      <span style="width:7px; height:7px; border-radius:999px; background:{{ sl.dot }}; flex-shrink:0"></span>
+                      <span style="font-size:11px; font-weight:800; color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ sl.name }}</span>
+                      <div style="flex:1"></div>
+                      <span class="num" style="font-size:10.5px; color:#9aa1ab; white-space:nowrap">{{ sl.since }}</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px">
+                      <span style="flex:1; min-width:0; font-size:11.5px; font-weight:700; color:{{ sl.fg }}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ sl.page }}</span>
+                      <sc-if value="{{ sl.canOut }}" hint-placeholder-val="{{ true }}">
+                        <span onClick="{{ sl.doOut }}" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:42px; height:24px; border:1px solid #e6e9ed; border-radius:7px; background:#fff; font-size:10.5px; font-weight:800; color:#c7243a; cursor:pointer; flex-shrink:0" style-hover="border-color:#f6cdd2">OUT</span>
+                      </sc-if>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                <div style="display:flex; align-items:center; gap:12px; padding:10px 16px; background:#fbfcfd; border-bottom:1px solid #eef0f3; font-size:11.5px; font-weight:800; color:#9aa1ab">
+                  <span class="num" style="width:34px; flex-shrink:0; text-align:right">手順</span>
+                  <span style="width:52px; flex-shrink:0; text-align:center">状態</span>
+                  <span class="num" style="width:44px; flex-shrink:0; text-align:right">番号</span>
+                  <span style="width:96px; flex-shrink:0; text-align:center">スロット</span>
+                  <span style="flex:1; min-width:0">ページ ／ 進行台本の項目</span>
+                  <span style="width:88px; flex-shrink:0; text-align:center">校正</span>
+                  <span style="width:76px; flex-shrink:0; text-align:center">操作</span>
+                </div>
+                <sc-for list="{{ live.rows }}" as="r" hint-placeholder-count="9">
+                  <div style="display:flex; align-items:center; gap:12px; padding:9px 16px; border-bottom:1px solid #f2f4f7; background:{{ r.rowBg }}">
+                    <span class="num" style="width:34px; flex-shrink:0; text-align:right; font-size:12.5px; font-weight:700; color:#9aa1ab">{{ r.step }}</span>
+                    <span style="width:52px; flex-shrink:0; display:flex; justify-content:center">
+                      <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:52px; height:22px; border-radius:6px; background:{{ r.markBg }}; color:{{ r.markFg }}; font-size:10.5px; font-weight:800; white-space:nowrap">{{ r.mark }}</span>
+                    </span>
+                    <span class="num" style="width:44px; flex-shrink:0; text-align:right; font-size:13px; font-weight:800; color:#3c424c">{{ r.no }}</span>
+                    <span style="width:96px; flex-shrink:0; display:flex; justify-content:center">
+                      <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:96px; height:22px; border-radius:6px; background:{{ r.slBg }}; color:{{ r.slFg }}; font-size:11px; font-weight:800; white-space:nowrap">{{ r.slot }}</span>
+                    </span>
+                    <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:1px">
+                      <span style="font-size:13px; font-weight:{{ r.w }}; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.name }}</span>
+                      <span style="font-size:10.5px; color:#9aa1ab; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.cue }}</span>
+                    </span>
+                    <span style="width:88px; flex-shrink:0; display:flex; justify-content:center">
+                      <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:80px; height:22px; border-radius:6px; background:{{ r.stBg }}; color:{{ r.stFg }}; font-size:11px; font-weight:700; white-space:nowrap">{{ r.state }}</span>
+                    </span>
+                    <span style="width:76px; flex-shrink:0; display:flex; justify-content:flex-end">
+                      <span onClick="{{ r.standby }}" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:64px; height:28px; border:1px solid #fed7aa; border-radius:8px; background:#fff7ed; font-size:11.5px; font-weight:700; color:#c2410e; cursor:pointer; white-space:nowrap" style-hover="border-color:#fdba74">PVWへ</span>
+                    </span>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="display:flex; align-items:flex-start; gap:11px; padding:13px 15px; background:#fff7ed; border:1px solid #fed7aa; border-radius:14px">
+                <i data-lucide="info" style="width:16px;height:16px;color:#c2410e;flex-shrink:0;margin-top:1px"></i>
+                <p style="margin:0; font-size:12px; color:#3c424c; line-height:1.75">スロットは<strong>1枠1枚</strong>。同じスロットに TAKE すると、前のページは決めた退出アニメで自動的に下ります（フルスクリーンが来たら下部テロップを自動 OUT、のような組も設定できます）。校正「未確認」のページを TAKE しようとすると警告、「未完成」はブロックします。</p>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ isPage }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div style="display:flex; align-items:baseline; gap:12px">
+          <h1 style="margin:0; font-size:22px; font-weight:800">テロップCG ／ ページ編集</h1>
+          <span style="font-size:13.5px; color:#5d6470">入力欄はテンプレートの<strong>公開フィールドから自動生成</strong>。検証は記入時に済ませ、本番画面にエラーを持ち込みません</span>
+        </div>
+
+        <div style="background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26); animation:screenIn .34s cubic-bezier(.22,.61,.36,1) both">
+          <dc-import name="AppTopbar" theme="slate" app-label="制作技術支援" app-icon="layout-template" crumb="テロップCG ・ ページ編集" search-width="260px" sw-open="{{ appSwOpen }}" apps="{{ appSwitchApps }}" on-home="{{ goHome }}" on-toggle="{{ toggleAppSw }}" on-close="{{ closeAppSw }}" hint-size="100%,64px" style="display:block; width:100%"></dc-import>
+
+          <div style="display:flex; align-items:stretch; min-height:660px">
+            <dc-import name="AppSideMenu" items="{{ menu }}" note="欄を選ぶと、右のプレビューで対応する場所が枠で光ります。長すぎる文はプレビューで自動縮小の様子ごと確認できます。" hint-size="248px,100%" style="display:block; align-self:stretch"></dc-import>
+
+            <div style="flex:1; min-width:0; padding:22px 26px 26px; display:flex; flex-direction:column; gap:13px">
+
+              <div style="display:flex; align-items:flex-end; gap:14px">
+                <div style="min-width:0">
+                  <span onClick="{{ pg.back }}" style="display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:700; color:#5d6470; cursor:pointer; white-space:nowrap" style-hover="color:#c2410e">
+                    <i data-lucide="chevron-left" style="width:14px;height:14px"></i>ページと送出リスト
+                  </span>
+                  <div style="display:flex; align-items:center; gap:10px; margin-top:2px">
+                    <span class="num" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; height:30px; padding:0 11px; border-radius:9px; background:#f5f3ff; color:#6d28d9; font-size:13.5px; font-weight:800">202</span>
+                    <h1 style="margin:0; font-size:23px; font-weight:800">記念講演 演題・講師紹介</h1>
+                    <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; height:24px; padding:0 9px; border-radius:6px; background:#fef6f7; color:#c7243a; font-size:11px; font-weight:700; white-space:nowrap">未完成 ・ 残り2件</span>
+                  </div>
+                  <p style="margin:3px 0 0; font-size:13px; color:#5d6470">テンプレート「題字＋肩書（フルスクリーン）」 ・ テーマ「式典ゴールド」 ・ 発注: 中西（テロ原 #18）</p>
+                </div>
+                <div style="flex:1"></div>
+                <button onClick="{{ pg.save }}" style="height:38px; padding:0 13px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                  <i data-lucide="save" style="width:14px;height:14px;color:#9aa1ab"></i>保存
+                </button>
+                <button onClick="{{ pg.proof }}" style="height:38px; padding:0 15px; border:none; border-radius:10px; background:#cbd2da; color:#fff; font-size:12.5px; font-weight:700; font-family:inherit; cursor:not-allowed; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0">
+                  <i data-lucide="check-check" style="width:14px;height:14px"></i>校正を依頼（未完成）
+                </button>
+              </div>
+
+              <div style="display:flex; align-items:flex-start; gap:14px">
+                <div style="flex:1; min-width:0; background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                  <div style="display:flex; align-items:center; gap:9px; padding:12px 16px; border-bottom:1px solid #eef0f3">
+                    <i data-lucide="form-input" style="width:15px;height:15px;color:#c2410e"></i>
+                    <h3 style="margin:0; font-size:15px; font-weight:800">中身（テンプレートの公開フィールド）</h3>
+                    <div style="flex:1"></div>
+                    <span style="font-size:11.5px; color:#9aa1ab; white-space:nowrap">ここに無いものは触れません</span>
+                  </div>
+
+                  <sc-for list="{{ pg.fields }}" as="f" hint-placeholder-count="4">
+                    <div onClick="{{ f.pick }}" style="padding:12px 16px; border-bottom:1px solid #f2f4f7; background:{{ f.rowBg }}; cursor:pointer">
+                      <div style="display:flex; align-items:center; gap:8px">
+                        <span style="font-size:12px; font-weight:800; color:#3c424c; white-space:nowrap">{{ f.label }}</span>
+                        <sc-if value="{{ f.req }}" hint-placeholder-val="{{ false }}">
+                          <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; height:18px; padding:0 6px; border-radius:5px; background:#fef6f7; color:#c7243a; font-size:10px; font-weight:800; white-space:nowrap">必須</span>
+                        </sc-if>
+                        <span style="display:inline-flex; align-items:center; justify-content:center; gap:4px; box-sizing:border-box; height:18px; padding:0 7px; border-radius:5px; background:#f2f4f7; color:#5d6470; font-size:10px; font-weight:700; white-space:nowrap">
+                          <i data-lucide="{{ f.srcIcon }}" style="width:10px;height:10px"></i>{{ f.src }}
+                        </span>
+                        <div style="flex:1"></div>
+                        <span class="num" style="font-size:11px; font-weight:700; color:{{ f.cntFg }}; white-space:nowrap">{{ f.cnt }}</span>
+                      </div>
+                      <div style="margin-top:7px; display:flex; align-items:center; gap:10px; min-height:38px; padding:8px 12px; border:1.5px solid {{ f.bd }}; border-radius:10px; background:{{ f.bg }}; box-sizing:border-box">
+                        <sc-if value="{{ f.isImage }}" hint-placeholder-val="{{ false }}">
+                          <span style="display:inline-flex; align-items:center; justify-content:center; width:44px; height:56px; border-radius:6px; background:#f2f4f7; border:1px dashed #cbd2da; flex-shrink:0">
+                            <i data-lucide="image" style="width:16px;height:16px;color:#9aa1ab"></i>
+                          </span>
+                        </sc-if>
+                        <span style="flex:1; min-width:0; font-size:{{ f.vSize }}; font-weight:{{ f.vWeight }}; color:{{ f.vFg }}; line-height:1.6; white-space:pre-line">{{ f.value }}</span>
+                      </div>
+                      <sc-if value="{{ f.err }}" hint-placeholder-val="{{ false }}">
+                        <p style="margin:6px 0 0; display:flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700; color:#c7243a">
+                          <i data-lucide="alert-circle" style="width:13px;height:13px"></i>{{ f.err }}
+                        </p>
+                      </sc-if>
+                      <sc-if value="{{ f.hint }}" hint-placeholder-val="{{ false }}">
+                        <p style="margin:6px 0 0; font-size:11px; color:#9aa1ab; line-height:1.6">{{ f.hint }}</p>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+
+                <div style="width:560px; flex-shrink:0; display:flex; flex-direction:column; gap:13px">
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                    <div style="display:flex; align-items:center; gap:8px; padding:9px 14px; border-bottom:1px solid #eef0f3">
+                      <i data-lucide="eye" style="width:14px;height:14px;color:#5d6470"></i>
+                      <span style="font-size:12px; font-weight:700; color:#3c424c">ライブプレビュー（本物の描画）</span>
+                      <div style="flex:1"></div>
+                      <span style="font-size:11px; color:#9aa1ab; white-space:nowrap">選択中: 演題</span>
+                    </div>
+                    <div style="position:relative; aspect-ratio:16/9; background:linear-gradient(160deg,#1b1f2a 0%,#12141b 70%); overflow:hidden">
+                      <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:0 44px">
+                        <div style="font-size:11px; font-weight:700; color:#c8c1ae; letter-spacing:.22em">記念講演</div>
+                        <div style="position:relative; padding:6px 10px; text-align:center">
+                          <span style="position:absolute; inset:0; border:2px dashed #ea580c; border-radius:4px"></span>
+                          <div style="font-size:24px; font-weight:800; color:#f4ecd8; line-height:1.5">これからの10年、<br>スタジオが担うもの</div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:14px; margin-top:4px">
+                          <span style="display:inline-flex; align-items:center; justify-content:center; width:52px; height:66px; background:rgba(255,255,255,.08); border:1px dashed rgba(201,169,97,.6)">
+                            <i data-lucide="image" style="width:16px;height:16px;color:#8c7644"></i>
+                          </span>
+                          <div>
+                            <div style="font-size:17px; font-weight:800; color:#f4ecd8">佐倉 誠一</div>
+                            <div style="font-size:12px; font-weight:700; color:#8c7644">（肩書が未入力）</div>
+                          </div>
+                        </div>
+                      </div>
+                      <span class="num" style="position:absolute; right:10px; bottom:8px; font-size:10px; color:#5d6470">1920×1080 ・ 自動縮小 96%</span>
+                    </div>
+                  </div>
+
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; padding:13px 16px 14px">
+                    <div style="display:flex; align-items:center; gap:9px">
+                      <i data-lucide="check-check" style="width:15px;height:15px;color:#5d6470"></i>
+                      <h3 style="margin:0; font-size:15px; font-weight:800">校正</h3>
+                      <div style="flex:1"></div>
+                      <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; height:22px; padding:0 9px; border-radius:6px; background:#fef6f7; color:#c7243a; font-size:11px; font-weight:700; white-space:nowrap">未完成</span>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:6px; margin-top:10px">
+                      <sc-for list="{{ pg.checks }}" as="c" hint-placeholder-count="3">
+                        <div style="display:flex; align-items:center; gap:8px">
+                          <i data-lucide="{{ c.icon }}" style="width:14px;height:14px;color:{{ c.fg }};flex-shrink:0"></i>
+                          <span style="flex:1; min-width:0; font-size:12px; color:#3c424c; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ c.what }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <p style="margin:10px 0 0; font-size:11px; color:#9aa1ab; line-height:1.7">未完成のページは送出コンソールで TAKE できません。全部そろうと「校正を依頼」が押せるようになり、確認した人の名前が残ります。</p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ isTpl }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div style="display:flex; align-items:baseline; gap:12px">
+          <h1 style="margin:0; font-size:22px; font-weight:800">テロップCG ／ テンプレート（作画）</h1>
+          <span style="font-size:13.5px; color:#5d6470">作画担当の画面。<strong>公開フィールドにした欄だけ</strong>がページ編集に現れます。文字スタイルは名前付きプリセットで揃えます</span>
+        </div>
+
+        <div style="background:#f7f8fa; border:1px solid #e6e9ed; border-radius:18px; overflow:hidden; box-shadow:0 30px 70px -34px rgba(16,24,40,.26); animation:screenIn .34s cubic-bezier(.22,.61,.36,1) both">
+          <dc-import name="AppTopbar" theme="slate" app-label="制作技術支援" app-icon="layout-template" crumb="テロップCG ・ テンプレート" search-width="260px" sw-open="{{ appSwOpen }}" apps="{{ appSwitchApps }}" on-home="{{ goHome }}" on-toggle="{{ toggleAppSw }}" on-close="{{ closeAppSw }}" hint-size="100%,64px" style="display:block; width:100%"></dc-import>
+
+          <div style="display:flex; align-items:stretch; min-height:660px">
+            <dc-import name="AppSideMenu" items="{{ menu }}" note="縦書き・ルビ・詰め・多重の縁取り・座布団など、日本語テロップの組版はテキスト部品の標準機能です。CG の見た目は v4 トークンの対象外（放送に出る映像）。" hint-size="248px,100%" style="display:block; align-self:stretch"></dc-import>
+
+            <div style="flex:1; min-width:0; padding:22px 26px 26px; display:flex; flex-direction:column; gap:13px">
+
+              <div style="display:flex; align-items:flex-end; gap:14px">
+                <div style="min-width:0">
+                  <span onClick="{{ tp.back }}" style="display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:700; color:#5d6470; cursor:pointer; white-space:nowrap" style-hover="color:#c2410e">
+                    <i data-lucide="chevron-left" style="width:14px;height:14px"></i>テンプレート一覧
+                  </span>
+                  <div style="display:flex; align-items:center; gap:10px; margin-top:2px">
+                    <h1 style="margin:0; font-size:23px; font-weight:800">題字＋肩書</h1>
+                    <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; height:24px; padding:0 9px; border-radius:6px; background:#f5f3ff; color:#6d28d9; font-size:11px; font-weight:800; white-space:nowrap">フルスクリーン</span>
+                    <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; height:24px; padding:0 9px; border-radius:6px; background:#e7f6ee; color:#197a4b; font-size:11px; font-weight:700; white-space:nowrap">公開中 ・ 3ページで使用</span>
+                  </div>
+                  <p style="margin:3px 0 0; font-size:13px; color:#5d6470">テーマ「式典ゴールド」 ・ In 0.6秒 ／ Out は In の逆再生 ・ 組: フルスクリーン IN で下部テロップを自動 OUT</p>
+                </div>
+                <div style="flex:1"></div>
+                <button onClick="{{ tp.dup }}" style="height:38px; padding:0 13px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:12.5px; font-weight:700; color:#3c424c; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#f2f4f7">
+                  <i data-lucide="copy" style="width:14px;height:14px;color:#9aa1ab"></i>複製して別テーマへ
+                </button>
+                <button onClick="{{ tp.save }}" style="height:38px; padding:0 15px; border:none; border-radius:10px; background:#c2410e; color:#fff; font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; display:flex; align-items:center; gap:7px; white-space:nowrap; flex-shrink:0" style-hover="background:#ea580c">
+                  <i data-lucide="check" style="width:14px;height:14px"></i>保存して公開
+                </button>
+              </div>
+
+              <div style="display:flex; align-items:stretch; gap:13px">
+                <div style="width:230px; flex-shrink:0; background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden; display:flex; flex-direction:column">
+                  <div style="display:flex; align-items:center; gap:8px; padding:11px 14px; border-bottom:1px solid #eef0f3">
+                    <i data-lucide="layers" style="width:14px;height:14px;color:#5d6470"></i>
+                    <span style="font-size:12px; font-weight:800; color:#3c424c">レイヤー</span>
+                    <div style="flex:1"></div>
+                    <span onClick="{{ tp.addLayer }}" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:7px; cursor:pointer" style-hover="background:#f2f4f7"><i data-lucide="plus" style="width:13px;height:13px;color:#5d6470"></i></span>
+                  </div>
+                  <sc-for list="{{ tp.layers }}" as="l" hint-placeholder-count="6">
+                    <div onClick="{{ l.pick }}" style="display:flex; align-items:center; gap:8px; padding:9px 14px; border-bottom:1px solid #f2f4f7; background:{{ l.bg }}; cursor:pointer" style-hover="background:#fbfcfd">
+                      <i data-lucide="{{ l.icon }}" style="width:13px;height:13px;color:{{ l.iconFg }};flex-shrink:0"></i>
+                      <span style="flex:1; min-width:0; font-size:12px; font-weight:{{ l.w }}; color:#3c424c; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ l.name }}</span>
+                      <sc-if value="{{ l.pub }}" hint-placeholder-val="{{ true }}">
+                        <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; height:18px; padding:0 6px; border-radius:5px; background:#fff7ed; color:#c2410e; font-size:9.5px; font-weight:800; white-space:nowrap; flex-shrink:0">公開</span>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                  <div style="flex:1"></div>
+                  <p style="margin:0; padding:11px 14px; font-size:10.5px; color:#9aa1ab; line-height:1.65; border-top:1px solid #f2f4f7">「公開」の付いた欄だけがページ編集のフォームに出ます。</p>
+                </div>
+
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:13px">
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden">
+                    <div style="position:relative; aspect-ratio:16/9; background:linear-gradient(160deg,#1b1f2a 0%,#12141b 70%); overflow:hidden">
+                      <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:0 44px">
+                        <div style="font-size:11px; font-weight:700; color:#c8c1ae; letter-spacing:.22em; margin-bottom:14px">記念講演</div>
+                        <div style="position:relative; padding:6px 10px; text-align:center">
+                          <span style="position:absolute; inset:0; border:2px solid #ea580c; border-radius:4px"></span>
+                          <span style="position:absolute; top:-24px; left:-2px; display:inline-flex; align-items:center; gap:5px; height:19px; padding:0 8px; background:#ea580c; color:#fff; font-size:10px; font-weight:800; border-radius:4px; white-space:nowrap">演題 ・ テキスト（公開）</span>
+                          <div style="font-size:26px; font-weight:800; color:#f4ecd8; line-height:1.5">｛演題｝</div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:14px; margin-top:4px">
+                          <span style="display:inline-flex; align-items:center; justify-content:center; width:52px; height:66px; background:rgba(255,255,255,.08); border:1px dashed rgba(201,169,97,.6)">
+                            <i data-lucide="image" style="width:16px;height:16px;color:#8c7644"></i>
+                          </span>
+                          <div>
+                            <div style="font-size:17px; font-weight:800; color:#f4ecd8">｛講師名｝</div>
+                            <div style="font-size:12px; font-weight:700; color:#c8c1ae">｛肩書｝</div>
+                          </div>
+                        </div>
+                      </div>
+                      <span class="num" style="position:absolute; right:10px; bottom:8px; font-size:10px; color:#5d6470">1920×1080 ・ セーフエリア表示中</span>
+                    </div>
+                  </div>
+
+                  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:16px; padding:12px 16px 13px">
+                    <div style="display:flex; align-items:center; gap:9px">
+                      <i data-lucide="clapperboard" style="width:14px;height:14px;color:#5d6470"></i>
+                      <span style="font-size:12px; font-weight:800; color:#3c424c">アニメーション（In）</span>
+                      <div style="flex:1"></div>
+                      <span style="display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; color:#197a4b; white-space:nowrap">
+                        <i data-lucide="toggle-right" style="width:16px;height:16px"></i>Out は In の逆再生
+                      </span>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:5px; margin-top:9px">
+                      <sc-for list="{{ tp.tracks }}" as="tr" hint-placeholder-count="4">
+                        <div style="display:flex; align-items:center; gap:10px">
+                          <span style="width:96px; flex-shrink:0; font-size:11px; font-weight:700; color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ tr.name }}</span>
+                          <span style="flex:1; height:14px; background:#f2f4f7; border-radius:5px; position:relative; overflow:hidden">
+                            <span style="position:absolute; top:2px; bottom:2px; left:{{ tr.left }}; width:{{ tr.width }}; background:{{ tr.color }}; border-radius:4px"></span>
+                          </span>
+                          <span class="num" style="width:74px; flex-shrink:0; text-align:right; font-size:10.5px; color:#9aa1ab; white-space:nowrap">{{ tr.time }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="width:300px; flex-shrink:0; background:#fff; border:1px solid #e6e9ed; border-radius:16px; overflow:hidden; align-self:flex-start">
+                  <div style="display:flex; align-items:center; gap:8px; padding:12px 16px; border-bottom:1px solid #eef0f3">
+                    <i data-lucide="type" style="width:14px;height:14px;color:#c2410e"></i>
+                    <span style="font-size:13px; font-weight:800">演題（テキスト）</span>
+                  </div>
+                  <sc-for list="{{ tp.props }}" as="p" hint-placeholder-count="6">
+                    <div style="display:flex; align-items:center; gap:10px; padding:9px 16px; border-bottom:1px solid #f2f4f7">
+                      <span style="width:92px; flex-shrink:0; font-size:11.5px; color:#9aa1ab; white-space:nowrap">{{ p.label }}</span>
+                      <span style="flex:1; min-width:0; display:flex; align-items:center; gap:6px">
+                        <sc-if value="{{ p.chipBg }}" hint-placeholder-val="{{ false }}">
+                          <span style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; height:22px; padding:0 9px; border-radius:6px; background:{{ p.chipBg }}; color:{{ p.chipFg }}; font-size:11px; font-weight:700; white-space:nowrap">{{ p.value }}</span>
+                        </sc-if>
+                        <sc-if value="{{ p.plain }}" hint-placeholder-val="{{ true }}">
+                          <span class="{{ p.cls }}" style="font-size:12.5px; font-weight:700; color:#1a1d24; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ p.value }}</span>
+                        </sc-if>
+                      </span>
+                    </div>
+                  </sc-for>
+                  <div style="padding:12px 16px; background:#fff7ed; border-top:1px solid #fed7aa">
+                    <div style="display:flex; align-items:center; gap:7px">
+                      <i data-lucide="form-input" style="width:13px;height:13px;color:#c2410e"></i>
+                      <span style="font-size:12px; font-weight:800; color:#c2410e">公開フィールド</span>
+                      <div style="flex:1"></div>
+                      <i data-lucide="toggle-right" style="width:18px;height:18px;color:#c2410e"></i>
+                    </div>
+                    <p style="margin:6px 0 0; font-size:11px; color:#3c424c; line-height:1.7">型: テキスト（2行まで） ・ 上限 24字 ・ 必須。ページ編集のフォームにこの条件のまま現れます。</p>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display:flex; align-items:flex-start; gap:11px; padding:13px 15px; background:#fff7ed; border:1px solid #fed7aa; border-radius:14px">
+                <i data-lucide="info" style="width:16px;height:16px;color:#c2410e;flex-shrink:0;margin-top:1px"></i>
+                <p style="margin:0; font-size:12px; color:#3c424c; line-height:1.75">テンプレートの作り込みは作画担当だけ。<strong>テーマ（色・ロゴ・書体）と文字スタイルの差し替えは設定画面から誰でも</strong>できます。文字スタイルは「題字」「ネーム用」「速報用」のような名前付きプリセットで、縁取り・シャドウ・座布団まで一体で持ちます。</p>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1560,&quot;height&quot;:1000}}">
+class Component extends DCLogic {
+  state = { toast: '', appSw: false, f: 'all' };
+
+  MENU = [
+    { group: '制作技術支援', label: 'トップ（番組を選ぶ）' },
+    { group: '', label: '番組ハブ：60周年 記念式典' },
+    { group: 'テロップCG', label: 'ページと送出リスト', key: 'hub' },
+    { group: '', label: '送出コンソール（本番）', key: 'live' },
+    { group: '', label: 'ページ編集', key: 'page' },
+    { group: '', label: 'テンプレート（作画）', key: 'tpl' },
+  ];
+
+  APPS = [
+    { label: '制作技術支援', icon: 'layout-template', iconBg: '#fff7ed', iconFg: '#c2410e', here: true },
+    { label: '案件管理', icon: 'folder-kanban', iconBg: '#eaf4fb', iconFg: '#005bac' },
+    { label: 'プロジェクト管理', icon: 'list-checks', iconBg: '#eef2ff', iconFg: '#4338ca', to: 'v4-mockup-project.dc.html' },
+    { label: '機材管理', icon: 'package', iconBg: '#f2f4f7', iconFg: '#5d6470', to: 'v4-mockup-equipment.dc.html' },
+    { label: '財務管理', icon: 'wallet', iconBg: '#e7f6ee', iconFg: '#197a4b', to: 'v4-mockup-finance.dc.html' },
+    { label: 'カレンダー', icon: 'calendar-days', iconBg: '#fff7ed', iconFg: '#c2410e' },
+    { label: '日常業務', icon: 'clipboard-list', iconBg: '#f5f3ff', iconFg: '#6d28d9', to: 'v4-mockup-dailyops.dc.html' },
+    { label: '設定', icon: 'settings', iconBg: '#f2f4f7', iconFg: '#5d6470' },
+  ];
+
+  SLOT_TONE = {
+    '下部テロップ': { bg: '#eaf4fb', fg: '#005bac' },
+    'フルスクリーン': { bg: '#f5f3ff', fg: '#6d28d9' },
+    'サイド': { bg: '#e7f6ee', fg: '#197a4b' },
+    'ティッカー': { bg: '#fff7ed', fg: '#c2410e' },
+    '時計・カウント': { bg: '#f2f4f7', fg: '#5d6470' },
+    '速報': { bg: '#fef6f7', fg: '#c7243a' },
+  };
+
+  STATE_TONE = {
+    '確認済': { bg: '#e7f6ee', fg: '#197a4b' },
+    '未確認': { bg: '#fff7ed', fg: '#c2410e' },
+    '未完成': { bg: '#fef6f7', fg: '#c7243a' },
+  };
+
+  PAGES = [
+    { no: '101', slot: '下部テロップ', name: '氏名：田島 常務（主催者あいさつ）', tpl: 'ネーム 2行', src: '名簿', srcIcon: 'users', state: '確認済' },
+    { no: '102', slot: '下部テロップ', name: '氏名：西村／橋本（歴代社長 対談）', tpl: 'ネーム 2名', src: '名簿', srcIcon: 'users', state: '確認済' },
+    { no: '103', slot: '下部テロップ', name: '中継先：大阪拠点', tpl: '場所テロップ', src: '手入力', srcIcon: 'pencil', state: '確認済' },
+    { no: '110', slot: 'サイド', name: '「60周年記念式典」常駐サイド', tpl: 'サイドスーパー', src: '手入力', srcIcon: 'pencil', state: '確認済' },
+    { no: '201', slot: 'フルスクリーン', name: '永年勤続 表彰者一覧（20名）', tpl: '一覧 4×5', src: 'Sheets', srcIcon: 'table-2', state: '未確認' },
+    { no: '202', slot: 'フルスクリーン', name: '記念講演 演題・講師紹介', tpl: '題字＋肩書', src: '手入力', srcIcon: 'pencil', state: '未完成' },
+    { no: '301', slot: 'ティッカー', name: 'ご来場の注意・懇親会の案内', tpl: 'ティッカー', src: '手入力', srcIcon: 'pencil', state: '確認済' },
+    { no: '401', slot: '時計・カウント', name: '開演カウントダウン（13:00 まで）', tpl: 'カウントダウン', src: '自動', srcIcon: 'clock', state: '確認済' },
+  ];
+
+  ORDERS = [
+    { state: '未作画', what: '閉会あいさつ 大城専務のネーム（発注: 大森）', when: '20分前' },
+    { state: '未作画', what: '懇親会 会場案内のフルスクリーン（発注: 中西）', when: '1時間前' },
+    { state: '作画中', what: '質疑応答「ご質問は挙手で」の下部テロップ', when: '2時間前' },
+    { state: '校正待ち', what: '永年勤続 表彰者一覧（名簿の読み合わせ）', when: '昨日' },
+  ];
+
+  ORDER_TONE = {
+    '未作画': { bg: '#fef6f7', fg: '#c7243a' },
+    '作画中': { bg: '#fff7ed', fg: '#c2410e' },
+    '校正待ち': { bg: '#eaf4fb', fg: '#005bac' },
+  };
+
+  flash(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: '' }), 2600);
+  }
+
+  componentDidMount() { this.icons(); }
+  componentDidUpdate() { this.icons(); }
+
+  // lucide が差し込んだ svg は React の再描画で残り「アイコンが増殖する」。描き直す前に捨てる。
+  icons() {
+    clearTimeout(this._iconT);
+    this._iconT = setTimeout(() => {
+      if (!window.lucide) return;
+      const svgs = document.querySelectorAll('svg.lucide');
+      for (let i = 0; i < svgs.length; i++) {
+        const sv = svgs[i], pa = sv.parentNode;
+        if (!pa) continue;
+        let hasI = false, others = 0;
+        for (let k = 0; k < pa.children.length; k++) {
+          const ch = pa.children[k];
+          if (ch.tagName === 'I' && ch.hasAttribute('data-lucide')) hasI = true;
+          if (ch !== sv && ch.tagName === 'svg' && ch.classList.contains('lucide')) others += 1;
+        }
+        if (hasI || others > 0) { try { pa.removeChild(sv); } catch (e) {} }
+      }
+      if (!document.querySelector('i[data-lucide]')) return;
+      window.lucide.createIcons();
+    }, 60);
+  }
+
+  hubVals() {
+    const s = this.state;
+    const soon = (msg) => () => this.flash(msg || 'この画面はこれから作ります');
+    const rows = this.PAGES
+      .filter((p) => (s.f === 'todo' ? p.state !== '確認済' : true))
+      .map((p) => {
+        const sl = this.SLOT_TONE[p.slot] || { bg: '#f2f4f7', fg: '#5d6470' };
+        const st = this.STATE_TONE[p.state];
+        return {
+          no: p.no, slot: p.slot, name: p.name, tpl: 'テンプレート: ' + p.tpl,
+          src: p.src, srcIcon: p.srcIcon, state: p.state,
+          slBg: sl.bg, slFg: sl.fg, stBg: st.bg, stFg: st.fg,
+          rowBg: p.state === '未完成' ? '#fffbf9' : '#fff',
+          open: () => this.setState({ screen: 'page', appSw: false }),
+          edit: () => this.setState({ screen: 'page', appSw: false }),
+          standby: () => this.flash(p.no + ' を送出コンソールの PVW に立てました'),
+        };
+      });
+    const todo = this.PAGES.filter((p) => p.state !== '確認済').length;
+    const chip = (on) => ({ bd: on ? '#fed7aa' : '#e6e9ed', bg: on ? '#fff7ed' : '#fff', fg: on ? '#c2410e' : '#5d6470', weight: on ? 700 : 400 });
+    return {
+      sub: 'ミナトデジタル ／ 2026/08/02（土）13:00 開始 ・ テーマ「式典ゴールド」 ・ 進行台本 第3稿と連携中',
+      backHub: soon('番組ハブ（ミニアプリのタイル）へ戻ります'),
+      bulk: () => this.flash('名簿（Excel・Google Sheets）からページを一括生成します。列の対応づけは1度だけ'),
+      openLive: () => this.setState({ screen: 'live', appSw: false }),
+      add: () => this.flash('テンプレートを選んでページを作ります。入力欄はテンプレートの公開フィールドから自動で生成されます'),
+      orderAll: soon('発注（テロ原）の一覧はこれから作ります'),
+      stats: [
+        { label: 'ページ', value: this.PAGES.length + ' 枚', fg: '#1a1d24' },
+        { label: '校正済', value: (this.PAGES.length - todo) + ' 枚', fg: '#197a4b' },
+        { label: '要対応', value: todo + ' 枚', fg: todo > 0 ? '#c7243a' : '#197a4b' },
+        { label: '送出リスト', value: '本番 12 手', fg: '#1a1d24' },
+      ],
+      filters: [
+        { key: 'all', label: 'すべて ' + this.PAGES.length },
+        { key: 'todo', label: '要対応 ' + todo },
+      ].map((ff) => ({ label: ff.label, pick: () => this.setState({ f: ff.key }), ...chip(ff.key === s.f) })),
+      rows,
+      outputs: [
+        { label: 'メイン合成（透過）', icon: 'monitor-play', url: 'https://gmo-onair.jp/techops/graphics/out/gls-a1024?ch=main' },
+        { label: '背景つき（確認用）', icon: 'monitor', url: 'https://gmo-onair.jp/techops/graphics/out/gls-a1024?ch=main&bg=1' },
+        { label: '英語版', icon: 'languages', url: 'https://gmo-onair.jp/techops/graphics/out/gls-a1024?ch=main&lang=en' },
+      ].map((o) => ({ ...o, copy: () => this.flash(o.label + ' のURLをコピーしました（ログイン不要）') })),
+      orders: this.ORDERS.map((od) => {
+        const t = this.ORDER_TONE[od.state];
+        return { ...od, bg: t.bg, fg: t.fg };
+      }),
+    };
+  }
+
+  STEPS = [
+    { step: '01', no: '401', name: '開演カウントダウン（13:00 まで）', cue: '開場中 ・ 12:30〜', done: true },
+    { step: '02', no: '110', name: '「60周年記念式典」常駐サイド', cue: '01 オープニング映像 あたま', done: true },
+    { step: '03', no: '101', name: '氏名：田島 常務（主催者あいさつ）', cue: '02 主催者あいさつ 登壇どまり', pgm: true },
+    { step: '04', no: '103', name: '中継先：大阪拠点', cue: '05 大阪拠点から中継 あたま', pvw: true },
+    { step: '05', no: '102', name: '氏名：西村／橋本（歴代社長 対談）', cue: '04 歴代社長 対談 着席後' },
+    { step: '06', no: '201', name: '永年勤続 表彰者一覧（20名）', cue: '06 永年勤続 表彰 あたま', state: '未確認' },
+    { step: '07', no: '202', name: '記念講演 演題・講師紹介', cue: '08 記念講演 あたま', state: '未完成' },
+    { step: '08', no: '301', name: 'ご来場の注意・懇親会の案内', cue: '09 質疑応答 うしろ' },
+    { step: '09', no: '102', name: '氏名（再）：西村／橋本', cue: '10 閉会あいさつ 前' },
+  ];
+
+  liveVals() {
+    const soon = (msg) => () => this.flash(msg);
+    const rows = this.STEPS.map((p) => {
+      const slot = (this.PAGES.find((x) => x.no === p.no) || {}).slot || '下部テロップ';
+      const sl = this.SLOT_TONE[slot];
+      const st = this.STATE_TONE[p.state || '確認済'];
+      const mark = p.pgm ? 'PGM' : p.pvw ? 'PVW' : p.done ? '済' : '';
+      return {
+        step: p.step, no: p.no, name: p.name, cue: '台本: ' + p.cue, slot,
+        slBg: sl.bg, slFg: sl.fg,
+        state: p.state || '確認済', stBg: st.bg, stFg: st.fg,
+        mark,
+        markBg: p.pgm ? '#c7243a' : p.pvw ? '#c2410e' : p.done ? '#f2f4f7' : 'transparent',
+        markFg: p.pgm || p.pvw ? '#fff' : '#9aa1ab',
+        rowBg: p.pgm ? '#fef6f7' : p.pvw ? '#fff7ed' : '#fff',
+        w: p.pgm || p.pvw ? 800 : 700,
+        standby: () => this.flash(p.no + ' を PVW に立てました' + (p.state === '未完成' ? '（未完成のため TAKE はブロックされます）' : p.state === '未確認' ? '（校正が未確認です）' : '')),
+      };
+    });
+    return {
+      pvwNo: '103', pvwName: '中継先：大阪拠点',
+      pvwState: '確認済', pvwStBg: '#e7f6ee', pvwStFg: '#197a4b',
+      allClear: soon('全スロットを退出アニメつきで下ろします（対象6枠の確認ダイアログを挟みます）'),
+      standby: soon('103 を PVW に立てました'),
+      take: soon('TAKE: 103 を下部テロップ枠へ。前のページ 101 は退出アニメで自動的に下りました'),
+      next: soon('次へ: PVW を TAKE し、手順 05（102）をスタンバイしました'),
+      cont: soon('続き: ストップポイントで止まっているアニメを先へ進めます'),
+      out: soon('OUT: PVW と同じスロットのオンエアを下ろします'),
+      slots: [
+        { name: 'フルスクリーン', page: '—', since: '', on: false },
+        { name: '下部テロップ', page: '101 田島 常務', since: '0:42', on: true },
+        { name: 'サイド', page: '110 常駐サイド', since: '42:10', on: true },
+        { name: 'ティッカー', page: '—', since: '', on: false },
+        { name: '時計・カウント', page: '—', since: '', on: false },
+        { name: '速報', page: '—', since: '', on: false },
+      ].map((sl) => ({
+        ...sl,
+        page: sl.on ? sl.page : 'オンエアなし',
+        bd: sl.on ? '#f6cdd2' : '#e6e9ed',
+        dot: sl.on ? '#c7243a' : '#cbd2da',
+        fg: sl.on ? '#1a1d24' : '#9aa1ab',
+        canOut: sl.on,
+        doOut: () => this.flash(sl.name + ' を退出アニメで下ろしました'),
+      })),
+      rows,
+    };
+  }
+
+  pageVals() {
+    const s = this.state;
+    const sel = s.pgField == null ? 0 : s.pgField;
+    const soon = (msg) => () => this.flash(msg);
+    const defs = [
+      { label: '演題', req: true, src: '手入力', srcIcon: 'pencil', value: 'これからの10年、スタジオが担うもの', cnt: '17/24 字', cntFg: '#9aa1ab',
+        hint: '2行まで。枠に入りきらない長さはプレビューのとおり自動で縮小されます（縮小率もここで確認できます）。' },
+      { label: '講師名', req: true, src: '名簿', srcIcon: 'users', value: '佐倉 誠一', cnt: '', cntFg: '#9aa1ab',
+        hint: '名簿「登壇者リスト」の行から差し込み中。名簿側を直すとこのページにも反映されます。' },
+      { label: '肩書', req: true, src: '手入力', srcIcon: 'pencil', value: '（未入力）', empty: true, cnt: '0/20 字', cntFg: '#c7243a',
+        err: '必須です。テロ原 #18 には「未来デザイン研究所 所長」とあります — 押すとそのまま入ります' },
+      { label: '講師写真', req: false, src: '画像', srcIcon: 'image', value: '未選択（縦横比 3:4 ・ 600px 以上）', empty: true, isImage: true, cnt: '', cntFg: '#9aa1ab',
+        err: '写真が未選択です。条件に合わない画像は選んだ時点で弾きます' },
+    ];
+    return {
+      back: () => this.setState({ screen: 'hub', appSw: false }),
+      save: soon('保存しました（未完成のまま。送出リストには「未完成」バッジで並びます）'),
+      proof: soon('未入力の必須フィールドが残っているため、校正には出せません'),
+      fields: defs.map((f, i) => ({
+        ...f,
+        cnt: f.cnt,
+        rowBg: i === sel ? '#fff7ed' : '#fff',
+        bd: f.err ? '#f6cdd2' : i === sel ? '#fdba74' : '#e6e9ed',
+        bg: f.err ? '#fffbfb' : '#fbfcfd',
+        vFg: f.empty ? '#9aa1ab' : '#1a1d24',
+        vWeight: f.empty ? 400 : 700,
+        vSize: '13.5px',
+        pick: () => this.setState({ pgField: i }),
+      })),
+      checks: [
+        { what: '演題・講師名は入力済み', icon: 'check-circle-2', fg: '#197a4b' },
+        { what: '肩書が未入力（必須）', icon: 'alert-circle', fg: '#c7243a' },
+        { what: '講師写真が未選択', icon: 'alert-circle', fg: '#c7243a' },
+      ],
+    };
+  }
+
+  tplVals() {
+    const s = this.state;
+    const sel = s.tpLayer == null ? 1 : s.tpLayer;
+    const soon = (msg) => () => this.flash(msg);
+    const layers = [
+      { name: '背景スクリム', icon: 'square', pub: false },
+      { name: '演題（テキスト）', icon: 'type', pub: true },
+      { name: '講師名（テキスト）', icon: 'type', pub: true },
+      { name: '肩書（テキスト）', icon: 'type', pub: true },
+      { name: '講師写真（画像枠）', icon: 'image', pub: true },
+      { name: '金の装飾ライン', icon: 'minus', pub: false },
+    ];
+    return {
+      back: soon('テンプレート一覧（このテーマのパック）はこれから作ります'),
+      dup: soon('複製しました。テーマを差し替えれば別番組でそのまま使えます'),
+      save: soon('保存して公開しました。この版から新しいページが作られます（既存ページは影響を確認してから差し替え）'),
+      addLayer: soon('テキスト・画像・図形・時計のレイヤーを追加できます'),
+      layers: layers.map((l, i) => ({
+        ...l,
+        bg: i === sel ? '#fff7ed' : '#fff',
+        w: i === sel ? 800 : 700,
+        iconFg: i === sel ? '#c2410e' : '#9aa1ab',
+        pick: () => this.setState({ tpLayer: i }),
+      })),
+      tracks: [
+        { name: '背景スクリム', left: '0%', width: '18%', color: '#cbd2da', time: '0 〜 0.25s' },
+        { name: '演題', left: '10%', width: '24%', color: '#ea580c', time: '0.15 〜 0.5s' },
+        { name: '講師名・肩書', left: '20%', width: '24%', color: '#f0a36b', time: '0.3 〜 0.65s' },
+        { name: '装飾ライン', left: '26%', width: '20%', color: '#cbd2da', time: '0.4 〜 0.7s' },
+      ],
+      props: [
+        { label: '文字スタイル', value: '題字（式典ゴールド）', chipBg: '#f5f3ff', chipFg: '#6d28d9', plain: false },
+        { label: '書体', value: 'LINE Seed JP ・ 800', plain: true, cls: '' },
+        { label: '大きさ', value: '72px ・ 自動縮小 60% まで', plain: true, cls: 'num' },
+        { label: '縁取り', value: '2重（金 4px ＋ 黒 10px）', plain: true, cls: '' },
+        { label: '座布団', value: 'なし（背景スクリム側）', plain: true, cls: '' },
+        { label: '組版', value: '詰め(palt) ON ・ 等幅数字 ON', plain: true, cls: '' },
+        { label: '書き方向', value: '横書き（縦書き可）', plain: true, cls: '' },
+      ],
+    };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const scr = s.screen || 'hub';
+    const soon = (msg) => () => this.flash(msg || 'この画面はこれから作ります');
+    return {
+      hasToast: !!s.toast,
+      toast: s.toast,
+      goHome: () => { window.location.href = 'v4-mockup-main.dc.html'; },
+      appSwOpen: s.appSw,
+      toggleAppSw: () => this.setState({ appSw: !s.appSw }),
+      closeAppSw: () => this.setState({ appSw: false }),
+      appSwitchApps: this.APPS.map((a) => ({
+        ...a,
+        pick: () => {
+          if (a.here) { this.setState({ appSw: false }); return; }
+          window.location.href = a.to || 'v4-mockup-main.dc.html';
+        },
+        bg: a.here ? '#fff7ed' : '#fff',
+        bd: a.here ? '#fed7aa' : '#e6e9ed',
+      })),
+      isHub: scr === 'hub',
+      isLive: scr === 'live',
+      isPage: scr === 'page',
+      isTpl: scr === 'tpl',
+      hub: this.hubVals(),
+      live: this.liveVals(),
+      pg: this.pageVals(),
+      tp: this.tplVals(),
+      tabs: [
+        { key: 'hub', label: '① ページと送出リスト' },
+        { key: 'live', label: '② 送出コンソール' },
+        { key: 'page', label: '③ ページ編集' },
+        { key: 'tpl', label: '④ テンプレート（作画）' },
+      ].map((t) => {
+        const on = t.key === scr;
+        const built = true;
+        return {
+          label: t.label,
+          go: built ? () => this.setState({ screen: t.key, appSw: false }) : soon('「' + t.label + '」はこの次に作ります'),
+          bg: on ? '#fff7ed' : '#fff',
+          fg: on ? '#c2410e' : '#5d6470',
+          bd: on ? '#fed7aa' : '#e6e9ed',
+        };
+      }),
+      menu: this.MENU.map((mi) => {
+        const on = mi.key ? mi.key === scr : false;
+        const built = !!mi.key;
+        return {
+          group: mi.group, label: mi.label, tag: mi.tag || '',
+          go: built ? () => this.setState({ screen: mi.key, appSw: false }) : soon('「' + mi.label + '」の画面はこれから作ります'),
+          bg: on ? '#fff7ed' : 'transparent',
+          fg: on ? '#c2410e' : '#3c424c',
+          dot: on ? '#c2410e' : '#cbd2da',
+          weight: on ? 700 : 400,
+        };
+      }),
+    };
+  }
+}
+</script>
+</body>
+</html>
