@@ -53,7 +53,7 @@
  * 実装（3本前提の決め打ちレイアウトは無い）ので、1本・3本のどちらでも崩れない
  * ことを確認した上でこの形にしている。
  */
-import { LayoutDashboard, LayoutGrid, CalendarDays, Settings2, Package, Timer, BookOpenCheck } from 'lucide-react';
+import { LayoutDashboard, LayoutGrid, CalendarDays, Settings2, Package, Timer, Type, BookOpenCheck } from 'lucide-react';
 import type { ShellMobileTab, ShellNavSection } from '@gmo-onair/shared/src/client/shell';
 import { MINI_APP_BY_KEY, panelPathOf } from '@gmo-onair/shared/src/production/miniapps';
 import type { ProductionNavContext } from '@/lib/productionNavContext';
@@ -65,6 +65,10 @@ const STREAMING_RE = /^\/techops\/streaming\/([^/?#]+)\/?$/;
 const RENTAL_RE = /^\/techops\/rental\/([^/?#]+)(?:\/(?:list|mail\/[^/?#]+))?\/?$/;
 // 計時・視聴者（liveops）。`/timers`・`/timers/:timerId/layout`・`/settings` の配下も含む
 const LIVE_RE = /^\/techops\/live\/([^/?#]+)(?:\/(?:timers(?:\/[^/?#]+\/layout)?|settings))?\/?$/;
+// テロップCG。ハブ（`/graphics/:ownerKey`）と送出コンソール（`/live`）。
+// 出力画面（`/techops/graphics/output/:projectId`）はシェル無しの独立ルートなので
+// ここには来ない（`App.tsx` の「Full-screen pages without AppShell」側）
+const GRAPHICS_RE = /^\/techops\/graphics\/([^/?#]+)(?:\/live)?\/?$/;
 const EDITOR_RE = /^\/techops\/editor\/[^/?#]+\/?$/;
 const SCHEDULE_DETAIL_RE = /^\/techops\/schedules\/[^/?#]+\/?$/;
 const DOCS_RE = /^\/techops\/docs\/[^/?#]+\/?$/;
@@ -80,7 +84,7 @@ function safeDecode(v: string): string {
 /** owner キーが URL に出る3つのパネル画面（収録設定・配信設定・レンタル機材検索）から ownerKey を取り出す */
 function matchOwnerKeyPanel(pathname: string): string | null {
   const m = pathname.match(RECORDING_RE) ?? pathname.match(STREAMING_RE) ?? pathname.match(RENTAL_RE)
-    ?? pathname.match(LIVE_RE);
+    ?? pathname.match(LIVE_RE) ?? pathname.match(GRAPHICS_RE);
   return m ? safeDecode(m[1]) : null;
 }
 
@@ -178,6 +182,9 @@ function buildResolvedSections(ctx: ProductionNavContext): ShellNavSection[] {
     { label: MINI_APP_BY_KEY.recording.label, to: panelPathOf('recording', ctx.id), icon: Settings2 },
     { label: MINI_APP_BY_KEY.streaming.label, to: panelPathOf('streaming', ctx.id), icon: Settings2 },
     { label: MINI_APP_BY_KEY.rental.label, to: panelPathOf('rental', ctx.id), icon: Package },
+    // テロップCG は project / program のどちらの scope でも開ける
+    // （resolve が両方の owner を受ける — 収録設定・配信設定と同じ形）
+    { label: MINI_APP_BY_KEY.graphics.label, to: panelPathOf('graphics', ctx.id), icon: Type },
   ];
   // 計時・視聴者（liveops）は scope === 'project' のときだけ（liveops_programs.project_id
   // は projects テーブルのみを指すため。MiniAppTiles.tsx/MiniAppSwitcher.tsx と同じ制約）

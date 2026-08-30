@@ -74,6 +74,23 @@ export const TECHOPS_PC_ONLY: PcOnlyEntry[] = [
     instead: { label: 'アプリのトップを開く', to: '/techops/top' },
   },
   {
+    // テロップCG のハブ（ページと送出リスト）。ページの一覧・作成・編集を
+    // 本番前にまとめて組む画面で、列の多い表とダイアログを並べて使うため PC 前提
+    // （発注（テロ原）のスマホフォームは後の段で別画面として作る — graphics.md §3）
+    path: '/techops/graphics/:ownerKey',
+    what: 'テロップCG（ページと送出リスト）',
+    why: 'ページの一覧と送出リストをまとめて組む画面で、狭い幅では組めません。',
+    instead: { label: 'アプリのトップを開く', to: '/techops/top' },
+  },
+  {
+    // テロップCG の送出コンソール。本番3画面（進行・ランダウン・プロンプター）と
+    // 同じ理由 — 配信卓に固定して使う運用画面
+    path: '/techops/graphics/:ownerKey/live',
+    what: 'テロップCG（送出コンソール）',
+    why: '配信卓・OBS と並べて固定して使う本番の運用画面です。',
+    instead: { label: 'アプリのトップを開く', to: '/techops/top' },
+  },
+  {
     // 表示レイアウトエディタ（13-live-display-layout-editor.md §6-3）。要素カードの
     // ドラッグ・リサイズ操作が前提のため、375px幅での対応は本設計のスコープ外にした
     // （§9-3で利用者に確認済み）。テンプレートライブラリ（閲覧・適用）はスマホ対応の対象
@@ -101,6 +118,10 @@ export const TECHOPS_MOBILE_OK: string[] = [
   '/techops/home',      // 進行台本の案件選択
   '/techops/sheets',    // 進行台本の一覧
   '/techops/audio/:id', // 公開音声サポート — 現場のスマホで見る前提
+  // テロップCGの出力画面。OBS のブラウザソース（表示専用・認証なし）で、シェル無しの
+  // 独立ルートなので `<PcOnlyGate>` は通らない — client-live の表示画面（/display/:timerId）
+  // と同じく「宣言として」こちら側に置く（1920×1080 を縮尺表示するだけでスマホでも壊れない）
+  '/techops/graphics/output/:projectId',
   '/techops/schedules',      // スケジュール表の一覧
   '/techops/schedules/:id',  // スケジュール表の詳細（375px は縦積みカードに畳む）
   // 収録設定・配信設定の簡易入口（旧 `/techops/device-settings`）は2026-08-22 に廃止（`App.tsx` にルート無し）

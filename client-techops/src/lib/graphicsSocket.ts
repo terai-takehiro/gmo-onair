@@ -1,0 +1,36 @@
+/**
+ * テロップCG のリアルタイム同期（Socket.IO `/graphics` ネームスペース）。
+ *
+ * - **認証なし**で繋がる（出力画面は OBS のブラウザソース＝ログイン不要で開くため。
+ *   公開音声サポートと同じ決めごと）。
+ * - techops 本体の `/techops` ネームスペース（`lib/socket.ts`・`cue:*` は本番進行で
+ *   使用中）とは**別ネームスペース**。CG のイベント名は `cg:*` を新設した
+ *   （docs/design/v4/graphics.md §9 の技術上の要注意）。
+ * - 受け: `cg:sync` { cues, timestamp } … スロットごとの cue の全量＋サーバー時刻(ms)
+ * - 送り: `cg:set`  { slot, pageId | null } … TAKE（pageId あり）／ OUT（null）
+ *
+ * `lib/socket.ts` のようなシングルトンにはしない — 送出コンソールと出力画面が
+ * 同じブラウザで同時に開かれ得るため、画面ごとに1本持って unmount で切る。
+ */
+import { io, type Socket } from 'socket.io-client';
+import type { GraphicsCueRow, GraphicsSlot } from '@/lib/graphicsApi';
+
+export interface CgSyncPayload {
+  cues: GraphicsCueRow[];
+  /** サーバー時刻（epoch ms）。時計・カウントダウンの skew 補正に使う */
+  timestamp: number;
+}
+
+export function createGraphicsSocket(projectId: string): Socket {
+  return io('/graphics', {
+    path: '/socket.io/',
+    query: { projectId },
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionDelay: 1000,
+  });
+}
+
+export function emitCgSet(socket: Socket, slot: GraphicsSlot, pageId: string | null) {
+  socket.emit('cg:set', { slot, pageId });
+}

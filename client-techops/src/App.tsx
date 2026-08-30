@@ -34,6 +34,10 @@ import LiveDisplayLayoutEditorPage from "@/pages/live/LiveDisplayLayoutEditorPag
 import LiveDisplayTemplateLibraryPage from "@/pages/live/LiveDisplayTemplateLibraryPage";
 // AIナレッジの承認（core-redesign-plan.md Phase 2 ④。qsheet_ai_knowledge の唯一のUI）
 import AiKnowledgePage from "@/pages/ai-knowledge/AiKnowledgePage";
+// テロップCG（旧リアルタイムCGの後継ミニアプリ・docs/design/v4/graphics.md 段1〜2）
+import GraphicsHubPage from "@/pages/graphics/GraphicsHubPage";
+import GraphicsConsolePage from "@/pages/graphics/GraphicsConsolePage";
+import GraphicsOutputPage from "@/pages/graphics/GraphicsOutputPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -96,6 +100,10 @@ export default function App() {
             ファイルは残しコードからの導線だけ外した） */}
         <Route path="/techops/recording/:ownerKey" element={<RecordingPage />} />
         <Route path="/techops/streaming/:ownerKey" element={<StreamingPage />} />
+        {/* テロップCG。案件・番組単位（:ownerKey）。ハブ（ページと送出リスト）と
+            送出コンソール。出力画面だけはシェル無し・認証なしの独立ルート（下記） */}
+        <Route path="/techops/graphics/:ownerKey" element={<GraphicsHubPage />} />
+        <Route path="/techops/graphics/:ownerKey/live" element={<GraphicsConsolePage />} />
         {/* レンタル機材検索。案件単位（:ownerKey）で文書とは別の入れ物（2026-08-22 追加） */}
         <Route path="/techops/rental/:ownerKey" element={<RentalSearchPage />} />
         <Route path="/techops/rental/:ownerKey/list" element={<RentalReservationsPage />} />
@@ -137,6 +145,10 @@ export default function App() {
 
       {/* Public audio support dashboard — no auth required, docId-based */}
       <Route path="/techops/audio/:id" element={<AudioSupportPage />} />
+
+      {/* テロップCGの出力画面 — 認証なしの公開URL（OBS のブラウザソースが未ログインで
+          開く。公開音声サポートと同じ決めごと・`lib/api.ts` の `publicPaths` にも登録済み） */}
+      <Route path="/techops/graphics/output/:projectId" element={<GraphicsOutputPage />} />
 
       {/*
         ここから旧 `/qsheet/*` の互換転送（qsheet→techops移行 Phase 2・2026-08-22）。
