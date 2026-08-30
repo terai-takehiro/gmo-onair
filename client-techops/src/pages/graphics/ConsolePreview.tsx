@@ -10,7 +10,7 @@
 // なので背景グラデーションだけ生の色で書く。枠・見出しは v4 トークン。
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import type { GraphicsPageRow } from '@/lib/graphicsApi';
-import { renderGraphicsPage } from './outputParts';
+import { renderGraphicsPage, type RenderContext } from './outputParts';
 
 const CANVAS_W = 1920;
 const CANVAS_H = 1080;
@@ -41,7 +41,7 @@ function useCanvasScale(): [RefObject<HTMLDivElement>, number] {
   return [ref, width > 0 ? width / CANVAS_W : 0];
 }
 
-export function ConsolePreview({ tone, title, right, items, emptyText, serverNowMs }: {
+export function ConsolePreview({ tone, title, right, items, emptyText, serverNowMs, ctx }: {
   /** pgm = 赤（いま出ている合成後）／ pvw = 橙（次に出す1枚） */
   tone: 'pgm' | 'pvw';
   title: ReactNode;
@@ -50,6 +50,8 @@ export function ConsolePreview({ tone, title, right, items, emptyText, serverNow
   /** 1枚も無いときにキャンバス中央に出す言葉（PGM「オンエアなし」など） */
   emptyText: string;
   serverNowMs: number;
+  /** テーマ等の合成文脈（出力と同じものを渡す — プレビューと放送の絵をずらさない） */
+  ctx?: RenderContext;
 }) {
   const [boxRef, scale] = useCanvasScale();
   const empty = items.length === 0;
@@ -86,7 +88,7 @@ export function ConsolePreview({ tone, title, right, items, emptyText, serverNow
           {items.map((it) => (
             // opacity の入れ物は position: static のまま（絶対配置の基準はキャンバスに残る）
             <div key={it.page.id} style={it.dim ? { opacity: 0.4 } : undefined}>
-              {renderGraphicsPage(it.page, serverNowMs)}
+              {renderGraphicsPage(it.page, serverNowMs, ctx)}
             </div>
           ))}
         </div>

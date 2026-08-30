@@ -4,6 +4,7 @@
  * サーバー側（server/src/contexts/qsheet 配下・並行作業）との契約:
  *   POST /graphics/projects/resolve            … owner から CGプロジェクトを取得または作成
  *   GET  /graphics/projects/:id                … プロジェクト＋ページ＋cue を1本で
+ *   PUT  /graphics/projects/:id                … プロジェクトの部分更新（theme / name）
  *   POST /graphics/projects/:id/pages          … ページ作成
  *   PUT  /graphics/pages/:id                   … ページ更新
  *   DELETE /graphics/pages/:id                 … ページ削除
@@ -55,6 +56,16 @@ export const PART_DEFAULT_SLOT: Record<GraphicsPartKey, GraphicsSlot> = {
   vote: 'fullscreen',
 };
 
+/** プロジェクト単位の見た目テーマ。キーはサーバー（graphics_projects.theme）と出力側レンダラの契約 */
+export type GraphicsThemeKey = 'ceremony-gold' | 'news-navy' | 'corporate-light' | 'variety-pop';
+
+export const GRAPHICS_THEMES: { key: GraphicsThemeKey; label: string }[] = [
+  { key: 'ceremony-gold', label: '式典（金）' },
+  { key: 'news-navy', label: '報道（紺）' },
+  { key: 'corporate-light', label: 'コーポレート' },
+  { key: 'variety-pop', label: 'バラエティ' },
+];
+
 export type GraphicsProofState = 'draft' | 'unproofed' | 'proofed';
 
 export const PROOF_LABELS: Record<GraphicsProofState, string> = {
@@ -68,6 +79,8 @@ export interface GraphicsProjectRow {
   name: string;
   ownerType: 'project' | 'program';
   ownerId: string;
+  /** 見た目テーマのキー（未知の値は既定テーマ扱いにする — レンダラ側の作法） */
+  theme: string;
 }
 
 export interface GraphicsPageRow {
@@ -109,6 +122,15 @@ export async function resolveGraphicsProject(
 
 export async function getGraphicsProject(projectId: string): Promise<GraphicsBundle> {
   const { data } = await api.get(`/graphics/projects/${encodeURIComponent(projectId)}`);
+  return data.data;
+}
+
+/** プロジェクトの部分更新（いまは theme / name のみ）。更新後の一式（bundle）が返る */
+export async function updateGraphicsProject(
+  projectId: string | number,
+  input: { theme?: GraphicsThemeKey; name?: string },
+): Promise<GraphicsBundle> {
+  const { data } = await api.put(`/graphics/projects/${encodeURIComponent(String(projectId))}`, input);
   return data.data;
 }
 

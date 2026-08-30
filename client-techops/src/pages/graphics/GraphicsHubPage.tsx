@@ -21,6 +21,7 @@ import { useGraphicsProject } from './useGraphicsProject';
 import { SlotBadge, ProofBadge } from './badges';
 import PageFormDialog from './PageFormDialog';
 import OutputUrlCard from './OutputUrlCard';
+import ThemePicker from './ThemePicker';
 
 export default function GraphicsHubPage() {
   const { ownerKey } = useParams<{ ownerKey: string }>();
@@ -111,6 +112,11 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
           </p>
         </div>
         <div className="flex-1" />
+        <ThemePicker
+          projectId={bundle.project.id}
+          theme={bundle.project.theme}
+          onSaved={reload}
+        />
         <Button variant="outline" asChild>
           <Link to={`/techops/graphics/${encodeURIComponent(ownerKey)}/live`}>
             <Radio className="mr-1 h-4 w-4" aria-hidden="true" />送出コンソールへ

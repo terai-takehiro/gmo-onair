@@ -27,6 +27,7 @@ import {
 import { createGraphicsSocket, emitCgSet, type CgSyncPayload } from '@/lib/graphicsSocket';
 import { useGraphicsProject } from './useGraphicsProject';
 import { ProofBadge } from './badges';
+import { resolveTelopTheme } from './telopTheme';
 import { ConsolePreview } from './ConsolePreview';
 import { ConsoleControls } from './ConsoleControls';
 import { ConsoleSlotLanes } from './ConsoleSlotLanes';
@@ -334,6 +335,7 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
           items={livePages.map((page) => ({ page }))}
           emptyText="オンエアなし"
           serverNowMs={serverNowMs}
+          ctx={{ theme: resolveTelopTheme(bundle.project.theme), tickerLive: livePages.some((p) => p.slot === 'ticker') }}
         />
         <ConsolePreview
           tone="pvw"
@@ -344,6 +346,7 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
           items={pvwPage ? [...pvwContext.map((page) => ({ page, dim: true })), { page: pvwPage }] : []}
           emptyText="番号呼出か「PVWへ」で選ぶと、ここに映ります"
           serverNowMs={serverNowMs}
+          ctx={{ theme: resolveTelopTheme(bundle.project.theme) }}
         />
         <ConsoleControls
           callBuffer={callBuffer}

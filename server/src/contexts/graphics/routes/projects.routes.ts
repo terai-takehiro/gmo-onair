@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { execute, queryOne } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
-import { fetchBundle, fetchProject, SLOTS, Slot, upsertCue } from '../store';
+import { fetchBundle, fetchProject, SLOTS, Slot, THEMES, Theme, upsertCue } from '../store';
 
 // CGプロジェクト（graphics_projects）の解決・取得と、スロット cue の HTTP 経路。
 // 権限は計時・視聴者と同じく qsheet 区画へ統合（graphics.md §1・migration 232 の先例）。
@@ -66,6 +66,50 @@ router.get('/projects/:id', wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const bundle = id && !isNaN(id) ? await fetchBundle(id) : null;
   if (!bundle) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
+  res.json({ success: true, data: bundle });
+}));
+
+// ── プロジェクトの部分更新（いまは theme / name のみ） ─────────────────
+router.put('/projects/:id', wrap(async (req, res) => {
+  const id = parseInt(req.params.id as string);
+  const project = id && !isNaN(id) ? await fetchProject(id) : null;
+  if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
+
+  const body = (req.body ?? {}) as { theme?: string; name?: string };
+  const sets: string[] = [];
+  const params: unknown[] = [];
+
+  if (body.theme !== undefined) {
+    if (!THEMES.includes(body.theme as Theme)) {
+      throw new AppError(400, 'VALIDATION_ERROR', `theme は ${THEMES.join(' / ')} のいずれかです`);
+    }
+    sets.push('theme = ?'); params.push(body.theme);
+  }
+  if (body.name !== undefined) {
+    const name = String(body.name).trim();
+    if (!name) throw new AppError(400, 'VALIDATION_ERROR', 'name は空にできません');
+    sets.push('name = ?'); params.push(name);
+  }
+
+  if (sets.length > 0) {
+    await execute(
+      `UPDATE graphics_projects SET ${sets.join(', ')}, updated_at = NOW() WHERE id = ?`,
+      [...params, id]
+    );
+  }
+  const bundle = await fetchBundle(id);
+
+  // テーマ変更は出力画面の見た目が変わるので Socket にも同報する（POST /cue と同じ二重化。
+  // 現行の cg:sync 受け手は cues だけを読むが、theme も載せておく — 出力側が拾えるように）
+  if (body.theme !== undefined && bundle) {
+    const io = req.app.get('io');
+    if (io) {
+      io.of('/graphics').to(`project:${id}`).emit('cg:sync', {
+        cues: bundle.cues, theme: bundle.project.theme, timestamp: Date.now(),
+      });
+    }
+  }
+
   res.json({ success: true, data: bundle });
 }));
 

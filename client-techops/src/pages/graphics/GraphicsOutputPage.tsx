@@ -17,6 +17,7 @@ import {
 } from '@/lib/graphicsApi';
 import { createGraphicsSocket, type CgSyncPayload } from '@/lib/graphicsSocket';
 import { renderGraphicsPage } from './outputParts';
+import { resolveTelopTheme } from './telopTheme';
 
 const CANVAS_W = 1920;
 const CANVAS_H = 1080;
@@ -76,6 +77,10 @@ export default function GraphicsOutputPage() {
     const socket = createGraphicsSocket(projectId);
     socket.on('cg:sync', (payload: CgSyncPayload) => {
       if (Array.isArray(payload?.cues)) setCues(cuesToMap(payload.cues));
+      // テーマ変更（ハブの切替）も同じ同報で届く — 出力を開き直させない
+      if (typeof payload?.theme === 'string') {
+        setBundle((prev) => (prev ? { ...prev, project: { ...prev.project, theme: String(payload.theme) } } : prev));
+      }
       if (typeof payload?.timestamp === 'number' && Number.isFinite(payload.timestamp)) {
         serverOffsetRef.current = payload.timestamp - Date.now();
       }
@@ -130,7 +135,11 @@ export default function GraphicsOutputPage() {
         }}
       >
         {livePages.map((p) =>
-          renderGraphicsPage(p, serverNowMs, { tickerLive: livePages.some((q) => q.slot === 'ticker') }))}
+          renderGraphicsPage(p, serverNowMs, {
+            // テーマはプロジェクト設定が正。?theme= は試写用の上書き
+            theme: resolveTelopTheme(searchParams.get('theme') ?? bundle?.project?.theme),
+            tickerLive: livePages.some((q) => q.slot === 'ticker'),
+          }))}
       </div>
     </div>
   );

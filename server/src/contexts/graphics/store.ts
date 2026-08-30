@@ -14,6 +14,10 @@ export type PartKey = (typeof PART_KEYS)[number];
 export const PROOF_STATES = ['draft', 'unproofed', 'proofed'] as const;
 export type ProofState = (typeof PROOF_STATES)[number];
 
+/** プロジェクト単位の見た目テーマ（graphics_projects.theme。既定は migration 245 の 'ceremony-gold'） */
+export const THEMES = ['ceremony-gold', 'news-navy', 'corporate-light', 'variety-pop'] as const;
+export type Theme = (typeof THEMES)[number];
+
 // 呼出番号のスロット別ブロック（モックの採番どおり: 下部=101〜・サイド=110〜・
 // フル=201〜・ティッカー=301〜・時計=401〜・速報=501〜）。ブロック内の
 // 最小の空き番号を払い出す（graphics.md §2「テンキー入力で即スタンバイ」）。

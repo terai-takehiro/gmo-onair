@@ -19,6 +19,8 @@ export interface CgSyncPayload {
   cues: GraphicsCueRow[];
   /** サーバー時刻（epoch ms）。時計・カウントダウンの skew 補正に使う */
   timestamp: number;
+  /** テーマ変更の同報時だけ載る（PUT /projects/:id が付ける） */
+  theme?: string;
 }
 
 export function createGraphicsSocket(projectId: string): Socket {

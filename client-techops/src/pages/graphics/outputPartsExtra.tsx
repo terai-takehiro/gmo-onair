@@ -80,9 +80,8 @@ export function FullscreenTitle({ page }: { page: GraphicsPageRow }) {
           justifyContent: 'center',
         }}
       >
-        {/* inline-flex の幅＝題字の幅。罫の width:70% が「文字幅の約7割」になる */}
+        {/* inline-flex の幅＝題字の幅。罫は1要素1本 — 題字の下だけに置く（§9.5） */}
         <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div style={{ ...GOLD_RULE, width: '70%', marginBottom: 30 }} />
           <div
             style={{
               fontFamily: SERIF_STACK,
@@ -298,24 +297,25 @@ export function TickerBand({ page }: { page: GraphicsPageRow }) {
       }}
     >
       <style>{'@keyframes gfx-ticker-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}'}</style>
-      {/* 左端の静的ラベル。黄色地は速報の文法（specs §5）なので使わない —
-          白文字×暗地＋金の縦罫で「案内」の格に留める */}
+      {/* 左端の静的ラベル。黄色地は速報の文法（specs §5）なので使わない。
+          ラベルと本文の分離は罫でなく**面の明度差**（帯より一段深い黒・§9.5） */}
       <div
         style={{
           flexShrink: 0,
+          alignSelf: 'stretch',
           display: 'flex',
           alignItems: 'center',
-          gap: 16,
           paddingLeft: SAFE_X,
-          paddingRight: 28,
+          paddingRight: 30,
+          marginRight: 26,
+          background: 'rgba(0, 0, 0, 0.55)',
         }}
       >
-        <div style={{ width: 4, height: 36, background: GOLD }} />
         <span
           style={{
             fontFamily: FONT_STACK,
             fontSynthesis: 'none',
-            color: WHITE,
+            color: GOLD,
             fontSize: 28,
             fontWeight: 800,
             letterSpacing: '0.14em',
