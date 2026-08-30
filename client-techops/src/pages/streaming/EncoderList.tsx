@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { destTarget } from '@/lib/deviceSettingsShared';
 import type { Destination } from '@/lib/deviceSettingsApi';
 import { ENCODER_IDS, keyState, keyToneClass, protocolBadgeClass, summarizeEncoders } from './destinationHelpers';
+import { presetLabelOf } from './streamPresets';
 
 interface RowProps {
   dest: Destination;
@@ -56,9 +57,10 @@ function DestinationRow({ dest, selected, warn, blocked, onSelect }: RowProps) {
           </span>
         </div>
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          {/* 値は折り返さない（#279 §3-4） */}
+          {/* 値は折り返さない（#279 §3-4）。プリセットに当たる URL は短い呼び名で出す
+              （`rtmp://a.rtmp.youtube.com/live2` の a と b の1字違いは一覧では読めない） */}
           <span className="min-w-0 flex-1 truncate whitespace-nowrap text-xs tabular-nums text-muted-foreground">
-            {destTarget(dest)}
+            {presetLabelOf(dest.url) ?? destTarget(dest)}
           </span>
           <span className={cn('shrink-0 whitespace-nowrap text-xs font-bold sm:w-24 sm:text-right', keyToneClass(ks.tone))}>
             {ks.label}

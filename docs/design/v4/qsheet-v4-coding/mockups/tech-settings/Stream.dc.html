@@ -138,6 +138,14 @@
             </div>
           </sc-for>
 
+          <sc-if value="{{ sel.showYouTube }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex; flex-direction:column; gap:7px; padding:11px 12px; background:#f7f8fa; border-radius:10px">
+              <span style="font-size:11px; font-weight:800">YouTube 配信の決めごと（推奨設定と Studio 側の項目）</span>
+              <span style="font-size:10px; color:#5d6470; line-height:1.65">キーフレーム 2秒（4秒以下）・CBR・音声 AAC 128 Kbps / 44.1 kHz。<br>推奨ビットレート: <span class="num nb">1080p60 = 4,500〜9,000</span> / <span class="num nb">1080p30 = 3,000〜6,000</span> / <span class="num nb">720p60 = 2,250〜6,000 Kbps</span></span>
+              <span style="font-size:10px; color:#5d6470; line-height:1.65"><b>YouTube Studio 側で設定</b>（機器からは変えられません）: 公開設定（公開 / 限定公開 / 非公開）・配信の遅延（通常 / 低遅延 / 超低遅延）・DVR・子ども向け・ストリームキーのコピー / リセット</span>
+            </div>
+          </sc-if>
+
           <sc-if value="{{ sel.hiddenNote }}" hint-placeholder-val="{{ true }}">
             <div style="display:flex; gap:8px; padding:10px 12px; background:#f7f8fa; border-radius:10px">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
@@ -158,7 +166,7 @@ class Component extends DCLogic {
   ENC = [
     { encoderId: 'ENC1', dests: [
       { name: 'YouTube Pri', protocol: 'RTMP', url: 'rtmp://a.rtmp.youtube.com/live2', port: '', streamKey: 'xxxx-xxxx-xxxx-xxxx', passphrase: '', latencyMs: '', bandwidthPct: '', mtu: '', aes: 'なし' },
-      { name: 'YouTube Bkup', protocol: 'RTMP', url: 'rtmp://b.rtmp.youtube.com/live2', port: '', streamKey: '', passphrase: '', latencyMs: '', bandwidthPct: '', mtu: '', aes: 'なし' },
+      { name: 'YouTube Bkup', protocol: 'RTMP', url: 'rtmp://b.rtmp.youtube.com/live2?backup=1', port: '', streamKey: '', passphrase: '', latencyMs: '', bandwidthPct: '', mtu: '', aes: 'なし' },
     ]},
     { encoderId: 'ENC2', dests: [
       { name: 'Center SRT', protocol: 'SRT Caller', url: 'srt.example.invalid', port: '9000', streamKey: '', passphrase: 'pass-phrase', latencyMs: '120', bandwidthPct: '25', mtu: '1316', aes: 'AES-128' },
@@ -173,6 +181,14 @@ class Component extends DCLogic {
   ];
 
   PROTO_TONE = { 'RTMP': ['#eaf4fb', '#005bac'], 'SRT Caller': ['#eef2ff', '#4338ca'], 'SRT Listener': ['#f5f3ff', '#6d28d9'] };
+
+  // 現地の Assistant（stream/presets.ts）と同じ2本＋カスタム。URL を1字も変えない
+  PRESETS = [
+    { label: 'YouTube（プライマリ）', url: 'rtmp://a.rtmp.youtube.com/live2' },
+    { label: 'YouTube（バックアップ）', url: 'rtmp://b.rtmp.youtube.com/live2?backup=1' },
+  ];
+  presetOf(url) { const hit = this.PRESETS.find((p) => p.url === url); return hit ? hit.label : 'カスタム入力'; }
+  isYouTube(url) { return /^rtmps?:\/\/[a-z]\.rtmps?\.youtube\.com(?::\d+)?\//.test(url || ''); }
 
   flash(msg) { this.setState({ toast: msg }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: '' }), 2800); }
 
@@ -221,6 +237,8 @@ class Component extends DCLogic {
     let hiddenNote = '';
     if (sd.protocol === 'RTMP') {
       fields = [
+        // Assistant と同じ「配信先プリセット」— URL の打ち間違いを無くす。選んだ値は覚えず URL から逆引き
+        fld('配信先プリセット', this.presetOf(sd.url), true, 'URL を手で書き換えると「カスタム入力」に戻ります'),
         fld('宛先 URL', sd.url, !!sd.url, ''),
         fld('ストリームキー', sd.streamKey, !!sd.streamKey, sd.streamKey ? 'Excel には平文で入ります' : '新規は必須。空欄だと現地で弾かれます', !sd.streamKey),
       ];
@@ -270,7 +288,9 @@ class Component extends DCLogic {
           const ks = this.keyStateOf(d);
           return {
             name: d.name, protocol: d.protocol,
-            target: d.protocol === 'SRT Listener' ? ('待受ポート ' + (d.port || '—')) : (d.url + (d.port ? (':' + d.port) : '')),
+            // プリセットに当たる URL は短い呼び名で出す（a と b の1字違いは一覧では読めない）
+            target: d.protocol === 'SRT Listener' ? ('待受ポート ' + (d.port || '—'))
+              : (this.presetOf(d.url) !== 'カスタム入力' ? this.presetOf(d.url) : (d.url + (d.port ? (':' + d.port) : ''))),
             pBg: pt[0], pFg: pt[1],
             keyState: ks.label, kBg: ks.bg, kFg: ks.fg,
             hasWarn: this.warnOf(d),
@@ -291,6 +311,7 @@ class Component extends DCLogic {
         }),
         fields,
         hiddenNote,
+        showYouTube: sd.protocol === 'RTMP' && this.isYouTube(sd.url),
       },
     };
   }

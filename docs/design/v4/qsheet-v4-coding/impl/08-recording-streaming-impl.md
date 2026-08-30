@@ -93,7 +93,7 @@ $ git show --stat 4eb1211        # Merge pull request #279
 
 | 事実 | どこ |
 | --- | --- |
-| `buildExcelWorkbook(sheets)` は **SheetJS（`xlsx` 0.18.5）**。`columns[].header` を**1行目**に置き、2行目以降がデータ | `server/src/shared/utils/excel.ts:3,18-32` |
+| `buildExcelWorkbook(sheets)` は `shared/utils/excel.ts` の既存 API（中の Excel ライブラリはその後 SheetJS から ExcelJS に移った — このモジュールからは知らなくてよい）。`columns[].header` を**1行目**に置き、2行目以降がデータ | `server/src/shared/utils/excel.ts` |
 | 列幅は `!cols`、シート名は 31 文字で切る | 同 `:28-29` |
 | `formatCell` は `null`→`''`、`Date`→文字列、`object`→JSON、**`boolean`→`'TRUE'`/`'FALSE'` の文字列** | 同 `:34-40` |
 | `excelResponse(res, filename, buffer)` が `Content-Disposition: attachment; filename*=UTF-8''…` を付ける | 同 `:45-49` |
@@ -422,7 +422,7 @@ server/src/contexts/qsheet/services/qsheet-excel.service.ts    ← 03-excel.md�
 2. **列定義・ヘッダ生成・検証を共有しない。**
 3. **Excel 用の共通レイヤーを新設しない。** `buildExcelWorkbook` / `excelResponse` は
    `shared/utils/excel.ts` の**既存**のものを**それぞれが直接呼ぶ**だけ
-4. **`exceljs` を使わない。** 03 が入れる予定ですが、こちらは `buildExcelWorkbook`（SheetJS）で足ります
+4. **Excel ライブラリを直接 import しない。** `buildExcelWorkbook` だけを呼ぶ（中のライブラリは `shared/utils/excel.ts` の都合で替わる — 実際 SheetJS → ExcelJS に替わった）
 5. **2行ヘッダ・`_schema` 隠しシートを混入させない。** 混ざると
    **Assistant が2行目をデータ行として読み、現地で全行が弾かれます**
 

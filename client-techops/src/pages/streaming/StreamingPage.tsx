@@ -276,8 +276,8 @@ export default function StreamingPage() {
       {/* 打ち終わってから捨てられるのがいちばん困るので、**打つ前に**言う */}
       {!canEdit && (
         <p className="mb-3 rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-note text-foreground">
-          <strong>閲覧のみの権限です。</strong>内容は見られますが、保存も Excel の書き出しも
-          できません（サーバーがどちらも編集できる人に限っています）。
+          <strong>閲覧のみの権限です。</strong>内容を見ることと Excel の書き出し（キーは空欄）は
+          できますが、保存と「キーを入れて出す」はできません。
           直すには制作技術支援の編集権限が要ります。
         </p>
       )}
@@ -389,7 +389,7 @@ export default function StreamingPage() {
         ownerKey={ownerKey}
         date={serviceDate}
         dirty={dirty}
-        onSave={canEdit ? save : undefined}
+        onSave={canEdit ? save : undefined} primarySheet="streaming"
       />
       <CopyFromDialog
         open={copyFromOpen}

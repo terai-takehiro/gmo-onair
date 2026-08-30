@@ -20,6 +20,10 @@ import { cn } from '@/lib/utils';
 import type { DestIssue } from '@/lib/deviceSettingsShared';
 import type { Destination } from '@/lib/deviceSettingsApi';
 import { PROTOCOLS, keyState, keyToneClass } from './destinationHelpers';
+import {
+  CUSTOM_PRESET, RTMP_PRESETS, YOUTUBE_BITRATES, YOUTUBE_ENCODER_NOTES, YOUTUBE_STUDIO_ITEMS,
+  isYouTubeUrl, presetOf, urlForPreset,
+} from './streamPresets';
 
 const fieldCls =
   'h-11 w-full min-w-0 rounded-control-lg border border-input bg-background px-3 text-sm ' +
@@ -117,6 +121,29 @@ export default function DestinationInspector({
         </div>
       </div>
 
+      {protocol === 'RTMP' && (
+        <div>
+          <Label htmlFor="dest-preset">配信先プリセット</Label>
+          {/* Assistant（現地アプリ）と同じ2択＋カスタム。URL の打ち間違いを無くす。
+              選んだ値は覚えず、URL から逆引きする（手で書き換えたら「カスタム入力」に戻る） */}
+          <select
+            id="dest-preset"
+            className={fieldCls}
+            value={presetOf(dest.url)}
+            onChange={(e) => {
+              const url = urlForPreset(e.target.value);
+              // 「カスタム入力」は何もしない（入っていた URL を消さない — Assistant と同じ判断）
+              if (url !== null) set('url', url);
+            }}
+          >
+            {RTMP_PRESETS.map((p) => (
+              <option key={p.label} value={p.label}>{p.label}</option>
+            ))}
+            <option value={CUSTOM_PRESET}>{CUSTOM_PRESET}</option>
+          </select>
+        </div>
+      )}
+
       {protocol !== 'SRT Listener' && (
         <div>
           <Label htmlFor="dest-url">{protocol === 'RTMP' ? '宛先 URL (rtmp://host/app)' : '宛先ホスト'}</Label>
@@ -128,6 +155,49 @@ export default function DestinationInspector({
           />
           {issueOf('url') && <Note bad>{issueOf('url')}</Note>}
         </div>
+      )}
+
+      {protocol === 'RTMP' && isYouTubeUrl(dest.url) && (
+        /* YouTube の決めごと。ラベルは YouTube Studio の日本語表記と同じにする
+           （現場が YouTube Studio と往復しながら確かめるので、言葉がずれると照合できない）。
+           欄にはしない — 機器から変えられない設定を欄として置くと
+           「打てるのに反映されない欄」になる（#279 の判断） */
+        <details className="rounded-note bg-muted px-3 py-2">
+          <summary className="cursor-pointer text-xs font-bold">YouTube 配信の決めごと（推奨設定と Studio 側の項目）</summary>
+          <div className="mt-2 space-y-2 text-xs leading-relaxed text-muted-foreground">
+            <div>
+              <p className="font-bold text-foreground">エンコーダの推奨設定（公式の推奨値）</p>
+              <ul className="ml-4 list-disc">
+                {YOUTUBE_ENCODER_NOTES.map((n) => <li key={n}>{n}</li>)}
+              </ul>
+              <table className="mt-1 w-full">
+                <caption className="sr-only">解像度ごとの推奨ビットレート</caption>
+                <thead>
+                  <tr className="text-left">
+                    <th className="pr-2 font-bold">解像度</th>
+                    <th className="font-bold">推奨ビットレート (Kbps)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {YOUTUBE_BITRATES.map((b) => (
+                    <tr key={b.quality}>
+                      <td className="pr-2">{b.quality}</td>
+                      <td className="tabular-nums">{b.kbps}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <p className="font-bold text-foreground">YouTube Studio 側で設定する項目（機器からは変えられません）</p>
+              <ul className="ml-4 list-disc">
+                {YOUTUBE_STUDIO_ITEMS.map((i) => (
+                  <li key={i.label}><span className="font-bold">{i.label}</span>: {i.values}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </details>
       )}
 
       {isSrt && (

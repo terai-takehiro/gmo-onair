@@ -19,9 +19,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { notifyError, notifySuccess } from '@/lib/notify';
-import { apiErrorMessage } from '@/lib/deviceSettingsShared';
 import { useCanEditDeviceSettings } from '@/lib/useCanEditDeviceSettings';
-import { preflight, exportXlsx, type PreflightResult } from '@/lib/deviceSettingsApi';
+import { preflight, exportXlsx, exportErrorMessage, type PreflightResult } from '@/lib/deviceSettingsApi';
 import PreviewTable from './PreviewTable';
 import PreflightSummary from './PreflightSummary';
 import {
@@ -42,7 +41,7 @@ function StepTitle({ n, title, hint }: { n: number; title: string; hint?: string
 }
 
 export default function ExportDialog({
-  open, onOpenChange, ownerKey, date, dirty = false, onSave,
+  open, onOpenChange, ownerKey, date, dirty = false, onSave, primarySheet = 'recording',
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -52,6 +51,12 @@ export default function ExportDialog({
   dirty?: boolean;
   /** 「保存して続ける」で呼ぶ。成功したら true */
   onSave?: () => Promise<boolean>;
+  /**
+   * 開いた画面のシート。**1枚目（= Assistant が読む唯一のシート）にする**。
+   * ⚠️ 以前はサーバーが常に「収録 → 配信」の順で積んだため、配信設定の画面から
+   * 既定のまま書き出すと配信設定が2枚目になり、現地でそのまま取り込めなかった。
+   */
+  primarySheet?: Sheet;
 }) {
   /**
    * ⚠️ **権限で止めるのは「キーを入れて出す」だけ**（監査 2026-08-22 の宿題への答え）。
@@ -60,15 +65,17 @@ export default function ExportDialog({
    * Excel に出る内容は**その人が画面で見られるものと同じ**だから、ここで止めても守るものが無い。
    * 一方 `keyMode: 'plain'` はストリームキーの**平文**をファイルに落とす操作で、画面ですら
    * 伏せ字でしか出さない決めごと（08 §2）を破る。**破ってよいのは編集できる人だけ**にする。
-   *
-   * ⚠️ ただし**サーバーの `export-xlsx` は今のところ `requirePermission('qsheet','editor')`**
-   * で守られている（`device-settings.routes.ts`）。つまり閲覧のみの人が押すと 403 が返る。
-   * 画面だけ先に開けても嘘になるので、下に「いまは編集できる人だけ」と断りを出しておく
-   * （サーバー側を緩めるかは別の判断・別の PR）。
+   * サーバーの `export-xlsx` も同じ線（keyMode=plain のときだけ editor を要求）。
    */
   const canEdit = useCanEditDeviceSettings();
 
-  const [sheets, setSheets] = useState<Sheet[]>(['recording', 'streaming']);
+  /**
+   * ⚠️ **並び＝シートの並び**（サーバーの `buildSheetSpecs` は配列の順に積む）。
+   * 既定は「開いている画面のシートが1枚目」。チェックを入れ直すと末尾に足される
+   * （何枚目になるかは②の見本とバッジがサーバーの並びで示す）。
+   */
+  const defaultSheets: Sheet[] = primarySheet === 'streaming' ? ['streaming', 'recording'] : ['recording', 'streaming'];
+  const [sheets, setSheets] = useState<Sheet[]>(defaultSheets);
   const [result, setResult] = useState<PreflightResult | null>(null);
   const [checking, setChecking] = useState(false);
   const [checkFailed, setCheckFailed] = useState(false);
@@ -92,12 +99,14 @@ export default function ExportDialog({
     setChecking(true);
     setCheckFailed(false);
     // ⚠️ `sheets` を渡す。渡さないとサーバーは両方を点検し、
-    // **外したはずのシートの赤**が出続ける（監査 2026-08-22）
-    preflight(ownerKey, { date, sheets })
+    // **外したはずのシートの赤**が出続ける（監査 2026-08-22）。
+    // `keyMode` も渡す — 渡さないと「キーを入れて出す」を選んでも
+    // **見本のキー列が（空欄）のまま**で、見本が実物と食い違う
+    preflight(ownerKey, { date, sheets, keyMode: canEdit ? keyMode : 'blank' })
       .then((r) => { if (seq === reqRef.current) setResult(r); })
       .catch(() => { if (seq === reqRef.current) setCheckFailed(true); })
       .finally(() => { if (seq === reqRef.current) setChecking(false); });
-  }, [ownerKey, date, sheets]);
+  }, [ownerKey, date, sheets, keyMode, canEdit]);
 
   // ⚠️ `sheets` は `runPreflight` の依存に入っているので、**選択が確定した時点で1回だけ**引き直る
   // （打鍵ごとに叩かない）。開いていないときは引かない。
@@ -105,6 +114,12 @@ export default function ExportDialog({
     if (!open) { setResult(null); setCheckFailed(false); return; }
     runPreflight();
   }, [open, runPreflight]);
+
+  // 開き直したら並びを既定（開いている画面が1枚目）へ戻す。
+  // 前回の選択が残ると「1枚目のつもりが2枚目」が起きる
+  useEffect(() => {
+    if (open) setSheets(primarySheet === 'streaming' ? ['streaming', 'recording'] : ['recording', 'streaming']);
+  }, [open, primarySheet]);
 
   const toggleSheet = (s: Sheet) =>
     setSheets((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
@@ -138,7 +153,7 @@ export default function ExportDialog({
       notifySuccess('書き出しました。現場では Assistant で読み込んでください');
       onOpenChange(false);
     } catch (e) {
-      notifyError(apiErrorMessage(e, '書き出しに失敗しました'));
+      notifyError(await exportErrorMessage(e, '書き出しに失敗しました'));
     } finally {
       setExporting(false);
     }
@@ -170,7 +185,7 @@ export default function ExportDialog({
         <div className="space-y-5">
           {/* ① シートを選ぶ */}
           <section>
-            <StepTitle n={1} title="出すシートを選ぶ" hint="Assistant は 1 枚目しか読みません" />
+            <StepTitle n={1} title="出すシートを選ぶ" hint="Assistant は 1 枚目しか読みません（この画面のシートを 1 枚目にしてあります）" />
             <div className="flex flex-col gap-2">
               {SHEET_DEFS.map((def) => {
                 const on = sheets.includes(def.key);
@@ -185,8 +200,8 @@ export default function ExportDialog({
                     <input type="checkbox" checked={on} onChange={() => toggleSheet(def.key)} />
                     {/*
                       何枚目になるかを常に出す（モック下半分の `pos`）。外しているときは「—」。
-                      ⚠️ 番号は**サーバーが並べる順**で決まる。押した順ではない
-                      （`buildSheetSpecs` は収録 → 配信 → 入力ガイドの順に積む）。
+                      番号は**サーバーが実際に並べる順**（＝選んだ順。`buildSheetSpecs` は
+                      `?sheets=` の並びのまま積み、入力ガイドを最後に足す）。
                     */}
                     <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-control tabular-nums text-badge ${
                       on ? 'bg-warning-surface text-warning' : 'bg-muted text-muted-foreground'
@@ -313,15 +328,6 @@ export default function ExportDialog({
             </section>
           )}
 
-          {/* ⚠️ サーバーの `export-xlsx` は `requirePermission('qsheet','editor')` なので、
-              閲覧のみの人が押すと必ず 403 になる。**押せてから断られるのがいちばん悪い**ので、
-              ここで止めて理由を出す（サーバー側を緩めるかは別の判断・棚卸しに残す） */}
-          {!canEdit && (
-            <p className="rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-note text-foreground">
-              <strong>いまの権限では書き出せません。</strong>
-              Excel を渡したいときは、制作技術支援を編集できる人に出してもらってください。
-            </p>
-          )}
         </div>
 
         {/* 下端: ファイル名 → 赤の件数 → 書き出す（モック下半分の footer と同じ並び） */}
@@ -341,7 +347,7 @@ export default function ExportDialog({
           <Button
             className="h-11 w-full sm:w-auto"
             onClick={doExport}
-            disabled={!canEdit || exporting || sheets.length === 0 || blocked}
+            disabled={exporting || sheets.length === 0 || blocked}
           >
             {exporting ? '書き出し中…' : blocked ? '先に保存してください' : '書き出す'}
           </Button>

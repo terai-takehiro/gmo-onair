@@ -205,9 +205,10 @@ export async function recordExport(
 ): Promise<void> {
   const table = kind === 'recording' ? 'qsheet_recording_settings' : 'qsheet_streaming_settings';
   const { col, value } = ownerCols(owner);
+  // ⚠️ 消した行（deleted_at あり）に「最後に書き出した」を書かない
   await execute(
     `UPDATE ${table} SET last_exported_at = NOW(), last_exported_by = $1, last_export_name = $2
-       WHERE ${col} = $3 AND service_date = $4`,
+       WHERE ${col} = $3 AND service_date = $4 AND deleted_at IS NULL`,
     [userId, filename, value, serviceDate]
   );
 }

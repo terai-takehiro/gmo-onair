@@ -6,6 +6,7 @@ import { ChevronLeft, Save, FileDown, Copy, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { notifySuccess, notifyError } from '@/lib/notify';
 import { FilterChips, type FilterChipItem } from '@gmo-onair/shared/src/client/ui/filterChips';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { apiErrorMessage, jstToday } from '@/lib/deviceSettingsShared';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { useCanEditDeviceSettings } from '@/lib/useCanEditDeviceSettings';
@@ -116,10 +117,16 @@ export default function RecordingPage() {
   const updateDeck = (next: Deck) => setDecks((prev) => prev.map((d) => (d.deckId === next.deckId ? next : d)));
 
   /** 実施日を変える ＝ その日の設定を読み直す（URL にも残して再読み込み・共有に耐えるようにする） */
-  const pickDate = (date: string) => {
+  const pickDate = async (date: string) => {
     if (date === serviceDate) return;
     // 実施日を変えると打ち込み中の12台が消えるので、帯ではなく「止まる」確認を出す
-    if (dirty && !window.confirm('保存していない変更があります。実施日を変えると失われます。よろしいですか？')) return; // ui-tokens-ok
+    // （`window.confirm` は使わない — 配信設定の changeDate と同じ確認ダイアログに揃える）
+    if (dirty && !(await confirmAction({
+      title: '実施日を変えますか？',
+      description: '保存していない変更（12台の設定）は失われます。',
+      confirmLabel: '変える',
+      tone: 'danger',
+    }))) return;
     const next = new URLSearchParams(params);
     next.set('date', date);
     setParams(next, { replace: true });
@@ -244,18 +251,9 @@ export default function RecordingPage() {
         {owner && <MiniAppSwitcher owner={owner} current="recording" />}
       </div>
 
-      {/* 実施日 ＋ 保存の状態。⚠️ 以前は画面から実施日を選ぶ手段が無く、
-          入口が date を付けないので「案件につき事実上1日ぶん」しか持てなかった */}
-      <ServiceDateBar
-        ownerKey={ownerKey}
-        serviceDate={serviceDate}
-        onChange={pickDate}
-        dirty={dirty}
-        savedAt={savedAt}
-        kind="recording"
-      />
-
-      {/* 書き出し・写しは上のツールバーへ（スマホの下端は主アクション1つだけにする） */}
+      {/* 書き出し・写しは上のツールバーへ（スマホの下端は主アクション1つだけにする）。
+          並びは配信設定と同じ「ツールバー → 権限の断り → 実施日 → 状態の帯」
+          （同じ3点セットの縦順が画面ごとに違うと、往復する人が毎回探し直す） */}
       <div className="mb-3 flex flex-wrap gap-2">
         {canEdit && (
           <Button variant="outline" className="h-11" onClick={() => setCopyFromOpen(true)}>
@@ -267,16 +265,27 @@ export default function RecordingPage() {
         </Button>
       </div>
 
-      <DeckStatusBand decks={decks} lastExportName={lastExportName} lastExportedAt={lastExportedAt} />
-
       {/* 打ち終わってから捨てられるのがいちばん困るので、**打つ前に**言う */}
       {!canEdit && (
         <p className="mb-3 rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-note text-foreground">
-          <strong>閲覧のみの権限です。</strong>内容は見られますが、保存も Excel の書き出しも
-          できません（サーバーがどちらも編集できる人に限っています）。
+          <strong>閲覧のみの権限です。</strong>内容を見ることと Excel の書き出し（キーは空欄）は
+          できますが、保存と「キーを入れて出す」はできません。
           直すには制作技術支援の編集権限が要ります。
         </p>
       )}
+
+      {/* 実施日 ＋ 保存の状態。⚠️ 以前は画面から実施日を選ぶ手段が無く、
+          入口が date を付けないので「案件につき事実上1日ぶん」しか持てなかった */}
+      <ServiceDateBar
+        ownerKey={ownerKey}
+        serviceDate={serviceDate}
+        onChange={pickDate}
+        dirty={dirty}
+        savedAt={savedAt}
+        kind="recording"
+      />
+
+      <DeckStatusBand decks={decks} lastExportName={lastExportName} lastExportedAt={lastExportedAt} />
 
       {/* 絞り込みと一括変更は PC の表にだけ効く（スマホは1台ずつ・モックどおり） */}
       <div className="mb-3 hidden flex-wrap items-center gap-3 sm:flex">
@@ -345,6 +354,7 @@ export default function RecordingPage() {
         date={serviceDate}
         dirty={dirty}
         onSave={canEdit ? save : undefined}
+        primarySheet="recording"
       />
       <CopyFromDialog
         open={copyFromOpen}
