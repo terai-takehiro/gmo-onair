@@ -1949,6 +1949,29 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   （`checks`・`build` とも success）13:36:27 UTC（約2分2秒）/ マージ 13:47:26 UTC
   （terai-takehiro 本人が手動マージ、CI green から約11分後）。`get_reviews`・
   `get_review_comments` とも0件。表に移す指摘はない（コード変更なし・ドキュメントのみ）。
+- **#479（docs(reviews): PR #478 のマージ後の棚卸しを記録した・2026-08-29）** —
+  #478の直後、この棚卸し自体を記録するために出したPR。作成 13:48:53 UTC / CI
+  （`checks`・`build` とも success）13:50:45 UTC（約1分52秒）/ マージ 16:15:53 UTC
+  （terai-takehiro 本人が手動マージ、CI green から約2時間25分後）。`get_reviews`・
+  `get_review_comments` とも0件。表に移す指摘はない（コード変更なし・ドキュメントのみ）。
+- **#480（fix(techops): 配信収録設定の Excel 出力を現地で取り込める形に直し、YouTube プリセットを
+  足した・2026-08-30）** — 作成 12:20:51 UTC / CI green（`checks`・`build` とも success）
+  12:23:12 UTC（約2分21秒）/ マージ 13:19:50 UTC（terai-takehiro 本人が手動マージ、
+  CI green から約56分38秒後）。**`get_reviews`・`get_review_comments` とも終始0件のまま
+  マージ**（`npm run reviews:debt` はこの環境からは GitHub 401 で実行できず、GitHub MCP で
+  直接確認した）。⚠️ **レビュー0件のため、この PR で意図して残した判断を自分で書き出す**:
+  1. **`export-xlsx` の権限を editor 固定 → 閲覧可に緩めた**（`keyMode=plain` のときだけ
+     editor を要求する2段構え・`device-settings.routes.ts` の `requireEditorForPlainKeys`）。
+     ExportDialog 自身が「サーバー側を緩めるかは別の判断・別の PR」と宿題にしていた線の
+     とおりだが、**権限を緩める変更をレビュー0件で通した**ことは事実として残す
+     （Excel の中身は閲覧者が画面で見られるものと同じ・平文キーだけが editor 限定、が根拠）。
+  2. **preflight の `keyMode=plain` は見本のために復号を実行する**（平文はサーバー内メモリ
+     のみ・応答は `****` に伏せる）。見本と実物を同じ `buildSheetSpecs` に通す原則を守る
+     ための実装で、復号できない鍵が見本でも（空欄）に見える副作用は仕様として採った
+     （その場合は赤 `KEY_UNDECRYPTABLE` が別途出る）。
+  3. **収録先の機器呼び名への写像（`SSD 1`→`ssd1` 等）は書き出しの瞬間だけ**。保存値・
+     画面表示・preflight の判定（`HDPLUS_SSD` は `SSD` 前方一致）は従来の呼び名のまま。
+     写像表に無い自由入力は今までどおり素通し（弾くのは現地の仕事・#279 の方針）。
 
 ---
 
