@@ -139,6 +139,7 @@ export default function GraphicsOutputPage() {
             // テーマはプロジェクト設定が正。?theme= は試写用の上書き
             theme: resolveTelopTheme(searchParams.get('theme') ?? bundle?.project?.theme),
             tickerLive: livePages.some((q) => q.slot === 'ticker'),
+            flashLive: livePages.some((q) => q.slot === 'flash'),
           }))}
       </div>
     </div>

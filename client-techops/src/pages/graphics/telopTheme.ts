@@ -25,14 +25,8 @@ export const GOTHIC = "'Noto Sans JP', sans-serif";
 export const NAVY_PLATE =
   'linear-gradient(180deg, rgba(20, 28, 46, 0.94) 0%, rgba(10, 15, 28, 0.92) 55%, rgba(7, 10, 18, 0.94) 100%)';
 
-/** 報道の名前面（白面。わずかな縦グラデで紙っぽさを消す） */
-export const NEWS_PLATE = 'linear-gradient(180deg, #f8f9fb 0%, #eef0f4 100%)';
-
-/** 報道の肩書タブ・帯の紺（面はベタでよい — 金と違い紺ベタは実物の文法） */
-export const NEWS_NAVY = 'rgba(16, 44, 84, 0.94)';
-
-/** バラエティの強調色（内フチ用）。感情色は将来フィールド化する */
-export const VARIETY_ACCENT = '#e8443a';
+/** 報道の肩書タブ・帯の紺。実物の報道面は**ベタ・不透明**（実測 §9.7 — グラデも透過も無い） */
+export const NEWS_NAVY = '#102c54';
 
 /** コーポレートのアクセント（下罫1本型の罫色） */
 export const CORPORATE_ACCENT = '#2f6fed';

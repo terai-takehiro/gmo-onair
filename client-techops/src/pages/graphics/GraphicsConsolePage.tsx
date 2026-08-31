@@ -335,7 +335,11 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
           items={livePages.map((page) => ({ page }))}
           emptyText="オンエアなし"
           serverNowMs={serverNowMs}
-          ctx={{ theme: resolveTelopTheme(bundle.project.theme), tickerLive: livePages.some((p) => p.slot === 'ticker') }}
+          ctx={{
+            theme: resolveTelopTheme(bundle.project.theme),
+            tickerLive: livePages.some((p) => p.slot === 'ticker'),
+            flashLive: livePages.some((p) => p.slot === 'flash'),
+          }}
         />
         <ConsolePreview
           tone="pvw"

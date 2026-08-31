@@ -25,9 +25,10 @@ function str(v: unknown): string {
  * 式典・コーポレート = 面なしの袋文字だけ（罫も置かない）／
  * 報道 = 紺帯の白抜き（面ベタ）／ バラエティ = 黄の座布団に黒文字。
  */
-export function SideLabel({ page, theme }: { page: GraphicsPageRow; theme: TelopThemeKey }) {
+export function SideLabel({ page, theme, flashLive }: { page: GraphicsPageRow; theme: TelopThemeKey; flashLive?: boolean }) {
   const text = str(page.fields.text) || page.name;
-  const base = { position: 'absolute' as const, top: SAFE_Y, right: SAFE_X, maxWidth: 760 };
+  // 速報帯（上辺 h=88）が出ている間は持ち場を譲って下がる
+  const base = { position: 'absolute' as const, top: flashLive ? 88 + 34 : SAFE_Y, right: SAFE_X, maxWidth: 760 };
   const clip = { whiteSpace: 'nowrap' as const, overflow: 'hidden' as const, textOverflow: 'ellipsis' as const };
   if (theme === 'news-navy') {
     return (
@@ -116,14 +117,30 @@ export function ClockCountdown({ page, serverNowMs }: { page: GraphicsPageRow; s
 }
 
 /**
- * 速報帯（上辺・全テーマ共通）: 実物の「ラベル面｜本文面」の分割構造。
- * 左端に黄ベタの「速報」ラベル、本文は半透明黒の帯に袋文字。罫線では分けない。
+ * 速報帯（上辺・全テーマ共通）: 実放送フレームの実測構造（specs §9.7）—
+ * ラベル＝ベタ #EA0358 に白抜き、本文＝**白ベタ帯に同系色の文字**（黒半透明帯ではない）。
+ * 面はどちらも不透明・エッジ不要・罫線では分けない。
  */
 export function FlashBand({ page }: { page: GraphicsPageRow }) {
   const text = str(page.fields.text) || page.name;
   return (
-    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 92, display: 'flex', alignItems: 'center', gap: 26, paddingLeft: SAFE_X, paddingRight: SAFE_X, background: 'rgba(0, 0, 0, 0.68)' }}>
-      <span style={{ fontFamily: GOTHIC, fontSynthesis: 'none', flexShrink: 0, padding: '5px 20px 7px', background: '#ffd400', color: '#101010', fontSize: 40, fontWeight: 900, letterSpacing: '0.12em' }}>
+    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 88, display: 'flex', alignItems: 'stretch', background: '#fefbfe' }}>
+      <span
+        style={{
+          fontFamily: GOTHIC,
+          fontSynthesis: 'none',
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          paddingLeft: SAFE_X,
+          paddingRight: 30,
+          background: '#ea0358',
+          color: WHITE,
+          fontSize: 44,
+          fontWeight: 900,
+          letterSpacing: '0.14em',
+        }}
+      >
         速報
       </span>
       <span
@@ -131,14 +148,18 @@ export function FlashBand({ page }: { page: GraphicsPageRow }) {
           fontFamily: GOTHIC,
           fontSynthesis: 'none',
           minWidth: 0,
-          color: WHITE,
-          fontSize: 52,
-          fontWeight: 800,
+          // ellipsis はブロック整形文脈でしか効かない（flex コンテナだと右端で切れっぱなしになる）
+          display: 'block',
+          lineHeight: '88px',
+          paddingLeft: 34,
+          paddingRight: SAFE_X,
+          color: '#e70555',
+          fontSize: 58,
+          fontWeight: 900,
+          fontFeatureSettings: "'palt' 1",
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
-          WebkitTextStroke: '6px #101010',
-          paintOrder: 'stroke fill',
         }}
       >
         {text}
@@ -153,6 +174,8 @@ export interface RenderContext {
   theme?: TelopThemeKey;
   /** ティッカー帯（y=1008〜1080）がオンエア中 → 下部テロップを帯の上に退避 */
   tickerLive?: boolean;
+  /** 速報帯（上辺 y=0〜88）がオンエア中 → サイドスーパーが下に退避 */
+  flashLive?: boolean;
 }
 
 /**
@@ -176,7 +199,7 @@ export function renderGraphicsPage(page: GraphicsPageRow, serverNowMs: number, c
     return null;
   }
   if (page.slot === 'side') {
-    return <SideLabel key={page.id} page={page} theme={theme} />;
+    return <SideLabel key={page.id} page={page} theme={theme} flashLive={ctx?.flashLive} />;
   }
   if (page.slot === 'lower' && page.partKey === 'name') {
     return <LowerThirdName key={page.id} page={page} theme={theme} tickerLive={ctx?.tickerLive} />;
