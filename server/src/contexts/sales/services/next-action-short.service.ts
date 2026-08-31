@@ -55,6 +55,11 @@ import { recordAiUsage, perRowCost, type CostReason } from '../../../shared/serv
 import { modelFor } from '../../../shared/services/ai-model';
 import { resolveProvider } from '../../tasks/services/intake-ai.service';
 import { isActivityAiConfigured } from './activity-ai.service';
+/**
+ * 「終わった案件は除く」は **1本だけ**（migration 245）。
+ * ここだけ除外が抜けると、**誰も読まない一文に AI 費用を払いつづける**。
+ */
+import { projectNotTerminalExistsSql } from '../../../shared/services/next-action-state';
 
 /** `ai_outputs.kind`。整形（`activity_format`）と**混ぜない** — 出来の統計が汚れる */
 export const NEXT_ACTION_SHORT_KIND = 'next_action_short';
@@ -239,11 +244,18 @@ async function callAnthropic(model: string, userPrompt: string) {
  *
  * **済んだ「次にやること」は対象にしません**（帯に出るのは未完了だけ）。
  * 済ませたあとに戻されたら、その時点で自然に待ち行列へ戻ります。
+ *
+ * ⚠️ **終わった案件（失注・完了）の分も対象にしません**（migration 245）。
+ * 前はここに除外が無く、**どの画面にも二度と出ない一文に毎晩 AI 費用を払っていました**。
+ * 形が他の6か所と違う（`FROM activity_logs` を別名なしで書き、`projects` を JOIN しない）
+ * ため式そのものは共有できないので、**条件だけ `EXISTS` 版で共通の1本から借りる**
+ * （`projectNotTerminalExistsSql`）。JOIN を足すと待ち行列の数え方まで変わってしまう。
  */
 const PENDING_SQL = `next_action_short IS NULL
         AND next_action_short_error IS NULL
         AND next_action IS NOT NULL
         AND next_action_done_at IS NULL
+        AND ${projectNotTerminalExistsSql('activity_logs.project_id')}
         AND char_length(btrim(next_action)) >= ${SHORT_MIN_SOURCE_CHARS}`;
 
 export interface ShortQueueStats {
@@ -280,7 +292,11 @@ export async function shortQueueStats(): Promise<ShortQueueStats> {
      FROM activity_logs
      WHERE deleted_at IS NULL
        AND next_action IS NOT NULL AND btrim(next_action) <> ''
-       AND next_action_done_at IS NULL`,
+       AND next_action_done_at IS NULL
+       -- **母数にも同じ除外を掛ける**（migration 245）。待ち行列だけ狭めると
+       -- `pending + failed + done + fits` が `total` に足りなくなり、
+       -- 「残り 0 件なのに総数 40 件」という読めない画面になる
+       AND ${projectNotTerminalExistsSql('activity_logs.project_id')}`,
   ) as Record<string, unknown> | undefined;
 
   const num = (v: unknown) => Math.max(0, Math.round(Number(v) || 0));

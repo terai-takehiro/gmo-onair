@@ -14,6 +14,12 @@ export interface ActivityLogRow {
   next_action: string | null;
   next_action_date: string | null;
   next_action_done_at: string | null;
+  /**
+   * **機械が閉じた理由**（migration 245）。`null` = 人が「完了」を押した、または未対応。
+   * 値は `project_lost`（失注）/ `project_completed`（完了）。
+   * 画面はこれを見て「対応済み」ではなく**何が起きたか**を出す（`autoClosedLabel`）。
+   */
+  next_action_auto_closed_reason: string | null;
   project_id: string | null;
   project_name: string | null;
   project_gls: string | null;
@@ -62,4 +68,21 @@ export function shortDate(dateStr: string): string {
 
 export function isOverdue(dateStr: string): boolean {
   return dateStr < new Date().toISOString().split('T')[0]!;
+}
+
+/**
+ * 「済み」の**理由**を人の言葉にする（migration 245）。
+ *
+ * ⚠️ **機械が閉じたものを「対応済み」と書かないこと。** 誰も片づけていないのに
+ * 片づけたと書くのは嘘で、しかも**閉じた理由が分からないと開き直す判断もできません**
+ * （案件を失注から戻せば自動で開き直る、ということが画面から読めない）。
+ *
+ * `null` を返したときは**人が押した完了**なので、呼ぶ側は従来どおり「対応済み」。
+ * 知らない値も `null` に落とす — 増えた値をここに書き忘れても、
+ * 画面が壊れるのではなく従来の表示に戻るだけで済む。
+ */
+export function autoClosedLabel(reason: string | null | undefined): string | null {
+  if (reason === 'project_lost') return '失注により終了';
+  if (reason === 'project_completed') return '完了により終了';
+  return null;
 }

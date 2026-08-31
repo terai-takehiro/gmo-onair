@@ -26,6 +26,12 @@ import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { jstDate } from '../../../shared/utils/jst';
 import { recordIntakeDecision } from './project-ai-feedback.service';
+/**
+ * 終了ステージに入ったら次回アクションを閉じる（migration 245）。
+ * **この2つの自動整理は `recordStageTransition()` を通らない**ので、
+ * 集約点に足しただけでは機械が作ったゴミが残りつづける。
+ */
+import { syncNextActionsForStageSafe } from '../../../shared/services/next-action-state';
 
 /**
  * 何日動いていなければ「停滞」か（ステージ別・初期値）。
@@ -254,6 +260,11 @@ export async function autoLoseStaleNeta(): Promise<TidyRow[]> {
       if (!moved?.id) continue;
       await recordSystemStageChange(r.id, 'neta', 'e_lost');
       await recordIntakeDecision(r.id, 'dropped', SYSTEM_ACTOR, note);
+      // **見送った案件のやることも閉じる**（migration 245）。この道は
+      // `recordStageTransition()` を通らないので、ここで呼ばないとゴミが残る。
+      // **`RETURNING id` で実際に動いた行だけ**（上のレース対策と同じ理由 —
+      // 人が先に触って `neta` でなくなっていた案件のやることを閉じてはいけない）
+      await syncNextActionsForStageSafe(r.id, 'e_lost');
       done.push(r);
     } catch (e) {
       // 1件の失敗で残りを止めない（scheduler の決めごとと同じ）
@@ -289,6 +300,9 @@ export async function completeElapsedWonProjects(): Promise<number> {
     ) as { id?: string } | null;
     if (!moved?.id) continue;
     await recordSystemStageChange(r.id, 'a_won', 's_completed');
+    // 繰り上げ完了もここが集約点（`recordStageTransition()` は通らない）。
+    // **実際に動いた行だけ**閉じる（`RETURNING id` を見てから呼んでいる）
+    await syncNextActionsForStageSafe(r.id, 's_completed');
     n += 1;
   }
   return n;

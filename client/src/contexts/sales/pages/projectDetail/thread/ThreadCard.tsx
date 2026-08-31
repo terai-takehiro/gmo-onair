@@ -43,6 +43,11 @@ import { RichContent, InlineText } from '@gmo-onair/shared/src/client-v4/richCon
 import { parseNoteText } from '@gmo-onair/shared/src/client-v4/noteText';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import type { ActivityLog } from '../types';
+/**
+ * 「済み」の理由の言い方は **営業活動記録と同じ1本**（`autoClosedLabel`）。
+ * ここに写すと、同じ行がやり取りタブと一覧で違う言葉になる。
+ */
+import { autoClosedLabel } from '../../activityLog/types';
 import { kindOf } from './kinds';
 import { shortYmd } from './format';
 import { parseNextAction } from './nextAction';
@@ -209,7 +214,17 @@ function NextAction({ a, overdue }: { a: ActivityLog; overdue: boolean }) {
               {' まで'}{overdue && '（過ぎています）'}
             </span>
           )}
-          {a.next_action_done_at && <span className="text-sub ml-2 text-muted-foreground">済み</span>}
+          {/*
+            ⚠️ **機械が閉じたものを「済み」と書かない**（migration 245）。
+            案件が失注・完了に入ると、その案件のやることは自動で閉じる —
+            **誰も片づけていない**ので「済み」は嘘になる。理由まで書いておけば、
+            案件を戻せば開き直ることも察しがつく。改行させないので `whitespace-nowrap`
+          */}
+          {a.next_action_done_at && (
+            <span className="text-sub ml-2 whitespace-nowrap text-muted-foreground">
+              {autoClosedLabel(a.next_action_auto_closed_reason) ?? '済み'}
+            </span>
+          )}
         </p>
 
         {na.items.length > 0 && (

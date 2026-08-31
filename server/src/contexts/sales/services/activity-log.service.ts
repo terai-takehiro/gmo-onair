@@ -12,6 +12,7 @@ import {
 import { sanitizeBodyHtml, sanitizeKeyPoints } from '../../../shared/services/html-sanitize';
 import { normalizeActivityStruct, type ActivityStruct } from '../../../shared/services/activity-struct';
 import { assertCustomerCompanyId } from '../../../shared/services/company-directory.service';
+import { OPEN_NEXT_ACTION_SQL } from '../../../shared/services/next-action-state';
 
 /** `ai_outputs.kind`。**議事録とは別にする** — 直され方の傾向が別物なので混ぜない */
 export const ACTIVITY_FORMAT_KIND = 'activity_format';
@@ -62,9 +63,11 @@ export class ActivityLogService {
     if (filter.origin === 'ai') { where += ` AND ${AI_ORIGIN_EXISTS}`; }
     else if (filter.origin === 'human') { where += ` AND NOT ${AI_ORIGIN_EXISTS}`; }
 
-    // 並び順: 既定 = 活動日が新しい順。next_action = 未完了の次回アクション (期限が近い順) を先頭に
+    // 並び順: 既定 = 活動日が新しい順。next_action = 未対応の次回アクション (期限が近い順) を先頭に。
+    // **判定は共通の1本**（`OPEN_NEXT_ACTION_SQL`）— 前は式を写していたので、
+    // **失注・完了した案件のやることが先頭に浮上していた**（ユーザー報告のゴミ）
     const orderBy = filter.sort === 'next_action'
-      ? `ORDER BY (a.next_action IS NOT NULL AND a.next_action_done_at IS NULL AND a.next_action_date IS NOT NULL) DESC,
+      ? `ORDER BY (${OPEN_NEXT_ACTION_SQL}) DESC,
                   a.next_action_date ASC NULLS LAST, a.activity_date DESC, a.created_at DESC`
       : 'ORDER BY a.activity_date DESC, a.created_at DESC';
 
@@ -298,11 +301,11 @@ export class ActivityLogService {
    */
   async update(id: string, data: Record<string, unknown>, userId?: string | null) {
     const existing = await queryOne(
-      `SELECT id, customer_id, ai_output_id, ai_formatted, next_action, next_action_short
+      `SELECT id, customer_id, ai_output_id, ai_formatted, next_action, next_action_date, next_action_short
          FROM activity_logs WHERE id = ? AND deleted_at IS NULL`, [id],
     ) as {
       id: string; customer_id: string | null; ai_output_id: string | null; ai_formatted: boolean;
-      next_action: string | null; next_action_short: string | null;
+      next_action: string | null; next_action_date: string | null; next_action_short: string | null;
     } | undefined;
     if (!existing) throw new AppError(404, 'NOT_FOUND', '活動記録が見つかりません');
 
@@ -360,6 +363,27 @@ export class ActivityLogService {
       params.push(null, null);
     }
 
+    /*
+     * ── やることを書き換えたら「済み」の印は捨てる ─────────────
+     *
+     * ⚠️ **これは黙って消える種類の不具合でした。** `update()` は
+     * `next_action_done_at` を一切触らないので、**一度片づけた記録に
+     * 新しい次回アクションを入れても、どのリストにも二度と出てきません**
+     * （どの口も `next_action_done_at IS NULL` で絞るため）。
+     * 画面はふつうに保存できたように見えるので、書いた本人にも気づけません。
+     *
+     * `postponeNextAction` が期限を動かすときに印を落とすのと同じ考え方で、
+     * **中身か期限が変わったら未対応に戻す**。機械が閉じた理由
+     * （`next_action_auto_closed_reason`）も一緒に捨てる — 人が新しく書いた
+     * やることに「失注により終了」と出たら嘘になる。
+     */
+    const nextActionDateChanged = next_action_date !== undefined
+      && String(next_action_date ?? '') !== String(existing.next_action_date ?? '');
+    if (nextActionChanged || nextActionDateChanged) {
+      sets.push('next_action_done_at=?', 'next_action_auto_closed_reason=?');
+      params.push(null, null);
+    }
+
     await execute(
       `UPDATE activity_logs SET ${sets.join(', ')}, updated_at=NOW() WHERE id=?`,
       [...params, id],
@@ -383,7 +407,13 @@ export class ActivityLogService {
     const existing = await queryOne('SELECT id, next_action FROM activity_logs WHERE id = ? AND deleted_at IS NULL', [id]);
     if (!existing) throw new AppError(404, 'NOT_FOUND', '活動記録が見つかりません');
     if (!(existing as any).next_action) throw new AppError(400, 'VALIDATION_ERROR', '次回アクションが設定されていません');
-    await execute(`UPDATE activity_logs SET next_action_done_at=NOW(), updated_at=NOW() WHERE id=?`, [id]);
+    // **人が押した完了は理由を持たない**（migration 245）。機械が閉じた印が
+    // 残っていたら消す — 人が片づけたのに「失注により終了」と出るのは嘘になる
+    await execute(
+      `UPDATE activity_logs SET next_action_done_at=NOW(),
+              next_action_auto_closed_reason=NULL, updated_at=NOW() WHERE id=?`,
+      [id],
+    );
     return this.getById(id);
   }
 
@@ -395,21 +425,31 @@ export class ActivityLogService {
     const existing = await queryOne('SELECT id, next_action FROM activity_logs WHERE id = ? AND deleted_at IS NULL', [id]);
     if (!existing) throw new AppError(404, 'NOT_FOUND', '活動記録が見つかりません');
     if (!(existing as any).next_action) throw new AppError(400, 'VALIDATION_ERROR', '次回アクションが設定されていません');
-    await execute(`UPDATE activity_logs SET next_action_date=?, next_action_done_at=NULL, updated_at=NOW() WHERE id=?`, [date, id]);
+    // 機械が閉じた理由も落とす — 人が期限を入れ直した以上、その行は
+    // 「失注により終了」ではなく**その人が抱えているやること**になる
+    await execute(
+      `UPDATE activity_logs SET next_action_date=?, next_action_done_at=NULL,
+              next_action_auto_closed_reason=NULL, updated_at=NOW() WHERE id=?`,
+      [date, id],
+    );
     return this.getById(id);
   }
 
+  /**
+   * 「次にやること」パネル（営業活動記録の帯）。
+   *
+   * ⚠️ **終わった案件（失注・完了）のやることは出さない**（`OPEN_NEXT_ACTION_SQL`）。
+   * 前はここに除外が無く、**失注案件のやることが永久に帯へ並んでいました**
+   * — 押して片づけない限り消えないので、本当にやるべきものが埋もれます。
+   */
   async getUpcomingActions(userId: string, daysAhead: number = 7) {
     return await queryAll(
       `SELECT a.*, p.code as project_code, p.name as project_name, c.name as customer_name
        FROM activity_logs a
        LEFT JOIN projects p ON p.id = a.project_id
        LEFT JOIN companies c ON c.id = a.customer_id
-       WHERE a.deleted_at IS NULL
+       WHERE ${OPEN_NEXT_ACTION_SQL}
          AND a.user_id = ?
-         AND a.next_action IS NOT NULL
-         AND a.next_action_date IS NOT NULL
-         AND a.next_action_done_at IS NULL
          AND a.next_action_date <= (CURRENT_DATE + (? || ' days')::interval)::text
        ORDER BY a.next_action_date ASC`,
       [userId, daysAhead]

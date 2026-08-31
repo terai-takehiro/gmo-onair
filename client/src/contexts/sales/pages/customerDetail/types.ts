@@ -54,6 +54,11 @@ export interface CustomerActivity {
   next_action: string | null;
   next_action_date: string | null;
   next_action_done_at: string | null;
+  /**
+   * **機械が閉じた理由**（migration 245）。`null` = 人が「完了」を押した、または未対応。
+   * `NextActionInline` がこれを見て「対応済み」ではなく「失注により終了」と出す。
+   */
+  next_action_auto_closed_reason: string | null;
   source_channel: string | null;
   message_id: string | null;
   project_id: string | null;

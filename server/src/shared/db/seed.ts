@@ -211,9 +211,16 @@ export async function seed() {
     ['OPP-202603-0016', 'SN 新番組パイロット', 'SN', 'recording', 4500000, '2026-02-01', 'スケジュール不一致', 'スタジオ空き日程が合わなかった', '2026-02-05'],
     ['OPP-202603-0017', 'GE 社員研修配信', 'GE', 'live_broadcast', 1800000, '2026-03-05', '条件不一致', '求められた配信品質の要件が合わなかった', '2026-03-08'],
   ];
+  /**
+   * 失注案件の id。**活動記録のゴミ（migration 245）を検証環境で見るために持つ。**
+   * 「失注した案件に未対応の次回アクションがぶら下がっている」行が1つも無いと、
+   * 直したことを実ブラウザで確かめられない（消えるべきものが最初から無い）。
+   */
+  const LOST_PROJECTS: Record<string, string> = {};
   for (let i = 0; i < lostData.length; i++) {
     const [code, name, custKey, projType, amt, date, reason, note, lostAt] = lostData[i];
     const id = uuidv4();
+    LOST_PROJECTS[code] = id;
     await execute(
       `INSERT INTO projects (id, code, name, customer_id, stage, project_type, audience, project_category, gls_category, expected_amount, event_start, assigned_to, lost_reason, lost_reason_note, lost_at, created_by) VALUES (?, ?, ?, ?, 'e_lost', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, code, name, CUSTOMERS[custKey], projType, ...cls2(projType),
@@ -641,6 +648,39 @@ export async function seed() {
   // フォローアップ
   await ins(actSql, [uuidv4(), null, CUSTOMERS['GE'], USERS.staff2, 'followup', 'GE ドキュメンタリー進捗確認', '先方の企画会議が来週。結果を踏まえてスケジュール確定予定。', '2026-03-10', '企画会議結果の確認', '2026-03-17', USERS.staff2]);
   await ins(actSql, [uuidv4(), null, CUSTOMERS['DA'], USERS.staff3, 'followup', 'DA 定期利用契約フォロー', '定期利用プランの見積書フォロー。先方検討中だが前向き。', '2026-03-05', '契約条件の最終確認', '2026-03-12', USERS.staff3]);
+
+  /*
+   * ── 終わった案件にぶら下がった「次回アクション」（migration 245 の検証用）─────
+   *
+   * ユーザー報告:「失注になった案件については無条件で完了扱いにしてリストから
+   * 落として欲しい」「これらがゴミとして溜まりまくっている」。
+   *
+   * **この2種類が両方無いと、直したことを実ブラウザで確かめられません**:
+   *
+   *   ① **未対応のまま残っている行**（下の2件）
+   *      DB には未対応で入っているのに、**画面・週報・MCP のどこにも出ない**ことを
+   *      見るための行。出どころは案件（`project_id`）なので、判定は
+   *      `p.stage NOT IN (...)` の側で効く。ここが `next_action_done_at` を
+   *      入れてしまうと「除外が効いている」のか「そもそも済んでいる」のか
+   *      区別が付かず、検証にならない。
+   *   ② **機械が閉じた印が付いた行**（3件目）
+   *      やり取りタブ・活動記録の一覧が「済み」ではなく
+   *      **「失注により終了」**と出すことを見るための行。
+   */
+  const lostNoisySql = `INSERT INTO activity_logs (id, project_id, customer_id, user_id, activity_type, subject, description, activity_date, next_action, next_action_date, next_action_done_at, next_action_auto_closed_reason, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+  // ① 失注案件（DT CM撮影）に未対応で残っているやること。**どのリストにも出ないこと**
+  await ins(lostNoisySql, [uuidv4(), LOST_PROJECTS['OPP-202603-0014'], CUSTOMERS['DT'], USERS.staff2,
+    'proposal', 'DT CM撮影 見積の再提示', '価格を下げた版を出す方向で社内調整。', '2026-02-18',
+    '値引き版の見積を再提示する', '2026-02-24', null, null, USERS.staff2]);
+  // ① 失注案件（JB ドラマ撮影・延期）に未対応で残っているやること
+  await ins(lostNoisySql, [uuidv4(), LOST_PROJECTS['OPP-202603-0015'], CUSTOMERS['JB'], USERS.staff3,
+    'call', 'JB ドラマ撮影 再開時期の確認', '企画の再開時期を先方が検討中。', '2026-03-10',
+    '再開時期を電話で確認する', '2026-03-24', null, null, USERS.staff3]);
+  // ② 機械が閉じた行。画面に **「失注により終了」** と出る
+  await ins(lostNoisySql, [uuidv4(), LOST_PROJECTS['OPP-202603-0013'], CUSTOMERS['中央放送'], USERS.staff1,
+    'meeting', '中央放送 年末特別企画 予算の再確認', '来期予算での再提案を打診していた。', '2026-01-18',
+    '来期予算での再提案を出す', '2026-01-30', '2026-01-20 10:00:00', 'project_lost', USERS.staff1]);
 
   // ============================================================
   // Sales Targets (2026年度)
