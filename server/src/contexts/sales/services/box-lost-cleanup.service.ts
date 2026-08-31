@@ -37,9 +37,9 @@
  * どれも「中身あり」と同じ扱い（＝引っ越すだけ）にします。BOX が一時的に
  * 応答しないだけで書類が消えるのは、割に合いません。
  */
-import { execute, queryOne } from '../../../shared/db/connection';
+import { execute, queryOne, queryAll } from '../../../shared/db/connection';
 import {
-  getBoxClient, isBoxConfigured, extractFolderId, ensureSubfolder,
+  getBoxClient, isBoxConfigured, extractFolderId, ensureSubfolder, getBoxFolderUrl, listFolderItems,
 } from '../../../shared/services/box';
 import { createProjectFolderTree, INTERNAL_PREFIX, EXTERNAL_PREFIX } from './box-folder.service';
 
@@ -68,8 +68,19 @@ export interface SafetyInput {
   folder: FolderNode | null;
   /** そこに入っているはずの親フォルダ（社内 or 社外） */
   expectedParentId: string | null;
-  /** 付いているはずの頭（【社内】/【社外】） */
-  expectedPrefix: string;
+  /**
+   * **その案件を指す番号**（GLS 番号・OPP コード）。フォルダ名は
+   * `{頭}{番号}_{案件名}` で作られるので、**名前にこの番号が入っていること**を見る。
+   *
+   * ⚠️ **以前は「頭が `【社内】`/`【社外】` で始まること」を見ていた。2つ問題があった:**
+   *  ① **頭が付いたのは 2026-08-25 の版**（`box-folder.service.ts` の `INTERNAL_PREFIX`）。
+   *     それ以前に作られたフォルダは頭を持たないので、**古い案件が全部弾かれていた**
+   *     （まさに「ほとんどのゴミ案件が処理できていない」の正体）。
+   *  ② 頭は**どの案件のフォルダにも付く**ので、`box_url_*` を手で書き換えて
+   *     **同じ親の下にある別の案件のフォルダ**を指させると、素通りしていた。
+   * 番号で見ると、古い名前にも効き、しかも「その案件のフォルダである」ことまで確かめられる。
+   */
+  expectedKeys: string[];
   /** 絶対に触ってはいけない ID（親フォルダ・取込用フォルダなど） */
   forbiddenIds: (string | null | undefined)[];
 }
@@ -84,10 +95,11 @@ export type SafetyVerdict = { ok: true } | { ok: false; reason: string };
  *   ② 触ってはいけない ID でないこと（**親フォルダを消さないための最後の砦**）
  *   ③ 実際の親が、その案件が入っているはずの親であること
  *      （手で書き換えられた URL が他所を指していたら弾く）
- *   ④ 名前が【社内】/【社外】で始まること（このアプリが作ったフォルダの形）
+ *   ④ **名前にその案件の番号（GLS / OPP）が入っていること**
+ *      — このアプリが作った形であり、かつ**その案件のフォルダ**であることまで見る
  */
 export function checkFolderSafety(input: SafetyInput): SafetyVerdict {
-  const { folderId, folder, expectedParentId, expectedPrefix, forbiddenIds } = input;
+  const { folderId, folder, expectedParentId, expectedKeys, forbiddenIds } = input;
   if (!folderId) return { ok: false, reason: 'BOXフォルダのURLが読めない' };
   if (!/^\d+$/.test(folderId)) return { ok: false, reason: `フォルダIDの形が違う (${folderId})` };
 
@@ -100,8 +112,10 @@ export function checkFolderSafety(input: SafetyInput): SafetyVerdict {
   if (folder.parentId !== expectedParentId) {
     return { ok: false, reason: `別の場所にある (親=${folder.parentId ?? 'なし'})` };
   }
-  if (!folder.name.startsWith(expectedPrefix)) {
-    return { ok: false, reason: `このアプリが作った名前ではない (${folder.name})` };
+  const keys = expectedKeys.filter((k) => !!k && k.trim() !== '');
+  if (keys.length === 0) return { ok: false, reason: '案件を指す番号が無い' };
+  if (!keys.some((k) => folder.name.includes(k))) {
+    return { ok: false, reason: `この案件のフォルダではない (${folder.name})` };
   }
   return { ok: true };
 }
@@ -198,6 +212,15 @@ function sidesOf(row: { box_url_internal?: unknown; box_url_external?: unknown }
   ];
 }
 
+/**
+ * その案件を指す番号。**フォルダ名の頭に入る**（`{頭}{番号}_{案件名}`）。
+ * GLS 発番の前後で名前が変わるので、**両方**を候補にする
+ * （発番のときのリネームが失敗していると、古い番号のままのことがある）。
+ */
+function projectKeys(row: ProjectRow): string[] {
+  return [row.gls_number, row.code].filter((v): v is string => !!v && String(v).trim() !== '');
+}
+
 interface ProjectRow {
   id: string; code?: string | null; name?: string | null; gls_number?: string | null;
   box_url_internal?: string | null; box_url_external?: string | null;
@@ -210,6 +233,109 @@ async function loadProject(projectId: string): Promise<ProjectRow | null> {
        FROM projects WHERE id = ? AND deleted_at IS NULL`,
     [projectId],
   )) as unknown as ProjectRow | null;
+}
+
+/**
+ * **フォルダ名から案件の番号を切り出す**（純関数）。
+ *
+ * 名前は `{頭}{番号}_{案件名}` で作られる（`box-folder.service.ts`）。頭は
+ * **2026-08-25 の版から**付いたので、それ以前のフォルダには無い。両方に効かせる。
+ *
+ *   `【社内】GLS-A001_東都TV 特番収録` → `GLS-A001`
+ *   `OPP-2026-0007_下見`               → `OPP-2026-0007`
+ *   `00_DB_Backup`                     → null（番号の形をしていない）
+ *
+ * ⚠️ **番号の形をしていないものは必ず `null`。** 親フォルダの下には
+ * `00_DB_Backup`（本番DBのバックアップ）・`99_失注・見送り`・`11_awards_photo` も
+ * 並んでいる。ここで拾ってしまうと、名寄せの時点で巻き添えの候補になる。
+ */
+export function folderNameToProjectKey(name: string): string | null {
+  const stripped = String(name ?? '').replace(/^【[^】]*】/, '').trim();
+  const m = stripped.match(/^((?:GLS|OPP)-[A-Za-z0-9-]+)_/);
+  return m ? m[1] : null;
+}
+
+export interface RelinkResult {
+  /** BOX を見て案件に結び付け直した数 */
+  linked: number;
+  /** 親フォルダの中を最後まで見られたか。**false のときは画面に必ず書く** */
+  complete: boolean;
+  /** 見たフォルダの数（親フォルダ直下） */
+  scanned: number;
+}
+
+/**
+ * **BOX に残っているフォルダを、案件に結び付け直す。**
+ *
+ * ── なぜ要るか（ユーザー報告）────────────────────────────────
+ *
+ * 「ほとんどのゴミ案件が処理できていない」。調べたところ、**古い失注案件には
+ * `box_url_internal` / `box_url_external` が入っていません**。フォルダは BOX に
+ * あるのに、アプリ側がどれがその案件のものか知らないので、片づけの対象にすら
+ * 入っていませんでした（自動作成が後から入った・書き戻しに失敗した、など）。
+ *
+ * 親フォルダの直下を一覧し、**フォルダ名の番号で案件を引いて**、URL が空の側だけ
+ * 埋めます。これは**片づけとは別の、壊れた紐づけを直す操作**なので、
+ * 失注案件に限らず全部の案件に対して行います（現役の案件の紐づけも直る）。
+ *
+ * ⚠️ **書くのは `box_url_*` が空のときだけ。** 入っている値は人が直したかもしれず、
+ * 名前から引いたものより信用できます（上書きすると人の修正を消す）。
+ * ⚠️ **番号で1件に決まらないものは触りません**（同じ番号の案件が2つある等）。
+ */
+export async function relinkProjectFolders(): Promise<RelinkResult> {
+  if (!isBoxConfigured()) return { linked: 0, complete: true, scanned: 0 };
+  const client = getBoxClient();
+  if (!client) return { linked: 0, complete: true, scanned: 0 };
+
+  const sides: { col: 'box_url_internal' | 'box_url_external'; parentId: string | null }[] = [
+    { col: 'box_url_internal', parentId: internalParentId() },
+    { col: 'box_url_external', parentId: externalParentId() },
+  ];
+
+  let linked = 0;
+  let scanned = 0;
+  let complete = true;
+
+  for (const side of sides) {
+    if (!side.parentId) { complete = false; continue; }
+    let listing;
+    try {
+      listing = await listFolderItems(side.parentId);
+    } catch (e) {
+      console.warn('[box-lost] 親フォルダを一覧できませんでした:', side.parentId, (e as Error).message);
+      complete = false;
+      continue;
+    }
+    if (listing.truncated) complete = false;   // **黙って切らない**（`box.ts` の決めごと）
+
+    for (const item of listing.items) {
+      if (item.type !== 'folder') continue;
+      scanned += 1;
+      const key = folderNameToProjectKey(item.name);
+      if (!key) continue;                       // 00_DB_Backup / 99_失注・見送り など
+
+      /*
+       * **番号で1件に決まるときだけ書く。** `LIMIT 2` で引いて2件返ったら触らない
+       * （同じ番号の案件が2つあるなら、どちらのフォルダか名前からは決められない）。
+       * 空の側だけ埋めるので、人が直した値は上書きしない。
+       */
+      const rows = await queryAll(
+        `SELECT id FROM projects
+          WHERE deleted_at IS NULL AND (gls_number = ? OR code = ?) AND ${side.col} IS NULL
+          LIMIT 2`,
+        [key, key],
+      ) as { id: string }[];
+      if (rows.length !== 1) continue;
+
+      await execute(
+        `UPDATE projects SET ${side.col} = ? WHERE id = ? AND ${side.col} IS NULL`,
+        [getBoxFolderUrl(item.id), rows[0].id],
+      );
+      linked += 1;
+    }
+  }
+  console.log('[box-lost] 名寄せ:', { linked, scanned, complete });
+  return { linked, complete, scanned };
 }
 
 /**
@@ -230,6 +356,7 @@ export async function cleanupLostProjectFolders(projectId: string): Promise<void
 
   const listChildren = listChildrenVia(client);
   const forbidden = forbiddenFolderIds();
+  const keys = projectKeys(row);
   const notes: string[] = [];
   let archived = 0;
   let deleted = 0;
@@ -240,7 +367,7 @@ export async function cleanupLostProjectFolders(projectId: string): Promise<void
     const folderId = extractFolderId(side.url);
     const folder = folderId ? await readFolder(client, folderId) : null;
     const safe = checkFolderSafety({
-      folderId, folder, expectedParentId: side.parentId, expectedPrefix: side.prefix, forbiddenIds: forbidden,
+      folderId, folder, expectedParentId: side.parentId, expectedKeys: keys, forbiddenIds: forbidden,
     });
     if (!safe.ok) {
       notes.push(`${side.key}: 触らず (${safe.reason})`);

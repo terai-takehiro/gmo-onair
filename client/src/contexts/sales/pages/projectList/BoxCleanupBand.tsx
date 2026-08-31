@@ -34,7 +34,8 @@ const KEY = ['projects', 'box-cleanup', 'lost'];
 /** 1回に触る件数。BOX は1フォルダにつき数回叩くので、多くすると詰まる */
 const BATCH = 20;
 
-interface RunResult { processed: number; remaining: number; boxConfigured: boolean }
+interface RelinkResult { linked: number; complete: boolean; scanned: number }
+interface RunResult { processed: number; remaining: number; boxConfigured: boolean; relinked?: RelinkResult }
 
 export function BoxCleanupBand() {
   const { hasPermission } = useAuth();
@@ -47,12 +48,14 @@ export function BoxCleanupBand() {
   /** 押した時点の総数。進み具合を「N / M 件」で出すために覚える */
   const [total, setTotal] = useState(0);
   const [stuck, setStuck] = useState(0);
+  /** BOX を調べて結び付け直した結果。**何件見て何件つながったかを必ず出す** */
+  const [relink, setRelink] = useState<RelinkResult | null>(null);
   const stopRef = useRef(false);
 
   const q = useQuery({
     queryKey: KEY,
     queryFn: async () => (await api.get('/projects/box-cleanup/lost')).data.data as
-      { remaining: number; boxConfigured: boolean },
+      { remaining: number; unlinked: number; boxConfigured: boolean },
     enabled: canRun,
   });
 
@@ -65,24 +68,39 @@ export function BoxCleanupBand() {
       setRunning(true);
       let cleaned = 0;
       let last: RunResult | null = null;
+      let relinked: RelinkResult | undefined;
+      let first = true;
       while (true) {
         if (stopRef.current) break;
-        const r = (await api.post('/projects/box-cleanup/lost', { limit: BATCH })).data.data as RunResult;
+        /*
+         * **1回目だけ `relink: true`。** 古い失注案件は BOX の URL が空で、
+         * フォルダは BOX にあるのにアプリが知らないため片づけの対象に入っていない。
+         * 先に親フォルダを一覧してフォルダ名の番号で結び付け直す。
+         * 毎回やると親フォルダを丸ごと引き直すので、2回目以降は false。
+         */
+        const r = (await api.post('/projects/box-cleanup/lost', { limit: BATCH, relink: first }))
+          .data.data as RunResult;
+        if (first) { relinked = r.relinked; setTotal(r.remaining + cleaned); first = false; }
         last = r;
         cleaned += r.processed;
         setDone(cleaned);
-        qc.setQueryData(KEY, { remaining: r.remaining, boxConfigured: r.boxConfigured });
+        qc.setQueryData(KEY, { remaining: r.remaining, unlinked: 0, boxConfigured: r.boxConfigured });
         // **1件も進まなかったら止める**（残り0件を待つと永久に回る・上の説明）
         if (r.processed === 0 || r.remaining === 0) break;
       }
-      return { cleaned, remaining: last?.remaining ?? 0, stopped: stopRef.current };
+      return { cleaned, remaining: last?.remaining ?? 0, stopped: stopRef.current, relinked };
     },
     onSuccess: (r) => {
       setRunning(false);
       setStuck(r.remaining);
+      setRelink(r.relinked ?? null);
       if (r.stopped) { notifySuccess(`${r.cleaned} 件まで片づけて止めました（残り ${r.remaining} 件）`); return; }
       if (r.cleaned === 0) {
-        notifySuccess('片づけられるものがありませんでした（安全のため、確かめられなかったフォルダは触っていません）');
+        notifySuccess(
+          r.relinked && r.relinked.linked === 0
+            ? 'BOX を調べましたが、案件に結び付くフォルダが見つかりませんでした'
+            : '片づけられるものがありませんでした（安全のため、確かめられなかったフォルダは触っていません）',
+        );
         return;
       }
       notifySuccess(
@@ -95,10 +113,23 @@ export function BoxCleanupBand() {
       setRunning(false);
       notifyApiError(`BOXフォルダを片づけられませんでした（${done} 件まで進みました）`, err);
     },
+    /*
+     * ⚠️ **終わったら件数を引き直す。** ループの中では「片づけ待ち（URL のある側）」しか
+     * 更新していないので、**結び付かなかったぶん**が帯に残ったままになる。
+     * 引き直せば、帯は本当に残っている数を言う（押した数と減った数が食い違わない）。
+     */
+    onSettled: () => { qc.invalidateQueries({ queryKey: KEY }); },
   });
 
   const remaining = q.data?.remaining ?? 0;
-  if (!canRun || remaining === 0) return null;
+  const unlinked = q.data?.unlinked ?? 0;
+  /*
+   * ⚠️ **URL が空の失注案件も数に入れる。** 古い案件は `box_url_*` が空で、
+   * フォルダは BOX にあるのにアプリが知らない。ここを `remaining` だけで見ていたため、
+   * **片づけ待ちが0件に見えて帯が出ませんでした**（ユーザー報告の正体）。
+   */
+  const candidates = remaining + unlinked;
+  if (!canRun || candidates === 0) return null;
 
   /*
    * ⚠️ **BOX に繋いでいないときは、押せる形で出さない。**
@@ -110,7 +141,7 @@ export function BoxCleanupBand() {
       <div className="rounded-card border border-border bg-surface-subtle px-3.5 py-3">
         <p className="text-sub flex flex-wrap items-center gap-2 font-bold">
           <FolderArchive className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          失注・見送りの BOX フォルダが {remaining} 件、現役の場所に残っています
+          失注・見送りの案件が {candidates} 件、BOX の現役の場所に残っている可能性があります
         </p>
         <p className="text-note mt-1 text-muted-foreground">
           いまは BOX につないでいないため片づけられません（設定の「外部サービス連携」で確認してください）。
@@ -123,18 +154,25 @@ export function BoxCleanupBand() {
     <div className="rounded-card border border-border bg-surface-subtle px-3.5 py-3">
       <p className="text-sub flex flex-wrap items-center gap-2 font-bold">
         <FolderArchive className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        失注・見送りの BOX フォルダが {remaining} 件、現役の場所に残っています
+        失注・見送りの案件が {candidates} 件、BOX の現役の場所に残っています
       </p>
       <p className="text-note mt-1 text-muted-foreground">
         中身が1つも無いものは削除し、見積書などが入っているものは「99_失注・見送り」へ移します。
         案件を失注から戻すと元に戻ります。
+        {unlinked > 0 && (
+          <>
+            {' '}
+            うち <b>{unlinked} 件</b>は BOX のフォルダが案件に結び付いていないので、
+            まず BOX を調べて名前から結び付け直します。
+          </>
+        )}
       </p>
 
       {running ? (
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <span className="text-sub inline-flex items-center gap-1.5 font-bold">
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-            片づけています… {done} / {total} 件
+            片づけています… {done} / {total || candidates} 件
           </span>
           {/* **長い処理には必ず逃げ道を置く。** いま動いている20件ぶんが終わったら止まる */}
           <button
@@ -151,10 +189,18 @@ export function BoxCleanupBand() {
           onClick={() => runAll.mutate()}
           className="text-sub mt-2 inline-flex min-h-tap items-center gap-1.5 rounded-control border border-border bg-card px-3 font-bold hover:bg-muted lg:min-h-[36px]"
         >
-          {remaining} 件をまとめて片づける
+          {candidates} 件をまとめて片づける
         </button>
       )}
 
+      {/* **何件見て何件つながったかを必ず出す** — つながらなかったときに
+          「BOX を調べたのか」が読めないと、押した人は次に何をすればよいか分からない */}
+      {!running && relink && (
+        <p className="text-note mt-1.5 text-muted-foreground">
+          BOX のフォルダ {relink.scanned} 件を調べて {relink.linked} 件を案件に結び付けました
+          {!relink.complete && '（親フォルダを最後まで見られていません。もう一度押すと続きを調べます）'}。
+        </p>
+      )}
       {!running && stuck > 0 && (
         <p className="text-note mt-1.5 text-muted-foreground">
           残り {stuck} 件は、置き場所や名前が想定と違うか中身を数え切れなかったため触っていません

@@ -11,7 +11,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  checkFolderSafety, isTreeEmpty, LOST_ARCHIVE_FOLDER, TREE_MAX_DEPTH,
+  checkFolderSafety, isTreeEmpty, folderNameToProjectKey, LOST_ARCHIVE_FOLDER, TREE_MAX_DEPTH,
   type ChildItem, type FolderNode,
 } from '../../server/src/contexts/sales/services/box-lost-cleanup.service';
 
@@ -27,7 +27,7 @@ const base = {
   folderId: '999',
   folder: folder(),
   expectedParentId: PARENT,
-  expectedPrefix: '【社内】',
+  expectedKeys: ['GLS-A001', 'OPP-2026-0007'],
   forbiddenIds: [PARENT, OTHER_PARENT, '333'],
 };
 
@@ -52,14 +52,28 @@ describe('触ってよいフォルダか（安全弁）', () => {
     expect(v.ok === false && v.reason).toMatch(/別の場所/);
   });
 
-  it('⚠️ 【社内】/【社外】で始まらない名前は通さない（このアプリが作っていない）', () => {
+  it('⚠️ その案件の番号が名前に入っていなければ通さない', () => {
     const v = checkFolderSafety({ ...base, folder: folder({ name: '共有フォルダ' }) });
     expect(v.ok).toBe(false);
   });
 
-  it('社外のフォルダに社内の頭を期待したら通さない（左右の取り違え）', () => {
-    const v = checkFolderSafety({ ...base, folder: folder({ name: '【社外】GLS-A001_x' }) });
+  it('⚠️ 同じ親の下にある**別の案件**のフォルダは通さない（頭だけ見ていたときは素通りしていた）', () => {
+    const v = checkFolderSafety({ ...base, folder: folder({ name: '【社内】GLS-A999_別の案件' }) });
     expect(v.ok).toBe(false);
+    expect(v.ok === false && v.reason).toMatch(/この案件のフォルダではない/);
+  });
+
+  it('⚠️ 頭（【社内】）が無い古いフォルダも通る — 頭が付いたのは 2026-08-25 の版で、それ以前の案件が全部弾かれていた', () => {
+    expect(checkFolderSafety({ ...base, folder: folder({ name: 'GLS-A001_東都TV 特番収録' }) })).toEqual({ ok: true });
+  });
+
+  it('GLS 発番前の OPP コードでも通る（発番時のリネームが失敗していることがある）', () => {
+    expect(checkFolderSafety({ ...base, folder: folder({ name: 'OPP-2026-0007_下見' }) })).toEqual({ ok: true });
+  });
+
+  it('案件を指す番号が1つも無ければ通さない', () => {
+    expect(checkFolderSafety({ ...base, expectedKeys: [] }).ok).toBe(false);
+    expect(checkFolderSafety({ ...base, expectedKeys: ['', '  '] }).ok).toBe(false);
   });
 
   it('URL が読めない・数字でない・BOXから読めない・親が未設定は、どれも通さない', () => {
@@ -213,5 +227,45 @@ describe('まとめて片づける導線（過去の失注分）', () => {
     const body = noop.slice(0, noop.indexOf('return;'));
     expect(body).toContain('box_cleanup_note = ?');
     expect(body).not.toContain('box_cleanup_state');
+  });
+});
+
+describe('フォルダ名から案件の番号を切り出す（名寄せ）', () => {
+  it('頭のある新しい名前・無い古い名前のどちらからも取れる', () => {
+    expect(folderNameToProjectKey('【社内】GLS-A001_東都TV 特番収録')).toBe('GLS-A001');
+    expect(folderNameToProjectKey('【社外】GLS-B012_スタジオ増設')).toBe('GLS-B012');
+    expect(folderNameToProjectKey('GLS-A001_東都TV 特番収録')).toBe('GLS-A001');
+    expect(folderNameToProjectKey('OPP-2026-0007_下見')).toBe('OPP-2026-0007');
+  });
+
+  it('⚠️ 番号の形をしていないものは必ず null（親フォルダの下には消してはいけないものが並んでいる）', () => {
+    expect(folderNameToProjectKey('00_DB_Backup')).toBeNull();       // 本番DBのバックアップ
+    expect(folderNameToProjectKey('99_失注・見送り')).toBeNull();     // 置き場そのもの
+    expect(folderNameToProjectKey('11_awards_photo')).toBeNull();
+    expect(folderNameToProjectKey('共有')).toBeNull();
+    expect(folderNameToProjectKey('')).toBeNull();
+    expect(folderNameToProjectKey('GLS-A001')).toBeNull();           // `_案件名` が無い
+  });
+
+  it('名寄せは空の側だけ埋め、1件に決まらないものは触らない', () => {
+    const code = read('server', 'src', 'contexts', 'sales', 'services', 'box-lost-cleanup.service.ts');
+    const fn = code.slice(code.indexOf('export async function relinkProjectFolders'));
+    expect(fn).toContain('IS NULL');        // 空の側だけ
+    expect(fn).toContain('LIMIT 2');        // 2件返ったら決められない
+    expect(fn).toContain('rows.length !== 1');
+    expect(fn).toContain('truncated');      // 最後まで見られたかを返す
+  });
+
+  it('⚠️ URL が空の失注案件も候補に数える（数えないと帯が出ず、古い案件が永久に残る）', () => {
+    const svc = read('server', 'src', 'contexts', 'sales', 'services', 'project.service.ts');
+    expect(svc).toContain('LOST_BOX_UNLINKED_SQL');
+    expect(svc).toMatch(/box_url_internal IS NULL AND box_url_external IS NULL/);
+    const band = read('client', 'src', 'contexts', 'sales', 'pages', 'projectList', 'BoxCleanupBand.tsx');
+    expect(band).toContain('remaining + unlinked');
+  });
+
+  it('名寄せは「まとめて処分」の1回目だけ（毎回やると親フォルダを丸ごと引き直す）', () => {
+    const band = read('client', 'src', 'contexts', 'sales', 'pages', 'projectList', 'BoxCleanupBand.tsx');
+    expect(band).toContain('relink: first');
   });
 });

@@ -307,7 +307,8 @@ router.get('/box-cleanup/lost', requirePermission('sales', 'manager'), async (_r
 
 router.post('/box-cleanup/lost', requirePermission('sales', 'manager'), async (req, res) => {
   const limit = Math.min(Math.max(Number(req.body?.limit) || 20, 1), 100);
-  const result = await projectService.cleanupLostBoxFolders(limit);
+  // `relink` は**まとめて処分の1回目だけ** true（親フォルダを丸ごと一覧し直すため）
+  const result = await projectService.cleanupLostBoxFolders(limit, req.body?.relink === true);
   res.json({ success: true, data: result });
 });
 
