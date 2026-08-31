@@ -66,10 +66,10 @@ const RENTAL_RE = /^\/techops\/rental\/([^/?#]+)(?:\/(?:list|mail\/[^/?#]+))?\/?
 // 計時・視聴者（liveops）。`/timers`・`/timers/:timerId/layout`・`/settings` の配下も含む
 const LIVE_RE = /^\/techops\/live\/([^/?#]+)(?:\/(?:timers(?:\/[^/?#]+\/layout)?|settings))?\/?$/;
 // テロップCG。ハブ（`/graphics/:ownerKey`）・送出コンソール（`/live`）・
-// 部品ライブラリ（`/parts`）。出力画面（`/techops/graphics/output/:projectId`）は
-// シェル無しの独立ルートなのでここには来ない（`App.tsx` の
-// 「Full-screen pages without AppShell」側）
-const GRAPHICS_RE = /^\/techops\/graphics\/([^/?#]+)(?:\/(?:live|parts))?\/?$/;
+// 部品ライブラリ（`/parts`）・発注フォーム（`/request`・段5）。出力画面
+// （`/techops/graphics/output/:projectId`）はシェル無しの独立ルートなので
+// ここには来ない（`App.tsx` の「Full-screen pages without AppShell」側）
+const GRAPHICS_RE = /^\/techops\/graphics\/([^/?#]+)(?:\/(?:live|parts|request))?\/?$/;
 const EDITOR_RE = /^\/techops\/editor\/[^/?#]+\/?$/;
 const SCHEDULE_DETAIL_RE = /^\/techops\/schedules\/[^/?#]+\/?$/;
 const DOCS_RE = /^\/techops\/docs\/[^/?#]+\/?$/;

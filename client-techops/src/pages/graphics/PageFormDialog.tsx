@@ -38,17 +38,29 @@ function counterClass(length: number, limit: number): string {
   return 'text-muted-foreground';
 }
 
+/** 新規作成時の事前入力（発注＝テロ原からの「ページにする」用）。`page` が非nullのときは無視される */
+export interface PageFormInitialValues {
+  name?: string;
+  slot?: GraphicsSlot;
+  partKey?: GraphicsPartKey;
+  /** 部品の最初のテキスト欄に入れる文言（発注の detail/desiredTiming 程度の簡易マッピングでよい） */
+  firstFieldValue?: string;
+}
+
 export default function PageFormDialog({
-  projectId, page, theme, open, onOpenChange, onSaved,
+  projectId, page, theme, initialValues, open, onOpenChange, onSaved,
 }: {
   projectId: string;
   /** 編集対象。null なら新規作成 */
   page: GraphicsPageRow | null;
   /** プレビューに使うプロジェクトのテーマ（ハブの `ThemePicker` が正） */
   theme: GraphicsThemeKey;
+  /** 新規作成（`page === null`）のときだけ効く事前入力 */
+  initialValues?: PageFormInitialValues;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSaved: () => void;
+  /** 保存できたページ（作成・更新どちらも）を渡す。発注からの変換で呼び出し元が紐づけに使う */
+  onSaved: (savedPage: GraphicsPageRow) => void;
 }) {
   const [name, setName] = useState('');
   const [partKey, setPartKey] = useState<GraphicsPartKey>('name');
@@ -72,13 +84,15 @@ export default function PageFormDialog({
       }
       setFields(next);
     } else {
-      setName('');
-      setPartKey('name');
-      setSlot('lower');
+      const initPartKey = initialValues?.partKey ?? 'name';
+      setName(initialValues?.name ?? '');
+      setPartKey(initPartKey);
+      setSlot(initialValues?.slot ?? PART_DEFAULT_SLOT[initPartKey]);
       setProofState('draft');
-      setFields({});
+      const firstDef = (PART_FIELDS[initPartKey] ?? [])[0];
+      setFields(firstDef && initialValues?.firstFieldValue ? { [firstDef.key]: initialValues.firstFieldValue } : {});
     }
-  }, [open, page]);
+  }, [open, page, initialValues]);
 
   const pickPart = (key: GraphicsPartKey) => {
     setPartKey(key);
@@ -92,15 +106,16 @@ export default function PageFormDialog({
     setSaving(true);
     try {
       const input = { name: name.trim(), slot, partKey, fields: { ...fields }, proofState };
+      let saved: GraphicsPageRow;
       if (page) {
-        await updateGraphicsPage(page.id, input);
+        saved = await updateGraphicsPage(page.id, input);
         notifySuccess('ページを保存しました');
       } else {
-        await createGraphicsPage(projectId, input);
+        saved = await createGraphicsPage(projectId, input);
         notifySuccess('ページを作りました');
       }
       onOpenChange(false);
-      onSaved();
+      onSaved(saved);
     } catch {
       notifyError(page ? 'ページを保存できませんでした' : 'ページを作れませんでした');
     } finally {

@@ -2,6 +2,8 @@ import { Router } from 'express';
 import publicRoutes from './routes/public.routes';
 import projectsRoutes from './routes/projects.routes';
 import pagesRoutes from './routes/pages.routes';
+import requestsRoutes from './routes/requests.routes';
+import rosterRoutes from './routes/roster.routes';
 
 export function createGraphicsRoutes(): Router {
   const router = Router();
@@ -13,6 +15,8 @@ export function createGraphicsRoutes(): Router {
 
   router.use('/graphics', projectsRoutes);
   router.use('/graphics', pagesRoutes);
+  router.use('/graphics', requestsRoutes);
+  router.use('/graphics', rosterRoutes);
 
   return router;
 }

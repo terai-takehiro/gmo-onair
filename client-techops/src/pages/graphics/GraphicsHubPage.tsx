@@ -4,22 +4,31 @@
 //   ・owner（案件 or 番組）→ CGプロジェクトの取得または作成（useGraphicsProject）
 //   ・ページ一覧（番号／スロット／ページ名／校正の状態）と最小の作成・編集・削除
 //   ・送出コンソールへの導線と「出力URLの配り方」カード
-// テンプレート編集・発注（テロ原）・名簿からの一括生成は後の段（モックには居るが未実装）。
+// テンプレート編集は後の段（モックには居るが未実装）。
+// 名簿からの一括生成は「名簿から一括生成」ボタン（`RosterImportDialog`）で実装済み。
+// 発注（テロ原・段5）は `RequestQueueSection`（未作画の列。「ページにする」で
+// `PageFormDialog` を事前入力して開く）と、スマホ発注フォーム（`RequestFormPage.tsx`・
+// PC専用リストの対象外）で実装済み。
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Blocks, ChevronLeft, Loader2, Pencil, Plus, Radio, Trash2, Type, AlertCircle } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  Blocks, ChevronLeft, ClipboardList, Loader2, Pencil, Plus, Radio, Trash2, Type, AlertCircle, Users,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifyError, notifySuccess } from '@/lib/notify';
 import {
-  deleteGraphicsPage,
-  type GraphicsBundle, type GraphicsPageRow,
+  deleteGraphicsPage, updateGraphicsRequest,
+  type GraphicsBundle, type GraphicsPageRow, type GraphicsRequestRow,
 } from '@/lib/graphicsApi';
 import type { OwnerContext } from '@/lib/deviceSettingsApi';
 import { useGraphicsProject } from './useGraphicsProject';
 import { SlotBadge, ProofBadge } from './badges';
-import PageFormDialog from './PageFormDialog';
+import PageFormDialog, { type PageFormInitialValues } from './PageFormDialog';
+import RequestQueueSection, { graphicsRequestsQueryKey } from './RequestQueueSection';
+import RosterImportDialog from './RosterImportDialog';
 import OutputUrlCard from './OutputUrlCard';
 import ThemePicker from './ThemePicker';
 import { resolveTelopTheme } from './telopTheme';
@@ -70,14 +79,40 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
   bundle: GraphicsBundle;
   reload: () => Promise<void>;
 }) {
+  const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<GraphicsPageRow | null>(null);
+  const [rosterOpen, setRosterOpen] = useState(false);
+  // 発注（テロ原）からの「ページにする」で開いたときだけ非null。保存できたら
+  // その発注を converted にして紐づける（RequestQueueSection のコメント参照）
+  const [converting, setConverting] = useState<GraphicsRequestRow | null>(null);
 
   const pages = [...bundle.pages].sort((a, b) => (a.sortOrder - b.sortOrder) || (a.callNo - b.callNo));
   const liveCount = bundle.cues.filter((c) => c.pageId !== null).length;
 
-  const openCreate = () => { setEditing(null); setFormOpen(true); };
-  const openEdit = (page: GraphicsPageRow) => { setEditing(page); setFormOpen(true); };
+  const openCreate = () => { setEditing(null); setConverting(null); setFormOpen(true); };
+  const openEdit = (page: GraphicsPageRow) => { setEditing(page); setConverting(null); setFormOpen(true); };
+  const openConvert = (request: GraphicsRequestRow) => { setEditing(null); setConverting(request); setFormOpen(true); };
+
+  const convertInitialValues: PageFormInitialValues | undefined = converting ? {
+    name: converting.title,
+    slot: converting.desiredSlot ?? undefined,
+    partKey: converting.desiredPartKey ?? undefined,
+    firstFieldValue: converting.detail || converting.desiredTiming || undefined,
+  } : undefined;
+
+  const handleSaved = async (savedPage: GraphicsPageRow) => {
+    if (converting) {
+      try {
+        await updateGraphicsRequest(converting.id, { status: 'converted', convertedPageId: savedPage.id });
+      } catch {
+        notifyError('発注を「ページ化済み」にできませんでした（ページ自体は作成されています）');
+      }
+      setConverting(null);
+      void queryClient.invalidateQueries({ queryKey: graphicsRequestsQueryKey(bundle.project.id) });
+    }
+    void reload();
+  };
 
   const removePage = async (page: GraphicsPageRow) => {
     if (!(await confirmAction({
@@ -128,6 +163,14 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
             <Radio className="mr-1 h-4 w-4" aria-hidden="true" />送出コンソールへ
           </Link>
         </Button>
+        <Button variant="outline" asChild>
+          <Link to={`/techops/graphics/${encodeURIComponent(ownerKey)}/request`}>
+            <ClipboardList className="mr-1 h-4 w-4" aria-hidden="true" />発注フォーム
+          </Link>
+        </Button>
+        <Button variant="outline" onClick={() => setRosterOpen(true)}>
+          <Users className="mr-1 h-4 w-4" aria-hidden="true" />名簿から一括生成
+        </Button>
         <Button onClick={openCreate}>
           <Plus className="mr-1 h-4 w-4" aria-hidden="true" />ページを作る
         </Button>
@@ -140,6 +183,8 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
         <span className="h-5 w-px bg-border-faint" aria-hidden="true" />
         <Stat label="オンエア中のスロット" value={`${liveCount}件`} />
       </div>
+
+      <RequestQueueSection projectId={bundle.project.id} ownerKey={ownerKey} onConvert={openConvert} />
 
       <section className="mt-4 overflow-hidden rounded-card border border-border bg-card">
         <div className="flex items-center gap-3 border-b border-border-faint bg-surface-subtle px-4 py-2 text-th text-muted-foreground">
@@ -179,10 +224,18 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
       <PageFormDialog
         projectId={bundle.project.id}
         page={editing}
+        initialValues={convertInitialValues}
         theme={resolveTelopTheme(bundle.project.theme)}
         open={formOpen}
-        onOpenChange={setFormOpen}
-        onSaved={() => { void reload(); }}
+        onOpenChange={(next) => { setFormOpen(next); if (!next) setConverting(null); }}
+        onSaved={handleSaved}
+      />
+
+      <RosterImportDialog
+        projectId={bundle.project.id}
+        open={rosterOpen}
+        onOpenChange={setRosterOpen}
+        onImported={() => { void reload(); }}
       />
     </div>
   );

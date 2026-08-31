@@ -63,6 +63,25 @@ export interface GraphicsCue {
   updatedAt: unknown;
 }
 
+export const REQUEST_STATUSES = ['requested', 'converted', 'dismissed'] as const;
+export type RequestStatus = (typeof REQUEST_STATUSES)[number];
+
+/** 発注（テロ原）。docs/design/v4/graphics.md §3・§9 段5 */
+export interface GraphicsRequest {
+  id: number;
+  projectId: number;
+  title: string;
+  detail: string | null;
+  desiredSlot: string | null;
+  desiredPartKey: string | null;
+  desiredTiming: string | null;
+  requestedBy: string | null;
+  status: string;
+  convertedPageId: number | null;
+  createdAt: unknown;
+  updatedAt: unknown;
+}
+
 export function mapProject(r: Row): GraphicsProject {
   return {
     id: r.id as number,
@@ -102,6 +121,23 @@ export function mapCue(r: Row): GraphicsCue {
   };
 }
 
+export function mapRequest(r: Row): GraphicsRequest {
+  return {
+    id: r.id as number,
+    projectId: r.project_id as number,
+    title: r.title as string,
+    detail: (r.detail as string | null) ?? null,
+    desiredSlot: (r.desired_slot as string | null) ?? null,
+    desiredPartKey: (r.desired_part_key as string | null) ?? null,
+    desiredTiming: (r.desired_timing as string | null) ?? null,
+    requestedBy: (r.requested_by as string | null) ?? null,
+    status: r.status as string,
+    convertedPageId: (r.converted_page_id as number | null) ?? null,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
 export async function fetchProject(id: number): Promise<GraphicsProject | null> {
   const row = await queryOne(`SELECT * FROM graphics_projects WHERE id = ?`, [id]);
   return row ? mapProject(row) : null;
@@ -113,6 +149,20 @@ export async function fetchPages(projectId: number): Promise<GraphicsPage[]> {
     [projectId]
   );
   return rows.map(mapPage);
+}
+
+/** 発注一覧。status を渡すとその状態だけに絞る（既定は絞り込みなし＝全件） */
+export async function fetchRequests(projectId: number, status?: string): Promise<GraphicsRequest[]> {
+  const rows = status
+    ? await queryAll(
+        `SELECT * FROM graphics_requests WHERE project_id = ? AND status = ? ORDER BY created_at DESC`,
+        [projectId, status]
+      )
+    : await queryAll(
+        `SELECT * FROM graphics_requests WHERE project_id = ? ORDER BY created_at DESC`,
+        [projectId]
+      );
+  return rows.map(mapRequest);
 }
 
 export async function fetchCues(projectId: number): Promise<GraphicsCue[]> {

@@ -39,6 +39,7 @@ import GraphicsHubPage from "@/pages/graphics/GraphicsHubPage";
 import GraphicsConsolePage from "@/pages/graphics/GraphicsConsolePage";
 import GraphicsOutputPage from "@/pages/graphics/GraphicsOutputPage";
 import PartLibraryPage from "@/pages/graphics/PartLibraryPage";
+import RequestFormPage from "@/pages/graphics/RequestFormPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -108,6 +109,10 @@ export default function App() {
         {/* 部品ライブラリ（全番組共通のカタログ・段4の入口部分）。URL は :ownerKey を
             含めてハブと並びを揃えるが、中身は owner に紐づかない読み取り専用画面 */}
         <Route path="/techops/graphics/:ownerKey/parts" element={<PartLibraryPage />} />
+        {/* 発注（テロ原・段5）。スマホ最優先のフォーム＋自分の発注一覧。
+            ハブ画面（PC専用）と違い、この画面だけは pcOnlyScreens.ts の対象外
+            （graphics.md §3「発注はスマホ可」の分業設計） */}
+        <Route path="/techops/graphics/:ownerKey/request" element={<RequestFormPage />} />
         {/* レンタル機材検索。案件単位（:ownerKey）で文書とは別の入れ物（2026-08-22 追加） */}
         <Route path="/techops/rental/:ownerKey" element={<RentalSearchPage />} />
         <Route path="/techops/rental/:ownerKey/list" element={<RentalReservationsPage />} />

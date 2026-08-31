@@ -6,8 +6,8 @@
 // （`TableBadge` の機材台帳・種別列と同じやり方）。
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import {
-  SLOT_LABELS, PROOF_LABELS,
-  type GraphicsSlot, type GraphicsProofState,
+  SLOT_LABELS, PROOF_LABELS, REQUEST_STATUS_LABELS,
+  type GraphicsSlot, type GraphicsProofState, type GraphicsRequestStatus,
 } from '@/lib/graphicsApi';
 
 export function SlotBadge({ slot, w = 96 }: { slot: GraphicsSlot; w?: 96 | null }) {
@@ -22,4 +22,18 @@ const PROOF_VARIANT: Record<GraphicsProofState, 'destructive' | 'warning' | 'suc
 
 export function ProofBadge({ state, w = 72 }: { state: GraphicsProofState; w?: 72 | null }) {
   return <TableBadge label={PROOF_LABELS[state]} w={w} variant={PROOF_VARIANT[state]} />;
+}
+
+const REQUEST_STATUS_VARIANT: Record<GraphicsRequestStatus, 'warning' | 'success' | 'secondary'> = {
+  requested: 'warning',
+  converted: 'success',
+  dismissed: 'secondary',
+};
+
+/**
+ * 発注（テロ原）の状態バッジ。「未対応」〜「ページ化済み」（6字）まで幅が揃うよう
+ * `fixedW` で 88px に固定する（`w` は `SlotWidth` の7段から選ぶ列幅・既定 96px）。
+ */
+export function RequestStatusBadge({ status, w = 96 }: { status: GraphicsRequestStatus; w?: 96 | null }) {
+  return <TableBadge label={REQUEST_STATUS_LABELS[status]} w={w} fixedW={88} variant={REQUEST_STATUS_VARIANT[status]} />;
 }

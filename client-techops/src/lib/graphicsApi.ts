@@ -10,6 +10,12 @@
  *   DELETE /graphics/pages/:id                 … ページ削除
  *   POST /graphics/projects/:id/cue            … スロットの cue を差し替え（TAKE / OUT）
  *   GET  /graphics/projects/:id/output         … 公開・認証なし（出力画面と 30s ポーリング用）
+ *   POST /graphics/projects/:id/requests       … 発注（テロ原）の新規作成
+ *   GET  /graphics/projects/:id/requests       … 発注一覧（既定は status=requested のみ）
+ *   PUT  /graphics/requests/:id                … 発注の状態更新（却下・ページ化での紐づけ）
+ *   DELETE /graphics/requests/:id              … 発注の削除（誤操作の取消）
+ *   POST /graphics/projects/:id/roster/preview … 名簿Excelのヘッダー・サンプル行を読む
+ *   POST /graphics/projects/:id/roster/commit  … 名簿の全行をパースして一括ページ作成
  *
  * スロット（1スロット1枚）と部品（partKey）の考え方は docs/design/v4/graphics.md §2。
  */
@@ -189,4 +195,118 @@ export async function fetchGraphicsOutput(projectId: string): Promise<GraphicsOu
 export function graphicsOutputPath(projectId: string, opts?: { bg?: boolean }): string {
   const base = `/techops/graphics/output/${encodeURIComponent(projectId)}`;
   return opts?.bg ? `${base}?bg=1` : base;
+}
+
+// ── 発注（テロ原）— graphics.md §3・§9 段5 ──────────────────────────
+
+export type GraphicsRequestStatus = 'requested' | 'converted' | 'dismissed';
+
+export const REQUEST_STATUS_LABELS: Record<GraphicsRequestStatus, string> = {
+  requested: '未対応',
+  converted: 'ページ化済み',
+  dismissed: '却下',
+};
+
+export interface GraphicsRequestRow {
+  id: string;
+  projectId: string;
+  /** 出したい文言・要旨 */
+  title: string;
+  /** 用途・補足 */
+  detail: string | null;
+  desiredSlot: GraphicsSlot | null;
+  desiredPartKey: GraphicsPartKey | null;
+  /** 出すタイミングの自由記述（例:「オープニング映像の後」） */
+  desiredTiming: string | null;
+  requestedBy: string | null;
+  status: GraphicsRequestStatus;
+  convertedPageId: string | null;
+  createdAt: string;
+}
+
+export interface GraphicsRequestInput {
+  title: string;
+  detail?: string;
+  desiredSlot?: GraphicsSlot;
+  desiredPartKey?: GraphicsPartKey;
+  desiredTiming?: string;
+}
+
+export async function createGraphicsRequest(
+  projectId: string,
+  input: GraphicsRequestInput,
+): Promise<GraphicsRequestRow> {
+  const { data } = await api.post(`/graphics/projects/${encodeURIComponent(projectId)}/requests`, input);
+  return data.data;
+}
+
+/** 発注一覧。status を省略すると未処理（`requested`）のみ返る（サーバー既定） */
+/**
+ * 発注一覧。`status` を省略すると未処理（`requested`）のみ（サーバー既定）。
+ * `'all'` は「自分が出した発注」（却下・ページ化済みも含む履歴）を出すための特別値。
+ */
+export async function fetchGraphicsRequests(
+  projectId: string,
+  status?: GraphicsRequestStatus | 'all',
+): Promise<GraphicsRequestRow[]> {
+  const { data } = await api.get(`/graphics/projects/${encodeURIComponent(projectId)}/requests`, {
+    params: status ? { status } : undefined,
+  });
+  return data.data;
+}
+
+export async function updateGraphicsRequest(
+  requestId: string,
+  input: { status?: GraphicsRequestStatus; convertedPageId?: string | null },
+): Promise<GraphicsRequestRow> {
+  const { data } = await api.put(`/graphics/requests/${encodeURIComponent(requestId)}`, input);
+  return data.data;
+}
+
+export async function deleteGraphicsRequest(requestId: string): Promise<void> {
+  await api.delete(`/graphics/requests/${encodeURIComponent(requestId)}`);
+}
+
+// ── 名簿からの一括生成 — graphics.md §6・§9 段5 ────────────────────────
+// POST /graphics/projects/:id/roster/preview … ヘッダー・サンプル行を読む
+// POST /graphics/projects/:id/roster/commit  … 全行をパースして一括作成
+
+export interface RosterPreviewResult {
+  headers: string[];
+  sampleRows: string[][];
+  totalRows: number;
+}
+
+export async function previewGraphicsRoster(projectId: string, file: File): Promise<RosterPreviewResult> {
+  const fd = new FormData();
+  fd.append('file', file);
+  const { data } = await api.post(`/graphics/projects/${encodeURIComponent(projectId)}/roster/preview`, fd);
+  return data.data;
+}
+
+export interface RosterCommitResult {
+  created: GraphicsPageRow[];
+  createdCount: number;
+  /** 全カラム空だったためスキップした行数 */
+  skippedBlank: number;
+  /** ページ名が空になり作成できなかった行（1行のミスで全部は失敗させない） */
+  errors: { row: number; message: string }[];
+}
+
+export async function commitGraphicsRoster(
+  projectId: string,
+  file: File,
+  slot: GraphicsSlot,
+  partKey: GraphicsPartKey,
+  mapping: Record<string, string>,
+  nameColumn?: string,
+): Promise<RosterCommitResult> {
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('slot', slot);
+  fd.append('partKey', partKey);
+  fd.append('mapping', JSON.stringify(mapping));
+  if (nameColumn) fd.append('nameColumn', nameColumn);
+  const { data } = await api.post(`/graphics/projects/${encodeURIComponent(projectId)}/roster/commit`, fd);
+  return data.data;
 }
