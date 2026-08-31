@@ -2017,6 +2017,23 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
      テンプレートリテラル内にバッククォートを書いた構文エラー／共通化で古くなった既存テスト2件）。
      **レビューが0件だったので、この3件は誰にも確かめられていない。**
 
+- **#484（docs(reviews): PR #482 のマージ後の棚卸しを記録した・2026-08-31）** —
+  #482 の直後、この棚卸し自体を記録するために出した PR。作成 07:33:44 UTC / CI green
+  （`checks`・`build` とも success）07:35:34 UTC（約1分50秒）/ マージ 07:40:26 UTC
+  （terai-takehiro 本人が手動マージ、CI green から約4分52秒後）。`get_reviews`・
+  `get_review_comments` とも0件。表に移す指摘はない（コード変更なし・ドキュメントのみ）。
+- **#485（release: v4.5.6・2026-08-31）** — `docs/changelog.d/` の下書き7本を集めた版上げ PR。
+  作成 07:38:04 UTC / CI green（`checks`・`build` とも success）07:40:24 UTC（約2分20秒）/
+  マージ 07:40:40 UTC（terai-takehiro 本人が手動マージ、**CI green から約16秒後**）。
+  `get_reviews`・`get_review_comments` とも0件。表に移す指摘はない（版表記と履歴のみ）。
+  ⚠️ **枝名を `release/4.5.6` にしてある**（`check-changelog.mjs` は枝名が `release/` で
+  始まるか `RELEASE=1` のときだけリリース PR と判定する）。v4.5.2 のときは
+  `claude/release-prep-lod7ck` で出して `checks` が落ち、`release/4.5.2` に出し直して
+  #460 → #461 になった前例があるので、今回は最初からこの名前で出した。
+  ⚠️ **`release:notes` が組み立てた要約は使っていない** — 「収録した見出しを並べただけ」に
+  なりスクリプト自身が警告するので、CLAUDE.md と README.md の先頭行は人が書き直した。
+  次回から省きたければ `docs/changelog.d/_summary.md` を置いておくとそれが使われる。
+
 ---
 
 ## 一覧（PR の新しい順）
