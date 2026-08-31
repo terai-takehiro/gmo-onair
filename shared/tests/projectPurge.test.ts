@@ -90,6 +90,17 @@ describe('お金が付いている案件は残す（ご判断「見積だけな�
     expect(SERVICE).toContain('BILLING_STATE_SQL.paid');
   });
 
+  it('⚠️ 失注に仕入が付いているのは異常の合図なので、外さずに残して画面に出す', () => {
+    /*
+     * ご指摘「失注になった案件で仕入れが発生することは理論上あり得ません。
+     * 万が一そういった案件がある場合は何かしら処理が間違っている可能性があるので
+     * 削除しないでください」。台帳から外すと**その異常ごと画面から消える**。
+     */
+    expect(SERVICE).toContain('異常の合図');
+    const band = read('client/src/contexts/sales/pages/projectList/JunkPurgeBand.tsx');
+    expect(band).toContain('失注した案件に仕入が付いているのは、本来あり得ません');
+  });
+
   it('仕入は見込みではないので、そのまま残す理由にする', () => {
     // 実際に払ったお金。失注案件に付いていれば「動いて、そして負けた」費用の記録
     const from = PURGE_HAS_MONEY_SQL.indexOf('FROM purchases pu');
