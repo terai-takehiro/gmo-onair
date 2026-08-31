@@ -56,6 +56,16 @@ const LOST_BOX_CLEANUP_TARGET_SQL = `FROM projects
  * 当たらず、**フォルダは BOX にあるのに片づけ待ち0件**に見えていました。
  * BOX を見て名前で結び付け直せば片づけられるので、**候補として数えます**。
  */
+/**
+ * **1リクエストで BOX を触ってよい時間**（ミリ秒）。
+ *
+ * ⚠️ **件数で区切ると本番で 504 になった。** フォルダ1件につき BOX を十数回
+ * 叩くので、20 件で 200〜300 回になり Nginx の 60 秒に当たる。BOX の応答時間は
+ * こちらでは決められないので、**件数ではなく時間**を上限にする。
+ * 余裕をもって 20 秒（60 秒の3分の1）。残りは押し直せば続きから進む。
+ */
+const BOX_CLEANUP_BUDGET_MS = 20_000;
+
 const LOST_BOX_UNLINKED_SQL = `FROM projects
    WHERE deleted_at IS NULL AND stage = 'e_lost' AND box_cleanup_state IS NULL
      AND box_url_internal IS NULL AND box_url_external IS NULL`;
@@ -1963,19 +1973,48 @@ export class ProjectService {
   async cleanupLostBoxFolders(
     limit: number,
     /**
-     * **BOX を見て紐づけを直してから片づける**（まとめて処分の1回目だけ true）。
+     * **BOX を見て紐づけを直すだけ**（片づけはしない）。まとめて処分の1回目に呼ぶ。
      *
      * 古い失注案件は `box_url_*` が空で、フォルダは BOX にあるのにアプリが
-     * どれか知らないため、**片づけの対象に入っていませんでした**（ユーザー報告
-     * 「ほとんどのゴミ案件が処理できていない」の正体）。毎回やると親フォルダを
-     * 丸ごと一覧し直すので、続きを進める2回目以降は false で呼ぶ。
+     * どれか知らないため、片づけの対象に入っていなかった。
+     *
+     * ⚠️ **片づけと同じリクエストでやらないこと。** 親フォルダの一覧だけでも
+     * BOX を数回叩くので、片づけと足すと1リクエストが長くなりすぎる。
      */
     relink = false,
-  ): Promise<{ processed: number; remaining: number; boxConfigured: boolean; relinked?: RelinkResult }> {
-    const relinked = relink ? await relinkProjectFolders() : undefined;
+  ): Promise<{
+    processed: number; remaining: number; boxConfigured: boolean;
+    relinked?: RelinkResult; timedOut?: boolean;
+  }> {
+    if (relink) {
+      const relinked = await relinkProjectFolders();
+      const left0 = await queryOne(`SELECT COUNT(*)::int AS c ${LOST_BOX_CLEANUP_TARGET_SQL}`) as { c?: number } | null;
+      return { processed: 0, remaining: Number(left0?.c ?? 0), boxConfigured: isBoxConfigured(), relinked };
+    }
+
     const targetSql = LOST_BOX_CLEANUP_TARGET_SQL;
     const rows = await queryAll(`SELECT id ${targetSql} ORDER BY lost_at ASC NULLS LAST LIMIT ?`, [limit]) as { id: string }[];
-    for (const r of rows) await syncBoxFoldersForStageSafe(r.id, 'e_lost');
+
+    /*
+     * ── ⚠️ **時間で区切る**（本番で 504 を出した反省）─────────────
+     *
+     * フォルダ1件につき BOX を「読む → 中身を数える → 動かす」で十数回叩く。
+     * 1リクエストで 20 件やると **200〜300 回**の呼び出しになり、
+     * **Nginx の 60 秒で切られて 0 件のまま失敗**した（利用者の実機で発生）。
+     * しかも切られたのは応答だけで**サーバー側は動き続ける**ので、
+     * 押した人には「何件進んだのか」が分からない。
+     *
+     * 件数ではなく**時間**で切る。これなら BOX が遅い日でも必ず応答が返り、
+     * 進んだぶんは記録に残る（続きは押し直せば進む）。
+     */
+    const started = Date.now();
+    let timedOut = false;
+    const ids: string[] = [];
+    for (const r of rows) {
+      if (Date.now() - started > BOX_CLEANUP_BUDGET_MS) { timedOut = true; break; }
+      ids.push(r.id);
+      await syncBoxFoldersForStageSafe(r.id, 'e_lost');
+    }
 
     /*
      * ⚠️ **「見た件数」ではなく「本当に片づいた件数」を返す。**
@@ -1985,7 +2024,6 @@ export class ProjectService {
      * 何を信じてよいか分からない画面になります（`countHonesty` の戒め）。
      * 片づいた印（`box_cleanup_state`）が付いた行だけを数え直します。
      */
-    const ids = rows.map((r) => r.id);
     let processed = 0;
     if (ids.length > 0) {
       const done = await queryOne(
@@ -1996,7 +2034,7 @@ export class ProjectService {
       processed = Number(done?.c ?? 0);
     }
     const left = await queryOne(`SELECT COUNT(*)::int AS c ${targetSql}`) as { c?: number } | null;
-    return { processed, remaining: Number(left?.c ?? 0), boxConfigured: isBoxConfigured(), relinked };
+    return { processed, remaining: Number(left?.c ?? 0), boxConfigured: isBoxConfigured(), timedOut };
   }
 
   async createBoxFolder(

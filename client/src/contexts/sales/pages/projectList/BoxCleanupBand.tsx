@@ -31,11 +31,24 @@ import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/noti
 import { useAuth } from '@/contexts/platform/AuthContext';
 
 const KEY = ['projects', 'box-cleanup', 'lost'];
-/** 1回に触る件数。BOX は1フォルダにつき数回叩くので、多くすると詰まる */
-const BATCH = 20;
+/**
+ * 1回に触る件数の上限。
+ *
+ * ⚠️ **本番で 504 になった反省で小さくしてある。** フォルダ1件につき BOX を
+ * 十数回叩くので、20 件だと 200〜300 回になり Nginx の 60 秒に当たった
+ * （0 件のまま失敗し、押した人には何件進んだか分からなかった）。
+ * サーバー側も**時間で区切る**ようにしてあるので、ここは「1往復が長くなりすぎない」
+ * ための保険。小さくしても、押したら最後まで進むのは変わらない。
+ */
+const BATCH = 5;
 
 interface RelinkResult { linked: number; complete: boolean; scanned: number }
-interface RunResult { processed: number; remaining: number; boxConfigured: boolean; relinked?: RelinkResult }
+interface RunResult {
+  processed: number; remaining: number; boxConfigured: boolean;
+  relinked?: RelinkResult;
+  /** サーバーが時間切れで切り上げたか（残りは続けて呼べば進む） */
+  timedOut?: boolean;
+}
 
 export function BoxCleanupBand() {
   const { hasPermission } = useAuth();
@@ -68,25 +81,34 @@ export function BoxCleanupBand() {
       setRunning(true);
       let cleaned = 0;
       let last: RunResult | null = null;
-      let relinked: RelinkResult | undefined;
-      let first = true;
-      while (true) {
-        if (stopRef.current) break;
-        /*
-         * **1回目だけ `relink: true`。** 古い失注案件は BOX の URL が空で、
-         * フォルダは BOX にあるのにアプリが知らないため片づけの対象に入っていない。
-         * 先に親フォルダを一覧してフォルダ名の番号で結び付け直す。
-         * 毎回やると親フォルダを丸ごと引き直すので、2回目以降は false。
-         */
-        const r = (await api.post('/projects/box-cleanup/lost', { limit: BATCH, relink: first }))
-          .data.data as RunResult;
-        if (first) { relinked = r.relinked; setTotal(r.remaining + cleaned); first = false; }
+
+      /*
+       * **まず「BOX を調べて結び付け直す」だけを1往復。**
+       * 古い失注案件は BOX の URL が空で、フォルダは BOX にあるのにアプリが
+       * 知らないため片づけの対象に入っていない。
+       *
+       * ⚠️ **片づけと同じ往復にしないこと。** 本番で 504 になったときは
+       * 「名寄せ＋20件の片づけ」を1リクエストでやっていた。
+       */
+      const head = (await api.post('/projects/box-cleanup/lost', { relink: true })).data.data as RunResult;
+      const relinked = head.relinked;
+      setTotal(head.remaining);
+      qc.setQueryData(KEY, { remaining: head.remaining, unlinked: 0, boxConfigured: head.boxConfigured });
+      last = head;
+
+      while (!stopRef.current && (last?.remaining ?? 0) > 0) {
+        const r = (await api.post('/projects/box-cleanup/lost', { limit: BATCH })).data.data as RunResult;
         last = r;
         cleaned += r.processed;
         setDone(cleaned);
         qc.setQueryData(KEY, { remaining: r.remaining, unlinked: 0, boxConfigured: r.boxConfigured });
-        // **1件も進まなかったら止める**（残り0件を待つと永久に回る・上の説明）
-        if (r.processed === 0 || r.remaining === 0) break;
+        /*
+         * **1件も進まなかったら止める**（残り0件を待つと永久に回る）。
+         * ⚠️ ただし**時間切れで切り上げたときは続ける** — 「進まなかった」のでは
+         * なく「途中で止めた」だけなので、ここで諦めると BOX が遅い日に
+         * 1件も片づかないまま終わる。
+         */
+        if (r.processed === 0 && !r.timedOut) break;
       }
       return { cleaned, remaining: last?.remaining ?? 0, stopped: stopRef.current, relinked };
     },

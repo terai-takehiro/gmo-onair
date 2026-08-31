@@ -212,9 +212,28 @@ describe('まとめて片づける導線（過去の失注分）', () => {
     expect(band).toContain('r.processed === 0');
   });
 
-  it('1回のリクエストで全部やらない（フォルダ1件につきBOXを数回叩くのでタイムアウトする）', () => {
+  it('⚠️ 1リクエストは「件数」ではなく「時間」で区切る（本番で 504 になった）', () => {
+    // フォルダ1件につき BOX を十数回叩くので、件数で切ると BOX が遅い日に
+    // Nginx の 60 秒へ当たる。実際に 20 件で 504 になり 0 件のまま失敗した
+    expect(svc).toContain('BOX_CLEANUP_BUDGET_MS');
+    const budget = Number(svc.match(/BOX_CLEANUP_BUDGET_MS = ([\d_]+)/)![1].replace(/_/g, ''));
+    expect(budget).toBeGreaterThan(0);
+    expect(budget).toBeLessThanOrEqual(30_000);   // 60秒の proxy に対して十分な余裕
+    expect(svc).toContain('timedOut');
+  });
+
+  it('1往復の件数の上限も小さくしてある（保険）', () => {
     expect(band).toMatch(/const BATCH = \d+/);
-    expect(Number(band.match(/const BATCH = (\d+)/)![1])).toBeLessThanOrEqual(50);
+    expect(Number(band.match(/const BATCH = (\d+)/)![1])).toBeLessThanOrEqual(10);
+  });
+
+  it('⚠️ 名寄せは片づけと別の往復にする（同じ往復にして 504 になった）', () => {
+    expect(band).toContain("{ relink: true }");
+    expect(svc).toMatch(/if \(relink\) \{/);
+  });
+
+  it('⚠️ 時間切れで切り上げたときはループを続ける（諦めると BOX が遅い日に1件も片づかない）', () => {
+    expect(band).toContain('r.processed === 0 && !r.timedOut');
   });
 
   it('長い処理に逃げ道がある（止められる）', () => {
@@ -291,8 +310,10 @@ describe('このアプリならこう名付けたはず（名寄せの突き合�
     expect(band).toContain('remaining + unlinked');
   });
 
-  it('名寄せは「まとめて処分」の1回目だけ（毎回やると親フォルダを丸ごと引き直す）', () => {
+  it('名寄せは「まとめて処分」の先頭で1回だけ（毎回やると親フォルダを丸ごと引き直す）', () => {
     const band = read('client', 'src', 'contexts', 'sales', 'pages', 'projectList', 'BoxCleanupBand.tsx');
-    expect(band).toContain('relink: first');
+    // 片づけのループの外で、独立した1往復として呼ぶ（504 の反省で分けた）
+    expect((band.match(/relink: true/g) ?? []).length).toBe(1);
+    expect(band.indexOf('relink: true')).toBeLessThan(band.indexOf('while (!stopRef.current'));
   });
 });
