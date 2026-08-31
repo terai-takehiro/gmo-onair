@@ -7,6 +7,7 @@
 // 固定幅予約する（他のエントリーの桁が変わっても隣のセル幅は動かさない）。
 import type { CSSProperties } from 'react';
 import type { GraphicsPageRow } from '@/lib/graphicsApi';
+import { pickLangValue, type GraphicsLang } from './langField';
 import { normalizeScoreEntries, SCORE_ENTRIES_KEY, type ScoreEntry } from './scoreEntries';
 import {
   EDGE_DARK, GOLD, GOTHIC, NAVY_PLATE, NEWS_NAVY, SAFE_X, SAFE_Y, SERIF,
@@ -125,13 +126,16 @@ function VarietyScore({ entries, flashLive }: { entries: ScoreEntry[]; flashLive
   );
 }
 
-export function ScoreBoard({ page, theme, flashLive }: {
-  page: GraphicsPageRow; theme: TelopThemeKey; flashLive?: boolean;
+export function ScoreBoard({ page, theme, flashLive, lang }: {
+  page: GraphicsPageRow; theme: TelopThemeKey; flashLive?: boolean; lang?: GraphicsLang;
 }) {
-  const entries = normalizeScoreEntries(page.fields[SCORE_ENTRIES_KEY]);
+  const rawEntries = normalizeScoreEntries(page.fields[SCORE_ENTRIES_KEY]);
   // データが無い（未入力）ときは無表示にする — 空の面を放送に出すより安全側
   // （outputParts.tsx の「まだレンダラーの無い部品は何も描かない」と同じ規律）
-  if (entries.length === 0) return null;
+  if (rawEntries.length === 0) return null;
+  // 英語名を1度だけ解決しておく（`langField.ts` の pickLangValue に統一）。
+  // 下の Ceremony/News/Corporate/VarietyScore は今までどおり `e.name` を読むだけでよい
+  const entries = rawEntries.map((e) => ({ ...e, name: pickLangValue(e.name, e.nameEn ?? '', lang) }));
   if (theme === 'news-navy') return <NewsScore entries={entries} flashLive={flashLive} />;
   if (theme === 'corporate-light') return <CorporateScore entries={entries} flashLive={flashLive} />;
   if (theme === 'variety-pop') return <VarietyScore entries={entries} flashLive={flashLive} />;

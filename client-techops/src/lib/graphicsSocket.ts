@@ -47,3 +47,8 @@ export function createGraphicsSocket(projectId: string): Socket {
 export function emitCgSet(socket: Socket, slot: GraphicsSlot, pageId: string | null) {
   socket.emit('cg:set', { slot, pageId });
 }
+
+/** 「続き」（段6-1・汎用機構）: 対象スロットの reveal_phase を+1する。 */
+export function emitCgContinue(socket: Socket, slot: GraphicsSlot) {
+  socket.emit('cg:continue', { slot });
+}

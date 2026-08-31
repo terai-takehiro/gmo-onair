@@ -7,14 +7,11 @@
 //   ・バラエティは「帯＋左肩ラベルの乗り上げ（少し回転）」が実物の文法
 import type { CSSProperties } from 'react';
 import type { GraphicsPageRow } from '@/lib/graphicsApi';
+import { pickLang, type GraphicsLang } from './langField';
 import {
   EDGE_DARK, GOLD, GOTHIC, NAVY_PLATE, NEWS_NAVY, SAFE_X, SAFE_Y, SERIF,
   SOFT_SHADOW, CORPORATE_ACCENT, WHITE, type TelopThemeKey,
 } from './telopTheme';
-
-function str(v: unknown): string {
-  return typeof v === 'string' ? v : v == null ? '' : String(v);
-}
 
 interface NameFields {
   label: string;
@@ -22,11 +19,19 @@ interface NameFields {
   sub: string;
 }
 
-function readFields(page: GraphicsPageRow): NameFields {
+/**
+ * `lang==='en'` のときは `labelEn`/`mainTextEn`/`subTextEn` を優先し、無ければ
+ * 日本語版へフォールバックする（`langField.ts` の `pickLang` に統一・§多言語対応）。
+ * ここで一度だけ解決しておけば、下の CeremonyName 等の各テーマ実装は今までどおり
+ * `f.name`/`f.sub` を読むだけでよい。
+ */
+function readFields(page: GraphicsPageRow, lang?: GraphicsLang): NameFields {
+  const mainText = pickLang(page.fields, 'mainText', lang);
+  const legacyName = pickLang(page.fields, 'name', lang);
   return {
-    label: str(page.fields.label),
-    name: str(page.fields.mainText) || str(page.fields.name) || page.name,
-    sub: str(page.fields.subText) || str(page.fields.title),
+    label: pickLang(page.fields, 'label', lang),
+    name: mainText || legacyName || page.name,
+    sub: pickLang(page.fields, 'subText', lang) || pickLang(page.fields, 'title', lang),
   };
 }
 
@@ -184,10 +189,10 @@ function VarietyName({ f, tickerLive }: { f: NameFields; tickerLive?: boolean })
   );
 }
 
-export function LowerThirdName({ page, theme, tickerLive }: {
-  page: GraphicsPageRow; theme: TelopThemeKey; tickerLive?: boolean;
+export function LowerThirdName({ page, theme, tickerLive, lang }: {
+  page: GraphicsPageRow; theme: TelopThemeKey; tickerLive?: boolean; lang?: GraphicsLang;
 }) {
-  const f = readFields(page);
+  const f = readFields(page, lang);
   if (theme === 'news-navy') return <NewsName f={f} tickerLive={tickerLive} />;
   if (theme === 'corporate-light') return <CorporateName f={f} tickerLive={tickerLive} />;
   if (theme === 'variety-pop') return <VarietyName f={f} tickerLive={tickerLive} />;

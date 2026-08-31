@@ -92,6 +92,11 @@ export default function PageFormDialog({
           : def.kind === 'choices'
           ? normalizeVoteChoices(v)
           : typeof v === 'string' ? v : v == null ? '' : String(v);
+        // 英語欄（`${key}En`）も同じページから拾う（pageFields.ts の bilingual フィールドだけ）
+        if (def.bilingual) {
+          const ev = page.fields?.[`${def.key}En`];
+          next[`${def.key}En`] = typeof ev === 'string' ? ev : ev == null ? '' : String(ev);
+        }
       }
       setFields(next);
     } else {
@@ -106,6 +111,7 @@ export default function PageFormDialog({
         if (def.kind === 'entries') next[def.key] = defaultScoreEntries();
         else if (def.kind === 'choices') next[def.key] = defaultVoteChoices();
         else if (i === 0 && initialValues?.firstFieldValue) next[def.key] = initialValues.firstFieldValue;
+        if (def.bilingual) next[`${def.key}En`] = '';
       });
       setFields(next);
     }
@@ -118,6 +124,7 @@ export default function PageFormDialog({
     for (const def of PART_FIELDS[key] ?? []) {
       if (def.kind === 'entries') next[def.key] = defaultScoreEntries();
       else if (def.kind === 'choices') next[def.key] = defaultVoteChoices();
+      if (def.bilingual) next[`${def.key}En`] = '';
     }
     setFields(next);
   };
@@ -219,6 +226,9 @@ export default function PageFormDialog({
               const raw = fields[def.key];
               const value = typeof raw === 'string' ? raw : '';
               const length = Array.from(value).length;
+              const enKey = `${def.key}En`;
+              const enRaw = fields[enKey];
+              const enValue = typeof enRaw === 'string' ? enRaw : '';
               return (
                 <div key={def.key}>
                   <div className="flex items-baseline justify-between gap-2">
@@ -236,6 +246,23 @@ export default function PageFormDialog({
                     value={value}
                     onChange={(e) => setFields((prev) => ({ ...prev, [def.key]: e.target.value }))}
                   />
+                  {/* 英語版（任意）。本体のすぐ下に自動的に足す — bilingual フィールドだけ
+                      （pageFields.ts）。未入力なら出力の ?lang=en でも日本語のままフォールバック */}
+                  {def.bilingual && (
+                    <div className="mt-1.5">
+                      <Label htmlFor={`graphics-field-${enKey}`} className="text-note text-muted-foreground">
+                        {def.label}（英語・任意）
+                      </Label>
+                      <Input
+                        id={`graphics-field-${enKey}`}
+                        type="text"
+                        className="mt-1 min-h-[44px]"
+                        value={enValue}
+                        placeholder="未入力なら出力の ?lang=en でも日本語のまま表示されます"
+                        onChange={(e) => setFields((prev) => ({ ...prev, [enKey]: e.target.value }))}
+                      />
+                    </div>
+                  )}
                 </div>
               );
             })}

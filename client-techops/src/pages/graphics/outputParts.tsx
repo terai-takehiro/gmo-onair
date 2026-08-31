@@ -9,6 +9,7 @@
 // 実装する — ネームの構造分岐は nameParts.tsx、共通の色・書体は telopTheme.ts。
 // 罫は1要素1本まで。時計と速報は全テーマ共通（報道の文法が汎用の正）。
 import type { GraphicsPageRow } from '@/lib/graphicsApi';
+import { pickLang, type GraphicsLang } from './langField';
 import { FullscreenList, FullscreenTitle, TickerBand } from './outputPartsExtra';
 import { LowerThirdName } from './nameParts';
 import { ScoreBoard } from './scoreParts';
@@ -27,8 +28,10 @@ function str(v: unknown): string {
  * 式典・コーポレート = 面なしの袋文字だけ（罫も置かない）／
  * 報道 = 紺帯の白抜き（面ベタ）／ バラエティ = 黄の座布団に黒文字。
  */
-export function SideLabel({ page, theme, flashLive }: { page: GraphicsPageRow; theme: TelopThemeKey; flashLive?: boolean }) {
-  const text = str(page.fields.text) || page.name;
+export function SideLabel({ page, theme, flashLive, lang }: {
+  page: GraphicsPageRow; theme: TelopThemeKey; flashLive?: boolean; lang?: GraphicsLang;
+}) {
+  const text = pickLang(page.fields, 'text', lang) || page.name;
   // 速報帯（上辺 h=88）が出ている間は持ち場を譲って下がる
   const base = { position: 'absolute' as const, top: flashLive ? 88 + 34 : SAFE_Y, right: SAFE_X, maxWidth: 760 };
   const clip = { whiteSpace: 'nowrap' as const, overflow: 'hidden' as const, textOverflow: 'ellipsis' as const };
@@ -123,8 +126,8 @@ export function ClockCountdown({ page, serverNowMs }: { page: GraphicsPageRow; s
  * ラベル＝ベタ #EA0358 に白抜き、本文＝**白ベタ帯に同系色の文字**（黒半透明帯ではない）。
  * 面はどちらも不透明・エッジ不要・罫線では分けない。
  */
-export function FlashBand({ page }: { page: GraphicsPageRow }) {
-  const text = str(page.fields.text) || page.name;
+export function FlashBand({ page, lang }: { page: GraphicsPageRow; lang?: GraphicsLang }) {
+  const text = pickLang(page.fields, 'text', lang) || page.name;
   return (
     <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 88, display: 'flex', alignItems: 'stretch', background: '#fefbfe' }}>
       <span
@@ -178,6 +181,27 @@ export interface RenderContext {
   tickerLive?: boolean;
   /** 速報帯（上辺 y=0〜88）がオンエア中 → サイドスーパーが下に退避 */
   flashLive?: boolean;
+  /**
+   * 段階カウンタ（段6-1・汎用機構）。対応する部品（今は `FullscreenList` のみ）が
+   * 渡された値に応じて表示範囲を絞る。未指定＝従来どおり全件表示（送出コンソールが
+   * 「続き」を1度も送っていないページ・この機構を使わない部品には効かない）。
+   */
+  revealPhase?: number;
+  /**
+   * 出力言語（多言語対応・graphics.md §6・§7）。未指定は `'ja'` 扱い。`'en'` のときは
+   * 各部品が `${field}En` の値を優先し、無ければ日本語版へフォールバックする
+   * （`langField.ts` の `pickLang` に統一）。GraphicsOutputPage.tsx が `?lang=` から渡す
+   */
+  lang?: GraphicsLang;
+}
+
+/**
+ * この部品（ページ）が「続き」（段階公開）に対応しているか。
+ * ⚠️ 段6-1は汎用機構だが、対応する部品はいまのところ `FullscreenList`（一覧表）だけ
+ * （実証段階）。送出コンソールの「続き」ボタンの有効・無効判定に使う。
+ */
+export function pageSupportsReveal(page: GraphicsPageRow): boolean {
+  return page.slot === 'fullscreen' && page.partKey === 'list';
 }
 
 /**
@@ -190,25 +214,25 @@ export function renderGraphicsPage(page: GraphicsPageRow, serverNowMs: number, c
     return <ClockCountdown key={page.id} page={page} serverNowMs={serverNowMs} />;
   }
   if (page.slot === 'flash') {
-    return <FlashBand key={page.id} page={page} />;
+    return <FlashBand key={page.id} page={page} lang={ctx?.lang} />;
   }
   if (page.slot === 'ticker') {
-    return <TickerBand key={page.id} page={page} />;
+    return <TickerBand key={page.id} page={page} lang={ctx?.lang} />;
   }
   if (page.slot === 'fullscreen') {
-    if (page.partKey === 'list') return <FullscreenList key={page.id} page={page} />;
+    if (page.partKey === 'list') return <FullscreenList key={page.id} page={page} revealPhase={ctx?.revealPhase} />;
     if (page.partKey === 'title') return <FullscreenTitle key={page.id} page={page} />;
-    if (page.partKey === 'vote') return <VoteResult key={page.id} page={page} theme={theme} />;
+    if (page.partKey === 'vote') return <VoteResult key={page.id} page={page} theme={theme} lang={ctx?.lang} />;
     return null;
   }
   if (page.slot === 'side' && page.partKey === 'score') {
-    return <ScoreBoard key={page.id} page={page} theme={theme} flashLive={ctx?.flashLive} />;
+    return <ScoreBoard key={page.id} page={page} theme={theme} flashLive={ctx?.flashLive} lang={ctx?.lang} />;
   }
   if (page.slot === 'side') {
-    return <SideLabel key={page.id} page={page} theme={theme} flashLive={ctx?.flashLive} />;
+    return <SideLabel key={page.id} page={page} theme={theme} flashLive={ctx?.flashLive} lang={ctx?.lang} />;
   }
   if (page.slot === 'lower' && page.partKey === 'name') {
-    return <LowerThirdName key={page.id} page={page} theme={theme} tickerLive={ctx?.tickerLive} />;
+    return <LowerThirdName key={page.id} page={page} theme={theme} tickerLive={ctx?.tickerLive} lang={ctx?.lang} />;
   }
   return null;
 }

@@ -17,8 +17,14 @@ import {
 } from '@/lib/graphicsApi';
 import { createGraphicsSocket, type CgSyncPayload } from '@/lib/graphicsSocket';
 import { CgTransition } from './CgTransition';
+import type { GraphicsLang } from './langField';
 import { renderGraphicsPage } from './outputParts';
 import { resolveTelopTheme } from './telopTheme';
+
+/** `?lang=` の読み取り。未指定・不明な値は `'ja'` 扱い（多言語対応・graphics.md §6・§7） */
+function resolveOutputLang(v: string | null): GraphicsLang {
+  return v === 'en' ? 'en' : 'ja';
+}
 
 const CANVAS_W = 1920;
 const CANVAS_H = 1080;
@@ -158,6 +164,11 @@ export default function GraphicsOutputPage() {
               theme: resolveTelopTheme(searchParams.get('theme') ?? bundle?.project?.theme),
               tickerLive: livePages.some((q) => q.slot === 'ticker'),
               flashLive: livePages.some((q) => q.slot === 'flash'),
+              // 段6-1・汎用機構: このページが乗っているスロットの cue から reveal_phase を拾う
+              // （PGM は必ず1スロット1枚なので、そのページ専用の値になる）
+              revealPhase: cues[p.slot]?.revealPhase,
+              // 多言語対応（graphics.md §6・§7・graphics-awards-migration-plan.md §2-2の7番）
+              lang: resolveOutputLang(searchParams.get('lang')),
             }),
           }))}
         />

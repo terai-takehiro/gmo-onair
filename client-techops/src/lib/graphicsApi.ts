@@ -9,6 +9,7 @@
  *   PUT  /graphics/pages/:id                   … ページ更新
  *   DELETE /graphics/pages/:id                 … ページ削除
  *   POST /graphics/projects/:id/cue            … スロットの cue を差し替え（TAKE / OUT）
+ *   POST /graphics/projects/:id/cue/continue    … 「続き」— スロットの reveal_phase を+1（段6-1）
  *   GET  /graphics/projects/:id/output         … 公開・認証なし（出力画面と 30s ポーリング用）
  *   POST /graphics/projects/:id/requests       … 発注（テロ原）の新規作成
  *   GET  /graphics/projects/:id/requests       … 発注一覧（既定は status=requested のみ）
@@ -121,6 +122,12 @@ export interface GraphicsCueRow {
   pageId: string | null;
   isLive: boolean;
   takenAt: string | null;
+  /**
+   * 段階カウンタ（段6-1・汎用機構）。新しいページが TAKE されたら 0 にリセットされる。
+   * 「続き」（`continueGraphicsCue`）で+1。0 は「まだ何も進めていない」を意味し、
+   * この値をどう解釈するかは部品側が決める（例: `FullscreenList` は `revealPhase+1` 件目まで表示）。
+   */
+  revealPhase: number;
 }
 
 export interface GraphicsBundle {
@@ -192,6 +199,15 @@ export async function setGraphicsCue(
 ): Promise<SetGraphicsCueResult> {
   const { data } = await api.post(`/graphics/projects/${encodeURIComponent(projectId)}/cue`, { slot, pageId });
   return { cues: data.data.cues, autoOutSlots: data.data.autoOutSlots ?? [] };
+}
+
+/**
+ * 「続き」（段6-1・汎用機構）: 対象スロットの cue の `revealPhase` を+1する。
+ * REST 経由の口 — 本番はソケットの `cg:continue` を使う（`emitCgContinue`）。
+ */
+export async function continueGraphicsCue(projectId: string, slot: GraphicsSlot): Promise<GraphicsCueRow[]> {
+  const { data } = await api.post(`/graphics/projects/${encodeURIComponent(projectId)}/cue/continue`, { slot });
+  return data.data.cues;
 }
 
 export interface GraphicsOutputBundle extends GraphicsBundle {

@@ -78,7 +78,7 @@ export function VoteChoicesEditor({
                 </Button>
               </div>
 
-              <div className="min-w-[160px] flex-1">
+              <div className="min-w-[160px] flex-1 space-y-1">
                 <Input
                   className="min-h-[44px]"
                   value={choice.label}
@@ -89,6 +89,14 @@ export function VoteChoicesEditor({
                 {labelLen > limit && (
                   <p className="mt-0.5 text-note text-warning">{labelLen} / {limit}字</p>
                 )}
+                {/* 英語版（任意）。出力の ?lang=en で優先表示・未入力なら日本語のままフォールバック */}
+                <Input
+                  className="min-h-[44px]"
+                  value={choice.labelEn ?? ''}
+                  placeholder="英語ラベル（任意・?lang=en で優先表示）"
+                  onChange={(e) => update(i, { labelEn: e.target.value })}
+                  aria-label={`${i + 1}番目の英語ラベル`}
+                />
               </div>
 
               <div className="flex shrink-0 items-center gap-2">

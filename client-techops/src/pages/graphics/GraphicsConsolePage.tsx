@@ -21,16 +21,17 @@ import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifyError } from '@/lib/notify';
 import {
-  GRAPHICS_SLOTS, PROOF_LABELS, setGraphicsCue,
+  GRAPHICS_SLOTS, PROOF_LABELS, continueGraphicsCue, setGraphicsCue,
   type GraphicsBundle, type GraphicsCueRow, type GraphicsPageRow, type GraphicsSlot,
 } from '@/lib/graphicsApi';
-import { createGraphicsSocket, emitCgSet, type CgSyncPayload } from '@/lib/graphicsSocket';
+import { createGraphicsSocket, emitCgContinue, emitCgSet, type CgSyncPayload } from '@/lib/graphicsSocket';
 import { useGraphicsProject } from './useGraphicsProject';
 import { useConsolePages } from './useConsolePages';
 import { useAutoOutHighlight } from './useAutoOutHighlight';
 import { useConsoleKeyboard } from './useConsoleKeyboard';
 import { ProofBadge } from './badges';
 import { resolveTelopTheme } from './telopTheme';
+import { pageSupportsReveal } from './outputParts';
 import { ConsolePreview } from './ConsolePreview';
 import { ConsoleControls } from './ConsoleControls';
 import { ConsoleSlotLanes } from './ConsoleSlotLanes';
@@ -150,6 +151,28 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
       flashAutoOut(next.autoOutSlots);
     } catch {
       notifyError('送出の指示を送れませんでした', { description: 'サーバーとの接続を確認してください。' });
+    }
+  };
+
+  /**
+   * 「続き」（段6-1）: PGM（TAKE 済みでいまオンエア中）のうち段階公開に対応した部品が
+   * 乗っているページ1枚を対象にする。TAKE が pvwPage.slot を対象にするのと対になる選び方 —
+   * ただし対象は PVW ではなく PGM（`livePages`）。複数対象があっても最初の1枚だけを送る
+   * （実運用ではフルスクリーンは1枠しかないため通常は高々1枚）。
+   */
+  const continueTarget = livePages.find(pageSupportsReveal) ?? null;
+
+  const sendContinue = async (slot: GraphicsSlot) => {
+    const socket = socketRef.current;
+    if (socket?.connected) {
+      emitCgContinue(socket, slot);
+      return;
+    }
+    try {
+      const next = await continueGraphicsCue(projectId, slot);
+      setCues(cuesToMap(next));
+    } catch {
+      notifyError('「続き」の指示を送れませんでした', { description: 'サーバーとの接続を確認してください。' });
     }
   };
 
@@ -291,7 +314,7 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
           tone="pgm"
           title="いま出ている絵（合成後）"
           right={<span className="font-number shrink-0 text-sub-sm text-muted-foreground">1920×1080</span>}
-          items={livePages.map((page) => ({ page }))}
+          items={livePages.map((page) => ({ page, revealPhase: cues[page.slot]?.revealPhase }))}
           emptyText="オンエアなし"
           serverNowMs={serverNowMs}
           ctx={{
@@ -318,6 +341,8 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
           onTake={() => { if (pvwPage) void take(pvwPage); }}
           onNext={() => { void takeAndNext(); }}
           onOut={() => { void outStandby(); }}
+          continueTarget={continueTarget}
+          onContinue={() => { if (continueTarget) void sendContinue(continueTarget.slot); }}
         />
       </div>
 

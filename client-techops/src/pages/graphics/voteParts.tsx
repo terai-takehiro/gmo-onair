@@ -8,6 +8,7 @@
 // バーはトラック（未達部分の線）を描かず塗り部分だけ（実装と同じ・§9.9）。
 import type { CSSProperties } from 'react';
 import type { GraphicsPageRow } from '@/lib/graphicsApi';
+import { pickLang, pickLangValue, type GraphicsLang } from './langField';
 import { normalizeVoteChoices, sharePercent, totalVotes, VOTE_CHOICES_KEY, type VoteChoice } from './voteChoices';
 import {
   EDGE_DARK, GOLD, GOTHIC, NEWS_NAVY, SAFE_X, SAFE_Y, SERIF,
@@ -48,10 +49,13 @@ interface VoteData {
   total: number;
 }
 
-function readVote(page: GraphicsPageRow): VoteData {
-  const question = typeof page.fields.question === 'string' ? page.fields.question : page.name;
+function readVote(page: GraphicsPageRow, lang?: GraphicsLang): VoteData {
+  const question = pickLang(page.fields, 'question', lang) || page.name;
   const choices = normalizeVoteChoices(page.fields[VOTE_CHOICES_KEY]).filter((c) => c.label !== '');
-  const shown = choices.slice(0, MAX_CHOICES_SHOWN);
+  // 英語ラベルを1度だけ解決しておく（`langField.ts` の pickLangValue に統一）。
+  // 下の Ceremony/News/Corporate/VarietyVote は今までどおり `c.label` を読むだけでよい
+  const localized = choices.map((c) => ({ ...c, label: pickLangValue(c.label, c.labelEn ?? '', lang) }));
+  const shown = localized.slice(0, MAX_CHOICES_SHOWN);
   return { question, shown, restCount: choices.length - shown.length, total: totalVotes(choices) };
 }
 
@@ -221,8 +225,8 @@ function ListFooter({ data, color }: { data: VoteData; color: string }) {
   );
 }
 
-export function VoteResult({ page, theme }: { page: GraphicsPageRow; theme: TelopThemeKey }) {
-  const data = readVote(page);
+export function VoteResult({ page, theme, lang }: { page: GraphicsPageRow; theme: TelopThemeKey; lang?: GraphicsLang }) {
+  const data = readVote(page, lang);
   // 選択肢が1件も無い（ラベル未入力のみ）ときは無表示にする — 出力が空の暗幕だけになる
   // より、レンダラー自体が「まだ用意できていない」ことを示す（outputParts.tsx の規律と同じ）
   if (data.shown.length === 0) return null;

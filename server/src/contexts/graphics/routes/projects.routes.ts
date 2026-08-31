@@ -3,7 +3,7 @@ import { execute, queryOne } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import {
-  applyCueTake, fetchBundle, fetchProject, SLOTS, Slot, SlotExitRule, THEMES, Theme,
+  applyCueTake, bumpRevealPhase, fetchBundle, fetchProject, SLOTS, Slot, SlotExitRule, THEMES, Theme,
 } from '../store';
 
 // CGプロジェクト（graphics_projects）の解決・取得と、スロット cue の HTTP 経路。
@@ -182,6 +182,31 @@ router.post('/projects/:id/cue', wrap(async (req, res) => {
   }
 
   res.json({ success: true, data: { cues, autoOutSlots } });
+}));
+
+// ── 「続き」（段6-1・汎用機構）: 対象スロットの cue の reveal_phase を +1 する ──
+// docs/design/v4/graphics.md §4 の5動詞のうち唯一未実装だったもの。上限や意味は
+// ここでは決め打ちしない（部品側が「もう増えない」を判断する）。
+router.post('/projects/:id/cue/continue', wrap(async (req, res) => {
+  const id = parseInt(req.params.id as string);
+  const project = id && !isNaN(id) ? await fetchProject(id) : null;
+  if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
+
+  const { slot } = (req.body ?? {}) as { slot?: string };
+  if (!SLOTS.includes(slot as Slot)) {
+    throw new AppError(400, 'VALIDATION_ERROR', `slot は ${SLOTS.join(' / ')} のいずれかです`);
+  }
+
+  const cues = await bumpRevealPhase(id, slot as Slot);
+
+  // Socket.IO の出力画面へも同報（POST …/cue と同じ二重化。cg:sync 受け手は cues を
+  // 丸ごと差し替えるだけでよく、reveal_phase もその中に乗って届く）
+  const io = req.app.get('io');
+  if (io) {
+    io.of('/graphics').to(`project:${id}`).emit('cg:sync', { cues, timestamp: Date.now() });
+  }
+
+  res.json({ success: true, data: { cues } });
 }));
 
 export default router;

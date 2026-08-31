@@ -23,6 +23,12 @@ export interface PreviewItem {
    * 次に出す1枚がどこに重なるかを、実際の合成に近い形で確かめられる。
    */
   dim?: boolean;
+  /**
+   * 段階カウンタ（段6-1・汎用機構）。この1枚専用の `RenderContext.revealPhase` —
+   * `ctx` は複数アイテムで共有するが、reveal_phase はスロット（＝cue）ごとに違うため
+   * アイテム単位で渡す（PGM のときだけ呼び出し側が cue から拾って渡す。PVW は渡さない）。
+   */
+  revealPhase?: number;
 }
 
 /** 枠の実測幅（ResizeObserver）から 1920px キャンバスの縮尺を出す */
@@ -92,7 +98,7 @@ export function ConsolePreview({ tone, title, right, items, emptyText, serverNow
             items={items.map((it) => ({
               key: it.page.id,
               dim: it.dim,
-              node: renderGraphicsPage(it.page, serverNowMs, ctx),
+              node: renderGraphicsPage(it.page, serverNowMs, { ...ctx, revealPhase: it.revealPhase }),
             }))}
           />
         </div>

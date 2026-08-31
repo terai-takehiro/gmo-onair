@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { queryOne } from '../../shared/db/connection';
-import { applyCueTake, fetchCues, SLOTS, Slot } from './store';
+import { applyCueTake, bumpRevealPhase, fetchCues, SLOTS, Slot } from './store';
 
 // テロップCG の Socket.IO ネームスペース（awards/socket.ts と同型・handshake 認証なし。
 // 出力画面 = OBS ブラウザソースが繋ぐため。graphics.md §7「公開URL・認証なし」の契約）。
@@ -46,6 +46,18 @@ export function initGraphicsSocketIO(io: Server): void {
         graphicsNs.to(room).emit('cg:sync', { cues, autoOutSlots, timestamp: Date.now() });
       } catch (err) {
         console.error('[graphics socket] cg:set error', err);
+      }
+    });
+
+    // 操作画面 → 出力画面: 「続き」（段6-1・汎用機構）。対象スロットの reveal_phase を +1
+    socket.on('cg:continue', async (data: { slot?: string }) => {
+      try {
+        const slot = data?.slot as Slot;
+        if (!SLOTS.includes(slot)) return;
+        const cues = await bumpRevealPhase(projectId, slot);
+        graphicsNs.to(room).emit('cg:sync', { cues, timestamp: Date.now() });
+      } catch (err) {
+        console.error('[graphics socket] cg:continue error', err);
       }
     });
 

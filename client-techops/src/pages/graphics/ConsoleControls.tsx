@@ -10,7 +10,9 @@ import { Hash, Radio, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { GraphicsPageRow } from '@/lib/graphicsApi';
 
-export function ConsoleControls({ callBuffer, pvwPage, onStandby, onTake, onNext, onOut }: {
+export function ConsoleControls({
+  callBuffer, pvwPage, onStandby, onTake, onNext, onOut, continueTarget, onContinue,
+}: {
   /** テンキーで溜まっている呼出番号（空文字 = 未入力） */
   callBuffer: string;
   pvwPage: GraphicsPageRow | null;
@@ -20,6 +22,13 @@ export function ConsoleControls({ callBuffer, pvwPage, onStandby, onTake, onNext
   onNext: () => void;
   /** PVW と同じスロットのオンエアを下ろす */
   onOut: () => void;
+  /**
+   * 「続き」の対象（段6-1・汎用機構）。**PVW ではなく PGM**（いまオンエア中のページ）に
+   * 段階公開に対応した部品が乗っているときだけ非 null になる（`pageSupportsReveal`）。
+   * null の間はボタンを disabled のままにする。
+   */
+  continueTarget: GraphicsPageRow | null;
+  onContinue: () => void;
 }) {
   return (
     <div className="flex w-full shrink-0 flex-col gap-2 rounded-card border border-border bg-card p-3 lg:w-[300px]">
@@ -54,9 +63,16 @@ export function ConsoleControls({ callBuffer, pvwPage, onStandby, onTake, onNext
         <SkipForward className="mr-1.5 h-4 w-4" aria-hidden="true" />次へ（TAKE ＋ 次をスタンバイ）
       </Button>
       <div className="flex gap-2">
-        {/* 続き（Continue）は多段アニメ（ストップポイント）実装後に生かす — §4 */}
-        <Button type="button" variant="outline" className="flex-1" disabled title="多段アニメの実装後に使えるようになります">
-          続き（多段アニメ・後日）
+        {/* 続き（段6-1・汎用機構）: PGM に段階公開対応の部品が乗っているときだけ押せる */}
+        <Button
+          type="button"
+          variant="outline"
+          className="flex-1"
+          disabled={!continueTarget}
+          onClick={onContinue}
+          title={continueTarget ? undefined : 'いま出ているページに段階公開の部品がありません'}
+        >
+          続き
         </Button>
         <Button type="button" variant="outline" className="flex-1" disabled={!pvwPage} onClick={onOut}>
           OUT

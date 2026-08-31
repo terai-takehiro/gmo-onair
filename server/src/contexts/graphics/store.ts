@@ -91,6 +91,13 @@ export interface GraphicsCue {
   pageId: number | null;
   isLive: boolean;
   takenAt: unknown;
+  /**
+   * 段階カウンタ（段6-1・汎用機構。migration 248）。新しいページが TAKE されたら
+   * 0 にリセットされる（`upsertCueTx`）。「続き」ボタンで `POST …/cue/continue` が
+   * +1 する。部品側（例: `FullscreenList`）が自分の都合で解釈する — 上限や意味は
+   * cue 側では決め打ちしない。
+   */
+  revealPhase: number;
   updatedAt: unknown;
 }
 
@@ -149,6 +156,7 @@ export function mapCue(r: Row): GraphicsCue {
     pageId: (r.page_id as number | null) ?? null,
     isLive: r.is_live as boolean,
     takenAt: r.taken_at ?? null,
+    revealPhase: (r.reveal_phase as number | null) ?? 0,
     updatedAt: r.updated_at,
   };
 }
@@ -230,12 +238,13 @@ export async function upsertCue(
 ): Promise<GraphicsCue[]> {
   const isLive = pageId !== null;
   await execute(
-    `INSERT INTO graphics_cue_state (project_id, slot, page_id, is_live, taken_at, updated_at)
-     VALUES (?, ?, ?, ?, ${isLive ? 'NOW()' : 'NULL'}, NOW())
+    `INSERT INTO graphics_cue_state (project_id, slot, page_id, is_live, taken_at, reveal_phase, updated_at)
+     VALUES (?, ?, ?, ?, ${isLive ? 'NOW()' : 'NULL'}, 0, NOW())
      ON CONFLICT (project_id, slot) DO UPDATE
        SET page_id = EXCLUDED.page_id,
            is_live = EXCLUDED.is_live,
            taken_at = EXCLUDED.taken_at,
+           reveal_phase = 0,
            updated_at = NOW()`,
     [projectId, slot, pageId, isLive]
   );
@@ -249,13 +258,17 @@ async function upsertCueTx(
   pageId: number | null
 ): Promise<void> {
   const isLive = pageId !== null;
+  // reveal_phase は常に 0 で書き直す（migration 248） — TAKE で新しいページが乗るときも
+  // OUT でスロットが空くときも、前の段階を引き継がせない（「続き」は今出ているページの
+  // ためだけの状態であるべき）
   await tx.execute(
-    `INSERT INTO graphics_cue_state (project_id, slot, page_id, is_live, taken_at, updated_at)
-     VALUES (?, ?, ?, ?, ${isLive ? 'NOW()' : 'NULL'}, NOW())
+    `INSERT INTO graphics_cue_state (project_id, slot, page_id, is_live, taken_at, reveal_phase, updated_at)
+     VALUES (?, ?, ?, ?, ${isLive ? 'NOW()' : 'NULL'}, 0, NOW())
      ON CONFLICT (project_id, slot) DO UPDATE
        SET page_id = EXCLUDED.page_id,
            is_live = EXCLUDED.is_live,
            taken_at = EXCLUDED.taken_at,
+           reveal_phase = 0,
            updated_at = NOW()`,
     [projectId, slot, pageId, isLive]
   );
@@ -310,6 +323,25 @@ export async function applyCueTake(
   });
   const cues = await fetchCues(projectId);
   return { cues, autoOutSlots };
+}
+
+/** 段階カウンタの上限（安全のためのクランプ。部品側の意味は決め打ちしない — 段6-1）。 */
+const REVEAL_PHASE_MAX = 99;
+
+/**
+ * 「続き」動詞（段6-1・汎用機構）: 対象スロットの cue の `reveal_phase` を +1 する。
+ * 上限（`REVEAL_PHASE_MAX`）に達したらそこで止まる — 「もう増えない」の判断は部品側
+ * （例: `FullscreenList`）に委ねる。ライブでないスロット（pageId が無い）に送っても
+ * 実害は無いが、呼び出し側（ルート／Socket）で PGM に乗っているかを確認してから呼ぶ想定。
+ */
+export async function bumpRevealPhase(projectId: number, slot: Slot): Promise<GraphicsCue[]> {
+  await execute(
+    `UPDATE graphics_cue_state
+       SET reveal_phase = LEAST(reveal_phase + 1, ?), updated_at = NOW()
+     WHERE project_id = ? AND slot = ?`,
+    [REVEAL_PHASE_MAX, projectId, slot]
+  );
+  return fetchCues(projectId);
 }
 
 /** スロット別ブロック内の最小の空き呼出番号を払い出す。 */

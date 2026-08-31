@@ -7,6 +7,8 @@
 // できるよう、正規化・既定値・キー名をこの1ファイルに閉じる。
 export interface ScoreEntry {
   name: string;
+  /** 英語版の名前（任意）。出力の `?lang=en` で優先表示・未入力なら `name` へフォールバック */
+  nameEn?: string;
   points: number;
 }
 
@@ -20,8 +22,9 @@ function toEntry(v: unknown): ScoreEntry | null {
   if (!v || typeof v !== 'object') return null;
   const o = v as Record<string, unknown>;
   const name = typeof o.name === 'string' ? o.name : '';
+  const nameEn = typeof o.nameEn === 'string' ? o.nameEn : '';
   const points = toPoints(o.points);
-  return { name, points };
+  return { name, nameEn, points };
 }
 
 function toPoints(v: unknown): number {
@@ -38,5 +41,5 @@ export function normalizeScoreEntries(v: unknown): ScoreEntry[] {
 
 /** 新規作成時の初期エントリー（対戦の最小構成=2件） */
 export function defaultScoreEntries(): ScoreEntry[] {
-  return [{ name: '', points: 0 }, { name: '', points: 0 }];
+  return [{ name: '', nameEn: '', points: 0 }, { name: '', nameEn: '', points: 0 }];
 }

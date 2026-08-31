@@ -10,6 +10,7 @@
 //   ・ティッカーは高さ72・110px/s（slow=90/fast=130）。速度を固定し尺を逆算（§6）
 import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import type { GraphicsPageRow } from '@/lib/graphicsApi';
+import { pickLang, type GraphicsLang } from './langField';
 import {
   estimateTickerTextWidth,
   tickerPxPerSec,
@@ -152,12 +153,20 @@ const MAX_LIST_ITEMS = 20;
  * フルスクリーン × 一覧表（受賞者一覧など・既定 4列×5行）:
  * 暗幕に見出し（題字より小さく・金の細罫下線）＋氏名のグリッド。
  * **セルに箱・枠線は描かない** — 氏名は暗幕に直置き（枠付きセルは Web の UI に見える）。
+ *
+ * `revealPhase`（段6-1・汎用機構の実証）が渡されたときだけ「`revealPhase + 1` 件目まで」
+ * に絞る。未指定＝従来どおり全件表示（既存のページ・プレビューの見た目を壊さないため、
+ * 「続き」を1度も送っていないページには一切効かない）。「ほか N名」の残数はこの表示上限
+ * を基準に数え直す — 段階公開の途中で「あと何人隠れているか」が分かるように。
  */
-export function FullscreenList({ page }: { page: GraphicsPageRow }) {
+export function FullscreenList({ page, revealPhase }: { page: GraphicsPageRow; revealPhase?: number }) {
   const title = str(page.fields.title) || page.name;
   const rawItems = Array.isArray(page.fields.items) ? page.fields.items : [];
   const items = rawItems.map(str).filter((s) => s !== '');
-  const shown = items.slice(0, MAX_LIST_ITEMS);
+  const revealLimit = typeof revealPhase === 'number' && Number.isFinite(revealPhase)
+    ? Math.max(0, Math.floor(revealPhase) + 1)
+    : MAX_LIST_ITEMS;
+  const shown = items.slice(0, Math.min(MAX_LIST_ITEMS, revealLimit));
   const restCount = items.length - shown.length;
   const colRaw = Number(page.fields.columns);
   const columns = Number.isFinite(colRaw) && colRaw >= 1 ? Math.min(6, Math.floor(colRaw)) : 4;
@@ -262,8 +271,8 @@ const TICKER_SEPARATOR = '　　／　　';
  * useLayoutEffect）、継続的な計測ループは持たない。つなぎ目は本文を2回並べて
  * translateX(-50%) で戻す（シームレスループ）。
  */
-export function TickerBand({ page }: { page: GraphicsPageRow }) {
-  const text = str(page.fields.text) || page.name;
+export function TickerBand({ page, lang }: { page: GraphicsPageRow; lang?: GraphicsLang }) {
+  const text = pickLang(page.fields, 'text', lang) || page.name;
   const label = str(page.fields.label) || 'お知らせ';
   const pxPerSec = tickerPxPerSec(page.fields.speed);
   // 半分（=1グループ）が画面幅 1920px を下回るとループの合間に空白が出るので、

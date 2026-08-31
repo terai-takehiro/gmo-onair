@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type {
   GraphicsPageRow, GraphicsPartKey, GraphicsSlot, GraphicsThemeKey,
 } from '@/lib/graphicsApi';
+import type { GraphicsLang } from './langField';
 import { renderGraphicsPage } from './outputParts';
 
 const CANVAS_W = 1920;
@@ -43,6 +44,8 @@ export default function PageLivePreview({
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0);
+  // 試写用の日英切替（多言語対応・任意機能）。出力の ?lang= と同じレンダラーに渡すだけ
+  const [previewLang, setPreviewLang] = useState<GraphicsLang>('ja');
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -76,10 +79,30 @@ export default function PageLivePreview({
     sortOrder: 0,
   }), [slot, partKey, name, fields, callNo]);
 
-  const rendered = renderGraphicsPage(page, Date.now(), { theme });
+  const rendered = renderGraphicsPage(page, Date.now(), { theme, lang: previewLang });
 
   return (
     <div>
+      <div className="mb-1.5 inline-flex overflow-hidden rounded-control-md border border-border">
+        <button
+          type="button"
+          onClick={() => setPreviewLang('ja')}
+          className={`min-h-[44px] px-3 text-note font-bold ${
+            previewLang === 'ja' ? 'bg-primary text-primary-foreground' : 'bg-surface-subtle text-muted-foreground'
+          }`}
+        >
+          日本語
+        </button>
+        <button
+          type="button"
+          onClick={() => setPreviewLang('en')}
+          className={`min-h-[44px] px-3 text-note font-bold ${
+            previewLang === 'en' ? 'bg-primary text-primary-foreground' : 'bg-surface-subtle text-muted-foreground'
+          }`}
+        >
+          English
+        </button>
+      </div>
       <div
         ref={wrapRef}
         className="relative w-full overflow-hidden rounded-card border border-border bg-surface-subtle"

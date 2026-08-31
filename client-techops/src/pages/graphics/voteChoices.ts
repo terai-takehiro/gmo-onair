@@ -6,6 +6,8 @@
 // 同じ形で読み書きできるよう、正規化・既定値・割合計算をこの1ファイルに閉じる。
 export interface VoteChoice {
   label: string;
+  /** 英語版のラベル（任意）。出力の `?lang=en` で優先表示・未入力なら `label` へフォールバック */
+  labelEn?: string;
   /** 票数。0以上の整数のみ（負値・NaN は 0 に丸める） */
   votes: number;
 }
@@ -28,7 +30,8 @@ function toChoice(v: unknown): VoteChoice | null {
   if (!v || typeof v !== 'object') return null;
   const o = v as Record<string, unknown>;
   const label = typeof o.label === 'string' ? o.label : '';
-  return { label, votes: toVotes(o.votes) };
+  const labelEn = typeof o.labelEn === 'string' ? o.labelEn : '';
+  return { label, labelEn, votes: toVotes(o.votes) };
 }
 
 /** 未知の値（DB から読んだ `fields.choices` 生値）を安全な配列へ正規化する */
@@ -39,7 +42,7 @@ export function normalizeVoteChoices(v: unknown): VoteChoice[] {
 
 /** 新規作成時の初期選択肢（投票・クイズの最小構成=2択） */
 export function defaultVoteChoices(): VoteChoice[] {
-  return [{ label: '', votes: 0 }, { label: '', votes: 0 }];
+  return [{ label: '', labelEn: '', votes: 0 }, { label: '', labelEn: '', votes: 0 }];
 }
 
 /** 全選択肢の合計票数 */
