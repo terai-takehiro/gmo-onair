@@ -26,9 +26,13 @@ describe('どれをゴミと見なすか', () => {
   it('失注すべてと、放置ネタだけを対象にする', () => {
     expect(PURGE_JUNK_STAGE_SQL).toContain("p.stage = 'e_lost'");
     expect(PURGE_JUNK_STAGE_SQL).toContain("p.stage = 'neta'");
-    // 受注・完了・提案中などは絶対に入れない（現役の案件が台帳から消える）
+    /*
+     * 受注・完了・提案中などは絶対に入れない（現役の案件が台帳から消える）。
+     * ⚠️ **ステージ名は引用符ごと見る。** 素の `s_completed` で探すと、
+     * 生存証拠の中の `pt.is_completed = false` に当たって嘘の失敗をする。
+     */
     for (const alive of ['a_won', 's_completed', 'c_proposal', 'b_verbal', 'd_hold']) {
-      expect(PURGE_JUNK_STAGE_SQL).not.toContain(alive);
+      expect(PURGE_JUNK_STAGE_SQL).not.toContain(`'${alive}'`);
     }
   });
 
@@ -37,6 +41,23 @@ describe('どれをゴミと見なすか', () => {
     expect(PURGE_STALE_NETA_DAYS).toBe(90);
     expect(PURGE_JUNK_STAGE_SQL).toContain("INTERVAL '90 days'");
     expect(SERVICE).toContain('TIDY_AUTO_LOST_DAYS');
+  });
+
+  it('生きているネタは消さない（自動見送りと同じ除外を掛ける）', () => {
+    /*
+     * ⚠️ 自動見送り（`autoLoseStaleNeta`）は `ALIVE_EVIDENCE_SQL` で
+     * 「未来までスヌーズ／期限が今日以降の次の一手／未完了で期日が今日以降の
+     * タスク／本番日が今日以降」を除いている。**ここだけ抜けると、機械が閉じにも
+     * 来ない案件を台帳からは消す**という食い違いが起きる。
+     * `updated_at` は 100 日前に設定したスヌーズで古いままになり得るので、
+     * 日数だけでは弾けない。
+     */
+    expect(PURGE_JUNK_STAGE_SQL).toContain('snooze_until');
+    expect(PURGE_JUNK_STAGE_SQL).toContain('next_action_date');
+    expect(PURGE_JUNK_STAGE_SQL).toContain('event_start');
+    // 失注側には掛けない（閉じた案件の片づけ忘れは「生きている」ではない）
+    const lostBranch = PURGE_JUNK_STAGE_SQL.slice(0, PURGE_JUNK_STAGE_SQL.indexOf("p.stage = 'neta'"));
+    expect(lostBranch).not.toContain('snooze_until');
   });
 
   it('すでに台帳から外したものは二度と数えない', () => {
