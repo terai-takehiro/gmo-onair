@@ -294,7 +294,7 @@ export async function shortQueueStats(): Promise<ShortQueueStats> {
        AND next_action IS NOT NULL AND btrim(next_action) <> ''
        AND next_action_done_at IS NULL
        -- **母数にも同じ除外を掛ける**（migration 245）。待ち行列だけ狭めると
-       -- `pending + failed + done + fits` が `total` に足りなくなり、
+       -- pending + failed + done + fits が total に足りなくなり、
        -- 「残り 0 件なのに総数 40 件」という読めない画面になる
        AND ${projectNotTerminalExistsSql('activity_logs.project_id')}`,
   ) as Record<string, unknown> | undefined;

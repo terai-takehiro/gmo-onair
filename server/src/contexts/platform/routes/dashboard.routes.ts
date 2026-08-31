@@ -20,6 +20,11 @@ import { ESTIMATE_AMOUNT_LATERAL } from '../../sales/services/project.service';
  * ここに写すと、営業活動記録・週報・MCP と**違う集合を同じ名前で呼ぶ**ことになる。
  */
 import { OPEN_NEXT_ACTION_SQL } from '../../../shared/services/next-action-state';
+/**
+ * 「今日さばくもの」の条件は日常業務と同じ1本（migration 247）。
+ * 受信箱だけ違う集合を数えると、同じ画面の2か所で件数が食い違う。
+ */
+import { DESK_COND } from '../../dailyops/services/inbox.service';
 
 const router = Router();
 
@@ -84,7 +89,15 @@ router.get('/inbox', requireAuth, requireAnyPermission(['sales', 'dailyops']), a
        AND p.stage NOT IN ('s_completed','e_lost') AND p.deleted_at IS NULL`;
   // 171: 正は state 列。handled_at で絞ると、仕分け済みなのに
   // 記録が打たれていない行が受信箱に残り続ける
-  const INQUIRY_BASE = `FROM misc_inquiries WHERE deleted_at IS NULL AND state = 'unsorted'`;
+  /*
+   * ⚠️ **「まだ仕分けていない情報」の条件は日常業務と同じ1本**（`DESK_COND`）。
+   *
+   * ここは長らく `state = 'unsorted'` だけを数えていて、日常業務の画面と
+   * ホームのタイル（`GET /dailyops/alerts`）と**違う件数**を出していた。
+   * migration 247 で「ストックは見直す日が来たら机に戻る」ようになったので、
+   * 写したままだと**戻ってきたストックが受信箱にだけ出ない**（気づけない）。
+   */
+  const INQUIRY_BASE = `FROM misc_inquiries i WHERE i.deleted_at IS NULL AND ${DESK_COND}`;
   // **見積書（quote）は台帳に入らない**（実際に仕入・販管費になるのは請求書・注文書だけ。
   // ユーザー指摘）。受信箱に出しても「台帳に入れる」までたどり着けない行が並ぶだけなので、
   // ここで最初から外す。`financeDocService.list()`（受け取った書類の一覧本体）・
@@ -113,7 +126,7 @@ router.get('/inbox', requireAuth, requireAnyPermission(['sales', 'dailyops']), a
           `SELECT id, sender, subject, summary, category, importance, action_needed, url,
                   received_at, created_at
            ${INQUIRY_BASE}
-           ORDER BY created_at ASC
+           ORDER BY i.created_at ASC
            LIMIT 100`
         )
       : Promise.resolve([]),

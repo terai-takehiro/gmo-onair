@@ -31,7 +31,6 @@ import {
 import { autoClosedLabel } from '../../client/src/contexts/sales/pages/activityLog/types';
 
 const ROOT = join(__dirname, '..', '..');
-const SERVER = join(ROOT, 'server', 'src');
 
 /**
  * 注釈を外してから探す（この製品は**前の版の形を説明として残す**決めごとなので、
@@ -206,7 +205,9 @@ describe('画面は「済み」ではなく起きたことを出す', () => {
   it('言い方は1本（写すと同じ行が画面によって違う言葉になる）', () => {
     const FILES: Array<[string, string[]]> = [
       ['営業活動記録の行', ['client', 'src', 'contexts', 'sales', 'pages', 'activityLog', 'ActivityRows.tsx']],
-      ['やり取りタブ', ['client', 'src', 'contexts', 'sales', 'pages', 'projectDetail', 'thread', 'ThreadCard.tsx']],
+      // やり取りタブの「次にやること」の枠は行数のため別ファイルに出してある
+      // （`ThreadCard.tsx` → `NextActionNote.tsx`・`scripts/check-file-size.mjs`）
+      ['やり取りタブ', ['client', 'src', 'contexts', 'sales', 'pages', 'projectDetail', 'thread', 'NextActionNote.tsx']],
       ['概要タブのダイジェスト', ['client', 'src', 'contexts', 'sales', 'pages', 'projectDetail', 'ThreadDigest.tsx']],
     ];
     for (const [name, parts] of FILES) {

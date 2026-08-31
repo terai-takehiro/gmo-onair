@@ -1,10 +1,17 @@
 /**
- * ⑤ 入ってきた情報 — 行き先・出どころ・次にできること（v4 大②・migration 171）
+ * ⑤ 入ってきた情報 — 行き先・出どころ・次にできること（v4 大②・migration 171 / 247）
  *
  * ── 画面を持たない部分をここに出してある ─────────────────────
  *
  * 「その行にどのボタンを出すか」は要件そのもの（行き先は3つ＋見送り）なので、
  * 画面を立てずに素で試せる形にしてあります。
+ *
+ * ── 247: **行き先は5つのまま・タブは3つに畳んだ** ────────────
+ *
+ * `state` の5つ（未仕分け / ストック / チケット / 案件にした / 見送り）は
+ * DB の値なので変えていません。変えたのは**見せ方**で、
+ * 「もう終わったもの」3つを1つのタブにまとめ、
+ * 空いた場所を**ストックを机に戻す仕掛け**に使っています。
  *
  * ── モックとの違いは1つだけ ──────────────────────────────
  *
@@ -16,7 +23,7 @@
  * 受付は毎日その順に消化する画面なので、翌日また同じものを送り、
  * **同じ引き合いから案件が2件できます。** そこだけ `project` を足しました。
  */
-import type { InquiryState, MiscInquiry } from '@/lib/types';
+import type { InquiryState } from '@/lib/types';
 
 /** 行き先の色。**意味で決める**（画面ごとに変えない） */
 export const STATE_TONE: Record<InquiryState, string> = {
@@ -40,12 +47,15 @@ export const SOURCE_ICON: Record<string, 'mail' | 'message-square' | 'phone' | '
  *   誰にも気づかれずに消えます
  * - 見送りからは未仕分けに戻せる（間違えて押すことはある）
  */
-export type InquiryAction = 'ticket' | 'toProject' | 'stock' | 'drop' | 'unsort';
+export type InquiryAction = 'ticket' | 'toProject' | 'stock' | 'restock' | 'drop' | 'unsort';
 
 export function actionsFor(state: InquiryState): InquiryAction[] {
   if (state === 'ticket' || state === 'project') return ['unsort'];
   if (state === 'dropped') return ['unsort'];
-  if (state === 'stock') return ['ticket', 'toProject', 'drop'];
+  // ストックからは**見直す日を決め直せる**（migration 247）。
+  // 「今日見たけれどまだ動けない」を受け止める先が無いと、
+  // 机に出たストックは毎日出続けるか、見送りにされるかのどちらかになる
+  if (state === 'stock') return ['ticket', 'toProject', 'restock', 'drop'];
   return ['ticket', 'toProject', 'stock', 'drop'];
 }
 
@@ -53,28 +63,53 @@ export const ACTION_LABEL: Record<InquiryAction, string> = {
   ticket: 'チケットにする',
   toProject: '案件の受付へ送る',
   stock: 'ストックする',
+  restock: '見直す日を決め直す',
   drop: '見送りにする',
   unsort: '未仕分けに戻す',
 };
 
 /**
- * 出どころ別の件数（モックの右の枠）。
+ * タブは3つ（247）。
  *
- * モックの見出しは「今週」ですが、**中身は全件を数えています**。
- * 受信日が入っていない行が普通にあり、今週で切ると
- * 「出どころ別の合計 ≠ 一覧の件数」になって読み違えるので、
- * **全件で数えて見出しにもそう書きます**。
+ * ── なぜ5つから3つに畳んだか ────────────────────────────────
+ *
+ * 5つのうち **4つが「受領証」**でした。チケット / 案件にした / 見送り は
+ * どれも「もう終わったもの」で、そこでできることは「未仕分けに戻す」だけ。
+ * 片づいたものの棚を3つに割っても、**今日やることは1つも進みません**。
+ * まとめて「仕分け済み」にし、行き先で絞れるようにしてあります。
+ *
+ * ⚠️ **`desk` と `stock` は重なります**（見直しの日が来たストックは両方に出る）。
+ * セキュリティカードの「返却遅延は貸出中の一部」と同じで、
+ * **足しても全件になりません**。画面にもそう書いてあります。
  */
-export function bySource(rows: MiscInquiry[]): { source: string; total: number; ticket: number }[] {
-  const seen: string[] = ['mail', 'slack', 'phone', 'talk'];
-  for (const r of rows) if (!seen.includes(r.source)) seen.push(r.source);
-  return seen
-    .map((source) => ({
-      source,
-      total: rows.filter((r) => r.source === source).length,
-      ticket: rows.filter((r) => r.source === source && r.state === 'ticket').length,
-    }))
-    // 4つの出どころは 0 件でも出す（「Slack からは来ていない」が読み取れる）。
-    // それ以外（手で足した・出どころ不明の古い行）は**あるときだけ**出す
-    .filter((s, i) => i < 4 || s.total > 0);
+export type InquiryTab = 'desk' | 'stock' | 'sorted';
+
+export const TAB_LABEL: Record<InquiryTab, string> = {
+  desk: '今日さばくもの',
+  stock: 'ストック',
+  sorted: '仕分け済み',
+};
+
+/** 「仕分け済み」タブの中で行き先を絞る（受領証のタブを並べない） */
+export const SORTED_STATES = ['ticket', 'project', 'dropped'] as const;
+
+/** 「仕分け済み」タブの中の絞り込み。`all` は3つぜんぶ */
+export type SortedFilter = 'all' | (typeof SORTED_STATES)[number];
+
+/**
+ * 出どころ別の枠を**出すかどうか**（247）。
+ *
+ * ── なぜ判断を1本にするか ────────────────────────────────────
+ *
+ * 本番のメール取込は `source` をまだ渡していません（docs/mcp-server.md の
+ * 「スキルに入れる変更」②・リポジトリ外のスキルなので人が直すまで届かない）。
+ * その間この枠は **「メール N件 ／ Slack 0 ／ 電話 0 ／ 口頭 0」** と出続け、
+ * 画面の右半分が **0 の枠**で埋まっていました。
+ *
+ * **出どころが1種類しかないうちは、内訳ではなく「まだ分かれていない」と書く。**
+ * 数えるのはサーバー（`GET /dailyops/inquiries/counts`）で、
+ * ここが決めるのは**出すか出さないか**だけです。
+ */
+export function hasSourceBreakdown(sources: { source: string; total: number }[]): boolean {
+  return sources.filter((s) => s.total > 0).length >= 2;
 }

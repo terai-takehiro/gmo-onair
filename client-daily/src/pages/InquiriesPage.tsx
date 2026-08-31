@@ -1,105 +1,112 @@
 /**
  * ⑤ 入ってきた情報（日常業務） (v4)
  *
- * 案件・営業・見積請求・内覧会のどれにも属さない有益な情報を、AI が
- * スパム・営業・メルマガを除いて取り込み、**人が4つの行き先に仕分ける台**です。
+ * **未仕分けを空にするための机です。**
+ * 案件・営業・見積請求・内覧会のどれにも属さない有益な情報を AI が取り込み、
+ * 人が「やること（チケット）／案件／あとで効く話（ストック）／見送り」に仕分けます。
  *
- * ── この版で足したもの（大②・migration 171）──────────────────
+ * ── 247 で直したこと（ユーザー報告「結局何をしたいのかわからない」）──
  *
- * これまでは「重要度」と「対応済みか」しか持っておらず、**仕分けた結果が
- * どこにも残りません**でした（対応済みにするだけ）。ストックしたのか、
- * 誰かがやることになったのか、見送ったのかが翌日には分かりません。
- *
- *   出どころ   mail / slack / phone / talk（列はあったが `email`/`manual` の2値だった）
- *   行き先     未仕分け / ストック / チケット / 案件にした / 見送り
- *   タグ       配列。ストックしたものを後から引くため
- *   チケット   案件管理のタスクを1本作り、`task_id` で結ぶ
- *
- * ── モックとの違いは1つだけ ──────────────────────────────
- *
- * モックのタブは4つ（未仕分け/ストック/チケット/見送り）ですが、
- * 「案件の受付へ送る」の置き場がありません。そのまま作ると送ったものが
- * **未仕分けに残り続け、翌日また送って案件が2件できます**。
- * 「案件にした」を足した理由は `inquiries/state.ts` に書いてあります。
+ * ① **ストックに出口を作った。** 「あとで効く話ならストックして」と謳いながら、
+ *    ストックしたものを戻す仕掛けが**1つもありません**でした（見直す日も通知も無し）。
+ *    実質「見送り」と同じで、行き先が2つあるように見えて違うのは名前だけ。
+ *    ストックするときに**見直す日**を訊き（migration 247）、その日が来たものを
+ *    未仕分けと同じ扱いで「今日さばくもの」に含めます
+ * ② **タブを5つから3つに畳んだ。** 5つのうち4つが「受領証」で、
+ *    そこでできることは「未仕分けに戻す」だけでした。片づいたものは
+ *    1つのタブにまとめ、その中で行き先を絞れるようにしています
+ * ③ **空の枠を描くのをやめた**（`SidePanels.tsx`）
+ * ④ **PC 専用をやめた。** 現場で開くアプリなのに、仕分けの机だけ
+ *    スマホから開けませんでした（スマホは `inquiries/InquiryCards.tsx` の2行カード）
+ * ⑤ **一覧に上限を付けた。** 全 state・全件・ページングなしで引いてから
+ *    画面側で絞っていたので、溜まるほど遅くなっていました。
+ *    **件数はサーバーが COUNT で数えます**（運んだ行を数えると上限で切れた分だけ嘘になる）
  *
  * ── AI の印は `source` では判定しない ──────────────────────
  *
- * 以前は `source === 'email'` を AI の印にしていましたが、あれは出どころで
- * あって誰が入れたかではありません（手で足したメールにも印が付いていた）。
+ * `source` は出どころであって「誰が入れたか」ではありません。
  * サーバーが `ai_outputs` に記録があるかを見て `is_ai` で返します。
  */
 import { useMemo, useState } from 'react';
-import {
-  Sparkles, Pencil, Trash2, AlertTriangle, Tag,
-  ListChecks, FolderPlus, Archive, CircleSlash, RotateCcw, Mail, MessageSquare, Phone, Users,
-} from 'lucide-react';
+import { Sparkles, Tag } from 'lucide-react';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
-import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
-import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { EmptyState, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { deskSummary, jaMd } from '@gmo-onair/shared/src/utils/inboxDesk';
 import { Button } from '@/components/ui/button';
 import { usePermissions } from '@/hooks/usePermissions';
+import { INQUIRY_STATE_LABELS, type MiscInquiry } from '@/lib/types';
 import {
-  IMPORTANCE_LABELS, INQUIRY_STATE_LABELS, INQUIRY_SOURCE_LABELS,
-  formatDateJa, type MiscInquiry, type Importance, type InquiryState,
-} from '@/lib/types';
-import { useInquiries, useInquiryTags, useMoveInquiry, useDeleteInquiry } from '@/lib/inboxApi';
+  useInquiries, useInquiryCounts, useInquiryTags, useMoveInquiry, useDeleteInquiry,
+  type InquiryListParams,
+} from '@/lib/inboxApi';
 import { InquiryDialog } from './inquiries/InquiryDialog';
 import { TicketDialog } from './inquiries/TicketDialog';
+import { StockDialog } from './inquiries/StockDialog';
 import { SidePanels } from './inquiries/SidePanels';
-import { Destination, InquiryBody } from './inquiries/InquiryBody';
-import { actionsFor, ACTION_LABEL, type InquiryAction } from './inquiries/state';
+import { InquiryCards } from './inquiries/InquiryCards';
+import { InquiryRows } from './inquiries/InquiryRows';
+import {
+  TAB_LABEL, SORTED_STATES,
+  type InquiryAction, type InquiryTab, type SortedFilter,
+} from './inquiries/state';
+import { todayKey } from './inview/logic';
 
-/** 重要度の色。**意味で決める**（画面ごとに変えない） */
-const IMP_TONE: Record<Importance, string> = {
-  high: 'border-transparent bg-destructive-surface text-destructive',
-  medium: 'border-transparent bg-warning-surface text-warning',
-  low: 'border-transparent bg-muted text-muted-foreground',
-};
-
-const SRC_ICON = { mail: Mail, slack: MessageSquare, phone: Phone, talk: Users, manual: Pencil };
-const ACTION_ICON: Record<InquiryAction, typeof ListChecks> = {
-  ticket: ListChecks, toProject: FolderPlus, stock: Archive, drop: CircleSlash, unsort: RotateCcw,
-};
-
-/** タブ。**モックの並びのまま**（「案件にした」だけ足してある） */
-const TABS: InquiryState[] = ['unsorted', 'stock', 'ticket', 'project', 'dropped'];
+const TABS: InquiryTab[] = ['desk', 'stock', 'sorted'];
+/** 1ページの件数。**サーバーの既定と同じ値**（別々に持つと「次へ」が空振りする） */
+const PAGE_SIZE = 50;
 
 export default function InquiriesPage() {
   const { canEdit } = usePermissions();
-  const [tab, setTab] = useState<InquiryState>('unsorted');
-  const [src, setSrc] = useState<string>('all');
+  const isMobile = useIsMobile();
+  const today = todayKey();
+
+  const [tab, setTab] = useState<InquiryTab>('desk');
+  /** 「仕分け済み」タブの中の行き先。受領証のタブを並べない代わり */
+  const [dest, setDest] = useState<SortedFilter>('all');
   const [tag, setTag] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
   const [editing, setEditing] = useState<MiscInquiry | null>(null);
   const [ticketing, setTicketing] = useState<MiscInquiry | null>(null);
+  const [stocking, setStocking] = useState<MiscInquiry | null>(null);
   const [adding, setAdding] = useState(false);
   const [opened, setOpened] = useState<string | null>(null);
 
-  // **絞り込みは画面で行う。** 件数をタブに出すには全部を1回引く必要があり、
-  // サーバーで絞ると「押す前に 0 件だと分かる」が成り立たない
-  const query = useInquiries({});
+  const countsQuery = useInquiryCounts();
+  const counts = countsQuery.data?.states;
   const tagQuery = useInquiryTags();
-  const all = useMemo(() => query.data ?? [], [query.data]);
 
-  const counts = useMemo(
-    () => Object.fromEntries(TABS.map((s) => [s, all.filter((q) => q.state === s).length])) as Record<InquiryState, number>,
-    [all],
-  );
+  /*
+    **引くのは今のタブのぶんだけ・上限つき。**
+    以前はタブの件数を出すために全件を引いていたが、件数は
+    `GET /dailyops/inquiries/counts` が COUNT で数える。
+  */
+  const listParams = useMemo<InquiryListParams>(() => {
+    if (tab === 'desk') return { desk: true };
+    if (tab === 'stock') return { state: 'stock' };
+    if (dest === 'all') return { states: [...SORTED_STATES] };
+    return { state: dest };
+  }, [tab, dest]);
 
-  const rows = useMemo(() => all.filter((q) => (
-    q.state === tab
-    && (src === 'all' || q.source === src)
-    && (!tag || q.tags.includes(tag))
-  )), [all, tab, src, tag]);
+  const query = useInquiries({ ...listParams, tag, limit: PAGE_SIZE, offset: page * PAGE_SIZE });
+  const rows = useMemo(() => query.data ?? [], [query.data]);
+
+  /** いま開いているタブの全件数。**タグで絞っているときは名乗らない**（数え直さない） */
+  const tabTotal = !counts || tag ? null
+    : tab === 'desk' ? counts.desk
+      : tab === 'stock' ? counts.stock
+        : dest === 'all' ? counts.sorted : (counts[dest] ?? 0);
 
   const move = useMoveInquiry();
   const del = useDeleteInquiry();
 
-  const onMove = (q: MiscInquiry, state: 'unsorted' | 'stock' | 'dropped', msg: string) =>
-    move.mutate({ id: q.id, state }, {
+  const switchTab = (t: InquiryTab) => { setTab(t); setPage(0); setOpened(null); };
+
+  const onMove = (q: MiscInquiry, state: 'unsorted' | 'stock' | 'dropped', msg: string, reviewOn?: string | null) =>
+    move.mutate({ id: q.id, state, stock_review_on: reviewOn ?? null }, {
       onSuccess: () => notifySuccess(msg),
       onError: (e) => notifyApiError('動かせませんでした', e),
     });
@@ -112,7 +119,9 @@ export default function InquiriesPage() {
       window.location.href = `/sales/projects/new?inquiry=${encodeURIComponent(q.id)}`;
       return;
     }
-    if (a === 'stock') { onMove(q, 'stock', 'ストックしました。タグを付けておくと後から引けます'); return; }
+    // **ストックは日を訊いてから動かす**（247）。押した瞬間に消えると、
+    // それは「見送り」と同じで、戻ってくる仕掛けが無い
+    if (a === 'stock' || a === 'restock') { setStocking(q); return; }
     if (a === 'unsort') {
       if (q.state === 'ticket' || q.state === 'project') {
         const ok = await confirmAction({
@@ -148,34 +157,51 @@ export default function InquiriesPage() {
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
       <PageHeader
         title="入ってきた情報"
-        sub={`未仕分け ${counts.unsorted}件 ・ ストック ${counts.stock}件 ・ チケットにしたもの ${counts.ticket}件`}
+        // **見出しが「この画面で今日やること」を言う。**
+        // 内訳を分けて書くのは、未仕分け 0・見直し 5 のときに
+        // 「5件」とだけ出すと今日届いたものが5件あるように読めるため
+        sub={counts ? deskSummary(counts.unsorted, counts.stock_due) : '数えています…'}
         primaryAction={canEdit ? <Button onClick={() => setAdding(true)}>手で足す</Button> : undefined}
       />
 
+      {/*
+        タブは3つ（247）。以前は5つで、**うち4つが「受領証」**だった
+        （チケット / 案件にした / 見送りは「未仕分けに戻す」しかできない）。
+        片づいたものは「仕分け済み」1つにまとめ、その中で行き先を絞る。
+        ⚠️ **「今日さばくもの」と「ストック」は重なる**（見直しの日が来たものは両方に出る）。
+        セキュリティカードの「返却遅延は貸出中の一部」と同じで、足しても全件にならない
+      */}
       <FilterChips
-        label="行き先で絞り込む"
-        items={TABS.map((s) => ({ key: s, label: INQUIRY_STATE_LABELS[s], count: counts[s] }))}
+        label="見るものを選ぶ"
+        items={TABS.map((t) => ({
+          key: t,
+          label: TAB_LABEL[t],
+          count: counts ? (t === 'desk' ? counts.desk : t === 'stock' ? counts.stock : counts.sorted) : null,
+        }))}
         value={tab}
-        onChange={(k) => setTab(k as InquiryState)}
+        onChange={(k) => switchTab(k as InquiryTab)}
       />
-      <FilterChips
-        label="出どころで絞り込む"
-        items={[
-          { key: 'all', label: 'すべて', count: all.length },
-          ...(['mail', 'slack', 'phone', 'talk'] as const).map((k) => ({
-            key: k, label: INQUIRY_SOURCE_LABELS[k], count: all.filter((q) => q.source === k).length,
-          })),
-        ]}
-        value={src}
-        onChange={setSrc}
-      />
+
+      {tab === 'sorted' && (
+        <FilterChips
+          label="行き先で絞り込む"
+          items={[
+            { key: 'all', label: 'すべて', count: counts?.sorted ?? null },
+            ...SORTED_STATES.map((s) => ({
+              key: s, label: INQUIRY_STATE_LABELS[s], count: counts?.[s] ?? null,
+            })),
+          ]}
+          value={dest}
+          onChange={(k) => { setDest(k as SortedFilter); setPage(0); }}
+        />
+      )}
 
       {tag && (
         <p className="text-sub flex items-center gap-2">
           <span className="inline-flex items-center gap-1 text-primary">
             <Tag className="h-3.5 w-3.5" aria-hidden="true" />「{tag}」で絞り込み中
           </span>
-          <button type="button" onClick={() => setTag(null)} className="min-h-tap text-note text-muted-foreground underline lg:min-h-[32px]">
+          <button type="button" onClick={() => { setTag(null); setPage(0); }} className="min-h-tap text-note text-muted-foreground underline lg:min-h-[32px]">
             解除する
           </button>
         </p>
@@ -189,110 +215,44 @@ export default function InquiriesPage() {
             <Delayed><SkeletonRows rows={5} /></Delayed>
           ) : rows.length === 0 ? (
             <EmptyState
-              title={`${INQUIRY_STATE_LABELS[tab]}のものはありません`}
-              description={tab === 'unsorted'
-                ? '届いたものは全部仕分け済みです。メールで届いた有益な情報は AI が取り込みます。'
-                : 'ほかの行き先のタブを見てください。'}
+              title={emptyTitle(tab, !!tag)}
+              description={emptyDescription(tab, !!tag)}
+            />
+          ) : isMobile ? (
+            <InquiryCards
+              rows={rows}
+              today={today}
+              canEdit={canEdit}
+              pending={move.isPending}
+              openedId={opened}
+              onToggleOpen={(id) => setOpened((c) => (c === id ? null : id))}
+              onPickTag={(t) => { setTag(t); setPage(0); }}
+              onAction={onAction}
+              onEdit={setEditing}
+              onDelete={onDelete}
             />
           ) : (
-            <div className="flex flex-col">
-              <RowHeader className="hidden sm:flex">
-                <RowSlot w={72}>重要度</RowSlot>
-                <RowMain>内容 ／ 出どころ</RowMain>
-                <RowSlot w={96}>受信</RowSlot>
-                <RowSlot w={160}>{canEdit ? '次にやること' : ''}</RowSlot>
-              </RowHeader>
-
-              {rows.map((q) => {
-                const SrcIcon = SRC_ICON[q.source as keyof typeof SRC_ICON] ?? Pencil;
-                return (
-                  <Row key={q.id} align="start" className={q.state === 'dropped' ? 'opacity-70' : undefined}>
-                    <RowSlot w={72}>
-                      <TableBadge label={IMPORTANCE_LABELS[q.importance]} w={null} className={`w-full ${IMP_TONE[q.importance]}`} />
-                    </RowSlot>
-
-                    <RowMain>
-                      <RowTitle>
-                        {q.is_ai && (
-                          <Sparkles className="mr-1 inline h-3.5 w-3.5 text-ai" aria-label="AI が取り込みました" />
-                        )}
-                        {q.summary}
-                      </RowTitle>
-                      <RowSub>
-                        <SrcIcon className="mr-1 inline h-3 w-3" aria-hidden="true" />
-                        {[
-                          INQUIRY_SOURCE_LABELS[q.source] ?? q.source,
-                          q.sender,
-                          q.subject ? `件名: ${q.subject}` : null,
-                        ].filter(Boolean).join(' ・ ')}
-                      </RowSub>
-
-                      {q.tags.length > 0 && (
-                        <span className="mt-1 flex flex-wrap gap-1">
-                          {q.tags.map((t) => (
-                            <button
-                              key={t}
-                              type="button"
-                              onClick={() => setTag(t)}
-                              className="rounded-note text-badge border border-border bg-surface-subtle px-1.5 py-0.5 text-secondary-foreground"
-                            >
-                              {t}
-                            </button>
-                          ))}
-                        </span>
-                      )}
-
-                      {q.action_needed && q.state === 'unsorted' && (
-                        <p className="text-note mt-1 flex items-start gap-1 text-info">
-                          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                          {q.action_needed}
-                        </p>
-                      )}
-
-                      <Destination q={q} />
-                      <InquiryBody q={q} open={opened === q.id} onToggle={() => setOpened((c) => (c === q.id ? null : q.id))} />
-                    </RowMain>
-
-                    <RowSlot w={96} hideOnMobile>
-                      <span className="font-number text-sub-sm text-secondary-foreground">
-                        {q.received_at ? formatDateJa(q.received_at) : '—'}
-                      </span>
-                    </RowSlot>
-
-                    <RowSlot w={160}>
-                      {canEdit && (
-                        <span className="flex w-full flex-col gap-1">
-                          {actionsFor(q.state).map((a) => {
-                            const Icon = ACTION_ICON[a];
-                            return (
-                              <Button
-                                key={a}
-                                variant={a === 'ticket' ? 'default' : 'outline'}
-                                className="w-full justify-start"
-                                disabled={move.isPending}
-                                onClick={() => onAction(q, a)}
-                              >
-                                <Icon className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                                {ACTION_LABEL[a]}
-                              </Button>
-                            );
-                          })}
-                          <span className="flex gap-1">
-                            <Button variant="ghost" aria-label="直す" onClick={() => setEditing(q)}>
-                              <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                            </Button>
-                            <Button variant="ghost" aria-label="消す" onClick={() => onDelete(q)}>
-                              <Trash2 className="h-3.5 w-3.5 text-destructive" aria-hidden="true" />
-                            </Button>
-                          </span>
-                        </span>
-                      )}
-                    </RowSlot>
-                  </Row>
-                );
-              })}
-            </div>
+            <InquiryRows
+              rows={rows}
+              today={today}
+              canEdit={canEdit}
+              pending={move.isPending}
+              openedId={opened}
+              onToggleOpen={(id) => setOpened((c) => (c === id ? null : id))}
+              onPickTag={(t) => { setTag(t); setPage(0); }}
+              onAction={onAction}
+              onEdit={setEditing}
+              onDelete={onDelete}
+            />
           )}
+
+          <PageNav
+            page={page}
+            shown={rows.length}
+            total={tabTotal}
+            hasNext={rows.length === PAGE_SIZE}
+            onPage={(p) => { setPage(p); setOpened(null); }}
+          />
 
           <p className="text-note mt-3 text-muted-foreground">
             <Sparkles className="mr-1 inline h-3 w-3 text-ai" aria-hidden="true" />
@@ -302,13 +262,102 @@ export default function InquiriesPage() {
           </p>
         </div>
 
-        <SidePanels all={all} tags={tagQuery.data ?? []} activeTag={tag} onPickTag={setTag} />
+        <SidePanels
+          sources={countsQuery.data?.sources ?? []}
+          tags={tagQuery.data ?? []}
+          activeTag={tag}
+          onPickTag={(t) => { setTag(t); setPage(0); }}
+        />
       </div>
 
       {(adding || editing) && (
         <InquiryDialog initial={editing} onClose={() => { setAdding(false); setEditing(null); }} />
       )}
       {ticketing && <TicketDialog inquiry={ticketing} onClose={() => setTicketing(null)} />}
+      {stocking && (
+        <StockDialog
+          inquiry={stocking}
+          today={today}
+          saving={move.isPending}
+          onClose={() => setStocking(null)}
+          onSubmit={(reviewOn) => {
+            const q = stocking;
+            setStocking(null);
+            onMove(
+              q, 'stock',
+              reviewOn
+                ? `ストックしました。${jaMd(reviewOn)} に「今日さばくもの」へ戻ってきます`
+                : 'ストックしました。見直す日を決めていないので、明日また出てきます',
+              reviewOn,
+            );
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * 0 件のときの見出し。**タブの名前をそのまま出さない** —
+ * 「今日さばくもののものはありません」では何も伝わらない
+ */
+function emptyTitle(tab: InquiryTab, filtered: boolean): string {
+  if (filtered) return 'このタグが付いたものはありません';
+  if (tab === 'desk') return '未仕分けはありません';
+  if (tab === 'stock') return 'ストックはありません';
+  return '仕分け済みのものはまだありません';
+}
+
+/** 0 件のときの説明。**「この画面が何をする場所か」を1文で書く** */
+function emptyDescription(tab: InquiryTab, filtered: boolean): string {
+  if (filtered) return 'タグの絞り込みを解除すると、ほかの情報が出ます。';
+  if (tab === 'desk') {
+    return 'ここは、届いた情報を「やること（チケット）」「案件」「あとで効く話（ストック）」に'
+      + '仕分けて未仕分けを空にする場所です。いまは全部仕分け済みです。'
+      + 'ストックしたものは、決めた見直しの日が来るとここに戻ってきます。';
+  }
+  if (tab === 'stock') {
+    return 'あとで効く話は「ストックする」で置いておけます。見直す日を決めると、その日にここへ戻ってきます。';
+  }
+  return 'チケット・案件・見送りにしたものがここに残ります。間違えたときは「未仕分けに戻す」で戻せます。';
+}
+
+/**
+ * ページ送り。**「全N件」は名乗ってよいときだけ名乗る**
+ * （`shared/tests/countHonesty.test.ts`）。タグで絞っているときは
+ * 総数を数え直さないので「絞り込み中」と書く。
+ */
+function PageNav({
+  page, shown, total, hasNext, onPage,
+}: {
+  page: number; shown: number; total: number | null; hasNext: boolean; onPage: (p: number) => void;
+}) {
+  if (page === 0 && !hasNext && shown === 0) return null;
+  const from = page * PAGE_SIZE + 1;
+  const to = page * PAGE_SIZE + shown;
+  const all = total === null ? '' : '全';
+  const note = total === null ? '（絞り込み中）' : '';
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+      <p className="text-sub text-muted-foreground">
+        {shown === 0 ? '0件' : (
+          <>
+            {all}
+            {total !== null && <span className="font-number">{total}</span>}
+            {total !== null && '件のうち '}
+            <span className="font-number">{from}</span>–<span className="font-number">{to}</span>件
+            {note}
+          </>
+        )}
+      </p>
+      {/* **1ページしか無いときはボタンを出さない**（押せない枠を置かない） */}
+      {(page > 0 || hasNext) && (
+        <span className="flex gap-1.5">
+          <Button variant="outline" disabled={page === 0} onClick={() => onPage(page - 1)}>前の{PAGE_SIZE}件</Button>
+          <Button variant="outline" disabled={!hasNext} onClick={() => onPage(page + 1)}>次の{PAGE_SIZE}件</Button>
+        </span>
+      )}
     </div>
   );
 }

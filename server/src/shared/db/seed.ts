@@ -1183,6 +1183,110 @@ export async function seed() {
     }
   }
 
+  // ============================================================
+  // 日常業務「入ってきた情報」（misc_inquiries）— migration 247
+  //
+  // ⚠️ **この表は今まで1行も seed していませんでした。** 検証環境で画面を開いても
+  // 常に「0件」だったので、実ブラウザの検査（`npm run verify:ui`）は
+  // **空の画面しか測っていません**でした（そのうえこの画面は PC 専用扱いで、
+  // スマホでは案内文だけを測っていた）。
+  //
+  // 机（今日さばくもの）の3通りを必ず作ります —
+  //   ① 未仕分け … これから仕分けるもの
+  //   ② 見直しの日が過ぎたストック … **戻ってくることが seed から確かめられる形**
+  //   ③ まだ先のストック / 日を決めていないストック
+  // ＋ 仕分け済み（チケット・案件・見送り）。ストックが見送りと同じでないことは、
+  // ②が机に出て③が出ないことでしか確かめられません。
+  // ============================================================
+  {
+    const iqSql = `INSERT INTO misc_inquiries
+      (id, sender, subject, summary, importance, action_needed, received_at,
+       source, state, tags, stock_review_on, created_by)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`;
+    const day = (n: number) => {
+      const d = new Date(Date.now() + n * 86400000);
+      return d.toISOString().slice(0, 10);
+    };
+    const iq: [string, string, string, string, string, string | null, string, string, string, string[]][] = [
+      ['iq-1', '株式会社ミライ 田中', '配信スタジオの見学希望',
+       '9月中旬にスタジオを見学したいとのご連絡。人数は5名、映像制作の内製化を検討中。',
+       'high', '見学日の候補を3つ返す', day(-1), 'mail', 'unsorted', ['見学', '新規']],
+      ['iq-2', '（電話）ヤマト広告 佐野様', '年末の生配信の相談',
+       '12月の生配信を相談したいとの電話。予算感は未定、まず打合せをしたい。',
+       'medium', '打合せの日程を返す', day(-3), 'phone', 'unsorted', ['配信']],
+      ['iq-3', 'info@example.co.jp', '機材レンタルの一斉案内',
+       '機材レンタル業者からの一斉案内メール。今すぐの用は無い。',
+       'low', null, day(-5), 'mail', 'unsorted', []],
+      // ── 見直しの日が過ぎたストック（机に戻ってくる）
+      ['iq-4', '日建設計 井上様', '来期のスタジオ増設の話',
+       '来期に副調の増設を検討しているとの雑談。予算がつくのは早くて来年度。',
+       'medium', '来期の予算が固まる頃にこちらから声を掛ける', day(-70), 'talk', 'stock', ['増設', '来期']],
+      // ── まだ先のストック（机には出ない）
+      ['iq-5', 'ソラリス商事 大村様', '採用動画の内製化',
+       '採用動画を内製化したいがまず社内で検討する、とのこと。',
+       'low', '秋口にもう一度声を掛ける', day(-20), 'mail', 'stock', ['採用', '動画']],
+      // ── 日を決めていないストック（**翌日から机に出る**＝置きっぱなしにできない）
+      ['iq-6', '（口頭）中西', '照明の更新を相談されたと聞いた',
+       '常設照明の更新を相談されたらしい、という又聞き。誰から聞いたか要確認。',
+       'low', null, day(-9), 'talk', 'stock', []],
+      // ── 仕分け済み（受領証）
+      ['iq-7', 'GMOペパボ 広報', 'イベント収録のご依頼',
+       '10月の社内イベントの収録依頼。案件として起票済み。',
+       'high', null, day(-14), 'mail', 'project', ['収録']],
+      ['iq-8', '総務部', '入館証の追加発行',
+       '協力会社2名ぶんの入館証を追加で発行したい。',
+       'medium', '総務に申請する', day(-6), 'slack', 'ticket', ['総務']],
+      ['iq-9', 'newsletter@example.com', '業界ニュースレター',
+       '業界紙のニュースレター。仕事にはつながらない。',
+       'low', null, day(-8), 'mail', 'dropped', []],
+    ];
+    const reviewOn: Record<string, string | null> = {
+      'iq-4': day(-2),   // 2日過ぎている（机に出る）
+      'iq-5': day(30),   // まだ先（机に出ない）
+      'iq-6': null,      // 決めていない（机に出る）
+    };
+    for (const [id, sender, subject, summary, imp, action, received, source, state, tags] of iq) {
+      await ins(iqSql, [id, sender, subject, summary, imp, action, received, source, state,
+        `{${tags.map((t) => `"${t}"`).join(',')}}`, reviewOn[id] ?? null, USERS.staff1]);
+    }
+  }
+
+  // ============================================================
+  // 財務管理「受け取った書類」（finance_docs）
+  //
+  // ⚠️ **この表も1行も seed していませんでした。** 支払期日の強調・経緯・
+  // 却下したものへの辿り着き方は、行が無いと1つも確かめられません。
+  // 期日は**超過 / 今日 / 3日以内 / 先**の4通りを必ず作ります。
+  // ============================================================
+  {
+    const fdSql = `INSERT INTO finance_docs
+      (id, doc_type, sender, subject, content, amount, closing_month, payment_due,
+       status, received_at, source, notes, created_by, processed_by, processed_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+    const day = (n: number) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+    const fd: [string, string, string, string, number, string, number, string, string, string | null][] = [
+      // id, type, sender, subject, amount, closing, 期日までの日数, status, source, notes
+      ['fd-1', 'invoice', '株式会社テクノサポート', '8月分 技術スタッフ派遣 請求書',
+       880000, '2026-08', -9, 'new', 'email', null],
+      ['fd-2', 'invoice', '有限会社ライトワークス', '照明機材レンタル 請求書',
+       231000, '2026-08', 0, 'reviewing', 'email', null],
+      ['fd-3', 'invoice', 'ケータリング山田', '8/12 収録 弁当代',
+       46200, '2026-08', 2, 'approved', 'email', null],
+      ['fd-4', 'order', '株式会社エヌ・エス', '副調モニター 注文請書',
+       1540000, '2026-09', 25, 'new', 'email', null],
+      ['fd-5', 'invoice', 'クリーンサービス東京', '7月分 清掃費',
+       55000, '2026-07', -40, 'processed', 'email', '受け取った書類から: クリーンサービス東京 7月分 清掃費'],
+      ['fd-6', 'invoice', '（不明）', '宛名違いの請求書',
+       120000, '2026-08', -3, 'rejected', 'manual', '宛名が別会社。差し戻し済み'],
+    ];
+    for (const [id, type, sender, subject, amount, closing, dueIn, status, source, notes] of fd) {
+      const processed = status === 'processed';
+      await ins(fdSql, [id, type, sender, subject, `${sender} からの${type === 'order' ? '注文請書' : '請求書'}です。`,
+        amount, closing, day(dueIn), status, day(-Math.max(1, Math.abs(dueIn))), source, notes,
+        USERS.staff1, processed ? USERS.staff2 : null, processed ? new Date().toISOString() : null]);
+    }
+  }
+
   // サブアプリデータ (Qシート/技術資料/インタラクティブ) は
   // seedSubApps() で投入する（重複防止）
 

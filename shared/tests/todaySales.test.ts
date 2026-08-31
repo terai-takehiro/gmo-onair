@@ -40,10 +40,26 @@ describe('次の一手（next_moves）— 受信箱の超過と同じ核・切�
     // 核の定義1回 ＋ 超過（OVERDUE_ACTIONS_BASE）と今日の営業の参照2回 = 最低3回
     expect((DASHBOARD.match(/NEXT_MOVES_CORE/g) ?? []).length).toBeGreaterThanOrEqual(3);
     const core = defOf(DASHBOARD, 'NEXT_MOVES_CORE');
-    expect(core).toContain('a.next_action IS NOT NULL AND a.next_action_date IS NOT NULL');
-    expect(core).toContain('a.next_action_done_at IS NULL');
-    expect(core).toContain(`p.stage NOT IN ('s_completed','e_lost')`);
-    expect(core).toContain('a.deleted_at IS NULL AND p.deleted_at IS NULL');
+    /*
+     * ⚠️ **条件そのものはここに書かれていない**（migration 245）。
+     * 「未対応の次回アクション」は7か所に写されていて、終わった案件を除く条件が
+     * 入っていたのは2か所だけだった。式を `shared/services/next-action-state.ts` の
+     * `OPEN_NEXT_ACTION_SQL` 1本に集めたので、**核はそれを参照しているか**を見る
+     * （中身そのものは `openNextAction.test.ts` が固定している）。
+     */
+    expect(core).toContain('${OPEN_NEXT_ACTION_SQL}');
+    // 消した案件を除くのは核の側（`a.deleted_at` は共通の式が持っている）
+    expect(core).toContain('p.deleted_at IS NULL');
+    const STATE = sql(read('server', 'src', 'shared', 'services', 'next-action-state.ts'));
+    expect(STATE).toContain('a.deleted_at IS NULL');
+    expect(STATE).toContain('a.next_action IS NOT NULL');
+    expect(STATE).toContain('a.next_action_date IS NOT NULL');
+    expect(STATE).toContain('a.next_action_done_at IS NULL');
+    // 終わった案件のステージは配列1本から組み立てている（写しを増やさないため）
+    expect(STATE).toContain(`TERMINAL_PROJECT_STAGES = ['s_completed', 'e_lost']`);
+    expect(STATE).toContain('p.stage NOT IN (');
+    // ⚠️ 案件に紐づかない記録（顧客だけの記録）を落とさないこと
+    expect(STATE).toContain('p.stage IS NULL OR');
     // 核そのものは日付を切らない（切り方は使う側が足す）
     expect(core).not.toContain('CURRENT_DATE');
   });

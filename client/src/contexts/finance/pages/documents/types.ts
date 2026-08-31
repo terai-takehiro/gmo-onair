@@ -20,8 +20,23 @@ export interface FinanceDoc {
   processed_at: string | null;
   gls_number: string | null;
   notes: string | null;
-  /** `email`（AI が取り込んだ）／`manual`（人が入れた） */
+  /**
+   * 出どころ（`email` / `manual`）。
+   *
+   * ⚠️ **AI の印に使わないこと**（migration 247 で直した）。`source` は
+   * どこから来たかであって「誰が入れたか」ではなく、手で足したメールの行にも
+   * `email` が入ります。AI かどうかは `is_ai`（サーバーが `ai_outputs` から求める）。
+   */
   source: string;
+  /**
+   * AI（メール取込）が作った行か。サーバーが `ai_outputs`
+   * （`kind='finance_doc_intake'`）に記録があるかで返す。
+   * 入ってきた情報側は migration 171 でこの形になっており、**書類側だけ
+   * 取り残されていた**ので揃えた
+   */
+  is_ai: boolean;
+  /** 登録した人の名前（`created_by` は利用者 id なのでそのままでは読めない） */
+  created_by_name: string | null;
   /** 台帳へ渡した先。**片側だけだと突き合わせられない**（migration 142） */
   linked_kind: 'purchase' | 'sga' | null;
   linked_id: string | null;

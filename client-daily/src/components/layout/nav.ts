@@ -50,8 +50,16 @@ export const DAILY_NAV: ShellNavSection[] = [
     title: '届いたもの',
     items: [
       { label: '入ってきた情報', to: '/inquiries', icon: Inbox },
-      // 画面は財務管理にある。**ここを消すと `dailyops` だけの人が辿り着けない**
-      { label: '受け取った書類', to: '/finance', icon: FileText },
+      /*
+        **画面は財務管理にある**（`/budget/documents`）。ここを消すと
+        `dailyops` だけの人はアプリ切替に財務管理が出ないので辿り着けない。
+
+        ⚠️ **押すと別のアプリへ全画面で移ります**（別バンドルなので画面が一度白くなる）。
+        それを黙って起こすと「メニューを押したのに知らない画面に飛んだ」になるので、
+        右端の札で行き先のアプリ名を出す（シェルの `tag`。`external` は使わない —
+        あれは別タブで開く外部リンク用で、ここは同じタブで移る）。
+      */
+      { label: '受け取った書類', to: '/finance', icon: FileText, tag: '財務管理' },
     ],
   },
   {
