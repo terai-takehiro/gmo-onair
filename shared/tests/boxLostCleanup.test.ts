@@ -13,7 +13,7 @@ import path from 'node:path';
 import {
   checkFolderSafety, isTreeEmpty, deleteEmptyTree, expectedFolderNames, stripFolderPrefix,
   NON_PROJECT_FOLDERS, LOST_ARCHIVE_FOLDER, TREE_MAX_DEPTH,
-  DONE_ARCHIVE_FOLDER, DONE_TARGET_SQL,
+  DONE_ARCHIVE_FOLDER, DONE_TARGET_SQL, DONE_DATE_SQL,
   type ChildItem, type FolderNode,
 } from '../../server/src/contexts/sales/services/box-lost-cleanup.service';
 
@@ -460,7 +460,7 @@ describe('終了した案件を「98_終了案件」へ移す（ユーザー依�
      */
     const fn = SVC.slice(SVC.indexOf('export async function archiveDoneProjectFolders'));
     const body = fn.slice(0, fn.indexOf('export async function restoreDoneProjectFolders'));
-    expect(body).toContain('client.folders.update(folderId!, { parent: { id: archive.id } })');
+    expect(body).toContain('client.folders.update(folderId!, { parent: { id: archiveId } })');
     expect(body).not.toContain('folders.delete');
     expect(body).not.toContain('isTreeEmpty');
   });
@@ -470,10 +470,41 @@ describe('終了した案件を「98_終了案件」へ移す（ユーザー依�
      * ご依頼は「日付をベースに案件日の翌日」。ステージだけだと、
      * **まだ本番が来ていないのに手で完了にした案件**のフォルダまで片づける。
      */
-    expect(DONE_TARGET_SQL).toContain("stage = 's_completed'");
-    expect(DONE_TARGET_SQL).toContain("NULLIF(event_end, '') IS NOT NULL AND event_end < ?");
+    expect(DONE_TARGET_SQL).toContain("p.stage = 's_completed'");
+    expect(DONE_TARGET_SQL).toContain(`${DONE_DATE_SQL} < ?`);
     // 二度は移さない
-    expect(DONE_TARGET_SQL).toContain('box_done_at IS NULL');
+    expect(DONE_TARGET_SQL).toContain('p.box_done_at IS NULL');
+  });
+
+  it('⚠️ 終了日が空でも、開催日とプロジェクト管理の終了日で拾う', () => {
+    /*
+     * 本番の完了案件 9 件のうち **4 件が `event_end` 空**だった
+     * （GLS-A002 / A003 / A009 / A010）。`event_end` しか見ないと、
+     * 完了していても永久に `98_終了案件` へ移らない。
+     * ⚠️ プロジェクト管理は自分の終了日を `gpm_projects.ends_on` に持つので、
+     * `event_end` だけではほぼ効かない（実測: 完了4件中1件しか移らなかった）。
+     */
+    expect(DONE_DATE_SQL).toContain("NULLIF(p.event_end, '')");
+    expect(DONE_DATE_SQL).toContain("NULLIF(p.event_start, '')");
+    expect(DONE_DATE_SQL).toContain('FROM gpm_projects g');
+    expect(DONE_DATE_SQL).toContain('g.deleted_at IS NULL');
+    // 3つとも空なら対象外のまま（推測で動かさない）
+    expect(DONE_TARGET_SQL).toContain(`${DONE_DATE_SQL} IS NOT NULL`);
+  });
+
+  it('置き場は1回だけ解決する（1押しで進む件数を減らさない）', () => {
+    /*
+     * 案件ごと・側ごとに `ensureSubfolder` を呼ぶと、置き場は両親に1つずつしか
+     * 無いのに毎回 BOX へ問い合わせることになり、**20 秒の予算内に進む件数が減る**。
+     * 実測: 本番で 3 件しか進まず、条件を満たす GLS-A013 / A018 が残った。
+     */
+    const SVC2 = read('server/src/contexts/sales/services/box-lost-cleanup.service.ts');
+    const fn = SVC2.slice(SVC2.indexOf('export async function archiveDoneProjectFolders'));
+    const body = fn.slice(0, fn.indexOf('export async function restoreDoneProjectFolders'));
+    const rowLoop = body.indexOf('for (const r of rows) {');
+    expect(body.indexOf('ensureSubfolder(parentId, DONE_ARCHIVE_FOLDER)')).toBeLessThan(rowLoop);
+    // 行のループの中では BOX に問い合わせない（覚えたものを使う）
+    expect(body.slice(rowLoop)).not.toContain('ensureSubfolder(');
   });
 
   it('安全弁は失注の片づけと同じものを通す', () => {
