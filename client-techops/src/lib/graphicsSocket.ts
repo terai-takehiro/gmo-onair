@@ -13,7 +13,7 @@
  * 同じブラウザで同時に開かれ得るため、画面ごとに1本持って unmount で切る。
  */
 import { io, type Socket } from 'socket.io-client';
-import type { GraphicsCueRow, GraphicsSlot } from '@/lib/graphicsApi';
+import type { GraphicsCueRow, GraphicsPageRow, GraphicsSlot } from '@/lib/graphicsApi';
 
 export interface CgSyncPayload {
   cues: GraphicsCueRow[];
@@ -21,6 +21,12 @@ export interface CgSyncPayload {
   timestamp: number;
   /** テーマ変更の同報時だけ載る（PUT /projects/:id が付ける） */
   theme?: string;
+  /**
+   * ページの fields 更新（スコアの±など）の同報時だけ載る（PUT /pages/:id が付ける）。
+   * 受け手（出力画面・送出コンソール）は手元の pages 一覧を id で差し替えるだけでよい
+   * （全量は積まない — cue 差し替えと同じ「変わった分だけ載せる」設計）。
+   */
+  page?: GraphicsPageRow;
 }
 
 export function createGraphicsSocket(projectId: string): Socket {

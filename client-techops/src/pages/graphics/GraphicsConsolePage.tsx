@@ -26,12 +26,14 @@ import {
 } from '@/lib/graphicsApi';
 import { createGraphicsSocket, emitCgSet, type CgSyncPayload } from '@/lib/graphicsSocket';
 import { useGraphicsProject } from './useGraphicsProject';
+import { useConsolePages } from './useConsolePages';
 import { ProofBadge } from './badges';
 import { resolveTelopTheme } from './telopTheme';
 import { ConsolePreview } from './ConsolePreview';
 import { ConsoleControls } from './ConsoleControls';
 import { ConsoleSlotLanes } from './ConsoleSlotLanes';
 import { ConsolePageList } from './ConsolePageList';
+import { ScoreQuickAdjust } from './ScoreQuickAdjust';
 
 export default function GraphicsConsolePage() {
   const { ownerKey } = useParams<{ ownerKey: string }>();
@@ -105,6 +107,9 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
   /** サーバー時刻 − クライアント時刻（ms）。経過時間・時計をサーバー基準にする */
   const serverOffsetRef = useRef(0);
   const [, forceTick] = useState(0);
+  // ページ一覧＋ cg:sync のページ差分上書き（±ボタンなど）。詳細は useConsolePages.ts
+  const { pages, callOrder, pageById, applyPageSync } = useConsolePages(bundle);
+  const pvwPage = pvwPageId ? pageById.get(pvwPageId) ?? null : null;
 
   useEffect(() => {
     const socket = createGraphicsSocket(projectId);
@@ -113,6 +118,7 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
     socket.on('disconnect', () => setConnected(false));
     socket.on('cg:sync', (payload: CgSyncPayload) => {
       if (Array.isArray(payload?.cues)) setCues(cuesToMap(payload.cues));
+      if (payload?.page) applyPageSync(payload.page);
       if (typeof payload?.timestamp === 'number' && Number.isFinite(payload.timestamp)) {
         serverOffsetRef.current = payload.timestamp - Date.now();
       }
@@ -121,20 +127,10 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
       socketRef.current = null;
       socket.disconnect();
     };
+    // applyPageSync は useConsolePages が毎レンダー新しい関数を返すため deps に
+    // 入れない（入れると socket が張り直され続ける）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
-
-  /** 一覧の表示順（送出リスト順 = sortOrder） */
-  const pages = useMemo(
-    () => [...bundle.pages].sort((a, b) => (a.sortOrder - b.sortOrder) || (a.callNo - b.callNo)),
-    [bundle.pages],
-  );
-  /** 呼出番号順（番号呼出・次へ・↑↓ のスタンバイ移動はこちらの並び） */
-  const callOrder = useMemo(
-    () => [...bundle.pages].sort((a, b) => (a.callNo - b.callNo) || (a.sortOrder - b.sortOrder)),
-    [bundle.pages],
-  );
-  const pageById = useMemo(() => new Map(bundle.pages.map((p) => [p.id, p])), [bundle.pages]);
-  const pvwPage = pvwPageId ? pageById.get(pvwPageId) ?? null : null;
 
   /** いまオンエア中のページ（PGM 合成の材料） */
   const livePages = useMemo(
@@ -295,6 +291,16 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
     ? livePages.filter((p) => p.slot !== pvwPage.slot && p.id !== pvwPage.id)
     : [];
 
+  /** PGM/PVW に乗っているスコアボード（±クイック調整の対象）。同じページの二重表示はしない */
+  const liveScorePages = livePages.filter((p) => p.partKey === 'score');
+  const pvwScorePage = pvwPage && pvwPage.partKey === 'score' && !liveScorePages.some((p) => p.id === pvwPage.id)
+    ? pvwPage
+    : null;
+  const scoreWidgets = [
+    ...liveScorePages.map((page) => ({ page, label: 'オンエア中' })),
+    ...(pvwScorePage ? [{ page: pvwScorePage, label: '次に出す（PVW）' }] : []),
+  ];
+
   return (
     <div className="px-4 py-6 sm:px-6 sm:py-8">
       <Link
@@ -361,6 +367,15 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
           onOut={() => { void outStandby(); }}
         />
       </div>
+
+      {/* スコアボードの±クイック調整（PGM/PVW に score パーツが乗っているときだけ出す） */}
+      {scoreWidgets.length > 0 && (
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {scoreWidgets.map(({ page, label }) => (
+            <ScoreQuickAdjust key={page.id} page={page} label={label} />
+          ))}
+        </div>
+      )}
 
       {/* スロットごとのオンエア状態（最終防衛線 — 今出ているもの＋経過時間が一目で分かる） */}
       <div className="mt-3">

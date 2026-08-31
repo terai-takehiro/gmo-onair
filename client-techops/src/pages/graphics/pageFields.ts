@@ -15,6 +15,23 @@ export interface PartFieldDef {
   type?: 'datetime-local';
   /** 目安の上限文字数（無指定＝カウンターを出さない。datetime 系には付けない） */
   limit?: number;
+  /**
+   * 通常の1行テキスト欄ではなく専用UIで編集する欄の種別。
+   * `'entries'` = 対戦者/エントリーの可変長配列（{name, points}[]・スコアボード専用。
+   * `client-techops/src/pages/graphics/ScoreEntriesEditor.tsx` が編集UIを持つ）。
+   * `'choices'` = 投票・クイズの選択肢の可変長配列（{label, votes}[]・投票・クイズ専用。
+   * `client-techops/src/pages/graphics/VoteChoicesEditor.tsx` が編集UIを持つ）。
+   * 無指定＝従来どおりの1行テキスト欄（`limit` はこちらの対象）。
+   */
+  kind?: 'entries' | 'choices';
+  /** kind:'entries' のときのエントリー数の目安上限（無指定は ScoreEntriesEditor の既定値） */
+  maxEntries?: number;
+  /** kind:'entries' のときの1件あたりの名前の文字数上限（無指定は ScoreEntriesEditor の既定値） */
+  nameLimit?: number;
+  /** kind:'choices' のときの選択肢数の目安上限（無指定は VoteChoicesEditor の既定値） */
+  maxChoices?: number;
+  /** kind:'choices' のときの1件あたりのラベルの文字数上限（無指定は VoteChoicesEditor の既定値） */
+  choiceLabelLimit?: number;
 }
 
 /** 部品ごとの入力欄（段1の決め打ち。テンプレートの公開フィールドに置き換わる予定） */
@@ -45,16 +62,23 @@ export const PART_FIELDS: Record<GraphicsPartKey, PartFieldDef[]> = {
     { key: 'prefix', label: '枕詞（例: 開演まであと）', limit: 12 },
     { key: 'targetAt', label: '目標時刻（空なら現在時刻の時計）', type: 'datetime-local' },
   ],
-  // スコア: outputParts.tsx SideLabel の maxWidth 760px。式典テーマ（38px・letterSpacing
-  // 0.18em）が最も窮屈なため、そこから算出（760 / (38*1.18) ≈ 17）
-  score: [{ key: 'text', label: 'スコア表示', limit: 16 }],
+  // スコア: 対戦者/エントリーの可変長配列（構造化・graphics-design-specs.md §9.8）。
+  // 1行テキストではなく ScoreEntriesEditor（専用UI）で編集する。上限は目安
+  // （2〜6件・名前8字まで — scoreParts.tsx のセル幅から出した暫定値。保存は止めない）
+  score: [{ key: 'entries', label: '対戦者・エントリー', kind: 'entries', maxEntries: 6, nameLimit: 8 }],
   // 速報: outputParts.tsx FlashBand の本文枠（1920px からラベル枠・左右セーフエリアを
   // 引いた実効幅・フォント58px）から算出した目安
   flash: [{ key: 'text', label: '速報の文言', limit: 22 }],
   // サイドの文言: スコアと同じ SideLabel の枠を使うため同じ上限
   side: [{ key: 'text', label: 'サイドの文言', limit: 16 }],
-  // 投票・クイズの設問: 専用レンダラーが未実装のため根拠となる実測値が無い。暫定値
-  vote: [{ key: 'text', label: '設問', limit: 40 }],
+  // 投票・クイズ: 設問（1行テキスト）＋選択肢の可変長配列（構造化・
+  // graphics-design-specs.md §9.9）。選択肢は1行テキストではなく VoteChoicesEditor
+  // （専用UI）で編集する。上限は目安（8択・ラベル12字まで — voteParts.tsx の
+  // 行幅から出した暫定値。保存は止めない）
+  vote: [
+    { key: 'question', label: '設問', limit: 40 },
+    { key: 'choices', label: '選択肢', kind: 'choices', maxChoices: 8, choiceLabelLimit: 12 },
+  ],
 };
 
 export const PART_KEYS = Object.keys(PART_FIELDS) as GraphicsPartKey[];

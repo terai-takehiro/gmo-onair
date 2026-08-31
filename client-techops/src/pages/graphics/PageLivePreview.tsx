@@ -35,7 +35,8 @@ export default function PageLivePreview({
   name: string;
   partKey: GraphicsPartKey;
   slot: GraphicsSlot;
-  fields: Record<string, string>;
+  /** score の `entries` など、部品によっては文字列以外（配列）も乗る（pageFields.ts kind:'entries'） */
+  fields: Record<string, unknown>;
   theme: GraphicsThemeKey;
   /** 編集中ページの呼出番号（新規作成時は無い） */
   callNo?: number;

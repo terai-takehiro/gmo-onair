@@ -136,7 +136,20 @@ router.put('/pages/:id', wrap(async (req, res) => {
     `UPDATE graphics_pages SET ${sets.join(', ')} WHERE id = ? RETURNING *`,
     params
   );
-  res.json({ success: true, data: mapPage(row!) });
+  const page = mapPage(row!);
+
+  // fields（スコアの±など）の更新は出力画面・送出コンソールへ即時反映する必要がある
+  // （PUT /projects/:id の theme 同報と同じ二重化。§ 送出コンソールの±ボタンの要件）。
+  // page-only の更新でも `cg:sync` の形（cues 必須）は崩さず、page を上乗せするだけにする
+  if (body.fields !== undefined) {
+    const io = req.app.get('io');
+    if (io) {
+      const cues = await fetchCues(projectId);
+      io.of('/graphics').to(`project:${projectId}`).emit('cg:sync', { cues, page, timestamp: Date.now() });
+    }
+  }
+
+  res.json({ success: true, data: page });
 }));
 
 // ── 削除 ─────────────────────────────────────────────────────────

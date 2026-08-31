@@ -11,6 +11,8 @@
 import type { GraphicsPageRow } from '@/lib/graphicsApi';
 import { FullscreenList, FullscreenTitle, TickerBand } from './outputPartsExtra';
 import { LowerThirdName } from './nameParts';
+import { ScoreBoard } from './scoreParts';
+import { VoteResult } from './voteParts';
 import {
   EDGE_DARK, GOTHIC, NEWS_NAVY, SAFE_X, SAFE_Y, SERIF, WHITE,
   resolveTelopTheme, type TelopThemeKey,
@@ -196,7 +198,11 @@ export function renderGraphicsPage(page: GraphicsPageRow, serverNowMs: number, c
   if (page.slot === 'fullscreen') {
     if (page.partKey === 'list') return <FullscreenList key={page.id} page={page} />;
     if (page.partKey === 'title') return <FullscreenTitle key={page.id} page={page} />;
+    if (page.partKey === 'vote') return <VoteResult key={page.id} page={page} theme={theme} />;
     return null;
+  }
+  if (page.slot === 'side' && page.partKey === 'score') {
+    return <ScoreBoard key={page.id} page={page} theme={theme} flashLive={ctx?.flashLive} />;
   }
   if (page.slot === 'side') {
     return <SideLabel key={page.id} page={page} theme={theme} flashLive={ctx?.flashLive} />;

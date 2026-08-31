@@ -28,6 +28,10 @@ import {
 } from '@/lib/graphicsApi';
 import { PART_FIELDS, PART_KEYS } from './pageFields';
 import PageLivePreview from './PageLivePreview';
+import { ScoreEntriesEditor } from './ScoreEntriesEditor';
+import { defaultScoreEntries, normalizeScoreEntries } from './scoreEntries';
+import { VoteChoicesEditor } from './VoteChoicesEditor';
+import { defaultVoteChoices, normalizeVoteChoices } from './voteChoices';
 
 const PROOF_KEYS: GraphicsProofState[] = ['draft', 'unproofed', 'proofed'];
 
@@ -66,7 +70,10 @@ export default function PageFormDialog({
   const [partKey, setPartKey] = useState<GraphicsPartKey>('name');
   const [slot, setSlot] = useState<GraphicsSlot>('lower');
   const [proofState, setProofState] = useState<GraphicsProofState>('draft');
-  const [fields, setFields] = useState<Record<string, string>>({});
+  // 通常の部品は1行テキスト（string）だけだが、score の `entries` 欄は
+  // ScoreEntry[] を持つ（pageFields.ts の kind:'entries'）。両方を1つの
+  // Record<string, unknown> に同居させ、レンダリング側で欄ごとに読み分ける
+  const [fields, setFields] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
 
   // 開くたびに編集対象（または新規の既定値）を入れ直す
@@ -77,10 +84,14 @@ export default function PageFormDialog({
       setPartKey(page.partKey);
       setSlot(page.slot);
       setProofState(page.proofState);
-      const next: Record<string, string> = {};
+      const next: Record<string, unknown> = {};
       for (const def of PART_FIELDS[page.partKey] ?? []) {
         const v = page.fields?.[def.key];
-        next[def.key] = typeof v === 'string' ? v : v == null ? '' : String(v);
+        next[def.key] = def.kind === 'entries'
+          ? normalizeScoreEntries(v)
+          : def.kind === 'choices'
+          ? normalizeVoteChoices(v)
+          : typeof v === 'string' ? v : v == null ? '' : String(v);
       }
       setFields(next);
     } else {
@@ -89,15 +100,26 @@ export default function PageFormDialog({
       setPartKey(initPartKey);
       setSlot(initialValues?.slot ?? PART_DEFAULT_SLOT[initPartKey]);
       setProofState('draft');
-      const firstDef = (PART_FIELDS[initPartKey] ?? [])[0];
-      setFields(firstDef && initialValues?.firstFieldValue ? { [firstDef.key]: initialValues.firstFieldValue } : {});
+      const defs = PART_FIELDS[initPartKey] ?? [];
+      const next: Record<string, unknown> = {};
+      defs.forEach((def, i) => {
+        if (def.kind === 'entries') next[def.key] = defaultScoreEntries();
+        else if (def.kind === 'choices') next[def.key] = defaultVoteChoices();
+        else if (i === 0 && initialValues?.firstFieldValue) next[def.key] = initialValues.firstFieldValue;
+      });
+      setFields(next);
     }
   }, [open, page, initialValues]);
 
   const pickPart = (key: GraphicsPartKey) => {
     setPartKey(key);
     setSlot(PART_DEFAULT_SLOT[key]);
-    setFields({});
+    const next: Record<string, unknown> = {};
+    for (const def of PART_FIELDS[key] ?? []) {
+      if (def.kind === 'entries') next[def.key] = defaultScoreEntries();
+      else if (def.kind === 'choices') next[def.key] = defaultVoteChoices();
+    }
+    setFields(next);
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -170,7 +192,32 @@ export default function PageFormDialog({
             </div>
 
             {(PART_FIELDS[partKey] ?? []).map((def) => {
-              const value = fields[def.key] ?? '';
+              if (def.kind === 'entries') {
+                return (
+                  <ScoreEntriesEditor
+                    key={def.key}
+                    label={def.label}
+                    entries={normalizeScoreEntries(fields[def.key])}
+                    maxEntries={def.maxEntries}
+                    nameLimit={def.nameLimit}
+                    onChange={(next) => setFields((prev) => ({ ...prev, [def.key]: next }))}
+                  />
+                );
+              }
+              if (def.kind === 'choices') {
+                return (
+                  <VoteChoicesEditor
+                    key={def.key}
+                    label={def.label}
+                    choices={normalizeVoteChoices(fields[def.key])}
+                    maxChoices={def.maxChoices}
+                    choiceLabelLimit={def.choiceLabelLimit}
+                    onChange={(next) => setFields((prev) => ({ ...prev, [def.key]: next }))}
+                  />
+                );
+              }
+              const raw = fields[def.key];
+              const value = typeof raw === 'string' ? raw : '';
               const length = Array.from(value).length;
               return (
                 <div key={def.key}>

@@ -81,6 +81,19 @@ export default function GraphicsOutputPage() {
       if (typeof payload?.theme === 'string') {
         setBundle((prev) => (prev ? { ...prev, project: { ...prev.project, theme: String(payload.theme) } } : prev));
       }
+      // ページの fields 更新（スコアの±など）も同じ同報で届く。30秒ポーリングを待たず
+      // 差し替える — ±ボタンの「1秒以内に出力へ反映」要件（graphics.md §送出コンソール）
+      if (payload?.page) {
+        const updated = payload.page;
+        setBundle((prev) => {
+          if (!prev) return prev;
+          const exists = prev.pages.some((p) => p.id === updated.id);
+          const pages = exists
+            ? prev.pages.map((p) => (p.id === updated.id ? updated : p))
+            : [...prev.pages, updated];
+          return { ...prev, pages };
+        });
+      }
       if (typeof payload?.timestamp === 'number' && Number.isFinite(payload.timestamp)) {
         serverOffsetRef.current = payload.timestamp - Date.now();
       }

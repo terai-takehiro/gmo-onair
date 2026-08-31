@@ -67,7 +67,10 @@ export default function RosterMappingStep({
           列を割り当ててください（{PART_LABELS[partKey]}の入力欄）
         </p>
         <div className="space-y-3">
-          {(PART_FIELDS[partKey] ?? []).map((def) => (
+          {/* kind 付き欄（score の entries・vote の choices）は専用UIで編集する可変長配列で、
+              CSV の1列を単純に流し込む形と噛み合わない（配列に生文字列が入って壊れる）ため、
+              名簿の列マッピング対象からは外す */}
+          {(PART_FIELDS[partKey] ?? []).filter((def) => def.kind == null).map((def) => (
             <div key={def.key} className="grid grid-cols-1 items-center gap-1.5 sm:grid-cols-[220px_minmax(0,1fr)] sm:gap-3">
               <Label htmlFor={`roster-map-${def.key}`} className="sm:text-right">{def.label}</Label>
               <Select
