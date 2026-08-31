@@ -18,6 +18,8 @@ import { VoteChoicesEditor } from './VoteChoicesEditor';
 import { defaultVoteChoices, normalizeVoteChoices } from './voteChoices';
 import { ListItemsEditor } from './ListItemsEditor';
 import { defaultListItems, normalizeListItems } from './listItems';
+import { RankingEntriesEditor } from './RankingEntriesEditor';
+import { defaultRankingEntries, normalizeRankingEntries, readAwardPattern, type AwardPattern } from './rankingFields';
 
 /** 新規テンプレート作成時、部品を選んだ直後の初期値（`PageFormDialog.tsx` の pickPart と同じ考え方） */
 export function defaultBaseFields(partKey: GraphicsPartKey): Record<string, unknown> {
@@ -26,10 +28,13 @@ export function defaultBaseFields(partKey: GraphicsPartKey): Record<string, unkn
     if (def.kind === 'entries') next[def.key] = defaultScoreEntries();
     else if (def.kind === 'choices') next[def.key] = defaultVoteChoices();
     else if (def.kind === 'list-items') next[def.key] = defaultListItems();
+    else if (def.kind === 'ranking') next[def.key] = defaultRankingEntries();
     else if (def.type === 'select-number') next[def.key] = String(def.numberDefault ?? def.numberOptions?.[0] ?? '');
     else next[def.key] = '';
     if (def.bilingual) next[`${def.key}En`] = '';
   }
+  // `awardPattern` は ranking 専用の def を持たない（pageFields.ts の PART_FIELDS.ranking 参照）
+  if (partKey === 'ranking') next.awardPattern = 'direct' satisfies AwardPattern;
   return next;
 }
 
@@ -47,12 +52,16 @@ export function loadBaseFieldsFromTemplate(
       ? normalizeVoteChoices(v)
       : def.kind === 'list-items'
       ? normalizeListItems(v)
+      : def.kind === 'ranking'
+      ? normalizeRankingEntries(v)
       : typeof v === 'string' ? v : v == null ? '' : String(v);
     if (def.bilingual) {
       const ev = raw?.[`${def.key}En`];
       next[`${def.key}En`] = typeof ev === 'string' ? ev : ev == null ? '' : String(ev);
     }
   }
+  // `awardPattern` は ranking 専用の def を持たない（pageFields.ts の PART_FIELDS.ranking 参照）
+  if (partKey === 'ranking') next.awardPattern = readAwardPattern(raw);
   return next;
 }
 
@@ -76,16 +85,31 @@ function PublicToggle({ id, checked, onChange }: { id: string; checked: boolean;
 }
 
 function FieldValueEditor({
-  def, value, enValue, onChange, onChangeEn,
+  def, value, enValue, onChange, onChangeEn, awardPattern, onAwardPatternChange,
 }: {
   def: PartFieldDef;
   value: unknown;
   enValue: unknown;
   onChange: (v: unknown) => void;
   onChangeEn: (v: unknown) => void;
+  /** `kind: 'ranking'` のときだけ使う（`RankingEntriesEditor` の発表方式切替） */
+  awardPattern?: AwardPattern;
+  onAwardPatternChange?: (next: AwardPattern) => void;
 }) {
   const inputId = `graphics-template-field-${def.key}`;
 
+  if (def.kind === 'ranking') {
+    return (
+      <RankingEntriesEditor
+        label={def.label}
+        entries={normalizeRankingEntries(value)}
+        awardPattern={awardPattern ?? 'direct'}
+        onEntriesChange={onChange}
+        onAwardPatternChange={(next) => onAwardPatternChange?.(next)}
+        pageId={null}
+      />
+    );
+  }
   if (def.kind === 'entries') {
     return (
       <ScoreEntriesEditor
@@ -218,6 +242,8 @@ export function TemplateFieldsEditor({
             enValue={baseFields[`${def.key}En`]}
             onChange={(v) => setField(def.key, v)}
             onChangeEn={(v) => setField(`${def.key}En`, v)}
+            awardPattern={def.kind === 'ranking' ? readAwardPattern(baseFields) : undefined}
+            onAwardPatternChange={def.kind === 'ranking' ? (next) => setField('awardPattern', next) : undefined}
           />
         </div>
       ))}

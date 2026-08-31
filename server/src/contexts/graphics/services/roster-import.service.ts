@@ -33,6 +33,7 @@ const REPRESENTATIVE_FIELD: Record<PartKey, string> = {
   flash: 'text',
   side: 'text',
   vote: 'text',
+  ranking: 'categoryName',
 };
 
 // ── 列の型自動判定 ──────────────────────────────────────────────

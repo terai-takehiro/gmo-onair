@@ -7,7 +7,7 @@ export const SLOTS = ['fullscreen', 'lower', 'side', 'ticker', 'clock', 'flash']
 export type Slot = (typeof SLOTS)[number];
 
 export const PART_KEYS = [
-  'name', 'title', 'list', 'ticker', 'countdown', 'score', 'flash', 'side', 'vote',
+  'name', 'title', 'list', 'ticker', 'countdown', 'score', 'flash', 'side', 'vote', 'ranking',
 ] as const;
 export type PartKey = (typeof PART_KEYS)[number];
 

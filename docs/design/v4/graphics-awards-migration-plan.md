@@ -235,18 +235,35 @@
 > 想定する「6-2（テンプレート層）の上に6-5（ランキング発表テンプレートパック）を積む」
 > という順序は変わらず、6-1は「段階カウンタを持てる」という土台だけを先に用意した形。
 
-## 5. 意思決定が必要な論点（着手前にユーザー確認）
+## 5. 意思決定が必要な論点（着手前にユーザー確認） — **2026-08-31 全4件回答済み**
 
-1. **外部インタラクティブ連携（視聴者の実投票受付）は今後も使うか。** 使わないなら段6-7は
-   スコープ外にでき、規模が大きく縮む。使うなら別VPS `interactive.gmo-onair.jp` との連携仕様
-   （X-API-Key認証・カウントダウン連動の自動close）をそのまま踏襲する前提で設計する
-2. **過去の開催実績データはどうするか。** 新エンジンに変換して持ち込む／`/awards` 側にアーカイブ
-   として残す（新エンジンには今後の新規イベントだけ乗せる）のどちらか
-3. **段階演出（RANKS発表のCountUp等）は完全再現が必要か、簡略化してよいか。** 完全再現は
-   段6-3〜6-5の工数を押し上げる。簡略化するなら「1段ずつ手動TAKEで出す」程度に抑えられる
-4. **段6全体を1つの大きな作業として進めるか、6-1〜6-9を個別のPRとして少しずつ進めるか。**
-   土台部分（6-1〜6-4）はテロップCG全体に効くため、アワード移行を待たずに先行着手する
-   価値がある、という提案。
+1. **外部インタラクティブ連携（視聴者の実投票受付）は今後も使うか。** → **使う（実装する）。**
+   別VPS `interactive.gmo-onair.jp` との連携仕様（実ファイルは `server/src/contexts/quiz/services/
+   {interactive-bridge,interactive-poller,interactive-lifecycle}.service.ts`。`X-API-Key`認証・
+   鍵は`awards_events.interactive_link` JSONBに平文保存・ポーリング間隔は実測**800ms**——
+   一部コメント/旧設計文書の「2秒」は古い記述で実値と食い違っていた・カウントダウン連動の
+   自動close）をそのまま踏襲する前提で段6-7として実装する
+2. **過去の開催実績データはどうするか。** → **新エンジンに変換して移行する。**
+   `awards_entries`（`rank`/`points`/`is_winner`等）→ 新エンジンの`ranking`部品（`RankingEntry[]`）
+   への変換を段6-9で設計する
+3. **段階演出（RANKS発表のCountUp等）は完全再現が必要か。** → **完全再現。**
+   段6-5で着手済み（下記「段6-5 進捗」参照）
+4. **段6全体を1つの大きな作業として進めるか、個別PRに割るか。** → **1つの継続作業として進める**
+   （PRは作らず、指定ブランチへ継続的にコミットを積む）
+
+### 段6-5 進捗（2026-08-31・第1弾実装済み）
+
+新part_key `ranking`（`client-techops/src/pages/graphics/rankingFields.ts`ほか）で、RANKS 5→2
+段階発表・winner-bar・TOP3・Final Pitch・direct/vote分岐・CountUp（`RankingCountUp.tsx`。
+`requestAnimationFrame`＋ease-out-quint`1-(1-t)^5`の自前実装）を、旧`StepRanking.tsx`/
+`StepTop3.tsx`/`StepFinalPitch.tsx`のタイマー定数（`STRIP_SETTLE=800`・`BAR_INTERVAL=1100`・
+`PHOTO_OFFSET=280`・TOP3の`POINTS_DELAY`/`REVEAL_DELAY`・Final Pitchの`SLOT_X`/`CENTER_X`）と
+CSS transition/keyframeの値まで含めて完全再現移植した。`fields.step`はvote部品の`voteState`と
+同じく`reveal_phase`を経由しない独自進行（`STEPS_DIRECT`/`STEPS_VOTE`。TAKEで`idle`へリセット・
+「続き」ボタンで1段進行）。4テーマ対応（ceremony-goldは旧実装を忠実再現、他3テーマは
+`scoreParts.tsx`の確立済み配色語彙を流用）。**未実装（次ラウンド）**: Celebration演出（複数部門
+合同祝賀・紙吹雪）・演出SE（`awards_sounds`相当）・survey-oneshot連動（連動アンケートNo.1の
+ランキングCG側発表）・段6-6の締切連動と段6-7の外部連携そのもの・段6-9の過去データ移行。
 
 ## 6. 参照ファイル（この設計の元データ）
 

@@ -37,6 +37,8 @@ import { ConsoleControls } from './ConsoleControls';
 import { ConsoleSlotLanes } from './ConsoleSlotLanes';
 import { ConsolePageList } from './ConsolePageList';
 import { ScoreQuickAdjust } from './ScoreQuickAdjust';
+import { RankingControlPanel } from './RankingControlPanel';
+import { readRankingStep } from './rankingFields';
 
 export default function GraphicsConsolePage() {
   const { ownerKey } = useParams<{ ownerKey: string }>();
@@ -263,6 +265,11 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
     ...(pvwScorePage ? [{ page: pvwScorePage, label: '次に出す（PVW）' }] : []),
   ];
 
+  /** PGM のランキング発表が final-pitch のときだけ出す操作パネル（RankingControlPanel.tsx） */
+  const rankingFinalPitchPage = livePages.find(
+    (p) => p.partKey === 'ranking' && readRankingStep(p.fields) === 'final-pitch',
+  ) ?? null;
+
   return (
     <div className="px-4 py-6 sm:px-6 sm:py-8">
       <Link
@@ -338,6 +345,14 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
           {scoreWidgets.map(({ page, label }) => (
             <ScoreQuickAdjust key={page.id} page={page} label={label} />
           ))}
+        </div>
+      )}
+
+      {/* ランキング発表 Final Pitch の操作パネル（PGM が partKey==='ranking' かつ
+          fields.step==='final-pitch' のときだけ出す） */}
+      {rankingFinalPitchPage && (
+        <div className="mt-3">
+          <RankingControlPanel page={rankingFinalPitchPage} />
         </div>
       )}
 

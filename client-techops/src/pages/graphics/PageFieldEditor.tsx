@@ -14,6 +14,8 @@ import { normalizeVoteChoices } from './voteChoices';
 import { ListItemsEditor } from './ListItemsEditor';
 import { normalizeListItems } from './listItems';
 import { ImageFieldEditor } from './ImageFieldEditor';
+import { RankingEntriesEditor } from './RankingEntriesEditor';
+import { normalizeRankingEntries, readAwardPattern } from './rankingFields';
 
 /** 目安の上限文字数に対する文字数カウンターの色（80%到達で注意色・超過で警告色 — 保存は止めない） */
 function counterClass(length: number, limit: number): string {
@@ -82,6 +84,18 @@ export function PageFieldEditor({
         maxItems={def.maxListItems}
         itemLimit={def.itemLimit}
         onChange={(next) => setFields((prev) => ({ ...prev, [def.key]: next }))}
+      />
+    );
+  }
+  if (def.kind === 'ranking') {
+    return (
+      <RankingEntriesEditor
+        label={def.label}
+        entries={normalizeRankingEntries(fields[def.key])}
+        awardPattern={readAwardPattern(fields)}
+        onEntriesChange={(next) => setFields((prev) => ({ ...prev, [def.key]: next }))}
+        onAwardPatternChange={(next) => setFields((prev) => ({ ...prev, awardPattern: next }))}
+        pageId={pageId}
       />
     );
   }

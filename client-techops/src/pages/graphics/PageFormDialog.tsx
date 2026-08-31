@@ -37,6 +37,7 @@ import { PageFieldEditor } from './PageFieldEditor';
 import { defaultScoreEntries } from './scoreEntries';
 import { defaultVoteChoices } from './voteChoices';
 import { defaultListItems } from './listItems';
+import { defaultRankingEntries } from './rankingFields';
 import { TemplateFieldsSection, initialFieldsFromTemplate } from './TemplateFieldsSection';
 import { TemplateLayerFieldsList } from './TemplateLayerFieldsList';
 import { saveGraphicsPageForm } from './savePageForm';
@@ -50,6 +51,29 @@ export interface PageFormInitialValues {
   partKey?: GraphicsPartKey;
   /** 部品の最初のテキスト欄に入れる文言（発注の detail/desiredTiming 程度の簡易マッピングでよい） */
   firstFieldValue?: string;
+}
+
+/** 部品を選んだ直後（新規作成のマウント時／部品切替 `pickPart` の両方）の `fields` 既定値を
+ * 組み立てる。2箇所で同じロジックを持たないための共通化（400行規律の副産物）。 */
+function buildDefaultFields(partKey: GraphicsPartKey, firstFieldValue?: string): Record<string, unknown> {
+  const next: Record<string, unknown> = {};
+  (PART_FIELDS[partKey] ?? []).forEach((def, i) => {
+    if (def.kind === 'entries') next[def.key] = defaultScoreEntries();
+    else if (def.kind === 'choices') next[def.key] = defaultVoteChoices();
+    // 発注（テロ原）からの変換で detail が来ているときは、空欄より1件目に
+    // 入れて渡したほうが情報が残る（列配列なので firstFieldValue をそのまま代入できない）
+    else if (def.kind === 'list-items') {
+      next[def.key] = i === 0 && firstFieldValue ? [{ text: firstFieldValue, textEn: '' }] : defaultListItems();
+    } else if (def.kind === 'ranking') next[def.key] = defaultRankingEntries();
+    else if (def.type === 'select-number') {
+      next[def.key] = String(def.numberDefault ?? def.numberOptions?.[0] ?? '');
+    } else if (i === 0 && firstFieldValue) next[def.key] = firstFieldValue;
+    if (def.bilingual) next[`${def.key}En`] = '';
+  });
+  // `awardPattern` は ranking 専用の def を持たない（pageFields.ts の PART_FIELDS.ranking 参照）。
+  // 新規作成・部品切替のどちらも「新規作成扱い」なので、発表方式の既定値を direct にする
+  if (partKey === 'ranking') next.awardPattern = 'direct';
+  return next;
 }
 
 export default function PageFormDialog({
@@ -127,23 +151,7 @@ export default function PageFormDialog({
       setProofState('draft');
       setUseTemplateMode(false);
       setSelectedTemplate(null);
-      const defs = PART_FIELDS[initPartKey] ?? [];
-      const next: Record<string, unknown> = {};
-      defs.forEach((def, i) => {
-        if (def.kind === 'entries') next[def.key] = defaultScoreEntries();
-        else if (def.kind === 'choices') next[def.key] = defaultVoteChoices();
-        // 発注（テロ原）からの変換で detail が来ているときは、空欄より1件目に
-        // 入れて渡したほうが情報が残る（列配列なので firstFieldValue をそのまま代入できない）
-        else if (def.kind === 'list-items') {
-          next[def.key] = i === 0 && initialValues?.firstFieldValue
-            ? [{ text: initialValues.firstFieldValue, textEn: '' }]
-            : defaultListItems();
-        } else if (def.type === 'select-number') {
-          next[def.key] = String(def.numberDefault ?? def.numberOptions?.[0] ?? '');
-        } else if (i === 0 && initialValues?.firstFieldValue) next[def.key] = initialValues.firstFieldValue;
-        if (def.bilingual) next[`${def.key}En`] = '';
-      });
-      setFields(next);
+      setFields(buildDefaultFields(initPartKey, initialValues?.firstFieldValue));
       setLayerFieldsList([]);
     }
   }, [open, page, initialValues]);
@@ -159,15 +167,7 @@ export default function PageFormDialog({
   const pickPart = (key: GraphicsPartKey) => {
     setPartKey(key);
     setSlot(PART_DEFAULT_SLOT[key]);
-    const next: Record<string, unknown> = {};
-    for (const def of PART_FIELDS[key] ?? []) {
-      if (def.kind === 'entries') next[def.key] = defaultScoreEntries();
-      else if (def.kind === 'choices') next[def.key] = defaultVoteChoices();
-      else if (def.kind === 'list-items') next[def.key] = defaultListItems();
-      else if (def.type === 'select-number') next[def.key] = String(def.numberDefault ?? def.numberOptions?.[0] ?? '');
-      if (def.bilingual) next[`${def.key}En`] = '';
-    }
-    setFields(next);
+    setFields(buildDefaultFields(key));
   };
 
   const pickTemplate = (template: GraphicsTemplateRow) => {

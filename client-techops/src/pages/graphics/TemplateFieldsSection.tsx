@@ -13,6 +13,7 @@ import { PageFieldEditor } from './PageFieldEditor';
 import { defaultScoreEntries, normalizeScoreEntries } from './scoreEntries';
 import { defaultVoteChoices, normalizeVoteChoices } from './voteChoices';
 import { defaultListItems, normalizeListItems } from './listItems';
+import { defaultRankingEntries, normalizeRankingEntries } from './rankingFields';
 
 /** 編集不可の欄に出す値の要約（構造化欄はそのまま出すと崩れるので短い文字列にする） */
 function describeLockedValue(kind: PartFieldDef['kind'], value: unknown): string {
@@ -27,6 +28,10 @@ function describeLockedValue(kind: PartFieldDef['kind'], value: unknown): string
   if (kind === 'list-items') {
     const arr = normalizeListItems(value);
     return arr.length > 0 ? arr.map((it) => it.text || '（無題）').join('・') : '（未設定）';
+  }
+  if (kind === 'ranking') {
+    const arr = normalizeRankingEntries(value);
+    return arr.length > 0 ? arr.map((e) => e.name || '（無題）').join('・') : '（未設定）';
   }
   if (kind === 'image') {
     return typeof value === 'string' && value.trim() ? '設定済み' : '（未設定）';
@@ -54,7 +59,11 @@ export function initialFieldsFromTemplate(source: TemplateFieldsSource): Record<
     if (def.kind === 'entries' && next[def.key] === undefined) next[def.key] = defaultScoreEntries();
     if (def.kind === 'choices' && next[def.key] === undefined) next[def.key] = defaultVoteChoices();
     if (def.kind === 'list-items' && next[def.key] === undefined) next[def.key] = defaultListItems();
+    if (def.kind === 'ranking' && next[def.key] === undefined) next[def.key] = defaultRankingEntries();
   }
+  // `awardPattern` は ranking 専用の def を持たない（PART_FIELDS.ranking のコメント参照）。
+  // テンプレートの baseFields に無ければ direct を既定にする
+  if (source.partKey === 'ranking' && next.awardPattern === undefined) next.awardPattern = 'direct';
   return next;
 }
 

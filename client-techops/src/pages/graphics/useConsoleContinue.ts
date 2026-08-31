@@ -1,7 +1,7 @@
 // テロップCG — 送出コンソールの「続き」ボタンの実処理。GraphicsConsolePage.tsx 専用の
 // 切り出し（400行の目安を超えないため。ロジック自体はこのファイルだけで完結する）。
 //
-// 対応部品は2種類あり、進行の仕組みが違う（詳細は outputParts.tsx の `pageSupportsReveal`・
+// 対応部品は3種類あり、進行の仕組みが違う（詳細は outputParts.tsx の `pageSupportsReveal`・
 // voteParts.tsx の `VoteResult` コメント）:
 //   - `list`（一覧表）・`score`（スコアボード）: cue の `reveal_phase`（段6-1の汎用機構。
 //     TAKE のたびに0へリセットされる）を+1する
@@ -9,6 +9,8 @@
 //     ScoreQuickAdjust と同じ「fields をその場で書き換えて `cg:sync` で同報」の経路。
 //     `reveal_phase` に乗せると、既に開票済みで運用中の既存ページまで TAKE 1回で
 //     「出題中」へ巻き戻ってしまい後方互換が壊れるため、意図的に別経路にしている）
+//   - `ranking`（ランキング発表・段6-5第1弾）: `vote` と同じ理由で `fields.step`
+//     （`rankingFields.ts`）を直接進める
 import type { MutableRefObject } from 'react';
 import type { Socket } from 'socket.io-client';
 import {
@@ -19,6 +21,7 @@ import { emitCgContinue } from '@/lib/graphicsSocket';
 import { notifyError } from '@/lib/notify';
 import { pageSupportsReveal } from './outputParts';
 import { withVoteStateAdvanced, withVoteStateReset } from './voteState';
+import { withRankingStepAdvanced, withRankingStepReset } from './rankingFields';
 
 export function useConsoleContinue({
   projectId, livePages, socketRef, setCuesFromRows,
@@ -42,6 +45,14 @@ export function useConsoleContinue({
       }
       return;
     }
+    if (page.partKey === 'ranking') {
+      try {
+        await updateGraphicsPage(page.id, { fields: withRankingStepAdvanced(page.fields) });
+      } catch {
+        notifyError('ランキング発表の進行状態を進められませんでした', { description: 'サーバーとの接続を確認してください。' });
+      }
+      return;
+    }
     const socket = socketRef.current;
     if (socket?.connected) {
       emitCgContinue(socket, page.slot);
@@ -56,18 +67,28 @@ export function useConsoleContinue({
   };
 
   /**
-   * TAKE で投票・クイズを「出題中」へ戻す（背景メモ§3「新しいTAKEで状態がopenにリセット
-   * されること」）。`fields.voteState` はページ側の値なので放っておくと引き継がれてしまう
+   * TAKE で投票・クイズ／ランキング発表を「はじめの状態」へ戻す（背景メモ§3「新しいTAKEで
+   * 状態がopenにリセットされること」・ランキングは `rankingFields.ts` の同じ設計）。
+   * `fields.voteState`/`fields.step` はページ側の値なので放っておくと引き継がれてしまう
    * ため、TAKE 時に明示的に書き戻す。ページが乗る**前**に fields を直すので、オンエアの
-   * 一瞬だけ前回の開票結果が見えることは無い（失敗しても TAKE 自体は続ける——進行状態は
-   * 「続き」ボタンで手動でも直せるので、catch は無視でよい）。
+   * 一瞬だけ前回の開票結果・進行段階が見えることは無い（失敗しても TAKE 自体は続ける——
+   * 進行状態は「続き」ボタンで手動でも直せるので、catch は無視でよい）。
    */
   const resetVoteStateForTake = async (page: GraphicsPageRow) => {
-    if (page.partKey !== 'vote') return;
-    try {
-      await updateGraphicsPage(page.id, { fields: withVoteStateReset(page.fields) });
-    } catch {
-      // 無視 — 上のコメント参照
+    if (page.partKey === 'vote') {
+      try {
+        await updateGraphicsPage(page.id, { fields: withVoteStateReset(page.fields) });
+      } catch {
+        // 無視 — 上のコメント参照
+      }
+      return;
+    }
+    if (page.partKey === 'ranking') {
+      try {
+        await updateGraphicsPage(page.id, { fields: withRankingStepReset(page.fields) });
+      } catch {
+        // 無視 — 上のコメント参照
+      }
     }
   };
 

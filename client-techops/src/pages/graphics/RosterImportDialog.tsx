@@ -43,6 +43,7 @@ import RosterDryRunSummary from './RosterDryRunSummary';
 const REPRESENTATIVE_FIELD: Record<GraphicsPartKey, string> = {
   name: 'mainText', title: 'title', list: 'items', ticker: 'text',
   countdown: 'prefix', score: 'text', flash: 'text', side: 'text', vote: 'text',
+  ranking: 'categoryName',
 };
 
 type Phase = 'select' | 'mapping' | 'preview' | 'dryrun' | 'creating' | 'done';

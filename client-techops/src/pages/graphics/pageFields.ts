@@ -11,6 +11,7 @@ import type { GraphicsPartKey } from '@/lib/graphicsApi';
 import { normalizeScoreEntries } from './scoreEntries';
 import { normalizeVoteChoices } from './voteChoices';
 import { normalizeListItems } from './listItems';
+import { normalizeRankingEntries, readAwardPattern } from './rankingFields';
 
 export interface PartFieldDef {
   key: string;
@@ -33,9 +34,14 @@ export interface PartFieldDef {
    * が編集UIを持つ。ページ保存前（`pageId` が無い新規作成中）はアップロードを呼べないため、
    * その間は案内表示のみになる — `server/src/contexts/graphics/routes/images.routes.ts` の
    * `POST /graphics/pages/:id/photo` を叩く）。
+   * `'ranking'` = ランキング発表の受賞候補配列（`RankingEntry[]`・`ranking` 専用。
+   * `client-techops/src/pages/graphics/RankingEntriesEditor.tsx` が編集UIを持つ。
+   * 発表方式（`fields.awardPattern`）もこのエディタが直接読み書きする —
+   * `PART_FIELDS.ranking` に別途フィールド定義は置かない。段6-5 第1弾。
+   * `rankingFields.ts` 参照）。
    * 無指定＝従来どおりの1行テキスト欄（`limit` はこちらの対象）。
    */
-  kind?: 'entries' | 'choices' | 'list-items' | 'image';
+  kind?: 'entries' | 'choices' | 'list-items' | 'image' | 'ranking';
   /** kind:'entries' のときのエントリー数の目安上限（無指定は ScoreEntriesEditor の既定値） */
   maxEntries?: number;
   /** kind:'entries' のときの1件あたりの名前の文字数上限（無指定は ScoreEntriesEditor の既定値） */
@@ -160,6 +166,14 @@ export const PART_FIELDS: Record<GraphicsPartKey, PartFieldDef[]> = {
     { key: 'question', label: '設問', limit: 40, bilingual: true },
     { key: 'choices', label: '選択肢', kind: 'choices', maxChoices: 8, choiceLabelLimit: 12 },
   ],
+  // ランキング発表（RANKS段階発表・TOP3・Final Pitch・段6-5第1弾。出力レンダラーは別エージェント
+  // の並行実装が担う——ここはデータ入力欄のみ）。`categoryName` は賞名・部門名の1行テキスト
+  // （`limit` は他の見出し欄と同じ暫定値）。`entries` は受賞候補の可変長配列
+  // （RankingEntriesEditor が発表方式=`fields.awardPattern` も併せて編集する）。
+  ranking: [
+    { key: 'categoryName', label: '賞名・部門名', limit: 16, bilingual: true },
+    { key: 'entries', label: '受賞候補', kind: 'ranking' },
+  ],
 };
 
 export const PART_KEYS = Object.keys(PART_FIELDS) as GraphicsPartKey[];
@@ -181,11 +195,17 @@ export function normalizeFieldsForPart(
       ? normalizeVoteChoices(v)
       : def.kind === 'list-items'
       ? normalizeListItems(v)
+      : def.kind === 'ranking'
+      ? normalizeRankingEntries(v)
       : typeof v === 'string' ? v : v == null ? '' : String(v);
     if (def.bilingual) {
       const ev = raw?.[`${def.key}En`];
       next[`${def.key}En`] = typeof ev === 'string' ? ev : ev == null ? '' : String(ev);
     }
   }
+  // `awardPattern` は `PART_FIELDS.ranking` に専用の def を持たない（RankingEntriesEditor が
+  // fields 全体越しに直接読み書きするため）。正規化を素通りさせると編集ダイアログを開き直す
+  // たびに読み込んだ値が消えるので、ranking パーツのときだけここで拾っておく。
+  if (partKey === 'ranking') next.awardPattern = readAwardPattern(raw);
   return next;
 }

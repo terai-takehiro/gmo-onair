@@ -12,6 +12,7 @@ import type { GraphicsPageRow } from '@/lib/graphicsApi';
 import { pickLang, type GraphicsLang } from './langField';
 import { FullscreenList, FullscreenTitle, TickerBand } from './outputPartsExtra';
 import { LowerThirdName } from './nameParts';
+import { RankingSequence } from './rankingParts';
 import { ScoreBoard } from './scoreParts';
 import { VoteResult } from './voteParts';
 import {
@@ -207,10 +208,13 @@ export interface RenderContext {
  *     `reveal_phase` は使わない——TAKE毎にリセットされる cue 側の値に乗せると、
  *     **既に開票済みで運用中の既存ページ**まで TAKE 1回で「出題中」へ巻き戻ってしまい
  *     後方互換が壊れるため（詳細は voteParts.tsx の `VoteResult` コメント）。
+ *   - `ranking`（ランキング発表・段6-5第1弾）: `vote` と同じ理由で `fields.step`
+ *     （`rankingFields.ts`）を直接進める。`reveal_phase` は使わない。
  */
 export function pageSupportsReveal(page: GraphicsPageRow): boolean {
   if (page.slot === 'fullscreen' && (page.partKey === 'list' || page.partKey === 'vote')) return true;
   if (page.slot === 'side' && page.partKey === 'score') return true;
+  if (page.partKey === 'ranking') return true;
   return false;
 }
 
@@ -254,6 +258,7 @@ export function renderPart(
     if (partKey === 'list') return <FullscreenList key={page.id} page={page} revealPhase={ctx?.revealPhase} lang={ctx?.lang} />;
     if (partKey === 'title') return <FullscreenTitle key={page.id} page={page} lang={ctx?.lang} />;
     if (partKey === 'vote') return <VoteResult key={page.id} page={page} theme={theme} lang={ctx?.lang} />;
+    if (partKey === 'ranking') return <RankingSequence key={page.id} page={page} theme={theme} lang={ctx?.lang} />;
     return null;
   }
   if (slot === 'side' && partKey === 'score') {

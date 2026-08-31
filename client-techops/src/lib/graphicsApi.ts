@@ -41,7 +41,7 @@ export const SLOT_LABELS: Record<GraphicsSlot, string> = {
 };
 
 export type GraphicsPartKey =
-  | 'name' | 'title' | 'list' | 'ticker' | 'countdown' | 'score' | 'flash' | 'side' | 'vote';
+  | 'name' | 'title' | 'list' | 'ticker' | 'countdown' | 'score' | 'flash' | 'side' | 'vote' | 'ranking';
 
 export const PART_LABELS: Record<GraphicsPartKey, string> = {
   name: 'ネーム',
@@ -53,6 +53,7 @@ export const PART_LABELS: Record<GraphicsPartKey, string> = {
   flash: '速報帯',
   side: 'サイドスーパー',
   vote: '投票・クイズ',
+  ranking: 'ランキング発表',
 };
 
 /** 部品を置くスロットの既定（ページ作成フォームの初期値に使う） */
@@ -66,6 +67,7 @@ export const PART_DEFAULT_SLOT: Record<GraphicsPartKey, GraphicsSlot> = {
   flash: 'flash',
   side: 'side',
   vote: 'fullscreen',
+  ranking: 'fullscreen',
 };
 
 /** プロジェクト単位の見た目テーマ。キーはサーバー（graphics_projects.theme）と出力側レンダラの契約 */
