@@ -14,7 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   PURGE_TARGET_SQL, PURGE_KEPT_SQL, PURGE_HAS_MONEY_SQL, PURGE_JUNK_STAGE_SQL,
-  PURGE_STALE_NETA_DAYS, PURGE_BUDGET_MS,
+  PURGE_STALE_NETA_DAYS, PURGE_BUDGET_MS, PURGE_DROP_REVENUE_SQL,
 } from '../../server/src/contexts/sales/services/project-purge.service';
 import { summarizeSkipReasons } from '../../server/src/contexts/sales/services/box-lost-cleanup.service';
 
@@ -66,20 +66,49 @@ describe('どれをゴミと見なすか', () => {
 });
 
 describe('お金が付いている案件は残す（ご判断「見積だけなら消す」）', () => {
-  it('売上・仕入のどちらかがあれば対象から外す', () => {
+  it('請求書を出した売上か、仕入があれば対象から外す', () => {
     expect(PURGE_TARGET_SQL).toContain(`NOT ${PURGE_HAS_MONEY_SQL}`);
     expect(PURGE_HAS_MONEY_SQL).toContain('FROM revenues');
     expect(PURGE_HAS_MONEY_SQL).toContain('FROM purchases');
+  });
+
+  it('⚠️ 請求前の「見込みの売上」だけなら消す（ユーザー依頼）', () => {
+    /*
+     * 「以前見送った失注になった案件の削除ですが、見積もりを入れているものも
+     *   削除してほしい」。見積そのもの（`estimates`）は最初から対象で、
+     * 残っていたのは**請求書をまだ出していない売上**が入っている案件だった。
+     * 営業が提案の段階で入れる見込みの金額で、失注した以上その金額は動かない。
+     */
+    expect(PURGE_HAS_MONEY_SQL).toContain('r.invoice_issued = true');
+    expect(PURGE_HAS_MONEY_SQL).toContain('r.paid_date IS NOT NULL');
+  });
+
+  it('請求の言葉は billing-state.ts のものを使う（同じ集合に2つ目の名前を作らない）', () => {
+    // 別の式で書くと、片方だけ直されて必ず食い違う（billing-state.ts 冒頭の実測）
+    expect(SERVICE).toContain("from '../../../shared/services/billing-state'");
+    expect(SERVICE).toContain('BILLING_STATE_SQL.issued');
+    expect(SERVICE).toContain('BILLING_STATE_SQL.paid');
+  });
+
+  it('仕入は見込みではないので、そのまま残す理由にする', () => {
+    // 実際に払ったお金。失注案件に付いていれば「動いて、そして負けた」費用の記録
+    const from = PURGE_HAS_MONEY_SQL.indexOf('FROM purchases pu');
+    const pu = PURGE_HAS_MONEY_SQL.slice(from, PURGE_HAS_MONEY_SQL.indexOf('OR EXISTS', from));
+    expect(pu).toContain('pu.deleted_at IS NULL');
+    expect(pu).not.toContain('invoice_issued');
   });
 
   it('按分（グループ案件）も見る', () => {
     /*
      * ⚠️ グループ案件では `revenues.project_id` が親を指し、子は
      * `revenue_allocations` にしかいない。直接の行だけ見ると
-     * **売上を持っている案件を台帳から外せてしまう**。
+     * **請求済みの売上を持つ案件を台帳から外せてしまう**。
      */
     expect(PURGE_HAS_MONEY_SQL).toContain('revenue_allocations');
     expect(PURGE_HAS_MONEY_SQL).toContain('purchase_allocations');
+    // 按分の側にも「請求書を出したか」を掛ける（直接の行だけ厳しくしても意味がない）
+    const ra = PURGE_HAS_MONEY_SQL.slice(PURGE_HAS_MONEY_SQL.indexOf('revenue_allocations'));
+    expect(ra.slice(0, ra.indexOf('purchase_allocations'))).toContain('r.invoice_issued = true');
   });
 
   it('消えた売上（論理削除済み）は「お金がある」に数えない', () => {
@@ -265,5 +294,54 @@ describe('台帳から外したあとも BOX を片づけられること', () =>
   it('名寄せの索引にも、外した案件を入れる', () => {
     // 索引から落ちると、外したぶんのフォルダは名前で結び付け直せない
     expect(BOX).toContain("'SELECT id, code, gls_number, name FROM projects'");
+  });
+});
+
+describe('見込み売上も一緒に落とす（ご依頼「見込み売上を落とした上で削除したい」）', () => {
+  it('請求書を出しておらず入金も無い売上だけを落とす', () => {
+    /*
+     * 案件を台帳から外すだけでは、ぶら下がった見込みの売上は**売上台帳と集計に
+     * 残ります**（`revenues` は案件とは別に数えられるため）。
+     */
+    expect(PURGE_DROP_REVENUE_SQL).toContain('(r.invoice_issued IS NOT TRUE)');
+    expect(PURGE_DROP_REVENUE_SQL).toContain('r.paid_date IS NULL');
+  });
+
+  it('⚠️ 按分で他の案件にも配っている売上は落とさない', () => {
+    // 落とすと**まだ生きている案件からお金が消える**
+    expect(PURGE_DROP_REVENUE_SQL).toContain(
+      'NOT EXISTS (SELECT 1 FROM revenue_allocations ra WHERE ra.revenue_id = r.id)',
+    );
+  });
+
+  it('論理削除にする（案件と同じく戻せる）', () => {
+    expect(PURGE_DROP_REVENUE_SQL).toContain('SET deleted_at = NOW()');
+    expect(PURGE_DROP_REVENUE_SQL).not.toMatch(/DELETE\s+FROM\s+revenues/i);
+    // すでに落ちている行を二度触らない
+    expect(PURGE_DROP_REVENUE_SQL).toContain('r.deleted_at IS NULL');
+  });
+
+  it('案件を外す前に落とす', () => {
+    /*
+     * ⚠️ 外したあとだと、この案件を指す売上は**どの画面からも辿れないまま
+     * 売上台帳に残り続ける**。
+     */
+    const drop = SERVICE.indexOf('queryAll(PURGE_DROP_REVENUE_SQL');
+    const del = SERVICE.indexOf('UPDATE projects SET deleted_at = NOW()');
+    expect(drop).toBeGreaterThan(0);
+    expect(drop).toBeLessThan(del);
+  });
+
+  it('落とした件数を数えて返す（黙って消さない）', () => {
+    expect(SERVICE).toContain('revenuesDropped += dropped.length');
+    expect(SERVICE).toContain('revenuesDropped,');
+  });
+
+  it('押す前に「何件落ちるか」を画面へ出す', () => {
+    // お金の行が消えるのに、押したあとで初めて分かるのは取り返しの付かない驚き
+    expect(SERVICE).toContain('unbilledRevenues');
+    const band = read('client/src/contexts/sales/pages/projectList/JunkPurgeBand.tsx');
+    expect(band).toContain('請求前の見込み売上 {d.unbilledRevenues} 件');
+    expect(band).toContain('あわせて請求前の見込み売上 ${d.unbilledRevenues} 件も売上台帳から落とします。');
   });
 });

@@ -33,6 +33,7 @@
 import { execute, queryOne, queryAll } from '../../../shared/db/connection';
 import { LAST_MOVE_SQL, TIDY_AUTO_LOST_DAYS, ALIVE_EVIDENCE_SQL } from './project-health';
 import { syncBoxFoldersForStageSafe } from './box-lost-cleanup.service';
+import { BILLING_STATE_SQL } from '../../../shared/services/billing-state';
 
 /**
  * ネタを「放置」と見なす日数。**自動見送りと同じ 90 日**を使う
@@ -49,18 +50,38 @@ export const PURGE_STALE_NETA_DAYS = TIDY_AUTO_LOST_DAYS;
 export const PURGE_BUDGET_MS = 20_000;
 
 /**
- * **お金がぶら下がっているか。**（売上・仕入・按分のいずれか）
+ * **実際に動いたお金がぶら下がっているか。**
  *
- * ご判断「見積だけなら消す」。⚠️ **按分も見ます** — グループ案件では
- * `revenues.project_id` が親を指し、子は `revenue_allocations` にしかいないので、
- * 直接の行だけ見ると**売上を持っている案件を台帳から外せてしまいます**。
+ * ── ⚠️ 「見込みの売上」では残さない（ユーザー依頼 2026-08-31）────────
+ *
+ * 「以前見送った失注になった案件の削除ですが、**見積もりを入れているものも
+ *   削除してほしい**」
+ *
+ * 見積そのもの（`estimates`）は最初から対象でした。残っていたのは
+ * **請求書をまだ出していない売上**が入っている案件です。営業が提案の段階で
+ * 入れる**見込みの金額**で、失注した以上その金額は動きません。
+ * 利用者から見れば「見積を入れただけ」なので、残す理由になりません。
+ *
+ * そこで**請求書を出した（または入金があった）売上だけ**を残す理由にします。
+ * 判定は `billing-state.ts` の言葉をそのまま使います
+ * （**同じ集合に2つ目の名前を作らない** — 片方だけ直されて必ず食い違うため）。
+ *
+ * ⚠️ **仕入はそのまま残す理由にします。** 見込みではなく**実際に払ったお金**で、
+ * 失注案件に付いていれば「動いて、そして負けた」費用の記録です。
+ *
+ * ⚠️ **按分も見ます** — グループ案件では `revenues.project_id` が親を指し、
+ * 子は `revenue_allocations` にしかいないので、直接の行だけ見ると
+ * **請求済みの売上を持つ案件を台帳から外せてしまいます**。
  */
+const REVENUE_REAL_SQL = `(${BILLING_STATE_SQL.issued} OR ${BILLING_STATE_SQL.paid})`;
+
 export const PURGE_HAS_MONEY_SQL = `(
-  EXISTS (SELECT 1 FROM revenues r  WHERE r.project_id  = p.id AND r.deleted_at  IS NULL)
+  EXISTS (SELECT 1 FROM revenues r  WHERE r.project_id  = p.id AND r.deleted_at  IS NULL
+           AND ${REVENUE_REAL_SQL})
   OR EXISTS (SELECT 1 FROM purchases pu WHERE pu.project_id = p.id AND pu.deleted_at IS NULL)
   OR EXISTS (SELECT 1 FROM revenue_allocations ra
-              JOIN revenues r2 ON r2.id = ra.revenue_id AND r2.deleted_at IS NULL
-             WHERE ra.project_id = p.id)
+              JOIN revenues r ON r.id = ra.revenue_id AND r.deleted_at IS NULL
+             WHERE ra.project_id = p.id AND ${REVENUE_REAL_SQL})
   OR EXISTS (SELECT 1 FROM purchase_allocations pa
               JOIN purchases p2 ON p2.id = pa.purchase_id AND p2.deleted_at IS NULL
              WHERE pa.project_id = p.id)
@@ -108,6 +129,34 @@ export const PURGE_KEPT_SQL = `FROM projects p
      AND ${PURGE_JUNK_STAGE_SQL}
      AND ${PURGE_HAS_MONEY_SQL}`;
 
+/**
+ * **一緒に落とす「見込みの売上」。**
+ *
+ * ── ご依頼（2026-08-31）──────────────────────────────────────
+ *
+ * 「見込み売上を落とした上で削除したい」
+ *
+ * 案件を台帳から外すだけでは、**その案件にぶら下がった見込みの売上は
+ * 売上台帳と集計に残ります**（`revenues` は案件とは別に数えられるため）。
+ * 失注した以上その金額は動かないので、一緒に落とします。
+ *
+ * ⚠️ **落とすのは「請求書を出しておらず、入金も無い」売上だけ**です。
+ * 請求済み・入金済みは法定保存の対象なので絶対に触りません
+ * （`PURGE_HAS_MONEY_SQL` がそもそもその案件を対象から外します）。
+ *
+ * ⚠️ **按分（グループ案件）に使われている売上は落としません。**
+ * その売上は**他の案件にも配られている**ので、落とすと**まだ生きている案件から
+ * お金が消えます**。1件でも按分があれば手を付けません。
+ *
+ * ⚠️ **論理削除**（`deleted_at`）です。案件と同じく戻せます。
+ */
+export const PURGE_DROP_REVENUE_SQL = `UPDATE revenues AS r
+     SET deleted_at = NOW(), updated_by = ?
+   WHERE r.project_id = ? AND r.deleted_at IS NULL
+     AND ${BILLING_STATE_SQL.unissued} AND r.paid_date IS NULL
+     AND NOT EXISTS (SELECT 1 FROM revenue_allocations ra WHERE ra.revenue_id = r.id)
+   RETURNING r.id`;
+
 export interface PurgeCount {
   /** 台帳から外せる件数 */
   total: number;
@@ -119,6 +168,8 @@ export interface PurgeCount {
   keptForMoney: number;
   /** 放置と見なす日数（画面に出す。数字を画面に直書きしない） */
   staleDays: number;
+  /** 一緒に落とす見込み売上の件数（**落とすものは必ず先に見せる**） */
+  unbilledRevenues: number;
 }
 
 async function count(sql: string, extra = ''): Promise<number> {
@@ -127,13 +178,22 @@ async function count(sql: string, extra = ''): Promise<number> {
 }
 
 export async function countJunkProjects(): Promise<PurgeCount> {
-  const [total, lost, staleNeta, keptForMoney] = await Promise.all([
+  const [total, lost, staleNeta, keptForMoney, unbilledRevenues] = await Promise.all([
     count(PURGE_TARGET_SQL),
     count(PURGE_TARGET_SQL, `AND p.stage = 'e_lost'`),
     count(PURGE_TARGET_SQL, `AND p.stage = 'neta'`),
     count(PURGE_KEPT_SQL),
+    /*
+     * **一緒に落とす見込み売上の件数。** 押す前に見せる — お金の行が消えるのに
+     * 押したあとで初めて分かるのは、取り返しの付かない驚きになる。
+     * 対象の案件と同じ条件から数えるので、帯の数と実際に落ちる数は一致する。
+     */
+    count(`FROM revenues r WHERE r.deleted_at IS NULL
+             AND ${BILLING_STATE_SQL.unissued} AND r.paid_date IS NULL
+             AND NOT EXISTS (SELECT 1 FROM revenue_allocations ra WHERE ra.revenue_id = r.id)
+             AND EXISTS (SELECT 1 ${PURGE_TARGET_SQL} AND p.id = r.project_id)`),
   ]);
-  return { total, lost, staleNeta, keptForMoney, staleDays: PURGE_STALE_NETA_DAYS };
+  return { total, lost, staleNeta, keptForMoney, unbilledRevenues, staleDays: PURGE_STALE_NETA_DAYS };
 }
 
 export interface PurgeResult {
@@ -143,6 +203,8 @@ export interface PurgeResult {
   remaining: number;
   /** ⚠️ 外したが **BOX のフォルダを片づけられなかった**件数（現役の場所に残る） */
   boxLeft: number;
+  /** 一緒に落とした見込み売上の件数 */
+  revenuesDropped: number;
   /** 時間切れで切り上げたか（続けて呼べば進む） */
   timedOut: boolean;
 }
@@ -174,6 +236,7 @@ export async function purgeJunkProjects(limit: number, userId: string): Promise<
   const started = Date.now();
   let processed = 0;
   let boxLeft = 0;
+  let revenuesDropped = 0;
   let timedOut = false;
 
   for (const r of rows) {
@@ -189,6 +252,14 @@ export async function purgeJunkProjects(limit: number, userId: string): Promise<
       if (!after?.box_cleanup_state) boxLeft += 1;
     }
 
+    /*
+     * **見込みの売上を先に落とす**（ご依頼「見込み売上を落とした上で削除したい」）。
+     * ⚠️ **案件を外す前に。** 外したあとだと、この案件を指す売上は
+     * どの画面からも辿れないまま売上台帳に残り続ける。
+     */
+    const dropped = await queryAll(PURGE_DROP_REVENUE_SQL, [userId, r.id]) as { id: string }[];
+    revenuesDropped += dropped.length;
+
     await execute(
       'UPDATE projects SET deleted_at = NOW(), updated_by = ? WHERE id = ? AND deleted_at IS NULL',
       [userId, r.id],
@@ -196,5 +267,5 @@ export async function purgeJunkProjects(limit: number, userId: string): Promise<
     processed += 1;
   }
 
-  return { processed, remaining: await count(PURGE_TARGET_SQL), boxLeft, timedOut };
+  return { processed, remaining: await count(PURGE_TARGET_SQL), boxLeft, revenuesDropped, timedOut };
 }
