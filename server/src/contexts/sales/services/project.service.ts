@@ -26,6 +26,12 @@ import {
  */
 import { healthSql, stalledDaysSql, HEALTH_FILTERS } from './project-health';
 import { jstDate } from '../../../shared/utils/jst';
+/**
+ * 終了ステージに入ったら次回アクションを閉じ、戻ったら開き直す（migration 245）。
+ * **ステージ変更の集約点（`recordStageTransition`）から呼ぶ** — 経路ごとに書くと、
+ * 新しい経路が増えるたびにゴミの出どころが1つ増える。
+ */
+import { syncNextActionsForStageSafe } from '../../../shared/services/next-action-state';
 
 /**
  * 引き合いの入口と確信 (migration 165)。**DB の CHECK と同じ集合**にすること。
@@ -449,6 +455,22 @@ export async function recordStageTransition(
       [uuidv4(), id, fromStage ?? null, toStage, userId],
     );
   }
+
+  /*
+   * **終わった案件の「次回アクション」は機械が閉じる**（migration 245）。
+   *
+   * ユーザー報告:「失注になった案件については無条件で完了扱いにして
+   * リストから落として欲しい」「これらがゴミとして溜まりまくっている」。
+   * 終了系（`e_lost` / `s_completed`）から**戻したときは開き直す**ので可逆で、
+   * **人が自分で「完了」を押したものには触らない**（`syncNextActionsForStage`）。
+   *
+   * ⚠️ ここを通らない機械の経路（`project-health.ts` の自動見送り・繰り上げ完了）
+   * からも同じ関数を呼ぶこと。片方だけだとゴミが残りつづける。
+   *
+   * **失敗しても呼び出し元のステージ変更は止めない**（`...Safe`）— やることが
+   * 少し残るより、**失注にできないほうが業務は確実に止まる**。
+   */
+  await syncNextActionsForStageSafe(id, toStage);
 }
 
 /**
@@ -1048,6 +1070,22 @@ export class ProjectService {
       `UPDATE projects SET ${setClauses.join(', ')} WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
       params
     );
+
+    /*
+     * **一括で完了にした分の次回アクションも閉じる**（migration 245）。
+     *
+     * ⚠️ この道は `recordStageTransition()` を通らない。`a_won`/`e_lost` は上で
+     * 弾いているが **`s_completed` は通す**ので、ここだけ後片づけが抜けると
+     * 「一括で完了にした案件のやることだけ残る」という**画面から理由の分からない
+     * ゴミ**ができる（1件ずつ完了にしたときは消えるので、余計に読めない）。
+     *
+     * 終了ステージ以外へ一括で戻したときは `syncNextActionsForStage` が
+     * 開き直す側に回る（機械が閉じたものだけ）ので、そのまま全ステージで呼ぶ。
+     */
+    const bulkStage = typeof set.stage === 'string' && STAGES.includes(set.stage) ? set.stage : null;
+    if (bulkStage) {
+      for (const id of ids) await syncNextActionsForStageSafe(id, bulkStage);
+    }
     return { updated: ids.length };
   }
 

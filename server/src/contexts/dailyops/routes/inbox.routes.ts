@@ -106,14 +106,37 @@ router.post('/finance-docs/:id/handoff/undo', ...ledgerWrite, async (req, res) =
 });
 
 // ── その他問い合わせ ──────────────────────────────
+/**
+ * 一覧。**上限つき**（migration 247）。
+ *
+ * 画面は長らく絞り込み無しで全件を引き、画面側で state ごとに分けていました
+ * （タブの件数を出すため）。溜まるほど遅くなるので、
+ * **本体は `limit` で引き、件数は `/inquiries/counts` が COUNT で数えます**。
+ *
+ * - `states=ticket,project,dropped` … 「仕分け済み」タブ（3つまとめて）
+ * - `desk=1` … 「今日さばくもの」＝ 未仕分け ＋ 見直しの日が来たストック
+ */
 router.get('/inquiries', ...canRead, async (req, res) => {
+  const states = String(req.query.states ?? '').split(',').map((s) => s.trim()).filter(Boolean);
   const rows = await inquiryService.list({
     importance: req.query.importance ? String(req.query.importance) : undefined,
     state: req.query.state ? String(req.query.state) : undefined,
+    states: states.length ? states : undefined,
     tag: req.query.tag ? String(req.query.tag) : undefined,
     unhandledOnly: req.query.unhandled === '1' || req.query.unhandled === 'true',
+    deskOnly: req.query.desk === '1' || req.query.desk === 'true',
+    limit: req.query.limit ? Number(req.query.limit) : undefined,
+    offset: req.query.offset ? Number(req.query.offset) : undefined,
   });
   res.json({ success: true, data: rows });
+});
+
+/**
+ * タブに出す件数。**一覧とは別に数える**（`shared/tests/countHonesty.test.ts` の形）。
+ * 一覧に上限を付けた以上、運んだ行を画面で数えると件数が嘘になります。
+ */
+router.get('/inquiries/counts', ...canRead, async (_req, res) => {
+  res.json({ success: true, data: await inquiryService.counts() });
 });
 
 /** よく使うタグ。**画面で数えない**（絞り込むたびに件数が変わってしまう） */
@@ -170,7 +193,22 @@ router.put('/inquiries/:id', ...canEdit, async (req, res) => {
  * 同じ理由ですでに2つを見ており、**行き先を動かす口だけ狭いまま**でした。
  */
 router.post('/inquiries/:id/state', requireAuth, requireAnyPermission(['dailyops', 'sales'], 'editor'), async (req, res) => {
-  const row = await inquiryService.setState(String(req.params.id), String(req.body?.state ?? ''), req.user!.name);
+  /*
+    247: ストックには**見直す日**が付く。
+
+    ⚠️ **鍵ごと渡していないときと、`null` を渡したときを分ける。**
+    ・鍵が無い（案件作成の「ネタのまま残す」など、この決めごとを知らない呼び手）
+      → サーバーが既定の1か月後を入れる
+    ・`null`（画面の「決めない」）→ 空のまま。翌日から机に出る
+    読めない日付は 400 にせず「決めていない」に落とす
+    （落とすと「保存できないので見送りにする」が起きる）。
+  */
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const hasReview = Object.prototype.hasOwnProperty.call(body, 'stock_review_on');
+  const row = await inquiryService.setState(
+    String(req.params.id), String(body.state ?? ''), req.user!.name,
+    hasReview ? { stockReviewOn: (body.stock_review_on as string | null) ?? null } : {},
+  );
   res.json({ success: true, data: row });
 });
 

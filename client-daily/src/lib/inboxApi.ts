@@ -1,50 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from './api';
-import type { FinanceDoc, FinanceDocStatus, FinanceDocType, MiscInquiry, Importance } from './types';
+import type { MiscInquiry, Importance, InquiryState } from './types';
 
-// 見積/請求書 + その他問い合わせ API の react-query フック集
-
-// ── 見積/請求書 ──────────────────────────────
-export interface FinanceDocInput {
-  doc_type?: FinanceDocType;
-  sender?: string | null;
-  subject?: string | null;
-  content?: string | null;
-  amount?: number | null;
-  closing_month?: string | null;
-  payment_due?: string | null;
-  status?: FinanceDocStatus;
-  received_at?: string | null;
-  processed_by?: string | null;
-  gls_number?: string | null;
-  notes?: string | null;
-}
-
-export function useFinanceDocs(params: { status?: FinanceDocStatus; doc_type?: FinanceDocType } = {}) {
-  return useQuery({
-    queryKey: ['finance-docs', params.status ?? 'all', params.doc_type ?? 'all'],
-    queryFn: () => api.get('/dailyops/finance-docs', { params }).then((r) => r.data.data as FinanceDoc[]),
-    refetchOnMount: 'always',
-  });
-}
-
-function useInvalidateFinance() {
-  const qc = useQueryClient();
-  return () => { qc.invalidateQueries({ queryKey: ['finance-docs'] }); qc.invalidateQueries({ queryKey: ['dailyops-alerts'] }); };
-}
-
-export function useCreateFinanceDoc() {
-  const inv = useInvalidateFinance();
-  return useMutation({ mutationFn: (i: FinanceDocInput) => api.post('/dailyops/finance-docs', i).then((r) => r.data.data as FinanceDoc), onSuccess: inv });
-}
-export function useUpdateFinanceDoc() {
-  const inv = useInvalidateFinance();
-  return useMutation({ mutationFn: ({ id, fields }: { id: string; fields: FinanceDocInput }) => api.put(`/dailyops/finance-docs/${id}`, fields).then((r) => r.data.data as FinanceDoc), onSuccess: inv });
-}
-export function useDeleteFinanceDoc() {
-  const inv = useInvalidateFinance();
-  return useMutation({ mutationFn: (id: string) => api.delete(`/dailyops/finance-docs/${id}`), onSuccess: inv });
-}
+// その他問い合わせ（入ってきた情報）API の react-query フック集。
+//
+// ⚠️ **受け取った書類（`/dailyops/finance-docs`）のフックはここには無い。**
+// 画面は財務管理（`/budget/documents`）にあり、このアプリには読む画面が
+// 1つも無いのに `useFinanceDocs` / `useCreateFinanceDoc` / `useUpdateFinanceDoc` /
+// `useDeleteFinanceDoc` と `FinanceDocInput` が**呼び手ゼロのまま**残っていた。
+// 写しを残すと、片方だけ列が増えて食い違う。
 
 // ── その他問い合わせ ──────────────────────────────
 export interface InquiryInput {
@@ -62,10 +26,79 @@ export interface InquiryInput {
   tags?: string[];
 }
 
-export function useInquiries(params: { importance?: Importance; unhandled?: boolean } = {}) {
+export interface InquiryListParams {
+  importance?: Importance;
+  /** 1つの行き先だけ */
+  state?: InquiryState;
+  /** 複数の行き先をまとめて（「仕分け済み」タブ = チケット / 案件にした / 見送り） */
+  states?: InquiryState[];
+  /** 「今日さばくもの」= 未仕分け ＋ 見直しの日が来たストック */
+  desk?: boolean;
+  tag?: string | null;
+  /** **必ず上限を付ける**（サーバー既定 50・最大 200） */
+  limit?: number;
+  offset?: number;
+}
+
+/**
+ * 一覧。**上限つきで引く**（migration 247）。
+ *
+ * ⚠️ 以前は `useInquiries({})` で**全 state・全件・ページングなし**に引いてから
+ * 画面側で絞っていた（タブの件数を出すため）。溜まるほど遅くなり、
+ * 件数を出すためだけに全件を運んでいた。**件数は `useInquiryCounts()`**が
+ * サーバーの COUNT から取る（運んだ行を数えると上限で切れた分だけ嘘になる）。
+ */
+export function useInquiries(params: InquiryListParams = {}) {
+  const query: Record<string, string> = {};
+  if (params.importance) query.importance = params.importance;
+  if (params.state) query.state = params.state;
+  if (params.states?.length) query.states = params.states.join(',');
+  if (params.desk) query.desk = '1';
+  if (params.tag) query.tag = params.tag;
+  if (params.limit) query.limit = String(params.limit);
+  if (params.offset) query.offset = String(params.offset);
+
   return useQuery({
-    queryKey: ['inquiries', params.importance ?? 'all', params.unhandled ? 'unhandled' : 'all'],
-    queryFn: () => api.get('/dailyops/inquiries', { params: params.unhandled ? { ...params, unhandled: 1 } : params }).then((r) => r.data.data as MiscInquiry[]),
+    queryKey: ['inquiries', query],
+    queryFn: () => api.get('/dailyops/inquiries', { params: query }).then((r) => r.data.data as MiscInquiry[]),
+    refetchOnMount: 'always',
+  });
+}
+
+/**
+ * タブに出す件数。**サーバーが COUNT で数えたものを使う。**
+ *
+ * `desk` は「今日さばくもの」（未仕分け ＋ 見直しの日が来たストック）で、
+ * ホームのタイル（`GET /dailyops/alerts`）と同じ数になる。
+ */
+export interface InquiryStateCounts {
+  unsorted: number;
+  stock: number;
+  /** ストックのうち見直しの日が来たもの（`stock` の一部） */
+  stock_due: number;
+  /** チケット ＋ 案件にした ＋ 見送り */
+  sorted: number;
+  ticket: number;
+  project: number;
+  dropped: number;
+  /** 未仕分け ＋ `stock_due`。**`stock` と重なる**ので足しても全件にならない */
+  desk: number;
+}
+
+export interface InquiryCounts {
+  states: InquiryStateCounts;
+  /**
+   * 出どころ別の内訳。**0 件の出どころは返ってこない**
+   * （本番のメール取込がまだ `source` を渡していないため、
+   * 出すと Slack・電話・口頭が必ず 0 で並ぶ）
+   */
+  sources: { source: string; total: number; ticket: number }[];
+}
+
+export function useInquiryCounts() {
+  return useQuery({
+    queryKey: ['inquiry-counts'],
+    queryFn: () => api.get('/dailyops/inquiries/counts').then((r) => r.data.data as InquiryCounts),
     refetchOnMount: 'always',
   });
 }
@@ -85,6 +118,7 @@ function useInvalidateInq() {
   const qc = useQueryClient();
   return () => {
     qc.invalidateQueries({ queryKey: ['inquiries'] });
+    qc.invalidateQueries({ queryKey: ['inquiry-counts'] });
     qc.invalidateQueries({ queryKey: ['inquiry-tags'] });
     qc.invalidateQueries({ queryKey: ['dailyops-alerts'] });
   };
@@ -103,12 +137,19 @@ export function useUpdateInquiry() {
  *
  * **チケットと案件はここでは指定できません** — 実体（タスク・案件）を
  * 作ったときだけ入る値なので、サーバーが弾きます。
+ *
+ * ストックにするときは **見直す日**（`stock_review_on`）を一緒に送ります
+ * （migration 247）。送らなくても保存は通りますが、その行は
+ * 「見直す日が決まっていない」ものとして翌日から机に出ます。
  */
 export function useMoveInquiry() {
   const inv = useInvalidateInq();
   return useMutation({
-    mutationFn: ({ id, state }: { id: string; state: 'unsorted' | 'stock' | 'dropped' }) =>
-      api.post(`/dailyops/inquiries/${id}/state`, { state }).then((r) => r.data.data as MiscInquiry),
+    mutationFn: ({ id, state, stock_review_on }: {
+      id: string; state: 'unsorted' | 'stock' | 'dropped'; stock_review_on?: string | null;
+    }) =>
+      api.post(`/dailyops/inquiries/${id}/state`, { state, stock_review_on: stock_review_on ?? null })
+        .then((r) => r.data.data as MiscInquiry),
     onSuccess: inv,
   });
 }
@@ -131,7 +172,7 @@ export function useDeleteInquiry() {
 
 // ── ホームの件数 ──────────────────────────────
 /**
- * 未処理の書類 と 未対応の情報 の件数。
+ * 未処理の書類 と 今日さばくものの件数。
  *
  * **サーバーが数えたものを使う** (`GET /dailyops/alerts`)。ホームは以前
  * 書類と問い合わせの**一覧を丸ごと取り寄せてから画面で数えて**いたので、
@@ -139,8 +180,11 @@ export function useDeleteInquiry() {
  * ・「未処理」の定義が画面とサーバーの2か所にあり、片方だけ変えると食い違う
  * という2つの問題があった。数えるのは1か所にする。
  *
- * 書類・問い合わせを変えると `dailyops-alerts` は無効化される
- * (上の `useInvalidateFinance` / `useInvalidateInq` を参照)。
+ * `unhandledInquiries` は **未仕分け ＋ 見直しの日が来たストック**（migration 247）。
+ * 未仕分けだけにすると、ストックの見直しは画面を開いた人しか気づけない。
+ *
+ * 問い合わせを変えると `dailyops-alerts` は無効化される (`useInvalidateInq`)。
+ * 書類は財務管理の画面が持つ（このアプリからは変えない）。
  */
 export interface DailyopsAlerts {
   pendingFinanceDocs: number;

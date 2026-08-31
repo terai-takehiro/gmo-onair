@@ -7,6 +7,11 @@ import { normalizeWeekStart, defaultWeekStart, addDays } from './ops-report.serv
  * テーマ1 C-1a）。ここに書き写すと版・group_id の扱いが2か所に増え、ずれる。
  */
 import { ESTIMATE_AMOUNT_LATERAL } from '../../sales/services/project.service';
+/**
+ * 「未対応の次回アクション」の判定は **1本だけ**（migration 245）。
+ * 週報だけ違う集合を載せると、読んだ人が営業活動記録の画面と数を突き合わせられない。
+ */
+import { OPEN_NEXT_ACTION_SQL } from '../../../shared/services/next-action-state';
 
 // ウィークリー活動報告の数値集計 (オンデマンド)。
 // dashboard.routes の /kpi /sales-board /weekly-schedule と同じ流儀で集計する。
@@ -131,7 +136,9 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
   const eventsThisWeek = await eventsInRange(weekStart, weekEnd);
   const eventsNextWeek = await eventsInRange(nextWeekStart, nextWeekEnd);
 
-  // 来週期限の未完了 next_action
+  // 来週期限の未対応 next_action。
+  // ⚠️ **判定は共通の1本**（`OPEN_NEXT_ACTION_SQL`・migration 245）。前は式を写していて
+  // 終了案件の除外が抜けており、**週報に「失注した案件のやること」が毎週載っていた**
   const nextActions = await queryAll(
     `SELECT a.id, a.next_action, a.next_action_date, a.subject,
             p.id AS project_id, p.gls_number, p.name AS project_name,
@@ -139,9 +146,7 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
      FROM activity_logs a
      LEFT JOIN projects p ON p.id = a.project_id
      LEFT JOIN users u ON u.id = a.user_id
-     WHERE a.deleted_at IS NULL
-       AND a.next_action IS NOT NULL AND a.next_action_date IS NOT NULL
-       AND a.next_action_done_at IS NULL
+     WHERE ${OPEN_NEXT_ACTION_SQL}
        AND a.next_action_date BETWEEN ? AND ?
      ORDER BY a.next_action_date ASC
      LIMIT 30`,

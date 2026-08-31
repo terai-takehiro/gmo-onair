@@ -26,7 +26,8 @@
  */
 import { Link } from 'react-router-dom';
 import {
-  CalendarCheck, ChevronRight, DoorOpen, FileText, Inbox, KeyRound, ListChecks, Newspaper, Sparkles,
+  ArrowUpRight, CalendarCheck, ChevronRight, DoorOpen, FileText, Inbox, KeyRound, ListChecks,
+  Newspaper, Sparkles,
 } from 'lucide-react';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
@@ -117,17 +118,22 @@ export default function HomePage() {
           to="/inquiries"
           icon={Inbox}
           title="入ってきた情報"
-          description="スパムと営業を除いた有益なメールを AI が分類して重要度を付けます"
-          marks={unhandled ? [{ label: `未対応 ${unhandled}件`, tone: MARK_TONE.ai }] : []}
-          empty="未対応はありません"
+          description="届いた情報をチケット・案件・ストックに仕分けます。ストックは見直す日が来ると戻ります"
+          // 「未対応」= 未仕分け ＋ 見直しの日が来たストック（migration 247）。
+          // 画面の見出しと同じ数（サーバーが数えたもの）
+          marks={unhandled ? [{ label: `今日さばくもの ${unhandled}件`, tone: MARK_TONE.ai }] : []}
+          empty="今日さばくものはありません"
         />
         <Tile
           to="/finance"
           icon={FileText}
           title="受け取った書類"
-          description="メールで届いた見積・請求・注文書を AI が取り込みます（財務管理へ移ります）"
+          description="届いた請求書・注文書を確かめて、台帳（仕入・販管費）に入れます"
           marks={pendingDocs ? [{ label: `未処理 ${pendingDocs}件`, tone: MARK_TONE.soon }] : []}
           empty="未処理はありません"
+          // **別のアプリへ移る**（`/budget/documents`）。画面が一度白くなるので、
+          // 押す前に行き先のアプリ名を出す（左メニューの札と同じ言い方に揃えてある）
+          appHint="財務管理"
         />
       </Group>
 
@@ -195,7 +201,7 @@ function Group({ title, note, children }: { title: string; note: string; childre
 }
 
 function Tile({
-  to, icon: Icon, title, description, marks, empty,
+  to, icon: Icon, title, description, marks, empty, appHint,
 }: {
   to: string;
   icon: React.ElementType;
@@ -204,6 +210,12 @@ function Tile({
   marks: Mark[];
   /** 札が1つも無いときに出す一言。**空白にしない** */
   empty: string;
+  /**
+   * **別のアプリへ移るタイル**に付ける行き先のアプリ名。
+   * 押すと別バンドルへ全画面で移る（画面が一度白くなる）ので、
+   * 黙って起こさずに名前を出す。左メニューの札と同じ言い方にする
+   */
+  appHint?: string;
 }) {
   return (
     <Link
@@ -216,7 +228,14 @@ function Tile({
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">
           <span className="text-cardtitle truncate">{title}</span>
-          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          {appHint ? (
+            <span className="text-badge inline-flex shrink-0 items-center gap-0.5 rounded-badge-xs bg-muted px-1.5 py-0.5 text-muted-foreground">
+              <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+              {appHint}
+            </span>
+          ) : (
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          )}
         </span>
         <span className="text-sub mt-1 block text-muted-foreground">{description}</span>
         <span className="mt-2 flex flex-wrap items-center gap-1.5">

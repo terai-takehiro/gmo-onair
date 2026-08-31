@@ -33,7 +33,7 @@ import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { TemplateDialog } from './TemplateDialog';
 import { CalendarFeedCard } from './CalendarFeedCard';
-import type { NotifyResponse, Template } from './notifyTypes';
+import type { NotifyResponse, SchedulerJob, Template } from './notifyTypes';
 
 const AUDIENCE = {
   external: { label: '社外', tone: 'bg-warning-surface text-warning' },
@@ -44,16 +44,48 @@ const CHANNEL = {
   inapp: { label: '社内通知', tone: 'bg-ai-surface text-ai', icon: BellRing },
 } as const;
 /**
- * ひな形に紐づかない定時ジョブ（`templateId: null`）の表示名。
- * 通知を出さない裏方の仕事なのでひな形が無く、名前もここでしか持てない
- * （キーの意味はサーバーの `scheduler.service.ts` の各ジョブ実装が正）。
+ * 定時ジョブの表示名。**`SCHEDULER_JOBS` の全キーぶんをここに置く。**
+ *
+ * ⚠️ 以前は「ひな形に紐づかない仕事（`templateId: null`）だけ」を持つ表だった。
+ * ひな形がある仕事はひな形の名前で出せるからだが、**「直近の記録」の行はジョブキー
+ * （`scheduled_job_runs.job_key`）で引いており、ひな形の id とは別物**なので照合が外れ、
+ * `project_tidy` / `ai_review_production_draft` / `sales_ai_review` が
+ * **英字の内部キーのまま画面に出ていた**（v4.5.5 で権限チップの `qsheet` を直したのと同じ形）。
+ *
+ * 取りこぼしが再発しないよう、**`shared/tests/notificationNoise.test.ts` が
+ * サーバーの `JOBS` と突き合わせて、名前の無いキーがあれば試験を落とす**。
+ * （キーの意味はサーバーの `scheduler.service.ts` の各ジョブ実装が正）
  */
 const JOB_LABELS: Record<string, string> = {
+  project_tidy: '案件の自動整理（整理候補・自動見送り・受注→完了の繰り上げ）',
+  tk_due: 'タスクの期限前通知',
+  inv_late: '入金遅れの督促（請求書を出したものだけ）',
+  eq_return: '機材の返却遅れ',
+  inv_send_todo: '請求書をまだ出していない売上の督促',
+  bk_remind_todo: '利用前日のご案内を送る（社内向けの控え）',
+  kpt_draft: 'ふりかえり（KPT）の下書きができた',
+  weekly_unreviewed: '週報の未確認（まとめて1通）',
   activity_format: 'やり取り記録の本文をAIで整える（メール取込ぶんの後追い）',
   next_action_short: '「次にやること」をAIで帯の1行に収める',
   qsheet_ai_expire: '制作技術支援のAI提案：放置された提案を期限切れにする',
   qsheet_ai_settle: '制作技術支援のAI提案：期限が来た提案の成果を締める',
+  ai_review_production_draft: '制作技術支援のAI月次レビューの下書き',
+  sales_ai_review: '営業のAI月次レビューの下書き',
 };
+
+/**
+ * ジョブキーを人が読む名前にする。**英字のキーを画面に出さない。**
+ *
+ * ① `JOB_LABELS`（全キーぶんある。試験で固定）
+ * ② それでも無ければひな形の名前（記録に残っている古いキー向けの保険）
+ * ③ 最後は素のキー（消した仕事の記録が残っているとき。**空にしない** —
+ *    空だと「何の記録か分からない行」になる）
+ */
+function jobLabel(key: string, jobs: SchedulerJob[], templates: Template[]): string {
+  if (JOB_LABELS[key]) return JOB_LABELS[key];
+  const tplId = jobs.find((j) => j.key === key)?.templateId;
+  return templates.find((t) => t.id === (tplId ?? key))?.name ?? key;
+}
 
 export default function NotifyPage() {
   const qc = useQueryClient();
@@ -187,12 +219,29 @@ export default function NotifyPage() {
           </span>
         </div>
 
-        <div className="flex flex-wrap gap-1.5 border-b border-border-faint px-4 py-3">
-          {q.data.jobs.map((j) => (
-            <span key={j.key} className="rounded-note text-note bg-surface-subtle px-2.5 py-1 text-muted-foreground">
-              <strong className="font-number font-bold text-foreground">{j.at}</strong>{' '}
-              {q.data.templates.find((t) => t.id === j.templateId)?.name ?? JOB_LABELS[j.key] ?? j.key}
-            </span>
+        {/*
+          ── 「誰に・どのくらいの頻度で」を出す（v4.5.6）──────────────
+          前はここが時刻と名前だけのチップの列だった。督促の頻度を「毎朝」から
+          「節目だけ」に変えても、**画面がそれを言わなければ人には伝わらない**
+          （「通知が来ない＝止まっている」と疑われるか、減ったこと自体に気づかれない）。
+          宛先と頻度の文はサーバー（`SCHEDULER_JOBS`）が持つ — 決めているのが
+          そちらのコードなので、画面側に第2の説明を持たせるとすぐ食い違う。
+        */}
+        <div className="border-b border-border-faint">
+          {[...q.data.jobs].sort((a, b) => a.at.localeCompare(b.at)).map((j) => (
+            <div
+              key={j.key}
+              className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 border-b border-border-faint px-4 py-2.5 last:border-b-0"
+            >
+              <span className="text-sub font-number w-[46px] shrink-0 font-bold">{j.at}</span>
+              <span className="text-sub min-w-0 flex-1">{jobLabel(j.key, q.data.jobs, q.data.templates)}</span>
+              {/* スマホでは行が狭いので、宛先と頻度は名前の下（全幅）に回り込ませる */}
+              <span className="text-note basis-full text-muted-foreground lg:basis-auto lg:text-right">
+                {j.sendTo}
+                <span className="mx-1.5 text-border" aria-hidden="true">/</span>
+                {j.cadence}
+              </span>
+            </div>
           ))}
         </div>
 
@@ -204,8 +253,13 @@ export default function NotifyPage() {
             {lastRuns.map((r) => (
               <div key={`${r.job_key}-${r.run_date}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border-faint px-4 py-2 last:border-b-0">
                 <span className="text-sub font-number w-[96px] shrink-0">{r.run_date.slice(5).replace('-', '/')}</span>
+                {/*
+                  ⚠️ ここは**ジョブキー**（`scheduled_job_runs.job_key`）で、ひな形の id ではない。
+                  前は `templates.find(t => t.id === r.job_key)` で引いていたので必ず外れ、
+                  `JOB_LABELS` にも無いキーが英字のまま出ていた（`sales_ai_review` など）。
+                */}
                 <span className="text-sub min-w-0 flex-1 truncate">
-                  {q.data.templates.find((t) => t.id === r.job_key)?.name ?? JOB_LABELS[r.job_key] ?? r.job_key}
+                  {jobLabel(r.job_key, q.data.jobs, q.data.templates)}
                 </span>
                 {r.error ? (
                   <span className="text-note shrink-0 text-destructive">失敗：{r.error.slice(0, 60)}</span>
@@ -223,9 +277,15 @@ export default function NotifyPage() {
           <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
             <strong className="font-bold">同じお知らせは二重に出ません。</strong>
-            その日その仕事を流したかを記録し、さらに「同じ人・同じ対象・同じ日」は 1 行しか入らないようにしてあります
+            その日その仕事を流したかを記録し、さらに「同じ人・同じ対象・同じ節目」は 1 行しか入らないようにしてあります
             （デプロイのたびに再起動しても督促が増えません）。
             「いま流す」を何度押しても増えないのはそのためです。
+            <br />
+            <strong className="font-bold">督促（未入金・請求書・機材の返却）は毎朝は出しません。</strong>
+            超過 <span className="font-number">1・7・30</span> 日目と、以後 <span className="font-number">30</span> 日ごと
+            の節目だけ 1 通です。片づくまで毎日届くと、そのうち誰もベルを見なくなり、
+            <strong className="font-bold">本当に急ぐ 1 通まで一緒に埋もれます</strong>。
+            節目の日にサーバーが止まっていても飛びません（その日が属する節目で数えるため）。
           </span>
         </p>
       </div>

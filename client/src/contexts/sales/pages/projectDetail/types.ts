@@ -107,6 +107,12 @@ export interface ActivityLog {
   next_action_short?: string | null;
   next_action_date: string | null;
   next_action_done_at: string | null;
+  /**
+   * **機械が閉じた理由**（migration 245）。`null` = 人が「完了」を押した、または未対応。
+   * 値は `project_lost`（失注）/ `project_completed`（完了）。
+   * **「済み」とだけ書かないこと** — 誰も片づけていないので嘘になる（`autoClosedLabel`）。
+   */
+  next_action_auto_closed_reason?: string | null;
   /** 種類。`memo` は社内の書き置き（migration 184 でメモをここに畳んだ） */
   activity_type?: string;
   /** **原文**。AI が整形しても、打った文はここに残る */

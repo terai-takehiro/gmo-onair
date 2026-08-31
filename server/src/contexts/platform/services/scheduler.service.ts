@@ -29,6 +29,15 @@ import { isKptAiConfigured } from '../../sales/services/kpt-ai.service';
 import { runFormatPass } from '../../sales/services/activity-format.service';
 import { runShortPass } from '../../sales/services/next-action-short.service';
 import { jstParts, shiftYmd } from '../../../shared/utils/jst';
+/*
+ * ⚠️ **「未入金」をここで自前に定義しないこと**（`billing-state.ts` 冒頭の
+ * 「別名を作らないこと」）。この仕事は長らく `paid_date IS NULL` だけを見ており、
+ * **請求書をまだ出していない売上まで「入金が遅れています」と督促していた**。
+ * 出していない売上の期日超過は「お客様が遅れている」ではなく**こちらが請求していない**
+ * という別の話で、押しても入金は来ない（`billing.routes.ts` の `overdue` の説明）。
+ */
+import { BILLING_STATE_SQL } from '../../../shared/services/billing-state';
+import { reminderBucket, REMINDER_CADENCE_TEXT } from '../../../shared/services/reminder-bucket';
 import {
   listTidyCandidates, autoLoseStaleNeta, completeElapsedWonProjects,
   TIDY_CANDIDATE_DAYS, TIDY_AUTO_LOST_DAYS,
@@ -52,6 +61,20 @@ function nowParts(): { date: string; time: string } {
 
 const shiftDate = shiftYmd;
 
+/**
+ * `from` から `to` までの日数。**どちらも `YYYY-MM-DD`**（時刻が付いていれば切り落とす）。
+ *
+ * UTC の 00:00 同士で引くので、時間帯・夏時間の影響を受けない
+ * （`shiftYmd` と同じ考え方）。読めない日付は `null` — **0 を返さないこと**。
+ * 0 だと「今日が期日」と区別できず、壊れた行が毎日督促に乗る。
+ */
+function daysBetween(from: string, to: string): number | null {
+  const a = Date.parse(`${String(from).slice(0, 10)}T00:00:00Z`);
+  const b = Date.parse(`${String(to).slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(a) || Number.isNaN(b)) return null;
+  return Math.round((b - a) / 86400000);
+}
+
 interface Job {
   key: string;
   /** この時刻を過ぎたら流す（`HH:MM`） */
@@ -64,6 +87,10 @@ interface Job {
    * 通知しない仕事のためにダミー行を作らない。**止め方は環境変数**で持つ
    */
   templateId: string | null;
+  /** 誰のベルに出るか（人が読む文。判定には使わない — 宛先を決めるのは各 `run` のコード） */
+  sendTo: string;
+  /** どのくらいの頻度で出るか（人が読む文）。**減らしたことが画面から読めないと意味が無い** */
+  cadence: string;
   run: (today: string) => Promise<NotifyInput[]>;
 }
 
@@ -71,29 +98,50 @@ interface Job {
 // 仕事の中身
 // ───────────────────────────────────────────────────────────
 
-/** 入金遅れの督促 → 経理と、その売上を作った人 */
+/**
+ * 入金遅れの督促 → **請求書を出したのに入金が来ていない**ものだけ。
+ *
+ * ── 直した3つ（ユーザーの指摘「入金予定日を超えているものだけ通知するように」）──
+ *
+ * ①**「未入金」の定義**。ここはアプリ内で唯一「未入金」を自前に持っていて、
+ *   `paid_date IS NULL` だけを見ていた。つまり**請求書をまだ出していない売上**
+ *   （`payment_due_date` は登録時に自動計算されるだけで、超過に意味が無い）まで
+ *   「入金が遅れています」と督促していた。⑤見積・請求の `overdue` と**同じ式**を
+ *   `billing-state.ts` から読む。出していないものは下の `inv_send_todo` の担当。
+ *
+ * ②**毎朝出していた**。`ref_date` に今日の日付を入れていたので、一意索引
+ *   （人 × ひな形 × 対象 × ref_date）が毎日別の行を許し、解消するまで
+ *   **毎朝1通ずつ永久に**届いていた。`reminderBucket()` の節目に置き換える。
+ *
+ * ③**宛先が広すぎた**。`sales:editor`（＝フルアクセスの正規メンバー全員）＋
+ *   `system_admin` 全員 ＋ 起票者、で「N 件 × M 人 / 日」。督促は**動ける人**に
+ *   届いて初めて意味があるので、`sales:manager` ＋ その売上を作った人に絞る。
+ */
 async function overdueInvoices(today: string): Promise<NotifyInput[]> {
   const rows = await queryAll(
     `SELECT r.id, r.payment_due_date, r.amount, r.created_by, c.name AS customer_name, r.invoice_no
        FROM revenues r
        LEFT JOIN companies c ON c.id = r.customer_id
       WHERE r.deleted_at IS NULL AND r.status = 'confirmed'
-        AND r.paid_date IS NULL
+        AND ${BILLING_STATE_SQL.unpaid}
         AND r.payment_due_date IS NOT NULL
-        AND substr(r.payment_due_date, 1, 10) < ?`,
+        AND r.payment_due_date < ?`,
     [today],
   );
   if (rows.length === 0) return [];
 
-  // `budget` は権限モデル単純化で `sales` に統合済み。以前は経理担当者だけに
-  // 絞れていたが、いまは `sales:editor` を持つ全員（フルアクセスの正規メンバー）
-  // が対象になる
-  const keiri = await usersWithPermission('sales', 'editor');
+  // **督促は「動ける人」に。** `sales:editor` はフルアクセスの正規メンバー全員なので
+  // 実質「全社に毎朝」だった。`manager` ＋ 起票者に絞り、`system_admin` 全員も外す
+  // （権限の管理者であって経理ではない。届いても動けない）
+  const keiri = await usersWithPermission('sales', 'manager', { includeAdmins: false });
   const out: NotifyInput[] = [];
   for (const r of rows) {
     const due = String(r.payment_due_date).slice(0, 10);
-    const late = Math.max(0, Math.round(
-      (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${due}T00:00:00Z`)) / 86400000));
+    const late = daysBetween(due, today);
+    if (late === null) continue;              // 読めない日付の行は督促しない
+    // **節目でなければ出さない。** null は「まだ出す日ではない」（毎朝は出さない）
+    const bucket = reminderBucket(late);
+    if (bucket === null) continue;
     const vars = {
       '取引先名': String(r.customer_name ?? '（お客様名なし）'),
       '請求番号': String(r.invoice_no ?? '—'),
@@ -107,9 +155,15 @@ async function overdueInvoices(today: string): Promise<NotifyInput[]> {
     for (const u of to) {
       out.push({
         userId: u, templateId: 'inv_late',
-        title: fill('［未入金］{取引先名} {請求番号}', vars),
-        body: fill('期限 {支払期限}（{遅延日数} 日超過）・{請求金額}', vars),
-        link: '/budget/billing', refType: 'revenue', refId: String(r.id), refDate: today,
+        // **何日超過かを件名に出す。** 一覧で並んだとき、開かずに急ぎが分かる
+        title: fill('［未入金 {遅延日数}日超過］{取引先名} {請求番号}', vars),
+        // **次に何をすればよいかまで書く。** 「遅れています」だけだと、
+        // 受け取った人は結局この画面を開いて自分で判断し直すことになる
+        body: fill(
+          '{請求金額} ・ 支払期限 {支払期限}（{遅延日数} 日超過）。\n'
+          + '入金を確認できていれば「⑤ 見積・請求」で入金日を記録し、まだなら先方へ督促してください。\n'
+          + `（この督促は${REMINDER_CADENCE_TEXT}）`, vars),
+        link: '/budget/billing', refType: 'revenue', refId: String(r.id), refDate: bucket,
       });
     }
   }
@@ -155,11 +209,22 @@ async function tasksDueSoon(today: string): Promise<NotifyInput[]> {
   });
 }
 
-/** 機材の返却遅れ → 機材を直せる人と借用者 */
+/**
+ * 機材の返却遅れ → 機材の manager と、貸し出した人
+ *
+ * ── ⚠️ **借用者本人には届きません**（列を確かめたうえでの結論）──────
+ *
+ * `equipment_lendings`（migration 007）に**利用者と結び付く列はありません** —
+ * 借用者は `borrower_name`（氏名の文字列）だけで、`users.id` を持つのは
+ * `lent_by` / `returned_by`（社内の担当者）です。つまり
+ * **返す当人のベルには出せず、受け取った人が本人に声を掛けるしかない**。
+ * 直すには貸出に `borrower_user_id` を足す必要があり、機材アプリの
+ * 貸出画面ごと変える話になるのでここではやりません（別 Issue）。
+ * **「届かない」と書いておかないと、届いているつもりで運用されます。**
+ *
+ * 頻度と宛先は未入金の督促と同じ形にします（毎朝 × 全員 → 節目 × 動ける人）。
+ */
 async function equipmentOverdue(today: string): Promise<NotifyInput[]> {
-  // **`borrower_user_id` は無い。** 借用者は氏名の文字列で持っており、
-  // 利用者の id と結び付いていない。通知を出せるのは**貸し出した人**（`lent_by`）
-  // なので、そこへ出す（借用者本人へは届けられないことを画面に書く）
   const rows = await queryAll(
     `SELECT l.id, l.due_date, l.lent_by, l.borrower_name, e.name AS equipment_name
        FROM equipment_lendings l
@@ -169,22 +234,36 @@ async function equipmentOverdue(today: string): Promise<NotifyInput[]> {
     [today],
   );
   if (rows.length === 0) return [];
-  const tech = await usersWithPermission('equipment', 'editor');
+  // `editor` ＋ `system_admin` 全員（＝実質ほぼ全社）から、**機材を管理する人**へ。
+  // 貸し出した本人は当事者なので必ず足す
+  const tech = await usersWithPermission('equipment', 'manager', { includeAdmins: false });
   const out: NotifyInput[] = [];
   for (const l of rows) {
+    const due = String(l.due_date).slice(0, 10);
+    const late = daysBetween(due, today);
+    if (late === null) continue;
+    const bucket = reminderBucket(late);
+    if (bucket === null) continue;
     const vars = {
       '機材名': String(l.equipment_name ?? '貸出中の機材'),
       '借用者名': String(l.borrower_name ?? '—'),
-      '返却予定日': String(l.due_date).slice(0, 10).replace(/-/g, '/'),
+      '返却予定日': due.replace(/-/g, '/'),
+      '遅延日数': late,
     };
     const to = new Set(tech);
     if (l.lent_by) to.add(String(l.lent_by));
     for (const u of to) {
       out.push({
         userId: u, templateId: 'eq_return',
-        title: fill('［未返却］{機材名}', vars),
-        body: fill('借用者：{借用者名} ／ 返却予定日 {返却予定日} を過ぎています', vars),
-        link: '/equipment/lendings', refType: 'lending', refId: String(l.id), refDate: today,
+        title: fill('［未返却 {遅延日数}日超過］{機材名}', vars),
+        body: fill(
+          // ベルは素のテキストで出す（`whitespace-pre-line`）。**強調の記号を書かない** —
+          // そのまま「**」が見える
+          '借用者：{借用者名} ／ 返却予定日 {返却予定日} を {遅延日数} 日過ぎています。\n'
+          + '借用者本人のベルには出ません（貸出に利用者の紐づけが無いため）。声を掛けるか、'
+          + '返却済みなら貸出一覧で返却を記録してください。\n'
+          + `（この督促は${REMINDER_CADENCE_TEXT}）`, vars),
+        link: '/equipment/lendings', refType: 'lending', refId: String(l.id), refDate: bucket,
       });
     }
   }
@@ -220,36 +299,63 @@ async function bookingRemindTodo(today: string): Promise<NotifyInput[]> {
   });
 }
 
-/** 請求書をまだ出していないもの → 経理に「出す時期が来ました」 */
+/**
+ * 請求書をまだ出していないもの → 経理に「出す時期が来ました」
+ *
+ * ── 未入金の督促と**対象が重ならない**（大事）────────────────
+ *
+ * こちらは `invoice_issued IS NOT TRUE`、上の `inv_late` は
+ * `BILLING_STATE_SQL.unpaid`（= `invoice_issued = true AND paid_date IS NULL`）。
+ * **真偽が逆なので同じ売上が両方に出ることはありません。**
+ * 直す前の `inv_late` は発行の有無を見ていなかったため、締め日を過ぎて未発行の
+ * 売上が**同じ朝に2通**（「請求書を出していません」と「入金が遅れています」）
+ * 届いていました。これも「ゴミ通知」の中身の一つです。
+ *
+ * 頻度は締め日からの経過日数で節目に置きます。**締め日当日にも1通目を出す**ため
+ * `Math.max(1, 経過日数)` にしてあります（`reminderBucket(0)` は `null`）。
+ */
 async function invoiceSendTodo(today: string): Promise<NotifyInput[]> {
   const rows = await queryAll(
-    `SELECT r.id, r.amount, r.payment_due_date, c.name AS customer_name
+    `SELECT r.id, r.amount, r.billing_date, r.payment_due_date, r.created_by, c.name AS customer_name
        FROM revenues r
        LEFT JOIN companies c ON c.id = r.customer_id
       WHERE r.deleted_at IS NULL AND r.status = 'confirmed'
-        AND r.invoice_issued IS NOT TRUE
+        AND ${BILLING_STATE_SQL.unissued}
         AND r.billing_date IS NOT NULL
         AND substr(r.billing_date, 1, 10) <= ?`,
     [today],
   );
   if (rows.length === 0) return [];
-  // `budget` は権限モデル単純化で `sales` に統合済み。以前は経理担当者だけに
-  // 絞れていたが、いまは `sales:editor` を持つ全員（フルアクセスの正規メンバー）
-  // が対象になる
-  const keiri = await usersWithPermission('sales', 'editor');
+  // 未入金の督促と同じ絞り方（`sales:manager` ＋ その売上を作った人・
+  // `system_admin` 全員は外す）。以前は `sales:editor` ＝ 正規メンバー全員だった
+  const keiri = await usersWithPermission('sales', 'manager', { includeAdmins: false });
   const out: NotifyInput[] = [];
   for (const r of rows) {
+    const billed = String(r.billing_date).slice(0, 10);
+    const elapsed = daysBetween(billed, today);
+    if (elapsed === null) continue;
+    // 締め日当日（経過 0 日）も 1〜6 日目と同じ `late:1` に入れる。
+    // **当日に出したい**が、当日と翌日で2通にはしたくない
+    const bucket = reminderBucket(Math.max(1, elapsed));
+    if (bucket === null) continue;
     const vars = {
       '取引先名': String(r.customer_name ?? '（お客様名なし）'),
       '請求金額': `¥${Number(r.amount ?? 0).toLocaleString('ja-JP')}`,
+      '締め日': billed.replace(/-/g, '/'),
+      '経過日数': elapsed,
       '支払期限': String(r.payment_due_date ?? '').slice(0, 10).replace(/-/g, '/') || '未設定',
     };
-    for (const u of keiri) {
+    const to = new Set(keiri);
+    if (r.created_by) to.add(String(r.created_by));
+    for (const u of to) {
       out.push({
         userId: u, templateId: 'inv_send_todo',
         title: fill('［請求書］{取引先名} 宛の請求書をまだ出していません', vars),
-        body: fill('{請求金額} ・ 支払期限 {支払期限}', vars),
-        link: '/budget/billing', refType: 'revenue', refId: String(r.id), refDate: today,
+        body: fill(
+          '{請求金額} ・ 締め日 {締め日}（{経過日数} 日経過）・ 支払期限 {支払期限}。\n'
+          + '「請求書の送付」の文面をコピーして送り、送ったら「⑤ 見積・請求」で請求書発行を記録してください。\n'
+          + `（この督促は${REMINDER_CADENCE_TEXT}）`, vars),
+        link: '/budget/billing', refType: 'revenue', refId: String(r.id), refDate: bucket,
       });
     }
   }
@@ -269,33 +375,61 @@ async function invoiceSendTodo(today: string): Promise<NotifyInput[]> {
  */
 const WEEKLY_REVIEW_REMIND_DAYS = 14;
 
-/** 週報の未確認督促 → 日常業務を編集できる人（経理の督促と同じ「誰に送るか」の決め方） */
+/**
+ * 週報の未確認督促 → 日常業務の manager に **1人1通のまとめ**
+ *
+ * ── なぜまとめにしたか ──────────────────────────────────────
+ *
+ * 前は「未確認の週報1件につき1通 × 対象者全員 × **毎日**」だった。
+ * 週報は毎週増えるので、**確認が止まっている間は雪だるま式**に増える
+ * （20 週たまって 10 人なら 1 日 200 通）。しかも1通ずつ届いても
+ * やることは同じ「週報の一覧を開いて上から確認する」で、**1件ずつ知らせる
+ * 意味がありません**。件数といちばん古い週だけ伝えれば足ります。
+ *
+ * ── ⚠️ `refId` を NULL にしない ────────────────────────────
+ *
+ * まとめ通知には「対象の1行」がありません。だからといって `refId` を NULL に
+ * すると**重複排除が効きません** — Postgres の一意索引は **NULL 同士を
+ * 別物として扱う**ので、`uq_notifications_dedup (user_id, template_id,
+ * ref_type, ref_id, ref_date)` が毎回別の行として通してしまい、
+ * 「いま流す」を押すたびに増えます。**固定文字列 `'digest'`** を入れて、
+ * 索引が同じ行だと判定できるようにします。
+ *
+ * `ref_date` は「いちばん古い未確認週 ＋ 件数」から作ります。
+ * **状況が変わったとき（新しく溜まった／片づいた）だけ**新しい1通が出て、
+ * 何も変わっていない日は一意索引が弾きます。
+ */
 async function weeklyReportsUnreviewed(today: string): Promise<NotifyInput[]> {
   const threshold = shiftDate(today, -WEEKLY_REVIEW_REMIND_DAYS);
-  const rows = await queryAll(
-    `SELECT id, period_key
+  const agg = await queryOne(
+    `SELECT COUNT(*)::int AS n, MIN(period_key) AS oldest
        FROM ops_reports
       WHERE kind = 'weekly_activity' AND deleted_at IS NULL
         AND reviewed_at IS NULL
         AND period_key <= ?`,
     [threshold],
-  );
-  if (rows.length === 0) return [];
-  const reviewers = await usersWithPermission('dailyops', 'editor');
-  const out: NotifyInput[] = [];
-  for (const r of rows) {
-    const week = String(r.period_key ?? '').replace(/-/g, '/');
-    const vars = { '週': week };
-    for (const u of reviewers) {
-      out.push({
-        userId: u, templateId: 'weekly_unreviewed',
-        title: fill('［週報］{週} の週の報告がまだ確認されていません', vars),
-        body: `確定（公開）していなくても構いません。内容を見て「確認済みにする」を押してください（${WEEKLY_REVIEW_REMIND_DAYS}日以上未確認のままです）。`,
-        link: `/daily/weekly/${r.id}`, refType: 'ops_report', refId: String(r.id), refDate: today,
-      });
-    }
-  }
-  return out;
+  ) as { n?: number; oldest?: string | null } | null;
+  const n = Number(agg?.n ?? 0);
+  if (n === 0) return [];
+  const oldest = String(agg?.oldest ?? '');
+
+  // 確認するのは日常業務の管理者。`editor` ＋ `system_admin` 全員（＝ほぼ全社）だと、
+  // 週報を確認する立場に無い人のベルにも毎日積み上がる
+  const reviewers = await usersWithPermission('dailyops', 'manager', { includeAdmins: false });
+  const vars = { '件数': n, '最古週': oldest.replace(/-/g, '/') || '—' };
+  return reviewers.map((u) => ({
+    userId: u, templateId: 'weekly_unreviewed',
+    title: fill('［週報］未確認の週報が {件数} 件あります', vars),
+    body: fill(
+      `いちばん古いのは {最古週} の週です（${WEEKLY_REVIEW_REMIND_DAYS}日以上未確認）。\n`
+      + '確定（公開）していなくても構いません。内容を見て「確認済みにする」を押してください。\n'
+      + '（このお知らせは件数かいちばん古い週が変わったときだけ出ます）', vars),
+    link: '/daily/weekly',
+    refType: 'ops_report',
+    // ⚠️ NULL にしないこと（上の説明）。`refDate` は状況が変わったときだけ変わる鍵
+    refId: 'digest',
+    refDate: `weekly:${oldest}:${n}`,
+  }));
 }
 
 /**
@@ -611,31 +745,91 @@ const JOBS: Job[] = [
   // 案件の自動整理。朝いちの通知3本（09:00）より前に済ませる — 繰り上げ（受注→完了）を
   // 先にしておかないと、その日の他の集計・通知が「終わったのに受注のまま」の行を数える。
   // templateId は null（ひな形で止めない理由は projectTidy の説明）。止め方は PROJECT_TIDY_DAILY=off
-  { key: 'project_tidy', at: '07:30', templateId: null, run: projectTidy },
-  { key: 'tk_due', at: '09:00', templateId: 'tk_due', run: tasksDueSoon },
-  { key: 'inv_late', at: '09:00', templateId: 'inv_late', run: overdueInvoices },
-  { key: 'eq_return', at: '09:00', templateId: 'eq_return', run: equipmentOverdue },
-  { key: 'inv_send_todo', at: '09:30', templateId: 'inv_send_todo', run: invoiceSendTodo },
-  { key: 'bk_remind_todo', at: '17:00', templateId: 'bk_remind_todo', run: bookingRemindTodo },
+  {
+    key: 'project_tidy', at: '07:30', templateId: null,
+    sendTo: '案件を起票した人', cadence: '候補になった日に1通（毎日は出しません）',
+    run: projectTidy,
+  },
+  {
+    key: 'tk_due', at: '09:00', templateId: 'tk_due',
+    sendTo: 'タスクの担当者', cadence: '期限の2日前に1回だけ',
+    run: tasksDueSoon,
+  },
+  {
+    key: 'inv_late', at: '09:00', templateId: 'inv_late',
+    sendTo: '案件管理の manager ・ その売上を作った人',
+    cadence: REMINDER_CADENCE_TEXT,
+    run: overdueInvoices,
+  },
+  {
+    key: 'eq_return', at: '09:00', templateId: 'eq_return',
+    sendTo: '機材管理の manager ・ 貸し出した人（⚠️ 借用者本人には届きません）',
+    cadence: REMINDER_CADENCE_TEXT,
+    run: equipmentOverdue,
+  },
+  {
+    key: 'inv_send_todo', at: '09:30', templateId: 'inv_send_todo',
+    sendTo: '案件管理の manager ・ その売上を作った人',
+    cadence: REMINDER_CADENCE_TEXT,
+    run: invoiceSendTodo,
+  },
+  {
+    key: 'bk_remind_todo', at: '17:00', templateId: 'bk_remind_todo',
+    sendTo: '予約を作った人', cadence: '利用日の前日に1回だけ',
+    run: bookingRemindTodo,
+  },
   // 9:30 にするのは、9:00 の3本（期限・督促・返却）と重ねないため。
   // AI を呼ぶので他より時間がかかり、重ねると朝いちの通知が遅れる
-  { key: 'kpt_draft', at: '09:30', templateId: 'kpt_draft', run: kptDraftYesterday },
+  {
+    key: 'kpt_draft', at: '09:30', templateId: 'kpt_draft',
+    sendTo: '案件の担当', cadence: '下書きができたときに1回だけ',
+    run: kptDraftYesterday,
+  },
   // AI を呼ばない軽い問い合わせなので kpt_draft の直後でよい
-  { key: 'weekly_unreviewed', at: '09:45', templateId: 'weekly_unreviewed', run: weeklyReportsUnreviewed },
+  {
+    key: 'weekly_unreviewed', at: '09:45', templateId: 'weekly_unreviewed',
+    sendTo: '日常業務の manager',
+    cadence: '件数かいちばん古い週が変わったときだけ（1人1通）',
+    run: weeklyReportsUnreviewed,
+  },
   // 通知を出さない裏方の仕事（ひな形なし）。深夜に置くのは AI を呼ぶ仕事を朝と重ねないため。
   // 止めたいときは `ACTIVITY_FORMAT_NIGHTLY=off`
-  { key: 'activity_format', at: '03:00', templateId: null, run: formatPendingActivities },
+  {
+    key: 'activity_format', at: '03:00', templateId: null,
+    sendTo: '通知は出しません（裏方の仕事）', cadence: '毎晩',
+    run: formatPendingActivities,
+  },
   // 整形のあとに置く（整形が `next_action` を埋めた行を同じ晩に短くする）
-  { key: 'next_action_short', at: '03:10', templateId: null, run: shortenPendingNextActions },
+  {
+    key: 'next_action_short', at: '03:10', templateId: null,
+    sendTo: '通知は出しません（裏方の仕事）', cadence: '毎晩',
+    run: shortenPendingNextActions,
+  },
   // 制作資料 v4 段7（AI 提案）。既存の 03:00/03:10（AI を呼ぶ仕事）と重ねないための 03:15/03:20。
   // **どちらも AI を1回も呼ばない**（突合・期限切れの判定だけ）
-  { key: 'qsheet_ai_expire', at: '03:15', templateId: null, run: expireQsheetAiProposals },
-  { key: 'qsheet_ai_settle', at: '03:20', templateId: null, run: settleQsheetAiProposals },
+  {
+    key: 'qsheet_ai_expire', at: '03:15', templateId: null,
+    sendTo: '通知は出しません（裏方の仕事）', cadence: '毎晩',
+    run: expireQsheetAiProposals,
+  },
+  {
+    key: 'qsheet_ai_settle', at: '03:20', templateId: null,
+    sendTo: '通知は出しません（裏方の仕事）', cadence: '毎晩',
+    run: settleQsheetAiProposals,
+  },
   // 段9（04-ai.md §5-5）。月次レビューの下書き＋通知。実際に動くのは毎月1日だけ
   // （`qsheetAiReviewDraft` の中で日付を見る。仕組みは他の日次仕事と同じ15分ポーリングに乗せる）
-  { key: AI_REVIEW_JOB_KEY, at: '03:25', templateId: AI_REVIEW_NOTIFY_TEMPLATE_ID, run: qsheetAiReviewDraft },
+  {
+    key: AI_REVIEW_JOB_KEY, at: '03:25', templateId: AI_REVIEW_NOTIFY_TEMPLATE_ID,
+    sendTo: '制作技術支援の manager', cadence: '毎月1日に1回だけ',
+    run: qsheetAiReviewDraft,
+  },
   // 営業側の月次 AI レビュー（Phase 2 ②）。制作側（03:25）の直後に置き、深夜の集計系に寄せる
-  { key: SALES_AI_REVIEW_JOB_KEY, at: '03:35', templateId: SALES_AI_REVIEW_NOTIFY_TEMPLATE_ID, run: salesAiReviewDraft },
+  {
+    key: SALES_AI_REVIEW_JOB_KEY, at: '03:35', templateId: SALES_AI_REVIEW_NOTIFY_TEMPLATE_ID,
+    sendTo: '案件管理の manager', cadence: '毎月1日に1回だけ',
+    run: salesAiReviewDraft,
+  },
 ];
 
 /**
@@ -710,4 +904,17 @@ export function stopScheduler(): void {
   if (timer) { clearInterval(timer); timer = null; }
 }
 
-export const SCHEDULER_JOBS = JOBS.map((j) => ({ key: j.key, at: j.at, templateId: j.templateId }));
+/**
+ * 設定 ⑦ の画面に渡す一覧。**`run` は渡さない**（関数は JSON にならない）。
+ *
+ * `sendTo` / `cadence` まで渡すのは、**「どの通知が誰に、どのくらいの頻度で出るか」を
+ * 画面から読めるようにするため**。頻度を減らしても、それが人に伝わらなければ
+ * 「通知が来ないから止まっている」と疑われるだけで終わる。
+ *
+ * **仕事の名前（日本語）はここでは持たない** — 画面側の `JOB_LABELS` が持ち、
+ * `shared/tests/notificationNoise.test.ts` が「この一覧の全キーに名前がある」ことを
+ * 固定する（足し忘れると英字の内部キーが画面に出る。実際に3本出ていた）。
+ */
+export const SCHEDULER_JOBS = JOBS.map((j) => ({
+  key: j.key, at: j.at, templateId: j.templateId, sendTo: j.sendTo, cadence: j.cadence,
+}));

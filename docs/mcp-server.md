@@ -171,8 +171,8 @@ HTTP 側 (`/api/v1/internal/gpm/*`) と同じサービス層を呼ぶので、�
 | `list_customers` / `get_customer` | read | 顧客検索・詳細 (+直近案件10件) |
 | `create_customer` | write | 顧客登録 (**重複ガード**: 類似名があれば候補を返して作成しない。`allow_duplicate:true` で強制) |
 | `update_customer` | write | 顧客の部分更新 (マージ) |
-| `list_activity_logs` | read | 営業活動記録一覧。`upcoming:true` で次回アクション予定 (N日以内・未完了のみ) |
-| `list_overdue_actions` | read | 期限超過の次回アクション (対応漏れ) 一覧。定期リマインド→Slack 通知用 (毎朝叩いて「対応漏れ N件」を投稿する運用)。days_overdue / 案件 / 担当者 / 顧客を含む |
+| `list_activity_logs` | read | 営業活動記録一覧。`upcoming:true` で次回アクション予定 (N日以内・未対応のみ。失注・完了した案件の分は含まない) |
+| `list_overdue_actions` | read | 期限超過の次回アクション (対応漏れ) 一覧。定期リマインド→Slack 通知用 (毎朝叩いて「対応漏れ N件」を投稿する運用)。days_overdue / 案件 / 担当者 / 顧客を含む。`total` は **`limit` で頭打ちにならない実数**・`returned` が返した行数 |
 | `create_activity_log` / `update_activity_log` | write | 活動記録の登録/更新 (user_id は活動した担当者の users.id 必須)。create は **idempotency_key で二重登録防止** + message_id / source_channel 保存可。同一メールから案件と活動を両方起票するときは key を意図別に分ける (例 `email:<msgid>:project` / `:activity`) |
 | `list_tasks` | read | タスク一覧 (案件内 or 進行中案件の横断) |
 | `create_task` / `update_task` | write | タスク作成/更新 (completed で完了切替。progress 0-100 / is_milestone ◆ / work_state (todo/doing/waiting) / production_step / episode_id / 子タスク parent_task_id も指定可。GLS-B のタスクにも使える — ガントの細かい編集はこちら) |
@@ -240,7 +240,7 @@ kind と運用契約:
 | `record_finance_doc` | write | メール受信の 見積書/請求書/注文書 を取込 (doc_type / 送付者 / 金額 / 締月 / 支払期日 / message_id で重複ガード)。status=new。承認/却下/処理完了は人がアプリで操作 |
 | `list_finance_docs` | read | 見積/請求書の一覧 (status / doc_type / pending) |
 | `record_inquiry` | write | 他カテゴリに属さない**有益メールのみ**登録。**スパム・営業・メルマガ・他ツール対象 (見積請求/内覧会/案件) は呼び出し前に AI が除外する契約**。summary / importance / source / tags / action_needed を付与 |
-| `list_inquiries` | read | その他問い合わせの一覧 (importance / **state** / **tag** / unhandled) |
+| `list_inquiries` | read | その他問い合わせの一覧 (importance / **state** / **tag** / unhandled / **desk** / limit)。**返す件数に上限あり**（既定 50・最大 200） |
 
 **v4 大②: 出どころ・行き先・タグを持つようになりました**（migration 171）。
 
@@ -254,7 +254,20 @@ kind と運用契約:
 - その仕分けの結果は `get_ai_feedback_digest`（`kind=inquiry_intake`）の **`inquiry.dropped_rate`
   （見送り率）** として返ってきます。**取り込む前に一度読み、拾いすぎていないかを確かめること**
 - AI が入れた行かどうかは `ai_outputs` に記録があるかで判定します。
-  **`source` は出どころであって「誰が入れたか」ではありません**（v4 より前は混同していました）
+  **`source` は出どころであって「誰が入れたか」ではありません**（v4 より前は混同していました）。
+  **受け取った書類（`finance_docs`）も同じ判定に揃えました**（migration 247）—
+  それまで書類側だけが `source === 'email'` を印にしており、
+  手で足したメールの行に嘘の ✨ が付いていました
+
+**ストックには「見直す日」が付きます**（migration 247・`misc_inquiries.stock_review_on`）。
+
+- ⚠️ **ストックは「捨てた」ではありません。** 見直す日（既定は仕分けた日の1か月後）が来ると、
+  **未仕分けと同じ扱いで「今日さばくもの」に戻ります**（画面の見出し・ホームのタイル・
+  `GET /dailyops/alerts` の3か所とも同じ判定）
+- 見直す日が空のストックも机に出ます。「決めていない」を「永久に出さない」と読むと、
+  ストックが見送りと同じ行き止まりになるためです
+- `list_inquiries` の **`desk=true`** がこの集合（未仕分け ＋ 見直しの日が来たストック）を返します。
+  `get_ai_feedback_digest` の見送り率を読むときは、**ストックは見送りに数えていない**ことに注意してください
 
 **v4: メールの中身を「読める形」で渡せるようになりました**（migration 160）。
 `record_finance_doc` / `record_inquiry` に**任意の引数**が2つ増えています。

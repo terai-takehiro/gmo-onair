@@ -211,9 +211,16 @@ export async function seed() {
     ['OPP-202603-0016', 'SN 新番組パイロット', 'SN', 'recording', 4500000, '2026-02-01', 'スケジュール不一致', 'スタジオ空き日程が合わなかった', '2026-02-05'],
     ['OPP-202603-0017', 'GE 社員研修配信', 'GE', 'live_broadcast', 1800000, '2026-03-05', '条件不一致', '求められた配信品質の要件が合わなかった', '2026-03-08'],
   ];
+  /**
+   * 失注案件の id。**活動記録のゴミ（migration 245）を検証環境で見るために持つ。**
+   * 「失注した案件に未対応の次回アクションがぶら下がっている」行が1つも無いと、
+   * 直したことを実ブラウザで確かめられない（消えるべきものが最初から無い）。
+   */
+  const LOST_PROJECTS: Record<string, string> = {};
   for (let i = 0; i < lostData.length; i++) {
     const [code, name, custKey, projType, amt, date, reason, note, lostAt] = lostData[i];
     const id = uuidv4();
+    LOST_PROJECTS[code] = id;
     await execute(
       `INSERT INTO projects (id, code, name, customer_id, stage, project_type, audience, project_category, gls_category, expected_amount, event_start, assigned_to, lost_reason, lost_reason_note, lost_at, created_by) VALUES (?, ?, ?, ?, 'e_lost', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, code, name, CUSTOMERS[custKey], projType, ...cls2(projType),
@@ -416,6 +423,45 @@ export async function seed() {
     await ins(riSql, [uuidv4(), revId8, 'スタジオ利用料', 1, 1500000, 1500000, 1]);
     await ins(riSql, [uuidv4(), revId8, 'CM撮影技術費', 1, 1200000, 1200000, 2]);
     await ins(riSql, [uuidv4(), revId8, '美術・セット費', 1, 500000, 500000, 3]);
+  }
+
+  /*
+   * ── 請求・入金の進み具合を入れる（`invoice_issued` / `billing_date` /
+   *    `payment_due_date` / `paid_date`）────────────────────────────
+   *
+   * ⚠️ **どの売上にもこの4列が入っていませんでした。** そのため
+   * ⑤ 見積・請求の「期日超過」も、未入金の督促（`inv_late`）も、請求書未発行の
+   * 督促（`inv_send_todo`）も、**検証環境では1件も出せません**でした
+   * （＝「毎朝ゴミが届く」も「直ったら届かない」もどちらも確かめられない）。
+   *
+   * 未入金の督促は「**請求書を出したのに入金が来ていない**」ものだけを拾う決まり
+   * （`billing-state.ts` の `unpaid`）なので、それを確かめるには
+   * **発行済み × 未発行**の両方が要ります。4通りを必ず作ります:
+   *
+   *   ① 発行済み・未入金・期日を過ぎている      … 督促が出る（節目 late:1 / late:7）
+   *   ② **未発行**・期日を過ぎている            … **督促が出てはいけない**
+   *      （期日は登録時に自動計算されるだけで、押しても入金は来ない。
+   *        ユーザー報告「ゴミ通知が多い」の中身がこれ）
+   *   ③ 発行済み・未入金・期日はまだ先          … どちらの督促も出ない
+   *   ④ 入金済み                                … 出ない
+   */
+  {
+    const day = (n: number) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+    // billing_key で引く（id は uuid で seed の外から指せないため）
+    const bill = async (key: string, issued: boolean, dueIn: number, paid: boolean) => {
+      await execute(
+        `UPDATE revenues SET invoice_issued = ?, billing_date = ?, payment_due_date = ?, paid_date = ?
+          WHERE billing_key = ?`,
+        [issued, day(dueIn - 30), day(dueIn), paid ? day(dueIn + 2) : null, key],
+      );
+    };
+    await bill('GLS-A001-001-1', true,  -3,  false);  // ① 3日超過   → late:1
+    await bill('GLS-A002-001-1', true,  -12, false);  // ① 12日超過  → late:7
+    await bill('GLS-A003-001-1', true,  -45, false);  // ① 45日超過  → late:30
+    await bill('GLS-A004-001-1', false, -20, false);  // ② 未発行の期日超過（督促が出てはいけない）
+    await bill('GLS-A005-001-1', false, -2,  false);  // ② 同上（締め日は過ぎている＝inv_send_todo の担当）
+    await bill('GLS-A006-001-1', true,  20,  false);  // ③ まだ先
+    await bill('GLS-A008-001-1', true,  -8,  true);   // ④ 入金済み
   }
 
   // --- B系売上（エピソードなし）---
@@ -641,6 +687,39 @@ export async function seed() {
   // フォローアップ
   await ins(actSql, [uuidv4(), null, CUSTOMERS['GE'], USERS.staff2, 'followup', 'GE ドキュメンタリー進捗確認', '先方の企画会議が来週。結果を踏まえてスケジュール確定予定。', '2026-03-10', '企画会議結果の確認', '2026-03-17', USERS.staff2]);
   await ins(actSql, [uuidv4(), null, CUSTOMERS['DA'], USERS.staff3, 'followup', 'DA 定期利用契約フォロー', '定期利用プランの見積書フォロー。先方検討中だが前向き。', '2026-03-05', '契約条件の最終確認', '2026-03-12', USERS.staff3]);
+
+  /*
+   * ── 終わった案件にぶら下がった「次回アクション」（migration 245 の検証用）─────
+   *
+   * ユーザー報告:「失注になった案件については無条件で完了扱いにしてリストから
+   * 落として欲しい」「これらがゴミとして溜まりまくっている」。
+   *
+   * **この2種類が両方無いと、直したことを実ブラウザで確かめられません**:
+   *
+   *   ① **未対応のまま残っている行**（下の2件）
+   *      DB には未対応で入っているのに、**画面・週報・MCP のどこにも出ない**ことを
+   *      見るための行。出どころは案件（`project_id`）なので、判定は
+   *      `p.stage NOT IN (...)` の側で効く。ここが `next_action_done_at` を
+   *      入れてしまうと「除外が効いている」のか「そもそも済んでいる」のか
+   *      区別が付かず、検証にならない。
+   *   ② **機械が閉じた印が付いた行**（3件目）
+   *      やり取りタブ・活動記録の一覧が「済み」ではなく
+   *      **「失注により終了」**と出すことを見るための行。
+   */
+  const lostNoisySql = `INSERT INTO activity_logs (id, project_id, customer_id, user_id, activity_type, subject, description, activity_date, next_action, next_action_date, next_action_done_at, next_action_auto_closed_reason, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+  // ① 失注案件（DT CM撮影）に未対応で残っているやること。**どのリストにも出ないこと**
+  await ins(lostNoisySql, [uuidv4(), LOST_PROJECTS['OPP-202603-0014'], CUSTOMERS['DT'], USERS.staff2,
+    'proposal', 'DT CM撮影 見積の再提示', '価格を下げた版を出す方向で社内調整。', '2026-02-18',
+    '値引き版の見積を再提示する', '2026-02-24', null, null, USERS.staff2]);
+  // ① 失注案件（JB ドラマ撮影・延期）に未対応で残っているやること
+  await ins(lostNoisySql, [uuidv4(), LOST_PROJECTS['OPP-202603-0015'], CUSTOMERS['JB'], USERS.staff3,
+    'call', 'JB ドラマ撮影 再開時期の確認', '企画の再開時期を先方が検討中。', '2026-03-10',
+    '再開時期を電話で確認する', '2026-03-24', null, null, USERS.staff3]);
+  // ② 機械が閉じた行。画面に **「失注により終了」** と出る
+  await ins(lostNoisySql, [uuidv4(), LOST_PROJECTS['OPP-202603-0013'], CUSTOMERS['中央放送'], USERS.staff1,
+    'meeting', '中央放送 年末特別企画 予算の再確認', '来期予算での再提案を打診していた。', '2026-01-18',
+    '来期予算での再提案を出す', '2026-01-30', '2026-01-20 10:00:00', 'project_lost', USERS.staff1]);
 
   // ============================================================
   // Sales Targets (2026年度)
@@ -1140,6 +1219,110 @@ export async function seed() {
     ];
     for (const [id, est, desc, qty, unit, price, amount, cost, cat, order] of estItems) {
       await ins(estItemSql, [id, est, desc, qty, unit, price, amount, cost, cat, order]);
+    }
+  }
+
+  // ============================================================
+  // 日常業務「入ってきた情報」（misc_inquiries）— migration 247
+  //
+  // ⚠️ **この表は今まで1行も seed していませんでした。** 検証環境で画面を開いても
+  // 常に「0件」だったので、実ブラウザの検査（`npm run verify:ui`）は
+  // **空の画面しか測っていません**でした（そのうえこの画面は PC 専用扱いで、
+  // スマホでは案内文だけを測っていた）。
+  //
+  // 机（今日さばくもの）の3通りを必ず作ります —
+  //   ① 未仕分け … これから仕分けるもの
+  //   ② 見直しの日が過ぎたストック … **戻ってくることが seed から確かめられる形**
+  //   ③ まだ先のストック / 日を決めていないストック
+  // ＋ 仕分け済み（チケット・案件・見送り）。ストックが見送りと同じでないことは、
+  // ②が机に出て③が出ないことでしか確かめられません。
+  // ============================================================
+  {
+    const iqSql = `INSERT INTO misc_inquiries
+      (id, sender, subject, summary, importance, action_needed, received_at,
+       source, state, tags, stock_review_on, created_by)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`;
+    const day = (n: number) => {
+      const d = new Date(Date.now() + n * 86400000);
+      return d.toISOString().slice(0, 10);
+    };
+    const iq: [string, string, string, string, string, string | null, string, string, string, string[]][] = [
+      ['iq-1', '株式会社ミライ 田中', '配信スタジオの見学希望',
+       '9月中旬にスタジオを見学したいとのご連絡。人数は5名、映像制作の内製化を検討中。',
+       'high', '見学日の候補を3つ返す', day(-1), 'mail', 'unsorted', ['見学', '新規']],
+      ['iq-2', '（電話）ヤマト広告 佐野様', '年末の生配信の相談',
+       '12月の生配信を相談したいとの電話。予算感は未定、まず打合せをしたい。',
+       'medium', '打合せの日程を返す', day(-3), 'phone', 'unsorted', ['配信']],
+      ['iq-3', 'info@example.co.jp', '機材レンタルの一斉案内',
+       '機材レンタル業者からの一斉案内メール。今すぐの用は無い。',
+       'low', null, day(-5), 'mail', 'unsorted', []],
+      // ── 見直しの日が過ぎたストック（机に戻ってくる）
+      ['iq-4', '日建設計 井上様', '来期のスタジオ増設の話',
+       '来期に副調の増設を検討しているとの雑談。予算がつくのは早くて来年度。',
+       'medium', '来期の予算が固まる頃にこちらから声を掛ける', day(-70), 'talk', 'stock', ['増設', '来期']],
+      // ── まだ先のストック（机には出ない）
+      ['iq-5', 'ソラリス商事 大村様', '採用動画の内製化',
+       '採用動画を内製化したいがまず社内で検討する、とのこと。',
+       'low', '秋口にもう一度声を掛ける', day(-20), 'mail', 'stock', ['採用', '動画']],
+      // ── 日を決めていないストック（**翌日から机に出る**＝置きっぱなしにできない）
+      ['iq-6', '（口頭）中西', '照明の更新を相談されたと聞いた',
+       '常設照明の更新を相談されたらしい、という又聞き。誰から聞いたか要確認。',
+       'low', null, day(-9), 'talk', 'stock', []],
+      // ── 仕分け済み（受領証）
+      ['iq-7', 'GMOペパボ 広報', 'イベント収録のご依頼',
+       '10月の社内イベントの収録依頼。案件として起票済み。',
+       'high', null, day(-14), 'mail', 'project', ['収録']],
+      ['iq-8', '総務部', '入館証の追加発行',
+       '協力会社2名ぶんの入館証を追加で発行したい。',
+       'medium', '総務に申請する', day(-6), 'slack', 'ticket', ['総務']],
+      ['iq-9', 'newsletter@example.com', '業界ニュースレター',
+       '業界紙のニュースレター。仕事にはつながらない。',
+       'low', null, day(-8), 'mail', 'dropped', []],
+    ];
+    const reviewOn: Record<string, string | null> = {
+      'iq-4': day(-2),   // 2日過ぎている（机に出る）
+      'iq-5': day(30),   // まだ先（机に出ない）
+      'iq-6': null,      // 決めていない（机に出る）
+    };
+    for (const [id, sender, subject, summary, imp, action, received, source, state, tags] of iq) {
+      await ins(iqSql, [id, sender, subject, summary, imp, action, received, source, state,
+        `{${tags.map((t) => `"${t}"`).join(',')}}`, reviewOn[id] ?? null, USERS.staff1]);
+    }
+  }
+
+  // ============================================================
+  // 財務管理「受け取った書類」（finance_docs）
+  //
+  // ⚠️ **この表も1行も seed していませんでした。** 支払期日の強調・経緯・
+  // 却下したものへの辿り着き方は、行が無いと1つも確かめられません。
+  // 期日は**超過 / 今日 / 3日以内 / 先**の4通りを必ず作ります。
+  // ============================================================
+  {
+    const fdSql = `INSERT INTO finance_docs
+      (id, doc_type, sender, subject, content, amount, closing_month, payment_due,
+       status, received_at, source, notes, created_by, processed_by, processed_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+    const day = (n: number) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+    const fd: [string, string, string, string, number, string, number, string, string, string | null][] = [
+      // id, type, sender, subject, amount, closing, 期日までの日数, status, source, notes
+      ['fd-1', 'invoice', '株式会社テクノサポート', '8月分 技術スタッフ派遣 請求書',
+       880000, '2026-08', -9, 'new', 'email', null],
+      ['fd-2', 'invoice', '有限会社ライトワークス', '照明機材レンタル 請求書',
+       231000, '2026-08', 0, 'reviewing', 'email', null],
+      ['fd-3', 'invoice', 'ケータリング山田', '8/12 収録 弁当代',
+       46200, '2026-08', 2, 'approved', 'email', null],
+      ['fd-4', 'order', '株式会社エヌ・エス', '副調モニター 注文請書',
+       1540000, '2026-09', 25, 'new', 'email', null],
+      ['fd-5', 'invoice', 'クリーンサービス東京', '7月分 清掃費',
+       55000, '2026-07', -40, 'processed', 'email', '受け取った書類から: クリーンサービス東京 7月分 清掃費'],
+      ['fd-6', 'invoice', '（不明）', '宛名違いの請求書',
+       120000, '2026-08', -3, 'rejected', 'manual', '宛名が別会社。差し戻し済み'],
+    ];
+    for (const [id, type, sender, subject, amount, closing, dueIn, status, source, notes] of fd) {
+      const processed = status === 'processed';
+      await ins(fdSql, [id, type, sender, subject, `${sender} からの${type === 'order' ? '注文請書' : '請求書'}です。`,
+        amount, closing, day(dueIn), status, day(-Math.max(1, Math.abs(dueIn))), source, notes,
+        USERS.staff1, processed ? USERS.staff2 : null, processed ? new Date().toISOString() : null]);
     }
   }
 

@@ -37,13 +37,35 @@ export interface FinanceDocInput {
   body_text?: string | null;
 }
 
-const FD_COLS = `id, doc_type, sender, subject, content, amount, closing_month, payment_due,
-  status, received_at, processed_by, processed_at, gls_number, notes, source, message_id,
-  requested_by, created_by, created_at, updated_at,
+/**
+ * 受け取った書類の列。
+ *
+ * ── AI の印は `source` では判定しない（247）──────────────────
+ *
+ * 画面は長らく `source === 'email'` を ✨ の条件にしていましたが、
+ * あれは**出どころ**であって「誰が入れたか」ではありません
+ * （手で足したメールの行にも印が付いていた）。入ってきた情報側は
+ * migration 171 で `ai_outputs` から求める形に直してあり、
+ * **書類側だけが取り残されていました**。同じ判定に揃えます。
+ *
+ * `created_by` は利用者 id なので、そのままでは画面に出せません
+ * （経緯に「誰が取り込んだか」を出すため、名前を引いてくる）。
+ */
+const FD_COLS = `d.id, d.doc_type, d.sender, d.subject, d.content, d.amount, d.closing_month, d.payment_due,
+  d.status, d.received_at, d.processed_by, d.processed_at, d.gls_number, d.notes, d.source, d.message_id,
+  d.requested_by, d.created_by, d.created_at, d.updated_at,
   -- v4 ⑥: 台帳（仕入 / 販管費）へ渡した先。**片側だけだと突き合わせられない**
-  linked_kind, linked_id,
+  d.linked_kind, d.linked_id,
   -- 160: AI が組み立てた「読める形」の中身と、メール本文の全文
-  details, body_text`;
+  d.details, d.body_text,
+  -- 247: 経緯（誰が取り込んだか）。created_by は利用者 id なのでそのままでは読めない
+  cu.name AS created_by_name,
+  EXISTS (SELECT 1 FROM ai_outputs o
+           WHERE o.target_table = 'finance_docs' AND o.target_id = d.id
+             AND o.kind = 'finance_doc_intake') AS is_ai`;
+
+const FD_FROM = `FROM finance_docs d
+  LEFT JOIN users cu ON cu.id = d.created_by`;
 
 /**
  * `details` を DB へ入れる形にする。**検査を通ったものだけ**が入る。
@@ -63,26 +85,35 @@ function assertIn<T extends string>(val: string, allowed: readonly T[], label: s
 
 export const financeDocService = {
   async list(filter: { status?: string; doc_type?: string; pendingOnly?: boolean } = {}): Promise<Record<string, unknown>[]> {
-    const conds = ['deleted_at IS NULL'];
+    const conds = ['d.deleted_at IS NULL'];
     const params: unknown[] = [];
-    if (filter.status) { assertIn(filter.status, FINANCE_DOC_STATUSES, 'status'); conds.push('status = ?'); params.push(filter.status); }
-    if (filter.doc_type) { assertIn(filter.doc_type, FINANCE_DOC_TYPES, 'doc_type'); conds.push('doc_type = ?'); params.push(filter.doc_type); }
+    if (filter.status) { assertIn(filter.status, FINANCE_DOC_STATUSES, 'status'); conds.push('d.status = ?'); params.push(filter.status); }
+    if (filter.doc_type) { assertIn(filter.doc_type, FINANCE_DOC_TYPES, 'doc_type'); conds.push('d.doc_type = ?'); params.push(filter.doc_type); }
     // **見積書（quote）は既定では出さない**（ユーザー指摘「実際に台帳に入れるのは
     // 請求書になるので」）。「受け取った書類」画面はこの一覧を doc_type 無指定で呼ぶため、
     // 承認しても「台帳に入れる」にたどり着けない見積書がキューに並び続けていた。
     // `doc_type=quote` を明示すれば見える（MCP の一覧・監査用の抜け道は残す）
-    else conds.push(`doc_type <> 'quote'`);
-    if (filter.pendingOnly) conds.push(`status NOT IN ('processed','rejected')`);
+    else conds.push(`d.doc_type <> 'quote'`);
+    if (filter.pendingOnly) conds.push(`d.status NOT IN ('processed','rejected')`);
+    /*
+      ⚠️ **並びは「支払期日が近い順」が先**（247）。
+      以前は状態（受信→確認中→承認…）を第1キーにしていたので、
+      **明日が期日の承認済みより、期日が2か月先の受信が上に来ていました**。
+      この画面は「払う前に確かめる机」なので、急ぐ順＝期日順にする。
+      期日が入っていない行は受信日で代用し、どちらも無いものは最後に置く
+      （状態は同じ期日の中での並び順として残す）。
+    */
     return queryAll(
-      `SELECT ${FD_COLS} FROM finance_docs WHERE ${conds.join(' AND ')}
-       ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'reviewing' THEN 1 WHEN 'approved' THEN 2 WHEN 'rejected' THEN 3 ELSE 4 END,
-                COALESCE(payment_due, received_at) ASC NULLS LAST, created_at DESC`,
+      `SELECT ${FD_COLS} ${FD_FROM} WHERE ${conds.join(' AND ')}
+       ORDER BY COALESCE(d.payment_due, d.received_at) ASC NULLS LAST,
+                CASE d.status WHEN 'new' THEN 0 WHEN 'reviewing' THEN 1 WHEN 'approved' THEN 2 WHEN 'rejected' THEN 3 ELSE 4 END,
+                d.created_at DESC`,
       params,
     );
   },
 
   async getById(id: string): Promise<Record<string, unknown> | undefined> {
-    return (await queryOne(`SELECT ${FD_COLS} FROM finance_docs WHERE id = ? AND deleted_at IS NULL`, [id])) ?? undefined;
+    return (await queryOne(`SELECT ${FD_COLS} ${FD_FROM} WHERE d.id = ? AND d.deleted_at IS NULL`, [id])) ?? undefined;
   },
 
   /** 未処理件数 (アラート用): processed / rejected 以外 */
@@ -234,6 +265,8 @@ const IQ_COLS = `i.id, i.sender, i.subject, i.summary, i.category, i.importance,
   i.details, i.body_text,
   -- 171: 行き先・タグ・チケット（タスク）・案件
   i.state, i.tags, i.task_id, i.project_id,
+  -- 247: ストックを机に戻す日。**これが無いとストックは見送りと同じ**（migration 247）
+  i.stock_review_on,
   t.title AS task_title, t.due_at AS task_due_at, t.is_completed AS task_done,
   p.name  AS project_name, p.stage AS project_stage,
   EXISTS (SELECT 1 FROM ai_outputs o
@@ -267,31 +300,154 @@ export function normalizeTags(v: unknown): string[] | null {
   return out;
 }
 
+/**
+ * 「今日さばくもの」の条件（migration 247）。
+ *
+ * 未仕分け ＋ **見直しの日が来たストック**。ストックの `stock_review_on` が
+ * 空（まだ決めていない）ものも含めます — 空を「出さない」と読むと、
+ * 見直す日を足す前と同じ行き止まり（ストック＝見送り）に戻ります。
+ * **画面側の判定は `shared/src/utils/inboxDesk.ts` の `isStockReviewDue()`**で、
+ * 同じ規則をこちらは SQL で書いています（片方だけ直さないこと）。
+ */
+/**
+ * 今日（**日本時間**）。
+ *
+ * ⚠️ **`CURRENT_DATE` を使わないこと。** DB のタイムゾーンは UTC なので、
+ * 日本時間の 00:00〜09:00 はまだ「前日」を返します。見直しの日が来た
+ * ストックが**朝いちばんに机へ出ず、9時になってから出る**ことになります
+ * （この製品の決めごと: SQL の中では `NOW() AT TIME ZONE 'Asia/Tokyo'`。
+ * `server/src/shared/utils/jst.ts` の冒頭）。
+ */
+const TODAY_JST = `(NOW() AT TIME ZONE 'Asia/Tokyo')::date`;
+
+/**
+ * 「今日さばくもの」の条件。**別名は `i` = `misc_inquiries` 固定**。
+ *
+ * ⚠️ **受信箱（`dashboard.routes.ts`）もこれを読むこと。** あちらは長らく
+ * `state = 'unsorted'` だけで数えていて、この画面・ホームのタイル
+ * （`GET /dailyops/alerts`）と**違う件数**を出していた。ストックに見直しの日が
+ * 付いた（migration 247）いま、写すと必ずまた割れる。
+ */
+export const DESK_COND = `(i.state = 'unsorted'
+  OR (i.state = 'stock' AND (i.stock_review_on IS NULL OR i.stock_review_on <= ${TODAY_JST})))`;
+
+/** 見直しの日が来たストックだけ（見出しの内訳に出す数） */
+const STOCK_DUE_COND = `(i.state = 'stock' AND (i.stock_review_on IS NULL OR i.stock_review_on <= ${TODAY_JST}))`;
+
+/** 一覧の既定の上限。**溜まるほど遅くなる**ので必ず切る（件数は別に COUNT で数える） */
+export const INQUIRY_LIST_LIMIT_DEFAULT = 50;
+export const INQUIRY_LIST_LIMIT_MAX = 200;
+
+/**
+ * 見直す日を揃える（migration 247）。`YYYY-MM-DD` 以外は**入れない**。
+ *
+ * **400 で弾かない** — ストックすること自体は日付の書き方で止めません
+ * （落とすと「保存できないので見送りにする」が起きる）。読めない値は
+ * 「決めていない」として NULL に落ち、その行は翌日から机に出ます。
+ */
+export function normalizeReviewDate(v: unknown): string | null {
+  const s = String(v ?? '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+}
+
 export const inquiryService = {
-  async list(filter: { importance?: string; state?: string; tag?: string; unhandledOnly?: boolean } = {}): Promise<Record<string, unknown>[]> {
+  async list(filter: {
+    importance?: string; state?: string; states?: string[]; tag?: string;
+    unhandledOnly?: boolean; deskOnly?: boolean; limit?: number; offset?: number;
+  } = {}): Promise<Record<string, unknown>[]> {
     const conds = ['i.deleted_at IS NULL'];
     const params: unknown[] = [];
     if (filter.importance) { assertIn(filter.importance, INQUIRY_IMPORTANCE, 'importance'); conds.push('i.importance = ?'); params.push(filter.importance); }
     if (filter.state) { assertIn(filter.state, INQUIRY_STATES, 'state'); conds.push('i.state = ?'); params.push(filter.state); }
+    // 「仕分け済み」タブは チケット / 案件にした / 見送り をまとめて出す
+    // （受領証のタブを3つ並べても、片づいたものの棚が3つに割れるだけ）
+    if (filter.states?.length) {
+      for (const s of filter.states) assertIn(s, INQUIRY_STATES, 'state');
+      conds.push(`i.state IN (${filter.states.map(() => '?').join(', ')})`);
+      params.push(...filter.states);
+    }
     if (filter.tag) { conds.push('i.tags && ARRAY[?]::text[]'); params.push(filter.tag); }
     // 「未対応」= まだ仕分けていないもの。**`handled_at` では絞らない**（正は state）
     if (filter.unhandledOnly) conds.push(`i.state = 'unsorted'`);
+    // 「今日さばくもの」= 未仕分け ＋ 見直しの日が来たストック
+    if (filter.deskOnly) conds.push(DESK_COND);
+
+    const limit = Math.min(Math.max(Number(filter.limit) || INQUIRY_LIST_LIMIT_DEFAULT, 1), INQUIRY_LIST_LIMIT_MAX);
+    const offset = Math.max(Number(filter.offset) || 0, 0);
+    /*
+      ⚠️ **上限を必ず付ける**（247）。画面は長らく「全 state・全件・ページングなし」で
+      引いてから画面側で絞っていたので、溜まるほど遅くなり、
+      しかも**タブの件数を出すためだけに全件を運んで**いました。
+      件数は `counts()` が COUNT で数えます（数えていない総数を作らない）。
+    */
     return queryAll(
       `SELECT ${IQ_COLS} ${IQ_FROM} WHERE ${conds.join(' AND ')}
        ORDER BY (i.state = 'unsorted') DESC,
                 CASE i.importance WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
-                i.received_at DESC NULLS LAST, i.created_at DESC`,
+                i.received_at DESC NULLS LAST, i.created_at DESC
+       LIMIT ${limit} OFFSET ${offset}`,
       params,
     );
+  },
+
+  /**
+   * タブに出す件数。**一覧とは別に COUNT で数える**（migration 247）。
+   *
+   * 一覧に上限を付けた以上、画面で `rows.length` を数えると
+   * 「51件あるのに 50件」と嘘になります（`shared/tests/countHonesty.test.ts` の形）。
+   */
+  async counts(): Promise<{ states: Record<string, number>; sources: { source: string; total: number; ticket: number }[] }> {
+    const row = await queryOne(
+      `SELECT
+         COUNT(*) FILTER (WHERE i.state = 'unsorted')                       AS unsorted,
+         COUNT(*) FILTER (WHERE i.state = 'stock')                          AS stock,
+         COUNT(*) FILTER (WHERE ${STOCK_DUE_COND})                          AS stock_due,
+         COUNT(*) FILTER (WHERE i.state IN ('ticket','project','dropped'))  AS sorted,
+         COUNT(*) FILTER (WHERE i.state = 'ticket')                         AS ticket,
+         COUNT(*) FILTER (WHERE i.state = 'project')                        AS project,
+         COUNT(*) FILTER (WHERE i.state = 'dropped')                        AS dropped,
+         COUNT(*) FILTER (WHERE ${DESK_COND})                               AS desk
+       FROM misc_inquiries i WHERE i.deleted_at IS NULL`,
+    );
+    const n = (k: string) => Number(row?.[k] ?? 0);
+    /*
+      出どころ別も**サーバーが数える**（247）。画面は一覧を上限つきで引くように
+      なったので、運んだ行から数えると「メールだけ・他は0」という
+      **その画面ぶんの内訳**を全体の内訳として出してしまう。
+      **0 件の出どころは返さない** — 本番のメール取込がまだ `source` を
+      渡していないため（docs/mcp-server.md）、Slack・電話・口頭が必ず 0 で並び、
+      画面の右半分が「0 の枠」で埋まっていた。
+    */
+    const sources = await queryAll(
+      `SELECT i.source AS source, COUNT(*)::int AS total,
+              (COUNT(*) FILTER (WHERE i.state = 'ticket'))::int AS ticket
+         FROM misc_inquiries i WHERE i.deleted_at IS NULL
+        GROUP BY i.source ORDER BY total DESC, source ASC`,
+    );
+    return {
+      states: {
+        unsorted: n('unsorted'), stock: n('stock'), stock_due: n('stock_due'),
+        sorted: n('sorted'), ticket: n('ticket'), project: n('project'), dropped: n('dropped'),
+        desk: n('desk'),
+      },
+      sources: sources.map((s) => ({ source: String(s.source), total: Number(s.total), ticket: Number(s.ticket) })),
+    };
   },
 
   async getById(id: string): Promise<Record<string, unknown> | undefined> {
     return (await queryOne(`SELECT ${IQ_COLS} ${IQ_FROM} WHERE i.id = ? AND i.deleted_at IS NULL`, [id])) ?? undefined;
   },
 
-  /** 未仕分け件数 (アラート用)。**受付の作業列に何件残っているか** */
+  /**
+   * 「今日さばくもの」の件数 (アラート用)。**机に何件残っているか**
+   *
+   * 未仕分けだけでなく、**見直しの日が来たストックも数えます**（migration 247）。
+   * ここを未仕分けだけにすると、ホームのタイルとバッジには出ないまま
+   * 画面の中にだけ「見直し時期」が溜まり、**開いた人しか気づけません**。
+   */
   async unhandledCount(): Promise<number> {
-    const row = await queryOne(`SELECT COUNT(*) AS c FROM misc_inquiries WHERE deleted_at IS NULL AND state = 'unsorted'`);
+    const row = await queryOne(
+      `SELECT COUNT(*) AS c FROM misc_inquiries i WHERE i.deleted_at IS NULL AND ${DESK_COND}`);
     return Number(row?.c ?? 0);
   },
 
@@ -374,11 +530,40 @@ export const inquiryService = {
    * 片づいたように見えます。
    *
    * `handled_at` は記録として併せて打ちます（読むのは `state` だけ）。
+   *
+   * ── ストックには**見直す日**が付く（migration 247）───────────
+   *
+   * `stock_review_on` を渡すとその日に机へ戻ります。渡さなくても保存は
+   * 通しますが、その行は「見直す日が決まっていない」ものとして
+   * **翌日から机に出ます**（`DESK_COND`）。ストックが見送りと同じに
+   * ならないようにするための決めごとです。
+   * ストック以外へ動かしたときは日付を消します（チケットにしたものが
+   * 1か月後にまた机へ出ると、片づいた仕事がやり直しになる）。
    */
-  async setState(id: string, state: string, userName?: string | null): Promise<Record<string, unknown>> {
+  async setState(
+    id: string, state: string, userName?: string | null,
+    opts: { stockReviewOn?: string | null } = {},
+  ): Promise<Record<string, unknown>> {
     const existing = await queryOne(`SELECT id, state FROM misc_inquiries WHERE id = ? AND deleted_at IS NULL`, [id]);
     if (!existing) throw new AppError(404, 'NOT_FOUND', '問い合わせが見つかりません');
     assertIn(state, INQUIRY_MOVABLE_STATES, 'state');
+
+    /*
+      ⚠️ **「渡していない」と「決めないと渡した」を分ける**（247）。
+
+      ・**渡していない**（`undefined`）→ 既定の1か月後を入れる。
+        この口は「入ってきた情報」の画面だけでなく**案件作成の
+        「ネタのまま残す」**（`client/src/contexts/sales/.../useCreateProject.ts`）
+        も叩きます。見直す日を知らない呼び手に空を入れると、
+        そちらから残したネタが**翌日また机に出て**きます
+      ・**`null` を渡した**（画面の「決めない」）→ 空のまま。
+        決めなかったものは翌日から机に出ます（そう画面に書いてある）
+    */
+    const useDefaultReview = state === 'stock' && opts.stockReviewOn === undefined;
+    const reviewOn = state === 'stock' ? normalizeReviewDate(opts.stockReviewOn) : null;
+    const reviewSql = useDefaultReview
+      ? `(${TODAY_JST} + INTERVAL '1 month')::date`
+      : '?::date';
 
     // チケット・案件から戻すのは許す（間違えて作ることはある）。
     // ただし**作った実体は消しません** — 勝手に消すほうが危険なので、
@@ -387,12 +572,14 @@ export const inquiryService = {
     if (state === 'unsorted') {
       await execute(
         `UPDATE misc_inquiries SET state = 'unsorted', handled_at = NULL, handled_by = NULL,
+           stock_review_on = NULL,
            ${unlink ? 'task_id = NULL, project_id = NULL,' : ''} updated_at = NOW() WHERE id = ?`, [id]);
     } else {
       await execute(
         `UPDATE misc_inquiries SET state = ?, handled_at = NOW(), handled_by = ?,
+           stock_review_on = ${reviewSql},
            ${unlink ? 'task_id = NULL, project_id = NULL,' : ''} updated_at = NOW() WHERE id = ?`,
-        [state, userName ?? null, id]);
+        useDefaultReview ? [state, userName ?? null, id] : [state, userName ?? null, reviewOn, id]);
     }
     return (await this.getById(id))!;
   },
@@ -441,7 +628,9 @@ export const inquiryService = {
        input.due_at || null, id, userId, userId],
     );
     await execute(
-      `UPDATE misc_inquiries SET state = 'ticket', task_id = ?, handled_at = NOW(), handled_by = ?, updated_at = NOW()
+      // 247: チケットにしたら見直しの日は消す（片づいた仕事が1か月後にまた机へ出ない）
+      `UPDATE misc_inquiries SET state = 'ticket', task_id = ?, handled_at = NOW(), handled_by = ?,
+              stock_review_on = NULL, updated_at = NOW()
         WHERE id = ?`, [taskId, userName ?? null, id]);
     return { row: (await this.getById(id))!, task_id: taskId, already: false };
   },
@@ -466,7 +655,9 @@ export const inquiryService = {
       if (alive) return { row: (await this.getById(id))!, already: true };
     }
     await execute(
-      `UPDATE misc_inquiries SET state = 'project', project_id = ?, handled_at = NOW(), handled_by = ?, updated_at = NOW()
+      // 247: 案件にしたら見直しの日は消す（チケットと同じ理由）
+      `UPDATE misc_inquiries SET state = 'project', project_id = ?, handled_at = NOW(), handled_by = ?,
+              stock_review_on = NULL, updated_at = NOW()
         WHERE id = ?`, [projectId, userName ?? null, id]);
     return { row: (await this.getById(id))!, already: false };
   },
