@@ -101,6 +101,15 @@ export const TECHOPS_PC_ONLY: PcOnlyEntry[] = [
     instead: { label: 'アプリのトップを開く', to: '/techops/top' },
   },
   {
+    // テロップCG のテンプレート管理（段6-2）。部品を選び、欄ごとの初期値入力＋
+    // 公開フィールドのチェックボックスを並べる画面で、ページ作成フォーム
+    // （`/techops/graphics/:ownerKey`）と同じ情報密度のため PC 専用にした
+    path: '/techops/graphics/:ownerKey/templates',
+    what: 'テロップCG（テンプレート管理）',
+    why: '部品の初期値と公開フィールドをまとめて組む画面で、狭い幅では組めません。',
+    instead: { label: 'アプリのトップを開く', to: '/techops/top' },
+  },
+  {
     // 表示レイアウトエディタ（13-live-display-layout-editor.md §6-3）。要素カードの
     // ドラッグ・リサイズ操作が前提のため、375px幅での対応は本設計のスコープ外にした
     // （§9-3で利用者に確認済み）。テンプレートライブラリ（閲覧・適用）はスマホ対応の対象

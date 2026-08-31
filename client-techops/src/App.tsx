@@ -40,6 +40,8 @@ import GraphicsConsolePage from "@/pages/graphics/GraphicsConsolePage";
 import GraphicsOutputPage from "@/pages/graphics/GraphicsOutputPage";
 import PartLibraryPage from "@/pages/graphics/PartLibraryPage";
 import RequestFormPage from "@/pages/graphics/RequestFormPage";
+// テンプレート管理（段6-2・部品→テンプレート→ページ→送出リストの第2層）
+import TemplateManagerPage from "@/pages/graphics/TemplateManagerPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -109,6 +111,9 @@ export default function App() {
         {/* 部品ライブラリ（全番組共通のカタログ・段4の入口部分）。URL は :ownerKey を
             含めてハブと並びを揃えるが、中身は owner に紐づかない読み取り専用画面 */}
         <Route path="/techops/graphics/:ownerKey/parts" element={<PartLibraryPage />} />
+        {/* テンプレート管理（部品ライブラリの「組み合わせてテンプレートを作る」から。
+            段6-2・PC専用 — ページ作成フォームと同じ列の多い情報密度のため） */}
+        <Route path="/techops/graphics/:ownerKey/templates" element={<TemplateManagerPage />} />
         {/* 発注（テロ原・段5）。スマホ最優先のフォーム＋自分の発注一覧。
             ハブ画面（PC専用）と違い、この画面だけは pcOnlyScreens.ts の対象外
             （graphics.md §3「発注はスマホ可」の分業設計） */}

@@ -81,6 +81,26 @@ export interface GraphicsPage {
   fields: Record<string, unknown>;
   proofState: string;
   sortOrder: number;
+  /** 作成元テンプレート（段6-2・migration 249）。NULL＝テンプレートを使わない自由入力で作られたページ */
+  templateId: number | null;
+  createdAt: unknown;
+  updatedAt: unknown;
+}
+
+/**
+ * テンプレート（段6-2・migration 249）。「1部品ぶんの設定プリセット＋公開フィールドの絞り込み」。
+ * `publicFields` は `baseFields` のキーの部分集合（要素検証は routes/templates.routes.ts が担う）。
+ * docs/design/v4/graphics.md §2「公開フィールド以外はオペレーターから触れない」の最初の一段。
+ */
+export interface GraphicsTemplate {
+  id: number;
+  projectId: number;
+  partKey: string;
+  slot: string;
+  name: string;
+  description: string | null;
+  baseFields: Record<string, unknown>;
+  publicFields: string[];
   createdAt: unknown;
   updatedAt: unknown;
 }
@@ -144,9 +164,48 @@ export function mapPage(r: Row): GraphicsPage {
     fields: (r.fields ?? {}) as Record<string, unknown>,
     proofState: r.proof_state as string,
     sortOrder: r.sort_order as number,
+    templateId: (r.template_id as number | null) ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
+}
+
+/**
+ * DB から読んだ public_fields（JSONB配列。pg ドライバが自動で JS 値へ変換する）を、
+ * 壊れた形が来ても落ちないよう防御的に整形する（`normalizeSlotExitRules` と同じ考え方。
+ * 書き込み時の「baseFieldsのキーとして存在するか」の検証は routes 側が担う）。
+ */
+export function normalizePublicFields(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((s): s is string => typeof s === 'string');
+}
+
+export function mapTemplate(r: Row): GraphicsTemplate {
+  return {
+    id: r.id as number,
+    projectId: r.project_id as number,
+    partKey: r.part_key as string,
+    slot: r.slot as string,
+    name: r.name as string,
+    description: (r.description as string | null) ?? null,
+    baseFields: (r.base_fields ?? {}) as Record<string, unknown>,
+    publicFields: normalizePublicFields(r.public_fields),
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+export async function fetchTemplates(projectId: number): Promise<GraphicsTemplate[]> {
+  const rows = await queryAll(
+    `SELECT * FROM graphics_templates WHERE project_id = ? ORDER BY created_at DESC`,
+    [projectId]
+  );
+  return rows.map(mapTemplate);
+}
+
+export async function fetchTemplate(id: number): Promise<GraphicsTemplate | null> {
+  const row = await queryOne(`SELECT * FROM graphics_templates WHERE id = ?`, [id]);
+  return row ? mapTemplate(row) : null;
 }
 
 export function mapCue(r: Row): GraphicsCue {

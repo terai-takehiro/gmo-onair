@@ -1,7 +1,7 @@
 // テロップCG — 名簿インポートの dry-run 結果（投入前の件数確認）。
 // `RosterImportDialog.tsx` から切り出した（ファイルサイズ規律・400行）。
 import { AlertCircle, Info } from 'lucide-react';
-import type { RosterCommitResult } from '@/lib/graphicsApi';
+import type { RosterCommitResult } from '@/lib/graphicsRosterApi';
 
 export default function RosterDryRunSummary({ result }: { result: RosterCommitResult }) {
   return (

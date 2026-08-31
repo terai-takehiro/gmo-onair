@@ -77,6 +77,7 @@ export default function PageLivePreview({
     fields,
     proofState: 'draft',
     sortOrder: 0,
+    templateId: null,
   }), [slot, partKey, name, fields, callNo]);
 
   const rendered = renderGraphicsPage(page, Date.now(), { theme, lang: previewLang });

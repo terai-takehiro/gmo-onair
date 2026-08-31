@@ -3,7 +3,7 @@ import { execute, queryOne } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import {
-  fetchCues, fetchProject, mapPage, nextCallNo,
+  fetchCues, fetchProject, fetchTemplate, mapPage, nextCallNo,
   PART_KEYS, PROOF_STATES, SLOTS, Slot,
 } from '../store';
 
@@ -31,12 +31,38 @@ router.post('/projects/:id/pages', wrap(async (req, res) => {
 
   const body = (req.body ?? {}) as {
     slot?: string; partKey?: string; name?: string; fields?: Record<string, unknown>;
-    proofState?: string; callNo?: number; sortOrder?: number;
+    proofState?: string; callNo?: number; sortOrder?: number; templateId?: number | null;
   };
-  if (!SLOTS.includes(body.slot as Slot)) {
+
+  // テンプレートから作る（段6-2）: templateId が来たら、partKey/slot はテンプレートの値を
+  // 使う（bodyの値より優先）。fields は baseFields をベースに、publicFields に含まれる
+  // キーだけ body.fields の値で上書きする — publicFields に無いキーの上書きは無視する
+  // （サーバー側で強制。オペレーターが公開されていないフィールドを弄れないことの核）
+  let templateId: number | null = null;
+  let slot: string | undefined = body.slot;
+  let partKey: string | undefined = body.partKey;
+  let fields: Record<string, unknown> = body.fields ?? {};
+  if (body.templateId !== undefined && body.templateId !== null) {
+    const template = await fetchTemplate(body.templateId);
+    if (!template || template.projectId !== projectId) {
+      throw new AppError(404, 'NOT_FOUND', 'テンプレートが見つかりません');
+    }
+    templateId = template.id;
+    slot = template.slot;
+    partKey = template.partKey;
+    const merged: Record<string, unknown> = { ...template.baseFields };
+    for (const key of template.publicFields) {
+      if (body.fields && Object.prototype.hasOwnProperty.call(body.fields, key)) {
+        merged[key] = body.fields[key];
+      }
+    }
+    fields = merged;
+  }
+
+  if (!SLOTS.includes(slot as Slot)) {
     throw new AppError(400, 'VALIDATION_ERROR', `slot は ${SLOTS.join(' / ')} のいずれかです`);
   }
-  if (!PART_KEYS.includes(body.partKey as (typeof PART_KEYS)[number])) {
+  if (!PART_KEYS.includes(partKey as (typeof PART_KEYS)[number])) {
     throw new AppError(400, 'VALIDATION_ERROR', `partKey は ${PART_KEYS.join(' / ')} のいずれかです`);
   }
   const name = String(body.name ?? '').trim();
@@ -51,7 +77,7 @@ router.post('/projects/:id/pages', wrap(async (req, res) => {
     await assertCallNoFree(projectId, body.callNo);
     callNo = body.callNo;
   } else {
-    callNo = await nextCallNo(projectId, body.slot as Slot);
+    callNo = await nextCallNo(projectId, slot as Slot);
   }
 
   let sortOrder = body.sortOrder;
@@ -64,11 +90,11 @@ router.post('/projects/:id/pages', wrap(async (req, res) => {
   }
 
   const row = await queryOne(
-    `INSERT INTO graphics_pages (project_id, call_no, slot, part_key, name, fields, proof_state, sort_order)
-     VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?)
+    `INSERT INTO graphics_pages (project_id, call_no, slot, part_key, name, fields, proof_state, sort_order, template_id)
+     VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?)
      RETURNING *`,
-    [projectId, callNo, body.slot, body.partKey, name,
-     JSON.stringify(body.fields ?? {}), proofState, sortOrder]
+    [projectId, callNo, slot, partKey, name,
+     JSON.stringify(fields), proofState, sortOrder, templateId]
   );
   res.status(201).json({ success: true, data: mapPage(row!) });
 }));
@@ -107,7 +133,28 @@ router.put('/pages/:id', wrap(async (req, res) => {
     sets.push('name = ?'); params.push(name);
   }
   if (body.fields !== undefined) {
-    sets.push('fields = ?::jsonb'); params.push(JSON.stringify(body.fields ?? {}));
+    // テンプレートから作られたページ（template_id あり）は、publicFields に無いキーの
+    // 更新を拒否する（400）— 無視より明示的なエラーの方が事故に気づきやすい。
+    // オペレーターが公開されていないフィールドを弄れないことをAPIレベルで保証するのが核。
+    // 通常のページ（template_id なし）は従来どおり body.fields で丸ごと置き換える。
+    // テンプレート付きページは body.fields を「publicFields の差分」として扱い、
+    // 既存の fields に**マージ**する（クライアントは編集可能な公開フィールドだけを
+    // 送る前提 — ロックされたフィールドの値を毎回送り直させない・誤って上書きさせない）
+    if (existing.template_id != null) {
+      const template = await fetchTemplate(existing.template_id as number);
+      const publicKeys = new Set(template?.publicFields ?? []);
+      const offending = Object.keys(body.fields ?? {}).filter((k) => !publicKeys.has(k));
+      if (offending.length > 0) {
+        throw new AppError(
+          400, 'VALIDATION_ERROR',
+          `このページはテンプレート固定のフィールドを含みます（編集不可: ${offending.join(', ')}）`
+        );
+      }
+      const merged = { ...(existing.fields as Record<string, unknown> ?? {}), ...(body.fields ?? {}) };
+      sets.push('fields = ?::jsonb'); params.push(JSON.stringify(merged));
+    } else {
+      sets.push('fields = ?::jsonb'); params.push(JSON.stringify(body.fields ?? {}));
+    }
   }
   if (body.proofState !== undefined) {
     if (!PROOF_STATES.includes(body.proofState as (typeof PROOF_STATES)[number])) {

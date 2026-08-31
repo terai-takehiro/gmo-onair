@@ -6,8 +6,9 @@ import {
 } from '@/components/ui/select';
 import {
   GRAPHICS_SLOTS, PART_LABELS, SLOT_LABELS,
-  type GraphicsPartKey, type GraphicsSlot, type RosterColumnAnalysis,
+  type GraphicsPartKey, type GraphicsSlot,
 } from '@/lib/graphicsApi';
+import type { RosterColumnAnalysis } from '@/lib/graphicsRosterApi';
 import { PART_FIELDS, PART_KEYS } from './pageFields';
 import RosterColumnPanel from './RosterColumnPanel';
 

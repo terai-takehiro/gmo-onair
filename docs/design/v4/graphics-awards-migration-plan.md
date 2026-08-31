@@ -98,7 +98,19 @@
    **段6-4 実装済み**（`graphics_projects.slot_exit_rules`・migration 247。テンプレート層
    〈6番〉がまだ無いため、いまは「テンプレート側」ではなく**CGプロジェクト単位の設定**として
    持つ。テンプレート層ができたらそちらへ移設予定）
-6. **テンプレート層そのものが無い**。1ページ＝1部品固定で、複数部品を組み合わせた画面が作れない
+6. **テンプレート層そのものが無い**。1ページ＝1部品固定で、複数部品を組み合わせた画面が作れない→
+   **段6-2 実装済み（単一部品の設定プリセット＋公開フィールド絞り込みのみ。複数部品を1画面に
+   配置するキャンバス機能は引き続き今後の課題）**。`graphics_templates`（migration 249。
+   project_id・part_key・slot・name・base_fields・public_fields）とページ側の `template_id`
+   （NULL許容・ON DELETE SET NULL）を新設。ページをテンプレートから作ると `base_fields` が
+   初期値になり、フォームは `public_fields` に含まれるフィールドの入力欄だけを出す
+   （`TemplateFieldsSection.tsx`）。サーバー側（`templates.routes.ts`）はテンプレート作成・
+   更新時に `publicFields` が `baseFields` のキーの部分集合であることを検証し、ページ作成
+   （`POST …/pages`）は `baseFields` に `publicFields` の範囲だけ body の値で上書きしたものを
+   保存、ページ更新（`PUT /pages/:id`）はテンプレート付きページなら `publicFields` 外のキーを
+   含む更新を 400 で拒否する——オペレーターが公開されていないフィールドを弄れないことを
+   API レベルで保証するのが核。テンプレートを使わない従来の「部品を選んで自由入力」フローは
+   そのまま残した（既存ページ・既存フローへの影響なし）
 
 **優先度中〜低（後から追加できる）**
 

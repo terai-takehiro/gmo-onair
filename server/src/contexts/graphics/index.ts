@@ -4,6 +4,7 @@ import projectsRoutes from './routes/projects.routes';
 import pagesRoutes from './routes/pages.routes';
 import requestsRoutes from './routes/requests.routes';
 import rosterRoutes from './routes/roster.routes';
+import templatesRoutes from './routes/templates.routes';
 
 export function createGraphicsRoutes(): Router {
   const router = Router();
@@ -17,6 +18,7 @@ export function createGraphicsRoutes(): Router {
   router.use('/graphics', pagesRoutes);
   router.use('/graphics', requestsRoutes);
   router.use('/graphics', rosterRoutes);
+  router.use('/graphics', templatesRoutes);
 
   return router;
 }

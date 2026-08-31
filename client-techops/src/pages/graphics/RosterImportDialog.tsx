@@ -21,11 +21,11 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { notifyError } from '@/lib/notify';
+import { PART_DEFAULT_SLOT, type GraphicsPartKey, type GraphicsSlot } from '@/lib/graphicsApi';
 import {
-  commitGraphicsRoster, previewGraphicsRoster, PART_DEFAULT_SLOT,
-  type GraphicsPartKey, type GraphicsSlot, type RosterCommitResult, type RosterFieldCandidate,
-  type RosterPreviewResult,
-} from '@/lib/graphicsApi';
+  commitGraphicsRoster, previewGraphicsRoster,
+  type RosterCommitResult, type RosterFieldCandidate, type RosterPreviewResult,
+} from '@/lib/graphicsRosterApi';
 import { PART_FIELDS } from './pageFields';
 import RosterMappingStep from './RosterMappingStep';
 import RosterDryRunSummary from './RosterDryRunSummary';

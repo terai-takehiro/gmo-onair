@@ -6,9 +6,10 @@
 // リンクの組み立てにだけ使う（`useGraphicsProject` は呼ばない）。
 //
 // 段4（graphics.md §9）の入口部分だけ — 読み取り専用のカタログ表示。
-// 「新しい部品をリクエスト」「組み合わせてテンプレートを作る」はモックにある導線を
-// そのまま置くが、テンプレート編集画面はまだ無いため押しても未実装トーストのみ
-// （実装が無いのに動くふりをしない）。
+// 「新しい部品をリクエスト」はモックにある導線をそのまま置くが、リクエスト画面は
+// まだ無いため押しても未実装トーストのみ（実装が無いのに動くふりをしない）。
+// 「組み合わせてテンプレートを作る」は段6-2でテンプレート管理画面
+// （`TemplateManagerPage.tsx`）ができたので、そちらへ遷移する。
 import { Link, useParams } from 'react-router-dom';
 import { Blocks, ChevronLeft, Info, Lightbulb, ListChecks, Plug, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ import { PART_LIBRARY_CARDS } from './partLibraryData';
 export default function PartLibraryPage() {
   const { ownerKey } = useParams<{ ownerKey: string }>();
   const hubPath = `/techops/graphics/${encodeURIComponent(ownerKey ?? '')}`;
+  const templatesPath = `/techops/graphics/${encodeURIComponent(ownerKey ?? '')}/templates`;
 
   return (
     <div className="px-4 py-6 sm:px-6 sm:py-8">
@@ -45,8 +47,10 @@ export default function PartLibraryPage() {
         >
           <Lightbulb className="mr-1 h-4 w-4 text-warning" aria-hidden="true" />新しい部品をリクエスト
         </Button>
-        <Button onClick={() => notifyInfo('組み合わせてテンプレートを作る画面はこれから作ります')}>
-          <Blocks className="mr-1 h-4 w-4" aria-hidden="true" />組み合わせてテンプレートを作る
+        <Button asChild>
+          <Link to={templatesPath}>
+            <Blocks className="mr-1 h-4 w-4" aria-hidden="true" />組み合わせてテンプレートを作る
+          </Link>
         </Button>
       </div>
 

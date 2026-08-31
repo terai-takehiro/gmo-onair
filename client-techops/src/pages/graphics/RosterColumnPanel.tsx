@@ -6,7 +6,7 @@
 // ここでは「型バッジ＋サンプル＋推奨のワンクリック採用ボタン」だけに絞った軽い実装
 // （実際の割当は下の RosterMappingStep 側のプルダウンが担う）。
 import { CalendarDays, FileText, Hash, Inbox, Sparkles, Type } from 'lucide-react';
-import type { RosterColumnAnalysis, RosterColumnType } from '@/lib/graphicsApi';
+import type { RosterColumnAnalysis, RosterColumnType } from '@/lib/graphicsRosterApi';
 import type { PartFieldDef } from './pageFields';
 
 // `cat-1`〜`cat-8`（意味を持たない見分けの色。shared/CLAUDE.md）を使う — 型の違いは

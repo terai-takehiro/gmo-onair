@@ -15,8 +15,13 @@
  *   GET  /graphics/projects/:id/requests       … 発注一覧（既定は status=requested のみ）
  *   PUT  /graphics/requests/:id                … 発注の状態更新（却下・ページ化での紐づけ）
  *   DELETE /graphics/requests/:id              … 発注の削除（誤操作の取消）
- *   POST /graphics/projects/:id/roster/preview … 名簿Excelのヘッダー・サンプル行を読む
- *   POST /graphics/projects/:id/roster/commit  … 名簿の全行をパースして一括ページ作成
+ *   POST /graphics/projects/:id/templates      … テンプレート作成
+ *   GET  /graphics/projects/:id/templates      … テンプレート一覧
+ *   PUT  /graphics/templates/:id               … テンプレートの部分更新
+ *   DELETE /graphics/templates/:id             … テンプレート削除
+ *
+ * 名簿（Excel）からの一括生成（roster/preview・roster/commit）は `graphicsRosterApi.ts` へ
+ * 切り出した（ファイルサイズ規律・400行）。
  *
  * スロット（1スロット1枚）と部品（partKey）の考え方は docs/design/v4/graphics.md §2。
  */
@@ -115,6 +120,8 @@ export interface GraphicsPageRow {
   fields: Record<string, unknown>;
   proofState: GraphicsProofState;
   sortOrder: number;
+  /** 作成元テンプレート（段6-2）。null＝テンプレートを使わない自由入力で作られたページ */
+  templateId: string | null;
 }
 
 export interface GraphicsCueRow {
@@ -166,6 +173,13 @@ export interface GraphicsPageInput {
   partKey: GraphicsPartKey;
   fields: Record<string, unknown>;
   proofState?: GraphicsProofState;
+  /**
+   * テンプレートから作る（段6-2）。指定すると、サーバー側で `slot`/`partKey` は
+   * テンプレートの値に置き換えられ、`fields` はテンプレートの `baseFields` をベースに
+   * `publicFields` に含まれるキーだけこの `fields` の値で上書きしたものになる
+   * （`publicFields` に無いキーを送っても無視される — サーバー側で強制）。
+   */
+  templateId?: string | number | null;
 }
 
 export async function createGraphicsPage(projectId: string, input: GraphicsPageInput): Promise<GraphicsPageRow> {
@@ -173,6 +187,12 @@ export async function createGraphicsPage(projectId: string, input: GraphicsPageI
   return data.data;
 }
 
+/**
+ * ページ更新。**テンプレートから作られたページ（`templateId` あり）は `fields` に
+ * `publicFields` に含まれるキーだけを渡すこと** — サーバー側は渡された `fields` を
+ * 既存の値に**マージ**し（ロックされたフィールドを毎回送り直させない）、
+ * `publicFields` に無いキーが1つでも含まれていれば 400 で拒否する。
+ */
 export async function updateGraphicsPage(
   pageId: string,
   input: Partial<GraphicsPageInput>,
@@ -303,79 +323,61 @@ export async function deleteGraphicsRequest(requestId: string): Promise<void> {
 }
 
 // ── 名簿からの一括生成 — graphics.md §6・§9 段5 ────────────────────────
-// POST /graphics/projects/:id/roster/preview … ヘッダー・サンプル行・列の型自動判定
-//                                                （＋渡した候補があれば推奨マッピング）を読む
-// POST /graphics/projects/:id/roster/commit  … 全行をパースして一括作成（dryRun で件数だけ確認も可）
+// `RosterColumnType`・`previewGraphicsRoster`・`commitGraphicsRoster` 等は
+// `graphicsRosterApi.ts` に切り出した（ファイルサイズ規律・400行）。
 
-/** 列の自動分類タイプ（サーバー側 `roster-import.service.ts` の `RosterColumnType` と同じ）。
- *  awards ほど細かくない5種（空/数値/日付/短文/長文）で足りる（§2-2の8番）。 */
-export type RosterColumnType = 'empty' | 'number' | 'date' | 'shortText' | 'longText';
+// ── テンプレート（部品→**テンプレート**→ページ→送出リストの第2層・段6-2） ──────
+// docs/design/v4/graphics.md §2「部品を選んで置き、テーマを当て、公開フィールドを絞る」。
+// サーバー側の契約:
+//   POST   /graphics/projects/:id/templates … 作成
+//   GET    /graphics/projects/:id/templates … プロジェクト単位の一覧
+//   PUT    /graphics/templates/:id          … 部分更新（name/description/baseFields/publicFields）
+//   DELETE /graphics/templates/:id          … 削除（既存ページの template_id は SET NULL で外れる —
+//                                              ページは残り、ただの通常ページとして触れる）
 
-/** 推奨マッピングを計算するための候補（`PART_FIELDS` の key/label をそのまま渡す）。 */
-export interface RosterFieldCandidate {
-  key: string;
-  label: string;
+export interface GraphicsTemplateRow {
+  id: string;
+  projectId: string;
+  partKey: GraphicsPartKey;
+  slot: GraphicsSlot;
+  name: string;
+  description: string | null;
+  /** 部品の入力欄の初期値（`pageFields.ts` の `PART_FIELDS[partKey]` と同じキー） */
+  baseFields: Record<string, unknown>;
+  /** `baseFields` のキーのうち、ページ作成時にオペレーターが編集できるもの */
+  publicFields: string[];
 }
 
-export interface RosterColumnAnalysis {
-  header: string;
-  type: RosterColumnType;
-  filledRatio: number;
-  samples: string[];
-  suggestedKey?: string;
-  suggestedConfidence: 'exact' | 'partial' | 'none';
+export interface GraphicsTemplateInput {
+  partKey: GraphicsPartKey;
+  slot: GraphicsSlot;
+  name: string;
+  description?: string;
+  baseFields: Record<string, unknown>;
+  publicFields: string[];
 }
 
-export interface RosterPreviewResult {
-  headers: string[];
-  sampleRows: string[][];
-  totalRows: number;
-  /** 列ごとの型自動判定＋推奨マッピング（`fieldCandidates` を渡さなかった呼び出しでは
-   *  `suggestedConfidence` が全列 `'none'` のまま返る） */
-  columns: RosterColumnAnalysis[];
-}
-
-export async function previewGraphicsRoster(
-  projectId: string,
-  file: File,
-  fieldCandidates?: RosterFieldCandidate[],
-): Promise<RosterPreviewResult> {
-  const fd = new FormData();
-  fd.append('file', file);
-  if (fieldCandidates && fieldCandidates.length > 0) {
-    fd.append('fieldCandidates', JSON.stringify(fieldCandidates));
-  }
-  const { data } = await api.post(`/graphics/projects/${encodeURIComponent(projectId)}/roster/preview`, fd);
+export async function fetchGraphicsTemplates(projectId: string): Promise<GraphicsTemplateRow[]> {
+  const { data } = await api.get(`/graphics/projects/${encodeURIComponent(projectId)}/templates`);
   return data.data;
 }
 
-export interface RosterCommitResult {
-  created: GraphicsPageRow[];
-  createdCount: number;
-  /** 全カラム空だったためスキップした行数 */
-  skippedBlank: number;
-  /** ページ名が空になり作成できなかった行（1行のミスで全部は失敗させない） */
-  errors: { row: number; message: string }[];
-  /** true なら dry-run の結果（DB へは書き込んでいない。`created` は常に空） */
-  dryRun: boolean;
+export async function createGraphicsTemplate(
+  projectId: string,
+  input: GraphicsTemplateInput,
+): Promise<GraphicsTemplateRow> {
+  const { data } = await api.post(`/graphics/projects/${encodeURIComponent(projectId)}/templates`, input);
+  return data.data;
 }
 
-export async function commitGraphicsRoster(
-  projectId: string,
-  file: File,
-  slot: GraphicsSlot,
-  partKey: GraphicsPartKey,
-  mapping: Record<string, string>,
-  nameColumn?: string,
-  dryRun?: boolean,
-): Promise<RosterCommitResult> {
-  const fd = new FormData();
-  fd.append('file', file);
-  fd.append('slot', slot);
-  fd.append('partKey', partKey);
-  fd.append('mapping', JSON.stringify(mapping));
-  if (nameColumn) fd.append('nameColumn', nameColumn);
-  if (dryRun) fd.append('dryRun', 'true');
-  const { data } = await api.post(`/graphics/projects/${encodeURIComponent(projectId)}/roster/commit`, fd);
+export async function updateGraphicsTemplate(
+  templateId: string,
+  input: Partial<Pick<GraphicsTemplateInput, 'name' | 'description' | 'baseFields' | 'publicFields'>>,
+): Promise<GraphicsTemplateRow> {
+  const { data } = await api.put(`/graphics/templates/${encodeURIComponent(templateId)}`, input);
   return data.data;
+}
+
+export async function deleteGraphicsTemplate(templateId: string): Promise<void> {
+  await api.delete(`/graphics/templates/${encodeURIComponent(templateId)}`);
 }
