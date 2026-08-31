@@ -136,7 +136,7 @@ export default function PageFormDialog({
         // 入れて渡したほうが情報が残る（列配列なので firstFieldValue をそのまま代入できない）
         else if (def.kind === 'list-items') {
           next[def.key] = i === 0 && initialValues?.firstFieldValue
-            ? [initialValues.firstFieldValue]
+            ? [{ text: initialValues.firstFieldValue, textEn: '' }]
             : defaultListItems();
         } else if (def.type === 'select-number') {
           next[def.key] = String(def.numberDefault ?? def.numberOptions?.[0] ?? '');

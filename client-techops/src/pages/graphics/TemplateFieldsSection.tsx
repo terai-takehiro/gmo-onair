@@ -26,7 +26,7 @@ function describeLockedValue(kind: PartFieldDef['kind'], value: unknown): string
   }
   if (kind === 'list-items') {
     const arr = normalizeListItems(value);
-    return arr.length > 0 ? arr.join('・') : '（未設定）';
+    return arr.length > 0 ? arr.map((it) => it.text || '（無題）').join('・') : '（未設定）';
   }
   if (kind === 'image') {
     return typeof value === 'string' && value.trim() ? '設定済み' : '（未設定）';

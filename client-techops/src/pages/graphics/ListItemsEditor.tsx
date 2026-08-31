@@ -4,32 +4,32 @@
 // （pageFields.ts の通常の PartFieldDef）とは別経路 — PageFormDialog 側は
 // `def.kind === 'list-items'` のときだけこのコンポーネントに差し替える（他部品は無改修）。
 // ScoreEntriesEditor / VoteChoicesEditor と同じ操作感（並べ替えは上下ボタン・44px タップ領域）
-// で揃えたが、要素は構造体ではなく文字列1本なので入力欄は1つだけ（票数・得点のような
-// 付随フィールドが無い分、いちばんシンプル）。
+// で揃えた。項目ごとに英語版（任意・`?lang=en` で優先表示）の入力欄を持つ —
+// ScoreEntriesEditor の `nameEn` 欄と同じパターン。
 import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { DEFAULT_ITEM_LIMIT, DEFAULT_MAX_LIST_ITEMS } from './listItems';
+import { DEFAULT_ITEM_LIMIT, DEFAULT_MAX_LIST_ITEMS, type ListItem } from './listItems';
 
 export function ListItemsEditor({
   label, items, maxItems, itemLimit, onChange,
 }: {
   label: string;
-  items: string[];
+  items: ListItem[];
   maxItems?: number;
   itemLimit?: number;
-  onChange: (next: string[]) => void;
+  onChange: (next: ListItem[]) => void;
 }) {
   const max = maxItems ?? DEFAULT_MAX_LIST_ITEMS;
   const limit = itemLimit ?? DEFAULT_ITEM_LIMIT;
 
-  const update = (i: number, value: string) => {
-    onChange(items.map((v, idx) => (idx === i ? value : v)));
+  const update = (i: number, patch: Partial<ListItem>) => {
+    onChange(items.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
   };
   const add = () => {
     if (items.length >= max) return;
-    onChange([...items, '']);
+    onChange([...items, { text: '', textEn: '' }]);
   };
   const remove = (i: number) => {
     onChange(items.filter((_, idx) => idx !== i));
@@ -50,7 +50,7 @@ export function ListItemsEditor({
       </div>
       <div className="mt-1.5 space-y-2">
         {items.map((item, i) => {
-          const len = Array.from(item).length;
+          const len = Array.from(item.text).length;
           return (
             <div
               key={i}
@@ -74,14 +74,22 @@ export function ListItemsEditor({
               <div className="min-w-[160px] flex-1 space-y-1">
                 <Input
                   className="min-h-[44px]"
-                  value={item}
+                  value={item.text}
                   placeholder={`項目（${limit}字まで）`}
-                  onChange={(e) => update(i, e.target.value)}
+                  onChange={(e) => update(i, { text: e.target.value })}
                   aria-label={`${i + 1}番目の項目`}
                 />
                 {len > limit && (
                   <p className="mt-0.5 text-note text-warning">{len} / {limit}字</p>
                 )}
+                {/* 英語版（任意）。出力の ?lang=en で優先表示・未入力なら日本語のままフォールバック */}
+                <Input
+                  className="min-h-[44px]"
+                  value={item.textEn ?? ''}
+                  placeholder="英語版（任意・?lang=en で優先表示）"
+                  onChange={(e) => update(i, { textEn: e.target.value })}
+                  aria-label={`${i + 1}番目の英語版`}
+                />
               </div>
 
               <Button

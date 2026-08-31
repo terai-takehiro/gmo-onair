@@ -10,11 +10,9 @@
 //   ・ティッカーは高さ72・110px/s（slow=90/fast=130）。速度を固定し尺を逆算（§6）
 import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import type { GraphicsPageRow } from '@/lib/graphicsApi';
-import { pickLang, type GraphicsLang } from './langField';
-import {
-  estimateTickerTextWidth,
-  tickerPxPerSec,
-} from '@gmo-onair/shared/src/qsheet/graphicsTicker';
+import { pickLang, pickLangValue, type GraphicsLang } from './langField';
+import { normalizeListItems } from './listItems';
+import { estimateTickerTextWidth, tickerPxPerSec } from '@gmo-onair/shared/src/qsheet/graphicsTicker';
 
 /** 尺の概算（純粋関数・shared に実体）。送出コンソール側からも使えるよう再輸出 */
 export { estimateDurationSec } from '@gmo-onair/shared/src/qsheet/graphicsTicker';
@@ -66,11 +64,12 @@ function str(v: unknown): string {
  * `photoUrl`（specs §9.10）があるときだけ「題字→写真→氏名」の縦積みで矩形の写真を挟む
  * （実物調査の並び）。角丸最小限・金の罫1本（2px）＋短距離影で浮かせるだけ——面は敷かない。
  * 読み込み失敗（`img onError`）／未指定のときは写真無しの従来レイアウトのまま。
+ * `lang`（`?lang=en`）対応済み: 題字・発表者名・肩書は `pickLang` 経由（`photoUrl` は対象外）。
  */
-export function FullscreenTitle({ page }: { page: GraphicsPageRow }) {
-  const title = str(page.fields.title) || page.name;
-  const speaker = str(page.fields.speaker);
-  const speakerTitle = str(page.fields.speakerTitle);
+export function FullscreenTitle({ page, lang }: { page: GraphicsPageRow; lang?: GraphicsLang }) {
+  const title = pickLang(page.fields, 'title', lang) || page.name;
+  const speaker = pickLang(page.fields, 'speaker', lang);
+  const speakerTitle = pickLang(page.fields, 'speakerTitle', lang);
   const photoUrl = str(page.fields.photoUrl);
   // 読み込みに失敗した URL を覚えておき、その URL の間だけ写真枠を隠す（同じ page.id の
   // まま photoUrl が新しい値に変わったら自動的に再表示される — useEffect でのリセット不要）
@@ -185,12 +184,12 @@ const MAX_LIST_ITEMS = 20;
  * `revealPhase`（段6-1・汎用機構の実証）が **0以上**で渡されたときだけ「`revealPhase + 1`
  * 件目まで」に絞る。未指定・**-1（段階公開未使用・migration 251）＝従来どおり全件表示**
  * （cueはTAKEのたびに-1にリセットされるため後方互換）。「ほか N名」の残数はこの表示上限を
- * 基準に数え直す。
+ * 基準に数え直す。`lang`対応済み: 項目ごとに `pickLangValue` で英語版を優先表示（未入力はフォールバック）。
  */
-export function FullscreenList({ page, revealPhase }: { page: GraphicsPageRow; revealPhase?: number }) {
+export function FullscreenList({ page, revealPhase, lang }: { page: GraphicsPageRow; revealPhase?: number; lang?: GraphicsLang }) {
   const title = str(page.fields.title) || page.name;
-  const rawItems = Array.isArray(page.fields.items) ? page.fields.items : [];
-  const items = rawItems.map(str).filter((s) => s !== '');
+  const items = normalizeListItems(page.fields.items)
+    .map((it) => pickLangValue(it.text, it.textEn ?? '', lang)).filter((s) => s !== '');
   const revealLimit = typeof revealPhase === 'number' && Number.isFinite(revealPhase) && revealPhase >= 0
     ? Math.max(0, Math.floor(revealPhase) + 1)
     : MAX_LIST_ITEMS;

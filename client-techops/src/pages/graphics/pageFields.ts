@@ -24,9 +24,10 @@ export interface PartFieldDef {
    * `client-techops/src/pages/graphics/ScoreEntriesEditor.tsx` が編集UIを持つ）。
    * `'choices'` = 投票・クイズの選択肢の可変長配列（{label, votes}[]・投票・クイズ専用。
    * `client-techops/src/pages/graphics/VoteChoicesEditor.tsx` が編集UIを持つ）。
-   * `'list-items'` = 一覧表の項目の可変長配列（string[]・一覧表専用。対戦者/選択肢と違い
-   * 構造体ではなく文字列1本でよい。`client-techops/src/pages/graphics/ListItemsEditor.tsx`
-   * が編集UIを持つ）。
+   * `'list-items'` = 一覧表の項目の可変長配列（{text, textEn?}[]・一覧表専用。ScoreEntry と
+   * 同じ発想で項目ごとに英語版（任意・`?lang=en` で優先表示）を持てる。旧形式（string[]）の
+   * 既存データも `normalizeListItems` が後方互換で読む。
+   * `client-techops/src/pages/graphics/ListItemsEditor.tsx` が編集UIを持つ）。
    * `'image'` = 写真アップロード欄（string＝`/api/v1/internal/graphics/images/<filename>` の
    * URLを1本持つだけ・空文字は未設定。`client-techops/src/pages/graphics/ImageFieldEditor.tsx`
    * が編集UIを持つ。ページ保存前（`pageId` が無い新規作成中）はアップロードを呼べないため、
@@ -82,9 +83,10 @@ export const PART_FIELDS: Record<GraphicsPartKey, PartFieldDef[]> = {
   // FullscreenTitle は `page.fields.title`／`speaker`／`speakerTitle` の3キーを読んでおり、
   // フォームに入力しても出力へ一切届かなかった（常に `page.name` へフォールバック）。
   // レンダラーが読むキーに合わせて3欄に分けた（PartFieldDef 型はそのまま・kind無し＝
-  // 通常の1行テキスト欄）。`bilingual` は付けていない — FullscreenTitle は他部品と違い
-  // `lang` prop を受け取らず `pickLang` を経由しないため、`${key}En` を足しても出力側で
-  // 一切読まれない（多言語対応は今回のタスクの対象外・別途 FullscreenTitle 側の対応が要る）。
+  // 通常の1行テキスト欄）。`title`/`speaker`/`speakerTitle` の3つに `bilingual: true` を
+  // 付けた（`photoUrl` は対象外）。FullscreenTitle が `lang` prop を受け取り `pickLang`
+  // を経由するようになったため、`${key}En` は出力側でも `?lang=en` 切替に反映される
+  // （多言語対応 §2-2 の7番・対応済み）。
   //
   // 文字数上限はいずれも「暗幕の安全域（1920 - SAFE_X*2 = 1728px）に収まる目安」から逆算した
   // ソフト上限（保存は止めない）:
@@ -99,9 +101,9 @@ export const PART_FIELDS: Record<GraphicsPartKey, PartFieldDef[]> = {
   //   ・発表者の肩書（speakerTitle）: 30px・letterSpacing 0.12em、
   //     1字あたり約 30*1.12≈33.6px、1728/33.6≈51.4字が理論上限。同じ安全マージンで 40 を目安にした
   title: [
-    { key: 'title', label: '題字', limit: 16 },
-    { key: 'speaker', label: '発表者名（任意）', limit: 24 },
-    { key: 'speakerTitle', label: '発表者の肩書（任意・発表者名の上に小さく表示）', limit: 40 },
+    { key: 'title', label: '題字', limit: 16, bilingual: true },
+    { key: 'speaker', label: '発表者名（任意）', limit: 24, bilingual: true },
+    { key: 'speakerTitle', label: '発表者の肩書（任意・発表者名の上に小さく表示）', limit: 40, bilingual: true },
     // 写真（任意・段6-6 graphics-awards-migration-plan.md §2-2の9番）。必須にしない —
     // 写真無しの題字ページも従来どおり成立する。出力側レンダラー（outputPartsExtra.tsx）が
     // このキーをどう描画するかは別エージェントの並行実装が担う（このタスクの対象外）
@@ -114,10 +116,12 @@ export const PART_FIELDS: Record<GraphicsPartKey, PartFieldDef[]> = {
   // `page.fields.columns`（列数）を読んでおり、`Array.isArray` に弾かれて一覧は常に空だった。
   // 配列は単純な1行テキストで表現できないため、専用UI（ListItemsEditor・
   // ScoreEntriesEditor/VoteChoicesEditor と同じ操作感の可変長リスト）に差し替えた。
-  // 対戦者/選択肢と違い構造体（{name,points}等）は不要 — 文字列1本のリストでよい
-  // （タスク背景メモのとおり）。見出しの多言語化・氏名ごとの英語版はレンダラー側が
-  // 対応していないため今回は追加していない（items は文字列1本の配列で bilingual の
-  // 概念がそもそも無い）。
+  // 項目は {text, textEn?} の構造体配列（listItems.ts）— ScoreEntry と同じ発想で
+  // 項目ごとに英語版（任意）を持てるようにし、多言語対応（§2-2の7番）済みにした。
+  // 旧形式（文字列1本の配列・string[]）で保存済みの既存データも `normalizeListItems` が
+  // 後方互換で読む（各要素が文字列ならレガシー形式として {text: 文字列, textEn: ''} に
+  // 変換する）。`bilingual: true` フラグは付けない — この専用UI方式は本体入力欄の下に
+  // `${key}En` を自動で足す汎用bilingual機構（PageFieldEditor.tsx）を経由しないため。
   //   ・項目の文字数上限: 既定4列でのセル幅から算出。セル幅 = (1728 - (4-1)*40) / 4 = 402px、
   //     フォント46px・letterSpacing 0.04emで1字あたり約 46*1.04≈47.8px、
   //     402/47.8≈8.4字。ellipsis で省略されるため厳密な上限ではないが、目安として10字とした

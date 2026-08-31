@@ -251,8 +251,8 @@ export function renderPart(
     return <TickerBand key={page.id} page={page} lang={ctx?.lang} />;
   }
   if (slot === 'fullscreen') {
-    if (partKey === 'list') return <FullscreenList key={page.id} page={page} revealPhase={ctx?.revealPhase} />;
-    if (partKey === 'title') return <FullscreenTitle key={page.id} page={page} />;
+    if (partKey === 'list') return <FullscreenList key={page.id} page={page} revealPhase={ctx?.revealPhase} lang={ctx?.lang} />;
+    if (partKey === 'title') return <FullscreenTitle key={page.id} page={page} lang={ctx?.lang} />;
     if (partKey === 'vote') return <VoteResult key={page.id} page={page} theme={theme} lang={ctx?.lang} />;
     return null;
   }
