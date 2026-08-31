@@ -80,6 +80,17 @@ export const PROOF_LABELS: Record<GraphicsProofState, string> = {
   proofed: '確認済',
 };
 
+/**
+ * スロット間の自動退出ルール（段6-4・CGプロジェクト単位）。
+ * whenSlot のページが TAKE されたら、autoOutSlots のスロットを自動 OUT する。
+ * docs/design/v4/graphics.md §2「衝突の解決をオペレーターの注意力に任せない」。
+ * テンプレート層（段6-2）ができるまでの暫定の置き場所（graphics-awards-migration-plan.md §2-2）。
+ */
+export interface SlotExitRule {
+  whenSlot: GraphicsSlot;
+  autoOutSlots: GraphicsSlot[];
+}
+
 export interface GraphicsProjectRow {
   id: string;
   name: string;
@@ -87,6 +98,8 @@ export interface GraphicsProjectRow {
   ownerId: string;
   /** 見た目テーマのキー（未知の値は既定テーマ扱いにする — レンダラ側の作法） */
   theme: string;
+  /** 既定は空配列（ルールはオプトイン） */
+  slotExitRules: SlotExitRule[];
 }
 
 export interface GraphicsPageRow {
@@ -131,10 +144,10 @@ export async function getGraphicsProject(projectId: string): Promise<GraphicsBun
   return data.data;
 }
 
-/** プロジェクトの部分更新（いまは theme / name のみ）。更新後の一式（bundle）が返る */
+/** プロジェクトの部分更新（theme / name / slotExitRules）。更新後の一式（bundle）が返る */
 export async function updateGraphicsProject(
   projectId: string | number,
-  input: { theme?: GraphicsThemeKey; name?: string },
+  input: { theme?: GraphicsThemeKey; name?: string; slotExitRules?: SlotExitRule[] },
 ): Promise<GraphicsBundle> {
   const { data } = await api.put(`/graphics/projects/${encodeURIComponent(String(projectId))}`, input);
   return data.data;
@@ -165,14 +178,20 @@ export async function deleteGraphicsPage(pageId: string): Promise<void> {
   await api.delete(`/graphics/pages/${encodeURIComponent(pageId)}`);
 }
 
+export interface SetGraphicsCueResult {
+  cues: GraphicsCueRow[];
+  /** 段6-4: このTAKEで自動退出ルールによりOUTになったスロット（無ければ空配列） */
+  autoOutSlots: GraphicsSlot[];
+}
+
 /** スロットの cue を差し替える（pageId=null で OUT）。REST 経由の口 — 本番はソケットの `cg:set` を使う */
 export async function setGraphicsCue(
   projectId: string,
   slot: GraphicsSlot,
   pageId: string | null,
-): Promise<GraphicsCueRow[]> {
+): Promise<SetGraphicsCueResult> {
   const { data } = await api.post(`/graphics/projects/${encodeURIComponent(projectId)}/cue`, { slot, pageId });
-  return data.data;
+  return { cues: data.data.cues, autoOutSlots: data.data.autoOutSlots ?? [] };
 }
 
 export interface GraphicsOutputBundle extends GraphicsBundle {

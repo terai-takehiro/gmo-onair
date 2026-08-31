@@ -10,6 +10,7 @@
 // なので背景グラデーションだけ生の色で書く。枠・見出しは v4 トークン。
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import type { GraphicsPageRow } from '@/lib/graphicsApi';
+import { CgTransition } from './CgTransition';
 import { renderGraphicsPage, type RenderContext } from './outputParts';
 
 const CANVAS_W = 1920;
@@ -85,12 +86,15 @@ export function ConsolePreview({ tone, title, right, items, emptyText, serverNow
             transformOrigin: 'top left',
           }}
         >
-          {items.map((it) => (
-            // opacity の入れ物は position: static のまま（絶対配置の基準はキャンバスに残る）
-            <div key={it.page.id} style={it.dim ? { opacity: 0.4 } : undefined}>
-              {renderGraphicsPage(it.page, serverNowMs, ctx)}
-            </div>
-          ))}
+          <CgTransition
+            width={CANVAS_W}
+            height={CANVAS_H}
+            items={items.map((it) => ({
+              key: it.page.id,
+              dim: it.dim,
+              node: renderGraphicsPage(it.page, serverNowMs, ctx),
+            }))}
+          />
         </div>
         {empty && (
           <div

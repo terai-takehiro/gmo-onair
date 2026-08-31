@@ -31,6 +31,7 @@ import RequestQueueSection, { graphicsRequestsQueryKey } from './RequestQueueSec
 import RosterImportDialog from './RosterImportDialog';
 import OutputUrlCard from './OutputUrlCard';
 import ThemePicker from './ThemePicker';
+import SlotExitRulesEditor from './SlotExitRulesEditor';
 import { resolveTelopTheme } from './telopTheme';
 
 export default function GraphicsHubPage() {
@@ -183,6 +184,8 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
         <span className="h-5 w-px bg-border-faint" aria-hidden="true" />
         <Stat label="オンエア中のスロット" value={`${liveCount}件`} />
       </div>
+
+      <SlotExitRulesEditor projectId={bundle.project.id} rules={bundle.project.slotExitRules} onSaved={reload} />
 
       <RequestQueueSection projectId={bundle.project.id} ownerKey={ownerKey} onConvert={openConvert} />
 

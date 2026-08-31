@@ -273,6 +273,32 @@ CSS 定数: `--safe-x:96px; --safe-y:54px; --safe-stream-x:48px; --safe-stream-y
 | **バラエティ発言** | 塗り白/グラデ（上白〜クリーム・下黄・分岐50%付近）＋内フチ6–8px感情色＋外フチ14–16px黒＋ベタ落ち影 8px8px0・下中央 y≒980–1000 |
 | **コーナー見出し** | 64px 太ゴ 白#F2F2F2・stroke 5px 深色・影4px4px0・平行四辺形ベース（`skewX(-12deg)`・縦グラデ＋上部1pxハイライト線・左端8pxアクセント帯）・字間.08em+ |
 
+## 11. In/Out トランジション契約（実装値・2026-08-31 追補・段6-3）
+
+[graphics.md](graphics.md) §5「Out = In の逆再生」の実装値。**部品固有の演出ではなく、
+全部品共通の汎用フェード**（`GraphicsOutputPage.tsx`・`ConsolePreview.tsx` の外側に被せる
+ラッパー1枚・`pages/graphics/CgTransition.tsx`）。個々の部品（`nameParts.tsx` 等）は
+一切変更していない。
+
+- **cue の pageId が変わった瞬間** = そのスロットの鍵（`page.id`）が入れ替わる:
+  - **In（新しいページ）**: `opacity 0→1` ＋ `scale(0.98)→scale(1)`。**400ms**・
+    `cubic-bezier(0.16, 1, 0.3, 1)`（軽い減速＝ease-out）
+  - **Out（古いページ）**: 即座にアンマウントせず、`opacity 1→0` ＋
+    `scale(1)→scale(1.02)`。**同じ 400ms**・`cubic-bezier(0.7, 0, 0.84, 0)`
+    （In の逆再生＝ease-in。厳密な時間反転カーブの近似）
+  - スケールの基準点はキャンバス中央（`transform-origin: center center`）。
+    トランジション用の層はキャンバスと同じ 1920×1080 を明示するので、部品側の
+    `bottom` / `right` 基準（例: `nameParts.tsx` の `bottom: SAFE_Y`）はそのまま効く
+- **同じ pageId が残っている間はアニメーションを再生しない。** ページの `fields` が
+  変わっても（±ボタン等）中身だけを差し替える。時計・カウントダウン・速報帯が
+  フェード中でも刻み続けるのはこのため（`serverNowMs` の再描画はラップの外側で起きる）
+- **PVW の文脈表示（`dim`）はフェードの不透明度に掛け算する**（0.4 倍）。他は透明度・
+  スケール以外のプロパティに触れない
+- DOM からの除去は `onTransitionEnd` を主経路にし、発火しない環境向けに
+  `setTimeout`（400ms + 80ms）のフォールバックを添える
+- 実ブラウザ確認（`npm run verify:up` の DB・実 Chromium・出力画面／送出コンソール両方）で、
+  crossfade・時計の秒更新継続・OUT 後の完全消去を確認済み
+
 ## 出典（主要）
 
 セーフエリア: [ARIB TR-B4](https://www.arib.or.jp/kikaku/kikaku_hoso/desc/tr-b4.html) /

@@ -25,11 +25,16 @@ export function formatElapsed(fromIso: string, serverNowMs: number): string {
   return h > 0 ? `${h}:${two(m)}:${two(s)}` : `${m}:${two(s)}`;
 }
 
-export function ConsoleSlotLanes({ cues, pageById, serverNowMs, onOut }: {
+export function ConsoleSlotLanes({ cues, pageById, serverNowMs, onOut, autoOutHighlight }: {
   cues: Partial<Record<GraphicsSlot, GraphicsCueRow>>;
   pageById: Map<string, GraphicsPageRow>;
   serverNowMs: number;
   onOut: (slot: GraphicsSlot) => void;
+  /**
+   * 段6-4: 自動退出ルールでいま OUT になったばかりのスロット（一定時間だけ点灯・
+   * 呼び出し側 `GraphicsConsolePage` がタイマーで消す）。省略時は誰もハイライトしない
+   */
+  autoOutHighlight?: Set<GraphicsSlot>;
 }) {
   return (
     <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
@@ -37,11 +42,16 @@ export function ConsoleSlotLanes({ cues, pageById, serverNowMs, onOut }: {
         const cue = cues[slot];
         const page = cue?.pageId ? pageById.get(cue.pageId) ?? null : null;
         const live = !!cue?.pageId;
+        const justAutoOut = !live && !!autoOutHighlight?.has(slot);
         return (
           <div
             key={slot}
-            className={`flex flex-col gap-1.5 rounded-card border p-2.5 ${
-              live ? 'border-destructive-border bg-destructive-surface' : 'border-border bg-card'
+            className={`flex flex-col gap-1.5 rounded-card border p-2.5 transition-colors ${
+              live
+                ? 'border-destructive-border bg-destructive-surface'
+                : justAutoOut
+                  ? 'border-warning-border bg-warning-surface'
+                  : 'border-border bg-card'
             }`}
           >
             <div className="flex items-center gap-1.5">
@@ -50,6 +60,11 @@ export function ConsoleSlotLanes({ cues, pageById, serverNowMs, onOut }: {
                 aria-hidden="true"
               />
               <span className="min-w-0 flex-1 truncate text-th text-muted-foreground">{SLOT_LABELS[slot]}</span>
+              {justAutoOut && (
+                <span className="shrink-0 rounded-control bg-warning px-1.5 py-0.5 text-note font-bold text-warning-foreground">
+                  自動OUT
+                </span>
+              )}
               {live && cue?.takenAt && (
                 <span className="font-number shrink-0 text-sub-sm tabular-nums text-muted-foreground">
                   {formatElapsed(cue.takenAt, serverNowMs)}

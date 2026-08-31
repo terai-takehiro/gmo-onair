@@ -16,6 +16,7 @@ import {
   type GraphicsCueRow, type GraphicsOutputBundle, type GraphicsSlot,
 } from '@/lib/graphicsApi';
 import { createGraphicsSocket, type CgSyncPayload } from '@/lib/graphicsSocket';
+import { CgTransition } from './CgTransition';
 import { renderGraphicsPage } from './outputParts';
 import { resolveTelopTheme } from './telopTheme';
 
@@ -147,13 +148,19 @@ export default function GraphicsOutputPage() {
           overflow: 'hidden',
         }}
       >
-        {livePages.map((p) =>
-          renderGraphicsPage(p, serverNowMs, {
-            // テーマはプロジェクト設定が正。?theme= は試写用の上書き
-            theme: resolveTelopTheme(searchParams.get('theme') ?? bundle?.project?.theme),
-            tickerLive: livePages.some((q) => q.slot === 'ticker'),
-            flashLive: livePages.some((q) => q.slot === 'flash'),
+        <CgTransition
+          width={CANVAS_W}
+          height={CANVAS_H}
+          items={livePages.map((p) => ({
+            key: p.id,
+            node: renderGraphicsPage(p, serverNowMs, {
+              // テーマはプロジェクト設定が正。?theme= は試写用の上書き
+              theme: resolveTelopTheme(searchParams.get('theme') ?? bundle?.project?.theme),
+              tickerLive: livePages.some((q) => q.slot === 'ticker'),
+              flashLive: livePages.some((q) => q.slot === 'flash'),
+            }),
           }))}
+        />
       </div>
     </div>
   );

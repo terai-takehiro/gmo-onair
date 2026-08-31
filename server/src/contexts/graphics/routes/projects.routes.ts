@@ -2,7 +2,9 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { execute, queryOne } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
-import { fetchBundle, fetchProject, SLOTS, Slot, THEMES, Theme, upsertCue } from '../store';
+import {
+  applyCueTake, fetchBundle, fetchProject, SLOTS, Slot, SlotExitRule, THEMES, Theme,
+} from '../store';
 
 // CGプロジェクト（graphics_projects）の解決・取得と、スロット cue の HTTP 経路。
 // 権限は計時・視聴者と同じく qsheet 区画へ統合（graphics.md §1・migration 232 の先例）。
@@ -11,6 +13,39 @@ const router = Router();
 router.use(requireAuth, requirePermission('qsheet'));
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
   (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
+
+// ── slotExitRules のバリデーション（段6-4。migration 247） ─────────────
+// 形は [{ whenSlot, autoOutSlots: [] }]。whenSlot/autoOutSlots は SLOTS の値のみ・
+// whenSlot は autoOutSlots に自分自身を含めない（自分を自動OUTするルールは無意味で、
+// 見た目のTAKEと同時に自分自身が消えるという分かりにくい挙動になるため弾く）。
+function validateSlotExitRules(input: unknown): SlotExitRule[] {
+  if (!Array.isArray(input)) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'slotExitRules は配列です');
+  }
+  return input.map((raw, i) => {
+    if (!raw || typeof raw !== 'object') {
+      throw new AppError(400, 'VALIDATION_ERROR', `slotExitRules[${i}] の形が不正です`);
+    }
+    const whenSlot = (raw as Record<string, unknown>).whenSlot;
+    const autoOutSlots = (raw as Record<string, unknown>).autoOutSlots;
+    if (!SLOTS.includes(whenSlot as Slot)) {
+      throw new AppError(400, 'VALIDATION_ERROR', `slotExitRules[${i}].whenSlot は ${SLOTS.join(' / ')} のいずれかです`);
+    }
+    if (!Array.isArray(autoOutSlots) || autoOutSlots.length === 0) {
+      throw new AppError(400, 'VALIDATION_ERROR', `slotExitRules[${i}].autoOutSlots は1件以上の配列です`);
+    }
+    const cleaned = autoOutSlots.map((s, j) => {
+      if (!SLOTS.includes(s as Slot)) {
+        throw new AppError(400, 'VALIDATION_ERROR', `slotExitRules[${i}].autoOutSlots[${j}] は ${SLOTS.join(' / ')} のいずれかです`);
+      }
+      return s as Slot;
+    });
+    if (cleaned.includes(whenSlot as Slot)) {
+      throw new AppError(400, 'VALIDATION_ERROR', `slotExitRules[${i}]: whenSlot 自身を autoOutSlots に含めることはできません`);
+    }
+    return { whenSlot: whenSlot as Slot, autoOutSlots: cleaned };
+  });
+}
 
 // ── owner（案件 or 番組）から CGプロジェクトを get-or-create ──────────
 // ownerId は案件なら projects.id / gls_number のどちらでも受け、canonical な id で
@@ -75,7 +110,7 @@ router.put('/projects/:id', wrap(async (req, res) => {
   const project = id && !isNaN(id) ? await fetchProject(id) : null;
   if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
 
-  const body = (req.body ?? {}) as { theme?: string; name?: string };
+  const body = (req.body ?? {}) as { theme?: string; name?: string; slotExitRules?: unknown };
   const sets: string[] = [];
   const params: unknown[] = [];
 
@@ -89,6 +124,10 @@ router.put('/projects/:id', wrap(async (req, res) => {
     const name = String(body.name).trim();
     if (!name) throw new AppError(400, 'VALIDATION_ERROR', 'name は空にできません');
     sets.push('name = ?'); params.push(name);
+  }
+  if (body.slotExitRules !== undefined) {
+    const rules = validateSlotExitRules(body.slotExitRules);
+    sets.push('slot_exit_rules = ?::jsonb'); params.push(JSON.stringify(rules));
   }
 
   if (sets.length > 0) {
@@ -132,15 +171,17 @@ router.post('/projects/:id/cue', wrap(async (req, res) => {
     if (!page) throw new AppError(404, 'NOT_FOUND', 'ページが見つかりません');
   }
 
-  const cues = await upsertCue(id, slot as Slot, targetPageId);
+  // 段6-4: TAKE 時はスロット間自動退出ルール（slot_exit_rules）も同じトランザクションで
+  // 適用する。1回のTAKEで複数スロットが切り替わっても cg:sync の同報は1回にまとめる
+  const { cues, autoOutSlots } = await applyCueTake(id, slot as Slot, targetPageId);
 
   // Socket.IO の出力画面へも同報（awards の cues.routes.ts と同じ二重化）
   const io = req.app.get('io');
   if (io) {
-    io.of('/graphics').to(`project:${id}`).emit('cg:sync', { cues, timestamp: Date.now() });
+    io.of('/graphics').to(`project:${id}`).emit('cg:sync', { cues, autoOutSlots, timestamp: Date.now() });
   }
 
-  res.json({ success: true, data: { cues } });
+  res.json({ success: true, data: { cues, autoOutSlots } });
 }));
 
 export default router;

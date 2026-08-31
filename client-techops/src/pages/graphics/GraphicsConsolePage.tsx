@@ -27,6 +27,8 @@ import {
 import { createGraphicsSocket, emitCgSet, type CgSyncPayload } from '@/lib/graphicsSocket';
 import { useGraphicsProject } from './useGraphicsProject';
 import { useConsolePages } from './useConsolePages';
+import { useAutoOutHighlight } from './useAutoOutHighlight';
+import { useConsoleKeyboard } from './useConsoleKeyboard';
 import { ProofBadge } from './badges';
 import { resolveTelopTheme } from './telopTheme';
 import { ConsolePreview } from './ConsolePreview';
@@ -72,30 +74,6 @@ function cuesToMap(cues: GraphicsCueRow[]): Partial<Record<GraphicsSlot, Graphic
   return map;
 }
 
-/**
- * キーボード運転を止める場面か（入力欄・ダイアログにフォーカスがあるとき）。
- * 確認ダイアログ（confirmAction）は body 直下の `[data-confirm-host]` に出るので
- * 存在そのものを見る — 開いている間の Space / Enter は確認側の操作。
- */
-function shouldIgnoreKeys(target: EventTarget | null): boolean {
-  if (document.querySelector('[data-confirm-host]')) return true;
-  if (!(target instanceof HTMLElement)) return false;
-  if (target.closest('[role="dialog"], [role="alertdialog"]')) return true;
-  const tag = target.tagName;
-  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
-}
-
-interface ConsoleActions {
-  pushDigit: (d: string) => void;
-  popDigit: () => void;
-  clearDigits: () => void;
-  hasDigits: boolean;
-  commitCall: () => void;
-  take: () => void;
-  next: () => void;
-  move: (dir: 1 | -1) => void;
-}
-
 function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: GraphicsBundle }) {
   const projectId = bundle.project.id;
   const [cues, setCues] = useState(() => cuesToMap(bundle.cues));
@@ -106,6 +84,9 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
   const socketRef = useRef<Socket | null>(null);
   /** サーバー時刻 − クライアント時刻（ms）。経過時間・時計をサーバー基準にする */
   const serverOffsetRef = useRef(0);
+  // 段6-4: 自動退出ルールで OUT になったスロットを一時的にハイライトする
+  // （「衝突の解決をオペレーターの注意力に任せない」— 何が起きたか気づける形にする）
+  const { highlight: autoOutHighlight, flash: flashAutoOut } = useAutoOutHighlight();
   const [, forceTick] = useState(0);
   // ページ一覧＋ cg:sync のページ差分上書き（±ボタンなど）。詳細は useConsolePages.ts
   const { pages, callOrder, pageById, applyPageSync } = useConsolePages(bundle);
@@ -122,6 +103,7 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
       if (typeof payload?.timestamp === 'number' && Number.isFinite(payload.timestamp)) {
         serverOffsetRef.current = payload.timestamp - Date.now();
       }
+      if (Array.isArray(payload?.autoOutSlots)) flashAutoOut(payload.autoOutSlots);
     });
     return () => {
       socketRef.current = null;
@@ -164,7 +146,8 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
     }
     try {
       const next = await setGraphicsCue(projectId, slot, pageId);
-      setCues(cuesToMap(next));
+      setCues(cuesToMap(next.cues));
+      flashAutoOut(next.autoOutSlots);
     } catch {
       notifyError('送出の指示を送れませんでした', { description: 'サーバーとの接続を確認してください。' });
     }
@@ -245,47 +228,17 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
     }
   };
 
-  // キーボード運転。リスナーは1回だけ張り、最新の操作は ref 経由で引く
-  const actionsRef = useRef<ConsoleActions | null>(null);
-  useEffect(() => {
-    actionsRef.current = {
-      pushDigit: (d) => setCallBuffer((b) => (b + d).slice(0, 4)),
-      popDigit: () => setCallBuffer((b) => b.slice(0, -1)),
-      clearDigits: () => setCallBuffer(''),
-      hasDigits: callBuffer.length > 0,
-      commitCall,
-      take: () => { if (pvwPage) void take(pvwPage); },
-      next: () => { void takeAndNext(); },
-      move: movePvw,
-    };
+  // キーボード運転（Space=TAKE ／ Enter=次へ ／ ↑↓=スタンバイ移動 ／ テンキー=番号呼出）
+  useConsoleKeyboard({
+    pushDigit: (d) => setCallBuffer((b) => (b + d).slice(0, 4)),
+    popDigit: () => setCallBuffer((b) => b.slice(0, -1)),
+    clearDigits: () => setCallBuffer(''),
+    hasDigits: callBuffer.length > 0,
+    commitCall,
+    take: () => { if (pvwPage) void take(pvwPage); },
+    next: () => { void takeAndNext(); },
+    move: movePvw,
   });
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      const a = actionsRef.current;
-      if (!a || e.metaKey || e.ctrlKey || e.altKey || shouldIgnoreKeys(e.target)) return;
-      if (/^[0-9]$/.test(e.key)) { e.preventDefault(); a.pushDigit(e.key); return; }
-      switch (e.key) {
-        case 'Backspace': if (a.hasDigits) { e.preventDefault(); a.popDigit(); } return;
-        case 'Escape': a.clearDigits(); return;
-        case 'Enter': e.preventDefault(); if (a.hasDigits) a.commitCall(); else a.next(); return;
-        case ' ': e.preventDefault(); a.take(); return;
-        case 'ArrowDown': e.preventDefault(); a.move(1); return;
-        case 'ArrowUp': e.preventDefault(); a.move(-1); return;
-        default:
-      }
-    };
-    // Space はボタンの activation が keyup で走る（直前に押した「PVWへ」等に
-    // フォーカスが残っていると TAKE と二重発火する）ので keyup 側も止める
-    const onKeyUp = (e: KeyboardEvent) => {
-      if (e.key === ' ' && !shouldIgnoreKeys(e.target)) e.preventDefault();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('keyup', onKeyUp);
-    return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('keyup', onKeyUp);
-    };
-  }, []);
 
   const pvwContext = pvwPage
     ? livePages.filter((p) => p.slot !== pvwPage.slot && p.id !== pvwPage.id)
@@ -384,6 +337,7 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
           pageById={pageById}
           serverNowMs={serverNowMs}
           onOut={(slot) => { void sendSet(slot, null); }}
+          autoOutHighlight={autoOutHighlight}
         />
       </div>
 

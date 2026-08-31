@@ -1,7 +1,7 @@
 // テロップCG（graphics）の共通データ取得・整形。
 // REST（projects/pages/public.routes）と Socket（cg:*）が同じ形を返すよう、
 // DB 行 → camelCase の写像と cue の upsert をここ1か所に閉じる。
-import { execute, queryAll, queryOne, Row } from '../../shared/db/connection';
+import { execute, queryAll, queryOne, Row, TxClient, withTransaction } from '../../shared/db/connection';
 
 export const SLOTS = ['fullscreen', 'lower', 'side', 'ticker', 'clock', 'flash'] as const;
 export type Slot = (typeof SLOTS)[number];
@@ -30,12 +30,43 @@ export const SLOT_CALL_BASE: Record<Slot, number> = {
   flash: 501,
 };
 
+/**
+ * スロット間の自動退出ルール（段6-4・CGプロジェクト単位。migration 247）。
+ * whenSlot のページが TAKE されたら、autoOutSlots のスロットを自動 OUT する。
+ * docs/design/v4/graphics.md §2「衝突の解決をオペレーターの注意力に任せない」。
+ */
+export interface SlotExitRule {
+  whenSlot: Slot;
+  autoOutSlots: Slot[];
+}
+
+/**
+ * DB から読んだ slot_exit_rules（JSONB。pg ドライバが自動で JS 値へ変換する）を、
+ * 壊れた形が来ても落ちないよう防御的に整形する（書き込み時のバリデーションは
+ * routes 側・`validateSlotExitRules` が担う。ここは「読めなかったら空扱い」の保険）。
+ */
+export function normalizeSlotExitRules(raw: unknown): SlotExitRule[] {
+  if (!Array.isArray(raw)) return [];
+  const out: SlotExitRule[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const whenSlot = (item as Record<string, unknown>).whenSlot;
+    const autoOutSlots = (item as Record<string, unknown>).autoOutSlots;
+    if (!SLOTS.includes(whenSlot as Slot) || !Array.isArray(autoOutSlots)) continue;
+    const cleaned = autoOutSlots.filter((s): s is Slot => SLOTS.includes(s as Slot));
+    if (cleaned.length === 0) continue;
+    out.push({ whenSlot: whenSlot as Slot, autoOutSlots: cleaned });
+  }
+  return out;
+}
+
 export interface GraphicsProject {
   id: number;
   ownerType: string;
   ownerId: string;
   name: string;
   theme: string;
+  slotExitRules: SlotExitRule[];
   createdAt: unknown;
   updatedAt: unknown;
 }
@@ -89,6 +120,7 @@ export function mapProject(r: Row): GraphicsProject {
     ownerId: r.owner_id as string,
     name: r.name as string,
     theme: r.theme as string,
+    slotExitRules: normalizeSlotExitRules(r.slot_exit_rules),
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -208,6 +240,76 @@ export async function upsertCue(
     [projectId, slot, pageId, isLive]
   );
   return fetchCues(projectId);
+}
+
+async function upsertCueTx(
+  tx: TxClient,
+  projectId: number,
+  slot: Slot,
+  pageId: number | null
+): Promise<void> {
+  const isLive = pageId !== null;
+  await tx.execute(
+    `INSERT INTO graphics_cue_state (project_id, slot, page_id, is_live, taken_at, updated_at)
+     VALUES (?, ?, ?, ?, ${isLive ? 'NOW()' : 'NULL'}, NOW())
+     ON CONFLICT (project_id, slot) DO UPDATE
+       SET page_id = EXCLUDED.page_id,
+           is_live = EXCLUDED.is_live,
+           taken_at = EXCLUDED.taken_at,
+           updated_at = NOW()`,
+    [projectId, slot, pageId, isLive]
+  );
+}
+
+export interface CueTakeResult {
+  cues: GraphicsCue[];
+  /** このTAKEでルールにより自動OUTになったスロット（無ければ空配列）。 */
+  autoOutSlots: Slot[];
+}
+
+/**
+ * スロット cue の upsert を、段6-4のスロット間自動退出ルールと合わせて
+ * 1つのDBトランザクションで適用する（`upsertCue` の上位互換。cue の差し替え口
+ * ＝ REST `POST /projects/:id/cue` と Socket `cg:set` の両方がここを通る）。
+ *
+ * pageId が null でない（= OUT ではなく TAKE の）ときだけ、プロジェクトの
+ * `slot_exit_rules` を見て `whenSlot === slot` に一致するルールの
+ * `autoOutSlots` も同じトランザクションで OUT にする。呼び出し側は返る
+ * `autoOutSlots` を使って Socket 同報・オペレーター表示を1回にまとめられる。
+ */
+export async function applyCueTake(
+  projectId: number,
+  slot: Slot,
+  pageId: number | null
+): Promise<CueTakeResult> {
+  const autoOutSlots: Slot[] = [];
+  await withTransaction(async (tx) => {
+    // FOR UPDATE でプロジェクト行をロック — 同じプロジェクトへの同時 TAKE で
+    // ルール判定が古い slot_exit_rules を見たまま進まないようにする
+    const projectRow = await tx.queryOne(
+      `SELECT slot_exit_rules FROM graphics_projects WHERE id = ? FOR UPDATE`,
+      [projectId]
+    );
+    const rules = normalizeSlotExitRules(projectRow?.slot_exit_rules);
+
+    await upsertCueTx(tx, projectId, slot, pageId);
+
+    if (pageId !== null) {
+      const targets = new Set<Slot>();
+      for (const rule of rules) {
+        if (rule.whenSlot !== slot) continue;
+        for (const s of rule.autoOutSlots) {
+          if (s !== slot) targets.add(s);
+        }
+      }
+      for (const s of targets) {
+        await upsertCueTx(tx, projectId, s, null);
+        autoOutSlots.push(s);
+      }
+    }
+  });
+  const cues = await fetchCues(projectId);
+  return { cues, autoOutSlots };
 }
 
 /** スロット別ブロック内の最小の空き呼出番号を払い出す。 */

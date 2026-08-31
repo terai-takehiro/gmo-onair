@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { queryOne } from '../../shared/db/connection';
-import { fetchCues, SLOTS, Slot, upsertCue } from './store';
+import { applyCueTake, fetchCues, SLOTS, Slot } from './store';
 
 // テロップCG の Socket.IO ネームスペース（awards/socket.ts と同型・handshake 認証なし。
 // 出力画面 = OBS ブラウザソースが繋ぐため。graphics.md §7「公開URL・認証なし」の契約）。
@@ -40,8 +40,10 @@ export function initGraphicsSocketIO(io: Server): void {
           if (!page) return;
         }
 
-        const cues = await upsertCue(projectId, slot, pageId);
-        graphicsNs.to(room).emit('cg:sync', { cues, timestamp: Date.now() });
+        // 段6-4: TAKE 時はスロット間自動退出ルールも同じトランザクションで適用し、
+        // cg:sync の同報を1回にまとめる（REST の POST /projects/:id/cue と同じ経路）
+        const { cues, autoOutSlots } = await applyCueTake(projectId, slot, pageId);
+        graphicsNs.to(room).emit('cg:sync', { cues, autoOutSlots, timestamp: Date.now() });
       } catch (err) {
         console.error('[graphics socket] cg:set error', err);
       }

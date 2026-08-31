@@ -27,6 +27,11 @@ export interface CgSyncPayload {
    * （全量は積まない — cue 差し替えと同じ「変わった分だけ載せる」設計）。
    */
   page?: GraphicsPageRow;
+  /**
+   * 段6-4: このTAKEでスロット間自動退出ルールにより自動OUTになったスロット
+   * （`cg:set` / `POST …/cue` の同報時だけ載る。無ければ空配列か未定義）。
+   */
+  autoOutSlots?: GraphicsSlot[];
 }
 
 export function createGraphicsSocket(projectId: string): Socket {
