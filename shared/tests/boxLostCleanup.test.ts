@@ -11,7 +11,8 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  checkFolderSafety, isTreeEmpty, folderNameToProjectKey, LOST_ARCHIVE_FOLDER, TREE_MAX_DEPTH,
+  checkFolderSafety, isTreeEmpty, expectedFolderNames, stripFolderPrefix,
+  NON_PROJECT_FOLDERS, LOST_ARCHIVE_FOLDER, TREE_MAX_DEPTH,
   type ChildItem, type FolderNode,
 } from '../../server/src/contexts/sales/services/box-lost-cleanup.service';
 
@@ -27,7 +28,8 @@ const base = {
   folderId: '999',
   folder: folder(),
   expectedParentId: PARENT,
-  expectedKeys: ['GLS-A001', 'OPP-2026-0007'],
+  expectedNames: expectedFolderNames({ gls_number: 'GLS-A001', code: 'OPP-2026-0007', name: 'テレビ朝日 特番収録' }),
+  numbers: ['GLS-A001', 'OPP-2026-0007'],
   forbiddenIds: [PARENT, OTHER_PARENT, '333'],
 };
 
@@ -71,9 +73,19 @@ describe('触ってよいフォルダか（安全弁）', () => {
     expect(checkFolderSafety({ ...base, folder: folder({ name: 'OPP-2026-0007_下見' }) })).toEqual({ ok: true });
   });
 
-  it('案件を指す番号が1つも無ければ通さない', () => {
-    expect(checkFolderSafety({ ...base, expectedKeys: [] }).ok).toBe(false);
-    expect(checkFolderSafety({ ...base, expectedKeys: ['', '  '] }).ok).toBe(false);
+  it('この案件の名前が分からなければ通さない', () => {
+    expect(checkFolderSafety({ ...base, expectedNames: [], numbers: [] }).ok).toBe(false);
+    expect(checkFolderSafety({ ...base, expectedNames: ['', '  '], numbers: [] }).ok).toBe(false);
+  });
+
+  it('⚠️ 番号を持たないプロジェクト管理のフォルダ（案件名だけ）も通る', () => {
+    const gpm = {
+      ...base,
+      folder: folder({ name: '【社内】スタジオ増設' }),
+      expectedNames: expectedFolderNames({ gls_number: null, code: null, name: 'スタジオ増設' }),
+      numbers: [],
+    };
+    expect(checkFolderSafety(gpm)).toEqual({ ok: true });
   });
 
   it('URL が読めない・数字でない・BOXから読めない・親が未設定は、どれも通さない', () => {
@@ -230,30 +242,45 @@ describe('まとめて片づける導線（過去の失注分）', () => {
   });
 });
 
-describe('フォルダ名から案件の番号を切り出す（名寄せ）', () => {
-  it('頭のある新しい名前・無い古い名前のどちらからも取れる', () => {
-    expect(folderNameToProjectKey('【社内】GLS-A001_東都TV 特番収録')).toBe('GLS-A001');
-    expect(folderNameToProjectKey('【社外】GLS-B012_スタジオ増設')).toBe('GLS-B012');
-    expect(folderNameToProjectKey('GLS-A001_東都TV 特番収録')).toBe('GLS-A001');
-    expect(folderNameToProjectKey('OPP-2026-0007_下見')).toBe('OPP-2026-0007');
+describe('このアプリならこう名付けたはず（名寄せの突き合わせ）', () => {
+  it('⚠️ 番号の形を当てにしない — 実際には3種類の例外がある', () => {
+    // ① プロジェクト管理（GLS-B）は番号を持たない（案件名だけで作られる）
+    expect(expectedFolderNames({ name: 'スタジオ増設' })).toContain('スタジオ増設');
+    // ② Excel 取込の旧番号はハイフンが無い
+    expect(expectedFolderNames({ gls_number: 'GLS001', name: '旧案件' })).toContain('GLS001_旧案件');
+    // ③ Excel 取込のコードは OPP で始まらない
+    expect(expectedFolderNames({ code: 'PRJ-2026-001', name: 'サンプル案件' }))
+      .toContain('PRJ-2026-001_サンプル案件');
+    // 通常（GLS 発番後・発番前）
+    const both = expectedFolderNames({ gls_number: 'GLS-A001', code: 'OPP-202603-0021', name: '東都TV 特番' });
+    expect(both).toContain('GLS-A001_東都TV 特番');
+    expect(both).toContain('OPP-202603-0021_東都TV 特番');
   });
 
-  it('⚠️ 番号の形をしていないものは必ず null（親フォルダの下には消してはいけないものが並んでいる）', () => {
-    expect(folderNameToProjectKey('00_DB_Backup')).toBeNull();       // 本番DBのバックアップ
-    expect(folderNameToProjectKey('99_失注・見送り')).toBeNull();     // 置き場そのもの
-    expect(folderNameToProjectKey('11_awards_photo')).toBeNull();
-    expect(folderNameToProjectKey('共有')).toBeNull();
-    expect(folderNameToProjectKey('')).toBeNull();
-    expect(folderNameToProjectKey('GLS-A001')).toBeNull();           // `_案件名` が無い
+  it('名前が無ければ候補も無い（当てずっぽうで結び付けない）', () => {
+    expect(expectedFolderNames({ gls_number: 'GLS-A001', name: '' })).toEqual([]);
+    expect(expectedFolderNames({ name: null })).toEqual([]);
+  });
+
+  it('頭（【社内】/【社外】）は外して突き合わせる。無い名前もそのまま通す', () => {
+    expect(stripFolderPrefix('【社内】GLS-A001_東都TV')).toBe('GLS-A001_東都TV');
+    expect(stripFolderPrefix('GLS-A001_東都TV')).toBe('GLS-A001_東都TV');
+    expect(stripFolderPrefix('【社外】スタジオ増設')).toBe('スタジオ増設');
+  });
+
+  it('⚠️ 案件フォルダでないと分かっている名前は、偶然一致しても触らない', () => {
+    expect(NON_PROJECT_FOLDERS).toContain('00_DB_Backup');   // 本番DBのバックアップ
+    expect(NON_PROJECT_FOLDERS).toContain(LOST_ARCHIVE_FOLDER);
+    const code = read('server', 'src', 'contexts', 'sales', 'services', 'box-lost-cleanup.service.ts');
+    expect(code).toContain('NON_PROJECT_FOLDERS as readonly string[]).includes(bare)');
   });
 
   it('名寄せは空の側だけ埋め、1件に決まらないものは触らない', () => {
     const code = read('server', 'src', 'contexts', 'sales', 'services', 'box-lost-cleanup.service.ts');
     const fn = code.slice(code.indexOf('export async function relinkProjectFolders'));
-    expect(fn).toContain('IS NULL');        // 空の側だけ
-    expect(fn).toContain('LIMIT 2');        // 2件返ったら決められない
-    expect(fn).toContain('rows.length !== 1');
-    expect(fn).toContain('truncated');      // 最後まで見られたかを返す
+    expect(fn).toContain('IS NULL');         // 空の側だけ
+    expect(fn).toContain('AMBIGUOUS');       // 同じ名前が2件なら捨てる
+    expect(fn).toContain('truncated');       // 最後まで見られたかを返す
   });
 
   it('⚠️ URL が空の失注案件も候補に数える（数えないと帯が出ず、古い案件が永久に残る）', () => {

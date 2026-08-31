@@ -41,7 +41,7 @@ import { execute, queryOne, queryAll } from '../../../shared/db/connection';
 import {
   getBoxClient, isBoxConfigured, extractFolderId, ensureSubfolder, getBoxFolderUrl, listFolderItems,
 } from '../../../shared/services/box';
-import { createProjectFolderTree, INTERNAL_PREFIX, EXTERNAL_PREFIX } from './box-folder.service';
+import { createProjectFolderTree, sanitizeFolderName, INTERNAL_PREFIX, EXTERNAL_PREFIX } from './box-folder.service';
 
 /** 失注・見送りの置き場。**両方の親フォルダの直下**に1つずつ作る */
 export const LOST_ARCHIVE_FOLDER = '99_失注・見送り';
@@ -69,8 +69,9 @@ export interface SafetyInput {
   /** そこに入っているはずの親フォルダ（社内 or 社外） */
   expectedParentId: string | null;
   /**
-   * **その案件を指す番号**（GLS 番号・OPP コード）。フォルダ名は
-   * `{頭}{番号}_{案件名}` で作られるので、**名前にこの番号が入っていること**を見る。
+   * **このアプリならこう名付けたはず**の候補（`expectedFolderNames`）。
+   * 番号の形は当てにしない（`GLS001` も `PRJ-2026-001` も番号なしの
+   * プロジェクト管理もあるため）。
    *
    * ⚠️ **以前は「頭が `【社内】`/`【社外】` で始まること」を見ていた。2つ問題があった:**
    *  ① **頭が付いたのは 2026-08-25 の版**（`box-folder.service.ts` の `INTERNAL_PREFIX`）。
@@ -78,9 +79,14 @@ export interface SafetyInput {
    *     （まさに「ほとんどのゴミ案件が処理できていない」の正体）。
    *  ② 頭は**どの案件のフォルダにも付く**ので、`box_url_*` を手で書き換えて
    *     **同じ親の下にある別の案件のフォルダ**を指させると、素通りしていた。
-   * 番号で見ると、古い名前にも効き、しかも「その案件のフォルダである」ことまで確かめられる。
+   * 名前そのもので見ると、古い名前にも効き、「その案件のフォルダである」ことまで確かめられる。
    */
-  expectedKeys: string[];
+  expectedNames: string[];
+  /**
+   * その案件だけを指す番号（GLS 番号・コード）。案件名を変えたあと BOX 側の
+   * リネームに失敗していると名前が一致しないので、**番号が入っていれば通す**。
+   */
+  numbers: string[];
   /** 絶対に触ってはいけない ID（親フォルダ・取込用フォルダなど） */
   forbiddenIds: (string | null | undefined)[];
 }
@@ -99,7 +105,7 @@ export type SafetyVerdict = { ok: true } | { ok: false; reason: string };
  *      — このアプリが作った形であり、かつ**その案件のフォルダ**であることまで見る
  */
 export function checkFolderSafety(input: SafetyInput): SafetyVerdict {
-  const { folderId, folder, expectedParentId, expectedKeys, forbiddenIds } = input;
+  const { folderId, folder, expectedParentId, expectedNames, numbers, forbiddenIds } = input;
   if (!folderId) return { ok: false, reason: 'BOXフォルダのURLが読めない' };
   if (!/^\d+$/.test(folderId)) return { ok: false, reason: `フォルダIDの形が違う (${folderId})` };
 
@@ -112,9 +118,17 @@ export function checkFolderSafety(input: SafetyInput): SafetyVerdict {
   if (folder.parentId !== expectedParentId) {
     return { ok: false, reason: `別の場所にある (親=${folder.parentId ?? 'なし'})` };
   }
-  const keys = expectedKeys.filter((k) => !!k && k.trim() !== '');
-  if (keys.length === 0) return { ok: false, reason: '案件を指す番号が無い' };
-  if (!keys.some((k) => folder.name.includes(k))) {
+  const names = expectedNames.filter((n) => !!n && n.trim() !== '');
+  if (names.length === 0) return { ok: false, reason: 'この案件の名前が分からない' };
+  const bare = sanitizeFolderName(stripFolderPrefix(folder.name));
+  /*
+   * **名前が一致する** … このアプリが付けた名前そのもの（頭の有無は問わない）。
+   * **番号を含む** … 案件名を変えたあとリネームに失敗していると一致しないので、
+   *   番号が入っていれば通す（番号はその案件だけのもの）。
+   */
+  const exact = names.some((n) => n === bare);
+  const byNumber = numbers.some((k) => !!k && k.trim() !== '' && bare.includes(k));
+  if (!exact && !byNumber) {
     return { ok: false, reason: `この案件のフォルダではない (${folder.name})` };
   }
   return { ok: true };
@@ -217,7 +231,7 @@ function sidesOf(row: { box_url_internal?: unknown; box_url_external?: unknown }
  * GLS 発番の前後で名前が変わるので、**両方**を候補にする
  * （発番のときのリネームが失敗していると、古い番号のままのことがある）。
  */
-function projectKeys(row: ProjectRow): string[] {
+function projectNumbers(row: ProjectRow): string[] {
   return [row.gls_number, row.code].filter((v): v is string => !!v && String(v).trim() !== '');
 }
 
@@ -236,23 +250,49 @@ async function loadProject(projectId: string): Promise<ProjectRow | null> {
 }
 
 /**
- * **フォルダ名から案件の番号を切り出す**（純関数）。
- *
- * 名前は `{頭}{番号}_{案件名}` で作られる（`box-folder.service.ts`）。頭は
- * **2026-08-25 の版から**付いたので、それ以前のフォルダには無い。両方に効かせる。
- *
- *   `【社内】GLS-A001_東都TV 特番収録` → `GLS-A001`
- *   `OPP-2026-0007_下見`               → `OPP-2026-0007`
- *   `00_DB_Backup`                     → null（番号の形をしていない）
- *
- * ⚠️ **番号の形をしていないものは必ず `null`。** 親フォルダの下には
- * `00_DB_Backup`（本番DBのバックアップ）・`99_失注・見送り`・`11_awards_photo` も
- * 並んでいる。ここで拾ってしまうと、名寄せの時点で巻き添えの候補になる。
+ * **フォルダ名の頭（`【社内】`/`【社外】`）を外す**（純関数）。
+ * 頭が付いたのは 2026-08-25 の版なので、**無い名前もそのまま通す**。
  */
-export function folderNameToProjectKey(name: string): string | null {
-  const stripped = String(name ?? '').replace(/^【[^】]*】/, '').trim();
-  const m = stripped.match(/^((?:GLS|OPP)-[A-Za-z0-9-]+)_/);
-  return m ? m[1] : null;
+export function stripFolderPrefix(name: string): string {
+  return String(name ?? '').replace(/^【[^】]*】/, '').trim();
+}
+
+/** 案件フォルダではないと分かっている名前。**番号でも案件名でもない** */
+export const NON_PROJECT_FOLDERS = [
+  '00_DB_Backup',      // 本番DBのバックアップ（3時間ごと）
+  LOST_ARCHIVE_FOLDER, // 置き場そのもの
+  '11_awards_photo',
+] as const;
+
+/** 名寄せ・安全弁が使う案件の最小の姿 */
+export interface ProjectNaming { code?: string | null; gls_number?: string | null; name?: string | null }
+
+/**
+ * **このアプリなら、その案件のフォルダをこう名付けたはず**（純関数）。
+ *
+ * ⚠️ **番号の形を当てにしてはいけません。** 前の版は
+ * `/^(GLS|OPP)-[A-Za-z0-9-]+_/` で名前から番号を切り出していましたが、実際には
+ * これに当たらないものが3種類あります:
+ *   ① **プロジェクト管理（GLS-B）のフォルダは番号を持たない** —
+ *      `createGpmFolderTree(projectName)` は**案件名だけ**で作る
+ *   ② **Excel 取込の旧番号**は `GLS001`（ハイフン無し）の形がある
+ *   ③ **Excel 取込のコード**は `PRJ-2026-001` のように `OPP` で始まらない
+ * どれも「ほとんどのゴミ案件が処理できていない」の一因になります。
+ *
+ * そこで**名前を読み解くのをやめ、DB の値から候補を組み立てて突き合わせます**。
+ * こうすると、コードの形が何であっても（今後増えても）効きます。
+ */
+export function expectedFolderNames(p: ProjectNaming): string[] {
+  const name = String(p.name ?? '').trim();
+  if (!name) return [];
+  const out: string[] = [];
+  for (const key of [p.gls_number, p.code]) {
+    const k = String(key ?? '').trim();
+    if (k) out.push(sanitizeFolderName(`${k}_${name}`));
+  }
+  // 番号を持たないプロジェクト管理のフォルダ（案件名だけ）
+  out.push(sanitizeFolderName(name));
+  return [...new Set(out)];
 }
 
 export interface RelinkResult {
@@ -287,6 +327,27 @@ export async function relinkProjectFolders(): Promise<RelinkResult> {
   const client = getBoxClient();
   if (!client) return { linked: 0, complete: true, scanned: 0 };
 
+  /*
+   * **「このアプリならこう名付けたはず」を全案件ぶん組み立てて索引にする。**
+   * フォルダ名を読み解くのではなく、DB の値から候補名を作って突き合わせるので、
+   * 番号の形（`GLS-A001` / `GLS001` / `PRJ-2026-001` / 番号なし）に依らず効く。
+   *
+   * ⚠️ **同じ名前に2件以上ぶら下がったら、その名前は捨てる**（どちらのフォルダか
+   * 決められない）。決められないものを当てずっぽうで結び付けると、
+   * **別の案件のフォルダを消しにいく**ことになる。
+   */
+  const projects = await queryAll(
+    'SELECT id, code, gls_number, name FROM projects WHERE deleted_at IS NULL',
+  ) as { id: string; code: string | null; gls_number: string | null; name: string | null }[];
+
+  const AMBIGUOUS = '__ambiguous__';
+  const byName = new Map<string, string>();
+  for (const p of projects) {
+    for (const cand of expectedFolderNames(p)) {
+      byName.set(cand, byName.has(cand) && byName.get(cand) !== p.id ? AMBIGUOUS : p.id);
+    }
+  }
+
   const sides: { col: 'box_url_internal' | 'box_url_external'; parentId: string | null }[] = [
     { col: 'box_url_internal', parentId: internalParentId() },
     { col: 'box_url_external', parentId: externalParentId() },
@@ -311,25 +372,17 @@ export async function relinkProjectFolders(): Promise<RelinkResult> {
     for (const item of listing.items) {
       if (item.type !== 'folder') continue;
       scanned += 1;
-      const key = folderNameToProjectKey(item.name);
-      if (!key) continue;                       // 00_DB_Backup / 99_失注・見送り など
+      const bare = stripFolderPrefix(item.name);
+      // 案件フォルダでないと分かっているものは、名前が偶然当たっても触らない
+      if ((NON_PROJECT_FOLDERS as readonly string[]).includes(bare)) continue;
 
-      /*
-       * **番号で1件に決まるときだけ書く。** `LIMIT 2` で引いて2件返ったら触らない
-       * （同じ番号の案件が2つあるなら、どちらのフォルダか名前からは決められない）。
-       * 空の側だけ埋めるので、人が直した値は上書きしない。
-       */
-      const rows = await queryAll(
-        `SELECT id FROM projects
-          WHERE deleted_at IS NULL AND (gls_number = ? OR code = ?) AND ${side.col} IS NULL
-          LIMIT 2`,
-        [key, key],
-      ) as { id: string }[];
-      if (rows.length !== 1) continue;
+      const hit = byName.get(sanitizeFolderName(bare));
+      if (!hit || hit === AMBIGUOUS) continue;
 
+      // **空の側だけ埋める**（人が直した値は名前から引いたものより信用できる）
       await execute(
         `UPDATE projects SET ${side.col} = ? WHERE id = ? AND ${side.col} IS NULL`,
-        [getBoxFolderUrl(item.id), rows[0].id],
+        [getBoxFolderUrl(item.id), hit],
       );
       linked += 1;
     }
@@ -356,7 +409,8 @@ export async function cleanupLostProjectFolders(projectId: string): Promise<void
 
   const listChildren = listChildrenVia(client);
   const forbidden = forbiddenFolderIds();
-  const keys = projectKeys(row);
+  const names = expectedFolderNames(row);
+  const numbers = projectNumbers(row);
   const notes: string[] = [];
   let archived = 0;
   let deleted = 0;
@@ -367,7 +421,7 @@ export async function cleanupLostProjectFolders(projectId: string): Promise<void
     const folderId = extractFolderId(side.url);
     const folder = folderId ? await readFolder(client, folderId) : null;
     const safe = checkFolderSafety({
-      folderId, folder, expectedParentId: side.parentId, expectedKeys: keys, forbiddenIds: forbidden,
+      folderId, folder, expectedParentId: side.parentId, expectedNames: names, numbers, forbiddenIds: forbidden,
     });
     if (!safe.ok) {
       notes.push(`${side.key}: 触らず (${safe.reason})`);
