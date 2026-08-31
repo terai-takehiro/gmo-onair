@@ -27,17 +27,19 @@ import {
 import { notifyError, notifySuccess } from '@/lib/notify';
 import {
   GRAPHICS_SLOTS, SLOT_LABELS, PART_LABELS, PART_DEFAULT_SLOT, PROOF_LABELS,
-  createGraphicsPage, updateGraphicsPage, fetchGraphicsTemplates,
+  fetchGraphicsTemplates,
   type GraphicsPageRow, type GraphicsPartKey, type GraphicsSlot, type GraphicsProofState,
   type GraphicsThemeKey, type GraphicsTemplateRow,
 } from '@/lib/graphicsApi';
-import { PART_FIELDS, PART_KEYS } from './pageFields';
+import { PART_FIELDS, PART_KEYS, normalizeFieldsForPart } from './pageFields';
 import PageLivePreview from './PageLivePreview';
 import { PageFieldEditor } from './PageFieldEditor';
-import { defaultScoreEntries, normalizeScoreEntries } from './scoreEntries';
-import { defaultVoteChoices, normalizeVoteChoices } from './voteChoices';
-import { defaultListItems, normalizeListItems } from './listItems';
-import { TemplateFieldsSection, initialFieldsFromTemplate, pickPublicFields } from './TemplateFieldsSection';
+import { defaultScoreEntries } from './scoreEntries';
+import { defaultVoteChoices } from './voteChoices';
+import { defaultListItems } from './listItems';
+import { TemplateFieldsSection, initialFieldsFromTemplate } from './TemplateFieldsSection';
+import { TemplateLayerFieldsList } from './TemplateLayerFieldsList';
+import { saveGraphicsPageForm } from './savePageForm';
 
 const PROOF_KEYS: GraphicsProofState[] = ['draft', 'unproofed', 'proofed'];
 
@@ -74,6 +76,9 @@ export default function PageFormDialog({
   // Record<string, unknown> に同居させ、レンダリング側で欄ごとに読み分ける
   const [fields, setFields] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
+  // 複数部品テンプレート（段6-2 本格拡張）のときのレイヤーごとの値。
+  // インデックスがテンプレート（または保存済みページ）の `layers` の順序と対応する
+  const [layerFieldsList, setLayerFieldsList] = useState<Record<string, unknown>[]>([]);
 
   // 段6-2: テンプレート一覧・選択状態。「テンプレートから作る」は新規作成時のみ意味を持つ
   const [templates, setTemplates] = useState<GraphicsTemplateRow[]>([]);
@@ -101,23 +106,15 @@ export default function PageFormDialog({
       setPartKey(page.partKey);
       setSlot(page.slot);
       setProofState(page.proofState);
-      const next: Record<string, unknown> = {};
-      for (const def of PART_FIELDS[page.partKey] ?? []) {
-        const v = page.fields?.[def.key];
-        next[def.key] = def.kind === 'entries'
-          ? normalizeScoreEntries(v)
-          : def.kind === 'choices'
-          ? normalizeVoteChoices(v)
-          : def.kind === 'list-items'
-          ? normalizeListItems(v)
-          : typeof v === 'string' ? v : v == null ? '' : String(v);
-        // 英語欄（`${key}En`）も同じページから拾う（pageFields.ts の bilingual フィールドだけ）
-        if (def.bilingual) {
-          const ev = page.fields?.[`${def.key}En`];
-          next[`${def.key}En`] = typeof ev === 'string' ? ev : ev == null ? '' : String(ev);
-        }
+      if (page.layers && page.layers.length > 0) {
+        // 複数部品テンプレートから作られたページ: page.fields/partKey は無視してよく、
+        // 各レイヤーの保存済み値を layers[i].fields から拾う（サーバー側の規約）
+        setLayerFieldsList(page.layers.map((l) => normalizeFieldsForPart(l.partKey as GraphicsPartKey, l.fields)));
+        setFields({});
+      } else {
+        setFields(normalizeFieldsForPart(page.partKey, page.fields));
+        setLayerFieldsList([]);
       }
-      setFields(next);
       // テンプレートから作られたページ（templateId あり）は編集も自動的にテンプレートモード
       // （編集画面でテンプレートの切替はできない — 部品・スロットが変わってしまうため）
       setUseTemplateMode(!!page.templateId);
@@ -147,6 +144,7 @@ export default function PageFormDialog({
         if (def.bilingual) next[`${def.key}En`] = '';
       });
       setFields(next);
+      setLayerFieldsList([]);
     }
   }, [open, page, initialValues]);
 
@@ -176,12 +174,19 @@ export default function PageFormDialog({
     setSelectedTemplate(template);
     setPartKey(template.partKey);
     setSlot(template.slot);
-    setFields(initialFieldsFromTemplate(template));
+    if (template.layers && template.layers.length > 0) {
+      setLayerFieldsList(template.layers.map((l) => initialFieldsFromTemplate(l)));
+      setFields({});
+    } else {
+      setFields(initialFieldsFromTemplate(template));
+      setLayerFieldsList([]);
+    }
   };
 
   const switchMode = (nextUseTemplate: boolean) => {
     setUseTemplateMode(nextUseTemplate);
     setSelectedTemplate(null);
+    setLayerFieldsList([]);
     if (!nextUseTemplate) pickPart(partKey);
   };
 
@@ -192,34 +197,11 @@ export default function PageFormDialog({
     if (page?.templateId && !selectedTemplate) return; // 編集対象のテンプレート行が未解決
     setSaving(true);
     try {
-      let saved: GraphicsPageRow;
-      if (page) {
-        if (page.templateId && selectedTemplate) {
-          // テンプレート付きページの更新: publicFields のキーだけをマージ対象として送る
-          // （サーバー側は既存の fields にマージ・publicFields 外のキーは 400 で拒否する）
-          saved = await updateGraphicsPage(page.id, {
-            name: name.trim(),
-            proofState,
-            fields: pickPublicFields(selectedTemplate, fields),
-          });
-        } else {
-          saved = await updateGraphicsPage(page.id, { name: name.trim(), slot, partKey, fields: { ...fields }, proofState });
-        }
-        notifySuccess('ページを保存しました');
-      } else if (useTemplateMode && selectedTemplate) {
-        saved = await createGraphicsPage(projectId, {
-          name: name.trim(),
-          slot: selectedTemplate.slot,
-          partKey: selectedTemplate.partKey,
-          fields: { ...fields },
-          proofState,
-          templateId: selectedTemplate.id,
-        });
-        notifySuccess('ページを作りました');
-      } else {
-        saved = await createGraphicsPage(projectId, { name: name.trim(), slot, partKey, fields: { ...fields }, proofState });
-        notifySuccess('ページを作りました');
-      }
+      const saved = await saveGraphicsPageForm({
+        projectId, page, name: name.trim(), partKey, slot, fields, proofState,
+        useTemplateMode, selectedTemplate, layerFieldsList,
+      });
+      notifySuccess(page ? 'ページを保存しました' : 'ページを作りました');
       onOpenChange(false);
       onSaved(saved);
     } catch {
@@ -339,12 +321,25 @@ export default function PageFormDialog({
             )}
 
             {showTemplateFields && selectedTemplate && (
-              <TemplateFieldsSection
-                template={selectedTemplate}
-                fields={fields}
-                setFields={setFields}
-                pageId={page?.id ?? null}
-              />
+              selectedTemplate.layers && selectedTemplate.layers.length > 0 ? (
+                <TemplateLayerFieldsList
+                  templateName={selectedTemplate.name}
+                  layers={selectedTemplate.layers}
+                  layerFieldsList={layerFieldsList}
+                  setLayerFieldsList={setLayerFieldsList}
+                  pageId={page?.id ?? null}
+                />
+              ) : (
+                <TemplateFieldsSection
+                  partKey={selectedTemplate.partKey}
+                  slot={selectedTemplate.slot}
+                  templateName={selectedTemplate.name}
+                  publicFields={selectedTemplate.publicFields}
+                  fields={fields}
+                  setFields={setFields}
+                  pageId={page?.id ?? null}
+                />
+              )
             )}
 
             {!useTemplateMode && (PART_FIELDS[partKey] ?? []).map((def) => (
@@ -383,6 +378,11 @@ export default function PageFormDialog({
               fields={fields}
               theme={theme}
               callNo={page?.callNo}
+              layers={
+                selectedTemplate?.layers && selectedTemplate.layers.length > 0
+                  ? selectedTemplate.layers.map((l, i) => ({ partKey: l.partKey, fields: layerFieldsList[i] ?? {} }))
+                  : undefined
+              }
             />
           </div>
         </div>

@@ -205,34 +205,73 @@ export function pageSupportsReveal(page: GraphicsPageRow): boolean {
 }
 
 /**
- * ページ1枚をスロット・部品に応じて描く。まだレンダラーの無い部品は**何も描かない**
- * （中途半端な絵を放送に出すより無表示の方が安全側）。
+ * 部品1つをスロット・partKey・fields に応じて描くディスパッチャ（段6-2 本格拡張で
+ * `renderGraphicsPage` から切り出した。中身のロジックは移しただけで変更していない）。
+ * `page` 引数は `GraphicsPageRow` そのものではなく「表示に要る最小限」（slot/partKey/fields/
+ * id/name）だけを渡せるようにしてある——複数レイヤーページの各レイヤーは `GraphicsPageRow`
+ * を持たない（`fields` しか持たない）ため。
+ * まだレンダラーの無い部品は**何も描かない**（中途半端な絵を放送に出すより無表示の方が安全側）。
  */
-export function renderGraphicsPage(page: GraphicsPageRow, serverNowMs: number, ctx?: RenderContext) {
+export function renderPart(
+  partKey: string,
+  slot: string,
+  fields: Record<string, unknown>,
+  serverNowMs: number,
+  ctx?: RenderContext,
+  key?: string | number,
+) {
   const theme = resolveTelopTheme(ctx?.theme);
-  if (page.slot === 'clock' || page.partKey === 'countdown') {
+  // 既存の各部品コンポーネントは `page: GraphicsPageRow` を丸ごと受け取る形なので、
+  // 表示に使うフィールドだけを持つ最小限のダミー行を組み立てて渡す（レンダラー本体は
+  // 変更しない——移設のみ）。callNo/proofState/sortOrder/templateId/projectId は
+  // どの部品の描画にも使われていない値なのでダミーで埋めてよい
+  const page: GraphicsPageRow = {
+    id: String(key ?? `${slot}-${partKey}`),
+    projectId: '', callNo: 0, slot: slot as GraphicsPageRow['slot'],
+    partKey: partKey as GraphicsPageRow['partKey'], name: '', fields,
+    proofState: 'proofed', sortOrder: 0, templateId: null,
+  };
+  if (slot === 'clock' || partKey === 'countdown') {
     return <ClockCountdown key={page.id} page={page} serverNowMs={serverNowMs} />;
   }
-  if (page.slot === 'flash') {
+  if (slot === 'flash') {
     return <FlashBand key={page.id} page={page} lang={ctx?.lang} />;
   }
-  if (page.slot === 'ticker') {
+  if (slot === 'ticker') {
     return <TickerBand key={page.id} page={page} lang={ctx?.lang} />;
   }
-  if (page.slot === 'fullscreen') {
-    if (page.partKey === 'list') return <FullscreenList key={page.id} page={page} revealPhase={ctx?.revealPhase} />;
-    if (page.partKey === 'title') return <FullscreenTitle key={page.id} page={page} />;
-    if (page.partKey === 'vote') return <VoteResult key={page.id} page={page} theme={theme} lang={ctx?.lang} />;
+  if (slot === 'fullscreen') {
+    if (partKey === 'list') return <FullscreenList key={page.id} page={page} revealPhase={ctx?.revealPhase} />;
+    if (partKey === 'title') return <FullscreenTitle key={page.id} page={page} />;
+    if (partKey === 'vote') return <VoteResult key={page.id} page={page} theme={theme} lang={ctx?.lang} />;
     return null;
   }
-  if (page.slot === 'side' && page.partKey === 'score') {
+  if (slot === 'side' && partKey === 'score') {
     return <ScoreBoard key={page.id} page={page} theme={theme} flashLive={ctx?.flashLive} lang={ctx?.lang} />;
   }
-  if (page.slot === 'side') {
+  if (slot === 'side') {
     return <SideLabel key={page.id} page={page} theme={theme} flashLive={ctx?.flashLive} lang={ctx?.lang} />;
   }
-  if (page.slot === 'lower' && page.partKey === 'name') {
+  if (slot === 'lower' && partKey === 'name') {
     return <LowerThirdName key={page.id} page={page} theme={theme} tickerLive={ctx?.tickerLive} lang={ctx?.lang} />;
   }
   return null;
+}
+
+/**
+ * ページ1枚を描く。段6-2 本格拡張（複数部品の組み合わせ・graphics-awards-migration-plan.md
+ * §2-2 の6番）: `page.layers` が非空配列なら各レイヤーを `renderPart` で描いて同じキャンバス上に
+ * 重ねる（既存の各部品は自分で `position: absolute` を持つため特別なラッパーは不要）。
+ * `layers` が無い/空のときは**従来どおり**単一部品として描く（完全に後方互換。既存の
+ * 全ページの見た目・挙動を一切変えない）。
+ */
+export function renderGraphicsPage(page: GraphicsPageRow, serverNowMs: number, ctx?: RenderContext) {
+  if (page.layers && page.layers.length > 0) {
+    return (
+      <div key={page.id} style={{ position: 'absolute', inset: 0 }}>
+        {page.layers.map((layer, i) => renderPart(layer.partKey, page.slot, layer.fields, serverNowMs, ctx, `${page.id}-${i}`))}
+      </div>
+    );
+  }
+  return renderPart(page.partKey, page.slot, page.fields, serverNowMs, ctx, page.id);
 }

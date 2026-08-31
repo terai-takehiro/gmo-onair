@@ -108,6 +108,12 @@ export interface GraphicsProjectRow {
   slotExitRules: SlotExitRule[];
 }
 
+/** 組み合わせページの1レイヤー（段6-2 本格拡張）。部品は自分の既定の位置のまま重ねて描かれる */
+export interface GraphicsPageLayer {
+  partKey: GraphicsPartKey;
+  fields: Record<string, unknown>;
+}
+
 export interface GraphicsPageRow {
   id: string;
   projectId: string;
@@ -122,6 +128,12 @@ export interface GraphicsPageRow {
   sortOrder: number;
   /** 作成元テンプレート（段6-2）。null＝テンプレートを使わない自由入力で作られたページ */
   templateId: string | null;
+  /**
+   * 複数部品の組み合わせページ（段6-2 本格拡張）。null/空＝従来どおり partKey/fields が正。
+   * 非空＝この配列が正（partKey/fields は無視してよい。partKey には layers[0].partKey が
+   * 入っている運用 — サーバー側の規約）
+   */
+  layers?: GraphicsPageLayer[] | null;
 }
 
 export interface GraphicsCueRow {
@@ -180,6 +192,12 @@ export interface GraphicsPageInput {
    * （`publicFields` に無いキーを送っても無視される — サーバー側で強制）。
    */
   templateId?: string | number | null;
+  /**
+   * 複数部品テンプレートから作るとき（段6-2 本格拡張）、レイヤーごとの入力値をここに渡す
+   * — インデックスはテンプレートの `layers` の順序と対応。`layers[i].publicFields` に
+   * 含まれるキーだけが反映される（それ以外は無視される — サーバー側で強制）
+   */
+  layerFields?: Record<string, unknown>[];
 }
 
 export async function createGraphicsPage(projectId: string, input: GraphicsPageInput): Promise<GraphicsPageRow> {
@@ -343,57 +361,6 @@ export async function deleteGraphicsRequest(requestId: string): Promise<void> {
 // `graphicsRosterApi.ts` に切り出した（ファイルサイズ規律・400行）。
 
 // ── テンプレート（部品→**テンプレート**→ページ→送出リストの第2層・段6-2） ──────
-// docs/design/v4/graphics.md §2「部品を選んで置き、テーマを当て、公開フィールドを絞る」。
-// サーバー側の契約:
-//   POST   /graphics/projects/:id/templates … 作成
-//   GET    /graphics/projects/:id/templates … プロジェクト単位の一覧
-//   PUT    /graphics/templates/:id          … 部分更新（name/description/baseFields/publicFields）
-//   DELETE /graphics/templates/:id          … 削除（既存ページの template_id は SET NULL で外れる —
-//                                              ページは残り、ただの通常ページとして触れる）
-
-export interface GraphicsTemplateRow {
-  id: string;
-  projectId: string;
-  partKey: GraphicsPartKey;
-  slot: GraphicsSlot;
-  name: string;
-  description: string | null;
-  /** 部品の入力欄の初期値（`pageFields.ts` の `PART_FIELDS[partKey]` と同じキー） */
-  baseFields: Record<string, unknown>;
-  /** `baseFields` のキーのうち、ページ作成時にオペレーターが編集できるもの */
-  publicFields: string[];
-}
-
-export interface GraphicsTemplateInput {
-  partKey: GraphicsPartKey;
-  slot: GraphicsSlot;
-  name: string;
-  description?: string;
-  baseFields: Record<string, unknown>;
-  publicFields: string[];
-}
-
-export async function fetchGraphicsTemplates(projectId: string): Promise<GraphicsTemplateRow[]> {
-  const { data } = await api.get(`/graphics/projects/${encodeURIComponent(projectId)}/templates`);
-  return data.data;
-}
-
-export async function createGraphicsTemplate(
-  projectId: string,
-  input: GraphicsTemplateInput,
-): Promise<GraphicsTemplateRow> {
-  const { data } = await api.post(`/graphics/projects/${encodeURIComponent(projectId)}/templates`, input);
-  return data.data;
-}
-
-export async function updateGraphicsTemplate(
-  templateId: string,
-  input: Partial<Pick<GraphicsTemplateInput, 'name' | 'description' | 'baseFields' | 'publicFields'>>,
-): Promise<GraphicsTemplateRow> {
-  const { data } = await api.put(`/graphics/templates/${encodeURIComponent(templateId)}`, input);
-  return data.data;
-}
-
-export async function deleteGraphicsTemplate(templateId: string): Promise<void> {
-  await api.delete(`/graphics/templates/${encodeURIComponent(templateId)}`);
-}
+// `GraphicsTemplateRow`・`GraphicsTemplateLayer`・`fetchGraphicsTemplates` 等は
+// `graphicsTemplateApi.ts` に切り出した（ファイルサイズ規律・400行。roster と同じ判断）。
+export * from './graphicsTemplateApi';

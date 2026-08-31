@@ -8,6 +8,9 @@
 // 実測値の裏付けがある欄は根拠をコメントに残し、無い欄は「暫定値」と明記する
 // （文字充填率 0.7〜0.8 が目標という実測 — graphics-design-specs.md §9.5・§9.7）。
 import type { GraphicsPartKey } from '@/lib/graphicsApi';
+import { normalizeScoreEntries } from './scoreEntries';
+import { normalizeVoteChoices } from './voteChoices';
+import { normalizeListItems } from './listItems';
 
 export interface PartFieldDef {
   key: string;
@@ -156,3 +159,29 @@ export const PART_FIELDS: Record<GraphicsPartKey, PartFieldDef[]> = {
 };
 
 export const PART_KEYS = Object.keys(PART_FIELDS) as GraphicsPartKey[];
+
+/**
+ * 保存済みの `fields`（DB からの生値）を、フォームで扱える形に正規化する。
+ * `PageFormDialog.tsx` の単一部品／複数部品（各レイヤー）の両方から共用する。
+ */
+export function normalizeFieldsForPart(
+  partKey: GraphicsPartKey,
+  raw: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  const next: Record<string, unknown> = {};
+  for (const def of PART_FIELDS[partKey] ?? []) {
+    const v = raw?.[def.key];
+    next[def.key] = def.kind === 'entries'
+      ? normalizeScoreEntries(v)
+      : def.kind === 'choices'
+      ? normalizeVoteChoices(v)
+      : def.kind === 'list-items'
+      ? normalizeListItems(v)
+      : typeof v === 'string' ? v : v == null ? '' : String(v);
+    if (def.bilingual) {
+      const ev = raw?.[`${def.key}En`];
+      next[`${def.key}En`] = typeof ev === 'string' ? ev : ev == null ? '' : String(ev);
+    }
+  }
+  return next;
+}

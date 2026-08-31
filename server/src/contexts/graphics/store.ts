@@ -83,9 +83,32 @@ export interface GraphicsPage {
   sortOrder: number;
   /** 作成元テンプレート（段6-2・migration 249）。NULL＝テンプレートを使わない自由入力で作られたページ */
   templateId: number | null;
+  /**
+   * 複数部品を重ねた組み合わせページ（段6-2 本格拡張・migration 250）。
+   * null/空配列＝従来どおりの単一部品ページ（partKey/fields が正）。
+   * 非空配列＝この配列が正で、partKey/fields は無視してよい（一覧表示用に
+   * partKey には layers[0].partKey を入れておく運用——作成側の責務）。
+   */
+  layers: GraphicsPageLayer[] | null;
   createdAt: unknown;
   updatedAt: unknown;
 }
+
+/** 組み合わせページの1レイヤー（段6-2 本格拡張）。partKey は PART_KEYS のいずれか。 */
+export interface GraphicsPageLayer {
+  partKey: string;
+  fields: Record<string, unknown>;
+}
+
+/** 組み合わせテンプレートの1レイヤー（段6-2 本格拡張）。 */
+export interface GraphicsTemplateLayer {
+  partKey: string;
+  baseFields: Record<string, unknown>;
+  publicFields: string[];
+}
+
+/** レイヤー数の上限（重ねすぎ防止。DB/UIとも同じ値でバリデーションする）。 */
+export const MAX_TEMPLATE_LAYERS = 4;
 
 /**
  * テンプレート（段6-2・migration 249）。「1部品ぶんの設定プリセット＋公開フィールドの絞り込み」。
@@ -101,6 +124,12 @@ export interface GraphicsTemplate {
   description: string | null;
   baseFields: Record<string, unknown>;
   publicFields: string[];
+  /**
+   * 複数部品を重ねた組み合わせテンプレート（段6-2 本格拡張・migration 250）。
+   * null/空配列＝従来どおりの単一部品テンプレート（partKey/baseFields/publicFields が正）。
+   * 非空配列＝この配列が正で、既存の単一partKey等は無視してよい。
+   */
+  layers: GraphicsTemplateLayer[] | null;
   createdAt: unknown;
   updatedAt: unknown;
 }
@@ -153,6 +182,43 @@ export function mapProject(r: Row): GraphicsProject {
   };
 }
 
+/**
+ * DB から読んだ layers（JSONB配列。pg ドライバが自動で JS 値へ変換する）を、
+ * 壊れた形が来ても落ちないよう防御的に整形する（`normalizePublicFields` と同じ考え方。
+ * 書き込み時の要素検証は routes 側が担う）。空配列・不正値は null（＝単一部品扱い）に丸める。
+ */
+export function normalizePageLayers(raw: unknown): GraphicsPageLayer[] | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const out: GraphicsPageLayer[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const partKey = (item as Record<string, unknown>).partKey;
+    const fields = (item as Record<string, unknown>).fields;
+    if (typeof partKey !== 'string') continue;
+    out.push({
+      partKey,
+      fields: (fields && typeof fields === 'object' && !Array.isArray(fields)) ? (fields as Record<string, unknown>) : {},
+    });
+  }
+  return out.length > 0 ? out : null;
+}
+
+export function normalizeTemplateLayers(raw: unknown): GraphicsTemplateLayer[] | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const out: GraphicsTemplateLayer[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const rec = item as Record<string, unknown>;
+    const partKey = rec.partKey;
+    if (typeof partKey !== 'string') continue;
+    const baseFields = (rec.baseFields && typeof rec.baseFields === 'object' && !Array.isArray(rec.baseFields))
+      ? (rec.baseFields as Record<string, unknown>) : {};
+    const publicFields = normalizePublicFields(rec.publicFields);
+    out.push({ partKey, baseFields, publicFields });
+  }
+  return out.length > 0 ? out : null;
+}
+
 export function mapPage(r: Row): GraphicsPage {
   return {
     id: r.id as number,
@@ -165,6 +231,7 @@ export function mapPage(r: Row): GraphicsPage {
     proofState: r.proof_state as string,
     sortOrder: r.sort_order as number,
     templateId: (r.template_id as number | null) ?? null,
+    layers: normalizePageLayers(r.layers),
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -190,6 +257,7 @@ export function mapTemplate(r: Row): GraphicsTemplate {
     description: (r.description as string | null) ?? null,
     baseFields: (r.base_fields ?? {}) as Record<string, unknown>,
     publicFields: normalizePublicFields(r.public_fields),
+    layers: normalizeTemplateLayers(r.layers),
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };

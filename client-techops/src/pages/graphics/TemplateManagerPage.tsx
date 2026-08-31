@@ -179,15 +179,26 @@ function TemplateCard({ template, onEdit, onDelete }: {
         <Icon className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate text-list font-bold">{template.name}</span>
       </div>
-      <div className="flex flex-wrap items-center gap-1.5">
-        <SlotBadge slot={template.slot} />
-        <span className="inline-flex h-5 items-center whitespace-nowrap rounded-control bg-surface-subtle px-1.5 text-[10px] font-bold text-muted-foreground">
-          {PART_LABELS[template.partKey]}
-        </span>
-        <span className="inline-flex h-5 items-center whitespace-nowrap rounded-control bg-info-surface px-1.5 text-[10px] font-bold text-info">
-          公開 {template.publicFields.length}件
-        </span>
-      </div>
+      {template.layers && template.layers.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="inline-flex h-5 items-center whitespace-nowrap rounded-control bg-info-surface px-1.5 text-[10px] font-bold text-info">
+            複数部品（{template.layers.length}個）
+          </span>
+          <span className="min-w-0 truncate text-note text-muted-foreground">
+            {template.layers.map((l) => PART_LABELS[l.partKey]).join('・')}
+          </span>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <SlotBadge slot={template.slot} />
+          <span className="inline-flex h-5 items-center whitespace-nowrap rounded-control bg-surface-subtle px-1.5 text-[10px] font-bold text-muted-foreground">
+            {PART_LABELS[template.partKey]}
+          </span>
+          <span className="inline-flex h-5 items-center whitespace-nowrap rounded-control bg-info-surface px-1.5 text-[10px] font-bold text-info">
+            公開 {template.publicFields.length}件
+          </span>
+        </div>
+      )}
       {template.description && (
         <p className="line-clamp-2 text-note leading-relaxed text-muted-foreground">{template.description}</p>
       )}

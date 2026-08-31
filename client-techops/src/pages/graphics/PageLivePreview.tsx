@@ -11,7 +11,7 @@
 // このプロジェクトの反省点（docs/design/v4/graphics-design-specs.md §9.7 末尾）。
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type {
-  GraphicsPageRow, GraphicsPartKey, GraphicsSlot, GraphicsThemeKey,
+  GraphicsPageLayer, GraphicsPageRow, GraphicsPartKey, GraphicsSlot, GraphicsThemeKey,
 } from '@/lib/graphicsApi';
 import type { GraphicsLang } from './langField';
 import { renderGraphicsPage } from './outputParts';
@@ -31,7 +31,7 @@ const STUDIO_BACKGROUND: CSSProperties = {
 };
 
 export default function PageLivePreview({
-  name, partKey, slot, fields, theme, callNo,
+  name, partKey, slot, fields, theme, callNo, layers,
 }: {
   name: string;
   partKey: GraphicsPartKey;
@@ -41,6 +41,12 @@ export default function PageLivePreview({
   theme: GraphicsThemeKey;
   /** 編集中ページの呼出番号（新規作成時は無い） */
   callNo?: number;
+  /**
+   * 複数部品テンプレート（段6-2 本格拡張）を選んでいるときのレイヤー一覧。渡すと
+   * `renderGraphicsPage` はこちらを正として全レイヤーを重ねて描く（`partKey`/`fields` は
+   * 一覧表示用のフォールバックとして残しておくだけになる — `GraphicsPageRow.layers` と同じ規約）。
+   */
+  layers?: GraphicsPageLayer[];
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0);
@@ -59,13 +65,15 @@ export default function PageLivePreview({
   }, []);
 
   // countdown パーツは1秒ごとに描き直す（プレビュー用途のため Date.now() をそのまま使う —
-  // サーバー時刻同期は出力画面側の役目）
+  // サーバー時刻同期は出力画面側の役目）。複数部品テンプレートで countdown がレイヤーの
+  // どこかに含まれているときも同様に描き直す
+  const hasCountdown = partKey === 'countdown' || slot === 'clock' || !!layers?.some((l) => l.partKey === 'countdown');
   const [, forceTick] = useState(0);
   useEffect(() => {
-    if (partKey !== 'countdown' && slot !== 'clock') return;
+    if (!hasCountdown) return;
     const timer = setInterval(() => forceTick((n) => (n + 1) % 1_000_000), 1000);
     return () => clearInterval(timer);
-  }, [partKey, slot]);
+  }, [hasCountdown]);
 
   const page: GraphicsPageRow = useMemo(() => ({
     id: 'preview',
@@ -78,7 +86,8 @@ export default function PageLivePreview({
     proofState: 'draft',
     sortOrder: 0,
     templateId: null,
-  }), [slot, partKey, name, fields, callNo]);
+    layers: layers && layers.length > 0 ? layers : null,
+  }), [slot, partKey, name, fields, callNo, layers]);
 
   const rendered = renderGraphicsPage(page, Date.now(), { theme, lang: previewLang });
 

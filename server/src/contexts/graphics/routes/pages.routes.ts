@@ -3,12 +3,18 @@ import { execute, queryOne } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import {
-  fetchCues, fetchProject, fetchTemplate, mapPage, nextCallNo,
-  PART_KEYS, PROOF_STATES, SLOTS, Slot,
+  fetchCues, fetchProject, fetchTemplate, GraphicsPageLayer, mapPage, nextCallNo,
+  normalizePageLayers, PART_KEYS, PROOF_STATES, SLOTS, Slot,
 } from '../store';
 
 // ページ（graphics_pages）の CRUD。呼出番号は未指定ならスロット別ブロックの
 // 最小空き番号を自動採番する（store.ts の SLOT_CALL_BASE）。
+//
+// 複数部品の組み合わせページ（段6-2 本格拡張・graphics-awards-migration-plan.md §2-2 の6番）:
+// テンプレートが `layers`（非空配列）を持つ場合、作成時は各レイヤーの baseFields を
+// ベースに body.layerFields[i] を publicFields の範囲だけ上書きして graphics_pages.layers
+// に保存する。更新時（PUT）は同じ添字対応で publicFields 外のキーを 400 で拒否する。
+// テンプレートを介さない従来の単一部品フローは一切変更しない（後方互換）。
 
 const router = Router();
 router.use(requireAuth, requirePermission('qsheet'));
@@ -32,6 +38,7 @@ router.post('/projects/:id/pages', wrap(async (req, res) => {
   const body = (req.body ?? {}) as {
     slot?: string; partKey?: string; name?: string; fields?: Record<string, unknown>;
     proofState?: string; callNo?: number; sortOrder?: number; templateId?: number | null;
+    layerFields?: Record<string, unknown>[];
   };
 
   // テンプレートから作る（段6-2）: templateId が来たら、partKey/slot はテンプレートの値を
@@ -42,6 +49,8 @@ router.post('/projects/:id/pages', wrap(async (req, res) => {
   let slot: string | undefined = body.slot;
   let partKey: string | undefined = body.partKey;
   let fields: Record<string, unknown> = body.fields ?? {};
+  // 複数部品の組み合わせページ（段6-2 本格拡張）。テンプレートが layers を持つときだけ使う
+  let layers: GraphicsPageLayer[] | null = null;
   if (body.templateId !== undefined && body.templateId !== null) {
     const template = await fetchTemplate(body.templateId);
     if (!template || template.projectId !== projectId) {
@@ -49,14 +58,31 @@ router.post('/projects/:id/pages', wrap(async (req, res) => {
     }
     templateId = template.id;
     slot = template.slot;
-    partKey = template.partKey;
-    const merged: Record<string, unknown> = { ...template.baseFields };
-    for (const key of template.publicFields) {
-      if (body.fields && Object.prototype.hasOwnProperty.call(body.fields, key)) {
-        merged[key] = body.fields[key];
+    if (template.layers && template.layers.length > 0) {
+      // 各レイヤーの baseFields をベースに、layerFields[i] の値を publicFields の範囲だけ
+      // 上書きする（publicFields に無いキーは無視 — 単一部品版と同じ強制ルールをレイヤー単位に）
+      layers = template.layers.map((layer, i) => {
+        const merged: Record<string, unknown> = { ...layer.baseFields };
+        const overrides = body.layerFields?.[i];
+        for (const key of layer.publicFields) {
+          if (overrides && Object.prototype.hasOwnProperty.call(overrides, key)) {
+            merged[key] = overrides[key];
+          }
+        }
+        return { partKey: layer.partKey, fields: merged };
+      });
+      partKey = layers[0].partKey;
+      fields = {};
+    } else {
+      partKey = template.partKey;
+      const merged: Record<string, unknown> = { ...template.baseFields };
+      for (const key of template.publicFields) {
+        if (body.fields && Object.prototype.hasOwnProperty.call(body.fields, key)) {
+          merged[key] = body.fields[key];
+        }
       }
+      fields = merged;
     }
-    fields = merged;
   }
 
   if (!SLOTS.includes(slot as Slot)) {
@@ -90,11 +116,12 @@ router.post('/projects/:id/pages', wrap(async (req, res) => {
   }
 
   const row = await queryOne(
-    `INSERT INTO graphics_pages (project_id, call_no, slot, part_key, name, fields, proof_state, sort_order, template_id)
-     VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?)
+    `INSERT INTO graphics_pages (project_id, call_no, slot, part_key, name, fields, proof_state, sort_order, template_id, layers)
+     VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?::jsonb)
      RETURNING *`,
     [projectId, callNo, slot, partKey, name,
-     JSON.stringify(fields), proofState, sortOrder, templateId]
+     JSON.stringify(fields), proofState, sortOrder, templateId,
+     layers ? JSON.stringify(layers) : null]
   );
   res.status(201).json({ success: true, data: mapPage(row!) });
 }));
@@ -111,9 +138,11 @@ router.put('/pages/:id', wrap(async (req, res) => {
   const body = (req.body ?? {}) as {
     slot?: string; partKey?: string; name?: string; fields?: Record<string, unknown>;
     proofState?: string; callNo?: number; sortOrder?: number;
+    layerFields?: Record<string, unknown>[];
   };
   const sets: string[] = [];
   const params: unknown[] = [];
+  let layersChanged = false;
 
   if (body.slot !== undefined) {
     if (!SLOTS.includes(body.slot as Slot)) {
@@ -156,6 +185,39 @@ router.put('/pages/:id', wrap(async (req, res) => {
       sets.push('fields = ?::jsonb'); params.push(JSON.stringify(body.fields ?? {}));
     }
   }
+  if (body.layerFields !== undefined) {
+    // 複数部品の組み合わせページ（段6-2 本格拡張）: 既存の layers（非空配列）を持つページ
+    // だけが対象。layerFields[i] を layers[i] の publicFields に含まれるキーだけ反映する。
+    // 公開されていないキーが1つでも含まれていれば 400（単一部品版と同じ「無視より拒否」）。
+    // publicFields はレイヤーが持たないため、作成元テンプレート（template_id）から引く —
+    // テンプレートが削除済み（template_id が SET NULL 済み）のページは制約対象外になり、
+    // layerFields のキーをそのまま各レイヤーの fields にマージする（単一部品版の
+    // 「template_id なしは自由編集」と同じ扱い）。
+    const existingLayers = normalizePageLayers(existing.layers);
+    if (!existingLayers) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'このページは複数部品の組み合わせページではありません（layerFields は使えません）');
+    }
+    const template = existing.template_id != null ? await fetchTemplate(existing.template_id as number) : null;
+    const templateLayers = template?.layers ?? null;
+
+    const nextLayers: GraphicsPageLayer[] = existingLayers.map((layer, i) => {
+      const overrides = body.layerFields?.[i];
+      if (!overrides) return layer;
+      const publicKeys = templateLayers?.[i] ? new Set(templateLayers[i].publicFields) : null;
+      if (publicKeys) {
+        const offending = Object.keys(overrides).filter((k) => !publicKeys.has(k));
+        if (offending.length > 0) {
+          throw new AppError(
+            400, 'VALIDATION_ERROR',
+            `layerFields[${i}] にテンプレート固定のフィールドを含みます（編集不可: ${offending.join(', ')}）`
+          );
+        }
+      }
+      return { partKey: layer.partKey, fields: { ...layer.fields, ...overrides } };
+    });
+    sets.push('layers = ?::jsonb'); params.push(JSON.stringify(nextLayers));
+    layersChanged = true;
+  }
   if (body.proofState !== undefined) {
     if (!PROOF_STATES.includes(body.proofState as (typeof PROOF_STATES)[number])) {
       throw new AppError(400, 'VALIDATION_ERROR', `proofState は ${PROOF_STATES.join(' / ')} のいずれかです`);
@@ -188,7 +250,7 @@ router.put('/pages/:id', wrap(async (req, res) => {
   // fields（スコアの±など）の更新は出力画面・送出コンソールへ即時反映する必要がある
   // （PUT /projects/:id の theme 同報と同じ二重化。§ 送出コンソールの±ボタンの要件）。
   // page-only の更新でも `cg:sync` の形（cues 必須）は崩さず、page を上乗せするだけにする
-  if (body.fields !== undefined) {
+  if (body.fields !== undefined || layersChanged) {
     const io = req.app.get('io');
     if (io) {
       const cues = await fetchCues(projectId);

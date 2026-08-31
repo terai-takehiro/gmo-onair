@@ -7,7 +7,7 @@
 // 読み取り専用表示にする。サーバー側（templates.routes.ts・pages.routes.ts）が同じ
 // 境界を強制するので、ここが崩れても実害は無い——が、崩れたまま気づかず使わせないための表示。
 import { Lock } from 'lucide-react';
-import { PART_LABELS, SLOT_LABELS, type GraphicsTemplateRow } from '@/lib/graphicsApi';
+import { PART_LABELS, SLOT_LABELS, type GraphicsPartKey, type GraphicsSlot } from '@/lib/graphicsApi';
 import { PART_FIELDS, type PartFieldDef } from './pageFields';
 import { PageFieldEditor } from './PageFieldEditor';
 import { defaultScoreEntries, normalizeScoreEntries } from './scoreEntries';
@@ -36,13 +36,21 @@ function describeLockedValue(kind: PartFieldDef['kind'], value: unknown): string
   return String(value);
 }
 
+/** テンプレート（単一部品モード）・レイヤー（複数部品モード）のどちらでも渡せる最小の形 */
+export interface TemplateFieldsSource {
+  partKey: GraphicsPartKey;
+  baseFields: Record<string, unknown>;
+  publicFields: string[];
+}
+
 /**
- * テンプレートの `baseFields` を、新規ページ作成時の `fields` 初期値へ変換する
- * （公開・非公開を問わず全キーをそのまま入れる——編集不可の欄も baseFields の値で固定表示するため）。
+ * テンプレート（またはレイヤー）の `baseFields` を、新規ページ作成時の `fields` 初期値へ
+ * 変換する（公開・非公開を問わず全キーをそのまま入れる——編集不可の欄も baseFields の
+ * 値で固定表示するため）。
  */
-export function initialFieldsFromTemplate(template: GraphicsTemplateRow): Record<string, unknown> {
-  const next: Record<string, unknown> = { ...template.baseFields };
-  for (const def of PART_FIELDS[template.partKey] ?? []) {
+export function initialFieldsFromTemplate(source: TemplateFieldsSource): Record<string, unknown> {
+  const next: Record<string, unknown> = { ...source.baseFields };
+  for (const def of PART_FIELDS[source.partKey] ?? []) {
     if (def.kind === 'entries' && next[def.key] === undefined) next[def.key] = defaultScoreEntries();
     if (def.kind === 'choices' && next[def.key] === undefined) next[def.key] = defaultVoteChoices();
     if (def.kind === 'list-items' && next[def.key] === undefined) next[def.key] = defaultListItems();
@@ -51,16 +59,16 @@ export function initialFieldsFromTemplate(template: GraphicsTemplateRow): Record
 }
 
 /**
- * `fields` のうち、テンプレートの `publicFields` に含まれるキーだけを取り出す。
- * `updateGraphicsPage`（PUT /graphics/pages/:id）へ送るのはこの部分集合だけにすること
- * — サーバー側は既存の値へマージするので、ロックされたフィールドは送らなくてよい
+ * `fields` のうち、テンプレート（またはレイヤー）の `publicFields` に含まれるキーだけを
+ * 取り出す。`updateGraphicsPage`（PUT /graphics/pages/:id）へ送るのはこの部分集合だけに
+ * すること — サーバー側は既存の値へマージするので、ロックされたフィールドは送らなくてよい
  * （送ると 400 で拒否される）。
  */
 export function pickPublicFields(
-  template: GraphicsTemplateRow,
+  source: Pick<TemplateFieldsSource, 'publicFields'>,
   fields: Record<string, unknown>,
 ): Record<string, unknown> {
-  const publicSet = new Set(template.publicFields);
+  const publicSet = new Set(source.publicFields);
   const out: Record<string, unknown> = {};
   for (const key of Object.keys(fields)) {
     if (publicSet.has(key)) out[key] = fields[key];
@@ -69,28 +77,38 @@ export function pickPublicFields(
 }
 
 export function TemplateFieldsSection({
-  template,
+  partKey,
+  slot,
+  templateName,
+  publicFields,
   fields,
   setFields,
   pageId = null,
+  heading,
 }: {
-  template: GraphicsTemplateRow;
+  partKey: GraphicsPartKey;
+  slot: GraphicsSlot;
+  templateName: string;
+  publicFields: string[];
   fields: Record<string, unknown>;
   setFields: (updater: (prev: Record<string, unknown>) => Record<string, unknown>) => void;
   /** `kind: 'image'` の欄へそのまま横流しする（PageFieldEditor 参照）。新規作成中は null */
   pageId?: string | null;
+  /** 複数部品テンプレートのレイヤー見出し（例:「① ネーム」）。単一部品モードでは省略 */
+  heading?: string;
 }) {
-  const publicSet = new Set(template.publicFields);
-  const defs = PART_FIELDS[template.partKey] ?? [];
+  const publicSet = new Set(publicFields);
+  const defs = PART_FIELDS[partKey] ?? [];
 
   return (
     <div className="space-y-4">
+      {heading && <p className="text-list font-bold">{heading}</p>}
       <div className="flex flex-wrap items-center gap-2 rounded-note border border-border bg-surface-subtle px-3 py-2 text-sub">
         <span className="text-muted-foreground">部品</span>
-        <span className="font-bold">{PART_LABELS[template.partKey]}</span>
+        <span className="font-bold">{PART_LABELS[partKey]}</span>
         <span className="text-muted-foreground">／出る場所</span>
-        <span className="font-bold">{SLOT_LABELS[template.slot]}</span>
-        <span className="text-note text-muted-foreground">（テンプレート「{template.name}」で固定）</span>
+        <span className="font-bold">{SLOT_LABELS[slot]}</span>
+        <span className="text-note text-muted-foreground">（テンプレート「{templateName}」で固定）</span>
       </div>
 
       {defs.map((def) => {
