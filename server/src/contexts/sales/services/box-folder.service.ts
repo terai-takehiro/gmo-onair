@@ -50,8 +50,14 @@ const EXTERNAL_SUBFOLDERS = [
 
 export type CustomerType = 'internal' | 'external';
 
-/** BOX のファイル/フォルダ名で使えない文字を除去 (`/ \ : ? * | " < >`) */
-function sanitizeFolderName(name: string): string {
+/**
+ * BOX のファイル/フォルダ名で使えない文字を除去 (`/ \ : ? * | " < >`)
+ *
+ * **`box-lost-cleanup.service.ts` が読みます** — 失注の片づけは
+ * 「このアプリならこう名付けたはず」を組み立てて BOX の実物と突き合わせるので、
+ * **同じ関数で正規化しないと一致しません**（写すと片方だけ直した日にずれる）。
+ */
+export function sanitizeFolderName(name: string): string {
   return name.replace(/[/\\:?*|"<>]/g, '').trim() || 'untitled';
 }
 

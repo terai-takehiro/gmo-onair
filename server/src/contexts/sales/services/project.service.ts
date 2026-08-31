@@ -37,7 +37,7 @@ import { syncNextActionsForStageSafe } from '../../../shared/services/next-actio
  * 中身が1つも無ければ削除・あれば `99_失注・見送り` へ引っ越す。失注から戻せば元へ返る。
  * 失敗してもステージ変更は止めない（`...Safe`）。
  */
-import { syncBoxFoldersForStageSafe } from './box-lost-cleanup.service';
+import { syncBoxFoldersForStageSafe, relinkProjectFolders, type RelinkResult } from './box-lost-cleanup.service';
 import { isBoxConfigured } from '../../../shared/services/box';
 
 /**
@@ -47,6 +47,18 @@ import { isBoxConfigured } from '../../../shared/services/box';
 const LOST_BOX_CLEANUP_TARGET_SQL = `FROM projects
    WHERE deleted_at IS NULL AND stage = 'e_lost' AND box_cleanup_state IS NULL
      AND (box_url_internal IS NOT NULL OR box_url_external IS NOT NULL)`;
+
+/**
+ * **BOX の URL が1つも入っていない失注案件。**
+ *
+ * ⚠️ **これを数えないと帯が出ませんでした**（ユーザー報告「ほとんどのゴミ案件が
+ * 処理できていない／そもそも件数が少ない」）。古い案件は URL が空なので上の条件に
+ * 当たらず、**フォルダは BOX にあるのに片づけ待ち0件**に見えていました。
+ * BOX を見て名前で結び付け直せば片づけられるので、**候補として数えます**。
+ */
+const LOST_BOX_UNLINKED_SQL = `FROM projects
+   WHERE deleted_at IS NULL AND stage = 'e_lost' AND box_cleanup_state IS NULL
+     AND box_url_internal IS NULL AND box_url_external IS NULL`;
 
 /**
  * 引き合いの入口と確信 (migration 165)。**DB の CHECK と同じ集合**にすること。
@@ -1929,9 +1941,11 @@ export class ProjectService {
    * `boxConfigured` も返す — **繋いでいないときに「N件あります」だけ出すと、
    * 押しても減らない帯**になり、人は理由が分からないまま押し続けます。
    */
-  async countLostBoxFoldersToClean(): Promise<{ remaining: number; boxConfigured: boolean }> {
+  async countLostBoxFoldersToClean(): Promise<{ remaining: number; unlinked: number; boxConfigured: boolean }> {
     const row = await queryOne(`SELECT COUNT(*)::int AS c ${LOST_BOX_CLEANUP_TARGET_SQL}`) as { c?: number } | null;
-    return { remaining: Number(row?.c ?? 0), boxConfigured: isBoxConfigured() };
+    // **URL が空のぶんも数える**（BOX を見て名前で結び付け直せば片づけられる）
+    const un = await queryOne(`SELECT COUNT(*)::int AS c ${LOST_BOX_UNLINKED_SQL}`) as { c?: number } | null;
+    return { remaining: Number(row?.c ?? 0), unlinked: Number(un?.c ?? 0), boxConfigured: isBoxConfigured() };
   }
 
   /**
@@ -1946,7 +1960,19 @@ export class ProjectService {
    *
    * @returns **本当に片づいた件数**と、残っている件数（**残数を返さないと「終わったのか」が分からない**）
    */
-  async cleanupLostBoxFolders(limit: number): Promise<{ processed: number; remaining: number; boxConfigured: boolean }> {
+  async cleanupLostBoxFolders(
+    limit: number,
+    /**
+     * **BOX を見て紐づけを直してから片づける**（まとめて処分の1回目だけ true）。
+     *
+     * 古い失注案件は `box_url_*` が空で、フォルダは BOX にあるのにアプリが
+     * どれか知らないため、**片づけの対象に入っていませんでした**（ユーザー報告
+     * 「ほとんどのゴミ案件が処理できていない」の正体）。毎回やると親フォルダを
+     * 丸ごと一覧し直すので、続きを進める2回目以降は false で呼ぶ。
+     */
+    relink = false,
+  ): Promise<{ processed: number; remaining: number; boxConfigured: boolean; relinked?: RelinkResult }> {
+    const relinked = relink ? await relinkProjectFolders() : undefined;
     const targetSql = LOST_BOX_CLEANUP_TARGET_SQL;
     const rows = await queryAll(`SELECT id ${targetSql} ORDER BY lost_at ASC NULLS LAST LIMIT ?`, [limit]) as { id: string }[];
     for (const r of rows) await syncBoxFoldersForStageSafe(r.id, 'e_lost');
@@ -1970,7 +1996,7 @@ export class ProjectService {
       processed = Number(done?.c ?? 0);
     }
     const left = await queryOne(`SELECT COUNT(*)::int AS c ${targetSql}`) as { c?: number } | null;
-    return { processed, remaining: Number(left?.c ?? 0), boxConfigured: isBoxConfigured() };
+    return { processed, remaining: Number(left?.c ?? 0), boxConfigured: isBoxConfigured(), relinked };
   }
 
   async createBoxFolder(
