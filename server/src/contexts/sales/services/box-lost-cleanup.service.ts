@@ -292,10 +292,17 @@ interface ProjectRow {
   box_cleanup_state?: string | null;
 }
 
+/**
+ * ⚠️ **`deleted_at IS NULL` で絞らないこと。**
+ * 台帳から外した案件（ゴミの一括処分）の BOX フォルダも片づけるためです。
+ * ここで絞ると、**外した瞬間にその案件のフォルダは二度と片づけられません**
+ * （ユーザー報告「BOX の削除コマンドが表示されなくなりました」の一因）。
+ * どれを対象に選ぶかは `project.service.ts` の `LOST_BOX_JUNK_SQL` が決めます。
+ */
 async function loadProject(projectId: string): Promise<ProjectRow | null> {
   return (await queryOne(
     `SELECT id, code, name, gls_number, box_url_internal, box_url_external, box_cleanup_state
-       FROM projects WHERE id = ? AND deleted_at IS NULL`,
+       FROM projects WHERE id = ?`,
     [projectId],
   )) as unknown as ProjectRow | null;
 }
@@ -387,8 +394,15 @@ export async function relinkProjectFolders(): Promise<RelinkResult> {
    * 決められない）。決められないものを当てずっぽうで結び付けると、
    * **別の案件のフォルダを消しにいく**ことになる。
    */
+  /*
+   * ⚠️ **台帳から外した案件も索引に入れる。** 外したぶんのフォルダは BOX に
+   * 残っているので、名前で結び付け直せないと片づけの対象に選べません
+   * （ユーザー報告「BOX の削除コマンドが表示されなくなりました」）。
+   * 同じ名前が2件以上になれば下の `AMBIGUOUS` が拾って触らないので、
+   * 「外した案件と現役の案件を取り違える」ことはありません。
+   */
   const projects = await queryAll(
-    'SELECT id, code, gls_number, name FROM projects WHERE deleted_at IS NULL',
+    'SELECT id, code, gls_number, name FROM projects',
   ) as { id: string; code: string | null; gls_number: string | null; name: string | null }[];
 
   const AMBIGUOUS = '__ambiguous__';

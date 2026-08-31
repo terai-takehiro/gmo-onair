@@ -44,11 +44,34 @@ import {
 import { isBoxConfigured } from '../../../shared/services/box';
 
 /**
- * 片づけ待ちの失注案件を選ぶ条件。**件数と対象で必ず同じものを使う**
+ * **片づけの対象にするゴミ案件。**
+ *
+ * ⚠️ **台帳から外した（`deleted_at` を入れた）案件も対象に残すこと。**
+ * ユーザー報告（2026-08-31）「BOX の削除コマンドが表示されなくなりました。
+ * おそらく台帳から削除したからかと思います」— そのとおりでした。
+ *
+ * 以前はここが `deleted_at IS NULL` で絞っていたため、**台帳から外した瞬間に
+ * その案件の BOX フォルダは候補から落ち、以後どの導線からも片づけられません**
+ * でした（現役の場所に残ったまま、指すものが誰にも見えなくなる）。
+ * #495 の棚卸しに ❌ で書いておきながら塞いでいなかった穴です。
+ *
+ * ⚠️ **「普通に削除された案件」まで巻き込まない。** 対象は
+ *   - 失注（`e_lost`）… 台帳にあってもなくても片づける
+ *   - 台帳から外したネタ（`neta` かつ `deleted_at` あり）… まとめて外したぶん
+ * の2つだけ。**現役のネタ**や、人が別の理由で消した受注済み案件は触りません
+ * （間違えて消した案件の BOX フォルダまで動かすと、戻すときに困ります）。
+ */
+const LOST_BOX_JUNK_SQL = `(
+     stage = 'e_lost'
+     OR (stage = 'neta' AND deleted_at IS NOT NULL)
+   )`;
+
+/**
+ * 片づけ待ちの案件を選ぶ条件。**件数と対象で必ず同じものを使う**
  * （写すと「10件と出ているのに押すと3件しか進まない」が起きる）。
  */
 const LOST_BOX_CLEANUP_TARGET_SQL = `FROM projects
-   WHERE deleted_at IS NULL AND stage = 'e_lost' AND box_cleanup_state IS NULL
+   WHERE ${LOST_BOX_JUNK_SQL} AND box_cleanup_state IS NULL
      AND (box_url_internal IS NOT NULL OR box_url_external IS NOT NULL)`;
 
 /**
@@ -70,7 +93,7 @@ const LOST_BOX_CLEANUP_TARGET_SQL = `FROM projects
 const BOX_CLEANUP_BUDGET_MS = 20_000;
 
 const LOST_BOX_UNLINKED_SQL = `FROM projects
-   WHERE deleted_at IS NULL AND stage = 'e_lost' AND box_cleanup_state IS NULL
+   WHERE ${LOST_BOX_JUNK_SQL} AND box_cleanup_state IS NULL
      AND box_url_internal IS NULL AND box_url_external IS NULL`;
 
 /**
