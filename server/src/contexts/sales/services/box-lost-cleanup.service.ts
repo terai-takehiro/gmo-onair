@@ -135,7 +135,12 @@ export function checkFolderSafety(input: SafetyInput): SafetyVerdict {
 }
 
 export type EmptyVerdict =
-  | { empty: true }
+  /**
+   * `folders` は**たどったフォルダの ID を上から順に**並べたもの（根を含む）。
+   * ⚠️ **消すときはこれを逆順に使います** — 幅優先でたどるので、
+   * 親は必ず子より前にいます。逆順にすれば**子から先に**消せます。
+   */
+  | { empty: true; folders: string[] }
   | { empty: false; reason: string };
 
 /**
@@ -154,12 +159,13 @@ export async function isTreeEmpty(
   maxFolders = TREE_MAX_FOLDERS,
 ): Promise<EmptyVerdict> {
   const queue: { id: string; depth: number }[] = [{ id: rootId, depth: 0 }];
-  let visited = 0;
+  /** たどったフォルダを上から順に覚えておく（消すときに逆順で使う） */
+  const folders: string[] = [];
 
   while (queue.length > 0) {
     const node = queue.shift()!;
-    if (visited >= maxFolders) return { empty: false, reason: 'フォルダが多すぎて数え切れない' };
-    visited += 1;
+    if (folders.length >= maxFolders) return { empty: false, reason: 'フォルダが多すぎて数え切れない' };
+    folders.push(node.id);
 
     let children: ChildItem[];
     try {
@@ -180,7 +186,52 @@ export async function isTreeEmpty(
       queue.push({ id: c.id, depth: node.depth + 1 });
     }
   }
-  return { empty: true };
+  return { empty: true, folders };
+}
+
+/**
+ * **ファイルが1つも無いと確かめた木を、下から順に消す。**
+ *
+ * ── ⚠️ なぜ `recursive` を使わないのか（本番で分かったこと・2026-08-31）──
+ *
+ * 本番で「まとめて片づける」を押すと、**15 件すべてが「BOX が削除を断った」**で
+ * 止まりました（#495 の理由表示で見えるようになった）。原因はこちらの実装です:
+ *
+ *   BOX の `DELETE /folders/:id` は、`recursive` を付けないと
+ *   **中身が1つでもあれば断ります。ファイルだけでなくサブフォルダも「中身」です。**
+ *
+ * 案件フォルダは作った直後から**空のサブフォルダを数枚持っています**
+ * （`box-folder.service.ts` が `01_見積` などを作る）。`isTreeEmpty` は
+ * 「**ファイル**が1つも無いか」を見るので `empty: true` になりますが、
+ * そこへ `recursive` 無しの削除を投げると BOX は必ず断ります。
+ * つまり**空フォルダは1件も消せない実装でした。**
+ *
+ * ⚠️ **`recursive` を真にして直すのは採りません。** 付けると
+ * 「数え間違いがあっても、中身があれば BOX 側が断ってくれる」という**二重の守りを
+ * 手放す**ことになります（見積書・請求書の原本は BOX にしかありません）。
+ *
+ * 代わりに**下から順に1つずつ消します**。各段で `recursive` を付けないので、
+ * **どの階層であってもファイルが1つでもあれば BOX が断ります** — 守りはそのままで、
+ * 空のサブフォルダだけが消えます。
+ *
+ * @param folders `isTreeEmpty` が返した順（上から）。**この関数が逆順にします**
+ * @param deleteFolder 1つ消す。**投げてよい**（投げたら失敗として返す）
+ */
+export async function deleteEmptyTree(
+  folders: string[],
+  deleteFolder: (folderId: string) => Promise<void>,
+): Promise<{ ok: true; deleted: number } | { ok: false; reason: string; deleted: number }> {
+  let deleted = 0;
+  // **逆順＝深いほうから。** 幅優先の順に積んであるので、親は必ず子より前にいる
+  for (const id of [...folders].reverse()) {
+    try {
+      await deleteFolder(id);
+      deleted += 1;
+    } catch (e) {
+      return { ok: false, reason: (e as Error).message, deleted };
+    }
+  }
+  return { ok: true, deleted };
 }
 
 // ───────────────────────────────────────────────────────────
@@ -429,28 +480,42 @@ export async function cleanupLostProjectFolders(projectId: string): Promise<void
     }
 
     const verdict = await isTreeEmpty(folderId!, listChildren);
+    /** 引っ越す理由（空でなかった / 消せなかった）。空文字なら引っ越さない */
+    let moveReason = verdict.empty ? '' : verdict.reason;
+
     if (verdict.empty) {
-      try {
-        // **`recursive` は付けない。** 中身があれば BOX 側が 400 で断る＝
-        // 数え間違いがあっても書類は消えない、という二重の守り
-        await client.folders.delete(folderId!);
+      /*
+       * **下から順に1つずつ消す。** `recursive` は**どの段でも付けない**ので、
+       * ファイルが1つでもあれば BOX がその段で断る（二重の守りはそのまま）。
+       *
+       * ⚠️ 以前は根に1回だけ `recursive` 無しの削除を投げていたため、
+       * **空のサブフォルダを持つ案件フォルダは1件も消せませんでした**
+       * （本番で「BOX が削除を断った」15件の正体）。
+       */
+      const res = await deleteEmptyTree(verdict.folders, (id) => client.folders.delete(id));
+      if (res.ok) {
         notes.push(`${side.key}: 空だったので削除 (${folder!.name})`);
         clearedUrls[side.key] = true;
         deleted += 1;
-      } catch (e) {
-        notes.push(`${side.key}: 削除できず (${(e as Error).message})`);
+        continue;
       }
-      continue;
+      /*
+       * ⚠️ **消せなかったら、そのままにせず引っ越す。**
+       * 断られたということは中身がある（＝数え終わったあとに誰かが置いた）か、
+       * 権限が足りないかで、どちらも「現役の場所から外す」ほうが正しい。
+       * 以前はここで諦めていたので、**現役の場所に残り続けていました**。
+       */
+      moveReason = `削除を断られた (${res.reason}・途中まで ${res.deleted} 件)`;
     }
 
     const archive = side.parentId ? await ensureSubfolder(side.parentId, LOST_ARCHIVE_FOLDER) : null;
     if (!archive) {
-      notes.push(`${side.key}: 置き場を作れず そのまま (${verdict.reason})`);
+      notes.push(`${side.key}: 置き場を作れず そのまま (${moveReason})`);
       continue;
     }
     try {
       await client.folders.update(folderId!, { parent: { id: archive.id } });
-      notes.push(`${side.key}: ${LOST_ARCHIVE_FOLDER} へ移動 (${verdict.reason})`);
+      notes.push(`${side.key}: ${LOST_ARCHIVE_FOLDER} へ移動 (${moveReason})`);
       archived += 1;
     } catch (e) {
       notes.push(`${side.key}: 移動できず (${(e as Error).message})`);
@@ -623,6 +688,7 @@ const SKIP_RULES: { code: SkipReasonCode; match: string; label: string; sample?:
     code: 'noName', match: 'この案件の名前が分からない',
     label: '案件名が空なので、どのフォルダか決められない',
   },
+  { code: 'boxRefused', match: '削除を断られた', label: 'BOX が削除を断ったので「99_失注・見送り」へ移した' },
   { code: 'boxRefused', match: '削除できず', label: 'BOX が削除を断った' },
   { code: 'boxRefused', match: '移動できず', label: 'BOX が移動を断った' },
   { code: 'boxRefused', match: '置き場を作れず', label: '「99_失注・見送り」を作れなかった' },

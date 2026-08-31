@@ -11,7 +11,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  checkFolderSafety, isTreeEmpty, expectedFolderNames, stripFolderPrefix,
+  checkFolderSafety, isTreeEmpty, deleteEmptyTree, expectedFolderNames, stripFolderPrefix,
   NON_PROJECT_FOLDERS, LOST_ARCHIVE_FOLDER, TREE_MAX_DEPTH,
   type ChildItem, type FolderNode,
 } from '../../server/src/contexts/sales/services/box-lost-cleanup.service';
@@ -104,13 +104,18 @@ describe('空かどうか（消してよいのは空のときだけ）', () => {
   const f = (id: string, name: string): ChildItem => ({ id, type: 'folder', name });
   const file = (id: string, name: string): ChildItem => ({ id, type: 'file', name });
 
-  it('何も無ければ空', async () => {
-    expect(await isTreeEmpty('a', tree({ a: [] }))).toEqual({ empty: true });
+  it('何も無ければ空（消す相手として根そのものを返す）', async () => {
+    expect(await isTreeEmpty('a', tree({ a: [] }))).toEqual({ empty: true, folders: ['a'] });
   });
 
   it('作った直後の「空のサブフォルダだけ」も空（直下しか見ないと1件も消えない）', async () => {
     const m = { a: [f('b', '02_発注・契約'), f('c', '03_請求')], b: [], c: [] };
-    expect(await isTreeEmpty('a', tree(m))).toEqual({ empty: true });
+    /*
+     * ⚠️ **サブフォルダも消す相手として返すこと。** BOX の削除は `recursive` を
+     * 付けないと**サブフォルダ1枚でも断ります**。根だけ返していたため、
+     * 本番で「BOX が削除を断った」15件が1件も消えませんでした。
+     */
+    expect(await isTreeEmpty('a', tree(m))).toEqual({ empty: true, folders: ['a', 'b', 'c'] });
   });
 
   it('⚠️ 奥にファイルが1つでもあれば空ではない（見積書は 01_見積・提案 の中）', async () => {
@@ -315,5 +320,47 @@ describe('このアプリならこう名付けたはず（名寄せの突き合�
     // 片づけのループの外で、独立した1往復として呼ぶ（504 の反省で分けた）
     expect((band.match(/relink: true/g) ?? []).length).toBe(1);
     expect(band.indexOf('relink: true')).toBeLessThan(band.indexOf('while (!stopRef.current'));
+  });
+});
+
+describe('空の木を消す（本番で「BOX が削除を断った」15件の直し）', () => {
+  /*
+   * ⚠️ **本番で分かったこと（2026-08-31）。**
+   * BOX の `DELETE /folders/:id` は、再帰を指定しないと**中身が1つでもあれば断る**。
+   * **ファイルだけでなくサブフォルダも「中身」**。案件フォルダは作った直後から
+   * `01_見積` などの空のサブフォルダを持つので、根に1回投げるだけの実装では
+   * **空フォルダを1件も消せなかった**（#495 の理由表示で見えた「BOX が削除を断った」）。
+   */
+  it('子から先に消す（親を先に投げると BOX が断る）', async () => {
+    const order: string[] = [];
+    const r = await deleteEmptyTree(['a', 'b', 'c'], async (id) => { order.push(id); });
+    expect(r).toEqual({ ok: true, deleted: 3 });
+    // `isTreeEmpty` は幅優先なので親が必ず先。**逆順にすれば子から消える**
+    expect(order).toEqual(['c', 'b', 'a']);
+  });
+
+  it('1つでも断られたら止めて、どこまで消せたかを返す', async () => {
+    const r = await deleteEmptyTree(['a', 'b', 'c'], async (id) => {
+      if (id === 'b') throw new Error('folder_not_empty');
+    });
+    expect(r).toEqual({ ok: false, reason: 'folder_not_empty', deleted: 1 });
+  });
+
+  it('⚠️ 再帰削除は使わない — 呼び出し側が段ごとに BOX の判断を受ける', () => {
+    // 各段で再帰を指定しないので、ファイルが1枚でもあればその段で BOX が断る。
+    // 「数え間違いがあっても書類は消えない」という二重の守りはそのまま。
+    const src = read('server/src/contexts/sales/services/box-lost-cleanup.service.ts');
+    expect(src).toContain('deleteEmptyTree(verdict.folders, (id) => client.folders.delete(id))');
+  });
+
+  it('消せなかったら現役の場所に残さず「99_失注・見送り」へ移す', () => {
+    /*
+     * 断られた＝数え終わったあとに誰かが置いたか権限が足りないか。どちらも
+     * 「現役の場所から外す」ほうが正しい。**以前はここで諦めて残していた**。
+     */
+    const src = read('server/src/contexts/sales/services/box-lost-cleanup.service.ts');
+    expect(src).toContain('moveReason = `削除を断られた');
+    const move = src.indexOf('client.folders.update(folderId!, { parent: { id: archive.id } })');
+    expect(src.indexOf('moveReason = `削除を断られた')).toBeLessThan(move);
   });
 });
