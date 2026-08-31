@@ -221,3 +221,49 @@ describe('BOX を触らなかった理由を数える', () => {
     expect(band).toContain('reasons.map');
   });
 });
+
+describe('台帳から外したあとも BOX を片づけられること', () => {
+  /*
+   * ⚠️ ユーザー報告（2026-08-31）「BOX の削除コマンドが表示されなくなりました。
+   * おそらく台帳から削除したからかと思います」— そのとおりだった。
+   * 片づけの対象を `deleted_at IS NULL` で絞っていたため、**外した瞬間に
+   * その案件の BOX フォルダは候補から落ち、以後どの導線からも片づけられなかった**。
+   * #495 の棚卸しに ❌ で書いておきながら塞いでいなかった穴。
+   */
+  const SVC = read('server/src/contexts/sales/services/project.service.ts');
+  const BOX = read('server/src/contexts/sales/services/box-lost-cleanup.service.ts');
+
+  it('片づけの対象を「台帳にある案件」だけに絞らない', () => {
+    const junk = SVC.slice(SVC.indexOf('const LOST_BOX_JUNK_SQL'), SVC.indexOf('const LOST_BOX_CLEANUP_TARGET_SQL'));
+    expect(junk).toContain("stage = 'e_lost'");
+    expect(junk).toContain("stage = 'neta' AND deleted_at IS NOT NULL");
+    // ⚠️ ここに deleted_at IS NULL が戻ると、外した案件のフォルダがまた孤児になる
+    expect(junk).not.toContain('deleted_at IS NULL');
+  });
+
+  it('件数と対象で同じ条件を使う（帯の数と押した結果が食い違わない）', () => {
+    expect(SVC).toContain('const LOST_BOX_CLEANUP_TARGET_SQL = `FROM projects\n   WHERE ${LOST_BOX_JUNK_SQL}');
+    expect(SVC).toContain('const LOST_BOX_UNLINKED_SQL = `FROM projects\n   WHERE ${LOST_BOX_JUNK_SQL}');
+  });
+
+  it('⚠️ 現役のネタや、別の理由で消した案件までは巻き込まない', () => {
+    // 間違えて消した受注済み案件の BOX フォルダまで動かすと、戻すときに困る
+    const junk = SVC.slice(SVC.indexOf('const LOST_BOX_JUNK_SQL'), SVC.indexOf('const LOST_BOX_CLEANUP_TARGET_SQL'));
+    for (const alive of ['a_won', 's_completed', 'c_proposal', 'b_verbal', 'd_hold']) {
+      expect(junk).not.toContain(`'${alive}'`);
+    }
+    // 現役のネタ（deleted_at なし）は入らない
+    expect(junk).toContain("stage = 'neta' AND deleted_at IS NOT NULL");
+  });
+
+  it('片づける本体も、外した案件を読める', () => {
+    // loadProject が deleted_at で絞ると、対象に選んでも何もせずに帰ってしまう
+    expect(BOX).toContain('FROM projects WHERE id = ?`');
+    expect(BOX).not.toContain('FROM projects WHERE id = ? AND deleted_at IS NULL');
+  });
+
+  it('名寄せの索引にも、外した案件を入れる', () => {
+    // 索引から落ちると、外したぶんのフォルダは名前で結び付け直せない
+    expect(BOX).toContain("'SELECT id, code, gls_number, name FROM projects'");
+  });
+});
