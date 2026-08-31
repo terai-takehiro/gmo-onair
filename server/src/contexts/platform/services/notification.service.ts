@@ -57,13 +57,29 @@ export async function notifyMany(inputs: NotifyInput[]): Promise<number> {
 }
 
 /**
- * その区画を**直せる人**（＋ system_admin）。
+ * その区画を**直せる人**（既定では ＋ system_admin）。
  *
  * 「経理に送る」は `budget` を editor 以上で持っている人、と読み替えます。
  * 役割の名前で探すと、役割を作り直した日に届かなくなります
  * （役割は権限の型であって、宛先の定義ではない）。
+ *
+ * ── ⚠️ `includeAdmins: false` を足した理由 ──────────────────
+ *
+ * ここは**必ず system_admin 全員を足して**いました。「誰にも届かない通知」を
+ * 作らないための保険で、できごと型の通知（依頼・コメント）には要ります。
+ * ですが**督促**（未入金・請求書未発行・機材返却・週報未確認）では逆に働きます —
+ * 督促は「動ける人」に届いて初めて意味があるのに、system_admin は権限の管理者で
+ * あって経理でも機材担当でもないことがあり、**動けない人のベルに毎日積み上がる**。
+ * ユーザーの言う「ゴミ通知」の一因がここでした。
+ *
+ * **既定は今までどおり足します**（呼び出し側を1つも変えずに済ませるため）。
+ * 督促の側だけが明示的に `{ includeAdmins: false }` を渡します。
  */
-export async function usersWithPermission(module: string, min: 'reader' | 'editor' | 'manager'): Promise<string[]> {
+export async function usersWithPermission(
+  module: string,
+  min: 'reader' | 'editor' | 'manager',
+  opts: { includeAdmins?: boolean } = {},
+): Promise<string[]> {
   const order: Record<string, number> = { reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3 };
   const rows = await queryAll(
     `SELECT u.id, p.access_level
@@ -73,7 +89,8 @@ export async function usersWithPermission(module: string, min: 'reader' | 'edito
     [module],
   );
   const need = order[min];
-  const admins = await queryAll(
+  // **未指定は true**（既存の呼び出しの挙動を1ミリも変えない）
+  const admins = opts.includeAdmins === false ? [] : await queryAll(
     `SELECT id FROM users WHERE deleted_at IS NULL AND status = 'active' AND role = 'system_admin'`,
   );
   const set = new Set(admins.map((a) => a.id as string));
