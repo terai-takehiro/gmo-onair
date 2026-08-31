@@ -155,11 +155,25 @@ describe('空かどうか（消してよいのは空のときだけ）', () => {
 describe('実装が安全弁を素通りしていないこと', () => {
   const code = read('server', 'src', 'contexts', 'sales', 'services', 'box-lost-cleanup.service.ts');
 
-  it('削除は1か所だけで、必ず安全弁と「空」の判定のあとに呼ばれる', () => {
-    expect((code.match(/folders\.delete\(/g) ?? []).length).toBe(1);
-    const before = code.slice(0, code.indexOf('folders.delete('));
-    expect(before).toContain('checkFolderSafety');
-    expect(before).toContain('isTreeEmpty');
+  it('削除は必ず「空だと確かめた木を下から消す」形でしか呼ばれない', () => {
+    /*
+     * ⚠️ **数ではなく形で縛る。** 呼ぶ場所は2つある（案件をたどる経路と、
+     * どの案件にも結び付かないフォルダの経路）が、**どちらも
+     * `deleteEmptyTree(<空と確かめた木>, ...)` の引数の中でしか呼べない**。
+     * 素の `folders.delete(...)` が1つでも増えたらここで落ちる。
+     */
+    const calls = code.match(/folders\.delete\([^)]*\)/g) ?? [];
+    expect(calls.length).toBeGreaterThan(0);
+    for (const call of calls) {
+      const at = code.indexOf(call);
+      const line = code.slice(code.lastIndexOf('\n', at) + 1, code.indexOf('\n', at));
+      expect(line).toContain('deleteEmptyTree(');
+      expect(line).toContain('.folders, (id) =>');
+    }
+    // どちらの経路も「空」を確かめてから通る
+    expect(code).toContain('const verdict = await isTreeEmpty(');
+    // 案件をたどる経路は安全弁も通る
+    expect(code.indexOf('checkFolderSafety')).toBeLessThan(code.indexOf('deleteEmptyTree('));
   });
 
   it('⚠️ 再帰削除を使わない（中身があれば BOX 側が断る、が二重の守り）', () => {
@@ -362,5 +376,75 @@ describe('空の木を消す（本番で「BOX が削除を断った」15件の�
     expect(src).toContain('moveReason = `削除を断られた');
     const move = src.indexOf('client.folders.update(folderId!, { parent: { id: archive.id } })');
     expect(src.indexOf('moveReason = `削除を断られた')).toBeLessThan(move);
+  });
+});
+
+describe('引き合いのまま止まっている案件（ご判断「ネタの空フォルダも消す」）', () => {
+  const SVC = read('server/src/contexts/sales/services/box-lost-cleanup.service.ts');
+  const PSVC = read('server/src/contexts/sales/services/project.service.ts');
+
+  it('ネタも片づけの対象に入れる', () => {
+    // 実物の BOX で、引き合いのまま止まった案件のフォルダが中身ゼロで並んでいた
+    expect(PSVC).toContain("const LOST_BOX_JUNK_SQL = `stage IN ('e_lost', 'neta')`");
+  });
+
+  it('⚠️ 生きているネタは「空なら消す」だけ — 失注の置き場へは入れない', () => {
+    /*
+     * まだ失注ではない案件のフォルダを `99_失注・見送り` へ引っ越すのは間違い
+     * （これから使うかもしれないものを、失注の置き場に入れてしまう）。
+     */
+    expect(SVC).toContain("const emptyOnly = row.stage === 'neta' && !row.deleted_at");
+    const guard = SVC.indexOf('if (emptyOnly) {');
+    const move = SVC.indexOf('client.folders.update(folderId!, { parent: { id: archive.id } })');
+    expect(guard).toBeGreaterThan(0);
+    expect(guard).toBeLessThan(move);
+  });
+});
+
+describe('どの案件にも結び付かないフォルダ（実測 77 件中 13 件）', () => {
+  const SVC = read('server/src/contexts/sales/services/box-lost-cleanup.service.ts');
+
+  it('⚠️ このアプリの実行ユーザーが作ったものだけ消す', () => {
+    // 人が手で作ったフォルダには絶対に触らない。ここが最後の砦
+    expect(SVC).toContain("client.users.get('me'");
+    expect(SVC).toContain('folder.createdById !== meId');
+    expect(SVC).toContain("notes.push('orphan: 触らず (人が作ったフォルダ)')");
+  });
+
+  it('実行ユーザーが取れなければ1件も触らない', () => {
+    // 分からないものは消さない
+    const fail = SVC.indexOf("console.warn('[box-orphan] 実行ユーザーを取れませんでした:'");
+    expect(fail).toBeGreaterThan(0);
+    expect(SVC.slice(fail, fail + 200)).toContain('return { ...empty, complete: false }');
+  });
+
+  it('どれかの案件から指されているフォルダは触らない', () => {
+    // 指されていれば、それは生きている案件のフォルダ
+    expect(SVC).toContain('if (linked.has(String(item.id))) continue;');
+    // 消えた案件のぶんも索引に入れる（外した案件のフォルダを orphan と誤認しない）
+    expect(SVC).toContain("'SELECT box_url_internal, box_url_external FROM projects'");
+  });
+
+  it('案件フォルダでないと分かっている名前は触らない', () => {
+    expect(SVC).toContain('(NON_PROJECT_FOLDERS as readonly string[]).includes(bare)');
+  });
+
+  it('空のときだけ消し、再帰は使わない', () => {
+    const fn = SVC.slice(SVC.indexOf('export async function cleanupOrphanFolders'));
+    expect(fn).toContain('const verdict = await isTreeEmpty(');
+    expect(fn).toContain('if (!verdict.empty)');
+    expect(fn).toContain('deleteEmptyTree(verdict.folders, (id) => client.folders.delete(id))');
+    expect(fn).not.toMatch(/recursive:\s*true/);
+  });
+
+  it('件数ではなく時間で区切る（504 の再発を止める）', () => {
+    expect(SVC).toContain('export const ORPHAN_BUDGET_MS = 20_000;');
+    expect(SVC).toContain('timedOut = true; break;');
+  });
+
+  it('画面は別の往復で呼び、時間切れのときだけ続ける', () => {
+    const band = read('client/src/contexts/sales/pages/projectList/BoxCleanupBand.tsx');
+    expect(band).toContain("api.post('/projects/box-cleanup/lost', { orphans: true })");
+    expect(band).toContain('if (!o.orphaned?.timedOut) break;');
   });
 });

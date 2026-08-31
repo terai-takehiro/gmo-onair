@@ -38,8 +38,8 @@ import { syncNextActionsForStageSafe } from '../../../shared/services/next-actio
  * 失敗してもステージ変更は止めない（`...Safe`）。
  */
 import {
-  syncBoxFoldersForStageSafe, relinkProjectFolders, summarizeSkipReasons,
-  type RelinkResult, type SkipReason,
+  syncBoxFoldersForStageSafe, relinkProjectFolders, summarizeSkipReasons, cleanupOrphanFolders,
+  type RelinkResult, type SkipReason, type OrphanResult,
 } from './box-lost-cleanup.service';
 import { isBoxConfigured } from '../../../shared/services/box';
 
@@ -61,10 +61,7 @@ import { isBoxConfigured } from '../../../shared/services/box';
  * の2つだけ。**現役のネタ**や、人が別の理由で消した受注済み案件は触りません
  * （間違えて消した案件の BOX フォルダまで動かすと、戻すときに困ります）。
  */
-const LOST_BOX_JUNK_SQL = `(
-     stage = 'e_lost'
-     OR (stage = 'neta' AND deleted_at IS NOT NULL)
-   )`;
+const LOST_BOX_JUNK_SQL = `stage IN ('e_lost', 'neta')`;
 
 /**
  * 片づけ待ちの案件を選ぶ条件。**件数と対象で必ず同じものを使う**
@@ -2028,10 +2025,25 @@ export class ProjectService {
      * BOX を数回叩くので、片づけと足すと1リクエストが長くなりすぎる。
      */
     relink = false,
+    /**
+     * **どの案件にも結び付かない空フォルダを片づけるだけ**の往復。
+     * 名寄せ・案件ごとの片づけとは別に呼ぶ（1往復を長くしすぎない）。
+     */
+    orphans = false,
   ): Promise<{
     processed: number; remaining: number; boxConfigured: boolean;
     relinked?: RelinkResult; timedOut?: boolean; skipped?: SkipReason[];
+    orphaned?: OrphanResult;
   }> {
+    if (orphans) {
+      const orphaned = await cleanupOrphanFolders();
+      const left = await queryOne(`SELECT COUNT(*)::int AS c ${LOST_BOX_CLEANUP_TARGET_SQL}`) as { c?: number } | null;
+      return {
+        processed: orphaned.deleted, remaining: Number(left?.c ?? 0),
+        boxConfigured: isBoxConfigured(), timedOut: orphaned.timedOut, orphaned,
+      };
+    }
+
     if (relink) {
       const relinked = await relinkProjectFolders();
       const left0 = await queryOne(`SELECT COUNT(*)::int AS c ${LOST_BOX_CLEANUP_TARGET_SQL}`) as { c?: number } | null;

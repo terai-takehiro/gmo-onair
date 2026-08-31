@@ -49,12 +49,17 @@ interface RelinkResult { linked: number; complete: boolean; scanned: number }
  * （ユーザー報告「このように出て結局処理されない」）。
  */
 interface SkipReason { code: string; label: string; count: number; sample?: string }
+/** どの案件にも結び付かないフォルダの片づけ結果 */
+interface OrphanResult {
+  deleted: number; scanned: number; skipped: SkipReason[]; timedOut: boolean; complete: boolean;
+}
 interface RunResult {
   processed: number; remaining: number; boxConfigured: boolean;
   relinked?: RelinkResult;
   /** サーバーが時間切れで切り上げたか（残りは続けて呼べば進む） */
   timedOut?: boolean;
   skipped?: SkipReason[];
+  orphaned?: OrphanResult;
 }
 
 export function BoxCleanupBand() {
@@ -72,6 +77,8 @@ export function BoxCleanupBand() {
   const [relink, setRelink] = useState<RelinkResult | null>(null);
   /** 触らなかった理由（多い順）。**件数だけでなく理由まで出す** */
   const [skipped, setSkipped] = useState<SkipReason[]>([]);
+  /** 案件に結び付かないフォルダのぶん。**別に数えて別に出す**（混ぜると原因が読めない） */
+  const [orphan, setOrphan] = useState<{ deleted: number; scanned: number } | null>(null);
   const stopRef = useRef(false);
 
   const q = useQuery({
@@ -119,9 +126,28 @@ export function BoxCleanupBand() {
          */
         if (r.processed === 0 && !r.timedOut) break;
       }
+
+      /*
+       * **最後に、どの案件にも結び付かない空フォルダを片づける。**
+       * 実物の BOX で測ったところ、名寄せで **77 件中 13 件**がどの案件にも
+       * 結び付きませんでした。案件をたどる経路では**永久に触れない**ぶんです。
+       * ⚠️ 別の往復にするのは、1往復を長くしすぎないため（504 の反省）。
+       */
+      let orphanDeleted = 0;
+      let orphanScanned = 0;
+      for (;;) {
+        if (stopRef.current) break;
+        const o = (await api.post('/projects/box-cleanup/lost', { orphans: true })).data.data as RunResult;
+        orphanDeleted += o.orphaned?.deleted ?? 0;
+        orphanScanned += o.orphaned?.scanned ?? 0;
+        setDone(cleaned + orphanDeleted);
+        if (!o.orphaned?.timedOut) break;   // 時間切れのときだけ続ける
+      }
+
       return {
         cleaned, remaining: last?.remaining ?? 0, stopped: stopRef.current, relinked,
         skipped: last?.skipped ?? [],
+        orphan: { deleted: orphanDeleted, scanned: orphanScanned },
       };
     },
     onSuccess: (r) => {
@@ -129,7 +155,14 @@ export function BoxCleanupBand() {
       setStuck(r.remaining);
       setRelink(r.relinked ?? null);
       setSkipped(r.skipped ?? []);
+      setOrphan(r.orphan ?? null);
       if (r.stopped) { notifySuccess(`${r.cleaned} 件まで片づけて止めました（残り ${r.remaining} 件）`); return; }
+      const orphanTail = r.orphan && r.orphan.deleted > 0
+        ? `案件に結び付かない空フォルダも ${r.orphan.deleted} 件消しました。` : '';
+      if (r.cleaned === 0 && (r.orphan?.deleted ?? 0) > 0) {
+        notifySuccess(orphanTail);
+        return;
+      }
       if (r.cleaned === 0) {
         notifySuccess(
           r.relinked && r.relinked.linked === 0
@@ -140,8 +173,8 @@ export function BoxCleanupBand() {
       }
       notifySuccess(
         r.remaining > 0
-          ? `${r.cleaned} 件を片づけました。残り ${r.remaining} 件は確かめられなかったので触っていません`
-          : `${r.cleaned} 件をすべて片づけました`,
+          ? `${r.cleaned} 件を片づけました。残り ${r.remaining} 件は確かめられなかったので触っていません${orphanTail}`
+          : `${r.cleaned} 件をすべて片づけました${orphanTail}`,
       );
     },
     onError: (err) => {
@@ -178,7 +211,7 @@ export function BoxCleanupBand() {
       <div className="rounded-card border border-border bg-surface-subtle px-3.5 py-3">
         <p className="text-sub flex flex-wrap items-center gap-2 font-bold">
           <FolderArchive className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          失注・見送りの案件が {candidates} 件、BOX の現役の場所に残っている可能性があります
+          片づけられそうな BOX のフォルダが {candidates} 件あります
         </p>
         <p className="text-note mt-1 text-muted-foreground">
           いまは BOX につないでいないため片づけられません（設定の「外部サービス連携」で確認してください）。
@@ -191,11 +224,17 @@ export function BoxCleanupBand() {
     <div className="rounded-card border border-border bg-surface-subtle px-3.5 py-3">
       <p className="text-sub flex flex-wrap items-center gap-2 font-bold">
         <FolderArchive className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        失注・見送りの案件が {candidates} 件、BOX の現役の場所に残っています
+        片づけられそうな BOX のフォルダが {candidates} 件あります
       </p>
       <p className="text-note mt-1 text-muted-foreground">
-        中身が1つも無いものは削除し、見積書などが入っているものは「99_失注・見送り」へ移します。
-        案件を失注から戻すと元に戻ります。
+        失注・見送りの案件は、中身が1つも無ければ削除し、見積書などが入っていれば
+        「99_失注・見送り」へ移します（失注から戻すと元に戻ります）。
+        {/*
+          ⚠️ **引き合いのままの案件は「空なら消す」だけ。**
+          まだ失注ではないので、失注の置き場へ入れるのは間違い。
+        */}
+        引き合いのまま止まっている案件は、<b>中身が空のときだけ</b>消します
+        （中身があれば触りません）。
         {/*
           ⚠️ **台帳から外した案件のぶんも数える。** 外すと案件一覧には出ないので、
           この帯に出さないと「BOX に残っているのに、どこからも片づけられない」
@@ -239,6 +278,12 @@ export function BoxCleanupBand() {
 
       {/* **何件見て何件つながったかを必ず出す** — つながらなかったときに
           「BOX を調べたのか」が読めないと、押した人は次に何をすればよいか分からない */}
+      {!running && orphan && orphan.scanned > 0 && (
+        <p className="text-note mt-1.5 text-muted-foreground">
+          どの案件にも結び付かないフォルダ {orphan.scanned} 件を調べて {orphan.deleted} 件を消しました
+          （中身が空で、このアプリが作ったものだけ。人が作ったフォルダは触りません）。
+        </p>
+      )}
       {!running && relink && (
         <p className="text-note mt-1.5 text-muted-foreground">
           BOX のフォルダ {relink.scanned} 件を調べて {relink.linked} 件を案件に結び付けました

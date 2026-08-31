@@ -264,8 +264,7 @@ describe('台帳から外したあとも BOX を片づけられること', () =>
 
   it('片づけの対象を「台帳にある案件」だけに絞らない', () => {
     const junk = SVC.slice(SVC.indexOf('const LOST_BOX_JUNK_SQL'), SVC.indexOf('const LOST_BOX_CLEANUP_TARGET_SQL'));
-    expect(junk).toContain("stage = 'e_lost'");
-    expect(junk).toContain("stage = 'neta' AND deleted_at IS NOT NULL");
+    expect(junk).toContain("stage IN ('e_lost', 'neta')");
     // ⚠️ ここに deleted_at IS NULL が戻ると、外した案件のフォルダがまた孤児になる
     expect(junk).not.toContain('deleted_at IS NULL');
   });
@@ -275,14 +274,18 @@ describe('台帳から外したあとも BOX を片づけられること', () =>
     expect(SVC).toContain('const LOST_BOX_UNLINKED_SQL = `FROM projects\n   WHERE ${LOST_BOX_JUNK_SQL}');
   });
 
-  it('⚠️ 現役のネタや、別の理由で消した案件までは巻き込まない', () => {
-    // 間違えて消した受注済み案件の BOX フォルダまで動かすと、戻すときに困る
+  it('⚠️ 実務が動いている段階の案件までは巻き込まない', () => {
+    /*
+     * 提案中・受注済み・完了の BOX フォルダは触らない。
+     * 間違えて消した案件のフォルダまで動かすと、戻すときに困る。
+     * ⚠️ **引き合い（ネタ）は 2026-08-31 のご判断で対象に入れた**が、
+     * 生きているネタは「空なら消す」だけ（`emptyOnly`・失注の置き場へは入れない）。
+     */
     const junk = SVC.slice(SVC.indexOf('const LOST_BOX_JUNK_SQL'), SVC.indexOf('const LOST_BOX_CLEANUP_TARGET_SQL'));
     for (const alive of ['a_won', 's_completed', 'c_proposal', 'b_verbal', 'd_hold']) {
       expect(junk).not.toContain(`'${alive}'`);
     }
-    // 現役のネタ（deleted_at なし）は入らない
-    expect(junk).toContain("stage = 'neta' AND deleted_at IS NOT NULL");
+    expect(BOX).toContain("const emptyOnly = row.stage === 'neta' && !row.deleted_at");
   });
 
   it('片づける本体も、外した案件を読める', () => {
