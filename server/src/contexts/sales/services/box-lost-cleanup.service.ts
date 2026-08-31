@@ -277,7 +277,21 @@ export async function cleanupLostProjectFolders(projectId: string): Promise<void
   }
 
   if (archived === 0 && deleted === 0) {
-    if (notes.length) console.warn('[box-lost] 何もしませんでした:', projectId, notes.join(' / '));
+    /*
+     * ⚠️ **理由は残すが、片づけた印（`box_cleanup_state`）は付けない。**
+     *
+     * ここに来るのは「安全弁で見送った」「BOX が一時的に読めなかった」「BOX が
+     * 断った」のどれかで、**次に試せば片づくかもしれない**ものです。印を付けると
+     * 対象から永久に外れ、**放っておけば片づくはずのものが二度と片づきません**。
+     *
+     * 理由だけ書いておくのは、**触らなかったことに人が気づけない**ためです
+     * （消えていないことは画面から読めない）。まとめて片づける導線は
+     * 「1件も進まなかったら止まる」ので、これで無限に回ることもありません。
+     */
+    if (notes.length) {
+      console.warn('[box-lost] 何もしませんでした:', projectId, notes.join(' / '));
+      await execute('UPDATE projects SET box_cleanup_note = ? WHERE id = ?', [notes.join(' / '), projectId]);
+    }
     return;
   }
 

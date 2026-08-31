@@ -177,3 +177,41 @@ describe('ステージが動く全部の道から呼ばれていること', () =
     expect(sql).toContain('遡って片づけません');
   });
 });
+
+describe('まとめて片づける導線（過去の失注分）', () => {
+  const band = read('client', 'src', 'contexts', 'sales', 'pages', 'projectList', 'BoxCleanupBand.tsx');
+  const svc = read('server', 'src', 'contexts', 'sales', 'services', 'project.service.ts');
+
+  it('⚠️ 「残り0件」ではなく「1件も進まなかったら」で止める（安全弁で見送った行は印が付かないので、残り0件を待つと永久に回る）', () => {
+    expect(band).toContain('r.processed === 0');
+  });
+
+  it('1回のリクエストで全部やらない（フォルダ1件につきBOXを数回叩くのでタイムアウトする）', () => {
+    expect(band).toMatch(/const BATCH = \d+/);
+    expect(Number(band.match(/const BATCH = (\d+)/)![1])).toBeLessThanOrEqual(50);
+  });
+
+  it('長い処理に逃げ道がある（止められる）', () => {
+    expect(band).toContain('止める');
+    expect(band).toContain('stopRef');
+  });
+
+  it('触らなかったものを黙って消さずに数えて出す', () => {
+    expect(band).toMatch(/触っていません/);
+  });
+
+  it('件数は「見た件数」ではなく「本当に片づいた件数」を返す', () => {
+    // 印（box_cleanup_state）が付いた行だけを数え直していること
+    expect(svc).toMatch(/box_cleanup_state IS NOT NULL/);
+  });
+
+  it('⚠️ 片づかなかった行に印を付けない（付けると対象から永久に外れ、二度と片づかない）', () => {
+    const code = read('server', 'src', 'contexts', 'sales', 'services', 'box-lost-cleanup.service.ts');
+    // 注釈を落としてから、何もしなかったときに流す UPDATE 文だけを見る
+    const bare = code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    const noop = bare.slice(bare.indexOf('if (archived === 0 && deleted === 0)'));
+    const body = noop.slice(0, noop.indexOf('return;'));
+    expect(body).toContain('box_cleanup_note = ?');
+    expect(body).not.toContain('box_cleanup_state');
+  });
+});

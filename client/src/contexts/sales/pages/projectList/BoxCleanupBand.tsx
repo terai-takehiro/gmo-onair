@@ -1,19 +1,29 @@
 /**
- * **溜まっている失注・見送り案件の BOX フォルダを片づける帯**（migration 248）
+ * **溜まっている失注・見送り案件の BOX フォルダをまとめて片づける帯**（migration 248）
  *
- * ユーザー報告「失注や見送りのなった案件について BOX に残り続けてしまう」。
+ * ユーザー報告「失注や見送りのなった案件について BOX に残り続けてしまう」
+ * 「一括処理するボタンが欲しい／過去失注分をまとめて処分する」。
+ *
  * これから失注にするものは自動で片づきますが、**すでに溜まっているぶんは
  * 誰かが一度動かさないと残ります**。migration は遡って片づけません
  * （本番の BOX で数百フォルダが人の知らないうちに一斉に動くため）。
  *
- * ── 出し方の決めごと ────────────────────────────────────────
+ * ── なぜ「1回のリクエストで全部」にしないか ────────────────────
  *
- * **0件なら何も出しません。** 出しっぱなしにすると「押しても減らない帯」になり、
- * そのうち誰も読まなくなります（この製品が通知で通った道と同じ）。
- * **1回に触る件数を切って、残りを出します** — 押すたびに減るのが見えないと、
- * 終わったのかどうかが分かりません。
+ * フォルダ1件につき BOX を**数回**叩きます（読む → 中身を数える → 動かす）。
+ * 数百件を1リクエストでやると**必ずタイムアウトし、途中まで動いたのか
+ * 1件も動いていないのかが誰にも分かりません**。
+ * そこで**20件ずつ続けて呼び**、画面に進み具合を出します。
+ * 途中で止められ、押し直せば続きから進みます（片づいたものは対象から外れる）。
+ *
+ * ── ⚠️ 終わり方を「残り0件」にしない ───────────────────────────
+ *
+ * 安全弁で見送った行（親が違う・名前が違う・中身を数え切れない）は、
+ * **次に試せば片づくかもしれない**ので印を付けません。つまり残り件数に
+ * 残りつづけます。「残り0件まで回す」と**同じ行を永久に叩き続けます**。
+ * **1回も進まなかったら止める**のが正しい終わり方です。
  */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FolderArchive, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
@@ -24,12 +34,20 @@ const KEY = ['projects', 'box-cleanup', 'lost'];
 /** 1回に触る件数。BOX は1フォルダにつき数回叩くので、多くすると詰まる */
 const BATCH = 20;
 
+interface RunResult { processed: number; remaining: number; boxConfigured: boolean }
+
 export function BoxCleanupBand() {
   const { hasPermission } = useAuth();
   const qc = useQueryClient();
-  const [done, setDone] = useState(0);
   // ⚠️ **API と同じ権限で出す**（manager 以外に出すと「押せるのに 403」になる）
   const canRun = hasPermission('sales', 'manager');
+
+  const [running, setRunning] = useState(false);
+  const [done, setDone] = useState(0);
+  /** 押した時点の総数。進み具合を「N / M 件」で出すために覚える */
+  const [total, setTotal] = useState(0);
+  const [stuck, setStuck] = useState(0);
+  const stopRef = useRef(false);
 
   const q = useQuery({
     queryKey: KEY,
@@ -38,29 +56,45 @@ export function BoxCleanupBand() {
     enabled: canRun,
   });
 
-  const run = useMutation({
-    mutationFn: async () =>
-      (await api.post('/projects/box-cleanup/lost', { limit: BATCH })).data.data as
-        { processed: number; remaining: number; boxConfigured: boolean },
+  const runAll = useMutation({
+    mutationFn: async () => {
+      stopRef.current = false;
+      setDone(0);
+      setStuck(0);
+      setTotal(q.data?.remaining ?? 0);
+      setRunning(true);
+      let cleaned = 0;
+      let last: RunResult | null = null;
+      while (true) {
+        if (stopRef.current) break;
+        const r = (await api.post('/projects/box-cleanup/lost', { limit: BATCH })).data.data as RunResult;
+        last = r;
+        cleaned += r.processed;
+        setDone(cleaned);
+        qc.setQueryData(KEY, { remaining: r.remaining, boxConfigured: r.boxConfigured });
+        // **1件も進まなかったら止める**（残り0件を待つと永久に回る・上の説明）
+        if (r.processed === 0 || r.remaining === 0) break;
+      }
+      return { cleaned, remaining: last?.remaining ?? 0, stopped: stopRef.current };
+    },
     onSuccess: (r) => {
-      setDone((n) => n + r.processed);
-      qc.setQueryData(KEY, { remaining: r.remaining, boxConfigured: r.boxConfigured });
-      /*
-       * ⚠️ **1件も片づかなかったときに「0件を片づけました」と言わない。**
-       * 安全弁で見送った（親が違う・名前が違う・中身を数え切れない）ときは
-       * これが起きます。**何も起きなかったことを、何も起きなかったと言う**
-       */
-      if (r.processed === 0) {
+      setRunning(false);
+      setStuck(r.remaining);
+      if (r.stopped) { notifySuccess(`${r.cleaned} 件まで片づけて止めました（残り ${r.remaining} 件）`); return; }
+      if (r.cleaned === 0) {
         notifySuccess('片づけられるものがありませんでした（安全のため、確かめられなかったフォルダは触っていません）');
         return;
       }
       notifySuccess(
         r.remaining > 0
-          ? `${r.processed} 件を片づけました（残り ${r.remaining} 件・もう一度押すと続きから進みます）`
-          : `${r.processed} 件を片づけました。片づけ待ちはもうありません`,
+          ? `${r.cleaned} 件を片づけました。残り ${r.remaining} 件は確かめられなかったので触っていません`
+          : `${r.cleaned} 件をすべて片づけました`,
       );
     },
-    onError: (err) => notifyApiError('BOXフォルダを片づけられませんでした', err),
+    onError: (err) => {
+      setRunning(false);
+      notifyApiError(`BOXフォルダを片づけられませんでした（${done} 件まで進みました）`, err);
+    },
   });
 
   const remaining = q.data?.remaining ?? 0;
@@ -71,8 +105,7 @@ export function BoxCleanupBand() {
    * 押しても1件も減らないので、押した人には理由が分かりません
    * （この製品が「押せるのに403」で通った道と同じ）。
    */
-  const configured = q.data?.boxConfigured !== false;
-  if (!configured) {
+  if (q.data?.boxConfigured === false) {
     return (
       <div className="rounded-card border border-border bg-surface-subtle px-3.5 py-3">
         <p className="text-sub flex flex-wrap items-center gap-2 font-bold">
@@ -94,18 +127,40 @@ export function BoxCleanupBand() {
       </p>
       <p className="text-note mt-1 text-muted-foreground">
         中身が1つも無いものは削除し、見積書などが入っているものは「99_失注・見送り」へ移します。
-        案件を失注から戻すと元に戻ります。1回に {BATCH} 件までです。
+        案件を失注から戻すと元に戻ります。
       </p>
-      <button
-        type="button"
-        onClick={() => run.mutate()}
-        disabled={run.isPending}
-        className="text-sub mt-2 inline-flex min-h-tap items-center gap-1.5 rounded-control border border-border bg-card px-3 font-bold hover:bg-muted disabled:opacity-60 lg:min-h-[36px]"
-      >
-        {run.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
-        {run.isPending ? '片づけています…' : `${Math.min(BATCH, remaining)} 件を片づける`}
-      </button>
-      {done > 0 && <span className="text-note ml-2 text-muted-foreground">この画面で {done} 件片づけました</span>}
+
+      {running ? (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="text-sub inline-flex items-center gap-1.5 font-bold">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            片づけています… {done} / {total} 件
+          </span>
+          {/* **長い処理には必ず逃げ道を置く。** いま動いている20件ぶんが終わったら止まる */}
+          <button
+            type="button"
+            onClick={() => { stopRef.current = true; }}
+            className="text-sub inline-flex min-h-tap items-center rounded-control border border-border bg-card px-3 font-bold hover:bg-muted lg:min-h-[36px]"
+          >
+            止める
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => runAll.mutate()}
+          className="text-sub mt-2 inline-flex min-h-tap items-center gap-1.5 rounded-control border border-border bg-card px-3 font-bold hover:bg-muted lg:min-h-[36px]"
+        >
+          {remaining} 件をまとめて片づける
+        </button>
+      )}
+
+      {!running && stuck > 0 && (
+        <p className="text-note mt-1.5 text-muted-foreground">
+          残り {stuck} 件は、置き場所や名前が想定と違うか中身を数え切れなかったため触っていません
+          （案件を開くと BOX フォルダのリンクから確かめられます）。
+        </p>
+      )}
     </div>
   );
 }
