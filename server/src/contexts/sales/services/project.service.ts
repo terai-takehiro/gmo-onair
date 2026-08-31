@@ -32,6 +32,21 @@ import { jstDate } from '../../../shared/utils/jst';
  * 新しい経路が増えるたびにゴミの出どころが1つ増える。
  */
 import { syncNextActionsForStageSafe } from '../../../shared/services/next-action-state';
+/**
+ * **失注・見送りの BOX フォルダの片づけも同じ集約点から呼ぶ**（migration 248）。
+ * 中身が1つも無ければ削除・あれば `99_失注・見送り` へ引っ越す。失注から戻せば元へ返る。
+ * 失敗してもステージ変更は止めない（`...Safe`）。
+ */
+import { syncBoxFoldersForStageSafe } from './box-lost-cleanup.service';
+import { isBoxConfigured } from '../../../shared/services/box';
+
+/**
+ * 片づけ待ちの失注案件を選ぶ条件。**件数と対象で必ず同じものを使う**
+ * （写すと「10件と出ているのに押すと3件しか進まない」が起きる）。
+ */
+const LOST_BOX_CLEANUP_TARGET_SQL = `FROM projects
+   WHERE deleted_at IS NULL AND stage = 'e_lost' AND box_cleanup_state IS NULL
+     AND (box_url_internal IS NOT NULL OR box_url_external IS NOT NULL)`;
 
 /**
  * 引き合いの入口と確信 (migration 165)。**DB の CHECK と同じ集合**にすること。
@@ -471,6 +486,16 @@ export async function recordStageTransition(
    * 少し残るより、**失注にできないほうが業務は確実に止まる**。
    */
   await syncNextActionsForStageSafe(id, toStage);
+
+  /*
+   * ── 失注・見送りになった案件の BOX フォルダを現役の場所から片づける ──
+   *
+   * ⚠️ **無条件には消しません。** 見積書・請求書・検収書の原本は BOX にしか
+   * 無いので、**中身が1つでもあれば `99_失注・見送り` へ引っ越すだけ**にし、
+   * 空のものだけ本当に消します（詳しい理由は `box-lost-cleanup.service.ts` の頭注）。
+   * ここも `...Safe` — BOX が詰まった日に失注にできなくなるほうが困ります。
+   */
+  await syncBoxFoldersForStageSafe(id, toStage);
 }
 
 /**
@@ -1084,7 +1109,13 @@ export class ProjectService {
      */
     const bulkStage = typeof set.stage === 'string' && STAGES.includes(set.stage) ? set.stage : null;
     if (bulkStage) {
-      for (const id of ids) await syncNextActionsForStageSafe(id, bulkStage);
+      for (const id of ids) {
+        await syncNextActionsForStageSafe(id, bulkStage);
+        // 一括で指定できるのは `s_completed` まで（受注・失注はここで 400）なので、
+        // ここを通るのは実質「失注から戻した」側だけ。呼んでおかないと
+        // **一括で終了を外した案件のフォルダが置き場に取り残される**
+        await syncBoxFoldersForStageSafe(id, bulkStage);
+      }
     }
     return { updated: ids.length };
   }
@@ -1892,6 +1923,56 @@ export class ProjectService {
    * - 片方だけある場合は無い側のみ補填
    * - GLS 未発番なら OPP コード、発番済みなら GLS 番号で命名
    */
+  /**
+   * 片づけ待ちの失注案件。**件数と対象を同じ式から引く**（数と中身が食い違わないように）。
+   *
+   * `boxConfigured` も返す — **繋いでいないときに「N件あります」だけ出すと、
+   * 押しても減らない帯**になり、人は理由が分からないまま押し続けます。
+   */
+  async countLostBoxFoldersToClean(): Promise<{ remaining: number; boxConfigured: boolean }> {
+    const row = await queryOne(`SELECT COUNT(*)::int AS c ${LOST_BOX_CLEANUP_TARGET_SQL}`) as { c?: number } | null;
+    return { remaining: Number(row?.c ?? 0), boxConfigured: isBoxConfigured() };
+  }
+
+  /**
+   * **溜まっている失注・見送り案件の BOX フォルダをまとめて片づける。**
+   *
+   * migration 248 は既存分を遡らない（本番の BOX で数百フォルダが一斉に動くのを
+   * 人が知らないうちに起こさないため）ので、溜まっているぶんはここから。
+   *
+   * ⚠️ **1回の件数を必ず切ります。** BOX は1フォルダにつき数回叩くので、
+   * 数百件を一度にやると詰まります。押し直せば続きから進みます
+   * （片づけたものは `box_cleanup_state` が入るのでもう選ばれない）。
+   *
+   * @returns **本当に片づいた件数**と、残っている件数（**残数を返さないと「終わったのか」が分からない**）
+   */
+  async cleanupLostBoxFolders(limit: number): Promise<{ processed: number; remaining: number; boxConfigured: boolean }> {
+    const targetSql = LOST_BOX_CLEANUP_TARGET_SQL;
+    const rows = await queryAll(`SELECT id ${targetSql} ORDER BY lost_at ASC NULLS LAST LIMIT ?`, [limit]) as { id: string }[];
+    for (const r of rows) await syncBoxFoldersForStageSafe(r.id, 'e_lost');
+
+    /*
+     * ⚠️ **「見た件数」ではなく「本当に片づいた件数」を返す。**
+     * BOX に繋いでいない・安全弁で見送った・BOX が断った、のどれでも
+     * `syncBoxFoldersForStageSafe` は静かに何もしません。見た件数を返すと
+     * **「3件片づけました」と出るのに残りが3件のまま**という、押した人が
+     * 何を信じてよいか分からない画面になります（`countHonesty` の戒め）。
+     * 片づいた印（`box_cleanup_state`）が付いた行だけを数え直します。
+     */
+    const ids = rows.map((r) => r.id);
+    let processed = 0;
+    if (ids.length > 0) {
+      const done = await queryOne(
+        `SELECT COUNT(*)::int AS c FROM projects
+          WHERE id IN (${ids.map(() => '?').join(', ')}) AND box_cleanup_state IS NOT NULL`,
+        ids,
+      ) as { c?: number } | null;
+      processed = Number(done?.c ?? 0);
+    }
+    const left = await queryOne(`SELECT COUNT(*)::int AS c ${targetSql}`) as { c?: number } | null;
+    return { processed, remaining: Number(left?.c ?? 0), boxConfigured: isBoxConfigured() };
+  }
+
   async createBoxFolder(
     id: string,
   ): Promise<{ urlInternal: string | null; urlExternal: string | null; already: boolean }> {

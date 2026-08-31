@@ -32,6 +32,11 @@ import { recordIntakeDecision } from './project-ai-feedback.service';
  * 集約点に足しただけでは機械が作ったゴミが残りつづける。
  */
 import { syncNextActionsForStageSafe } from '../../../shared/services/next-action-state';
+/**
+ * BOX フォルダの片づけも同じ理由でここから呼ぶ（自動見送りは
+ * `recordStageTransition()` を通らないので、集約点に足しただけでは効かない）。
+ */
+import { syncBoxFoldersForStageSafe } from './box-lost-cleanup.service';
 
 /**
  * 何日動いていなければ「停滞」か（ステージ別・初期値）。
@@ -265,6 +270,13 @@ export async function autoLoseStaleNeta(): Promise<TidyRow[]> {
       // **`RETURNING id` で実際に動いた行だけ**（上のレース対策と同じ理由 —
       // 人が先に触って `neta` でなくなっていた案件のやることを閉じてはいけない）
       await syncNextActionsForStageSafe(r.id, 'e_lost');
+      /*
+       * ⚠️ **機械が見送りにした案件でも BOX を片づける**（ご判断「自動失注も含めて全部」）。
+       * ただし**消えるのは中身が1つも無いフォルダだけ**なので、誰も中身を見ていない
+       * 案件で書類が消えることはありません（中身があれば置き場へ引っ越すだけ）。
+       * 90日動いていないネタが対象なので、そもそも大半は空です。
+       */
+      await syncBoxFoldersForStageSafe(r.id, 'e_lost');
       done.push(r);
     } catch (e) {
       // 1件の失敗で残りを止めない（scheduler の決めごとと同じ）

@@ -288,6 +288,29 @@ router.post(
   },
 );
 
+/**
+ * **溜まっている失注・見送り案件の BOX フォルダをまとめて片づける**（migration 248）。
+ *
+ * migration 248 は既存の失注案件を**遡って片づけません** — 本番の BOX で数百
+ * フォルダが一斉に動くのを、人が知らないうちに起こさないためです。
+ * 溜まっているぶんはこの口から、**人が押したときだけ**動かします。
+ *
+ * 1回に触る件数を必ず切ります（`limit`・既定20・上限100）。BOX は1フォルダにつき
+ * 「読む→中身を数える→動かす」で数回叩くので、一度に数百件やると詰まります。
+ * **押し直せば続きから進みます**（片づけ済みは `box_cleanup_state` で除かれる）。
+ */
+router.get('/box-cleanup/lost', requirePermission('sales', 'manager'), async (_req, res) => {
+  // **0件なら画面に何も出さないため**の件数。出しっぱなしにすると
+  // 「押しても減らない帯」になり、そのうち誰も読まなくなる
+  res.json({ success: true, data: await projectService.countLostBoxFoldersToClean() });
+});
+
+router.post('/box-cleanup/lost', requirePermission('sales', 'manager'), async (req, res) => {
+  const limit = Math.min(Math.max(Number(req.body?.limit) || 20, 1), 100);
+  const result = await projectService.cleanupLostBoxFolders(limit);
+  res.json({ success: true, data: result });
+});
+
 // BOX フォルダ手動作成 (既存案件向けバックフィル / 失敗ケースのリトライ)
 router.post('/:id/create-box-folder', requirePermission('sales', 'manager'), async (req, res) => {
   const result = await projectService.createBoxFolder(req.params.id as string);
