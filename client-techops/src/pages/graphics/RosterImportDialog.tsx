@@ -3,8 +3,17 @@
 // テンプレート×名簿から作る」・§9 段5。
 //
 // `client-awards/src/oneshot/operator/ExcelImportDialog.tsx` の Phase 分割を参考にしたが、
-// diff（新規/更新/変更なし）・列タイプの自動判定は無いぶんずっと軽い実装
-// — ①ファイル選択 → ②部品・スロット選択＋列マッピング → ③プレビュー → ④一括作成 の4段。
+// diff（新規/更新/変更なし）・CG項目カタログ（グループ化・複数選択肢からの割当）は無いぶん
+// ずっと軽い実装 — ①ファイル選択 → ②部品・スロット選択＋列マッピング（型判定・推奨つき）→
+// ③プレビュー（先頭数行）→ ④dry-run（全行の件数確認）→ ⑤一括作成 の5段
+// （docs/design/v4/graphics-awards-migration-plan.md §2-2の8番）。
+//
+// 列の型自動判定・推奨マッピングは「部品が決まって初めて計算できる」ため、ファイル選択時点
+// （part 未確定）では型判定だけのプレビューを取り、その後 part を選ぶ・切り替えるたびに
+// 同じ preview API を fieldCandidates 付きで呼び直して推奨を再計算する
+// （＝「ファイル選択→プレビュー(型のみ)→部品選択→推奨マッピング再計算」の設計。
+// ファイルは小さい名簿が前提なので、都度の再送で十分速い — 一括作成の commit も
+// 同じくファイルを毎回送る設計に揃えている）。
 import { useState } from 'react';
 import { AlertCircle, CheckCircle2, FileSpreadsheet, Loader2, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,19 +23,37 @@ import {
 import { notifyError } from '@/lib/notify';
 import {
   commitGraphicsRoster, previewGraphicsRoster, PART_DEFAULT_SLOT,
-  type GraphicsPartKey, type GraphicsSlot, type RosterCommitResult, type RosterPreviewResult,
+  type GraphicsPartKey, type GraphicsSlot, type RosterCommitResult, type RosterFieldCandidate,
+  type RosterPreviewResult,
 } from '@/lib/graphicsApi';
 import { PART_FIELDS } from './pageFields';
 import RosterMappingStep from './RosterMappingStep';
+import RosterDryRunSummary from './RosterDryRunSummary';
 
 /** ページ名の代表フィールド（サーバー側 `roster-import.service.ts` と同じ対応。
- *  プレビューの見え方をサーバーの実際の判定と揃えるための表示専用の複製） */
+ *  プレビューの見え方をサーバーの実際の判定と揃えるための表示専用の複製）。
+ *
+ *  `title` はフィールド定義の刷新（`text` → `title`/`speaker`/`speakerTitle`）に合わせて
+ *  `title` に更新した。`list` は項目配列（`items`・kind:'list-items'）が
+ *  RosterMappingStep の列マッピング対象から外れており（可変長配列はCSVの1列と噛み合わない）、
+ *  代表にできる1行テキスト欄がそもそも無くなった — `items` を指しておくが実際には
+ *  常に空になるため、一覧表の名簿一括生成は「ページ名に使う列」を必ず手動指定する運用になる
+ *  （名簿1行＝1ページという roster import の設計自体、複数項目を1ページに積む一覧表とは
+ *  もともと相性が悪い） */
 const REPRESENTATIVE_FIELD: Record<GraphicsPartKey, string> = {
-  name: 'mainText', title: 'text', list: 'text', ticker: 'text',
+  name: 'mainText', title: 'title', list: 'items', ticker: 'text',
   countdown: 'prefix', score: 'text', flash: 'text', side: 'text', vote: 'text',
 };
 
-type Phase = 'select' | 'mapping' | 'preview' | 'creating' | 'done';
+type Phase = 'select' | 'mapping' | 'preview' | 'dryrun' | 'creating' | 'done';
+
+/** 現在の部品のフィールド定義から、推奨マッピングの突き合わせ候補（key/label）を作る。
+ *  RosterMappingStep の列マッピング対象と同じ絞り込み（kind 付きの可変長欄は除く）。 */
+function fieldCandidatesOf(partKey: GraphicsPartKey): RosterFieldCandidate[] {
+  return (PART_FIELDS[partKey] ?? [])
+    .filter((def) => def.kind == null)
+    .map((def) => ({ key: def.key, label: def.label }));
+}
 
 export default function RosterImportDialog({
   open, onOpenChange, projectId, onImported,
@@ -40,17 +67,20 @@ export default function RosterImportDialog({
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<RosterPreviewResult | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [suggestLoading, setSuggestLoading] = useState(false);
   const [slot, setSlot] = useState<GraphicsSlot>('lower');
   const [partKey, setPartKey] = useState<GraphicsPartKey>('name');
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [nameColumn, setNameColumn] = useState('');
   const [creating, setCreating] = useState(false);
+  const [dryRunResult, setDryRunResult] = useState<RosterCommitResult | null>(null);
   const [result, setResult] = useState<RosterCommitResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const reset = () => {
     setPhase('select'); setFile(null); setPreview(null); setSlot('lower');
-    setPartKey('name'); setMapping({}); setNameColumn(''); setResult(null); setError(null);
+    setPartKey('name'); setMapping({}); setNameColumn('');
+    setDryRunResult(null); setResult(null); setError(null);
   };
 
   const close = () => { onOpenChange(false); reset(); };
@@ -60,7 +90,7 @@ export default function RosterImportDialog({
     setError(null);
     setLoadingPreview(true);
     try {
-      const p = await previewGraphicsRoster(projectId, f);
+      const p = await previewGraphicsRoster(projectId, f, fieldCandidatesOf('name'));
       setPreview(p);
       setPartKey('name');
       setSlot(PART_DEFAULT_SLOT.name);
@@ -79,6 +109,31 @@ export default function RosterImportDialog({
     setSlot(PART_DEFAULT_SLOT[k]);
     setMapping({});
     setNameColumn('');
+    if (!file) return;
+    // 型判定は部品によらず変わらないが、推奨マッピングは部品ごとのフィールドに対して
+    // 計算するもの（サーバー側は PART_FIELDS を持たない）なので、部品を切り替えるたびに
+    // 同じファイルを添えて preview を呼び直す。既存の列一覧・サンプルは残したまま
+    // 推奨だけ更新されるよう、ローディングは控えめな注記だけにする。
+    setSuggestLoading(true);
+    void previewGraphicsRoster(projectId, file, fieldCandidatesOf(k))
+      .then((p) => setPreview(p))
+      .catch(() => { /* 推奨の再計算に失敗しても致命的ではない。列一覧は前の内容のまま */ })
+      .finally(() => setSuggestLoading(false));
+  };
+
+  const runDryRun = async () => {
+    if (!file) return;
+    setError(null);
+    setCreating(true);
+    try {
+      const r = await commitGraphicsRoster(projectId, file, slot, partKey, mapping, nameColumn || undefined, true);
+      setDryRunResult(r);
+      setPhase('dryrun');
+    } catch {
+      notifyError('確認に失敗しました');
+    } finally {
+      setCreating(false);
+    }
   };
 
   const runCommit = async () => {
@@ -87,13 +142,13 @@ export default function RosterImportDialog({
     setCreating(true);
     setPhase('creating');
     try {
-      const r = await commitGraphicsRoster(projectId, file, slot, partKey, mapping, nameColumn || undefined);
+      const r = await commitGraphicsRoster(projectId, file, slot, partKey, mapping, nameColumn || undefined, false);
       setResult(r);
       setPhase('done');
       if (r.createdCount > 0) onImported();
     } catch {
       notifyError('一括作成に失敗しました');
-      setPhase('preview');
+      setPhase('dryrun');
     } finally {
       setCreating(false);
     }
@@ -141,6 +196,8 @@ export default function RosterImportDialog({
             </p>
             <RosterMappingStep
               headers={preview.headers}
+              columns={preview.columns}
+              suggestLoading={suggestLoading}
               slot={slot}
               partKey={partKey}
               mapping={mapping}
@@ -156,6 +213,8 @@ export default function RosterImportDialog({
         {phase === 'preview' && preview && (
           <PreviewTable preview={preview} partKey={partKey} mapping={mapping} nameColumn={nameColumn} />
         )}
+
+        {phase === 'dryrun' && dryRunResult && <RosterDryRunSummary result={dryRunResult} />}
 
         {phase === 'creating' && (
           <div className="flex flex-col items-center gap-3 p-12 text-muted-foreground">
@@ -187,8 +246,27 @@ export default function RosterImportDialog({
               <Button type="button" variant="outline" className="min-h-[44px]" onClick={() => setPhase('mapping')}>
                 戻る
               </Button>
-              <Button type="button" className="min-h-[44px]" onClick={() => void runCommit()} disabled={creating}>
-                {preview ? `一括作成（全${preview.totalRows}行）` : '一括作成'}
+              <Button type="button" className="min-h-[44px]" onClick={() => void runDryRun()} disabled={creating}>
+                {creating ? '確認中…' : '確認する'}
+              </Button>
+            </>
+          )}
+          {phase === 'dryrun' && dryRunResult && (
+            <>
+              <Button type="button" variant="outline" className="min-h-[44px]" onClick={() => { setPhase('preview'); setDryRunResult(null); }}>
+                戻る
+              </Button>
+              <Button
+                type="button"
+                className="min-h-[44px]"
+                onClick={() => void runCommit()}
+                disabled={creating || dryRunResult.createdCount === 0}
+              >
+                {creating
+                  ? '作成中…'
+                  : dryRunResult.createdCount > 0
+                  ? `投入する（${dryRunResult.createdCount}件作成）`
+                  : '投入する行がありません'}
               </Button>
             </>
           )}

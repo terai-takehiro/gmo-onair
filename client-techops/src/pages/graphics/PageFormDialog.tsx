@@ -32,6 +32,8 @@ import { ScoreEntriesEditor } from './ScoreEntriesEditor';
 import { defaultScoreEntries, normalizeScoreEntries } from './scoreEntries';
 import { VoteChoicesEditor } from './VoteChoicesEditor';
 import { defaultVoteChoices, normalizeVoteChoices } from './voteChoices';
+import { ListItemsEditor } from './ListItemsEditor';
+import { defaultListItems, normalizeListItems } from './listItems';
 
 const PROOF_KEYS: GraphicsProofState[] = ['draft', 'unproofed', 'proofed'];
 
@@ -91,6 +93,8 @@ export default function PageFormDialog({
           ? normalizeScoreEntries(v)
           : def.kind === 'choices'
           ? normalizeVoteChoices(v)
+          : def.kind === 'list-items'
+          ? normalizeListItems(v)
           : typeof v === 'string' ? v : v == null ? '' : String(v);
         // 英語欄（`${key}En`）も同じページから拾う（pageFields.ts の bilingual フィールドだけ）
         if (def.bilingual) {
@@ -110,7 +114,15 @@ export default function PageFormDialog({
       defs.forEach((def, i) => {
         if (def.kind === 'entries') next[def.key] = defaultScoreEntries();
         else if (def.kind === 'choices') next[def.key] = defaultVoteChoices();
-        else if (i === 0 && initialValues?.firstFieldValue) next[def.key] = initialValues.firstFieldValue;
+        // 発注（テロ原）からの変換で detail が来ているときは、空欄より1件目に
+        // 入れて渡したほうが情報が残る（列配列なので firstFieldValue をそのまま代入できない）
+        else if (def.kind === 'list-items') {
+          next[def.key] = i === 0 && initialValues?.firstFieldValue
+            ? [initialValues.firstFieldValue]
+            : defaultListItems();
+        } else if (def.type === 'select-number') {
+          next[def.key] = String(def.numberDefault ?? def.numberOptions?.[0] ?? '');
+        } else if (i === 0 && initialValues?.firstFieldValue) next[def.key] = initialValues.firstFieldValue;
         if (def.bilingual) next[`${def.key}En`] = '';
       });
       setFields(next);
@@ -124,6 +136,8 @@ export default function PageFormDialog({
     for (const def of PART_FIELDS[key] ?? []) {
       if (def.kind === 'entries') next[def.key] = defaultScoreEntries();
       else if (def.kind === 'choices') next[def.key] = defaultVoteChoices();
+      else if (def.kind === 'list-items') next[def.key] = defaultListItems();
+      else if (def.type === 'select-number') next[def.key] = String(def.numberDefault ?? def.numberOptions?.[0] ?? '');
       if (def.bilingual) next[`${def.key}En`] = '';
     }
     setFields(next);
@@ -221,6 +235,35 @@ export default function PageFormDialog({
                     choiceLabelLimit={def.choiceLabelLimit}
                     onChange={(next) => setFields((prev) => ({ ...prev, [def.key]: next }))}
                   />
+                );
+              }
+              if (def.kind === 'list-items') {
+                return (
+                  <ListItemsEditor
+                    key={def.key}
+                    label={def.label}
+                    items={normalizeListItems(fields[def.key])}
+                    maxItems={def.maxListItems}
+                    itemLimit={def.itemLimit}
+                    onChange={(next) => setFields((prev) => ({ ...prev, [def.key]: next }))}
+                  />
+                );
+              }
+              if (def.type === 'select-number' && def.numberOptions) {
+                const rawNum = fields[def.key];
+                const numValue = typeof rawNum === 'string' ? rawNum : rawNum == null ? '' : String(rawNum);
+                return (
+                  <div key={def.key}>
+                    <Label htmlFor={`graphics-field-${def.key}`}>{def.label}</Label>
+                    <Select value={numValue} onValueChange={(v) => setFields((prev) => ({ ...prev, [def.key]: v }))}>
+                      <SelectTrigger id={`graphics-field-${def.key}`} className="mt-1 min-h-[44px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {def.numberOptions.map((n) => (
+                          <SelectItem key={n} value={String(n)}>{n}列</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 );
               }
               const raw = fields[def.key];

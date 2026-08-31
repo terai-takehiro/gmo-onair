@@ -110,9 +110,23 @@
    （`PageFormDialog.tsx`）は本体の入力欄のすぐ下に英語欄を自動追加し、ライブプレビュー
    （`PageLivePreview.tsx`）にも試写用の日英切替トグルを付けた。⚠️ 題字（`title`）・一覧表
    （`list`）は、フォームの入力キー（`text`）と出力レンダラーが読むキー（`title`/`items`）が
-   もともと一致しておらずフォーム入力が出力に反映されない既知の不整合があり（今回のタスクとは
-   無関係の既存差分）、多言語化の対象から外した（`pageFields.ts` にコメントで明記）
-8. 名簿取込の列自動判定・dry-runが無い
+   もともと一致しておらずフォーム入力が出力に反映されない既知の不整合があった（当時は今回の
+   タスクとは無関係の既存差分として多言語化の対象から外していた）が、**2026-08-31 に修正済み**
+   — `pageFields.ts` の `title` を `title`/`speaker`/`speakerTitle` の3欄、`list` を
+   `items`（新設 `ListItemsEditor.tsx` による可変長配列）＋`columns`（列数セレクト）に
+   組み替え、フォーム入力が実ブラウザ・実DBで出力へ反映されることを確認した
+   （引き続き `title`/`list` はレンダラーが `lang` を受け取らないため多言語化の対象外）
+8. 名簿取込の列自動判定・dry-runが無い → **実装済み（2026-08-31）**。`roster-import.service.ts`
+   の `previewRosterExcel` が列ごとに型（空/数値/日付/短文/長文の5種）を自動判定し、呼び出し側
+   （`RosterImportDialog.tsx`）が現在選択中の部品の `PART_FIELDS`（key/label）を
+   `fieldCandidates` として渡すと、`normalizeHeader` による表記ゆれ吸収つきの完全一致／部分
+   一致で推奨マッピング（`suggestedKey`/`suggestedConfidence`）も返す。部品を切り替えるたびに
+   同じ preview API を呼び直して推奨を再計算する設計（列一覧・型判定は `RosterColumnPanel.tsx`
+   が表示、ワンクリックで採用可）。`commitRosterImport` は `dryRun: true` でDBに書き込まず
+   件数（作成/空行スキップ/エラー行）だけを返し、UIは「確認する→件数を見る→投入する」の
+   2段の確認フローになった（`RosterDryRunSummary.tsx`）。awardsにある**diff（新規/更新/
+   変更なし）の判定は対象外**（テロップCGの名簿一括生成は常に新規ページを作るだけで、
+   既存エントリとの突き合わせという概念自体が無いため不要）。
 9. 写真・画像フィールドが `pageFields.ts` に存在しない（テキスト系のみ）
 10. 発注フォームの添付画像は既にスコープ外と明記済み
 

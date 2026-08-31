@@ -6,18 +6,23 @@ import {
 } from '@/components/ui/select';
 import {
   GRAPHICS_SLOTS, PART_LABELS, SLOT_LABELS,
-  type GraphicsPartKey, type GraphicsSlot,
+  type GraphicsPartKey, type GraphicsSlot, type RosterColumnAnalysis,
 } from '@/lib/graphicsApi';
 import { PART_FIELDS, PART_KEYS } from './pageFields';
+import RosterColumnPanel from './RosterColumnPanel';
 
 const NONE = '__none__';
 const AUTO = '__auto__';
 
 export default function RosterMappingStep({
-  headers, slot, partKey, mapping, nameColumn,
+  headers, columns, suggestLoading, slot, partKey, mapping, nameColumn,
   onSlotChange, onPartKeyChange, onMappingChange, onNameColumnChange,
 }: {
   headers: string[];
+  /** 列ごとの型自動判定＋推奨マッピング（`RosterImportDialog` が部品切替のたびに取得し直す） */
+  columns: RosterColumnAnalysis[];
+  /** 部品を切り替えた直後、推奨マッピングを再計算中かどうか */
+  suggestLoading?: boolean;
   slot: GraphicsSlot;
   partKey: GraphicsPartKey;
   mapping: Record<string, string>;
@@ -34,6 +39,11 @@ export default function RosterMappingStep({
     else next[fieldKey] = header;
     onMappingChange(next);
   };
+
+  // kind 付き欄（score の entries・vote の choices・一覧表の items）は専用UIで編集する
+  // 可変長配列で、CSV の1列を単純に流し込む形と噛み合わない（配列に生文字列が入って壊れる）
+  // ため、名簿の列マッピング対象からは外す（列一覧の推奨表示も同じ対象に絞る）。
+  const fieldDefs = (PART_FIELDS[partKey] ?? []).filter((def) => def.kind == null);
 
   return (
     <div className="space-y-4 p-4 sm:p-6">
@@ -62,15 +72,20 @@ export default function RosterMappingStep({
         </div>
       </div>
 
+      <RosterColumnPanel
+        columns={columns}
+        fieldDefs={fieldDefs}
+        mapping={mapping}
+        loading={suggestLoading}
+        onAdopt={setField}
+      />
+
       <div className="rounded-card border border-border bg-card p-3 sm:p-4">
         <p className="mb-3 text-th font-bold text-muted-foreground">
           列を割り当ててください（{PART_LABELS[partKey]}の入力欄）
         </p>
         <div className="space-y-3">
-          {/* kind 付き欄（score の entries・vote の choices）は専用UIで編集する可変長配列で、
-              CSV の1列を単純に流し込む形と噛み合わない（配列に生文字列が入って壊れる）ため、
-              名簿の列マッピング対象からは外す */}
-          {(PART_FIELDS[partKey] ?? []).filter((def) => def.kind == null).map((def) => (
+          {fieldDefs.map((def) => (
             <div key={def.key} className="grid grid-cols-1 items-center gap-1.5 sm:grid-cols-[220px_minmax(0,1fr)] sm:gap-3">
               <Label htmlFor={`roster-map-${def.key}`} className="sm:text-right">{def.label}</Label>
               <Select

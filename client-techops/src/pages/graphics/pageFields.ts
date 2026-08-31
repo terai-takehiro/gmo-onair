@@ -12,8 +12,8 @@ import type { GraphicsPartKey } from '@/lib/graphicsApi';
 export interface PartFieldDef {
   key: string;
   label: string;
-  type?: 'datetime-local';
-  /** 目安の上限文字数（無指定＝カウンターを出さない。datetime 系には付けない） */
+  type?: 'datetime-local' | 'select-number';
+  /** 目安の上限文字数（無指定＝カウンターを出さない。datetime 系・select-number には付けない） */
   limit?: number;
   /**
    * 通常の1行テキスト欄ではなく専用UIで編集する欄の種別。
@@ -21,9 +21,12 @@ export interface PartFieldDef {
    * `client-techops/src/pages/graphics/ScoreEntriesEditor.tsx` が編集UIを持つ）。
    * `'choices'` = 投票・クイズの選択肢の可変長配列（{label, votes}[]・投票・クイズ専用。
    * `client-techops/src/pages/graphics/VoteChoicesEditor.tsx` が編集UIを持つ）。
+   * `'list-items'` = 一覧表の項目の可変長配列（string[]・一覧表専用。対戦者/選択肢と違い
+   * 構造体ではなく文字列1本でよい。`client-techops/src/pages/graphics/ListItemsEditor.tsx`
+   * が編集UIを持つ）。
    * 無指定＝従来どおりの1行テキスト欄（`limit` はこちらの対象）。
    */
-  kind?: 'entries' | 'choices';
+  kind?: 'entries' | 'choices' | 'list-items';
   /** kind:'entries' のときのエントリー数の目安上限（無指定は ScoreEntriesEditor の既定値） */
   maxEntries?: number;
   /** kind:'entries' のときの1件あたりの名前の文字数上限（無指定は ScoreEntriesEditor の既定値） */
@@ -32,6 +35,14 @@ export interface PartFieldDef {
   maxChoices?: number;
   /** kind:'choices' のときの1件あたりのラベルの文字数上限（無指定は VoteChoicesEditor の既定値） */
   choiceLabelLimit?: number;
+  /** kind:'list-items' のときの項目数の目安上限（無指定は ListItemsEditor の既定値） */
+  maxListItems?: number;
+  /** kind:'list-items' のときの1件あたりの文字数上限（無指定は ListItemsEditor の既定値） */
+  itemLimit?: number;
+  /** type:'select-number' のときの選択肢（数値の配列。セレクトの中身そのもの） */
+  numberOptions?: number[];
+  /** type:'select-number' のときの新規作成時の既定値（無指定なら numberOptions の先頭） */
+  numberDefault?: number;
   /**
    * `true` のとき、本体の入力欄のすぐ下に英語版の入力欄（任意）を自動的に足す
    * （`docs/design/v4/graphics.md` §6・出力URLの `?lang=en` — `graphics-awards-migration-plan.md`
@@ -57,20 +68,57 @@ export const PART_FIELDS: Record<GraphicsPartKey, PartFieldDef[]> = {
     // （1078 / (28*1.08) ≈ 35）。実際の所属名はこれより短いことが多いので余裕を持たせた暫定値
     { key: 'subText', label: '所属・肩書（下の小さな行）', limit: 24, bilingual: true },
   ],
-  // 題字: outputPartsExtra.tsx FullscreenTitle が12字以下/超で90↔110pxを切り替える
-  // （その閾値を目安の上限にした）。折り返しはするため保存は止めない・暫定値
+  // 題字（式典題字・outputPartsExtra.tsx FullscreenTitle）:
   //
-  // ⚠️ 既知の不整合（今回のタスクでは未修正・多言語対応と無関係のため触っていない）:
-  // この欄のキーは `text` だが、FullscreenTitle（outputPartsExtra.tsx）は
-  // `page.fields.title` を読んでおり、フォームに入力しても出力へ届かない
-  // （常に `page.name` へフォールバックする）。段1の決め打ちのまま残っている既存差分。
-  // `bilingual` を付けても `textEn` が出力側で読まれないため、ここでは付けていない
-  title: [{ key: 'text', label: '題字', limit: 16 }],
-  // 一覧表: 1行ずつ書く前提（outputPartsExtra.tsx FullscreenList・MAX_LIST_ITEMS=20）。
-  // 1行あたり目安10字 × 20行の暫定値。
-  // ⚠️ 上と同種の既知の不整合: FullscreenList は `page.fields.items`（配列）を読むが、
-  // この欄のキーは `text`（1行テキスト）— 同じ理由で `bilingual` は付けていない
-  list: [{ key: 'text', label: '内容（1行ずつ）', limit: 200 }],
+  // ⚠️ 直していた既知の不整合（背景メモ参照）: 以前この欄のキーは `text` の1つだけだったが、
+  // FullscreenTitle は `page.fields.title`／`speaker`／`speakerTitle` の3キーを読んでおり、
+  // フォームに入力しても出力へ一切届かなかった（常に `page.name` へフォールバック）。
+  // レンダラーが読むキーに合わせて3欄に分けた（PartFieldDef 型はそのまま・kind無し＝
+  // 通常の1行テキスト欄）。`bilingual` は付けていない — FullscreenTitle は他部品と違い
+  // `lang` prop を受け取らず `pickLang` を経由しないため、`${key}En` を足しても出力側で
+  // 一切読まれない（多言語対応は今回のタスクの対象外・別途 FullscreenTitle 側の対応が要る）。
+  //
+  // 文字数上限はいずれも「暗幕の安全域（1920 - SAFE_X*2 = 1728px）に収まる目安」から逆算した
+  // ソフト上限（保存は止めない）:
+  //   ・題字: titleSize は12字以下→110px・超→92pxに分岐する。92px側（長い題）の1行分の
+  //     容量が実質の上限になる — letterSpacing 0.14em を足すと1字あたり約 92*1.14≈104.9px、
+  //     1728 / 104.9 ≈ 16.5字。12字以下の枝（110px）はさらに余裕がある（1728/125.4≈13.8字）
+  //     ので、long側の上限をそのまま欄全体の目安にした
+  //   ・発表者名（speaker）: 52px・letterSpacing 0.06em・maxWidth指定なし（中央寄せの
+  //     可変幅divのため長いと安全域を超えうる）。1字あたり約 52*1.06≈55.1px、
+  //     1728/55.1≈31.4字が理論上限。実際の氏名はこれよりずっと短いので、
+  //     安全マージンを見て 24 を目安にした（他欄の「所属・肩書」と同じ考え方）
+  //   ・発表者の肩書（speakerTitle）: 30px・letterSpacing 0.12em、
+  //     1字あたり約 30*1.12≈33.6px、1728/33.6≈51.4字が理論上限。同じ安全マージンで 40 を目安にした
+  title: [
+    { key: 'title', label: '題字', limit: 16 },
+    { key: 'speaker', label: '発表者名（任意）', limit: 24 },
+    { key: 'speakerTitle', label: '発表者の肩書（任意・発表者名の上に小さく表示）', limit: 40 },
+  ],
+  // 一覧表（受賞者一覧など・outputPartsExtra.tsx FullscreenList）:
+  //
+  // ⚠️ 直していた既知の不整合（背景メモ参照）: 以前この欄はキー `text` の1行自由記述だけ
+  // だったが、FullscreenList は `page.fields.items`（**文字列の配列**）と
+  // `page.fields.columns`（列数）を読んでおり、`Array.isArray` に弾かれて一覧は常に空だった。
+  // 配列は単純な1行テキストで表現できないため、専用UI（ListItemsEditor・
+  // ScoreEntriesEditor/VoteChoicesEditor と同じ操作感の可変長リスト）に差し替えた。
+  // 対戦者/選択肢と違い構造体（{name,points}等）は不要 — 文字列1本のリストでよい
+  // （タスク背景メモのとおり）。見出しの多言語化・氏名ごとの英語版はレンダラー側が
+  // 対応していないため今回は追加していない（items は文字列1本の配列で bilingual の
+  // 概念がそもそも無い）。
+  //   ・項目の文字数上限: 既定4列でのセル幅から算出。セル幅 = (1728 - (4-1)*40) / 4 = 402px、
+  //     フォント46px・letterSpacing 0.04emで1字あたり約 46*1.04≈47.8px、
+  //     402/47.8≈8.4字。ellipsis で省略されるため厳密な上限ではないが、目安として10字とした
+  //     （6列選択時はセルがさらに狭くなるが、ソフト警告のみなので保存は止めない）
+  //   ・項目数の上限: FullscreenList の MAX_LIST_ITEMS（20）と揃えた。超過分は出力側で
+  //     「ほか N名」に畳まれるため、20件を超えて追加しても入力そのものは止めない
+  //   ・列数（columns）: FullscreenList は 1〜6 にクランプし、無効な値は既定4列にする実装
+  //     （`Math.min(6, Math.floor(colRaw))`・`Number.isFinite` で弾いた既定4）。
+  //     自由入力にすると範囲外の値を打ててしまうため、実際に効く範囲だけをセレクトにした
+  list: [
+    { key: 'items', label: '内容（1件ずつ）', kind: 'list-items', maxListItems: 20, itemLimit: 10 },
+    { key: 'columns', label: '列数', type: 'select-number', numberOptions: [1, 2, 3, 4, 5, 6], numberDefault: 4 },
+  ],
   // ティッカー: 流れる文言なので長くても表示は破綻しない（尺を逆算する設計・
   // docs/design/v4/graphics.md §5「速度を固定し尺を逆算」）。読みやすさの目安としての暫定値
   ticker: [{ key: 'text', label: '流す文言', limit: 60, bilingual: true }],
