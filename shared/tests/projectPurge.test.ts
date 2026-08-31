@@ -66,20 +66,49 @@ describe('どれをゴミと見なすか', () => {
 });
 
 describe('お金が付いている案件は残す（ご判断「見積だけなら消す」）', () => {
-  it('売上・仕入のどちらかがあれば対象から外す', () => {
+  it('請求書を出した売上か、仕入があれば対象から外す', () => {
     expect(PURGE_TARGET_SQL).toContain(`NOT ${PURGE_HAS_MONEY_SQL}`);
     expect(PURGE_HAS_MONEY_SQL).toContain('FROM revenues');
     expect(PURGE_HAS_MONEY_SQL).toContain('FROM purchases');
+  });
+
+  it('⚠️ 請求前の「見込みの売上」だけなら消す（ユーザー依頼）', () => {
+    /*
+     * 「以前見送った失注になった案件の削除ですが、見積もりを入れているものも
+     *   削除してほしい」。見積そのもの（`estimates`）は最初から対象で、
+     * 残っていたのは**請求書をまだ出していない売上**が入っている案件だった。
+     * 営業が提案の段階で入れる見込みの金額で、失注した以上その金額は動かない。
+     */
+    expect(PURGE_HAS_MONEY_SQL).toContain('r.invoice_issued = true');
+    expect(PURGE_HAS_MONEY_SQL).toContain('r.paid_date IS NOT NULL');
+  });
+
+  it('請求の言葉は billing-state.ts のものを使う（同じ集合に2つ目の名前を作らない）', () => {
+    // 別の式で書くと、片方だけ直されて必ず食い違う（billing-state.ts 冒頭の実測）
+    expect(SERVICE).toContain("from '../../../shared/services/billing-state'");
+    expect(SERVICE).toContain('BILLING_STATE_SQL.issued');
+    expect(SERVICE).toContain('BILLING_STATE_SQL.paid');
+  });
+
+  it('仕入は見込みではないので、そのまま残す理由にする', () => {
+    // 実際に払ったお金。失注案件に付いていれば「動いて、そして負けた」費用の記録
+    const from = PURGE_HAS_MONEY_SQL.indexOf('FROM purchases pu');
+    const pu = PURGE_HAS_MONEY_SQL.slice(from, PURGE_HAS_MONEY_SQL.indexOf('OR EXISTS', from));
+    expect(pu).toContain('pu.deleted_at IS NULL');
+    expect(pu).not.toContain('invoice_issued');
   });
 
   it('按分（グループ案件）も見る', () => {
     /*
      * ⚠️ グループ案件では `revenues.project_id` が親を指し、子は
      * `revenue_allocations` にしかいない。直接の行だけ見ると
-     * **売上を持っている案件を台帳から外せてしまう**。
+     * **請求済みの売上を持つ案件を台帳から外せてしまう**。
      */
     expect(PURGE_HAS_MONEY_SQL).toContain('revenue_allocations');
     expect(PURGE_HAS_MONEY_SQL).toContain('purchase_allocations');
+    // 按分の側にも「請求書を出したか」を掛ける（直接の行だけ厳しくしても意味がない）
+    const ra = PURGE_HAS_MONEY_SQL.slice(PURGE_HAS_MONEY_SQL.indexOf('revenue_allocations'));
+    expect(ra.slice(0, ra.indexOf('purchase_allocations'))).toContain('r.invoice_issued = true');
   });
 
   it('消えた売上（論理削除済み）は「お金がある」に数えない', () => {

@@ -33,6 +33,7 @@
 import { execute, queryOne, queryAll } from '../../../shared/db/connection';
 import { LAST_MOVE_SQL, TIDY_AUTO_LOST_DAYS, ALIVE_EVIDENCE_SQL } from './project-health';
 import { syncBoxFoldersForStageSafe } from './box-lost-cleanup.service';
+import { BILLING_STATE_SQL } from '../../../shared/services/billing-state';
 
 /**
  * ネタを「放置」と見なす日数。**自動見送りと同じ 90 日**を使う
@@ -49,18 +50,38 @@ export const PURGE_STALE_NETA_DAYS = TIDY_AUTO_LOST_DAYS;
 export const PURGE_BUDGET_MS = 20_000;
 
 /**
- * **お金がぶら下がっているか。**（売上・仕入・按分のいずれか）
+ * **実際に動いたお金がぶら下がっているか。**
  *
- * ご判断「見積だけなら消す」。⚠️ **按分も見ます** — グループ案件では
- * `revenues.project_id` が親を指し、子は `revenue_allocations` にしかいないので、
- * 直接の行だけ見ると**売上を持っている案件を台帳から外せてしまいます**。
+ * ── ⚠️ 「見込みの売上」では残さない（ユーザー依頼 2026-08-31）────────
+ *
+ * 「以前見送った失注になった案件の削除ですが、**見積もりを入れているものも
+ *   削除してほしい**」
+ *
+ * 見積そのもの（`estimates`）は最初から対象でした。残っていたのは
+ * **請求書をまだ出していない売上**が入っている案件です。営業が提案の段階で
+ * 入れる**見込みの金額**で、失注した以上その金額は動きません。
+ * 利用者から見れば「見積を入れただけ」なので、残す理由になりません。
+ *
+ * そこで**請求書を出した（または入金があった）売上だけ**を残す理由にします。
+ * 判定は `billing-state.ts` の言葉をそのまま使います
+ * （**同じ集合に2つ目の名前を作らない** — 片方だけ直されて必ず食い違うため）。
+ *
+ * ⚠️ **仕入はそのまま残す理由にします。** 見込みではなく**実際に払ったお金**で、
+ * 失注案件に付いていれば「動いて、そして負けた」費用の記録です。
+ *
+ * ⚠️ **按分も見ます** — グループ案件では `revenues.project_id` が親を指し、
+ * 子は `revenue_allocations` にしかいないので、直接の行だけ見ると
+ * **請求済みの売上を持つ案件を台帳から外せてしまいます**。
  */
+const REVENUE_REAL_SQL = `(${BILLING_STATE_SQL.issued} OR ${BILLING_STATE_SQL.paid})`;
+
 export const PURGE_HAS_MONEY_SQL = `(
-  EXISTS (SELECT 1 FROM revenues r  WHERE r.project_id  = p.id AND r.deleted_at  IS NULL)
+  EXISTS (SELECT 1 FROM revenues r  WHERE r.project_id  = p.id AND r.deleted_at  IS NULL
+           AND ${REVENUE_REAL_SQL})
   OR EXISTS (SELECT 1 FROM purchases pu WHERE pu.project_id = p.id AND pu.deleted_at IS NULL)
   OR EXISTS (SELECT 1 FROM revenue_allocations ra
-              JOIN revenues r2 ON r2.id = ra.revenue_id AND r2.deleted_at IS NULL
-             WHERE ra.project_id = p.id)
+              JOIN revenues r ON r.id = ra.revenue_id AND r.deleted_at IS NULL
+             WHERE ra.project_id = p.id AND ${REVENUE_REAL_SQL})
   OR EXISTS (SELECT 1 FROM purchase_allocations pa
               JOIN purchases p2 ON p2.id = pa.purchase_id AND p2.deleted_at IS NULL
              WHERE pa.project_id = p.id)
