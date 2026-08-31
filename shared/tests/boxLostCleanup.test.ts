@@ -13,6 +13,7 @@ import path from 'node:path';
 import {
   checkFolderSafety, isTreeEmpty, deleteEmptyTree, expectedFolderNames, stripFolderPrefix,
   NON_PROJECT_FOLDERS, LOST_ARCHIVE_FOLDER, TREE_MAX_DEPTH,
+  DONE_ARCHIVE_FOLDER, DONE_TARGET_SQL,
   type ChildItem, type FolderNode,
 } from '../../server/src/contexts/sales/services/box-lost-cleanup.service';
 
@@ -446,5 +447,65 @@ describe('どの案件にも結び付かないフォルダ（実測 77 件中 13
     const band = read('client/src/contexts/sales/pages/projectList/BoxCleanupBand.tsx');
     expect(band).toContain("api.post('/projects/box-cleanup/lost', { orphans: true })");
     expect(band).toContain('if (!o.orphaned?.timedOut) break;');
+  });
+});
+
+describe('終了した案件を「98_終了案件」へ移す（ユーザー依頼 2026-08-31）', () => {
+  const SVC = read('server/src/contexts/sales/services/box-lost-cleanup.service.ts');
+
+  it('⚠️ 移すだけで、絶対に消さない', () => {
+    /*
+     * 終了した案件のフォルダには納品物・請求書・検収書が入っており、法定保存の
+     * 対象でもある。**空に見えても消さない**（数え間違いの余地を作らない）。
+     */
+    const fn = SVC.slice(SVC.indexOf('export async function archiveDoneProjectFolders'));
+    const body = fn.slice(0, fn.indexOf('export async function restoreDoneProjectFolders'));
+    expect(body).toContain('client.folders.update(folderId!, { parent: { id: archive.id } })');
+    expect(body).not.toContain('folders.delete');
+    expect(body).not.toContain('isTreeEmpty');
+  });
+
+  it('ステージだけでなく「案件日を過ぎたか」も見る', () => {
+    /*
+     * ご依頼は「日付をベースに案件日の翌日」。ステージだけだと、
+     * **まだ本番が来ていないのに手で完了にした案件**のフォルダまで片づける。
+     */
+    expect(DONE_TARGET_SQL).toContain("stage = 's_completed'");
+    expect(DONE_TARGET_SQL).toContain("NULLIF(event_end, '') IS NOT NULL AND event_end < ?");
+    // 二度は移さない
+    expect(DONE_TARGET_SQL).toContain('box_done_at IS NULL');
+  });
+
+  it('安全弁は失注の片づけと同じものを通す', () => {
+    // 別に書くと、片方だけ緩んだ日に他人のフォルダを動かす
+    const fn = SVC.slice(SVC.indexOf('export async function archiveDoneProjectFolders'));
+    expect(fn.slice(0, fn.indexOf('export async function restoreDoneProjectFolders')))
+      .toContain('checkFolderSafety({');
+  });
+
+  it('置き場は「案件フォルダではない」名前として登録されている', () => {
+    // 登録し忘れると、名寄せや結び付かないフォルダの片づけが置き場そのものを触る
+    expect(NON_PROJECT_FOLDERS).toContain('98_終了案件');
+    expect(DONE_ARCHIVE_FOLDER).toBe('98_終了案件');
+  });
+
+  it('完了から戻すと、置き場から親フォルダへ返る', () => {
+    expect(SVC).toContain('export async function restoreDoneProjectFolders');
+    expect(SVC).toContain("if (toStage !== 's_completed') await restoreDoneProjectFolders(projectId);");
+    expect(SVC).toContain('SET box_done_at = NULL');
+  });
+
+  it('日次ジョブが「完了への繰り上げ」の直後に呼ぶ（押さなくても翌朝に進む）', () => {
+    const sched = read('server/src/contexts/platform/services/scheduler.service.ts');
+    const complete = sched.indexOf('await completeElapsedWonProjects()');
+    const move = sched.indexOf('await archiveDoneProjectFolders()');
+    expect(complete).toBeGreaterThan(0);
+    expect(move).toBeGreaterThan(complete);
+    // ⚠️ BOX が落ちていても通知（この関数の本来の仕事）まで道連れにしない
+    expect(sched).toContain("console.warn('[scheduler] 終了案件の BOX 引っ越しに失敗:'");
+  });
+
+  it('1リクエストは件数ではなく時間で区切る', () => {
+    expect(SVC).toContain('export const DONE_BUDGET_MS = 20_000;');
   });
 });
