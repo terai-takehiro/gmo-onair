@@ -425,6 +425,45 @@ export async function seed() {
     await ins(riSql, [uuidv4(), revId8, '美術・セット費', 1, 500000, 500000, 3]);
   }
 
+  /*
+   * ── 請求・入金の進み具合を入れる（`invoice_issued` / `billing_date` /
+   *    `payment_due_date` / `paid_date`）────────────────────────────
+   *
+   * ⚠️ **どの売上にもこの4列が入っていませんでした。** そのため
+   * ⑤ 見積・請求の「期日超過」も、未入金の督促（`inv_late`）も、請求書未発行の
+   * 督促（`inv_send_todo`）も、**検証環境では1件も出せません**でした
+   * （＝「毎朝ゴミが届く」も「直ったら届かない」もどちらも確かめられない）。
+   *
+   * 未入金の督促は「**請求書を出したのに入金が来ていない**」ものだけを拾う決まり
+   * （`billing-state.ts` の `unpaid`）なので、それを確かめるには
+   * **発行済み × 未発行**の両方が要ります。4通りを必ず作ります:
+   *
+   *   ① 発行済み・未入金・期日を過ぎている      … 督促が出る（節目 late:1 / late:7）
+   *   ② **未発行**・期日を過ぎている            … **督促が出てはいけない**
+   *      （期日は登録時に自動計算されるだけで、押しても入金は来ない。
+   *        ユーザー報告「ゴミ通知が多い」の中身がこれ）
+   *   ③ 発行済み・未入金・期日はまだ先          … どちらの督促も出ない
+   *   ④ 入金済み                                … 出ない
+   */
+  {
+    const day = (n: number) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+    // billing_key で引く（id は uuid で seed の外から指せないため）
+    const bill = async (key: string, issued: boolean, dueIn: number, paid: boolean) => {
+      await execute(
+        `UPDATE revenues SET invoice_issued = ?, billing_date = ?, payment_due_date = ?, paid_date = ?
+          WHERE billing_key = ?`,
+        [issued, day(dueIn - 30), day(dueIn), paid ? day(dueIn + 2) : null, key],
+      );
+    };
+    await bill('GLS-A001-001-1', true,  -3,  false);  // ① 3日超過   → late:1
+    await bill('GLS-A002-001-1', true,  -12, false);  // ① 12日超過  → late:7
+    await bill('GLS-A003-001-1', true,  -45, false);  // ① 45日超過  → late:30
+    await bill('GLS-A004-001-1', false, -20, false);  // ② 未発行の期日超過（督促が出てはいけない）
+    await bill('GLS-A005-001-1', false, -2,  false);  // ② 同上（締め日は過ぎている＝inv_send_todo の担当）
+    await bill('GLS-A006-001-1', true,  20,  false);  // ③ まだ先
+    await bill('GLS-A008-001-1', true,  -8,  true);   // ④ 入金済み
+  }
+
   // --- B系売上（エピソードなし）---
   // GLS-B001: コンサルティング契約（月額×12）
   const revB001Id = uuidv4();
