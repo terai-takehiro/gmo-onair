@@ -37,9 +37,12 @@ const BATCH = 10;
 
 interface PurgeCount {
   total: number; lost: number; staleNeta: number; keptForMoney: number; staleDays: number;
+  /** 一緒に落とす見込み売上の件数。**押す前に必ず見せる** */
+  unbilledRevenues: number;
 }
 interface PurgeResult {
   processed: number; remaining: number; boxLeft: number; timedOut: boolean;
+  revenuesDropped: number;
 }
 
 export function JunkPurgeBand() {
@@ -69,6 +72,7 @@ export function JunkPurgeBand() {
       setRunning(true);
       let removed = 0;
       let strayFolders = 0;
+      let droppedRevenues = 0;
       let last: PurgeResult | null = null;
 
       while (!stopRef.current && (last === null || last.remaining > 0)) {
@@ -76,6 +80,7 @@ export function JunkPurgeBand() {
         last = r;
         removed += r.processed;
         strayFolders += r.boxLeft;
+        droppedRevenues += r.revenuesDropped;
         setDone(removed);
         setBoxLeft(strayFolders);
         /*
@@ -85,17 +90,22 @@ export function JunkPurgeBand() {
          */
         if (r.processed === 0 && !r.timedOut) break;
       }
-      return { removed, strayFolders, remaining: last?.remaining ?? 0, stopped: stopRef.current };
+      return {
+        removed, strayFolders, droppedRevenues,
+        remaining: last?.remaining ?? 0, stopped: stopRef.current,
+      };
     },
     onSuccess: (r) => {
       setRunning(false);
       if (r.removed === 0) { notifySuccess('台帳から外せるものがありませんでした'); return; }
+      // **落としたお金の行は必ず言う。** 黙って消えるのが一番困る
+      const money = r.droppedRevenues > 0 ? `見込み売上 ${r.droppedRevenues} 件も落としました。` : '';
       const tail = r.strayFolders > 0
         ? `（うち ${r.strayFolders} 件は BOX のフォルダを片づけられませんでした）` : '';
       notifySuccess(
         r.stopped
-          ? `${r.removed} 件を台帳から外して止めました（残り ${r.remaining} 件）${tail}`
-          : `${r.removed} 件を台帳から外しました${tail}`,
+          ? `${r.removed} 件を台帳から外して止めました（残り ${r.remaining} 件）${tail}${money}`
+          : `${r.removed} 件を台帳から外しました${tail}${money}`,
       );
     },
     onError: (err) => {
@@ -136,6 +146,18 @@ export function JunkPurgeBand() {
           </>
         )}
       </p>
+      {/*
+        ⚠️ **落とすお金の行は、押す前に必ず見せる。**
+        案件だけでなく見込み売上も消えるので、押したあとで初めて分かるのは
+        取り返しの付かない驚きになる（ご依頼「見込み売上を落とした上で削除したい」）。
+      */}
+      {d.unbilledRevenues > 0 && (
+        <p className="text-note mt-1 text-muted-foreground">
+          あわせて、これらの案件にぶら下がった<b>請求前の見込み売上 {d.unbilledRevenues} 件</b>も落とします
+          （売上台帳と集計から消えます。こちらも戻せます）。
+          費用を分け合うグループで他の案件にも配っている売上は、落としません。
+        </p>
+      )}
 
       {running ? (
         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -162,7 +184,10 @@ export function JunkPurgeBand() {
                 '台帳・検索・集計から消えます。行は残るので戻せますが、'
                 + '戻すにはシステム管理者の操作が要ります。'
                 + '請求書を出した売上か仕入がある案件は外しません'
-                + '（見積や、請求前の見込み売上だけなら外します）。',
+                + '（見積や、請求前の見込み売上だけなら外します）。'
+                + (d.unbilledRevenues > 0
+                  ? `あわせて請求前の見込み売上 ${d.unbilledRevenues} 件も売上台帳から落とします。`
+                  : ''),
               confirmLabel: '台帳から外す', tone: 'danger',
             }))) return;
             runAll.mutate();

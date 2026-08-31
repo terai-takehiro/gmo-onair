@@ -129,6 +129,34 @@ export const PURGE_KEPT_SQL = `FROM projects p
      AND ${PURGE_JUNK_STAGE_SQL}
      AND ${PURGE_HAS_MONEY_SQL}`;
 
+/**
+ * **一緒に落とす「見込みの売上」。**
+ *
+ * ── ご依頼（2026-08-31）──────────────────────────────────────
+ *
+ * 「見込み売上を落とした上で削除したい」
+ *
+ * 案件を台帳から外すだけでは、**その案件にぶら下がった見込みの売上は
+ * 売上台帳と集計に残ります**（`revenues` は案件とは別に数えられるため）。
+ * 失注した以上その金額は動かないので、一緒に落とします。
+ *
+ * ⚠️ **落とすのは「請求書を出しておらず、入金も無い」売上だけ**です。
+ * 請求済み・入金済みは法定保存の対象なので絶対に触りません
+ * （`PURGE_HAS_MONEY_SQL` がそもそもその案件を対象から外します）。
+ *
+ * ⚠️ **按分（グループ案件）に使われている売上は落としません。**
+ * その売上は**他の案件にも配られている**ので、落とすと**まだ生きている案件から
+ * お金が消えます**。1件でも按分があれば手を付けません。
+ *
+ * ⚠️ **論理削除**（`deleted_at`）です。案件と同じく戻せます。
+ */
+export const PURGE_DROP_REVENUE_SQL = `UPDATE revenues AS r
+     SET deleted_at = NOW(), updated_by = ?
+   WHERE r.project_id = ? AND r.deleted_at IS NULL
+     AND ${BILLING_STATE_SQL.unissued} AND r.paid_date IS NULL
+     AND NOT EXISTS (SELECT 1 FROM revenue_allocations ra WHERE ra.revenue_id = r.id)
+   RETURNING r.id`;
+
 export interface PurgeCount {
   /** 台帳から外せる件数 */
   total: number;
@@ -140,6 +168,8 @@ export interface PurgeCount {
   keptForMoney: number;
   /** 放置と見なす日数（画面に出す。数字を画面に直書きしない） */
   staleDays: number;
+  /** 一緒に落とす見込み売上の件数（**落とすものは必ず先に見せる**） */
+  unbilledRevenues: number;
 }
 
 async function count(sql: string, extra = ''): Promise<number> {
@@ -148,13 +178,22 @@ async function count(sql: string, extra = ''): Promise<number> {
 }
 
 export async function countJunkProjects(): Promise<PurgeCount> {
-  const [total, lost, staleNeta, keptForMoney] = await Promise.all([
+  const [total, lost, staleNeta, keptForMoney, unbilledRevenues] = await Promise.all([
     count(PURGE_TARGET_SQL),
     count(PURGE_TARGET_SQL, `AND p.stage = 'e_lost'`),
     count(PURGE_TARGET_SQL, `AND p.stage = 'neta'`),
     count(PURGE_KEPT_SQL),
+    /*
+     * **一緒に落とす見込み売上の件数。** 押す前に見せる — お金の行が消えるのに
+     * 押したあとで初めて分かるのは、取り返しの付かない驚きになる。
+     * 対象の案件と同じ条件から数えるので、帯の数と実際に落ちる数は一致する。
+     */
+    count(`FROM revenues r WHERE r.deleted_at IS NULL
+             AND ${BILLING_STATE_SQL.unissued} AND r.paid_date IS NULL
+             AND NOT EXISTS (SELECT 1 FROM revenue_allocations ra WHERE ra.revenue_id = r.id)
+             AND EXISTS (SELECT 1 ${PURGE_TARGET_SQL} AND p.id = r.project_id)`),
   ]);
-  return { total, lost, staleNeta, keptForMoney, staleDays: PURGE_STALE_NETA_DAYS };
+  return { total, lost, staleNeta, keptForMoney, unbilledRevenues, staleDays: PURGE_STALE_NETA_DAYS };
 }
 
 export interface PurgeResult {
@@ -164,6 +203,8 @@ export interface PurgeResult {
   remaining: number;
   /** ⚠️ 外したが **BOX のフォルダを片づけられなかった**件数（現役の場所に残る） */
   boxLeft: number;
+  /** 一緒に落とした見込み売上の件数 */
+  revenuesDropped: number;
   /** 時間切れで切り上げたか（続けて呼べば進む） */
   timedOut: boolean;
 }
@@ -195,6 +236,7 @@ export async function purgeJunkProjects(limit: number, userId: string): Promise<
   const started = Date.now();
   let processed = 0;
   let boxLeft = 0;
+  let revenuesDropped = 0;
   let timedOut = false;
 
   for (const r of rows) {
@@ -210,6 +252,14 @@ export async function purgeJunkProjects(limit: number, userId: string): Promise<
       if (!after?.box_cleanup_state) boxLeft += 1;
     }
 
+    /*
+     * **見込みの売上を先に落とす**（ご依頼「見込み売上を落とした上で削除したい」）。
+     * ⚠️ **案件を外す前に。** 外したあとだと、この案件を指す売上は
+     * どの画面からも辿れないまま売上台帳に残り続ける。
+     */
+    const dropped = await queryAll(PURGE_DROP_REVENUE_SQL, [userId, r.id]) as { id: string }[];
+    revenuesDropped += dropped.length;
+
     await execute(
       'UPDATE projects SET deleted_at = NOW(), updated_by = ? WHERE id = ? AND deleted_at IS NULL',
       [userId, r.id],
@@ -217,5 +267,5 @@ export async function purgeJunkProjects(limit: number, userId: string): Promise<
     processed += 1;
   }
 
-  return { processed, remaining: await count(PURGE_TARGET_SQL), boxLeft, timedOut };
+  return { processed, remaining: await count(PURGE_TARGET_SQL), boxLeft, revenuesDropped, timedOut };
 }
