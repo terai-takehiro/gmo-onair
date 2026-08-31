@@ -8,14 +8,14 @@
 // 境界を強制するので、ここが崩れても実害は無い——が、崩れたまま気づかず使わせないための表示。
 import { Lock } from 'lucide-react';
 import { PART_LABELS, SLOT_LABELS, type GraphicsTemplateRow } from '@/lib/graphicsApi';
-import { PART_FIELDS } from './pageFields';
+import { PART_FIELDS, type PartFieldDef } from './pageFields';
 import { PageFieldEditor } from './PageFieldEditor';
 import { defaultScoreEntries, normalizeScoreEntries } from './scoreEntries';
 import { defaultVoteChoices, normalizeVoteChoices } from './voteChoices';
 import { defaultListItems, normalizeListItems } from './listItems';
 
 /** 編集不可の欄に出す値の要約（構造化欄はそのまま出すと崩れるので短い文字列にする） */
-function describeLockedValue(kind: 'entries' | 'choices' | 'list-items' | undefined, value: unknown): string {
+function describeLockedValue(kind: PartFieldDef['kind'], value: unknown): string {
   if (kind === 'entries') {
     const arr = normalizeScoreEntries(value);
     return arr.length > 0 ? arr.map((e) => e.name || '（無題）').join('・') : '（未設定）';
@@ -27,6 +27,9 @@ function describeLockedValue(kind: 'entries' | 'choices' | 'list-items' | undefi
   if (kind === 'list-items') {
     const arr = normalizeListItems(value);
     return arr.length > 0 ? arr.join('・') : '（未設定）';
+  }
+  if (kind === 'image') {
+    return typeof value === 'string' && value.trim() ? '設定済み' : '（未設定）';
   }
   if (typeof value === 'string') return value.trim() || '（未設定）';
   if (value == null) return '（未設定）';
@@ -69,10 +72,13 @@ export function TemplateFieldsSection({
   template,
   fields,
   setFields,
+  pageId = null,
 }: {
   template: GraphicsTemplateRow;
   fields: Record<string, unknown>;
   setFields: (updater: (prev: Record<string, unknown>) => Record<string, unknown>) => void;
+  /** `kind: 'image'` の欄へそのまま横流しする（PageFieldEditor 参照）。新規作成中は null */
+  pageId?: string | null;
 }) {
   const publicSet = new Set(template.publicFields);
   const defs = PART_FIELDS[template.partKey] ?? [];
@@ -111,6 +117,7 @@ export function TemplateFieldsSection({
               fields={fields}
               setFields={setFields}
               showBilingual={!enIsLocked}
+              pageId={pageId}
             />
             {enIsLocked && (
               <div className="mt-1.5 flex items-start gap-1.5 text-note text-muted-foreground">

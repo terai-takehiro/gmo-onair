@@ -13,6 +13,7 @@ import { VoteChoicesEditor } from './VoteChoicesEditor';
 import { normalizeVoteChoices } from './voteChoices';
 import { ListItemsEditor } from './ListItemsEditor';
 import { normalizeListItems } from './listItems';
+import { ImageFieldEditor } from './ImageFieldEditor';
 
 /** 目安の上限文字数に対する文字数カウンターの色（80%到達で注意色・超過で警告色 — 保存は止めない） */
 function counterClass(length: number, limit: number): string {
@@ -22,7 +23,7 @@ function counterClass(length: number, limit: number): string {
 }
 
 export function PageFieldEditor({
-  def, idPrefix, fields, setFields, showBilingual = true,
+  def, idPrefix, fields, setFields, showBilingual = true, pageId = null,
 }: {
   def: PartFieldDef;
   /** DOM id の接頭辞。同じページに複数のフォームがあるときの id 衝突を避ける */
@@ -35,7 +36,22 @@ export function PageFieldEditor({
    * 保存されない（`publicFields` 外のキーは送信時に落ちる）欄を見せないため。
    */
   showBilingual?: boolean;
+  /**
+   * `kind: 'image'` の欄がアップロード先に使う保存済みページID。新規作成中（未保存）は
+   * null——`ImageFieldEditor` はそのとき案内表示のみになる（`pageFields.ts` の `kind` doc参照）。
+   */
+  pageId?: string | null;
 }) {
+  if (def.kind === 'image') {
+    return (
+      <ImageFieldEditor
+        label={def.label}
+        pageId={pageId}
+        value={typeof fields[def.key] === 'string' ? (fields[def.key] as string) : ''}
+        onChange={(next) => setFields((prev) => ({ ...prev, [def.key]: next }))}
+      />
+    );
+  }
   if (def.kind === 'entries') {
     return (
       <ScoreEntriesEditor

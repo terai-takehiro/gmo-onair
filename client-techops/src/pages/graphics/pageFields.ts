@@ -24,9 +24,14 @@ export interface PartFieldDef {
    * `'list-items'` = 一覧表の項目の可変長配列（string[]・一覧表専用。対戦者/選択肢と違い
    * 構造体ではなく文字列1本でよい。`client-techops/src/pages/graphics/ListItemsEditor.tsx`
    * が編集UIを持つ）。
+   * `'image'` = 写真アップロード欄（string＝`/api/v1/internal/graphics/images/<filename>` の
+   * URLを1本持つだけ・空文字は未設定。`client-techops/src/pages/graphics/ImageFieldEditor.tsx`
+   * が編集UIを持つ。ページ保存前（`pageId` が無い新規作成中）はアップロードを呼べないため、
+   * その間は案内表示のみになる — `server/src/contexts/graphics/routes/images.routes.ts` の
+   * `POST /graphics/pages/:id/photo` を叩く）。
    * 無指定＝従来どおりの1行テキスト欄（`limit` はこちらの対象）。
    */
-  kind?: 'entries' | 'choices' | 'list-items';
+  kind?: 'entries' | 'choices' | 'list-items' | 'image';
   /** kind:'entries' のときのエントリー数の目安上限（無指定は ScoreEntriesEditor の既定値） */
   maxEntries?: number;
   /** kind:'entries' のときの1件あたりの名前の文字数上限（無指定は ScoreEntriesEditor の既定値） */
@@ -94,6 +99,10 @@ export const PART_FIELDS: Record<GraphicsPartKey, PartFieldDef[]> = {
     { key: 'title', label: '題字', limit: 16 },
     { key: 'speaker', label: '発表者名（任意）', limit: 24 },
     { key: 'speakerTitle', label: '発表者の肩書（任意・発表者名の上に小さく表示）', limit: 40 },
+    // 写真（任意・段6-6 graphics-awards-migration-plan.md §2-2の9番）。必須にしない —
+    // 写真無しの題字ページも従来どおり成立する。出力側レンダラー（outputPartsExtra.tsx）が
+    // このキーをどう描画するかは別エージェントの並行実装が担う（このタスクの対象外）
+    { key: 'photoUrl', label: '写真（任意）', kind: 'image' },
   ],
   // 一覧表（受賞者一覧など・outputPartsExtra.tsx FullscreenList）:
   //

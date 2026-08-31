@@ -205,6 +205,22 @@ export async function deleteGraphicsPage(pageId: string): Promise<void> {
   await api.delete(`/graphics/pages/${encodeURIComponent(pageId)}`);
 }
 
+/**
+ * ページの写真フィールド（`pageFields.ts` の `kind: 'image'`）用アップロード。
+ * `graphicsRosterApi.ts` の Excel アップロードと同じ FormData の作法。
+ * サーバー側でそのページの `fields.photoUrl` を更新して新しい URL を返す
+ * （`server/src/contexts/graphics/routes/images.routes.ts`）。
+ */
+export async function uploadGraphicsPagePhoto(
+  pageId: string,
+  file: File,
+): Promise<{ photoUrl: string }> {
+  const fd = new FormData();
+  fd.append('photo', file);
+  const { data } = await api.post(`/graphics/pages/${encodeURIComponent(pageId)}/photo`, fd);
+  return data.data;
+}
+
 export interface SetGraphicsCueResult {
   cues: GraphicsCueRow[];
   /** 段6-4: このTAKEで自動退出ルールによりOUTになったスロット（無ければ空配列） */

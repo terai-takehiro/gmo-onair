@@ -62,11 +62,20 @@ function str(v: unknown): string {
  * フルスクリーン × 題字（式典題字・specs §10）:
  * 暗幕の中央に題字 90–110px を金属金グラデで置き、上下に金細罫（文字幅の約7割）。
  * 講師（speaker）は名前を主役に、肩書は小さく #C9C9C9。箱・枠線は一切描かない。
+ *
+ * `photoUrl`（specs §9.10）があるときだけ「題字→写真→氏名」の縦積みで矩形の写真を挟む
+ * （実物調査の並び）。角丸最小限・金の罫1本（2px）＋短距離影で浮かせるだけ——面は敷かない。
+ * 読み込み失敗（`img onError`）／未指定のときは写真無しの従来レイアウトのまま。
  */
 export function FullscreenTitle({ page }: { page: GraphicsPageRow }) {
   const title = str(page.fields.title) || page.name;
   const speaker = str(page.fields.speaker);
   const speakerTitle = str(page.fields.speakerTitle);
+  const photoUrl = str(page.fields.photoUrl);
+  // 読み込みに失敗した URL を覚えておき、その URL の間だけ写真枠を隠す（同じ page.id の
+  // まま photoUrl が新しい値に変わったら自動的に再表示される — useEffect でのリセット不要）
+  const [failedPhotoUrl, setFailedPhotoUrl] = useState<string | null>(null);
+  const showPhoto = photoUrl !== '' && photoUrl !== failedPhotoUrl;
   // 題字 90–110px（specs §2）。短い題は大きく、長い題は下限側で1〜2行に収める
   const titleSize = Array.from(title).length <= 12 ? 110 : 92;
   return (
@@ -107,8 +116,27 @@ export function FullscreenTitle({ page }: { page: GraphicsPageRow }) {
           </div>
           <div style={{ ...GOLD_RULE, width: '70%', marginTop: 30 }} />
         </div>
+        {showPhoto && (
+          <img
+            src={photoUrl}
+            alt=""
+            onError={() => setFailedPhotoUrl(photoUrl)}
+            style={{
+              display: 'block',
+              marginTop: 40,
+              width: 240,
+              height: 300,
+              objectFit: 'cover',
+              // 角丸は最小限（specs §9.10）。正円のアバターは Web UI の文法なので使わない
+              borderRadius: 6,
+              // 縁は金の罫1本（座布団は敷かない）＋式典系の短距離ソフト影で暗幕から浮かせる
+              border: `2px solid ${GOLD}`,
+              boxShadow: '0 3px 8px rgba(0, 0, 0, 0.45)',
+            }}
+          />
+        )}
         {(speaker || speakerTitle) && (
-          <div style={{ marginTop: 72, textAlign: 'center' }}>
+          <div style={{ marginTop: showPhoto ? 40 : 72, textAlign: 'center' }}>
             {speakerTitle && (
               <div
                 style={{

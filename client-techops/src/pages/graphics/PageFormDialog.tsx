@@ -339,11 +339,23 @@ export default function PageFormDialog({
             )}
 
             {showTemplateFields && selectedTemplate && (
-              <TemplateFieldsSection template={selectedTemplate} fields={fields} setFields={setFields} />
+              <TemplateFieldsSection
+                template={selectedTemplate}
+                fields={fields}
+                setFields={setFields}
+                pageId={page?.id ?? null}
+              />
             )}
 
             {!useTemplateMode && (PART_FIELDS[partKey] ?? []).map((def) => (
-              <PageFieldEditor key={def.key} def={def} idPrefix="graphics-field" fields={fields} setFields={setFields} />
+              <PageFieldEditor
+                key={def.key}
+                def={def}
+                idPrefix="graphics-field"
+                fields={fields}
+                setFields={setFields}
+                pageId={page?.id ?? null}
+              />
             ))}
 
             <div>
