@@ -1,0 +1,1 @@
+**PR #481 のマージ後の棚卸しを記録した**（コード変更なし）。作成からCI green まで約2分5秒、CI green からマージまで約18時間4分（terai-takehiro 本人が手動マージ）で、レビューが1件も付いていなかったことを `docs/reviews/codex-findings-v4.md` に記録した（`npm run reviews:debt` は GitHub 401 のためこの環境からは実行できず、GitHub MCP で直接確認した）。
