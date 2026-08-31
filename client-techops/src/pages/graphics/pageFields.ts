@@ -1,0 +1,60 @@
+// テロップCG — ページ編集フォームの入力欄定義（部品ごと）。
+//
+// PageFormDialog.tsx から切り出した（ファイルサイズ規律・400行 —
+// `node scripts/check-file-size.mjs`）。段1の決め打ちのままで、将来は
+// テンプレートの公開フィールドに置き換わる（docs/design/v4/graphics.md §3・§5）。
+//
+// `limit` は「目安の上限文字数」（ソフトな警告のみ・保存は止めない）。
+// 実測値の裏付けがある欄は根拠をコメントに残し、無い欄は「暫定値」と明記する
+// （文字充填率 0.7〜0.8 が目標という実測 — graphics-design-specs.md §9.5・§9.7）。
+import type { GraphicsPartKey } from '@/lib/graphicsApi';
+
+export interface PartFieldDef {
+  key: string;
+  label: string;
+  type?: 'datetime-local';
+  /** 目安の上限文字数（無指定＝カウンターを出さない。datetime 系には付けない） */
+  limit?: number;
+}
+
+/** 部品ごとの入力欄（段1の決め打ち。テンプレートの公開フィールドに置き換わる予定） */
+export const PART_FIELDS: Record<GraphicsPartKey, PartFieldDef[]> = {
+  name: [
+    // 賞名・役割: nameParts.tsx の CeremonyName は letterSpacing 0.34em の広い字間で
+    // 短い金下線に収める前提（specs §9.5「見出しのみ広い字間」）。暫定値
+    { key: 'label', label: '賞名・役割（金の見出し・任意）', limit: 10 },
+    // 氏名: nameParts.tsx CeremonyName のプレート幅（1180-102=1078px）とフォント80px・
+    // letterSpacing 0.1em から算出（1078 / (80*1.1) ≈ 12.2）。outputPartsExtra.tsx の
+    // 題字サイズ分岐（12字以下で110px）とも符合する実測に基づく値
+    { key: 'mainText', label: '氏名（主役の行）', limit: 12 },
+    // 所属・肩書: 同プレート幅・フォント28px・letterSpacing 0.08emから算出
+    // （1078 / (28*1.08) ≈ 35）。実際の所属名はこれより短いことが多いので余裕を持たせた暫定値
+    { key: 'subText', label: '所属・肩書（下の小さな行）', limit: 24 },
+  ],
+  // 題字: outputPartsExtra.tsx FullscreenTitle が12字以下/超で90↔110pxを切り替える
+  // （その閾値を目安の上限にした）。折り返しはするため保存は止めない・暫定値
+  title: [{ key: 'text', label: '題字', limit: 16 }],
+  // 一覧表: 1行ずつ書く前提（outputPartsExtra.tsx FullscreenList・MAX_LIST_ITEMS=20）。
+  // 1行あたり目安10字 × 20行の暫定値
+  list: [{ key: 'text', label: '内容（1行ずつ）', limit: 200 }],
+  // ティッカー: 流れる文言なので長くても表示は破綻しない（尺を逆算する設計・
+  // docs/design/v4/graphics.md §5「速度を固定し尺を逆算」）。読みやすさの目安としての暫定値
+  ticker: [{ key: 'text', label: '流す文言', limit: 60 }],
+  countdown: [
+    // 枕詞: 左上に大きな数字と並ぶ短い前置き文言。暫定値
+    { key: 'prefix', label: '枕詞（例: 開演まであと）', limit: 12 },
+    { key: 'targetAt', label: '目標時刻（空なら現在時刻の時計）', type: 'datetime-local' },
+  ],
+  // スコア: outputParts.tsx SideLabel の maxWidth 760px。式典テーマ（38px・letterSpacing
+  // 0.18em）が最も窮屈なため、そこから算出（760 / (38*1.18) ≈ 17）
+  score: [{ key: 'text', label: 'スコア表示', limit: 16 }],
+  // 速報: outputParts.tsx FlashBand の本文枠（1920px からラベル枠・左右セーフエリアを
+  // 引いた実効幅・フォント58px）から算出した目安
+  flash: [{ key: 'text', label: '速報の文言', limit: 22 }],
+  // サイドの文言: スコアと同じ SideLabel の枠を使うため同じ上限
+  side: [{ key: 'text', label: 'サイドの文言', limit: 16 }],
+  // 投票・クイズの設問: 専用レンダラーが未実装のため根拠となる実測値が無い。暫定値
+  vote: [{ key: 'text', label: '設問', limit: 40 }],
+};
+
+export const PART_KEYS = Object.keys(PART_FIELDS) as GraphicsPartKey[];

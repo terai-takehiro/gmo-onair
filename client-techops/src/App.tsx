@@ -38,6 +38,7 @@ import AiKnowledgePage from "@/pages/ai-knowledge/AiKnowledgePage";
 import GraphicsHubPage from "@/pages/graphics/GraphicsHubPage";
 import GraphicsConsolePage from "@/pages/graphics/GraphicsConsolePage";
 import GraphicsOutputPage from "@/pages/graphics/GraphicsOutputPage";
+import PartLibraryPage from "@/pages/graphics/PartLibraryPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -104,6 +105,9 @@ export default function App() {
             送出コンソール。出力画面だけはシェル無し・認証なしの独立ルート（下記） */}
         <Route path="/techops/graphics/:ownerKey" element={<GraphicsHubPage />} />
         <Route path="/techops/graphics/:ownerKey/live" element={<GraphicsConsolePage />} />
+        {/* 部品ライブラリ（全番組共通のカタログ・段4の入口部分）。URL は :ownerKey を
+            含めてハブと並びを揃えるが、中身は owner に紐づかない読み取り専用画面 */}
+        <Route path="/techops/graphics/:ownerKey/parts" element={<PartLibraryPage />} />
         {/* レンタル機材検索。案件単位（:ownerKey）で文書とは別の入れ物（2026-08-22 追加） */}
         <Route path="/techops/rental/:ownerKey" element={<RentalSearchPage />} />
         <Route path="/techops/rental/:ownerKey/list" element={<RentalReservationsPage />} />

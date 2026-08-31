@@ -91,6 +91,14 @@ export const TECHOPS_PC_ONLY: PcOnlyEntry[] = [
     instead: { label: 'アプリのトップを開く', to: '/techops/top' },
   },
   {
+    // テロップCG の部品ライブラリ。ハブと同じ理由（カード一覧＋チップの情報密度が
+    // 高く、狭い幅では組めない）で PC 専用にした
+    path: '/techops/graphics/:ownerKey/parts',
+    what: 'テロップCG（部品ライブラリ）',
+    why: '部品カードの一覧をまとめて見比べる画面で、狭い幅では組めません。',
+    instead: { label: 'アプリのトップを開く', to: '/techops/top' },
+  },
+  {
     // 表示レイアウトエディタ（13-live-display-layout-editor.md §6-3）。要素カードの
     // ドラッグ・リサイズ操作が前提のため、375px幅での対応は本設計のスコープ外にした
     // （§9-3で利用者に確認済み）。テンプレートライブラリ（閲覧・適用）はスマホ対応の対象

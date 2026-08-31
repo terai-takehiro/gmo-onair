@@ -7,7 +7,7 @@
 // テンプレート編集・発注（テロ原）・名簿からの一括生成は後の段（モックには居るが未実装）。
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ChevronLeft, Loader2, Pencil, Plus, Radio, Trash2, Type, AlertCircle } from 'lucide-react';
+import { Blocks, ChevronLeft, Loader2, Pencil, Plus, Radio, Trash2, Type, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
@@ -22,6 +22,7 @@ import { SlotBadge, ProofBadge } from './badges';
 import PageFormDialog from './PageFormDialog';
 import OutputUrlCard from './OutputUrlCard';
 import ThemePicker from './ThemePicker';
+import { resolveTelopTheme } from './telopTheme';
 
 export default function GraphicsHubPage() {
   const { ownerKey } = useParams<{ ownerKey: string }>();
@@ -118,6 +119,11 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
           onSaved={reload}
         />
         <Button variant="outline" asChild>
+          <Link to={`/techops/graphics/${encodeURIComponent(ownerKey)}/parts`}>
+            <Blocks className="mr-1 h-4 w-4" aria-hidden="true" />部品ライブラリ
+          </Link>
+        </Button>
+        <Button variant="outline" asChild>
           <Link to={`/techops/graphics/${encodeURIComponent(ownerKey)}/live`}>
             <Radio className="mr-1 h-4 w-4" aria-hidden="true" />送出コンソールへ
           </Link>
@@ -173,6 +179,7 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
       <PageFormDialog
         projectId={bundle.project.id}
         page={editing}
+        theme={resolveTelopTheme(bundle.project.theme)}
         open={formOpen}
         onOpenChange={setFormOpen}
         onSaved={() => { void reload(); }}

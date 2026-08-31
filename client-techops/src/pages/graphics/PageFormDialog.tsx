@@ -1,10 +1,13 @@
-// テロップCG — ページの作成・編集ダイアログ（段1の最小形）。
+// テロップCG — ページの作成・編集ダイアログ（段3: フォーム自動生成・検証・
+// ライブプレビュー・校正ステータス）。
 //
 // 本来の設計（docs/design/v4/graphics.md §3・§5）では入力欄はテンプレートの
-// 公開フィールドから自動生成し、常時ライブプレビューを付ける。段1ではまだ
+// 公開フィールドから自動生成し、常時ライブプレビューを付ける。段1〜2ではまだ
 // テンプレート編集が無いので、部品（partKey）ごとに決め打ちの欄を出す
-// **つなぎの形**にしてある（欄の鍵は出力画面のレンダラーと共通:
-// `title` / `name` / `text` / `targetAt`）。
+// **つなぎの形**のまま（欄の定義は `pageFields.ts` に切り出した）。
+// 段3で足したのはライブプレビュー（`PageLivePreview.tsx`）と文字数のソフトな警告。
+// 「検証は記入時に完結」— 上限を超えても保存は止めない（§3「本番画面にバリデーション
+// エラーが出た時点で設計の負け」）。
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,37 +24,28 @@ import {
   GRAPHICS_SLOTS, SLOT_LABELS, PART_LABELS, PART_DEFAULT_SLOT, PROOF_LABELS,
   createGraphicsPage, updateGraphicsPage,
   type GraphicsPageRow, type GraphicsPartKey, type GraphicsSlot, type GraphicsProofState,
+  type GraphicsThemeKey,
 } from '@/lib/graphicsApi';
+import { PART_FIELDS, PART_KEYS } from './pageFields';
+import PageLivePreview from './PageLivePreview';
 
-/** 部品ごとの入力欄（段1の決め打ち。テンプレートの公開フィールドに置き換わる予定） */
-const PART_FIELDS: Record<GraphicsPartKey, { key: string; label: string; type?: 'datetime-local' }[]> = {
-  name: [
-    { key: 'label', label: '賞名・役割（金の見出し・任意）' },
-    { key: 'mainText', label: '氏名（主役の行）' },
-    { key: 'subText', label: '所属・肩書（下の小さな行）' },
-  ],
-  title: [{ key: 'text', label: '題字' }],
-  list: [{ key: 'text', label: '内容（1行ずつ）' }],
-  ticker: [{ key: 'text', label: '流す文言' }],
-  countdown: [
-    { key: 'prefix', label: '枕詞（例: 開演まであと）' },
-    { key: 'targetAt', label: '目標時刻（空なら現在時刻の時計）', type: 'datetime-local' },
-  ],
-  score: [{ key: 'text', label: 'スコア表示' }],
-  flash: [{ key: 'text', label: '速報の文言' }],
-  side: [{ key: 'text', label: 'サイドの文言' }],
-  vote: [{ key: 'text', label: '設問' }],
-};
-
-const PART_KEYS = Object.keys(PART_FIELDS) as GraphicsPartKey[];
 const PROOF_KEYS: GraphicsProofState[] = ['draft', 'unproofed', 'proofed'];
 
+/** 文字数カウンターの色（ソフトな警告。80%到達で注意色・超過で警告色 — 保存は止めない） */
+function counterClass(length: number, limit: number): string {
+  if (length > limit) return 'text-destructive font-bold';
+  if (length >= limit * 0.8) return 'text-warning font-bold';
+  return 'text-muted-foreground';
+}
+
 export default function PageFormDialog({
-  projectId, page, open, onOpenChange, onSaved,
+  projectId, page, theme, open, onOpenChange, onSaved,
 }: {
   projectId: string;
   /** 編集対象。null なら新規作成 */
   page: GraphicsPageRow | null;
+  /** プレビューに使うプロジェクトのテーマ（ハブの `ThemePicker` が正） */
+  theme: GraphicsThemeKey;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
@@ -116,82 +110,108 @@ export default function PageFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent size="xl" className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{page ? `ページを編集（番号 ${page.callNo}）` : 'ページを作る'}</DialogTitle>
         </DialogHeader>
-        <form className="space-y-4" onSubmit={submit}>
-          <div>
-            <Label htmlFor="graphics-page-name">ページ名 <span className="text-destructive">*</span></Label>
-            <Input
-              id="graphics-page-name"
-              className="mt-1 min-h-[44px]"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="例：主催者あいさつ 田島常務"
-              autoFocus
-            />
-          </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+          <form id="graphics-page-form" className="space-y-4" onSubmit={submit}>
             <div>
-              <Label>部品</Label>
-              <Select value={partKey} onValueChange={(v) => pickPart(v as GraphicsPartKey)}>
-                <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {PART_KEYS.map((k) => (
-                    <SelectItem key={k} value={k}>{PART_LABELS[k]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>スロット（出る場所）</Label>
-              <Select value={slot} onValueChange={(v) => setSlot(v as GraphicsSlot)}>
-                <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {GRAPHICS_SLOTS.map((s) => (
-                    <SelectItem key={s} value={s}>{SLOT_LABELS[s]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {(PART_FIELDS[partKey] ?? []).map((def) => (
-            <div key={def.key}>
-              <Label htmlFor={`graphics-field-${def.key}`}>{def.label}</Label>
+              <Label htmlFor="graphics-page-name">ページ名 <span className="text-destructive">*</span></Label>
               <Input
-                id={`graphics-field-${def.key}`}
-                type={def.type ?? 'text'}
+                id="graphics-page-name"
                 className="mt-1 min-h-[44px]"
-                value={fields[def.key] ?? ''}
-                onChange={(e) => setFields((prev) => ({ ...prev, [def.key]: e.target.value }))}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="例：主催者あいさつ 田島常務"
+                autoFocus
               />
             </div>
-          ))}
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <Label>部品</Label>
+                <Select value={partKey} onValueChange={(v) => pickPart(v as GraphicsPartKey)}>
+                  <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {PART_KEYS.map((k) => (
+                      <SelectItem key={k} value={k}>{PART_LABELS[k]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>スロット（出る場所）</Label>
+                <Select value={slot} onValueChange={(v) => setSlot(v as GraphicsSlot)}>
+                  <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {GRAPHICS_SLOTS.map((s) => (
+                      <SelectItem key={s} value={s}>{SLOT_LABELS[s]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {(PART_FIELDS[partKey] ?? []).map((def) => {
+              const value = fields[def.key] ?? '';
+              const length = Array.from(value).length;
+              return (
+                <div key={def.key}>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <Label htmlFor={`graphics-field-${def.key}`}>{def.label}</Label>
+                    {def.limit != null && (
+                      <span className={`font-number text-note ${counterClass(length, def.limit)}`}>
+                        {length} / {def.limit}
+                      </span>
+                    )}
+                  </div>
+                  <Input
+                    id={`graphics-field-${def.key}`}
+                    type={def.type ?? 'text'}
+                    className="mt-1 min-h-[44px]"
+                    value={value}
+                    onChange={(e) => setFields((prev) => ({ ...prev, [def.key]: e.target.value }))}
+                  />
+                </div>
+              );
+            })}
+
+            <div>
+              <Label>校正の状態</Label>
+              <Select value={proofState} onValueChange={(v) => setProofState(v as GraphicsProofState)}>
+                <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PROOF_KEYS.map((k) => (
+                    <SelectItem key={k} value={k}>{PROOF_LABELS[k]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-note text-muted-foreground">
+                「未完成」は送出コンソールで TAKE できません。「未確認」は TAKE 時に警告が出ます。
+              </p>
+            </div>
+          </form>
 
           <div>
-            <Label>校正の状態</Label>
-            <Select value={proofState} onValueChange={(v) => setProofState(v as GraphicsProofState)}>
-              <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {PROOF_KEYS.map((k) => (
-                  <SelectItem key={k} value={k}>{PROOF_LABELS[k]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="mt-1 text-note text-muted-foreground">
-              「未完成」は送出コンソールで TAKE できません。「未確認」は TAKE 時に警告が出ます。
-            </p>
+            <p className="mb-1.5 text-th font-bold text-muted-foreground">プレビュー</p>
+            <PageLivePreview
+              name={name}
+              partKey={partKey}
+              slot={slot}
+              fields={fields}
+              theme={theme}
+              callNo={page?.callNo}
+            />
           </div>
+        </div>
 
-          <DialogFooter>
-            <Button type="submit" className="min-h-[44px]" disabled={!name.trim() || saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : page ? '保存する' : '作る'}
-            </Button>
-          </DialogFooter>
-        </form>
+        <DialogFooter>
+          <Button type="submit" form="graphics-page-form" className="min-h-[44px]" disabled={!name.trim() || saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : page ? '保存する' : '作る'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

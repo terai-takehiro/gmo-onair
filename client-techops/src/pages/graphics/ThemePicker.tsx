@@ -39,7 +39,8 @@ export default function ThemePicker({ projectId, theme, onSaved }: {
         テーマ
       </span>
       <Select value={theme} onValueChange={(v) => { void change(v); }} disabled={saving}>
-        <SelectTrigger className="min-h-tap w-[168px]" aria-label="テーマ">
+        {/* 表の列幅ではなくドロップダウンの幅なので col-width-by-hand の対象外 */}
+        <SelectTrigger className="min-h-tap w-[168px]" aria-label="テーマ"> {/* ui-tokens-ok */}
           <SelectValue placeholder="テーマを選ぶ" />
         </SelectTrigger>
         <SelectContent>
