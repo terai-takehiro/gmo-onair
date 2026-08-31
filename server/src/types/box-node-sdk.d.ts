@@ -16,6 +16,11 @@ declare module 'box-node-sdk' {
     name: string;
     /** 直上の親。ルート直下なら BOX は `null` を返す */
     parent?: { id: string; name?: string } | null;
+    /**
+     * **誰が作ったか。** 案件に結び付かないフォルダを消してよいかの判断に使う
+     * （**このアプリの実行ユーザーが作ったものだけ**を消す）。
+     */
+    created_by?: { id: string; login?: string } | null;
   }
 
   interface BoxClient {
@@ -34,6 +39,10 @@ declare module 'box-node-sdk' {
        */
       delete(folderId: string, options?: { recursive?: boolean }): Promise<void>;
       getItems(folderId: string, options?: { limit?: number; offset?: number; fields?: string }): Promise<BoxItemsResponse>;
+    };
+    /** **アプリ自身が誰か**を知るためだけに使う（`get('me')`） */
+    users: {
+      get(userId: string, options?: { fields?: string }): Promise<{ id: string; login?: string }>;
     };
     files: {
       get(fileId: string, options?: { fields?: string }): Promise<BoxItem>;

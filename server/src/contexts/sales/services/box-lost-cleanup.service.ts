@@ -54,7 +54,11 @@ export const TREE_MAX_FOLDERS = 60;
 export type BoxCleanupState = 'archived' | 'deleted';
 
 /** `folders.get` / `getItems` から見るぶんだけ */
-export interface FolderNode { id: string; name: string; parentId: string | null }
+export interface FolderNode {
+  id: string; name: string; parentId: string | null;
+  /** 作った人。**結び付かないフォルダを消してよいか**の判断に使う（人が作ったものは触らない） */
+  createdById?: string | null;
+}
 export interface ChildItem { id: string; type: 'folder' | 'file' | string; name: string }
 
 // ───────────────────────────────────────────────────────────
@@ -255,8 +259,12 @@ type Client = NonNullable<ReturnType<typeof getBoxClient>>;
 
 async function readFolder(client: Client, id: string): Promise<FolderNode | null> {
   try {
-    const f = await client.folders.get(id, { fields: 'id,name,parent' });
-    return { id: String(f.id), name: String(f.name ?? ''), parentId: f.parent?.id ? String(f.parent.id) : null };
+    const f = await client.folders.get(id, { fields: 'id,name,parent,created_by' });
+    return {
+      id: String(f.id), name: String(f.name ?? ''),
+      parentId: f.parent?.id ? String(f.parent.id) : null,
+      createdById: f.created_by?.id ? String(f.created_by.id) : null,
+    };
   } catch (e) {
     console.warn('[box-lost] フォルダを読めませんでした:', id, (e as Error).message);
     return null;
@@ -290,6 +298,8 @@ interface ProjectRow {
   id: string; code?: string | null; name?: string | null; gls_number?: string | null;
   box_url_internal?: string | null; box_url_external?: string | null;
   box_cleanup_state?: string | null;
+  /** **生きている引き合いかどうか**の判断に使う（下の `emptyOnly`） */
+  stage?: string | null; deleted_at?: string | null;
 }
 
 /**
@@ -301,7 +311,8 @@ interface ProjectRow {
  */
 async function loadProject(projectId: string): Promise<ProjectRow | null> {
   return (await queryOne(
-    `SELECT id, code, name, gls_number, box_url_internal, box_url_external, box_cleanup_state
+    `SELECT id, code, name, gls_number, box_url_internal, box_url_external, box_cleanup_state,
+            stage, deleted_at
        FROM projects WHERE id = ?`,
     [projectId],
   )) as unknown as ProjectRow | null;
@@ -472,6 +483,20 @@ export async function cleanupLostProjectFolders(projectId: string): Promise<void
   if (!row) return;
   if (row.box_cleanup_state) return;      // すでに片づけてある（同じステージへの押し直し）
 
+  /*
+   * ⚠️ **生きている引き合い（ネタ）は「空なら消す」だけ。**
+   *
+   * ご判断（2026-08-31）「ネタ・引き合いの空フォルダも消す」。ただし
+   * **まだ失注になっていない案件のフォルダを `99_失注・見送り` へ引っ越すのは
+   * 間違い**です（これから使うかもしれないものを、失注の置き場に入れてしまう）。
+   * 中身があるものは**触らずにそのまま**にします。
+   *
+   * 空だったので消した場合、`box_cleanup_state = 'deleted'` が付くので、
+   * その案件が先の段階へ動いたときに `restoreLostProjectFolders` が
+   * **同じ形のフォルダを作り直します**（使い始めるときには戻っている）。
+   */
+  const emptyOnly = row.stage === 'neta' && !row.deleted_at;
+
   const listChildren = listChildrenVia(client);
   const forbidden = forbiddenFolderIds();
   const names = expectedFolderNames(row);
@@ -520,6 +545,12 @@ export async function cleanupLostProjectFolders(projectId: string): Promise<void
        * 以前はここで諦めていたので、**現役の場所に残り続けていました**。
        */
       moveReason = `削除を断られた (${res.reason}・途中まで ${res.deleted} 件)`;
+    }
+
+    if (emptyOnly) {
+      // まだ失注ではないので、失注の置き場へは入れない
+      notes.push(`${side.key}: 空ではないので触らず (${moveReason})`);
+      continue;
     }
 
     const archive = side.parentId ? await ensureSubfolder(side.parentId, LOST_ARCHIVE_FOLDER) : null;
@@ -733,4 +764,132 @@ export function summarizeSkipReasons(notes: (string | null | undefined)[]): Skip
     acc.set(key, cur);
   }
   return [...acc.values()].sort((a, b) => b.count - a.count);
+}
+
+// ───────────────────────────────────────────────────────────
+// どの案件にも結び付かないフォルダ（実測: 77 件中 13 件）
+// ───────────────────────────────────────────────────────────
+
+/**
+ * **案件に結び付かない、空のフォルダを消す。**
+ *
+ * ── なぜ要るか（実物の BOX で測って分かったこと・2026-08-31）──────
+ *
+ * 名寄せの結果は「**BOX のフォルダ 77 件を調べて 64 件を案件に結び付けました**」。
+ * つまり **13 件はどの案件にも結び付きません**。アプリはそれが何なのか知らないので、
+ * 案件をたどる片づけでは**永久に触れません**。利用者から見れば
+ * 「まだ大量にゴミが残っている」状態です。
+ *
+ * ── ⚠️ 何を根拠に消してよいと判断するか ────────────────────────
+ *
+ * 案件をたどる経路では「その案件のフォルダである」ことを名前で確かめていますが、
+ * 結び付かないフォルダには照らす相手がいません。代わりに**4つ全部**を見ます:
+ *
+ *   ① **親フォルダの直下にある**（親を一覧して得たものだけを見るので当然に満たす）
+ *   ② **案件フォルダではないと分かっている名前ではない**（`00_DB_Backup` など）
+ *   ③ **どの案件の `box_url_*` からも指されていない**
+ *      — 指されていれば、それは生きている案件のフォルダ
+ *   ④ ⚠️ **このアプリの実行ユーザーが作ったものである**（`created_by`）
+ *      — 人が手で作ったフォルダには絶対に触らない。ここが最後の砦です
+ *
+ * そのうえで**中身が空のときだけ**消します（`isTreeEmpty` → `deleteEmptyTree`）。
+ * **どの段でも再帰は指定しない**ので、ファイルが1枚でもあれば BOX が断ります。
+ */
+export interface OrphanResult {
+  /** 消したフォルダの数 */
+  deleted: number;
+  /** 見た（親フォルダ直下の）フォルダの数 */
+  scanned: number;
+  /** 触らなかった数と、その理由の内訳 */
+  skipped: SkipReason[];
+  /** 時間切れで切り上げたか */
+  timedOut: boolean;
+  /** 親フォルダを最後まで見られたか */
+  complete: boolean;
+}
+
+/** 1リクエストで BOX を触ってよい時間（片づけと同じ理由で件数ではなく時間で切る） */
+export const ORPHAN_BUDGET_MS = 20_000;
+
+export async function cleanupOrphanFolders(budgetMs = ORPHAN_BUDGET_MS): Promise<OrphanResult> {
+  const empty: OrphanResult = { deleted: 0, scanned: 0, skipped: [], timedOut: false, complete: true };
+  if (!isBoxConfigured()) return empty;
+  const client = getBoxClient();
+  if (!client) return empty;
+
+  /*
+   * **アプリ自身が誰か。** これが取れないと ④ の判断ができないので、
+   * **取れなければ1件も触りません**（分からないものは消さない）。
+   */
+  let meId: string | null = null;
+  try {
+    meId = String((await client.users.get('me', { fields: 'id,login' })).id);
+  } catch (e) {
+    console.warn('[box-orphan] 実行ユーザーを取れませんでした:', (e as Error).message);
+    return { ...empty, complete: false };
+  }
+
+  /** どの案件からも指されている ID（**消えた案件のぶんも含める**） */
+  const linked = new Set<string>();
+  const rows = await queryAll(
+    'SELECT box_url_internal, box_url_external FROM projects',
+  ) as { box_url_internal: string | null; box_url_external: string | null }[];
+  for (const r of rows) {
+    for (const url of [r.box_url_internal, r.box_url_external]) {
+      const id = url ? extractFolderId(url) : null;
+      if (id) linked.add(id);
+    }
+  }
+
+  const listChildren = listChildrenVia(client);
+  const started = Date.now();
+  const notes: string[] = [];
+  let deleted = 0;
+  let scanned = 0;
+  let timedOut = false;
+  let complete = true;
+
+  for (const parentId of [internalParentId(), externalParentId()]) {
+    if (!parentId) { complete = false; continue; }
+    if (timedOut) break;
+    let listing;
+    try {
+      listing = await listFolderItems(parentId);
+    } catch (e) {
+      console.warn('[box-orphan] 親フォルダを一覧できませんでした:', parentId, (e as Error).message);
+      complete = false;
+      continue;
+    }
+    if (listing.truncated) complete = false;
+
+    for (const item of listing.items) {
+      if (item.type !== 'folder') continue;
+      if (Date.now() - started > budgetMs) { timedOut = true; break; }
+      const bare = stripFolderPrefix(item.name);
+      if ((NON_PROJECT_FOLDERS as readonly string[]).includes(bare)) continue;   // ②
+      if (linked.has(String(item.id))) continue;                                  // ③
+      scanned += 1;
+
+      const folder = await readFolder(client, String(item.id));
+      if (!folder) { notes.push(`orphan: 触らず (BOXからフォルダを読めなかった)`); continue; }
+      if (folder.parentId !== parentId) {                                         // ①
+        notes.push(`orphan: 触らず (別の場所にある (親=${folder.parentId ?? 'なし'}))`);
+        continue;
+      }
+      if (!folder.createdById || folder.createdById !== meId) {                    // ④
+        notes.push('orphan: 触らず (人が作ったフォルダ)');
+        continue;
+      }
+
+      const verdict = await isTreeEmpty(String(item.id), listChildren);
+      if (!verdict.empty) { notes.push(`orphan: 触らず (${verdict.reason})`); continue; }
+
+      const res = await deleteEmptyTree(verdict.folders, (id) => client.folders.delete(id));
+      if (res.ok) { deleted += 1; continue; }
+      notes.push(`orphan: 削除できず (${res.reason})`);
+    }
+  }
+
+  console.log('[box-orphan] 結び付かないフォルダ:', { deleted, scanned, timedOut, complete });
+  return { deleted, scanned, skipped: summarizeSkipReasons(notes), timedOut, complete };
 }
