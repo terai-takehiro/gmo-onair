@@ -182,16 +182,16 @@ const MAX_LIST_ITEMS = 20;
  * 暗幕に見出し（題字より小さく・金の細罫下線）＋氏名のグリッド。
  * **セルに箱・枠線は描かない** — 氏名は暗幕に直置き（枠付きセルは Web の UI に見える）。
  *
- * `revealPhase`（段6-1・汎用機構の実証）が渡されたときだけ「`revealPhase + 1` 件目まで」
- * に絞る。未指定＝従来どおり全件表示（既存のページ・プレビューの見た目を壊さないため、
- * 「続き」を1度も送っていないページには一切効かない）。「ほか N名」の残数はこの表示上限
- * を基準に数え直す — 段階公開の途中で「あと何人隠れているか」が分かるように。
+ * `revealPhase`（段6-1・汎用機構の実証）が **0以上**で渡されたときだけ「`revealPhase + 1`
+ * 件目まで」に絞る。未指定・**-1（段階公開未使用・migration 251）＝従来どおり全件表示**
+ * （cueはTAKEのたびに-1にリセットされるため後方互換）。「ほか N名」の残数はこの表示上限を
+ * 基準に数え直す。
  */
 export function FullscreenList({ page, revealPhase }: { page: GraphicsPageRow; revealPhase?: number }) {
   const title = str(page.fields.title) || page.name;
   const rawItems = Array.isArray(page.fields.items) ? page.fields.items : [];
   const items = rawItems.map(str).filter((s) => s !== '');
-  const revealLimit = typeof revealPhase === 'number' && Number.isFinite(revealPhase)
+  const revealLimit = typeof revealPhase === 'number' && Number.isFinite(revealPhase) && revealPhase >= 0
     ? Math.max(0, Math.floor(revealPhase) + 1)
     : MAX_LIST_ITEMS;
   const shown = items.slice(0, Math.min(MAX_LIST_ITEMS, revealLimit));

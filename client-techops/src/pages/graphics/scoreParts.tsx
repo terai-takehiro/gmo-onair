@@ -25,8 +25,11 @@ const numeric: CSSProperties = {
   fontFeatureSettings: "'tnum' 1",
 };
 
+/** 段階公開で全件公開し終えたときの最終エントリー（1位相当）向けの、点数の強調サイズ差分 */
+const EMPHASIS_SIZE_DELTA = 10;
+
 /** 式典: 暗紺グラデ面に全エントリーを収める。罫は下端の金細罫1本だけ（面の縁には回さない） */
-function CeremonyScore({ entries, flashLive }: { entries: ScoreEntry[]; flashLive?: boolean }) {
+function CeremonyScore({ entries, flashLive, emphasizeIndex }: { entries: ScoreEntry[]; flashLive?: boolean; emphasizeIndex?: number }) {
   const chw = digitWidthCh(entries);
   return (
     <div
@@ -49,7 +52,7 @@ function CeremonyScore({ entries, flashLive }: { entries: ScoreEntry[]; flashLiv
             <div style={{ fontFamily: SERIF, fontSynthesis: 'none', fontSize: 24, fontWeight: 700, color: GOLD, letterSpacing: '0.1em', whiteSpace: 'nowrap' }}>
               {e.name || '　'}
             </div>
-            <div style={{ ...numeric, fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 48, fontWeight: 800, color: WHITE, minWidth: `${chw}ch`, textAlign: 'center', marginTop: 4 }}>
+            <div style={{ ...numeric, fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: i === emphasizeIndex ? 48 + EMPHASIS_SIZE_DELTA : 48, fontWeight: 800, color: WHITE, minWidth: `${chw}ch`, textAlign: 'center', marginTop: 4 }}>
               {e.points}
             </div>
           </div>
@@ -64,7 +67,7 @@ function CeremonyScore({ entries, flashLive }: { entries: ScoreEntry[]; flashLiv
  * 報道: 実測した実運用オーバーレイと同じ「名前セル(紺ベタ)→得点セル(白ベタ)」の
  * 色替え分割（specs §9.8）。罫は使わない。エントリーは横に隙間なく連結する
  */
-function NewsScore({ entries, flashLive }: { entries: ScoreEntry[]; flashLive?: boolean }) {
+function NewsScore({ entries, flashLive, emphasizeIndex }: { entries: ScoreEntry[]; flashLive?: boolean; emphasizeIndex?: number }) {
   const chw = digitWidthCh(entries);
   return (
     <div style={{ position: 'absolute', top: flashLive ? 88 + 34 : SAFE_Y, right: SAFE_X, display: 'flex', boxShadow: '0 3px 10px rgba(0, 0, 0, 0.35)' }}>
@@ -73,7 +76,7 @@ function NewsScore({ entries, flashLive }: { entries: ScoreEntry[]; flashLive?: 
           <div style={{ display: 'flex', alignItems: 'center', background: NEWS_NAVY, color: WHITE, fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 26, fontWeight: 800, letterSpacing: '0.03em', padding: '10px 16px', whiteSpace: 'nowrap' }}>
             {e.name || '　'}
           </div>
-          <div style={{ ...numeric, display: 'flex', alignItems: 'center', justifyContent: 'center', background: WHITE, color: '#101014', fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 30, fontWeight: 900, minWidth: `${chw + 1}ch`, padding: '10px 12px' }}>
+          <div style={{ ...numeric, display: 'flex', alignItems: 'center', justifyContent: 'center', background: WHITE, color: '#101014', fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: i === emphasizeIndex ? 30 + EMPHASIS_SIZE_DELTA : 30, fontWeight: 900, minWidth: `${chw + 1}ch`, padding: '10px 12px' }}>
             {e.points}
           </div>
         </div>
@@ -83,7 +86,7 @@ function NewsScore({ entries, flashLive }: { entries: ScoreEntry[]; flashLive?: 
 }
 
 /** コーポレート: 面なしの袋文字。1本の罫（アクセント色の下線）だけで全体をまとめる */
-function CorporateScore({ entries, flashLive }: { entries: ScoreEntry[]; flashLive?: boolean }) {
+function CorporateScore({ entries, flashLive, emphasizeIndex }: { entries: ScoreEntry[]; flashLive?: boolean; emphasizeIndex?: number }) {
   const chw = digitWidthCh(entries);
   return (
     <div style={{ position: 'absolute', top: flashLive ? 88 + 34 : SAFE_Y, right: SAFE_X, display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end' }}>
@@ -93,7 +96,7 @@ function CorporateScore({ entries, flashLive }: { entries: ScoreEntry[]; flashLi
             <span style={{ fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 26, fontWeight: 700, color: WHITE, letterSpacing: '0.04em', whiteSpace: 'nowrap', ...EDGE_DARK }}>
               {e.name || '　'}
             </span>
-            <span style={{ ...numeric, fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 38, fontWeight: 900, color: WHITE, minWidth: `${chw}ch`, textAlign: 'right', ...EDGE_DARK }}>
+            <span style={{ ...numeric, fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: i === emphasizeIndex ? 38 + EMPHASIS_SIZE_DELTA : 38, fontWeight: 900, color: WHITE, minWidth: `${chw}ch`, textAlign: 'right', ...EDGE_DARK }}>
               {e.points}
             </span>
           </div>
@@ -108,7 +111,7 @@ function CorporateScore({ entries, flashLive }: { entries: ScoreEntry[]; flashLi
  * バラエティ: 名前セル(黄座布団・黒文字)→得点セル(黒座布団・白文字)の色替え分割
  * （報道と同じ「面の色替え」骨格を、バラエティの語彙＝黄/黒で描き直したもの）
  */
-function VarietyScore({ entries, flashLive }: { entries: ScoreEntry[]; flashLive?: boolean }) {
+function VarietyScore({ entries, flashLive, emphasizeIndex }: { entries: ScoreEntry[]; flashLive?: boolean; emphasizeIndex?: number }) {
   const chw = digitWidthCh(entries);
   return (
     <div style={{ position: 'absolute', top: flashLive ? 88 + 34 : SAFE_Y, right: SAFE_X, display: 'flex', gap: 10 }}>
@@ -117,7 +120,7 @@ function VarietyScore({ entries, flashLive }: { entries: ScoreEntry[]; flashLive
           <div style={{ display: 'flex', alignItems: 'center', background: '#ffd400', color: '#151515', fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 24, fontWeight: 900, letterSpacing: '0.02em', padding: '9px 14px', whiteSpace: 'nowrap' }}>
             {e.name || '　'}
           </div>
-          <div style={{ ...numeric, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#151515', color: WHITE, fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 28, fontWeight: 900, minWidth: `${chw + 1}ch`, padding: '9px 12px' }}>
+          <div style={{ ...numeric, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#151515', color: WHITE, fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: i === emphasizeIndex ? 28 + EMPHASIS_SIZE_DELTA : 28, fontWeight: 900, minWidth: `${chw + 1}ch`, padding: '9px 12px' }}>
             {e.points}
           </div>
         </div>
@@ -126,8 +129,18 @@ function VarietyScore({ entries, flashLive }: { entries: ScoreEntry[]; flashLive
   );
 }
 
-export function ScoreBoard({ page, theme, flashLive, lang }: {
+export function ScoreBoard({ page, theme, flashLive, lang, revealPhase }: {
   page: GraphicsPageRow; theme: TelopThemeKey; flashLive?: boolean; lang?: GraphicsLang;
+  /**
+   * 段階カウンタ（段6-1・汎用機構。`FullscreenList` に続いて `ScoreBoard` にも展開・
+   * 2026-08-31）。**0以上**で渡されたときだけ
+   * `fields.entries` 配列の先頭から `revealPhase + 1` 件目までに絞る。**配列の並び順＝
+   * 発表順**という取り決め（下位から並べておけば「下位から発表」になる）。未指定・
+   * **-1（段階公開未使用・migration 251）＝従来どおり全件表示**（cueはTAKEのたびに-1へ
+   * リセットされるので、「続き」を1度も送っていないページには一切効かない — 既存ページ・
+   * プレビューの無回帰を守る）。
+   */
+  revealPhase?: number;
 }) {
   const rawEntries = normalizeScoreEntries(page.fields[SCORE_ENTRIES_KEY]);
   // データが無い（未入力）ときは無表示にする — 空の面を放送に出すより安全側
@@ -136,8 +149,18 @@ export function ScoreBoard({ page, theme, flashLive, lang }: {
   // 英語名を1度だけ解決しておく（`langField.ts` の pickLangValue に統一）。
   // 下の Ceremony/News/Corporate/VarietyScore は今までどおり `e.name` を読むだけでよい
   const entries = rawEntries.map((e) => ({ ...e, name: pickLangValue(e.name, e.nameEn ?? '', lang) }));
-  if (theme === 'news-navy') return <NewsScore entries={entries} flashLive={flashLive} />;
-  if (theme === 'corporate-light') return <CorporateScore entries={entries} flashLive={flashLive} />;
-  if (theme === 'variety-pop') return <VarietyScore entries={entries} flashLive={flashLive} />;
-  return <CeremonyScore entries={entries} flashLive={flashLive} />;
+  const usingReveal = typeof revealPhase === 'number' && Number.isFinite(revealPhase) && revealPhase >= 0;
+  const revealLimit = usingReveal
+    ? Math.max(0, Math.floor(revealPhase as number) + 1)
+    : entries.length;
+  const shown = usingReveal ? entries.slice(0, Math.min(entries.length, revealLimit)) : entries;
+  // 全件公開し終えた（＝最終発表・1位相当）ときだけ、最後に公開したエントリーへ
+  // 控えめな強調（数字サイズだけ）を加える。revealPhase 未使用の従来表示には付けない
+  const emphasizeIndex = usingReveal && shown.length > 0 && shown.length === entries.length
+    ? shown.length - 1
+    : undefined;
+  if (theme === 'news-navy') return <NewsScore entries={shown} flashLive={flashLive} emphasizeIndex={emphasizeIndex} />;
+  if (theme === 'corporate-light') return <CorporateScore entries={shown} flashLive={flashLive} emphasizeIndex={emphasizeIndex} />;
+  if (theme === 'variety-pop') return <VarietyScore entries={shown} flashLive={flashLive} emphasizeIndex={emphasizeIndex} />;
+  return <CeremonyScore entries={shown} flashLive={flashLive} emphasizeIndex={emphasizeIndex} />;
 }

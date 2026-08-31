@@ -182,9 +182,10 @@ export interface RenderContext {
   /** 速報帯（上辺 y=0〜88）がオンエア中 → サイドスーパーが下に退避 */
   flashLive?: boolean;
   /**
-   * 段階カウンタ（段6-1・汎用機構）。対応する部品（今は `FullscreenList` のみ）が
-   * 渡された値に応じて表示範囲を絞る。未指定＝従来どおり全件表示（送出コンソールが
-   * 「続き」を1度も送っていないページ・この機構を使わない部品には効かない）。
+   * 段階カウンタ（段6-1・汎用機構）。対応する部品（`FullscreenList`・`ScoreBoard`。
+   * `pageSupportsReveal` 参照）が渡された値に応じて表示範囲を絞る。未指定＝従来どおり
+   * 全件表示（送出コンソールが「続き」を1度も送っていないページ・この機構を使わない
+   * 部品には効かない）。
    */
   revealPhase?: number;
   /**
@@ -196,12 +197,21 @@ export interface RenderContext {
 }
 
 /**
- * この部品（ページ）が「続き」（段階公開）に対応しているか。
- * ⚠️ 段6-1は汎用機構だが、対応する部品はいまのところ `FullscreenList`（一覧表）だけ
- * （実証段階）。送出コンソールの「続き」ボタンの有効・無効判定に使う。
+ * この部品（ページ）が「続き」ボタンでの段階進行に対応しているか。
+ * 送出コンソールの「続き」ボタンの有効・無効判定に使う——ただし対応部品は**進行の
+ * 仕組みが2種類**あり、ボタンの見た目・disabled 判定だけを共用する:
+ *   - `list`（一覧表）・`score`（スコアボード）: 段6-1の汎用機構。cue の
+ *     `reveal_phase`（TAKE のたびに **-1**＝未使用へリセット。migration 251）を+1する。
+ *     `revealPhase` 未指定・-1＝従来どおり全件表示という後方互換
+ *   - `vote`（投票・クイズ）: `fields.voteState`（`voteState.ts`）を直接進める。
+ *     `reveal_phase` は使わない——TAKE毎にリセットされる cue 側の値に乗せると、
+ *     **既に開票済みで運用中の既存ページ**まで TAKE 1回で「出題中」へ巻き戻ってしまい
+ *     後方互換が壊れるため（詳細は voteParts.tsx の `VoteResult` コメント）。
  */
 export function pageSupportsReveal(page: GraphicsPageRow): boolean {
-  return page.slot === 'fullscreen' && page.partKey === 'list';
+  if (page.slot === 'fullscreen' && (page.partKey === 'list' || page.partKey === 'vote')) return true;
+  if (page.slot === 'side' && page.partKey === 'score') return true;
+  return false;
 }
 
 /**
@@ -247,7 +257,7 @@ export function renderPart(
     return null;
   }
   if (slot === 'side' && partKey === 'score') {
-    return <ScoreBoard key={page.id} page={page} theme={theme} flashLive={ctx?.flashLive} lang={ctx?.lang} />;
+    return <ScoreBoard key={page.id} page={page} theme={theme} flashLive={ctx?.flashLive} lang={ctx?.lang} revealPhase={ctx?.revealPhase} />;
   }
   if (slot === 'side') {
     return <SideLabel key={page.id} page={page} theme={theme} flashLive={ctx?.flashLive} lang={ctx?.lang} />;

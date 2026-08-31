@@ -141,10 +141,11 @@ export interface GraphicsCue {
   isLive: boolean;
   takenAt: unknown;
   /**
-   * 段階カウンタ（段6-1・汎用機構。migration 248）。新しいページが TAKE されたら
-   * 0 にリセットされる（`upsertCueTx`）。「続き」ボタンで `POST …/cue/continue` が
-   * +1 する。部品側（例: `FullscreenList`）が自分の都合で解釈する — 上限や意味は
-   * cue 側では決め打ちしない。
+   * 段階カウンタ（段6-1・汎用機構。migration 248・sentinel は 251）。新しいページが
+   * TAKE されたら **-1**（＝段階公開を未使用・全件表示）にリセットされる
+   * （`upsertCueTx`）。「続き」ボタンで `POST …/cue/continue` が +1 する
+   * （-1→0で1件目が現れる）。部品側（例: `FullscreenList`）が自分の都合で解釈する
+   * — 上限や意味は cue 側では決め打ちしない。
    */
   revealPhase: number;
   updatedAt: unknown;
@@ -283,7 +284,8 @@ export function mapCue(r: Row): GraphicsCue {
     pageId: (r.page_id as number | null) ?? null,
     isLive: r.is_live as boolean,
     takenAt: r.taken_at ?? null,
-    revealPhase: (r.reveal_phase as number | null) ?? 0,
+    // -1 = 段階公開を未使用（クライアント側は「全件表示」と解釈。migration 251）
+    revealPhase: (r.reveal_phase as number | null) ?? -1,
     updatedAt: r.updated_at,
   };
 }
@@ -364,14 +366,15 @@ export async function upsertCue(
   pageId: number | null
 ): Promise<GraphicsCue[]> {
   const isLive = pageId !== null;
+  // reveal_phase は -1（段階公開未使用＝全件表示）で書き直す（migration 251）
   await execute(
     `INSERT INTO graphics_cue_state (project_id, slot, page_id, is_live, taken_at, reveal_phase, updated_at)
-     VALUES (?, ?, ?, ?, ${isLive ? 'NOW()' : 'NULL'}, 0, NOW())
+     VALUES (?, ?, ?, ?, ${isLive ? 'NOW()' : 'NULL'}, -1, NOW())
      ON CONFLICT (project_id, slot) DO UPDATE
        SET page_id = EXCLUDED.page_id,
            is_live = EXCLUDED.is_live,
            taken_at = EXCLUDED.taken_at,
-           reveal_phase = 0,
+           reveal_phase = -1,
            updated_at = NOW()`,
     [projectId, slot, pageId, isLive]
   );
@@ -385,17 +388,19 @@ async function upsertCueTx(
   pageId: number | null
 ): Promise<void> {
   const isLive = pageId !== null;
-  // reveal_phase は常に 0 で書き直す（migration 248） — TAKE で新しいページが乗るときも
-  // OUT でスロットが空くときも、前の段階を引き継がせない（「続き」は今出ているページの
-  // ためだけの状態であるべき）
+  // reveal_phase は常に -1（段階公開未使用＝全件表示。migration 251）で書き直す —
+  // TAKE で新しいページが乗るときも OUT でスロットが空くときも、前の段階を引き継がせない
+  // （「続き」は今出ているページのためだけの状態であるべき。「一度も続きを押していない」
+  // 状態は 0 ではなく -1 で表す — 0 だと「1件目まで表示」という段階公開の値と区別が
+  // 付かず、TAKEしただけで巻き添えで表示が絞られてしまうため）
   await tx.execute(
     `INSERT INTO graphics_cue_state (project_id, slot, page_id, is_live, taken_at, reveal_phase, updated_at)
-     VALUES (?, ?, ?, ?, ${isLive ? 'NOW()' : 'NULL'}, 0, NOW())
+     VALUES (?, ?, ?, ?, ${isLive ? 'NOW()' : 'NULL'}, -1, NOW())
      ON CONFLICT (project_id, slot) DO UPDATE
        SET page_id = EXCLUDED.page_id,
            is_live = EXCLUDED.is_live,
            taken_at = EXCLUDED.taken_at,
-           reveal_phase = 0,
+           reveal_phase = -1,
            updated_at = NOW()`,
     [projectId, slot, pageId, isLive]
   );

@@ -21,17 +21,17 @@ import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifyError } from '@/lib/notify';
 import {
-  GRAPHICS_SLOTS, PROOF_LABELS, continueGraphicsCue, setGraphicsCue,
+  GRAPHICS_SLOTS, PROOF_LABELS, setGraphicsCue,
   type GraphicsBundle, type GraphicsCueRow, type GraphicsPageRow, type GraphicsSlot,
 } from '@/lib/graphicsApi';
-import { createGraphicsSocket, emitCgContinue, emitCgSet, type CgSyncPayload } from '@/lib/graphicsSocket';
+import { createGraphicsSocket, emitCgSet, type CgSyncPayload } from '@/lib/graphicsSocket';
 import { useGraphicsProject } from './useGraphicsProject';
 import { useConsolePages } from './useConsolePages';
 import { useAutoOutHighlight } from './useAutoOutHighlight';
 import { useConsoleKeyboard } from './useConsoleKeyboard';
+import { useConsoleContinue } from './useConsoleContinue';
 import { ProofBadge } from './badges';
 import { resolveTelopTheme } from './telopTheme';
-import { pageSupportsReveal } from './outputParts';
 import { ConsolePreview } from './ConsolePreview';
 import { ConsoleControls } from './ConsoleControls';
 import { ConsoleSlotLanes } from './ConsoleSlotLanes';
@@ -154,27 +154,11 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
     }
   };
 
-  /**
-   * 「続き」（段6-1）: PGM（TAKE 済みでいまオンエア中）のうち段階公開に対応した部品が
-   * 乗っているページ1枚を対象にする。TAKE が pvwPage.slot を対象にするのと対になる選び方 —
-   * ただし対象は PVW ではなく PGM（`livePages`）。複数対象があっても最初の1枚だけを送る
-   * （実運用ではフルスクリーンは1枠しかないため通常は高々1枚）。
-   */
-  const continueTarget = livePages.find(pageSupportsReveal) ?? null;
-
-  const sendContinue = async (slot: GraphicsSlot) => {
-    const socket = socketRef.current;
-    if (socket?.connected) {
-      emitCgContinue(socket, slot);
-      return;
-    }
-    try {
-      const next = await continueGraphicsCue(projectId, slot);
-      setCues(cuesToMap(next));
-    } catch {
-      notifyError('「続き」の指示を送れませんでした', { description: 'サーバーとの接続を確認してください。' });
-    }
-  };
+  // 「続き」ボタンの対象選定・実処理（list/score=reveal_phase・vote=fields.voteState、
+  // どちらの経路かの説明は useConsoleContinue.ts 参照）。400行の目安のためのフック切り出し
+  const { continueTarget, sendContinue, resetVoteStateForTake } = useConsoleContinue({
+    projectId, livePages, socketRef, setCuesFromRows: (rows) => setCues(cuesToMap(rows)),
+  });
 
   /** 校正の防衛線: 未完成はブロック・未確認は確認してから（TAKE と 次へ で共通） */
   const guardTake = async (page: GraphicsPageRow): Promise<boolean> => {
@@ -195,6 +179,7 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
 
   const take = async (page: GraphicsPageRow) => {
     if (!(await guardTake(page))) return;
+    await resetVoteStateForTake(page);
     await sendSet(page.slot, page.id);
     setPvwPageId(null);
   };
@@ -204,6 +189,7 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
     const page = pvwPage;
     if (!page) return;
     if (!(await guardTake(page))) return;
+    await resetVoteStateForTake(page);
     await sendSet(page.slot, page.id);
     const idx = callOrder.findIndex((p) => p.id === page.id);
     const next = idx >= 0 && idx + 1 < callOrder.length ? callOrder[idx + 1] : page;
@@ -342,7 +328,7 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
           onNext={() => { void takeAndNext(); }}
           onOut={() => { void outStandby(); }}
           continueTarget={continueTarget}
-          onContinue={() => { if (continueTarget) void sendContinue(continueTarget.slot); }}
+          onContinue={() => { if (continueTarget) void sendContinue(continueTarget); }}
         />
       </div>
 

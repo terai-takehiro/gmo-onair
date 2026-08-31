@@ -80,15 +80,42 @@
 **最優先（これが無いと移行不可）**
 
 1. **投票・クイズの状態遷移エンジンが丸ごと無い**。現状の `vote` 部品は「手入力の票数を静的表示するだけ」。
-   出題→締切→開票という時間軸の概念が `graphics_pages.fields`（ただのJSONB）に存在しない
+   出題→締切→開票という時間軸の概念が `graphics_pages.fields`（ただのJSONB）に存在しない →
+   **出題→締切→開票の手動状態遷移のみ実装済み**（2026-08-31。`fields.voteState`
+   〈`'open' | 'closed' | 'revealed'`・省略時は`'revealed'`扱いで既存ページ無回帰〉を
+   `voteState.ts` に新設し、`VoteResult`（`voteParts.tsx`）が出題中＝ラベルのみ・
+   締切＝「投票締切」の一言を追加・開票＝従来どおり割合バー表示、の3段で描き分ける。
+   送出コンソールの「続き」ボタンを流用（`pageSupportsReveal()` に `partKey: 'vote'` を
+   追加）しつつ、実処理は list/score の `reveal_phase`（cue側・TAKE毎に0へリセットされる
+   汎用機構）とは**あえて別経路**にした——`reveal_phase` に相乗りすると、既に開票済みで
+   運用中の既存ページまで次の TAKE で「出題中」に巻き戻ってしまい後方互換が壊れるため。
+   `fields.voteState` はページ側の値として `PUT /pages/:id`（ScoreQuickAdjust と同じ
+   「fieldsをその場で書き換えてcg:syncで同報」の経路）で進め、TAKE 時だけ明示的に
+   `'open'` へ書き戻す（新しいエンドポイントは増やしていない）。**外部投票受付・自動締切は
+   引き続き今後の課題**（外部インタラクティブ連携の要否確認待ち・下記2番）
 2. **リアルタイムの投票受付・外部インタラクティブ連携が無い**。視聴者が実際に投票する導線が皆無
 3. **ランキング発表の多段演出が無い**。`score` 部品は静的表示＋±だけ。1位から順に出す等の
    段階進行の仕組みがゼロ（`ConsoleControls.tsx` の「続き」ボタンは実装なしの常時disabled）→
    **段6-1 実装済み**（`graphics_cue_state.reveal_phase`・migration 248。`POST
    …/cue/continue` と Socket `cg:continue` でスロット単位の段階カウンタを+1し、
    「続き」ボタンから叩けるようにした汎用機構のみ。実証として一覧表〈`FullscreenList`〉に
-   「revealPhase+1件目まで表示」を適用した。ランキング発表そのものの多段演出（1位から順に
-   ・score部品の段階公開等）はまだ無く、引き続き今後の課題）
+   「revealPhase+1件目まで表示」を適用した。**段階公開の仕組み（段6-1の`reveal_phase`
+   機構）をスコアボード（`score`部品）にも適用済み**（2026-08-31。`pageSupportsReveal()` の対象に
+   `slot: 'side'`＋`partKey: 'score'` を追加し、`ScoreBoard`（`scoreParts.tsx`）が
+   `revealPhase` を受けて `fields.entries` 配列の先頭から `revealPhase + 1` 件目までを
+   表示する形にした——**配列順＝発表順**という取り決め〈下位から並べておけば「下位から
+   発表」になる〉。新しく現れるエントリーは既存のIn/Outフェード契約〈段6-3〉にそのまま乗って
+   自然にフェードインする。全件公開し終えたとき（＝最終発表・1位相当）だけ最後のエントリーの
+   数字をわずかに拡大する控えめな強調も4テーマ共通で加えた——新しい色・発光は追加していない）。
+   CountUpアニメ等の精緻な演出は引き続き今後の課題（外部投票連携・過去データ移行の判断と
+   セットで検討する範囲であり、今回のスコープには含めない）。
+   ⚠️ **既知の未修正の挙動（`FullscreenList`から引き継いだもの・今回新設ではない）**:
+   サーバーはTAKEのたびに`reveal_phase`を必ず`0`へ書き直すため、出力・送出コンソールが
+   読む`revealPhase`は「続き」を一度も送っていないページでも常に`0`になる
+   （`RenderContext.revealPhase`がコード上「未指定」になるのは、cueを経由しない
+   `PageLivePreview.tsx`のフォーム編集プレビュー等に限られる）。そのため段階公開を
+   意図しない`score`/`list`のページも、TAKEした瞬間は先頭1件しか映らない
+   （実機確認済み・詳細は`docs/changelog.d/claude-realtime-cg-v4-optimization-ayc233.md`）。
 4. **In/Out アニメーション契約が未実装**。「Out = Inの逆再生」（§5）は設計文書の記述のみ→
    **段6-3 実装済み**（汎用フェード契約のみ。`pages/graphics/CgTransition.tsx`・
    出力画面／送出コンソール共通・数値は

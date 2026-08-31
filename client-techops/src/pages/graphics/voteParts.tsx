@@ -10,6 +10,7 @@ import type { CSSProperties } from 'react';
 import type { GraphicsPageRow } from '@/lib/graphicsApi';
 import { pickLang, pickLangValue, type GraphicsLang } from './langField';
 import { normalizeVoteChoices, sharePercent, totalVotes, VOTE_CHOICES_KEY, type VoteChoice } from './voteChoices';
+import { readVoteState, type VoteState } from './voteState';
 import {
   EDGE_DARK, GOLD, GOTHIC, NEWS_NAVY, SAFE_X, SAFE_Y, SERIF,
   CORPORATE_ACCENT, WHITE, type TelopThemeKey,
@@ -60,8 +61,9 @@ function readVote(page: GraphicsPageRow, lang?: GraphicsLang): VoteData {
 }
 
 /** 式典: 暗紺の暗幕に金の題字（specs §10）と同じ扱いの設問＋バー型の選択肢一覧 */
-function CeremonyVote({ data }: { data: VoteData }) {
+function CeremonyVote({ data, voteState }: { data: VoteData; voteState: VoteState }) {
   const { question, shown, total } = data;
+  const revealed = voteState === 'revealed';
   return (
     <div style={FULL_SCRIM}>
       <div style={frame}>
@@ -74,7 +76,8 @@ function CeremonyVote({ data }: { data: VoteData }) {
         >
           {question}
         </div>
-        <div style={{ height: 2, width: 340, marginTop: 24, marginBottom: 48, background: `linear-gradient(90deg, rgba(212,175,55,0) 0%, ${GOLD} 20%, ${GOLD} 80%, rgba(212,175,55,0) 100%)` }} />
+        <div style={{ height: 2, width: 340, marginTop: 24, marginBottom: voteState === 'closed' ? 16 : 48, background: `linear-gradient(90deg, rgba(212,175,55,0) 0%, ${GOLD} 20%, ${GOLD} 80%, rgba(212,175,55,0) 100%)` }} />
+        {voteState === 'closed' && <ClosedNote color="#c9c9c9" />}
         <div style={{ width: '100%', maxWidth: 1180, display: 'flex', flexDirection: 'column', gap: 30 }}>
           {shown.map((c, i) => {
             const pct = sharePercent(c.votes, total);
@@ -84,15 +87,19 @@ function CeremonyVote({ data }: { data: VoteData }) {
                   <span style={{ fontFamily: SERIF, fontSynthesis: 'none', fontSize: 38, fontWeight: 700, color: WHITE, letterSpacing: '0.04em' }}>
                     {c.label}
                   </span>
-                  <span style={{ ...numeric, fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 40, fontWeight: 800, color: GOLD, whiteSpace: 'nowrap' }}>
-                    {pct}<span style={{ fontSize: 24, marginLeft: 2 }}>%</span>
-                  </span>
+                  {revealed && (
+                    <span style={{ ...numeric, fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 40, fontWeight: 800, color: GOLD, whiteSpace: 'nowrap' }}>
+                      {pct}<span style={{ fontSize: 24, marginLeft: 2 }}>%</span>
+                    </span>
+                  )}
                 </div>
-                <div style={{ height: 4, marginTop: 10, width: `${Math.max(0, Math.min(100, pct))}%`, background: GOLD, opacity: 0.9 }} />
+                {revealed && (
+                  <div style={{ height: 4, marginTop: 10, width: `${Math.max(0, Math.min(100, pct))}%`, background: GOLD, opacity: 0.9 }} />
+                )}
               </div>
             );
           })}
-          <ListFooter data={data} color="#c9c9c9" />
+          <ListFooter data={data} voteState={voteState} color="#c9c9c9" />
         </div>
       </div>
     </div>
@@ -103,14 +110,16 @@ function CeremonyVote({ data }: { data: VoteData }) {
  * 報道: NaSTAuk/General-Election-Graphics の実開票CG（`.constpartyname`/`.constvotes`）と
  * 同じ「ラベルの紺プレート→数値の白プレート」の2枚重ね。バーは使わない（面の分割だけ）
  */
-function NewsVote({ data }: { data: VoteData }) {
+function NewsVote({ data, voteState }: { data: VoteData; voteState: VoteState }) {
   const { question, shown, total } = data;
+  const revealed = voteState === 'revealed';
   return (
     <div style={FULL_SCRIM}>
       <div style={frame}>
-        <div style={{ background: NEWS_NAVY, color: WHITE, fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 34, fontWeight: 800, letterSpacing: '0.04em', padding: '10px 28px 12px', marginBottom: 40, textAlign: 'center' }}>
+        <div style={{ background: NEWS_NAVY, color: WHITE, fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 34, fontWeight: 800, letterSpacing: '0.04em', padding: '10px 28px 12px', marginBottom: voteState === 'closed' ? 12 : 40, textAlign: 'center' }}>
           {question}
         </div>
+        {voteState === 'closed' && <ClosedNote color="#c9c9c9" />}
         <div style={{ width: '100%', maxWidth: 1180, display: 'flex', flexDirection: 'column', gap: 12 }}>
           {shown.map((c, i) => {
             const pct = sharePercent(c.votes, total);
@@ -119,13 +128,15 @@ function NewsVote({ data }: { data: VoteData }) {
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: WHITE, color: '#101014', fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 30, fontWeight: 900, letterSpacing: '0.01em', padding: '12px 24px', fontFeatureSettings: "'palt' 1" }}>
                   {c.label}
                 </div>
-                <div style={{ ...numeric, flexShrink: 0, minWidth: 140, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', background: NEWS_NAVY, color: WHITE, fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 30, fontWeight: 900, padding: '12px 20px' }}>
-                  {pct}%
-                </div>
+                {revealed && (
+                  <div style={{ ...numeric, flexShrink: 0, minWidth: 140, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', background: NEWS_NAVY, color: WHITE, fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 30, fontWeight: 900, padding: '12px 20px' }}>
+                    {pct}%
+                  </div>
+                )}
               </div>
             );
           })}
-          <ListFooter data={data} color="#c9c9c9" />
+          <ListFooter data={data} voteState={voteState} color="#c9c9c9" />
         </div>
       </div>
     </div>
@@ -136,14 +147,16 @@ function NewsVote({ data }: { data: VoteData }) {
  * コーポレート: nprapps/elections22 の `resultsTableCandidates`（実運用の結果ページ）と
  * 同じ「ラベルの下に細いバーだけ」の骨格を、既存の下罫1本の語彙（アクセント色）で描く
  */
-function CorporateVote({ data }: { data: VoteData }) {
+function CorporateVote({ data, voteState }: { data: VoteData; voteState: VoteState }) {
   const { question, shown, total } = data;
+  const revealed = voteState === 'revealed';
   return (
     <div style={FULL_SCRIM}>
       <div style={frame}>
-        <div style={{ fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 40, fontWeight: 800, color: WHITE, letterSpacing: '0.03em', marginBottom: 44, textAlign: 'center', ...EDGE_DARK }}>
+        <div style={{ fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 40, fontWeight: 800, color: WHITE, letterSpacing: '0.03em', marginBottom: voteState === 'closed' ? 12 : 44, textAlign: 'center', ...EDGE_DARK }}>
           {question}
         </div>
+        {voteState === 'closed' && <ClosedNote color="#e6e8eb" />}
         <div style={{ width: '100%', maxWidth: 1180, display: 'flex', flexDirection: 'column', gap: 26 }}>
           {shown.map((c, i) => {
             const pct = sharePercent(c.votes, total);
@@ -153,15 +166,19 @@ function CorporateVote({ data }: { data: VoteData }) {
                   <span style={{ fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 32, fontWeight: 700, color: WHITE, letterSpacing: '0.02em', ...EDGE_DARK }}>
                     {c.label}
                   </span>
-                  <span style={{ ...numeric, fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 34, fontWeight: 900, color: WHITE, whiteSpace: 'nowrap', ...EDGE_DARK }}>
-                    {pct}%
-                  </span>
+                  {revealed && (
+                    <span style={{ ...numeric, fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 34, fontWeight: 900, color: WHITE, whiteSpace: 'nowrap', ...EDGE_DARK }}>
+                      {pct}%
+                    </span>
+                  )}
                 </div>
-                <div style={{ height: 3, marginTop: 10, width: `${Math.max(0, Math.min(100, pct))}%`, background: CORPORATE_ACCENT }} />
+                {revealed && (
+                  <div style={{ height: 3, marginTop: 10, width: `${Math.max(0, Math.min(100, pct))}%`, background: CORPORATE_ACCENT }} />
+                )}
               </div>
             );
           })}
-          <ListFooter data={data} color="#e6e8eb" />
+          <ListFooter data={data} voteState={voteState} color="#e6e8eb" />
         </div>
       </div>
     </div>
@@ -169,14 +186,16 @@ function CorporateVote({ data }: { data: VoteData }) {
 }
 
 /** バラエティ: SideLabel/scoreParts と同じ黄座布団×黒座布団の色替え。べた影つき */
-function VarietyVote({ data }: { data: VoteData }) {
+function VarietyVote({ data, voteState }: { data: VoteData; voteState: VoteState }) {
   const { question, shown, total } = data;
+  const revealed = voteState === 'revealed';
   return (
     <div style={FULL_SCRIM}>
       <div style={frame}>
-        <div style={{ background: '#ffd400', color: '#151515', fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 32, fontWeight: 900, letterSpacing: '0.02em', padding: '10px 28px 12px', marginBottom: 40, textAlign: 'center', boxShadow: '5px 5px 0 rgba(10, 10, 10, 0.75)' }}>
+        <div style={{ background: '#ffd400', color: '#151515', fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 32, fontWeight: 900, letterSpacing: '0.02em', padding: '10px 28px 12px', marginBottom: voteState === 'closed' ? 12 : 40, textAlign: 'center', boxShadow: '5px 5px 0 rgba(10, 10, 10, 0.75)' }}>
           {question}
         </div>
+        {voteState === 'closed' && <ClosedNote color="#e6e8eb" />}
         <div style={{ width: '100%', maxWidth: 1180, display: 'flex', flexDirection: 'column', gap: 16 }}>
           {shown.map((c, i) => {
             const pct = sharePercent(c.votes, total);
@@ -185,13 +204,15 @@ function VarietyVote({ data }: { data: VoteData }) {
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: '#151515', color: WHITE, fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 30, fontWeight: 900, letterSpacing: '0.02em', padding: '12px 24px', fontFeatureSettings: "'palt' 1" }}>
                   {c.label}
                 </div>
-                <div style={{ ...numeric, flexShrink: 0, minWidth: 140, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', background: '#ffd400', color: '#151515', fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 30, fontWeight: 900, padding: '12px 20px' }}>
-                  {pct}%
-                </div>
+                {revealed && (
+                  <div style={{ ...numeric, flexShrink: 0, minWidth: 140, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', background: '#ffd400', color: '#151515', fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 30, fontWeight: 900, padding: '12px 20px' }}>
+                    {pct}%
+                  </div>
+                )}
               </div>
             );
           })}
-          <ListFooter data={data} color="#e6e8eb" />
+          <ListFooter data={data} voteState={voteState} color="#e6e8eb" />
         </div>
       </div>
     </div>
@@ -206,6 +227,18 @@ function EmptyNote({ color }: { color: string }) {
   );
 }
 
+/**
+ * 「投票締切」の一言（進行状態=closedのときだけ・設問のすぐ下）。既存の書体・
+ * 小さめの文字サイズを流用するだけで、新しい色・意匠は増やさない（背景メモの指示どおり）。
+ */
+function ClosedNote({ color }: { color: string }) {
+  return (
+    <div style={{ fontFamily: GOTHIC, fontSynthesis: 'none', fontSize: 26, fontWeight: 700, color, letterSpacing: '0.06em', textAlign: 'center', marginBottom: 28 }}>
+      投票締切
+    </div>
+  );
+}
+
 /** 表示上限（MAX_CHOICES_SHOWN）を超えたぶんの畳み表示（FullscreenList の「ほか N名」と同型） */
 function RestNote({ color, count }: { color: string; count: number }) {
   return (
@@ -215,23 +248,39 @@ function RestNote({ color, count }: { color: string; count: number }) {
   );
 }
 
-/** テーマ共通のリスト末尾（表示上限の畳み・合計0件の案内）。順番はこの並びで固定 */
-function ListFooter({ data, color }: { data: VoteData; color: string }) {
+/**
+ * テーマ共通のリスト末尾（表示上限の畳み・合計0件の案内）。順番はこの並びで固定。
+ * 「まだ投票がありません」は総数=0であること自体が結果の一部のため、開票（revealed）
+ * のときだけ出す — 出題中・締切では「ほか N択」（選択肢の総数）だけを出す。
+ */
+function ListFooter({ data, voteState, color }: { data: VoteData; voteState: VoteState; color: string }) {
   return (
     <>
       {data.restCount > 0 && <RestNote color={color} count={data.restCount} />}
-      {data.total === 0 && <EmptyNote color={color} />}
+      {data.total === 0 && voteState === 'revealed' && <EmptyNote color={color} />}
     </>
   );
 }
 
+/**
+ * 投票・クイズの進行状態（段6-1後の追加スコープ・background メモ §「今回のスコープ」）。
+ * `fields.voteState`（`voteState.ts`）が唯一の情報源 — cue の `reveal_phase`（段6-1・
+ * list専用の実証機構）とは意図的に結び付けない: TAKE のたびに 0 へリセットされる
+ * `reveal_phase` をそのまま使うと、**既に開票済みのまま運用中の既存ページ**まで
+ * TAKE 1回で「出題中」に巻き戻ってしまい後方互換が壊れる（`fields.voteState` は
+ * ページ側に留まる値なので、この機構を一度も操作していないページは常に
+ * 既定の `'revealed'` のまま——GraphicsConsolePage.tsx 側の TAKE 時リセットも
+ * 「コンソールの TAKE 操作」という明示的な操作のときだけ `'open'` を書き込む形にして
+ * 同じ理由で reveal_phase を避けている）。
+ */
 export function VoteResult({ page, theme, lang }: { page: GraphicsPageRow; theme: TelopThemeKey; lang?: GraphicsLang }) {
   const data = readVote(page, lang);
   // 選択肢が1件も無い（ラベル未入力のみ）ときは無表示にする — 出力が空の暗幕だけになる
   // より、レンダラー自体が「まだ用意できていない」ことを示す（outputParts.tsx の規律と同じ）
   if (data.shown.length === 0) return null;
-  if (theme === 'news-navy') return <NewsVote data={data} />;
-  if (theme === 'corporate-light') return <CorporateVote data={data} />;
-  if (theme === 'variety-pop') return <VarietyVote data={data} />;
-  return <CeremonyVote data={data} />;
+  const voteState = readVoteState(page.fields);
+  if (theme === 'news-navy') return <NewsVote data={data} voteState={voteState} />;
+  if (theme === 'corporate-light') return <CorporateVote data={data} voteState={voteState} />;
+  if (theme === 'variety-pop') return <VarietyVote data={data} voteState={voteState} />;
+  return <CeremonyVote data={data} voteState={voteState} />;
 }
