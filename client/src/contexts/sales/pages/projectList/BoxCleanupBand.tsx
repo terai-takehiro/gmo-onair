@@ -43,11 +43,18 @@ const KEY = ['projects', 'box-cleanup', 'lost'];
 const BATCH = 5;
 
 interface RelinkResult { linked: number; complete: boolean; scanned: number }
+/**
+ * **触らなかった理由**。⚠️ これを出していなかったので、本番で押した人には
+ * 「置き場所か名前か中身か」が分からず次の一手が決められなかった
+ * （ユーザー報告「このように出て結局処理されない」）。
+ */
+interface SkipReason { code: string; label: string; count: number; sample?: string }
 interface RunResult {
   processed: number; remaining: number; boxConfigured: boolean;
   relinked?: RelinkResult;
   /** サーバーが時間切れで切り上げたか（残りは続けて呼べば進む） */
   timedOut?: boolean;
+  skipped?: SkipReason[];
 }
 
 export function BoxCleanupBand() {
@@ -63,12 +70,14 @@ export function BoxCleanupBand() {
   const [stuck, setStuck] = useState(0);
   /** BOX を調べて結び付け直した結果。**何件見て何件つながったかを必ず出す** */
   const [relink, setRelink] = useState<RelinkResult | null>(null);
+  /** 触らなかった理由（多い順）。**件数だけでなく理由まで出す** */
+  const [skipped, setSkipped] = useState<SkipReason[]>([]);
   const stopRef = useRef(false);
 
   const q = useQuery({
     queryKey: KEY,
     queryFn: async () => (await api.get('/projects/box-cleanup/lost')).data.data as
-      { remaining: number; unlinked: number; boxConfigured: boolean },
+      { remaining: number; unlinked: number; boxConfigured: boolean; skipped?: SkipReason[] },
     enabled: canRun,
   });
 
@@ -93,7 +102,7 @@ export function BoxCleanupBand() {
       const head = (await api.post('/projects/box-cleanup/lost', { relink: true })).data.data as RunResult;
       const relinked = head.relinked;
       setTotal(head.remaining);
-      qc.setQueryData(KEY, { remaining: head.remaining, unlinked: 0, boxConfigured: head.boxConfigured });
+      qc.setQueryData(KEY, { remaining: head.remaining, unlinked: 0, boxConfigured: head.boxConfigured, skipped: head.skipped });
       last = head;
 
       while (!stopRef.current && (last?.remaining ?? 0) > 0) {
@@ -101,7 +110,7 @@ export function BoxCleanupBand() {
         last = r;
         cleaned += r.processed;
         setDone(cleaned);
-        qc.setQueryData(KEY, { remaining: r.remaining, unlinked: 0, boxConfigured: r.boxConfigured });
+        qc.setQueryData(KEY, { remaining: r.remaining, unlinked: 0, boxConfigured: r.boxConfigured, skipped: r.skipped });
         /*
          * **1件も進まなかったら止める**（残り0件を待つと永久に回る）。
          * ⚠️ ただし**時間切れで切り上げたときは続ける** — 「進まなかった」のでは
@@ -110,12 +119,16 @@ export function BoxCleanupBand() {
          */
         if (r.processed === 0 && !r.timedOut) break;
       }
-      return { cleaned, remaining: last?.remaining ?? 0, stopped: stopRef.current, relinked };
+      return {
+        cleaned, remaining: last?.remaining ?? 0, stopped: stopRef.current, relinked,
+        skipped: last?.skipped ?? [],
+      };
     },
     onSuccess: (r) => {
       setRunning(false);
       setStuck(r.remaining);
       setRelink(r.relinked ?? null);
+      setSkipped(r.skipped ?? []);
       if (r.stopped) { notifySuccess(`${r.cleaned} 件まで片づけて止めました（残り ${r.remaining} 件）`); return; }
       if (r.cleaned === 0) {
         notifySuccess(
@@ -151,6 +164,8 @@ export function BoxCleanupBand() {
    * **片づけ待ちが0件に見えて帯が出ませんでした**（ユーザー報告の正体）。
    */
   const candidates = remaining + unlinked;
+  // 押す前は帯が持っている理由、押したあとはその回の理由
+  const reasons = skipped.length > 0 ? skipped : (q.data?.skipped ?? []);
   if (!canRun || candidates === 0) return null;
 
   /*
@@ -223,9 +238,32 @@ export function BoxCleanupBand() {
           {!relink.complete && '（親フォルダを最後まで見られていません。もう一度押すと続きを調べます）'}。
         </p>
       )}
-      {!running && stuck > 0 && (
+      {/*
+        ⚠️ **触らなかった理由を必ず数えて出す。**
+        「置き場所や名前が想定と違うか中身を数え切れなかった」とだけ出していたため、
+        本番で押した人は**何を直せば片づくのかが分からない**状態でした
+        （ユーザー報告「このように出て結局処理されない」）。理由は最初から
+        `box_cleanup_note` に書いてあり、出していなかっただけです。
+      */}
+      {!running && reasons.length > 0 && (
+        <div className="text-note mt-1.5 text-muted-foreground">
+          <p>触らなかった {reasons.reduce((n, r) => n + r.count, 0)} 件の内訳:</p>
+          <ul className="mt-1 space-y-0.5">
+            {reasons.map((r) => (
+              <li key={`${r.code}:${r.label}`} className="flex gap-1.5">
+                <span className="shrink-0 font-bold tabular-nums">{r.count} 件</span>
+                <span className="min-w-0">
+                  {r.label}
+                  {r.sample && <span className="opacity-80">（例: {r.sample}）</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {!running && reasons.length === 0 && stuck > 0 && (
         <p className="text-note mt-1.5 text-muted-foreground">
-          残り {stuck} 件は、置き場所や名前が想定と違うか中身を数え切れなかったため触っていません
+          残り {stuck} 件は、まだ試していないか中身を数え切れなかったため触っていません
           （案件を開くと BOX フォルダのリンクから確かめられます）。
         </p>
       )}

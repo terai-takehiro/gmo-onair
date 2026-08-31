@@ -56,6 +56,7 @@ import { Button } from '@/components/ui/button';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
 import { BoxCleanupBand } from './projectList/BoxCleanupBand';
+import { JunkPurgeBand } from './projectList/JunkPurgeBand';
 import { EmptyState, NoSearchResults, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import ExcelToolbar from '@/components/ExcelToolbar';
 import { STAGE_CHIPS, ALL_STAGES } from './projectList/stages';
@@ -263,6 +264,7 @@ export default function ProjectListPage() {
           （片づけ待ちが 0 件なら中で何も描かない）。現役の案件を見ている人の
           視界にこの帯を置いても、いま押す理由が無い */}
       {stageKey === 'done' && <BoxCleanupBand />}
+      {stageKey === 'done' && <JunkPurgeBand />}
 
       {isMobile ? (
         <MobileFilterBar

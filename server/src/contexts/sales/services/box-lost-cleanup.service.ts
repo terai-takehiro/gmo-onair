@@ -551,3 +551,106 @@ export async function syncBoxFoldersForStageSafe(projectId: string, toStage: str
     console.warn('[box-lost] 片づけ/戻しに失敗:', projectId, toStage, (e as Error).message);
   }
 }
+
+// ───────────────────────────────────────────────────────────
+// **なぜ触らなかったのかを画面に出す**（純関数・テストで固定する）
+// ───────────────────────────────────────────────────────────
+
+/**
+ * ── なぜ要るか（ユーザー報告 2026-08-31）──────────────────────
+ *
+ * 本番で「まとめて片づける」を押したところ、504 は出なくなり名寄せも動いた
+ * （BOX のフォルダ 120 件を調べて 94 件を結び付けた）のに、
+ * **片づけは1件も通りませんでした**。画面に出たのは
+ *
+ *   「片づけられるものがありませんでした（安全のため、確かめられなかった
+ *     フォルダは触っていません）」
+ *   「残り 15 件は、置き場所や名前が想定と違うか中身を数え切れなかったため
+ *     触っていません」
+ *
+ * ⚠️ **これでは押した人も直す側も次の一手が決められません。**
+ * 「置き場所が違う」のか「名前が違う」のかで、直し方は正反対です。
+ *
+ * ⚠️ **理由そのものは最初から DB にありました**（`box_cleanup_note`）。
+ * 書いていたのに**画面へ出していなかっただけ**です。集めて数えて出します。
+ */
+export type SkipReasonCode =
+  | 'url' | 'forbidden' | 'unreadable' | 'noParent' | 'elsewhere'
+  | 'noName' | 'nameMismatch' | 'boxRefused' | 'other';
+
+export interface SkipReason {
+  code: SkipReasonCode;
+  /** 画面にそのまま出す文。**次に何をすればよいか**まで書く */
+  label: string;
+  count: number;
+  /** 実物の例（フォルダ名・親ID）。**1つあるだけで原因の見当がつく** */
+  sample?: string;
+}
+
+/** 判定の順に見る。**先に当たったものを採る**（1つの note に複数入ることがある） */
+const SKIP_RULES: { code: SkipReasonCode; match: string; label: string; sample?: RegExp }[] = [
+  {
+    code: 'nameMismatch', match: 'この案件のフォルダではない',
+    label: 'BOX のフォルダ名が、このアプリの付け方と違う（案件名を変えたあと BOX 側の名前が古いまま、など）',
+    sample: /この案件のフォルダではない \(([^)]*)\)/,
+  },
+  {
+    code: 'elsewhere', match: '別の場所にある',
+    label: 'BOX のフォルダが親フォルダの直下に無い（年度フォルダなどの下に移動している）',
+    sample: /別の場所にある \(親=([^)]*)\)/,
+  },
+  {
+    code: 'unreadable', match: 'BOXからフォルダを読めなかった',
+    label: 'BOX からフォルダを読めない（すでに消えている・権限が無い）',
+  },
+  {
+    code: 'forbidden', match: '親フォルダ・取込フォルダを指している',
+    label: 'BOX の URL が親フォルダそのものを指している（案件のフォルダではない）',
+  },
+  {
+    code: 'url', match: 'BOXフォルダのURLが読めない',
+    label: 'BOX の URL が読めない形をしている',
+  },
+  {
+    code: 'url', match: 'フォルダIDの形が違う',
+    label: 'BOX の URL が読めない形をしている',
+  },
+  {
+    code: 'noParent', match: '親フォルダが設定されていない',
+    label: '親フォルダの環境変数が設定されていない（設定の「外部サービス連携」）',
+  },
+  {
+    code: 'noName', match: 'この案件の名前が分からない',
+    label: '案件名が空なので、どのフォルダか決められない',
+  },
+  { code: 'boxRefused', match: '削除できず', label: 'BOX が削除を断った' },
+  { code: 'boxRefused', match: '移動できず', label: 'BOX が移動を断った' },
+  { code: 'boxRefused', match: '置き場を作れず', label: '「99_失注・見送り」を作れなかった' },
+];
+
+/**
+ * **触らなかった理由を数える。** 多い順に返す。
+ *
+ * ⚠️ **1件の note に社内・社外の2つが入ります。** 案件の数を数えたいので
+ * **1案件につき最初に当たった理由を1つだけ**数えます（両方数えると
+ * 「15件のはずが 23 件」になり、押した人が数を信じられなくなる）。
+ */
+export function summarizeSkipReasons(notes: (string | null | undefined)[]): SkipReason[] {
+  const acc = new Map<string, SkipReason>();
+  for (const raw of notes) {
+    const note = String(raw ?? '');
+    if (!note.trim()) continue;
+    const hit = SKIP_RULES.find((r) => note.includes(r.match));
+    const code: SkipReasonCode = hit?.code ?? 'other';
+    const label = hit?.label ?? 'BOX を触れなかった（詳しい理由はサーバーの記録にあります）';
+    const key = `${code}:${label}`;
+    const cur = acc.get(key) ?? { code, label, count: 0 };
+    cur.count += 1;
+    if (!cur.sample && hit?.sample) {
+      const m = note.match(hit.sample);
+      if (m?.[1]) cur.sample = m[1];
+    }
+    acc.set(key, cur);
+  }
+  return [...acc.values()].sort((a, b) => b.count - a.count);
+}

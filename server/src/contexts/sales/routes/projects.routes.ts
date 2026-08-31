@@ -21,6 +21,7 @@ import {
   requireScope, requireFiles, projectFolderId, uploadFiles,
 } from '../services/project-box-files.service';
 import { createPhotoAccess } from '../services/project-photo-access.service';
+import { countJunkProjects, purgeJunkProjects } from '../services/project-purge.service';
 
 const router = Router();
 
@@ -310,6 +311,27 @@ router.post('/box-cleanup/lost', requirePermission('sales', 'manager'), async (r
   // `relink` は**まとめて処分の1回目だけ** true（親フォルダを丸ごと一覧し直すため）
   const result = await projectService.cleanupLostBoxFolders(limit, req.body?.relink === true);
   res.json({ success: true, data: result });
+});
+
+/**
+ * **ゴミになった案件を案件台帳から外す**（ユーザー依頼 2026-08-31
+ * 「失注やネタ見送りなどゴミになった案件は案件台帳等からも抹消したい」）。
+ *
+ * **論理削除**です（`projects.deleted_at`）— 台帳・検索・集計から完全に消えますが、
+ * 行は残るので間違えても戻せます。物理削除にしなかった理由（法定保存・失注は
+ * 機械が付ける取り消せる状態・失注分析の材料）は `project-purge.service.ts` の冒頭に。
+ *
+ * ⚠️ **`manager` だけ**。案件を台帳から外す操作は、既存の削除（`DELETE /:id`）と
+ * 同じ重さなので同じ権限で揃えます。
+ */
+router.get('/purge/junk', requirePermission('sales', 'manager'), async (_req, res) => {
+  res.json({ success: true, data: await countJunkProjects() });
+});
+
+router.post('/purge/junk', requirePermission('sales', 'manager'), async (req, res) => {
+  // 1往復の件数は必ず切る（BOX を触るので長くなる）。時間でも切ってある
+  const limit = Math.min(Math.max(Number(req.body?.limit) || 20, 1), 100);
+  res.json({ success: true, data: await purgeJunkProjects(limit, req.user!.id) });
 });
 
 // BOX フォルダ手動作成 (既存案件向けバックフィル / 失敗ケースのリトライ)

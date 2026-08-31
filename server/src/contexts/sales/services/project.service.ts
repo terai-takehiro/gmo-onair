@@ -37,7 +37,10 @@ import { syncNextActionsForStageSafe } from '../../../shared/services/next-actio
  * 中身が1つも無ければ削除・あれば `99_失注・見送り` へ引っ越す。失注から戻せば元へ返る。
  * 失敗してもステージ変更は止めない（`...Safe`）。
  */
-import { syncBoxFoldersForStageSafe, relinkProjectFolders, type RelinkResult } from './box-lost-cleanup.service';
+import {
+  syncBoxFoldersForStageSafe, relinkProjectFolders, summarizeSkipReasons,
+  type RelinkResult, type SkipReason,
+} from './box-lost-cleanup.service';
 import { isBoxConfigured } from '../../../shared/services/box';
 
 /**
@@ -1951,11 +1954,31 @@ export class ProjectService {
    * `boxConfigured` も返す — **繋いでいないときに「N件あります」だけ出すと、
    * 押しても減らない帯**になり、人は理由が分からないまま押し続けます。
    */
-  async countLostBoxFoldersToClean(): Promise<{ remaining: number; unlinked: number; boxConfigured: boolean }> {
+  async countLostBoxFoldersToClean(): Promise<{
+    remaining: number; unlinked: number; boxConfigured: boolean; skipped: SkipReason[];
+  }> {
     const row = await queryOne(`SELECT COUNT(*)::int AS c ${LOST_BOX_CLEANUP_TARGET_SQL}`) as { c?: number } | null;
     // **URL が空のぶんも数える**（BOX を見て名前で結び付け直せば片づけられる）
     const un = await queryOne(`SELECT COUNT(*)::int AS c ${LOST_BOX_UNLINKED_SQL}`) as { c?: number } | null;
-    return { remaining: Number(row?.c ?? 0), unlinked: Number(un?.c ?? 0), boxConfigured: isBoxConfigured() };
+    return {
+      remaining: Number(row?.c ?? 0), unlinked: Number(un?.c ?? 0), boxConfigured: isBoxConfigured(),
+      skipped: await this.lostBoxSkipReasons(),
+    };
+  }
+
+  /**
+   * **触らなかった理由**を集めて数える。
+   *
+   * ⚠️ **理由は最初から DB にありました**（`box_cleanup_note`）。書いていたのに
+   * 画面へ出していなかったので、押した人には「置き場所か名前か中身か」の
+   * どれなのかが分からず、**次の一手を決められませんでした**
+   * （ユーザー報告「このように出て結局処理されない」）。
+   */
+  private async lostBoxSkipReasons(): Promise<SkipReason[]> {
+    const rows = await queryAll(
+      `SELECT box_cleanup_note ${LOST_BOX_CLEANUP_TARGET_SQL} AND box_cleanup_note IS NOT NULL LIMIT 500`,
+    ) as { box_cleanup_note: string | null }[];
+    return summarizeSkipReasons(rows.map((r) => r.box_cleanup_note));
   }
 
   /**
@@ -1984,7 +2007,7 @@ export class ProjectService {
     relink = false,
   ): Promise<{
     processed: number; remaining: number; boxConfigured: boolean;
-    relinked?: RelinkResult; timedOut?: boolean;
+    relinked?: RelinkResult; timedOut?: boolean; skipped?: SkipReason[];
   }> {
     if (relink) {
       const relinked = await relinkProjectFolders();
@@ -2034,7 +2057,11 @@ export class ProjectService {
       processed = Number(done?.c ?? 0);
     }
     const left = await queryOne(`SELECT COUNT(*)::int AS c ${targetSql}`) as { c?: number } | null;
-    return { processed, remaining: Number(left?.c ?? 0), boxConfigured: isBoxConfigured(), timedOut };
+    return {
+      processed, remaining: Number(left?.c ?? 0), boxConfigured: isBoxConfigured(), timedOut,
+      // **触らなかった理由を必ず返す。** 「0件でした」だけでは次の一手が決まらない
+      skipped: await this.lostBoxSkipReasons(),
+    };
   }
 
   async createBoxFolder(
