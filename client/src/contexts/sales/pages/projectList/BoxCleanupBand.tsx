@@ -53,6 +53,8 @@ interface SkipReason { code: string; label: string; count: number; sample?: stri
 interface OrphanResult {
   deleted: number; scanned: number; skipped: SkipReason[]; timedOut: boolean; complete: boolean;
 }
+/** 終了した案件を「98_終了案件」へ移した結果（**移すだけ・消さない**） */
+interface DoneArchiveResult { moved: number; remaining: number; timedOut: boolean }
 interface RunResult {
   processed: number; remaining: number; boxConfigured: boolean;
   relinked?: RelinkResult;
@@ -60,6 +62,7 @@ interface RunResult {
   timedOut?: boolean;
   skipped?: SkipReason[];
   orphaned?: OrphanResult;
+  doneArchived?: DoneArchiveResult;
 }
 
 export function BoxCleanupBand() {
@@ -79,12 +82,17 @@ export function BoxCleanupBand() {
   const [skipped, setSkipped] = useState<SkipReason[]>([]);
   /** 案件に結び付かないフォルダのぶん。**別に数えて別に出す**（混ぜると原因が読めない） */
   const [orphan, setOrphan] = useState<{ deleted: number; scanned: number } | null>(null);
+  /** 「98_終了案件」へ移した件数。**移すだけ・消さない**ので別に出す */
+  const [doneMoved, setDoneMoved] = useState(0);
   const stopRef = useRef(false);
 
   const q = useQuery({
     queryKey: KEY,
     queryFn: async () => (await api.get('/projects/box-cleanup/lost')).data.data as
-      { remaining: number; unlinked: number; boxConfigured: boolean; skipped?: SkipReason[] },
+      {
+        remaining: number; unlinked: number; boxConfigured: boolean;
+        skipped?: SkipReason[]; doneWaiting?: number;
+      },
     enabled: canRun,
   });
 
@@ -144,10 +152,25 @@ export function BoxCleanupBand() {
         if (!o.orphaned?.timedOut) break;   // 時間切れのときだけ続ける
       }
 
+      /*
+       * **終了した案件を `98_終了案件` へ移す。**（migration 249）
+       * 日次ジョブも同じことをするので押さなくても翌朝には進むが、
+       * ここで押せば**溜まっているぶんが今すぐ片づく**。
+       */
+      let moved = 0;
+      for (;;) {
+        if (stopRef.current) break;
+        const dres = (await api.post('/projects/box-cleanup/lost', { done: true })).data.data as RunResult;
+        moved += dres.doneArchived?.moved ?? 0;
+        setDone(cleaned + orphanDeleted + moved);
+        if (!dres.doneArchived?.timedOut) break;   // 時間切れのときだけ続ける
+      }
+
       return {
         cleaned, remaining: last?.remaining ?? 0, stopped: stopRef.current, relinked,
         skipped: last?.skipped ?? [],
         orphan: { deleted: orphanDeleted, scanned: orphanScanned },
+        doneMoved: moved,
       };
     },
     onSuccess: (r) => {
@@ -156,10 +179,12 @@ export function BoxCleanupBand() {
       setRelink(r.relinked ?? null);
       setSkipped(r.skipped ?? []);
       setOrphan(r.orphan ?? null);
+      setDoneMoved(r.doneMoved ?? 0);
       if (r.stopped) { notifySuccess(`${r.cleaned} 件まで片づけて止めました（残り ${r.remaining} 件）`); return; }
-      const orphanTail = r.orphan && r.orphan.deleted > 0
-        ? `案件に結び付かない空フォルダも ${r.orphan.deleted} 件消しました。` : '';
-      if (r.cleaned === 0 && (r.orphan?.deleted ?? 0) > 0) {
+      const orphanTail = (r.orphan && r.orphan.deleted > 0
+        ? `案件に結び付かない空フォルダも ${r.orphan.deleted} 件消しました。` : '')
+        + (r.doneMoved > 0 ? `終了した案件 ${r.doneMoved} 件を「98_終了案件」へ移しました。` : '');
+      if (r.cleaned === 0 && orphanTail) {
         notifySuccess(orphanTail);
         return;
       }
@@ -196,7 +221,8 @@ export function BoxCleanupBand() {
    * フォルダは BOX にあるのにアプリが知らない。ここを `remaining` だけで見ていたため、
    * **片づけ待ちが0件に見えて帯が出ませんでした**（ユーザー報告の正体）。
    */
-  const candidates = remaining + unlinked;
+  const doneWaiting = q.data?.doneWaiting ?? 0;
+  const candidates = remaining + unlinked + doneWaiting;
   // 押す前は帯が持っている理由、押したあとはその回の理由
   const reasons = skipped.length > 0 ? skipped : (q.data?.skipped ?? []);
   if (!canRun || candidates === 0) return null;
@@ -235,6 +261,17 @@ export function BoxCleanupBand() {
         */}
         引き合いのまま止まっている案件は、<b>中身が空のときだけ</b>消します
         （中身があれば触りません）。
+        {/*
+          ⚠️ **終了案件は移すだけ・消さない。** 納品物・請求書・検収書が入っており、
+          法定保存の対象でもある。空に見えても消さない（数え間違いの余地を作らない）。
+        */}
+        {doneWaiting > 0 && (
+          <>
+            {' '}
+            <b>終了した案件 {doneWaiting} 件</b>は「98_終了案件」へ<b>移すだけ</b>です
+            （中身は消しません。案件を完了から戻すと元に戻ります）。
+          </>
+        )}
         {/*
           ⚠️ **台帳から外した案件のぶんも数える。** 外すと案件一覧には出ないので、
           この帯に出さないと「BOX に残っているのに、どこからも片づけられない」
@@ -278,6 +315,11 @@ export function BoxCleanupBand() {
 
       {/* **何件見て何件つながったかを必ず出す** — つながらなかったときに
           「BOX を調べたのか」が読めないと、押した人は次に何をすればよいか分からない */}
+      {!running && doneMoved > 0 && (
+        <p className="text-note mt-1.5 text-muted-foreground">
+          終了した案件 {doneMoved} 件を「98_終了案件」へ移しました（中身は消していません）。
+        </p>
+      )}
       {!running && orphan && orphan.scanned > 0 && (
         <p className="text-note mt-1.5 text-muted-foreground">
           どの案件にも結び付かないフォルダ {orphan.scanned} 件を調べて {orphan.deleted} 件を消しました

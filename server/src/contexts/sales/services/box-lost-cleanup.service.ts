@@ -42,9 +42,21 @@ import {
   getBoxClient, isBoxConfigured, extractFolderId, ensureSubfolder, getBoxFolderUrl, listFolderItems,
 } from '../../../shared/services/box';
 import { createProjectFolderTree, sanitizeFolderName, INTERNAL_PREFIX, EXTERNAL_PREFIX } from './box-folder.service';
+import { jstDate } from '../../../shared/utils/jst';
 
 /** 失注・見送りの置き場。**両方の親フォルダの直下**に1つずつ作る */
 export const LOST_ARCHIVE_FOLDER = '99_失注・見送り';
+
+/**
+ * **終了した案件の置き場**（migration 249・ユーザー依頼 2026-08-31）。
+ *
+ * 「案件が完了した(日付をベースに案件日の翌日)ものについては
+ *   98_終了案件 というフォルダを BOX に新たに作成した上でそこに移動するようにしたい」
+ *
+ * ⚠️ **こちらは絶対に削除しません。** 終了した案件のフォルダには納品物・請求書・
+ * 検収書が入っており、法定保存の対象でもあります。**移すだけ**です。
+ */
+export const DONE_ARCHIVE_FOLDER = '98_終了案件';
 
 /** 木をたどる深さの上限。案件フォルダは「親 → サブ → その下」までしか作らない */
 export const TREE_MAX_DEPTH = 3;
@@ -300,6 +312,8 @@ interface ProjectRow {
   box_cleanup_state?: string | null;
   /** **生きている引き合いかどうか**の判断に使う（下の `emptyOnly`） */
   stage?: string | null; deleted_at?: string | null;
+  /** 「98_終了案件」へ移した日時（migration 249）。NULL = まだ移していない */
+  box_done_at?: string | null;
 }
 
 /**
@@ -312,7 +326,7 @@ interface ProjectRow {
 async function loadProject(projectId: string): Promise<ProjectRow | null> {
   return (await queryOne(
     `SELECT id, code, name, gls_number, box_url_internal, box_url_external, box_cleanup_state,
-            stage, deleted_at
+            stage, deleted_at, box_done_at
        FROM projects WHERE id = ?`,
     [projectId],
   )) as unknown as ProjectRow | null;
@@ -330,6 +344,7 @@ export function stripFolderPrefix(name: string): string {
 export const NON_PROJECT_FOLDERS = [
   '00_DB_Backup',      // 本番DBのバックアップ（3時間ごと）
   LOST_ARCHIVE_FOLDER, // 置き場そのもの
+  DONE_ARCHIVE_FOLDER, // 置き場そのもの（終了案件）
   '11_awards_photo',
 ] as const;
 
@@ -657,6 +672,12 @@ export async function syncBoxFoldersForStageSafe(projectId: string, toStage: str
   try {
     if (toStage === 'e_lost') await cleanupLostProjectFolders(projectId);
     else await restoreLostProjectFolders(projectId);
+    /*
+     * **完了から戻したら、`98_終了案件` からも返す**（migration 249）。
+     * ⚠️ 失注の戻しとは別に見ること — 同じ案件が「失注 → 戻す → 終了」と
+     * 両方を経験しうるので、片方の状態でもう片方を判断できない。
+     */
+    if (toStage !== 's_completed') await restoreDoneProjectFolders(projectId);
   } catch (e) {
     console.warn('[box-lost] 片づけ/戻しに失敗:', projectId, toStage, (e as Error).message);
   }
@@ -892,4 +913,155 @@ export async function cleanupOrphanFolders(budgetMs = ORPHAN_BUDGET_MS): Promise
 
   console.log('[box-orphan] 結び付かないフォルダ:', { deleted, scanned, timedOut, complete });
   return { deleted, scanned, skipped: summarizeSkipReasons(notes), timedOut, complete };
+}
+
+// ───────────────────────────────────────────────────────────
+// 終了した案件を「98_終了案件」へ移す（migration 249）
+// ───────────────────────────────────────────────────────────
+
+/**
+ * **終了した案件の BOX フォルダを `98_終了案件` へ移す。**
+ *
+ * ── いつ「終了」とみなすか ──────────────────────────────────
+ *
+ * ご依頼は「**日付をベースに案件日の翌日**」。アプリにはすでに同じ判定があります —
+ * 日次の `completeElapsedWonProjects` が `event_end < 今日(JST)` の受注案件を
+ * `s_completed` へ繰り上げています。**同じ式をもう一度書かず**、
+ *
+ *   ステージが `s_completed` **かつ** `event_end` が今日より前
+ *
+ * の両方を見ます。⚠️ **ステージだけだと、まだ本番が来ていないのに手で完了にした
+ * 案件のフォルダまで片づけます**（日付を見れば起きません）。
+ *
+ * ── ⚠️ 削除は絶対にしない ────────────────────────────────────
+ *
+ * 失注の置き場（`99_失注・見送り`）は「空なら消す」ですが、**こちらは移すだけ**です。
+ * 終了した案件のフォルダには納品物・請求書・検収書が入っており、法定保存の
+ * 対象でもあります。**空に見えても消しません**（数え間違いの余地を作らない）。
+ *
+ * 安全弁（`checkFolderSafety`）は失注の片づけと**同じものを通します** —
+ * 別に書くと、片方だけ緩んだ日に他人のフォルダを動かします。
+ */
+export interface DoneArchiveResult {
+  /** 置き場へ移した案件の数 */
+  moved: number;
+  /** 残っている（まだ移していない）案件の数 */
+  remaining: number;
+  /** 触らなかった理由の内訳 */
+  skipped: SkipReason[];
+  /** 時間切れで切り上げたか */
+  timedOut: boolean;
+}
+
+/** 1リクエストで BOX を触ってよい時間（片づけと同じ理由で件数ではなく時間で切る） */
+export const DONE_BUDGET_MS = 20_000;
+
+/**
+ * 移す対象。**数えるときと移すときで必ず同じものを使う**
+ * （写すと「10件と出ているのに押すと3件しか動かない」が起きる）。
+ */
+export const DONE_TARGET_SQL = `FROM projects
+   WHERE deleted_at IS NULL AND stage = 's_completed' AND box_done_at IS NULL
+     AND NULLIF(event_end, '') IS NOT NULL AND event_end < ?
+     AND (box_url_internal IS NOT NULL OR box_url_external IS NOT NULL)`;
+
+export async function countDoneFoldersToArchive(): Promise<number> {
+  const row = await queryOne(
+    `SELECT COUNT(*)::int AS c ${DONE_TARGET_SQL}`, [jstDate()],
+  ) as { c?: number } | null;
+  return Number(row?.c ?? 0);
+}
+
+export async function archiveDoneProjectFolders(budgetMs = DONE_BUDGET_MS): Promise<DoneArchiveResult> {
+  const idle: DoneArchiveResult = { moved: 0, remaining: 0, skipped: [], timedOut: false };
+  const client = isBoxConfigured() ? getBoxClient() : null;
+  if (!client) return { ...idle, remaining: await countDoneFoldersToArchive() };
+
+  const rows = await queryAll(
+    `SELECT id ${DONE_TARGET_SQL} ORDER BY event_end ASC LIMIT 200`, [jstDate()],
+  ) as { id: string }[];
+
+  const forbidden = forbiddenFolderIds();
+  const started = Date.now();
+  const allNotes: string[] = [];
+  let moved = 0;
+  let timedOut = false;
+
+  for (const r of rows) {
+    if (Date.now() - started > budgetMs) { timedOut = true; break; }
+    const row = await loadProject(r.id);
+    if (!row || row.box_done_at) continue;
+
+    const names = expectedFolderNames(row);
+    const numbers = projectNumbers(row);
+    const notes: string[] = [];
+    let did = 0;
+
+    for (const side of sidesOf(row)) {
+      if (!side.url) continue;
+      const folderId = extractFolderId(side.url);
+      const folder = folderId ? await readFolder(client, folderId) : null;
+      const safe = checkFolderSafety({
+        folderId, folder, expectedParentId: side.parentId, expectedNames: names, numbers, forbiddenIds: forbidden,
+      });
+      if (!safe.ok) { notes.push(`${side.key}: 触らず (${safe.reason})`); continue; }
+
+      const archive = side.parentId ? await ensureSubfolder(side.parentId, DONE_ARCHIVE_FOLDER) : null;
+      if (!archive) { notes.push(`${side.key}: 置き場を作れず そのまま`); continue; }
+      try {
+        // **移すだけ。消さない。** 引っ越しても ID は変わらないので URL はそのまま使える
+        await client.folders.update(folderId!, { parent: { id: archive.id } });
+        notes.push(`${side.key}: ${DONE_ARCHIVE_FOLDER} へ移動 (${folder!.name})`);
+        did += 1;
+      } catch (e) {
+        notes.push(`${side.key}: 移動できず (${(e as Error).message})`);
+      }
+    }
+
+    if (did === 0) {
+      if (notes.length) allNotes.push(notes.join(' / '));
+      continue;
+    }
+    await execute(
+      'UPDATE projects SET box_done_at = NOW(), box_cleanup_note = ? WHERE id = ?',
+      [notes.join(' / '), r.id],
+    );
+    moved += 1;
+  }
+
+  console.log('[box-done] 終了案件の引っ越し:', { moved, timedOut });
+  return {
+    moved, remaining: await countDoneFoldersToArchive(),
+    skipped: summarizeSkipReasons(allNotes), timedOut,
+  };
+}
+
+/**
+ * **完了から戻したときに、置き場から親フォルダへ返す。**
+ * 失注の `restoreLostProjectFolders` と同じ考え方（片づけたことを覚えているので戻せる）。
+ */
+export async function restoreDoneProjectFolders(projectId: string): Promise<void> {
+  const client = isBoxConfigured() ? getBoxClient() : null;
+  if (!client) return;
+
+  const row = await loadProject(projectId);
+  if (!row?.box_done_at) return;
+
+  const notes: string[] = [];
+  for (const side of sidesOf(row)) {
+    if (!side.url || !side.parentId) continue;
+    const folderId = extractFolderId(side.url);
+    if (!folderId) continue;
+    try {
+      await client.folders.update(folderId, { parent: { id: side.parentId } });
+      notes.push(`${side.key}: 戻した`);
+    } catch (e) {
+      notes.push(`${side.key}: 戻せず (${(e as Error).message})`);
+    }
+  }
+  await execute(
+    'UPDATE projects SET box_done_at = NULL, box_cleanup_note = ? WHERE id = ?',
+    [notes.join(' / ') || null, projectId],
+  );
+  console.log('[box-done] 置き場から戻しました:', projectId, notes.join(' / '));
 }

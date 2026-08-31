@@ -42,6 +42,7 @@ import {
   listTidyCandidates, autoLoseStaleNeta, completeElapsedWonProjects,
   TIDY_CANDIDATE_DAYS, TIDY_AUTO_LOST_DAYS,
 } from '../../sales/services/project-health';
+import { archiveDoneProjectFolders } from '../../sales/services/box-lost-cleanup.service';
 import { expireOpenProposals, settleDueProposals } from '../../qsheet/ai/settle.service';
 import { runMonthlyReviewIfDue, AI_REVIEW_JOB_KEY, AI_REVIEW_NOTIFY_TEMPLATE_ID } from '../../qsheet/ai/monthly-review.service';
 import {
@@ -468,6 +469,22 @@ async function projectTidy(_today: string): Promise<NotifyInput[]> {
   // (c) 受注→完了。ダッシュボードの GET /dashboard/check-completed と**同じ1本**を呼ぶ
   const completed = await completeElapsedWonProjects();
 
+  /*
+   * (d) **終了した案件の BOX フォルダを `98_終了案件` へ移す**（migration 249）。
+   *
+   * ご依頼は「案件が完了した(日付をベースに案件日の翌日)ものについては
+   * 98_終了案件 …そこに移動するようにしたい」。**(c) の直後に置く**のが要点で、
+   * その日に完了へ繰り上がったぶんが**同じ朝のうちに片づきます**（人が押しに
+   * 来なくても進む）。⚠️ **BOX が落ちていてもここで日次ジョブを止めない** —
+   * 通知（この関数の本来の仕事）まで道連れにしないため。
+   */
+  let boxDone = 0;
+  try {
+    boxDone = (await archiveDoneProjectFolders()).moved;
+  } catch (e) {
+    console.warn('[scheduler] 終了案件の BOX 引っ越しに失敗:', (e as Error).message);
+  }
+
   // (b) 自動見送りを候補より**先に**。90日を超えた行が候補の通知と重ならないようにする
   const lost = await autoLoseStaleNeta();
   const autoOn = await tplEnabled('pj_tidy_auto');
@@ -500,8 +517,8 @@ async function projectTidy(_today: string): Promise<NotifyInput[]> {
   }
 
   // 黙って動かさない。ステージを機械が動かした日は記録に残す（画面には出ない仕事のため）
-  if (completed || lost.length) {
-    console.log('[scheduler] project_tidy:', JSON.stringify({ completed, autoLost: lost.length }));
+  if (completed || lost.length || boxDone) {
+    console.log('[scheduler] project_tidy:', JSON.stringify({ completed, autoLost: lost.length, boxDone }));
   }
   return out;
 }

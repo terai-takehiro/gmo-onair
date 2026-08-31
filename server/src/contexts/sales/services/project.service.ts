@@ -39,7 +39,8 @@ import { syncNextActionsForStageSafe } from '../../../shared/services/next-actio
  */
 import {
   syncBoxFoldersForStageSafe, relinkProjectFolders, summarizeSkipReasons, cleanupOrphanFolders,
-  type RelinkResult, type SkipReason, type OrphanResult,
+  archiveDoneProjectFolders, countDoneFoldersToArchive,
+  type RelinkResult, type SkipReason, type OrphanResult, type DoneArchiveResult,
 } from './box-lost-cleanup.service';
 import { isBoxConfigured } from '../../../shared/services/box';
 
@@ -1976,6 +1977,7 @@ export class ProjectService {
    */
   async countLostBoxFoldersToClean(): Promise<{
     remaining: number; unlinked: number; boxConfigured: boolean; skipped: SkipReason[];
+    doneWaiting: number;
   }> {
     const row = await queryOne(`SELECT COUNT(*)::int AS c ${LOST_BOX_CLEANUP_TARGET_SQL}`) as { c?: number } | null;
     // **URL が空のぶんも数える**（BOX を見て名前で結び付け直せば片づけられる）
@@ -1983,6 +1985,8 @@ export class ProjectService {
     return {
       remaining: Number(row?.c ?? 0), unlinked: Number(un?.c ?? 0), boxConfigured: isBoxConfigured(),
       skipped: await this.lostBoxSkipReasons(),
+      // 終了案件の引っ越し待ち（`98_終了案件`）。**別に数えて別に出す**
+      doneWaiting: await countDoneFoldersToArchive(),
     };
   }
 
@@ -2030,11 +2034,25 @@ export class ProjectService {
      * 名寄せ・案件ごとの片づけとは別に呼ぶ（1往復を長くしすぎない）。
      */
     orphans = false,
+    /**
+     * **終了した案件を `98_終了案件` へ移すだけ**の往復（migration 249）。
+     * 日次ジョブも同じ関数を呼ぶので、押さなくても翌朝には進む。
+     */
+    done = false,
   ): Promise<{
     processed: number; remaining: number; boxConfigured: boolean;
     relinked?: RelinkResult; timedOut?: boolean; skipped?: SkipReason[];
-    orphaned?: OrphanResult;
+    orphaned?: OrphanResult; doneArchived?: DoneArchiveResult;
   }> {
+    if (done) {
+      const doneArchived = await archiveDoneProjectFolders();
+      const left = await queryOne(`SELECT COUNT(*)::int AS c ${LOST_BOX_CLEANUP_TARGET_SQL}`) as { c?: number } | null;
+      return {
+        processed: doneArchived.moved, remaining: Number(left?.c ?? 0),
+        boxConfigured: isBoxConfigured(), timedOut: doneArchived.timedOut, doneArchived,
+      };
+    }
+
     if (orphans) {
       const orphaned = await cleanupOrphanFolders();
       const left = await queryOne(`SELECT COUNT(*)::int AS c ${LOST_BOX_CLEANUP_TARGET_SQL}`) as { c?: number } | null;
