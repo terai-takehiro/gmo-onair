@@ -38,6 +38,7 @@ import { syncNextActionsForStageSafe } from '../../../shared/services/next-actio
  * 失敗してもステージ変更は止めない（`...Safe`）。
  */
 import { syncBoxFoldersForStageSafe } from './box-lost-cleanup.service';
+import { isBoxConfigured } from '../../../shared/services/box';
 
 /**
  * 片づけ待ちの失注案件を選ぶ条件。**件数と対象で必ず同じものを使う**
@@ -1922,10 +1923,15 @@ export class ProjectService {
    * - 片方だけある場合は無い側のみ補填
    * - GLS 未発番なら OPP コード、発番済みなら GLS 番号で命名
    */
-  /** 片づけ待ちの失注案件。**件数と対象を同じ式から引く**（数と中身が食い違わないように） */
-  async countLostBoxFoldersToClean(): Promise<{ remaining: number }> {
+  /**
+   * 片づけ待ちの失注案件。**件数と対象を同じ式から引く**（数と中身が食い違わないように）。
+   *
+   * `boxConfigured` も返す — **繋いでいないときに「N件あります」だけ出すと、
+   * 押しても減らない帯**になり、人は理由が分からないまま押し続けます。
+   */
+  async countLostBoxFoldersToClean(): Promise<{ remaining: number; boxConfigured: boolean }> {
     const row = await queryOne(`SELECT COUNT(*)::int AS c ${LOST_BOX_CLEANUP_TARGET_SQL}`) as { c?: number } | null;
-    return { remaining: Number(row?.c ?? 0) };
+    return { remaining: Number(row?.c ?? 0), boxConfigured: isBoxConfigured() };
   }
 
   /**
@@ -1938,14 +1944,33 @@ export class ProjectService {
    * 数百件を一度にやると詰まります。押し直せば続きから進みます
    * （片づけたものは `box_cleanup_state` が入るのでもう選ばれない）。
    *
-   * @returns 見た件数と、残っている件数（**残数を返さないと「終わったのか」が分からない**）
+   * @returns **本当に片づいた件数**と、残っている件数（**残数を返さないと「終わったのか」が分からない**）
    */
-  async cleanupLostBoxFolders(limit: number): Promise<{ processed: number; remaining: number }> {
+  async cleanupLostBoxFolders(limit: number): Promise<{ processed: number; remaining: number; boxConfigured: boolean }> {
     const targetSql = LOST_BOX_CLEANUP_TARGET_SQL;
     const rows = await queryAll(`SELECT id ${targetSql} ORDER BY lost_at ASC NULLS LAST LIMIT ?`, [limit]) as { id: string }[];
     for (const r of rows) await syncBoxFoldersForStageSafe(r.id, 'e_lost');
+
+    /*
+     * ⚠️ **「見た件数」ではなく「本当に片づいた件数」を返す。**
+     * BOX に繋いでいない・安全弁で見送った・BOX が断った、のどれでも
+     * `syncBoxFoldersForStageSafe` は静かに何もしません。見た件数を返すと
+     * **「3件片づけました」と出るのに残りが3件のまま**という、押した人が
+     * 何を信じてよいか分からない画面になります（`countHonesty` の戒め）。
+     * 片づいた印（`box_cleanup_state`）が付いた行だけを数え直します。
+     */
+    const ids = rows.map((r) => r.id);
+    let processed = 0;
+    if (ids.length > 0) {
+      const done = await queryOne(
+        `SELECT COUNT(*)::int AS c FROM projects
+          WHERE id IN (${ids.map(() => '?').join(', ')}) AND box_cleanup_state IS NOT NULL`,
+        ids,
+      ) as { c?: number } | null;
+      processed = Number(done?.c ?? 0);
+    }
     const left = await queryOne(`SELECT COUNT(*)::int AS c ${targetSql}`) as { c?: number } | null;
-    return { processed: rows.length, remaining: Number(left?.c ?? 0) };
+    return { processed, remaining: Number(left?.c ?? 0), boxConfigured: isBoxConfigured() };
   }
 
   async createBoxFolder(

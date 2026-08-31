@@ -33,17 +33,27 @@ export function BoxCleanupBand() {
 
   const q = useQuery({
     queryKey: KEY,
-    queryFn: async () => (await api.get('/projects/box-cleanup/lost')).data.data as { remaining: number },
+    queryFn: async () => (await api.get('/projects/box-cleanup/lost')).data.data as
+      { remaining: number; boxConfigured: boolean },
     enabled: canRun,
   });
 
   const run = useMutation({
     mutationFn: async () =>
       (await api.post('/projects/box-cleanup/lost', { limit: BATCH })).data.data as
-        { processed: number; remaining: number },
+        { processed: number; remaining: number; boxConfigured: boolean },
     onSuccess: (r) => {
       setDone((n) => n + r.processed);
-      qc.setQueryData(KEY, { remaining: r.remaining });
+      qc.setQueryData(KEY, { remaining: r.remaining, boxConfigured: r.boxConfigured });
+      /*
+       * ⚠️ **1件も片づかなかったときに「0件を片づけました」と言わない。**
+       * 安全弁で見送った（親が違う・名前が違う・中身を数え切れない）ときは
+       * これが起きます。**何も起きなかったことを、何も起きなかったと言う**
+       */
+      if (r.processed === 0) {
+        notifySuccess('片づけられるものがありませんでした（安全のため、確かめられなかったフォルダは触っていません）');
+        return;
+      }
       notifySuccess(
         r.remaining > 0
           ? `${r.processed} 件を片づけました（残り ${r.remaining} 件・もう一度押すと続きから進みます）`
@@ -55,6 +65,26 @@ export function BoxCleanupBand() {
 
   const remaining = q.data?.remaining ?? 0;
   if (!canRun || remaining === 0) return null;
+
+  /*
+   * ⚠️ **BOX に繋いでいないときは、押せる形で出さない。**
+   * 押しても1件も減らないので、押した人には理由が分かりません
+   * （この製品が「押せるのに403」で通った道と同じ）。
+   */
+  const configured = q.data?.boxConfigured !== false;
+  if (!configured) {
+    return (
+      <div className="rounded-card border border-border bg-surface-subtle px-3.5 py-3">
+        <p className="text-sub flex flex-wrap items-center gap-2 font-bold">
+          <FolderArchive className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          失注・見送りの BOX フォルダが {remaining} 件、現役の場所に残っています
+        </p>
+        <p className="text-note mt-1 text-muted-foreground">
+          いまは BOX につないでいないため片づけられません（設定の「外部サービス連携」で確認してください）。
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-card border border-border bg-surface-subtle px-3.5 py-3">
