@@ -31,7 +31,7 @@
  * 片づかなかった件数は画面に必ず出します。
  */
 import { execute, queryOne, queryAll } from '../../../shared/db/connection';
-import { LAST_MOVE_SQL, TIDY_AUTO_LOST_DAYS } from './project-health';
+import { LAST_MOVE_SQL, TIDY_AUTO_LOST_DAYS, ALIVE_EVIDENCE_SQL } from './project-health';
 import { syncBoxFoldersForStageSafe } from './box-lost-cleanup.service';
 
 /**
@@ -66,10 +66,30 @@ export const PURGE_HAS_MONEY_SQL = `(
              WHERE pa.project_id = p.id)
 )`;
 
-/** ゴミの定義（失注すべて ＋ 放置ネタ）。**数えるときと消すときで必ず同じものを使う** */
+/**
+ * ゴミの定義（失注すべて ＋ 放置ネタ）。**数えるときと消すときで必ず同じものを使う**
+ *
+ * ⚠️ **放置ネタには「生存証拠」の除外を必ず入れる**（`ALIVE_EVIDENCE_SQL`）。
+ * 自動見送り（`autoLoseStaleNeta`）は**同じ除外をしています**。ここだけ抜けると、
+ * **機械が閉じにも来ない案件を、台帳からは消す**という食い違いが起きます。
+ * 具体的には次のどれかに当たるネタです:
+ *   - **未来の日付までスヌーズしてある**（意図して寝かせている）
+ *   - 期限が今日以降の**次の一手**が入っている
+ *   - 期日が今日以降の**未完了のタスク**がある
+ *   - **本番日（`event_start`）が今日以降**
+ * どれも「動いていないだけで生きている」印です。`updated_at` は
+ * 100 日前のスヌーズ設定で古いままになり得るので、日数だけでは弾けません。
+ *
+ * 失注（`e_lost`）側には掛けません — すでに閉じた案件に生存証拠が残っていても、
+ * それは片づけ忘れであって「生きている」ことではないためです。
+ */
 export const PURGE_JUNK_STAGE_SQL = `(
   p.stage = 'e_lost'
-  OR (p.stage = 'neta' AND ${LAST_MOVE_SQL} < NOW() - INTERVAL '${PURGE_STALE_NETA_DAYS} days')
+  OR (
+    p.stage = 'neta'
+    AND ${LAST_MOVE_SQL} < NOW() - INTERVAL '${PURGE_STALE_NETA_DAYS} days'
+    AND NOT ${ALIVE_EVIDENCE_SQL}
+  )
 )`;
 
 /**
