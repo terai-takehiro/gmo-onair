@@ -121,6 +121,9 @@ export function useDashboardData(period: Period, projectId: string) {
     initialPageParam: 1,
     getNextPageParam: (last) => (last.pagination && last.pagination.page < last.pagination.totalPages ? last.pagination.page + 1 : undefined),
     enabled: periodReady,
+    // ⚠️ **内訳は補助情報なので、早く失敗を見せる。** 既定（5xx で2回リトライ）だと
+    // 504 のとき**エラーが出るまで最悪3回ぶん待たされ**、その間ずっと「0件」に見える
+    retry: 1,
   });
 
   // 仕入(変動原価): 固定原価Pjを除く。固定原価は gls_number=NULL で既定ソートの末尾に来るため、
@@ -137,6 +140,9 @@ export function useDashboardData(period: Period, projectId: string) {
     initialPageParam: 1,
     getNextPageParam: (last) => (last.pagination && last.pagination.page < last.pagination.totalPages ? last.pagination.page + 1 : undefined),
     enabled: periodReady,
+    // ⚠️ **内訳は補助情報なので、早く失敗を見せる。** 既定（5xx で2回リトライ）だと
+    // 504 のとき**エラーが出るまで最悪3回ぶん待たされ**、その間ずっと「0件」に見える
+    retry: 1,
   });
 
   // 固定原価は案件に紐づかない。案件で絞り込み中は「限界利益まで」しか出さないので取りに行かない。
@@ -148,6 +154,9 @@ export function useDashboardData(period: Period, projectId: string) {
       signal,
     })).data as PagedResponse<PurchaseRow>,
     enabled: periodReady && !projectId,
+    // ⚠️ **内訳は補助情報なので、早く失敗を見せる。** 既定（5xx で2回リトライ）だと
+    // 504 のとき**エラーが出るまで最悪3回ぶん待たされ**、その間ずっと「0件」に見える
+    retry: 1,
   });
 
   // 販管費は案件に紐づかないので、案件で絞っているときは取りに行かない
@@ -160,6 +169,9 @@ export function useDashboardData(period: Period, projectId: string) {
     initialPageParam: 1,
     getNextPageParam: (last) => (last.pagination && last.pagination.page < last.pagination.totalPages ? last.pagination.page + 1 : undefined),
     enabled: periodReady && !projectId,
+    // ⚠️ **内訳は補助情報なので、早く失敗を見せる。** 既定（5xx で2回リトライ）だと
+    // 504 のとき**エラーが出るまで最悪3回ぶん待たされ**、その間ずっと「0件」に見える
+    retry: 1,
   });
 
   return { projects, summaryQuery, revenues, purchases, fixed, sga, periodReady };

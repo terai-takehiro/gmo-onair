@@ -218,10 +218,12 @@ export default function BudgetDashboardPage() {
               title="売上の内訳"
               total={s.revenue_total}
               items={revItems}
-              totalCount={revenueTotalCount}
+              totalCount={revenues.isError ? null : revenueTotalCount}
               hasMore={!!revenues.hasNextPage}
               isLoadingMore={revenues.isFetchingNextPage}
               onLoadMore={() => revenues.fetchNextPage()}
+              error={revenues.error}
+              onRetry={() => revenues.refetch()}
               to="/budget/revenues"
               empty="この期間の確定売上はありません。"
             />
@@ -229,10 +231,17 @@ export default function BudgetDashboardPage() {
               title="仕入の内訳"
               total={s.purchase_total}
               items={purItems}
-              totalCount={purchaseTotalCount + fixedTotalCount}
+              totalCount={
+                // ⚠️ **片方でも落ちたら数を出さない。** この列は変動原価と固定原価の
+                // 2本を足しているので、足し算のままだと「失敗を出したのに件数だけ嘘」になる
+                purchases.isError || fixed.isError ? null : purchaseTotalCount + fixedTotalCount
+              }
               hasMore={!!purchases.hasNextPage}
               isLoadingMore={purchases.isFetchingNextPage}
               onLoadMore={() => purchases.fetchNextPage()}
+              error={purchases.error ?? fixed.error}
+              partialLabel={!purchases.isError && fixed.isError ? '固定原価' : undefined}
+              onRetry={() => { purchases.refetch(); fixed.refetch(); }}
               to="/budget/purchases"
               empty="この期間の仕入はありません。"
             />
@@ -242,10 +251,12 @@ export default function BudgetDashboardPage() {
                 title="販管費の内訳"
                 total={s.sga_total}
                 items={sgaItems}
-                totalCount={sgaTotalCount}
+                totalCount={sga.isError ? null : sgaTotalCount}
                 hasMore={!!sga.hasNextPage}
                 isLoadingMore={sga.isFetchingNextPage}
                 onLoadMore={() => sga.fetchNextPage()}
+                error={sga.error}
+                onRetry={() => sga.refetch()}
                 to="/budget/sga"
                 empty="この期間の販管費はありません。"
               />
