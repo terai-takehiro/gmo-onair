@@ -450,14 +450,27 @@ export function registerTaskTools(server: McpServer): void {
       title: 'かんばん列テンプレートを適用',
       description:
         'テンプレートの列一式を案件に追加する (既存の列は消えず、後ろに足される)。' +
-        'template_id は list_task_column_templates で解決。',
+        'episode_id を渡すと、案件への列追加のかわりに列ごと1件ずつその回 (エピソード) の' +
+        'タスクを作る (レギュラー番組の回向け・列は案件の既存列と名前で共有し増やさない。' +
+        '同じ回に二度は当てられない)。' +
+        'template_id は list_task_column_templates で解決 (回向けは "tpl-regular-episode")。',
       inputSchema: {
         project_id: z.string().min(1).describe('案件 ID'),
         template_id: z.string().min(1).describe('テンプレート ID'),
+        episode_id: z.string().optional().describe('回 (エピソード) ID。指定すると案件ではなくこの回にタスクとして適用する'),
         ...REQUESTED_BY,
       },
     },
     async (args) => runTool(async () => {
+      if (args.episode_id) {
+        const tasks = await taskColumnsService.applyToEpisode(
+          args.project_id, args.episode_id, args.template_id, currentActorId(),
+        );
+        audit('apply_task_column_template', args,
+          { project_id: args.project_id, template_id: args.template_id, episode_id: args.episode_id, created_count: tasks.length },
+          args.requested_by);
+        return ok({ applied: true, count: tasks.length, tasks });
+      }
       const columns = await taskColumnsService.fromTemplate(args.project_id, args.template_id, currentActorId());
       audit('apply_task_column_template', args, { project_id: args.project_id, template_id: args.template_id, created_count: columns.length }, args.requested_by);
       return ok({ applied: true, count: columns.length, columns });

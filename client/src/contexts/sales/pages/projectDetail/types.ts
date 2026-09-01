@@ -39,6 +39,16 @@ export interface ProjectDetail {
   recurrence?: 'single' | 'regular' | null;
   attendee_count?: number | null;
   goal?: string | null;
+  /**
+   * レギュラー案件（シリーズ）が持つ4つの取り決め（migration 262・regular-series.md §3）。
+   * `recurrence === 'regular'` のときだけ意味を持つ。回の一括生成（`GenerateEpisodesForm`）が
+   * 既定値として使う（`EpisodesPanel.tsx` 経由）
+   */
+  recording_cadence?: 'weekly' | 'biweekly' | 'monthly_nth_weekday' | 'none' | null;
+  recording_per_day_count?: number | null;
+  fixed_studio_note?: string | null;
+  episode_unit_price?: number | null;
+  billing_cycle?: 'monthly_close' | 'per_recording_date' | 'contract_lump_sum' | null;
   /** 引き合いの入口 (migration 165) */
   intake_channel?: string | null;
   /**

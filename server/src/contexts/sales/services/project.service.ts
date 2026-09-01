@@ -105,6 +105,15 @@ const LOST_BOX_UNLINKED_SQL = `FROM projects
 const INTAKE_CHANNELS = ['mail', 'phone', 'inview', 'referral', 'web', 'meeting', 'group', 'other'];
 const INTAKE_CONFIDENCES = ['high', 'mid', 'low'];
 
+/**
+ * レギュラー案件（シリーズ）が持つ4つの取り決めの語彙（migration 262・regular-series.md §3）。
+ * **DB の CHECK と同じ集合**にすること（知らない値は 500 ではなく NULL に落とす — `create`/`update` 共通の守り方）。
+ * `RECORDING_CADENCES` は回の一括生成（`episodeGenerate.service.ts` の `EpisodeCadence`）と同じ語彙を使う —
+ * ズレると「案件の既定値」を一括生成の入力にそのまま渡せなくなる。
+ */
+const RECORDING_CADENCES = ['weekly', 'biweekly', 'monthly_nth_weekday', 'none'];
+const BILLING_CYCLES = ['monthly_close', 'per_recording_date', 'contract_lump_sum'];
+
 /** 案件登録時に渡された値を 'A' | 'B' に正規化。不正値は null を返す */
 function normalizeGlsCategory(value: unknown): GlsCategory | null {
   return value === 'A' || value === 'B' ? value : null;
@@ -609,6 +618,9 @@ export async function createCore(
           // 登録モーダルの16項目のうち、列を足したぶん (migration 170)
           contact_name, recurrence, attendee_count, goal,
           audience, project_category,
+          // レギュラー案件（シリーズ）が持つ4つの取り決め (migration 262・regular-series.md §3)
+          recording_cadence, recording_per_day_count, fixed_studio_note,
+          episode_unit_price, billing_cycle,
           stage, first_task } = data;
   if (!rawName || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
   // **半角カナ等の表記ゆれを保存時に正規化。** Box の OCR / AI起票など外部由来の
@@ -674,6 +686,28 @@ export async function createCore(
   const scale = audience === 'no_audience' ? null : rawScale;
 
   /**
+   * **レギュラー案件が持つ4つの取り決め**（migration 262・regular-series.md §3）。
+   * 単発案件では使わないので、渡されなければ全部 NULL のまま（既定値を入れない）。
+   * **知らない cadence / billing_cycle は NULL に落とす** — `intake_channel` と同じ守り方
+   * （DB の CHECK に弾かれると案件の登録そのものが 500 になる）。
+   * `billing_cycle` は DB 側にも `DEFAULT 'monthly_close'` があるが、この INSERT 文は
+   * 全列を明示するので、未指定（undefined）や知らない値のときはここで同じ既定値を立てる
+   * （DB の既定と揃えておく — 片方だけ変えると新規作成の経路によって既定が食い違う）。
+   */
+  const cadence = RECORDING_CADENCES.includes(recording_cadence as string) ? recording_cadence : null;
+  const perDayCount = Number.isFinite(Number(recording_per_day_count)) && Number(recording_per_day_count) > 0
+    ? Math.floor(Number(recording_per_day_count)) : null;
+  // ⚠️ **空文字・null と「¥0」を混同しない。** `Number('') === 0` なので、
+  // 空を先に弾かないと「決めていない」が「単価0円」として保存される
+  // （`attendee_count` は `> 0` で弾けるが、単価は 0 も正当な値なので明示で分ける）
+  const unitPrice = (episode_unit_price === undefined || episode_unit_price === null || episode_unit_price === '')
+    ? null
+    : (Number.isFinite(Number(episode_unit_price)) && Number(episode_unit_price) >= 0 ? Number(episode_unit_price) : null);
+  const billingCycle = billing_cycle === undefined
+    ? 'monthly_close'
+    : (BILLING_CYCLES.includes(billing_cycle as string) ? billing_cycle : 'monthly_close');
+
+  /**
    * 客入れの有無 × 案件分類（migration 182）。**旧 `project_type` はここで導く。**
    * 画面から両方送らせると、片方だけ更新された行ができます
    * （`project-classification.ts` の冒頭）。
@@ -689,14 +723,18 @@ export async function createCore(
                            customer_type, box_url_internal, box_url_external,
                            application_form, intake_channel, intake_confidence,
                            contact_name, recurrence, attendee_count, goal,
+                           recording_cadence, recording_per_day_count, fixed_studio_note,
+                           episode_unit_price, billing_cycle,
                            idempotency_key, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, code, opts.externalGlsNumber || null, name, customer_id, safeStage, cls.project_type, cls.audience, cls.project_category,
      glsCategory, expected_amount || 0, assigned_to || userId,
      finalEventStart, finalEventEnd, broadcast_type || null, media_platform || null,
      cType, box_url_internal || null, box_url_external || null,
      application_form ? 1 : 0, channel, confidence,
      contact_name || null, recur, scale, goal || null,
+     cadence, perDayCount, (typeof fixed_studio_note === 'string' && fixed_studio_note.trim()) ? fixed_studio_note.trim() : null,
+     unitPrice, billingCycle,
      (typeof data.idempotency_key === 'string' && data.idempotency_key.trim()) ? data.idempotency_key.trim() : null,
      userId]
   );
@@ -1287,6 +1325,8 @@ export class ProjectService {
             event_start, event_end, broadcast_type, media_platform,
             application_form, notes, box_url_internal, box_url_external,
             dates, gls_category, intake_channel } = data;
+    const { recording_cadence, recording_per_day_count, fixed_studio_note,
+            episode_unit_price, billing_cycle } = data;
     // **半角カナ等の表記ゆれを保存時に正規化。** `create` と同じ理由（NFKC）
     const name = typeof rawName === 'string' ? normalizeJaText(rawName) : rawName;
     // ⚠️ `customer_type` は**受け取っても使いません**（migration 192）。
@@ -1325,6 +1365,37 @@ export class ProjectService {
       ? existing.attendee_count
       : (Number(data.attendee_count) > 0 ? Math.floor(Number(data.attendee_count)) : null);
     const goalValue = keep(data.goal, existing.goal);
+
+    /**
+     * **レギュラー案件が持つ4つの取り決め**（migration 262・regular-series.md §3）。
+     * 「渡さなければ今の値を保つ」（他の登録項目と同じ守り方）。
+     * **知らない値は既存値へ落とす**（`create` の「知らない値は NULL」と少し違う —
+     * ここは新規行が無い分、CHECK 違反で保存全体を巻き込む前に既存の値へ逃がせる）。
+     *
+     * ⚠️ **`billing_cycle` だけは空文字でも解除できない。** 列が `NOT NULL` なので、
+     * 空文字→NULL にすると保存そのものが 500 になる。他の3つ（`recording_cadence` を含む）は
+     * NULL 許容なので、空文字は「決めていない」に明示的に戻す（`keep()` と同じ規則）。
+     */
+    const recordingCadenceValue = data.recording_cadence === undefined
+      ? existing.recording_cadence
+      : (data.recording_cadence === null || data.recording_cadence === ''
+        ? null
+        : (RECORDING_CADENCES.includes(recording_cadence as string) ? recording_cadence : existing.recording_cadence));
+    const recordingPerDayCountValue = data.recording_per_day_count === undefined
+      ? existing.recording_per_day_count
+      : (Number.isFinite(Number(recording_per_day_count)) && Number(recording_per_day_count) > 0
+        ? Math.floor(Number(recording_per_day_count)) : null);
+    const fixedStudioNoteValue = keep(fixed_studio_note, existing.fixed_studio_note);
+    // ⚠️ **空文字・null と「¥0」を混同しない**（`createCore` と同じ理由。`Number('') === 0`）
+    const episodeUnitPriceValue = data.episode_unit_price === undefined
+      ? existing.episode_unit_price
+      : (episode_unit_price === null || episode_unit_price === ''
+        ? null
+        : (Number.isFinite(Number(episode_unit_price)) && Number(episode_unit_price) >= 0
+          ? Number(episode_unit_price) : null));
+    const billingCycleValue = data.billing_cycle === undefined || data.billing_cycle === ''
+      ? existing.billing_cycle
+      : (BILLING_CYCLES.includes(billing_cycle as string) ? billing_cycle : existing.billing_cycle);
 
     /**
      * 客入れの有無 × 案件分類（migration 182）。**渡されなければ今の値を保つ。**
@@ -1450,6 +1521,8 @@ export class ProjectService {
          intake_channel=?, intake_confidence=?,
          application_form=?, customer_type=?,
          box_url_internal=?, box_url_external=?, gls_category=?,
+         recording_cadence=?, recording_per_day_count=?, fixed_studio_note=?,
+         episode_unit_price=?, billing_cycle=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
         [name, customer_id, expected_amount || 0, assigned_to,
          cls.project_type, cls.audience, cls.project_category,
@@ -1459,6 +1532,8 @@ export class ProjectService {
          channelValue, confidenceValue,
          application_form ? 1 : 0, cType,
          box_url_internal || null, box_url_external || null, reqCategory,
+         recordingCadenceValue, recordingPerDayCountValue, fixedStudioNoteValue,
+         episodeUnitPriceValue, billingCycleValue,
          userId, id]
       );
     } else {
@@ -1470,6 +1545,8 @@ export class ProjectService {
          intake_channel=?, intake_confidence=?,
          application_form=?, customer_type=?,
          box_url_internal=?, box_url_external=?,
+         recording_cadence=?, recording_per_day_count=?, fixed_studio_note=?,
+         episode_unit_price=?, billing_cycle=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
         [name, customer_id, expected_amount || 0, assigned_to,
          cls.project_type, cls.audience, cls.project_category,
@@ -1479,6 +1556,8 @@ export class ProjectService {
          channelValue, confidenceValue,
          application_form ? 1 : 0, cType,
          box_url_internal || null, box_url_external || null,
+         recordingCadenceValue, recordingPerDayCountValue, fixedStudioNoteValue,
+         episodeUnitPriceValue, billingCycleValue,
          userId, id]
       );
     }

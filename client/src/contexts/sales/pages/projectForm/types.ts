@@ -35,6 +35,15 @@ export interface FormValues {
   /** 登録の項目（migration 165 / 170）。**案件作成と同じものを直せます** */
   contact_name: string;
   recurrence: 'single' | 'regular';
+  /**
+   * レギュラー案件（シリーズ）が持つ4つの取り決め（migration 262・regular-series.md §3）。
+   * **案件作成と同じもの**（`projectNew/RegularSeriesFields`）をそのまま呼ぶ。
+   */
+  recording_cadence: string;
+  recording_per_day_count: string;
+  fixed_studio_note: string;
+  episode_unit_price: string;
+  billing_cycle: string;
   /** 来場人数。**文字列で持つ** — 空欄と 0 名を見分けるため（数値だと両方 0） */
   attendee_count: string;
   goal: string;
@@ -54,7 +63,10 @@ export const EMPTY_FORM: FormValues = {
   name: '', customer_id: '', customer_type: 'external', project_type: '',
   audience: '', project_category: '',
   gls_category: '',
-  contact_name: '', recurrence: 'single', attendee_count: '', goal: '', intake_channel: '',
+  contact_name: '', recurrence: 'single',
+  recording_cadence: '', recording_per_day_count: '', fixed_studio_note: '',
+  episode_unit_price: '', billing_cycle: 'monthly_close',
+  attendee_count: '', goal: '', intake_channel: '',
   event_start: '', event_end: '', expected_amount: 0, assigned_to: '',
   broadcast_type: '', media_platform: '',
   box_url_internal: '', box_url_external: '',

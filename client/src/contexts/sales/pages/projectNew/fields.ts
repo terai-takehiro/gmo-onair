@@ -71,6 +71,16 @@ export interface NewProjectValues {
    */
   customer_type: 'internal' | 'external';
   recurrence: 'single' | 'regular';
+  /**
+   * レギュラー案件（シリーズ）が持つ4つの取り決め（migration 262・regular-series.md §3）。
+   * `recurrence === 'regular'` のときだけ意味を持つ（`RegularSeriesFields` が出し分ける）。
+   * 単発案件では使わないので、送るときも空のままなら NULL に落ちる（サーバー側）。
+   */
+  recording_cadence: RecordingCadence | '';
+  recording_per_day_count: string;
+  fixed_studio_note: string;
+  episode_unit_price: string;
+  billing_cycle: BillingCycle;
   stage: ProjectStage;
   dates: string[];
   attendee_count: string;
@@ -131,6 +141,14 @@ export const EMPTY_NEW_PROJECT: NewProjectValues = {
   gls_category: 'A',
   customer_type: 'external',
   recurrence: 'single',
+  // **既定の頻度を入れない。** cadence を入れると「決めた」と「決めていない」が
+  // 見分けられない（shared/CLAUDE.md「NULL＝決めていない」）。billing_cycle だけは
+  // サーバー側にも DB の既定値（'monthly_close'）があるので、それに合わせて出す
+  recording_cadence: '',
+  recording_per_day_count: '',
+  fixed_studio_note: '',
+  episode_unit_price: '',
+  billing_cycle: 'monthly_close',
   stage: 'neta',
   dates: [],
   attendee_count: '',
@@ -149,6 +167,27 @@ export const CREATABLE_STAGES: ProjectStage[] = ['neta', 'd_hold', 'c_proposal',
 export const RECURRENCE_LABEL: Record<'single' | 'regular', string> = {
   single: '単発',
   regular: 'レギュラー（回を持つ）',
+};
+
+/**
+ * 収録の頻度（migration 262・regular-series.md §3）。
+ * **回の一括生成**（`GenerateEpisodesForm.tsx` の `Cadence`・`episodeGenerate.service.ts` の
+ * `EpisodeCadence`）と同じ語彙。ここが正で、ズレたら一括生成の既定値に渡せなくなる。
+ */
+export type RecordingCadence = 'weekly' | 'biweekly' | 'monthly_nth_weekday' | 'none';
+export const RECORDING_CADENCE_LABEL: Record<RecordingCadence, string> = {
+  weekly: '毎週',
+  biweekly: '隔週',
+  monthly_nth_weekday: '毎月第N◯曜日',
+  none: 'なし（日付を手で並べる）',
+};
+
+/** 請求サイクル（migration 262・regular-series.md §6）。既定は「月末締め」 */
+export type BillingCycle = 'monthly_close' | 'per_recording_date' | 'contract_lump_sum';
+export const BILLING_CYCLE_LABEL: Record<BillingCycle, string> = {
+  monthly_close: '月末締め',
+  per_recording_date: '収録日ごと',
+  contract_lump_sum: '契約一括',
 };
 
 /**

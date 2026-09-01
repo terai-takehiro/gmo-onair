@@ -120,6 +120,14 @@ export function useProjectForm(id: string | undefined) {
       project_category: (project.project_category || '') as ProjectCategory | '',
       contact_name: project.contact_name || '',
       recurrence: project.recurrence === 'regular' ? 'regular' : 'single',
+      // レギュラー案件が持つ4つの取り決め（migration 262）。0 は「決めた0」ではなく
+      // 「入っていない」ことがほとんどなので、null / 0 はどちらも空欄にする
+      // （`attendee_count` と同じ理由。billing_cycle だけは既定値があるので空欄にしない）
+      recording_cadence: project.recording_cadence || '',
+      recording_per_day_count: project.recording_per_day_count ? String(project.recording_per_day_count) : '',
+      fixed_studio_note: project.fixed_studio_note || '',
+      episode_unit_price: project.episode_unit_price ? String(project.episode_unit_price) : '',
+      billing_cycle: project.billing_cycle || 'monthly_close',
       // 数値の 0 は「0 名」ではなく「入っていない」ことが多いので、
       // **null / 0 はどちらも空欄**にする（入れ直せば数として保存される）
       attendee_count: project.attendee_count ? String(project.attendee_count) : '',
@@ -160,6 +168,9 @@ export function useProjectForm(id: string | undefined) {
     'customer_id', 'contact_name', 'name', 'audience', 'project_category',
     'recurrence', 'attendee_count', 'goal', 'expected_amount',   // `customer_type` は入れない（読むだけ）
     'intake_channel', 'assigned_to',
+    // レギュラー案件が持つ4つの取り決め（migration 262）。`RegularSeriesFields` が書く
+    'recording_cadence', 'recording_per_day_count', 'fixed_studio_note',
+    'episode_unit_price', 'billing_cycle',
   ]), []);
 
   const setField = useCallback(<K extends keyof NewProjectValues>(k: K, value: NewProjectValues[K]) => {
@@ -181,6 +192,11 @@ export function useProjectForm(id: string | undefined) {
     gls_category: values.gls_category === 'B' ? 'B' : 'A',
     customer_type: groupType,   // お客様から導く（保存値ではない。サーバーも同じ規則）
     recurrence: values.recurrence,
+    recording_cadence: values.recording_cadence as NewProjectValues['recording_cadence'],
+    recording_per_day_count: values.recording_per_day_count,
+    fixed_studio_note: values.fixed_studio_note,
+    episode_unit_price: values.episode_unit_price,
+    billing_cycle: values.billing_cycle as NewProjectValues['billing_cycle'],
     stage: (project?.stage || 'neta') as ProjectStage,
     attendee_count: values.attendee_count,
     goal: values.goal,

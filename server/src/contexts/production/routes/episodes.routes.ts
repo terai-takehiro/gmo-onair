@@ -14,7 +14,9 @@ const router = Router();
 // （例: "live,recording"）として projects.broadcast_type に保存するため、
 // 完全一致ではなくカンマ区切りの中に対象値が含まれるかで判定する
 // （旧実装は `=== 'live'` の完全一致で、複数選択の案件では黙って外れていた）。
-function broadcastTypeIncludes(broadcastType: string | null | undefined, value: string): boolean {
+// **`episode-generate.routes.ts` も同じ判定を使うため export する**（同じ規則を
+// 2か所目に書き写すと生放送の扱いがずれる）。
+export function broadcastTypeIncludes(broadcastType: string | null | undefined, value: string): boolean {
   return (broadcastType ?? '').split(',').map((s) => s.trim()).includes(value);
 }
 

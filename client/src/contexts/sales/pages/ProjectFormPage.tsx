@@ -3,14 +3,11 @@
  *
  * ── 入力欄は「案件作成」と同じものを使います ────────────────────
  *
- * この画面は長いあいだ**自前の欄**を持っていました。その結果、案件作成
- * （`/sales/projects/new`）で訊く
+ * この画面は長いあいだ**自前の欄**を持っていました。その結果、案件作成（`/sales/projects/new`）で訊く
  *
- *   客入れの有無 ／ 案件分類 ／ ご担当 ／ 継続区分 ／ 来場人数 ／
- *   案件内容 ／ リード経路
+ *   客入れの有無 ／ 案件分類 ／ ご担当 ／ 継続区分 ／ 来場人数 ／ 案件内容 ／ リード経路
  *
- * が**この画面にひとつも無く**、代わりに旧1段の「案件種類」
- * （ハイブリッド／生放送／収録／…）だけが残っていました。
+ * が**この画面にひとつも無く**、代わりに旧1段の「案件種類」（ハイブリッド／生放送／収録／…）だけが残っていました。
  * つまり**作るときに入れたものを、あとから直す場所がどこにも無い**うえ、
  * 同じ案件が画面によって違う分類で見えていました。
  * 言葉も揃っておらず（顧客／お客様・主担当／社内の担当・想定金額／予算）、
@@ -52,8 +49,7 @@
  *
  * 発番 ／ 別の GLS へ付け替える ／ プロジェクト管理へ移す は、どれも
  * 「この案件の番号をどうするか」の話なので1か所に並べます。
- * モックは「受注が決まったら自動で採る」形ですが、**番号を採る時期を変えるのは
- * 業務の決めごと**なので、画面の作り直しと同じ回では動かしません。
+ * モックは「受注が決まったら自動で採る」形ですが、**番号を採る時期を変えるのは業務の決めごと**なので、画面の作り直しと同じ回では動かしません。
  */
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -75,6 +71,7 @@ import { glsGuideText } from './projectDetail/glsGuide';
 import { moreFieldCount } from './projectNew/fields';
 import { RequiredFields } from './projectNew/RequiredFields';
 import { MoreFields } from './projectNew/MoreFields';
+import { RegularSeriesSection } from './projectNew/RegularSeriesSection';
 import { useProjectForm } from './projectForm/useProjectForm';
 import { MembersSection } from './projectForm/MembersSection';
 import { BookingListSection } from './projectForm/BookingListSection';
@@ -367,6 +364,9 @@ export default function ProjectFormPage() {
             </div>
           )}
         </div>
+
+        {/* 回を作るたびに聞かれては困る4つの取り決め（regular-series.md §3・案件作成と同じ部品） */}
+        <RegularSeriesSection f={f.fields} />
 
         {/* ここから下は**直す画面だけが持つもの**（案件作成には無い） */}
         <MembersSection projectId={isEdit ? id : undefined} />
