@@ -1,0 +1,62 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html",        "x": 0,    "y": 0,    "w": 1440, "h": 1180, "title": "案件詳細 ▸ 回（エピソード）タブ" },
+    { "file": "Overview.dc.html",    "x": 1520, "y": 0,    "w": 1440, "h": 780,  "title": "案件詳細 ▸ 概要（レギュラーのとき）" },
+    { "file": "Billing.dc.html",     "x": 1520, "y": 900,  "w": 1440, "h": 720,  "title": "月末締めの請求をまとめる" },
+    { "file": "Ledger.dc.html",      "x": 0,    "y": 1300, "w": 1440, "h": 600,  "title": "案件台帳でレギュラーを見つける" },
+    { "file": "AddEpisodes.dc.html", "x": 1520, "y": 1740, "w": 720,  "h": 940,  "title": "回をまとめて作る" },
+    { "file": "Mobile.dc.html",      "x": 2400, "y": 1740, "w": 390,  "h": 844,  "title": "スマホ ▸ 回" }
+  ],
+  "annotations": [
+    {
+      "id": "gate",
+      "x": -340,
+      "y": 40,
+      "w": 300,
+      "text": "①「回」タブは recurrence = 'regular' のときだけ出す。\n\nいまの出し分けは gls_category === 'A'（スタジオ案件かどうか）で、recurrence を見ていない。単発のスタジオ案件にも回が出て、レギュラーを選んでも画面が変わらない。\n\n出典: TasksTab.tsx:156"
+    },
+    {
+      "id": "session",
+      "x": -340,
+      "y": 600,
+      "w": 300,
+      "text": "②「収録日」に新しいテーブルを作らない。\n\nepisodes.recording_date が同じ回をまとめて見せるだけ。スタジオ・時間帯は studio_bookings が既に持っていて episode_id で繋がっている。同じ事実に2つ目の置き場を作らない。\n\n実データの「ｲﾝﾃﾘｼﾞｪﾝｽ #1-2」が、1収録日に2回ぶんを押し込んだ跡。"
+    },
+    {
+      "id": "autocomplete",
+      "x": 3060,
+      "y": 40,
+      "w": 300,
+      "text": "③ 日次ジョブから regular を外す。★いま実害\n\ncompleteElapsedWonProjects は projects.event_end < 今日 だけで完了へ繰り上げる。レギュラーは第1回の日付が入っているだけで、翌日に完了扱い → BOX ごと 98_終了案件 へ片づく。\n\n完了の条件は「残っている回が 0 本」。回が 0 件のレギュラーは絶対に完了させない。\n\n出典: project-health.ts:296-303"
+    },
+    {
+      "id": "billing",
+      "x": 3060,
+      "y": 960,
+      "w": 300,
+      "text": "④ 請求の原子は「回」。まとめ方だけが選択肢。\n\n月末締め／収録日ごと／契約一括。請求キーは既存の {episode_code}-{税枝番} のまま。\n\n⚠ invoice-groups.routes.ts:164 が SQLite の GROUP_CONCAT を使っており、PostgreSQL では必ず 500 になる（string_agg が正）。月まとめ請求を作るなら、ここを直すのが最初の一歩。"
+    },
+    {
+      "id": "ledger",
+      "x": -340,
+      "y": 1340,
+      "w": 300,
+      "text": "⑤ 台帳でレギュラーを見つけられるようにする。\n\n「継続区分」列は既定で隠れていて（default: false）、絞り込みも無い。「回」の列に出す episode_count は型だけあってサーバーが返していない。\n\n出典: projectLedger/types.ts:91 / filters.ts"
+    },
+    {
+      "id": "preview",
+      "x": 2900,
+      "y": 1740,
+      "w": 300,
+      "text": "⑥ 回の作成を「頻度 × 期間 × 本数」にする。\n\nいまの batch は件数を渡すだけで、日付もタイトルも入らない。\n\n⚠ 既にある日付は飛ばす。何件つくって何件飛ばすかを押す前に出す（お金の行が増えるので、押したあとで分かるのは事故）。\n\n⚠ 先に episode_number をアトミック採番にし、UNIQUE (project_id, episode_number) を張る。いまは read-then-write で一括作成すると番号が重なりうる。"
+    },
+    {
+      "id": "mobile",
+      "x": 2900,
+      "y": 2100,
+      "w": 300,
+      "text": "⑦ スマホは表にしない。\n\n出すのは「次の収録」と「これからの回」だけ。納品済みは畳む。主アクションは下端に固定（52px）。\n\nDESIGN_POLICY.md「スマホUIの共通ポリシー」に従う。"
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

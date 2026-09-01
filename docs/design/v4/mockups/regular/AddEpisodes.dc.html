@@ -1,0 +1,189 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body {
+    margin: 0;
+    /* ダイアログの背後の暗幕 */
+    background: #dfe3e8;
+    color: #1a1d24;
+    font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: #005bac; text-decoration: none; }
+  a:hover { color: #004a8d; text-decoration: underline; }
+  .t-h2   { font-size: 19px;   line-height: 1.35; font-weight: 800; }
+  .t-ct   { font-size: 14.5px; line-height: 1.4;  font-weight: 800; }
+  .t-list { font-size: 13.5px; line-height: 1.5;  font-weight: 700; }
+  .t-sub  { font-size: 12.5px; line-height: 1.6;  font-weight: 400; }
+  .t-ssm  { font-size: 11.5px; line-height: 1.6;  font-weight: 400; }
+  .t-th   { font-size: 11.5px; line-height: 1.4;  font-weight: 800; }
+  .t-bdg  { font-size: 11px;   line-height: 1.4;  font-weight: 700; }
+  .t-note { font-size: 12px;   line-height: 1.75; font-weight: 400; }
+  .num    { font-variant-numeric: tabular-nums; }
+</style>
+</helmet>
+
+<div style="display: flex; align-items: flex-start; justify-content: center; padding: 24px">
+  <div style="width: 656px; background: #ffffff; border: 1px solid #e6e9ed; border-radius: 14px; box-shadow: 0 24px 48px -16px rgba(16, 24, 40, .18); overflow: hidden">
+
+    <!-- 見出し -->
+    <div style="display: flex; flex-direction: column; gap: 4px; padding: 20px 24px 16px; border-bottom: 1px solid #f2f4f7">
+      <span class="t-h2">回をまとめて作る</span>
+      <span class="t-sub" style="color: #5d6470">シリーズの取り決めから既定値が入っています。作る前に件数をご確認ください。</span>
+    </div>
+
+    <!-- 入力 -->
+    <div style="display: flex; flex-direction: column; gap: 18px; padding: 20px 24px">
+
+      <!-- 最初の収録日 + 繰り返し -->
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span class="t-list">最初の収録日</span>
+          <div style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border: 1px solid #e6e9ed; border-radius: 10px; background: #ffffff">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
+            <span class="t-list num">2026/09/10</span>
+            <span class="t-sub" style="color: #5d6470">木</span>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span class="t-list">繰り返し</span>
+          <div style="display: inline-flex; overflow: hidden; border: 1px solid #e6e9ed; border-radius: 6px">
+            <span class="t-sub" style="display: inline-flex; align-items: center; justify-content: center; flex: 1; height: 38px; color: #5d6470">毎週</span>
+            <span class="t-sub" style="display: inline-flex; align-items: center; justify-content: center; flex: 1; height: 38px; border-left: 1px solid #e6e9ed; background: #005bac; color: #ffffff; font-weight: 700">隔週</span>
+            <span class="t-sub" style="display: inline-flex; align-items: center; justify-content: center; flex: 1; height: 38px; border-left: 1px solid #e6e9ed; color: #5d6470">毎月</span>
+            <span class="t-sub" style="display: inline-flex; align-items: center; justify-content: center; flex: 1; height: 38px; border-left: 1px solid #e6e9ed; color: #5d6470">なし</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 曜日 -->
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <span class="t-list">曜日</span>
+        <div style="display: flex; gap: 8px">
+          <span class="t-sub" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 40px; border: 1px solid #e6e9ed; border-radius: 10px; color: #c7243a">日</span>
+          <span class="t-sub" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 40px; border: 1px solid #e6e9ed; border-radius: 10px; color: #5d6470">月</span>
+          <span class="t-sub" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 40px; border: 1px solid #e6e9ed; border-radius: 10px; color: #5d6470">火</span>
+          <span class="t-sub" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 40px; border: 1px solid #e6e9ed; border-radius: 10px; color: #5d6470">水</span>
+          <span class="t-sub" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 40px; border: 1px solid #005bac; border-radius: 10px; background: #005bac; color: #ffffff; font-weight: 700">木</span>
+          <span class="t-sub" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 40px; border: 1px solid #e6e9ed; border-radius: 10px; color: #5d6470">金</span>
+          <span class="t-sub" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 40px; border: 1px solid #e6e9ed; border-radius: 10px; color: #005bac">土</span>
+        </div>
+      </div>
+
+      <!-- 1日あたりの本数 / 終わり方 -->
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span class="t-list">1日あたりの本数</span>
+          <div style="display: flex; align-items: center; gap: 8px">
+            <div style="display: flex; align-items: center; width: 88px; height: 40px; padding: 0 12px; border: 1px solid #e6e9ed; border-radius: 10px; background: #ffffff">
+              <span class="t-list num">2</span>
+            </div>
+            <span class="t-sub" style="color: #5d6470">本撮り</span>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span class="t-list">つくる回数</span>
+          <div style="display: flex; align-items: center; gap: 8px">
+            <div style="display: flex; align-items: center; width: 88px; height: 40px; padding: 0 12px; border: 1px solid #e6e9ed; border-radius: 10px; background: #ffffff">
+              <span class="t-list num">12</span>
+            </div>
+            <span class="t-sub" style="color: #5d6470">回 ／</span>
+            <span class="t-sub" style="color: #005bac; font-weight: 700">終了日で決める</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 公開日 / 金額 -->
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span class="t-list">公開日</span>
+          <div style="display: flex; align-items: center; gap: 8px">
+            <span class="t-sub" style="color: #5d6470">収録日の</span>
+            <div style="display: flex; align-items: center; width: 72px; height: 40px; padding: 0 12px; border: 1px solid #e6e9ed; border-radius: 10px; background: #ffffff">
+              <span class="t-list num">+7</span>
+            </div>
+            <span class="t-sub" style="color: #5d6470">日後</span>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span class="t-list">回の単価</span>
+          <div style="display: flex; align-items: center; gap: 10px; height: 40px">
+            <span class="t-list" style="display: flex; align-items: baseline; gap: 1px"><span>￥</span><span class="num">84,000</span></span>
+            <span class="t-bdg" style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 6px; background: #f2f4f7; color: #5d6470">取り決めから</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 売上見込みも作る -->
+      <div style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; background: #fbfcfd; border: 1px solid #eef0f3; border-radius: 12px">
+        <span style="display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; border-radius: 4px; background: #005bac">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        </span>
+        <div style="display: flex; flex-direction: column; gap: 1px; min-width: 0">
+          <span class="t-list">売上の見込みも一緒に作る</span>
+          <span class="t-ssm" style="color: #5d6470">回ごとに 1 行ずつ、単価の金額で。請求書はまだ出しません</span>
+        </div>
+      </div>
+
+      <!-- ★ 実行前の予告（押したあとで分かるのは事故） -->
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; background: #eaf4fb; border: 1px solid #cfe4f4; border-radius: 12px">
+        <div style="display: flex; align-items: center; gap: 8px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          <span class="t-list" style="color: #005bac">12回のうち <span class="num">8</span>件をつくり、<span class="num">4</span>件は飛ばします</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 5px">
+          <div style="display: flex; align-items: center; gap: 10px">
+            <span class="t-sub num" style="width: 96px; flex-shrink: 0; color: #5d6470">09/10（木）</span>
+            <span class="t-sub" style="width: 48px; flex-shrink: 0; color: #5d6470">2本</span>
+            <span class="t-sub" style="flex: 1; min-width: 0; color: #5d6470">飛ばす — すでに #13・#14 があります</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px">
+            <span class="t-sub num" style="width: 96px; flex-shrink: 0; color: #5d6470">09/24（木）</span>
+            <span class="t-sub" style="width: 48px; flex-shrink: 0; color: #5d6470">2本</span>
+            <span class="t-sub" style="flex: 1; min-width: 0; color: #5d6470">飛ばす — すでに #15・#16 があります</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px">
+            <span class="t-sub num" style="width: 96px; flex-shrink: 0">10/08（木）</span>
+            <span class="t-sub" style="width: 48px; flex-shrink: 0">2本</span>
+            <span class="t-sub" style="flex: 1; min-width: 0; color: #005bac; font-weight: 700">#17・#18 をつくる</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px">
+            <span class="t-sub num" style="width: 96px; flex-shrink: 0">10/22（木）</span>
+            <span class="t-sub" style="width: 48px; flex-shrink: 0">2本</span>
+            <span class="t-sub" style="flex: 1; min-width: 0; color: #005bac; font-weight: 700">#19・#20 をつくる</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px">
+            <span class="t-sub num" style="width: 96px; flex-shrink: 0">11/05（木）</span>
+            <span class="t-sub" style="width: 48px; flex-shrink: 0">2本</span>
+            <span class="t-sub" style="flex: 1; min-width: 0; color: #005bac; font-weight: 700">#21・#22 をつくる</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px">
+            <span class="t-sub num" style="width: 96px; flex-shrink: 0">11/19（木）</span>
+            <span class="t-sub" style="width: 48px; flex-shrink: 0">2本</span>
+            <span class="t-sub" style="flex: 1; min-width: 0; color: #005bac; font-weight: 700">#23・#24 をつくる</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; padding-top: 8px; border-top: 1px solid #cfe4f4">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#c2410e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          <span class="t-sub" style="color: #c2410e">売上の見込みが <span class="num">8</span>行、あわせて <span class="num">￥672,000</span> 増えます</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 脚 -->
+    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 16px 24px; background: #fbfcfd; border-top: 1px solid #f2f4f7">
+      <button style="display: inline-flex; align-items: center; justify-content: center; height: 40px; padding: 0 18px; border: 1px solid #e6e9ed; border-radius: 10px; background: #ffffff; font-family: inherit; font-size: 13.5px; font-weight: 700; color: #3c424c; cursor: pointer">やめる</button>
+      <button style="display: inline-flex; align-items: center; justify-content: center; height: 40px; padding: 0 18px; border: 0; border-radius: 10px; background: #005bac; font-family: inherit; font-size: 13.5px; font-weight: 700; color: #ffffff; cursor: pointer">8件つくる</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
