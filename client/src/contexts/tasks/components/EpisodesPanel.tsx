@@ -43,6 +43,7 @@ import {
   parseEpisodeSpec, describeEpisodeNumbers, EpisodeSpecError,
 } from '@gmo-onair/shared/src/production/episodeSpec';
 import type { Episode } from '@gmo-onair/shared/src/types';
+import { GenerateEpisodesForm } from './GenerateEpisodesForm';
 
 type EpisodeState = 'todo' | 'doing' | 'done';
 
@@ -67,20 +68,26 @@ function dateOf(e: Episode): string | null {
 }
 
 /**
- * 「追加する数」はテキストで受ける（依頼: 「複数の回を登録することもあるので
- * テキストで入力出来るようにしたい『#1-2』みたいに」）。
+ * 「回を足す」— 2つの作り方をタブで切り替える（`docs/design/v4/regular-series.md` §7・§10-5）。
  *
+ * ① **話数で指定**（従来）: 「追加する数」をテキストで受ける（依頼: 「複数の回を
+ * 登録することもあるのでテキストで入力出来るようにしたい『#1-2』みたいに」）。
  * パーサー（`shared/src/production/episodeSpec.ts`）が「単純な数＝件数」
  * 「範囲・カンマ区切り＝明示的な話数」を読み分ける。プレビューは**必ず実行前に出す**
  * （お金の行が増えることもあるので、押したあとで分かるのは事故 — 設計文書 §7）。
  *
+ * ② **頻度で作る**（新規）: 「毎週／隔週／…」の繰り返し×期間×1日あたりの本数で
+ * サーバーに日付を組み立てさせる（`POST /episodes/generate`）。中身は
+ * `GenerateEpisodesForm.tsx`（1ファイル400行の上限のため分けてある）。
+ *
  * `nextNum`（この案件の次の話数）は既に読み込み済みの一覧から出す簡易な見積もりで、
  * 採番そのものはサーバーが取引の中でアトミックに行う。ここでは「思っていた話数と
- * ズレていないか」を実行前に気づかせるだけの表示用途。
+ * ズレていないか」を実行前に気づかせるだけの表示用途（①だけで使う）。
  */
 function AddEpisodesDialog({
   open, onOpenChange, projectId, nextNum,
 }: { open: boolean; onOpenChange: (open: boolean) => void; projectId: string; nextNum: number }) {
+  const [mode, setMode] = useState<'text' | 'frequency'>('text');
   const [text, setText] = useState('1');
   const qc = useQueryClient();
 
@@ -120,39 +127,68 @@ function AddEpisodesDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="回を足す"
-      sub={'数字だけなら「次の話数から連番でN件」、"1-2" や "1,3,5-8" のように書くと話数を指定して作れます。'}
+      sub={mode === 'text'
+        ? '数字だけなら「次の話数から連番でN件」、"1-2" や "1,3,5-8" のように書くと話数を指定して作れます。'
+        : '頻度・期間・1日あたりの本数から日付を組み立てます。作る前に必ず内容を確かめます。'}
       footer={
         <FormDialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
-          <Button onClick={() => create.mutate()} disabled={create.isPending || !parsed.ok}>
-            足す
-          </Button>
+          {/* 「頻度で作る」は確認→実行の2段階を中の GenerateEpisodesForm が持つので、
+              ここには置かない（下端に2つ実行ボタンが並ぶのを避ける） */}
+          {mode === 'text' && (
+            <Button onClick={() => create.mutate()} disabled={create.isPending || !parsed.ok}>
+              足す
+            </Button>
+          )}
         </FormDialogFooter>
       }
     >
-      <div className="flex flex-col gap-2">
-        <div>
-          <Label htmlFor="ep-spec">追加する数</Label>
-          <Input
-            id="ep-spec" type="text" inputMode="text" className="mt-1"
-            placeholder={'例: 2 ／ 1-2 ／ #1-2 ／ 1,3,5-8'}
-            value={text} onChange={(e) => setText(e.target.value)}
-          />
+      <div className="flex flex-col gap-3">
+        <div role="tablist" aria-label="回の作り方を切り替える" className="grid grid-cols-2 gap-1.5">
+          {([['text', '話数で指定'], ['frequency', '頻度で作る']] as const).map(([key, label]) => {
+            const on = mode === key;
+            return (
+              <button
+                key={key} type="button" role="tab" aria-selected={on}
+                onClick={() => setMode(key)}
+                className={`min-h-tap rounded-control border text-sub ${
+                  on ? 'border-primary-border bg-primary-surface font-bold text-primary' : 'border-border text-muted-foreground'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
-        {!parsed.ok ? (
-          <p className="text-sub text-destructive">{parsed.message}</p>
-        ) : previewNumbers ? (
-          <div className="rounded-note border border-border bg-surface-subtle p-2">
-            <p className="text-sub">
-              作成する回: {describeEpisodeNumbers(previewNumbers)}（{previewNumbers.length}件）
-            </p>
-            {mismatch && (
-              <p className="text-sub text-warning mt-1">
-                ⚠ 次の話数は #{nextNum} です。指定と次の話数がズレています — 意図した範囲か確かめてください。
-              </p>
-            )}
+
+        {mode === 'text' ? (
+          <div className="flex flex-col gap-2">
+            <div>
+              <Label htmlFor="ep-spec">追加する数</Label>
+              <Input
+                id="ep-spec" type="text" inputMode="text" className="mt-1"
+                placeholder={'例: 2 ／ 1-2 ／ #1-2 ／ 1,3,5-8'}
+                value={text} onChange={(e) => setText(e.target.value)}
+              />
+            </div>
+            {!parsed.ok ? (
+              <p className="text-sub text-destructive">{parsed.message}</p>
+            ) : previewNumbers ? (
+              <div className="rounded-note border border-border bg-surface-subtle p-2">
+                <p className="text-sub">
+                  作成する回: {describeEpisodeNumbers(previewNumbers)}（{previewNumbers.length}件）
+                </p>
+                {mismatch && (
+                  <p className="text-sub text-warning mt-1">
+                    ⚠ 次の話数は #{nextNum} です。指定と次の話数がズレています — 意図した範囲か確かめてください。
+                  </p>
+                )}
+              </div>
+            ) : null}
           </div>
-        ) : null}
+        ) : (
+          <GenerateEpisodesForm projectId={projectId} onDone={() => { onOpenChange(false); setMode('text'); }} />
+        )}
       </div>
     </FormDialog>
   );
