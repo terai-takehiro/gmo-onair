@@ -69,6 +69,7 @@ import { AnimatedCurrency } from "@/components/ui/animated-number";
 import DiscountDialog, { DiscountResult } from "@/contexts/finance/components/DiscountDialog";
 import PricingItemPicker, { PickedPricingItem } from "@/contexts/finance/components/PricingItemPicker";
 import SimulationDialog, { SimulationAppliedItem } from "@/contexts/sales/components/SimulationDialog";
+import { toServiceDateInput } from "@/contexts/finance/pages/ledger/serviceDate";
 
 interface RevenueItem {
   description: string;
@@ -338,7 +339,7 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
     setPurSettlementUrl((pu as any).settlement_url || "");
     setPurInvoice(pu.invoice_qualified ? "qualified" : "unqualified");
     setPurRecMonth(pu.recognition_date ? pu.recognition_date.slice(0, 7) : "");
-    setPurServiceDate("");
+    setPurServiceDate(toServiceDateInput((pu as any).service_completed_date)); // ⚠️ 空で潰すと更新時に消える
     setPurPayDueDate((pu as any).payment_due_date ? String((pu as any).payment_due_date).slice(0, 10) : "");
     setPurIsProvisional(!!(pu as any).is_provisional);
     setPurNotes((pu as any).notes || "");

@@ -8,15 +8,23 @@
  *
  * 販管費は案件に紐づかないので、案件で絞ると集計から外れます。
  * **これを書かないと「販管費が 0 になった＝壊れた」と読まれます**。
+ *
+ * ── 「全期間」と、月を空にしたとき ─────────────────────────
+ *
+ * 期間を外して見たい人のために **「全期間」を種類の1つとして置いています**。
+ * 以前はこれが無く、`<input type="month">` を空にして期間を外そうとすると
+ * `-01` という壊れた日付がサーバーへ飛んで **400 になっていました**
+ * （画面には「損益を読み込めませんでした」としか出ないので原因が見えなかった）。
+ * 月を空にしたときは読み込みに行かず、`BudgetDashboardPage` が入力を促します。
  */
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 
-export type PeriodMode = 'month' | 'quarter' | 'year' | 'range';
+export type PeriodMode = 'month' | 'quarter' | 'year' | 'range' | 'all';
 
 const MODES: [PeriodMode, string][] = [
-  ['month', '月'], ['quarter', '四半期'], ['year', '年'], ['range', '期間指定'],
+  ['month', '月'], ['quarter', '四半期'], ['year', '年'], ['range', '期間指定'], ['all', '全期間'],
 ];
 
 export interface ProjectOption {
@@ -106,6 +114,17 @@ export function PeriodBar({
           </div>
         )}
 
+        {/*
+          * **全期間だけ「計上月が空の行も入る」ことを書く。**
+          * 期間で絞ると `recognition_date` が空の行は必ず外れるので、月ごとの合計を
+          * 足しても全期間と一致しないことがある。黙っていると数え間違いに見える。
+          */}
+        {mode === 'all' && (
+          <span className="text-note text-muted-foreground">
+            期間で絞らずに集計します（計上月を入れていない行も入ります）
+          </span>
+        )}
+
         {mode === 'range' && (
           <span className="flex items-center gap-1.5">
             <Input type="month" value={rangeFrom} onChange={(e) => setRangeFrom(e.target.value)} className="w-[9.5rem]" aria-label="開始月" />
@@ -136,6 +155,12 @@ export function PeriodBar({
               案件で絞り込み中は販管費が集計から外れます（案件に紐づかないため）
             </span>
           </>
+        )}
+        {/* 案件を選ぶと期間は「全期間」に切り替わる。**黙って切り替えると数字が変わった理由が分からない** */}
+        {projectId && mode === 'all' && (
+          <span className="text-note text-muted-foreground">
+            案件を選んだので期間は「全期間」にしました（期間の種類から変えられます）
+          </span>
         )}
       </div>
     </section>
