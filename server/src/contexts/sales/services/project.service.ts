@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute, withTransaction, type TxClient } from '../../../shared/db/connection';
-import { generateSequenceNumber, generateGlsNumber, peekNextGlsNumber, type GlsCategory } from '../../../shared/services/sequence.service';
+import { generateSequenceNumber, generateGlsNumber, peekNextGlsNumber, generateEpisodeCode, getNextEpisodeNumberAtomic, type GlsCategory } from '../../../shared/services/sequence.service';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { normalizeJaText } from '../../../shared/utils/text';
 import {
@@ -1646,12 +1646,39 @@ export class ProjectService {
      *    採れなかったことは `gls_error` で返し、画面がそう出します
      */
     let glsError: string | null = null;
+    let issuedProject: Record<string, unknown> | null = null;
     if (stage === 'a_won' && !project.gls_number) {
       try {
-        await this.issueGls(id, {}, userId);
+        issuedProject = await this.issueGls(id, {}, userId);
       } catch (err) {
         glsError = err instanceof AppError ? err.message : 'GLS番号を採れませんでした';
         console.warn('[changeStage] GLS auto-issue failed:', id, glsError);
+      }
+    }
+
+    /**
+     * **レギュラー案件を受注にしたら、最初の回を1件だけ作る**
+     * （docs/design/v4/regular-series.md §5）。
+     *
+     * ⚠️ **まとめて全回を作らない。** 何回やるか決まっていない時点で作ると、
+     * 失注や本数変更のときに消す作業が発生する。1件だけ作って「回はここに
+     * 積む」と分かる状態にする（以降は人が「回を足す」で増やす）。
+     *
+     * **既に回があれば何もしない**（このメソッドの呼び出し自体は
+     * `changeStage` が受注に上げるたびに通るので、idempotent にしておく必要がある —
+     * 受注→口頭決定→受注と往復しても2件目は作らない）。
+     *
+     * GLS 番号が採れていない（`glsError` が立った）ときは回も作らない
+     * （エピソードコードが GLS 番号ありきのため）。
+     */
+    if (stage === 'a_won' && project.recurrence === 'regular') {
+      const glsNumber = (issuedProject?.gls_number as string | undefined) ?? (project.gls_number as string | undefined);
+      if (glsNumber) {
+        try {
+          await this.ensureFirstEpisode(id, glsNumber, (project.event_start as string | null) ?? null, userId);
+        } catch (err) {
+          console.warn('[changeStage] first episode auto-create failed:', id, (err as Error).message);
+        }
       }
     }
 
@@ -1871,6 +1898,26 @@ export class ProjectService {
     }
 
     return this.getById(id);
+  }
+
+  /**
+   * レギュラー案件に、既に回が無ければ第1回を1件だけ作る。
+   * `changeStage` の `a_won` 分岐から呼ぶ（idempotent — 既にあれば何もしない）。
+   */
+  private async ensureFirstEpisode(projectId: string, glsNumber: string, eventStart: string | null, userId: string): Promise<void> {
+    const existing = await queryOne(
+      'SELECT id FROM episodes WHERE project_id = ? AND deleted_at IS NULL LIMIT 1',
+      [projectId],
+    );
+    if (existing) return;
+
+    const episodeNumber = await getNextEpisodeNumberAtomic(projectId);
+    const episodeCode = generateEpisodeCode(glsNumber, episodeNumber);
+    await execute(
+      `INSERT INTO episodes (id, project_id, episode_code, episode_number, recording_date, created_by)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [uuidv4(), projectId, episodeCode, episodeNumber, eventStart, userId],
+    );
   }
 
   /**
