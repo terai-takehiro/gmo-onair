@@ -14,6 +14,15 @@ export interface TaskColumn {
 
 type TemplateCol = { name: string; color: string | null; sort_order: number };
 
+/**
+ * レギュラー回向け標準工程テンプレートのID（migration 263・regular-series.md §4・§10-8）。
+ * 受注時の第1回自動作成（`project.service.ts` の `ensureFirstEpisode`）と、頻度指定の
+ * 一括生成（`episode-generate.routes.ts`）の両方から回を作った直後に当てる
+ * （§10 積み残し2）。**1箇所に置いて2箇所から参照する**（両方に同じ文字列を
+ * 書き写すと、テンプレートを作り直したときに片方だけ古いIDのまま残る）。
+ */
+export const REGULAR_EPISODE_TEMPLATE_ID = 'tpl-regular-episode';
+
 export const taskColumnsService = {
   async listForProject(projectId: string): Promise<TaskColumn[]> {
     const rows = await queryAll(

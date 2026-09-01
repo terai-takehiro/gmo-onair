@@ -128,6 +128,7 @@ export function useProjectForm(id: string | undefined) {
       fixed_studio_note: project.fixed_studio_note || '',
       episode_unit_price: project.episode_unit_price ? String(project.episode_unit_price) : '',
       billing_cycle: project.billing_cycle || 'monthly_close',
+      broadcast_offset_days: project.broadcast_offset_days != null ? String(project.broadcast_offset_days) : '',
       // 数値の 0 は「0 名」ではなく「入っていない」ことが多いので、
       // **null / 0 はどちらも空欄**にする（入れ直せば数として保存される）
       attendee_count: project.attendee_count ? String(project.attendee_count) : '',
@@ -168,9 +169,9 @@ export function useProjectForm(id: string | undefined) {
     'customer_id', 'contact_name', 'name', 'audience', 'project_category',
     'recurrence', 'attendee_count', 'goal', 'expected_amount',   // `customer_type` は入れない（読むだけ）
     'intake_channel', 'assigned_to',
-    // レギュラー案件が持つ4つの取り決め（migration 262）。`RegularSeriesFields` が書く
+    // レギュラー案件が持つ取り決め（migration 262・264）。`RegularSeriesFields` が書く
     'recording_cadence', 'recording_per_day_count', 'fixed_studio_note',
-    'episode_unit_price', 'billing_cycle',
+    'episode_unit_price', 'billing_cycle', 'broadcast_offset_days',
   ]), []);
 
   const setField = useCallback(<K extends keyof NewProjectValues>(k: K, value: NewProjectValues[K]) => {
@@ -197,6 +198,7 @@ export function useProjectForm(id: string | undefined) {
     fixed_studio_note: values.fixed_studio_note,
     episode_unit_price: values.episode_unit_price,
     billing_cycle: values.billing_cycle as NewProjectValues['billing_cycle'],
+    broadcast_offset_days: values.broadcast_offset_days,
     stage: (project?.stage || 'neta') as ProjectStage,
     attendee_count: values.attendee_count,
     goal: values.goal,
