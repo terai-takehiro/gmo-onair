@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { getProjectCategory } from "@/types";
 import DiscountDialog from "@/contexts/finance/components/DiscountDialog";
@@ -18,6 +17,7 @@ import { PurchaseDialog } from './businessProject/PurchaseDialog';
 import { RevenueDialog } from './businessProject/RevenueDialog';
 import { useInlineItems } from './businessProject/useInlineItems';
 import { useRevenueForm } from './businessProject/useRevenueForm';
+import { useMonthUnits } from './businessProject/useMonthUnits';
 
 export default function BusinessProjectView({ project, projectId, isEstimateMode }: Props) {
   const qc = useQueryClient();
@@ -37,8 +37,6 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
     simDialogOpen, setSimDialogOpen, applySimulation,
   } = revenueForm;
 
-  // 月次ユニット (ビジネス案件の月締め請求単位) — 売上をエピソード(月)に紐づける
-  const [newMonth, setNewMonth] = useState(""); // YYYY-MM (月を追加ピッカー)
 
 
 
@@ -73,65 +71,10 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
   // 月次管理モード: 確定済みビジネス案件 (GLS発番済・非A系・非見積モード) で有効
   const monthlyMode = !isEstimateMode && !isCategoryA && !!project.gls_number;
 
-  // 月次ユニット (エピソードを「月」として流用) の一覧
-  const { data: episodesData } = useQuery({
-    queryKey: ["episodes-months", projectId],
-    queryFn: async () =>
-      (await api.get(`/projects/${projectId}/episodes`, { params: { limit: 200 } })).data,
-    enabled: monthlyMode,
-  });
-  const monthEpisodes: Array<{ id: string; episode_code: string; episode_number: number; title: string | null }> =
-    episodesData?.data ?? [];
+  // 月次ユニット（中身は businessProject/useMonthUnits.ts。**同じ名前で開く**ので JSX は無変更）
+  const { newMonth, setNewMonth, monthEpisodes, addMonthMutation, handleDeleteMonth } =
+    useMonthUnits({ projectId, monthlyMode, revenues, purchases, openEdit, openNewForMonth, qc });
 
-  // 月ユニット作成 → その月の売上明細入力ダイアログを開く
-  const addMonthMutation = useMutation({
-    mutationFn: async (ym: string) =>
-      (await api.post(`/projects/${projectId}/episodes/month`, { year_month: ym })).data,
-    onSuccess: (res: any) => {
-      qc.invalidateQueries({ queryKey: ["episodes-months", projectId] });
-      setNewMonth("");
-      const ep = res.data;
-      // 既にその月の売上があればそれを編集、無ければ新規で開く
-      const existingRev = revenues.find((r) => (r as any).episode_id === ep.id);
-      if (existingRev) openEdit(existingRev);
-      else {
-        const mm2 = String(ep.episode_code || "").match(/-(\d{2})(\d{2})$/);
-        openNewForMonth(ep.id, ep.title || "", mm2 ? `20${mm2[1]}-${mm2[2]}` : undefined);
-      }
-    },
-    onError: (err: any) => {
-      const msg =
-        err?.response?.data?.error?.message || err?.message || "月ユニットの作成に失敗しました";
-      alert(`月の追加に失敗しました: ${msg}`);
-    },
-  });
-
-  // 月ユニット削除 (紐づく売上/仕入が残っている場合は先に削除を促す)
-  const deleteMonthMutation = useMutation({
-    mutationFn: async (epId: string) =>
-      (await api.delete(`/projects/${projectId}/episodes/${epId}`)).data,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["episodes-months", projectId] });
-    },
-    onError: (err: any) => {
-      const msg =
-        err?.response?.data?.error?.message || err?.message || "削除に失敗しました";
-      alert(`月ユニットの削除に失敗しました: ${msg}`);
-    },
-  });
-
-  const handleDeleteMonth = (ep: { id: string; episode_code: string }) => {
-    const linkedRevs = revenues.filter((r) => (r as any).episode_id === ep.id).length;
-    const linkedPurs = purchases.filter((p) => (p as any).episode_id === ep.id).length;
-    if (linkedRevs > 0 || linkedPurs > 0) {
-      alert(
-        `${ep.episode_code} には売上 ${linkedRevs} 件 / 仕入 ${linkedPurs} 件が紐づいています。\n先にそれらを削除（または編集で紐づけを変更）してから月を削除してください。`,
-      );
-      return;
-    }
-    if (!confirm(`${ep.episode_code} を削除しますか？`)) return;
-    deleteMonthMutation.mutate(ep.id);
-  };
 
 
   // Fetch project summary
