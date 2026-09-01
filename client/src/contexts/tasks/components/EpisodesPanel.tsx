@@ -29,7 +29,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { Plus, ListChecks } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,6 +44,7 @@ import {
 } from '@gmo-onair/shared/src/production/episodeSpec';
 import type { Episode } from '@gmo-onair/shared/src/types';
 import { GenerateEpisodesForm } from './GenerateEpisodesForm';
+import { ApplyEpisodeTaskTemplateDialog } from './ApplyEpisodeTaskTemplateDialog';
 
 type EpisodeState = 'todo' | 'doing' | 'done';
 
@@ -220,6 +221,8 @@ function AddEpisodesDialog({
 
 export function EpisodesPanel({ projectId, seriesDefaults }: { projectId: string; seriesDefaults?: SeriesDefaults }) {
   const [addOpen, setAddOpen] = useState(false);
+  /** 「標準工程を当てる」ダイアログの対象回。null = 閉じている */
+  const [templateTarget, setTemplateTarget] = useState<Episode | null>(null);
 
   const list = useQuery<Episode[]>({
     queryKey: ['episodes', projectId],
@@ -258,6 +261,7 @@ export function EpisodesPanel({ projectId, seriesDefaults }: { projectId: string
             <RowSlot w={96}>実施日</RowSlot>
             <RowSlot w={128}>タスク</RowSlot>
             <RowSlot w={96}>状態</RowSlot>
+            <RowSlot w={56}> </RowSlot>
           </RowHeader>
           {(list.data ?? []).map((e) => {
             const total = e.task_count ?? 0;
@@ -288,6 +292,15 @@ export function EpisodesPanel({ projectId, seriesDefaults }: { projectId: string
                   )}
                 </RowSlot>
                 <TableBadge w={96} label={STATE_LABEL[st]} className={STATE_TONE[st]} />
+                <RowSlot w={56}>
+                  <Button
+                    variant="ghost" size="icon-sm"
+                    aria-label={`回 #${e.episode_number} に標準工程を当てる`}
+                    onClick={() => setTemplateTarget(e)}
+                  >
+                    <ListChecks className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                </RowSlot>
               </Row>
             );
           })}
@@ -298,6 +311,14 @@ export function EpisodesPanel({ projectId, seriesDefaults }: { projectId: string
         open={addOpen} onOpenChange={setAddOpen} projectId={projectId} nextNum={nextNum}
         seriesDefaults={seriesDefaults}
       />
+
+      {templateTarget && (
+        <ApplyEpisodeTaskTemplateDialog
+          open onOpenChange={(o) => { if (!o) setTemplateTarget(null); }}
+          projectId={projectId} episodeId={templateTarget.id}
+          episodeLabel={`#${templateTarget.episode_number} ${templateTarget.title || templateTarget.episode_code}`}
+        />
+      )}
     </div>
   );
 }

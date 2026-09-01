@@ -99,6 +99,33 @@ export function useColumnsFromTemplate(projectId: string) {
   });
 }
 
+/**
+ * レギュラー番組の回（エピソード）に標準工程を当てる（regular-series.md §10-8）。
+ * `useColumnsFromTemplate` は列を案件に足すだけだが、こちらは列ごとに1件、
+ * この回のタスクを作る（サーバー: `taskColumnsService.applyToEpisode`）。
+ * 列は案件の既存かんばん列と名前で共有する（増えない）。
+ */
+export function useApplyTaskTemplateToEpisode(projectId: string, episodeId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (templateId: string) =>
+      api
+        .post<{ data: Array<{ id: string; column_id: string; title: string }> }>(
+          `/task-templates/${templateId}/apply-to-episode`,
+          { project_id: projectId, episode_id: episodeId }
+        )
+        .then((r) => r.data.data),
+    onSuccess: () => {
+      // 4つとも落とす（ApplyFlowDialog.tsx と同じ理由 — かんばん・リスト/ガント・
+      // 全案件タスク一覧・回一覧のどれかを忘れると「入れたのに出てこない」になる）
+      qc.invalidateQueries({ queryKey: colKey(projectId) });
+      qc.invalidateQueries({ queryKey: taskKey(projectId) });
+      qc.invalidateQueries({ queryKey: ["task-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["episodes", projectId] });
+    },
+  });
+}
+
 // ------------------------------------------------------------------ tasks
 export function useProjectTasks(
   projectId: string,
