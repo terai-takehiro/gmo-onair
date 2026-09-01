@@ -20,8 +20,9 @@
  */
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { ArrowRight, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { AlertTriangle, ArrowRight, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
+import { humanizeError } from '@gmo-onair/shared/src/client/states';
 
 /** 折りたたみ時に出す件数。**多くすると内訳ではなく一覧になる** */
 const COLLAPSED = 6;
@@ -39,6 +40,7 @@ export interface BreakdownItem {
 
 export function BreakdownColumn({
   title, total, items, totalCount, hasMore, isLoadingMore, onLoadMore, to, empty,
+  error, partialLabel, onRetry,
 }: {
   title: string;
   total: number;
@@ -48,8 +50,11 @@ export function BreakdownColumn({
    * この絞り込み条件に該当する**実際の件数**（サーバー集計）。
    * `items.length` は「読み込み済みの件数」でしかないため、まだ全部を
    * 読み込んでいないときは badge に出す数として使えない。
+   *
+   * ⚠️ **数えられなかったときは `null`。** 読み込みに失敗したのに `0` を渡すと、
+   * 画面が**「0件」と言い切ってしまう**（＝失敗を「無かった」と嘘をつく）。
    */
-  totalCount: number;
+  totalCount: number | null;
   /** サーバー側にまだ読み込んでいない分が残っているか */
   hasMore: boolean;
   isLoadingMore?: boolean;
@@ -57,6 +62,16 @@ export function BreakdownColumn({
   /** 「台帳をひらく」の行き先 */
   to: string;
   empty: string;
+  /**
+   * この列の明細が読めなかったときの例外。
+   * ⚠️ **渡さないと「0件」と見分けが付かない。** 内訳が 504 で落ちても
+   * 「この期間の確定売上はありません。」としか出ず、**失敗が嘘の 0 件になる**。
+   */
+  error?: unknown;
+  /** 一部だけ落ちたときに、欠けているものの名前（例: 「固定原価」）。行は出しつつ断る */
+  partialLabel?: string;
+  /** この列だけ読み直す */
+  onRetry?: () => void;
 }) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
@@ -64,21 +79,71 @@ export function BreakdownColumn({
   const shown = expanded ? sorted : sorted.slice(0, COLLAPSED);
   // 折りたたみボタンを出すかどうか。読み込み済みの中に隠れている分があるか、
   // まだサーバーに残りがあるかのどちらかで判定する（どちらかだけだと出し忘れる）
-  const canToggle = sorted.length > COLLAPSED || hasMore;
+  // ⚠️ **数が分かっていないときは出さない**（「全 N 件をここで見る」の N が書けない）
+  const canToggle = totalCount !== null && !error && (sorted.length > COLLAPSED || hasMore);
+  /** 明細が1件も無く、かつ失敗している＝「0件」ではなく「読めなかった」 */
+  const failedEmpty = !!error && shown.length === 0;
 
   return (
     <section className="rounded-card flex h-full flex-col overflow-hidden border border-border bg-card">
       <div className="flex items-baseline gap-2 px-4 pb-2 pt-3 lg:px-5">
         <h3 className="text-cardtitle">{title}</h3>
-        <span className="font-number text-note text-muted-foreground">{totalCount}件</span>
+        {/* ⚠️ 数えられていないときに「0件」と言わない */}
+        <span className="font-number text-note text-muted-foreground">
+          {totalCount === null ? '—件' : `${totalCount}件`}
+        </span>
         <div className="flex-1" />
         <Money value={total} className="text-list font-bold" />
       </div>
 
-      {shown.length === 0 ? (
+      {failedEmpty ? (
+        /*
+         * ⚠️ **列ごと `ErrorPanel` に差し替えない。** 合計（見出しの金額）は
+         * `monthly-summary` が出しており**成功している**ので、差し替えると
+         * 正しい数字まで消える。文言の決めごとは `humanizeError()` を直接呼んで守る。
+         * ⚠️ `role="status"`（`alert` ではない）— 3列同時に落ちると読み上げが3連発で
+         * 割り込む。全面の `ErrorPanel` が既に `alert` を持っている。
+         */
+        <div role="status" className="border-t border-border-subtle bg-destructive-surface px-4 py-3 lg:px-5">
+          <p className="text-sub flex items-start gap-2 text-foreground">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
+            <span>
+              内訳を読み込めませんでした。
+              <span className="text-note mt-0.5 block text-muted-foreground">
+                {humanizeError(error).cause}
+                {humanizeError(error).next}
+              </span>
+            </span>
+          </p>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="rounded-control text-list min-h-tap mt-2 border border-border bg-card px-3 lg:h-9 lg:min-h-0"
+            >
+              この内訳をもう一度読み込む
+            </button>
+          )}
+        </div>
+      ) : shown.length === 0 ? (
         <p className="text-sub border-t border-border-subtle px-4 py-3 text-muted-foreground lg:px-5">{empty}</p>
       ) : (
         <div className={expanded ? 'max-h-[420px] overflow-y-auto' : undefined}>
+          {/*
+            * ⚠️ **一部だけ落ちたときに黙らない。** 仕入の列は変動原価と固定原価の
+            * 2本を合成しているので、片方だけ落ちると**金額が小さいだけの一覧**に見える。
+            */}
+          {!!error && (
+            <div role="status" className="text-note flex flex-wrap items-center gap-2 border-t border-border-subtle bg-destructive-surface px-4 py-2 text-foreground lg:px-5">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-destructive" aria-hidden="true" />
+              <span>{partialLabel ? `${partialLabel}を読み込めませんでした。` : '一部を読み込めませんでした。'}下の一覧はそれを除いた分です。</span>
+              {onRetry && (
+                <button type="button" onClick={onRetry} className="font-bold text-primary underline">
+                  もう一度読み込む
+                </button>
+              )}
+            </div>
+          )}
           {shown.map((it) => (
             <div key={it.id} className="flex items-start gap-2 border-t border-border-subtle px-4 py-2 lg:px-5">
               <span className="min-w-0 flex-1">
@@ -106,7 +171,7 @@ export function BreakdownColumn({
             onClick={() => setExpanded((v) => !v)}
             className="text-sub min-h-tap flex items-center justify-center gap-1 border-b border-border-subtle font-bold text-primary hover:bg-surface-subtle"
           >
-            {expanded ? '折りたたむ' : `この条件の全 ${totalCount}件をここで見る`}
+            {expanded ? '折りたたむ' : `この条件の全 ${totalCount ?? 0}件をここで見る`}
             {expanded ? <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />}
           </button>
         )}
@@ -118,7 +183,7 @@ export function BreakdownColumn({
             className="text-sub min-h-tap flex items-center justify-center gap-1.5 border-b border-border-subtle text-muted-foreground hover:bg-surface-subtle disabled:opacity-60"
           >
             {isLoadingMore ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : null}
-            {isLoadingMore ? '読み込み中…' : `さらに読み込む（残り ${Math.max(totalCount - items.length, 0)}件）`}
+            {isLoadingMore ? '読み込み中…' : `さらに読み込む（残り ${Math.max((totalCount ?? 0) - items.length, 0)}件）`}
           </button>
         )}
         <button
