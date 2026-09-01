@@ -19,7 +19,12 @@ export function buildPurchaseWhere(q: Query): { where: string; params: unknown[]
   if (search) {
     // **案件名も見る。** 画面が「GLS番号・案件名・仕入先で検索」と書いているのに
     // 案件名だけ抜けていた（売上と同じ抜け）
-    where += ` AND (pu.description ILIKE ? OR v.name ILIKE ? OR p.gls_number ILIKE ? OR p.name ILIKE ?)`;
+    // ⚠️ **別名は `vco`（`v` ではない）。** Phase 3-3-9 で `vendors` 表を `companies` に
+    // 寄せたとき、各クエリの JOIN は `companies vco` に直ったのに**ここだけ `v.` が
+    // 残り**、`?search=` を付けた瞬間に `missing FROM-clause entry for table "v"` で
+    // **500 になっていた**（画面の検索欄・Excel 書き出し・MCP の `list_purchases`）。
+    // 型検査も lint も SQL の中身を見ないので、**誰も気づけないまま生きていた**。
+    where += ` AND (pu.description ILIKE ? OR vco.name ILIKE ? OR p.gls_number ILIKE ? OR p.name ILIKE ?)`;
     params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
   }
   const projectId = s(q.project_id);
@@ -56,8 +61,8 @@ const PURCHASE_SORT: Record<string, string> = {
   gls_desc: 'p.gls_number DESC NULLS LAST, pu.amount DESC',
   project_asc: 'p.name ASC NULLS LAST, pu.amount DESC',
   project_desc: 'p.name DESC NULLS LAST, pu.amount DESC',
-  vendor_asc: 'v.name ASC NULLS LAST, pu.amount DESC',
-  vendor_desc: 'v.name DESC NULLS LAST, pu.amount DESC',
+  vendor_asc: 'vco.name ASC NULLS LAST, pu.amount DESC',   // ⚠️ `v` ではなく `vco`（上のコメント参照）
+  vendor_desc: 'vco.name DESC NULLS LAST, pu.amount DESC',
   desc_asc: 'pu.description ASC NULLS LAST',
   desc_desc: 'pu.description DESC NULLS LAST',
   settlement_asc: 'pu.settlement_number ASC NULLS LAST',

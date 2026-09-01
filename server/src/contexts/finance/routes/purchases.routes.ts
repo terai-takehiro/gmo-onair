@@ -33,7 +33,10 @@ router.get('/', async (req, res) => {
   const allocCol = projectId ? ', pa.allocated_amount' : '';
   const allocParams = projectId ? [projectId] : [];
 
-  const total = ((await queryOne(`SELECT COUNT(*) as c FROM purchases pu LEFT JOIN projects p ON p.id = pu.project_id ${allocJoin} ${where}`, [...allocParams, ...params])) as any).c;
+  // ⚠️ **`companies vco` を必ず入れる。** `buildPurchaseWhere` は検索で `vco.name` を
+  // 見るので、この join が無いと `?search=` で `missing FROM-clause entry` になる
+  // （行を引くクエリだけ join があり、COUNT/SUM/件数には無かったのが 500 の原因）。
+  const total = ((await queryOne(`SELECT COUNT(*) as c FROM purchases pu LEFT JOIN projects p ON p.id = pu.project_id LEFT JOIN companies vco ON vco.id = pu.vendor_id ${allocJoin} ${where}`, [...allocParams, ...params])) as any).c;
   const rows = await queryAll(
     `SELECT pu.*, p.name as project_name, p.gls_number, p.code as project_code, vco.name as vendor_name, pg.name as group_name, e.episode_code${allocCol}
      FROM purchases pu
@@ -46,8 +49,10 @@ router.get('/', async (req, res) => {
     [...allocParams, ...params, limit, offset]
   );
   // 一覧の下に出す合計。**表示中のページではなく絞り込み全体**（めくるたびに変わらない）
+  // ⚠️ 検索が `vco.name` を見るので `companies vco` は必須（上と同じ理由）
   const joins = `FROM purchases pu
-     LEFT JOIN projects p ON p.id = pu.project_id ${allocJoin}`;
+     LEFT JOIN projects p ON p.id = pu.project_id
+     LEFT JOIN companies vco ON vco.id = pu.vendor_id ${allocJoin}`;
   const sum = (await queryOne(
     `SELECT COALESCE(SUM(pu.amount), 0) as s ${joins} ${where}`, [...allocParams, ...params])) as { s: string } | null;
 
