@@ -75,3 +75,42 @@ export async function getNextEpisodeNumber(projectId: string): Promise<number> {
   );
   return row && row.max_num ? (row.max_num as number) + 1 : 1;
 }
+
+/**
+ * プロジェクトの次のエピソード番号を**アトミックに**取得する。
+ *
+ * `getNextEpisodeNumber`（MAX+1の read-then-write）は並行実行で同じ番号を
+ * 返しうる。GLS 採番（`generateGlsNumber`）と同じ `ON CONFLICT ... RETURNING`
+ * の形にして、`sequences` テーブルを project_id ごとのカウンタとして使う
+ * （`seq_name` は `episode:{projectId}`）。
+ *
+ * ⚠️ **初回だけ、既存の episode_number の最大値から種をまく。** この案件に
+ * 既に `/episodes/batch` などで作られた回があるとき、1 から始めると番号が
+ * ぶつかる。種まき自体が競合しても壊れない — ON CONFLICT で負けた側は
+ * 種の値を無視して「今ある値 + 1」を返すだけなので、常に一意な値が返る
+ * （挿入時に `idx_episodes_project_number`（migration 260）と衝突すれば、
+ * 呼び出し側でエラーになるので黙って重複することはない）。
+ */
+export async function getNextEpisodeNumberAtomic(projectId: string): Promise<number> {
+  const seqName = `episode:${projectId}`;
+
+  const bumped = await queryOne(
+    `UPDATE sequences SET counter = counter + 1 WHERE seq_name = ? RETURNING counter`,
+    [seqName],
+  ) as { counter: number } | null;
+  if (bumped) return bumped.counter;
+
+  const existing = await queryOne(
+    `SELECT COALESCE(MAX(episode_number), 0) as max_num FROM episodes WHERE project_id = ? AND deleted_at IS NULL`,
+    [projectId],
+  ) as { max_num: number };
+
+  const seeded = await queryOne(
+    `INSERT INTO sequences (seq_name, prefix, year_month, counter)
+     VALUES (?, 'episode', '000000', ?)
+     ON CONFLICT (seq_name) DO UPDATE SET counter = sequences.counter + 1
+     RETURNING counter`,
+    [seqName, (existing.max_num as number) + 1],
+  ) as { counter: number };
+  return seeded.counter;
+}

@@ -19,6 +19,7 @@
  * ・**列幅のドラッグを外しました**（`LedgerRows` に理由を書いています）
  */
 import { useMemo, useState } from 'react';
+import { useDebounced } from '@gmo-onair/shared/src/client/hooks/useDebounced';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
@@ -79,6 +80,12 @@ export default function RevenueListPage() {
   const canEdit = hasPermission('sales', 'editor');
 
   const [search, setSearch] = useState('');
+  /*
+   * ⚠️ **この画面は `useCrudPage` を使っていない**（自前の `useQuery`）ので、
+   * フックを直しただけでは効かない。仕入・販管費と同じ形をここにも入れる。
+   * 遅らせるのは**問い合わせに渡す値だけ**で、入力欄は `search`（即時）のまま。
+   */
+  const appliedSearch = useDebounced(search.trim(), 300);
   const [page, setPage] = useState(1);
   const [chip, setChip] = useState('confirmed');
   // 計上月。既定は今月。ただし案件の中で見ているとき (?project_id) は
@@ -95,15 +102,18 @@ export default function RevenueListPage() {
   const cur = CHIPS.find((c) => c.key === chip) ?? CHIPS[0];
 
   const query = useQuery<RevenueListResponse>({
-    queryKey: ['revenues-all', page, search, filterProjectId, month, cur.status, cur.state],
-    queryFn: async () => {
+    queryKey: ['revenues-all', page, appliedSearch, filterProjectId, month, cur.status, cur.state],
+    // ⚠️ `signal` を渡す（渡さないと、絞り込みを変えても前の重い通信が走り続ける）
+    queryFn: async ({ signal }) => {
       const params: Record<string, string | number> = { page, limit: 20, status: cur.status };
-      if (search) params.search = search;
+      if (appliedSearch) params.search = appliedSearch;
       if (filterProjectId) params.project_id = filterProjectId;
       if (month) params.recognition_month = month;
       if (cur.state) params.state = cur.state;
-      return (await api.get('/revenues', { params })).data;
+      return (await api.get('/revenues', { params, signal })).data;
     },
+    // 打鍵のたびに一覧が骨組みへ戻らないように、前の内容を残す
+    placeholderData: (prev) => prev,
   });
 
   const rows: RevenueRow[] = useMemo(() => query.data?.data ?? [], [query.data]);
@@ -137,7 +147,7 @@ export default function RevenueListPage() {
 
   // 0件のときだけ「どの月なら売上があるか」を引く（今の絞り込みのまま）
   const latestMonth = useLatestDataMonth('/revenues', {
-    enabled: !query.isLoading && rows.length === 0 && !search,
+    enabled: !query.isLoading && rows.length === 0 && !appliedSearch,
     params: {
       status: cur.status,
       state: cur.state || undefined,
@@ -169,7 +179,7 @@ export default function RevenueListPage() {
             queryKey={['revenues-all']}
             hasDuplicateKey={false}
             exportParams={{
-              search: search || undefined,
+              search: appliedSearch || undefined,  // 画面の結果と書き出しの中身を揃える
               project_id: filterProjectId || undefined,
               recognition_month: month || undefined,
               status: cur.status,
@@ -208,9 +218,9 @@ export default function RevenueListPage() {
       ) : query.isLoading ? (
         <Delayed><SkeletonRows rows={6} /></Delayed>
       ) : rows.length === 0 ? (
-        search ? (
+        appliedSearch ? (
           <NoSearchResults
-            keyword={search}
+            keyword={appliedSearch}
             activeFilters={[
               cur.key !== 'all' ? `絞り込み: ${cur.label}` : '',
               month ? `計上月: ${month}` : '',

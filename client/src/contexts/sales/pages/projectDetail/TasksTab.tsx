@@ -153,8 +153,9 @@ function ApplyFlowBanner({ project }: { project: ProjectDetail }) {
 }
 
 export function TasksTab({ project, mobile }: { project: ProjectDetail; mobile?: boolean }) {
-  // 連続もの (GLS-A) だけ回ごとの絞り込みを出す
-  const isSeries = project.gls_category === 'A';
+  // レギュラー案件だけ回ごとの絞り込みを出す（判定は recurrence のみ。
+  // gls_category による代用はやめた — docs/design/v4/regular-series.md §1）
+  const isSeries = project.recurrence === 'regular';
   // ビジネス案件は既定でガント (工程を追うのが目的なので)。
   // **スマホは常にリスト**（かんばん・ガントは横スクロール前提で375px向けではないため）
   const [view, setView] = useState<TaskView>(

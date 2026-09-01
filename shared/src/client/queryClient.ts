@@ -21,6 +21,7 @@
 // **描く相手がいない = 今日と同じ挙動**です (見た目は変わりません)。
 // v4.1 以降で載せ替えるときに帯を置けば、そのとき効き始めます。
 import { QueryClient, MutationCache } from '@tanstack/react-query';
+import { isCanceled } from './isCanceled';
 import { notifyApiError } from './notify';
 
 /**
@@ -83,6 +84,9 @@ export const queryClient = new QueryClient({
       // 4xx は retry しない (権限/認証エラーは即時に表示)。
       // 5xx / network 系は最大 2 回 retry (= 計 3 試行) で transient blip を吸収。
       retry: (failureCount, error: unknown) => {
+        // ⚠️ **中断は失敗ではない。** 絞り込みを変えて前の通信が止まっただけなので、
+        // ここで拾わないと**2回リトライしたうえで「通信ができませんでした」**と出る
+        if (isCanceled(error)) return false;
         const status = (error as { response?: { status?: number } } | null | undefined)?.response?.status;
         if (typeof status === 'number' && status >= 400 && status < 500) return false;
         return failureCount < 2;

@@ -235,8 +235,8 @@ export default function CounterpartyPage() {
       ) : crud.isLoading ? (
         <Delayed><SkeletonRows rows={6} /></Delayed>
       ) : items.length === 0 ? (
-        crud.search ? (
-          <NoSearchResults keyword={crud.search} onClearFilters={() => crud.setSearch('')} />
+        crud.appliedSearch ? (
+          <NoSearchResults keyword={crud.appliedSearch} onClearFilters={() => crud.setSearch('')} />
         ) : (
           <EmptyState
             title={`${def.label}がまだありません`}

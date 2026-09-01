@@ -8,6 +8,7 @@
 import type { ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { cn } from '../utils';
+import { isCanceled } from '../isCanceled';
 
 /** 画面に出してよい原因文。技術用語を混ぜない */
 export interface HumanCause {
@@ -67,6 +68,14 @@ export function humanizeError(err: unknown): HumanCause {
   }
   if (status && status >= 500) {
     return { cause: 'サーバー側で処理が止まりました。', next: '少し待ってから、もう一度お試しください。' };
+  }
+  /*
+   * ⚠️ **中断を「通信ができませんでした」に丸めない。** 中断された通信は HTTP の
+   * 状態を持たないので、下の `status === undefined` の枝がそのまま拾ってしまい、
+   * **絞り込みを変えるたびにネットワークの警告が出る画面**になる。
+   */
+  if (isCanceled(err)) {
+    return { cause: '読み込みを中断しました。', next: 'そのままお待ちください。出てこないときは、もう一度お試しください。' };
   }
   if (/network|fetch|ECONN|ETIMEDOUT|timeout/i.test(raw) || status === undefined) {
     return { cause: '通信ができませんでした。', next: 'ネットワークを確かめて、もう一度お試しください。' };

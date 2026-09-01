@@ -226,8 +226,8 @@ export default function CompanyListPage() {
       ) : crud.isLoading ? (
         <Delayed><SkeletonRows rows={8} /></Delayed>
       ) : items.length === 0 ? (
-        crud.search ? (
-          <NoSearchResults keyword={crud.search} onClearFilters={() => crud.setSearch("")} />
+        crud.appliedSearch ? (
+          <NoSearchResults keyword={crud.appliedSearch} onClearFilters={() => crud.setSearch("")} />
         ) : (
           <EmptyState
             title="取引先がありません"

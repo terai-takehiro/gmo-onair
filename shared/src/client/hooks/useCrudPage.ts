@@ -34,6 +34,7 @@
  *   <Button onClick={() => crud.remove.mutate(item.id)} />
  */
 import { useState } from 'react';
+import { useDebounced } from './useDebounced';
 import { useQuery, useMutation, useQueryClient, type UseMutationResult } from '@tanstack/react-query';
 import type { AxiosInstance } from 'axios';
 
@@ -53,6 +54,8 @@ export interface UseCrudPageOptions<T> {
   pageSize?: number;
   /** 検索クエリパラメータ名 (default: 'search') */
   searchParam?: string;
+  /** 検索を問い合わせに反映するまでの待ち時間（ミリ秒・既定 300） */
+  searchDebounceMs?: number;
   /** タブフィルタ用の追加パラメータ。値が変わると再フェッチ + page=1 にリセットされる */
   extraParams?: Record<string, string | number | undefined>;
   /** create/update 成功時のコールバック (closeDialog より前に呼ばれる) */
@@ -66,6 +69,16 @@ export interface UseCrudPageOptions<T> {
 export interface CrudPageResult<T extends { id: string }> {
   // ── 検索 / ページ状態 ───────────────────────────
   search: string;
+  /**
+   * 実際に問い合わせに使っている検索語（遅らせたもの）。
+   * ⚠️ **「0件でした」の判定はこちらを使うこと**（`search` だと、まだ
+   * 問い合わせていない言葉で「該当なし」が一瞬出る）。入力欄は `search` のまま。
+   */
+  appliedSearch: string;
+  /** 打鍵が落ち着くのを待っている最中か */
+  isSearchPending: boolean;
+  /** 裏で読み直している最中か（前の一覧は出したまま） */
+  isFetching: boolean;
   setSearch: (v: string) => void;
   page: number;
   setPage: (n: number) => void;
@@ -121,25 +134,45 @@ export function createUseCrudPage(api: AxiosInstance) {
     const pageSize = options.pageSize ?? 20;
     const searchParam = options.searchParam ?? 'search';
 
-    // 検索を変えたらページをリセット
+    // 検索を変えたらページをリセット。**入力欄が読む `search` は即時のまま**
+    // （ここを遅らせると打鍵が1テンポ遅れて見える）
     const setSearch = (v: string) => {
       setSearchState(v);
       setPage(1);
     };
 
+    /*
+     * ⚠️ **問い合わせの鍵に渡す値だけを遅らせる。**
+     * 検索欄は1文字ごとに `setSearch` を呼び、サーバー側の一覧は1リクエストで
+     * 4〜5本の SQL を走らせるので、**遅らせないと10文字打つだけで 40〜50 本**になる。
+     */
+    const appliedSearch = useDebounced(search.trim(), options.searchDebounceMs ?? 300);
+
     const list = useQuery<{ data: T[]; pagination?: PaginationInfo }>({
-      queryKey: [...options.queryKey, 'list', { page, search, pageSize, extra: options.extraParams ?? {} }],
-      queryFn: async () => {
+      queryKey: [...options.queryKey, 'list', { page, search: appliedSearch, pageSize, extra: options.extraParams ?? {} }],
+      /*
+       * ⚠️ **`signal` を必ず axios に渡す。** 渡さないと、鍵が変わっても前の通信が
+       * 走り続け、**押した回数ぶんサーバーの接続を掴む**。
+       * ⚠️ **`AbortController` を自分で作らないこと** — react-query が渡してくる
+       * これだけを使う（自前で作ると中断が「失敗」として扱われる。`isCanceled` 参照）。
+       */
+      queryFn: async ({ signal }) => {
         const params: Record<string, string | number> = { page, limit: pageSize };
-        if (search) params[searchParam] = search;
+        if (appliedSearch) params[searchParam] = appliedSearch;
         if (options.extraParams) {
           for (const [k, v] of Object.entries(options.extraParams)) {
             if (v != null && v !== '') params[k] = v;
           }
         }
-        const res = await api.get(options.endpoint, { params });
+        const res = await api.get(options.endpoint, { params, signal });
         return res.data as { data: T[]; pagination?: PaginationInfo };
       },
+      /*
+       * ⚠️ **前の一覧を消さない。** 鍵が変わると別の入れ物になるので、これが無いと
+       * `isLoading` が立って**打鍵のたびに一覧が骨組みへ戻ってちらつく**
+       * （`states/Skeleton.tsx` の決めごと「前の内容を消さない」）。
+       */
+      placeholderData: (prev) => prev,
     });
 
     // **`onError` はここで作るのではなく、渡されたときだけ付ける。**
@@ -198,6 +231,16 @@ export function createUseCrudPage(api: AxiosInstance) {
 
     return {
       search,
+      /**
+       * 実際に問い合わせに使っている検索語（遅らせたもの）。
+       * ⚠️ **「0件でした」の判定はこちらで行うこと。** `search`（即時）で判定すると、
+       * **まだ問い合わせていない言葉で「該当なし」**が一瞬出る。
+       */
+      appliedSearch,
+      /** 打鍵が落ち着くのを待っている最中か（ページ送りを止めるのに使う） */
+      isSearchPending: search.trim() !== appliedSearch,
+      /** 裏で読み直している最中か（前の一覧は出したまま） */
+      isFetching: list.isFetching,
       setSearch,
       page,
       setPage,

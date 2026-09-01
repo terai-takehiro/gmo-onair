@@ -5,7 +5,7 @@ import { requireAuth, requirePermission } from '../../../shared/middleware/auth'
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateSgaBillingKey } from '../../../shared/services/billing-key.service';
-import { buildSgaWhere, buildSgaOrder } from '../list-query';
+import { buildSgaWhere, buildSgaWhereParts, buildSgaOrder } from '../list-query';
 import { assertVendorCompanyId } from '../../../shared/services/company-directory.service';
 
 const router = Router();
@@ -16,46 +16,69 @@ router.use(requireAuth, requirePermission('sales'));
 // GET /sga - List with pagination, search, filters
 router.get('/', async (req, res) => {
   const { page, limit, offset } = extractPagination(req);
-  const { where, params } = buildSgaWhere(req.query);
   const orderBy = buildSgaOrder(req.query);
 
-  const total = ((await queryOne(`SELECT COUNT(*) as c FROM sga_expenses s ${where}`, params)) as any).c;
-  const rows = await queryAll(
-    `SELECT s.*, at.name AS account_title_name
-       FROM sga_expenses s
-       LEFT JOIN sga_account_titles at ON at.id = s.account_title_id
-     ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
-    [...params, limit, offset]
-  );
-  // 一覧の下に出す合計。**表示中のページではなく絞り込み全体**
-  const sum = (await queryOne(
-    `SELECT COALESCE(SUM(s.amount), 0) as s FROM sga_expenses s ${where}`, params)) as { s: string } | null;
-
-  // 絞り込みチップの件数。**種別以外の絞り込みだけ**を掛けて数える
-  const { expense_type: _t, source: _s, account_title_id: _a, ...restQuery } = req.query as Record<string, unknown>;
-  const base = buildSgaWhere(restQuery as typeof req.query);
-  const counts = (await queryOne(
-    `SELECT COUNT(*) FILTER (WHERE s.expense_type = 'fixed') as fixed,
-            COUNT(*) FILTER (WHERE s.expense_type = 'spot') as spot,
-            COUNT(*) FILTER (WHERE s.source = 'staff') as staff,
-            COUNT(*) FILTER (WHERE s.source = 'accounting') as accounting,
-            COUNT(*) as all
-     FROM sga_expenses s ${base.where}`, base.params)) as Record<string, string>;
-
-  /**
-   * 勘定科目ごとの件数 (migration 166)。**科目以外の絞り込みだけ**を掛けて数える。
-   * `none` は「科目が入っていない行」— 166 より前の行はここに入る
+  /*
+   * ⚠️ **同じ表を5回走査していたのを1本にまとめた。**
+   * 件数・合計・チップの件数・科目ごとの件数は、**同じ FROM・同じ WHERE**を
+   * 何度も掛け直していただけだった（`buildSgaWhere` を2回呼んで、そのたびに
+   * `sga_expenses` を頭から走査していた）。CTE を1本置いて `FILTER (WHERE …)` で
+   * 数え分ければ、走査は1回で済む。
+   *
+   * ⚠️ **`hit` はチップの3つ（種別・出どころ・科目）だけを表す。**
+   * チップの件数は「種別以外の絞り込みだけを掛けて数える」という決めごとなので、
+   * CTE の WHERE には**チップ以外**を入れ、チップは列として持たせて数え分ける。
+   * ここを混ぜると、**チップの数字と押した先の行数がずれる**（どちらもそれらしい
+   * 数字なので画面を見ても気づけない）。
+   *
+   * ⚠️ **`?` の並びが命。** CTE の SELECT 句（チップ）が WHERE より前にあるので、
+   * パラメータも「チップ → それ以外」の順で渡す。
    */
-  const titleCounts = await queryAll(
-    `SELECT COALESCE(s.account_title_id, 'none') AS key, COUNT(*)::int AS n
-       FROM sga_expenses s ${base.where}
-      GROUP BY COALESCE(s.account_title_id, 'none')`, base.params) as { key: string; n: number }[];
+  const { base, chip } = buildSgaWhereParts(req.query);
+  const aggSql = `
+    WITH base AS (
+      SELECT s.amount, s.expense_type, s.source, s.account_title_id, (${chip.sql}) AS hit
+        FROM sga_expenses s
+      ${base.where}
+    )
+    SELECT COUNT(*) FILTER (WHERE hit)                              AS total,
+           COALESCE(SUM(s.amount) FILTER (WHERE hit), 0)            AS total_amount,
+           COUNT(*) FILTER (WHERE s.expense_type = 'fixed')         AS fixed,
+           COUNT(*) FILTER (WHERE s.expense_type = 'spot')          AS spot,
+           COUNT(*) FILTER (WHERE s.source = 'staff')               AS staff,
+           COUNT(*) FILTER (WHERE s.source = 'accounting')          AS accounting,
+           COUNT(*)                                                 AS all,
+           -- 科目ごとの件数。0 件のとき jsonb_object_agg は NULL を返すので
+           -- COALESCE が要る（これまでの空オブジェクトと形を揃える）。
+           -- COUNT(*) は BIGINT なので ::int にしないと jsonb で文字列になる
+           COALESCE((SELECT jsonb_object_agg(k, n) FROM (
+                       SELECT COALESCE(account_title_id, 'none') AS k, COUNT(*)::int AS n
+                         FROM base GROUP BY 1) t), '{}'::jsonb)     AS account_title_counts
+      FROM base s`;
+
+  // 集計と行は互いに依存しないので同時に投げる。
+  // ⚠️ **3本以上にしないこと** — 接続プールは 20 本で、財務ダッシュボードは
+  // 1回の絞り込みで6つの API を同時に叩く（`connection.ts` のコメント参照）
+  const { where, params } = buildSgaWhere(req.query);
+  const [agg, rows] = await Promise.all([
+    queryOne(aggSql, [...chip.params, ...base.params]) as Promise<Record<string, unknown> | undefined>,
+    queryAll(
+      `SELECT s.*, at.name AS account_title_name
+         FROM sga_expenses s
+         LEFT JOIN sga_account_titles at ON at.id = s.account_title_id
+       ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
+      [...params, limit, offset],
+    ),
+  ]);
+
+  const total = Number(agg?.total ?? 0);
+  const stateKeys = ['fixed', 'spot', 'staff', 'accounting', 'all'] as const;
 
   res.json({
     ...paginatedResponse(rows, total, page, limit),
-    total_amount: Number(sum?.s ?? 0),
-    state_counts: Object.fromEntries(Object.entries(counts ?? {}).map(([k, v]) => [k, Number(v)])),
-    account_title_counts: Object.fromEntries(titleCounts.map((t) => [t.key, t.n])),
+    total_amount: Number(agg?.total_amount ?? 0),
+    state_counts: Object.fromEntries(stateKeys.map((k) => [k, Number(agg?.[k] ?? 0)])),
+    account_title_counts: (agg?.account_title_counts ?? {}) as Record<string, number>,
   });
 });
 

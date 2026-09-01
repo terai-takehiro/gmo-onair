@@ -154,22 +154,61 @@ export function buildRevenueOrder(q: Query): string {
 // ============================================================
 // 販管費 (sga_expenses)  alias: s  ※案件コードを持たないため既定は金額降順
 // ============================================================
-export function buildSgaWhere(q: Query): { where: string; params: unknown[] } {
-  let where = 'WHERE s.deleted_at IS NULL';
-  const params: unknown[] = [];
+/**
+ * 販管費の条件を「チップの3つ」と「それ以外」に分けて作る。
+ *
+ * ⚠️ **チップの件数は「種別以外の絞り込みだけ」を掛けて数える**決めごとがあるため、
+ * 一覧は2種類の WHERE を必要とする（全部掛けたものと、3つを外したもの）。
+ * これまでは `buildSgaWhere` を2回呼んで**同じ表を4〜5回走査**していた。
+ * 分けて作れるようにすると、CTE 1本にまとめて `FILTER (WHERE …)` で数え分けられる。
+ *
+ * ⚠️ **`buildSgaWhere` の返り値は1文字も変えない**（Excel・MCP が使っている）。
+ * ここで作ったものを、これまでと同じ順で合成し直している。
+ */
+export function buildSgaWhereParts(q: Query): {
+  base: { where: string; params: unknown[] };
+  chip: { sql: string; params: unknown[] };
+} {
+  // ── チップの3つ（source / expense_type / account_title_id）──
+  const chipSql: string[] = [];
+  const chipParams: unknown[] = [];
   const source = s(q.source);
-  if (source === 'staff' || source === 'accounting') { where += ` AND s.source = ?`; params.push(source); }
+  if (source === 'staff' || source === 'accounting') { chipSql.push(`s.source = ?`); chipParams.push(source); }
   const et = s(q.expense_type);
-  if (et === 'fixed' || et === 'spot') { where += ` AND s.expense_type = ?`; params.push(et); }
-  else if (et) { where += ` AND FALSE`; }
+  if (et === 'fixed' || et === 'spot') { chipSql.push(`s.expense_type = ?`); chipParams.push(et); }
+  else if (et) { chipSql.push(`FALSE`); } // 知らない値は素通しさせない
   /**
    * 勘定科目 (migration 166)。**`none` は「未設定」を出す**ための特別な値。
    * 166 より前の行は科目を持たないので、それだけを見たいことがある。
    * 知らない値は素通しせず空で返す（絞ったのに全件出ると気づけない）。
    */
   const at = s(q.account_title_id);
-  if (at === 'none') { where += ` AND s.account_title_id IS NULL`; }
-  else if (at) { where += ` AND s.account_title_id = ?`; params.push(at); }
+  if (at === 'none') { chipSql.push(`s.account_title_id IS NULL`); }
+  else if (at) { chipSql.push(`s.account_title_id = ?`); chipParams.push(at); }
+
+  // ── それ以外（チップの件数を数えるときにも掛ける条件）──
+  const { where, params } = buildSgaBaseWhere(q);
+  return {
+    base: { where, params },
+    chip: { sql: chipSql.length ? chipSql.join(' AND ') : 'TRUE', params: chipParams },
+  };
+}
+
+export function buildSgaWhere(q: Query): { where: string; params: unknown[] } {
+  const { base, chip } = buildSgaWhereParts(q);
+  // ⚠️ **チップのぶんを先に置く。** 分ける前と `?` の並びを1つも変えないため
+  // （`convertPlaceholders` は出現順で $1..$n に置き換えるので、順番が命）
+  const chipWhere = chip.sql === 'TRUE' ? '' : ` AND ${chip.sql}`;
+  const head = 'WHERE s.deleted_at IS NULL';
+  return {
+    where: head + chipWhere + base.where.slice(head.length),
+    params: [...chip.params, ...base.params],
+  };
+}
+
+function buildSgaBaseWhere(q: Query): { where: string; params: unknown[] } {
+  let where = 'WHERE s.deleted_at IS NULL';
+  const params: unknown[] = [];
   const search = s(q.search);
   if (search) { where += ` AND (s.vendor_name ILIKE ? OR s.description ILIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
   const dateFrom = s(q.date_from);
