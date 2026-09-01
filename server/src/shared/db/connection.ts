@@ -5,6 +5,33 @@ import { Pool, PoolClient, types } from 'pg';
 types.setTypeParser(1700, parseFloat);  // NUMERIC
 types.setTypeParser(20,   (v) => parseInt(v, 10)); // BIGINT (INT8)
 
+/*
+ * `DATE` (OID 1082) は **`YYYY-MM-DD` の文字列のまま**返す。
+ *
+ * ⚠️ **既定では JS の `Date` になり、コンテナの時間帯次第で1日ずれる。**
+ * `pg` の既定パーサーは `2026-08-31` を**ローカル時刻の 0 時**として `Date` にするので、
+ * JSON にすると UTC 環境では `2026-08-31T00:00:00.000Z`、`TZ=Asia/Tokyo` では
+ * **`2026-08-30T15:00:00.000Z`（前日）** になる。
+ * いま `TZ` はどこにも設定しておらず（`Dockerfile` / `docker-compose.yml` / `deploy/`）
+ * たまたま UTC で動いているから合っているだけで、**時間帯を設定した日に
+ * DB 全体の DATE 列（実測 25 列）が一斉にずれる**。
+ *
+ * ⚠️ **`purchases` だけ日付列の型が揃っていない**のも、この罠を踏みやすくしていた
+ * （`recognition_date` / `payment_due_date` / `inspection_date` は TEXT で
+ * `2026-08-31` がそのまま返るのに、`service_completed_date` だけ DATE）。
+ *
+ * 文字列にすると **TEXT の日付列と同じ形**になり、時間帯に一切依存しなくなる。
+ * 既存の読み口は `::text` / `to_char()` でキャスト済みか、`slice(0, 10)` や
+ * `/^\d{4}-\d{2}-\d{2}/` の**先頭10文字を取る形**なので、どちらの形でも同じ結果になる
+ * （全 25 列の消費側を洗った結果、`Date` のメソッドを直接呼んでいる箇所・
+ * `.split('T')` している箇所・`Date` と文字列を混ぜて比べている箇所はいずれも 0 件）。
+ *
+ * ⚠️ **既にあるキャスト（`::text` / `to_char`）は消さないこと。** 冗長になるだけで
+ * 無害だが、`shared/tests/todaySales.test.ts` などが**その存在を検査している**ので
+ * 消すとテストが落ちる。
+ */
+types.setTypeParser(1082, (v) => v); // DATE — 時間帯に依存させない
+
 let pool: Pool | null = null;
 
 const DEFAULT_DATABASE_URL = 'postgresql://postgres:postgres@localhost:5432/onair_db';

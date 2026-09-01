@@ -2358,6 +2358,16 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 | #40 | P2 | `client-daily` | iPhone の下端に操作が隠れる（`safe-area` 不足） | ⭕️ #143（**指摘の形では再現せず** — 下タブもシートも逃げを持っている。**下タブが 0 本のときだけ主アクションが重なる**ので、そこを塞いだ） |
 | #39 | P2 | `check-shared-wiring` | 二重引用符の import を検査が見落とす | ⭕️ #129（落ちてはいたが**理由が嘘**だった） |
 
+- **#512**（`fix(finance): 財務ダッシュボードの3件（期間解除のエラー・504・役務提供完了日）を直した`）—
+  作成 2026-09-01 03:30:27 / CI（`checks`/`build`）とも成功 03:32:46 / マージ 03:43 頃。
+  **`get_review_comments` 0件・`get_reviews` 0件**（API で直接確認。`npm run reviews:debt` は
+  この環境のトークンでは 401 になるため使えなかった）。**指摘なしではなく、レビューが届いていない**。
+  意図して残した判断は下の表に自分で書き出してある。
+  ⚠️ **この回のマージで `main` が赤くなった** — #511（テロップCG）が先に 250〜258 を使っており、
+  こちらの `250_finance_recognition_date_index.sql` と番号がぶつかった（#516 で 259 へ改名）。
+  **番号を「枝を切った時刻」で取っている限り、並行して開発すると必ず起きる**
+  （`docs/changelog.d/` が版の番号について解いたのと同じ問題が、マイグレーションに残っている）。
+
 ### 財務ダッシュボードの3件を直した回（`claude/financial-dashboard-errors-x9721s`）で意図して残した判断
 
 ⚠️ **どれも「気づかなかった」ではなく「今回は直さないと決めた」もの**です。
@@ -2375,6 +2385,8 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 | 6 | `client/src/contexts/finance/pages/BudgetDashboardPage.tsx` の `ErrorPanel` | **内訳3列（売上・仕入・販管費）が失敗しても画面に何も出ない**（`summaryQuery` だけが `ErrorPanel` に渡っている）。内訳が 504 でも「内訳が空」に見えるだけ | 「合計は出ているのに内訳が空」という報告が出たとき。⚠️ **今回は足さなかった** — 失敗しない側を直すのが先で、先にパネルを増やすと「エラーが増えた」ように見える |
 | 7 | `server/src/shared/db/connection.ts` の型パーサー | **`DATE`(oid 1082) のパーサーを設定していない**ので、`node-pg` が JS の `Date` にして返す（`purchases.service_completed_date` ほか **DB 全体で 25 列**）。**コンテナが UTC で動いているから今は正しく見えているだけ**で、`TZ=Asia/Tokyo` を入れた日に**全部 1 日ずれる** | `TZ` を設定する必要が出たとき、または DATE 列を新しく足すとき。`types.setTypeParser(1082, v => v)` で 25 列すべて文字列になるが、**それらを `Date` として扱っている箇所の洗い出しが要る**ので今回は入れていない（この PR では `toServiceDateInput()` が 1 列ぶんを吸収している） |
 | 8 | `excel.routes.ts:230,245,332` / `purchases.routes.ts` の CSV 列 / `mcp/tools/finance.tools.ts:146` | **役務提供完了日が Excel・CSV・MCP のどこにも出ない**（列リストに入っていない）。**Excel から仕入を取り込むと必ず NULL になる** | 「Excel で役務提供完了日も扱いたい」と決まったとき。⚠️ 取り込み側だけ足すと**空欄の取り込みで既存の日付を消す**ので、書き出しと取り込みを同時に直すこと |
+| 10 | （追記）`list-query.ts` の別名 | **⭕️ #514 で修正**。上の9件を調べている最中に見つけた**本番の不具合** — `v.name` が未定義の別名で、仕入の検索・仕入先での並べ替え・Excel 書き出し・MCP が**検索語を入れると必ず 500** だった | — |
+| 11 | （追記）マイグレーションの番号 | **⭕️ #516 で修正**。#511 と #512 が同じ 250 番を使い `main` の CI が赤くなった。番号を「枝を切った時刻」で取る限り再発する | 番号をマージ順で決める形（`changelog.d` と同じ考え方）にしたとき。**適用済みの記録がファイル名に紐づく**ので移行の設計が要る |
 | 9 | `client/src/contexts/production/components/episodes/BusinessProjectView.tsx` | **2,032 行**（上限 400 行）。今回は1行（import）だけ増えたので `check-file-size.mjs --update` で基準に入れた | GPM の見積タブを v4 で作り直すとき（`client/CLAUDE.md` に既に「v4 で作り直すときに分割する」と書いてある） |
 
 ## この文書の使い方
