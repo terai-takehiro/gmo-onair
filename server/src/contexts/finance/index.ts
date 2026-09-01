@@ -22,6 +22,8 @@ export function createFinanceRoutes(): Router {
       from: req.query.from as string | undefined,
       to: req.query.to as string | undefined,
       projectId: req.query.project_id as string | undefined,
+      // 期間を絞らない集計。画面の「全期間」ボタンだけが `all=1` を付ける
+      allPeriods: req.query.all === '1' || req.query.all === 'true',
     });
     res.json({ success: true, data });
   });

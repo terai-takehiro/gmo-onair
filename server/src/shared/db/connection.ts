@@ -26,7 +26,43 @@ export async function initDb(): Promise<Pool> {
 
   const connectionString = process.env.DATABASE_URL || DEFAULT_DATABASE_URL;
 
-  pool = new Pool({ connectionString, client_encoding: 'UTF8' });
+  /*
+   * ⚠️ **既定のままだと財務画面で詰まる。** `pg` の `max` は既定 10 で、
+   * `connectionTimeoutMillis` は既定 0（＝無限に待つ）。財務ダッシュボードは
+   * 1回の絞り込みで 6 本の API を同時に叩き、`/monthly-summary` は単独で
+   * 5 本の SQL を `Promise.all` で走らせる。**2人が同時に開くだけで 10 本を超え**、
+   * 超えたぶんは無限に待って nginx の 60 秒に達し 504（画面には
+   * 「サーバー側で処理が止まりました」）になっていた。
+   *
+   * - `max`: 20。Postgres 既定の `max_connections=100` に対し、本番・検証・
+   *   スクレイパー2本が同じインスタンスを共有する（`docker-compose.yml`）ので、
+   *   1プロセスで取りすぎない範囲に留める
+   * - `connectionTimeoutMillis`: 10 秒で諦めて 500 を返す。**無限に待つより、
+   *   待たせている本人に早く返して接続を解放するほうが全体は速い**
+   * - `statement_timeout`: 60 秒。**504 で応答が切られてもサーバー側のクエリは
+   *   走り続ける**（過去に BOX の一括片づけで踏んだのと同じ罠・
+   *   `docs/reviews/codex-findings-v4.md`）。走り続けたクエリが接続を掴んだままだと
+   *   詰まりが自力で解けないので、DB 側からも切る。nginx が `/api/` を 60 秒で
+   *   切るので、**それより長く走っても誰も受け取れない**＝ここが上限で困らない。
+   *   ⚠️ **マイグレーションだけは除外している**（`migrate.ts` が接続ごとに 0 に戻す）
+   *   — 大きな表への `CREATE INDEX` は 60 秒を超えうるし、途中で切れると
+   *   トランザクションごと巻き戻って**デプロイが進まなくなる**
+   */
+  pool = new Pool({
+    connectionString,
+    client_encoding: 'UTF8',
+    max: Number(process.env.DB_POOL_MAX ?? 20),
+    connectionTimeoutMillis: Number(process.env.DB_CONNECTION_TIMEOUT_MS ?? 10_000),
+    statement_timeout: Number(process.env.DB_STATEMENT_TIMEOUT_MS ?? 60_000),
+  });
+
+  /*
+   * **プールのエラーで落とさない。** アイドル接続が DB 側から切られたときに
+   * `Pool` が `error` を投げ、誰も受けていないと Node ごと落ちる。
+   */
+  pool.on('error', (err) => {
+    console.error('[db] idle client error:', err.message);
+  });
 
   // Force UTF-8 on every new physical connection so Japanese text is never
   // mojibaked even if the cluster was initialised with a non-UTF8 default.

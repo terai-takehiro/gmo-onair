@@ -74,6 +74,69 @@ export const TECHOPS_PC_ONLY: PcOnlyEntry[] = [
     instead: { label: 'アプリのトップを開く', to: '/techops/top' },
   },
   {
+    // テロップCG のハブ（ページと送出リスト）。ページの一覧・作成・編集を
+    // 本番前にまとめて組む画面で、列の多い表とダイアログを並べて使うため PC 前提。
+    // 発注（テロ原）だけは別画面（`/techops/graphics/:ownerKey/request`）にして
+    // スマホ対応にした — graphics.md §3「発注はディレクターがスマホから」の分業設計
+    // （下の `TECHOPS_MOBILE_OK` を参照）
+    path: '/techops/graphics/:ownerKey',
+    what: 'テロップCG（ページと送出リスト）',
+    why: 'ページの一覧と送出リストをまとめて組む画面で、狭い幅では組めません。',
+    instead: { label: 'アプリのトップを開く', to: '/techops/top' },
+  },
+  {
+    // テロップCG の送出コンソール。本番3画面（進行・ランダウン・プロンプター）と
+    // 同じ理由 — 配信卓に固定して使う運用画面
+    path: '/techops/graphics/:ownerKey/live',
+    what: 'テロップCG（送出コンソール）',
+    why: '配信卓・OBS と並べて固定して使う本番の運用画面です。',
+    instead: { label: 'アプリのトップを開く', to: '/techops/top' },
+  },
+  {
+    // テロップCG の部品ライブラリ。ハブと同じ理由（カード一覧＋チップの情報密度が
+    // 高く、狭い幅では組めない）で PC 専用にした
+    path: '/techops/graphics/:ownerKey/parts',
+    what: 'テロップCG（部品ライブラリ）',
+    why: '部品カードの一覧をまとめて見比べる画面で、狭い幅では組めません。',
+    instead: { label: 'アプリのトップを開く', to: '/techops/top' },
+  },
+  {
+    // テロップCG のテンプレート管理（段6-2）。部品を選び、欄ごとの初期値入力＋
+    // 公開フィールドのチェックボックスを並べる画面で、ページ作成フォーム
+    // （`/techops/graphics/:ownerKey`）と同じ情報密度のため PC 専用にした
+    path: '/techops/graphics/:ownerKey/templates',
+    what: 'テロップCG（テンプレート管理）',
+    why: '部品の初期値と公開フィールドをまとめて組む画面で、狭い幅では組めません。',
+    instead: { label: 'アプリのトップを開く', to: '/techops/top' },
+  },
+  {
+    // テロップCG の演出SE管理（段6-5）。テンプレート管理と同じ理由——ステップ選択・
+    // 開始順位・アップロード欄・一覧（波形プレイヤー＋音量スライダー＋有効/無効）を
+    // 横に並べる情報密度のため PC 専用にした
+    path: '/techops/graphics/:ownerKey/sounds',
+    what: 'テロップCG（演出SE管理）',
+    why: 'ステップごとの音源一覧と音量調整をまとめて組む画面で、狭い幅では組めません。',
+    instead: { label: 'アプリのトップを開く', to: '/techops/top' },
+  },
+  {
+    // 外部インタラクティブ連携設定（段6-7）。`LiveOrgSettingsPage.tsx`（`live-org-settings`）
+    // と同じ理由 — 別VPSの接続先URL・APIキーを外部の管理画面と往復しながら入力する画面
+    path: '/techops/graphics/:ownerKey/interactive-link',
+    what: 'テロップCG（外部インタラクティブ連携設定）',
+    why: '接続先URL・APIキーなど外部サービスの資格情報を入力する画面で、PCでの操作を前提にしています。',
+    instead: { label: 'アプリのトップを開く', to: '/techops/top' },
+  },
+  {
+    // 旧リアルタイムCG（awards）過去実績の変換移行ツール（段6-9）。イベント一覧・
+    // プレビュー（カテゴリごとの表・警告一覧）を見比べながら「移行する」を押す
+    // system_admin限定の管理画面で、一覧確認しながらの操作のため PC 前提にした
+    // （`/techops/graphics/:ownerKey` ハブと同じ理由）。
+    path: '/techops/graphics/awards-migration',
+    what: 'テロップCG（旧リアルタイムCGからの移行ツール）',
+    why: 'イベントごとのプレビュー表と警告一覧を見比べながら移行する管理画面で、狭い幅では組めません。',
+    instead: { label: 'アプリのトップを開く', to: '/techops/top' },
+  },
+  {
     // 表示レイアウトエディタ（13-live-display-layout-editor.md §6-3）。要素カードの
     // ドラッグ・リサイズ操作が前提のため、375px幅での対応は本設計のスコープ外にした
     // （§9-3で利用者に確認済み）。テンプレートライブラリ（閲覧・適用）はスマホ対応の対象
@@ -101,6 +164,13 @@ export const TECHOPS_MOBILE_OK: string[] = [
   '/techops/home',      // 進行台本の案件選択
   '/techops/sheets',    // 進行台本の一覧
   '/techops/audio/:id', // 公開音声サポート — 現場のスマホで見る前提
+  // テロップCGの出力画面。OBS のブラウザソース（表示専用・認証なし）で、シェル無しの
+  // 独立ルートなので `<PcOnlyGate>` は通らない — client-live の表示画面（/display/:timerId）
+  // と同じく「宣言として」こちら側に置く（1920×1080 を縮尺表示するだけでスマホでも壊れない）
+  '/techops/graphics/output/:projectId',
+  // テロップCGの発注（テロ原）フォーム。ディレクターがスマホから文言・用途・
+  // 出すタイミングだけ書いて投げ込む1カラムフォーム＋自分の発注一覧（段5・graphics.md §3）
+  '/techops/graphics/:ownerKey/request',
   '/techops/schedules',      // スケジュール表の一覧
   '/techops/schedules/:id',  // スケジュール表の詳細（375px は縦積みカードに畳む）
   // 収録設定・配信設定の簡易入口（旧 `/techops/device-settings`）は2026-08-22 に廃止（`App.tsx` にルート無し）

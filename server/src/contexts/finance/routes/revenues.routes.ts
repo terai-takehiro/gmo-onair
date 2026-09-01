@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { queryAll, queryOne, execute, withTransaction } from '../../../shared/db/connection';
+import { queryAll, queryOne, execute, withTransaction, type Row } from '../../../shared/db/connection';
 import {
   requireAuth, requirePermission, meetsPermissionLevel,
 } from '../../../shared/middleware/auth';
@@ -182,10 +182,31 @@ router.get('/', async (req, res) => {
     [...allocParams, ...params, limit, offset]
   );
 
-  // プロジェクト絞込み時は明細行も付与
+  /*
+   * プロジェクト絞込み時は明細行も付与。
+   *
+   * ⚠️ **1行ずつ引かない（N+1）。** ここは以前 `for (const row of rows)` の中で
+   * 1件ずつ `SELECT` していた。この画面は `limit=100` で叩かれる（財務ダッシュボードの
+   * 内訳）ので、**案件で絞った瞬間に往復が 100 本増えて**いた。1本 5ms でも 0.5 秒、
+   * DB が混んで 1本 500ms になれば 50 秒で、nginx の 60 秒に届いて 504 になる
+   * （ユーザー報告「絞り込みを行っていると『サーバー側で処理が止まりました』が頻繁に出る」）。
+   * まとめて1回引いて、メモリ上で行に配る。
+   */
   if (projectId) {
-    for (const row of rows as any[]) {
-      row.items = await queryAll('SELECT * FROM revenue_items WHERE revenue_id = ? ORDER BY sort_order', [row.id]);
+    const ids = (rows as any[]).map((r) => r.id);
+    if (ids.length > 0) {
+      const items = await queryAll(
+        'SELECT * FROM revenue_items WHERE revenue_id = ANY(?) ORDER BY revenue_id, sort_order',
+        [ids],
+      );
+      const byRevenue = new Map<string, Row[]>();
+      for (const item of items) {
+        const key = String((item as any).revenue_id);
+        const bucket = byRevenue.get(key);
+        if (bucket) bucket.push(item); else byRevenue.set(key, [item]);
+      }
+      // 明細が1件も無い売上にも空配列を入れる（以前と同じ形＝画面が `.map` できる）
+      for (const row of rows as any[]) row.items = byRevenue.get(String(row.id)) ?? [];
     }
   }
 

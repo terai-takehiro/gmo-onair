@@ -49,7 +49,7 @@
 import type { JourneyStage } from './journey';
 
 /** ミニアプリのキー。URL・API・集計キーに出る安定キー。**あとから変えない** */
-export type MiniAppKey = 'sheet' | 'schedule' | 'recording' | 'streaming' | 'rental' | 'liveops';
+export type MiniAppKey = 'sheet' | 'schedule' | 'recording' | 'streaming' | 'rental' | 'liveops' | 'graphics';
 
 export type MiniAppKind = 'document' | 'panel';
 
@@ -168,6 +168,16 @@ export const MINI_APPS: MiniAppDef[] = [
     // （program がまだ無い）ときは manager が要る」という他アプリにも共通の
     // 「作成には上の権限が要る」形の差だけ（気になる別の不具合ではあるが直すのは
     // このステージのスコープ外 — GROUND_RULES §6）。
+    enabled: true,
+  },
+  {
+    kind: 'panel',
+    key: 'graphics',
+    // 旧「リアルタイムCG」（client-awards）の後継。番組を問わず使える汎用テロップ・CG を
+    // techops のミニアプリとして作り直す（docs/design/v4/graphics.md §1）。
+    // 単独アプリとしては再登場させない — 導線はハブ（JourneyPage）のタイルだけ。
+    label: 'テロップCG',
+    path: '/techops/graphics/:ownerKey',
     enabled: true,
   },
 ];
