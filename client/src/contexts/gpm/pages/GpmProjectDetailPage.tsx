@@ -270,9 +270,12 @@ export default function GpmProjectDetailPage() {
       {tab === 'estimates' && <EstimatesTab projectId={id} canEdit={canEdit} />}
       {tab === 'files' && <FilesTab project={p} canEdit={canEdit} />}
 
-      {editing && <EditProjectDialog project={p} onClose={() => setEditing(false)} />}
+      {editing && <EditProjectDialog key={p.id} project={p} onClose={() => setEditing(false)} />}
       {(askAdding || askEdit) && (
         <OpenItemDialog
+          // 案件が変わったのに開きっぱなしで前の入力値が残らないよう、
+          // 対象（新規/直す対象）が変わったら強制的に作り直す
+          key={askEdit?.id ?? 'new'}
           projectId={id}
           item={askEdit}
           phases={p.phases}
