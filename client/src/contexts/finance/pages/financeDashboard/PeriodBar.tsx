@@ -121,7 +121,9 @@ export function PeriodBar({
           */}
         {mode === 'all' && (
           <span className="text-note text-muted-foreground">
-            期間で絞らずに集計します（計上月を入れていない行も入ります）
+            {projectId
+              ? '案件を選んだので期間で絞っていません（期間の種類から変えられます・計上月を入れていない行も入ります）'
+              : '期間で絞らずに集計します（計上月を入れていない行も入ります）'}
           </span>
         )}
 
@@ -136,7 +138,12 @@ export function PeriodBar({
 
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sub shrink-0 text-muted-foreground">案件で絞り込む</span>
-        <div className="min-w-0 flex-1 sm:max-w-[420px]">
+        {/*
+          * ⚠️ **`basis` を持たせて潰さない。** `flex-1` と `min-w-0` だけだと、
+          * 同じ行に注意書きが増えたときに**選んだ案件名が `G··×` まで縮む**
+          * （実測）。何で絞っているか分からない絞り込み欄は用をなさない。
+          */}
+        <div className="min-w-0 flex-1 basis-[260px] sm:max-w-[420px]">
           <SearchableSelect
             options={projects.map((p) => ({
               value: p.id,
@@ -151,16 +158,10 @@ export function PeriodBar({
           <>
             <Button variant="ghost" onClick={() => setProjectId('')}>解除</Button>
             {/* **書かないと「販管費が0になった＝壊れた」と読まれる** */}
-            <span className="text-note text-warning">
+            <span className="text-note w-full text-warning sm:w-auto">
               案件で絞り込み中は販管費が集計から外れます（案件に紐づかないため）
             </span>
           </>
-        )}
-        {/* 案件を選ぶと期間は「全期間」に切り替わる。**黙って切り替えると数字が変わった理由が分からない** */}
-        {projectId && mode === 'all' && (
-          <span className="text-note text-muted-foreground">
-            案件を選んだので期間は「全期間」にしました（期間の種類から変えられます）
-          </span>
         )}
       </div>
     </section>

@@ -162,7 +162,9 @@ export default function BudgetDashboardPage() {
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
       <PageHeader
         title="財務ダッシュボード"
-        sub={`${period.label} ・ 確定売上ベース ・ ${projectId ? '案件で絞り込み中（販管費は対象外）' : '全案件（販管費を含む）'}`}
+        sub={periodReady
+          ? `${period.label} ・ 確定売上ベース ・ ${projectId ? '案件で絞り込み中（販管費は対象外）' : '全案件（販管費を含む）'}`
+          : '期間を選んでください'}
       />
 
       <PeriodBar
@@ -175,14 +177,16 @@ export default function BudgetDashboardPage() {
         projects={projects} projectId={projectId} setProjectId={selectProject}
       />
 
-      {/* 期間が入っていないときは読み込みに行かない。**何を待っているのか書かないと固まって見える** */}
-      {!periodReady && (
+      {/*
+        * 期間が入っていないときは読み込みに行かない。**何を待っているのか書かないと固まって見える**。
+        * ⚠️ **数字は1つも出さない。** 読みに行っていないので、ここで ¥0 を出すと
+        * 「0 と分かった」と読めてしまう（実際は「まだ数えていない」）。
+        */}
+      {!periodReady ? (
         <div className="rounded-card border border-border bg-card p-3 text-sub text-secondary-foreground lg:px-4">
           {period.label}（期間を外して見たいときは「全期間」を選んでください）
         </div>
-      )}
-
-      {summaryQuery.isError ? (
+      ) : summaryQuery.isError ? (
         <ErrorPanel
           title="損益を読み込めませんでした"
           error={summaryQuery.error}
