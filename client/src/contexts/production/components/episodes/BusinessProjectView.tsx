@@ -7,7 +7,6 @@ import { issueDocPdf, type DocKind } from "@/lib/docPdf";
 import { previousBusinessDay, toLocalDateStr } from "@gmo-onair/shared/src/utils/businessDays";
 import { TaxHelperButton } from "@gmo-onair/shared/src/client/ui/tax-aware-amount-input";
 import {
-  Project,
   Vendor,
   ProjectTypeLabels,
   BroadcastTypeLabels,
@@ -71,59 +70,8 @@ import PricingItemPicker, { PickedPricingItem } from "@/contexts/finance/compone
 import SimulationDialog, { SimulationAppliedItem } from "@/contexts/sales/components/SimulationDialog";
 import { toServiceDateInput } from "@/contexts/finance/pages/ledger/serviceDate";
 
-interface RevenueItem {
-  description: string;
-  quantity: number;
-  unit_price: number;
-  amount: number;
-  period_start?: string | null;
-  period_end?: string | null;
-  item_notes?: string | null;
-  category?: string | null;
-}
-
-interface Revenue {
-  id: string;
-  billing_key: string;
-  amount: number;
-  tax_category: string;
-  recognition_date: string | null;
-  billing_date: string | null;
-  payment_due_date: string | null;
-  notes: string | null;
-  subtitle: string | null;
-  customer_name: string;
-  items?: RevenueItem[];
-  group_name?: string | null;
-  allocated_amount?: number | null;
-  group_id?: string | null;
-}
-
-interface Purchase {
-  id: string;
-  amount: number;
-  description: string | null;
-  vendor_id: string;
-  vendor_name: string;
-  recognition_date: string | null;
-  settlement_method: string | null;
-  settlement_number: string | null;
-  tax_category: string;
-  invoice_qualified: number;
-  group_name?: string | null;
-  group_id?: string | null;
-  allocated_amount?: number | null;
-}
-
-interface Props {
-  project: Project;
-  projectId: string;
-  isEstimateMode?: boolean;
-}
-
-// 画面ごとに表を持つと足した区分が漏れる (実際に不課税がここだけ抜けていた)。
-// 表は client/src/types/index.ts の TaxCategoryLabels 1本にする。
-const taxLabels: Record<string, string> = TaxCategoryLabels;
+import type { RevenueItem, Revenue, Purchase, Props } from './businessProject/types';
+import { taxLabels } from './businessProject/types';
 
 export default function BusinessProjectView({ project, projectId, isEstimateMode }: Props) {
   const navigate = useNavigate();
