@@ -266,7 +266,7 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
       )}
 
       {pane === 'revenue' ? (
-        <RevenueBillingPane projectId={project.id} mobile={isMobile} />
+        <RevenueBillingPane projectId={project.id} projectName={project.name} mobile={isMobile} />
       ) : list.isLoading ? (
         <Delayed><SkeletonRows rows={4} /></Delayed>
       ) : (list.data ?? []).length === 0 ? (

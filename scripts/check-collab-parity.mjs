@@ -32,6 +32,9 @@ const PAIRS = [
   // cells のキーを人間可読な形にする（05-mcp.md §4-3）
   ['server/src/shared/qsheet/blockTypes.ts', 'shared/src/qsheet/blockTypes.ts'],
   ['server/src/shared/qsheet/blockRef.ts', 'shared/src/qsheet/blockRef.ts'],
+  // 「回を足す」の入力パーサー（"1-2" 等）。画面側のプレビューとサーバー側の検証が
+  // 同じ読み取り結果を返す必要がある（episode-batch-text-input）
+  ['server/src/shared/production/episodeSpec.ts', 'shared/src/production/episodeSpec.ts'],
 ];
 
 /** 行コメント・ブロックコメント・空行を落として「実装だけ」を取り出す */

@@ -13,6 +13,12 @@ export interface PickedPricingItem {
   name: string;
   sub_label: string | null;
   unit_price: number;
+  /**
+   * 定価（`pricing_items.unit_price`。グループ内価格を選んだときも定価はこちら）。
+   * カタログに定価そのものが設定されていなければ null（グループ内見積でも
+   * 「定価→値引き→実額」を表記したい要望・migration 261）。
+   */
+  list_unit_price: number | null;
   calc_type: string;
 }
 
@@ -102,6 +108,9 @@ export default function PricingItemPicker({
       name: it.name,
       sub_label: it.sub_label,
       unit_price: pickPrice(it),
+      // **定価は常に `unit_price`（グループ内価格ではない方）。** internal で
+      // group_price を選んでいても、ここは pickPrice() を通さず生の定価を渡す
+      list_unit_price: it.unit_price ?? null,
       calc_type: it.calc_type,
     });
     setAddedNames((prev) => [...prev, label]);

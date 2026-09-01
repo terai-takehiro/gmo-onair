@@ -27,7 +27,7 @@
  * 旧モックの「各回の状態は工程の進み方で自動で決まります」という決めごとを
  * そのまま踏襲し、**タスクの完了件数から導出する**（未着手／進行中／完了）。
  */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import api from '@/lib/api';
@@ -39,6 +39,9 @@ import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/u
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { EmptyState, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
+import {
+  parseEpisodeSpec, describeEpisodeNumbers, EpisodeSpecError,
+} from '@gmo-onair/shared/src/production/episodeSpec';
 import type { Episode } from '@gmo-onair/shared/src/types';
 
 type EpisodeState = 'todo' | 'doing' | 'done';
@@ -63,20 +66,51 @@ function dateOf(e: Episode): string | null {
   return e.recording_date || e.broadcast_date || null;
 }
 
+/**
+ * 「追加する数」はテキストで受ける（依頼: 「複数の回を登録することもあるので
+ * テキストで入力出来るようにしたい『#1-2』みたいに」）。
+ *
+ * パーサー（`shared/src/production/episodeSpec.ts`）が「単純な数＝件数」
+ * 「範囲・カンマ区切り＝明示的な話数」を読み分ける。プレビューは**必ず実行前に出す**
+ * （お金の行が増えることもあるので、押したあとで分かるのは事故 — 設計文書 §7）。
+ *
+ * `nextNum`（この案件の次の話数）は既に読み込み済みの一覧から出す簡易な見積もりで、
+ * 採番そのものはサーバーが取引の中でアトミックに行う。ここでは「思っていた話数と
+ * ズレていないか」を実行前に気づかせるだけの表示用途。
+ */
 function AddEpisodesDialog({
-  open, onOpenChange, projectId,
-}: { open: boolean; onOpenChange: (open: boolean) => void; projectId: string }) {
-  const [count, setCount] = useState('1');
+  open, onOpenChange, projectId, nextNum,
+}: { open: boolean; onOpenChange: (open: boolean) => void; projectId: string; nextNum: number }) {
+  const [text, setText] = useState('1');
   const qc = useQueryClient();
 
+  const parsed = useMemo(() => {
+    try {
+      return { ok: true as const, spec: parseEpisodeSpec(text) };
+    } catch (e) {
+      const message = e instanceof EpisodeSpecError ? e.message : '読み取れませんでした';
+      return { ok: false as const, message };
+    }
+  }, [text]);
+
+  // プレビュー表示用の話数リスト（件数入力は「次の話数から連番」と仮定して見せる）
+  const previewNumbers = useMemo(() => {
+    if (!parsed.ok) return null;
+    if (parsed.spec.mode === 'explicit') return parsed.spec.numbers;
+    return Array.from({ length: parsed.spec.count }, (_, i) => nextNum + i);
+  }, [parsed, nextNum]);
+
+  const mismatch = parsed.ok && parsed.spec.mode === 'explicit' && previewNumbers != null
+    && previewNumbers[0] !== nextNum;
+
   const create = useMutation({
-    mutationFn: () => api.post(`/projects/${projectId}/episodes/batch`, { count: Number(count) || 1 }),
+    mutationFn: () => api.post(`/projects/${projectId}/episodes/batch`, { episodes: text }),
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ['episodes', projectId] });
-      const n = Array.isArray(r.data?.data) ? r.data.data.length : Number(count) || 1;
+      const n = Array.isArray(r.data?.data) ? r.data.data.length : (previewNumbers?.length ?? 1);
       notifySuccess(`回を${n}件足しました`);
       onOpenChange(false);
-      setCount('1');
+      setText('1');
     },
     onError: (e) => notifyApiError('回を足せませんでした', e),
   });
@@ -86,22 +120,39 @@ function AddEpisodesDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="回を足す"
-      sub="次の話数から連番で作ります。あとから実施日・タスクを回ごとに入れられます。"
+      sub={'数字だけなら「次の話数から連番でN件」、"1-2" や "1,3,5-8" のように書くと話数を指定して作れます。'}
       footer={
         <FormDialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
-          <Button onClick={() => create.mutate()} disabled={create.isPending || Number(count) < 1}>
+          <Button onClick={() => create.mutate()} disabled={create.isPending || !parsed.ok}>
             足す
           </Button>
         </FormDialogFooter>
       }
     >
-      <div>
-        <Label htmlFor="ep-count">追加する数</Label>
-        <Input
-          id="ep-count" type="number" min={1} max={100} className="mt-1"
-          value={count} onChange={(e) => setCount(e.target.value)}
-        />
+      <div className="flex flex-col gap-2">
+        <div>
+          <Label htmlFor="ep-spec">追加する数</Label>
+          <Input
+            id="ep-spec" type="text" inputMode="text" className="mt-1"
+            placeholder={'例: 2 ／ 1-2 ／ #1-2 ／ 1,3,5-8'}
+            value={text} onChange={(e) => setText(e.target.value)}
+          />
+        </div>
+        {!parsed.ok ? (
+          <p className="text-sub text-destructive">{parsed.message}</p>
+        ) : previewNumbers ? (
+          <div className="rounded-note border border-border bg-surface-subtle p-2">
+            <p className="text-sub">
+              作成する回: {describeEpisodeNumbers(previewNumbers)}（{previewNumbers.length}件）
+            </p>
+            {mismatch && (
+              <p className="text-sub text-warning mt-1">
+                ⚠ 次の話数は #{nextNum} です。指定と次の話数がズレています — 意図した範囲か確かめてください。
+              </p>
+            )}
+          </div>
+        ) : null}
       </div>
     </FormDialog>
   );
@@ -114,6 +165,11 @@ export function EpisodesPanel({ projectId }: { projectId: string }) {
     queryKey: ['episodes', projectId],
     queryFn: async () => (await api.get(`/projects/${projectId}/episodes`, { params: { limit: 200 } })).data.data,
   });
+
+  // 「次の話数」はダイアログのプレビュー表示だけに使う簡易な見積もり
+  // （実際の採番はサーバーが取引の中でアトミックに行う。ここは読み込み済みの
+  // 一覧の最大値+1でよい — 200件を超える案件が出てきたら見直す）
+  const nextNum = (list.data ?? []).reduce((max, e) => Math.max(max, e.episode_number ?? 0), 0) + 1;
 
   return (
     <div className="flex flex-col gap-3">
@@ -178,7 +234,7 @@ export function EpisodesPanel({ projectId }: { projectId: string }) {
         </div>
       )}
 
-      <AddEpisodesDialog open={addOpen} onOpenChange={setAddOpen} projectId={projectId} />
+      <AddEpisodesDialog open={addOpen} onOpenChange={setAddOpen} projectId={projectId} nextNum={nextNum} />
     </div>
   );
 }

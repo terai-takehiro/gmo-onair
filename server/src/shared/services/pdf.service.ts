@@ -17,6 +17,12 @@ interface PdfRevenueItem {
   period_end:   string | null;
   item_notes:   string | null;
   category:     string | null;
+  /**
+   * 数量の単位（人・時間・日・式 など）。**任意** — 見積の明細だけが持つ
+   * （`estimate_items.unit`。migration 138 で既にあった列だが、紙には出していなかった）。
+   * 呼び出し元（`revenues.routes.ts` 等）は渡さなくてよい（未指定は「単位なし」= 従来どおり数量だけ）。
+   */
+  unit?:        string | null;
 }
 
 interface PdfRevenueData {
@@ -301,7 +307,10 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
             if (it.item_notes) { txt(it.item_notes, xDesc + 3, yy + 2, { sz: 7, c: '#555555', w: wDesc - 6, wrap: true }); }
           });
           cell(xQty, y, wQty, rh, () => {
-            txt(String(it.quantity ?? 1), xQty + 3, y + VPAD, { sz: 8, c: itColor, w: wQty - 6, align: 'right' });
+            // **数量のあとに単位を続けて出す**（「3 式」のように）。単位が無い行は
+            // 今までどおり数量だけ（`unit` は見積の明細だけが持つ・任意の列）
+            const qtyStr = `${it.quantity ?? 1}${it.unit ? ` ${it.unit}` : ''}`;
+            txt(qtyStr, xQty + 3, y + VPAD, { sz: 8, c: itColor, w: wQty - 6, align: 'right' });
           });
           if (showMoney) {
             // 数量 × 単価 = 金額 が項目ごとに分かるように 3 列で表示

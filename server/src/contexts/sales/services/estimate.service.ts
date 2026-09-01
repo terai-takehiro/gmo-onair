@@ -53,6 +53,13 @@ export interface EstimateItem {
   item_date: string | null;
   /** この行の終了日。任意・`item_date`（開始日）とセットで使う（migration 235） */
   item_date_end: string | null;
+  /**
+   * 定価（カタログ選択時のみ入る。手入力の行は null。migration 261）。
+   *
+   * ⚠️ **表示・PDF 印字専用。** 金額計算（`amount`・`estimates.subtotal`・
+   * 売上変換）には一切混ぜない — 実際に課金する額は `unit_price` のまま。
+   */
+  list_unit_price: number | null;
   sort_order: number;
 }
 
@@ -368,7 +375,7 @@ export const estimateService = {
       // `<input type="date">` は `YYYY-MM-DD` しか受け付けないため、渡すたびに
       // 欄が空に見えてしまう。`to_char` で最初から `YYYY-MM-DD` の文字列にする
       // （`estimate-pdf.service.ts` の同じ落とし穴と同じ直し方）
-      `SELECT id, description, quantity, unit, unit_price, amount, cost, category,
+      `SELECT id, description, quantity, unit, unit_price, list_unit_price, amount, cost, category,
               pricing_item_id, item_notes,
               to_char(item_date, 'YYYY-MM-DD') AS item_date,
               to_char(item_date_end, 'YYYY-MM-DD') AS item_date_end,
@@ -437,8 +444,8 @@ export const estimateService = {
     for (const it of from.items ?? []) {
       await execute(
         `INSERT INTO estimate_items (id, estimate_id, description, quantity, unit, unit_price,
-           amount, cost, category, pricing_item_id, item_notes, item_date, item_date_end, sort_order)
-         SELECT $1, $2, description, quantity, unit, unit_price, amount, cost, category,
+           list_unit_price, amount, cost, category, pricing_item_id, item_notes, item_date, item_date_end, sort_order)
+         SELECT $1, $2, description, quantity, unit, unit_price, list_unit_price, amount, cost, category,
                 pricing_item_id, item_notes, item_date, item_date_end, sort_order
          FROM estimate_items WHERE id = $3`,
         [uuidv4(), id, it.id]
@@ -627,6 +634,9 @@ export const estimateService = {
         // `unit_price` と同じく `Math.round` で整数に丸めてから渡す
         const qty = Math.max(0, Math.round(Number(it.quantity) || 0));
         const price = Math.round(Number(it.unit_price) || 0);
+        // **定価は表示・PDF 印字専用**（migration 261）。手入力の行・料金表を
+        // 経由しない行は null のまま — 「定価が無い」と「定価＝実額」を混同しない
+        const listPrice = it.list_unit_price != null ? Math.round(Number(it.list_unit_price)) : null;
         const itemDate = it.item_date ?? null;
         const itemDateEnd = it.item_date_end ?? null;
         // 終了日が開始日より前は事実として矛盾するので保存の手前で弾く（DB の
@@ -637,10 +647,10 @@ export const estimateService = {
         }
         await tx.execute(
           `INSERT INTO estimate_items (id, estimate_id, description, quantity, unit, unit_price,
-             amount, cost, category, item_notes, item_date, item_date_end, pricing_item_id, sort_order)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+             list_unit_price, amount, cost, category, item_notes, item_date, item_date_end, pricing_item_id, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
           [uuidv4(), estimateId, it.description ?? '', qty, it.unit ?? null, price,
-           qty * price, Math.round(Number(it.cost) || 0), it.category ?? null,
+           listPrice, qty * price, Math.round(Number(it.cost) || 0), it.category ?? null,
            it.item_notes ?? null, itemDate, itemDateEnd, it.pricing_item_id ?? null, order++]
         );
       }
