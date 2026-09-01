@@ -6,6 +6,7 @@ import {
   fetchCues, fetchProject, fetchTemplate, GraphicsPageLayer, mapPage, nextCallNo,
   normalizePageLayers, PART_KEYS, PROOF_STATES, SLOTS, Slot,
 } from '../store';
+import { clearVoteTimers, onVoteStateTransition, readVoteStateServer } from '../services/vote-lifecycle.service';
 
 // ページ（graphics_pages）の CRUD。呼出番号は未指定ならスロット別ブロックの
 // 最小空き番号を自動採番する（store.ts の SLOT_CALL_BASE）。
@@ -169,6 +170,7 @@ router.put('/pages/:id', wrap(async (req, res) => {
     // テンプレート付きページは body.fields を「publicFields の差分」として扱い、
     // 既存の fields に**マージ**する（クライアントは編集可能な公開フィールドだけを
     // 送る前提 — ロックされたフィールドの値を毎回送り直させない・誤って上書きさせない）
+    let candidateFields: Record<string, unknown>;
     if (existing.template_id != null) {
       const template = await fetchTemplate(existing.template_id as number);
       const publicKeys = new Set(template?.publicFields ?? []);
@@ -179,11 +181,25 @@ router.put('/pages/:id', wrap(async (req, res) => {
           `このページはテンプレート固定のフィールドを含みます（編集不可: ${offending.join(', ')}）`
         );
       }
-      const merged = { ...(existing.fields as Record<string, unknown> ?? {}), ...(body.fields ?? {}) };
-      sets.push('fields = ?::jsonb'); params.push(JSON.stringify(merged));
+      candidateFields = { ...(existing.fields as Record<string, unknown> ?? {}), ...(body.fields ?? {}) };
     } else {
-      sets.push('fields = ?::jsonb'); params.push(JSON.stringify(body.fields ?? {}));
+      candidateFields = body.fields ?? {};
     }
+
+    // 投票・クイズ部品（段6-6・段6-7）: voteState の遷移を検知し、締切タイマーの予約・
+    // 外部インタラクティブ連携（activate/close/reveal）のフックを回す。openedAt 等の
+    // サーバー専用フィールドはここで書き足された値を DB へ保存する（UPDATE 文を打つ前に
+    // 呼ぶこと）。外部呼び出しは投げっぱなし（await しない）— PUT のレスポンスを
+    // 遅らせない設計は onVoteStateTransition 側で担保している。
+    if (existing.part_key === 'vote') {
+      const io = req.app.get('io');
+      if (io) {
+        const prevVoteState = readVoteStateServer(existing.fields as Record<string, unknown> | null | undefined);
+        candidateFields = await onVoteStateTransition(io, projectId, id, prevVoteState, candidateFields);
+      }
+    }
+
+    sets.push('fields = ?::jsonb'); params.push(JSON.stringify(candidateFields));
   }
   if (body.layerFields !== undefined) {
     // 複数部品の組み合わせページ（段6-2 本格拡張）: 既存の layers（非空配列）を持つページ
@@ -277,6 +293,10 @@ router.delete('/pages/:id', wrap(async (req, res) => {
      WHERE page_id = ?`,
     [id]
   );
+  // 投票・クイズ部品の予約中タイマー（自動締切・外部締切）が残っていたら止める
+  // （段6-6・段6-7。無くてもクラッシュはしないが、消えたページに向けて後から
+  // interactiveBridge を呼ぶ・DB を更新しようとする行儀の悪さを避ける）
+  clearVoteTimers(id);
   await execute(`DELETE FROM graphics_pages WHERE id = ?`, [id]);
 
   const io = req.app.get('io');

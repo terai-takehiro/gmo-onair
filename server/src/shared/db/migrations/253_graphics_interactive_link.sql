@@ -1,0 +1,17 @@
+-- ============================================================
+-- 253: テロップCG — 外部インタラクティブ連携設定 段6-7
+--
+-- 別VPS interactive.gmo-onair.jp との連携設定（プロジェクト単位）。
+-- 旧 awards の `awards_events.interactive_link` JSONB（096_quiz_interactive_link.sql）と
+-- 全く同じ設計をそのまま踏襲する:
+--   { "baseUrl": "https://interactive.gmo-onair.jp",
+--     "apiKeyPrefix": "ak_xxxxxxxx",   -- マスク表示用（先頭12文字）
+--     "apiKeySecret": "ak_...",        -- v1: 平文保存（旧awardsと同じ・社内限定運用前提）
+--     "interactiveEventId": "<uuid>",
+--     "closeBufferSeconds": 5,          -- カウントダウン終了後、外部締切までのバッファ秒（0-120）
+--     "autoControl": true }             -- カウントダウン連動の自動出題/締切を行うか
+--
+-- awards が event 単位（awards_events）で持っていたのに対し、テロップCGは
+-- graphics_projects が案件/番組単位のCG一式を束ねる単位のため、そのまま対応させる
+-- （graphics_ranking_sounds・migration 252 と同じ設計判断）。
+ALTER TABLE graphics_projects ADD COLUMN IF NOT EXISTS interactive_link JSONB;

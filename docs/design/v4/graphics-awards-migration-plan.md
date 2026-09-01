@@ -272,9 +272,32 @@ ranking専用移植。`RankingSoundsPanel.tsx`・`useRankingAudio.ts`）を実�
 「認証なしのはずが401を返す」実バグ（前ラウンドで2件報告されていた申し送り）の原因を特定し
 修正した（`express.static`のファイル欠落時フォールスルーが後続の認証必須ルーターまで落ちていた）。
 
-**未実装（次ラウンド）**: survey-oneshot連動（連動アンケートNo.1のランキングCG側発表——
-段6-7の外部連携設計と合わせて検討）・段6-6の締切連動・段6-7の外部連携そのもの・段6-9の
-過去データ移行。
+**未実装**: survey-oneshot連動（連動アンケートNo.1のランキングCG側発表）のみ——投票
+（`vote`）側の外部連携が実装された今、技術的には着手可能だが、優先度が低いため今回は
+見送った。必要になれば`vote`パーツの`interactiveQuestionId`と`ranking`パーツを紐付ける
+設計を追加で詰める。
+
+### 段6-6・段6-7・段6-9 進捗（2026-09-01・実装済み）
+
+**段6-6（投票の締切連動）・段6-7（外部インタラクティブ連携）**: `vote`パーツに
+`fields.countdownSeconds`（任意・自動締切秒数）と`fields.interactiveQuestionId`
+（外部設問との紐付け・`POST /pages/:id/vote/sync-interactive`で発行）を追加。
+`voteState`が`'open'`になるとサーバー側で`openedAt`を刻み、`countdownSeconds`後に
+内部自動締切・`(countdownSeconds+closeBufferSeconds)`後に外部`closeQuestion`を予約する
+（`vote-lifecycle.service.ts`。旧`interactive-lifecycle.service.ts`の設計を踏襲しつつ、
+**操作者の手動締切はバッファを待たず即座に外部へ反映する**よう改善した）。
+`interactive-bridge.service.ts`（HTTPクライアント）・`interactive-poller.service.ts`
+（800ms間隔で得票を`fields.choices[].votes`へ反映）は、旧`server/src/contexts/quiz/
+services/`の実運用実績あるコードをほぼそのまま移植。連携設定は`graphics_projects.
+interactive_link`（migration 253・旧`awards_events.interactive_link`と同じJSONB設計）。
+
+**段6-9（過去データ移行）**: `AwardsMigrationPage.tsx`（`awards_events`→
+`graphics_projects`・`awards_categories`→`graphics_pages`(`ranking`)・`awards_entries`→
+`RankingEntry[]`の変換ツール）を実装。プレビュー→確認→反映の3段構え・冪等性（同一
+イベントの重複移行を409で拒否）・旧`awards_*`テーブルは読み取り専用（一切書き込まない）。
+**実装・検証用Postgresでの動作確認までが完了した段階であり、本番`awards_*`データへ
+向けて実際に実行する判断はまだ行っていない**（本番に実データが入っているか自体
+不明・§1-2参照。ユーザーの別途の明示的な指示が必要）。
 
 ## 6. 参照ファイル（この設計の元データ）
 

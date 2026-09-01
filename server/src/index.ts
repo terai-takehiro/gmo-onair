@@ -16,7 +16,7 @@ import { initProjectCollabSocketIO } from './contexts/sales/collab-socket';
 import { initLiveopsSocketIO, initLiveopsServices } from './contexts/liveops';
 import { initIcsSyncPoller, shutdownIcsSyncPoller, initGoogleSyncPoller, shutdownGoogleSyncPoller, initMsSyncPoller, shutdownMsSyncPoller } from './contexts/schedule';
 import { initAwardsSocketIO } from './contexts/awards';
-import { initGraphicsSocketIO } from './contexts/graphics';
+import { initGraphicsSocketIO, initGraphicsInteractivePoller, shutdownGraphicsInteractivePoller } from './contexts/graphics';
 import { initQuizSocketIO, initInteractivePoller, shutdownInteractivePoller } from './contexts/quiz';
 // awards (リアルタイムCG) / quiz は「凍結」相当に戻した (2026-08-25)。Socket.IO・ポーラーも生かす
 // (client-awards/CLAUDE.md 参照)
@@ -101,6 +101,7 @@ async function main() {
   initLiveopsSocketIO(io);
   initAwardsSocketIO(io);
   initGraphicsSocketIO(io);
+  initGraphicsInteractivePoller(io);  // 段6-7: テロップCG 投票の外部インタラクティブ得票反映（quiz向けとは別インスタンス）
   initQuizSocketIO(io);
   initInteractivePoller(io);
   initIcsSyncPoller();        // v2.9.186: マイカレンダーの ICS 購読同期 (Outlook/Google → ONAiR)
@@ -117,6 +118,7 @@ async function main() {
   // Graceful shutdown
   process.on('SIGTERM', () => {
     shutdownSocketIO();
+    shutdownGraphicsInteractivePoller();
     shutdownInteractivePoller();
     shutdownIcsSyncPoller();
     shutdownGoogleSyncPoller();

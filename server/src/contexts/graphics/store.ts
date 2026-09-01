@@ -2,6 +2,7 @@
 // REST（projects/pages/public.routes）と Socket（cg:*）が同じ形を返すよう、
 // DB 行 → camelCase の写像と cue の upsert をここ1か所に閉じる。
 import { execute, queryAll, queryOne, Row, TxClient, withTransaction } from '../../shared/db/connection';
+import type { InteractiveLink } from './services/interactive-bridge.service';
 
 export const SLOTS = ['fullscreen', 'lower', 'side', 'ticker', 'clock', 'flash'] as const;
 export type Slot = (typeof SLOTS)[number];
@@ -60,6 +61,20 @@ export function normalizeSlotExitRules(raw: unknown): SlotExitRule[] {
   return out;
 }
 
+/**
+ * 外部インタラクティブ連携設定（段6-7・migration 253）の、APIレスポンスとして返してよい
+ * マスク済みビュー。`apiKeySecret` を含まない — これが唯一 `GraphicsProject`/公開APIに
+ * 乗せてよい形。秘密込みの完全な形（`InteractiveLink`）が要る内部処理は
+ * `fetchProjectInteractiveLinkFull` を使うこと（このビューとは絶対に混ぜない）。
+ */
+export interface InteractiveLinkView {
+  baseUrl: string;
+  apiKeyPrefix: string;
+  interactiveEventId: string;
+  closeBufferSeconds: number;
+  autoControl: boolean;
+}
+
 export interface GraphicsProject {
   id: number;
   ownerType: string;
@@ -67,6 +82,8 @@ export interface GraphicsProject {
   name: string;
   theme: string;
   slotExitRules: SlotExitRule[];
+  /** マスク済みビュー（`apiKeySecret` を含まない）。未設定は null */
+  interactiveLink: InteractiveLinkView | null;
   createdAt: unknown;
   updatedAt: unknown;
 }
@@ -170,6 +187,42 @@ export interface GraphicsRequest {
   updatedAt: unknown;
 }
 
+/**
+ * DB から読んだ interactive_link（JSONB）を、保存経路によっては「JSON 文字列」で返る
+ * ことがあるため string / object 両対応で正規化する（`interactive-poller.service.ts` の
+ * `normalizeLink` と同じ注意点 — これをしないと文字列のとき `link.baseUrl` が undefined
+ * になり、連携が毎回スキップされる）。壊れた形は null（＝未設定）に丸める。
+ */
+export function normalizeInteractiveLink(raw: unknown): InteractiveLink | null {
+  if (!raw) return null;
+  let obj: unknown = raw;
+  if (typeof raw === 'string') {
+    try {
+      obj = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  if (!obj || typeof obj !== 'object') return null;
+  const link = obj as Partial<InteractiveLink>;
+  if (typeof link.baseUrl !== 'string' || typeof link.apiKeySecret !== 'string' || typeof link.interactiveEventId !== 'string') {
+    return null;
+  }
+  return link as InteractiveLink;
+}
+
+/** 秘密込みの完全な `InteractiveLink` を、公開APIレスポンスに乗せてよいマスク済みビューへ変換する。 */
+export function toInteractiveLinkView(link: InteractiveLink | null): InteractiveLinkView | null {
+  if (!link || !link.baseUrl || !link.apiKeySecret) return null;
+  return {
+    baseUrl: link.baseUrl,
+    apiKeyPrefix: link.apiKeyPrefix ?? link.apiKeySecret.slice(0, 12),
+    interactiveEventId: link.interactiveEventId,
+    closeBufferSeconds: typeof link.closeBufferSeconds === 'number' ? link.closeBufferSeconds : 0,
+    autoControl: link.autoControl !== false,
+  };
+}
+
 export function mapProject(r: Row): GraphicsProject {
   return {
     id: r.id as number,
@@ -178,6 +231,7 @@ export function mapProject(r: Row): GraphicsProject {
     name: r.name as string,
     theme: r.theme as string,
     slotExitRules: normalizeSlotExitRules(r.slot_exit_rules),
+    interactiveLink: toInteractiveLinkView(normalizeInteractiveLink(r.interactive_link)),
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -310,6 +364,18 @@ export function mapRequest(r: Row): GraphicsRequest {
 export async function fetchProject(id: number): Promise<GraphicsProject | null> {
   const row = await queryOne(`SELECT * FROM graphics_projects WHERE id = ?`, [id]);
   return row ? mapProject(row) : null;
+}
+
+/**
+ * 秘密込みの完全な `InteractiveLink`（`apiKeySecret` を含む）を返す内部専用の取得関数。
+ * **公開APIレスポンスに混ぜないこと** — 外部VPSを叩く内部処理（sync/dismiss・
+ * vote-lifecycle・poller）だけが使う。マスク済みビューが要る箇所は `GraphicsProject.interactiveLink`
+ * （`mapProject` 経由）を使うこと。
+ */
+export async function fetchProjectInteractiveLinkFull(projectId: number): Promise<InteractiveLink | null> {
+  const row = await queryOne(`SELECT interactive_link FROM graphics_projects WHERE id = ?`, [projectId]);
+  if (!row) return null;
+  return normalizeInteractiveLink(row.interactive_link);
 }
 
 export async function fetchPages(projectId: number): Promise<GraphicsPage[]> {

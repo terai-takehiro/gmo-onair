@@ -119,6 +119,24 @@ export const TECHOPS_PC_ONLY: PcOnlyEntry[] = [
     instead: { label: 'アプリのトップを開く', to: '/techops/top' },
   },
   {
+    // 外部インタラクティブ連携設定（段6-7）。`LiveOrgSettingsPage.tsx`（`live-org-settings`）
+    // と同じ理由 — 別VPSの接続先URL・APIキーを外部の管理画面と往復しながら入力する画面
+    path: '/techops/graphics/:ownerKey/interactive-link',
+    what: 'テロップCG（外部インタラクティブ連携設定）',
+    why: '接続先URL・APIキーなど外部サービスの資格情報を入力する画面で、PCでの操作を前提にしています。',
+    instead: { label: 'アプリのトップを開く', to: '/techops/top' },
+  },
+  {
+    // 旧リアルタイムCG（awards）過去実績の変換移行ツール（段6-9）。イベント一覧・
+    // プレビュー（カテゴリごとの表・警告一覧）を見比べながら「移行する」を押す
+    // system_admin限定の管理画面で、一覧確認しながらの操作のため PC 前提にした
+    // （`/techops/graphics/:ownerKey` ハブと同じ理由）。
+    path: '/techops/graphics/awards-migration',
+    what: 'テロップCG（旧リアルタイムCGからの移行ツール）',
+    why: 'イベントごとのプレビュー表と警告一覧を見比べながら移行する管理画面で、狭い幅では組めません。',
+    instead: { label: 'アプリのトップを開く', to: '/techops/top' },
+  },
+  {
     // 表示レイアウトエディタ（13-live-display-layout-editor.md §6-3）。要素カードの
     // ドラッグ・リサイズ操作が前提のため、375px幅での対応は本設計のスコープ外にした
     // （§9-3で利用者に確認済み）。テンプレートライブラリ（閲覧・適用）はスマホ対応の対象

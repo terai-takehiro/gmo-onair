@@ -13,12 +13,13 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  Blocks, ChevronLeft, ClipboardList, Loader2, Pencil, Plus, Radio, Trash2, Type, AlertCircle, Users,
+  ArrowRightLeft, Blocks, ChevronLeft, ClipboardList, Loader2, Pencil, Plus, Radio, Trash2, Type, AlertCircle, Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifyError, notifySuccess } from '@/lib/notify';
+import { useAuth } from '@/hooks/useAuth';
 import {
   deleteGraphicsPage, updateGraphicsRequest,
   type GraphicsBundle, type GraphicsPageRow, type GraphicsRequestRow,
@@ -81,6 +82,8 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
   reload: () => Promise<void>;
 }) {
   const queryClient = useQueryClient();
+  const { currentUser } = useAuth();
+  const isSystemAdmin = currentUser?.role === 'system_admin';
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<GraphicsPageRow | null>(null);
   const [rosterOpen, setRosterOpen] = useState(false);
@@ -172,6 +175,13 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
         <Button variant="outline" onClick={() => setRosterOpen(true)}>
           <Users className="mr-1 h-4 w-4" aria-hidden="true" />名簿から一括生成
         </Button>
+        {isSystemAdmin && (
+          <Button variant="outline" asChild>
+            <Link to="/techops/graphics/awards-migration">
+              <ArrowRightLeft className="mr-1 h-4 w-4" aria-hidden="true" />旧CGから移行
+            </Link>
+          </Button>
+        )}
         <Button onClick={openCreate}>
           <Plus className="mr-1 h-4 w-4" aria-hidden="true" />ページを作る
         </Button>

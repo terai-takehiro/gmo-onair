@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  AlertCircle, Blocks, ChevronLeft, Loader2, Music, Pencil, Plus, Trash2,
+  AlertCircle, Blocks, ChevronLeft, Link2, Loader2, Music, Pencil, Plus, Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
@@ -73,6 +73,9 @@ function partsPath(ownerKey: string): string {
 function soundsPath(ownerKey: string): string {
   return `/techops/graphics/${encodeURIComponent(ownerKey)}/sounds`;
 }
+function interactiveLinkPath(ownerKey: string): string {
+  return `/techops/graphics/${encodeURIComponent(ownerKey)}/interactive-link`;
+}
 
 function TemplateManagerContent({ ownerKey, owner, projectId }: {
   ownerKey: string;
@@ -132,6 +135,11 @@ function TemplateManagerContent({ ownerKey, owner, projectId }: {
         <Button variant="outline" asChild>
           <Link to={soundsPath(ownerKey)}>
             <Music className="mr-1 h-4 w-4" aria-hidden="true" />演出SE（ranking）
+          </Link>
+        </Button>
+        <Button variant="outline" asChild>
+          <Link to={interactiveLinkPath(ownerKey)}>
+            <Link2 className="mr-1 h-4 w-4" aria-hidden="true" />外部インタラクティブ連携
           </Link>
         </Button>
         <Button onClick={openCreate}>

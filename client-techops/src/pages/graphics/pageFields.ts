@@ -11,7 +11,11 @@ import type { GraphicsPartKey } from '@/lib/graphicsApi';
 import { normalizeScoreEntries } from './scoreEntries';
 import { normalizeVoteChoices } from './voteChoices';
 import { normalizeListItems } from './listItems';
-import { normalizeRankingEntries, readAwardPattern } from './rankingFields';
+import { normalizeRankingEntries, readAwardPattern, defaultRankingEntries } from './rankingFields';
+import { readCountdownSeconds, readInteractiveQuestionId, readOpenedAt } from './voteInteractive';
+import { defaultScoreEntries } from './scoreEntries';
+import { defaultVoteChoices } from './voteChoices';
+import { defaultListItems } from './listItems';
 
 export interface PartFieldDef {
   key: string;
@@ -179,6 +183,32 @@ export const PART_FIELDS: Record<GraphicsPartKey, PartFieldDef[]> = {
 export const PART_KEYS = Object.keys(PART_FIELDS) as GraphicsPartKey[];
 
 /**
+ * 部品を選んだ直後（新規作成のマウント時／部品切替 `pickPart` の両方）の `fields` 既定値を
+ * 組み立てる。`PageFormDialog.tsx` から切り出した（400行規律の副産物・2箇所で同じロジックを
+ * 持たないための共通化でもある）。
+ */
+export function buildDefaultFields(partKey: GraphicsPartKey, firstFieldValue?: string): Record<string, unknown> {
+  const next: Record<string, unknown> = {};
+  (PART_FIELDS[partKey] ?? []).forEach((def, i) => {
+    if (def.kind === 'entries') next[def.key] = defaultScoreEntries();
+    else if (def.kind === 'choices') next[def.key] = defaultVoteChoices();
+    // 発注（テロ原）からの変換で detail が来ているときは、空欄より1件目に
+    // 入れて渡したほうが情報が残る（列配列なので firstFieldValue をそのまま代入できない）
+    else if (def.kind === 'list-items') {
+      next[def.key] = i === 0 && firstFieldValue ? [{ text: firstFieldValue, textEn: '' }] : defaultListItems();
+    } else if (def.kind === 'ranking') next[def.key] = defaultRankingEntries();
+    else if (def.type === 'select-number') {
+      next[def.key] = String(def.numberDefault ?? def.numberOptions?.[0] ?? '');
+    } else if (i === 0 && firstFieldValue) next[def.key] = firstFieldValue;
+    if (def.bilingual) next[`${def.key}En`] = '';
+  });
+  // `awardPattern` は ranking 専用の def を持たない（PART_FIELDS.ranking 参照）。
+  // 新規作成・部品切替のどちらも「新規作成扱い」なので、発表方式の既定値を direct にする
+  if (partKey === 'ranking') next.awardPattern = 'direct';
+  return next;
+}
+
+/**
  * 保存済みの `fields`（DB からの生値）を、フォームで扱える形に正規化する。
  * `PageFormDialog.tsx` の単一部品／複数部品（各レイヤー）の両方から共用する。
  */
@@ -207,5 +237,21 @@ export function normalizeFieldsForPart(
   // fields 全体越しに直接読み書きするため）。正規化を素通りさせると編集ダイアログを開き直す
   // たびに読み込んだ値が消えるので、ranking パーツのときだけここで拾っておく。
   if (partKey === 'ranking') next.awardPattern = readAwardPattern(raw);
+  // `countdownSeconds`/`interactiveQuestionId`/`openedAt`（段6-6・6-7）も `PART_FIELDS.vote`
+  // に専用の def を持たない（`VoteInteractiveSection.tsx` が fields 全体越しに直接読み書き
+  // する——awardPattern と同じ理由）。ここで拾っておかないと、非テンプレートページの保存が
+  // `fields: { ...fields }` の**丸ごと置き換え**（`savePageForm.ts`）のため、フォームを
+  // 開いて保存し直すだけで interactiveQuestionId/openedAt が消えてしまう
+  // （openedAt/interactiveQuestionId はサーバー専用の書き込み経路——ここでは「今の値を
+  // そのまま持ち越す」だけで、フォーム操作で書き換えることはない）。値が無ければキー自体を
+  // 持たせない（`readCountdownSeconds` 等の「未指定は null」という契約をそのまま保つ）。
+  if (partKey === 'vote') {
+    const cd = readCountdownSeconds(raw);
+    if (cd != null) next.countdownSeconds = cd;
+    const qid = readInteractiveQuestionId(raw);
+    if (qid != null) next.interactiveQuestionId = qid;
+    const opened = readOpenedAt(raw);
+    if (opened != null) next.openedAt = opened;
+  }
   return next;
 }

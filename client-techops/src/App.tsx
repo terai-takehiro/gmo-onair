@@ -44,6 +44,10 @@ import RequestFormPage from "@/pages/graphics/RequestFormPage";
 import TemplateManagerPage from "@/pages/graphics/TemplateManagerPage";
 // 演出SE 管理（段6-5・ranking パーツのステップ切替音）
 import RankingSoundsPanel from "@/pages/graphics/RankingSoundsPanel";
+// 外部インタラクティブ連携設定（段6-7・投票・クイズの締切連動先）
+import InteractiveLinkSettingsPanel from "@/pages/graphics/InteractiveLinkSettingsPanel";
+// 旧リアルタイムCG（client-awards）過去実績データの変換移行ツール（段6-9・system_admin限定）
+import AwardsMigrationPage from "@/pages/graphics/AwardsMigrationPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -119,10 +123,17 @@ export default function App() {
         {/* 演出SE管理（段6-5・ranking パーツのステップ切替音。テンプレート管理と
             同じ列の多い情報密度・同じ PC専用の判断） */}
         <Route path="/techops/graphics/:ownerKey/sounds" element={<RankingSoundsPanel />} />
+        {/* 外部インタラクティブ連携設定（段6-7・別VPS interactive.gmo-onair.jp との接続先。
+            テンプレート管理・演出SE管理と同じ列の多い情報密度・同じ PC専用の判断） */}
+        <Route path="/techops/graphics/:ownerKey/interactive-link" element={<InteractiveLinkSettingsPanel />} />
         {/* 発注（テロ原・段5）。スマホ最優先のフォーム＋自分の発注一覧。
             ハブ画面（PC専用）と違い、この画面だけは pcOnlyScreens.ts の対象外
             （graphics.md §3「発注はスマホ可」の分業設計） */}
         <Route path="/techops/graphics/:ownerKey/request" element={<RequestFormPage />} />
+        {/* 旧リアルタイムCG（awards）過去実績の変換移行ツール（段6-9）。案件/番組に紐づかない
+            全体管理画面のため :ownerKey を取らない（LiveOrgSettingsPage.tsx と同じ位置づけ）。
+            system_admin限定 — 画面内でゲートする */}
+        <Route path="/techops/graphics/awards-migration" element={<AwardsMigrationPage />} />
         {/* レンタル機材検索。案件単位（:ownerKey）で文書とは別の入れ物（2026-08-22 追加） */}
         <Route path="/techops/rental/:ownerKey" element={<RentalSearchPage />} />
         <Route path="/techops/rental/:ownerKey/list" element={<RentalReservationsPage />} />

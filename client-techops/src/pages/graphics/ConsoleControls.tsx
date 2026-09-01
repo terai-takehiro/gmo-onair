@@ -6,12 +6,59 @@
 //
 // 番号はテンキーのグローバル捕捉（GraphicsConsolePage 側）で溜まる。ここは
 // 溜まった数字の表示と、マウス用のボタン（スタンバイ／TAKE／次へ／続き／OUT）だけ。
-import { Hash, Radio, SkipForward } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import {
+  Hash, Link2, Radio, SkipForward, Timer,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { GraphicsPageRow } from '@/lib/graphicsApi';
+import { readCountdownSeconds, readInteractiveQuestionId, readOpenedAt } from './voteInteractive';
+import { readVoteState } from './voteState';
+
+/**
+ * 締切連動（段6-6）の残り時間表示。PGM の投票・クイズページが `voteState==='open'` かつ
+ * `countdownSeconds`/`openedAt` の両方が設定されているときだけ出す。凝った演出は不要
+ * （タスク指示どおり）——`setInterval` で1秒ごとに再計算するだけの簡単な表示。
+ */
+function VoteCountdownBadge({ votePage }: { votePage: GraphicsPageRow | null }) {
+  const countdownSeconds = votePage ? readCountdownSeconds(votePage.fields) : null;
+  const openedAt = votePage ? readOpenedAt(votePage.fields) : null;
+  const isOpen = votePage ? readVoteState(votePage.fields) === 'open' : false;
+  const linked = votePage ? !!readInteractiveQuestionId(votePage.fields) : false;
+  const [remaining, setRemaining] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || countdownSeconds == null || !openedAt) {
+      setRemaining(null);
+      return;
+    }
+    const openedMs = new Date(openedAt).getTime();
+    const tick = () => {
+      const elapsedSec = (Date.now() - openedMs) / 1000;
+      setRemaining(Math.max(0, Math.ceil(countdownSeconds - elapsedSec)));
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [isOpen, countdownSeconds, openedAt]);
+
+  if (remaining == null) return null;
+
+  return (
+    <div className="flex items-center gap-1.5 rounded-control-md border border-info-border bg-info-surface px-3 py-1.5 text-sub font-bold text-info">
+      <Timer className="h-4 w-4 shrink-0" aria-hidden="true" />
+      <span className="font-number">締切まで残り {remaining} 秒</span>
+      {linked && (
+        <span className="inline-flex h-5 shrink-0 items-center gap-0.5 rounded-control bg-info px-1.5 text-[10px] font-bold text-info-foreground">
+          <Link2 className="h-2.5 w-2.5" aria-hidden="true" />外部連携
+        </span>
+      )}
+    </div>
+  );
+}
 
 export function ConsoleControls({
-  callBuffer, pvwPage, onStandby, onTake, onNext, onOut, continueTarget, onContinue,
+  callBuffer, pvwPage, onStandby, onTake, onNext, onOut, continueTarget, onContinue, votePage = null,
 }: {
   /** テンキーで溜まっている呼出番号（空文字 = 未入力） */
   callBuffer: string;
@@ -29,9 +76,12 @@ export function ConsoleControls({
    */
   continueTarget: GraphicsPageRow | null;
   onContinue: () => void;
+  /** PGM の投票・クイズページ（段6-6・残り時間表示用）。無ければ null のまま渡す */
+  votePage?: GraphicsPageRow | null;
 }) {
   return (
     <div className="flex w-full shrink-0 flex-col gap-2 rounded-card border border-border bg-card p-3 lg:w-[300px]">
+      <VoteCountdownBadge votePage={votePage} />
       <div className="flex items-center gap-2">
         <span className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-control-lg border border-border bg-surface-subtle px-3">
           <Hash className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />

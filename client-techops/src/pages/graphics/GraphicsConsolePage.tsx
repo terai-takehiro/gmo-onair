@@ -39,6 +39,7 @@ import { ConsolePageList } from './ConsolePageList';
 import { ScoreQuickAdjust } from './ScoreQuickAdjust';
 import { RankingControlPanel } from './RankingControlPanel';
 import { readRankingStep } from './rankingFields';
+import { readVoteState } from './voteState';
 
 export default function GraphicsConsolePage() {
   const { ownerKey } = useParams<{ ownerKey: string }>();
@@ -270,6 +271,11 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
     (p) => p.partKey === 'ranking' && readRankingStep(p.fields) === 'final-pitch',
   ) ?? null;
 
+  /** PGM の投票・クイズページ（段6-6・締切連動の残り時間表示用・ConsoleControls.tsx） */
+  const openVotePage = livePages.find(
+    (p) => p.partKey === 'vote' && readVoteState(p.fields) === 'open',
+  ) ?? null;
+
   return (
     <div className="px-4 py-6 sm:px-6 sm:py-8">
       <Link
@@ -336,6 +342,7 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
           onOut={() => { void outStandby(); }}
           continueTarget={continueTarget}
           onContinue={() => { if (continueTarget) void sendContinue(continueTarget); }}
+          votePage={openVotePage}
         />
       </div>
 

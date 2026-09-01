@@ -7,6 +7,9 @@ import requestsRoutes from './routes/requests.routes';
 import rosterRoutes from './routes/roster.routes';
 import templatesRoutes from './routes/templates.routes';
 import soundsRoutes from './routes/sounds.routes';
+import interactiveRoutes from './routes/interactive.routes';
+import voteInteractiveRoutes from './routes/vote-interactive.routes';
+import awardsMigrationRoutes from './routes/awards-migration.routes';
 
 export function createGraphicsRoutes(): Router {
   const router = Router();
@@ -27,8 +30,15 @@ export function createGraphicsRoutes(): Router {
   router.use('/graphics', requestsRoutes);
   router.use('/graphics', rosterRoutes);
   router.use('/graphics', templatesRoutes);
+  // 外部インタラクティブ連携（段6-7）: 連携設定 CRUD と、投票ページ↔外部設問の紐付けAPI
+  router.use('/graphics', interactiveRoutes);
+  router.use('/graphics', voteInteractiveRoutes);
+  // 旧リアルタイムCG（awards）過去実績の変換移行ツール（段6-9）。system_admin/qsheet
+  // manager 向けの管理画面専用 API — 詳細は routes/awards-migration.routes.ts のコメント
+  router.use('/graphics', awardsMigrationRoutes);
 
   return router;
 }
 
 export { initGraphicsSocketIO } from './socket';
+export { initGraphicsInteractivePoller, shutdownGraphicsInteractivePoller } from './services/interactive-poller.service';
