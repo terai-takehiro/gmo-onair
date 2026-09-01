@@ -957,13 +957,44 @@ export interface DoneArchiveResult {
 export const DONE_BUDGET_MS = 20_000;
 
 /**
+ * **「案件が終わった日」。** ご依頼の「案件日の翌日」を決める式。
+ *
+ * ── ⚠️ `event_end` だけを見てはいけない（実データで確認・2026-08-31）──
+ *
+ * 本番の完了案件 9 件を数えたところ、**4 件が `event_end` 空**でした
+ * （GLS-A002 / A003 / A009 / A010）。`event_end` しか見ない実装では、
+ * **完了していても永久に `98_終了案件` へ移りません**。
+ *
+ * ⚠️ **プロジェクト管理（GLS-B）はもっと外れます。** GPM は自分の終了日を
+ * `gpm_projects.ends_on` に持っており、`projects.event_end` はほぼ空です。
+ * 実測でも完了 4 件のうち自動で移れたのは 1 件だけでした
+ * （B004 / B009 / B010 が残り、B006 だけ移った）。
+ *
+ * そこで**3つを上から順に見ます**。どれか1つでも日付があれば判定できます:
+ *   ① `projects.event_end`   … 案件（GLS-A）の終了日
+ *   ② `projects.event_start` … 終了日が無ければ**開催日**（1日開催はここだけ入る）
+ *   ③ `gpm_projects.ends_on` … プロジェクト管理の終了日
+ *
+ * ⚠️ **3つとも空なら、いまも対象外のままです。** 日付が1つも無い案件を
+ * 「終わった」と決める材料がこちらには無いためです（推測で動かすと、
+ * まだ動いている案件のフォルダを片づけてしまう）。
+ */
+export const DONE_DATE_SQL = `COALESCE(
+     NULLIF(p.event_end, ''),
+     NULLIF(p.event_start, ''),
+     (SELECT to_char(g.ends_on, 'YYYY-MM-DD') FROM gpm_projects g
+       WHERE g.project_id = p.id AND g.deleted_at IS NULL AND g.ends_on IS NOT NULL
+       ORDER BY g.ends_on DESC LIMIT 1)
+   )`;
+
+/**
  * 移す対象。**数えるときと移すときで必ず同じものを使う**
  * （写すと「10件と出ているのに押すと3件しか動かない」が起きる）。
  */
-export const DONE_TARGET_SQL = `FROM projects
-   WHERE deleted_at IS NULL AND stage = 's_completed' AND box_done_at IS NULL
-     AND NULLIF(event_end, '') IS NOT NULL AND event_end < ?
-     AND (box_url_internal IS NOT NULL OR box_url_external IS NOT NULL)`;
+export const DONE_TARGET_SQL = `FROM projects p
+   WHERE p.deleted_at IS NULL AND p.stage = 's_completed' AND p.box_done_at IS NULL
+     AND ${DONE_DATE_SQL} IS NOT NULL AND ${DONE_DATE_SQL} < ?
+     AND (p.box_url_internal IS NOT NULL OR p.box_url_external IS NOT NULL)`;
 
 export async function countDoneFoldersToArchive(): Promise<number> {
   const row = await queryOne(
@@ -978,7 +1009,7 @@ export async function archiveDoneProjectFolders(budgetMs = DONE_BUDGET_MS): Prom
   if (!client) return { ...idle, remaining: await countDoneFoldersToArchive() };
 
   const rows = await queryAll(
-    `SELECT id ${DONE_TARGET_SQL} ORDER BY event_end ASC LIMIT 200`, [jstDate()],
+    `SELECT p.id ${DONE_TARGET_SQL} ORDER BY ${DONE_DATE_SQL} ASC LIMIT 200`, [jstDate()],
   ) as { id: string }[];
 
   const forbidden = forbiddenFolderIds();
@@ -986,6 +1017,23 @@ export async function archiveDoneProjectFolders(budgetMs = DONE_BUDGET_MS): Prom
   const allNotes: string[] = [];
   let moved = 0;
   let timedOut = false;
+
+  /*
+   * ⚠️ **置き場は1回だけ解決する。**
+   *
+   * 以前は案件ごと・側ごとに `ensureSubfolder` を呼んでいました（1件あたり最大2回）。
+   * 置き場は**両親に1つずつしかない**のに毎回 BOX へ問い合わせるので、
+   * **1回の押下で進む件数がその分だけ減ります**。実際、本番で押したとき
+   * 20 秒の予算内に 3 件しか進まず、条件を満たしていた GLS-A013 / A018 が
+   * 残りました（次の往復で進むはずが、そこまで届いていない）。
+   * ここで1回だけ解決して使い回します。
+   */
+  const archiveOf = new Map<string, string | null>();
+  for (const parentId of [internalParentId(), externalParentId()]) {
+    if (!parentId) continue;
+    const a = await ensureSubfolder(parentId, DONE_ARCHIVE_FOLDER);
+    archiveOf.set(parentId, a ? a.id : null);
+  }
 
   for (const r of rows) {
     if (Date.now() - started > budgetMs) { timedOut = true; break; }
@@ -1006,11 +1054,11 @@ export async function archiveDoneProjectFolders(budgetMs = DONE_BUDGET_MS): Prom
       });
       if (!safe.ok) { notes.push(`${side.key}: 触らず (${safe.reason})`); continue; }
 
-      const archive = side.parentId ? await ensureSubfolder(side.parentId, DONE_ARCHIVE_FOLDER) : null;
-      if (!archive) { notes.push(`${side.key}: 置き場を作れず そのまま`); continue; }
+      const archiveId = side.parentId ? archiveOf.get(side.parentId) ?? null : null;
+      if (!archiveId) { notes.push(`${side.key}: 置き場を作れず そのまま`); continue; }
       try {
         // **移すだけ。消さない。** 引っ越しても ID は変わらないので URL はそのまま使える
-        await client.folders.update(folderId!, { parent: { id: archive.id } });
+        await client.folders.update(folderId!, { parent: { id: archiveId } });
         notes.push(`${side.key}: ${DONE_ARCHIVE_FOLDER} へ移動 (${folder!.name})`);
         did += 1;
       } catch (e) {
