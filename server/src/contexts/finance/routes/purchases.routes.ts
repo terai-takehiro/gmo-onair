@@ -88,14 +88,19 @@ router.get('/', async (req, res) => {
 // CSV Export
 router.get('/export', requirePermission('sales', 'exporter'), async (_req, res) => {
   const rows = await queryAll(
-    `SELECT vco.name as vendor_name, p.name as project_name, pu.description, pu.amount, pu.tax_category as tax, pu.amount as total, pu.recognition_date as date
+    // ⚠️ **役務提供完了日だけ DATE 型**なので `TO_CHAR` で文字列にする。素で取ると
+    // `String(Date)` されて `Mon Aug 31 2026 00:00:00 GMT+0000 (...)` がセルに入る
+    `SELECT vco.name as vendor_name, p.name as project_name, pu.description, pu.amount, pu.tax_category as tax, pu.amount as total, pu.recognition_date as date,
+            TO_CHAR(pu.service_completed_date, 'YYYY-MM-DD') as service_completed_date
      FROM purchases pu
      LEFT JOIN projects p ON p.id = pu.project_id
      LEFT JOIN companies vco ON vco.id = pu.vendor_id
      WHERE pu.deleted_at IS NULL
      ORDER BY pu.recognition_date DESC, pu.created_at DESC`
   ) as Record<string, unknown>[];
-  const columns = ['vendor_name', 'project_name', 'description', 'amount', 'tax', 'total', 'date'];
+  // ⚠️ **末尾に足すこと。** 既存の列の位置がずれると、この CSV を読んでいる
+  // 手元の Excel やマクロが黙って壊れる
+  const columns = ['vendor_name', 'project_name', 'description', 'amount', 'tax', 'total', 'date', 'service_completed_date'];
   csvResponse(res, 'purchases.csv', generateCsv(rows, columns));
 });
 

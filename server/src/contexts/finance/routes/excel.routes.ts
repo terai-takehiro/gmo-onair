@@ -195,6 +195,7 @@ const PURCHASES_CONFIG: ResourceConfig = {
     { key: 'recognition_date', header: '計上日',       width: 12 },
     { key: 'inspection_date',  header: '検収日',       width: 12 },
     { key: 'payment_due_date', header: '支払期日',     width: 12 },
+    { key: 'service_completed_date', header: '役務提供完了日', width: 16 },
     { key: 'settlement_method', header: '精算方法',     width: 12 },
     { key: 'settlement_number', header: '精算番号',     width: 14 },
     { key: 'settlement_url',   header: '申請URL',      width: 30 },
@@ -205,7 +206,7 @@ const PURCHASES_CONFIG: ResourceConfig = {
     { billing_key: 'PUR-2026-001', project_key: 'PRJ-2026-001', project_name: '', episode_code: '',
       vendor_name: '株式会社サンプル仕入', amount: 300000, tax_category: 'tax10',
       description: 'カメラレンタル', recognition_date: '2026-06-15',
-      inspection_date: '2026-06-15', payment_due_date: '2026-07-31',
+      inspection_date: '2026-06-15', payment_due_date: '2026-07-31', service_completed_date: '2026-06-30',
       settlement_method: 'rakuraku', settlement_number: '', settlement_url: '',
       assigned_to_email: 'admin@example.com', notes: '' },
   ],
@@ -216,6 +217,14 @@ const PURCHASES_CONFIG: ResourceConfig = {
       { col: '案件コード/GLS', desc: '【必須】projectsテーブルのcodeまたはgls_numberと一致' },
       { col: '仕入先名', desc: '【必須】vendorsテーブルのnameと一致' },
       { col: '精算方法', desc: 'rakuraku / xpoint / other' },
+      { col: '役務提供完了日', desc: '任意。YYYY-MM-DD。空欄なら空のまま登録します' },
+      /*
+       * ⚠️ **この1行は消さないこと。** 仕入の取り込みは重複を見ておらず（`duplicate` も
+       * `update` も設定していない）、**毎回すべての行を新規に足します**。
+       * 役務提供完了日の列を足したことで「書き出す → Excel で埋める → 取り込む」を
+       * 自然に思いつく形になったので、**そのまま戻すと原価が二重に計上されます**。
+       */
+      { col: '⚠️ 取り込みについて', desc: '取り込みは常に新規追加です。書き出したファイルをそのまま戻すと、同じ仕入がもう一度登録されます（既存の行は更新されません）' },
     ],
   },
   /*
@@ -226,6 +235,9 @@ const PURCHASES_CONFIG: ResourceConfig = {
     SELECT pu.billing_key, COALESCE(p.gls_number, p.code) as project_key, p.name as project_name, e.episode_code,
            vco.name as vendor_name, pu.amount, pu.tax_category, pu.description,
            pu.recognition_date, pu.inspection_date, pu.payment_due_date,
+           -- 役務提供完了日だけ DATE 型なので TO_CHAR で文字列にする。素で取ると
+           -- JS の Date になり、Excel には 2026-08-31 00:00:00 が入る
+           TO_CHAR(pu.service_completed_date, 'YYYY-MM-DD') AS service_completed_date,
            pu.settlement_method, pu.settlement_number, pu.settlement_url, u.email as assigned_to_email, pu.notes
     FROM purchases pu
     LEFT JOIN projects p ON p.id = pu.project_id
@@ -241,6 +253,7 @@ const PURCHASES_CONFIG: ResourceConfig = {
         SELECT pu.billing_key, COALESCE(p.gls_number, p.code) as project_key, p.name as project_name, e.episode_code,
                vco.name as vendor_name, pu.amount, pu.tax_category, pu.description,
                pu.recognition_date, pu.inspection_date, pu.payment_due_date,
+               TO_CHAR(pu.service_completed_date, 'YYYY-MM-DD') AS service_completed_date,
                pu.settlement_method, pu.settlement_number, pu.settlement_url, u.email as assigned_to_email, pu.notes
         FROM purchases pu
         LEFT JOIN projects p ON p.id = pu.project_id
@@ -319,6 +332,7 @@ const PURCHASES_CONFIG: ResourceConfig = {
         recognition_date: asDate(raw.recognition_date),
         inspection_date: asDate(raw.inspection_date),
         payment_due_date: asDate(raw.payment_due_date),
+        service_completed_date: asDate(raw.service_completed_date),
         settlement_method: settlement,
         settlement_number: asString(raw.settlement_number),
         settlement_url: asString(raw.settlement_url),
@@ -331,12 +345,12 @@ const PURCHASES_CONFIG: ResourceConfig = {
     await client.query(
       `INSERT INTO purchases (id, billing_key, project_id, episode_id, vendor_id, assigned_to,
                               settlement_method, settlement_number, settlement_url, amount, tax_category, description,
-                              recognition_date, inspection_date, payment_due_date,
+                              recognition_date, inspection_date, payment_due_date, service_completed_date,
                               notes, created_by, updated_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
       [newId(), d.billing_key, d.project_id, d.episode_id, d.vendor_id, d.assigned_to,
        d.settlement_method, d.settlement_number, d.settlement_url, d.amount, d.tax_category, d.description,
-       d.recognition_date, d.inspection_date, d.payment_due_date,
+       d.recognition_date, d.inspection_date, d.payment_due_date, d.service_completed_date,
        d.notes, userId, userId],
     );
   },

@@ -145,6 +145,7 @@ export function registerFinanceTools(server: McpServer): void {
       const rows = await queryAll(
         `SELECT pu.id, pu.description, pu.amount, pu.tax_category, pu.recognition_date,
                 pu.payment_due_date, pu.settlement_number, pu.invoice_qualified, pu.is_provisional,
+                TO_CHAR(pu.service_completed_date, 'YYYY-MM-DD') AS service_completed_date,
                 vco.name AS vendor_name, p.gls_number, p.name AS project_name
          ${joins} ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
         [...params, limit, (page - 1) * limit],
