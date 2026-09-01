@@ -29,6 +29,7 @@ import {
   type TaxCategory, type SettlementMethod, type Vendor,
 } from '@/types';
 import type { PurchaseRow } from './types';
+import { toServiceDateInput } from './serviceDate';
 
 export interface PurchaseProjectOption {
   id: string;
@@ -63,7 +64,17 @@ export function PurchaseDialog({
   const [amount, setAmount] = useState<number>(editing?.amount || 0);
   const [description, setDescription] = useState(editing?.description || '');
   const [notes, setNotes] = useState(editing?.notes || '');
-  const [serviceCompletedDate, setServiceCompletedDate] = useState('');
+  /*
+   * ⚠️ **`editing` から必ず読み戻す。** ここだけ `useState('')` と書かれており、
+   * **編集で開き直すと必ず空欄**になっていた（ユーザー報告「役務提供完了日を入力し、
+   * 更新・登録しても保存されない」）。実際には保存されていて、開き直した空欄のまま
+   * 「更新」を押すと `service_completed_date: null` が飛んで**本当に消えて**いた
+   * （親が `key={editingItem?.id}` で毎回マウントし直すので、後から埋まる余地も無い）。
+   * `DATE` 型ゆえの形の違いは `toServiceDateInput()` が吸収する。
+   */
+  const [serviceCompletedDate, setServiceCompletedDate] = useState(
+    toServiceDateInput(editing?.service_completed_date),
+  );
   const [recognitionMonth, setRecognitionMonth] = useState(editing?.recognition_date?.slice(0, 7) || '');
   const [paymentDueDate, setPaymentDueDate] = useState(editing?.payment_due_date?.slice(0, 10) || '');
   const [isProvisional, setIsProvisional] = useState(!!editing?.is_provisional);

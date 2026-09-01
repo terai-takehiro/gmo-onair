@@ -2358,6 +2358,25 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 | #40 | P2 | `client-daily` | iPhone の下端に操作が隠れる（`safe-area` 不足） | ⭕️ #143（**指摘の形では再現せず** — 下タブもシートも逃げを持っている。**下タブが 0 本のときだけ主アクションが重なる**ので、そこを塞いだ） |
 | #39 | P2 | `check-shared-wiring` | 二重引用符の import を検査が見落とす | ⭕️ #129（落ちてはいたが**理由が嘘**だった） |
 
+### 財務ダッシュボードの3件を直した回（`claude/financial-dashboard-errors-x9721s`）で意図して残した判断
+
+⚠️ **どれも「気づかなかった」ではなく「今回は直さないと決めた」もの**です。
+3つの不具合（①案件＋期間解除で 400 ②絞り込み中の 504 ③役務提供完了日が保存されない）を
+調べる過程で**同時に見つかったが、この PR の範囲を超えるので触らなかった**ぶんを書き出します。
+**書かなければ存在ごと消えるため**（この文書の「なぜここまで書くか」の節）。
+
+| # | どこ | 何が残っているか | 何が変われば直すか |
+| --- | --- | --- | --- |
+| 1 | `nginx/gmo-onair.conf`（`/api/` の location） | **`proxy_read_timeout` の指定が無く既定 60 秒**。超えると 504（画面は「サーバー側で処理が止まりました」）。今回は「60 秒を延ばす」のではなく**60 秒に収める**側（N+1 の解消・索引・接続プール）を直した | 60 秒に収まらない正当な処理が出たとき。⚠️ **延ばす前に `statement_timeout`（60秒・`connection.ts`）と揃えること** — 片方だけ延ばすと、応答が返る前に DB 側で切られる |
+| 2 | `nginx/gmo-onair.conf:8,74` | **レート制限 `30r/s` / `burst=50` の超過は 503** で、`ErrorPanel` では 504 と**同じ文言**になる（`shared/src/client/states/ErrorPanel.tsx:49` は `>= 500` を一括りにしている）。**オフィスの NAT で全社員が1つの IP を共有していると全員でバケットを取り合う** | `access.log` で 503 の比率を見て、実際に当たっていると分かったとき。切り分けには `limit_req_status` を 429 にして文言を分けるのが先 |
+| 3 | `client/src/contexts/finance/pages/ledger/LedgerParts.tsx:29`・`shared/src/client/hooks/useCrudPage.ts:125` | **検索欄に debounce が無く、1文字打つごとにリクエストが飛ぶ**（台帳の検索は1回で 4〜5 本の SQL）。今回は財務ダッシュボードだけ `signal` で中断するようにしたが、**台帳側は中断もしていない** | 台帳の 504 が続くとき。`useCrudPage` に入れると4画面まとめて効くが、**その4画面の再検証が要る**ので分けた |
+| 4 | `server/src/contexts/finance/routes/{revenues,purchases,sga}.routes.ts` | 一覧 API が**同じ条件・同じ join を 4〜5 回、逐次 `await` で走査**している（COUNT / 本体 / SUM / 按分 / 状態別の件数）。1本の `SELECT COUNT(*), SUM(...), COUNT(*) FILTER (...)` にまとめられる。**ページ送りのたびに 2 ページ目以降でも COUNT/SUM を数え直している** | 索引（migration 250）を入れても遅いと分かったとき。**まず実測してから**（`pg_stat_statements` の `total_exec_time` 上位） |
+| 5 | `server/src/contexts/finance/list-query.ts:22,90-93` | **検索が 5 列の `%…%`**（`billing_key`/`notes`/案件名/GLS/顧客名）で、`pg_trgm` も GIN 索引も無い＝必ず全走査。しかも④のとおり 4〜5 回繰り返される | 検索が体感で遅いと分かったとき。`pg_trgm` 拡張の導入は DB 側の変更なので単独で出す |
+| 6 | `client/src/contexts/finance/pages/BudgetDashboardPage.tsx` の `ErrorPanel` | **内訳3列（売上・仕入・販管費）が失敗しても画面に何も出ない**（`summaryQuery` だけが `ErrorPanel` に渡っている）。内訳が 504 でも「内訳が空」に見えるだけ | 「合計は出ているのに内訳が空」という報告が出たとき。⚠️ **今回は足さなかった** — 失敗しない側を直すのが先で、先にパネルを増やすと「エラーが増えた」ように見える |
+| 7 | `server/src/shared/db/connection.ts` の型パーサー | **`DATE`(oid 1082) のパーサーを設定していない**ので、`node-pg` が JS の `Date` にして返す（`purchases.service_completed_date` ほか **DB 全体で 25 列**）。**コンテナが UTC で動いているから今は正しく見えているだけ**で、`TZ=Asia/Tokyo` を入れた日に**全部 1 日ずれる** | `TZ` を設定する必要が出たとき、または DATE 列を新しく足すとき。`types.setTypeParser(1082, v => v)` で 25 列すべて文字列になるが、**それらを `Date` として扱っている箇所の洗い出しが要る**ので今回は入れていない（この PR では `toServiceDateInput()` が 1 列ぶんを吸収している） |
+| 8 | `excel.routes.ts:230,245,332` / `purchases.routes.ts` の CSV 列 / `mcp/tools/finance.tools.ts:146` | **役務提供完了日が Excel・CSV・MCP のどこにも出ない**（列リストに入っていない）。**Excel から仕入を取り込むと必ず NULL になる** | 「Excel で役務提供完了日も扱いたい」と決まったとき。⚠️ 取り込み側だけ足すと**空欄の取り込みで既存の日付を消す**ので、書き出しと取り込みを同時に直すこと |
+| 9 | `client/src/contexts/production/components/episodes/BusinessProjectView.tsx` | **2,032 行**（上限 400 行）。今回は1行（import）だけ増えたので `check-file-size.mjs --update` で基準に入れた | GPM の見積タブを v4 で作り直すとき（`client/CLAUDE.md` に既に「v4 で作り直すときに分割する」と書いてある） |
+
 ## この文書の使い方
 
 **これは決めごとです**（[docs/branching.md](../branching.md#マージしたらその-pr-のレビューを棚卸しに移す必須)）。

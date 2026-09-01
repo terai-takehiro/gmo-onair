@@ -117,6 +117,12 @@ export interface PurchaseRow {
   tax_category: string;
   recognition_date: string | null;
   payment_due_date: string | null;
+  /**
+   * 役務提供完了日。**`purchases` だけ `DATE` 型**（他の日付列は TEXT）なので、
+   * API からは `2026-08-31T00:00:00.000Z` の形で返る。表示・編集に使うときは
+   * `ledger/serviceDate.ts` の `toServiceDateInput()` を通すこと。
+   */
+  service_completed_date: string | null;
   notes: string | null;
   group_id: string | null;
   group_name: string | null;
