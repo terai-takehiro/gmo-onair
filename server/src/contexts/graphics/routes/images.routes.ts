@@ -43,6 +43,18 @@ router.use('/images', (req, _res, next) => {
   next();
 });
 router.use('/images', express.static(UPLOAD_DIR, { maxAge: '7d' }));
+// ファイルが無いとき（DBのURLは残っているがアップロード先が消えた等）は、
+// ここで確実に 404 を返す。**これが無いと** express.static が next() で
+// 静かに素通りし、リクエストが createGraphicsRoutes() の後続ルーター
+// （templates.routes.ts 等の `router.use(requireAuth, ...)`）まで落ちて、
+// 本来 401 になるはずのない公開URLが 401 を返す（実際に検証で再現・段6-5の調査で発見）。
+// パスの穴を塞ぐ意味でも、公開URL配下は必ずこの router 内で完結させる。
+// GET/HEAD 以外は素通りさせる（`/images` 配下に他メソッドのルートは今は無いが、
+// sounds.routes.ts で実際に PUT/DELETE を巻き込んで壊した教訓を踏まえて同じ形にする）。
+router.use('/images', (req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: '画像が見つかりません' } });
+});
 
 // ── ページの写真アップロード ────────────────────────────────────
 router.post(

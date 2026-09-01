@@ -251,19 +251,30 @@
 4. **段6全体を1つの大きな作業として進めるか、個別PRに割るか。** → **1つの継続作業として進める**
    （PRは作らず、指定ブランチへ継続的にコミットを積む）
 
-### 段6-5 進捗（2026-08-31・第1弾実装済み）
+### 段6-5 進捗（2026-09-01・第1弾＋第2弾実装済み）
 
 新part_key `ranking`（`client-techops/src/pages/graphics/rankingFields.ts`ほか）で、RANKS 5→2
 段階発表・winner-bar・TOP3・Final Pitch・direct/vote分岐・CountUp（`RankingCountUp.tsx`。
 `requestAnimationFrame`＋ease-out-quint`1-(1-t)^5`の自前実装）を、旧`StepRanking.tsx`/
 `StepTop3.tsx`/`StepFinalPitch.tsx`のタイマー定数（`STRIP_SETTLE=800`・`BAR_INTERVAL=1100`・
 `PHOTO_OFFSET=280`・TOP3の`POINTS_DELAY`/`REVEAL_DELAY`・Final Pitchの`SLOT_X`/`CENTER_X`）と
-CSS transition/keyframeの値まで含めて完全再現移植した。`fields.step`はvote部品の`voteState`と
-同じく`reveal_phase`を経由しない独自進行（`STEPS_DIRECT`/`STEPS_VOTE`。TAKEで`idle`へリセット・
-「続き」ボタンで1段進行）。4テーマ対応（ceremony-goldは旧実装を忠実再現、他3テーマは
-`scoreParts.tsx`の確立済み配色語彙を流用）。**未実装（次ラウンド）**: Celebration演出（複数部門
-合同祝賀・紙吹雪）・演出SE（`awards_sounds`相当）・survey-oneshot連動（連動アンケートNo.1の
-ランキングCG側発表）・段6-6の締切連動と段6-7の外部連携そのもの・段6-9の過去データ移行。
+CSS transition/keyframeの値まで含めて完全再現移植した（第1弾）。`fields.step`はvote部品の
+`voteState`と同じく`reveal_phase`を経由しない独自進行（`STEPS_DIRECT`/`STEPS_VOTE`。TAKEで
+`idle`へリセット・「続き」ボタンで1段進行）。4テーマ対応（ceremony-goldは旧実装を忠実再現、
+他3テーマは`scoreParts.tsx`の確立済み配色語彙を流用）。
+
+第2弾でCelebration演出（`rankingPartsExtra3.tsx`。旧`StepCelebration.tsx`の紙吹雪`mulberry32`
+シード`20260620`・`celebGlow`/`celebCardIn`を正確に移植。**複数部門合同祝賀は新エンジンの
+「1ページ＝1つの賞」という粒度では対象外とし、このページ自身の受賞者だけを祝う形に簡略化**）と
+演出SE基盤（`graphics_ranking_sounds`・migration 252。旧`awards_sounds`のproject単位・
+ranking専用移植。`RankingSoundsPanel.tsx`・`useRankingAudio.ts`）を実装し、`STEPS_DIRECT`/
+`STEPS_VOTE`の終端に`celebration`を追加した。検証中に既存の写真配信（`images.routes.ts`）の
+「認証なしのはずが401を返す」実バグ（前ラウンドで2件報告されていた申し送り）の原因を特定し
+修正した（`express.static`のファイル欠落時フォールスルーが後続の認証必須ルーターまで落ちていた）。
+
+**未実装（次ラウンド）**: survey-oneshot連動（連動アンケートNo.1のランキングCG側発表——
+段6-7の外部連携設計と合わせて検討）・段6-6の締切連動・段6-7の外部連携そのもの・段6-9の
+過去データ移行。
 
 ## 6. 参照ファイル（この設計の元データ）
 

@@ -46,4 +46,10 @@
 
 統合時、**実ブラウザでの検証で「RANKS/TOP3/Final Pitchの得点・カード表示が背景に沈んで見えない」実バグを発見し直した**——`RankingBars`/`RankingTop3`/`RankingFinalPitch`の3コンポーネントだけ、他のステップ（title/nominees/oneshot）と違って全面の暗幕背景（`FULL_SCRIM`。他の出力部品と共通の設計）が抜けており、白背景の上に金色の得点テキスト等が乗って視認できなくなっていた（テキストとしては存在するがコントラスト不足で「消えて見える」——実ブラウザのスクリーンショットで発見。テキストダンプだけの確認では気づけなかった）。3ファイルに暗幕定数を追加して解消し、5ステップ×4テーマ・direct/vote両パターン・PICK操作・段階公開との組み合わせ・既存部品（title/list/score/vote）への無回帰を実ブラウザのスクリーンショットで再確認した。全ゲート緑（typecheck・eslint・file-size・mobile-declared・collab-parity・ui-tokens・テスト1600件）。
 
-残るのは段6-5後続ラウンド（Celebration演出・演出SE）、段6-6拡張（投票の締切連動）、段6-7（外部インタラクティブ連携の移植）、段6-9（過去データ移行・並行稼働検証・旧`/awards`畳み込み判断）。
+**段6-5第2弾として、ランキング発表のCelebration演出（受賞者祝賀・紙吹雪）と演出SE（ステップ切替時の効果音）基盤をマルチエージェントで実装した。** ①Celebration: 旧`StepCelebration.tsx`の紙吹雪（`mulberry32`シード`20260620`固定・60個・7色パレット）と`celebGlow`/`celebCardIn`のkeyframeを正確に移植した。新エンジンは「1ページ＝1つの賞」という粒度（複数カテゴリを横断して集める仕組みが無い）のため、旧実装の「同じ賞名の複数カテゴリを横並びで合同祝賀」は簡略化し、**このページ自身の受賞者（directは`isWinner:true`の全件・voteは`winnerEntryIndex`の1件）だけを祝う**形にした（複数部門合同祝賀は今回のスコープ外・簡略化として明記）。`STEPS_DIRECT`/`STEPS_VOTE`の終端に`celebration`を追加（第1弾では`oneshot`/`final-pitch`が終端だった）。②演出SE: `graphics_ranking_sounds`テーブル（migration 252・旧`awards_sounds`の移植。project単位・ranking専用でlayer列は持たない設計——quiz向けSEは段6-6/6-7で別テーブルを新設する方針）と、`images.routes.ts`と同じ設計（マジックバイト検証・ローカル保存・認証なし静的配信）のCRUD API・管理UI（`RankingSoundsPanel.tsx`）・再生フック（`useRankingAudio.ts`。単一`<audio>`要素・即時カットアウト・`?audio=1`ゲート・初回mount時は鳴らさない・`rankStart`指定なし音源へのフォールバック検索、いずれも旧`useCgAudio.ts`と同じ設計）を実装した。
+
+演出SE担当のエージェントが検証中に、**既存の写真アップロード静的配信（`images.routes.ts`）の実バグを発見し原因特定・修正した**（前ラウンドで2エージェントが独立に「認証なしのはずが401を返す」と報告していた件）。原因は、参照先ファイルが実体として存在しない場合に`express.static`が`next()`で静かに素通りし、リクエストが後続の認証必須ルーター（`templates.routes.ts`等）まで落ちて401になっていたこと——`/images`・新設の`/sounds`両方の静的配信ブロック末尾にGET/HEAD限定の404終端ハンドラを追加し、後続ルーターへ落ちないようにして解消した（同エージェントが自分の1周目の修正で`/sounds`配下の`PUT`/`DELETE`まで404で巻き込む同型の回帰を作り込んだが、これも実ブラウザ検証で発見し修正済み）。
+
+統合時、私自身の検証で①Celebration（direct2名・vote1名・0名時の安全側no-op、4テーマ）②演出SEの実アップロード→実ブラウザでの認証なし配信確認→`?audio=1`ゲートの有無での挙動差→送出コンソールでのstep変更に連動した実際の音声ファイルfetch、をそれぞれ実DB・実ブラウザで再確認した。あわせて`images.routes.ts`の修正が既存の画像参照（実ファイルがある場合は200・無い場合は404で問題なし、401には戻らない）に無回帰であることも確認した。全ゲート緑（typecheck・eslint・file-size・mobile-declared・collab-parity・ui-tokens・migration番号・テスト1600件）。
+
+残るのは段6-6拡張（投票の締切連動）、段6-7（外部インタラクティブ連携の移植）、段6-9（過去データ移行・並行稼働検証・旧`/awards`畳み込み判断）。

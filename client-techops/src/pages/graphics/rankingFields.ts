@@ -53,17 +53,17 @@ const AWARD_PATTERN_KEY = 'awardPattern';
 
 /**
  * direct パターンの進行順（旧 `ControlPage.tsx` の `STEPS_DIRECT`）。
- * 段6-5 第1弾では `celebration` はまだ描画しない（レンダラーは後続ラウンドで追加）ため、
- * `oneshot` を終端にする——`nextRankingStep` は終端到達後は同じ値を返し続ける（何も壊さない）。
+ * 段6-5 第2弾で `celebration` のレンダラーを追加したため終端に含めた（第1弾では `oneshot` が
+ * 終端だった）。`nextRankingStep` は終端到達後は同じ値を返し続ける（何も壊さない）。
  */
-export const STEPS_DIRECT: readonly RankingStep[] = ['idle', 'title', 'nominees', 'ranks52', 'winner-bar', 'oneshot'];
+export const STEPS_DIRECT: readonly RankingStep[] = ['idle', 'title', 'nominees', 'ranks52', 'winner-bar', 'oneshot', 'celebration'];
 
 /**
  * vote パターンの進行順（旧 `ControlPage.tsx` の `STEPS_VOTE`）。
- * 段6-5 第1弾では `celebration` はまだ描画しない（後続ラウンドで追加）ため、
- * `final-pitch` を終端にする。
+ * 段6-5 第2弾で `celebration` のレンダラーを追加したため終端に含めた（第1弾では
+ * `final-pitch` が終端だった）。
  */
-export const STEPS_VOTE: readonly RankingStep[] = ['idle', 'title', 'nominees', 'top3', 'final-pitch'];
+export const STEPS_VOTE: readonly RankingStep[] = ['idle', 'title', 'nominees', 'top3', 'final-pitch', 'celebration'];
 
 function stepsFor(pattern: AwardPattern): readonly RankingStep[] {
   return pattern === 'vote' ? STEPS_VOTE : STEPS_DIRECT;

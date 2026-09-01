@@ -18,10 +18,11 @@ import type { GraphicsPageRow } from '@/lib/graphicsApi';
 import { pickLang, pickLangValue, type GraphicsLang } from './langField';
 import {
   RANKING_ENTRIES_KEY, normalizeRankingEntries, readAwardPattern, readRankingStep, readSubPhase,
-  type RankingEntry,
+  readWinnerEntryIndex, type RankingEntry,
 } from './rankingFields';
 import { RankingBars } from './rankingPartsExtra';
 import { RankingFinalPitch, RankingTop3 } from './rankingPartsExtra2';
+import { RankingCelebration } from './rankingPartsExtra3';
 import { RankingCountUp } from './RankingCountUp';
 import {
   CORPORATE_ACCENT, EDGE_DARK, GOLD, GOTHIC, NEWS_NAVY, SAFE_X, SAFE_Y, SERIF, WHITE, type TelopThemeKey,
@@ -173,9 +174,9 @@ function RankingOneShotStep({ page, entries, theme, lang }: { page: GraphicsPage
 
 export function RankingSequence({ page, theme, lang }: { page: GraphicsPageRow; theme: TelopThemeKey; lang?: GraphicsLang }) {
   const step = readRankingStep(page.fields);
-  // idle・celebration・survey-oneshot はこのラウンドではレンダラー未実装 — 何も描かない
+  // idle・survey-oneshot はこのラウンドではレンダラー未実装 — 何も描かない
   // （既存の「まだレンダラーの無い部品は何も描かない」規律どおり。クラッシュしないことが安全側）
-  if (step === 'idle' || step === 'celebration' || step === 'survey-oneshot') return null;
+  if (step === 'idle' || step === 'survey-oneshot') return null;
 
   const entries = normalizeRankingEntries(page.fields[RANKING_ENTRIES_KEY]);
 
@@ -190,6 +191,23 @@ export function RankingSequence({ page, theme, lang }: { page: GraphicsPageRow; 
   }
   if (step === 'final-pitch') {
     return <RankingFinalPitch key="final-pitch" entries={entries} subPhase={readSubPhase(page.fields)} theme={theme} lang={lang} />;
+  }
+  if (step === 'celebration') {
+    // このページ自身の受賞者だけを祝う（複数部門合同祝賀は新エンジンの粒度では対象外・
+    // rankingPartsExtra3.tsx 冒頭コメント参照）。winnerEntryIndex は RankingControlPanel.tsx
+    // が `entries.map((e, i) => ...)` の i（=このページの `entries` 配列そのもののインデックス。
+    // rank ではない）を書き込んでいるので、そのまま `entries[idx]` で引く
+    const pattern = readAwardPattern(page.fields);
+    const winners = pattern === 'vote'
+      ? (() => {
+          const idx = readWinnerEntryIndex(page.fields);
+          const w = idx != null ? entries[idx] : undefined;
+          return w ? [w] : [];
+        })()
+      : entries.filter((e) => e.isWinner === true);
+    if (winners.length === 0) return null;
+    const awardName = pickLang(page.fields, 'categoryName', lang) || page.name;
+    return <RankingCelebration key="celebration" entries={winners} theme={theme} lang={lang} awardName={awardName} />;
   }
   return null;
 }

@@ -42,6 +42,8 @@ import PartLibraryPage from "@/pages/graphics/PartLibraryPage";
 import RequestFormPage from "@/pages/graphics/RequestFormPage";
 // テンプレート管理（段6-2・部品→テンプレート→ページ→送出リストの第2層）
 import TemplateManagerPage from "@/pages/graphics/TemplateManagerPage";
+// 演出SE 管理（段6-5・ranking パーツのステップ切替音）
+import RankingSoundsPanel from "@/pages/graphics/RankingSoundsPanel";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -114,6 +116,9 @@ export default function App() {
         {/* テンプレート管理（部品ライブラリの「組み合わせてテンプレートを作る」から。
             段6-2・PC専用 — ページ作成フォームと同じ列の多い情報密度のため） */}
         <Route path="/techops/graphics/:ownerKey/templates" element={<TemplateManagerPage />} />
+        {/* 演出SE管理（段6-5・ranking パーツのステップ切替音。テンプレート管理と
+            同じ列の多い情報密度・同じ PC専用の判断） */}
+        <Route path="/techops/graphics/:ownerKey/sounds" element={<RankingSoundsPanel />} />
         {/* 発注（テロ原・段5）。スマホ最優先のフォーム＋自分の発注一覧。
             ハブ画面（PC専用）と違い、この画面だけは pcOnlyScreens.ts の対象外
             （graphics.md §3「発注はスマホ可」の分業設計） */}

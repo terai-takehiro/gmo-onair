@@ -6,6 +6,7 @@ import pagesRoutes from './routes/pages.routes';
 import requestsRoutes from './routes/requests.routes';
 import rosterRoutes from './routes/roster.routes';
 import templatesRoutes from './routes/templates.routes';
+import soundsRoutes from './routes/sounds.routes';
 
 export function createGraphicsRoutes(): Router {
   const router = Router();
@@ -17,6 +18,9 @@ export function createGraphicsRoutes(): Router {
   // 静的配信（GET /images/*）は認証なしのため、同じ理由でここに置く。
   router.use('/graphics', publicRoutes);
   router.use('/graphics', imagesRoutes);
+  // soundsRoutes も imagesRoutes と同じ理由（静的配信 GET /sounds/* が認証なし）で
+  // ここに置く。CRUD 本体（POST/GET/PUT/DELETE）は自身の requireAuth で守っている
+  router.use('/graphics', soundsRoutes);
 
   router.use('/graphics', projectsRoutes);
   router.use('/graphics', pagesRoutes);

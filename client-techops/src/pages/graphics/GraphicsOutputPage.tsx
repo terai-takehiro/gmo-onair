@@ -20,6 +20,7 @@ import { CgTransition } from './CgTransition';
 import type { GraphicsLang } from './langField';
 import { renderGraphicsPage } from './outputParts';
 import { resolveTelopTheme } from './telopTheme';
+import { useRankingAudio } from './useRankingAudio';
 
 /** `?lang=` の読み取り。未指定・不明な値は `'ja'` 扱い（多言語対応・graphics.md §6・§7） */
 function resolveOutputLang(v: string | null): GraphicsLang {
@@ -40,6 +41,10 @@ export default function GraphicsOutputPage() {
   const [searchParams] = useSearchParams();
   const bgParam = (searchParams.get('bg') ?? '').toLowerCase();
   const withBg = bgParam === '1' || bgParam === 'on' || bgParam === 'true';
+  // ?audio=1 を付けた URL でのみ演出SEを鳴らす（多重再生防止: OBS のプログラム送出用
+  // 1枚だけ。旧 client-awards の `?audio=1` と同じ作法・段6-5）
+  const audioParam = (searchParams.get('audio') ?? '').toLowerCase();
+  const audioOn = audioParam === '1' || audioParam === 'on' || audioParam === 'true';
 
   const [bundle, setBundle] = useState<GraphicsOutputBundle | null>(null);
   const [cues, setCues] = useState<Partial<Record<GraphicsSlot, GraphicsCueRow>>>({});
@@ -130,6 +135,11 @@ export default function GraphicsOutputPage() {
         .filter((p): p is NonNullable<typeof p> => !!p),
     [cues, pageById],
   );
+
+  // 演出SE（段6-5）: 現在ライブな ranking パーツのページの step 変化で鳴らす。
+  // `?audio=1` の URL でのみ有効（多重再生防止・?bg=1 と同じクエリ読み取りパターン）
+  const liveRankingPage = livePages.find((p) => p.partKey === 'ranking') ?? null;
+  useRankingAudio(bundle?.project.id ?? null, liveRankingPage, audioOn);
 
   // 時計・カウントダウンが出ている間だけ 250ms で描き直す（他のページでは回さない）
   const hasClock = livePages.some((p) => p.slot === 'clock' || p.partKey === 'countdown');
