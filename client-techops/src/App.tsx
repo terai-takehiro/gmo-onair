@@ -34,6 +34,20 @@ import LiveDisplayLayoutEditorPage from "@/pages/live/LiveDisplayLayoutEditorPag
 import LiveDisplayTemplateLibraryPage from "@/pages/live/LiveDisplayTemplateLibraryPage";
 // AIナレッジの承認（core-redesign-plan.md Phase 2 ④。qsheet_ai_knowledge の唯一のUI）
 import AiKnowledgePage from "@/pages/ai-knowledge/AiKnowledgePage";
+// テロップCG（旧リアルタイムCGの後継ミニアプリ・docs/design/v4/graphics.md 段1〜2）
+import GraphicsHubPage from "@/pages/graphics/GraphicsHubPage";
+import GraphicsConsolePage from "@/pages/graphics/GraphicsConsolePage";
+import GraphicsOutputPage from "@/pages/graphics/GraphicsOutputPage";
+import PartLibraryPage from "@/pages/graphics/PartLibraryPage";
+import RequestFormPage from "@/pages/graphics/RequestFormPage";
+// テンプレート管理（段6-2・部品→テンプレート→ページ→送出リストの第2層）
+import TemplateManagerPage from "@/pages/graphics/TemplateManagerPage";
+// 演出SE 管理（段6-5・ranking パーツのステップ切替音）
+import RankingSoundsPanel from "@/pages/graphics/RankingSoundsPanel";
+// 外部インタラクティブ連携設定（段6-7・投票・クイズの締切連動先）
+import InteractiveLinkSettingsPanel from "@/pages/graphics/InteractiveLinkSettingsPanel";
+// 旧リアルタイムCG（client-awards）過去実績データの変換移行ツール（段6-9・system_admin限定）
+import AwardsMigrationPage from "@/pages/graphics/AwardsMigrationPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -96,6 +110,30 @@ export default function App() {
             ファイルは残しコードからの導線だけ外した） */}
         <Route path="/techops/recording/:ownerKey" element={<RecordingPage />} />
         <Route path="/techops/streaming/:ownerKey" element={<StreamingPage />} />
+        {/* テロップCG。案件・番組単位（:ownerKey）。ハブ（ページと送出リスト）と
+            送出コンソール。出力画面だけはシェル無し・認証なしの独立ルート（下記） */}
+        <Route path="/techops/graphics/:ownerKey" element={<GraphicsHubPage />} />
+        <Route path="/techops/graphics/:ownerKey/live" element={<GraphicsConsolePage />} />
+        {/* 部品ライブラリ（全番組共通のカタログ・段4の入口部分）。URL は :ownerKey を
+            含めてハブと並びを揃えるが、中身は owner に紐づかない読み取り専用画面 */}
+        <Route path="/techops/graphics/:ownerKey/parts" element={<PartLibraryPage />} />
+        {/* テンプレート管理（部品ライブラリの「組み合わせてテンプレートを作る」から。
+            段6-2・PC専用 — ページ作成フォームと同じ列の多い情報密度のため） */}
+        <Route path="/techops/graphics/:ownerKey/templates" element={<TemplateManagerPage />} />
+        {/* 演出SE管理（段6-5・ranking パーツのステップ切替音。テンプレート管理と
+            同じ列の多い情報密度・同じ PC専用の判断） */}
+        <Route path="/techops/graphics/:ownerKey/sounds" element={<RankingSoundsPanel />} />
+        {/* 外部インタラクティブ連携設定（段6-7・別VPS interactive.gmo-onair.jp との接続先。
+            テンプレート管理・演出SE管理と同じ列の多い情報密度・同じ PC専用の判断） */}
+        <Route path="/techops/graphics/:ownerKey/interactive-link" element={<InteractiveLinkSettingsPanel />} />
+        {/* 発注（テロ原・段5）。スマホ最優先のフォーム＋自分の発注一覧。
+            ハブ画面（PC専用）と違い、この画面だけは pcOnlyScreens.ts の対象外
+            （graphics.md §3「発注はスマホ可」の分業設計） */}
+        <Route path="/techops/graphics/:ownerKey/request" element={<RequestFormPage />} />
+        {/* 旧リアルタイムCG（awards）過去実績の変換移行ツール（段6-9）。案件/番組に紐づかない
+            全体管理画面のため :ownerKey を取らない（LiveOrgSettingsPage.tsx と同じ位置づけ）。
+            system_admin限定 — 画面内でゲートする */}
+        <Route path="/techops/graphics/awards-migration" element={<AwardsMigrationPage />} />
         {/* レンタル機材検索。案件単位（:ownerKey）で文書とは別の入れ物（2026-08-22 追加） */}
         <Route path="/techops/rental/:ownerKey" element={<RentalSearchPage />} />
         <Route path="/techops/rental/:ownerKey/list" element={<RentalReservationsPage />} />
@@ -137,6 +175,10 @@ export default function App() {
 
       {/* Public audio support dashboard — no auth required, docId-based */}
       <Route path="/techops/audio/:id" element={<AudioSupportPage />} />
+
+      {/* テロップCGの出力画面 — 認証なしの公開URL（OBS のブラウザソースが未ログインで
+          開く。公開音声サポートと同じ決めごと・`lib/api.ts` の `publicPaths` にも登録済み） */}
+      <Route path="/techops/graphics/output/:projectId" element={<GraphicsOutputPage />} />
 
       {/*
         ここから旧 `/qsheet/*` の互換転送（qsheet→techops移行 Phase 2・2026-08-22）。
