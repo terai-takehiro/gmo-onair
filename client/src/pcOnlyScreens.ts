@@ -187,7 +187,7 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   // 他の一覧と同じく縮む作り、体制（`MembersTab.tsx`）はカードが `sm:grid-cols-2
   // lg:grid-cols-3` で375px幅では単列に積まれる作りだった（顧客・取引先マスターが
   // M10で「実測したら表ですらなくカードだった」と分かった前例と同じパターン）。
-  // 7タブのうち請求（`BillingTab.tsx`＝案件と共用の`BusinessProjectView`・2,042行の
+  // 7タブのうち請求（`BillingTab.tsx`＝案件と共用の`BusinessProjectView` の
   // 未対応の月次表）だけは今回もスマホに出さない（下の `CLIENT_MOBILE_OK` を参照）。
   // **標準工程テンプレート（`/gpm/templates`）は M11 で `CLIENT_MOBILE_OK` へ移した。**
   // 理由は下の `CLIENT_MOBILE_OK` を参照
@@ -262,7 +262,7 @@ export const CLIENT_MOBILE_OK: string[] = [
     ／`hideOnMobile`／カードグリッドで375pxでも崩れないことを実測済み。見積は一覧の
     `<Row>` に `stackOnMobile` が漏れていた（固定4列だけで408px＝375px幅を最初から
     超える崩れ）ので足して解消した。**請求だけは今回も出さない**（案件と共用の
-    `BusinessProjectView`＝2,042行の月次表を1行も変えずに呼んでおり、この回では
+    `BusinessProjectView` の月次表を1行も変えずに呼んでおり、この回では
     モバイル版を作っていない）。スマホのタブは`/sales/projects/:id`（⑥案件詳細）の
     `MOBILE_TABS_BY_PHASE`と同じ考え方で、プロジェクトの段階（準備中／進行中／完了・
     見送り）ごとに3つへ絞る（詳細は`projectDetail/DetailHeader.tsx`の

@@ -302,11 +302,11 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに5つの「入�
     URL は同じで中身が変わるので表では書き分けられないため。
     案内は同じ `PcOnlyPanel` を使う
 
-- **1ファイル400行を上限にする。** いま超過しているのは
-  `contexts/production/components/episodes/BusinessProjectView.tsx`（2,030行・
-  GPM の見積タブが呼ぶ旧実装）と、わずかに超える `ProjectFormPage.tsx`（416行）・
-  `DashboardGantt/DashboardGanttView.tsx`（522行・旧実装のまま）など。
-  v4 で作り直すときに分割する
+- **1ファイル400行を上限にする。** `BusinessProjectView.tsx`（GPM の請求・見積タブが
+  呼ぶ旧実装）は **2,030行 → 200行** に分けた（中身は `episodes/businessProject/`。
+  hook 4本・部品6枚。**JSX を1文字も変えずに移し、各段で実ブラウザの全文が
+  一致することを確かめている**）。わずかに超える `ProjectFormPage.tsx`（416行）・
+  `DashboardGantt/DashboardGanttView.tsx`（522行・旧実装のまま）は v4 で作り直すときに分割する
 - `src/components/ui/` は **`motion` / `animated-number` の2本以外すべて1行の再エクスポート**。
   実体は `shared/src/client/ui/`（F3 で `table` / `searchable-select` / `currency-input` /
   `scroll-area` を移した。`dropdown-menu` は参照0件だったので削除）。

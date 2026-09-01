@@ -1,3 +1,31 @@
+/**
+ * GPM の請求タブ／案件の見積タブ — 売上・仕入・月次請求のコンソール
+ *
+ * ── 2,030行の1ファイルを分けたあとの「組み立て役」 ─────────────
+ *
+ * この画面は **hook を並べて、部品に配るだけ**です。中身は `businessProject/` にあります。
+ *
+ * | 置き場 | 何が入っているか |
+ * | --- | --- |
+ * | `useRevenueForm.ts` | 売上明細（見積）ダイアログのフォーム・保存・値引き・料金表・シミュレーション |
+ * | `useInlineItems.ts` | 売上カード上での明細項目インライン編集 |
+ * | `usePurchaseForm.ts` | 仕入ダイアログのフォーム・保存 |
+ * | `useMonthUnits.ts` | 月次ユニット（エピソードを「月」として流用）の作成・削除 |
+ * | `ProjectHeader` / `SummaryCards` | 見出しと KPI |
+ * | `MonthlyBilling` / `RevenueList` / `PurchaseList` | 3つの一覧 |
+ * | `RevenueDialog` / `RevenueItemRows` / `PurchaseDialog` | ダイアログの見た目 |
+ * | `types.ts` / `downloads.ts` | 型と PDF・Excel の書き出し |
+ *
+ * ⚠️ **hook を呼ぶ順番に意味があります。** `useMonthUnits` は `useRevenueForm` の
+ * `openEdit` / `openNewForMonth` を受け取る（月を作った直後に売上ダイアログを開くため）。
+ * **先に呼ぶと初期化前の参照になります。**
+ *
+ * ⚠️ **ダイアログには hook の返り値を `form` 1つで渡します。** 25〜30 個の値を
+ * 1つずつ props にすると**型を推測して間違えます**（過去の分割で5件間違えた）。
+ *
+ * ⚠️ **月次モードのときフラット一覧から月ユニット付きの行を外す**（`flatRevenues` /
+ * `flatPurchases`）。外さないと同じ売上が2か所に出て、合計を二重に読まれます。
+ */
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { getProjectCategory } from "@/types";
