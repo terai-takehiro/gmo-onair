@@ -2,7 +2,7 @@
   "limit": 400,
   "note": "scripts/check-file-size.mjs の基準。減ったら --update で締める。増やさないこと。",
   "files": {
-    "client/src/contexts/production/components/episodes/BusinessProjectView.tsx": 2032,
+    "client/src/contexts/production/components/episodes/BusinessProjectView.tsx": 1333,
     "client-equipment/src/pages/RackLayoutPage.tsx": 1270,
     "client-equipment/src/pages/EquipmentDetailPage.tsx": 1086,
     "client-techops/src/components/editor/CueTable.tsx": 1055,
