@@ -130,7 +130,7 @@ export default function PurchaseListPage() {
 
   // 0件のときだけ「どの月なら仕入があるか」を引く（今の絞り込みのまま）
   const latestMonth = useLatestDataMonth('/purchases', {
-    enabled: !crud.isLoading && items.length === 0 && !crud.search,
+    enabled: !crud.isLoading && items.length === 0 && !crud.appliedSearch,
     params: {
       fixed_cost: tab === 'fix' ? '1' : '0',
       state: cur.state || undefined,
@@ -162,7 +162,7 @@ export default function PurchaseListPage() {
             queryKey={['purchases-all']}
             hasDuplicateKey={false}
             exportParams={{
-              search: crud.search || undefined,
+              search: crud.appliedSearch || undefined,  // 画面の結果と書き出しの中身を揃える
               project_id: filterProjectId || undefined,
               recognition_month: month || undefined,
               fixed_cost: tab === 'fix' ? '1' : '0',
@@ -220,9 +220,9 @@ export default function PurchaseListPage() {
       ) : crud.isLoading ? (
         <Delayed><SkeletonRows rows={6} /></Delayed>
       ) : items.length === 0 ? (
-        crud.search ? (
+        crud.appliedSearch ? (
           <NoSearchResults
-            keyword={crud.search}
+            keyword={crud.appliedSearch}
             activeFilters={[
               tab === 'fix' ? '固定原価' : '変動原価',
               cur.key !== 'all' ? `絞り込み: ${cur.label}` : '',

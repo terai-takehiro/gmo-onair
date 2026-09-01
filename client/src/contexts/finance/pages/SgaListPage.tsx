@@ -223,7 +223,7 @@ export default function SgaListPage() {
 
   // 0件のときだけ「どの月なら販管費があるか」を引く（今の絞り込みのまま）
   const latestMonth = useLatestDataMonth('/sga', {
-    enabled: !crud.isLoading && items.length === 0 && !crud.search,
+    enabled: !crud.isLoading && items.length === 0 && !crud.appliedSearch,
     params: {
       source: cur.source || undefined,
       expense_type: cur.expense_type || undefined,
@@ -251,7 +251,7 @@ export default function SgaListPage() {
             queryKey={['sga-list']}
             hasDuplicateKey={false}
             exportParams={{
-              search: crud.search || undefined,
+              search: crud.appliedSearch || undefined,  // 画面の結果と書き出しの中身を揃える
               source: cur.source || undefined,
               expense_type: cur.expense_type || undefined,
               recognition_month: month || undefined,
@@ -298,9 +298,9 @@ export default function SgaListPage() {
       ) : crud.isLoading ? (
         <Delayed><SkeletonRows rows={6} /></Delayed>
       ) : items.length === 0 ? (
-        crud.search ? (
+        crud.appliedSearch ? (
           <NoSearchResults
-            keyword={crud.search}
+            keyword={crud.appliedSearch}
             activeFilters={[
               cur.key !== 'all' ? `絞り込み: ${cur.label}` : '',
               titleKey ? `勘定科目: ${titleKey === 'none' ? '未設定' : (titles.find((t) => t.id === titleKey)?.name ?? '')}` : '',

@@ -1,17 +1,16 @@
 /**
- * 入力が止まってから値を返す。**探す欄で1文字ごとに問い合わせない**ため。
+ * 実体は `shared/src/client/hooks/useDebounced.ts`。
  *
- * 同じ 400ms のタイマーが機材一覧・ケーブル・コネクタ・貸出機材一覧の4か所に
- * それぞれ手書きされていました (1つは `handleSearchChange._timer` に
- * 関数オブジェクトを生やす形で、型も付いていませんでした)。
+ * ⚠️ **写しを作らないこと。** 同じタイマーが機材一覧・ケーブル・コネクタ・
+ * 貸出機材一覧の4か所に手書きされていたのを1つにまとめた経緯があり、
+ * 今回それを shared へ上げ直した。ここは薄い包みだけ。
+ *
+ * ⚠️ **既定を 400ms のまま保つ。** shared 側の既定は 300ms だが、
+ * この4画面は 400ms で動いてきたので、**上げ直したついでに反応の速さを
+ * 変えない**（変えるなら、変えたと分かる形で別に出す）。
  */
-import { useEffect, useState } from 'react';
+import { useDebounced as useDebouncedShared } from '@gmo-onair/shared/src/client/hooks/useDebounced';
 
 export function useDebounced<T>(value: T, delay = 400): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-  return debounced;
+  return useDebouncedShared(value, delay);
 }
