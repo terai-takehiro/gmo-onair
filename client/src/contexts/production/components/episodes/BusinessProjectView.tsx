@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 import { previousBusinessDay, toLocalDateStr } from "@gmo-onair/shared/src/utils/businessDays";
 import { TaxHelperButton } from "@gmo-onair/shared/src/client/ui/tax-aware-amount-input";
 import {
@@ -14,7 +14,6 @@ import {
 } from "@/types";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -63,12 +62,11 @@ import SimulationDialog, { SimulationAppliedItem } from "@/contexts/sales/compon
 import { toServiceDateInput } from "@/contexts/finance/pages/ledger/serviceDate";
 
 import type { RevenueItem, Revenue, Purchase, Props } from './businessProject/types';
-import { taxLabels } from './businessProject/types';
 import { handleDownloadPdf, handleDownloadExcel } from './businessProject/downloads';
 import { PurchaseList } from './businessProject/PurchaseList';
 import { SummaryCards } from './businessProject/SummaryCards';
 import { ProjectHeader } from './businessProject/ProjectHeader';
-import { RevenueItemsInline } from './businessProject/RevenueItemsInline';
+import { RevenueList } from './businessProject/RevenueList';
 
 export default function BusinessProjectView({ project, projectId, isEstimateMode }: Props) {
   const qc = useQueryClient();
@@ -801,171 +799,27 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
         </div>
       )}
 
-      {/* Revenue List = 見積/売上明細 */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            {isEstimateMode ? "概算見積書" : monthlyMode ? "その他の売上明細（月次外）" : "見積・売上明細"}
-          </h2>
-          <div className="flex items-center gap-2">
-            {isEstimateMode && (
-              <Button size="sm" variant="outline" onClick={() => setSimDialogOpen(true)}>
-                <Calculator className="h-4 w-4 mr-1" />
-                シミュレーション
-              </Button>
-            )}
-            <Button size="sm" onClick={openNew}>
-              <Plus className="h-4 w-4 mr-1" />
-              {isEstimateMode ? "見積追加" : "明細追加"}
-            </Button>
-          </div>
-        </div>
-
-        {isLoading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          </div>
-        ) : flatRevenues.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              {monthlyMode
-                ? "月次以外の売上明細はありません。月締め請求は上の「月次請求」から管理します。"
-                : "売上明細がありません。「明細追加」から見積構成を作成してください。"}
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {flatRevenues.map((rev) => (
-              <Card key={rev.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className=" text-sm font-semibold">
-                          {rev.billing_key}
-                        </span>
-                        {rev.subtitle && (
-                          <span className="text-sm font-medium">{rev.subtitle}</span>
-                        )}
-                        <Badge variant="outline" className="text-xs">
-                          {taxLabels[rev.tax_category] || rev.tax_category}
-                        </Badge>
-                        {rev.group_name && (
-                          <Badge variant="secondary" className="text-xs">按分: {rev.group_name}</Badge>
-                        )}
-                      </div>
-                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                        {rev.recognition_date && (
-                          <span>計上日: {formatDate(rev.recognition_date)}</span>
-                        )}
-                        {rev.billing_date && (
-                          <span>請求日: {formatDate(rev.billing_date)}</span>
-                        )}
-                        {rev.payment_due_date && (
-                          <span>支払期日: {formatDate(rev.payment_due_date)}</span>
-                        )}
-                      </div>
-                      {rev.notes && (
-                        <p className="mt-1 text-xs text-muted-foreground truncate">
-                          {rev.notes}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <div className="text-right mr-2">
-                        <span className="font-number text-lg font-bold">
-                          {formatCurrency(rev.allocated_amount != null ? rev.allocated_amount : rev.amount)}
-                        </span>
-                        {rev.allocated_amount != null && rev.allocated_amount !== rev.amount && (
-                          <div className="text-xs text-muted-foreground font-number">
-                            全体 {formatCurrency(rev.amount)}
-                          </div>
-                        )}
-                      </div>
-                      {rev.items && rev.items.length > 0 && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 gap-1 px-2"
-                            title="見積書PDFを発行"
-                            onClick={() => handleDownloadPdf(rev.id, 'estimate')}
-                          >
-                            <FileText className="h-3.5 w-3.5" />
-                            <span className="hidden sm:inline">見積書</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 gap-1 px-2"
-                            title="請求書PDFを発行"
-                            onClick={() => handleDownloadPdf(rev.id, 'invoice')}
-                          >
-                            <Receipt className="h-3.5 w-3.5" />
-                            <span className="hidden sm:inline">請求書</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 gap-1 px-2"
-                            title="検収書PDFを発行"
-                            onClick={() => handleDownloadPdf(rev.id, 'inspection')}
-                          >
-                            <ClipboardCheck className="h-3.5 w-3.5" />
-                            <span className="hidden sm:inline">検収書</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 gap-1 px-2"
-                            title="請求書Excelを発行（業務推進提出用）"
-                            onClick={() => handleDownloadExcel(rev.id)}
-                          >
-                            <FileSpreadsheet className="h-3.5 w-3.5" />
-                            <span className="hidden sm:inline">請求書Excel</span>
-                          </Button>
-                        </>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openEdit(rev)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() => {
-                          if (confirm("この明細を削除しますか？"))
-                            deleteMutation.mutate(rev.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  {/* 明細項目（中身は businessProject/RevenueItemsInline.tsx） */}
-                  <RevenueItemsInline
-                    rev={rev}
-                    inlineEditId={inlineEditId}
-                    inlineItems={inlineItems}
-                    inlineSaveMutation={inlineSaveMutation}
-                    startInlineEdit={startInlineEdit}
-                    cancelInlineEdit={cancelInlineEdit}
-                    addInlineItem={addInlineItem}
-                    updateInlineItem={updateInlineItem}
-                    removeInlineItem={removeInlineItem}
-                  />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* 見積・売上明細の一覧（中身は businessProject/RevenueList.tsx） */}
+      <RevenueList
+        monthlyMode={monthlyMode}
+        isEstimateMode={isEstimateMode}
+        isLoading={isLoading}
+        flatRevenues={flatRevenues}
+        openNew={openNew}
+        openEdit={openEdit}
+        deleteMutation={deleteMutation}
+        setSimDialogOpen={setSimDialogOpen}
+        handleDownloadPdf={handleDownloadPdf}
+        handleDownloadExcel={handleDownloadExcel}
+        inlineEditId={inlineEditId}
+        inlineItems={inlineItems}
+        inlineSaveMutation={inlineSaveMutation}
+        startInlineEdit={startInlineEdit}
+        cancelInlineEdit={cancelInlineEdit}
+        addInlineItem={addInlineItem}
+        updateInlineItem={updateInlineItem}
+        removeInlineItem={removeInlineItem}
+      />
 
       {/* 仕入一覧（中身は businessProject/PurchaseList.tsx。**条件と位置はここに残す**） */}
       <PurchaseList
