@@ -287,20 +287,62 @@ export async function autoLoseStaleNeta(): Promise<TidyRow[]> {
 }
 
 /**
- * 受注→完了の繰り上げ（`event_end` を過ぎた受注案件を `s_completed` に）。
+ * 受注→完了の繰り上げ（受注済みの案件を `s_completed` に）。
  *
  * これまで `GET /dashboard/check-completed` の**生 UPDATE** だった —
  * 誰もダッシュボードを開かない日は動かず、履歴も残らなかった。
  * 日次ジョブとダッシュボードの両方が**この1本**を呼ぶ（履歴付き・通知は不要）。
+ *
+ * ── 単発とレギュラーでクエリを分けている理由（docs/design/v4/regular-series.md §5）──
+ *
+ * ⚠️ **レギュラー（`recurrence='regular'`）の `event_end` は「今クールの最終収録日」であって
+ * 案件（番組）の終わりではない。** 単発と同じ「`event_end` を過ぎたら完了」を当てはめると、
+ * 次クールを残したまま完了へ落ち、BOX フォルダごと `98_終了案件` へ片づけられてしまう
+ * （実測: 本番 GLS-A007「インテリジェンス」が受注済＋レギュラー設定の11分後、
+ * 2026-09-01 04:05→04:16 にこのバグで誤って完了へ落ちた）。この列の意味は変えず、
+ * レギュラーの判定に使うのをやめるだけにする。
+ *
+ * レギュラーが完了になる条件は「残っている回が無い」＝
+ * 回が1件以上あり・未完了（§4: タスク総数0または完了数<総数）の回が0件・
+ * いちばん遅い `broadcast_date`（無ければ `recording_date`）が今日より前、の3つ全部。
+ *
+ * ⚠️ **回が0件のレギュラーは絶対に対象にしない。** まだ始まっていないのか終わったのかを
+ * 区別する材料がこちらに無い（v4.5.14 で「日付が1つも無い案件を『終わった』と決める材料が
+ * 無い」としたのと同じ理由）。2本目のクエリは `EXISTS (... episodes ...)` で回0件を弾き、
+ * 最遅日付が NULL のときは `NULL < today` が false になり自然に除外される。
+ *
+ * 2本の WHERE は `recurrence = 'regular'` かどうかで完全に排他なので、id が重複することはない。
  */
 export async function completeElapsedWonProjects(): Promise<number> {
   const today = jstDate();
-  const rows = (await queryAll(
+  const singleRows = (await queryAll(
     `SELECT id FROM projects
       WHERE deleted_at IS NULL AND stage = 'a_won'
+        AND COALESCE(recurrence, 'single') != 'regular'
         AND NULLIF(event_end, '') IS NOT NULL AND event_end < ?`,
     [today],
   )) as { id: string }[];
+  const regularRows = (await queryAll(
+    `SELECT p.id FROM projects p
+      WHERE p.deleted_at IS NULL AND p.stage = 'a_won' AND p.recurrence = 'regular'
+        AND EXISTS (SELECT 1 FROM episodes e WHERE e.project_id = p.id AND e.deleted_at IS NULL)
+        AND NOT EXISTS (
+          SELECT 1 FROM episodes e
+          LEFT JOIN LATERAL (
+            SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE is_completed = true) AS done
+            FROM project_tasks
+            WHERE episode_id = e.id AND deleted_at IS NULL AND parent_task_id IS NULL
+          ) t ON true
+          WHERE e.project_id = p.id AND e.deleted_at IS NULL
+            AND (t.total = 0 OR t.done < t.total)
+        )
+        AND (
+          SELECT MAX(COALESCE(NULLIF(e.broadcast_date, ''), NULLIF(e.recording_date, '')))
+          FROM episodes e WHERE e.project_id = p.id AND e.deleted_at IS NULL
+        ) < ?`,
+    [today],
+  )) as { id: string }[];
+  const rows = [...singleRows, ...regularRows];
 
   let n = 0;
   for (const r of rows) {
