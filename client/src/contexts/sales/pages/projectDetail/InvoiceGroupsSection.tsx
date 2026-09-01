@@ -141,7 +141,7 @@ function LumpSumDialog({
           </div>
           <div>
             <label className="text-sub mb-1 block text-muted-foreground" htmlFor="invoice-lump-sum-amount">金額</label>
-            <CurrencyInput value={amount} onChange={setAmount} />
+            <CurrencyInput id="invoice-lump-sum-amount" value={amount} onChange={setAmount} />
           </div>
         </div>
       </div>

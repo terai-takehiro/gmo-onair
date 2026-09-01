@@ -7,6 +7,9 @@ interface CurrencyInputProps {
   className?: string;
   disabled?: boolean;
   placeholder?: string;
+  /** `<label htmlFor>` と結びつけるための id（積み残し6・375px実機確認で発覚。
+   * 無いと呼び出し側が id を渡しても効かず、ラベルをタップしても欄にフォーカスが移らない） */
+  id?: string;
 }
 
 function formatWithCommas(val: string): string {
@@ -16,7 +19,7 @@ function formatWithCommas(val: string): string {
 }
 
 const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
-  ({ value, onChange, className, disabled, placeholder }, ref) => {
+  ({ value, onChange, className, disabled, placeholder, id }, ref) => {
     const [display, setDisplay] = React.useState(() =>
       value ? Number(value).toLocaleString("ja-JP") : ""
     );
@@ -42,6 +45,7 @@ const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
         <input
           ref={ref}
+          id={id}
           type="text"
           inputMode="numeric"
           className={cn(
