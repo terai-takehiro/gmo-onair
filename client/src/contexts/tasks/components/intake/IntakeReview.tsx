@@ -45,7 +45,8 @@ export function IntakeReview(props: IntakeReviewProps) {
     <FormDialog
       open
       onOpenChange={(o) => { if (!o) props.onClose(); }}
-      // **背景の誤クリックで下書きを消さない**（`BusinessProjectView.tsx:1405` と同じ理由）。
+      // **背景の誤クリックで下書きを消さない**
+      // （`businessProject/RevenueDialog.tsx` の `onInteractOutside` と同じ理由）。
       // 押すまで登録しない下書き（原文・AI抽出行・編集内容）を、確認も破棄APIの呼び出しも
       // 無いまま失うのを防ぐ。閉じるには右上の × か「全部いらない」を使う
       onInteractOutside={(e) => e.preventDefault()}
