@@ -19,7 +19,7 @@ import {
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
@@ -62,7 +62,6 @@ import {
   Link2,
   Calculator,
 } from "lucide-react";
-import { AnimatedCurrency } from "@/components/ui/animated-number";
 import DiscountDialog, { DiscountResult } from "@/contexts/finance/components/DiscountDialog";
 import PricingItemPicker, { PickedPricingItem } from "@/contexts/finance/components/PricingItemPicker";
 import SimulationDialog, { SimulationAppliedItem } from "@/contexts/sales/components/SimulationDialog";
@@ -72,6 +71,7 @@ import type { RevenueItem, Revenue, Purchase, Props } from './businessProject/ty
 import { taxLabels } from './businessProject/types';
 import { handleDownloadPdf, handleDownloadExcel } from './businessProject/downloads';
 import { PurchaseList } from './businessProject/PurchaseList';
+import { SummaryCards } from './businessProject/SummaryCards';
 
 export default function BusinessProjectView({ project, projectId, isEstimateMode }: Props) {
   const navigate = useNavigate();
@@ -729,60 +729,8 @@ export default function BusinessProjectView({ project, projectId, isEstimateMode
         </div>
       )}
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-3">
-        <Card>
-          <CardHeader className="pb-1 pt-3 px-4">
-            <CardTitle className="text-xs font-normal text-muted-foreground">
-              売上高計
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3 px-4">
-            <AnimatedCurrency value={summary?.total_revenue ?? 0} className="text-lg font-bold font-number" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-1 pt-3 px-4">
-            <CardTitle className="text-xs font-normal text-muted-foreground">
-              仕入実績計
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3 px-4">
-            <AnimatedCurrency value={summary?.total_purchase ?? 0} className="text-lg font-bold font-number" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-1 pt-3 px-4">
-            <CardTitle className="text-xs font-normal text-muted-foreground">
-              粗利(実績)
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3 px-4">
-            <AnimatedCurrency value={summary?.gross_profit ?? 0} className="text-lg font-bold font-number" />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Qsheet link */}
-      {project.gls_number && (
-        <Card>
-          <CardContent className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-rose-500" />
-              <div>
-                <span className="text-sm font-medium">Qシート</span>
-                <span className="text-xs text-muted-foreground ml-2">放送進行表</span>
-              </div>
-            </div>
-            <Button size="sm" variant="outline" className="gap-1" asChild>
-              <a href={`/techops?project=${projectId}`}>
-                <FileText className="h-3.5 w-3.5" />
-                Qシート管理
-              </a>
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      {/* KPI と Qシートへの入口（中身は businessProject/SummaryCards.tsx） */}
+      <SummaryCards project={project} projectId={projectId} summary={summary} />
 
       {/* 月次請求 (ビジネス案件の月締め請求単位) — 1月 = 1請求単位 (GLS-XXXX-YYMM) */}
       {monthlyMode && (
