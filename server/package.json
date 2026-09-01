@@ -15,6 +15,7 @@
     "db:seed:tasks": "tsx src/shared/db/seed-tasks.ts",
     "db:seed:awards": "tsx src/shared/db/seed-awards.ts",
     "db:seed:rental": "tsx src/shared/db/seed-rental.ts",
+    "db:seed:graphics": "tsx src/shared/db/seed-graphics.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

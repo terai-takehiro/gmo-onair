@@ -15,7 +15,7 @@
 import { Link } from "react-router-dom";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { FileText, CalendarDays, Settings2, Package, Timer, ChevronRight } from "lucide-react";
+import { FileText, CalendarDays, Settings2, Package, Timer, Type, ChevronRight } from "lucide-react";
 import type { ElementType } from "react";
 import { cn } from "@/lib/utils";
 import { MINI_APP_BY_KEY, panelPathOf } from "@gmo-onair/shared/src/production/miniapps";
@@ -112,6 +112,16 @@ export default function MiniAppTiles({ scope, id, days }: MiniAppTilesProps) {
       description: "タイマー・視聴者数",
       icon: Timer,
       to: panelPathOf("liveops", id),
+      count: null,
+    },
+    // テロップCG（旧リアルタイムCGの後継・docs/design/v4/graphics.md）。
+    // resolve が project / program 両 scope の owner を受けるので、どちらのハブでも出す
+    {
+      key: "graphics",
+      label: MINI_APP_BY_KEY.graphics.label,
+      description: "テロップ・CGの送出",
+      icon: Type,
+      to: panelPathOf("graphics", id),
       count: null,
     },
   ];

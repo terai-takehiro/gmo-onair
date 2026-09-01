@@ -15,9 +15,10 @@
  * 内訳は上位だけを出す（＝全部足しても合計にならない）ので、
  * 画面側で計算すると内訳と合計が食い違います。
  *
- * ── 期間の計算は旧実装のまま ──────────────────────────────────
+ * ── 期間の計算は `financeDashboard/period.ts` ────────────────
  *
- * 月／四半期／年／期間指定の期間の作り方は1行も変えていません。
+ * 純関数に出して `shared/tests/financeDashboardPeriod.test.ts` で固定しています
+ * （月を空にすると `-01` を送って 400 になっていたため）。
  *
  * ── 内訳は「台帳へ行かないと全件見えない」を無くした ──────────
  *
@@ -30,49 +31,17 @@
  * （固定原価は案件のように増えないため従来どおり単発取得のまま）。
  */
 import { useMemo, useState } from 'react';
-import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
-import api from '@/lib/api';
-import { formatMonth } from '@/lib/format';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
-import { PeriodBar, type PeriodMode, type ProjectOption } from './financeDashboard/PeriodBar';
+import { PeriodBar, type PeriodMode } from './financeDashboard/PeriodBar';
+import { resolvePeriod } from './financeDashboard/period';
+import { useDashboardData, EMPTY_SUMMARY, type MonthlySummary } from './financeDashboard/useDashboardData';
+import type { PurchaseRow } from './ledger/types';
 import { ProfitFlow, type FlowStep } from './financeDashboard/ProfitFlow';
 import { BreakdownColumn, type BreakdownItem } from './financeDashboard/Breakdown';
 import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth';
 
-interface MonthlySummary {
-  month: string;
-  revenue_total: number;
-  purchase_total: number;
-  fixed_cost_total: number;
-  variable_cost_total: number;
-  marginal_profit: number;
-  gross_profit: number;
-  sga_total: number;
-  operating_profit: number;
-}
-
-const EMPTY: MonthlySummary = {
-  month: '', revenue_total: 0, purchase_total: 0, fixed_cost_total: 0,
-  variable_cost_total: 0, marginal_profit: 0, gross_profit: 0, sga_total: 0, operating_profit: 0,
-};
-
 const pad2 = (n: number) => String(n).padStart(2, '0');
-
-type PurchaseRow = {
-  id: string; gls_number?: string | null; episode_code?: string | null;
-  project_name?: string | null; vendor_name?: string | null; description?: string | null;
-  amount: number; is_provisional?: boolean;
-};
-
-/** `paginatedResponse`（サーバー共通）の形。`total`/`totalPages` を badge・もっと見るに使う */
-interface PagedResponse<T> {
-  data: T[];
-  pagination?: { page: number; limit: number; total: number; totalPages: number };
-}
-
-/** サーバー共通の上限（`shared/services/pagination.ts` の `Math.min(100, …)`）に合わせたページサイズ */
-const PAGE_SIZE = 100;
 
 export default function BudgetDashboardPage() {
   const now = new Date();
@@ -85,126 +54,29 @@ export default function BudgetDashboardPage() {
   const [rangeTo, setRangeTo] = useState(curYm);
   const [projectId, setProjectId] = useState('');
 
-  // 集計期間を [from, to] (YYYY-MM-DD) + 表示ラベルに正規化（旧実装のまま）
-  const period = useMemo(() => {
-    if (mode === 'quarter') {
-      const sm = (quarter - 1) * 3 + 1;
-      const em = sm + 2;
-      return { from: `${year}-${pad2(sm)}-01`, to: `${year}-${pad2(em)}-31`, label: `${year}年 ${quarter}Q（${sm}〜${em}月）` };
-    }
-    if (mode === 'year') return { from: `${year}-01-01`, to: `${year}-12-31`, label: `${year}年（1〜12月 合算）` };
-    if (mode === 'range') {
-      const [f, t] = rangeFrom <= rangeTo ? [rangeFrom, rangeTo] : [rangeTo, rangeFrom];
-      return { from: `${f}-01`, to: `${t}-31`, label: `${formatMonth(`${f}-01`)} から ${formatMonth(`${t}-01`)}` };
-    }
-    return { from: `${month}-01`, to: `${month}-31`, label: formatMonth(`${month}-01`) };
-  }, [mode, month, year, quarter, rangeFrom, rangeTo]);
-
   /*
-   * ⚠️ **`/projects?limit=500` は実は 100 件しか返らない**（ご指摘の再現例
-   * GLS-A004「GMOアワード2026」で発覚）。`limit` は共通の `extractPagination`
-   * （`shared/services/pagination.ts`）が `Math.min(100, …)` で無条件に切るため、
-   * `?limit=500` と書いても静かに 100 件へ落ちる。しかも既定の並び順
-   * (`DEFAULT_SORT_SQL`) は「完了/失注は最後」なので、GMOアワード2026 のように
-   * **開催済み（`s_completed`）の案件から真っ先に 100 件の外へ押し出される**。
-   *
-   * `client/CLAUDE.md`「受注確定した案件の絞り込みは stage が正」の節のとおり、
-   * 受注確定済みの一覧は `project.service.ts` の `getWonProjects()`
-   * （`stage IN ('a_won','s_completed')`・**上限なし**）を使うのが正しい形で、
-   * 現に同関数のコメントは「予算詳細」もこの一覧の利用先として挙げている
-   * （仕入・売上・精算PDF取込レビュー・書類引き渡しの案件プルダウンと同じ）。
-   * ここが `/projects?limit=500` のままだったのが今回のズレの本体。
+   * **案件を選んだら期間は「全期間」にする**（ご要望）。案件は「その月に計上がある」
+   * とは限らず、既定の今月のままだとほぼ必ず ¥0 の画面になる。そこから期間を外そうと
+   * して月の欄を空にする、というのが今回のエラー報告の導線だった。
+   * ⚠️ **切り替えるのは「絞っていない → 案件を選んだ」ときだけ**（毎回戻すと選び直す
+   * たびに期間が飛ぶ）。解除したら元の期間へ戻す。
    */
-  const { data: projectsData } = useQuery({
-    queryKey: ['won-projects-for-budget-dashboard'],
-    queryFn: async () => (await api.get('/projects/won-projects')).data,
-    staleTime: 120_000,
-  });
-  /*
-   * **`won-projects` だけでも足りない。** 受注確定（`a_won`/`s_completed`）より
-   * 前のステージ・削除済みでも、按分や過去の入力で `revenues`/`purchases` に
-   * 実績が残っていることがある。そちらを取りこぼさないよう、上限を持たない
-   * `/projects-with-activity`（内訳＝`revenues`/`purchases` の LEFT JOIN と同じ集合）
-   * を合わせて出す
-   */
-  const { data: activeProjectsData } = useQuery({
-    queryKey: ['projects-with-activity', period.from, period.to],
-    queryFn: async () => (await api.get('/projects-with-activity', {
-      params: { from: period.from, to: period.to },
-    })).data,
-    enabled: !!period.from,
-    staleTime: 60_000,
-  });
-  const projects: ProjectOption[] = useMemo(() => {
-    const base: ProjectOption[] = projectsData?.data ?? [];
-    const extra: ProjectOption[] = activeProjectsData?.data ?? [];
-    const seen = new Set(base.map((p) => p.id));
-    return [...base, ...extra.filter((p) => !seen.has(p.id))];
-  }, [projectsData, activeProjectsData]);
+  const [modeBeforeProject, setModeBeforeProject] = useState<PeriodMode | null>(null);
+  const selectProject = (id: string) => {
+    if (id && !projectId) { setModeBeforeProject(mode); setMode('all'); }
+    if (!id && projectId) { if (modeBeforeProject) setMode(modeBeforeProject); setModeBeforeProject(null); }
+    setProjectId(id);
+  };
 
-  const summaryQuery = useQuery({
-    queryKey: ['budget-monthly-summary', period.from, period.to, projectId],
-    queryFn: async () => {
-      const params: Record<string, string> = { from: period.from, to: period.to };
-      if (projectId) params.project_id = projectId;
-      return (await api.get('/monthly-summary', { params, timeout: 20_000 })).data;
-    },
-    enabled: !!period.from,
-    retry: 1,
-  });
-  const s: MonthlySummary = (summaryQuery.data?.data as MonthlySummary) ?? EMPTY;
-
-  const revenues = useInfiniteQuery({
-    queryKey: ['budget-breakdown-revenues', period.from, period.to, projectId],
-    queryFn: async ({ pageParam }) => {
-      // 合計 (monthly-summary) は確定売上だけを数えているので内訳も confirmed に揃える
-      const params: Record<string, string | number> = {
-        recognition_from: period.from, recognition_to: period.to, limit: PAGE_SIZE, page: pageParam, status: 'confirmed',
-      };
-      if (projectId) params.project_id = projectId;
-      return (await api.get('/revenues', { params })).data as PagedResponse<any>; // 行の形は revItems 側で個別に絞る
-    },
-    initialPageParam: 1,
-    getNextPageParam: (last) => (last.pagination && last.pagination.page < last.pagination.totalPages ? last.pagination.page + 1 : undefined),
-    enabled: !!period.from,
-  });
-
-  // 仕入(変動原価): 固定原価Pjを除く。固定原価は gls_number=NULL で既定ソートの末尾に来るため、
-  // 同じクエリだと limit 内に入らず消える（旧実装のコメントのまま）
-  const purchases = useInfiniteQuery({
-    queryKey: ['budget-breakdown-purchases', period.from, period.to, projectId],
-    queryFn: async ({ pageParam }) => {
-      const params: Record<string, string | number> = {
-        recognition_from: period.from, recognition_to: period.to, limit: PAGE_SIZE, page: pageParam, fixed_cost: '0',
-      };
-      if (projectId) params.project_id = projectId;
-      return (await api.get('/purchases', { params })).data as PagedResponse<PurchaseRow>;
-    },
-    initialPageParam: 1,
-    getNextPageParam: (last) => (last.pagination && last.pagination.page < last.pagination.totalPages ? last.pagination.page + 1 : undefined),
-    enabled: !!period.from,
-  });
-
-  // 固定原価は案件に紐づかない。案件で絞り込み中は「限界利益まで」しか出さないので取りに行かない。
-  // 償却負担額など全社共通の少数の行しか無い想定のため、こちらは単発取得のまま（「もっと見る」を持たない）
-  const fixed = useQuery({
-    queryKey: ['budget-breakdown-fixed', period.from, period.to],
-    queryFn: async () => (await api.get('/purchases', {
-      params: { recognition_from: period.from, recognition_to: period.to, limit: PAGE_SIZE, fixed_cost: '1' },
-    })).data as PagedResponse<PurchaseRow>,
-    enabled: !!period.from && !projectId,
-  });
-
-  // 販管費は案件に紐づかないので、案件で絞っているときは取りに行かない
-  const sga = useInfiniteQuery({
-    queryKey: ['budget-breakdown-sga', period.from, period.to],
-    queryFn: async ({ pageParam }) => (await api.get('/sga', {
-      params: { recognition_from: period.from, recognition_to: period.to, limit: PAGE_SIZE, page: pageParam },
-    })).data as PagedResponse<any>,
-    initialPageParam: 1,
-    getNextPageParam: (last) => (last.pagination && last.pagination.page < last.pagination.totalPages ? last.pagination.page + 1 : undefined),
-    enabled: !!period.from && !projectId,
-  });
+  // 期間の正規化と、送るパラメータの組み立ては `financeDashboard/period.ts`
+  // （純関数にして `shared/tests/financeDashboardPeriod.test.ts` で固定してある）
+  const period = useMemo(
+    () => resolvePeriod({ mode, month, year, quarter, rangeFrom, rangeTo }),
+    [mode, month, year, quarter, rangeFrom, rangeTo],
+  );
+  const { projects, summaryQuery, revenues, purchases, fixed, sga, periodReady } =
+    useDashboardData(period, projectId);
+  const s: MonthlySummary = (summaryQuery.data?.data as MonthlySummary) ?? EMPTY_SUMMARY;
 
   // 読み込み済みページを1本の配列に展開。**件数の badge には使わない**（読み込み済み分でしかない）
   const revenueRows = useMemo(() => revenues.data?.pages.flatMap((p) => p.data) ?? [], [revenues.data]);
@@ -290,7 +162,9 @@ export default function BudgetDashboardPage() {
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
       <PageHeader
         title="財務ダッシュボード"
-        sub={`${period.label} ・ 確定売上ベース ・ ${projectId ? '案件で絞り込み中（販管費は対象外）' : '全案件（販管費を含む）'}`}
+        sub={periodReady
+          ? `${period.label} ・ 確定売上ベース ・ ${projectId ? '案件で絞り込み中（販管費は対象外）' : '全案件（販管費を含む）'}`
+          : '期間を選んでください'}
       />
 
       <PeriodBar
@@ -300,10 +174,19 @@ export default function BudgetDashboardPage() {
         quarter={quarter} setQuarter={setQuarter}
         rangeFrom={rangeFrom} setRangeFrom={setRangeFrom}
         rangeTo={rangeTo} setRangeTo={setRangeTo}
-        projects={projects} projectId={projectId} setProjectId={setProjectId}
+        projects={projects} projectId={projectId} setProjectId={selectProject}
       />
 
-      {summaryQuery.isError ? (
+      {/*
+        * 期間が入っていないときは読み込みに行かない。**何を待っているのか書かないと固まって見える**。
+        * ⚠️ **数字は1つも出さない。** 読みに行っていないので、ここで ¥0 を出すと
+        * 「0 と分かった」と読めてしまう（実際は「まだ数えていない」）。
+        */}
+      {!periodReady ? (
+        <div className="rounded-card border border-border bg-card p-3 text-sub text-secondary-foreground lg:px-4">
+          {period.label}（期間を外して見たいときは「全期間」を選んでください）
+        </div>
+      ) : summaryQuery.isError ? (
         <ErrorPanel
           title="損益を読み込めませんでした"
           error={summaryQuery.error}

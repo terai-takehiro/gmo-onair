@@ -42,6 +42,12 @@ services:
       DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@db:5432/onair_prod
       NODE_ENV: production
       PORT: 3000
+      # DB 接続プール。既定は server/src/shared/db/connection.ts（20本 / 10秒 / 60秒）。
+      # **本番・検証・スクレイパー2本が同じ Postgres を共有する**ので、詰まったときに
+      # 再ビルドせず絞れるよう外から渡せるようにしてある
+      DB_POOL_MAX: ${DB_POOL_MAX:-}
+      DB_CONNECTION_TIMEOUT_MS: ${DB_CONNECTION_TIMEOUT_MS:-}
+      DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-}
       JWT_SECRET: ${JWT_SECRET}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
@@ -151,6 +157,10 @@ services:
       # 同期するようになったため、app_dev 自身のダミーサンプル投入（seed-rental.ts・8件）は
       # 止める。両方走らせると「見えている件数が実データかサンプルか」を画面から区別できなくなる
       SKIP_RENTAL_SEED: "true"
+      # DB 接続プール（既定は connection.ts）。検証だけ分けたいときは _DEV を作る
+      DB_POOL_MAX: ${DB_POOL_MAX_DEV:-${DB_POOL_MAX:-}}
+      DB_CONNECTION_TIMEOUT_MS: ${DB_CONNECTION_TIMEOUT_MS_DEV:-${DB_CONNECTION_TIMEOUT_MS:-}}
+      DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS_DEV:-${DB_STATEMENT_TIMEOUT_MS:-}}
       # JWT_SECRET_DEV must be set in .env (no insecure fallback). Generate with: openssl rand -hex 32
       JWT_SECRET: ${JWT_SECRET_DEV:?JWT_SECRET_DEV is required (openssl rand -hex 32)}
       CLIENT_URL: https://dev.gmo-onair.jp
