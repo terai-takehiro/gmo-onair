@@ -2,7 +2,7 @@
 //
 // ⚠️ このアプリはまだ shared/src/client-v4/pcOnly.tsx の実際のゲートに載せ替えていない
 // （client-techops/CLAUDE.md）。ここでは自前の簡易な PC 専用案内を出す。
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -88,7 +88,9 @@ export default function ScheduleTemplateSettingsPage() {
 
         <div className="col-span-2">
           {selected ? (
-            <TemplateDetail template={selected} onDelete={() => deleteMutation.mutate(selected.id)} />
+            // key={selected.id}: ひな形を切り替えても `itemColumnId` 等の内部 state が
+            // 前のひな形の値のまま残ると、別ひな形の列 id へ項目を追加してしまう
+            <TemplateDetail key={selected.id} template={selected} onDelete={() => deleteMutation.mutate(selected.id)} />
           ) : (
             <p className="text-sm text-muted-foreground">左からひな形を選んでください。</p>
           )}
@@ -104,6 +106,14 @@ function TemplateDetail({ template, onDelete }: { template: ScheduleTemplate; on
   const [colLabel, setColLabel] = useState("");
   const [itemColumnId, setItemColumnId] = useState(template.columns[0]?.id ?? "");
   const [itemTitle, setItemTitle] = useState("");
+
+  // 選んでいた列が消えたら（同じひな形のまま列を削除した場合）先頭の列へ落とす。
+  // stale な列 id のまま「項目を足す」を押すと、存在しない・別の列へ送ってしまう
+  useEffect(() => {
+    setItemColumnId((prev) => (
+      template.columns.some((c) => c.id === prev) ? prev : (template.columns[0]?.id ?? "")
+    ));
+  }, [template.columns]);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["schedule-templates", null] });
 

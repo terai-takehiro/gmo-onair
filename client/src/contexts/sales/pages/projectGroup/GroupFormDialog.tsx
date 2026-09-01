@@ -3,7 +3,7 @@
  *
  * **メンバーは2案件以上**（`disabled` の条件）。1件だけでは按分にならない。
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
 import api from '@/lib/api';
@@ -28,6 +28,16 @@ export function GroupFormDialog({
   const [name, setName] = useState(editing?.name ?? '');
   const [desc, setDesc] = useState(editing?.description ?? '');
   const [selectedIds, setSelectedIds] = useState<string[]>(editing?.members.map((m) => m.id) ?? []);
+
+  // **editing は react-query（useQuery(['project-group-detail', id])）由来**で、
+  // ダイアログを開いたまま裏で（他のタブ・別の操作の invalidate で）再フェッチされうる。
+  // props → state のコピーが初期値だけだと、開いたあとの更新に追随できず、
+  // 古い内容のまま保存して直前の変更を巻き戻してしまう
+  useEffect(() => {
+    setName(editing?.name ?? '');
+    setDesc(editing?.description ?? '');
+    setSelectedIds(editing?.members.map((m) => m.id) ?? []);
+  }, [editing]);
 
   const { data } = useQuery({
     queryKey: ['gls-projects-for-groups'],

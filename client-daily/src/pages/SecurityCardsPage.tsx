@@ -275,6 +275,7 @@ export default function SecurityCardsPage() {
           </div>
           <div className="min-w-0 lg:w-[400px] lg:shrink-0">
             <CardDetailPanel
+              key={selected?.id ?? 'none'}
               card={selected}
               canEdit={canEdit}
               onLend={() => setDialog('lend')}
@@ -299,6 +300,7 @@ export default function SecurityCardsPage() {
           sub={STUDIO_LABEL}
         >
           <CardDetailPanel
+            key={selected.id}
             card={selected}
             canEdit={canEdit}
             onLend={() => setDialog('lend')}

@@ -20,7 +20,7 @@
  * 工事の工程で時刻まで決まっていることは無く、ひな形から写したタスクと
  * 形が変わってしまいます。
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
 import api from '@/lib/api';
@@ -59,6 +59,21 @@ export function TaskDialog({
   const [phaseId, setPhaseId] = useState(task?.phase_id ?? defaultPhaseId ?? '');
   const [progress, setProgress] = useState(task?.progress ?? 0);
   const [isMilestone, setIsMilestone] = useState(task?.is_milestone ?? false);
+
+  // **task は react-query 由来で、開いたまま裏で更新されうる**（同じ行の完了チェックなど）。
+  // 呼び出し元の key だけでは「同じタスクの中身が裏で変わった」場合まで拾えないので、
+  // ここでも再同期する（EditProjectDialog と同じ落とし穴を踏まないため）
+  useEffect(() => {
+    setTitle(task?.title ?? '');
+    setDescription(task?.description ?? '');
+    setAssignedTo(task?.assigned_to ?? '');
+    setStartDate(ymd(task?.start_date) ?? '');
+    setDueDate(ymd(task?.due_at) ?? '');
+    setPhaseId(task?.phase_id ?? defaultPhaseId ?? '');
+    setProgress(task?.progress ?? 0);
+    setIsMilestone(task?.is_milestone ?? false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task]);
 
   const save = useMutation({
     mutationFn: () => {

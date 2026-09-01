@@ -9,7 +9,7 @@
  * 以前は `onSuccess` しか渡していないので、失敗すると閉じずに黙っていた
  * (押した人には「効かないボタン」に見える)。
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Button } from '@/components/ui/button';
@@ -53,6 +53,33 @@ export function InviewDialog({
   });
   const [companionsText, setCompanionsText] = useState(initialCompanionNames.join('\n'));
   const pending = create.isPending || update.isPending;
+
+  // **initial は一覧（react-query）由来で、ダイアログを開いたまま裏で
+  // 更新されうる**（同じ来場者を選び直した・一覧が invalidate された等）。
+  // props → state のコピーが初期値だけだと、開いたあとの更新に追随できず、
+  // 古い内容のまま保存して直前の変更を巻き戻してしまう
+  useEffect(() => {
+    const names = (initial ? companionsOf(initial) : []).map((c) => c.name);
+    setF({
+      session_label: initial?.session_label ?? presetSessionLabel ?? '',
+      name: initial?.name ?? '',
+      furigana: initial?.furigana ?? '',
+      email: initial?.email ?? '',
+      company: initial?.company ?? '',
+      role: initial?.role ?? '',
+      postal_code: initial?.postal_code ?? '',
+      address: initial?.address ?? '',
+      phone: initial?.phone ?? '',
+      mobile: initial?.mobile ?? '',
+      fax: initial?.fax ?? '',
+      party_size: initial?.party_size ?? 1,
+      companions: names,
+      visit_time: initial?.visit_time ?? '',
+      interests: initial?.interests ?? '',
+      notes: initial?.notes ?? '',
+    });
+    setCompanionsText(names.join('\n'));
+  }, [initial, presetSessionLabel]);
 
   const submit = () => {
     const payload: InviewInput = {
