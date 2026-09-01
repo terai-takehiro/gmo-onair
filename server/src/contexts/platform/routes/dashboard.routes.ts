@@ -15,6 +15,16 @@ import { completeElapsedWonProjects, healthSql, stalledDaysSql } from '../../sal
  * テーマ1 C-1a）。ここに書き写すと版・group_id の扱いが2か所に増え、ずれる。
  */
 import { ESTIMATE_AMOUNT_LATERAL } from '../../sales/services/project.service';
+/**
+ * 「未対応の次回アクション」の判定は **1本だけ**（migration 245）。
+ * ここに写すと、営業活動記録・週報・MCP と**違う集合を同じ名前で呼ぶ**ことになる。
+ */
+import { OPEN_NEXT_ACTION_SQL } from '../../../shared/services/next-action-state';
+/**
+ * 「今日さばくもの」の条件は日常業務と同じ1本（migration 247）。
+ * 受信箱だけ違う集合を数えると、同じ画面の2か所で件数が食い違う。
+ */
+import { DESK_COND } from '../../dailyops/services/inbox.service';
 
 const router = Router();
 
@@ -79,7 +89,15 @@ router.get('/inbox', requireAuth, requireAnyPermission(['sales', 'dailyops']), a
        AND p.stage NOT IN ('s_completed','e_lost') AND p.deleted_at IS NULL`;
   // 171: 正は state 列。handled_at で絞ると、仕分け済みなのに
   // 記録が打たれていない行が受信箱に残り続ける
-  const INQUIRY_BASE = `FROM misc_inquiries WHERE deleted_at IS NULL AND state = 'unsorted'`;
+  /*
+   * ⚠️ **「まだ仕分けていない情報」の条件は日常業務と同じ1本**（`DESK_COND`）。
+   *
+   * ここは長らく `state = 'unsorted'` だけを数えていて、日常業務の画面と
+   * ホームのタイル（`GET /dailyops/alerts`）と**違う件数**を出していた。
+   * migration 247 で「ストックは見直す日が来たら机に戻る」ようになったので、
+   * 写したままだと**戻ってきたストックが受信箱にだけ出ない**（気づけない）。
+   */
+  const INQUIRY_BASE = `FROM misc_inquiries i WHERE i.deleted_at IS NULL AND ${DESK_COND}`;
   // **見積書（quote）は台帳に入らない**（実際に仕入・販管費になるのは請求書・注文書だけ。
   // ユーザー指摘）。受信箱に出しても「台帳に入れる」までたどり着けない行が並ぶだけなので、
   // ここで最初から外す。`financeDocService.list()`（受け取った書類の一覧本体）・
@@ -108,7 +126,7 @@ router.get('/inbox', requireAuth, requireAnyPermission(['sales', 'dailyops']), a
           `SELECT id, sender, subject, summary, category, importance, action_needed, url,
                   received_at, created_at
            ${INQUIRY_BASE}
-           ORDER BY created_at ASC
+           ORDER BY i.created_at ASC
            LIMIT 100`
         )
       : Promise.resolve([]),
@@ -318,18 +336,20 @@ router.get('/alerts', async (_req, res) => {
 // （実測: 未確認の AI 起票 124 件 → バッジは 50、未仕分けの問い合わせ 132 件 → 100）。
 // しかも**エラーは出ず、増えるほどズレが広がる**ので誰も報告できない。
 //
-// 「次の一手」の共通条件（未完了の次回アクション × 進行中の案件）。
+// 「次の一手」の共通条件（未対応の次回アクション × 進行中の案件）。
 // 超過（< 今日・受信箱）と「今日の営業」（<= 今日・今日期限も含む）は
 // **この1本から日付の切り方だけ**を変えて組む — 条件を写すと片方だけ直る。
+//
+// ⚠️ 判定そのものは**アプリ全体で1本**（`OPEN_NEXT_ACTION_SQL`・migration 245）。
+// ここは以前から終了案件を除いていたが、**同じ言葉を使う他の6か所は除いていなかった**
+// ので、写しをやめて全部が同じ式を読む形にした。
 const NEXT_MOVES_CORE =
   `FROM activity_logs a
    JOIN projects p ON p.id = a.project_id
    LEFT JOIN users u ON u.id = a.user_id
    LEFT JOIN companies c ON c.id = p.customer_id
-   WHERE a.deleted_at IS NULL AND p.deleted_at IS NULL
-     AND p.stage NOT IN ('s_completed','e_lost')
-     AND a.next_action IS NOT NULL AND a.next_action_date IS NOT NULL
-     AND a.next_action_done_at IS NULL`;
+   WHERE ${OPEN_NEXT_ACTION_SQL}
+     AND p.deleted_at IS NULL`;
 
 const OVERDUE_ACTIONS_BASE = `${NEXT_MOVES_CORE}
      AND a.next_action_date < CURRENT_DATE::text`;

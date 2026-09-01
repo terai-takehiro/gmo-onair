@@ -50,14 +50,26 @@ const EXTERNAL_SUBFOLDERS = [
 
 export type CustomerType = 'internal' | 'external';
 
-/** BOX のファイル/フォルダ名で使えない文字を除去 (`/ \ : ? * | " < >`) */
-function sanitizeFolderName(name: string): string {
+/**
+ * BOX のファイル/フォルダ名で使えない文字を除去 (`/ \ : ? * | " < >`)
+ *
+ * **`box-lost-cleanup.service.ts` が読みます** — 失注の片づけは
+ * 「このアプリならこう名付けたはず」を組み立てて BOX の実物と突き合わせるので、
+ * **同じ関数で正規化しないと一致しません**（写すと片方だけ直した日にずれる）。
+ */
+export function sanitizeFolderName(name: string): string {
   return name.replace(/[/\\:?*|"<>]/g, '').trim() || 'untitled';
 }
 
-// フォルダ名の頭に付与して社内/社外を一目で判別できるようにする
-const INTERNAL_PREFIX = '【社内】';
-const EXTERNAL_PREFIX = '【社外】';
+/*
+ * フォルダ名の頭に付与して社内/社外を一目で判別できるようにする。
+ *
+ * **`box-lost-cleanup.service.ts` が安全弁として読みます** — 失注の片づけで
+ * 触ってよいのは「このアプリが作った形の名前」だけなので、写さずここから借ります
+ * （写すと、片方だけ言い換えた日に**他人のフォルダを消せる**ようになる）。
+ */
+export const INTERNAL_PREFIX = '【社内】';
+export const EXTERNAL_PREFIX = '【社外】';
 
 function getInternalParentFolderId(): string | null {
   return process.env.BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL || null;

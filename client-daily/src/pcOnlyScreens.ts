@@ -6,14 +6,19 @@
  */
 import type { PcOnlyEntry } from '@gmo-onair/shared/src/client-v4/pcOnly';
 
-export const DAILY_PC_ONLY: PcOnlyEntry[] = [
-  {
-    path: '/inquiries',
-    what: '入ってきた情報',
-    why: '差出人・要件・希望日・人数・予算が横に並ぶ一覧で、仕分けて案件にするまでを続けて行う画面です。',
-    instead: { label: 'やることを開く', to: '/tasks' },
-  },
-];
+/**
+ * ⚠️ **いまは 0 件です**（247）。
+ *
+ * 唯一残っていた「入ってきた情報」を外しました。日常業務は**現場で開くアプリ**
+ * なのに、仕分けの机だけスマホから開けず、探す画面から押しても案内に着いて
+ * 行き止まりになっていました（`SearchPage.tsx` にその但し書きが残っていたほど）。
+ * 表の列を折り返すのではなく**スマホ専用の2行カード**（`inquiries/InquiryCards.tsx`）
+ * に組み直しています（`client/src/contexts/gpm/pages/taskList/TaskCards.tsx` と同じ作り）。
+ *
+ * 空でも**この表は消さないこと** — `scripts/check-mobile-declared.mjs` が
+ * この2つの表と `App.tsx` のルートを突き合わせています。
+ */
+export const DAILY_PC_ONLY: PcOnlyEntry[] = [];
 
 /**
  * **スマホの左メニューから落とすルート**（`hidden: true` の分）。
@@ -35,4 +40,5 @@ export const DAILY_MOBILE_OK: string[] = [
   '/inview/:date',     // 当日の受付 — **現場でいちばん使う**
   '/security-cards',   // カードの貸出・返却
   '/search',           // 探す — **スマホの下タブ3つ目**（M9）
+  '/inquiries',        // 入ってきた情報 — 247 で PC 専用をやめた（スマホは2行カード）
 ];

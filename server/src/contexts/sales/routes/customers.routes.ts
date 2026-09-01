@@ -4,6 +4,11 @@ import { requireAuth, requirePermission } from '../../../shared/middleware/auth'
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { createCustomerRecord, updateCompanyDirectory } from '../../../shared/services/company-directory.service';
+/**
+ * 「未対応の次回アクション」の判定は **1本だけ**（migration 245）。
+ * 顧客360°の件数だけ広い集合を数えると、押しても行き先の無い数字が出る。
+ */
+import { OPEN_NEXT_ACTION_SQL } from '../../../shared/services/next-action-state';
 
 const router = Router();
 
@@ -98,10 +103,14 @@ router.get('/:id/overview', async (req, res) => {
          (SELECT MAX(a.activity_date) FROM activity_logs a
           LEFT JOIN projects p ON p.id = a.project_id
           WHERE a.deleted_at IS NULL AND (a.customer_id = ? OR p.customer_id = ?)) AS last_contact_date,
+         -- 未対応のやること。⚠️ 判定は共通の1本（OPEN_NEXT_ACTION_SQL・migration 245）。
+         -- 前はここだけ式が2つ足りず、**期限の無いやること**と
+         -- **失注・完了した案件のやること**まで数えていた。件数だけが大きく出て、
+         -- 押しても一覧のどこにも無いので、画面から食い違いに気づけなかった。
          (SELECT COUNT(*) FROM activity_logs a
           LEFT JOIN projects p ON p.id = a.project_id
-          WHERE a.deleted_at IS NULL AND (a.customer_id = ? OR p.customer_id = ?)
-            AND a.next_action IS NOT NULL AND a.next_action_done_at IS NULL) AS open_actions`,
+          WHERE (a.customer_id = ? OR p.customer_id = ?)
+            AND ${OPEN_NEXT_ACTION_SQL}) AS open_actions`,
       [id, id, id, id, id, id, id]
     ),
     // 案件リスト (進行中を先頭・イベント日降順) + 実績集計
@@ -122,6 +131,9 @@ router.get('/:id/overview', async (req, res) => {
     queryAll(
       `SELECT a.id, a.activity_type, a.subject, a.description, a.activity_date,
               a.next_action, a.next_action_date, a.next_action_done_at,
+              -- 済んだ理由（人が押した＝NULL / 機械が閉じた＝失注・完了。migration 245）。
+              -- 画面はこれを見て「対応済み」ではなく「失注により終了」と正直に出す
+              a.next_action_auto_closed_reason,
               a.source_channel, a.message_id,
               a.project_id, u.name AS user_name,
               p.name AS project_name, p.gls_number AS project_gls,

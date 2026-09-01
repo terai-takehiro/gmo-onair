@@ -110,6 +110,7 @@ export function registerInboxTools(server: McpServer): void {
         '(協業・取材・採用・設備・営業資料・先の話 など。関係する GLS 番号があればそれもタグに入れてよい)。' +
         '\n\n**行き先 (state) は AI が決めない。** 取り込んだものは必ず「未仕分け」で入り、' +
         '人が ストック / チケット(案件管理のタスクになる) / 案件の受付へ送る / 見送り のどれかに仕分ける。' +
+        '（ストックは「捨てた」ではない — 見直す日が付き、その日が来ると未仕分けと同じ扱いで机に戻る）' +
         'その仕分けの結果は `get_ai_feedback_digest` (kind=inquiry_intake) の見送り率として返ってくるので、' +
         '**取り込む前に一度読み、拾いすぎていないかを確かめること。**' +
         '\n\nmessage_id を渡すと再取込時に重複せず更新される。',
@@ -166,19 +167,30 @@ export function registerInboxTools(server: McpServer): void {
       description:
         'その他問い合わせを一覧する。importance / state / tag で絞り込める。' +
         'state は unsorted(未仕分け) / stock(ストック) / ticket(チケットにした) / project(案件にした) / dropped(見送り)。' +
-        'unhandled=true は未仕分けのみ (state=unsorted と同じ)。',
+        'unhandled=true は未仕分けのみ (state=unsorted と同じ)。' +
+        '\n\n**desk=true が「今日さばくもの」**（未仕分け ＋ 見直しの日が来たストック）。' +
+        'ストックには見直す日 (stock_review_on) が付いており、その日が来ると未仕分けと同じ扱いで机に戻る。' +
+        '見直す日が空のストックも「決めるために」机に出る（画面・ホームのバッジと同じ判定）。' +
+        '\n\n⚠️ **返す件数には上限がある**（既定 50・最大 200）。全体の件数を知りたいときは ' +
+        'total ではなくアプリの一覧（`/daily/inquiries`）を見ること — ' +
+        'total は「この呼び出しで返した件数」であって全件数ではない。',
       inputSchema: {
         importance: z.enum(['high', 'medium', 'low']).optional(),
         state: z.enum(INQUIRY_STATES).optional().describe('行き先で絞る'),
         tag: z.string().optional().describe('このタグが付いたものだけ'),
         unhandled: z.boolean().optional().describe('true で未仕分けのみ'),
+        desk: z.boolean().optional().describe('true で「今日さばくもの」(未仕分け + 見直しの日が来たストック)'),
+        limit: z.number().int().min(1).max(200).optional().describe('返す件数 (既定 50・最大 200)'),
       },
     },
     async (args) => runTool(async () => {
       const rows = await inquiryService.list({
-        importance: args.importance, state: args.state, tag: args.tag, unhandledOnly: args.unhandled,
+        importance: args.importance, state: args.state, tag: args.tag,
+        unhandledOnly: args.unhandled, deskOnly: args.desk, limit: args.limit,
       });
-      return ok({ total: rows.length, inquiries: rows });
+      // **`total` は「返した件数」**（上限で切れている可能性がある）。
+      // 全件のつもりで読ませないよう `limited` を添える
+      return ok({ total: rows.length, limited: rows.length >= (args.limit ?? 50), inquiries: rows });
     }),
   );
 }

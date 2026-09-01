@@ -26,6 +26,73 @@ import {
  */
 import { healthSql, stalledDaysSql, HEALTH_FILTERS } from './project-health';
 import { jstDate } from '../../../shared/utils/jst';
+/**
+ * 終了ステージに入ったら次回アクションを閉じ、戻ったら開き直す（migration 245）。
+ * **ステージ変更の集約点（`recordStageTransition`）から呼ぶ** — 経路ごとに書くと、
+ * 新しい経路が増えるたびにゴミの出どころが1つ増える。
+ */
+import { syncNextActionsForStageSafe } from '../../../shared/services/next-action-state';
+/**
+ * **失注・見送りの BOX フォルダの片づけも同じ集約点から呼ぶ**（migration 248）。
+ * 中身が1つも無ければ削除・あれば `99_失注・見送り` へ引っ越す。失注から戻せば元へ返る。
+ * 失敗してもステージ変更は止めない（`...Safe`）。
+ */
+import {
+  syncBoxFoldersForStageSafe, relinkProjectFolders, summarizeSkipReasons, cleanupOrphanFolders,
+  archiveDoneProjectFolders, countDoneFoldersToArchive,
+  type RelinkResult, type SkipReason, type OrphanResult, type DoneArchiveResult,
+} from './box-lost-cleanup.service';
+import { isBoxConfigured } from '../../../shared/services/box';
+
+/**
+ * **片づけの対象にするゴミ案件。**
+ *
+ * ⚠️ **台帳から外した（`deleted_at` を入れた）案件も対象に残すこと。**
+ * ユーザー報告（2026-08-31）「BOX の削除コマンドが表示されなくなりました。
+ * おそらく台帳から削除したからかと思います」— そのとおりでした。
+ *
+ * 以前はここが `deleted_at IS NULL` で絞っていたため、**台帳から外した瞬間に
+ * その案件の BOX フォルダは候補から落ち、以後どの導線からも片づけられません**
+ * でした（現役の場所に残ったまま、指すものが誰にも見えなくなる）。
+ * #495 の棚卸しに ❌ で書いておきながら塞いでいなかった穴です。
+ *
+ * ⚠️ **「普通に削除された案件」まで巻き込まない。** 対象は
+ *   - 失注（`e_lost`）… 台帳にあってもなくても片づける
+ *   - 台帳から外したネタ（`neta` かつ `deleted_at` あり）… まとめて外したぶん
+ * の2つだけ。**現役のネタ**や、人が別の理由で消した受注済み案件は触りません
+ * （間違えて消した案件の BOX フォルダまで動かすと、戻すときに困ります）。
+ */
+const LOST_BOX_JUNK_SQL = `stage IN ('e_lost', 'neta')`;
+
+/**
+ * 片づけ待ちの案件を選ぶ条件。**件数と対象で必ず同じものを使う**
+ * （写すと「10件と出ているのに押すと3件しか進まない」が起きる）。
+ */
+const LOST_BOX_CLEANUP_TARGET_SQL = `FROM projects
+   WHERE ${LOST_BOX_JUNK_SQL} AND box_cleanup_state IS NULL
+     AND (box_url_internal IS NOT NULL OR box_url_external IS NOT NULL)`;
+
+/**
+ * **BOX の URL が1つも入っていない失注案件。**
+ *
+ * ⚠️ **これを数えないと帯が出ませんでした**（ユーザー報告「ほとんどのゴミ案件が
+ * 処理できていない／そもそも件数が少ない」）。古い案件は URL が空なので上の条件に
+ * 当たらず、**フォルダは BOX にあるのに片づけ待ち0件**に見えていました。
+ * BOX を見て名前で結び付け直せば片づけられるので、**候補として数えます**。
+ */
+/**
+ * **1リクエストで BOX を触ってよい時間**（ミリ秒）。
+ *
+ * ⚠️ **件数で区切ると本番で 504 になった。** フォルダ1件につき BOX を十数回
+ * 叩くので、20 件で 200〜300 回になり Nginx の 60 秒に当たる。BOX の応答時間は
+ * こちらでは決められないので、**件数ではなく時間**を上限にする。
+ * 余裕をもって 20 秒（60 秒の3分の1）。残りは押し直せば続きから進む。
+ */
+const BOX_CLEANUP_BUDGET_MS = 20_000;
+
+const LOST_BOX_UNLINKED_SQL = `FROM projects
+   WHERE ${LOST_BOX_JUNK_SQL} AND box_cleanup_state IS NULL
+     AND box_url_internal IS NULL AND box_url_external IS NULL`;
 
 /**
  * 引き合いの入口と確信 (migration 165)。**DB の CHECK と同じ集合**にすること。
@@ -449,6 +516,32 @@ export async function recordStageTransition(
       [uuidv4(), id, fromStage ?? null, toStage, userId],
     );
   }
+
+  /*
+   * **終わった案件の「次回アクション」は機械が閉じる**（migration 245）。
+   *
+   * ユーザー報告:「失注になった案件については無条件で完了扱いにして
+   * リストから落として欲しい」「これらがゴミとして溜まりまくっている」。
+   * 終了系（`e_lost` / `s_completed`）から**戻したときは開き直す**ので可逆で、
+   * **人が自分で「完了」を押したものには触らない**（`syncNextActionsForStage`）。
+   *
+   * ⚠️ ここを通らない機械の経路（`project-health.ts` の自動見送り・繰り上げ完了）
+   * からも同じ関数を呼ぶこと。片方だけだとゴミが残りつづける。
+   *
+   * **失敗しても呼び出し元のステージ変更は止めない**（`...Safe`）— やることが
+   * 少し残るより、**失注にできないほうが業務は確実に止まる**。
+   */
+  await syncNextActionsForStageSafe(id, toStage);
+
+  /*
+   * ── 失注・見送りになった案件の BOX フォルダを現役の場所から片づける ──
+   *
+   * ⚠️ **無条件には消しません。** 見積書・請求書・検収書の原本は BOX にしか
+   * 無いので、**中身が1つでもあれば `99_失注・見送り` へ引っ越すだけ**にし、
+   * 空のものだけ本当に消します（詳しい理由は `box-lost-cleanup.service.ts` の頭注）。
+   * ここも `...Safe` — BOX が詰まった日に失注にできなくなるほうが困ります。
+   */
+  await syncBoxFoldersForStageSafe(id, toStage);
 }
 
 /**
@@ -1048,6 +1141,28 @@ export class ProjectService {
       `UPDATE projects SET ${setClauses.join(', ')} WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
       params
     );
+
+    /*
+     * **一括で完了にした分の次回アクションも閉じる**（migration 245）。
+     *
+     * ⚠️ この道は `recordStageTransition()` を通らない。`a_won`/`e_lost` は上で
+     * 弾いているが **`s_completed` は通す**ので、ここだけ後片づけが抜けると
+     * 「一括で完了にした案件のやることだけ残る」という**画面から理由の分からない
+     * ゴミ**ができる（1件ずつ完了にしたときは消えるので、余計に読めない）。
+     *
+     * 終了ステージ以外へ一括で戻したときは `syncNextActionsForStage` が
+     * 開き直す側に回る（機械が閉じたものだけ）ので、そのまま全ステージで呼ぶ。
+     */
+    const bulkStage = typeof set.stage === 'string' && STAGES.includes(set.stage) ? set.stage : null;
+    if (bulkStage) {
+      for (const id of ids) {
+        await syncNextActionsForStageSafe(id, bulkStage);
+        // 一括で指定できるのは `s_completed` まで（受注・失注はここで 400）なので、
+        // ここを通るのは実質「失注から戻した」側だけ。呼んでおかないと
+        // **一括で終了を外した案件のフォルダが置き場に取り残される**
+        await syncBoxFoldersForStageSafe(id, bulkStage);
+      }
+    }
     return { updated: ids.length };
   }
 
@@ -1854,6 +1969,154 @@ export class ProjectService {
    * - 片方だけある場合は無い側のみ補填
    * - GLS 未発番なら OPP コード、発番済みなら GLS 番号で命名
    */
+  /**
+   * 片づけ待ちの失注案件。**件数と対象を同じ式から引く**（数と中身が食い違わないように）。
+   *
+   * `boxConfigured` も返す — **繋いでいないときに「N件あります」だけ出すと、
+   * 押しても減らない帯**になり、人は理由が分からないまま押し続けます。
+   */
+  async countLostBoxFoldersToClean(): Promise<{
+    remaining: number; unlinked: number; boxConfigured: boolean; skipped: SkipReason[];
+    doneWaiting: number;
+  }> {
+    const row = await queryOne(`SELECT COUNT(*)::int AS c ${LOST_BOX_CLEANUP_TARGET_SQL}`) as { c?: number } | null;
+    // **URL が空のぶんも数える**（BOX を見て名前で結び付け直せば片づけられる）
+    const un = await queryOne(`SELECT COUNT(*)::int AS c ${LOST_BOX_UNLINKED_SQL}`) as { c?: number } | null;
+    return {
+      remaining: Number(row?.c ?? 0), unlinked: Number(un?.c ?? 0), boxConfigured: isBoxConfigured(),
+      skipped: await this.lostBoxSkipReasons(),
+      // 終了案件の引っ越し待ち（`98_終了案件`）。**別に数えて別に出す**
+      doneWaiting: await countDoneFoldersToArchive(),
+    };
+  }
+
+  /**
+   * **触らなかった理由**を集めて数える。
+   *
+   * ⚠️ **理由は最初から DB にありました**（`box_cleanup_note`）。書いていたのに
+   * 画面へ出していなかったので、押した人には「置き場所か名前か中身か」の
+   * どれなのかが分からず、**次の一手を決められませんでした**
+   * （ユーザー報告「このように出て結局処理されない」）。
+   */
+  private async lostBoxSkipReasons(): Promise<SkipReason[]> {
+    const rows = await queryAll(
+      `SELECT box_cleanup_note ${LOST_BOX_CLEANUP_TARGET_SQL} AND box_cleanup_note IS NOT NULL LIMIT 500`,
+    ) as { box_cleanup_note: string | null }[];
+    return summarizeSkipReasons(rows.map((r) => r.box_cleanup_note));
+  }
+
+  /**
+   * **溜まっている失注・見送り案件の BOX フォルダをまとめて片づける。**
+   *
+   * migration 248 は既存分を遡らない（本番の BOX で数百フォルダが一斉に動くのを
+   * 人が知らないうちに起こさないため）ので、溜まっているぶんはここから。
+   *
+   * ⚠️ **1回の件数を必ず切ります。** BOX は1フォルダにつき数回叩くので、
+   * 数百件を一度にやると詰まります。押し直せば続きから進みます
+   * （片づけたものは `box_cleanup_state` が入るのでもう選ばれない）。
+   *
+   * @returns **本当に片づいた件数**と、残っている件数（**残数を返さないと「終わったのか」が分からない**）
+   */
+  async cleanupLostBoxFolders(
+    limit: number,
+    /**
+     * **BOX を見て紐づけを直すだけ**（片づけはしない）。まとめて処分の1回目に呼ぶ。
+     *
+     * 古い失注案件は `box_url_*` が空で、フォルダは BOX にあるのにアプリが
+     * どれか知らないため、片づけの対象に入っていなかった。
+     *
+     * ⚠️ **片づけと同じリクエストでやらないこと。** 親フォルダの一覧だけでも
+     * BOX を数回叩くので、片づけと足すと1リクエストが長くなりすぎる。
+     */
+    relink = false,
+    /**
+     * **どの案件にも結び付かない空フォルダを片づけるだけ**の往復。
+     * 名寄せ・案件ごとの片づけとは別に呼ぶ（1往復を長くしすぎない）。
+     */
+    orphans = false,
+    /**
+     * **終了した案件を `98_終了案件` へ移すだけ**の往復（migration 249）。
+     * 日次ジョブも同じ関数を呼ぶので、押さなくても翌朝には進む。
+     */
+    done = false,
+  ): Promise<{
+    processed: number; remaining: number; boxConfigured: boolean;
+    relinked?: RelinkResult; timedOut?: boolean; skipped?: SkipReason[];
+    orphaned?: OrphanResult; doneArchived?: DoneArchiveResult;
+  }> {
+    if (done) {
+      const doneArchived = await archiveDoneProjectFolders();
+      const left = await queryOne(`SELECT COUNT(*)::int AS c ${LOST_BOX_CLEANUP_TARGET_SQL}`) as { c?: number } | null;
+      return {
+        processed: doneArchived.moved, remaining: Number(left?.c ?? 0),
+        boxConfigured: isBoxConfigured(), timedOut: doneArchived.timedOut, doneArchived,
+      };
+    }
+
+    if (orphans) {
+      const orphaned = await cleanupOrphanFolders();
+      const left = await queryOne(`SELECT COUNT(*)::int AS c ${LOST_BOX_CLEANUP_TARGET_SQL}`) as { c?: number } | null;
+      return {
+        processed: orphaned.deleted, remaining: Number(left?.c ?? 0),
+        boxConfigured: isBoxConfigured(), timedOut: orphaned.timedOut, orphaned,
+      };
+    }
+
+    if (relink) {
+      const relinked = await relinkProjectFolders();
+      const left0 = await queryOne(`SELECT COUNT(*)::int AS c ${LOST_BOX_CLEANUP_TARGET_SQL}`) as { c?: number } | null;
+      return { processed: 0, remaining: Number(left0?.c ?? 0), boxConfigured: isBoxConfigured(), relinked };
+    }
+
+    const targetSql = LOST_BOX_CLEANUP_TARGET_SQL;
+    const rows = await queryAll(`SELECT id ${targetSql} ORDER BY lost_at ASC NULLS LAST LIMIT ?`, [limit]) as { id: string }[];
+
+    /*
+     * ── ⚠️ **時間で区切る**（本番で 504 を出した反省）─────────────
+     *
+     * フォルダ1件につき BOX を「読む → 中身を数える → 動かす」で十数回叩く。
+     * 1リクエストで 20 件やると **200〜300 回**の呼び出しになり、
+     * **Nginx の 60 秒で切られて 0 件のまま失敗**した（利用者の実機で発生）。
+     * しかも切られたのは応答だけで**サーバー側は動き続ける**ので、
+     * 押した人には「何件進んだのか」が分からない。
+     *
+     * 件数ではなく**時間**で切る。これなら BOX が遅い日でも必ず応答が返り、
+     * 進んだぶんは記録に残る（続きは押し直せば進む）。
+     */
+    const started = Date.now();
+    let timedOut = false;
+    const ids: string[] = [];
+    for (const r of rows) {
+      if (Date.now() - started > BOX_CLEANUP_BUDGET_MS) { timedOut = true; break; }
+      ids.push(r.id);
+      await syncBoxFoldersForStageSafe(r.id, 'e_lost');
+    }
+
+    /*
+     * ⚠️ **「見た件数」ではなく「本当に片づいた件数」を返す。**
+     * BOX に繋いでいない・安全弁で見送った・BOX が断った、のどれでも
+     * `syncBoxFoldersForStageSafe` は静かに何もしません。見た件数を返すと
+     * **「3件片づけました」と出るのに残りが3件のまま**という、押した人が
+     * 何を信じてよいか分からない画面になります（`countHonesty` の戒め）。
+     * 片づいた印（`box_cleanup_state`）が付いた行だけを数え直します。
+     */
+    let processed = 0;
+    if (ids.length > 0) {
+      const done = await queryOne(
+        `SELECT COUNT(*)::int AS c FROM projects
+          WHERE id IN (${ids.map(() => '?').join(', ')}) AND box_cleanup_state IS NOT NULL`,
+        ids,
+      ) as { c?: number } | null;
+      processed = Number(done?.c ?? 0);
+    }
+    const left = await queryOne(`SELECT COUNT(*)::int AS c ${targetSql}`) as { c?: number } | null;
+    return {
+      processed, remaining: Number(left?.c ?? 0), boxConfigured: isBoxConfigured(), timedOut,
+      // **触らなかった理由を必ず返す。** 「0件でした」だけでは次の一手が決まらない
+      skipped: await this.lostBoxSkipReasons(),
+    };
+  }
+
   async createBoxFolder(
     id: string,
   ): Promise<{ urlInternal: string | null; urlExternal: string | null; already: boolean }> {

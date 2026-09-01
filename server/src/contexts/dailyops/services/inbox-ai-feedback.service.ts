@@ -25,7 +25,8 @@
  *
  * ── 数えない列 ────────────────────────────────────────────
  *
- * `status` / `state` / `handled_at` / `processed_by` / `task_id` / `project_id` / `linked_*` は
+ * `status` / `state` / `handled_at` / `processed_by` / `task_id` / `project_id` / `linked_*` /
+ * `stock_review_on`（ストックを机に戻す日・migration 247）は
  * **業務が進んだ印**であって
  * AI の誤りではありません。承認しただけで「AI が間違えた」と数えると、
  * 修正率が「処理した件数」と同じ数字になります。

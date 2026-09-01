@@ -10,6 +10,8 @@ import { KIND } from './thread/kinds';
 import { shortYmd } from './thread/format';
 import { parseNextAction, nextActionLine } from './thread/nextAction';
 import type { ActivityLog } from './types';
+/** 「済み」の理由の言い方は営業活動記録と同じ1本（`ThreadCard` と同じ理由） */
+import { autoClosedLabel } from '../activityLog/types';
 
 /**
  * やり取りの直近5件 (概要タブ用のダイジェスト)
@@ -115,7 +117,9 @@ export function ThreadDigest({ items, today }: { items: ActivityLog[]; today: st
                     {nextAction.items.length > 0 && ` ほか${nextAction.items.length}件`}
                     {a.next_action_date
                       && `（${shortYmd(a.next_action_date, a.activity_date)} まで${overdue ? '・過ぎています' : ''}）`}
-                    {a.next_action_done_at && '（済み）'}
+                    {/* 機械が閉じたものは理由を書く（`ThreadCard` と同じ1本・migration 245） */}
+                    {a.next_action_done_at
+                      && `（${autoClosedLabel(a.next_action_auto_closed_reason) ?? '済み'}）`}
                   </span>
                 </span>
               )}

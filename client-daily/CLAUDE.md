@@ -10,7 +10,7 @@
 | デイリーニュース報告 | `pages/DailyNewsPage` ＋ `pages/news/{NewsRows,NewsForm}.tsx` |
 | 内覧会 開催日の一覧 | `pages/InviewPage` |
 | 内覧会 その日の受付 | `pages/InviewDayPage` ＋ `pages/inview/{AttendeeCard,InviewDialog,CompanySummary}.tsx` ＋ `pages/inview/logic.ts` |
-| 入ってきた情報（その他問い合わせ） | `pages/InquiriesPage` ＋ `pages/inquiries/{state.ts,SidePanels,TicketDialog,InquiryDialog}.tsx` |
+| 入ってきた情報（その他問い合わせ） | `pages/InquiriesPage` ＋ `pages/inquiries/{state.ts,InquiryRows,InquiryCards,SidePanels,TicketDialog,StockDialog,InquiryDialog,InquiryBody}.tsx` |
 | セキュリティカード | `pages/SecurityCardsPage`（**master-detail**）＋ `pages/securityCards/{CardGrid,CardDetailPanel,LendDialog,types}.tsx` |
 
 - `pages/TasksPage` は当初「案件管理へ寄せる」方針だったが、**この方針は撤回した**
@@ -35,7 +35,26 @@
 - **内覧会**: 検索は**回をまたぐ**（申し込んだ回を覚えていない人が普通にいる）。
   正規化は NFKC → 小文字 → カタカナをひらがなへ → 区切り記号を落とす（`pages/inview/logic.ts`）。
   **同行者は1人ずつ受付**する（代表だけ先に来るのが普通）。受付人数は**組数ではなく人数**で数える
-- **入ってきた情報**は「届いたものを4つの行き先に仕分ける台」（migration 171）。
+- **入ってきた情報**は「**未仕分けを空にする机**」（migration 171 / 247）。
+  - **タブは3つ**（今日さばくもの / ストック / 仕分け済み）。**`state` は5つのまま**で、
+    変えたのは見せ方だけ。以前は5タブで**うち4つが「受領証」**（チケット・案件にした・
+    見送りは「未仕分けに戻す」しかできない）で、片づいたものの棚が3つに割れていた
+  - **「今日さばくもの」= 未仕分け ＋ 見直しの日が来たストック。**
+    ⚠️ **「ストック」タブと重なる**ので、タブの件数を足しても全件にならない
+    （セキュリティカードの「返却遅延は貸出中の一部」と同じ）
+  - **ストックには見直す日（`stock_review_on`・migration 247）が要る。**
+    これが無いとストックは見送りと同じ（どちらも未仕分けから消えて二度と出てこない）。
+    **日を決めていないストックも机に出す** — 「決めていない」を「永久に出さない」と
+    読むと元の行き止まりに戻る。判定は `shared/src/utils/inboxDesk.ts` の
+    `isStockReviewDue()` が正で、サーバーは同じ条件を SQL で書いている（**片方だけ直さない**）
+  - **一覧は上限つき**（既定50・最大200）。**件数は `GET /dailyops/inquiries/counts` が
+    COUNT で数える** — 運んだ行を数えると上限で切れた分だけ嘘になる
+  - **出どころ別・よく使うタグは、中身があるときだけ枠を出す。**
+    本番のメール取込は `source`/`tags` をまだ渡していない（docs/mcp-server.md）ので、
+    枠を出すと「メールだけ・他は0」と「まだタグが付いていません」で右半分が埋まる
+  - **PC 専用ではない**（247 で外した）。スマホは表を折り返さず
+    `inquiries/InquiryCards.tsx` の2行カード（PC の行は `InquiryRows.tsx`・**props は共通**）
+
   - **正は `state` の1本**（未仕分け / ストック / チケット / 案件にした / 見送り）。
     `handled_at` は「誰がいつ触ったか」の記録として残っているが、**絞り込みには使わない**
     （両方で絞れるようにすると片方だけ動いた行が一覧から消える）
@@ -74,8 +93,10 @@
 - **画面を足したら `src/pcOnlyScreens.ts` のどちらかの表に入れること**（M2）。
   `DAILY_PC_ONLY` か `DAILY_MOBILE_OK` で、**どちらにも入っていないと
   `npm run lint` が止まります**。決め方は `client/src/pcOnlyScreens.ts` の冒頭。
-  - **このアプリは現場で開くものが多い**ので PC 向きは1枚だけ（入ってきた情報）。
-    内覧会の当日受付・セキュリティカードの貸出・やること は**スマホが主戦場**
+  - **このアプリは現場で開くものが多い**ので、**PC 専用は 0 枚になった**（247）。
+    最後に残っていた「入ってきた情報」も外した（表を折り返すのではなく
+    スマホ専用の2行カードに組み直した）。内覧会の当日受付・セキュリティカードの貸出・
+    やること は**スマホが主戦場**
   - **下タブは ホーム / やること / 探す**（M9・`nav.ts` の `DAILY_MOBILE_TABS`）。
     3つ目は長らく「メニュー」でしたが、**上辺バーの ☰ と二重の入口**でした
 

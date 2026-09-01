@@ -26,10 +26,26 @@ export interface JobRun {
   error: string | null;
 }
 
+/**
+ * 定時実行の1本（サーバーの `SCHEDULER_JOBS`）。
+ *
+ * `sendTo` / `cadence` は**人が読む文**で、判定には使わない（宛先と頻度を決めるのは
+ * サーバーの各ジョブのコード）。画面に出すのは、**どの通知が誰に・どのくらいの頻度で
+ * 出るかが設定画面から読めないと、通知を減らしたことが誰にも伝わらない**ため。
+ */
+export interface SchedulerJob {
+  key: string;
+  at: string;
+  /** ひな形の id。**`null` = 通知を出さない裏方の仕事** */
+  templateId: string | null;
+  sendTo: string;
+  cadence: string;
+}
+
 export interface NotifyResponse {
   templates: Template[];
   runs: JobRun[];
   /** ひな形ごとに実際に出した社内通知の件数。**モックのサンプル値は使わない** */
   counts: { template_id: string; n: number }[];
-  jobs: { key: string; at: string; templateId: string }[];
+  jobs: SchedulerJob[];
 }

@@ -3,6 +3,11 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { activityLogService } from '../../sales/services/activity-log.service';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { ok, runTool, clampLimit, pagination, audit, REQUESTED_BY } from '../helpers';
+/**
+ * 「未対応の次回アクション」の判定は **1本だけ**（migration 245）。
+ * MCP が画面と違う集合を返すと、AI の言う「対応漏れ」が人の見ている数と食い違う。
+ */
+import { OPEN_NEXT_ACTION_SQL } from '../../../shared/services/next-action-state';
 
 // 営業活動記録 (activity_logs) の MCP ツール — activityLogService を再利用。
 // activity_type の選択肢は UI (ActivityLogPage) と同一 (migration 115 で DB CHECK も整合済み)。
@@ -21,7 +26,8 @@ export function registerActivityTools(server: McpServer): void {
       title: '営業活動記録一覧',
       description:
         '営業活動記録を一覧する。activity_type: call=電話, email=メール, visit=訪問, meeting=打合せ, proposal=提案, demo=デモ, follow_up=フォロー, other=その他。' +
-        'upcoming: true にすると「次回アクションが days 日以内に予定されている記録」だけを返す (期限リマインド用)。',
+        'upcoming: true にすると「次回アクションが days 日以内に予定されている記録」だけを返す (期限リマインド用)。' +
+        'upcoming は失注・完了した案件のアクションを含まない (案件が終われば自動で完了扱いになる)。',
       inputSchema: {
         project_id: z.string().optional(),
         customer_id: z.string().optional(),
@@ -39,10 +45,13 @@ export function registerActivityTools(server: McpServer): void {
       const page = args.page ?? 1;
 
       if (args.upcoming) {
-        // getUpcomingActions は userId 必須のため、任意ユーザー対応の同形クエリをここで実行
-        // 完了済み (next_action_done_at) は除外する
-        let where = `WHERE a.deleted_at IS NULL AND a.next_action IS NOT NULL AND a.next_action_date IS NOT NULL
-                     AND a.next_action_done_at IS NULL
+        // getUpcomingActions は userId 必須のため、任意ユーザー対応の同形クエリをここで実行。
+        //
+        // ⚠️ **判定は共通の1本**（`OPEN_NEXT_ACTION_SQL`）。前はここが式を写していて、
+        // しかも **projects を JOIN すらしていなかった**ので、
+        // **失注・完了した案件のやることを AI に「期限が近い」と渡していた**
+        // （AI がそれを見て催促を書けば、終わった話を客に送ることになる）。
+        let where = `WHERE ${OPEN_NEXT_ACTION_SQL}
                      AND a.next_action_date <= (CURRENT_DATE + (? || ' days')::interval)::text`;
         const params: unknown[] = [args.days ?? 7];
         if (args.user_id) { where += ' AND a.user_id = ?'; params.push(args.user_id); }
@@ -81,34 +90,48 @@ export function registerActivityTools(server: McpServer): void {
         '進行中案件で、次回アクションの予定日が今日より前かつ未完了 (対応漏れ) のものを期限が古い順に返す。' +
         '定期リマインド / エスカレーション用途 (例: 毎朝このツールを叩いて Slack に「対応漏れ N件」を投稿する)。' +
         '各行に days_overdue (超過日数)・案件 (gls_number/project_name)・担当者 (assigned_to_name)・顧客名 を含む。' +
-        'user_id を渡すとその担当者分だけに絞れる。',
+        'user_id を渡すとその担当者分だけに絞れる。' +
+        'total は絞り込み条件に合う実数 (limit で頭打ちにならない)、returned は実際に返した行数。' +
+        '失注・完了した案件のアクションは含まない (案件が終われば自動で完了扱いになる)。',
       inputSchema: {
         user_id: z.string().optional().describe('担当者の users.id で絞り込み (未指定なら全担当者)'),
         limit: z.number().int().min(1).max(200).default(100),
       },
     },
     async (args) => runTool(async () => {
-      let where = `WHERE a.deleted_at IS NULL AND p.deleted_at IS NULL
-                   AND p.stage NOT IN ('s_completed','e_lost')
-                   AND a.next_action IS NOT NULL AND a.next_action_date IS NOT NULL
-                   AND a.next_action_done_at IS NULL
+      // 判定は共通の1本（`OPEN_NEXT_ACTION_SQL`・migration 245）。ここは前から
+      // 終了案件を除いていたが、写しである限り**片方だけ直る**ので式ごと共有する
+      let where = `WHERE ${OPEN_NEXT_ACTION_SQL}
+                   AND p.deleted_at IS NULL
                    AND a.next_action_date < CURRENT_DATE::text`;
       const params: unknown[] = [];
       if (args.user_id) { where += ' AND a.user_id = ?'; params.push(args.user_id); }
+      const from =
+        `FROM activity_logs a
+         JOIN projects p ON p.id = a.project_id
+         LEFT JOIN users u ON u.id = a.user_id
+         LEFT JOIN companies c ON c.id = p.customer_id
+         ${where}`;
       const rows = await queryAll(
         `SELECT a.id AS activity_id, a.next_action, a.next_action_date,
                 (CURRENT_DATE - a.next_action_date::date) AS days_overdue,
                 a.project_id, p.code AS project_code, p.gls_number, p.name AS project_name, p.stage,
                 a.user_id, u.name AS assigned_to_name, c.name AS customer_name
-         FROM activity_logs a
-         JOIN projects p ON p.id = a.project_id
-         LEFT JOIN users u ON u.id = a.user_id
-         LEFT JOIN companies c ON c.id = p.customer_id
-         ${where}
+         ${from}
          ORDER BY a.next_action_date ASC LIMIT ?`,
         [...params, clampLimit(args.limit, 100)],
       );
-      return ok({ total: rows.length, overdue_actions: rows });
+      /*
+       * ⚠️ **一覧と件数は同じ「FROM 〜 WHERE」から組む。**
+       * `total: rows.length` は `LIMIT` に当たった瞬間から**実数と別のもの**になる
+       * （既定 100 なら「対応漏れ 137 件」が永久に「100 件」と報告される）。
+       * しかも**エラーは出ず、増えるほどズレが広がる**ので誰も報告できない
+       * — 画面側で同じ嘘を直したときのメモが `dashboard.routes.ts` の
+       * `NEXT_MOVES_CORE` の頭にある。**AI が読む数字なので害はより直接的**で、
+       * 「対応漏れは100件で頭打ち」という誤った現状認識のまま報告が回る。
+       */
+      const totalRow = await queryOne(`SELECT COUNT(*)::int AS c ${from}`, params) as { c?: number } | undefined;
+      return ok({ total: Number(totalRow?.c ?? 0), returned: rows.length, overdue_actions: rows });
     }),
   );
 

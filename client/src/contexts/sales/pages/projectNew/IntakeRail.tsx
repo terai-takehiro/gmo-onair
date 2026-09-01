@@ -173,7 +173,14 @@ export function IntakeRail({
                     <span className="text-note min-w-0 flex-1 truncate text-muted-foreground">
                       {subtitleOf(item)}
                     </span>
-                    <span className="text-note font-number shrink-0 text-fg-disabled">
+                    {/*
+                      ⚠️ **`text-fg-disabled` を使わないこと**（白地で 2.61:1・
+                      `tokens.css` に「読ませる文字には使わない」と書いてある）。
+                      ここは「いつ届いたか」＝**読ませる情報**で、押せない状態でもヒントでもない。
+                      受信箱に行が1件も無かったため実ブラウザの検査に一度も掛からず、
+                      検証データを入れて初めて落ちた（`npm run verify:ui` の「薄すぎる文字」）
+                    */}
+                    <span className="text-note font-number shrink-0 text-muted-foreground">
                       {formatRelativeTime(item.received_at)}
                     </span>
                   </span>

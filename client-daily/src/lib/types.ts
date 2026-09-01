@@ -100,36 +100,13 @@ export interface InviewSession {
   checked_in_count: number;
 }
 
-// ── 見積/請求書/注文書 ──────────────────────────────
-export type FinanceDocType = 'quote' | 'invoice' | 'order';
-export type FinanceDocStatus = 'new' | 'reviewing' | 'approved' | 'rejected' | 'processed';
-
-export interface FinanceDoc {
-  id: string;
-  doc_type: FinanceDocType;
-  sender: string | null;
-  subject: string | null;
-  content: string | null;
-  amount: number | string | null;
-  closing_month: string | null;
-  payment_due: string | null;
-  status: FinanceDocStatus;
-  received_at: string | null;
-  processed_by: string | null;
-  processed_at: string | null;
-  gls_number: string | null;
-  notes: string | null;
-  source: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export const FINANCE_DOC_TYPE_LABELS: Record<FinanceDocType, string> = {
-  quote: '見積書', invoice: '請求書', order: '注文書',
-};
-export const FINANCE_DOC_STATUS_LABELS: Record<FinanceDocStatus, string> = {
-  new: '受信', reviewing: '確認中', approved: '承認', rejected: '却下', processed: '処理完了',
-};
+/*
+  ── 受け取った書類（`finance_docs`）の型はここには置かない ──────────
+  画面は財務管理（`client/src/contexts/finance/pages/documents/`）にあり、
+  型もそちらの `documents/types.ts` が持っている。ここにあった写しは
+  **どこからも使われていなかった**（読む画面がこのアプリに無いため）。
+  写しを残すと、片方だけ列が増えて食い違う。
+*/
 
 // ── その他問い合わせ ──────────────────────────────
 export type Importance = 'high' | 'medium' | 'low';
@@ -156,6 +133,14 @@ export interface MiscInquiry {
   body_text: string | null;
   /** 行き先（migration 171）。**絞り込みはこれだけを見る**（`handled_at` は記録） */
   state: InquiryState;
+  /**
+   * ストックを机に戻す日（migration 247）。
+   *
+   * ⚠️ **これが無いとストックは見送りと同じ**です（どちらも「未仕分けから消えて
+   * 二度と出てこない」で終わる）。この日が来たものは未仕分けと同じ扱いで
+   * 「今日さばくもの」に入ります。空（決めていない）も同じ扱いです。
+   */
+  stock_review_on: string | null;
   tags: string[];
   /** チケットにしたときに作った案件管理のタスク */
   task_id: string | null;

@@ -60,7 +60,11 @@ export default function SearchPage() {
   // 打ってから引くと、最初の1文字で待たされます
   const inview = useInviewList();
   const cards = useSecurityCards();
-  const inquiries = useInquiries();
+  // ⚠️ **上限を明示して引く**（247 で一覧に既定 50 件の上限が入った）。
+  // 探すのは「その話、前に来ていませんでしたか」なので、
+  // 直近50件だけを探すと**古い話ほど当たらない**（探した意味が無い）。
+  // 上限そのものは残す — 全件を運ぶと溜まるほど検索が遅くなる
+  const inquiries = useInquiries({ limit: 200 });
 
   const terms = useMemo(() => searchTerms(query), [query]);
   const searching = terms.length > 0;
@@ -170,15 +174,15 @@ export default function SearchPage() {
 
           {hits!.inquiries.length > 0 && (
             /*
-              **スマホでは押せる行にしません。** 「入ってきた情報」は
-              `pcOnlyScreens.ts` で PC 専用に宣言してあるので、押すと
-              「PC で開いてください」の案内に着いて**行き止まり**になります。
-              ここで知りたいのは「その話、前に来ていませんでしたか」で、
-              **要約まで出せば答えになっています**。仕分けは PC で。
+              **スマホでも押せる行にした**（247）。
+              ここは長らく「押すと PC 専用の案内に着いて行き止まりになる」ため
+              スマホだけ押せない行にしていましたが、**「入ってきた情報」の
+              PC 専用をやめた**ので、その理由が無くなりました
+              （`pcOnlyScreens.ts` の `DAILY_MOBILE_OK` に移してあります）。
             */
             <Group icon={Inbox} label="入ってきた情報" n={hits!.inquiries.length}>
-              {hits!.inquiries.map((q) => {
-                const body = (
+              {hits!.inquiries.map((q) => (
+                <ClickRow key={q.id} onOpen={() => navigate('/inquiries')}>
                   <RowMain>
                     <RowTitle>{q.subject || q.summary || '(件名なし)'}</RowTitle>
                     <RowSub>{[q.sender, q.category, INQUIRY_STATE_LABELS[q.state]].filter(Boolean).join(' ・ ')}</RowSub>
@@ -186,22 +190,9 @@ export default function SearchPage() {
                       <RowSub className="line-clamp-2">{q.summary}</RowSub>
                     )}
                   </RowMain>
-                );
-                return isMobile ? (
-                  <Row key={q.id} divider align="start">{body}</Row>
-                ) : (
-                  <ClickRow key={q.id} onOpen={() => navigate('/inquiries')}>
-                    {body}
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  </ClickRow>
-                );
-              })}
-              {isMobile && (
-                <p className="text-note border-t border-border-faint px-4 py-2.5 text-muted-foreground">
-                  ストック・チケット・案件のどれにするかを決めるのは PC の「入ってきた情報」です。
-                  ここでは<strong className="font-bold">来ていたかどうか</strong>だけ確かめられます。
-                </p>
-              )}
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                </ClickRow>
+              ))}
             </Group>
           )}
         </div>

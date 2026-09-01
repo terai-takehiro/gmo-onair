@@ -27,7 +27,7 @@ import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Button } from '@/components/ui/button';
 import { getActivityType } from './kinds';
 import { AiCreatedBadge, ProvenanceChips } from './Badges';
-import { relatedName, shortDate, isOverdue, type ActivityLogRow } from './types';
+import { relatedName, shortDate, isOverdue, autoClosedLabel, type ActivityLogRow } from './types';
 import type { useNextActionActions } from './useNextActionActions';
 
 type Actions = ReturnType<typeof useNextActionActions>;
@@ -44,12 +44,19 @@ type Actions = ReturnType<typeof useNextActionActions>;
 export function NextActionInline({
   row, actions,
 }: {
-  row: Pick<ActivityLogRow, 'id' | 'next_action' | 'next_action_date' | 'next_action_done_at'>;
+  row: Pick<ActivityLogRow,
+    'id' | 'next_action' | 'next_action_date' | 'next_action_done_at' | 'next_action_auto_closed_reason'>;
   actions: Actions;
 }) {
   const [postponing, setPostponing] = useState(false);
   const done = !!row.next_action_done_at;
   const overdue = !done && !!row.next_action_date && isOverdue(row.next_action_date);
+  /**
+   * ⚠️ **機械が閉じたものを「対応済み」と書かない**（migration 245）。
+   * 失注・完了した案件のやることは自動で閉じるので、**誰も片づけていません**。
+   * 何が起きたかを書けば、案件を戻せば開き直ることも察しがつく。
+   */
+  const autoClosed = autoClosedLabel(row.next_action_auto_closed_reason);
 
   return (
     <div className="mt-1 flex flex-wrap items-center gap-1.5 text-sub">
@@ -57,7 +64,7 @@ export function NextActionInline({
         <span className="inline-flex min-w-0 items-center gap-1 text-muted-foreground">
           <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
           <span className="truncate line-through">{row.next_action}</span>
-          <span className="shrink-0 text-sub-sm">対応済み</span>
+          <span className="shrink-0 text-sub-sm">{autoClosed ?? '対応済み'}</span>
         </span>
       ) : (
         <>

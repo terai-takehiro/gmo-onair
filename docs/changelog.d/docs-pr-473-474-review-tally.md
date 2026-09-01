@@ -1,1 +1,0 @@
-**PR #473（PR #472 の棚卸し記録）と PR #474（GPMダッシュボードのPanel高さバグ修正）のマージ後の棚卸しを記録した**（コード変更なし）。#473 は作成からCI green まで測定できず（両ジョブsuccessのみ確認）、#474 は作成からCI green まで約2分7秒で、いずれもterai-takehiro本人が手動マージし（#473は約21分後、#474はCI greenから約17分27秒後）、レビューが1件も付いていなかったことを `docs/reviews/codex-findings-v4.md` に記録した（`npm run reviews:debt` は GitHub 401 のためこの環境からは実行できず、GitHub MCP で直接確認した）。
