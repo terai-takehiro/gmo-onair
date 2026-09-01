@@ -34,6 +34,7 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { checkDiscount, NO_LIMIT, type DiscountLimit } from '../../../shared/services/discountLimit';
 import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
 import { assertCustomerCompanyId } from '../../../shared/services/company-directory.service';
+import { loadRevenueItemCarryover } from '../../finance/services/revenue-item-carryover.service';
 
 export type EstimateStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'superseded';
 
@@ -52,6 +53,13 @@ export interface EstimateItem {
   item_date: string | null;
   /** この行の終了日。任意・`item_date`（開始日）とセットで使う（migration 235） */
   item_date_end: string | null;
+  /**
+   * 定価（カタログ選択時のみ入る。手入力の行は null。migration 261）。
+   *
+   * ⚠️ **表示・PDF 印字専用。** 金額計算（`amount`・`estimates.subtotal`・
+   * 売上変換）には一切混ぜない — 実際に課金する額は `unit_price` のまま。
+   */
+  list_unit_price: number | null;
   sort_order: number;
 }
 
@@ -367,7 +375,7 @@ export const estimateService = {
       // `<input type="date">` は `YYYY-MM-DD` しか受け付けないため、渡すたびに
       // 欄が空に見えてしまう。`to_char` で最初から `YYYY-MM-DD` の文字列にする
       // （`estimate-pdf.service.ts` の同じ落とし穴と同じ直し方）
-      `SELECT id, description, quantity, unit, unit_price, amount, cost, category,
+      `SELECT id, description, quantity, unit, unit_price, list_unit_price, amount, cost, category,
               pricing_item_id, item_notes,
               to_char(item_date, 'YYYY-MM-DD') AS item_date,
               to_char(item_date_end, 'YYYY-MM-DD') AS item_date_end,
@@ -436,8 +444,8 @@ export const estimateService = {
     for (const it of from.items ?? []) {
       await execute(
         `INSERT INTO estimate_items (id, estimate_id, description, quantity, unit, unit_price,
-           amount, cost, category, pricing_item_id, item_notes, item_date, item_date_end, sort_order)
-         SELECT $1, $2, description, quantity, unit, unit_price, amount, cost, category,
+           list_unit_price, amount, cost, category, pricing_item_id, item_notes, item_date, item_date_end, sort_order)
+         SELECT $1, $2, description, quantity, unit, unit_price, list_unit_price, amount, cost, category,
                 pricing_item_id, item_notes, item_date, item_date_end, sort_order
          FROM estimate_items WHERE id = $3`,
         [uuidv4(), id, it.id]
@@ -626,6 +634,9 @@ export const estimateService = {
         // `unit_price` と同じく `Math.round` で整数に丸めてから渡す
         const qty = Math.max(0, Math.round(Number(it.quantity) || 0));
         const price = Math.round(Number(it.unit_price) || 0);
+        // **定価は表示・PDF 印字専用**（migration 261）。手入力の行・料金表を
+        // 経由しない行は null のまま — 「定価が無い」と「定価＝実額」を混同しない
+        const listPrice = it.list_unit_price != null ? Math.round(Number(it.list_unit_price)) : null;
         const itemDate = it.item_date ?? null;
         const itemDateEnd = it.item_date_end ?? null;
         // 終了日が開始日より前は事実として矛盾するので保存の手前で弾く（DB の
@@ -636,10 +647,10 @@ export const estimateService = {
         }
         await tx.execute(
           `INSERT INTO estimate_items (id, estimate_id, description, quantity, unit, unit_price,
-             amount, cost, category, item_notes, item_date, item_date_end, pricing_item_id, sort_order)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+             list_unit_price, amount, cost, category, item_notes, item_date, item_date_end, pricing_item_id, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
           [uuidv4(), estimateId, it.description ?? '', qty, it.unit ?? null, price,
-           qty * price, Math.round(Number(it.cost) || 0), it.category ?? null,
+           listPrice, qty * price, Math.round(Number(it.cost) || 0), it.category ?? null,
            it.item_notes ?? null, itemDate, itemDateEnd, it.pricing_item_id ?? null, order++]
         );
       }
@@ -751,7 +762,7 @@ export const estimateService = {
     const amount = (Number(est.subtotal) || 0) - discount;
     const taxCategory = String(est.tax_category ?? 'tax10');
 
-    const revenueId = uuidv4();
+    let revenueId = uuidv4();
     await withTransaction(async (tx) => {
       /*
        * ⚠️ **確かめるのも採番するのも取引の中で、行を押さえてから**（レビューでの指摘）。
@@ -770,15 +781,38 @@ export const estimateService = {
         throw new AppError(400, 'ALREADY_CONVERTED', 'この見積はすでに売上・請求に登録されています');
       }
 
-      // 案件ごとの連番。**削除済みも含めて数える**（`POST /revenues` と同じ数え方 —
-      // ソフトデリート分を除くと連番が再利用され、billing_key が重複しうる）
-      const existingCount = ((await tx.queryOne(
-        `SELECT COUNT(*) AS c FROM revenues WHERE project_id = $1`,
-        [projectId],
-      )) as { c: string }).c;
-      const seqNum = String(Number(existingCount) + 1).padStart(3, '0');
-      const base = (est.project_gls_number as string | null) || 'REV';
-      const billingKey = `${base}-${seqNum}-${taxBillingSuffix(taxCategory)}`;
+      /*
+       * ⚠️ **同じ見積（同じ `group_id`）の別の版が、すでに売上へ変換済みのことがある**
+       * （ユーザー指摘: 「見積もりに修正が入ったとき、新しい版の見積もりを登録すると
+       *  過去の売上として登録されている見積もりとダブルカウントになる」）。
+       *
+       * `createNextVersion` は前の版が `sent` のときしか `superseded` にしないので
+       * （版を重ねてもまだお客様に出していない下書きは直せるままにする、という別の
+       * 決めごと — ファイル冒頭コメント参照）、**`accepted` のまま売上に変換した版へ
+       * 次の版を作っても、前の版は `accepted`＋`revenue_id` 付きで残ります**。
+       * この前の版をあとから普通に受注・変換すると、`est.revenue_id`（この見積行）
+       * だけを見るチェックはすり抜け、同じ案件に売上行が2つできてしまいます。
+       *
+       * 対策は「新しく行を作らず、前の版が作った売上をそのまま書き換える」こと。
+       * 見積の版は同じ商談の書き直しであって別の商談ではないので、金額・明細を
+       * 上書きするのが正しい表現です。`billing_key` は請求書・検収書 PDF に
+       * すでに印字されている可能性があるので変えません（税区分が変わったときの
+       * 末尾枝番だけ差し替える — `PUT /revenues/:id` と同じ扱い）。
+       */
+      const sibling = await tx.queryOne(
+        `SELECT r.id AS r_id, r.group_id AS r_group_id, r.billing_key AS r_billing_key
+           FROM estimates e JOIN revenues r ON r.id = e.revenue_id
+          WHERE e.group_id = $1 AND e.id != $2 AND e.deleted_at IS NULL AND r.deleted_at IS NULL
+          ORDER BY e.version DESC LIMIT 1`,
+        [est.group_id, id],
+      ) as { r_id: string; r_group_id: string | null; r_billing_key: string } | undefined;
+
+      if (sibling?.r_group_id) {
+        // 配分グループ（合同案件の費用按分）に入っている売上は、自動で上書きすると
+        // 配分先の金額と食い違う。ここでは触らず、財務側の按分編集から先に外してもらう。
+        throw new AppError(400, 'REVENUE_IN_ALLOCATION_GROUP',
+          '前の版から登録した売上はすでに配分グループに入っています。財務管理の売上台帳から先に配分を外してください');
+      }
 
       /*
        * ⚠️ **備考は見積の備考をそのまま写す。「見積 vN から登録」等の自動文言を
@@ -791,44 +825,91 @@ export const estimateService = {
        * どの見積から変換したかは `estimates.revenue_id`（この行）から逆引き
        * できるので、`notes` に埋め込んで持たせる必要も無い。
        */
-      await tx.execute(
-        `INSERT INTO revenues (id, billing_key, project_id, customer_id, tax_category, amount,
-           subtitle, notes, status, created_by, updated_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'confirmed', $9, $9)`,
-        [revenueId, billingKey, projectId, customerId, taxCategory, amount,
-         (est.title as string) || null, (est.notes as string) || null, userId],
-      );
-      let order = 1;
-      for (const it of items) {
+      if (sibling) {
+        revenueId = sibling.r_id;
+        const finalBillingKey = sibling.r_billing_key.replace(/-\d$/, `-${taxBillingSuffix(taxCategory)}`);
         await tx.execute(
-          `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount,
-             category, pricing_item_id, item_notes, sort_order)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-          [uuidv4(), revenueId, it.description, it.quantity, it.unit_price, it.amount,
-           it.category, it.pricing_item_id, it.item_notes, order++],
+          `UPDATE revenues SET billing_key=$2, customer_id=$3, tax_category=$4, amount=$5,
+             subtitle=$6, notes=$7, status='confirmed', updated_at=NOW(), updated_by=$8
+           WHERE id=$1`,
+          [revenueId, finalBillingKey, customerId, taxCategory, amount,
+           (est.title as string) || null, (est.notes as string) || null, userId],
         );
-      }
-      /*
-       * ⚠️ **値引きも1行として写す**（レビューでの指摘）。
-       *
-       * 見積の値引きは**単価を下げずに別建て**する決めごと（v4 の設計判断）なので、
-       * 明細をそのまま写すと**定価のまま**になります。売上の合計（`revenues.amount`）は
-       * 値引き後なのに、**明細を足すと合計より大きい** — 請求書 PDF は明細と合計の
-       * 両方を刷るので、**紙の上で数字が合いません**。明細を足して数える画面
-       * （案件詳細の売上・請求）も定価で数えます。
-       *
-       * **単価を按分して下げないこと** — どの品目をいくら引いたのかは決めていないので、
-       * 勝手に配ると「この品目はこの値段で受けた」という誤った記録になります。
-       */
-      // **明細が1行も無い見積には書かない** — 値引きだけの明細になり、
-      // 「明細の合計 = マイナス／ヘッダーはプラス」というもっと読めない形になる
-      if (discount > 0 && items.length > 0) {
+        // 明細は全置換 (DELETE→INSERT)。**この版の画面に入力欄が無い列
+        // （単位・行ごとの仕入・仕入先・AI由来）は、消す前に読んで引き継ぐ**
+        // — `PUT /revenues/:id` と同じ理由（`revenue-item-carryover.service.ts`）。
+        const carryover = await loadRevenueItemCarryover(revenueId, tx.queryAll);
+        await tx.execute(`DELETE FROM revenue_items WHERE revenue_id = $1`, [revenueId]);
+        let order = 1;
+        for (const it of items) {
+          const kept = carryover(it.description);
+          await tx.execute(
+            `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount,
+               category, pricing_item_id, item_notes, sort_order, unit, cost_amount, cost_vendor_id, is_ai_suggested)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+            [uuidv4(), revenueId, it.description, it.quantity, it.unit_price, it.amount,
+             it.category, it.pricing_item_id, it.item_notes, order++,
+             kept.unit, kept.cost_amount, kept.cost_vendor_id, kept.is_ai_suggested],
+          );
+        }
+        if (discount > 0 && items.length > 0) {
+          await tx.execute(
+            `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount,
+               category, sort_order)
+             VALUES ($1, $2, $3, 1, $4, $4, $5, $6)`,
+            [uuidv4(), revenueId, `値引き（見積 v${est.version}）`, -discount, 'other', order++],
+          );
+        }
+      } else {
+        // 案件ごとの連番。**削除済みも含めて数える**（`POST /revenues` と同じ数え方 —
+        // ソフトデリート分を除くと連番が再利用され、billing_key が重複しうる）
+        const existingCount = ((await tx.queryOne(
+          `SELECT COUNT(*) AS c FROM revenues WHERE project_id = $1`,
+          [projectId],
+        )) as { c: string }).c;
+        const seqNum = String(Number(existingCount) + 1).padStart(3, '0');
+        const base = (est.project_gls_number as string | null) || 'REV';
+        const billingKey = `${base}-${seqNum}-${taxBillingSuffix(taxCategory)}`;
+
         await tx.execute(
-          `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount,
-             category, sort_order)
-           VALUES ($1, $2, $3, 1, $4, $4, $5, $6)`,
-          [uuidv4(), revenueId, `値引き（見積 v${est.version}）`, -discount, 'other', order++],
+          `INSERT INTO revenues (id, billing_key, project_id, customer_id, tax_category, amount,
+             subtitle, notes, status, created_by, updated_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'confirmed', $9, $9)`,
+          [revenueId, billingKey, projectId, customerId, taxCategory, amount,
+           (est.title as string) || null, (est.notes as string) || null, userId],
         );
+        let order = 1;
+        for (const it of items) {
+          await tx.execute(
+            `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount,
+               category, pricing_item_id, item_notes, sort_order)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+            [uuidv4(), revenueId, it.description, it.quantity, it.unit_price, it.amount,
+             it.category, it.pricing_item_id, it.item_notes, order++],
+          );
+        }
+        /*
+         * ⚠️ **値引きも1行として写す**（レビューでの指摘）。
+         *
+         * 見積の値引きは**単価を下げずに別建て**する決めごと（v4 の設計判断）なので、
+         * 明細をそのまま写すと**定価のまま**になります。売上の合計（`revenues.amount`）は
+         * 値引き後なのに、**明細を足すと合計より大きい** — 請求書 PDF は明細と合計の
+         * 両方を刷るので、**紙の上で数字が合いません**。明細を足して数える画面
+         * （案件詳細の売上・請求）も定価で数えます。
+         *
+         * **単価を按分して下げないこと** — どの品目をいくら引いたのかは決めていないので、
+         * 勝手に配ると「この品目はこの値段で受けた」という誤った記録になります。
+         */
+        // **明細が1行も無い見積には書かない** — 値引きだけの明細になり、
+        // 「明細の合計 = マイナス／ヘッダーはプラス」というもっと読めない形になる
+        if (discount > 0 && items.length > 0) {
+          await tx.execute(
+            `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount,
+               category, sort_order)
+             VALUES ($1, $2, $3, 1, $4, $4, $5, $6)`,
+            [uuidv4(), revenueId, `値引き（見積 v${est.version}）`, -discount, 'other', order++],
+          );
+        }
       }
       // **見積の側にも売上の id を残す。** 「いくらで出して、いくらで決まったか」を
       // あとから見積タブから追えるようにする（migration 138 の `revenue_id` 列）

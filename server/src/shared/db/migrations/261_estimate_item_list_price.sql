@@ -1,0 +1,19 @@
+-- 見積の明細に「定価」を持たせる（グループ内価格でも値引きを表記したい要望）
+--
+-- ── なぜ列が要るか ──────────────────────────────────────────
+--
+-- `pricing_items` は `unit_price`（定価）と `group_price`（グループ内価格）を
+-- 別に持つが、`PricingItemPicker.tsx` の `pickPrice()` は選んだあとの
+-- **1つの値だけ**を `estimate_items.unit_price` に書き込んでおり、定価は
+-- 保存の時点で失われていた。グループ内見積（`customer_type = 'internal'`）
+-- でも「定価→値引き→実額」を見積書に表記したい、という要望
+-- （現状は外部向けの見積にしか値引きが見えていなかった）。
+--
+-- **`list_unit_price`（定価。カタログ選択時のみ入る）を足す。** 手入力の行
+-- （料金表を経由しない行）は NULL のまま — 「定価が無い」と「定価＝実額」を
+-- 混同しない（`shared/CLAUDE.md`「NULL＝決めていない」と 0 を混ぜない、と同じ考え方）。
+--
+-- ⚠️ **この列は表示・PDF 印字専用。** `estimates.subtotal`・`amount`・
+-- 売上変換（`convertToRevenue`）の金額計算には一切混ぜない — 実際に課金する額は
+-- 今までどおり `unit_price` のまま（`estimate.service.ts` 側で徹底する）。
+ALTER TABLE estimate_items ADD COLUMN IF NOT EXISTS list_unit_price INTEGER;

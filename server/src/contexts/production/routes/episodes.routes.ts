@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { queryAll, queryOne, execute } from '../../../shared/db/connection';
+import { queryAll, queryOne, execute, withTransaction } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { extractPagination, paginatedResponse } from '../../../shared/services/pagination';
-import { generateEpisodeCode, getNextEpisodeNumber } from '../../../shared/services/sequence.service';
+import { generateEpisodeCode, getNextEpisodeNumberAtomic } from '../../../shared/services/sequence.service';
 import { generateBillingKey } from '../../../shared/services/billing-key.service';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { parseEpisodeSpec, groupConsecutive, EpisodeSpecError } from '../../../shared/production/episodeSpec';
 
 const router = Router();
 
@@ -75,57 +76,113 @@ router.get('/:projectId/episodes/:id', async (req, res) => {
 });
 
 // Batch create episodes
+//
+// 「追加する数」欄はテキストで受ける（`docs/design/v4/regular-series.md` §1・§2）。
+// - 純粋な数字だけ（例 "2"） → 従来どおり「次の話数から連番でN件」
+// - 範囲・カンマ区切り（例 "1-2" "#1-2" "1,3,5-8"） → その話数を明示的に作る
+// パーサーは `shared/production/episodeSpec.ts`（`shared/src/production/episodeSpec.ts` と
+// 意図的に複製・`scripts/check-collab-parity.mjs` が一致を検査）。
+//
+// `episodes` が新しいテキスト欄。旧クライアント・MCP など `count`（数）だけを渡す
+// 呼び出しにも後方互換で対応する（`episodes` が無ければ `count` を文字列として読む）。
 router.post('/:projectId/episodes/batch', requirePermission('sales', 'editor'), async (req, res) => {
   const projectId = req.params.projectId as string;
-  const { count, order_date, notes, revenue_budget_per_episode } = req.body;
+  const { episodes: episodesInput, count, order_date, notes, revenue_budget_per_episode } = req.body;
 
-  if (!count || count < 1) throw new AppError(400, 'VALIDATION_ERROR', '作成数は1以上を指定してください');
-  if (count > 100) throw new AppError(400, 'VALIDATION_ERROR', '一度に作成できるのは100件までです');
+  let spec;
+  try {
+    const raw = typeof episodesInput === 'string' && episodesInput.trim() !== ''
+      ? episodesInput
+      : String(count ?? '');
+    spec = parseEpisodeSpec(raw);
+  } catch (e) {
+    if (e instanceof EpisodeSpecError) throw new AppError(400, 'VALIDATION_ERROR', e.message);
+    throw e;
+  }
 
   const project = await queryOne('SELECT gls_number, customer_id FROM projects WHERE id = ? AND deleted_at IS NULL', [projectId]) as any;
   if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
 
   const customerId = project.customer_id;
-  const nextNum = await getNextEpisodeNumber(projectId);
-  const createdEpisodes: unknown[] = [];
-
-  const startEp = nextNum;
-  const endEp = nextNum + count - 1;
   const revPerEp = revenue_budget_per_episode || 0;
-
-  // Create episode_orders record
-  const orderId = uuidv4();
   const today = order_date || new Date().toISOString().split('T')[0];
-  await execute(
-    `INSERT INTO episode_orders (id, project_id, order_date, episode_count, start_episode, end_episode, notes, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [orderId, projectId, today, count, startEp, endEp, notes || null, req.user!.id]
-  );
+  const userId = req.user!.id;
 
-  for (let i = 0; i < count; i++) {
-    const episodeNumber = nextNum + i;
-    const episodeCode = generateEpisodeCode(project.gls_number, episodeNumber);
-    const id = uuidv4();
+  let createdEpisodes: unknown[];
+  try {
+    createdEpisodes = await withTransaction(async (tx) => {
+      // 採番からINSERTまでを同じトランザクション・同じ行ロックの中で行う
+      // （estimate.service.ts の convertToRevenue と同じ考え方）。
+      // 「件数」入力は sequences テーブルの行ロック（UPDATE ... RETURNING）で
+      // 1件ずつアトミックに次番号を取る。「明示指定」はその番号をそのまま使う。
+      const numbers: number[] = spec.mode === 'explicit'
+        ? spec.numbers
+        : await (async () => {
+            const ns: number[] = [];
+            for (let i = 0; i < spec.count; i++) {
+              ns.push(await getNextEpisodeNumberAtomic(projectId, tx));
+            }
+            return ns;
+          })();
 
-    await execute(
-      `INSERT INTO episodes (id, project_id, episode_code, episode_number, created_by)
-       VALUES (?, ?, ?, ?, ?)`,
-      [id, projectId, episodeCode, episodeNumber, req.user!.id]
-    );
+      // 既存話数との重複は DB の UNIQUE 制約に任せず、事前にまとめてチェックする
+      // （1件だけ通って残りが失敗、のような中途半端な状態を避ける）。
+      // FOR UPDATE で該当行を押さえてから確かめる — 同時に別の操作が同じ話数を
+      // 使おうとしても、片方はここで待たされてから重複を見つけて弾かれる。
+      const dupRows = await tx.queryAll(
+        `SELECT episode_number FROM episodes
+         WHERE project_id = ? AND deleted_at IS NULL AND episode_number = ANY(?::int[])
+         FOR UPDATE`,
+        [projectId, numbers],
+      ) as { episode_number: number }[];
+      if (dupRows.length > 0) {
+        const list = dupRows.map((r) => `#${r.episode_number}`).join('、');
+        throw new AppError(400, 'VALIDATION_ERROR', `すでにある話数と重複しています（${list}）`);
+      }
 
-    // Create revenue record for this episode
-    if (revPerEp > 0) {
-      const revId = uuidv4();
-      const billingKey = generateBillingKey(episodeCode, 'tax10');
-      await execute(
-        `INSERT INTO revenues (id, billing_key, project_id, episode_id, customer_id, assigned_to, tax_category, amount, notes, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, 'tax10', ?, ?, ?)`,
-        [revId, billingKey, projectId, id, customerId, req.user!.id, revPerEp, '発注時按分', req.user!.id]
-      );
+      // episode_orders は start_episode/end_episode の2列しか持たないため、
+      // 非連続レンジは連続する区間ごとに複数レコードへ分けて記録する。
+      for (const g of groupConsecutive(numbers)) {
+        await tx.execute(
+          `INSERT INTO episode_orders (id, project_id, order_date, episode_count, start_episode, end_episode, notes, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [uuidv4(), projectId, today, g.end - g.start + 1, g.start, g.end, notes || null, userId],
+        );
+      }
+
+      const created: unknown[] = [];
+      for (const episodeNumber of numbers) {
+        const episodeCode = generateEpisodeCode(project.gls_number, episodeNumber);
+        const id = uuidv4();
+
+        await tx.execute(
+          `INSERT INTO episodes (id, project_id, episode_code, episode_number, created_by)
+           VALUES (?, ?, ?, ?, ?)`,
+          [id, projectId, episodeCode, episodeNumber, userId],
+        );
+
+        if (revPerEp > 0) {
+          const revId = uuidv4();
+          const billingKey = generateBillingKey(episodeCode, 'tax10');
+          await tx.execute(
+            `INSERT INTO revenues (id, billing_key, project_id, episode_id, customer_id, assigned_to, tax_category, amount, notes, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, 'tax10', ?, ?, ?)`,
+            [revId, billingKey, projectId, id, customerId, userId, revPerEp, '発注時按分', userId],
+          );
+        }
+
+        const row = await tx.queryOne('SELECT * FROM episodes WHERE id = ?', [id]);
+        created.push(row);
+      }
+      return created;
+    });
+  } catch (e) {
+    // 事前チェックをすり抜けた同時実行だけが踏む経路（UNIQUE 制約違反）。
+    // 中途半端な作成を残さずロールバックした上で、分かりやすい文言に変える。
+    if (e instanceof Error && 'code' in e && (e as { code?: string }).code === '23505') {
+      throw new AppError(400, 'VALIDATION_ERROR', '他の操作と同時に重なったため、話数が重複しました。もう一度お試しください');
     }
-
-    const row = await queryOne('SELECT * FROM episodes WHERE id = ?', [id]);
-    createdEpisodes.push(row);
+    throw e;
   }
 
   res.status(201).json({ success: true, data: createdEpisodes });

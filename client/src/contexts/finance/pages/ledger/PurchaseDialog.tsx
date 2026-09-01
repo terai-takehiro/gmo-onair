@@ -8,8 +8,22 @@
  * ・削除の確認を `window.confirm` から共通の確認ダイアログに変えた
  *   （`check-ui-tokens` が `window.confirm` を止めます。文面も「何が消えるか」を出す形に）
  * ・生の色指定を同じ意味のトークンに置き換えた
+ *
+ * ── `readOnly`（案件詳細「見積・請求」から閲覧だけで開くため） ─────
+ *
+ * 案件詳細の「見積・請求」タブ（`RevenueBillingPane.tsx`）は**読むだけ**の画面
+ * （冒頭のコメント参照）。仕入行を押しても編集・削除ができてしまうと、その方針が
+ * 崩れるので、ここに `readOnly` を追加した。渡すと:
+ * ・見出しが「仕入の詳細」になり、フッターは「閉じる」だけ
+ * ・入力欄はすべて `disabled`（フォームの形はそのまま流用し、別に閲覧専用の
+ *   表示を作ると2つのレイアウトを保守することになるため）。**案件・仕入先の
+ *   2つだけは例外**——この2つは `SearchableSelect` で選べる一覧（`projects`/
+ *   `vendors`）が要るが、閲覧だけなら一覧を引く理由が無いので、素の文字で出す
+ *   （下の `ReadOnlyField` 参照）
+ * ・保存・削除の口（`onSave`/`onDelete`）は呼ばれない（渡さなくてよい）。
+ *   `projects`/`vendors` も渡さなくてよい（空配列で足りる）
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Loader2, Trash2 } from 'lucide-react';
 import { localDateStr } from '@/lib/format';
 import { previousBusinessDay } from '@gmo-onair/shared/src/utils/businessDays';
@@ -38,19 +52,40 @@ export interface PurchaseProjectOption {
   name: string;
 }
 
+/**
+ * `readOnly` のときの「案件」「仕入先」欄。
+ *
+ * この2つだけは `SearchableSelect` を使わない。**選べる一覧（`projects`/`vendors`）を
+ * 渡さずに開く**ため（案件詳細から閲覧だけで開くとき、受注済み案件の全件・
+ * 仕入先の全件を毎回引き直す理由が無い — `PurchaseListPage.tsx` の追加フォームと
+ * 違い、行はすでに1件分の名前を持っている）。一覧が空だと `SearchableSelect` は
+ * 「選ばれている」と気づけず placeholder のままになるので、素の文字で出す。
+ */
+function ReadOnlyField({ children }: { children: ReactNode }) {
+  return (
+    <p className="min-h-tap flex h-11 w-full items-center rounded-md border border-input bg-muted px-3 py-2 text-sm text-foreground lg:h-10 lg:min-h-0">
+      {children}
+    </p>
+  );
+}
+
 export function PurchaseDialog({
-  editing, defaultProjectId, projects, vendors, saving, deleting, onSave, onDelete, onClose,
+  editing, defaultProjectId, projects = [], vendors = [], saving = false, deleting = false, onSave, onDelete, onClose, readOnly = false,
 }: {
   editing: PurchaseRow | null;
   /** 案件で絞り込んで見ているときの初期値 */
   defaultProjectId: string;
-  projects: PurchaseProjectOption[];
-  vendors: Vendor[];
-  saving: boolean;
-  deleting: boolean;
-  onSave: (payload: Record<string, unknown>) => void;
-  onDelete: (id: string) => void;
+  /** `readOnly` のときは使わない（渡さなくてよい） */
+  projects?: PurchaseProjectOption[];
+  /** `readOnly` のときは使わない（渡さなくてよい） */
+  vendors?: Vendor[];
+  saving?: boolean;
+  deleting?: boolean;
+  onSave?: (payload: Record<string, unknown>) => void;
+  onDelete?: (id: string) => void;
   onClose: () => void;
+  /** 閲覧のみで開く（保存・削除ボタンを出さず、全欄を disabled にする） */
+  readOnly?: boolean;
 }) {
   const [selectedProjectId, setSelectedProjectId] = useState(editing?.project_id || defaultProjectId || '');
   const [vendorId, setVendorId] = useState(editing?.vendor_id || '');
@@ -85,7 +120,7 @@ export function PurchaseDialog({
   }, [editing, defaultProjectId]);
 
   const handleDelete = async () => {
-    if (!editing) return;
+    if (!editing || !onDelete) return;
     const ok = await confirmAction({
       title: 'この仕入を消しますか',
       description: `${editing.vendor_name ?? '仕入先なし'}「${editing.description ?? '説明なし'}」を消します。元に戻せません。`,
@@ -96,7 +131,7 @@ export function PurchaseDialog({
   };
 
   const handleSubmit = () => {
-    if (!selectedProjectId || !vendorId) return;
+    if (!selectedProjectId || !vendorId || !onSave) return;
     onSave({
       project_id: selectedProjectId,
       vendor_id: vendorId,
@@ -119,58 +154,76 @@ export function PurchaseDialog({
     <FormDialog
       open
       onOpenChange={(v) => { if (!v) onClose(); }}
-      title={editing ? '仕入を直す' : '仕入を登録'}
+      title={readOnly ? '仕入の詳細' : (editing ? '仕入を直す' : '仕入を登録')}
       size="lg"
       footer={
-        <div className="flex gap-2 sm:justify-between">
-          <div>
-            {editing && (
-              <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-                {deleting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
-                消す
+        readOnly ? (
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={onClose}>閉じる</Button>
+          </div>
+        ) : (
+          <div className="flex gap-2 sm:justify-between">
+            <div>
+              {editing && (
+                <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+                  {deleting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
+                  消す
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={onClose}>やめる</Button>
+              <Button disabled={!selectedProjectId || !vendorId || saving} onClick={handleSubmit}>
+                {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                {editing ? '更新' : '登録'}
               </Button>
-            )}
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose}>やめる</Button>
-            <Button disabled={!selectedProjectId || !vendorId || saving} onClick={handleSubmit}>
-              {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-              {editing ? '更新' : '登録'}
-            </Button>
-          </div>
-        </div>
+        )
       }
     >
         <div className="space-y-4">
           <div>
             <Label>案件 *</Label>
-            <SearchableSelect
-              options={projects.map((p) => ({ value: p.id, label: `${p.gls_number || 'GLS未発番'} ${p.name}` }))}
-              value={selectedProjectId}
-              onChange={setSelectedProjectId}
-              placeholder="GLS番号・案件名で検索..."
-            />
-            <p className="text-note mt-1 text-muted-foreground">
-              受注（A 受注済）以降の案件だけが選べます。
-              複数案件への按分は「按分グループ」から登録してください
-            </p>
+            {readOnly ? (
+              <ReadOnlyField>
+                {editing?.gls_number ? `${editing.gls_number} ` : ''}{editing?.project_name || '（案件なし）'}
+              </ReadOnlyField>
+            ) : (
+              <>
+                <SearchableSelect
+                  options={projects.map((p) => ({ value: p.id, label: `${p.gls_number || 'GLS未発番'} ${p.name}` }))}
+                  value={selectedProjectId}
+                  onChange={setSelectedProjectId}
+                  placeholder="GLS番号・案件名で検索..."
+                />
+                <p className="text-note mt-1 text-muted-foreground">
+                  受注（A 受注済）以降の案件だけが選べます。
+                  複数案件への按分は「按分グループ」から登録してください
+                </p>
+              </>
+            )}
           </div>
 
           <div>
             <Label>仕入先 *</Label>
-            <SearchableSelect
-              options={vendors.map((v) => ({ value: v.id, label: v.name, subLabel: v.vendor_type || '' }))}
-              value={vendorId}
-              onChange={setVendorId}
-              placeholder="仕入先を検索..."
-            />
+            {readOnly ? (
+              <ReadOnlyField>{editing?.vendor_name || '（仕入先なし）'}</ReadOnlyField>
+            ) : (
+              <SearchableSelect
+                options={vendors.map((v) => ({ value: v.id, label: v.name, subLabel: v.vendor_type || '' }))}
+                value={vendorId}
+                onChange={setVendorId}
+                placeholder="仕入先を検索..."
+              />
+            )}
           </div>
 
           <div>
             <Label>金額</Label>
             <div className="flex items-center gap-1">
-              <div className="flex-1"><CurrencyInput value={amount} onChange={setAmount} /></div>
-              <TaxHelperButton fieldLabel="仕入金額" defaultIncludedAmount={amount} onResult={setAmount} />
+              <div className="flex-1"><CurrencyInput value={amount} onChange={setAmount} disabled={readOnly} /></div>
+              <TaxHelperButton fieldLabel="仕入金額" defaultIncludedAmount={amount} onResult={setAmount} disabled={readOnly} />
             </div>
           </div>
 
@@ -181,18 +234,19 @@ export function PurchaseDialog({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="仕入の説明"
               rows={3}
+              disabled={readOnly}
             />
           </div>
 
           <div className="flex items-center justify-between gap-2">
             <Label htmlFor="is-provisional" className="cursor-pointer">仮（確定前の見込み仕入）</Label>
-            <Switch id="is-provisional" checked={isProvisional} onCheckedChange={(v) => setIsProvisional(!!v)} />
+            <Switch id="is-provisional" checked={isProvisional} onCheckedChange={(v) => setIsProvisional(!!v)} disabled={readOnly} />
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label>税区分</Label>
-              <Select value={taxCategory} onValueChange={setTaxCategory}>
+              <Select value={taxCategory} onValueChange={setTaxCategory} disabled={readOnly}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {(Object.keys(TaxCategoryLabels) as TaxCategory[]).map((key) => (
@@ -203,7 +257,7 @@ export function PurchaseDialog({
             </div>
             <div>
               <Label>精算方法</Label>
-              <Select value={settlementMethod} onValueChange={setSettlementMethod}>
+              <Select value={settlementMethod} onValueChange={setSettlementMethod} disabled={readOnly}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {(Object.keys(SettlementMethodLabels) as SettlementMethod[]).map((key) => (
@@ -230,6 +284,7 @@ export function PurchaseDialog({
                     setPaymentDueDate(localDateStr(previousBusinessDay(new Date(y, m + 1, 0))));
                   }
                 }}
+                disabled={readOnly}
               />
               <p className="text-note mt-0.5 text-muted-foreground">
                 入力すると計上月（当月）・支払予定日（翌月末、土日祝は前営業日）を自動入力します
@@ -238,11 +293,11 @@ export function PurchaseDialog({
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label>計上月</Label>
-                <Input type="month" value={recognitionMonth} onChange={(e) => setRecognitionMonth(e.target.value)} />
+                <Input type="month" value={recognitionMonth} onChange={(e) => setRecognitionMonth(e.target.value)} disabled={readOnly} />
               </div>
               <div>
                 <Label>支払予定日</Label>
-                <Input type="date" value={paymentDueDate} onChange={(e) => setPaymentDueDate(e.target.value)} />
+                <Input type="date" value={paymentDueDate} onChange={(e) => setPaymentDueDate(e.target.value)} disabled={readOnly} />
               </div>
             </div>
           </div>
@@ -250,7 +305,7 @@ export function PurchaseDialog({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label>精算番号</Label>
-              <Input value={settlementNumber} onChange={(e) => setSettlementNumber(e.target.value)} placeholder="任意" />
+              <Input value={settlementNumber} onChange={(e) => setSettlementNumber(e.target.value)} placeholder="任意" disabled={readOnly} />
             </div>
             <div>
               <Label>申請URL</Label>
@@ -259,13 +314,14 @@ export function PurchaseDialog({
                 value={settlementUrl}
                 onChange={(e) => setSettlementUrl(e.target.value)}
                 placeholder="精算申請ページのURL（任意）"
+                disabled={readOnly}
               />
             </div>
           </div>
 
           <div>
             <Label>インボイス</Label>
-            <Select value={invoiceQualified} onValueChange={setInvoiceQualified}>
+            <Select value={invoiceQualified} onValueChange={setInvoiceQualified} disabled={readOnly}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="qualified">適格事業者</SelectItem>
@@ -276,7 +332,7 @@ export function PurchaseDialog({
 
           <div>
             <Label>備考</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="任意" rows={2} />
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="任意" rows={2} disabled={readOnly} />
           </div>
         </div>
     </FormDialog>

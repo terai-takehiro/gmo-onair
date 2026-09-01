@@ -118,7 +118,7 @@ export async function buildEstimatePdf(estimateId: string): Promise<EstimatePdf>
     // `dateSlash()` は文字列前提で `.split('-')` するため、行に日付が
     // 入っている見積を発行すると "d.split is not a function" で 500 になっていた
     // （実 Postgres に当てて実際に踏んだ）。`to_char` で文字列に変換して渡す
-    `SELECT description, quantity, unit_price, amount, category, item_notes,
+    `SELECT description, quantity, unit, unit_price, list_unit_price, amount, category, item_notes,
             to_char(item_date, 'YYYY-MM-DD') AS item_date,
             to_char(item_date_end, 'YYYY-MM-DD') AS item_date_end
        FROM estimate_items WHERE estimate_id = ? ORDER BY sort_order, created_at`,
@@ -126,6 +126,18 @@ export async function buildEstimatePdf(estimateId: string): Promise<EstimatePdf>
   )) as Record<string, unknown>[];
 
   const discount = Math.max(0, Number(est.discount) || 0);
+  /*
+   * ⚠️ **グループ内価格の値引きも紙に出す**（migration 261・ユーザー要望「グループ内
+   * 見積でも定価→値引き→実額を表記したい」）。`list_unit_price`（定価）が
+   * `unit_price`（実額）より高い行は、**定価×数量で印字**し、差額はこの行では
+   * 引かず、まとめて1本の値引き行（「グループ価格による値引き」）に合算する —
+   * 行ごとに割引を書くと、値引きの行だけが並ぶ既存の「お値引き」（手動値引き
+   * `estimates.discount`）と紛れて「どちらの値引きか」が読めなくなるため。
+   *
+   * **ここは表示・印字だけ。** `amount`（実額）自体は変えず、印字用の値だけを
+   * 別に組み立てる（サーバーの金額計算・売上変換には一切混ぜない — migration 261 コメント参照）。
+   */
+  let groupDiscountTotal = 0;
   const rows = items.map((it) => {
     // **行ごとの日付（migration 194 開始日・235 終了日）を紙にも出す。**
     // 終了日が無い行（単日 or 入れていない）は開始日をそのまま終了日にも使う —
@@ -135,17 +147,33 @@ export async function buildEstimatePdf(estimateId: string): Promise<EstimatePdf>
     // 開始日そのものが無ければ両方 null のまま（従来どおりのフォールバック）
     const itemDate = (it.item_date as string | null) ?? null;
     const itemDateEnd = (it.item_date_end as string | null) ?? null;
+    const qty = Number(it.quantity) || 0;
+    const unitPrice = Number(it.unit_price) || 0;
+    const listUnitPrice = it.list_unit_price != null ? Number(it.list_unit_price) : null;
+    // 定価が実額より高い行だけ「定価×数量」で印字し、差額を積む
+    const showListPrice = listUnitPrice != null && listUnitPrice > unitPrice;
+    if (showListPrice) groupDiscountTotal += (listUnitPrice - unitPrice) * qty;
     return {
       description:  String(it.description ?? ''),
-      quantity:     Number(it.quantity) || 0,
-      unit_price:   Number(it.unit_price) || 0,
-      amount:       Number(it.amount) || 0,
+      quantity:     qty,
+      unit:         (it.unit as string | null) ?? null,
+      unit_price:   showListPrice ? (listUnitPrice as number) : unitPrice,
+      amount:       showListPrice ? (listUnitPrice as number) * qty : (Number(it.amount) || 0),
       period_start: itemDate,
       period_end:   itemDateEnd ?? itemDate,
       item_notes:   (it.item_notes as string | null) ?? null,
       category:     categoryLabel(it.category as string | null),
     };
   });
+  if (groupDiscountTotal > 0) {
+    // **既存の「お値引き」（手動値引き）とはラベルを分けて共存させる**
+    // （ユーザー要望どおり — どちらの値引きか読めるようにする）
+    rows.push({
+      description: 'グループ価格による値引き', quantity: 1, unit: null,
+      unit_price: -groupDiscountTotal, amount: -groupDiscountTotal,
+      period_start: null, period_end: null, item_notes: null, category: '値引き',
+    });
+  }
   if (discount > 0) {
     // **明細と同じ分類には入れない。** 入れるとその分類の小計から値引きが引かれ、
     // 「スタジオの小計」が定価と合わなくなる（値引きは見積全体に掛かるもの）。
@@ -153,7 +181,7 @@ export async function buildEstimatePdf(estimateId: string): Promise<EstimatePdf>
     // **「（未分類）」という帯**の下に値引きが並んで何の行か読めないので、
     // 値引き専用の分類にして帯にもそう出す
     rows.push({
-      description: 'お値引き', quantity: 1, unit_price: -discount, amount: -discount,
+      description: 'お値引き', quantity: 1, unit: null, unit_price: -discount, amount: -discount,
       period_start: null, period_end: null, item_notes: null, category: '値引き',
     });
   }

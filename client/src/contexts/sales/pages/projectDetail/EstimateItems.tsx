@@ -10,14 +10,31 @@
  *
  * 呼ぶ側が渡すのは「読む口」と「保存する口」だけで、
  * 計算・並び・止め方（出したあとは直せない）はここが決めます。
+ *
+ * ── 並べ替え（要望⑤） ───────────────────────────────────────
+ *
+ * ドラッグで並べ替えた**配列順がそのまま `sort_order`**（サーバー側
+ * `replaceItems` は渡された配列の順に振り直す。並べ替え自体は画面の
+ * state をローカルに動かすだけで、保存は今までどおり「明細を保存する」を
+ * 押したときの一括保存に乗る）。**カテゴリをまたぐ並べ替えは行わない** —
+ * 行はカテゴリ別の帯に分けて描いており、越境させると
+ * 「なぜこのカテゴリに移ったのか」を保存前に判断させることになるため。
  */
 import { useState } from 'react';
-import { Plus, Trash2, Link2, CopyCheck } from 'lucide-react';
+import {
+  DndContext, closestCenter, PointerSensor, KeyboardSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext, verticalListSortingStrategy, arrayMove, sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable';
+import { Plus, Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
-import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
+import { RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import PricingItemPicker, { type PickedPricingItem } from '@/contexts/finance/components/PricingItemPicker';
+import { EstimateItemRowView } from './EstimateItemRow';
 
 export interface EstimateItemRow {
   id?: string; description: string; quantity: number; unit: string | null;
@@ -30,6 +47,12 @@ export interface EstimateItemRow {
   item_date_end?: string | null;
   /** 料金表から選んだ品目（migration 172）。手入力の行は null */
   pricing_item_id?: string | null;
+  /**
+   * 定価（カタログ選択時のみ入る。手入力の行は null。migration 261）。
+   * **表示専用** — 保存はするが、粗利・合計の計算には使わない
+   * （実際に課金する額は `unit_price` のまま）。
+   */
+  list_unit_price?: number | null;
 }
 
 /** 明細を持つ見積のうち、この部品が見るところだけ */
@@ -59,6 +82,9 @@ const CATEGORIES: { key: string; label: string }[] = [
   { key: 'tech', label: '技術・人員' },
   { key: 'other', label: '制作・その他' },
 ];
+
+/** 数量の単位の候補（`<datalist>`）。**自由入力も許す** — この4つに縛らない */
+const UNIT_OPTIONS = ['人', '時間', '日', '式'];
 
 /** 粗利率。**30% を切ると赤くするが保存は止めない** (_rules.md「フォームの決めごと」) */
 function margin(items: EstimateItemRow[], discount: number): { profit: number; rate: number | null } {
@@ -93,6 +119,11 @@ export function EstimateItems({
   const locked = statusLocked || !canEdit;
   const customerType = estimate.customer_type === 'internal' ? 'internal' : 'external';
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
   /**
    * 既定3つ + 明細に実際に入っている未知のカテゴリ（自由入力で足したもの・
    * 古いデータで既に入っていたもの）。**`CATEGORIES` 自体は増やさない**
@@ -121,6 +152,9 @@ export function EstimateItems({
       quantity: 1, unit: null, unit_price: picked.unit_price,
       amount: picked.unit_price, cost: 0, category,
       pricing_item_id: picked.pricing_item_id,
+      // **グループ内価格でも定価を保存しておく**（要望③）。手入力の行と違い、
+      // カタログに定価があれば必ず入る — 表示は EstimateItemRowView が判断する
+      list_unit_price: picked.list_unit_price,
     }]);
   };
 
@@ -147,8 +181,33 @@ export function EstimateItems({
     setItems((prev) => prev.map((it) => ({ ...it, item_date: item_date ?? null, item_date_end: item_date_end ?? null })));
   };
 
+  /**
+   * ドラッグでの並べ替え（要望⑤）。`id` は明細の**全体配列の中の位置**
+   * （`String(i)`）— ドラッグ中は state を動かさないので、同じ操作の中では
+   * ずっと同じ行を指す（`KanbanView.tsx` の考え方と同じ）。
+   * **別カテゴリの行の上に落としたときは何もしない** — カテゴリは帯で
+   * 分けて描いているので、越境した並べ替えは「カテゴリが変わった」のか
+   * 「順番だけ変えたい」のか画面から読み取れない。
+   */
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = Number(active.id);
+    const newIndex = Number(over.id);
+    setItems((prev) => {
+      if (Number.isNaN(oldIndex) || Number.isNaN(newIndex)) return prev;
+      if ((prev[oldIndex]?.category ?? 'other') !== (prev[newIndex]?.category ?? 'other')) return prev;
+      return arrayMove(prev, oldIndex, newIndex);
+    });
+  };
+
   return (
     <div className="rounded-card border border-border bg-card">
+      {/* 単位の入力候補（要望②）。画面に見えない — `<Input list>` から参照するだけ */}
+      <datalist id="estimate-item-units">
+        {UNIT_OPTIONS.map((u) => <option key={u} value={u} />)}
+      </datalist>
+
       <div className="flex flex-wrap items-center gap-3 border-b border-border-subtle px-4 py-3">
         <h2 className="text-cardtitle">v{estimate.version} の明細</h2>
         {statusLocked && (
@@ -176,12 +235,13 @@ export function EstimateItems({
         表頭は編集できるとき「だけ」ではなく**常に**出す（要望③）。以前は `!locked`
         の間しか出しておらず、送付済み・閲覧のみで入力欄が disabled のまま並ぶと
         「数量」「金額」「仕入」がどの数字か表せていなかった（ユーザー指摘）。
-        削除ボタン・期間コピー列は編集できるときにしか出ない列なので、
-        表頭側もその2つだけ `!locked` で出し分けて body と揃える。
+        削除ボタン・期間コピー列・ドラッグハンドル列は編集できるときにしか出ない列
+        なので、表頭側もその3つだけ `!locked` で出し分けて body と揃える。
       */}
       <RowHeader className="hidden sm:flex">
+        {!locked && <RowSlot w={56} />}
         <RowMain>品目 / 備考</RowMain>
-        <RowSlot w={72}>数量</RowSlot>
+        <RowSlot w={96}>数量 / 単位</RowSlot>
         <RowSlot w={128}>単価（税抜）</RowSlot>
         <RowSlot w={128}>仕入（見込み）</RowSlot>
         <RowSlot w={128}>開始日</RowSlot>
@@ -191,85 +251,40 @@ export function EstimateItems({
         {!locked && <RowSlot w={56} />}
       </RowHeader>
 
-      {allCategories.map((c) => {
-        const rows = items.map((it, i) => ({ it, i })).filter(({ it }) => (it.category ?? 'other') === c.key);
-        if (rows.length === 0 && locked) return null;
-        return (
-          <div key={c.key} className="border-b border-border-faint last:border-b-0">
-            <p className="text-th bg-surface-subtle px-4 py-2 text-muted-foreground">{c.label}</p>
-            {rows.map(({ it, i }) => (
-              <Row key={i} divider stackOnMobile align="center">
-                <RowMain>
-                  <Input value={it.description} disabled={locked} placeholder="品目"
-                    onChange={(e) => upd(i, { description: e.target.value })} />
-                  {(!locked || it.item_notes) && (
-                    <Input value={it.item_notes ?? ''} disabled={locked} placeholder="この行の備考"
-                      aria-label="この行の備考"
-                      className="mt-1 text-sub-sm"
-                      onChange={(e) => upd(i, { item_notes: e.target.value })} />
-                  )}
-                </RowMain>
-                <RowSlot w={72}>
-                  {/* 数量は整数のみ（サーバーの `estimate_items.quantity` が INTEGER 列）。
-                      小数を打てると保存時にサーバー内部エラーになっていた（実際に踏んだ）ため、
-                      `step="1"` でブラウザにも整数だと伝える */}
-                  <Input type="number" step={1} min={0} value={it.quantity} disabled={locked} aria-label="数量"
-                    onChange={(e) => upd(i, { quantity: Math.round(Number(e.target.value)) || 0 })} />
-                </RowSlot>
-                <RowSlot w={128}>
-                  <Input type="number" value={it.unit_price} disabled={locked} aria-label="単価（税抜・1件あたり）"
-                    onChange={(e) => upd(i, { unit_price: Number(e.target.value) || 0 })} />
-                </RowSlot>
-                <RowSlot w={128}>
-                  <Input type="number" value={it.cost} disabled={locked} aria-label="仕入（見込み・実際の仕入とは別）"
-                    onChange={(e) => upd(i, { cost: Number(e.target.value) || 0 })} />
-                </RowSlot>
-                <RowSlot w={128}>
-                  <Input type="date" value={it.item_date ?? ''} disabled={locked} aria-label="この行の開始日"
-                    onChange={(e) => upd(i, { item_date: e.target.value || null })} />
-                </RowSlot>
-                <RowSlot w={128}>
-                  <Input type="date" value={it.item_date_end ?? ''} disabled={locked} aria-label="この行の終了日（任意）"
-                    min={it.item_date ?? undefined}
-                    onChange={(e) => upd(i, { item_date_end: e.target.value || null })} />
-                </RowSlot>
-                {!locked && (
-                  <RowSlot w={56} align="center">
-                    {/* 要望①: 1行に入れた期間（開始・終了）をボタン1つで他の全行へ */}
-                    <Button variant="ghost" size="sm" aria-label="この行の期間を全ての行にコピー"
-                      title="この行の期間（開始・終了）を全ての行にコピー"
-                      onClick={() => copyPeriodToAll(i)}>
-                      <CopyCheck className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-                    </Button>
-                  </RowSlot>
-                )}
-                <Money value={it.amount} className="text-sub w-32 shrink-0" />
-                {!locked && (
-                  <RowSlot w={56} align="right">
-                    <Button variant="ghost" size="sm" aria-label="この行を消す"
-                      onClick={() => setItems((prev) => prev.filter((_, n) => n !== i))}>
-                      <Trash2 className="h-3.5 w-3.5 text-destructive" aria-hidden="true" />
-                    </Button>
-                  </RowSlot>
-                )}
-              </Row>
-            ))}
-            {!locked && (
-              <div className="flex flex-wrap gap-2 px-4 py-2">
-                <Button variant="outline" size="sm" onClick={() => setItems((prev) => [...prev,
-                  { description: '', quantity: 1, unit: null, unit_price: 0, amount: 0, cost: 0, category: c.key }])}>
-                  <Plus className="mr-1 h-3.5 w-3.5" aria-hidden="true" />{c.label}に行を足す
-                </Button>
-                {estimate.project_id && (
-                  <Button variant="outline" size="sm" onClick={() => setPickerCategory(c.key)}>
-                    <Link2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" />料金表から選ぶ
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        {allCategories.map((c) => {
+          const rows = items.map((it, i) => ({ it, i })).filter(({ it }) => (it.category ?? 'other') === c.key);
+          if (rows.length === 0 && locked) return null;
+          return (
+            <div key={c.key} className="border-b border-border-faint last:border-b-0">
+              <p className="text-th bg-surface-subtle px-4 py-2 text-muted-foreground">{c.label}</p>
+              <SortableContext items={rows.map(({ i }) => String(i))} strategy={verticalListSortingStrategy}>
+                {rows.map(({ it, i }) => (
+                  <EstimateItemRowView
+                    key={i} id={String(i)} it={it} i={i} locked={locked}
+                    onUpdate={upd}
+                    onDelete={(n) => setItems((prev) => prev.filter((_, k) => k !== n))}
+                    onCopyPeriod={copyPeriodToAll}
+                  />
+                ))}
+              </SortableContext>
+              {!locked && (
+                <div className="flex flex-wrap gap-2 px-4 py-2">
+                  <Button variant="outline" size="sm" onClick={() => setItems((prev) => [...prev,
+                    { description: '', quantity: 1, unit: null, unit_price: 0, amount: 0, cost: 0, category: c.key }])}>
+                    <Plus className="mr-1 h-3.5 w-3.5" aria-hidden="true" />{c.label}に行を足す
                   </Button>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
+                  {estimate.project_id && (
+                    <Button variant="outline" size="sm" onClick={() => setPickerCategory(c.key)}>
+                      <Link2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" />料金表から選ぶ
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </DndContext>
 
       {!locked && (
         <div className="flex flex-wrap items-center gap-2 border-b border-border-faint px-4 py-3">

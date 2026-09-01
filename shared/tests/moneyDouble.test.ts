@@ -33,7 +33,11 @@ const INVOICE_NO = read('server', 'src', 'contexts', 'finance', 'services', 'inv
 /** `withTransaction(...)` の中身を取り出す（雑でよい — 行を押さえる位置だけ見る） */
 function txBody(src: string, from: number): string {
   const at = src.indexOf('withTransaction', from);
-  return at < 0 ? '' : src.slice(at, at + 2000);
+  // ⚠️ `convertToRevenue` は版重複変換の防止（同じ見積の別バージョンが
+  // 作った売上を上書きする分岐）が増え、コメントごと 2000 字を超えている。
+  // 窓を狭いままにすると**中身は正しいのに試験だけが赤くなる**（別のテストの
+  // 教訓と同じ形）ので、実測して余裕を持たせてある
+  return at < 0 ? '' : src.slice(at, at + 6000);
 }
 
 describe('お金の二重計上・取りこぼし', () => {

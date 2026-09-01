@@ -53,6 +53,22 @@
  * そのまま呼んでいるだけ**（コードの二重実装を避ける）。編集・削除は
  * 台帳側にしか出さない（このペインは新規登録の入口だけ）。
  * 権限も台帳と同じ `sales:editor`（サーバー `POST /purchases` の要件）。
+ *
+ * ── 仕入行を押すと詳細が見られる（ご要望で追加） ─────────────────
+ *
+ * 「読むだけ」を破らない範囲で、仕入行を押すと**同じ `PurchaseDialog` を
+ * `readOnly` で開く**（保存・削除ボタンは出ず、全欄が disabled）。
+ * 財務②仕入台帳の `LedgerRows`（`interactive onClick={() => onOpen(r)}`）と
+ * 同じ「行を押すと詳細」という手触りに揃えたが、台帳側は編集者だと
+ * 編集ダイアログが開く——ここは常に閲覧専用（このペインの方針）。
+ *
+ * ── 「案件管理の売上」と「財務管理の売上」は同じデータの2つの見え方 ──
+ *
+ * `revenues`/`purchases` は財務管理の台帳（`/budget/revenues` `/budget/purchases`）と
+ * **同じテーブル・同じ API**（このペインはそれを案件で絞って読むだけ）。
+ * 二重管理だと誤解されないよう、各カードに財務管理側（この案件で絞った状態）への
+ * リンクを出す（`ProjectQuickLinks.tsx` と同じクエリの付け方
+ * `?project_id=…&project_name=…`）。
  */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -63,59 +79,16 @@ import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/u
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { EmptyState, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
-import { DocPdfButton } from '@/contexts/shared/components/DocPdfButton';
-import { DocExcelButton } from '@/contexts/shared/components/DocExcelButton';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { PurchaseDialog, type PurchaseProjectOption } from '@/contexts/finance/pages/ledger/PurchaseDialog';
-import type { Revenue, Purchase, Vendor } from '@gmo-onair/shared/src/types';
-
-/**
- * 帳票を出すボタン2つ（請求書・検収書）。
- *
- * **見積書はここに出さない** — 版を持つ「見積」から出す（冒頭のコメント参照）。
- */
-function DocButtons({ revenueId }: { revenueId: string }) {
-  return (
-    <RowSlot w={160} align="right" className="gap-1">
-      {(['invoice', 'inspection'] as const).map((type) => (
-        <DocPdfButton key={type} path={`/revenues/${revenueId}/pdf`} kind={type} params={{ type }} />
-      ))}
-      <DocExcelButton revenueId={revenueId} />
-    </RowSlot>
-  );
-}
-
-const REV_STATUS_LABEL: Record<string, string> = { estimate: '見込み', confirmed: '確定' };
-const REV_STATUS_TONE: Record<string, string> = {
-  estimate: 'border-transparent bg-muted text-muted-foreground',
-  confirmed: 'border-transparent bg-success-surface text-success',
-};
-
-function invoiceState(r: Revenue): { label: string; tone: string } {
-  return r.paid_date
-    ? { label: '入金済み', tone: 'border-transparent bg-success-surface text-success' }
-    : { label: '未収', tone: 'border-transparent bg-warning-surface text-warning' };
-}
-
-/**
- * 一覧の応答。**合計はサーバーが出したものを使います**（レビューでの指摘 #87）。
- *
- * ⚠️ **行を足し算しないこと。** ①分け合う請求（グループ）の `amount` は
- * **グループ全体の額**なので、そのまま足すと**1案件の粗利が他案件のぶんだけ
- * 膨らみます**。②行は 100 件で切っているので、**101 件目からは合計に入りません**。
- * どちらも画面を見ても気づけません（それらしい数字が出るだけ）。
- */
-interface ListResponse<T> {
-  data: T[];
-  /** 件数は `pagination.total`（`paginatedResponse` の形） */
-  pagination?: { total?: number };
-  /** 分け合うぶんを配分額で足した合計（案件で絞ったときだけ返る） */
-  total_allocated_amount?: number;
-  /** 同上・確定した売上だけ */
-  confirmed_allocated_amount?: number;
-}
+import type { PurchaseRow } from '@/contexts/finance/pages/ledger/types';
+import type { Revenue, Vendor } from '@gmo-onair/shared/src/types';
+import {
+  financeLedgerHref, FinanceLedgerLink, SameDataNote, DocButtons,
+  REV_STATUS_LABEL, REV_STATUS_TONE, invoiceState, type ListResponse,
+} from './revenueBillingParts';
 
 /**
  * **切ったことを書く。** 行は 100 件までしか出しません（全部出すと画面が固まる）。
@@ -129,18 +102,23 @@ function MoreNote({ n }: { n: number }) {
   );
 }
 
-export function RevenueBillingPane({ projectId, mobile }: { projectId: string; mobile?: boolean }) {
+export function RevenueBillingPane({ projectId, projectName, mobile }: { projectId: string; projectName?: string; mobile?: boolean }) {
   const qc = useQueryClient();
   const { hasPermission } = useAuth();
   // サーバー側 `POST /purchases` の要件（`requirePermission('sales', 'editor')`）に合わせる
   const canAddPurchase = hasPermission('sales', 'editor');
   const [addPurchaseOpen, setAddPurchaseOpen] = useState(false);
+  /** 仕入行を押して開いた閲覧専用の詳細。`null` なら閉じている */
+  const [viewingPurchase, setViewingPurchase] = useState<PurchaseRow | null>(null);
 
   const revenues = useQuery<ListResponse<Revenue>>({
     queryKey: ['revenues', 'project', projectId],
     queryFn: async () => (await api.get('/revenues', { params: { project_id: projectId, limit: 100 } })).data,
   });
-  const purchases = useQuery<ListResponse<Purchase>>({
+  // `PurchaseRow` で受ける — 財務②仕入台帳（`PurchaseListPage.tsx`）と同じ `/purchases` の
+  // 応答なので同じ形。仕入行の詳細（`readOnly` の `PurchaseDialog`）に project_name・
+  // gls_number・vendor_name をそのまま渡すため（一覧を引き直さずに名前を出す）
+  const purchases = useQuery<ListResponse<PurchaseRow>>({
     queryKey: ['purchases', 'project', projectId],
     queryFn: async () => (await api.get('/purchases', { params: { project_id: projectId, limit: 100 } })).data,
   });
@@ -194,10 +172,17 @@ export function RevenueBillingPane({ projectId, mobile }: { projectId: string; m
   const moreRevenue = Math.max(0, (revenues.data?.pagination?.total ?? 0) - revenueRows.length);
   const morePurchase = Math.max(0, (purchases.data?.pagination?.total ?? 0) - purchaseRows.length);
 
+  const revenuesLedgerHref = financeLedgerHref('/budget/revenues', projectId, projectName);
+  const purchasesLedgerHref = financeLedgerHref('/budget/purchases', projectId, projectName);
+
   return (
     <div className="flex flex-col gap-3.5">
       <div className="overflow-hidden rounded-card border border-border bg-card">
-        <p className="text-cardtitle border-b border-border px-4 py-3">売上</p>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border px-4 py-3">
+          <p className="text-cardtitle">売上</p>
+          <FinanceLedgerLink to={revenuesLedgerHref} label="財務管理の売上台帳で見る" />
+        </div>
+        <SameDataNote what="売上" />
         {revenueRows.length === 0 ? (
           <EmptyState title="売上はまだありません" description="財務管理の売上台帳から登録できます。" />
         ) : mobile ? (
@@ -285,14 +270,18 @@ export function RevenueBillingPane({ projectId, mobile }: { projectId: string; m
           )}
         </div>
         <div className="overflow-hidden rounded-card border border-border bg-card">
-          <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
             <p className="text-cardtitle">仕入（原価）</p>
-            {canAddPurchase && (
-              <Button size="sm" variant="outline" onClick={() => setAddPurchaseOpen(true)}>
-                <Plus className="mr-1 h-4 w-4" aria-hidden="true" />仕入を追加
-              </Button>
-            )}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <FinanceLedgerLink to={purchasesLedgerHref} label="財務管理の仕入台帳で見る" />
+              {canAddPurchase && (
+                <Button size="sm" variant="outline" onClick={() => setAddPurchaseOpen(true)}>
+                  <Plus className="mr-1 h-4 w-4" aria-hidden="true" />仕入を追加
+                </Button>
+              )}
+            </div>
           </div>
+          <SameDataNote what="仕入" />
           {purchaseRows.length === 0 ? (
             <EmptyState
               title="仕入はまだありません"
@@ -307,7 +296,16 @@ export function RevenueBillingPane({ projectId, mobile }: { projectId: string; m
             <>
               <div className="flex flex-col">
                 {purchaseRows.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between gap-2 border-b border-border-faint p-3.5 last:border-b-0">
+                  <div
+                    key={p.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setViewingPurchase(p)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewingPurchase(p); }
+                    }}
+                    className="min-h-tap flex cursor-pointer items-center justify-between gap-2 border-b border-border-faint p-3.5 last:border-b-0 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
                     <span className="text-list min-w-0 flex-1 truncate">{p.vendor_name || p.description || '（内容未設定）'}</span>
                     <Money value={p.amount} className="text-list shrink-0 font-bold" />
                   </div>
@@ -318,7 +316,19 @@ export function RevenueBillingPane({ projectId, mobile }: { projectId: string; m
           ) : (
             <>
               {purchaseRows.map((p) => (
-                <Row key={p.id} divider align="center">
+                <Row
+                  key={p.id}
+                  divider
+                  interactive
+                  align="center"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setViewingPurchase(p)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewingPurchase(p); }
+                  }}
+                  className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
                   <RowMain><span className="text-list block truncate">{p.vendor_name || p.description || '（内容未設定）'}</span></RowMain>
                   <Money value={p.amount} className="text-sub w-28 shrink-0" />
                 </Row>
@@ -351,10 +361,18 @@ export function RevenueBillingPane({ projectId, mobile }: { projectId: string; m
           projects={glsProjects}
           vendors={vendors}
           saving={savePurchase.isPending}
-          deleting={false}
           onSave={(payload) => savePurchase.mutate(payload)}
-          onDelete={() => {}}
           onClose={() => setAddPurchaseOpen(false)}
+        />
+      )}
+
+      {/* 仕入行を押したときの閲覧専用の詳細。編集・削除は出さない（このペインの方針） */}
+      {viewingPurchase && (
+        <PurchaseDialog
+          readOnly
+          editing={viewingPurchase}
+          defaultProjectId={projectId}
+          onClose={() => setViewingPurchase(null)}
         />
       )}
     </div>

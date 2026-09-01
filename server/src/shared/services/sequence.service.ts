@@ -67,22 +67,18 @@ export function generateEpisodeCode(glsNumber: string, episodeNumber: number): s
   return `${glsNumber}-${String(episodeNumber).padStart(3, '0')}`;
 }
 
-// プロジェクトの次のエピソード番号を取得
-export async function getNextEpisodeNumber(projectId: string): Promise<number> {
-  const row = await queryOne(
-    'SELECT MAX(episode_number) as max_num FROM episodes WHERE project_id = ? AND deleted_at IS NULL',
-    [projectId]
-  );
-  return row && row.max_num ? (row.max_num as number) + 1 : 1;
-}
+/** `getNextEpisodeNumberAtomic` が読み書きに使う実行口の最小形。既定は素の `queryOne`（pool）だが、
+ * `withTransaction` の `TxClient` を渡すと採番からエピソード行の INSERT までを同じ
+ * トランザクション・同じ行ロックの中に収められる（`/episodes/batch` が使う）。 */
+type QueryOneExecutor = (sql: string, params?: unknown[]) => Promise<any>;
 
 /**
  * プロジェクトの次のエピソード番号を**アトミックに**取得する。
  *
- * `getNextEpisodeNumber`（MAX+1の read-then-write）は並行実行で同じ番号を
- * 返しうる。GLS 採番（`generateGlsNumber`）と同じ `ON CONFLICT ... RETURNING`
- * の形にして、`sequences` テーブルを project_id ごとのカウンタとして使う
- * （`seq_name` は `episode:{projectId}`）。
+ * 旧 `getNextEpisodeNumber`（MAX+1の read-then-write。`/episodes/batch` が使っていた）は
+ * 並行実行で同じ番号を返しうるため廃止した。GLS 採番（`generateGlsNumber`）と同じ
+ * `ON CONFLICT ... RETURNING` の形にして、`sequences` テーブルを project_id ごとの
+ * カウンタとして使う（`seq_name` は `episode:{projectId}`）。
  *
  * ⚠️ **初回だけ、既存の episode_number の最大値から種をまく。** この案件に
  * 既に `/episodes/batch` などで作られた回があるとき、1 から始めると番号が
@@ -91,21 +87,24 @@ export async function getNextEpisodeNumber(projectId: string): Promise<number> {
  * （挿入時に `idx_episodes_project_number`（migration 260）と衝突すれば、
  * 呼び出し側でエラーになるので黙って重複することはない）。
  */
-export async function getNextEpisodeNumberAtomic(projectId: string): Promise<number> {
+export async function getNextEpisodeNumberAtomic(
+  projectId: string,
+  db: { queryOne: QueryOneExecutor } = { queryOne },
+): Promise<number> {
   const seqName = `episode:${projectId}`;
 
-  const bumped = await queryOne(
+  const bumped = await db.queryOne(
     `UPDATE sequences SET counter = counter + 1 WHERE seq_name = ? RETURNING counter`,
     [seqName],
   ) as { counter: number } | null;
   if (bumped) return bumped.counter;
 
-  const existing = await queryOne(
+  const existing = await db.queryOne(
     `SELECT COALESCE(MAX(episode_number), 0) as max_num FROM episodes WHERE project_id = ? AND deleted_at IS NULL`,
     [projectId],
   ) as { max_num: number };
 
-  const seeded = await queryOne(
+  const seeded = await db.queryOne(
     `INSERT INTO sequences (seq_name, prefix, year_month, counter)
      VALUES (?, 'episode', '000000', ?)
      ON CONFLICT (seq_name) DO UPDATE SET counter = sequences.counter + 1
