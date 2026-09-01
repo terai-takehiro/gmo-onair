@@ -214,7 +214,7 @@ export interface AwardsMigrationCommitResult {
  *
  * **冪等性**: `graphics_projects.owner_id` に決め打ちキー（`awards-migrated-{eventId}`。
  * `ownerId` を渡せば上書きも可）を使い、`(owner_type, owner_id)` の UNIQUE 制約
- * （migration 245）に先んじて存在チェックし、既にあれば親切なエラーメッセージで弾く
+ * （migration 250）に先んじて存在チェックし、既にあれば親切なエラーメッセージで弾く
  * （同じイベントを2回移行して重複作成しないため）。
  *
  * 元の `awards_*` テーブルには一切書き込まない（読み取りのみ）。

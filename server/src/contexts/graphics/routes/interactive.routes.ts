@@ -8,7 +8,7 @@ import type { InteractiveLink } from '../services/interactive-bridge.service';
 // テロップCG — 外部インタラクティブ連携（別 VPS interactive.gmo-onair.jp）の設定 API（段6-7）。
 // 旧 awards の `quizzes.routes.ts`「連携設定 (URL/APIキー/対象イベント)」節と同じ設計
 // （`apiKeySecret` はレスポンスに一切含めない・PUT は新規/更新の両方を担う）を、
-// event 単位（awards_events）から project 単位（graphics_projects・migration 253）へ
+// event 単位（awards_events）から project 単位（graphics_projects・migration 258）へ
 // そのまま踏襲する。
 
 const router = Router();

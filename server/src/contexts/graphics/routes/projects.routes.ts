@@ -14,7 +14,7 @@ router.use(requireAuth, requirePermission('qsheet'));
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
   (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
 
-// ── slotExitRules のバリデーション（段6-4。migration 247） ─────────────
+// ── slotExitRules のバリデーション（段6-4。migration 252） ─────────────
 // 形は [{ whenSlot, autoOutSlots: [] }]。whenSlot/autoOutSlots は SLOTS の値のみ・
 // whenSlot は autoOutSlots に自分自身を含めない（自分を自動OUTするルールは無意味で、
 // 見た目のTAKEと同時に自分自身が消えるという分かりにくい挙動になるため弾く）。

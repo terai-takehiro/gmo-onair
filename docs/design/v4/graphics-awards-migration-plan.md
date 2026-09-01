@@ -96,7 +96,7 @@
 2. **リアルタイムの投票受付・外部インタラクティブ連携が無い**。視聴者が実際に投票する導線が皆無
 3. **ランキング発表の多段演出が無い**。`score` 部品は静的表示＋±だけ。1位から順に出す等の
    段階進行の仕組みがゼロ（`ConsoleControls.tsx` の「続き」ボタンは実装なしの常時disabled）→
-   **段6-1 実装済み**（`graphics_cue_state.reveal_phase`・migration 248。`POST
+   **段6-1 実装済み**（`graphics_cue_state.reveal_phase`・migration 253。`POST
    …/cue/continue` と Socket `cg:continue` でスロット単位の段階カウンタを+1し、
    「続き」ボタンから叩けるようにした汎用機構のみ。実証として一覧表〈`FullscreenList`〉に
    「revealPhase+1件目まで表示」を適用した。**段階公開の仕組み（段6-1の`reveal_phase`
@@ -122,12 +122,12 @@
    [graphics-design-specs.md §11](graphics-design-specs.md#11-inout-トランジション契約実装値2026-08-31-追補段6-3)）。
    ジャンル別の凝った演出（式典のマスク展開・バラエティのポップ等・§8）は今後の課題
 5. **スロット間の自動退出ルールが未実装**（§2で宣言しているのにコード上どこにも無い）→
-   **段6-4 実装済み**（`graphics_projects.slot_exit_rules`・migration 247。テンプレート層
+   **段6-4 実装済み**（`graphics_projects.slot_exit_rules`・migration 252。テンプレート層
    〈6番〉がまだ無いため、いまは「テンプレート側」ではなく**CGプロジェクト単位の設定**として
    持つ。テンプレート層ができたらそちらへ移設予定）
 6. **テンプレート層そのものが無い**。1ページ＝1部品固定で、複数部品を組み合わせた画面が作れない→
    **段6-2 実装済み（単一部品の設定プリセット＋公開フィールド絞り込みのみ。複数部品を1画面に
-   配置するキャンバス機能は引き続き今後の課題）**。`graphics_templates`（migration 249。
+   配置するキャンバス機能は引き続き今後の課題）**。`graphics_templates`（migration 254。
    project_id・part_key・slot・name・base_fields・public_fields）とページ側の `template_id`
    （NULL許容・ON DELETE SET NULL）を新設。ページをテンプレートから作ると `base_fields` が
    初期値になり、フォームは `public_fields` に含まれるフィールドの入力欄だけを出す
@@ -221,12 +221,12 @@
 
 > **段6-4 実装済み（テンプレート層〈6-2〉に先行）。** 上の依存図は「テンプレート層ができた
 > 前提」の置き場所だが、6-2はまだ未着手のため、今回は**CGプロジェクト単位の設定**
-> （`graphics_projects.slot_exit_rules`・migration 247）として実装した。6-2ができたら
+> （`graphics_projects.slot_exit_rules`・migration 252）として実装した。6-2ができたら
 > ルールをテンプレート側へ移設する想定（過剰な先読み設計はしない、という判断で
 > いまはプロジェクト単位のまま）。
 
 > **段6-1 実装済み（reveal_phase汎用機構＋一覧表への適用のみ。ランキング発表演出そのものは
-> 今後の課題）。** `graphics_cue_state.reveal_phase`（migration 248・新しいページが
+> 今後の課題）。** `graphics_cue_state.reveal_phase`（migration 253・新しいページが
 > TAKE されたら 0 にリセット）と、それを+1する `POST …/cue/continue` ／ Socket
 > `cg:continue` を追加し、送出コンソールの「続き」ボタン（PGMに段階公開対応の部品が
 > 乗っているときだけ有効）から叩けるようにした。実証として `FullscreenList`（一覧表）
@@ -266,7 +266,7 @@ CSS transition/keyframeの値まで含めて完全再現移植した（第1弾�
 第2弾でCelebration演出（`rankingPartsExtra3.tsx`。旧`StepCelebration.tsx`の紙吹雪`mulberry32`
 シード`20260620`・`celebGlow`/`celebCardIn`を正確に移植。**複数部門合同祝賀は新エンジンの
 「1ページ＝1つの賞」という粒度では対象外とし、このページ自身の受賞者だけを祝う形に簡略化**）と
-演出SE基盤（`graphics_ranking_sounds`・migration 252。旧`awards_sounds`のproject単位・
+演出SE基盤（`graphics_ranking_sounds`・migration 257。旧`awards_sounds`のproject単位・
 ranking専用移植。`RankingSoundsPanel.tsx`・`useRankingAudio.ts`）を実装し、`STEPS_DIRECT`/
 `STEPS_VOTE`の終端に`celebration`を追加した。検証中に既存の写真配信（`images.routes.ts`）の
 「認証なしのはずが401を返す」実バグ（前ラウンドで2件報告されていた申し送り）の原因を特定し
@@ -289,7 +289,7 @@ ranking専用移植。`RankingSoundsPanel.tsx`・`useRankingAudio.ts`）を実�
 `interactive-bridge.service.ts`（HTTPクライアント）・`interactive-poller.service.ts`
 （800ms間隔で得票を`fields.choices[].votes`へ反映）は、旧`server/src/contexts/quiz/
 services/`の実運用実績あるコードをほぼそのまま移植。連携設定は`graphics_projects.
-interactive_link`（migration 253・旧`awards_events.interactive_link`と同じJSONB設計）。
+interactive_link`（migration 258・旧`awards_events.interactive_link`と同じJSONB設計）。
 
 **段6-9（過去データ移行）**: `AwardsMigrationPage.tsx`（`awards_events`→
 `graphics_projects`・`awards_categories`→`graphics_pages`(`ranking`)・`awards_entries`→

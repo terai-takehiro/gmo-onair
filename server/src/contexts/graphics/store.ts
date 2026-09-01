@@ -15,7 +15,7 @@ export type PartKey = (typeof PART_KEYS)[number];
 export const PROOF_STATES = ['draft', 'unproofed', 'proofed'] as const;
 export type ProofState = (typeof PROOF_STATES)[number];
 
-/** プロジェクト単位の見た目テーマ（graphics_projects.theme。既定は migration 245 の 'ceremony-gold'） */
+/** プロジェクト単位の見た目テーマ（graphics_projects.theme。既定は migration 250 の 'ceremony-gold'） */
 export const THEMES = ['ceremony-gold', 'news-navy', 'corporate-light', 'variety-pop'] as const;
 export type Theme = (typeof THEMES)[number];
 
@@ -32,7 +32,7 @@ export const SLOT_CALL_BASE: Record<Slot, number> = {
 };
 
 /**
- * スロット間の自動退出ルール（段6-4・CGプロジェクト単位。migration 247）。
+ * スロット間の自動退出ルール（段6-4・CGプロジェクト単位。migration 252）。
  * whenSlot のページが TAKE されたら、autoOutSlots のスロットを自動 OUT する。
  * docs/design/v4/graphics.md §2「衝突の解決をオペレーターの注意力に任せない」。
  */
@@ -62,7 +62,7 @@ export function normalizeSlotExitRules(raw: unknown): SlotExitRule[] {
 }
 
 /**
- * 外部インタラクティブ連携設定（段6-7・migration 253）の、APIレスポンスとして返してよい
+ * 外部インタラクティブ連携設定（段6-7・migration 258）の、APIレスポンスとして返してよい
  * マスク済みビュー。`apiKeySecret` を含まない — これが唯一 `GraphicsProject`/公開APIに
  * 乗せてよい形。秘密込みの完全な形（`InteractiveLink`）が要る内部処理は
  * `fetchProjectInteractiveLinkFull` を使うこと（このビューとは絶対に混ぜない）。
@@ -98,10 +98,10 @@ export interface GraphicsPage {
   fields: Record<string, unknown>;
   proofState: string;
   sortOrder: number;
-  /** 作成元テンプレート（段6-2・migration 249）。NULL＝テンプレートを使わない自由入力で作られたページ */
+  /** 作成元テンプレート（段6-2・migration 254）。NULL＝テンプレートを使わない自由入力で作られたページ */
   templateId: number | null;
   /**
-   * 複数部品を重ねた組み合わせページ（段6-2 本格拡張・migration 250）。
+   * 複数部品を重ねた組み合わせページ（段6-2 本格拡張・migration 255）。
    * null/空配列＝従来どおりの単一部品ページ（partKey/fields が正）。
    * 非空配列＝この配列が正で、partKey/fields は無視してよい（一覧表示用に
    * partKey には layers[0].partKey を入れておく運用——作成側の責務）。
@@ -128,7 +128,7 @@ export interface GraphicsTemplateLayer {
 export const MAX_TEMPLATE_LAYERS = 4;
 
 /**
- * テンプレート（段6-2・migration 249）。「1部品ぶんの設定プリセット＋公開フィールドの絞り込み」。
+ * テンプレート（段6-2・migration 254）。「1部品ぶんの設定プリセット＋公開フィールドの絞り込み」。
  * `publicFields` は `baseFields` のキーの部分集合（要素検証は routes/templates.routes.ts が担う）。
  * docs/design/v4/graphics.md §2「公開フィールド以外はオペレーターから触れない」の最初の一段。
  */
@@ -142,7 +142,7 @@ export interface GraphicsTemplate {
   baseFields: Record<string, unknown>;
   publicFields: string[];
   /**
-   * 複数部品を重ねた組み合わせテンプレート（段6-2 本格拡張・migration 250）。
+   * 複数部品を重ねた組み合わせテンプレート（段6-2 本格拡張・migration 255）。
    * null/空配列＝従来どおりの単一部品テンプレート（partKey/baseFields/publicFields が正）。
    * 非空配列＝この配列が正で、既存の単一partKey等は無視してよい。
    */
@@ -158,7 +158,7 @@ export interface GraphicsCue {
   isLive: boolean;
   takenAt: unknown;
   /**
-   * 段階カウンタ（段6-1・汎用機構。migration 248・sentinel は 251）。新しいページが
+   * 段階カウンタ（段6-1・汎用機構。migration 253・sentinel は 251）。新しいページが
    * TAKE されたら **-1**（＝段階公開を未使用・全件表示）にリセットされる
    * （`upsertCueTx`）。「続き」ボタンで `POST …/cue/continue` が +1 する
    * （-1→0で1件目が現れる）。部品側（例: `FullscreenList`）が自分の都合で解釈する
@@ -338,7 +338,7 @@ export function mapCue(r: Row): GraphicsCue {
     pageId: (r.page_id as number | null) ?? null,
     isLive: r.is_live as boolean,
     takenAt: r.taken_at ?? null,
-    // -1 = 段階公開を未使用（クライアント側は「全件表示」と解釈。migration 251）
+    // -1 = 段階公開を未使用（クライアント側は「全件表示」と解釈。migration 256）
     revealPhase: (r.reveal_phase as number | null) ?? -1,
     updatedAt: r.updated_at,
   };
@@ -432,7 +432,7 @@ export async function upsertCue(
   pageId: number | null
 ): Promise<GraphicsCue[]> {
   const isLive = pageId !== null;
-  // reveal_phase は -1（段階公開未使用＝全件表示）で書き直す（migration 251）
+  // reveal_phase は -1（段階公開未使用＝全件表示）で書き直す（migration 256）
   await execute(
     `INSERT INTO graphics_cue_state (project_id, slot, page_id, is_live, taken_at, reveal_phase, updated_at)
      VALUES (?, ?, ?, ?, ${isLive ? 'NOW()' : 'NULL'}, -1, NOW())
@@ -454,7 +454,7 @@ async function upsertCueTx(
   pageId: number | null
 ): Promise<void> {
   const isLive = pageId !== null;
-  // reveal_phase は常に -1（段階公開未使用＝全件表示。migration 251）で書き直す —
+  // reveal_phase は常に -1（段階公開未使用＝全件表示。migration 256）で書き直す —
   // TAKE で新しいページが乗るときも OUT でスロットが空くときも、前の段階を引き継がせない
   // （「続き」は今出ているページのためだけの状態であるべき。「一度も続きを押していない」
   // 状態は 0 ではなく -1 で表す — 0 だと「1件目まで表示」という段階公開の値と区別が

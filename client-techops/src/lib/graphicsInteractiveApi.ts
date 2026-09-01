@@ -2,7 +2,7 @@
 // `graphicsSoundsApi.ts` と同じ書き方（`graphicsApi.ts`/`graphicsTemplateApi.ts` からの切り出し方針）。
 //
 // サーバー側の契約（並行実装・段6-7。`server/src/contexts/graphics/services/interactive-bridge.service.ts`
-// と migration 253 `graphics_projects.interactive_link` が正）:
+// と migration 258 `graphics_projects.interactive_link` が正）:
 //   PUT    /graphics/projects/:id/interactive-link … 連携設定の保存（作成/更新）
 //   GET    /graphics/projects/:id/interactive-link … 連携設定の取得（**マスク済み**）
 //   DELETE /graphics/projects/:id/interactive-link … 連携解除（設定を削除）

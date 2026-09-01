@@ -11,7 +11,7 @@
  * 変えたのはファイルパス・コメントのみ。
  *
  * 認証は X-API-Key ヘッダー（Interactive 側 interactive_api_keys テーブルで発行）。
- * 設定は graphics_projects.interactive_link JSONB に保存する（migration 253）。
+ * 設定は graphics_projects.interactive_link JSONB に保存する（migration 258）。
  */
 import { AppError } from '../../../shared/middleware/errorHandler';
 

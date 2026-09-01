@@ -12,7 +12,7 @@ import { fetchProject } from '../store';
 // テロップCG — ランキング発表パーツ（part_key: 'ranking'）の演出SE（ステップ切替時の
 // 効果音）管理API。旧 `client-awards` の `awards_sounds` + `images.routes.ts` と同じ
 // パターン（multer memoryStorage・マジックバイト検証・ローカル保存・認証なし静的配信）を
-// 踏襲する。設計判断は migration 252 のコメント参照（段6-5）。
+// 踏襲する。設計判断は migration 257 のコメント参照（段6-5）。
 
 const router = Router();
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>

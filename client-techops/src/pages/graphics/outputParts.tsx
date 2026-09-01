@@ -202,7 +202,7 @@ export interface RenderContext {
  * 送出コンソールの「続き」ボタンの有効・無効判定に使う——ただし対応部品は**進行の
  * 仕組みが2種類**あり、ボタンの見た目・disabled 判定だけを共用する:
  *   - `list`（一覧表）・`score`（スコアボード）: 段6-1の汎用機構。cue の
- *     `reveal_phase`（TAKE のたびに **-1**＝未使用へリセット。migration 251）を+1する。
+ *     `reveal_phase`（TAKE のたびに **-1**＝未使用へリセット。migration 256）を+1する。
  *     `revealPhase` 未指定・-1＝従来どおり全件表示という後方互換
  *   - `vote`（投票・クイズ）: `fields.voteState`（`voteState.ts`）を直接進める。
  *     `reveal_phase` は使わない——TAKE毎にリセットされる cue 側の値に乗せると、
