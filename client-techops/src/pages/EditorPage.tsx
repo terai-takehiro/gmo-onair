@@ -893,9 +893,9 @@ export default function EditorPage() {
         docId={doc.id}
       />
 
-      {/* Stage Editor Modal */}
+      {/* Stage Editor Modal。key: 複製保存で id だけ差し替わっても idRef 等を作り直す */}
       {stageEditorTarget && (
-        <StageEditor
+        <StageEditor key={stageEditorTarget.id ?? 'new'}
           template={
             stageEditorTarget.id
               ? (((doc.data as any).stageTemplates || []) as Array<{ id?: string }>).find(

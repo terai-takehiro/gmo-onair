@@ -10,7 +10,7 @@
  * 右を空にすると画面の半分が白紙になる。カードを選ぶ前にいちばん知りたいのは
  * 「いま外に出ているカードはどれか」なので、全カードの貸し借りを新しい順に出す。
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowRightLeft, Check, KeyRound, Pencil, Undo2, X } from 'lucide-react';
 import { Row, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
@@ -52,6 +52,17 @@ function CardDetail({
   const [notes, setNotes] = useState(card.notes ?? '');
   const [isActive, setIsActive] = useState(card.is_active);
   const status = statusOf(card);
+
+  // 呼び出し元に key={card.id} を付けたので別カードを選べば作り直されるが、
+  // 念のため（同じカードのまま裏で label/notes/is_active が更新された場合）も
+  // 追随させ、編集モードも一緒にリセットする（別カードの表示に編集フォームが
+  // 残ったまま保存されると、そのカードへ古い入力値が保存されてしまう）
+  useEffect(() => {
+    setEditing(false);
+    setLabel(card.label ?? '');
+    setNotes(card.notes ?? '');
+    setIsActive(card.is_active);
+  }, [card.id, card.label, card.notes, card.is_active]);
 
   const save = () => {
     update.mutate({ id: card.id, fields: { label: label.trim() || null, notes: notes.trim() || null, is_active: isActive } }, {

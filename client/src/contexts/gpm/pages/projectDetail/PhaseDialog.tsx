@@ -12,7 +12,7 @@
  * 付け直せます。**何件外れるかを確認に出します** — 「名前を直したかっただけ」の人が
  * 何十件のタスクを工程から外して気づかないのを避けるため。
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Loader2, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
@@ -42,6 +42,17 @@ export function PhaseDialog({
   const [state, setState] = useState<PhaseState>(phase?.state ?? 'todo');
   const [startedOn, setStartedOn] = useState(ymd(phase?.started_on) ?? '');
   const [endsOn, setEndsOn] = useState(ymd(phase?.ends_on) ?? '');
+
+  // **phase は react-query 由来で、開いたまま裏で更新されうる**（同じ工程の状態変更
+  // ボタンなど）。呼び出し元の key だけでは「同じ工程の中身が裏で変わった」場合まで
+  // 拾えないので、ここでも再同期する（EditProjectDialog と同じ落とし穴を踏まないため）
+  useEffect(() => {
+    setLabel(phase?.label ?? '');
+    setRole(phase?.role ?? '');
+    setState(phase?.state ?? 'todo');
+    setStartedOn(ymd(phase?.started_on) ?? '');
+    setEndsOn(ymd(phase?.ends_on) ?? '');
+  }, [phase]);
 
   const save = useMutation({
     mutationFn: () => {

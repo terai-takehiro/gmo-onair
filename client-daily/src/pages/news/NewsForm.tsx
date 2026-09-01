@@ -15,7 +15,7 @@
  * `initial`/`onCancel`/`onSubmit`/`submitting` のprops をそのまま渡しているだけで、
  * マウントするかどうかの条件分岐は変えていない。
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +42,18 @@ export function NewsForm({
   const [url, setUrl] = useState(initial?.url ?? '');
   const [note, setNote] = useState(initial?.note ?? '');
   const [aiRelated, setAiRelated] = useState(initial?.ai_related ?? false);
+
+  // **呼び出し元は毎レンダーで `initial` を新しいオブジェクトとして作り直す**
+  // （`{ category: item.category, ... }` の形。参照では変化を判定できない）ので、
+  // 中身の値を依存にして再同期する。開いたまま裏で一覧が invalidate されて
+  // `item` の値が変わっても、フォームが古い値のまま保存してしまうのを防ぐ
+  useEffect(() => {
+    setCategory(initial?.category ?? '');
+    setContent(initial?.content ?? '');
+    setUrl(initial?.url ?? '');
+    setNote(initial?.note ?? '');
+    setAiRelated(initial?.ai_related ?? false);
+  }, [initial?.category, initial?.content, initial?.url, initial?.note, initial?.ai_related]);
 
   return (
     <FormDialog

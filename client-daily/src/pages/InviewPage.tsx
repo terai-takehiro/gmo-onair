@@ -299,6 +299,7 @@ export default function InviewPage() {
 
       {(adding || editing) && (
         <InviewDialog
+          key={editing?.id ?? 'new'}
           initial={editing}
           onClose={() => { setAdding(false); setEditing(null); }}
         />

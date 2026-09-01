@@ -355,6 +355,7 @@ export function OverviewTab({
 
       {(phaseEdit || phaseAdding) && (
         <PhaseDialog
+          key={phaseEdit?.id ?? 'new'}
           projectId={id}
           phase={phaseEdit}
           onClose={() => { setPhaseEdit(null); setPhaseAdding(false); }}
@@ -362,6 +363,7 @@ export function OverviewTab({
       )}
       {taskDialog && (
         <TaskDialog
+          key={taskDialog.task?.id ?? 'new'}
           projectId={id}
           task={taskDialog.task}
           phases={p.phases}

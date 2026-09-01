@@ -283,6 +283,7 @@ export default function InviewDayPage() {
 
       {(adding || editing) && (
         <InviewDialog
+          key={editing?.id ?? 'new'}
           initial={editing}
           presetSessionLabel={adding ? presetSessionLabel : undefined}
           onClose={() => { setAdding(false); setEditing(null); }}
