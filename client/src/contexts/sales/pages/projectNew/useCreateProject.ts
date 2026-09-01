@@ -49,13 +49,14 @@ export function buildProjectBody(v: NewProjectValues): Record<string, unknown> {
     project_category: v.project_category || null,
     gls_category: v.gls_category,
     recurrence: v.recurrence,
-    // レギュラー案件が持つ4つの取り決め（migration 262）。単発案件では空のまま
+    // レギュラー案件が持つ取り決め（migration 262・264）。単発案件では空のまま
     // 送るのでサーバー側で NULL に落ちる（`RegularSeriesFields` は regular のときだけ出す）
     recording_cadence: v.recording_cadence || null,
     recording_per_day_count: v.recording_per_day_count ? Number(v.recording_per_day_count) : null,
     fixed_studio_note: v.fixed_studio_note.trim() || null,
     episode_unit_price: v.episode_unit_price ? Number(v.episode_unit_price) : null,
     billing_cycle: v.billing_cycle,
+    broadcast_offset_days: v.broadcast_offset_days ? Number(v.broadcast_offset_days) : null,
     stage: v.stage,
     assigned_to: v.assigned_to,
     // 無観客のときは欄を出していないので空。サーバー側でも落とす

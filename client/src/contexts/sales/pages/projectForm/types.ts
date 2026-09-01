@@ -44,6 +44,8 @@ export interface FormValues {
   fixed_studio_note: string;
   episode_unit_price: string;
   billing_cycle: string;
+  /** 放送日オフセット（migration 264・積み残し1）。案件作成と同じもの */
+  broadcast_offset_days: string;
   /** 来場人数。**文字列で持つ** — 空欄と 0 名を見分けるため（数値だと両方 0） */
   attendee_count: string;
   goal: string;
@@ -65,7 +67,7 @@ export const EMPTY_FORM: FormValues = {
   gls_category: '',
   contact_name: '', recurrence: 'single',
   recording_cadence: '', recording_per_day_count: '', fixed_studio_note: '',
-  episode_unit_price: '', billing_cycle: 'monthly_close',
+  episode_unit_price: '', billing_cycle: 'monthly_close', broadcast_offset_days: '',
   attendee_count: '', goal: '', intake_channel: '',
   event_start: '', event_end: '', expected_amount: 0, assigned_to: '',
   broadcast_type: '', media_platform: '',

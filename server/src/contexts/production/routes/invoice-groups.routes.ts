@@ -28,12 +28,14 @@ router.get('/:projectId/invoice-groups', async (req, res) => {
   // FROM に置いていたため、回が2件以上の請求グループで
   // 「more than one row returned by a subquery used as an expression」と落ちていた
   // （§7 の月末締めは複数の回を1枚にまとめるのが主眼のため、直さないと必ず踏む・全5箇所で同じ形）。
+  // ⚠️ 契約一括（migration 265）は回に金額を持たせないため、この合算は常に0になる。
+  // `COALESCE(ig.lump_sum_amount, 合算, 0)` で、lump_sum_amount がある行はそちらを優先する。
   const rows = await queryAll(
     `SELECT ig.*,
       (SELECT COUNT(*) FROM invoice_group_episodes ige WHERE ige.invoice_group_id = ig.id) as episode_count,
-      (SELECT COALESCE(SUM(r.amount),0) FROM invoice_group_episodes ige
+      COALESCE(ig.lump_sum_amount, (SELECT COALESCE(SUM(r.amount),0) FROM invoice_group_episodes ige
        JOIN revenues r ON r.episode_id = ige.episode_id AND r.deleted_at IS NULL
-       WHERE ige.invoice_group_id = ig.id) as total_amount
+       WHERE ige.invoice_group_id = ig.id), 0) as total_amount
     FROM invoice_groups ig
     ${where}
     ORDER BY ig.invoice_date DESC, ig.created_at DESC
@@ -74,9 +76,9 @@ router.post('/:projectId/invoice-groups', requirePermission('sales', 'editor'), 
   const row = await queryOne(
     `SELECT ig.*,
       (SELECT COUNT(*) FROM invoice_group_episodes ige WHERE ige.invoice_group_id = ig.id) as episode_count,
-      (SELECT COALESCE(SUM(r.amount),0) FROM invoice_group_episodes ige
+      COALESCE(ig.lump_sum_amount, (SELECT COALESCE(SUM(r.amount),0) FROM invoice_group_episodes ige
        JOIN revenues r ON r.episode_id = ige.episode_id AND r.deleted_at IS NULL
-       WHERE ige.invoice_group_id = ig.id) as total_amount
+       WHERE ige.invoice_group_id = ig.id), 0) as total_amount
     FROM invoice_groups ig WHERE ig.id = ?`,
     [id]
   );
@@ -104,9 +106,9 @@ router.put('/:projectId/invoice-groups/:id', requirePermission('sales', 'editor'
   const row = await queryOne(
     `SELECT ig.*,
       (SELECT COUNT(*) FROM invoice_group_episodes ige WHERE ige.invoice_group_id = ig.id) as episode_count,
-      (SELECT COALESCE(SUM(r.amount),0) FROM invoice_group_episodes ige
+      COALESCE(ig.lump_sum_amount, (SELECT COALESCE(SUM(r.amount),0) FROM invoice_group_episodes ige
        JOIN revenues r ON r.episode_id = ige.episode_id AND r.deleted_at IS NULL
-       WHERE ige.invoice_group_id = ig.id) as total_amount
+       WHERE ige.invoice_group_id = ig.id), 0) as total_amount
     FROM invoice_groups ig WHERE ig.id = ?`,
     [req.params.id]
   );
@@ -153,9 +155,9 @@ router.put('/:projectId/invoice-groups/:id/episodes', requirePermission('sales',
   const row = await queryOne(
     `SELECT ig.*,
       (SELECT COUNT(*) FROM invoice_group_episodes ige WHERE ige.invoice_group_id = ig.id) as episode_count,
-      (SELECT COALESCE(SUM(r.amount),0) FROM invoice_group_episodes ige
+      COALESCE(ig.lump_sum_amount, (SELECT COALESCE(SUM(r.amount),0) FROM invoice_group_episodes ige
        JOIN revenues r ON r.episode_id = ige.episode_id AND r.deleted_at IS NULL
-       WHERE ige.invoice_group_id = ig.id) as total_amount
+       WHERE ige.invoice_group_id = ig.id), 0) as total_amount
     FROM invoice_groups ig WHERE ig.id = ?`,
     [req.params.id]
   );
@@ -324,9 +326,9 @@ router.post('/:projectId/invoice-groups/auto-monthly-close', requirePermission('
   const row = await queryOne(
     `SELECT ig.*,
       (SELECT COUNT(*) FROM invoice_group_episodes ige WHERE ige.invoice_group_id = ig.id) as episode_count,
-      (SELECT COALESCE(SUM(r.amount),0) FROM invoice_group_episodes ige
+      COALESCE(ig.lump_sum_amount, (SELECT COALESCE(SUM(r.amount),0) FROM invoice_group_episodes ige
        JOIN revenues r ON r.episode_id = ige.episode_id AND r.deleted_at IS NULL
-       WHERE ige.invoice_group_id = ig.id) as total_amount
+       WHERE ige.invoice_group_id = ig.id), 0) as total_amount
     FROM invoice_groups ig WHERE ig.id = ?`,
     [result.groupId]
   );
@@ -334,6 +336,83 @@ router.post('/:projectId/invoice-groups/auto-monthly-close', requirePermission('
     success: true,
     data: row,
     message: `${result.addedCount}件の回を請求グループに追加しました`,
+  });
+});
+
+// Create/extend the single contract-lump-sum invoice group for a project
+// （regular-series.md §3・§6・§10-3: billing_cycle='contract_lump_sum' 案件の請求まとめ）
+//
+// 契約一括は「案件に1枚。回には金額を持たせない」（§6）ので、他の2サイクルと違い
+// episode_ids は一切紐付けず、金額は請求グループ自身の lump_sum_amount（migration 265）
+// にそのまま持たせる。
+//
+// ⚠️ **冪等にする**: 既に `lump_sum_amount` を持つ draft の請求グループがあれば
+// それを更新する（同じ案件で二度押しても2枚できない）。判定に title を使わないのは、
+// title は呼び出し側が毎回変えられる値で、変わった瞬間に「別のグループ」と誤認して
+// 二重に作ってしまうため——`lump_sum_amount IS NOT NULL` が「これは契約一括の
+// 請求グループである」という専用の目印になる（他の2サイクルはこの列を触らないので
+// 衝突しない）。発行済み（sent/paid）は一切触れない——月末締めの同時実行対策
+// （§10-7・上のエンドポイント）と同じ考え方で、請求書を発行したあとは金額を動かさない。
+router.post('/:projectId/invoice-groups/lump-sum', requirePermission('sales', 'editor'), async (req, res) => {
+  const projectId = req.params.projectId;
+  const { title, invoice_date, amount } = req.body as { title?: string; invoice_date?: string; amount?: number };
+
+  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'amount は0以上の数値で指定してください');
+  }
+
+  const project = await queryOne(
+    'SELECT id, billing_cycle FROM projects WHERE id = ? AND deleted_at IS NULL',
+    [projectId]
+  ) as { id: string; billing_cycle: string } | undefined;
+  if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
+  if (project.billing_cycle !== 'contract_lump_sum') {
+    throw new AppError(
+      400,
+      'VALIDATION_ERROR',
+      `この案件の請求サイクルは「契約一括」ではありません（現在: ${project.billing_cycle}）`
+    );
+  }
+
+  const existing = await queryOne(
+    `SELECT id FROM invoice_groups
+     WHERE project_id = ? AND deleted_at IS NULL AND status = 'draft' AND lump_sum_amount IS NOT NULL
+     ORDER BY created_at DESC LIMIT 1`,
+    [projectId]
+  ) as { id: string } | undefined;
+
+  let groupId = existing?.id;
+  if (groupId) {
+    // **渡さなければ今の値を保つ**（title・invoice_date は部分更新の原則どおり）。amount は必須なので常に更新する
+    await execute(
+      `UPDATE invoice_groups SET
+        lump_sum_amount = ?, title = COALESCE(?, title), invoice_date = COALESCE(?, invoice_date),
+        updated_at = NOW(), updated_by = ?
+      WHERE id = ?`,
+      [amount, title || null, invoice_date || null, req.user!.id, groupId]
+    );
+  } else {
+    groupId = uuidv4();
+    await execute(
+      `INSERT INTO invoice_groups (id, project_id, title, invoice_date, lump_sum_amount, created_by)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [groupId, projectId, title || '契約一括', invoice_date || null, amount, req.user!.id]
+    );
+  }
+
+  const row = await queryOne(
+    `SELECT ig.*,
+      (SELECT COUNT(*) FROM invoice_group_episodes ige WHERE ige.invoice_group_id = ig.id) as episode_count,
+      COALESCE(ig.lump_sum_amount, (SELECT COALESCE(SUM(r.amount),0) FROM invoice_group_episodes ige
+       JOIN revenues r ON r.episode_id = ige.episode_id AND r.deleted_at IS NULL
+       WHERE ige.invoice_group_id = ig.id), 0) as total_amount
+    FROM invoice_groups ig WHERE ig.id = ?`,
+    [groupId]
+  );
+  res.status(existing ? 200 : 201).json({
+    success: true,
+    data: row,
+    message: existing ? '契約一括の金額を更新しました' : '契約一括の請求グループを作成しました',
   });
 });
 

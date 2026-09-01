@@ -26,12 +26,13 @@ import {
   EpisodeGenerateError, type PlannedDate,
 } from '../services/episodeGenerate.service';
 import { broadcastTypeIncludes } from './episodes.routes';
+import { taskColumnsService, REGULAR_EPISODE_TEMPLATE_ID } from '../../tasks/services/task-columns.service';
 
 const router = Router();
 
 // 収録日→放送日の既定オフセット（設計文書 §2 の実例: 収録 6/18・公開 6/25 ＝ +7日）。
-// 案件の取り決めとして持たせる話は次の担当（regular-series.md §3・#6）が実装するため、
-// それまでは既定値かリクエストの broadcast_offset_days で受ける。
+// 優先順位: リクエストの broadcast_offset_days（明示指定） > 案件の取り決め
+// （projects.broadcast_offset_days・migration 264） > この決め打ち既定値。
 const DEFAULT_BROADCAST_OFFSET_DAYS = 7;
 
 router.use(requireAuth, requirePermission('sales'));
@@ -60,14 +61,17 @@ router.post('/:projectId/episodes/generate', requirePermission('sales', 'editor'
   }
 
   const project = await queryOne(
-    'SELECT gls_number, customer_id, broadcast_type FROM projects WHERE id = ? AND deleted_at IS NULL',
+    'SELECT gls_number, customer_id, broadcast_type, broadcast_offset_days, recurrence FROM projects WHERE id = ? AND deleted_at IS NULL',
     [projectId],
   ) as any;
   if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
   if (!project.gls_number) throw new AppError(400, 'VALIDATION_ERROR', 'GLS発番後に回を作成できます');
 
+  // 優先順位: リクエストで明示指定 > 案件の取り決め（migration 264） > 決め打ち既定値
   const offsetDays = Number.isFinite(Number(broadcast_offset_days))
-    ? Number(broadcast_offset_days) : DEFAULT_BROADCAST_OFFSET_DAYS;
+    ? Number(broadcast_offset_days)
+    : (Number.isFinite(Number(project.broadcast_offset_days)) && project.broadcast_offset_days !== null
+      ? Number(project.broadcast_offset_days) : DEFAULT_BROADCAST_OFFSET_DAYS);
   const isLive = broadcastTypeIncludes(project.broadcast_type, 'live');
   const revPerEp = revenue_budget_per_episode || 0;
   const customerId = project.customer_id;
@@ -166,6 +170,25 @@ router.post('/:projectId/episodes/generate', requirePermission('sales', 'editor'
       throw new AppError(400, 'VALIDATION_ERROR', '他の操作と同時に重なったため、話数が重複しました。もう一度お試しください');
     }
     throw e;
+  }
+
+  /**
+   * **生成した回すべてに標準工程3列を当てる**（regular-series.md §4・§10 積み残し2）。
+   * レギュラー案件だけ（単発は回に工程テンプレートという概念が無い）。
+   *
+   * ⚠️ **トランザクションの外（コミット後）で、1件ずつ try/catch。**
+   * `applyToEpisode` はトランザクション外の実装（queryOne/execute）なので、
+   * 既にコミット済みのここで呼ぶ。テンプレート未整備等で失敗しても
+   * **回の作成そのものは既に成功しているので、レスポンスは止めない**。
+   */
+  if (project.recurrence === 'regular') {
+    for (const ep of result.created as Array<{ id: string }>) {
+      try {
+        await taskColumnsService.applyToEpisode(projectId, ep.id, REGULAR_EPISODE_TEMPLATE_ID, userId);
+      } catch (err) {
+        console.warn('[episodes/generate] standard task template auto-apply failed:', projectId, ep.id, (err as Error).message);
+      }
+    }
   }
 
   const { dates: resultDates, summary } = summarizeResolvedPlan(result.resolved);

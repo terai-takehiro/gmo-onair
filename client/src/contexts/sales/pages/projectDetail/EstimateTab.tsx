@@ -53,6 +53,7 @@ import { EmptyState, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { RevenueBillingPane } from './RevenueBillingPane';
+import { InvoiceGroupsSection } from './InvoiceGroupsSection';
 import { EstimateItems, type EstimateItemRow as Item } from './EstimateItems';
 import { type EstimateStatus as Status } from './EstimateActions';
 import { EstimateVersionList } from './EstimateVersionList';
@@ -266,7 +267,10 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
       )}
 
       {pane === 'revenue' ? (
-        <RevenueBillingPane projectId={project.id} projectName={project.name} mobile={isMobile} />
+        <>
+          <InvoiceGroupsSection project={project} mobile={isMobile} />
+          <RevenueBillingPane projectId={project.id} projectName={project.name} mobile={isMobile} />
+        </>
       ) : list.isLoading ? (
         <Delayed><SkeletonRows rows={4} /></Delayed>
       ) : (list.data ?? []).length === 0 ? (

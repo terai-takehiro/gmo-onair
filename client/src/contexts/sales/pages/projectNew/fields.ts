@@ -81,6 +81,8 @@ export interface NewProjectValues {
   fixed_studio_note: string;
   episode_unit_price: string;
   billing_cycle: BillingCycle;
+  /** 放送日オフセット（収録日+◯日）。migration 264・積み残し1。単発案件では使わない */
+  broadcast_offset_days: string;
   stage: ProjectStage;
   dates: string[];
   attendee_count: string;
@@ -149,6 +151,7 @@ export const EMPTY_NEW_PROJECT: NewProjectValues = {
   fixed_studio_note: '',
   episode_unit_price: '',
   billing_cycle: 'monthly_close',
+  broadcast_offset_days: '',
   stage: 'neta',
   dates: [],
   attendee_count: '',

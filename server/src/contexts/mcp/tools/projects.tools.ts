@@ -40,6 +40,14 @@ const STAGE_LABELS: Record<string, string> = {
  * 登録の16項目（migration 170）** で、どれも `create_project` では受けている
  * ものです（作るときは入るのに、直すと入らない）。
  * **`projectService.update` が受ける項目を足したら、ここにも足すこと。**
+ *
+ * ⚠️ **この配列にあるだけでは足りません** — `inputSchema` の Zod にも同じ項目が
+ * 無いと、MCP SDK がリクエストの時点で未知のキーを黙って剥がすので、この配列より
+ * 手前で消えます（`args` にそもそも入って来ない＝`ignored_fields` にすら出ません）。
+ * `contact_name` / `intake_channel` / `intake_confidence` / `attendee_count` / `goal` と
+ * `box_url_internal` / `box_url_external` / `broadcast_offset_days`（migration 264）が
+ * この配列にはあるのに `inputSchema` に無く、同じ壊れ方をしていた。
+ * **両方揃って初めて効く。片方だけ足して安心しないこと。**
  */
 const UPDATE_FIELDS = [
   'name', 'customer_id', 'expected_amount', 'assigned_to', 'project_type',
@@ -52,9 +60,9 @@ const UPDATE_FIELDS = [
   // 登録の16項目のうち列を足したぶん（migration 165 / 170）
   'intake_channel', 'intake_confidence',
   'contact_name', 'recurrence', 'attendee_count', 'goal',
-  // レギュラー案件（シリーズ）が持つ4つの取り決め（migration 262・regular-series.md §3）
+  // レギュラー案件（シリーズ）が持つ5つの取り決め（migration 262・264・regular-series.md §3・§7）
   'recording_cadence', 'recording_per_day_count', 'fixed_studio_note',
-  'episode_unit_price', 'billing_cycle',
+  'episode_unit_price', 'billing_cycle', 'broadcast_offset_days',
 ] as const;
 
 /** 一覧の返却行を要約列に絞る (p.* は列が多くコンテキストを圧迫するため) */
@@ -348,9 +356,22 @@ export function registerProjectTools(server: McpServer): void {
             + '同じ本文が既にあるときは足しません'),
         customer_type: z.enum(['internal', 'external']).optional()
           .describe('⚠️ **渡しても無視されます** — 取引先マスターの印から自動で決まります（migration 192）'),
+        box_url_internal: z.string().max(500).nullable().optional().describe('BOX内部共有フォルダURL。null で解除'),
+        box_url_external: z.string().max(500).nullable().optional().describe('BOX外部共有フォルダURL。null で解除'),
         gls_category: z.enum(['A', 'B']).optional().describe('GLS 発番前のみ変更可'),
         dates: z.array(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), label: z.string().optional() }))
           .optional().describe('渡した場合のみ日程を全置換 (event_start/end も自動同期)'),
+        // 登録の16項目のうち列を足したぶん（migration 165 / 170）。create_project と同じ意味
+        intake_channel: z.enum(['mail', 'phone', 'inview', 'referral', 'web', 'meeting', 'other']).nullable().optional()
+          .describe('引き合いの入口（リード経路）。null または不明な値で解除。'
+            + 'グループ会社かどうかは取引先マスターが決めるので `group` は渡せない'),
+        intake_confidence: z.enum(['high', 'mid', 'low']).nullable().optional()
+          .describe('案件になりそうか。high=会社も日程も予算も読めた / mid=どれか欠ける / low=名刺程度。null で解除'),
+        contact_name: z.string().max(200).nullable().optional()
+          .describe('この案件の窓口（例「宮田 里香 様（広報部）」）。null で解除'),
+        attendee_count: z.number().int().min(0).nullable().optional()
+          .describe('規模（何名か）。**数で渡す**。0 以下または null で解除'),
+        goal: z.string().max(500).nullable().optional().describe('やりたいこと。**お客様の言葉のまま**。null で解除'),
         recurrence: z.enum(['single', 'regular']).optional().describe('単発 single / レギュラー regular（回を持つ）'),
         recording_cadence: z.enum(['weekly', 'biweekly', 'monthly_nth_weekday', 'none']).nullable().optional()
           .describe('レギュラー案件の収録の頻度（案件に1度だけの取り決め）。null で解除。'
@@ -361,6 +382,9 @@ export function registerProjectTools(server: McpServer): void {
           .describe('回の単価（円・今の値）。null で解除。⚠️ 改定しても過去の回の金額は動かない'),
         billing_cycle: z.enum(['monthly_close', 'per_recording_date', 'contract_lump_sum']).optional()
           .describe('請求サイクル。monthly_close=月末締め / per_recording_date=収録日ごと / contract_lump_sum=契約一括'),
+        broadcast_offset_days: z.number().int().min(0).nullable().optional()
+          .describe('放送日オフセット（収録日から放送日までの日数）。null で解除（単発案件では使わない）。'
+            + '回の一括生成でリクエスト側の指定が無いときの既定値として使われる'),
         ...REQUESTED_BY,
       },
     },

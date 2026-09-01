@@ -1,9 +1,10 @@
 /**
- * レギュラーの取り決め — 案件（シリーズ）に1度だけ置く4つ（v4・migration 262）
+ * レギュラーの取り決め — 案件（シリーズ）に1度だけ置く値（v4・migration 262・264）
  *
- * `docs/design/v4/regular-series.md` §3「案件（シリーズ）が持つ4つの取り決め」:
+ * `docs/design/v4/regular-series.md` §3「案件（シリーズ）が持つ4つの取り決め」＋
+ * 積み残し1（放送日オフセット）:
  *
- *   収録の頻度 ／ 固定セット ／ 回の単価 ／ 請求サイクル
+ *   収録の頻度 ／ 固定セット ／ 回の単価 ／ 請求サイクル ／ 放送日オフセット
  *
  * **回を作るたびに聞かれては困る値**なので、回（episodes）ではなく
  * 案件（projects）に1度だけ持たせる。回の一括生成（`GenerateEpisodesForm`）は
@@ -93,6 +94,18 @@ export function RegularSeriesFields({ f }: { f: ProjectFieldsState }) {
             ))}
           </SelectContent>
         </Select>
+      </Field>
+
+      <Field label="放送日オフセット" htmlFor="rs-offset" hint="収録日から何日後に放送/公開するか（例: 7日）。回の一括生成の既定値になります">
+        <div className="flex items-center gap-2">
+          <Input
+            id="rs-offset" type="number" min="0" inputMode="numeric"
+            value={v.broadcast_offset_days}
+            onChange={(e) => set('broadcast_offset_days', e.target.value)}
+            placeholder="7"
+          />
+          <span className="text-sub shrink-0 text-muted-foreground">日後</span>
+        </div>
       </Field>
     </div>
   );

@@ -43,6 +43,7 @@ import {
   type RelinkResult, type SkipReason, type OrphanResult, type DoneArchiveResult,
 } from './box-lost-cleanup.service';
 import { isBoxConfigured } from '../../../shared/services/box';
+import { taskColumnsService, REGULAR_EPISODE_TEMPLATE_ID } from '../../tasks/services/task-columns.service';
 
 /**
  * **片づけの対象にするゴミ案件。**
@@ -618,9 +619,9 @@ export async function createCore(
           // 登録モーダルの16項目のうち、列を足したぶん (migration 170)
           contact_name, recurrence, attendee_count, goal,
           audience, project_category,
-          // レギュラー案件（シリーズ）が持つ4つの取り決め (migration 262・regular-series.md §3)
+          // レギュラー案件（シリーズ）が持つ取り決め (migration 262・264・regular-series.md §3)
           recording_cadence, recording_per_day_count, fixed_studio_note,
-          episode_unit_price, billing_cycle,
+          episode_unit_price, billing_cycle, broadcast_offset_days,
           stage, first_task } = data;
   if (!rawName || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件名と顧客は必須です');
   // **半角カナ等の表記ゆれを保存時に正規化。** Box の OCR / AI起票など外部由来の
@@ -706,6 +707,12 @@ export async function createCore(
   const billingCycle = billing_cycle === undefined
     ? 'monthly_close'
     : (BILLING_CYCLES.includes(billing_cycle as string) ? billing_cycle : 'monthly_close');
+  // 放送日オフセット（migration 264）。既定値は入れない — 単発案件では使わないため
+  // NULL のまま（`recording_per_day_count` と同じ「未指定/不正なら NULL」の守り方）
+  const broadcastOffsetDays = (broadcast_offset_days === undefined || broadcast_offset_days === null || broadcast_offset_days === '')
+    ? null
+    : (Number.isFinite(Number(broadcast_offset_days)) && Number(broadcast_offset_days) >= 0
+      ? Math.floor(Number(broadcast_offset_days)) : null);
 
   /**
    * 客入れの有無 × 案件分類（migration 182）。**旧 `project_type` はここで導く。**
@@ -724,9 +731,9 @@ export async function createCore(
                            application_form, intake_channel, intake_confidence,
                            contact_name, recurrence, attendee_count, goal,
                            recording_cadence, recording_per_day_count, fixed_studio_note,
-                           episode_unit_price, billing_cycle,
+                           episode_unit_price, billing_cycle, broadcast_offset_days,
                            idempotency_key, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, code, opts.externalGlsNumber || null, name, customer_id, safeStage, cls.project_type, cls.audience, cls.project_category,
      glsCategory, expected_amount || 0, assigned_to || userId,
      finalEventStart, finalEventEnd, broadcast_type || null, media_platform || null,
@@ -734,7 +741,7 @@ export async function createCore(
      application_form ? 1 : 0, channel, confidence,
      contact_name || null, recur, scale, goal || null,
      cadence, perDayCount, (typeof fixed_studio_note === 'string' && fixed_studio_note.trim()) ? fixed_studio_note.trim() : null,
-     unitPrice, billingCycle,
+     unitPrice, billingCycle, broadcastOffsetDays,
      (typeof data.idempotency_key === 'string' && data.idempotency_key.trim()) ? data.idempotency_key.trim() : null,
      userId]
   );
@@ -1326,7 +1333,7 @@ export class ProjectService {
             application_form, notes, box_url_internal, box_url_external,
             dates, gls_category, intake_channel } = data;
     const { recording_cadence, recording_per_day_count, fixed_studio_note,
-            episode_unit_price, billing_cycle } = data;
+            episode_unit_price, billing_cycle, broadcast_offset_days } = data;
     // **半角カナ等の表記ゆれを保存時に正規化。** `create` と同じ理由（NFKC）
     const name = typeof rawName === 'string' ? normalizeJaText(rawName) : rawName;
     // ⚠️ `customer_type` は**受け取っても使いません**（migration 192）。
@@ -1396,6 +1403,13 @@ export class ProjectService {
     const billingCycleValue = data.billing_cycle === undefined || data.billing_cycle === ''
       ? existing.billing_cycle
       : (BILLING_CYCLES.includes(billing_cycle as string) ? billing_cycle : existing.billing_cycle);
+    // 放送日オフセット（migration 264）。「渡さなければ今の値を保つ」・空文字は解除（NULL）
+    const broadcastOffsetDaysValue = data.broadcast_offset_days === undefined
+      ? existing.broadcast_offset_days
+      : (broadcast_offset_days === null || broadcast_offset_days === ''
+        ? null
+        : (Number.isFinite(Number(broadcast_offset_days)) && Number(broadcast_offset_days) >= 0
+          ? Math.floor(Number(broadcast_offset_days)) : existing.broadcast_offset_days));
 
     /**
      * 客入れの有無 × 案件分類（migration 182）。**渡されなければ今の値を保つ。**
@@ -1522,7 +1536,7 @@ export class ProjectService {
          application_form=?, customer_type=?,
          box_url_internal=?, box_url_external=?, gls_category=?,
          recording_cadence=?, recording_per_day_count=?, fixed_studio_note=?,
-         episode_unit_price=?, billing_cycle=?,
+         episode_unit_price=?, billing_cycle=?, broadcast_offset_days=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
         [name, customer_id, expected_amount || 0, assigned_to,
          cls.project_type, cls.audience, cls.project_category,
@@ -1533,7 +1547,7 @@ export class ProjectService {
          application_form ? 1 : 0, cType,
          box_url_internal || null, box_url_external || null, reqCategory,
          recordingCadenceValue, recordingPerDayCountValue, fixedStudioNoteValue,
-         episodeUnitPriceValue, billingCycleValue,
+         episodeUnitPriceValue, billingCycleValue, broadcastOffsetDaysValue,
          userId, id]
       );
     } else {
@@ -1546,7 +1560,7 @@ export class ProjectService {
          application_form=?, customer_type=?,
          box_url_internal=?, box_url_external=?,
          recording_cadence=?, recording_per_day_count=?, fixed_studio_note=?,
-         episode_unit_price=?, billing_cycle=?,
+         episode_unit_price=?, billing_cycle=?, broadcast_offset_days=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
         [name, customer_id, expected_amount || 0, assigned_to,
          cls.project_type, cls.audience, cls.project_category,
@@ -1557,7 +1571,7 @@ export class ProjectService {
          application_form ? 1 : 0, cType,
          box_url_internal || null, box_url_external || null,
          recordingCadenceValue, recordingPerDayCountValue, fixedStudioNoteValue,
-         episodeUnitPriceValue, billingCycleValue,
+         episodeUnitPriceValue, billingCycleValue, broadcastOffsetDaysValue,
          userId, id]
       );
     }
@@ -1750,14 +1764,32 @@ export class ProjectService {
      * GLS 番号が採れていない（`glsError` が立った）ときは回も作らない
      * （エピソードコードが GLS 番号ありきのため）。
      */
+    let firstEpisodeId: string | null = null;
     if (stage === 'a_won' && project.recurrence === 'regular') {
       const glsNumber = (issuedProject?.gls_number as string | undefined) ?? (project.gls_number as string | undefined);
       if (glsNumber) {
         try {
-          await this.ensureFirstEpisode(id, glsNumber, (project.event_start as string | null) ?? null, userId);
+          firstEpisodeId = await this.ensureFirstEpisode(id, glsNumber, (project.event_start as string | null) ?? null, userId);
         } catch (err) {
           console.warn('[changeStage] first episode auto-create failed:', id, (err as Error).message);
         }
+      }
+    }
+
+    /**
+     * **作った第1回に標準工程3列を当てる**（regular-series.md §4・§10 積み残し2）。
+     *
+     * ⚠️ **テンプレート適用の失敗が回の作成そのものを失敗させない**（テンプレート
+     * 未整備・二度当て等で落ちても、回自体は正しく作られているべき）。1件ずつ
+     * try/catch で囲み、失敗は console.warn に記録するだけで処理を続ける。
+     * `applyToEpisode` はトランザクション外（queryOne/execute）の実装なので、
+     * ここも `getById` の前＝この関数のトランザクション外で呼んでよい。
+     */
+    if (firstEpisodeId) {
+      try {
+        await taskColumnsService.applyToEpisode(id, firstEpisodeId, REGULAR_EPISODE_TEMPLATE_ID, userId);
+      } catch (err) {
+        console.warn('[changeStage] standard task template auto-apply failed:', id, firstEpisodeId, (err as Error).message);
       }
     }
 
@@ -1982,21 +2014,29 @@ export class ProjectService {
   /**
    * レギュラー案件に、既に回が無ければ第1回を1件だけ作る。
    * `changeStage` の `a_won` 分岐から呼ぶ（idempotent — 既にあれば何もしない）。
+   *
+   * **新しく作った回の id を返す**（既にあって何もしなかったときは `null`）。
+   * 呼び出し元はこれで「いま作ったか」を判定し、いま作ったときだけ標準工程
+   * テンプレートを当てる（§10 積み残し2・二度当てで既存の工程を壊さないため）。
    */
-  private async ensureFirstEpisode(projectId: string, glsNumber: string, eventStart: string | null, userId: string): Promise<void> {
+  private async ensureFirstEpisode(
+    projectId: string, glsNumber: string, eventStart: string | null, userId: string,
+  ): Promise<string | null> {
     const existing = await queryOne(
       'SELECT id FROM episodes WHERE project_id = ? AND deleted_at IS NULL LIMIT 1',
       [projectId],
     );
-    if (existing) return;
+    if (existing) return null;
 
     const episodeNumber = await getNextEpisodeNumberAtomic(projectId);
     const episodeCode = generateEpisodeCode(glsNumber, episodeNumber);
+    const episodeId = uuidv4();
     await execute(
       `INSERT INTO episodes (id, project_id, episode_code, episode_number, recording_date, created_by)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [uuidv4(), projectId, episodeCode, episodeNumber, eventStart, userId],
+      [episodeId, projectId, episodeCode, episodeNumber, eventStart, userId],
     );
+    return episodeId;
   }
 
   /**
