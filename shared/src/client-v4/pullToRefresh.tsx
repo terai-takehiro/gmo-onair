@@ -48,7 +48,7 @@ function findScrollParent(el: HTMLElement): HTMLElement | Element | null {
   return document.scrollingElement;
 }
 
-export function usePullToRefresh({ onRefresh, disabled }: {
+function usePullToRefresh({ onRefresh, disabled }: {
   onRefresh: () => Promise<unknown> | unknown;
   disabled?: boolean;
 }) {

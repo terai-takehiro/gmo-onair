@@ -21,15 +21,27 @@ router.get('/events', async (req, res) => {
       events.push({ id: `${p.id}-event`, title: `${p.gls_number} ${p.name}`, start: p.event_start, end: p.event_end || p.event_start, type: 'event', stage: p.stage, gls_number: p.gls_number, project_id: p.id, customer_name: p.customer_name });
     }
   }
-  // Episode events
+  // Episode events。from/to は projects 側と同じく任意 — undefined のまま
+  // BETWEEN に渡すと NULL 比較で必ず0件になり、収録・放送だけ黙って欠ける
+  let epWhere = 'WHERE e.deleted_at IS NULL AND p.deleted_at IS NULL';
+  const epParams: unknown[] = [];
+  if (from && to) {
+    epWhere += ' AND ((e.recording_date BETWEEN ? AND ?) OR (e.broadcast_date BETWEEN ? AND ?))';
+    epParams.push(from, to, from, to);
+  } else if (from) {
+    epWhere += ' AND (e.recording_date >= ? OR e.broadcast_date >= ?)';
+    epParams.push(from, from);
+  } else if (to) {
+    epWhere += ' AND (e.recording_date <= ? OR e.broadcast_date <= ?)';
+    epParams.push(to, to);
+  }
   const episodeEvents = await queryAll(
     `SELECT e.id, e.episode_code as title, e.recording_date, e.broadcast_date,
      p.gls_number, p.id as project_id, p.stage
      FROM episodes e
      JOIN projects p ON p.id = e.project_id
-     WHERE e.deleted_at IS NULL AND p.deleted_at IS NULL
-     AND ((e.recording_date BETWEEN ? AND ?) OR (e.broadcast_date BETWEEN ? AND ?))`,
-    [from, to, from, to]
+     ${epWhere}`,
+    epParams
   );
 
   for (const ep of episodeEvents) {

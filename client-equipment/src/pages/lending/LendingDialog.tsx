@@ -6,28 +6,19 @@
  * 2段階なのは、現場では**先に機材を並べてから誰が持つかを決める**ためです
  * (1画面にすると、選んでいる最中に上の入力欄が邪魔になる)。
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Check, ChevronRight, Loader2, Search, X } from 'lucide-react';
+import { ChevronRight, Loader2, Search, X } from 'lucide-react';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useDebounced } from '@/hooks/useDebounced';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FormDialog } from '@gmo-onair/shared/src/client-v4/formDialog';
-import { EmptyState } from '@gmo-onair/shared/src/client/states';
-import { TYPE_CODES } from '@/lib/constants';
-
-export interface LendableItem {
-  id: string;
-  name: string;
-  eq_code: string;
-  unit_number: number | null;
-  equipment_type_code: string;
-  location_name: string | null;
-  parent_id: string | null;
-  current_lending?: unknown;
-}
+import { localDateStr } from '@gmo-onair/shared/src/client/format';
+import { LendingSelectStep } from './LendingSelectStep';
+import type { LendableItem } from './types';
 
 export interface LendingPayload {
   equipment_ids: string[];
@@ -41,7 +32,8 @@ export interface LendingPayload {
   planned_out_date: string | null;
 }
 
-const today = () => new Date().toISOString().split('T')[0];
+// UTC の日付 (toISOString) だと JST の 0〜9 時に前日になる
+const today = () => localDateStr(new Date());
 
 export function LendingDialog({ open, saving, error, onClose, onSubmit }: {
   open: boolean;
@@ -71,10 +63,14 @@ export function LendingDialog({ open, saving, error, onClose, onSubmit }: {
   });
   const items = useMemo(() => lendable.data ?? [], [lendable.data]);
 
+  // 1キーストロークごとに問い合わせない (台帳の検索と同じ 400ms)。
+  // 選択済み (`form.project_id` あり) の間は、選択でラベルを入力欄へ書き戻した分の
+  // 問い合わせも含めて止める
+  const debouncedProjectSearch = useDebounced(projectSearch);
   const projects = useQuery({
-    queryKey: ['equipment-projects', projectSearch],
-    queryFn: async () => (await api.get('/equipment/projects', { params: { search: projectSearch } })).data.data,
-    enabled: open && kind === 'program' && projectSearch.length >= 1,
+    queryKey: ['equipment-projects', debouncedProjectSearch],
+    queryFn: async () => (await api.get('/equipment/projects', { params: { search: debouncedProjectSearch } })).data.data,
+    enabled: open && kind === 'program' && !form.project_id && debouncedProjectSearch.length >= 1,
   });
 
   const childrenMap = useMemo(() => {
@@ -88,11 +84,6 @@ export function LendingDialog({ open, saving, error, onClose, onSubmit }: {
   }, [items]);
 
   const parents = useMemo(() => items.filter((i) => !i.parent_id), [items]);
-  const availableTypes = useMemo(() => {
-    const codes = new Set(parents.map((i) => i.equipment_type_code));
-    return TYPE_CODES.filter((t) => codes.has(t.code));
-  }, [parents]);
-  const shown = typeTab ? parents.filter((i) => i.equipment_type_code === typeTab) : parents;
   const selected = parents.filter((i) => selectedIds.has(i.id));
 
   const toggle = (item: LendableItem) => {
@@ -121,10 +112,16 @@ export function LendingDialog({ open, saving, error, onClose, onSubmit }: {
     setPlanned(false);
   };
 
+  // 親が成功時に open を直接 false へ切り替える経路では Radix の onOpenChange が
+  // 呼ばれないため、閉じたら必ずここで初期化する (残ると次回、前回の機材・氏名の
+  // まま再送できてしまう)
+  // open のみ依存にしたいので reset は依存に入れない（毎レンダー再生成される純関数）
+  useEffect(() => { if (!open) reset(); }, [open]);
+
   return (
     <FormDialog
       open={open}
-      onOpenChange={(o) => { if (!o) { reset(); onClose(); } }}
+      onOpenChange={(o) => { if (!o) onClose(); }}
       title={step === 'select' ? '持ち出す機材を選ぶ' : '借りる人と日付'}
       // 旧実装は `sm:max-w-2xl`（672px）で PC 幅を広く取っていた複合画面
       // （選択ステップの機材カードが `grid-cols-3`・入力ステップの日付欄が
@@ -185,81 +182,15 @@ export function LendingDialog({ open, saving, error, onClose, onSubmit }: {
       )}
 
       {step === 'select' ? (
-        <div className="flex flex-col gap-3">
-          <div className="sticky top-0 z-10 -mt-1 flex gap-1.5 overflow-x-auto border-b border-border bg-card py-2.5">
-            <button
-              type="button"
-              onClick={() => setTypeTab('')}
-              className={cn(
-                'min-h-tap shrink-0 rounded-chip px-3 text-sub lg:min-h-[36px]',
-                !typeTab ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-background',
-              )}
-            >
-              すべて {parents.length}
-            </button>
-            {availableTypes.map((t) => (
-              <button
-                key={t.code}
-                type="button"
-                onClick={() => setTypeTab(t.code)}
-                className={cn(
-                  'min-h-tap shrink-0 rounded-chip px-3 text-sub lg:min-h-[36px]',
-                  typeTab === t.code ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-background',
-                )}
-              >
-                {t.label} {parents.filter((i) => i.equipment_type_code === t.code).length}
-              </button>
-            ))}
-          </div>
-
-          {lendable.isLoading ? (
-            <p className="py-12 text-center text-sub text-muted-foreground">
-              <Loader2 className="mr-2 inline h-5 w-5 animate-spin" aria-hidden="true" />読み込んでいます
-            </p>
-          ) : shown.length === 0 ? (
-            <EmptyState
-              title="持ち出せる機材がありません"
-              description="設定の「貸出の決めごと」で貸出可にした、稼働中の機材だけが出ます。"
-            />
-          ) : (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {shown.map((item) => {
-                const on = selectedIds.has(item.id);
-                const lent = !!item.current_lending;
-                const kids = childrenMap.get(item.id)?.length ?? 0;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    disabled={lent}
-                    onClick={() => toggle(item)}
-                    aria-pressed={on}
-                    className={cn(
-                      'min-h-tap relative w-full rounded-card border p-2.5 text-left text-sub',
-                      on ? 'border-primary bg-primary-surface' : 'border-border hover:bg-muted',
-                      lent && 'cursor-not-allowed bg-muted opacity-50',
-                    )}
-                  >
-                    {on && (
-                      <span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-chip bg-primary">
-                        <Check className="h-2.5 w-2.5 text-primary-foreground" aria-hidden="true" />
-                      </span>
-                    )}
-                    <span className="line-clamp-2 block pr-5 text-list">{item.name}</span>
-                    <span className="font-number mt-1 block text-sub-sm text-muted-foreground">
-                      {item.unit_number != null ? `No.${item.unit_number}` : item.eq_code}
-                    </span>
-                    {item.location_name && (
-                      <span className="mt-0.5 block truncate text-sub-sm text-muted-foreground">{item.location_name}</span>
-                    )}
-                    {kids > 0 && <span className="mt-1 block text-note text-primary">付属品 {kids} 点も一緒</span>}
-                    {lent && <span className="mt-1 block text-note text-warning">いま貸出中</span>}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <LendingSelectStep
+          loading={lendable.isLoading}
+          parents={parents}
+          childrenMap={childrenMap}
+          selectedIds={selectedIds}
+          typeTab={typeTab}
+          onTypeTabChange={setTypeTab}
+          onToggle={toggle}
+        />
       ) : (
         <div className="space-y-3">
           <div className="rounded-card border border-border bg-muted px-3 py-2.5">

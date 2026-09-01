@@ -95,10 +95,10 @@ export function PurchaseList({
                       </div>
                       {!pu.group_id && (
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditPurchase(pu)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="この仕入を編集" title="この仕入を編集" onClick={() => openEditPurchase(pu)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => {
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" aria-label="この仕入を削除" title="この仕入を削除" onClick={() => {
                             if (confirm("この仕入を削除しますか？")) deletePurMutation.mutate(pu.id);
                           }}>
                             <Trash2 className="h-4 w-4" />

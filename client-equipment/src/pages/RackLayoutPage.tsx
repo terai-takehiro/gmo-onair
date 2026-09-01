@@ -7,9 +7,13 @@ import {
 import { DefaultCellContent, ConfiguredCellContent } from "./rack/cellContent";
 import { PrintRackArea } from "./rack/PrintRackArea";
 import { RackUnitTable, type RackUnitRow } from "./rack/RackUnitTable";
+import { RackSubtitleDialog } from "./rack/RackSubtitleDialog";
+import { CellConfigDialog } from "./rack/CellConfigDialog";
+import { ItemTooltip } from "./rack/ItemTooltip";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { notifyApiError } from "@gmo-onair/shared/src/client/notify";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,8 +25,16 @@ import {
 } from "@/components/ui/dialog";
 import { FormDialog, FormDialogFooter } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Loader2, Server, ClipboardCheck, Pencil, RefreshCw, AlertCircle, Printer } from "lucide-react";
-import { ToggleButtonGroup } from "@gmo-onair/shared/src/client/ui/toggle-button-group";
 import { RACK_SLOT_OPTIONS, TYPE_BG } from "@/lib/constants";
+
+/** 棚卸しチェック項目。found は 0/1/2 の INTEGER 列（1=あった・2=見つからない）— ブール化して送り返すと Postgres で型エラーになる */
+type InventoryEntry = {
+  id: string;
+  found: number;
+  actual_location: string | null;
+  condition: string | null;
+  note: string | null;
+};
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function RackLayoutPage() {
@@ -105,12 +117,13 @@ export default function RackLayoutPage() {
   });
 
   const { data: inventoryChecksData } = useQuery({
-    queryKey: ["equipment-inventory-checks"],
+    queryKey: ["inventory-checks"],
     queryFn: async () => (await api.get("/equipment/inventory-checks")).data.data,
   });
 
   const { data: inventoryDetail } = useQuery({
-    queryKey: ["equipment-inventory-check-detail", selectedCheckId],
+    // 棚卸し画面 (CheckDetail/MobileScanSession) と同じ鍵にして相互に更新が伝わるようにする
+    queryKey: ["inventory-check", selectedCheckId],
     queryFn: async () => (await api.get(`/equipment/inventory-checks/${selectedCheckId}`)).data.data,
     enabled: !!selectedCheckId && inventoryMode,
   });
@@ -157,30 +170,44 @@ export default function RackLayoutPage() {
   );
 
   const inventoryMap = useMemo(() => {
-    if (!inventoryDetail?.items) return {};
-    const m: Record<string, { id: string; found: boolean }> = {};
+    const m: Record<string, InventoryEntry> = {};
+    if (!inventoryDetail?.items) return m;
     for (const item of inventoryDetail.items) {
-      m[item.equipment_id] = { id: item.id, found: item.found === 1 };
+      // found は 0/1/2 のまま持つ（2=見つからない を 0 に潰さない）。実地・状態・メモは保存時に送り返す
+      m[item.equipment_id] = {
+        id: item.id,
+        found: item.found,
+        actual_location: item.actual_location ?? null,
+        condition: item.condition ?? null,
+        note: item.note ?? null,
+      };
     }
     return m;
   }, [inventoryDetail]);
 
-  const totalChecked = useMemo(() => Object.values(inventoryMap).filter((v) => v.found === true).length, [inventoryMap]);
+  const totalChecked = useMemo(() => Object.values(inventoryMap).filter((v) => v.found === 1).length, [inventoryMap]);
   const totalItems = Object.keys(inventoryMap).length;
 
   const toggleFoundMutation = useMutation({
-    mutationFn: async ({ checkId, itemId, found }: { checkId: string; itemId: string; found: boolean }) => {
-      await api.put(`/equipment/inventory-checks/${checkId}/items/${itemId}`, { found });
+    mutationFn: async ({ checkId, itemId, found, entry }: { checkId: string; itemId: string; found: number; entry: InventoryEntry }) => {
+      // サーバーは未指定の実地・状態・メモを null で上書きするため、CheckDetail と同じ形で全部送る
+      await api.put(`/equipment/inventory-checks/${checkId}/items/${itemId}`, {
+        found,
+        actual_location: entry.actual_location,
+        condition: entry.condition,
+        note: entry.note,
+      });
     },
+    onError: (e) => notifyApiError("印を付けられませんでした", e),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["equipment-inventory-check-detail", selectedCheckId] });
+      qc.invalidateQueries({ queryKey: ["inventory-check", selectedCheckId] });
     },
   });
 
   const syncInventoryMutation = useMutation({
     mutationFn: (checkId: string) => api.post(`/equipment/inventory-checks/${checkId}/sync`),
     onSuccess: (res) => {
-      qc.invalidateQueries({ queryKey: ["equipment-inventory-check-detail", selectedCheckId] });
+      qc.invalidateQueries({ queryKey: ["inventory-check", selectedCheckId] });
       const added = res.data?.data?.added ?? 0;
       showNotice(added > 0 ? `${added}件の機材をチェックリストに追加しました` : "同期完了（追加なし）");
     },
@@ -276,7 +303,9 @@ export default function RackLayoutPage() {
       toggleFoundMutation.mutate({
         checkId: selectedCheckId,
         itemId: mapEntry.id,
-        found: !mapEntry.found,
+        // 2状態トグル: 「見つからない」(2) からのクリックも「あった」(1) に倒す
+        found: mapEntry.found === 1 ? 0 : 1,
+        entry: mapEntry,
       });
     } else if (inventoryMode && !selectedCheckId) {
       showNotice("棚卸しを選択してください");
@@ -392,8 +421,9 @@ export default function RackLayoutPage() {
 
   const oppositeSideHasContent = useMemo(() => {
     const opposite = side === "front" ? "back" : "front";
-    return filteredRacks.some((r: any) => r.items?.some((it: any) => it.rack_side === opposite));
-  }, [filteredRacks, side]);
+    // 表示中の1本だけで判定する（絞り込んだ全ラックで見ると、別ラックの反対面でも点いてしまう）
+    return (currentRack?.items ?? []).some((it: any) => it.rack_side === opposite);
+  }, [currentRack, side]);
 
   if (racksLoading) {
     return (
@@ -811,227 +841,12 @@ export default function RackLayoutPage() {
   );
 }
 
-// ── RackSubtitleDialog ────────────────────────────────────────────────────────
-function RackSubtitleDialog({ config, onSave, onClose }: {
-  config: RackConfig;
-  onSave: (c: RackConfig) => void;
-  onClose: () => void;
-}) {
-  const [form, setForm] = useState<RackConfig>(config);
-  return (
-    <FormDialog
-      open
-      onOpenChange={(o) => { if (!o) onClose(); }}
-      title="ラック名下テキスト設定"
-      footer={
-        <FormDialogFooter>
-          <Button variant="outline" size="sm" onClick={onClose}>キャンセル</Button>
-          <Button size="sm" onClick={() => onSave(form)}>保存</Button>
-        </FormDialogFooter>
-      }
-    >
-      <div className="space-y-3">
-        {[
-          { value: "auto",   label: "自動（拠点・種別・建物情報）" },
-          { value: "hidden", label: "非表示" },
-          { value: "custom", label: "カスタム文字列" },
-        ].map((opt) => (
-          <label key={opt.value} className="flex items-center gap-2 cursor-pointer text-sm">
-            <input
-              type="radio" name="subtitleMode" value={opt.value}
-              checked={form.subtitleMode === opt.value}
-              onChange={() => setForm(f => ({ ...f, subtitleMode: opt.value as RackConfig["subtitleMode"] }))}
-              className="h-3.5 w-3.5 accent-primary"
-            />
-            {opt.label}
-          </label>
-        ))}
-        {form.subtitleMode === "custom" && (
-          <Input
-            placeholder="表示するテキスト"
-            value={form.subtitleText}
-            onChange={(e) => setForm(f => ({ ...f, subtitleText: e.target.value }))}
-          />
-        )}
-      </div>
-    </FormDialog>
-  );
-}
-
-// ── ItemTooltip ───────────────────────────────────────────────────────────────
-function ItemTooltip({ item, x, y }: { item: any; x: number; y: number }) {
-  const STATUS_LABEL: Record<string, string> = {
-    active: "稼働中", spare: "予備", repair: "修理中", retired: "廃棄", lent: "貸出中",
-  };
-  const CONDITION_LABEL: Record<string, string> = {
-    good: "良好", fair: "普通", poor: "要注意", broken: "故障",
-  };
-
-  // Clamp tooltip so it doesn't overflow viewport
-  const TOOLTIP_W = 224;
-  const vpW = typeof window !== "undefined" ? window.innerWidth : 800;
-  const left = x + TOOLTIP_W > vpW ? x - TOOLTIP_W - 16 : x;
-
-  return (
-    <div
-      className="fixed z-50 pointer-events-none"
-      style={{ left, top: y, maxWidth: TOOLTIP_W }}
-    >
-      <div className="bg-card text-foreground rounded-lg shadow-xl border border-border p-3 space-y-1.5" style={{ width: TOOLTIP_W }}>
-        <div className="font-bold text-sm leading-tight">{item.name}</div>
-        {item.model_number && (
-          <div className="text-xs text-muted-foreground leading-tight tracking-tight ">{item.model_number}</div>
-        )}
-        {item.manufacturer_name && (
-          <div className="text-[11px] text-muted-foreground">{item.manufacturer_name}</div>
-        )}
-        <div className="border-t border-border pt-1.5 space-y-1">
-          {item.serial_number && (
-            <div className="flex gap-1.5 text-[11px]">
-              <span className="text-muted-foreground shrink-0">S/N</span>
-              <span className="font-semibold tracking-tight ">{item.serial_number}</span>
-            </div>
-          )}
-          {(item.status || item.condition) && (
-            <div className="flex gap-2 text-[11px]">
-              {item.status && (
-                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${item.status === "active" ? "bg-emerald-100 text-emerald-800" : item.status === "repair" ? "bg-amber-100 text-amber-800" : item.status === "retired" ? "bg-red-100 text-red-800" : "bg-muted text-muted-foreground"}`}>
-                  {STATUS_LABEL[item.status] ?? item.status}
-                </span>
-              )}
-              {item.condition && item.condition !== "good" && (
-                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${item.condition === "poor" ? "bg-amber-100 text-amber-800" : item.condition === "broken" ? "bg-red-100 text-red-800" : "bg-muted text-muted-foreground"}`}>
-                  {CONDITION_LABEL[item.condition] ?? item.condition}
-                </span>
-              )}
-            </div>
-          )}
-          {item.notes && (
-            <div className="text-[11px] text-muted-foreground leading-snug border-t border-border pt-1 mt-1">
-              <span className="text-muted-foreground/60 text-[10px]">備考　</span>{item.notes}
-            </div>
-          )}
-        </div>
-        {item.eq_code && (
-          <div className="text-[10px] text-muted-foreground/60 pt-0.5">{item.eq_code}</div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── CellConfigDialog ──────────────────────────────────────────────────────────
-function CellConfigDialog({
-  item, config, onSave, onReset, onClose,
-}: {
-  item: any;
-  config?: CellConfig;
-  onSave: (c: CellConfig) => void;
-  onReset: () => void;
-  onClose: () => void;
-}) {
-  const defaultCfg: CellConfig = {
-    primary: "model",
-    showName: false,
-    showModel: true,
-    showNo: true,
-    showCustom: false,
-    customText: "",
-  };
-  const [form, setForm] = useState<CellConfig>(config ?? defaultCfg);
-
-  return (
-    <FormDialog
-      open
-      onOpenChange={(o) => { if (!o) onClose(); }}
-      title={`表示設定 — ${item.name}`}
-      footer={
-        <div className="flex w-full justify-between gap-2">
-          <Button variant="ghost" size="sm" onClick={onReset} className="text-muted-foreground text-xs">
-            デフォルトに戻す
-          </Button>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onClose}>キャンセル</Button>
-            <Button size="sm" onClick={() => onSave(form)}>保存</Button>
-          </div>
-        </div>
-      }
-    >
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label className="text-xs font-semibold uppercase text-muted-foreground">優先表示</Label>
-          <div className="flex flex-col gap-1.5">
-            {[
-              { value: "model", label: "型名を優先" },
-              { value: "name",  label: "機材名を優先" },
-              { value: "custom", label: "任意文字列" },
-            ].map((opt) => (
-              <label key={opt.value} className="flex items-center gap-2 cursor-pointer text-sm">
-                <input
-                  type="radio"
-                  name="primary"
-                  value={opt.value}
-                  checked={form.primary === opt.value}
-                  onChange={() => setForm(f => ({ ...f, primary: opt.value as CellConfig["primary"] }))}
-                  className="h-3.5 w-3.5 accent-primary"
-                />
-                {opt.label}
-              </label>
-            ))}
-          </div>
-          {form.primary === "custom" && (
-            <Input
-              placeholder="表示するテキスト"
-              value={form.customText}
-              onChange={(e) => setForm(f => ({ ...f, customText: e.target.value }))}
-              className="mt-1"
-            />
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <Label className="text-xs font-semibold uppercase text-muted-foreground">追加表示項目</Label>
-          <div>
-            <ToggleButtonGroup
-              options={[
-                { value: 'showName',   label: '機材名' },
-                { value: 'showModel',  label: '型名' },
-                { value: 'showNo',     label: 'No.' },
-                { value: 'showCustom', label: '任意文字列' },
-              ]}
-              value={(['showName','showModel','showNo','showCustom'] as const).filter(k => form[k as keyof CellConfig])}
-              onChange={(next) => setForm(f => ({
-                ...f,
-                showName:   next.includes('showName'),
-                showModel:  next.includes('showModel'),
-                showNo:     next.includes('showNo'),
-                showCustom: next.includes('showCustom'),
-              }))}
-              multi
-              cols={{ base: 2 }}
-              size="sm"
-            />
-          </div>
-          {form.showCustom && form.primary !== "custom" && (
-            <Input
-              placeholder="追加表示するテキスト"
-              value={form.customText}
-              onChange={(e) => setForm(f => ({ ...f, customText: e.target.value }))}
-              className="mt-1"
-            />
-          )}
-        </div>
-      </div>
-    </FormDialog>
-  );
-}
-
 // ── RackDisplay ───────────────────────────────────────────────────────────────
 function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditMode, rackConfig, onCellClick, onEmptySlotClick, onDeleteBlank, onEditRackSubtitle, onItemHover, onItemLeave }: {
   rackData: { location: any; items: any[]; blanks?: any[] };
   side: "front" | "back";
   inventoryMode: boolean;
-  inventoryMap: Record<string, { id: string; found: boolean }>;
+  inventoryMap: Record<string, InventoryEntry>;
   displayEditMode: boolean;
   rackConfig?: RackConfig;
   onCellClick: (item: any, overlapItems?: any[]) => void;
@@ -1224,10 +1039,10 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
                 {inventoryMode && mapEntry && (
                   <span
                     className={`absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white flex items-center justify-center text-[8px] font-bold ${
-                      found === true ? "bg-emerald-500 text-white" : "bg-white text-muted-foreground"
+                      found === 1 ? "bg-emerald-500 text-white" : "bg-white text-muted-foreground"
                     }`}
                   >
-                    {found === true ? "✓" : "○"}
+                    {found === 1 ? "✓" : "○"}
                   </span>
                 )}
               </button>

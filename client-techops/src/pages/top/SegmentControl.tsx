@@ -16,15 +16,16 @@ export function SegmentControl({
   onChange: (segment: Segment) => void;
 }) {
   return (
-    <div className="inline-flex rounded-control-lg bg-muted p-0.5" role="tablist" aria-label="絞り込み">
+    // タブの ARIA (tab/tablist) は名乗らない — 矢印キー移動・tabpanel を実装して
+    // いないため、読み上げの約束と挙動が食い違う。aria-pressed のボタンの組にする
+    <div className="inline-flex rounded-control-lg bg-muted p-0.5" role="group" aria-label="絞り込み">
       {OPTIONS.map((opt) => {
         const selected = opt.key === value;
         return (
           <button
             key={opt.key}
             type="button"
-            role="tab"
-            aria-selected={selected}
+            aria-pressed={selected}
             onClick={() => onChange(opt.key)}
             className={cn(
               'min-h-tap rounded-control-lg px-3.5 text-sub font-bold transition-colors',

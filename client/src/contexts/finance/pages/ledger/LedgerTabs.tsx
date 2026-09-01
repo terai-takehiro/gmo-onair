@@ -28,15 +28,16 @@ export function LedgerTabs({
   onChange: (key: string) => void;
 }) {
   return (
-    <div role="tablist" className="flex gap-1 overflow-x-auto border-b border-border">
+    // タブの ARIA (tab/tablist) は名乗らない — 矢印キー移動・tabpanel を実装して
+    // いないため、読み上げの約束と挙動が食い違う。aria-pressed のボタンの組にする
+    <div role="group" className="flex gap-1 overflow-x-auto border-b border-border">
       {items.map((t) => {
         const on = t.key === value;
         return (
           <button
             key={t.key}
             type="button"
-            role="tab"
-            aria-selected={on}
+            aria-pressed={on}
             onClick={() => onChange(t.key)}
             className={`min-h-tap flex shrink-0 items-center gap-1.5 border-b-2 px-3 text-sub lg:min-h-[40px] ${
               on

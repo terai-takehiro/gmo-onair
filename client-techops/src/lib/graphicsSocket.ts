@@ -1,8 +1,10 @@
 /**
  * テロップCG のリアルタイム同期（Socket.IO `/graphics` ネームスペース）。
  *
- * - **認証なし**で繋がる（出力画面は OBS のブラウザソース＝ログイン不要で開くため。
- *   公開音声サポートと同じ決めごと）。
+ * - **匿名でも繋がるがリッスン専用**（出力画面は OBS のブラウザソース＝ログイン不要で
+ *   開くため。公開音声サポートと同じ決めごと）。操作系（`cg:set` / `cg:continue`）は
+ *   サーバー側が handshake 認証（qsheet 権限）を要求するので、ログイン済みなら
+ *   資格情報を渡す（`lib/socket.ts` と同じ読み方）。
  * - techops 本体の `/techops` ネームスペース（`lib/socket.ts`・`cue:*` は本番進行で
  *   使用中）とは**別ネームスペース**。CG のイベント名は `cg:*` を新設した
  *   （docs/design/v4/graphics.md §9 の技術上の要注意）。
@@ -13,6 +15,7 @@
  * 同じブラウザで同時に開かれ得るため、画面ごとに1本持って unmount で切る。
  */
 import { io, type Socket } from 'socket.io-client';
+import { readSocketAuth } from '@/lib/socket';
 import type { GraphicsCueRow, GraphicsPageRow, GraphicsSlot } from '@/lib/graphicsApi';
 
 export interface CgSyncPayload {
@@ -38,6 +41,9 @@ export function createGraphicsSocket(projectId: string): Socket {
   return io('/graphics', {
     path: '/socket.io/',
     query: { projectId },
+    // 送出コンソールの操作系はサーバーが認証を要求する。出力画面（ログインなし）は
+    // 空の auth のまま繋がり、リッスン専用で cg:sync を受け続ける
+    auth: readSocketAuth(),
     transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionDelay: 1000,

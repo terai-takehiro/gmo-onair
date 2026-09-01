@@ -11,7 +11,7 @@
  * 注記にある。ここでは今までどおり `isAdmin || doc.created_by === currentUser.id` で計算する。
  */
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DashboardHeader, EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+import { useDebounced } from "@gmo-onair/shared/src/client/hooks/useDebounced";
 import { useAuth } from "@/hooks/useAuth";
 import { notifySuccess, notifyError } from "@/lib/notify";
 import { FileText, Plus, Search, Loader2, FolderKanban, X } from "lucide-react";
@@ -48,6 +49,9 @@ export default function SheetListPage() {
   const isAdmin = currentUser?.role === "system_admin";
   const [shareDoc, setShareDoc] = useState<QsheetDocument | null>(null);
   const [search, setSearch] = useState("");
+  // 一覧APIは全ドキュメントの台本JSONBごと返す重い口なので、打鍵ごとに問い合わせない。
+  // 遅らせるのは問い合わせの鍵だけで、入力欄は `search`（即時）のまま
+  const debouncedSearch = useDebounced(search, 300);
   const [showCreate, setShowCreate] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
@@ -64,10 +68,10 @@ export default function SheetListPage() {
   };
 
   const { data: documents, isLoading, isError } = useQuery({
-    queryKey: ["qsheet-documents", search, projectFilter, programFilter, dateFilter, scopeFilter],
+    queryKey: ["qsheet-documents", debouncedSearch, projectFilter, programFilter, dateFilter, scopeFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (search) params.set("search", search);
+      if (debouncedSearch) params.set("search", debouncedSearch);
       if (projectFilter) params.set("project_id", projectFilter);
       if (programFilter) params.set("program_id", programFilter);
       if (dateFilter) params.set("date", dateFilter);
@@ -76,6 +80,8 @@ export default function SheetListPage() {
       return res.data.data as QsheetDocument[];
     },
     retry: false,
+    // 遅らせた値が切り替わる瞬間に一覧を骨組みへ戻さない（`RentalSearchPage` と同じ形）
+    placeholderData: keepPreviousData,
   });
 
   const deleteMutation = useMutation({

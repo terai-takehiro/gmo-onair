@@ -22,7 +22,12 @@ export function useRentalToggle() {
     onSettled: () => setBusyId(null),
     onSuccess: (_res, item) => {
       qc.invalidateQueries({ queryKey: ['equipment-items'] });
-      qc.invalidateQueries({ queryKey: ['equipment-rental-settings'] });
+      // 設定タブ（`settings/RentalRulesTab.tsx`）の鍵は `['rental-settings', …]`。
+      // 貸出機材タブは `['model-groups', …]`・貸出ダイアログは `['equipment-lendable']`
+      // （staleTime 30秒）。前方一致で引数つきの変種も落ちる
+      qc.invalidateQueries({ queryKey: ['rental-settings'] });
+      qc.invalidateQueries({ queryKey: ['model-groups'] });
+      qc.invalidateQueries({ queryKey: ['equipment-lendable'] });
       qc.invalidateQueries({ queryKey: ['equipment-stats'] });
       notifySuccess(`${item.name} を${item.is_rental_listed ? '常設に戻しました' : '貸出可にしました'}`);
     },

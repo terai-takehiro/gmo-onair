@@ -10,6 +10,7 @@ import { commitRosterImport, previewRosterExcel, RosterFieldCandidate } from '..
 // diff は無く常に新規ページを複数件作るだけ（シンプル版）。
 
 const router = Router();
+// preview は保存しないので reader 可・commit はページを量産するので editor
 router.use(requireAuth, requirePermission('qsheet'));
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
   (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
@@ -50,7 +51,7 @@ router.post('/projects/:id/roster/preview', upload.single('file'), wrap(async (r
   res.json({ success: true, data: result });
 }));
 
-router.post('/projects/:id/roster/commit', upload.single('file'), wrap(async (req, res) => {
+router.post('/projects/:id/roster/commit', requirePermission('qsheet', 'editor'), upload.single('file'), wrap(async (req, res) => {
   const projectId = await requireProject(req.params.id as string);
   if (!req.file) throw new AppError(400, 'BAD_REQUEST', 'Excel ファイルを添付してください');
 

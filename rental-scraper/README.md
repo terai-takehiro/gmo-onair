@@ -3,7 +3,7 @@
 映像機材レンタル会社2社（東京オフラインセンター＝`company`列は'TOC'／レスター）の機材ページを毎日クロールし、
 SQLite（`rental_items.db`）にステージングした上で、GMO ONAiR 本体アプリの PostgreSQL
 （`qsheet_rental_items`）へ同期する。GMO ONAiR「制作技術支援」の中のミニアプリ
-**「レンタル機材検索」**（`client-qsheet/src/pages/rental/`）が検索対象にするデータの
+**「レンタル機材検索」**（`client-techops/src/pages/rental/`）が検索対象にするデータの
 取り込み元がこれ。モックアップ段階の仕様は
 [docs/design/v4/rental-search/README.md](../docs/design/v4/rental-search/README.md) を参照。
 

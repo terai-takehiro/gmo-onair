@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { jstDate } from '../../../shared/utils/jst';
 
 // 日常業務アプリ (dailyops) — スタジオ セキュリティカード管理の service 層。
 // API (security-card.routes) と MCP (security-cards.tools) の両方から使う。
@@ -36,7 +37,7 @@ function normDate(v: unknown, fallback?: string): string | null {
 }
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return jstDate();
 }
 
 export interface LendInput {

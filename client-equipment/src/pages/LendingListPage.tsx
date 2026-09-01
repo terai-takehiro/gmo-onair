@@ -26,6 +26,7 @@ import { Row, RowHeader, RowMain, RowSlot, RowSub, RowTitle } from '@gmo-onair/s
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
+import { localDateStr } from '@gmo-onair/shared/src/client/format';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { PullToRefresh } from '@gmo-onair/shared/src/client-v4/pullToRefresh';
 import { LendingDialog, type LendingPayload } from './lending/LendingDialog';
@@ -33,7 +34,9 @@ import { ReturnDialog } from './lending/ReturnDialog';
 import { LendingCards } from './lending/LendingCards';
 import type { Lending } from './lending/types';
 
-const today = () => new Date().toISOString().split('T')[0];
+// UTC の日付 (toISOString) だと JST の 0〜9 時に前日になり、ダッシュボードの
+// 「超過」(ローカル日付で判定) と食い違う
+const today = () => localDateStr(new Date());
 
 /** 遅延は**画面で導く**。サーバーの `status` は貸出中／返却済の2つしか無い */
 const isLate = (l: Lending) => l.status === 'lent' && !!l.due_date && l.due_date < today();

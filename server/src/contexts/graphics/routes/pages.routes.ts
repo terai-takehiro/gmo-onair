@@ -18,6 +18,7 @@ import { clearVoteTimers, onVoteStateTransition, readVoteStateServer } from '../
 // テンプレートを介さない従来の単一部品フローは一切変更しない（後方互換）。
 
 const router = Router();
+// 閲覧は reader・作成/更新/削除は editor（documents.routes.ts と同じ作法）
 router.use(requireAuth, requirePermission('qsheet'));
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
   (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
@@ -31,7 +32,7 @@ async function assertCallNoFree(projectId: number, callNo: number, excludePageId
 }
 
 // ── 作成 ─────────────────────────────────────────────────────────
-router.post('/projects/:id/pages', wrap(async (req, res) => {
+router.post('/projects/:id/pages', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
   const projectId = parseInt(req.params.id as string);
   const project = projectId && !isNaN(projectId) ? await fetchProject(projectId) : null;
   if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
@@ -128,7 +129,7 @@ router.post('/projects/:id/pages', wrap(async (req, res) => {
 }));
 
 // ── 部分更新 ─────────────────────────────────────────────────────
-router.put('/pages/:id', wrap(async (req, res) => {
+router.put('/pages/:id', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const existing = id && !isNaN(id)
     ? await queryOne(`SELECT * FROM graphics_pages WHERE id = ?`, [id])
@@ -278,7 +279,7 @@ router.put('/pages/:id', wrap(async (req, res) => {
 }));
 
 // ── 削除 ─────────────────────────────────────────────────────────
-router.delete('/pages/:id', wrap(async (req, res) => {
+router.delete('/pages/:id', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const existing = id && !isNaN(id)
     ? await queryOne(`SELECT id, project_id FROM graphics_pages WHERE id = ?`, [id])

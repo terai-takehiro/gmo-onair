@@ -85,6 +85,37 @@ export async function listKpt(
   ) as unknown as KptRow[];
 }
 
+/**
+ * 複数案件の KPT を1本のクエリでまとめて引く（隔週キープの一覧用）。
+ * 案件ごとに `listKpt` を呼ぶと一覧の行数ぶん N+1 になる。
+ * 絞り（`confirmedOnly`）・案件内の並びは `listKpt` と同じ。
+ * KPT が1件も無い案件は Map に載らない（呼び出し元が `?? []` で受ける）。
+ */
+export async function listKptForProjects(
+  projectIds: string[],
+  opts: { confirmedOnly?: boolean } = {},
+): Promise<Map<string, KptRow[]>> {
+  const map = new Map<string, KptRow[]>();
+  if (projectIds.length === 0) return map;
+  const gate = opts.confirmedOnly
+    ? 'AND (k.ai_generated = FALSE OR k.confirmed_at IS NOT NULL)'
+    : '';
+  const rows = await queryAll(
+    `SELECT k.id, k.project_id, k.kind, k.body, k.author_id, u.name AS author_name,
+            k.ai_generated, k.confirmed_at, k.sort_order, k.created_at
+       FROM event_report_kpt k
+       LEFT JOIN users u ON u.id = k.author_id
+      WHERE k.project_id = ANY(?) ${gate}
+      ORDER BY k.project_id, k.kind, k.sort_order, k.created_at`,
+    [projectIds],
+  ) as unknown as KptRow[];
+  for (const row of rows) {
+    const list = map.get(row.project_id);
+    if (list) list.push(row); else map.set(row.project_id, [row]);
+  }
+  return map;
+}
+
 async function assertProject(projectId: string): Promise<void> {
   const p = await queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [projectId]);
   if (!p) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');

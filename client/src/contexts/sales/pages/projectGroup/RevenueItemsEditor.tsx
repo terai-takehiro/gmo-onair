@@ -59,7 +59,7 @@ export function RevenueItemsEditor({
             <Money value={item.amount} className="font-bold" />
           </div>
           {items.length > 1 && (
-            <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => setItems((prev) => prev.filter((_, i) => i !== idx))}>
+            <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0" aria-label="この項目を削除" title="この項目を削除" onClick={() => setItems((prev) => prev.filter((_, i) => i !== idx))}>
               <Trash2 className="h-3.5 w-3.5 text-destructive" />
             </Button>
           )}

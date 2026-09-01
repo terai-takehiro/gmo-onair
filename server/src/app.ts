@@ -87,7 +87,7 @@ export function createApp(): express.Express {
   app.use(cors({
     origin: configuredOrigins.length > 0 ? configuredOrigins : false,
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id'],
   }));
 

@@ -228,7 +228,9 @@ export function InvoiceGroupsSection({ project, mobile }: { project: ProjectDeta
             </Button>
           )}
           {cycle === 'contract_lump_sum' && (
-            <Button size="sm" onClick={() => setLumpOpen(true)}>
+            /* 一覧が返るまで押させない。読み込み中は `existingLump` が必ず null なので、
+               既存の契約一括があっても「作る」の顔で開き、保存済みの金額を 0 で上書きしうる */
+            <Button size="sm" onClick={() => setLumpOpen(true)} disabled={list.isLoading}>
               {existingLump ? '金額を直す' : '金額を入力して作る'}
             </Button>
           )}
@@ -283,6 +285,8 @@ export function InvoiceGroupsSection({ project, mobile }: { project: ProjectDeta
       )}
       {lumpOpen && (
         <LumpSumDialog
+          // 開いたまま対象が変わっても useState の初期値に固定されないよう作り直す
+          key={existingLump?.id ?? 'new'}
           open={lumpOpen}
           onOpenChange={setLumpOpen}
           onSubmit={(payload) => lumpSum.mutate(payload)}

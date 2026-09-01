@@ -159,6 +159,8 @@ export function RevenueItemsTable({
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7"
+                      aria-label="この明細を削除"
+                      title="この明細を削除"
                       onClick={() => removeItem(idx)}
                     >
                       <Trash2 className="h-3.5 w-3.5 text-destructive" />
@@ -202,6 +204,8 @@ export function RevenueItemsTable({
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 shrink-0"
+                aria-label="この明細を削除"
+                title="この明細を削除"
                 onClick={() => removeItem(idx)}
               >
                 <Trash2 className="h-3.5 w-3.5 text-destructive" />
@@ -214,10 +218,11 @@ export function RevenueItemsTable({
               className="text-sm"
               list="revenue-item-categories"
             />
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label className="text-xs text-muted-foreground">数量</Label>
+                <Label htmlFor={`revenue-item-qty-${idx}`} className="text-xs text-muted-foreground">数量</Label>
                 <Input
+                  id={`revenue-item-qty-${idx}`}
                   type="number"
                   min={1}
                   value={item.quantity}
@@ -226,13 +231,26 @@ export function RevenueItemsTable({
                 />
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">単価</Label>
+                <Label className="text-xs text-muted-foreground">金額</Label>
+                <div className="flex items-center h-9 text-sm">
+                  <Money value={item.amount} className="font-medium" />
+                </div>
+              </div>
+              {/* 単価は全幅。3等分だと 375px で1列 ~90px しかなく、¥接頭辞(pl-7)＋
+                  税ボタン(スマホは min-width 44px)で数字がほぼ見えなくなる */}
+              <div className="col-span-2">
+                <Label htmlFor={`revenue-item-unit-price-${idx}`} className="text-xs text-muted-foreground">単価</Label>
                 <div className="flex items-center gap-0.5">
-                  <CurrencyInput
-                    value={item.unit_price}
-                    onChange={(v) => updateItem(idx, 'unit_price', v)}
-                    className="text-sm flex-1"
-                  />
+                  {/* CurrencyInput は className を内側の <input> に渡すため、
+                      flex で伸ばすのはこの外側の div */}
+                  <div className="min-w-0 flex-1">
+                    <CurrencyInput
+                      id={`revenue-item-unit-price-${idx}`}
+                      value={item.unit_price}
+                      onChange={(v) => updateItem(idx, 'unit_price', v)}
+                      className="text-sm"
+                    />
+                  </div>
                   <TaxHelperButton
                     fieldLabel="単価"
                     defaultIncludedAmount={item.unit_price}
@@ -240,17 +258,12 @@ export function RevenueItemsTable({
                   />
                 </div>
               </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">金額</Label>
-                <div className="flex items-center h-9 text-sm">
-                  <Money value={item.amount} className="font-medium" />
-                </div>
-              </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
-                <Label className="text-xs text-muted-foreground">期間（開始）</Label>
+                <Label htmlFor={`revenue-item-period-start-${idx}`} className="text-xs text-muted-foreground">期間（開始）</Label>
                 <Input
+                  id={`revenue-item-period-start-${idx}`}
                   type="date"
                   value={item.period_start || ''}
                   onChange={(e) => updateItem(idx, 'period_start', e.target.value || null)}
@@ -258,8 +271,9 @@ export function RevenueItemsTable({
                 />
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">期間（終了）</Label>
+                <Label htmlFor={`revenue-item-period-end-${idx}`} className="text-xs text-muted-foreground">期間（終了）</Label>
                 <Input
+                  id={`revenue-item-period-end-${idx}`}
                   type="date"
                   value={item.period_end || ''}
                   onChange={(e) => updateItem(idx, 'period_end', e.target.value || null)}

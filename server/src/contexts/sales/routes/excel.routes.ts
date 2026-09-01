@@ -211,6 +211,16 @@ const PARTNERS_CONFIG: ResourceConfig = {
     if (specialties && !specialties.startsWith('[')) {
       const arr = specialties.split(',').map((s) => s.trim()).filter(Boolean);
       specialties = JSON.stringify(arr);
+    } else if (specialties) {
+      // '[' 始まりは JSON 配列として検証してから保存する。不正なまま入れると
+      // partners API の JSON.parse が全リクエストで落ちる（例: `[カメラ]` は JSON ではない）
+      try {
+        const v = JSON.parse(specialties);
+        if (!Array.isArray(v)) throw new Error('not array');
+        specialties = JSON.stringify(v.map(String));
+      } catch {
+        errors.push('専門分野の形式が不正です (カンマ区切りで入力してください)');
+      }
     }
     return {
       data: {

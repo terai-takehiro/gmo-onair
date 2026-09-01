@@ -15,6 +15,10 @@ const TASK_TYPES = ['free', 'checklist', 'production_step', 'sales'] as const;
 const WORK_STATES = ['todo', 'doing', 'waiting'] as const;
 const PRODUCTION_STEPS = ['script', 'materials', 'recording'] as const;
 
+// 期限は due_at を正とし、未設定なら既存 due_date を「その日の 18:00」として補う（根源整理 §3-4）。
+// due_at だけ持つ行 (intake 委任・GPM テンプレート展開など) を期限なし扱いにしないため必須。
+const DUE_EXPR = `COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp)`;
+
 export function registerTaskTools(server: McpServer): void {
   server.registerTool(
     'list_tasks',
@@ -46,14 +50,15 @@ export function registerTaskTools(server: McpServer): void {
       if (args.assigned_to) { where += ' AND t.assigned_to = ?'; params.push(args.assigned_to); }
       const rows = await queryAll(
         `SELECT t.id, t.project_id, p.name AS project_name, p.gls_number, t.title, t.description,
-                t.task_type, t.start_date::text AS start_date, t.due_date::text AS due_date,
+                t.task_type, t.start_date::text AS start_date,
+                ${DUE_EXPR}::date::text AS due_date, ${DUE_EXPR}::text AS due_at,
                 t.assigned_to, u.name AS assigned_to_name, t.is_completed, tc.name AS column_name
          FROM project_tasks t
          JOIN projects p ON p.id = t.project_id
          LEFT JOIN users u ON u.id = t.assigned_to
          LEFT JOIN task_columns tc ON tc.id = t.column_id AND tc.deleted_at IS NULL
          ${where}
-         ORDER BY t.due_date ASC NULLS LAST, t.created_at DESC
+         ORDER BY ${DUE_EXPR} ASC NULLS LAST, t.created_at DESC
          LIMIT ?`,
         [...params, clampLimit(args.limit, 50)],
       );

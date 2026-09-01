@@ -10,6 +10,7 @@ import { checkBooking, locationOfBooking, stampOutOfHours } from '../services/bu
 import { checkPossibleDuplicate, stampPossibleDuplicate } from '../services/booking-duplicate.service';
 import { syncProjectEventDates } from '../services/project-event-dates.service';
 import { isReversedTimeRange } from '../../../shared/utils/timeRange';
+import { jstDate } from '../../../shared/utils/jst';
 import type { HoursCheck } from '../../../shared/services/businessHours';
 import type { DuplicateResult } from '../../../shared/services/bookingDuplicate';
 
@@ -422,7 +423,7 @@ router.get('/bookings', async (req, res) => {
 // GET /studios/bookings/availability?from=&to=&room_id= — 空き照会 (部屋ごとの busy / 終日空き日)
 // ※ /bookings/:id より前に定義すること (:id に "availability" が捕捉されないように)
 router.get('/bookings/availability', async (req, res) => {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = jstDate();
   const from = (req.query.from as string) || today;
   const to = (req.query.to as string) || from;
   const result = await studioBookingService.getAvailability({

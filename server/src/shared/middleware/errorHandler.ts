@@ -12,7 +12,14 @@ export class AppError extends Error {
   }
 }
 
-export function errorHandler(err: Error, _req: Request, res: Response, _next: NextFunction): void {
+export function errorHandler(err: Error, _req: Request, res: Response, next: NextFunction): void {
+  // レスポンス送信後のエラーは二重送信できない (ERR_HTTP_HEADERS_SENT になる)。
+  // 実際のエラーをログに残し、Express の既定ハンドラーに委ねる (接続を破棄してくれる)
+  if (res.headersSent) {
+    console.error('Error after response sent:', _req.method, _req.path, err.message);
+    return next(err);
+  }
+
   const isProduction = process.env.NODE_ENV === 'production';
 
   if (err instanceof AppError) {

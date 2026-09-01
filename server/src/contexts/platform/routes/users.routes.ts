@@ -221,7 +221,9 @@ router.get('/me/permissions', wrap(async (req, res) => {
 }));
 
 // ユーザーのパーミッション一覧
-router.get('/:id/permissions', wrap(async (req, res) => {
+// （他人の権限構成は全社員に見せない — 作成・更新・削除・一括更新と同じ system_admin 限定。
+//   自分のぶんは上の /me/permissions が先に一致するので影響しない）
+router.get('/:id/permissions', requireRole('system_admin'), wrap(async (req, res) => {
   const perms = await queryAll('SELECT module, access_level FROM user_permissions WHERE user_id = ?', [req.params.id]);
   res.json({ success: true, data: perms });
 }));

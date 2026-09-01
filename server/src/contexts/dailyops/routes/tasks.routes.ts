@@ -18,6 +18,7 @@ import {
 
 import { getFeedbackDigest } from '../../../shared/services/ai-feedback.service';
 import { recordAiUsage } from '../../../shared/services/ai-usage.service';
+import { jstNaive } from '../../../shared/utils/jst';
 
 // 日常業務アプリ (dailyops) — 「タスク・依頼」メニューの API。
 //
@@ -230,7 +231,9 @@ async function analyzeIntake(
   const startedAt = Date.now();
   const users = await loadUsers();
   const projects = withProjects ? await loadProjectCandidates() : [];
-  const now = new Date();
+  // コンテナは UTC で動く。期限解析も AI への「いま」も**ローカル成分**を読むので、
+  // JST の壁時計を返す Date を渡す（素の new Date() だと JST 朝は前日・夕方の時刻指定は過去になる）
+  const now = jstNaive();
   let parsed: ParseResult;
   let model = 'rules';
   let promptVersion: string | null = null;

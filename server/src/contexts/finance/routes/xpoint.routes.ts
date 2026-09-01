@@ -10,7 +10,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
-import { queryOne, execute } from '../../../shared/db/connection';
+import { queryOne, execute, withTransaction } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateBillingKey, generateSgaBillingKey } from '../../../shared/services/billing-key.service';
@@ -165,6 +165,8 @@ router.post('/files/:id/register', async (req, res) => {
 
   let registeredTable: string;
   let registeredId: string;
+  let insertSql: string;
+  let insertParams: unknown[];
 
   if (kind === 'purchase') {
     const p = purchase || {};
@@ -185,17 +187,17 @@ router.post('/files/:id/register', async (req, res) => {
     }
     registeredTable = 'purchases';
     registeredId = uuidv4();
-    await execute(
+    insertSql =
       `INSERT INTO purchases (id, billing_key, project_id, episode_id, vendor_id, assigned_to, settlement_method, settlement_number, settlement_url, tax_category, invoice_qualified, amount, description, recognition_date, inspection_date, payment_due_date, notes, is_provisional, service_completed_date, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    insertParams =
       [registeredId, billing_key, p.project_id, p.episode_id || null, vendorId, req.user!.id,
        p.settlement_method || defaultMethod, p.settlement_number || file.xp_number || null, p.settlement_url || null,
        p.tax_category || 'tax10',
        p.invoice_qualified !== undefined ? (p.invoice_qualified ? 1 : 0) : 1,
        p.amount || 0, p.description || null, p.recognition_date || null,
        p.inspection_date || null, p.payment_due_date || null, p.notes || null,
-       p.is_provisional ? true : false, p.service_completed_date || null, req.user!.id]
-    );
+       p.is_provisional ? true : false, p.service_completed_date || null, req.user!.id];
   } else {
     const s = sga || {};
     if (!s.recognition_date) throw new AppError(400, 'VALIDATION_ERROR', '発生日は必須です');
@@ -209,9 +211,10 @@ router.post('/files/:id/register', async (req, res) => {
     const billing_key = generateSgaBillingKey(s.recognition_date, s.tax_category || 'tax10');
     registeredTable = 'sga_expenses';
     registeredId = uuidv4();
-    await execute(
+    insertSql =
       `INSERT INTO sga_expenses (id, billing_key, vendor_name, vendor_id, settlement_method, settlement_number, settlement_url, description, notes, recognition_date, payment_due_date, tax_category, invoice_qualified, amount, expense_type, amortize_start, amortize_end, source, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    insertParams =
       [registeredId, billing_key, s.vendor_name || null, sgaVendorId,
        s.settlement_method || defaultMethod, s.settlement_number || file.xp_number || null, s.settlement_url || null,
        s.description || null, s.notes || null,
@@ -220,8 +223,7 @@ router.post('/files/:id/register', async (req, res) => {
        s.invoice_qualified !== undefined ? (s.invoice_qualified ? 1 : 0) : 1,
        s.amount || 0, s.expense_type || 'spot',
        s.amortize_start || null, s.amortize_end || null,
-       'staff', req.user!.id]
-    );
+       'staff', req.user!.id];
   }
 
   // 登録履歴 (楽楽精算は 1 伝票から複数レコードになるため配列で保持)
@@ -236,15 +238,37 @@ router.post('/files/:id/register', async (req, res) => {
   };
   // complete=false (複数単位の途中) はステータスを据え置き、最後の単位で registered に。
   const markRegistered = complete !== false;
-  await execute(
-    `UPDATE xpoint_import_files
-     SET status = ${markRegistered ? `'registered'` : 'status'},
-         kind = ?, registered_table = ?, registered_id = ?, registered_by = ?, registered_at = NOW(),
-         registered_records = COALESCE(registered_records, '[]'::jsonb) || ?::jsonb,
-         updated_at = NOW()
-     WHERE id = ?`,
-    [kind, registeredTable, registeredId, req.user!.id, JSON.stringify([record]), file.id]
-  );
+  // INSERT とステータス更新は行ロックの中で行う。冒頭のステータスチェックは
+  // トランザクション外なので、二度押し・2人の同時登録が両方すり抜けて
+  // 同じ精算が二重登録される（ロック後に再確認して片方を 409 で止める）
+  await withTransaction(async (tx) => {
+    const locked = (await tx.queryOne(
+      'SELECT * FROM xpoint_import_files WHERE id = ? FOR UPDATE',
+      [file.id]
+    )) as any;
+    if (!locked) throw new AppError(404, 'NOT_FOUND', '取込ファイルが見つかりません');
+    if (locked.status === 'registered') {
+      throw new AppError(409, 'ALREADY_REGISTERED', 'このファイルは既に登録済みです');
+    }
+    // complete=false の途中はステータスが変わらないため、同じ単位 (unit_index) の
+    // 二重登録は登録履歴で見分けて止める
+    if (typeof unit_index === 'number') {
+      const records = Array.isArray(locked.registered_records) ? locked.registered_records : [];
+      if (records.some((r: any) => r?.unit_index === unit_index)) {
+        throw new AppError(409, 'ALREADY_REGISTERED', 'この登録単位は既に登録済みです');
+      }
+    }
+    await tx.execute(insertSql, insertParams);
+    await tx.execute(
+      `UPDATE xpoint_import_files
+       SET status = ${markRegistered ? `'registered'` : 'status'},
+           kind = ?, registered_table = ?, registered_id = ?, registered_by = ?, registered_at = NOW(),
+           registered_records = COALESCE(registered_records, '[]'::jsonb) || ?::jsonb,
+           updated_at = NOW()
+       WHERE id = ?`,
+      [kind, registeredTable, registeredId, req.user!.id, JSON.stringify([record]), file.id]
+    );
+  });
 
   const row = await queryOne(`SELECT * FROM ${registeredTable} WHERE id = ?`, [registeredId]);
   res.status(201).json({ success: true, data: { registered_table: registeredTable, registered_id: registeredId, row } });

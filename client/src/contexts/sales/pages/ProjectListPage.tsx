@@ -68,6 +68,7 @@ import { MobileFilterBar } from './projectList/MobileFilterBar';
 import { PageNav } from './projectList/PageNav';
 import { ProjectCards } from './projectList/ProjectCards';
 import { defaultPeriod, range as periodRange, label as periodLabel, type PeriodValue } from './projectList/period';
+import { useDebounced } from '@gmo-onair/shared/src/client/hooks/useDebounced';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { PullToRefresh } from '@gmo-onair/shared/src/client-v4/pullToRefresh';
 import { useFlip } from '@gmo-onair/shared/src/client-v4/flip';
@@ -109,6 +110,12 @@ export default function ProjectListPage() {
     return asked && STAGE_CHIPS.some((c) => c.key === asked) ? asked : 'active';
   });
   const [search, setSearch] = useState('');
+  /*
+   * GET /projects は1回で COUNT ＋ LATERAL 5本の重い問い合わせなので、
+   * 打鍵ごとに投げない（`RevenueListPage` と同じ形）。遅らせるのは
+   * 問い合わせの鍵に渡す値だけで、入力欄は `search`（即時）のまま
+   */
+  const appliedSearch = useDebounced(search.trim(), 300);
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState(SORT_OPTIONS[0].value);
   const [aiOnly, setAiOnly] = useState(false);
@@ -143,14 +150,14 @@ export default function ProjectListPage() {
   const limit = view === 'board' ? BOARD_SIZE : PAGE_SIZE;
 
   const { data, isLoading, refetch } = useQuery<ProjectListResponse>({
-    queryKey: ['projects', view, page, limit, search, stageKey, sort, eventRange?.from, eventRange?.to, aiOnly, aiUnreviewedOnly, tidy],
+    queryKey: ['projects', view, page, limit, appliedSearch, stageKey, sort, eventRange?.from, eventRange?.to, aiOnly, aiUnreviewedOnly, tidy],
     queryFn: async () => {
       // **GLS-A（案件）だけ** (migration 179)。GLS-B はプロジェクト管理の一覧に出る。
       // サーバー側でも受付・タスク一覧・ダッシュボードに同じ絞り込みを入れてある
       const q: Record<string, string | number> = {
         page: view === 'board' ? 1 : page, limit, gls_category: 'A',
       };
-      if (search) q.search = search;
+      if (appliedSearch) q.search = appliedSearch;
       if (stages.length > 0) q.stage = stages.join(',');
       if (eventRange) { q.event_from = eventRange.from; q.event_to = eventRange.to; }
       if (aiOnly) {
@@ -193,9 +200,11 @@ export default function ProjectListPage() {
   }));
   const stageCounts = Object.fromEntries(chips.map((c) => [c.key, c.count]));
 
-  // 0件のときに「どれを外せば出るのか」を名指しするための一覧
+  // 0件のときに「どれを外せば出るのか」を名指しするための一覧。
+  // 検索語は**遅らせた値**で判定する（即時の値だと、まだ問い合わせていない
+  // 言葉で「該当なし」が一瞬出る — `useDebounced` の決めごと）
   const activeFilters = [
-    search ? `探している言葉: ${search}` : null,
+    appliedSearch ? `探している言葉: ${appliedSearch}` : null,
     stageKey !== 'active' ? `ステージ: ${STAGE_CHIPS.find((c) => c.key === stageKey)?.label}` : null,
     period.mode !== 'all' ? `実施日: ${periodLabel(period)}` : null,
     aiOnly ? `AI 作成のみ${aiUnreviewedOnly ? ' (未確認)' : ''}` : null,

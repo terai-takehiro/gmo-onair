@@ -70,12 +70,13 @@ export function RevenueSection({
                 <Money value={rev.amount} className="text-cardtitle font-bold" />
                 {canEdit && (
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(rev)}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="この売上を編集" title="この売上を編集" onClick={() => onEdit(rev)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     {canDelete && (
                       <Button
                         variant="ghost" size="icon" className="h-7 w-7 text-destructive"
+                        aria-label="この売上を削除" title="この売上を削除"
                         onClick={async () => {
                           if (!(await confirmAction({
                             title: 'この売上を削除しますか？',

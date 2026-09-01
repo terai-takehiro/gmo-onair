@@ -50,6 +50,20 @@ export function jstParts(d: Date = new Date()): { date: string; time: string } {
 }
 
 /**
+ * **ローカル取得（`getHours()` 等）が日本の壁時計を返す Date** を作る。
+ *
+ * `getFullYear()`/`getDate()`/`getHours()` で成分を読む既存コード
+ * （投入口の期限解析など）に「JST の今」を渡すための器。
+ * 時間帯の情報は持たないので、**成分の取り出しと素朴な日付演算にだけ**使うこと
+ * （epoch ミリ秒や他の Date との比較に使うとずれる）。
+ * ゾーン記号なしの `YYYY-MM-DDTHH:mm:00` はローカル時刻として解釈されるので、
+ * サーバーがどの時間帯で動いていても成分は JST になる。
+ */
+export function jstNaive(d: Date = new Date()): Date {
+  return new Date(`${jstDate(d)}T${jstTime(d)}:00`);
+}
+
+/**
  * `YYYY-MM-DD` に日数を足す。**時間帯を持ち込まない純粋な足し算**
  * （UTC で作って UTC で読むので、どの時間帯で動かしても同じ答えになる）。
  */

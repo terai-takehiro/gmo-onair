@@ -4,6 +4,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { queryAll } from '../../../shared/db/connection';
 import { requireAuth, requireRole } from '../../../shared/middleware/auth';
 import { buildExcelWorkbook, excelResponse, SheetSpec } from '../../../shared/utils/excel';
+import { jstDate } from '../../../shared/utils/jst';
 
 const router = Router();
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
@@ -294,7 +295,7 @@ router.get('/admin/backup.xlsx', requireAuth, requireRole('system_admin'), wrap(
   }
 
   const buf = await buildExcelWorkbook(sheets);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = jstDate();
   excelResponse(res, `gmo-onair_backup_${today}.xlsx`, buf);
 }));
 

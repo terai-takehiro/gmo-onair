@@ -37,6 +37,14 @@ const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<u
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
+// interactive_link は外部インタラクティブVPSの apiKeySecret を平文で含むため、イベント行を
+// そのまま返すレスポンスからは必ず落とす。マスク済みビュー (apiKeyPrefix のみ) は
+// GET /events/:eventId/interactive-link (quizzes.routes.ts) が返す。
+const stripInteractiveLink = <T extends Record<string, unknown>>(row: T) => {
+  const { interactive_link: _il, ...rest } = row;
+  return rest;
+};
+
 // ── 公開: CG出力用（認証不要・ブラウザソース用）──────────────
 router.get('/events/:id/output', wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
@@ -130,7 +138,7 @@ router.get('/events/:id', wrap(async (req, res) => {
   // v2.9.63: operator (ControlPage) のプレビュー/ステップ出し分け用に連動アンケートも返す
   const surveys = await fetchEventSurveys(id);
 
-  res.json({ success: true, data: { ...event, categories: [...catMap.values()], surveys } });
+  res.json({ success: true, data: { ...stripInteractiveLink(event), categories: [...catMap.values()], surveys } });
 }));
 
 // ── 更新 ────────────────────────────────────────────────────
@@ -145,7 +153,7 @@ router.put('/events/:id', wrap(async (req, res) => {
     [name.trim(), subtitle ?? null, description ?? null, scheduled_at ?? null, id]
   );
   if (!row) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
-  res.json({ success: true, data: row });
+  res.json({ success: true, data: stripInteractiveLink(row) });
 }));
 
 // ── ステータス変更 ───────────────────────────────────────────
@@ -160,7 +168,7 @@ router.post('/events/:id/status', wrap(async (req, res) => {
     [status, id]
   );
   if (!row) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
-  res.json({ success: true, data: row });
+  res.json({ success: true, data: stripInteractiveLink(row) });
 }));
 
 // ── 削除 ────────────────────────────────────────────────────

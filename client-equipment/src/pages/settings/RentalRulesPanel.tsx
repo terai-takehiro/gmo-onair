@@ -33,23 +33,24 @@ const CHOICES: { key: string; label: string; hint: string; options: { v: string;
   {
     key: 'default_due_days',
     label: '返却予定日の初期値',
-    hint: '貸出を登録するときに、この日数だけ先の日付が最初から入ります',
+    hint: '返却予定日を空のまま貸出を登録すると、この日数だけ先の日付が入ります',
     options: [{ v: '3', label: '3日後' }, { v: '7', label: '7日後' }, { v: '14', label: '14日後' }],
   },
   {
     key: 'overdue_notify',
     label: '遅延を知らせるタイミング',
-    hint: '返却予定日から数えて、いつダッシュボードの「返却期限超過」に出すか',
+    // ⚠️ まだ配線されていない（嘘のスイッチにしない — 効かないことを画面に書く）
+    hint: '準備中 — いまはまだ効きません。返却予定日から数えて、いつ「返却期限超過」に出すか',
     options: [{ v: 'same', label: '当日' }, { v: 'next', label: '翌日' }, { v: 'after3', label: '3日後' }],
   },
 ];
 
-/** 入切の決めごと */
+/** 入切の決めごと。⚠️ 「準備中」の3つはまだ配線されていない — 効かないことを画面に書く */
 const TOGGLES: { key: string; label: string; hint: string }[] = [
-  { key: 'allow_external', label: '社外への貸出を許可する', hint: '切にすると、貸出先に社外の会社を選べなくなります' },
-  { key: 'external_approval', label: '社外貸出に承認を必要とする', hint: '入にすると、社外への貸出は承認されるまで持ち出せません' },
-  { key: 'qr_lend_return', label: 'QRスキャンから貸出・返却を記録する', hint: '切にすると、QR は機材を探すだけになります' },
-  { key: 'block_broken_lending', label: '修理中・引退の機材を貸し出せないようにする', hint: '入にすると、その状態の機材は貸出の候補に出ません' },
+  { key: 'allow_external', label: '社外への貸出を許可する', hint: '準備中 — いまはまだ効きません。切にすると社外の会社を選べなくなる予定です' },
+  { key: 'external_approval', label: '社外貸出に承認を必要とする', hint: '準備中 — いまはまだ効きません。入にすると承認されるまで持ち出せなくなる予定です' },
+  { key: 'qr_lend_return', label: 'QRスキャンから貸出・返却を記録する', hint: '準備中 — いまはまだ効きません。切にすると QR は機材を探すだけになる予定です' },
+  { key: 'block_broken_lending', label: '修理中・引退の機材を貸し出せないようにする', hint: '入にすると、その状態の機材は貸出を登録できなくなります' },
 ];
 
 export function RentalRulesPanel() {

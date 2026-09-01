@@ -65,6 +65,8 @@ router.use('/audio', express.static(UPLOAD_DIR, { maxAge: '1d' }));
 // ── マッピング取得 (認証不要・出力URLが読む) ──
 router.get('/events/:id/sounds', wrap(async (req, res) => {
   const eventId = parseInt(req.params.id as string);
+  // NaN を integer 列に渡すと pg が 22P02 で落ちて 500 になる（認証不要のURLなので必ず弾く）
+  if (!Number.isInteger(eventId)) throw new AppError(400, 'BAD_REQUEST', 'イベントIDが不正です');
   const rows = await queryAll(
     `SELECT id, layer, step, rank_start, file, volume, enabled
      FROM awards_sounds WHERE event_id = ? ORDER BY layer, step, rank_start NULLS FIRST`,
@@ -91,6 +93,7 @@ router.post(
   upload.single('file'),
   wrap(async (req, res) => {
     const eventId = parseInt(req.params.id as string);
+    if (!Number.isInteger(eventId)) throw new AppError(400, 'BAD_REQUEST', 'イベントIDが不正です');
     const ev = await queryOne(`SELECT id, name FROM awards_events WHERE id = ?`, [eventId]) as
       | { id: number; name: string } | null;
     if (!ev) throw new AppError(404, 'NOT_FOUND', 'イベントが見つかりません');
@@ -156,6 +159,7 @@ router.put(
   requireAuth, requirePermission('awards'),
   wrap(async (req, res) => {
     const id = parseInt(req.params.id as string);
+    if (!Number.isInteger(id)) throw new AppError(400, 'BAD_REQUEST', '音源IDが不正です');
     const cur = await queryOne(`SELECT id, volume, enabled FROM awards_sounds WHERE id = ?`, [id]) as
       | { id: number; volume: number; enabled: boolean } | null;
     if (!cur) throw new AppError(404, 'NOT_FOUND', '音源が見つかりません');
@@ -174,6 +178,7 @@ router.delete(
   requireAuth, requirePermission('awards'),
   wrap(async (req, res) => {
     const id = parseInt(req.params.id as string);
+    if (!Number.isInteger(id)) throw new AppError(400, 'BAD_REQUEST', '音源IDが不正です');
     const row = await queryOne(`SELECT file FROM awards_sounds WHERE id = ?`, [id]) as { file: string } | null;
     await execute(`DELETE FROM awards_sounds WHERE id = ?`, [id]);
     if (row?.file) { try { fs.unlinkSync(path.join(UPLOAD_DIR, row.file)); } catch { /* noop */ } }

@@ -13,10 +13,10 @@
 export type GraphicsTickerSpeed = 'slow' | 'normal' | 'fast';
 
 /** ティッカー本文のフォントサイズ（px @1080） */
-export const TICKER_FONT_SIZE = 44;
+const TICKER_FONT_SIZE = 44;
 
 /** 論理キャンバスの横幅（px）。specs §0 */
-export const TICKER_CANVAS_WIDTH = 1920;
+const TICKER_CANVAS_WIDTH = 1920;
 
 /** 速度の3段（px/s）。normal=110 が読速4文字/秒からの逆算値（specs §6） */
 export const TICKER_PX_PER_SEC: Record<GraphicsTickerSpeed, number> = {

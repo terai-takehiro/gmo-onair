@@ -61,7 +61,7 @@ export async function getAppBadges(access: Access): Promise<AppBadges> {
            WHERE b.deleted_at IS NULL AND b.booking_type = 'hold'
              AND substr(b.start_time, 1, 10) >= to_char(NOW(), 'YYYY-MM-DD'))` : 'NULL'} AS calendar,
        ${wantEquipment ? `(SELECT COUNT(*) FROM equipment_lendings l
-           WHERE l.returned_at IS NULL AND l.due_date IS NOT NULL
+           WHERE l.status = 'lent' AND l.due_date IS NOT NULL
              AND l.due_date < to_char(NOW(), 'YYYY-MM-DD'))` : 'NULL'} AS equipment`
   )) as Record<string, string | null> | null;
 

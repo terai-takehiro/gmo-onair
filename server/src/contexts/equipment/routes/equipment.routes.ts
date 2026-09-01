@@ -205,7 +205,7 @@ router.get('/items/export', requirePermission('equipment', 'exporter'), async (_
 });
 
 // 貸出設定一括更新 (グループ単位) — /items/:id ルートより前に定義
-router.put('/items/batch-rental', async (req, res, next) => {
+router.put('/items/batch-rental', requirePermission('equipment', 'editor'), async (req, res, next) => {
   try {
     await itemService.batchRental(
       req.body?.ids,
@@ -355,7 +355,7 @@ router.get('/inventory-checks', async (_req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/inventory-checks', async (req, res, next) => {
+router.post('/inventory-checks', requirePermission('equipment', 'editor'), async (req, res, next) => {
   try {
     const result = await inventoryService.create(req.body, req.user?.id ?? null);
     res.status(201).json({ success: true, data: result });
@@ -390,7 +390,7 @@ router.delete('/inventory-checks/:id', requirePermission('equipment', 'manager')
 });
 
 // 棚卸し機材同期（新たに追加された機材をチェックに追加）
-router.post('/inventory-checks/:id/sync', async (req, res, next) => {
+router.post('/inventory-checks/:id/sync', requirePermission('equipment', 'editor'), async (req, res, next) => {
   try {
     res.json({ success: true, data: await inventoryService.sync(req.params.id as string) });
   } catch (err) { next(err); }
@@ -463,7 +463,7 @@ router.get('/racks', async (_req: Request, res: Response, next: NextFunction) =>
   }
 });
 
-router.post('/racks/:locationId/blanks', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/racks/:locationId/blanks', requirePermission('equipment', 'editor'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { rack_position, rack_height, rack_slot, rack_side, panel_type, label } = req.body;
     const id = uuid();
@@ -476,7 +476,7 @@ router.post('/racks/:locationId/blanks', async (req: Request, res: Response, nex
   } catch (err) { next(err); }
 });
 
-router.delete('/racks/blanks/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.delete('/racks/blanks/:id', requirePermission('equipment', 'editor'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     await execute('DELETE FROM rack_blank_panels WHERE id=$1', [req.params.id]);
     res.json({ success: true });
@@ -583,7 +583,7 @@ router.get('/rental-categories', async (_req: Request, res: Response) => {
   res.json({ success: true, data: rows });
 });
 
-router.post('/rental-categories', async (req: Request, res: Response) => {
+router.post('/rental-categories', requirePermission('equipment', 'editor'), async (req: Request, res: Response) => {
   const { name } = req.body;
   if (!name) { res.status(400).json({ success: false, error: { message: 'カテゴリ名は必須です' } }); return; }
   const maxRow = await queryOne(`SELECT COALESCE(MAX(sort_order), -1) AS m FROM equipment_rental_categories`) as any;
@@ -593,7 +593,7 @@ router.post('/rental-categories', async (req: Request, res: Response) => {
   res.status(201).json({ success: true, data: row });
 });
 
-router.put('/rental-categories/reorder', async (req: Request, res: Response) => {
+router.put('/rental-categories/reorder', requirePermission('equipment', 'editor'), async (req: Request, res: Response) => {
   const { order } = req.body;
   if (!Array.isArray(order)) { res.status(400).json({ success: false, error: { message: 'orderは配列で指定してください' } }); return; }
   for (const item of order) {
@@ -602,7 +602,7 @@ router.put('/rental-categories/reorder', async (req: Request, res: Response) => 
   res.json({ success: true });
 });
 
-router.put('/rental-categories/:id', async (req: Request, res: Response) => {
+router.put('/rental-categories/:id', requirePermission('equipment', 'editor'), async (req: Request, res: Response) => {
   const { name } = req.body;
   if (!name) { res.status(400).json({ success: false, error: { message: 'カテゴリ名は必須です' } }); return; }
   await execute(`UPDATE equipment_rental_categories SET name=$1, updated_at=NOW() WHERE id=$2`, [name, req.params.id]);
@@ -610,7 +610,8 @@ router.put('/rental-categories/:id', async (req: Request, res: Response) => {
   res.json({ success: true, data: row });
 });
 
-router.delete('/rental-categories/:id', async (req: Request, res: Response) => {
+// **manager 限定**。全機材の rental_category_id を NULL に上書きする破壊的操作のため
+router.delete('/rental-categories/:id', requirePermission('equipment', 'manager'), async (req: Request, res: Response) => {
   // このカテゴリを使っている機材のrental_category_idをNULLに
   await execute(`UPDATE equipment_items SET rental_category_id=NULL WHERE rental_category_id=$1`, [req.params.id]);
   await execute(`DELETE FROM equipment_rental_categories WHERE id=$1`, [req.params.id]);
@@ -622,7 +623,7 @@ router.delete('/rental-categories/:id', async (req: Request, res: Response) => {
 // ============================================================
 
 // GET /equipment/custom-columns — 自分が使える列を返す (shared全件 + 自分のpersonal)
-router.get('/custom-columns', async (req: Request, res: Response) => {
+router.get('/custom-columns', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user?.id;
     const rows = await queryAll(
@@ -633,13 +634,11 @@ router.get('/custom-columns', async (req: Request, res: Response) => {
       [userId]
     );
     res.json({ success: true, data: rows });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: { message: err.message } });
-  }
+  } catch (err) { next(err); }
 });
 
 // POST /equipment/custom-columns — 新規列作成
-router.post('/custom-columns', async (req: Request, res: Response) => {
+router.post('/custom-columns', requirePermission('equipment', 'editor'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user?.id;
     const { name, col_type = 'text', scope = 'personal', sort_order = 0 } = req.body;
@@ -654,13 +653,11 @@ router.post('/custom-columns', async (req: Request, res: Response) => {
       [name, col_type, scope, userId, sort_order]
     );
     res.status(201).json({ success: true, data: row });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: { message: err.message } });
-  }
+  } catch (err) { next(err); }
 });
 
 // PUT /equipment/custom-columns/:id — 列定義更新
-router.put('/custom-columns/:id', async (req: Request, res: Response) => {
+router.put('/custom-columns/:id', requirePermission('equipment', 'editor'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user?.id;
     const { id } = req.params;
@@ -685,13 +682,11 @@ router.put('/custom-columns/:id', async (req: Request, res: Response) => {
       [name ?? null, col_type ?? null, scope ?? null, sort_order ?? null, id]
     );
     res.json({ success: true, data: updated });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: { message: err.message } });
-  }
+  } catch (err) { next(err); }
 });
 
 // DELETE /equipment/custom-columns/:id — 列削除（値も cascade 削除）
-router.delete('/custom-columns/:id', async (req: Request, res: Response) => {
+router.delete('/custom-columns/:id', requirePermission('equipment', 'manager'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user?.id;
     const { id } = req.params;
@@ -702,9 +697,7 @@ router.delete('/custom-columns/:id', async (req: Request, res: Response) => {
     }
     await execute('DELETE FROM equipment_custom_columns WHERE id = $1', [id]);
     res.json({ success: true });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: { message: err.message } });
-  }
+  } catch (err) { next(err); }
 });
 
 // ============================================================
@@ -725,7 +718,7 @@ router.delete('/custom-columns/:id', async (req: Request, res: Response) => {
  * 列で取れば URL は列の数ぶんしか伸びず、返る行も「値が入っている組」だけです。
  * `equipment_ids` は**他から呼ばれていても壊さないために残して**あります。
  */
-router.get('/custom-values', async (req: Request, res: Response) => {
+router.get('/custom-values', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const rawColumns = String(req.query.column_ids ?? '');
     if (rawColumns) {
@@ -749,13 +742,11 @@ router.get('/custom-values', async (req: Request, res: Response) => {
       [ids],
     );
     res.json({ success: true, data: rows });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: { message: err.message } });
-  }
+  } catch (err) { next(err); }
 });
 
 // PUT /equipment/custom-values/:columnId/:equipmentId — upsert 単一値
-router.put('/custom-values/:columnId/:equipmentId', async (req: Request, res: Response) => {
+router.put('/custom-values/:columnId/:equipmentId', requirePermission('equipment', 'editor'), async (req: Request, res: Response, next: NextFunction) => {
   const { columnId, equipmentId } = req.params;
   const { value } = req.body;
   try {
@@ -767,17 +758,11 @@ router.put('/custom-values/:columnId/:equipmentId', async (req: Request, res: Re
     );
     res.json({ success: true });
   } catch (err: any) {
+    // DB の code/detail/constraint はサーバーログにだけ残す。応答に入れると
+    // 本番でも内部スキーマ情報が漏れるので、errorHandler の generic 応答に任せる
     // eslint-disable-next-line no-console
     console.error('[custom-values PUT failed]', { columnId, equipmentId, value, code: err?.code, detail: err?.detail, message: err?.message });
-    res.status(500).json({
-      success: false,
-      error: {
-        message: err.message,
-        code: err.code,
-        detail: err.detail,
-        constraint: err.constraint,
-      },
-    });
+    next(err);
   }
 });
 

@@ -1,5 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { execute, queryAll, queryOne } from '../../shared/db/connection';
+import { verifyToken } from '../../shared/auth/jwt';
+import { config } from '../../config';
 import { onCountdownStart, onReveal, onClear } from './services/interactive-lifecycle.service';
 
 /**
@@ -11,8 +13,56 @@ import { onCountdownStart, onReveal, onClear } from './services/interactive-life
 // ranking/oneshot の nextCue 相当。NEXT 出力 URL が購読する。
 const stackNextByEvent = new Map<number, number | null>();
 
+/** cookieヘッダーから gmo_onair_token を取り出す */
+function extractCookieToken(cookieHeader?: string): string | null {
+  if (!cookieHeader) return null;
+  const match = cookieHeader.match(/gmo_onair_token=([^;]+)/);
+  return match ? match[1] : null;
+}
+
 export function initQuizSocketIO(io: Server): void {
   const ns = io.of('/quiz');
+
+  // password mode で JWT / cookie 認証を要求 (/liveops namespace と同じ方式)。
+  // トークンなしの接続は read-only の出力URL用として許可し、
+  // 書き込み (quiz:set / quizStack:set / quizStack:nextSet) だけ userId で締める。
+  // REST 側 (quizzes.routes.ts) は requirePermission('awards') で守られているのに
+  // socket 経路だけ素通しだと vote_count・cue 状態を無認証で改ざんできてしまう。
+  if (config.authMode === 'password') {
+    ns.use(async (socket, next) => {
+      try {
+        const token = (socket.handshake.auth as { token?: string } | undefined)?.token
+          || extractCookieToken(socket.handshake.headers.cookie as string | undefined);
+
+        if (!token) { next(); return; } // トークンなし = read-only 表示用接続を許可
+        const payload = verifyToken(token);
+        if (!payload) return next(new Error('Unauthorized'));
+
+        const user = await queryOne(
+          'SELECT id, role FROM users WHERE id = $1 AND deleted_at IS NULL',
+          [payload.userId]
+        );
+        if (!user) return next(new Error('Unauthorized'));
+
+        if ((user as { role?: string }).role !== 'system_admin') {
+          // REST の requirePermission('awards') と同じ権限区画を見る
+          const perm = await queryOne(
+            'SELECT access_level FROM user_permissions WHERE user_id = $1 AND module = $2',
+            [(user as { id: string }).id, 'awards']
+          );
+          if (!perm) return next(new Error('Forbidden: awards permission required'));
+        }
+
+        (socket as unknown as { userId: string }).userId = (user as { id: string }).id;
+        next();
+      } catch {
+        next(new Error('Auth error'));
+      }
+    });
+  } else {
+    // mock 認証モード (REST 側も x-user-id で素通し) では書き込みゲートを塞がない
+    ns.use((socket, next) => { (socket as unknown as { userId: string }).userId = 'mock'; next(); });
+  }
 
   ns.on('connection', async (socket: Socket) => {
     const stackEventId = parseInt(socket.handshake.query.stackEventId as string);
@@ -42,6 +92,7 @@ export function initQuizSocketIO(io: Server): void {
 
       // NEXT (送出予約) の quiz 選択を broadcast (NEXT 出力 URL 用)
       socket.on('quizStack:nextSet', (data: { nextQuizId?: number | null }) => {
+        if (!(socket as unknown as { userId?: string }).userId) return; // 書き込みは認証済み operator のみ
         const id = typeof data?.nextQuizId === 'number' ? data.nextQuizId : null;
         stackNextByEvent.set(stackEventId, id);
         ns.to(room).emit('quizStack:nextSync', { nextQuizId: id });
@@ -54,6 +105,7 @@ export function initQuizSocketIO(io: Server): void {
         revealPhase?: number;
         votes?: Record<string | number, number>;
       }) => {
+        if (!(socket as unknown as { userId?: string }).userId) return; // 書き込みは認証済み operator のみ
         try {
           const step = ['idle','poll','answer-check','correct-reveal'].includes(data.step ?? '') ? data.step : 'idle';
           const revealPhase = Math.max(0, Math.min(2, Math.floor(data.revealPhase ?? 0)));
@@ -188,6 +240,7 @@ export function initQuizSocketIO(io: Server): void {
       revealPhase?: number;
       votes?: Record<string | number, number>;  // position -> vote_count
     }) => {
+      if (!(socket as unknown as { userId?: string }).userId) return; // 書き込みは認証済み operator のみ
       try {
         const step = ['idle','poll','answer-check','correct-reveal'].includes(data.step ?? '') ? data.step : 'idle';
         const pollStartedAt = typeof data.pollStartedAt === 'number' ? data.pollStartedAt : null;

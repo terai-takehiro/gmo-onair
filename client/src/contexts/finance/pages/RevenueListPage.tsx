@@ -252,6 +252,12 @@ export default function RevenueListPage() {
               stateLabel="請求"
               onOpen={(row) => {
                 const full = rows.find((r) => r.id === row.id);
+                // 配分グループの売上はこの台帳では編集できない (サーバーが 400 で
+                // 止める)。押せるのに 400 にせず、按分ごと直せるグループの画面へ送る
+                if (full?.group_id) {
+                  navigate(`/sales/project-groups/${full.group_id}`);
+                  return;
+                }
                 if (full) setEditing(canEdit ? full : null);
                 if (!canEdit && row.project_id) navigate(`/sales/projects/${row.project_id}`);
               }}

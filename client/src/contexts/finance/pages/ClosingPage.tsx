@@ -91,6 +91,9 @@ function DesktopClosing() {
       qc.invalidateQueries({ queryKey: ['billing'] });
       // 台数の数字はトップページと売上台帳にも出る。**同じ数字なので一緒に落とす**
       qc.invalidateQueries({ queryKey: ['dashboard', 'app-badges'] });
+      // `['revenues']` は案件詳細（`RevenueBillingPane.tsx` の `['revenues','project',projectId]`）に
+      // 前方一致で当たるが、財務③ 売上一覧（`['revenues-all',…]`）には当たらない。両方落とす
+      qc.invalidateQueries({ queryKey: ['revenues'] });
       qc.invalidateQueries({ queryKey: ['revenues-all'] });
       // ⚠️ **飛ばしたものは必ず書く。** 「10件を記録しました」だけ出すと、
       // 押した人は**全部入ったと思って二度と見に来ません**

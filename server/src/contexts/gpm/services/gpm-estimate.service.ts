@@ -49,6 +49,8 @@ export async function gpmEstimateSummary(): Promise<GpmEstimateSummary> {
   // 値引きは単価を下げず別建てなので、合計は subtotal から引く（案件側と同じ）
   // **`gls_category = 'B'` で絞る。** ここを落とすと案件（GLS-A）の見積が
   // プロジェクト管理のダッシュボードに足される（`salesOverview` と対の穴）
+  // **`archived_at IS NULL` も必須** — アーカイブは一覧から隠す印（migration 236・
+  // listByProject の既定と同じ）なので、KPI からも外さないと隠した古い版が金額に残り続ける
   const est = await queryOne(
     `SELECT
        COUNT(*) FILTER (WHERE e.status = 'draft')                                AS draft,
@@ -57,7 +59,7 @@ export async function gpmEstimateSummary(): Promise<GpmEstimateSummary> {
        COALESCE(SUM(e.subtotal - e.discount) FILTER (WHERE e.status = 'sent'), 0)  AS sent_amount
      FROM estimates e
      JOIN projects p ON p.id = e.project_id
-     WHERE e.deleted_at IS NULL AND p.gls_category = 'B' AND p.deleted_at IS NULL`,
+     WHERE e.deleted_at IS NULL AND e.archived_at IS NULL AND p.gls_category = 'B' AND p.deleted_at IS NULL`,
   );
 
   const insp = await queryOne(
@@ -66,7 +68,7 @@ export async function gpmEstimateSummary(): Promise<GpmEstimateSummary> {
        FROM estimates e
        JOIN projects p ON p.id = e.project_id
        LEFT JOIN revenues r ON r.id = e.revenue_id AND r.deleted_at IS NULL
-      WHERE e.deleted_at IS NULL AND p.gls_category = 'B' AND p.deleted_at IS NULL
+      WHERE e.deleted_at IS NULL AND e.archived_at IS NULL AND p.gls_category = 'B' AND p.deleted_at IS NULL
         AND e.status = 'accepted'
         AND (r.id IS NULL OR r.inspection_date IS NULL)`,
   );

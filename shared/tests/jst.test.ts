@@ -12,7 +12,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  jstDate, jstTime, jstParts, shiftYmd, jstMonthRange,
+  jstDate, jstTime, jstParts, shiftYmd, jstMonthRange, jstNaive,
 } from '../../server/src/shared/utils/jst';
 
 /** UTC の時刻から Date を作る（コンテナは UTC で動く） */
@@ -57,6 +57,19 @@ describe('日本の壁時計', () => {
     } finally {
       if (before === undefined) delete process.env.TZ; else process.env.TZ = before;
     }
+  });
+});
+
+describe('ローカル取得で JST が読める Date（jstNaive）', () => {
+  // 期限解析（intake-parser）は getDate()/getHours() で成分を読む。
+  // UTC のコンテナで素の Date を渡すと JST 朝は前日になる — その入口を固定する
+  it('UTC の 23:00 は日本の翌日 08:00 としてローカル取得できる', () => {
+    const d = jstNaive(utc('2026-08-31T23:00:00'));
+    expect(d.getFullYear()).toBe(2026);
+    expect(d.getMonth()).toBe(8); // 9月（0始まり）
+    expect(d.getDate()).toBe(1);
+    expect(d.getHours()).toBe(8);
+    expect(d.getMinutes()).toBe(0);
   });
 });
 

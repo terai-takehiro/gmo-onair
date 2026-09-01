@@ -145,6 +145,8 @@ export function RevenueItemRows({
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7 text-destructive"
+                                aria-label="この項目を削除"
+                                title="この項目を削除"
                                 onClick={() => removeItem(idx)}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -183,6 +185,8 @@ export function RevenueItemRows({
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6 text-destructive"
+                            aria-label="この項目を削除"
+                            title="この項目を削除"
                             onClick={() => removeItem(idx)}
                           >
                             <Trash2 className="h-3 w-3" />
@@ -204,25 +208,31 @@ export function RevenueItemRows({
                         list="revenue-item-categories"
                       />
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       <div>
                         <Label className="text-xs">数量</Label>
                         <Input type="number" min={1} value={item.quantity} onChange={(e) => updateItem(idx, "quantity", parseInt(e.target.value) || 0)} />
                       </div>
                       <div>
+                        <Label className="text-xs">金額</Label>
+                        <p className="h-9 flex items-center font-number font-medium text-sm">{formatCurrency(item.amount)}</p>
+                      </div>
+                      {/* 単価は全幅。3等分だと 375px で1列 ~90px しかなく、¥接頭辞＋
+                          税ボタン(スマホは min-width 44px)で数字がほぼ見えなくなる */}
+                      <div className="col-span-2">
                         <Label className="text-xs">単価</Label>
                         <div className="flex items-center gap-0.5">
-                          <CurrencyInput value={item.unit_price} onChange={(v) => updateItem(idx, "unit_price", v)} />
+                          {/* CurrencyInput は className を内側の <input> に渡すため、
+                              flex で伸ばすのはこの外側の div */}
+                          <div className="min-w-0 flex-1">
+                            <CurrencyInput value={item.unit_price} onChange={(v) => updateItem(idx, "unit_price", v)} />
+                          </div>
                           <TaxHelperButton
                             fieldLabel="単価"
                             defaultIncludedAmount={item.unit_price}
                             onResult={(v) => updateItem(idx, "unit_price", v)}
                           />
                         </div>
-                      </div>
-                      <div>
-                        <Label className="text-xs">金額</Label>
-                        <p className="h-9 flex items-center font-number font-medium text-sm">{formatCurrency(item.amount)}</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

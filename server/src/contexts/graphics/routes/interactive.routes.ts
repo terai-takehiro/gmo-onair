@@ -3,6 +3,7 @@ import { execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { fetchProject, fetchProjectInteractiveLinkFull, toInteractiveLinkView } from '../store';
+import { assertSafeHttpsUrl } from '../../../shared/security/safe-remote-url';
 import type { InteractiveLink } from '../services/interactive-bridge.service';
 
 // テロップCG — 外部インタラクティブ連携（別 VPS interactive.gmo-onair.jp）の設定 API（段6-7）。
@@ -28,7 +29,7 @@ router.get('/projects/:id/interactive-link', wrap(async (req, res) => {
 }));
 
 // ── 連携設定の保存（新規/更新とも同じエンドポイント） ───────────────────
-router.put('/projects/:id/interactive-link', wrap(async (req, res) => {
+router.put('/projects/:id/interactive-link', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const project = id && !isNaN(id) ? await fetchProject(id) : null;
   if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
@@ -42,6 +43,13 @@ router.put('/projects/:id/interactive-link', wrap(async (req, res) => {
   const interactiveEventId = String(body.interactiveEventId ?? '').trim();
   if (!baseUrl || !apiKeySecret || !interactiveEventId) {
     throw new AppError(400, 'VALIDATION_ERROR', 'baseUrl / apiKeySecret / interactiveEventId は必須です');
+  }
+  // SSRF 対策（ICS の SEC-01 と同じ守り・shared/security/safe-remote-url.ts）:
+  // サーバーがこの URL へ fetch するので、https 以外・ループバック/プライベート宛は保存させない
+  try {
+    assertSafeHttpsUrl(baseUrl);
+  } catch (e) {
+    throw new AppError(400, 'VALIDATION_ERROR', `baseUrl: ${(e as Error).message}`);
   }
 
   let closeBufferSeconds = 0;
@@ -81,7 +89,7 @@ router.put('/projects/:id/interactive-link', wrap(async (req, res) => {
 }));
 
 // ── 連携解除 ────────────────────────────────────────────────────
-router.delete('/projects/:id/interactive-link', wrap(async (req, res) => {
+router.delete('/projects/:id/interactive-link', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const project = id && !isNaN(id) ? await fetchProject(id) : null;
   if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');

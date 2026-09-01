@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { localDateStr } from '@gmo-onair/shared/src/client/format';
 import api from './api';
 
 // スタジオ セキュリティカード管理 API の react-query フック集 + 型・定数
@@ -173,9 +174,9 @@ export function useUpdateCard() {
   });
 }
 
-/** 今日の YYYY-MM-DD */
+/** 今日の YYYY-MM-DD (UTC の toISOString だと JST の 0〜9 時に前日になる) */
 export function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localDateStr(new Date());
 }
 
 /** 'YYYY-MM-DD' → 'M/D' */

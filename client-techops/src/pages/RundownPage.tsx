@@ -5,7 +5,7 @@ import api from "@/lib/api";
 import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { parseDur, fmtAbs, docTotalSec } from "@/lib/time";
+import { parseDur, docTotalSec } from "@/lib/time";
 import { StageDiagramPreview, resolveStageTemplate } from "@/components/editor/StageDiagramCell";
 import {
   Loader2,
@@ -20,103 +20,15 @@ import {
   Columns3,
   X,
 } from "lucide-react";
-
-// ============================================================
-// Types (shared with EditorPage / OnAirPage)
-// ============================================================
-interface CueRow {
-  id: string;
-  label: string;
-  duration: string | number;
-  cells?: Record<string, any>;
-  [key: string]: any;
-}
-
-interface Section {
-  id: string;
-  label: string;
-  rows: CueRow[];
-  duration?: string | number;
-  _break?: boolean;
-  _pageBreak?: boolean;
-  _vtr?: boolean;
-}
-
-interface Block {
-  id: string;
-  type: string;
-  label: string;
-  width: number;
-}
-
-interface DocumentData {
-  meta: { title: string; draft: string; [key: string]: unknown };
-  blocks: Block[];
-  sections: Section[];
-  masters: {
-    persons: string[];
-    video: string[];
-    audio: string[];
-    telop: string[];
-    micTypes?: string[];
-    micChannels?: { ch: number; label?: string }[];
-  };
-  stageTemplates?: { id?: string; name: string; elements: any[] }[];
-  ledScenes?: { id: string; name: string; wall: string; floor: string }[];
-}
-
-interface FlatCue {
-  sectionLabel: string;
-  sectionIdx: number;
-  row: CueRow;
-  startTime: number;
-  globalIndex: number;
-}
-
-// ============================================================
-// Helpers
-// ============================================================
-const formatTime = (seconds: number): string => {
-  const sign = seconds < 0 ? "-" : "";
-  return `${sign}${fmtAbs(Math.abs(seconds))}`;
-};
-
-function extractCellText(row: CueRow, block: Block): string {
-  const cell = row.cells?.[block.id];
-  if (cell) {
-    if (block.type === "scenario" && Array.isArray(cell.entries)) {
-      return cell.entries
-        .map((e: any) => `${e.name ? `【${e.name}】` : ""}${(e.html || "").replace(/<[^>]*>/g, "")}`)
-        .filter((s: string) => s)
-        .join("\n");
-    }
-    if (["video", "audio", "telop"].includes(block.type) && Array.isArray(cell.entries)) {
-      return cell.entries
-        .map((e: any) => `${e.label || ""}${e.memo ? " " + e.memo : ""}`)
-        .filter((s: string) => s.trim())
-        .join("\n");
-    }
-    if (block.type === "audio_mic" && Array.isArray(cell.assignments)) {
-      return cell.assignments
-        .filter((a: any) => a.state && a.state !== "off")
-        .sort((a: any, b: any) => (a.ch || 0) - (b.ch || 0))
-        .map((a: any) => {
-          const tag = a.state === "on" ? "ON" : "STBY";
-          const name = a.person ? ` ${a.person}` : "";
-          const mic = a.micType ? `/${a.micType}` : "";
-          return `Ch${a.ch}:${tag}${name}${mic}`;
-        })
-        .join("\n");
-    }
-    if (typeof cell === "string") return cell;
-    if (cell.value) return String(cell.value);
-  }
-  const val = row[block.id] || "";
-  return typeof val === "string" ? val : String(val || "");
-}
-
-const STORAGE_KEY_COLUMNS = "rundown-visible-columns";
-const STORAGE_KEY_THEME = "rundown-theme";
+import {
+  type DocumentData,
+  type FlatCue,
+  formatTime,
+  extractCellText,
+  flattenCues,
+  STORAGE_KEY_COLUMNS,
+  STORAGE_KEY_THEME,
+} from "./rundown/rundownData";
 
 // ============================================================
 // RundownPage
@@ -173,6 +85,9 @@ export default function RundownPage() {
   const socketRef = useRef<ReturnType<typeof getQsheetSocket> | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
   const localTimerRef = useRef<ReturnType<typeof setInterval>>();
+  // フォールバック計時の「最後に足した時点」の壁時計 (ms)。tick 数を数える方式だと
+  // バックグラウンドタブで setInterval が間引かれた分だけ実時間から遅れる
+  const lastTickRef = useRef(0);
 
   // Persist theme + sync to <html class="dark"> for DADS semantic tokens
   useEffect(() => {
@@ -203,51 +118,14 @@ export default function RundownPage() {
   });
 
   // ============================================================
-  // Flatten cues
+  // Flatten cues (rundownData.ts の flattenCues に切り出し済み)
   // ============================================================
-  const flatCues: FlatCue[] = useMemo(() => {
-    if (!doc?.data?.sections) return [];
-    const cues: FlatCue[] = [];
-    let time = 0;
-    let idx = 0;
-    doc.data.sections.forEach((section, sIdx) => {
-      if (section._pageBreak) return;
-      // CM (break) は section 自体を1キューとして尺を積む
-      if (section._break) {
-        const dur = parseDur(section.duration);
-        const cmRow: CueRow = { id: `cm-${sIdx}`, label: section.label || "CM", duration: dur };
-        cues.push({ sectionLabel: section.label || "CM", sectionIdx: sIdx, row: cmRow, startTime: time, globalIndex: idx });
-        time += dur;
-        idx++;
-        return;
-      }
-      // VTR も section 自体を1キューとして尺を積む
-      if (section._vtr) {
-        const dur = parseDur(section.duration);
-        const vtrRow: CueRow = { id: `vtr-${sIdx}`, label: section.label || "VTR", duration: dur };
-        cues.push({ sectionLabel: `VTR: ${section.label || ""}`.trim(), sectionIdx: sIdx, row: vtrRow, startTime: time, globalIndex: idx });
-        time += dur;
-        idx++;
-        return;
-      }
-      // 通常ロール: 行ごとの duration 合計が 0 かつ section.duration が設定されていれば、ロール全体を 1 キューとする
-      const rowSum = section.rows.reduce((a, r) => a + parseDur(r.duration), 0);
-      const secDur = parseDur(section.duration);
-      if (rowSum === 0 && secDur > 0) {
-        const secRow: CueRow = { id: `sec-${sIdx}`, label: section.label || "", duration: secDur };
-        cues.push({ sectionLabel: section.label, sectionIdx: sIdx, row: secRow, startTime: time, globalIndex: idx });
-        time += secDur;
-        idx++;
-        return;
-      }
-      for (const row of section.rows) {
-        cues.push({ sectionLabel: section.label, sectionIdx: sIdx, row, startTime: time, globalIndex: idx });
-        time += parseDur(row.duration);
-        idx++;
-      }
-    });
-    return cues;
-  }, [doc]);
+  const flatCues: FlatCue[] = useMemo(() => flattenCues(doc?.data?.sections), [doc]);
+
+  // ソケットの effect は deps が flatCues.length だけ (再取得のたびに張り替えないため)。
+  // 尺だけ変わって件数が同じ再取得でも cue:jump が古い startTime を読まないよう ref で渡す
+  const flatCuesRef = useRef(flatCues);
+  useEffect(() => { flatCuesRef.current = flatCues; }, [flatCues]);
 
   // ランダウンの合計尺: 行の合計を優先し、0 のときだけロール尺にフォールバック
   // (編集画面とは向きが逆。両画面の表示結果を変えないため docTotalSec に優先順位を渡す)
@@ -292,7 +170,8 @@ export default function RundownPage() {
     socket.on("cue:prev", () => setCurrentCue((prev) => Math.max(prev - 1, 0)));
     socket.on("cue:jump", (data: { cueIndex: number }) => {
       setCurrentCue(data.cueIndex);
-      if (flatCues[data.cueIndex]) setElapsed(flatCues[data.cueIndex].startTime);
+      const cue = flatCuesRef.current[data.cueIndex];
+      if (cue) setElapsed(cue.startTime);
     });
     socket.on("cue:play", () => setIsPlaying(true));
     socket.on("cue:pause", () => setIsPlaying(false));
@@ -305,10 +184,20 @@ export default function RundownPage() {
   }, [id, flatCues.length]);
 
   // Local timer: increment elapsed when playing (fallback if OnAir isn't broadcasting)
+  // +1 ではなく壁時計の実差分を足す — ブラウザは背景タブの setInterval を最大 1回/分まで
+  // 間引くため、tick を数えると実時間から遅れたまま戻らない。差分方式なら復帰した次の
+  // tick で追いつき、OnAir 配信中は 10Hz の cue:sync の上書きがそのまま勝つ
+  // (絶対起点 startedAt を持たないのは cue:sync / cue:jump の外部 setElapsed と喧嘩させないため)
   useEffect(() => {
     if (isPlaying) {
+      lastTickRef.current = Date.now();
       localTimerRef.current = setInterval(() => {
-        setElapsed((prev) => prev + 1);
+        const now = Date.now();
+        const dt = Math.floor((now - lastTickRef.current) / 1000);
+        if (dt > 0) {
+          lastTickRef.current += dt * 1000;
+          setElapsed((prev) => prev + dt);
+        }
       }, 1000);
     } else {
       clearInterval(localTimerRef.current);
@@ -464,6 +353,7 @@ export default function RundownPage() {
             variant="ghost"
             size="icon"
             className={cn("shrink-0", isDark ? "text-muted-foreground hover:text-foreground hover:bg-accent" : "text-muted-foreground hover:text-foreground")}
+            aria-label="エディターに戻る"
             onClick={() => navigate(`/techops/editor/${id}`)}
           >
             <ArrowLeft className="h-4 w-4" />

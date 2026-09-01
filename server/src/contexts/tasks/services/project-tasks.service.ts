@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { queryAll, queryOne, execute } from '../../../shared/db/connection';
+import { queryAll, queryOne, execute, withTransaction } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 /**
  * AI（MCP `create_gpm_task`）が起票したタスクを人が直したときの差分の記録。
@@ -130,6 +130,24 @@ async function assertBelongsToProject(
   }
 }
 
+/**
+ * かんばん列が**その案件の生存列か**を確かめる。null / undefined は「列なし」なので素通し。
+ * FK (task_columns) は他案件の列や soft-delete 済みの列も通してしまい、通ると
+ * SELECT_TASK の join (tc.deleted_at IS NULL) に合う列が無く、カンバンのどの列にも
+ * 出ない不可視タスクができる（未知 id は FK 違反の 500 になる）。
+ */
+async function assertColumnBelongsToProject(
+  projectId: string,
+  columnId: string | null | undefined,
+): Promise<void> {
+  if (!columnId) return;
+  const c = await queryOne(
+    `SELECT id FROM task_columns WHERE id = $1 AND project_id = $2 AND deleted_at IS NULL`,
+    [columnId, projectId]
+  );
+  if (!c) throw new AppError(400, 'VALIDATION_ERROR', 'その列はこの案件のものではありません');
+}
+
 export const projectTasksService = {
   async list(projectId: string, filter: TaskFilter = {}): Promise<ProjectTask[]> {
     const params: unknown[] = [projectId];
@@ -222,6 +240,7 @@ export const projectTasksService = {
     // 付いてしまうと、別案件のチェックリスト配下に表示される一方で
     // この案件の一覧（top-level → children）からは見えない不可視タスクができる
     await assertBelongsToProject(projectId, data.parent_task_id, data.episode_id);
+    await assertColumnBelongsToProject(projectId, data.column_id);
     const id = uuidv4();
 
     const maxRow = await queryOne(
@@ -293,6 +312,10 @@ export const projectTasksService = {
     // 回の付け替えも同じ確認を通す（create と同じ理由）
     if ('episode_id' in data && existing.project_id) {
       await assertBelongsToProject(existing.project_id, null, data.episode_id);
+    }
+    // 列の付け替えも同じ確認を通す（他案件・削除済みの列に付くと不可視タスクになる）
+    if ('column_id' in data && existing.project_id) {
+      await assertColumnBelongsToProject(existing.project_id, data.column_id);
     }
 
     // AI 起票の修正差分用の before（gpm-ai-feedback の TASK_FIELDS と同じ列・
@@ -374,10 +397,15 @@ export const projectTasksService = {
     userId: string
   ): Promise<void> {
     const existing = await queryOne(
-      `SELECT id FROM project_tasks WHERE id = $1 AND deleted_at IS NULL`,
+      `SELECT id, project_id FROM project_tasks WHERE id = $1 AND deleted_at IS NULL`,
       [id]
-    );
+    ) as { id: string; project_id: string | null } | undefined;
     if (!existing) throw new AppError(404, 'NOT_FOUND', 'タスクが見つかりません');
+    // 移動先の列がこの案件の生存列か確認する（裏で列が消された stale なボードからの
+    // ドラッグは 400 で止める — 通すと不可視タスクになる）
+    if (existing.project_id) {
+      await assertColumnBelongsToProject(existing.project_id, columnId);
+    }
 
     await execute(
       `UPDATE project_tasks
@@ -392,14 +420,18 @@ export const projectTasksService = {
     items: Array<{ id: string; sort_order: number }>,
     userId: string
   ): Promise<void> {
-    for (const item of items) {
-      await execute(
-        `UPDATE project_tasks
-         SET sort_order = $1, updated_at = NOW(), updated_by = $2
-         WHERE id = $3 AND project_id = $4 AND deleted_at IS NULL`,
-        [item.sort_order, userId, item.id, projectId]
-      );
-    }
+    // 1トランザクションで適用する。行ごとの UPDATE だと、途中失敗や同時の並び替えで
+    // どちらのリクエストとも違う混ざった順序が残る
+    await withTransaction(async (tx) => {
+      for (const item of items) {
+        await tx.execute(
+          `UPDATE project_tasks
+           SET sort_order = $1, updated_at = NOW(), updated_by = $2
+           WHERE id = $3 AND project_id = $4 AND deleted_at IS NULL`,
+          [item.sort_order, userId, item.id, projectId]
+        );
+      }
+    });
   },
 
   async delete(id: string, userId: string): Promise<void> {

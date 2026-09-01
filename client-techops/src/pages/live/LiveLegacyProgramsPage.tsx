@@ -154,7 +154,10 @@ function LegacyProgramsContent({ Header, selectedId, onSelect }: {
               左の一覧からセッションを選んでください
             </div>
           ) : (
-            <LegacyProgramDetail program={selected} />
+            // key でセッションごとに作り直す — 同じインスタンスを使い回すと、
+            // ViewerPanel の配信プラットフォーム選択 (useState 初期値) が前のセッションの
+            // まま残り、計測開始が前のセッションの選択で走る
+            <LegacyProgramDetail key={selected.id} program={selected} />
           )}
         </div>
       </div>

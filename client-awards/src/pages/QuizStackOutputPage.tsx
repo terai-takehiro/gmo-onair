@@ -1,5 +1,5 @@
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import api from '@/lib/api';
 import { useQuizStackSocket } from '@/quiz/useQuizStackSocket';
@@ -43,6 +43,15 @@ export default function QuizStackOutputPage() {
   });
 
   const { cue, liveVotes } = useQuizStackSocket(eventId || null);
+
+  // 正解 (is_correct) はサーバーが correct-reveal まで false にマスクして返すため、
+  // correct-reveal に TAKE された瞬間に再取得する (2.5s の定期再取得を待つと
+  // 正解ハイライトがその分遅れる)
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (cue.step !== 'correct-reveal') return;
+    queryClient.invalidateQueries({ queryKey: ['quiz-stack-public', eventId] });
+  }, [cue.step, eventId, queryClient]);
 
   // 演出SE: クイズCG のステップ遷移 (= TAKE) ごとに割り当てSEを再生 (前の音はカットアウト)
   const { play } = useCgAudio(eventId || null, audioOn);

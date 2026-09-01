@@ -7,6 +7,7 @@ import { queryAll, queryOne, getDb } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { buildExcelWorkbook, excelResponse, parseExcelBuffer, parseExcelHeaders, normalizeHeader } from '../../../shared/utils/excel';
+import { jstDate } from '../../../shared/utils/jst';
 
 const router = Router();
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
@@ -183,7 +184,7 @@ router.get('/items/export-xlsx', requirePermission('equipment', 'exporter'), wra
   });
 
   const buf = await buildExcelWorkbook([{ name: '機材リスト', columns: ITEM_COLUMNS, rows }]);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = jstDate();
   excelResponse(res, `機材リスト_${today}.xlsx`, buf);
 }));
 

@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { queryAll, queryOne } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
+import { roundByRule, taxAmountOf } from '../../../shared/services/tax-category.service';
+import { jstDate } from '../../../shared/utils/jst';
 
 const router = Router();
 
@@ -77,9 +79,10 @@ router.get('/estimate/:projectId', async (req, res) => {
   ) as Record<string, any>[];
 
   const totalAmount = simItems.reduce((sum: number, item: Record<string, any>) => sum + (item.subtotal || 0), 0);
-  const tax = Math.floor(totalAmount * 0.1);
+  // simulations は税区分を持たないので 10% のまま。丸めだけはお金のルール（tax_rounding）に従う
+  const tax = roundByRule(totalAmount * 0.1);
   const grandTotal = totalAmount + tax;
-  const today = new Date().toISOString().split('T')[0];
+  const today = jstDate();
 
   let rows = '';
   simItems.forEach((item: Record<string, any>, i: number) => {
@@ -140,9 +143,11 @@ router.get('/invoice/:invoiceGroupId', async (req, res) => {
     return;
   }
 
+  // 確定 (status='confirmed') の売上だけを請求額に足す（migration 138 のバグクラス:
+  // 見積段階の行を足すと請求書が過大になる）
   const episodes = await queryAll(
     `SELECT e.*,
-       COALESCE((SELECT SUM(r.amount) FROM revenues r WHERE r.episode_id = e.id AND r.deleted_at IS NULL), 0) as actual_revenue
+       COALESCE((SELECT SUM(r.amount) FROM revenues r WHERE r.episode_id = e.id AND r.status = 'confirmed' AND r.deleted_at IS NULL), 0) as actual_revenue
      FROM episodes e
      JOIN invoice_group_episodes ige ON ige.episode_id = e.id
      WHERE ige.invoice_group_id = ? AND e.deleted_at IS NULL
@@ -150,20 +155,45 @@ router.get('/invoice/:invoiceGroupId', async (req, res) => {
     [invoiceGroupId]
   ) as Record<string, any>[];
 
-  const totalRevenue = episodes.reduce((sum: number, ep: Record<string, any>) => sum + (ep.actual_revenue || 0), 0);
-  const tax = Math.floor(totalRevenue * 0.1);
+  // 税区分（tax8/exempt/nontax）ごとの税額を出すため、根拠の売上行を税区分つきで読む。
+  // 条件は上の actual_revenue サブクエリと揃える（ずれると小計と税の根拠が食い違う）
+  const revRows = await queryAll(
+    `SELECT r.amount, r.tax_category FROM revenues r
+     JOIN invoice_group_episodes ige ON ige.episode_id = r.episode_id
+     JOIN episodes e ON e.id = ige.episode_id AND e.deleted_at IS NULL
+     WHERE ige.invoice_group_id = ? AND r.status = 'confirmed' AND r.deleted_at IS NULL`,
+    [invoiceGroupId]
+  ) as Record<string, any>[];
+
+  // 契約一括（billing_cycle='contract_lump_sum'）は回に金額を持たせず lump_sum_amount が正
+  const lumpSum = ig.lump_sum_amount != null ? Number(ig.lump_sum_amount) : null;
+  const totalRevenue = lumpSum != null
+    ? lumpSum
+    : episodes.reduce((sum: number, ep: Record<string, any>) => sum + (ep.actual_revenue || 0), 0);
+  // 契約一括は税区分を持たないので見積書と同じく 10%＋丸めルール。それ以外は売上行の税区分で計算
+  const tax = lumpSum != null
+    ? roundByRule(totalRevenue * 0.1)
+    : revRows.reduce((sum: number, r: Record<string, any>) => sum + taxAmountOf(r.amount || 0, r.tax_category), 0);
   const grandTotal = totalRevenue + tax;
-  const invoiceDate = ig.invoice_date || new Date().toISOString().split('T')[0];
+  const invoiceDate = ig.invoice_date || jstDate();
 
   let rows = '';
-  episodes.forEach((ep: Record<string, any>) => {
-    rows += `<tr>
-      <td>${escapeHtml(ep.episode_code)}</td>
-      <td>第${ep.episode_number}話</td>
-      <td>${ep.broadcast_date || '-'}</td>
-      <td class="num">${formatYen(ep.actual_revenue)}</td>
+  if (lumpSum != null) {
+    // 契約一括は回の明細を持たないので、1行だけの本文にする（空の表で¥0が出るのを防ぐ）
+    rows = `<tr>
+      <td colspan="3">契約一括 / ${escapeHtml(ig.title)}</td>
+      <td class="num">${formatYen(totalRevenue)}</td>
     </tr>`;
-  });
+  } else {
+    episodes.forEach((ep: Record<string, any>) => {
+      rows += `<tr>
+        <td>${escapeHtml(ep.episode_code)}</td>
+        <td>第${ep.episode_number}話</td>
+        <td>${ep.broadcast_date || '-'}</td>
+        <td class="num">${formatYen(ep.actual_revenue)}</td>
+      </tr>`;
+    });
+  }
 
   const body = `
     <h1>請 求 書</h1>
@@ -181,7 +211,7 @@ router.get('/invoice/:invoiceGroupId', async (req, res) => {
       <tbody>
         ${rows}
         <tr class="total-row"><td colspan="3">小計</td><td class="num">${formatYen(totalRevenue)}</td></tr>
-        <tr class="total-row"><td colspan="3">消費税 (10%)</td><td class="num">${formatYen(tax)}</td></tr>
+        <tr class="total-row"><td colspan="3">消費税</td><td class="num">${formatYen(tax)}</td></tr>
         <tr class="total-row"><td colspan="3">合計</td><td class="num">${formatYen(grandTotal)}</td></tr>
       </tbody>
     </table>
@@ -211,9 +241,10 @@ router.get('/performance/:projectId', async (req, res) => {
     return;
   }
 
+  // 実績売上は確定 (status='confirmed') のみ。見積段階の行を足すと粗利が過大になる（migration 138 のバグクラス）
   const episodes = await queryAll(
     `SELECT e.*,
-       COALESCE((SELECT SUM(r.amount) FROM revenues r WHERE r.episode_id = e.id AND r.deleted_at IS NULL), 0) as actual_revenue,
+       COALESCE((SELECT SUM(r.amount) FROM revenues r WHERE r.episode_id = e.id AND r.status = 'confirmed' AND r.deleted_at IS NULL), 0) as actual_revenue,
        COALESCE((SELECT SUM(pu.amount) FROM purchases pu WHERE pu.episode_id = e.id AND pu.deleted_at IS NULL), 0) as actual_purchase
      FROM episodes e
      WHERE e.project_id = ? AND e.deleted_at IS NULL

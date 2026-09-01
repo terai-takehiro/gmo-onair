@@ -210,10 +210,10 @@ export default function KoubanView({
       {/* Date navigation */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={prevDay}>
+          <Button variant="outline" size="icon" className="h-8 w-8" aria-label="前の日へ" title="前の日へ" onClick={prevDay}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={nextDay}>
+          <Button variant="outline" size="icon" className="h-8 w-8" aria-label="次の日へ" title="次の日へ" onClick={nextDay}>
             <ChevronRight className="h-4 w-4" />
           </Button>
           <Button variant="outline" size="sm" className="h-8" onClick={today}>

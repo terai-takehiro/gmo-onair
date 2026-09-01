@@ -94,6 +94,19 @@ export default function ProjectDetailPage() {
     onSuccess: (res, v) => {
       qc.invalidateQueries({ queryKey: ['project', id] });
       qc.invalidateQueries({ queryKey: ['projects'] });
+      // 受注（a_won）はサーバーが第1回の回と標準工程テンプレートを自動生成する
+      // （project.service.ts changeStage → ensureFirstEpisode + applyToEpisode）ので、
+      // 「標準工程を案件に入れたら4つ落とす」（CLAUDE.md）に従いタスク側の鍵も落とす
+      if (v.stage === 'a_won') {
+        qc.invalidateQueries({ queryKey: ['episodes', id] });
+        qc.invalidateQueries({ queryKey: ['project-tasks', id] });
+        qc.invalidateQueries({ queryKey: ['task-columns', id] });
+        qc.invalidateQueries({ queryKey: ['task-dashboard'] });
+      }
+      // 仮押さえ（d_hold）はサーバーが仮押さえ予約を自動生成するので、会場の一覧も落とす
+      if (v.stage === 'd_hold') {
+        qc.invalidateQueries({ queryKey: ['project-studio-bookings', id] });
+      }
       setLostOpen(false);
       const data = (res?.data?.data ?? {}) as { gls_number?: string | null; gls_error?: string };
       // **採れなかったときは黙らない。** 番号なしで受注になると、

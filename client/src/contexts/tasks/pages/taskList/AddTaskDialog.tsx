@@ -21,6 +21,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
+import { invalidateTasks } from '@/contexts/tasks/hooks/useProjectTasks';
 import { WORK_STATE_OPTIONS } from './state';
 import type { TaskWorkState } from '@/types';
 
@@ -58,9 +59,9 @@ export function AddTaskDialog({ onClose }: { onClose: () => void }) {
         work_state: workState,
       }),
     // **一覧と案件の両方を読み直す。** 片方だけだと「足したのに出ない」ように見える
+    // （episodes・task-deadlines も含めて4つ — 鍵の対は invalidateTasks に集約）
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['task-dashboard'] });
-      qc.invalidateQueries({ queryKey: ['project-tasks', projectId] });
+      invalidateTasks(qc, projectId);
       notifySuccess('タスクを足しました');
       onClose();
     },

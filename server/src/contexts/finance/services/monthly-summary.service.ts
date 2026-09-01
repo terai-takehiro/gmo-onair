@@ -115,13 +115,17 @@ export async function getMonthlySummary(params: MonthlySummaryParams): Promise<M
   }
 
   // 案件絞り込みなし: 全体集計
+  // ⚠️ **按分（グループ請求）も1行なので `group_id` で絞らない。** `revenues`/`purchases` に
+  // 子行はなく、内訳は別表（revenue_allocations / purchase_allocations）にある（migration 006・
+  // billing.routes.ts 冒頭と同じ理由）。絞ると全社集計からグループ請求の金額が丸ごと消える。
+  // 上の案件別ブランチは按分を allocation 側から足すので、あちらは `group_id IS NULL` のまま。
   const [revRow, purRow, sgaRow, fixedRow] = await Promise.all([
     queryOne(
-      `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues WHERE deleted_at IS NULL AND status = 'confirmed' AND group_id IS NULL${dateWhere('recognition_date')}`,
+      `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues WHERE deleted_at IS NULL AND status = 'confirmed'${dateWhere('recognition_date')}`,
       [...dateArgs]
     ) as Promise<any>,
     queryOne(
-      `SELECT COALESCE(SUM(amount), 0) AS total FROM purchases WHERE deleted_at IS NULL AND group_id IS NULL${dateWhere('recognition_date')}`,
+      `SELECT COALESCE(SUM(amount), 0) AS total FROM purchases WHERE deleted_at IS NULL${dateWhere('recognition_date')}`,
       [...dateArgs]
     ) as Promise<any>,
     queryOne(

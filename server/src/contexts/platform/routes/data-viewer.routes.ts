@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requireRole } from '../../../shared/middleware/auth';
 import { paginatedResponse } from '../../../shared/services/pagination';
+import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 
 const router = Router();
 
@@ -124,8 +125,9 @@ router.get('/tables/:name', requireRole('system_admin'), async (req, res) => {
   const name = req.params.name as string;
   if (!ALLOWED_TABLES.includes(name)) { res.status(400).json({ success: false, error: 'Invalid table' }); return; }
 
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+  // 負の limit / page は SQL の LIMIT/OFFSET で 500 になるため下限も 1 に固定する
+  const page = Math.max(1, parseInt(req.query.page as string) || 1);
+  const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
   const offset = (page - 1) * limit;
   const sort = req.query.sort as string || 'id';
   const order = (req.query.order as string)?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
@@ -172,20 +174,8 @@ router.get('/tables/:name/export', requireRole('system_admin'), async (req, res)
 
   const rows = await queryAll(`SELECT * FROM ${quoteIdent(name)}`);
 
-  // BOM for Excel UTF-8 compatibility
-  let csv = '﻿' + columns.join(',') + '\n';
-  for (const row of rows) {
-    csv += columns.map(c => {
-      const val = (row as any)[c];
-      if (val === null || val === undefined) return '';
-      const str = String(val);
-      return str.includes(',') || str.includes('"') || str.includes('\n') ? `"${str.replace(/"/g, '""')}"` : str;
-    }).join(',') + '\n';
-  }
-
-  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename=${name}.csv`);
-  res.send(csv);
+  // 共有ヘルパーが BOM 付与・引用・式インジェクション無害化まで行う
+  csvResponse(res, `${name}.csv`, generateCsv(rows, columns));
 });
 
 // =============================================================

@@ -41,8 +41,16 @@ function sanitizeDate(input: unknown): string | null {
 router.get('/documents', async (req: Request, res: Response) => {
   try {
     const { status, episode_id, project_id, program_id, search, date, scope } = req.query;
+    // ⚠️ `d.*` にしないこと。`data` JSONB は台本全体（sections/rows/cells）を抱えており、
+    // LIMIT 200 の一覧で全文を返すと数十MBになりうる。一覧が使うのは meta だけなので
+    // `jsonb_build_object('meta', ...)` で形（`doc.data?.meta`）を保ったまま meta だけ返す。
+    // 全文が要る編集画面は GET /documents/:id が返す。
     let sql = `
-      SELECT d.*, u.name as creator_name,
+      SELECT d.id, d.doc_no, d.title, d.episode_id, d.project_id, d.program_id,
+             d.broadcast_date, d.episode_code, d.status,
+             d.created_by, d.updated_by, d.created_at, d.updated_at,
+             jsonb_build_object('meta', d.data->'meta') AS data,
+             u.name as creator_name,
              p.name as project_name, p.gls_number,
              pr.name as program_name,
              (SELECT COUNT(*) FROM qsheet_document_shares s WHERE s.document_id = d.id)::int as share_count,
@@ -484,7 +492,8 @@ router.get('/episodes', async (req: Request, res: Response) => {
     if (search) {
       const safe = sanitizeSearch(search);
       if (safe) {
-        sql += ` AND (e.title ILIKE $${paramIndex} OR e.episode_code ILIKE $${paramIndex}) ESCAPE '\\'`;
+        // ESCAPE は個々の ILIKE 式に付く句。括弧で囲んだ OR の後ろに置くと Postgres が構文エラーを返す
+        sql += ` AND (e.title ILIKE $${paramIndex} ESCAPE '\\' OR e.episode_code ILIKE $${paramIndex} ESCAPE '\\')`;
         params.push(`%${safe}%`);
         paramIndex++;
       }

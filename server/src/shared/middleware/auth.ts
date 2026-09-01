@@ -47,13 +47,18 @@ async function loadUserWithPermissions(userId: string): Promise<AuthUser | undef
 /**
  * mockAuth: x-user-id ヘッダーで認証（開発用）
  */
-export async function mockAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
+export async function mockAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const userId = req.headers['x-user-id'] as string;
   if (!userId) { next(); return; }
   try {
     req.user = await loadUserWithPermissions(userId);
-  } catch (_) {
-    // DB not ready yet
+  } catch (err) {
+    // DB障害を握りつぶすと requireAuth が 401 を返し、クライアントの 401 インターセプタが
+    // セッションを破棄して /login へ強制遷移してしまう (一時的な DB 不調で全員ログアウト)。
+    // 503 なら humanizeError が「混み合っています」と出すだけでセッションは生き残る
+    console.error('[auth] loadUserWithPermissions failed:', (err as Error).message);
+    res.status(503).json({ success: false, error: { code: 'SERVICE_UNAVAILABLE', message: 'サーバーが混み合っています。少し待ってからもう一度お試しください。' } });
+    return;
   }
   next();
 }
@@ -61,7 +66,7 @@ export async function mockAuth(req: Request, _res: Response, next: NextFunction)
 /**
  * jwtAuth: Authorization Bearer token または gmo_onair_token cookie で認証
  */
-export async function jwtAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
+export async function jwtAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   // Extract token from: 1) Authorization header, 2) cookie
   let token: string | undefined;
   const authHeader = req.headers.authorization;
@@ -78,8 +83,12 @@ export async function jwtAuth(req: Request, _res: Response, next: NextFunction):
 
   try {
     req.user = await loadUserWithPermissions(payload.userId);
-  } catch (_) {
-    // DB not ready
+  } catch (err) {
+    // トークンは正当なのに DB 障害で 401 を返すと、クライアントがセッションを破棄して
+    // /login へ強制遷移する (mockAuth 側と同じ理由)。503 で「一時的に使えない」を返す
+    console.error('[auth] loadUserWithPermissions failed:', (err as Error).message);
+    res.status(503).json({ success: false, error: { code: 'SERVICE_UNAVAILABLE', message: 'サーバーが混み合っています。少し待ってからもう一度お試しください。' } });
+    return;
   }
   next();
 }

@@ -13,7 +13,8 @@
 import { describe, it, expect } from 'vitest';
 import { familyName } from '../../client/src/contexts/platform/pages/home/Greeting';
 import { rowBlockers, destOf, type Row } from '../../client/src/contexts/tasks/components/intake/types';
-import { normalizeDest } from '../../server/src/contexts/tasks/services/intake-parser.service';
+import { normalizeDest, parseDue } from '../../server/src/contexts/tasks/services/intake-parser.service';
+import { jstNaive } from '../../server/src/shared/utils/jst';
 
 describe('familyName — 挨拶は姓だけ', () => {
   it('半角の空白で切る', () => {
@@ -57,6 +58,24 @@ describe('normalizeDest — 知らない行き先はタスクに倒す', () => {
     expect(normalizeDest(undefined)).toBe('task');
     expect(normalizeDest(null)).toBe('task');
     expect(normalizeDest(3)).toBe('task');
+  });
+});
+
+describe('parseDue — 「いま」は JST の壁時計で渡す', () => {
+  // コンテナは UTC で動くので、素の new Date() を渡すと JST 朝は「今日」が前日になる。
+  // 呼ぶ側（tasks.routes.ts）は jstNaive() を渡す決まり — ここではその組で固定する
+  const utc = (iso: string) => new Date(`${iso}Z`);
+
+  it('JST 朝 8 時の「明日」は JST の翌日（UTC の日付で数えると1日早くなる）', () => {
+    // UTC 2026-08-31 23:00 = JST 2026-09-01 08:00
+    const r = parseDue('A社見積を明日までに送付', jstNaive(utc('2026-08-31T23:00:00')));
+    expect(r.dueAt).toBe('2026-09-02 18:00');
+  });
+
+  it('JST 夕方に過ぎた時刻だけの指定は翌日に送る（UTC の時計だと過去のまま残る）', () => {
+    // UTC 2026-09-01 10:00 = JST 2026-09-01 19:00 → 17時は過ぎているので明日
+    const r = parseDue('17時までに提出', jstNaive(utc('2026-09-01T10:00:00')));
+    expect(r.dueAt).toBe('2026-09-02 17:00');
   });
 });
 

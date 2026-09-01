@@ -40,6 +40,10 @@ export function MyTasksTab() {
   const tasks = data?.tasks ?? [];
   const canOpenProject = data?.canOpenProject ?? false;
 
+  // `editing` に入れた行は開いた時点の写し。裏で一覧が refetch されても古いままなので、
+  // ダイアログには一覧から引き直した最新の行を渡す（消えた行だけ写しで残す）
+  const editingTask = editing ? (tasks.find((t) => t.id === editing.id) ?? editing) : null;
+
   const open = tasks.filter((t) => !t.is_completed);
   const top3 = open.slice(0, 3);
 
@@ -130,7 +134,7 @@ export function MyTasksTab() {
         <NineCellBoard tasks={open} canEdit={canEdit} canOpenProject={canOpenProject} onEdit={setEditing} isMobile={isMobile} />
       )}
 
-      {editing && <TaskEditDialog task={editing} onClose={() => setEditing(null)} />}
+      {editingTask && <TaskEditDialog key={editingTask.id} task={editingTask} onClose={() => setEditing(null)} />}
       {adding && <TaskCreateDialog onClose={() => setAdding(false)} />}
     </div>
   );

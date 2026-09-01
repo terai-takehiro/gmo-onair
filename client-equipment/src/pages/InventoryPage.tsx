@@ -17,6 +17,7 @@ import { Row, RowMain, RowSlot, RowSub, RowTitle } from '@gmo-onair/shared/src/c
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
+import { localDateStr } from '@gmo-onair/shared/src/client/format';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { PullToRefresh } from '@gmo-onair/shared/src/client-v4/pullToRefresh';
@@ -37,7 +38,8 @@ const STATUS_TONE: Record<string, string> = {
   completed: 'bg-success-surface text-success border-transparent',
 };
 
-const today = () => new Date().toISOString().split('T')[0];
+// UTC の日付 (toISOString) だと JST の 0〜9 時に前日になる
+const today = () => localDateStr(new Date());
 
 export default function InventoryPage() {
   const qc = useQueryClient();

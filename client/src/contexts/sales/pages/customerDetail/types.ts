@@ -77,8 +77,6 @@ export interface CustomerOverview {
   sales_by_year: Array<{ year: string; total: number }>;
 }
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
-
 /** 最終接点からの経過日数。壊れた日付・null は「分からない」として `null` を返す */
 export function daysSince(dateStr: string | null): number | null {
   if (!dateStr) return null;
@@ -88,5 +86,3 @@ export function daysSince(dateStr: string | null): number | null {
   today.setHours(0, 0, 0, 0);
   return Math.round((today.getTime() - d.getTime()) / 86_400_000);
 }
-
-export { todayStr };

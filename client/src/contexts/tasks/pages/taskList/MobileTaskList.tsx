@@ -49,7 +49,7 @@ import { dueLabel, duePresets } from '@gmo-onair/shared/src/client-v4/mobile';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { localDateStr } from '@/lib/format';
-import { useTaskDashboard } from '@/contexts/tasks/hooks/useProjectTasks';
+import { useTaskDashboard, invalidateTasks } from '@/contexts/tasks/hooks/useProjectTasks';
 import { taskState, TASK_STATE_LABEL } from './state';
 import { AddTaskDialog } from './AddTaskDialog';
 import type { DashboardTask } from '@/types';
@@ -103,8 +103,8 @@ export function MobileTaskList() {
     setBusy(true);
     try {
       await api.patch(`/projects/${t.project_id}/tasks/${t.id}/complete`, {});
-      qc.invalidateQueries({ queryKey: ['task-dashboard'] });
-      qc.invalidateQueries({ queryKey: ['project-tasks', t.project_id] });
+      // episodes・task-deadlines も含めて4つ落とす（鍵の対は invalidateTasks に集約）
+      invalidateTasks(qc, t.project_id);
       setOpen(null);
       notifySuccess('完了にしました');
     } catch (e) {
@@ -124,8 +124,8 @@ export function MobileTaskList() {
     setBusy(true);
     try {
       await api.put(`/projects/${t.project_id}/tasks/${t.id}`, { due_date: dateStr });
-      qc.invalidateQueries({ queryKey: ['task-dashboard'] });
-      qc.invalidateQueries({ queryKey: ['project-tasks', t.project_id] });
+      // 期限変更はカレンダーの「タスクの期限」にも効くので invalidateTasks で4つ落とす
+      invalidateTasks(qc, t.project_id);
       setOpen(null);
       notifySuccess('期限を延ばしました');
     } catch (e) {

@@ -14,6 +14,7 @@
  * 設定は graphics_projects.interactive_link JSONB に保存する（migration 258）。
  */
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { assertSafeHttpsUrl } from '../../../shared/security/safe-remote-url';
 
 export interface InteractiveLink {
   baseUrl: string;
@@ -57,6 +58,15 @@ async function call<T>(
 ): Promise<T> {
   if (!link?.baseUrl || !link?.apiKeySecret) {
     throw new AppError(400, 'NOT_CONFIGURED', 'Interactive 連携が設定されていません');
+  }
+  // SSRF 対策（ICS の SEC-01 と同じ守り）: 保存済みの古いリンクや別経路の呼び出しにも
+  // 効かせる二重の検証。https 以外・ループバック/プライベート宛にはサーバーから出ない。
+  // グローバル fetch には publicHttpsAgent を渡せないため、リテラル IP とスキームの
+  // 検証のみ（DNS 再解決までの守りが要るなら undici の dispatcher で lookup を差し替える）
+  try {
+    assertSafeHttpsUrl(link.baseUrl);
+  } catch (e) {
+    throw new AppError(400, 'INTERACTIVE_UNSAFE_URL', `Interactive の baseUrl が不正です: ${(e as Error).message}`);
   }
   let res: Response;
   try {
