@@ -197,7 +197,17 @@ export function TasksTab({ project, mobile }: { project: ProjectDetail; mobile?:
               回の一覧・回を足す
             </button>
           </div>
-          {episodesOpen && <EpisodesPanel projectId={project.id} />}
+          {episodesOpen && (
+            <EpisodesPanel
+              projectId={project.id}
+              // 案件の「レギュラーの取り決め」（migration 262）を「頻度で作る」の初期値に渡す
+              seriesDefaults={{
+                recording_cadence: project.recording_cadence,
+                recording_per_day_count: project.recording_per_day_count,
+                episode_unit_price: project.episode_unit_price,
+              }}
+            />
+          )}
         </div>
       )}
 

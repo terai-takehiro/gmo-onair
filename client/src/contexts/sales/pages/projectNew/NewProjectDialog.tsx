@@ -43,6 +43,7 @@ import { useNewProjectForm } from './useNewProjectForm';
 import { RequiredFields } from './RequiredFields';
 import { moreFieldCount } from './fields';
 import { MoreFields } from './MoreFields';
+import { RegularSeriesSection } from './RegularSeriesSection';
 import { IntakeRail } from './IntakeRail';
 import { AskPanel } from './AskPanel';
 import { MobileNewProject } from './MobileNewProject';
@@ -148,6 +149,10 @@ function DesktopNewProject() {
             </div>
           )}
         </div>
+
+        {/* 回を作るたびに聞かれては困る4つの取り決め（regular-series.md §3）を、
+            案件作成の時点でも入れられるようにする */}
+        <RegularSeriesSection f={f} />
 
         {/* 受付から持ち込んだ「聞くこと」と「聞き方の下書き」 */}
         <AskPanel v={v} customerName={f.customer?.name ?? null} senderName={currentUser?.name ?? ''} />

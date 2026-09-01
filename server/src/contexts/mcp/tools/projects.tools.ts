@@ -52,6 +52,9 @@ const UPDATE_FIELDS = [
   // 登録の16項目のうち列を足したぶん（migration 165 / 170）
   'intake_channel', 'intake_confidence',
   'contact_name', 'recurrence', 'attendee_count', 'goal',
+  // レギュラー案件（シリーズ）が持つ4つの取り決め（migration 262・regular-series.md §3）
+  'recording_cadence', 'recording_per_day_count', 'fixed_studio_note',
+  'episode_unit_price', 'billing_cycle',
 ] as const;
 
 /** 一覧の返却行を要約列に絞る (p.* は列が多くコンテキストを圧迫するため) */
@@ -191,6 +194,16 @@ export function registerProjectTools(server: McpServer): void {
         contact_name: z.string().max(200).optional().describe('この案件の窓口（例「宮田 里香 様（広報部）」）。会社の代表窓口とは別'),
         recurrence: z.enum(['single', 'regular']).optional()
           .describe('単発 single / レギュラー regular（回を持つ）。既定は single'),
+        recording_cadence: z.enum(['weekly', 'biweekly', 'monthly_nth_weekday', 'none']).optional()
+          .describe('レギュラー案件の収録の頻度（回を作るたびに聞かれては困る値・案件に1度だけ）。'
+            + 'weekly=毎週 / biweekly=隔週 / monthly_nth_weekday=毎月第N◯曜日 / none=なし（日付を手で並べる）。'
+            + 'recurrence=regular のときだけ意味を持つ'),
+        recording_per_day_count: z.number().int().min(1).optional().describe('1日あたりの本数（基本◯本撮り）'),
+        fixed_studio_note: z.string().max(200).optional().describe('固定セットの自由記述（例: 用賀 SKY STUDIO・3カメラ）'),
+        episode_unit_price: z.number().int().min(0).optional()
+          .describe('回の単価（円・今の値）。⚠️ 履歴ではない — 改定しても過去の回の金額は動かない'),
+        billing_cycle: z.enum(['monthly_close', 'per_recording_date', 'contract_lump_sum']).optional()
+          .describe('請求サイクル。monthly_close=月末締め（既定） / per_recording_date=収録日ごと / contract_lump_sum=契約一括'),
         attendee_count: z.number().int().min(0).optional().describe('規模（何名か）。**数で渡す** — 「150名」ではなく 150'),
         goal: z.string().max(500).optional().describe('やりたいこと。**お客様の言葉のまま**（要約しない）'),
         reply_due: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
@@ -238,6 +251,11 @@ export function registerProjectTools(server: McpServer): void {
           intake_confidence: args.intake_confidence,
           contact_name: args.contact_name,
           recurrence: args.recurrence,
+          recording_cadence: args.recording_cadence,
+          recording_per_day_count: args.recording_per_day_count,
+          fixed_studio_note: args.fixed_studio_note,
+          episode_unit_price: args.episode_unit_price,
+          billing_cycle: args.billing_cycle,
           attendee_count: args.attendee_count,
           goal: args.goal,
           // reply_due / wants は列を落とした（案件台帳の項目整理 Phase A）ので渡さない。
@@ -333,6 +351,16 @@ export function registerProjectTools(server: McpServer): void {
         gls_category: z.enum(['A', 'B']).optional().describe('GLS 発番前のみ変更可'),
         dates: z.array(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), label: z.string().optional() }))
           .optional().describe('渡した場合のみ日程を全置換 (event_start/end も自動同期)'),
+        recurrence: z.enum(['single', 'regular']).optional().describe('単発 single / レギュラー regular（回を持つ）'),
+        recording_cadence: z.enum(['weekly', 'biweekly', 'monthly_nth_weekday', 'none']).nullable().optional()
+          .describe('レギュラー案件の収録の頻度（案件に1度だけの取り決め）。null で解除。'
+            + 'weekly=毎週 / biweekly=隔週 / monthly_nth_weekday=毎月第N◯曜日 / none=なし（日付を手で並べる）'),
+        recording_per_day_count: z.number().int().min(1).nullable().optional().describe('1日あたりの本数。null で解除'),
+        fixed_studio_note: z.string().max(200).nullable().optional().describe('固定セットの自由記述。null で解除'),
+        episode_unit_price: z.number().int().min(0).nullable().optional()
+          .describe('回の単価（円・今の値）。null で解除。⚠️ 改定しても過去の回の金額は動かない'),
+        billing_cycle: z.enum(['monthly_close', 'per_recording_date', 'contract_lump_sum']).optional()
+          .describe('請求サイクル。monthly_close=月末締め / per_recording_date=収録日ごと / contract_lump_sum=契約一括'),
         ...REQUESTED_BY,
       },
     },

@@ -17,6 +17,13 @@
  *
  * 日付の計算そのもの（第N◯曜日の割り出し等）はここでは行わない
  * （サーバー `episodeGenerate.service.ts` が正・複製しない設計）。
+ *
+ * ── 初期値は案件の「レギュラーの取り決め」から引き継ぐ ────────────
+ *
+ * `defaultCadence` / `defaultPerDayCount` / `defaultUnitPrice` は案件（projects）に
+ * 1度だけ置いた取り決め（migration 262・regular-series.md §3・§10-6）。渡されれば
+ * 開いたときの初期値にするだけで、**この画面の中で書き換えても案件側の値は変わらない**
+ * （回ごとに違う本数・単価で作りたいこともあるため）。
  */
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -52,16 +59,25 @@ function parseDatesText(text: string): string[] {
   return text.split(/[\n,、]/).map((s) => s.trim()).filter(Boolean);
 }
 
-export function GenerateEpisodesForm({ projectId, onDone }: { projectId: string; onDone: () => void }) {
+export function GenerateEpisodesForm({
+  projectId, onDone, defaultCadence, defaultPerDayCount, defaultUnitPrice,
+}: {
+  projectId: string;
+  onDone: () => void;
+  /** 案件の「レギュラーの取り決め」（migration 262）。無ければ従来どおりの既定値を使う */
+  defaultCadence?: Cadence | null;
+  defaultPerDayCount?: number | null;
+  defaultUnitPrice?: number | null;
+}) {
   const qc = useQueryClient();
-  const [cadence, setCadence] = useState<Cadence>('weekly');
+  const [cadence, setCadence] = useState<Cadence>(defaultCadence || 'weekly');
   const [startDate, setStartDate] = useState('');
-  const [perDayCount, setPerDayCount] = useState('1');
+  const [perDayCount, setPerDayCount] = useState(defaultPerDayCount ? String(defaultPerDayCount) : '1');
   const [endMode, setEndMode] = useState<EndMode>('count');
   const [count, setCount] = useState('12');
   const [endDate, setEndDate] = useState('');
   const [datesText, setDatesText] = useState('');
-  const [revenueBudget, setRevenueBudget] = useState('');
+  const [revenueBudget, setRevenueBudget] = useState(defaultUnitPrice ? String(defaultUnitPrice) : '');
   const [preview, setPreview] = useState<PreviewData | null>(null);
   const [previewKey, setPreviewKey] = useState<string | null>(null);
 

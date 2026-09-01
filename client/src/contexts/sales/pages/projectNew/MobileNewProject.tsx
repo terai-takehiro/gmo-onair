@@ -42,6 +42,7 @@ import { useAuth } from '@/contexts/platform/AuthContext';
 import { useNewProjectForm } from './useNewProjectForm';
 import { RequiredFields } from './RequiredFields';
 import { MoreFields } from './MoreFields';
+import { RegularSeriesSection } from './RegularSeriesSection';
 import { IntakeRail } from './IntakeRail';
 import { AskPanel } from './AskPanel';
 
@@ -100,7 +101,13 @@ export function MobileNewProject() {
           </>
         )}
 
-        {step === 1 && <MoreFields f={f} />}
+        {step === 1 && (
+          <>
+            <MoreFields f={f} />
+            {/* 回を作るたびに聞かれては困る4つの取り決め（regular-series.md §3） */}
+            <RegularSeriesSection f={f} />
+          </>
+        )}
 
         {step === 2 && (
           <>

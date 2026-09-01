@@ -47,6 +47,17 @@ import { GenerateEpisodesForm } from './GenerateEpisodesForm';
 
 type EpisodeState = 'todo' | 'doing' | 'done';
 
+/**
+ * 案件の「レギュラーの取り決め」（migration 262・regular-series.md §3）のうち、
+ * 「頻度で作る」の初期値になる3つだけ。呼び出し元（`TasksTab.tsx`）は
+ * `ProjectDetail` からそのまま渡せる（読むだけ・ここでは保存しない）。
+ */
+export interface SeriesDefaults {
+  recording_cadence?: 'weekly' | 'biweekly' | 'monthly_nth_weekday' | 'none' | null;
+  recording_per_day_count?: number | null;
+  episode_unit_price?: number | null;
+}
+
 function stateOf(e: Episode): EpisodeState {
   const total = e.task_count ?? 0;
   const done = e.task_done_count ?? 0;
@@ -85,8 +96,15 @@ function dateOf(e: Episode): string | null {
  * ズレていないか」を実行前に気づかせるだけの表示用途（①だけで使う）。
  */
 function AddEpisodesDialog({
-  open, onOpenChange, projectId, nextNum,
-}: { open: boolean; onOpenChange: (open: boolean) => void; projectId: string; nextNum: number }) {
+  open, onOpenChange, projectId, nextNum, seriesDefaults,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  projectId: string;
+  nextNum: number;
+  /** 案件の「レギュラーの取り決め」（migration 262）。「頻度で作る」タブの初期値になる */
+  seriesDefaults?: SeriesDefaults;
+}) {
   const [mode, setMode] = useState<'text' | 'frequency'>('text');
   const [text, setText] = useState('1');
   const qc = useQueryClient();
@@ -187,14 +205,20 @@ function AddEpisodesDialog({
             ) : null}
           </div>
         ) : (
-          <GenerateEpisodesForm projectId={projectId} onDone={() => { onOpenChange(false); setMode('text'); }} />
+          <GenerateEpisodesForm
+            projectId={projectId}
+            onDone={() => { onOpenChange(false); setMode('text'); }}
+            defaultCadence={seriesDefaults?.recording_cadence}
+            defaultPerDayCount={seriesDefaults?.recording_per_day_count}
+            defaultUnitPrice={seriesDefaults?.episode_unit_price}
+          />
         )}
       </div>
     </FormDialog>
   );
 }
 
-export function EpisodesPanel({ projectId }: { projectId: string }) {
+export function EpisodesPanel({ projectId, seriesDefaults }: { projectId: string; seriesDefaults?: SeriesDefaults }) {
   const [addOpen, setAddOpen] = useState(false);
 
   const list = useQuery<Episode[]>({
@@ -270,7 +294,10 @@ export function EpisodesPanel({ projectId }: { projectId: string }) {
         </div>
       )}
 
-      <AddEpisodesDialog open={addOpen} onOpenChange={setAddOpen} projectId={projectId} nextNum={nextNum} />
+      <AddEpisodesDialog
+        open={addOpen} onOpenChange={setAddOpen} projectId={projectId} nextNum={nextNum}
+        seriesDefaults={seriesDefaults}
+      />
     </div>
   );
 }

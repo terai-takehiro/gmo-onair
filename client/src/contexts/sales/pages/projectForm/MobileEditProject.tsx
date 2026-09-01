@@ -47,6 +47,7 @@ import { glsGuideText } from '../projectDetail/glsGuide';
 import { moreFieldCount } from '../projectNew/fields';
 import { RequiredFields } from '../projectNew/RequiredFields';
 import { MoreFields } from '../projectNew/MoreFields';
+import { RegularSeriesSection } from '../projectNew/RegularSeriesSection';
 import { MembersSection } from './MembersSection';
 import { BookingListSection } from './BookingListSection';
 import { ScheduleSection } from './ScheduleSection';
@@ -151,6 +152,9 @@ export function MobileEditProject({
               </div>
             )}
           </div>
+
+          {/* 回を作るたびに聞かれては困る4つの取り決め（PC と同じ部品。`ProjectFormPage.tsx` 参照） */}
+          <RegularSeriesSection f={fields} />
 
           {/* ここから下は**直す画面だけが持つもの**（PC と同じセクション部品を縦積み） */}
           <MembersSection projectId={isEdit ? id : undefined} />
