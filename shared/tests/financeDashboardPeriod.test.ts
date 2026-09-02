@@ -156,6 +156,19 @@ describe('ledgerPeriodFromUrl', () => {
     expect(got.handoff?.kind).toBe('range');
   });
 
+  it('`period_label` が無くても、帯には人が読む形の月を出す', () => {
+    /*
+     * ダッシュボードの「台帳をひらく」は必ず `period_label` を付けるが、
+     * **URL を手で書いた人・古いブックマークには付いていない**。
+     * 以前はそのとき `2026-04` と機械の形が帯に出ていた（画面の他の場所は
+     * すべて `2026年04月`）。ここが崩れても画面は普通に動くので、
+     * 誰も報告しないまま残る類の食い違い。だからテストで固定する。
+     */
+    const got = ledgerPeriodFromUrl('2026-04-01', '2026-04-30', '', false, false);
+    expect(got.month).toBe('2026-04');
+    expect(got.handoff).toEqual({ kind: 'month', label: '2026年04月' });
+  });
+
   it('全期間で来たら「全月」で開く（黙って今月にしない）', () => {
     const got = ledgerPeriodFromUrl('', '', '全期間', true, false);
     expect(got).toMatchObject({ month: '', range: null, handoff: { kind: 'all', label: '全期間' } });

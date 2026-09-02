@@ -32,6 +32,8 @@
  * `shared/tests/financeDashboardPeriod.test.ts` から React 抜きで固定できるようにするため。
  */
 /** 月に収まらない引き継ぎ期間（四半期・年・期間指定） */
+import { formatMonth } from '@/lib/format';
+
 export interface LedgerPeriodRange {
   /** YYYY-MM-DD */
   from: string;
@@ -105,7 +107,14 @@ export function ledgerPeriodFromUrl(
   hasProject: boolean,
 ): LedgerUrlPeriod {
   const ym = singleMonthOf(from, to);
-  if (ym) return { month: ym, range: null, handoff: { kind: 'month', label: label || ym } };
+  /*
+   * ⚠️ **`label` が無いときに `ym`（`2026-04`）を素で出さない。**
+   * ダッシュボードの「台帳をひらく」は必ず `period_label` を付けるが、
+   * URL を手で書いた人・古いブックマークには付いていない。そのとき帯に
+   * 「2026-04 で絞り込み中」と機械の形が出ていた。画面のほかの場所は
+   * すべて `formatMonth`（`2026年04月`）で揃っているので、ここも揃える。
+   */
+  if (ym) return { month: ym, range: null, handoff: { kind: 'month', label: label || formatMonth(ym) } };
   if (from) return { month: '', range: { from, to, label }, handoff: { kind: 'range', label } };
   // 全期間で見ていたのに台帳が黙って今月になると、ダッシュボードの金額と合わない
   if (all) return { month: '', range: null, handoff: { kind: 'all', label: label || '全期間' } };
