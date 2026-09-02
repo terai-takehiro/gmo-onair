@@ -4,6 +4,8 @@
  * サーバーは `any` に近い形で返す（`activity-logs.routes.ts`）。
  * 画面側で使う項目だけをここに1つ書き、各部品はこれを見る。
  */
+import { localDateStr } from '@gmo-onair/shared/src/client/format';
+
 export interface ActivityLogRow {
   id: string;
   activity_type: string;
@@ -45,12 +47,19 @@ export interface FormData {
   next_action_date: string;
 }
 
-export const EMPTY_FORM: FormData = {
-  project_id: '', customer_id: '', activity_type: 'call',
-  activity_date: new Date().toISOString().split('T')[0]!,
-  duration_minutes: '', subject: '', description: '',
-  next_action: '', next_action_date: '',
-};
+/**
+ * 新規フォームの初期値。**定数ではなく関数** — モジュール定数にすると活動日が
+ * バンドル読込時に固定され、タブを開いたまま日付をまたぐと前日のままになる。
+ * 日付は UTC ではなくローカル（`toISOString()` だと JST の 0:00〜9:00 は前日になる）。
+ */
+export function emptyForm(): FormData {
+  return {
+    project_id: '', customer_id: '', activity_type: 'call',
+    activity_date: localDateStr(new Date()),
+    duration_minutes: '', subject: '', description: '',
+    next_action: '', next_action_date: '',
+  };
+}
 
 /** 活動の紐づけ先（案件名 > 顧客名）— 内部コードではなく人が読める名前を出す */
 export function relatedName(log: Pick<ActivityLogRow, 'project_name' | 'customer_name'>): string | null {
@@ -66,8 +75,9 @@ export function shortDate(dateStr: string): string {
   return `${d.getMonth() + 1}/${d.getDate()}(${WEEKDAYS[d.getDay()]})`;
 }
 
+/** 「今日」はローカルで比べる（UTC だと JST の 0:00〜9:00 に期限切れが出遅れる） */
 export function isOverdue(dateStr: string): boolean {
-  return dateStr < new Date().toISOString().split('T')[0]!;
+  return dateStr < localDateStr(new Date());
 }
 
 /**

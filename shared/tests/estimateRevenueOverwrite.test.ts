@@ -61,6 +61,20 @@ describe('見積 → 売上変換（convertToRevenue）が同じ見積の別バ�
     expect(body).toMatch(/REVENUE_IN_ALLOCATION_GROUP/);
   });
 
+  it('請求書発行・検収・入金が済んだ売上は上書きせず、案内して止まる', () => {
+    // 事故の形: v1 を変換 → 請求書発行 (invoice_no 採番) → 入金記録 → v2 を作成・
+    // 受注・変換すると、入金済みの売上行の金額・明細が v2 の値に置き換わり、
+    // 番号付き請求書・入金記録と帳簿が黙って食い違う。
+    // 発行済み・検収済み・入金済みのどれかが付いていたら 400 で止める。
+    expect(body).toMatch(/r\.invoice_issued AS r_invoice_issued/);
+    expect(body).toMatch(/r\.inspection_date AS r_inspection_date/);
+    expect(body).toMatch(/r\.paid_date AS r_paid_date/);
+    expect(body).toMatch(
+      /sibling\.r_invoice_issued \|\| sibling\.r_inspection_date \|\| sibling\.r_paid_date/,
+    );
+    expect(body).toMatch(/REVENUE_ALREADY_BILLED/);
+  });
+
   it('sibling が無いときは、これまで通り新しい売上行を作る（既存の一意な採番はそのまま）', () => {
     expect(body).toMatch(/\} else \{[\s\S]*?INSERT INTO revenues \(id, billing_key, project_id/);
   });

@@ -15,6 +15,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Plus, Trash2, Download, Link2, Percent } from 'lucide-react';
+import { useDebounced } from '@gmo-onair/shared/src/client/hooks/useDebounced';
 import api from '@/lib/api';
 import { TaxHelperButton } from '@gmo-onair/shared/src/client/ui/tax-aware-amount-input';
 import { CurrencyInput } from '@/components/ui/currency-input';
@@ -92,12 +93,16 @@ export function RevenueDialog({
   // **受注確定済み（`a_won`/`s_completed`）だけを候補にする**（v4.1.8・矛盾修正）。
   // 以前はステージを問わず全案件から検索できたので、仕入・精算PDF取込レビュー等
   // 他の実務入力画面と違い、ヨミ段階の案件にも売上を記録できてしまっていた
+  //
+  // **1文字ごとに問い合わせない**（`RevenueListPage` と同じ）。/projects は重い口なので、
+  // 入力欄は `projectSearch`（即時）のまま、問い合わせに渡す値だけ遅らせる
+  const appliedProjectSearch = useDebounced(projectSearch.trim(), 300);
   const { data: projectsData } = useQuery({
-    queryKey: ['projects-search', projectSearch],
+    queryKey: ['projects-search', appliedProjectSearch],
     queryFn: async () => (await api.get('/projects', {
-      params: { search: projectSearch, stage: 'a_won,s_completed', limit: 20 },
+      params: { search: appliedProjectSearch, stage: 'a_won,s_completed', limit: 20 },
     })).data,
-    enabled: projectSearch.length > 0,
+    enabled: appliedProjectSearch.length > 0,
   });
   const projects: ProjectOption[] = projectsData?.data ?? [];
 
@@ -177,6 +182,12 @@ export function RevenueDialog({
     qc.invalidateQueries({ queryKey: ['revenues-for-project', selectedProjectId] });
     // 入金・請求は ⑤ 見積・請求と財務ダッシュボードにも出る。**同じ数字なので一緒に落とす**
     qc.invalidateQueries({ queryKey: ['billing'] });
+    // `['revenues']` は案件詳細（`RevenueBillingPane.tsx` の `['revenues','project',id]`）に
+    // 前方一致で当たる。GPM の請求タブ（`BusinessProjectView.tsx` の
+    // `['revenues-project', id]`）はハイフン区切りで前方一致しないので名指しで落とす
+    // （`MobileCollect.tsx` と同じ対）
+    qc.invalidateQueries({ queryKey: ['revenues'] });
+    qc.invalidateQueries({ queryKey: ['revenues-project', selectedProjectId] });
   };
 
   const createMutation = useMutation({

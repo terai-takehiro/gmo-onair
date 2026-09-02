@@ -26,6 +26,7 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { assignInvoiceNumbers } from '../../finance/services/invoice-number.service';
 import { BILLING_STATE_SQL, billingStateSql } from '../../../shared/services/billing-state';
 import { normalizeJaText } from '../../../shared/utils/text';
+import { jstDate } from '../../../shared/utils/jst';
 
 /**
  * **案件名の半角カナ化けを表示側で直す。** 発生源は Box の OCR/AI起票等の外部由来
@@ -375,7 +376,8 @@ router.get('/closing', async (req, res) => {
   const collect = all.filter((r) => r.invoice_issued && !r.paid_date);
   const inspect = all.filter((r) => !r.inspection_date);
 
-  const today = new Date().toISOString().slice(0, 10);
+  // JST の「今日」。UTC の toISOString だと JST 00:00〜08:59 は前日になり、期日超過の判定が漏れる
+  const today = jstDate();
   res.json({
     success: true,
     data: { month, issue, collect, inspect },

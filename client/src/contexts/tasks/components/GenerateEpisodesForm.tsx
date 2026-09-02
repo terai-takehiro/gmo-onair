@@ -114,6 +114,14 @@ export function GenerateEpisodesForm({
     mutationFn: () => api.post(`/projects/${projectId}/episodes/generate`, payload),
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ['episodes', projectId] });
+      // 単価があるとサーバーが回ごとに売上（見込み）行も作る。見積タブの
+      // `['revenues','project',projectId]`（前方一致で当たる）と財務③の
+      // `['revenues-all']` も落とさないと、作った売上が最大60秒古いまま見える
+      qc.invalidateQueries({ queryKey: ['revenues'] });
+      qc.invalidateQueries({ queryKey: ['revenues-all'] });
+      // サーバーは作った回に標準工程テンプレートも自動適用する（episode-generate.routes.ts）
+      qc.invalidateQueries({ queryKey: ['task-dashboard'] });
+      qc.invalidateQueries({ queryKey: ['project-tasks', projectId] });
       const n = r.data?.data?.summary?.episodes_created ?? 0;
       notifySuccess(`回を${n}件作りました`);
       onDone();
@@ -127,9 +135,10 @@ export function GenerateEpisodesForm({
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <Label>繰り返し</Label>
+          <Label htmlFor="gen-cadence">繰り返し</Label>
           <Select value={cadence} onValueChange={(v) => { setCadence(v as Cadence); touch(); }}>
-            <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+            {/* Radix の SelectTrigger は button — htmlFor/id を結ぶとラベルのタップで開く */}
+            <SelectTrigger id="gen-cadence" className="mt-1"><SelectValue /></SelectTrigger>
             <SelectContent>
               {CADENCE_ORDER.map((c) => <SelectItem key={c} value={c}>{CADENCE_LABEL[c]}</SelectItem>)}
             </SelectContent>
@@ -163,12 +172,13 @@ export function GenerateEpisodesForm({
           </div>
           <div>
             <Label>終了条件</Label>
-            <div role="tablist" aria-label="終了条件を選ぶ" className="mt-1 grid grid-cols-2 gap-1.5">
+            {/* タブの ARIA は名乗らない (矢印キー・tabpanel 未実装)。aria-pressed の組にする */}
+            <div role="group" aria-label="終了条件を選ぶ" className="mt-1 grid grid-cols-2 gap-1.5">
               {([['count', '回数'], ['end_date', '終了日']] as const).map(([key, label]) => {
                 const on = endMode === key;
                 return (
                   <button
-                    key={key} type="button" role="tab" aria-selected={on}
+                    key={key} type="button" aria-pressed={on}
                     onClick={() => { setEndMode(key); touch(); }}
                     className={`min-h-tap rounded-control border text-sub ${
                       on ? 'border-primary-border bg-primary-surface font-bold text-primary' : 'border-border text-muted-foreground'

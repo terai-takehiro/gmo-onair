@@ -230,8 +230,12 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
     mutationFn: (id: string) => api.post(`${base}/${id}/convert-to-revenue`),
     onSuccess: () => {
       invalidate(); qc.invalidateQueries({ queryKey: ['estimate', openId] });
-      // 財務の台帳・締め処理・案件一覧の見積金額はすべて `revenues` を読み直す
+      // `['revenues']` は案件詳細（`RevenueBillingPane` の `['revenues','project',projectId]`）
+      // には前方一致で当たるが、財務③ 売上台帳（`['revenues-all',…]`）と
+      // 締め処理（`['billing',…]`）には当たらない。3つとも落とす（`MobileCollect.tsx` と同じ対）
       qc.invalidateQueries({ queryKey: ['revenues'] });
+      qc.invalidateQueries({ queryKey: ['revenues-all'] });
+      qc.invalidateQueries({ queryKey: ['billing'] });
       notifySuccess('売上・請求に登録しました（「売上・請求」の切り替えから見られます）');
     },
     onError: (e) => notifyApiError('売上・請求に登録できませんでした', e),
@@ -333,7 +337,11 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
                 estimate={detail.data}
                 onSave={(patch) => saveMeta.mutate({ id: openId, patch })}
               />
+              {/* `key` 必須: 明細は `useState` の編集バッファなので、版を切り替えたら作り直す
+                  （キャッシュ済みの版へ戻ると再マウントされず、前の版の明細のまま保存される）。
+                  隣の `EstimateMetaCard` と同じ値だと兄弟の key が重複するので接頭辞を付ける */}
               <EstimateItems
+                key={`items-${detail.data.id}`}
                 estimate={{ ...detail.data, project_id: project.id, customer_type: project.customer_type }}
                 onSave={(items) => saveItems.mutate({ id: openId, items })}
                 saving={saveItems.isPending}

@@ -53,6 +53,32 @@ export async function runMigrations(): Promise<void> {
     }
   }
 
+  /*
+   * idx_episodes_project_number（回番号の一意索引・最後の砦）は、既存データに重複が
+   * あると migration 260/267 が**作らないまま正常終了する**設計（デプロイを止めないため）。
+   * その環境は _migrations に記録済みで二度と再挑戦しないので、ここで毎回有無を確かめ、
+   * 無ければ復旧手順ごと大きく残す。**throw はしない**（索引の欠落でデプロイは止めない）。
+   */
+  const episodesExists = await pool.query(`SELECT to_regclass('episodes') AS t`);
+  if (episodesExists.rows[0]?.t) {
+    const idx = await pool.query(
+      `SELECT 1 FROM pg_indexes WHERE indexname = 'idx_episodes_project_number'`
+    );
+    if (idx.rows.length === 0) {
+      console.error(
+        [
+          '⚠️ [episodes] 一意索引 idx_episodes_project_number がありません',
+          '  （既存の重複データのため migration 260/267 が作成を見送った環境です。',
+          '   回番号の重複はアプリ側の getNextEpisodeNumberAtomic() だけで防がれている状態）。',
+          '  重複の確認: SELECT project_id, episode_number, COUNT(*) FROM episodes',
+          '              WHERE deleted_at IS NULL GROUP BY 1, 2 HAVING COUNT(*) > 1;',
+          '  直したら手動で: CREATE UNIQUE INDEX idx_episodes_project_number',
+          '                  ON episodes (project_id, episode_number) WHERE deleted_at IS NULL;',
+        ].join('\n')
+      );
+    }
+  }
+
   console.log('Migrations complete.');
 }
 

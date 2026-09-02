@@ -59,7 +59,7 @@ router.use('/images', (req, res, next) => {
 // ── ページの写真アップロード ────────────────────────────────────
 router.post(
   '/pages/:id/photo',
-  requireAuth, requirePermission('qsheet'),
+  requireAuth, requirePermission('qsheet', 'editor'),
   upload.single('photo'),
   wrap(async (req, res) => {
     const id = parseInt(req.params.id as string);

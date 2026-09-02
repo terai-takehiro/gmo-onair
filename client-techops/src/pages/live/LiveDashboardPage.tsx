@@ -225,7 +225,8 @@ function DashboardContent({ ownerKey, owner, programId }: {
           </div>
         )}
 
-        <ViewerPanel programId={programId} program={program} canManage={canManage} />
+        {/* key で番組ごとに作り直す — プラットフォーム選択 (useState 初期値) を番組切替時に再読込するため */}
+        <ViewerPanel key={programId} programId={programId} program={program} canManage={canManage} />
       </div>
     </div>
   );

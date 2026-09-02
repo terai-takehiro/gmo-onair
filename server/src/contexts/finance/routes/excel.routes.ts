@@ -9,14 +9,18 @@ import {
   buildRevenueWhere, buildRevenueOrder,
   buildSgaWhere, buildSgaOrder,
 } from '../list-query';
+import { normalizeTaxCategory } from '../../../shared/services/tax-category.service';
 
+// 日本語・％表記の別名だけを持つ。CHECK 制約の正準値 (nontax 含む) が漏れると
+// エクスポート→取込の往復で tax10 に化けるため、fallback は normalizeTaxCategory に委ねる
 const TAX_MAP: Record<string, string> = {
   tax10: 'tax10', '10%': 'tax10', '税10': 'tax10',
   tax8: 'tax8', '8%': 'tax8', '軽減税率': 'tax8',
   exempt: 'exempt', '非課税': 'exempt', '免税': 'exempt',
+  nontax: 'nontax', '不課税': 'nontax', '対象外': 'nontax',
 };
 function normTax(v: unknown): string {
-  return TAX_MAP[String(v ?? '').trim().toLowerCase()] || 'tax10';
+  return TAX_MAP[String(v ?? '').trim().toLowerCase()] || normalizeTaxCategory(v);
 }
 
 // ============================================================
@@ -53,7 +57,7 @@ const REVENUES_CONFIG: ResourceConfig = {
     rows: [
       { col: '案件コード/GLS', desc: '【必須】projectsテーブルのcodeまたはgls_numberと一致' },
       { col: '顧客名', desc: '【必須】取引先マスター(companies, 顧客)のnameと一致' },
-      { col: '税区分', desc: 'tax10 (10%) / tax8 (軽減税率) / exempt (非課税)。日本語OK' },
+      { col: '税区分', desc: 'tax10 (10%) / tax8 (軽減税率) / exempt (非課税) / nontax (不課税)。日本語OK' },
       { col: 'エピソードコード', desc: '任意 — 空欄なら案件全体の売上扱い' },
     ],
   },

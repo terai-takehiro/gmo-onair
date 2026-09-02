@@ -516,16 +516,19 @@ server/src/contexts/mcp/
 - **OAuth actor** は書き込みツールごとに対応モジュールの権限が要る（`WRITE_TOOL_PERMISSIONS`）。
   `module` は**配列も受ける**（どれか1つを満たせばよい）—
   v4 で `record_finance_doc` を「`dailyops` か `budget`」にした（HTTP 側と揃えた）
-- ⚠️ **読み取りツール（63 種＋制作技術支援の read 7種）はここにはゲートがありません。** OAuth で自分の
-  ONAiR アカウントを繋げば、**権限ゼロの人でも `list_projects` / `list_revenues` /
-  `list_inquiries` / `list_equipment` などが読めます**。v3.2.2 で `GET /search` に対して塞いだのと
-  同じ形の穴が MCP 側に残っています。塞ぐには read ツールにもモジュール表を持たせる必要があり、
-  63 種あるので**別の作業**にしてあります（機材管理の read 5種・プロジェクト管理の read 12種
-  （見積・議事録・BOXフォルダ含む）・かんばん列の read 2種もこの 63 種に含む —
-  production のような専用ゲートは持たない）。
-  **制作技術支援の read 7種だけは例外**— `gate.ts` は経由しませんが、
-  `production.access.ts` の `requireProductionActor()` を全ツールの先頭で呼んでおり、
-  静的キーの拒否と文書ごとのアクセス判定（作成者／共有先／管理者）はそこで行っています
+- **読み取りツールも OAuth actor には対応モジュールの reader 以上を要求する**
+  （`READ_TOOL_PERMISSIONS`）。それまでは読み取りが素通りで、権限ゼロの ONAiR アカウントでも
+  OAuth を完走すれば `list_projects` / `list_revenues` / `list_inquiries` / `list_equipment`
+  などが読めた（v3.2.2 で `GET /search` に対して塞いだのと同じ形の穴が MCP 側に残っていた）。
+  module は各 read の対応 HTTP ルートの requirePermission に揃えてある
+  （`list_finance_docs` は書き込みと同じく「`dailyops` か `sales`」のどちらかで通る）
+- **意図してゲートなしのままの読み取り**: 個人スコープ（`list_my_tasks` / `list_my_delegations` /
+  `get_my_task_summary` / `list_task_intakes` / `get_task_intake` — 「自分のタスクを読む」に
+  モジュール権限を要求しない設計）と、担当者名 → users.id の解決に全カテゴリが前提として使う
+  `list_users`、取込スキルが実行前に必ず読む契約の `get_ai_feedback_digest`
+- **制作技術支援の read 7種**は従来どおり `production.access.ts` の `requireProductionActor()`
+  （静的キーの拒否＋文書ごとのアクセス判定〔作成者／共有先／管理者〕）を全ツールの先頭で呼ぶ。
+  加えて `gate.ts` の READ 表でも `qsheet` の reader を要求する（書き込みツールと同じ二重の防御）
 
 - スタジオ予約と月次サマリーのロジックは v2.9.171 でルートから service 層へ抽出済み — UI と MCP が同一コードパスを通る。
 - 書き込みツールの actor は `currentActorId()` で解決: OAuth 経由なら実 ONAiR ユーザー id、静的キー経由なら共用 `mcp-claude`。

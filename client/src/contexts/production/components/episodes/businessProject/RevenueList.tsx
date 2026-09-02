@@ -181,6 +181,8 @@ export function RevenueList({
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
+                        aria-label="この明細を編集"
+                        title="この明細を編集"
                         onClick={() => openEdit(rev)}
                       >
                         <Pencil className="h-4 w-4" />
@@ -189,6 +191,8 @@ export function RevenueList({
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive"
+                        aria-label="この明細を削除"
+                        title="この明細を削除"
                         onClick={() => {
                           if (confirm("この明細を削除しますか？"))
                             deleteMutation.mutate(rev.id);

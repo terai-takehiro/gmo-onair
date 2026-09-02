@@ -8,6 +8,7 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import {
   buildExcelWorkbook, excelResponse, parseExcelBuffer, parseExcelHeaders, normalizeHeader,
 } from '../../../shared/utils/excel';
+import { jstDate } from '../../../shared/utils/jst';
 
 const router = Router();
 router.use(requireAuth, requirePermission('equipment'));
@@ -212,7 +213,7 @@ router.get('/export-xlsx', requirePermission('equipment', 'exporter'), wrap(asyn
     kind_label: KIND_LABELS[r.kind as string] || r.kind,
   }));
   const buf = await buildExcelWorkbook([{ name: 'コネクタ', columns: EXCEL_COLUMNS, rows }]);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = jstDate();
   excelResponse(res, `コネクタ_${today}.xlsx`, buf);
 }));
 

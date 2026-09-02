@@ -61,12 +61,13 @@ export function PurchaseSection({
                 <Money value={pu.amount} className="text-cardtitle font-bold" />
                 {canEdit && (
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(pu)}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="この仕入を編集" title="この仕入を編集" onClick={() => onEdit(pu)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     {canDelete && (
                       <Button
                         variant="ghost" size="icon" className="h-7 w-7 text-destructive"
+                        aria-label="この仕入を削除" title="この仕入を削除"
                         onClick={async () => {
                           if (!(await confirmAction({
                             title: 'この仕入を削除しますか？',

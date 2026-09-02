@@ -8,6 +8,25 @@ const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<v
 const router = Router({ mergeParams: true });
 router.use(requireAuth, requirePermission('sales'));
 
+/**
+ * 並び替えの本文を `{id, sort_order}` の配列に正規化する（`gpm/index.ts` の
+ * members/reorder と同じ確認）。素通しすると配列でない本文で TypeError の 500 になり、
+ * 形が崩れた行は UPDATE の WHERE に渡って 0件更新のまま成功を返す。
+ */
+const normalizeReorderItems = (body: unknown): Array<{ id: string; sort_order: number }> => {
+  const raw = Array.isArray(body)
+    ? body
+    : Array.isArray((body as { items?: unknown[] } | null)?.items)
+      ? (body as { items: unknown[] }).items
+      : [];
+  return raw
+    .filter((it: unknown): it is { id: string; sort_order: number } => {
+      const r = it as Record<string, unknown>;
+      return !!r && typeof r.id === 'string' && r.id.length > 0 && Number.isFinite(Number(r.sort_order));
+    })
+    .map((it) => ({ id: it.id, sort_order: Number(it.sort_order) }));
+};
+
 // ---- タスク依存関係 (先行 → 後続) — /:id より前に定義 ----
 // GET /projects/:projectId/tasks/dependencies
 router.get('/dependencies', wrap(async (req, res) => {
@@ -81,7 +100,7 @@ router.patch('/:id/move', wrap(async (req, res) => {
 router.patch('/reorder', wrap(async (req, res) => {
   const projectId = (req.params as Record<string, string>).projectId;
   const userId = (req as { user?: { id: string } }).user!.id;
-  await projectTasksService.reorder(projectId, req.body, userId);
+  await projectTasksService.reorder(projectId, normalizeReorderItems(req.body), userId);
   res.json({ success: true });
 }));
 

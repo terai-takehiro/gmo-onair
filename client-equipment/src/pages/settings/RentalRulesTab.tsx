@@ -96,6 +96,9 @@ export function RentalRulesTab() {
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['rental-settings'] });
       qc.invalidateQueries({ queryKey: ['model-groups'] });
+      // 台帳の「貸出可」列と貸出ダイアログの一覧も同じフラグを見ている
+      qc.invalidateQueries({ queryKey: ['equipment-items'] });
+      qc.invalidateQueries({ queryKey: ['equipment-lendable'] });
     },
   });
 

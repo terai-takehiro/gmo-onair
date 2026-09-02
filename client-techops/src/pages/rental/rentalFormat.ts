@@ -8,7 +8,9 @@ export function formatYen(value: number | null | undefined): string {
 }
 
 export function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  // toISOString() は UTC なので JST の 0〜9 時に前日へずれる。ローカル日付で組む
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 /** 'YYYY-MM-DD' → '9/11（金）' */

@@ -8,6 +8,7 @@ import { requireAuth, requirePermission } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { buildExcelWorkbook, excelResponse, parseExcelBuffer, SheetSpec } from './excel';
 import { PoolClient } from 'pg';
+import { jstDate } from './jst';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -86,7 +87,7 @@ export function createExcelResourceRouter(config: ResourceConfig): Router {
     const buf = await buildExcelWorkbook([
       { name: config.name.slice(0, 31), columns: config.columns, rows },
     ]);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = jstDate();
     excelResponse(res, `${config.name}_${today}.xlsx`, buf);
   }));
 

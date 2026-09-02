@@ -429,18 +429,6 @@ router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
 
   const revenueStatus = reqStatus === 'estimate' ? 'estimate' : 'confirmed';
 
-  // billing_key生成
-  const project = await queryOne('SELECT gls_number, code FROM projects WHERE id = ?', [project_id]) as any;
-  // billing_key の連番は「作成回数」ベースで採番する。
-  // deleted_at IS NULL でフィルタすると、売上を1件削除したとき count が減り、
-  // 次の新規作成が生存中の既存行と同じ連番を再利用して billing_key (請求キー) が
-  // 重複する。ソフトデリート分も含めて数え、削除しても連番が減らないようにする
-  // (連番が飛んでも一意性を優先)。
-  const existingCount = ((await queryOne(
-    `SELECT COUNT(*) as c FROM revenues WHERE project_id = ?`,
-    [project_id]
-  )) as any).c;
-  const seqNum = String(existingCount + 1).padStart(3, '0');
   const taxSuffix = taxBillingSuffix(tax_category);
 
   // 月次ユニット等でエピソードに紐づく場合は、そのエピソードコードを請求KEYの基底にする
@@ -449,23 +437,6 @@ router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
   if (episode_id) {
     const ep = await queryOne('SELECT episode_code FROM episodes WHERE id = ? AND deleted_at IS NULL', [episode_id]) as any;
     episodeCode = ep?.episode_code || null;
-  }
-
-  let billing_key: string;
-  if (revenueStatus === 'estimate') {
-    // 概算見積: EST-{案件コード}-連番-税枝番。
-    // 案件コードを含めないと全案件横断で EST-001-1 が量産され、別案件の見積 PDF が
-    // 同名になる (billing_key はファイル名にも使われる)。code 未採番のヨミ案件は
-    // project_id 先頭8桁で代替する。
-    const estBase = (project?.code as string) || String(project_id).slice(0, 8);
-    billing_key = `EST-${estBase}-${seqNum}-${taxSuffix}`;
-  } else if (episodeCode) {
-    // エピソード (月次ユニット等) 紐づき: {エピソードコード}-税枝番
-    billing_key = `${episodeCode}-${taxSuffix}`;
-  } else {
-    // 確定: GLS番号-連番-税枝番
-    const base = project?.gls_number || 'REV';
-    billing_key = `${base}-${seqNum}-${taxSuffix}`;
   }
 
   const id = uuidv4();
@@ -494,6 +465,39 @@ router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
   // 本体 + 明細 + 案件想定金額の同期を単一トランザクションで実行 (途中失敗で明細が
   // 半端に残らないように)
   await withTransaction(async (tx) => {
+    // billing_key生成。連番は案件行を FOR UPDATE で押さえてから数え、他の採番経路
+    // (見積の売上変換・グループ売上) と直列化する (ロック無しの COUNT だと
+    // 同時作成が同じ値を読み、同じ請求キーの行が2つできる。billing_key は
+    // 請求書PDF・検収書のファイル名にもなるので、重複すると BOX で互いに上書きされる)
+    const project = await tx.queryOne('SELECT gls_number, code FROM projects WHERE id = ? FOR UPDATE', [project_id]) as any;
+    // billing_key の連番は「作成回数」ベースで採番する。
+    // deleted_at IS NULL でフィルタすると、売上を1件削除したとき count が減り、
+    // 次の新規作成が生存中の既存行と同じ連番を再利用して billing_key (請求キー) が
+    // 重複する。ソフトデリート分も含めて数え、削除しても連番が減らないようにする
+    // (連番が飛んでも一意性を優先)。
+    const existingCount = ((await tx.queryOne(
+      `SELECT COUNT(*) as c FROM revenues WHERE project_id = ?`,
+      [project_id]
+    )) as any).c;
+    const seqNum = String(existingCount + 1).padStart(3, '0');
+
+    let billing_key: string;
+    if (revenueStatus === 'estimate') {
+      // 概算見積: EST-{案件コード}-連番-税枝番。
+      // 案件コードを含めないと全案件横断で EST-001-1 が量産され、別案件の見積 PDF が
+      // 同名になる (billing_key はファイル名にも使われる)。code 未採番のヨミ案件は
+      // project_id 先頭8桁で代替する。
+      const estBase = (project?.code as string) || String(project_id).slice(0, 8);
+      billing_key = `EST-${estBase}-${seqNum}-${taxSuffix}`;
+    } else if (episodeCode) {
+      // エピソード (月次ユニット等) 紐づき: {エピソードコード}-税枝番
+      billing_key = `${episodeCode}-${taxSuffix}`;
+    } else {
+      // 確定: GLS番号-連番-税枝番
+      const base = project?.gls_number || 'REV';
+      billing_key = `${base}-${seqNum}-${taxSuffix}`;
+    }
+
     await tx.execute(`INSERT INTO revenues (id, billing_key, project_id, customer_id, episode_id, assigned_to, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, subtitle, status, is_advance_payment, invoice_issued, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, billing_key, project_id, customer_id, episode_id || null, req.user!.id, tax_category || 'tax10', finalAmount, recognition_date || null, billing_date || null, dueDate || null, notes || null, subtitle || null, revenueStatus, isAdvancePayment, invoiceIssued, req.user!.id]);
 
@@ -522,6 +526,13 @@ router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
 router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   const existing = await queryOne('SELECT * FROM revenues WHERE id = ? AND deleted_at IS NULL', [req.params.id]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '売上が見つかりません');
+  // 配分グループの売上はこの口では触らない — 按分の内訳 (revenue_allocations) を
+  // 直せないため、合計だけ変えると各案件への配分と食い違う
+  // (estimate.service.convertToRevenue と同じエラーコードで止める)
+  if (existing.group_id) {
+    throw new AppError(400, 'REVENUE_IN_ALLOCATION_GROUP',
+      'この売上は配分グループに入っています。費用を分け合うグループの画面（案件管理 > 費用を分け合うグループ）から編集してください');
+  }
   const { billing_key, project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle, is_advance_payment, invoice_issued } = req.body;
   // **実際に変わったときだけ確かめる**（レビュー指摘・PR #199 P2 の2巡目 → #201 P1 で
   // 「渡されただけで再検証」の穴を修正。project.service.ts の update() と同じ判断）—
@@ -533,8 +544,10 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   let finalBillingKey = existing.billing_key;
   if (tax_category && tax_category !== existing.tax_category) {
     const taxSuffix = taxBillingSuffix(tax_category);
-    // 末尾の税枝番を置換 (GLS-A004-001-1 → GLS-A004-001-2)
-    finalBillingKey = existing.billing_key.replace(/-\d$/, `-${taxSuffix}`);
+    // 末尾の税枝番を置換 (GLS-A004-001-1 → GLS-A004-001-2)。
+    // Excel取込の行は billing_key が NULL のことがある (請求キー列は空欄可) ので
+    // null は null のまま通す (下の UPDATE は `finalBillingKey || null` で受ける)
+    finalBillingKey = existing.billing_key ? existing.billing_key.replace(/-\d$/, `-${taxSuffix}`) : null;
   }
 
   // 明細行がある場合は合計を計算

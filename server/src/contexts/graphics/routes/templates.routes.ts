@@ -19,6 +19,7 @@ import {
 // そのものの CRUD のみ）。
 
 const router = Router();
+// 閲覧は reader・作成/更新/削除は editor（documents.routes.ts と同じ作法）
 router.use(requireAuth, requirePermission('qsheet'));
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
   (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
@@ -83,7 +84,7 @@ function validateLayers(raw: unknown): { partKey: string; baseFields: Record<str
 }
 
 // ── 作成 ─────────────────────────────────────────────────────────
-router.post('/projects/:id/templates', wrap(async (req, res) => {
+router.post('/projects/:id/templates', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
   const projectId = parseInt(req.params.id as string);
   const project = projectId && !isNaN(projectId) ? await fetchProject(projectId) : null;
   if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
@@ -146,7 +147,7 @@ router.get('/projects/:id/templates', wrap(async (req, res) => {
 }));
 
 // ── 部分更新 ─────────────────────────────────────────────────────
-router.put('/templates/:id', wrap(async (req, res) => {
+router.put('/templates/:id', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const existing = id && !isNaN(id)
     ? await queryOne(`SELECT * FROM graphics_templates WHERE id = ?`, [id])
@@ -230,7 +231,7 @@ router.put('/templates/:id', wrap(async (req, res) => {
 }));
 
 // ── 削除（graphics_pages.template_id は ON DELETE SET NULL で自動的にNULLへ） ──
-router.delete('/templates/:id', wrap(async (req, res) => {
+router.delete('/templates/:id', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const existing = id && !isNaN(id)
     ? await queryOne(`SELECT id FROM graphics_templates WHERE id = ?`, [id])

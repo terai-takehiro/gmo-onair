@@ -22,15 +22,16 @@ export function LocationTabs({
 }) {
   if (locations.length <= 1) return null;
   return (
-    <div className="flex flex-wrap gap-2" role="tablist" aria-label="場所">
+    // タブの ARIA (tab/tablist) は名乗らない — 矢印キー移動・tabpanel を実装して
+    // いないため、読み上げの約束と挙動が食い違う。aria-pressed のボタンの組にする
+    <div className="flex flex-wrap gap-2" role="group" aria-label="場所">
       {locations.map((l) => {
         const on = l.id === value;
         return (
           <button
             key={l.id}
             type="button"
-            role="tab"
-            aria-selected={on}
+            aria-pressed={on}
             onClick={() => onChange(l.id)}
             className={cn(
               'rounded-control min-h-tap flex min-w-[9rem] flex-col items-start gap-0.5 border px-3.5 py-2 text-left lg:min-h-[48px]',

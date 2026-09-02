@@ -59,6 +59,7 @@ import {
   EmptyState, NoSearchResults, Delayed, SkeletonRows, ErrorPanel,
 } from '@gmo-onair/shared/src/client/states';
 import { cn } from '@gmo-onair/shared/src/client/utils';
+import { useDebounced } from '@gmo-onair/shared/src/client/hooks/useDebounced';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { PullToRefresh } from '@gmo-onair/shared/src/client-v4/pullToRefresh';
 import { MobileFilterBar, MobileFilterField, MobileFilterSegments } from '@gmo-onair/shared/src/client-v4/mobileFilterBar';
@@ -138,6 +139,9 @@ export default function GpmProjectListPage() {
   const [stageKey, setStageKey] = useState('open');
   const [kind, setKind] = useState<GpmKind | ''>('');
   const [search, setSearch] = useState('');
+  // 問い合わせの鍵だけ遅らせる（入力欄は `search` のまま即時に描く）。
+  // 一覧APIは行ごとの相関サブクエリが重く、1文字ごとに投げると打鍵の数だけ全件走査が走る
+  const appliedSearch = useDebounced(search.trim(), 300);
   const [view, setView] = useState<'list' | 'board'>('list');
   const [sort, setSort] = useState<SortKey>('recommended');
 
@@ -151,7 +155,7 @@ export default function GpmProjectListPage() {
   const effectiveView = isMobile ? 'list' : view;
 
   const today = useMemo(() => localDateStr(new Date()), []);
-  const { data, isLoading, isError, refetch } = useGpmProjects(search.trim());
+  const { data, isLoading, isError, refetch } = useGpmProjects(appliedSearch);
   const all = useMemo(() => data ?? [], [data]);
 
   // 区分だけを掛けた集合。**状態チップの件数はここから数える**
@@ -305,7 +309,10 @@ export default function GpmProjectListPage() {
       ) : isLoading ? (
         <Delayed><SkeletonRows rows={5} /></Delayed>
       ) : rows.length === 0 ? (
-        all.length === 0 && !search.trim() ? (
+        // 「まだ無い」か「0件でした」かの判定は**問い合わせた値**（appliedSearch）で行う
+        // （useDebounced の決めごと — 即時の search だと、まだ問い合わせていない言葉で
+        // 「該当なし」が一瞬出る）
+        all.length === 0 && !appliedSearch ? (
           <EmptyState
             title="プロジェクトがまだありません"
             description="発注が確定した構築案件をここで工程管理します。標準工程を選ぶと、工程とタスクが日付付きで入ります。"

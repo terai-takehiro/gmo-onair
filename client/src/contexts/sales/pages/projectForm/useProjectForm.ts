@@ -38,6 +38,7 @@ import {
 import type { Audience, ProjectCategory } from '../../classification';
 import { EMPTY_FORM, addOneDayStr, type FormValues, type StudioLocation } from './types';
 import { useProjectSchedule, saveLocationNote } from './useProjectSchedule';
+import { useProjectSimulation } from './useProjectSimulation';
 import { useProjectActions } from './useProjectActions';
 import { useSelectedCustomer } from './useSelectedCustomer';
 
@@ -79,35 +80,16 @@ export function useProjectForm(id: string | undefined) {
   });
   const studioLocations: StudioLocation[] = studioLocationsData ?? [];
 
-  /* ── 見積シミュレーション（AI 下書きの検出と確定）────────────────── */
-  const { data: simulationData } = useQuery({
-    queryKey: ['simulation', id],
-    queryFn: async () => (await api.get(`/projects/${id}/simulation`)).data,
-    enabled: isEdit,
-    refetchOnMount: 'always',
-  });
-  const simulationItems: Array<{ subtotal: number; status?: string }> = simulationData?.data ?? [];
-  const hasDraftSimulation = simulationItems.length > 0 && simulationItems.some((s) => s.status === 'draft');
-  const draftSimulationTotal = simulationItems.reduce((sum, s) => sum + (Number(s.subtotal) || 0), 0);
-  /** AI 下書きがいつ作られたか。**誰の指示かは画面に出さない**（`docs/wording.md`） */
-  const aiDraftCreatedAt: string | null = simulationData?.ai_draft_origin?.created_at ?? null;
-
-  const finalizeSim = useMutation({
-    mutationFn: async () => (await api.post(`/projects/${id}/simulation/finalize`)).data,
-    onSuccess: (res) => {
-      const rows: Array<{ subtotal: number }> = res?.data ?? [];
-      const total = rows.reduce((sum, r) => sum + (Number(r.subtotal) || 0), 0);
-      if (total > 0) setValue('expected_amount', total, { shouldDirty: true });
-      qc.invalidateQueries({ queryKey: ['simulation', id] });
-      qc.invalidateQueries({ queryKey: ['project', id] });
-      notifySuccess('見積を確定し、想定金額に入れました');
-    },
-    onError: (err) => notifyApiError('見積を確定できませんでした', err),
-  });
+  /* ── 見積シミュレーション（AI 下書きの検出と確定）は `useProjectSimulation.ts` ── */
+  const { hasDraftSimulation, draftSimulationTotal, aiDraftCreatedAt, finalizeSim } =
+    useProjectSimulation(id, isEdit, setValue);
 
   /* ── 読み込んだ案件を欄へ入れる ──────────────────────────────── */
   useEffect(() => {
     if (!project) return;
+    // 同じ画面の GLS発番・分類切替・BOXフォルダ作成などが ['project', id] を invalidate
+    // するため、再取得のたびに全欄を置き換えると入力中の値が消える —
+    // 触った欄は keepDirtyValues で保ち、触っていない欄だけサーバー値で更新する
     reset({
       name: project.name || '',
       customer_id: project.customer_id || '',
@@ -144,7 +126,7 @@ export function useProjectForm(id: string | undefined) {
       box_url_internal: project.box_url_internal || '',
       box_url_external: project.box_url_external || '',
       application_form: !!project.application_form,
-    });
+    }, { keepDirtyValues: true });
   }, [project, reset]);
 
   /* ── 案件作成の入力欄に渡す形（`ProjectFieldsState`）─────────────────

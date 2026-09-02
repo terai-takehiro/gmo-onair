@@ -34,7 +34,8 @@ export function MobileTaskTabs({
   const counts: Record<'tasks' | 'asks', number | null> = { tasks: taskCount, asks: askCount };
 
   return (
-    <div role="tablist" aria-label="見るものを切り替える" className="grid grid-cols-2 gap-1.5">
+    // タブの ARIA は名乗らない (矢印キー・tabpanel 未実装)。aria-pressed の組にする
+    <div role="group" aria-label="見るものを切り替える" className="grid grid-cols-2 gap-1.5">
       {ITEMS.map(({ key, label, icon: Icon }) => {
         const on = tab === key;
         const count = counts[key];
@@ -42,8 +43,7 @@ export function MobileTaskTabs({
           <button
             key={key}
             type="button"
-            role="tab"
-            aria-selected={on}
+            aria-pressed={on}
             onClick={() => onChange(key)}
             className={cn(
               'min-h-tap rounded-control flex items-center justify-center gap-1.5 border px-3 text-sub',

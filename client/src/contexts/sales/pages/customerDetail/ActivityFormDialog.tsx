@@ -20,10 +20,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { localDateStr } from '@/lib/format';
 import { ACTIVITY_TYPES } from '../activityLog/kinds';
 import type { CustomerProject } from './types';
-
-const todayStr = () => new Date().toISOString().slice(0, 10);
 
 export function ActivityFormDialog({
   open, onOpenChange, customerId, customerQueryId, projects,
@@ -54,7 +53,8 @@ export function ActivityFormDialog({
       customer_id: customerId,
       project_id: projectId === 'none' ? null : projectId,
       activity_type: type,
-      activity_date: todayStr(),
+      // 日付欄が無くここで焼き込む。UTC の toISOString だと JST の朝9時前は前日になる
+      activity_date: localDateStr(new Date()),
       subject: subject.trim(),
       description: description.trim() || null,
       next_action: nextAction.trim() || null,

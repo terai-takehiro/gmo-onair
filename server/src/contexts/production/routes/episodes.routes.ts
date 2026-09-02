@@ -7,6 +7,7 @@ import { generateEpisodeCode, getNextEpisodeNumberAtomic } from '../../../shared
 import { generateBillingKey } from '../../../shared/services/billing-key.service';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { parseEpisodeSpec, groupConsecutive, EpisodeSpecError } from '../../../shared/production/episodeSpec';
+import { jstDate } from '../../../shared/utils/jst';
 
 const router = Router();
 
@@ -107,7 +108,7 @@ router.post('/:projectId/episodes/batch', requirePermission('sales', 'editor'), 
 
   const customerId = project.customer_id;
   const revPerEp = revenue_budget_per_episode || 0;
-  const today = order_date || new Date().toISOString().split('T')[0];
+  const today = order_date || jstDate();
   const userId = req.user!.id;
 
   let createdEpisodes: unknown[];

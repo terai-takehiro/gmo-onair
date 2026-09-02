@@ -9,8 +9,8 @@ import api from "@/lib/api";
 //
 // 段5 PR3 で CueRow.tsx から切り出した共有部品 (挙動は変えていない)。
 // scenario / video / audio / telop / slide の各セルから使う。
-// `ImageDropZone.tsx` はどこからも import されていない死蔵ファイルなので、
-// こちらを正の画像アップロード経路として使うこと (05-editor-impl.md §10-A)。
+// こちらが正の画像アップロード経路 (05-editor-impl.md §10-A)。死蔵だった
+// `ImageDropZone.tsx` は 2026-09 のレビュー棚卸しで削除済み。
 export default function EntryImageButton({
   imageUrl,
   onChange,

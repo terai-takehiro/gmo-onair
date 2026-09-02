@@ -111,7 +111,7 @@ function parseEnabled(v: unknown): boolean {
 // ── アップロード（同じ project/step/rankStart は UPSERT で上書き） ─────────
 router.post(
   '/projects/:id/sounds',
-  requireAuth, requirePermission('qsheet'),
+  requireAuth, requirePermission('qsheet', 'editor'),
   upload.single('sound'),
   wrap(async (req, res) => {
     const projectId = parseInt(req.params.id as string);
@@ -192,7 +192,7 @@ router.get(
 // ── volume / enabled の更新 ───────────────────────────────────────
 router.put(
   '/sounds/:id',
-  requireAuth, requirePermission('qsheet'),
+  requireAuth, requirePermission('qsheet', 'editor'),
   wrap(async (req, res) => {
     const id = parseInt(req.params.id as string);
     const existing = id && !isNaN(id)
@@ -226,7 +226,7 @@ router.put(
 // ── 削除（ローカルファイルも削除） ──────────────────────────────────
 router.delete(
   '/sounds/:id',
-  requireAuth, requirePermission('qsheet'),
+  requireAuth, requirePermission('qsheet', 'editor'),
   wrap(async (req, res) => {
     const id = parseInt(req.params.id as string);
     const existing = id && !isNaN(id)

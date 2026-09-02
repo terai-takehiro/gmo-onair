@@ -107,7 +107,10 @@ export default function TaskDialog({
       setIsMilestone(false);
       setWorkState("todo");
     }
-  }, [existing, defaultColumnId, open]);
+    // 子チェック項目の invalidate で existing の参照が変わるたびにフォームを巻き戻さないため、
+    // 同一タスクの間は再同期しない — 対象が変わったときと開き直したときだけ初期化する
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existing?.id, defaultColumnId, open]);
 
   const handleSave = async () => {
     if (!title.trim()) return;

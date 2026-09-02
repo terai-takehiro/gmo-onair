@@ -19,9 +19,12 @@ export function generateCsv(rows: Record<string, unknown>[], columns?: string[])
       const val = row[c];
       if (val === null || val === undefined) return '';
       const str = String(val);
-      return str.includes(',') || str.includes('"') || str.includes('\n')
-        ? `"${str.replace(/"/g, '""')}"`
-        : str;
+      // 先頭が = + - @ TAB CR のセルは Excel/Sheets で式として評価される（CSV/数式インジェクション）。
+      // 純粋な数値（-5000 など）は除き、' を前置して無害化する。前置したセルは必ず引用符で包む
+      const safe = /^[=+\-@\t\r]/.test(str) && !/^-?\d+(\.\d+)?$/.test(str) ? `'${str}` : str;
+      return safe !== str || /[",\n\r]/.test(safe)
+        ? `"${safe.replace(/"/g, '""')}"`
+        : safe;
     }).join(',') + '\n';
   }
 

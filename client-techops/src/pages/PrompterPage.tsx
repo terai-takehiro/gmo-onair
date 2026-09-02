@@ -61,6 +61,7 @@ export default function PrompterPage() {
   const rafRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const lastSyncCueRef = useRef<number>(-1);
 
   const { data: doc, isLoading, error } = useQuery({
     queryKey: ["qsheet-document", id],
@@ -95,13 +96,20 @@ export default function PrompterPage() {
     };
   }, []);
 
-  // Socket.IO: listen for cue:update from OnAir page
+  // Socket.IO: OnAir の進行に追随する。OnAir が送る cue:update はサーバーが
+  // cue:sync に載せ替えて中継する (server/src/contexts/qsheet/socket.ts) ため、
+  // クライアント側で受けるイベント名は cue:sync。
   useEffect(() => {
     if (!id) return;
     const socket = getQsheetSocket(id);
 
-    socket.on('cue:update', (data: { currentCue: number }) => {
-      setCurrentCue(data.currentCue);
+    socket.on('cue:sync', (data: { currentCue: number }) => {
+      if (typeof data?.currentCue !== 'number') return;
+      // cue:sync は経過秒の更新でも毎秒届くので、cue が変わったときだけ頭出しする
+      if (lastSyncCueRef.current === data.currentCue) return;
+      lastSyncCueRef.current = data.currentCue;
+      // OnAir 停止中は currentCue = -1。プロンプターは先頭 cue に留める
+      setCurrentCue(Math.max(0, data.currentCue));
       // Jump scroll to top for new cue
       if (textRef.current) {
         scrollRef.current = 0;

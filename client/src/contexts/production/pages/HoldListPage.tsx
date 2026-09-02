@@ -23,6 +23,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarClock, Check, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
+import { localDateStr } from '@/lib/format';
 import { invalidateBookingQueries } from '@/lib/bookingQueries';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
@@ -53,11 +54,12 @@ export default function HoldListPage() {
   const [chip, setChip] = useState<Chip>('all');
   const isMobile = useIsMobile();
 
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  // 深夜のJSTで toISOString を使うと前日になる（残り日数が1日ずれる）ため localDateStr で
+  const today = useMemo(() => localDateStr(new Date()), []);
   const until = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() + WINDOW_DAYS);
-    return d.toISOString().slice(0, 10);
+    return localDateStr(d);
   }, []);
 
   const query = useQuery({

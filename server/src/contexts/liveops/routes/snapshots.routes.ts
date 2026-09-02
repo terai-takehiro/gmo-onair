@@ -46,7 +46,8 @@ router.post('/', ...canRead, async (req, res) => {
 
 router.get('/:programId', ...canRead, async (req, res) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit as string) || 60, 300);
+    // 負の limit は SQL の LIMIT で 500 になるため下限も 1 に固定する
+    const limit = Math.min(300, Math.max(1, parseInt(req.query.limit as string) || 60));
     const rows = await query(
       `SELECT captured_at, youtube_count, jstream_count, zoom_count, teams_count, total_count, details
        FROM liveops_snapshots

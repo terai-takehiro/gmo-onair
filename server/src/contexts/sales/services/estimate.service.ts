@@ -800,18 +800,31 @@ export const estimateService = {
        * 末尾枝番だけ差し替える — `PUT /revenues/:id` と同じ扱い）。
        */
       const sibling = await tx.queryOne(
-        `SELECT r.id AS r_id, r.group_id AS r_group_id, r.billing_key AS r_billing_key
+        `SELECT r.id AS r_id, r.group_id AS r_group_id, r.billing_key AS r_billing_key,
+                r.invoice_issued AS r_invoice_issued, r.inspection_date AS r_inspection_date,
+                r.paid_date AS r_paid_date
            FROM estimates e JOIN revenues r ON r.id = e.revenue_id
           WHERE e.group_id = $1 AND e.id != $2 AND e.deleted_at IS NULL AND r.deleted_at IS NULL
           ORDER BY e.version DESC LIMIT 1`,
         [est.group_id, id],
-      ) as { r_id: string; r_group_id: string | null; r_billing_key: string } | undefined;
+      ) as {
+        r_id: string; r_group_id: string | null; r_billing_key: string;
+        r_invoice_issued: boolean | null; r_inspection_date: string | null; r_paid_date: string | null;
+      } | undefined;
 
       if (sibling?.r_group_id) {
         // 配分グループ（合同案件の費用按分）に入っている売上は、自動で上書きすると
         // 配分先の金額と食い違う。ここでは触らず、財務側の按分編集から先に外してもらう。
         throw new AppError(400, 'REVENUE_IN_ALLOCATION_GROUP',
           '前の版から登録した売上はすでに配分グループに入っています。財務管理の売上台帳から先に配分を外してください');
+      }
+
+      if (sibling && (sibling.r_invoice_issued || sibling.r_inspection_date || sibling.r_paid_date)) {
+        // 請求書発行・検収・入金のどれかが済んだ売上を上書きすると、相手に渡した
+        // 番号付き請求書 (invoice_no は行に残る)・検収書・入金記録と帳簿が黙って
+        // 食い違う。ここでは触らず、財務側で状態を確かめてもらう。
+        throw new AppError(400, 'REVENUE_ALREADY_BILLED',
+          '前の版から登録した売上はすでに請求書の発行・検収・入金のいずれかが済んでいます。発行済みの書類と帳簿が食い違うため上書きできません。財務管理の売上台帳で状態を確認してください');
       }
 
       /*
@@ -862,7 +875,11 @@ export const estimateService = {
         }
       } else {
         // 案件ごとの連番。**削除済みも含めて数える**（`POST /revenues` と同じ数え方 —
-        // ソフトデリート分を除くと連番が再利用され、billing_key が重複しうる）
+        // ソフトデリート分を除くと連番が再利用され、billing_key が重複しうる）。
+        // 数える前に案件行を FOR UPDATE で押さえ、他の採番経路 (POST /revenues・
+        // グループ売上) と直列化する — ロック無しの COUNT だと同時作成が同じ値を
+        // 読み、同じ請求キーの行が2つできる
+        await tx.queryOne(`SELECT id FROM projects WHERE id = $1 FOR UPDATE`, [projectId]);
         const existingCount = ((await tx.queryOne(
           `SELECT COUNT(*) AS c FROM revenues WHERE project_id = $1`,
           [projectId],

@@ -33,7 +33,7 @@ import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
 import { EmptyState, NoSearchResults, ErrorPanel, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import api from '@/lib/api';
-import { useTaskDashboard } from '@/contexts/tasks/hooks/useProjectTasks';
+import { useTaskDashboard, invalidateTasks } from '@/contexts/tasks/hooks/useProjectTasks';
 import DashboardGanttView from '@/contexts/tasks/components/DashboardGantt/DashboardGanttView';
 import TaskDialog from '@/contexts/tasks/components/TaskDialog';
 import { TaskRow, TaskRowsHeader } from './taskList/TaskRows';
@@ -121,8 +121,8 @@ function DesktopTaskDashboard() {
   const toggle = async (t: DashboardTask) => {
     try {
       await api.patch(`/projects/${t.project_id}/tasks/${t.id}/complete`, {});
-      qc.invalidateQueries({ queryKey: ['task-dashboard'] });
-      qc.invalidateQueries({ queryKey: ['project-tasks', t.project_id] });
+      // episodes・task-deadlines も含めて4つ落とす（鍵の対は invalidateTasks に集約）
+      invalidateTasks(qc, t.project_id);
     } catch (err) {
       notifyApiError(t.is_completed ? '完了を取り消せませんでした' : '完了にできませんでした', err);
     }

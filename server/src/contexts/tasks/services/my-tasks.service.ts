@@ -245,7 +245,8 @@ export const myTasksService = {
     if (filter.overdueOnly) where += ` AND ${DUE_EXPR} IS NOT NULL AND ${DUE_EXPR} < NOW()`;
     if (filter.dueToday) where += ` AND ${DUE_EXPR} IS NOT NULL AND ${DUE_EXPR} < (CURRENT_DATE + 1)`;
 
-    const limit = Math.min(Math.max(filter.limit ?? 200, 1), 500);
+    // Number(...) || で NaN も既定値に落とす (`?limit=abc` の NaN が SQL の LIMIT に届くと 500)
+    const limit = Math.min(Math.max(Number(filter.limit) || 200, 1), 500);
     const rows = await queryAll(
       `${SELECT_MY_TASK} ${where} ${ORDER_BY_PRIORITY} LIMIT ?`,
       [...params, limit]
@@ -306,7 +307,8 @@ export const myTasksService = {
                    AND ${col} = ?`;
     if (!opts.includeDone) where += ' AND t.is_completed = FALSE';
 
-    const limit = Math.min(Math.max(opts.limit ?? 200, 1), 500);
+    // Number(...) || で NaN も既定値に落とす (`?limit=abc` の NaN が SQL の LIMIT に届くと 500)
+    const limit = Math.min(Math.max(Number(opts.limit) || 200, 1), 500);
     const rows = await queryAll(
       // 未承諾を先に出す (待たせているものから片づけるため)
       `${SELECT_MY_TASK} ${where}

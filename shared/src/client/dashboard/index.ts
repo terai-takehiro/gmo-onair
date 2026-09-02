@@ -12,4 +12,3 @@ export * from "./DashboardHeader";
 export * from "./KpiCard";
 export * from "./SectionCard";
 export * from "./EmptyState";
-export * from "./chart-colors";

@@ -2509,36 +2509,86 @@ export class ProjectService {
   }
 
   /**
-   * 案件サマリー（売上/仕入/粗利）
+   * 案件サマリー（売上/仕入/粗利）。数え方の実体は `getSummaries` 1本
+   * （2か所に持つと台帳・詳細・キープ資料で同じ案件が違う金額になる）。
    */
   async getSummary(id: string) {
     const project = await queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [id]);
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
+    return (await this.getSummaries([id])).get(id)!;
+  }
+
+  /**
+   * 案件サマリーの一括版。隔週キープの一覧のように行ごとに `getSummary` を
+   * 呼ぶと N+1（1件あたり5クエリ）になる場所用 — 何件でもクエリは4本。
+   * 案件の存在確認はしない（呼び出し元が `projects` を `deleted_at IS NULL` で
+   * JOIN 済みの前提）。渡した id には売上・仕入が1件も無くても必ず 0 埋めで返す。
+   */
+  async getSummaries(ids: string[]): Promise<Map<string, { total_revenue: number; total_purchase: number; gross_profit: number; gross_margin: number }>> {
+    const map = new Map<string, { total_revenue: number; total_purchase: number; gross_profit: number; gross_margin: number }>();
+    if (ids.length === 0) return map;
 
     // 直接売上（group_id なし）+ グループ按分された売上
-    // 明細行がある場合は revenue_items の合計を使う（revenues.amount との乖離を防ぐ）
-    const directRev = await queryOne(
-      `SELECT COALESCE(SUM(
+    // 明細行がある場合は revenue_items の合計を使う（revenues.amount との乖離を防ぐ）。
+    // LATERAL で r.id に相関させること — 非相関の GROUP BY 副問い合わせだと
+    // 外側の絞りが押し込めず、呼ぶたびに revenue_items を全表集計する。
+    // `r.status = 'confirmed'` は台帳の確定売上（TOTAL_REVENUE_SQL）と同じ絞り —
+    // 概算（status='estimate'）を粗利に足さない（既知バグクラス「revenues を
+    // status を見ずに読む」）。按分の側に status が無いのも TOTAL_REVENUE_SQL と同じ。
+    const directRev = await queryAll(
+      `SELECT r.project_id, SUM(
          CASE WHEN ri.items_sum IS NOT NULL THEN ri.items_sum ELSE r.amount END
-       ), 0) as total
+       ) as total
        FROM revenues r
-       LEFT JOIN (
-         SELECT revenue_id, SUM(amount) as items_sum
+       LEFT JOIN LATERAL (
+         SELECT SUM(amount) as items_sum
          FROM revenue_items
-         GROUP BY revenue_id
-       ) ri ON ri.revenue_id = r.id
-       WHERE r.project_id = ? AND r.group_id IS NULL AND r.deleted_at IS NULL`,
-      [id]
-    );
-    const allocatedRev = await queryOne('SELECT COALESCE(SUM(ra.allocated_amount), 0) as total FROM revenue_allocations ra JOIN revenues r ON r.id = ra.revenue_id AND r.deleted_at IS NULL WHERE ra.project_id = ?', [id]);
+         WHERE revenue_id = r.id
+       ) ri ON TRUE
+       WHERE r.project_id = ANY(?) AND r.group_id IS NULL
+         AND r.status = 'confirmed' AND r.deleted_at IS NULL
+       GROUP BY r.project_id`,
+      [ids]
+    ) as { project_id: string; total: unknown }[];
+    const allocatedRev = await queryAll(
+      `SELECT ra.project_id, SUM(ra.allocated_amount) as total
+       FROM revenue_allocations ra
+       JOIN revenues r ON r.id = ra.revenue_id AND r.deleted_at IS NULL
+       WHERE ra.project_id = ANY(?)
+       GROUP BY ra.project_id`,
+      [ids]
+    ) as { project_id: string; total: unknown }[];
     // 直接仕入（group_id なし）+ グループ按分された金額
-    const directPur = await queryOne('SELECT COALESCE(SUM(amount), 0) as total FROM purchases WHERE project_id = ? AND group_id IS NULL AND deleted_at IS NULL', [id]);
-    const allocatedPur = await queryOne('SELECT COALESCE(SUM(pa.allocated_amount), 0) as total FROM purchase_allocations pa JOIN purchases pu ON pu.id = pa.purchase_id AND pu.deleted_at IS NULL WHERE pa.project_id = ?', [id]);
-    const totalRevenue = (Number(directRev?.total) || 0) + (Number(allocatedRev?.total) || 0);
-    const totalPurchase = (Number(directPur?.total) || 0) + (Number(allocatedPur?.total) || 0);
-    const grossProfit = totalRevenue - totalPurchase;
-    const grossMargin = totalRevenue > 0 ? Math.round((grossProfit / totalRevenue) * 1000) / 10 : 0;
-    return { total_revenue: totalRevenue, total_purchase: totalPurchase, gross_profit: grossProfit, gross_margin: grossMargin };
+    const directPur = await queryAll(
+      `SELECT project_id, SUM(amount) as total FROM purchases
+       WHERE project_id = ANY(?) AND group_id IS NULL AND deleted_at IS NULL
+       GROUP BY project_id`,
+      [ids]
+    ) as { project_id: string; total: unknown }[];
+    const allocatedPur = await queryAll(
+      `SELECT pa.project_id, SUM(pa.allocated_amount) as total
+       FROM purchase_allocations pa
+       JOIN purchases pu ON pu.id = pa.purchase_id AND pu.deleted_at IS NULL
+       WHERE pa.project_id = ANY(?)
+       GROUP BY pa.project_id`,
+      [ids]
+    ) as { project_id: string; total: unknown }[];
+
+    const sumBy = (rows: { project_id: string; total: unknown }[]) => {
+      const m = new Map<string, number>();
+      for (const row of rows) m.set(row.project_id, (m.get(row.project_id) ?? 0) + (Number(row.total) || 0));
+      return m;
+    };
+    const rev1 = sumBy(directRev); const rev2 = sumBy(allocatedRev);
+    const pur1 = sumBy(directPur); const pur2 = sumBy(allocatedPur);
+    for (const id of ids) {
+      const totalRevenue = (rev1.get(id) ?? 0) + (rev2.get(id) ?? 0);
+      const totalPurchase = (pur1.get(id) ?? 0) + (pur2.get(id) ?? 0);
+      const grossProfit = totalRevenue - totalPurchase;
+      const grossMargin = totalRevenue > 0 ? Math.round((grossProfit / totalRevenue) * 1000) / 10 : 0;
+      map.set(id, { total_revenue: totalRevenue, total_purchase: totalPurchase, gross_profit: grossProfit, gross_margin: grossMargin });
+    }
+    return map;
   }
 
   async delete(id: string, userId: string) {

@@ -43,7 +43,8 @@ router.get('/:programId', ...canRead, async (req, res) => {
 
 router.get('/:programId/log', ...canRead, async (req, res) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit as string) || 50, 300);
+    // 負の limit は SQL の LIMIT で 500 になるため下限も 1 に固定する
+    const limit = Math.min(300, Math.max(1, parseInt(req.query.limit as string) || 50));
     const rows = await queryAll(
       `SELECT at, platform, level, count, units, message
          FROM liveops_poll_log WHERE program_id = $1

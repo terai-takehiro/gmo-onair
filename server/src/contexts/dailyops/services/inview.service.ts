@@ -5,6 +5,7 @@ import { projectService } from '../../sales/services/project.service';
 import { activityLogService } from '../../sales/services/activity-log.service';
 import { looksLikeGmoGroup } from '../../../shared/services/gmo-group';
 import { createCustomerRecord } from '../../../shared/services/company-directory.service';
+import { jstDate } from '../../../shared/utils/jst';
 
 // 日常業務アプリ (dailyops) — 内覧会 来場予約の service 層。
 // API (inview.routes) と MCP (inview.tools) の両方から使う。
@@ -369,7 +370,7 @@ export const inviewService = {
 
     // 3) 来場を活動記録に (visit)
     const activityDate = (reg.session_date && /^\d{4}-\d{2}-\d{2}$/.test(String(reg.session_date)))
-      ? String(reg.session_date) : new Date().toISOString().slice(0, 10);
+      ? String(reg.session_date) : jstDate();
     await activityLogService.create(
       {
         project_id: project.id,

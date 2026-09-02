@@ -43,21 +43,23 @@ export function CompanySummaryDialog({ open, onOpenChange, company }: {
           <Delayed><SkeletonCard lines={3} /></Delayed>
         ) : summary ? (
           <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-lg border bg-blue-50 dark:bg-blue-950/30 p-3 text-center">
-                <p className="text-xs text-blue-700 dark:text-blue-300">売上</p>
+            {/* 375px では3列に割ると1枠約74pxしか無く、`Money` は改行しないので
+                8桁の金額が隣の枠へはみ出す。狭い幅では縦積みにする */}
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <div className="rounded-lg border border-primary-border bg-primary-surface p-3 text-center">
+                <p className="text-xs text-primary">売上</p>
                 <Money value={summary.revenue.total} inline className="mt-1 justify-center text-sm font-bold" />
-                <p className="text-[10px] text-muted-foreground mt-0.5">{summary.revenue.count}件</p>
+                <p className="text-badge text-muted-foreground mt-0.5">{summary.revenue.count}件</p>
               </div>
-              <div className="rounded-lg border bg-orange-50 dark:bg-orange-950/30 p-3 text-center">
-                <p className="text-xs text-orange-700 dark:text-orange-300">仕入</p>
+              <div className="rounded-lg border border-warning-border bg-warning-surface p-3 text-center">
+                <p className="text-xs text-foreground">仕入</p>
                 <Money value={summary.purchase.total} inline className="mt-1 justify-center text-sm font-bold" />
-                <p className="text-[10px] text-muted-foreground mt-0.5">{summary.purchase.count}件</p>
+                <p className="text-badge text-muted-foreground mt-0.5">{summary.purchase.count}件</p>
               </div>
-              <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/30 p-3 text-center">
-                <p className="text-xs text-amber-700 dark:text-amber-300">販管費</p>
+              <div className="rounded-lg border bg-surface-subtle p-3 text-center">
+                <p className="text-xs text-muted-foreground">販管費</p>
                 <Money value={summary.sga.total} inline className="mt-1 justify-center text-sm font-bold" />
-                <p className="text-[10px] text-muted-foreground mt-0.5">{summary.sga.count}件</p>
+                <p className="text-badge text-muted-foreground mt-0.5">{summary.sga.count}件</p>
               </div>
             </div>
             <div className="rounded-lg border p-3 bg-muted/30">

@@ -9,7 +9,7 @@
  * 直すときは選べません — 種別を変えると保存先のテーブルが変わり、
  * 「直した」ではなく「片方を消してもう片方に作った」ことになるためです。
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -59,8 +59,18 @@ export function CatalogDialog({
 }) {
   const [form, setForm] = useState<CatalogForm>(EMPTY_FORM);
 
+  const prevMode = useRef<DialogMode | null>(null);
   useEffect(() => {
-    if (mode) setForm(toForm(mode, 'video'));
+    const prev = prevMode.current;
+    prevMode.current = mode;
+    if (!mode) return;
+    // 新規のまま種別だけ切り替えたときは入力済みの項目を消さない。
+    // 長さ・色だけはケーブル固有なので空に戻す（残すとコネクタの保存に紛れ込む）
+    if (prev?.kind === 'new' && mode.kind === 'new') {
+      setForm((f) => ({ ...f, length_m: '', color: '' }));
+      return;
+    }
+    setForm(toForm(mode, 'video'));
   }, [mode]);
 
   if (!mode) return null;

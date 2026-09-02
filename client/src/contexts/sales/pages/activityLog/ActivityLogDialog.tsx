@@ -21,7 +21,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FormDialog } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { ACTIVITY_TYPES } from './kinds';
-import { EMPTY_FORM, type ActivityLogRow, type FormData } from './types';
+import { emptyForm, type ActivityLogRow, type FormData } from './types';
 
 interface ProjectOption { id: string; gls_number?: string; code?: string; name: string }
 interface CustomerOption { id: string; name: string }
@@ -49,7 +49,8 @@ export function ActivityLogDialog({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
-  const [form, setForm] = useState<FormData>(editing ? formFromRow(editing) : EMPTY_FORM);
+  // 遅延初期化 — mount のたびに評価し、新規の活動日を「開いた日」のローカル日付にする
+  const [form, setForm] = useState<FormData>(() => (editing ? formFromRow(editing) : emptyForm()));
 
   const { data: projectsData } = useQuery({
     queryKey: ['projects-dropdown'],

@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { getQsheetSocket, disconnectQsheetSocket } from "@/lib/socket";
 import { Button } from "@/components/ui/button";
-import { fmtAbs, docTotalSec } from "@/lib/time";
+import { docTotalSec } from "@/lib/time";
 import { notifySuccess, notifyError } from "@/lib/notify";
 import { useCueActualsRecorder } from "@/hooks/useCueActualsRecorder";
 import { buildCues } from "@/lib/buildCues";
@@ -19,58 +19,7 @@ import {
   Plus,
   Loader2,
 } from "lucide-react";
-
-// ============================================================
-// Helpers
-// ============================================================
-const safe = (n: number) => (isNaN(n) || !isFinite(n)) ? 0 : Math.floor(n);
-
-const mm = (s: number): string => {
-  const v = safe(s);
-  const a = Math.abs(v);
-  const m = Math.floor(a / 60);
-  return `${v < 0 ? "-" : ""}${String(m).padStart(2, "0")}:${String(a % 60).padStart(2, "0")}`;
-};
-
-const hms = (s: number): string => {
-  const sign = s < 0 ? "-" : "";
-  return `${sign}${fmtAbs(Math.abs(s))}`;
-};
-
-const oaFmt = (s: number): string => fmtAbs(s);
-
-// Number display component (Roboto Condensed)
-function F({
-  children,
-  size,
-  weight = 700,
-  color = "#fff",
-  className = "",
-  style = {},
-}: {
-  children: React.ReactNode;
-  size: number;
-  weight?: number;
-  color?: string;
-  className?: string;
-  style?: React.CSSProperties;
-}) {
-  return (
-    <span
-      className={`tabular-nums ${className}`}
-      style={{
-        fontFamily: "'Roboto Condensed','Arial Narrow',sans-serif",
-        fontSize: size,
-        fontWeight: weight,
-        color,
-        letterSpacing: "0.02em",
-        ...style,
-      }}
-    >
-      {children}
-    </span>
-  );
-}
+import { F, mm, hms, oaFmt } from "./onair/onairFormat";
 
 // ============================================================
 // OnAirPage
@@ -259,6 +208,11 @@ export default function OnAirPage() {
   // Socket.IO
   const socketRef = useRef<ReturnType<typeof getQsheetSocket> | null>(null);
   const wasConnectedRef = useRef(false);
+  // next/prev/tog は cue が進む・一時停止するたびに useCallback の識別子が変わる。
+  // socket effect の依存に入れると NEXT のたびに WebSocket が張り直され、
+  // 再接続の隙間で他画面からの transport 操作が失われるため、ref 越しに最新値を読む
+  const liveRef = useRef({ running, go, next, prev, tog, stop });
+  useEffect(() => { liveRef.current = { running, go, next, prev, tog, stop }; });
   useEffect(() => {
     if (!id) return;
     const socket = getQsheetSocket(id);
@@ -272,26 +226,38 @@ export default function OnAirPage() {
     const onDisconnect = () => {
       notifyError("放送同期が切断されました", { description: "ネットワーク接続を確認してください。" });
     };
-    socket.on("connect", onConnect);
-    socket.on("disconnect", onDisconnect);
-    socket.on("cue:next", () => next());
-    socket.on("cue:prev", () => prev());
-    socket.on("cue:jump", (data: { cueIndex: number }) => {
+    const onCueNext = () => liveRef.current.next();
+    const onCuePrev = () => liveRef.current.prev();
+    const onCueJump = (data: { cueIndex: number }) => {
       setCur(data.cueIndex);
       cueStart.current = Date.now();
       setCueEl(0);
-    });
-    socket.on("cue:play", () => { if (!running) go(); });
-    socket.on("cue:pause", () => tog());
-    socket.on("cue:reset", () => stop());
+    };
+    const onCuePlay = () => { if (!liveRef.current.running) liveRef.current.go(); };
+    const onCuePause = () => liveRef.current.tog();
+    const onCueReset = () => liveRef.current.stop();
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+    socket.on("cue:next", onCueNext);
+    socket.on("cue:prev", onCuePrev);
+    socket.on("cue:jump", onCueJump);
+    socket.on("cue:play", onCuePlay);
+    socket.on("cue:pause", onCuePause);
+    socket.on("cue:reset", onCueReset);
     return () => {
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
+      socket.off("cue:next", onCueNext);
+      socket.off("cue:prev", onCuePrev);
+      socket.off("cue:jump", onCueJump);
+      socket.off("cue:play", onCuePlay);
+      socket.off("cue:pause", onCuePause);
+      socket.off("cue:reset", onCueReset);
       disconnectQsheetSocket();
       socketRef.current = null;
       wasConnectedRef.current = false;
     };
-  }, [id, running, go, next, prev, tog, stop]);
+  }, [id]);
 
   useEffect(() => {
     if (!socketRef.current) return;

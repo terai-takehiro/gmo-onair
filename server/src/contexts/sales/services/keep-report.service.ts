@@ -3,7 +3,7 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { projectService } from './project.service';
 import { getMonthlySummary } from '../../finance/services/monthly-summary.service';
-import { listKpt } from './kpt.service';
+import { listKpt, listKptForProjects } from './kpt.service';
 
 // 隔週キープ資料 (報告資料) の基礎データ service。
 // UI (案件管理アプリの報告資料ページ) と MCP ツール (eventreports/budget/minutes.tools) の
@@ -98,9 +98,11 @@ export const keepReportService = {
        LIMIT ?`,
       [...params, limit],
     ) as Record<string, unknown>[];
-    return await Promise.all(rows.map(async (r) => ({
-      ...r,
-      summary: await projectService.getSummary(r.project_id as string),
+    // **行ごとに引かない**（N+1）。行ごとに getSummary（5クエリ）+ listKpt を
+    // 並列に投げると、50行で数百クエリが一斉にプールへ押し寄せる
+    const ids = rows.map((r) => r.project_id as string);
+    const [summaries, kpts] = await Promise.all([
+      projectService.getSummaries(ids),
       /*
        * ⚠️ **確かめた行だけ**（レビューでの指摘 #83）。
        * この一覧は**隔週キープの資料**と MCP の `list_event_reports` が読みます。
@@ -108,8 +110,13 @@ export const keepReportService = {
        * **AI の推測がそのまま実施報告として資料に載ります**
        * （migration 185 が禁じている形。案件詳細のふりかえりでは全部見えます）。
        */
-      kpt: await listKpt(r.project_id as string, { confirmedOnly: true }),
-    })));
+      listKptForProjects(ids, { confirmedOnly: true }),
+    ]);
+    return rows.map((r) => ({
+      ...r,
+      summary: summaries.get(r.project_id as string)!,
+      kpt: kpts.get(r.project_id as string) ?? [],
+    }));
   },
 
   /** レポート未作成の報告候補 (直近 N 日にイベントが終了した / 完了した案件) */
@@ -130,10 +137,12 @@ export const keepReportService = {
        LIMIT 50`,
       [days],
     ) as Record<string, unknown>[];
-    return await Promise.all(rows.map(async (p) => ({
+    // 一覧と同じく行ごとに getSummary を呼ばない（N+1）
+    const summaries = await projectService.getSummaries(rows.map((p) => p.id as string));
+    return rows.map((p) => ({
       ...p,
-      summary: await projectService.getSummary(p.id as string),
-    })));
+      summary: summaries.get(p.id as string)!,
+    }));
   },
 
   /** 渡したフィールドのみ更新 (マージ)。無ければ作成。 */

@@ -73,10 +73,14 @@ export function createGpmRoutes(): Router {
   /**
    * 承認の口（`POST /estimates/:id/approve`）が要求するもの。
    * **承認できるかの判定に混ぜます** — 承認者に決められていても、
-   * `gpm` の編集権限が無ければ押した先は 403 です（案件側と同じ形）。
+   * `sales` の編集権限が無ければ押した先は 403 です（案件側と同じ形）。
+   *
+   * ⚠️ 見るのは **`sales`**。migration 210 で `gpm` モジュールは `sales` に統合され、
+   * `permissions.gpm` は全員 undefined — そちらを読むと system_admin 以外は
+   * 常に false になり、承認者なのに承認ボタンが出ません。
    */
-  const canEditGpm = (req: Request) => meetsPermissionLevel(
-    req.user?.role, req.user?.permissions?.gpm, 'editor',
+  const canEditSales = (req: Request) => meetsPermissionLevel(
+    req.user?.role, req.user?.permissions?.sales, 'editor',
   );
   const canManage = [requireAuth, requirePermission('sales', 'manager')] as const;
 
@@ -294,7 +298,7 @@ export function createGpmRoutes(): Router {
     await assertGpmProject(id);
     const rows = await estimateService.listByProject(id, req.query.include_archived === '1');
     // 「あなたは承認できるか」はサーバーが決める（押して 403 にしない）
-    res.json({ success: true, data: await withCanApprove(rows, req.user!.id, canEditGpm(req)) });
+    res.json({ success: true, data: await withCanApprove(rows, req.user!.id, canEditSales(req)) });
   });
 
   router.post('/projects/:id/estimates', ...canEdit, async (req, res) => {
@@ -326,7 +330,7 @@ export function createGpmRoutes(): Router {
     if (!row || !(await isGpmProject(row.project_id))) {
       throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
     }
-    res.json({ success: true, data: (await withCanApprove([row], req.user!.id, canEditGpm(req)))[0] });
+    res.json({ success: true, data: (await withCanApprove([row], req.user!.id, canEditSales(req)))[0] });
   });
 
   /**
@@ -355,8 +359,9 @@ export function createGpmRoutes(): Router {
    *
    * 案件側の `GET /projects/:pid/estimates/:id/pdf` は **`sales` を要求**するので、
    * `gpm` だけの人は自分のプロジェクトの見積書を出せませんでした
-   * （議事録・書類と同じ形の穴）。ここは `gpm` で通し、**プロジェクトの見積しか
-   * 受け付けません**（`isGpmProject`）。
+   * （議事録・書類と同じ形の穴）。migration 210 で `gpm` は `sales` に統合されたため
+   * いまはこの口も `sales` で通しますが、**プロジェクトの見積しか受け付けない**
+   * （`isGpmProject`）ために口は分けたままです。
    *
    * ── 出すのは reader・BOX に置くのは editor 以上（案件と同じ）──
    *
@@ -371,7 +376,8 @@ export function createGpmRoutes(): Router {
       throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
     }
     const { buffer, filename, projectId } = await buildEstimatePdf(id);
-    const canStore = meetsPermissionLevel(req.user!.role, req.user!.permissions?.gpm, 'editor');
+    // 見るのは `sales`（migration 210 で `gpm` は統合済み・`permissions.gpm` は常に undefined）
+    const canStore = meetsPermissionLevel(req.user!.role, req.user!.permissions?.sales, 'editor');
     applyDocBoxHeaders(res, canStore
       ? await fileFinanceDocToBox(projectId, 'estimate', filename, buffer)
       : docBoxSkipped('estimate', 'NO_PERMISSION'));

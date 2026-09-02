@@ -1,5 +1,5 @@
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
 import { useQuizStackSocket } from '@/quiz/useQuizStackSocket';
@@ -32,7 +32,15 @@ export default function QuizStackOutputNextPage() {
     refetchInterval: 15_000,
   });
 
-  const { nextQuizId } = useQuizStackSocket(eventId || null);
+  const { cue, nextQuizId } = useQuizStackSocket(eventId || null);
+
+  // 正解 (is_correct) はサーバーが correct-reveal まで false にマスクして返すため、
+  // correct-reveal に TAKE されたらキャッシュを再取得しておく (定期再取得は 15s)
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (cue.step !== 'correct-reveal') return;
+    queryClient.invalidateQueries({ queryKey: ['quiz-stack-public', eventId] });
+  }, [cue.step, eventId, queryClient]);
 
   const [scale, setScale] = useState(1);
   const [off, setOff] = useState({ x: 0, y: 0 });

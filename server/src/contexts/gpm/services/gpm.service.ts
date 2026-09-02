@@ -300,19 +300,9 @@ export const projectService = {
               (SELECT COUNT(*)::int FROM gpm_phases ph WHERE ph.project_id = p.id AND ph.state = 'done') AS phase_done,
               (SELECT COUNT(*)::int FROM gpm_open_items oi
                 WHERE oi.project_id = p.id AND oi.status <> 'resolved' AND oi.deleted_at IS NULL) AS open_items,
-              -- 次にやること: 期限がいちばん近い未完了タスク。
-              -- **工程に付いていないタスクも数える** — GLS-B 案件のタスクはどれも
-              -- このプロジェクトのものなので、工程の有無で見え方が変わるほうが分かりにくい。
-              -- 期限は COALESCE(due_at, due_date+18:00) で読む（根源整理 §3-4）—
-              -- due_at だけ見ると、カンバン・標準工程で作られた行が常に最後に回る
-              (SELECT t.title FROM project_tasks t
-                WHERE t.project_id = p.id AND t.is_completed = false AND t.deleted_at IS NULL
-                ORDER BY COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp) NULLS LAST
-                LIMIT 1) AS next_task,
-              (SELECT COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp) FROM project_tasks t
-                WHERE t.project_id = p.id AND t.is_completed = false AND t.deleted_at IS NULL
-                ORDER BY COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp) NULLS LAST
-                LIMIT 1) AS next_due,
+              -- 次にやること（next_t の LATERAL 参照）
+              next_t.title AS next_task,
+              next_t.next_due AS next_due,
               -- お金の列（モックの money = 「個別見積 v2 提出済」）。
               -- 金額は案件一覧と同じ式（ESTIMATE_AMOUNT_LATERAL）、
               -- 版と状態は**いちばん新しい1本**から採る（何本ぶら下がっていても
@@ -338,6 +328,19 @@ export const projectService = {
               AND e.status NOT IN ('superseded', 'rejected')
             ORDER BY e.updated_at DESC, e.version DESC LIMIT 1
          ) last_est ON TRUE
+         -- 次にやること: 期限がいちばん近い未完了タスク。
+         -- **工程に付いていないタスクも数える** — GLS-B 案件のタスクはどれも
+         -- このプロジェクトのものなので、工程の有無で見え方が変わるほうが分かりにくい。
+         -- 期限は COALESCE(due_at, due_date+18:00) で読む（根源整理 §3-4）—
+         -- due_at だけ見ると、カンバン・標準工程で作られた行が常に最後に回る。
+         -- title と期限を1つの LATERAL で採る（別々の相関サブクエリだと同じ走査が2回になる）
+         LEFT JOIN LATERAL (
+           SELECT t.title, COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp) AS next_due
+             FROM project_tasks t
+            WHERE t.project_id = p.id AND t.is_completed = false AND t.deleted_at IS NULL
+            ORDER BY COALESCE(t.due_at, (t.due_date + TIME '18:00')::timestamp) NULLS LAST
+            LIMIT 1
+         ) next_t ON TRUE
         WHERE ${conds.join(' AND ')}
         ORDER BY CASE p.stage WHEN 'a_won' THEN 0 WHEN 'b_verbal' THEN 1 WHEN 'c_proposal' THEN 2
                               WHEN 'd_hold' THEN 3 WHEN 'neta' THEN 4 WHEN 's_completed' THEN 5 ELSE 6 END,
@@ -687,12 +690,16 @@ export const memberService = {
    */
   async reorder(projectId: string, items: Array<{ id: string; sort_order: number }>): Promise<void> {
     await assertProject(projectId);
-    for (const item of items) {
-      await execute(
-        'UPDATE gpm_members SET sort_order = ? WHERE id = ? AND project_id = ?',
-        [item.sort_order, item.id, projectId],
-      );
-    }
+    // 1トランザクションで適用する。行ごとの UPDATE だと、途中失敗や同時の並び替えで
+    // どちらのリクエストとも違う混ざった順序が残る
+    await withTransaction(async (tx) => {
+      for (const item of items) {
+        await tx.execute(
+          'UPDATE gpm_members SET sort_order = ? WHERE id = ? AND project_id = ?',
+          [item.sort_order, item.id, projectId],
+        );
+      }
+    });
   },
 };
 

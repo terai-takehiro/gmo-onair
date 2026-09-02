@@ -133,6 +133,11 @@ function AddEpisodesDialog({
     mutationFn: () => api.post(`/projects/${projectId}/episodes/batch`, { episodes: text }),
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ['episodes', projectId] });
+      // サーバーは `revenue_budget_per_episode` 付きの呼び出しで回ごとに売上行も作る。
+      // この画面は単価を送らないが、「頻度で作る」側と同じ対で落としておく
+      // （片方だけだと将来単価を配線した日に「作ったのに古いまま」が再発する）
+      qc.invalidateQueries({ queryKey: ['revenues'] });
+      qc.invalidateQueries({ queryKey: ['revenues-all'] });
       const n = Array.isArray(r.data?.data) ? r.data.data.length : (previewNumbers?.length ?? 1);
       notifySuccess(`回を${n}件足しました`);
       onOpenChange(false);
@@ -163,12 +168,15 @@ function AddEpisodesDialog({
       }
     >
       <div className="flex flex-col gap-3">
-        <div role="tablist" aria-label="回の作り方を切り替える" className="grid grid-cols-2 gap-1.5">
+        {/* タブの ARIA (tab/tablist) は名乗らない — 矢印キー移動・tabpanel を
+            実装していないので、読み上げに「タブ」と言うと約束と挙動が食い違う。
+            押した状態を持つボタンの組 (aria-pressed) として出す */}
+        <div role="group" aria-label="回の作り方を切り替える" className="grid grid-cols-2 gap-1.5">
           {([['text', '話数で指定'], ['frequency', '頻度で作る']] as const).map(([key, label]) => {
             const on = mode === key;
             return (
               <button
-                key={key} type="button" role="tab" aria-selected={on}
+                key={key} type="button" aria-pressed={on}
                 onClick={() => setMode(key)}
                 className={`min-h-tap rounded-control border text-sub ${
                   on ? 'border-primary-border bg-primary-surface font-bold text-primary' : 'border-border text-muted-foreground'

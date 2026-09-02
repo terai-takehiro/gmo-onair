@@ -136,6 +136,12 @@ export default function BillingListPage() {
       api.patch(`/billing/invoices/${p.id}`, { [p.field]: p.value }),
     onSuccess: (_r, p) => {
       qc.invalidateQueries({ queryKey: ['billing'] });
+      // この PATCH は revenues テーブルを書く。`['revenues']` は案件詳細
+      // （`['revenues','project',projectId]`）に前方一致で当たるが、
+      // 財務③ 売上台帳（`['revenues-all',…]`）には当たらない。両方落とす
+      // （`closing/MobileCollect.tsx` と同じ対）。
+      qc.invalidateQueries({ queryKey: ['revenues'] });
+      qc.invalidateQueries({ queryKey: ['revenues-all'] });
       // 入金は財務の数字にも効くので、あちらも読み直す
       qc.invalidateQueries({ queryKey: ['dashboard', 'sales-overview'] });
       notifySuccess(p.value ? '記録しました' : '取り消しました');

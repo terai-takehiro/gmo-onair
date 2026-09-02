@@ -53,6 +53,9 @@ export function TaxHelperButton({
   const [open, setOpen] = React.useState(false);
   const [step, setStep] = React.useState<"ask" | "rate">("ask");
   const [includedAmount, setIncludedAmount] = React.useState<string>("");
+  // htmlFor/id を結ばないとラベルをタップしても欄にフォーカスが移らず、
+  // 読み上げでも金額欄が名無しになる (同一画面に複数置かれるので useId で衝突を避ける)
+  const inputId = React.useId();
 
   const openHelper = () => {
     setStep("ask");
@@ -104,8 +107,9 @@ export function TaxHelperButton({
           {step === "ask" && (
             <div className="space-y-4">
               <div>
-                <Label className="text-xs">入力する金額</Label>
+                <Label htmlFor={inputId} className="text-xs">入力する金額</Label>
                 <Input
+                  id={inputId}
                   type="number"
                   value={includedAmount}
                   onChange={(e) => setIncludedAmount(e.target.value)}

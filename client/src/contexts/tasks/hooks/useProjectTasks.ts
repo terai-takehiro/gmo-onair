@@ -166,7 +166,7 @@ export function useProjectTasks(
  * もう無い締め切りに向けて動いてしまう。鍵の正は
  * `contexts/production/pages/calendar/taskLayer.ts` の `TASK_DEADLINE_KEY`。
  */
-const invalidateTasks = (qc: ReturnType<typeof useQueryClient>, projectId: string) => {
+export const invalidateTasks = (qc: ReturnType<typeof useQueryClient>, projectId: string) => {
   qc.invalidateQueries({ queryKey: ["project-tasks", projectId] });
   qc.invalidateQueries({ queryKey: ["task-dashboard"] });
   qc.invalidateQueries({ queryKey: ["episodes", projectId] });

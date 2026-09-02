@@ -1,5 +1,6 @@
 import PDFDocument from 'pdfkit';
 import { registerNotoFonts } from '../utils/pdf-fonts';
+import { jstDate } from '../utils/jst';
 
 const COMPANY = {
   name:   'GMOグローバルスタジオ株式会社',
@@ -77,7 +78,7 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
       const isEstimate   = data.status === 'estimate';
       const isInspection = data.status === 'inspection'; // 検収書 (金額を伏せ 数量・単位のみ)
       const showMoney    = !isInspection;
-      const docDate    = data.billing_date || data.recognition_date || new Date().toISOString().slice(0, 10);
+      const docDate    = data.billing_date || data.recognition_date || jstDate();
       const items      = Array.isArray(data.items) ? data.items : [];
 
       const listPrice     = items.reduce((s, it) => s + Math.max(0, it.amount || 0), 0);

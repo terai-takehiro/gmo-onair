@@ -61,6 +61,7 @@ import api from '@/lib/api';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { PcOnlyPanel } from '@gmo-onair/shared/src/client-v4/pcOnly';
+import { useDebounced } from '@gmo-onair/shared/src/client/hooks/useDebounced';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { EmptyState, NoSearchResults, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { Pagination } from '@gmo-onair/shared/src/client/ui/pagination';
@@ -127,6 +128,9 @@ export default function ActivityLogPage() {
 
   // ── 記録タブ ──────────────────────────────────────────────
   const [search, setSearch] = useState('');
+  // 遅らせるのは**問い合わせに渡す値だけ**で、入力欄は `search`（即時）のまま
+  // （売上台帳 `RevenueListPage.tsx` と同じ形。1文字ごとに問い合わせない）
+  const appliedSearch = useDebounced(search.trim(), 300);
   const [typeFilter, setTypeFilter] = useState('');
   const [originFilter, setOriginFilter] = useState<OriginFilter>('');
   // **`?sort=next_action` は初回だけ読む**（`tab` と違い並び順まで URL に
@@ -142,16 +146,19 @@ export default function ActivityLogPage() {
   const actions = useNextActionActions();
 
   const query = useQuery<ActivityLogListResponse>({
-    queryKey: ['activity-logs', page, search, typeFilter, originFilter, sort],
-    queryFn: async () => {
+    queryKey: ['activity-logs', page, appliedSearch, typeFilter, originFilter, sort],
+    // ⚠️ `signal` を渡す（渡さないと、絞り込みを変えても前の重い通信が走り続ける）
+    queryFn: async ({ signal }) => {
       const params: Record<string, string | number> = { page, limit: 20 };
-      if (search) params.search = search;
+      if (appliedSearch) params.search = appliedSearch;
       if (typeFilter) params.activity_type = typeFilter;
       if (originFilter) params.origin = originFilter;
       if (sort !== 'date') params.sort = sort;
-      return (await api.get('/activity-logs', { params })).data;
+      return (await api.get('/activity-logs', { params, signal })).data;
     },
     enabled: tab === 'log',
+    // 打鍵のたびに一覧が骨組みへ戻らないように、前の内容を残す
+    placeholderData: (prev) => prev,
   });
   const rows = query.data?.data ?? [];
 
@@ -273,9 +280,11 @@ export default function ActivityLogPage() {
           ) : query.isLoading ? (
             <Delayed><SkeletonRows rows={6} /></Delayed>
           ) : rows.length === 0 ? (
-            search || typeFilter || originFilter ? (
+            // 「0件でした」の判定は遅らせた値で行う（即時の `search` だと
+            // まだ問い合わせていない言葉で「該当なし」が一瞬出る）
+            appliedSearch || typeFilter || originFilter ? (
               <NoSearchResults
-                keyword={search}
+                keyword={appliedSearch}
                 activeFilters={[
                   typeFilter ? '種別で絞り込み中' : '',
                   originFilter ? `入力元: ${originFilter === 'ai' ? 'AI作成' : '手入力'}` : '',

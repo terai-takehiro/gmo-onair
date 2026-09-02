@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { queryAll, queryOne, execute } from '../../../shared/db/connection';
+import { queryAll, queryOne, execute, withTransaction } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 
 export interface TaskColumn {
@@ -235,13 +235,17 @@ export const taskColumnsService = {
     items: Array<{ id: string; sort_order: number }>,
     userId: string
   ): Promise<void> {
-    for (const item of items) {
-      await execute(
-        `UPDATE task_columns SET sort_order = $1, updated_at = NOW(), updated_by = $2
-         WHERE id = $3 AND project_id = $4 AND deleted_at IS NULL`,
-        [item.sort_order, userId, item.id, projectId]
-      );
-    }
+    // 1トランザクションで適用する。行ごとの UPDATE だと、途中失敗や同時の並び替えで
+    // どちらのリクエストとも違う混ざった順序が残る
+    await withTransaction(async (tx) => {
+      for (const item of items) {
+        await tx.execute(
+          `UPDATE task_columns SET sort_order = $1, updated_at = NOW(), updated_by = $2
+           WHERE id = $3 AND project_id = $4 AND deleted_at IS NULL`,
+          [item.sort_order, userId, item.id, projectId]
+        );
+      }
+    });
   },
 
   async delete(id: string, userId: string): Promise<void> {

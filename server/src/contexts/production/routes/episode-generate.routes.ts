@@ -27,6 +27,7 @@ import {
 } from '../services/episodeGenerate.service';
 import { broadcastTypeIncludes } from './episodes.routes';
 import { taskColumnsService, REGULAR_EPISODE_TEMPLATE_ID } from '../../tasks/services/task-columns.service';
+import { jstDate } from '../../../shared/utils/jst';
 
 const router = Router();
 
@@ -75,7 +76,7 @@ router.post('/:projectId/episodes/generate', requirePermission('sales', 'editor'
   const isLive = broadcastTypeIncludes(project.broadcast_type, 'live');
   const revPerEp = revenue_budget_per_episode || 0;
   const customerId = project.customer_id;
-  const today = order_date || new Date().toISOString().split('T')[0];
+  const today = order_date || jstDate();
   const userId = req.user!.id;
   const plannedDates = plan.map((p) => p.date);
 

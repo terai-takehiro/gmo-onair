@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
+import { useDebounced } from '@gmo-onair/shared/src/client/hooks/useDebounced';
 import type { DisplayLayout } from '@gmo-onair/shared/src/client/live/displayLayout';
 import { DisplayLayoutMiniPreview } from './DisplayLayoutMiniPreview';
 import { SaveCurrentTemplateDialog, ApplyTemplateDialog, DeleteTemplateDialog } from './DisplayTemplateDialogs';
@@ -80,13 +81,15 @@ export default function LiveDisplayTemplateLibraryPage() {
   const qc = useQueryClient();
 
   const [q, setQ] = useState('');
+  // 問い合わせの鍵に渡すのは遅らせた値だけ（1文字ごとに問い合わせない）。入力欄は q のまま
+  const dq = useDebounced(q);
   const [applyTarget, setApplyTarget] = useState<TemplateRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TemplateRow | null>(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
 
   const templatesQuery = useQuery({
-    queryKey: ['display-templates', q],
-    queryFn: () => api.get('/liveops/display-templates', { params: q ? { q } : undefined }).then((r) => r.data.data as TemplateRow[]),
+    queryKey: ['display-templates', dq],
+    queryFn: () => api.get('/liveops/display-templates', { params: dq ? { q: dq } : undefined }).then((r) => r.data.data as TemplateRow[]),
   });
 
   const fromTimerLayoutQuery = useQuery({
@@ -130,8 +133,9 @@ export default function LiveDisplayTemplateLibraryPage() {
       ) : templates.length === 0 && !showSaveTile ? (
         <EmptyState
           icon={<LayoutTemplate />}
-          title={q ? '該当するテンプレートがありません' : 'テンプレートがありません'}
-          description={q ? '検索条件を変えてお試しください。' : 'タイマー管理からレイアウトを編集し、「テンプレート」→「現在のレイアウトを保存」で最初のテンプレートを作れます。'}
+          // 「0件でした」の判定は遅らせた値で行う（まだ問い合わせていない言葉で「該当なし」を出さない）
+          title={dq ? '該当するテンプレートがありません' : 'テンプレートがありません'}
+          description={dq ? '検索条件を変えてお試しください。' : 'タイマー管理からレイアウトを編集し、「テンプレート」→「現在のレイアウトを保存」で最初のテンプレートを作れます。'}
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

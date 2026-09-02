@@ -60,12 +60,18 @@ export default function TemplatePickerDialog({ open, onClose, projectId }: Props
                   <p className="text-xs text-muted-foreground mb-2">{tpl.description}</p>
                 )}
                 <div className="flex flex-wrap gap-1">
+                  {/* 列の色は点で示す（`KanbanColumn.tsx` と同じ形）。チップの地色にすると
+                      シード色 #facc15 / #4ade80 で白文字が読めない（約1.6:1） */}
                   {tpl.columns.map((col) => (
                     <span
                       key={col.id}
-                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-white"
-                      style={{ backgroundColor: col.color ?? "#94a3b8" }}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-xs font-bold"
                     >
+                      <span
+                        className="inline-block h-2 w-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: col.color ?? "#94a3b8" }}
+                        aria-hidden="true"
+                      />
                       {col.name}
                     </span>
                   ))}

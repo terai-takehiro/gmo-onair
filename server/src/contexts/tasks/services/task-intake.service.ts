@@ -524,6 +524,22 @@ export const taskIntakeService = {
     }
 
     const created = await withTransaction(async (tx) => {
+      /*
+       * ⚠️ **印の確認は取引の中で、行を押さえてから行う**（`FOR UPDATE`）。
+       * 上の事前チェックだけだと、二度押し・再送で両方が `pending` を読んでしまい、
+       * `idempotency_key` の無い行き先（task / minutes）が二重に作られる。
+       * 2本目はここで待たされ、押さえたときには 'committed' を見て何も書かずに抜ける。
+       */
+      const locked = await tx.queryOne(
+        'SELECT status FROM task_intake WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
+        [intakeId]
+      ) as { status: string } | undefined;
+      if (!locked) {
+        throw new AppError(404, 'NOT_FOUND', '投入が見つかりません');
+      }
+      if (locked.status === 'committed') {
+        throw new AppError(400, 'VALIDATION_ERROR', 'この投入はすでに登録済みです');
+      }
       const out: { dest: IntakeDest; id: string; title: string }[] = [];
       for (const t of rows) {
         const dest = normalizeDest(t.dest);
@@ -808,7 +824,8 @@ export const taskIntakeService = {
     }
     if (opts.kind) { where += ' AND i.kind = ?'; params.push(opts.kind); }
 
-    const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
+    // Number(...) || で NaN も既定値に落とす (`?limit=abc` の NaN が SQL の LIMIT に届くと 500)
+    const limit = Math.min(Math.max(Number(opts.limit) || 50, 1), 200);
     const rows = await queryAll(
       `${SELECT_INTAKE} ${where} ORDER BY i.created_at DESC LIMIT ?`,
       [...params, limit]

@@ -1,5 +1,5 @@
 // 編集 / 作成ダイアログ。
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -99,6 +99,16 @@ export function TaskEditDialog({ task, onClose }: { task: MyTask; onClose: () =>
   const [err, setErr] = useState<string | null>(null);
   const isDelegation = !!task.requester_id;
   const score = imp * (due ? urg : 1);
+
+  // 開いたまま裏で一覧が invalidate されて `task` の値が変わっても、
+  // 保存が古い値の全項目 PATCH で相手の更新を巻き戻さないよう再同期する
+  useEffect(() => {
+    setTitle(task.title);
+    setDue(toLocalInput(task.due_at));
+    setImp(task.importance);
+    setUrg(task.urgency);
+    setVis(task.visibility);
+  }, [task.id, task.title, task.due_at, task.importance, task.urgency, task.visibility]);
 
   const save = () => {
     setErr(null);

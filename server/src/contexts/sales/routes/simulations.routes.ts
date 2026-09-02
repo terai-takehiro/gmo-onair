@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { queryAll, queryOne, execute } from '../../../shared/db/connection';
+import { queryAll, queryOne, execute, withTransaction } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { findLatestAiOutput, recordCorrections, diffByKey } from '../../../shared/services/ai-output.service';
@@ -79,23 +79,27 @@ router.put('/:id/simulation', requirePermission('sales', 'editor'), async (req, 
     );
   }
 
-  await execute(`DELETE FROM simulations WHERE project_id = ?`, [req.params.id]);
-
-  for (const item of items) {
-    await execute(
-      `INSERT INTO simulations (id, project_id, pricing_item_id, quantity, days, unit_price, subtotal, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'final')`,
-      [uuidv4(), req.params.id, item.pricing_item_id, item.quantity ?? 0, item.days ?? 0, item.unit_price ?? 0, item.subtotal ?? 0]
-    );
-  }
-
-  // シミュレーション合計を expected_amount として案件に即時反映（リロードで消えないように）
+  // DELETE→INSERT の全置換は必ず1トランザクションで行う (estimate.service.replaceItems と同じ)。
+  // 外に出すと INSERT の途中失敗 (FK違反・接続断) で既存のシミュレーションが消えたままになる。
   const totalAmount = items.reduce((sum: number, it: any) => sum + (Number(it.subtotal) || 0), 0);
-  if (totalAmount > 0) {
-    await execute(
-      `UPDATE projects SET expected_amount = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`,
-      [totalAmount, req.params.id]
-    );
-  }
+  await withTransaction(async (tx) => {
+    await tx.execute(`DELETE FROM simulations WHERE project_id = ?`, [req.params.id]);
+
+    for (const item of items) {
+      await tx.execute(
+        `INSERT INTO simulations (id, project_id, pricing_item_id, quantity, days, unit_price, subtotal, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'final')`,
+        [uuidv4(), req.params.id, item.pricing_item_id, item.quantity ?? 0, item.days ?? 0, item.unit_price ?? 0, item.subtotal ?? 0]
+      );
+    }
+
+    // シミュレーション合計を expected_amount として案件に即時反映（リロードで消えないように）
+    if (totalAmount > 0) {
+      await tx.execute(
+        `UPDATE projects SET expected_amount = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`,
+        [totalAmount, req.params.id]
+      );
+    }
+  });
 
   const saved = await queryAll(SIM_SELECT, [req.params.id]);
   res.json({ success: true, data: saved });

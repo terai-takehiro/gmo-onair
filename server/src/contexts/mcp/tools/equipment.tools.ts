@@ -6,6 +6,7 @@ import { inventoryService } from '../../equipment/services/inventory.service';
 import { queryOne } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { ok, runTool, clampLimit, audit, REQUESTED_BY, currentActorId } from '../helpers';
+import { jstDate } from '../../../shared/utils/jst';
 
 // 機材管理 (equipment) の MCP ツール — itemService / lendingService / inventoryService を再利用。
 // UI と同じ絞り込み・書き込みロジックを通るため、画面と同じ結果・同じ副作用になる。
@@ -28,7 +29,7 @@ const EQUIPMENT_TYPE_CODES = ['V', 'C', 'A', 'IC', 'NW', 'L', 'XR', 'E'] as cons
 const LENDING_STATUSES = ['lent', 'planned', 'returned', 'overdue', 'lost'] as const;
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return jstDate();
 }
 
 /** eq_code (機材ID・例 Y-C-00001) か equipment_id (UUID) から機材の内部 id を解決する */

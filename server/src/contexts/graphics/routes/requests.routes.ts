@@ -10,10 +10,11 @@ import {
 // 発注（テロ原）の CRUD。graphics.md §3「発注 → 作画」の入口 —
 // ディレクターがスマホから軽い文言だけを投げ、デザイナーがハブの「未作画」列から拾う。
 //
-// 権限は projects/pages と同じ qsheet 区画だが、**発注の作成だけは reader のまま
-// （requirePermission の既定 minLevel）で通す**。ディレクターが編集権限を持たない
-// ケースを想定しているため、ここだけ意図的に緩い（他の書き込み系ルートは
-// 既存の運用に合わせて reader のまま — qsheet の書き込みは全体的に reader 可）。
+// 権限は projects/pages と同じ qsheet 区画だが、**発注の作成（POST）だけは reader のまま
+// （requirePermission の既定 minLevel）で通す**。ディレクターが編集権限を持たずに
+// スマホから発注を投げるケースを想定した、このモジュールで唯一の例外。
+// PUT（状態変更・ページ化の紐づけ）と DELETE は他人の発注にも効くので、
+// qsheet の他の書き込み系（documents.routes.ts 等）と同じく editor を要求する。
 
 const router = Router();
 router.use(requireAuth, requirePermission('qsheet'));
@@ -85,7 +86,7 @@ router.get('/projects/:id/requests', wrap(async (req, res) => {
 }));
 
 // ── 部分更新（status の変更・ページ化での紐づけ） ───────────────────
-router.put('/requests/:id', wrap(async (req, res) => {
+router.put('/requests/:id', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const existing = id && !isNaN(id)
     ? await queryOne(`SELECT * FROM graphics_requests WHERE id = ?`, [id])
@@ -126,8 +127,8 @@ router.put('/requests/:id', wrap(async (req, res) => {
   res.json({ success: true, data: mapRequest(row!) });
 }));
 
-// ── 削除（誤操作の取消用） ────────────────────────────────────────
-router.delete('/requests/:id', wrap(async (req, res) => {
+// ── 削除（誤操作の取消用）。他人の発注も消せる口なので editor 以上 ─────────
+router.delete('/requests/:id', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const existing = id && !isNaN(id)
     ? await queryOne(`SELECT id FROM graphics_requests WHERE id = ?`, [id])

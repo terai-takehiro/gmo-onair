@@ -8,7 +8,7 @@
 const DOC_NO_RE = /^[A-Z]{2,4}-\d{6}-\d{4}$/;
 
 /** `doc_no` の書式に合っているか（表示前のガード。壊れた値をそのまま出さない） */
-export function isDocNo(value: unknown): value is string {
+function isDocNo(value: unknown): value is string {
   return typeof value === 'string' && DOC_NO_RE.test(value);
 }
 

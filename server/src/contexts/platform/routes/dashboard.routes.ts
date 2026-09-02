@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { queryAll, queryOne } from '../../../shared/db/connection';
 import { requireAuth, requirePermission, requireAnyPermission } from '../../../shared/middleware/auth';
+import { jstDate, shiftYmd } from '../../../shared/utils/jst';
 import { config } from '../../../config';
 import { getSalesOverview } from '../services/salesOverview.service';
 import { getAppBadges } from '../services/appBadges.service';
@@ -602,31 +603,37 @@ router.get('/ai-inbox', async (_req, res) => {
 // 上位互換なため。mcp_audit_log への書き込み自体（監査ログ）はここでは触っていない。
 
 router.get('/weekly-schedule', async (_req, res) => {
-  const now = new Date();
   const days: Array<{ date: string; dayLabel: string; events: unknown[] }> = [];
   const dayLabels = ['日', '月', '火', '水', '木', '金', '土'];
 
-  // 今日起点の 7 日間 (「今後のスケジュール」— 過ぎた曜日は表示しない)
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(now);
-    d.setDate(d.getDate() + i);
-    const dateStr = d.toISOString().split('T')[0];
+  // 今日起点の 7 日間 (「今後のスケジュール」— 過ぎた曜日は表示しない)。
+  // 「今日」は JST で決める — コンテナは UTC で動く（jst.ts 冒頭）ので、
+  // toISOString() だと JST 00:00〜08:59 は前日始まりの週になる
+  const startStr = jstDate();
+  const endStr = shiftYmd(startStr, 6);
 
-    const projects = await queryAll(
-      `SELECT p.id, p.gls_number, p.name, p.stage, 'event' as type
+  // トップページ（TodayCard）と案件管理ダッシュボードが叩く最頻経路。
+  // 以前は 7 日 × 3 テーブル = 21 回の逐次クエリだったので、7 日ぶんを
+  // 各テーブル 1 回の範囲クエリで読み、日ごとの振り分けは JS で行う
+  // （各日の判定は旧実装の SQL と同じ式。日付は全列 TEXT/DATE文字列なので文字列比較でよい）
+  const [projects, episodes, bookings] = await Promise.all([
+    // event_start/event_end は振り分け用に足した列。応答に出す前に取り除く
+    queryAll(
+      `SELECT p.id, p.gls_number, p.name, p.stage, p.event_start, p.event_end, 'event' as type
        FROM projects p WHERE p.deleted_at IS NULL AND p.gls_number IS NOT NULL
-       AND (p.event_start <= ? AND p.event_end >= ? OR p.event_start = ?)`,
-      [dateStr, dateStr, dateStr]
-    );
-    const episodes = await queryAll(
+       AND (p.event_start <= ? AND p.event_end >= ? OR p.event_start >= ? AND p.event_start <= ?)`,
+      [endStr, startStr, startStr, endStr]
+    ),
+    queryAll(
       `SELECT e.episode_code, e.recording_date, e.broadcast_date, p.gls_number, p.name as project_name
        FROM episodes e JOIN projects p ON p.id = e.project_id
-       WHERE e.deleted_at IS NULL AND (e.recording_date = ? OR e.broadcast_date = ?)`,
-      [dateStr, dateStr]
-    );
+       WHERE e.deleted_at IS NULL
+       AND (e.recording_date BETWEEN ? AND ? OR e.broadcast_date BETWEEN ? AND ?)`,
+      [startStr, endStr, startStr, endStr]
+    ),
     // スタジオ予約 (メンテナンス・リハーサル・仮押さえ等の全種別)。
     // start_time/end_time は TEXT (ISO文字列) のため日付先頭 10 桁の文字列比較 (v2.9.144 と同方式)
-    const bookings = await queryAll(
+    queryAll(
       // v4: 時刻も返す。トップページの「今日の予定」を時間順に並べるため。
       // 案件の本番日・収録日は日付しか持たないので、時刻を持つのは予約だけになる
       // (画面はそれを「終日」として扱う)。
@@ -636,13 +643,35 @@ router.get('/weekly-schedule', async (_req, res) => {
        WHERE b.deleted_at IS NULL
        AND substr(b.start_time, 1, 10) <= ?
        AND substr(COALESCE(NULLIF(b.end_time, ''), b.start_time), 1, 10) >= ?`,
-      [dateStr, dateStr]
+      [endStr, startStr]
+    ),
+  ]);
+
+  for (let i = 0; i < 7; i++) {
+    const dateStr = shiftYmd(startStr, i);
+
+    const dayProjects = projects
+      .filter((p: any) => (p.event_start <= dateStr && p.event_end >= dateStr) || p.event_start === dateStr)
+      .map((p: any) => {
+        const row = { ...p };
+        delete row.event_start;
+        delete row.event_end;
+        return row;
+      });
+    const dayEpisodes = episodes.filter(
+      (ep: any) => ep.recording_date === dateStr || ep.broadcast_date === dateStr
     );
+    const dayBookings = bookings.filter((b: any) => {
+      // COALESCE(NULLIF(end_time,''), start_time) と同じ: 終了が無い予約は開始日=終了日
+      const bStart = (b.start_time || '').slice(0, 10);
+      const bEnd = (b.end_time || b.start_time || '').slice(0, 10);
+      return bStart <= dateStr && bEnd >= dateStr;
+    });
 
     // 本番予約 (performance) は案件のイベント期間 ('event') と重複しやすいので、
     // 同じ案件がその日に既に出ている場合はスキップ (他の種別はすべて表示)
-    const projectIds = new Set(projects.map((p: any) => p.id));
-    const bookingEvents = bookings
+    const projectIds = new Set(dayProjects.map((p: any) => p.id));
+    const bookingEvents = dayBookings
       .filter((b: any) => !(b.booking_type === 'performance' && b.project_id && projectIds.has(b.project_id)))
       .map((b: any) => ({
         id: b.id, name: b.name, gls_number: b.gls_number, booking_type: b.booking_type,
@@ -653,8 +682,9 @@ router.get('/weekly-schedule', async (_req, res) => {
 
     days.push({
       date: dateStr,
-      dayLabel: dayLabels[d.getDay()],
-      events: [...projects, ...episodes.map((ep: any) => ({
+      // 曜日は JST の日付文字列から出す（UTC 固定で読めば時間帯に依存しない）
+      dayLabel: dayLabels[new Date(`${dateStr}T00:00:00Z`).getUTCDay()],
+      events: [...dayProjects, ...dayEpisodes.map((ep: any) => ({
         ...ep,
         /*
          * ⚠️ **名前を必ず入れる**（レビューでの指摘 #55）。
@@ -672,37 +702,68 @@ router.get('/weekly-schedule', async (_req, res) => {
 });
 
 router.get('/monthly-chart', async (_req, res) => {
-  const months: Array<{ month: string; revenue: number; purchase: number; sga: number; gross_profit: number; operating_profit: number }> = [];
   const now = new Date();
+  // 直近 12 か月の YYYY-MM（古い月 → 新しい月）
+  const yms: string[] = [];
   for (let i = 11; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    const monthStart = `${ym}-01`;
-    const monthEnd = `${ym}-31`;
-    const rev = await queryOne(`SELECT COALESCE(SUM(amount),0) as total FROM revenues WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [monthStart, monthEnd]);
-    const pur = await queryOne(`SELECT COALESCE(SUM(amount),0) as total FROM purchases WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [monthStart, monthEnd]);
-    const sgaNonAmortizedRow = await queryOne(
-      `SELECT COALESCE(SUM(amount),0) as total FROM sga_expenses
+    yms.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+  const rangeStart = `${yms[0]}-01`;
+  const rangeEnd = `${yms[yms.length - 1]}-31`;
+
+  // 以前は 12 か月 × 4 = 48 回の逐次クエリで同じ3表を12回ずつ走査していた。
+  // 12 か月ぶんを月ごとの GROUP BY でまとめて読む（recognition_date は TEXT の
+  // YYYY-MM-DD なので substr で月が取れる）。月ごとの数字は変えない
+  const [revRows, purRows, sgaNonAmortizedRows, sgaAmortizedRows] = await Promise.all([
+    queryAll(
+      `SELECT substr(recognition_date, 1, 7) as ym, COALESCE(SUM(amount),0) as total FROM revenues
        WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL
-       AND (amortize_start IS NULL OR amortize_start = '')`,
-      [monthStart, monthEnd]
-    );
-    const sgaAmortizedRows = await queryAll(
+       GROUP BY substr(recognition_date, 1, 7)`,
+      [rangeStart, rangeEnd]
+    ),
+    queryAll(
+      `SELECT substr(recognition_date, 1, 7) as ym, COALESCE(SUM(amount),0) as total FROM purchases
+       WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL
+       GROUP BY substr(recognition_date, 1, 7)`,
+      [rangeStart, rangeEnd]
+    ),
+    queryAll(
+      `SELECT substr(recognition_date, 1, 7) as ym, COALESCE(SUM(amount),0) as total FROM sga_expenses
+       WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL
+       AND (amortize_start IS NULL OR amortize_start = '')
+       GROUP BY substr(recognition_date, 1, 7)`,
+      [rangeStart, rangeEnd]
+    ),
+    // 償却按分は期間 (YYYY-MM 同士の文字列比較) が窓と重なる行だけ読み、月ごとの按分は JS で行う
+    queryAll(
       `SELECT amount, amortize_start, amortize_end FROM sga_expenses
        WHERE deleted_at IS NULL AND amortize_start IS NOT NULL AND amortize_start != ''
        AND amortize_start <= ? AND amortize_end >= ?`,
-      [ym, ym]
-    );
+      [yms[yms.length - 1], yms[0]]
+    ),
+  ]);
+  const toMap = (rows: Array<Record<string, unknown>>): Map<string, number> => {
+    const m = new Map<string, number>();
+    for (const r of rows) m.set(r.ym as string, (r.total as number) || 0);
+    return m;
+  };
+  const revByYm = toMap(revRows);
+  const purByYm = toMap(purRows);
+  const sgaByYm = toMap(sgaNonAmortizedRows);
+
+  const months: Array<{ month: string; revenue: number; purchase: number; sga: number; gross_profit: number; operating_profit: number }> = yms.map((ym) => {
     let monthSgaAmortized = 0;
     for (const row of sgaAmortizedRows) {
+      if ((row.amortize_start as string) > ym || (row.amortize_end as string) < ym) continue;
       const m = countMonths(row.amortize_start as string, row.amortize_end as string);
       if (m > 0) monthSgaAmortized += Math.floor((row.amount as number) / m);
     }
-    const revenue = (rev?.total as number) || 0;
-    const purchase = (pur?.total as number) || 0;
-    const sga = ((sgaNonAmortizedRow?.total as number) || 0) + monthSgaAmortized;
-    months.push({ month: ym, revenue, purchase, sga, gross_profit: revenue - purchase, operating_profit: revenue - purchase - sga });
-  }
+    const revenue = revByYm.get(ym) || 0;
+    const purchase = purByYm.get(ym) || 0;
+    const sga = (sgaByYm.get(ym) || 0) + monthSgaAmortized;
+    return { month: ym, revenue, purchase, sga, gross_profit: revenue - purchase, operating_profit: revenue - purchase - sga };
+  });
   res.json({ success: true, data: months });
 });
 

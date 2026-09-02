@@ -7,7 +7,7 @@
  */
 import { v4 as uuid } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
-import { recordAiOutput, recordAiOutcome } from '../../../shared/services/ai-output.service';
+import { recordAiOutput } from '../../../shared/services/ai-output.service';
 import { recordAiUsage } from '../../../shared/services/ai-usage.service';
 import { tierFor } from '../../../shared/services/ai-model';
 import { callStructured, resolveProvider } from './llm';
@@ -215,9 +215,8 @@ export async function setMessageFeedback(messageId: string, input: FeedbackInput
      VALUES (?, ?, '(発言)', ?::jsonb, ?::jsonb, ?, ?, ?)`,
     [uuid(), row.ai_output_id, JSON.stringify(row.content), JSON.stringify(null), type, input.note ?? null, userId],
   );
-  if (input.feedback === 'good') {
-    await recordAiOutcome(row.ai_output_id, 'chat_feedback', { key: 'good', value: 1 }).catch(() => {});
-  }
+  // 「good」は feedback 列と ai_corrections (correction_type='none') に残り、digest も
+  // そこから導出する。導出できる信号を ai_outcomes へ重ねて書かない（読む側が無い書き込みになる）
 }
 
 /** この発言から提案を起こした（採用の proxy。§4-4・§5-3d の主指標） */

@@ -71,6 +71,12 @@ export const studioBookingService = {
     // **知らない状態名で絞ると全件返る**（絞ったのに全部出ると気づけない）ので、
     // 知っている2つだけを通す。それ以外は絞らない
     if (status === 'confirmed' || status === 'tentative') { where += ' AND b.status = ?'; params.push(status); }
+    // 部屋で絞る。⚠️ EXISTS で予約単位に絞ること — 下の rooms 取得側の WHERE に
+    // room_id を入れると、その予約が同時に使う**他の部屋**まで落ちる
+    if (roomId) {
+      where += ' AND EXISTS (SELECT 1 FROM studio_booking_rooms br2 WHERE br2.booking_id = b.id AND br2.room_id = ?)';
+      params.push(roomId);
+    }
 
     const bookings = await queryAll(
       `SELECT b.*, p.name as project_name, p.gls_number, p.event_end as project_event_end, e.episode_code
@@ -84,7 +90,10 @@ export const studioBookingService = {
 
     // Attach rooms (with occupant info) to each booking
     // ロケーションの sort_order → 部屋の sort_order の順でソートし、マスターの並びと一致させる
-    const allBookingRooms = await queryAll(
+    // ⚠️ 対象の予約に絞って引く — 表は予約の履歴ぶん単調に増えるので、全行を
+    // 引いて JS で捨てると週表示が年々遅くなる
+    const bookingIds = bookings.map((b) => b.id);
+    const allBookingRooms = bookingIds.length === 0 ? [] : await queryAll(
       /*
        * **拠点の名前と略称も返す**（migration 189）。案件詳細の会場は
        * 「用賀 WORLD STUDIO」と出すので、`location_id` だけでは足りない。
@@ -98,7 +107,9 @@ export const studioBookingService = {
        FROM studio_booking_rooms br
        JOIN studio_rooms r ON r.id = br.room_id
        LEFT JOIN studio_locations l ON l.id = r.location_id
-       ORDER BY l.sort_order NULLS LAST, r.sort_order, r.name`
+       WHERE br.booking_id = ANY(?::text[])
+       ORDER BY l.sort_order NULLS LAST, r.sort_order, r.name`,
+      [bookingIds]
     ) as any[];
 
     const roomsByBooking = new Map<string, any[]>();
@@ -107,16 +118,10 @@ export const studioBookingService = {
       roomsByBooking.get(br.booking_id)!.push(br);
     }
 
-    let result = bookings.map((b) => ({
+    return bookings.map((b) => ({
       ...b,
       rooms: roomsByBooking.get(b.id) ?? [],
     }));
-
-    if (roomId) {
-      result = result.filter((b) => b.rooms.some((r: any) => r.room_id === roomId));
-    }
-
-    return result;
   },
 
   /**
@@ -159,8 +164,12 @@ export const studioBookingService = {
       [from, to]
     ) as any[];
 
-    const bookingRooms = await queryAll(
-      `SELECT br.booking_id, br.room_id, br.occupant FROM studio_booking_rooms br`
+    // ⚠️ 期間内の予約に絞って引く（listBookings と同じ理由 — 全行を引くと年々遅くなる）
+    const bookingIds = bookings.map((b) => b.id);
+    const bookingRooms = bookingIds.length === 0 ? [] : await queryAll(
+      `SELECT br.booking_id, br.room_id, br.occupant FROM studio_booking_rooms br
+       WHERE br.booking_id = ANY(?::text[])`,
+      [bookingIds]
     ) as any[];
     const roomsByBooking = new Map<string, string[]>();
     for (const br of bookingRooms) {

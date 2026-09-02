@@ -11,8 +11,9 @@
  *   - 対象行の絞り込み: `graphics_cue_state.is_live = true` かつ `voteState = 'open'`
  *     の投票ページ（旧 `quiz_stack_state.step <> 'idle'` と同じ「実際に送出中のものだけ」）
  *   - 反映先: `quiz_choices.vote_count` の UPDATE ではなく、`graphics_pages.fields.choices`
- *     （JSON配列）の各要素の `votes` を JS 側で計算し直してから `fields` を丸ごと書き戻す
- *     （票数以外のフィールド〈label/labelEn等〉は変更しない）
+ *     （JSON配列）の各要素の `votes` だけを SQL (jsonb_set) で原子的にマージする
+ *     （票数以外のフィールド〈label/labelEn等〉は変更しない。`fields` を丸ごと書き戻すと
+ *     ポーリングの読み書きの間に入ったオペレーター編集を巻き戻してしまう）
  *   - choice の index は Interactive 側の `choice_index` とそのまま対応する（配列 index
  *     そのまま。旧 awards の `position = index + 1` という1始まりへのオフセットは不要）
  *
@@ -111,23 +112,44 @@ async function pollOnce(io: Server): Promise<void> {
         resultMap.set(c.index, Math.max(0, Math.floor(Number(c.count) || 0)));
       }
 
+      // 票数が変わっていなければ書かない（スナップショット比較。書き込み抑制のためだけに使う）
       const choicesRaw = Array.isArray(row.page_fields?.choices) ? (row.page_fields!.choices as unknown[]) : [];
       let changed = false;
-      const nextChoices = choicesRaw.map((c, index) => {
-        if (!c || typeof c !== 'object') return c;
-        const choice = c as Record<string, unknown>;
-        const currentVotes = Math.max(0, Math.trunc(Number(choice.votes) || 0));
-        const newVotes = resultMap.get(index) ?? 0;
-        if (currentVotes !== newVotes) changed = true;
-        return { ...choice, votes: newVotes };
+      choicesRaw.forEach((c, index) => {
+        if (!c || typeof c !== 'object') return;
+        const currentVotes = Math.max(0, Math.trunc(Number((c as Record<string, unknown>).votes) || 0));
+        if (currentVotes !== (resultMap.get(index) ?? 0)) changed = true;
       });
 
       if (!changed) continue;
 
-      const nextFields = { ...(row.page_fields ?? {}), choices: nextChoices };
+      // fields はスナップショットの丸ごと書き戻しにしない — SELECT からここまで（外部API往復込み）の
+      // 間にオペレーターが PUT /pages/:id で行った編集（設問文・選択肢ラベル等）を巻き戻すため。
+      // UPDATE 時点の現在値の choices[] へ votes だけを原子的にマージする（jsonb_set は
+      // vote-lifecycle.service の前例に合わせ create_missing=false: choices が無ければ何もしない）。
+      // WHERE の voteState='open' は、手動/自動締切と競合したとき締切後の遅延書き込みを防ぐ。
+      const votesMap: Record<string, number> = {};
+      for (const [index, count] of resultMap) votesMap[String(index)] = count;
       const updated = await queryOne(
-        `UPDATE graphics_pages SET fields = ?::jsonb, updated_at = NOW() WHERE id = ? RETURNING *`,
-        [JSON.stringify(nextFields), row.page_id],
+        `UPDATE graphics_pages
+            SET fields = jsonb_set(
+                  COALESCE(fields, '{}'::jsonb),
+                  '{choices}',
+                  COALESCE((
+                    SELECT jsonb_agg(
+                             CASE WHEN jsonb_typeof(elem) = 'object'
+                                  THEN elem || jsonb_build_object('votes', COALESCE(((?::jsonb) ->> (ord - 1)::text)::int, 0))
+                                  ELSE elem END
+                             ORDER BY ord)
+                      FROM jsonb_array_elements(COALESCE(fields, '{}'::jsonb) -> 'choices')
+                           WITH ORDINALITY AS t(elem, ord)
+                  ), '[]'::jsonb),
+                  false
+                ),
+                updated_at = NOW()
+          WHERE id = ? AND fields->>'voteState' = 'open'
+          RETURNING *`,
+        [JSON.stringify(votesMap), row.page_id],
       );
       if (!updated) continue;
 

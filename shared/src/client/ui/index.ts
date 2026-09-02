@@ -5,14 +5,15 @@
  * Accessibility: WCAG 2.2 AA (focus rings, aria-*, keyboard, contrast).
  *
  * ── このバレルに全部が載っているわけではない ────────────────────
- * `data-table` / `filter-bar` / `pagination` / `table` / `searchable-select` /
- * `currency-input` / `scroll-area` は **わざとここから export していない**。
+ * `pagination` / `table` / `searchable-select` / `currency-input` は
+ * **わざとここから export していない**。
  * (Radix を要求するものだけ。要求しないものはバレルに載せてある)
  * 深いパスで名指しして import する:
  *     import { Table, TableRow } from '@gmo-onair/shared/src/client/ui/table';
- * 理由: バレルに載せると **使わないアプリまで Radix を巻き込む**
- * (`scroll-area` は @radix-ui/react-scroll-area を要求するが、入っているのは
- * いまのところ案件管理だけ)。v2.4.0 の `data-table` 昇格からこの形。
+ * 理由: バレルに載せると **使わないアプリまで Radix を巻き込む**。
+ * v2.4.0 の `data-table` 昇格からこの形
+ * (`data-table` / `filter-bar` / `scroll-area` 自体は使い手が現れないまま
+ * 2026-09 のレビュー棚卸しで削除した)。
  *
  * ── まだ案件管理に残っている部品 ──────────────────────────────
  * `motion` / `animated-number` は `client/src/components/ui/` に置いたまま。

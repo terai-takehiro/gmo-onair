@@ -44,7 +44,7 @@ async function emitPageSync(req: Request, projectId: number, page: ReturnType<ty
 }
 
 // ── 投票ページの本文・選択肢を外部インタラクティブへ同期し、設問と紐付ける ────────
-router.post('/pages/:id/vote/sync-interactive', wrap(async (req, res) => {
+router.post('/pages/:id/vote/sync-interactive', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const existing = await loadVotePage(id);
   const projectId = existing.project_id as number;
@@ -83,7 +83,7 @@ router.post('/pages/:id/vote/sync-interactive', wrap(async (req, res) => {
 }));
 
 // ── 外部インタラクティブとの紐付けを解除する ─────────────────────────────
-router.post('/pages/:id/vote/dismiss-interactive', wrap(async (req, res) => {
+router.post('/pages/:id/vote/dismiss-interactive', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const existing = await loadVotePage(id);
   const projectId = existing.project_id as number;

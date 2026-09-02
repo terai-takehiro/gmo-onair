@@ -102,7 +102,7 @@ export function FormDialog({ open, onOpenChange, title, sub, footer, size, wide,
  * 逆順のまま使っている画面は無かった**（実装を確認して決めた）ので、
  * ここでは非逆順を既定にしている。
  */
-export const formDialogFooterClass = 'flex flex-col gap-2 sm:flex-row sm:justify-end';
+const formDialogFooterClass = 'flex flex-col gap-2 sm:flex-row sm:justify-end';
 
 /** `formDialogFooterClass` を当てた `<div>`。`<FormDialog footer={<FormDialogFooter>…}>` で使う */
 export function FormDialogFooter({ className, children }: { className?: string; children: ReactNode }) {

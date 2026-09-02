@@ -10,6 +10,26 @@ const router = Router();
 // Apply auth + permission middleware to all routes
 router.use(requireAuth, requirePermission('sales'));
 
+/**
+ * 呼び出し側が渡した episode_ids を検証して、重複を除いた一覧を返す。
+ * invoice_group_episodes の FK は「回が存在する」ことしか見ないため、
+ * **その案件の回であること**はアプリ側で必ず確認する（他案件の回が混ざると
+ * 売上合算がその案件に化け、本来の案件の月末締めからも永久に外れる）。
+ * 重複は PK 違反の生 500 になるので先に落とす。
+ */
+async function validateEpisodeIds(episodeIds: unknown[], projectId: string): Promise<string[]> {
+  const ids = [...new Set(episodeIds)] as string[];
+  if (ids.length === 0) return ids;
+  const valid = await queryAll(
+    'SELECT id FROM episodes WHERE id = ANY(?::text[]) AND project_id = ? AND deleted_at IS NULL',
+    [ids, projectId]
+  );
+  if (valid.length !== ids.length) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'この案件に属さない回が含まれています');
+  }
+  return ids;
+}
+
 // List invoice groups with episode count and total amount
 router.get('/:projectId/invoice-groups', async (req, res) => {
   const { page, limit, offset } = extractPagination(req);
@@ -30,11 +50,13 @@ router.get('/:projectId/invoice-groups', async (req, res) => {
   // （§7 の月末締めは複数の回を1枚にまとめるのが主眼のため、直さないと必ず踏む・全5箇所で同じ形）。
   // ⚠️ 契約一括（migration 265）は回に金額を持たせないため、この合算は常に0になる。
   // `COALESCE(ig.lump_sum_amount, 合算, 0)` で、lump_sum_amount がある行はそちらを優先する。
+  // ⚠️ 合算は確定 (status='confirmed') の売上のみ。見積段階の行を足すと請求書HTMLと
+  // 食い違う（migration 138 のバグクラス「revenues を読む箇所が status を見ていない」・全6箇所同じ形）。
   const rows = await queryAll(
     `SELECT ig.*,
       (SELECT COUNT(*) FROM invoice_group_episodes ige WHERE ige.invoice_group_id = ig.id) as episode_count,
       COALESCE(ig.lump_sum_amount, (SELECT COALESCE(SUM(r.amount),0) FROM invoice_group_episodes ige
-       JOIN revenues r ON r.episode_id = ige.episode_id AND r.deleted_at IS NULL
+       JOIN revenues r ON r.episode_id = ige.episode_id AND r.status = 'confirmed' AND r.deleted_at IS NULL
        WHERE ige.invoice_group_id = ig.id), 0) as total_amount
     FROM invoice_groups ig
     ${where}
@@ -48,13 +70,19 @@ router.get('/:projectId/invoice-groups', async (req, res) => {
 
 // Create invoice group
 router.post('/:projectId/invoice-groups', requirePermission('sales', 'editor'), async (req, res) => {
-  const projectId = req.params.projectId;
+  const projectId = req.params.projectId as string;
   const { title, invoice_date, episode_ids } = req.body;
 
   if (!title) throw new AppError(400, 'VALIDATION_ERROR', 'タイトルは必須です');
 
   const project = await queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [projectId]);
   if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
+
+  // ⚠️ FK は「回が存在する」しか保証しない — 他案件の回を紐づけると、その案件の売上が
+  // このグループの合算に混ざる上、本来の案件の月末締めから永久に外れる。必ず案件で検証する
+  const episodeIds = episode_ids && Array.isArray(episode_ids)
+    ? await validateEpisodeIds(episode_ids, projectId)
+    : [];
 
   const id = uuidv4();
   await execute(
@@ -64,20 +92,18 @@ router.post('/:projectId/invoice-groups', requirePermission('sales', 'editor'), 
   );
 
   // Link episodes if provided
-  if (episode_ids && Array.isArray(episode_ids)) {
-    for (const episodeId of episode_ids) {
-      await execute(
-        'INSERT INTO invoice_group_episodes (invoice_group_id, episode_id) VALUES (?, ?)',
-        [id, episodeId]
-      );
-    }
+  for (const episodeId of episodeIds) {
+    await execute(
+      'INSERT INTO invoice_group_episodes (invoice_group_id, episode_id) VALUES (?, ?)',
+      [id, episodeId]
+    );
   }
 
   const row = await queryOne(
     `SELECT ig.*,
       (SELECT COUNT(*) FROM invoice_group_episodes ige WHERE ige.invoice_group_id = ig.id) as episode_count,
       COALESCE(ig.lump_sum_amount, (SELECT COALESCE(SUM(r.amount),0) FROM invoice_group_episodes ige
-       JOIN revenues r ON r.episode_id = ige.episode_id AND r.deleted_at IS NULL
+       JOIN revenues r ON r.episode_id = ige.episode_id AND r.status = 'confirmed' AND r.deleted_at IS NULL
        WHERE ige.invoice_group_id = ig.id), 0) as total_amount
     FROM invoice_groups ig WHERE ig.id = ?`,
     [id]
@@ -88,26 +114,36 @@ router.post('/:projectId/invoice-groups', requirePermission('sales', 'editor'), 
 // Update invoice group
 router.put('/:projectId/invoice-groups/:id', requirePermission('sales', 'editor'), async (req, res) => {
   const existing = await queryOne(
-    'SELECT id FROM invoice_groups WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
+    'SELECT id, title, invoice_date, notes FROM invoice_groups WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
     [req.params.id, req.params.projectId]
-  );
+  ) as { id: string; title: string; invoice_date: string | null; notes: string | null } | undefined;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '請求グループが見つかりません');
 
   const { title, invoice_date, notes } = req.body;
+
+  // **渡さなければ今の値を保つ**（部分更新の原則）。title は NOT NULL なので
+  // 空文字で消す操作は受けず 400 を返す（POST の必須チェックと同じ文言）
+  if (title !== undefined && !title) throw new AppError(400, 'VALIDATION_ERROR', 'タイトルは必須です');
 
   await execute(
     `UPDATE invoice_groups SET
       title = ?, invoice_date = ?, notes = ?,
       updated_at = NOW(), updated_by = ?
     WHERE id = ?`,
-    [title || null, invoice_date || null, notes || null, req.user!.id, req.params.id]
+    [
+      title !== undefined ? title : existing.title,
+      invoice_date !== undefined ? (invoice_date || null) : existing.invoice_date,
+      notes !== undefined ? (notes || null) : existing.notes,
+      req.user!.id,
+      req.params.id,
+    ]
   );
 
   const row = await queryOne(
     `SELECT ig.*,
       (SELECT COUNT(*) FROM invoice_group_episodes ige WHERE ige.invoice_group_id = ig.id) as episode_count,
       COALESCE(ig.lump_sum_amount, (SELECT COALESCE(SUM(r.amount),0) FROM invoice_group_episodes ige
-       JOIN revenues r ON r.episode_id = ige.episode_id AND r.deleted_at IS NULL
+       JOIN revenues r ON r.episode_id = ige.episode_id AND r.status = 'confirmed' AND r.deleted_at IS NULL
        WHERE ige.invoice_group_id = ig.id), 0) as total_amount
     FROM invoice_groups ig WHERE ig.id = ?`,
     [req.params.id]
@@ -141,11 +177,14 @@ router.put('/:projectId/invoice-groups/:id/episodes', requirePermission('sales',
   const { episode_ids } = req.body;
   if (!Array.isArray(episode_ids)) throw new AppError(400, 'VALIDATION_ERROR', 'episode_idsは配列で指定してください');
 
+  // 検証は DELETE より前に行う — 失敗したリクエストが既存の紐付けを壊さないため
+  const episodeIds = await validateEpisodeIds(episode_ids, req.params.projectId as string);
+
   // Delete existing links
   await execute('DELETE FROM invoice_group_episodes WHERE invoice_group_id = ?', [req.params.id]);
 
   // Insert new links
-  for (const episodeId of episode_ids) {
+  for (const episodeId of episodeIds) {
     await execute(
       'INSERT INTO invoice_group_episodes (invoice_group_id, episode_id) VALUES (?, ?)',
       [req.params.id, episodeId]
@@ -156,7 +195,7 @@ router.put('/:projectId/invoice-groups/:id/episodes', requirePermission('sales',
     `SELECT ig.*,
       (SELECT COUNT(*) FROM invoice_group_episodes ige WHERE ige.invoice_group_id = ig.id) as episode_count,
       COALESCE(ig.lump_sum_amount, (SELECT COALESCE(SUM(r.amount),0) FROM invoice_group_episodes ige
-       JOIN revenues r ON r.episode_id = ige.episode_id AND r.deleted_at IS NULL
+       JOIN revenues r ON r.episode_id = ige.episode_id AND r.status = 'confirmed' AND r.deleted_at IS NULL
        WHERE ige.invoice_group_id = ig.id), 0) as total_amount
     FROM invoice_groups ig WHERE ig.id = ?`,
     [req.params.id]
@@ -173,10 +212,18 @@ router.post('/:projectId/invoice-groups/auto-by-recording-date', requirePermissi
   // Get episodes grouped by recording_date
   // ⚠️ 旧実装は SQLite の GROUP_CONCAT を使っており PostgreSQL では 500 になっていた
   // （regular-series.md §6）。string_agg(expr, delimiter) が正。
+  // ⚠️ 既にどこかの請求グループ（削除されていないもの）に紐づいた回は対象から外す
+  // （auto-monthly-close と同じ不変条件）。外さないと、手動グループや月末締めで
+  // 請求済みの回がもう一度日付グループに入り、二重請求になる。
   const dateGroups = await queryAll(
     `SELECT recording_date, string_agg(id, ',') as episode_ids, COUNT(*) as cnt
      FROM episodes
      WHERE project_id = ? AND deleted_at IS NULL AND recording_date IS NOT NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM invoice_group_episodes ige
+         JOIN invoice_groups ig ON ig.id = ige.invoice_group_id AND ig.deleted_at IS NULL
+         WHERE ige.episode_id = episodes.id
+       )
      GROUP BY recording_date
      ORDER BY recording_date`,
     [projectId]
@@ -264,7 +311,10 @@ router.post('/:projectId/invoice-groups/auto-monthly-close', requirePermission('
          )
        GROUP BY e.id
        HAVING COUNT(*) = COUNT(*) FILTER (WHERE pt.is_completed = true)
-          AND to_char(MAX(pt.completed_at), 'YYYY-MM') = ?
+          -- completed_at は UTC の壁時計（new Date().toISOString()・TZ 未設定）で入る
+          -- timestamp without time zone。month は JST の営業月なので、UTC として読んで
+          -- JST に直してから月を取る（JST 00:00〜08:59 の完了が前月に入らないように）
+          AND to_char(MAX(pt.completed_at) AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Tokyo', 'YYYY-MM') = ?
        ORDER BY e.id`,
       [projectId, month]
     )) as { id: string }[];
@@ -327,7 +377,7 @@ router.post('/:projectId/invoice-groups/auto-monthly-close', requirePermission('
     `SELECT ig.*,
       (SELECT COUNT(*) FROM invoice_group_episodes ige WHERE ige.invoice_group_id = ig.id) as episode_count,
       COALESCE(ig.lump_sum_amount, (SELECT COALESCE(SUM(r.amount),0) FROM invoice_group_episodes ige
-       JOIN revenues r ON r.episode_id = ige.episode_id AND r.deleted_at IS NULL
+       JOIN revenues r ON r.episode_id = ige.episode_id AND r.status = 'confirmed' AND r.deleted_at IS NULL
        WHERE ige.invoice_group_id = ig.id), 0) as total_amount
     FROM invoice_groups ig WHERE ig.id = ?`,
     [result.groupId]
@@ -404,7 +454,7 @@ router.post('/:projectId/invoice-groups/lump-sum', requirePermission('sales', 'e
     `SELECT ig.*,
       (SELECT COUNT(*) FROM invoice_group_episodes ige WHERE ige.invoice_group_id = ig.id) as episode_count,
       COALESCE(ig.lump_sum_amount, (SELECT COALESCE(SUM(r.amount),0) FROM invoice_group_episodes ige
-       JOIN revenues r ON r.episode_id = ige.episode_id AND r.deleted_at IS NULL
+       JOIN revenues r ON r.episode_id = ige.episode_id AND r.status = 'confirmed' AND r.deleted_at IS NULL
        WHERE ige.invoice_group_id = ig.id), 0) as total_amount
     FROM invoice_groups ig WHERE ig.id = ?`,
     [groupId]

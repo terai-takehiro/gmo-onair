@@ -19,40 +19,34 @@ export class SalesAnalyticsService {
       params.push(String(year));
     }
 
-    const stageCounts = await queryAll(
-      `SELECT stage, COUNT(*) as count, COALESCE(SUM(expected_amount), 0) as total_amount
+    // total / won / lost / 滞留日数は下の GROUP BY 1本から導出する
+    // （以前は同じ WHERE で projects を4回走査し直していた）。
+    // dwell_sum は平均滞留日数の算出専用で、応答の stage_counts には載せない
+    const stageRows = await queryAll(
+      `SELECT stage, COUNT(*) as count, COALESCE(SUM(expected_amount), 0) as total_amount,
+              SUM(EXTRACT(EPOCH FROM (p.updated_at::timestamp - p.created_at::timestamp)) / 86400) as dwell_sum
        FROM projects p
        WHERE p.deleted_at IS NULL ${dateFilter}
        GROUP BY stage`,
       params
     );
+    const stageCounts = stageRows.map((r) => {
+      const { dwell_sum: _dwellSum, ...rest } = r as Record<string, unknown>;
+      return rest;
+    });
 
-    const totalRow = await queryOne(
-      `SELECT COUNT(*) as total FROM projects p WHERE p.deleted_at IS NULL ${dateFilter}`,
-      params
-    );
-    const totalCount = (totalRow as any)?.total || 0;
+    const WON_STAGES = ['a_won', 's_completed', 'b_verbal'];
+    const totalCount = stageRows.reduce((s: number, r: any) => s + Number(r.count), 0);
+    const wonCount = stageRows
+      .filter((r: any) => WON_STAGES.includes(r.stage as string))
+      .reduce((s: number, r: any) => s + Number(r.count), 0);
+    const lostCount = Number((stageRows.find((r: any) => r.stage === 'e_lost') as any)?.count ?? 0);
 
-    const wonRow = await queryOne(
-      `SELECT COUNT(*) as won FROM projects p
-       WHERE p.deleted_at IS NULL AND p.stage IN ('a_won', 's_completed', 'b_verbal') ${dateFilter}`,
-      params
-    );
-    const wonCount = (wonRow as any)?.won || 0;
-
-    const lostRow = await queryOne(
-      `SELECT COUNT(*) as lost FROM projects p
-       WHERE p.deleted_at IS NULL AND p.stage = 'e_lost' ${dateFilter}`,
-      params
-    );
-    const lostCount = (lostRow as any)?.lost || 0;
-
-    const avgDwellRow = await queryOne(
-      `SELECT AVG(EXTRACT(EPOCH FROM (p.updated_at::timestamp - p.created_at::timestamp)) / 86400) as avg_days
-       FROM projects p
-       WHERE p.deleted_at IS NULL AND p.stage NOT IN ('neta') ${dateFilter}`,
-      params
-    );
+    // 平均滞留日数: neta を除く全件の加重平均（旧 AVG ... WHERE stage NOT IN ('neta') と同値）
+    const dwellRows = stageRows.filter((r: any) => r.stage !== 'neta');
+    const dwellCount = dwellRows.reduce((s: number, r: any) => s + Number(r.count), 0);
+    const dwellSum = dwellRows.reduce((s: number, r: any) => s + Number(r.dwell_sum ?? 0), 0);
+    const avgDwellDays = dwellCount > 0 ? dwellSum / dwellCount : 0;
 
     // 月別受注推移（年指定時のみ）
     let monthlyTrend: unknown[] = [];
@@ -100,7 +94,7 @@ export class SalesAnalyticsService {
       lost_count: lostCount,
       win_rate: totalCount > 0 ? Math.round((wonCount / totalCount) * 1000) / 10 : 0,
       loss_rate: totalCount > 0 ? Math.round((lostCount / totalCount) * 1000) / 10 : 0,
-      avg_dwell_days: Math.round(((avgDwellRow as any)?.avg_days || 0) * 10) / 10,
+      avg_dwell_days: Math.round(avgDwellDays * 10) / 10,
       conversions,
       monthly_trend: monthlyTrend,
     };

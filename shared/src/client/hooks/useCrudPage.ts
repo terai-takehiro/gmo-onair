@@ -22,7 +22,7 @@
  *     queryKey: ['vendors'],
  *   });
  *   <Input value={crud.search} onChange={e => crud.setSearch(e.target.value)} />
- *   <DataTable data={crud.items} ... />
+ *   <Table>…crud.items を行に並べる…</Table>
  *   <Pagination page={crud.page} totalPages={crud.pagination?.totalPages ?? 1}
  *               total={crud.pagination?.total ?? 0} onChange={crud.setPage} />
  *   <Dialog open={crud.dialogOpen} onOpenChange={crud.setDialogOpen}>
@@ -86,6 +86,7 @@ export interface CrudPageResult<T extends { id: string }> {
 
   // ── ダイアログ / 編集対象 ───────────────────────
   dialogOpen: boolean;
+  /** `onOpenChange` にそのまま渡してよい。**閉じる（false）と `editingItem` も消える**（`closeDialog` と同じ） */
   setDialogOpen: (open: boolean) => void;
   editingItem: T | null;
   isEditing: boolean;
@@ -229,6 +230,19 @@ export function createUseCrudPage(api: AxiosInstance) {
       setEditingItem(null);
     };
 
+    /*
+     * ⚠️ **閉じるときは必ず `editingItem` も消す。** 呼び出し側は
+     * `onOpenChange={crud.setDialogOpen}` と直接渡すのが普通で、下敷きクリック /
+     * Esc で閉じるとこの経路を通る。ここで消さないと `editingItem` の**参照が
+     * 同じまま**残り、同じ行をもう一度開いてもフォームのリセット effect
+     * （`crud.editingItem` を依存にしている）が発火せず、**捨てたはずの
+     * 書きかけの値が出てそのまま保存できてしまう**。
+     */
+    const setDialogOpenSynced = (open: boolean) => {
+      setDialogOpen(open);
+      if (!open) setEditingItem(null);
+    };
+
     return {
       search,
       /**
@@ -247,7 +261,7 @@ export function createUseCrudPage(api: AxiosInstance) {
       pageSize,
 
       dialogOpen,
-      setDialogOpen,
+      setDialogOpen: setDialogOpenSynced,
       editingItem,
       isEditing: editingItem !== null,
 

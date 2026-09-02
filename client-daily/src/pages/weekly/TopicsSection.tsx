@@ -18,7 +18,7 @@
  * `client-v4/formDialog.tsx` の `<FormDialog>` に載せ替え、スマホは下シート・
  * PC は中央ダイアログで開く（決めごと「終わらせるのはシートで」）。
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Check, Newspaper, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { Row, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { EmptyState } from '@gmo-onair/shared/src/client/states';
@@ -154,6 +154,14 @@ function TopicRow({ item, editable }: { item: OpsReportItem; editable: boolean }
     setCategory(item.category ?? ''); setContent(item.content); setNote(item.note ?? '');
     setEditing(true);
   };
+
+  // 開いたまま裏で一覧が invalidate されて `item` の値が変わっても、
+  // 古い値の全項目 PATCH で相手の更新を巻き戻さないよう再同期する（openEdit の再セットは開く時だけ）
+  useEffect(() => {
+    setCategory(item.category ?? '');
+    setContent(item.content);
+    setNote(item.note ?? '');
+  }, [item.category, item.content, item.note]);
 
   const save = async () => {
     if (!content.trim()) return;

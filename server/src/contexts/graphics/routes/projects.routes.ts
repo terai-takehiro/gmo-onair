@@ -8,6 +8,8 @@ import {
 
 // CGプロジェクト（graphics_projects）の解決・取得と、スロット cue の HTTP 経路。
 // 権限は計時・視聴者と同じく qsheet 区画へ統合（graphics.md §1・migration 232 の先例）。
+// 閲覧は reader・作成/編集は editor・送出（cue）は liveops の本番操作と同じ manager
+// （書き込みを reader に開けない — documents.routes.ts / display-templates.routes.ts の作法）。
 
 const router = Router();
 router.use(requireAuth, requirePermission('qsheet'));
@@ -51,7 +53,7 @@ function validateSlotExitRules(input: unknown): SlotExitRule[] {
 // ownerId は案件なら projects.id / gls_number のどちらでも受け、canonical な id で
 // 保存する（device-settings-owner.ts の resolveOwner と同じ作法。GLS 番号と id の
 // 2経路から別プロジェクトが生えるのを UNIQUE(owner_type, owner_id) で防ぐため）。
-router.post('/projects/resolve', wrap(async (req, res) => {
+router.post('/projects/resolve', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
   const { ownerType, ownerId, name } = (req.body ?? {}) as {
     ownerType?: string; ownerId?: string; name?: string;
   };
@@ -105,7 +107,7 @@ router.get('/projects/:id', wrap(async (req, res) => {
 }));
 
 // ── プロジェクトの部分更新（いまは theme / name のみ） ─────────────────
-router.put('/projects/:id', wrap(async (req, res) => {
+router.put('/projects/:id', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const project = id && !isNaN(id) ? await fetchProject(id) : null;
   if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
@@ -153,7 +155,7 @@ router.put('/projects/:id', wrap(async (req, res) => {
 }));
 
 // ── スロット cue の upsert（pageId null = クリア）。Socket 不通時の HTTP fallback も兼ねる ──
-router.post('/projects/:id/cue', wrap(async (req, res) => {
+router.post('/projects/:id/cue', requirePermission('qsheet', 'manager'), wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const project = id && !isNaN(id) ? await fetchProject(id) : null;
   if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
@@ -187,7 +189,7 @@ router.post('/projects/:id/cue', wrap(async (req, res) => {
 // ── 「続き」（段6-1・汎用機構）: 対象スロットの cue の reveal_phase を +1 する ──
 // docs/design/v4/graphics.md §4 の5動詞のうち唯一未実装だったもの。上限や意味は
 // ここでは決め打ちしない（部品側が「もう増えない」を判断する）。
-router.post('/projects/:id/cue/continue', wrap(async (req, res) => {
+router.post('/projects/:id/cue/continue', requirePermission('qsheet', 'manager'), wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const project = id && !isNaN(id) ? await fetchProject(id) : null;
   if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');

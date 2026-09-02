@@ -10,8 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EnhancedCheckbox } from "@gmo-onair/shared/src/client/ui/enhanced-checkbox";
 import {
-  ArrowLeft, Copy, Loader2, Wrench, ArrowRightLeft, Package, QrCode, Printer, Link2, X, ChevronDown, Search, Pencil, Plus, LayoutList,
+  ArrowLeft, Copy, Loader2, Wrench, ArrowRightLeft, Package, QrCode, Printer, Link2, X, Pencil, Plus, LayoutList,
 } from "lucide-react";
+import { InfoRow } from "./detail/InfoRow";
+import { SearchableSelect } from "./detail/SearchableSelect";
 import BranchCodeInput from "@/components/ui/BranchCodeInput";
 import {
   EQUIPMENT_STATUS,
@@ -20,7 +22,7 @@ import {
   MAINTENANCE_TYPE,
   statusOf,
 } from "@gmo-onair/shared/src/constants/statuses";
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { type CustomColumn } from "@/components/CustomColumnDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FormDialog, FormDialogFooter } from "@gmo-onair/shared/src/client-v4/formDialog";
@@ -137,11 +139,21 @@ export default function EquipmentDetailPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['equipment-custom-values', id] }),
   });
 
+  // 台帳一覧は ['equipment-items', urlSearch, includeChildren]・統計タイルは
+  // ['equipment-stats'] を読む (equipmentList/useItemMutations.ts と同じ対)。
+  // ここを落とさないと staleTime 60秒の間、戻った一覧が保存前のまま見える
+  const invalidateLedger = () => {
+    qc.invalidateQueries({ queryKey: ["equipment-items"] });
+    qc.invalidateQueries({ queryKey: ["equipment-stats"] });
+    qc.invalidateQueries({ queryKey: ["equipment-items-all"] });
+  };
+
   const [saveError, setSaveError] = useState<string | null>(null);
   const saveMutation = useMutation({
     mutationFn: (payload: any) => api.patch(`/equipment/items/${id}`, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["equipment-item", id] });
+      invalidateLedger();
       setSaveError(null);
       setEditOpen(false);
     },
@@ -204,7 +216,7 @@ export default function EquipmentDetailPage() {
     mutationFn: (childId: string) => api.patch(`/equipment/items/${childId}`, { parent_id: id }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["equipment-item", id] });
-      qc.invalidateQueries({ queryKey: ["equipment-items-all"] });
+      invalidateLedger();
       setSelectedChildId("");
     },
   });
@@ -213,7 +225,7 @@ export default function EquipmentDetailPage() {
     mutationFn: (childId: string) => api.patch(`/equipment/items/${childId}`, { parent_id: null }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["equipment-item", id] });
-      qc.invalidateQueries({ queryKey: ["equipment-items-all"] });
+      invalidateLedger();
     },
   });
 
@@ -224,7 +236,7 @@ export default function EquipmentDetailPage() {
     mutationFn: (payload: any) => api.post('/equipment/items', payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["equipment-item", id] });
-      qc.invalidateQueries({ queryKey: ["equipment-items-all"] });
+      invalidateLedger();
       setCreateChildError(null);
       setNewChildOpen(false);
     },
@@ -318,7 +330,7 @@ export default function EquipmentDetailPage() {
     <div className="space-y-4 p-4 lg:p-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/equipment/items")}>
+        <Button variant="ghost" size="icon" aria-label="機材一覧に戻る" onClick={() => navigate("/equipment/items")}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
@@ -997,89 +1009,3 @@ export default function EquipmentDetailPage() {
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
-  if (!value) return null;
-  return (
-    <div className="flex justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-right">{value}</span>
-    </div>
-  );
-}
-
-function SearchableSelect({ value, onChange, items, placeholder }: {
-  value: string;
-  onChange: (v: string) => void;
-  items: { id: string; label: string }[];
-  placeholder?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const ref = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-        setSearch("");
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const selected = items.find((it) => it.id === value);
-  const filtered = search
-    ? items.filter((it) => it.label.toLowerCase().includes(search.toLowerCase()))
-    : items;
-
-  return (
-    <div ref={ref} className="relative flex-1">
-      <button
-        type="button"
-        className="min-h-tap lg:min-h-0 w-full flex items-center justify-between px-3 py-2 text-sm border rounded-md bg-background hover:bg-muted/50 transition-colors"
-        onClick={() => {
-          setOpen((o) => !o);
-          if (!open) setTimeout(() => inputRef.current?.focus(), 50);
-        }}
-      >
-        <span className={selected ? "truncate" : "text-muted-foreground truncate"}>
-          {selected ? selected.label : (placeholder || "選択...")}
-        </span>
-        <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-1" />
-      </button>
-      {open && (
-        <div className="absolute top-full mt-1 left-0 right-0 z-50 bg-popover border rounded-md shadow-lg">
-          <div className="flex items-center gap-1.5 px-2 py-1.5 border-b">
-            <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <input
-              ref={inputRef}
-              type="text"
-              className="flex-1 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
-              placeholder="名前・型番・IDで検索..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <div className="max-h-52 overflow-y-auto">
-            {filtered.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-muted-foreground">見つかりません</div>
-            ) : (
-              filtered.map((it) => (
-                <button
-                  key={it.id}
-                  type="button"
-                  className={`w-full text-left px-3 py-1.5 text-sm hover:bg-muted transition-colors truncate block ${value === it.id ? "bg-primary/10 font-medium" : ""}`}
-                  onClick={() => { onChange(it.id); setOpen(false); setSearch(""); }}
-                >
-                  {it.label}
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
