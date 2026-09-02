@@ -57,7 +57,7 @@ export function LedgerDetailSheet({
           {row.state?.to && (
             // **台帳から状態は変えません**（PC と同じ決めごと）。変えられる画面へ移るだけ
             <Button variant="outline" className="w-full" onClick={() => navigate(row.state!.to!)}>
-              {row.state.toLabel ?? '状態を直せる画面をひらく'}
+              {row.state.toLabel ?? '状態の画面をひらく'}
             </Button>
           )}
           {canEdit && (

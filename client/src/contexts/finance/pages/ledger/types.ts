@@ -1,3 +1,4 @@
+import type { SgaExpense } from '@/types';
 /**
  * 財務の台帳（③ 売上 ／ ④ 仕入 ／ ⑤ 販管費）で共有する型 (v4)
  *
@@ -213,3 +214,18 @@ export interface SgaRow {
   /** 確定前の見込み (migration 268)。**「仮」バッジになる**（仕入の `is_provisional` と同じ扱い） */
   is_provisional: boolean;
 }
+
+/**
+ * 一覧が返す販管費の行。
+ *
+ * ⚠️ **`account_title_name` はサーバーが返しているのに型に無かった**
+ * （`GET /sga` は `SELECT s.*, at.name AS account_title_name` で
+ * `sga_account_titles` を LEFT JOIN している）。`client/src/types` は
+ * 他の画面も読む共有の型なので、**この台帳が受け取る形だけ**をここで足す。
+ * 科目名を画面に出せるのはこの列があるからで、`account_title_id` から
+ * 引き直すと一覧を描くたびにマスターを走査することになる。
+ */
+export type SgaLedgerItem = SgaExpense & {
+  account_title_id?: string | null;
+  account_title_name?: string | null;
+};

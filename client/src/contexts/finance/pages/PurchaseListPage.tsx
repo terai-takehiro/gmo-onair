@@ -45,7 +45,7 @@ import { LedgerList } from './ledger/LedgerList';
 import { LedgerFilterBar } from './ledger/LedgerFilterBar';
 import { LedgerTotalBar } from './ledger/LedgerTotalBar';
 import { LedgerFooter, LedgerPeriodNotice } from './ledger/LedgerParts';
-import { purchaseDetailFields } from './ledger/purchaseMobileDetail';
+import { purchaseDetailFields } from './ledger/ledgerDetail';
 import { useLedgerUrlPeriod } from './ledger/useLedgerUrlPeriod';
 import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth';
 import { LedgerTabs } from './ledger/LedgerTabs';

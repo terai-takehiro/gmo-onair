@@ -53,12 +53,13 @@ import { useLedgerUrlPeriod } from './ledger/useLedgerUrlPeriod';
 import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth';
 /*
  * **この画面に残すのは「どう並べるか」だけ。** 行の詰め替え・絞り込みの2軸・
- * 詳細シートの項目は `ledger/sgaLedgerRows.tsx`（同じ値を別の場所に出しているだけ
+ * 詳細シートの項目は `ledger/ledgerDetail.tsx`（同じ値を別の場所に出しているだけ
  * なので、離すと必ず片方だけ直る。1ファイル400行の上限もある）
  */
 import {
-  sgaChipOf, sgaFilterGroups, sgaLedgerRows, type SgaLedgerItem,
+  sgaChipOf, sgaFilterGroups, sgaLedgerRows,
 } from './ledger/sgaLedgerRows';
+import type { SgaLedgerItem } from './ledger/types';
 
 export default function SgaListPage() {
   const { currentUser, hasPermission } = useAuth();

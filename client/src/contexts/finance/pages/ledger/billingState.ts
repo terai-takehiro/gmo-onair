@@ -27,15 +27,22 @@ export interface BillingStateSource {
   invoice_issued?: boolean | null;
 }
 
+/**
+ * スマホの詳細シートで `to` へ移るボタンに書く文字。**行き先と一緒に持たせる**
+ * （`types.ts` の `toLabel` の説明）。既定の文言「状態の画面をひらく」は
+ * どこへ行くのか分からないので、行き先の名前をそのまま出す。
+ */
+const TO_LABEL = '請求・入金をひらく';
+
 export function billingState(r: BillingStateSource): NonNullable<LedgerRow['state']> {
   // **同じ財務の中の「請求・入金」へ送る。** 台帳から状態を変えられるようにすると、
   // 経理が入金を記録した直後に別の画面から戻される事故が起きる
   const to = '/budget/billing';
   if (r.paid_date) {
-    return { label: '入金済', tone: 'ok', to, title: `${r.paid_date} に入金。押すと請求・入金の画面へ` };
+    return { label: '入金済', tone: 'ok', to, toLabel: TO_LABEL, title: `${r.paid_date} に入金。押すと請求・入金の画面へ` };
   }
   if (r.invoice_issued) {
-    return { label: '発行済', tone: 'warn', to, title: '請求書は出しました。入金待ちです' };
+    return { label: '発行済', tone: 'warn', to, toLabel: TO_LABEL, title: '請求書は出しました。入金待ちです' };
   }
-  return { label: '未請求', tone: 'neutral', to, title: 'まだ請求書を出していません' };
+  return { label: '未請求', tone: 'neutral', to, toLabel: TO_LABEL, title: 'まだ請求書を出していません' };
 }
