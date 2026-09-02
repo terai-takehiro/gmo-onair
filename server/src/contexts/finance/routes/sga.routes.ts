@@ -107,7 +107,7 @@ router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
   const {
     vendor_name, vendor_id, settlement_method, settlement_number, settlement_url, description, notes,
     recognition_date, payment_due_date, tax_category, invoice_qualified, amount,
-    expense_type, amortize_start, amortize_end, source, account_title_id
+    expense_type, amortize_start, amortize_end, source, account_title_id, is_provisional
   } = req.body;
 
   if (!recognition_date) throw new AppError(400, 'VALIDATION_ERROR', '発生日は必須です');
@@ -119,7 +119,7 @@ router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
   const id = uuidv4();
 
   await execute(
-    `INSERT INTO sga_expenses (id, billing_key, vendor_name, vendor_id, settlement_method, settlement_number, settlement_url, description, notes, recognition_date, payment_due_date, tax_category, invoice_qualified, amount, expense_type, amortize_start, amortize_end, source, account_title_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO sga_expenses (id, billing_key, vendor_name, vendor_id, settlement_method, settlement_number, settlement_url, description, notes, recognition_date, payment_due_date, tax_category, invoice_qualified, amount, expense_type, amortize_start, amortize_end, source, account_title_id, is_provisional, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id, billing_key, vendor_name || null, vendor_id || null,
       settlement_method || null, settlement_number || null, settlement_url || null,
@@ -132,6 +132,8 @@ router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
       amortize_start || null, amortize_end || null,
       source || 'staff',
       account_title_id || null,
+      // migration 268: 仮フラグ (purchases.is_provisional と同じ扱い)。既定 false
+      is_provisional ? true : false,
       req.user!.id
     ]
   );
@@ -148,7 +150,7 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   const {
     vendor_name, vendor_id, settlement_method, settlement_number, settlement_url, description, notes,
     recognition_date, payment_due_date, tax_category, invoice_qualified, amount,
-    expense_type, amortize_start, amortize_end, source, account_title_id
+    expense_type, amortize_start, amortize_end, source, account_title_id, is_provisional
   } = req.body;
   // 新しく渡された vendor_id だけ確かめる（POST と同じ理由。既存値は再検証しない）
   if (vendor_id) await assertVendorCompanyId(vendor_id);
@@ -162,7 +164,7 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   }
 
   await execute(
-    `UPDATE sga_expenses SET billing_key=?, vendor_name=?, vendor_id=?, settlement_method=?, settlement_number=?, settlement_url=?, description=?, notes=?, recognition_date=?, payment_due_date=?, tax_category=?, invoice_qualified=?, amount=?, expense_type=?, amortize_start=?, amortize_end=?, source=?, account_title_id=?, updated_at=NOW(), updated_by=? WHERE id=?`,
+    `UPDATE sga_expenses SET billing_key=?, vendor_name=?, vendor_id=?, settlement_method=?, settlement_number=?, settlement_url=?, description=?, notes=?, recognition_date=?, payment_due_date=?, tax_category=?, invoice_qualified=?, amount=?, expense_type=?, amortize_start=?, amortize_end=?, source=?, account_title_id=?, is_provisional=?, updated_at=NOW(), updated_by=? WHERE id=?`,
     [
       billing_key, vendor_name || null, vendor_id || null,
       settlement_method || null, settlement_number || null, settlement_url || null,
@@ -185,6 +187,8 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
        * 部分更新を足すときは、まずここを `!== undefined` の形に揃えてから。
        */
       account_title_id !== undefined ? (account_title_id || null) : existing.account_title_id,
+      // migration 268: 仮フラグ。渡さなければ既存値を保つ（上と同じ部分更新契約）
+      is_provisional !== undefined ? !!is_provisional : existing.is_provisional,
       req.user!.id, req.params.id
     ]
   );

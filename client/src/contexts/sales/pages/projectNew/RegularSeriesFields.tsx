@@ -2,13 +2,25 @@
  * レギュラーの取り決め — 案件（シリーズ）に1度だけ置く値（v4・migration 262・264）
  *
  * `docs/design/v4/regular-series.md` §3「案件（シリーズ）が持つ4つの取り決め」＋
- * 積み残し1（放送日オフセット）:
+ * 積み残し1（放送日オフセット）のうち、いまも案件全体で1つだけ持つもの:
  *
- *   収録の頻度 ／ 固定セット ／ 回の単価 ／ 請求サイクル ／ 放送日オフセット
+ *   収録の頻度 ／ 固定セット ／ 請求サイクル ／ 放送日オフセット
  *
  * **回を作るたびに聞かれては困る値**なので、回（episodes）ではなく
  * 案件（projects）に1度だけ持たせる。回の一括生成（`GenerateEpisodesForm`）は
- * ここで入れた値を既定値として引き継ぐ（`EpisodesPanel.tsx` から渡す）。
+ * ここで入れた値（収録の頻度・放送日オフセット）を既定値として引き継ぐ
+ * （`EpisodesPanel.tsx` から渡す）。
+ *
+ * ── 「1日あたりの本数」「回の単価」はここから廃止した（仕様変更 #16・migration 269）──
+ *
+ * 収録日によって本数・単価がズレることがあるため、案件全体の固定入力欄をやめ、
+ * 各回（episodes）が実際の値を持つように変えた。回ごとの入力・編集は
+ * `EpisodesPanel.tsx` の回一覧から行う。一括生成のときは
+ * `GenerateEpisodesForm.tsx` が都度この2つを入力欄として持つ（初期値だけ
+ * projects 側の古い値を引き継ぐ・`EpisodesPanel.tsx` の `SeriesDefaults` 参照）。
+ * **`NewProjectValues` からも `recording_per_day_count`/`episode_unit_price` を
+ * 削った** — 案件作成・案件を直すのどちらのフォームにも、もうこの2つを
+ * 送る手段が無い（サーバーは未指定なら今の値を保つので、MCP からの更新は影響を受けない）。
  *
  * ── `recurrence === 'regular'` のときだけ出す ──────────────────
  *
@@ -55,15 +67,6 @@ export function RegularSeriesFields({ f }: { f: ProjectFieldsState }) {
         </Select>
       </Field>
 
-      <Field label="1日あたりの本数" htmlFor="rs-per-day" hint="同じ収録日に何本撮るか（例: 2本撮り）">
-        <Input
-          id="rs-per-day" type="number" min="1" inputMode="numeric"
-          value={v.recording_per_day_count}
-          onChange={(e) => set('recording_per_day_count', e.target.value)}
-          placeholder="1"
-        />
-      </Field>
-
       <Field label="固定セット" full htmlFor="rs-studio" hint="拠点・カメラ数などの自由記述（例: 用賀 SKY STUDIO・3カメラ）。予約そのものは案件詳細の「予約」で押さえます">
         <Input
           id="rs-studio"
@@ -71,18 +74,6 @@ export function RegularSeriesFields({ f }: { f: ProjectFieldsState }) {
           onChange={(e) => set('fixed_studio_note', e.target.value)}
           placeholder="用賀 SKY STUDIO・3カメラ"
         />
-      </Field>
-
-      <Field label="回の単価" htmlFor="rs-price" hint="今の単価。改定しても過去に作った回の金額は動きません">
-        <div className="flex items-center gap-2">
-          <span className="text-sub shrink-0 text-muted-foreground">¥</span>
-          <Input
-            id="rs-price" type="number" min="0" inputMode="numeric"
-            value={v.episode_unit_price}
-            onChange={(e) => set('episode_unit_price', e.target.value)}
-            placeholder="84000"
-          />
-        </div>
       </Field>
 
       <Field label="請求サイクル" hint="請求書のまとめ方（金額そのものは回ごとに持ちます）">

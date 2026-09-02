@@ -1,11 +1,17 @@
 /**
- * 販管費の「種別と月按分」（⑤ 販管費のダイアログの中身）
+ * 販管費の「仮フラグ・種別・月按分」（⑤ 販管費のダイアログの中身）
  *
  * **`SgaDialog` から切り出したものです。動きは変えていません。**
- * 分けた理由は1ファイル400行の上限で、中身の作り直しではありません。
+ * 分けた理由は1ファイル400行の上限で、中身の作り直しではありません
+ * （仮フラグ (migration 268) だけは仕様変更 #4・#6・#7 で新規に足したもの）。
  *
  * 固定(毎月)を選ぶと按分の入力を閉じます。固定費は毎月同額で計上するので、
  * 期間で割る按分と両方が効くと二重に分けたことになります。
+ *
+ * ⚠️ **閲覧のみ（`readOnly`）は個別に配線しない。** `SgaDialog.tsx` が
+ * 本文全体を `<fieldset disabled>` で包むので、ここで扱う `<Switch>`/ラジオ/
+ * `<Input>` はどれも自然に無効化される（漏れなく効くうえ、1ファイル400行の
+ * 上限にも効く）。
  */
 import { formatCurrency } from '@/lib/format';
 import { Input } from '@/components/ui/input';
@@ -21,97 +27,110 @@ export function SgaExpenseTypeFields({
   amortizeMonths: number;
 }) {
   return (
-    <div className="space-y-2">
-      <Label>販管費種別</Label>
-      <div className="flex gap-4">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="radio"
-            name="expense_type"
-            checked={form.expense_type === "spot"}
-            onChange={() =>
-              setForm((f) => ({ ...f, expense_type: "spot" }))
-            }
-            className="accent-primary"
-          />
-          <span className="text-sm">スポット</span>
-        </label>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="radio"
-            name="expense_type"
-            checked={form.expense_type === "fixed"}
-            onChange={() =>
-              setForm((f) => ({
-                ...f,
-                expense_type: "fixed",
-                amortize_enabled: false,
-                amortize_start: "",
-                amortize_end: "",
-              }))
-            }
-            className="accent-primary"
-          />
-          <span className="text-sm">固定(毎月)</span>
-        </label>
+    <div className="space-y-4">
+      {/* 仮フラグ。仕入の「仮（確定前の見込み仕入）」と同じ扱い。
+          ON の間は精算番号が入力不可になる（`SgaSettlementFields`） */}
+      <div className="flex items-center justify-between gap-2">
+        <Label htmlFor="sga-is-provisional" className="cursor-pointer">仮（確定前の見込み）</Label>
+        <Switch
+          id="sga-is-provisional"
+          checked={form.is_provisional}
+          onCheckedChange={(checked) => setForm((f) => ({ ...f, is_provisional: !!checked }))}
+        />
       </div>
 
-      {form.expense_type === "spot" && (
-        <div className="ml-2 space-y-2 border-l-2 border-muted pl-4">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm">月按分する</span>
-            <Switch
-              checked={form.amortize_enabled}
-              onCheckedChange={(checked) =>
+      <div className="space-y-2">
+        <Label>販管費種別</Label>
+        <div className="flex gap-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="expense_type"
+              checked={form.expense_type === "spot"}
+              onChange={() =>
+                setForm((f) => ({ ...f, expense_type: "spot" }))
+              }
+              className="accent-primary"
+            />
+            <span className="text-sm">スポット</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="expense_type"
+              checked={form.expense_type === "fixed"}
+              onChange={() =>
                 setForm((f) => ({
                   ...f,
-                  amortize_enabled: !!checked,
-                  amortize_start: checked ? f.amortize_start : "",
-                  amortize_end: checked ? f.amortize_end : "",
+                  expense_type: "fixed",
+                  amortize_enabled: false,
+                  amortize_start: "",
+                  amortize_end: "",
                 }))
               }
+              className="accent-primary"
             />
-          </div>
-          {form.amortize_enabled && (
-            <div className="space-y-2">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <Label className="text-xs">按分開始月</Label>
-                  <Input
-                    type="month"
-                    value={form.amortize_start}
-                    onChange={(e) =>
-                      setForm((f) => ({
-                        ...f,
-                        amortize_start: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">按分終了月</Label>
-                  <Input
-                    type="month"
-                    value={form.amortize_end}
-                    onChange={(e) =>
-                      setForm((f) => ({
-                        ...f,
-                        amortize_end: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-              {form.amount > 0 && amortizeMonths > 0 && (
-                <p className="text-sm text-muted-foreground font-number">
-                  {formatCurrency(form.amount)} ÷ {amortizeMonths}ヶ月 ={" "}
-                  {formatCurrency(Math.floor(form.amount / amortizeMonths))}/月
-                </p>
-              )}
-            </div>
-          )}
+            <span className="text-sm">固定(毎月)</span>
+          </label>
         </div>
-      )}
+
+        {form.expense_type === "spot" && (
+          <div className="ml-2 space-y-2 border-l-2 border-muted pl-4">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm">月按分する</span>
+              <Switch
+                checked={form.amortize_enabled}
+                onCheckedChange={(checked) =>
+                  setForm((f) => ({
+                    ...f,
+                    amortize_enabled: !!checked,
+                    amortize_start: checked ? f.amortize_start : "",
+                    amortize_end: checked ? f.amortize_end : "",
+                  }))
+                }
+              />
+            </div>
+            {form.amortize_enabled && (
+              <div className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-xs">按分開始月</Label>
+                    <Input
+                      type="month"
+                      value={form.amortize_start}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          amortize_start: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">按分終了月</Label>
+                    <Input
+                      type="month"
+                      value={form.amortize_end}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          amortize_end: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+                {form.amount > 0 && amortizeMonths > 0 && (
+                  <p className="text-sm text-muted-foreground font-number">
+                    {formatCurrency(form.amount)} ÷ {amortizeMonths}ヶ月 ={" "}
+                    {formatCurrency(Math.floor(form.amount / amortizeMonths))}/月
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

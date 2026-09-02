@@ -106,11 +106,14 @@ describe('見積の明細 — グループ内価格でも定価を表記する�
 
   it('⚠️ 金額計算（convertToRevenue の明細 SELECT）には list_unit_price を混ぜていない', () => {
     // 表示・PDF 印字専用の列。売上変換の SELECT は unit_price（実額）だけを読む
+    // （仕様変更 #14/#19 で item_date/item_date_end の to_char() 列が増えたため、
+    // sort_order の直後に改行が来る前提を外し、SELECT 句の中身だけを見る）
     const at = ESTIMATE.indexOf('async convertToRevenue(');
     const body = ESTIMATE.slice(at, ESTIMATE.indexOf('\n};', at));
     expect(body).toMatch(
-      /SELECT description, quantity, unit_price, amount, category, pricing_item_id, item_notes, sort_order\s*\n\s*FROM estimate_items/,
+      /SELECT description, quantity, unit_price, amount, category, pricing_item_id, item_notes, sort_order,/,
     );
+    expect(body).toMatch(/FROM estimate_items WHERE estimate_id = \$1/);
     expect(body).not.toMatch(/list_unit_price/);
   });
 

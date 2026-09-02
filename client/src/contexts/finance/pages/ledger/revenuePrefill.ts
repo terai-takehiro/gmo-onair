@@ -43,6 +43,8 @@ export interface RevenueFormValues {
   paymentDueDate: string | null;
   notes: string;
   isAdvancePayment: boolean;
+  /** migration 140。**フラグではなく日付**（入っていれば済み・仕様変更 #5） */
+  inspectionDate: string | null;
   invoiceIssued: boolean;
   items: RevenueItem[] | null;
 }
@@ -62,6 +64,7 @@ export function formFromRevenue(row: RevenueRow): RevenueFormValues {
     paymentDueDate: row.payment_due_date ? row.payment_due_date.slice(0, 10) : null,
     notes: row.notes || '',
     isAdvancePayment: !!row.is_advance_payment,
+    inspectionDate: row.inspection_date ?? null,
     invoiceIssued: !!row.invoice_issued,
     items: Array.isArray(row.items) && row.items.length > 0
       ? row.items.map((it) => ({

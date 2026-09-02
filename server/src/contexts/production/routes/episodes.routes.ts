@@ -53,7 +53,11 @@ router.get('/:projectId/episodes', async (req, res) => {
       (SELECT COUNT(*) FROM revenues WHERE episode_id = e.id AND deleted_at IS NULL) as revenue_count,
       (SELECT COUNT(*) FROM purchases WHERE episode_id = e.id AND deleted_at IS NULL) as purchase_count,
       (SELECT COUNT(*) FROM project_tasks WHERE episode_id = e.id AND deleted_at IS NULL AND parent_task_id IS NULL) as task_count,
-      (SELECT COUNT(*) FROM project_tasks WHERE episode_id = e.id AND deleted_at IS NULL AND parent_task_id IS NULL AND is_completed = true) as task_done_count
+      (SELECT COUNT(*) FROM project_tasks WHERE episode_id = e.id AND deleted_at IS NULL AND parent_task_id IS NULL AND is_completed = true) as task_done_count,
+      -- この回に紐づく見積の件数（仕様変更 #18・migration 270）。「この回の見積」への
+      -- 導線（EpisodesPanel.tsx）が件数を出すための集計。アーカイブした版も含めて数える
+      -- （「もう見ない版を隠しただけ」で見積そのものが無いわけではないため）
+      (SELECT COUNT(*) FROM estimates WHERE episode_id = e.id AND deleted_at IS NULL) as estimate_count
     FROM episodes e
     ${where}
     ORDER BY e.episode_number ASC
@@ -69,7 +73,8 @@ router.get('/:projectId/episodes/:id', async (req, res) => {
   const row = await queryOne(
     `SELECT e.*,
       (SELECT COALESCE(SUM(amount),0) FROM revenues WHERE episode_id = e.id AND deleted_at IS NULL) as actual_revenue,
-      (SELECT COALESCE(SUM(amount),0) FROM purchases WHERE episode_id = e.id AND deleted_at IS NULL) as actual_cost
+      (SELECT COALESCE(SUM(amount),0) FROM purchases WHERE episode_id = e.id AND deleted_at IS NULL) as actual_cost,
+      (SELECT COUNT(*) FROM estimates WHERE episode_id = e.id AND deleted_at IS NULL) as estimate_count
     FROM episodes e
     WHERE e.id = ? AND e.project_id = ? AND e.deleted_at IS NULL`,
     [req.params.id, req.params.projectId]
@@ -233,38 +238,75 @@ router.post('/:projectId/episodes/month', requirePermission('sales', 'editor'), 
 // Update episode
 router.put('/:projectId/episodes/:id', requirePermission('sales', 'editor'), async (req, res) => {
   const existing = await queryOne(
-    'SELECT e.id FROM episodes e WHERE e.id = ? AND e.project_id = ? AND e.deleted_at IS NULL',
+    `SELECT e.id, e.title, e.recording_date, e.broadcast_date, e.status, e.notes,
+            e.recording_per_day_count, e.episode_unit_price
+       FROM episodes e WHERE e.id = ? AND e.project_id = ? AND e.deleted_at IS NULL`,
     [req.params.id, req.params.projectId]
-  );
+  ) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'エピソードが見つかりません');
 
-  const {
-    title, recording_date, broadcast_date, status,
-    notes
-  } = req.body;
+  /**
+   * ⚠️ **「渡さなければ今の値を保つ」**（client/CLAUDE.md「サーバーの部分更新の原則」）。
+   * 元の実装は title/recording_date/broadcast_date/status/notes を
+   * すべて `|| null` で未指定なら消していた。これまでこのAPIを呼ぶフロントが
+   * 存在しなかったため実害が出ていなかったが、`EditEpisodeDialog.tsx`
+   * （回ごとの本数・単価だけを編集する画面。仕様変更 #16）が本数・単価の
+   * 2フィールドだけを送るようになった今、そのまま使うと**保存するたびに
+   * 収録日・放送日・タイトル・状態・備考が消える**（実測）。
+   */
+  const title = req.body.title === undefined ? existing.title : (req.body.title || null);
+  const status = req.body.status === undefined ? existing.status : (req.body.status || null);
+  const notes = req.body.notes === undefined ? existing.notes : (req.body.notes || null);
+  const recordingDate = req.body.recording_date === undefined
+    ? existing.recording_date : (req.body.recording_date || null);
 
   // For live broadcasts, recording_date also sets broadcast_date
-  let finalBroadcastDate = broadcast_date || null;
-  if (recording_date) {
+  let finalBroadcastDate = req.body.broadcast_date === undefined
+    ? existing.broadcast_date : (req.body.broadcast_date || null);
+  if (recordingDate) {
     const project = await queryOne(
       'SELECT broadcast_type FROM projects WHERE id = ? AND deleted_at IS NULL',
       [req.params.projectId]
     ) as any;
     if (project && broadcastTypeIncludes(project.broadcast_type, 'live')) {
-      finalBroadcastDate = recording_date;
+      finalBroadcastDate = recordingDate;
     }
   }
+
+  /**
+   * この回の「1日あたりの本数」「回の単価」（migration 269・仕様変更 #16）。
+   *
+   * **「渡さなければ今の値を保つ」**（client/CLAUDE.md「サーバーの部分更新の原則」）—
+   * このAPIの他の項目（title/notes 等）は未指定を `|| null` で消してしまう既存の
+   * 挙動だが、この2つは新しく足す項目なので同じ轍を踏まない。
+   * 空文字・null は明示的な解除（「決めていない」に戻す）として NULL にする。
+   * ⚠️ 単価は 0 も正当な値なので `Number(value) === 0` を弾かない
+   * （`project.service.ts` の `episode_unit_price` と同じ守り方）。
+   */
+  const recordingPerDayCountValue = req.body.recording_per_day_count === undefined
+    ? existing.recording_per_day_count
+    : (req.body.recording_per_day_count === null || req.body.recording_per_day_count === ''
+      ? null
+      : (Number.isFinite(Number(req.body.recording_per_day_count)) && Number(req.body.recording_per_day_count) > 0
+        ? Math.floor(Number(req.body.recording_per_day_count)) : existing.recording_per_day_count));
+  const episodeUnitPriceValue = req.body.episode_unit_price === undefined
+    ? existing.episode_unit_price
+    : (req.body.episode_unit_price === null || req.body.episode_unit_price === ''
+      ? null
+      : (Number.isFinite(Number(req.body.episode_unit_price)) && Number(req.body.episode_unit_price) >= 0
+        ? Number(req.body.episode_unit_price) : existing.episode_unit_price));
 
   await execute(
     `UPDATE episodes SET
       title = ?, recording_date = ?, broadcast_date = ?, status = ?,
-      notes = ?,
+      notes = ?, recording_per_day_count = ?, episode_unit_price = ?,
       updated_at = NOW(), updated_by = ?
     WHERE id = ?`,
     [
-      title || null, recording_date || null, finalBroadcastDate,
-      status || null,
-      notes || null, req.user!.id, req.params.id
+      title, recordingDate, finalBroadcastDate,
+      status,
+      notes, recordingPerDayCountValue, episodeUnitPriceValue,
+      req.user!.id, req.params.id
     ]
   );
 

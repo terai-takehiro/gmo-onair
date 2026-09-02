@@ -16,8 +16,9 @@ import { EstimateActions, type EstimateStatus as Status } from './EstimateAction
 import type { Estimate } from './EstimateTab';
 
 export function EstimateVersionList({
-  estimates, isMobile, onToggleOpen, base, statusLabel, statusTone,
+  estimates, isMobile, onToggleOpen, base, statusLabel, statusTone, episodeLabels,
   onSetStatus, onConvert, onNextVersion, onRemove, onArchive, onUnarchive,
+  canDuplicate, onDuplicate,
 }: {
   estimates: Estimate[];
   isMobile: boolean;
@@ -26,12 +27,20 @@ export function EstimateVersionList({
   base: string;
   statusLabel: Record<Status, string>;
   statusTone: Record<Status, string>;
+  /**
+   * `episode_id` → 「#3」のような表示ラベル（仕様変更 #18）。回を持たない
+   * 見積（案件全体の見積）はこの表を引かないので、何も出さない
+   */
+  episodeLabels: Record<string, string>;
   onSetStatus: (id: string, status: Status) => void;
   onConvert: (id: string) => void;
   onNextVersion: (id: string) => void;
   onRemove: (id: string) => void;
   onArchive: (id: string) => void;
   onUnarchive: (id: string) => void;
+  /** 「別の回の見積として複製する」を出すか（案件がレギュラーのときだけ） */
+  canDuplicate: boolean;
+  onDuplicate: (id: string) => void;
 }) {
   if (isMobile) {
     // **版1件＝カード1枚。** PC の `Row` は「版」「操作」を含む5列の表を
@@ -39,7 +48,10 @@ export function EstimateVersionList({
     // 240px の操作ボタン群が折り返して行の高さが版ごとにばらついていた
     return (
       <div className="flex flex-col gap-2">
-        {estimates.map((e) => (
+        {estimates.map((e) => {
+          // この見積が属する回のラベル（仕様変更 #18）。案件全体の見積（episode_id 無し）は null
+          const epLabel = e.episode_id ? episodeLabels[e.episode_id] : null;
+          return (
           <div key={e.id} className="rounded-card flex flex-col gap-2.5 border border-border bg-card p-3.5">
             <button
               type="button"
@@ -51,6 +63,9 @@ export function EstimateVersionList({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="text-list block truncate font-bold">{e.title || '名前のない見積'}</span>
+                {epLabel && (
+                  <span className="text-sub-sm block text-primary">{epLabel} の見積</span>
+                )}
                 {e.sent_at && (
                   <span className="text-sub-sm block text-muted-foreground">
                     出した日 {e.sent_at.slice(0, 10).replace(/-/g, '/')}
@@ -72,9 +87,12 @@ export function EstimateVersionList({
               onRemove={() => onRemove(e.id)}
               onArchive={() => onArchive(e.id)}
               onUnarchive={() => onUnarchive(e.id)}
+              canDuplicate={canDuplicate}
+              onDuplicate={() => onDuplicate(e.id)}
             />
           </div>
-        ))}
+          );
+        })}
       </div>
     );
   }
@@ -88,7 +106,10 @@ export function EstimateVersionList({
         <RowSlot w={96}>状態</RowSlot>
         <RowSlot w={240} align="right">操作</RowSlot>
       </RowHeader>
-      {estimates.map((e) => (
+      {estimates.map((e) => {
+        // この見積が属する回のラベル（仕様変更 #18）。案件全体の見積（episode_id 無し）は null
+        const epLabel = e.episode_id ? episodeLabels[e.episode_id] : null;
+        return (
         <Row key={e.id} divider interactive stackOnMobile align="center">
           <RowSlot w={56}>
             <span className="text-list font-number">v{e.version}</span>
@@ -97,6 +118,9 @@ export function EstimateVersionList({
             {/* 高さは決めた段に乗せる (中身任せだと 39px になり、指でも押しにくい) */}
             <button type="button" onClick={() => onToggleOpen(e.id)} className="min-h-tap w-full text-left">
               <span className="text-list block truncate">{e.title || '名前のない見積'}</span>
+              {epLabel && (
+                <span className="text-sub-sm block text-primary">{epLabel} の見積</span>
+              )}
               {e.sent_at && (
                 <span className="text-sub-sm block text-muted-foreground">
                   出した日 {e.sent_at.slice(0, 10).replace(/-/g, '/')}
@@ -119,10 +143,13 @@ export function EstimateVersionList({
               onRemove={() => onRemove(e.id)}
               onArchive={() => onArchive(e.id)}
               onUnarchive={() => onUnarchive(e.id)}
+              canDuplicate={canDuplicate}
+              onDuplicate={() => onDuplicate(e.id)}
             />
           </RowSlot>
         </Row>
-      ))}
+        );
+      })}
     </div>
   );
 }

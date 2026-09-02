@@ -34,10 +34,10 @@ const INVOICE_NO = read('server', 'src', 'contexts', 'finance', 'services', 'inv
 function txBody(src: string, from: number): string {
   const at = src.indexOf('withTransaction', from);
   // ⚠️ `convertToRevenue` は版重複変換の防止（同じ見積の別バージョンが
-  // 作った売上を上書きする分岐）が増え、コメントごと 2000 字を超えている。
-  // 窓を狭いままにすると**中身は正しいのに試験だけが赤くなる**（別のテストの
-  // 教訓と同じ形）ので、実測して余裕を持たせてある
-  return at < 0 ? '' : src.slice(at, at + 6000);
+  // 作った売上を上書きする分岐）や期間引き継ぎ（仕様変更 #14/#19）が増え、
+  // コメントごと 6000 字を超えている。窓を狭いままにすると**中身は正しいのに
+  // 試験だけが赤くなる**（別のテストの教訓と同じ形）ので、実測して余裕を持たせてある
+  return at < 0 ? '' : src.slice(at, at + 9000);
 }
 
 describe('お金の二重計上・取りこぼし', () => {

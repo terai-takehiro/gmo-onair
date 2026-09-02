@@ -8,35 +8,37 @@
  * 呼んでいた。最新モック（`v4-live-sales.dc.html` の `det.isRevPane`）は
  * **売上／請求／仕入（原価）の3枚のカードだけ**の、ずっと単純な読み取り中心の
  * 設計だったので、そちらに合わせて作り直した（`docs/v4-mock-deviations.md` 参照）。
+ * 請求・仕入（原価）の合計・帳票発行は今も**読むだけ**（月次ユニット作成・仕入の
+ * 金額編集は既存の財務台帳 `/budget/purchases` と ⑤ 見積・請求（全案件）にある）。
  *
- * ── 何を残し、何を畳んだか ─────────────────────────────────
+ * ── 売上だけは編集できる（仕様変更 #13・ご要望で変更）────────────
  *
- * このペインは**読むだけ**（モックどおり、行を押しても編集は開かない）。
- * 金額を直す・月次ユニットを作るといった編集は、
- * 既存の財務台帳（`/budget/revenues` `/budget/purchases`）と
- * ⑤ 見積・請求（全案件）にすでにある。同じ `revenues`/`purchases` を
- * 2か所で編集できるようにすると、片方だけ直された行ができる
- * （財務の台帳3画面の決めごとと同じ理由）。
+ * 元は「読むだけ」（同じ `revenues` を2か所で編集できると片方だけ直された行が
+ * できるため）だったが、**案件詳細から計上月・請求予定日・入金予定日・前金・
+ * 請求書発行済を直せないと不便**という指摘を受け、財務台帳の
+ * `RevenueDialog.tsx`（③ 売上の登録・編集ダイアログ）をそのまま流用して
+ * 編集できるようにした。**二重実装はしていない** — `RevenueListPage.tsx` が
+ * 開くのと同じ部品・同じ `PUT /revenues/:id` をこの画面から開くだけ
+ * （仕入編集を `PurchaseDialog` で流用しているのと同じやり方）。権限もサーバー
+ * `PUT /revenues/:id` の要件（`sales:editor`）に合わせる。
+ *
+ * ── 見積との差異は気づけるようにするだけ（仕様変更 #15）───────────
+ *
+ * 見積から変換された売上には、見積のような「送付後は編集不可」の縛りが
+ * 及ばない（`estimates` と違う表なので）。**編集そのものはロックしない**
+ * というご判断のため、代わりに元の見積の合計金額といまの売上金額が
+ * 食い違っていたら行に警告バッジを出す（`revenueBillingParts.tsx` の
+ * `estimateMismatch`/`EstimateMismatchNote`）。見積自体は送付後に直せないので、
+ * 差が出るのは売上側をあとから直接書き換えたときだけ。差異検知に使う
+ * `estimate_id`/`estimate_total_amount` は `project_id` で絞ったときだけ
+ * `GET /revenues` が返す（`revenues.routes.ts`）。
  *
  * ── 帳票の発行だけは残す（ご指摘で戻したもの）──────────────
  *
- * **請求書・検収書の PDF はここから出せます。** これは「読むだけ」に反しません —
- * 数字を1つも書き換えず、いま見えている売上をそのまま紙にするだけだからです。
- * v4 でこのペインに置き換えたとき、旧 `BusinessProjectView` が持っていた
- * 3つのボタン（見積書・請求書・検収書）ごと落ちてしまい、**案件から帳票を
- * 出す道がどこにも無くなっていました**。
- *
- * **見積書はここに置きません。** v4 の見積は `estimates`（版が残る表）が持ち、
- * 左の「見積」から版ごとに出せます。売上からも出せるようにすると、
- * 同じ案件の見積書が2種類（版のあるもの・売上に変換したあとのもの）できて、
- * どちらを相手に出したのかが分からなくなります。
- *
- * ── データの出どころ ───────────────────────────────────────
- *
- * `GET /revenues?project_id=` と `GET /purchases?project_id=`（`budget` 権限。
- * レガシー版も同じ口を呼んでいたので権限の要件は変えていない）。
- * 「請求」カードは `invoice_issued` が立っている行だけを見せる —
- * 売上に計上されただけの見込み行と、実際に請求書を出した行は別物のため。
+ * **請求書・検収書の PDF はここから出せます。** 数字を書き換えず、いま
+ * 見えている売上をそのまま紙にするだけ。**見積書はここに置きません** —
+ * 版のある `estimates` から出す（売上からも出すと2種類の見積書ができて
+ * どちらを相手に出したのか分からなくなる）。
  *
  * ── スマホはカード積み（v4ネイティブUI監査・この回） ───────────
  *
@@ -45,30 +47,20 @@
  * PC専用ゲートの内側にあるが、「それでもこのまま開く」を選んだ人のために
  * 中身は作り込んである。
  *
- * ── 仕入の「追加」だけは例外（ご要望で追加） ───────────────────
+ * ── 仕入の「追加」・「行を押すと詳細」だけは例外（ご要望で追加） ─────
  *
- * 「読むだけ」の原則はそのまま——このペインに仕入の編集フォームを
- * 新しく作ることはしていない。**財務②仕入台帳（`PurchaseListPage.tsx`）が
- * 使っているダイアログ（`ledger/PurchaseDialog.tsx`）・API（`POST /purchases`）を
- * そのまま呼んでいるだけ**（コードの二重実装を避ける）。編集・削除は
- * 台帳側にしか出さない（このペインは新規登録の入口だけ）。
- * 権限も台帳と同じ `sales:editor`（サーバー `POST /purchases` の要件）。
- *
- * ── 仕入行を押すと詳細が見られる（ご要望で追加） ─────────────────
- *
- * 「読むだけ」を破らない範囲で、仕入行を押すと**同じ `PurchaseDialog` を
- * `readOnly` で開く**（保存・削除ボタンは出ず、全欄が disabled）。
- * 財務②仕入台帳の `LedgerRows`（`interactive onClick={() => onOpen(r)}`）と
- * 同じ「行を押すと詳細」という手触りに揃えたが、台帳側は編集者だと
- * 編集ダイアログが開く——ここは常に閲覧専用（このペインの方針）。
+ * 仕入は今も「読むだけ」——**財務②仕入台帳が使うダイアログ
+ * （`ledger/PurchaseDialog.tsx`）・API（`POST /purchases`）をそのまま
+ * 呼んでいるだけ**（新規登録の入口のみ・権限は台帳と同じ `sales:editor`）。
+ * 行を押すと同じ `PurchaseDialog` を `readOnly` で開く（保存・削除は出ない・
+ * 常に閲覧専用）。編集・削除は台帳側にしか出さない。
  *
  * ── 「案件管理の売上」と「財務管理の売上」は同じデータの2つの見え方 ──
  *
- * `revenues`/`purchases` は財務管理の台帳（`/budget/revenues` `/budget/purchases`）と
- * **同じテーブル・同じ API**（このペインはそれを案件で絞って読むだけ）。
- * 二重管理だと誤解されないよう、各カードに財務管理側（この案件で絞った状態）への
- * リンクを出す（`ProjectQuickLinks.tsx` と同じクエリの付け方
- * `?project_id=…&project_name=…`）。
+ * `revenues`/`purchases` は財務管理の台帳と**同じテーブル・同じ API**
+ * （このペインはそれを案件で絞って読むだけ）。二重管理だと誤解されないよう、
+ * 各カードに財務管理側（この案件で絞った状態）へのリンクを出す
+ * （`ProjectQuickLinks.tsx` と同じクエリの付け方 `?project_id=…&project_name=…`）。
  */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -83,11 +75,13 @@ import { cn } from '@gmo-onair/shared/src/client/utils';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { PurchaseDialog, type PurchaseProjectOption } from '@/contexts/finance/pages/ledger/PurchaseDialog';
+import { RevenueDialog } from '@/contexts/finance/pages/ledger/RevenueDialog';
 import type { PurchaseRow } from '@/contexts/finance/pages/ledger/types';
-import type { Revenue, Vendor } from '@gmo-onair/shared/src/types';
+import type { Vendor } from '@gmo-onair/shared/src/types';
 import {
   financeLedgerHref, FinanceLedgerLink, SameDataNote, DocButtons,
-  REV_STATUS_LABEL, REV_STATUS_TONE, invoiceState, type ListResponse,
+  REV_STATUS_LABEL, REV_STATUS_TONE, invoiceState, estimateMismatch, EstimateMismatchNote,
+  type ListResponse, type PaneRevenue,
 } from './revenueBillingParts';
 
 /**
@@ -107,11 +101,15 @@ export function RevenueBillingPane({ projectId, projectName, mobile }: { project
   const { hasPermission } = useAuth();
   // サーバー側 `POST /purchases` の要件（`requirePermission('sales', 'editor')`）に合わせる
   const canAddPurchase = hasPermission('sales', 'editor');
+  // サーバー側 `PUT /revenues/:id` の要件（`requirePermission('sales', 'editor')`）に合わせる
+  const canEditRevenue = hasPermission('sales', 'editor');
   const [addPurchaseOpen, setAddPurchaseOpen] = useState(false);
   /** 仕入行を押して開いた閲覧専用の詳細。`null` なら閉じている */
   const [viewingPurchase, setViewingPurchase] = useState<PurchaseRow | null>(null);
+  /** 編集ボタンで開いた売上の編集ダイアログ（`RevenueDialog` を流用）。`null` なら閉じている */
+  const [editingRevenue, setEditingRevenue] = useState<PaneRevenue | null>(null);
 
-  const revenues = useQuery<ListResponse<Revenue>>({
+  const revenues = useQuery<ListResponse<PaneRevenue>>({
     queryKey: ['revenues', 'project', projectId],
     queryFn: async () => (await api.get('/revenues', { params: { project_id: projectId, limit: 100 } })).data,
   });
@@ -188,24 +186,28 @@ export function RevenueBillingPane({ projectId, projectName, mobile }: { project
         ) : mobile ? (
           <>
             <div className="flex flex-col">
-              {revenueRows.map((r) => (
-                <div key={r.id} className="flex flex-col gap-2 border-b border-border-faint p-3.5 last:border-b-0">
-                  <div className="flex items-start gap-2">
-                    <span className="min-w-0 flex-1">
-                      <span className="text-list block truncate font-bold">{r.subtitle || r.notes || '（内容未設定）'}</span>
-                      <span className="text-sub-sm font-number block text-muted-foreground">
-                        {r.recognition_date?.slice(0, 7).replace('-', '/') ?? '—'}
+              {revenueRows.map((r) => {
+                const mismatch = estimateMismatch(r);
+                return (
+                  <div key={r.id} className="flex flex-col gap-2 border-b border-border-faint p-3.5 last:border-b-0">
+                    <div className="flex items-start gap-2">
+                      <span className="min-w-0 flex-1">
+                        <span className="text-list block truncate font-bold">{r.subtitle || r.notes || '（内容未設定）'}</span>
+                        <span className="text-sub-sm font-number block text-muted-foreground">
+                          {r.recognition_date?.slice(0, 7).replace('-', '/') ?? '—'}
+                        </span>
+                        {mismatch !== null && <EstimateMismatchNote estimateTotal={mismatch} />}
                       </span>
-                    </span>
-                    <TableBadge w={null} label={REV_STATUS_LABEL[r.status] ?? r.status}
-                      className={cn('shrink-0', REV_STATUS_TONE[r.status] ?? REV_STATUS_TONE.estimate)} />
+                      <TableBadge w={null} label={REV_STATUS_LABEL[r.status] ?? r.status}
+                        className={cn('shrink-0', REV_STATUS_TONE[r.status] ?? REV_STATUS_TONE.estimate)} />
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <Money value={r.amount} className="text-list font-bold" />
+                      <DocButtons revenueId={r.id} onEdit={canEditRevenue ? () => setEditingRevenue(r) : undefined} />
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <Money value={r.amount} className="text-list font-bold" />
-                    <DocButtons revenueId={r.id} />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             {moreRevenue > 0 && <MoreNote n={moreRevenue} />}
           </>
@@ -216,17 +218,23 @@ export function RevenueBillingPane({ projectId, projectName, mobile }: { project
               <RowSlot w={96}>計上月</RowSlot>
               <RowSlot w={128} align="right">金額</RowSlot>
               <RowSlot w={96}>状態</RowSlot>
-              <RowSlot w={160} align="right">帳票</RowSlot>
+              <RowSlot w={canEditRevenue ? 200 : 160} align="right">帳票</RowSlot>
             </RowHeader>
-            {revenueRows.map((r) => (
-              <Row key={r.id} divider stackOnMobile align="center">
-                <RowMain><span className="text-list block truncate">{r.subtitle || r.notes || '（内容未設定）'}</span></RowMain>
-                <RowSlot w={96}><span className="text-sub font-number">{r.recognition_date?.slice(0, 7).replace('-', '/') ?? '—'}</span></RowSlot>
-                <Money value={r.amount} className="text-sub w-32 shrink-0" />
-                <TableBadge w={96} label={REV_STATUS_LABEL[r.status] ?? r.status} className={REV_STATUS_TONE[r.status] ?? REV_STATUS_TONE.estimate} />
-                <DocButtons revenueId={r.id} />
-              </Row>
-            ))}
+            {revenueRows.map((r) => {
+              const mismatch = estimateMismatch(r);
+              return (
+                <Row key={r.id} divider stackOnMobile align="start">
+                  <RowMain>
+                    <span className="text-list block truncate">{r.subtitle || r.notes || '（内容未設定）'}</span>
+                    {mismatch !== null && <EstimateMismatchNote estimateTotal={mismatch} />}
+                  </RowMain>
+                  <RowSlot w={96}><span className="text-sub font-number">{r.recognition_date?.slice(0, 7).replace('-', '/') ?? '—'}</span></RowSlot>
+                  <Money value={r.amount} className="text-sub w-32 shrink-0" />
+                  <TableBadge w={96} label={REV_STATUS_LABEL[r.status] ?? r.status} className={REV_STATUS_TONE[r.status] ?? REV_STATUS_TONE.estimate} />
+                  <DocButtons revenueId={r.id} onEdit={canEditRevenue ? () => setEditingRevenue(r) : undefined} />
+                </Row>
+              );
+            })}
             {moreRevenue > 0 && <MoreNote n={moreRevenue} />}
           </>
         )}
@@ -373,6 +381,15 @@ export function RevenueBillingPane({ projectId, projectName, mobile }: { project
           editing={viewingPurchase}
           defaultProjectId={projectId}
           onClose={() => setViewingPurchase(null)}
+        />
+      )}
+
+      {/* 編集ボタンで開く売上の編集ダイアログ。財務台帳と同じ `RevenueDialog`（ファイル冒頭コメント参照） */}
+      {editingRevenue && (
+        <RevenueDialog
+          key={editingRevenue.id}
+          editing={editingRevenue}
+          onClose={() => setEditingRevenue(null)}
         />
       )}
     </div>

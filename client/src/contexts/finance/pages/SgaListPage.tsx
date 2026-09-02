@@ -37,9 +37,11 @@ import { useCrudPage } from '@/hooks/useCrudPage';
 import ExcelToolbar from '@/components/ExcelToolbar';
 import type { SgaExpense, Vendor } from '@/types';
 import SgaDialog, { type SgaFormData, initialFormData } from '../components/SgaDialog';
+import { formFromSga } from '../components/sgaPrefill';
 import { LedgerRows } from './ledger/LedgerRows';
 import { LedgerFooter, LedgerSearch, MonthPicker } from './ledger/LedgerParts';
 import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth';
+import { settlementState } from './ledger/settlementState';
 import type { LedgerRow } from './ledger/types';
 
 /** 科目とは別の軸。**どちらも経理が使う**ので両方残す */
@@ -51,24 +53,37 @@ const CHIPS = [
   { key: 'accounting', label: '経理の取込', expense_type: '', source: 'accounting', count: 'accounting' },
 ];
 
-/** 按分中 > 固定 > 都度 の順に1つだけ出す（3つ並べると何が要点か分からない） */
+/**
+ * 申請ステータス（仮 / 確定：未申請 / 確定：申請済）。**仕入と共通のロジック**
+ * （`ledger/settlementState.ts`）。以前はここで「按分中/固定/都度」を出していたが、
+ * 行1つに出せるバッジは1つなので、申請ステータスへ統一する（仕様変更 #4・#6・#7）。
+ * 按分・種別は一覧の絞り込みチップ（下の `CHIPS`）とダイアログで確認できる
+ */
 function sgaState(item: SgaExpense): LedgerRow['state'] {
-  if (item.amortize_start) {
-    // 期間は「から/まで」で書く（`〜` の手打ちは `DateRange` を使う決めごとに反する）
-    const to = item.amortize_end ? `${item.amortize_end} まで` : '終わり未定';
-    return { label: '按分中', tone: 'info', title: `${item.amortize_start} から ${to} で分けています` };
-  }
-  if (item.expense_type === 'fixed') return { label: '固定', tone: 'ok', title: '毎月かかる費用' };
-  return { label: '都度', tone: 'neutral', title: 'その都度の費用' };
+  return settlementState(item.is_provisional, item.settlement_number);
 }
 
 export default function SgaListPage() {
   const { currentUser, hasPermission } = useAuth();
   const canEdit = hasPermission('sales', 'editor');
   const [searchParams] = useSearchParams();
+  /*
+   * 財務ダッシュボードの「台帳をひらく」から来たときの期間の絞り込み（仕様変更 #4）。
+   * キー名はダッシュボード側の `financeDashboard/period.ts`（`ledgerOpenQuery`）が
+   * 組み立てるものをそのまま受ける — `/sga` の API パラメータ名と同じにしてあるので
+   * ここで読み替えは要らない。**既存の `project_id` 受け取りロジックの隣に実装**
+   * （販管費は案件に紐づかないため `project_id` は元から受け取らない）。
+   */
+  const filterFrom = searchParams.get('recognition_from') || '';
+  const filterTo = searchParams.get('recognition_to') || '';
+  const filterPeriodLabel = searchParams.get('period_label') || '';
 
   const [chip, setChip] = useState('all');
+  // 計上月。既定は今月。ただしダッシュボードの期間で絞り込んで来たとき (?recognition_from)
+  // はその期間をそのまま使いたいので、計上月は既定「解除（全月）」にする
+  // （project_id と同じ考え方 — `RevenueListPage`/`PurchaseListPage` 参照）
   const [month, setMonth] = useState(() => {
+    if (filterFrom) return '';
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
@@ -93,6 +108,10 @@ export default function SgaListPage() {
       expense_type: cur.expense_type || undefined,
       account_title_id: titleKey || undefined,
       recognition_month: month || undefined,
+      // ダッシュボードから引き継いだ期間。`recognition_month` と両方入っていても
+      // AND で絞られるだけなので害はない（`server/.../list-query.ts` 参照）
+      recognition_from: filterFrom || undefined,
+      recognition_to: filterTo || undefined,
     },
   });
 
@@ -123,28 +142,9 @@ export default function SgaListPage() {
   /** ダイアログを開く。**開くときに詰める** — 閉じたときに消し忘れる形をやめた */
   const openFor = (item: SgaExpense | null) => {
     if (item) {
-      setForm({
-        vendor_name: item.vendor_name ?? '',
-        vendor_id: item.vendor_id ?? '',
-        tax_category: item.tax_category ?? 'tax10',
-        recognition_date: item.recognition_date?.slice(0, 10) ?? '',
-        settlement_method: item.settlement_method ?? 'xpoint',
-        settlement_number: item.settlement_number === 'pending' ? '' : (item.settlement_number ?? ''),
-        settlement_number_pending: item.settlement_number === 'pending',
-        settlement_url: item.settlement_url ?? '',
-        amount: item.amount ?? 0,
-        description: item.description ?? '',
-        notes: item.notes ?? '',
-        invoice_qualified: item.invoice_qualified ?? true,
-        payment_due_date: item.payment_due_date?.slice(0, 10) ?? '',
-        assigned_to: item.assigned_to ?? currentUser?.id ?? '',
-        expense_type: item.expense_type ?? 'spot',
-        account_title_id: (item as { account_title_id?: string | null }).account_title_id ?? '',
-        amortize_enabled: !!item.amortize_start,
-        amortize_start: item.amortize_start ?? '',
-        amortize_end: item.amortize_end ?? '',
-        source: item.source || 'staff',
-      });
+      // マッピングは `SgaDialog.tsx` の `formFromSga`（財務ダッシュボードの
+      // 閲覧専用ダイアログと共用・仕様変更 #3）
+      setForm(formFromSga(item, currentUser?.id ?? ''));
       crud.openEdit(item);
     } else {
       setForm({ ...initialFormData, assigned_to: currentUser?.id ?? '' });
@@ -189,6 +189,7 @@ export default function SgaListPage() {
         form.expense_type === 'spot' && form.amortize_enabled && form.amortize_end
           ? form.amortize_end : null,
       source: form.source,
+      is_provisional: form.is_provisional,
     });
   };
 
@@ -217,6 +218,7 @@ export default function SgaListPage() {
       recognition_date: item.recognition_date,
       state: sgaState(item),
       project_id: null,
+      settlement_url: item.settlement_url,
     })),
     [items],
   );
@@ -255,10 +257,19 @@ export default function SgaListPage() {
               source: cur.source || undefined,
               expense_type: cur.expense_type || undefined,
               recognition_month: month || undefined,
+              recognition_from: filterFrom || undefined,
+              recognition_to: filterTo || undefined,
             }}
           />
         </div>
       </PageHeader>
+
+      {/* 財務ダッシュボードの期間で絞り込んで来たときの案内（仕様変更 #4） */}
+      {filterFrom && (
+        <div className="rounded-card border border-border bg-card p-3 text-sub text-secondary-foreground lg:px-4">
+          {filterPeriodLabel || `${filterFrom} 〜 ${filterTo}`} で絞り込み中（財務ダッシュボードから）
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <LedgerSearch
@@ -341,7 +352,7 @@ export default function SgaListPage() {
           <LedgerFooter
             count={crud.pagination?.total ?? items.length}
             total={raw?.total_amount ?? 0}
-            note="販管費は案件に紐づきません。ダッシュボードで案件を絞り込むと集計から外れます。モックにある勘定科目での絞り込みは、その列がまだ無いため入れていません。"
+            note="販管費は案件に紐づきません。ダッシュボードで案件を絞り込むと集計から外れます。「仮」は金額が確定していない見込みで、精算番号が入ると「申請済」になります。申請URLを入れてある行は外部リンクのボタンから精算ページを開けます。"
           />
 
           <Pagination

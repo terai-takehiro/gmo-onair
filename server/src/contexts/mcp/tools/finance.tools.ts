@@ -159,7 +159,8 @@ export function registerFinanceTools(server: McpServer): void {
     {
       title: '販管費一覧',
       description:
-        '販管費 (SGA) を一覧する。source: staff=人件費 (社員入力) / accounting=経理 (決算取込等)。案件には紐づかない全社費用。金額 (amount) は税抜。',
+        '販管費 (SGA) を一覧する。source: staff=人件費 (社員入力) / accounting=経理 (決算取込等)。案件には紐づかない全社費用。金額 (amount) は税抜。' +
+        'is_provisional=true は仮 (見込み) 販管費 (migration 268・list_purchases と同じ意味)。',
       inputSchema: {
         search: z.string().max(100).optional().describe('支払先名 / 説明の部分一致検索'),
         source: z.enum(['staff', 'accounting']).optional(),
@@ -184,7 +185,8 @@ export function registerFinanceTools(server: McpServer): void {
       const totalRow = await queryOne(`SELECT COUNT(*) as c FROM sga_expenses s ${where}`, params) as any;
       const rows = await queryAll(
         `SELECT s.id, s.billing_key, s.vendor_name, s.description, s.amount, s.expense_type,
-                s.tax_category, s.recognition_date, s.payment_due_date, s.settlement_method, s.source
+                s.tax_category, s.recognition_date, s.payment_due_date, s.settlement_method, s.source,
+                s.is_provisional
          FROM sga_expenses s ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
         [...params, limit, (page - 1) * limit],
       );

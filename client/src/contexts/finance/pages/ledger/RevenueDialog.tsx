@@ -1,9 +1,9 @@
 /**
  * 売上の登録・編集ダイアログ（③ 売上）
  *
- * **旧 `RevenueListPage` から切り出したものです。動きは1つも変えていません。**
- * 金額を扱うフォームなので、一覧の作り直しと同じ回で中身まで作り替えません
- * （どちらが原因で壊れたか切り分けられなくなります）。
+ * **旧 `RevenueListPage` から切り出したものです。** 金額を扱うフォームなので、
+ * 一覧の作り直しと同じ回で中身まで作り替えません（どちらが原因で壊れたか
+ * 切り分けられなくなります）。検収のトグル（仕様変更 #5）だけは新規に足しました。
  *
  * ── 状態の初期化を「マウント」に任せた ────────────────────────
  *
@@ -53,6 +53,7 @@ export function RevenueDialog({
   const [paymentDueDate, setPaymentDueDate] = useState(editing?.payment_due_date?.slice(0, 10) || '');
   const [notes, setNotes] = useState(editing?.notes || '');
   const [isAdvancePayment, setIsAdvancePayment] = useState(!!editing?.is_advance_payment);
+  const [inspectionDate, setInspectionDate] = useState<string | null>(editing?.inspection_date ?? null); // 検収 (#5)。保存は RevenueDateFields.tsx 側
   const [invoiceIssued, setInvoiceIssued] = useState(!!editing?.invoice_issued);
   const [existingRevenueId, setExistingRevenueId] = useState(editing?.id || '');
   const [pricingPickerOpen, setPricingPickerOpen] = useState(false);
@@ -161,7 +162,7 @@ export function RevenueDialog({
     if (v.billingDate) setBillingDate(v.billingDate);
     if (v.paymentDueDate) setPaymentDueDate(v.paymentDueDate);
     setNotes(v.notes);
-    setIsAdvancePayment(v.isAdvancePayment);
+    setIsAdvancePayment(v.isAdvancePayment); setInspectionDate(v.inspectionDate);
     setInvoiceIssued(v.invoiceIssued);
     // **明細が空なら触らない** — 空配列で上書きすると元の明細が全部消える
     if (v.items) setItems(v.items);
@@ -333,7 +334,7 @@ export function RevenueDialog({
               </div>
             )}
 
-            {/* 日付・前金・請求書発行済・備考 — 400行の上限で別ファイル */}
+            {/* 日付・前金・検収・請求書発行済・備考 — 400行の上限で別ファイル */}
             <RevenueDateFields
               recognitionMonth={recognitionMonth}
               setRecognitionMonth={setRecognitionMonth}
@@ -343,10 +344,9 @@ export function RevenueDialog({
               setPaymentDueDate={setPaymentDueDate}
               isAdvancePayment={isAdvancePayment}
               setIsAdvancePayment={setIsAdvancePayment}
-              invoiceIssued={invoiceIssued}
-              setInvoiceIssued={setInvoiceIssued}
-              notes={notes}
-              setNotes={setNotes}
+              revenueId={existingRevenueId} inspectionDate={inspectionDate}
+              onInspectionSaved={(v) => { setInspectionDate(v); invalidate(); }} invoiceIssued={invoiceIssued}
+              setInvoiceIssued={setInvoiceIssued} notes={notes} setNotes={setNotes}
             />
 
             {submitErrorMessage && (

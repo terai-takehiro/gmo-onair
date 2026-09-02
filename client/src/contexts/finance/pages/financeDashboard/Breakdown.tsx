@@ -9,11 +9,25 @@
  * 以前は金額の大きい順に上位 {@link COLLAPSED} 件だけを出し、残りは
  * 「ほか N件を台帳で見る」で台帳へ送っていました。**この絞り込み条件のまま
  * 全部を見る手段がダッシュボードに無い**というご指摘を受け、折りたたみ
- * （既定は上位 {@link COLLAPSED} 件）→ 展開（読み込み済み全件をスクロール
- * で見せる）→ 必要なら「さらに読み込む」（サーバーの1ページぶんの上限
- * を超える分を追加取得）の3段に直しました。**一度に全件を DOM へ出すと
- * 重くなるページもあるため、展開してもスクロール領域に収めます**
- * （`max-h` + `overflow-y-auto`）。
+ * （既定は上位 {@link COLLAPSED} 件）→ 展開（読み込み済み全件をこのまま見せる）
+ * → 必要なら「さらに読み込む」（サーバーの1ページぶんの上限を超える分を追加取得）
+ * の3段に直しました。
+ *
+ * ── 展開はカード自体・ページごと伸ばす（内側スクロールをやめた）─────
+ *
+ * 以前は展開した明細を `max-h-[420px] overflow-y-auto` で囲み、カードの中だけを
+ * スクロールさせていました。**カード自体は伸びず、ページの中に小さい
+ * スクロール領域が入れ子になる**形で、全件を見るには2枚のスクロールバーを
+ * 行き来する必要がありました（ご指摘）。展開時はこの制限を外し、
+ * 明細の高さに応じてカード自体（＝ページ）が自然に伸びるようにしています。
+ * 「さらに読み込む」の動作（`useInfiniteQuery.fetchNextPage`）はそのまま。
+ *
+ * ── 行を押すと詳細へ（仕様変更 #2・#3）────────────────────────
+ *
+ * 明細の各行は `BreakdownItem.onClick` を渡すとその場で押せる行になります
+ * （売上＝案件・按分グループの詳細へ遷移、仕入・販管費＝閲覧専用ダイアログを
+ * ダッシュボード上で開く、は呼び出し側 `BudgetDashboardPage` が決めます）。
+ * 渡さない行は今までどおりの表示だけの行のままです。
  *
  * 台帳への導線（「台帳をひらく」）はそのまま残します — 編集・CSV書き出し・
  * 保存済みの絞り込みなど、ダッシュボードでは持たない機能がまだ台帳側にしかありません。
@@ -36,6 +50,12 @@ export interface BreakdownItem {
   amount: number;
   /** 「仮」など。無ければ出さない */
   tag?: string | null;
+  /**
+   * 行を押したときの動作。**渡した行だけ押せる行になる**（仕様変更 #2・#3）。
+   * 渡さなければ今までどおり表示だけの行のまま（押しても何も起きない、ではなく
+   * そもそも押せる見た目にしない）。
+   */
+  onClick?: () => void;
 }
 
 export function BreakdownColumn({
@@ -128,7 +148,7 @@ export function BreakdownColumn({
       ) : shown.length === 0 ? (
         <p className="text-sub border-t border-border-subtle px-4 py-3 text-muted-foreground lg:px-5">{empty}</p>
       ) : (
-        <div className={expanded ? 'max-h-[420px] overflow-y-auto' : undefined}>
+        <div>
           {/*
             * ⚠️ **一部だけ落ちたときに黙らない。** 仕入の列は変動原価と固定原価の
             * 2本を合成しているので、片方だけ落ちると**金額が小さいだけの一覧**に見える。
@@ -144,23 +164,36 @@ export function BreakdownColumn({
               )}
             </div>
           )}
-          {shown.map((it) => (
-            <div key={it.id} className="flex items-start gap-2 border-t border-border-subtle px-4 py-2 lg:px-5">
-              <span className="min-w-0 flex-1">
-                <span className="text-sub block truncate">
-                  {it.code && <span className="font-number mr-1.5 text-primary">{it.code}</span>}
-                  {it.title}
+          {shown.map((it) => {
+            // ⚠️ **`onClick` が無い行はそのまま `<div>` にする。** 押せない行を
+            // `<button>` にすると、押せる見た目（hover・タップ領域）だけが付いて
+            // 「押しても何も起きない」になる。
+            const Row: 'button' | 'div' = it.onClick ? 'button' : 'div';
+            return (
+              <Row
+                key={it.id}
+                type={it.onClick ? 'button' : undefined}
+                onClick={it.onClick}
+                className={`flex w-full items-start gap-2 border-t border-border-subtle px-4 py-2 text-left lg:px-5 ${
+                  it.onClick ? 'min-h-tap hover:bg-surface-subtle' : ''
+                }`}
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="text-sub block truncate">
+                    {it.code && <span className="font-number mr-1.5 text-primary">{it.code}</span>}
+                    {it.title}
+                  </span>
+                  {it.sub && <span className="text-note block truncate text-muted-foreground">{it.sub}</span>}
                 </span>
-                {it.sub && <span className="text-note block truncate text-muted-foreground">{it.sub}</span>}
-              </span>
-              {it.tag && (
-                <span className="rounded-badge-xs inline-flex h-[18px] shrink-0 items-center bg-warning-surface px-1.5 text-note font-bold text-warning">
-                  {it.tag}
-                </span>
-              )}
-              <Money value={it.amount} className="shrink-0 text-sub" />
-            </div>
-          ))}
+                {it.tag && (
+                  <span className="rounded-badge-xs inline-flex h-[18px] shrink-0 items-center bg-warning-surface px-1.5 text-note font-bold text-warning">
+                    {it.tag}
+                  </span>
+                )}
+                <Money value={it.amount} className="shrink-0 text-sub" />
+              </Row>
+            );
+          })}
         </div>
       )}
 

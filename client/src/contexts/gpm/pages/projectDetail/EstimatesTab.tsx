@@ -341,12 +341,18 @@ function ItemsPanel({ estimateId, canEdit }: { estimateId: string; canEdit: bool
   return (
     // `key` 必須: 明細は `useState` の編集バッファなので、開く版が替わったら作り直す
     // （キャッシュ済みの版へ戻ると再マウントされず、前の版の明細のまま保存される）
+    //
+    // **`allowListPriceEdit`・`allowCategoryDiscount` は GPM 限定**（仕様変更 #9・#10）。
+    // 案件（sales）の見積タブ（`EstimateTab.tsx`）はこの2つを渡していないので、
+    // 今までどおり定価は表示専用・値引き行のショートカットも出ない。
     <EstimateItems
       key={detail.data.id}
       estimate={detail.data}
       onSave={(items) => canEdit && save.mutate(items)}
       saving={save.isPending}
       canEdit={canEdit}
+      allowListPriceEdit
+      allowCategoryDiscount
     />
   );
 }

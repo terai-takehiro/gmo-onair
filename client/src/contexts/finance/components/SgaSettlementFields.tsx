@@ -2,8 +2,15 @@
  * 販管費の「精算方法・精算番号・申請URL」（⑤ 販管費のダイアログの中身）
  *
  * **`SgaDialog` から切り出したものです。動きは変えていません。**
- * 分けた理由は1ファイル400行の上限で、中身の作り直しではありません。
+ * 分けた理由は1ファイル400行の上限で、中身の作り直しではありません
+ * （精算番号を仮フラグ中は入力不可にした点・申請URLを開くボタンを足した点だけ
+ * 仕様変更 #4・#6・#7 で新規に加えた）。
+ *
+ * ⚠️ **閲覧のみ（`readOnly`）は個別に配線しない。** `SgaDialog.tsx` が
+ * 本文全体を `<fieldset disabled>` で包むので、ここで扱う `<Select>`/`<Input>`
+ * はどれも自然に無効化される（漏れなく効くうえ、1ファイル400行の上限にも効く）。
  */
+import { ExternalLink } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -43,6 +50,8 @@ export function SgaSettlementFields({
           <Label>精算番号</Label>
           <SettlementBadge number={form.settlement_number} />
         </div>
+        {/* 仮フラグ ON の間は入力不可。まだ確定していない金額に精算番号だけ
+            先に入る、という矛盾した状態を避ける（仕様変更 #4・#6・#7） */}
         <Input
           value={form.settlement_number}
           onChange={(e) =>
@@ -51,7 +60,8 @@ export function SgaSettlementFields({
               settlement_number: e.target.value,
             }))
           }
-          placeholder="申請後に番号を入力（任意）"
+          placeholder={form.is_provisional ? '仮の間は入力できません' : '申請後に番号を入力（任意）'}
+          disabled={form.is_provisional}
         />
         {form.settlement_number && (
           <p className="text-xs text-muted-foreground">
@@ -72,6 +82,16 @@ export function SgaSettlementFields({
         }
         placeholder="精算申請ページのURL（任意）"
       />
+      {form.settlement_url && (
+        <a
+          href={form.settlement_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sub mt-1 inline-flex min-h-tap items-center gap-1.5 text-primary hover:underline lg:min-h-[28px]"
+        >
+          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />精算ページを開く
+        </a>
+      )}
     </div>
     </>
   );

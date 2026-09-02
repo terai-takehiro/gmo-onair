@@ -87,3 +87,24 @@ export function ledgerPeriodParams(period: Period): Record<string, string> {
   if (!period.all && period.from) { p.recognition_from = period.from; p.recognition_to = period.to; }
   return p;
 }
+
+/**
+ * 「台帳をひらく」導線が引き継ぐクエリパラメータ（仕様変更 #4）。
+ *
+ * **台帳側の API パラメータ名（`recognition_from`/`recognition_to`）をそのまま URL の
+ * クエリキーにも使う。** 台帳ページ（`RevenueListPage` 等）は受け取った値を
+ * 読み替えずにそのまま `/revenues` 等へ渡すだけで済み、キー名の対応表を
+ * 別に持たずに済む（`ledgerPeriodParams` と1つの実装を共有）。
+ *
+ * 案件で絞り込んでいるときは `project_id`／`project_name` も足す。**全期間**
+ * （`period.all`）のときは期間のキーを何も足さない — 台帳側の既定（絞らない）と
+ * 同じ意味になるので、わざわざ空文字を送る理由が無い。
+ */
+export function ledgerOpenQuery(period: Period, projectId?: string, projectName?: string): string {
+  const params: Record<string, string> = ledgerPeriodParams(period);
+  if (Object.keys(params).length > 0) params.period_label = period.label;
+  if (projectId) params.project_id = projectId;
+  if (projectName) params.project_name = projectName;
+  const qs = new URLSearchParams(params).toString();
+  return qs ? `?${qs}` : '';
+}

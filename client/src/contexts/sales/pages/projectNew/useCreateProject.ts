@@ -50,11 +50,13 @@ export function buildProjectBody(v: NewProjectValues): Record<string, unknown> {
     gls_category: v.gls_category,
     recurrence: v.recurrence,
     // レギュラー案件が持つ取り決め（migration 262・264）。単発案件では空のまま
-    // 送るのでサーバー側で NULL に落ちる（`RegularSeriesFields` は regular のときだけ出す）
+    // 送るのでサーバー側で NULL に落ちる（`RegularSeriesFields` は regular のときだけ出す）。
+    // ⚠️ `recording_per_day_count`/`episode_unit_price` はここで送らない
+    // （仕様変更 #16・migration 269 で案件全体の固定入力欄を廃止したため。
+    // 新規作成では NULL のまま、既存案件の更新では「渡さなければ今の値を保つ」の
+    // 規則でサーバーが既存値をそのまま残す — どちらの経路でもこの画面からは動かない）
     recording_cadence: v.recording_cadence || null,
-    recording_per_day_count: v.recording_per_day_count ? Number(v.recording_per_day_count) : null,
     fixed_studio_note: v.fixed_studio_note.trim() || null,
-    episode_unit_price: v.episode_unit_price ? Number(v.episode_unit_price) : null,
     billing_cycle: v.billing_cycle,
     broadcast_offset_days: v.broadcast_offset_days ? Number(v.broadcast_offset_days) : null,
     stage: v.stage,

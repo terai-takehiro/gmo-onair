@@ -212,8 +212,8 @@ router.post('/files/:id/register', async (req, res) => {
     registeredTable = 'sga_expenses';
     registeredId = uuidv4();
     insertSql =
-      `INSERT INTO sga_expenses (id, billing_key, vendor_name, vendor_id, settlement_method, settlement_number, settlement_url, description, notes, recognition_date, payment_due_date, tax_category, invoice_qualified, amount, expense_type, amortize_start, amortize_end, source, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      `INSERT INTO sga_expenses (id, billing_key, vendor_name, vendor_id, settlement_method, settlement_number, settlement_url, description, notes, recognition_date, payment_due_date, tax_category, invoice_qualified, amount, expense_type, amortize_start, amortize_end, source, is_provisional, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     insertParams =
       [registeredId, billing_key, s.vendor_name || null, sgaVendorId,
        s.settlement_method || defaultMethod, s.settlement_number || file.xp_number || null, s.settlement_url || null,
@@ -223,7 +223,11 @@ router.post('/files/:id/register', async (req, res) => {
        s.invoice_qualified !== undefined ? (s.invoice_qualified ? 1 : 0) : 1,
        s.amount || 0, s.expense_type || 'spot',
        s.amortize_start || null, s.amortize_end || null,
-       'staff', req.user!.id];
+       'staff',
+       // migration 268: 仮フラグ。仕入 (kind === 'purchase' の分岐) と同じ形で、
+       // レビュー UI が送ってくれば受ける（`sga_expenses` にも同じ列が要る）
+       s.is_provisional ? true : false,
+       req.user!.id];
   }
 
   // 登録履歴 (楽楽精算は 1 伝票から複数レコードになるため配列で保持)

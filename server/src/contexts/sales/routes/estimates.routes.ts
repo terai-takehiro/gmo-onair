@@ -127,6 +127,21 @@ router.post('/:id/next-version', canEdit, wrap(async (req, res) => {
   res.status(201).json({ success: true, data: await estimateService.createNextVersion(id, userOf(req)) });
 }));
 
+/**
+ * POST /projects/:projectId/estimates/:id/duplicate-to-episode
+ * — 明細を写して、**別の回**向けの新しい見積 (v1) をつくる（仕様変更 #18）。
+ *
+ * `next-version`（同じ回の書き直し）とは別の口。`episode_id`（body）は必須 —
+ * 「案件全体の見積」として複製したいだけなら「次の版をつくる」ではなく
+ * 通常の「見積をつくる」（`POST /`）を使えばよいため、ここでは省略を許さない。
+ */
+router.post('/:id/duplicate-to-episode', canEdit, wrap(async (req, res) => {
+  const { id } = req.params as Record<string, string>;
+  const episodeId = String(req.body?.episode_id ?? '');
+  if (!episodeId) throw new AppError(400, 'VALIDATION_ERROR', '複製先の回を選んでください');
+  res.status(201).json({ success: true, data: await estimateService.duplicateToEpisode(id, episodeId, userOf(req)) });
+}));
+
 // PUT /projects/:projectId/estimates/:id
 router.put('/:id', canEdit, wrap(async (req, res) => {
   const { id } = req.params as Record<string, string>;

@@ -36,13 +36,15 @@ export interface FormValues {
   contact_name: string;
   recurrence: 'single' | 'regular';
   /**
-   * レギュラー案件（シリーズ）が持つ4つの取り決め（migration 262・regular-series.md §3）。
-   * **案件作成と同じもの**（`projectNew/RegularSeriesFields`）をそのまま呼ぶ。
+   * レギュラー案件（シリーズ）が案件全体で1つだけ持つ取り決め
+   * （migration 262・regular-series.md §3）。**案件作成と同じもの**
+   * （`projectNew/RegularSeriesFields`）をそのまま呼ぶ。
+   *
+   * ⚠️ **「1日あたりの本数」「回の単価」はここに無い**（仕様変更 #16・migration 269 で
+   * 回（episodes）ごとの値にしたため、この画面の固定入力欄も廃止した）。
    */
   recording_cadence: string;
-  recording_per_day_count: string;
   fixed_studio_note: string;
-  episode_unit_price: string;
   billing_cycle: string;
   /** 放送日オフセット（migration 264・積み残し1）。案件作成と同じもの */
   broadcast_offset_days: string;
@@ -66,8 +68,8 @@ export const EMPTY_FORM: FormValues = {
   audience: '', project_category: '',
   gls_category: '',
   contact_name: '', recurrence: 'single',
-  recording_cadence: '', recording_per_day_count: '', fixed_studio_note: '',
-  episode_unit_price: '', billing_cycle: 'monthly_close', broadcast_offset_days: '',
+  recording_cadence: '', fixed_studio_note: '',
+  billing_cycle: 'monthly_close', broadcast_offset_days: '',
   attendee_count: '', goal: '', intake_channel: '',
   event_start: '', event_end: '', expected_amount: 0, assigned_to: '',
   broadcast_type: '', media_platform: '',
