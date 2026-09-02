@@ -25,15 +25,19 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import api from '@/lib/api';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
-import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
 import { EmptyState, NoSearchResults, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { Pagination } from '@gmo-onair/shared/src/client/ui/pagination';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import ExcelToolbar from '@/components/ExcelToolbar';
 import ProjectQuickLinks from '@/contexts/shared/components/ProjectQuickLinks';
-import { LedgerRows } from './ledger/LedgerRows';
-import { LedgerFooter, LedgerSearch, MonthPicker, LedgerPeriodNotice } from './ledger/LedgerParts';
+import { LedgerList } from './ledger/LedgerList';
+import { billingState } from './ledger/billingState';
+import { LedgerFilterBar } from './ledger/LedgerFilterBar';
+import { LedgerTotalBar } from './ledger/LedgerTotalBar';
+import { LedgerFooter, LedgerPeriodNotice } from './ledger/LedgerParts';
+import { revenueDetailFields } from './ledger/ledgerDetail';
 import { useLedgerUrlPeriod } from './ledger/useLedgerUrlPeriod';
 import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth';
 import { RevenueDialog } from './ledger/RevenueDialog';
@@ -58,20 +62,6 @@ interface RevenueListResponse {
   state_counts: Record<string, number>;
 }
 
-/** 請求の進み具合を1つのバッジにする。**日付が入っていれば済み** */
-function billingState(r: RevenueRow): LedgerRow['state'] {
-  // **同じ財務の中の「請求・入金」へ送る。** 台帳から状態を変えられるようにすると、
-  // 経理が入金を記録した直後に別の画面から戻される事故が起きる
-  const to = '/budget/billing';
-  if (r.paid_date) {
-    return { label: '入金済', tone: 'ok', to, title: `${r.paid_date} に入金。押すと請求・入金の画面へ` };
-  }
-  if (r.invoice_issued) {
-    return { label: '発行済', tone: 'warn', to, title: '請求書は出しました。入金待ちです' };
-  }
-  return { label: '未請求', tone: 'neutral', to, title: 'まだ請求書を出していません' };
-}
-
 export default function RevenueListPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -79,6 +69,13 @@ export default function RevenueListPage() {
   const filterProjectName = searchParams.get('project_name') || '';
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('sales', 'editor');
+  /*
+   * **幅で変わるのはこの画面では3つだけ**（Excel の道具・合計帯の場所・一覧の形）。
+   * 一覧の形は `LedgerList` が自分で分けるので、ここで見るのは前の2つ。
+   * 部品の中で分岐させない（`client/CLAUDE.md`「スマホ」）決めごとに合わせて、
+   * 判定は `useIsMobile()` 1本にする
+   */
+  const isMobile = useIsMobile();
 
   const [search, setSearch] = useState('');
   /*
@@ -140,6 +137,9 @@ export default function RevenueListPage() {
       secondaryBadge: r.inspection_date
         ? { label: '検収済', tone: 'ok', title: `${r.inspection_date} に検収` }
         : null,
+      // スマホの詳細シートに出す項目（PC は読まない）。**`useMemo` の外に出さない** —
+      // 出すと20行ぶんを毎レンダリング作り直すことになる（`types.ts` の `detail`）
+      detail: revenueDetailFields(r),
     })),
     [rows],
   );
@@ -181,23 +181,30 @@ export default function RevenueListPage() {
           ) : undefined
         }
       >
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <ExcelToolbar
-            resource="/revenues"
-            name="売上"
-            queryKey={['revenues-all']}
-            hasDuplicateKey={false}
-            exportParams={{
-              search: appliedSearch || undefined,  // 画面の結果と書き出しの中身を揃える
-              project_id: filterProjectId || undefined,
-              recognition_month: month || undefined,
-              recognition_from: range?.from,
-              recognition_to: range?.to,
-              status: cur.status,
-              state: cur.state || undefined,
-            }}
-          />
-        </div>
+        {/*
+          **Excel の取込・書き出しはスマホに出さない。** 取り込みは台帳に行を
+          入れる操作で、途中で止まると二重に入る（取り消せない）。ファイル選択
+          そのものもスマホでは実用にならない（`/budget/vendors` で落とした前例）
+        */}
+        {!isMobile && (
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <ExcelToolbar
+              resource="/revenues"
+              name="売上"
+              queryKey={['revenues-all']}
+              hasDuplicateKey={false}
+              exportParams={{
+                search: appliedSearch || undefined,  // 画面の結果と書き出しの中身を揃える
+                project_id: filterProjectId || undefined,
+                recognition_month: month || undefined,
+                recognition_from: range?.from,
+                recognition_to: range?.to,
+                status: cur.status,
+                state: cur.state || undefined,
+              }}
+            />
+          </div>
+        )}
       </PageHeader>
 
       {filterProjectId && (
@@ -211,20 +218,31 @@ export default function RevenueListPage() {
       {/* 財務ダッシュボードの期間で絞り込んで来たときの案内（仕様変更 #4） */}
       <LedgerPeriodNotice period={period} />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <LedgerSearch
-          value={search}
-          onChange={(v) => { setSearch(v); reset(); }}
-          placeholder="GLS番号・案件名・請求先で探す"
-        />
-        <MonthPicker value={month} onChange={(v) => { setMonth(v); reset(); }} />
-      </div>
-
-      <FilterChips
-        label="売上の状態で絞り込む"
-        items={chips}
-        value={chip}
-        onChange={(k) => { setChip(k); reset(); }}
+      {/*
+        PC は「検索欄 ＋ 計上月 ＋ チップの帯」、スマホは検索欄と「絞り込み」1つに
+        畳む。**効いている数の数え方は部品が持つ**（3画面に書くと必ず数え漏らし、
+        絞り込んでいることを忘れたまま「件数が少ない」と読むことになる）
+      */}
+      <LedgerFilterBar
+        search={{
+          // 入力欄の値は即時。**遅らせるのは問い合わせに渡す値だけ**（`appliedSearch`）
+          value: search,
+          onChange: (v) => { setSearch(v); reset(); },
+          placeholder: 'GLS番号・案件名・請求先で探す',
+        }}
+        month={month}
+        onMonth={(v) => { setMonth(v); reset(); }}
+        period={period}
+        onClearAll={() => { setChip('confirmed'); setMonth(''); period.clearPeriod(); reset(); }}
+        groups={[{
+          key: 'state',
+          label: '売上の状態で絞り込む',
+          sheetLabel: '状態',
+          items: chips,
+          value: chip,
+          defaultValue: 'confirmed',
+          onChange: (k) => { setChip(k); reset(); },
+        }]}
       />
 
       {query.isError ? (
@@ -259,13 +277,29 @@ export default function RevenueListPage() {
         )
       ) : (
         <>
+          {/*
+            スマホは合計を**上に貼り付ける**（台帳は「いくらあるか」を見に来る
+            画面なので、スクロールで消えると読み直しになる）。PC は今までどおり
+            いちばん下の `LedgerFooter` が持つ
+          */}
+          {isMobile && (
+            <LedgerTotalBar
+              count={query.data?.pagination?.total ?? rows.length}
+              total={query.data?.total_amount ?? 0}
+            />
+          )}
+
           <div className="flex flex-col">
-            <LedgerRows
+            <LedgerList
               rows={ledgerRows}
               codeLabel="GLS番号 ／ 話数"
               titleLabel="案件"
+              itemLabel="売上"
               partyLabel="請求先"
               stateLabel="請求"
+              canEdit={canEdit}
+              onRefresh={query.refetch}
+              onProject={(row) => { if (row.project_id) navigate(`/sales/projects/${row.project_id}`); }}
               onOpen={(row) => {
                 const full = rows.find((r) => r.id === row.id);
                 // 配分グループの売上はこの台帳では編集できない (サーバーが 400 で
@@ -280,10 +314,18 @@ export default function RevenueListPage() {
             />
           </div>
 
+          {/*
+            注記の**最後の1文だけ幅で変える**。PC は状態のバッジそのものが押せるが、
+            スマホはカード全体が1つのボタンなので入れ子にできず、行き先は詳細シートの
+            下端に集めてある。同じ文言のままだと「押しても動かない」と読まれる
+          */}
           <LedgerFooter
             count={query.data?.pagination?.total ?? rows.length}
             total={query.data?.total_amount ?? 0}
-            note="請求の状態（未請求／発行済／入金済）はこの台帳では変えられません。請求書の発行と入金の記録は「見積・請求」だけで行い、ここは結果を映します。状態を押すとその画面に移ります。"
+            hideTotals={isMobile}
+            note={`請求の状態（未請求／発行済／入金済）はこの台帳では変えられません。請求書の発行と入金の記録は「見積・請求」だけで行い、ここは結果を映します。${
+              isMobile ? '行を押すと詳しい内容と「請求・入金をひらく」が出ます。' : '状態を押すとその画面に移ります。'
+            }`}
           />
 
           <Pagination

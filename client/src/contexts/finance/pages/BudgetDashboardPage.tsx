@@ -210,8 +210,8 @@ export default function BudgetDashboardPage() {
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
       <PageHeader
         title="財務ダッシュボード"
-        /* ⚠️ **どの案件で絞っているのかを名前で出す。** 内訳の行を押して絞り込む導線は
-            画面のいちばん下にあり、絞り込みが効いたことがここに出ないと壊れたと読まれる */
+        /* ⚠️ **どの案件で絞っているのかを名前で出す。** 絞り込み帯のプルダウンは
+            画面を作り直さずクエリだけ変えるので、ここに出ないと効いたことが分からない */
         sub={periodReady
           ? `${period.label} ・ 確定売上ベース ・ ${projectId
               ? `${selectedProjectName ?? '選んだ案件'} で絞り込み中（販管費は対象外）`
@@ -323,7 +323,6 @@ export default function BudgetDashboardPage() {
           </p>
         </>
       )}
-
     </div>
   );
 }

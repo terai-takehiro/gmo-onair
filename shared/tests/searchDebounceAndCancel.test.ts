@@ -118,8 +118,22 @@ describe('「0件でした」は遅らせた値で判定する', () => {
   }
 
   it('入力欄が読む値は即時のまま（打鍵が遅れて見えないこと）', () => {
-    // 入力欄まで遅らせると別の不具合になる
-    expect(read(PAGES[0])).toMatch(/value=\{crud\.search\}/);
-    expect(read('client/src/contexts/finance/pages/RevenueListPage.tsx')).toMatch(/value=\{search\}/);
+    /*
+     * 入力欄まで遅らせると別の不具合になる。
+     * ⚠️ 台帳の絞り込みは `LedgerFilterBar` に畳んだので、渡し方が JSX の属性
+     * (`value={...}`) から object の項目 (`value: ...`) に変わっている。
+     * **見たいのは書き方ではなく「入力欄へ渡すのが即時の値か」**なので、
+     * どちらの形でも通し、`appliedSearch` を渡していないことだけを固定する。
+     */
+    expect(read(PAGES[0])).toMatch(/value(=\{|:\s*)crud\.search[\s,}]/);
+    expect(read(PAGES[0])).not.toMatch(/value(=\{|:\s*)crud\.appliedSearch[\s,}]/);
+    expect(read('client/src/contexts/finance/pages/RevenueListPage.tsx')).toMatch(/value(=\{|:\s*)search[\s,}]/);
+  });
+
+  it('畳んだ絞り込みの部品も、渡された即時の値をそのまま入力欄に入れている', () => {
+    // 上の3画面は `LedgerFilterBar` 越しに渡すので、ここが繋がっていないと意味がない
+    const BAR = read('client/src/contexts/finance/pages/ledger/LedgerFilterBar.tsx');
+    expect(BAR).toMatch(/value=\{p\.search\.value\}/);      // PC (LedgerSearch)
+    expect(BAR).toMatch(/search=\{p\.search\}/);             // スマホ (MobileFilterBar)
   });
 });

@@ -16,6 +16,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Plus, Trash2, Download, Link2, Percent } from 'lucide-react';
 import { useDebounced } from '@gmo-onair/shared/src/client/hooks/useDebounced';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import api from '@/lib/api';
 import { TaxHelperButton } from '@gmo-onair/shared/src/client/ui/tax-aware-amount-input';
 import { CurrencyInput } from '@/components/ui/currency-input';
@@ -60,6 +61,7 @@ export function RevenueDialog({
   const [invoiceIssued, setInvoiceIssued] = useState(!!editing?.invoice_issued);
   const [existingRevenueId, setExistingRevenueId] = useState(editing?.id || '');
   const [pricingPickerOpen, setPricingPickerOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   // 明細行の足し引きは `useRevenueItems` が持つ（400行の上限で分けた）
   const {
@@ -356,12 +358,10 @@ export function RevenueDialog({
             {/* ⚠️ **押せない理由は必ず出す。** 灰色のボタンだけだと「壊れている」としか見えない */}
             {blockReason && <p className="text-note text-warning">{blockReason}</p>}
             <div className="flex flex-wrap gap-2 pt-2 sm:justify-between">
-              <div>
-                {existingRevenueId && (
+              <div>{/* **「消す」はスマホに出さない**（元に戻せない操作は、確認を挟んでも指では続けて押しやすい） */}
+                {existingRevenueId && !isMobile && (
                   <Button variant="destructive" onClick={handleDeleteRevenue} disabled={deleteMutation.isPending}>
-                    {deleteMutation.isPending
-                      ? <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                      : <Trash2 className="mr-1 h-4 w-4" />}
+                    {deleteMutation.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
                     消す
                   </Button>
                 )}

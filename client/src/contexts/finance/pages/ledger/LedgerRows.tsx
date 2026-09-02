@@ -23,34 +23,27 @@
  * 保存もされないので次に開くと元に戻ります（3つの台帳に3つの実装がありました）。
  * 揃った幅を部品側で持つほうが、桁を読み違えずに済みます。
  *
- * ── スマホ（640px 未満）── `Row stackOnMobile`（パターンA） ─────
+ * ── 狭い画面（1023px 以下）はこの部品を使わない ────────────────
  *
- * **金額だけは畳まない。** この台帳の PC 専用の理由は「金額の桁を縦にそろえて
- * 読む表」なので、`MoneyCell` は `RowMain` の外に残し、スマホでも常に
- * 右側へ大きく出す（`billing/EstimateRows.tsx` と同じ考え方）。
- * 相手先・税・計上月・状態の4列は `hideOnMobile` で列ごと消し、代わりに
- * `RowMain` の2行目（相手先・税・計上月）・3行目（状態）へまとめて縦積みにする
- * （PC の列と二重に出さない）。
+ * スマホは**表を縮めたものではなくカード**（`LedgerCards.tsx`）に替えます。
+ * 出し分けは `LedgerList.tsx` が `useIsMobile()`（lg = 1023px）1本で行うので、
+ * **この部品が描かれるのは 1024px 以上のときだけ**です。
+ *
+ * 中に残っている `stackOnMobile` / `hideOnMobile` / `sm:hidden` は、
+ * その境目を将来動かしたときに崩れないための保険として残してあります
+ * （いまは通りません）。**新しい分岐をここに足さないこと** —
+ * 幅で変わることは `LedgerList.tsx` の1か所だけに置く決めごとです。
  */
 import { useNavigate } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
-import { TaxCategoryLabels } from '@/types';
+// 計上月・税区分の書き方は `ledger/format.ts` に切り出した
+// （スマホのカード `LedgerCards.tsx` と詳細シートが同じ関数を読む。
+//  写すと必ず片方だけ直されて食い違う）
+import { monthOf, taxShort } from './format';
 import { STATE_TONE, type LedgerRow } from './types';
-
-/** `2026-07-01` → `26/07`。**計上「月」なので日は出さない**（日があると入金日と読み違える） */
-function monthOf(date: string | null): string {
-  if (!date || date.length < 7) return '—';
-  return `${date.slice(2, 4)}/${date.slice(5, 7)}`;
-}
-
-/** 税区分は2文字に畳む。列が 56px なので「課税10%」は入らない */
-function taxShort(tax: string): string {
-  const label = TaxCategoryLabels[tax as keyof typeof TaxCategoryLabels] ?? tax;
-  return label.replace(/課税|税率/g, '').replace(/\s/g, '') || label;
-}
 
 export function LedgerRows({
   rows, codeLabel, titleLabel, partyLabel, stateLabel, onOpen,

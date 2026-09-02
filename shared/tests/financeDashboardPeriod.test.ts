@@ -205,3 +205,68 @@ describe('ledgerOpenQuery（「台帳をひらく」の URL）', () => {
     expect(ledgerOpenQuery(resolvePeriod({ ...base, month: '' }))).toBe('');
   });
 });
+
+/*
+ * 内訳の**行クリック**の引き継ぎ（ご指摘「明細一覧に飛ばしてください」）。
+ *
+ * 3列とも「押す＝その台帳の明細一覧へ移動」に揃えたので、行クリックも
+ * カード下の「台帳をひらく」も**同じ `ledgerOpenQuery`** を通る。違うのは
+ * 案件を付けるかどうかだけ（行＝その行の案件／フッター＝画面で絞り込み中の案件）。
+ *
+ * ⚠️ ここで確かめたいのは「URL を作れること」ではなく、**作った URL を台帳側の
+ * 読み取り（`ledgerPeriodFromUrl`）に通すと、ダッシュボードで見ていたのと同じ
+ * 期間で開く**こと。片側だけ直しても画面上は何も言わずに今月へ落ちるため。
+ */
+describe('内訳の行クリック → 台帳（明細一覧）の引き継ぎ', () => {
+  it('売上・仕入の行は、その行の案件と月を持って台帳を開く', () => {
+    // 行が持っている案件（画面の絞り込みとは無関係に、押した行のもの）
+    const q = new URLSearchParams(
+      ledgerOpenQuery(resolvePeriod(base), 'p-1', 'GLS-A001 スタジオ収録'),
+    );
+    expect(q.get('project_id')).toBe('p-1');
+    expect(q.get('project_name')).toBe('GLS-A001 スタジオ収録');
+    // 台帳側の読み取りに通すと、計上月の欄が埋まる（単月なので `range` にはしない）
+    const read = ledgerPeriodFromUrl(
+      q.get('recognition_from') ?? '', q.get('recognition_to') ?? '',
+      q.get('period_label') ?? '', q.get('period_all') === '1', !!q.get('project_id'),
+    );
+    expect(read).toMatchObject({ month: '2026-08', range: null });
+    expect(read.handoff?.kind).toBe('month');
+  });
+
+  it('月に収まらない期間（四半期）で押しても、その期間のまま台帳が開く', () => {
+    const q = new URLSearchParams(
+      ledgerOpenQuery(resolvePeriod({ ...base, mode: 'quarter', quarter: 3 }), 'p-1', '案件'),
+    );
+    const read = ledgerPeriodFromUrl(
+      q.get('recognition_from') ?? '', q.get('recognition_to') ?? '',
+      q.get('period_label') ?? '', q.get('period_all') === '1', true,
+    );
+    // 月の欄には入れようが無いので空のまま、期間として持ち続ける
+    expect(read.month).toBe('');
+    expect(read.range).toMatchObject({ from: '2026-07-01', to: '2026-09-30' });
+    expect(read.handoff?.kind).toBe('range');
+  });
+
+  it('販管費の行は案件を付けない（案件に紐づかないため）', () => {
+    const q = new URLSearchParams(ledgerOpenQuery(resolvePeriod(base)));
+    expect(q.get('project_id')).toBeNull();
+    expect(q.get('project_name')).toBeNull();
+    // 期間だけはちゃんと引き継ぐ（`?project_id` が無いので `hasProject` は false）
+    expect(ledgerPeriodFromUrl(
+      q.get('recognition_from') ?? '', q.get('recognition_to') ?? '',
+      q.get('period_label') ?? '', false, false,
+    ).month).toBe('2026-08');
+  });
+
+  it('全期間で見ているときに行を押しても、台帳が既定の今月へ落ちない', () => {
+    // ⚠️ ここが落ちると、ダッシュボードの金額と台帳の金額が黙って食い違う
+    const q = new URLSearchParams(ledgerOpenQuery(resolvePeriod({ ...base, mode: 'all' }), 'p-1', '案件'));
+    const read = ledgerPeriodFromUrl(
+      q.get('recognition_from') ?? '', q.get('recognition_to') ?? '',
+      q.get('period_label') ?? '', q.get('period_all') === '1', true,
+    );
+    expect(read).toMatchObject({ month: '', range: null });
+    expect(read.handoff?.kind).toBe('all');
+  });
+});

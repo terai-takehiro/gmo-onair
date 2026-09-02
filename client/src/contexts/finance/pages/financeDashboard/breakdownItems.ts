@@ -26,6 +26,7 @@
 import type { SgaExpense } from '@/types';
 import type { PurchaseRow } from '../ledger/types';
 import { settlementState } from '../ledger/settlementState';
+import { billingState } from '../ledger/billingState';
 import type { BreakdownItem } from './Breakdown';
 
 /**
@@ -41,6 +42,10 @@ export interface RevenueBreakdownRow {
   amount: number;
   project_id?: string | null;
   group_id?: string | null;
+  /* 請求の進み具合を出すために読む2列（`billingState`）。`GET /revenues` は
+     `SELECT r.*` なので、どちらも既にクライアントへ届いている */
+  paid_date?: string | null;
+  invoice_issued?: boolean | null;
 }
 
 export function buildRevenueItems(
@@ -67,6 +72,19 @@ export function buildRevenueItems(
       title: r.project_name || '（案件名なし）',
       sub: r.customer_name,
       amount: Number(r.amount) || 0,
+      /*
+       * 請求の進み具合（未請求／発行済／入金済）。**台帳とまったく同じ
+       * `billingState` を呼ぶ**ので、文言も色も自動でそろう（写して2本にしない）。
+       *
+       * ⚠️ 仕入・販管費の「仮／確定：未申請／確定：申請済」とは**別の軸**。
+       * 売上に申請という概念は無く、請求書を出したか・入金があったかを見る。
+       * ここは当初「売上には該当する状態が無い」として出していなかったが、
+       * ご指示（「一応売上も入れておいてください」）で足した。
+       *
+       * `to`（請求・入金へのリンク）は**渡さない** — 行そのものが明細一覧への
+       * 遷移なので、バッジの中にリンクを入れると当たり判定が入れ子になる。
+       */
+      badge: billingState(r),
       /*
        * ⚠️ **案件管理（`/sales/projects/:id`）へは出さない。** 行き先は財務の
        * 売上台帳（明細一覧）で、その案件といま効いている期間で絞り込んだ状態。
