@@ -38,6 +38,7 @@ import { ReviewTab } from './projectDetail/ReviewTab';
 import { ThreadTab } from './projectDetail/ThreadTab';
 import { EstimateTab } from './projectDetail/EstimateTab';
 import { MobileTools } from './projectDetail/MobileTools';
+import { EpisodesPanel } from '@/contexts/tasks/components/EpisodesPanel';
 import {
   PROJECT_TABS, MOBILE_TABS_BY_PHASE, projectPhase, isProjectTab, type ProjectTabKey,
 } from './projectDetail/tabs';
@@ -67,6 +68,13 @@ export default function ProjectDetailPage() {
     queryKey: ['project', id],
     queryFn: async () => (await api.get(`/projects/${id}`)).data.data,
     enabled: !!id,
+    /*
+     * **開くたびに必ず読み直す**（`useProjectForm.ts` の同名の注記と対）。
+     * 共通の `staleTime: 60_000` のままだと、直す画面や MCP で変えた直後に
+     * 戻ってきても60秒は古い見出し・段階のまま。1本の GET なので惜しまない
+     */
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const bookings = useQuery<StudioBooking[]>({
@@ -242,6 +250,9 @@ export default function ProjectDetailPage() {
   // 段階の組に無いタブは概要へ。`replace` にするのは、戻るを押したときに
   // ここへ戻ってまた飛ばされるのを防ぐため
   if (wrongPhase) return <Navigate to={`/sales/projects/${id}`} replace />;
+  // 「回」タブはレギュラー案件だけ（`tabs.ts`）。単発案件の URL で開かれたら概要へ
+  const isSeries = p.recurrence === 'regular';
+  if (tab === 'episode' && !isSeries) return <Navigate to={`/sales/projects/${id}`} replace />;
 
   return (
     <div className="flex min-h-full flex-col">
@@ -258,6 +269,7 @@ export default function ProjectDetailPage() {
         mobile={isMobile}
         phase={phase}
         updatedAt={p.updated_at}
+        series={isSeries}
       />
 
       {offPhone && (
@@ -273,6 +285,19 @@ export default function ProjectDetailPage() {
       )}
       {!offPhone && tab === 'thread' && <ThreadTab projectId={id} />}
       {!offPhone && tab === 'task' && <TasksTab project={p} mobile={isMobile} />}
+      {!offPhone && tab === 'episode' && (
+        <div className="flex min-h-0 flex-1 flex-col gap-3 p-4 lg:p-6">
+          <EpisodesPanel
+            projectId={id}
+            // 案件の「レギュラーの取り決め」を「頻度で作る」の初期値に渡す（タスクタブと同じ）
+            seriesDefaults={{
+              recording_cadence: p.recording_cadence,
+              recording_per_day_count: p.recording_per_day_count,
+              episode_unit_price: p.episode_unit_price,
+            }}
+          />
+        </div>
+      )}
       {!offPhone && tab === 'estimate' && <EstimateTab project={p} />}
       {!offPhone && tab === 'files' && <FilesTab project={p} />}
       {!offPhone && tab === 'day' && <DayTab projectId={id} mobile={isMobile} />}

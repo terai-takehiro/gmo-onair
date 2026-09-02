@@ -24,19 +24,24 @@ const base: PeriodInput = {
 };
 
 describe('resolvePeriod', () => {
-  it('月を指定すると、その月の初日〜31日になる', () => {
+  it('月を指定すると、その月の初日〜末日になる', () => {
     const p = resolvePeriod(base);
     expect(p).toMatchObject({ from: '2026-08-01', to: '2026-08-31', all: false, valid: true });
+    // 30日の月・うるう年の2月も**実在する末日**（以前は一律 `-31` だった）
+    expect(resolvePeriod({ ...base, month: '2026-09' })).toMatchObject({ from: '2026-09-01', to: '2026-09-30' });
+    expect(resolvePeriod({ ...base, month: '2028-02' })).toMatchObject({ from: '2028-02-01', to: '2028-02-29' });
+    expect(resolvePeriod({ ...base, month: '2026-02' })).toMatchObject({ from: '2026-02-01', to: '2026-02-28' });
   });
 
   /*
-   * ⚠️ **末日は常に `-31`**（`2026-09-31` のような実在しない日になる）。
-   * わざとで、`recognition_date` が **TEXT の `YYYY-MM-DD`** だから文字列比較で
-   * 月末を必ず含められる。日付として解釈する箇所は無い（サーバーの検査も
-   * `/^\d{4}-\d{2}-\d{2}$/` の形だけ）。**直すと 9/30 の計上が落ちる。**
+   * 末日は**実在する月末日**。以前は一律 `-31`（`2026-09-31` のような実在しない日）を
+   * 「TEXT の文字列比較だから月末を必ず含められる」として残していたが、
+   * その値が台帳の URL（`recognition_to=2026-04-31`）にそのまま出ていた。
+   * サーバーの比較は `recognition_date <= ?`（`finance/list-query.ts`・
+   * `monthly-summary.service.ts`）なので、`2026-09-30` でも 9/30 の計上は落ちない。
    */
   it('四半期・年はそのまま範囲になる', () => {
-    expect(resolvePeriod({ ...base, mode: 'quarter', quarter: 3 })).toMatchObject({ from: '2026-07-01', to: '2026-09-31' });
+    expect(resolvePeriod({ ...base, mode: 'quarter', quarter: 3 })).toMatchObject({ from: '2026-07-01', to: '2026-09-30' });
     expect(resolvePeriod({ ...base, mode: 'year' })).toMatchObject({ from: '2026-01-01', to: '2026-12-31' });
   });
 

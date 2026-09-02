@@ -25,18 +25,19 @@
  * （お金の並び「想定していた金額／出した見積／確定した売上／仕入（原価）／粗利」等）。
  * つまり**中身はすでに合っている**が、この説明文だけが古いままだったので直しました。
  *
- * ── 「エピソード」タブを外した（2026-08・ご判断） ─────────────────────
+ * ── 「回」タブは**レギュラー案件にだけ**出す（2026-09・ご指摘で戻した） ────────
  *
- * `v4-live-sales.dc.html` の `det.tabs` 配列は 概要／やり取り／タスク／見積／書類／
- * 当日／ふりかえり の**7つだけ**で、エピソード（回）は含まれていない
- * （`det.isEpisode` の描画コードは残るが、どのタブにも紐づかない死んだコードだった）。
- * モックに合わせてタブごと外した。
+ * 2026-08 にモック（`v4-live-sales.dc.html` の `det.tabs` は7つ）に合わせて
+ * エピソード（回）タブを外し、回の表と「回を足す」はタスクタブの絞り込みの隣に
+ * **畳んで**置いていた（`contexts/tasks/components/EpisodesPanel.tsx`）。
+ * ところが 9/2 の仕様変更で「回ごとに見積・売上・請求を管理する」ことになり、
+ * 回そのものが案件の主役になったのに、**開く手段がタスクタブの折りたたみの中にしか
+ * 無く「エピソードのタブが出ない」と受け取られた**（実際に出ていない）。
  *
- * ただし**回を新しく作る手段がこのタブにしかなかった**（`EpisodeScopeToggle`・
- * スタジオ予約ダイアログは「既存の回から選ぶ」だけ）。レギュラー（GLS-A）案件は
- * 今日も回を増やしながら運用しているので、モックが持っていた簡易表（回・名前・
- * 実施日・タスク進捗・状態）と「回を足す」ボタンは**タスクタブの回の絞り込みの
- * すぐ隣**に移した（`contexts/tasks/components/EpisodesPanel.tsx`）。
+ * そこで `series: true` の「回」タブを足した。**単発案件には出さない**
+ * （`DetailHeader` が `series` で絞る。URL で直接開かれたら概要へ落とす）ので、
+ * 7タブのモックどおりの見た目は単発案件では変わらない。タスクタブ側の折りたたみは
+ * 「タスクを回で絞る」流れのために残してある。
  *
  * ── 「売上・請求」ペインもモックの3カード設計に置き換えた（同時期） ────────
  *
@@ -46,13 +47,13 @@
  * がいまも直接呼んでいるので残してある。
  */
 import {
-  LayoutDashboard, MessageSquare, ListChecks,
+  LayoutDashboard, MessageSquare, ListChecks, Repeat,
   Receipt, FolderCheck, ClipboardList, LineChart,
   type LucideIcon,
 } from 'lucide-react';
 
 export type ProjectTabKey =
-  | 'overview' | 'thread' | 'task' | 'estimate' | 'files' | 'day' | 'review';
+  | 'overview' | 'thread' | 'task' | 'episode' | 'estimate' | 'files' | 'day' | 'review';
 
 export interface ProjectTabDef {
   key: ProjectTabKey;
@@ -60,12 +61,15 @@ export interface ProjectTabDef {
   icon: LucideIcon;
   /** まだ作っていない (「これから作ります」と出す) */
   todo?: boolean;
+  /** レギュラー（回を持つ）案件にだけ出す。単発案件のタブバーには並べない */
+  series?: boolean;
 }
 
 export const PROJECT_TABS: ProjectTabDef[] = [
   { key: 'overview', label: '概要', icon: LayoutDashboard },
   { key: 'thread', label: 'やり取り', icon: MessageSquare },
   { key: 'task', label: 'タスク', icon: ListChecks },
+  { key: 'episode', label: '回', icon: Repeat, series: true },
   { key: 'estimate', label: '見積', icon: Receipt },
   { key: 'files', label: '書類', icon: FolderCheck },
   { key: 'day', label: '当日', icon: ClipboardList },

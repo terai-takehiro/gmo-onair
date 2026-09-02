@@ -57,6 +57,10 @@ export function useProjectForm(id: string | undefined) {
     queryFn: async () => (await api.get(`/projects/${id}`)).data.data,
     enabled: isEdit,
     retry: 1,
+    // **開くたびに必ず読み直す**（共通の `staleTime: 60_000` だと MCP・別タブで直した値が
+    // リロードまで出なかった — 実ブラウザで再現）。裏で取り直し、触っていない欄だけ差し替える
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
   const project = projectQuery.data;
 
