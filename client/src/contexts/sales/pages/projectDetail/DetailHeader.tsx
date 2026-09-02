@@ -104,11 +104,13 @@ export interface DetailHeaderProps {
   phase: ProjectPhase;
   /** 最後の更新。**1段目の右端**に出す（概要タブの右カラムから移した） */
   updatedAt?: string | null;
+  /** レギュラー（回を持つ）案件。`series: true` のタブ（「回」）を並べるかどうか */
+  series?: boolean;
 }
 
 export function DetailHeader({
   id, name, customerName, glsNumber, code, stage, tab, counts,
-  onChangeStage, mobile, phase, updatedAt,
+  onChangeStage, mobile, phase, updatedAt, series,
 }: DetailHeaderProps) {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
@@ -151,6 +153,8 @@ export function DetailHeader({
 
   const mobileKeys = MOBILE_TABS_BY_PHASE[phase];
   const tabs = PROJECT_TABS
+    // 「回」はレギュラー案件にだけ（`tabs.ts` の `series`）
+    .filter((t) => !t.series || series)
     // **スマホは3つだけ。** 7タブを 375px に並べると1つ 40px 弱になり押し分けられない
     .filter((t) => !mobile || mobileKeys.includes(t.key));
 

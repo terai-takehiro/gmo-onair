@@ -342,9 +342,12 @@ function ItemsPanel({ estimateId, canEdit }: { estimateId: string; canEdit: bool
     // `key` 必須: 明細は `useState` の編集バッファなので、開く版が替わったら作り直す
     // （キャッシュ済みの版へ戻ると再マウントされず、前の版の明細のまま保存される）
     //
-    // **`allowListPriceEdit`・`allowCategoryDiscount` は GPM 限定**（仕様変更 #9・#10）。
-    // 案件（sales）の見積タブ（`EstimateTab.tsx`）はこの2つを渡していないので、
-    // 今までどおり定価は表示専用・値引き行のショートカットも出ない。
+    // ⚠️ **この2つは「GPM 限定」ではない**（仕様変更 #9・#10）。正しい適用範囲は
+    // **グループ内案件**（`projects.customer_type === 'internal'`）で、案件管理の
+    // 見積タブでは `EstimateItems` が案件の `customer_type` から自分で決める。
+    // ここで明示しているのは、**GPM の見積詳細 API が `customer_type` を返さない**
+    // ため既定の判定材料が無く、判定すると常にグループ外に倒れてしまうから。
+    // （GPM＝グループ内案件と取り違えて sales 側へ渡し忘れたのが v4.5.19 の不具合）
     <EstimateItems
       key={detail.data.id}
       estimate={detail.data}

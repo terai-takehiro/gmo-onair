@@ -8,18 +8,11 @@ import { generateBillingKey } from '../../../shared/services/billing-key.service
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { parseEpisodeSpec, groupConsecutive, EpisodeSpecError } from '../../../shared/production/episodeSpec';
 import { jstDate } from '../../../shared/utils/jst';
+import { broadcastTypeIncludes } from '../services/episodeGenerate.service';
+import { parseDatedEntries, EpisodeDatedError } from '../services/episodeDatedPlan.service';
+import { previewDatedEpisodes, createDatedEpisodes } from '../services/episodeDated.service';
 
 const router = Router();
-
-// v4 フォーム（BroadcastSection.tsx）は複数選択をカンマ結合した文字列
-// （例: "live,recording"）として projects.broadcast_type に保存するため、
-// 完全一致ではなくカンマ区切りの中に対象値が含まれるかで判定する
-// （旧実装は `=== 'live'` の完全一致で、複数選択の案件では黙って外れていた）。
-// **`episode-generate.routes.ts` も同じ判定を使うため export する**（同じ規則を
-// 2か所目に書き写すと生放送の扱いがずれる）。
-export function broadcastTypeIncludes(broadcastType: string | null | undefined, value: string): boolean {
-  return (broadcastType ?? '').split(',').map((s) => s.trim()).includes(value);
-}
 
 // Apply auth + permission middleware to all routes
 router.use(requireAuth, requirePermission('sales'));
@@ -194,6 +187,45 @@ router.post('/:projectId/episodes/batch', requirePermission('sales', 'editor'), 
   }
 
   res.status(201).json({ success: true, data: createdEpisodes });
+});
+
+/**
+ * 「利用日＋回番号」をまとめて登録する（例: 9/7 に #17,18,19）— 9/2 の仕様変更・調査項目 S5
+ *
+ * `/batch`（番号は指定できるが日付が入らない）と `/generate`（日付は入るが番号は
+ * 自動採番）の**どちらでも表現できなかった**「この日に、この回番号を」を受ける3つ目の口。
+ * 既存2つは MCP・旧クライアントの呼び出し元がいるので触らず、別に立てている
+ * （中身は `services/episodeDated.service.ts`。ここは URL と結ぶだけ）。
+ *
+ * `dry_run=true` は**一切書き込まず**、日ごとに「何件作るか・既にある回とぶつかる
+ * 番号はどれか・その日に既に何件あるか」を返す。回を作ると売上（見込み）の行も
+ * 一緒に増えることがあるので、画面は必ずこれを見せてから実行する（設計文書 §7）。
+ */
+router.post('/:projectId/episodes/dated', requirePermission('sales', 'editor'), async (req, res) => {
+  const projectId = req.params.projectId as string;
+
+  let entries;
+  try {
+    entries = parseDatedEntries(req.body?.entries);
+  } catch (e) {
+    if (e instanceof EpisodeDatedError) throw new AppError(400, 'VALIDATION_ERROR', e.message);
+    throw e;
+  }
+
+  if (req.body?.dry_run) {
+    res.json({ success: true, dry_run: true, data: await previewDatedEpisodes(projectId, entries) });
+    return;
+  }
+
+  const result = await createDatedEpisodes({
+    projectId,
+    entries,
+    userId: req.user!.id,
+    broadcastOffsetDays: req.body?.broadcast_offset_days,
+    orderDate: req.body?.order_date || null,
+    notes: req.body?.notes || null,
+  });
+  res.status(201).json({ success: true, dry_run: false, data: result });
 });
 
 // 月次ユニットを1件作成 (ビジネス案件の月締め請求単位)。

@@ -20,6 +20,26 @@
  * 純関数に出して `shared/tests/financeDashboardPeriod.test.ts` で固定しています
  * （月を空にすると `-01` を送って 400 になっていたため）。
  *
+ * ── 案件の絞り込みは URL が正（`?project_id=`）──────────────
+ *
+ * 絞り込み帯のプルダウンで案件を選ぶと**この画面のまま**その案件だけの集計になります。
+ * 絞り込みをコンポーネントの state で持つと**「戻る」で全案件に戻れず、その状態の
+ * リンクも共有できない**ので、URL に置いて売上台帳（`RevenueListPage`）と
+ * そろえています（`financeDashboard/useProjectFilter.ts`）。
+ *
+ * ── 内訳の行を押したら「明細一覧（台帳）」へ飛ぶ ──────────────
+ *
+ * 3列とも**押す＝その台帳の明細一覧へ移動**に揃えました（ご指摘「明細一覧に
+ * 飛ばしてください」）。売上→`/budget/revenues`・仕入→`/budget/purchases`・
+ * 販管費→`/budget/sga` へ、いま効いている期間（と、案件に紐づく行はその案件）で
+ * 絞り込んだ状態で開きます。**引き継ぐクエリの組み立ては `ledgerOpenQuery` 1本**で、
+ * カード下の「台帳をひらく」ボタンと同じ関数を通ります — 違いは案件を付けるか
+ * どうかだけ（行＝その行の案件／フッター＝いま絞り込み中の案件）。
+ *
+ * 以前は列ごとに動作が違い（売上＝画面に留まって絞り込み、仕入・販管費＝
+ * ダッシュボード上に閲覧専用ダイアログ）、同じ形の行なのに押すと違うことが
+ * 起きていました。ダイアログは台帳へ行けば同じ情報が見られるので廃止しています。
+ *
  * ── 内訳は「台帳へ行かないと全件見えない」を無くした ──────────
  *
  * 以前は5本のクエリとも `limit` を大きく（300/2000）指定して上位だけを
@@ -30,10 +50,8 @@
  * サーバーの実ページ（100件区切り）を追加取得できるようにしています
  * （固定原価は案件のように増えないため従来どおり単発取得のまま）。
  */
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import api from '@/lib/api';
 import type { SgaExpense } from '@/types';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
@@ -41,11 +59,12 @@ import { PeriodBar, type PeriodMode } from './financeDashboard/PeriodBar';
 import { resolvePeriod, ledgerOpenQuery } from './financeDashboard/period';
 import { useDashboardData, EMPTY_SUMMARY, type MonthlySummary } from './financeDashboard/useDashboardData';
 import type { PurchaseRow } from './ledger/types';
-import { PurchaseDialog } from './ledger/PurchaseDialog';
-import SgaDialog from '../components/SgaDialog';
-import { formFromSga } from '../components/sgaPrefill';
 import { ProfitFlow, type FlowStep } from './financeDashboard/ProfitFlow';
-import { BreakdownColumn, type BreakdownItem } from './financeDashboard/Breakdown';
+import { BreakdownColumn } from './financeDashboard/Breakdown';
+import { useProjectFilter, initialPeriodMode } from './financeDashboard/useProjectFilter';
+import {
+  buildRevenueItems, buildPurchaseItems, buildSgaItems, type RevenueBreakdownRow,
+} from './financeDashboard/breakdownItems';
 import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth';
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -54,27 +73,16 @@ export default function BudgetDashboardPage() {
   const navigate = useNavigate();
   const now = new Date();
   const curYm = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}`;
-  const [mode, setMode] = useState<PeriodMode>('month');
+  const [mode, setMode] = useState<PeriodMode>(initialPeriodMode);
   const [month, setMonth] = useState(curYm);
   const [year, setYear] = useState(now.getFullYear());
   const [quarter, setQuarter] = useState(Math.floor(now.getMonth() / 3) + 1);
   const [rangeFrom, setRangeFrom] = useState(`${now.getFullYear()}-01`);
   const [rangeTo, setRangeTo] = useState(curYm);
-  const [projectId, setProjectId] = useState('');
 
-  /*
-   * **案件を選んだら期間は「全期間」にする**（ご要望）。案件は「その月に計上がある」
-   * とは限らず、既定の今月のままだとほぼ必ず ¥0 の画面になる。そこから期間を外そうと
-   * して月の欄を空にする、というのが今回のエラー報告の導線だった。
-   * ⚠️ **切り替えるのは「絞っていない → 案件を選んだ」ときだけ**（毎回戻すと選び直す
-   * たびに期間が飛ぶ）。解除したら元の期間へ戻す。
-   */
-  const [modeBeforeProject, setModeBeforeProject] = useState<PeriodMode | null>(null);
-  const selectProject = (id: string) => {
-    if (id && !projectId) { setModeBeforeProject(mode); setMode('all'); }
-    if (!id && projectId) { if (modeBeforeProject) setMode(modeBeforeProject); setModeBeforeProject(null); }
-    setProjectId(id);
-  };
+  // 案件の絞り込み（URL の `?project_id=` が正）は `financeDashboard/useProjectFilter.ts`。
+  // この画面で案件を絞る道はプルダウン1本（内訳の行は台帳へ移動する）
+  const { projectId, selectProject } = useProjectFilter(mode, setMode);
 
   // 期間の正規化と、送るパラメータの組み立ては `financeDashboard/period.ts`
   // （純関数にして `shared/tests/financeDashboardPeriod.test.ts` で固定してある）
@@ -87,9 +95,11 @@ export default function BudgetDashboardPage() {
   const s: MonthlySummary = (summaryQuery.data?.data as MonthlySummary) ?? EMPTY_SUMMARY;
 
   // 読み込み済みページを1本の配列に展開。**件数の badge には使わない**（読み込み済み分でしかない）
-  const revenueRows = useMemo(() => revenues.data?.pages.flatMap((p) => p.data) ?? [], [revenues.data]);
+  const revenueRows = useMemo<RevenueBreakdownRow[]>(
+    () => revenues.data?.pages.flatMap((p) => p.data) ?? [], [revenues.data],
+  );
   const purchaseRows = useMemo(() => purchases.data?.pages.flatMap((p) => p.data) ?? [], [purchases.data]);
-  const sgaRows = useMemo(() => sga.data?.pages.flatMap((p) => p.data) ?? [], [sga.data]);
+  const sgaRows = useMemo<SgaExpense[]>(() => sga.data?.pages.flatMap((p) => p.data) ?? [], [sga.data]);
 
   // 件数の badge・「もっと見る」の残数はサーバーが返す実件数 (pagination.total) を正とする
   const revenueTotalCount = revenues.data?.pages[0]?.pagination?.total ?? revenueRows.length;
@@ -100,38 +110,52 @@ export default function BudgetDashboardPage() {
   const pct = (n: number) => (s.revenue_total > 0 ? (n / s.revenue_total) * 100 : null);
 
   /*
-   * 「台帳をひらく」に引き継ぐクエリパラメータ（仕様変更 #4）。**期間・案件の
-   * 絞り込みを1つの文字列にまとめておき**、`BreakdownColumn`/`ProfitFlow` の
-   * どの「台帳をひらく」導線からも同じものを使う（片方だけ引き継ぐ、を防ぐ）。
+   * 絞り込み中の案件名。**プルダウンの候補に無くても出せるようにする** —
+   * 候補の一部（`projects-with-activity`）は期間つきで引いているので、絞り込んだあとに
+   * 期間を変えると候補から消え、`SearchableSelect` が placeholder（＝「全案件」）に
+   * 戻って**絞り込みが効いていないように見える**。読み込み済みの行からも名前を拾う。
    */
-  const ledgerQuery = useMemo(
-    () => ledgerOpenQuery(period, projectId || undefined, projects.find((p) => p.id === projectId)?.name),
-    [period, projectId, projects],
+  const selectedProjectName = useMemo(() => {
+    if (!projectId) return undefined;
+    return projects.find((p) => p.id === projectId)?.name
+      ?? revenueRows.find((r) => r.project_id === projectId)?.project_name
+      ?? purchaseRows.find((p) => p.project_id === projectId)?.project_name
+      ?? undefined;
+  }, [projectId, projects, revenueRows, purchaseRows]);
+
+  /** 絞り込み中の案件を候補に必ず含める（上のコメントの打ち消し） */
+  const projectOptions = useMemo(
+    () => (!projectId || projects.some((p) => p.id === projectId)
+      ? projects
+      : [{ id: projectId, gls_number: null, name: selectedProjectName ?? '（選んだ案件）' }, ...projects]),
+    [projects, projectId, selectedProjectName],
   );
 
   /*
-   * 仕入・販管費の内訳の行を押すと、台帳へ移らずこのままダイアログを開く
-   * （仕様変更 #3）。`readOnly` は「案件詳細『見積・請求』」から開くときと同じ
-   * 使い方（`PurchaseDialog`/`SgaDialog` のコメント参照）。
+   * カード下の「台帳をひらく」・損益フローの各段が引き継ぐクエリパラメータ
+   * （仕様変更 #4）。**期間と、いま絞り込み中の案件を1つの文字列にまとめておき**、
+   * `BreakdownColumn`/`ProfitFlow` のどの導線からも同じものを使う
+   * （片方だけ引き継ぐ、を防ぐ）。
    */
-  const [viewingPurchase, setViewingPurchase] = useState<PurchaseRow | null>(null);
-  const [viewingSga, setViewingSga] = useState<SgaExpense | null>(null);
+  const ledgerQuery = useMemo(
+    () => ledgerOpenQuery(period, projectId || undefined, selectedProjectName ?? undefined),
+    [period, projectId, selectedProjectName],
+  );
 
-  // 販管費の閲覧ダイアログが担当者名・勘定科目名を出せるように、開いたときだけ引く
-  // （どちらも小さい一覧で他画面と同じ鍵を使うのでキャッシュを共有できる）
-  const { data: sgaUsersData } = useQuery({
-    queryKey: ['users-list'],
-    queryFn: async () => (await api.get('/users?limit=200')).data,
-    enabled: !!viewingSga,
-  });
-  const sgaUsers: { id: string; name: string }[] = sgaUsersData?.data ?? [];
-  const { data: sgaTitlesData } = useQuery({
-    queryKey: ['sga-account-titles'],
-    queryFn: async () => (await api.get('/sga/account-titles')).data.data as { id: string; name: string }[],
-    enabled: !!viewingSga,
-    staleTime: 60 * 60 * 1000,
-  });
-  const viewingSgaForm = useMemo(() => (viewingSga ? formFromSga(viewingSga) : null), [viewingSga]);
+  /*
+   * 内訳の**行**から台帳（明細一覧）へ移る。フッターの「台帳をひらく」と
+   * **同じ `ledgerOpenQuery`** を通し、案件だけ「その行のもの」に差し替える。
+   *
+   * ⚠️ 案件を渡さなかったとき（販管費・案件に紐づかない行）は
+   * `ledgerQuery` に落とさず**期間だけ**にする — 画面がある案件で絞り込み中でも、
+   * 案件を持たない行から「その案件で絞った台帳」へ送るのは嘘になるため。
+   */
+  const openLedger = useCallback(
+    (path: string, rowProjectId?: string | null, rowProjectName?: string | null) => {
+      navigate(path + ledgerOpenQuery(period, rowProjectId || undefined, rowProjectName || undefined));
+    },
+    [navigate, period],
+  );
 
   /*
    * **「全部ゼロ」で行き止まりにしない。** 既定の期間は今月だが、月次の入力は
@@ -169,57 +193,29 @@ export default function BudgetDashboardPage() {
         { label: '営業利益', value: s.operating_profit, result: true, pct: pct(s.operating_profit) },
       ];
 
-  const revItems: BreakdownItem[] = revenueRows.map(
-    (r: {
-      id: string; gls_number?: string | null; episode_code?: string | null; project_name?: string | null;
-      customer_name?: string | null; amount: number; project_id?: string | null; group_id?: string | null;
-    }) => ({
-      id: r.id,
-      code: r.episode_code || r.gls_number,
-      title: r.project_name || '（案件名なし）',
-      sub: r.customer_name,
-      amount: Number(r.amount) || 0,
-      // 按分グループの売上は案件ではなくグループの詳細へ（仕様変更 #2・
-      // `RevenueListPage.tsx` の `onOpen` と同じ分岐）
-      onClick: r.group_id
-        ? () => navigate(`/sales/project-groups/${r.group_id}`)
-        : r.project_id
-          ? () => navigate(`/sales/projects/${r.project_id}`)
-          : undefined,
-    }),
+  // 行の組み立ては `financeDashboard/breakdownItems.ts`（申請ステータスは台帳と共通の
+  // `settlementState` から作る）。ここは**押したときに何が起きるか**だけを決める
+  const revItems = buildRevenueItems(revenueRows, {
+    openLedger: (id, name) => openLedger('/budget/revenues', id, name),
+    openGroup: (groupId) => navigate(`/sales/project-groups/${groupId}`),
+  });
+  const purItems = buildPurchaseItems(
+    [...purchaseRows, ...((fixed.data?.data ?? []) as PurchaseRow[])],
+    (id, name) => openLedger('/budget/purchases', id, name),
   );
-
-  const purItems: BreakdownItem[] = [
-    ...purchaseRows,
-    ...((fixed.data?.data ?? []) as PurchaseRow[]),
-  ].map((p) => ({
-    id: p.id,
-    code: p.episode_code || p.gls_number,
-    title: p.description || p.project_name || '（説明なし）',
-    sub: [p.vendor_name, p.project_name].filter(Boolean).join(' ／ ') || null,
-    amount: Number(p.amount) || 0,
-    tag: p.is_provisional ? '仮' : null,
-    // 台帳へ行かず、このまま閲覧専用ダイアログを開く（仕様変更 #3）
-    onClick: () => setViewingPurchase(p),
-  }));
-
-  const sgaItems: BreakdownItem[] = sgaRows.map(
-    (x: SgaExpense) => ({
-      id: x.id,
-      title: x.description || '（詳細なし）',
-      sub: x.vendor_name,
-      amount: Number(x.amount) || 0,
-      // 台帳へ行かず、このまま閲覧専用ダイアログを開く（仕様変更 #3）
-      onClick: () => setViewingSga(x),
-    }),
-  );
+  // 販管費は案件に紐づかないので期間だけ引き継ぐ（`buildSgaItems` のコメント参照）
+  const sgaItems = buildSgaItems(sgaRows, () => openLedger('/budget/sga'));
 
   return (
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
       <PageHeader
         title="財務ダッシュボード"
+        /* ⚠️ **どの案件で絞っているのかを名前で出す。** 絞り込み帯のプルダウンは
+            画面を作り直さずクエリだけ変えるので、ここに出ないと効いたことが分からない */
         sub={periodReady
-          ? `${period.label} ・ 確定売上ベース ・ ${projectId ? '案件で絞り込み中（販管費は対象外）' : '全案件（販管費を含む）'}`
+          ? `${period.label} ・ 確定売上ベース ・ ${projectId
+              ? `${selectedProjectName ?? '選んだ案件'} で絞り込み中（販管費は対象外）`
+              : '全案件（販管費を含む）'}`
           : '期間を選んでください'}
       />
 
@@ -230,7 +226,7 @@ export default function BudgetDashboardPage() {
         quarter={quarter} setQuarter={setQuarter}
         rangeFrom={rangeFrom} setRangeFrom={setRangeFrom}
         rangeTo={rangeTo} setRangeTo={setRangeTo}
-        projects={projects} projectId={projectId} setProjectId={selectProject}
+        projects={projectOptions} projectId={projectId} setProjectId={selectProject}
       />
 
       {/*
@@ -321,37 +317,11 @@ export default function BudgetDashboardPage() {
 
           <p className="text-note text-muted-foreground">
             内訳は既定では<strong className="font-bold">金額の大きい順に上位だけ</strong>を出しています。
-            「この条件の全N件をここで見る」で、この絞り込み条件に該当する分をすべてこの画面のまま確認できます
-            （編集・CSV書き出しなど台帳側の機能が必要なときは「台帳をひらく」から移動してください）。
+            「この条件の全N件をここで見る」で、この絞り込み条件に該当する分をすべてこの画面のまま確認できます。
+            <strong className="font-bold">行を押すと、その明細一覧（台帳）</strong>を同じ期間で絞り込んで開きます
+            （編集・CSV書き出しなど台帳側の機能はそちらにあります）。
           </p>
         </>
-      )}
-
-      {/* 仕入・販管費の内訳の行を押したときの閲覧専用ダイアログ（仕様変更 #3）。
-          台帳ページへは移らず、このままダッシュボード上で開く */}
-      {viewingPurchase && (
-        <PurchaseDialog
-          readOnly
-          editing={viewingPurchase}
-          defaultProjectId={viewingPurchase.project_id ?? ''}
-          onClose={() => setViewingPurchase(null)}
-        />
-      )}
-      {viewingSga && viewingSgaForm && (
-        <SgaDialog
-          readOnly
-          open
-          onOpenChange={(v) => { if (!v) setViewingSga(null); }}
-          editingId={viewingSga.id}
-          form={viewingSgaForm}
-          setForm={() => {}}
-          vendors={[]}
-          users={sgaUsers}
-          accountTitles={sgaTitlesData ?? []}
-          isSaving={false}
-          onSubmit={() => {}}
-          onClose={() => setViewingSga(null)}
-        />
       )}
     </div>
   );

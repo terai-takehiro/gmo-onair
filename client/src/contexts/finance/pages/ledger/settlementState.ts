@@ -8,9 +8,15 @@
  *   ② 仮フラグ OFF・精算番号（`settlement_number`）未入力 → 「確定：未申請」
  *   ③ 仮フラグ OFF・精算番号入力済み             → 「確定：申請済」
  *
- * `PurchaseListPage.tsx`（`purchaseState`）・`SgaListPage.tsx`（`sgaState`）の
- * 両方がこの関数を呼ぶ。**ここを直せば両方の台帳に効く**（財務ダッシュボードの
- * 内訳もこの2ページの行を読んでいるので、そちらにも効く）。
+ * `PurchaseListPage.tsx`（`purchaseState`）・`SgaListPage.tsx`（`sgaState`）・
+ * 財務ダッシュボードの内訳（`financeDashboard/breakdownItems.ts`）がこの関数を呼ぶ。
+ * **ここを直せば3か所すべてに効く。**
+ *
+ * ⚠️ **以前ここには「内訳はこの2ページの行を読んでいるのでそちらにも効く」と
+ * 書いてあったが、事実と違った。** 内訳は台帳のコンポーネントを再利用しておらず、
+ * 自前で行を組み立てている。そのため 3値へ揃えたはずが内訳だけ「仮」の2値のまま
+ * 取り残され、「確定：未申請」と「確定：申請済」が同じ見た目になっていた
+ * （ご指摘）。内訳側から**この関数を直接呼ぶ**ように直してある。
  */
 import type { LedgerState } from './types';
 
@@ -39,4 +45,16 @@ export function settlementState(
     return { label: '確定：申請済', tone: 'ok', title: '精算を申請済みです' };
   }
   return { label: '確定：未申請', tone: 'neutral', title: 'まだ精算を申請していません' };
+}
+
+/**
+ * 狭い列（財務ダッシュボードの内訳）用の短いラベル。**意味は変えない**。
+ *
+ * 内訳は lg で3枚並ぶ（1枚あたり実効 ~360px）ので、「確定：未申請」（6字）は
+ * `TableBadge` の固定幅 62px に収まらず自然幅（約90px）になり、金額と挟んで
+ * 件名を潰す。ラベルを画面ごとに書き分けると必ず片方が古くなるので、
+ * **短くする規則もここに1つだけ置く**（`title` は元の文言のまま出す）。
+ */
+export function compactSettlementLabel(label: string): string {
+  return label.replace('確定：', '');
 }

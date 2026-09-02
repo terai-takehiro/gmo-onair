@@ -33,9 +33,8 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { groupConsecutive } from '../../../shared/production/episodeSpec';
 import {
   planEpisodeDates, resolveBroadcastDate, resolvePlan, summarizeResolvedPlan,
-  EpisodeGenerateError, type PlannedDate,
+  broadcastTypeIncludes, EpisodeGenerateError, type PlannedDate,
 } from '../services/episodeGenerate.service';
-import { broadcastTypeIncludes } from './episodes.routes';
 import { taskColumnsService, REGULAR_EPISODE_TEMPLATE_ID } from '../../tasks/services/task-columns.service';
 import { jstDate } from '../../../shared/utils/jst';
 

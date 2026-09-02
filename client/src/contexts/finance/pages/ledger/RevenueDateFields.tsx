@@ -23,9 +23,17 @@
  * **既にある口をこの部品の中から直接呼ぶ**（1ファイル400行の上限との兼ね合いで
  * `RevenueDialog.tsx` 側を太らせない）。保存前の新規売上（`revenueId` が空）は
  * まだ対象の行が無いので押せない。
+ *
+ * ⚠️ **見込み（`status='estimate'`）の売上では検収を記録できません。**
+ * サーバー（`billing.routes.ts` の `PATCH /billing/invoices/:id`）が
+ * 「確定した売上だけ」で弾くためです。以前はその条件を画面が知らず、
+ * `onError` も無かったので**押すとスイッチが黙って戻るだけ**でした
+ * （案件詳細の売上・請求ペインは見込みの行も並べるので日常的に起きる）。
+ * いまは押せない理由を先に出し、それでも失敗したら通知を出します。
  */
 import { useMutation } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
+import { notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import api from '@/lib/api';
 import { localDateStr } from '@/lib/format';
 import { Input } from '@/components/ui/input';
@@ -36,7 +44,7 @@ import { Textarea } from '@/components/ui/textarea';
 export function RevenueDateFields({
   recognitionMonth, setRecognitionMonth, billingDate, setBillingDate,
   paymentDueDate, setPaymentDueDate, isAdvancePayment, setIsAdvancePayment,
-  revenueId, inspectionDate, onInspectionSaved,
+  revenueId, inspectionDate, status, onInspectionSaved,
   invoiceIssued, setInvoiceIssued, notes, setNotes,
 }: {
   recognitionMonth: string;
@@ -51,6 +59,12 @@ export function RevenueDateFields({
   revenueId: string;
   /** migration 140。**フラグではなく日付**（入っていれば済み） */
   inspectionDate: string | null;
+  /**
+   * 直している売上の状態（`confirmed` / `estimate`）。**サーバーが確定した行しか
+   * 受け付けない**ので、見込みの行では押せない理由を先に出すために要る。
+   * 分からないとき（新規登録）は未指定でよい — その場合は `revenueId` の有無で判断する
+   */
+  status?: string;
   /** 保存に成功したら呼ばれる（`RevenueDialog.tsx` 側で state 反映 ＋ 関連キャッシュの再読込） */
   onInspectionSaved: (v: string | null) => void;
   invoiceIssued: boolean;
@@ -62,8 +76,19 @@ export function RevenueDateFields({
     mutationFn: (value: string | null) =>
       api.patch(`/billing/invoices/${revenueId}`, { inspection_date: value }),
     onSuccess: (_r, value) => onInspectionSaved(value),
+    // **黙って戻さない。** 失敗を伝えないと「押しても保存できない」に見える
+    onError: (err) => notifyApiError('検収を記録できませんでした', err),
   });
-  const inspectionBlocked = revenueId ? undefined : '先に登録すると記録できます';
+  // サーバー（`billing.routes.ts`）の条件とそろえる。**押してから断られるのをやめる**
+  const inspectionBlocked = !revenueId
+    ? '先に登録すると記録できます'
+    : status && status !== 'confirmed'
+      ? '確定した売上だけ記録できます'
+      : undefined;
+  // 立てるのだけ止める（消すのは通す）。`invoiceIssued` が既に true なら押せる
+  const issueBlocked = !invoiceIssued && status && status !== 'confirmed'
+    ? '確定した売上だけ記録できます'
+    : undefined;
 
   return (
     <>
@@ -112,10 +137,12 @@ export function RevenueDateFields({
               </span>
             )}
           </Label>
-          {/* ⚠️ 枠は残して理由を出す — 押せない Switch だけ置くと理由が分からない */}
-          {inspectionBlocked && (
-            <span className="text-note text-muted-foreground">（{inspectionBlocked}）</span>
-          )}
+          {/* ⚠️ 枠は残して常に一言そえる — 押せない Switch だけ置くと理由が分からず、
+              押せるときは**保存の仕方が他と違う**ことを知らせる必要がある
+              （前金・請求書発行済は「更新」を押すまで待つのに、検収だけ即時） */}
+          <span className="text-note text-muted-foreground">
+            （{inspectionBlocked ?? '押すとすぐ保存されます'}）
+          </span>
         </span>
         <span className="flex items-center gap-1.5">
           {inspectionMutation.isPending && (
@@ -131,9 +158,15 @@ export function RevenueDateFields({
         </span>
       </div>
 
+      {/* 請求書発行済も**確定した売上だけ**（サーバー `PUT /revenues/:id` と同じ条件）。
+          立てた瞬間に請求書番号が採られる印なので、見込みの行では立てさせない。
+          **消すほうは止めない** — 間違って立った印を消せなくなる */}
       <div className="flex items-center justify-between gap-2">
-        <Label htmlFor="invoice-issued" className="cursor-pointer">請求書発行済</Label>
-        <Switch id="invoice-issued" checked={invoiceIssued}
+        <span className="flex flex-col">
+          <Label htmlFor="invoice-issued" className={issueBlocked ? undefined : 'cursor-pointer'}>請求書発行済</Label>
+          {issueBlocked && <span className="text-note text-muted-foreground">（{issueBlocked}）</span>}
+        </span>
+        <Switch id="invoice-issued" checked={invoiceIssued} disabled={!!issueBlocked} title={issueBlocked}
           onCheckedChange={(v) => setInvoiceIssued(!!v)} />
       </div>
 

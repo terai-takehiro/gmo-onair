@@ -27,6 +27,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Loader2, Trash2, ExternalLink } from 'lucide-react';
 import { localDateStr } from '@/lib/format';
 import { previousBusinessDay } from '@gmo-onair/shared/src/utils/businessDays';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { TaxHelperButton } from '@gmo-onair/shared/src/client/ui/tax-aware-amount-input';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { Input } from '@/components/ui/input';
@@ -87,6 +88,8 @@ export function PurchaseDialog({
   /** 閲覧のみで開く（保存・削除ボタンを出さず、全欄を disabled にする） */
   readOnly?: boolean;
 }) {
+  // **判定は1回だけ**（部品の中で早期 return しない — 幅が変わるとフック数が変わって React が落ちる）
+  const isMobile = useIsMobile();
   const [selectedProjectId, setSelectedProjectId] = useState(editing?.project_id || defaultProjectId || '');
   const [vendorId, setVendorId] = useState(editing?.vendor_id || '');
   const [taxCategory, setTaxCategory] = useState(editing?.tax_category || 'tax10');
@@ -164,7 +167,14 @@ export function PurchaseDialog({
         ) : (
           <div className="flex gap-2 sm:justify-between">
             <div>
-              {editing && (
+              {/*
+                **消すはスマホに出さない**（`RevenueDialog.tsx` と同じ扱い）。
+                取り消せない操作を指で押させないのがこのリポジトリの方針で、
+                `pcOnlyScreens.ts` の「スマホでは消せない」という記述もこれが前提。
+                ⚠️ ボタンだけ隠して `onDelete` を渡さない形にすると、押しても何も
+                起きない死んだボタンになる。**描かないこと自体で守る。**
+              */}
+              {editing && !isMobile && (
                 <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
                   {deleting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
                   消す

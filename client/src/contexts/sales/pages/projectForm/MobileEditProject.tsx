@@ -228,9 +228,9 @@ export function MobileEditProject({
                 setMenuOpen(false);
                 actions.setGlsDialog((s) => ({
                   ...s, open: true,
-                  // **口頭決定（B）より手前は「新しい番組」を選べない**ので、
-                  // 押せる「いまある案件に足す」を既定にして開く（PC と同じ理由）
-                  mode: canIssueNewGls ? s.mode : 'link',
+                  // **採れるときは必ず「新しい番組」で開く**（PC と同じ理由）。
+                  // 採れないときだけ、押せる「いまある案件に足す」を既定にする
+                  mode: canIssueNewGls ? 'new' : 'link',
                 }));
               }}
             >

@@ -1,3 +1,4 @@
+import type { SgaExpense } from '@/types';
 /**
  * 財務の台帳（③ 売上 ／ ④ 仕入 ／ ⑤ 販管費）で共有する型 (v4)
  *
@@ -5,6 +6,17 @@
  * **行の描き方を1つにまとめる**ために共通の形に寄せています。
  * 中身の取り方だけが違うので、各ページで `LedgerRow` に詰め替えます。
  */
+
+import type { ReactNode } from 'react';
+
+/**
+ * 詳細シート（スマホ）に出す1項目。**PC の表は読まない**
+ * （PC は列で出し切っているので、同じ値を2か所に出すと片方だけ古くなる）。
+ */
+export interface LedgerDetailField {
+  label: string;
+  value: ReactNode;
+}
 
 /** 台帳1行の「描くための形」。どのテーブルから来たかを画面は知らない */
 export interface LedgerRow {
@@ -37,6 +49,15 @@ export interface LedgerRow {
    * 済んでいない側は表示せず「有るときだけ出す」流儀（仕入・販管費の「仮」タグと同じ）
    */
   secondaryBadge?: Pick<LedgerState, 'label' | 'tone' | 'title'> | null;
+  /**
+   * スマホの詳細シートに出す項目（税区分・支払期日・備考など）。
+   *
+   * **PC の表は読みません。** カードは4つの値しか出さない代わりに、
+   * 落とした値をここへ移してタップで読めるようにしています（`ledgerDetail.tsx` が作る）。
+   * ⚠️ **各ページの `ledgerRows` の `useMemo` の中で作ること** —
+   * 外に出すと20行×十数項目を毎回作り直すことになります。
+   */
+  detail?: LedgerDetailField[];
 }
 
 /** 右端の状態バッジ。**色は意味で決める**（画面ごとに変えない） */
@@ -45,6 +66,12 @@ export interface LedgerState {
   tone: 'neutral' | 'ok' | 'warn' | 'danger' | 'info';
   /** 押したときの行き先。無ければただの表示 */
   to?: string;
+  /**
+   * スマホの詳細シートで、`to` へ移るボタンに書く文字（例「請求・入金をひらく」）。
+   * **行き先と一緒に持たせる** — 画面側に書くと、状態を持たない台帳
+   * （仕入・販管費）にも文言だけが残って食い違う。省略すると既定の文言になる
+   */
+  toLabel?: string;
   title?: string;
 }
 
@@ -76,6 +103,24 @@ export interface RevenueRow {
   project_id: string;
   project_name: string | null;
   gls_number: string | null;
+  /**
+   * 請求先の会社（`companies.id`）。**サーバーは前から返しています** —
+   * `GET /revenues` も `GET /revenues/:id` も `SELECT r.*` なので、
+   * ここに書いていなかっただけで実データには載っていました。
+   *
+   * ⚠️ **この1行が抜けていたせいで案件詳細から売上を保存できませんでした。**
+   * 編集ダイアログは必須項目である顧客IDをこの型から取れず、代わりに
+   * **案件名で `/projects` を引き直した結果**から取っていたため、その検索が
+   * 空振りする行（受注前・見込み）では「更新」ボタンが灰色のままでした
+   * （`useRevenueEditTarget.ts` 冒頭の説明）。
+   */
+  customer_id: string | null;
+  /**
+   * 紐づく回（レギュラー案件・migration 269/270）。`null` なら案件直下の売上。
+   * **保存のたびに送り直す値**なので型に無いと `null` で上書きされ、
+   * 回との紐づきが黙って外れます（`RevenueDialog.tsx` の初期値で使う）。
+   */
+  episode_id: string | null;
   customer_name: string | null;
   event_end: string | null;
   amount: number;
@@ -169,3 +214,18 @@ export interface SgaRow {
   /** 確定前の見込み (migration 268)。**「仮」バッジになる**（仕入の `is_provisional` と同じ扱い） */
   is_provisional: boolean;
 }
+
+/**
+ * 一覧が返す販管費の行。
+ *
+ * ⚠️ **`account_title_name` はサーバーが返しているのに型に無かった**
+ * （`GET /sga` は `SELECT s.*, at.name AS account_title_name` で
+ * `sga_account_titles` を LEFT JOIN している）。`client/src/types` は
+ * 他の画面も読む共有の型なので、**この台帳が受け取る形だけ**をここで足す。
+ * 科目名を画面に出せるのはこの列があるからで、`account_title_id` から
+ * 引き直すと一覧を描くたびにマスターを走査することになる。
+ */
+export type SgaLedgerItem = SgaExpense & {
+  account_title_id?: string | null;
+  account_title_name?: string | null;
+};

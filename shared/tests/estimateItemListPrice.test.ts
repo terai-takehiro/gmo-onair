@@ -30,6 +30,7 @@ const PDF = read('server', 'src', 'shared', 'services', 'pdf.service.ts');
 const ITEMS = read('client', 'src', 'contexts', 'sales', 'pages', 'projectDetail', 'EstimateItems.tsx');
 const ROW = read('client', 'src', 'contexts', 'sales', 'pages', 'projectDetail', 'EstimateItemRow.tsx');
 const PICKER = read('client', 'src', 'contexts', 'finance', 'components', 'PricingItemPicker.tsx');
+const SUBTOTAL = read('client', 'src', 'contexts', 'sales', 'pages', 'projectDetail', 'EstimateCategorySubtotal.tsx');
 
 describe('見積の明細 — 並べ替え（@dnd-kit）', () => {
   it('サーバー側は既に配列順を sort_order として書く（並べ替えのために変えていない）', () => {
@@ -135,14 +136,85 @@ describe('見積の明細 — グループ内価格でも定価を表記する�
     expect(PICKER).toMatch(/list_unit_price: it\.unit_price \?\? null,/);
   });
 
-  it('見積書 PDF: 定価×数量で印字し、差額は「グループ価格による値引き」1行にまとめる（お値引きとは別ラベル）', () => {
-    expect(ESTIMATE_PDF).toMatch(/let groupDiscountTotal = 0;/);
+  it('見積書 PDF: 定価×数量で印字し、差額は「グループ価格による値引き」を**分類ごとに**1行ずつ出す', () => {
+    // ⚠️ 全分類を1本に合算するスカラー（旧 `groupDiscountTotal`）に戻さないこと。
+    // 戻すと値引きが「値引き」という独立した帯へ落ち、スタジオ・技術・人員などの
+    // カテゴリ小計が**定価の合計のまま**紙に出る（お客様が分類ごとの実額を読めない）
+    expect(ESTIMATE_PDF).not.toMatch(/groupDiscountTotal/);
+    expect(ESTIMATE_PDF).toMatch(/const groupDiscountByCategory = new Map<string \| null, number>\(\);/);
     expect(ESTIMATE_PDF).toMatch(/const showListPrice = listUnitPrice != null && listUnitPrice > unitPrice;/);
-    expect(ESTIMATE_PDF).toMatch(/if \(showListPrice\) groupDiscountTotal \+= \(listUnitPrice - unitPrice\) \* qty;/);
+    expect(ESTIMATE_PDF).toMatch(/\(groupDiscountByCategory\.get\(category\) \?\? 0\) \+ \(listUnitPrice - unitPrice\) \* qty/);
+    expect(ESTIMATE_PDF).toMatch(/for \(const \[category, amount\] of groupDiscountByCategory\) \{/);
     expect(ESTIMATE_PDF).toMatch(/description: 'グループ価格による値引き'/);
-    // 既存の手動値引き（お値引き）とラベルが違い、if 分岐も別（共存する）
+    // 分類は**元の分類のまま**戻す（'値引き' という別の帯へ逃がさない）ので、
+    // `pdf.service.ts` のカテゴリ小計が「値引き後の額」になる
+    const at = ESTIMATE_PDF.indexOf("description: 'グループ価格による値引き'");
+    expect(ESTIMATE_PDF.slice(at, at + 260)).toMatch(/period_end: null, item_notes: null, category,/);
+    // 見積全体の値引き（お値引き）は今までどおりラベルも帯も別（共存する）
     expect(ESTIMATE_PDF).toMatch(/description: 'お値引き'/);
-    expect(ESTIMATE_PDF).toMatch(/if \(groupDiscountTotal > 0\) \{/);
+    expect(ESTIMATE_PDF).toMatch(/period_start: null, period_end: null, item_notes: null, category: '値引き',/);
     expect(ESTIMATE_PDF).toMatch(/if \(discount > 0\) \{/);
+  });
+});
+
+describe('見積の明細 — 定価の編集はグループ内案件で決まる（GPM ではない）', () => {
+  /**
+   * ⚠️ v4.5.19 は「グループ内案件」を「プロジェクト管理(GPM)」と取り違え、
+   * `allowListPriceEdit` / `allowCategoryDiscount` を GPM の見積タブからしか
+   * 渡していなかった。その結果、ユーザーが実際に使う**案件管理の見積タブでは
+   * 定価の編集欄もカテゴリ値引きのボタンも1つも出ない**状態だった。
+   * 正しい定義は `projects.customer_type === 'internal'`
+   * （取引先マスター `companies.is_gmo_group` から保存のたびに導く）。
+   */
+  it('既定は customer_type から決め、prop は明示的な上書きに留める', () => {
+    expect(ITEMS).toMatch(/const listPriceEditable = allowListPriceEdit \?\? customerType === 'internal';/);
+    expect(ITEMS).toMatch(/const categoryDiscountEnabled = allowCategoryDiscount \?\? customerType === 'internal';/);
+    // 行と「値引き行を追加」ボタンは導出した値を見る（prop を直接見ない）
+    expect(ITEMS).toMatch(/allowListPriceEdit=\{listPriceEditable\}/);
+    expect(ITEMS).toMatch(/\{categoryDiscountEnabled && \(/);
+  });
+
+  it('案件管理の見積タブは案件の customer_type を明細へ渡している', () => {
+    const TAB = read('client', 'src', 'contexts', 'sales', 'pages', 'projectDetail', 'EstimateTab.tsx');
+    expect(TAB).toMatch(/customer_type: project\.customer_type/);
+  });
+});
+
+describe('見積の明細 — カテゴリ小計は「定価小計 / 値引き / 小計」', () => {
+  it('集計は足し算だけ（按分・割り算をしない）ので、分けても合計が1円もずれない', () => {
+    expect(SUBTOTAL).toMatch(/export function categoryTotals/);
+    expect(SUBTOTAL).toMatch(/return \{ list, net, discount: list - net \};/);
+    // 手で足した値引き行（単価がマイナス）を定価側に積まない
+    expect(SUBTOTAL).toMatch(/list \+= Math\.max\(0, qty \* Math\.round\(listUnit\)\);/);
+    expect(SUBTOTAL).not.toMatch(/\* 0\.|\/ 100|Math\.floor/);
+  });
+
+  it('値引きが無い帯は今までどおり「小計（◯◯）」の1行だけ', () => {
+    expect(SUBTOTAL).toMatch(/\{t\.discount > 0 && \(/);
+    expect(SUBTOTAL).toMatch(/定価小計（\$\{label\}）/);
+  });
+});
+
+describe('見積の明細 — 行の備考は改行できる（入力欄が textarea）', () => {
+  /**
+   * `<input>` は仕様上 CR/LF を保持できないので、備考が1行に潰れる。
+   * DB は TEXT・PDF（pdfkit）は LF をそのまま改行として描くため、
+   * **入力欄を textarea にするだけで見積書・検収書・請求書に改行が出る**。
+   * 売上明細（`RevenueItemsTable.tsx` など）は先に textarea になっていた。
+   */
+  it('見積明細の備考は Textarea（auto-grow）で、直せないときは改行を保った素のテキスト', () => {
+    const at = ROW.indexOf('aria-label="この行の備考"');
+    expect(at).toBeGreaterThan(0);
+    expect(ROW.slice(Math.max(0, at - 400), at)).toMatch(/<Textarea/);
+    // 共通 Textarea の既定 min-h-[80px] を打ち消さないと明細の全行が80pxになる
+    expect(ROW).toMatch(/min-h-0/);
+    // 送付済み・閲覧のみのときは <input> ではなく改行を保つテキストで出す
+    expect(ROW).toMatch(/whitespace-pre-wrap break-words/);
+  });
+
+  it('売上明細の備考も textarea のまま（退行防止）', () => {
+    const REV = read('client', 'src', 'contexts', 'finance', 'pages', 'ledger', 'RevenueItemsTable.tsx');
+    expect(REV).toMatch(/<Textarea/);
+    expect(REV).toMatch(/item_notes/);
   });
 });

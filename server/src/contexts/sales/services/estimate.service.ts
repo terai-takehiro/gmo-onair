@@ -516,6 +516,20 @@ export const estimateService = {
     // **別の案件の回は指定できない。** 見積を渡り歩かせると、案件をまたいで
     // 明細（単価・仕入見込み）が別の商談に紛れ込む
     await this.assertEpisodeOfProject(targetEpisodeId, from.project_id);
+    /*
+     * **複製元と同じ回へは複製しない。** この口は「別の回向けの独立した見積」を
+     * 起こすためのもので、同じ回を書き直すのは `next-version`（版を重ねる）の仕事。
+     * 同じ回に v1 の別系列がもう1本できると、回ごとの見積一覧に版でも何でもない
+     * 見積が2本並び、どちらが生きているのか（送ったのはどちらか）が判別できなくなる。
+     *
+     * **画面側でも複製先の候補から複製元の回を外しているが、それだけでは守れない** —
+     * 同時に開いた別のタブ・MCP・直接の API 呼び出しは古い候補のまま押せる
+     * （client/CLAUDE.md「二度は作れないはサーバーで守る」）。
+     */
+    if (from.episode_id && from.episode_id === targetEpisodeId) {
+      throw new AppError(400, 'VALIDATION_ERROR',
+        '複製元と同じ回には複製できません。同じ回の見積を作り直すときは「次の版をつくる」を使ってください');
+    }
 
     const id = uuidv4();
     await execute(

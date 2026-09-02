@@ -39,6 +39,18 @@ export interface Period {
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const isYm = (v: string) => /^\d{4}-\d{2}$/.test(v);
 
+/**
+ * `YYYY-MM` の月末日（`YYYY-MM-DD`）。
+ * 以前は一律 `-31` を組み立てていて（`2026-04-31` など**存在しない日付**）、
+ * 台帳の URL にそのまま出ていた。列が文字列比較なので結果は同じだったが、
+ * 日付として読む側（`<input type="date">`・Excel）に渡すと壊れるので実在の日にする。
+ */
+const endOfMonth = (ym: string): string => {
+  const [y, m] = ym.split('-').map(Number);
+  // 月は 1 始まり・日 0 は「前の月の末日」なので、翌月の 0 日 = この月の末日
+  return `${ym}-${pad2(new Date(Date.UTC(y, m, 0)).getUTCDate())}`;
+};
+
 export function resolvePeriod({ mode, month, year, quarter, rangeFrom, rangeTo }: PeriodInput): Period {
   if (mode === 'all') return { from: '', to: '', all: true, valid: true, label: '全期間' };
 
@@ -46,7 +58,7 @@ export function resolvePeriod({ mode, month, year, quarter, rangeFrom, rangeTo }
     const sm = (quarter - 1) * 3 + 1;
     const em = sm + 2;
     return {
-      from: `${year}-${pad2(sm)}-01`, to: `${year}-${pad2(em)}-31`,
+      from: `${year}-${pad2(sm)}-01`, to: endOfMonth(`${year}-${pad2(em)}`),
       all: false, valid: true, label: `${year}年 ${quarter}Q（${sm}〜${em}月）`,
     };
   }
@@ -61,11 +73,11 @@ export function resolvePeriod({ mode, month, year, quarter, rangeFrom, rangeTo }
     }
     // 逆に入れられても入れ替えて受ける（**エラーにするほどのことではない**）
     const [f, t] = rangeFrom <= rangeTo ? [rangeFrom, rangeTo] : [rangeTo, rangeFrom];
-    return { from: `${f}-01`, to: `${t}-31`, all: false, valid: true, label: `${formatMonth(f)} から ${formatMonth(t)}` };
+    return { from: `${f}-01`, to: endOfMonth(t), all: false, valid: true, label: `${formatMonth(f)} から ${formatMonth(t)}` };
   }
 
   if (!isYm(month)) return { from: '', to: '', all: false, valid: false, label: '月を入れてください' };
-  return { from: `${month}-01`, to: `${month}-31`, all: false, valid: true, label: formatMonth(month) };
+  return { from: `${month}-01`, to: endOfMonth(month), all: false, valid: true, label: formatMonth(month) };
 }
 
 /**
@@ -96,12 +108,17 @@ export function ledgerPeriodParams(period: Period): Record<string, string> {
  * 読み替えずにそのまま `/revenues` 等へ渡すだけで済み、キー名の対応表を
  * 別に持たずに済む（`ledgerPeriodParams` と1つの実装を共有）。
  *
- * 案件で絞り込んでいるときは `project_id`／`project_name` も足す。**全期間**
- * （`period.all`）のときは期間のキーを何も足さない — 台帳側の既定（絞らない）と
- * 同じ意味になるので、わざわざ空文字を送る理由が無い。
+ * 案件で絞り込んでいるときは `project_id`／`project_name` も足す。
+ *
+ * ⚠️ **全期間**（`period.all`）のときは `period_all=1` を足す。台帳 API へ渡す
+ * 条件は無い（`ledgerPeriodParams` は空）が、**URL には意思として残す**必要がある
+ * — 何も付けないと台帳は既定の「今月」で開き、全期間の集計から飛んだのに今月ぶん
+ * しか出ず、ダッシュボードで見ていた金額と合わない。`period_all` は URL だけの鍵で、
+ * 台帳 API には送らない（受け取り側は `ledger/ledgerUrlPeriod.ts`）。
  */
 export function ledgerOpenQuery(period: Period, projectId?: string, projectName?: string): string {
   const params: Record<string, string> = ledgerPeriodParams(period);
+  if (period.all) params.period_all = '1';
   if (Object.keys(params).length > 0) params.period_label = period.label;
   if (projectId) params.project_id = projectId;
   if (projectName) params.project_name = projectName;

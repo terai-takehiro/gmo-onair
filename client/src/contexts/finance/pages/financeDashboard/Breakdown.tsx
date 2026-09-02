@@ -22,21 +22,36 @@
  * 明細の高さに応じてカード自体（＝ページ）が自然に伸びるようにしています。
  * 「さらに読み込む」の動作（`useInfiniteQuery.fetchNextPage`）はそのまま。
  *
- * ── 行を押すと詳細へ（仕様変更 #2・#3）────────────────────────
+ * ── 行を押すと明細一覧（台帳）へ ──────────────────────────────
  *
- * 明細の各行は `BreakdownItem.onClick` を渡すとその場で押せる行になります
- * （売上＝案件・按分グループの詳細へ遷移、仕入・販管費＝閲覧専用ダイアログを
- * ダッシュボード上で開く、は呼び出し側 `BudgetDashboardPage` が決めます）。
+ * 明細の各行は `BreakdownItem.onClick` を渡すとその場で押せる行になります。
+ * **いまは3列とも「押す＝その台帳の明細一覧へ飛ぶ」**（売上→③ 売上、
+ * 仕入→④ 仕入、販管費→⑤ 販管費。按分グループの行だけは案件が1つに決まらないので
+ * グループの詳細へ）。どこへ飛ぶかは呼び出し側 `BudgetDashboardPage` が決めます。
  * 渡さない行は今までどおりの表示だけの行のままです。
  *
- * 台帳への導線（「台帳をひらく」）はそのまま残します — 編集・CSV書き出し・
- * 保存済みの絞り込みなど、ダッシュボードでは持たない機能がまだ台帳側にしかありません。
+ * ── 申請ステータスと精算ページへのリンクも出す ──────────────
+ *
+ * 仕入・販管費の行には、台帳とまったく同じ**3値の申請ステータス**
+ * （仮／確定：未申請／確定：申請済）と、申請URLが入っている行だけに
+ * **精算ページを開くリンク**を出します（ご指摘「一覧でもステータスが分かり、
+ * 精算ページを開くリンクボタンも欲しい」）。判定は台帳と共通の
+ * `ledger/settlementState.ts` を呼ぶだけで、ここには書き写しません
+ * （2か所に書くと必ず片方が古くなる。実際そうなっていた）。
+ *
+ * カード下の「台帳をひらく」も残します。行クリックとの違いは**案件を付けるかどうか
+ * だけ**（行＝その行の案件で絞り込む／フッター＝いま画面で絞り込み中の案件のまま、
+ * 絞っていなければ全件）。期間はどちらも同じ `period.ts` の `ledgerOpenQuery` が
+ * 組み立てるので、押す場所によって期間が変わることはありません。
  */
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { AlertTriangle, ArrowRight, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { AlertTriangle, ArrowRight, ChevronDown, ChevronUp, ExternalLink, Loader2 } from 'lucide-react';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
+import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { humanizeError } from '@gmo-onair/shared/src/client/states';
+import { STATE_TONE, type LedgerState } from '../ledger/types';
+import { compactSettlementLabel } from '../ledger/settlementState';
 
 /** 折りたたみ時に出す件数。**多くすると内訳ではなく一覧になる** */
 const COLLAPSED = 6;
@@ -48,14 +63,98 @@ export interface BreakdownItem {
   title: string;
   sub?: string | null;
   amount: number;
-  /** 「仮」など。無ければ出さない */
-  tag?: string | null;
   /**
-   * 行を押したときの動作。**渡した行だけ押せる行になる**（仕様変更 #2・#3）。
-   * 渡さなければ今までどおり表示だけの行のまま（押しても何も起きない、ではなく
-   * そもそも押せる見た目にしない）。
+   * 申請ステータス（仮／確定：未申請／確定：申請済）。**台帳とまったく同じ
+   * `LedgerState` を受ける**ので、色（tone）も文言も台帳と自動でそろう。
+   *
+   * ⚠️ **旧 `tag?: string`（「仮」の2値だけの文字列）の置き換え。** 文字列1つでは
+   * tone を持てず、「確定：未申請」と「確定：申請済」を出し分けられなかった
+   * （ご指摘「一覧でもステータスが分かるようにしてほしい」）。
+   */
+  badge?: Pick<LedgerState, 'label' | 'tone' | 'title'> | null;
+  /**
+   * 精算（申請）ページ。**仕入・販管費だけが持つ**（売上には申請という概念が無い）。
+   * 外部サイトなので新しいタブで開く。**入っている行にだけ出す**（台帳と同じ流儀）
+   */
+  settlementUrl?: string | null;
+  /**
+   * 行を押したときの動作（いまはどれも「その台帳の明細一覧へ移動」）。
+   * **渡した行だけ押せる行になる。** 渡さなければ表示だけの行のまま
+   * （押しても何も起きない、ではなく そもそも押せる見た目にしない）。
    */
   onClick?: () => void;
+}
+
+/**
+ * 内訳の1行。
+ *
+ * ⚠️ **外枠は必ず `<div>`。** 以前は `onClick` を持つ行を丸ごと `<button>` に
+ * していたが、精算ページへの `<a>` を足すと `<button>` の中に `<a>` が入り
+ * **不正な DOM ネスト**になる（ブラウザが `<a>` を `<button>` の外へ吐き出すことが
+ * ある）。押せるのは件名の部分だけにし、リンクと金額はその外に並べる。
+ * 行全体の hover は `has-[button:hover]` で外枠に付け直しているので、
+ * 見た目は今までどおり「行ごと反応する」ままにしてある。
+ */
+function BreakdownRow({ it }: { it: BreakdownItem }) {
+  const body = (
+    <>
+      <span className="text-sub block truncate">
+        {it.code && <span className="font-number mr-1.5 text-primary">{it.code}</span>}
+        {it.title}
+      </span>
+      {(it.badge || it.sub) && (
+        <span className="mt-0.5 flex min-w-0 items-center gap-1.5">
+          {/*
+            * ⚠️ **バッジは件名の「下」に置く。** 内訳は lg で3枚並ぶ（1枚 ~360px）ので、
+            * 件名と同じ行の右へ置くと金額（約90px）と挟んで件名が数文字まで潰れる。
+            * 台帳（`LedgerRows`）が狭い画面で状態を下の行へ落としているのと同じ考え方。
+            */}
+          {it.badge && (
+            <span className="shrink-0">
+              <TableBadge
+                label={compactSettlementLabel(it.badge.label)}
+                w={null}
+                className={STATE_TONE[it.badge.tone]}
+                title={it.badge.title}
+              />
+            </span>
+          )}
+          {it.sub && <span className="text-note truncate text-muted-foreground">{it.sub}</span>}
+        </span>
+      )}
+    </>
+  );
+
+  return (
+    <div
+      className={`flex w-full items-start gap-2 border-t border-border-subtle px-4 py-2 lg:px-5 ${
+        it.onClick ? 'has-[button:hover]:bg-surface-subtle' : ''
+      }`}
+    >
+      {/* ⚠️ **`onClick` が無い行は `<div>` のまま。** 押せない行を `<button>` にすると、
+          押せる見た目（hover・タップ領域）だけが付いて「押しても何も起きない」になる */}
+      {it.onClick ? (
+        <button type="button" onClick={it.onClick} className="min-h-tap min-w-0 flex-1 text-left">
+          {body}
+        </button>
+      ) : (
+        <div className="min-w-0 flex-1">{body}</div>
+      )}
+      {it.settlementUrl && (
+        <a
+          href={it.settlementUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="精算ページを開く"
+          aria-label="精算ページを開く"
+          className="v4-tap shrink-0 text-muted-foreground hover:text-primary"
+        >
+          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+        </a>
+      )}
+      <Money value={it.amount} className="shrink-0 text-sub" />
+    </div>
+  );
 }
 
 export function BreakdownColumn({
@@ -164,36 +263,7 @@ export function BreakdownColumn({
               )}
             </div>
           )}
-          {shown.map((it) => {
-            // ⚠️ **`onClick` が無い行はそのまま `<div>` にする。** 押せない行を
-            // `<button>` にすると、押せる見た目（hover・タップ領域）だけが付いて
-            // 「押しても何も起きない」になる。
-            const Row: 'button' | 'div' = it.onClick ? 'button' : 'div';
-            return (
-              <Row
-                key={it.id}
-                type={it.onClick ? 'button' : undefined}
-                onClick={it.onClick}
-                className={`flex w-full items-start gap-2 border-t border-border-subtle px-4 py-2 text-left lg:px-5 ${
-                  it.onClick ? 'min-h-tap hover:bg-surface-subtle' : ''
-                }`}
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="text-sub block truncate">
-                    {it.code && <span className="font-number mr-1.5 text-primary">{it.code}</span>}
-                    {it.title}
-                  </span>
-                  {it.sub && <span className="text-note block truncate text-muted-foreground">{it.sub}</span>}
-                </span>
-                {it.tag && (
-                  <span className="rounded-badge-xs inline-flex h-[18px] shrink-0 items-center bg-warning-surface px-1.5 text-note font-bold text-warning">
-                    {it.tag}
-                  </span>
-                )}
-                <Money value={it.amount} className="shrink-0 text-sub" />
-              </Row>
-            );
-          })}
+          {shown.map((it) => <BreakdownRow key={it.id} it={it} />)}
         </div>
       )}
 

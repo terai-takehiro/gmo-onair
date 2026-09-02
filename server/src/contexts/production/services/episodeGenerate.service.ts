@@ -210,6 +210,23 @@ function assertTotalWithinLimit(plan: PlannedDate[]): void {
   }
 }
 
+/**
+ * 案件が生放送を含むか。
+ *
+ * v4 フォーム（`BroadcastSection.tsx`）は複数選択をカンマ結合した文字列
+ * （例: "live,recording"）として `projects.broadcast_type` に保存するため、
+ * 完全一致ではなくカンマ区切りの中に対象値が含まれるかで判定する
+ * （旧実装は `=== 'live'` の完全一致で、複数選択の案件では黙って外れていた）。
+ *
+ * ⚠️ **`resolveBroadcastDate` と対で使う規則なので、同じファイルに置く。**
+ * 元は `routes/episodes.routes.ts` にあったが、`episodeDated.service.ts`
+ * （サービス）からも要るようになり、ルート→サービス→ルートの循環 import に
+ * なるためここへ移した。同じ規則を2か所目に書き写すと生放送の扱いがずれる。
+ */
+export function broadcastTypeIncludes(broadcastType: string | null | undefined, value: string): boolean {
+  return (broadcastType ?? '').split(',').map((s) => s.trim()).includes(value);
+}
+
 /** 収録日から放送日を出す。生放送は収録＝放送（既存 PUT /:id と同じ規則） */
 export function resolveBroadcastDate(recordingDate: string, offsetDays: number, isLive: boolean): string {
   if (isLive) return recordingDate;

@@ -9,6 +9,8 @@ import { Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
+import { DateRange } from '@gmo-onair/shared/src/client/ui/dateRange';
+import type { LedgerUrlPeriodState } from './ledgerUrlPeriod';
 
 /** 探す欄。**入力したそばから絞る**（押して初めて効く形にすると押し忘れる） */
 export function LedgerSearch({
@@ -67,30 +69,64 @@ export function MonthPicker({ value, onChange }: { value: string; onChange: (v: 
 }
 
 /**
+ * 財務ダッシュボードから引き継いだ絞り込みの案内（③④⑤ 共通）。
+ *
+ * **単月で来たときは計上月の欄に入っている**ので、ここでは「入れました」とだけ
+ * 言う（欄と帯で二重に絞っているように見せない）。1つの月に収まらない期間は
+ * 月の欄に入れられないので、この帯が唯一の表示になる — だから**外す手段（解除）は
+ * ここに置く**。利用者が月を触ると引き継ぎは終わり（`handoff` が null）帯も消える。
+ */
+export function LedgerPeriodNotice({ period }: { period: LedgerUrlPeriodState }) {
+  const { handoff, range } = period;
+  if (!handoff) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-card border border-border bg-card p-3 text-sub text-secondary-foreground lg:px-4">
+      <span className="flex flex-wrap items-center gap-1">
+        {/* 期間の文字列連結はしない（開始・区切り・終了を分ける `DateRange` を使う） */}
+        {handoff.label ? <span>{handoff.label}</span> : range ? <DateRange start={range.from} end={range.to} /> : null}
+        <span>
+          {handoff.kind === 'all' ? 'で表示中' : 'で絞り込み中'}
+          {handoff.kind === 'month' ? '（財務ダッシュボードから・計上月の欄に入れました）' : '（財務ダッシュボードから）'}
+        </span>
+      </span>
+      {range && <Button variant="ghost" onClick={period.clearPeriod}>期間を解除</Button>}
+    </div>
+  );
+}
+
+/**
  * 一覧の下の「全 N 件 ・ 合計」と注意書き。
  *
  * **合計は絞り込み全体**の金額です（表示中のページではありません）。
  * ページの合計を出すと、めくるたびに数字が変わって読み間違えます。
  */
 export function LedgerFooter({
-  count, total, note,
+  count, total, note, hideTotals,
 }: {
   count: number;
   total: number;
   note: string;
+  /**
+   * 件数と合計を出さず、**注記だけ**にする（スマホ）。
+   * スマホは上に貼り付く `LedgerTotalBar` が同じ数字を持っているので、
+   * ここにも出すと**同じ数字が1画面に2か所**出る。どちらかだけ直る形を作らない
+   */
+  hideTotals?: boolean;
 }) {
   return (
     <div className="rounded-card border border-border bg-card p-3 lg:px-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="text-sub text-secondary-foreground">
-          全 <span className="font-number font-bold">{count.toLocaleString()}</span> 件
-        </span>
-        <span className="flex items-baseline gap-2">
-          <span className="text-sub text-muted-foreground">合計（税抜）</span>
-          <Money value={total} className="text-cardtitle font-bold" />
-        </span>
-      </div>
-      <p className="text-note mt-2 text-muted-foreground">{note}</p>
+      {!hideTotals && (
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <span className="text-sub text-secondary-foreground">
+            全 <span className="font-number font-bold">{count.toLocaleString()}</span> 件
+          </span>
+          <span className="flex items-baseline gap-2">
+            <span className="text-sub text-muted-foreground">合計（税抜）</span>
+            <Money value={total} className="text-cardtitle font-bold" />
+          </span>
+        </div>
+      )}
+      <p className={`text-note text-muted-foreground${hideTotals ? '' : ' mt-2'}`}>{note}</p>
     </div>
   );
 }

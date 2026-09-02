@@ -19,7 +19,7 @@ import DashboardPage from "@/contexts/platform/pages/DashboardPage";
 import ProjectListPage from "@/contexts/sales/pages/ProjectListPage";
 import InquiryQuickPage from "@/contexts/sales/pages/InquiryQuickPage";
 import MeetingRecordPage from "@/contexts/sales/pages/MeetingRecordPage";
-import ProjectFormPage from "@/contexts/sales/pages/ProjectFormPage";
+import ProjectFormPage from "@/contexts/sales/pages/ProjectFormRoute";
 import NewProjectDialog from "@/contexts/sales/pages/projectNew/NewProjectDialog";
 import ProjectLedgerPage from "@/contexts/sales/pages/ProjectLedgerPage";
 import ProjectDetailPage from "@/contexts/sales/pages/ProjectDetailPage";
@@ -205,13 +205,12 @@ function AppRoutes() {
         {/* `ConfirmedProjectsPage` は削除（③案件一覧が上位互換）。旧 URL は転送する */}
         <Route path="/sales/projects/confirmed/:category" element={<RedirectKeepQuery to="/sales/projects" />} />
         {/*
-            ⚠️ **転送先は `task` です。** 2026-08 に「エピソード（回）」タブごと
-            外し（正のモックのタブバーに無かった）、**回の表と「回を足す」は
-            タスクタブへ移しました**（`tasks/components/EpisodesPanel.tsx`）。
-            ここが `episode` を指したままだと `ProjectTabKey` に無い値なので
-            **黙って概要タブに落ち**、回を見に来た人が探す場所を失います。
+            「回」タブ（`episode`）はレギュラー案件にだけ出る（`projectDetail/tabs.ts`）。
+            2026年8月から9月はタブごと外していて `task` へ送っていたが、9/2 の仕様変更で
+            回ごとに見積・売上・請求を持つことになったので戻した。単発案件の URL なら
+            `ProjectDetailPage` が概要へ落とす。
         */}
-        <Route path="/sales/projects/:projectId/episodes" element={<RedirectToDetailTab tab="task" />} />
+        <Route path="/sales/projects/:projectId/episodes" element={<RedirectToDetailTab tab="episode" />} />
         <Route path="/sales/projects/:projectId/estimates" element={<RedirectToDetailTab tab="estimate" />} />
         {/* v4 ⑥-B: 案件のタスクは案件詳細の「タスク」タブに畳んだ (ブックマークは生かす) */}
         <Route path="/sales/projects/:projectId/tasks" element={<RedirectToDetailTab tab="task" />} />

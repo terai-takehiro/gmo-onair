@@ -92,6 +92,25 @@ export function DocButtons({ revenueId, onEdit }: { revenueId: string; onEdit?: 
   );
 }
 
+/**
+ * 分け合う請求（配分グループ）の売上に出す注記。
+ *
+ * **ここからは直せません。** サーバー `PUT /revenues/:id` が
+ * `REVENUE_IN_ALLOCATION_GROUP`（400）で止めます —— 按分の内訳
+ * (`revenue_allocations`) を直せないまま合計だけ変えると、各案件への配分と
+ * 食い違うためです。以前は鉛筆が出ていて、押して直して保存した瞬間に
+ * エラーになりました（直せないのに直せるように見える）。
+ * 鉛筆を出さない代わりに、**どこへ行けば直せるか**をここに書きます。
+ */
+export function GroupRevenueNote() {
+  return (
+    <span className="text-note mt-0.5 flex items-center gap-1 text-muted-foreground">
+      <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
+      費用を分け合うグループの売上です（案件管理 &gt; 費用を分け合うグループから直せます）
+    </span>
+  );
+}
+
 export const REV_STATUS_LABEL: Record<string, string> = { estimate: '見込み', confirmed: '確定' };
 export const REV_STATUS_TONE: Record<string, string> = {
   estimate: 'border-transparent bg-muted text-muted-foreground',

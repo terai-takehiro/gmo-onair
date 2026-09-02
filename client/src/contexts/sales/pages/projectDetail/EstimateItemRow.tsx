@@ -7,11 +7,13 @@
  * `KanbanCard.tsx` と同じ理由）。計算・保存の判断は一切持たない
  * （すべて呼ぶ側から渡された `it` と関数を使うだけ）。
  */
+import { useCallback, useLayoutEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Trash2, CopyCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { Row, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import type { EstimateItemRow as ItemData } from './EstimateItems';
@@ -25,9 +27,14 @@ export function EstimateItemRowView({
   locked: boolean;
   /**
    * `list_unit_price`（定価）を編集できるフィールドにするか（仕様変更 #9）。
-   * **グループ内案件（GPM）の見積作成時だけ `true`**（`EstimateItems.tsx` から渡す）。
-   * 通常の案件（sales）向けは今までどおり表示専用のまま — 定価は料金表選択時に
-   * 自動で入る値で、案件の見積では人が書き換える運用にしていない。
+   * **グループ内案件（`projects.customer_type === 'internal'`）の見積で `true`**
+   * （判断は `EstimateItems.tsx` が案件の `customer_type` から決める）。
+   * グループ外の案件では今までどおり表示専用 — 定価は料金表選択時に自動で入る値で、
+   * 定価＝単価なので編集欄を出す意味が無い。
+   *
+   * ⚠️ **「グループ内案件」＝「プロジェクト管理(GPM)」ではない。** v4.5.19 は
+   * ここを取り違えて GPM の見積タブからしか有効にしておらず、案件管理の見積タブでは
+   * 定価の欄が1つも出ていなかった（ユーザー報告「修正されていない」の中身）。
    */
   allowListPriceEdit?: boolean;
   onUpdate: (i: number, patch: Partial<ItemData>) => void;
@@ -38,6 +45,18 @@ export function EstimateItemRowView({
   // `disabled` にするとハンドルを出さない側と揃う（`locked` の間はそもそも列を描かない）
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id, disabled: locked });
+
+  // 備考（改行できる）の高さを中身に合わせる。**ふだんは1行**で、改行したぶんだけ伸びる
+  const notesRef = useRef<HTMLTextAreaElement>(null);
+  const fitNotes = useCallback(() => {
+    const el = notesRef.current;
+    if (!el) return;
+    el.style.height = 'auto';                     // 減ったときも縮むよう、測る前に一度戻す
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+  // 打っている最中だけでなく、**保存後にサーバーの値で描き直されたとき・版を
+  // 切り替えたとき**も合わせ直す（`onChange` だけだと1行の高さに戻ってしまう）
+  useLayoutEffect(() => { fitNotes(); }, [fitNotes, it.item_notes, locked]);
 
   // `Row` は素の関数コンポーネント（`forwardRef` ではない）なので、
   // dnd-kit の `setNodeRef` は1枚外側の `div` に付ける
@@ -62,10 +81,40 @@ export function EstimateItemRowView({
         <Input value={it.description} disabled={locked} placeholder="品目"
           onChange={(e) => onUpdate(i, { description: e.target.value })} />
         {(!locked || it.item_notes) && (
-          <Input value={it.item_notes ?? ''} disabled={locked} placeholder="この行の備考"
-            aria-label="この行の備考"
-            className="mt-1 text-sub-sm"
-            onChange={(e) => onUpdate(i, { item_notes: e.target.value })} />
+          locked ? (
+            /*
+              **直せないときは入力欄ではなく素のテキストで出す。**
+              `<input>` は値から CR/LF を落とすので、`Input disabled` のままだと
+              改行入りの備考が「1行目2行目」と繋がって出る（改行を打てるように
+              した時点で表に出てくる不具合なので、ここも同時に直す）。
+              `whitespace-pre-wrap` で改行をそのまま見せ、`break-words` で
+              長い1行が 375px の外へ突き抜けないようにする
+            */
+            <p className="text-sub-sm mt-1 whitespace-pre-wrap break-words text-muted-foreground">
+              {it.item_notes}
+            </p>
+          ) : (
+            /*
+              **備考は改行できる**（9/2 要望）。`<input>` では改行そのものが打てないため
+              `Textarea` にした（売上明細の備考は既に `Textarea`・そちらに揃えた）。
+              ・`<form>` に包まれていないので **Enter はそのまま改行**（送信にならない）
+              ・共通 `Textarea` の既定 `min-h-[80px]` を `min-h-0` で打ち消す
+                （`cn()` は tailwind-merge なので後から渡したほうが勝つ）。
+                打ち消さないと明細の全行が 80px になって表が縦に伸び切る
+              ・高さは中身に合わせて伸ばす（`fitNotes`）。DB は TEXT・PDF は pdfkit が
+                LF をそのまま改行として描くので、**ここを直すだけで見積書・
+                検収書・請求書にも改行が出る**
+            */
+            <Textarea
+              ref={notesRef}
+              value={it.item_notes ?? ''}
+              placeholder="この行の備考（Enter で改行できます）"
+              aria-label="この行の備考"
+              rows={1}
+              className="text-sub-sm mt-1 min-h-0 resize-none overflow-hidden py-1 leading-snug"
+              onChange={(e) => { onUpdate(i, { item_notes: e.target.value }); fitNotes(); }}
+            />
+          )
         )}
       </RowMain>
       <RowSlot w={96}>
@@ -86,7 +135,7 @@ export function EstimateItemRowView({
             onChange={(e) => onUpdate(i, { unit_price: Number(e.target.value) || 0 })} />
           {allowListPriceEdit ? (
             /*
-              **GPM の見積作成時だけ、定価そのものを編集欄にする（仕様変更 #9）。**
+              **グループ内案件の見積では、定価そのものを編集欄にする（仕様変更 #9）。**
               手入力の行（料金表を経由しない行）にも定価を持たせたい、という
               グループ内見積の要望。空欄に戻せば `null`（＝定価なし）に戻す —
               「定価が無い」と「定価＝0円」を混同しない（`shared/CLAUDE.md`
@@ -94,6 +143,7 @@ export function EstimateItemRowView({
               ⚠️ **ここで入れた値は表示・PDF 印字専用のまま**（migration 261 の設計を
               壊さない）— 金額計算（`amount`・粗利・合計）には一切混ぜない。
             */
+            <>
             <div className="flex items-center gap-1">
               <span className="shrink-0 text-sub-sm text-muted-foreground">定価</span>
               <Input
@@ -108,6 +158,14 @@ export function EstimateItemRowView({
                 }}
               />
             </div>
+            {/* 編集欄に変わっても**いくら引いているかは消さない**。グループ内の見積は
+                まさにこの差額を見ながら作るので、下の読み取り専用の注記と同じ数を出す */}
+            {it.list_unit_price != null && it.list_unit_price > it.unit_price && (
+              <p className="text-sub-sm leading-tight text-muted-foreground">
+                値引き <Money value={it.list_unit_price - it.unit_price} inline className="text-warning" />
+              </p>
+            )}
+            </>
           ) : (
             /*
               **定価と値引き額を並べて出す（グループ内見積でも・要望③）。**

@@ -20,6 +20,7 @@ import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/fo
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { ToggleButtonGroup } from '@gmo-onair/shared/src/client/ui/toggle-button-group';
 import { BroadcastTypeLabels, MediaPlatformLabels } from '@/types';
+import { GLS_ISSUE_BLOCKED_HINT } from '../../../glsIssue';
 import { cn } from '@/lib/utils';
 import type { GlsDialogState, GlsProject } from '../types';
 
@@ -31,8 +32,8 @@ export function GlsDialog({
   projectName: string;
   isCategoryA: boolean;
   /**
-   * 新しい番組として番号を採れるか（口頭決定＝Bより手前は不可・v4.1.8）。
-   * false のときは「新しい番組」のカードを選べなくし、理由を添える。
+   * 新しい番組として番号を採れるか（見積提案＝Cより手前は不可）。
+   * false のときは「新しい番組」のカードを選べなくし、**理由を必ず出す**。
    * 「いまある案件に足す」（`mode==='link'`）はこの制限を受けない
    */
   canIssueNew: boolean;
@@ -41,10 +42,22 @@ export function GlsDialog({
   onConfirm: () => void;
 }) {
   const newMode = state.mode === 'new';
-  const blocked = busy
-    || (newMode && !canIssueNew)
-    || (state.mode === 'link' && !state.target_project_id)
-    || (newMode && isCategoryA && (state.broadcast_types.length === 0 || state.media_platforms.length === 0));
+  /**
+   * **押せない理由を必ず文にする**（黙って disabled にしない）。
+   *
+   * 元は `blocked` という真偽値だけを持っていたため、条件に引っかかった人には
+   * 灰色のボタンしか見えませんでした。実際に「新しい番組として発番できない案件が
+   * ある」という報告が上がり、原因（ステージが手前）に誰も気づけなかった。
+   * ⚠️ 番組種別・配信媒体は初期値が入っているので普段は当たりませんが、
+   * **人が全部外すと無言で押せなくなる**穴も同じ形なのでここに含める。
+   */
+  const blockReason = busy ? null
+    : newMode && !canIssueNew ? GLS_ISSUE_BLOCKED_HINT
+      : state.mode === 'link' && !state.target_project_id ? '足す先の GLS 案件を選んでください。'
+        : newMode && isCategoryA && state.broadcast_types.length === 0 ? '番組種別を1つ以上選んでください。'
+          : newMode && isCategoryA && state.media_platforms.length === 0 ? '配信媒体を1つ以上選んでください。'
+            : null;
+  const blocked = busy || blockReason !== null;
 
   return (
     <FormDialog
@@ -53,13 +66,17 @@ export function GlsDialog({
       title="GLS 発番"
       sub="新しい番組として番号を採るか、すでにある GLS 案件の回として足すかを選んでください。"
       footer={(
-        <FormDialogFooter>
-          <Button variant="outline" onClick={() => setState((s) => ({ ...s, open: false }))}>やめる</Button>
-          <Button onClick={onConfirm} disabled={blocked}>
-            {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-            {state.mode === 'link' ? 'GLS 番号を付ける' : 'GLS 番号を採る'}
-          </Button>
-        </FormDialogFooter>
+        <>
+          {/* 押せないときは**ボタンのすぐ上**に理由を出す（本文は長くて流れるので下端に置く） */}
+          {blockReason && <p className="text-note mb-2 text-warning">{blockReason}</p>}
+          <FormDialogFooter>
+            <Button variant="outline" onClick={() => setState((s) => ({ ...s, open: false }))}>やめる</Button>
+            <Button onClick={onConfirm} disabled={blocked}>
+              {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+              {state.mode === 'link' ? 'GLS 番号を付ける' : 'GLS 番号を採る'}
+            </Button>
+          </FormDialogFooter>
+        </>
       )}
     >
       <div className="space-y-4">
@@ -68,7 +85,7 @@ export function GlsDialog({
             {
               mode: 'new' as const,
               title: '新しい番組',
-              sub: canIssueNew ? '新しい GLS 番号を採る' : '口頭決定（B）まで進めると採れます',
+              sub: canIssueNew ? '新しい GLS 番号を採る' : GLS_ISSUE_BLOCKED_HINT,
               disabled: !canIssueNew,
             },
             { mode: 'link' as const, title: 'いまある案件に足す', sub: 'その番組の回として足す', disabled: false },

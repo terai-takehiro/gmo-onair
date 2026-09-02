@@ -35,6 +35,28 @@ export function defaultsFromProject(project: ProjectOption): RevenueDefaults {
   return out;
 }
 
+/**
+ * サーバーが返した明細を画面が持つ形にそろえる。
+ *
+ * **写しを作らない**ために出してあります — 同じ詰め替えを
+ * `formFromRevenue`（既に売上がある案件を開いたとき）と
+ * `RevenueDialog`（直す行の明細を1件だけ取り直すとき）の2か所で書いていました。
+ * 列を1つ足すたびに片方だけ直る形だったので1本にします。
+ */
+export function mapRevenueItems(rows: RevenueItem[]): RevenueItem[] {
+  return rows.map((it) => ({
+    description: it.description || '',
+    quantity: it.quantity || 1,
+    unit_price: it.unit_price || 0,
+    amount: it.amount || 0,
+    pricing_item_id: it.pricing_item_id,
+    period_start: it.period_start || null,
+    period_end: it.period_end || null,
+    item_notes: it.item_notes || null,
+    category: it.category || null,
+  }));
+}
+
 export interface RevenueFormValues {
   amount: number;
   taxCategory: string;
@@ -66,18 +88,6 @@ export function formFromRevenue(row: RevenueRow): RevenueFormValues {
     isAdvancePayment: !!row.is_advance_payment,
     inspectionDate: row.inspection_date ?? null,
     invoiceIssued: !!row.invoice_issued,
-    items: Array.isArray(row.items) && row.items.length > 0
-      ? row.items.map((it) => ({
-        description: it.description || '',
-        quantity: it.quantity || 1,
-        unit_price: it.unit_price || 0,
-        amount: it.amount || 0,
-        pricing_item_id: it.pricing_item_id,
-        period_start: it.period_start || null,
-        period_end: it.period_end || null,
-        item_notes: it.item_notes || null,
-        category: it.category || null,
-      }))
-      : null,
+    items: Array.isArray(row.items) && row.items.length > 0 ? mapRevenueItems(row.items) : null,
   };
 }

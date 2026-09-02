@@ -255,10 +255,10 @@ export default function ProjectFormPage() {
               title={glsGuideText(f.currentStage)}
               onClick={() => actions.setGlsDialog((s) => ({
                 ...s, open: true,
-                // **口頭決定（B）より手前は「新しい番組」を選べない**ので、
-                // 押せる「いまある案件に足す」を既定にして開く（開いた瞬間
-                // 何も選べていないように見えるのを防ぐ）
-                mode: f.canIssueNewGls ? s.mode : 'link',
+                // **採れるときは必ず「新しい番組」で開く**（`s.mode` を引き継ぐと、
+                // 一度「足す」で開いたあとは次も足す側で開く）。採れないときだけ
+                // 押せる足す側を既定にし、理由は `GlsDialog` が文で出す
+                mode: f.canIssueNewGls ? 'new' : 'link',
               }))}
               disabled={actions.glsMutation.isPending}
             >

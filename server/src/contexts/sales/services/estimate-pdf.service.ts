@@ -131,15 +131,25 @@ export async function buildEstimatePdf(estimateId: string): Promise<EstimatePdf>
   /*
    * ⚠️ **グループ内価格の値引きも紙に出す**（migration 261・ユーザー要望「グループ内
    * 見積でも定価→値引き→実額を表記したい」）。`list_unit_price`（定価）が
-   * `unit_price`（実額）より高い行は、**定価×数量で印字**し、差額はこの行では
-   * 引かず、まとめて1本の値引き行（「グループ価格による値引き」）に合算する —
-   * 行ごとに割引を書くと、値引きの行だけが並ぶ既存の「お値引き」（手動値引き
-   * `estimates.discount`）と紛れて「どちらの値引きか」が読めなくなるため。
+   * `unit_price`（実額）より高い行は、**定価×数量で印字**し、差額はこの行では引かず、
+   * **その行が属する分類ごとに1本の値引き行**（「グループ価格による値引き」）にまとめる。
+   *
+   * ── なぜ分類ごとに分けるのか（9/2 要望「割引は各カテゴリ毎に小計して見積もりに表示」）
+   *
+   * 以前は全分類ぶんを1本に合算して `category: '値引き'` の独立した帯に置いていた。
+   * `pdf.service.ts` の小計は**その帯の行の `amount` を足すだけ**なので、こうすると
+   * 「スタジオ」の小計が**定価の合計**のまま出て、値引きは表の末尾に1行だけ残る
+   * ＝お客様が「スタジオはいくらになったのか」を紙から読めなかった。
+   * 分類を元の分類に戻すだけで、`pdf.service.ts` は何も直さずに
+   * 「定価の行が並ぶ → その分類の値引き → 小計（値引き後）」という帯を描く。
+   *
+   * **合計は 1 円も変わらない**（同じ整数を分けて足すだけ・按分も割り算もしない）:
+   *   Σ(定価×数量) − Σ(定価−実額)×数量 = Σ(実額×数量) = Σ amount。
    *
    * **ここは表示・印字だけ。** `amount`（実額）自体は変えず、印字用の値だけを
    * 別に組み立てる（サーバーの金額計算・売上変換には一切混ぜない — migration 261 コメント参照）。
    */
-  let groupDiscountTotal = 0;
+  const groupDiscountByCategory = new Map<string | null, number>();
   const rows = items.map((it) => {
     // **行ごとの日付（migration 194 開始日・235 終了日）を紙にも出す。**
     // 終了日が無い行（単日 or 入れていない）は開始日をそのまま終了日にも使う —
@@ -152,9 +162,15 @@ export async function buildEstimatePdf(estimateId: string): Promise<EstimatePdf>
     const qty = Number(it.quantity) || 0;
     const unitPrice = Number(it.unit_price) || 0;
     const listUnitPrice = it.list_unit_price != null ? Number(it.list_unit_price) : null;
-    // 定価が実額より高い行だけ「定価×数量」で印字し、差額を積む
+    // 定価が実額より高い行だけ「定価×数量」で印字し、差額を**その行の分類に**積む
     const showListPrice = listUnitPrice != null && listUnitPrice > unitPrice;
-    if (showListPrice) groupDiscountTotal += (listUnitPrice - unitPrice) * qty;
+    const category = categoryLabel(it.category as string | null);
+    if (showListPrice) {
+      groupDiscountByCategory.set(
+        category,
+        (groupDiscountByCategory.get(category) ?? 0) + (listUnitPrice - unitPrice) * qty,
+      );
+    }
     return {
       description:  String(it.description ?? ''),
       quantity:     qty,
@@ -164,16 +180,19 @@ export async function buildEstimatePdf(estimateId: string): Promise<EstimatePdf>
       period_start: itemDate,
       period_end:   itemDateEnd ?? itemDate,
       item_notes:   (it.item_notes as string | null) ?? null,
-      category:     categoryLabel(it.category as string | null),
+      category,
     };
   });
-  if (groupDiscountTotal > 0) {
-    // **既存の「お値引き」（手動値引き）とはラベルを分けて共存させる**
-    // （ユーザー要望どおり — どちらの値引きか読めるようにする）
+  // **分類ごとの値引き行を、その分類の帯の最後に足す。**
+  // `pdf.service.ts` は行の並び順に帯へ振り分けるので、末尾に push するだけで
+  // その分類の最後（＝小計の直前）に並ぶ。並べ替えのコードは要らない。
+  // ラベルは既存の「お値引き」（手動値引き）と分けたまま — どちらの値引きか読めるようにする
+  for (const [category, amount] of groupDiscountByCategory) {
+    if (amount <= 0) continue;
     rows.push({
       description: 'グループ価格による値引き', quantity: 1, unit: null,
-      unit_price: -groupDiscountTotal, amount: -groupDiscountTotal,
-      period_start: null, period_end: null, item_notes: null, category: '値引き',
+      unit_price: -amount, amount: -amount,
+      period_start: null, period_end: null, item_notes: null, category,
     });
   }
   if (discount > 0) {
