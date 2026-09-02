@@ -687,13 +687,23 @@ export async function createCore(
   const scale = audience === 'no_audience' ? null : rawScale;
 
   /**
-   * **レギュラー案件が持つ4つの取り決め**（migration 262・regular-series.md §3）。
+   * **レギュラー案件が持つ取り決め**（migration 262・regular-series.md §3）。
    * 単発案件では使わないので、渡されなければ全部 NULL のまま（既定値を入れない）。
    * **知らない cadence / billing_cycle は NULL に落とす** — `intake_channel` と同じ守り方
    * （DB の CHECK に弾かれると案件の登録そのものが 500 になる）。
    * `billing_cycle` は DB 側にも `DEFAULT 'monthly_close'` があるが、この INSERT 文は
    * 全列を明示するので、未指定（undefined）や知らない値のときはここで同じ既定値を立てる
    * （DB の既定と揃えておく — 片方だけ変えると新規作成の経路によって既定が食い違う）。
+   *
+   * ⚠️ **`recording_per_day_count`/`episode_unit_price` は #16（migration 269）で
+   * 位置づけが変わった。** もう「案件全体の固定の取り決め」ではなく、回
+   * （episodes）が実際の値を持つ（回ごとに入力・編集できる）。この2つを保存する
+   * 処理は後方互換のためだけに残してあり、画面の案件作成・案件を直すフォーム
+   * （`projectNew/RegularSeriesFields.tsx`）はもう固定入力欄を出していない
+   * （MCP `create_project`/`update_project` からは引き続き設定できる）。
+   * 新規に保存された値は「回の一括生成ダイアログを開いたときの初期提案」としてだけ
+   * 使われる（`episode-generate.routes.ts` は projects 側を読まない・
+   * `GenerateEpisodesForm.tsx` が開いた瞬間の初期値にするだけ）。
    */
   const cadence = RECORDING_CADENCES.includes(recording_cadence as string) ? recording_cadence : null;
   const perDayCount = Number.isFinite(Number(recording_per_day_count)) && Number(recording_per_day_count) > 0
@@ -1382,6 +1392,10 @@ export class ProjectService {
      * ⚠️ **`billing_cycle` だけは空文字でも解除できない。** 列が `NOT NULL` なので、
      * 空文字→NULL にすると保存そのものが 500 になる。他の3つ（`recording_cadence` を含む）は
      * NULL 許容なので、空文字は「決めていない」に明示的に戻す（`keep()` と同じ規則）。
+     *
+     * ⚠️ `recording_per_day_count`/`episode_unit_price` の位置づけは #16（migration 269）
+     * で変わっている（`createCore` の同名コメント参照）— 画面の固定入力欄は無くなったが、
+     * MCP からの更新・後方互換のためこの保存処理自体は残す。
      */
     const recordingCadenceValue = data.recording_cadence === undefined
       ? existing.recording_cadence
@@ -1769,7 +1783,13 @@ export class ProjectService {
       const glsNumber = (issuedProject?.gls_number as string | undefined) ?? (project.gls_number as string | undefined);
       if (glsNumber) {
         try {
-          firstEpisodeId = await this.ensureFirstEpisode(id, glsNumber, (project.event_start as string | null) ?? null, userId);
+          const perDayCount = Number.isFinite(Number(project.recording_per_day_count)) && project.recording_per_day_count !== null
+            ? Number(project.recording_per_day_count) : null;
+          const unitPrice = Number.isFinite(Number(project.episode_unit_price)) && project.episode_unit_price !== null
+            ? Number(project.episode_unit_price) : null;
+          firstEpisodeId = await this.ensureFirstEpisode(
+            id, glsNumber, (project.event_start as string | null) ?? null, userId, perDayCount, unitPrice,
+          );
         } catch (err) {
           console.warn('[changeStage] first episode auto-create failed:', id, (err as Error).message);
         }
@@ -2018,9 +2038,17 @@ export class ProjectService {
    * **新しく作った回の id を返す**（既にあって何もしなかったときは `null`）。
    * 呼び出し元はこれで「いま作ったか」を判定し、いま作ったときだけ標準工程
    * テンプレートを当てる（§10 積み残し2・二度当てで既存の工程を壊さないため）。
+   *
+   * `perDayCount`/`unitPrice` は projects 側の取り決め（migration 262・#16 以降は
+   * 「回の一括生成の初期提案」の位置づけ）を**この第1回だけの初期値として**引き継ぐ。
+   * ここは一括生成と違って画面から都度入力を受ける導線が無い（自動作成のため）ので、
+   * 案件の値をそのまま初期値にする（仕様変更 #16 の5番目「既存ロジックがあれば
+   * projects側の値を初期値として使い続けて構わない」）。**後から回ごとに編集できる**
+   * （`PUT /:projectId/episodes/:id`）ので、ここで違っていても実害は無い。
    */
   private async ensureFirstEpisode(
     projectId: string, glsNumber: string, eventStart: string | null, userId: string,
+    perDayCount: number | null, unitPrice: number | null,
   ): Promise<string | null> {
     const existing = await queryOne(
       'SELECT id FROM episodes WHERE project_id = ? AND deleted_at IS NULL LIMIT 1',
@@ -2032,9 +2060,10 @@ export class ProjectService {
     const episodeCode = generateEpisodeCode(glsNumber, episodeNumber);
     const episodeId = uuidv4();
     await execute(
-      `INSERT INTO episodes (id, project_id, episode_code, episode_number, recording_date, created_by)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [episodeId, projectId, episodeCode, episodeNumber, eventStart, userId],
+      `INSERT INTO episodes (id, project_id, episode_code, episode_number, recording_date,
+                             recording_per_day_count, episode_unit_price, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [episodeId, projectId, episodeCode, episodeNumber, eventStart, perDayCount, unitPrice, userId],
     );
     return episodeId;
   }

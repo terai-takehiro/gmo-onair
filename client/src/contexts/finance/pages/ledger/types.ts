@@ -25,6 +25,18 @@ export interface LedgerRow {
   state: LedgerState | null;
   /** 押したときに開く案件（無ければ押せない） */
   project_id: string | null;
+  /**
+   * 申請URL（精算申請ページ等）。仕入・販管費だけが持つ（売上は無いので未指定のまま）。
+   * **`state.to` とは別の行き先。** `state.to` は自社サイト内の画面遷移（`navigate()`）
+   * だが、こちらは外部サイトなので新しいタブで開く（仕様変更 #4・#6・#7）
+   */
+  settlement_url?: string | null;
+  /**
+   * `state` とは別のもう1つのバッジ（例: 売上の「検収済」）。**押しても遷移しない
+   * 表示だけの印**（`to` を持たない）。無ければ出さない — `state` と違い、
+   * 済んでいない側は表示せず「有るときだけ出す」流儀（仕入・販管費の「仮」タグと同じ）
+   */
+  secondaryBadge?: Pick<LedgerState, 'label' | 'tone' | 'title'> | null;
 }
 
 /** 右端の状態バッジ。**色は意味で決める**（画面ごとに変えない） */
@@ -154,4 +166,6 @@ export interface SgaRow {
   notes: string | null;
   /** `staff`=社員が入れた / `accounting`=経理の取込 */
   source: string | null;
+  /** 確定前の見込み (migration 268)。**「仮」バッジになる**（仕入の `is_provisional` と同じ扱い） */
+  is_provisional: boolean;
 }

@@ -5,7 +5,7 @@
  * **PC の `Row` とスマホのカードで同じものを呼ぶ** — 写すと、片方だけ
  * ボタンを足し忘れたり条件がずれたりする（他のタブと同じ理由）。
  */
-import { Copy, Send, Trash2, CheckCircle2, XCircle, ArrowRight, Archive, ArchiveRestore } from 'lucide-react';
+import { Copy, Files, Send, Trash2, CheckCircle2, XCircle, ArrowRight, Archive, ArchiveRestore } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DocPdfButton } from '@/contexts/shared/components/DocPdfButton';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
@@ -26,6 +26,7 @@ export interface EstimateForActions {
 
 export function EstimateActions({
   e, base, onSetStatus, onConvert, onNextVersion, onRemove, onArchive, onUnarchive,
+  canDuplicate, onDuplicate,
 }: {
   e: EstimateForActions;
   base: string;
@@ -35,6 +36,13 @@ export function EstimateActions({
   onRemove: () => void;
   onArchive: () => void;
   onUnarchive: () => void;
+  /**
+   * 「別の回の見積として複製する」を出すか（仕様変更 #18）。**呼び手が渡す**
+   * （`project.recurrence === 'regular'` のときだけ `true` — 単発案件には
+   * 複製できる別の回そのものが無いので出さない）
+   */
+  canDuplicate?: boolean;
+  onDuplicate?: () => void;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-1">
@@ -84,6 +92,13 @@ export function EstimateActions({
       <Button variant="outline" size="sm" title="この版を写して次の版をつくる" onClick={onNextVersion}>
         <Copy className="h-3.5 w-3.5" aria-hidden="true" />
       </Button>
+      {/* **「次の版をつくる」とは別物**（仕様変更 #18）。あちらは同じ回の書き直し、
+          こちらは明細を写して別の回向けの独立した見積を新しく作る */}
+      {canDuplicate && (
+        <Button variant="outline" size="sm" title="別の回の見積として複製する" onClick={onDuplicate}>
+          <Files className="h-3.5 w-3.5" aria-hidden="true" />
+        </Button>
+      )}
       {/* **アーカイブは消すのとは別**（`status` を変えない・記録はそのまま）。
           送付済み・受注済みの版も「もう見ない版を一覧から隠す」だけなら
           いつでもできる — `status` の分岐に関係なく常に出す */}

@@ -24,7 +24,7 @@
  *   `projects`/`vendors` も渡さなくてよい（空配列で足りる）
  */
 import { useEffect, useState, type ReactNode } from 'react';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2, Trash2, ExternalLink } from 'lucide-react';
 import { localDateStr } from '@/lib/format';
 import { previousBusinessDay } from '@gmo-onair/shared/src/utils/businessDays';
 import { TaxHelperButton } from '@gmo-onair/shared/src/client/ui/tax-aware-amount-input';
@@ -305,7 +305,14 @@ export function PurchaseDialog({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label>精算番号</Label>
-              <Input value={settlementNumber} onChange={(e) => setSettlementNumber(e.target.value)} placeholder="任意" disabled={readOnly} />
+              {/* 仮フラグ ON の間は入力不可。まだ確定していない金額に精算番号だけ
+                  先に入る、という矛盾した状態を避ける（仕様変更 #4・#6・#7） */}
+              <Input
+                value={settlementNumber}
+                onChange={(e) => setSettlementNumber(e.target.value)}
+                placeholder={isProvisional ? '仮の間は入力できません' : '任意'}
+                disabled={readOnly || isProvisional}
+              />
             </div>
             <div>
               <Label>申請URL</Label>
@@ -316,6 +323,16 @@ export function PurchaseDialog({
                 placeholder="精算申請ページのURL（任意）"
                 disabled={readOnly}
               />
+              {settlementUrl && (
+                <a
+                  href={settlementUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sub mt-1 inline-flex min-h-tap items-center gap-1.5 text-primary hover:underline lg:min-h-[28px]"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />精算ページを開く
+                </a>
+              )}
             </div>
           </div>
 

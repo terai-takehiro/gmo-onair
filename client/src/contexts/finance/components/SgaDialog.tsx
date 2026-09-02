@@ -43,6 +43,8 @@ export interface SgaFormData {
   amortize_start: string;
   amortize_end: string;
   source: 'staff' | 'accounting';
+  /** 仮（確定前の見込み）フラグ (migration 268)。ON の間は精算番号を入力できない */
+  is_provisional: boolean;
 }
 
 export const initialFormData: SgaFormData = {
@@ -66,6 +68,7 @@ export const initialFormData: SgaFormData = {
   amortize_start: "",
   amortize_end: "",
   source: "staff",
+  is_provisional: false,
 };
 
 function countAmortizeMonths(start: string, end: string): number {
@@ -91,6 +94,9 @@ export function formatSettlementNo(method: string, number: string): string {
   if (method === "rakuraku") return `楽-${number}`;
   return number;
 }
+
+// `formFromSga`（販管費の行→フォーム初期値）は `sgaPrefill.ts` へ切り出した
+// （1ファイル400行の上限。`SgaListPage`/`BudgetDashboardPage` の両方が使う）
 
 export function SettlementBadge({ number }: { number: string | null | undefined }) {
   const isApplied = !!number && number !== "pending";
@@ -120,6 +126,8 @@ interface SgaDialogProps {
   /** 消す。渡さなければボタンを出さない */
   onDelete?: (id: string) => void;
   onClose: () => void;
+  /** 閲覧のみで開く（財務ダッシュボードの内訳から・仕様変更 #3）。`vendors`/`accountTitles` は空でよい */
+  readOnly?: boolean;
 }
 
 export default function SgaDialog({
@@ -136,6 +144,7 @@ export default function SgaDialog({
   onSubmit,
   onDelete,
   onClose,
+  readOnly = false,
 }: SgaDialogProps) {
   const billingKeyPreview = useMemo(
     () => generateBillingKeyPreview(form.recognition_date),
@@ -151,9 +160,14 @@ export default function SgaDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={editingId ? "販管費編集" : "販管費 新規登録"}
+      title={readOnly ? "販管費の詳細" : (editingId ? "販管費編集" : "販管費 新規登録")}
       size="lg"
       footer={
+        readOnly ? (
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={onClose}>閉じる</Button>
+          </div>
+        ) : (
         <div className="flex flex-wrap gap-2 sm:justify-between">
           <div>
             {/* **消すのはここだけ。** 一覧の行にゴミ箱を並べると、
@@ -173,28 +187,27 @@ export default function SgaDialog({
             disabled={!form.vendor_name || isSaving}
             onClick={onSubmit}
           >
-            {isSaving && (
-              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-            )}
+            {isSaving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
             {editingId ? "更新" : "登録"}
           </Button>
           </div>
         </div>
+        )
       }
     >
-        <div className="space-y-4">
+        {/* ⚠️ 個別に `disabled` を足さない — `<fieldset disabled>` が中の input/select/button を漏れなく無効化する */}
+        <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0 space-y-4">
           {/* Row 1: vendor + tax */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>支払先</Label>
               <Input
                 value={form.vendor_name}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, vendor_name: e.target.value }))
-                }
+                onChange={(e) => setForm((f) => ({ ...f, vendor_name: e.target.value }))}
                 placeholder="支払先名"
               />
-              {vendors.length > 0 && (
+              {/* 閲覧のみでは出さない（一覧を渡さずに開くため。上の Input が名前を持っている） */}
+              {!readOnly && vendors.length > 0 && (
                 <SearchableSelect
                   className="mt-1"
                   options={vendors.map((v) => ({ value: v.id, label: v.name, subLabel: v.vendor_type || '' }))}
@@ -213,12 +226,7 @@ export default function SgaDialog({
             </div>
             <div className="space-y-1">
               <Label>税区分</Label>
-              <Select
-                value={form.tax_category}
-                onValueChange={(val) =>
-                  setForm((f) => ({ ...f, tax_category: val }))
-                }
-              >
+              <Select value={form.tax_category} onValueChange={(val) => setForm((f) => ({ ...f, tax_category: val }))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -382,7 +390,7 @@ export default function SgaDialog({
               />
             </div>
           </div>
-        </div>
+        </fieldset>
     </FormDialog>
   );
 }

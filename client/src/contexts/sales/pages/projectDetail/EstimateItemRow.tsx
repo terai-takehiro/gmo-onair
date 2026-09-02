@@ -17,12 +17,19 @@ import { Row, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import type { EstimateItemRow as ItemData } from './EstimateItems';
 
 export function EstimateItemRowView({
-  id, it, i, locked, onUpdate, onDelete, onCopyPeriod,
+  id, it, i, locked, allowListPriceEdit, onUpdate, onDelete, onCopyPeriod,
 }: {
   id: string;
   it: ItemData;
   i: number;
   locked: boolean;
+  /**
+   * `list_unit_price`（定価）を編集できるフィールドにするか（仕様変更 #9）。
+   * **グループ内案件（GPM）の見積作成時だけ `true`**（`EstimateItems.tsx` から渡す）。
+   * 通常の案件（sales）向けは今までどおり表示専用のまま — 定価は料金表選択時に
+   * 自動で入る値で、案件の見積では人が書き換える運用にしていない。
+   */
+  allowListPriceEdit?: boolean;
   onUpdate: (i: number, patch: Partial<ItemData>) => void;
   onDelete: (i: number) => void;
   onCopyPeriod: (i: number) => void;
@@ -77,19 +84,45 @@ export function EstimateItemRowView({
         <div className="flex w-full flex-col gap-0.5">
           <Input type="number" value={it.unit_price} disabled={locked} aria-label="単価（税抜・1件あたり）"
             onChange={(e) => onUpdate(i, { unit_price: Number(e.target.value) || 0 })} />
-          {/*
-            **定価と値引き額を並べて出す（グループ内見積でも・要望③）。**
-            `list_unit_price`（定価）は料金表から選んだ行にだけ入る。実額
-            （`unit_price`）を手で下げても定価との差が自動で見える — 保存のたびに
-            計算し直さなくても、単価欄を見ればいくら値引きしたか分かる
-          */}
-          {it.list_unit_price != null && it.list_unit_price > it.unit_price && (
-            <p className="flex flex-wrap items-baseline gap-x-1 text-sub-sm leading-tight text-muted-foreground">
-              <span>定価</span>
-              <Money value={it.list_unit_price} inline />
-              <span>／値引き</span>
-              <Money value={it.list_unit_price - it.unit_price} inline className="text-warning" />
-            </p>
+          {allowListPriceEdit ? (
+            /*
+              **GPM の見積作成時だけ、定価そのものを編集欄にする（仕様変更 #9）。**
+              手入力の行（料金表を経由しない行）にも定価を持たせたい、という
+              グループ内見積の要望。空欄に戻せば `null`（＝定価なし）に戻す —
+              「定価が無い」と「定価＝0円」を混同しない（`shared/CLAUDE.md`
+              「NULL＝決めていない」と同じ考え方）。
+              ⚠️ **ここで入れた値は表示・PDF 印字専用のまま**（migration 261 の設計を
+              壊さない）— 金額計算（`amount`・粗利・合計）には一切混ぜない。
+            */
+            <div className="flex items-center gap-1">
+              <span className="shrink-0 text-sub-sm text-muted-foreground">定価</span>
+              <Input
+                type="number" disabled={locked}
+                value={it.list_unit_price ?? ''}
+                placeholder="任意"
+                aria-label="定価（税抜・表示とPDF印字専用。金額計算には使いません）"
+                className="text-sub-sm"
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  onUpdate(i, { list_unit_price: raw === '' ? null : Number(raw) || 0 });
+                }}
+              />
+            </div>
+          ) : (
+            /*
+              **定価と値引き額を並べて出す（グループ内見積でも・要望③）。**
+              `list_unit_price`（定価）は料金表から選んだ行にだけ入る。実額
+              （`unit_price`）を手で下げても定価との差が自動で見える — 保存のたびに
+              計算し直さなくても、単価欄を見ればいくら値引きしたか分かる
+            */
+            it.list_unit_price != null && it.list_unit_price > it.unit_price && (
+              <p className="flex flex-wrap items-baseline gap-x-1 text-sub-sm leading-tight text-muted-foreground">
+                <span>定価</span>
+                <Money value={it.list_unit_price} inline />
+                <span>／値引き</span>
+                <Money value={it.list_unit_price - it.unit_price} inline className="text-warning" />
+              </p>
+            )
           )}
         </div>
       </RowSlot>

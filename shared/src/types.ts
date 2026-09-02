@@ -114,6 +114,14 @@ export interface Episode extends BaseEntity {
   broadcast_date: string | null;
   delivery_date: string | null;
   notes: string | null;
+  /**
+   * この回の「1日あたりの本数」「回の単価」（migration 269・仕様変更 #16）。
+   * 以前は案件（projects）が案件全体で1つだけ持つ固定値だったが、収録日によって
+   * ズレることがあるため回ごとに持つように変更した。「まだ決めていない」は null
+   * （0本・¥0と混同しない）
+   */
+  recording_per_day_count: number | null;
+  episode_unit_price: number | null;
   // 集計フィールド
   actual_revenue?: number;
   actual_cost?: number;
@@ -122,6 +130,11 @@ export interface Episode extends BaseEntity {
   /** この回に紐づく最上位タスクの件数・完了件数（v4 タスクタブの簡易一覧が使う） */
   task_count?: number;
   task_done_count?: number;
+  /**
+   * この回に紐づく見積の件数（仕様変更 #18・migration 270）。
+   * `EpisodesPanel.tsx` の「この回の見積」への導線が件数表示に使う
+   */
+  estimate_count?: number;
 }
 
 // 売上

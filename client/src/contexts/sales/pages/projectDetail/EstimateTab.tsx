@@ -40,29 +40,46 @@
  * （データ取得・ミューテーションの定義はここに残したまま）だけを
  * 切り出した。`Estimate` 型・`STATUS_LABEL`/`STATUS_TONE` はこのファイルが
  * 正で `export` している——2か所に持つと版の状態の色分けがずれる。
+ *
+ * ── 回（episode）単位の見積（仕様変更 #18）で、さらに `EstimateMetaCard.tsx` /
+ *    `useEstimateEpisodeFilter.ts` を分離した ───────────────────
+ *
+ * レギュラー案件の回ごとの絞り込み・「別の回の見積として複製する」を足したところで
+ * 再び400行を超えたため、タイトル・備考カード（`EstimateMetaCard`）と、
+ * 回の絞り込みの state・URL 同期・回一覧の取得（`useEstimateEpisodeFilter`）を
+ * それぞれ切り出した。ここに残るのはデータ取得・ミューテーションの定義と、
+ * それらを組み立てる JSX だけ。
  */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Receipt, Wallet, Archive } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Input as TextInput } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { EmptyState, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import EpisodeScopeToggle from '@/contexts/tasks/components/EpisodeScopeToggle';
 import { RevenueBillingPane } from './RevenueBillingPane';
 import { InvoiceGroupsSection } from './InvoiceGroupsSection';
 import { EstimateItems, type EstimateItemRow as Item } from './EstimateItems';
 import { type EstimateStatus as Status } from './EstimateActions';
 import { EstimateVersionList } from './EstimateVersionList';
+import { EstimateMetaCard } from './EstimateMetaCard';
+import { DuplicateEstimateDialog } from './DuplicateEstimateDialog';
+import { useEstimateEpisodeFilter } from './useEstimateEpisodeFilter';
 import type { ProjectDetail } from './types';
 import { ApprovalNotice, needsApproval } from '@/contexts/shared/components/ApprovalRow';
 
 export interface Estimate {
   id: string; group_id: string; version: number; title: string; status: Status;
   subtotal: number; discount: number; sent_at: string | null;
+  /**
+   * この見積が属する回（episodes.id）。`null` は「案件全体の見積」（従来どおり・
+   * 単発案件は常に null）。レギュラー案件で回ごとに見積を分けたときだけ入る
+   * （仕様変更 #18・migration 270）
+   */
+  episode_id?: string | null;
   /** 見積全体の備考。行の備考（`item_notes`）とは別（migration 138 の既存列） */
   notes?: string | null;
   /** 値引きの承認。`pending` の間は送れない（お金のルール ⑤） */
@@ -89,43 +106,6 @@ export const STATUS_TONE: Record<Status, string> = {
   superseded: 'border-transparent bg-muted text-muted-foreground',
 };
 
-/**
- * タイトル・見積全体の備考。**下書きのときだけ直せる**（サーバーが強制。ここは出し分けだけ）。
- * 明細と同じ画面に置くと保存のタイミングを迷うので、**別に保存できる**（`onBlur`）。
- */
-function EstimateMetaCard({
-  estimate, onSave,
-}: { estimate: Estimate; onSave: (patch: Partial<Pick<Estimate, 'title' | 'notes'>>) => void }) {
-  const [title, setTitle] = useState(estimate.title ?? '');
-  const [notes, setNotes] = useState(estimate.notes ?? '');
-  // **サーバーは下書き以外の中身を全部拒否する**（`update` の `CONTENT` 判定）。
-  // ここが `sent`/`accepted`/`superseded` だけを見ていると、`rejected`（失注）の見積は
-  // 直せるように見えて blur で 400 が返る（Codex の指摘 P2）
-  const locked = estimate.status !== 'draft';
-
-  return (
-    <div className="rounded-card border border-border bg-card p-4">
-      <label className="text-sub mb-1 block text-muted-foreground">タイトル</label>
-      <TextInput
-        value={title}
-        disabled={locked}
-        placeholder="お客様に出す見積のタイトル"
-        onChange={(e) => setTitle(e.target.value)}
-        onBlur={() => { if (title !== (estimate.title ?? '')) onSave({ title }); }}
-      />
-      <label className="text-sub mb-1 mt-3 block text-muted-foreground">見積全体の備考</label>
-      <Textarea
-        value={notes}
-        disabled={locked}
-        rows={2}
-        placeholder="お客様への注記など（行ごとの備考は明細の各行に入れてください）"
-        onChange={(e) => setNotes(e.target.value)}
-        onBlur={() => { if (notes !== (estimate.notes ?? '')) onSave({ notes }); }}
-      />
-    </div>
-  );
-}
-
 export function EstimateTab({ project }: { project: ProjectDetail }) {
   const [pane, setPane] = useState<'estimate' | 'revenue'>('estimate');
   const [openId, setOpenId] = useState<string | null>(null);
@@ -142,6 +122,12 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
   // reader にもボタンが出て「押せるのに 403」になる
   const canEdit = hasPermission('sales', 'editor');
   const base = `/projects/${project.id}/estimates`;
+
+  // 回（episode）での絞り込み（仕様変更 #18・レギュラー案件だけ・詳細は
+  // `useEstimateEpisodeFilter.ts` 参照）。判定はタスクタブと同じ `recurrence`
+  const isSeries = project.recurrence === 'regular';
+  const { episodeId, changeEpisodeFilter, episodeLabels } = useEstimateEpisodeFilter(project.id, isSeries);
+
   // **`showArchived` は鍵に含めない。** `invalidateQueries({ queryKey: ['estimates', project.id] })`
   // は前方一致で両方の鍵（表示あり／なし）を落とすので、鍵を分けても取りこぼしは無いが、
   // 呼び出し側を増やさないためにここは1本のまま揃える
@@ -152,6 +138,13 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
     queryFn: async () => (await api.get(base, { params: showArchived ? { include_archived: '1' } : undefined })).data.data,
     enabled: pane === 'estimate',
   });
+  // **回で絞り込むのは表示だけ**（サーバーには渡さない）。取得件数がページングを
+  // 要するほど増えたら見直す — アーカイブの表示・非表示と同じ判断（一覧全体は
+  // すでに1回で取得済みなので、絞り込みのたびに引き直す理由が無い）
+  const visibleList = useMemo(
+    () => (episodeId ? (list.data ?? []).filter((e) => e.episode_id === episodeId) : (list.data ?? [])),
+    [list.data, episodeId],
+  );
 
   const detail = useQuery<Estimate>({
     queryKey: ['estimate', openId],
@@ -160,10 +153,15 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
   });
 
   const create = useMutation({
-    mutationFn: () => api.post(base, { title: '', tax_category: 'tax10', customer_id: null }),
+    // **いま絞り込んでいる回があれば、その回の見積として作る**（仕様変更 #18）。
+    // 「全体」（絞り込みなし）のときは今までどおり案件全体の見積になる
+    mutationFn: () => api.post(base, { title: '', tax_category: 'tax10', customer_id: null, episode_id: episodeId }),
     onSuccess: (r) => { invalidate(); setOpenId(r.data.data.id); notifySuccess('見積をつくりました'); },
     onError: (e) => notifyApiError('見積をつくれませんでした', e),
   });
+
+  /** 「別の回の見積として複製する」の対象。null = ダイアログを閉じている（仕様変更 #18） */
+  const [duplicateSource, setDuplicateSource] = useState<Estimate | null>(null);
 
   const nextVersion = useMutation({
     mutationFn: (id: string) => api.post(`${base}/${id}/next-version`),
@@ -260,14 +258,26 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
       </div>
 
       {pane === 'estimate' && (
-        <button
-          type="button"
-          onClick={() => setShowArchived((v) => !v)}
-          className="text-sub inline-flex w-fit shrink-0 items-center gap-1.5 text-muted-foreground hover:text-foreground"
-        >
-          <Archive className="h-3.5 w-3.5" aria-hidden="true" />
-          {showArchived ? 'アーカイブした版を隠す' : 'アーカイブした版を表示する'}
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setShowArchived((v) => !v)}
+            className="text-sub inline-flex w-fit shrink-0 items-center gap-1.5 text-muted-foreground hover:text-foreground"
+          >
+            <Archive className="h-3.5 w-3.5" aria-hidden="true" />
+            {showArchived ? 'アーカイブした版を隠す' : 'アーカイブした版を表示する'}
+          </button>
+          {/*
+            レギュラー案件だけ、回で絞り込む（仕様変更 #18）。「全体」は今までどおり
+            すべての見積（案件全体の見積 ＋ どの回の見積も）を出す — 回を割り振らない
+            案件全体の見積という使い方も引き続きできる
+          */}
+          {isSeries && (
+            <div className="overflow-x-auto">
+              <EpisodeScopeToggle projectId={project.id} selectedEpisodeId={episodeId} onChange={changeEpisodeFilter} />
+            </div>
+          )}
+        </div>
       )}
 
       {pane === 'revenue' ? (
@@ -277,10 +287,12 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
         </>
       ) : list.isLoading ? (
         <Delayed><SkeletonRows rows={4} /></Delayed>
-      ) : (list.data ?? []).length === 0 ? (
+      ) : visibleList.length === 0 ? (
         <EmptyState
-          title="見積はまだありません"
-          description="明細を積んで金額を出します。お客様に出したあとに直したくなったら、版を上げれば前に出したものは残ります。1案件で見積を分けたいとき（本編とケータリングなど）は「見積をつくる」を必要な数だけ押してください。"
+          title={episodeId ? 'この回の見積はまだありません' : '見積はまだありません'}
+          description={episodeId
+            ? '「見積をつくる」でこの回向けの見積をつくります（この絞り込みのまま作ると、この回に紐づきます）。'
+            : '明細を積んで金額を出します。お客様に出したあとに直したくなったら、版を上げれば前に出したものは残ります。1案件で見積を分けたいとき（本編とケータリングなど）は「見積をつくる」を必要な数だけ押してください。'}
           action={canEdit ? (
             <Button onClick={() => create.mutate()}><Plus className="mr-1 h-4 w-4" aria-hidden="true" />見積をつくる</Button>
           ) : (
@@ -310,24 +322,28 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
 
           {/* **承認待ちは一覧の上に出す。** 行の中に畳むと、
               「送れない理由」が横に長い行の右端に埋もれて読まれない */}
-          {(list.data ?? []).filter(needsApproval).map((e) => (
+          {visibleList.filter(needsApproval).map((e) => (
             <ApprovalNotice key={`approval-${e.id}`} estimate={e} base={base}
               onDone={() => list.refetch()} />
           ))}
 
           <EstimateVersionList
-            estimates={list.data ?? []}
+            estimates={visibleList}
             isMobile={isMobile}
             onToggleOpen={(id) => setOpenId(openId === id ? null : id)}
             base={base}
             statusLabel={STATUS_LABEL}
             statusTone={STATUS_TONE}
+            episodeLabels={episodeLabels}
             onSetStatus={(id, status) => setStatus.mutate({ id, status })}
             onConvert={(id) => convertToRevenue.mutate(id)}
             onNextVersion={(id) => nextVersion.mutate(id)}
             onRemove={(id) => remove.mutate(id)}
             onArchive={(id) => archive.mutate(id)}
             onUnarchive={(id) => unarchive.mutate(id)}
+            // **複製は案件がレギュラーのときだけ**（複製先の回そのものが無いと意味を成さない）
+            canDuplicate={isSeries}
+            onDuplicate={(id) => setDuplicateSource((list.data ?? []).find((e) => e.id === id) ?? null)}
           />
 
           {openId && detail.data && (
@@ -350,6 +366,24 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
             </>
           )}
         </>
+      )}
+
+      {duplicateSource && (
+        <DuplicateEstimateDialog
+          open
+          onOpenChange={(o) => { if (!o) setDuplicateSource(null); }}
+          projectId={project.id}
+          base={base}
+          estimate={duplicateSource}
+          onDuplicated={(created) => {
+            invalidate();
+            setDuplicateSource(null);
+            // 複製した先の回で絞り込んで、そのまま新しい見積を開く
+            // （どこに作られたか分からないまま一覧に戻すと探し直しになる）
+            if (created.episode_id) changeEpisodeFilter(created.episode_id);
+            setOpenId(created.id);
+          }}
+        />
       )}
     </div>
   );

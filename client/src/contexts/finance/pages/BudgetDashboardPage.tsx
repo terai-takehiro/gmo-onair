@@ -31,12 +31,19 @@
  * （固定原価は案件のように増えないため従来どおり単発取得のまま）。
  */
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api';
+import type { SgaExpense } from '@/types';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { PeriodBar, type PeriodMode } from './financeDashboard/PeriodBar';
-import { resolvePeriod } from './financeDashboard/period';
+import { resolvePeriod, ledgerOpenQuery } from './financeDashboard/period';
 import { useDashboardData, EMPTY_SUMMARY, type MonthlySummary } from './financeDashboard/useDashboardData';
 import type { PurchaseRow } from './ledger/types';
+import { PurchaseDialog } from './ledger/PurchaseDialog';
+import SgaDialog from '../components/SgaDialog';
+import { formFromSga } from '../components/sgaPrefill';
 import { ProfitFlow, type FlowStep } from './financeDashboard/ProfitFlow';
 import { BreakdownColumn, type BreakdownItem } from './financeDashboard/Breakdown';
 import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth';
@@ -44,6 +51,7 @@ import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth'
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
 export default function BudgetDashboardPage() {
+  const navigate = useNavigate();
   const now = new Date();
   const curYm = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}`;
   const [mode, setMode] = useState<PeriodMode>('month');
@@ -92,6 +100,40 @@ export default function BudgetDashboardPage() {
   const pct = (n: number) => (s.revenue_total > 0 ? (n / s.revenue_total) * 100 : null);
 
   /*
+   * 「台帳をひらく」に引き継ぐクエリパラメータ（仕様変更 #4）。**期間・案件の
+   * 絞り込みを1つの文字列にまとめておき**、`BreakdownColumn`/`ProfitFlow` の
+   * どの「台帳をひらく」導線からも同じものを使う（片方だけ引き継ぐ、を防ぐ）。
+   */
+  const ledgerQuery = useMemo(
+    () => ledgerOpenQuery(period, projectId || undefined, projects.find((p) => p.id === projectId)?.name),
+    [period, projectId, projects],
+  );
+
+  /*
+   * 仕入・販管費の内訳の行を押すと、台帳へ移らずこのままダイアログを開く
+   * （仕様変更 #3）。`readOnly` は「案件詳細『見積・請求』」から開くときと同じ
+   * 使い方（`PurchaseDialog`/`SgaDialog` のコメント参照）。
+   */
+  const [viewingPurchase, setViewingPurchase] = useState<PurchaseRow | null>(null);
+  const [viewingSga, setViewingSga] = useState<SgaExpense | null>(null);
+
+  // 販管費の閲覧ダイアログが担当者名・勘定科目名を出せるように、開いたときだけ引く
+  // （どちらも小さい一覧で他画面と同じ鍵を使うのでキャッシュを共有できる）
+  const { data: sgaUsersData } = useQuery({
+    queryKey: ['users-list'],
+    queryFn: async () => (await api.get('/users?limit=200')).data,
+    enabled: !!viewingSga,
+  });
+  const sgaUsers: { id: string; name: string }[] = sgaUsersData?.data ?? [];
+  const { data: sgaTitlesData } = useQuery({
+    queryKey: ['sga-account-titles'],
+    queryFn: async () => (await api.get('/sga/account-titles')).data.data as { id: string; name: string }[],
+    enabled: !!viewingSga,
+    staleTime: 60 * 60 * 1000,
+  });
+  const viewingSgaForm = useMemo(() => (viewingSga ? formFromSga(viewingSga) : null), [viewingSga]);
+
+  /*
    * **「全部ゼロ」で行き止まりにしない。** 既定の期間は今月だが、月次の入力は
    * 締めのあとに入るので、今月を開いた時点では1件も無いのが普通で、以前は
    * 手掛かりゼロの ¥0 画面が出るだけだった。0 のときだけ「確定売上のある
@@ -113,27 +155,37 @@ export default function BudgetDashboardPage() {
    */
   const steps: FlowStep[] = projectId
     ? [
-        { label: '売上', value: s.revenue_total, sub: `確定売上 ${revenueTotalCount}件`, to: '/budget/revenues' },
-        { label: '仕入（変動原価）', value: s.variable_cost_total, sub: `この案件の ${purchaseTotalCount}件`, to: '/budget/purchases' },
+        { label: '売上', value: s.revenue_total, sub: `確定売上 ${revenueTotalCount}件`, to: '/budget/revenues' + ledgerQuery },
+        { label: '仕入（変動原価）', value: s.variable_cost_total, sub: `この案件の ${purchaseTotalCount}件`, to: '/budget/purchases' + ledgerQuery },
         { label: '限界利益（粗利）', value: s.marginal_profit, result: true, pct: pct(s.marginal_profit) },
       ]
     : [
-        { label: '売上', value: s.revenue_total, sub: `確定売上 ${revenueTotalCount}件`, to: '/budget/revenues' },
-        { label: '仕入（変動原価）', value: s.variable_cost_total, sub: `案件に紐づく ${purchaseTotalCount}件`, to: '/budget/purchases' },
+        { label: '売上', value: s.revenue_total, sub: `確定売上 ${revenueTotalCount}件`, to: '/budget/revenues' + ledgerQuery },
+        { label: '仕入（変動原価）', value: s.variable_cost_total, sub: `案件に紐づく ${purchaseTotalCount}件`, to: '/budget/purchases' + ledgerQuery },
         { label: '限界利益（粗利）', value: s.marginal_profit, result: true, pct: pct(s.marginal_profit) },
-        { label: '固定原価', value: s.fixed_cost_total, sub: `償却負担額など ${fixedTotalCount}件`, to: '/budget/purchases' },
+        { label: '固定原価', value: s.fixed_cost_total, sub: `償却負担額など ${fixedTotalCount}件`, to: '/budget/purchases' + ledgerQuery },
         { label: '売上総利益', value: s.gross_profit, result: true, pct: pct(s.gross_profit) },
-        { label: '販管費', value: s.sga_total, sub: `案件に紐づかない ${sgaTotalCount}件`, to: '/budget/sga' },
+        { label: '販管費', value: s.sga_total, sub: `案件に紐づかない ${sgaTotalCount}件`, to: '/budget/sga' + ledgerQuery },
         { label: '営業利益', value: s.operating_profit, result: true, pct: pct(s.operating_profit) },
       ];
 
   const revItems: BreakdownItem[] = revenueRows.map(
-    (r: { id: string; gls_number?: string | null; episode_code?: string | null; project_name?: string | null; customer_name?: string | null; amount: number }) => ({
+    (r: {
+      id: string; gls_number?: string | null; episode_code?: string | null; project_name?: string | null;
+      customer_name?: string | null; amount: number; project_id?: string | null; group_id?: string | null;
+    }) => ({
       id: r.id,
       code: r.episode_code || r.gls_number,
       title: r.project_name || '（案件名なし）',
       sub: r.customer_name,
       amount: Number(r.amount) || 0,
+      // 按分グループの売上は案件ではなくグループの詳細へ（仕様変更 #2・
+      // `RevenueListPage.tsx` の `onOpen` と同じ分岐）
+      onClick: r.group_id
+        ? () => navigate(`/sales/project-groups/${r.group_id}`)
+        : r.project_id
+          ? () => navigate(`/sales/projects/${r.project_id}`)
+          : undefined,
     }),
   );
 
@@ -147,14 +199,18 @@ export default function BudgetDashboardPage() {
     sub: [p.vendor_name, p.project_name].filter(Boolean).join(' ／ ') || null,
     amount: Number(p.amount) || 0,
     tag: p.is_provisional ? '仮' : null,
+    // 台帳へ行かず、このまま閲覧専用ダイアログを開く（仕様変更 #3）
+    onClick: () => setViewingPurchase(p),
   }));
 
   const sgaItems: BreakdownItem[] = sgaRows.map(
-    (x: { id: string; vendor_name?: string | null; description?: string | null; amount: number }) => ({
+    (x: SgaExpense) => ({
       id: x.id,
       title: x.description || '（詳細なし）',
       sub: x.vendor_name,
       amount: Number(x.amount) || 0,
+      // 台帳へ行かず、このまま閲覧専用ダイアログを開く（仕様変更 #3）
+      onClick: () => setViewingSga(x),
     }),
   );
 
@@ -224,7 +280,7 @@ export default function BudgetDashboardPage() {
               onLoadMore={() => revenues.fetchNextPage()}
               error={revenues.error}
               onRetry={() => revenues.refetch()}
-              to="/budget/revenues"
+              to={'/budget/revenues' + ledgerQuery}
               empty="この期間の確定売上はありません。"
             />
             <BreakdownColumn
@@ -242,7 +298,7 @@ export default function BudgetDashboardPage() {
               error={purchases.error ?? fixed.error}
               partialLabel={!purchases.isError && fixed.isError ? '固定原価' : undefined}
               onRetry={() => { purchases.refetch(); fixed.refetch(); }}
-              to="/budget/purchases"
+              to={'/budget/purchases' + ledgerQuery}
               empty="この期間の仕入はありません。"
             />
             {/* 販管費は案件に紐づかないので、案件で絞り込み中は内訳ごと出さない（ご要望） */}
@@ -257,7 +313,7 @@ export default function BudgetDashboardPage() {
                 onLoadMore={() => sga.fetchNextPage()}
                 error={sga.error}
                 onRetry={() => sga.refetch()}
-                to="/budget/sga"
+                to={'/budget/sga' + ledgerQuery}
                 empty="この期間の販管費はありません。"
               />
             )}
@@ -269,6 +325,33 @@ export default function BudgetDashboardPage() {
             （編集・CSV書き出しなど台帳側の機能が必要なときは「台帳をひらく」から移動してください）。
           </p>
         </>
+      )}
+
+      {/* 仕入・販管費の内訳の行を押したときの閲覧専用ダイアログ（仕様変更 #3）。
+          台帳ページへは移らず、このままダッシュボード上で開く */}
+      {viewingPurchase && (
+        <PurchaseDialog
+          readOnly
+          editing={viewingPurchase}
+          defaultProjectId={viewingPurchase.project_id ?? ''}
+          onClose={() => setViewingPurchase(null)}
+        />
+      )}
+      {viewingSga && viewingSgaForm && (
+        <SgaDialog
+          readOnly
+          open
+          onOpenChange={(v) => { if (!v) setViewingSga(null); }}
+          editingId={viewingSga.id}
+          form={viewingSgaForm}
+          setForm={() => {}}
+          vendors={[]}
+          users={sgaUsers}
+          accountTitles={sgaTitlesData ?? []}
+          isSaving={false}
+          onSubmit={() => {}}
+          onClose={() => setViewingSga(null)}
+        />
       )}
     </div>
   );

@@ -19,6 +19,15 @@
  * 押したときの一括保存に乗る）。**カテゴリをまたぐ並べ替えは行わない** —
  * 行はカテゴリ別の帯に分けて描いており、越境させると
  * 「なぜこのカテゴリに移ったのか」を保存前に判断させることになるため。
+ *
+ * ── GPM だけの2つの拡張（仕様変更 #9・#10） ─────────────────
+ *
+ * `allowListPriceEdit`・`allowCategoryDiscount` は `gpm/pages/projectDetail/
+ * EstimatesTab.tsx` からだけ `true` で渡ります（案件＝sales 側は渡さない＝
+ * 今までどおり）。**共用部品を分岐だらけにしない**ため、増える見た目は
+ * 「表示のことば」と「ボタンの有無」だけに絞り、計算（`margin`・保存の合計）
+ * には一切関わりません — 定価は最後まで表示・PDF 印字専用のまま、
+ * 値引き行は既存の「行を足す」と同じ経路を通るだけです。
  */
 import { useState } from 'react';
 import {
@@ -28,7 +37,7 @@ import {
 import {
   SortableContext, verticalListSortingStrategy, arrayMove, sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
-import { Plus, Link2 } from 'lucide-react';
+import { Plus, Link2, Percent } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
@@ -49,8 +58,12 @@ export interface EstimateItemRow {
   pricing_item_id?: string | null;
   /**
    * 定価（カタログ選択時のみ入る。手入力の行は null。migration 261）。
-   * **表示専用** — 保存はするが、粗利・合計の計算には使わない
+   * **表示・PDF 印字専用** — 保存はするが、粗利・合計の計算には使わない
    * （実際に課金する額は `unit_price` のまま）。
+   *
+   * ⚠️ **グループ内案件（GPM）の見積だけ、この列を人が直接編集できます**
+   * （仕様変更 #9・`allowListPriceEdit`）。通常の案件（sales）ではカタログ選択時に
+   * 自動で入る値のまま表示専用（`EstimateItemRow.tsx` が出し分ける）。
    */
   list_unit_price?: number | null;
 }
@@ -100,7 +113,7 @@ function margin(items: EstimateItemRow[], discount: number): { profit: number; r
  * 出さざるを得ない案件のときに保存できなくなるためです。
  */
 export function EstimateItems({
-  estimate, onSave, saving, canEdit,
+  estimate, onSave, saving, canEdit, allowListPriceEdit, allowCategoryDiscount,
 }: {
   estimate: EstimateForItems; onSave: (items: EstimateItemRow[]) => void; saving: boolean;
   /**
@@ -109,6 +122,33 @@ export function EstimateItems({
    * ボタンを出さないため（EstimateTab.tsx から渡す）
    */
   canEdit: boolean;
+  /**
+   * `list_unit_price`（定価）を明細内で編集できるようにするか（仕様変更 #9）。
+   * **グループ内案件（GPM）の見積作成時だけ `true`**（`gpm/pages/projectDetail/EstimatesTab.tsx`
+   * から渡す）。省略時（sales 側）は今までどおり表示専用 — `EstimateItemRowView` に渡すだけで
+   * 計算（`margin`・保存の合計）には一切関わらない。
+   */
+  allowListPriceEdit?: boolean;
+  /**
+   * カテゴリごとに「値引き行を追加」ボタンを出すか（仕様変更 #10）。
+   * **グループ内案件（GPM）限定でよい**という指示どおり GPM だけ `true`。
+   *
+   * ── 設計判断: 新しい列は足さない ──────────────────────────
+   * `estimates.discount` は見積全体で1つの値引きしか表せないが、
+   * `estimate_items.category` はもともと自由な TEXT 列・`unit_price` はもともと
+   * 負の値も弾いていない（サーバー `replaceItems` も `Math.round` するだけで
+   * 符号は見ない）。つまり**「値引き」の行をそのカテゴリの中に追加するだけで、
+   * 表示専用の値引きが最小変更で実現できる** — このボタンは
+   * 「◯◯に行を足す」と同じ形で、説明欄に「値引き」を仕込んで足すだけの
+   * 見た目のショートカット。`estimates` に `category_discounts` のような
+   * JSONB 列を新設する案も検討したが、そうすると PDF・画面・保存の3か所で
+   * 「通常の行の小計」と「JSONB の値引き」を合成する経路が新たに要り、
+   * 既存の「値引きは単価を下げず別建て」という設計とも二重に持つことになる。
+   * 行として持たせれば、下の「カテゴリ小計」（仕様変更 #11）にも
+   * `estimate-pdf.service.ts` の帯にも**何も直さず**そのまま反映される
+   * （どちらも「そのカテゴリの行の amount 合計」を出しているだけのため）。
+   */
+  allowCategoryDiscount?: boolean;
 }) {
   const [items, setItems] = useState<EstimateItemRow[]>(estimate.items ?? []);
   const [pickerCategory, setPickerCategory] = useState<string | null>(null);
@@ -169,6 +209,17 @@ export function EstimateItems({
     setItems((prev) => [...prev,
       { description: '', quantity: 1, unit: null, unit_price: 0, amount: 0, cost: 0, category: name }]);
     setNewCategoryName('');
+  };
+
+  /**
+   * カテゴリの中に値引き行を1つ足す（仕様変更 #10・GPM限定）。
+   * 「◯◯に行を足す」と全く同じ形で、説明欄に「値引き」を仕込むだけ —
+   * 単価をマイナスで入れれば `amount` が自動でマイナスになり（`upd` と同じ経路）、
+   * 下のカテゴリ小計（仕様変更 #11）にそのまま反映される。新しい保存先は増やさない。
+   */
+  const addCategoryDiscount = (category: string) => {
+    setItems((prev) => [...prev,
+      { description: '値引き', quantity: 1, unit: null, unit_price: 0, amount: 0, cost: 0, category }]);
   };
 
   /**
@@ -262,12 +313,33 @@ export function EstimateItems({
                 {rows.map(({ it, i }) => (
                   <EstimateItemRowView
                     key={i} id={String(i)} it={it} i={i} locked={locked}
+                    allowListPriceEdit={allowListPriceEdit}
                     onUpdate={upd}
                     onDelete={(n) => setItems((prev) => prev.filter((_, k) => k !== n))}
                     onCopyPeriod={copyPeriodToAll}
                   />
                 ))}
               </SortableContext>
+              {/*
+                **カテゴリ小計（仕様変更 #11）。** `pdf.service.ts` がカテゴリ帯ごとに
+                出している「小計（◯◯）」と同じ考え方 — そのカテゴリの行の `amount` を
+                足すだけ。見積全体の値引き（`estimate.discount`）はここでは引かない
+                （どのカテゴリの値引きでもない、見積全体に掛かる別の数なので、
+                ここへ混ぜると「スタジオの小計」が明細の額と合わなくなる）。
+                値引き行（仕様変更 #10・カテゴリ内に足した「値引き」の行）は
+                この行の `it.category` がそのカテゴリのままなので、
+                何もしなくても自然に差し引かれた額になる。
+              */}
+              {rows.length > 0 && (
+                <div className="flex items-center justify-end gap-2 border-t border-border-faint bg-surface-subtle px-4 py-1.5">
+                  <span className="text-sub-sm text-muted-foreground">小計（{c.label}）</span>
+                  <Money
+                    value={rows.reduce((s, { it }) => s + it.amount, 0)}
+                    negativeIsDanger
+                    className="text-sub-sm w-28 shrink-0"
+                  />
+                </div>
+              )}
               {!locked && (
                 <div className="flex flex-wrap gap-2 px-4 py-2">
                   <Button variant="outline" size="sm" onClick={() => setItems((prev) => [...prev,
@@ -277,6 +349,11 @@ export function EstimateItems({
                   {estimate.project_id && (
                     <Button variant="outline" size="sm" onClick={() => setPickerCategory(c.key)}>
                       <Link2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" />料金表から選ぶ
+                    </Button>
+                  )}
+                  {allowCategoryDiscount && (
+                    <Button variant="outline" size="sm" onClick={() => addCategoryDiscount(c.key)}>
+                      <Percent className="mr-1 h-3.5 w-3.5" aria-hidden="true" />{c.label}に値引き行を追加
                     </Button>
                   )}
                 </div>

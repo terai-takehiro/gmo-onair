@@ -8,11 +8,13 @@
  * ここに移すと試験が壊れる。
  */
 import { useNavigate } from 'react-router-dom';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, AlertTriangle, Pencil } from 'lucide-react';
 import { RowSlot } from '@gmo-onair/shared/src/client/ui/row';
+import { Money } from '@gmo-onair/shared/src/client/ui/money';
+import { cn } from '@gmo-onair/shared/src/client/utils';
 import { DocPdfButton } from '@/contexts/shared/components/DocPdfButton';
 import { DocExcelButton } from '@/contexts/shared/components/DocExcelButton';
-import type { Revenue } from '@gmo-onair/shared/src/types';
+import type { RevenueRow } from '@/contexts/finance/pages/ledger/types';
 
 /**
  * 財務管理側（この案件で絞った状態）への行き先。**`ProjectQuickLinks.tsx` と同じ
@@ -50,13 +52,38 @@ export function SameDataNote({ what }: { what: string }) {
 }
 
 /**
- * 帳票を出すボタン2つ（請求書・検収書）。
+ * 編集ボタン（仕様変更 #13）。**`DocPdfButton` と同じ見た目・当たり判定**にそろえる
+ * （アイコンだけ・指では44px／PCでは36px）——同じ並びに置くボタンの手触りが
+ * ここだけ違うと押し間違える。
+ */
+function EditRevenueButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      title="売上を編集する"
+      aria-label="売上を編集する"
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      className="rounded-control flex min-h-tap w-11 shrink-0 items-center justify-center border border-border bg-card text-secondary-foreground hover:border-primary-border hover:text-primary lg:h-9 lg:min-h-0 lg:w-9"
+    >
+      <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+    </button>
+  );
+}
+
+/**
+ * 帳票を出すボタン2つ（請求書・検収書）＋編集ボタン（`onEdit` を渡したときだけ）。
  *
  * **見積書はここに出さない** — 版を持つ「見積」から出す（`RevenueBillingPane.tsx` 冒頭のコメント参照）。
+ *
+ * **編集ボタンは権限がある人にだけ渡す**（`onEdit` が無ければ出さない）——
+ * サーバー `PUT /revenues/:id` の要件（`sales:editor`）に合わせるのは呼び出し側の役目。
+ * 列幅は**7段のうち次の段（160→200px）**にする。44px のボタンが1つ増えるので、
+ * 160px のままだと4つ目がはみ出す。
  */
-export function DocButtons({ revenueId }: { revenueId: string }) {
+export function DocButtons({ revenueId, onEdit }: { revenueId: string; onEdit?: () => void }) {
   return (
-    <RowSlot w={160} align="right" className="gap-1">
+    <RowSlot w={onEdit ? 200 : 160} align="right" className="gap-1">
+      {onEdit && <EditRevenueButton onClick={onEdit} />}
       {(['invoice', 'inspection'] as const).map((type) => (
         <DocPdfButton key={type} path={`/revenues/${revenueId}/pdf`} kind={type} params={{ type }} />
       ))}
@@ -71,10 +98,55 @@ export const REV_STATUS_TONE: Record<string, string> = {
   confirmed: 'border-transparent bg-success-surface text-success',
 };
 
-export function invoiceState(r: Revenue): { label: string; tone: string } {
+/**
+ * このペインが扱う売上1行の形。**財務台帳の `RevenueRow` を土台にする**
+ * （仕様変更 #13 で `RevenueDialog` をそのまま流用して編集できるようにしたため。
+ * 型を分けて詰め替えると、台帳側で足した列をここでも足し直す二度手間になる）。
+ *
+ * 台帳側の型に無い列（`subtitle`・`invoice_no`）と、見積との差異検知（#15）に
+ * 使う2列（`estimate_id`・`estimate_total_amount`）を足す。後者2つは
+ * `GET /revenues` が `project_id` で絞ったときだけ返す（`revenues.routes.ts`）。
+ */
+export interface PaneRevenue extends RevenueRow {
+  subtitle: string | null;
+  invoice_no: string | null;
+  /** この売上の元になった見積（あれば）。無ければ null（見積を経由しない売上など） */
+  estimate_id?: string | null;
+  /** その見積のいまの合計金額（明細合計 − 値引き）。`estimate_id` が無ければ null */
+  estimate_total_amount?: number | null;
+}
+
+export function invoiceState(r: PaneRevenue): { label: string; tone: string } {
   return r.paid_date
     ? { label: '入金済み', tone: 'border-transparent bg-success-surface text-success' }
     : { label: '未収', tone: 'border-transparent bg-warning-surface text-warning' };
+}
+
+/**
+ * 見積との差異検知（仕様変更 #15）。**見積そのものは送付後編集できない**
+ * (`shared/tests/estimateIntegrity.test.ts`) ので、差が出るのは売上側を
+ * あとから直接書き換えた（財務台帳・案件詳細どちらの `PUT /revenues/:id` でも）ときだけ。
+ * 差が無い／元になった見積が無ければ `null`（バッジを出さない）。
+ */
+export function estimateMismatch(r: PaneRevenue): number | null {
+  if (r.estimate_total_amount == null) return null;
+  return r.estimate_total_amount !== r.amount ? r.estimate_total_amount : null;
+}
+
+/**
+ * 見積との差異バッジ。**編集は止めない** — 気づけるようにするだけの表示
+ * （案件詳細の売上・請求ペインをご要望どおり編集可能にした代わりの安全弁）。
+ */
+export function EstimateMismatchNote({ estimateTotal, className }: { estimateTotal: number; className?: string }) {
+  return (
+    <span
+      className={cn('text-note mt-0.5 flex items-center gap-1 text-warning', className)}
+      title="見積の合計金額とこの売上の金額が食い違っています。見積は送付後に直せないため、あとから売上側を書き換えた可能性があります。"
+    >
+      <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
+      見積(<Money value={estimateTotal} inline className="text-note" />)と差異があります
+    </span>
+  );
 }
 
 /**

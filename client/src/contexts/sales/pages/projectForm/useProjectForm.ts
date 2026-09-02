@@ -102,13 +102,15 @@ export function useProjectForm(id: string | undefined) {
       project_category: (project.project_category || '') as ProjectCategory | '',
       contact_name: project.contact_name || '',
       recurrence: project.recurrence === 'regular' ? 'regular' : 'single',
-      // レギュラー案件が持つ4つの取り決め（migration 262）。0 は「決めた0」ではなく
-      // 「入っていない」ことがほとんどなので、null / 0 はどちらも空欄にする
-      // （`attendee_count` と同じ理由。billing_cycle だけは既定値があるので空欄にしない）
+      // レギュラー案件が案件全体で1つだけ持つ取り決め（migration 262）。0 は
+      // 「決めた0」ではなく「入っていない」ことがほとんどなので、null / 0 は
+      // どちらも空欄にする（`attendee_count` と同じ理由。billing_cycle だけは
+      // 既定値があるので空欄にしない）。
+      // ⚠️ `recording_per_day_count`/`episode_unit_price` はここで読み込まない
+      // （仕様変更 #16・migration 269 でこの画面の固定入力欄を廃止したため。
+      // 値そのものは `project` に残っているが、`FormValues` に無いので触らない）
       recording_cadence: project.recording_cadence || '',
-      recording_per_day_count: project.recording_per_day_count ? String(project.recording_per_day_count) : '',
       fixed_studio_note: project.fixed_studio_note || '',
-      episode_unit_price: project.episode_unit_price ? String(project.episode_unit_price) : '',
       billing_cycle: project.billing_cycle || 'monthly_close',
       broadcast_offset_days: project.broadcast_offset_days != null ? String(project.broadcast_offset_days) : '',
       // 数値の 0 は「0 名」ではなく「入っていない」ことが多いので、
@@ -151,9 +153,11 @@ export function useProjectForm(id: string | undefined) {
     'customer_id', 'contact_name', 'name', 'audience', 'project_category',
     'recurrence', 'attendee_count', 'goal', 'expected_amount',   // `customer_type` は入れない（読むだけ）
     'intake_channel', 'assigned_to',
-    // レギュラー案件が持つ取り決め（migration 262・264）。`RegularSeriesFields` が書く
-    'recording_cadence', 'recording_per_day_count', 'fixed_studio_note',
-    'episode_unit_price', 'billing_cycle', 'broadcast_offset_days',
+    // レギュラー案件が案件全体で1つだけ持つ取り決め（migration 262・264）。
+    // `RegularSeriesFields` が書く（`recording_per_day_count`/`episode_unit_price` は
+    // 仕様変更 #16 で無くなった — `NewProjectValues` にも無い）
+    'recording_cadence', 'fixed_studio_note',
+    'billing_cycle', 'broadcast_offset_days',
   ]), []);
 
   const setField = useCallback(<K extends keyof NewProjectValues>(k: K, value: NewProjectValues[K]) => {
@@ -176,9 +180,7 @@ export function useProjectForm(id: string | undefined) {
     customer_type: groupType,   // お客様から導く（保存値ではない。サーバーも同じ規則）
     recurrence: values.recurrence,
     recording_cadence: values.recording_cadence as NewProjectValues['recording_cadence'],
-    recording_per_day_count: values.recording_per_day_count,
     fixed_studio_note: values.fixed_studio_note,
-    episode_unit_price: values.episode_unit_price,
     billing_cycle: values.billing_cycle as NewProjectValues['billing_cycle'],
     broadcast_offset_days: values.broadcast_offset_days,
     stage: (project?.stage || 'neta') as ProjectStage,
@@ -287,7 +289,19 @@ export function useProjectForm(id: string | undefined) {
     },
     onError: (err) => notifyApiError('案件を保存できませんでした', err),
     onSuccess: (result) => {
+      /**
+       * **案件台帳（`ProjectLedgerPage`）はここを別の鍵（`project-ledger`）で持っています。**
+       * 落とし忘れると、この画面で名称・案件分類（`audience`/`project_category`）・
+       * 継続区分（`recurrence`）などを直して保存しても、台帳を開いたときは
+       * 古い値のまま＝リロードしないと反映されない、という不具合になる
+       * （client/CLAUDE.md「react-query の鍵」の実例と同じ形）。
+       * `project-integrity`（台帳いちばん上の整合性チェック）も同じ理由で落とす —
+       * ここで直した値（案件分類・実施日・リード経路・社内担当など）は
+       * そのままチェックの対象なので、落とさないと「直したのに件数が減らない」になる。
+       */
       qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: ['project-ledger'] });
+      qc.invalidateQueries({ queryKey: ['project-integrity'] });
       qc.invalidateQueries({ queryKey: ['dashboard', 'alerts'] });
       if (isEdit) {
         qc.invalidateQueries({ queryKey: ['project', id] });

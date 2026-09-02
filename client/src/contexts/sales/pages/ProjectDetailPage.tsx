@@ -94,6 +94,17 @@ export default function ProjectDetailPage() {
     onSuccess: (res, v) => {
       qc.invalidateQueries({ queryKey: ['project', id] });
       qc.invalidateQueries({ queryKey: ['projects'] });
+      /**
+       * **案件台帳（`ProjectLedgerPage`）は `stage` 列を別の鍵（`project-ledger`）で
+       * 持っている。** 落とし忘れると、ここでステージ（受注・失注・見送り等）を
+       * 変えても台帳は古いステージのまま＝リロードしないと反映されない
+       * （`useProjectForm.ts` の保存漏れと同じ形。`projectList/TidyActions.tsx` の
+       * 失注・見送りは既に3点セットで落としている）。
+       * `project-integrity` も、受注（`a_won`）に上げた瞬間に「GLS番号が無い」
+       * 「実施日が無い」の対象に出入りするので合わせて落とす。
+       */
+      qc.invalidateQueries({ queryKey: ['project-ledger'] });
+      qc.invalidateQueries({ queryKey: ['project-integrity'] });
       // 受注（a_won）はサーバーが第1回の回と標準工程テンプレートを自動生成する
       // （project.service.ts changeStage → ensureFirstEpisode + applyToEpisode）ので、
       // 「標準工程を案件に入れたら4つ落とす」（CLAUDE.md）に従いタスク側の鍵も落とす

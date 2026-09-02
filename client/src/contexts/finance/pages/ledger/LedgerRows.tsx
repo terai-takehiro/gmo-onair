@@ -33,7 +33,7 @@
  * （PC の列と二重に出さない）。
  */
 import { useNavigate } from 'react-router-dom';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, ExternalLink } from 'lucide-react';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
@@ -103,6 +103,19 @@ export function LedgerRows({
             <RowMain>
               <div className="flex items-center gap-1">
                 <RowTitle className="min-w-0 flex-1">{r.title || '（名称なし）'}</RowTitle>
+                {/* もう1つのバッジ（例: 売上の「検収済」）。**表示だけ**（押しても遷移しない） */}
+                {r.secondaryBadge && (
+                  // `shrink-0` — 固定幅の帯を持つ他のバッジ・アイコンと同じく、
+                  // 狭い画面で潰れないようにする（`RowTitle` 側の `min-w-0` が伸縮を吸収する）
+                  <span className="shrink-0">
+                    <TableBadge
+                      label={r.secondaryBadge.label}
+                      w={null}
+                      className={STATE_TONE[r.secondaryBadge.tone]}
+                      title={r.secondaryBadge.title}
+                    />
+                  </span>
+                )}
                 {/* 案件へのリンク。`RowMain` は PC・スマホ両方の描画で1回しか出ないので
                     ここに置く（列を増やすと PC 専用になり、スマホでは押せなくなる）。
                     `onOpen` は編集者では編集ダイアログを開いてしまい行から案件へ行けないため、
@@ -117,6 +130,21 @@ export function LedgerRows({
                   >
                     <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>
+                )}
+                {/* 申請URL（仕入・販管費だけ）。**行クリック（onOpen）とは別のリンク**なので
+                    ここで止める。外部サイトなので新しいタブで開く（仕様変更 #4・#6・#7） */}
+                {r.settlement_url && (
+                  <a
+                    href={r.settlement_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    title="精算ページを開く"
+                    aria-label="精算ページを開く"
+                    className="v4-tap shrink-0 text-muted-foreground hover:text-primary"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                  </a>
                 )}
               </div>
               {r.sub && <RowSub>{r.sub}</RowSub>}

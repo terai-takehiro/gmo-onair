@@ -288,6 +288,8 @@ export interface SgaExpense extends BaseEntity {
   amortize_start: string | null;
   amortize_end: string | null;
   source: 'staff' | 'accounting';
+  /** 仮（確定前の見込み）フラグ (migration 268)。purchases.is_provisional と同じ意味 */
+  is_provisional: boolean;
 }
 
 export interface Purchase extends BaseEntity {

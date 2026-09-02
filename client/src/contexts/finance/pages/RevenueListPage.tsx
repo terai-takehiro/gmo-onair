@@ -76,6 +76,15 @@ export default function RevenueListPage() {
   const [searchParams] = useSearchParams();
   const filterProjectId = searchParams.get('project_id') || '';
   const filterProjectName = searchParams.get('project_name') || '';
+  /*
+   * 財務ダッシュボードの「台帳をひらく」から来たときの期間の絞り込み（仕様変更 #4）。
+   * キー名はダッシュボード側の `financeDashboard/period.ts`（`ledgerOpenQuery`）が
+   * 組み立てるものをそのまま受ける — `/revenues` の API パラメータ名と同じにしてあるので
+   * ここで読み替えは要らない。**既存の `project_id` 受け取りロジックの隣に実装**。
+   */
+  const filterFrom = searchParams.get('recognition_from') || '';
+  const filterTo = searchParams.get('recognition_to') || '';
+  const filterPeriodLabel = searchParams.get('period_label') || '';
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('sales', 'editor');
 
@@ -88,10 +97,11 @@ export default function RevenueListPage() {
   const appliedSearch = useDebounced(search.trim(), 300);
   const [page, setPage] = useState(1);
   const [chip, setChip] = useState('confirmed');
-  // 計上月。既定は今月。ただし案件の中で見ているとき (?project_id) は
-  // その案件の全月を見たいので「解除（全月）」を既定にする
+  // 計上月。既定は今月。ただし案件の中で見ているとき (?project_id) や、
+  // ダッシュボードの期間で絞り込んで来たとき (?recognition_from) は
+  // その絞り込みをそのまま使いたいので「解除（全月）」を既定にする
   const [month, setMonth] = useState(() => {
-    if (searchParams.get('project_id')) return '';
+    if (searchParams.get('project_id') || filterFrom) return '';
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
@@ -102,13 +112,16 @@ export default function RevenueListPage() {
   const cur = CHIPS.find((c) => c.key === chip) ?? CHIPS[0];
 
   const query = useQuery<RevenueListResponse>({
-    queryKey: ['revenues-all', page, appliedSearch, filterProjectId, month, cur.status, cur.state],
+    queryKey: ['revenues-all', page, appliedSearch, filterProjectId, month, cur.status, cur.state, filterFrom, filterTo],
     // ⚠️ `signal` を渡す（渡さないと、絞り込みを変えても前の重い通信が走り続ける）
     queryFn: async ({ signal }) => {
       const params: Record<string, string | number> = { page, limit: 20, status: cur.status };
       if (appliedSearch) params.search = appliedSearch;
       if (filterProjectId) params.project_id = filterProjectId;
       if (month) params.recognition_month = month;
+      // ダッシュボードから引き継いだ期間。`recognition_month` と両方入っていても
+      // AND で絞られるだけなので害はない（`server/.../list-query.ts` 参照）
+      if (filterFrom && filterTo) { params.recognition_from = filterFrom; params.recognition_to = filterTo; }
       if (cur.state) params.state = cur.state;
       return (await api.get('/revenues', { params, signal })).data;
     },
@@ -131,6 +144,11 @@ export default function RevenueListPage() {
       recognition_date: r.recognition_date,
       state: billingState(r),
       project_id: r.project_id,
+      // **検収は真偽フラグではなく `inspection_date`**（入っていれば済み・migration 140）。
+      // 済んだ行だけバッジを出す（`is_provisional` の「仮」タグと同じ「有るときだけ出す」流儀）
+      secondaryBadge: r.inspection_date
+        ? { label: '検収済', tone: 'ok', title: `${r.inspection_date} に検収` }
+        : null,
     })),
     [rows],
   );
@@ -182,6 +200,8 @@ export default function RevenueListPage() {
               search: appliedSearch || undefined,  // 画面の結果と書き出しの中身を揃える
               project_id: filterProjectId || undefined,
               recognition_month: month || undefined,
+              recognition_from: filterFrom || undefined,
+              recognition_to: filterTo || undefined,
               status: cur.status,
               state: cur.state || undefined,
             }}
@@ -195,6 +215,13 @@ export default function RevenueListPage() {
           projectName={filterProjectName}
           currentPage="revenues"
         />
+      )}
+
+      {/* 財務ダッシュボードの期間で絞り込んで来たときの案内（仕様変更 #4） */}
+      {filterFrom && (
+        <div className="rounded-card border border-border bg-card p-3 text-sub text-secondary-foreground lg:px-4">
+          {filterPeriodLabel || `${filterFrom} 〜 ${filterTo}`} で絞り込み中（財務ダッシュボードから）
+        </div>
       )}
 
       <div className="flex flex-wrap items-center gap-2">

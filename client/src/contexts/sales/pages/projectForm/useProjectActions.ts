@@ -43,6 +43,16 @@ export function useProjectActions({
   const invalidateProject = () => {
     qc.invalidateQueries({ queryKey: ['projects'] });
     qc.invalidateQueries({ queryKey: ['project', id] });
+    /**
+     * **GLS発番・付け替え・分類切替は `gls_number` / `gls_category` を変える。**
+     * 案件台帳（`ProjectLedgerPage`）はどちらも列に持ち、`project-ledger` という
+     * 別の鍵で読んでいるので、ここを落とさないと台帳だけ古い番号・古い分類の
+     * まま残る（`useProjectForm.ts` の保存と同じ形の反映漏れ）。
+     * `project-integrity` の「受注しているのに GLS 番号が無い」も
+     * `gls_number` を見ているので同じ理由で落とす。
+     */
+    qc.invalidateQueries({ queryKey: ['project-ledger'] });
+    qc.invalidateQueries({ queryKey: ['project-integrity'] });
   };
 
   /** 紐づけ先を選ぶための一覧。ダイアログを開いたときだけ引く */

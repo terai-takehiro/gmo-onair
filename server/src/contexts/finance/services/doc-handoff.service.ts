@@ -145,11 +145,14 @@ export async function handoffDoc(
       created = { kind: 'purchase', id };
     } else {
       const id = uuidv4();
+      // migration 268: 仕入 (上の分岐) と同じく `is_provisional=false` 固定。
+      // 承認済みの書類から作る行なので、金額は書類記載の値で確定している
+      // （「仮」は精算前の見込みのための状態で、ここには当てはまらない）
       await tx.execute(
         `INSERT INTO sga_expenses
            (id, billing_key, vendor_name, description, notes, recognition_date, payment_due_date,
-            tax_category, invoice_qualified, amount, expense_type, source, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 'staff', ?)`,
+            tax_category, invoice_qualified, amount, expense_type, source, is_provisional, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 'staff', false, ?)`,
         [id, generateSgaBillingKey(input.recognition_date, tax),
          input.vendor_name || String(doc.sender ?? '') || null,
          input.description || null,

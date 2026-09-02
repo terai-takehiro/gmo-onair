@@ -207,6 +207,37 @@ router.get('/', async (req, res) => {
       }
       // 明細が1件も無い売上にも空配列を入れる（以前と同じ形＝画面が `.map` できる）
       for (const row of rows as any[]) row.items = byRevenue.get(String(row.id)) ?? [];
+
+      /*
+       * ⚠️ **見積との差異検知（仕様変更 #13・#15）に使う2列を足す。**
+       *
+       * 見積から変換された売上には、サーバー側の制約（`estimate.service.ts`）が
+       * 及ばない — 財務台帳の `PUT /revenues/:id` は金額・明細を無条件に上書きできる
+       * （案件詳細の売上・請求ペインを編集可能にした今回の変更でも、あえてロックしない
+       * というご判断）。見積の値と食い違ったまま気づけないと困るので、差があれば
+       * 画面側に気づけるようにするための情報だけをここで足す（保存は止めない）。
+       *
+       * 対応は `estimates.revenue_id → revenues.id`（逆向きの参照）。同じ売上に
+       * 複数の見積行が紐づくことがある — 見積の版を重ねたあと受注し直すと、
+       * 新しい行を作らず前の版が作った売上をそのまま書き換える仕様のため
+       * (`convertToRevenue` の sibling 引き継ぎ)。**版が一番新しいものを「いまの元」
+       * とみなす**（DISTINCT ON で1売上につき1行に絞る）。
+       */
+      const linkedEstimates = await queryAll(
+        `SELECT DISTINCT ON (revenue_id) revenue_id, id, subtotal, discount
+           FROM estimates
+          WHERE revenue_id = ANY(?) AND deleted_at IS NULL
+          ORDER BY revenue_id, version DESC`,
+        [ids],
+      ) as { revenue_id: string; id: string; subtotal: number; discount: number }[];
+      const estimateByRevenue = new Map(linkedEstimates.map((e) => [String(e.revenue_id), e]));
+      for (const row of rows as any[]) {
+        const est = estimateByRevenue.get(String(row.id));
+        row.estimate_id = est?.id ?? null;
+        // 見積の合計 = 明細合計 (subtotal) − 値引き。`convertToRevenue` が
+        // revenues.amount に書き込む式そのまま（そちらと直接比較できる）
+        row.estimate_total_amount = est ? Number(est.subtotal) - Number(est.discount) : null;
+      }
     }
   }
 

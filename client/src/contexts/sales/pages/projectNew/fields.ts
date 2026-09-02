@@ -72,14 +72,17 @@ export interface NewProjectValues {
   customer_type: 'internal' | 'external';
   recurrence: 'single' | 'regular';
   /**
-   * レギュラー案件（シリーズ）が持つ4つの取り決め（migration 262・regular-series.md §3）。
-   * `recurrence === 'regular'` のときだけ意味を持つ（`RegularSeriesFields` が出し分ける）。
-   * 単発案件では使わないので、送るときも空のままなら NULL に落ちる（サーバー側）。
+   * レギュラー案件（シリーズ）が案件全体で1つだけ持つ取り決め
+   * （migration 262・regular-series.md §3）。`recurrence === 'regular'` のときだけ
+   * 意味を持つ（`RegularSeriesFields` が出し分ける）。単発案件では使わないので、
+   * 送るときも空のままなら NULL に落ちる（サーバー側）。
+   *
+   * ⚠️ **「1日あたりの本数」「回の単価」はここに無い**（仕様変更 #16・migration 269 で
+   * 案件全体の固定入力欄を廃止し、回（episodes）ごとの値にした。
+   * `EpisodesPanel.tsx`/`GenerateEpisodesForm.tsx` 側を参照）。
    */
   recording_cadence: RecordingCadence | '';
-  recording_per_day_count: string;
   fixed_studio_note: string;
-  episode_unit_price: string;
   billing_cycle: BillingCycle;
   /** 放送日オフセット（収録日+◯日）。migration 264・積み残し1。単発案件では使わない */
   broadcast_offset_days: string;
@@ -147,9 +150,7 @@ export const EMPTY_NEW_PROJECT: NewProjectValues = {
   // 見分けられない（shared/CLAUDE.md「NULL＝決めていない」）。billing_cycle だけは
   // サーバー側にも DB の既定値（'monthly_close'）があるので、それに合わせて出す
   recording_cadence: '',
-  recording_per_day_count: '',
   fixed_studio_note: '',
-  episode_unit_price: '',
   billing_cycle: 'monthly_close',
   broadcast_offset_days: '',
   stage: 'neta',

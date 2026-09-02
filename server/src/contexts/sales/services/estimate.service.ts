@@ -54,7 +54,12 @@ export interface EstimateItem {
   /** この行の終了日。任意・`item_date`（開始日）とセットで使う（migration 235） */
   item_date_end: string | null;
   /**
-   * 定価（カタログ選択時のみ入る。手入力の行は null。migration 261）。
+   * 定価（カタログ選択時に自動で入る。手入力の行は null。migration 261）。
+   *
+   * ⚠️ **グループ内案件（GPM）の見積だけ、画面から直接この値を書き換えられます**
+   * （仕様変更 #9・`client/.../EstimateItems.tsx` の `allowListPriceEdit`）。
+   * サーバー側はどちらの見積から来た値かを区別せず、そのまま保存するだけ —
+   * 案件（sales）向けの画面はこの欄を表示専用にしているので、渡ってくること自体が無い。
    *
    * ⚠️ **表示・PDF 印字専用。** 金額計算（`amount`・`estimates.subtotal`・
    * 売上変換）には一切混ぜない — 実際に課金する額は `unit_price` のまま。
@@ -68,6 +73,12 @@ export interface Estimate {
   submit_to?: string | null;
   id: string;
   project_id: string;
+  /**
+   * この見積が属する回（episodes.id）。`null` なら「案件全体の見積」（従来どおり・
+   * 単発案件は常に null）。レギュラー案件で回ごとに見積を分けたいときだけ入る
+   * （仕様変更 #18・migration 270）。GPM（プロジェクト）の見積は回を持たないので常に null
+   */
+  episode_id: string | null;
   customer_id: string | null;
   group_id: string;
   version: number;
@@ -106,7 +117,7 @@ export interface Estimate {
 }
 
 const SELECT_ESTIMATE = `
-  SELECT id, project_id, submit_to, customer_id, group_id, version, title, status,
+  SELECT id, project_id, episode_id, submit_to, customer_id, group_id, version, title, status,
          tax_category, subtotal, discount, valid_until,
          approval_state, approved_by, approved_at,
          sent_at, decided_at, revenue_id, notes, archived_at, created_at, updated_at
@@ -386,22 +397,39 @@ export const estimateService = {
     return row;
   },
 
+  /**
+   * その回（episode）がこの案件のものか確かめる。**別の案件の回は指定できない**
+   * ようにするための共通チェック（`create`・`duplicateToEpisode` の両方が使う）。
+   */
+  async assertEpisodeOfProject(episodeId: string, projectId: string): Promise<void> {
+    const episode = await queryOne(
+      `SELECT id FROM episodes WHERE id = $1 AND project_id = $2 AND deleted_at IS NULL`,
+      [episodeId, projectId],
+    );
+    if (!episode) throw new AppError(400, 'VALIDATION_ERROR', '指定した回がこの案件に見つかりません');
+  },
+
   /** 新しい見積 (v1) */
   async create(
     projectId: string,
-    data: { title?: string; customer_id?: string | null; tax_category?: string; valid_until?: string | null },
+    data: {
+      title?: string; customer_id?: string | null; tax_category?: string; valid_until?: string | null;
+      /** この見積を特定の回に紐づける（仕様変更 #18・migration 270）。省略・null は「案件全体の見積」 */
+      episode_id?: string | null;
+    },
     userId: string
   ): Promise<Estimate> {
     await assertCanEstimate(userId);
     // `customer_id` は companies.id（Phase 3-2a）を直接指すため、DB の FK は
     // 「顧客ロールの会社か」を保証しない（レビュー指摘・PR #199 P2 の2巡目）
     await assertCustomerCompanyId(data.customer_id);
+    if (data.episode_id) await this.assertEpisodeOfProject(data.episode_id, projectId);
     const id = uuidv4();
     await execute(
-      `INSERT INTO estimates (id, project_id, customer_id, group_id, version, title,
+      `INSERT INTO estimates (id, project_id, episode_id, customer_id, group_id, version, title,
          tax_category, valid_until, created_by, updated_by)
-       VALUES ($1, $2, $3, $1, 1, $4, $5, $6, $7, $7)`,
-      [id, projectId, data.customer_id ?? null, data.title ?? '',
+       VALUES ($1, $2, $3, $4, $1, 1, $5, $6, $7, $8, $8)`,
+      [id, projectId, data.episode_id ?? null, data.customer_id ?? null, data.title ?? '',
        data.tax_category ?? 'tax10', data.valid_until ?? null, userId]
     );
     return (await this.getById(id))!;
@@ -434,10 +462,12 @@ export const estimateService = {
     await execute(
       // **提出先も写す** (v4 大⑤)。写さないと、v2 を作った瞬間に
       // 「自社への見積」だったものが行き先の分からない見積になる
-      `INSERT INTO estimates (id, project_id, submit_to, customer_id, group_id, version, title,
+      // **`episode_id` も写す**（仕様変更 #18）。次の版は同じ商談・同じ回の書き直しなので、
+      // 版を上げただけで「案件全体の見積」に戻ってしまうと回ごとの一覧から消える
+      `INSERT INTO estimates (id, project_id, episode_id, submit_to, customer_id, group_id, version, title,
          tax_category, discount, valid_until, notes, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)`,
-      [id, from.project_id, from.submit_to, from.customer_id, from.group_id,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13)`,
+      [id, from.project_id, from.episode_id, from.submit_to, from.customer_id, from.group_id,
        Number(maxRow.v) + 1,
        from.title, from.tax_category, from.discount, from.valid_until, from.notes, userId]
     );
@@ -460,6 +490,57 @@ export const estimateService = {
        WHERE id = $1 AND status = 'sent'`,
       [fromId, userId]
     );
+    await recalc(id);
+    return (await this.getById(id))!;
+  },
+
+  /**
+   * ある見積の明細を写して、**別の回**向けの新しい見積 (v1・新しい `group_id`) を作る
+   * （仕様変更 #18・レギュラー案件で「先に作った回の見積をベースに、次の回の見積を作る」ため）。
+   *
+   * **`createNextVersion` とは別物。** 次の版は「同じ商談・同じ回の書き直し」なので
+   * `group_id` を保ち前の版を `superseded` にするが、こちらは**別の回の、独立した
+   * 新しい見積**（版の系列も切り離す・複製元は一切変更しない）。
+   *
+   * **明細はそのままコピーする。** `item_date`/`item_date_end`（スタジオ利用日・
+   * 機材の使用日など）は複製元の回の日付のまま入るため、多くの場合は複製後に
+   * 新しい回の実施日へ手直しが要る（ユーザー指示どおり・自動では調整しない — 何を
+   * 「正しい日付」とするかは収録形態によって変わり、機械的にずらすと誤った日付を
+   * 断定してしまう）。
+   */
+  async duplicateToEpisode(fromId: string, targetEpisodeId: string, userId: string): Promise<Estimate> {
+    const from = await this.getById(fromId);
+    if (!from) throw new AppError(404, 'NOT_FOUND', '複製元の見積が見つかりません');
+    // 複製も「作る」なので、作れない役割ではここも通さない
+    await assertCanEstimate(userId);
+    // **別の案件の回は指定できない。** 見積を渡り歩かせると、案件をまたいで
+    // 明細（単価・仕入見込み）が別の商談に紛れ込む
+    await this.assertEpisodeOfProject(targetEpisodeId, from.project_id);
+
+    const id = uuidv4();
+    await execute(
+      // **`group_id` は新しく発番** — 複製先は複製元と別系列の見積として扱う
+      // （複製元の版を重ねても複製先には影響しない・逆も同様）。
+      // 提出先・お客様・税区分・値引きは複製元の状態をそのまま初期値にする —
+      // 回が違うだけで取引の相手・税の扱いまで変わることは無いため
+      `INSERT INTO estimates (id, project_id, episode_id, submit_to, customer_id, group_id, version, title,
+         tax_category, discount, valid_until, notes, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, $5, $1, 1, $6, $7, $8, $9, $10, $11, $11)`,
+      [id, from.project_id, targetEpisodeId, from.submit_to, from.customer_id,
+       from.title, from.tax_category, from.discount, from.valid_until, from.notes, userId]
+    );
+    for (const it of from.items ?? []) {
+      await execute(
+        `INSERT INTO estimate_items (id, estimate_id, description, quantity, unit, unit_price,
+           list_unit_price, amount, cost, category, pricing_item_id, item_notes, item_date, item_date_end, sort_order)
+         SELECT $1, $2, description, quantity, unit, unit_price, list_unit_price, amount, cost, category,
+                pricing_item_id, item_notes, item_date, item_date_end, sort_order
+         FROM estimate_items WHERE id = $3`,
+        [uuidv4(), id, it.id]
+      );
+    }
+    // **複製元は一切触らない。** 「次の版をつくる」と違い、別の回の見積を
+    // 起こしただけなので、複製元の状態（送付済み・受注済み等）は変わらない
     await recalc(id);
     return (await this.getById(id))!;
   },
@@ -752,7 +833,16 @@ export const estimateService = {
     }
 
     const items = (await queryAll(
-      `SELECT description, quantity, unit_price, amount, category, pricing_item_id, item_notes, sort_order
+      // **`item_date`/`item_date_end` を売上の `period_start`/`period_end` に引き継ぐ**
+      // （仕様変更 #14/#19・実害: 見積の行ごとの開始日・終了日が変換後は必ず NULL になり、
+      // 検収書・請求書が案件全体の期間にすり替わってズレていた）。
+      // `item_date`/`item_date_end` は DATE 列なので、素通しで選ぶと pg が文字列ではなく
+      // Date を返す（`getById`/`estimate-pdf.service.ts` と同じ落とし穴）。`to_char` で
+      // 最初から `YYYY-MM-DD` の文字列にする — `revenue_items.period_start`/`period_end`
+      // は TEXT 列なので、この形のまま INSERT できる
+      `SELECT description, quantity, unit_price, amount, category, pricing_item_id, item_notes, sort_order,
+              to_char(item_date, 'YYYY-MM-DD') AS item_date,
+              to_char(item_date_end, 'YYYY-MM-DD') AS item_date_end
          FROM estimate_items WHERE estimate_id = $1 ORDER BY sort_order, created_at`,
       [id],
     )) as Record<string, unknown>[];
@@ -842,11 +932,16 @@ export const estimateService = {
         revenueId = sibling.r_id;
         const finalBillingKey = sibling.r_billing_key.replace(/-\d$/, `-${taxBillingSuffix(taxCategory)}`);
         await tx.execute(
+          // **`episode_id` も書き戻す**（仕様変更 #18）。前の版から登録した売上が
+          // まだ「案件全体」（NULL）のまま残っているとき、この版で回に紐づいたなら
+          // 売上・仕入台帳の回別集計にもそろえる。逆に見積側が NULL に戻っていたら
+          // 売上側も NULL に戻す（`estimate.episode_id` を正として合わせる）
           `UPDATE revenues SET billing_key=$2, customer_id=$3, tax_category=$4, amount=$5,
-             subtitle=$6, notes=$7, status='confirmed', updated_at=NOW(), updated_by=$8
+             subtitle=$6, notes=$7, episode_id=$8, status='confirmed', updated_at=NOW(), updated_by=$9
            WHERE id=$1`,
           [revenueId, finalBillingKey, customerId, taxCategory, amount,
-           (est.title as string) || null, (est.notes as string) || null, userId],
+           (est.title as string) || null, (est.notes as string) || null,
+           (est.episode_id as string | null) ?? null, userId],
         );
         // 明細は全置換 (DELETE→INSERT)。**この版の画面に入力欄が無い列
         // （単位・行ごとの仕入・仕入先・AI由来）は、消す前に読んで引き継ぐ**
@@ -858,11 +953,17 @@ export const estimateService = {
           const kept = carryover(it.description);
           await tx.execute(
             `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount,
-               category, pricing_item_id, item_notes, sort_order, unit, cost_amount, cost_vendor_id, is_ai_suggested)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+               category, pricing_item_id, item_notes, sort_order, unit, cost_amount, cost_vendor_id, is_ai_suggested,
+               period_start, period_end)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
             [uuidv4(), revenueId, it.description, it.quantity, it.unit_price, it.amount,
              it.category, it.pricing_item_id, it.item_notes, order++,
-             kept.unit, kept.cost_amount, kept.cost_vendor_id, kept.is_ai_suggested],
+             kept.unit, kept.cost_amount, kept.cost_vendor_id, kept.is_ai_suggested,
+             // period_start/period_end は「この版の見積が今どう入っているか」を写す
+             // （`category`/`item_notes` と同じ扱い — `kept`＝前の売上明細からの引き継ぎは
+             // 見積に無い列だけに使う。見積に既にある列を carryover で戻すと、見積側で
+             // 日付を消した／変えた編集が売上に反映されなくなる）
+             it.item_date, it.item_date_end],
           );
         }
         if (discount > 0 && items.length > 0) {
@@ -889,20 +990,25 @@ export const estimateService = {
         const billingKey = `${base}-${seqNum}-${taxBillingSuffix(taxCategory)}`;
 
         await tx.execute(
-          `INSERT INTO revenues (id, billing_key, project_id, customer_id, tax_category, amount,
+          // **`episode_id` も引き継ぐ**（仕様変更 #18）。回単位の見積から変換した売上・
+          // 請求は回で絞り込めないと、レギュラー案件の回別の実績（`revenues.episode_id`
+          // を読む台帳・回一覧の集計）に載らない。案件全体の見積（episode_id が null）は
+          // 今までどおり null のまま
+          `INSERT INTO revenues (id, billing_key, project_id, customer_id, episode_id, tax_category, amount,
              subtitle, notes, status, created_by, updated_by)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'confirmed', $9, $9)`,
-          [revenueId, billingKey, projectId, customerId, taxCategory, amount,
-           (est.title as string) || null, (est.notes as string) || null, userId],
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'confirmed', $10, $10)`,
+          [revenueId, billingKey, projectId, customerId, (est.episode_id as string | null) ?? null,
+           taxCategory, amount, (est.title as string) || null, (est.notes as string) || null, userId],
         );
         let order = 1;
         for (const it of items) {
           await tx.execute(
             `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount,
-               category, pricing_item_id, item_notes, sort_order)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+               category, pricing_item_id, item_notes, sort_order, period_start, period_end)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
             [uuidv4(), revenueId, it.description, it.quantity, it.unit_price, it.amount,
-             it.category, it.pricing_item_id, it.item_notes, order++],
+             it.category, it.pricing_item_id, it.item_notes, order++,
+             it.item_date, it.item_date_end],
           );
         }
         /*

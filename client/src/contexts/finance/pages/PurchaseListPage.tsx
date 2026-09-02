@@ -38,6 +38,7 @@ import { LedgerFooter, LedgerSearch, MonthPicker } from './ledger/LedgerParts';
 import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth';
 import { LedgerTabs } from './ledger/LedgerTabs';
 import { PurchaseDialog, type PurchaseProjectOption } from './ledger/PurchaseDialog';
+import { settlementState } from './ledger/settlementState';
 import type { LedgerRow, PurchaseRow } from './ledger/types';
 
 const CHIPS = [
@@ -47,15 +48,13 @@ const CHIPS = [
   { key: 'nourl', label: '申請URLなし', state: 'nourl' },
 ];
 
-/** 「仮」かどうか。**確定は印を出さない**（全部に印が付くと印の意味が消える） */
+/**
+ * 申請ステータス（仮 / 確定：未申請 / 確定：申請済）。**販管費と共通のロジック**
+ * （`ledger/settlementState.ts`）。申請URLへの遷移はこのバッジではなく
+ * 台帳の行・ダイアログの別ボタン（外部リンクアイコン）で行う（仕様変更 #4・#6・#7）
+ */
 function purchaseState(p: PurchaseRow): LedgerRow['state'] {
-  if (p.is_provisional) {
-    return { label: '仮', tone: 'warn', title: 'まだ金額が確定していません。精算が通ると確定に変わります' };
-  }
-  if (p.settlement_url) {
-    return { label: '確定', tone: 'ok', to: p.settlement_url, title: '精算ページを開く' };
-  }
-  return { label: '確定', tone: 'ok', title: '申請URLが登録されていません' };
+  return settlementState(p.is_provisional, p.settlement_number);
 }
 
 export default function PurchaseListPage() {
@@ -63,6 +62,15 @@ export default function PurchaseListPage() {
   const [searchParams] = useSearchParams();
   const filterProjectId = searchParams.get('project_id') || '';
   const filterProjectName = searchParams.get('project_name') || '';
+  /*
+   * 財務ダッシュボードの「台帳をひらく」から来たときの期間の絞り込み（仕様変更 #4）。
+   * キー名はダッシュボード側の `financeDashboard/period.ts`（`ledgerOpenQuery`）が
+   * 組み立てるものをそのまま受ける — `/purchases` の API パラメータ名と同じにしてあるので
+   * ここで読み替えは要らない。**既存の `project_id` 受け取りロジックの隣に実装**。
+   */
+  const filterFrom = searchParams.get('recognition_from') || '';
+  const filterTo = searchParams.get('recognition_to') || '';
+  const filterPeriodLabel = searchParams.get('period_label') || '';
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('sales', 'editor');
 
@@ -70,7 +78,7 @@ export default function PurchaseListPage() {
   const [tab, setTab] = useState<'var' | 'fix'>('var');
   const [chip, setChip] = useState('all');
   const [month, setMonth] = useState(() => {
-    if (searchParams.get('project_id')) return '';
+    if (searchParams.get('project_id') || filterFrom) return '';
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
@@ -83,6 +91,10 @@ export default function PurchaseListPage() {
     extraParams: {
       project_id: filterProjectId || undefined,
       recognition_month: month || undefined,
+      // ダッシュボードから引き継いだ期間。`recognition_month` と両方入っていても
+      // AND で絞られるだけなので害はない（`server/.../list-query.ts` 参照）
+      recognition_from: filterFrom || undefined,
+      recognition_to: filterTo || undefined,
       fixed_cost: tab === 'fix' ? '1' : '0',
       state: cur.state || undefined,
     },
@@ -124,6 +136,7 @@ export default function PurchaseListPage() {
       recognition_date: p.recognition_date,
       state: purchaseState(p),
       project_id: p.project_id,
+      settlement_url: p.settlement_url,
     })),
     [items],
   );
@@ -165,6 +178,8 @@ export default function PurchaseListPage() {
               search: crud.appliedSearch || undefined,  // 画面の結果と書き出しの中身を揃える
               project_id: filterProjectId || undefined,
               recognition_month: month || undefined,
+              recognition_from: filterFrom || undefined,
+              recognition_to: filterTo || undefined,
               fixed_cost: tab === 'fix' ? '1' : '0',
               state: cur.state || undefined,
             }}
@@ -184,6 +199,13 @@ export default function PurchaseListPage() {
           projectName={filterProjectName}
           currentPage="purchases"
         />
+      )}
+
+      {/* 財務ダッシュボードの期間で絞り込んで来たときの案内（仕様変更 #4） */}
+      {filterFrom && (
+        <div className="rounded-card border border-border bg-card p-3 text-sub text-secondary-foreground lg:px-4">
+          {filterPeriodLabel || `${filterFrom} 〜 ${filterTo}`} で絞り込み中（財務ダッシュボードから）
+        </div>
       )}
 
       <LedgerTabs
@@ -271,7 +293,7 @@ export default function PurchaseListPage() {
           <LedgerFooter
             count={crud.pagination?.total ?? items.length}
             total={raw?.total_amount ?? 0}
-            note="「仮」は金額が確定していない見込みです。精算が通ると確定に変わります。確定した行の状態を押すと精算ページを開きます（申請URLを入れてあるときだけ）。"
+            note="「仮」は金額が確定していない見込みです。精算が通ると確定に変わり、精算番号が入ると「申請済」になります。申請URLを入れてある行は外部リンクのボタンから精算ページを開けます。"
           />
 
           <Pagination
