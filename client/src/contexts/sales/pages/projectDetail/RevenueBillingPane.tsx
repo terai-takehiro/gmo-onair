@@ -80,7 +80,7 @@ import type { PurchaseRow } from '@/contexts/finance/pages/ledger/types';
 import type { Vendor } from '@gmo-onair/shared/src/types';
 import {
   financeLedgerHref, FinanceLedgerLink, SameDataNote, DocButtons,
-  REV_STATUS_LABEL, REV_STATUS_TONE, invoiceState, estimateMismatch, EstimateMismatchNote,
+  REV_STATUS_LABEL, REV_STATUS_TONE, invoiceState, estimateMismatch, EstimateMismatchNote, GroupRevenueNote,
   type ListResponse, type PaneRevenue,
 } from './revenueBillingParts';
 
@@ -197,13 +197,14 @@ export function RevenueBillingPane({ projectId, projectName, mobile }: { project
                           {r.recognition_date?.slice(0, 7).replace('-', '/') ?? '—'}
                         </span>
                         {mismatch !== null && <EstimateMismatchNote estimateTotal={mismatch} />}
+                        {r.group_id && <GroupRevenueNote />}
                       </span>
                       <TableBadge w={null} label={REV_STATUS_LABEL[r.status] ?? r.status}
                         className={cn('shrink-0', REV_STATUS_TONE[r.status] ?? REV_STATUS_TONE.estimate)} />
                     </div>
                     <div className="flex items-center justify-between gap-2">
                       <Money value={r.amount} className="text-list font-bold" />
-                      <DocButtons revenueId={r.id} onEdit={canEditRevenue ? () => setEditingRevenue(r) : undefined} />
+                      <DocButtons revenueId={r.id} onEdit={canEditRevenue && !r.group_id ? () => setEditingRevenue(r) : undefined} />
                     </div>
                   </div>
                 );
@@ -227,11 +228,12 @@ export function RevenueBillingPane({ projectId, projectName, mobile }: { project
                   <RowMain>
                     <span className="text-list block truncate">{r.subtitle || r.notes || '（内容未設定）'}</span>
                     {mismatch !== null && <EstimateMismatchNote estimateTotal={mismatch} />}
+                    {r.group_id && <GroupRevenueNote />}
                   </RowMain>
                   <RowSlot w={96}><span className="text-sub font-number">{r.recognition_date?.slice(0, 7).replace('-', '/') ?? '—'}</span></RowSlot>
                   <Money value={r.amount} className="text-sub w-32 shrink-0" />
                   <TableBadge w={96} label={REV_STATUS_LABEL[r.status] ?? r.status} className={REV_STATUS_TONE[r.status] ?? REV_STATUS_TONE.estimate} />
-                  <DocButtons revenueId={r.id} onEdit={canEditRevenue ? () => setEditingRevenue(r) : undefined} />
+                  <DocButtons revenueId={r.id} onEdit={canEditRevenue && !r.group_id ? () => setEditingRevenue(r) : undefined} />
                 </Row>
               );
             })}

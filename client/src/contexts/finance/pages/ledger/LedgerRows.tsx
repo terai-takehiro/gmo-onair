@@ -33,7 +33,7 @@
  * （PC の列と二重に出さない）。
  */
 import { useNavigate } from 'react-router-dom';
-import { ArrowUpRight, ExternalLink } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
@@ -116,21 +116,14 @@ export function LedgerRows({
                     />
                   </span>
                 )}
-                {/* 案件へのリンク。`RowMain` は PC・スマホ両方の描画で1回しか出ないので
-                    ここに置く（列を増やすと PC 専用になり、スマホでは押せなくなる）。
-                    `onOpen` は編集者では編集ダイアログを開いてしまい行から案件へ行けないため、
-                    行き先を固定するボタンを別に持つ */}
-                {r.project_id && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); navigate(`/sales/projects/${r.project_id}`); }}
-                    title="案件を開く"
-                    aria-label="案件を開く"
-                    className="v4-tap shrink-0 text-muted-foreground hover:text-primary"
-                  >
-                    <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-                  </button>
-                )}
+                {/* ⚠️ **案件へのリンク（案件を開く ↗）はここに置かない。**
+                    v4 では「編集者は行を押すと編集ダイアログが開くので案件へ行けない」を
+                    理由に矢印ボタンを置いていたが、**利用者の要望（9/2 仕様変更）で
+                    台帳から消した** — 行に押せるものが3つ並んで読みにくく、案件へは
+                    案件管理から入る運用にそろえたため。復活させないこと。
+                    案件で絞り込んで来たときは画面上部の `ProjectQuickLinks` が案件詳細への
+                    行き先を持ち、閲覧のみ権限のときは行を押すと案件詳細へ移る
+                    （`RevenueListPage` / `PurchaseListPage` の `onOpen`）。 */}
                 {/* 申請URL（仕入・販管費だけ）。**行クリック（onOpen）とは別のリンク**なので
                     ここで止める。外部サイトなので新しいタブで開く（仕様変更 #4・#6・#7） */}
                 {r.settlement_url && (

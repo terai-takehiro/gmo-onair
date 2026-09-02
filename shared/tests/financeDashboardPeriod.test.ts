@@ -15,8 +15,13 @@ import {
   resolvePeriod,
   summaryPeriodParams,
   ledgerPeriodParams,
+  ledgerOpenQuery,
   type PeriodInput,
 } from '../../client/src/contexts/finance/pages/financeDashboard/period';
+import {
+  singleMonthOf,
+  ledgerPeriodFromUrl,
+} from '../../client/src/contexts/finance/pages/ledger/ledgerUrlPeriod';
 
 const base: PeriodInput = {
   mode: 'month', month: '2026-08', year: 2026, quarter: 3,
@@ -96,5 +101,107 @@ describe('送るパラメータ', () => {
     expect(ledgerPeriodParams(p)).toEqual({});
     // 呼び出し側の `enabled` は `valid` を見る。**`!!from` では `'-01'` を通してしまう**
     expect(p.valid).toBe(false);
+  });
+});
+
+/*
+ * ── ダッシュボード → 台帳 の受け渡し（9/2 仕様変更・F4）─────────────
+ *
+ * ⚠️ **ここが食い違っても画面はエラーを出しません。**
+ * 台帳は期間で絞れてはいるのに「計上月」の欄が空のままで、利用者からは
+ * 「何で絞られているのか分からない」としか見えませんでした
+ * （ユーザー報告「月で絞り込んで台帳を開くと、計上月の部分に表示がされていない」）。
+ *
+ * 直し方は「単月なら計上月の欄に入れ、from/to は落とす」。
+ * `recognition_date` は TEXT の `YYYY-MM-DD` なので、サーバー側の
+ * `LIKE '2026-04-%'` と `>= '2026-04-01' AND <= '2026-04-30'` は同じ集合を指し、
+ * **絞り込みの結果は1件も変わりません**（`server/.../finance/list-query.ts`）。
+ * だから「月の欄に入れてよいのは、ちょうど1つの月に収まるときだけ」を固定します。
+ */
+describe('singleMonthOf', () => {
+  it('月初から実在の月末までなら、その月を返す', () => {
+    expect(singleMonthOf('2026-08-01', '2026-08-31')).toBe('2026-08');
+    expect(singleMonthOf('2026-09-01', '2026-09-30')).toBe('2026-09');   // 30日の月
+    expect(singleMonthOf('2028-02-01', '2028-02-29')).toBe('2028-02');   // うるう年
+    expect(singleMonthOf('2026-02-01', '2026-02-28')).toBe('2026-02');
+  });
+
+  it('1つの月に収まらない・半端な範囲は空（＝月の欄に入れない）', () => {
+    expect(singleMonthOf('2026-04-01', '2026-06-30')).toBe('');   // 四半期
+    expect(singleMonthOf('2026-01-01', '2026-12-31')).toBe('');   // 年
+    expect(singleMonthOf('2026-04-01', '2026-04-29')).toBe('');   // 月末まで無い
+    expect(singleMonthOf('2026-04-02', '2026-04-30')).toBe('');   // 月初から無い
+    // 実在しない月末（以前はダッシュボードが `-31` を組み立てていた）も入れない
+    expect(singleMonthOf('2026-09-01', '2026-09-31')).toBe('');
+    expect(singleMonthOf('2026-13-01', '2026-13-31')).toBe('');
+    expect(singleMonthOf('', '')).toBe('');
+    expect(singleMonthOf('2026-04', '2026-04')).toBe('');
+  });
+});
+
+describe('ledgerPeriodFromUrl', () => {
+  it('単月で来たら計上月の欄に入れ、期間（from/to）は持たない', () => {
+    const p = resolvePeriod(base);
+    const got = ledgerPeriodFromUrl(p.from, p.to, p.label, false, false);
+    expect(got.month).toBe('2026-08');
+    expect(got.range).toBeNull();
+    expect(got.handoff).toEqual({ kind: 'month', label: p.label });
+  });
+
+  it('四半期・年は月の欄に入れず期間として持つ（嘘の月を出さない）', () => {
+    const q = resolvePeriod({ ...base, mode: 'quarter', quarter: 2 });
+    const got = ledgerPeriodFromUrl(q.from, q.to, q.label, false, false);
+    expect(got.month).toBe('');
+    expect(got.range).toEqual({ from: '2026-04-01', to: '2026-06-30', label: q.label });
+    expect(got.handoff?.kind).toBe('range');
+  });
+
+  it('全期間で来たら「全月」で開く（黙って今月にしない）', () => {
+    const got = ledgerPeriodFromUrl('', '', '全期間', true, false);
+    expect(got).toMatchObject({ month: '', range: null, handoff: { kind: 'all', label: '全期間' } });
+  });
+
+  it('期間なしで来たとき: 案件で絞っていれば全月、そうでなければ今月', () => {
+    expect(ledgerPeriodFromUrl('', '', '', false, true)).toMatchObject({ month: '', handoff: null });
+    const d = new Date();
+    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    expect(ledgerPeriodFromUrl('', '', '', false, false)).toMatchObject({ month: ym, handoff: null });
+  });
+
+  it('月と期間を同時には持たない（サーバーが AND で合成して0件になるため）', () => {
+    for (const p of [
+      resolvePeriod(base),
+      resolvePeriod({ ...base, mode: 'quarter' }),
+      resolvePeriod({ ...base, mode: 'year' }),
+      resolvePeriod({ ...base, mode: 'all' }),
+    ]) {
+      const got = ledgerPeriodFromUrl(p.from, p.to, p.label, p.all, false);
+      expect(!!got.month && !!got.range, p.label).toBe(false);
+    }
+  });
+});
+
+describe('ledgerOpenQuery（「台帳をひらく」の URL）', () => {
+  it('月で見ていたときは、台帳の計上月の欄にその月が入る', () => {
+    const q = new URLSearchParams(ledgerOpenQuery(resolvePeriod(base)));
+    expect(q.get('recognition_from')).toBe('2026-08-01');
+    expect(q.get('recognition_to')).toBe('2026-08-31');
+    // ⚠️ ここが今回の要望。URL を台帳側の読み取りに通すと月が埋まる
+    expect(ledgerPeriodFromUrl(
+      q.get('recognition_from') ?? '', q.get('recognition_to') ?? '',
+      q.get('period_label') ?? '', q.get('period_all') === '1', false,
+    ).month).toBe('2026-08');
+  });
+
+  it('全期間は `period_all=1` を載せる（載せないと台帳が既定の今月で開く）', () => {
+    const q = new URLSearchParams(ledgerOpenQuery(resolvePeriod({ ...base, mode: 'all' })));
+    expect(q.get('period_all')).toBe('1');
+    expect(q.get('period_label')).toBe('全期間');
+    // 台帳 API へ送る条件は増やさない（`period_all` は URL だけの鍵）
+    expect(q.get('recognition_from')).toBeNull();
+  });
+
+  it('月が未入力（valid=false）のときは何も載せない', () => {
+    expect(ledgerOpenQuery(resolvePeriod({ ...base, month: '' }))).toBe('');
   });
 });

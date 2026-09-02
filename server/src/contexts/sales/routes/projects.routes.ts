@@ -208,7 +208,9 @@ router.get('/:id/next-gls', requirePermission('sales', 'reader'), async (req, re
 });
 
 // GLS発番（受注に上げると `PATCH /:id/stage` から自動で呼ばれる。
-// この口は「口頭決定のうちに先に番号が要る」ときのために残してある）
+// この口は「見積を出すのに先に番号が要る」ときのために残してある。
+// **見積提案（C）以降だけ**通り、発番してもステージは上げない —
+// 境界と理由は `project.service.ts` の `GLS_BLOCKED_STAGES`）
 router.post('/:id/issue-gls', requirePermission('sales', 'editor'), async (req, res) => {
   const result = await projectService.issueGls(req.params.id as string, req.body, req.user!.id);
   res.json({ success: true, data: result });

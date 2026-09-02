@@ -17,6 +17,7 @@ import { taxBillingSuffix, normalizeTaxCategory, TAX_RATE_LABELS, toIncludedAmou
 import { loadRevenueItemCarryover } from '../services/revenue-item-carryover.service';
 import { BILLING_STATE_SQL } from '../../../shared/services/billing-state';
 import { assertCustomerCompanyId } from '../../../shared/services/company-directory.service';
+import { assignInvoiceNumbers } from '../services/invoice-number.service';
 
 const router = Router();
 
@@ -479,6 +480,16 @@ router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
 
   const isAdvancePayment = is_advance_payment ? true : false;
   const invoiceIssued = invoice_issued ? true : false;
+  /*
+   * ⚠️ **見込み (`status='estimate'`) では「請求書発行済」で登録させない。**
+   * `PUT /:id` と `PATCH /billing/invoices/:id` は同じ検査を持っているので、
+   * ここだけ通すと**新規登録が抜け道**になります（見込みのまま発行済みの行は
+   * 請求の一覧に出ないため、立ったことに誰も気づけません）。
+   */
+  if (invoiceIssued && revenueStatus !== 'confirmed') {
+    throw new AppError(400, 'VALIDATION_ERROR',
+      '確定した売上だけ請求書の発行を記録できます（見込みの行は対象外です）');
+  }
 
   /*
    * ⚠️ **支払期日は設定から埋める**（レビューでの指摘 #63 の周辺で分かったこと）。
@@ -549,6 +560,22 @@ router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
     }
   });
 
+  /*
+   * **新規でも、請求書を出した状態で登録したら番号を採る**。
+   * `PUT /:id`・`PATCH /billing/invoices/:id`・月次の一括発行と**同じ経路**を通します —
+   * ここだけ採らないと「請求書発行済」で登録した行が請求の一覧に
+   * **「番号未採番」で並び、入口で結果が変わります**。
+   *
+   * **取引の外（コミット後）で呼ぶのが作法**です。`assignInvoiceNumbers` は
+   * 自分で1件ずつ取引を張り、対象行を `FOR UPDATE` で押さえてから
+   * `sequences` を進めるため、コミット前に呼ぶと自分が入れた行を見つけられません。
+   * すでに番号があれば飛ばすので、二重採番も番号の飛びも起きません。
+   */
+  if (invoiceIssued) {
+    await assignInvoiceNumbers([id]);
+  }
+
+  // 採番の**あとで**読み直す（返す行に `invoice_no` が入るようにするため）
   const row = await queryOne('SELECT * FROM revenues WHERE id = ?', [id]);
   res.status(201).json({ success: true, data: row });
 });
@@ -564,7 +591,9 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
     throw new AppError(400, 'REVENUE_IN_ALLOCATION_GROUP',
       'この売上は配分グループに入っています。費用を分け合うグループの画面（案件管理 > 費用を分け合うグループ）から編集してください');
   }
-  const { billing_key, project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle, is_advance_payment, invoice_issued } = req.body;
+  // 請求キーはサーバーが組み立てる値なので、`req.body.billing_key` は受け取らない
+  // (下の `finalBillingKey` が `existing.billing_key` から作る。取り出すだけで使っていなかった)
+  const { project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle, is_advance_payment, invoice_issued } = req.body;
   // **実際に変わったときだけ確かめる**（レビュー指摘・PR #199 P2 の2巡目 → #201 P1 で
   // 「渡されただけで再検証」の穴を修正。project.service.ts の update() と同じ判断）—
   // 画面は他の項目を直すときも今の customer_id を送り直すので、変化の有無を見ないと
@@ -600,6 +629,21 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
 
   const isAdvancePayment = is_advance_payment !== undefined ? (is_advance_payment ? true : false) : existing.is_advance_payment;
   const invoiceIssued = invoice_issued !== undefined ? (invoice_issued ? true : false) : existing.invoice_issued;
+  /*
+   * ⚠️ **見込み (`status='estimate'`) の売上に「請求書発行済」を立てさせない。**
+   *
+   * 同じ列を書くもう1つの口 (`PATCH /billing/invoices/:id`) は
+   * 「確定した売上だけ」で弾いています (レビューでの指摘 #53) が、**こちらには
+   * その検査がありませんでした**。案件詳細の売上・請求ペインは見込みの行も
+   * 並べるので、そこから直せるようにした途端に**この口が抜け道**になります。
+   * 一覧はその状態の行を請求として出さないため、立ったことに誰も気づけません。
+   *
+   * **取り消し (false) は止めません** — 間違って立った印を消せなくなるため。
+   */
+  if (invoice_issued !== undefined && invoiceIssued && !existing.invoice_issued && existing.status !== 'confirmed') {
+    throw new AppError(400, 'VALIDATION_ERROR',
+      '確定した売上だけ請求書の発行を記録できます（見込みの行は対象外です）');
+  }
 
   // 本体 UPDATE + 明細の全置換 (DELETE→INSERT) を単一トランザクションで実行する。
   // トランザクション無しだと DELETE 後の INSERT が途中失敗したとき明細が全損するため。
@@ -638,6 +682,17 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
       }
     }
   });
+
+  /*
+   * **請求書を出した瞬間に番号を採る** (migration 163)。
+   * `PATCH /billing/invoices/:id` と同じ扱いにそろえます — こちらだけ採らないと、
+   * 案件詳細・財務台帳のダイアログで「請求書発行済」にした行が
+   * **請求の一覧に「番号未採番」で並びます**（同じ操作なのに入口で結果が変わる）。
+   * すでに番号があれば飛ばすので、取り消して出し直しても番号は変わりません。
+   */
+  if (invoiceIssued && !existing.invoice_issued) {
+    await assignInvoiceNumbers([String(req.params.id)]);
+  }
 
   // 売上/概算見積更新時: 案件の想定金額を同期（estimateでも常に最新値で上書き）
   const finalProjectId = project_id || existing.project_id;

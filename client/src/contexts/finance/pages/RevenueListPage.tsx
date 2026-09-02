@@ -33,7 +33,8 @@ import { useAuth } from '@/contexts/platform/AuthContext';
 import ExcelToolbar from '@/components/ExcelToolbar';
 import ProjectQuickLinks from '@/contexts/shared/components/ProjectQuickLinks';
 import { LedgerRows } from './ledger/LedgerRows';
-import { LedgerFooter, LedgerSearch, MonthPicker } from './ledger/LedgerParts';
+import { LedgerFooter, LedgerSearch, MonthPicker, LedgerPeriodNotice } from './ledger/LedgerParts';
+import { useLedgerUrlPeriod } from './ledger/useLedgerUrlPeriod';
 import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth';
 import { RevenueDialog } from './ledger/RevenueDialog';
 import type { LedgerRow, RevenueRow } from './ledger/types';
@@ -76,15 +77,6 @@ export default function RevenueListPage() {
   const [searchParams] = useSearchParams();
   const filterProjectId = searchParams.get('project_id') || '';
   const filterProjectName = searchParams.get('project_name') || '';
-  /*
-   * 財務ダッシュボードの「台帳をひらく」から来たときの期間の絞り込み（仕様変更 #4）。
-   * キー名はダッシュボード側の `financeDashboard/period.ts`（`ledgerOpenQuery`）が
-   * 組み立てるものをそのまま受ける — `/revenues` の API パラメータ名と同じにしてあるので
-   * ここで読み替えは要らない。**既存の `project_id` 受け取りロジックの隣に実装**。
-   */
-  const filterFrom = searchParams.get('recognition_from') || '';
-  const filterTo = searchParams.get('recognition_to') || '';
-  const filterPeriodLabel = searchParams.get('period_label') || '';
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('sales', 'editor');
 
@@ -97,14 +89,13 @@ export default function RevenueListPage() {
   const appliedSearch = useDebounced(search.trim(), 300);
   const [page, setPage] = useState(1);
   const [chip, setChip] = useState('confirmed');
-  // 計上月。既定は今月。ただし案件の中で見ているとき (?project_id) や、
-  // ダッシュボードの期間で絞り込んで来たとき (?recognition_from) は
-  // その絞り込みをそのまま使いたいので「解除（全月）」を既定にする
-  const [month, setMonth] = useState(() => {
-    if (searchParams.get('project_id') || filterFrom) return '';
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  });
+  /*
+   * 計上月と、財務ダッシュボードから引き継いだ期間（仕様変更 #4）。
+   * **単月で来たら計上月の欄に入り、月に収まらない期間は `range` で持つ**（排他）。
+   * 理由と変換規則は `ledger/ledgerUrlPeriod.ts`（3台帳で共通）。
+   */
+  const period = useLedgerUrlPeriod(searchParams);
+  const { month, range, setMonth } = period;
 
   /** 開いているダイアログ。`'new'` は新規、行なら編集 */
   const [editing, setEditing] = useState<RevenueRow | 'new' | null>(null);
@@ -112,16 +103,16 @@ export default function RevenueListPage() {
   const cur = CHIPS.find((c) => c.key === chip) ?? CHIPS[0];
 
   const query = useQuery<RevenueListResponse>({
-    queryKey: ['revenues-all', page, appliedSearch, filterProjectId, month, cur.status, cur.state, filterFrom, filterTo],
+    queryKey: ['revenues-all', page, appliedSearch, filterProjectId, month, cur.status, cur.state, range?.from ?? '', range?.to ?? ''],
     // ⚠️ `signal` を渡す（渡さないと、絞り込みを変えても前の重い通信が走り続ける）
     queryFn: async ({ signal }) => {
       const params: Record<string, string | number> = { page, limit: 20, status: cur.status };
       if (appliedSearch) params.search = appliedSearch;
       if (filterProjectId) params.project_id = filterProjectId;
       if (month) params.recognition_month = month;
-      // ダッシュボードから引き継いだ期間。`recognition_month` と両方入っていても
-      // AND で絞られるだけなので害はない（`server/.../list-query.ts` 参照）
-      if (filterFrom && filterTo) { params.recognition_from = filterFrom; params.recognition_to = filterTo; }
+      // 月に収まらない期間で来たときだけ from/to を送る。**月とは排他**
+      // （サーバーは AND で合成するので、両方送ると交差して0件になる）
+      if (range) { params.recognition_from = range.from; params.recognition_to = range.to; }
       if (cur.state) params.state = cur.state;
       return (await api.get('/revenues', { params, signal })).data;
     },
@@ -200,8 +191,8 @@ export default function RevenueListPage() {
               search: appliedSearch || undefined,  // 画面の結果と書き出しの中身を揃える
               project_id: filterProjectId || undefined,
               recognition_month: month || undefined,
-              recognition_from: filterFrom || undefined,
-              recognition_to: filterTo || undefined,
+              recognition_from: range?.from,
+              recognition_to: range?.to,
               status: cur.status,
               state: cur.state || undefined,
             }}
@@ -218,11 +209,7 @@ export default function RevenueListPage() {
       )}
 
       {/* 財務ダッシュボードの期間で絞り込んで来たときの案内（仕様変更 #4） */}
-      {filterFrom && (
-        <div className="rounded-card border border-border bg-card p-3 text-sub text-secondary-foreground lg:px-4">
-          {filterPeriodLabel || `${filterFrom} 〜 ${filterTo}`} で絞り込み中（財務ダッシュボードから）
-        </div>
-      )}
+      <LedgerPeriodNotice period={period} />
 
       <div className="flex flex-wrap items-center gap-2">
         <LedgerSearch
@@ -251,6 +238,8 @@ export default function RevenueListPage() {
             activeFilters={[
               cur.key !== 'all' ? `絞り込み: ${cur.label}` : '',
               month ? `計上月: ${month}` : '',
+              // 期間で絞り込んで来たときも「なぜ0件か」が読めるようにする
+              range ? `期間: ${range.label || range.from}` : '',
             ].filter(Boolean)}
             onClearFilters={() => { setSearch(''); setChip('all'); setMonth(''); reset(); }}
           />

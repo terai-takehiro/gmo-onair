@@ -76,6 +76,24 @@ export interface RevenueRow {
   project_id: string;
   project_name: string | null;
   gls_number: string | null;
+  /**
+   * 請求先の会社（`companies.id`）。**サーバーは前から返しています** —
+   * `GET /revenues` も `GET /revenues/:id` も `SELECT r.*` なので、
+   * ここに書いていなかっただけで実データには載っていました。
+   *
+   * ⚠️ **この1行が抜けていたせいで案件詳細から売上を保存できませんでした。**
+   * 編集ダイアログは必須項目である顧客IDをこの型から取れず、代わりに
+   * **案件名で `/projects` を引き直した結果**から取っていたため、その検索が
+   * 空振りする行（受注前・見込み）では「更新」ボタンが灰色のままでした
+   * （`useRevenueEditTarget.ts` 冒頭の説明）。
+   */
+  customer_id: string | null;
+  /**
+   * 紐づく回（レギュラー案件・migration 269/270）。`null` なら案件直下の売上。
+   * **保存のたびに送り直す値**なので型に無いと `null` で上書きされ、
+   * 回との紐づきが黙って外れます（`RevenueDialog.tsx` の初期値で使う）。
+   */
+  episode_id: string | null;
   customer_name: string | null;
   event_end: string | null;
   amount: number;

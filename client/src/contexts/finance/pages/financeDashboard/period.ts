@@ -108,12 +108,17 @@ export function ledgerPeriodParams(period: Period): Record<string, string> {
  * 読み替えずにそのまま `/revenues` 等へ渡すだけで済み、キー名の対応表を
  * 別に持たずに済む（`ledgerPeriodParams` と1つの実装を共有）。
  *
- * 案件で絞り込んでいるときは `project_id`／`project_name` も足す。**全期間**
- * （`period.all`）のときは期間のキーを何も足さない — 台帳側の既定（絞らない）と
- * 同じ意味になるので、わざわざ空文字を送る理由が無い。
+ * 案件で絞り込んでいるときは `project_id`／`project_name` も足す。
+ *
+ * ⚠️ **全期間**（`period.all`）のときは `period_all=1` を足す。台帳 API へ渡す
+ * 条件は無い（`ledgerPeriodParams` は空）が、**URL には意思として残す**必要がある
+ * — 何も付けないと台帳は既定の「今月」で開き、全期間の集計から飛んだのに今月ぶん
+ * しか出ず、ダッシュボードで見ていた金額と合わない。`period_all` は URL だけの鍵で、
+ * 台帳 API には送らない（受け取り側は `ledger/ledgerUrlPeriod.ts`）。
  */
 export function ledgerOpenQuery(period: Period, projectId?: string, projectName?: string): string {
   const params: Record<string, string> = ledgerPeriodParams(period);
+  if (period.all) params.period_all = '1';
   if (Object.keys(params).length > 0) params.period_label = period.label;
   if (projectId) params.project_id = projectId;
   if (projectName) params.project_name = projectName;

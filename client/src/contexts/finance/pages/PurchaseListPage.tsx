@@ -34,7 +34,8 @@ import ExcelToolbar from '@/components/ExcelToolbar';
 import ProjectQuickLinks from '@/contexts/shared/components/ProjectQuickLinks';
 import type { Vendor } from '@/types';
 import { LedgerRows } from './ledger/LedgerRows';
-import { LedgerFooter, LedgerSearch, MonthPicker } from './ledger/LedgerParts';
+import { LedgerFooter, LedgerSearch, MonthPicker, LedgerPeriodNotice } from './ledger/LedgerParts';
+import { useLedgerUrlPeriod } from './ledger/useLedgerUrlPeriod';
 import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth';
 import { LedgerTabs } from './ledger/LedgerTabs';
 import { PurchaseDialog, type PurchaseProjectOption } from './ledger/PurchaseDialog';
@@ -62,26 +63,19 @@ export default function PurchaseListPage() {
   const [searchParams] = useSearchParams();
   const filterProjectId = searchParams.get('project_id') || '';
   const filterProjectName = searchParams.get('project_name') || '';
-  /*
-   * 財務ダッシュボードの「台帳をひらく」から来たときの期間の絞り込み（仕様変更 #4）。
-   * キー名はダッシュボード側の `financeDashboard/period.ts`（`ledgerOpenQuery`）が
-   * 組み立てるものをそのまま受ける — `/purchases` の API パラメータ名と同じにしてあるので
-   * ここで読み替えは要らない。**既存の `project_id` 受け取りロジックの隣に実装**。
-   */
-  const filterFrom = searchParams.get('recognition_from') || '';
-  const filterTo = searchParams.get('recognition_to') || '';
-  const filterPeriodLabel = searchParams.get('period_label') || '';
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('sales', 'editor');
 
   /** `var`=変動原価（案件に付いたもの） / `fix`=固定原価プロジェクト */
   const [tab, setTab] = useState<'var' | 'fix'>('var');
   const [chip, setChip] = useState('all');
-  const [month, setMonth] = useState(() => {
-    if (searchParams.get('project_id') || filterFrom) return '';
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  });
+  /*
+   * 計上月と、財務ダッシュボードから引き継いだ期間（仕様変更 #4）。
+   * **単月で来たら計上月の欄に入り、月に収まらない期間は `range` で持つ**（排他）。
+   * 理由と変換規則は `ledger/ledgerUrlPeriod.ts`（3台帳で共通）。
+   */
+  const period = useLedgerUrlPeriod(searchParams);
+  const { month, range, setMonth } = period;
 
   const cur = CHIPS.find((c) => c.key === chip) ?? CHIPS[0];
 
@@ -91,10 +85,10 @@ export default function PurchaseListPage() {
     extraParams: {
       project_id: filterProjectId || undefined,
       recognition_month: month || undefined,
-      // ダッシュボードから引き継いだ期間。`recognition_month` と両方入っていても
-      // AND で絞られるだけなので害はない（`server/.../list-query.ts` 参照）
-      recognition_from: filterFrom || undefined,
-      recognition_to: filterTo || undefined,
+      // 月に収まらない期間で来たときだけ送る。**月とは排他**
+      // （サーバーは AND で合成するので、両方送ると交差して0件になる）
+      recognition_from: range?.from,
+      recognition_to: range?.to,
       fixed_cost: tab === 'fix' ? '1' : '0',
       state: cur.state || undefined,
     },
@@ -178,8 +172,8 @@ export default function PurchaseListPage() {
               search: crud.appliedSearch || undefined,  // 画面の結果と書き出しの中身を揃える
               project_id: filterProjectId || undefined,
               recognition_month: month || undefined,
-              recognition_from: filterFrom || undefined,
-              recognition_to: filterTo || undefined,
+              recognition_from: range?.from,
+              recognition_to: range?.to,
               fixed_cost: tab === 'fix' ? '1' : '0',
               state: cur.state || undefined,
             }}
@@ -202,11 +196,7 @@ export default function PurchaseListPage() {
       )}
 
       {/* 財務ダッシュボードの期間で絞り込んで来たときの案内（仕様変更 #4） */}
-      {filterFrom && (
-        <div className="rounded-card border border-border bg-card p-3 text-sub text-secondary-foreground lg:px-4">
-          {filterPeriodLabel || `${filterFrom} 〜 ${filterTo}`} で絞り込み中（財務ダッシュボードから）
-        </div>
-      )}
+      <LedgerPeriodNotice period={period} />
 
       <LedgerTabs
         value={tab}
@@ -249,6 +239,8 @@ export default function PurchaseListPage() {
               tab === 'fix' ? '固定原価' : '変動原価',
               cur.key !== 'all' ? `絞り込み: ${cur.label}` : '',
               month ? `計上月: ${month}` : '',
+              // 期間で絞り込んで来たときも「なぜ0件か」が読めるようにする
+              range ? `期間: ${range.label || range.from}` : '',
             ].filter(Boolean)}
             onClearFilters={() => { crud.setSearch(''); setChip('all'); setMonth(''); }}
           />
@@ -285,7 +277,11 @@ export default function PurchaseListPage() {
               stateLabel="申請"
               onOpen={(row) => {
                 const full = items.find((p) => p.id === row.id);
-                if (full && canEdit) crud.openEdit(full);
+                if (full && canEdit) { crud.openEdit(full); return; }
+                // 台帳から「案件を開く ↗」を消した（9/2 仕様変更）ので、編集できない人が
+                // 行を押しても何も起きない＝押せる見た目だけの行き止まりになっていた。
+                // 売上台帳と同じく、案件へ移す行き先をここで持つ
+                if (!canEdit && row.project_id) navigate(`/sales/projects/${row.project_id}`);
               }}
             />
           </div>

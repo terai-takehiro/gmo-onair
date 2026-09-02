@@ -35,7 +35,9 @@ import {
   missingOf,
   type CustomerOption, type NewProjectValues, type ProjectFieldsState, type UserOption,
 } from '../projectNew/fields';
-import type { Audience, ProjectCategory } from '../../classification';
+import { canIssueNewGlsAt } from '../../glsIssue';
+import { invalidateProjectQueries } from '../../projectQueries';
+import { projectToFormValues, mergeSavedFormValues } from './toFormValues';
 import { EMPTY_FORM, addOneDayStr, type FormValues, type StudioLocation } from './types';
 import { useProjectSchedule, saveLocationNote } from './useProjectSchedule';
 import { useProjectSimulation } from './useProjectSimulation';
@@ -48,7 +50,14 @@ export function useProjectForm(id: string | undefined) {
   const qc = useQueryClient();
 
   const form = useForm<FormValues>({ defaultValues: EMPTY_FORM });
-  const { setValue, watch, reset } = form;
+  const { setValue, watch, reset, getValues } = form;
+  /**
+   * 保存が通った直後かどうか（S4）。次に案件を読み直したときに
+   * **一度だけ全欄をサーバー値へ戻す**ために立てる。詳しい理由は下の reset の注記。
+   */
+  const justSavedRef = useRef(false);
+  /** 保存に出した時点の欄の控え。**保存中に人が触った欄を踏み潰さない**ために使う */
+  const submittedRef = useRef<FormValues | null>(null);
   const [simOpen, setSimOpen] = useState(false);
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
 
@@ -61,6 +70,11 @@ export function useProjectForm(id: string | undefined) {
     // リロードまで出なかった — 実ブラウザで再現）。裏で取り直し、触っていない欄だけ差し替える
     staleTime: 0,
     refetchOnMount: 'always',
+    // **タブに戻ってきたときも読み直す**（共通既定は `refetchOnWindowFocus: false`）。
+    // `refetchOnMount` は開き直したときしか効かないので、この画面を**開いたまま**
+    // MCP・別タブ・別の人が直した値はリロードするまで出なかった。
+    // 触っている欄は上の reset が keepDirtyValues で守るので、書きかけは消えない
+    refetchOnWindowFocus: true,
   });
   const project = projectQuery.data;
 
@@ -93,47 +107,30 @@ export function useProjectForm(id: string | undefined) {
     if (!project) return;
     // 同じ画面の GLS発番・分類切替・BOXフォルダ作成などが ['project', id] を invalidate
     // するため、再取得のたびに全欄を置き換えると入力中の値が消える —
-    // 触った欄は keepDirtyValues で保ち、触っていない欄だけサーバー値で更新する
-    reset({
-      name: project.name || '',
-      customer_id: project.customer_id || '',
-      customer_type: project.customer_type === 'internal' ? 'internal' : 'external',
-      project_type: project.project_type || 'other',
-      // 2段分類（migration 182）。**旧 `project_type` から埋め直さない** —
-      // 旧分類は4種しかないので「有観客の収録」が「有観客の配信」に化ける。
-      // 入っていない案件は空で出し、人に選んでもらう（必須にしてある）
-      audience: (project.audience || '') as Audience | '',
-      project_category: (project.project_category || '') as ProjectCategory | '',
-      contact_name: project.contact_name || '',
-      recurrence: project.recurrence === 'regular' ? 'regular' : 'single',
-      // レギュラー案件が案件全体で1つだけ持つ取り決め（migration 262）。0 は
-      // 「決めた0」ではなく「入っていない」ことがほとんどなので、null / 0 は
-      // どちらも空欄にする（`attendee_count` と同じ理由。billing_cycle だけは
-      // 既定値があるので空欄にしない）。
-      // ⚠️ `recording_per_day_count`/`episode_unit_price` はここで読み込まない
-      // （仕様変更 #16・migration 269 でこの画面の固定入力欄を廃止したため。
-      // 値そのものは `project` に残っているが、`FormValues` に無いので触らない）
-      recording_cadence: project.recording_cadence || '',
-      fixed_studio_note: project.fixed_studio_note || '',
-      billing_cycle: project.billing_cycle || 'monthly_close',
-      broadcast_offset_days: project.broadcast_offset_days != null ? String(project.broadcast_offset_days) : '',
-      // 数値の 0 は「0 名」ではなく「入っていない」ことが多いので、
-      // **null / 0 はどちらも空欄**にする（入れ直せば数として保存される）
-      attendee_count: project.attendee_count ? String(project.attendee_count) : '',
-      goal: project.goal || '',
-      intake_channel: project.intake_channel || '',
-      gls_category: (project.gls_category === 'A' || project.gls_category === 'B') ? project.gls_category : '',
-      event_start: project.event_start || '',
-      event_end: project.event_end || '',
-      expected_amount: project.expected_amount || 0,
-      assigned_to: project.assigned_to || '',
-      broadcast_type: project.broadcast_type || '',
-      media_platform: project.media_platform || '',
-      box_url_internal: project.box_url_internal || '',
-      box_url_external: project.box_url_external || '',
-      application_form: !!project.application_form,
-    }, { keepDirtyValues: true });
-  }, [project, reset]);
+    // 触った欄は keepDirtyValues で保ち、触っていない欄だけサーバー値で更新する。
+    //
+    // ⚠️ **保存に成功した直後だけは例外**（S4・「保存したのに次に開くと反映されない」）。
+    // 保存しても欄が dirty のままだと、以後いくら読み直しても
+    // **人が触った欄はサーバー値で置き換わりません**（`keepDirtyValues` の定義そのもの）。
+    // サーバーは保存時に値を正規化します — GLS-B なら2段分類を NULL に、
+    // 無観客なら来場人数を NULL に、グループ会社ならリード経路を group に固定 —
+    // ので、保存直後の画面には**送った値のまま**が残り、リロードして dirty が
+    // 消えたときに初めて本当の値が出る、という報告どおりの症状になります。
+    // ここで1回だけ dirty を解いて、サーバーが決めた値を欄に出します。
+    const serverValues = projectToFormValues(project);
+    if (!justSavedRef.current) {
+      reset(serverValues, { keepDirtyValues: true });
+      return;
+    }
+    justSavedRef.current = false;
+    // 保存を待っている間に人が触った欄だけは残す（消すと入力事故になる）
+    const { merged, keptKeys } = mergeSavedFormValues(serverValues, getValues(), submittedRef.current);
+    submittedRef.current = null;
+    reset(merged);
+    // 残した欄は dirty に付け直す — 付け直さないと、次の読み直しで
+    // keepDirtyValues に守られず、書きかけの入力がサーバー値で消える
+    for (const key of keptKeys) setValue(key, merged[key] as never, { shouldDirty: true });
+  }, [project, reset, getValues, setValue]);
 
   /* ── 案件作成の入力欄に渡す形（`ProjectFieldsState`）─────────────────
    *
@@ -222,12 +219,12 @@ export function useProjectForm(id: string | undefined) {
   const isYomi = !hasGls;
   const currentStage = (project?.stage || 'neta') as ProjectStage;
   /**
-   * **新しく番号を採れるのは口頭決定（B）以降だけ**（v4.1.8・矛盾修正）。
-   * サーバー（`issueGls`）も同じ条件で弾く — ここは「押せるのに 400 で
-   * 失敗する」を防ぐための画面側の出し分け。「いまある案件に足す」
-   * （既存 GLS の回として付ける）はこの制限を受けない
+   * **新しく番号を採れるのは見積提案（C）以降**（2026-09-02 に1段前倒し）。
+   * 境界は `contexts/sales/glsIssue.ts` にだけ書く — サーバー（`issueGls`）も
+   * 同じ境界で弾くので、ここに書き写すと「押せるのに 400 で失敗する」に戻る。
+   * 「いまある案件に足す」（既存 GLS の回として付ける）はこの制限を受けない
    */
-  const canIssueNewGls = !['neta', 'd_hold', 'c_proposal'].includes(currentStage);
+  const canIssueNewGls = canIssueNewGlsAt(currentStage);
   // 分類はユーザー選択値を優先。未選択時のフォールバックとして project_type からの推奨値を使う
   const isCategoryA = glsCategory ? glsCategory === 'A' : getProjectCategory(projectType) === 'A';
   const isCategoryARef = useRef(isCategoryA);
@@ -294,25 +291,22 @@ export function useProjectForm(id: string | undefined) {
     onError: (err) => notifyApiError('案件を保存できませんでした', err),
     onSuccess: (result) => {
       /**
-       * **案件台帳（`ProjectLedgerPage`）はここを別の鍵（`project-ledger`）で持っています。**
-       * 落とし忘れると、この画面で名称・案件分類（`audience`/`project_category`）・
-       * 継続区分（`recurrence`）などを直して保存しても、台帳を開いたときは
-       * 古い値のまま＝リロードしないと反映されない、という不具合になる
-       * （client/CLAUDE.md「react-query の鍵」の実例と同じ形）。
-       * `project-integrity`（台帳いちばん上の整合性チェック）も同じ理由で落とす —
-       * ここで直した値（案件分類・実施日・リード経路・社内担当など）は
-       * そのままチェックの対象なので、落とさないと「直したのに件数が減らない」になる。
+       * **次の読み直しで欄をサーバー値に戻す目印**（上の reset の注記）。
+       * 保存が通ってからでないと立ててはいけない — 失敗した保存で立てると、
+       * 書きかけの入力が古いサーバー値で消える。
        */
-      qc.invalidateQueries({ queryKey: ['projects'] });
-      qc.invalidateQueries({ queryKey: ['project-ledger'] });
-      qc.invalidateQueries({ queryKey: ['project-integrity'] });
-      qc.invalidateQueries({ queryKey: ['dashboard', 'alerts'] });
-      if (isEdit) {
-        qc.invalidateQueries({ queryKey: ['project', id] });
-        notifySuccess('保存しました');
-      } else {
-        navigate(`/sales/projects/${result.id}`);
-      }
+      justSavedRef.current = true;
+      /**
+       * **同じ案件を別の鍵で持つ画面が10以上ある**（案件台帳 `project-ledger`・
+       * 整合性チェック `project-integrity`・仕入の案件候補 `won-projects-for-purchase`
+       * など）。ここで鍵を並べていたころは足し忘れが必ず出て、「直して保存したのに
+       * 台帳・一覧・ダッシュボードは古いまま＝リロードすると反映される」という
+       * 同じ不具合が場所を変えて何度も出ていた。**鍵の一覧は
+       * `contexts/sales/projectQueries.ts` 1か所に置き、ここでは並べない。**
+       */
+      invalidateProjectQueries(qc, isEdit ? id : (result as { id?: string })?.id);
+      if (isEdit) notifySuccess('保存しました');
+      else navigate(`/sales/projects/${result.id}`);
     },
   });
 
@@ -351,6 +345,10 @@ export function useProjectForm(id: string | undefined) {
       values.event_start = project?.event_start || values.event_start;
       values.event_end = project?.event_end || values.event_end;
     }
+
+    // **出した時点の欄を控える。** 保存が通ったあと全欄をサーバー値へ戻すときに、
+    // 「保存を待っている間に人が触った欄」だけを見分けて残すために使う
+    submittedRef.current = { ...getValues() };
 
     saveMutation.mutate(values, {
       onSuccess: async (res) => {

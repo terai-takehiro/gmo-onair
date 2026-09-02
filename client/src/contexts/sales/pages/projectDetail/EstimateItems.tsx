@@ -20,14 +20,21 @@
  * 行はカテゴリ別の帯に分けて描いており、越境させると
  * 「なぜこのカテゴリに移ったのか」を保存前に判断させることになるため。
  *
- * ── GPM だけの2つの拡張（仕様変更 #9・#10） ─────────────────
+ * ── グループ内案件だけの2つの拡張（仕様変更 #9・#10） ────────────
  *
- * `allowListPriceEdit`・`allowCategoryDiscount` は `gpm/pages/projectDetail/
- * EstimatesTab.tsx` からだけ `true` で渡ります（案件＝sales 側は渡さない＝
- * 今までどおり）。**共用部品を分岐だらけにしない**ため、増える見た目は
- * 「表示のことば」と「ボタンの有無」だけに絞り、計算（`margin`・保存の合計）
- * には一切関わりません — 定価は最後まで表示・PDF 印字専用のまま、
- * 値引き行は既存の「行を足す」と同じ経路を通るだけです。
+ * `allowListPriceEdit`・`allowCategoryDiscount` は**グループ内案件**
+ * （`projects.customer_type === 'internal'`。取引先マスターの
+ * `companies.is_gmo_group` から保存のたびに導く値）の見積で ON になります。
+ *
+ * ⚠️ **「グループ内案件」＝「プロジェクト管理(GPM)」ではありません。**
+ * v4.5.19 でここを取り違え、GPM の見積タブからだけ `true` を渡したため、
+ * ユーザーが実際に使う案件管理の見積タブには定価の編集欄も値引き行のボタンも
+ * 出ていませんでした。**既定は下の `customer_type` から決め**、prop は
+ * 「`customer_type` を持たない画面（GPM）からの明示的な上書き」に限ります。
+ *
+ * 増える見た目は「表示のことば」と「ボタンの有無」だけで、計算
+ * （`margin`・保存の合計）には一切関わりません — 定価は最後まで表示・
+ * PDF 印字専用のまま、値引き行は既存の「行を足す」と同じ経路を通るだけです。
  */
 import { useState } from 'react';
 import {
@@ -44,6 +51,7 @@ import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import PricingItemPicker, { type PickedPricingItem } from '@/contexts/finance/components/PricingItemPicker';
 import { EstimateItemRowView } from './EstimateItemRow';
+import { EstimateCategorySubtotal } from './EstimateCategorySubtotal';
 
 export interface EstimateItemRow {
   id?: string; description: string; quantity: number; unit: string | null;
@@ -61,9 +69,9 @@ export interface EstimateItemRow {
    * **表示・PDF 印字専用** — 保存はするが、粗利・合計の計算には使わない
    * （実際に課金する額は `unit_price` のまま）。
    *
-   * ⚠️ **グループ内案件（GPM）の見積だけ、この列を人が直接編集できます**
-   * （仕様変更 #9・`allowListPriceEdit`）。通常の案件（sales）ではカタログ選択時に
-   * 自動で入る値のまま表示専用（`EstimateItemRow.tsx` が出し分ける）。
+   * ⚠️ **グループ内案件（`customer_type === 'internal'`）の見積だけ、この列を
+   * 人が直接編集できます**（仕様変更 #9・`allowListPriceEdit`）。グループ外の
+   * 案件ではカタログ選択時に自動で入る値のまま表示専用（`EstimateItemRow.tsx`）。
    */
   list_unit_price?: number | null;
 }
@@ -124,29 +132,26 @@ export function EstimateItems({
   canEdit: boolean;
   /**
    * `list_unit_price`（定価）を明細内で編集できるようにするか（仕様変更 #9）。
-   * **グループ内案件（GPM）の見積作成時だけ `true`**（`gpm/pages/projectDetail/EstimatesTab.tsx`
-   * から渡す）。省略時（sales 側）は今までどおり表示専用 — `EstimateItemRowView` に渡すだけで
-   * 計算（`margin`・保存の合計）には一切関わらない。
+   * **省略時はグループ内案件（`customer_type === 'internal'`）で自動的に ON**。
+   * 渡すのは `customer_type` を持たない画面（GPM）からの上書きのときだけ。
+   * `EstimateItemRowView` に渡すだけで、計算（`margin`・保存の合計）には関わらない。
    */
   allowListPriceEdit?: boolean;
   /**
    * カテゴリごとに「値引き行を追加」ボタンを出すか（仕様変更 #10）。
-   * **グループ内案件（GPM）限定でよい**という指示どおり GPM だけ `true`。
+   * 既定は `allowListPriceEdit` と同じ（グループ内案件で ON）。
    *
    * ── 設計判断: 新しい列は足さない ──────────────────────────
    * `estimates.discount` は見積全体で1つの値引きしか表せないが、
    * `estimate_items.category` はもともと自由な TEXT 列・`unit_price` はもともと
    * 負の値も弾いていない（サーバー `replaceItems` も `Math.round` するだけで
    * 符号は見ない）。つまり**「値引き」の行をそのカテゴリの中に追加するだけで、
-   * 表示専用の値引きが最小変更で実現できる** — このボタンは
-   * 「◯◯に行を足す」と同じ形で、説明欄に「値引き」を仕込んで足すだけの
-   * 見た目のショートカット。`estimates` に `category_discounts` のような
-   * JSONB 列を新設する案も検討したが、そうすると PDF・画面・保存の3か所で
-   * 「通常の行の小計」と「JSONB の値引き」を合成する経路が新たに要り、
-   * 既存の「値引きは単価を下げず別建て」という設計とも二重に持つことになる。
-   * 行として持たせれば、下の「カテゴリ小計」（仕様変更 #11）にも
-   * `estimate-pdf.service.ts` の帯にも**何も直さず**そのまま反映される
-   * （どちらも「そのカテゴリの行の amount 合計」を出しているだけのため）。
+   * 表示専用の値引きが最小変更で実現できる**。`estimates` に `category_discounts`
+   * のような JSONB 列を新設すると、PDF・画面・保存の3か所で「通常の行の小計」と
+   * 「JSONB の値引き」を合成する経路が新たに要り、既存の「値引きは単価を下げず
+   * 別建て」という設計とも二重に持つことになる。行として持たせれば、下の
+   * カテゴリ小計（`EstimateCategorySubtotal`）にも `estimate-pdf.service.ts` の
+   * 帯にも**何も直さず**そのまま反映される。
    */
   allowCategoryDiscount?: boolean;
 }) {
@@ -158,6 +163,13 @@ export function EstimateItems({
   const statusLocked = estimate.status === 'sent' || estimate.status === 'accepted' || estimate.status === 'superseded';
   const locked = statusLocked || !canEdit;
   const customerType = estimate.customer_type === 'internal' ? 'internal' : 'external';
+  /**
+   * 定価の編集欄・カテゴリ値引きの既定は**この見積の案件がグループ内かどうか**で決める
+   * （`??` なので、呼び手が明示した `true`/`false` はそのまま勝つ）。
+   * 呼び手任せにしていたために、案件管理の見積タブでは両方とも出ていなかった。
+   */
+  const listPriceEditable = allowListPriceEdit ?? customerType === 'internal';
+  const categoryDiscountEnabled = allowCategoryDiscount ?? customerType === 'internal';
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -313,32 +325,17 @@ export function EstimateItems({
                 {rows.map(({ it, i }) => (
                   <EstimateItemRowView
                     key={i} id={String(i)} it={it} i={i} locked={locked}
-                    allowListPriceEdit={allowListPriceEdit}
+                    allowListPriceEdit={listPriceEditable}
                     onUpdate={upd}
                     onDelete={(n) => setItems((prev) => prev.filter((_, k) => k !== n))}
                     onCopyPeriod={copyPeriodToAll}
                   />
                 ))}
               </SortableContext>
-              {/*
-                **カテゴリ小計（仕様変更 #11）。** `pdf.service.ts` がカテゴリ帯ごとに
-                出している「小計（◯◯）」と同じ考え方 — そのカテゴリの行の `amount` を
-                足すだけ。見積全体の値引き（`estimate.discount`）はここでは引かない
-                （どのカテゴリの値引きでもない、見積全体に掛かる別の数なので、
-                ここへ混ぜると「スタジオの小計」が明細の額と合わなくなる）。
-                値引き行（仕様変更 #10・カテゴリ内に足した「値引き」の行）は
-                この行の `it.category` がそのカテゴリのままなので、
-                何もしなくても自然に差し引かれた額になる。
-              */}
+              {/* カテゴリ小計（値引きがある帯は「定価小計 / 値引き / 小計」の3段。
+                  中身は `EstimateCategorySubtotal.tsx`・紙と同じ足し方） */}
               {rows.length > 0 && (
-                <div className="flex items-center justify-end gap-2 border-t border-border-faint bg-surface-subtle px-4 py-1.5">
-                  <span className="text-sub-sm text-muted-foreground">小計（{c.label}）</span>
-                  <Money
-                    value={rows.reduce((s, { it }) => s + it.amount, 0)}
-                    negativeIsDanger
-                    className="text-sub-sm w-28 shrink-0"
-                  />
-                </div>
+                <EstimateCategorySubtotal label={c.label} rows={rows.map(({ it }) => it)} />
               )}
               {!locked && (
                 <div className="flex flex-wrap gap-2 px-4 py-2">
@@ -351,7 +348,7 @@ export function EstimateItems({
                       <Link2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" />料金表から選ぶ
                     </Button>
                   )}
-                  {allowCategoryDiscount && (
+                  {categoryDiscountEnabled && (
                     <Button variant="outline" size="sm" onClick={() => addCategoryDiscount(c.key)}>
                       <Percent className="mr-1 h-3.5 w-3.5" aria-hidden="true" />{c.label}に値引き行を追加
                     </Button>

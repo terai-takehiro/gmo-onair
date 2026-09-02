@@ -1,8 +1,18 @@
 /**
- * 回（エピソード）ごとの「1日あたりの本数」「回の単価」を直すダイアログ
- * （仕様変更 #16・migration 269・`EpisodesPanel.tsx` から分けてある — 1ファイル400行上限のため）。
+ * 回（エピソード）を直すダイアログ
+ * （`EpisodesPanel.tsx` から分けてある — 1ファイル400行上限のため）
  *
- * ── なぜ回ごとに持つように変えたか ──────────────────────────────
+ * ── 何を直せるか ────────────────────────────────────────
+ *
+ * タイトル・利用日（収録日）・放送日・1日あたりの本数・回の単価。
+ *
+ * 本数と単価は仕様変更 #16（migration 269）で回ごとに持つようにしたもの。
+ * **利用日・放送日・タイトルは 9/2 の仕様変更（調査項目 S5）で足した** —
+ * サーバーの `PUT /projects/:id/episodes/:id` は前からこの3つを部分更新できたのに
+ * **呼ぶ画面がどこにも無く**、いったん作った回の日付を後から直せなかった
+ * （「話数で指定」で作った回は日付を持たないまま残る）。
+ *
+ * ── なぜ回ごとに本数・単価を持つように変えたか ──────────────────
  *
  * 案件（projects）に1つだけ持つ「取り決め」（migration 262）だと、収録日によって
  * 本数・単価がズレたときに記録する場所が無かった。この2つは
@@ -10,8 +20,11 @@
  *
  * ── 空欄で保存 = 「決めていない」に戻す（0本・¥0と混同しない） ──────
  *
- * どちらも空欄のまま保存すると `null` を送る（NULL＝決めていない。
+ * どの欄も空欄のまま保存すると `null` を送る（NULL＝決めていない。
  * `RegularSeriesFields.tsx` が案件側で守っていたのと同じ規則）。
+ * ⚠️ **送らない項目はサーバーが今の値を保つ**（部分更新の原則）。ここでは
+ * 状態（`status`）・備考（`notes`）を持たないので、**送らない**
+ * （送ると空で消える。v4.5.19 でこの API に実害バグがあった箇所）。
  */
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -32,6 +45,9 @@ export function EditEpisodeDialog({
   episode: Episode;
 }) {
   const qc = useQueryClient();
+  const [title, setTitle] = useState(episode.title ?? '');
+  const [recordingDate, setRecordingDate] = useState(episode.recording_date ?? '');
+  const [broadcastDate, setBroadcastDate] = useState(episode.broadcast_date ?? '');
   const [perDayCount, setPerDayCount] = useState(
     episode.recording_per_day_count != null ? String(episode.recording_per_day_count) : '',
   );
@@ -41,14 +57,18 @@ export function EditEpisodeDialog({
 
   const save = useMutation({
     mutationFn: () => api.put(`/projects/${projectId}/episodes/${episode.id}`, {
-      // 既存の他項目 (title/recording_date 等) はこの画面から触らないので送らない
-      // ('渡さなければ今の値を保つ' — ただしこの2つは常に明示で送る。
-      // 空欄は「決めていない」に戻す意図的な解除)
+      // ここに出している欄だけを明示で送る。空欄は「決めていない」に戻す意図的な解除。
+      // 状態・備考はこの画面に無いので**送らない**（送らなければ今の値が保たれる）
+      title: title.trim() || null,
+      recording_date: recordingDate || null,
+      broadcast_date: broadcastDate || null,
       recording_per_day_count: perDayCount.trim() ? Number(perDayCount) : null,
       episode_unit_price: unitPrice.trim() ? Number(unitPrice) : null,
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['episodes', projectId] });
+      // 収録日を直すと「収録日ごとの請求まとめ」の束ね方が変わる
+      qc.invalidateQueries({ queryKey: ['invoice-groups', projectId] });
       notifySuccess('回を更新しました');
       onOpenChange(false);
     },
@@ -60,7 +80,7 @@ export function EditEpisodeDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={`#${episode.episode_number} ${episode.title || episode.episode_code} を直す`}
-      sub="この回で実際に撮った本数・単価を入れます。空欄にすると「決めていない」に戻ります。"
+      sub="利用日・放送日・タイトルと、この回で実際に撮った本数・単価を入れます。空欄にすると「決めていない」に戻ります。"
       footer={
         <FormDialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
@@ -68,24 +88,57 @@ export function EditEpisodeDialog({
         </FormDialogFooter>
       }
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="flex flex-col gap-3">
         <div>
-          <Label htmlFor="ep-edit-per-day">1日あたりの本数</Label>
+          <Label htmlFor="ep-edit-title">タイトル</Label>
           <Input
-            id="ep-edit-per-day" type="number" min="1" inputMode="numeric" className="mt-1"
-            value={perDayCount} onChange={(e) => setPerDayCount(e.target.value)}
-            placeholder="1"
+            id="ep-edit-title" type="text" className="mt-1"
+            value={title} onChange={(e) => setTitle(e.target.value)}
+            placeholder={episode.episode_code}
           />
         </div>
-        <div>
-          <Label htmlFor="ep-edit-price">回の単価</Label>
-          <div className="mt-1 flex items-center gap-2">
-            <span className="text-sub shrink-0 text-muted-foreground">¥</span>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="ep-edit-recording">利用日（収録日）</Label>
             <Input
-              id="ep-edit-price" type="number" min="0" inputMode="numeric"
-              value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)}
-              placeholder="84000"
+              id="ep-edit-recording" type="date" className="mt-1"
+              value={recordingDate} onChange={(e) => setRecordingDate(e.target.value)}
             />
+          </div>
+          <div>
+            <Label htmlFor="ep-edit-broadcast">放送日</Label>
+            <Input
+              id="ep-edit-broadcast" type="date" className="mt-1"
+              value={broadcastDate} onChange={(e) => setBroadcastDate(e.target.value)}
+            />
+            {/* サーバーは生放送を含む案件で放送日を収録日に揃える（`PUT /:id` の規則）。
+                入れた日と違う日で保存されると「直らなかった」と見えるので先に書く */}
+            <p className="text-sub-sm mt-1 text-muted-foreground">
+              生放送の案件では、保存すると収録日と同じ日になります。
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="ep-edit-per-day">1日あたりの本数</Label>
+            <Input
+              id="ep-edit-per-day" type="number" min="1" inputMode="numeric" className="mt-1"
+              value={perDayCount} onChange={(e) => setPerDayCount(e.target.value)}
+              placeholder="1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="ep-edit-price">回の単価</Label>
+            <div className="mt-1 flex items-center gap-2">
+              <span className="text-sub shrink-0 text-muted-foreground">¥</span>
+              <Input
+                id="ep-edit-price" type="number" min="0" inputMode="numeric"
+                value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)}
+                placeholder="84000"
+              />
+            </div>
           </div>
         </div>
       </div>

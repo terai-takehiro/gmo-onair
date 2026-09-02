@@ -22,37 +22,25 @@
  * 3枚のカード）。旧 `BusinessProjectView`（フル機能コンソール）からの
  * 置き換えの理由は `RevenueBillingPane.tsx` の頭のコメントを参照。
  *
- * ── 版の一覧はスマホでカードにした（v4ネイティブUI監査・この回） ─────
+ * ── 版の一覧はスマホでカードにした（v4ネイティブUI監査） ───────────
  *
- * この見積タブ自体は明細（`EstimateItems`）が数量・単価・仕入・日付・金額の
- * 6列を持つ入力欄の並びなので、CLAUDE.md の方針どおり**タブ全体は今までどおり
- * PC専用**（`ProjectDetailPage.tsx` の `OffPhoneTab`）のままにしています。
- * ただし「それでもこのまま開く」を選んだ人・将来この判断を見直す人のために、
- * **版の一覧（版・タイトル・金額・状態・操作）だけ**は `Row`（PC表を縮めた
- * だけ）からカード積みに作り直しました。明細の入力欄（`EstimateItems`）は
- * 手を入れていません — そこは6列の数値入力欄の並びで、375pxに収める作り直し
- * よりPCで入力するほうが理にかなっています。
+ * **タブ全体は今までどおり PC専用**（`ProjectDetailPage.tsx` の `OffPhoneTab`）。
+ * 明細（`EstimateItems`）が数量・単価・仕入・日付・金額の6列の入力欄の並びで、
+ * 375px に収める作り直しより PC で入力するほうが理にかなっているためです。
+ * ただし「それでもこのまま開く」を選んだ人のために、**版の一覧だけ**は
+ * `Row`（PC表を縮めただけ）からカード積みに作り直してあります。
  *
- * ── 版の一覧の描画は `EstimateVersionList.tsx` に分離した ────────────
+ * ── 400行の上限に当たるたびに描画を切り出してきた ────────────────
  *
- * アーカイブ機能（`archived_at`・migration 236）を足したところで
- * このファイルが400行を超えたため、PC表／スマホカードの描画部分
- * （データ取得・ミューテーションの定義はここに残したまま）だけを
- * 切り出した。`Estimate` 型・`STATUS_LABEL`/`STATUS_TONE` はこのファイルが
- * 正で `export` している——2か所に持つと版の状態の色分けがずれる。
- *
- * ── 回（episode）単位の見積（仕様変更 #18）で、さらに `EstimateMetaCard.tsx` /
- *    `useEstimateEpisodeFilter.ts` を分離した ───────────────────
- *
- * レギュラー案件の回ごとの絞り込み・「別の回の見積として複製する」を足したところで
- * 再び400行を超えたため、タイトル・備考カード（`EstimateMetaCard`）と、
- * 回の絞り込みの state・URL 同期・回一覧の取得（`useEstimateEpisodeFilter`）を
- * それぞれ切り出した。ここに残るのはデータ取得・ミューテーションの定義と、
- * それらを組み立てる JSX だけ。
+ * `EstimateVersionList`（版の一覧・PC表とスマホカード）／`EstimateMetaCard`
+ * （タイトルと備考）／`useEstimateEpisodeFilter`（回の絞り込みの state・URL 同期・
+ * 回一覧の取得）。**ここに残るのはデータ取得とミューテーションの定義、
+ * それらを組み立てる JSX だけ。** `Estimate` 型・`STATUS_LABEL`/`STATUS_TONE` は
+ * このファイルが正で `export` している——2か所に持つと版の状態の色分けがずれる。
  */
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Receipt, Wallet, Archive } from 'lucide-react';
+import { Plus, Receipt, Wallet, Archive, Files } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -160,8 +148,11 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
     onError: (e) => notifyApiError('見積をつくれませんでした', e),
   });
 
-  /** 「別の回の見積として複製する」の対象。null = ダイアログを閉じている（仕様変更 #18） */
-  const [duplicateSource, setDuplicateSource] = useState<Estimate | null>(null);
+  /**
+   * 「別の回の見積として複製する」。`null` = 閉じている。`{ source: null }` は
+   * **複製元もダイアログの中で選ぶ**形（下の「別の回の見積をベースに作る」から開く）
+   */
+  const [duplicating, setDuplicating] = useState<{ source: Estimate | null } | null>(null);
 
   const nextVersion = useMutation({
     mutationFn: (id: string) => api.post(`${base}/${id}/next-version`),
@@ -294,7 +285,15 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
             ? '「見積をつくる」でこの回向けの見積をつくります（この絞り込みのまま作ると、この回に紐づきます）。'
             : '明細を積んで金額を出します。お客様に出したあとに直したくなったら、版を上げれば前に出したものは残ります。1案件で見積を分けたいとき（本編とケータリングなど）は「見積をつくる」を必要な数だけ押してください。'}
           action={canEdit ? (
-            <Button onClick={() => create.mutate()}><Plus className="mr-1 h-4 w-4" aria-hidden="true" />見積をつくる</Button>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button onClick={() => create.mutate()}><Plus className="mr-1 h-4 w-4" aria-hidden="true" />見積をつくる</Button>
+              {/* 回で絞り込んで空のときこそ「前の回の見積を写す」が要る */}
+              {isSeries && (list.data ?? []).length > 0 && (
+                <Button variant="outline" onClick={() => setDuplicating({ source: null })}>
+                  <Files className="mr-1 h-4 w-4" aria-hidden="true" />別の回の見積をベースに作る
+                </Button>
+              )}
+            </div>
           ) : (
             <p className="text-sub text-muted-foreground">見積の作成には案件管理の編集権限が必要です。</p>
           )}
@@ -311,6 +310,13 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
             {canEdit && (
               <Button className="shrink-0" onClick={() => create.mutate()}>
                 <Plus className="mr-2 h-4 w-4" aria-hidden="true" />見積をつくる
+              </Button>
+            )}
+            {/* **複製の入口はここにも置く**（仕様変更 #18）。版一覧の右端のアイコンだけ
+                だと他のボタンに紛れて見つからず、「実装したのに使われない」状態だった */}
+            {canEdit && isSeries && (
+              <Button variant="outline" className="shrink-0" onClick={() => setDuplicating({ source: null })}>
+                <Files className="mr-2 h-4 w-4" aria-hidden="true" />別の回の見積をベースに作る
               </Button>
             )}
             <p className="text-sub text-muted-foreground">
@@ -343,7 +349,7 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
             onUnarchive={(id) => unarchive.mutate(id)}
             // **複製は案件がレギュラーのときだけ**（複製先の回そのものが無いと意味を成さない）
             canDuplicate={isSeries}
-            onDuplicate={(id) => setDuplicateSource((list.data ?? []).find((e) => e.id === id) ?? null)}
+            onDuplicate={(id) => setDuplicating({ source: (list.data ?? []).find((e) => e.id === id) ?? null })}
           />
 
           {openId && detail.data && (
@@ -368,16 +374,17 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
         </>
       )}
 
-      {duplicateSource && (
+      {duplicating && (
         <DuplicateEstimateDialog
           open
-          onOpenChange={(o) => { if (!o) setDuplicateSource(null); }}
+          onOpenChange={(o) => { if (!o) setDuplicating(null); }}
           projectId={project.id}
           base={base}
-          estimate={duplicateSource}
+          estimate={duplicating.source}
+          sources={list.data ?? []}
           onDuplicated={(created) => {
             invalidate();
-            setDuplicateSource(null);
+            setDuplicating(null);
             // 複製した先の回で絞り込んで、そのまま新しい見積を開く
             // （どこに作られたか分からないまま一覧に戻すと探し直しになる）
             if (created.episode_id) changeEpisodeFilter(created.episode_id);

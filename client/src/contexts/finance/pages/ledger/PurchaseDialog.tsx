@@ -70,7 +70,7 @@ function ReadOnlyField({ children }: { children: ReactNode }) {
 }
 
 export function PurchaseDialog({
-  editing, defaultProjectId, projects = [], vendors = [], saving = false, deleting = false, onSave, onDelete, onClose, readOnly = false,
+  editing, defaultProjectId, projects = [], vendors = [], saving = false, deleting = false, onSave, onDelete, onClose, readOnly = false, extraFooter,
 }: {
   editing: PurchaseRow | null;
   /** 案件で絞り込んで見ているときの初期値 */
@@ -86,6 +86,13 @@ export function PurchaseDialog({
   onClose: () => void;
   /** 閲覧のみで開く（保存・削除ボタンを出さず、全欄を disabled にする） */
   readOnly?: boolean;
+  /**
+   * `readOnly` のときだけ、フッターの「閉じる」の左に足すもの（財務ダッシュボードの
+   * 「この案件で絞り込む」）。**呼び出し元ごとに違う次の一手**を置くための口で、
+   * ここに行き先を書き込まないのは、このダイアログが案件詳細からも開かれるため
+   * （そちらでは絞り込みという概念が無い）。
+   */
+  extraFooter?: ReactNode;
 }) {
   const [selectedProjectId, setSelectedProjectId] = useState(editing?.project_id || defaultProjectId || '');
   const [vendorId, setVendorId] = useState(editing?.vendor_id || '');
@@ -158,7 +165,9 @@ export function PurchaseDialog({
       size="lg"
       footer={
         readOnly ? (
-          <div className="flex justify-end">
+          // 375px では2つ並べると溢れるので折り返す（`flex-wrap`）
+          <div className="flex flex-wrap justify-end gap-2">
+            {extraFooter}
             <Button variant="outline" onClick={onClose}>閉じる</Button>
           </div>
         ) : (

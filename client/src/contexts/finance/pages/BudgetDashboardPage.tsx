@@ -20,6 +20,13 @@
  * 純関数に出して `shared/tests/financeDashboardPeriod.test.ts` で固定しています
  * （月を空にすると `-01` を送って 400 になっていたため）。
  *
+ * ── 案件の絞り込みは URL が正（`?project_id=`）──────────────
+ *
+ * 内訳の行を押すと**この画面のまま**その案件で絞り込みます（ご要望「案件管理へ
+ * 飛ばさず、財務管理の中でその案件に絞り込んだ画面へ」）。絞り込みを
+ * コンポーネントの state で持つと**「戻る」で全案件に戻れず、その状態のリンクも
+ * 共有できない**ので、URL に置いて売上台帳（`RevenueListPage`）とそろえています。
+ *
  * ── 内訳は「台帳へ行かないと全件見えない」を無くした ──────────
  *
  * 以前は5本のクエリとも `limit` を大きく（300/2000）指定して上位だけを
@@ -35,6 +42,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import type { SgaExpense } from '@/types';
+import { Button } from '@/components/ui/button';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { PeriodBar, type PeriodMode } from './financeDashboard/PeriodBar';
@@ -45,7 +53,11 @@ import { PurchaseDialog } from './ledger/PurchaseDialog';
 import SgaDialog from '../components/SgaDialog';
 import { formFromSga } from '../components/sgaPrefill';
 import { ProfitFlow, type FlowStep } from './financeDashboard/ProfitFlow';
-import { BreakdownColumn, type BreakdownItem } from './financeDashboard/Breakdown';
+import { BreakdownColumn } from './financeDashboard/Breakdown';
+import { useProjectFilter, initialPeriodMode } from './financeDashboard/useProjectFilter';
+import {
+  buildRevenueItems, buildPurchaseItems, buildSgaItems, type RevenueBreakdownRow,
+} from './financeDashboard/breakdownItems';
 import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth';
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -54,27 +66,16 @@ export default function BudgetDashboardPage() {
   const navigate = useNavigate();
   const now = new Date();
   const curYm = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}`;
-  const [mode, setMode] = useState<PeriodMode>('month');
+  const [mode, setMode] = useState<PeriodMode>(initialPeriodMode);
   const [month, setMonth] = useState(curYm);
   const [year, setYear] = useState(now.getFullYear());
   const [quarter, setQuarter] = useState(Math.floor(now.getMonth() / 3) + 1);
   const [rangeFrom, setRangeFrom] = useState(`${now.getFullYear()}-01`);
   const [rangeTo, setRangeTo] = useState(curYm);
-  const [projectId, setProjectId] = useState('');
 
-  /*
-   * **案件を選んだら期間は「全期間」にする**（ご要望）。案件は「その月に計上がある」
-   * とは限らず、既定の今月のままだとほぼ必ず ¥0 の画面になる。そこから期間を外そうと
-   * して月の欄を空にする、というのが今回のエラー報告の導線だった。
-   * ⚠️ **切り替えるのは「絞っていない → 案件を選んだ」ときだけ**（毎回戻すと選び直す
-   * たびに期間が飛ぶ）。解除したら元の期間へ戻す。
-   */
-  const [modeBeforeProject, setModeBeforeProject] = useState<PeriodMode | null>(null);
-  const selectProject = (id: string) => {
-    if (id && !projectId) { setModeBeforeProject(mode); setMode('all'); }
-    if (!id && projectId) { if (modeBeforeProject) setMode(modeBeforeProject); setModeBeforeProject(null); }
-    setProjectId(id);
-  };
+  // 案件の絞り込み（URL の `?project_id=` が正）は `financeDashboard/useProjectFilter.ts`。
+  // プルダウン用（`selectProject`）と内訳の行用（`focusProject`）で期間の扱いが違う
+  const { projectId, selectProject, focusProject } = useProjectFilter(mode, setMode);
 
   // 期間の正規化と、送るパラメータの組み立ては `financeDashboard/period.ts`
   // （純関数にして `shared/tests/financeDashboardPeriod.test.ts` で固定してある）
@@ -87,9 +88,11 @@ export default function BudgetDashboardPage() {
   const s: MonthlySummary = (summaryQuery.data?.data as MonthlySummary) ?? EMPTY_SUMMARY;
 
   // 読み込み済みページを1本の配列に展開。**件数の badge には使わない**（読み込み済み分でしかない）
-  const revenueRows = useMemo(() => revenues.data?.pages.flatMap((p) => p.data) ?? [], [revenues.data]);
+  const revenueRows = useMemo<RevenueBreakdownRow[]>(
+    () => revenues.data?.pages.flatMap((p) => p.data) ?? [], [revenues.data],
+  );
   const purchaseRows = useMemo(() => purchases.data?.pages.flatMap((p) => p.data) ?? [], [purchases.data]);
-  const sgaRows = useMemo(() => sga.data?.pages.flatMap((p) => p.data) ?? [], [sga.data]);
+  const sgaRows = useMemo<SgaExpense[]>(() => sga.data?.pages.flatMap((p) => p.data) ?? [], [sga.data]);
 
   // 件数の badge・「もっと見る」の残数はサーバーが返す実件数 (pagination.total) を正とする
   const revenueTotalCount = revenues.data?.pages[0]?.pagination?.total ?? revenueRows.length;
@@ -100,13 +103,35 @@ export default function BudgetDashboardPage() {
   const pct = (n: number) => (s.revenue_total > 0 ? (n / s.revenue_total) * 100 : null);
 
   /*
+   * 絞り込み中の案件名。**プルダウンの候補に無くても出せるようにする** —
+   * 候補の一部（`projects-with-activity`）は期間つきで引いているので、絞り込んだあとに
+   * 期間を変えると候補から消え、`SearchableSelect` が placeholder（＝「全案件」）に
+   * 戻って**絞り込みが効いていないように見える**。読み込み済みの行からも名前を拾う。
+   */
+  const selectedProjectName = useMemo(() => {
+    if (!projectId) return undefined;
+    return projects.find((p) => p.id === projectId)?.name
+      ?? revenueRows.find((r) => r.project_id === projectId)?.project_name
+      ?? purchaseRows.find((p) => p.project_id === projectId)?.project_name
+      ?? undefined;
+  }, [projectId, projects, revenueRows, purchaseRows]);
+
+  /** 絞り込み中の案件を候補に必ず含める（上のコメントの打ち消し） */
+  const projectOptions = useMemo(
+    () => (!projectId || projects.some((p) => p.id === projectId)
+      ? projects
+      : [{ id: projectId, gls_number: null, name: selectedProjectName ?? '（選んだ案件）' }, ...projects]),
+    [projects, projectId, selectedProjectName],
+  );
+
+  /*
    * 「台帳をひらく」に引き継ぐクエリパラメータ（仕様変更 #4）。**期間・案件の
    * 絞り込みを1つの文字列にまとめておき**、`BreakdownColumn`/`ProfitFlow` の
    * どの「台帳をひらく」導線からも同じものを使う（片方だけ引き継ぐ、を防ぐ）。
    */
   const ledgerQuery = useMemo(
-    () => ledgerOpenQuery(period, projectId || undefined, projects.find((p) => p.id === projectId)?.name),
-    [period, projectId, projects],
+    () => ledgerOpenQuery(period, projectId || undefined, selectedProjectName ?? undefined),
+    [period, projectId, selectedProjectName],
   );
 
   /*
@@ -169,57 +194,28 @@ export default function BudgetDashboardPage() {
         { label: '営業利益', value: s.operating_profit, result: true, pct: pct(s.operating_profit) },
       ];
 
-  const revItems: BreakdownItem[] = revenueRows.map(
-    (r: {
-      id: string; gls_number?: string | null; episode_code?: string | null; project_name?: string | null;
-      customer_name?: string | null; amount: number; project_id?: string | null; group_id?: string | null;
-    }) => ({
-      id: r.id,
-      code: r.episode_code || r.gls_number,
-      title: r.project_name || '（案件名なし）',
-      sub: r.customer_name,
-      amount: Number(r.amount) || 0,
-      // 按分グループの売上は案件ではなくグループの詳細へ（仕様変更 #2・
-      // `RevenueListPage.tsx` の `onOpen` と同じ分岐）
-      onClick: r.group_id
-        ? () => navigate(`/sales/project-groups/${r.group_id}`)
-        : r.project_id
-          ? () => navigate(`/sales/projects/${r.project_id}`)
-          : undefined,
-    }),
+  // 行の組み立ては `financeDashboard/breakdownItems.ts`（申請ステータスは台帳と共通の
+  // `settlementState` から作る）。ここは**押したときに何が起きるか**だけを決める
+  const revItems = buildRevenueItems(revenueRows, {
+    focusProject,
+    openGroup: (groupId) => navigate(`/sales/project-groups/${groupId}`),
+  });
+  const purItems = buildPurchaseItems(
+    [...purchaseRows, ...((fixed.data?.data ?? []) as PurchaseRow[])],
+    (row) => setViewingPurchase(row),
   );
-
-  const purItems: BreakdownItem[] = [
-    ...purchaseRows,
-    ...((fixed.data?.data ?? []) as PurchaseRow[]),
-  ].map((p) => ({
-    id: p.id,
-    code: p.episode_code || p.gls_number,
-    title: p.description || p.project_name || '（説明なし）',
-    sub: [p.vendor_name, p.project_name].filter(Boolean).join(' ／ ') || null,
-    amount: Number(p.amount) || 0,
-    tag: p.is_provisional ? '仮' : null,
-    // 台帳へ行かず、このまま閲覧専用ダイアログを開く（仕様変更 #3）
-    onClick: () => setViewingPurchase(p),
-  }));
-
-  const sgaItems: BreakdownItem[] = sgaRows.map(
-    (x: SgaExpense) => ({
-      id: x.id,
-      title: x.description || '（詳細なし）',
-      sub: x.vendor_name,
-      amount: Number(x.amount) || 0,
-      // 台帳へ行かず、このまま閲覧専用ダイアログを開く（仕様変更 #3）
-      onClick: () => setViewingSga(x),
-    }),
-  );
+  const sgaItems = buildSgaItems(sgaRows, (row) => setViewingSga(row));
 
   return (
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
       <PageHeader
         title="財務ダッシュボード"
+        /* ⚠️ **どの案件で絞っているのかを名前で出す。** 内訳の行を押して絞り込む導線は
+            画面のいちばん下にあり、絞り込みが効いたことがここに出ないと壊れたと読まれる */
         sub={periodReady
-          ? `${period.label} ・ 確定売上ベース ・ ${projectId ? '案件で絞り込み中（販管費は対象外）' : '全案件（販管費を含む）'}`
+          ? `${period.label} ・ 確定売上ベース ・ ${projectId
+              ? `${selectedProjectName ?? '選んだ案件'} で絞り込み中（販管費は対象外）`
+              : '全案件（販管費を含む）'}`
           : '期間を選んでください'}
       />
 
@@ -230,7 +226,7 @@ export default function BudgetDashboardPage() {
         quarter={quarter} setQuarter={setQuarter}
         rangeFrom={rangeFrom} setRangeFrom={setRangeFrom}
         rangeTo={rangeTo} setRangeTo={setRangeTo}
-        projects={projects} projectId={projectId} setProjectId={selectProject}
+        projects={projectOptions} projectId={projectId} setProjectId={selectProject}
       />
 
       {/*
@@ -335,6 +331,22 @@ export default function BudgetDashboardPage() {
           editing={viewingPurchase}
           defaultProjectId={viewingPurchase.project_id ?? ''}
           onClose={() => setViewingPurchase(null)}
+          /* 3列とも「押す＝この画面の中で深掘り」に揃える（ご要望）。売上の内訳の行と
+             同じ行き先。**すでにその案件で絞り込んでいるときは出さない**（押しても
+             何も起きないボタンになる）。販管費には足さない — 案件に紐づかないので
+             絞り込むと販管費の列ごと消える */
+          extraFooter={viewingPurchase.project_id && viewingPurchase.project_id !== projectId ? (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                const id = viewingPurchase.project_id as string;
+                setViewingPurchase(null);
+                focusProject(id);
+              }}
+            >
+              この案件で絞り込む
+            </Button>
+          ) : null}
         />
       )}
       {viewingSga && viewingSgaForm && (

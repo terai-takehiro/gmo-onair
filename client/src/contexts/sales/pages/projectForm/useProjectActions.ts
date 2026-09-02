@@ -15,6 +15,7 @@ import api from '@/lib/api';
 import { invalidateBookingQueries } from '@/lib/bookingQueries';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
+import { invalidateProjectQueries } from '../../projectQueries';
 import type { GlsDialogState, GlsProject, ProjectBooking } from './types';
 
 export function useProjectActions({
@@ -40,20 +41,14 @@ export function useProjectActions({
     open: false, target: 'A',
   });
 
-  const invalidateProject = () => {
-    qc.invalidateQueries({ queryKey: ['projects'] });
-    qc.invalidateQueries({ queryKey: ['project', id] });
-    /**
-     * **GLS発番・付け替え・分類切替は `gls_number` / `gls_category` を変える。**
-     * 案件台帳（`ProjectLedgerPage`）はどちらも列に持ち、`project-ledger` という
-     * 別の鍵で読んでいるので、ここを落とさないと台帳だけ古い番号・古い分類の
-     * まま残る（`useProjectForm.ts` の保存と同じ形の反映漏れ）。
-     * `project-integrity` の「受注しているのに GLS 番号が無い」も
-     * `gls_number` を見ているので同じ理由で落とす。
-     */
-    qc.invalidateQueries({ queryKey: ['project-ledger'] });
-    qc.invalidateQueries({ queryKey: ['project-integrity'] });
-  };
+  /**
+   * **GLS発番・付け替え・分類切替は `gls_number` / `gls_category` を変える。**
+   * 案件台帳・整合性チェック・仕入や請求の案件候補など、同じ案件を別の鍵で持つ
+   * 画面が10以上あり、ここで鍵を並べていたころは必ず落とし忘れが出た
+   * （台帳だけ古い番号のまま残る等）。**鍵の一覧は
+   * `contexts/sales/projectQueries.ts` 1か所に置く。**
+   */
+  const invalidateProject = () => invalidateProjectQueries(qc, id);
 
   /** 紐づけ先を選ぶための一覧。ダイアログを開いたときだけ引く */
   const { data: glsProjectsData } = useQuery({
@@ -205,11 +200,7 @@ export function useProjectActions({
   const deleteMutation = useMutation({
     mutationFn: async () => (await api.delete(`/projects/${id}`)).data,
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['projects'] });
-      qc.invalidateQueries({ queryKey: ['project', id] });
-      qc.invalidateQueries({ queryKey: ['project-ledger'] });
-      qc.invalidateQueries({ queryKey: ['project-integrity'] });
-      qc.invalidateQueries({ queryKey: ['dashboard', 'sales-overview'] });
+      invalidateProject();
       notifySuccess('案件を削除しました');
       navigate('/sales/projects');
     },

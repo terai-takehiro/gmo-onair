@@ -30,7 +30,8 @@ import { RevenueItemsTable } from './RevenueItemsTable';
 import { RevenueProjectFields } from './RevenueProjectFields';
 import { RevenueDateFields } from './RevenueDateFields';
 import { useRevenueItems } from './useRevenueItems';
-import { defaultsFromProject, formFromRevenue } from './revenuePrefill';
+import { defaultsFromProject, formFromRevenue, mapRevenueItems } from './revenuePrefill';
+import { useRevenueEditTarget } from './useRevenueEditTarget';
 import type { EpisodeOption, ProjectOption, RevenueItem, RevenueRow } from './types';
 
 export function RevenueDialog({
@@ -45,7 +46,9 @@ export function RevenueDialog({
   const [projectSearch, setProjectSearch] = useState(editing?.project_name || '');
   const [selectedProjectObj, setSelectedProjectObj] = useState<ProjectOption | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState(editing?.project_id || '');
-  const [selectedEpisodeId, setSelectedEpisodeId] = useState('');
+  // ⚠️ **直す行の回（episode）を必ず引き継ぐ。** ここを空で始めると、保存のたびに
+  // `episode_id: null` を送って**回との紐づきが黙って外れます**（migration 269/270）
+  const [selectedEpisodeId, setSelectedEpisodeId] = useState(editing?.episode_id || '');
   const [taxCategory, setTaxCategory] = useState(editing?.tax_category || 'tax10');
   const [amount, setAmount] = useState<number>(Number(editing?.amount) || 0);
   const [recognitionMonth, setRecognitionMonth] = useState(editing?.recognition_date?.slice(0, 7) || '');
@@ -77,17 +80,7 @@ export function RevenueDialog({
   useEffect(() => {
     const loaded: RevenueItem[] | undefined = detailData?.data?.items;
     if (!loaded || loaded.length === 0) return;
-    setItems(loaded.map((it) => ({
-      description: it.description || '',
-      quantity: it.quantity || 1,
-      unit_price: it.unit_price || 0,
-      amount: it.amount || 0,
-      pricing_item_id: it.pricing_item_id,
-      period_start: it.period_start || null,
-      period_end: it.period_end || null,
-      item_notes: it.item_notes || null,
-      category: it.category || null,
-    })));
+    setItems(mapRevenueItems(loaded));
   }, [detailData]);
 
   // Search projects
@@ -124,10 +117,12 @@ export function RevenueDialog({
   const existingProjectRevenues: RevenueRow[] = existingRevenuesData?.data ?? [];
   const primaryRevenue = existingProjectRevenues.find((r) => !r.group_id);
 
-  const selectedProject =
-    selectedProjectObj && selectedProjectObj.id === selectedProjectId
-      ? selectedProjectObj
-      : projects.find((p) => p.id === selectedProjectId);
+  // 保存先の案件・請求先・「保存できない理由」。**直しに来たときは案件名で検索し直さない**
+  // — 受注前・見込みの行だと候補が0件になり、更新ボタンが永久に灰色のままだった
+  //（`useRevenueEditTarget.ts` 冒頭。ユーザー報告「入力は出来るが保存ができない」の実体）
+  const { selectedProject, customerId, blockReason } = useRevenueEditTarget({
+    editing, selectedProjectId, selectedProjectObj, projects,
+  });
   const isProjectCategoryB = selectedProject?.project_type
     ? getProjectCategory(selectedProject.project_type) === 'B'
     : false;
@@ -162,8 +157,7 @@ export function RevenueDialog({
     if (v.billingDate) setBillingDate(v.billingDate);
     if (v.paymentDueDate) setPaymentDueDate(v.paymentDueDate);
     setNotes(v.notes);
-    setIsAdvancePayment(v.isAdvancePayment); setInspectionDate(v.inspectionDate);
-    setInvoiceIssued(v.invoiceIssued);
+    setIsAdvancePayment(v.isAdvancePayment); setInspectionDate(v.inspectionDate); setInvoiceIssued(v.invoiceIssued);
     // **明細が空なら触らない** — 空配列で上書きすると元の明細が全部消える
     if (v.items) setItems(v.items);
   }, [primaryRevenue?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -189,6 +183,11 @@ export function RevenueDialog({
     // （`MobileCollect.tsx` と同じ対）
     qc.invalidateQueries({ queryKey: ['revenues'] });
     qc.invalidateQueries({ queryKey: ['revenues-project', selectedProjectId] });
+    // 保存すると案件の想定金額（`projects.expected_amount`）も書き換わる
+    // （`revenues.routes.ts` の PUT 末尾）。落とさないと案件詳細の事実の帯・
+    // 案件台帳だけリロードするまで古い金額のまま残る
+    qc.invalidateQueries({ queryKey: ['project', selectedProjectId] });
+    qc.invalidateQueries({ queryKey: ['projects'] });
   };
 
   const createMutation = useMutation({
@@ -213,9 +212,8 @@ export function RevenueDialog({
     if (ok) deleteMutation.mutate(existingRevenueId);
   };
 
-  const submitError = createMutation.error as
-    | { response?: { data?: { error?: { message?: string } } }; message?: string }
-    | null;
+  type SubmitError = { response?: { data?: { error?: { message?: string } } }; message?: string } | null;
+  const submitError = createMutation.error as SubmitError;
   const submitErrorMessage = submitError
     ? submitError.response?.data?.error?.message || submitError.message || '登録に失敗しました'
     : '';
@@ -227,7 +225,7 @@ export function RevenueDialog({
       payload: {
         project_id: selectedProjectId,
         episode_id: selectedEpisodeId || null,
-        customer_id: selectedProject?.customer_id ?? null,
+        customer_id: customerId,
         tax_category: taxCategory,
         amount: items.length > 0 ? itemsTotal : amount,
         recognition_date: recognitionMonth ? `${recognitionMonth}-01` : null,
@@ -241,7 +239,7 @@ export function RevenueDialog({
     });
   };
 
-  const canSubmit = !!selectedProjectId && !!selectedProject?.customer_id && !createMutation.isPending;
+  const canSubmit = !blockReason && !createMutation.isPending;
   // 値引きは「対象の金額が 0 以下」だと押せない。**押しても何も起きないのをやめる**
   const discountable = items.some((it) => (it.amount || 0) > 0);
 
@@ -344,7 +342,7 @@ export function RevenueDialog({
               setPaymentDueDate={setPaymentDueDate}
               isAdvancePayment={isAdvancePayment}
               setIsAdvancePayment={setIsAdvancePayment}
-              revenueId={existingRevenueId} inspectionDate={inspectionDate}
+              revenueId={existingRevenueId} inspectionDate={inspectionDate} status={editing?.status ?? primaryRevenue?.status}
               onInspectionSaved={(v) => { setInspectionDate(v); invalidate(); }} invoiceIssued={invoiceIssued}
               setInvoiceIssued={setInvoiceIssued} notes={notes} setNotes={setNotes}
             />
@@ -355,6 +353,8 @@ export function RevenueDialog({
               </div>
             )}
 
+            {/* ⚠️ **押せない理由は必ず出す。** 灰色のボタンだけだと「壊れている」としか見えない */}
+            {blockReason && <p className="text-note text-warning">{blockReason}</p>}
             <div className="flex flex-wrap gap-2 pt-2 sm:justify-between">
               <div>
                 {existingRevenueId && (
@@ -368,7 +368,7 @@ export function RevenueDialog({
               </div>
               <div className="ml-auto flex gap-2">
                 <Button variant="outline" onClick={onClose}>やめる</Button>
-                <Button disabled={!canSubmit} onClick={handleCreateSubmit}>
+                <Button disabled={!canSubmit} title={blockReason || undefined} onClick={handleCreateSubmit}>
                   {createMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                   {existingRevenueId ? '更新' : '登録'}
                 </Button>

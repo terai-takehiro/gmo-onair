@@ -270,6 +270,20 @@ export interface ProjectFilter {
 /** 一括更新で変更可能なフィールド (申し込み情報等のパラメータ) */
 const STAGES = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed', 'e_lost'];
 
+/**
+ * **新しい GLS 番号を焼けない手前のステージ**（2026-09-02 に1段前倒し）。
+ *
+ * 見積を出す段階で番号が実務上必要（見積書・BOX フォルダ名に載る）ので、
+ * `c_proposal`（C 見積提案）からは採れます。止めるのは見積すら出していない
+ * `neta`（ネタ）と `d_hold`（仮押さえ）だけ — そこまで開けると、
+ * 消える案件にまで番号を焼いて欠番だけが増えます。
+ *
+ * ⚠️ 画面側の同じ境界は `client/src/contexts/sales/glsIssue.ts`。
+ * **どちらか片方だけ直すと「押せるのに 400」または「採れるのに押せない」**に戻ります
+ * （server は rootDir の都合で `shared/` を import できないため2か所に分かれている）。
+ */
+const GLS_BLOCKED_STAGES: readonly string[] = ['neta', 'd_hold'];
+
 const SORT_COLUMN_MAP: Record<string, string> = {
   code: 'p.gls_number',
   name: 'p.name',
@@ -1920,26 +1934,33 @@ export class ProjectService {
   }
 
   /**
-   * GLS発番（口頭決定以降で呼ぶ。案件に GLS番号を付与する）
+   * GLS発番（見積提案以降で呼ぶ。案件に GLS番号を付与する）
    *
    * ⚠️ **ステージを実際にここで確かめる**（v4.1.8・矛盾修正）。
    *
    * このメソッドには2つの入口がある:
    *   ・`changeStage` … 受注 (`a_won`) に上げた瞬間に**自動で**呼ぶ（このときは
    *     もう `stage='a_won'` に更新済みなので、下のガードは必ず通る）
-   *   ・`POST /:id/issue-gls`（画面の「GLS 発番」ボタン）… 「口頭決定のうちに
+   *   ・`POST /:id/issue-gls`（画面の「GLS 発番」ボタン）… 「見積を出す前に
    *     先に番号が要る」ときのための**手動**の入口
    *
    * 以前は手動の入口にステージの縛りが無く、**問合せ（`neta`）の案件からでも
-   * 番号を焼けた**。v4 は「受注が固まるまで番号を焼かない」（欠番を増やさない）
-   * のが前提なので、口頭決定より手前からは弾く
+   * 番号を焼けた**。v4 は欠番を増やさないために手前を弾くが、境界は
+   * `GLS_BLOCKED_STAGES`（ネタ・仮押さえのみ）— 2026-09-02 に
+   * 「C 見積提案から採れない」という実務との食い違いを直した。
+   *
+   * ⚠️ **発番してもステージは上げない**（2026-09-02）。以前は手前のステージから
+   * 発番すると `b_verbal`（口頭決定）へ自動で昇格させていたが、受注の合意が
+   * 取れていない案件が口頭決定として数えられ、**じょうご（ファネル）が嘘になる**。
+   * 番号を採ることと、商談がどこまで進んだかは別の話なので分ける。
+   * （`link-gls` / `relink-gls` の自動昇格は挙動の影響範囲が別なので今回は据え置き）
    */
   async issueGls(id: string, data: Record<string, unknown>, userId: string) {
     const project = await queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [id]) as any;
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
     if (project.gls_number) throw new AppError(400, 'VALIDATION_ERROR', '既にGLS番号が発番済みです');
-    if (['neta', 'd_hold', 'c_proposal'].includes(project.stage as string)) {
-      throw new AppError(400, 'VALIDATION_ERROR', '口頭決定（B）以降の案件だけ、先にGLS番号を発番できます。');
+    if (GLS_BLOCKED_STAGES.includes(project.stage as string)) {
+      throw new AppError(400, 'VALIDATION_ERROR', '見積提案（C）以降の案件だけ、先にGLS番号を発番できます。');
     }
 
     // v2.8.113+: project.gls_category を見る (登録時に必須化済)
@@ -1970,24 +1991,26 @@ export class ProjectService {
     if (data.broadcast_type !== undefined) { sets.push('broadcast_type=?'); params.push(data.broadcast_type || null); }
     if (data.media_platform !== undefined) { sets.push('media_platform=?'); params.push(data.media_platform || null); }
 
+    /**
+     * ⚠️ **ステージは触らない**（2026-09-02）。ここには
+     * `stage=CASE WHEN stage IN ('neta','d_hold','c_proposal') THEN 'b_verbal' …` と
+     * 自動昇格が書かれていたが、**番号を採っただけの案件が「口頭決定」に化けて**
+     * じょうごの件数とステージ別の想定金額に嘘が入る。
+     * 昇格が無くなったので `project_stage_changes` への記録も要らない
+     * （記録するステージ変更そのものが起きない）。
+     */
     await execute(
-      `UPDATE projects SET ${sets.join(', ')},
-       stage=CASE WHEN stage IN ('neta','d_hold','c_proposal') THEN 'b_verbal' ELSE stage END,
-       updated_at=NOW(), updated_by=? WHERE id=?`,
+      `UPDATE projects SET ${sets.join(', ')}, updated_at=NOW(), updated_by=? WHERE id=?`,
       [...params, userId, id]
     );
 
-    // **この SQL はステージも上げる。** 上げたときは履歴に残す (migration 164) —
-    // 残さないと「口頭決定になったのはいつか」が抜け、停滞理由が言えなくなる
-    if (['neta', 'd_hold', 'c_proposal'].includes(project.stage as string)) {
-      await execute(
-        `INSERT INTO project_stage_changes (id, project_id, from_stage, to_stage, changed_by)
-         VALUES (?, ?, ?, 'b_verbal', ?)`,
-        [uuidv4(), id, project.stage, userId],
-      );
-    }
-
-    // 概算見積を確定売上に変換
+    /*
+     * 概算見積を確定売上に変換。
+     * ⚠️ **発番の境界を C 見積提案まで前倒しした（2026-09-02）ので、この変換も1段早く起きる。**
+     * 変換するのは旧い持ち方（`revenues.status='estimate'`）だけで、v4 の見積は別テーブル
+     * （`estimates`）なので通常は0件。ただし古い案件では「見積提案の段階で概算が
+     * 確定売上に変わる」ことになるので、財務側で見え方が変わったらここを疑うこと。
+     */
     await this.migrateEstimates(id, glsNumber);
 
     // BOX 両フォルダ (社内限り / 社外共有可) の ID 部分を OPP コード → GLS 番号 にリネーム。
