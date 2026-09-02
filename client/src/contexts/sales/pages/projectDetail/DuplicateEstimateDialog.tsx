@@ -53,6 +53,9 @@ export function DuplicateEstimateDialog({
   const [episodeId, setEpisodeId] = useState('');
   // 複製元を選ばせる形で開いたとき用。呼び手が複製元を決めているときはそちらが勝つ
   const [sourceId, setSourceId] = useState('');
+  // 複製元を選び直したせいで複製先から外した回。**外したことを画面に出すために持つ**
+  // （黙って空にすると「選んだのに消えた」としか読めない）
+  const [droppedEpisode, setDroppedEpisode] = useState<Episode | null>(null);
   const source = estimate ?? (sources ?? []).find((e) => e.id === sourceId) ?? null;
 
   // **一覧（`EpisodeScopeToggle`・`EpisodesPanel`）と同じ鍵。** すでに読み込み
@@ -63,6 +66,24 @@ export function DuplicateEstimateDialog({
   });
   // **複製元と同じ回は選ばせない。** 同じ回に複製したいだけなら「次の版をつくる」で足りる
   const candidates = (episodes.data ?? []).filter((e) => e.id !== source?.episode_id);
+  // 候補から外すだけでは足りない — **先に複製先を選んでから複製元を選び直す**と、
+  // 選択肢からは消えても `episodeId` は残り、同じ回への複製が押せてしまう
+  const sameEpisode = !!episodeId && episodeId === source?.episode_id;
+
+  /**
+   * 複製元を選び直す。すでに選んでいた複製先が複製元と同じ回になったら、
+   * **その場で複製先の選択も外す**（残すと同じ回に2本目の見積ができる）。
+   */
+  const pickSource = (id: string) => {
+    setSourceId(id);
+    const next = (sources ?? []).find((e) => e.id === id) ?? null;
+    if (episodeId && next?.episode_id === episodeId) {
+      setDroppedEpisode((episodes.data ?? []).find((e) => e.id === episodeId) ?? null);
+      setEpisodeId('');
+    } else {
+      setDroppedEpisode(null);
+    }
+  };
 
   const duplicate = useMutation({
     mutationFn: async () => (await api.post(`${base}/${source?.id}/duplicate-to-episode`, { episode_id: episodeId })).data.data as Estimate,
@@ -88,7 +109,7 @@ export function DuplicateEstimateDialog({
       footer={
         <FormDialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
-          <Button onClick={() => duplicate.mutate()} disabled={!source || !episodeId || duplicate.isPending}>
+          <Button onClick={() => duplicate.mutate()} disabled={!source || !episodeId || sameEpisode || duplicate.isPending}>
             複製する
           </Button>
         </FormDialogFooter>
@@ -99,7 +120,7 @@ export function DuplicateEstimateDialog({
       {!estimate && (
         <div className="mb-3">
           <Label htmlFor="dup-estimate-source">ベースにする見積 *</Label>
-          <Select value={sourceId} onValueChange={setSourceId}>
+          <Select value={sourceId} onValueChange={pickSource}>
             <SelectTrigger id="dup-estimate-source" className="mt-1"><SelectValue placeholder="見積を選ぶ" /></SelectTrigger>
             <SelectContent>
               {(sources ?? []).map((e) => (
@@ -116,7 +137,7 @@ export function DuplicateEstimateDialog({
       )}
       <div>
         <Label htmlFor="dup-estimate-episode">複製先の回 *</Label>
-        <Select value={episodeId} onValueChange={setEpisodeId}>
+        <Select value={episodeId} onValueChange={(v) => { setEpisodeId(v); setDroppedEpisode(null); }}>
           <SelectTrigger id="dup-estimate-episode" className="mt-1"><SelectValue placeholder="回を選ぶ" /></SelectTrigger>
           <SelectContent>
             {candidates.map((e) => (
@@ -126,6 +147,12 @@ export function DuplicateEstimateDialog({
             ))}
           </SelectContent>
         </Select>
+        {droppedEpisode && (
+          <p className="text-sub mt-1 text-amber-600 dark:text-amber-500">
+            #{droppedEpisode.episode_number} {droppedEpisode.title || droppedEpisode.episode_code} は、いま選んだ見積と同じ回です。
+            複製先から外したので、別の回を選び直してください（同じ回を書き直すなら「次の版をつくる」です）。
+          </p>
+        )}
         {episodes.isSuccess && candidates.length === 0 && (
           <p className="text-sub mt-1 text-muted-foreground">複製できる別の回がありません。先に「回を足す」で回を増やしてください。</p>
         )}

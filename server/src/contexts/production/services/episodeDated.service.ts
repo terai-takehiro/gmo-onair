@@ -78,9 +78,9 @@ export interface DatedPreviewEntry {
 /**
  * **一切書かずに**、何が起きるかだけを返す（`/episodes/generate` と同じ作法）。
  *
- * 回を作ると売上（見込み）の行も一緒に増えることがあるので、押したあとで
- * 分かるのは事故（`docs/design/v4/regular-series.md` §7）。画面は必ずこれを
- * 見せてから実行する。
+ * 回を作ると**確定売上**（`revenues.status='confirmed'`）の行も一緒に増えることが
+ * あるので、押したあとで分かるのは事故（`docs/design/v4/regular-series.md` §7）。
+ * 画面は必ずこれを見せてから実行する。
  */
 export async function previewDatedEpisodes(projectId: string, entries: ParsedDatedEntry[]) {
   await loadProject(projectId);
@@ -127,18 +127,40 @@ export async function previewDatedEpisodes(projectId: string, entries: ParsedDat
  * `getNextEpisodeNumberAtomic` は `sequences` の行（`counter` ＝最後に使った番号）を
  * 進める実装で、#17,18,19 を**手で入れてもカウンタは進まない**。放っておくと
  * 次に件数モードや「頻度で作る」を使ったときに #18 を採り直して重複エラーになる。
- * ここで `GREATEST` で追い越しておく（既存の値より小さければ何もしない）。
  *
- * ⚠️ **案件の既存最大値では進めない。** GLS-B の月次ユニット（`/episodes/month`）は
- * `episode_number` に `2607` のような YYMM を入れるので、それを種にすると
- * カウンタが一気に跳ねる。ここで追い越すのは**人が打ち込んだ番号だけ**にする。
+ * ⚠️ **人が打った番号だけを種にすると、自動採番が二度と通らなくなる。**
+ * `sequences` の行がまだ無い案件（＝これまで「話数で指定」だけで作ってきた案件）で
+ * 欠番を埋める操作をすると、そのまま詰まる:
+ *
+ *   回が #1〜#16 と #18〜#25（#17 が欠番）→ ここで #17 を登録すると
+ *   `counter = 17` の行が新しく出来る → 以後 `getNextEpisodeNumberAtomic` は
+ *   「行が無ければ MAX+1 を種まき」の経路に入らず必ず `counter + 1` を返すので
+ *   **18 を採り続け、既存の #18 とぶつかって毎回 400**（「頻度で作る」も
+ *   「件数で足す」も永久に通らない）。
+ *
+ * 欠番を人が埋めるのは**正しい操作**（この口の決めごと・上のコメント参照）なので、
+ * 禁止せずカウンタ側を直す: 行を作るときも更新するときも
+ * **`GREATEST(人が打った番号, 案件の既存最大値)` を下回らせない**。
+ * 種まきの規則を `getNextEpisodeNumberAtomic`（`COALESCE(MAX(episode_number), 0)`
+ * から種をまく）と同じにする、というだけの話で、片方だけ低い値で置くから詰まる。
+ *
+ * ※ GLS-B の月次ユニット（`/episodes/month`）が `episode_number` に `2607` のような
+ *   YYMM を入れる案件では、この GREATEST でカウンタが YYMM まで跳ぶ。これは
+ *   `getNextEpisodeNumberAtomic` が**元から**同じ種まきをする（行が無ければ
+ *   `2607 + 1` を返す）ので新しい挙動ではない。ここだけ低く抑えても採番が詰まる
+ *   だけで、跳ぶのは防げない。
+ *
+ * 取引の中の**1文**で済ませる（MAX を読んでから書くと、その隙に別の登録が入った
+ * ときに古い値で上書きしうる）。
  */
 async function bumpEpisodeSequence(tx: TxClient, projectId: string, maxExplicit: number): Promise<void> {
   await tx.execute(
     `INSERT INTO sequences (seq_name, prefix, year_month, counter)
-     VALUES (?, 'episode', '000000', ?)
+     SELECT ?, 'episode', '000000',
+            GREATEST(?::int, COALESCE((SELECT MAX(episode_number) FROM episodes
+                                        WHERE project_id = ? AND deleted_at IS NULL), 0))
      ON CONFLICT (seq_name) DO UPDATE SET counter = GREATEST(sequences.counter, EXCLUDED.counter)`,
-    [`episode:${projectId}`, maxExplicit],
+    [`episode:${projectId}`, maxExplicit, projectId],
   );
 }
 
@@ -249,8 +271,21 @@ export async function createDatedEpisodes(input: CreateDatedEpisodesInput) {
               perDay, entry.unitPrice, userId],
           );
 
-          // 単価を入れた行だけ売上（見込み）も作る（`/batch`・`/generate` と同じ）。
-          // ⚠️ 0円は「作らない」— 金額のない売上行を増やしても月次に乗るだけなので
+          /**
+           * 単価を入れた行だけ売上も作る（`/batch`・`/generate` と同じ）。
+           * ⚠️ 0円は「作らない」— 金額のない売上行を増やしても月次に乗るだけなので。
+           *
+           * ⚠️ **`status` を渡さないので `confirmed`（確定売上）になる**
+           * （migration 004 の既定値）。`getSummaries` は `status='confirmed'` を
+           * 日付条件なしで集計するため、登録した瞬間に案件の売上・粗利へ乗る。
+           * **既存2つの口（`/episodes/batch`・`/episodes/generate`）も同じく
+           * `status` を渡していない**ので、ここだけ `estimate` にすると
+           * 「同じ操作なのに入口によって月次損益が変わる」ことになる。揃えるのが
+           * 原則なので**ここでは変えない** — 代わりに画面（`DatedEpisodesForm`）で
+           * 「確定売上が立つ」と読める言葉にして、押す前のプレビューに件数と
+           * 金額を出す。3つまとめて `estimate` に寄せるかは別途の判断
+           * （`docs/reviews/codex-findings-v4.md` 行き）。
+           */
           if (entry.unitPrice !== null && entry.unitPrice > 0) {
             await tx.execute(
               `INSERT INTO revenues (id, billing_key, project_id, episode_id, customer_id, assigned_to, tax_category, amount, notes, created_by)

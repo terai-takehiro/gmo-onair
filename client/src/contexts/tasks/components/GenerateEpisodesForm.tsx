@@ -10,7 +10,7 @@
  *
  * ── 実行前に必ずプレビュー（dry_run）を見せる ──────────────────────
  *
- * お金の行（売上見込み）が一緒に増えることがあるので、押したあとで
+ * お金の行（**確定売上**）が一緒に増えるので、押したあとで
  * 分かるのは事故（設計文書 §7）。「内容を確かめる」→ プレビュー表示 →
  * 「作成する」の2段階にしてあり、**入力を変えたらプレビューは無効に戻す**
  * （`previewKey` が今の入力と一致しないときは古いプレビューとして警告に差し替える）。
@@ -114,7 +114,7 @@ export function GenerateEpisodesForm({
     mutationFn: () => api.post(`/projects/${projectId}/episodes/generate`, payload),
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ['episodes', projectId] });
-      // 単価があるとサーバーが回ごとに売上（見込み）行も作る。見積タブの
+      // 単価があるとサーバーが回ごとに売上行も作る。見積タブの
       // `['revenues','project',projectId]`（前方一致で当たる）と財務③の
       // `['revenues-all']` も落とさないと、作った売上が最大60秒古いまま見える
       qc.invalidateQueries({ queryKey: ['revenues'] });
@@ -205,11 +205,24 @@ export function GenerateEpisodesForm({
       )}
 
       <div>
-        <Label htmlFor="gen-revenue">単価（見込み・任意）</Label>
+        <Label htmlFor="gen-revenue">回の単価（任意・確定売上）</Label>
         <Input
           id="gen-revenue" type="number" inputMode="numeric" className="mt-1" placeholder="例: 84000"
           value={revenueBudget} onChange={(e) => { setRevenueBudget(e.target.value); touch(); }}
         />
+        {/*
+          ⚠️ **ここは「見込み」ではありません。** サーバー
+          (`episode-generate.routes.ts` の `INSERT INTO revenues`) は `status` を
+          渡しておらず、列の既定 `confirmed` が効いて**確定売上**の行になります。
+          `getSummaries` は `status='confirmed'` を日付条件なしで足すので、
+          作った瞬間に案件の売上・粗利へ乗ります。
+          長らくラベルだけ「見込み」と書いてあり実態と食い違っていたので直しました
+          （「日付で指定」タブの同じ欄と表記を揃えてあります — 同じ操作が入口によって
+          違う言葉で説明されるのが、今回の一連の取り違えの元でした）。
+        */}
+        <p className="text-sub mt-1 text-muted-foreground">
+          単価を入れた回には確定売上が1件ずつ作られ、案件の売上・粗利にすぐ乗ります。空欄にすれば売上は作りません。
+        </p>
       </div>
 
       <Button

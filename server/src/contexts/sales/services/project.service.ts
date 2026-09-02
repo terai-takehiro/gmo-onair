@@ -284,6 +284,16 @@ const STAGES = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_complete
  */
 const GLS_BLOCKED_STAGES: readonly string[] = ['neta', 'd_hold'];
 
+/**
+ * **受注が確定しているステージ**（お金を確定として数えてよい段）。
+ *
+ * `revenues.status='estimate'`（見込み・概算）を `'confirmed'`（確定売上）へ
+ * 変える判断はここだけを見る。月次損益・案件粗利は `status='confirmed'` を
+ * 確定売上として数える（`TOTAL_REVENUE_SQL` / `getSummaries`）ので、
+ * **受注していない段でここに入れると、取れていない売上が損益に乗る。**
+ */
+const WON_STAGES: readonly string[] = ['a_won', 's_completed'];
+
 const SORT_COLUMN_MAP: Record<string, string> = {
   code: 'p.gls_number',
   name: 'p.name',
@@ -1778,6 +1788,32 @@ export class ProjectService {
     }
 
     /**
+     * **概算見積（`revenues.status='estimate'`）を確定売上に変えるのは「受注した瞬間」**
+     * （2026-09-02）。
+     *
+     * 元はこの変換が GLS 発番の副作用だったが、発番が C 見積提案から行えるように
+     * なったため、発番と受注は別の出来事になった。**先に発番していた案件は
+     * 上の `issueGls` を通らない**（`!project.gls_number` で弾かれる）ので、
+     * ここで拾わないと見込み売上が永久に確定へ変わらない。
+     *
+     * 変換の実害（受注していない案件の変換）は `migrateEstimates` 側の
+     * `WON_STAGES` ガードで止めてある。ここへ来る時点で `projects.stage` は
+     * 既に `a_won` に UPDATE 済みなので、ガードは通る。
+     * ⚠️ **変換に失敗しても受注そのものは通す**（GLS 自動発番と同じ扱い。
+     * ここで例外にすると「受注にできない」という別の事故になる）。
+     * ⚠️ `stageChanged` を条件に入れているのは、**受注済みの案件で受注ボタンを
+     * 押し直しただけ**のときに、あとから足した見込み売上まで確定に化けさせないため
+     * （押し直しは今までも何も起きなかった）。
+     */
+    if (stageChanged && stage === 'a_won' && !issuedProject && project.gls_number) {
+      try {
+        await this.migrateEstimates(id, project.gls_number as string);
+      } catch (err) {
+        console.warn('[changeStage] estimate->confirmed migration failed:', id, (err as Error).message);
+      }
+    }
+
+    /**
      * **レギュラー案件を受注にしたら、最初の回を1件だけ作る**
      * （docs/design/v4/regular-series.md §5）。
      *
@@ -2005,11 +2041,17 @@ export class ProjectService {
     );
 
     /*
-     * 概算見積を確定売上に変換。
-     * ⚠️ **発番の境界を C 見積提案まで前倒しした（2026-09-02）ので、この変換も1段早く起きる。**
-     * 変換するのは旧い持ち方（`revenues.status='estimate'`）だけで、v4 の見積は別テーブル
-     * （`estimates`）なので通常は0件。ただし古い案件では「見積提案の段階で概算が
-     * 確定売上に変わる」ことになるので、財務側で見え方が変わったらここを疑うこと。
+     * 概算見積（`revenues.status='estimate'`）を確定売上へ変換する。
+     *
+     * ⚠️ **変換するかどうかは「発番したか」ではなく「受注したか」で決める**（2026-09-02）。
+     * 発番の境界を C 見積提案まで前倒ししたので、ここを無条件に呼ぶと
+     * **受注していない案件の見込み売上が確定売上に化けて、月次損益・案件粗利に乗る。**
+     * 実際の判定は `migrateEstimates` の中（`WON_STAGES`）に置いてある —
+     * `linkToExistingGls` / `relinkExistingGls` も同じ関数を通るので、
+     * 呼び出し側で書くと片方だけ穴が残る。
+     *
+     * 受注（`a_won`）に上げたときの変換は `changeStage` が受け持つ
+     * （既に発番済みの案件はここを通らないため）。
      */
     await this.migrateEstimates(id, glsNumber);
 
@@ -2527,8 +2569,26 @@ export class ProjectService {
 
   /**
    * 概算見積→確定売上に変換（billing_key再生成＋ステータス変更）
+   *
+   * ⚠️ **受注済み（`WON_STAGES`）の案件でしか変換しない**（2026-09-02）。
+   * 元々この変換は GLS 発番の副作用で、発番は「口頭決定（B）以降」でしか
+   * できなかったため、実質「話がまとまった案件だけ」が対象だった。
+   * 発番を C 見積提案まで前倒ししたことで前提が崩れ、**受注していない案件の
+   * 見込み売上（`status='estimate'`）が確定売上になって月次損益に乗る**ようになった。
+   *
+   * ガードを呼び出し側ではなくここに置いてあるのは、入口が3つ
+   * （`issueGls` / `linkToExistingGls` / `relinkExistingGls`）＋`changeStage` あり、
+   * どれか1つ書き忘れると同じ穴が開くため。**ステージは DB から読み直す** —
+   * `linkToExistingGls` / `relinkExistingGls` は直前の UPDATE でステージを
+   * 昇格させるので、呼び出し元が握っている古い行を見ると判定を誤る。
    */
   private async migrateEstimates(projectId: string, glsNumber: string) {
+    const cur = await queryOne(
+      'SELECT stage FROM projects WHERE id = ? AND deleted_at IS NULL',
+      [projectId]
+    ) as { stage?: string } | undefined;
+    if (!cur || !WON_STAGES.includes(cur.stage as string)) return;
+
     const estimates = await queryAll(
       `SELECT id, tax_category FROM revenues
        WHERE project_id = ? AND status = 'estimate' AND deleted_at IS NULL
