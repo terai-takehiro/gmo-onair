@@ -32,6 +32,10 @@ export function useEstimateEpisodeFilter(projectId: string, isSeries: boolean) {
     queryKey: ['episodes', projectId],
     queryFn: async () => (await api.get(`/projects/${projectId}/episodes`, { params: { limit: 200 } })).data.data,
     enabled: isSeries,
+    // **開くたびに必ず読み直す**（ProjectDetailPage.tsx の `['project', id]` と同じ注記）。
+    // `EpisodesPanel.tsx` の同じ鍵とオプションを揃えてある（理由はそちらのコメント）
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   /** 版の一覧に出す「#3」のような回のラベル。回を持たない見積（案件全体）は何も返さない */

@@ -46,11 +46,9 @@
  * 戻すのは間違いを直すときなので、確認の文面で「終わった案件を進行中に戻す」と伝えます。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Pencil, Plus, AlarmClock } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useRail } from '@gmo-onair/shared/src/client-v4/rail';
-import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { SnoozeDialog, useSnooze } from '../projectList/snooze';
@@ -106,11 +104,15 @@ export interface DetailHeaderProps {
   updatedAt?: string | null;
   /** レギュラー（回を持つ）案件。`series: true` のタブ（「回」）を並べるかどうか */
   series?: boolean;
+  /** 健全性（`project-health.ts`）。`'snoozed'` かつ `snoozeUntil` があればスヌーズ中 */
+  health?: string;
+  /** スヌーズの再開日。`null`/未指定なら掛かっていない */
+  snoozeUntil?: string | null;
 }
 
 export function DetailHeader({
   id, name, customerName, glsNumber, code, stage, tab, counts,
-  onChangeStage, mobile, phase, updatedAt, series,
+  onChangeStage, mobile, phase, updatedAt, series, health, snoozeUntil,
 }: DetailHeaderProps) {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
@@ -118,16 +120,15 @@ export function DetailHeader({
   const [snoozeOpen, setSnoozeOpen] = useState(false);
 
   /**
-   * スヌーズの状態（docs/core-redesign-plan.md §3-1）。props を増やさず、
-   * **ページと同じ鍵**（`['project', id]`）でキャッシュから読む — 同じ鍵なので
-   * 追加のリクエストは飛ばず、`useSnooze` の invalidate でここも一緒に更新される。
+   * スヌーズの状態（docs/core-redesign-plan.md §3-1）。**自前の `useQuery` は持たない
+   * ——ProjectDetailPage.tsx が既に読んでいる `['project', id]` の結果を props で
+   * 受け取る**（v4.5.21）。以前はここで同じ鍵をもう一度 `useQuery` していたが、
+   * 呼び出し元と `staleTime`/`refetchOnMount` が食い違う2つ目の観測者になっており
+   * （呼び出し元は「開くたびに必ず読み直す」・こちらは共通の既定 = 60秒キャッシュ）、
+   * `useSnooze` の invalidate 直後はどちらも合っていても、通常遷移で戻ってきたときに
+   * こちらだけ古いスヌーズ表示が出うる形だった。props にすれば観測者は1つで済む。
    */
-  const { data: p } = useQuery<{ health?: string; snooze_until?: string | null }>({
-    queryKey: ['project', id],
-    queryFn: async () => (await api.get(`/projects/${id}`)).data.data,
-    enabled: !!id,
-  });
-  const snoozed = p?.health === 'snoozed' && !!p?.snooze_until;
+  const snoozed = health === 'snoozed' && !!snoozeUntil;
   const snooze = useSnooze(id);
 
   /**
@@ -301,11 +302,11 @@ export function DetailHeader({
         スヌーズ中の帯。**控えめにする** — 意図して寝かせた静かな状態なので、
         警告色で騒がない。解除はここから1クリック（掛け直しはスヌーズボタンから）。
       */}
-      {snoozed && p?.snooze_until && (
+      {snoozed && snoozeUntil && (
         <div className="flex flex-wrap items-center gap-2 border-t border-border-faint bg-muted/50 px-4 py-1.5 lg:px-6">
           <AlarmClock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
           <span className="text-note text-muted-foreground">
-            スヌーズ中 — {p.snooze_until.replace(/-/g, '/')} に自動で再開します（それまで停滞にも自動整理にも出ません）
+            スヌーズ中 — {snoozeUntil.replace(/-/g, '/')} に自動で再開します（それまで停滞にも自動整理にも出ません）
           </span>
           {canEdit && (
             <button
@@ -324,7 +325,7 @@ export function DetailHeader({
         open={snoozeOpen}
         onOpenChange={setSnoozeOpen}
         projectId={id}
-        current={snoozed ? p?.snooze_until : null}
+        current={snoozed ? snoozeUntil : null}
       />
 
       {/*

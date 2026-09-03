@@ -59,6 +59,11 @@ function HealthStrip({ projectId, episodeId }: { projectId: string; episodeId: s
   const { data: members = [] } = useQuery({
     queryKey: ['project-members', projectId],
     queryFn: async () => (await api.get(`/projects/${projectId}/members`)).data.data as ProjectMember[],
+    // **開くたびに必ず読み直す**（ProjectDetailPage.tsx の `['project', id]` と同じ注記）。
+    // 共通の staleTime: 60_000 のままだと、直前に別タブ/別ウィンドウでメンバーを
+    // 変えても60秒は古いまま出る（通常遷移では出ず、リロードでしか正しくならない）
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const total = tasks.length;

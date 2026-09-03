@@ -66,6 +66,14 @@ export interface ProjectDetail {
    * この値で決まる。**読むだけの固定表示** — 直す画面は取引先マスターへ送る
    */
   customer_type?: 'internal' | 'external' | string | null;
+  /**
+   * 健全性・スヌーズ（`project-health.ts` 単一定義）。DetailHeader.tsx はこれを
+   * 自前の `useQuery` で二重に持たず、ここ（ProjectDetailPage が既に読んでいる分）
+   * から props で受け取る（同じ `['project', id]` に観測者が2つあると
+   * オプションが食い違う穴になるため・v4.5.21 で解消）
+   */
+  health?: string;
+  snooze_until?: string | null;
 }
 
 /**

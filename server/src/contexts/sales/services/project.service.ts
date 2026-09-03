@@ -1576,7 +1576,12 @@ export class ProjectService {
          recording_cadence=?, recording_per_day_count=?, fixed_studio_note=?,
          episode_unit_price=?, billing_cycle=?, broadcast_offset_days=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
-        [name, customer_id, expected_amount || 0, assigned_to,
+        // **`targetCustomer` を書く（`customer_id` そのものではない）。**
+        // `customer_id` は「渡されなければ undefined」で、UPDATE のプレースホルダに
+        // 未定義値を渡すと customer_id（NOT NULL の FK）が NULL で書かれて 500 になる
+        // （部分更新の原則「渡さなければ今の値を保つ」違反・v4.5.21 で修正）。
+        // `targetCustomer` は上ですでに「渡されなければ今の customer_id」に解決済み
+        [name, targetCustomer, expected_amount || 0, assigned_to,
          cls.project_type, cls.audience, cls.project_category,
          finalEventStart, finalEventEnd,
          broadcast_type || null, media_platform || null,
@@ -1600,7 +1605,8 @@ export class ProjectService {
          recording_cadence=?, recording_per_day_count=?, fixed_studio_note=?,
          episode_unit_price=?, billing_cycle=?, broadcast_offset_days=?,
          updated_at=NOW(), updated_by=? WHERE id=?`,
-        [name, customer_id, expected_amount || 0, assigned_to,
+        // 同上（allowCategoryUpdate ブランチのコメント参照）: `targetCustomer` を書く
+        [name, targetCustomer, expected_amount || 0, assigned_to,
          cls.project_type, cls.audience, cls.project_category,
          finalEventStart, finalEventEnd,
          broadcast_type || null, media_platform || null,

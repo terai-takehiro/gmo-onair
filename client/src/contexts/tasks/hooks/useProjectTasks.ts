@@ -29,6 +29,13 @@ export function useTaskColumns(projectId: string) {
       return res.data.data;
     },
     enabled: !!projectId,
+    // **開くたびに必ず読み直す**（ProjectDetailPage.tsx の `['project', id]` と同じ注記）。
+    // 呼び出し元は案件詳細のタスクタブ／かんばん／リスト／ガントだけで（全案件を束ねる
+    // タスク一覧は `useTaskDashboard` の別鍵 `task-dashboard` を使う）、この案件だけを
+    // 対象にする問い合わせなので、共通の staleTime: 60_000 に乗せたままだと通常遷移で
+    // 古い列が出続けリロードでしか直らなかった
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 }
 
@@ -145,6 +152,10 @@ export function useProjectTasks(
       return res.data.data;
     },
     enabled: !!projectId,
+    // useTaskColumns と同じ理由（この上の注記参照）。こちらも案件単位の
+    // 呼び出しだけ（全案件のタスク一覧は別鍵 `task-dashboard`）なので影響しない
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 }
 
