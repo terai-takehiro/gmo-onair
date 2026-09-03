@@ -40,6 +40,16 @@
  * ダッシュボード上に閲覧専用ダイアログ）、同じ形の行なのに押すと違うことが
  * 起きていました。ダイアログは台帳へ行けば同じ情報が見られるので廃止しています。
  *
+ * ── 仕入・販管費の行は台帳の編集ダイアログを開いた状態で着地する ──
+ *
+ * ご指摘「ここからも編集ができるようにする」への対応。ダッシュボードに
+ * 編集フォームを作り直すのではなく、遷移先に `?edit=<id>` を足して**台帳側の
+ * 既存の編集ダイアログを開いた状態**で開く（`ledgerOpenQuery` の `editId` 引数）。
+ * `SgaListPage` は元々 `PdfTab.tsx` 用にこの仕組みを持っていたので流用し、
+ * `PurchaseListPage` には同じ形で新設した。「行＝台帳へ遷移」という直前の
+ * 決定はそのまま保ちつつ、遷移した先で即座に編集できる。売上は編集の要望が
+ * 無いため対象外（従来どおり明細一覧へ遷移するだけ）。
+ *
  * ── 内訳は「台帳へ行かないと全件見えない」を無くした ──────────
  *
  * 以前は5本のクエリとも `limit` を大きく（300/2000）指定して上位だけを
@@ -151,8 +161,8 @@ export default function BudgetDashboardPage() {
    * 案件を持たない行から「その案件で絞った台帳」へ送るのは嘘になるため。
    */
   const openLedger = useCallback(
-    (path: string, rowProjectId?: string | null, rowProjectName?: string | null) => {
-      navigate(path + ledgerOpenQuery(period, rowProjectId || undefined, rowProjectName || undefined));
+    (path: string, rowProjectId?: string | null, rowProjectName?: string | null, rowId?: string) => {
+      navigate(path + ledgerOpenQuery(period, rowProjectId || undefined, rowProjectName || undefined, rowId));
     },
     [navigate, period],
   );
@@ -201,10 +211,10 @@ export default function BudgetDashboardPage() {
   });
   const purItems = buildPurchaseItems(
     [...purchaseRows, ...((fixed.data?.data ?? []) as PurchaseRow[])],
-    (id, name) => openLedger('/budget/purchases', id, name),
+    (id, name, rowId) => openLedger('/budget/purchases', id, name, rowId),
   );
   // 販管費は案件に紐づかないので期間だけ引き継ぐ（`buildSgaItems` のコメント参照）
-  const sgaItems = buildSgaItems(sgaRows, () => openLedger('/budget/sga'));
+  const sgaItems = buildSgaItems(sgaRows, (rowId) => openLedger('/budget/sga', undefined, undefined, rowId));
 
   return (
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">

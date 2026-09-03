@@ -133,6 +133,21 @@ export default function PurchaseListPage() {
   });
   const vendors: Vendor[] = vendorsData?.data ?? [];
 
+  // 財務ダッシュボード等から ?edit={id} で来たら、その仕入の編集ダイアログを直接開く
+  // （`SgaListPage.tsx` と同じ形。一覧のページには乗っていない行でも開けるよう、
+  // 一覧とは別に単体で取得する）
+  const editParam = searchParams.get('edit');
+  useQuery({
+    queryKey: ['purchase-open-edit', editParam],
+    queryFn: async () => {
+      const row = (await api.get(`/purchases/${editParam}`)).data?.data as PurchaseRow | undefined;
+      if (row && canEdit) crud.openEdit(row);
+      return row ?? null;
+    },
+    enabled: !!editParam,
+    staleTime: Infinity,
+  });
+
   const items = useMemo(() => crud.items ?? [], [crud.items]);
   const ledgerRows: LedgerRow[] = useMemo(
     () => items.map((p) => ({

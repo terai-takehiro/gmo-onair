@@ -116,12 +116,17 @@ export function ledgerPeriodParams(period: Period): Record<string, string> {
  * しか出ず、ダッシュボードで見ていた金額と合わない。`period_all` は URL だけの鍵で、
  * 台帳 API には送らない（受け取り側は `ledger/ledgerUrlPeriod.ts`）。
  */
-export function ledgerOpenQuery(period: Period, projectId?: string, projectName?: string): string {
+// `editId` を渡すと `edit=<id>` も足す。**仕入・販管費の内訳の行**から使う
+// （財務ダッシュボードの仕入・販管費を編集できるようにする対応）。台帳側
+// （`PurchaseListPage`/`SgaListPage`）はこの鍵を受け取ると、その行の編集ダイアログを
+// 開いた状態で表示する。`PdfTab.tsx` が既に使っていた `?edit=` と同じ仕組み
+export function ledgerOpenQuery(period: Period, projectId?: string, projectName?: string, editId?: string): string {
   const params: Record<string, string> = ledgerPeriodParams(period);
   if (period.all) params.period_all = '1';
   if (Object.keys(params).length > 0) params.period_label = period.label;
   if (projectId) params.project_id = projectId;
   if (projectName) params.project_name = projectName;
+  if (editId) params.edit = editId;
   const qs = new URLSearchParams(params).toString();
   return qs ? `?${qs}` : '';
 }

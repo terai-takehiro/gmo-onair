@@ -96,3 +96,31 @@ v4.5.20 で「案件詳細・案件を直す・案件台帳」の3画面を直�
 固定する検査（`shared/tests/projectQueries.test.ts`）を新設した。
 検証: `npx tsc -b client`・`npm run typecheck`（既定3アプリ+server）・
 `npm run test`（shared、146ファイル・1996件）全通過。
+
+---
+
+**取引先マスターに「与信限度額」「最新与信確認日」を登録できるようにした**
+（登録は任意）。対象は `companies` テーブルを直接編集する `/sales/companies`
+（`CompanyListPage.tsx`）— `customers`/`vendors` は migration 208 で削除済みで
+`companies` が唯一の正のため、`credit_limit_amount INTEGER NULL`（円）・
+`credit_check_date DATE NULL` を追加する単純な1本（migration 272）で足りた。
+金額欄は既存の `CurrencyInput` を使うと空欄でも 0 が送られ「未設定」と
+「与信枠0円」を区別できない実装上の欠陥があるため使わず、`DiscountLimits.tsx`
+と同じ方式（プレーンな `<Input>` ＋ 文字列 state、送信時に空文字→null へ
+変換）で実装した。サーバーは他の任意項目と同じ「渡されなければ現在値を保つ」
+`keep()` パターンを踏襲。一覧（PC行・スマホカード）は固定列の幅設計が
+既に実測で詰められているため追加せず、`CompanySummaryDialog`（収支サマリー）
+にのみ表示する。
+
+---
+
+**財務ダッシュボードの仕入・販管費の内訳行から、そのまま編集できるようにした**。
+以前は行を押すと台帳（明細一覧）へ遷移するだけで、そこから改めて対象の行を
+探して編集する必要があった。ダッシュボードに編集フォームを作り直すのではなく、
+遷移先の URL に `?edit=<id>` を足し、**台帳側の既存の編集ダイアログを開いた
+状態**で着地するようにした（`ledgerOpenQuery` に `editId` 引数を追加）。
+`SgaListPage` は元々 PDF取込レビュー画面用にこの仕組みを持っていたため
+そのまま乗り、`PurchaseListPage` には同じ形で `?edit=` ハンドラを新設した。
+「行＝台帳へ遷移」という直前の決定（仕様変更 #4）はそのまま保ち、遷移した
+先で即座に編集できるようにしただけなので、売上・仕入・販管費で挙動が
+また食い違う、という後戻りは起きていない（売上は編集要望が無いため対象外）。
