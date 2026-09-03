@@ -20,6 +20,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
+import { invalidateProjectQueries } from '../../projectQueries';
 import type { LedgerResponse, LedgerRow } from './types';
 import type { IntegrityCheck } from './IntegrityPanel';
 import { DEFAULT_SORT, nextSort, type SortState } from './display';
@@ -146,19 +147,19 @@ export function useLedgerState() {
       (await api.patch('/projects/bulk', { ids: [...selected], set })).data,
     onSuccess: (_res, set) => {
       /**
-       * **落とす鍵を書き漏らさない。** 台帳・一覧・ダッシュボードは同じ案件を
-       * 別の鍵で持っています。1つ落とし忘れると、その見え方だけ古いまま
-       * ＝「直したのに変わらない」になります（v4.0.25 で踏んだのと同じ形）。
-       * 1件ずつの `['project', id]` も落とします — 開いている別のタブが
-       * 古い姿を出したままになるため。
+       * **鍵を並べず `invalidateProjectQueries`（`../../projectQueries`）を呼ぶ。**
+       * 以前はここで `project-ledger`・`project-integrity`・`projects`・
+       * `dashboard,sales-overview`・`project,id` の5つだけを手書きしていた。
+       * この一括編集で `audience`/`project_category`/`recurrence`（案件分類・
+       * 継続区分）も直接書き換えられるが、`episodes`（回タブ）・`project-single`・
+       * `project-summary`・`won-projects-for-*`・`dashboard` の `alerts` 枝
+       * （前方一致は `sales-overview` にしか当たらない）などを落としていなかった
+       * — `useCreateProject.ts` と同じ「鍵を並べていたころの足し忘れ」
+       * （`projectQueries.ts` 冒頭の注記）そのもの。1件ずつの詳細鍵は
+       * 選んだ案件ごとに呼ぶ。
        */
-      qc.invalidateQueries({ queryKey: ['project-ledger'] });
-      // **整合性の件数も落とす。** 落とさないと、直したのに「12 件」のままで、
-      // 押すと 9 行しか出ない（数字と中身が食い違って見える）
-      qc.invalidateQueries({ queryKey: ['project-integrity'] });
-      qc.invalidateQueries({ queryKey: ['projects'] });
-      qc.invalidateQueries({ queryKey: ['dashboard', 'sales-overview'] });
-      for (const id of selected) qc.invalidateQueries({ queryKey: ['project', id] });
+      for (const id of selected) invalidateProjectQueries(qc, id);
+      if (selected.size === 0) invalidateProjectQueries(qc);
       const n = selected.size;
       clearSelection();
       notifySuccess(`${n} 件を直しました`, {
@@ -180,12 +181,8 @@ export function useLedgerState() {
   const deleteOne = useMutation({
     mutationFn: async (id: string) => (await api.delete(`/projects/${id}`)).data,
     onSuccess: (_res, id) => {
-      // **落とす鍵は `bulk` と同じ**（台帳・一覧・ダッシュボードが別の鍵で同じ案件を持つ）
-      qc.invalidateQueries({ queryKey: ['project-ledger'] });
-      qc.invalidateQueries({ queryKey: ['project-integrity'] });
-      qc.invalidateQueries({ queryKey: ['projects'] });
-      qc.invalidateQueries({ queryKey: ['dashboard', 'sales-overview'] });
-      qc.invalidateQueries({ queryKey: ['project', id] });
+      // **落とす鍵は `bulk` と同じ**（`invalidateProjectQueries` を呼ぶ。上の注記参照）
+      invalidateProjectQueries(qc, id);
       // 選んでいた行を消したら、選択からも外す（居ない行が選ばれたままにしない）
       setSelected((prev) => {
         if (!prev.has(id)) return prev;

@@ -19,6 +19,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { CLASSIFICATION_COMBOS } from '@/contexts/sales/classification';
+import { invalidateProjectQueries } from '../../projectQueries';
 import {
   PASTE_MAX_CELLS, isEditable, outOfBoundsOf, parseCell, parseClipboardGrid, rangeOf, rangeSize,
   toClipboardText, type CellRange, type CellRef, type EditableCol, type NamedRow,
@@ -234,23 +235,15 @@ export function useLedgerGrid({
       return { rows: new Set(changes.map((c) => c.id)).size, cells: changes.length };
     },
     onSuccess: (res, changes) => {
-      // **落とす鍵を書き漏らさない**（`useLedgerState` と同じ一覧）
-      qc.invalidateQueries({ queryKey: ['project-ledger'] });
-      qc.invalidateQueries({ queryKey: ['project-integrity'] });
-      qc.invalidateQueries({ queryKey: ['projects'] });
-      qc.invalidateQueries({ queryKey: ['dashboard', 'sales-overview'] });
       /**
-       * ⚠️ **1件ずつの `['project', id]` も落とす**（`useLedgerState` の一括編集は
-       * 落としていたのに、**こちら（その場で直す・貼り付け）は漏れていました**）。
-       *
-       * `'projects'`（一覧）は `'project'`（1件）に**当たりません** — react-query は
-       * 鍵の前方一致で落とすので、別の文字列＝別の鍵です。落とさないと
-       * `staleTime` の 60 秒のあいだ**案件詳細と案件を直す画面が古い姿を出します**
-       * ＝ 台帳で案件分類を入れた直後に直す画面を開くと**未登録のまま**に見えます
-       * （エラーは出ず、60 秒経つか読み直せば直るので**誰も報告しません**）。
+       * **鍵を並べず `invalidateProjectQueries`（`../../projectQueries`）を呼ぶ**
+       * （`useLedgerState` と同じ理由）。以前はここも `project-ledger`・
+       * `project-integrity`・`projects`・`dashboard,sales-overview`・
+       * `project,id` の5つだけの手書きで、`episodes`・`won-projects-for-*`・
+       * `dashboard` の `alerts` 枝などを落としていた。
        */
       for (const id of new Set(changes.map((c) => c.id))) {
-        qc.invalidateQueries({ queryKey: ['project', id] });
+        invalidateProjectQueries(qc, id);
       }
       setPlan(null);
       setEditing(null);
