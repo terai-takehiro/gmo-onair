@@ -68,8 +68,17 @@ describe('react-query の鍵の当たり方', () => {
 describe('案件作成の3つの決め方（useCreateProject）', () => {
   const src = readFileSync(USE_CREATE_PROJECT, 'utf8');
 
-  it("保存したあと ['project', id] を落としている", () => {
-    expect(src).toMatch(/invalidateQueries\(\{\s*queryKey:\s*\['project',\s*projectId\]\s*\}\)/);
+  /**
+   * ⚠️ 以前はここが `['project', projectId]` だけを名指しで落とす自前の
+   * `invalidate()` を持っていて、`'project-ledger'` をはじめ大半の鍵
+   * （案件台帳・仕入の候補・見積の回…）を落とし忘れていた。
+   * 一元化された `invalidateProjectQueries()`（`projectQueries.ts`。
+   * `['project', projectId]` を含む一覧は `projectQueries.test.ts` で固定）を
+   * 呼んでいることを確かめる — 鍵を並べる形に**戻さない**ことが要点
+   */
+  it('保存したあと invalidateProjectQueries(qc, projectId) を呼んでいる（一元化した鍵をまとめて落とす）', () => {
+    expect(src).toMatch(/invalidateProjectQueries\(\s*qc,\s*projectId\s*\)/);
+    expect(src).not.toMatch(/invalidateQueries\(\{\s*queryKey:\s*\['project-ledger'\]/);
   });
 
   it('落とす関数を引数なしで呼んでいる場所が無い', () => {
