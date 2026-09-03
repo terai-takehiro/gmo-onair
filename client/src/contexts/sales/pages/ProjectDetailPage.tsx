@@ -270,6 +270,8 @@ export default function ProjectDetailPage() {
         phase={phase}
         updatedAt={p.updated_at}
         series={isSeries}
+        health={p.health}
+        snoozeUntil={p.snooze_until}
       />
 
       {offPhone && (

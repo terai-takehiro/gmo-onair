@@ -75,11 +75,18 @@ export function ReviewTab({ project }: { project: ProjectDetail }) {
   const q = useQuery<ReportPayload>({
     queryKey: ['event-report', project.id],
     queryFn: async () => (await api.get(`/keep/event-reports/${project.id}`)).data.data,
+    // **開くたびに必ず読み直す**（ProjectDetailPage.tsx の `['project', id]` と同じ注記）
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const estimates = useQuery<EstimateRow[]>({
     queryKey: ['estimates', project.id],
     queryFn: async () => (await api.get(`/projects/${project.id}/estimates`)).data.data,
+    // 同上。EstimateTab.tsx の `['estimates', project.id, showArchived]` とは別の鍵
+    // （こちらは絞り込みなしの粗利集計専用）だが理由は同じ
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   /**

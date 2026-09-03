@@ -145,6 +145,9 @@ export function DayTab({ projectId, mobile }: { projectId: string; mobile?: bool
   const qsheets = useQuery<Doc[]>({
     queryKey: ['project-qsheets', projectId],
     queryFn: async () => (await api.get('/techops/documents', { params: { project_id: projectId } })).data.data,
+    // **開くたびに必ず読み直す**（ProjectDetailPage.tsx の `['project', id]` と同じ注記）
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   if (qsheets.isLoading) {

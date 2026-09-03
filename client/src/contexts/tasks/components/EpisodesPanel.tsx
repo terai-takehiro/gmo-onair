@@ -213,6 +213,12 @@ export function EpisodesPanel({ projectId, seriesDefaults }: { projectId: string
   const list = useQuery<Episode[]>({
     queryKey: ['episodes', projectId],
     queryFn: async () => (await api.get(`/projects/${projectId}/episodes`, { params: { limit: 200 } })).data.data,
+    // **開くたびに必ず読み直す**（ProjectDetailPage.tsx の `['project', id]` と同じ注記）。
+    // `useEstimateEpisodeFilter.ts` が同じ鍵を持つので、そちらとオプションを揃えてある
+    // （揃えないと1つの鍵に2つの観測者が違う挙動をする、という DetailHeader.tsx が
+    // 直前まで踏んでいたのと同じ形になる）
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const episodes = useMemo(() => list.data ?? [], [list.data]);

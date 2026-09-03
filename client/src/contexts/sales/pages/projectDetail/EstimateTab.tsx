@@ -98,16 +98,13 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
   const [pane, setPane] = useState<'estimate' | 'revenue'>('estimate');
   const [openId, setOpenId] = useState<string | null>(null);
   // **既定はアーカイブした版を隠す**（サーバーの既定と揃える）。「アーカイブした版を
-  // 表示」を押すと `include_archived=1` を付けて引き直す — 版が増えるほど古い版が
-  // 一覧に積み上がって見たい版（最新の draft・sent）が埋もれるのを防ぐための機能
+  // 表示」を押すと `include_archived=1` を付けて引き直す（版が増えるほど古い版で埋もれるのを防ぐ）
   const [showArchived, setShowArchived] = useState(false);
   const isMobile = useIsMobile();
   const qc = useQueryClient();
   const { hasPermission } = useAuth();
-  // **サーバーは POST/PUT '/'・PUT '/:id/items' に editor を要求する**
-  // （`estimates.routes.ts` の `canEdit`）。承認ボタンは `can_approve` で
-  // サーバー側から出し分けているが、作成・保存はここで見ないと
-  // reader にもボタンが出て「押せるのに 403」になる
+  // **サーバーは POST/PUT '/'・PUT '/:id/items' に editor を要求する**（`estimates.routes.ts`）。
+  // 承認ボタンは `can_approve` で出し分けているが、作成・保存はここで見ないと reader に「押せるのに 403」が出る
   const canEdit = hasPermission('sales', 'editor');
   const base = `/projects/${project.id}/estimates`;
 
@@ -125,6 +122,10 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
     queryKey: ['estimates', project.id, showArchived],
     queryFn: async () => (await api.get(base, { params: showArchived ? { include_archived: '1' } : undefined })).data.data,
     enabled: pane === 'estimate',
+    // **開くたびに必ず読み直す**（ProjectDetailPage.tsx の同注記）。見積は他画面からも
+    // 変わるので、共通 staleTime: 60_000 のままだと通常遷移では古いままだった
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
   // **回で絞り込むのは表示だけ**（サーバーには渡さない）。取得件数がページングを
   // 要するほど増えたら見直す — アーカイブの表示・非表示と同じ判断（一覧全体は

@@ -22,7 +22,7 @@ import MeetingRecordPage from "@/contexts/sales/pages/MeetingRecordPage";
 import ProjectFormPage from "@/contexts/sales/pages/ProjectFormRoute";
 import NewProjectDialog from "@/contexts/sales/pages/projectNew/NewProjectDialog";
 import ProjectLedgerPage from "@/contexts/sales/pages/ProjectLedgerPage";
-import ProjectDetailPage from "@/contexts/sales/pages/ProjectDetailPage";
+import ProjectDetailPage from "@/contexts/sales/pages/ProjectDetailRoute";
 import CustomerDetailPage from "@/contexts/sales/pages/CustomerDetailPage";
 import CompanyListPage from "@/contexts/sales/pages/CompanyListPage";
 import PricingListPage from "@/contexts/sales/pages/PricingListPage";

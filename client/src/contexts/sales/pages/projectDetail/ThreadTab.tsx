@@ -52,6 +52,9 @@ export function ThreadTab({ projectId }: { projectId: string }) {
     // **処理中の行があるあいだだけ**見に来る。ずっと回すと無駄に叩き続ける
     refetchInterval: (q) =>
       (q.state.data?.data ?? []).some((m) => m.status === 'transcribing') ? 5_000 : false,
+    // **開くたびに必ず読み直す**（ProjectDetailPage.tsx の `['project', id]` と同じ注記）
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
   const rows = minutes.data?.data ?? [];
   const sttAvailable = minutes.data?.stt_available !== false;
@@ -144,6 +147,9 @@ export function ThreadTab({ projectId }: { projectId: string }) {
     queryKey: ['project-activities', projectId],
     queryFn: async () =>
       (await api.get('/activity-logs', { params: { project_id: projectId, limit: 100 } })).data,
+    // **開くたびに必ず読み直す**（ProjectDetailPage.tsx の `['project', id]` と同じ注記）
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const items = data?.data ?? [];
