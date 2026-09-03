@@ -35,9 +35,10 @@ const PROJECT_LIST_KEYS = [
   'projects-booking-search',           // スタジオ予約の案件検索
   'gls-projects',                      // 「いまある案件に足す」の候補
   'gls-projects-for-groups',           // 請求グループの候補
-  'won-projects-for-purchase',         // 仕入・PDF 取込の案件候補
+  'won-projects-for-purchase',         // PDF 取込の案件候補
   'won-projects-for-handoff',          // 制作への引き継ぎ
   'won-projects-for-budget-dashboard', // 予算ダッシュボード
+  'registerable-projects-for-purchase', // 仕入ダイアログの案件候補（失注以外・2026-09）
 ] as const;
 
 /**

@@ -41,7 +41,7 @@ export function RevenueProjectFields({
           value={projectSearch}
           onChange={(e) => setProjectSearch(e.target.value)}
         />
-        <p className="text-note text-muted-foreground">受注（A 受注済）以降の案件だけが選べます</p>
+        <p className="text-note text-muted-foreground">失注した案件以外から選べます</p>
         {projects.length > 0 && projectSearch && (
           <div className="max-h-40 overflow-y-auto rounded-note border">
             {projects.map((p) => (

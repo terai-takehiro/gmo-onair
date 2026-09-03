@@ -86,9 +86,9 @@ export function RevenueDialog({
   }, [detailData]);
 
   // Search projects
-  // **受注確定済み（`a_won`/`r_delivered`/`s_completed`）だけを候補にする**（v4.1.8・矛盾修正、
-  // r_delivered は2026-09追加）。以前はステージを問わず全案件から検索できたので、
-  // 仕入・精算PDF取込レビュー等他の実務入力画面と違い、ヨミ段階の案件にも売上を記録できてしまっていた
+  // **失注(e_lost)以外を候補にする**（2026-09 依頼「フェーズに関係なく売上・仕入は
+  // 各案件に対して登録が出来るようにする」——全ステージだが失注は除く、ユーザー判断。
+  // v4.1.8 で受注確定済みだけに絞ったが、ネタ・仮押さえの段階でも記録できるよう緩めた）
   //
   // **1文字ごとに問い合わせない**（`RevenueListPage` と同じ）。/projects は重い口なので、
   // 入力欄は `projectSearch`（即時）のまま、問い合わせに渡す値だけ遅らせる
@@ -96,7 +96,7 @@ export function RevenueDialog({
   const { data: projectsData } = useQuery({
     queryKey: ['projects-search', appliedProjectSearch],
     queryFn: async () => (await api.get('/projects', {
-      params: { search: appliedProjectSearch, stage: 'a_won,r_delivered,s_completed', limit: 20 },
+      params: { search: appliedProjectSearch, stage: 'neta,d_hold,c_proposal,b_verbal,a_won,r_delivered,s_completed', limit: 20 },
     })).data,
     enabled: appliedProjectSearch.length > 0,
   });

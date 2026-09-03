@@ -29,15 +29,17 @@
  * そのまま踏襲し、**タスクの完了件数から導出する**（未着手／進行中／完了）。
  */
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Plus, ListChecks, Pencil, Receipt } from 'lucide-react';
-import { formatCurrency } from '@/lib/format';
+import { Plus, ListChecks, Pencil, Receipt, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
+import { useAuth } from '@/contexts/platform/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Row, RowHeader, RowMain, RowSlot, RowSub } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { EmptyState, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
+import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { describeEpisodeNumbers } from '@gmo-onair/shared/src/production/episodeSpec';
 import type { Episode } from '@gmo-onair/shared/src/types';
 import { ApplyEpisodeTaskTemplateDialog } from './ApplyEpisodeTaskTemplateDialog';
@@ -78,16 +80,19 @@ function formatDateHead(iso: string): string {
 }
 
 /**
- * この回の「1日あたりの本数」「回の単価」（migration 269・仕様変更 #16）と、
+ * この回の「1日あたりの本数」（migration 269・仕様変更 #16）と、
  * この回に紐づく見積・売上の件数を一行で表す。
  *
- * どれも決めていなければ何も出さない（0本・¥0との混同を避けるため、
+ * ⚠️ 「回の単価」（`episode_unit_price`）は 2026-09 の依頼で廃止した——
+ * 1日で複数本撮ると回あたりの単価が下がるため固定値は成立せず、金額は
+ * ひとまとまり（見積・確定売上）単位で持つ（`shared/src/types.ts` の `Episode` 参照）。
+ *
+ * どれも決めていなければ何も出さない（0本との混同を避けるため、
  * 「決めていない」は空文字を返す＝行に何も表示しない）
  */
 function perEpisodeSummary(e: Episode): string {
   const parts: string[] = [];
   if (e.recording_per_day_count != null) parts.push(`1日${e.recording_per_day_count}本`);
-  if (e.episode_unit_price != null) parts.push(formatCurrency(e.episode_unit_price));
   // 0件のときは出さない（「まだ無い」を毎行に書くと、回が多い案件ほど画面が煩雑になる）
   if (e.estimate_count) parts.push(`見積${e.estimate_count}件`);
   if (e.revenue_count) parts.push(`売上${e.revenue_count}件`);
@@ -121,22 +126,27 @@ export function groupEpisodesByDate(episodes: Episode[]): EpisodeGroup[] {
   return groups;
 }
 
-/** 見出しに出す「#17〜#19　3件　¥252,000」。金額は単価が入っている回だけ足す */
+/**
+ * 見出しに出す「#17〜#19　3件」。
+ *
+ * ⚠️ 以前はここに単価×件数の合計金額も出していたが、「回の単価」概念の廃止に伴い削除した
+ * — 金額は「ひとまとまり」の見積・確定売上（別担当が実装）が持つため、ここでは数えない。
+ */
 function groupSummary(episodes: Episode[]): string {
   const numbers = episodes.map((e) => e.episode_number).filter((n) => Number.isFinite(n));
-  const parts = [describeEpisodeNumbers(numbers), `${episodes.length}件`];
-  const total = episodes.reduce((sum, e) => sum + (e.episode_unit_price ?? 0), 0);
-  if (total > 0) parts.push(formatCurrency(total));
-  return parts.filter(Boolean).join('　');
+  return [describeEpisodeNumbers(numbers), `${episodes.length}件`].filter(Boolean).join('　');
 }
 
 function EpisodeRow({
-  episode, projectId, onEdit, onApplyTemplate,
+  episode, projectId, canDelete, onEdit, onApplyTemplate, onDelete,
 }: {
   episode: Episode;
   projectId: string;
+  /** `sales` の `manager` 以上だけ削除ボタンを出す（サーバー側の権限と揃える） */
+  canDelete: boolean;
   onEdit: (e: Episode) => void;
   onApplyTemplate: (e: Episode) => void;
+  onDelete: (e: Episode) => void;
 }) {
   const total = episode.task_count ?? 0;
   const done = episode.task_done_count ?? 0;
@@ -184,7 +194,7 @@ function EpisodeRow({
       <RowSlot w={56}>
         <Button
           variant="ghost" size="icon-sm"
-          aria-label={`回 #${episode.episode_number} を直す（利用日・放送日・タイトル・本数・単価）`}
+          aria-label={`回 #${episode.episode_number} を直す（利用日・放送日・タイトル・本数・フェーズ）`}
           onClick={() => onEdit(episode)}
         >
           <Pencil className="h-4 w-4" aria-hidden="true" />
@@ -199,11 +209,27 @@ function EpisodeRow({
           <ListChecks className="h-4 w-4" aria-hidden="true" />
         </Button>
       </RowSlot>
+      <RowSlot w={56}>
+        {canDelete && (
+          <Button
+            variant="ghost" size="icon-sm"
+            aria-label={`回 #${episode.episode_number} を削除する`}
+            onClick={() => onDelete(episode)}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" aria-hidden="true" />
+          </Button>
+        )}
+      </RowSlot>
     </Row>
   );
 }
 
 export function EpisodesPanel({ projectId, seriesDefaults }: { projectId: string; seriesDefaults?: SeriesDefaults }) {
+  const qc = useQueryClient();
+  const { hasPermission } = useAuth();
+  // サーバー（`episodes.routes.ts` の `requirePermission('sales', 'manager')`）と揃える。
+  // ボタンだけ隠しても他画面から呼べば 403 になるが、押せるのに弾かれる体験を避ける
+  const canDelete = hasPermission('sales', 'manager');
   const [addOpen, setAddOpen] = useState(false);
   /** 「標準工程を当てる」ダイアログの対象回。null = 閉じている */
   const [templateTarget, setTemplateTarget] = useState<Episode | null>(null);
@@ -228,6 +254,30 @@ export function EpisodesPanel({ projectId, seriesDefaults }: { projectId: string
   // （実際の採番はサーバーが取引の中でアトミックに行う。ここは読み込み済みの
   // 一覧の最大値+1でよい）
   const nextNum = episodes.reduce((max, e) => Math.max(max, e.episode_number ?? 0), 0) + 1;
+
+  // ソフトデリート。売上・仕入が紐づく回はサーバーが 409（`EPISODE_HAS_FINANCE_RECORDS`）
+  // で拒否し、`notifyApiError` がそのメッセージ（何件紐づいているか）をそのまま出す
+  const remove = useMutation({
+    mutationFn: (episodeId: string) => api.delete(`/projects/${projectId}/episodes/${episodeId}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['episodes', projectId] });
+      // 削除した回が請求まとめ（invoice_groups）に入っていた場合に備えて、
+      // `EditEpisodeDialog.tsx`・`DatedEpisodesForm.tsx` と同じ対で落とす
+      qc.invalidateQueries({ queryKey: ['invoice-groups', projectId] });
+      notifySuccess('回を削除しました');
+    },
+    onError: (e) => notifyApiError('削除できませんでした', e),
+  });
+
+  const handleDelete = async (e: Episode) => {
+    const ok = await confirmAction({
+      title: `#${e.episode_number} ${e.title || e.episode_code} を削除しますか？`,
+      description: '紐づく売上・仕入があると削除できません。先に財務管理の売上・仕入台帳でこの回の紐づきを外してください。元に戻せません。',
+      confirmLabel: '削除する',
+      tone: 'danger',
+    });
+    if (ok) remove.mutate(e.id);
+  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -272,11 +322,12 @@ export function EpisodesPanel({ projectId, seriesDefaults }: { projectId: string
                 <RowSlot w={56}> </RowSlot>
                 <RowSlot w={56}> </RowSlot>
                 <RowSlot w={56}> </RowSlot>
+                <RowSlot w={56}> </RowSlot>
               </RowHeader>
               {g.episodes.map((e) => (
                 <EpisodeRow
-                  key={e.id} episode={e} projectId={projectId}
-                  onEdit={setEditTarget} onApplyTemplate={setTemplateTarget}
+                  key={e.id} episode={e} projectId={projectId} canDelete={canDelete}
+                  onEdit={setEditTarget} onApplyTemplate={setTemplateTarget} onDelete={handleDelete}
                 />
               ))}
             </div>

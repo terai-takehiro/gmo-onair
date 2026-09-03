@@ -7,28 +7,30 @@
  * 収録日ごとに既存回とぶつからないかを確かめてから作る。
  *
  * `dry_run=true` は一切書き込まず、プレビュー（何日ぶん作るか・何日は既存とぶつかって
- * 飛ばすか）だけを返す。**画面は必ず dry_run で内容を見せてから実行する**
- * （お金の行＝revenues が一緒に増えることがあるため、押したあとで分かるのは事故 — 設計文書 §7）。
+ * 飛ばすか）だけを返す。**画面は必ず dry_run で内容を見せてから実行する**。
  *
  * ファイルを分けているのは `shared/CLAUDE.md`／`client/CLAUDE.md` 共通の「1ファイル400行」
  * 上限のため（`episodes.routes.ts` に置くと超える）。
  *
- * ── 「1日あたりの本数」「単価」は都度入力・回ごとに保存（仕様変更 #16・migration 269）──
+ * ── 「1日あたりの本数」は都度入力・回ごとに保存（仕様変更 #16・migration 269）──
  *
  * 以前は projects 側の固定の取り決め（migration 262）をデフォルトに使うだけで、
- * 作った回には何も残していなかった。収録日によって本数・単価がズレることがあるため、
- * **この口を叩くたびに入力した `per_day_count`／`revenue_budget_per_episode` を、
- * 生成した各回の `episodes.recording_per_day_count`／`episode_unit_price` に
- * そのまま保存する**（後から回ごとに直せる）。projects 側の値は画面の初期値
- * 提案としてのみ引き継がれ（`GenerateEpisodesForm.tsx` の `defaultPerDayCount`/
- * `defaultUnitPrice`）、この口自体はもう projects の値を読みに行かない。
+ * 作った回には何も残していなかった。収録日によって本数がズレることがあるため、
+ * **この口を叩くたびに入力した `per_day_count` を、生成した各回の
+ * `episodes.recording_per_day_count` にそのまま保存する**（後から回ごとに直せる）。
+ * projects 側の値は画面の初期値提案としてのみ引き継がれる
+ * （`GenerateEpisodesForm.tsx` の `defaultPerDayCount`）。
+ *
+ * ⚠️ **「回の単価」（`revenue_budget_per_episode`・自動での確定売上作成）はこの依頼で
+ * 廃止した（migration 274）** — 1日で複数本撮ると回あたりの単価が下がるため
+ * 「回の単価」という固定値は成立せず、見積・確定売上の金額はひとまとまり
+ * （`estimates`/`revenues`）単位で作る。回の作成そのものは、もう revenues を増やさない。
  */
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, withTransaction } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { generateEpisodeCode, getNextEpisodeNumberAtomic } from '../../../shared/services/sequence.service';
-import { generateBillingKey } from '../../../shared/services/billing-key.service';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { groupConsecutive } from '../../../shared/production/episodeSpec';
 import {
@@ -51,7 +53,7 @@ router.post('/:projectId/episodes/generate', requirePermission('sales', 'editor'
   const projectId = req.params.projectId as string;
   const {
     start_date, cadence, dates, per_day_count, count, end_date,
-    broadcast_offset_days, revenue_budget_per_episode, order_date, notes, dry_run,
+    broadcast_offset_days, order_date, notes, dry_run,
   } = req.body;
 
   let plan: PlannedDate[];
@@ -71,7 +73,7 @@ router.post('/:projectId/episodes/generate', requirePermission('sales', 'editor'
   }
 
   const project = await queryOne(
-    'SELECT gls_number, customer_id, broadcast_type, broadcast_offset_days, recurrence FROM projects WHERE id = ? AND deleted_at IS NULL',
+    'SELECT gls_number, broadcast_type, broadcast_offset_days, recurrence FROM projects WHERE id = ? AND deleted_at IS NULL',
     [projectId],
   ) as any;
   if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
@@ -83,19 +85,6 @@ router.post('/:projectId/episodes/generate', requirePermission('sales', 'editor'
     : (Number.isFinite(Number(project.broadcast_offset_days)) && project.broadcast_offset_days !== null
       ? Number(project.broadcast_offset_days) : DEFAULT_BROADCAST_OFFSET_DAYS);
   const isLive = broadcastTypeIncludes(project.broadcast_type, 'live');
-  const revPerEp = revenue_budget_per_episode || 0;
-  /**
-   * この一括生成で作る回に保存する「回の単価」（migration 269・仕様変更 #16）。
-   *
-   * ⚠️ **`revPerEp`（売上見込み行を作るかどうかの判定・`|| 0` で0に丸める）とは
-   * 別に持つ。** 単価は0円も正当な値（`episode_unit_price >= 0`）なので、
-   * 「未指定（NULL＝決めていない）」と「明示的に¥0」を混同しない
-   * （`project.service.ts` の `episode_unit_price` と同じ守り方）。
-   */
-  const unitPriceToStore = (revenue_budget_per_episode === undefined || revenue_budget_per_episode === null || revenue_budget_per_episode === '')
-    ? null
-    : (Number.isFinite(Number(revenue_budget_per_episode)) ? Number(revenue_budget_per_episode) : null);
-  const customerId = project.customer_id;
   const today = order_date || jstDate();
   const userId = req.user!.id;
   const plannedDates = plan.map((p) => p.date);
@@ -162,25 +151,14 @@ router.post('/:projectId/episodes/generate', requirePermission('sales', 'editor'
           const episodeNumber = numbers[numIdx++];
           const episodeCode = generateEpisodeCode(project.gls_number, episodeNumber);
           const id = uuidv4();
-          // その日に作った本数（`r.take`）と、都度入力した単価を回ごとに保存する
-          // （migration 269・仕様変更 #16。以前は projects 側の固定値をデフォルトに
-          // 使うだけで回には何も残していなかった）
+          // その日に作った本数（`r.take`）を回ごとに保存する（migration 269・仕様変更 #16。
+          // 以前は projects 側の固定値をデフォルトに使うだけで回には何も残していなかった）
           await tx.execute(
             `INSERT INTO episodes (id, project_id, episode_code, episode_number, recording_date, broadcast_date,
-                                   recording_per_day_count, episode_unit_price, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [id, projectId, episodeCode, episodeNumber, r.date, broadcastDate, r.take, unitPriceToStore, userId],
+                                   recording_per_day_count, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [id, projectId, episodeCode, episodeNumber, r.date, broadcastDate, r.take, userId],
           );
-
-          if (revPerEp > 0) {
-            const revId = uuidv4();
-            const billingKey = generateBillingKey(episodeCode, 'tax10');
-            await tx.execute(
-              `INSERT INTO revenues (id, billing_key, project_id, episode_id, customer_id, assigned_to, tax_category, amount, notes, created_by)
-               VALUES (?, ?, ?, ?, ?, ?, 'tax10', ?, ?, ?)`,
-              [revId, billingKey, projectId, id, customerId, userId, revPerEp, '一括生成時按分', userId],
-            );
-          }
 
           const row = await tx.queryOne('SELECT * FROM episodes WHERE id = ?', [id]);
           created.push(row);

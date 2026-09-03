@@ -18,20 +18,14 @@
  *
  * ── 実行前に必ずプレビュー（dry_run）を見せる ──────────────────
  *
- * 単価を入れると**確定売上**の行も一緒に増えるので、押したあとで分かるのは事故
+ * お金の行が増えることもあるので、押したあとで分かるのは事故
  * （`docs/design/v4/regular-series.md` §7）。「内容を確かめる」→「作成する」の
  * 2段階にし、**入力を変えたらプレビューは「古い」印に戻す**（`GenerateEpisodesForm`
  * と同じ作法）。
  *
- * ── 「単価」は見込みではなく確定売上になる ────────────────────────
- *
- * サーバー（`episodeDated.service.ts`）は単価を入れた回ごとに `revenues` を1件作る。
- * `status` を渡していないので `confirmed`＝**確定売上**（migration 004 の既定値）で、
- * `getSummaries` は `status='confirmed'` を日付条件なしで足すため、**登録した瞬間に
- * 案件の売上・粗利へ乗る**。既存2つの口（`/episodes/batch`・`/episodes/generate`）も
- * 同じなので、サーバー側は揃えたまま**画面の言葉をそちらへ合わせる**
- * （「見込み」と書くと、月次損益に乗らない金額だと誤読される）。
- * プレビューには**何件・いくら立つのか**まで出す。
+ * ⚠️ **「回の単価」は 2026-09 の依頼で廃止した**——1日で複数本撮ると回あたりの
+ * 単価が下がるため固定値は成立せず、この画面の単価入力欄は削除した。金額は
+ * ひとまとまり（見積・確定売上）単位で持つ（別担当が実装する「ひとまとまりの見積」UI）。
  *
  * ── ぶつかったら通さない／飛び番は通す ────────────────────────
  *
@@ -47,12 +41,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
-import { formatCurrency } from '@/lib/format';
 import {
   parseEpisodeSpec, describeEpisodeNumbers, EpisodeSpecError,
 } from '@gmo-onair/shared/src/production/episodeSpec';
 
-interface DatedRow { key: string; date: string; spec: string; unitPrice: string }
+interface DatedRow { key: string; date: string; spec: string }
 
 interface PreviewEntry {
   recording_date: string;
@@ -67,7 +60,7 @@ interface PreviewData {
 }
 
 function newRow(): DatedRow {
-  return { key: crypto.randomUUID(), date: '', spec: '', unitPrice: '' };
+  return { key: crypto.randomUUID(), date: '', spec: '' };
 }
 
 /** 1行ぶんの「その場プレビュー」。読めない指定はそのまま理由を出す */
@@ -102,7 +95,6 @@ export function DatedEpisodesForm({ projectId, onDone }: { projectId: string; on
     .map((r) => ({
       recording_date: r.date,
       episodes: r.spec.trim(),
-      unit_price: r.unitPrice.trim() ? Number(r.unitPrice) : null,
     })), [rows]);
 
   const currentKey = JSON.stringify(entries);
@@ -119,9 +111,8 @@ export function DatedEpisodesForm({ projectId, onDone }: { projectId: string; on
     mutationFn: () => api.post(`/projects/${projectId}/episodes/dated`, { entries }),
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ['episodes', projectId] });
-      // 単価を入れた行はサーバーが確定売上も作る。見積タブの
-      // `['revenues','project',projectId]`（前方一致で当たる）と財務③の
-      // `['revenues-all']` も落とさないと、作った売上が最大60秒古いまま見える
+      // この画面は単価を持たない（「回の単価」概念は 2026-09 の依頼で廃止済み）が、
+      // 他のタブ（見積・財務③）が読む鍵を対で落としておく
       qc.invalidateQueries({ queryKey: ['revenues'] });
       qc.invalidateQueries({ queryKey: ['revenues-all'] });
       // サーバーは作った回に標準工程テンプレートも自動で当てる
@@ -135,23 +126,6 @@ export function DatedEpisodesForm({ projectId, onDone }: { projectId: string; on
     onError: (e) => notifyApiError('回を登録できませんでした', e),
   });
 
-  /**
-   * プレビューに出す「立つ確定売上」の件数と合計。
-   *
-   * サーバーは `entries` と**同じ並び・同じ件数**で `preview.entries` を返す
-   * （`previewDatedEpisodes` は `entries.map()`）ので、単価は添字で突き合わせる。
-   * 古い（`isStale`）ときは `entries` と対応しないので数えない。
-   */
-  const revenuePlan = useMemo(() => {
-    if (!preview || isStale) return { count: 0, amount: 0 };
-    return preview.entries.reduce((acc, e, i) => {
-      const price = entries[i]?.unit_price ?? null;
-      // 0円は売上を作らない（サーバーと同じ判定）
-      if (price === null || !(price > 0)) return acc;
-      return { count: acc.count + e.count, amount: acc.amount + price * e.count };
-    }, { count: 0, amount: 0 });
-  }, [preview, isStale, entries]);
-
   const conflicts = preview && !isStale ? preview.summary.conflicts : [];
   const readyToCreate = !!preview && !isStale && conflicts.length === 0
     && preview.summary.episodes_to_create > 0;
@@ -163,8 +137,8 @@ export function DatedEpisodesForm({ projectId, onDone }: { projectId: string; on
           const hint = describeRow(row.spec);
           return (
             <div key={row.key} className="rounded-note border border-border p-2">
-              {/* 375px は縦積み・広い画面で「日付／回／単価」の3列に開く */}
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,150px)_minmax(0,1fr)_minmax(0,120px)]">
+              {/* 375px は縦積み・広い画面で「日付／回」の2列に開く */}
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,150px)_minmax(0,1fr)]">
                 <div>
                   <Label htmlFor={`dated-date-${row.key}`}>利用日（収録日）</Label>
                   <Input
@@ -178,15 +152,6 @@ export function DatedEpisodesForm({ projectId, onDone }: { projectId: string; on
                     id={`dated-spec-${row.key}`} type="text" inputMode="text" className="mt-1"
                     placeholder="例: #17,18,19 ／ 17-19 ／ 3"
                     value={row.spec} onChange={(e) => patch(row.key, { spec: e.target.value })}
-                  />
-                </div>
-                <div>
-                  {/* 「見込み」と書かない — 実際に立つのは確定売上（ファイル冒頭） */}
-                  <Label htmlFor={`dated-price-${row.key}`}>回の単価（任意・確定売上）</Label>
-                  <Input
-                    id={`dated-price-${row.key}`} type="number" min="0" inputMode="numeric" className="mt-1"
-                    placeholder="84000"
-                    value={row.unitPrice} onChange={(e) => patch(row.key, { unitPrice: e.target.value })}
                   />
                 </div>
               </div>
@@ -207,12 +172,6 @@ export function DatedEpisodesForm({ projectId, onDone }: { projectId: string; on
           );
         })}
       </div>
-
-      {/* 入力欄のすぐ下に置く — 押したあとで「売上が増えていた」と気づくのが一番の事故 */}
-      <p className="text-sub-sm text-muted-foreground">
-        単価を入れた回には<span className="font-bold">確定売上</span>が1件ずつ作られ、案件の売上・粗利にすぐ乗ります。
-        空欄にすれば売上は作りません（あとから見積・売上の画面で足せます）。
-      </p>
 
       <Button type="button" variant="outline" onClick={() => setRows((prev) => [...prev, newRow()])}>
         <Plus className="mr-1 h-4 w-4" aria-hidden="true" />別の日を足す
@@ -237,13 +196,6 @@ export function DatedEpisodesForm({ projectId, onDone }: { projectId: string; on
               <p className="text-sub">
                 登録: {preview.summary.dates_total}日・{preview.summary.episodes_to_create}件
               </p>
-              {revenuePlan.count > 0 && (
-                <p className="text-sub mt-1 flex items-start gap-1 text-warning">
-                  <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                  確定売上も{revenuePlan.count}件・合計 {formatCurrency(revenuePlan.amount)} 立ちます
-                  （案件の売上・粗利にすぐ乗ります）。
-                </p>
-              )}
               <ul className="text-sub-sm mt-1 flex max-h-40 flex-col gap-0.5 overflow-y-auto text-muted-foreground">
                 {preview.entries.map((e) => (
                   <li key={e.recording_date} className={e.conflicts.length > 0 ? 'text-destructive' : undefined}>

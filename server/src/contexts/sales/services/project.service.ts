@@ -1848,10 +1848,8 @@ export class ProjectService {
         try {
           const perDayCount = Number.isFinite(Number(project.recording_per_day_count)) && project.recording_per_day_count !== null
             ? Number(project.recording_per_day_count) : null;
-          const unitPrice = Number.isFinite(Number(project.episode_unit_price)) && project.episode_unit_price !== null
-            ? Number(project.episode_unit_price) : null;
           firstEpisodeId = await this.ensureFirstEpisode(
-            id, glsNumber, (project.event_start as string | null) ?? null, userId, perDayCount, unitPrice,
+            id, glsNumber, (project.event_start as string | null) ?? null, userId, perDayCount,
           );
         } catch (err) {
           console.warn('[changeStage] first episode auto-create failed:', id, (err as Error).message);
@@ -2126,7 +2124,7 @@ export class ProjectService {
    */
   private async ensureFirstEpisode(
     projectId: string, glsNumber: string, eventStart: string | null, userId: string,
-    perDayCount: number | null, unitPrice: number | null,
+    perDayCount: number | null,
   ): Promise<string | null> {
     const existing = await queryOne(
       'SELECT id FROM episodes WHERE project_id = ? AND deleted_at IS NULL LIMIT 1',
@@ -2137,11 +2135,14 @@ export class ProjectService {
     const episodeNumber = await getNextEpisodeNumberAtomic(projectId);
     const episodeCode = generateEpisodeCode(glsNumber, episodeNumber);
     const episodeId = uuidv4();
+    // ⚠️ 「回の単価」（`episode_unit_price`）は2026-09の依頼で廃止した（migration 274）——
+    // 1日で複数本撮ると回あたりの単価が下がるため「回の単価」という固定値は成立せず、
+    // 見積・確定売上の金額はひとまとまり（`estimates`/`revenues`）単位で持つ
     await execute(
       `INSERT INTO episodes (id, project_id, episode_code, episode_number, recording_date,
-                             recording_per_day_count, episode_unit_price, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [episodeId, projectId, episodeCode, episodeNumber, eventStart, perDayCount, unitPrice, userId],
+                             recording_per_day_count, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [episodeId, projectId, episodeCode, episodeNumber, eventStart, perDayCount, userId],
     );
     return episodeId;
   }
@@ -2578,6 +2579,25 @@ export class ProjectService {
        WHERE p.stage IN (${WON_STAGES.map(() => '?').join(',')}) AND p.deleted_at IS NULL
        ORDER BY p.gls_number DESC NULLS LAST, p.created_at DESC`,
       [...WON_STAGES]
+    );
+  }
+
+  /**
+   * 売上・仕入の新規登録画面の案件プルダウン用（2026-09 依頼）。
+   *
+   * ⚠️ **`getWonProjects`（受注確定済みだけ）とは別物。** 依頼は「フェーズに関係なく
+   * 売上・仕入は各案件に対して登録が出来るようにする」——失注していない案件なら
+   * ネタ・仮押さえの段階でも登録できるようにする。**失注(e_lost)だけ除く**
+   * （ユーザー判断: 全ステージだが失注は除く）。精算PDF取込レビュー・制作への
+   * 引き継ぎ・予算ダッシュボードは今までどおり `getWonProjects`（受注確定済みだけ）を使う
+   * ——それらは「受注が決まった案件」であることが前提の画面なので、ここでは変えない。
+   */
+  async getRegisterableProjects() {
+    return await queryAll(
+      `SELECT p.id, p.gls_number, p.name, c.name as customer_name
+       FROM projects p LEFT JOIN companies c ON c.id = p.customer_id
+       WHERE p.stage != 'e_lost' AND p.deleted_at IS NULL
+       ORDER BY p.gls_number DESC NULLS LAST, p.created_at DESC`
     );
   }
 

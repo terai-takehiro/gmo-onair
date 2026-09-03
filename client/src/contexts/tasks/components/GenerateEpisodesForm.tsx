@@ -10,8 +10,7 @@
  *
  * ── 実行前に必ずプレビュー（dry_run）を見せる ──────────────────────
  *
- * お金の行（**確定売上**）が一緒に増えるので、押したあとで
- * 分かるのは事故（設計文書 §7）。「内容を確かめる」→ プレビュー表示 →
+ * 押したあとで分かるのは事故（設計文書 §7）。「内容を確かめる」→ プレビュー表示 →
  * 「作成する」の2段階にしてあり、**入力を変えたらプレビューは無効に戻す**
  * （`previewKey` が今の入力と一致しないときは古いプレビューとして警告に差し替える）。
  *
@@ -20,10 +19,14 @@
  *
  * ── 初期値は案件の「レギュラーの取り決め」から引き継ぐ ────────────
  *
- * `defaultCadence` / `defaultPerDayCount` / `defaultUnitPrice` は案件（projects）に
- * 1度だけ置いた取り決め（migration 262・regular-series.md §3・§10-6）。渡されれば
- * 開いたときの初期値にするだけで、**この画面の中で書き換えても案件側の値は変わらない**
- * （回ごとに違う本数・単価で作りたいこともあるため）。
+ * `defaultCadence` / `defaultPerDayCount` は案件（projects）に1度だけ置いた
+ * 取り決め（migration 262・regular-series.md §3・§10-6）。渡されれば開いたときの
+ * 初期値にするだけで、**この画面の中で書き換えても案件側の値は変わらない**
+ * （回ごとに違う本数で作りたいこともあるため）。
+ *
+ * ⚠️ 「回の単価」（`episode_unit_price`／`revenue_budget_per_episode`）は 2026-09 の依頼で
+ * 廃止した——1日で複数本撮ると回あたりの単価が下がるため固定値は成立せず、
+ * 金額はひとまとまり（見積・確定売上）単位で持つ。この画面の単価入力欄は削除した。
  */
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -60,14 +63,13 @@ function parseDatesText(text: string): string[] {
 }
 
 export function GenerateEpisodesForm({
-  projectId, onDone, defaultCadence, defaultPerDayCount, defaultUnitPrice,
+  projectId, onDone, defaultCadence, defaultPerDayCount,
 }: {
   projectId: string;
   onDone: () => void;
   /** 案件の「レギュラーの取り決め」（migration 262）。無ければ従来どおりの既定値を使う */
   defaultCadence?: Cadence | null;
   defaultPerDayCount?: number | null;
-  defaultUnitPrice?: number | null;
 }) {
   const qc = useQueryClient();
   const [cadence, setCadence] = useState<Cadence>(defaultCadence || 'weekly');
@@ -77,7 +79,6 @@ export function GenerateEpisodesForm({
   const [count, setCount] = useState('12');
   const [endDate, setEndDate] = useState('');
   const [datesText, setDatesText] = useState('');
-  const [revenueBudget, setRevenueBudget] = useState(defaultUnitPrice ? String(defaultUnitPrice) : '');
   const [preview, setPreview] = useState<PreviewData | null>(null);
   const [previewKey, setPreviewKey] = useState<string | null>(null);
 
@@ -87,7 +88,6 @@ export function GenerateEpisodesForm({
 
   const payload = useMemo(() => {
     const base: Record<string, unknown> = { cadence, per_day_count: Number(perDayCount) || 1 };
-    if (revenueBudget.trim()) base.revenue_budget_per_episode = Number(revenueBudget);
     if (cadence === 'none') {
       base.dates = parseDatesText(datesText);
     } else {
@@ -96,7 +96,7 @@ export function GenerateEpisodesForm({
       else base.end_date = endDate;
     }
     return base;
-  }, [cadence, perDayCount, revenueBudget, datesText, startDate, endMode, count, endDate]);
+  }, [cadence, perDayCount, datesText, startDate, endMode, count, endDate]);
 
   const currentKey = JSON.stringify(payload);
   const isStale = preview !== null && previewKey !== currentKey;
@@ -114,9 +114,8 @@ export function GenerateEpisodesForm({
     mutationFn: () => api.post(`/projects/${projectId}/episodes/generate`, payload),
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ['episodes', projectId] });
-      // 単価があるとサーバーが回ごとに売上行も作る。見積タブの
-      // `['revenues','project',projectId]`（前方一致で当たる）と財務③の
-      // `['revenues-all']` も落とさないと、作った売上が最大60秒古いまま見える
+      // この画面は単価を持たない（「回の単価」概念は 2026-09 の依頼で廃止済み）が、
+      // 他のタブ（見積・財務③）が読む鍵を対で落としておく
       qc.invalidateQueries({ queryKey: ['revenues'] });
       qc.invalidateQueries({ queryKey: ['revenues-all'] });
       // サーバーは作った回に標準工程テンプレートも自動適用する（episode-generate.routes.ts）
@@ -203,27 +202,6 @@ export function GenerateEpisodesForm({
           </div>
         </>
       )}
-
-      <div>
-        <Label htmlFor="gen-revenue">回の単価（任意・確定売上）</Label>
-        <Input
-          id="gen-revenue" type="number" inputMode="numeric" className="mt-1" placeholder="例: 84000"
-          value={revenueBudget} onChange={(e) => { setRevenueBudget(e.target.value); touch(); }}
-        />
-        {/*
-          ⚠️ **ここは「見込み」ではありません。** サーバー
-          (`episode-generate.routes.ts` の `INSERT INTO revenues`) は `status` を
-          渡しておらず、列の既定 `confirmed` が効いて**確定売上**の行になります。
-          `getSummaries` は `status='confirmed'` を日付条件なしで足すので、
-          作った瞬間に案件の売上・粗利へ乗ります。
-          長らくラベルだけ「見込み」と書いてあり実態と食い違っていたので直しました
-          （「日付で指定」タブの同じ欄と表記を揃えてあります — 同じ操作が入口によって
-          違う言葉で説明されるのが、今回の一連の取り違えの元でした）。
-        */}
-        <p className="text-sub mt-1 text-muted-foreground">
-          単価を入れた回には確定売上が1件ずつ作られ、案件の売上・粗利にすぐ乗ります。空欄にすれば売上は作りません。
-        </p>
-      </div>
 
       <Button
         type="button" variant="outline" disabled={!canSubmit || previewMutation.isPending}

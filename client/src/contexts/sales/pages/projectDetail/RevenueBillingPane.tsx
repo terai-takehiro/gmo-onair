@@ -122,10 +122,10 @@ export function RevenueBillingPane({ projectId, projectName, mobile }: { project
   });
 
   // ダイアログを開いたときだけ取りに行く（`PurchaseListPage.tsx` と同じ鍵——
-  // 台帳側で既に引いていれば、そのキャッシュをそのまま使い回せる）
+  // 台帳側で既に引いていれば使い回せる）。失注(e_lost)以外の案件から選べる（2026-09 依頼）
   const { data: wonProjectsData } = useQuery({
-    queryKey: ['won-projects-for-purchase'],
-    queryFn: async () => (await api.get('/projects/won-projects')).data,
+    queryKey: ['registerable-projects-for-purchase'],
+    queryFn: async () => (await api.get('/projects/registerable-projects')).data,
     enabled: addPurchaseOpen,
   });
   const glsProjects: PurchaseProjectOption[] = wonProjectsData?.data ?? [];

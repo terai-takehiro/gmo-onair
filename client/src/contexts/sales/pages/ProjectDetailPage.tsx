@@ -304,11 +304,11 @@ export default function ProjectDetailPage() {
         <div className="flex min-h-0 flex-1 flex-col gap-3 p-4 lg:p-6">
           <EpisodesPanel
             projectId={id}
-            // 案件の「レギュラーの取り決め」を「頻度で作る」の初期値に渡す（タスクタブと同じ）
+            // 案件の「レギュラーの取り決め」を「頻度で作る」の初期値に渡す（タスクタブと同じ）。
+            // 「回の単価」は 2026-09 の依頼で廃止したため、ここでは渡さない
             seriesDefaults={{
               recording_cadence: p.recording_cadence,
               recording_per_day_count: p.recording_per_day_count,
-              episode_unit_price: p.episode_unit_price,
             }}
           />
         </div>
