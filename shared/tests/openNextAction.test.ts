@@ -59,12 +59,12 @@ describe('言葉の中身', () => {
     // `p.stage` が NULL になる。`NOT IN` だけで書くと NULL は真にならないので、
     // **今まで出ていた「次にやること」が静かに減る**（画面からは気づけない）
     expect(flat(PROJECT_NOT_TERMINAL_SQL)).toBe(
-      "(p.stage IS NULL OR p.stage NOT IN ('s_completed','e_lost'))",
+      "(p.stage IS NULL OR p.stage NOT IN ('r_delivered','s_completed','e_lost'))",
     );
   });
 
-  it('終わったステージは失注と完了の2つだけ', () => {
-    expect([...TERMINAL_PROJECT_STAGES]).toEqual(['s_completed', 'e_lost']);
+  it('終わったステージは実施済・完了・失注の3つ', () => {
+    expect([...TERMINAL_PROJECT_STAGES]).toEqual(['r_delivered', 's_completed', 'e_lost']);
   });
 
   it('**正の式**は「未対応」と「終わっていない案件」の両方（片方だけの別名を作らない）', () => {
@@ -72,11 +72,11 @@ describe('言葉の中身', () => {
       .toBe(`${flat(NEXT_ACTION_OPEN_SQL)} AND ${flat(PROJECT_NOT_TERMINAL_SQL)}`);
   });
 
-  it('JOIN していない SQL 用の `EXISTS` 版も、同じ2ステージだけを外す', () => {
+  it('JOIN していない SQL 用の `EXISTS` 版も、同じ3ステージだけを外す', () => {
     const sql = flat(projectNotTerminalExistsSql('activity_logs.project_id'));
     expect(sql).toContain('NOT EXISTS');
     expect(sql).toContain('tp.id = activity_logs.project_id');
-    expect(sql).toContain("tp.stage IN ('s_completed','e_lost')");
+    expect(sql).toContain("tp.stage IN ('r_delivered','s_completed','e_lost')");
   });
 });
 
@@ -168,7 +168,9 @@ describe('機械が閉じたものと、人が押した完了を混ぜない', (
     // 足し忘れると、**その経路から出たゴミだけ永久に残る**
     const health = readCode('server', 'src', 'contexts', 'sales', 'services', 'project-health.ts');
     expect(health).toMatch(/syncNextActionsForStageSafe\(r\.id, 'e_lost'\)/);
-    expect(health).toMatch(/syncNextActionsForStageSafe\(r\.id, 's_completed'\)/);
+    // 受注→完了の繰り上げは 2026-09〜 r_delivered（実施済・財務処理中）止まり
+    // （s_completed への昇格は財務が手動で行う — project-health.ts 冒頭のコメント参照）
+    expect(health).toMatch(/syncNextActionsForStageSafe\(r\.id, 'r_delivered'\)/);
 
     const project = readCode('server', 'src', 'contexts', 'sales', 'services', 'project.service.ts');
     // ①ステージ変更の集約点（案件詳細・GPM の両方が通る）②一括変更

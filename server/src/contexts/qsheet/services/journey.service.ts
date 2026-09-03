@@ -53,11 +53,13 @@ function toneOf(hasAny: boolean, latestUpdatedAt: string | null): HintTone {
 
 /**
  * `projects.stage` の CHECK 値そのまま
- * （`neta,d_hold,c_proposal,b_verbal,a_won,s_completed,e_lost`）を使って4つに分ける。
+ * （`neta,d_hold,c_proposal,b_verbal,a_won,r_delivered,s_completed,e_lost`）を使って4つに分ける。
  * 内訳（重複なし・4つで全案件を尽くす。standalone だけ別の表を数える）:
  *   - `neta`         : gls_number IS NULL AND stage = 'neta'
  *   - `pre_project`  : gls_number IS NULL AND stage NOT IN ('neta','e_lost')
- *   - `in_progress`  : gls_number IS NOT NULL AND stage NOT IN ('s_completed','e_lost')
+ *   - `in_progress`  : gls_number IS NOT NULL AND stage NOT IN ('r_delivered','s_completed','e_lost')
+ *     （`r_delivered`=実施済・財務処理中は制作側の仕事としては終わっているので、
+ *     `s_completed` と同様に「進行中」からは外す）
  *   - `standalone`   : project_id が無い資料（アクセス権で絞ってから数える）
  */
 export async function getScopeCards(user: AccessUser): Promise<ScopeCard[]> {
@@ -72,7 +74,7 @@ export async function getScopeCards(user: AccessUser): Promise<ScopeCard[]> {
     ),
     queryOne(
       `SELECT COUNT(*)::int AS n FROM projects
-       WHERE deleted_at IS NULL AND gls_number IS NOT NULL AND stage NOT IN ('s_completed', 'e_lost')`,
+       WHERE deleted_at IS NULL AND gls_number IS NOT NULL AND stage NOT IN ('r_delivered', 's_completed', 'e_lost')`,
     ),
     countStandaloneDocs(user),
   ]);

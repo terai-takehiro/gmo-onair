@@ -27,10 +27,8 @@
  * （カードの中に入れ子のリンク・ボタンを置かないため）。
  */
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, CircleDollarSign, Building2 } from 'lucide-react';
-import api from '@/lib/api';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { EmptyState, NoSearchResults, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { Pagination } from '@gmo-onair/shared/src/client/ui/pagination';
@@ -40,7 +38,6 @@ import { useAuth } from '@/contexts/platform/AuthContext';
 import { useCrudPage } from '@/hooks/useCrudPage';
 import ExcelToolbar from '@/components/ExcelToolbar';
 import ProjectQuickLinks from '@/contexts/shared/components/ProjectQuickLinks';
-import type { Vendor } from '@/types';
 import { LedgerList } from './ledger/LedgerList';
 import { LedgerFilterBar } from './ledger/LedgerFilterBar';
 import { LedgerTotalBar } from './ledger/LedgerTotalBar';
@@ -49,8 +46,9 @@ import { purchaseDetailFields } from './ledger/ledgerDetail';
 import { useLedgerUrlPeriod } from './ledger/useLedgerUrlPeriod';
 import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth';
 import { LedgerTabs } from './ledger/LedgerTabs';
-import { PurchaseDialog, type PurchaseProjectOption } from './ledger/PurchaseDialog';
+import { PurchaseDialog } from './ledger/PurchaseDialog';
 import { settlementState } from './ledger/settlementState';
+import { usePurchaseDialogData } from './ledger/usePurchaseDialogData';
 import type { LedgerRow, PurchaseRow } from './ledger/types';
 
 const CHIPS = [
@@ -115,23 +113,15 @@ export default function PurchaseListPage() {
   const raw = crud.raw as { total_amount?: number; state_counts?: Record<string, number> } | undefined;
   const counts = raw?.state_counts ?? {};
 
-  // **GLS発番済みではなく「受注確定済み」で絞る**（v4.1.8・矛盾修正）。
-  // 受注 (`a_won`) は原則 GLS 番号が自動で付くが、案件分類が未設定の
-  // 古いデータでは例外的に番号だけ付かないことがあり、GLS番号の有無を
-  // 基準にすると受注済みの案件に仕入を記録できない詰みが起きるため
-  const { data: wonProjectsData } = useQuery({
-    queryKey: ['won-projects-for-purchase'],
-    queryFn: async () => (await api.get('/projects/won-projects')).data,
-    enabled: crud.dialogOpen,
+  // 仕入ダイアログ用データ（案件候補・仕入先）と `?edit={id}` の直接オープン。
+  // まとめて `ledger/usePurchaseDialogData.ts` に切り出してある
+  const editParam = searchParams.get('edit');
+  const { glsProjects, vendors } = usePurchaseDialogData({
+    dialogOpen: crud.dialogOpen,
+    editParam,
+    canEdit,
+    openEdit: crud.openEdit,
   });
-  const glsProjects: PurchaseProjectOption[] = wonProjectsData?.data ?? [];
-
-  const { data: vendorsData } = useQuery({
-    queryKey: ['vendors-list'],
-    queryFn: async () => (await api.get('/vendors?limit=200')).data,
-    enabled: crud.dialogOpen,
-  });
-  const vendors: Vendor[] = vendorsData?.data ?? [];
 
   const items = useMemo(() => crud.items ?? [], [crud.items]);
   const ledgerRows: LedgerRow[] = useMemo(

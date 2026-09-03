@@ -279,6 +279,10 @@ export const STAGE_GROUPS: { key: string; label: string; stages: ProjectStage[] 
   { key: 'all', label: 'すべて', stages: [] },
   { key: 'active', label: '進行中', stages: ['a_won'] },
   { key: 'planning', label: '準備中', stages: ['neta', 'd_hold', 'c_proposal', 'b_verbal'] },
+  // r_delivered = 実施済（財務処理中）。a_won と s_completed の間の段（2026-09 追加）。
+  // 「進行中」には含めない（制作の仕事は終わっている）が、財務処理が済むまでは
+  // 「完了」とも別に見せる — 完了フォルダに財務未処理の案件が紛れて見えないように分ける
+  { key: 'delivered', label: '実施済', stages: ['r_delivered'] },
   { key: 'done', label: '完了', stages: ['s_completed'] },
   { key: 'lost', label: '見送り', stages: ['e_lost'] },
 ];

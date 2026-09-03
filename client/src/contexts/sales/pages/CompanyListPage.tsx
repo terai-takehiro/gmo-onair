@@ -143,6 +143,8 @@ export default function CompanyListPage() {
       vendor_type: c.vendor_type || "",
       invoice_registration_number: c.invoice_registration_number || "",
       notes: c.notes || "",
+      credit_limit_amount: c.credit_limit_amount == null ? "" : String(c.credit_limit_amount),
+      credit_check_date: c.credit_check_date || "",
     });
     crud.openEdit(c);
   };
@@ -152,7 +154,13 @@ export default function CompanyListPage() {
     crud.openAdd();
   };
 
-  const handleSave = form.handleSubmit((values) => crud.save.mutate(values));
+  const handleSave = form.handleSubmit((values) => crud.save.mutate({
+    ...values,
+    // **空欄は null（未設定）。0 として送らない**（`DiscountLimits.tsx` と同じ方式 ─
+    // `CurrencyInput` を使わずプレーン文字列で持っているので、ここで数値へ変換する）
+    credit_limit_amount: values.credit_limit_amount.trim() === "" ? null : Number(values.credit_limit_amount),
+    credit_check_date: values.credit_check_date.trim() === "" ? null : values.credit_check_date,
+  }));
 
   const onDelete = async (c: Company) => {
     const ok = await confirmAction({

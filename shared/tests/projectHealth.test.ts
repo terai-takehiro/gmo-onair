@@ -42,8 +42,9 @@ describe('しきい値 — ステージ別・終端と受注済は対象外', ()
     expect(STUCK_DAYS_BY_STAGE).toEqual({ neta: 30, d_hold: 14, c_proposal: 14, b_verbal: 7 });
   });
 
-  it('a_won / s_completed / e_lost にはしきい値が無い（SQL は ELSE NULL に落ちる）', () => {
+  it('a_won / r_delivered / s_completed / e_lost にはしきい値が無い（SQL は ELSE NULL に落ちる）', () => {
     expect(Object.keys(STUCK_DAYS_BY_STAGE)).not.toContain('a_won');
+    expect(Object.keys(STUCK_DAYS_BY_STAGE)).not.toContain('r_delivered');
     expect(STUCK_INTERVAL_SQL).toContain('ELSE NULL END');
     // 定数を変えたら SQL も一緒に変わる（機械的に組んでいる）ことの確認
     expect(STUCK_INTERVAL_SQL).toContain(`WHEN 'neta' THEN INTERVAL '30 days'`);
@@ -75,7 +76,7 @@ describe('生存証拠と健全性の式', () => {
   it('判定の順: 終端は常に ok → スヌーズ → 期限超過 → 停滞', () => {
     const h = healthSql();
     const order = [
-      `p.stage IN ('s_completed', 'e_lost') THEN 'ok'`,
+      `p.stage IN ('r_delivered', 's_completed', 'e_lost') THEN 'ok'`,
       `p.snooze_until >= CURRENT_DATE THEN 'snoozed'`,
       `'overdue'`,
       `'stalled'`,

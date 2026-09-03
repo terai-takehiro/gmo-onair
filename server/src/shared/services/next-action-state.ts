@@ -28,9 +28,14 @@ import { queryAll } from '../db/connection';
 
 /**
  * 終わった案件のステージ。**ここから出た案件の次回アクションは誰もやらない**。
- * `projects.stage` の値（`e_lost` = 失注 / `s_completed` = 完了）。
+ * `projects.stage` の値（`e_lost` = 失注 / `r_delivered` = 実施済・財務処理中 /
+ * `s_completed` = 完了）。
+ *
+ * `r_delivered`（2026-09 追加）も含める — 実施が終われば営業側の「次の一手」は
+ * もう無く、残るのは財務処理だけ。営業活動記録の次回アクションを機械的に閉じてよい
+ * （BOX フォルダの `98_終了案件` 移動とは別の話 — あちらは `s_completed` だけで発火する）。
  */
-export const TERMINAL_PROJECT_STAGES = ['s_completed', 'e_lost'] as const;
+export const TERMINAL_PROJECT_STAGES = ['r_delivered', 's_completed', 'e_lost'] as const;
 
 /**
  * 未対応の次回アクション。**別名は `a` = `activity_logs` 固定**。
@@ -92,7 +97,9 @@ export const AUTO_CLOSE_REASON = {
 /** ステージ → 機械が閉じる理由。終了ステージでなければ `null` */
 function autoCloseReasonForStage(toStage: string): string | null {
   if (toStage === 'e_lost') return AUTO_CLOSE_REASON.lost;
-  if (toStage === 's_completed') return AUTO_CLOSE_REASON.completed;
+  // r_delivered（実施済・財務処理中）も「完了」と同じ理由で閉じる —
+  // 営業側の次回アクションが指す「終わった」は財務処理の完了ではなく実施の完了
+  if (toStage === 'r_delivered' || toStage === 's_completed') return AUTO_CLOSE_REASON.completed;
   return null;
 }
 

@@ -261,6 +261,7 @@ const STAGE_MAP: Record<string, string> = {
   c_proposal: 'c_proposal', '提案中': 'c_proposal',
   b_verbal: 'b_verbal', '口頭内示': 'b_verbal',
   a_won: 'a_won', '受注': 'a_won',
+  r_delivered: 'r_delivered', '実施済': 'r_delivered',
   s_completed: 's_completed', '完了': 's_completed',
   e_lost: 'e_lost', '失注': 'e_lost',
 };
@@ -308,7 +309,7 @@ const PROJECTS_CONFIG: ResourceConfig = {
       { col: 'GLS番号', desc: '受注後に発番。空欄ならヨミ段階扱い。過去データ取り込み時は旧形式 (GLS001 等) もそのまま入力可' },
       { col: '案件名', desc: '【必須】' },
       { col: '顧客名', desc: '【必須】事前に登録済みの顧客名と完全一致' },
-      { col: 'ステージ', desc: 'neta/d_hold/c_proposal/b_verbal/a_won/s_completed/e_lost (日本語OK: ネタ/保留/提案中/口頭内示/受注/完了/失注)' },
+      { col: 'ステージ', desc: 'neta/d_hold/c_proposal/b_verbal/a_won/r_delivered/s_completed/e_lost (日本語OK: ネタ/保留/提案中/口頭内示/受注/実施済/完了/失注)' },
       { col: '担当者Email', desc: '【必須】事前に登録済みのユーザーEmailと完全一致' },
       { col: '備考', desc: '案件の「やり取り」にメモとして1件残ります。取り込み直しても、同じ本文なら増えません。書き出しはいちばん新しいメモ' },
     ],

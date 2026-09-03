@@ -47,7 +47,7 @@ import { useLedgerLookups } from './projectLedger/useLedgerLookups';
 import { LookupNotices } from './projectLedger/LookupNotices';
 
 const STAGE_OPTIONS: ProjectStage[] = [
-  'neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed', 'e_lost',
+  'neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 'r_delivered', 's_completed', 'e_lost',
 ];
 
 export default function ProjectLedgerPage() {

@@ -31,7 +31,7 @@ describe('どれをゴミと見なすか', () => {
      * ⚠️ **ステージ名は引用符ごと見る。** 素の `s_completed` で探すと、
      * 生存証拠の中の `pt.is_completed = false` に当たって嘘の失敗をする。
      */
-    for (const alive of ['a_won', 's_completed', 'c_proposal', 'b_verbal', 'd_hold']) {
+    for (const alive of ['a_won', 'r_delivered', 's_completed', 'c_proposal', 'b_verbal', 'd_hold']) {
       expect(PURGE_JUNK_STAGE_SQL).not.toContain(`'${alive}'`);
     }
   });
@@ -293,7 +293,7 @@ describe('台帳から外したあとも BOX を片づけられること', () =>
      * 生きているネタは「空なら消す」だけ（`emptyOnly`・失注の置き場へは入れない）。
      */
     const junk = SVC.slice(SVC.indexOf('const LOST_BOX_JUNK_SQL'), SVC.indexOf('const LOST_BOX_CLEANUP_TARGET_SQL'));
-    for (const alive of ['a_won', 's_completed', 'c_proposal', 'b_verbal', 'd_hold']) {
+    for (const alive of ['a_won', 'r_delivered', 's_completed', 'c_proposal', 'b_verbal', 'd_hold']) {
       expect(junk).not.toContain(`'${alive}'`);
     }
     expect(BOX).toContain("const emptyOnly = row.stage === 'neta' && !row.deleted_at");

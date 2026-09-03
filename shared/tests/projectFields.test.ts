@@ -120,6 +120,40 @@ describe('missingOf — 直す画面では「もともと空の分類」を止�
   });
 });
 
+/**
+ * `touchedClassification`（第3引数）— 「片方だけ」を止めるのは触ったときだけ。
+ *
+ * もともと片方だけしか入っていない古いデータ（手動SQL・過去の他経路の書き込みなど）を
+ * 開いた場合、分類を1つも触らずに他の項目だけ直したい。このとき毎回ブロックすると
+ * 「継続区分を変えても保存ボタンが押せない」になる（実際に報告された）。
+ */
+describe('missingOf — touchedClassification（片方だけを止めるのは触ったときだけ）', () => {
+  /** もともと客入れの有無だけ入っている、古いデータの案件 */
+  const PARTIAL: NewProjectValues = { ...FILLED, project_category: '' };
+
+  it('既定（省略）は今までどおり常に見る（片方だけなら止める）', () => {
+    expect(missingOf(PARTIAL, 'edit')).toEqual(['案件分類']);
+  });
+
+  it('触っていなければ、片方だけでも直す画面では通す（無関係な項目だけ保存できる）', () => {
+    expect(missingOf(PARTIAL, 'edit', false)).toEqual([]);
+  });
+
+  it('触っていれば、今までどおり片方だけを止める', () => {
+    expect(missingOf(PARTIAL, 'edit', true)).toEqual(['案件分類']);
+  });
+
+  it('作る画面では touchedClassification を渡しても常に必須のまま', () => {
+    expect(missingOf(PARTIAL, 'create', false)).toEqual(['案件分類']);
+  });
+
+  it('両方とも空なら touchedClassification に関わらず通す', () => {
+    const noClass: NewProjectValues = { ...FILLED, audience: '', project_category: '' };
+    expect(missingOf(noClass, 'edit', false)).toEqual([]);
+    expect(missingOf(noClass, 'edit', true)).toEqual([]);
+  });
+});
+
 describe('isPartialClassification — 片方だけ入っているか', () => {
   it('両方 空 / 両方 入り は「片方だけ」ではない', () => {
     expect(isPartialClassification(EMPTY_NEW_PROJECT)).toBe(false);

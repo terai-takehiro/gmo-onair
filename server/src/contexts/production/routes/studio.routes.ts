@@ -544,6 +544,10 @@ router.put('/bookings/:id', requirePermission('sales', 'editor'), async (req, re
   if (b.notes !== undefined) set('notes', b.notes || null);
   // **知らない状態名は素通しさせない**（黙って別の状態になるより、変わらないほうがよい）
   if (b.status === 'confirmed' || b.status === 'tentative') set('status', b.status);
+  // 仮押さえの何番手か。明示の null / 0以下は「番手を決めていない（消す）」として NULL に落とす
+  if (b.hold_rank !== undefined) {
+    set('hold_rank', typeof b.hold_rank === 'number' && b.hold_rank > 0 ? b.hold_rank : null);
+  }
 
   const { room_ids, room_details } = b as { room_ids?: unknown; room_details?: unknown };
 

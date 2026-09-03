@@ -33,6 +33,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
+import { invalidateProjectQueries } from '../../projectQueries';
 import { DISMISS_LOST_REASON } from '../inbox/useInboxActions';
 import { linkInquiryToProject } from './fromInquiry';
 import type { NewProjectValues } from './fields';
@@ -106,23 +107,33 @@ export function useProjectDecisions(
   /**
    * 書いたあとに落とす鍵。
    *
-   * ⚠️ **`['projects']`（一覧）は `['project', id]`（1件）に当たりません。**
-   * react-query は鍵の**前方一致**で落とすので、`'projects'` と `'project'` は
-   * 別の文字列＝別の鍵です。
+   * ⚠️ **鍵を並べず `invalidateProjectQueries`（`../../projectQueries`）を呼ぶこと。**
+   * 以前はここで `['projects']`・`['dashboard','sales-overview']`・
+   * `['project', id]` の3つ（＋受信箱）だけを手書きしていた。**案件を書き換える
+   * 画面が10以上、それぞれ別の鍵で同じ案件を持っている**（案件台帳
+   * `project-ledger`・仕入の候補 `won-projects-for-purchase`・見積の回
+   * `episodes` など）。この画面（受付レールから既存の「ネタ」案件を選んで
+   * 案件分類・継続区分を直し「案件にする」「ネタのまま残す」で保存する経路）
+   * だけが一元化された鍵の一覧を使わず、`project-ledger` をはじめ大半を
+   * 落とし忘れていた — 保存した直後に案件台帳を開いても react-query の
+   * `staleTime`（既定60秒）の間は古いまま表示され、**画面を再読み込みして
+   * 初めて反映される**という、v4.5.20 で直したはずの症状の再発だった
+   * （鍵を並べる形に戻すと、この足し忘れがまた起きる）。
+   *
+   * `queryKeys.dashboard.inbox()` は一元化リストに無い（レールの受付カード用）
+   * ので、ここだけ個別に残す。
    *
    * レールからネタ案件を選ぶと、`useIntakeSeed` が**保存前の姿**を
-   * `['project', <id>]` に載せます（詳細画面・直す画面と**同じ鍵**）。
-   * ここで落とさないと、`staleTime`（60秒）のあいだ詳細画面はその古い姿を
-   * そのまま出します — **入れたばかりの案件分類・客入れの有無・ステージが
-   * 画面に出ません**（「案件にしました」と出ているのに、分類は「その他」のまま）。
+   * `['project', <id>]` に載せる（詳細画面・直す画面と**同じ鍵**）。
+   * ここで落とさないと、`staleTime` のあいだ詳細画面はその古い姿を
+   * そのまま出す — **入れたばかりの案件分類・客入れの有無・ステージが
+   * 画面に出ない**（「案件にしました」と出ているのに、分類は「その他」のまま）。
    * 押した人には保存できなかったようにしか見えず、しかも読み込み直すと
-   * 直っているので**再現しないバグ**として扱われます。
+   * 直っているので**再現しないバグ**として扱われる。
    */
   const invalidate = (projectId?: string | null) => {
-    qc.invalidateQueries({ queryKey: ['projects'] });
-    qc.invalidateQueries({ queryKey: ['dashboard', 'sales-overview'] });
+    invalidateProjectQueries(qc, projectId);
     qc.invalidateQueries({ queryKey: queryKeys.dashboard.inbox() });
-    if (projectId) qc.invalidateQueries({ queryKey: ['project', projectId] });
   };
 
   /** 新しく作って、引き合いがあれば印を付けて、その案件を開く */

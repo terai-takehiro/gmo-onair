@@ -60,7 +60,7 @@ async function seedTasks() {
     `SELECT id, gls_number, gls_category, name
      FROM projects
      WHERE deleted_at IS NULL
-       AND stage NOT IN ('s_completed', 'e_lost')
+       AND stage NOT IN ('r_delivered', 's_completed', 'e_lost')
        AND gls_number IS NOT NULL
      ORDER BY gls_number`
   );

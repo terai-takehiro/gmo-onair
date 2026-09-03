@@ -99,7 +99,7 @@ router.get('/:id/overview', async (req, res) => {
          (SELECT COUNT(*) FROM projects
           WHERE customer_id = ? AND deleted_at IS NULL) AS project_total,
          (SELECT COUNT(*) FROM projects
-          WHERE customer_id = ? AND deleted_at IS NULL AND stage NOT IN ('s_completed','e_lost')) AS project_active,
+          WHERE customer_id = ? AND deleted_at IS NULL AND stage NOT IN ('r_delivered','s_completed','e_lost')) AS project_active,
          (SELECT MAX(a.activity_date) FROM activity_logs a
           LEFT JOIN projects p ON p.id = a.project_id
           WHERE a.deleted_at IS NULL AND (a.customer_id = ? OR p.customer_id = ?)) AS last_contact_date,
@@ -117,14 +117,14 @@ router.get('/:id/overview', async (req, res) => {
     queryAll(
       `SELECT p.id, p.gls_number, p.code, p.name, p.stage, p.event_start, p.expected_amount,
               COALESCE(r.rev, 0) AS total_revenue, COALESCE(pu.pur, 0) AS total_purchase,
-              (p.stage NOT IN ('s_completed','e_lost')) AS is_active
+              (p.stage NOT IN ('r_delivered','s_completed','e_lost')) AS is_active
        FROM projects p
        LEFT JOIN (SELECT project_id, SUM(amount) AS rev FROM revenues
                   WHERE status = 'confirmed' AND deleted_at IS NULL GROUP BY project_id) r ON r.project_id = p.id
        LEFT JOIN (SELECT project_id, SUM(amount) AS pur FROM purchases
                   WHERE deleted_at IS NULL GROUP BY project_id) pu ON pu.project_id = p.id
        WHERE p.customer_id = ? AND p.deleted_at IS NULL
-       ORDER BY (p.stage NOT IN ('s_completed','e_lost')) DESC, p.event_start DESC NULLS LAST, p.created_at DESC`,
+       ORDER BY (p.stage NOT IN ('r_delivered','s_completed','e_lost')) DESC, p.event_start DESC NULLS LAST, p.created_at DESC`,
       [id]
     ),
     // 統合タイムライン (顧客直付け or 案件経由の活動・直近50件)

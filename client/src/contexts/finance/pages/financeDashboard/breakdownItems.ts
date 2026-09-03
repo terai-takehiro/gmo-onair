@@ -106,11 +106,12 @@ export function buildRevenueItems(
 export function buildPurchaseItems(
   rows: PurchaseRow[],
   /**
-   * 仕入台帳（④ 仕入）の明細一覧へ。案件に紐づく行はその案件で絞り込んで開く。
+   * 仕入台帳（④ 仕入）の明細一覧へ、**その行の編集ダイアログを開いた状態**で。
+   * 案件に紐づく行はその案件で絞り込んで開く。
    * ⚠️ 固定原価（償却負担額）の行は案件を持たないことがあるので、
    * **`null` で呼ばれる前提**にしてある（期間だけ引き継いで開く）。
    */
-  openLedger: (projectId?: string | null, projectName?: string | null) => void,
+  openLedger: (projectId: string | null | undefined, projectName: string | null | undefined, rowId: string) => void,
 ): BreakdownItem[] {
   return rows.map((p) => ({
     id: p.id,
@@ -122,20 +123,21 @@ export function buildPurchaseItems(
     badge: settlementState(p.is_provisional, p.settlement_number),
     // 精算ページ。**申請URLが入っている行にだけ**出す（台帳と同じ流儀）
     settlementUrl: p.settlement_url,
-    // 押す＝仕入の明細一覧へ（この行の案件と、いま効いている期間で絞り込む）
-    onClick: () => openLedger(p.project_id, p.project_name),
+    // 押す＝仕入の明細一覧へ、この行の編集ダイアログを開いた状態で
+    // （この行の案件と、いま効いている期間で絞り込む）
+    onClick: () => openLedger(p.project_id, p.project_name, p.id),
   }));
 }
 
 export function buildSgaItems(
   rows: SgaExpense[],
   /**
-   * 販管費台帳（⑤ 販管費）の明細一覧へ。
-   * ⚠️ **販管費は案件に紐づかない**ので、引き継ぐのは期間だけ（引数を取らない）。
-   * 行そのものを指す絞り込みは台帳側に無い（`?edit=` は「編集ダイアログを開く」で
-   * あって絞り込みではないため、閲覧の導線としては使わない）。
+   * 販管費台帳（⑤ 販管費）の明細一覧へ、**その行の編集ダイアログを開いた状態**で。
+   * ⚠️ **販管費は案件に紐づかない**ので、引き継ぐのは期間とこの行の id だけ。
+   * `SgaListPage` は元々 `?edit=` を持っていた（`PdfTab.tsx` 用）ので、
+   * ここから渡しても同じ仕組みで編集ダイアログが開く。
    */
-  openLedger: () => void,
+  openLedger: (rowId: string) => void,
 ): BreakdownItem[] {
   return rows.map((x) => ({
     id: x.id,
@@ -145,7 +147,7 @@ export function buildSgaItems(
     // 台帳（⑤ 販管費）とまったく同じ3値（`is_provisional` は migration 268 で追加済み）
     badge: settlementState(x.is_provisional, x.settlement_number),
     settlementUrl: x.settlement_url,
-    // 押す＝販管費の明細一覧へ（いま効いている期間で絞り込む）
-    onClick: () => openLedger(),
+    // 押す＝販管費の明細一覧へ、この行の編集ダイアログを開いた状態で
+    onClick: () => openLedger(x.id),
   }));
 }

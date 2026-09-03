@@ -128,7 +128,7 @@ export const keepReportService = {
        WHERE p.deleted_at IS NULL
          AND r.id IS NULL
          AND (
-           p.stage = 's_completed'
+           p.stage IN ('r_delivered', 's_completed')
            OR (p.stage = 'a_won' AND NULLIF(p.event_end, '') IS NOT NULL AND p.event_end < CURRENT_DATE::text)
          )
          AND COALESCE(NULLIF(p.event_end, ''), NULLIF(p.event_start, ''), '9999-12-31')

@@ -32,9 +32,9 @@
  * 出ていませんでした。**既定は下の `customer_type` から決め**、prop は
  * 「`customer_type` を持たない画面（GPM）からの明示的な上書き」に限ります。
  *
- * 増える見た目は「表示のことば」と「ボタンの有無」だけで、計算
- * （`margin`・保存の合計）には一切関わりません — 定価は最後まで表示・
- * PDF 印字専用のまま、値引き行は既存の「行を足す」と同じ経路を通るだけです。
+ * 定価は最後まで表示・PDF 印字専用（`amount`・保存の合計には混ぜない）。
+ * 「値引き行を追加」は押すと定価差を自動計算して初期値にします
+ * （9/3 要望・中身は `estimateCategoryDiscount.ts`）。
  */
 import { useState } from 'react';
 import {
@@ -48,10 +48,12 @@ import { Plus, Link2, Percent } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
+import { formatCurrency } from '@gmo-onair/shared/src/client/format';
 import { RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import PricingItemPicker, { type PickedPricingItem } from '@/contexts/finance/components/PricingItemPicker';
 import { EstimateItemRowView } from './EstimateItemRow';
 import { EstimateCategorySubtotal } from './EstimateCategorySubtotal';
+import { applyCategoryDiscount, pendingCategoryDiscount } from './estimateCategoryDiscount';
 
 export interface EstimateItemRow {
   id?: string; description: string; quantity: number; unit: string | null;
@@ -223,16 +225,9 @@ export function EstimateItems({
     setNewCategoryName('');
   };
 
-  /**
-   * カテゴリの中に値引き行を1つ足す（仕様変更 #10・GPM限定）。
-   * 「◯◯に行を足す」と全く同じ形で、説明欄に「値引き」を仕込むだけ —
-   * 単価をマイナスで入れれば `amount` が自動でマイナスになり（`upd` と同じ経路）、
-   * 下のカテゴリ小計（仕様変更 #11）にそのまま反映される。新しい保存先は増やさない。
-   */
-  const addCategoryDiscount = (category: string) => {
-    setItems((prev) => [...prev,
-      { description: '値引き', quantity: 1, unit: null, unit_price: 0, amount: 0, cost: 0, category }]);
-  };
+  /** カテゴリに値引き行を追加（仕様変更 #10 → 9/3 要望で拡張）。中身と理由は `estimateCategoryDiscount.ts`。 */
+  const addCategoryDiscount = (category: string) =>
+    setItems((prev) => applyCategoryDiscount(prev, category));
 
   /**
    * 1行の期間（開始・終了）を全行に一括反映する（要望①）。
@@ -318,6 +313,8 @@ export function EstimateItems({
         {allCategories.map((c) => {
           const rows = items.map((it, i) => ({ it, i })).filter(({ it }) => (it.category ?? 'other') === c.key);
           if (rows.length === 0 && locked) return null;
+          // まだ値引き行に組み替えていない定価差（＝ボタンを押したら入る額）
+          const pendingDiscount = pendingCategoryDiscount(rows.map(({ it }) => it));
           return (
             <div key={c.key} className="border-b border-border-faint last:border-b-0">
               <p className="text-th bg-surface-subtle px-4 py-2 text-muted-foreground">{c.label}</p>
@@ -350,7 +347,10 @@ export function EstimateItems({
                   )}
                   {categoryDiscountEnabled && (
                     <Button variant="outline" size="sm" onClick={() => addCategoryDiscount(c.key)}>
-                      <Percent className="mr-1 h-3.5 w-3.5" aria-hidden="true" />{c.label}に値引き行を追加
+                      <Percent className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                      {pendingDiscount > 0
+                        ? `${c.label}の値引き ${formatCurrency(pendingDiscount)} を追加`
+                        : `${c.label}に値引き行を追加`}
                     </Button>
                   )}
                 </div>

@@ -287,9 +287,11 @@ describe('書き換える前に必ず確かめる', () => {
     expect(table).toMatch(/if \(!canEdit \|\| !grid\.anchor\) return;/);
   });
 
-  it('直したあとは台帳・整合性・一覧の鍵を落とす', () => {
-    for (const k of ['project-ledger', 'project-integrity', 'projects']) {
-      expect(hook).toContain(`'${k}'`);
-    }
+  it('直したあとは一元化された invalidateProjectQueries() で鍵を落とす（並べて書かない）', () => {
+    // ⚠️ 以前はここで 'project-ledger'・'project-integrity'・'projects' などを
+    // 手書きしていて、'episodes'・'won-projects-for-*' 等を落とし忘れていた
+    // （projectQueries.test.ts の一覧参照）。鍵を並べる形に**戻さない**ことを固定する
+    expect(hook).toMatch(/invalidateProjectQueries\(qc, id\)/);
+    expect(hook).not.toMatch(/invalidateQueries\(\{\s*queryKey:\s*\['project-ledger'\]/);
   });
 });

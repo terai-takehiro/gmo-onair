@@ -1,0 +1,34 @@
+-- 案件フェーズに「実施済（財務処理中）」を追加する (2026-09)
+--
+-- ── なぜ要るか ────────────────────────────────────────────────
+--
+-- ご依頼: 「案件フェーズについて、『A受注済み』『完了』の間に『実施済（財務処理中）』
+-- を追加し、フォルダ位置についても反映する（財務処理が終わっていないのに、
+-- 完了フォルダに入れられると分かりづらくなるため）」。
+--
+-- 受注 (`a_won`) から完了 (`s_completed`) へは、これまで日次ジョブ
+-- (`project-health.ts` の `completeElapsedWonProjects`) が `event_end` を
+-- 過ぎた翌朝に無条件で繰り上げていた。同じ日次ジョブが直後に BOX の
+-- `98_終了案件` フォルダへの移動（`box-lost-cleanup.service.ts`）まで走らせるため、
+-- 請求・入金などの財務処理が済んでいなくても翌朝には完了フォルダへ入ってしまい、
+-- 財務側が「完了フォルダにあるのにまだ処理していない」と分かりづらい状態だった。
+--
+-- ── 新ステージ `r_delivered`（R 実施済） ────────────────────────
+--
+-- `a_won` と `s_completed` の間に挿む中間ステージ。受注は確定済み・実施も
+-- 終わったが、請求・入金など財務処理がまだの状態を表す。
+--   ・受注確定 (`WON_STAGES`) の扱いには含める
+--   ・BOX の `98_終了案件` への移動（`box_done_at`）は従来どおり
+--     `stage = 's_completed'` の完全一致でしか発火しない（このステージでは発火しない）
+--   ・日次ジョブの繰り上げ先も `s_completed` から `r_delivered` に変更した
+--     （`s_completed` への昇格は財務が案件詳細から手動で行う）
+--
+-- ── 制約の張り替え ────────────────────────────────────────────
+--
+-- `001b_postgresql_schema.sql` の `CHECK (stage IN (...))` は無名で定義されているため
+-- PostgreSQL の既定命名規則で `projects_stage_check` になっている
+-- （以後 270 本の migration でも変更されていないので命名は変わっていない）。
+-- 違反値は既存行に存在し得ない（CHECK が弾いていた）ため、和集合への拡張は無条件に安全。
+ALTER TABLE projects DROP CONSTRAINT IF EXISTS projects_stage_check;
+ALTER TABLE projects ADD CONSTRAINT projects_stage_check
+  CHECK (stage IN ('neta','d_hold','c_proposal','b_verbal','a_won','r_delivered','s_completed','e_lost'));

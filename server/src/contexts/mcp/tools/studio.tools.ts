@@ -20,6 +20,7 @@ function trimBookingRow(row: any) {
     title: row.title,
     booking_type: row.booking_type,
     status: row.status,
+    hold_rank: row.hold_rank ?? null,
     all_day: row.all_day,
     start_time: row.start_time,
     end_time: row.end_time,
@@ -132,6 +133,8 @@ export function registerStudioTools(server: McpServer): void {
         end_time: z.string().min(1).describe('終了日時 (例 2026-07-15T18:00:00)'),
         booking_type: z.enum(BOOKING_TYPES).default('other'),
         status: z.enum(['tentative', 'confirmed']).default('tentative').describe('tentative=仮予約 / confirmed=確定'),
+        hold_rank: z.number().int().positive().optional()
+          .describe('仮押さえ (status=tentative) の何番手か (1=第一希望、2=次点…)。status が confirmed のときは無視される。同じ枠を取り合う仮押さえどうしの相対順位を人が把握している場合のみ指定する'),
         all_day: z.boolean().default(false),
         project_id: z.string().optional().describe('紐づける案件 ID (任意)'),
         episode_id: z.string().optional(),
@@ -168,6 +171,7 @@ export function registerStudioTools(server: McpServer): void {
           location_note: args.location_note ?? null,
           notes: args.notes ?? null,
           status: args.status,
+          hold_rank: args.hold_rank ?? null,
         },
         currentActorId(),
       ) as any;

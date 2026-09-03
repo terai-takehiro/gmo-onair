@@ -11,6 +11,7 @@ import api from "@/lib/api";
 import { FormDialog } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Money } from "@gmo-onair/shared/src/client/ui/money";
 import { Delayed, SkeletonCard } from "@gmo-onair/shared/src/client/states";
+import type { Company } from "./types";
 
 interface CompanySummary {
   company_id: string;
@@ -22,7 +23,11 @@ interface CompanySummary {
 export function CompanySummaryDialog({ open, onOpenChange, company }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  company: { id: string; name: string } | null;
+  /**
+   * 一覧が保持する `Company` をそのまま渡す（呼び出し元は既にフルオブジェクトを
+   * 持っているため、与信限度額・最新与信確認日の表示に追加の API 呼び出しは要らない）。
+   */
+  company: Company | null;
 }) {
   const { data, isLoading } = useQuery({
     queryKey: ["company-summary", company?.id],
@@ -39,6 +44,24 @@ export function CompanySummaryDialog({ open, onOpenChange, company }: {
       sub="この取引先を相手方とする売上・仕入・販管費の累計"
     >
       <div>
+        {/* 与信限度額・最新与信確認日（migration 272）。どちらも未設定なら出さない
+            （一覧・カードには出していないため、ここが唯一の表示場所） */}
+        {(company?.credit_limit_amount != null || company?.credit_check_date) && (
+          <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-muted-foreground">与信限度額</p>
+              {company?.credit_limit_amount != null ? (
+                <Money value={company.credit_limit_amount} inline className="mt-1 text-sm font-bold" />
+              ) : (
+                <p className="mt-1 text-sm text-muted-foreground">未設定</p>
+              )}
+            </div>
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-muted-foreground">最新与信確認日</p>
+              <p className="mt-1 text-sm font-bold">{company?.credit_check_date || "未確認"}</p>
+            </div>
+          </div>
+        )}
         {isLoading ? (
           <Delayed><SkeletonCard lines={3} /></Delayed>
         ) : summary ? (

@@ -42,6 +42,8 @@ export interface CreateBookingInput {
   location_note?: string | null;
   notes?: string | null;
   status?: string;
+  /** 仮押さえの何番手か (1以上)。仮押さえどうしの相対順位を人が手入力する値。status とは独立 */
+  hold_rank?: number | null;
 }
 
 export const studioBookingService = {
@@ -206,17 +208,20 @@ export const studioBookingService = {
 
   /** 予約作成。actorId は created_by に記録される (UI = ログインユーザー / MCP = sentinel) */
   async createBooking(input: CreateBookingInput, actorId: string): Promise<any> {
-    const { title, booking_type, project_id, episode_id, all_day, start_time, end_time, room_ids, room_details, location_note, notes, status } = input;
+    const { title, booking_type, project_id, episode_id, all_day, start_time, end_time, room_ids, room_details, location_note, notes, status, hold_rank } = input;
     if (!title || !start_time || !end_time) throw new AppError(400, 'VALIDATION_ERROR', 'タイトル・開始・終了は必須です');
     if (isReversedTimeRange(start_time, end_time)) throw new AppError(400, 'VALIDATION_ERROR', '終了は開始より後にしてください');
 
     const bookingStatus = ['confirmed', 'tentative'].includes(status ?? '') ? status : 'tentative';
+    // 番手は仮押さえのときだけ意味を持つ。confirmed で紛れ込んでも保存しない
+    // （「確定済みなのに2番手」という混乱を作らない）
+    const holdRank = bookingStatus === 'tentative' && typeof hold_rank === 'number' && hold_rank > 0 ? hold_rank : null;
     const id = uuidv4();
     await execute(
-      `INSERT INTO studio_bookings (id, title, booking_type, project_id, episode_id, all_day, start_time, end_time, location_note, notes, status, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO studio_bookings (id, title, booking_type, project_id, episode_id, all_day, start_time, end_time, location_note, notes, status, hold_rank, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, title, booking_type || 'other', project_id || null, episode_id || null,
-       all_day ? 1 : 0, start_time, end_time, location_note || null, notes || null, bookingStatus, actorId]
+       all_day ? 1 : 0, start_time, end_time, location_note || null, notes || null, bookingStatus, holdRank, actorId]
     );
 
     // Insert room associations (with optional occupant/usage_note)

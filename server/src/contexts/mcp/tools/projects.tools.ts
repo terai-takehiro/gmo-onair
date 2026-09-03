@@ -10,14 +10,14 @@ import { PROJECT_DRAFT_KIND } from '../../sales/services/project-ai-feedback.ser
 // 書き込みは create / update (read-merge-write) / stage 変更 / GLS 発番。
 // GLS 発番と失注 (e_lost) は confirm 2段階 (プレビュー→了承→実行)。
 
-const STAGES = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed', 'e_lost'] as const;
+const STAGES = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 'r_delivered', 's_completed', 'e_lost'] as const;
 
 // 正は `shared/src/constants/statuses.ts` の `PROJECT_STAGE` (docs/core-redesign-plan.md §3-7)。
 // server は shared を import できない (`server/tsconfig.json` の rootDir) ため値を写している —
 // ズレたら `shared/tests/stageLabels.test.ts` が落とす。変えるときは shared 側から
 const STAGE_LABELS: Record<string, string> = {
   neta: 'ネタ', d_hold: 'D 仮押さえ', c_proposal: 'C 見積提案', b_verbal: 'B 口頭決定',
-  a_won: 'A 受注済', s_completed: 'S 完了', e_lost: 'E 失注',
+  a_won: 'A 受注済', r_delivered: 'R 実施済', s_completed: 'S 完了', e_lost: 'E 失注',
 };
 
 /**
@@ -93,7 +93,7 @@ export function registerProjectTools(server: McpServer): void {
       title: '案件一覧',
       description:
         // ラベルの正は shared/src/constants/statuses.ts（s_completed は「S 完了」。旧「案件終了」は使わない）
-        '案件 (プロジェクト) を検索・一覧する。stage: neta=ネタ, d_hold=仮押さえ, c_proposal=見積提案, b_verbal=口頭決定, a_won=受注済, s_completed=完了, e_lost=失注。' +
+        '案件 (プロジェクト) を検索・一覧する。stage: neta=ネタ, d_hold=仮押さえ, c_proposal=見積提案, b_verbal=口頭決定, a_won=受注済, r_delivered=実施済(財務処理中), s_completed=完了, e_lost=失注。' +
         'tab: yomi=GLS未発番のヨミ案件, active=GLS発番済で進行中, completed=完了, lost=失注。' +
         'search 指定時は開催期間フィルタ (event_month/event_from/event_to) は無視され全期間から検索される。',
       inputSchema: {

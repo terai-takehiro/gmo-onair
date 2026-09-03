@@ -10,7 +10,7 @@
     "client-techops/src/pages/RundownPage.tsx": 816,
     "client-techops/src/components/editor/PreviewModal.tsx": 793,
     "client-techops/src/components/editor/EditorSidebar.tsx": 749,
-    "client/src/contexts/production/components/studio/StudioBookingDialog.tsx": 654,
+    "client/src/contexts/production/components/studio/StudioBookingDialog.tsx": 685,
     "client-techops/src/pages/OnAirPage.tsx": 626,
     "client/src/contexts/tasks/components/DashboardGantt/DashboardGanttView.tsx": 523,
     "client-techops/src/pages/AudioSupportPage.tsx": 456,

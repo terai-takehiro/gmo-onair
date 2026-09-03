@@ -29,6 +29,7 @@ import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { createInitialBookings } from './createInitialBookings';
+import { buildSavePayload } from './buildSavePayload';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { getProjectCategory, type ProjectStage } from '@/types';
 import {
@@ -50,7 +51,7 @@ export function useProjectForm(id: string | undefined) {
   const qc = useQueryClient();
 
   const form = useForm<FormValues>({ defaultValues: EMPTY_FORM });
-  const { setValue, watch, reset, getValues } = form;
+  const { setValue, watch, reset, getValues, formState } = form;
   /**
    * 保存が通った直後かどうか（S4）。次に案件を読み直したときに
    * **一度だけ全欄をサーバー値へ戻す**ために立てる。詳しい理由は下の reset の注記。
@@ -210,8 +211,19 @@ export function useProjectForm(id: string | undefined) {
    * 必須のままだと、案件名を直したいだけでも知らない分類を選ばされ、
    * しかも画面には「選ぶ」と出るので**画面が値を戻したように見えます**。
    * 片方だけ入れたときは今までどおり止めます（`fields.ts` の理由）。
+   *
+   * **「片方だけ」を止めるのは、このセッションで実際に触ったときだけ**
+   * （`touchedClassification`）。もともと片方だけしか入っていない古いデータ
+   * （手動SQL・過去の他経路の書き込みなど）を開いた場合、分類を1つも触らずに
+   * 継続区分など無関係な項目だけ直そうとしても保存ボタンが押せない、という
+   * 不具合が実際に報告された（`fields.ts` の `missingOf` の注記参照）。
+   * `dirtyFields` は `setField`（`shouldDirty:true`）で人が触った欄だけ立つ ——
+   * サーバー読み直しの `reset(..., { keepDirtyValues: true })` は触っていない欄を
+   * 上書きするだけで dirty を付けないので、ここが「このセッションで触ったか」の
+   * 正しい印になる。
    */
-  const missing = project ? missingOf(fieldValues, 'edit') : [];
+  const touchedClassification = !!formState.dirtyFields.audience || !!formState.dirtyFields.project_category;
+  const missing = project ? missingOf(fieldValues, 'edit', touchedClassification) : [];
 
   const projectType = watch('project_type');
   const glsCategory = watch('gls_category');
@@ -248,44 +260,9 @@ export function useProjectForm(id: string | undefined) {
   /* ── 保存 ──────────────────────────────────────────────────── */
   const saveMutation = useMutation({
     mutationFn: async (values: FormValues) => {
-      // **主担当を空にしたら送らない。** `projects.assigned_to` は NOT NULL の外部キーで、
-      // 空文字を渡すと FK 違反で 500 になる（`SearchableSelect` の × を押すと空になる）。
-      // 送らなければサーバーは既存の値を保つ
-      const body: Record<string, unknown> = { ...values };
-      if (!values.assigned_to) delete body.assigned_to;
-      /**
-       * **旧1段の案件種類は送らない。** この画面はもう欄を持っておらず、
-       * `project_type` はサーバーが2段（客入れの有無 × 案件分類）から導きます。
-       * 読み込んだ値をそのまま送り返すと、2段を直しても**古い種類が一緒に来て**
-       * 分類と種類がずれた行ができます（`project-classification.ts`）。
-       * 送らなければサーバーは今の値を保ちます（2段が揃っていればそちらが勝つ）。
-       */
-      delete body.project_type;
-      /**
-       * **2段が空なら送らない。** GLS-B（工事・構築）は2段を持たないので、
-       * 空文字を送るとサーバーが「分類を消したい」と受け取ります。
-       */
-      if (!values.audience) delete body.audience;
-      if (!values.project_category) delete body.project_category;
-      /**
-       * グループ会社のときはリード経路を固定で送る（案件作成と同じ）。
-       * 画面が「グループ案件」と出している以上、保存される値も同じでなければ
-       * あとから数えたときに食い違います。
-       */
-      if (isGroup) body.intake_channel = 'group';
-      // **グループ区分は送らない**（migration 192）— 決めるのはサーバー（お客様から導く）
-      delete body.customer_type;
+      // 送ってはいけない項目を落とす変換は `buildSavePayload.ts`（理由のコメントもそちら）
+      const body = buildSavePayload(values, { isGroup, isEdit });
       if (isEdit) return (await api.put(`/projects/${id}`, body)).data.data;
-
-      /**
-       * **新しく作るときだけ「入口」を送る** (migration 165)。
-       * ダッシュボードの受付カードから「電話・打合せを取り込む」で来ると
-       * `?intake=phone` が付いているので、それを引き継ぐ。
-       * **確信 (`intake_confidence`) は送らない** — 人が入れた案件に
-       * AI の見立てを付けると、受付の読む順が狂う
-       */
-      const intake = new URLSearchParams(window.location.search).get('intake');
-      if (intake) body.intake_channel = intake;
       return (await api.post('/projects', body)).data.data;
     },
     onError: (err) => notifyApiError('案件を保存できませんでした', err),

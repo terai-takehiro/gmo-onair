@@ -119,7 +119,9 @@ export function projectPhase(p: {
   event_end?: string | null;
   dates?: { date: string }[];
 }, today: string): ProjectPhase {
-  if (p.stage === 's_completed' || p.stage === 'e_lost') return 'done';
+  // r_delivered（実施済・財務処理中）も実施そのものは終わっているので done 扱い
+  // （議事録・実施報告を読み返す段階。財務処理が済んでいないだけ）
+  if (p.stage === 'r_delivered' || p.stage === 's_completed' || p.stage === 'e_lost') return 'done';
   /*
    * ⚠️ **実施日の両端は `dates` があっても必ず見る。**
    *

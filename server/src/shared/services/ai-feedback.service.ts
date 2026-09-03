@@ -466,12 +466,16 @@ export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90
      * ⚠️ **この文字列の中にバッククォートを書かないこと**（テンプレートリテラルが
      * そこで終わり、型検査が読めない形になります。実際に踏みました）。
      */
+    // ⚠️ `r_delivered`（実施済・財務処理中、2026-09 追加）は受注確定の一段（`a_won` と
+    // `s_completed` の間）なので、他の箇所（`project.service.ts` の `WON_STAGES` 等）と
+    // 同じく「受注」側に数える。ここに入れ忘れると r_delivered の案件だけ「進行中」に
+    // 落ち、受注額の集計からも漏れる。
     const oc = await queryOne(
-      `SELECT COUNT(*) FILTER (WHERE stage IN ('a_won','s_completed')) AS won,
+      `SELECT COUNT(*) FILTER (WHERE stage IN ('a_won','r_delivered','s_completed')) AS won,
               COUNT(*) FILTER (WHERE stage = 'e_lost')                AS lost,
-              COUNT(*) FILTER (WHERE stage NOT IN ('a_won','s_completed','e_lost')) AS in_progress,
-              COALESCE(SUM(amount) FILTER (WHERE stage IN ('a_won','s_completed')), 0) AS won_amount_total,
-              COUNT(*) FILTER (WHERE stage IN ('a_won','s_completed') AND revenue_rows = 0) AS won_without_revenue
+              COUNT(*) FILTER (WHERE stage NOT IN ('a_won','r_delivered','s_completed','e_lost')) AS in_progress,
+              COALESCE(SUM(amount) FILTER (WHERE stage IN ('a_won','r_delivered','s_completed')), 0) AS won_amount_total,
+              COUNT(*) FILTER (WHERE stage IN ('a_won','r_delivered','s_completed') AND revenue_rows = 0) AS won_without_revenue
          FROM (
            SELECT DISTINCT p.id, p.stage,
                   -- 売上の行があればその合計、無ければ起票時の見込み（上の説明の②）

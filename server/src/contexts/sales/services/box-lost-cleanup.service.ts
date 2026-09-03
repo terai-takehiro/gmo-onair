@@ -676,6 +676,12 @@ export async function syncBoxFoldersForStageSafe(projectId: string, toStage: str
      * **完了から戻したら、`98_終了案件` からも返す**（migration 249）。
      * ⚠️ 失注の戻しとは別に見ること — 同じ案件が「失注 → 戻す → 終了」と
      * 両方を経験しうるので、片方の状態でもう片方を判断できない。
+     *
+     * `r_delivered`（実施済・財務処理中、2026-09 追加）へ移した場合もここを通る。
+     * `s_completed` になるまでは `box_done_at` が立たない（`DONE_TARGET_SQL` が
+     * `stage = 's_completed'` の完全一致でしか対象にしないため）ので、
+     * `s_completed → r_delivered` と戻したときだけ実際にフォルダが動く
+     * （`r_delivered` へ初めて上げたときは `box_done_at` が NULL のままなので no-op）。
      */
     if (toStage !== 's_completed') await restoreDoneProjectFolders(projectId);
   } catch (e) {

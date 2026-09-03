@@ -246,12 +246,29 @@ export function isPartialClassification(v: NewProjectValues): boolean {
  *   （片方だけではサーバーが導けず、選んだ値が黙って捨てられるため）。
  *   **作る画面は今までどおり5つとも必須**です — 新しく作るものに
  *   分類が入らないと、標準工程の型が1つも当たりません。
+ *
+ * ⚠️ **「片方だけ」を止めるのは、直す画面で人がその場で分類を触ったときだけ**
+ *   （`touchedClassification`。既定は `true` ＝ 今までどおり常に見る）。
+ *
+ *   もともと片方だけしか入っていない古いデータ（手動SQL・過去の他経路の書き込みなど）を
+ *   開いたとき、**分類を1つも触らずに継続区分など無関係な項目だけ直したい**ケースがある。
+ *   このとき `!!v.audience || !!v.project_category` は常に真なので、
+ *   `touchedClassification` を見ずに判定すると**その案件を開くたびに、
+ *   無関係な直しまで一切保存できなくなる**（継続区分を変えても保存ボタンが押せない、
+ *   として報告された）。サーバーは2段が来なければ今の値をそのまま保つだけで、
+ *   保存のたびに旧 `project_type` から2段を導き直す（`resolveClassification`）ので、
+ *   **触っていない古い分類を送らずに他の項目だけ保存しても壊れない**。
+ *   → 呼ぶ側（`useProjectForm.ts`）が react-hook-form の `dirtyFields` から
+ *   「このセッションで audience/project_category を実際に触ったか」を渡す。
  */
-export function missingOf(v: NewProjectValues, mode: FieldsMode = 'create'): string[] {
+export function missingOf(
+  v: NewProjectValues, mode: FieldsMode = 'create', touchedClassification = true,
+): string[] {
   const asksClassification = v.gls_category !== 'B';
-  // 直す画面は「まったく入っていない」ときだけ見逃す（片方だけは見逃さない）
+  // 直す画面は「まったく入っていない」ときだけ見逃す（片方だけは見逃さない）。
+  // ただし片方だけの状態が**このセッションで触られていない**なら見逃す（上の注記）
   const needsClassification = asksClassification
-    && (mode === 'create' || !!v.audience || !!v.project_category);
+    && (mode === 'create' || (touchedClassification && (!!v.audience || !!v.project_category)));
   return [
     v.customer_id ? null : 'お客様',
     v.name.trim() ? null : '案件名',

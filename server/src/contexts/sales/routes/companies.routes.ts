@@ -31,6 +31,37 @@ function toValidInt(v: unknown): number | null {
 }
 
 /**
+ * 与信限度額を検査する（任意項目）。`undefined`＝渡されなかった（PUT では
+ * 現在値を保つ）、`null`／空文字＝明示的にクリア、それ以外は 0 以上の整数のみ許可
+ * （`toValidInt` と同じ考え方 ─ 空文字・小数・NaN・真偽値を弾く）。
+ */
+function validateCreditLimit(v: unknown): number | null | undefined {
+  if (v === undefined) return undefined;
+  if (v === null || (typeof v === 'string' && v.trim() === '')) return null;
+  const n = toValidInt(v);
+  if (n === null || n < 0) {
+    throw new AppError(400, 'VALIDATION_ERROR', '与信限度額は0以上の整数にしてください');
+  }
+  return n;
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * 最新与信確認日を検査する（任意項目）。`undefined`＝渡されなかった、
+ * `null`／空文字＝明示的にクリア、それ以外は `YYYY-MM-DD` 形式のみ許可
+ * （不正な文字列をそのまま渡すと Postgres の DATE 列で素の 500 になるため）。
+ */
+function validateCreditCheckDate(v: unknown): string | null | undefined {
+  if (v === undefined) return undefined;
+  if (v === null || (typeof v === 'string' && v.trim() === '')) return null;
+  if (typeof v !== 'string' || !DATE_RE.test(v)) {
+    throw new AppError(400, 'VALIDATION_ERROR', '最新与信確認日は YYYY-MM-DD 形式にしてください');
+  }
+  return v;
+}
+
+/**
  * 支払条件の例外を保存前に検査し、**書き込みに使う正規化済みの値**を返す
  * （レビュー指摘・PR #188 P2 / #190 P2）。
  *
@@ -251,6 +282,9 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
     customer_closing_day, customer_payment_months, customer_payment_day,
     vendor_payment_months, vendor_payment_day,
   } = validatePaymentTerms(req.body ?? {});
+  // 与信限度額・最新与信確認日（任意項目・migration 272）
+  const creditLimitAmount = validateCreditLimit(req.body?.credit_limit_amount);
+  const creditCheckDate = validateCreditCheckDate(req.body?.credit_check_date);
   const canEditBudget = await hasPermission(req, 'sales', 'editor');
   if (is_vendor && !canEditBudget) {
     throw new AppError(403, 'FORBIDDEN', '仕入先情報を登録する権限がありません');
@@ -268,8 +302,8 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
     `INSERT INTO companies (id, name, short_name, contact_name, email, phone, address,
        is_customer, is_vendor, is_sga_payee, vendor_type, invoice_registration_number, notes,
        is_gmo_group, customer_closing_day, customer_payment_months, customer_payment_day,
-       vendor_payment_months, vendor_payment_day, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       vendor_payment_months, vendor_payment_day, credit_limit_amount, credit_check_date, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, name, short_name || null, contact_name || null, email || null, phone || null,
      address || null, is_customer ? true : false, is_vendor ? true : false,
      is_sga_payee ? true : false,
@@ -279,6 +313,7 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
      // 0 を既定値として入れないこと（「決めていない」と「0か月後」を区別できなくなる）
      customer_closing_day ?? null, customer_payment_months ?? null, customer_payment_day ?? null,
      vendor_payment_months ?? null, vendor_payment_day ?? null,
+     creditLimitAmount ?? null, creditCheckDate ?? null,
      req.user!.id]
   );
 
@@ -310,6 +345,9 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
     customer_closing_day, customer_payment_months, customer_payment_day,
     vendor_payment_months, vendor_payment_day,
   } = validatePaymentTerms(req.body ?? {});
+  // 与信限度額・最新与信確認日（任意項目・migration 272）
+  const creditLimitAmount = validateCreditLimit(req.body?.credit_limit_amount);
+  const creditCheckDate = validateCreditCheckDate(req.body?.credit_check_date);
 
   const {
     name, short_name, contact_name, email, phone, address,
@@ -355,12 +393,16 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
   const resolvedCustomerPaymentDay    = keep(customer_payment_day, existing.customer_payment_day);
   const resolvedVendorPaymentMonths   = keep(vendor_payment_months, existing.vendor_payment_months);
   const resolvedVendorPaymentDay      = keep(vendor_payment_day, existing.vendor_payment_day);
+  // 与信限度額・最新与信確認日も同じ守り方（渡されなければ現在値を保つ）
+  const resolvedCreditLimitAmount = keep(creditLimitAmount, existing.credit_limit_amount);
+  const resolvedCreditCheckDate   = keep(creditCheckDate, existing.credit_check_date);
 
   await execute(
     `UPDATE companies SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?,
        is_customer=?, is_vendor=?, is_sga_payee=?, vendor_type=?, invoice_registration_number=?, notes=?,
        is_gmo_group=?, customer_closing_day=?, customer_payment_months=?, customer_payment_day=?,
-       vendor_payment_months=?, vendor_payment_day=?, updated_at=NOW(), updated_by=? WHERE id=?`,
+       vendor_payment_months=?, vendor_payment_day=?, credit_limit_amount=?, credit_check_date=?,
+       updated_at=NOW(), updated_by=? WHERE id=?`,
     [name, short_name || null, contact_name || null, email || null, phone || null,
      address || null, is_customer ? true : false, is_vendor ? true : false,
      is_sga_payee ? true : false,
@@ -368,6 +410,7 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
      groupFlag,
      resolvedCustomerClosingDay, resolvedCustomerPaymentMonths, resolvedCustomerPaymentDay,
      resolvedVendorPaymentMonths, resolvedVendorPaymentDay,
+     resolvedCreditLimitAmount, resolvedCreditCheckDate,
      req.user!.id, req.params.id]
   );
 

@@ -17,7 +17,7 @@ import type { FunnelData } from './types';
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 /** 受注に近い順。ネタから完了・失注までの全段（一覧のチップと違い、ここは終了も出す） */
-const ORDER: ProjectStage[] = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed', 'e_lost'];
+const ORDER: ProjectStage[] = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 'r_delivered', 's_completed', 'e_lost'];
 
 /** 棒の色。状態の色トークンから選ぶ（`StagePanel.tsx` と同じ考え方） */
 const BAR: Record<ProjectStage, string> = {
@@ -26,6 +26,7 @@ const BAR: Record<ProjectStage, string> = {
   c_proposal: 'bg-primary/60',
   b_verbal: 'bg-primary',
   a_won: 'bg-success',
+  r_delivered: 'bg-warning',
   s_completed: 'bg-success/70',
   e_lost: 'bg-destructive/70',
 };

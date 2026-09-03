@@ -231,7 +231,10 @@ export async function seed() {
 
   // --- GLS発番済み（案件進行中）---
   const glsData: [string, string, string, string, string, number, string, string, string, string][] = [
-    ['GLS-A001', 'GH IR説明会 2026春', 'GH', 'hybrid_event', 's_completed', 4000000, '2026-03-19', '2026-03-19', 'live', 'youtube'],
+    // GLS-A001 は 'r_delivered'（実施済・財務処理中、2026-09 追加）のサンプル。
+    // GLS-A008 は従来どおり 's_completed' に残し、BOX の 98_終了案件フォルダ移動
+    // （s_completed だけで発火）を検証環境で見分けられるようにしている。
+    ['GLS-A001', 'GH IR説明会 2026春', 'GH', 'hybrid_event', 'r_delivered', 4000000, '2026-03-19', '2026-03-19', 'live', 'youtube'],
     ['GLS-A002', '東都TV 特番収録「サイエンス・フロンティア」', '東都TV', 'recording', 'a_won', 7500000, '2026-03-22', '2026-03-22', 'recording', 'terrestrial_tv'],
     ['GLS-A003', 'SN 生放送「ナイトトーク」', 'SN', 'live_broadcast', 'a_won', 5500000, '2026-03-25', '2026-03-25', 'live', 'net_media'],
     ['GLS-A004', 'PW 新サービス発表会', 'PW', 'hybrid_event', 'b_verbal', 2800000, '2026-03-30', '2026-03-30', 'live', 'zoom'],

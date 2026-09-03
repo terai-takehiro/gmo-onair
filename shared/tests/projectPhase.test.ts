@@ -24,6 +24,9 @@ describe('projectPhase — 終わった案件', () => {
     // 失注した案件の本番日は来ません。「当日」を出すと、来ない本番の資料を開かせることになる
     expect(projectPhase({ stage: 'e_lost', event_start: '2026-10-03' }, TODAY)).toBe('done');
   });
+  it('実施済（財務処理中）も done（実施そのものは終わっている）', () => {
+    expect(projectPhase({ stage: 'r_delivered', event_start: '2026-10-03' }, TODAY)).toBe('done');
+  });
 });
 
 describe('projectPhase — 本番日', () => {

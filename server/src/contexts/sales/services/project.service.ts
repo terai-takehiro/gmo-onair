@@ -268,7 +268,7 @@ export interface ProjectFilter {
 }
 
 /** 一括更新で変更可能なフィールド (申し込み情報等のパラメータ) */
-const STAGES = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed', 'e_lost'];
+const STAGES = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 'r_delivered', 's_completed', 'e_lost'];
 
 /**
  * **新しい GLS 番号を焼けない手前のステージ**（2026-09-02 に1段前倒し）。
@@ -291,8 +291,12 @@ const GLS_BLOCKED_STAGES: readonly string[] = ['neta', 'd_hold'];
  * 変える判断はここだけを見る。月次損益・案件粗利は `status='confirmed'` を
  * 確定売上として数える（`TOTAL_REVENUE_SQL` / `getSummaries`）ので、
  * **受注していない段でここに入れると、取れていない売上が損益に乗る。**
+ *
+ * `r_delivered`（実施済・財務処理中）は受注が確定した後の段階なので含める。
+ * `s_completed` にならないと財務処理が終わったとは言えないが、受注確定という
+ * 意味では `a_won` と同じ扱い。
  */
-const WON_STAGES: readonly string[] = ['a_won', 's_completed'];
+const WON_STAGES: readonly string[] = ['a_won', 'r_delivered', 's_completed'];
 
 const SORT_COLUMN_MAP: Record<string, string> = {
   code: 'p.gls_number',
@@ -327,10 +331,11 @@ const DEFAULT_SORT_SQL = `
     WHEN 'b_verbal'    THEN 2
     WHEN 'c_proposal'  THEN 3
     WHEN 'd_hold'      THEN 4
-    WHEN 's_completed' THEN 5
-    WHEN 'a_won'       THEN 6
-    WHEN 'e_lost'      THEN 7
-    ELSE 8
+    WHEN 's_completed'  THEN 5
+    WHEN 'r_delivered'  THEN 6
+    WHEN 'a_won'        THEN 7
+    WHEN 'e_lost'       THEN 8
+    ELSE 9
   END ASC,
   p.event_start ASC NULLS LAST,
   p.created_at DESC
@@ -695,9 +700,10 @@ export async function createCore(
    * `opts.allowTerminalStage` が true のときだけこの安全弁を外す —
    * 決算取込（`a_won` 直書きが前提）・Excel取込（過去データ移行で `s_completed`/`e_lost`
    * 直接指定が仕様）はこの安全弁と正面衝突するため（テーマ4）。
+   * `r_delivered`（実施済・財務処理中）も `a_won` 以降の段なので同様に弾く。
    */
   const initialStage = STAGES.includes(String(stage)) ? String(stage) : 'neta';
-  const safeStage = (!opts.allowTerminalStage && ['a_won', 's_completed', 'e_lost'].includes(initialStage))
+  const safeStage = (!opts.allowTerminalStage && ['a_won', 'r_delivered', 's_completed', 'e_lost'].includes(initialStage))
     ? 'neta' : initialStage;
 
   const recur = recurrence === 'regular' ? 'regular' : 'single';
@@ -829,7 +835,8 @@ export class ProjectService {
     if (filter.tab === 'yomi') {
       where += ` AND p.gls_number IS NULL AND p.stage NOT IN ('e_lost')`;
     } else if (filter.tab === 'active') {
-      where += ` AND p.gls_number IS NOT NULL AND p.stage NOT IN ('s_completed', 'e_lost')`;
+      // r_delivered (実施済・財務処理中) は仕事としては終わっているので「進行中」から外す
+      where += ` AND p.gls_number IS NOT NULL AND p.stage NOT IN ('r_delivered', 's_completed', 'e_lost')`;
     } else if (filter.tab === 'completed') {
       where += ` AND p.stage = 's_completed'`;
     } else if (filter.tab === 'lost') {
@@ -2568,8 +2575,9 @@ export class ProjectService {
     return await queryAll(
       `SELECT p.id, p.gls_number, p.name, c.name as customer_name
        FROM projects p LEFT JOIN companies c ON c.id = p.customer_id
-       WHERE p.stage IN ('a_won', 's_completed') AND p.deleted_at IS NULL
-       ORDER BY p.gls_number DESC NULLS LAST, p.created_at DESC`
+       WHERE p.stage IN (${WON_STAGES.map(() => '?').join(',')}) AND p.deleted_at IS NULL
+       ORDER BY p.gls_number DESC NULLS LAST, p.created_at DESC`,
+      [...WON_STAGES]
     );
   }
 

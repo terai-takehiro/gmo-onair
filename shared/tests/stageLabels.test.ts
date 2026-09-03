@@ -25,7 +25,7 @@ import { PROJECT_STAGE } from '../src/constants/statuses';
 import { ProjectStageLabels, ProjectStage } from '../../client/src/types/stages';
 import { STAGE_BADGE_LABEL } from '../../client/src/contexts/sales/pages/projectList/stages';
 
-const STAGE_KEYS = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed', 'e_lost'];
+const STAGE_KEYS = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 'r_delivered', 's_completed', 'e_lost'];
 
 /** MCP 側はモジュールごと import すると DB 依存を巻き込むので、ソースを読んで抜く */
 function mcpStageLabels(): Record<string, string> {
@@ -46,7 +46,7 @@ describe('ステージラベルの一本化 (§3-7)', () => {
     expect(PROJECT_STAGE.s_completed.label).toBe('S 完了');
   });
 
-  it('shared の PROJECT_STAGE が7ステージすべてを持つ', () => {
+  it('shared の PROJECT_STAGE が8ステージすべてを持つ', () => {
     expect(Object.keys(PROJECT_STAGE).sort()).toEqual([...STAGE_KEYS].sort());
   });
 

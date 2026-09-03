@@ -44,7 +44,7 @@ export function registerTaskTools(server: McpServer): void {
 
       // 横断一覧 (task-dashboard と同様: 完了/失注案件は除外)
       let where = `WHERE t.deleted_at IS NULL AND t.parent_task_id IS NULL
-                   AND p.deleted_at IS NULL AND p.stage NOT IN ('s_completed', 'e_lost')`;
+                   AND p.deleted_at IS NULL AND p.stage NOT IN ('r_delivered', 's_completed', 'e_lost')`;
       const params: unknown[] = [];
       if (!args.include_completed) where += ' AND t.is_completed = FALSE';
       if (args.assigned_to) { where += ' AND t.assigned_to = ?'; params.push(args.assigned_to); }

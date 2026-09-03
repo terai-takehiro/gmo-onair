@@ -121,9 +121,10 @@ function sortRows(rows: GpmProjectRow[], sort: SortKey): GpmProjectRow[] {
  * （`types.ts` の `STAGE_GROUPS`。サーバーの `STAGE_GROUPS` と同じ束ね方）。
  * 「動いているもの」を先頭に置く（毎日見るのはここ）。
  */
+const STAGE_GROUP_STAGES = (key: string) => STAGE_GROUPS.find((g) => g.key === key)?.stages ?? [];
 const STAGE_CHIPS = [
   { key: 'open', label: '動いているもの',
-    stages: [...STAGE_GROUPS[1].stages, ...STAGE_GROUPS[2].stages] },
+    stages: [...STAGE_GROUP_STAGES('active'), ...STAGE_GROUP_STAGES('planning')] },
   ...STAGE_GROUPS.filter((g) => g.key !== 'all'),
   { key: 'all', label: 'すべて', stages: [] as typeof STAGE_GROUPS[number]['stages'] },
 ];

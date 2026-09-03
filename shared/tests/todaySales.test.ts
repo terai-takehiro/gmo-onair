@@ -56,7 +56,7 @@ describe('次の一手（next_moves）— 受信箱の超過と同じ核・切�
     expect(STATE).toContain('a.next_action_date IS NOT NULL');
     expect(STATE).toContain('a.next_action_done_at IS NULL');
     // 終わった案件のステージは配列1本から組み立てている（写しを増やさないため）
-    expect(STATE).toContain(`TERMINAL_PROJECT_STAGES = ['s_completed', 'e_lost']`);
+    expect(STATE).toContain(`TERMINAL_PROJECT_STAGES = ['r_delivered', 's_completed', 'e_lost']`);
     expect(STATE).toContain('p.stage NOT IN (');
     // ⚠️ 案件に紐づかない記録（顧客だけの記録）を落とさないこと
     expect(STATE).toContain('p.stage IS NULL OR');
@@ -84,7 +84,7 @@ describe('スヌーズ明け（snooze_awake）— 明けたばかりの7日間�
   it('今日-7日 〜 今日の帯・進行中だけ・明けて7日経ったら黙って退場する', () => {
     const s = defOf(DASHBOARD, 'SNOOZE_AWAKE_SQL');
     expect(s).toContain('p.snooze_until BETWEEN (CURRENT_DATE - 7) AND CURRENT_DATE');
-    expect(s).toContain(`p.stage NOT IN ('s_completed','e_lost')`);
+    expect(s).toContain(`p.stage NOT IN ('r_delivered','s_completed','e_lost')`);
     // DATE は ::text で返す（pg が JS Date にして UTC で1日ずれる）
     expect(s).toContain('p.snooze_until::text AS snooze_until');
   });

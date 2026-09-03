@@ -129,12 +129,16 @@ export const SettlementMethodLabels: Record<SettlementMethod, string> = {
 export const BroadcastType = {
   LIVE: 'live',
   RECORDING: 'recording',
+  // リアルだけのイベント（配信も収録もしない現地開催）。migration不要 — broadcast_type は
+  // CHECK制約の無いTEXT列で、カンマ結合の複数選択として既に自由文字列を許容している
+  REAL: 'real',
 } as const;
 export type BroadcastType = (typeof BroadcastType)[keyof typeof BroadcastType];
 
 export const BroadcastTypeLabels: Record<BroadcastType, string> = {
   live: '生放送',
   recording: '収録',
+  real: 'リアルイベント',
 };
 
 // 配信媒体

@@ -27,6 +27,10 @@ export interface Company {
   notes?: string;
   customer_id?: string;
   vendor_id?: string;
+  /** 与信限度額（円）。NULL/未設定=決めていない（migration 272・登録は任意） */
+  credit_limit_amount?: number | null;
+  /** 最新与信確認日。NULL=未確認（migration 272・登録は任意） */
+  credit_check_date?: string | null;
 }
 
 export interface CompanyForm {
@@ -43,10 +47,18 @@ export interface CompanyForm {
   vendor_type: string;
   invoice_registration_number: string;
   notes: string;
+  /**
+   * 与信限度額・最新与信確認日は、他の任意テキスト欄と同じく**文字列で持つ**
+   * （`DiscountLimits.tsx` と同じ方式）。`CurrencyInput` は空欄でも 0 を返すため
+   * 使わず、送信時に「空文字→null」へ自前で変換する（`CompanyListPage.tsx`）。
+   */
+  credit_limit_amount: string;
+  credit_check_date: string;
 }
 
 export const EMPTY_COMPANY_FORM: CompanyForm = {
   name: "", short_name: "", contact_name: "", email: "", phone: "",
   address: "", is_customer: false, is_vendor: false, is_sga_payee: false,
   is_gmo_group: false, vendor_type: "", invoice_registration_number: "", notes: "",
+  credit_limit_amount: "", credit_check_date: "",
 };

@@ -62,7 +62,7 @@ export function useDashboardData(period: Period, projectId: string) {
    *
    * `client/CLAUDE.md`「受注確定した案件の絞り込みは stage が正」の節のとおり、
    * 受注確定済みの一覧は `project.service.ts` の `getWonProjects()`
-   * （`stage IN ('a_won','s_completed')`・**上限なし**）を使うのが正しい形で、
+   * （`stage IN ('a_won','r_delivered','s_completed')`・**上限なし**）を使うのが正しい形で、
    * 現に同関数のコメントは「予算詳細」もこの一覧の利用先として挙げている
    * （仕入・売上・精算PDF取込レビュー・書類引き渡しの案件プルダウンと同じ）。
    * ここが `/projects?limit=500` のままだったのが今回のズレの本体。
@@ -73,7 +73,7 @@ export function useDashboardData(period: Period, projectId: string) {
     staleTime: 120_000,
   });
   /*
-   * **`won-projects` だけでも足りない。** 受注確定（`a_won`/`s_completed`）より
+   * **`won-projects` だけでも足りない。** 受注確定（`a_won`/`r_delivered`/`s_completed`）より
    * 前のステージ・削除済みでも、按分や過去の入力で `revenues`/`purchases` に
    * 実績が残っていることがある。そちらを取りこぼさないよう、上限を持たない
    * `/projects-with-activity`（内訳＝`revenues`/`purchases` の LEFT JOIN と同じ集合）

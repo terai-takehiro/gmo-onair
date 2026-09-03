@@ -87,7 +87,7 @@ router.get('/inbox', requireAuth, requireAnyPermission(['sales', 'dailyops']), a
      LEFT JOIN companies c ON c.id = p.customer_id
      WHERE p.application_form = 0 AND p.gls_number IS NOT NULL
        AND p.gls_category = 'A'
-       AND p.stage NOT IN ('s_completed','e_lost') AND p.deleted_at IS NULL`;
+       AND p.stage NOT IN ('r_delivered','s_completed','e_lost') AND p.deleted_at IS NULL`;
   // 171: 正は state 列。handled_at で絞ると、仕分け済みなのに
   // 記録が打たれていない行が受信箱に残り続ける
   /*
@@ -253,7 +253,7 @@ router.get('/kpi', async (req, res) => {
 
   const rev = await queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM revenues WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [periodStart, periodEnd]);
   const pur = await queryOne(`SELECT COALESCE(SUM(amount), 0) as total FROM purchases WHERE recognition_date BETWEEN ? AND ? AND deleted_at IS NULL`, [periodStart, periodEnd]);
-  const activeProjects = await queryOne(`SELECT COUNT(*) as c FROM projects WHERE gls_number IS NOT NULL AND stage NOT IN ('s_completed','e_lost') AND deleted_at IS NULL`);
+  const activeProjects = await queryOne(`SELECT COUNT(*) as c FROM projects WHERE gls_number IS NOT NULL AND stage NOT IN ('r_delivered','s_completed','e_lost') AND deleted_at IS NULL`);
   const activeYomi = await queryOne(`SELECT COUNT(*) as c FROM projects WHERE gls_number IS NULL AND stage NOT IN ('e_lost') AND deleted_at IS NULL`);
 
   // SGA calculation
@@ -321,7 +321,7 @@ router.get('/alerts', async (_req, res) => {
   const alerts = await queryAll(
     `SELECT id, gls_number, name, 'application_form' as alert_type, '申込書未提出' as message
      FROM projects WHERE application_form = 0 AND gls_number IS NOT NULL
-     AND stage NOT IN ('s_completed','e_lost') AND deleted_at IS NULL
+     AND stage NOT IN ('r_delivered','s_completed','e_lost') AND deleted_at IS NULL
      UNION ALL
      SELECT id, gls_number, name, 'upcoming_event' as alert_type, 'イベントが近づいています' as message
      FROM projects WHERE event_start IS NOT NULL
@@ -403,7 +403,7 @@ const SNOOZE_AWAKE_SQL =
    FROM projects p
    LEFT JOIN companies c ON c.id = p.customer_id
    WHERE p.deleted_at IS NULL AND p.gls_category = 'A'
-     AND p.stage NOT IN ('s_completed','e_lost')
+     AND p.stage NOT IN ('r_delivered','s_completed','e_lost')
      AND p.snooze_until BETWEEN (CURRENT_DATE - 7) AND CURRENT_DATE
    ORDER BY p.snooze_until DESC
    LIMIT 50`;
@@ -445,7 +445,7 @@ router.get('/recent-projects', async (_req, res) => {
 });
 
 // v2.9.175+: 営業ダッシュボード — 進行中の全案件を「ホットな情報 (直近の営業活動)」付きで一覧化
-// - 進行中 = stage NOT IN ('s_completed','e_lost') (ヨミ〜受注済までの全パイプライン)
+// - 進行中 = stage NOT IN ('r_delivered','s_completed','e_lost') (ヨミ〜受注済までの全パイプライン)
 // - 各案件に直近の営業活動 (メール/電話/打合せ等) と次回アクションを付与
 // - 直近 14 日以内に活動がある案件を「ホット」として先頭に、活動日の新しい順で並べる
 // - トップページで確実に一覧化するためページングせず全件返す (進行中に限定されるため件数は自然に有界、上限 100)
@@ -508,7 +508,7 @@ router.get('/sales-board', async (_req, res) => {
      -- **GLS-A（案件）だけ** (migration 179)。期限超過の次アクションは営業の道具で、
      -- GLS-B（プロジェクト）の「相手待ち」はプロジェクト管理の未確認事項が持つ
      WHERE p.deleted_at IS NULL AND p.gls_category = 'A'
-       AND p.stage NOT IN ('s_completed','e_lost')
+       AND p.stage NOT IN ('r_delivered','s_completed','e_lost')
      ORDER BY
        CASE WHEN la.activity_date IS NOT NULL
             AND la.activity_date >= (CURRENT_DATE - INTERVAL '14 days')::text
@@ -770,7 +770,7 @@ router.get('/monthly-chart', async (_req, res) => {
 router.get('/pipeline', async (_req, res) => {
   const stages = await queryAll(
     `SELECT stage, COUNT(*) as count, COALESCE(SUM(expected_amount),0) as total_amount
-     FROM projects WHERE deleted_at IS NULL AND stage NOT IN ('e_lost','s_completed')
+     FROM projects WHERE deleted_at IS NULL AND stage NOT IN ('e_lost','r_delivered','s_completed')
      GROUP BY stage ORDER BY CASE stage
        WHEN 'neta' THEN 1 WHEN 'd_hold' THEN 2 WHEN 'c_proposal' THEN 3
        WHEN 'b_verbal' THEN 4 WHEN 'a_won' THEN 5 END`
