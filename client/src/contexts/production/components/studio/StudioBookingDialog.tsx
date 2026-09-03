@@ -50,6 +50,7 @@ interface StudioBooking {
   location_note: string | null;
   notes: string | null;
   status?: string;
+  hold_rank?: number | null;
   rooms: BookingRoom[];
 }
 
@@ -108,6 +109,8 @@ export default function StudioBookingDialog({
   const [title, setTitle] = useState("");
   const [bookingType, setBookingType] = useState("performance");
   const [status, setStatus] = useState<"confirmed" | "tentative">("tentative");
+  // 仮押さえの何番手か。空欄可（決めていない＝NULL）。tentative のときだけ意味を持つ
+  const [holdRank, setHoldRank] = useState("");
   const [projectId, setProjectId] = useState("");
   const [episodeId, setEpisodeId] = useState("");
   const [allDay, setAllDay] = useState(true);
@@ -177,6 +180,7 @@ export default function StudioBookingDialog({
       setTitle(b.title);
       setBookingType(b.booking_type);
       setStatus((b.status as "confirmed" | "tentative") || "tentative");
+      setHoldRank(b.hold_rank ? String(b.hold_rank) : "");
       setProjectId(b.project_id || "");
       setEpisodeId(b.episode_id || "");
       setAllDay(!!b.all_day);
@@ -203,7 +207,7 @@ export default function StudioBookingDialog({
         setEndTime(et?.slice(0, 5) || "18:00");
       }
     } else {
-      setTitle(""); setBookingType("performance"); setStatus("tentative");
+      setTitle(""); setBookingType("performance"); setStatus("tentative"); setHoldRank("");
       setProjectId(presetProjectId || ""); setEpisodeId("");
       setLocationNote(""); setNotes("");
       setSelectedRoomIds(presetRoomIds ? new Set(presetRoomIds) : new Set());
@@ -332,8 +336,14 @@ export default function StudioBookingDialog({
     const effectiveEndDate = (isSingleDateType && !multiDay) ? startDate : endDate;
     if (!effectiveEndDate) return;
     if (locationNote.trim()) saveLocationHistory(locationNote.trim());
+    const parsedHoldRank = holdRank.trim() ? Number(holdRank) : null;
     createMutation.mutate({
       title, booking_type: bookingType, status,
+      // tentative のときだけ意味を持つ。confirmed に切り替えたときは送らない
+      // (「渡さなかった項目は今の値を保つ」原則により、編集時は既存の値がそのまま残る)
+      ...(status === "tentative"
+        ? { hold_rank: parsedHoldRank && parsedHoldRank > 0 ? parsedHoldRank : null }
+        : {}),
       project_id: projectId || null, episode_id: episodeId || null,
       all_day: allDay,
       start_time: allDay ? startDate : `${startDate}T${startTime}`,
@@ -645,6 +655,27 @@ export default function StudioBookingDialog({
                     disabled={bookingType === "hold" || bookingType === "consultation"}
                   />
                 </div>
+                {status === "tentative" && (
+                  <div className="flex items-center justify-between border-t px-4 py-3.5">
+                    <div>
+                      <p className="text-[15px] font-medium">何番手の仮押さえか</p>
+                      <p className="text-[12px] text-muted-foreground mt-0.5">
+                        同じ枠を他の案件も仮押さえしているとき、順位が分かれば入力（任意）
+                      </p>
+                    </div>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      inputMode="numeric"
+                      value={holdRank}
+                      onChange={(e) => setHoldRank(e.target.value)}
+                      placeholder="未定"
+                      className="w-20 rounded-lg border bg-background px-3 py-2 text-right outline-none"
+                      style={{ fontSize: "16px", minHeight: "44px" }}
+                    />
+                  </div>
+                )}
               </div>
 
             </div>

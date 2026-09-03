@@ -36,7 +36,7 @@ import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { PullToRefresh } from '@gmo-onair/shared/src/client-v4/pullToRefresh';
 import { useAuth } from '@/contexts/platform/AuthContext';
-import { HOLD_KEY, daysLeft, leftTone, leftLabel, type HoldRow } from './holds/holdLogic';
+import { HOLD_KEY, daysLeft, leftTone, leftLabel, rankLabel, type HoldRow } from './holds/holdLogic';
 import { HoldCards } from './holds/HoldCards';
 
 type Chip = 'all' | 'soon' | 'later';
@@ -189,7 +189,14 @@ export default function HoldListPage() {
               <TableBadge label={leftLabel(b.left)} w={72} className={leftTone(b.left)} />
 
               <RowMain>
-                <RowTitle>{b.title}</RowTitle>
+                <div className="flex items-center gap-2">
+                  <RowTitle>{b.title}</RowTitle>
+                  {rankLabel(b.hold_rank) && (
+                    <span className="text-badge shrink-0 rounded-badge-xs bg-muted px-1.5 py-0.5 text-muted-foreground">
+                      {rankLabel(b.hold_rank)}
+                    </span>
+                  )}
+                </div>
                 <RowSub>
                   {[
                     b.rooms?.map((r) => r.room_abbreviation || r.room_name).join(' ・ ') || '部屋なし',

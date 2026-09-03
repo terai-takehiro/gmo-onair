@@ -22,6 +22,8 @@ export interface HoldRow {
   project_name: string | null;
   gls_number: string | null;
   rooms?: HoldRoom[];
+  /** 仮押さえの何番手か。人が手入力する相対順位で、決めていなければ NULL */
+  hold_rank?: number | null;
 }
 
 /**
@@ -49,4 +51,10 @@ export function leftLabel(left: number): string {
   if (left === 0) return '今日';
   if (left < 0) return `${-left}日前`;
   return `あと${left}日`;
+}
+
+/** 「2番手」。決めていなければ何も出さない（未入力を「1番手」と混同しない） */
+export function rankLabel(rank: number | null | undefined): string | null {
+  if (!rank || rank < 1) return null;
+  return `${rank}番手`;
 }

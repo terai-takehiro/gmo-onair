@@ -28,7 +28,7 @@ import { Button } from '@/components/ui/button';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { SwipeAction } from '@gmo-onair/shared/src/client-v4/swipeAction';
 import { cn } from '@gmo-onair/shared/src/client/utils';
-import { leftTone, leftLabel, type HoldRow } from './holdLogic';
+import { leftTone, leftLabel, rankLabel, type HoldRow } from './holdLogic';
 
 export function HoldCards({
   rows, canEdit, canDrop, busy, onFix, onDrop,
@@ -63,7 +63,14 @@ export function HoldCards({
             <div className="flex items-start gap-2.5">
               <TableBadge label={leftLabel(b.left)} w={null} className={cn('shrink-0', leftTone(b.left))} />
               <span className="min-w-0 flex-1">
-                <span className="text-list block truncate font-bold">{b.title}</span>
+                <span className="flex items-center gap-2">
+                  <span className="text-list block truncate font-bold">{b.title}</span>
+                  {rankLabel(b.hold_rank) && (
+                    <span className="text-badge shrink-0 rounded-badge-xs bg-muted px-1.5 py-0.5 text-muted-foreground">
+                      {rankLabel(b.hold_rank)}
+                    </span>
+                  )}
+                </span>
                 <span className="text-sub block text-muted-foreground">
                   {[
                     /* **本番日をスマホでは出す。**「あと2日」だけだと何日か分からない */
