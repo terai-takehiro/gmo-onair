@@ -18,13 +18,12 @@ export function usePurchaseDialogData(params: {
 }) {
   const { dialogOpen, editParam, canEdit, openEdit } = params;
 
-  // **GLS発番済みではなく「受注確定済み」で絞る**（v4.1.8・矛盾修正）。
-  // 受注 (`a_won`) は原則 GLS 番号が自動で付くが、案件分類が未設定の
-  // 古いデータでは例外的に番号だけ付かないことがあり、GLS番号の有無を
-  // 基準にすると受注済みの案件に仕入を記録できない詰みが起きるため
+  // 失注(e_lost)以外の案件から選べる（2026-09 依頼）。「フェーズに関係なく
+  // 売上・仕入は各案件に対して登録が出来るようにする」——ネタ・仮押さえの
+  // 段階でも仕入を記録できてよい。失注だけは除く（ユーザー判断）
   const { data: wonProjectsData } = useQuery({
-    queryKey: ['won-projects-for-purchase'],
-    queryFn: async () => (await api.get('/projects/won-projects')).data,
+    queryKey: ['registerable-projects-for-purchase'],
+    queryFn: async () => (await api.get('/projects/registerable-projects')).data,
     enabled: dialogOpen,
   });
   const glsProjects: PurchaseProjectOption[] = wonProjectsData?.data ?? [];

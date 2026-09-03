@@ -22,22 +22,12 @@ export interface ParsedDatedEntry {
   count: number;
   /** 放送日の明示指定。null なら収録日＋オフセットで出す */
   broadcastDate: string | null;
-  /** 回の単価。未指定は null（「決めていない」。**¥0 と混同しない**） */
-  unitPrice: number | null;
 }
 
 function assertIsoDate(value: string, label: string): void {
   if (!ISO_DATE_RE.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) {
     throw new EpisodeDatedError(`${label}は YYYY-MM-DD 形式で指定してください（入力: "${value}"）`);
   }
-}
-
-/** 未指定（undefined / null / 空文字）は null。0 は正当な値なので落とさない */
-function readOptionalAmount(value: unknown, label: string): number | null {
-  if (value === undefined || value === null || value === '') return null;
-  const n = Number(value);
-  if (!Number.isFinite(n) || n < 0) throw new EpisodeDatedError(`${label}は0以上の数で入れてください`);
-  return n;
 }
 
 /**
@@ -94,7 +84,6 @@ export function parseDatedEntries(raw: unknown): ParsedDatedEntry[] {
       numbers,
       count,
       broadcastDate: broadcastDateRaw || null,
-      unitPrice: readOptionalAmount(item?.unit_price, '回の単価'),
     });
   }
 

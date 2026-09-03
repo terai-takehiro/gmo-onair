@@ -96,7 +96,7 @@ export async function buildEstimatePdf(estimateId: string): Promise<EstimatePdf>
     //    `AT TIME ZONE 'Asia/Tokyo'` で日本の壁時計にする
     // 片方だけ書くと、夕方に出した見積の発行日が1日ずれます（JST の朝 = 前日の UTC）。
     // 'UTC' とベタ書きしないのは、DB の時間帯が JST の環境で逆に9時間ずれるため
-    `SELECT e.id, e.project_id, e.episode_id, e.version, e.title, e.status, e.tax_category, e.approval_state,
+    `SELECT e.id, e.project_id, e.version, e.title, e.status, e.tax_category, e.approval_state,
             e.subtotal, e.discount, e.valid_until, e.notes, e.created_at,
             to_char(e.sent_at AT TIME ZONE current_setting('TimeZone') AT TIME ZONE 'Asia/Tokyo',
                     'YYYY-MM-DD') AS sent_on,
@@ -104,11 +104,14 @@ export async function buildEstimatePdf(estimateId: string): Promise<EstimatePdf>
             p.event_start AS project_start, p.event_end AS project_end,
             c.name AS customer_name, c.address AS customer_address,
             c.contact_name AS customer_contact,
-            ep.episode_number AS episode_number
+            -- この見積が指す回の番号（複数可・migration 274）。回番号順に並べる —
+            -- 「第1,2,3回」のように昇順で出すため
+            (SELECT array_agg(ep.episode_number ORDER BY ep.episode_number)
+               FROM estimate_episodes ee JOIN episodes ep ON ep.id = ee.episode_id
+              WHERE ee.estimate_id = e.id) AS episode_numbers
        FROM estimates e
        JOIN projects p ON p.id = e.project_id
        LEFT JOIN companies c ON c.id = COALESCE(e.customer_id, p.customer_id)
-       LEFT JOIN episodes ep ON ep.id = e.episode_id
       WHERE e.id = ? AND e.deleted_at IS NULL AND p.deleted_at IS NULL`,
     [estimateId],
   ) as Record<string, unknown> | undefined;
@@ -211,18 +214,21 @@ export async function buildEstimatePdf(estimateId: string): Promise<EstimatePdf>
   const projectName = String(est.project_name ?? '');
   const version = Number(est.version) || 1;
   /*
-   * ⚠️ **回（episode）に紐づく見積は「第N回」をファイル名・件名に含める**（仕様変更 #18）。
+   * ⚠️ **回（episode）に紐づく見積は「第N回」をファイル名・件名に含める**（仕様変更 #18・#20）。
    *
-   * レギュラー案件は回ごとに別の見積（別の `group_id`）を持てるが、どの回の見積も
-   * 同じ GLS 番号・同じ案件名で始まる。回ごとに `episode_id` が違うだけなら
-   * バージョン番号は独立に v1 から始まるため、**別の回の見積が同じファイル名
+   * レギュラー案件は回（の組）ごとに別の見積（別の `group_id`）を持てるが、どの見積も
+   * 同じ GLS 番号・同じ案件名で始まる。紐づく回が違うだけならバージョン番号は
+   * 独立に v1 から始まるため、**別の回の見積が同じファイル名
    * （`見積書_GLS001_v1_案件名.pdf`）になりうる**。BOX は同じ名前を「新しい版」として
    * 積むので、そのまま出すと**別の回の見積が同じ1本のファイルの版として混ざる**
    * （実害: 後から出した回の PDF が前の回の PDF を版として覆い、BOX 上で前の回の
    * 見積書が見えなくなる）。ファイル名に回番号を挟んで別ファイルにする。
+   *
+   * **1日で複数本撮った「ひとまとまり」の見積は「第1,2,3回」のように並べる**
+   * （依頼: 見積は回ごとではなくひとまとまり単位・#20）。
    */
-  const episodeNumber = est.episode_number != null ? Number(est.episode_number) : null;
-  const episodeLabel = episodeNumber != null ? `第${episodeNumber}回` : null;
+  const episodeNumbers = (est.episode_numbers as number[] | null) ?? [];
+  const episodeLabel = episodeNumbers.length > 0 ? `第${episodeNumbers.join(',')}回` : null;
 
   const buffer = await generateEstimatePdf({
     // 紙に出す「見積コード」。GLS が無い（ヨミ段階の）案件では版だけを出す

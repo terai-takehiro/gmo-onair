@@ -39,13 +39,12 @@
  * このファイルが正で `export` している——2か所に持つと版の状態の色分けがずれる。
  */
 import { useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Receipt, Wallet, Archive, Files } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Plus, Receipt, Wallet, Archive, Files, Layers } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { Button } from '@/components/ui/button';
 import { EmptyState, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
-import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import EpisodeScopeToggle from '@/contexts/tasks/components/EpisodeScopeToggle';
 import { RevenueBillingPane } from './RevenueBillingPane';
@@ -55,7 +54,9 @@ import { type EstimateStatus as Status } from './EstimateActions';
 import { EstimateVersionList } from './EstimateVersionList';
 import { EstimateMetaCard } from './EstimateMetaCard';
 import { DuplicateEstimateDialog } from './DuplicateEstimateDialog';
+import { MultiEpisodeEstimateDialog } from './MultiEpisodeEstimateDialog';
 import { useEstimateEpisodeFilter } from './useEstimateEpisodeFilter';
+import { useEstimateMutations } from './useEstimateMutations';
 import type { ProjectDetail } from './types';
 import { ApprovalNotice, needsApproval } from '@/contexts/shared/components/ApprovalRow';
 
@@ -63,11 +64,12 @@ export interface Estimate {
   id: string; group_id: string; version: number; title: string; status: Status;
   subtotal: number; discount: number; sent_at: string | null;
   /**
-   * この見積が属する回（episodes.id）。`null` は「案件全体の見積」（従来どおり・
-   * 単発案件は常に null）。レギュラー案件で回ごとに見積を分けたときだけ入る
-   * （仕様変更 #18・migration 270）
+   * この見積が紐づく回（episodes.id）の一覧。空配列は「案件全体の見積」（従来どおり・
+   * 単発案件は常に空）。レギュラー案件で回ごとに見積を分けたいときは1件、
+   * **1日で複数本撮った日を「ひとまとまり」で見積るときは複数件**入る
+   * （仕様変更 #18・#20）
    */
-  episode_id?: string | null;
+  episode_ids: string[];
   /** 見積全体の備考。行の備考（`item_notes`）とは別（migration 138 の既存列） */
   notes?: string | null;
   /** 値引きの承認。`pending` の間は送れない（お金のルール ⑤） */
@@ -101,7 +103,6 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
   // 表示」を押すと `include_archived=1` を付けて引き直す（版が増えるほど古い版で埋もれるのを防ぐ）
   const [showArchived, setShowArchived] = useState(false);
   const isMobile = useIsMobile();
-  const qc = useQueryClient();
   const { hasPermission } = useAuth();
   // **サーバーは POST/PUT '/'・PUT '/:id/items' に editor を要求する**（`estimates.routes.ts`）。
   // 承認ボタンは `can_approve` で出し分けているが、作成・保存はここで見ないと reader に「押せるのに 403」が出る
@@ -112,11 +113,6 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
   // `useEstimateEpisodeFilter.ts` 参照）。判定はタスクタブと同じ `recurrence`
   const isSeries = project.recurrence === 'regular';
   const { episodeId, changeEpisodeFilter, episodeLabels } = useEstimateEpisodeFilter(project.id, isSeries);
-
-  // **`showArchived` は鍵に含めない。** `invalidateQueries({ queryKey: ['estimates', project.id] })`
-  // は前方一致で両方の鍵（表示あり／なし）を落とすので、鍵を分けても取りこぼしは無いが、
-  // 呼び出し側を増やさないためにここは1本のまま揃える
-  const invalidate = () => qc.invalidateQueries({ queryKey: ['estimates', project.id] });
 
   const list = useQuery<Estimate[]>({
     queryKey: ['estimates', project.id, showArchived],
@@ -131,7 +127,7 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
   // 要するほど増えたら見直す — アーカイブの表示・非表示と同じ判断（一覧全体は
   // すでに1回で取得済みなので、絞り込みのたびに引き直す理由が無い）
   const visibleList = useMemo(
-    () => (episodeId ? (list.data ?? []).filter((e) => e.episode_id === episodeId) : (list.data ?? [])),
+    () => (episodeId ? (list.data ?? []).filter((e) => e.episode_ids.includes(episodeId)) : (list.data ?? [])),
     [list.data, episodeId],
   );
 
@@ -141,95 +137,21 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
     enabled: !!openId,
   });
 
-  const create = useMutation({
-    // **いま絞り込んでいる回があれば、その回の見積として作る**（仕様変更 #18）。
-    // 「全体」（絞り込みなし）のときは今までどおり案件全体の見積になる
-    mutationFn: () => api.post(base, { title: '', tax_category: 'tax10', customer_id: null, episode_id: episodeId }),
-    onSuccess: (r) => { invalidate(); setOpenId(r.data.data.id); notifySuccess('見積をつくりました'); },
-    onError: (e) => notifyApiError('見積をつくれませんでした', e),
-  });
-
   /**
    * 「別の回の見積として複製する」。`null` = 閉じている。`{ source: null }` は
    * **複製元もダイアログの中で選ぶ**形（下の「別の回の見積をベースに作る」から開く）
    */
   const [duplicating, setDuplicating] = useState<{ source: Estimate | null } | null>(null);
 
-  const nextVersion = useMutation({
-    mutationFn: (id: string) => api.post(`${base}/${id}/next-version`),
-    onSuccess: (r) => {
-      invalidate(); setOpenId(r.data.data.id);
-      notifySuccess(`v${r.data.data.version} をつくりました（前の版はそのまま残ります）`);
-    },
-    onError: (e) => notifyApiError('次の版をつくれませんでした', e),
-  });
+  /** 「複数の回をまとめて見積をつくる」（仕様変更 #20）。レギュラー案件だけ出す入口 */
+  const [multiEpisode, setMultiEpisode] = useState(false);
 
-  const setStatus = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: Status }) => api.put(`${base}/${id}`, { status }),
-    onSuccess: () => { invalidate(); qc.invalidateQueries({ queryKey: ['estimate', openId] }); },
-    onError: (e) => notifyApiError('状態を変えられませんでした', e),
-  });
-
-  const saveItems = useMutation({
-    mutationFn: ({ id, items }: { id: string; items: Item[] }) => api.put(`${base}/${id}/items`, { items }),
-    onSuccess: () => {
-      invalidate(); qc.invalidateQueries({ queryKey: ['estimate', openId] });
-      notifySuccess('明細を保存しました');
-    },
-    onError: (e) => notifyApiError('明細を保存できませんでした', e),
-  });
-
-  /** タイトル・見積全体の備考。**明細と同じ「下書きだけ直せる」規則**（サーバー側で強制） */
-  const saveMeta = useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: Partial<Pick<Estimate, 'title' | 'notes'>> }) =>
-      api.put(`${base}/${id}`, patch),
-    onSuccess: () => { invalidate(); qc.invalidateQueries({ queryKey: ['estimate', openId] }); },
-    onError: (e) => notifyApiError('保存できませんでした', e),
-  });
-
-  const remove = useMutation({
-    mutationFn: (id: string) => api.delete(`${base}/${id}`),
-    onSuccess: () => { invalidate(); setOpenId(null); notifySuccess('見積を消しました'); },
-    onError: (e) => notifyApiError('見積を消せませんでした', e),
-  });
-
-  /** 一覧から隠すだけ。`status` は変えない（消すのとは別。migration 236） */
-  const archive = useMutation({
-    mutationFn: (id: string) => api.post(`${base}/${id}/archive`),
-    onSuccess: () => {
-      invalidate(); qc.invalidateQueries({ queryKey: ['estimate', openId] });
-      notifySuccess('アーカイブしました（一覧から隠しただけです。消えていません）');
-    },
-    onError: (e) => notifyApiError('アーカイブできませんでした', e),
-  });
-
-  const unarchive = useMutation({
-    mutationFn: (id: string) => api.post(`${base}/${id}/unarchive`),
-    onSuccess: () => {
-      invalidate(); qc.invalidateQueries({ queryKey: ['estimate', openId] });
-      notifySuccess('アーカイブを解除しました');
-    },
-    onError: (e) => notifyApiError('アーカイブを解除できませんでした', e),
-  });
-
-  /**
-   * 受注した見積を売上・請求 (`revenues`) に登録する。
-   * migration 138 が予告していたまま行き先が無かった変換（`estimate.service.ts` 参照）。
-   */
-  const convertToRevenue = useMutation({
-    mutationFn: (id: string) => api.post(`${base}/${id}/convert-to-revenue`),
-    onSuccess: () => {
-      invalidate(); qc.invalidateQueries({ queryKey: ['estimate', openId] });
-      // `['revenues']` は案件詳細（`RevenueBillingPane` の `['revenues','project',projectId]`）
-      // には前方一致で当たるが、財務③ 売上台帳（`['revenues-all',…]`）と
-      // 締め処理（`['billing',…]`）には当たらない。3つとも落とす（`MobileCollect.tsx` と同じ対）
-      qc.invalidateQueries({ queryKey: ['revenues'] });
-      qc.invalidateQueries({ queryKey: ['revenues-all'] });
-      qc.invalidateQueries({ queryKey: ['billing'] });
-      notifySuccess('売上・請求に登録しました（「売上・請求」の切り替えから見られます）');
-    },
-    onError: (e) => notifyApiError('売上・請求に登録できませんでした', e),
-  });
+  // サーバーとやり取りする操作一式（作る・版を上げる・状態を変える・明細を保存する・
+  // 消す・アーカイブする・売上へ変換する）は `useEstimateMutations.ts` に集約
+  // （400行の上限の是正・`EstimateVersionList`/`useEstimateEpisodeFilter` と同じ切り出し）
+  const {
+    invalidate, create, nextVersion, setStatus, saveItems, saveMeta, remove, archive, unarchive, convertToRevenue,
+  } = useEstimateMutations({ base, projectId: project.id, episodeId, openId, setOpenId });
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3.5 p-4 lg:p-6">
@@ -288,7 +210,12 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
           action={canEdit ? (
             <div className="flex flex-wrap justify-center gap-2">
               <Button onClick={() => create.mutate()}><Plus className="mr-1 h-4 w-4" aria-hidden="true" />見積をつくる</Button>
-              {/* 回で絞り込んで空のときこそ「前の回の見積を写す」が要る */}
+              {/* 1日複数本の日をひとまとまりで見積る入口（仕様変更 #20）。回で絞り込んで空のときこそ「前の回の見積を写す」も要る */}
+              {isSeries && (
+                <Button variant="outline" onClick={() => setMultiEpisode(true)}>
+                  <Layers className="mr-1 h-4 w-4" aria-hidden="true" />複数の回をまとめて見積をつくる
+                </Button>
+              )}
               {isSeries && (list.data ?? []).length > 0 && (
                 <Button variant="outline" onClick={() => setDuplicating({ source: null })}>
                   <Files className="mr-1 h-4 w-4" aria-hidden="true" />別の回の見積をベースに作る
@@ -311,6 +238,12 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
             {canEdit && (
               <Button className="shrink-0" onClick={() => create.mutate()}>
                 <Plus className="mr-2 h-4 w-4" aria-hidden="true" />見積をつくる
+              </Button>
+            )}
+            {/* 1日複数本の日をひとまとまりで見積る入口（仕様変更 #20・レギュラー案件だけ） */}
+            {canEdit && isSeries && (
+              <Button variant="outline" className="shrink-0" onClick={() => setMultiEpisode(true)}>
+                <Layers className="mr-2 h-4 w-4" aria-hidden="true" />複数の回をまとめて見積をつくる
               </Button>
             )}
             {/* **複製の入口はここにも置く**（仕様変更 #18）。版一覧の右端のアイコンだけ
@@ -386,9 +319,25 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
           onDuplicated={(created) => {
             invalidate();
             setDuplicating(null);
-            // 複製した先の回で絞り込んで、そのまま新しい見積を開く
-            // （どこに作られたか分からないまま一覧に戻すと探し直しになる）
-            if (created.episode_id) changeEpisodeFilter(created.episode_id);
+            // 複製した先が1回だけならその回で絞り込んで、そのまま新しい見積を開く
+            // （どこに作られたか分からないまま一覧に戻すと探し直しになる）。
+            // 複数回のひとまとまりに複製したときは絞り込みを変えない（「全体」表示のまま
+            // にして、複製した見積が一覧に見えるようにする）
+            if (created.episode_ids.length === 1) changeEpisodeFilter(created.episode_ids[0]);
+            setOpenId(created.id);
+          }}
+        />
+      )}
+
+      {multiEpisode && (
+        <MultiEpisodeEstimateDialog
+          open
+          onOpenChange={(o) => { if (!o) setMultiEpisode(false); }}
+          projectId={project.id}
+          base={base}
+          onCreated={(created) => {
+            invalidate();
+            setMultiEpisode(false);
             setOpenId(created.id);
           }}
         />

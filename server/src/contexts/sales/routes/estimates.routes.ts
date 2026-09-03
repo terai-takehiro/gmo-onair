@@ -128,18 +128,21 @@ router.post('/:id/next-version', canEdit, wrap(async (req, res) => {
 }));
 
 /**
- * POST /projects/:projectId/estimates/:id/duplicate-to-episode
- * — 明細を写して、**別の回**向けの新しい見積 (v1) をつくる（仕様変更 #18）。
+ * POST /projects/:projectId/estimates/:id/duplicate-to-episodes
+ * — 明細を写して、**別の回（の組）**向けの新しい見積 (v1) をつくる（仕様変更 #18・#20）。
  *
- * `next-version`（同じ回の書き直し）とは別の口。`episode_id`（body）は必須 —
- * 「案件全体の見積」として複製したいだけなら「次の版をつくる」ではなく
+ * `next-version`（同じ回の書き直し）とは別の口。`episode_ids`（body・配列）は
+ * 1件以上必須 — 「案件全体の見積」として複製したいだけなら「次の版をつくる」ではなく
  * 通常の「見積をつくる」（`POST /`）を使えばよいため、ここでは省略を許さない。
+ * 1件で送れば従来どおり「別の回1つに複製」、複数件で送れば「複数回のひとまとまり」になる。
  */
-router.post('/:id/duplicate-to-episode', canEdit, wrap(async (req, res) => {
+router.post('/:id/duplicate-to-episodes', canEdit, wrap(async (req, res) => {
   const { id } = req.params as Record<string, string>;
-  const episodeId = String(req.body?.episode_id ?? '');
-  if (!episodeId) throw new AppError(400, 'VALIDATION_ERROR', '複製先の回を選んでください');
-  res.status(201).json({ success: true, data: await estimateService.duplicateToEpisode(id, episodeId, userOf(req)) });
+  const episodeIds = Array.isArray(req.body?.episode_ids)
+    ? req.body.episode_ids.map((v: unknown) => String(v)).filter(Boolean)
+    : [];
+  if (episodeIds.length === 0) throw new AppError(400, 'VALIDATION_ERROR', '複製先の回を選んでください');
+  res.status(201).json({ success: true, data: await estimateService.duplicateToEpisodes(id, episodeIds, userOf(req)) });
 }));
 
 // PUT /projects/:projectId/estimates/:id

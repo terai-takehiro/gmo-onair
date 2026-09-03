@@ -115,13 +115,22 @@ export interface Episode extends BaseEntity {
   delivery_date: string | null;
   notes: string | null;
   /**
-   * この回の「1日あたりの本数」「回の単価」（migration 269・仕様変更 #16）。
+   * この回の「1日あたりの本数」（migration 269・仕様変更 #16）。
    * 以前は案件（projects）が案件全体で1つだけ持つ固定値だったが、収録日によって
    * ズレることがあるため回ごとに持つように変更した。「まだ決めていない」は null
-   * （0本・¥0と混同しない）
+   * （0本と混同しない）
+   *
+   * ⚠️ 「回の単価」（`episode_unit_price`）は 2026-09 の依頼で廃止した（migration 274）——
+   * 1日で複数本撮ると回あたりの単価が下がるため「回の単価」という固定値は成立せず、
+   * 見積・確定売上の金額はひとまとまり（`estimates`/`revenues`）単位で持つ。
    */
   recording_per_day_count: number | null;
-  episode_unit_price: number | null;
+  /**
+   * この回だけのフェーズ（migration 274）。値は `projects.stage` と同じ語彙
+   * （neta/d_hold/c_proposal/b_verbal/a_won/r_delivered/s_completed/e_lost）。
+   * `null` は「まだ決めていない」（案件のステージにそのまま従うわけではない）
+   */
+  stage: string | null;
   // 集計フィールド
   actual_revenue?: number;
   actual_cost?: number;

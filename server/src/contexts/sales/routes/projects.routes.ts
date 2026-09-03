@@ -81,6 +81,11 @@ router.get('/won-projects', async (_req, res) => {
   res.json({ success: true, data: await projectService.getWonProjects() });
 });
 
+// 売上・仕入の新規登録画面の案件プルダウン用（失注以外の全案件・v4.5.23）
+router.get('/registerable-projects', async (_req, res) => {
+  res.json({ success: true, data: await projectService.getRegisterableProjects() });
+});
+
 /**
  * 整合性チェックの件数（案件台帳の「確かめる」）。
  *

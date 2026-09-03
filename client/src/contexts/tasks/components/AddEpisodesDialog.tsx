@@ -41,13 +41,15 @@ import { GenerateEpisodesForm } from './GenerateEpisodesForm';
 
 /**
  * 案件の「レギュラーの取り決め」（migration 262・regular-series.md §3）のうち、
- * 「頻度で作る」の初期値になる3つだけ。呼び出し元（`TasksTab.tsx`・案件詳細の回タブ）は
+ * 「頻度で作る」の初期値になる2つだけ。呼び出し元（`TasksTab.tsx`・案件詳細の回タブ）は
  * `ProjectDetail` からそのまま渡せる（読むだけ・ここでは保存しない）。
+ *
+ * ⚠️ 「回の単価」（`episode_unit_price`）は 2026-09 の依頼で廃止した——
+ * 「頻度で作る」側の単価入力欄そのものを削除したため、初期値も渡さない。
  */
 export interface SeriesDefaults {
   recording_cadence?: 'weekly' | 'biweekly' | 'monthly_nth_weekday' | 'none' | null;
   recording_per_day_count?: number | null;
-  episode_unit_price?: number | null;
 }
 
 type AddMode = 'dated' | 'text' | 'frequency';
@@ -105,9 +107,8 @@ export function AddEpisodesDialog({
     mutationFn: () => api.post(`/projects/${projectId}/episodes/batch`, { episodes: text }),
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ['episodes', projectId] });
-      // サーバーは `revenue_budget_per_episode` 付きの呼び出しで回ごとに売上行も作る。
-      // この画面は単価を送らないが、他のタブと同じ対で落としておく
-      // （片方だけだと将来単価を配線した日に「作ったのに古いまま」が再発する）
+      // この画面は単価を持たない（「回の単価」概念は 2026-09 の依頼で廃止済み）が、
+      // 他のタブ（見積・財務③）が読む鍵を対で落としておく
       qc.invalidateQueries({ queryKey: ['revenues'] });
       qc.invalidateQueries({ queryKey: ['revenues-all'] });
       const n = Array.isArray(r.data?.data) ? r.data.data.length : (previewNumbers?.length ?? 1);
@@ -198,7 +199,6 @@ export function AddEpisodesDialog({
             onDone={() => { onOpenChange(false); setMode('dated'); }}
             defaultCadence={seriesDefaults?.recording_cadence}
             defaultPerDayCount={seriesDefaults?.recording_per_day_count}
-            defaultUnitPrice={seriesDefaults?.episode_unit_price}
           />
         )}
       </div>

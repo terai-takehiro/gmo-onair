@@ -28,8 +28,9 @@ export function EstimateVersionList({
   statusLabel: Record<Status, string>;
   statusTone: Record<Status, string>;
   /**
-   * `episode_id` → 「#3」のような表示ラベル（仕様変更 #18）。回を持たない
-   * 見積（案件全体の見積）はこの表を引かないので、何も出さない
+   * 回id → 「#3」のような表示ラベル（仕様変更 #18）。回を持たない
+   * 見積（案件全体の見積）はこの表を引かないので、何も出さない。
+   * 複数回のひとまとまりの見積は、対応するラベルを「・」で連結して出す（仕様変更 #20）
    */
   episodeLabels: Record<string, string>;
   onSetStatus: (id: string, status: Status) => void;
@@ -49,8 +50,10 @@ export function EstimateVersionList({
     return (
       <div className="flex flex-col gap-2">
         {estimates.map((e) => {
-          // この見積が属する回のラベル（仕様変更 #18）。案件全体の見積（episode_id 無し）は null
-          const epLabel = e.episode_id ? episodeLabels[e.episode_id] : null;
+          // この見積が属する回のラベル（仕様変更 #18・#20）。複数回のひとまとまりなら
+          // 「#1・#2」のようにまとめて出す。案件全体の見積（episode_ids が空）は null
+          const epLabels = e.episode_ids.map((id) => episodeLabels[id]).filter(Boolean);
+          const epLabel = epLabels.length > 0 ? epLabels.join('・') : null;
           return (
           <div key={e.id} className="rounded-card flex flex-col gap-2.5 border border-border bg-card p-3.5">
             <button
@@ -107,8 +110,10 @@ export function EstimateVersionList({
         <RowSlot w={240} align="right">操作</RowSlot>
       </RowHeader>
       {estimates.map((e) => {
-        // この見積が属する回のラベル（仕様変更 #18）。案件全体の見積（episode_id 無し）は null
-        const epLabel = e.episode_id ? episodeLabels[e.episode_id] : null;
+        // この見積が属する回のラベル（仕様変更 #18・#20）。複数回のひとまとまりなら
+        // 「#1・#2」のようにまとめて出す。案件全体の見積（episode_ids が空）は null
+        const epLabels = e.episode_ids.map((id) => episodeLabels[id]).filter(Boolean);
+        const epLabel = epLabels.length > 0 ? epLabels.join('・') : null;
         return (
         <Row key={e.id} divider interactive stackOnMobile align="center">
           <RowSlot w={56}>
