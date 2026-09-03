@@ -189,6 +189,28 @@ export function CompanyFormFields({ form, editing, open, canEditVendor }: {
         </div>
       )}
 
+      {/* 与信限度額・最新与信確認日（migration 272・登録は任意） */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor="credit_limit_amount">与信限度額（円・任意）</Label>
+          {/*
+            `CurrencyInput` は空欄でも 0 を送るため（`未設定` と `0円` を区別できない）
+            使わず、`DiscountLimits.tsx` と同じくプレーンな `<Input>` にする。
+            送信時の「空文字→null」変換は `CompanyListPage.tsx` 側で行う。
+          */}
+          <Input
+            id="credit_limit_amount"
+            inputMode="numeric"
+            placeholder="未設定"
+            {...form.register("credit_limit_amount")}
+          />
+        </div>
+        <div>
+          <Label htmlFor="credit_check_date">最新与信確認日（任意）</Label>
+          <Input id="credit_check_date" type="date" {...form.register("credit_check_date")} />
+        </div>
+      </div>
+
       <div>
         <Label htmlFor="notes">備考</Label>
         <Textarea id="notes" {...form.register("notes")} rows={2} />
