@@ -51,3 +51,48 @@ BOX の `98_終了案件` フォルダ移動の確認用に維持）。
 直接合算する専用の判定に直した（`shared/tests/estimateCategoryDiscount.test.ts` で固定）。
 検証: `npx tsc -b client`・`npm run typecheck -w server`・`npm run test`（shared、
 1971件）全通過。
+
+---
+
+**「案件を直す」で無関係な項目まで保存できないケースを直した**（継続区分など）。
+保存ボタンの disabled 判定（`missingOf()`）は、客入れの有無・案件分類の
+**片方だけ**入っている（古いデータ・他経路の書き込みなど）案件を開くと、
+継続区分のような全く無関係な項目だけ直そうとしてもこの2項目を埋めない限り
+常に押せないままだった。サーバー（`resolveClassification`）は2段が渡されな
+ければ今の値を保つだけで、渡された側だけでは導けず旧 `project_type` から
+毎回導き直す設計のため、触っていない古い分類を送らずに他の項目だけ保存して
+も壊れない。`missingOf()` に `touchedClassification` を追加し、
+react-hook-form の `dirtyFields` から「このセッションで実際に触ったか」を
+渡すようにした。触っていなければ片方だけの状態でも通し、触ったときは今まで
+どおり両方を要求する。第3引数の既定は `true`（今までどおり常に見る）なので
+案件作成画面・既存呼び出しの挙動は変えていない。
+
+---
+
+**GLS発番の番組種別に「リアルイベント」を追加した**。配信・収録を伴わない
+リアルだけのイベント向けに `BroadcastType` へ `real` を追加。
+`projects.broadcast_type` は CHECK制約の無い TEXT列（カンマ結合の複数選択）
+のため migration は不要。`shared/src/enums.ts` と `client/src/types/index.ts`
+の両方に追加した（GLS発番ダイアログ・案件フォームの番組種別トグルは
+`BroadcastTypeLabels` を動的展開しているため、ラベル追加だけで選択肢が
+自動的に出る）。`real` は生放送判定（`broadcastTypeIncludes(...,'live')`）
+の対象外のため、回（エピソード）の放送日は既存の「収録」相当の計算
+（収録日+オフセット日数）に流れる——リアルイベントの放送日の扱いは別途の
+仕様判断が必要なため、今回は番組種別への追加のみに留めた。
+
+---
+
+**案件分類・継続区分のリロード反映漏れ（再発）を横断的に塞いだ**。
+v4.5.20 で「案件詳細・案件を直す・案件台帳」の3画面を直したはずが、保存
+しても次に開いたときに反映されず、もう一度リロードすると反映される不具合
+が再発していた。原因は一元化された `invalidateProjectQueries()`
+（`contexts/sales/projectQueries.ts`）を使わず自前で鍵を並べたまま漏れが
+残っていた箇所が複数あったこと: ①案件作成画面（受付レールから既存の
+「ネタ」案件を選んで保存する経路・`useCreateProject.ts`）②案件台帳の一括
+編集・1件削除（`useLedgerState.ts`）③案件台帳のその場で直す・貼り付け
+（`useLedgerGrid.ts`）。いずれも `invalidateProjectQueries()` を呼ぶよう
+統一し、鍵を手書きしていた箇所を残らず一元化した。あわせて
+`invalidateProjectQueries()` 自体が一覧・1件ぶんの鍵を漏れなく落とすことを
+固定する検査（`shared/tests/projectQueries.test.ts`）を新設した。
+検証: `npx tsc -b client`・`npm run typecheck`（既定3アプリ+server）・
+`npm run test`（shared、146ファイル・1996件）全通過。
