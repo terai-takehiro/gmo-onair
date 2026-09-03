@@ -50,7 +50,7 @@ export function useProjectForm(id: string | undefined) {
   const qc = useQueryClient();
 
   const form = useForm<FormValues>({ defaultValues: EMPTY_FORM });
-  const { setValue, watch, reset, getValues } = form;
+  const { setValue, watch, reset, getValues, formState } = form;
   /**
    * 保存が通った直後かどうか（S4）。次に案件を読み直したときに
    * **一度だけ全欄をサーバー値へ戻す**ために立てる。詳しい理由は下の reset の注記。
@@ -210,8 +210,19 @@ export function useProjectForm(id: string | undefined) {
    * 必須のままだと、案件名を直したいだけでも知らない分類を選ばされ、
    * しかも画面には「選ぶ」と出るので**画面が値を戻したように見えます**。
    * 片方だけ入れたときは今までどおり止めます（`fields.ts` の理由）。
+   *
+   * **「片方だけ」を止めるのは、このセッションで実際に触ったときだけ**
+   * （`touchedClassification`）。もともと片方だけしか入っていない古いデータ
+   * （手動SQL・過去の他経路の書き込みなど）を開いた場合、分類を1つも触らずに
+   * 継続区分など無関係な項目だけ直そうとしても保存ボタンが押せない、という
+   * 不具合が実際に報告された（`fields.ts` の `missingOf` の注記参照）。
+   * `dirtyFields` は `setField`（`shouldDirty:true`）で人が触った欄だけ立つ ——
+   * サーバー読み直しの `reset(..., { keepDirtyValues: true })` は触っていない欄を
+   * 上書きするだけで dirty を付けないので、ここが「このセッションで触ったか」の
+   * 正しい印になる。
    */
-  const missing = project ? missingOf(fieldValues, 'edit') : [];
+  const touchedClassification = !!formState.dirtyFields.audience || !!formState.dirtyFields.project_category;
+  const missing = project ? missingOf(fieldValues, 'edit', touchedClassification) : [];
 
   const projectType = watch('project_type');
   const glsCategory = watch('gls_category');
