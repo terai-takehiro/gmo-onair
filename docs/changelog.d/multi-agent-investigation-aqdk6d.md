@@ -15,3 +15,11 @@
 「進行中」「行を薄くする終了扱い」からは意図的に除外し、独立した警告色のバッジで見せる。
 検証: `npm run typecheck`（client/client-daily/client-equipment/server）・
 `npm run test`（shared、1964件）全通過。
+④仕上げのレビューで見つけた見落とし2件を追加で直した:
+AIフィードバック集計（`ai-feedback.service.ts` の `get_ai_feedback_digest`）の
+受注/進行中の集計SQLに `r_delivered` が入っておらず、実施済（財務処理中）の
+案件だけ「進行中」に数えられていたのを他箇所（`WON_STAGES`）と揃えて修正。
+検証環境のシードデータ（`seed.ts` の GLS-A001）を `s_completed` から
+`r_delivered` に変更し、新ステージのバッジ・フォルダ挙動を実ブラウザで
+見分けられるサンプルを用意した（GLS-A008 は `s_completed` のまま残し、
+BOX の `98_終了案件` フォルダ移動の確認用に維持）。
