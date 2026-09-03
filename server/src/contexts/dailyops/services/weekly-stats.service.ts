@@ -100,7 +100,7 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
   const pipeline = await queryAll(
     `SELECT stage, COUNT(*) AS count, COALESCE(SUM(expected_amount), 0) AS expected_amount
      FROM projects
-     WHERE deleted_at IS NULL AND stage NOT IN ('s_completed', 'e_lost')
+     WHERE deleted_at IS NULL AND stage NOT IN ('r_delivered', 's_completed', 'e_lost')
      GROUP BY stage
      ORDER BY CASE stage
        WHEN 'a_won' THEN 1 WHEN 'b_verbal' THEN 2 WHEN 'c_proposal' THEN 3

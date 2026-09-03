@@ -79,6 +79,7 @@ export const PROJECT_STAGE = {
   C_PROPOSAL: 'c_proposal',
   B_VERBAL: 'b_verbal',
   A_WON: 'a_won',
+  R_DELIVERED: 'r_delivered',
   S_COMPLETED: 's_completed',
   E_LOST: 'e_lost',
 } as const;

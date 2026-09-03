@@ -40,10 +40,10 @@ import { ok, runTool, clampLimit, audit, preview, REQUESTED_BY, currentActorId }
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
-/** 一覧の絞り込み: 束ねた4つ (planning/active/done/lost) と素の7段の両方を受ける */
+/** 一覧の絞り込み: 束ねた5つ (planning/active/delivered/done/lost) と素の8段の両方を受ける */
 const LIST_STAGES = [
-  'all', 'planning', 'active', 'done', 'lost',
-  'neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed', 'e_lost',
+  'all', 'planning', 'active', 'delivered', 'done', 'lost',
+  'neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 'r_delivered', 's_completed', 'e_lost',
 ] as const;
 
 export function registerGpmTools(server: McpServer): void {
@@ -60,7 +60,7 @@ export function registerGpmTools(server: McpServer): void {
         '案件 (GLS-A) は list_projects を使うこと。',
       inputSchema: {
         stage: z.enum(LIST_STAGES).optional()
-          .describe('絞り込み。planning=準備中(受注前4段) / active=進行中(a_won) / done=完了 / lost=失注。素のステージ名 (neta 等) も可'),
+          .describe('絞り込み。planning=準備中(受注前4段) / active=進行中(a_won) / delivered=実施済・財務処理中(r_delivered) / done=完了 / lost=失注。素のステージ名 (neta 等) も可'),
         kind: z.enum(GPM_KINDS).optional().describe('self_build=自社構築 / group_order=グループ受託'),
         q: z.string().max(100).optional().describe('プロジェクト名・依頼元名・GLS番号の部分一致'),
         limit: z.number().int().min(1).max(100).default(50),
@@ -161,7 +161,7 @@ export function registerGpmTools(server: McpServer): void {
         name: z.string().min(1).max(200).describe('プロジェクト名'),
         gpm_kind: z.enum(GPM_KINDS).default('self_build').describe('self_build=自社構築 / group_order=グループ受託'),
         customer_id: z.string().optional().describe('依頼元 (companies.id・list_customers で解決)。未指定は自社'),
-        stage: z.enum(STAGES).optional().describe('既定 a_won。案件管理と同じ7段'),
+        stage: z.enum(STAGES).optional().describe('既定 a_won。案件管理と同じ8段'),
         // 必須にしてある (create_project と同じ)。画面は「未指定なら自分」に落とせるが、
         // 静的キー経由の MCP は実行者が users の行ではないので、既定に頼ると FK で落ちる
         assigned_to: z.string().min(1).describe('担当者の users.id (list_users で解決・必須)'),

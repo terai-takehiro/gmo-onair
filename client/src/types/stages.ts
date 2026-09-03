@@ -19,6 +19,7 @@ export const ProjectStage = {
   C_PROPOSAL: 'c_proposal',
   B_VERBAL: 'b_verbal',
   A_WON: 'a_won',
+  R_DELIVERED: 'r_delivered',
   S_COMPLETED: 's_completed',
   E_LOST: 'e_lost',
 } as const;
@@ -32,24 +33,29 @@ export const ProjectStageLabels: Record<ProjectStage, string> = {
   c_proposal: PROJECT_STAGE.c_proposal.label,
   b_verbal: PROJECT_STAGE.b_verbal.label,
   a_won: PROJECT_STAGE.a_won.label,
+  r_delivered: PROJECT_STAGE.r_delivered.label,
   s_completed: PROJECT_STAGE.s_completed.label,
   e_lost: PROJECT_STAGE.e_lost.label,
 };
 
 // グラフ・じょうごの色。**モックの実測値** (`onair-data.js` の `pmStages`)
+// r_delivered はモックに存在しない新ステージ (2026-09 追加) のため、
+// a_won (受注確定の緑) と s_completed (完了の灰) の中間で「まだ財務処理中」と
+// 分かる警告色 (トークンの warning 系に合わせた琥珀色) を暫定で当てる
 export const ProjectStageColors: Record<ProjectStage, string> = {
   neta: '#cbd2da',
   d_hold: '#a6ceeb',
   c_proposal: '#4a9fd8',
   b_verbal: '#005bac',
   a_won: '#197a4b',
+  r_delivered: '#c98a1f',
   s_completed: '#5d6470',
   e_lost: '#c7243a',
 };
 
 export const ProjectStageProbability: Record<ProjectStage, number> = {
   neta: 0, d_hold: 20, c_proposal: 40,
-  b_verbal: 80, a_won: 100, s_completed: 100, e_lost: 0,
+  b_verbal: 80, a_won: 100, r_delivered: 100, s_completed: 100, e_lost: 0,
 };
 
 export const PROJECT_STAGES = Object.entries(ProjectStageLabels).map(([value, label]) => ({

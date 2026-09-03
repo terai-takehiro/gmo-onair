@@ -43,7 +43,11 @@ export function statusOf<K extends string>(domain: StatusDomain<K>, key: string)
 
 // ══════════════════════════════════════════════════════════════════
 // 案件 stage — 統合プロジェクトライフサイクル (Phase A)
-// neta → d_hold → c_proposal → b_verbal → a_won → s_completed / e_lost
+// neta → d_hold → c_proposal → b_verbal → a_won → r_delivered → s_completed / e_lost
+// r_delivered = 「実施済（財務処理中）」。a_won と s_completed の間に挟む中間ステージで、
+// 受注は確定済み・実施も終わったが、請求・入金など財務処理がまだの状態を表す
+// (2026-09 追加。BOX の 98_終了案件フォルダ移動は s_completed のときだけ発火する — 財務処理が
+// 終わっていないのに完了フォルダに入ってしまう問題を避けるため、意図的に r_delivered では発火させない)
 //
 // ⚠️ **ここがステージラベルの唯一の正** (docs/core-redesign-plan.md §3-7)。
 // かつて client の型 / 一覧バッジ / MCP の4系統に分裂し、同じ neta が
@@ -61,6 +65,7 @@ export const PROJECT_STAGE = {
   c_proposal:   { label: 'C 見積提案', variant: 'default',     description: '見積・提案中' },
   b_verbal:     { label: 'B 口頭決定', variant: 'warning',     description: '口頭での受注合意' },
   a_won:        { label: 'A 受注済',   variant: 'success',     description: '正式受注・実行中' },
+  r_delivered:  { label: 'R 実施済',   variant: 'warning',     description: '実施済み・財務処理中（請求・入金待ち）' },
   s_completed:  { label: 'S 完了',     variant: 'secondary',   description: '納品完了' },
   e_lost:       { label: 'E 失注',     variant: 'destructive', description: '失注' },
 } as const satisfies StatusDomain;

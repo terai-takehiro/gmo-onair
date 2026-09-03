@@ -204,12 +204,25 @@ export default function ProjectDetailPage() {
       }
     }
 
+    /*
+     * `r_delivered`（実施済・財務処理中）と `s_completed`（完了）の境目は、
+     * BOX フォルダが `98_終了案件` へ動くかどうかの境目でもある（`s_completed` だけ発火）。
+     * 押した瞬間に何が起きるかをここで言っておく — 財務処理が済んでいないのに
+     * 「完了」を押すと、案件が完了フォルダに紛れて見えづらくなる（要求の趣旨そのもの）。
+     */
+    const stageNote = next === 'r_delivered'
+      ? '実施は終わったが、請求・入金などの財務処理はまだ、という段です。BOX フォルダはまだ動きません。'
+      : next === 's_completed'
+        ? '請求・入金などの財務処理が終わっている案件だけにしてください。BOX フォルダが「98_終了案件」へ移動します。'
+        : '';
+
     const ok = await confirmAction({
       title: `ステージを「${ProjectStageLabels[next]}」にしますか？`,
       description: [
         `いま: ${ProjectStageLabels[p.stage]} → ${ProjectStageLabels[next]}`,
         // 終わった案件を戻すのは間違いを直すときなので、そうと分かるように言う
         wasTerminal ? '終わった案件を進行中に戻します。' : '',
+        stageNote,
         ...glsLines,
         'ヨミの一覧と、ステージごとの想定金額の集計が同時に変わります。',
       ].filter(Boolean).join('\n'),

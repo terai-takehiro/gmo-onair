@@ -136,7 +136,7 @@ export const OVERDUE_NEXT_MOVE_SQL = `(
  */
 export function healthSql(lastMove: string = LAST_MOVE_SQL): string {
   return `CASE
-    WHEN p.stage IN ('s_completed', 'e_lost') THEN 'ok'
+    WHEN p.stage IN ('r_delivered', 's_completed', 'e_lost') THEN 'ok'
     WHEN p.snooze_until >= CURRENT_DATE THEN 'snoozed'
     WHEN ${OVERDUE_NEXT_MOVE_SQL} THEN 'overdue'
     WHEN NOT ${ALIVE_EVIDENCE_SQL}
@@ -287,12 +287,23 @@ export async function autoLoseStaleNeta(): Promise<TidyRow[]> {
 }
 
 /**
- * 受注→完了の繰り上げ（受注済みの案件を `s_completed` に）。
+ * 受注→実施済（財務処理中）の繰り上げ（受注済みの案件を `r_delivered` に）。
  *
  * これまで `GET /dashboard/check-completed` の**生 UPDATE** だった —
  * 誰もダッシュボードを開かない日は動かず、履歴も残らなかった。
  * 日次ジョブとダッシュボードの両方が**この1本**を呼ぶ（履歴付き・通知は不要）。
  *
+ * ⚠️ **2026-09 に繰り上げ先を `s_completed` から `r_delivered` に変更**
+ * （案件フェーズに「実施済（財務処理中）」を新設）。実施が終わっても請求・入金
+ * などの財務処理はまだのことが多く、それでも自動で `s_completed` にしてしまうと
+ * `archiveDoneProjectFolders()`（同じ日次ジョブの直後に走る）が財務処理未了のまま
+ * BOX の `98_終了案件` フォルダへ移してしまい、財務側が「完了フォルダに入っているのに
+ * まだ処理していない」と分かりづらくなる。**`s_completed` への昇格は財務が
+ * 案件詳細から手動で行う**（BOX フォルダ移動もそのときだけ発火する — `DONE_TARGET_SQL`
+ * は `stage = 's_completed'` の完全一致のみを見ているので、この変更だけで
+ * 自動ではフォルダが動かなくなる）。
+ *
+
  * ── 単発とレギュラーでクエリを分けている理由（docs/design/v4/regular-series.md §5）──
  *
  * ⚠️ **レギュラー（`recurrence='regular'`）の `event_end` は「今クールの最終収録日」であって
@@ -347,16 +358,16 @@ export async function completeElapsedWonProjects(): Promise<number> {
   let n = 0;
   for (const r of rows) {
     const moved = await queryOne(
-      `UPDATE projects SET stage = 's_completed', updated_at = NOW(), updated_by = ?
+      `UPDATE projects SET stage = 'r_delivered', updated_at = NOW(), updated_by = ?
         WHERE id = ? AND deleted_at IS NULL AND stage = 'a_won'
         RETURNING id`,
       [SYSTEM_ACTOR, r.id],
     ) as { id?: string } | null;
     if (!moved?.id) continue;
-    await recordSystemStageChange(r.id, 'a_won', 's_completed');
+    await recordSystemStageChange(r.id, 'a_won', 'r_delivered');
     // 繰り上げ完了もここが集約点（`recordStageTransition()` は通らない）。
     // **実際に動いた行だけ**閉じる（`RETURNING id` を見てから呼んでいる）
-    await syncNextActionsForStageSafe(r.id, 's_completed');
+    await syncNextActionsForStageSafe(r.id, 'r_delivered');
     n += 1;
   }
   return n;

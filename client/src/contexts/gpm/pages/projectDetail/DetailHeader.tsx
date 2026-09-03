@@ -69,7 +69,9 @@ export type DetailPhase = 'planning' | 'active' | 'done';
 
 export function gpmDetailPhase(stage: ProjectStage): DetailPhase {
   if (stage === 'a_won') return 'active';
-  if (stage === 's_completed' || stage === 'e_lost') return 'done';
+  // r_delivered（実施済・財務処理中）は制作の仕事としては終わっているので、
+  // モバイルタブは done と同じ（議事録・書類を読み返す）扱いにする
+  if (stage === 'r_delivered' || stage === 's_completed' || stage === 'e_lost') return 'done';
   return 'planning';
 }
 
@@ -112,11 +114,13 @@ export function effectiveMobileTabs(phase: DetailPhase, openAsksCount: number): 
  */
 
 /**
- * 押して切り替えられるステージ。**案件と同じ 7 段のうち、よく使う4つだけ**を出す。
- * 残り（ネタ・仮押さえ・失注）は「直す」から変える — ここに 7 つ並べると
+ * 押して切り替えられるステージ。**案件と同じ 8 段のうち、よく使う5つだけ**を出す。
+ * 残り（ネタ・仮押さえ・失注）は「直す」から変える — ここに 8 つ並べると
  * 帯が横に伸びてスマホで押せなくなるうえ、押し間違いが起きやすい。
+ *
+ * `r_delivered`（実施済・財務処理中、2026-09 追加）は `a_won` と `s_completed` の間。
  */
-const STAGE_STEPS: ProjectStage[] = ['c_proposal', 'b_verbal', 'a_won', 's_completed'];
+const STAGE_STEPS: ProjectStage[] = ['c_proposal', 'b_verbal', 'a_won', 'r_delivered', 's_completed'];
 
 export function DetailHeader({
   project, tab, counts, canEdit, onChangeStage, onEdit, mobile, phase,
@@ -250,7 +254,7 @@ export function DetailHeader({
                   aria-pressed={on}
                   className={cn(
                     'min-h-tap text-sub inline-flex items-center lg:min-h-[36px]',
-                    // スマホは4等分（375pxでも1段あたり約84px取れる）。PC は内容幅のまま
+                    // スマホは均等割り（5段・375pxでも1段あたり約67px取れる）。PC は内容幅のまま
                     mobile ? 'min-w-0 flex-1 justify-center px-1' : 'px-3',
                     i > 0 && 'border-l border-border',
                     on ? 'bg-primary font-bold text-primary-foreground' : 'text-muted-foreground hover:bg-muted',

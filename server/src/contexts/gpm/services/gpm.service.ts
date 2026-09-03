@@ -76,18 +76,23 @@ export const OPEN_ITEM_STATUSES = ['waiting', 'checking', 'resolved'] as const;
 export const OPEN_ITEM_TO_KINDS = ['client', 'pm', 'vendor', 'internal'] as const;
 export const PHASE_STATES = ['done', 'doing', 'blocked', 'todo'] as const;
 
-/** 案件のステージ。**案件管理と同じ 7 段**（`projects_stage_check` と揃えること） */
-export const STAGES = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 's_completed', 'e_lost'] as const;
+/** 案件のステージ。**案件管理と同じ 8 段**（`projects_stage_check` と揃えること） */
+export const STAGES = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 'r_delivered', 's_completed', 'e_lost'] as const;
 
 /**
- * 一覧の絞り込みで束ねる 4 つ。**読むときだけの束ね方**で、保存するのは常に `stage`。
+ * 一覧の絞り込みで束ねる 5 つ。**読むときだけの束ね方**で、保存するのは常に `stage`。
  *
- * 4 段で保存して 7 段に戻す形にすると、**触っていないのにステージが動きます**
+ * 5 段で保存して 8 段に戻す形にすると、**触っていないのにステージが動きます**
  * (`neta` の案件を開いて「準備中」のまま保存 → `c_proposal` になる)。
+ *
+ * `delivered`（`r_delivered`=実施済・財務処理中）は 2026-09 追加。`active` には含めない
+ * （制作の仕事は終わっている）が、財務処理が済むまでは `done` とも別に見せる —
+ * **`client/src/contexts/gpm/types.ts` の `STAGE_GROUPS` と必ず対で直すこと**
  */
 export const STAGE_GROUPS: Record<string, readonly string[]> = {
   planning: ['neta', 'd_hold', 'c_proposal', 'b_verbal'],
   active: ['a_won'],
+  delivered: ['r_delivered'],
   done: ['s_completed'],
   lost: ['e_lost'],
 };
@@ -343,7 +348,8 @@ export const projectService = {
          ) next_t ON TRUE
         WHERE ${conds.join(' AND ')}
         ORDER BY CASE p.stage WHEN 'a_won' THEN 0 WHEN 'b_verbal' THEN 1 WHEN 'c_proposal' THEN 2
-                              WHEN 'd_hold' THEN 3 WHEN 'neta' THEN 4 WHEN 's_completed' THEN 5 ELSE 6 END,
+                              WHEN 'd_hold' THEN 3 WHEN 'neta' THEN 4 WHEN 'r_delivered' THEN 5
+                              WHEN 's_completed' THEN 6 ELSE 7 END,
                  p.ends_on NULLS LAST, p.created_at DESC`,
       params,
     );

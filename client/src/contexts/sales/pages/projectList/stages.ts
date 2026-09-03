@@ -35,27 +35,44 @@ export const STAGE_BADGE_LABEL: Record<ProjectStage, string> = {
   c_proposal: '見積提案',
   b_verbal: '口頭決定',
   a_won: '受注済',
+  r_delivered: '実施済',
   s_completed: '完了',
   e_lost: '失注',
 };
 
-/** バッジの色。**生のパレットは使わない** — 状態の色トークンから選ぶ */
+/**
+ * バッジの色。**生のパレットは使わない** — 状態の色トークンから選ぶ。
+ *
+ * `r_delivered`（実施済・財務処理中、2026-09 追加）だけ warning 系にしてある —
+ * 「受注済」の緑・「完了」の緑と同じ色にすると、財務処理がまだ済んでいないことが
+ * 一覧のバッジからは分からなくなる（要求の趣旨そのもの）。
+ */
 export const STAGE_BADGE_TONE: Record<ProjectStage, string> = {
   neta: 'border-transparent bg-muted text-muted-foreground',
   d_hold: 'border-transparent bg-muted text-muted-foreground',
   c_proposal: 'border-transparent bg-primary-surface text-primary',
   b_verbal: 'border-transparent bg-primary-surface text-primary',
   a_won: 'border-transparent bg-success-surface text-success',
+  r_delivered: 'border-transparent bg-warning-surface text-warning',
   s_completed: 'border-transparent bg-success-surface text-success',
   e_lost: 'border-transparent bg-muted text-muted-foreground',
 };
 
-/** 終わった案件 (行を薄くする)。完了と失注はバッジの色で見分ける */
+/**
+ * 終わった案件 (行を薄くする)。完了と失注はバッジの色で見分ける。
+ *
+ * **`r_delivered` はここに含めない**（意図的）— 財務処理がまだ残っている案件を
+ * 「終わった」扱いで行を薄くすると、対応が必要なことに気づきにくくなる。
+ */
 export const TERMINAL_STAGES: ProjectStage[] = ['s_completed', 'e_lost'];
 
 /**
  * 「進行中」（旧・分ける前の `all`）が指す4ステージ。**チップ・既定の初期値・
  * `clearFilters` の3か所が同じ配列を指す**（`STAGE_CHIPS` の下のコメント参照）。
+ *
+ * **`r_delivered`（実施済・財務処理中）はここに含めない**（意図的）— 実施そのものは
+ * 終わっているので「進行中」の集計・チップに混ぜると、財務が拾うべき案件が
+ * 埋もれる。専用のチップ（`STAGE_CHIPS` の `r_delivered`）で別に見せる。
  */
 export const ACTIVE_STAGES: ProjectStage[] = ['d_hold', 'c_proposal', 'b_verbal', 'a_won'];
 
@@ -64,7 +81,7 @@ export const ACTIVE_STAGES: ProjectStage[] = ['d_hold', 'c_proposal', 'b_verbal'
  * **チップの合計とは別に持つ** — チップを足し算すると「すべて」に出していない
  * ネタまで数えてしまい、「全 42 件」と出して 31 行しか並ばないことになります。
  */
-export const ALL_STAGES: ProjectStage[] = [...ACTIVE_STAGES, 's_completed', 'e_lost'];
+export const ALL_STAGES: ProjectStage[] = [...ACTIVE_STAGES, 'r_delivered', 's_completed', 'e_lost'];
 
 /**
  * 絞り込みのチップ。**並びはモックどおり**「受注に近い順」。
@@ -98,6 +115,9 @@ export const STAGE_CHIPS: { key: string; label: string; stages: ProjectStage[] }
   { key: 'b_verbal', label: 'B 口頭決定', stages: ['b_verbal'] },
   { key: 'c_proposal', label: 'C 見積提案', stages: ['c_proposal'] },
   { key: 'd_hold', label: 'D 仮押さえ', stages: ['d_hold'] },
+  // r_delivered = 実施済（財務処理中）。2026-09 追加。A 受注済と「終了」の間に置く
+  // — 財務処理が終わっていないのに「終了」チップの完了に紛れないよう独立させる
+  { key: 'r_delivered', label: 'R 実施済', stages: ['r_delivered'] },
   { key: 'done', label: '終了', stages: ['s_completed', 'e_lost'] },
 ];
 

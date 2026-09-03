@@ -12,7 +12,8 @@
  *
  * ── ステージは「押して変える」ものにしてある ────────────────
  *
- * モックは E→D→C→B→A を横に並べ、いまの段だけ名前を出します。
+ * モックは E→D→C→B→A を横に並べ、いまの段だけ名前を出します
+ * （2026-09 に受注確定後の中間段 `R`（実施済・財務処理中）を追加）。
  * 状態を見る場所と変える場所を分けると、**変えたあとに見に戻る**ことになるので
  * 同じ場所にしました。押すと確認を出します (`confirmAction`) — ステージは
  * 売上の見込みと連動していて、取り違えると数字が動くためです。
@@ -24,7 +25,7 @@
  * タブの位置がずれました（押した先が別のタブになる）。
  *
  * 行数と高さを決め打ちます:
- *   1段目（42px）ラベル「ステージ」＋ E〜A の5つ（**各104px の等幅**）
+ *   1段目（42px）ラベル「ステージ」＋ E〜A・R の6つ（**各104px の等幅**）
  *                ＋ 完了・失注（各60px）＋ 右端に「最後の更新」
  *   2段目（44px）タブを**均等割り**（`flex:1`）。横スクロールにしない
  *
@@ -42,7 +43,7 @@
  * 「A の次が完了」という順路に見えますが、実際は途中のどこからでも失注しますし、
  * 完了は受注のあとに来ます。組を分けて、区切りを挟んであります。
  *
- * 終わった案件では E〜A のどれも光りません（居ないので嘘になる）。押せば戻せます —
+ * 終わった案件では E〜A・R のどれも光りません（居ないので嘘になる）。押せば戻せます —
  * 戻すのは間違いを直すときなので、確認の文面で「終わった案件を進行中に戻す」と伝えます。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -57,13 +58,21 @@ import { SnoozeDialog, useSnooze } from '../projectList/snooze';
 import { PROJECT_TABS, MOBILE_TABS_BY_PHASE, type ProjectPhase, type ProjectTabKey } from './tabs';
 import { ProjectStageLabels, type ProjectStage } from '@/types';
 
-/** ステージの並び。モックと同じ「問合せ → 受注」。終わったもの2つは横に並べない */
+/**
+ * ステージの並び。モックと同じ「問合せ → 受注」。終わったもの2つは横に並べない。
+ *
+ * `r_delivered`（実施済・財務処理中、2026-09 追加）を末尾に足してある。**終わり方
+ * (`END_STEPS`) には入れない** — 受注確定はしているが完了（財務処理済）ではない
+ * 中間の段だからで、E〜A と同じ「押して進める」帯に置くのが実態に近い。
+ * 帯は `overflow-x-auto` のレールなので、1つ増えても横スクロールで吸収できる。
+ */
 const STAGE_STEPS: { stage: ProjectStage; key: string }[] = [
   { stage: 'neta', key: 'E' },
   { stage: 'd_hold', key: 'D' },
   { stage: 'c_proposal', key: 'C' },
   { stage: 'b_verbal', key: 'B' },
   { stage: 'a_won', key: 'A' },
+  { stage: 'r_delivered', key: 'R' },
 ];
 
 /**
@@ -80,12 +89,13 @@ const END_STEPS: { stage: ProjectStage; label: string }[] = [
  * 表の列ではなく、**選んでも動かないための等幅**なので、
  * 「E 問合せ」〜「A 受注済」が同じ幅で収まる値を決め打ちます。
  */
-const STAGE_W = 'w-[104px]';  // ui-tokens-ok: E〜A の5つを等幅にする（記号＋名前が入る幅）
+const STAGE_W = 'w-[104px]';  // ui-tokens-ok: E〜A・R の6つを等幅にする（記号＋名前が入る幅）
 const END_W = 'w-[60px]';     // ui-tokens-ok: 完了・失注。2文字ぶん
 
 /** ステージの短い名前 (押せる帯に入る長さ) */
 const STAGE_SHORT: Record<string, string> = {
   neta: '問合せ', d_hold: '仮押さえ', c_proposal: '見積提案', b_verbal: '口頭決定', a_won: '受注済',
+  r_delivered: '実施済',
 };
 
 export interface DetailHeaderProps {

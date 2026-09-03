@@ -108,7 +108,7 @@ export async function getSalesOverview(now = new Date()) {
          COUNT(*) FILTER (WHERE ${LAST_MOVE} >= NOW() - INTERVAL '${MOVED_WINDOW_DAYS} days')::int AS moved,
          COUNT(*) FILTER (WHERE (${healthSql()}) = 'stalled')::int AS stuck
        FROM projects p
-       WHERE p.deleted_at IS NULL AND ${ONLY_A} AND p.stage NOT IN ('s_completed','e_lost')`
+       WHERE p.deleted_at IS NULL AND ${ONLY_A} AND p.stage NOT IN ('r_delivered','s_completed','e_lost')`
     ),
 
     // ── 今週の実施 ── 日付は TEXT なので文字列比較 (ISO 表記なので順序は正しい)。
@@ -166,7 +166,7 @@ export async function getSalesOverview(now = new Date()) {
                 ORDER BY sc.changed_at DESC LIMIT 1) AS stage_days
        FROM projects p
        LEFT JOIN companies c ON c.id = p.customer_id
-       WHERE p.deleted_at IS NULL AND ${ONLY_A} AND p.stage NOT IN ('s_completed','e_lost')
+       WHERE p.deleted_at IS NULL AND ${ONLY_A} AND p.stage NOT IN ('r_delivered','s_completed','e_lost')
          AND (${healthSql()}) = 'stalled'
        ORDER BY ${LAST_MOVE} ASC
        LIMIT 5`

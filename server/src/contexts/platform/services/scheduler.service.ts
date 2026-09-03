@@ -440,7 +440,10 @@ async function weeklyReportsUnreviewed(today: string): Promise<NotifyInput[]> {
  *   (a) 整理候補（60日）… 生存証拠の無いネタを起票者へ「整理候補」として通知
  *   (b) 自動見送り（90日）… さらに30日誰も触らなければ e_lost
  *       （理由「自動整理（長期放置）」・**履歴付き**）へ動かして通知。**対象はネタだけ**
- *   (c) 受注→完了の繰り上げ … `event_end` を過ぎた受注案件を s_completed に（通知不要）
+ *   (c) 受注→実施済の繰り上げ … `event_end` を過ぎた受注案件を r_delivered（実施済・
+ *       財務処理中）に（通知不要）。**s_completed へは上げない** — 財務処理（請求・入金）
+ *       が済んでいない案件を自動で「完了」扱いにして BOX の `98_終了案件` へ動かして
+ *       しまわないため。s_completed への昇格は財務が案件詳細から手動で行う
  *
  * 判定と実行の中身は **project-health.ts**（健全性の単一定義と同じモジュール）。
  * ここは通知の組み立てだけを持つ。
@@ -466,17 +469,17 @@ async function projectTidy(_today: string): Promise<NotifyInput[]> {
   if ((process.env.PROJECT_TIDY_DAILY || '').toLowerCase() === 'off') return [];
   const out: NotifyInput[] = [];
 
-  // (c) 受注→完了。ダッシュボードの GET /dashboard/check-completed と**同じ1本**を呼ぶ
+  // (c) 受注→実施済。ダッシュボードの GET /dashboard/check-completed と**同じ1本**を呼ぶ
   const completed = await completeElapsedWonProjects();
 
   /*
-   * (d) **終了した案件の BOX フォルダを `98_終了案件` へ移す**（migration 249）。
-   *
-   * ご依頼は「案件が完了した(日付をベースに案件日の翌日)ものについては
-   * 98_終了案件 …そこに移動するようにしたい」。**(c) の直後に置く**のが要点で、
-   * その日に完了へ繰り上がったぶんが**同じ朝のうちに片づきます**（人が押しに
-   * 来なくても進む）。⚠️ **BOX が落ちていてもここで日次ジョブを止めない** —
-   * 通知（この関数の本来の仕事）まで道連れにしないため。
+   * (d) **`s_completed`（完了・財務処理済）の案件の BOX フォルダを `98_終了案件` へ移す**
+   * （migration 249）。⚠️ **(c) はもう s_completed を作らない**（2026-09〜、r_delivered
+   * どまり）ので、ここで実際に動くのは**財務が案件詳細から手動で s_completed に
+   * 上げた案件だけ**になった。(c) の直後に置いているのは、財務処理が済んで即
+   * 手動で完了にした案件を同じ朝のうちに片づけるため。⚠️ **BOX が落ちていても
+   * ここで日次ジョブを止めない** — 通知（この関数の本来の仕事）まで道連れに
+   * しないため。
    */
   let boxDone = 0;
   try {
@@ -759,7 +762,7 @@ async function salesAiReviewDraft(today: string): Promise<NotifyInput[]> {
 }
 
 const JOBS: Job[] = [
-  // 案件の自動整理。朝いちの通知3本（09:00）より前に済ませる — 繰り上げ（受注→完了）を
+  // 案件の自動整理。朝いちの通知3本（09:00）より前に済ませる — 繰り上げ（受注→実施済）を
   // 先にしておかないと、その日の他の集計・通知が「終わったのに受注のまま」の行を数える。
   // templateId は null（ひな形で止めない理由は projectTidy の説明）。止め方は PROJECT_TIDY_DAILY=off
   {

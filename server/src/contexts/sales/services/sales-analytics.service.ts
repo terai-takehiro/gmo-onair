@@ -35,7 +35,7 @@ export class SalesAnalyticsService {
       return rest;
     });
 
-    const WON_STAGES = ['a_won', 's_completed', 'b_verbal'];
+    const WON_STAGES = ['a_won', 'r_delivered', 's_completed', 'b_verbal'];
     const totalCount = stageRows.reduce((s: number, r: any) => s + Number(r.count), 0);
     const wonCount = stageRows
       .filter((r: any) => WON_STAGES.includes(r.stage as string))
@@ -53,10 +53,10 @@ export class SalesAnalyticsService {
     if (year && !month) {
       monthlyTrend = await queryAll(
         `SELECT TO_CHAR(p.updated_at::timestamp, 'MM') as month,
-                COUNT(CASE WHEN p.stage IN ('a_won','b_verbal','s_completed') THEN 1 END) as won_count,
+                COUNT(CASE WHEN p.stage IN ('a_won','b_verbal','r_delivered','s_completed') THEN 1 END) as won_count,
                 COUNT(CASE WHEN p.stage = 'e_lost' THEN 1 END) as lost_count,
                 COUNT(*) as total_count,
-                COALESCE(SUM(CASE WHEN p.stage IN ('a_won','b_verbal','s_completed') THEN p.expected_amount END), 0) as won_amount
+                COALESCE(SUM(CASE WHEN p.stage IN ('a_won','b_verbal','r_delivered','s_completed') THEN p.expected_amount END), 0) as won_amount
          FROM projects p
          WHERE p.deleted_at IS NULL AND TO_CHAR(p.created_at, 'YYYY') = ?
          GROUP BY TO_CHAR(p.updated_at::timestamp, 'MM')
@@ -75,10 +75,10 @@ export class SalesAnalyticsService {
       const toData = stageCounts.find((s: any) => s.stage === toStage);
       // Count includes projects that passed through this stage (current stage >= this stage)
       const fromCount = stageCounts
-        .filter((s: any) => stageOrder.indexOf(s.stage as string) >= i || s.stage === 's_completed' || s.stage === 'e_lost')
+        .filter((s: any) => stageOrder.indexOf(s.stage as string) >= i || s.stage === 'r_delivered' || s.stage === 's_completed' || s.stage === 'e_lost')
         .reduce((sum: number, s: any) => sum + (s.count as number), 0);
       const toCount = stageCounts
-        .filter((s: any) => stageOrder.indexOf(s.stage as string) >= i + 1 || s.stage === 's_completed')
+        .filter((s: any) => stageOrder.indexOf(s.stage as string) >= i + 1 || s.stage === 'r_delivered' || s.stage === 's_completed')
         .reduce((sum: number, s: any) => sum + (s.count as number), 0);
       conversions.push({
         from: fromStage,
@@ -215,7 +215,7 @@ export class SalesAnalyticsService {
               COALESCE(SUM(p.expected_amount), 0) as won_amount
        FROM projects p
        LEFT JOIN users u ON u.id = p.assigned_to
-       WHERE p.deleted_at IS NULL AND p.stage IN ('a_won', 'b_verbal', 's_completed') ${wonFilter}
+       WHERE p.deleted_at IS NULL AND p.stage IN ('a_won', 'b_verbal', 'r_delivered', 's_completed') ${wonFilter}
        GROUP BY p.assigned_to, u.name`,
       wonParams
     );

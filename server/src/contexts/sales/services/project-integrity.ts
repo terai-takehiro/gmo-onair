@@ -37,7 +37,7 @@ export interface IntegrityCheck {
 }
 
 /** 受注が固まった段（GLS を採り、実施日が決まっているはずの段） */
-const WON_STAGES = `p.stage IN ('a_won', 's_completed')`;
+const WON_STAGES = `p.stage IN ('a_won', 'r_delivered', 's_completed')`;
 
 export const INTEGRITY_CHECKS: IntegrityCheck[] = [
   {
