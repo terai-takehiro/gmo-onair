@@ -69,6 +69,7 @@ import { PurchaseDialog } from './ledger/PurchaseDialog';
 import SgaDialog, { initialFormData as initialSgaForm, type SgaFormData } from '../components/SgaDialog';
 import { formFromSga } from '../components/sgaPrefill';
 import { ProfitFlow, type FlowStep } from './financeDashboard/ProfitFlow';
+import { PipelineForecast } from './financeDashboard/PipelineForecast';
 import { BreakdownColumn } from './financeDashboard/Breakdown';
 import { useProjectFilter, initialPeriodMode } from './financeDashboard/useProjectFilter';
 import {
@@ -240,6 +241,12 @@ export default function BudgetDashboardPage() {
         rangeTo={rangeTo} setRangeTo={setRangeTo}
         projects={projectOptions} projectId={projectId} setProjectId={selectProject}
       />
+
+      {/*
+        * 営業見通し（パイプライン）は期間の絞り込みと無関係（ファイル冒頭コメント参照）
+        * なので、`periodReady` を待たずに常に出す。案件の絞り込みだけ引き継ぐ。
+        */}
+      <PipelineForecast projectId={projectId} />
 
       {/*
         * 期間が入っていないときは読み込みに行かない。**何を待っているのか書かないと固まって見える**。

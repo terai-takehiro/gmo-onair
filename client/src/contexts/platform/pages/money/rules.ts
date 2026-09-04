@@ -7,6 +7,7 @@
  * 自由入力にすると「31」と「末」と「月末」が混ざり、どれが正か分からなくなります。
  * 選ばせれば保存される値は必ず 1〜31 の数字になります。
  */
+import type { ProjectStage } from '@/types/stages';
 
 export interface MoneyRules {
   closing_day: number;
@@ -39,6 +40,12 @@ export interface MoneyResponse {
   rules: MoneyRules;
   describe: { payment: string; purchase: string };
   limits: DiscountLimitRow[];
+}
+
+/** フェーズごとの受注確度（`GET /stage-probabilities` の1行）。`StageProbabilities.tsx` が使う */
+export interface StageProbabilityRow {
+  stage: ProjectStage;
+  probability: number;
 }
 
 export type Choice = { value: string | number; label: string };
