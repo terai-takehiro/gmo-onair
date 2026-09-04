@@ -1,0 +1,1 @@
+PR #558（案件フェーズの確度と財務ダッシュボードの営業見通し）が、`checks` ジョブの完了を待たずにユーザー自身によりマージされ、`get_reviews`・`get_review_comments`・`get_comments` いずれも0件だった（レビューが届く前にマージされた）。決めごと（[docs/branching.md](../branching.md#マージしたらその-pr-のレビューを棚卸しに移す必須)）どおり棚卸しに記録した。

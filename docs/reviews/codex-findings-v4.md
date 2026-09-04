@@ -2254,6 +2254,34 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#558**（`feat(client,server): 案件フェーズの確度と財務ダッシュボードの営業見通しを追加`）—
+  作成 2026-09-04 13:14:00 JST / `build` 成功 13:16:05 JST / **`checks` が `in_progress` のまま
+  （13:18:52 JST に）ユーザー自身がマージ**——他の回のような「CI 緑の直後」ではなく、
+  `checks` ジョブの完了そのものを待たずにマージされている（`get_check_runs` で直接確認。
+  マージ後に再度叩いても `checks` は `in_progress` のまま止まっていた——PR が閉じたことで
+  ジョブが宙に浮いたと見られる）。`get_reviews`・`get_review_comments`・`get_comments` は
+  いずれも0件（API で直接確認。この環境では GitHub トークンが無く `npm run reviews:debt` は
+  使えない）。**「指摘なし」ではなく「レビューが届いていない」**。
+  ⚠️ **事前調査を2体の並列 Explore サブエージェントに委譲**（売上・仕入登録の受注済み制限の
+  所在／財務ダッシュボードの集計ロジックとUI構成を独立に調査）、**サーバー側の実装
+  （migration・stage-probability service/route・pipeline-forecast service）は自分で直接書き**、
+  **設定画面のUI実装（`StageProbabilities.tsx`・`MoneyRulesPage.tsx` への組み込み）は
+  1体の並列 general-purpose サブエージェントに委譲**した PR。表に移す指摘はない
+  （レビュー自体が届いていないため）が、**意図して残した未検証事項**
+  （レビュー0件のため自分で書き出す。PR本文の検証チェックリストにも未チェックのまま明記済み）:
+  ① **実ブラウザでの画面確認をしていない**（PC 1440px・スマホ 375px とも未実施。
+  型チェック・lint・shared の Vitest 1996件、および検証用 Postgres 上での
+  `SELECT` による初期値確認のみ）。
+  ② `npm run build` / `npm run verify:ui` は実行していない。
+  ③ **権限のない利用者での403/非表示の画面確認をしていない**（`PUT /stage-probabilities/:stage`
+  の `requirePermission('sales', 'manager')` はコードレベルでは `money-rules.routes.ts` と
+  同じガードだが、reader 権限で実際に画面を開いて「直す」ボタンが消えることは未確認）。
+  ④ 財務ダッシュボードの「営業見通し（パイプライン）」カード・設定画面の
+  「フェーズごとの受注確度」編集フォームは、型チェック通過の確認に留まり
+  実際にクリックして総額/確度加味の切り替え・保存操作を動かしてはいない。
+  ⑤ `getPipelineForecast`（`revenues`/`purchases` を stage 別に集計し確度で重みづけ）は
+  検証用 Postgres への実データ投入・突き合わせをしておらず、SQL レビューと
+  型チェックのみで検証している。
 - **#555**（`fix(sales,finance): 見積の売上取消・回の話数重複・財務ダッシュボードの詳細モーダルを直した`）—
   作成 2026-09-04 11:23:10 JST / CI（`build` 11:25:12・`checks` 11:36:08）とも成功 /
   **CI が緑になった約22秒後（11:36:30）にユーザー自身がマージ**、`get_reviews`・
