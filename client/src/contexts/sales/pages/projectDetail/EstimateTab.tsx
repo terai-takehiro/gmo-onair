@@ -150,7 +150,8 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
   // 消す・アーカイブする・売上へ変換する）は `useEstimateMutations.ts` に集約
   // （400行の上限の是正・`EstimateVersionList`/`useEstimateEpisodeFilter` と同じ切り出し）
   const {
-    invalidate, create, nextVersion, setStatus, saveItems, saveMeta, remove, archive, unarchive, convertToRevenue,
+    invalidate, create, nextVersion, setStatus, saveItems, saveMeta, remove, archive, unarchive,
+    convertToRevenue, revertToEstimate,
   } = useEstimateMutations({ base, projectId: project.id, episodeId, openId, setOpenId });
 
   return (
@@ -277,6 +278,7 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
             episodeLabels={episodeLabels}
             onSetStatus={(id, status) => setStatus.mutate({ id, status })}
             onConvert={(id) => convertToRevenue.mutate(id)}
+            onRevert={(id) => revertToEstimate.mutate(id)}
             onNextVersion={(id) => nextVersion.mutate(id)}
             onRemove={(id) => remove.mutate(id)}
             onArchive={(id) => archive.mutate(id)}

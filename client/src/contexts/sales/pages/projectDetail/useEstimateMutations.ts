@@ -114,7 +114,29 @@ export function useEstimateMutations({
     onError: (e) => notifyApiError('売上・請求に登録できませんでした', e),
   });
 
+  /**
+   * `convertToRevenue` の取り消し（9/4 ご依頼）。①誤って売上に登録してしまった
+   * ものを見積もりに戻す ②見積を更新して売上を登録し直すため、いまの売上を
+   * いったん見積もりに戻す ── どちらもこの1つの操作。
+   *
+   * ⚠️ **`convertToRevenue` と同じ4つの鍵を必ず一緒に落とす。** 片方だけだと
+   * 「取り消したのに売上一覧にまだ残っている」ように見える
+   * （`client/CLAUDE.md`「react-query の鍵」）。
+   */
+  const revertToEstimate = useMutation({
+    mutationFn: (id: string) => api.post(`${base}/${id}/revert-to-estimate`),
+    onSuccess: () => {
+      invalidate(); qc.invalidateQueries({ queryKey: ['estimate', openId] });
+      qc.invalidateQueries({ queryKey: ['revenues'] });
+      qc.invalidateQueries({ queryKey: ['revenues-all'] });
+      qc.invalidateQueries({ queryKey: ['billing'] });
+      notifySuccess('売上・請求への登録を取り消し、見積もりに戻しました');
+    },
+    onError: (e) => notifyApiError('取り消せませんでした', e),
+  });
+
   return {
-    invalidate, create, nextVersion, setStatus, saveItems, saveMeta, remove, archive, unarchive, convertToRevenue,
+    invalidate, create, nextVersion, setStatus, saveItems, saveMeta, remove, archive, unarchive,
+    convertToRevenue, revertToEstimate,
   };
 }

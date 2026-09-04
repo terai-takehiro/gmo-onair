@@ -27,28 +27,24 @@
  * リンクも共有できない**ので、URL に置いて売上台帳（`RevenueListPage`）と
  * そろえています（`financeDashboard/useProjectFilter.ts`）。
  *
- * ── 内訳の行を押したら「明細一覧（台帳）」へ飛ぶ ──────────────
+ * ── 内訳の行を押したら「明細一覧（台帳）」へ飛ぶ（売上だけ）──────
  *
- * 3列とも**押す＝その台帳の明細一覧へ移動**に揃えました（ご指摘「明細一覧に
- * 飛ばしてください」）。売上→`/budget/revenues`・仕入→`/budget/purchases`・
- * 販管費→`/budget/sga` へ、いま効いている期間（と、案件に紐づく行はその案件）で
- * 絞り込んだ状態で開きます。**引き継ぐクエリの組み立ては `ledgerOpenQuery` 1本**で、
- * カード下の「台帳をひらく」ボタンと同じ関数を通ります — 違いは案件を付けるか
- * どうかだけ（行＝その行の案件／フッター＝いま絞り込み中の案件）。
+ * 売上の行は**押す＝台帳の明細一覧へ移動**（ご指摘「明細一覧に飛ばして
+ * ください」）。`/budget/revenues` へ、いま効いている期間（と、案件に紐づく
+ * 行はその案件）で絞り込んだ状態で開きます。**引き継ぐクエリの組み立ては
+ * `ledgerOpenQuery` 1本**で、カード下の「台帳をひらく」ボタンと同じ関数を
+ * 通ります — 違いは案件を付けるかどうかだけ（行＝その行の案件／
+ * フッター＝いま絞り込み中の案件）。
  *
- * 以前は列ごとに動作が違い（売上＝画面に留まって絞り込み、仕入・販管費＝
- * ダッシュボード上に閲覧専用ダイアログ）、同じ形の行なのに押すと違うことが
- * 起きていました。ダイアログは台帳へ行けば同じ情報が見られるので廃止しています。
+ * ── 仕入・販管費の行は「この画面のまま」詳細モーダルだけを開く（9/4）──
  *
- * ── 仕入・販管費の行は台帳の編集ダイアログを開いた状態で着地する ──
- *
- * ご指摘「ここからも編集ができるようにする」への対応。ダッシュボードに
- * 編集フォームを作り直すのではなく、遷移先に `?edit=<id>` を足して**台帳側の
- * 既存の編集ダイアログを開いた状態**で開く（`ledgerOpenQuery` の `editId` 引数）。
- * `SgaListPage` は元々 `PdfTab.tsx` 用にこの仕組みを持っていたので流用し、
- * `PurchaseListPage` には同じ形で新設した。「行＝台帳へ遷移」という直前の
- * 決定はそのまま保ちつつ、遷移した先で即座に編集できる。売上は編集の要望が
- * 無いため対象外（従来どおり明細一覧へ遷移するだけ）。
+ * 一時期は仕入・販管費も売上と同じく台帳へ`navigate()`し、`?edit=<id>`で
+ * 編集ダイアログを開いた状態で着地させていた。しかし**背景のページごと台帳に
+ * 遷移してしまい、一覧画面を維持してほしい**というご指摘が入ったため、
+ * フルページ遷移をやめ、行はすでに持っている1件分のデータで、この画面の上に
+ * 閲覧専用モーダル（`PurchaseDialog`/`SgaDialog` の `readOnly`）を重ねるだけに
+ * 戻した（`viewingPurchase`/`viewingSga` の state）。台帳側の編集ダイアログや
+ * `?edit=` の仕組み自体は他画面（`PdfTab.tsx` 等）が使うためそのまま残っている。
  *
  * ── 内訳は「台帳へ行かないと全件見えない」を無くした ──────────
  *
@@ -69,6 +65,9 @@ import { PeriodBar, type PeriodMode } from './financeDashboard/PeriodBar';
 import { resolvePeriod, ledgerOpenQuery } from './financeDashboard/period';
 import { useDashboardData, EMPTY_SUMMARY, type MonthlySummary } from './financeDashboard/useDashboardData';
 import type { PurchaseRow } from './ledger/types';
+import { PurchaseDialog } from './ledger/PurchaseDialog';
+import SgaDialog, { initialFormData as initialSgaForm, type SgaFormData } from '../components/SgaDialog';
+import { formFromSga } from '../components/sgaPrefill';
 import { ProfitFlow, type FlowStep } from './financeDashboard/ProfitFlow';
 import { BreakdownColumn } from './financeDashboard/Breakdown';
 import { useProjectFilter, initialPeriodMode } from './financeDashboard/useProjectFilter';
@@ -91,8 +90,14 @@ export default function BudgetDashboardPage() {
   const [rangeTo, setRangeTo] = useState(curYm);
 
   // 案件の絞り込み（URL の `?project_id=` が正）は `financeDashboard/useProjectFilter.ts`。
-  // この画面で案件を絞る道はプルダウン1本（内訳の行は台帳へ移動する）
+  // この画面で案件を絞る道はプルダウン1本（内訳の行のうち売上だけ台帳へ移動する）
   const { projectId, selectProject } = useProjectFilter(mode, setMode);
+
+  // 仕入・販管費の行を押したときに、この画面のまま開く閲覧専用モーダル
+  // （台帳へは遷移しない・ファイル冒頭コメント参照）
+  const [viewingPurchase, setViewingPurchase] = useState<PurchaseRow | null>(null);
+  const [viewingSga, setViewingSga] = useState<SgaExpense | null>(null);
+  const [viewingSgaForm, setViewingSgaForm] = useState<SgaFormData>(initialSgaForm);
 
   // 期間の正規化と、送るパラメータの組み立ては `financeDashboard/period.ts`
   // （純関数にして `shared/tests/financeDashboardPeriod.test.ts` で固定してある）
@@ -153,16 +158,14 @@ export default function BudgetDashboardPage() {
   );
 
   /*
-   * 内訳の**行**から台帳（明細一覧）へ移る。フッターの「台帳をひらく」と
+   * 売上の**行**から台帳（明細一覧）へ移る。フッターの「台帳をひらく」と
    * **同じ `ledgerOpenQuery`** を通し、案件だけ「その行のもの」に差し替える。
-   *
-   * ⚠️ 案件を渡さなかったとき（販管費・案件に紐づかない行）は
-   * `ledgerQuery` に落とさず**期間だけ**にする — 画面がある案件で絞り込み中でも、
-   * 案件を持たない行から「その案件で絞った台帳」へ送るのは嘘になるため。
+   * ⚠️ 仕入・販管費の行はここを通らない（この画面のまま詳細モーダルを開くだけ・
+   * ファイル冒頭コメント参照）。
    */
   const openLedger = useCallback(
-    (path: string, rowProjectId?: string | null, rowProjectName?: string | null, rowId?: string) => {
-      navigate(path + ledgerOpenQuery(period, rowProjectId || undefined, rowProjectName || undefined, rowId));
+    (path: string, rowProjectId?: string | null, rowProjectName?: string | null) => {
+      navigate(path + ledgerOpenQuery(period, rowProjectId || undefined, rowProjectName || undefined));
     },
     [navigate, period],
   );
@@ -211,10 +214,9 @@ export default function BudgetDashboardPage() {
   });
   const purItems = buildPurchaseItems(
     [...purchaseRows, ...((fixed.data?.data ?? []) as PurchaseRow[])],
-    (id, name, rowId) => openLedger('/budget/purchases', id, name, rowId),
+    (row) => setViewingPurchase(row),
   );
-  // 販管費は案件に紐づかないので期間だけ引き継ぐ（`buildSgaItems` のコメント参照）
-  const sgaItems = buildSgaItems(sgaRows, (rowId) => openLedger('/budget/sga', undefined, undefined, rowId));
+  const sgaItems = buildSgaItems(sgaRows, (row) => { setViewingSga(row); setViewingSgaForm(formFromSga(row)); });
 
   return (
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
@@ -328,10 +330,38 @@ export default function BudgetDashboardPage() {
           <p className="text-note text-muted-foreground">
             内訳は既定では<strong className="font-bold">金額の大きい順に上位だけ</strong>を出しています。
             「この条件の全N件をここで見る」で、この絞り込み条件に該当する分をすべてこの画面のまま確認できます。
-            <strong className="font-bold">行を押すと、その明細一覧（台帳）</strong>を同じ期間で絞り込んで開きます
+            <strong className="font-bold">売上の行を押すと明細一覧（台帳）</strong>を同じ期間で絞り込んで開きます
             （編集・CSV書き出しなど台帳側の機能はそちらにあります）。
+            <strong className="font-bold">仕入・販管費の行を押すとこの画面のまま詳細</strong>だけを確認できます。
           </p>
         </>
+      )}
+
+      {/* 仕入の内訳を押したときの閲覧専用の詳細。この画面のまま開き、台帳へは遷移しない */}
+      {viewingPurchase && (
+        <PurchaseDialog
+          readOnly
+          editing={viewingPurchase}
+          defaultProjectId={viewingPurchase.project_id ?? ''}
+          onClose={() => setViewingPurchase(null)}
+        />
+      )}
+
+      {/* 販管費の内訳を押したときの閲覧専用の詳細。同上 */}
+      {viewingSga && (
+        <SgaDialog
+          readOnly
+          open
+          onOpenChange={(v) => { if (!v) setViewingSga(null); }}
+          form={viewingSgaForm}
+          setForm={setViewingSgaForm}
+          vendors={[]}
+          users={[]}
+          editingId={viewingSga.id}
+          isSaving={false}
+          onSubmit={() => {}}
+          onClose={() => setViewingSga(null)}
+        />
       )}
     </div>
   );

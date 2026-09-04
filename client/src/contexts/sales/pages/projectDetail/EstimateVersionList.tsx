@@ -17,7 +17,7 @@ import type { Estimate } from './EstimateTab';
 
 export function EstimateVersionList({
   estimates, isMobile, onToggleOpen, base, statusLabel, statusTone, episodeLabels,
-  onSetStatus, onConvert, onNextVersion, onRemove, onArchive, onUnarchive,
+  onSetStatus, onConvert, onRevert, onNextVersion, onRemove, onArchive, onUnarchive,
   canDuplicate, onDuplicate,
 }: {
   estimates: Estimate[];
@@ -35,6 +35,8 @@ export function EstimateVersionList({
   episodeLabels: Record<string, string>;
   onSetStatus: (id: string, status: Status) => void;
   onConvert: (id: string) => void;
+  /** 売上・請求への登録を取り消し、見積を「未登録」に戻す（9/4 ご依頼） */
+  onRevert: (id: string) => void;
   onNextVersion: (id: string) => void;
   onRemove: (id: string) => void;
   onArchive: (id: string) => void;
@@ -86,6 +88,7 @@ export function EstimateVersionList({
               base={base}
               onSetStatus={(status) => onSetStatus(e.id, status)}
               onConvert={() => onConvert(e.id)}
+              onRevert={() => onRevert(e.id)}
               onNextVersion={() => onNextVersion(e.id)}
               onRemove={() => onRemove(e.id)}
               onArchive={() => onArchive(e.id)}
@@ -144,6 +147,7 @@ export function EstimateVersionList({
               base={base}
               onSetStatus={(status) => onSetStatus(e.id, status)}
               onConvert={() => onConvert(e.id)}
+              onRevert={() => onRevert(e.id)}
               onNextVersion={() => onNextVersion(e.id)}
               onRemove={() => onRemove(e.id)}
               onArchive={() => onArchive(e.id)}

@@ -5,7 +5,7 @@
  * **PC の `Row` とスマホのカードで同じものを呼ぶ** — 写すと、片方だけ
  * ボタンを足し忘れたり条件がずれたりする（他のタブと同じ理由）。
  */
-import { Copy, Files, Send, Trash2, CheckCircle2, XCircle, ArrowRight, Archive, ArchiveRestore } from 'lucide-react';
+import { Copy, Files, Send, Trash2, CheckCircle2, XCircle, ArrowRight, Archive, ArchiveRestore, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DocPdfButton } from '@/contexts/shared/components/DocPdfButton';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
@@ -25,13 +25,19 @@ export interface EstimateForActions {
 }
 
 export function EstimateActions({
-  e, base, onSetStatus, onConvert, onNextVersion, onRemove, onArchive, onUnarchive,
+  e, base, onSetStatus, onConvert, onRevert, onNextVersion, onRemove, onArchive, onUnarchive,
   canDuplicate, onDuplicate,
 }: {
   e: EstimateForActions;
   base: string;
   onSetStatus: (status: EstimateStatus) => void;
   onConvert: () => void;
+  /**
+   * 売上・請求への登録を取り消し、見積を「未登録」に戻す（9/4 ご依頼）。
+   * ①誤って売上に登録してしまったものを戻す ②見積を更新して売上を登録し
+   * 直すため、いまの売上をいったん見積に戻す ── どちらもこの1つの操作。
+   */
+  onRevert: () => void;
   onNextVersion: () => void;
   onRemove: () => void;
   onArchive: () => void;
@@ -75,7 +81,19 @@ export function EstimateActions({
       )}
       {e.status === 'accepted' && (
         e.revenue_id ? (
-          <span className="text-sub-sm whitespace-nowrap text-success">登録済み</span>
+          <>
+            <span className="text-sub-sm whitespace-nowrap text-success">登録済み</span>
+            <Button variant="outline" size="sm" title="売上・請求への登録を取り消して見積もりに戻す" onClick={async () => {
+              const ok = await confirmAction({
+                title: '売上・請求への登録を取り消しますか？',
+                description: `登録されている売上（税抜 ${formatCurrency(e.subtotal - e.discount)}）を消します。見積の内容（明細・金額）はそのまま残ります。誤って登録した場合の取り消しにも、見積を直して登録し直す場合にも使えます。`,
+                confirmLabel: '取り消す', tone: 'danger',
+              });
+              if (ok) onRevert();
+            }}>
+              <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
+            </Button>
+          </>
         ) : (
           <Button size="sm" title="この見積の金額で売上・請求に登録する" onClick={async () => {
             const ok = await confirmAction({

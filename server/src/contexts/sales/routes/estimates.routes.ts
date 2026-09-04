@@ -35,6 +35,20 @@ router.post('/:id/convert-to-revenue',
     res.status(201).json({ success: true, data: await estimateService.convertToRevenue(id, userOf(req)) });
   }));
 
+/**
+ * POST /projects/:projectId/estimates/:id/revert-to-estimate
+ * — `convert-to-revenue` の取り消し。登録した売上を消し、見積を「未登録」に戻す
+ * （9/4 ご依頼: 誤登録の取り消し／見積更新にともなう旧版への差し戻し）。
+ * `convert-to-revenue` と同じ場所・同じ権限（`estimate.service.ts` の
+ * `revertToEstimate` 参照）。
+ */
+router.post('/:id/revert-to-estimate',
+  requireAuth, requirePermission('sales', 'editor'),
+  wrap(async (req, res) => {
+    const { id } = req.params as Record<string, string>;
+    res.json({ success: true, data: await estimateService.revertToEstimate(id, userOf(req)) });
+  }));
+
 router.use(requireAuth, requirePermission('sales'));
 
 const canEdit = requirePermission('sales', 'editor');

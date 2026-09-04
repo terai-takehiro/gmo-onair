@@ -116,17 +116,17 @@ export function ledgerPeriodParams(period: Period): Record<string, string> {
  * しか出ず、ダッシュボードで見ていた金額と合わない。`period_all` は URL だけの鍵で、
  * 台帳 API には送らない（受け取り側は `ledger/ledgerUrlPeriod.ts`）。
  */
-// `editId` を渡すと `edit=<id>` も足す。**仕入・販管費の内訳の行**から使う
-// （財務ダッシュボードの仕入・販管費を編集できるようにする対応）。台帳側
-// （`PurchaseListPage`/`SgaListPage`）はこの鍵を受け取ると、その行の編集ダイアログを
-// 開いた状態で表示する。`PdfTab.tsx` が既に使っていた `?edit=` と同じ仕組み
-export function ledgerOpenQuery(period: Period, projectId?: string, projectName?: string, editId?: string): string {
+// ⚠️ 以前は `editId` 引数もあり（財務ダッシュボードの仕入・販管費の行から
+// `?edit=<id>` を足して台帳側の編集ダイアログを開いた状態で着地させていた）。
+// 遷移そのものをやめた（9/4 仕様変更・`BudgetDashboardPage.tsx` 冒頭コメント）
+// ため削除した。`?edit=` の仕組み自体は `PdfTab.tsx` がここを通さず直接
+// 組み立てて使っているので、`PurchaseListPage`/`SgaListPage` 側のハンドラは残っている
+export function ledgerOpenQuery(period: Period, projectId?: string, projectName?: string): string {
   const params: Record<string, string> = ledgerPeriodParams(period);
   if (period.all) params.period_all = '1';
   if (Object.keys(params).length > 0) params.period_label = period.label;
   if (projectId) params.project_id = projectId;
   if (projectName) params.project_name = projectName;
-  if (editId) params.edit = editId;
   const qs = new URLSearchParams(params).toString();
   return qs ? `?${qs}` : '';
 }

@@ -6,14 +6,11 @@
  * readOnly（仕様変更 #3）を足すだけで確実に超えるため、`revenuePrefill.ts`
  * （③ 売上・同じ理由の切り出し）に倣ってここへ出した。
  *
- * `formFromSga` は「行（`SgaExpense`）→ 編集フォームの初期値（`SgaFormData`）」の
- * マッピングで、**`SgaListPage`（一覧の行を直す）が呼ぶ**。財務ダッシュボードの
- * 内訳の行は `?edit=<id>` を付けてこの画面へ遷移するだけ（`BudgetDashboardPage.tsx`）
- * で、`formFromSga` 自体は直接は呼ばない ── 遷移した先で `SgaListPage` の
- * `?edit=` ハンドラがこの関数を通して編集ダイアログを開く。
- * ⚠️ 以前この節は「`BudgetDashboardPage` が閲覧専用ダイアログのために直接呼ぶ」
- * 旨だったが、そのダイアログはコミット 7914d63 で廃止済み。写すと片方だけ
- * 直った画面ができるので、マッピングは引き続きこの1か所にまとめてある。
+ * `formFromSga` は「行（`SgaExpense`）→ フォームの初期値（`SgaFormData`）」の
+ * マッピングで、**`SgaListPage`（一覧の行を直す）と `BudgetDashboardPage`
+ * （内訳の行の閲覧専用モーダル・9/4 仕様変更）の両方が呼ぶ**。行はどちらの
+ * 画面もすでに1件分のデータを持っているので、どちらも API を引き直さずこの
+ * 関数だけを通す（写すと片方だけ直った画面ができるので、マッピングはここ1か所）。
  */
 import type { SgaExpense } from '@/types';
 import type { SgaFormData } from './SgaDialog';
