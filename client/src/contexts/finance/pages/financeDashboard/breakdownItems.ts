@@ -5,15 +5,15 @@
  * 行の組み立てが「どの台帳へどう飛ぶか」を知らずに済み、呼び出し側の画面だけを
  * 読めば導線が分かる形にするため（400行の上限もここで守る）。
  *
- * ── 3列とも「押す＝その台帳の明細一覧へ飛ぶ」に揃えた ────────────
+ * ── 売上＝台帳へ遷移、仕入・販管費＝この画面のまま詳細モーダル（9/4 仕様変更）──
  *
- * 以前は列ごとに動作が違い（売上＝ダッシュボードに留まって絞り込み、仕入・販管費＝
- * ダッシュボード上に閲覧専用ダイアログ）、**同じ形の行なのに押すと違うことが起きる**
- * 状態でした（ご指摘「明細一覧に飛ばしてください」）。いまは3列とも
- * 売上→`/budget/revenues`・仕入→`/budget/purchases`・販管費→`/budget/sga` へ、
- * **いま効いている期間**（と、案件に紐づく行はその案件）で絞り込んで開きます。
- * 引き継ぐクエリの組み立ては `period.ts` の `ledgerOpenQuery` 1本
- *（「台帳をひらく」フッターボタンと同じ関数＝対応表を2つ持たない）。
+ * 一時期は3列とも「押す＝台帳の明細一覧へ遷移」に揃えていたが、仕入・販管費は
+ * 遷移すると**背景のページごと台帳に切り替わってしまい、一覧画面を維持してほしい**
+ * というご指摘が入った。行はすでに1件分のデータを持っているので、遷移も
+ * 再取得もせず、この画面の上に閲覧専用モーダル（`PurchaseDialog`/`SgaDialog` の
+ * `readOnly`）を重ねるだけにしてある（`buildPurchaseItems`/`buildSgaItems` 参照）。
+ * 売上は対象外（従来どおり台帳 `/budget/revenues` へ遷移。引き継ぐクエリの
+ * 組み立ては `period.ts` の `ledgerOpenQuery`）。
  *
  * ── 申請ステータスは台帳と同じ関数から作る ──────────────────
  *
@@ -106,12 +106,16 @@ export function buildRevenueItems(
 export function buildPurchaseItems(
   rows: PurchaseRow[],
   /**
-   * 仕入台帳（④ 仕入）の明細一覧へ、**その行の編集ダイアログを開いた状態**で。
-   * 案件に紐づく行はその案件で絞り込んで開く。
-   * ⚠️ 固定原価（償却負担額）の行は案件を持たないことがあるので、
-   * **`null` で呼ばれる前提**にしてある（期間だけ引き継いで開く）。
+   * この行の**詳細モーダルを開くだけ**（台帳へは遷移しない・仕様変更 9/4）。
+   *
+   * ⚠️ 以前は台帳（④ 仕入）へ `navigate()` し、`?edit=<id>` で編集ダイアログを
+   * 開いた状態で着地させていた。しかし「一覧画面をそのまま維持してほしい
+   * （背景が台帳に遷移するのは望ましくない）」というご指摘のとおり、フルページ
+   * 遷移そのものが問題だった。行はすでに1件分のデータを持っているので、
+   * 遷移も再取得もせず、そのままこの画面の上に閲覧専用モーダル
+   * （`PurchaseDialog readOnly`）を重ねるだけにする。
    */
-  openLedger: (projectId: string | null | undefined, projectName: string | null | undefined, rowId: string) => void,
+  onView: (row: PurchaseRow) => void,
 ): BreakdownItem[] {
   return rows.map((p) => ({
     id: p.id,
@@ -123,21 +127,18 @@ export function buildPurchaseItems(
     badge: settlementState(p.is_provisional, p.settlement_number),
     // 精算ページ。**申請URLが入っている行にだけ**出す（台帳と同じ流儀）
     settlementUrl: p.settlement_url,
-    // 押す＝仕入の明細一覧へ、この行の編集ダイアログを開いた状態で
-    // （この行の案件と、いま効いている期間で絞り込む）
-    onClick: () => openLedger(p.project_id, p.project_name, p.id),
+    // 押す＝この画面のまま詳細モーダルを開くだけ（台帳へは移動しない）
+    onClick: () => onView(p),
   }));
 }
 
 export function buildSgaItems(
   rows: SgaExpense[],
   /**
-   * 販管費台帳（⑤ 販管費）の明細一覧へ、**その行の編集ダイアログを開いた状態**で。
-   * ⚠️ **販管費は案件に紐づかない**ので、引き継ぐのは期間とこの行の id だけ。
-   * `SgaListPage` は元々 `?edit=` を持っていた（`PdfTab.tsx` 用）ので、
-   * ここから渡しても同じ仕組みで編集ダイアログが開く。
+   * この行の**詳細モーダルを開くだけ**（台帳へは遷移しない・仕様変更 9/4）。
+   * 理由は `buildPurchaseItems` と同じ（`SgaDialog readOnly` を重ねる）。
    */
-  openLedger: (rowId: string) => void,
+  onView: (row: SgaExpense) => void,
 ): BreakdownItem[] {
   return rows.map((x) => ({
     id: x.id,
@@ -147,7 +148,7 @@ export function buildSgaItems(
     // 台帳（⑤ 販管費）とまったく同じ3値（`is_provisional` は migration 268 で追加済み）
     badge: settlementState(x.is_provisional, x.settlement_number),
     settlementUrl: x.settlement_url,
-    // 押す＝販管費の明細一覧へ、この行の編集ダイアログを開いた状態で
-    onClick: () => openLedger(x.id),
+    // 押す＝この画面のまま詳細モーダルを開くだけ（台帳へは移動しない）
+    onClick: () => onView(x),
   }));
 }

@@ -1133,4 +1133,82 @@ export const estimateService = {
 
     return (await this.getById(id))!;
   },
+
+  /**
+   * `convertToRevenue` の取り消し。売上・請求への登録を外し、見積を「未登録」の
+   * 状態に戻す（9/4 ご依頼: ①誤って売上に登録してしまったものを見積もりに戻す
+   * ②見積を更新して売上を登録し直すため、いまの売上を旧版として見積もりに戻す）。
+   *
+   * どちらも「登録した売上を消して `estimates.revenue_id` を外す」という同じ
+   * 操作で満たせる。見積の明細・金額は変換後も残したまま（削除しない）なので、
+   * 紐づきを外すだけで見積側にはそのまま残る。②のケースは、戻したあとに
+   * 次の版を作って改めて `convert-to-revenue` すれば、そのときは sibling
+   * （前の版）の `revenue_id` がもう無いので新しい独立した売上行になる。
+   *
+   * `status` は一切変えない（`archive`/`unarchive` と同じ「直交した状態は
+   * 混ぜない」という決めごと）。受注状態 (`accepted`) のまま「未登録」に戻る。
+   *
+   * ガードは `convertToRevenue` の sibling 上書きガードとまったく同じ2つ
+   * （配分グループに入っている・請求書発行や検収・入金が済んでいる）。
+   * この売上を直接消すのではなく「見積へ戻す」という安全な経路として
+   * 提供するので、ガード無しの `DELETE /revenues/:id` とは独立している。
+   */
+  async revertToEstimate(id: string, userId: string): Promise<Estimate> {
+    await withTransaction(async (tx) => {
+      // 確かめるのも消すのも取引の中で、行を押さえてから
+      // （`convertToRevenue` と同じ理由 — 外で確かめると同時押しで壊れる）
+      const est = await tx.queryOne(
+        `SELECT revenue_id FROM estimates WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`, [id],
+      ) as { revenue_id: string | null } | undefined;
+      if (!est) throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
+      if (!est.revenue_id) {
+        throw new AppError(400, 'NOT_CONVERTED', 'この見積はまだ売上・請求に登録されていません');
+      }
+
+      const revenue = await tx.queryOne(
+        `SELECT id, group_id, invoice_issued, inspection_date, paid_date
+           FROM revenues WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
+        [est.revenue_id],
+      ) as {
+        id: string; group_id: string | null;
+        invoice_issued: boolean | null; inspection_date: string | null; paid_date: string | null;
+      } | undefined;
+
+      // 売上行がすでに（別経路で）消えていることがある。その場合は見積側の
+      // 参照だけ外して復旧する（404 にして詰ませない）
+      if (!revenue) {
+        await tx.execute(
+          `UPDATE estimates SET revenue_id = NULL, updated_at = NOW(), updated_by = $2 WHERE id = $1`,
+          [id, userId],
+        );
+        return;
+      }
+
+      if (revenue.group_id) {
+        throw new AppError(400, 'REVENUE_IN_ALLOCATION_GROUP',
+          'この売上はすでに配分グループに入っています。財務管理の売上台帳から先に配分を外してください');
+      }
+      if (revenue.invoice_issued || revenue.inspection_date || revenue.paid_date) {
+        throw new AppError(400, 'REVENUE_ALREADY_BILLED',
+          'この売上はすでに請求書の発行・検収・入金のいずれかが済んでいます。発行済みの書類と帳簿が食い違うため戻せません。財務管理の売上台帳で状態を確認してください');
+      }
+
+      /*
+       * ⚠️ **同じ売上を複数版の見積が指していることがある**（`convertToRevenue` の
+       * sibling 上書き — 新しい版を売上に変換すると、前の版の `revenue_id` は
+       * クリアされずそのまま残る）。片方だけ外すと「まだ登録済みのはずなのに
+       * 売上が無い」という不整合になるので、**売上ID起点で全件**外す。
+       */
+      await tx.execute(
+        `UPDATE estimates SET revenue_id = NULL, updated_at = NOW(), updated_by = $2 WHERE revenue_id = $1`,
+        [revenue.id, userId],
+      );
+      await tx.execute(
+        `UPDATE revenues SET deleted_at = NOW(), updated_at = NOW(), updated_by = $2 WHERE id = $1`,
+        [revenue.id, userId],
+      );
+    });
+
+    return (await this.getById(id))!;
+  },
 };

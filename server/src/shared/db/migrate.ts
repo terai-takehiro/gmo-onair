@@ -77,6 +77,28 @@ export async function runMigrations(): Promise<void> {
         ].join('\n')
       );
     }
+
+    /*
+     * idx_episodes_code_unique（episode_code の一意索引・最後の砦）も同じ理由で
+     * migration 275 が作成を見送ることがある。無ければ復旧手順ごと残す
+     * （**throw はしない**）。
+     */
+    const codeIdx = await pool.query(
+      `SELECT 1 FROM pg_indexes WHERE indexname = 'idx_episodes_code_unique'`
+    );
+    if (codeIdx.rows.length === 0) {
+      console.error(
+        [
+          '⚠️ [episodes] 一意索引 idx_episodes_code_unique がありません',
+          '  （既存の重複データのため migration 275 が作成を見送った環境です。',
+          '   episode_code の重複はアプリ側の重複チェックだけで防がれている状態）。',
+          '  重複の確認: SELECT episode_code, COUNT(*) FROM episodes',
+          '              WHERE deleted_at IS NULL GROUP BY 1 HAVING COUNT(*) > 1;',
+          '  直したら手動で: CREATE UNIQUE INDEX idx_episodes_code_unique',
+          '                  ON episodes (episode_code) WHERE deleted_at IS NULL;',
+        ].join('\n')
+      );
+    }
   }
 
   console.log('Migrations complete.');
