@@ -14,6 +14,7 @@ import activityLogsRoutes from './routes/activity-logs.routes';
 import salesAnalyticsRoutes from './routes/sales-analytics.routes';
 import keepReportRoutes from './routes/keep-report.routes';
 import flowTemplatesRoutes from './routes/flow-templates.routes';
+import stageProbabilityRoutes from './routes/stage-probability.routes';
 import { createSalesExcelRouter } from './routes/excel.routes';
 
 export function createSalesRoutes(): Router {
@@ -37,6 +38,9 @@ export function createSalesRoutes(): Router {
   router.use('/activity-logs', activityLogsRoutes);
   router.use('/sales-analytics', salesAnalyticsRoutes);
   router.use('/keep', keepReportRoutes);
+  // 案件フェーズごとの受注確度（%）。財務ダッシュボードの営業見通しと
+  // 設定「お金のルール」の両方が読む（2026-09 依頼）
+  router.use('/stage-probabilities', stageProbabilityRoutes);
   router.use(createSalesExcelRouter()); // /customers/excel/* etc.
 
   return router;

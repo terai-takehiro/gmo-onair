@@ -9,6 +9,7 @@ import xpointRoutes from './routes/xpoint.routes';
 import moneyRulesRoutes from './routes/money-rules.routes';
 import { createFinanceExcelRouter } from './routes/excel.routes';
 import { getMonthlySummary } from './services/monthly-summary.service';
+import { getPipelineForecast } from './services/pipeline-forecast.service';
 import { requireAuth, requirePermission } from '../../shared/middleware/auth';
 
 export function createFinanceRoutes(): Router {
@@ -25,6 +26,16 @@ export function createFinanceRoutes(): Router {
       // 期間を絞らない集計。画面の「全期間」ボタンだけが `all=1` を付ける
       allPeriods: req.query.all === '1' || req.query.all === 'true',
     });
+    res.json({ success: true, data });
+  });
+
+  /**
+   * 財務ダッシュボードの「営業見通し（パイプライン）」— 総額 / 確度加味の切り替え用
+   * （2026-09 依頼）。集計ロジックは `pipeline-forecast.service.ts` に集約
+   * （`getMonthlySummary` の「確定売上だけ」とは別軸——詳しくはそちらのコメント参照）。
+   */
+  router.get('/pipeline-forecast', requireAuth, requirePermission('sales'), async (req, res) => {
+    const data = await getPipelineForecast(req.query.project_id as string | undefined);
     res.json({ success: true, data });
   });
 

@@ -31,10 +31,11 @@ import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { localDateStr } from '@/lib/format';
 import { DiscountLimits } from './DiscountLimits';
+import { StageProbabilities } from './StageProbabilities';
 import {
   DAY_CHOICES, MONTH_CHOICES, ROUNDING_CHOICES, TAX_UNIT_CHOICES, DISPLAY_CHOICES,
   ISSUE_CHOICES, HOLIDAY_SHIFT_CHOICES, LABOR_UNIT_CHOICES, TAX_RATE_CHOICES,
-  type Choice, type MoneyResponse, type MoneyRules,
+  type Choice, type MoneyResponse, type MoneyRules, type StageProbabilityRow,
 } from './rules';
 
 /** 選択肢を横に並べる。**選べる値がその場で全部見える**ので、開いて探さずに済む */
@@ -108,6 +109,13 @@ export default function MoneyRulesPage() {
   const q = useQuery<MoneyResponse>({
     queryKey: ['money-rules'],
     queryFn: async () => (await api.get('/money-rules')).data.data,
+  });
+
+  // フェーズごとの受注確度は別 API（`StageProbabilities.tsx` 冒頭を参照）。
+  // 別クエリにしてあるので、こちらが失敗してもお金のルール本体は表示できる
+  const stageQ = useQuery<StageProbabilityRow[]>({
+    queryKey: ['stage-probabilities'],
+    queryFn: async () => (await api.get('/stage-probabilities')).data.data,
   });
 
   useEffect(() => { if (q.data) setDraft({ ...q.data.rules }); }, [q.data]);
@@ -254,6 +262,14 @@ export default function MoneyRulesPage() {
           </Group>
 
           <DiscountLimits limits={q.data.limits} canEdit={canEdit} />
+
+          {stageQ.isError ? (
+            <p className="rounded-card text-note border border-border bg-card px-4 py-3 text-muted-foreground">
+              受注確度を読み込めませんでした。
+            </p>
+          ) : stageQ.data ? (
+            <StageProbabilities rows={stageQ.data} canEdit={canEdit} />
+          ) : null}
         </div>
 
         <div className="rounded-card w-full shrink-0 overflow-hidden border border-border bg-card lg:w-[240px]">
