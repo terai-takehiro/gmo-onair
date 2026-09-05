@@ -11,6 +11,19 @@ import type { PurchaseRow } from './types';
 import type { PurchaseProjectOption } from './PurchaseDialog';
 
 /**
+ * 担当者の候補一覧のキャッシュ鍵。
+ *
+ * ⚠️ **`['users-list']` は使わない。** `SgaListPage`・`ActivityLogPage`・
+ * `useNewProjectForm` が同じ鍵で**応答オブジェクトそのもの**（`{data, pagination}`）
+ * をキャッシュしており、こちらは**フラットな配列**を返す。同じ鍵で形が違うと
+ * react-query が先に開いた画面のキャッシュ（60秒）をそのまま返すことがあり、
+ * `users.map` が配列でない値に対して呼ばれて落ちる（レビュー指摘・P1。
+ * `projectLedger/useLedgerLookups.ts` が同種の理由で `ledger-users-all` という
+ * 別鍵に分けているのと同じ罠）。
+ */
+export const PURCHASE_ASSIGNEE_USERS_QUERY_KEY = ['finance-purchase-assignee-users'] as const;
+
+/**
  * 担当者の候補一覧を**全ページぶん**取る。`GET /users` は共通の `extractPagination`
  * が `limit` を無条件に100件へ切るため、`?limit=200` を渡しても最初の100人しか
  * 返らず、五十音で101人目以降のユーザーが担当者に選べなかった（レビュー指摘）。
@@ -53,7 +66,7 @@ export function usePurchaseDialogData(params: {
 
   // 担当者の候補一覧
   const { data: users = [] } = useQuery({
-    queryKey: ['users-list'],
+    queryKey: PURCHASE_ASSIGNEE_USERS_QUERY_KEY,
     queryFn: fetchAllUsers,
     enabled: dialogOpen,
   });

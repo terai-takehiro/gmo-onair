@@ -75,7 +75,7 @@ import { cn } from '@gmo-onair/shared/src/client/utils';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { PurchaseDialog, type PurchaseProjectOption } from '@/contexts/finance/pages/ledger/PurchaseDialog';
-import { fetchAllUsers } from '@/contexts/finance/pages/ledger/usePurchaseDialogData';
+import { fetchAllUsers, PURCHASE_ASSIGNEE_USERS_QUERY_KEY } from '@/contexts/finance/pages/ledger/usePurchaseDialogData';
 import { RevenueDialog } from '@/contexts/finance/pages/ledger/RevenueDialog';
 import type { PurchaseRow } from '@/contexts/finance/pages/ledger/types';
 import type { Vendor } from '@gmo-onair/shared/src/types';
@@ -136,7 +136,7 @@ export function RevenueBillingPane({ projectId, projectName, mobile }: { project
     enabled: addPurchaseOpen,
   });
   const vendors: Vendor[] = vendorsData?.data ?? [];
-  const { data: users = [] } = useQuery({ queryKey: ['users-list'], queryFn: fetchAllUsers, enabled: addPurchaseOpen });
+  const { data: users = [] } = useQuery({ queryKey: PURCHASE_ASSIGNEE_USERS_QUERY_KEY, queryFn: fetchAllUsers, enabled: addPurchaseOpen });
   const savePurchase = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => (await api.post('/purchases', payload)).data,
     onSuccess: () => {

@@ -174,9 +174,12 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
           recognition_date, inspection_date, payment_due_date, notes, is_provisional,
           service_completed_date } = req.body;
   // 新しく渡された vendor_id・assigned_to だけ確かめる（`revenues.routes.ts` の PUT と
-  // 同じ理由。既存値は再検証しない）
+  // 同じ理由。既存値は再検証しない）。**「渡された値」ではなく「変わった値」で
+  // 判定する** — 担当者がこの検証を足す前から削除済み・存在しないIDを指していた
+  // 行を編集フォームがそのまま送り返してくると、担当者と無関係な項目を1つ直す
+  // だけの更新まで拒否してしまう（レビュー指摘）
   if (vendor_id) await assertVendorCompanyId(vendor_id);
-  if (assigned_to) await assertAssignedToExists(assigned_to);
+  if (assigned_to && assigned_to !== existing.assigned_to) await assertAssignedToExists(assigned_to);
   // 部分更新契約: 送られなかったフィールドは既存値を保持する (省略で NOT NULL 違反・
   // 計上日消失・適格 0 への強制降格が起きていたのを防ぐ)。空文字は null 化する。
   await execute(

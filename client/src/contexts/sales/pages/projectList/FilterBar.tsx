@@ -75,11 +75,26 @@ export function sortMark(sort: string, key: string): 'asc' | 'desc' | null {
   return dir === 'desc' ? 'desc' : 'asc';
 }
 
-/** 表頭を押したときの次の `sort` 値。同じ列なら 昇順→降順→既定 の3段で回す */
+/**
+ * 降順を選ばせない列（実施日・次のタスクの期限）。
+ *
+ * サーバー（`project.service.ts`）はこの2列だけ、降順のときに
+ * `NULLS FIRST`（日付が無い案件を先頭に置く）にしている——元々プルダウンが
+ * この2列を「近い順」（昇順）でしか出していなかったため、降順の並びは
+ * 一度も画面に出たことが無かった。ヘッダークリックで初めて降順に**辿り着ける**
+ * ようになると、日付が無い案件がページの先頭を埋めて、実際に直近の日付を
+ * 持つ案件がページから押し出される（レビュー指摘）。プルダウンが元々
+ * 降順を出していなかったのと同じ理由で、ヘッダーからも選べないようにする
+ * （昇順→既定の2段でトグル。他の列は昇順→降順→既定の3段のまま）。
+ */
+const ASC_ONLY_SORT_KEYS = new Set(['event_start', 'next_task_due']);
+
+/** 表頭を押したときの次の `sort` 値。同じ列なら 昇順→降順→既定 の3段で回す
+ * （`ASC_ONLY_SORT_KEYS` の列だけ昇順→既定の2段） */
 export function nextHeaderSort(sort: string, key: string): string {
   const [by, dir] = sort.split(':');
   if (by !== key) return `${key}:asc`;
-  if (dir === 'asc') return `${key}:desc`;
+  if (dir === 'asc' && !ASC_ONLY_SORT_KEYS.has(key)) return `${key}:desc`;
   return DEFAULT_HEADER_SORT;
 }
 
