@@ -2295,6 +2295,30 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   30並列PUTでの競合無し）。⚠️ 実ブラウザでのPC/スマホ確認・`npm run build`・
   `npm run verify:ui` は未実施（PR本文に明記済み）。
 
+- **#563**（`feat(client): 財務ダッシュボードのトグル全体化・仕入担当者・案件一覧の並び替え`）—
+  作成 2026-09-05 17:57:45 JST。**今回は他の最近の PR と違い、Codex のレビューが実際に届いた**
+  （P1×2・P2×7、計9件・2回に分けて）。**マージ前に全件検証のうえ修正・返信・スレッド解決済み**
+  （`npm run reviews:debt` はこの環境のトークンでは401のため使えず、`get_review_comments` で
+  直接確認）。マージ 18:40 JST 頃。3機能（財務ダッシュボードのトグル置き場所全体化・仕入の
+  担当者登録・案件一覧のヘッダークリック並べ替え）を3体の並列サブエージェント（各自 worktree）に
+  実装させ、レビュー対応は自分で直接行った PR。
+  | # | 重み | ファイル | 指摘 | 状態 |
+  |---|---|---|---|---|
+  | 1 | P2 | `FilterBar.tsx` | ヘッダークリックが作る `sort` 値（`name:asc`等）が `SORT_OPTIONS` に無く、プルダウン/スマホの表示が「おすすめ順」に誤読み替えされる | ⭕️ `0e4204a`（`sortLabel`/`sortChoices` で列名＋昇順/降順を動的生成） |
+  | 2 | P2 | `purchases.routes.ts` | `assigned_to \|\| req.user!.id` が明示的な `null`（担当者クリア）を未指定と区別できず、作成者にすり替わる | ⭕️ `0e4204a`（`=== undefined` のときだけ作成者に落とす） |
+  | 3 | P2 | `PurchaseDialog.tsx` | `BudgetDashboardPage`/`RevenueBillingPane` の閲覧専用・追加ダイアログが `users`/`currentUserId` を渡しておらず、生UUID表示／担当者0件になる | ⭕️ `0e4204a`（サーバーが `assigned_to_name` をJOIN解決・追加ダイアログに配線） |
+  | 4 | P2 | `usePurchaseDialogData.ts` | 担当者一覧が `extractPagination` の100件上限で切れ、101人目以降が選べない | ⭕️ `0e4204a`（`fetchAllUsers` で全ページ取得） |
+  | 5 | P2 | `ProjectRows.tsx` | `aria-sort` が `columnheader`/`rowheader` 役割を持たない `<div>` に付いており、スクリーンリーダーに効かない | ⭕️ `0e4204a`（ボタンのアクセシブルネームに並び状態を含める） |
+  | 6 | P2 | `purchases.routes.ts` | `assigned_to` に外部キー制約が無く、存在しない・削除済みIDをそのまま保存できる | ⭕️ `0e4204a`（POST/PUTとも実在確認） |
+  | 7 | P1 | `usePurchaseDialogData.ts` | 新設したフラット配列のキャッシュ鍵 `users-list` が、他画面（`SgaListPage`等）の同名鍵（応答オブジェクト）と衝突し、キャッシュ次第で `users.map` が落ちる | ⭕️ `e518e85`（専用キー `finance-purchase-assignee-users` に分離） |
+  | 8 | P2 | `FilterBar.tsx` | ヘッダーで実施日・次のタスクの降順が新たに選べるが、サーバーはこの2列の降順で `NULLS FIRST`（日付なしが先頭）にしており、直近日の案件がページから押し出される | ⭕️ `e518e85`（この2列は降順を生成しない・昇順→既定の2段トグルに変更） |
+  | 9 | P2 | `purchases.routes.ts` | PUTで担当者を変えていなくても毎回実在確認しており、検証を足す前から孤立IDを持つ行の他項目更新まで拒否していた | ⭕️ `e518e85`（「既存値から変わった値」のときだけ検証） |
+
+  ⚠️ **意図して残した未検証事項**（型チェック・lint・shared Vitest 1996件・検証用 Postgres への
+  実際のAPI呼び出しでの確認に留まる）: ① 実ブラウザでのPC/スマホ確認はしていない
+  （`npm run verify:ui` 未実施）。② 権限のない利用者での403/非表示の画面確認はしていない。
+  ③ `npm run build` は実行していない。
+
 - **#561**（`feat(daily): フィードバックチケットの可視化ミニアプリを新設`）—
   作成 2026-09-05 08:29:08 JST / CI（`checks`/`build`）とも成功 08:32:43 JST /
   **CI が緑になる前、Codex のレビューが届く前にユーザー自身がマージ**（`pull_request.closed`
