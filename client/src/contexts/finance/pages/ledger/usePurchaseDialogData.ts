@@ -35,6 +35,14 @@ export function usePurchaseDialogData(params: {
   });
   const vendors: Vendor[] = vendorsData?.data ?? [];
 
+  // 担当者の候補一覧。`SgaListPage.tsx` と同じ形（`GET /users?limit=200`）
+  const { data: usersData } = useQuery({
+    queryKey: ['users-list'],
+    queryFn: async () => (await api.get('/users?limit=200')).data,
+    enabled: dialogOpen,
+  });
+  const users: { id: string; name: string }[] = usersData?.data ?? [];
+
   // 財務ダッシュボード等から ?edit={id} で来たら、その仕入の編集ダイアログを直接開く
   // （`SgaListPage.tsx` と同じ形。一覧のページには乗っていない行でも開けるよう、
   // 一覧とは別に単体で取得する）
@@ -49,5 +57,5 @@ export function usePurchaseDialogData(params: {
     staleTime: Infinity,
   });
 
-  return { glsProjects, vendors };
+  return { glsProjects, vendors, users };
 }
