@@ -63,7 +63,7 @@ import { STAGE_CHIPS, ALL_STAGES } from './projectList/stages';
 import { ProjectRow, ProjectRowsHeader } from './projectList/ProjectRows';
 import { ProjectBoard } from './projectList/ProjectBoard';
 import { SeedRow, SeedRowsHeader } from './projectList/SeedRows';
-import { FilterBar, TermHint, SORT_OPTIONS } from './projectList/FilterBar';
+import { FilterBar, TermHint, SORT_OPTIONS, nextHeaderSort } from './projectList/FilterBar';
 import { MobileFilterBar } from './projectList/MobileFilterBar';
 import { PageNav } from './projectList/PageNav';
 import { ProjectCards } from './projectList/ProjectCards';
@@ -187,6 +187,15 @@ export default function ProjectListPage() {
   useEffect(() => { flip.play(); }, [rows, flip]);
   /** 並びが変わる操作は必ずここを通す。**直前の位置を覚えてから**値を変える */
   const move = <T,>(set: (v: T) => void) => (v: T) => { flip.capture(); reset(set)(v); };
+
+  /**
+   * 表頭クリックでの並べ替え（`ProjectRows.tsx` の `ProjectRowsHeader`）。
+   * **プルダウン（`FilterBar` の `SORT_OPTIONS`）と同じ `sort` state を触るだけ**
+   * ——別の state にすると、ヘッダーで並べ替えたのにプルダウンの表示が
+   * 「おすすめ順」のまま食い違う。次の値は案件台帳と同じ3段トグル
+   * （`nextHeaderSort`＝昇順→降順→既定）。
+   */
+  const onHeaderSort = (key: string) => move(setSort)(nextHeaderSort(sort, key));
 
   const countOf = (list: readonly string[]) => list.reduce((n, st) => n + (counts[st] ?? 0), 0);
   const totalAll = countOf(ALL_STAGES);
@@ -344,7 +353,7 @@ export default function ProjectListPage() {
         ) : (
           <div className="space-y-3.5">
             <div className="overflow-hidden rounded-card border border-border bg-card">
-              <ProjectRowsHeader />
+              <ProjectRowsHeader sort={sort} onSort={onHeaderSort} />
               {rows.map((p, i) => (
                 <ProjectRow key={p.id} p={p} today={today} tidy={tidy} row={{ index: i, isNew: flip.isNew(p.id) }} onOpen={() => navigate(`/sales/projects/${p.id}`)} />
               ))}

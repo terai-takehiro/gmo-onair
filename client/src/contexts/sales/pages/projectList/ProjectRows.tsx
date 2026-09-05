@@ -18,8 +18,16 @@
  *
  * スマホでは `stackOnMobile` で案件名が1行を独占し、実施日・次のタスク・
  * 最後の動きは**消えます** (`hideOnMobile`)。狭めるのではなく消すのが方針です。
+ *
+ * ── 表頭はクリックで並べ替えられる ────────────────────────────
+ *
+ * 並び替え自体は既にプルダウン（`FilterBar.tsx` の `SORT_OPTIONS`）で実装済み
+ * なので、ここは**同じ `sort` state（`sort_by:sort_dir`）を押しボタンにして
+ * 見せているだけ**です（案件台帳 `projectLedger/LedgerTable.tsx` と同じ作法:
+ * 印は指を乗せたときだけ薄く出す・同じ列を押すと 昇順→降順→既定 の3段で回す
+ * ＝ `FilterBar.tsx` の `sortMark` / `nextHeaderSort`）。
  */
-import { Sparkles } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronsUpDown, Sparkles } from 'lucide-react';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
@@ -29,23 +37,83 @@ import { STAGE_BADGE_LABEL, STAGE_BADGE_TONE, TERMINAL_STAGES } from './stages';
 import { HealthBadge } from './health';
 import { TidyActions } from './TidyActions';
 import { rowInProps, type RowAnim } from './rowAnim';
+import { sortMark } from './FilterBar';
 import type { ProjectListRow } from './types';
+
+/** 表頭1マスの中身。`sortKey` が無い列は押せないただの文字（今はすべての列が持つ） */
+function HeaderLabel({
+  label, sortKey, sort, onSort, align,
+}: {
+  label: string;
+  sortKey: string;
+  sort: string;
+  onSort: (key: string) => void;
+  align?: 'right';
+}) {
+  const mark = sortMark(sort, sortKey);
+  return (
+    <button
+      type="button"
+      onClick={() => onSort(sortKey)}
+      title={`${label}で並べ替える`}
+      className={`group -mx-1 flex w-full items-center gap-1 rounded-control px-1 py-0.5 hover:bg-border-faint ${
+        align === 'right' ? 'justify-end' : ''
+      } ${mark ? 'font-bold text-primary' : ''}`}
+    >
+      <span className="truncate">{label}</span>
+      {/* ⚠️ **並べ替えていないときの印は、指を乗せたときだけ出す**
+          （`LedgerTable.tsx` と同じ理由 — 常に出すと 72px の「最後の動き」が
+          切れる） */}
+      {mark === 'asc' ? <ArrowUp className="h-3 w-3 shrink-0" aria-hidden="true" />
+        : mark === 'desc' ? <ArrowDown className="h-3 w-3 shrink-0" aria-hidden="true" />
+          : (
+            <ChevronsUpDown
+              className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-40"
+              aria-hidden="true"
+            />
+          )}
+    </button>
+  );
+}
+
+/** `mark` を `aria-sort` の値に変換する */
+function ariaSort(mark: 'asc' | 'desc' | null): 'ascending' | 'descending' | 'none' {
+  return mark === 'asc' ? 'ascending' : mark === 'desc' ? 'descending' : 'none';
+}
 
 /**
  * 表頭。**スマホでは出しません** — 行が縦積みになるので、
  * 列の名前が並んでいても指す先がありません。
  */
-export function ProjectRowsHeader() {
+export function ProjectRowsHeader({
+  sort, onSort,
+}: {
+  /** いまの並び順（`${sort_by}:${sort_dir}`）。プルダウン（`FilterBar`）と共有する */
+  sort: string;
+  onSort: (key: string) => void;
+}) {
   return (
     <RowHeader className="hidden sm:flex">
-      <RowMain>案件 ／ お客様</RowMain>
-      <RowSlot w={96}>ステージ</RowSlot>
-      <RowSlot w={96}>実施日</RowSlot>
+      <RowMain aria-sort={ariaSort(sortMark(sort, 'name'))}>
+        <HeaderLabel label="案件 ／ お客様" sortKey="name" sort={sort} onSort={onSort} />
+      </RowMain>
+      <RowSlot w={96} aria-sort={ariaSort(sortMark(sort, 'stage'))}>
+        <HeaderLabel label="ステージ" sortKey="stage" sort={sort} onSort={onSort} />
+      </RowSlot>
+      <RowSlot w={96} aria-sort={ariaSort(sortMark(sort, 'event_start'))}>
+        <HeaderLabel label="実施日" sortKey="event_start" sort={sort} onSort={onSort} />
+      </RowSlot>
       {/* **列名は左揃え・数値は右揃え。** 名前まで右に寄せると、
           数字の右端と列名の右端が重なって桁が読みにくい */}
-      <RowSlot w={128}>見積金額</RowSlot>
-      <RowSlot w={200}>次のタスク</RowSlot>
-      <RowSlot w={72} align="right">最後の動き</RowSlot>
+      <RowSlot w={128} aria-sort={ariaSort(sortMark(sort, 'estimate_amount'))}>
+        <HeaderLabel label="見積金額" sortKey="estimate_amount" sort={sort} onSort={onSort} />
+      </RowSlot>
+      <RowSlot w={200} aria-sort={ariaSort(sortMark(sort, 'next_task_due'))}>
+        <HeaderLabel label="次のタスク" sortKey="next_task_due" sort={sort} onSort={onSort} />
+      </RowSlot>
+      <RowSlot w={72} align="right" aria-sort={ariaSort(sortMark(sort, 'last_move'))}>
+        <HeaderLabel label="最後の動き" sortKey="last_move" sort={sort} onSort={onSort} align="right" />
+      </RowSlot>
     </RowHeader>
   );
 }

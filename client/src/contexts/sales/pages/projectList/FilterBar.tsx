@@ -58,6 +58,31 @@ export const SORT_OPTIONS: { value: string; label: string }[] = [
   { value: 'last_move:asc', label: '最後の動きが古い順' },
 ];
 
+/**
+ * 列ヘッダーのクリック並べ替え（`ProjectRows.tsx` の `ProjectRowsHeader`）。
+ * `sort` state（`${sort_by}:${sort_dir}`）は上のプルダウンと共有する ——
+ * 別に持つと、ヘッダーで並べ替えたのにプルダウンが「おすすめ順」のままになる
+ * （逆も同じ）。案件台帳（`projectLedger/display.ts` の `nextSort`）と同じ
+ * 3段（昇順→降順→既定）でトグルする。
+ */
+const DEFAULT_HEADER_SORT = SORT_OPTIONS[0].value;
+
+/** 表頭の並べ替え印。押せない列（`key` が空）は常に印なし */
+export function sortMark(sort: string, key: string): 'asc' | 'desc' | null {
+  if (!key) return null;
+  const [by, dir] = sort.split(':');
+  if (by !== key) return null;
+  return dir === 'desc' ? 'desc' : 'asc';
+}
+
+/** 表頭を押したときの次の `sort` 値。同じ列なら 昇順→降順→既定 の3段で回す */
+export function nextHeaderSort(sort: string, key: string): string {
+  const [by, dir] = sort.split(':');
+  if (by !== key) return `${key}:asc`;
+  if (dir === 'asc') return `${key}:desc`;
+  return DEFAULT_HEADER_SORT;
+}
+
 export interface FilterBarProps {
   search: string;
   onSearch: (v: string) => void;
