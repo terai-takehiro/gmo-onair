@@ -176,7 +176,11 @@ export interface FeedbackTicket {
   updated_at: string;
 }
 
-export interface TicketCounts { all: number; open: number; in_progress: number; resolved: number; rejected: number }
+export interface TicketCounts {
+  all: number; open: number; in_progress: number; resolved: number; rejected: number;
+  /** 対象アプリごとの総数（絞り込みチップ用）。一覧は上限つきなので、件数はここから読む */
+  byTargetApp: Record<string, number>;
+}
 
 export interface CreateTicketInput {
   title: string;
@@ -193,9 +197,9 @@ export interface UpdateStatusInput {
 
 const KEY = 'feedback-tickets';
 
-export function useFeedbackTickets(filter: { status?: string; target_app?: string; category?: string; search?: string } = {}) {
+export function useFeedbackTickets(filter: { status?: string; target_app?: string; category?: string; search?: string; limit?: number } = {}) {
   return useQuery({
-    queryKey: [KEY, 'list', filter.status ?? 'all', filter.target_app ?? 'all', filter.category ?? 'all', filter.search ?? ''],
+    queryKey: [KEY, 'list', filter.status ?? 'all', filter.target_app ?? 'all', filter.category ?? 'all', filter.search ?? '', filter.limit ?? 'default'],
     queryFn: () =>
       api.get('/dailyops/feedback-tickets', { params: filter }).then((r) => r.data.data as FeedbackTicket[]),
     refetchOnMount: 'always',

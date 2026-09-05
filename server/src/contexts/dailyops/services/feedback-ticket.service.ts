@@ -167,20 +167,32 @@ const SELECT = `SELECT id, title, description, target_app, target_page, category
   reporter_id, reporter_name, response_note, resolved_at, created_at, updated_at
   FROM feedback_tickets`;
 
+/**
+ * 一覧の上限。**「入ってきた情報」（既定50・最大200）と同じ考え方**——
+ * 溜まる一方の記録を毎回全件持ってくると、通信量・DB の負荷・一覧の描画すべてが
+ * 際限なく伸びる。**全体の件数は `counts()`（COUNT で数える）が正**なので、
+ * 一覧が上限で切れても絞り込みチップの件数は嘘にならない
+ * （`client-daily/CLAUDE.md` の「入ってきた情報」節の教訓と同じ）。
+ */
+const DEFAULT_LIST_LIMIT = 50;
+const MAX_LIST_LIMIT = 200;
+
 export const feedbackTicketService = {
-  /** 一覧 (状態/対象アプリ/種別/検索で絞り込み)。新しい起票順。 */
-  async list(filter: { status?: string; target_app?: string; category?: string; search?: string } = {}): Promise<Record<string, unknown>[]> {
+  /** 一覧 (状態/対象アプリ/種別/検索で絞り込み)。新しい起票順・上限つき。 */
+  async list(filter: { status?: string; target_app?: string; category?: string; search?: string; limit?: number } = {}): Promise<Record<string, unknown>[]> {
     const conds: string[] = [];
     const params: unknown[] = [];
     if (filter.status && STATUS_KEYS.includes(filter.status)) { conds.push('status = ?'); params.push(filter.status); }
     if (filter.target_app && TARGET_APP_KEYS.includes(filter.target_app)) { conds.push('target_app = ?'); params.push(filter.target_app); }
     if (filter.category && CATEGORY_KEYS.includes(filter.category)) { conds.push('category = ?'); params.push(filter.category); }
+    // **検索も SQL 側で絞る**（以前は全件取ってから JS で filter していたため、
+    // 上限を付けると「上限に入らなかった一致」を取りこぼす形になっていた）
+    const search = filter.search?.trim();
+    if (search) { conds.push('(title ILIKE ? OR description ILIKE ?)'); params.push(`%${search}%`, `%${search}%`); }
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
-    const rows = await queryAll(`${SELECT} ${where} ORDER BY created_at DESC`, params);
-    if (!filter.search) return rows;
-    const q = filter.search.toLowerCase();
-    return rows.filter((r) =>
-      String(r.title).toLowerCase().includes(q) || String(r.description).toLowerCase().includes(q));
+    const limit = Math.max(1, Math.min(filter.limit ?? DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT));
+    params.push(limit);
+    return queryAll(`${SELECT} ${where} ORDER BY created_at DESC LIMIT ?`, params);
   },
 
   async get(id: string): Promise<Record<string, unknown> | undefined> {
@@ -189,9 +201,13 @@ export const feedbackTicketService = {
 
   /** 起票。全ユーザーが行える (呼び出し側 = ルートで reader 以上を確認済み)。 */
   async create(input: CreateTicketInput): Promise<Record<string, unknown>> {
-    const title = (input.title ?? '').trim();
+    // リクエストの JSON は実行時には型が無い。数値・配列・オブジェクトが来ると
+    // `.trim()` が例外を投げて 500 になっていた（意図した 400 にする）
+    if (typeof input.title !== 'string') throw new AppError(400, 'VALIDATION_ERROR', '題名を入れてください');
+    const title = input.title.trim();
     if (!title) throw new AppError(400, 'VALIDATION_ERROR', '題名を入れてください');
-    const description = (input.description ?? '').trim();
+    if (typeof input.description !== 'string') throw new AppError(400, 'VALIDATION_ERROR', '内容を入れてください');
+    const description = input.description.trim();
     if (!description) throw new AppError(400, 'VALIDATION_ERROR', '内容を入れてください');
     if (!TARGET_APP_KEYS.includes(input.target_app)) {
       throw new AppError(400, 'VALIDATION_ERROR', '対象アプリの指定が正しくありません');
@@ -219,25 +235,41 @@ export const feedbackTicketService = {
     if (!STATUS_KEYS.includes(input.status)) {
       throw new AppError(400, 'VALIDATION_ERROR', '対応状況の指定が正しくありません');
     }
-    const resolvedNow = input.status === 'resolved' || input.status === 'rejected';
+
+    // **省略 (undefined) = 元の値のまま／明示的な null = 消す** を区別する。
+    // `??` は両方とも「無い」として扱うため、対応コメントを空にして保存しても
+    // 直前の値が復活してしまっていた（画面は必ずどちらかを送るので実害があった）
+    const responseNote = input.response_note !== undefined ? input.response_note : (existing.response_note ?? null);
+
+    // **「初めて閉じた」瞬間だけ `resolved_at` を今にする。** 対応済み/却下のチケットを
+    // 対応コメントだけ直して保存すると、以前は毎回 NOW() で上書きし、
+    // 実際に閉じた時刻が保存のたびに更新されてしまっていた
+    const wasClosed = existing.status === 'resolved' || existing.status === 'rejected';
+    const willClose = input.status === 'resolved' || input.status === 'rejected';
+    const resolvedAtSql = !willClose ? 'NULL' : wasClosed ? '?' : 'NOW()';
+    const resolvedAtParams = willClose && wasClosed ? [existing.resolved_at] : [];
+
     await execute(
       `UPDATE feedback_tickets
-         SET status = ?, response_note = ?, resolved_at = ${resolvedNow ? 'NOW()' : 'NULL'}, updated_at = NOW()
+         SET status = ?, response_note = ?, resolved_at = ${resolvedAtSql}, updated_at = NOW()
        WHERE id = ?`,
-      [input.status, input.response_note ?? existing.response_note ?? null, id],
+      [input.status, responseNote, ...resolvedAtParams, id],
     );
     return (await this.get(id))!;
   },
 
-  /** 状態ごとの件数 (絞り込みチップ用)。 */
-  async counts(): Promise<Record<Status, number> & { all: number }> {
+  /** 状態ごと・対象アプリごとの件数 (絞り込みチップ用)。**上限つき一覧とは別に COUNT で数える**
+   *  ので、一覧が上限で切れてもチップの件数は嘘にならない。 */
+  async counts(): Promise<Record<Status, number> & { all: number; byTargetApp: Record<string, number> }> {
     const rows = await queryAll(`SELECT status, COUNT(*)::int AS n FROM feedback_tickets GROUP BY status`, []);
-    const out = { all: 0, open: 0, in_progress: 0, resolved: 0, rejected: 0 };
+    const out = { all: 0, open: 0, in_progress: 0, resolved: 0, rejected: 0, byTargetApp: {} as Record<string, number> };
     for (const r of rows) {
       const key = String(r.status) as Status;
       if (key in out) out[key] = Number(r.n);
       out.all += Number(r.n);
     }
+    const appRows = await queryAll(`SELECT target_app, COUNT(*)::int AS n FROM feedback_tickets GROUP BY target_app`, []);
+    for (const r of appRows) out.byTargetApp[String(r.target_app)] = Number(r.n);
     return out;
   },
 };

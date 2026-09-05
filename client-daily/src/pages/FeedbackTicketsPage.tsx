@@ -14,6 +14,18 @@
  * ── PC は表・スマホはカード ───────────────────────────────────
  *
  * 他の一覧画面（デイリーニュース報告など）と同じ形。列の詳細は `TicketRows.tsx`。
+ *
+ * ── 絞り込みはサーバーに投げる。件数は `/counts` から読む（レビュー #561 で直した） ──
+ *
+ * 以前は「全件取ってから画面で filter」していたため、一覧に上限を付けると
+ * 絞り込みチップの件数まで一緒に切れてしまう（「入ってきた情報」で踏んだのと同じ形）。
+ * いまは状態・対象アプリ・検索を `useFeedbackTickets` の引数として渡し、サーバー側で
+ * 絞り込んだ（かつ上限つきの）結果だけを受け取る。チップの件数は絞り込みの影響を受けない
+ * `useFeedbackTicketCounts`（COUNT）から読むので、一覧が上限で切れても数字は嘘にならない。
+ * ⚠️ **チップの件数はどの軸も「その軸だけの総数」**（対象アプリの件数は状態を無視した総数）。
+ * `SecurityCardsPage` の状態チップ・分類チップも同じ考え方（互いにクロス集計しない）で、
+ * それに揃えてある——揃えないと「状態チップは状態だけの数・アプリチップは掛け合わせた数」の
+ * ように**チップごとに意味が変わり**、そちらのほうが読み間違えやすい。
  */
 import { useMemo, useState } from 'react';
 import { MessageSquareWarning, Plus, Search, X } from 'lucide-react';
@@ -22,12 +34,13 @@ import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
 import { Delayed, EmptyState, ErrorPanel, NoSearchResults, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { useDebounced } from '@gmo-onair/shared/src/client/hooks/useDebounced';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { usePermissions } from '@/hooks/usePermissions';
 import {
-  STATUS_LABELS, TARGET_APPS, TARGET_APP_LABEL, useCreateFeedbackTicket, useFeedbackTickets,
-  type CreateTicketInput, type FeedbackTicket, type TicketStatus,
+  STATUS_LABELS, TARGET_APPS, TARGET_APP_LABEL, useCreateFeedbackTicket, useFeedbackTicketCounts,
+  useFeedbackTickets, type CreateTicketInput, type FeedbackTicket, type TicketStatus,
 } from '@/lib/feedbackTicketsApi';
 import { TicketForm } from './feedbackTickets/TicketForm';
 import { TicketDetailDialog } from './feedbackTickets/TicketDetailDialog';
@@ -39,39 +52,39 @@ type StatusFilter = 'all' | TicketStatus;
 export default function FeedbackTicketsPage() {
   const isMobile = useIsMobile();
   const { canEdit } = usePermissions();
-  const tickets = useFeedbackTickets();
-  const createTicket = useCreateFeedbackTicket();
+  const counts = useFeedbackTicketCounts();
 
   const [status, setStatus] = useState<StatusFilter>('all');
   const [targetApp, setTargetApp] = useState('');
   const [search, setSearch] = useState('');
+  // **問い合わせの鍵だけ遅らせる**（入力欄自体は遅らせない・`useDebounced` の決めごと）
+  const debouncedSearch = useDebounced(search);
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState<FeedbackTicket | null>(null);
 
-  const all = useMemo(() => tickets.data ?? [], [tickets.data]);
+  const tickets = useFeedbackTickets({
+    status: status === 'all' ? undefined : status,
+    target_app: targetApp || undefined,
+    search: debouncedSearch.trim() || undefined,
+  });
+  const createTicket = useCreateFeedbackTicket();
 
-  // **件数はこの一覧から数える。** サーバーに `/counts` はあるが、
-  // 絞り込み(対象アプリ・検索)まで反映した数はここでしか出せない
+  const visible = useMemo(() => tickets.data ?? [], [tickets.data]);
+
+  // チップの件数はどれも `/counts`（COUNT）から読む。**軸ごとの総数**であって、
+  // 他の軸の絞り込みとは掛け合わせない（冒頭のコメント参照）
   const statusCounts = useMemo(() => ({
-    all: all.length,
-    open: all.filter((t) => t.status === 'open').length,
-    in_progress: all.filter((t) => t.status === 'in_progress').length,
-    resolved: all.filter((t) => t.status === 'resolved').length,
-    rejected: all.filter((t) => t.status === 'rejected').length,
-  } as Record<StatusFilter, number>), [all]);
+    all: counts.data?.all ?? null,
+    open: counts.data?.open ?? null,
+    in_progress: counts.data?.in_progress ?? null,
+    resolved: counts.data?.resolved ?? null,
+    rejected: counts.data?.rejected ?? null,
+  } as Record<StatusFilter, number | null>), [counts.data]);
 
   const appCounts = useMemo(() => ({
-    '': all.length,
-    ...Object.fromEntries(TARGET_APPS.map((a) => [a.key, all.filter((t) => t.target_app === a.key).length])),
-  } as Record<string, number>), [all]);
-
-  const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return all.filter((t) =>
-      (status === 'all' || t.status === status)
-      && (!targetApp || t.target_app === targetApp)
-      && (!q || t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)));
-  }, [all, status, targetApp, search]);
+    '': counts.data?.all ?? null,
+    ...Object.fromEntries(TARGET_APPS.map((a) => [a.key, counts.data?.byTargetApp[a.key] ?? (counts.data ? 0 : null)])),
+  } as Record<string, number | null>), [counts.data]);
 
   const submitNew = (fields: CreateTicketInput) => {
     createTicket.mutate(fields, {
@@ -143,9 +156,9 @@ export default function FeedbackTicketsPage() {
 
       {tickets.isError ? (
         <ErrorPanel title="チケットを読み込めませんでした" error={tickets.error} onRetry={() => tickets.refetch()} />
-      ) : tickets.isLoading ? (
+      ) : tickets.isLoading || counts.isLoading ? (
         <Delayed><SkeletonRows rows={6} /></Delayed>
-      ) : all.length === 0 ? (
+      ) : counts.data?.all === 0 ? (
         <EmptyState
           icon={<MessageSquareWarning />}
           title="フィードバックチケットはまだありません"
