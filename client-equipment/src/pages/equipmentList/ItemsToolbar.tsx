@@ -3,14 +3,14 @@
  *
  * ── スマホでは5つ落とす（M8）──────────────────────────────
  *
- * Excel 取込・Excel 出力・印刷・出す列・表で直す は**どれも表に効くもの**で、
+ * Excel 取込・Excel 出力・印刷・出す列・表で編集 は**どれも表に効くもの**で、
  * 768px 未満では表そのものが出ていません（`EquipmentCards` に切り替わる）。
  * 押しても何も起きないボタンが5つ並ぶと、画面が「壊れている」と読まれます。
  * Excel の取込・出力はご判断の「データを出し入れする道具はスマホに出さない」にも当たります。
  *
- * 残すのは **「機材を足す」だけ** — 現場で「これ増えた」を入れるのは実際に起きます。
+ * 残すのは **「機材を追加」だけ** — 現場で「これ増えた」を入れるのは実際に起きます。
  *
- * **「表で直す」は今もここに出しません**（監査 2026-08-20 要対応3への対応後も）。
+ * **「表で編集」は今もここに出しません**（監査 2026-08-20 要対応3への対応後も）。
  * 表そのものが無い以上「一覧を編集モードにする」という道具帯の切り替えは意味を
  * 持たず、代わりに `EquipmentCards.tsx` の各カードへ鉛筆ボタンを1つずつ置きました
  * （押した1点だけ編集シートが開く）。
@@ -62,12 +62,12 @@ export function ItemsToolbar({
       {!isMobile && columnPicker}
       {!isMobile && canEdit && (
         <Button variant={editMode ? 'default' : 'outline'} onClick={onToggleEdit}>
-          <Edit3 className="mr-1 h-4 w-4" aria-hidden="true" />{editMode ? '直し終わり' : '表で直す'}
+          <Edit3 className="mr-1 h-4 w-4" aria-hidden="true" />{editMode ? '編集を終わる' : '表で編集'}
         </Button>
       )}
       {canEdit && (
         <Button onClick={onNew}>
-          <Plus className="mr-1 h-4 w-4" aria-hidden="true" />機材を足す
+          <Plus className="mr-1 h-4 w-4" aria-hidden="true" />機材を追加
         </Button>
       )}
     </div>

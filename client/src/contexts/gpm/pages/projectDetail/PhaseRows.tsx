@@ -150,8 +150,8 @@ export function PhaseRow({
             <button
               type="button"
               onClick={() => onEdit(phase)}
-              aria-label={`${phase.label} を直す`}
-              title="工程を直す"
+              aria-label={`${phase.label} を編集`}
+              title="工程を編集"
               className="rounded-control-md min-h-tap flex w-8 items-center justify-center text-muted-foreground hover:bg-muted lg:min-h-[36px]"
             >
               <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
@@ -210,7 +210,7 @@ export function PhaseCard({
             <button
               type="button"
               onClick={() => onEdit(phase)}
-              aria-label={`${phase.label} を直す`}
+              aria-label={`${phase.label} を編集`}
               className={cn(iconBtn, 'shrink-0')}
             >
               <Pencil className="h-3.5 w-3.5" aria-hidden="true" />

@@ -43,7 +43,7 @@ function formFromRow(log: ActivityLogRow): FormData {
 export function ActivityLogDialog({
   editing, canDelete, onClose,
 }: {
-  /** 直す行。`null` なら新規 */
+  /** 編集する行。`null` なら新規 */
   editing: ActivityLogRow | null;
   canDelete: boolean;
   onClose: () => void;
@@ -88,7 +88,7 @@ export function ActivityLogDialog({
       notifySuccess(editing ? '活動記録を更新しました' : '活動を記録しました');
       onClose();
     },
-    onError: (err) => notifyApiError('活動記録の保存に失敗しました', err),
+    onError: (err) => notifyApiError('活動記録を保存できませんでした', err, '入力内容を確かめて、もう一度お試しください。'),
   });
 
   const deleteMutation = useMutation({
@@ -98,7 +98,7 @@ export function ActivityLogDialog({
       notifySuccess('活動記録を削除しました');
       onClose();
     },
-    onError: (err) => notifyApiError('削除に失敗しました', err),
+    onError: (err) => notifyApiError('活動記録を削除できませんでした', err, '時間をおいて、もう一度お試しください。'),
   });
 
   const handleDelete = async () => {
@@ -106,7 +106,7 @@ export function ActivityLogDialog({
     if (!(await confirmAction({
       title: 'この活動記録を削除しますか？',
       description: '次回アクションも一緒に消えます。',
-      confirmLabel: '削除する',
+      confirmLabel: '削除',
       tone: 'danger',
     }))) return;
     deleteMutation.mutate(editing.id);
@@ -166,7 +166,7 @@ export function ActivityLogDialog({
           <div>
             <Label>案件（任意）</Label>
             <Select value={form.project_id || 'none'} onValueChange={(v) => setForm((f) => ({ ...f, project_id: v === 'none' ? '' : v }))}>
-              <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="選択…" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">なし</SelectItem>
                 {projectOptions.map((o) => (
@@ -178,7 +178,7 @@ export function ActivityLogDialog({
           <div>
             <Label>顧客（任意）</Label>
             <Select value={form.customer_id || 'none'} onValueChange={(v) => setForm((f) => ({ ...f, customer_id: v === 'none' ? '' : v }))}>
-              <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="選択…" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">なし</SelectItem>
                 {customers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}

@@ -36,7 +36,7 @@ export function SearchField({
         <button
           type="button"
           onClick={() => onChange('')}
-          aria-label="検索を消す"
+          aria-label="検索を消去"
           data-ui="button"
           className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-badge text-muted-foreground hover:text-foreground"
         >

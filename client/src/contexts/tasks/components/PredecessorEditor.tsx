@@ -68,7 +68,7 @@ export default function PredecessorEditor({ projectId, taskId }: { projectId: st
           value=""
           onValueChange={(v) => { if (v) { addDep.mutate({ predecessor_id: v, successor_id: taskId }); setAdding(false); } }}
         >
-          <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="先行タスクを選択..." /></SelectTrigger>
+          <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="先行タスクを選択…" /></SelectTrigger>
           <SelectContent>
             {candidates.filter((t: { id: string }) => !predOf.has(t.id)).map((t) => (
               <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>

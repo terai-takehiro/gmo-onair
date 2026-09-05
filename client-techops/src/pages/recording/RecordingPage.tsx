@@ -94,7 +94,7 @@ export default function RecordingPage() {
         setLastExportName(data?.lastExportName ?? null);
         setHasSettings(data != null);
       })
-      .catch((e) => notifyError(apiErrorMessage(e, '収録設定の取得に失敗しました')))
+      .catch((e) => notifyError(apiErrorMessage(e, '収録設定を読み込めませんでした。少し待ってから、画面を開き直してください。')))
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
   }, [ownerKey, requestedDate]);
@@ -209,7 +209,7 @@ export default function RecordingPage() {
       return true;
     } catch (e) {
       // ⚠️ 以前は理由を捨てていたので「どの台の何が悪いのか」が誰にも分からなかった
-      notifyError(apiErrorMessage(e, '保存に失敗しました'));
+      notifyError(apiErrorMessage(e, '保存できませんでした。少し待ってから、もう一度お試しください。'));
       return false;
     } finally {
       setSaving(false);
@@ -268,9 +268,9 @@ export default function RecordingPage() {
       {/* 打ち終わってから捨てられるのがいちばん困るので、**打つ前に**言う */}
       {!canEdit && (
         <p className="mb-3 rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-note text-foreground">
-          <strong>閲覧のみの権限です。</strong>内容を見ることと Excel の書き出し（キーは空欄）は
+          <strong>いまは「見るだけ」です。</strong>内容を見ることと Excel の書き出し（キーは空欄）は
           できますが、保存と「キーを入れて出す」はできません。
-          直すには制作技術支援の編集権限が要ります。
+          直すには 制作技術支援の「書ける」が必要です。
         </p>
       )}
 

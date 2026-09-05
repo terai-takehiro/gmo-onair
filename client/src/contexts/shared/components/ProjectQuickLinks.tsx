@@ -43,7 +43,7 @@ export default function ProjectQuickLinks({
       （`UnifiedCalendarPage`）は案件で絞る機能を持っておらず、付けても
       **誰も読まないまま全件のカレンダーが出ます**（案件で絞られたと
       読まれるぶん、無いほうがまし）。旧カレンダーの頃の書き方の残りです。
-      案件の日と部屋を持って開きたいときは、案件を直す画面の
+      案件の日と部屋を持って開きたいときは、案件を編集する画面の
       「カレンダーで空きを見る」を使ってください（`state` で渡します）。
     */
     { key: "calendar",  label: "カレンダー", icon: <Calendar      className="h-3.5 w-3.5" />, to: '/studio/calendar' },

@@ -163,7 +163,7 @@ export function MobileNewProject() {
                 onClick={decisions.drop}
                 disabled={decisions.busy}
               >
-                見送りにする
+                失注にする
               </Button>
             )}
           </div>
@@ -172,7 +172,7 @@ export function MobileNewProject() {
           <Button
             variant="outline"
             onClick={goBack}
-            aria-label={step === 0 ? 'やめる' : '前へ'}
+            aria-label={step === 0 ? 'キャンセル' : '前へ'}
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           </Button>

@@ -67,12 +67,12 @@ export default function AiLinesDialog({ open, onOpenChange, documentId, selected
         return box.result.data;
       });
       const result = box.result;
-      if (!result) throw new Error("取り込みに失敗しました");
+      if (!result) throw new Error("下書きを取り込めませんでした。もう一度お試しください。");
       await applyProposalRemote(proposal.id, {
         applied_payload: result.appliedPayload, applied_ids: result.appliedIds,
         rejected_keys: [...excludedRowIds],
       });
-      notifySuccess(`セリフを取り込みました（${result.appliedIds.rows.length}行）`);
+      notifySuccess(`下書き（セリフ）を取り込みました（${result.appliedIds.rows.length}行）`);
       onOpenChange(false);
       setProposal(null);
     } catch (e) {
@@ -92,7 +92,7 @@ export default function AiLinesDialog({ open, onOpenChange, documentId, selected
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>AIでセリフを作る</DialogTitle>
+          <DialogTitle>AIで下書きを作る（セリフ）</DialogTitle>
         </DialogHeader>
         {!proposal && (
           <div className="space-y-3">
@@ -109,7 +109,7 @@ export default function AiLinesDialog({ open, onOpenChange, documentId, selected
             />
             <DialogFooter>
               <Button onClick={handleGenerate} disabled={loading} className="min-h-[44px]">
-                {loading ? "考えています…" : "セリフを作る"}
+                {loading ? "考えています…" : "下書きを作る"}
               </Button>
             </DialogFooter>
           </div>
@@ -142,7 +142,7 @@ export default function AiLinesDialog({ open, onOpenChange, documentId, selected
               )}
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={handleDiscard} className="min-h-[44px]">やめる</Button>
+              <Button variant="outline" onClick={handleDiscard} className="min-h-[44px]">キャンセル</Button>
               <Button onClick={handleApply} disabled={applying} className="min-h-[44px]">
                 {applying ? "取り込み中…" : "取り込む"}
               </Button>
@@ -157,7 +157,7 @@ export default function AiLinesDialog({ open, onOpenChange, documentId, selected
 function errorMessage(e: unknown): string {
   const err = e as { response?: { status?: number; data?: { error?: { message?: string } } } };
   if (err?.response?.status === 409) return "本番進行中のため AI 生成は使えません";
-  if (err?.response?.status === 503) return "この環境は AI につないでいません";
-  if (err?.response?.status === 422) return "AI の出力から有効な提案を作れませんでした";
-  return err?.response?.data?.error?.message ?? "AI の呼び出しに失敗しました。手で作れます";
+  if (err?.response?.status === 503) return "いまは AI を使えません。手で作れます。";
+  if (err?.response?.status === 422) return "AI が下書きを作れませんでした。条件を変えて、もう一度お試しください。";
+  return err?.response?.data?.error?.message ?? "AI を呼べませんでした。手で作れます。";
 }

@@ -107,7 +107,7 @@ export default function ProjectLedgerPage() {
     <div className="space-y-4 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <PageHeader
         title="案件台帳"
-        sub="案件のデータを列で見て、揃っているかを確かめて、まとめて直す画面です。毎日の仕事は「案件一覧」から"
+        sub="案件のデータを列で見比べて、まとめて直す画面です（毎日の仕事は「案件一覧」から）"
       />
 
       {/*
@@ -221,7 +221,7 @@ export default function ProjectLedgerPage() {
         {s.selected.size > 0 && canEdit && (
           <>
             <span className="text-sub font-bold">{s.selected.size} 件を選んでいます</span>
-            <Button variant="outline" onClick={s.clearSelection}>選択をやめる</Button>
+            <Button variant="outline" onClick={s.clearSelection}>選択を解除</Button>
             <Button onClick={() => setBulkOpen(true)}>
               <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />まとめて直す
             </Button>
@@ -319,7 +319,7 @@ export default function ProjectLedgerPage() {
             disabled={grid.rangeCount === 0}
             onClick={grid.clear}
           >
-            選択をやめる
+            選択を解除
           </Button>
         </div>
       )}

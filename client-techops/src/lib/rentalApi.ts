@@ -149,7 +149,7 @@ export async function triggerRentalSync(): Promise<TriggerRentalSyncResult> {
     await api.post(`${base}/sync-trigger`);
     return { ok: true };
   } catch (e: any) {
-    return { ok: false, message: e?.response?.data?.error?.message || '取得の開始に失敗しました' };
+    return { ok: false, message: e?.response?.data?.error?.message || '取得を始められませんでした。少し待ってから、もう一度お試しください。' };
   }
 }
 

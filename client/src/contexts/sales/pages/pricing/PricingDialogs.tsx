@@ -55,7 +55,7 @@ export function CategoryDialog({
       : api.post('/pricing/categories', { name: v.name, sort_order: nextSortOrder, location_id: locationId })),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: KEY });
-      notifySuccess(editing ? '分類の名前を変えました' : '分類を足しました');
+      notifySuccess(editing ? '分類の名前を変えました' : '分類を追加しました');
       onOpenChange(false);
     },
     onError: (e) => notifyApiError('分類を保存できませんでした', e),
@@ -65,11 +65,11 @@ export function CategoryDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={editing ? '分類の名前を変える' : '分類を足す'}
+      title={editing ? '分類の名前を変える' : '分類を追加'}
       onSubmit={form.handleSubmit((v) => save.mutate(v))}
       footer={
         <FormDialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
           <Button type="submit" disabled={save.isPending}>
             {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}保存する
           </Button>
@@ -145,7 +145,7 @@ export function ItemDialog({
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: KEY });
-      notifySuccess(editing ? '品目を直しました' : '品目を足しました');
+      notifySuccess(editing ? '品目を更新しました' : '品目を追加しました');
       onOpenChange(false);
     },
     onError: (e) => notifyApiError('品目を保存できませんでした', e),
@@ -159,12 +159,12 @@ export function ItemDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={editing ? '品目を直す' : '品目を足す'}
+      title={editing ? '品目を編集' : '品目を追加'}
       sub="ここを直してもすでに作った見積の金額は変わりません。"
       onSubmit={form.handleSubmit((v) => save.mutate(v))}
       footer={
         <FormDialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
           <Button type="submit" disabled={save.isPending}>
             {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}保存する
           </Button>
@@ -193,8 +193,8 @@ export function ItemDialog({
         </div>
         <div className="grid gap-3.5 sm:grid-cols-2">
           {([
-            ['unit_price', 'unit_price_unset', '定価（グループ外）', unitUnset, 'グループ外には出しません'],
-            ['group_price', 'group_price_unset', 'グループ内価格', groupUnset, 'グループ内には出しません'],
+            ['unit_price', 'unit_price_unset', '定価（社外）', unitUnset, '社外の案件には出しません'],
+            ['group_price', 'group_price_unset', 'グループ会社価格', groupUnset, 'グループ会社の案件には出しません'],
           ] as const).map(([priceKey, unsetKey, label, unset, offText]) => (
             <div key={priceKey}>
               <Label>{label}</Label>

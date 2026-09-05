@@ -80,13 +80,13 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
   /** 一覧から隠すだけ。`status` は変えない（消すのとは別。案件の見積タブと同じ規則） */
   const archive = useMutation({
     mutationFn: (id: string) => api.post(`/gpm/estimates/${id}/archive`),
-    onSuccess: () => { invalidate(projectId); notifySuccess('アーカイブしました（一覧から隠しただけです。消えていません）'); },
-    onError: (e) => notifyApiError('アーカイブできませんでした', e),
+    onSuccess: () => { invalidate(projectId); notifySuccess('一覧から隠しました（削除はしていません）'); },
+    onError: (e) => notifyApiError('見積を一覧から隠せませんでした', e, '時間をおいて、もう一度お試しください。'),
   });
   const unarchive = useMutation({
     mutationFn: (id: string) => api.post(`/gpm/estimates/${id}/unarchive`),
-    onSuccess: () => { invalidate(projectId); notifySuccess('アーカイブを解除しました'); },
-    onError: (e) => notifyApiError('アーカイブを解除できませんでした', e),
+    onSuccess: () => { invalidate(projectId); notifySuccess('一覧に戻しました'); },
+    onError: (e) => notifyApiError('見積を一覧に戻せませんでした', e, '時間をおいて、もう一度お試しください。'),
   });
 
   // **旧版も出す。** 「いくらで出して、いくらで決まったか」を追うための表なので、
@@ -124,7 +124,7 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
         className="text-sub inline-flex w-fit shrink-0 items-center gap-1.5 text-muted-foreground hover:text-foreground"
       >
         <Archive className="h-3.5 w-3.5" aria-hidden="true" />
-        {showArchived ? 'アーカイブした版を隠す' : 'アーカイブした版を表示する'}
+        {showArchived ? '隠した版を表示しない' : '隠した版も表示する'}
       </button>
 
       {/* 承認待ちは一覧の上に出す（案件の見積タブと同じ部品・同じ規則） */}
@@ -185,7 +185,7 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
                   v{e.version}
                   {e.valid_until && ` ・ 有効期限 ${e.valid_until}`}
                   {e.status === 'superseded' && ' ・ 次の版に差し替え済み'}
-                  {e.archived_at && ' ・ アーカイブ済み'}
+                  {e.archived_at && ' ・ 一覧から非表示'}
                 </RowSub>
               </RowMain>
               <RowSlot w={72}>
@@ -216,7 +216,7 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
                   </Button>
                 ) : (
                   <Button
-                    variant="outline" size="sm" title="アーカイブする（一覧から隠す。消えません）"
+                    variant="outline" size="sm" title="一覧から隠す"
                     onClick={(ev) => { ev.stopPropagation(); archive.mutate(e.id); }}
                   >
                     <Archive className="h-3.5 w-3.5" aria-hidden="true" />
@@ -271,7 +271,7 @@ function NewEstimateDialog({ projectId, onClose }: { projectId: string; onClose:
       title="見積をつくる"
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button onClick={() => create.mutate()} disabled={create.isPending}>
             {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             つくる

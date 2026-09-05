@@ -9,7 +9,7 @@
  * `pages/search/SearchCards.tsx` と同じ考え方）。
  *
  * **アイコンの色で先に種類を見分けられるようにした。** 案件＝プライマリ・
- * お客様＝インフォ・仕入先とやること以外の場所＝グレーと、意味の重さで
+ * お客様＝インフォ・仕入先とショートカット以外の場所＝グレーと、意味の重さで
  * 色を分けている（元の `Row` 版は全部同じ灰色のアイコンだった）。
  */
 import type { KeyboardEvent, ReactNode } from 'react';
@@ -63,7 +63,7 @@ function SectionEyebrow({ icon: Icon, label, n, headingId }: {
   );
 }
 
-/** やること・場所。**行き先の名前ではなく「何が起きるか」を下に書く**（PC版と同じ） */
+/** すぐできること・場所。**行き先の名前ではなく「何が起きるか」を下に書く**（PC版と同じ） */
 export function ShortcutCards({
   icon, label, headingId, items, tone, onOpen,
 }: {

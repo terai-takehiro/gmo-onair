@@ -152,9 +152,9 @@ export default function CounterpartyPage() {
 
   const onDelete = async (p: Party) => {
     const ok = await confirmAction({
-      title: `「${p.name}」を消しますか`,
-      description: `${def.label}の登録を消します。過去の仕入や予定に付いている記録は残りますが、次から選べなくなります。`,
-      confirmLabel: '消す',
+      title: `「${p.name}」を削除しますか`,
+      description: `${def.label}の登録を削除します。過去の仕入や予定に付いている記録は残りますが、次から選べなくなります。`,
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) crud.remove.mutate(p.id);
@@ -239,7 +239,7 @@ export default function CounterpartyPage() {
           <NoSearchResults keyword={crud.appliedSearch} onClearFilters={() => crud.setSearch('')} />
         ) : (
           <EmptyState
-            title={`${def.label}がまだありません`}
+            title={`まだ${def.label}がありません`}
             description={`「${def.label}を追加」から登録すると、仕入や予定の登録で選べるようになります。`}
           />
         )
@@ -308,13 +308,13 @@ export default function CounterpartyPage() {
                     {canEdit && (
                       <span className="flex gap-0.5">
                         <Button
-                          variant="ghost" size="icon" aria-label="直す"
+                          variant="ghost" size="icon" aria-label="編集"
                           onClick={(e) => { e.stopPropagation(); crud.openEdit(p); }}
                         >
                           <Pencil className="h-4 w-4" aria-hidden="true" />
                         </Button>
                         <Button
-                          variant="ghost" size="icon" aria-label="消す" className="text-destructive"
+                          variant="ghost" size="icon" aria-label="削除" className="text-destructive"
                           onClick={(e) => { e.stopPropagation(); onDelete(p); }}
                         >
                           <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -339,7 +339,7 @@ export default function CounterpartyPage() {
 
       <CrudFormDialog
         crud={crud}
-        title={{ create: `${def.label}を追加`, edit: `${def.label}を直す` }}
+        title={{ create: `${def.label}を追加`, edit: `${def.label}を編集` }}
         description={{
           create: `${def.label}を登録すると、仕入や予定の登録で選べるようになります。`,
           edit: '登録済みの内容を直します。',

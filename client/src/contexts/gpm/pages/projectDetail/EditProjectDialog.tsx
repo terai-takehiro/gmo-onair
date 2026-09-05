@@ -71,24 +71,24 @@ export function EditProjectDialog({
       }),
     onSuccess: () => {
       invalidate(project.id);
-      notifySuccess('プロジェクトを直しました');
+      notifySuccess('プロジェクトを更新しました');
       onClose();
     },
-    onError: (err) => notifyApiError('プロジェクトを直せませんでした', err),
+    onError: (err) => notifyApiError('プロジェクトを更新できませんでした', err),
   });
 
   return (
     <FormDialog
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title="プロジェクトを直す"
+      title="プロジェクトを編集"
       size="lg"
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button onClick={() => save.mutate()} disabled={!name.trim() || save.isPending}>
             {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-            直す
+            編集
           </Button>
         </FormDialogFooter>
       }
@@ -127,7 +127,7 @@ export function EditProjectDialog({
             {project.customer_name ?? '未設定'}
           </p>
           <p className="text-note text-muted-foreground">
-            付け替えは案件の「直す」画面から行います
+            付け替えは案件の「編集」画面から行います
           </p>
         </div>
         <div>

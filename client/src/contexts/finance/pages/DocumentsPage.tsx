@@ -2,14 +2,19 @@
  * ⑥ 受け取った書類（財務） (v4)
  *
  * 取引先から届いた **請求書・注文書** を、受け取ってから
- * 台帳に入れ終わるまで追いかけます。
+ * 仕入・販管費に登録し終わるまで追いかけます。
  *
- *   受信 → 確認中 → 承認 → **台帳に入れる**（＝処理完了）
+ *   受信 → 確認中 → 承認 → **仕入・販管費に登録**（＝登録済）
+ *
+ * ⚠️ **画面では「台帳に入れる」「処理完了」と書かない**（用語の決めごと）。
+ * 同じ操作が画面ごとに「台帳に入れる／仕入に入れる／処理完了」と3通りに
+ * 呼ばれていたので、**操作は「仕入・販管費に登録」・状態は「登録済」**で言い切る。
+ * コード側の値（`status='processed'`）は変えていない。
  *
  * ── 見積書（quote）はここに出さない ──────────────────────────
  *
  * **実際に台帳（仕入・販管費）へ入るのは請求書・注文書だけ**（ユーザー指摘）。
- * 見積書はこの画面のワークフローを最後までたどれない（承認しても「台帳に入れる」の
+ * 見積書はこの画面のワークフローを最後までたどれない（承認しても「仕入・販管費に登録」の
  * 先が無い）ので、既定の一覧からは外してある（`server/.../inbox.service.ts` の
  * `list()`／`pendingCount()`、ホームの受信箱が読む `dashboard.routes.ts` の
  * `FINANCE_DOC_BASE` も同じ条件で揃えてある）。台帳への受け渡し自体も
@@ -24,21 +29,21 @@
  * **`dailyops` か `budget` のどちらか**で通すようにしました
  * （いま見られる人は見られたまま、経理が見られるようになります）。
  *
- * ── 「処理完了」を本物にした ────────────────────────────────
+ * ── 「登録済」を本物にした ──────────────────────────────────
  *
- * 以前は状態が変わるだけで**台帳に何も作られず**、同じ請求書を2回入力して
- * 突き合わせは記憶頼みでした。いまは「台帳に入れる」を押すと仕入か販管費を作り、
+ * 以前は状態が変わるだけで**仕入・販管費に何も作られず**、同じ請求書を2回入力して
+ * 突き合わせは記憶頼みでした。いまは「仕入・販管費に登録」を押すと仕入か販管費を作り、
  * **書類にどの行になったかを記録**します（migration 142）。
  *
  * ── 247 で直したこと（ユーザー報告「結局何をしたいのかわからない」）──
  *
- * ① **押せるのに 403 をやめた。** 「台帳に入れる」は
+ * ① **押せるのに 403 をやめた。** 「仕入・販管費に登録」は
  *    `sales:editor || dailyops:editor` で出していたのに、API は `sales:editor`
  *    だけを通します（`inbox.routes.ts` の `ledgerWrite`）。**`dailyops` だけの人には
  *    ボタンが見えて、押せて、403** でした（`shared/tests/clickable403.test.ts` の形）
  * ② **支払期日の急ぎ具合を出した。** 請求書の一覧なのに `08/20` と出るだけで、
  *    過ぎているのか明日なのかは読む人の引き算でした。**並びも期日順**にしています
- * ③ **経緯（誰がいつ取り込み／台帳に入れたか）を出した。**
+ * ③ **経緯（誰がいつ取り込み／仕入・販管費に登録したか）を出した。**
  *    `processed_by` / `processed_at` を保存しているのに1文字も出していませんでした
  * ④ **✨ の判定を `ai_outputs` に直した。** `source === 'email'` は出どころであって
  *    「誰が入れたか」ではなく、**手で足したメールの行に嘘の ✨** が付いていました
@@ -70,8 +75,8 @@ const CHIPS = [
   { key: 'pending', label: '未処理', status: '' },
   { key: 'new', label: '受信', status: 'new' },
   { key: 'reviewing', label: '確認中', status: 'reviewing' },
-  { key: 'approved', label: '承認（台帳待ち）', status: 'approved' },
-  { key: 'processed', label: '処理完了', status: 'processed' },
+  { key: 'approved', label: '承認（登録待ち）', status: 'approved' },
+  { key: 'processed', label: '登録済', status: 'processed' },
   /*
     **却下も出す**（247）。以前はチップが無く、却下した書類は
     **画面から二度と辿れません**でした（一覧の既定は未処理で、
@@ -106,12 +111,12 @@ export default function DocumentsPage() {
 
     ・確かめる（確認する／承認／却下／受信に戻す）は `PUT /dailyops/finance-docs/:id`
       で、**`dailyops` か `sales` のどちらか**の editor で通る（`docsEdit`）
-    ・**台帳に入れる／取り消すは `sales` の editor だけ**（`ledgerWrite`）。
+    ・**仕入・販管費に登録／取り消すは `sales` の editor だけ**（`ledgerWrite`）。
       仕入・販管費に行を作る操作なので、台帳側の口（`purchases.routes` /
       `sga.routes`）と同じ権限が要る
 
     1つの `canEdit` にまとめていたので、**`dailyops` だけの人に
-    「台帳に入れる」が見えて、押せて、403** になっていた。
+    「仕入・販管費に登録」が見えて、押せて、403** になっていた。
   */
   const canReview = hasPermission('sales', 'editor') || hasPermission('dailyops', 'editor');
   const canLedger = hasPermission('sales', 'editor');
@@ -175,15 +180,15 @@ export default function DocumentsPage() {
 
   const undo = useMutation({
     mutationFn: (id: string) => api.post(`/dailyops/finance-docs/${id}/handoff/undo`),
-    onSuccess: () => { invalidate(); notifySuccess('取り消しました（台帳の行は残っています）'); },
+    onSuccess: () => { invalidate(); notifySuccess('取り消しました（仕入・販管費の行は残っています）'); },
     onError: (e) => notifyApiError('取り消せませんでした', e),
   });
 
   const onUndo = async (d: FinanceDoc) => {
     const ok = await confirmAction({
-      title: '台帳への受け渡しを取り消しますか',
-      description: `書類を「承認」に戻します。**${d.linked_kind === 'purchase' ? '仕入' : '販管費'}に作った行は消しません** — `
-        + 'そのあと経理が直しているかもしれないので、いるかどうかは台帳で確かめて手で消してください。',
+      title: '仕入・販管費への登録を取り消しますか',
+      description: `書類を「承認」に戻します。**${d.linked_kind === 'purchase' ? '仕入' : '販管費'}に作った行は削除しません** — `
+        + 'そのあと経理が直しているかもしれないので、いるかどうかは台帳で確かめて手で削除してください。',
       confirmLabel: '取り消す',
       tone: 'danger',
     });
@@ -196,7 +201,7 @@ export default function DocumentsPage() {
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
       <PageHeader
         title="受け取った書類"
-        sub="払う前に確かめる机です。届いた請求書・注文書を確かめ、承認したら台帳（仕入・販管費）に入れます（見積書は対象外）。並びは支払期日が近い順"
+        sub="届いた請求書・注文書を確かめ、承認したら台帳に登録します。支払期日が近い順です。（見積書は対象外）"
       />
 
       <FilterChips
@@ -212,8 +217,10 @@ export default function DocumentsPage() {
         <Delayed><SkeletonRows rows={5} /></Delayed>
       ) : rows.length === 0 ? (
         <EmptyState
-          title={chip === 'pending' ? '未処理の書類はありません' : '該当する書類はありません'}
-          description="メールで届いた請求書・注文書を AI が取り込みます（見積書は台帳に入らないためここには出ません）。"
+          title={chip === 'pending' ? 'まだ未処理の書類はありません' : '条件に合う書類はありません'}
+          description={chip === 'pending'
+            ? 'メールで届いた請求書・注文書を AI が取り込みます（見積書は仕入・販管費に登録できないためここには出ません）。'
+            : '上の絞り込みを変えると、別の状態の書類を見られます。'}
         />
       ) : (
         <>
@@ -305,17 +312,17 @@ export default function DocumentsPage() {
                         </>
                       )}
                       {/*
-                        ⚠️ **台帳に入れるのは `sales` の editor だけ**（247）。
+                        ⚠️ **仕入・販管費に登録できるのは `sales` の editor だけ**（247）。
                         持っていない人には**ボタンを出さず**、誰に頼めばよいかを書く
                         （出して 403 にすると「壊れている」としか見えない）
                       */}
                       {d.status === 'approved' && (canLedger ? (
                         <Button onClick={() => setHandoff(d)}>
-                          台帳に入れる<ArrowRight className="ml-1 h-3.5 w-3.5" aria-hidden="true" />
+                          仕入・販管費に登録<ArrowRight className="ml-1 h-3.5 w-3.5" aria-hidden="true" />
                         </Button>
                       ) : (
                         <span className="text-note text-muted-foreground">
-                          台帳に入れるのは財務の担当者です。承認まで済んでいます。
+                          仕入・販管費に登録するのは財務の担当者です。承認まで済んでいます。
                         </span>
                       ))}
                       {d.status === 'processed' && d.linked_id && (
@@ -328,7 +335,7 @@ export default function DocumentsPage() {
                             {d.linked_kind === 'purchase' ? '仕入' : '販管費'}を見る
                           </Button>
                           {canLedger && (
-                            <Button variant="ghost" onClick={() => onUndo(d)} aria-label="受け渡しを取り消す">
+                            <Button variant="ghost" onClick={() => onUndo(d)} aria-label="登録を取り消す">
                               <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
                             </Button>
                           )}
@@ -339,11 +346,11 @@ export default function DocumentsPage() {
                           受信に戻す
                         </Button>
                       )}
-                      {/* 昔「処理完了」にしたが台帳に繋がっていないもの。**放置すると
+                      {/* 昔「登録済」にしたが仕入・販管費に繋がっていないもの。**放置すると
                           二重入力に気づけない**ので、繋ぎ直せることを出す */}
                       {d.status === 'processed' && !d.linked_id && (
                         <span className="text-note text-warning">
-                          台帳との結びつきがありません（この画面より前に処理されたもの）
+                          仕入・販管費との結びつきがありません（この画面より前に処理されたもの）
                         </span>
                       )}
                     </span>
@@ -356,13 +363,13 @@ export default function DocumentsPage() {
           <p className="text-note text-muted-foreground">
             並びは<strong className="font-bold">支払期日が近い順</strong>です。期日を過ぎたもの・今日のもの・
             3日以内のものは、日付のとなりに残り日数を出しています。
-            「台帳に入れる」を押すと<strong className="font-bold">仕入か販管費の行を作り、処理完了にします</strong>。
-            書類の金額は税込なので、台帳に入れるときに税抜の金額を確かめます。
-            取り消しても<strong className="font-bold">台帳の行は消しません</strong>（経理が直しているかもしれないため）。
+            「仕入・販管費に登録」を押すと<strong className="font-bold">仕入か販管費の行を作り、登録済にします</strong>。
+            書類の金額は税込なので、登録するときに税抜の金額を確かめます。
+            取り消しても<strong className="font-bold">登録した行は削除しません</strong>（経理が直しているかもしれないため）。
             {!canLedger && (
               <>
                 {' '}
-                <strong className="font-bold">台帳に入れる操作は財務の担当者だけができます。</strong>
+                <strong className="font-bold">仕入・販管費に登録する操作は財務の担当者だけができます。</strong>
                 確かめて承認するところまではこの画面で進められます。
               </>
             )}

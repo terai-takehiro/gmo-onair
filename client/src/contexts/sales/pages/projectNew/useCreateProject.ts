@@ -253,10 +253,10 @@ export function useProjectDecisions(
       // からで（`AI_INBOX_SQL` の stage 条件と `ai_reviewed_at` の印）、
       // 落とすだけでは消えなかった（v4.1.2 まで「見送りにしても何も起きない」状態）
       invalidate(existingId);
-      notifySuccess('見送りにしました');
+      notifySuccess('失注にしました');
       navigate('/sales/dashboard');
     },
-    onError: (e) => notifyApiError('見送りにできませんでした', e),
+    onError: (e) => notifyApiError('失注にできませんでした', e, '時間をおいて、もう一度お試しください。'),
   });
 
   return {

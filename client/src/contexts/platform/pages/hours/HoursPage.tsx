@@ -100,7 +100,7 @@ export default function HoursPage() {
         sub="カレンダーで予約を入れられる時間のもとになります。ここで閉じた時間は注意が出ますが、予約は止まりません。"
         primaryAction={canEdit && site ? (
           <Button onClick={() => setDialog({ open: true, day: null })}>
-            <CalendarPlus className="mr-1.5 h-4 w-4" aria-hidden="true" />休業日を足す
+            <CalendarPlus className="mr-1.5 h-4 w-4" aria-hidden="true" />休業日を追加
           </Button>
         ) : undefined}
       />
@@ -297,15 +297,15 @@ export default function HoursPage() {
                       {canEdit && (
                         <RowSlot w={96} align="right">
                           <div className="flex gap-0.5">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" title="直す"
+                            <Button variant="ghost" size="icon" className="h-8 w-8" title="編集"
                               onClick={() => setDialog({ open: true, day: c })}>
                               <Pencil className="h-4 w-4" aria-hidden="true" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="消す"
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="削除"
                               onClick={() => confirmAction({
                                 title: `${c.name} を消しますか`,
                                 description: 'この期間の予約は消えません（もともと消していません）。注意が出なくなるだけです。',
-                                confirmLabel: '消す', tone: 'danger',
+                                confirmLabel: '削除', tone: 'danger',
                               }).then((ok) => ok && del.mutate(c.id))}>
                               <Trash2 className="h-4 w-4" aria-hidden="true" />
                             </Button>
@@ -368,7 +368,7 @@ export default function HoursPage() {
                         </RowSlot>
                         {canEdit && (
                           <RowSlot w={96} align="right">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" title="直す"
+                            <Button variant="ghost" size="icon" className="h-8 w-8" title="編集"
                               onClick={() => setDialog({ open: true, day: c })}>
                               <Pencil className="h-4 w-4" aria-hidden="true" />
                             </Button>

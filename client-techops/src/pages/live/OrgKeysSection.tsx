@@ -115,13 +115,13 @@ export default function OrgKeysSection() {
         <div className="space-y-1.5">
           <Label>YouTube Data API v3 キー</Label>
           <Input type="password" value={youtubeApiKey} onChange={e => setYoutubeApiKey(e.target.value)}
-            placeholder={data?.hasYoutubeKey ? `設定済み (${data.youtubeApiKeyMasked})` : '未設定'} />
+            placeholder={data?.hasYoutubeKey ? `設定済み (${data.youtubeApiKeyMasked})` : '未入力'} />
           <TestButton platform="youtube" />
         </div>
         <div className="space-y-1.5">
           <Label>Jstream トークン</Label>
           <Input type="password" value={jstreamToken} onChange={e => setJstreamToken(e.target.value)}
-            placeholder={data?.hasJstreamToken ? `設定済み (${data.jstreamTokenMasked})` : '未設定'} />
+            placeholder={data?.hasJstreamToken ? `設定済み (${data.jstreamTokenMasked})` : '未入力'} />
           <TestButton platform="jstream" />
         </div>
         <div className="space-y-1.5">

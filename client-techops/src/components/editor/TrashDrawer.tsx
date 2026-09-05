@@ -10,6 +10,7 @@ import {
   describeTrashItem,
 } from "@/lib/trash";
 import { genId } from "@/lib/stableIds";
+import { notifyError } from "@/lib/notify";
 
 interface TrashDrawerProps {
   data: any; // doc.data
@@ -48,7 +49,7 @@ export default function TrashDrawer({ data, onChange, onClose }: TrashDrawerProp
           return { ...next, sections };
         }
         // 元セクションが見つからない場合は末尾のセクションに追加（それも無ければ新セクション）
-        alert("元のロールが見つからないため、末尾に新しいロールを作って復元します。");
+        notifyError("元のロールが無いので、末尾に新しいロールを作って戻します。", { description: "位置は後から並べ替えてください。" });
         sections.push({ id: genId("sec"), label: "復元された行", rows: [item.payload] });
         return { ...next, sections };
       }
@@ -78,7 +79,7 @@ export default function TrashDrawer({ data, onChange, onClose }: TrashDrawerProp
             return { ...next, sections };
           }
         }
-        alert("元の行/列が見つからないため、復元できませんでした。");
+        notifyError("元の行・列が無いので戻せませんでした。行や列を作り直してから、もう一度お試しください。");
         return d; // 復元せずゴミ箱にも残す
       }
 
@@ -106,7 +107,7 @@ export default function TrashDrawer({ data, onChange, onClose }: TrashDrawerProp
         <header className="flex-none flex items-center justify-between px-5 py-3 border-b border-zinc-200 dark:border-zinc-800">
           <div className="flex items-center gap-2">
             <Trash2 size={18} className="text-zinc-500" />
-            <h2 className="text-base font-semibold">ゴミ箱</h2>
+            <h2 className="text-base font-semibold">ゴミ箱（保存するまでの分）</h2>
             <span className="px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-xs text-zinc-600 dark:text-zinc-400">
               {trash.length}
             </span>
@@ -186,7 +187,7 @@ export default function TrashDrawer({ data, onChange, onClose }: TrashDrawerProp
         <footer className="flex-none px-5 py-3 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
           <p className="text-[11px] text-zinc-500 flex items-start gap-1.5">
             <AlertCircle size={12} className="mt-0.5 flex-shrink-0" />
-            ゴミ箱の内容はQシートと一緒に保存されます。保存前にブラウザを閉じると失われます。
+            ゴミ箱の内容は進行台本と一緒に保存されます。保存前にブラウザを閉じると失われます。
           </p>
         </footer>
       </div>

@@ -1,14 +1,14 @@
 /**
  * デイリーニュース報告 (`/news`) (v4)
  *
- * AI が業界のニュースを毎日集め、人が「採用 (1〜5)」を付けたり足したりする画面。
+ * AI が業界のニュースを毎日集め、人が「注目度 (1〜5)」を付けたり足したりする画面。
  *
  * ── v4 で変えたところ ────────────────────────────────────────
  *
  * ・**表と カード の二重実装をやめた** (`news/NewsRows.tsx` の1本に)。
  *   列幅も 52px / 64px / 90px / 180px の直書きから7段に寄せた
  * ・**絞り込みチップを足した。** 20件を超える日があり、
- *   「採用が付いているものだけ見たい」「AI 活用のものだけ見たい」が
+ *   「注目度が付いているものだけ見たい」「AI の話題だけ見たい」が
  *   目で拾う作業になっていた。**押す前に件数が見える**形にする
  * ・`window.confirm` を `confirmAction` に置き換えた (削除は元に戻せない)
  *
@@ -42,12 +42,12 @@ type Chip = 'all' | 'picked' | 'ai' | 'human';
 
 const CHIP_LABELS: Record<Chip, string> = {
   all: 'すべて',
-  picked: '採用',
-  ai: 'AI活用',
+  picked: '注目度あり',
+  ai: 'AIの話題',
   human: '人が足したもの',
 };
 
-/** チップの意味。**行の見た目ではなく DB の値で決める** (AI活用 = `ai_related` の列) */
+/** チップの意味。**行の見た目ではなく DB の値で決める** (AIの話題 = `ai_related` の列) */
 function matchesChip(item: OpsReportItem, chip: Chip): boolean {
   switch (chip) {
     case 'picked': return item.pick != null;
@@ -99,8 +99,8 @@ export default function DailyNewsPage() {
   const onReview = () => {
     if (!report.data) return;
     review.mutate(report.data.id, {
-      onSuccess: () => notifySuccess('確認済みにしました'),
-      onError: (e) => notifyApiError('確認済みにできませんでした', e),
+      onSuccess: () => notifySuccess('確認しました'),
+      onError: (e) => notifyApiError('確認できませんでした', e),
     });
   };
 
@@ -108,10 +108,10 @@ export default function DailyNewsPage() {
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
       <PageHeader
         title="デイリーニュース報告"
-        sub="AI が業界のニュースを毎日集めます。人が採用（1〜5）を付けたり、足したりします"
+        sub="AI が業界のニュースを毎日集めます。人が注目度（1〜5）を付けたり、足したりします"
         primaryAction={canEdit && !adding ? (
           <Button onClick={() => setAdding(true)}>
-            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />ニュースを足す
+            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />ニュースを追加
           </Button>
         ) : undefined}
       >
@@ -160,7 +160,7 @@ export default function DailyNewsPage() {
         )}
         {report.data && canEdit && !report.data.reviewed_at && (
           <Button variant="outline" onClick={onReview} disabled={review.isPending}>
-            <CheckCircle2 className="mr-1 h-4 w-4" aria-hidden="true" /> 確認済みにする
+            <CheckCircle2 className="mr-1 h-4 w-4" aria-hidden="true" /> 確認した
           </Button>
         )}
       </div>
@@ -188,7 +188,7 @@ export default function DailyNewsPage() {
               icon={<Sparkles />}
               title={`${formatDateJa(date)} のニュースはまだありません`}
               description={date === today
-                ? 'AI が毎日集めます。待てないときは「ニュースを足す」から自分で入れられます。'
+                ? 'AI が毎日集めます。待てないときは「ニュースを追加」から自分で入れられます。'
                 : 'この日は AI が集めた記録も、人が足した記録もありません。'}
             />
           ) : visible.length === 0 ? (
@@ -221,13 +221,13 @@ export default function DailyNewsPage() {
       )}
 
       <p className="text-note text-muted-foreground">
-        「採用」の数字は、週報に書くときの目印です。
+        「注目度」の数字は、ウィークリー活動報告に書くときの目印です。
         各行の<strong className="font-bold">送るボタン</strong>を押すと、
-        その日が入る週のウィークリー活動報告へ写せます（週報側に「ニュース由来」と出ます）。
+        その日が入る週のウィークリー活動報告へ写せます（報告側に「ニュース由来」と出ます）。
         <strong className="font-bold">自動では送られません</strong> — 選ぶのは人です。
         {weeklyLocked && (
-          <> この日が入る週の週報は<strong className="font-bold">確定済み</strong>なので、
-          いまは送れません（週報の画面で「確定を解く」を押すと送れるようになります）。</>
+          <> この日が入る週のウィークリー活動報告は<strong className="font-bold">確定済み</strong>なので、
+          いまは送れません（ウィークリー活動報告の画面で「確定を解く」を押すと送れるようになります）。</>
         )}
       </p>
     </div>

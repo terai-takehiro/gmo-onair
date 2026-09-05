@@ -9,14 +9,20 @@ import { cn } from "../utils";
  */
 export interface EmptyStateProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "title"> {
   icon?: React.ReactNode;
-  title?: React.ReactNode;
+  /**
+   * **必須。** 何が無いのかを対象の名前で書く (「まだ売上がありません」)。
+   *
+   * 以前は既定値 `"データがありません"` を持っていましたが、`docs/wording.md` が
+   * 名指しで否定した文が**渡し忘れたときに出てしまう**ため、既定値を廃止して必須にしました。
+   */
+  title: React.ReactNode;
   description?: React.ReactNode;
   action?: React.ReactNode;
 }
 
 export function EmptyState({
   icon,
-  title = "データがありません",
+  title,
   description,
   action,
   className,

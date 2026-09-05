@@ -161,7 +161,7 @@ export function DatedEpisodesForm({ projectId, onDone }: { projectId: string; on
                 </p>
                 {rows.length > 1 && (
                   <Button
-                    variant="ghost" size="icon-sm" aria-label={`${i + 1}行目を消す`}
+                    variant="ghost" size="icon-sm" aria-label={`${i + 1}行目を削除`}
                     onClick={() => { setRows((prev) => prev.filter((r) => r.key !== row.key)); setPreviewKey(null); }}
                   >
                     <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -174,7 +174,7 @@ export function DatedEpisodesForm({ projectId, onDone }: { projectId: string; on
       </div>
 
       <Button type="button" variant="outline" onClick={() => setRows((prev) => [...prev, newRow()])}>
-        <Plus className="mr-1 h-4 w-4" aria-hidden="true" />別の日を足す
+        <Plus className="mr-1 h-4 w-4" aria-hidden="true" />別の日を追加
       </Button>
 
       <Button

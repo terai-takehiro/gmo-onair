@@ -94,7 +94,7 @@ export function useCalendarEdit({
       // **案件の実施日も残った予約から引き直される**ので案件側も落とす（`lib/bookingQueries.ts`）
       invalidateBookingQueries(qc);
       onDeleted();
-      notifySuccess('予約を消しました');
+      notifySuccess('予約を削除しました');
     },
     onError: (e) => notifyApiError('消せませんでした', e),
   });

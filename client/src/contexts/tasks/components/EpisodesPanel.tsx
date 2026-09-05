@@ -194,7 +194,7 @@ function EpisodeRow({
       <RowSlot w={56}>
         <Button
           variant="ghost" size="icon-sm"
-          aria-label={`回 #${episode.episode_number} を直す（利用日・放送日・タイトル・本数・フェーズ）`}
+          aria-label={`回 #${episode.episode_number} を編集（利用日・放送日・タイトル・本数・ステージ）`}
           onClick={() => onEdit(episode)}
         >
           <Pencil className="h-4 w-4" aria-hidden="true" />
@@ -233,7 +233,7 @@ export function EpisodesPanel({ projectId, seriesDefaults }: { projectId: string
   const [addOpen, setAddOpen] = useState(false);
   /** 「標準工程を当てる」ダイアログの対象回。null = 閉じている */
   const [templateTarget, setTemplateTarget] = useState<Episode | null>(null);
-  /** 「この回を直す」ダイアログの対象回。null = 閉じている */
+  /** 「この回を編集」ダイアログの対象回。null = 閉じている */
   const [editTarget, setEditTarget] = useState<Episode | null>(null);
 
   const list = useQuery<Episode[]>({
@@ -286,7 +286,7 @@ export function EpisodesPanel({ projectId, seriesDefaults }: { projectId: string
         <p className="text-sub text-muted-foreground">利用日ごとにまとめています。回ごとにタスク・見積・売上を持ちます</p>
         <div className="flex-1" />
         <Button size="sm" onClick={() => setAddOpen(true)}>
-          <Plus className="mr-1 h-4 w-4" aria-hidden="true" />回を足す
+          <Plus className="mr-1 h-4 w-4" aria-hidden="true" />回を追加
         </Button>
       </div>
 
@@ -295,8 +295,8 @@ export function EpisodesPanel({ projectId, seriesDefaults }: { projectId: string
       ) : episodes.length === 0 ? (
         <EmptyState
           title="回はまだありません"
-          description="「回を足す」で、利用日とその日の回（例: 9/7 に #17,18,19）を登録します。"
-          action={<Button size="sm" onClick={() => setAddOpen(true)}><Plus className="mr-1 h-4 w-4" aria-hidden="true" />回を足す</Button>}
+          description="「回を追加」で、利用日とその日の回（例: 9/7 に #17,18,19）を登録します。"
+          action={<Button size="sm" onClick={() => setAddOpen(true)}><Plus className="mr-1 h-4 w-4" aria-hidden="true" />回を追加</Button>}
         />
       ) : (
         <div className="flex flex-col gap-3">

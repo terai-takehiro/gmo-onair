@@ -27,7 +27,7 @@ import { FormDialog, FormDialogFooter } from "@gmo-onair/shared/src/client-v4/fo
 import { Loader2, Server, ClipboardCheck, Pencil, RefreshCw, AlertCircle, Printer } from "lucide-react";
 import { RACK_SLOT_OPTIONS, TYPE_BG } from "@/lib/constants";
 
-/** 棚卸しチェック項目。found は 0/1/2 の INTEGER 列（1=あった・2=見つからない）— ブール化して送り返すと Postgres で型エラーになる */
+/** 棚卸しチェック項目。found は 0/1/2 の INTEGER 列（1=確認できた・2=見つからない）— ブール化して送り返すと Postgres で型エラーになる */
 type InventoryEntry = {
   id: string;
   found: number;
@@ -198,7 +198,7 @@ export default function RackLayoutPage() {
         note: entry.note,
       });
     },
-    onError: (e) => notifyApiError("印を付けられませんでした", e),
+    onError: (e) => notifyApiError("確認を記録できませんでした", e),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["inventory-check", selectedCheckId] });
     },
@@ -209,7 +209,7 @@ export default function RackLayoutPage() {
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["inventory-check", selectedCheckId] });
       const added = res.data?.data?.added ?? 0;
-      showNotice(added > 0 ? `${added}件の機材をチェックリストに追加しました` : "同期完了（追加なし）");
+      showNotice(added > 0 ? `${added}件の機材をチェックリストに追加しました` : "取り込む機材はありませんでした");
     },
   });
 
@@ -297,13 +297,13 @@ export default function RackLayoutPage() {
     if (inventoryMode && selectedCheckId) {
       const mapEntry = inventoryMap[item.id];
       if (!mapEntry) {
-        showNotice("この機材はチェックリストに未登録です。「同期」ボタンで追加できます");
+        showNotice("この機材はチェックリストにありません。「機材を取り込む」で追加できます");
         return;
       }
       toggleFoundMutation.mutate({
         checkId: selectedCheckId,
         itemId: mapEntry.id,
-        // 2状態トグル: 「見つからない」(2) からのクリックも「あった」(1) に倒す
+        // 2状態トグル: 「見つからない」(2) からのクリックも「確認できた」(1) に倒す
         found: mapEntry.found === 1 ? 0 : 1,
         entry: mapEntry,
       });
@@ -437,8 +437,8 @@ export default function RackLayoutPage() {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-muted-foreground gap-3">
         <Server className="h-12 w-12 opacity-20" />
-        <p className="text-sm">ラックデータの取得に失敗しました</p>
-        <p className="text-xs">サーバーエラーが発生しました。しばらく待ってから再試行してください。</p>
+        <p className="text-sm">ラック図を読み込めませんでした。</p>
+        <p className="text-xs">通信が途切れたのかもしれません。ページを開き直してください。</p>
       </div>
     );
   }
@@ -554,7 +554,7 @@ export default function RackLayoutPage() {
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-sm font-medium">棚卸し選択:</span>
             <Select value={selectedCheckId || "none"} onValueChange={(v) => setSelectedCheckId(v === "none" ? "" : v)}>
-              <SelectTrigger className="w-56 h-8 text-sm"><SelectValue placeholder="棚卸しを選択..." /></SelectTrigger>
+              <SelectTrigger className="w-56 h-8 text-sm"><SelectValue placeholder="棚卸しを選ぶ" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">選択なし</SelectItem>
                 {inventoryChecks.map((c: any) => (
@@ -572,7 +572,7 @@ export default function RackLayoutPage() {
                   onClick={() => syncInventoryMutation.mutate(selectedCheckId)}
                 >
                   {syncInventoryMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                  同期
+                  機材を取り込む
                 </Button>
                 <div className="flex items-center gap-2 ml-auto">
                   <div className="h-2 w-40 rounded-full bg-muted overflow-hidden">
@@ -599,7 +599,7 @@ export default function RackLayoutPage() {
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
           <Server className="h-16 w-16 opacity-20" />
           <p className="text-sm">ラックが登録されていません</p>
-          <p className="text-xs">「保管場所管理」でラックを追加してください</p>
+          <p className="text-xs">設定の「保管場所」でラックを追加してください</p>
         </div>
       ) : (
         <>

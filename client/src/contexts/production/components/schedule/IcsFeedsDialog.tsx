@@ -66,13 +66,13 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
       setError(null);
       setNotice(`Google カレンダーを同期しました（${data.total} 件 / 追加 ${data.created} / 更新 ${data.updated} / 削除 ${data.removed}）`);
     },
-    onError: (err: any) => { setNotice(null); setError(err?.response?.data?.error?.message || "同期に失敗しました"); },
+    onError: (err: any) => { setNotice(null); setError(err?.response?.data?.error?.message || "予定を同期できませんでした。少し時間をおいてもう一度お試しください。"); },
   });
 
   const googleDisconnectMutation = useMutation({
     mutationFn: async () => api.delete("/schedule/google"),
     onSuccess: () => { invalidate(); setNotice("Google カレンダーの連携を解除しました（同期済みの予定も削除されます）"); },
-    onError: (err: any) => { setNotice(null); setError(err?.response?.data?.error?.message || "連携解除に失敗しました"); },
+    onError: (err: any) => { setNotice(null); setError(err?.response?.data?.error?.message || "連携を解除できませんでした。少し時間をおいてもう一度お試しください。"); },
   });
 
   const msSyncMutation = useMutation({
@@ -82,13 +82,13 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
       setError(null);
       setNotice(`Outlook カレンダーを同期しました（${data.total} 件 / 追加 ${data.created} / 更新 ${data.updated} / 削除 ${data.removed}）`);
     },
-    onError: (err: any) => { setNotice(null); setError(err?.response?.data?.error?.message || "同期に失敗しました"); },
+    onError: (err: any) => { setNotice(null); setError(err?.response?.data?.error?.message || "予定を同期できませんでした。少し時間をおいてもう一度お試しください。"); },
   });
 
   const msDisconnectMutation = useMutation({
     mutationFn: async () => api.delete("/schedule/ms"),
     onSuccess: () => { invalidate(); setNotice("Outlook カレンダーの連携を解除しました（同期済みの予定も削除されます）"); },
-    onError: (err: any) => { setNotice(null); setError(err?.response?.data?.error?.message || "連携解除に失敗しました"); },
+    onError: (err: any) => { setNotice(null); setError(err?.response?.data?.error?.message || "連携を解除できませんでした。少し時間をおいてもう一度お試しください。"); },
   });
 
   const addMutation = useMutation({
@@ -100,7 +100,7 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
         ? `連携しました（${data.sync.total} 件の予定を同期）`
         : "連携しました。初回同期に失敗した場合は一覧のエラーを確認してください");
     },
-    onError: (err: any) => { setNotice(null); setError(err?.response?.data?.error?.message || "追加に失敗しました"); },
+    onError: (err: any) => { setNotice(null); setError(err?.response?.data?.error?.message || "カレンダーを追加できませんでした。URL が正しいか確かめてください。"); },
   });
 
   const syncMutation = useMutation({
@@ -110,13 +110,13 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
       setError(null);
       setNotice(`同期しました（${data.total} 件 / 追加 ${data.created} / 更新 ${data.updated} / 削除 ${data.removed}）`);
     },
-    onError: (err: any) => { setNotice(null); setError(err?.response?.data?.error?.message || "同期に失敗しました"); },
+    onError: (err: any) => { setNotice(null); setError(err?.response?.data?.error?.message || "予定を同期できませんでした。少し時間をおいてもう一度お試しください。"); },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (feedId: string) => api.delete(`/schedule/feeds/${feedId}`),
     onSuccess: () => { invalidate(); setNotice("連携を解除しました（同期済みの予定も削除されます）"); },
-    onError: (err: any) => { setNotice(null); setError(err?.response?.data?.error?.message || "削除に失敗しました"); },
+    onError: (err: any) => { setNotice(null); setError(err?.response?.data?.error?.message || "連携を削除できませんでした。少し時間をおいてもう一度お試しください。"); },
   });
 
   return (
@@ -124,7 +124,7 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
       open={open}
       onOpenChange={onOpenChange}
       title="外部カレンダー連携（Outlook / Google）"
-      sub="Google / Outlook と OAuth 連携すると、双方向で同期します（外部→取込 + マイカレンダーで作った予定を外部へ書き戻し）。公開 ICS URL での連携は取込のみの一方向です。"
+      sub="Google・Outlook はつなぐと両方向で同期します。URL を貼るだけの場合は ONAiR に取り込むだけです。"
     >
         {/* Google カレンダー OAuth 連携 (会社 Workspace は ICS 公開が無効なことが多いため推奨) */}
         <div className="space-y-2 rounded-lg border border-green-600/30 bg-green-50/40 p-3">
@@ -331,7 +331,7 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label>公開 ICS URL</Label>
-              <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://outlook.office365.com/owa/calendar/.../calendar.ics" />
+              <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://outlook.office365.com/owa/calendar/…/calendar.ics" />
             </div>
           </div>
           <div className="flex items-start gap-1.5 text-xs text-muted-foreground">

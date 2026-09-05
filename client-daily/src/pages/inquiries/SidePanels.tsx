@@ -58,9 +58,9 @@ export function SidePanels({
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden="true" />
         <p className="text-note text-secondary-foreground">
           <strong className="font-bold">未仕分けを空にするのがこの画面の仕事です。</strong>
-          やることになるならチケット（案件管理のタスクになります）、案件になりそうなら案件の受付へ、
-          <strong className="font-bold">あとで効く話ならストックして見直す日を決める</strong>。
-          どれでもないものは見送りにします。ストックは見直す日が来ると、
+          やることになるならタスク（案件管理のタスクになります）、案件になりそうなら案件の受付へ、
+          <strong className="font-bold">あとで効く話は「あとで見る」に入れて見直す日を決める</strong>。
+          どれでもないものは見送りにします。「あとで見る」は見直す日が来ると、
           未仕分けと同じようにここへ戻ってきます。
         </p>
       </section>
@@ -68,7 +68,7 @@ export function SidePanels({
       {showSources && (
         <section className="rounded-card border border-border bg-card p-4">
           <h2 className="text-cardtitle">出どころ別</h2>
-          <p className="text-note mt-0.5 text-muted-foreground">すべての件数 ／ うちチケットにしたもの</p>
+          <p className="text-note mt-0.5 text-muted-foreground">すべての件数 ／ うちタスクにしたもの</p>
           <ul className="mt-2">
             {sources.map((s) => {
               const Icon = ICON[SRC_ICON[s.source] ?? 'pencil'];
@@ -80,7 +80,7 @@ export function SidePanels({
                   <span className="text-sub min-w-0 flex-1 truncate">{INQUIRY_SOURCE_LABELS[s.source] ?? s.source}</span>
                   <span className="font-number text-sub w-10 shrink-0 text-right font-bold">{s.total} 件</span>
                   <span className="font-number text-note w-16 shrink-0 text-right text-muted-foreground">
-                    チケット {s.ticket}
+                    タスク {s.ticket}
                   </span>
                 </li>
               );

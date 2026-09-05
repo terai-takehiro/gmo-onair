@@ -67,7 +67,7 @@ export const EQUIPMENT_NAV: ShellNavSection[] = [
   {
     title: '設定',
     items: [
-      // 保管場所 / メーカー・色 / 貸出カテゴリ / 貸出の決めごと の4タブ
+      // 保管場所 / メーカー・色 / 貸出カテゴリ / 貸出のルール の4タブ
       { label: '設定', to: '/equipment/settings', icon: Settings },
     ],
   },

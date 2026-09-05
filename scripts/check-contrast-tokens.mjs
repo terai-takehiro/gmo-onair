@@ -55,7 +55,11 @@ const ALLOW = new Map([
     'KPT の記号の丸。塗りは PANES の `badge`（bg-success / bg-destructive / bg-primary）から来るので字面に出ない'],
   ['client-equipment/src/pages/equipmentList/ItemsPanel.tsx:272',
     '選択中の帯（親のタグが bg-primary）の中の ghost ボタン。hover の bg-primary-800 は #004d91（濃い）'],
-  ['client/src/contexts/platform/pages/home/MobileAiBar.tsx:87',
+  // ⚠️ **この一覧は行番号を鍵にしているので、上に行が増えると外れます。**
+  // 2026-09-05 の用語統一で、このファイルの冒頭コメントに4行足したところ
+  // ChevronUp が 87 → 91 行目へ動き、CI の `checks` が落ちました（PR #568）。
+  // 行を足した PR は、ここの番号も一緒に直してください。
+  ['client/src/contexts/platform/pages/home/MobileAiBar.tsx:91',
     'スマホの青いバーの右端。塗りは linear-gradient(var(--primary) → var(--info)) で、11 行上のボタンにある'],
   // 段5 PR7 (進行台本の表を v4 の見た目にする)。VTR ロールヘッダーの塗りは
   // 同じ <div> の `bg-gradient-to-r from-info to-info/80`（from-info は不透明の

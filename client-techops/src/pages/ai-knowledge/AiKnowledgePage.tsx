@@ -68,7 +68,7 @@ export default function AiKnowledgePage() {
     onError: (e: unknown) => {
       const message = (e as { response?: { data?: { error?: { message?: string } } } })
         ?.response?.data?.error?.message;
-      notifyError('状態の変更に失敗しました', message ? { description: message } : undefined);
+      notifyError('状態を変えられませんでした。', message ? { description: message } : { description: '少し待ってから、もう一度お試しください。' });
     },
   });
 
@@ -85,7 +85,7 @@ export default function AiKnowledgePage() {
     <div className="mx-auto max-w-3xl space-y-4 p-3 sm:p-4">
       <DashboardHeader
         title="AIナレッジの承認"
-        description="制作技術支援のAI（イベント設計・骨格・セリフ・壁打ち）に効かせる明示的なルールの管理です。承認して有効にしたルールだけが、次の生成からプロンプトに載ります（下書きのままでは載りません）。"
+        description="制作技術支援のAI（当日の枠・構成・セリフ・壁打ち）に効かせる明示的なルールの管理です。承認して有効にしたルールだけが、次の生成からプロンプトに載ります（下書きのままでは載りません）。"
       />
 
       {listQuery.isLoading ? (

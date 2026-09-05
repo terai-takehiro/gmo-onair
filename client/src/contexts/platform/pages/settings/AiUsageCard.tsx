@@ -52,7 +52,9 @@ interface Payload {
 
 /** 種類の名前。**サーバーの `kind` と対**（増やすときは両方直す） */
 const KIND_LABEL: Record<string, string> = {
-  intake: '投入口の行き先判断',
+  // 画面上のカードの名前は「依頼・タスクを書き留める」（`intake/IntakeComposer.tsx`）。
+  // 「投入口」は設計上の呼び名なので画面には出さない
+  intake: '依頼・タスクの行き先判断',
   minutes: '議事録の整形',
   activity: 'やり取りの整形',
   activity_short: '次にやることを1行に',
@@ -217,9 +219,9 @@ export function AiUsageCard() {
                 </>
               ) : (
                 <>
-                  金額は出していません。
-                  <code className="mx-1">AI_PRICING_JSON</code>
-                  を .env に入れると概算が出ます（入れなくてもトークンと分数で重さは分かります）。
+                  {/* 足りないのは環境変数 `AI_PRICING_JSON` だが、変数名は画面に出さない */}
+                  金額は出していません。AI の単価を設定すると概算が出ます
+                  （設定しなくてもトークンと分数で重さは分かります）。
                 </>
               )}
             </p>

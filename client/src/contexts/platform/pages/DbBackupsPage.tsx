@@ -85,9 +85,10 @@ export default function DbBackupsPage() {
     return (
       <PageTransition>
         <div className="p-6">
+          {/* ロール名（`system_admin`）は画面に出さない — 画面の言い方は「システム管理者」 */}
           <EmptyState
-            title="アクセス権限がありません"
-            description="DB バックアップ管理は system_admin ロールのみ閲覧できます。"
+            title="システム管理者だけが開けます。"
+            description="この画面は DB のバックアップを扱うため、システム管理者に限っています。必要なときはシステム管理者に依頼してください。"
           />
         </div>
       </PageTransition>
@@ -121,7 +122,9 @@ export default function DbBackupsPage() {
           </div>
           <ul className="list-disc list-inside text-red-700/90 text-xs space-y-1">
             <li>復元コマンドを実行すると、対象 DB の<strong>全テーブルが上書き</strong>されます (取り消し不可)</li>
-            <li>UI からは実行できません。<strong>VPS に SSH してコマンドを直接実行</strong>する必要があります</li>
+            {/* 実体は VPS へ SSH して docker exec する運用だが、接続方法は画面に出さない
+                （手順の正は docs/ops/db-backup-restore.md） */}
+            <li>この画面からは実行できません。<strong>サーバー側でコマンドを直接実行</strong>する必要があります</li>
             <li>本番ファイルは本番環境でのみ、検証ファイルは検証環境でのみ復元可能 (クロス禁止)</li>
             <li>復元前に現在の DB は <code className="text-[10px]">/tmp/before-restore_*.sql.gz</code> へ自動退避されます</li>
           </ul>
@@ -136,22 +139,26 @@ export default function DbBackupsPage() {
 
         {error && (
           <EmptyState
-            title="バックアップ一覧の取得に失敗しました"
-            description={(error as Error).message}
+            title="バックアップの一覧を読み込めませんでした"
+            description={`時間をおいて「再読込」を押してください。（${(error as Error).message}）`}
           />
         )}
 
+        {/* 足りないのは BOX_CONFIG_JSON / BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL だが、
+            環境変数名は画面に出さない（設定手順は docs/ops/db-backup-restore.md） */}
         {data && !data.configured && (
           <EmptyState
-            title="BOX 連携が未設定"
-            description="BOX_CONFIG_JSON および BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL を .env に設定してコンテナを再起動してください。"
+            title="BOX とのつなぎ込みの設定が足りません"
+            description="バックアップの保管先につながっていないため一覧を出せません。システム管理者に設定を依頼してください。"
           />
         )}
 
+        {/* 「取れていない」のは定時取得（cron）が止まっているときだが、
+            仕組みの名前は画面に出さない */}
         {data && data.configured && data.environments.length === 0 && (
           <EmptyState
-            title="バックアップが見つかりません"
-            description="まだバックアップが取得されていないか、cron が動作していない可能性があります。"
+            title="まだバックアップがありません"
+            description="1度も取得されていないか、定時取得が止まっている可能性があります。システム管理者に確認を依頼してください。"
           />
         )}
 
@@ -170,13 +177,13 @@ export default function DbBackupsPage() {
         <div className="rounded-xl border bg-muted/30 p-4 text-xs space-y-2">
           <div className="flex items-center gap-2 font-semibold">
             <Database className="h-4 w-4" />
-            VPS での実行手順
+            サーバーでの実行手順
           </div>
           <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
             {/* 接続先はここに書かない — クライアントの JS は誰でも取得でき、本番 VPS の IP が漏れる */}
-            <li>VPS に SSH 接続 (接続先は <code>docs/ops/db-backup-restore.md</code> 参照)</li>
+            <li>サーバーに接続 (接続先と接続方法は <code>docs/ops/db-backup-restore.md</code> 参照)</li>
             <li>上のテーブルから「コマンドをコピー」ボタンを押す</li>
-            <li>VPS のターミナルで貼り付けて実行 (確認プロンプトで <code>yes</code> と入力)</li>
+            <li>サーバーのターミナルで貼り付けて実行 (確認のメッセージに <code>yes</code> と入力)</li>
             <li>復元中の出力で進行状況を確認 (4 ステップ・通常 1〜数分)</li>
           </ol>
           <p className="text-[11px] text-muted-foreground/80 pt-1">

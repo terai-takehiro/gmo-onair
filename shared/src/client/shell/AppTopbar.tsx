@@ -282,7 +282,7 @@ export function AppTopbar({
                 <div>
                   {onOpenManual && <MenuRow onClick={() => { setUserOpen(false); onOpenManual(); }} icon={HelpCircle}>利用マニュアル</MenuRow>}
                   {onOpenVersionHistory && <MenuRow onClick={() => { setUserOpen(false); onOpenVersionHistory(); }} icon={History}>バージョン履歴</MenuRow>}
-                  {onOpenMcpInfo && <MenuRow onClick={() => { setUserOpen(false); onOpenMcpInfo(); }} icon={Plug}>MCP コネクタ</MenuRow>}
+                  {onOpenMcpInfo && <MenuRow onClick={() => { setUserOpen(false); onOpenMcpInfo(); }} icon={Plug}>AI につなぐ</MenuRow>}
                 </div>
                 {onSwitchUser && (
                   <MenuRow onClick={() => { setUserOpen(false); onSwitchUser(); }} icon={ArrowLeftRight}>ユーザー切替</MenuRow>

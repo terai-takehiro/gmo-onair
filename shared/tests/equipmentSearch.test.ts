@@ -9,7 +9,7 @@
  *
  * しかもこの画面は**自分で3つ約束していました**:
  *
- *   「名前・機材ID・型名・製造番号・メーカー・**置き場所**から探します」
+ *   「名前・機材ID・型名・製造番号・メーカー・**保管場所**から探します」
  *   「**全角半角**・ハイフンは区別しません」
  *   「**付属品も一緒に出ます**」
  *
@@ -45,7 +45,7 @@ describe('機材を探す', () => {
     expect(SERVICE).toMatch(/for \(const c of NORM_COLS\) \{ conds\.push\(`\$\{norm\(c\)\} ILIKE/);
   });
 
-  it('置き場所でも当たる', () => {
+  it('保管場所でも当たる', () => {
     expect(SERVICE).toMatch(/'el\.name', 'ei\.location_detail',/);
   });
 
@@ -58,8 +58,8 @@ describe('機材を探す', () => {
     expect(SEARCH).toMatch(/params: \{ search: debounced, include_children: '1' \}/);
   });
 
-  it('台帳の案内も「置き場所」を書く（当たる範囲と書いてあることを合わせる）', () => {
+  it('台帳の案内も「保管場所」を書く（当たる範囲と書いてあることを合わせる）', () => {
     const filters = read('client-equipment', 'src', 'pages', 'equipmentList', 'EquipmentFilters.tsx');
-    expect(filters).toMatch(/placeholder="名前・ID・型名・置き場所で探す"/);
+    expect(filters).toMatch(/placeholder="名前・ID・型名・保管場所で探す"/);
   });
 });

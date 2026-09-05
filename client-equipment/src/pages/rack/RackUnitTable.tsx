@@ -3,7 +3,7 @@
  *
  * ── 図だけでは読めないものを出す ────────────────────────────
  *
- * ラックの絵は 1U のセルが小さく、**型番と管理番号が入りません**（実際
+ * ラックの絵は 1U のセルが小さく、**型名と管理番号が入りません**（実際
  * `DefaultCellContent` は高さで文字を落としています）。図で位置を見て、
  * 表で中身を読む、の2枚組にします。
  *
@@ -126,7 +126,7 @@ export function RackUnitTable({
             onClick={onAddPanel}
             className="rounded-control min-h-tap inline-flex items-center gap-1.5 border border-border bg-card px-2.5 font-bold text-secondary-foreground lg:min-h-[32px]"
           >
-            ＋ パネルを足す
+            ＋ パネルを追加
           </button>
         )}
       </div>

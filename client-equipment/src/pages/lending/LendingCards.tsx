@@ -2,15 +2,15 @@
  * ⑦ 貸出・返却 — スマホ版のカード積み（M12）
  *
  * 監査（`docs/v4-native-ui-audit-2026-08-20.md` equipment-lendings）の指摘:
- * 「PC表の列を hideOnMobile で間引いただけ（持出日がスマホで非表示）で
+ * 「PC表の列を hideOnMobile で間引いただけ（持ち出した日がスマホで非表示）で
  * 専用モバイルレイアウトが無い」を受けて、PC の罫線区切りリスト
  * （`LendingListPage.tsx` の `Row`）とは別に、スマホだけ独立したカードを積む形にした。
  * **PC の行を縮めたものではない**（`production/pages/holds/HoldCards.tsx` /
  * `maintenance/MaintenanceCards.tsx` と同じ考え方）。
  *
- * **持出日は PC で `hideOnMobile` にしていた列。** ここでは畳まず、返却予定と並ぶ
+ * **持ち出した日は PC で `hideOnMobile` にしていた列。** ここでは畳まず、返却予定と並ぶ
  * 「事実」の並びに常に出す — 現場で「いつ持ち出したか」を確かめる画面なので、
- * 持出日が消えていると「あと何日借りているか」が分からない。
+ * 持ち出した日が消えていると「あと何日借りているか」が分からない。
  *
  * ダイアログ（貸出・返却）は既に `FormDialog` へ移行済みなのでここでは触らない。
  * ボタンは変わらず `LendingListPage.tsx` が持つミューテーションを呼ぶだけ。
@@ -59,7 +59,7 @@ export function LendingCards({
                 </span>
               </span>
               <TableBadge
-                label={l.status === 'planned' ? '出庫予定'
+                label={l.status === 'planned' ? '持ち出し予定'
                   : l.status === 'lent' ? (late ? '返却遅延' : '貸出中') : '返却済'}
                 w={null}
                 className={cn('shrink-0', late
@@ -72,10 +72,10 @@ export function LendingCards({
               />
             </div>
 
-            {/* **持出日・返却予定。** PC では持出日を hideOnMobile で畳んでいたが常に出す */}
+            {/* **持ち出した日・返却予定。** PC では持ち出した日を hideOnMobile で畳んでいたが常に出す */}
             <dl className="text-sub flex flex-col gap-1 border-t border-border pt-2.5">
               <Fact
-                label={l.status === 'planned' ? '出庫予定' : '持出日'}
+                label={l.status === 'planned' ? '持ち出し予定' : '持ち出した日'}
                 value={l.status === 'planned' ? md(l.planned_out_date) : md(l.lent_at)}
               />
               <Fact
@@ -86,12 +86,12 @@ export function LendingCards({
 
             {l.status === 'planned' && (
               <Button className="w-full" variant="outline" disabled={checkoutPending} onClick={() => onCheckout(l.id)}>
-                <PackageCheck className="mr-1.5 h-4 w-4" aria-hidden="true" />出した
+                <PackageCheck className="mr-1.5 h-4 w-4" aria-hidden="true" />持ち出した
               </Button>
             )}
             {l.status === 'lent' && (
               <Button className="w-full" variant="outline" onClick={() => onReturn(l)}>
-                <RotateCcw className="mr-1.5 h-4 w-4" aria-hidden="true" />返却
+                <RotateCcw className="mr-1.5 h-4 w-4" aria-hidden="true" />返却を記録
               </Button>
             )}
           </div>

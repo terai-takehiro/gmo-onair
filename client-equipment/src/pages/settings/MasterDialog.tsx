@@ -77,7 +77,7 @@ function MasterSection({ title, apiPath, queryKey, placeholder }: {
     const ok = await confirmAction({
       title: `${title}「${item.name}」を消しますか`,
       description: '使われている場所があると消せません。消せた場合も取り消せません。',
-      confirmLabel: '消す',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) remove.mutate(item.id);
@@ -107,21 +107,21 @@ function MasterSection({ title, apiPath, queryKey, placeholder }: {
                   disabled={!editName.trim() || update.isPending}
                   onClick={() => update.mutate({ id: item.id, name: editName.trim() })}
                 >
-                  直す
+                  編集
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>やめる</Button>
+                <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>キャンセル</Button>
               </>
             ) : (
               <>
                 <span className="flex-1 text-sub">{item.name}</span>
                 <Button
-                  variant="ghost" size="icon-sm" aria-label={`${item.name} の名前を直す`}
+                  variant="ghost" size="icon-sm" aria-label={`${item.name} の名前を編集`}
                   onClick={() => { setEditingId(item.id); setEditName(item.name); }}
                 >
                   <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
                 <Button
-                  variant="ghost" size="icon-sm" className="text-destructive" aria-label={`${item.name} を消す`}
+                  variant="ghost" size="icon-sm" className="text-destructive" aria-label={`${item.name} を削除`}
                   disabled={remove.isPending}
                   onClick={() => onDelete(item)}
                 >
@@ -143,7 +143,7 @@ function MasterSection({ title, apiPath, queryKey, placeholder }: {
             {add.isPending
               ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
               : <Plus className="h-3.5 w-3.5" aria-hidden="true" />}
-            足す
+            追加
           </Button>
         </div>
       </div>

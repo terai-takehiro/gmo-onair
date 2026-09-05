@@ -32,7 +32,7 @@ interface McpInfoModalProps {
   dataUrl?: string;
 }
 
-const MCP_ENDPOINT = "https://gmo-onair.jp/api/v1/mcp";
+const MCP_ENDPOINT = "https://gmo-onair.jp/api/v1/mcp"; // ui-tokens-ok: 繋ぎ先の URL そのもの
 
 export default function McpInfoModal({
   open,
@@ -56,7 +56,7 @@ export default function McpInfoModal({
         return res.json();
       })
       .then((json: McpToolsData) => setData(json))
-      .catch((err) => setError(err instanceof Error ? err.message : "取得に失敗しました"))
+      .catch((err) => setError(err instanceof Error ? err.message : "AI につなぐ方法を読み込めませんでした"))
       .finally(() => setLoading(false));
   }, [open, dataUrl]);
 
@@ -75,7 +75,7 @@ export default function McpInfoModal({
   }, [data, q]);
 
   const copyEndpoint = () => {
-    navigator.clipboard?.writeText(`${MCP_ENDPOINT}?key=<APIキー>`).then(() => {
+    navigator.clipboard?.writeText(`${MCP_ENDPOINT}?key=<APIキー>`).then(() => { // ui-tokens-ok: 繋ぎ先の URL そのもの
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     });
@@ -90,15 +90,15 @@ export default function McpInfoModal({
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <Plug className="h-[18px] w-[18px]" />
             </span>
-            <span className="truncate">MCP コネクタ</span>
+            <span className="truncate">AI につなぐ</span>
             {data?.toolCount != null && (
               <span className="ml-1 shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-                {data.toolCount} ツール
+                {data.toolCount} 個の操作
               </span>
             )}
           </DialogTitle>
           <DialogDescription className="text-xs leading-relaxed sm:text-sm">
-            Claude などの AI から GMO ONAiR を操作するための MCP コネクタです。接続方法と、AI が使えるツールの一覧を掲載しています。
+            Claude などの AI から GMO ONAiR を操作するための接続口です。つなぎ方と、AI が使える操作の一覧を載せています。
           </DialogDescription>
         </DialogHeader>
 
@@ -112,7 +112,7 @@ export default function McpInfoModal({
                 <span className="font-medium text-foreground">① Claude アプリ（カスタムコネクタ）:</span> 設定 → コネクタ → カスタムコネクタを追加。URL に下記を貼り付けます（OAuth 欄は空のまま）。
                 <div className="mt-1.5 flex items-center gap-2">
                   <code className="flex-1 truncate rounded-md bg-background border border-border px-2 py-1.5 text-[11px] text-foreground">
-                    {MCP_ENDPOINT}?key=&lt;APIキー&gt;
+                    {MCP_ENDPOINT}?key=&lt;APIキー&gt;{/* ui-tokens-ok: 繋ぎ先の URL そのもの */}
                   </code>
                   <button
                     onClick={copyEndpoint}
@@ -127,7 +127,7 @@ export default function McpInfoModal({
               </li>
               <li>
                 <span className="font-medium text-foreground">② Claude Code（CLI）:</span>{" "}
-                <code className="rounded bg-background border border-border px-1.5 py-0.5 text-[11px]">claude mcp add --transport http onair {MCP_ENDPOINT} --header "Authorization: Bearer &lt;APIキー&gt;"</code>
+                <code className="rounded bg-background border border-border px-1.5 py-0.5 text-[11px]">claude mcp add --transport http onair {MCP_ENDPOINT} --header "Authorization: Bearer &lt;APIキー&gt;"{/* ui-tokens-ok: 貼り付けて使うコマンドそのもの */}</code>
               </li>
               <li className="text-amber-600 dark:text-amber-500">
                 ⚠️ サーバー側でツールを追加・変更したら、コネクタの<strong>ツールリスト更新（再接続）</strong>が必要です（一覧は接続時にキャッシュされます）。
@@ -158,7 +158,7 @@ export default function McpInfoModal({
           {error && !loading && (
             <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3.5 text-sm text-destructive">
               <AlertTriangle className="h-4 w-4 shrink-0" />
-              ツール一覧の取得に失敗しました（{error}）。
+              操作の一覧を読み込めませんでした。少し待ってから、もう一度お試しください。
             </div>
           )}
           {!loading && !error && data && (
@@ -190,7 +190,7 @@ export default function McpInfoModal({
                 </section>
               ))}
               {filtered.length === 0 && (
-                <p className="py-10 text-center text-sm text-muted-foreground">該当するツールが見つかりません。</p>
+                <p className="py-10 text-center text-sm text-muted-foreground">当てはまるものはありませんでした</p>
               )}
             </div>
           )}

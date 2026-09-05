@@ -174,7 +174,7 @@ function Column({
           onClick={onAddTask}
           className="text-sub min-h-tap inline-flex items-center justify-center gap-1 rounded-card border border-dashed border-border py-1.5 text-muted-foreground hover:border-primary-border-strong hover:text-primary lg:min-h-[32px]"
         >
-          <Plus className="h-3.5 w-3.5" aria-hidden="true" />タスクを足す
+          <Plus className="h-3.5 w-3.5" aria-hidden="true" />タスクを追加
         </button>
       )}
     </div>

@@ -1,5 +1,5 @@
 /**
- * ⑦ 通知とテンプレート（v4 設定・モックの7枚目）
+ * ⑦ 知らせと文面（v4 設定・モックの7枚目。旧「通知とテンプレート」）
  *
  * ── 社外メールは送らない（ご判断）──────────────────────────
  *
@@ -156,14 +156,14 @@ export default function NotifyPage() {
   return (
     <div className="flex flex-col gap-3.5 p-3 lg:gap-4 lg:p-6">
       <PageHeader
-        title="通知とテンプレート"
+        title="知らせと文面"
         sub="いつ・誰に・どんな文面で知らせるかをここで持ちます。"
         primaryAction={canEdit ? (
           <Button variant="outline" disabled={run.isPending} onClick={() => run.mutate()}>
             {run.isPending
               ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />
               : <Play className="mr-1.5 h-4 w-4" aria-hidden="true" />}
-            定時実行をいま流す
+            今すぐ知らせを作る
           </Button>
         ) : undefined}
       />

@@ -6,7 +6,7 @@
  * PC の行は 重要度(72px) ／ 内容・出どころ（伸びる）／ 受信(96px) ／
  * 次にやること(160px) の4列です。スマホでこれを折り返すと、
  * **ボタンが4つ縦に積まれた下に本文がぶら下がる**形になり、
- * 何の話なのかを読む前に「チケットにする」を押すことになります。
+ * 何の話なのかを読む前に「タスクにする」を押すことになります。
  *
  * 外で開くときに要るのは**「何の話か」と「今どこにいるか」**なので、
  * 2行のカードに組み直します（`client/src/contexts/gpm/pages/taskList/TaskCards.tsx`
@@ -14,7 +14,7 @@
  *
  *   1行目  重要度 ＋ 要約（AI の印つき）
  *   2行目  出どころ ・ 送信者 ・ 受信日
- *   その下  行き先（ストックなら見直す日）／ タグ ／ 中身を読む ／ 次にやること
+ *   その下  行き先（あとで見るなら見直す日）／ タグ ／ 中身を読む ／ 次にやること
  *
  * ── 色と文字の判定は書き写さない ────────────────────────────
  *
@@ -141,10 +141,10 @@ export function InquiryCards({
                 ))}
                 <span className="flex gap-1.5">
                   <Button variant="ghost" className="flex-1" onClick={() => onEdit(q)}>
-                    <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />直す
+                    <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />編集
                   </Button>
                   <Button variant="ghost" className="flex-1" onClick={() => onDelete(q)}>
-                    <Trash2 className="mr-1.5 h-3.5 w-3.5 text-destructive" aria-hidden="true" />消す
+                    <Trash2 className="mr-1.5 h-3.5 w-3.5 text-destructive" aria-hidden="true" />削除
                   </Button>
                 </span>
               </span>

@@ -70,7 +70,7 @@ export function PerformancePanel({
 
       <Panel title="担当者別 営業評価">
         {performance.length === 0 ? (
-          <EmptyState title="担当者別データがありません" description="目標を設定するか、ヨミを登録すると出てきます。" />
+          <EmptyState title="まだ担当者別の実績がありません" description="営業目標を決めるか、ヨミを登録すると出てきます。" />
         ) : (
           <div className="overflow-x-auto">
             <RowHeader>

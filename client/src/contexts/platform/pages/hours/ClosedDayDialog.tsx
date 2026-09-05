@@ -90,10 +90,10 @@ export function ClosedDayDialog({ day, locationId, locationName, open, onOpenCha
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={day ? `${day.name} を直す` : '休業日を足す'}
+      title={day ? `${day.name} を編集` : '休業日を追加'}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
           <Button disabled={!from || !name.trim() || bad || save.isPending} onClick={() => save.mutate()}>
             {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
             保存する

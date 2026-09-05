@@ -124,7 +124,7 @@ export default function SchedulePage() {
         notifyError("この項目は別のタブ/端末で更新されています");
         refetchDetail();
       } else {
-        notifyError("保存に失敗しました");
+        notifyError("保存できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
       }
     }
   };
@@ -141,7 +141,7 @@ export default function SchedulePage() {
       refetchBreakdown();
       refetchListsAndHub();
     } catch {
-      notifyError("削除に失敗しました");
+      notifyError("削除できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
     }
   };
 
@@ -175,7 +175,7 @@ export default function SchedulePage() {
       a.href = url; a.download = filename; a.click();
       URL.revokeObjectURL(url);
     } catch {
-      notifyError("書き出しに失敗しました");
+      notifyError("書き出せませんでした。", { description: "少し待ってから、もう一度お試しください。" });
     }
   };
 
@@ -205,7 +205,7 @@ export default function SchedulePage() {
             <Download className="mr-1 h-4 w-4" />Excel
           </Button>
           <Button size="sm" className="min-h-[44px]" onClick={() => openCreate(schedule.columns[0]?.id ?? "", schedule.view_start_min)} disabled={schedule.columns.length === 0}>
-            <Plus className="mr-1 h-4 w-4" />項目を足す
+            <Plus className="mr-1 h-4 w-4" />項目を追加
           </Button>
         </div>
       </div>

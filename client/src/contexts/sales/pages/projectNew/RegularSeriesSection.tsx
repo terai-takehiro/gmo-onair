@@ -15,7 +15,7 @@ export function RegularSeriesSection({ f }: { f: ProjectFieldsState }) {
     <div className="rounded-card border border-primary-border bg-card px-4 py-4 lg:px-5">
       <p className="text-cardtitle mb-1">レギュラーの取り決め</p>
       <p className="text-note mb-3 text-muted-foreground">
-        回を作るたびに聞かれません。「回を足す」の「頻度で作る」の既定値になります
+        回を作るたびに聞かれません。「回を追加」の「頻度で作る」の既定値になります
       </p>
       <RegularSeriesFields f={f} />
     </div>

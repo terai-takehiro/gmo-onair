@@ -41,7 +41,7 @@ export default function SignagePage() {
         setData(res.data.data);
         setError("");
       } catch (err: any) {
-        setError(err.response?.data?.error?.message || "データ取得に失敗しました");
+        setError(err.response?.data?.error?.message || "予定を読み込めませんでした。30秒後に自動でもう一度読み込みます。");
       }
     };
     fetchData();
@@ -63,7 +63,7 @@ export default function SignagePage() {
   if (!data) {
     return (
       <div className="signage-container signage-idle">
-        <p style={{ fontSize: "2rem", opacity: 0.5 }}>読み込み中...</p>
+        <p style={{ fontSize: "2rem", opacity: 0.5 }}>読み込み中…</p>
       </div>
     );
   }

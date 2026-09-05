@@ -60,10 +60,10 @@ const TEXTS = {
     confirm: '失注にする',
   },
   pass: {
-    title: '見送りにする',
-    sub: '案件にならなかったものを閉じます。失注とは別の理由で残るので、失注分析のノイズになりません。',
-    warn: '見送りはいつでもステージ帯から戻せます',
-    confirm: '見送りにする',
+    title: '失注にする（案件化せず）',
+    sub: '案件にならなかったものを閉じます。理由は「見送り（案件化せず）」で残るので、失注分析のノイズになりません。',
+    warn: 'いつでもステージ帯から戻せます',
+    confirm: '失注にする',
   },
 } as const;
 
@@ -107,7 +107,7 @@ export function LostDialog({
       sub={texts.sub}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={() => close(false)} disabled={busy}>やめる</Button>
+          <Button variant="outline" onClick={() => close(false)} disabled={busy}>キャンセル</Button>
           <Button
             variant={mode === 'lost' ? 'destructive' : 'default'}
             disabled={!reason || busy}

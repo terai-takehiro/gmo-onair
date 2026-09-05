@@ -271,7 +271,7 @@ export default function InviewPage() {
           {days.length === 0 ? (
             <EmptyState
               title={scope === 'upcoming' ? '今後の回の来場予約はまだありません' : '来場予約はまだありません'}
-              description="Kairos3 の登録通知メールを AI が取り込みます。手で足すときは「来場予約を追加」から登録してください。"
+              description="Kairos3 の登録通知メールを AI が取り込みます。手で追加するときは「来場予約を追加」から登録してください。"
               action={scope === 'upcoming' ? (
                 <Button variant="outline" onClick={() => setScope('all')}>すべての回を見る</Button>
               ) : undefined}

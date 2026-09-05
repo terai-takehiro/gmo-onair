@@ -243,7 +243,7 @@ export function ScheduleSection({
             <p className="text-note text-muted-foreground">本番・リハと別の日（撤去日や中日など）を足せます。</p>
           </div>
           <Button type="button" variant="outline" size="sm" onClick={s.addExtraDate}>
-            ＋ 日程を足す
+            ＋ 日程を追加
           </Button>
         </div>
         {s.extraDates.length > 0 && (
@@ -270,7 +270,7 @@ export function ScheduleSection({
                 <Button
                   type="button" variant="ghost" size="icon"
                   className="shrink-0 text-destructive"
-                  aria-label="この日程を消す"
+                  aria-label="この日程を削除"
                   onClick={() => s.removeExtraDate(idx)}
                 >
                   ×

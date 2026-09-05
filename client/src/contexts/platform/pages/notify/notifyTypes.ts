@@ -1,4 +1,4 @@
-/** ⑦ 通知とテンプレート で使う形（v4 設定） */
+/** ⑦ 知らせと文面 で使う形（v4 設定） */
 
 export interface Template {
   id: string;

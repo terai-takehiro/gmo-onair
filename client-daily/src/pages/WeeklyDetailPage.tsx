@@ -14,7 +14,7 @@
  *
  * ・**「ニュース由来」のバッジ** — DB に由来を記録する列が無い
  *   (`TopicsSection.tsx` に理由を書いてある)
- * ・**AI 起票に「指示した人」を出さない** — `requested_by` は AI が名簿と
+ * ・**「AI作成」の印に「指示した人」を出さない** — `requested_by` は AI が名簿と
  *   突き合わせずに自由記述で書く値で、実在しない人名が入っていたことがある
  */
 import { useNavigate, useParams } from 'react-router-dom';
@@ -144,17 +144,17 @@ export default function WeeklyDetailPage() {
                 {isPublished
                   ? <TableBadge label="確定済み" w={null} className="border-success-border bg-success-surface text-success" />
                   : <TableBadge label="下書き" w={null} className="border-warning-border bg-warning-surface text-warning" />}
-                {/* 「確定/下書き」とは別軸（内容の既読）。同じ語感の「確認済み」だと
-                    「下書き」と並んだときに相反して見えるため、この画面だけ「内容確認」と明示する */}
+                {/* 「確定/下書き」とは別軸（内容の既読）。語は `docs/wording.md` の
+                    決定どおり「確認した」に揃え、状態バッジは「確認済み」で出す */}
                 {report.reviewed_at
-                  ? <TableBadge label="内容確認ずみ" w={null} className="border-success-border bg-success-surface text-success" />
-                  : <TableBadge label="内容未確認" w={null} className="border-ai-border bg-ai-surface text-ai" />}
+                  ? <TableBadge label="確認済み" w={null} className="border-success-border bg-success-surface text-success" />
+                  : <TableBadge label="未確認" w={null} className="border-ai-border bg-ai-surface text-ai" />}
                 {(report.created_by === 'mcp-claude' || !!report.requested_by) && (
-                  <TableBadge label="AIが起票" w={null} className="border-ai-border bg-ai-surface text-ai" />
+                  <TableBadge label="AI作成" w={null} className="border-ai-border bg-ai-surface text-ai" />
                 )}
                 {canEdit && !report.reviewed_at && (
                   <Button variant="outline" size="sm" onClick={onReview} disabled={review.isPending}>
-                    <CheckCircle2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> 内容を確認ずみにする
+                    <CheckCircle2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> 確認した
                   </Button>
                 )}
               </div>
@@ -163,7 +163,7 @@ export default function WeeklyDetailPage() {
             {isPublished && report.published_at && (
               <p className="text-note text-muted-foreground">
                 {new Date(report.published_at).toLocaleString('ja-JP')} に確定しました。
-                足すことも直すこともできません（ニュースからの「週報へ送る」も入りません）。
+                追加も編集もできません（ニュースからの「ウィークリー活動報告へ送る」も入りません）。
                 直すときは「確定を解く」を押してください。
               </p>
             )}
@@ -172,7 +172,7 @@ export default function WeeklyDetailPage() {
             {stats ? <StatsSection stats={stats} isMobile={isMobile} /> : (
               <EmptyState
                 title="集計はまだありません"
-                description="AI が週報を投稿すると、その時点の案件・活動・売上がここに出ます。"
+                description="AI がウィークリー活動報告を作ると、その時点の案件・活動・売上がここに出ます。"
               />
             )}
 
@@ -197,7 +197,7 @@ export default function WeeklyDetailPage() {
             <Section
               icon={ListChecks}
               title="週次トピックス"
-              sub={isPublished ? '確定済みなので足せません' : '自動集計に出ない出来事を人が足すところ'}
+              sub={isPublished ? '確定済みなので追加できません' : '自動集計に出ない出来事を人が追加するところ'}
             />
             <TopicsSection items={report.items ?? []} reportId={report.id} editable={editable} />
           </>

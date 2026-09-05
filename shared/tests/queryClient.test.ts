@@ -56,9 +56,9 @@ describe('MutationCache の最後の受け皿', () => {
     expect(getNotice()).toMatchObject({ tone: 'error', title: '保存できませんでした' });
   });
 
-  it('`meta.action` があれば「〜に失敗しました」にする', async () => {
-    await runFailingMutation(httpError(500), { meta: { action: '案件の保存' } });
-    expect(getNotice()?.title).toBe('案件の保存に失敗しました');
+  it('`meta.action` があれば「〜できませんでした」にする', async () => {
+    await runFailingMutation(httpError(500), { meta: { action: '案件を保存' } });
+    expect(getNotice()?.title).toBe('案件を保存できませんでした');
   });
 
   it('サーバーの日本語メッセージをそのまま出す (技術用語を出さない)', async () => {

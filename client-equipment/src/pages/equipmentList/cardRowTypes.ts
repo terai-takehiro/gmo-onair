@@ -16,7 +16,7 @@
  *
  * タップで開いた付属品（`childrenCache` 由来、`parentId` が付く）は
  * その親のカードの中に畳み込み、1枚のカードとして高さを測ります
- * （貸出機材の「型番の塊」と同じ形）。「付属品も出す」で当たった子
+ * （貸出機材の「型名の塊」と同じ形）。「付属品も出す」で当たった子
  * （`parentId` が付かない）は、親が同じ束に居るとは限らないので
  * **独立した1枚のカード**にします。
  */
@@ -99,7 +99,7 @@ export function buildCardEntries(
   return entries;
 }
 
-/** カードを設置場所で束ねる。`locations` の並び順に出し、場所なしは最後 */
+/** カードを保管場所で束ねる。`locations` の並び順に出し、場所なしは最後 */
 export function groupByLocation(entries: CardEntry[], locations: LocationRecord[]): LocationSection[] {
   const byLocation = new Map<string, CardEntry[]>();
   for (const entry of entries) {
@@ -114,7 +114,7 @@ export function groupByLocation(entries: CardEntry[], locations: LocationRecord[
     if (cards?.length) sections.push({ id: loc.id, name: loc.name, cards });
   }
   const none = byLocation.get('__none__');
-  if (none?.length) sections.push({ id: null, name: '設置場所なし', cards: none });
+  if (none?.length) sections.push({ id: null, name: '保管場所なし', cards: none });
   return sections;
 }
 

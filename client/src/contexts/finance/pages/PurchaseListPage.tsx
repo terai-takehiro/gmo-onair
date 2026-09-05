@@ -53,13 +53,13 @@ import type { LedgerRow, PurchaseRow } from './ledger/types';
 
 const CHIPS = [
   { key: 'all', label: 'すべて', state: '' },
-  { key: 'fixed', label: '確定', state: 'fixed' },
+  { key: 'fixed', label: '金額が確定', state: 'fixed' },
   { key: 'prov', label: '仮（見込み）', state: 'prov' },
   { key: 'nourl', label: '申請URLなし', state: 'nourl' },
 ];
 
 /**
- * 申請ステータス（仮 / 確定：未申請 / 確定：申請済）。**販管費と共通のロジック**
+ * 申請ステータス（金額はまだ仮 / 金額確定・精算まだ / 金額確定・精算申請済）。**販管費と共通のロジック**
  * （`ledger/settlementState.ts`）。申請URLへの遷移はこのバッジではなく
  * 台帳の行・ダイアログの別ボタン（外部リンクアイコン）で行う（仕様変更 #4・#6・#7）
  */
@@ -163,7 +163,7 @@ export default function PurchaseListPage() {
         sub={
           filterProjectName
             ? `${filterProjectName} の仕入`
-            : '案件に紐づくものが変動原価、固定原価プロジェクトに付けたものが固定原価です'
+            : '案件に紐づくものが変動原価、案件に紐づかない償却負担などが固定原価です'
         }
         primaryAction={
           canEdit ? (
@@ -285,7 +285,7 @@ export default function PurchaseListPage() {
             }
             description={
               tab === 'fix'
-                ? '固定原価プロジェクト（FIXED-COGS）に付けた仕入がここに並びます。'
+                ? '案件に紐づかない、償却負担などの仕入がここに並びます。'
                 : '案件に付けた仕入がここに並びます。'
             }
             action={

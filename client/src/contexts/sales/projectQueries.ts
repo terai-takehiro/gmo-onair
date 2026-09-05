@@ -33,7 +33,7 @@ const PROJECT_LIST_KEYS = [
   'projects-dropdown',                 // やり取りダイアログの案件選択
   'projects-with-activity',            // 活動のある案件
   'projects-booking-search',           // スタジオ予約の案件検索
-  'gls-projects',                      // 「いまある案件に足す」の候補
+  'gls-projects',                      // 「いまある案件に追加」の候補
   'gls-projects-for-groups',           // 請求グループの候補
   'won-projects-for-purchase',         // PDF 取込の案件候補
   'won-projects-for-handoff',          // 制作への引き継ぎ

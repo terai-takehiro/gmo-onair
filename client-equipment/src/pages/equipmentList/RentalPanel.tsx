@@ -1,7 +1,7 @@
 /**
  * ② 機材台帳 ／ 貸出機材 (v4・旧 `ModelGroupPage.tsx`)
  *
- * 「貸出可」にした機材だけが並びます。型番ごとにまとめ、開くと1台ずつ出ます。
+ * 「貸出可」にした機材だけが並びます。型名ごとにまとめ、開くと1台ずつ出ます。
  *
  * ── 直したこと ────────────────────────────────────────────
  *
@@ -129,14 +129,14 @@ export function RentalPanel() {
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-sub text-muted-foreground">
-          <span className="font-number font-bold">{groups.length}</span> 型番 ／{' '}
+          <span className="font-number font-bold">{groups.length}</span> 型名 ／{' '}
           <span className="font-number font-bold">{totalUnits}</span> 台
           {inRepair > 0 && <span className="text-warning"> ・ 修理中 {inRepair} 台</span>}
         </p>
         <div className="flex-1" />
         <Button variant="outline" asChild>
           <Link to="/equipment/settings?tab=cat">
-            <Settings2 className="mr-1 h-4 w-4" aria-hidden="true" />貸出カテゴリを直す
+            <Settings2 className="mr-1 h-4 w-4" aria-hidden="true" />貸出カテゴリを編集
           </Link>
         </Button>
         {groups.length > 0 && (
@@ -180,7 +180,7 @@ export function RentalPanel() {
       ) : groups.length === 0 ? (
         <EmptyState
           title="貸出可にした機材がまだ1台もありません"
-          description="設定の「貸出の決めごと」で貸出の対象にすると、ここと貸出・返却に出てきます。"
+          description="設定の「貸出のルール」で貸出の対象にすると、ここと貸出・返却に出てきます。"
           action={<Button asChild><Link to="/equipment/settings?tab=rule">貸出の対象を決める</Link></Button>}
         />
       ) : (
@@ -213,7 +213,7 @@ export function RentalPanel() {
         title="貸出の出しかた"
         footer={editGroup ? (
           <FormDialogFooter>
-            <Button variant="outline" onClick={() => setEditGroup(null)}>やめる</Button>
+            <Button variant="outline" onClick={() => setEditGroup(null)}>キャンセル</Button>
             <Button
               onClick={() => save.mutate({
                 ids: editGroup.units.map((u) => u.id),
@@ -223,7 +223,7 @@ export function RentalPanel() {
               disabled={save.isPending}
             >
               {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-              直す
+              編集
             </Button>
           </FormDialogFooter>
         ) : undefined}

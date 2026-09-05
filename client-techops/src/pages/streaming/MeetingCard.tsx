@@ -45,7 +45,7 @@ async function copyText(text: string, label: string) {
     await navigator.clipboard.writeText(text);
     notifySuccess(`${label}をコピーしました`);
   } catch {
-    notifyError('コピーに失敗しました');
+    notifyError('コピーできませんでした。', { description: 'URL を選んで、手でコピーしてください。' });
   }
 }
 

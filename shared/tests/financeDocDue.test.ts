@@ -8,7 +8,7 @@
  *    「結局何をしたいのかわからないアプリになってる」）。
  *    日付の境目（今日ちょうど・月またぎ・期日なし）は**その日にならないと
  *    再現しない**ので、画面を開いても確かめられません。
- * ② **押せるのに 403**: 「台帳に入れる」は画面が
+ * ② **押せるのに 403**: 「仕入・販管費に登録」は画面が
  *    `sales:editor || dailyops:editor` で出していたのに、API は
  *    `sales:editor` だけを通します。**`dailyops` だけの人にはボタンが見えて、
  *    押せて、403** でした（`shared/tests/clickable403.test.ts` と同じ形。
@@ -81,7 +81,7 @@ describe('書類の経緯（誰がいつ）', () => {
 });
 
 describe('押せるのに 403 にしない（受け取った書類）', () => {
-  it('「台帳に入れる」は sales の editor にだけ出す', () => {
+  it('「仕入・販管費に登録」は sales の editor にだけ出す', () => {
     const page = read('client', 'src', 'contexts', 'finance', 'pages', 'DocumentsPage.tsx');
     // 確かめる（確認する / 承認 / 却下）は dailyops でも通る = `canReview`
     expect(page).toMatch(/canReview = hasPermission\('sales', 'editor'\) \|\| hasPermission\('dailyops', 'editor'\)/);
@@ -91,7 +91,10 @@ describe('押せるのに 403 にしない（受け取った書類）', () => {
     expect(page).toMatch(/\{d\.status === 'approved' && \(canLedger \? \(/);
     expect(page).toMatch(/\{canLedger && \(/);
     // 出さない人には**誰に頼めばよいか**を書く（黙って消すと「機能が無い」に見える）
-    expect(page).toContain('台帳に入れるのは財務の担当者です');
+    // 2026-09-05: 操作名を「台帳に入れる」→「仕入・販管費に登録」に統一した
+    // （同じ操作が「台帳に入れる／仕入に入れる／処理完了」の3表記だったため）。
+    // **誰に頼めばよいかを書く**という趣旨は変えていない
+    expect(page).toContain('仕入・販管費に登録するのは財務の担当者です');
 
     // サーバー側が sales:editor を要求していることも一緒に見る（緩めたら画面も見直す）
     const routes = read('server', 'src', 'contexts', 'dailyops', 'routes', 'inbox.routes.ts');

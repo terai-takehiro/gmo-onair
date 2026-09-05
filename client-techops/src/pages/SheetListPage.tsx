@@ -90,10 +90,10 @@ export default function SheetListPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["qsheet-documents"] });
-      notifySuccess("ドキュメントを削除しました");
+      notifySuccess("進行台本を削除しました");
     },
     onError: () => {
-      notifyError("ドキュメントの削除に失敗しました");
+      notifyError("進行台本を削除できませんでした。少し待ってから、もう一度お試しください。");
     },
   });
 
@@ -122,7 +122,7 @@ export default function SheetListPage() {
       <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-5 sm:py-8 space-y-5">
         <DashboardHeader
           title="進行台本"
-          description={`${documents?.length || 0} 件のドキュメント。日付・自分が作った／共有された、で絞り込めます。`}
+          description={`${documents?.length || 0} 件の進行台本。日付・自分が作った／共有された、で絞り込めます。`}
           lastUpdated={
             documents && documents.length > 0
               ? `最終更新 ${new Date(Math.max(...documents.map((d) => new Date(d.updated_at).getTime())))
@@ -144,7 +144,7 @@ export default function SheetListPage() {
             <span className="text-sm">
               <span className="font-medium">{documents[0].gls_number}</span>
               <span className="text-muted-foreground ml-1">{documents[0].project_name}</span>
-              のQシート
+              の進行台本
             </span>
             <Button
               variant="ghost"
@@ -164,7 +164,7 @@ export default function SheetListPage() {
             <FolderKanban className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
             <span className="text-sm">
               <span className="font-medium">{documents[0].program_name}</span>
-              のQシート
+              の進行台本
             </span>
             <Button
               variant="ghost"
@@ -183,7 +183,7 @@ export default function SheetListPage() {
           <div className="relative max-w-sm sm:max-w-md flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
             <Input
-              placeholder="タイトルで検索..."
+              placeholder="タイトルで検索…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10 min-h-[44px]"
@@ -248,12 +248,12 @@ export default function SheetListPage() {
         ) : (
           <EmptyState
             icon={<FileText />}
-            title="まだドキュメントがありません"
-            description="「新規作成」から最初のQシートを作成しましょう。"
+            title="まだ進行台本がありません"
+            description="「新規作成」から最初の進行台本を作りましょう。"
             action={
               <Button onClick={() => setShowCreate(true)}>
                 <Plus className="h-4 w-4 mr-1" aria-hidden="true" />
-                最初のQシートを作成
+                最初の進行台本を作る
               </Button>
             }
           />
@@ -282,9 +282,9 @@ export default function SheetListPage() {
       <Dialog open={deleteTargetId !== null} onOpenChange={(open) => !open && setDeleteTargetId(null)}>
         <DialogContent size="sm">
           <DialogHeader>
-            <DialogTitle>このドキュメントを削除しますか？</DialogTitle>
+            <DialogTitle>この進行台本を削除しますか？</DialogTitle>
             <DialogDescription>
-              この操作は取り消せません。台本データが完全に削除されます。
+              この操作は取り消せません。進行台本が完全に削除されます。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-2">
@@ -296,7 +296,7 @@ export default function SheetListPage() {
               onClick={confirmDelete}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? "削除中..." : "削除する"}
+              {deleteMutation.isPending ? "削除中…" : "削除する"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -73,7 +73,7 @@ export function PhaseEditor({
             <MiniButton label="下へ" onClick={() => onChange(move(phases, i, i + 1))} disabled={i === phases.length - 1}>
               <ChevronDown className="h-4 w-4" aria-hidden="true" />
             </MiniButton>
-            <MiniButton label="この工程を消す" danger onClick={() => onChange(phases.filter((_, j) => j !== i))}>
+            <MiniButton label="この工程を削除" danger onClick={() => onChange(phases.filter((_, j) => j !== i))}>
               <Trash2 className="h-4 w-4" aria-hidden="true" />
             </MiniButton>
           </div>
@@ -112,7 +112,7 @@ export function PhaseEditor({
                   必須
                 </label>
                 <MiniButton
-                  label="このタスクを消す"
+                  label="このタスクを削除"
                   danger
                   onClick={() => patch(i, { tasks: p.tasks.filter((_, k) => k !== j) })}
                 >
@@ -125,7 +125,7 @@ export function PhaseEditor({
               onClick={() => patch(i, { tasks: [...p.tasks, { label: '', days: 1, role: '', is_required: false }] })}
               className="text-sub min-h-tap flex items-center gap-1 text-primary hover:underline lg:min-h-[36px]"
             >
-              <Plus className="h-3.5 w-3.5" aria-hidden="true" />タスクを足す
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />タスクを追加
             </button>
           </div>
         </div>
@@ -136,7 +136,7 @@ export function PhaseEditor({
         onClick={() => onChange([...phases, { label: '', days: 5, role: '', tasks: [] }])}
         className="text-list min-h-tap rounded-control-lg flex w-full items-center justify-center gap-1.5 border border-dashed border-border text-primary hover:bg-muted lg:min-h-[44px]"
       >
-        <Plus className="h-4 w-4" aria-hidden="true" />工程を足す
+        <Plus className="h-4 w-4" aria-hidden="true" />工程を追加
       </button>
     </div>
   );

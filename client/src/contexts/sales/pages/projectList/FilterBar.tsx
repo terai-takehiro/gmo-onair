@@ -350,16 +350,16 @@ function BarButton({
 export function TermHint({ onClose }: { onClose: () => void }) {
   return (
     <div className="rounded-note border border-primary-border bg-primary-surface-weak px-3.5 py-3 text-note text-muted-foreground">
-      <p><span className="font-bold text-foreground">ネタ</span> … 最初の見込み。まだ提案していない「案件のタネ」。3つ目の見え方「ネタ」で見ます（「すべて」「進行中」どちらにも出ません）。</p>
-      <p><span className="font-bold text-foreground">ヨミ</span> … GLS 発番前の見込み案件ぜんぶ（ネタ → 提案 → 口頭決定）。受注の確度を読む段階。</p>
-      <p><span className="font-bold text-foreground">GLS 番号</span> … 受注が固まった案件に振る正式な番号（GLS-A… / GLS-B…）。案件作成では発番しません。</p>
-      <p><span className="font-bold text-foreground">おすすめ順</span> … 停滞している案件が先。その中は期限（次のタスク）が近い順。</p>
-      <p><span className="font-bold text-foreground">期限超過</span> … 次の一手（次回アクション・タスク）の期日が過ぎている。最優先で浮上します。</p>
-      <p><span className="font-bold text-foreground">停滞</span> … 次の一手が無いまま、ステージごとの日数（ネタ30日・仮押さえ/見積提案14日・口頭決定7日）を超えて動いていない。「要整理」で片づけます。</p>
-      <p><span className="font-bold text-foreground">スヌーズ</span> … 再開日を決めて意図して寝かせること。期日が来たら自動で普通の判定に戻ります（無期限には寝かせられません）。</p>
+      <p><span className="font-bold text-foreground">ネタ</span> … まだ提案していない案件のタネ。見え方「ネタ」で見ます。</p>
+      <p><span className="font-bold text-foreground">ヨミ</span> … GLS 発番前の見込み案件ぜんぶ。受注の確度を読む段階です。</p>
+      <p><span className="font-bold text-foreground">GLS 番号</span> … 受注が固まった案件に振る正式な番号です。</p>
+      <p><span className="font-bold text-foreground">おすすめ順</span> … 停滞している案件が先。その中は期限が近い順です。</p>
+      <p><span className="font-bold text-foreground">期限超過</span> … 次の一手の期日が過ぎているもの。最優先で浮上します。</p>
+      <p><span className="font-bold text-foreground">停滞</span> … 次の一手が無いまま、ステージごとの日数を超えて動いていないもの。</p>
+      <p><span className="font-bold text-foreground">スヌーズ</span> … 再開日を決めて寝かせること。期日が来たら普通の判定に戻ります。</p>
       <p><span className="font-bold text-foreground">すべて</span> … ネタを除く全ステージ。完了・失注も含みます。</p>
-      <p><span className="font-bold text-foreground">進行中</span> … 仮押さえ〜受注済の4ステージ（完了・失注・ネタを含みません）。既定はこちらです。</p>
-      <p><span className="font-bold text-foreground">終了</span> … 完了 と 失注。「終了」または「すべて」を選んだときだけ出ます。</p>
+      <p><span className="font-bold text-foreground">進行中</span> … 仮押さえ〜受注済の4ステージ。既定はこちらです。</p>
+      <p><span className="font-bold text-foreground">終了</span> … 完了 と 失注。「終了」「すべて」を選んだときだけ出ます。</p>
       <Button variant="outline" size="sm" className="mt-2" onClick={onClose}>閉じる</Button>
     </div>
   );

@@ -170,7 +170,7 @@ export default function TimerSettingsPanel({ programId, timers, mainTimerId }: T
             </div>
 
             {(mainTimerMutation.isError || thresholdMutation.isError) && (
-              <p className="text-xs text-destructive">保存に失敗しました。もう一度お試しください。</p>
+              <p className="text-xs text-destructive">保存できませんでした。少し待ってから、もう一度お試しください。</p>
             )}
           </div>
 

@@ -25,7 +25,7 @@ export default function LiveHomeNoticePage() {
       <div className="space-y-1.5">
         <h1 className="text-sm font-bold">計時・視聴者は制作技術支援の案件から開けます</h1>
         <p className="max-w-sm text-xs text-muted-foreground">
-          セッション一覧はこの画面から無くなりました。番組・イベントの案件を開き、
+          「セッション一覧」はこの画面から無くなりました。番組・イベントの案件を開き、
           そこに用意されたタイル（進行台本などと同じ並び）から計時・視聴者を開いてください。
         </p>
       </div>
@@ -44,7 +44,7 @@ export default function LiveHomeNoticePage() {
           href="/techops/live-legacy"
           className="flex min-h-tap items-center px-2 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
         >
-          案件に紐づかない旧セッションを探す
+          案件に入っていない番組を探す
         </a>
       )}
     </div>

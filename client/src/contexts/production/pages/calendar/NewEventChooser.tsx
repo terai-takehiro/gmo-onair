@@ -12,6 +12,12 @@
  * 統合カレンダーには**新規作成が1つもなく**、「予定を入れるには別の
  * カレンダーへ行ってください」と書いてあるだけでした（旧実装のコメント）。
  * v4 は ① 予定が1本なので、ここから入れられないと**入れる場所が消えます**。
+ *
+ * ── 新規は「押さえる」と書かない ────────────────────────────
+ *
+ * 旧文言は「部屋を押さえる」で、③ の**仮押さえ**（`status='tentative'`）と
+ * 語幹が同じだった。ここから作るのは仮押さえとは限らないので、
+ * **「スタジオを予約する」**と書く。「仮押さえ」は仮押さえのままにする。
  */
 import { DoorOpen, User, Users } from 'lucide-react';
 import { FormDialog } from '@gmo-onair/shared/src/client-v4/formDialog';
@@ -19,7 +25,7 @@ import { FormDialog } from '@gmo-onair/shared/src/client-v4/formDialog';
 export type NewKind = 'room' | 'mine' | 'partner';
 
 const KINDS: Array<{ k: NewKind; label: string; hint: string; icon: typeof DoorOpen; color: string }> = [
-  { k: 'room', label: '部屋を押さえる', hint: 'スタジオの予約。本番・リハ・設営・内覧など', icon: DoorOpen, color: '#dc2626' },
+  { k: 'room', label: 'スタジオを予約する', hint: '本番・リハ・設営・内覧など', icon: DoorOpen, color: '#dc2626' },
   { k: 'mine', label: '自分の予定', hint: '打合せ・移動・作業。共有すると他の人にも出ます', icon: User, color: '#2563eb' },
   { k: 'partner', label: 'パートナーの予定', hint: '代休・有給・出張・社外活動。人の空きを見るために入れます', icon: Users, color: '#8b5cf6' },
 ];
@@ -39,7 +45,7 @@ export function NewEventChooser({
       open={open}
       onOpenChange={onOpenChange}
       title="何の予定を入れますか"
-      sub="部屋を押さえるものと、自分・パートナーの予定は入れ方が違います。ここで選んでから中身を書きます。"
+      sub="スタジオの予約と、自分・パートナーの予定は入れ方が違います。ここで選んでから中身を書きます。"
     >
         <div className="flex flex-col gap-2">
           {items.map((x) => (

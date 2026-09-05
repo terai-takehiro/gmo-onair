@@ -309,11 +309,17 @@ export default function BillingListPage() {
 
       <div className="flex items-start gap-2.5 rounded-note border border-primary-border bg-primary-surface-weak px-3.5 py-3">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-        <p className="text-note text-secondary-foreground">
-          {tab === 'estimate'
-            ? '見積は版で残ります（v1・v2…）。差し替え済みの版はここには出ません。金額は値引きを引いたあとの税抜です。'
-            : '検収・入金は押すと今日の日付が入り、もう一度押すと取り消せます。ここに出るのは確定した売上だけです。「分け合う」の印が付いた行は複数の案件で分け合う請求で、金額はグループ全体のものです。'}
-        </p>
+        {tab === 'estimate' ? (
+          <p className="text-note text-secondary-foreground">
+            見積は版で残ります（v1・v2…）。差し替え済みの版はここには出ません。金額は値引きを引いたあとの税抜です。
+          </p>
+        ) : (
+          <ul className="text-note list-disc space-y-0.5 pl-4 text-secondary-foreground">
+            <li>検収・入金は押すと今日の日付が入り、もう一度押すと取り消せます。</li>
+            <li>ここに出るのは確定売上だけです。</li>
+            <li>「分け合う」の印が付いた行は按分グループの請求で、金額はグループ全体のものです。</li>
+          </ul>
+        )}
       </div>
     </div>
   );

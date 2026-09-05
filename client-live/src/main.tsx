@@ -15,10 +15,12 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   render() {
     if (this.state.error) {
       return (
+        // ⚠️ 例外オブジェクトの中身は画面に出さない（docs/wording.md ルール5）。
+        // 原因の追跡はコンソール（React が自動で出す）側で行う。
         <div style={{ padding: 32, fontFamily: 'sans-serif' }}>
-          <h2>エラーが発生しました</h2>
-          <pre style={{ color: 'red', whiteSpace: 'pre-wrap' }}>{String(this.state.error)}</pre>
-          <a href="/">メインアプリに戻る</a>
+          <h2>画面を表示できませんでした。</h2>
+          <p>もう一度読み込んでも直らないときは、ONAiR のトップから開き直してください。</p>
+          <a href="/">ONAiR のトップへ</a>
         </div>
       );
     }

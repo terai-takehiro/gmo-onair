@@ -101,7 +101,7 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
       qc.invalidateQueries({ queryKey: ["my-partner-schedules"] });
       onOpenChange(false);
     },
-    onError: (err: any) => setError(err?.response?.data?.error?.message || "保存に失敗しました"),
+    onError: (err: any) => setError(err?.response?.data?.error?.message || "予定を保存できませんでした。入力の内容を確かめてもう一度お試しください。"),
   });
 
   const deleteMutation = useMutation({
@@ -111,7 +111,7 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
       qc.invalidateQueries({ queryKey: ["my-partner-schedules"] });
       onOpenChange(false);
     },
-    onError: (err: any) => setError(err?.response?.data?.error?.message || "削除に失敗しました"),
+    onError: (err: any) => setError(err?.response?.data?.error?.message || "予定を削除できませんでした。少し時間をおいてもう一度お試しください。"),
   });
 
   const canSubmit = !!startDate && (allDay || (!!startTime && !!endTime));

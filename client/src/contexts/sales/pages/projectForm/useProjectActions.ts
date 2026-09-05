@@ -101,7 +101,7 @@ export function useProjectActions({
       setCategorySwitchDialog({ open: false, target: 'A' });
       notifySuccess('案件分類を変えました', { description: 'GLS 番号を採り直しました。' });
     },
-    onError: (err) => notifyApiError('案件分類を変えられませんでした', err),
+    onError: (err) => notifyApiError('案件分類を変更できませんでした', err),
   });
 
   const createBoxFolderMutation = useMutation({
@@ -172,9 +172,9 @@ export function useProjectActions({
 
   const deleteBooking = async (b: ProjectBooking) => {
     const ok = await confirmAction({
-      title: 'この予約を消しますか？',
+      title: 'この予約を削除しますか？',
       description: 'カレンダーからも消えます。部屋の押さえも解けます。',
-      confirmLabel: '消す',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (!ok) return;
@@ -183,10 +183,10 @@ export function useProjectActions({
       // **案件の実施日も残った予約から引き直される**ので案件側も落とす（`lib/bookingQueries.ts`）。
       // 鍵は前方一致なので `['project-studio-bookings']` はこの案件の分にも当たる
       invalidateBookingQueries(qc);
-      notifySuccess('予約を消しました');
+      notifySuccess('予約を削除しました');
     } catch (e) {
       // 黙って失敗すると「消えていない = もう一度消す/入れ直す」ことになるので理由を出す
-      notifyApiError('予約を消せませんでした', e, '時間をおいてもう一度お試しください。');
+      notifyApiError('予約を削除できませんでした', e, '時間をおいてもう一度お試しください。');
     }
   };
 
@@ -214,7 +214,7 @@ export function useProjectActions({
       title: 'この案件を削除しますか？',
       description: 'この操作は取り消せません。案件一覧・案件台帳・この案件の詳細URLから見えなくなります。'
         + 'ひもづく見積・タスク・売上・仕入の記録そのものは消えず、財務の台帳などでは今までどおり参照できます。',
-      confirmLabel: '削除する',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) deleteMutation.mutate();

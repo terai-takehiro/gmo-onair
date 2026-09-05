@@ -9,20 +9,20 @@
  * と同じ考え方で、**列を消すのではなくカードとして組み直した**
  * （カードの実体は `./NewsCards.tsx`。出し分けは `DailyNewsPage.tsx` の `isMobile`）。
  *
- * ただし採用・週報へ送る・削除・編集の保存という**業務ロジックまで2通りに
+ * ただし注目度・ウィークリー活動報告へ送る・削除・編集の保存という**業務ロジックまで2通りに
  * 書くと、以前と同じ「表とカードで挙動が違う」不具合が再発する**
  * （この画面のコメント冒頭に書いてある実際の前科）。そこで `useNewsRowActions`
  * にまとめ、PC 行（`NewsRow`）とスマホカード（`./NewsCards.tsx`）の両方から呼ぶ。
  *
  * ── 列 (7段に寄せた・PC のみ) ───────────────────────────────
  *
- *   採用      56px   1〜5 の数字。**押すと変えられる**
- *   AI活用    56px   バッジ (52px の直書きだった。和文2字が入る最小は 56px)
+ *   注目度    56px   1〜5 の数字。**押すと変えられる**
+ *   AIの話題  72px   バッジ (行では「AI」の2字で出す)
  *   分類      96px   バッジ (90px の直書きだった)
  *   要約      伸びる ここだけが伸びる
  *   メモ      160px  (180px の直書きだった)
  *   記入者    96px   AI が入れたものはアイコンを付ける
- *   操作      128px  週報へ送る・編集・削除
+ *   操作      128px  ウィークリー活動報告へ送る・編集・削除
  *
  * ── 「週報に送る」(モックのボタン・migration 167) ────────────
  *
@@ -52,7 +52,7 @@ import type { OpsReportItem } from '@/lib/types';
 import { NewsForm, type NewsFields } from './NewsForm';
 
 /**
- * 採用・週報へ送る・削除・編集の保存。**PC 行とスマホカードの共有ロジック**
+ * 注目度・ウィークリー活動報告へ送る・削除・編集の保存。**PC 行とスマホカードの共有ロジック**
  * （上のコメント参照）。写すとどちらかだけ直された日から挙動がずれる。
  */
 export function useNewsRowActions(item: OpsReportItem) {
@@ -64,28 +64,28 @@ export function useNewsRowActions(item: OpsReportItem) {
   const toWeekly = () => sendToWeekly.mutate(item.id, {
     onSuccess: (r) => notifySuccess(
       r.already
-        ? 'この行はすでに週報へ送られています'
-        : `${r.weekStart} の週の週報に写しました`,
+        ? 'この行はすでにウィークリー活動報告へ送られています'
+        : `${r.weekStart} の週のウィークリー活動報告に写しました`,
     ),
-    onError: (e) => notifyApiError('週報に送れませんでした', e),
+    onError: (e) => notifyApiError('ウィークリー活動報告に送れませんでした', e),
   });
 
   const setPick = (pick: number | null) =>
     updateItem.mutate({ itemId: item.id, fields: { pick } }, {
-      onError: (e) => notifyApiError('採用を変えられませんでした', e),
+      onError: (e) => notifyApiError('注目度を変えられませんでした', e),
     });
 
   const remove = async () => {
     const ok = await confirmAction({
-      title: 'このニュースを消しますか',
+      title: 'このニュースを削除しますか',
       description: item.content.slice(0, 60),
-      confirmLabel: '削除する',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (!ok) return;
     deleteItem.mutate(item.id, {
-      onSuccess: () => notifySuccess('ニュースを消しました'),
-      onError: (e) => notifyApiError('消せませんでした', e),
+      onSuccess: () => notifySuccess('ニュースを削除しました'),
+      onError: (e) => notifyApiError('ニュースを削除できませんでした', e),
     });
   };
 
@@ -93,7 +93,7 @@ export function useNewsRowActions(item: OpsReportItem) {
     try {
       await updateItem.mutateAsync({ itemId: item.id, fields });
       setEditing(false);
-      notifySuccess('ニュースを直しました');
+      notifySuccess('ニュースを保存しました');
     } catch (e) {
       notifyApiError('保存できませんでした', e);
     }
@@ -111,8 +111,8 @@ export function useNewsRowActions(item: OpsReportItem) {
 export function NewsRowsHeader({ canEdit }: { canEdit: boolean }) {
   return (
     <RowHeader className="hidden sm:flex">
-      <RowSlot w={56} align="center">採用</RowSlot>
-      <RowSlot w={56} align="center">AI活用</RowSlot>
+      <RowSlot w={56} align="center">注目度</RowSlot>
+      <RowSlot w={72} align="center">AIの話題</RowSlot>
       <RowSlot w={96}>分類</RowSlot>
       <RowMain>要約</RowMain>
       <RowSlot w={160}>メモ</RowSlot>
@@ -145,7 +145,7 @@ export function NewsRow({ item, canEdit, weeklyLocked = false }: {
               className="text-sub-sm min-h-tap w-full rounded-badge border border-border bg-background text-center lg:min-h-[32px]"
               value={item.pick ?? ''}
               onChange={(e) => setPick(e.target.value ? Number(e.target.value) : null)}
-              aria-label="採用（1〜5）"
+              aria-label="注目度（1〜5）"
             >
               <option value="">—</option>
               {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}
@@ -155,7 +155,7 @@ export function NewsRow({ item, canEdit, weeklyLocked = false }: {
           )}
         </RowSlot>
 
-        <RowSlot w={56} align="center" placeholder="">
+        <RowSlot w={72} align="center" placeholder="">
           {item.ai_related ? <TableBadge label="AI" w={null} className="border-ai-border bg-ai-surface text-ai" /> : null}
         </RowSlot>
 
@@ -197,7 +197,7 @@ export function NewsRow({ item, canEdit, weeklyLocked = false }: {
 
         <RowSlot w={96} hideOnMobile>
           <span className="text-sub-sm inline-flex min-w-0 items-center gap-1 text-muted-foreground">
-            {item.source === 'ai' && <Bot className="h-3 w-3 shrink-0 text-ai" aria-label="AI が入れました" />}
+            {item.source === 'ai' && <Bot className="h-3 w-3 shrink-0 text-ai" aria-label="AI作成" />}
             <span className="truncate">{item.recorded_by ?? '—'}</span>
           </span>
         </RowSlot>
@@ -210,12 +210,12 @@ export function NewsRow({ item, canEdit, weeklyLocked = false }: {
                 className={`min-h-tap lg:min-h-[36px] ${item.sent_to_weekly ? 'text-success' : ''}`}
                 disabled={item.sent_to_weekly || weeklyLocked || sendPending}
                 onClick={toWeekly}
-                aria-label={item.sent_to_weekly ? '週報に送り済み' : '週報に送る'}
+                aria-label={item.sent_to_weekly ? 'ウィークリー活動報告に送り済み' : 'ウィークリー活動報告に送る'}
                 title={item.sent_to_weekly
-                  ? 'この行は週報へ送り済みです'
+                  ? 'この行はウィークリー活動報告へ送り済みです'
                   : weeklyLocked
-                    ? 'この週の週報は確定済みです。週報の画面で「確定を解く」を押すと送れます'
-                    : 'この日が入る週の週報へ写します'}
+                    ? 'この週のウィークリー活動報告は確定済みです。その画面で「確定を解く」を押すと送れます'
+                    : 'この日が入る週のウィークリー活動報告へ写します'}
               >
                 {item.sent_to_weekly
                   ? <CheckCheck className="h-4 w-4" aria-hidden="true" />

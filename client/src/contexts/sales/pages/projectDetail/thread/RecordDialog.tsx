@@ -123,7 +123,7 @@ export function RecordDialog({
       title="打合せを録音して議事録にする"
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
           <Button
             disabled={!file || recording || busy || tooBig}
             onClick={() => file && onSubmit(file, metOn)}

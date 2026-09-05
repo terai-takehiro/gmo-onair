@@ -81,7 +81,7 @@ export function EquipmentResultRows({
             </RowSub>
             <RowSub>
               {[it.manufacturer_name, it.location_name || it.location_detail]
-                .filter(Boolean).join(' ・ ') || '置き場所は登録されていません'}
+                .filter(Boolean).join(' ・ ') || '保管場所は登録されていません'}
             </RowSub>
           </RowMain>
           <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />

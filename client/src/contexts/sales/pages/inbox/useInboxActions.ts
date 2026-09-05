@@ -58,11 +58,11 @@ export function useDismissAiProject() {
       qc.invalidateQueries({ queryKey: ['dashboard', 'sales-overview'] });
       qc.invalidateQueries({ queryKey: ['projects'] });
       qc.invalidateQueries({ queryKey: ['project', projectId] });
-      notifySuccess('見送りにしました', {
+      notifySuccess('失注にしました', {
         description: '理由「見送り（案件化せず）」で記録し、AI の学習データにも残しました。',
       });
     },
-    onError: (e) => notifyApiError('見送りにできませんでした', e),
+    onError: (e) => notifyApiError('失注にできませんでした', e, '時間をおいて、もう一度お試しください。'),
   });
 
   /**
@@ -74,10 +74,10 @@ export function useDismissAiProject() {
    */
   const dismiss = async (projectId: string, name?: string | null): Promise<boolean> => {
     const ok = await confirmAction({
-      title: name ? `「${name}」を見送りにしますか？` : 'このネタを見送りにしますか？',
+      title: name ? `「${name}」を失注にしますか？` : 'このネタを失注にしますか？',
       description:
         '失注ではなく「見送り（案件化せず）」として記録します。案件詳細のステージ帯からいつでも戻せます。',
-      confirmLabel: '見送りにする',
+      confirmLabel: '失注にする',
     });
     if (ok) mutation.mutate(projectId);
     return ok;

@@ -54,7 +54,7 @@ export function InquiryDialog({ initial, onClose }: { initial: MiscInquiry | nul
     setF((p) => ({ ...p, [k]: e.target.value }));
 
   const submit = () => {
-    const done = () => { notifySuccess(initial ? '直しました' : '足しました'); onClose(); };
+    const done = () => { notifySuccess(initial ? '保存しました' : '追加しました'); onClose(); };
     const fail = (e: unknown) => notifyApiError(initial ? '直せませんでした' : '足せませんでした', e);
     // 読点・カンマ・空白のどれで区切っても同じに扱う（打ち方で結果が変わらないように）
     const fields = { ...f, tags: tagText.split(/[、,\s]+/).map((t) => t.trim()).filter(Boolean) };
@@ -66,15 +66,15 @@ export function InquiryDialog({ initial, onClose }: { initial: MiscInquiry | nul
     <FormDialog
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title={initial ? '問い合わせを直す' : '問い合わせを足す'}
+      title={initial ? '問い合わせを編集' : '問い合わせを追加'}
       // 入力10個・送信者/重要度・出どころ/受信日の2列グリッドを持つので `lg`(840px)
       size="lg"
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button onClick={submit} disabled={pending || !f.summary?.trim()}>
             {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-            {initial ? '保存' : '足す'}
+            {initial ? '保存' : '追加'}
           </Button>
         </FormDialogFooter>
       }
@@ -133,7 +133,7 @@ export function InquiryDialog({ initial, onClose }: { initial: MiscInquiry | nul
           <Input value={tagText} onChange={(e) => setTagText(e.target.value)} placeholder="協業、取材、GLS-2607-009" />
           <p className="text-note mt-1 text-muted-foreground">
             読点・カンマ・空白のどれで区切っても同じです（8個まで・各24文字まで）。
-            <strong className="font-bold">ストックしたものを後から引く</strong>ための手がかりなので、
+            <strong className="font-bold">「あとで見る」に入れたものを後から引く</strong>ための手がかりなので、
             短い語にしてください。
           </p>
         </div>

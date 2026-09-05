@@ -55,11 +55,11 @@ export function ReviewSide({
           <h3 className="text-cardtitle min-w-0 flex-1">お金</h3>
         </div>
         {/* **引き算の順に並べる**（想定 → 見積 → 売上 → 仕入 → 粗利） */}
-        <Line label="想定していた金額" value={expectedAmount === null ? null : num(expectedAmount)}
+        <Line label="想定金額" value={expectedAmount === null ? null : num(expectedAmount)}
           note="案件をつくったときの見込み" />
-        <Line label="出した見積" value={quoted}
-          note={sentVersion ? `v${sentVersion}（値引きのあと）` : '出した見積がありません'} />
-        <Line label="確定した売上" value={s ? s.total_revenue : null} />
+        <Line label="見積金額" value={quoted}
+          note={sentVersion ? `v${sentVersion}（値引きのあと）` : 'まだ見積を出していません'} />
+        <Line label="確定売上" value={s ? s.total_revenue : null} />
         <Line label="仕入（原価）" value={s ? -s.total_purchase : null} />
         <div className="p-3">
           <Line

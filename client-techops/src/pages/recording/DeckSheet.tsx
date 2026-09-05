@@ -44,7 +44,7 @@ export default function DeckSheet({
             </fieldset>
             {readOnly && (
               <p className="mt-3 rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-note text-foreground">
-                閲覧のみの権限です。直すには編集権限が要ります。
+                いまは「見るだけ」です。直すには 制作技術支援の「書ける」が必要です。
               </p>
             )}
             <Button className="mt-6 h-[52px] w-full text-base" onClick={onClose}>

@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { ImageIcon, ImagePlus, Loader2 } from "lucide-react";
 import api from "@/lib/api";
+import { notifyError } from "@/lib/notify";
 
 // ─── EntryImageButton ───────────────────────────────────
 // エントリごとの画像添付ボタン。
@@ -26,7 +27,7 @@ export default function EntryImageButton({
   const uploadFile = async (file: File) => {
     if (!file.type.startsWith("image/")) return;
     if (file.size > 5 * 1024 * 1024) {
-      alert("ファイルサイズが5MBを超えています");
+      notifyError("画像が大きすぎます。", { description: "5MB までの画像を選び直してください。" });
       return;
     }
     setUploading(true);
@@ -43,7 +44,7 @@ export default function EntryImageButton({
       });
       onChange(res.data.data.url);
     } catch {
-      alert("画像のアップロードに失敗しました");
+      notifyError("画像を取り込めませんでした。", { description: "少し待ってから、もう一度選び直してください。" });
     } finally {
       setUploading(false);
     }

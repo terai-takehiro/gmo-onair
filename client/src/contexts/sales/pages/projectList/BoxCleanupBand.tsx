@@ -253,7 +253,7 @@ export function BoxCleanupBand() {
         片づけられそうな BOX のフォルダが {candidates} 件あります
       </p>
       <p className="text-note mt-1 text-muted-foreground">
-        失注・見送りの案件は、中身が1つも無ければ削除し、見積書などが入っていれば
+        失注にした案件は、中身が1つも無ければ削除し、見積書などが入っていれば
         「99_失注・見送り」へ移します（失注から戻すと元に戻ります）。
         {/*
           ⚠️ **引き合いのままの案件は「空なら消す」だけ。**
@@ -322,7 +322,7 @@ export function BoxCleanupBand() {
       )}
       {!running && orphan && orphan.scanned > 0 && (
         <p className="text-note mt-1.5 text-muted-foreground">
-          どの案件にも結び付かないフォルダ {orphan.scanned} 件を調べて {orphan.deleted} 件を消しました
+          どの案件にも結び付かないフォルダ {orphan.scanned} 件を調べて {orphan.deleted} 件を削除しました
           （中身が空で、このアプリが作ったものだけ。人が作ったフォルダは触りません）。
         </p>
       )}

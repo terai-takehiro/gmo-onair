@@ -8,13 +8,13 @@
  * 独立したカードを積む形にした。**PC の行を縮めたものではない**
  * （`production/pages/holds/HoldCards.tsx` / `lending/LendingCards.tsx` と同じ考え方）。
  *
- * カード自体を押すと詳細（チェックリスト）を開く。「消す」だけ別の操作として
+ * カード自体を押すと詳細（チェックリスト）を開く。「削除」だけ別の操作として
  * 右上の鉛筆位置に置く — 指で押し間違えて棚卸し1回ぶんを丸ごと消さないよう、
  * ゴミ箱は他の情報から離した右上に寄せている。
  *
  * ── 左スワイプでも消せる（M11） ─────────────────────────────
  *
- * 下の「消す」ボタンはそのまま残し、**もう1つの入り口**として
+ * 下の「削除」ボタンはそのまま残し、**もう1つの入り口**として
  * `SwipeAction` で包んだ。新しい業務ロジックは増やしていない — 呼ぶのは
  * 既存の `onDelete` と同じ関数
  */
@@ -52,7 +52,7 @@ export function InventoryCards({
         <SwipeAction
           key={c.id}
           actions={deletePending ? [] : [
-            { label: '消す', icon: <Trash2 className="h-4 w-4" aria-hidden="true" />, tone: 'danger', onAction: () => onDelete(c) },
+            { label: '削除', icon: <Trash2 className="h-4 w-4" aria-hidden="true" />, tone: 'danger', onAction: () => onDelete(c) },
           ]}
         >
           <div className="rounded-card flex flex-col gap-2.5 border border-border bg-card p-3.5">
@@ -76,7 +76,7 @@ export function InventoryCards({
               <Button className="flex-1" onClick={() => onOpen(c.id)}>開く</Button>
               <Button
                 variant="outline" size="icon" className="text-destructive"
-                aria-label={`${c.title} を消す`} disabled={deletePending}
+                aria-label={`${c.title} を削除`} disabled={deletePending}
                 onClick={() => onDelete(c)}
               >
                 <Trash2 className="h-4 w-4" aria-hidden="true" />

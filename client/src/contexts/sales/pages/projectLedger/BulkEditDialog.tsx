@@ -85,10 +85,10 @@ export function BulkEditDialog({
       title={`選んだ ${count} 件をまとめて直す`}
       footer={
         <div className="flex items-center justify-end gap-3">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
           <Button disabled={!set || saving || count === 0} onClick={() => set && onSubmit(set)}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-            {count} 件を直す
+            {count} 件を編集
           </Button>
         </div>
       }

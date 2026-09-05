@@ -72,7 +72,7 @@ export default function MiniAppTiles({ scope, id, days }: MiniAppTilesProps) {
     {
       key: "schedule",
       label: MINI_APP_BY_KEY.schedule.label,
-      description: "香盤表",
+      description: "当日の進行の時間割",
       icon: CalendarDays,
       to: `/techops/schedules?${filterKey}=${encodeURIComponent(id)}`,
       count: scheduleCount,

@@ -67,7 +67,7 @@ export default function ChecklistItems({ projectId, parentTask }: Props) {
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-          placeholder="チェック項目を追加..."
+          placeholder="チェック項目を追加…"
           className="h-8 text-sm"
         />
         <Button

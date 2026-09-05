@@ -17,7 +17,7 @@ export interface Lending {
   borrower_name: string;
   purpose: string | null;
   status: string;
-  /** 出庫予定日 (migration 168)。`status='planned'` のときだけ意味を持つ */
+  /** 持ち出し予定日 (migration 168)。`status='planned'` のときだけ意味を持つ */
   planned_out_date?: string | null;
   lent_at: string | null;
   due_date: string | null;

@@ -23,7 +23,7 @@ export function SearchPageDesktop({
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
       <PageHeader
         title="探す"
-        sub="案件・お客様・仕入先をまとめて探します。見る権限が無い種類は出ません"
+        sub="案件・お客様・仕入先をまとめて探します。見る権限が無いものはここに出ません"
       />
 
       <div className="relative">
@@ -47,8 +47,10 @@ export function SearchPageDesktop({
       {/* **打ち込む前と 0件 を分ける。** 打つ前に「該当なし」と出さない */}
       {!query.trim() ? (
         <div className="flex flex-col gap-3.5">
+          {/* **タスクの一覧ではない**（その場で終わる仕事のショートカット）。
+              タスク画面と同じ「やること」だと、押した人がタスク一覧を期待する */}
           {doItems.length > 0 && (
-            <Group icon={Search} label="やること" n={doItems.length}>
+            <Group icon={Search} label="すぐできること" n={doItems.length}>
               {doItems.map((s) => (
                 <ShortcutRow key={s.key} item={s} onOpen={() => onGoShortcut(s)} />
               ))}
@@ -90,7 +92,7 @@ export function SearchPageDesktop({
         <EmptyState
           icon={<Search className="h-6 w-6" aria-hidden="true" />}
           title={`「${query.trim()}」に当たるものはありません`}
-          description="言葉を短くするか、別の言い方で試してください。見る権限が無い種類はここに出ません。"
+          description="言葉を短くするか、別の言い方で試してください。見る権限が無いものはここに出ません。"
         />
       ) : (
         <div className="flex flex-col gap-3.5">
@@ -214,7 +216,7 @@ function RemoveRecentButton({ label, onRemove }: { label: string; onRemove: () =
   );
 }
 
-/** やること・場所の1行。**行き先の名前ではなく「何が起きるか」を下に書く** */
+/** すぐできること・場所の1行。**行き先の名前ではなく「何が起きるか」を下に書く** */
 function ShortcutRow({ item, onOpen }: { item: Shortcut; onOpen: () => void }) {
   const Icon = item.icon;
   return (

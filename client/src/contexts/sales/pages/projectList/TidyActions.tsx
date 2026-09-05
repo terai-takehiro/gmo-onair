@@ -72,10 +72,10 @@ export function TidyActions({ p }: { p: ProjectListRow }) {
       qc.invalidateQueries({ queryKey: ['projects'] });
       qc.invalidateQueries({ queryKey: ['project', p.id] });
       qc.invalidateQueries({ queryKey: ['project-ledger'] });
-      notifySuccess(dialog === 'pass' ? '見送りにしました（ステージ帯からいつでも戻せます）' : '失注にしました');
+      notifySuccess(dialog === 'pass' ? '失注にしました（案件化せず。ステージ帯からいつでも戻せます）' : '失注にしました');
       setDialog(null);
     },
-    onError: (err) => notifyApiError('ステージを変えられませんでした', err),
+    onError: (err) => notifyApiError('ステージを変更できませんでした', err),
   });
 
   return (
@@ -89,7 +89,7 @@ export function TidyActions({ p }: { p: ProjectListRow }) {
       {canEdit && (
         <>
           <ActionButton icon={AlarmClock} label="スヌーズ" onClick={() => setDialog('snooze')} />
-          <ActionButton icon={Archive} label="見送り" onClick={() => setDialog('pass')} />
+          <ActionButton icon={Archive} label="案件化せず" onClick={() => setDialog('pass')} />
           <ActionButton icon={XCircle} label="失注" tone="destructive" onClick={() => setDialog('lost')} />
         </>
       )}
@@ -100,7 +100,7 @@ export function TidyActions({ p }: { p: ProjectListRow }) {
         projectId={p.id}
         current={p.snooze_until}
       />
-      {/* 見送りと失注は同じダイアログの `mode` 違い（文言と理由の初期選択だけ変わる） */}
+      {/* 「案件化せず」と失注は同じダイアログの `mode` 違い（理由の初期選択だけ変わる。どちらも `e_lost`） */}
       <LostDialog
         open={dialog === 'pass' || dialog === 'lost'}
         onOpenChange={(v) => !v && setDialog(null)}

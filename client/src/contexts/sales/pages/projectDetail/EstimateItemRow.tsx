@@ -210,7 +210,7 @@ export function EstimateItemRowView({
       <Money value={it.amount} className="text-sub w-32 shrink-0" />
       {!locked && (
         <RowSlot w={56} align="right">
-          <Button variant="ghost" size="sm" aria-label="この行を消す" onClick={() => onDelete(i)}>
+          <Button variant="ghost" size="sm" aria-label="この行を削除" onClick={() => onDelete(i)}>
             <Trash2 className="h-3.5 w-3.5 text-destructive" aria-hidden="true" />
           </Button>
         </RowSlot>

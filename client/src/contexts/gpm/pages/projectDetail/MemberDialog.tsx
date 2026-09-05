@@ -1,7 +1,7 @@
 /**
  * 体制に人を足す・直す (v4 GPM・migration 169)
  *
- * ── 「まとまりの名前」が箱になる ────────────────────────────
+ * ── 「チーム名」が箱になる ──────────────────────────────────
  *
  * 同じ名前を入れた人が組織図の1つの箱に入ります。すでにある名前は
  * 選べるようにしてあります — **打ち間違いで箱が2つに割れる**のがいちばん困るので
@@ -23,7 +23,7 @@ import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/fo
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { useGpmProject, useInvalidateGpm } from '../../queries';
-import { SIDE_LABEL, TIER_LABEL, type GpmMember, type MemberSide, type MemberTier } from '../../types';
+import { SIDE_LABEL, TIER_LABEL, TIER_NOTE, type GpmMember, type MemberSide, type MemberTier } from '../../types';
 
 const SIDES: MemberSide[] = ['client', 'pm', 'internal', 'vendor'];
 const TIERS: MemberTier[] = ['top', 'lead', 'unit'];
@@ -96,14 +96,14 @@ export function MemberDialog({
     <FormDialog
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title={member ? '体制の人を直す' : '体制に人を足す'}
+      title={member ? '体制の人を編集' : '体制に人を追加'}
       size="lg"
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button onClick={() => { setError(null); save.mutate(); }} disabled={!form.name.trim() || save.isPending}>
             {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-            {member ? '直す' : '足す'}
+            {member ? '編集' : '追加'}
           </Button>
         </FormDialogFooter>
       }
@@ -132,23 +132,24 @@ export function MemberDialog({
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>組織図の段 *</Label>
+              <Label>役割の層 *</Label>
               <Select value={form.tier} onValueChange={(v) => set('tier', v as MemberTier)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {TIERS.map((t) => <SelectItem key={t} value={t}>{TIER_LABEL[t]}</SelectItem>)}
+                  {TIERS.map((t) => <SelectItem key={t} value={t}>{TIER_LABEL[t]}（{TIER_NOTE[t]}）</SelectItem>)}
                 </SelectContent>
               </Select>
+              <p className="text-note text-muted-foreground">上から 決裁層 → 推進層 → 実務層 の3段です。</p>
             </div>
           </div>
 
           <div className="space-y-1">
-            <Label>まとまりの名前</Label>
+            <Label>チーム名</Label>
             <Input
               list="gpm-group-labels"
               value={form.group_label}
               onChange={(e) => set('group_label', e.target.value)}
-              placeholder="設計ユニット"
+              placeholder="例: 設計ユニット"
             />
             <datalist id="gpm-group-labels">
               {existingGroups.map((g) => <option key={g} value={g} />)}

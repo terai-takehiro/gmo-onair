@@ -181,7 +181,7 @@ export interface AppDef {
  * 日常業務 / 機材管理) を先に、凍結を後ろに、外部リンクを最後に置いてある。
  */
 export const APPS: AppDef[] = [
-  { key: 'home',        label: 'ホーム',             description: 'ONAiR のトップページ',                  icon: Home,          color: '#475569', path: '/' },
+  { key: 'home',        label: 'ホーム',             description: 'アプリを選ぶ',                                            icon: Home,          color: '#475569', path: '/' },
   { key: 'sales',       label: '案件管理',           description: '案件パイプライン・顧客・見積',          icon: FolderKanban,  color: '#2563eb', path: '/sales',      permissionModule: 'sales' },
   /**
    * **案件管理の隣に置く**（ご指示）。旧来の呼び方では
@@ -193,10 +193,10 @@ export const APPS: AppDef[] = [
   { key: 'gpm',         label: 'プロジェクト管理',   description: '自社構築・グループ受託の工程管理',      icon: LayoutGrid,    color: '#4338ca', path: '/gpm',        permissionModule: 'sales' },
   /* 制作技術支援は v4.1 で凍結を解き、v4 共通シェルにも載せ替え済み。
      プロジェクト管理と財務管理の間に格上げ（ご指示・2026-08-22） */
-  { key: 'techops',     label: '制作技術支援',       description: '台本づくりと本番進行 (Qシート)',        icon: FileText,      color: '#e11d48', path: '/techops',    permissionModule: 'qsheet' },
+  { key: 'techops',     label: '制作技術支援',       description: '台本・スケジュール・収録配信・本番送出',        icon: FileText,      color: '#e11d48', path: '/techops',    permissionModule: 'qsheet' },
   { key: 'budget',      label: '財務管理',           description: '売上・仕入・販管費・損益',              icon: PiggyBank,     color: '#059669', path: '/budget',     permissionModule: 'sales' },
   { key: 'calendar',    label: 'カレンダー',         description: 'スタジオカレンダー・ブッキング',        icon: Calendar,      color: '#7c3aed', path: '/calendar',   permissionModule: 'sales' },
-  { key: 'dailyops',    label: '日常業務',           description: 'AI 週次活動報告・業界ニュース収集',     icon: ClipboardList, color: '#0d9488', path: '/daily',      permissionModule: 'dailyops' },
+  { key: 'dailyops',    label: '日常業務',           description: '週報・ニュース・内覧会・受領書類',        icon: ClipboardList, color: '#0d9488', path: '/daily',      permissionModule: 'dailyops' },
   { key: 'equipment',   label: '機材管理',           description: '機材台帳・貸出・メンテナンス',          icon: Package,       color: '#d97706', path: '/equipment',  permissionModule: 'equipment' },
   { key: 'admin',       label: '設定',               description: '権限・ユーザー・データ・バックアップ',  icon: Settings,      color: '#475569', path: '/settings',   permissionModule: 'sales' },
 
@@ -210,7 +210,7 @@ export const APPS: AppDef[] = [
    * `/live/open?project=` を経由するミニアプリ導線・旧URLの転送はそのまま生きているため、
    * `appOfPath()` がこの定義を引けなくなると壊れる。
    */
-  { key: 'liveops',     label: '計時・視聴者',       description: 'カウントダウン・視聴者カウンター',      icon: Timer,         color: '#ef4444', path: '/live',       permissionModule: 'qsheet',    hidden: true },
+  { key: 'liveops',     label: '計時・視聴者',       description: '本番の残り時間と同時視聴者数を大画面に出す',      icon: Timer,         color: '#ef4444', path: '/live',       permissionModule: 'qsheet',    hidden: true },
 
   /* ── 凍結 (v4.0.0 では作り直さない。URL は生きている) ────────────── */
   { key: 'awards',      label: 'リアルタイムCG',     description: 'リアルタイム放送CG演出・送出管理',      icon: Tv,            color: '#f59e0b', path: '/awards',     permissionModule: 'awards',    frozen: true },

@@ -92,9 +92,9 @@ export default function BudgetDashboardPage() {
   const [rangeTo, setRangeTo] = useState(curYm);
 
   /*
-   * 「総額」/「確度加味」の切り替え（営業見通しカードが使う）。**画面レベルの state**
+   * 「全部を100%で」/「確度をかけて」の切り替え（営業見通しカードが使う）。**画面レベルの state**
    * にして `PeriodBar` と同じ並びに置く（旧 `PipelineForecast.tsx` のローカル state を
-   * 引き上げたもの・ファイル冒頭コメント参照）。初期値は旧実装を踏襲し「確度加味」。
+   * 引き上げたもの・ファイル冒頭コメント参照）。初期値は旧実装を踏襲し「確度をかけて」。
    * ⚠️ 集計対象はこれまでどおり `PipelineForecast` だけ（損益フロー・内訳・サマリーには適用しない）
    */
   const [forecastMode, setForecastMode] = useState<ForecastMode>('weighted');
@@ -204,12 +204,12 @@ export default function BudgetDashboardPage() {
     ? [
         { label: '売上', value: s.revenue_total, sub: `確定売上 ${revenueTotalCount}件`, to: '/budget/revenues' + ledgerQuery },
         { label: '仕入（変動原価）', value: s.variable_cost_total, sub: `この案件の ${purchaseTotalCount}件`, to: '/budget/purchases' + ledgerQuery },
-        { label: '限界利益（粗利）', value: s.marginal_profit, result: true, pct: pct(s.marginal_profit) },
+        { label: '限界利益', value: s.marginal_profit, result: true, pct: pct(s.marginal_profit) },
       ]
     : [
         { label: '売上', value: s.revenue_total, sub: `確定売上 ${revenueTotalCount}件`, to: '/budget/revenues' + ledgerQuery },
         { label: '仕入（変動原価）', value: s.variable_cost_total, sub: `案件に紐づく ${purchaseTotalCount}件`, to: '/budget/purchases' + ledgerQuery },
-        { label: '限界利益（粗利）', value: s.marginal_profit, result: true, pct: pct(s.marginal_profit) },
+        { label: '限界利益', value: s.marginal_profit, result: true, pct: pct(s.marginal_profit) },
         { label: '固定原価', value: s.fixed_cost_total, sub: `償却負担額など ${fixedTotalCount}件`, to: '/budget/purchases' + ledgerQuery },
         { label: '売上総利益', value: s.gross_profit, result: true, pct: pct(s.gross_profit) },
         { label: '販管費', value: s.sga_total, sub: `案件に紐づかない ${sgaTotalCount}件`, to: '/budget/sga' + ledgerQuery },
@@ -252,18 +252,19 @@ export default function BudgetDashboardPage() {
       />
 
       {/*
-        * 「総額」/「確度加味」の切り替え。**期間・案件の絞り込み（`PeriodBar`）と
+        * 「全部を100%で」/「確度をかけて」の切り替え。**期間・案件の絞り込み（`PeriodBar`）と
         * 同じ並びの画面レベルの設定として、常に見える・操作できる場所に置く**
         * （旧実装は営業見通しカードの中に閉じていた・ファイル冒頭コメント参照）。
         * 効くのは直下の営業見通しカードだけ（損益フロー・内訳・サマリーには適用しない）。
         */}
       <div className="rounded-card flex flex-wrap items-center gap-2 border border-border bg-card p-3 lg:px-4">
-        <span className="text-sub shrink-0 text-muted-foreground">営業見通しの集計方法</span>
+        <span className="text-sub shrink-0 text-muted-foreground">見込みの数え方</span>
         <ForecastModeToggle mode={forecastMode} onChange={setForecastMode} />
+        <span className="text-note text-muted-foreground">営業見通しにだけ効きます</span>
       </div>
 
       {/*
-        * 営業見通し（パイプライン）は期間の絞り込みと無関係（ファイル冒頭コメント参照）
+        * 営業見通しは期間の絞り込みと無関係（ファイル冒頭コメント参照）
         * なので、`periodReady` を待たずに常に出す。案件の絞り込みだけ引き継ぐ。
         */}
       <PipelineForecast projectId={projectId} forecastMode={forecastMode} />

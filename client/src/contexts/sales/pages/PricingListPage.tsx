@@ -120,7 +120,7 @@ export default function PricingListPage() {
     mutationFn: (p: { kind: 'category' | 'item'; id: string }) =>
       api.delete(`/pricing/${p.kind === 'category' ? 'categories' : 'items'}/${p.id}`),
     onSuccess: () => { invalidate(); notifySuccess('消しました'); },
-    onError: (e) => notifyApiError('消せませんでした', e),
+    onError: (e) => notifyApiError('削除できませんでした', e),
   });
 
   /**
@@ -145,11 +145,11 @@ export default function PricingListPage() {
   const askDeleteCategory = async (c: PricingCategory) => {
     const n = c.items?.length ?? 0;
     const ok = await confirmAction({
-      title: `分類「${c.name}」を消しますか`,
+      title: `分類「${c.name}」を削除しますか`,
       description: n > 0
         ? `この分類に入っている ${n} 品目も、料金表から見えなくなります。すでに作った見積の金額は変わりません。`
         : 'すでに作った見積の金額は変わりません。',
-      confirmLabel: '消す',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) del.mutate({ kind: 'category', id: c.id });
@@ -157,9 +157,9 @@ export default function PricingListPage() {
 
   const askDeleteItem = async (item: PricingItem) => {
     const ok = await confirmAction({
-      title: `品目「${item.name}」を消しますか`,
+      title: `品目「${item.name}」を削除しますか`,
       description: '以後この品目は見積で選べなくなります。すでに作った見積の金額は変わりません。',
-      confirmLabel: '消す',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) del.mutate({ kind: 'item', id: item.id });
@@ -172,7 +172,7 @@ export default function PricingListPage() {
         sub={`${activeName} の料金表 ・ 分類 ${categories.length} ／ 品目 ${totalCount}`}
         primaryAction={canEditCategory ? (
           <Button onClick={() => { setEditingCat(null); setCatOpen(true); }}>
-            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />分類を足す
+            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />分類を追加
           </Button>
         ) : undefined}
       >
@@ -203,8 +203,8 @@ export default function PricingListPage() {
         <p className="text-note text-secondary-foreground">
           <strong className="font-bold">ここを直しても、すでに作った見積の金額は変わりません。</strong>
           <strong className="font-bold">料金表は場所ごとに別</strong>です（この表は {activeName} のぶん）。
-          グループ内価格が「設定なし」の品目は、グループ内の案件では選べません（逆も同じ）。
-          直せるのは権限のある人だけで、ほかの人は見るだけになります。
+          グループ会社価格が「設定なし」の品目は、グループ会社の案件では選べません（逆も同じ）。
+          料金表を直すには 案件管理の「書ける」が必要です。
         </p>
       </div>
 

@@ -58,7 +58,7 @@ export const HIDE_UNTIL_WIDE = 'sm:hidden lg:flex';
  *   ケーブル・コネクタ（`catalog/CatalogRows.tsx`）  1024px の本文 728px に対し 764px
  *     → 商品名 **0px**・行が **36px はみ出す**
  *   貸出の決めごと（`settings/RentalRulesTab.tsx`）  1280px でもリストは 568px
- *     → 商品名 **0px**・種別と設置場所が右端で切れる（横に送る手段も無い）
+ *     → 商品名 **0px**・種別と保管場所が右端で切れる（横に送る手段も無い）
  *
  * ⚠️ **375px と 1440px では正常に見えます。** 壊れているのは
  * **1024〜1350px の帯だけ**で、ここを測らない限り一度も見えません。

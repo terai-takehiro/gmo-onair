@@ -43,7 +43,7 @@ export function SearchableSelect({ value, onChange, items, placeholder }: {
         }}
       >
         <span className={selected ? "truncate" : "text-muted-foreground truncate"}>
-          {selected ? selected.label : (placeholder || "選択...")}
+          {selected ? selected.label : (placeholder || "選ぶ")}
         </span>
         <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-1" />
       </button>
@@ -55,7 +55,7 @@ export function SearchableSelect({ value, onChange, items, placeholder }: {
               ref={inputRef}
               type="text"
               className="flex-1 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
-              placeholder="名前・型番・IDで検索..."
+              placeholder="名前・型名・IDで探す"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />

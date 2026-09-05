@@ -91,7 +91,7 @@ const BLOCK_TYPES = [
   { type: "video", label: "映像", Icon: Video, color: "bg-indigo-600" },
   { type: "slide", label: "スライド", Icon: Image, color: "bg-cyan-600" },
   { type: "telop", label: "テロップ", Icon: Type, color: "bg-purple-600" },
-  { type: "audio", label: "オーディオ (BGM/SE)", Icon: Mic, color: "bg-rose-600" },
+  { type: "audio", label: "音声", Icon: Mic, color: "bg-rose-600" },
   { type: "audio_mic", label: "マイク香盤", Icon: Mic, color: "bg-pink-700" },
   { type: "led_xr", label: "LED/XR", Icon: Monitor, color: "bg-violet-600" },
   { type: "lighting", label: "照明", Icon: Lightbulb, color: "bg-yellow-600" },
@@ -231,7 +231,7 @@ function MasterSection({
           </span>
         ))}
         {items.length === 0 && (
-          <span className="text-[11px] text-muted-foreground/60 italic">未登録</span>
+          <span className="text-[11px] text-muted-foreground/60 italic">未入力</span>
         )}
       </div>
       <input
@@ -282,7 +282,7 @@ function LedSceneSection({
   return (
     <div>
       {scenes.length === 0 ? (
-        <p className="text-[12px] text-muted-foreground italic mb-2 px-1">シーン未登録</p>
+        <p className="text-[12px] text-muted-foreground italic mb-2 px-1">まだシーンがありません</p>
       ) : (
         <div className="space-y-2 mb-2">
           {scenes.map((s, i) => (
@@ -453,15 +453,15 @@ export function EditorSidebarBody({
   return (
     <Tabs defaultValue="blocks" className="flex flex-col h-full">
         <TabsList className="grid grid-cols-3 m-2 mb-0 sticky top-0 z-10 shrink-0">
-          <TabsTrigger value="blocks" className="h-8 text-xs">列</TabsTrigger>
-          <TabsTrigger value="masters" className="h-8 text-xs">マスター</TabsTrigger>
-          <TabsTrigger value="meta" className="h-8 text-xs">メタ</TabsTrigger>
+          <TabsTrigger value="blocks" className="h-8 text-xs">出す列</TabsTrigger>
+          <TabsTrigger value="masters" className="h-8 text-xs">登録した名前</TabsTrigger>
+          <TabsTrigger value="meta" className="h-8 text-xs">台本の情報</TabsTrigger>
         </TabsList>
 
         <TabsContent value="blocks" className="flex-1 overflow-y-auto m-0 mt-2">
           {/* Columns */}
           <CollapsibleSection
-        title="列"
+        title="出す列"
         action={
           <button
             onClick={() => setShowBlockPicker(!showBlockPicker)}
@@ -580,7 +580,7 @@ export function EditorSidebarBody({
             }
           >
             {(masters?.micChannels || []).length === 0 ? (
-              <p className="text-[12px] text-muted-foreground italic px-1 py-2">Ch未登録 — マイク香盤ブロックでデフォルトCh1〜4を表示します</p>
+              <p className="text-[12px] text-muted-foreground italic px-1 py-2">まだ Ch がありません — マイク香盤ブロックでは Ch1〜4 を出します</p>
             ) : (
               <div className="space-y-1">
                 {(masters?.micChannels || []).map((c, i) => (

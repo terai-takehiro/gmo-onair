@@ -72,7 +72,7 @@ export default function CopyFromDialog({
       onOpenChange(false);
       onCopied();
     } catch (e) {
-      notifyError(apiErrorMessage(e, '写すのに失敗しました'));
+      notifyError(apiErrorMessage(e, '写せませんでした。少し待ってから、もう一度お試しください。'));
     } finally {
       setBusy(false);
     }

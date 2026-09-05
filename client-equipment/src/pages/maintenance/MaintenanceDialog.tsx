@@ -49,10 +49,10 @@ export function MaintenanceDialog({ open, items, saving, error, onClose, onSubmi
       size="lg"
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button onClick={() => onSubmit(form)} disabled={!form.equipment_id || !form.title || saving}>
             {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-            足す
+            追加
           </Button>
         </FormDialogFooter>
       }

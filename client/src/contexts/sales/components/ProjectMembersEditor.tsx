@@ -83,7 +83,7 @@ export default function ProjectMembersEditor({ projectId }: { projectId: string 
       {/* 現在のメンバー */}
       {isLoading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> 読み込み中...
+          <Loader2 className="h-4 w-4 animate-spin" /> 読み込み中…
         </div>
       ) : members.length === 0 ? (
         <p className="text-sm text-muted-foreground">まだ担当メンバーがいません。下から追加してください。</p>
@@ -140,7 +140,7 @@ export default function ProjectMembersEditor({ projectId }: { projectId: string 
               options={users.map((u) => ({ value: u.id, label: u.name }))}
               value={selectedUser}
               onChange={setSelectedUser}
-              placeholder="ユーザーを検索..."
+              placeholder="ユーザーを検索…"
             />
           ) : (
             <Input
@@ -171,7 +171,7 @@ export default function ProjectMembersEditor({ projectId }: { projectId: string 
         </div>
         {addMutation.isError && (
           <p className="text-xs text-destructive">
-            追加に失敗しました。{(addMutation.error as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message ?? ""}
+            メンバーを追加できませんでした。{(addMutation.error as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message ?? "入力内容を確かめて、もう一度お試しください。"}
           </p>
         )}
       </div>

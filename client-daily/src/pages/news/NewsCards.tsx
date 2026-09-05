@@ -9,13 +9,13 @@
  * `production/pages/holds/HoldCards.tsx` と同じ考え方で、
  * **列を消すのではなくカードとして組み直す**:
  *
- *   1行目  採用・AI活用・分類のバッジを横に並べる（PC は3列に分けていたもの）
+ *   1行目  注目度・AIの話題・分類のバッジを横に並べる（PC は3列に分けていたもの）
  *   2行目  要約（PC の `RowMain` と同じ全文）
  *   3行目  メモ・記入者（PC が `hideOnMobile` で落としていた2列。
  *          外で受付する人にも要る情報なのでスマホでも出す）
- *   4行目  週報へ送る・編集・削除（`canEdit` のときだけ）
+ *   4行目  ウィークリー活動報告へ送る・編集・削除（`canEdit` のときだけ）
  *
- * 採用・週報へ送る・削除・編集の保存という業務ロジックは
+ * 注目度・ウィークリー活動報告へ送る・削除・編集の保存という業務ロジックは
  * `./NewsRows.tsx` の `useNewsRowActions` を共有する。**写すと PC と
  * スマホで挙動がずれる**（この画面のコメント冒頭に書いてある実際の前科）。
  *
@@ -70,16 +70,16 @@ function NewsCard({ item, canEdit, weeklyLocked }: {
                 className="text-sub-sm min-h-tap rounded-badge border border-border bg-background px-2 text-center"
                 value={item.pick ?? ''}
                 onChange={(e) => setPick(e.target.value ? Number(e.target.value) : null)}
-                aria-label="採用（1〜5）"
+                aria-label="注目度（1〜5）"
               >
-                <option value="">採用 —</option>
-                {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>採用 {n}</option>)}
+                <option value="">注目度 —</option>
+                {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>注目度 {n}</option>)}
               </select>
             ) : item.pick != null ? (
-              <TableBadge label={`採用 ${item.pick}`} w={null} className="bg-primary-surface text-primary" />
+              <TableBadge label={`注目度 ${item.pick}`} w={null} className="bg-primary-surface text-primary" />
             ) : null}
             {item.ai_related && (
-              <TableBadge label="AI活用" w={null} className="border-ai-border bg-ai-surface text-ai" />
+              <TableBadge label="AIの話題" w={null} className="border-ai-border bg-ai-surface text-ai" />
             )}
             {item.category && (
               <TableBadge label={item.category} w={null} className="bg-muted text-muted-foreground" />
@@ -117,15 +117,15 @@ function NewsCard({ item, canEdit, weeklyLocked }: {
                 disabled={item.sent_to_weekly || weeklyLocked || sendPending}
                 onClick={toWeekly}
                 title={item.sent_to_weekly
-                  ? 'この行は週報へ送り済みです'
+                  ? 'この行はウィークリー活動報告へ送り済みです'
                   : weeklyLocked
-                    ? 'この週の週報は確定済みです。週報の画面で「確定を解く」を押すと送れます'
-                    : 'この日が入る週の週報へ写します'}
+                    ? 'この週のウィークリー活動報告は確定済みです。その画面で「確定を解く」を押すと送れます'
+                    : 'この日が入る週のウィークリー活動報告へ写します'}
               >
                 {item.sent_to_weekly
                   ? <CheckCheck className="mr-1 h-4 w-4" aria-hidden="true" />
                   : <Send className="mr-1 h-4 w-4" aria-hidden="true" />}
-                {item.sent_to_weekly ? '送り済み' : '週報へ送る'}
+                {item.sent_to_weekly ? '送り済み' : '報告へ送る'}
               </Button>
               <Button variant="outline" size="icon" className="min-h-tap" onClick={() => setEditing(true)} aria-label="編集">
                 <Pencil className="h-4 w-4" aria-hidden="true" />

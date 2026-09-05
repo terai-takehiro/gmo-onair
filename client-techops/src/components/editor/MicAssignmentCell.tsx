@@ -142,7 +142,7 @@ export default function MicAssignmentCell({
       })}
       {chList === DEFAULT_CHANNELS && (
         <p className="flex items-center gap-1 text-[9px] text-zinc-400 dark:text-zinc-500 italic mt-0.5">
-          <Mic size={9} aria-hidden /> マスターでChを定義
+          <Mic size={9} aria-hidden /> 「登録した名前」でChを決める
         </p>
       )}
       <datalist id={personsListId}>

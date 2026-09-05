@@ -134,7 +134,7 @@ export default function GpmTaskListPage() {
       invalidate(t.project_id);
       notifySuccess(t.is_completed ? '未完了に戻しました' : '完了にしました');
     },
-    onError: (e) => notifyApiError('タスクを変えられませんでした', e),
+    onError: (e) => notifyApiError('タスクを変更できませんでした', e),
   });
 
   const toggle = useMutation({
@@ -149,22 +149,22 @@ export default function GpmTaskListPage() {
       }),
     onSuccess: (_r, item) => {
       invalidate(item.project_id);
-      notifySuccess(item.status === 'resolved' ? '返事待ちに戻しました' : '解決にしました');
+      notifySuccess(item.status === 'resolved' ? '未解決に戻しました' : '解決にしました');
     },
-    onError: (err) => notifyApiError('未確認事項を変えられませんでした', err),
+    onError: (err) => notifyApiError('持ち帰りを変更できませんでした', err),
   });
 
   const remove = useMutation({
     mutationFn: (item: GpmOpenItem) => api.delete(`/gpm/open-items/${item.id}`),
-    onSuccess: (_r, item) => { invalidate(item.project_id); notifySuccess('未確認事項を消しました'); },
-    onError: (err) => notifyApiError('未確認事項を消せませんでした', err),
+    onSuccess: (_r, item) => { invalidate(item.project_id); notifySuccess('持ち帰りを削除しました'); },
+    onError: (err) => notifyApiError('持ち帰りを削除できませんでした', err),
   });
 
   const onDelete = async (item: GpmOpenItem) => {
     const ok = await confirmAction({
-      title: 'この未確認事項を消しますか？',
+      title: 'この持ち帰りを削除しますか？',
       description: `「${item.question}」\n解決したのなら消さずに「解決」にしてください。消すと訊いた記録が残りません。`,
-      confirmLabel: '消す',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) remove.mutate(item);
@@ -177,14 +177,14 @@ export default function GpmTaskListPage() {
       <PageHeader
         title="全プロジェクトのタスク"
         sub={tasks.data
-          ? `未完了 ${taskCounts.open}件 ・ 止まっている未確認事項 ${openCount}件`
+          ? `未完了 ${taskCounts.open}件 ・ 止まっている持ち帰り ${openCount}件`
           : 'プロジェクトをまたいで見ます'}
       >
         {/* **スマホでは出さない。** ここは見出しの下に折り返るだけで専用のナビゲーションに
             ならない（監査 2026-08-20 ⑤ 指摘）。スマホは下の `MobileTaskTabs` に譲る */}
         {!isMobile && (
           <div className="inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="見るものを切り替える">
-            {([['tasks', 'タスク', ListTodo], ['asks', '未確認事項', CircleHelp]] as const).map(([v, label, Icon], i) => (
+            {([['tasks', 'タスク', ListTodo], ['asks', '持ち帰り', CircleHelp]] as const).map(([v, label, Icon], i) => (
               <button
                 key={v}
                 type="button"
@@ -237,7 +237,7 @@ export default function GpmTaskListPage() {
             <EmptyState
               icon={<ListTodo className="h-6 w-6" aria-hidden="true" />}
               title={taskChip === 'open' ? '未完了のタスクはありません' : '当てはまるタスクはありません'}
-              description="標準工程からプロジェクトを作ると、工程の下にタスクが日付付きで入ります。"
+              description="ひな形からプロジェクトを作ると、工程の下にタスクが日付付きで入ります。"
             />
           ) : isMobile ? (
             <TaskCards
@@ -320,7 +320,7 @@ export default function GpmTaskListPage() {
 
           <p className="text-note text-muted-foreground">
             工程の状態は色で出しています（{PHASE_STATE_LABEL.doing}／{PHASE_STATE_LABEL.blocked}／{PHASE_STATE_LABEL.done}）。
-            タスクを足す・直すのは<strong className="font-bold">プロジェクト詳細の工程</strong>からです。
+            タスクの追加・編集は<strong className="font-bold">プロジェクト詳細の工程</strong>からです。
           </p>
         </>
       ) : tab === 'asks' ? (
@@ -337,14 +337,14 @@ export default function GpmTaskListPage() {
           />
 
           {asks.isError ? (
-            <ErrorPanel title="未確認事項を読み込めませんでした" onRetry={() => asks.refetch()} />
+            <ErrorPanel title="持ち帰りを読み込めませんでした" onRetry={() => asks.refetch()} />
           ) : asks.isLoading ? (
             <Delayed><SkeletonRows rows={5} /></Delayed>
           ) : askRows.length === 0 ? (
             <EmptyState
               icon={<CircleHelp className="h-6 w-6" aria-hidden="true" />}
-              title={chip === 'open' ? '止まっているものはありません' : '当てはまる未確認事項はありません'}
-              description="先方や社内の判断待ちで工程が進められないものは、プロジェクト詳細の「未確認事項」から足します。"
+              title={chip === 'open' ? '止まっているものはありません' : '当てはまる持ち帰りはありません'}
+              description="先方や社内の判断待ちで工程が進められないものは、プロジェクト詳細の「持ち帰り」から足します。"
             />
           ) : isMobile ? (
             <OpenItemCards

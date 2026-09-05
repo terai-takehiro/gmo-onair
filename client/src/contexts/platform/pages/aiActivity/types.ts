@@ -51,7 +51,8 @@ export interface ReviewRow {
 
 /** 種類の日本語名。**サーバーの営業系 kind 一覧と対**（上の注意書き） */
 export const KIND_LABEL: Record<string, string> = {
-  task_intake: '投入口の行き先判断',
+  // 画面上のカードの名前は「依頼・タスクを書き留める」（`intake/IntakeComposer.tsx`）
+  task_intake: '依頼・タスクの行き先判断',
   activity_format: 'やり取りの整形',
   next_action_short: '次にやることを1行に',
   minutes_draft: '議事録の整形',
@@ -72,7 +73,7 @@ export const TARGET_LABEL: Record<string, string> = {
   project_tasks: 'プロジェクトタスク',
   activity_logs: '営業活動記録',
   project_minutes: '議事録',
-  task_intake: '投入口',
+  task_intake: '依頼・タスク',
   misc_inquiries: '問い合わせ',
   finance_docs: '受領書類',
   ops_report_items: 'デイリーニュース',

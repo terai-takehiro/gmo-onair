@@ -46,7 +46,7 @@ import { OrgStep, type DraftMember } from './projectForm/OrgStep';
 
 const STEPS = [
   { n: 1, label: '基本情報' },
-  { n: 2, label: '標準工程を選ぶ' },
+  { n: 2, label: 'ひな形を選ぶ' },
   { n: 3, label: '着手日と工程の確認' },
   { n: 4, label: '体制（組織図）' },
   { n: 5, label: 'メンバー・書類' },
@@ -110,8 +110,8 @@ export default function GpmProjectFormPage() {
       notifySuccess('プロジェクトを作りました', {
         description: [
           templateId
-            ? '標準工程から工程とタスクを入れました。ここから直せます。'
-            : '工程はまだありません。詳細画面から足せます。',
+            ? 'ひな形から工程とタスクを入れました。ここから直せます。'
+            : '工程はまだありません。詳細画面から追加できます。',
           members.length > 0 && failed === 0 ? `体制に ${members.length}名 を入れました。` : '',
           // **入らなかった人を黙らない。** 気づかないと体制が欠けたまま進む
           failed > 0 ? `体制の ${failed}名 は入れられませんでした。体制タブから足してください。` : '',
@@ -144,7 +144,7 @@ export default function GpmProjectFormPage() {
         }
       >
         <Button variant="outline" onClick={() => navigate('/gpm/projects')}>
-          <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />やめる
+          <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />キャンセル
         </Button>
       </PageHeader>
 

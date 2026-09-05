@@ -63,7 +63,7 @@ export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
         setShare(res.data.data as ShareInfo);
       })
       .catch(() => {
-        if (!cancelled) notifyError("共有URLの取得に失敗しました");
+        if (!cancelled) notifyError("配っている URL を読み込めませんでした。ダイアログを閉じて、もう一度開いてください。");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -115,7 +115,7 @@ export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
       setRevoked(false);
       notifySuccess("新しい URL を発行しました");
     } catch {
-      notifyError("URL の再発行に失敗しました");
+      notifyError("新しい URL を発行できませんでした。少し待ってから、もう一度お試しください。");
     } finally {
       setBusy(false);
     }
@@ -123,15 +123,15 @@ export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
 
   const handleRevoke = async () => {
     // 同上 (凍結アプリなので素の confirm() を使う)
-    if (!confirm("この URL を失効させます。配布済みの QR はすべて使えなくなり、元に戻せません。よろしいですか？")) return; // ui-tokens-ok
+    if (!confirm("配布をやめます。配った QR はすべて使えなくなり、元に戻せません。よろしいですか？")) return; // ui-tokens-ok
     setBusy(true);
     try {
       await api.post(`/techops/documents/${docId}/audio-share/revoke`);
       setShare(null);
       setRevoked(true);
-      notifySuccess("URL を失効させました");
+      notifySuccess("配布をやめました");
     } catch {
-      notifyError("URL の失効に失敗しました");
+      notifyError("配布をやめられませんでした。少し待ってから、もう一度お試しください。");
     } finally {
       setBusy(false);
     }
@@ -144,7 +144,7 @@ export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
       setShare(res.data.data as ShareInfo);
       setRevoked(false);
     } catch {
-      notifyError("共有URLの発行に失敗しました");
+      notifyError("URL を発行できませんでした。少し待ってから、もう一度お試しください。");
     } finally {
       setBusy(false);
     }
@@ -163,9 +163,9 @@ export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
         size="md"
       >
         <DialogHeader>
-          <DialogTitle>音声サポート画面 共有 URL</DialogTitle>
+          <DialogTitle>本番のURLを配る</DialogTitle>
           <DialogDescription>
-            音声オペレーター用のリアルタイム同期マイク香盤画面です。認証不要でこの URL を知っていれば誰でも閲覧できます。
+            音声オペレーター用のマイク香盤画面です。ログイン不要で、この URL を知っていれば誰でも開けます。
           </DialogDescription>
         </DialogHeader>
 
@@ -255,13 +255,13 @@ export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
                 className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-tap text-xs font-semibold rounded-lg border border-destructive/40 text-destructive hover:bg-destructive/10 disabled:opacity-60"
               >
                 <Ban size={13} aria-hidden />
-                この URL を失効させる
+                配布をやめる
               </button>
             </div>
 
             <p className="text-[11px] text-muted-foreground bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-md p-2 leading-relaxed">
               ※ シナリオ本文や放送日は返却されません。マイク香盤データのみ表示されます。
-              「新しい URL にする」で再発行、「この URL を失効させる」で今すぐ使えなくできます（取り消せません）。
+              「新しい URL にする」で出し直し、「配布をやめる」で今すぐ使えなくできます（取り消せません）。
             </p>
           </>
         )}

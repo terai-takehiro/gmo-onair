@@ -74,10 +74,10 @@ export default function ProjectGroupDetailPage() {
     mutationFn: () => api.delete(`/project-groups/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['project-groups'] });
-      notifySuccess('グループを削除しました');
+      notifySuccess('按分グループを削除しました');
       navigate('/sales/project-groups');
     },
-    onError: (err) => notifyApiError('グループの削除に失敗しました', err),
+    onError: (err) => notifyApiError('按分グループを削除できませんでした', err, '時間をおいて、もう一度お試しください。'),
   });
 
   const deletePurchaseMutation = useMutation({
@@ -88,7 +88,7 @@ export default function ProjectGroupDetailPage() {
       qc.invalidateQueries({ queryKey: ['project-groups'] });
       notifySuccess('仕入を削除しました');
     },
-    onError: (err) => notifyApiError('仕入の削除に失敗しました', err),
+    onError: (err) => notifyApiError('仕入を削除できませんでした', err, '時間をおいて、もう一度お試しください。'),
   });
 
   const deleteRevenueMutation = useMutation({
@@ -99,18 +99,18 @@ export default function ProjectGroupDetailPage() {
       qc.invalidateQueries({ queryKey: ['project-groups'] });
       notifySuccess('売上を削除しました');
     },
-    onError: (err) => notifyApiError('売上の削除に失敗しました', err),
+    onError: (err) => notifyApiError('売上を削除できませんでした', err, '時間をおいて、もう一度お試しください。'),
   });
 
   return (
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
       <Button variant="ghost" size="sm" className="w-fit gap-1 text-muted-foreground" onClick={() => navigate('/sales/project-groups')}>
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        グループ一覧
+        按分グループ一覧
       </Button>
 
       {query.isError ? (
-        <ErrorPanel title="グループを読み込めませんでした" error={query.error} onRetry={() => query.refetch()} />
+        <ErrorPanel title="按分グループを読み込めませんでした" error={query.error} onRetry={() => query.refetch()} />
       ) : !detail ? (
         <Delayed><SkeletonRows rows={4} /></Delayed>
       ) : (
@@ -128,9 +128,9 @@ export default function ProjectGroupDetailPage() {
                     variant="outline" size="sm" className="text-destructive hover:text-destructive"
                     onClick={async () => {
                       if (!(await confirmAction({
-                        title: 'このグループを削除しますか？',
-                        description: '登録済みのグループ売上・仕入の分けた額もすべて消えます。',
-                        confirmLabel: '削除する', tone: 'danger',
+                        title: 'この按分グループを削除しますか？',
+                        description: '登録済みのグループ売上・仕入の分けた額もすべて消えます。元に戻せません。',
+                        confirmLabel: '削除', tone: 'danger',
                       }))) return;
                       deleteGroupMutation.mutate();
                     }}

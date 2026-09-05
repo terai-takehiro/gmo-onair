@@ -54,7 +54,7 @@ export default function ApplyTemplateDialog({ open, onOpenChange, scheduleId, lo
       onApplied();
       onOpenChange(false);
     },
-    onError: () => notifyError("ひな形の適用に失敗しました"),
+    onError: () => notifyError("ひな形を適用できませんでした。", { description: "少し待ってから、もう一度お試しください。" }),
   });
 
   const needsOnairStart = previewQuery.data?.requires_onair_start ?? false;

@@ -116,14 +116,14 @@ export function TaskEditDialog({ task, onClose }: { task: MyTask; onClose: () =>
     if (isDelegation && !due) { setErr('依頼の期限は空にできません。何月何日何時何分までかを入れてください'); return; }
     update.mutate(
       { id: task.id, patch: { title: title.trim(), due_at: fromLocalInput(due), importance: imp, urgency: urg, visibility: vis } },
-      { onSuccess: onClose, onError: (e) => setErr((e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '保存に失敗しました') }
+      { onSuccess: onClose, onError: (e) => setErr((e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'タスクを保存できませんでした。少し待ってから、もう一度お試しください。') }
     );
   };
 
   return (
     <FormDialog open onOpenChange={onClose} title="タスクを編集" footer={
       <FormDialogFooter>
-        <Button variant="outline" onClick={onClose}>やめる</Button>
+        <Button variant="outline" onClick={onClose}>キャンセル</Button>
         <Button onClick={save} disabled={update.isPending}>
           {update.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}保存
         </Button>
@@ -201,14 +201,14 @@ export function TaskCreateDialog({ onClose }: { onClose: () => void }) {
     }
     create.mutate(
       { title: title.trim(), assigned_to: assignee, due_at: fromLocalInput(due), importance: imp, urgency: urg, description: desc || null },
-      { onSuccess: onClose, onError: (e) => setErr((e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '登録に失敗しました') }
+      { onSuccess: onClose, onError: (e) => setErr((e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'タスクを登録できませんでした。少し待ってから、もう一度お試しください。') }
     );
   };
 
   return (
     <FormDialog open onOpenChange={onClose} title="タスク・依頼を追加" footer={
       <FormDialogFooter>
-        <Button variant="outline" onClick={onClose}>やめる</Button>
+        <Button variant="outline" onClick={onClose}>キャンセル</Button>
         <Button onClick={submit} disabled={create.isPending}>
           {create.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}登録する
         </Button>

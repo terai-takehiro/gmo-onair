@@ -106,7 +106,7 @@ export function GroupRevenueNote() {
   return (
     <span className="text-note mt-0.5 flex items-center gap-1 text-muted-foreground">
       <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
-      費用を分け合うグループの売上です（案件管理 &gt; 費用を分け合うグループから直せます）
+      按分グループの売上です（案件管理 &gt; 按分グループ から編集できます）
     </span>
   );
 }

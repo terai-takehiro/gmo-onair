@@ -1,7 +1,7 @@
 /**
- * フィードバックチケット — 起票フォーム (v4)
+ * フィードバックチケット — 送るフォーム (v4)
  *
- * **全ユーザーが起票できる**（起票に editor 権限は要らない。このアプリを開ける人なら誰でも）。
+ * **全ユーザーが送れる**（送るのに編集権限は要らない。このアプリを開ける人なら誰でも）。
  * `FormDialog` はスマホ=下シート・PC=中央ダイアログで開く（`shared/CLAUDE.md`）。
  */
 import { useState } from 'react';
@@ -43,11 +43,11 @@ export function TicketForm({ onCancel, onSubmit, submitting }: {
     <FormDialog
       open
       onOpenChange={(o) => { if (!o) onCancel(); }}
-      title="フィードバックチケットを起票する"
-      sub="GMO ONAiR への要望・不具合報告を起こします"
+      title="要望・不具合を送る"
+      sub="GMO ONAiR への要望・不具合を送ります"
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onCancel}>やめる</Button>
+          <Button variant="outline" onClick={onCancel}>キャンセル</Button>
           <Button
             disabled={!canSubmit || submitting}
             onClick={() => onSubmit({
@@ -58,7 +58,7 @@ export function TicketForm({ onCancel, onSubmit, submitting }: {
               category,
             })}
           >
-            起票する
+            送る
           </Button>
         </FormDialogFooter>
       }

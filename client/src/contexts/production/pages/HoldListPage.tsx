@@ -4,8 +4,11 @@
  * ── 何のための画面か ────────────────────────────────────────
  *
  * 仮押さえ（`studio_bookings.status='tentative'`）は**放っておくと部屋が塞がったまま**に
- * なります。本番日が近いのに確定していないものから順に、
- * **確定にするか／落とすか**を決めるための一覧です。
+ * なります。本番日が近いのに本予約になっていないものから順に、
+ * **本予約にするか／仮押さえを削除するか**を決めるための一覧です。
+ *
+ * ⚠️ **「確定」とは書かない。** 売上の「売上確定」・仕入の「金額が確定」と
+ * 語が衝突して意味が3つになるため、予約は「本予約にする」で言い切る（用語の決めごと）。
  *
  * ── 並びは「本番日までの残り日数」 ──────────────────────────
  *
@@ -14,10 +17,10 @@
  * 7日を切ったものを赤くします。**日付順ではなく残り日数順**なのは、
  * 過ぎてしまった仮押さえ（本番日が昨日なのに仮のまま）を先頭に出すためです。
  *
- * ── 「落とす」は確認してから ────────────────────────────────
+ * ── 「仮押さえを削除」は確認してから ──────────────────────────
  *
- * 押すと部屋が空きます。**別の案件がその枠を取れる**ようになるので、
- * 取り消しは効きません（同じ枠をもう一度押さえられる保証がない）。
+ * 押すと部屋が空きます。**別の案件がその時間の部屋を取れる**ようになるので、
+ * 取り消しは効きません（同じ時間の部屋をもう一度押さえられる保証がない）。
  */
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -48,8 +51,8 @@ export default function HoldListPage() {
   const qc = useQueryClient();
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('sales', 'editor');
-  // **落とすのは manager から。** `DELETE /studios/bookings/:id` が manager を要求するので、
-  // editor に出すと押した先が必ず 403 になる（確定にするほうは editor で通る）
+  // **削除は manager から。** `DELETE /studios/bookings/:id` が manager を要求するので、
+  // editor に出すと押した先が必ず 403 になる（本予約にするほうは editor で通る）
   const canDrop = hasPermission('sales', 'manager');
   const [chip, setChip] = useState<Chip>('all');
   const isMobile = useIsMobile();
@@ -64,10 +67,10 @@ export default function HoldListPage() {
 
   const query = useQuery({
     queryKey: HOLD_KEY,
-    // **サーバーで仮押さえだけに絞る。** 画面で絞ると、確定ぶんまで運んでから捨てることになる
+    // **サーバーで仮押さえだけに絞る。** 画面で絞ると、本予約ぶんまで運んでから捨てることになる
     // `from` を渡さないと下限が付かず、本番が何ヶ月も前に終わった仮押さえまで
     // 無期限に出続ける（`end_time` が過去のものだけ落とす。本番日を過ぎたのに
-    // まだ未確定なもの＝先頭に出したいものは `end_time` が今日以降なので残る）
+    // まだ仮押さえのまま＝先頭に出したいものは `end_time` が今日以降なので残る）
     queryFn: async () => (await api.get('/studios/bookings', {
       params: { status: 'tentative', from: today, to: until },
     })).data.data as HoldRow[],
@@ -103,22 +106,22 @@ export default function HoldListPage() {
 
   const fix = useMutation({
     mutationFn: (id: string) => api.put(`/studios/bookings/${id}`, { status: 'confirmed' }),
-    onSuccess: () => { invalidate(); notifySuccess('確定にしました'); },
-    onError: (e) => notifyApiError('確定にできませんでした', e),
+    onSuccess: () => { invalidate(); notifySuccess('本予約にしました'); },
+    onError: (e) => notifyApiError('仮押さえを本予約にできませんでした', e, '少し時間をおいてもう一度お試しください。'),
   });
 
   const drop = useMutation({
     mutationFn: (id: string) => api.delete(`/studios/bookings/${id}`),
-    onSuccess: () => { invalidate(); notifySuccess('落としました。部屋が空きます'); },
-    onError: (e) => notifyApiError('落とせませんでした', e),
+    onSuccess: () => { invalidate(); notifySuccess('仮押さえを削除しました。部屋が空きます'); },
+    onError: (e) => notifyApiError('仮押さえを削除できませんでした', e, '少し時間をおいてもう一度お試しください。'),
   });
 
   const askDrop = async (b: HoldRow & { left: number }) => {
     const ok = await confirmAction({
-      title: 'この仮押さえを落としますか',
-      description: `「${b.title}」の押さえを外します。**その枠は空きになり、別の案件が取れるようになります。**`
-        + '同じ枠をもう一度押さえられる保証はありません。',
-      confirmLabel: '落とす',
+      title: 'この仮押さえを削除しますか',
+      description: `「${b.title}」の押さえを外します。**この時間の部屋は空きになり、別の案件が取れるようになります。**`
+        + '同じ時間の部屋をもう一度押さえられる保証はありません。',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) drop.mutate(b.id);
@@ -149,14 +152,16 @@ export default function HoldListPage() {
       ) : rows.length === 0 ? (
         <EmptyState
           icon={<CalendarClock className="h-6 w-6" aria-hidden="true" />}
-          title={chip === 'all' ? '仮押さえはありません' : 'この期間の仮押さえはありません'}
-          description="部屋を仮に押さえると、確定するまでここに出ます。放っておくと部屋が塞がったままになります。"
+          title={chip === 'all' ? 'まだ仮押さえはありません' : '条件に合う仮押さえはありません'}
+          description={chip === 'all'
+            ? '部屋を仮に押さえると、本予約にするまでここに出ます。放っておくと部屋が塞がったままになります。'
+            : '絞り込みの期間を変えてみてください。'}
         />
       ) : isMobile ? (
         /*
           **スマホは縦に積む**（M10）。PC の行だと「決める」160px と「あと」72px で
           名前が 150px しか残らず、`検証E 仮…` としか読めませんでした
-          （＝何の予約か分からないまま「確定にする」を押させる形）。
+          （＝何の予約か分からないまま「本予約にする」を押させる形）。
         */
         <PullToRefresh onRefresh={query.refetch}>
           <HoldCards
@@ -220,7 +225,7 @@ export default function HoldListPage() {
                       disabled={fix.isPending}
                       onClick={() => fix.mutate(b.id)}
                     >
-                      <Check className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />確定にする
+                      <Check className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />本予約にする
                     </Button>
                     {canDrop && (
                     <Button
@@ -229,7 +234,7 @@ export default function HoldListPage() {
                       disabled={drop.isPending}
                       onClick={() => askDrop(b)}
                     >
-                      <Trash2 className="mr-1.5 h-3.5 w-3.5 text-destructive" aria-hidden="true" />落とす
+                      <Trash2 className="mr-1.5 h-3.5 w-3.5 text-destructive" aria-hidden="true" />仮押さえを削除
                     </Button>
                     )}
                   </span>
@@ -242,7 +247,7 @@ export default function HoldListPage() {
 
       <p className="text-note text-muted-foreground">
         並びは<strong className="font-bold">本番日までの残り日数順</strong>です（日付順ではありません）。
-        本番日を過ぎてしまった仮押さえが先頭に出ます — 押さえたまま忘れられていた枠がそれです。
+        本番日を過ぎてしまった仮押さえが先頭に出ます — 押さえたまま忘れられていた予約がそれです。
       </p>
     </div>
   );

@@ -1,4 +1,4 @@
-// スコア順リスト・9マスボードの選んだマスが共有する1行分のカード。
+// 「優先度順」リスト・「重要度 × 緊急度」ボードの選んだマスが共有する1行分のカード。
 import { Check, Clock, EyeOff, Pencil, Sparkles } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

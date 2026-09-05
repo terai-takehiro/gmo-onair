@@ -11,7 +11,7 @@
  *
  * ── なぜ間引くか（実測）──────────────────────────────────────
  *
- * 貸出可の型番が 759 種のとき、このタブは DOM を **18,393 個**作り、
+ * 貸出可の型名が 759 種のとき、このタブは DOM を **18,393 個**作り、
  * 開くまでに **1,697ms 画面が固まって**いました。内訳を切り分けると
  * **1,013ms が「並べて描く」費用・684ms が「DOM を作る」費用**で、
  * どちらか片方を省いても半分残ります。だから**作るのをやめます**。
@@ -75,7 +75,7 @@ export function RentalSection({
           <span className="whitespace-nowrap text-th text-muted-foreground">{section.name}</span>
           <span className="h-px flex-1 bg-border" />
           <span className="shrink-0 text-sub-sm text-muted-foreground">
-            {section.groups.length} 型番 ／ {section.groups.reduce((s, g) => s + g.total_count, 0)} 台
+            {section.groups.length} 型名 ／ {section.groups.reduce((s, g) => s + g.total_count, 0)} 台
           </span>
         </div>
       )}

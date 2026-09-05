@@ -87,7 +87,7 @@ export function RegularSeriesFields({ f }: { f: ProjectFieldsState }) {
         </Select>
       </Field>
 
-      <Field label="放送日オフセット" htmlFor="rs-offset" hint="収録日から何日後に放送/公開するか（例: 7日）。回の一括生成の既定値になります">
+      <Field label="収録から放送までの日数" htmlFor="rs-offset" hint="収録日から何日後に放送/公開するか（例: 7日）。回の一括生成の既定値になります">
         <div className="flex items-center gap-2">
           <Input
             id="rs-offset" type="number" min="0" inputMode="numeric"

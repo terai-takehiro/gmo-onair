@@ -91,7 +91,7 @@ export function RankingControlPanel({ page }: { page: GraphicsPageRow }) {
             disabled={pending || entries.length === 0}
           >
             <SelectTrigger id="ranking-winner-select" className="min-h-[44px] w-auto min-w-[10rem]">
-              <SelectValue placeholder="未選択" />
+              <SelectValue placeholder="未入力" />
             </SelectTrigger>
             <SelectContent>
               {entries.map((e, i) => (

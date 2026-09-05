@@ -11,7 +11,7 @@
  *    **選ぶと全件が出ていました** — 遅延は返却予定日から画面で導きます。
  *  ・保存できなかった理由をダイアログの上辺に出すようにした
  *    (旧実装は貸出だけ本文の末尾、返却は何も出ませんでした)。
- *  ・スマホは PC 表を `hideOnMobile` で間引くだけだった（持出日が消えていた）のを、
+ *  ・スマホは PC 表を `hideOnMobile` で間引くだけだった（持ち出した日が消えていた）のを、
  *    専用のカード積みに差し替えた（`lending/LendingCards.tsx`）。ダイアログは既に
  *    `FormDialog` へ移行済みなので、この回では一覧の描き方だけを変えている。
  */
@@ -78,7 +78,7 @@ export default function LendingListPage() {
   };
 
   /**
-   * 出庫予定を「持ち出した」に変える (migration 168)。
+   * 持ち出し予定を「持ち出した」に変える (migration 168)。
    * **予定の行を消して作り直さない** — いつ予定を立てたかが消える
    */
   const checkout = useMutation({
@@ -131,7 +131,7 @@ export default function LendingListPage() {
       <FilterChips
         label="状態で絞り込む"
         items={[
-          { key: 'planned', label: '出庫予定', count: groups.planned.length },
+          { key: 'planned', label: '持ち出し予定', count: groups.planned.length },
           { key: 'lent', label: '貸出中', count: groups.lent.length },
           { key: 'late', label: '返却遅延', count: groups.late.length },
           { key: 'returned', label: '返却済', count: groups.returned.length },
@@ -147,7 +147,7 @@ export default function LendingListPage() {
       ) : rows.length === 0 ? (
         <EmptyState
           title={
-            chip === 'planned' ? '出庫の予定はありません'
+            chip === 'planned' ? '持ち出しの予定はありません'
               : chip === 'late' ? '返却が遅れているものはありません'
                 : chip === 'returned' ? '返却済の記録はまだありません'
                   : 'いま出ている機材はありません'
@@ -155,7 +155,7 @@ export default function LendingListPage() {
           description="「貸出を記録」から持ち出しを登録します。貸出可にした機材だけが選べます。"
         />
       ) : isMobile ? (
-        // **PC の行を縮めたものではない。** 持出日を畳まず常に出す（`LendingCards.tsx`）
+        // **PC の行を縮めたものではない。** 持ち出した日を畳まず常に出す（`LendingCards.tsx`）
         <PullToRefresh onRefresh={list.refetch}>
           <LendingCards
             rows={rows}
@@ -170,7 +170,7 @@ export default function LendingListPage() {
           <RowHeader className="hidden sm:flex">
             <RowMain>機材 ／ 借りている人・案件</RowMain>
             <RowSlot w={96}>状態</RowSlot>
-            <RowSlot w={72} align="right">{chip === 'planned' ? '出庫予定' : '持出'}</RowSlot>
+            <RowSlot w={72} align="right">{chip === 'planned' ? '持ち出し予定' : '持ち出し'}</RowSlot>
             <RowSlot w={72} align="right">返却予定</RowSlot>
             <RowSlot w={96} align="right">{''}</RowSlot>
           </RowHeader>
@@ -189,7 +189,7 @@ export default function LendingListPage() {
                 </RowMain>
                 <RowSlot w={96}>
                   <TableBadge
-                    label={l.status === 'planned' ? '出庫予定'
+                    label={l.status === 'planned' ? '持ち出し予定'
                       : l.status === 'lent' ? (late ? '返却遅延' : '貸出中') : '返却済'}
                     w={null}
                     className={late
@@ -214,12 +214,12 @@ export default function LendingListPage() {
                 <RowSlot w={96} align="right" placeholder="">
                   {l.status === 'planned' && (
                     <Button variant="outline" disabled={checkout.isPending} onClick={() => checkout.mutate(l.id)}>
-                      <PackageCheck className="mr-1 h-3.5 w-3.5" aria-hidden="true" />出した
+                      <PackageCheck className="mr-1 h-3.5 w-3.5" aria-hidden="true" />持ち出した
                     </Button>
                   )}
                   {l.status === 'lent' && (
                     <Button variant="outline" onClick={() => { setReturnError(null); setReturnTarget(l); }}>
-                      <RotateCcw className="mr-1 h-3.5 w-3.5" aria-hidden="true" />返却
+                      <RotateCcw className="mr-1 h-3.5 w-3.5" aria-hidden="true" />返却を記録
                     </Button>
                   )}
                 </RowSlot>

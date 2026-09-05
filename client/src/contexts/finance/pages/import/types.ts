@@ -1,4 +1,4 @@
-/** ⑦ 取り込み（財務）が扱うデータの形 — 3つの取込元で共有する (v4) */
+/** ⑦ 取り込み（財務）が扱うデータの形 — 3つの取り込み元で共有する (v4) */
 
 // ══ 精算 PDF（X-Point / 楽楽精算）══════════════════════════
 
@@ -146,7 +146,7 @@ export function settlementPrefix(format: string): string {
   return format === 'rakuraku' ? '楽' : 'X';
 }
 
-// ══ 総勘定元帳（決算インポート）══════════════════════════
+// ══ 総勘定元帳（決算の取り込み）══════════════════════════
 
 export type ImportScope = 'sga' | 'revenues' | 'purchases' | 'all';
 

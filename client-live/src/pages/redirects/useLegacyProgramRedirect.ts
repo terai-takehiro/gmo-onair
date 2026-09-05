@@ -54,7 +54,7 @@ export function useLegacyProgramRedirect(programId: string | undefined, suffix: 
       })
       .catch((e: any) => {
         if (cancelled) return;
-        const message = e?.response?.data?.error?.message || e?.response?.data?.message || 'セッション情報を取得できませんでした。';
+        const message = e?.response?.data?.error?.message || e?.response?.data?.message || '番組を読み込めませんでした。少し待ってから、もう一度お試しください。';
         setTarget({ status: 'error', message });
       });
 

@@ -261,18 +261,29 @@ const RULES = [
     // 「エピソード」を使っており、モックが v4 の正だと決まったため
     // (`docs/v4-plan.md` の「大前提」)。ルールのほうをモックに合わせる。
     //
+    // **「按分」は 2026-09-05 に外した。** 会計・帳簿の標準語で、社外や freee の総勘定元帳と
+    // 突き合わせる語なので、開くと照合できなくなる (Salesforce が「フェーズ」「確度」を、
+    // マネーフォワードが「仕訳」を残しているのと同じ判断)。開いた結果
+    // 「按分グループ」と「費用を分け合うグループ」が同時に生き、同じものに名前が2つできていた。
+    // 決定と経緯は `docs/reviews/2026-09-05-terminology-review.md`。
+    //
+    // **「MCP」「論理削除」「cron」「SSH」は 2026-09-05 に足した** — 同じ棚卸しで、
+    // 全アプリの本人メニュー・設定画面に漏れているのが見つかったため。
+    //
     // **「ビジネス案件」は 2026-08-08 に足した** (migration 179・`docs/design/gpm-merge.md` 決め⑪)。
     // GLS-B はプロジェクト管理へ移り、画面での呼び名は「プロジェクト」に決めた。
     // 同じものを指す言葉が2つ残ると、移ったことが伝わらない。
-    re: /按分|データがありません|共用キー|タイムアウト|トースト|ビジネス案件/,
+    re: /データがありません|共用キー|タイムアウト|トースト|ビジネス案件|MCP|論理削除/,
     why: '画面に出さないと決めた言葉です（デザイン 4章 ことばの設計）。'
-       + '「按分」→「費用を分け合う」「分け方」「分けた額」／'
        + '「データがありません」→ **何が無いのかと次にやること**／'
        + '「共用キー」→「AI が自動実行」／'
-       + '「ビジネス案件」→「プロジェクト」（GLS-B はプロジェクト管理の持ち物）。'
+       + '「ビジネス案件」→「プロジェクト」（GLS-B はプロジェクト管理の持ち物）／'
+       + '「MCP」→「AI につなぐ」／「論理削除」→「画面から隠す（記録は残ります）」。'
        + '技術用語（トースト・タイムアウト）はそのまま出さず、起きたことを日本語で書きます',
-    // コメント行は開発者向けなので対象外 (概念名を残しておかないと DB と対応が取れない)
-    extra: (line) => !/^\s*(\/\/|\*|\/\*)/.test(line),
+    // コメント行は開発者向けなので対象外 (概念名を残しておかないと DB と対応が取れない)。
+    // **JSX コメント `{/* ... */}` も含む** — 2026-09-05 に禁止語を足したとき、
+    // 「論理削除は画面に出さない」と**説明しているコメント自身**が引っかかった。
+    extra: (line) => !/^\s*(\/\/|\*|\/\*|\{\s*\/\*)/.test(line),
   },
   {
     id: 'control-height',
@@ -640,9 +651,7 @@ const BASELINE = {
     "browser-dialog": {
       "client": 25,
       "client-awards": 17,
-      "client-daily": 1,
-      "client-live": 3,
-      "client-techops": 18
+      "client-techops": 11
     },
     "col-width-by-hand": {
       "client": 17,
@@ -651,8 +660,7 @@ const BASELINE = {
     },
     "control-height": {
       "client": 7,
-      "client-equipment": 2,
-      "client-techops": 2
+      "client-equipment": 2
     },
     "date-range-by-hand": {
       "client": 7,
@@ -663,12 +671,6 @@ const BASELINE = {
       "client-equipment": 1,
       "client-techops": 1,
       "shared": 2
-    },
-    "forbidden-wording": {
-      "client": 40,
-      "client-live": 1,
-      "client-techops": 3,
-      "shared": 1
     },
     "grow-column-min-w0": {
       "client": 1,
@@ -692,14 +694,11 @@ const BASELINE = {
       "shared": 1
     },
     "raw-palette": {
-      "client": 94,
+      "client": 89,
       "client-daily": 33,
       "client-equipment": 65,
-      "client-techops": 149,
+      "client-techops": 146,
       "shared": 6
-    },
-    "raw-xlsx-read": {
-      "server": 4
     },
     "stat-size-by-hand": {
       "client": 1

@@ -26,7 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { EmptyState } from '@gmo-onair/shared/src/client/states';
 import { cn } from '@gmo-onair/shared/src/client/utils';
-import { SIDE_BORDER, SIDE_LABEL, TIER_LABEL, type MemberSide, type MemberTier } from '../../types';
+import { SIDE_BORDER, SIDE_LABEL, TIER_LABEL, TIER_NOTE, type MemberSide, type MemberTier } from '../../types';
 
 /** 作るときに一緒に登録する人。**id はまだ無い**（プロジェクトを作ってから採る） */
 export interface DraftMember {
@@ -72,7 +72,7 @@ export function OrgStep({
         <h2 className="text-cardtitle">体制に入れる人</h2>
         <p className="text-note mt-1 text-muted-foreground">
           ここで入れた人は<strong className="font-bold">「作る」を押したときに一緒に登録</strong>されます。
-          あとから体制タブで足す・直すこともできます。
+          あとから体制タブで追加・編集もできます。
         </p>
 
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -86,11 +86,11 @@ export function OrgStep({
             />
           </div>
           <div className="space-y-1">
-            <Label>まとまりの名前</Label>
+            <Label>チーム名</Label>
             <Input
               value={draft.group_label}
               onChange={(e) => set('group_label', e.target.value)}
-              placeholder="設計ユニット"
+              placeholder="例: 設計ユニット"
             />
           </div>
           <div className="space-y-1">
@@ -103,11 +103,11 @@ export function OrgStep({
             </Select>
           </div>
           <div className="space-y-1">
-            <Label>組織図の段</Label>
+            <Label>役割の層</Label>
             <Select value={draft.tier} onValueChange={(v) => set('tier', v as MemberTier)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {TIERS.map((t) => <SelectItem key={t} value={t}>{TIER_LABEL[t]}</SelectItem>)}
+                {TIERS.map((t) => <SelectItem key={t} value={t}>{TIER_LABEL[t]}（{TIER_NOTE[t]}）</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

@@ -49,7 +49,7 @@ export default function ScheduleListPage() {
       setCreateOpen(false);
       navigate(`/techops/schedules/${row.id}`);
     },
-    onError: () => notifyError("作成に失敗しました"),
+    onError: () => notifyError("スケジュール表を作れませんでした。", { description: "少し待ってから、もう一度お試しください。" }),
   });
 
   const clearFilter = () => {

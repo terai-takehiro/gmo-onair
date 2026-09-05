@@ -76,7 +76,7 @@ function DesktopNewProject() {
           </p>
         </div>
         <Button variant="outline" onClick={() => navigate(-1)}>
-          <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />やめる
+          <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />キャンセル
         </Button>
         <Button variant="outline" onClick={decisions.keep} disabled={decisions.busy || missing.length > 0}>
           ネタのまま残す
@@ -89,7 +89,7 @@ function DesktopNewProject() {
             disabled={decisions.busy}
             className="border-destructive-border text-destructive hover:bg-destructive-surface"
           >
-            見送りにする
+            失注にする
           </Button>
         )}
         <Button onClick={decisions.promote} disabled={missing.length > 0 || decisions.busy}>
@@ -140,7 +140,7 @@ function DesktopNewProject() {
               {moreFieldCount(v.audience)}
             </span>
             <span className="flex-1" />
-            <span className="text-note text-muted-foreground">あとから足せます</span>
+            <span className="text-note text-muted-foreground">あとから追加できます</span>
           </button>
 
           {more && (

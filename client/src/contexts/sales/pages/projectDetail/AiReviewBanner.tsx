@@ -91,7 +91,7 @@ export function AiReviewBanner({
             {dismiss.isPending
               ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
               : <X className="h-3.5 w-3.5" aria-hidden="true" />}
-            不要（見送りにする）
+            不要（失注にする）
           </Button>
           <Button
             type="button"

@@ -58,7 +58,7 @@ export function EstimateActions({
           押すと BOX の社外と共有するフォルダにも入る（`docPdf.ts`）*/}
       <DocPdfButton path={`${base}/${e.id}/pdf`} kind="estimate" />
       {e.status === 'draft' && (
-        <Button variant="outline" size="sm" title="お客様に出したことにする" onClick={() => onSetStatus('sent')}>
+        <Button variant="outline" size="sm" title="提出済にする" onClick={() => onSetStatus('sent')}>
           <Send className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
       )}
@@ -83,7 +83,7 @@ export function EstimateActions({
         e.revenue_id ? (
           <>
             <span className="text-sub-sm whitespace-nowrap text-success">登録済み</span>
-            <Button variant="outline" size="sm" title="売上・請求への登録を取り消して見積もりに戻す" onClick={async () => {
+            <Button variant="outline" size="sm" title="売上登録を取り消す" onClick={async () => {
               const ok = await confirmAction({
                 title: '売上・請求への登録を取り消しますか？',
                 description: `登録されている売上（税抜 ${formatCurrency(e.subtotal - e.discount)}）を消します。見積の内容（明細・金額）はそのまま残ります。誤って登録した場合の取り消しにも、見積を直して登録し直す場合にも使えます。`,
@@ -95,7 +95,7 @@ export function EstimateActions({
             </Button>
           </>
         ) : (
-          <Button size="sm" title="この見積の金額で売上・請求に登録する" onClick={async () => {
+          <Button size="sm" title="売上・請求へ" onClick={async () => {
             const ok = await confirmAction({
               title: '売上・請求に登録しますか？',
               description: `見積の金額（税抜 ${formatCurrency(e.subtotal - e.discount)}）で「売上・請求」に1件登録します。あとから金額だけをここで直しても登録済みの売上には反映されません。`,
@@ -107,7 +107,7 @@ export function EstimateActions({
           </Button>
         )
       )}
-      <Button variant="outline" size="sm" title="この版を写して次の版をつくる" onClick={onNextVersion}>
+      <Button variant="outline" size="sm" title="次の版をつくる" onClick={onNextVersion}>
         <Copy className="h-3.5 w-3.5" aria-hidden="true" />
       </Button>
       {/* **「次の版をつくる」とは別物**（仕様変更 #18）。あちらは同じ回の書き直し、
@@ -125,7 +125,7 @@ export function EstimateActions({
           <ArchiveRestore className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
       ) : (
-        <Button variant="outline" size="sm" title="アーカイブする（一覧から隠す。消えません）" onClick={onArchive}>
+        <Button variant="outline" size="sm" title="一覧から隠す" onClick={onArchive}>
           <Archive className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
       )}
@@ -134,11 +134,11 @@ export function EstimateActions({
           差し替え済みの版まで消せました** — 送った見積はお客様に渡した記録で、
           消えると「何を出したか」を追えません。サーバーも同じ条件で断ります */}
       {!e.revenue_id && e.status === 'draft' && (
-        <Button variant="outline" size="sm" title="消す" onClick={async () => {
+        <Button variant="outline" size="sm" title="削除" onClick={async () => {
           const ok = await confirmAction({
-            title: `v${e.version} を消しますか？`,
-            description: '明細もいっしょに消えます。ほかの版は残ります。元に戻せません。',
-            confirmLabel: '消す', tone: 'danger',
+            title: `v${e.version} を削除しますか？`,
+            description: '明細もいっしょに削除されます。ほかの版は残ります。元に戻せません。',
+            confirmLabel: '削除', tone: 'danger',
           });
           if (ok) onRemove();
         }}>

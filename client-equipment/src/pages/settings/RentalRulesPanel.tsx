@@ -1,5 +1,5 @@
 /**
- * ⑧ 設定 ／ 貸出の決めごと — 6つのスイッチ (v4・モックどおり・migration 168)
+ * ⑧ 設定 ／ 貸出のルール — 6つのスイッチ (v4・モックどおり・migration 168)
  *
  * ── 保存先は キー×値 の1つの表 ─────────────────────────────
  *
@@ -78,14 +78,14 @@ export function RentalRulesPanel() {
     },
     onError: (err, _v, ctx) => {
       if (ctx?.prev) qc.setQueryData(['equipment-settings'], ctx.prev);
-      notifyApiError('決めごとを変えられませんでした', err, '機材管理の管理者権限が要ります');
+      notifyApiError('ルールを変えられませんでした', err, '機材管理の「管理」が必要です');
     },
-    onSuccess: () => notifySuccess('決めごとを変えました'),
+    onSuccess: () => notifySuccess('ルールを変えました'),
     onSettled: () => qc.invalidateQueries({ queryKey: ['equipment-settings'] }),
   });
 
   if (q.isError) {
-    return <ErrorPanel title="決めごとを読み込めませんでした" error={q.error} onRetry={() => q.refetch()} />;
+    return <ErrorPanel title="ルールを読み込めませんでした" error={q.error} onRetry={() => q.refetch()} />;
   }
   if (q.isLoading) return <Delayed><SkeletonRows rows={6} /></Delayed>;
 
@@ -94,10 +94,10 @@ export function RentalRulesPanel() {
   return (
     <section className="rounded-card border border-border bg-card">
       <div className="border-b border-border-subtle px-4 py-3">
-        <h3 className="text-cardtitle">貸出の決めごと</h3>
+        <h3 className="text-cardtitle">貸出のルール</h3>
         <p className="text-note text-muted-foreground">
           押すとその場で保存します（保存ボタンはありません）。
-          {!canEdit && <strong className="font-bold"> 変えるには機材管理の管理者権限が要ります。</strong>}
+          {!canEdit && <strong className="font-bold"> 変えるには機材管理の「管理」が必要です。</strong>}
         </p>
       </div>
 

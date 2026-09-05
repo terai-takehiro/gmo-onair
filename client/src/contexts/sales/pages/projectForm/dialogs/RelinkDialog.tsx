@@ -32,7 +32,7 @@ export function RelinkDialog({
       footer={(
         <FormDialogFooter>
           <Button variant="outline" onClick={() => setState({ open: false, target_project_id: '' })}>
-            やめる
+            キャンセル
           </Button>
           <Button disabled={!state.target_project_id || busy} onClick={onConfirm}>
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
@@ -50,7 +50,7 @@ export function RelinkDialog({
               .map((p) => ({ value: p.id, label: `${p.gls_number}　${p.name}`, subLabel: p.customer_name }))}
             value={state.target_project_id}
             onChange={(v) => setState((s) => ({ ...s, target_project_id: v }))}
-            placeholder="GLS 番号で探す..."
+            placeholder="GLS 番号で探す…"
           />
         </div>
         <div className="text-note space-y-1 rounded-note border border-warning-border bg-warning-surface p-3 text-secondary-foreground">
@@ -59,7 +59,7 @@ export function RelinkDialog({
             <li>GLS 番号が付け替え先のものになり、回のコードは新しい番号で採り直します</li>
             <li>いまの GLS 番号（{currentGls}）は履歴に残ります</li>
             <li>BOX フォルダ名・Qシートの回のコードも新しい番号に変わります</li>
-            <li>概算見積が残っていれば確定した売上に変わります（売上・仕入の実績はそのまま）</li>
+            <li>想定金額が残っていれば確定売上に変わります（売上・仕入の実績はそのまま）</li>
           </ul>
         </div>
       </div>

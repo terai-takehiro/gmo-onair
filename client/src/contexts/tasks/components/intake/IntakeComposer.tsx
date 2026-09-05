@@ -158,7 +158,9 @@ export function IntakeComposer({
           {compact ? 'ファイル' : 'ファイルを添付'}
         </SmallButton>
         <SmallButton icon={ImageIcon} onClick={() => imageInput.current?.click()}>
-          {compact ? '写真を撮る' : '画像を添付'}
+          {/* **狭幅でも動詞を変えない。**「添付」を「撮る」に化けさせると、
+              手元の写真を選ぶ道が消えたように読める（カメラも選択も両方できる） */}
+          {compact ? '写真' : '画像を添付'}
         </SmallButton>
         <SmallButton icon={Mic} onClick={() => setRecorderOpen(true)}>{compact ? '録音' : '録音する'}</SmallButton>
 

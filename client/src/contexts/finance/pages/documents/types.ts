@@ -57,7 +57,7 @@ export const TYPE_LABEL: Record<DocType, string> = {
 };
 
 export const STATUS_LABEL: Record<DocStatus, string> = {
-  new: '受信', reviewing: '確認中', approved: '承認', rejected: '却下', processed: '処理完了',
+  new: '受信', reviewing: '確認中', approved: '承認', rejected: '却下', processed: '登録済',
 };
 
 /** 状態の色。**意味で決める**（画面ごとに変えない） */

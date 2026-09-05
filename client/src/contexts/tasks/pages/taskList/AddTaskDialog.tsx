@@ -25,7 +25,7 @@ import { invalidateTasks } from '@/contexts/tasks/hooks/useProjectTasks';
 import { WORK_STATE_OPTIONS } from './state';
 import type { TaskWorkState } from '@/types';
 
-/** 選べる案件。**終わった案件は出さない** (終わった案件にタスクを足すことはない) */
+/** 選べる案件。**終わった案件は出さない** (終わった案件にタスクを追加することはない) */
 interface PickableProject { id: string; name: string; gls_number: string | null; code: string | null }
 
 export function AddTaskDialog({ onClose }: { onClose: () => void }) {
@@ -74,13 +74,13 @@ export function AddTaskDialog({ onClose }: { onClose: () => void }) {
     <FormDialog
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title="タスクを足す"
+      title="タスクを追加"
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button onClick={() => create.mutate()} disabled={!canSubmit}>
             {create.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-            足す
+            追加
           </Button>
         </FormDialogFooter>
       }
@@ -103,7 +103,7 @@ export function AddTaskDialog({ onClose }: { onClose: () => void }) {
         </div>
         <div>
           <Label>
-            やること <span className="text-destructive">必須</span>
+            タスク <span className="text-destructive">必須</span>
           </Label>
           <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="見積を送る" />
         </div>

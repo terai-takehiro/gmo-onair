@@ -158,7 +158,7 @@ export default function EquipmentDetailPage() {
       setEditOpen(false);
     },
     onError: (err: any) => {
-      setSaveError(err?.response?.data?.error?.message || err?.message || '更新に失敗しました');
+      setSaveError(err?.response?.data?.error?.message || '機材を保存できませんでした。もう一度お試しください。');
     },
   });
 
@@ -241,7 +241,7 @@ export default function EquipmentDetailPage() {
       setNewChildOpen(false);
     },
     onError: (err: any) => {
-      setCreateChildError(err?.response?.data?.error?.message || err?.message || '登録に失敗しました');
+      setCreateChildError(err?.response?.data?.error?.message || '機材を登録できませんでした。もう一度お試しください。');
     },
   });
   const openNewChild = (copyFrom?: any) => {
@@ -257,7 +257,7 @@ export default function EquipmentDetailPage() {
         name: copyFrom.name || "",
         model_number: copyFrom.model_number || "",
         unit_number: String(maxNo + 1),
-        serial_number: "",  // S/N は個体固有なのでクリア
+        serial_number: "",  // 製造番号は個体固有なのでクリア
         branch_code: copyFrom.branch_code || data.branch_code || "GMO-IG",
         asset_class: copyFrom.asset_class || data.asset_class || "fixed_asset",
         fixed_asset_code: "",  // 資産コードも個体固有
@@ -430,7 +430,7 @@ export default function EquipmentDetailPage() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label>設備/貸出 *</Label>
+                <Label>設備／貸出 *</Label>
                 <Select value={editForm.equipment_section} onValueChange={(v) => setEditForm({ ...editForm, equipment_section: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{SECTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
@@ -476,7 +476,7 @@ export default function EquipmentDetailPage() {
               <div className="space-y-1">
                 <Label>メーカー</Label>
                 <Select value={editForm.manufacturer_id || "none"} onValueChange={(v) => setEditForm({ ...editForm, manufacturer_id: v === "none" ? "" : v })}>
-                  <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="選ぶ" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">なし</SelectItem>
                     {manufacturers.map((m: any) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
@@ -488,11 +488,11 @@ export default function EquipmentDetailPage() {
                 <Input value={editForm.model_number} onChange={(e) => setEditForm({ ...editForm, model_number: e.target.value })} />
               </div>
               <div className="space-y-1">
-                <Label>No (個体番号)</Label>
+                <Label>No. (個体番号)</Label>
                 <Input type="number" min="1" value={editForm.unit_number} onChange={(e) => setEditForm({ ...editForm, unit_number: e.target.value })} />
               </div>
               <div className="space-y-1">
-                <Label>シリアル</Label>
+                <Label>製造番号</Label>
                 <Input value={editForm.serial_number} onChange={(e) => setEditForm({ ...editForm, serial_number: e.target.value })} />
               </div>
             </div>
@@ -500,11 +500,11 @@ export default function EquipmentDetailPage() {
               <p className="text-sm font-semibold mb-3">資産・保証</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
-                  <Label>所管</Label>
+                  <Label>持ち主の会社</Label>
                   <BranchCodeInput value={editForm.branch_code} onChange={(v) => setEditForm({ ...editForm, branch_code: v })} />
                 </div>
                 <div className="space-y-1">
-                  <Label>資産管理</Label>
+                  <Label>資産の区分</Label>
                   <Select value={editForm.asset_class} onValueChange={(v) => setEditForm({ ...editForm, asset_class: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{ASSET_CLASS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
@@ -527,9 +527,9 @@ export default function EquipmentDetailPage() {
                   <Input type="number" min="0" value={editForm.warranty_years} onChange={(e) => setEditForm({ ...editForm, warranty_years: e.target.value })} />
                 </div>
                 <div className="space-y-1">
-                  <Label>設置場所</Label>
+                  <Label>保管場所</Label>
                   <Select value={editForm.location_id || "none"} onValueChange={(v) => setEditForm({ ...editForm, location_id: v === "none" ? "" : v })}>
-                    <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="選ぶ" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">なし</SelectItem>
                       {locations.map((loc: any) => <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>)}
@@ -687,7 +687,7 @@ export default function EquipmentDetailPage() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label>設備/貸出 *</Label>
+                <Label>設備／貸出 *</Label>
                 <Select value={newChildForm.equipment_section} onValueChange={(v) => setNewChildForm({ ...newChildForm, equipment_section: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{SECTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
@@ -702,7 +702,7 @@ export default function EquipmentDetailPage() {
               <div className="space-y-1">
                 <Label>メーカー</Label>
                 <Select value={newChildForm.manufacturer_id || "none"} onValueChange={(v) => setNewChildForm({ ...newChildForm, manufacturer_id: v === "none" ? "" : v })}>
-                  <SelectTrigger><SelectValue placeholder="選択..." /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="選ぶ" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">なし</SelectItem>
                     {manufacturers.map((m: any) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
@@ -714,21 +714,21 @@ export default function EquipmentDetailPage() {
                 <Input value={newChildForm.model_number} onChange={(e) => setNewChildForm({ ...newChildForm, model_number: e.target.value })} />
               </div>
               <div className="space-y-1">
-                <Label>No (個体番号)</Label>
+                <Label>No. (個体番号)</Label>
                 <Input type="number" min="1" value={newChildForm.unit_number} onChange={(e) => setNewChildForm({ ...newChildForm, unit_number: e.target.value })} />
               </div>
               <div className="space-y-1">
-                <Label>シリアル</Label>
+                <Label>製造番号</Label>
                 <Input value={newChildForm.serial_number} onChange={(e) => setNewChildForm({ ...newChildForm, serial_number: e.target.value })} />
               </div>
             </div>
             <div className="border-t pt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
-                <Label>所管</Label>
+                <Label>持ち主の会社</Label>
                 <BranchCodeInput value={newChildForm.branch_code} onChange={(v) => setNewChildForm({ ...newChildForm, branch_code: v })} />
               </div>
               <div className="space-y-1">
-                <Label>資産管理</Label>
+                <Label>資産の区分</Label>
                 <Select value={newChildForm.asset_class} onValueChange={(v) => setNewChildForm({ ...newChildForm, asset_class: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{ASSET_CLASS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
@@ -759,13 +759,13 @@ export default function EquipmentDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            {item.branch_code && <InfoRow label="所管" value={item.branch_code} />}
-            <InfoRow label="資産管理" value={ASSET_CLASS_LABELS[item.asset_class] || item.asset_class} />
-            <InfoRow label="設備/貸出" value={sectionLabel(item.equipment_type_code, item.equipment_section)} />
+            {item.branch_code && <InfoRow label="持ち主の会社" value={item.branch_code} />}
+            <InfoRow label="資産の区分" value={ASSET_CLASS_LABELS[item.asset_class] || item.asset_class} />
+            <InfoRow label="設備／貸出" value={sectionLabel(item.equipment_type_code, item.equipment_section)} />
             <InfoRow label="メーカー" value={item.manufacturer_name} />
-            <InfoRow label="機材名 (型番)" value={item.model_number} />
-            <InfoRow label="シリアルNo" value={item.serial_number} />
-            <InfoRow label="設置場所" value={item.location_name || item.location_detail} />
+            <InfoRow label="型名" value={item.model_number} />
+            <InfoRow label="製造番号" value={item.serial_number} />
+            <InfoRow label="保管場所" value={item.location_name || item.location_detail} />
             <InfoRow label="コンディション" value={statusOf(EQUIPMENT_CONDITION, item.condition).label} />
             {item.notes && <InfoRow label="備考" value={item.notes} />}
           </CardContent>
@@ -965,7 +965,7 @@ export default function EquipmentDetailPage() {
                   <SearchableSelect
                     value={selectedChildId}
                     onChange={setSelectedChildId}
-                    placeholder="機材を検索して選択..."
+                    placeholder="機材を探して選ぶ"
                     items={allItems
                       .filter((it: any) => it.id !== id && it.parent_id == null && it.id !== item.parent_id)
                       .map((it: any) => ({

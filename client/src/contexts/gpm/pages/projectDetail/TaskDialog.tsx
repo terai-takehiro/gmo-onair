@@ -93,23 +93,23 @@ export function TaskDialog({
     },
     onSuccess: () => {
       invalidate(projectId);
-      notifySuccess(task ? 'タスクを直しました' : 'タスクを足しました');
+      notifySuccess(task ? 'タスクを更新しました' : 'タスクを追加しました');
       onClose();
     },
-    onError: (err) => notifyApiError(task ? 'タスクを直せませんでした' : 'タスクを足せませんでした', err),
+    onError: (err) => notifyApiError(task ? 'タスクを更新できませんでした' : 'タスクを追加できませんでした', err),
   });
 
   return (
     <FormDialog
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title={task ? 'タスクを直す' : 'タスクを足す'}
+      title={task ? 'タスクを編集' : 'タスクを追加'}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button onClick={() => save.mutate()} disabled={!title.trim() || save.isPending}>
             {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-            {task ? '直す' : '足す'}
+            {task ? '編集' : '追加'}
           </Button>
         </FormDialogFooter>
       }
@@ -170,7 +170,7 @@ export function TaskDialog({
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <Label htmlFor="tk-start">開始日（ガントのバーの左端）</Label>
+              <Label htmlFor="tk-start">着手日</Label>
               <Input id="tk-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
             <div>

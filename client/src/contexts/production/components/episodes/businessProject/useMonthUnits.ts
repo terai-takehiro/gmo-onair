@@ -1,6 +1,11 @@
 /**
  * GPM の請求タブ — 月次ユニット（エピソードを「月」として流用した月締め請求の単位）（段15）
  *
+ * ⚠️ **画面では「月ぶんの請求」と書く**（2026-09-05 の用語棚卸し）。「月次ユニット」
+ * 「月ユニット」の2通りが画面に出ていて、どちらも社内語だった。**コード側の名前
+ * （`useMonthUnits` / `monthEpisodes` / `episode_id`）は変えていない** — 変えると
+ * `episodes` テーブルとの対応が読めなくなるため。
+ *
  * ⚠️ **`BusinessProjectView.tsx` から切り出したもので、中身は1文字も変えていません。**
  *
  * ⚠️ **`openEdit` / `openNewForMonth` を引数で受け取る。** 月を作った直後に
@@ -58,8 +63,8 @@ export function useMonthUnits({
     },
     onError: (err: any) => {
       const msg =
-        err?.response?.data?.error?.message || err?.message || "月ユニットの作成に失敗しました";
-      alert(`月の追加に失敗しました: ${msg}`);
+        err?.response?.data?.error?.message || err?.message || "少し時間をおいてもう一度お試しください。";
+      alert(`月ぶんの請求を追加できませんでした。${msg}`);
     },
   });
 
@@ -72,8 +77,8 @@ export function useMonthUnits({
     },
     onError: (err: any) => {
       const msg =
-        err?.response?.data?.error?.message || err?.message || "削除に失敗しました";
-      alert(`月ユニットの削除に失敗しました: ${msg}`);
+        err?.response?.data?.error?.message || err?.message || "紐づく売上・仕入が残っていないか確かめてください。";
+      alert(`月ぶんの請求を削除できませんでした。${msg}`);
     },
   });
 

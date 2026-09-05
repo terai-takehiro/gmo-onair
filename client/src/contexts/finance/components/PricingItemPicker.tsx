@@ -150,7 +150,7 @@ export default function PricingItemPicker({
           <div className="relative mt-3">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="項目名・カテゴリ名で検索..."
+              placeholder="項目名・カテゴリ名で検索â¦"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -174,7 +174,7 @@ export default function PricingItemPicker({
 
         <div className="pt-3">
           {isLoading ? (
-            <p className="text-center text-muted-foreground py-8 text-sm">読み込み中...</p>
+            <p className="text-center text-muted-foreground py-8 text-sm">読み込み中…</p>
           ) : filtered.length === 0 ? (
             <p className="text-center text-muted-foreground py-8 text-sm">
               {search ? "該当する項目がありません" : "料金表が登録されていません"}

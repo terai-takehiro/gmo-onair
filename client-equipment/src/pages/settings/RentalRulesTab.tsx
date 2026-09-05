@@ -1,5 +1,5 @@
 /**
- * ⑧ 設定 ／ 貸出の決めごと (v4)
+ * ⑧ 設定 ／ 貸出のルール (v4)
  *
  * ── モックとの違い (意図したもの) ──────────────────────────
  *
@@ -91,7 +91,7 @@ export function RentalRulesTab() {
     },
     onError: (err, _vars, ctx) => {
       if (ctx?.prev) qc.setQueryData(ctx.key, ctx.prev);
-      notifyApiError('貸出の対象を変えられませんでした', err, '機材管理の owner 権限が要ります');
+      notifyApiError('貸出の対象を変えられませんでした', err, '機材管理の「管理」が必要です');
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['rental-settings'] });
@@ -150,7 +150,7 @@ export function RentalRulesTab() {
                 <RowSlot w={128} className={HIDE_UNTIL_WIDE}>型名</RowSlot>
                 <RowSlot w={96} className={HIDE_UNTIL_EXTRA_WIDE}>No.／ID</RowSlot>
                 <RowSlot w={96} className={HIDE_UNTIL_WIDE}>種別</RowSlot>
-                <RowSlot w={160} className={HIDE_UNTIL_EXTRA_WIDE}>設置場所</RowSlot>
+                <RowSlot w={160} className={HIDE_UNTIL_EXTRA_WIDE}>保管場所</RowSlot>
               </RowHeader>
               {items.map((item) => (
                 <Row key={item.id} divider interactive stackOnMobile>
@@ -205,7 +205,7 @@ export function RentalRulesTab() {
           <p className="text-note text-secondary-foreground">
             ここを入にすると、その機材が貸出機材の一覧と貸出の登録に出ます。
             <strong className="font-bold">常設のままの機材は貸出の画面に出ません。</strong>
-            切り替えには機材管理の owner 権限が要ります。
+            切り替えには機材管理の「管理」が必要です。
           </p>
         </div>
       </div>

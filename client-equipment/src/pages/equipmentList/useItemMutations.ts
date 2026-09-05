@@ -1,5 +1,5 @@
 /**
- * 機材台帳の書き込み (足す・直す・消す・まとめて直す・その場で直す)。
+ * 機材台帳の書き込み (追加・編集・削除・まとめて編集・その場で編集)。
  *
  * 画面の組み立て (`ItemsPanel.tsx`) と分けてあるのは、**1ファイル 400 行の上限**と、
  * 「どこで何を書いているか」を1か所で読めるようにするためです。
@@ -10,7 +10,7 @@ import api from '@/lib/api';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 
 export function useItemMutations({ editingId, onSaved, onSaveError, onBulkError, onBulkDone }: {
-  /** 直しているときはその id。足すときは null */
+  /** 編集しているときはその id。追加するときは null */
   editingId: string | null;
   onSaved: (wasEdit: boolean) => void;
   onSaveError: (message: string) => void;

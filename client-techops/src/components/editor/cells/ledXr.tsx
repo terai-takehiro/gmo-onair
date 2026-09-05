@@ -45,11 +45,11 @@ export default function LedXrCell({ blk, cellKey, row, ledScenes, updateCell }: 
         </select>
         {scene && (
           <div className="grid grid-cols-2 gap-1">
-            <div className="rounded-control border border-primary/20 bg-primary/5 px-1.5 py-0.5 min-w-0" title={`壁: ${scene.wall || "(未設定)"}`}>
+            <div className="rounded-control border border-primary/20 bg-primary/5 px-1.5 py-0.5 min-w-0" title={`壁: ${scene.wall || "未設定"}`}>
               <div className="text-[8px] font-bold uppercase tracking-wider text-primary">壁</div>
               <div className="text-[10px] font-medium text-foreground truncate">{scene.wall || "—"}</div>
             </div>
-            <div className="rounded-control border border-warning/30 bg-warning/5 px-1.5 py-0.5 min-w-0" title={`床: ${scene.floor || "(未設定)"}`}>
+            <div className="rounded-control border border-warning/30 bg-warning/5 px-1.5 py-0.5 min-w-0" title={`床: ${scene.floor || "未設定"}`}>
               <div className="text-[8px] font-bold uppercase tracking-wider text-warning">床</div>
               <div className="text-[10px] font-medium text-foreground truncate">{scene.floor || "—"}</div>
             </div>

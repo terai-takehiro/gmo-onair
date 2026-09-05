@@ -66,13 +66,13 @@ export function CounterpartyCards({
                 {canEdit && (
                   <span className="flex shrink-0 gap-0.5">
                     <Button
-                      variant="ghost" size="icon" aria-label="直す"
+                      variant="ghost" size="icon" aria-label="編集"
                       onClick={(e) => { e.stopPropagation(); onEdit(p); }}
                     >
                       <Pencil className="h-4 w-4" aria-hidden="true" />
                     </Button>
                     <Button
-                      variant="ghost" size="icon" aria-label="消す" className="text-destructive"
+                      variant="ghost" size="icon" aria-label="削除" className="text-destructive"
                       onClick={(e) => { e.stopPropagation(); onDelete(p); }}
                     >
                       <Trash2 className="h-4 w-4" aria-hidden="true" />

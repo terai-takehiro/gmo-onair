@@ -1,5 +1,9 @@
 /**
- * スマホのトップの「AIに任せる」（モックの ① の青いバー）
+ * スマホのトップの「AI に渡す」（モックの ① の青いバー）
+ *
+ * **「任せる」と呼ばない** — 権限の段の「任せる」（＝旧 `manager` の言い方）と
+ * ぶつかっていた。ここでやることは「書いたものを AI に渡す」だけで、
+ * 権限を渡すことではない。行き先を AI が決めることは補足で書く。
  *
  * ── なぜバー1本にするか ────────────────────────────────────
  *
@@ -26,7 +30,7 @@
  * ── 「受付に貼る」のボタンは置かない（ご判断）────────────────
  *
  * いちど、`sales` の人の入口として `/sales/inbox/new` へのボタンを置いていました。
- * **やめました** — 投入口を 1 本にして AI が行き先を決める形にした以上、
+ * **やめました** — 書き留める口を 1 本にして AI が行き先を決める形にした以上、
  * **同じ文をどちらの口に入れるかを押す人に選ばせる**ことになり、
  * 1 本化の意味が消えます。
  *
@@ -77,7 +81,7 @@ export function MobileAiBar({
         }
       >
         <Sparkles className="h-[18px] w-[18px] shrink-0 text-primary-foreground" aria-hidden="true" />
-        <span className="text-cardtitle min-w-0 text-primary-foreground">AIに任せる</span>
+        <span className="text-cardtitle min-w-0 text-primary-foreground">AI に渡す</span>
         <span className="flex-1" />
         {/* 何ができる口なのかを右端に添える（モック）。ただし**書きかけがあるときは
             そちらを優先**する — 出さないと、閉じた人は消えたと思ってもう一度書き始める */}
@@ -92,7 +96,7 @@ export function MobileAiBar({
         onOpenChange={setOpen}
         rise
         swipeDownHandle
-        title="AIに任せる"
+        title="AI に渡す"
         sub="書いても貼っても録っても大丈夫です。行き先は AI が決めます"
       >
         <div className="flex flex-col gap-2.5">

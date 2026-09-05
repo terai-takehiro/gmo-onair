@@ -86,8 +86,8 @@ export function MyTasksTab() {
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
-          <ViewBtn active={view === 'list'} onClick={() => setView('list')} icon={List}>スコア順</ViewBtn>
-          <ViewBtn active={view === 'board'} onClick={() => setView('board')} icon={LayoutGrid}>9 マス</ViewBtn>
+          <ViewBtn active={view === 'list'} onClick={() => setView('list')} icon={List}>優先度順</ViewBtn>
+          <ViewBtn active={view === 'board'} onClick={() => setView('board')} icon={LayoutGrid}>重要度 × 緊急度</ViewBtn>
         </div>
         <button
           onClick={() => setShowDone((v) => !v)}
@@ -116,13 +116,13 @@ export function MyTasksTab() {
       {junkCount >= 5 && (
         <div className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sub text-slate-700">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
-          <span>「やらない候補（スコア 1）」が {junkCount} 件あります。棚卸ししてください。</span>
+          <span>「やらない候補（重要度 低 × 緊急度 低）」が {junkCount} 件あります。見直してください。</span>
         </div>
       )}
 
       {tasks.length === 0 ? (
         <Card><CardContent className="p-8 text-center text-sub text-muted-foreground">
-          タスクはありません。案件管理アプリのトップの投入欄から書き留められます。
+          まだタスクがありません。案件管理アプリのトップの入力欄から書き留められます。
         </CardContent></Card>
       ) : view === 'list' ? (
         <div className="space-y-2">

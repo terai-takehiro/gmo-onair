@@ -148,7 +148,7 @@ export function ItemsPanel() {
       description: (item.children_count ?? 0) > 0
         ? `付属品 ${item.children_count} 点の親子の結びつきも外れます。取り消せません。`
         : '貸出とメンテナンスの記録もいっしょに見えなくなります。取り消せません。',
-      confirmLabel: '消す',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (!ok) return;
@@ -248,10 +248,10 @@ export function ItemsPanel() {
           <span className="shrink-0 whitespace-nowrap text-sub font-bold">{sel.selectedIds.size} 件を選んでいます</span>
           <span className="flex gap-2">
             <Button variant="secondary" className="flex-1 sm:flex-initial" onClick={bulk.openDialog}>
-              <Edit3 className="mr-1 h-4 w-4" aria-hidden="true" />まとめて直す
+              <Edit3 className="mr-1 h-4 w-4" aria-hidden="true" />まとめて編集
             </Button>
             <Button variant="ghost" className="flex-1 text-primary-foreground hover:bg-primary-800 sm:flex-initial" onClick={sel.clear}>
-              <X className="mr-1 h-4 w-4" aria-hidden="true" />選ぶのをやめる
+              <X className="mr-1 h-4 w-4" aria-hidden="true" />選択を解除
             </Button>
           </span>
         </div>
@@ -270,7 +270,7 @@ export function ItemsPanel() {
       ) : s.items.length === 0 ? (
         <EmptyState
           title="機材がまだ1件もありません"
-          description="「機材を足す」から1台ずつ、まとめて入れるときは Excel 取込から登録します。"
+          description="「機材を追加」から1台ずつ、まとめて入れるときは Excel 取込から登録します。"
         />
       ) : (
         /*

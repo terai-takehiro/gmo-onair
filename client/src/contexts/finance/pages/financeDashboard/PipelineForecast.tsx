@@ -1,10 +1,13 @@
 /**
- * 営業見通し（パイプライン）— ① 財務ダッシュボードのサブセクション（2026-09 依頼）
+ * 営業見通し — ① 財務ダッシュボードのサブセクション（2026-09 依頼）
  *
  * ── 何のためのカードか ────────────────────────────────────────
  *
  * ご依頼:「案件を『受注済』にしないと売上への反映や仕入登録ができないため、
  * 受注前案件を含めた営業見通し・売上見込み・粗利見込みを把握しづらい」。
+ * ⚠️ **画面では「粗利」を出さず「限界利益」と書く。** ここの算式は 売上 − 仕入
+ * ＝ 限界利益であり、粗利（＝売上総利益・固定原価まで引いたもの）とは別物。
+ * 同じダッシュボードの上下で粗利の定義が2つになるのを避けるため（用語の決めごと）。
  * 売上・仕入の新規登録は v4.5.23 で全フェーズ（失注を除く）に既に開放済み
  * （`project.service.ts` の `getRegisterableProjects`）。このカードは、
  * そうやって**フェーズを問わず登録された売上・仕入予定額**を、
@@ -48,7 +51,7 @@ interface ForecastTotals {
   revenue: number;
   purchase: number;
   grossProfit: number;
-  /** 粗利率（0〜1の割合）。売上見込みが0のときは null（算出できない） */
+  /** 限界利益率（売上−仕入 ÷ 売上・0〜1の割合）。売上見込みが0のときは null（算出できない） */
   grossMarginRate: number | null;
 }
 
@@ -86,7 +89,10 @@ export function PipelineForecast({ projectId, forecastMode }: { projectId: strin
         <span className="rounded-note inline-flex h-7 w-7 shrink-0 items-center justify-center bg-primary-surface">
           <TrendingUp className="h-4 w-4 text-primary" aria-hidden="true" />
         </span>
-        <span className="text-cardtitle">営業見通し（パイプライン）</span>
+        <div className="min-w-0">
+          <div className="text-cardtitle">営業見通し</div>
+          <div className="text-note text-muted-foreground">受注前の案件も含めた見込みです。</div>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -99,11 +105,11 @@ export function PipelineForecast({ projectId, forecastMode }: { projectId: strin
           <Money value={t.purchase} inline className="text-h2 font-bold" />
         </div>
         <div className="rounded-note border border-border-faint bg-surface-subtle p-3">
-          <div className="text-note text-muted-foreground">粗利見込み</div>
+          <div className="text-note text-muted-foreground">限界利益見込み</div>
           <Money value={t.grossProfit} inline negativeIsDanger className="text-h2 font-bold" />
         </div>
         <div className="rounded-note border border-border-faint bg-surface-subtle p-3">
-          <div className="text-note text-muted-foreground">粗利率</div>
+          <div className="text-note text-muted-foreground">限界利益率</div>
           <div className={cn(
             'font-number text-h2 font-bold',
             t.grossMarginRate != null && t.grossMarginRate < 0 && 'text-destructive',

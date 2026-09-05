@@ -220,7 +220,7 @@ export function ConfirmHost(): ReactNode {
         </div>
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           {/*
-            取り消せない操作 (danger) では**最初から「やめる」に当たっている**。
+            取り消せない操作 (danger) では**最初から「キャンセル」に当たっている**。
             開いた瞬間に Enter を押しても実行されないようにするため
             (勢いで通してしまうのを防ぐ)。普通の確認は実行側に当てる。
           */}
@@ -230,7 +230,7 @@ export function ConfirmHost(): ReactNode {
             autoFocus={danger}
             onClick={() => answer(false)}
           >
-            {req.cancelLabel ?? 'やめる'}
+            {req.cancelLabel ?? 'キャンセル'}
           </Button>
           <Button
             variant={danger ? 'destructive' : 'default'}

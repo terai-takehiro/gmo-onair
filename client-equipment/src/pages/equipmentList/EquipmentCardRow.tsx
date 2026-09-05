@@ -2,7 +2,7 @@
  * 機材台帳 ／ 機材 のカード1枚（スマホ）
  *
  * 中身は前の `EquipmentCards.tsx` のカードと同じです（種別バッジ・ID・商品名・
- * 型名／No・メーカー／設置場所・資産バッジ）。今回足したのは4つ:
+ * 型名／No・メーカー／保管場所・資産バッジ）。今回足したのは4つ:
  *
  *   ・**選ぶ四角**（`canBulkEdit` のときだけ、PC の表と同じ場所の役目）
  *   ・**開閉の矢印**（付属品があるときだけ。タップで `childrenCache` を取りに行く）
@@ -135,7 +135,7 @@ export function EquipmentCardRow({
             type="button"
             className="flex w-11 shrink-0 items-center justify-center text-muted-foreground hover:text-primary"
             onClick={(e) => { e.stopPropagation(); onEdit(item); }}
-            aria-label={`${item.name} を直す`}
+            aria-label={`${item.name} を編集`}
           >
             <Pencil className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -146,7 +146,7 @@ export function EquipmentCardRow({
             type="button"
             className="flex w-11 shrink-0 items-center justify-center text-muted-foreground hover:text-destructive"
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            aria-label={`${item.name} を消す`}
+            aria-label={`${item.name} を削除`}
           >
             <Trash2 className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -179,7 +179,7 @@ export function EquipmentCardRow({
                   type="button"
                   className="flex w-11 shrink-0 items-center justify-center text-muted-foreground hover:text-primary"
                   onClick={(e) => { e.stopPropagation(); onEdit(kid); }}
-                  aria-label={`${kid.name} を直す`}
+                  aria-label={`${kid.name} を編集`}
                 >
                   <Pencil className="h-4 w-4" aria-hidden="true" />
                 </button>

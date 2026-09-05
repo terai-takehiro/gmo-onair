@@ -35,7 +35,7 @@ export default function CsvImportDialog({ blocks, onImport, onClose }: CsvImport
         return;
       }
       if (map.blockCols.length === 0) {
-        setError("ブロックに対応する列が 1 つも見つかりません。ヘッダー名がこのドキュメントのブロック名 (例: 台本, 映像, 音声) と一致している必要があります。");
+        setError("ブロックに対応する列が 1 つも見つかりません。ヘッダー名がこの進行台本のブロック名 (例: 台本, 映像, 音声) と一致している必要があります。");
         return;
       }
       const res = buildSectionsFromCsv(rows, map);
@@ -45,8 +45,9 @@ export default function CsvImportDialog({ blocks, onImport, onClose }: CsvImport
       }
       setColMap(map);
       setResult(res);
-    } catch (e: any) {
-      setError(`CSV の読み込みに失敗しました: ${e?.message || e}`);
+    } catch {
+      // ⚠️ 例外のメッセージは画面に出さない（docs/wording.md ルール5）
+      setError("CSV を読み込めませんでした。ファイルの中身と1行目の見出しを確かめて、もう一度選び直してください。");
     }
   };
 
@@ -74,7 +75,7 @@ export default function CsvImportDialog({ blocks, onImport, onClose }: CsvImport
         <div className="p-5 space-y-4">
           {/* 形式の説明 */}
           <div className="text-xs text-muted-foreground leading-relaxed">
-            CSVエクスポートと同じ形式 (1 行目: <code className="px-1 bg-muted rounded">#, セクション, 尺, ブロック名...</code>) を読み込みます。
+            CSVエクスポートと同じ形式 (1 行目: <code className="px-1 bg-muted rounded">#, セクション, 尺, ブロック名…</code>) を読み込みます。
             同じセクション名が連続する行は 1 つのロールにまとまります。
             セクション名が「CM」で始まる行はCM行、「VTR」または「VTR: タイトル」はVTR行になり、尺列の値がそのまま反映されます (全角ＣＭ/ＶＴＲも可)。
             ロールの先頭にブロック内容が空の行を置くと、その尺が<strong>ロール尺</strong>になります (無ければ各行の尺の合計を自動設定)。
@@ -94,7 +95,7 @@ export default function CsvImportDialog({ blocks, onImport, onClose }: CsvImport
               className="w-full flex items-center justify-center gap-2 px-4 py-6 border-2 border-dashed border-border rounded-xl text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors"
             >
               <FileText size={18} aria-hidden />
-              {fileName ? fileName : "CSVファイルを選択..."}
+              {fileName ? fileName : "CSVファイルを選ぶ…"}
             </button>
           </div>
 

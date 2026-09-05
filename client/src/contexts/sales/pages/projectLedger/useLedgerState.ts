@@ -162,7 +162,7 @@ export function useLedgerState() {
       if (selected.size === 0) invalidateProjectQueries(qc);
       const n = selected.size;
       clearSelection();
-      notifySuccess(`${n} 件を直しました`, {
+      notifySuccess(`${n} 件を更新しました`, {
         description: '案件分類' in set || 'audience' in set
           ? '旧「案件種類」もサーバーが追随させています。'
           : undefined,
@@ -201,7 +201,7 @@ export function useLedgerState() {
       title: `「${row.name}」を削除しますか？`,
       description: 'この操作は取り消せません。案件一覧・案件台帳・この案件の詳細URLから見えなくなります。'
         + 'ひもづく見積・タスク・売上・仕入の記録そのものは消えず、財務の台帳などでは今までどおり参照できます。',
-      confirmLabel: '削除する',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) deleteOne.mutate(row.id);

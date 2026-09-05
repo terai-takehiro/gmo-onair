@@ -19,7 +19,7 @@ import type { GlsProject, GroupDetail } from './types';
 export function GroupFormDialog({
   editing, onClose, onSaved,
 }: {
-  /** 直すグループ。`null` なら新規 */
+  /** 編集するグループ。`null` なら新規 */
   editing: GroupDetail | null;
   onClose: () => void;
   onSaved: (groupId: string) => void;
@@ -59,17 +59,17 @@ export function GroupFormDialog({
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ['project-groups'] });
       qc.invalidateQueries({ queryKey: ['project-group-detail'] });
-      notifySuccess(editing ? 'グループを更新しました' : 'グループを作成しました');
+      notifySuccess(editing ? '按分グループを更新しました' : '按分グループを追加しました');
       onSaved(result.data.id);
     },
-    onError: (err) => notifyApiError('グループの保存に失敗しました', err),
+    onError: (err) => notifyApiError('按分グループを保存できませんでした', err, '入力内容を確かめて、もう一度お試しください。'),
   });
 
   return (
     <FormDialog
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title={editing ? 'グループ編集' : '新規グループ（費用を分け合う）'}
+      title={editing ? '按分グループを編集' : '按分グループを追加'}
       footer={
         <FormDialogFooter>
           <Button variant="outline" onClick={onClose}>キャンセル</Button>

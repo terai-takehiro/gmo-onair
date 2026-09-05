@@ -313,7 +313,7 @@ export default function RundownPage() {
   if (error || !doc || flatCues.length === 0) {
     return (
       <div className={cn("flex h-screen flex-col items-center justify-center gap-4", bg, text)}>
-        <p className={mutedText}>{error || !doc ? "台本が見つかりません" : "キューデータがありません"}</p>
+        <p className={mutedText}>{error || !doc ? "台本が見つかりません" : "進行の行がありません。台本に行を追加してください。"}</p>
         <Button variant="outline" size="lg" onClick={() => navigate(`/techops/editor/${id}`)}>
           エディターに戻る
         </Button>

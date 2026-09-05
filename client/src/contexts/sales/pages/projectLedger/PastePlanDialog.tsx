@@ -43,7 +43,7 @@ export function PastePlanDialog({
       wide
       footer={
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:space-x-2 sm:gap-0">
-          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button variant="outline" onClick={onClose}>キャンセル</Button>
           {plan.tooMany === null && plan.changes.length > 0 && (
             <Button disabled={saving} onClick={onApply}>
               {saving ? '書き換えています…' : `${plan.changes.length} か所を書き換える`}

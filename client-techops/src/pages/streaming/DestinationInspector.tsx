@@ -249,7 +249,7 @@ export default function DestinationInspector({
               </div>
             ) : (
               <Button size="sm" variant="outline" className="mt-1 h-11 text-destructive" onClick={() => set('streamKey', '')}>
-                キーを消す
+                キーを削除
               </Button>
             )
           )}

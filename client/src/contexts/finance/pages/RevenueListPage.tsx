@@ -45,11 +45,11 @@ import type { LedgerRow, RevenueRow } from './ledger/types';
 
 /**
  * 絞り込み。モックの並びのまま。
- * `status` と `state` は別の軸（確定/見込み は売上そのもの、発行済/入金待ち は請求の進み具合）
+ * `status` と `state` は別の軸（売上確定/見込み は売上そのもの、発行済/入金待ち は請求の進み具合）
  */
 const CHIPS = [
   { key: 'all', label: 'すべて', status: 'all', state: '' },
-  { key: 'confirmed', label: '確定', status: 'confirmed', state: '' },
+  { key: 'confirmed', label: '売上確定', status: 'confirmed', state: '' },
   { key: 'draft', label: '見込み', status: 'draft', state: '' },
   { key: 'issued', label: '請求書 発行済', status: 'all', state: 'issued' },
   { key: 'unpaid', label: '入金待ち', status: 'all', state: 'unpaid' },

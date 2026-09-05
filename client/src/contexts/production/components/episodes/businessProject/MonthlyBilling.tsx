@@ -87,7 +87,7 @@ export function MonthlyBilling({
           {monthEpisodes.length === 0 ? (
             <Card>
               <CardContent className="py-6 text-center text-sm text-muted-foreground">
-                月次ユニットがありません。上の入力欄で対象月を選び「月を追加」してください。
+                まだ月ぶんの請求がありません。上の入力欄で対象月を選び「月を追加」してください。
               </CardContent>
             </Card>
           ) : (
@@ -118,7 +118,7 @@ export function MonthlyBilling({
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                            title="この月ユニットを削除（紐づく売上/仕入がある場合は先に削除が必要）"
+                            title="この月ぶんの請求を削除（紐づく売上・仕入があるときは先に削除が必要）"
                             onClick={() => handleDeleteMonth(ep)}
                           >
                             <Trash2 className="h-3.5 w-3.5" />

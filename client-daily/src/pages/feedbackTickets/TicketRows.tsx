@@ -2,7 +2,7 @@
  * フィードバックチケット — PC の一覧行 (v4)
  *
  * 列 (7段の幅から選んだ): 状態 96 / 種別 72 / 対象 160（アプリ・画面をまとめて出す） /
- * 題名(伸びる) / 起票者 96 / 起票日 96。
+ * 題名(伸びる) / 送った人 96 / 送った日 96。
  * **スマホは `./TicketCards.tsx` の2行カードに差し替える**（`FeedbackTicketsPage.tsx` の `isMobile`）。
  */
 import { Row, RowHeader, RowMain, RowSub, RowSlot, RowTitle } from '@gmo-onair/shared/src/client/ui/row';
@@ -29,8 +29,8 @@ export function TicketRowsHeader() {
       <RowSlot w={72}>種別</RowSlot>
       <RowSlot w={160}>対象</RowSlot>
       <RowMain>題名</RowMain>
-      <RowSlot w={96}>起票者</RowSlot>
-      <RowSlot w={96} align="right">起票日</RowSlot>
+      <RowSlot w={96}>送った人</RowSlot>
+      <RowSlot w={96} align="right">送った日</RowSlot>
     </RowHeader>
   );
 }
@@ -59,7 +59,7 @@ export function TicketRow({ ticket, onSelect }: { ticket: FeedbackTicket; onSele
 
       <RowMain>
         <RowTitle>{ticket.title}</RowTitle>
-        {/* スマホでは右の列が畳まれるので、対象・起票者をここに出す */}
+        {/* スマホでは右の列が畳まれるので、対象・送った人をここに出す */}
         <RowSub className="sm:hidden">
           {[targetLabel(ticket), ticket.reporter_name].filter(Boolean).join(' ・ ')}
         </RowSub>

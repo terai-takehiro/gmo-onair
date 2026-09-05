@@ -85,14 +85,14 @@ const END_STEPS: { stage: ProjectStage; label: string }[] = [
 /**
  * ステージ帯の寸法（指示書 第5章の指定）。**7段の列幅とは別の物差し**です —
  * 表の列ではなく、**選んでも動かないための等幅**なので、
- * 「E 問合せ」〜「A 受注済」が同じ幅で収まる値を決め打ちます。
+ * 「E ネタ」〜「A 受注済」が同じ幅で収まる値を決め打ちます。
  */
 const STAGE_W = 'w-[104px]';  // ui-tokens-ok: E〜A・R の6つを等幅にする（記号＋名前が入る幅）
 const END_W = 'w-[60px]';     // ui-tokens-ok: 完了・失注。2文字ぶん
 
 /** ステージの短い名前 (押せる帯に入る長さ) */
 const STAGE_SHORT: Record<string, string> = {
-  neta: '問合せ', d_hold: '仮押さえ', c_proposal: '見積提案', b_verbal: '口頭決定', a_won: '受注済',
+  neta: 'ネタ', d_hold: '仮押さえ', c_proposal: '見積提案', b_verbal: '口頭決定', a_won: '受注済',
   r_delivered: '実施済',
 };
 
@@ -187,8 +187,8 @@ export function DetailHeader({
             <button
               type="button"
               onClick={() => navigate(`/sales/projects/${id}/edit`)}
-              aria-label="案件の内容を直す"
-              title="案件の内容を直す"
+              aria-label="案件の内容を編集"
+              title="案件の内容を編集"
               className="min-h-tap min-w-tap flex h-11 w-11 shrink-0 items-center justify-center rounded-control-md hover:bg-muted lg:h-9 lg:w-9 lg:min-h-0 lg:min-w-0"
             >
               <Pencil className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />

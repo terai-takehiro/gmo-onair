@@ -52,7 +52,7 @@ interface SharedHeaderProps {
   onOpenManual?: () => void;
   /** 渡すと「バージョン履歴」ボタン（時計アイコン）をユーザーメニューの左に表示 */
   onOpenVersionHistory?: () => void;
-  /** 渡すと「MCP コネクタ」ボタン（プラグアイコン）をユーザーメニューの左に表示 */
+  /** 渡すと「AI につなぐ」ボタン（プラグアイコン）をユーザーメニューの左に表示 */
   onOpenMcpInfo?: () => void;
   /** AppSwitcher の権限フィルタへそのまま渡す */
   role?: string;
@@ -174,7 +174,7 @@ export default function SharedHeader({
             style={{ touchAction: "manipulation" }}
           >
             <Plug className="h-4 w-4 text-muted-foreground shrink-0" />
-            MCP コネクタ
+            AI につなぐ
           </button>
         )}
         {onSwitchUser && (
@@ -242,13 +242,13 @@ export default function SharedHeader({
       {/* 中央スロット（検索など） */}
       {centerContent}
 
-      {/* MCP コネクタ */}
+      {/* AI につなぐ */}
       {onOpenMcpInfo && (
         <button
           onClick={onOpenMcpInfo}
           className="hidden sm:flex h-10 w-10 shrink-0 items-center justify-center rounded-lg hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all"
-          aria-label="MCP コネクタ情報を開く"
-          title="MCP コネクタ"
+          aria-label="AI につなぐ方法を開く"
+          title="AI につなぐ"
           style={{ touchAction: "manipulation" }}
         >
           <Plug className="h-5 w-5 text-muted-foreground" />

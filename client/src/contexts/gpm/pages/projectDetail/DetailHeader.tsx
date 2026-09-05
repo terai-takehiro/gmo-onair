@@ -24,7 +24,7 @@ import {
 
 export const DETAIL_TABS = [
   { key: 'overview', label: '概要' },
-  { key: 'asks', label: '未確認事項' },
+  { key: 'asks', label: '持ち帰り' },
   { key: 'members', label: '体制' },
   // 打合せの録音 → 文字起こし → AI の下書き。**案件と同じ表・同じサービス**
   // （`project_minutes` は `projects` にぶら下がる）。持ち帰りの行き先だけが違う
@@ -164,8 +164,8 @@ export function DetailHeader({
               <button
                 type="button"
                 onClick={onEdit}
-                aria-label="プロジェクトの内容を直す"
-                title="プロジェクトの内容を直す"
+                aria-label="プロジェクトの内容を編集"
+                title="プロジェクトの内容を編集"
                 className="rounded-control-md flex h-11 w-11 shrink-0 items-center justify-center hover:bg-muted lg:h-9 lg:w-9"
               >
                 <Pencil className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />

@@ -109,7 +109,7 @@ export function DuplicateEstimateDialog({
         : 'ベースにする見積と、その明細をコピーする先の回を選びます。複製元はそのまま残ります。'}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
           <Button onClick={() => duplicate.mutate()} disabled={!source || episodeIds.length === 0 || sameSet || duplicate.isPending}>
             複製する
           </Button>
@@ -152,7 +152,7 @@ export function DuplicateEstimateDialog({
             </label>
           ))}
           {episodes.isSuccess && (episodes.data ?? []).length === 0 && (
-            <p className="text-sub text-muted-foreground">複製できる回がありません。先に「回を足す」で回を増やしてください。</p>
+            <p className="text-sub text-muted-foreground">複製できる回がありません。先に「回を追加」で回を増やしてください。</p>
           )}
         </div>
         {sameSet && (

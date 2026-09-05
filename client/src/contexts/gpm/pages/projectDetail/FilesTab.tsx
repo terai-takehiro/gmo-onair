@@ -58,7 +58,7 @@ export function FilesTab({ project, canEdit }: { project: GpmProjectDetail; canE
     const ok = await confirmAction({
       title: `「${project.name}」の BOX フォルダを作りますか？`,
       description: [
-        '**本番の BOX に実際にフォルダができます。ONAiR からは消せません**（消すときは BOX で手で消します）。',
+        '**本番の BOX に実際にフォルダができます。ONAiR からは削除できません**（削除するときは BOX で手で行います）。',
         p ? `社内限り: ${p.internal.join(' / ')}` : '',
         p ? `社外共有可: ${p.external.join(' / ')}` : '',
         '社内限りには仕入値と発注書を置きます（発注者にも PM 会社にも見せません）。',

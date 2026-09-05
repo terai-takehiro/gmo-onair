@@ -1,6 +1,6 @@
 // 編集画面用 AI 生成のまとめ部品（段8・04-ai.md §8-2）。
 //
-// 3つのボタン（骨格・セリフ・壁打ち）と、それぞれのダイアログの開閉状態を
+// 3つのボタン（下書き:構成・下書き:セリフ・壁打ち）と、それぞれのダイアログの開閉状態を
 // **この1部品に閉じ込める**。`EditorPage.tsx` は既に400行の上限を超えている
 // グランドファーザー化ファイルなので、そこへ状態・ボタン・ダイアログを
 // バラバラに足すと `check-file-size.mjs` の「超過ファイルを増やさない」検査に引っかかる。
@@ -37,10 +37,10 @@ export default function AiEditorTools({ documentId, projectId, updateData, varia
       {variant === "menu" ? (
         <>
           <button type="button" className={toolbarMenuItemClass} onClick={() => setShowOutline(true)}>
-            <Sparkles className="h-3.5 w-3.5" aria-hidden />AIで骨格を作る
+            <Sparkles className="h-3.5 w-3.5" aria-hidden />AIで下書きを作る（構成）
           </button>
           <button type="button" className={toolbarMenuItemClass} onClick={() => setShowLines(true)}>
-            <Sparkles className="h-3.5 w-3.5" aria-hidden />AIでセリフを作る
+            <Sparkles className="h-3.5 w-3.5" aria-hidden />AIで下書きを作る（セリフ）
           </button>
           <button type="button" className={toolbarMenuItemClass} onClick={() => setShowChat(true)}>
             <MessageSquare className="h-3.5 w-3.5" aria-hidden />AIと壁打ちする
@@ -48,11 +48,11 @@ export default function AiEditorTools({ documentId, projectId, updateData, varia
         </>
       ) : (
         <>
-          <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1 text-xs" onClick={() => setShowOutline(true)} title="AIで骨格を作る">
+          <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1 text-xs" onClick={() => setShowOutline(true)} title="AIで下書きを作る（構成）">
             <Sparkles className="h-3.5 w-3.5" />
-            <span className="hidden lg:inline">AI骨格</span>
+            <span className="hidden lg:inline">AI構成</span>
           </Button>
-          <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1 text-xs" onClick={() => setShowLines(true)} title="AIでセリフを作る">
+          <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1 text-xs" onClick={() => setShowLines(true)} title="AIで下書きを作る（セリフ）">
             <Sparkles className="h-3.5 w-3.5" />
             <span className="hidden lg:inline">AIセリフ</span>
           </Button>

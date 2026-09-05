@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuth } from '@/hooks/useAuth';
@@ -80,7 +81,7 @@ function ReceivedRow({ t, canEdit }: { t: MyTask; canEdit: boolean }) {
                     onClick={() => respond.mutate({ id: t.id, decision: noteFor, note }, { onSuccess: () => setNoteFor(null) })}>
                     差し戻す
                   </Button>
-                  <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setNoteFor(null)}>やめる</Button>
+                  <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setNoteFor(null)}>キャンセル</Button>
                 </div>
               </div>
             )}
@@ -158,7 +159,15 @@ function SentRow({ t, canEdit }: { t: MyTask; canEdit: boolean }) {
                 ))}
               </select>
               <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs text-destructive" disabled={resolve.isPending}
-                onClick={() => { if (confirm('この依頼を取り下げます。よろしいですか？')) resolve.mutate({ id: t.id, action: 'withdraw' }); }}>
+                onClick={async () => {
+                  const ok = await confirmAction({
+                    title: 'この依頼を取り下げますか',
+                    description: t.title,
+                    confirmLabel: '取り下げる',
+                    tone: 'danger',
+                  });
+                  if (ok) resolve.mutate({ id: t.id, action: 'withdraw' });
+                }}>
                 <Trash2 className="h-3.5 w-3.5" />取り下げる
               </Button>
             </div>

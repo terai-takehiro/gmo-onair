@@ -29,10 +29,10 @@ export function ReturnDialog({ open, name, saving, error, onClose, onSubmit }: {
     <FormDialog
       open={open}
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title="返却を記録する"
+      title="返却を記録"
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button onClick={() => onSubmit({ condition_in: condition, notes })} disabled={saving}>
             {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
             返却を記録

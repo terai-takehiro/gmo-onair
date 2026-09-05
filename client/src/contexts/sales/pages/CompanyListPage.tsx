@@ -166,7 +166,7 @@ export default function CompanyListPage() {
     const ok = await confirmAction({
       title: `「${c.name}」を削除しますか`,
       description: "取引先マスターから削除します。過去の売上・仕入・予定に付いている記録は残りますが、次から選べなくなります。",
-      confirmLabel: "削除する",
+      confirmLabel: "削除",
       tone: "danger",
     });
     if (ok) crud.remove.mutate(c.id);

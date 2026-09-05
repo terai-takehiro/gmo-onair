@@ -55,7 +55,7 @@ export function ApplyEpisodeTaskTemplateDialog({
       footer={
         <div className="flex justify-end">
           <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-            やめる
+            キャンセル
           </Button>
         </div>
       }

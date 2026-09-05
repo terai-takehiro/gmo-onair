@@ -28,7 +28,7 @@ export function ItemTooltip({ item, x, y }: { item: any; x: number; y: number })
         <div className="border-t border-border pt-1.5 space-y-1">
           {item.serial_number && (
             <div className="flex gap-1.5 text-[11px]">
-              <span className="text-muted-foreground shrink-0">S/N</span>
+              <span className="text-muted-foreground shrink-0">製造番号</span>
               <span className="font-semibold tracking-tight ">{item.serial_number}</span>
             </div>
           )}

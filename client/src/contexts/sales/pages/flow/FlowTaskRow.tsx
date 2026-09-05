@@ -66,7 +66,7 @@ export function FlowTaskRow({ task, canEdit }: { task: FlowTask; canEdit: boolea
   const del = useMutation({
     mutationFn: () => api.delete(`/flow-templates/tasks/${task.id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['flow-templates'] }),
-    onError: (e) => notifyApiError('消せませんでした', e),
+    onError: (e) => notifyApiError('削除できませんでした', e),
   });
 
   const start = () => {
@@ -84,7 +84,7 @@ export function FlowTaskRow({ task, canEdit }: { task: FlowTask; canEdit: boolea
         className="flex flex-col gap-2.5 border-b border-border-faint bg-surface-subtle px-4 py-3"
         onSubmit={(e) => { e.preventDefault(); if (title.trim()) save.mutate(); }}
       >
-        <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="工程の名前" />
+        <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="作業の名前" />
 
         <div className="flex flex-wrap items-center gap-1">
           <span className="text-th w-16 shrink-0 text-muted-foreground">担当の職種</span>
@@ -141,7 +141,7 @@ export function FlowTaskRow({ task, canEdit }: { task: FlowTask; canEdit: boolea
             className="h-[18px] w-[18px] rounded-badge-xs border-border"
           />
           <span>
-            <strong className="font-bold">外せない工程にする</strong>
+            <strong className="font-bold">外せない作業にする</strong>
             <span className="text-muted-foreground">
               （案件に入れるときのチェックが外せなくなります）
             </span>
@@ -156,7 +156,7 @@ export function FlowTaskRow({ task, canEdit }: { task: FlowTask; canEdit: boolea
             保存する
           </Button>
           <Button type="button" size="sm" variant="outline" onClick={() => setEditing(false)}>
-            <X className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />やめる
+            <X className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />キャンセル
           </Button>
         </div>
       </form>
@@ -189,14 +189,14 @@ export function FlowTaskRow({ task, canEdit }: { task: FlowTask; canEdit: boolea
         <RowSlot w={128} align="right">
           <span className="flex items-center justify-end gap-1">
             <Button variant="outline" size="sm" onClick={start}>
-              <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />直す
+              <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />編集
             </Button>
             <Button
-              variant="ghost" size="icon" aria-label={`${task.title} を消す`} disabled={del.isPending}
+              variant="ghost" size="icon" aria-label={`${task.title} を削除`} disabled={del.isPending}
               onClick={() => confirmAction({
-                title: `${task.title} を消しますか`,
+                title: `${task.title} を削除しますか`,
                 description: 'すでに案件へ入れたタスクは残ります。これから案件をつくるときに出てこなくなるだけです。',
-                confirmLabel: '消す', tone: 'danger',
+                confirmLabel: '削除', tone: 'danger',
               }).then((ok) => ok && del.mutate())}
             >
               <Trash2 className="h-4 w-4 text-muted-foreground" aria-hidden="true" />

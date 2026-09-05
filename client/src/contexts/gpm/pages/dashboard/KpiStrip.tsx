@@ -99,7 +99,7 @@ export function kpiCells(kpis: GpmKpis, est?: GpmEstimateSummary): Cell[] {
       to: '/gpm/tasks?tab=next',
     },
     {
-      key: 'asks', label: '未確認事項', icon: CircleHelp,
+      key: 'asks', label: '持ち帰り', icon: CircleHelp,
       value: kpis.openAsks, unit: '件',
       sub: kpis.overdueAsks > 0 ? `返事の期限が過ぎているもの ${kpis.overdueAsks}件` : '先方・社内の判断待ち',
       danger: kpis.openAsks > 0,

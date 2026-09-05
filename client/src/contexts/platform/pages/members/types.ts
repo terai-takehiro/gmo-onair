@@ -1,4 +1,4 @@
-/** v4 設定 ③ 権限とメンバー で使う形 */
+/** v4 設定 ③ 人と権限 で使う形 */
 
 export interface Role {
   id: string;

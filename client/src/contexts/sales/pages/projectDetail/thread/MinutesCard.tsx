@@ -50,9 +50,9 @@ export const TASK_TRACK: MinutesTrack = {
 /** プロジェクト管理（GLS-B）。持ち帰りは未確認事項になる */
 export const ASK_TRACK: MinutesTrack = {
   markKey: 'ask_id',
-  label: '未確認事項にする',
-  doneLabel: '未確認事項にしました',
-  note: '未確認事項にすると、「未確認事項」タブと全プロジェクトの一覧に出て、'
+  label: '持ち帰りに登録',
+  doneLabel: '持ち帰りに登録しました',
+  note: '登録すると、「持ち帰り」タブと全プロジェクトの一覧に出て、'
     + '止まっている件数として数えられます。',
 };
 
@@ -194,7 +194,7 @@ export function MinutesCard({
           <div className="flex-1" />
           {canDelete && (
             <Button variant="outline" onClick={onDelete} disabled={busy}>
-              <Trash2 className="mr-1.5 h-4 w-4" aria-hidden="true" />消す
+              <Trash2 className="mr-1.5 h-4 w-4" aria-hidden="true" />削除
             </Button>
           )}
         </div>
@@ -304,9 +304,9 @@ export function MinutesCard({
           </div>
 
           <div>
-            <h4 className="text-th">持ち帰り・未確認（{openItems.length}）</h4>
+            <h4 className="text-th">持ち帰り（{openItems.length}）</h4>
             {openItems.length === 0 ? (
-              <p className="text-sub mt-1 text-muted-foreground">ありません。</p>
+              <p className="text-sub mt-1 text-muted-foreground">持ち帰りはありません。</p>
             ) : (
               <ul className="mt-1 flex flex-col gap-1.5">
                 {openItems.map((o, i) => (
@@ -376,7 +376,7 @@ export function MinutesCard({
               {/* **消すのは manager だけ。** editor に出すと押しても何も起きない */}
               {canDelete && (
                 <Button variant="outline" disabled={busy} onClick={onDelete}>
-                  <Trash2 className="mr-1.5 h-4 w-4" aria-hidden="true" />消す
+                  <Trash2 className="mr-1.5 h-4 w-4" aria-hidden="true" />削除
                 </Button>
               )}
             </div>

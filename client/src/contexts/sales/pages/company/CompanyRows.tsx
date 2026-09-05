@@ -122,7 +122,7 @@ export function CompanyRow({
             <Button
               variant="ghost" size="icon" aria-label="編集"
               disabled={editBlockedByVendor}
-              title={editBlockedByVendor ? "仕入先を兼ねているため、財務管理の編集権限が無いと直せません" : "編集"}
+              title={editBlockedByVendor ? "仕入先を兼ねているため、財務管理の「書ける」が無いと編集できません" : "編集"}
               onClick={(e) => { e.stopPropagation(); if (canEditThis) onEdit(c); }}
             >
               <Pencil className="h-4 w-4" aria-hidden="true" />

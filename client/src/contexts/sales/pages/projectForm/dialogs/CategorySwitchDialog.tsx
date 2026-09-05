@@ -33,7 +33,7 @@ export function CategorySwitchDialog({
       footer={(
         <FormDialogFooter>
           <Button variant="outline" onClick={() => setState({ open: false, target: 'A' })} disabled={busy}>
-            やめる
+            キャンセル
           </Button>
           <Button onClick={() => onConfirm(state.target)} disabled={busy}>
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}

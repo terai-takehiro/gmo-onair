@@ -87,7 +87,7 @@ export function PhotoGrid({
                 <BoxLogo className="h-3 w-auto" />
               )}
               <span className="text-note font-bold text-secondary-foreground">
-                {mobile ? '写真を撮って足す' : '写真を足す'}
+                {mobile ? '写真を撮って追加' : '写真を追加'}
               </span>
             </button>
           )}

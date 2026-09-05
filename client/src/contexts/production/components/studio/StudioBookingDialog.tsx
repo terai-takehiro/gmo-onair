@@ -457,7 +457,7 @@ export default function StudioBookingDialog({
                       value={projectId}
                       onChange={(v) => { setProjectId(v); setEpisodeId(""); }}
                       onSearchChange={setProjectSearchQuery}
-                      placeholder="GLS番号・案件名・顧客名で検索..."
+                      placeholder="GLS番号・案件名・顧客名で検索â¦"
                     />
                   </div>
                   {projectId && episodes.length > 0 && (
@@ -615,10 +615,10 @@ export default function StudioBookingDialog({
               <div className="rounded-xl border bg-muted/30 lg:col-span-2">
                 <div className="flex items-center justify-between px-4 py-3.5">
                   <div>
-                    <p className="text-[15px] font-medium">確定済み</p>
+                    <p className="text-[15px] font-medium">本予約にする</p>
                     <p className="text-[12px] text-muted-foreground mt-0.5">
-                      {status === "confirmed" ? "予約確定" : "仮押さえ・未確定"}
-                      {(bookingType === "hold" || bookingType === "consultation") && " — この種別は常に未確定"}
+                      {status === "confirmed" ? "本予約です" : "仮押さえのままです"}
+                      {(bookingType === "hold" || bookingType === "consultation") && " — この種別は常に仮押さえです"}
                     </p>
                   </div>
                   <Switch
@@ -636,7 +636,7 @@ export default function StudioBookingDialog({
                     <div>
                       <p className="text-[15px] font-medium">何番手の仮押さえか</p>
                       <p className="text-[12px] text-muted-foreground mt-0.5">
-                        同じ枠を他の案件も仮押さえしているとき、順位が分かれば入力（任意）
+                        この時間の部屋を他の案件も仮押さえしているとき、順位が分かれば入力（任意）
                       </p>
                     </div>
                     <input

@@ -1,8 +1,15 @@
 /**
- * 受け取った書類を台帳へ渡すダイアログ（⑥ 受け取った書類）
+ * 受け取った書類を仕入・販管費に登録するダイアログ（⑥ 受け取った書類）
  *
- * **ここが「処理完了」の中身です。** 以前は状態が変わるだけで台帳に何も作られず、
+ * **ここが「登録済」の中身です。** 以前は状態が変わるだけで台帳に何も作られず、
  * 同じ請求書を2回入力していました（届いた記録 ＋ 台帳の記録）。
+ *
+ * ── 副題は1文にする（用語の決めごと）────────────────────────
+ *
+ * 以前の副題は「請求書『件名』（送付者）を仕入か販管費として登録します。登録すると
+ * 処理完了になります。」で、**1文に3つの情報**（何の書類か・何をするか・そのあとどうなるか）
+ * が入っていて読み切れなかった。副題は**何をするか1文**だけにし、
+ * **どの書類が対象かは本文の先頭に別行で出す**。
  *
  * ── 金額を勝手に割り戻さない ────────────────────────────────
  *
@@ -102,12 +109,12 @@ export function HandoffDialog({
     <FormDialog
       open
       onOpenChange={(v) => { if (!v) onClose(); }}
-      title="台帳に入れる"
+      title="仕入・販管費に登録"
       size="lg"
-      sub={`${TYPE_LABEL[doc.doc_type]}「${doc.subject || '件名なし'}」（${doc.sender || '送付者なし'}）を仕入か販管費として登録します。登録すると処理完了になります。`}
+      sub="仕入か販管費に登録します。登録すると「登録済」になります。"
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button
             disabled={!ready || saving}
             onClick={() => onSubmit({
@@ -123,14 +130,19 @@ export function HandoffDialog({
             })}
           >
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-            {kind === 'purchase' ? '仕入に入れる' : '販管費に入れる'}
+            {kind === 'purchase' ? '仕入に登録' : '販管費に登録'}
           </Button>
         </FormDialogFooter>
       }
     >
         <div className="flex flex-col gap-4">
+          {/* **どの書類が対象か**は副題から本文の先頭へ移した（ファイル冒頭コメント参照） */}
+          <p className="text-sub rounded-note border border-border-faint bg-surface-subtle px-3 py-2 text-secondary-foreground">
+            {TYPE_LABEL[doc.doc_type]}「{doc.subject || '件名なし'}」（{doc.sender || '送付者なし'}）
+          </p>
+
           <div>
-            <Label>どちらに入れますか</Label>
+            <Label>どちらに登録しますか</Label>
             <div role="group" className="rounded-control mt-1 inline-flex overflow-hidden border border-border">
               {([['purchase', '仕入（案件に紐づく）'], ['sga', '販管費（案件に紐づかない）']] as const).map(([k, label]) => (
                 <button
@@ -156,7 +168,7 @@ export function HandoffDialog({
                   options={projects.map((p) => ({ value: p.id, label: `${p.gls_number || 'GLS未発番'} ${p.name}` }))}
                   value={effectiveProject}
                   onChange={setProjectId}
-                  placeholder="GLS番号で検索..."
+                  placeholder="GLS番号で検索â¦"
                 />
                 {guessedProject && !projectId && (
                   <p className="text-note mt-1 text-info">
@@ -171,7 +183,7 @@ export function HandoffDialog({
                   options={vendors.map((v) => ({ value: v.id, label: v.name }))}
                   value={vendorId}
                   onChange={setVendorId}
-                  placeholder="仕入先を検索..."
+                  placeholder="仕入先を検索â¦"
                 />
                 <p className="text-note mt-1 text-muted-foreground">
                   書類の送付者は「{doc.sender || '—'}」です

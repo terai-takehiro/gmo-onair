@@ -16,7 +16,7 @@
  *    同じ台帳を2人で開くと列の並びが違い、口頭で「右から3列目」が通じません。
  *    列は7段の幅に固定しました。
  *  ・**表編集 (その場で書き換える)**
- *    数だけをまとめて直す用途でしたが、**Excel の取込**が同じことを
+ *    数だけをまとめて編集する用途でしたが、**Excel の取込**が同じことを
  *    行単位でできて記録も残るので、そちらに寄せました (下の注記に書いてあります)。
  */
 import { useMemo, useState } from 'react';
@@ -169,7 +169,7 @@ export function CatalogPanel() {
     onSuccess: () => {
       invalidate();
       setSaveError(null);
-      const done = dialog?.kind === 'edit' ? '直しました' : '足しました';
+      const done = dialog?.kind === 'edit' ? '編集しました' : '追加しました';
       setDialog(null);
       notifySuccess(`品目を${done}`);
     },
@@ -181,16 +181,16 @@ export function CatalogPanel() {
 
   const remove = useMutation({
     mutationFn: (it: SupplyItem) => api.delete(`${CONFIG_BY_SOURCE[it.source].endpoint}/${it.id}`),
-    onSuccess: () => { invalidate(); notifySuccess('品目を消しました'); },
+    onSuccess: () => { invalidate(); notifySuccess('品目を削除しました'); },
     onError: (e) => notifyApiError('消せませんでした', e),
   });
 
   const onDelete = async (it: SupplyItem) => {
     const config = CONFIG_BY_SOURCE[it.source];
     const ok = await confirmAction({
-      title: `「${it.name}」を台帳から消しますか`,
+      title: `「${it.name}」を台帳から削除しますか`,
       description: `在庫 ${it.quantity}${config.unit} の記録もいっしょに消えます。取り消せません。`,
-      confirmLabel: '消す',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) remove.mutate(it);
@@ -277,7 +277,7 @@ export function CatalogPanel() {
         <FilterChips label="種別で絞り込む" items={sourceChips} value={source} onChange={setSource} />
         <FilterChips label="用途で絞り込む" items={kindChips} value={kind} onChange={setKind} />
         <Select value={locationId || 'all'} onValueChange={(v) => setLocationId(v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-40" aria-label="設置場所で絞り込む">
+          <SelectTrigger className="w-40" aria-label="保管場所で絞り込む">
             <SelectValue placeholder="場所すべて" />
           </SelectTrigger>
           <SelectContent>
@@ -311,7 +311,7 @@ export function CatalogPanel() {
           activeFilters={[
             source ? `種別: ${CONFIG_BY_SOURCE[source as CatalogSource].label}` : '',
             kind ? `用途: ${KIND_LABELS[kind]}` : '',
-            locationId ? `設置場所: ${locations.find((l) => l.id === locationId)?.name ?? ''}` : '',
+            locationId ? `保管場所: ${locations.find((l) => l.id === locationId)?.name ?? ''}` : '',
             manufacturerId ? `メーカー: ${manufacturers.find((m) => m.id === manufacturerId)?.name ?? ''}` : '',
           ].filter(Boolean)}
           onClearFilters={() => {
@@ -340,7 +340,7 @@ export function CatalogPanel() {
             ))}
           </div>
           <p className="text-note text-muted-foreground">
-            在庫の数をまとめて直すときは <strong className="font-bold">Excel 取込</strong>を使います
+            在庫の数をまとめて編集するときは <strong className="font-bold">Excel 取込</strong>を使います
             (行ごとに何が変わったかが残ります)。表の上で直接書き換える機能は v4 で外しました。
           </p>
         </>

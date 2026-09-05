@@ -96,7 +96,7 @@ export function CompanySummaryDialog({ open, onOpenChange, company }: {
             </div>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground py-4 text-center">データがありません</p>
+          <p className="text-sm text-muted-foreground py-4 text-center">当てはまるものはありませんでした</p>
         )}
       </div>
     </FormDialog>

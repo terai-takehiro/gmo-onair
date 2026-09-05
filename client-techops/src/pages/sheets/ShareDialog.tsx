@@ -69,7 +69,7 @@ export function ShareDialog({
       onSaved();
       onClose();
     },
-    onError: () => notifyError("共有設定の保存に失敗しました"),
+    onError: () => notifyError("共有の設定を保存できませんでした。", { description: "少し待ってから、もう一度お試しください。" }),
   });
 
   const toggle = (id: string) =>
@@ -108,7 +108,7 @@ export function ShareDialog({
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
             <Input
-              placeholder="名前・メールで検索..."
+              placeholder="名前・メールで検索…"
               value={userSearch}
               onChange={(e) => setUserSearch(e.target.value)}
               className="pl-10"
@@ -147,7 +147,7 @@ export function ShareDialog({
         <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? "保存中..." : "保存"}
+            {saveMutation.isPending ? "保存中…" : "保存"}
           </Button>
         </DialogFooter>
       </DialogContent>

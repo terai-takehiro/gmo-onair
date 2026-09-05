@@ -61,7 +61,7 @@ export function LendingSelectStep({ loading, parents, childrenMap, selectedIds, 
       ) : shown.length === 0 ? (
         <EmptyState
           title="持ち出せる機材がありません"
-          description="設定の「貸出の決めごと」で貸出可にした、稼働中の機材だけが出ます。"
+          description="設定の「貸出のルール」で貸出可にした、稼働中の機材だけが出ます。"
         />
       ) : (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">

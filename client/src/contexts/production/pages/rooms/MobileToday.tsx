@@ -7,8 +7,8 @@
  * 数ミリ角になるため）。**v4 は自分で描くので、その制約が無くなりました**。
  * モック（承認済み）は **数字＋点だけの月マス**（文字を入れない）で崩れず、
  * PC の①予定と**同じ3層**（スタジオ・パートナー・自分）を重ねます。
- * 置き方の計算・レイヤーの記憶（`layerPrefs.ts`）は PC と共有します
- * （分けると「PCで外したはずのレイヤーがスマホでは出たまま」になる）。
+ * 置き方の計算・「出すもの」の記憶（`layerPrefs.ts`）は PC と共有します
+ * （分けると「PCで外したはずのものがスマホでは出たまま」になる）。
  *
  * ── 月/週の切替を足した ──────────────────────────────────────
  *
@@ -156,7 +156,7 @@ export function MobileToday() {
 
   const dayList = useMemo(() => sortForList(eventsOn(cal.events, selected)), [cal.events, selected]);
 
-  /** その層を読む権限があるか（レイヤーのダイアログも件数の脚注も同じ表を見る） */
+  /** その層を読む権限があるか（「出すもの」のダイアログも件数の脚注も同じ表を見る） */
   const layerVisible: Record<CalLayer, boolean> = {
     studio: cal.can.studio, partner: cal.can.partner, my: cal.can.personal, tasks: cal.can.tasks,
   };
@@ -194,7 +194,7 @@ export function MobileToday() {
     onSuccess: () => {
       invalidateBookingQueries(qc);
       setDetail(null);
-      notifySuccess('予約を消しました');
+      notifySuccess('予約を削除しました');
     },
     onError: (e) => notifyApiError('消せませんでした', e),
   });
@@ -254,7 +254,7 @@ export function MobileToday() {
       {cal.isLoading && cal.events.length === 0 ? (
         <Delayed><SkeletonRows rows={3} /></Delayed>
       ) : dayList.length === 0 ? (
-        <EmptyState title="この日の予定はありません" description="上の「今日」で今日に戻れます。レイヤーのアイコンで出すものを選べます。" />
+        <EmptyState title="この日の予定はありません" description="上の「今日」で今日に戻れます。上のアイコンから「出すもの」を選べます。" />
       ) : (
         <ul className="v4-card-in flex flex-col gap-2">
           {dayList.map((e) => (
@@ -344,16 +344,16 @@ export function MobileToday() {
         presetRange={editEvent ? null : { start: selected, end: selected, allDay: false }}
       />
 
-      {/* **旧スタジオカレンダーの退役に伴い、ここが「既存の部屋予約を直す唯一の導線」になった** */}
+      {/* **旧スタジオカレンダーの退役に伴い、ここが「既存の部屋予約を編集する唯一の導線」になった** */}
       <StudioBookingDetailDialog
         open={!!detail}
         onOpenChange={(v) => !v && setDetail(null)}
         booking={detail as never}
         onEdit={(b) => { setDetail(null); setEditBooking(b as never); }}
         onDelete={(id) => confirmAction({
-          title: 'この予約を消しますか',
+          title: 'この予約を削除しますか',
           description: '押さえていた部屋が空きになります。取り消せません。',
-          confirmLabel: '消す', tone: 'danger',
+          confirmLabel: '削除', tone: 'danger',
         }).then((ok) => ok && del.mutate(id))}
         canEdit={canStudioEdit}
         canDelete={canDeleteBooking}

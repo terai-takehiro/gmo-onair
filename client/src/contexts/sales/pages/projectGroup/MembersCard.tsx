@@ -10,7 +10,7 @@ export function MembersCard({ members }: { members: GroupMember[] }) {
     <div>
       <h2 className="text-cardtitle mb-2 font-bold">所属案件</h2>
       {members.length === 0 ? (
-        <EmptyState title="案件が登録されていません" description="グループを編集して案件を追加してください。" />
+        <EmptyState title="まだ案件がありません" description="按分グループを編集して案件を追加してください。" />
       ) : (
         <div className="rounded-card overflow-hidden border border-border">
           {/* スマホでは相手先の列を畳む（`ledger/LedgerRows.tsx` と同じ扱い）。

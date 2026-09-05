@@ -2,7 +2,7 @@
  * フィードバックチケット — スマホ版カード (v4)
  *
  * PC の `TicketRow`（`./TicketRows.tsx`）が `hideOnMobile` で落とす列
- * （種別・対象アプリ・起票者・起票日）を2行目にまとめて出す
+ * （種別・対象アプリ・送った人・送った日）を2行目にまとめて出す
  * （`client-daily/pages/news/NewsCards.tsx` と同じ考え方 — 列を消すのではなくカードで組み直す）。
  */
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';

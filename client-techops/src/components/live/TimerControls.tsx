@@ -35,7 +35,7 @@ export default function TimerControls({ state, onSet, onStart, onStop, onReset, 
   if (readOnly) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        タイマー操作は管理者権限が必要です
+        タイマーを動かすには 制作技術支援の「管理」が必要です。
       </div>
     );
   }

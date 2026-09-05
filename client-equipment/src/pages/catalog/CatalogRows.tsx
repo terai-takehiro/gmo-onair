@@ -27,7 +27,7 @@ export function CatalogRowHeader({ showActions }: { showActions: boolean }) {
       <RowMain>商品名 ／ メーカー・型名</RowMain>
       <RowSlot w={56} align="right" className={HIDE_UNTIL_EXTRA_WIDE}>m</RowSlot>
       <RowSlot w={72} className={HIDE_UNTIL_EXTRA_WIDE}>色</RowSlot>
-      <RowSlot w={160} className={HIDE_UNTIL_WIDE}>設置場所</RowSlot>
+      <RowSlot w={160} className={HIDE_UNTIL_WIDE}>保管場所</RowSlot>
       <RowSlot w={96} className={HIDE_UNTIL_EXTRA_WIDE}>収納方法</RowSlot>
       <RowSlot w={96} align="right">本数・個数</RowSlot>
       {showActions && <RowSlot w={96} align="right">{''}</RowSlot>}
@@ -65,7 +65,7 @@ export function CatalogRow({
 
       {/* m・色・収納方法は 1536px から。1024px の本文は左メニューを引くと 728px しかなく、
           7列（764px）を出すと商品名が 0px になって行が 36px はみ出す（`lib/rowVisibility.ts`）。
-          設置場所だけ 1024px から出す — 「どこにあるか」がこの台帳を引く目的 */}
+          保管場所だけ 1024px から出す — 「どこにあるか」がこの台帳を引く目的 */}
       <RowSlot w={56} align="right" hideOnMobile className={HIDE_UNTIL_EXTRA_WIDE}>
         {hasLength
           ? (length && <span className="font-number text-sub-sm text-secondary-foreground">{length}</span>)
@@ -98,19 +98,19 @@ export function CatalogRow({
         <RowSlot w={96} align="right" placeholder="">
           <span className="flex gap-0.5">
             {canEdit && (
-              <Button variant="ghost" size="icon-sm" onClick={() => onCopy(item)} aria-label={`${item.name} を写して足す`}>
+              <Button variant="ghost" size="icon-sm" onClick={() => onCopy(item)} aria-label={`${item.name} を写して追加`}>
                 <Copy className="h-3.5 w-3.5" aria-hidden="true" />
               </Button>
             )}
             {canEdit && (
-              <Button variant="ghost" size="icon-sm" onClick={() => onEdit(item)} aria-label={`${item.name} を直す`}>
+              <Button variant="ghost" size="icon-sm" onClick={() => onEdit(item)} aria-label={`${item.name} を編集`}>
                 <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
               </Button>
             )}
             {canDelete && (
               <Button
                 variant="ghost" size="icon-sm" className="text-destructive"
-                onClick={() => onDelete(item)} aria-label={`${item.name} を消す`}
+                onClick={() => onDelete(item)} aria-label={`${item.name} を削除`}
               >
                 <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
               </Button>

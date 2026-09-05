@@ -47,7 +47,7 @@ export default function RequestFormPage() {
       <div className="mx-auto max-w-lg px-4 py-10">
         <EmptyState
           title="開けませんでした"
-          description={state.status === 'error' ? state.message : 'GLS番号・案件ID・番組IDを確認してください。'}
+          description={state.status === 'error' ? state.message : 'GLS番号が合っているか確かめてください。'}
         />
       </div>
     );

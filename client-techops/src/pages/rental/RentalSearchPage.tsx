@@ -93,11 +93,11 @@ export default function RentalSearchPage() {
       if (result.ok) {
         notifySuccess('取得を開始しました（完了まで数十分〜1時間ほどかかります）');
       } else {
-        notifyError(result.message ?? '取得の開始に失敗しました');
+        notifyError(result.message ?? '取得を始められませんでした。少し待ってから、もう一度お試しください。');
       }
       queryClient.invalidateQueries({ queryKey: ['rental-sync-status'] });
     },
-    onError: () => notifyError('取得の開始に失敗しました'),
+    onError: () => notifyError('取得を始められませんでした。', { description: '少し待ってから、もう一度お試しください。' }),
   });
 
   const latestRequest = syncStatusQuery.data?.latestRequest ?? null;
@@ -155,7 +155,7 @@ export default function RentalSearchPage() {
       await reservationsQuery.refetch();
       notifySuccess('予約リストに追加しました');
     } catch {
-      notifyError('予約リストへの追加に失敗しました');
+      notifyError('予約リストに追加できませんでした。', { description: '少し待ってから、もう一度お試しください。' });
     } finally {
       setAddingKey(null);
     }
@@ -226,7 +226,7 @@ export default function RentalSearchPage() {
         </Delayed>
       ) : items.length === 0 ? (
         <EmptyState
-          title={debouncedQ || category || company !== 'all' ? '該当する機材がありません' : '機材がまだ取得できていません'}
+          title={debouncedQ || category || company !== 'all' ? '条件に合う機材はありません' : 'まだ機材を取得できていません'}
           description={debouncedQ || category || company !== 'all' ? '別の言葉でさがすか、絞り込みを外してください。' : '毎朝5時の自動取得を待つか、時間を置いてお試しください。'}
         />
       ) : (
@@ -280,7 +280,7 @@ export default function RentalSearchPage() {
         </Button>
         {latestRequest?.status === 'error' && !syncInProgress && (
           <span className="shrink-0 text-warning-border-strong" title={latestRequest.errorMessage ?? undefined}>
-            前回の手動取得は失敗しました
+            前回は取得できませんでした
           </span>
         )}
       </div>

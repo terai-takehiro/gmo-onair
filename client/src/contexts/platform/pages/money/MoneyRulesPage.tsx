@@ -111,7 +111,7 @@ export default function MoneyRulesPage() {
     queryFn: async () => (await api.get('/money-rules')).data.data,
   });
 
-  // フェーズごとの受注確度は別 API（`StageProbabilities.tsx` 冒頭を参照）。
+  // ステージごとの受注確度は別 API（`StageProbabilities.tsx` 冒頭を参照）。
   // 別クエリにしてあるので、こちらが失敗してもお金のルール本体は表示できる
   const stageQ = useQuery<StageProbabilityRow[]>({
     queryKey: ['stage-probabilities'],
@@ -194,11 +194,13 @@ export default function MoneyRulesPage() {
               <Pick value={draft.closing_day} choices={DAY_CHOICES} disabled={!canEdit}
                 onChange={(v) => set('closing_day', Number(v))} />
             </Line>
-            <Line label="入金の期限（月）" hint="取引先ごとに例外があればそちらが優先します">
+            {/* 「入金の期限」ではなく**支払サイト**（締めから何か月後か）。
+                日付の期限だと読まれて、月末を入れられていた */}
+            <Line label="入金は締めの何か月後か" hint="取引先ごとに例外があればそちらが優先します">
               <Pick value={draft.payment_months} choices={MONTH_CHOICES} disabled={!canEdit}
                 onChange={(v) => set('payment_months', Number(v))} />
             </Line>
-            <Line label="入金の期限（日）" hint="ここまでに入金してもらいます">
+            <Line label="その月の何日か" hint="上で決めた月の、この日までに入金してもらいます">
               <Pick value={draft.payment_day} choices={DAY_CHOICES} disabled={!canEdit}
                 onChange={(v) => set('payment_day', Number(v))} />
             </Line>

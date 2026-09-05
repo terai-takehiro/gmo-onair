@@ -59,10 +59,10 @@ export function NewsForm({
     <FormDialog
       open
       onOpenChange={(o) => { if (!o) onCancel(); }}
-      title={initial ? 'ニュースを直す' : 'ニュースを足す'}
+      title={initial ? 'ニュースを編集' : 'ニュースを追加'}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onCancel}>やめる</Button>
+          <Button variant="outline" onClick={onCancel}>キャンセル</Button>
           <Button
             disabled={!content.trim() || submitting}
             onClick={() => onSubmit({
@@ -73,7 +73,7 @@ export function NewsForm({
               ai_related: aiRelated,
             })}
           >
-            {initial ? '保存' : '足す'}
+            {initial ? '保存' : '追加'}
           </Button>
         </FormDialogFooter>
       }

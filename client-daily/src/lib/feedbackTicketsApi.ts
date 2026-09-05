@@ -48,14 +48,14 @@ export const PAGES_BY_APP: Record<string, PageDef[]> = {
     { key: 'sales_billing', label: '営業：見積・請求' },
     { key: 'sales_ledger', label: '営業：案件台帳' },
     { key: 'sales_activity_logs', label: '営業：営業活動記録' },
-    { key: 'sales_project_groups', label: '営業：費用を分け合うグループ' },
+    { key: 'sales_project_groups', label: '営業：按分グループ' },
     { key: 'sales_pricing', label: '営業：料金表' },
     { key: 'sales_companies', label: '営業：取引先マスター' },
-    { key: 'sales_flow_templates', label: '営業：標準工程テンプレート' },
+    { key: 'sales_flow_templates', label: '営業：工程の型' },
     { key: 'gpm_dashboard', label: 'プロジェクト管理：ダッシュボード' },
     { key: 'gpm_projects', label: 'プロジェクト管理：プロジェクト一覧' },
     { key: 'gpm_tasks', label: 'プロジェクト管理：やること（未確認事項）' },
-    { key: 'gpm_templates', label: 'プロジェクト管理：標準工程テンプレート' },
+    { key: 'gpm_templates', label: 'プロジェクト管理：工程のひな形' },
     { key: 'budget_dashboard', label: '財務管理：財務ダッシュボード' },
     { key: 'budget_billing', label: '財務管理：請求・入金' },
     { key: 'budget_revenues', label: '財務管理：売上' },
@@ -72,7 +72,7 @@ export const PAGES_BY_APP: Record<string, PageDef[]> = {
     { key: 'calendar_settings', label: 'カレンダー：カレンダーの設定' },
     { key: 'settings_main', label: '設定：設定' },
     { key: 'settings_sites', label: '設定：拠点・部屋' },
-    { key: 'settings_users', label: '設定：権限とメンバー' },
+    { key: 'settings_users', label: '設定：人と権限' },
     { key: 'settings_ai_activity', label: '設定：AIの活動' },
     { key: 'settings_data_viewer', label: '設定：データビューア' },
     { key: 'settings_db_backups', label: '設定：DBバックアップ' },
@@ -150,9 +150,9 @@ export const CATEGORY_LABELS: Record<Category, string> = { bug: '不具合', fea
 
 export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'rejected';
 export const STATUS_LABELS: Record<TicketStatus, string> = {
-  open: '未対応', in_progress: '対応中', resolved: '対応済み', rejected: '却下',
+  open: '未対応', in_progress: '対応中', resolved: '対応済み', rejected: '見送り',
 };
-/** バッジの色。状態の意味に沿わせる（未対応=情報／対応中=注意／対応済み=成功／却下=危険） */
+/** バッジの色。状態の意味に沿わせる（未対応=情報／対応中=注意／対応済み=成功／見送り=危険） */
 export const STATUS_TONE: Record<TicketStatus, string> = {
   open: 'border-info-border bg-info-surface text-info',
   in_progress: 'border-warning-border bg-warning-surface text-warning',

@@ -14,7 +14,7 @@
  *   保管場所      ← `LocationPage`  (拠点・種別のマスタもここから開く)
  *   メーカー・色  ← `ManufacturerPage` ＋ `ColorPage` (右のカード)
  *   貸出カテゴリ  ← `RentalCategoryPage` ＋ `ModelGroupPage` のダイアログ
- *   貸出の決めごと ← `RentalSettingsPage` (＋ モックの6つは保存先が無いので出さない)
+ *   貸出のルール ← `RentalSettingsPage` (＋ モックの6つは保存先が無いので出さない)
  *
  * タブは URL に出します (`/equipment/settings?tab=maker`)。出さないと、
  * 特定のタブを人に教えられず「設定を開いて右から2番目」と口で言うことになります。
@@ -32,11 +32,11 @@ const TABS = [
   { key: 'loc', label: '保管場所', icon: <MapPin className="h-4 w-4" aria-hidden="true" /> },
   { key: 'maker', label: 'メーカー・色', icon: <Factory className="h-4 w-4" aria-hidden="true" /> },
   { key: 'cat', label: '貸出カテゴリ', icon: <Tag className="h-4 w-4" aria-hidden="true" /> },
-  { key: 'rule', label: '貸出の決めごと', icon: <SlidersHorizontal className="h-4 w-4" aria-hidden="true" /> },
+  { key: 'rule', label: '貸出のルール', icon: <SlidersHorizontal className="h-4 w-4" aria-hidden="true" /> },
 ];
 
 const LEAD: Record<string, string> = {
-  loc: '機材の置き場所とラック図はここで作った場所に紐づきます',
+  loc: '機材の保管場所とラック図はここで作った場所に紐づきます',
   maker: 'メーカー名の表記ゆれを1つにまとめます。色はラック図のセルに出ます',
   cat: '貸出機材の一覧をまとめる見出しです',
   rule: 'どの機材を貸出の対象にするかを決めます',

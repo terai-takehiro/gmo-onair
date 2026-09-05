@@ -52,11 +52,12 @@ export function SeedRowsHeader() {
 }
 
 /**
- * 状態。**「見送り」は失注のこと**だが、ネタの並びでは「案件にしなかった」の意味。
- * 「E 失注」と書くと、実際に競合に負けた案件と同じに見える。
+ * 状態。**ステージ `e_lost` は画面ではどこでも「失注」**と呼ぶ（決めごと）。
+ * ネタの並びでは「案件にしなかった」ものもここに入るが、理由マスタ側で
+ * 「見送り（案件化せず）」と分けてあるので、失注分析のノイズにはならない。
  */
 function stateOf(p: ProjectListRow): { label: string; tone: string } {
-  if (p.stage === 'e_lost') return { label: '見送り', tone: 'text-muted-foreground' };
+  if (p.stage === 'e_lost') return { label: '失注', tone: 'text-muted-foreground' };
   if (p.ai_reviewed_at) return { label: '確認済み', tone: 'text-secondary-foreground' };
   if (p.is_ai_created) return { label: '新しいネタ', tone: 'font-bold text-primary' };
   return { label: '手で登録', tone: 'text-secondary-foreground' };

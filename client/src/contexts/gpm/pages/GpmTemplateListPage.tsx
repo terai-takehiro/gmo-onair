@@ -48,20 +48,20 @@ export default function GpmTemplateListPage() {
 
   const remove = useMutation({
     mutationFn: (t: GpmTemplate) => api.delete(`/gpm/templates/${t.id}`),
-    onSuccess: () => { invalidate(); notifySuccess('ひな形を消しました'); },
-    onError: (err) => notifyApiError('ひな形を消せませんでした', err),
+    onSuccess: () => { invalidate(); notifySuccess('ひな形を削除しました'); },
+    onError: (err) => notifyApiError('ひな形を削除できませんでした', err),
   });
 
   const onDelete = async (t: GpmTemplate) => {
     const ok = await confirmAction({
-      title: `「${t.name}」を消しますか？`,
+      title: `「${t.name}」を削除しますか？`,
       description: [
         t.used_count > 0
           ? `このひな形から作った ${t.used_count} 件のプロジェクトは変わりません（作るときに写しているため）。`
           : 'このひな形から作ったプロジェクトはまだありません。',
         '消すと、次に同じ工程を組む人は一から作ることになります。',
       ].join('\n'),
-      confirmLabel: '消す',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) remove.mutate(t);
@@ -70,7 +70,7 @@ export default function GpmTemplateListPage() {
   return (
     <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <PageHeader
-        title="標準工程テンプレート"
+        title="ひな形"
         sub={
           data
             ? `${templates.length}件 ・ プロジェクトを作るときに写して使います（あとで直しても適用済みには影響しません）`
@@ -169,7 +169,7 @@ function TemplateCard({
           <Stat label="適用中" value={t.used_count} unit="件" tone={t.used_count > 0 ? 'info' : 'muted'} />
           {canEdit && (
             <Button variant="outline" size="sm" onClick={onEdit}>
-              <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />直す
+              <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />編集
             </Button>
           )}
           {canManage && (
@@ -178,10 +178,10 @@ function TemplateCard({
               size="sm"
               onClick={onDelete}
               disabled={t.is_system}
-              title={t.is_system ? '最初から入っているひな形は消せません' : 'このひな形を消す'}
+              title={t.is_system ? '最初から入っているひな形は削除できません' : 'このひな形を削除'}
             >
               <Trash2 className={cn('h-3.5 w-3.5', !t.is_system && 'text-destructive')} aria-hidden="true" />
-              <span className="sr-only">消す</span>
+              <span className="sr-only">削除</span>
             </Button>
           )}
         </div>
@@ -190,7 +190,7 @@ function TemplateCard({
       {open && (
         <div className="space-y-2 border-t border-border-subtle bg-surface-subtle p-3 lg:px-4">
           {t.phases.length === 0 ? (
-            <p className="text-sub text-muted-foreground">工程がまだ入っていません。「直す」から足せます。</p>
+            <p className="text-sub text-muted-foreground">工程がまだ入っていません。「編集」から追加できます。</p>
           ) : (
             t.phases.map((p, i) => (
               <div key={p.id} className="rounded-control-lg border border-border bg-card p-2.5">

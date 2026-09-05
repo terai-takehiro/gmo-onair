@@ -71,16 +71,16 @@ export default function InventoryPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inventory-checks'] });
       qc.invalidateQueries({ queryKey: ['equipment-stats'] });
-      notifySuccess('棚卸しを消しました');
+      notifySuccess('棚卸しを削除しました');
     },
     onError: (e) => notifyApiError('消せませんでした', e),
   });
 
   const onDelete = async (c: InventoryCheck) => {
     const ok = await confirmAction({
-      title: `棚卸し「${c.title}」を消しますか`,
+      title: `棚卸し「${c.title}」を削除しますか`,
       description: '付けた印もいっしょに消えます。取り消せません。',
-      confirmLabel: '消す',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) remove.mutate(c.id);
@@ -150,7 +150,7 @@ export default function InventoryPage() {
                   <Button variant="outline" onClick={() => setSelected(c.id)}>開く</Button>
                   <Button
                     variant="ghost" size="icon-sm" className="text-destructive"
-                    aria-label={`${c.title} を消す`} disabled={remove.isPending}
+                    aria-label={`${c.title} を削除`} disabled={remove.isPending}
                     onClick={() => onDelete(c)}
                   >
                     <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -168,7 +168,7 @@ export default function InventoryPage() {
         title="棚卸しを作る"
         footer={
           <FormDialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>やめる</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>キャンセル</Button>
             <Button onClick={() => create.mutate(form)} disabled={!form.title || create.isPending}>
               {create.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
               作る

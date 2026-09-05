@@ -6,7 +6,7 @@
  * どちらもここを読む。書き写すと、片方だけ列を足したときに型が食い違う。
  */
 export interface Stats {
-  /** 本日・明日の入出庫 (migration 168)。出庫は予定・入庫は返却予定日 */
+  /** 本日・明日の持ち出し・返却 (migration 168)。持ち出しは予定・返却は返却予定日 */
   in_out: { out_today: number; out_tomorrow: number; in_today: number; in_tomorrow: number };
   /**
    * ⚠️ **機材台帳の既定表示（子機材を除いた親機材のみ）と揃えてある**

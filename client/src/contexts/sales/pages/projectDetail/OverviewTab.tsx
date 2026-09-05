@@ -153,7 +153,7 @@ export function OverviewTab({
               </span>
             )}
           </Fact>
-          <Fact icon={Wallet} label={isEstimate ? '見積金額' : '想定金額（見積未確定）'} mobile={mobile}>
+          <Fact icon={Wallet} label={isEstimate ? '見積金額' : '想定金額'} mobile={mobile}>
             {/*
               見積がまだ無い案件は想定金額を薄字で出す（一覧と同じ見せ方）。
               **`inline`** は「¥ を数字のすぐ左に付ける」指定（モックの帯は `gap:4px`）。
@@ -162,8 +162,10 @@ export function OverviewTab({
 
               ⚠️ **ラベルも値の出どころで出し分ける**（UXレポート指摘）。以前は常に
               「見積金額」と出ており、見積タブの「見積はまだありません」と矛盾して見えた
+              （名前は「想定金額」だけにして、注記は値の下へ移した）
             */}
             <Money inline value={amount} className={cn('text-list', !isEstimate && 'text-muted-foreground')} />
+            {!isEstimate && <p className="text-sub-sm text-muted-foreground">見積はまだありません</p>}
           </Fact>
           {/*
             **1行ぶんまるごと使う**（上記）。PC は行の頭に来るので左の罫線を消し、
@@ -233,7 +235,7 @@ export function OverviewTab({
             案件を直す画面では未登録になります（実際にご指摘をいただいた形）。
           */}
           <Field label="案件分類">{classificationText(project)}</Field>
-          <Field label="継続区分">
+          <Field label="回のある案件か">
             {project.recurrence === 'regular' ? 'レギュラー（回を持つ）' : '単発'}
           </Field>
           {/* **無観客の案件には来場人数を出さない**（人が来ないので欄ごと意味が無い） */}
@@ -243,7 +245,7 @@ export function OverviewTab({
             </Field>
           )}
           <Field label="案件内容">{project.goal}</Field>
-          <Field label="リード経路">{channelLabel(project.intake_channel) === '—' ? null : channelLabel(project.intake_channel)}</Field>
+          <Field label="どこから来た話か">{channelLabel(project.intake_channel) === '—' ? null : channelLabel(project.intake_channel)}</Field>
           <Field label="GLS 番号">
             <GlsNumberField glsNumber={project.gls_number} stage={project.stage} />
           </Field>

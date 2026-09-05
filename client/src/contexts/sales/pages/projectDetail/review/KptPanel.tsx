@@ -170,7 +170,7 @@ function Pane({
                 <Input
                   value={editText}
                   autoFocus
-                  aria-label="内容を直す"
+                  aria-label="内容を編集"
                   onChange={(e) => setEditText(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') { onUpdate(i.id, editText); setEditId(null); }
@@ -179,8 +179,8 @@ function Pane({
                 />
                 <div className="flex gap-1.5">
                   <Button size="sm" disabled={busy || !editText.trim()}
-                    onClick={() => { onUpdate(i.id, editText); setEditId(null); }}>直す</Button>
-                  <Button size="sm" variant="ghost" onClick={() => setEditId(null)}>やめる</Button>
+                    onClick={() => { onUpdate(i.id, editText); setEditId(null); }}>編集</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditId(null)}>キャンセル</Button>
                 </div>
               </div>
             ) : (
@@ -218,8 +218,8 @@ function Pane({
                           type="button"
                           disabled={busy}
                           onClick={() => { setEditId(i.id); setEditText(i.body); }}
-                          aria-label="直す"
-                          title="直す"
+                          aria-label="編集"
+                          title="編集"
                           className="min-h-tap min-w-tap flex h-7 w-7 items-center justify-center rounded-control-sm hover:bg-muted lg:min-h-0 lg:min-w-0"
                         >
                           <Pencil className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
@@ -228,8 +228,8 @@ function Pane({
                           type="button"
                           disabled={busy}
                           onClick={() => onDelete(i.id)}
-                          aria-label="消す"
-                          title="消す"
+                          aria-label="削除"
+                          title="削除"
                           className="min-h-tap min-w-tap flex h-7 w-7 items-center justify-center rounded-control-sm hover:bg-muted lg:min-h-0 lg:min-w-0"
                         >
                           <Trash2 className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
@@ -248,7 +248,7 @@ function Pane({
             <Input
               value={draft}
               autoFocus
-              aria-label={`${pane.label} に足す`}
+              aria-label={`${pane.label} に追加`}
               placeholder="例）事前の香盤共有で当日の確認が減った"
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
@@ -258,14 +258,14 @@ function Pane({
             />
             <div className="flex gap-1.5">
               <Button size="sm" disabled={busy || !draft.trim()} onClick={commit}>
-                {myName} として足す
+                {myName} として追加
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setDraft(''); }}>やめる</Button>
+              <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setDraft(''); }}>キャンセル</Button>
             </div>
           </div>
         ) : (
           <Button variant="outline" size="sm" className="mt-2" onClick={() => setAdding(true)}>
-            <Plus className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />{myName} として足す
+            <Plus className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />{myName} として追加
           </Button>
         ))}
       </div>

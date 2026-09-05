@@ -91,7 +91,7 @@ export function TopicsSection({
       {editable && (
         <div className="border-t border-border-subtle p-2">
           <Button variant="ghost" className="min-h-tap w-full text-muted-foreground" onClick={openAdd}>
-            <Plus className="mr-1 h-4 w-4" aria-hidden="true" /> トピックを足す
+            <Plus className="mr-1 h-4 w-4" aria-hidden="true" /> トピックを追加
           </Button>
         </div>
       )}
@@ -99,11 +99,11 @@ export function TopicsSection({
       <FormDialog
         open={adding}
         onOpenChange={setAdding}
-        title="トピックを足す"
+        title="トピックを追加"
         sub="自動集計に出ない出来事（お客様の反応・現場で気づいたこと）を書きます"
         footer={(
           <FormDialogFooter>
-            <Button variant="outline" className="min-h-tap" onClick={() => setAdding(false)}>やめる</Button>
+            <Button variant="outline" className="min-h-tap" onClick={() => setAdding(false)}>キャンセル</Button>
             <Button className="min-h-tap" onClick={submit} disabled={!content.trim() || addItem.isPending}>追加</Button>
           </FormDialogFooter>
         )}
@@ -168,7 +168,7 @@ function TopicRow({ item, editable }: { item: OpsReportItem; editable: boolean }
     try {
       await updateItem.mutateAsync({ itemId: item.id, fields: { category: category || null, content, note: note || null } });
       setEditing(false);
-      notifySuccess('トピックを直しました');
+      notifySuccess('トピックを保存しました');
     } catch (e) {
       notifyApiError('保存できませんでした', e);
     }
@@ -176,15 +176,15 @@ function TopicRow({ item, editable }: { item: OpsReportItem; editable: boolean }
 
   const remove = async () => {
     const ok = await confirmAction({
-      title: 'このトピックを消しますか',
+      title: 'このトピックを削除しますか',
       description: item.content.slice(0, 60),
-      confirmLabel: '削除する',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (!ok) return;
     deleteItem.mutate(item.id, {
-      onSuccess: () => notifySuccess('トピックを消しました'),
-      onError: (e) => notifyApiError('消せませんでした', e),
+      onSuccess: () => notifySuccess('トピックを削除しました'),
+      onError: (e) => notifyApiError('トピックを削除できませんでした', e),
     });
   };
 
@@ -204,7 +204,7 @@ function TopicRow({ item, editable }: { item: OpsReportItem; editable: boolean }
           <p className="text-list whitespace-pre-wrap">
             {item.content}
             {/* **ニュース由来** (migration 167)。どこから来た行かが分かると、
-                週報を読む人が「元の記事」を辿れる。手で書いた行には付かない */}
+                報告を読む人が「元の記事」を辿れる。手で書いた行には付かない */}
             {item.source_item_id && (
               <span className="text-badge ml-2 inline-flex shrink-0 items-center gap-0.5 rounded-badge-xs bg-primary-surface px-1.5 py-0.5 align-middle text-primary">
                 <Newspaper className="h-3 w-3" aria-hidden="true" />ニュース由来
@@ -215,7 +215,7 @@ function TopicRow({ item, editable }: { item: OpsReportItem; editable: boolean }
         </RowMain>
         <RowSlot w={96} placeholder="">
           <span className="text-sub-sm inline-flex min-w-0 items-center gap-1 text-muted-foreground">
-            {item.source === 'ai' && <Sparkles className="h-3 w-3 shrink-0 text-ai" aria-label="AI が書きました" />}
+            {item.source === 'ai' && <Sparkles className="h-3 w-3 shrink-0 text-ai" aria-label="AI作成" />}
             <span className="truncate">{item.recorded_by ?? (item.source === 'ai' ? 'AI' : '—')}</span>
           </span>
         </RowSlot>
@@ -237,10 +237,10 @@ function TopicRow({ item, editable }: { item: OpsReportItem; editable: boolean }
         <FormDialog
           open={editing}
           onOpenChange={setEditing}
-          title="トピックを直す"
+          title="トピックを編集"
           footer={(
             <FormDialogFooter>
-              <Button variant="outline" className="min-h-tap" onClick={() => setEditing(false)}>やめる</Button>
+              <Button variant="outline" className="min-h-tap" onClick={() => setEditing(false)}>キャンセル</Button>
               <Button className="min-h-tap" onClick={save} disabled={!content.trim() || updateItem.isPending}>
                 <Check className="mr-1 h-4 w-4" aria-hidden="true" />保存
               </Button>
