@@ -27,7 +27,7 @@
 import { Link } from 'react-router-dom';
 import {
   ArrowUpRight, CalendarCheck, ChevronRight, DoorOpen, FileText, Inbox, KeyRound, ListChecks,
-  Newspaper, Sparkles,
+  MessageSquareWarning, Newspaper, Sparkles,
 } from 'lucide-react';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
@@ -36,6 +36,7 @@ import { useInviewList } from '@/lib/inviewApi';
 import { useDailyopsAlerts } from '@/lib/inboxApi';
 import { useSecurityCardStats } from '@/lib/securityCardApi';
 import { useMyTaskSummary } from '@/lib/tasksApi';
+import { useFeedbackTicketCounts } from '@/lib/feedbackTicketsApi';
 import { formatDateJa, formatWeekJa, type OpsReport } from '@/lib/types';
 import { headOf, todayKey } from './inview/logic';
 
@@ -57,6 +58,7 @@ export default function HomePage() {
   const alerts = useDailyopsAlerts();
   const cardStats = useSecurityCardStats();
   const tasks = useMyTaskSummary();
+  const ticketCounts = useFeedbackTicketCounts();
 
   const ts = tasks.data;
   const taskMarks: Mark[] = [];
@@ -134,6 +136,16 @@ export default function HomePage() {
           // **別のアプリへ移る**（`/budget/documents`）。画面が一度白くなるので、
           // 押す前に行き先のアプリ名を出す（左メニューの札と同じ言い方に揃えてある）
           appHint="財務管理"
+        />
+        <Tile
+          to="/feedback-tickets"
+          icon={MessageSquareWarning}
+          title="フィードバックチケット"
+          description="GMO ONAiR への要望・不具合報告を起票し、対応状況を追いかけます"
+          marks={ticketCounts.data && (ticketCounts.data.open + ticketCounts.data.in_progress)
+            ? [{ label: `対応が要るもの ${ticketCounts.data.open + ticketCounts.data.in_progress}件`, tone: MARK_TONE.soon }]
+            : []}
+          empty="対応が要るチケットはありません"
         />
       </Group>
 

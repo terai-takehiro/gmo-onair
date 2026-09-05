@@ -27,6 +27,7 @@ import {
   KeyRound,
   LayoutDashboard,
   ListChecks,
+  MessageSquareWarning,
   Newspaper,
   Search,
 } from 'lucide-react';
@@ -50,6 +51,7 @@ export const DAILY_NAV: ShellNavSection[] = [
     title: '届いたもの',
     items: [
       { label: '入ってきた情報', to: '/inquiries', icon: Inbox },
+      { label: 'フィードバックチケット', to: '/feedback-tickets', icon: MessageSquareWarning },
       /*
         **画面は財務管理にある**（`/budget/documents`）。ここを消すと
         `dailyops` だけの人はアプリ切替に財務管理が出ないので辿り着けない。

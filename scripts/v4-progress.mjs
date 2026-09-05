@@ -248,6 +248,7 @@ const TREE = [
       '**財務管理へ移しました**（`/daily/finance` は転送）。`dailyops` 権限だけを要求していたので' +
       '**経理が開けませんでした**（実測で 403）。いまは `budget` か `dailyops` のどちらかで通ります'],
     ['セキュリティカード', '/daily/security-cards', 'client-daily/src/pages/SecurityCardsPage.tsx'],
+    ['フィードバックチケット (新規・2026-09)', '/daily/feedback-tickets', 'client-daily/src/pages/FeedbackTicketsPage.tsx'],
   ]],
   ['機材管理', [
     ['ダッシュボード', '/equipment/', 'client-equipment/src/pages/DashboardPage.tsx'],
