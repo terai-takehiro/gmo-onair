@@ -36,15 +36,22 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("18:00");
   const [notes, setNotes] = useState("");
+  // 確定 / 希望日（未確定）。studio_bookings.status と同じ2値のディップスイッチ的トグル
+  const [tentative, setTentative] = useState(false);
+  // 担当者（複数・任意）。登録ユーザーから選ぶので user_id の配列で持つ
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // 対象者プルダウン (manager のみ表示。パートナー権限保持者一覧)
+  // 対象者プルダウン（manager のみ）／担当者チップ（全員）に使う。パートナー権限保持者一覧
   const { data: partnerUsers = [] } = useQuery<Array<{ id: string; name: string }>>({
     queryKey: ["partner-schedule-users"],
     queryFn: async () => (await api.get("/users/by-module/partner_schedule")).data.data,
-    enabled: open && isManager,
+    enabled: open,
     staleTime: 5 * 60 * 1000,
   });
+
+  const toggleAssignee = (id: string) =>
+    setAssigneeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   useEffect(() => {
     if (!open) return;
@@ -60,6 +67,8 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
       setStartTime(st?.slice(0, 5) || "09:00");
       setEndTime(et?.slice(0, 5) || "18:00");
       setNotes(editing.notes || "");
+      setTentative(editing.status === "tentative");
+      setAssigneeIds((editing.assignees ?? []).map((a) => a.id));
     } else {
       // **`toISOString` を使わない** — 深夜0時〜朝9時 (JST) に開くと UTC に寄って前日になる
       const today = localDateStr(new Date());
@@ -71,6 +80,8 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
       setEndDate(presetRange?.end || presetRange?.start || today);
       setStartTime("09:00"); setEndTime("18:00");
       setNotes("");
+      setTentative(false);
+      setAssigneeIds([]);
     }
   }, [open, editing, presetRange, currentUser?.id]);
 
@@ -85,6 +96,8 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
         start_time: allDay ? startDate : `${startDate}T${startTime}`,
         end_time: allDay ? (endDate || startDate) : `${endDate || startDate}T${endTime}`,
         notes: notes.trim() || null,
+        status: tentative ? "tentative" : "confirmed",
+        assignee_user_ids: assigneeIds,
       };
       if (editing) return api.put(`/schedule/partner/${editing.id}`, payload);
       return api.post("/schedule/partner", payload);
@@ -219,6 +232,45 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
                   <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
                 </div>
               </>
+            )}
+          </div>
+
+          {/* 確定 / 希望日（未確定） */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <Switch checked={tentative} onCheckedChange={setTentative} id="ps-tentative" />
+              <Label htmlFor="ps-tentative">希望日（まだ確定していない）</Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              オンにすると、カレンダーに破線の枠で「未確定」として表示されます。決まったらオフにしてください。
+            </p>
+          </div>
+
+          {/* 担当者（複数・任意） */}
+          <div className="space-y-1.5">
+            <Label>担当者（複数選択可・いなくてもよい）</Label>
+            {partnerUsers.length === 0 ? (
+              <p className="text-sub-sm text-muted-foreground">選べる人がいません。</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {partnerUsers.map((u) => {
+                  const on = assigneeIds.includes(u.id);
+                  return (
+                    <button
+                      key={u.id}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => toggleAssignee(u.id)}
+                      className={cn(
+                        "text-badge rounded-full border px-3 py-1.5 transition-colors",
+                        on ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent"
+                      )}
+                    >
+                      {u.name}
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </div>
 
