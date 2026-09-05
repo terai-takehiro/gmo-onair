@@ -20,13 +20,15 @@ router.get('/feedback-tickets/counts', ...canRead, async (_req, res) => {
   res.json({ success: true, data: await feedbackTicketService.counts() });
 });
 
-// 一覧 (?status=&target_app=&category=&search=)
+// 一覧 (?status=&target_app=&category=&search=&limit=)。**上限つき**（既定50・最大200・
+// service 側で丸める）。総数は絞り込みチップ用の `/feedback-tickets/counts` を使うこと
 router.get('/feedback-tickets', ...canRead, async (req, res) => {
   const rows = await feedbackTicketService.list({
     status: req.query.status ? String(req.query.status) : undefined,
     target_app: req.query.target_app ? String(req.query.target_app) : undefined,
     category: req.query.category ? String(req.query.category) : undefined,
     search: req.query.search ? String(req.query.search) : undefined,
+    limit: req.query.limit ? Number(req.query.limit) : undefined,
   });
   res.json({ success: true, data: rows });
 });

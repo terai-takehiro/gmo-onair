@@ -36,8 +36,17 @@ export function TicketRowsHeader() {
 }
 
 export function TicketRow({ ticket, onSelect }: { ticket: FeedbackTicket; onSelect: () => void }) {
+  // `Row` は `role="button"` を持つだけの `<div>` なので、キーボード操作
+  // （Enter・Space）はブラウザが勝手には合成してくれない。押せる行の決めごと通り、
+  // ここで拾って `onSelect` を呼ぶ（Space は既定でページを下スクロールするので防ぐ）
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onSelect();
+    }
+  };
   return (
-    <Row divider interactive stackOnMobile onClick={onSelect} role="button" tabIndex={0}>
+    <Row divider interactive stackOnMobile onClick={onSelect} onKeyDown={onKeyDown} role="button" tabIndex={0}>
       <RowSlot w={96}>
         <TableBadge label={STATUS_LABELS[ticket.status]} w={null} className={STATUS_TONE[ticket.status]} />
       </RowSlot>

@@ -176,7 +176,11 @@ export interface FeedbackTicket {
   updated_at: string;
 }
 
-export interface TicketCounts { all: number; open: number; in_progress: number; resolved: number; rejected: number }
+export interface TicketCounts {
+  all: number; open: number; in_progress: number; resolved: number; rejected: number;
+  /** 対象アプリごとの総数（絞り込みチップ用）。一覧は上限つきなので、件数はここから読む */
+  byTargetApp: Record<string, number>;
+}
 
 export interface CreateTicketInput {
   title: string;
@@ -193,11 +197,33 @@ export interface UpdateStatusInput {
 
 const KEY = 'feedback-tickets';
 
-export function useFeedbackTickets(filter: { status?: string; target_app?: string; category?: string; search?: string } = {}) {
-  return useQuery({
-    queryKey: [KEY, 'list', filter.status ?? 'all', filter.target_app ?? 'all', filter.category ?? 'all', filter.search ?? ''],
-    queryFn: () =>
-      api.get('/dailyops/feedback-tickets', { params: filter }).then((r) => r.data.data as FeedbackTicket[]),
+export function useFeedbackTickets(filter: { status?: string; target_app?: string; category?: string; search?: string; limit?: number } = {}) {
+  // 絞り込み部分だけの鍵（`limit` を含まない）。「さらに読み込む」で `limit` だけが
+  // 変わったのか、状態・対象アプリ・検索そのものが変わったのかを見分けるために使う
+  const filterKeyParts = [filter.status ?? 'all', filter.target_app ?? 'all', filter.category ?? 'all', filter.search ?? ''];
+
+  return useQuery<FeedbackTicket[]>({
+    queryKey: [KEY, 'list', ...filterKeyParts, filter.limit ?? 'default'],
+    /*
+     * **前回の結果を持ち越すのは「同じ絞り込みで `limit` だけ伸びた」ときだけ**
+     * （レビュー #562 で指摘）。`keepPreviousData` をそのまま渡すと、状態・対象アプリ・
+     * 検索を変えた直後も前の絞り込みの行を「まだ一致している」かのように出し続けてしまう
+     * （新しい問い合わせが終わるまで、選んでいない絞り込みの行が押せてしまう）。
+     * 絞り込み部分が変わっていないときだけ前回のデータを渡し、変わっていれば
+     * `undefined` を返して素直にローディング状態にする。
+     */
+    placeholderData: (previousData, previousQuery) => {
+      if (!previousQuery) return undefined;
+      const prevKey = previousQuery.queryKey as unknown[];
+      const prevFilterParts = prevKey.slice(2, 2 + filterKeyParts.length);
+      const sameFilter = filterKeyParts.every((v, i) => v === prevFilterParts[i]);
+      return sameFilter ? previousData : undefined;
+    },
+    // **絞り込みを変えるたびに前の問い合わせを打ち切る**。打ち切らないと、
+    // 検索中に何度も打鍵したときに古い問い合わせがサーバー・DB の接続を
+    // 使い続けたまま走り続ける（結果はもう画面に出せないのに）
+    queryFn: ({ signal }) =>
+      api.get('/dailyops/feedback-tickets', { params: filter, signal }).then((r) => r.data.data as FeedbackTicket[]),
     refetchOnMount: 'always',
   });
 }
