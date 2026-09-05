@@ -180,6 +180,8 @@ export interface PurchaseRow {
    * `ledger/serviceDate.ts` の `toServiceDateInput()` を通すこと。
    */
   service_completed_date: string | null;
+  /** 担当者（ユーザーID）。外部キー制約なし・任意項目（`SgaRow.assigned_to` と同じ扱い） */
+  assigned_to: string | null;
   notes: string | null;
   group_id: string | null;
   group_name: string | null;

@@ -72,7 +72,7 @@ export default function PurchaseListPage() {
   const [searchParams] = useSearchParams();
   const filterProjectId = searchParams.get('project_id') || '';
   const filterProjectName = searchParams.get('project_name') || '';
-  const { hasPermission } = useAuth();
+  const { hasPermission, currentUser } = useAuth();
   const canEdit = hasPermission('sales', 'editor');
   /*
    * **幅で変わるのはこの画面では3つだけ**（Excel の道具・合計帯の場所・注記の
@@ -116,7 +116,7 @@ export default function PurchaseListPage() {
   // 仕入ダイアログ用データ（案件候補・仕入先）と `?edit={id}` の直接オープン。
   // まとめて `ledger/usePurchaseDialogData.ts` に切り出してある
   const editParam = searchParams.get('edit');
-  const { glsProjects, vendors } = usePurchaseDialogData({
+  const { glsProjects, vendors, users } = usePurchaseDialogData({
     dialogOpen: crud.dialogOpen,
     editParam,
     canEdit,
@@ -371,6 +371,8 @@ export default function PurchaseListPage() {
           defaultProjectId={filterProjectId}
           projects={glsProjects}
           vendors={vendors}
+          users={users}
+          currentUserId={currentUser?.id}
           saving={crud.save.isPending}
           deleting={crud.remove.isPending}
           onSave={(payload) => crud.save.mutate(payload)}

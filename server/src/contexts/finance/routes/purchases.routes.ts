@@ -116,7 +116,7 @@ router.get('/:id', async (req, res) => {
 });
 
 router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
-  const { project_id, episode_id, vendor_id, settlement_method, settlement_number, settlement_url,
+  const { project_id, episode_id, vendor_id, assigned_to, settlement_method, settlement_number, settlement_url,
           tax_category, invoice_qualified, amount, description,
           recognition_date, inspection_date, payment_due_date, notes, is_provisional,
           service_completed_date } = req.body;
@@ -135,7 +135,9 @@ router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
   await execute(
     `INSERT INTO purchases (id, billing_key, project_id, episode_id, vendor_id, assigned_to, settlement_method, settlement_number, settlement_url, tax_category, invoice_qualified, amount, description, recognition_date, inspection_date, payment_due_date, notes, is_provisional, service_completed_date, created_by)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, billing_key, project_id, episode_id || null, vendor_id, req.user!.id,
+    // `assigned_to` は任意項目（SGA・売上と同水準）。**未指定なら作成者に落とす**——
+    // 欄を持たない古い呼び出し（Excel取込・MCP等）が担当者なしで作れなくなるのを防ぐ
+    [id, billing_key, project_id, episode_id || null, vendor_id, assigned_to || req.user!.id,
      settlement_method || null, settlement_number || null, settlement_url || null, tax_category || 'tax10',
      invoice_qualified !== undefined ? (invoice_qualified ? 1 : 0) : 1,
      amount || 0, description || null, recognition_date || null,
@@ -150,7 +152,7 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   const existing = await queryOne('SELECT * FROM purchases WHERE id = ? AND deleted_at IS NULL', [req.params.id]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '仕入が見つかりません');
 
-  const { project_id, episode_id, vendor_id, settlement_method, settlement_number, settlement_url,
+  const { project_id, episode_id, vendor_id, assigned_to, settlement_method, settlement_number, settlement_url,
           tax_category, invoice_qualified, amount, description,
           recognition_date, inspection_date, payment_due_date, notes, is_provisional,
           service_completed_date } = req.body;
@@ -160,13 +162,14 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   // 部分更新契約: 送られなかったフィールドは既存値を保持する (省略で NOT NULL 違反・
   // 計上日消失・適格 0 への強制降格が起きていたのを防ぐ)。空文字は null 化する。
   await execute(
-    `UPDATE purchases SET project_id=?, episode_id=?, vendor_id=?, settlement_method=?, settlement_number=?, settlement_url=?,
+    `UPDATE purchases SET project_id=?, episode_id=?, vendor_id=?, assigned_to=?, settlement_method=?, settlement_number=?, settlement_url=?,
      tax_category=?, invoice_qualified=?, amount=?, description=?,
      recognition_date=?, inspection_date=?, payment_due_date=?, notes=?, is_provisional=?, service_completed_date=?,
      updated_at=NOW(), updated_by=? WHERE id=?`,
     [project_id !== undefined ? project_id : existing.project_id,
      episode_id !== undefined ? (episode_id || null) : existing.episode_id,
      vendor_id !== undefined ? vendor_id : existing.vendor_id,
+     assigned_to !== undefined ? (assigned_to || null) : existing.assigned_to,
      settlement_method !== undefined ? (settlement_method || null) : existing.settlement_method,
      settlement_number !== undefined ? (settlement_number || null) : existing.settlement_number,
      settlement_url !== undefined ? (settlement_url || null) : existing.settlement_url,
