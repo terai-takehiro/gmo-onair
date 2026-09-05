@@ -59,6 +59,23 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
   const toggleAssignee = (id: string) =>
     setAssigneeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
+  /**
+   * 担当者チップに出す一覧。**選択肢 (`partnerUsers`) だけでなく、いま選ばれている人も含める。**
+   *
+   * 既存の担当者が後から sales 権限を失うと `partnerUsers`（`/users/by-module/sales`）
+   * には出てこなくなるが、`assigneeIds` には残ったまま。ここで出さないと外すボタンが
+   * 無くなり、保存するたびサーバーが再送された無効なIDを 400 で拒否して
+   * **二度と保存できなくなる**（Codex レビューで指摘・#564）。「対象外」と分かる
+   * 見た目にして、外すことだけできるようにする（選び直しの候補には出さない）
+   */
+  const staleAssignees = (editing?.assignees ?? []).filter(
+    (a) => assigneeIds.includes(a.id) && !partnerUsers.some((u) => u.id === a.id)
+  );
+  const assigneeChips = [
+    ...partnerUsers.map((u) => ({ id: u.id, name: u.name, stale: false })),
+    ...staleAssignees.map((a) => ({ id: a.id, name: a.name, stale: true })),
+  ];
+
   useEffect(() => {
     if (!open) return;
     setError(null);
@@ -255,11 +272,11 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
           {/* 担当者（複数・任意） */}
           <div className="space-y-1.5">
             <Label>担当者（複数選択可・いなくてもよい）</Label>
-            {partnerUsers.length === 0 ? (
+            {assigneeChips.length === 0 ? (
               <p className="text-sub-sm text-muted-foreground">選べる人がいません。</p>
             ) : (
               <div className="flex flex-wrap gap-1.5">
-                {partnerUsers.map((u) => {
+                {assigneeChips.map((u) => {
                   const on = assigneeIds.includes(u.id);
                   return (
                     <button
@@ -267,12 +284,15 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
                       type="button"
                       aria-pressed={on}
                       onClick={() => toggleAssignee(u.id)}
+                      title={u.stale ? "sales 権限が無くなっているため選び直せません。外すことだけできます" : undefined}
                       className={cn(
                         "text-badge rounded-full border px-3 py-1.5 transition-colors",
-                        on ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent"
+                        u.stale
+                          ? "border-dashed border-destructive/40 text-destructive"
+                          : on ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent"
                       )}
                     >
-                      {u.name}
+                      {u.name}{u.stale && "（対象外・外すのみ可）"}
                     </button>
                   );
                 })}
