@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import api from './api';
 
 // フィードバックチケット（GMO ONAiR 自体への要望・不具合報告）API の react-query フック集 + 型・定数。
@@ -198,10 +198,17 @@ export interface UpdateStatusInput {
 const KEY = 'feedback-tickets';
 
 export function useFeedbackTickets(filter: { status?: string; target_app?: string; category?: string; search?: string; limit?: number } = {}) {
-  return useQuery({
+  return useQuery<FeedbackTicket[]>({
     queryKey: [KEY, 'list', filter.status ?? 'all', filter.target_app ?? 'all', filter.category ?? 'all', filter.search ?? '', filter.limit ?? 'default'],
-    queryFn: () =>
-      api.get('/dailyops/feedback-tickets', { params: filter }).then((r) => r.data.data as FeedbackTicket[]),
+    // **前回の結果を出したまま次を取りに行く**（`limit` が絞り込みチップと同じく
+    // 問い合わせの鍵に入っているため、「さらに読み込む」を押すたびに鍵が変わり、
+    // 何もしないと一覧がいったん空になってスケルトンに戻ってしまう）
+    placeholderData: keepPreviousData,
+    // **絞り込みを変えるたびに前の問い合わせを打ち切る**。打ち切らないと、
+    // 検索中に何度も打鍵したときに古い問い合わせがサーバー・DB の接続を
+    // 使い続けたまま走り続ける（結果はもう画面に出せないのに）
+    queryFn: ({ signal }) =>
+      api.get('/dailyops/feedback-tickets', { params: filter, signal }).then((r) => r.data.data as FeedbackTicket[]),
     refetchOnMount: 'always',
   });
 }

@@ -236,8 +236,11 @@ export default function FeedbackTicketsPage() {
           description="GMO ONAiR への要望・不具合報告に気づいたら、右上の「チケットを起票する」から起こしてください。"
         />
       ) : (
+        // **問い合わせに使った語（`debouncedSearch`）を出す。** 入力欄の `search` を
+        // そのまま出すと、打っている途中の300msの間だけ「まだ問い合わせていない語」
+        // に一致が無いと言い切ってしまう（レビュー #562 で指摘）
         <NoSearchResults
-          keyword={search || undefined}
+          keyword={debouncedSearch.trim() || undefined}
           activeFilters={[
             status === 'all' ? '' : `状態: ${STATUS_LABELS[status]}`,
             targetApp ? `アプリ: ${TARGET_APP_LABEL[targetApp]}` : '',

@@ -254,24 +254,34 @@ export const feedbackTicketService = {
       throw new AppError(400, 'VALIDATION_ERROR', '対応状況の指定が正しくありません');
     }
 
-    // **省略 (undefined) = 元の値のまま／明示的な null = 消す** を区別する。
-    // `??` は両方とも「無い」として扱うため、対応コメントを空にして保存しても
-    // 直前の値が復活してしまっていた（画面は必ずどちらかを送るので実害があった）
-    const responseNote = input.response_note !== undefined ? input.response_note : (existing.response_note ?? null);
-
-    // **「初めて閉じた」瞬間だけ `resolved_at` を今にする。** 対応済み/却下のチケットを
-    // 対応コメントだけ直して保存すると、以前は毎回 NOW() で上書きし、
-    // 実際に閉じた時刻が保存のたびに更新されてしまっていた
-    const wasClosed = existing.status === 'resolved' || existing.status === 'rejected';
+    // **省略 (undefined) と明示的な null をここで区別だけしておく。** 実際の分岐
+    // （元の値のまま残すか・渡された値で置き換えるか）は下の UPDATE の中で行う
+    const hasResponseNote = input.response_note !== undefined;
+    // 新しい状態が「閉じる」側かどうかは、これから書く値だけで決まる（競合の余地が無い）
     const willClose = input.status === 'resolved' || input.status === 'rejected';
-    const resolvedAtSql = !willClose ? 'NULL' : wasClosed ? '?' : 'NOW()';
-    const resolvedAtParams = willClose && wasClosed ? [existing.resolved_at] : [];
 
+    /*
+     * ⚠️ **「いま閉じているか」の判定を UPDATE 文の中で行う**（読んでから書くまでの間に
+     * 別の更新が挟まる TOCTOU への対処・レビュー #562 で指摘）。事前に読んだ
+     * `existing.status`/`existing.resolved_at` をここで使うと、2人が同時に触ったとき
+     * 片方が古い状態を基準に「初めて閉じた」と誤判定しうる。SET 句の中で裸の
+     * `status`/`resolved_at` を参照すると、この UPDATE がその行のロックを取った
+     * 時点の値（＝他の更新を待ってからの最新値）を指すため、読み取りと書き込みが
+     * 1本の UPDATE の中で原子的になる。同じ理由で `response_note` も
+     * 「元の値のまま」にする場合は自分自身（`response_note`）を参照する。
+     */
     await execute(
       `UPDATE feedback_tickets
-         SET status = ?, response_note = ?, resolved_at = ${resolvedAtSql}, updated_at = NOW()
+         SET status = ?,
+             response_note = CASE WHEN ?::boolean THEN ? ELSE response_note END,
+             resolved_at = CASE
+               WHEN NOT ?::boolean THEN NULL
+               WHEN status IN ('resolved', 'rejected') THEN resolved_at
+               ELSE NOW()
+             END,
+             updated_at = NOW()
        WHERE id = ?`,
-      [input.status, responseNote, ...resolvedAtParams, id],
+      [input.status, hasResponseNote, input.response_note ?? null, willClose, id],
     );
     return (await this.get(id))!;
   },
