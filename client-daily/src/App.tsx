@@ -12,6 +12,7 @@ import InviewPage from './pages/InviewPage';
 import InviewDayPage from './pages/InviewDayPage';
 import InquiriesPage from './pages/InquiriesPage';
 import SecurityCardsPage from './pages/SecurityCardsPage';
+import FeedbackTicketsPage from './pages/FeedbackTicketsPage';
 import SearchPage from './pages/SearchPage';
 import TasksPage from './pages/TasksPage';
 
@@ -59,6 +60,7 @@ export default function App() {
             <Route path="/finance" element={<RedirectToFinanceDocs />} />
             <Route path="/inquiries" element={<InquiriesPage />} />
             <Route path="/security-cards" element={<SecurityCardsPage />} />
+            <Route path="/feedback-tickets" element={<FeedbackTicketsPage />} />
             {/* スマホ下タブの3つ目（M9）。PC でも開けるが、入口はスマホの下タブ */}
             <Route path="/search" element={<SearchPage />} />
           </Route>
