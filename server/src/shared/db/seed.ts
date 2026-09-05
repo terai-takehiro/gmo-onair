@@ -818,18 +818,29 @@ export async function seed() {
   // ============================================================
   const bkSql = `INSERT INTO studio_bookings (id, title, booking_type, project_id, episode_id, all_day, start_time, end_time, location_note, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const bkRoomSql = `INSERT INTO studio_booking_rooms (booking_id, room_id, occupant, usage_note) VALUES (?, ?, ?, ?)`;
+  // 担当者 (migration 279)。**控室の利用者 (occupant) とは別物** — こちらは社内で現場を持つ人。
+  // 検証環境に1件も入っていないと、担当者の表示・「人で絞る」を画面から確かめられない
+  const bkAssigneeSql = `INSERT INTO studio_booking_assignees (id, booking_id, user_id, sort_order) VALUES (?, ?, ?, ?)`;
+  /** 予約に担当者を並び順つきで付ける (担当者のいない予約はそのままにする) */
+  const bkAssignees = async (bookingId: string, userIds: string[]) => {
+    for (let i = 0; i < userIds.length; i++) {
+      await ins(bkAssigneeSql, [uuidv4(), bookingId, userIds[i], i]);
+    }
+  };
 
   // GLS-A001 IR説明会 → WORLD STUDIO + MEETING ROOM + VIP LOUNGE
   const bk1 = uuidv4();
   await ins(bkSql, [bk1, 'GLS-A001 GH春季IR説明会 リハーサル', 'rehearsal', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'], 1, '2026-03-27', '2026-03-27', null, 'リハーサル。前日仕込み含む', USERS.staff1]);
   await ins(bkRoomSql, [bk1, ROOMS['WORLD STUDIO'], null, null]);
   await ins(bkRoomSql, [bk1, ROOMS['MEETING ROOM'], 'スタッフ控室', '技術チーム待機']);
+  await bkAssignees(bk1, [USERS.staff1, USERS.staff2]);
 
   const bk2 = uuidv4();
   await ins(bkSql, [bk2, 'GLS-A001 GH春季IR説明会 本番', 'performance', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'], 1, '2026-03-28', '2026-03-28', null, '本番日', USERS.staff1]);
   await ins(bkRoomSql, [bk2, ROOMS['WORLD STUDIO'], null, null]);
   await ins(bkRoomSql, [bk2, ROOMS['MEETING ROOM'], 'GH社 田村様ほか5名', '来賓控室']);
   await ins(bkRoomSql, [bk2, ROOMS['VIP LOUNGE'], 'GH社 代表取締役', 'VIP控室']);
+  await bkAssignees(bk2, [USERS.staff1, USERS.staff2, USERS.staff3]);
 
   // GLS-A002 サイエンス・フロンティア 収録 (時間指定)
   const bk3 = uuidv4();
@@ -847,6 +858,7 @@ export async function seed() {
   await ins(bkSql, [bk5, 'GLS-A003 #001 ネットライブ配信', 'performance', PROJECTS['GLS-A003'], EPISODES['GLS-A003-001'], 0, '2026-04-05T19:00', '2026-04-05T22:00', null, '生配信', USERS.staff3]);
   await ins(bkRoomSql, [bk5, ROOMS['LOUNGE STUDIO'], null, null]);
   await ins(bkRoomSql, [bk5, ROOMS['第2調整室'], null, null]);
+  await bkAssignees(bk5, [USERS.staff3]);
 
   // メンテナンス予約
   const bk6 = uuidv4();
@@ -867,6 +879,7 @@ export async function seed() {
   // 外現場
   const bk9 = uuidv4();
   await ins(bkSql, [bk9, 'GLS-A005 GE ドキュメンタリー ロケ', 'performance', PROJECTS['GLS-A005'], EPISODES['GLS-A005-001'], 1, '2026-04-10', '2026-04-12', '富士山麓ロケーション', '3日間ロケ撮影', USERS.staff2]);
+  await bkAssignees(bk9, [USERS.staff2]);
 
   /*
    * **今日を含む予約。** 上の予約は 2026-03〜04 の固定日付なので、
