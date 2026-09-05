@@ -26,14 +26,23 @@
  * テーブルに持ち、`設定 > お金のルール`（`StageProbabilities.tsx`）から変えられる。
  * ここでは値そのものは持たず、サーバーが返す `byStage`（未使用だが将来の内訳表示に
  * 備えて保持）／`weighted` を出すだけにする。
+ *
+ * ── 「総額」/「確度加味」の切り替えは画面レベルへ引き上げ済み（2026-09） ──────
+ *
+ * 以前はこのカードがトグルの state と UI を自分で持っていたが、**置き場所が
+ * このカード内の設定に見え、画面全体の見え方を切り替えているように読めない**
+ * というご指摘があり、`forecastMode` は `BudgetDashboardPage` の state・
+ * トグル UI は `PeriodBar` と同じ並びの `ForecastModeToggle` に引き上げた。
+ * **このカードは `forecastMode` を props で受け取るだけ**（集計対象は変えていない
+ * ——`forecastMode` を使うのは引き続きこのカードだけ）。
  */
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { TrendingUp } from 'lucide-react';
 import api from '@/lib/api';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { cn } from '@gmo-onair/shared/src/client/utils';
+import type { ForecastMode } from './ForecastModeToggle';
 
 interface ForecastTotals {
   revenue: number;
@@ -48,17 +57,11 @@ interface PipelineForecastData {
   weighted: ForecastTotals;
 }
 
-type ForecastMode = 'total' | 'weighted';
-
-const MODE_LABEL: Record<ForecastMode, string> = { total: '総額', weighted: '確度加味' };
-
 function pctLabel(rate: number | null): string {
   return rate == null ? '—' : `${(rate * 100).toFixed(1)}％`;
 }
 
-export function PipelineForecast({ projectId }: { projectId: string }) {
-  const [forecastMode, setForecastMode] = useState<ForecastMode>('weighted');
-
+export function PipelineForecast({ projectId, forecastMode }: { projectId: string; forecastMode: ForecastMode }) {
   const q = useQuery<PipelineForecastData>({
     queryKey: ['pipeline-forecast', projectId],
     queryFn: async () => (await api.get('/pipeline-forecast', {
@@ -79,35 +82,11 @@ export function PipelineForecast({ projectId }: { projectId: string }) {
 
   return (
     <section className="rounded-card flex flex-col gap-3 border border-border bg-card p-3 lg:px-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2.5">
-          <span className="rounded-note inline-flex h-7 w-7 shrink-0 items-center justify-center bg-primary-surface">
-            <TrendingUp className="h-4 w-4 text-primary" aria-hidden="true" />
-          </span>
-          <span className="text-cardtitle">営業見通し（パイプライン）</span>
-        </div>
-        <div
-          role="group"
-          aria-label="集計方法"
-          className="rounded-control inline-flex shrink-0 overflow-hidden border border-border"
-        >
-          {(['total', 'weighted'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setForecastMode(m)}
-              aria-pressed={forecastMode === m}
-              className={cn(
-                'min-h-tap px-3 text-sub lg:min-h-[32px]',
-                forecastMode === m
-                  ? 'bg-primary font-bold text-primary-foreground'
-                  : 'text-secondary-foreground hover:bg-muted',
-              )}
-            >
-              {MODE_LABEL[m]}
-            </button>
-          ))}
-        </div>
+      <div className="flex items-center gap-2.5">
+        <span className="rounded-note inline-flex h-7 w-7 shrink-0 items-center justify-center bg-primary-surface">
+          <TrendingUp className="h-4 w-4 text-primary" aria-hidden="true" />
+        </span>
+        <span className="text-cardtitle">営業見通し（パイプライン）</span>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
