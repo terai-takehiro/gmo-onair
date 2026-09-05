@@ -738,16 +738,7 @@ export default function DataViewerPage() {
               ) : (
                 <div className="flex flex-col items-center justify-center h-full gap-1 text-muted-foreground">
                   <Database className="h-10 w-10 mb-2" />
-                  {/* **空状態は2型**（絞り込んだ結果 0 件 と、そもそも 0 件）。
-                      混ぜると「検索が壊れている」のか「無い」のか分からない */}
-                  {debouncedSearch ? (
-                    <>
-                      <p>条件に合う行はありません。</p>
-                      <p className="text-xs">検索の言葉を短くするか、絞り込みを外してください。</p>
-                    </>
-                  ) : (
-                    <p>この表にはまだ行がありません。</p>
-                  )}
+                  {/* **空状態は2型**（絞り込んで 0 件／そもそも 0 件）。混ぜると「検索が壊れている」のか「無い」のかが分からない */}<p>{debouncedSearch ? '条件に合う行はありません。言葉を短くするか、絞り込みを外してください。' : 'この表にはまだ行がありません。'}</p>
                 </div>
               )}
             </div>
@@ -867,8 +858,7 @@ export default function DataViewerPage() {
         <div className="flex flex-col gap-4">
           <p className="text-sub flex items-start gap-2 text-destructive">
             <Trash2 className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
-            {/* 実装は `deleted_at` に現在時刻を入れる論理削除。列名は画面に出さない */}
-            <span>この行を <strong className="font-bold">削除</strong> します。各画面から見えなくなりますが、データそのものは残るので、必要になったら戻せます。</span>
+            {/* 実装は `deleted_at` に時刻を入れる論理削除。列名も用語も画面には出さない */}<span>この行を <strong className="font-bold">削除</strong> します。各画面から見えなくなりますが、記録は残るので必要なら戻せます。</span>
           </p>
           <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1">
             <div><span className="text-muted-foreground">テーブル:</span> {TABLE_LABELS[selectedTable] || selectedTable} <span className=" text-[10px]">({selectedTable})</span></div>

@@ -146,13 +146,13 @@ const TREE = [
   ['設定', [
     ['① 設定トップ (案内板)', '/settings', 'client/src/contexts/platform/pages/SettingsHubPage.tsx',
       './settings/hubCards',
-      '**8枚のうち3枚は「これから作ります」**（お金のルール / 休日・営業時間 / 通知とテンプレート）。' +
+      '**8枚のうち3枚は「これから作ります」**（お金のルール / 休日・営業時間 / 知らせと文面）。' +
       '持つ表がまだ無いので、押せない形で並べ、何が足りないかを画面に書いています。' +
       '**権限が無いカードはカードごと出しません**（押せば 403 になるだけなので）'],
     ['② 拠点・部屋', '/settings/sites', 'client/src/contexts/platform/pages/SitesPage.tsx', undefined,
       '拠点は**カレンダーと料金表の両方**で使われるので設定に置きました（migration 172）。' +
       '部屋の一覧はカレンダーの設定と**同じ部品**（`RoomsTab`）を使っています'],
-    ['③ 権限とメンバー', '/settings/users', 'client/src/contexts/platform/pages/members/MembersPage.tsx',
+    ['③ 人と権限', '/settings/users', 'client/src/contexts/platform/pages/members/MembersPage.tsx',
       undefined,
       'モックの**役割5種**を、権限の**「型」**として入れました（役割は自分たちで足せます）。' +
       '役割を押すとその人の `user_permissions` がまとめて書き換わる形で、' +
@@ -189,7 +189,7 @@ const TREE = [
       '当てても予約の見え方は 1 つも変わりません — 放送・制作は祝日こそ稼働するため、' +
       'いきなり注意を出すと全部の祝日がうるさくなります。' +
       '春分・秋分には**「予測」の印**を出します（政府が前年 2 月に公示するまで確定しない）'],
-    ['⑦ 通知とテンプレート', '/settings/notify', 'client/src/contexts/platform/pages/notify/NotifyPage.tsx',
+    ['⑦ 知らせと文面', '/settings/notify', 'client/src/contexts/platform/pages/notify/NotifyPage.tsx',
       undefined,
       'モックの 11 本＋社内向け 2 本。**社外あて 6 本は ONAiR からは送りません**（ご判断）— ' +
       '差し込みが1つずれる・きっかけが誤爆する・宛先が古い、のどれも**お客様に届くと取り返しがつかない**ため。' +
@@ -274,8 +274,8 @@ const TREE = [
     // 親ファイルを見ていたため、実装済みなのに⬜と誤判定していた（2026-08-22 修正）
     ['QRスキャン', '/equipment/scan', 'client-equipment/src/pages/scan/ScanPageDesktop.tsx'],
     ['貸出・返却', '/equipment/lendings', 'client-equipment/src/pages/LendingListPage.tsx'],
-    // v4: 拠点・メーカー・色・貸出カテゴリ・貸出の決めごとを1画面4タブに畳んだ
-    ['設定 (拠点・メーカー・貸出カテゴリ・貸出の決めごと)', '/equipment/settings', 'client-equipment/src/pages/SettingsPage.tsx'],
+    // v4: 拠点・メーカー・色・貸出カテゴリ・貸出のルールを1画面4タブに畳んだ
+    ['設定 (拠点・メーカー・貸出カテゴリ・貸出のルール)', '/equipment/settings', 'client-equipment/src/pages/SettingsPage.tsx'],
   ]],
   // v4 で新しく作ったアプリ。DB・API・画面すべて新規（migration 161/162）
   ['プロジェクト管理 (新規)', [
@@ -294,7 +294,7 @@ const TREE = [
       '（サーバーは `gpm_phase_id` を NULL にするだけ）ので、出さないと外れたタスクが迷子になります。' +
       '工程は足す・並べ替える（隣と入れ替え）・消すができます'],
     ['④ 新規作成', '/gpm/projects/new', 'client/src/contexts/gpm/pages/GpmProjectFormPage.tsx'],
-    ['⑤ やること（未確認事項）', '/gpm/tasks', 'client/src/contexts/gpm/pages/GpmTaskListPage.tsx'],
+    ['⑤ タスクと持ち帰り', '/gpm/tasks', 'client/src/contexts/gpm/pages/GpmTaskListPage.tsx'],
     ['⑦ 工程のひな形', '/gpm/templates', 'client/src/contexts/gpm/pages/GpmTemplateListPage.tsx'],
     // 打合せの録音 → 文字起こし → AI の下書き。**案件と同じ表・同じサービス**
     ['議事録（プロジェクト詳細のタブ）', '/gpm/projects/:id/minutes',
