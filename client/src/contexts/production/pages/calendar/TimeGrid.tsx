@@ -106,8 +106,14 @@ export function TimeGrid({
                 type="button"
                 onClick={() => onOpen(e)}
                 title={tip(e)}
-                className="rounded-badge flex h-[19px] items-center gap-1.5 overflow-hidden px-1.5"
-                style={{ backgroundColor: `${e.color}1a` }}
+                className={cn(
+                  'rounded-badge flex h-[19px] items-center gap-1.5 overflow-hidden px-1.5',
+                  // **終日の仮押さえ/希望日にも破線を付ける。** 有給等の希望日は終日が既定形
+                  // なのに、この行だけ下の時間帯の札（164行目）と違って破線が付いていなかった
+                  // （Codex レビューで指摘・#564）
+                  e.tentative && 'border border-dashed',
+                )}
+                style={{ backgroundColor: `${e.color}1a`, borderColor: e.tentative ? e.color : undefined }}
               >
                 <span className="h-3 w-[3px] shrink-0 rounded-badge-xs" style={{ backgroundColor: e.color }} />
                 <span className="text-badge min-w-0 truncate text-secondary-foreground">{e.title}</span>

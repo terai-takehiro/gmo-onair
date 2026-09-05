@@ -172,6 +172,13 @@ router.put('/partner/:id', ...canEdit, async (req, res) => {
   const assigneeIds = await resolveAssigneeIds(b.assignee_user_ids);
 
   await withTransaction(async (tx) => {
+    // **予定の行を明示的にロックしてから担当者を貼り替える。** 直後の UPDATE 文自体が
+    // 同じ行を transaction の間ずっとロックするので今のところは重複していないが、
+    // それに頼ると「UPDATE を条件付きでスキップする」ような将来の書き換えで
+    // 事故る（担当者だけ delete→insert して行のロックが無い状態が生まれる）。
+    // ロックする意図をここに明示しておく（Codex レビューで指摘・#564。30並列の
+    // PUT で競合が起きない＝今は安全なことは検証済みだが、それとは別に固定する）
+    await tx.queryOne(`SELECT id FROM partner_schedules WHERE id = ? FOR UPDATE`, [existing.id]);
     await tx.execute(
       `UPDATE partner_schedules SET user_id=?, schedule_type=?, title=?, all_day=?, start_time=?, end_time=?, notes=?, status=?, updated_at=NOW(), updated_by=? WHERE id=?`,
       [targetUserId, type,
