@@ -29,6 +29,7 @@ const ALLOWED_TABLES = [
   'episodes', 'episode_orders',
   'invoice_groups', 'invoice_group_episodes',
   'studio_locations', 'studio_rooms', 'studio_bookings', 'studio_booking_rooms',
+  'studio_booking_assignees',
   'lost_reason_categories',
   'simulations', 'sales_targets',
   'activity_logs',

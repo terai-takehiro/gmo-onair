@@ -133,6 +133,16 @@ router.get('/calendar.ics', async (req, res) => {
     roomsByBooking.get(br.booking_id)!.push(br);
   }
 
+  /*
+   * 担当者 (migration 279) も本文に載せる。
+   *
+   * **予定を受け取る側がいちばん知りたいのは「誰が持つ現場か」**で、そこは
+   * Google / Outlook に取り込まれたあとで ONAiR を開き直さないと分からない
+   * ままだった（画面には出るのに、配ったカレンダーには出ない）。
+   * 期間内の予約に絞って一括で引く（一覧・空き照会と同じ理由 — 全行を引くと年々遅くなる）。
+   */
+  const assigneesByBooking = await fetchAssigneesByBookingIds(bookings.map((b) => b.id));
+
   // 予約種別ラベル (StudioBookingDialog の bookingTypeOptions と一致させること)
   const BOOKING_TYPE_LABELS: Record<string, string> = {
     performance: '本番', rehearsal: 'リハーサル', hold: '仮押さえ', tour: '内覧',
@@ -173,6 +183,8 @@ router.get('/calendar.ics', async (req, res) => {
       if (occupants.length) parts.push(`使用者: ${occupants.join(', ')}`);
       if (usageNotes.length) parts.push(usageNotes.join('\n'));
     }
+    const assignees = assigneesByBooking.get(b.id) ?? [];
+    if (assignees.length) parts.push(`担当: ${assignees.map((a) => a.name).join('、')}`);
     if (b.location_note) parts.push(`場所メモ: ${b.location_note}`);
     if (b.notes) parts.push(b.notes);
     while (parts.length && parts[parts.length - 1] === '') parts.pop();

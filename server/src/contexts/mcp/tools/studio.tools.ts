@@ -30,6 +30,10 @@ function trimBookingRow(row: any) {
     project_name: row.project_name,
     gls_number: row.gls_number,
     episode_code: row.episode_code,
+    // 担当者 (migration 279)。**要約でも落とさない** — 入れられるのに読めないと、
+    // 「誰が持つ現場か」を訊かれるたびに画面を開き直すことになる
+    assignees: (row.assignees as Array<{ id: string; name: string }> | undefined)
+      ?.map((a) => ({ id: a.id, name: a.name })) ?? [],
     rooms: (row.rooms as any[] | undefined)?.map((r) => ({
       room_id: r.room_id,
       room_name: r.room_name,
@@ -66,7 +70,8 @@ export function registerStudioTools(server: McpServer): void {
       title: 'スタジオ予約一覧',
       description:
         'スタジオ予約 (カレンダー) を一覧する。from/to での期間絞り込みを推奨 (無指定だと全件からの取得になり最大500件で打ち切られる)。' +
-        'booking_type: performance=本番, rehearsal=リハーサル, hold=仮押さえ, tour=内覧, consultation=相談, setup=設営・準備, maintenance=メンテナンス, internal=社内利用, other=その他。',
+        'booking_type: performance=本番, rehearsal=リハーサル, hold=仮押さえ, tour=内覧, consultation=相談, setup=設営・準備, maintenance=メンテナンス, internal=社内利用, other=その他。' +
+        '返り値の assignees はその予約の担当者 (社内・複数・0人もある)。',
       inputSchema: {
         from: z.string().optional().describe('期間開始 (YYYY-MM-DD または ISO 日時)。この日時以降に終了する予約'),
         to: z.string().optional().describe('期間終了 (YYYY-MM-DD または ISO 日時)。この日時以前に開始する予約'),
