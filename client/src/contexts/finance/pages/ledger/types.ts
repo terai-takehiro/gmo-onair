@@ -182,6 +182,12 @@ export interface PurchaseRow {
   service_completed_date: string | null;
   /** 担当者（ユーザーID）。外部キー制約なし・任意項目（`SgaRow.assigned_to` と同じ扱い） */
   assigned_to: string | null;
+  /**
+   * 担当者名（サーバーが `users` を JOIN して解決済み）。**閲覧専用画面はこれだけで表示する**
+   * — `users` 一覧を引き直さずに済み、`users` を渡し忘れても生の UUID が漏れない
+   * （レビュー指摘）。削除済み・存在しないユーザーを指していれば `null`
+   */
+  assigned_to_name?: string | null;
   notes: string | null;
   group_id: string | null;
   group_name: string | null;

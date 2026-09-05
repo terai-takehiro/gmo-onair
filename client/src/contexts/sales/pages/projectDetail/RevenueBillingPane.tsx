@@ -75,6 +75,7 @@ import { cn } from '@gmo-onair/shared/src/client/utils';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { PurchaseDialog, type PurchaseProjectOption } from '@/contexts/finance/pages/ledger/PurchaseDialog';
+import { fetchAllUsers } from '@/contexts/finance/pages/ledger/usePurchaseDialogData';
 import { RevenueDialog } from '@/contexts/finance/pages/ledger/RevenueDialog';
 import type { PurchaseRow } from '@/contexts/finance/pages/ledger/types';
 import type { Vendor } from '@gmo-onair/shared/src/types';
@@ -98,7 +99,7 @@ function MoreNote({ n }: { n: number }) {
 
 export function RevenueBillingPane({ projectId, projectName, mobile }: { projectId: string; projectName?: string; mobile?: boolean }) {
   const qc = useQueryClient();
-  const { hasPermission } = useAuth();
+  const { hasPermission, currentUser } = useAuth();
   // サーバー側 `POST /purchases` の要件（`requirePermission('sales', 'editor')`）に合わせる
   const canAddPurchase = hasPermission('sales', 'editor');
   // サーバー側 `PUT /revenues/:id` の要件（`requirePermission('sales', 'editor')`）に合わせる
@@ -135,13 +136,11 @@ export function RevenueBillingPane({ projectId, projectName, mobile }: { project
     enabled: addPurchaseOpen,
   });
   const vendors: Vendor[] = vendorsData?.data ?? [];
-
+  const { data: users = [] } = useQuery({ queryKey: ['users-list'], queryFn: fetchAllUsers, enabled: addPurchaseOpen });
   const savePurchase = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => (await api.post('/purchases', payload)).data,
     onSuccess: () => {
-      // このペイン自身の一覧に加えて、財務②仕入台帳（`purchases-all`）も落とす
-      // （react-query の鍵の対——`client/CLAUDE.md`）。片方だけだと台帳を開いたときに
-      // 古い一覧のままになる
+      // このペイン自身の一覧に加えて、財務②仕入台帳（`purchases-all`）も落とす（鍵の対・`client/CLAUDE.md`）
       qc.invalidateQueries({ queryKey: ['purchases', 'project', projectId] });
       qc.invalidateQueries({ queryKey: ['purchases-all'] });
       notifySuccess('仕入を登録しました');
@@ -370,6 +369,7 @@ export function RevenueBillingPane({ projectId, projectName, mobile }: { project
           defaultProjectId={projectId}
           projects={glsProjects}
           vendors={vendors}
+          users={users} currentUserId={currentUser?.id}
           saving={savePurchase.isPending}
           onSave={(payload) => savePurchase.mutate(payload)}
           onClose={() => setAddPurchaseOpen(false)}

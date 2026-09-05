@@ -366,12 +366,13 @@ export function PurchaseDialog({
             </div>
             <div>
               <Label>担当者</Label>
-              {/* `readOnly` のときは案件・仕入先と同じ扱い（一覧を引かずに開くため素の文字で出す）。
-                  ただし `purchases` は担当者名を JOIN していないので、`users` を渡された場合だけ
-                  名前に解決できる（案件詳細の閲覧専用ダイアログは渡さないので未設定表示になる） */}
+              {/* `readOnly` のときは案件・仕入先と同じ扱いで素の文字にするが、担当者だけは
+                  `users` 一覧を引かなくても出せる ——サーバーが `assigned_to_name` を
+                  JOIN 済みで返すため（`users` を渡し忘れても生の UUID が漏れない。レビュー指摘）。
+                  存在しない・削除済みユーザーを指していれば「削除済みのユーザー」にする */}
               {readOnly ? (
                 <ReadOnlyField>
-                  {users.find((u) => u.id === assignedTo)?.name || (assignedTo ? assignedTo : '（担当者なし）')}
+                  {editing?.assigned_to_name || (editing?.assigned_to ? '（削除済みのユーザー）' : '（担当者なし）')}
                 </ReadOnlyField>
               ) : (
                 <SearchableSelect

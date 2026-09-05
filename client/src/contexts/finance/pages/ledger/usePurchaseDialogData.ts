@@ -10,6 +10,22 @@ import type { Vendor } from '@/types';
 import type { PurchaseRow } from './types';
 import type { PurchaseProjectOption } from './PurchaseDialog';
 
+/**
+ * 担当者の候補一覧を**全ページぶん**取る。`GET /users` は共通の `extractPagination`
+ * が `limit` を無条件に100件へ切るため、`?limit=200` を渡しても最初の100人しか
+ * 返らず、五十音で101人目以降のユーザーが担当者に選べなかった（レビュー指摘）。
+ * 1ページ目で総ページ数を見て、残りを並行して取りに行く。
+ * `RevenueBillingPane.tsx`（案件詳細からの仕入追加）も同じ形を使う。
+ */
+export async function fetchAllUsers(): Promise<{ id: string; name: string }[]> {
+  const first = (await api.get('/users?limit=100')).data;
+  const totalPages: number = first?.pagination?.totalPages ?? 1;
+  const rest = await Promise.all(
+    Array.from({ length: Math.max(0, totalPages - 1) }, (_, i) => api.get(`/users?limit=100&page=${i + 2}`)),
+  );
+  return [...(first?.data ?? []), ...rest.flatMap((r) => r.data?.data ?? [])];
+}
+
 export function usePurchaseDialogData(params: {
   dialogOpen: boolean;
   editParam: string | null;
@@ -35,13 +51,12 @@ export function usePurchaseDialogData(params: {
   });
   const vendors: Vendor[] = vendorsData?.data ?? [];
 
-  // 担当者の候補一覧。`SgaListPage.tsx` と同じ形（`GET /users?limit=200`）
-  const { data: usersData } = useQuery({
+  // 担当者の候補一覧
+  const { data: users = [] } = useQuery({
     queryKey: ['users-list'],
-    queryFn: async () => (await api.get('/users?limit=200')).data,
+    queryFn: fetchAllUsers,
     enabled: dialogOpen,
   });
-  const users: { id: string; name: string }[] = usersData?.data ?? [];
 
   // 財務ダッシュボード等から ?edit={id} で来たら、その仕入の編集ダイアログを直接開く
   // （`SgaListPage.tsx` と同じ形。一覧のページには乗っていない行でも開けるよう、

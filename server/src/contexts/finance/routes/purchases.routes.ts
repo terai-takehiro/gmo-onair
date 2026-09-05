@@ -11,6 +11,16 @@ import { assertVendorCompanyId } from '../../../shared/services/company-director
 
 const router = Router();
 
+/**
+ * 担当者（`assigned_to`）が実在するユーザーかを確かめる。`purchases.assigned_to` に
+ * FK 制約が無いため（`vendor_id` と同じ理由）、アプリ側で確認しないと存在しない
+ * ID・削除済みユーザーの ID がそのまま保存できてしまう（レビュー指摘）。
+ */
+async function assertAssignedToExists(userId: string): Promise<void> {
+  const row = await queryOne('SELECT id FROM users WHERE id = ? AND deleted_at IS NULL', [userId]);
+  if (!row) throw new AppError(400, 'VALIDATION_ERROR', '担当者が見つかりません');
+}
+
 // Apply auth + permission middleware to all routes
 router.use(requireAuth, requirePermission('sales'));
 
@@ -38,12 +48,13 @@ router.get('/', async (req, res) => {
   // （行を引くクエリだけ join があり、COUNT/SUM/件数には無かったのが 500 の原因）。
   const total = ((await queryOne(`SELECT COUNT(*) as c FROM purchases pu LEFT JOIN projects p ON p.id = pu.project_id LEFT JOIN companies vco ON vco.id = pu.vendor_id ${allocJoin} ${where}`, [...allocParams, ...params])) as any).c;
   const rows = await queryAll(
-    `SELECT pu.*, p.name as project_name, p.gls_number, p.code as project_code, vco.name as vendor_name, pg.name as group_name, e.episode_code${allocCol}
+    `SELECT pu.*, p.name as project_name, p.gls_number, p.code as project_code, vco.name as vendor_name, pg.name as group_name, e.episode_code, au.name as assigned_to_name${allocCol}
      FROM purchases pu
      LEFT JOIN projects p ON p.id = pu.project_id
      LEFT JOIN companies vco ON vco.id = pu.vendor_id
      LEFT JOIN project_groups pg ON pg.id = pu.group_id
      LEFT JOIN episodes e ON e.id = pu.episode_id
+     LEFT JOIN users au ON au.id = pu.assigned_to
      ${allocJoin}
      ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
     [...allocParams, ...params, limit, offset]
@@ -106,10 +117,11 @@ router.get('/export', requirePermission('sales', 'exporter'), async (_req, res) 
 
 router.get('/:id', async (req, res) => {
   const row = await queryOne(
-    `SELECT pu.*, p.name as project_name, p.gls_number, vco.name as vendor_name, e.episode_code
+    `SELECT pu.*, p.name as project_name, p.gls_number, vco.name as vendor_name, e.episode_code, au.name as assigned_to_name
      FROM purchases pu LEFT JOIN projects p ON p.id = pu.project_id
      LEFT JOIN companies vco ON vco.id = pu.vendor_id
      LEFT JOIN episodes e ON e.id = pu.episode_id
+     LEFT JOIN users au ON au.id = pu.assigned_to
      WHERE pu.id = ? AND pu.deleted_at IS NULL`, [req.params.id]);
   if (!row) throw new AppError(404, 'NOT_FOUND', '仕入が見つかりません');
   res.json({ success: true, data: row });
@@ -125,6 +137,13 @@ router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
   // 「仕入先ロールの会社か」を保証しない（`revenues.routes.ts` の customer_id と同じ理由）
   await assertVendorCompanyId(vendor_id);
 
+  // `assigned_to` は任意項目（SGA・売上と同水準）。**欄自体を送らない古い呼び出し
+  // （Excel取込・MCP等）だけ作成者に落とす** — 画面が「担当者なし」を明示的に選び
+  // `null` を送ったときまで作成者にすり替えると、消したはずの選択が嘘になる
+  // （レビュー指摘。`assigned_to || req.user!.id` は `null` も未指定も区別できていなかった）
+  const assignedToValue = assigned_to === undefined ? req.user!.id : (assigned_to || null);
+  if (assignedToValue) await assertAssignedToExists(assignedToValue);
+
   let billing_key: string | null = null;
   if (episode_id) {
     const episode = await queryOne('SELECT episode_code FROM episodes WHERE id = ?', [episode_id]) as any;
@@ -135,9 +154,7 @@ router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
   await execute(
     `INSERT INTO purchases (id, billing_key, project_id, episode_id, vendor_id, assigned_to, settlement_method, settlement_number, settlement_url, tax_category, invoice_qualified, amount, description, recognition_date, inspection_date, payment_due_date, notes, is_provisional, service_completed_date, created_by)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    // `assigned_to` は任意項目（SGA・売上と同水準）。**未指定なら作成者に落とす**——
-    // 欄を持たない古い呼び出し（Excel取込・MCP等）が担当者なしで作れなくなるのを防ぐ
-    [id, billing_key, project_id, episode_id || null, vendor_id, assigned_to || req.user!.id,
+    [id, billing_key, project_id, episode_id || null, vendor_id, assignedToValue,
      settlement_method || null, settlement_number || null, settlement_url || null, tax_category || 'tax10',
      invoice_qualified !== undefined ? (invoice_qualified ? 1 : 0) : 1,
      amount || 0, description || null, recognition_date || null,
@@ -156,9 +173,10 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
           tax_category, invoice_qualified, amount, description,
           recognition_date, inspection_date, payment_due_date, notes, is_provisional,
           service_completed_date } = req.body;
-  // 新しく渡された vendor_id だけ確かめる（`revenues.routes.ts` の PUT と同じ理由。
-  // 既存値は再検証しない）
+  // 新しく渡された vendor_id・assigned_to だけ確かめる（`revenues.routes.ts` の PUT と
+  // 同じ理由。既存値は再検証しない）
   if (vendor_id) await assertVendorCompanyId(vendor_id);
+  if (assigned_to) await assertAssignedToExists(assigned_to);
   // 部分更新契約: 送られなかったフィールドは既存値を保持する (省略で NOT NULL 違反・
   // 計上日消失・適格 0 への強制降格が起きていたのを防ぐ)。空文字は null 化する。
   await execute(

@@ -83,6 +83,49 @@ export function nextHeaderSort(sort: string, key: string): string {
   return DEFAULT_HEADER_SORT;
 }
 
+/**
+ * ヘッダーが作る `sort` 値のうち、`SORT_OPTIONS`（プルダウンの5択）に無い列名。
+ * これらの列見出し文言は `ProjectRowsHeader` の表示と揃える——ここだけ別の
+ * 言い方にすると、プルダウン側とヘッダー側で同じ列が違う名前で出る。
+ */
+const SORT_COLUMN_LABELS: Record<string, string> = {
+  name: '案件名',
+  stage: 'ステージ',
+  event_start: '実施日',
+  estimate_amount: '見積金額',
+  next_task_due: '次のタスク',
+  last_move: '最後の動き',
+};
+
+/**
+ * いまの `sort` 値をプルダウン・スマホの札に出す文言にする。
+ *
+ * ⚠️ **`SORT_OPTIONS` に無い値（ヘッダークリックが作った `name:asc` 等）を
+ * 「おすすめ順」に読み替えないこと。** ヘッダーとプルダウンは同じ `sort` state を
+ * 共有しているので、ここで読み替えると「ヘッダーで並べ替えたのに、プルダウンの
+ * 表示だけがおすすめ順のまま」という食い違いになる（レビュー指摘）。
+ * `SORT_OPTIONS` に無い値は「列名＋昇順/降順」で組み立てて出す。
+ */
+export function sortLabel(sort: string): string {
+  const preset = SORT_OPTIONS.find((s) => s.value === sort);
+  if (preset) return preset.label;
+  const [by, dir] = sort.split(':');
+  const col = SORT_COLUMN_LABELS[by];
+  if (!col) return SORT_OPTIONS[0].label;
+  return `${col}が${dir === 'desc' ? '降順' : '昇順'}`;
+}
+
+/**
+ * デスクトップの `<Select>`（プルダウン）に出す選択肢。`SORT_OPTIONS`（5つの
+ * プリセット）に加え、いまの `sort` がそこに無ければ（＝ヘッダークリックで
+ * 作った値なら）その場で1件足す。**足さないと `<Select value={sort}>` に一致する
+ * `<SelectItem>` が無く、選択中の表示が空欄になる**（レビュー指摘）。
+ */
+export function sortChoices(sort: string): { value: string; label: string }[] {
+  if (SORT_OPTIONS.some((s) => s.value === sort)) return SORT_OPTIONS;
+  return [...SORT_OPTIONS, { value: sort, label: sortLabel(sort) }];
+}
+
 export interface FilterBarProps {
   search: string;
   onSearch: (v: string) => void;
@@ -201,7 +244,7 @@ export function FilterBar(p: FilterBarProps) {
         <Select value={p.sort} onValueChange={p.onSort}>
           <SelectTrigger className={`${SORT_W} shrink-0`} aria-label="並び順"><SelectValue /></SelectTrigger>
           <SelectContent>
-            {SORT_OPTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+            {sortChoices(p.sort).map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
           </SelectContent>
         </Select>
 

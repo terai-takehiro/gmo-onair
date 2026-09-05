@@ -40,7 +40,15 @@ import { rowInProps, type RowAnim } from './rowAnim';
 import { sortMark } from './FilterBar';
 import type { ProjectListRow } from './types';
 
-/** 表頭1マスの中身。`sortKey` が無い列は押せないただの文字（今はすべての列が持つ） */
+/**
+ * 表頭1マスの中身。`sortKey` が無い列は押せないただの文字（今はすべての列が持つ）。
+ *
+ * ⚠️ **`aria-sort` は `RowMain`/`RowSlot`（= 素の `<div>`）に付けているだけ**なので、
+ * `columnheader`/`rowheader` の役割が無く、スクリーンリーダーには効かない
+ * （テーブルではなく `Row`/`RowSlot` の一覧なので、役割を持つ要素が無い。
+ * レビュー指摘）。そこで、いまの並び状態をボタンの**アクセシブルネーム自体**に
+ * 含める——こちらは祖先の役割に関係なく必ず読み上げられる。
+ */
 function HeaderLabel({
   label, sortKey, sort, onSort, align,
 }: {
@@ -51,11 +59,13 @@ function HeaderLabel({
   align?: 'right';
 }) {
   const mark = sortMark(sort, sortKey);
+  const stateText = mark === 'asc' ? '・昇順で並び替え中' : mark === 'desc' ? '・降順で並び替え中' : '';
   return (
     <button
       type="button"
       onClick={() => onSort(sortKey)}
       title={`${label}で並べ替える`}
+      aria-label={`${label}で並べ替える${stateText}`}
       className={`group -mx-1 flex w-full items-center gap-1 rounded-control px-1 py-0.5 hover:bg-border-faint ${
         align === 'right' ? 'justify-end' : ''
       } ${mark ? 'font-bold text-primary' : ''}`}
