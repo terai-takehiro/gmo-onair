@@ -219,8 +219,16 @@ export default function HomePage() {
   }, [badges.data, salesWaiting, dailyWaiting, inbox.data, hasPermission]);
 
   // ── アプリ（見出しは出さない・モック `v4-live`）────────────────
+  // ⚠️ **`relative z-10` が要る。** `Reveal` はスクロール演出で `transform` を
+  // 使うアニメーションを一度だけ再生するが、`animation-fill-mode: both` で
+  // 再生後もアニメーション属性が残り続け、要素は暗黙のスタッキングコンテキスト
+  // （z-index:auto 相当）のままになる。下の「今日」セクションも同じ理由で
+  // 独立したスタッキングコンテキストになり、z-index:auto 同士は DOM の順番で
+  // 重なりが決まるため、後ろにある「今日」（不透明な `bg-card`）が
+  // ミニアプリの畳み（`z-20`・日常業務タイル）を覆って「途中で切れて」見えていた。
+  // 明示的に正の z-index を与えて「今日」より手前に出す（レイアウトには影響しない）。
   const appsSection = (
-    <Reveal>
+    <Reveal className="relative z-10">
       <section className="flex flex-col gap-3.5">
         {/* **読み込み中は骨組みを出す。** 空白のまま数字だけ後から入ると、
             タイルが増えたように見えて押し間違える */}
