@@ -44,7 +44,19 @@ async function resolveAssigneeIds(raw: unknown): Promise<string[] | undefined> {
     throw new AppError(400, 'VALIDATION_ERROR', `担当者は${MAX_ASSIGNEES}人までです`);
   }
   if (ids.length === 0) return [];
-  const rows = await queryAll(`SELECT id FROM users WHERE id = ANY(?::text[]) AND deleted_at IS NULL`, [ids]);
+  // **画面のチップは `/users/by-module/sales` が返す人しか出さない**
+  // （有効・sales権限保持者 or system_admin）。ここの検証もそれと同じ条件に揃える —
+  // 単に「存在して削除されていない」だけだと、招待中/停止中や sales 権限の無い
+  // ユーザーIDを API から直接送っても通ってしまい、選べない/外せない担当者が付く
+  // （Codex レビューで指摘・#564）
+  const rows = await queryAll(
+    `SELECT DISTINCT u.id
+     FROM users u
+     LEFT JOIN user_permissions p ON p.user_id = u.id AND p.module = 'sales'
+     WHERE u.id = ANY(?::text[]) AND u.deleted_at IS NULL AND u.status = 'active'
+       AND (u.role = 'system_admin' OR p.access_level IS NOT NULL)`,
+    [ids]
+  );
   const valid = new Set(rows.map((r: any) => r.id));
   if (ids.some((id) => !valid.has(id))) {
     throw new AppError(400, 'VALIDATION_ERROR', '担当者に無効なユーザーが含まれています');
