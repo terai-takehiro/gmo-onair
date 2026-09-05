@@ -59,7 +59,7 @@ export const HUB_GROUPS: HubGroup[] = [
         to: '/sales/pricing', module: 'sales', who: '案件管理の『管理』',
       },
       {
-        key: 'flow', title: '標準工程テンプレート（案件）', desc: '案件の種類ごとに立つ工程のひな形',
+        key: 'flow', title: '工程の型（案件）', desc: '案件の種類ごとに立つ工程のひな形',
         icon: ListChecks, tone: 'bg-info-surface text-info',
         to: '/sales/flow-templates', module: 'sales', who: '案件管理の『管理』',
       },

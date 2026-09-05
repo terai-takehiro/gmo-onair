@@ -57,7 +57,7 @@ const TREE = [
     ['④ タスク一覧', '/sales/tasks/list', 'client/src/contexts/tasks/pages/TaskDashboardPage.tsx'],
     ['⑤ 見積・請求 (全案件)', '/sales/billing', 'client/src/contexts/sales/pages/BillingListPage.tsx'],
     ['⑥ 案件詳細', '/sales/projects/:id', 'client/src/contexts/sales/pages/ProjectDetailPage.tsx'],
-    ['⑦ 標準工程テンプレート', '/sales/flow-templates',
+    ['⑦ 工程の型', '/sales/flow-templates',
       'client/src/contexts/sales/pages/flow/FlowTemplatePage.tsx', undefined,
       'モックの **6 段 26 工程**（担当の職種・実施日からの逆算日数・外せるかどうか）を初期値に入れてある。' +
       '**案件をつくったときに黙って入れない** — タスクタブの帯から一覧を見せ、チェックを外してから入れる。' +
@@ -295,7 +295,7 @@ const TREE = [
       '工程は足す・並べ替える（隣と入れ替え）・消すができます'],
     ['④ 新規作成', '/gpm/projects/new', 'client/src/contexts/gpm/pages/GpmProjectFormPage.tsx'],
     ['⑤ やること（未確認事項）', '/gpm/tasks', 'client/src/contexts/gpm/pages/GpmTaskListPage.tsx'],
-    ['⑦ 標準工程テンプレート', '/gpm/templates', 'client/src/contexts/gpm/pages/GpmTemplateListPage.tsx'],
+    ['⑦ 工程のひな形', '/gpm/templates', 'client/src/contexts/gpm/pages/GpmTemplateListPage.tsx'],
     // 打合せの録音 → 文字起こし → AI の下書き。**案件と同じ表・同じサービス**
     ['議事録（プロジェクト詳細のタブ）', '/gpm/projects/:id/minutes',
       'client/src/contexts/gpm/pages/projectDetail/MinutesTab.tsx', 'ASK_TRACK',
