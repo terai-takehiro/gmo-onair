@@ -297,7 +297,7 @@ export default function OnAirPage() {
   if (error || !doc || cues.length === 0) {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-background text-foreground gap-4">
-        <p className="text-muted-foreground">{error || !doc ? "台本が見つかりません" : "キューデータがありません"}</p>
+        <p className="text-muted-foreground">{error || !doc ? "台本が見つかりません" : "進行の行がありません。台本に行を追加してください。"}</p>
         <Button variant="outline" size="lg" onClick={() => navigate(`/techops/editor/${id}`)}>
           エディターに戻る
         </Button>

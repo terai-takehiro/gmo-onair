@@ -89,11 +89,11 @@ export const sectionDisplay = (typeCode: string | null | undefined, section: str
 export const COL_DEFS = [
   { key: 'eq_code', label: 'ID', sortKey: 'eq_code', default: true },
   { key: 'equipment_type', label: '種別', sortKey: 'equipment_type_code', default: true },
-  { key: 'location', label: '設置場所', sortKey: 'location_name', default: true },
+  { key: 'location', label: '保管場所', sortKey: 'location_name', default: true },
   { key: 'name', label: '商品名', sortKey: 'name', default: true },
   { key: 'manufacturer', label: 'メーカー', sortKey: 'manufacturer_name', default: false },
   { key: 'model_number', label: '型名', sortKey: 'model_number', default: true },
-  { key: 'serial_number', label: 'シリアル', sortKey: 'serial_number', default: false },
+  { key: 'serial_number', label: '製造番号', sortKey: 'serial_number', default: false },
   { key: 'unit_number', label: 'No', sortKey: 'unit_number', default: true },
   { key: 'condition', label: '状態', sortKey: 'condition', default: false },
   { key: 'fixed_asset_code', label: '資産コード', sortKey: 'fixed_asset_code', default: false },
@@ -139,7 +139,7 @@ export const COL_W = {
    *
    * この列に出るのは `sectionDisplay()` = **種別 ＋ 区分をつないだ文字**で、
    * 8通りのうち **5通りが 72px を超えます**。`TableBadge` は和文4字までしか
-   * 幅を固定しない（それ以上は自然幅）ので、超えたぶんは**隣の「設置場所」に
+   * 幅を固定しない（それ以上は自然幅）ので、超えたぶんは**隣の「保管場所」に
    * かぶさって文字が重なっていました**（`RowSlot` は `shrink-0` なので
    * 押し出されず、上に乗るだけ）。
    *
@@ -296,7 +296,7 @@ export const PRINT_COLS = [
   { key: 'model_number', label: '型名' },
   { key: 'unit_number', label: 'No.' },
   { key: 'serial_number', label: 'serial' },
-  { key: 'location', label: '設置場所' },
+  { key: 'location', label: '保管場所' },
   { key: 'fixed_asset_code', label: '資産コード' },
   { key: 'purchased_at', label: '購入年月' },
   { key: 'warranty_years', label: '保証' },

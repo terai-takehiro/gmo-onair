@@ -17,7 +17,7 @@ export default function RedirectFromOpen() {
 
   const target: RedirectTarget = projectId
     ? { status: 'redirect', to: `/techops/live/${encodeURIComponent(projectId)}` }
-    : { status: 'error', message: '案件が指定されていません（URL に ?project= が必要です）。' };
+    : { status: 'error', message: '案件から開き直してください。制作技術支援のトップで案件を開き、計時・視聴者のタイルから入れます。' };
 
   return <RedirectView target={target} />;
 }

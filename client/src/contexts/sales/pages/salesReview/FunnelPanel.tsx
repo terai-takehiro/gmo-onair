@@ -125,7 +125,7 @@ export function FunnelPanel({ funnel, year }: { funnel: FunnelData; year: number
       )}
 
       {trend.length === 0 && (
-        <EmptyState title="月次の推移データがありません" description="通年の絞り込みに切り替えると月ごとの推移が出ます。" />
+        <EmptyState title="条件に合う月次の推移はありません" description="通年の絞り込みに切り替えてお試しください。" />
       )}
     </div>
   );

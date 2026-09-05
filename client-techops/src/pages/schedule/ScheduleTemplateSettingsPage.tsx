@@ -44,13 +44,13 @@ export default function ScheduleTemplateSettingsPage() {
       setNewName("");
       setSelectedId(row.id);
     },
-    onError: () => notifyError("作成に失敗しました（管理者のみ作成できます）"),
+    onError: () => notifyError("ひな形を作れませんでした。", { description: "ひな形を作れるのは 制作技術支援の「管理」を持つ人だけです。" }),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/techops/schedule-templates/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["schedule-templates", null] }); setSelectedId(null); notifySuccess("削除しました"); },
-    onError: () => notifyError("削除に失敗しました"),
+    onError: () => notifyError("削除できませんでした。", { description: "少し待ってから、もう一度お試しください。" }),
   });
 
   if (isMobile) return <PcOnlyNotice />;
@@ -142,7 +142,7 @@ function TemplateDetail({ template, onDelete }: { template: ScheduleTemplate; on
         <h2 className="text-base font-semibold text-foreground">{template.name}</h2>
         {!template.is_system && (
           <Button variant="destructive" size="sm" className="min-h-[44px]" onClick={onDelete}>
-            <Trash2 className="mr-1 h-4 w-4" />このひな形を消す
+            <Trash2 className="mr-1 h-4 w-4" />このひな形を削除
           </Button>
         )}
       </div>

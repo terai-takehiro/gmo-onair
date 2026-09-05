@@ -3,14 +3,14 @@
  *
  * **未仕分けを空にするための机です。**
  * 案件・営業・見積請求・内覧会のどれにも属さない有益な情報を AI が取り込み、
- * 人が「やること（チケット）／案件／あとで効く話（ストック）／見送り」に仕分けます。
+ * 人が「やること（タスク）／案件／あとで効く話（あとで見る）／見送り」に仕分けます。
  *
  * ── 247 で直したこと（ユーザー報告「結局何をしたいのかわからない」）──
  *
- * ① **ストックに出口を作った。** 「あとで効く話ならストックして」と謳いながら、
- *    ストックしたものを戻す仕掛けが**1つもありません**でした（見直す日も通知も無し）。
+ * ① **「あとで見る」に出口を作った。** 「あとで効く話は置いておける」と謳いながら、
+ *    置いたものを戻す仕掛けが**1つもありません**でした（見直す日も通知も無し）。
  *    実質「見送り」と同じで、行き先が2つあるように見えて違うのは名前だけ。
- *    ストックするときに**見直す日**を訊き（migration 247）、その日が来たものを
+ *    「あとで見る」に入れるときに**見直す日**を訊き（migration 247）、その日が来たものを
  *    未仕分けと同じ扱いで「今日さばくもの」に含めます
  * ② **タブを5つから3つに畳んだ。** 5つのうち4つが「受領証」で、
  *    そこでできることは「未仕分けに戻す」だけでした。片づいたものは
@@ -119,7 +119,7 @@ export default function InquiriesPage() {
       window.location.href = `/sales/projects/new?inquiry=${encodeURIComponent(q.id)}`;
       return;
     }
-    // **ストックは日を訊いてから動かす**（247）。押した瞬間に消えると、
+    // **「あとで見る」は日を訊いてから動かす**（247）。押した瞬間に消えると、
     // それは「見送り」と同じで、戻ってくる仕掛けが無い
     if (a === 'stock' || a === 'restock') { setStocking(q); return; }
     if (a === 'unsort') {
@@ -141,15 +141,15 @@ export default function InquiriesPage() {
 
   const onDelete = async (q: MiscInquiry) => {
     const ok = await confirmAction({
-      title: 'この情報を消しますか',
-      description: `「${q.subject || q.summary}」を消します。**AI が読み取った内容とメールの原文も一緒に消えます。**`,
-      confirmLabel: '消す',
+      title: 'この情報を削除しますか',
+      description: `「${q.subject || q.summary}」を削除します。**AI が読み取った内容とメールの原文も一緒に消えます。**`,
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (!ok) return;
     del.mutate(q.id, {
-      onSuccess: () => notifySuccess('消しました'),
-      onError: (e) => notifyApiError('消せませんでした', e),
+      onSuccess: () => notifySuccess('削除しました'),
+      onError: (e) => notifyApiError('削除できませんでした', e),
     });
   };
 
@@ -161,14 +161,14 @@ export default function InquiriesPage() {
         // 内訳を分けて書くのは、未仕分け 0・見直し 5 のときに
         // 「5件」とだけ出すと今日届いたものが5件あるように読めるため
         sub={counts ? deskSummary(counts.unsorted, counts.stock_due) : '数えています…'}
-        primaryAction={canEdit ? <Button onClick={() => setAdding(true)}>手で足す</Button> : undefined}
+        primaryAction={canEdit ? <Button onClick={() => setAdding(true)}>手で追加</Button> : undefined}
       />
 
       {/*
         タブは3つ（247）。以前は5つで、**うち4つが「受領証」**だった
-        （チケット / 案件にした / 見送りは「未仕分けに戻す」しかできない）。
+        （タスク / 案件 / 見送りは「未仕分けに戻す」しかできない）。
         片づいたものは「仕分け済み」1つにまとめ、その中で行き先を絞る。
-        ⚠️ **「今日さばくもの」と「ストック」は重なる**（見直しの日が来たものは両方に出る）。
+        ⚠️ **「今日さばくもの」と「あとで見る」は重なる**（見直しの日が来たものは両方に出る）。
         セキュリティカードの「返却遅延は貸出中の一部」と同じで、足しても全件にならない
       */}
       <FilterChips
@@ -286,8 +286,8 @@ export default function InquiriesPage() {
             onMove(
               q, 'stock',
               reviewOn
-                ? `ストックしました。${jaMd(reviewOn)} に「今日さばくもの」へ戻ってきます`
-                : 'ストックしました。見直す日を決めていないので、明日また出てきます',
+                ? `あとで見るに入れました。${jaMd(reviewOn)} に「今日さばくもの」へ戻ってきます`
+                : 'あとで見るに入れました。見直す日を決めていないので、明日また出てきます',
               reviewOn,
             );
           }}
@@ -304,7 +304,7 @@ export default function InquiriesPage() {
 function emptyTitle(tab: InquiryTab, filtered: boolean): string {
   if (filtered) return 'このタグが付いたものはありません';
   if (tab === 'desk') return '未仕分けはありません';
-  if (tab === 'stock') return 'ストックはありません';
+  if (tab === 'stock') return 'あとで見るものはありません';
   return '仕分け済みのものはまだありません';
 }
 
@@ -312,14 +312,12 @@ function emptyTitle(tab: InquiryTab, filtered: boolean): string {
 function emptyDescription(tab: InquiryTab, filtered: boolean): string {
   if (filtered) return 'タグの絞り込みを解除すると、ほかの情報が出ます。';
   if (tab === 'desk') {
-    return 'ここは、届いた情報を「やること（チケット）」「案件」「あとで効く話（ストック）」に'
-      + '仕分けて未仕分けを空にする場所です。いまは全部仕分け済みです。'
-      + 'ストックしたものは、決めた見直しの日が来るとここに戻ってきます。';
+    return '届いた情報は、ここでタスク・案件・あとで見るに仕分けてください。';
   }
   if (tab === 'stock') {
-    return 'あとで効く話は「ストックする」で置いておけます。見直す日を決めると、その日にここへ戻ってきます。';
+    return 'あとで効く話は「あとで見る」で置いておけます。見直す日を決めると、その日にここへ戻ってきます。';
   }
-  return 'チケット・案件・見送りにしたものがここに残ります。間違えたときは「未仕分けに戻す」で戻せます。';
+  return 'タスク・案件・見送りにしたものがここに残ります。間違えたときは「未仕分けに戻す」で戻せます。';
 }
 
 /**

@@ -63,7 +63,7 @@ export function TicketDetailDialog({ ticket, canEdit, onClose }: {
     >
       <div className="flex flex-col gap-3">
         <p className="text-sub text-muted-foreground">
-          起票: {ticket.reporter_name} ・ {fmtDateTime(ticket.created_at)}
+          送った人: {ticket.reporter_name} ・ {fmtDateTime(ticket.created_at)}
         </p>
 
         <p className="text-list whitespace-pre-wrap">{ticket.description}</p>
@@ -92,7 +92,7 @@ export function TicketDetailDialog({ ticket, canEdit, onClose }: {
                   onChange={(e) => setNote(e.target.value)}
                   rows={4}
                   className={TEXTAREA}
-                  placeholder="任意：何を直したか / なぜ却下したか など"
+                  placeholder="任意：何を直したか / なぜ見送ったか など"
                 />
               </div>
             </div>

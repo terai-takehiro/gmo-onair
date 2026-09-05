@@ -126,7 +126,7 @@ export default function BulkEditDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" className="h-11" onClick={() => onOpenChange(false)}>やめる</Button>
+          <Button variant="outline" className="h-11" onClick={() => onOpenChange(false)}>キャンセル</Button>
           <Button className="h-11" onClick={apply} disabled={nothingToDo}>
             {deckIds.length} 台に反映する
           </Button>

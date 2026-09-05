@@ -8,9 +8,9 @@
  * **ケーブルとコネクタの合計本数をここでも数えていました**
  * (機材台帳が数えているのと同じもの = 同じものを2か所で数えない)。
  *
- * ── 本日・明日の入出庫 (モックどおり・migration 168) ──────────
+ * ── 本日・明日の持ち出し・返却 (モックどおり・migration 168) ──────────
  *
- * **出庫は予定** (`equipment_lendings.status = 'planned'` ＋ `planned_out_date`)、
+ * **持ち出しは予定** (`equipment_lendings.status = 'planned'` ＋ `planned_out_date`)、
  * **入庫は返却予定日**で数えます。貸出の行は持ち出した瞬間に作られるので、
  * 出す予定を `lent_at` で代用すると「まだ出していないのに貸出中」になります。
  *
@@ -50,7 +50,7 @@ import { MaintenanceCards } from './dashboard/MaintenanceCards';
 import { dueIn, md } from './dashboard/dueIn';
 import type { Stats } from './dashboard/types';
 
-/** 入出庫の1つ。**0 も出す** — 隠すと「読み込み中」に見える */
+/** 持ち出し・返却の1つ。**0 も出す** — 隠すと「読み込み中」に見える */
 function InOut({ label, n }: { label: string; n: number }) {
   return (
     <div className="min-w-0 px-1">
@@ -108,7 +108,7 @@ export default function DashboardPage() {
           ? `常設 ${(s.total_items - s.lent_out).toLocaleString('ja-JP')}点 ・ 修理中 ${s.in_repair}点 ・ 貸出中 ${s.lent_out}点${s.overdue > 0 ? `（返却遅延 ${s.overdue}点）` : ''}`
           : '機材台帳・貸出・メンテナンスの状況'}
         primaryAction={<Button onClick={() => navigate('/equipment/items?view=items')}>
-          <Plus className="mr-1 h-4 w-4" aria-hidden="true" />機材を足す
+          <Plus className="mr-1 h-4 w-4" aria-hidden="true" />機材を追加
         </Button>}
       >
         <Button variant="outline" asChild>
@@ -116,7 +116,7 @@ export default function DashboardPage() {
         </Button>
         <Button variant="outline" asChild>
           <Link to="/equipment/lendings">
-            <ArrowRightLeft className="mr-1 h-4 w-4" aria-hidden="true" />貸出を登録
+            <ArrowRightLeft className="mr-1 h-4 w-4" aria-hidden="true" />貸出を記録
           </Link>
         </Button>
       </PageHeader>
@@ -135,15 +135,15 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* 本日・明日の入出庫。**4つの数字を1枚に**（モックの並び）。
+          {/* 本日・明日の持ち出し・返却。**4つの数字を1枚に**（モックの並び）。
               押すと貸出・返却の画面へ行く */}
           <section className="rounded-card border border-border bg-card p-4 lg:px-5" aria-labelledby="eq-inout">
             <div className="mb-3 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
               <h2 id="eq-inout" className="text-cardtitle flex items-center gap-2">
-                <ArrowRightLeft className="h-4 w-4" aria-hidden="true" />本日・明日の入出庫
+                <ArrowRightLeft className="h-4 w-4" aria-hidden="true" />本日・明日の持ち出し・返却
               </h2>
               <p className="text-note text-muted-foreground">
-                出庫は登録した予定、入庫は返却予定日で数えています
+                持ち出しは登録した予定、返却は返却予定日で数えています
               </p>
               <div className="flex-1" />
               <Link to="/equipment/lendings" className="v4-tap text-sub font-bold text-primary hover:underline">
@@ -262,10 +262,10 @@ export default function DashboardPage() {
           </section>
 
           <p className="text-note text-muted-foreground">
-            機材は<strong className="font-bold">常設が基本</strong>で、置き場所に紐づきます。
-            持ち出せるのは設定の「貸出の決めごと」で貸出可にした機材だけで、
+            機材は<strong className="font-bold">常設が基本</strong>で、保管場所に紐づきます。
+            持ち出せるのは設定の「貸出のルール」で貸出可にした機材だけで、
             貸出・返却・遅延の管理はその機材にだけ働きます。
-            <strong className="font-bold">これから出す予定</strong>は記録として持っていないので、この画面には出していません。
+            <strong className="font-bold">これから持ち出す予定</strong>は、登録されたぶんだけ「本日・明日の持ち出し・返却」に数えています。
           </p>
         </>
       )}

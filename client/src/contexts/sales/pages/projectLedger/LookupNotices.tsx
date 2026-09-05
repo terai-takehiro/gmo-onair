@@ -64,7 +64,7 @@ export function LookupNotices({ lookups }: { lookups: LedgerLookups }) {
           <p className="text-sub text-warning">
             候補が多いので<strong className="font-bold">途中まで</strong>しか読み込めませんでした。
             名前で貼り付けると、読み込めていない担当・お客様は「いません」と断られます —
-            その行は<strong className="font-bold">「直す」画面から</strong>直してください。
+            その行は<strong className="font-bold">「編集」画面から</strong>直してください。
           </p>
         </div>
       )}

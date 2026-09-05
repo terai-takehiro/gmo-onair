@@ -40,7 +40,7 @@ export default function ZoomSettingsSection({
           type="text"
           value={accountId}
           onChange={e => setAccountId(e.target.value)}
-          placeholder={hasCredentials ? '設定済み（変更する場合のみ入力）' : '未設定'}
+          placeholder={hasCredentials ? '設定済み（変更する場合のみ入力）' : '未入力'}
         />
       </div>
       <div className="space-y-1.5">
@@ -49,7 +49,7 @@ export default function ZoomSettingsSection({
           type="text"
           value={clientId}
           onChange={e => setClientId(e.target.value)}
-          placeholder={hasCredentials ? '設定済み（変更する場合のみ入力）' : '未設定'}
+          placeholder={hasCredentials ? '設定済み（変更する場合のみ入力）' : '未入力'}
         />
       </div>
       <div className="space-y-1.5">
@@ -59,7 +59,7 @@ export default function ZoomSettingsSection({
             type={showSecret ? 'text' : 'password'}
             value={clientSecret}
             onChange={e => setClientSecret(e.target.value)}
-            placeholder={hasCredentials ? '設定済み（変更する場合のみ入力）' : '未設定'}
+            placeholder={hasCredentials ? '設定済み（変更する場合のみ入力）' : '未入力'}
             className="flex-1"
           />
           <Button variant="ghost" size="sm" onClick={() => setShowSecret(!showSecret)}>

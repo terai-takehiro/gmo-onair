@@ -61,7 +61,7 @@ export function LedgerDetailSheet({
             </Button>
           )}
           {canEdit && (
-            <Button className="w-full" onClick={() => onEdit(row)}>この{itemLabel}を直す</Button>
+            <Button className="w-full" onClick={() => onEdit(row)}>この{itemLabel}を編集</Button>
           )}
           {onProject && row.project_id && (
             <Button variant="outline" className="w-full" onClick={() => onProject(row)}>案件をひらく</Button>

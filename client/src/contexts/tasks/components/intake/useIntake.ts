@@ -169,7 +169,7 @@ export function useIntake(opts: { canOpenProject?: boolean } = {}) {
       }
       applyIntake(data);
     },
-    onError: (e: unknown) => setError(apiMessage(e, '読み取りに失敗しました')),
+    onError: (e: unknown) => setError(apiMessage(e, '書いたものを読み取れませんでした。もう一度お試しください。')),
     // 画面が自分で理由を出すので、共通の受け皿は黙らせる
     meta: { silent: true },
   });
@@ -239,7 +239,7 @@ export function useIntake(opts: { canOpenProject?: boolean } = {}) {
       qc.invalidateQueries({ queryKey: ['project-tasks'] });
       qc.invalidateQueries({ queryKey: ['task-dashboard'] });
     },
-    onError: (e: unknown) => setError(apiMessage(e, '登録に失敗しました')),
+    onError: (e: unknown) => setError(apiMessage(e, '登録できませんでした。もう一度お試しください。')),
     meta: { silent: true },
   });
 
@@ -250,7 +250,7 @@ export function useIntake(opts: { canOpenProject?: boolean } = {}) {
       reset();
       qc.invalidateQueries({ queryKey: queryKeys.dashboard.all });
     },
-    onError: (e: unknown) => setError(apiMessage(e, '破棄に失敗しました')),
+    onError: (e: unknown) => setError(apiMessage(e, '破棄できませんでした。もう一度お試しください。')),
     meta: { silent: true },
   });
 

@@ -3,7 +3,7 @@
  *
  * ── 7枚すべて開くようになりました ──────────────────────────
  *
- * 着手時は3枚（お金のルール / 休日・営業時間 / 通知とテンプレート）が
+ * 着手時は3枚（お金のルール / 休日・営業時間 / 知らせと文面）が
  * 画面を持たず、`to: null` と `todo` で「これから作ります」と出していました。
  * **いまは 7 枚とも押せます。**
  *
@@ -29,7 +29,14 @@ export interface HubCard {
   todo?: string;
   /** 見るのに要る権限。無い人にはカードごと出さない */
   module?: string;
-  /** 直せるのは誰か。**画面に書く**（押してから 403 で気づくのを避ける） */
+  /**
+   * 直せるのは誰か。**画面に書く**（押してから 403 で気づくのを避ける）。
+   *
+   * **言い方は2通りだけ**にする（以前は「管理者」「経理」「◯◯の所有者」
+   * 「◯◯の管理職」など8通りあり、権限モデルに無い肩書きまで混ざっていた）:
+   *   ・区画の段で決まるもの … `〈アプリ名〉の『見るだけ/書ける/管理』`
+   *   ・`system_admin` でしか通らないもの … `システム管理者`
+   */
   who: string;
 }
 
@@ -44,31 +51,31 @@ export const HUB_GROUPS: HubGroup[] = [
         icon: Building2, tone: 'bg-primary-surface text-primary',
         // **`system_admin` を要求するのはサーバー側の実装** — `sales`（旧 `studio`）の
         // manager でも `POST /studios/locations` は 403 になる（`requireRole('system_admin')`）
-        to: '/settings/sites', module: 'sales', who: '管理者',
+        to: '/settings/sites', module: 'sales', who: 'システム管理者',
       },
       {
         key: 'pricing', title: '料金表', desc: '見積の積算に使う品目と金額',
         icon: ReceiptJapaneseYen, tone: 'bg-success-surface text-success',
-        to: '/sales/pricing', module: 'sales', who: '案件管理の所有者',
+        to: '/sales/pricing', module: 'sales', who: '案件管理の『管理』',
       },
       {
         key: 'flow', title: '標準工程テンプレート（案件）', desc: '案件の種類ごとに立つ工程のひな形',
         icon: ListChecks, tone: 'bg-info-surface text-info',
-        to: '/sales/flow-templates', module: 'sales', who: '案件管理の管理者',
+        to: '/sales/flow-templates', module: 'sales', who: '案件管理の『管理』',
       },
       {
         // **案件とプロジェクトで別系統。** 工事・構築の工程は
         // 「発注確定 → 設計 → 調達 → 施工 → 検収」で、放送案件の工程
         // （企画 → 準備 → リハ → 本番 → 精算）とは1つも重なりません。
         // 1つの表にまとめると、どちらの画面にも要らない工程が並びます
-        key: 'gpm-flow', title: '標準工程テンプレート（プロジェクト）', desc: '工事・構築の段取りのひな形',
+        key: 'gpm-flow', title: '工程のひな形（プロジェクト）', desc: '工事・構築の段取りのひな形',
         icon: ListChecks, tone: 'bg-info-surface text-info',
-        to: '/gpm/templates', module: 'sales', who: 'プロジェクト管理の編集者',
+        to: '/gpm/templates', module: 'sales', who: 'プロジェクト管理の『書ける』',
       },
       {
         key: 'partner', title: '取引先・仕入先', desc: '見積・請求・発注の宛先',
         icon: Contact, tone: 'bg-warning-surface text-warning',
-        to: '/budget/vendors', module: 'sales', who: '財務管理の編集者',
+        to: '/budget/vendors', module: 'sales', who: '財務管理の『書ける』',
       },
     ],
   },
@@ -78,7 +85,7 @@ export const HUB_GROUPS: HubGroup[] = [
       {
         key: 'money', title: 'お金のルール', desc: '締め日・支払サイト・消費税の扱い',
         icon: Scale, tone: 'bg-success-surface text-success',
-        to: '/settings/money', module: 'sales', who: '経理',
+        to: '/settings/money', module: 'sales', who: '財務管理の『管理』',
       },
       {
         key: 'cal', title: '休日・営業時間', desc: '予約できる時間帯と休業日',
@@ -91,12 +98,12 @@ export const HUB_GROUPS: HubGroup[] = [
     label: '組織',
     cards: [
       {
-        key: 'member', title: '権限とメンバー', desc: '誰がどこまで見られる・直せるか',
+        key: 'member', title: '人と権限', desc: '誰がどこまで見られる・書けるか',
         icon: Users, tone: 'bg-ai-surface text-ai',
-        to: '/settings/users', module: 'admin', who: '管理者',
+        to: '/settings/users', module: 'admin', who: 'システム管理者',
       },
       {
-        key: 'notify', title: '通知とテンプレート', desc: 'メール文面と通知の送り先',
+        key: 'notify', title: '知らせと文面', desc: '社外に出す文面と、社内のベルの送り先',
         icon: Mail, tone: 'bg-primary-surface text-primary',
         to: '/settings/notify', module: 'admin', who: 'システム管理者',
       },
@@ -111,7 +118,7 @@ export const HUB_GROUPS: HubGroup[] = [
         key: 'ai-activity', title: 'AIの活動', desc: 'AIが何をして、どれだけ直されたか',
         icon: Bot, tone: 'bg-ai-surface text-ai',
         // 「直せるのは◯◯」の欄 — この画面で書けるのは月次レビューの「確認した」だけ
-        to: '/settings/ai-activity', module: 'sales', who: '案件管理の管理職（確認の打刻）',
+        to: '/settings/ai-activity', module: 'sales', who: '案件管理の『管理』',
       },
     ],
   },

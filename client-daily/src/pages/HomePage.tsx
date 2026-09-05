@@ -109,7 +109,7 @@ export default function HomePage() {
           to="/news"
           icon={Newspaper}
           title="デイリーニュース報告"
-          description="AI が業界のニュースを毎日集めます。分類と採用（1〜5）を人が付けます"
+          description="AI が業界のニュースを毎日集めます。分類と注目度（1〜5）を人が付けます"
           marks={reportMarks(news.data?.[0], 'day')}
           empty="今日のニュースはまだありません"
         />
@@ -120,8 +120,8 @@ export default function HomePage() {
           to="/inquiries"
           icon={Inbox}
           title="入ってきた情報"
-          description="届いた情報をチケット・案件・ストックに仕分けます。ストックは見直す日が来ると戻ります"
-          // 「未対応」= 未仕分け ＋ 見直しの日が来たストック（migration 247）。
+          description="届いた情報をタスク・案件・あとで見るに仕分けます。見直す日が来ると戻ります"
+          // 「未対応」= 未仕分け ＋ 見直しの日が来た「あとで見る」（migration 247）。
           // 画面の見出しと同じ数（サーバーが数えたもの）
           marks={unhandled ? [{ label: `今日さばくもの ${unhandled}件`, tone: MARK_TONE.ai }] : []}
           empty="今日さばくものはありません"
@@ -141,7 +141,7 @@ export default function HomePage() {
           to="/feedback-tickets"
           icon={MessageSquareWarning}
           title="フィードバックチケット"
-          description="GMO ONAiR への要望・不具合報告を起票し、対応状況を追いかけます"
+          description="GMO ONAiR への要望・不具合を送り、対応状況を追いかけます"
           marks={ticketCounts.data && (ticketCounts.data.open + ticketCounts.data.in_progress)
             ? [{ label: `対応が要るもの ${ticketCounts.data.open + ticketCounts.data.in_progress}件`, tone: MARK_TONE.soon }]
             : []}
@@ -177,7 +177,7 @@ export default function HomePage() {
           <Sparkles className="h-4 w-4 text-ai" aria-hidden="true" />AI との分担
         </p>
         <p className="text-sub mt-1 text-muted-foreground">
-          報告は MCP サーバー経由で AI が定期的に投稿します。AI が入れ直すのは
+          報告は AI が決まった時間に作ります。AI が入れ直すのは
           <strong className="font-bold">本文だけ</strong>で、人が足した行（トピック・ニュース）には触れません。
           使い方はヘッダーの「?」から見られます。
         </p>

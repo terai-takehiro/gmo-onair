@@ -101,7 +101,7 @@ export function printPreview({ pageEl, paperSize, margin, mono, pageMode, meta }
   meta: PreviewState["meta"];
 }) {
     const printWindow = window.open("", "_blank");
-    if (!printWindow) { alert("ポップアップがブロックされました。許可してください。"); return; }
+    if (!printWindow) { alert("別ウィンドウを開けませんでした。ブラウザでこのサイトのポップアップを許可してから、もう一度お試しください。"); return; }
     const sizes: Record<string, [string, string]> = {
       A4P: ["210mm", "297mm"],
       A4L: ["297mm", "210mm"],

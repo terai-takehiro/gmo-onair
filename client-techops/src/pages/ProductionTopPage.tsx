@@ -165,7 +165,7 @@ function ActiveView({
           <ArchiveSearchHintRow count={archiveSearchHits} onOpenArchive={onOpenArchive} />
         ) : (
           <EmptyState
-            title={searching ? '該当する番組・イベントがありません' : '番組・イベントがまだありません'}
+            title={searching ? '条件に合う番組・イベントはありません' : 'まだ番組・イベントがありません'}
             description={searching ? '別の言葉でさがすか、「番組を作る」から新しく作れます。' : '受注が確定するか、「番組を作る」から作るとここに出ます。'}
           />
         )}
@@ -196,7 +196,7 @@ function ArchiveView({
 
       {items.length === 0 ? (
         <EmptyState
-          title="該当する番組・イベントがありません"
+          title="条件に合う番組・イベントはありません"
           description="別の言葉でさがすか、絞り込みを変えてみてください。"
         />
       ) : (
@@ -233,13 +233,13 @@ function CreateProgramDialog({
       setEventDate('');
       onCreated(program);
     },
-    onError: () => notifyError('作成に失敗しました'),
+    onError: () => notifyError('番組を作れませんでした。少し待ってから、もう一度お試しください。'),
   });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader><DialogTitle>ここだけの番組を作る</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>番組を作る</DialogTitle></DialogHeader>
         <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (name.trim()) createMutation.mutate(); }}>
           <div>
             <Label htmlFor="new-program-name">番組名 <span className="text-destructive">*</span></Label>

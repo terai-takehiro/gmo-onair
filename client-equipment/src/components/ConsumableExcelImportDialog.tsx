@@ -170,7 +170,7 @@ export default function ConsumableExcelImportDialog({
                 <span>初めての方は<strong>テンプレート</strong>をダウンロードして編集してください</span>
               </div>
               <Button size="sm" variant="outline" onClick={downloadTemplate}>
-                <Download className="h-4 w-4 mr-1" />テンプレDL
+                <Download className="h-4 w-4 mr-1" />テンプレートを取る
               </Button>
             </CardContent>
           </Card>
@@ -192,7 +192,7 @@ export default function ConsumableExcelImportDialog({
                 </p>
               )}
               {previewMutation.isPending && (
-                <p className="text-xs text-muted-foreground">列を読み取り中...</p>
+                <p className="text-xs text-muted-foreground">列を読み取っています…</p>
               )}
             </CardContent>
           </Card>
@@ -201,9 +201,9 @@ export default function ConsumableExcelImportDialog({
             <Card className={unmatchedCount > 0 ? "border-amber-400/60" : "border-green-500/40"}>
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">列の対応付け</h3>
+                  <h3 className="font-semibold">列の対応づけ</h3>
                   <span className="text-xs text-muted-foreground">
-                    検出列: {preview.detectedHeaders.length} / 未対応: {unmatchedCount}
+                    読み取った列: {preview.detectedHeaders.length} / 未対応: {unmatchedCount}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -253,7 +253,7 @@ export default function ConsumableExcelImportDialog({
                     disabled={!file || validateMutation.isPending}
                   >
                     <Upload className="h-4 w-4 mr-1" />
-                    {validateMutation.isPending ? '検証中...' : '検証する'}
+                    {validateMutation.isPending ? '試しています…' : '試す'}
                   </Button>
                 </div>
                 {validateMutation.error && (
@@ -321,7 +321,7 @@ export default function ConsumableExcelImportDialog({
                     onClick={() => commitMutation.mutate()}
                     disabled={!canCommit || commitMutation.isPending}
                   >
-                    {commitMutation.isPending ? '実行中...' : `実行する (${dryRun.summary.insert}件)`}
+                    {commitMutation.isPending ? '取り込んでいます…' : `取り込む (${dryRun.summary.insert}件)`}
                   </Button>
                 </div>
               </CardContent>

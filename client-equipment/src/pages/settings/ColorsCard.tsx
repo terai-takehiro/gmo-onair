@@ -53,7 +53,7 @@ export function ColorsCard() {
     const ok = await confirmAction({
       title: `色「${c.name}」を消しますか`,
       description: 'この色を選んでいる機材はラック図で種別の色に戻ります。取り消せません。',
-      confirmLabel: '消す',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) crud.remove.mutate(c.id);
@@ -66,7 +66,7 @@ export function ColorsCard() {
         <h3 className="text-cardtitle">機材の色</h3>
         <div className="flex-1" />
         <Button variant="outline" onClick={crud.openAdd}>
-          <Plus className="mr-1 h-4 w-4" aria-hidden="true" />色を足す
+          <Plus className="mr-1 h-4 w-4" aria-hidden="true" />色を追加
         </Button>
       </div>
       <p className="text-note text-muted-foreground">
@@ -104,10 +104,10 @@ export function ColorsCard() {
       <FormDialog
         open={crud.dialogOpen}
         onOpenChange={crud.setDialogOpen}
-        title={crud.isEditing ? '色を直す' : '色を足す'}
+        title={crud.isEditing ? '色を編集' : '色を追加'}
         footer={
           <FormDialogFooter>
-            <Button variant="outline" onClick={crud.closeDialog}>やめる</Button>
+            <Button variant="outline" onClick={crud.closeDialog}>キャンセル</Button>
             <Button
               onClick={() => crud.save.mutate({
                 name: form.name,
@@ -118,7 +118,7 @@ export function ColorsCard() {
               disabled={!form.name || !form.color_hex || crud.save.isPending}
             >
               {crud.save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-              {crud.isEditing ? '直す' : '足す'}
+              {crud.isEditing ? '編集' : '追加'}
             </Button>
           </FormDialogFooter>
         }

@@ -81,7 +81,7 @@ export default function LoginPage() {
       window.location.replace(redirectPath || "/");
       }
     } catch (err: any) {
-      setFormError(err.response?.data?.error?.message || "ログインに失敗しました");
+      setFormError(err.response?.data?.error?.message || "ログインできませんでした。メールとパスワードを確かめて、もう一度お試しください。");
     } finally {
       setLoading(false);
     }
@@ -131,7 +131,7 @@ export default function LoginPage() {
         {(error || formError) && (
           <div className="mb-4 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
             <AlertCircle className="h-4 w-4 shrink-0" />
-            <span>{formError || (error === "auth_failed" ? "認証に失敗しました" : "ログインエラー")}</span>
+            <span>{formError || (error === "auth_failed" ? "ログインできませんでした。もう一度お試しください。" : "ログインできませんでした")}</span>
           </div>
         )}
 

@@ -72,7 +72,7 @@ export function PurchaseSection({
                           if (!(await confirmAction({
                             title: 'この仕入を削除しますか？',
                             description: '分けた額の内訳も一緒に消えます。',
-                            confirmLabel: '削除する', tone: 'danger',
+                            confirmLabel: '削除', tone: 'danger',
                           }))) return;
                           onDelete(pu.id);
                         }}

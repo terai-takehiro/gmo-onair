@@ -1,5 +1,5 @@
 /**
- * メンバーを招く／直す（v4 設定 ③）
+ * メンバーを招く／編集する（v4 設定 ③）
  *
  * ── 招くときに役割まで決める ────────────────────────────────
  *
@@ -80,7 +80,7 @@ export function UserDialog({ user, roles, open, onOpenChange }: Props) {
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={inviteUrl ? '招待のリンク' : (user ? 'メンバーを直す' : 'メンバーを招く')}
+      title={inviteUrl ? '招待のリンク' : (user ? 'メンバーを編集' : 'メンバーを招く')}
       sub={inviteUrl
         ? 'この URL を本人に渡してください（7日間だけ使えます）。'
         : (user ? '名前・メール・役割を直します。' : '招待のリンクを出します。役割はここで決められます。')}
@@ -90,7 +90,7 @@ export function UserDialog({ user, roles, open, onOpenChange }: Props) {
         </FormDialogFooter>
       ) : (
         <FormDialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
           <Button
             onClick={() => save.mutate()}
             disabled={!name.trim() || !email.trim() || save.isPending}

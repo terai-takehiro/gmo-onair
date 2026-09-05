@@ -85,7 +85,8 @@ describe('サーバーの数え方は変えていない', () => {
  *
  * **実測**（実ブラウザ）: 単価を入れて実績が無いとき
  * 「費用の目安はまだ出せません（この仕事の実績がまだ無いためです）」／
- * 単価が無いとき「費用の目安は出せません（単価 `AI_PRICING_JSON` が未設定です）」。
+ * 単価が無いとき「費用の目安は出せません（AI の単価をまだ設定していません）」
+ * （2026-09-05 に変数名を画面から外した。理由の書き分けは3通りのまま）。
  */
 describe('費用の目安が出せない理由を書き分ける', () => {
   const FORMAT_CARD = read('client', 'src', 'contexts', 'platform', 'pages', 'settings', 'ActivityFormatCard.tsx');
@@ -124,7 +125,9 @@ describe('費用の目安が出せない理由を書き分ける', () => {
 
   it('画面は理由を1か所で決め、3通りとも書く', () => {
     expect(FORMAT_CARD).toMatch(/function noCostReason\(s: Pick<Status, 'costReason' \| 'unpricedModels'>\): string/);
-    expect(FORMAT_CARD).toMatch(/単価 `AI_PRICING_JSON` が未設定です/);
+    // 2026-09-05: 変数名 `AI_PRICING_JSON` は画面から外した（`docs/wording.md` ルール5・
+    // `scripts/check-ui-tokens.mjs` の `forbidden-wording`）。**3通り書き分けること自体は変えていない**
+    expect(FORMAT_CARD).toMatch(/AI の単価をまだ設定していません/);
     expect(FORMAT_CARD).toMatch(/の単価が入っていません/);
     expect(FORMAT_CARD).toMatch(/この仕事の実績がまだ無いためです/);
   });

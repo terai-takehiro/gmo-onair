@@ -255,7 +255,7 @@ export default function HomePage() {
         lastLoaded={lastLoaded}
       />
 
-      {/* スマホは「AIに任せる」を挨拶の直下に1本（モック）。押すとシートが開く */}
+      {/* スマホは「AI に渡す」を挨拶の直下に1本（モック）。押すとシートが開く */}
       {isMobile && <MobileAiBar canIntake={canSeeDailyops} canOpenProject={canSeeSales} />}
 
       {/* **PC・スマホとも アプリ → 今日**（モック `v4-live`）。
@@ -266,7 +266,7 @@ export default function HomePage() {
       {hasToday && (
       <Reveal>
       <section className="flex flex-col gap-3.5">
-        {/* AI に任せる。**投げるのは1秒で終わる行為なので入口の最上部**
+        {/* AI に渡す。**投げるのは1秒で終わる行為なので入口の最上部**
             （奥に置くと「あとでいいか」になり、口頭のまま消える）。
             **スマホでは挨拶の下の青いバーの中**にある（モックの ①）ので、ここには出さない */}
         {!isMobile && canSeeDailyops && <TaskIntakeBox canOpenProject={canSeeSales} />}

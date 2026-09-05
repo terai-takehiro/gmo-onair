@@ -19,7 +19,7 @@ export function DefaultCellContent({ it, height }: { it: any; height: number }) 
     );
   }
   if (height <= CELL_H * 2) {
-    // 2U: 型名+バッジ上段、機材名下段
+    // 2U: 型名+バッジ上段、商品名下段
     return (
       <div className="flex flex-col justify-center h-full px-2 py-1 gap-0.5">
         <div className="flex items-center gap-1.5 min-w-0">
@@ -34,7 +34,7 @@ export function DefaultCellContent({ it, height }: { it: any; height: number }) 
       </div>
     );
   }
-  // 3U+: 機材名上段、型名+バッジ下段
+  // 3U+: 商品名上段、型名+バッジ下段
   return (
     <div className="flex flex-col justify-center h-full px-2 py-1 gap-0.5">
       <span className="font-bold truncate leading-tight" style={{ fontSize: 13 }}>

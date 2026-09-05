@@ -89,7 +89,7 @@ export function ThreadTab({ projectId }: { projectId: string }) {
   const remove = useMutation({
     mutationFn: (id: string) => api.delete(`/projects/${projectId}/minutes/${id}`),
     onSuccess: () => { invalidate(); notifySuccess('消しました'); },
-    onError: (e) => notifyApiError('消せませんでした', e),
+    onError: (e) => notifyApiError('削除できませんでした', e),
   });
 
   /**
@@ -101,19 +101,19 @@ export function ThreadTab({ projectId }: { projectId: string }) {
    */
   const redo = useMutation({
     mutationFn: (id: string) => api.post(`/activity-logs/${id}/format-redo`),
-    meta: { action: '整え直し' },
+    meta: { action: 'やり取りを整形' },
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ['project-activities', projectId] });
-      notifySuccess((r.data as { message?: string })?.message ?? '整え直しの順番に戻しました');
+      notifySuccess((r.data as { message?: string })?.message ?? 'AI が整える順番に戻しました');
     },
   });
 
   const onRedo = async (id: string) => {
     const ok = await confirmAction({
       title: 'この整形をやめますか',
-      description: 'いま出ている整形を消して、整え直しの順番に戻します。'
+      description: 'いま出ている整形を消して、AI が整える順番に戻します。'
         + '**打った文（原文）はそのまま残ります。**\n\n'
-        + '整え直すのは毎晩 3:00 の自動処理なので、すぐには変わりません。'
+        + 'AI が整えるのは毎晩 3:00 の自動処理なので、すぐには変わりません。'
         + 'それまでは打った文のまま出ます。\n\n'
         + '「違う」と押したことは記録され、整形の精度を上げる材料になります。',
       confirmLabel: '整え直す',
@@ -176,7 +176,7 @@ export function ThreadTab({ projectId }: { projectId: string }) {
       qc.invalidateQueries({ queryKey: ['project', projectId] });
       const why = (r.data?.data as { format_error?: string } | undefined)?.format_error;
       // **整えられなかったことを黙らない。** 黙ると「AI が効いていない」に気づけない
-      notifySuccess(why ? '記録しました（整えられませんでした）' : '整えて記録しました',
+      notifySuccess(why ? '記録しました（AI が整えられませんでした）' : '記録しました（AI が整えました）',
         why ? { description: why } : undefined);
     },
     onError: (e) => notifyApiError('記録できませんでした', e),
@@ -198,7 +198,7 @@ export function ThreadTab({ projectId }: { projectId: string }) {
       ) : items.length === 0 ? (
         <EmptyState
           title="やり取りの記録はまだありません"
-          description="上の欄に打って「整えて記録する」を押してください。メールは AI が自動で取り込みます。"
+          description="上の欄に打って「記録する」を押してください。メールは AI が自動で取り込みます。"
         />
       ) : (
         // **1つの枠に行を詰めるのをやめた。** 1件ずつが会話の形を持つので、
@@ -239,9 +239,9 @@ export function ThreadTab({ projectId }: { projectId: string }) {
               onMakeTask={(index, assignedTo) => makeTask.mutate({ id: m.id, index, assigned_to: assignedTo })}
               onDelete={async () => {
                 const ok = await confirmAction({
-                  title: '議事録を消しますか',
+                  title: '議事録を削除しますか',
                   description: '文字起こしも一緒に消えます。元の音声は残していないので、戻せません。',
-                  confirmLabel: '消す',
+                  confirmLabel: '削除',
                   tone: 'danger',
                 });
                 if (ok) remove.mutate(m.id);

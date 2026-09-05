@@ -3,7 +3,7 @@
 // 要件: docs/archive/2026/2026-07-25-collaboration-and-personal-agent.md (D2 / D3 / D8)
 //
 // サーバー側は /dailyops/tasks/* (server/src/contexts/dailyops/routes/tasks.routes.ts)。
-// 投入口 (案件管理アプリのトップ) と同じ service を通るので、
+// 書き留める入口 (案件管理アプリのトップ) と同じ service を通るので、
 // どちらから登録しても同じ結果・同じ副作用になる。
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -11,11 +11,11 @@ import api from './api';
 
 export type DelegationStatus = 'requested' | 'accepted' | 'declined' | 'consulting' | 'done';
 /**
- * 投入の状態。**サーバー（`task-intake.service`）の `IntakeStatus` と同じ5つ**。
+ * 書き留めたものの状態。**サーバー（`task-intake.service`）の `IntakeStatus` と同じ5つ**。
  *
  * ⚠️ 前の版はここに `transcribing` / `failed` が無く、しかも
  * 一覧の応答は `as TaskIntake[]` で受けているので**型チェックには出ませんでした**。
- * その結果、録音の投入は投入ログに**英語のまま**（`transcribing`）出ていました。
+ * その結果、録音は「書き留めたもの」に**英語のまま**（`transcribing`）出ていました。
  */
 export type IntakeStatus = 'pending' | 'committed' | 'discarded' | 'transcribing' | 'failed';
 export type IntakeKind = 'freeform' | 'minutes' | 'mail' | 'chat' | 'other';
@@ -32,7 +32,7 @@ export interface MyTask {
   urgency: number;
   /** 重要度 × 緊急度 (期限が無ければ緊急度は 1 扱い)。1〜9 */
   priority_score: number;
-  /** 9 マスのどのマスか。'3x1' = 重要 高 × 緊急 低 */
+  /** 「重要度 × 緊急度」のどのマスか。'3x1' = 重要 高 × 緊急 低 */
   priority_cell: string;
   is_completed: boolean;
   assigned_to: string | null;
@@ -75,7 +75,7 @@ export interface TaskIntake {
   created_by_name?: string | null;
   /** 文字起こしが失敗した理由。**残さないと「押しても何も起きない」になる** */
   error_message?: string | null;
-  /** この投入から生まれたタスクの件数 */
+  /** 書き留めた文から生まれたタスクの件数 */
   task_count: number;
 }
 
@@ -85,10 +85,10 @@ export interface Assignee {
   email?: string | null;
 }
 
-// ── 9 マス (要件 D2) ────────────────────────────────
+// ── 重要度 × 緊急度 (要件 D2) ───────────────────────
 // スコアは 6 種類しかないので同点が出る。しかも**同点のマスは打ち手が真逆**
 // (スコア 3 は「重要高×緊急低 = 予定を取って守る」と「重要低×緊急高 = 任せる」の 2 マス)。
-// だからスコア順リストと 9 マスボードの両方を出す。
+// だから「優先度順」リストと「重要度 × 緊急度」ボードの両方を出す。
 
 export const CELL_ACTION: Record<string, string> = {
   '3x3': '今すぐやる',

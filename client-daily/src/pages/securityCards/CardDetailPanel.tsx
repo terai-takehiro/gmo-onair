@@ -66,7 +66,7 @@ function CardDetail({
 
   const save = () => {
     update.mutate({ id: card.id, fields: { label: label.trim() || null, notes: notes.trim() || null, is_active: isActive } }, {
-      onSuccess: () => { setEditing(false); notifySuccess('カードの情報を直しました'); },
+      onSuccess: () => { setEditing(false); notifySuccess('カードの情報を保存しました'); },
       onError: (e) => notifyApiError('保存できませんでした', e),
     });
   };
@@ -95,7 +95,7 @@ function CardDetail({
 
         {!card.is_active && (
           <p className="text-sub mt-2 rounded-note bg-destructive-surface px-2 py-1 text-destructive">
-            運用対象外です（紛失・廃止）。貸し出せません。
+            いま使えません（紛失・廃止）。貸し出せません。
           </p>
         )}
 
@@ -121,11 +121,11 @@ function CardDetail({
               </Button>
             ) : (
               <Button className="min-h-tap flex-1 gap-1.5" onClick={onReturn}>
-                <Undo2 className="h-4 w-4" aria-hidden="true" /> 返してもらう
+                <Undo2 className="h-4 w-4" aria-hidden="true" /> 返却を記録
               </Button>
             )}
             <Button variant="outline" className="min-h-tap gap-1.5" onClick={() => setEditing(true)}>
-              <Pencil className="h-4 w-4" aria-hidden="true" /> 直す
+              <Pencil className="h-4 w-4" aria-hidden="true" /> 編集
             </Button>
           </div>
         )}
@@ -146,13 +146,16 @@ function CardDetail({
                 className="text-sub mt-1 w-full resize-y rounded-control border border-border bg-background px-3 py-2"
               />
             </div>
-            <label className="text-sub min-h-tap flex items-center gap-2">
-              <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-4 w-4" />
-              貸し出せる状態にする（外すと紛失・廃止の扱いになります）
-            </label>
+            <div>
+              <label className="text-sub min-h-tap flex items-center gap-2">
+                <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-4 w-4" />
+                貸し出せる
+              </label>
+              <p className="text-note text-muted-foreground">外すと紛失・廃止の扱いになります。</p>
+            </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" className="min-h-tap" onClick={() => setEditing(false)}>
-                <X className="mr-1 h-4 w-4" aria-hidden="true" />やめる
+                <X className="mr-1 h-4 w-4" aria-hidden="true" />キャンセル
               </Button>
               <Button className="min-h-tap" onClick={save} disabled={update.isPending}>
                 <Check className="mr-1 h-4 w-4" aria-hidden="true" />保存

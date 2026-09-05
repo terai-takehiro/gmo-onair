@@ -14,7 +14,7 @@
  *
  * そして**この形にしか安全に載せられません**。理由は二重登録です:
  *
- *   棚卸しの印   何回押しても結果が同じ（あった / 無かった）→ 溜めて送れる
+ *   棚卸しの記録 何回押しても結果が同じ（確認できた / 見つからない）→ 溜めて送れる
  *   返却の記録   返ったものをもう一度返しても返ったまま      → 溜めて送れる
  *   **貸出**     2回押すと**2本できる**                      → 溜めて送れない
  *
@@ -71,7 +71,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
   });
   const detail = detailQuery.data;
   const items = useMemo(() => detail?.items ?? [], [detail]);
-  /** 終わりにした棚卸し。**印を付けさせない**（PC の画面と同じ判断） */
+  /** 終わりにした棚卸し。**確認を記録させない**（PC の画面と同じ判断） */
   const closed = detail?.status === 'completed';
   // 溜めて送るところは `useScanQueue`（画面の見た目と混ぜない）
   const { pending, flush, mark } = useScanQueue(checkId, closed, setMessage);
@@ -146,7 +146,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
   }
   if (!detail) return <div className="p-3"><Delayed><SkeletonRows rows={6} /></Delayed></div>;
 
-  // **`found` は 0/1/2**（未確認 / あった / 無かった）。真偽値ではない。
+  // **`found` は 0/1/2**（未確認 / 確認できた / 見つからない）。真偽値ではない。
   // PC の ✓ ✕ と同じ値を書く（片方だけ別の数字にすると集計が食い違う）
   const done = items.filter((i) => i.found === 1);
   const missing = items.filter((i) => i.found === 2);
@@ -163,7 +163,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
         title={detail.title}
         sub={closed
           ? `${detail.check_date} ・ 終わった棚卸しです（読むだけ）`
-          : `${detail.check_date} ・ QR を読むと「あった」が付きます`}
+          : `${detail.check_date} ・ QR を読むと「確認できた」になります`}
         primaryAction={
           closed ? undefined : cameraOn ? (
             <Button className="w-full sm:w-auto" variant="outline" onClick={stopCamera}>
@@ -188,7 +188,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
       {closed && (
         <p className="rounded-note border border-border bg-muted px-3.5 py-3 text-note text-secondary-foreground">
           <strong className="font-bold">この棚卸しは終わっています。</strong>
-          印は付けられません。直すときは PC の棚卸し画面で「もう一度開く」を押してください。
+          確認の記録はできません。直すときは PC の棚卸し画面で「もう一度開く」を押してください。
         </p>
       )}
 
@@ -197,7 +197,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
         <p className="rounded-note flex items-start gap-2 border border-warning-border bg-warning-surface px-3.5 py-3 text-note text-secondary-foreground">
           <CloudOff className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
           <span>
-            <strong className="font-bold">まだ送れていない印が {pending} 件あります。</strong>
+            <strong className="font-bold">まだ送れていない記録が {pending} 件あります。</strong>
             端末に溜めてあるので、電波が戻ると自動で送ります。
             <strong className="font-bold">送り終わるまでこの画面を閉じても大丈夫です</strong>
             （次に開いたときに送ります）。
@@ -240,12 +240,12 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
             autoFocus
             className="h-11 min-w-0 flex-1"
           />
-          <Button type="submit" disabled={!manual.trim()}>入れる</Button>
+          <Button type="submit" disabled={!manual.trim()}>確認する</Button>
         </form>
       )}
 
       <FilterChips
-        label="出すもの"
+        label="絞り込み"
         items={[
           { key: 'rest', label: 'のこり', count: rest.length },
           { key: 'done', label: '確認できた', count: done.length },
@@ -276,7 +276,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
               <Button
                 variant={i.found === 1 ? 'default' : 'outline'}
                 size="icon"
-                aria-label="あった"
+                aria-label="確認できた"
                 disabled={closed}
                 onClick={() => mark(i, 1)}
               >
@@ -285,7 +285,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
               <Button
                 variant={i.found === 2 ? 'destructive' : 'outline'}
                 size="icon"
-                aria-label="無かった"
+                aria-label="見つからない"
                 disabled={closed}
                 onClick={() => mark(i, 2)}
               >
@@ -297,7 +297,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
       )}
 
       <p className="text-note text-muted-foreground">
-        <strong className="font-bold">この画面でできるのは棚卸しの印だけです。</strong>
+        <strong className="font-bold">この画面でできるのは棚卸しの記録だけです。</strong>
         貸出は相手・用途・期日を決める作業で、
         <strong className="font-bold">2回押すと2本できてしまう</strong>ので端末に溜められません
         （PC の「貸出・返却」から行います）。

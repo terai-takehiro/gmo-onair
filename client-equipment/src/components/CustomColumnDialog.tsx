@@ -70,7 +70,7 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['equipment-custom-columns'] });
       qc.invalidateQueries({ queryKey: ['equipment-custom-values'] });
-      notifySuccess('列を消しました');
+      notifySuccess('列を削除しました');
     },
     onError: (e) => notifyApiError('列を消せませんでした', e),
   });
@@ -82,11 +82,11 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
    */
   const askDelete = async (col: CustomColumn) => {
     const ok = await confirmAction({
-      title: `列「${col.name}」を消しますか`,
+      title: `列「${col.name}」を削除しますか`,
       description: col.scope === 'shared'
         ? 'この列に入れた値が全機材ぶん消えます。共有列なので全員の画面から消えます。取り消せません。'
         : 'この列に入れた値が全機材ぶん消えます。取り消せません。',
-      confirmLabel: '消す',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) deleteMutation.mutate(col.id);
@@ -187,7 +187,7 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-xs">スコープ</Label>
+                    <Label className="text-xs">見せる範囲</Label>
                     <Select value={form.scope} onValueChange={v => setForm(f => ({ ...f, scope: v }))}>
                       <SelectTrigger className="h-8 text-sm mt-1">
                         <SelectValue />

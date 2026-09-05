@@ -331,7 +331,7 @@ function AppRoutes() {
         <Route path="/settings/money" element={<PermissionRoute module="sales"><MoneyRulesPage /></PermissionRoute>} />
         {/* ⑥ 休日・営業時間。読むのは `sales`（旧 `studio`＝カレンダー）の reader（予約を入れる人は取れる時間を知る必要がある）。直せるのは system_admin だけで、拠点・部屋と揃えてある */}
         <Route path="/settings/hours" element={<PermissionRoute module="sales"><HoursPage /></PermissionRoute>} />
-        {/* ⑦ 通知とテンプレート。読むのは `admin` の reader（文面をコピーして使う人が来る）。直せるのは system_admin だけ */}
+        {/* ⑦ 知らせと文面（旧「通知とテンプレート」）。読むのは `admin` の reader（文面をコピーして使う人が来る）。直せるのは system_admin だけ */}
         <Route path="/settings/notify" element={<PermissionRoute module="admin"><NotifyPage /></PermissionRoute>} />
         {/* AI の活動（Phase 2 ②）。読むのは `sales` の reader。「確認した」だけ manager（画面とサーバーの両方で見ている）。URL は月次レビュー通知の link と対 — 変えない */}
         <Route path="/settings/ai-activity" element={<PermissionRoute module="sales"><AiActivityPage /></PermissionRoute>} />

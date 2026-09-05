@@ -53,7 +53,7 @@ export function GlsDialog({
    */
   const blockReason = busy ? null
     : newMode && !canIssueNew ? GLS_ISSUE_BLOCKED_HINT
-      : state.mode === 'link' && !state.target_project_id ? '足す先の GLS 案件を選んでください。'
+      : state.mode === 'link' && !state.target_project_id ? '追加先の GLS 案件を選んでください。'
         : newMode && isCategoryA && state.broadcast_types.length === 0 ? '番組種別を1つ以上選んでください。'
           : newMode && isCategoryA && state.media_platforms.length === 0 ? '配信媒体を1つ以上選んでください。'
             : null;
@@ -64,13 +64,13 @@ export function GlsDialog({
       open={state.open}
       onOpenChange={(open) => setState((s) => ({ ...s, open }))}
       title="GLS 発番"
-      sub="新しい番組として番号を採るか、すでにある GLS 案件の回として足すかを選んでください。"
+      sub="新しい番組として番号を採るか、すでにある GLS 案件の回として追加するかを選んでください。"
       footer={(
         <>
           {/* 押せないときは**ボタンのすぐ上**に理由を出す（本文は長くて流れるので下端に置く） */}
           {blockReason && <p className="text-note mb-2 text-warning">{blockReason}</p>}
           <FormDialogFooter>
-            <Button variant="outline" onClick={() => setState((s) => ({ ...s, open: false }))}>やめる</Button>
+            <Button variant="outline" onClick={() => setState((s) => ({ ...s, open: false }))}>キャンセル</Button>
             <Button onClick={onConfirm} disabled={blocked}>
               {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
               {state.mode === 'link' ? 'GLS 番号を付ける' : 'GLS 番号を採る'}
@@ -88,7 +88,7 @@ export function GlsDialog({
               sub: canIssueNew ? '新しい GLS 番号を採る' : GLS_ISSUE_BLOCKED_HINT,
               disabled: !canIssueNew,
             },
-            { mode: 'link' as const, title: 'いまある案件に足す', sub: 'その番組の回として足す', disabled: false },
+            { mode: 'link' as const, title: 'いまある案件に追加', sub: 'その番組の回として追加します', disabled: false },
           ]).map((o) => (
             <button
               key={o.mode}
@@ -154,7 +154,7 @@ export function GlsDialog({
 
         {state.mode === 'link' && (
           <div>
-            <Label>足す先の GLS 案件 *</Label>
+            <Label>追加先の GLS 案件 *</Label>
             <SearchableSelect
               options={glsProjects.map((p) => ({
                 value: p.id,
@@ -163,10 +163,10 @@ export function GlsDialog({
               }))}
               value={state.target_project_id}
               onChange={(v) => setState((s) => ({ ...s, target_project_id: v }))}
-              placeholder="GLS 番号で探す..."
+              placeholder="GLS 番号で探す…"
             />
             <p className="text-note mt-1 text-muted-foreground">
-              選んだ案件の GLS 番号が付き、概算見積は確定した売上に変わります。
+              選んだ案件の GLS 番号が付き、想定金額は確定売上に変わります。
             </p>
           </div>
         )}

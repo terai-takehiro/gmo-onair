@@ -376,7 +376,7 @@ export default function ProjectListPage() {
       {isMobile && rawViewKey === 'board' && (
         <PcOnlyNote
           what="ボード"
-          why="5つのステージを横に並べるので、この幅では1列も入りません。いまはリストを出しています。"
+          why="ステージを横に並べるには狭いため、いまはリストを出しています。"
         />
       )}
 

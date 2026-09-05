@@ -33,7 +33,7 @@ export function BookingListSection({
       action={(
         <Button type="button" variant="outline" size="sm" onClick={onAdd}>
           <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
-          予約を足す
+          予約を追加
         </Button>
       )}
     >
@@ -64,13 +64,13 @@ export function BookingListSection({
                   </button>
                   <Button
                     type="button" variant="ghost" size="icon" className="h-9 w-9"
-                    aria-label="この予約を直す" onClick={() => onEdit(b)}
+                    aria-label="この予約を編集" onClick={() => onEdit(b)}
                   >
                     <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>
                   <Button
                     type="button" variant="ghost" size="icon" className="h-9 w-9 text-destructive"
-                    aria-label="この予約を消す" onClick={() => onDelete(b)}
+                    aria-label="この予約を削除" onClick={() => onDelete(b)}
                   >
                     <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>

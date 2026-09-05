@@ -28,7 +28,7 @@ export function useExcelIO(
       const { blob, filename } = await exportQsheet(doc.id, { format: "xlsx", content: "full", current: doc.data });
       triggerDownload(blob, filename);
     } catch {
-      notifyError("Excel出力に失敗しました");
+      notifyError("Excel を書き出せませんでした。", { description: "少し待ってから、もう一度お試しください。" });
     }
   }, [doc]);
 
@@ -50,7 +50,7 @@ export function useExcelIO(
         broadcast_date: metaPatch.broadcast_date ?? prev.broadcast_date,
       } : prev));
     } catch {
-      notifyError("台本情報（タイトル・状態・放送日）の反映に失敗しました", { description: "台本本体の取込は完了しています。" });
+      notifyError("台本情報（タイトル・状態・放送日）を反映できませんでした。", { description: "台本本体の取込は終わっています。情報バーから手で直してください。" });
     }
   }, [doc, setDoc]);
 

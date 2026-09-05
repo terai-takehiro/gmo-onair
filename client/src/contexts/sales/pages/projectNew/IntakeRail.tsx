@@ -42,7 +42,7 @@ const CARD_W = 'w-[236px]';  // ui-tokens-ok: レールのカードは 236px 固
 /** 札の文字。**56px の枠に収める**ので2〜4字 */
 const KIND_BADGE: Record<string, { label: string; tone: string }> = {
   ai_project: { label: 'ネタ', tone: 'bg-ai-surface text-ai' },
-  inquiry: { label: '問合せ', tone: 'bg-primary-surface text-primary' },
+  inquiry: { label: '問い合わせ', tone: 'bg-primary-surface text-primary' },
 };
 
 export function useIntakeItems(): { items: InboxItem[]; total: number | null; isLoading: boolean } {
@@ -112,7 +112,7 @@ export function IntakeRail({
             onClick={() => onSelect(null)}
             className="text-note font-bold text-primary hover:underline"
           >
-            選択をやめる
+            選択を解除
           </button>
         )}
       </p>

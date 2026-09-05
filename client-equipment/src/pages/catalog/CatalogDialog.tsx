@@ -79,10 +79,10 @@ export function CatalogDialog({
   const config = CONFIG_BY_SOURCE[source];
 
   const title = mode.kind === 'edit'
-    ? `${config.label}を直す`
+    ? `${config.label}を編集`
     : mode.kind === 'copy'
-      ? `${config.label}を写して足す`
-      : `${config.label}を足す`;
+      ? `${config.label}を写して追加`
+      : `${config.label}を追加`;
 
   const set = <K extends keyof CatalogForm>(k: K, v: CatalogForm[K]) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -91,14 +91,14 @@ export function CatalogDialog({
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
       title={title}
-      // 用途/設置場所・メーカー/型名・長さ/色/所有数 の複数の2〜3列グリッドを持つ複合フォームなので wide にする
+      // 用途/保管場所・メーカー/型名・長さ/色/所有数 の複数の2〜3列グリッドを持つ複合フォームなので wide にする
       wide
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button onClick={() => onSubmit(form)} disabled={!form.name.trim() || saving}>
             {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-            {mode.kind === 'edit' ? '直す' : '足す'}
+            {mode.kind === 'edit' ? '編集' : '追加'}
           </Button>
         </FormDialogFooter>
       }
@@ -135,7 +135,7 @@ export function CatalogDialog({
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>設置場所</Label>
+              <Label>保管場所</Label>
               <Select
                 value={form.location_id || 'none'}
                 onValueChange={(v) => set('location_id', v === 'none' ? '' : v)}

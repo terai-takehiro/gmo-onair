@@ -2,7 +2,17 @@
  * ② 請求・入金（財務） (v4)
  *
  * **月次の締めを一括でやる画面**です。締め月を決めて、その月ぶんをまとめて
- * 「請求書を出す」「入金を記録する」「検収を記録する」。
+ * 「請求書を出す」「入金を記録」「検収を記録」。
+ *
+ * ── タブ名とボタン名は同じ語にする（2026-09-05 の用語棚卸し）──────
+ *
+ * 以前はタブが「請求書を出す／入金の確認／検収書を出す」、ボタンが
+ * 「請求書を出す／入金を記録／検収を記録」で、**同じ仕事に名前が2つ**あった。
+ * このタブでやるのは3つとも**日付を記録すること**なので、**ボタン側の語に揃える**
+ * （帳票の PDF は行ごとの「帳票」列から出す・`billing/ClosingRows.tsx`）。
+ * 確認ダイアログの見出しも動詞ごとに文を分けてある（`CONFIRM` 表） —
+ * 以前は `${n}件を「${label}」ますか` の1本で組み立てており、
+ * 「3件を「入金を記録する」ますか」という壊れた日本語になっていた。
  *
  * ── ⑤ 見積・請求（案件管理）との違い ────────────────────────
  *
@@ -41,9 +51,20 @@ import { MobileCollect } from './closing/MobileCollect';
 
 const TABS: { key: ClosingTab; label: string; icon: JSX.Element }[] = [
   { key: 'issue', label: '請求書を出す', icon: <Receipt className="h-4 w-4" aria-hidden="true" /> },
-  { key: 'collect', label: '入金の確認', icon: <Wallet className="h-4 w-4" aria-hidden="true" /> },
-  { key: 'inspect', label: '検収書を出す', icon: <ClipboardCheck className="h-4 w-4" aria-hidden="true" /> },
+  { key: 'collect', label: '入金を記録', icon: <Wallet className="h-4 w-4" aria-hidden="true" /> },
+  { key: 'inspect', label: '検収を記録', icon: <ClipboardCheck className="h-4 w-4" aria-hidden="true" /> },
 ];
+
+/**
+ * まとめて記録する前の確認文。**動詞ごとに1文ずつ持つ**。
+ * 1本のテンプレートに動詞を差し込むと「3件を「入金を記録する」ますか」のように
+ * 文法が壊れる（実際に壊れていた・ファイル冒頭コメント）。
+ */
+const CONFIRM: Record<ClosingTab, { title: (n: number) => string; confirmLabel: string }> = {
+  issue: { title: (n) => `${n}件の請求書を出しますか`, confirmLabel: '請求書を出す' },
+  collect: { title: (n) => `${n}件に入金を記録しますか`, confirmLabel: '入金を記録' },
+  inspect: { title: (n) => `${n}件に検収を記録しますか`, confirmLabel: '検収を記録' },
+};
 
 const FOOT: Record<ClosingTab, string> = {
   issue: '申込書が揃っていない案件は選べません。締めた月にあとから確定した売上は、翌月の締めに回ります。請求書番号（INV-年-4桁）は「出す」を押したときに採ります。取り消しても番号は変わりません。',
@@ -105,18 +126,16 @@ function DesktopClosing() {
       );
       clearPick();
     },
-    onError: (e) => notifyApiError('記録できませんでした', e),
+    onError: (e) => notifyApiError('選んだ行を記録できませんでした', e, '少し時間をおいてもう一度お試しください。'),
   });
 
   const run = async () => {
-    const label = tab === 'issue' ? '請求書を出したことにする'
-      : tab === 'collect' ? '入金を記録する' : '検収を記録する';
     const ok = await confirmAction({
-      title: `${pickedRows.length}件を「${label}」ますか`,
+      title: CONFIRM[tab].title(pickedRows.length),
       description: `合計 ${formatCurrency(pickedSum)}（税抜）。${
         tab === 'issue' ? '請求日として今日の日付が入ります。' : '今日の日付が入ります。'
       }取り消しは案件管理の「見積・請求」から1件ずつ行えます。`,
-      confirmLabel: '記録する',
+      confirmLabel: CONFIRM[tab].confirmLabel,
     });
     if (!ok) return;
     if (tab === 'issue') bulk.mutate({ invoice_issued: true, billing_date: today });
@@ -124,7 +143,8 @@ function DesktopClosing() {
     else bulk.mutate({ inspection_date: today });
   };
 
-  const actionLabel = tab === 'issue' ? '請求書を出す' : tab === 'collect' ? '入金を記録' : '検収を記録';
+  // ボタンの語はタブ・確認ダイアログと同じ（`TABS` / `CONFIRM`）
+  const actionLabel = CONFIRM[tab].confirmLabel;
 
   return (
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
@@ -226,7 +246,7 @@ function DesktopClosing() {
 /**
  * スマホと PC で**別の画面**を出す（Phase 6・M3）。
  *
- * PC は月ぶんを**まとめて**処理する画面（請求書を出す／入金／検収の3タブ・複数選択）。
+ * PC は月ぶんを**まとめて**処理する画面（請求書を出す／入金を記録／検収を記録の3タブ・複数選択）。
  * スマホは **入金の記録1つだけ**にします（モックの ⑫）。
  * モックの「スマホに置かないもの」に**お金**が挙がっているのは**台帳の表**のことで、
  * **片づく1つの仕事**は置く、という切り分けです。

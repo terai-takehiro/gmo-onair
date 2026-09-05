@@ -45,7 +45,7 @@ export default function TemplateManagerPage() {
   if (state.status === 'not-found') {
     return (
       <div className="mx-auto max-w-lg px-4 py-10">
-        <EmptyState icon={<Blocks />} title="見つかりませんでした" description="GLS番号・案件ID・番組IDを確認してください。" />
+        <EmptyState icon={<Blocks />} title="見つかりませんでした" description="GLS番号が合っているか確かめてください。" />
       </div>
     );
   }

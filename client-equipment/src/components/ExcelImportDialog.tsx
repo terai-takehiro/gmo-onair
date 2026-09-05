@@ -190,7 +190,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
               </div>
               <Button size="sm" variant="outline" onClick={downloadTemplate}>
                 <Download className="h-4 w-4 mr-1" />
-                テンプレDL
+                テンプレートを取る
               </Button>
             </CardContent>
           </Card>
@@ -214,7 +214,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
                 </p>
               )}
               {previewMutation.isPending && (
-                <p className="text-xs text-muted-foreground">列を読み取り中...</p>
+                <p className="text-xs text-muted-foreground">列を読み取っています…</p>
               )}
             </CardContent>
           </Card>
@@ -224,9 +224,9 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
             <Card className={unmatchedCount > 0 ? "border-amber-400/60" : "border-green-500/40"}>
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">列の対応付け</h3>
+                  <h3 className="font-semibold">列の対応づけ</h3>
                   <span className="text-xs text-muted-foreground">
-                    検出列: {preview.detectedHeaders.length} / 未対応: {unmatchedCount}
+                    読み取った列: {preview.detectedHeaders.length} / 未対応: {unmatchedCount}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -275,7 +275,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div>
-                    <label className="block text-xs text-muted-foreground mb-1">ID重複時の動作</label>
+                    <label className="block text-xs text-muted-foreground mb-1">同じIDがあったら</label>
                     <Select value={duplicateMode} onValueChange={(v) => setDuplicateMode(v as 'skip' | 'update' | 'error')}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -292,7 +292,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
                       className="w-full"
                     >
                       <Upload className="h-4 w-4 mr-1" />
-                      {validateMutation.isPending ? '検証中...' : '検証する'}
+                      {validateMutation.isPending ? '試しています…' : '試す'}
                     </Button>
                   </div>
                 </div>
@@ -336,7 +336,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
                       <tr>
                         <th className="px-2 py-1 text-left">行</th>
                         <th className="px-2 py-1 text-left">ID</th>
-                        <th className="px-2 py-1 text-left">機材名</th>
+                        <th className="px-2 py-1 text-left">商品名</th>
                         <th className="px-2 py-1 text-left">動作</th>
                         <th className="px-2 py-1 text-left">エラー</th>
                       </tr>
@@ -378,7 +378,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
                     onClick={() => commitMutation.mutate()}
                     disabled={!canCommit || commitMutation.isPending}
                   >
-                    {commitMutation.isPending ? '実行中...' : `実行する (${dryRun.summary.insert + dryRun.summary.update}件)`}
+                    {commitMutation.isPending ? '取り込んでいます…' : `取り込む (${dryRun.summary.insert + dryRun.summary.update}件)`}
                   </Button>
                 </div>
               </CardContent>

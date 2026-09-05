@@ -81,7 +81,7 @@ export function LedXrEntry({
         className={SELECT_CLASS}
         aria-label="LED/XR シーン"
       >
-        <option value="">未選択</option>
+        <option value="">未入力</option>
         {(ledScenes || []).map((s: any) => (
           <option key={s.id} value={s.id}>
             {s.name}
@@ -251,7 +251,7 @@ function EntryEditor({
             value={entry.html || ""}
             onCommit={(v) => onChangeField("html", v)}
             rows={3}
-            placeholder="セリフ・進行内容..."
+            placeholder="セリフ・進行内容…"
             aria-label="セリフ・進行内容"
           />
           {(masters?.persons as string[] | undefined) && (

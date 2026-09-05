@@ -1,5 +1,5 @@
 /**
- * 権限の区画のラベル（v4 設定 ③ 権限とメンバー）
+ * 権限の区画のラベル（v4 設定 ③ 人と権限）
  *
  * ── ブロックアプリ単位に統合した（権限モデル単純化）─────────────
  *
@@ -10,7 +10,7 @@
  * ユーザーの指示（「アプリ単位で使える／使えないでいい」）を受けて、
  * `sales`/`budget`/`gpm`/`studio`/`partner_schedule` の5区画を**すべて `sales`
  * に統合**し、「案件管理・財務管理・カレンダー・設定」という1つのブロックアプリを
- * 1つの区画で表す形にした。`admin`（権限とメンバーの管理）は区画そのものを
+ * 1つの区画で表す形にした。`admin`（人と権限の管理）は区画そのものを
  * 廃止し、`system_admin` ロールだけに絞った（型の manager レベルでも触れない）。
  *
  * 詳細は `docs/reviews/permission-model-simplification-plan.md`。
@@ -60,20 +60,36 @@ export const MODULE_TITLE: Record<string, string> = {
   qsheet: '制作技術支援',
 };
 
-/** 何ができる区画なのかを業務の言葉で */
+/**
+ * 何ができるのかを業務の言葉で。**副題の位置に出すので短く**（12 文字前後）。
+ * 12 項目の列挙は読めないうえ行が折り返して表が崩れるので、
+ * 内訳は `MODULE_WHAT_DETAIL`（ツールチップ）へ逃がす。
+ */
 export const MODULE_WHAT: Record<string, string> = {
-  sales: '案件・見積・工程とタスク・料金表・請求・入金・売上・仕入・販管費・スタジオの予約・カレンダー・プロジェクト管理',
+  sales: '案件・お金・予定のすべて',
   equipment: '機材の台帳と貸出',
   dailyops: '週報・ニュース・内覧会・受領書類',
   qsheet: '制作技術支援（Qシート・計時・視聴者）',
   awards: 'リアルタイムCG',
 };
 
-/** 3段。`ACCESS_LEVEL_LABELS` と同じ値だが、役割の表は「なし」を含む4択で出す */
+/**
+ * 内訳。**ラベルではなくツールチップ（`title`）に出す**もの。
+ * 「何が入っているか」を確かめたい人だけが読めばよい。
+ */
+export const MODULE_WHAT_DETAIL: Record<string, string> = {
+  sales: '案件・見積・工程とタスク・料金表・請求・入金・売上・仕入・販管費・スタジオの予約・カレンダー・プロジェクト管理',
+};
+
+/**
+ * 3段。**画面の言い方は「見るだけ／書ける／管理」で全アプリ共通**
+ * （`shared/.../NoPermissionPanel.tsx` と同じ語）。役割の表は「なし」を
+ * 含む4択で出す。**`value` は DB の値なので変えない。**
+ */
 export const LEVEL_CHOICES = [
-  { value: 'none', label: 'なし', hint: 'この区画は開けません' },
+  { value: 'none', label: 'なし', hint: 'メニューにも出ません' },
   { value: 'reader', label: '見るだけ', hint: '参照・CSV 出力' },
-  { value: 'editor', label: '直せる', hint: '追加・編集' },
+  { value: 'editor', label: '書ける', hint: '追加・編集' },
   { value: 'manager', label: '管理', hint: '追加・編集・削除・設定' },
 ] as const;
 

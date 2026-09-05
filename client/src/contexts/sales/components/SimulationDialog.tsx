@@ -155,7 +155,7 @@ export default function SimulationDialog({ open, onOpenChange, projectId: propPr
       open={open}
       onOpenChange={onOpenChange}
       title="料金シミュレーション"
-      sub={`項目を選択して数量・日数を入力すると見積金額を自動算出します。単価は${customerType === "internal" ? "「グループ内価格」" : "「定価」"}を初期値として反映しますが、明細ごとに上書き可能です。`}
+      sub={`項目を選択して数量・日数を入力すると見積金額を自動算出します。単価は${customerType === "internal" ? "「グループ会社価格」" : "「定価」"}を初期値として反映しますが、明細ごとに上書き可能です。`}
       wide
       footer={
         <div className="w-full">
@@ -189,7 +189,7 @@ export default function SimulationDialog({ open, onOpenChange, projectId: propPr
       {projectId && (
         <div className="mb-3">
           <Badge variant={customerType === "internal" ? "default" : "secondary"}>
-            {customerType === "internal" ? "グループ内案件" : "グループ外案件"}
+            {customerType === "internal" ? "グループ会社の案件" : "社外の案件"}
           </Badge>
         </div>
       )}

@@ -24,7 +24,12 @@ interface OAuthStatus { configured: boolean; connected: boolean; can_write?: boo
 // マイカレンダーの個人予定 ダイアログ。
 // - 外部同期分 (source='ics' / 'google' / 'outlook') は読み取り専用 (削除のみ可)。
 // - 手入力予定は作成者が「共有先メンバー」を選べる (パートナー権限保持者から選択)。
-// - 共有された側 (受け手) は内容を編集できるが、共有先の変更・予定の削除はできず「共有から外す」のみ。
+// - 共有された側 (受け手) は内容を編集できるが、共有先の変更・予定の削除はできず
+//   「自分のカレンダーから外す」のみ。
+//   ⚠️ **文言は「結果の差」が読めるように書く**（2026-09-05 の用語棚卸し）。
+//   1つのダイアログに「同期された予定」「共有された予定」「共有から外す」「削除」が同居し、
+//   押したあと何が起きるか（自分だけ消えるのか全員から消えるのか）が読めなかった。
+//   受け手 = 「自分のカレンダーから外す」／作成者 = 「予定を削除」(全員から消える) と書き分ける。
 // - 書き込み連携済みの Google/Outlook があれば、保存時に外部カレンダーにも反映される。
 export default function PersonalEventDialog({ open, onOpenChange, editing, presetRange }: Props) {
   const qc = useQueryClient();
@@ -117,7 +122,7 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
       qc.invalidateQueries({ queryKey: ["personal-events"] });
       onOpenChange(false);
     },
-    onError: (err: any) => setError(err?.response?.data?.error?.message || "保存に失敗しました"),
+    onError: (err: any) => setError(err?.response?.data?.error?.message || "予定を保存できませんでした。入力の内容を確かめてもう一度お試しください。"),
   });
 
   const deleteMutation = useMutation({
@@ -126,7 +131,7 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
       qc.invalidateQueries({ queryKey: ["personal-events"] });
       onOpenChange(false);
     },
-    onError: (err: any) => setError(err?.response?.data?.error?.message || "削除に失敗しました"),
+    onError: (err: any) => setError(err?.response?.data?.error?.message || "予定を削除できませんでした。少し時間をおいてもう一度お試しください。"),
   });
 
   const canSubmit = !!title.trim() && !!startDate;
@@ -143,11 +148,11 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={editing ? (isExternalSynced ? "同期された予定" : isSharedIn ? "共有された予定" : "個人予定を編集") : "個人予定を登録"}
+      title={editing ? (isExternalSynced ? "取り込んだ予定" : isSharedIn ? "共有された予定" : "個人予定を編集") : "個人予定を登録"}
       size="lg"
       sub={
         isSharedIn
-          ? "共有された予定です。内容を編集できます（予定の削除は作成者のみ）。"
+          ? "ほかの人から共有された予定です。内容は編集できます。消せるのは作成者だけで、あなたは自分のカレンダーから外せます。"
           : "個人予定はあなたと共有先のメンバーにのみ表示されます。"
       }
       footer={
@@ -158,14 +163,16 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
               variant="outline"
               className="text-destructive border-destructive/40 hover:bg-destructive/10 sm:mr-auto"
               onClick={() => {
-                const msg = isSharedIn ? "この予定の共有を外しますか？（あなたのカレンダーから消えます）" : "この予定を削除しますか？";
+                const msg = isSharedIn
+                  ? "この予定を自分のカレンダーから外しますか？（ほかの人のカレンダーには残ります）"
+                  : "この予定を削除しますか？全員のカレンダーから消えます。";
                 if (confirm(msg)) deleteMutation.mutate();
               }}
               disabled={deleteMutation.isPending}
             >
               {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" />
                 : isSharedIn ? <UserMinus className="mr-1 h-4 w-4" /> : <Trash2 className="mr-1 h-4 w-4" />}
-              {isSharedIn ? "共有から外す" : "削除"}
+              {isSharedIn ? "自分のカレンダーから外す" : "予定を削除"}
             </Button>
           )}
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
@@ -184,8 +191,8 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
           <div className="flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800">
             <CloudDownload className="h-4 w-4 shrink-0 mt-0.5" />
             <span>
-              {editing?.feed_label || "外部カレンダー"} から同期された予定です。内容の変更は Outlook/Google 側で行ってください
-              (ここで削除しても、外部カレンダーに残っていれば次回同期で復活します)。
+              {editing?.feed_label || "外部カレンダー"} から取り込んだ予定です。内容の変更は Outlook・Google 側で行ってください
+              （ここで削除しても、元のカレンダーに残っていれば次の取り込みで戻ってきます）。
             </span>
           </div>
         )}

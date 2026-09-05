@@ -29,7 +29,7 @@ export function LostPanel({ lost, year }: { lost: LostAnalysis; year: number }) 
       <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
         <Panel title="失注理由の内訳">
           {lost.total_lost === 0 ? (
-            <EmptyState title="失注データがありません" description="選んだ期間に失注案件がありません。" />
+            <EmptyState title="条件に合う失注案件はありません" description="期間を変えてお試しください。" />
           ) : (
             <div className="flex flex-col gap-3">
               {lost.reasons.map((r) => {
@@ -55,7 +55,7 @@ export function LostPanel({ lost, year }: { lost: LostAnalysis; year: number }) 
 
         <Panel title={`月別失注推移（${year}年）`}>
           {trend.length === 0 ? (
-            <EmptyState title="月別の推移データがありません" />
+            <EmptyState title="条件に合う月別の推移はありません" description="期間を変えてお試しください。" />
           ) : (
             <div className="flex flex-col gap-2">
               {MONTHS.map((m) => {

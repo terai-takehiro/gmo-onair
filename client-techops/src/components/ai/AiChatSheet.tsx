@@ -134,6 +134,6 @@ export default function AiChatSheet({ open, onOpenChange, projectId, scheduleId,
 
 function errorMessage(e: unknown): string {
   const err = e as { response?: { status?: number; data?: { error?: { message?: string } } } };
-  if (err?.response?.status === 503) return "この環境は AI につないでいません";
-  return err?.response?.data?.error?.message ?? "壁打ちの呼び出しに失敗しました";
+  if (err?.response?.status === 503) return "いまは AI を使えません。手で作れます。";
+  return err?.response?.data?.error?.message ?? "AI に相談できませんでした。少し待ってから、もう一度お試しください。";
 }

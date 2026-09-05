@@ -1,7 +1,7 @@
 /**
- * チケットにする（⑤ 入ってきた情報・v4 大②）
+ * タスクにする（⑤ 入ってきた情報・v4 大②）
  *
- * ── 「チケット」は案件管理のタスクそのもの ─────────────────
+ * ── 「タスク」は案件管理のタスクそのもの ─────────────────
  *
  * モックの文言どおり、押すと **`project_tasks` に1本作られます**。
  * 案件に紐づかない仕事なので `project_id` は空のまま（migration 135 で NULL 可）、
@@ -49,11 +49,11 @@ export function TicketDialog({ inquiry, onClose }: { inquiry: MiscInquiry; onClo
       {
         onSuccess: (r) => {
           notifySuccess(r.already
-            ? 'すでにチケットになっていました（増やしていません）'
-            : 'チケットにしました。案件管理のタスク一覧に出ます');
+            ? 'すでにタスクになっていました（増やしていません）'
+            : 'タスクにしました。案件管理のタスク一覧に出ます');
           onClose();
         },
-        onError: (e) => notifyApiError('チケットにできませんでした', e),
+        onError: (e) => notifyApiError('タスクにできませんでした', e),
       },
     );
   };
@@ -62,15 +62,15 @@ export function TicketDialog({ inquiry, onClose }: { inquiry: MiscInquiry; onClo
     <FormDialog
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title="チケットにする"
+      title="タスクにする"
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button onClick={submit} disabled={make.isPending || !title.trim()}>
             {make.isPending
               ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
               : <ListChecks className="mr-2 h-4 w-4" aria-hidden="true" />}
-            チケットにする
+            タスクにする
           </Button>
         </FormDialogFooter>
       }

@@ -25,7 +25,7 @@ import { isCanceled } from './isCanceled';
 import { notifyApiError } from './notify';
 
 /**
- * 書き込みの `meta`。`useMutation({ mutationFn, meta: { action: '案件の保存' } })` の形で渡す。
+ * 書き込みの `meta`。`useMutation({ mutationFn, meta: { action: '案件を保存' } })` の形で渡す。
  *
  *   action  何をしようとして失敗したかの日本語。省略すると「保存」になる
  *   silent  共通の受け皿を出さない (画面が自前でエラーを描いている場合)
@@ -69,7 +69,7 @@ export const mutationCache = new MutationCache({
     if (meta.silent) return;
     if (isAuthError(error)) return;
     notifyApiError(
-      meta.action ? `${meta.action}に失敗しました` : '保存できませんでした',
+      meta.action ? `${meta.action}できませんでした` : '保存できませんでした',
       error,
       'もう一度お試しください。続くときは管理者に連絡してください。',
     );

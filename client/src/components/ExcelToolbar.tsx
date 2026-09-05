@@ -171,7 +171,7 @@ export default function ExcelToolbar({ resource, name, queryKey, hasDuplicateKey
                   <div className={`flex items-end ${hasDuplicateKey ? '' : 'sm:col-span-2'}`}>
                     <Button onClick={() => validateMutation.mutate()} disabled={!file || validateMutation.isPending} className="w-full">
                       <Upload className="h-4 w-4 mr-1" />
-                      {validateMutation.isPending ? "検証中..." : "検証する"}
+                      {validateMutation.isPending ? "検証中…" : "検証する"}
                     </Button>
                   </div>
                 </div>
@@ -240,7 +240,7 @@ export default function ExcelToolbar({ resource, name, queryKey, hasDuplicateKey
                   <div className="flex justify-end gap-2">
                     <Button variant="outline" onClick={reset}>キャンセル</Button>
                     <Button onClick={() => commitMutation.mutate()} disabled={!canCommit || commitMutation.isPending}>
-                      {commitMutation.isPending ? "実行中..." : `実行する (${dryRun.summary.insert + dryRun.summary.update}件)`}
+                      {commitMutation.isPending ? "実行中…" : `実行する (${dryRun.summary.insert + dryRun.summary.update}件)`}
                     </Button>
                   </div>
                 </CardContent>

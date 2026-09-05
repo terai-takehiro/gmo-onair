@@ -24,7 +24,7 @@ export const MODULE_LABELS: Record<string, string> = {
 export const LEVEL_LABELS: Record<string, string> = {
   reader: '見るだけ',
   editor: '書ける',
-  manager: '任せる',
+  manager: '管理',
 };
 
 export interface NoPermissionPanelProps {

@@ -1,4 +1,4 @@
-// 9 マスボード。**位置に意味がある**ので並びは固定。
+// 「重要度 × 緊急度」ボード。**位置に意味がある**ので並びは固定。
 //
 // ── スマホは「分布のミニ地図 → 選んだマスをカードで縦積み」───────────
 //
@@ -17,7 +17,7 @@ import { CELL_ACTION, formatDue, LEVEL_LABELS, type MyTask } from '@/lib/tasksAp
 import { CellScoreBadge } from './CellScoreBadge';
 import { TaskRow } from './TaskRow';
 
-/** 9 マスの並び。上が重要、左が緊急。位置に意味があるので固定 */
+/** マスの並び。上が重要、左が緊急。位置に意味があるので固定 */
 export const CELL_GRID: string[][] = [
   ['3x3', '3x2', '3x1'],
   ['2x3', '2x2', '2x1'],

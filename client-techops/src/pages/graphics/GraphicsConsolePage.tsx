@@ -56,7 +56,7 @@ export default function GraphicsConsolePage() {
   if (state.status === 'not-found') {
     return (
       <div className="mx-auto max-w-lg px-4 py-10">
-        <EmptyState icon={<Type />} title="見つかりませんでした" description="GLS番号・案件ID・番組IDを確認してください。" />
+        <EmptyState icon={<Type />} title="見つかりませんでした" description="GLS番号が合っているか確かめてください。" />
       </div>
     );
   }
@@ -326,7 +326,7 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
           tone="pvw"
           title={pvwPage ? (
             <>次に出す ・ <span className="font-number">{pvwPage.callNo}</span> {pvwPage.name}</>
-          ) : '次に出す絵（未選択）'}
+          ) : '次に出す絵（未設定）'}
           right={pvwPage ? <ProofBadge state={pvwPage.proofState} w={null} /> : undefined}
           items={pvwPage ? [...pvwContext.map((page) => ({ page, dim: true })), { page: pvwPage }] : []}
           emptyText="番号呼出か「PVWへ」で選ぶと、ここに映ります"

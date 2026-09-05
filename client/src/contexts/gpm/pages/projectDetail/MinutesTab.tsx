@@ -86,7 +86,7 @@ export function MinutesTab({ projectId, canEdit, canManage }: {
   const remove = useMutation({
     mutationFn: (id: string) => api.delete(`/gpm/minutes/${id}`),
     onSuccess: () => { invalidate(); notifySuccess('消しました'); },
-    onError: (e) => notifyApiError('消せませんでした', e),
+    onError: (e) => notifyApiError('削除できませんでした', e),
   });
 
   /**
@@ -100,21 +100,21 @@ export function MinutesTab({ projectId, canEdit, canManage }: {
     onSuccess: (r) => {
       invalidate();
       invalidateGpm(projectId);
-      notifySuccess('未確認事項にしました', {
+      notifySuccess('持ち帰りに登録しました', {
         description: `「${String((r.data as { data?: { question?: string } })?.data?.question ?? '').slice(0, 40)}」`
-          + 'を未確認事項タブに入れました。誰に訊くか・期限はそちらで直せます。',
+          + 'を持ち帰りタブに入れました。誰に訊くか・期限はそちらで直せます。',
       });
     },
-    onError: (e) => notifyApiError('未確認事項にできませんでした', e),
+    onError: (e) => notifyApiError('持ち帰りにできませんでした', e),
   });
 
   const onDelete = async (id: string, title: string) => {
     const ok = await confirmAction({
-      title: 'この議事録を消しますか？',
+      title: 'この議事録を削除しますか？',
       description: `「${title || '（表題なし）'}」\n`
         + '文字起こしの全文も一緒に見えなくなります。'
         + '取引先との打合せの記録なので、**間違って作ったものだけ**消してください。',
-      confirmLabel: '消す',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) remove.mutate(id);
@@ -147,8 +147,8 @@ export function MinutesTab({ projectId, canEdit, canManage }: {
         <div className="rounded-card border border-warning-border bg-warning-surface p-4 lg:px-5">
           <p className="text-list text-warning">この環境は文字起こしにつないでいません</p>
           <p className="text-sub mt-1 text-foreground">
-            録音から議事録を起こすには OpenAI の鍵が要ります（管理者にご連絡ください）。
-            すでにある議事録は読めます。
+            いまは文字起こしを使えません。議事録は手で書けます。すでにある議事録も読めます。
+            録音から起こしたいときは管理者にご連絡ください。
           </p>
         </div>
       )}
@@ -186,7 +186,7 @@ export function MinutesTab({ projectId, canEdit, canManage }: {
 
       <p className="text-note text-muted-foreground">
         <strong className="font-bold">音声は保存しません</strong>（文字にしたら捨てます）。残るのは文字起こしと議事録だけです。
-        持ち帰りは<strong className="font-bold">未確認事項</strong>にできます — 案件（スタジオ）ではタスクになりますが、
+        持ち帰りは<strong className="font-bold">持ち帰り</strong>にできます — 案件（スタジオ）ではタスクになりますが、
         工事・構築の持ち帰りはほとんどが先方の判断待ちなので、止まっている件数として数えられるほうに入れます。
       </p>
 

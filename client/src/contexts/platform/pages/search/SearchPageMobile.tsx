@@ -85,7 +85,7 @@ export function SearchPageMobile({
         <div className="flex flex-col gap-4">
           <ShortcutCards
             icon={Search}
-            label="やること"
+            label="すぐできること"
             headingId="search-do-m"
             items={doItems}
             tone="bg-primary-surface text-primary"

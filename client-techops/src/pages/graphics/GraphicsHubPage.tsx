@@ -53,7 +53,7 @@ export default function GraphicsHubPage() {
         <EmptyState
           icon={<Type />}
           title="見つかりませんでした"
-          description="GLS番号・案件ID・番組IDを確認してください。"
+          description="GLS番号が合っているか確かめてください。"
         />
       </div>
     );

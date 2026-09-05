@@ -61,7 +61,7 @@ interface Status {
  * ⚠️ **`usdPerRow` が `null` になる状況は3つあり、打ち手がそれぞれ違います。**
  * 前の版はどれも「単価が未設定です」と書いていました。
  *
- *   単価が無い       → `AI_PRICING_JSON` を入れる
+ *   単価が無い       → `AI_PRICING_JSON` を入れる（**変数名は画面に出さない**）
  *   実績がまだ無い   → 待つ（直すところは無い）
  *   モデルの単価が無い → **そのモデルの鍵を足す**
  *
@@ -71,7 +71,8 @@ interface Status {
  * どの鍵を足せばよいか分からないと、理由だけ分かっても直せません。
  */
 function noCostReason(s: Pick<Status, 'costReason' | 'unpricedModels'>): string {
-  if (s.costReason === 'no_pricing') return '費用の目安は出せません（単価 `AI_PRICING_JSON` が未設定です）';
+  // 足りないのは環境変数 `AI_PRICING_JSON` だが、**変数名は画面に出さない**
+  if (s.costReason === 'no_pricing') return '費用の目安は出せません（AI の単価をまだ設定していません）';
   if (s.costReason === 'no_model_price') {
     return `費用の目安は出せません（${s.unpricedModels.join('・')} の単価が入っていません）`;
   }
@@ -96,7 +97,7 @@ export function ActivityFormatCard() {
 
   const run = useMutation({
     mutationFn: async () => (await api.post('/activity-logs/format-run', { limit: BATCH })).data,
-    meta: { action: 'やり取りの整形' },
+    meta: { action: 'やり取りを整形' },
     onSuccess: (res) => {
       setRunning(true);
       notifySuccess(res?.message ?? '裏で整えています');
@@ -108,7 +109,7 @@ export function ActivityFormatCard() {
 
   const reset = useMutation({
     mutationFn: async () => (await api.post('/activity-logs/format-reset-failed')).data,
-    meta: { action: '失敗した記録の戻し' },
+    meta: { action: '失敗した記録を復元' },
     onSuccess: (res) => {
       notifySuccess(res?.message ?? '対象に戻しました');
       qc.invalidateQueries({ queryKey: ['activity-format-status'] });
@@ -185,7 +186,7 @@ export function ActivityFormatCard() {
 
             {!s.configured && (
               <p className="text-sub-sm rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-warning">
-                この環境は AI につないでいないので整えられません（`OPENAI_API_KEY` などが未設定）。
+                この環境は AI につないでいないので整えられません（AI の接続設定が足りません）。
               </p>
             )}
 
@@ -193,7 +194,7 @@ export function ActivityFormatCard() {
               <Button
                 onClick={onRun}
                 disabled={!canRun || !s.configured || s.pending === 0 || run.isPending || running}
-                title={canRun ? undefined : '整えるには案件管理の manager 以上の権限が必要です'}
+                title={canRun ? undefined : '整えるには案件管理の『管理』が必要です'}
               >
                 <Wand2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 {running ? '整えています…' : `${Math.min(BATCH, s.pending)} 件を整える`}
@@ -203,17 +204,17 @@ export function ActivityFormatCard() {
                   variant="outline"
                   onClick={() => reset.mutate()}
                   disabled={!canRun || reset.isPending}
-                  title={canRun ? '整えられなかった記録をもう一度対象に戻します' : '案件管理の manager 以上の権限が必要です'}
+                  title={canRun ? '整えられなかった記録をもう一度対象に戻します' : '案件管理の『管理』が必要です'}
                 >
                   <RotateCcw className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                  失敗した {s.failed} 件を戻す
+                  整えられなかった {s.failed} 件を戻す
                 </Button>
               )}
             </div>
 
             {!canRun && (
               <p className="text-note text-muted-foreground">
-                実行できるのは案件管理の manager 以上です（全案件の記録に一度に効くため）。
+                実行できるのは案件管理の『管理』を持つ人です（全案件の記録に一度に効くため）。
               </p>
             )}
           </div>

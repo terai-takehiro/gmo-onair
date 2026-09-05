@@ -131,9 +131,9 @@ export function PurchaseDialog({
   const handleDelete = async () => {
     if (!editing || !onDelete) return;
     const ok = await confirmAction({
-      title: 'この仕入を消しますか',
-      description: `${editing.vendor_name ?? '仕入先なし'}「${editing.description ?? '説明なし'}」を消します。元に戻せません。`,
-      confirmLabel: '消す',
+      title: 'この仕入を削除しますか',
+      description: `${editing.vendor_name ?? '仕入先なし'}「${editing.description ?? '説明なし'}」を削除します。元に戻せません。`,
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) onDelete(editing.id);
@@ -164,7 +164,7 @@ export function PurchaseDialog({
     <FormDialog
       open
       onOpenChange={(v) => { if (!v) onClose(); }}
-      title={readOnly ? '仕入の詳細' : (editing ? '仕入を直す' : '仕入を登録')}
+      title={readOnly ? '仕入の詳細' : (editing ? '仕入を編集' : '仕入を登録')}
       size="lg"
       footer={
         readOnly ? (
@@ -184,12 +184,12 @@ export function PurchaseDialog({
               {editing && !isMobile && (
                 <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
                   {deleting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
-                  消す
+                  削除
                 </Button>
               )}
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={onClose}>やめる</Button>
+              <Button variant="outline" onClick={onClose}>キャンセル</Button>
               <Button disabled={!selectedProjectId || !vendorId || saving} onClick={handleSubmit}>
                 {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                 {editing ? '更新' : '登録'}
@@ -212,7 +212,7 @@ export function PurchaseDialog({
                   options={projects.map((p) => ({ value: p.id, label: `${p.gls_number || 'GLS未発番'} ${p.name}` }))}
                   value={selectedProjectId}
                   onChange={setSelectedProjectId}
-                  placeholder="GLS番号・案件名で検索..."
+                  placeholder="GLS番号・案件名で検索â¦"
                 />
                 <p className="text-note mt-1 text-muted-foreground">
                   受注（A 受注済）以降の案件だけが選べます。
@@ -231,7 +231,7 @@ export function PurchaseDialog({
                 options={vendors.map((v) => ({ value: v.id, label: v.name, subLabel: v.vendor_type || '' }))}
                 value={vendorId}
                 onChange={setVendorId}
-                placeholder="仕入先を検索..."
+                placeholder="仕入先を検索â¦"
               />
             )}
           </div>
@@ -379,7 +379,7 @@ export function PurchaseDialog({
                   options={users.map((u) => ({ value: u.id, label: u.name }))}
                   value={assignedTo}
                   onChange={setAssignedTo}
-                  placeholder="担当者を検索..."
+                  placeholder="担当者を検索â¦"
                 />
               )}
             </div>

@@ -65,7 +65,7 @@ export default function RankingSoundsPanel() {
   if (state.status === 'not-found') {
     return (
       <div className="mx-auto max-w-lg px-4 py-10">
-        <EmptyState icon={<Music />} title="見つかりませんでした" description="GLS番号・案件ID・番組IDを確認してください。" />
+        <EmptyState icon={<Music />} title="見つかりませんでした" description="GLS番号が合っているか確かめてください。" />
       </div>
     );
   }
@@ -119,7 +119,7 @@ function RankingSoundsContent({ ownerKey, owner, projectId }: {
       notifySuccess('演出SEをアップロードしました');
       invalidate();
     } catch {
-      notifyError('アップロードに失敗しました（MP3 / WAV のみ対応・10MBまで）');
+      notifyError('音を取り込めませんでした。', { description: 'MP3 / WAV の 10MB までのファイルを選び直してください。' });
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';

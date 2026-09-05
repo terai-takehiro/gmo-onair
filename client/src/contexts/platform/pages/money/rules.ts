@@ -42,7 +42,7 @@ export interface MoneyResponse {
   limits: DiscountLimitRow[];
 }
 
-/** フェーズごとの受注確度（`GET /stage-probabilities` の1行）。`StageProbabilities.tsx` が使う */
+/** ステージごとの受注確度（`GET /stage-probabilities` の1行）。`StageProbabilities.tsx` が使う */
 export interface StageProbabilityRow {
   stage: ProjectStage;
   probability: number;

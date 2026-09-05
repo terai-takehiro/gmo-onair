@@ -1,5 +1,5 @@
 /**
- * 機材台帳の絞り込み (種別 ／ 区分 ／ 設置場所 ／ 探す ／ 子機材)
+ * 機材台帳の絞り込み (種別 ／ 区分 ／ 保管場所 ／ 探す ／ 子機材)
  *
  * ── 件数を必ず出す ──────────────────────────────────────
  *
@@ -75,7 +75,7 @@ export function EquipmentFilters({
           {locOpen && (
             <button
               type="button"
-              aria-label="設置場所の絞り込みを閉じる"
+              aria-label="保管場所の絞り込みを閉じる"
               className="fixed inset-0 z-40 cursor-default"
               onClick={() => onLocOpenChange(false)}
             />
@@ -86,7 +86,7 @@ export function EquipmentFilters({
             aria-expanded={locOpen}
           >
             <MapPin className="mr-1 h-4 w-4" aria-hidden="true" />
-            {state.locs.size > 0 ? `設置場所 ${state.locs.size} か所` : '設置場所'}
+            {state.locs.size > 0 ? `保管場所 ${state.locs.size} か所` : '保管場所'}
           </Button>
           {locOpen && (
             <div className="absolute left-0 top-full z-50 mt-1 max-h-72 min-w-[200px] overflow-y-auto rounded-card border border-border bg-card py-1.5 shadow-lg">
@@ -124,7 +124,7 @@ export function EquipmentFilters({
         <SearchField
           value={state.search}
           onChange={(v) => onChange({ search: v })}
-          placeholder="名前・ID・型名・置き場所で探す"
+          placeholder="名前・ID・型名・保管場所で探す"
         />
         <label className="flex items-center gap-2 whitespace-nowrap text-sub text-muted-foreground">
           <Switch

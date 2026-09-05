@@ -77,7 +77,7 @@ export function EstimateVersionList({
                   </span>
                 )}
                 {e.archived_at && (
-                  <span className="text-sub-sm block text-muted-foreground">アーカイブ済み</span>
+                  <span className="text-sub-sm block text-muted-foreground">一覧から非表示</span>
                 )}
               </span>
               <TableBadge w={null} label={statusLabel[e.status]} className={cn('shrink-0', statusTone[e.status])} />
@@ -135,7 +135,7 @@ export function EstimateVersionList({
                 </span>
               )}
               {e.archived_at && (
-                <span className="text-sub-sm block text-muted-foreground">アーカイブ済み</span>
+                <span className="text-sub-sm block text-muted-foreground">一覧から非表示</span>
               )}
             </button>
           </RowMain>

@@ -72,7 +72,7 @@ export function useLiveProgram(ownerKey: string | undefined): LiveProgramState {
         const programId = res.data?.data?.id as string | undefined;
         if (!alive) return;
         if (!programId) {
-          setState({ status: 'error', owner, message: 'セッションの取得に失敗しました' });
+          setState({ status: 'error', owner, message: '番組を読み込めませんでした。少し待ってから、画面を開き直してください。' });
           return;
         }
         setState({ status: 'ready', owner, programId });

@@ -154,7 +154,7 @@ export interface GpmMember {
   role: string | null;
   email: string | null;
   side: MemberSide;
-  /** 組織図の段 (migration 169) */
+  /** 役割の層 (migration 169・DB は `tier`) */
   tier: MemberTier;
   /** 組織図の箱の名前。同じ名前の人が1つの箱に入る。空なら立場の名前で束ねる */
   group_label: string | null;
@@ -164,7 +164,7 @@ export interface GpmMember {
 }
 
 /**
- * 組織図の段 (migration 169・モックの `GP_ORG2`)。
+ * 役割の層 (migration 169・モックの `GP_ORG2`)。
  *
  *   top   上段  オブザーバー ／ 責任者（オーナー） ／ 管理業務・財務
  *   lead  中段  全体統括（PM会社）
@@ -173,6 +173,13 @@ export interface GpmMember {
 export type MemberTier = 'top' | 'lead' | 'unit';
 
 export const TIER_LABEL: Record<MemberTier, string> = {
+  top: '決裁層',
+  lead: '推進層',
+  unit: '実務層',
+};
+
+/** 段の説明（選ぶときのヒントに1行で出す） */
+export const TIER_NOTE: Record<MemberTier, string> = {
   top: '決める人',
   lead: '進める人',
   unit: '手を動かす人',
@@ -270,6 +277,8 @@ export const KIND_NOTE: Record<GpmKind, string> = {
 
 /**
  * 一覧の絞り込みで束ねる 4 つ。**読むときだけの束ね方**で、保存するのは常に `stage`。
+ * ラベルには**案件管理側のステージ記号**を併記する（同じプロジェクトが一覧と詳細で
+ * 別名に見えるのを防ぐ。案件側の名前は `sales/pages/projectList/stages.ts`）。
  *
  * 4 段で保存して 7 段に戻す形にすると、**触っていないのにステージが動きます**
  * （`neta` のプロジェクトを開いて「準備中」のまま保存 → `c_proposal` になる）。
@@ -277,14 +286,14 @@ export const KIND_NOTE: Record<GpmKind, string> = {
  */
 export const STAGE_GROUPS: { key: string; label: string; stages: ProjectStage[] }[] = [
   { key: 'all', label: 'すべて', stages: [] },
-  { key: 'active', label: '進行中', stages: ['a_won'] },
-  { key: 'planning', label: '準備中', stages: ['neta', 'd_hold', 'c_proposal', 'b_verbal'] },
+  { key: 'active', label: '進行中（A）', stages: ['a_won'] },
+  { key: 'planning', label: '準備中（ネタ〜B）', stages: ['neta', 'd_hold', 'c_proposal', 'b_verbal'] },
   // r_delivered = 実施済（財務処理中）。a_won と s_completed の間の段（2026-09 追加）。
   // 「進行中」には含めない（制作の仕事は終わっている）が、財務処理が済むまでは
   // 「完了」とも別に見せる — 完了フォルダに財務未処理の案件が紛れて見えないように分ける
-  { key: 'delivered', label: '実施済', stages: ['r_delivered'] },
-  { key: 'done', label: '完了', stages: ['s_completed'] },
-  { key: 'lost', label: '見送り', stages: ['e_lost'] },
+  { key: 'delivered', label: '実施済（R）', stages: ['r_delivered'] },
+  { key: 'done', label: '完了（S）', stages: ['s_completed'] },
+  { key: 'lost', label: '失注（E）', stages: ['e_lost'] },
 ];
 
 /**

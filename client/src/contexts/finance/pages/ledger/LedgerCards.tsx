@@ -91,7 +91,7 @@ export function LedgerCards({
                 )}
                 {stateLabel && r.state && (
                   <span className="shrink-0">
-                    {/* 「確定：未申請」は 90px 要り、この幅では相手先が消える。
+                    {/* 「金額確定・精算まだ」はこの幅では相手先が消える。
                         短くする規則は `settlementState.ts` に1つだけ置いてある */}
                     <TableBadge
                       label={compactSettlementLabel(r.state.label)}

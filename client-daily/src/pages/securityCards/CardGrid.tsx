@@ -102,7 +102,7 @@ function CardRow({ card, selected, onSelect }: { card: SecurityCard; selected: b
           <RowSub>
             {card.status === 'lent'
               ? [card.purpose, card.lent_by_name ? `対応 ${card.lent_by_name}` : null].filter(Boolean).join(' ・ ') || card.level_label
-              : card.is_active ? '貸出先はありません' : '運用対象外（紛失・廃止）'}
+              : card.is_active ? '貸出先はありません' : 'いま使えません（紛失・廃止）'}
           </RowSub>
         </RowMain>
 

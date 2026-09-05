@@ -2,12 +2,12 @@
  * フィードバックチケット (`/feedback-tickets`) (v4・新規ミニアプリ・2026-09)
  *
  * GMO ONAiR 自体（このプラットフォームのどれかのブロックアプリ）への要望・不具合報告を
- * **起票**し、**対応状況**（未対応/対応中/対応済み/却下）を一覧で追いかける画面。
+ * **送り**、**対応状況**（未対応/対応中/対応済み/見送り）を一覧で追いかける画面。
  *
  * ── 権限の切り分け ──────────────────────────────────────────
  *
- * **起票は全ユーザー**（`dailyops:reader` = このアプリを開ける人なら誰でも）。
- * **対応状況の更新（対応中にする/対応済みにする/却下する）は `dailyops:editor`**
+ * **送るのは全ユーザー**（`dailyops:reader` = このアプリを開ける人なら誰でも）。
+ * **対応状況の更新（対応中にする/対応済みにする/見送りにする）は `dailyops:editor`**
  * — 「入ってきた情報」の状態遷移などと同じ切り分け。editor でない人が行を押しても
  * 中身は読める（`TicketDetailDialog` が読み取り専用で対応状況・対応コメントを見せる）。
  *
@@ -125,8 +125,8 @@ export default function FeedbackTicketsPage() {
 
   const submitNew = (fields: CreateTicketInput) => {
     createTicket.mutate(fields, {
-      onSuccess: () => { setAdding(false); notifySuccess('チケットを起票しました'); },
-      onError: (e) => notifyApiError('起票できませんでした', e),
+      onSuccess: () => { setAdding(false); notifySuccess('送りました'); },
+      onError: (e) => notifyApiError('送れませんでした', e),
     });
   };
 
@@ -136,10 +136,10 @@ export default function FeedbackTicketsPage() {
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
       <PageHeader
         title="フィードバックチケット"
-        sub="GMO ONAiR への要望・不具合報告を起票し、対応状況を追いかけます"
+        sub="GMO ONAiR への要望・不具合を送り、対応状況を追いかけます"
         primaryAction={
           <Button onClick={() => setAdding(true)}>
-            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />チケットを起票する
+            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />要望・不具合を送る
           </Button>
         }
       />
@@ -190,7 +190,7 @@ export default function FeedbackTicketsPage() {
 
       {!canEdit && (
         <p className="text-note text-muted-foreground">
-          起票は誰でもできます。対応状況を変える（対応中にする・対応済みにする・却下する）には編集権限が要ります。
+          送るのは誰でもできます。対応状況を変える（対応中・対応済み・見送り）には「書ける」が要ります。
         </p>
       )}
 
@@ -236,7 +236,7 @@ export default function FeedbackTicketsPage() {
         <EmptyState
           icon={<MessageSquareWarning />}
           title="フィードバックチケットはまだありません"
-          description="GMO ONAiR への要望・不具合報告に気づいたら、右上の「チケットを起票する」から起こしてください。"
+          description="GMO ONAiR への要望・不具合に気づいたら、右上の「要望・不具合を送る」から送ってください。"
         />
       ) : (
         // **問い合わせに使った語（`debouncedSearch`）を出す。** 入力欄の `search` を

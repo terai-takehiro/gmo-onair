@@ -107,9 +107,9 @@ export default function StudioBookingDetailDialog({
               {bookingTypeLabels[booking.booking_type] || booking.booking_type}
             </Badge>
             {booking.status === "tentative" ? (
-              <Badge className="bg-gray-100 text-gray-500 italic">未確定</Badge>
+              <Badge className="bg-gray-100 text-gray-500 italic">仮押さえ</Badge>
             ) : (
-              <Badge className="bg-blue-100 text-blue-700">確定</Badge>
+              <Badge className="bg-blue-100 text-blue-700">本予約</Badge>
             )}
           </div>
 

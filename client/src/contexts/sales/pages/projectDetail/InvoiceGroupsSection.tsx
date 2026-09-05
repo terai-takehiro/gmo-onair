@@ -119,7 +119,7 @@ function LumpSumDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={initial ? '契約一括の金額を直す' : '契約一括の請求グループを作る'}
+      title={initial ? '契約一括の金額を編集' : '契約一括の請求グループを作る'}
       sub="案件に1枚だけ作ります。回には金額を持たせません（回ごとの請求書は出しません）。"
       onSubmit={(e) => { e.preventDefault(); onSubmit({ title: title || undefined, invoice_date: invoiceDate || undefined, amount }); }}
       footer={(
@@ -231,7 +231,7 @@ export function InvoiceGroupsSection({ project, mobile }: { project: ProjectDeta
             /* 一覧が返るまで押させない。読み込み中は `existingLump` が必ず null なので、
                既存の契約一括があっても「作る」の顔で開き、保存済みの金額を 0 で上書きしうる */
             <Button size="sm" onClick={() => setLumpOpen(true)} disabled={list.isLoading}>
-              {existingLump ? '金額を直す' : '金額を入力して作る'}
+              {existingLump ? '金額を編集' : '金額を入力して作る'}
             </Button>
           )}
         </div>

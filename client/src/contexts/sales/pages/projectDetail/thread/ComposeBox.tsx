@@ -124,7 +124,7 @@ export function ComposeBox({
           </Button>
           <Button disabled={!ready} onClick={submit}>
             {busy && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
-            {aiAvailable ? '整えて記録する' : '記録する'}
+            記録する
           </Button>
         </div>
       </div>

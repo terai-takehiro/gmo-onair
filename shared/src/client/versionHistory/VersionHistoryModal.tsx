@@ -55,7 +55,7 @@ export default function VersionHistoryModal({
         return res.json();
       })
       .then((json: VersionHistoryData) => setData(json))
-      .catch((err) => setError(err instanceof Error ? err.message : "取得に失敗しました"))
+      .catch((err) => setError(err instanceof Error ? err.message : "バージョン履歴を読み込めませんでした"))
       .finally(() => setLoading(false));
   }, [open, dataUrl]);
 
@@ -114,11 +114,11 @@ export default function VersionHistoryModal({
             disabled={!data}
             className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-border px-3 text-xs font-medium text-foreground hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
             style={{ touchAction: "manipulation" }}
-            title="AI解析向けのJSON形式でダウンロード"
+            title="AI に読ませる形で書き出す"
           >
             <Download className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">JSONをダウンロード</span>
-            <span className="sm:hidden">JSON</span>
+            <span className="hidden sm:inline">AI に読ませる形で書き出す</span>
+            <span className="sm:hidden">書き出す</span>
           </button>
         </div>
 
@@ -133,7 +133,7 @@ export default function VersionHistoryModal({
           {error && !loading && (
             <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3.5 text-sm text-destructive">
               <AlertTriangle className="h-4 w-4 shrink-0" />
-              バージョン履歴の取得に失敗しました（{error}）。
+              バージョン履歴を読み込めませんでした。少し待ってから、もう一度お試しください。
             </div>
           )}
           {!loading && !error && data && (
@@ -171,7 +171,7 @@ export default function VersionHistoryModal({
                 ))}
               </ol>
               {filtered.length === 0 && (
-                <p className="py-10 text-center text-sm text-muted-foreground">該当するバージョンが見つかりません。</p>
+                <p className="py-10 text-center text-sm text-muted-foreground">当てはまるものはありませんでした</p>
               )}
               {hasMore && (
                 <div className="mt-4 flex justify-center">

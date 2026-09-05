@@ -30,7 +30,7 @@ export function SaveCurrentTemplateDialog({ open, onOpenChange, layout, onSaved 
       onOpenChange(false);
       onSaved();
     },
-    onError: () => notifyError('保存に失敗しました'),
+    onError: () => notifyError('保存できませんでした。', { description: '少し待ってから、もう一度お試しください。' }),
   });
 
   return (
@@ -85,7 +85,7 @@ export function ApplyTemplateDialog({ template, defaultTimerId, onOpenChange, on
       onOpenChange(false);
       onApplied();
     },
-    onError: () => notifyError('適用に失敗しました'),
+    onError: () => notifyError('適用できませんでした。', { description: '少し待ってから、もう一度お試しください。' }),
   });
 
   return (

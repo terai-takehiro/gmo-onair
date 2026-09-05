@@ -74,7 +74,7 @@ export function useCalendarEvents(from: string, to: string, f: CalFilters) {
   const canPartner = isAdmin || hasPermission('sales');
   const canPersonal = isAdmin || hasPermission('sales', 'editor');
   // タスクの期限だけ権限が違う（`GET /dailyops/tasks/deadlines` は dailyops reader）。
-  // 権限が無い人はクエリ自体を止め、レイヤーのチェックも出さない（403 を画面に出さない）
+  // 権限が無い人はクエリ自体を止め、「出すもの」のチェックも出さない（403 を画面に出さない）
   const canTasks = isAdmin || hasPermission('dailyops');
 
   const bookings = useQuery<CalBooking[]>({

@@ -96,7 +96,7 @@ export function useScanQueue(
   }, [flush]);
 
   /**
-   * 印を付ける。**端末に溜めてから画面を先に変える**。
+   * 確認を記録する。**端末に溜めてから画面を先に変える**。
    * 送信は待ちません（待つと「押したのに変わらない」ので何度も読むことになる）。
    */
   const mark = useCallback((item: CheckItem, found: number) => {

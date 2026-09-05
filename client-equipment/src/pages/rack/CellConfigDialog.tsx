@@ -34,7 +34,7 @@ export function CellConfigDialog({
       footer={
         <div className="flex w-full justify-between gap-2">
           <Button variant="ghost" size="sm" onClick={onReset} className="text-muted-foreground text-xs">
-            デフォルトに戻す
+            既定に戻す
           </Button>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={onClose}>キャンセル</Button>
@@ -49,7 +49,7 @@ export function CellConfigDialog({
           <div className="flex flex-col gap-1.5">
             {[
               { value: "model", label: "型名を優先" },
-              { value: "name",  label: "機材名を優先" },
+              { value: "name",  label: "商品名を優先" },
               { value: "custom", label: "任意文字列" },
             ].map((opt) => (
               <label key={opt.value} className="flex items-center gap-2 cursor-pointer text-sm">
@@ -80,7 +80,7 @@ export function CellConfigDialog({
           <div>
             <ToggleButtonGroup
               options={[
-                { value: 'showName',   label: '機材名' },
+                { value: 'showName',   label: '商品名' },
                 { value: 'showModel',  label: '型名' },
                 { value: 'showNo',     label: 'No.' },
                 { value: 'showCustom', label: '任意文字列' },

@@ -134,15 +134,15 @@ export interface MiscInquiry {
   /** 行き先（migration 171）。**絞り込みはこれだけを見る**（`handled_at` は記録） */
   state: InquiryState;
   /**
-   * ストックを机に戻す日（migration 247）。
+   * 「あとで見る」を机に戻す日（migration 247）。
    *
-   * ⚠️ **これが無いとストックは見送りと同じ**です（どちらも「未仕分けから消えて
+   * ⚠️ **これが無いと「あとで見る」は見送りと同じ**です（どちらも「未仕分けから消えて
    * 二度と出てこない」で終わる）。この日が来たものは未仕分けと同じ扱いで
    * 「今日さばくもの」に入ります。空（決めていない）も同じ扱いです。
    */
   stock_review_on: string | null;
   tags: string[];
-  /** チケットにしたときに作った案件管理のタスク */
+  /** タスクにしたときに作った案件管理のタスク */
   task_id: string | null;
   task_title: string | null;
   task_due_at: string | null;
@@ -161,11 +161,11 @@ export interface MiscInquiry {
 }
 export const IMPORTANCE_LABELS: Record<Importance, string> = { high: '高', medium: '中', low: '低' };
 
-/** 行き先（モックの4タブ ＋「案件にした」）。並びはそのままタブの並び */
+/** 行き先（モックの4タブ ＋「案件」）。並びはそのままタブの並び。**表示名だけ・キーは変えない** */
 export const INQUIRY_STATES = ['unsorted', 'stock', 'ticket', 'project', 'dropped'] as const;
 export type InquiryState = (typeof INQUIRY_STATES)[number];
 export const INQUIRY_STATE_LABELS: Record<InquiryState, string> = {
-  unsorted: '未仕分け', stock: 'ストック', ticket: 'チケット', project: '案件にした', dropped: '見送り',
+  unsorted: '未仕分け', stock: 'あとで見る', ticket: 'タスク', project: '案件', dropped: '見送り',
 };
 
 /** 出どころ。`manual` は**出どころが分からない既存行**（新規では入らない） */
@@ -195,7 +195,7 @@ export const MENUS: DailyMenu[] = [
   {
     kind: 'daily_news',
     label: 'デイリーニュース報告',
-    description: 'AI が業界ニュースを日次収集。カテゴリ・採用フラグで管理',
+    description: 'AI が業界ニュースを日次収集。カテゴリ・注目度で管理',
     path: '/news',
     icon: 'Newspaper',
   },

@@ -121,7 +121,7 @@ export default function StageDiagramCell({ cell, stageTemplates, onChange }: Sta
         value={cell?.note || ""}
         onChange={(e) => onChange({ ...cell, note: e.target.value })}
         className="w-full min-h-[20px] text-[11px] bg-transparent border-none outline-none resize-none leading-relaxed"
-        placeholder="メモ..."
+        placeholder="メモ…"
         rows={1}
       />
     </div>

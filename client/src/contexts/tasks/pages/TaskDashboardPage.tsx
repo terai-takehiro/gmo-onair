@@ -12,7 +12,7 @@
  *    「相手待ち」は**自分は動けない**を表すためのもので、これが無いと
  *    未完了のタスクが全部同じ重さに見えます (`taskList/state.ts`)。
  * ④ **全体 / 自分**を切り替えられるようにしました (モックの scopes)。
- * ⑤ **一覧からタスクを足せる**ようにしました。案件を選んでやること・担当・
+ * ⑤ **一覧からタスクを追加できる**ようにしました。案件を選んでタスク・担当・
  *    期限だけ決めれば入ります。
  *
  * ── まだ v4 になっていないところ ────────────────────────────
@@ -143,11 +143,11 @@ function DesktopTaskDashboard() {
   return (
     <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <PageHeader
-        title="タスク一覧"
+        title="タスク"
         sub={data ? `全案件のタスク ${scoped.length}件（うち未完了 ${openCount}件）` : '全案件のタスク'}
         primaryAction={
           <Button onClick={() => setAdding(true)}>
-            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />タスクを足す
+            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />タスクを追加
           </Button>
         }
       >
@@ -241,9 +241,9 @@ function DesktopTaskDashboard() {
           />
         ) : (
           <EmptyState
-            title="タスクがまだありません"
-            description="案件を進めるためにやることを足します。案件の中からでも、ここからでも足せます。"
-            action={<Button onClick={() => setAdding(true)}><Plus className="mr-1 h-4 w-4" aria-hidden="true" />タスクを足す</Button>}
+            title="まだタスクがありません"
+            description="案件を進めるためのタスクを追加します。案件の中からでも、ここからでも追加できます。"
+            action={<Button onClick={() => setAdding(true)}><Plus className="mr-1 h-4 w-4" aria-hidden="true" />タスクを追加</Button>}
           />
         )
       ) : (

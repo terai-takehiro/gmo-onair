@@ -2,8 +2,8 @@
 //
 // 要件: docs/archive/2026/2026-07-25-collaboration-and-personal-agent.md (D2 / D3 / D8)
 //
-// 投入口は案件管理アプリのトップ (投げるのは 1 秒で終わる行為なので入口に置く)。
-// こちらは**格納先と棚卸し**。腰を据えて優先順位を見直す場所。
+// 書き留める入口は案件管理アプリのトップ (書き留めるのは 1 秒で終わる行為なので入口に置く)。
+// こちらは**格納先と見直し**。腰を据えて優先順位を見直す場所。
 //
 // GMO イズムに従う点:
 //   - 目標達成10カ条 1-1「期限は何月何日何時何分まで」→ 期限は必ず分まで表示・入力する
@@ -29,7 +29,7 @@ type TabKey = 'mine' | 'delegations' | 'intake' | 'team';
 const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: 'mine', label: 'マイタスク', icon: ListChecks },
   { key: 'delegations', label: '依頼', icon: Send },
-  { key: 'intake', label: '投入ログ', icon: Inbox },
+  { key: 'intake', label: '書き留めたもの', icon: Inbox },
   { key: 'team', label: 'チーム', icon: Users },
 ];
 

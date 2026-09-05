@@ -194,7 +194,7 @@ function ChangePasswordCard() {
       setMsg({ type: "ok", text: "パスワードを変更しました" });
       setCurrentPw(""); setNewPw(""); setConfirmPw("");
     } catch (err: any) {
-      setMsg({ type: "err", text: err.response?.data?.error?.message || "変更に失敗しました" });
+      setMsg({ type: "err", text: err.response?.data?.error?.message || "パスワードを変更できませんでした。もう一度お試しください。" });
     } finally {
       setLoading(false);
     }
@@ -230,7 +230,7 @@ function ChangePasswordCard() {
               {msg.text}
             </div>
           )}
-          <Button type="submit" disabled={loading} className="self-start">{loading ? "変更中..." : "パスワードを変更"}</Button>
+          <Button type="submit" disabled={loading} className="self-start">{loading ? "変更中…" : "パスワードを変更"}</Button>
         </form>
       </div>
     </section>

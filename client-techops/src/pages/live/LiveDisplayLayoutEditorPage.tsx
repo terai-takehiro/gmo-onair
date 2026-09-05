@@ -72,7 +72,7 @@ export default function LiveDisplayLayoutEditorPage() {
         <EmptyState
           icon={<Timer />}
           title="案件からのみ開けます"
-          description="計時・視聴者は案件（プロジェクト管理外の番組ではありません）に紐づく機能です。案件のハブ画面から開いてください。"
+          description="計時・視聴者は案件からだけ開けます。案件のハブ画面から開いてください。"
         />
       </div>
     );
@@ -191,7 +191,7 @@ function LayoutEditorContent({ owner, timerId }: {
       qc.setQueryData(['timer-layout', timerId], saved);
       notifySuccess('レイアウトを保存しました');
     },
-    onError: () => notifyError('保存に失敗しました'),
+    onError: () => notifyError('保存できませんでした。', { description: '少し待ってから、もう一度お試しください。' }),
   });
 
   const resetMutation = useMutation({
@@ -203,7 +203,7 @@ function LayoutEditorContent({ owner, timerId }: {
       qc.setQueryData(['timer-layout', timerId], null);
       notifySuccess('未設定に戻しました。表示画面は既定の描画に戻ります。');
     },
-    onError: () => notifyError('操作に失敗しました'),
+    onError: () => notifyError('この操作をやり切れませんでした。', { description: '少し待ってから、もう一度お試しください。' }),
   });
 
   async function handleReset() {
@@ -267,7 +267,7 @@ function LayoutEditorContent({ owner, timerId }: {
         <div className="flex-1 space-y-6 overflow-y-auto p-4">
           <div>
             <p className="mb-2 text-xs font-semibold text-muted-foreground">
-              編集キャンバス（{canManage ? 'ドラッグで移動・右下の丸で拡大縮小' : '閲覧のみ'}）
+              編集キャンバス（{canManage ? 'ドラッグで移動・右下の丸で拡大縮小' : '見るだけ'}）
             </p>
             <DisplayLayoutEditCanvas
               layout={draft}
@@ -361,7 +361,7 @@ function LayoutEditorContent({ owner, timerId }: {
           </div>
 
           {!canManage && (
-            <p className="text-xs text-muted-foreground">閲覧のみできます。ドラッグ・保存には管理者権限が必要です。</p>
+            <p className="text-xs text-muted-foreground">いまは「見るだけ」です。動かして保存するには 制作技術支援の「管理」が必要です。</p>
           )}
         </aside>
       </div>

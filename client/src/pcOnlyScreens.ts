@@ -69,7 +69,7 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   },
   {
     path: '/sales/flow-templates',
-    what: '標準工程テンプレート',
+    what: '工程の型',
     why: '型を変えると以後すべての案件に効くので、落ち着いて触る画面です。',
   },
   {

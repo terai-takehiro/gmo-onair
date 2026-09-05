@@ -49,7 +49,7 @@ export default function ColumnDialog({ open, onClose, projectId, existing }: Pro
       }
       onClose();
     } catch {
-      setSaveError("保存に失敗しました。もう一度お試しください。");
+      setSaveError("保存できませんでした。もう一度お試しください。");
     }
   };
 

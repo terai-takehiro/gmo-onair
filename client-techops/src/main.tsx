@@ -28,9 +28,9 @@ class ErrorBoundary extends React.Component<
     if (this.state.hasError) {
       return (
         <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
-          <p className="text-lg font-semibold text-destructive">エラーが発生しました</p>
+          <p className="text-lg font-semibold text-destructive">画面を表示できませんでした。</p>
           <p className="text-sm text-muted-foreground">
-            ページを再読み込みしてください
+            入力した内容は残っています。「再読み込み」を押してください。
           </p>
           <button
             onClick={() => window.location.reload()}

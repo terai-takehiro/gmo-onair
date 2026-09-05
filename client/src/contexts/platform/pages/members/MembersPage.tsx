@@ -1,5 +1,5 @@
 /**
- * ③ 権限とメンバー（v4 設定・モックの3枚目）
+ * ③ 人と権限（v4 設定・モックの3枚目。旧「権限とメンバー」）
  *
  * ── 権限モデルを単純化した（この版） ────────────────────────
  *
@@ -16,7 +16,7 @@
  *
  * - **「権限修復」ボタンを外した。** 全スタッフに全区画を配る作りで、
  *   押すと**経理しか見てはいけない数字が全員に見えます**。役割ができた今は
- *   「役割を押し直す」が正しい直し方なので、そちらに置き換えました
+ *   「役割をあて直す」が正しい直し方なので、そちらに置き換えました
  *   （API は残っているので、本当に要るときは system_admin から叩けます）。
  */
 import { useMemo, useState } from 'react';
@@ -91,20 +91,20 @@ export default function MembersPage() {
     onSuccess: () => {
       setPickedRole(null);
       qc.invalidateQueries({ queryKey: ['permission-roles'] });
-      notifySuccess('役割を消しました');
+      notifySuccess('役割を削除しました');
     },
-    onError: (e) => notifyApiError('役割を消せませんでした', e),
+    onError: (e) => notifyApiError('役割を削除できませんでした', e),
   });
 
   if (!isAdmin) {
-    return <NoPermissionPanel modules={['admin']} level="manager" target="権限とメンバー" />;
+    return <NoPermissionPanel modules={['admin']} level="manager" target="人と権限" />;
   }
 
   return (
     <div className="flex flex-col gap-3.5 p-3 lg:gap-4 lg:p-6">
       <PageHeader
-        title="権限とメンバー"
-        sub="権限は人ではなく役割に付けます。役割を押すと、その人の権限がまとめて書き換わります。"
+        title="人と権限"
+        sub="権限は人ではなく役割に付けます。役割をあてると、その人の権限がまとめて書き換わります。"
         primaryAction={
           <Button onClick={() => setUserDialog({ open: true, user: null })}>
             <UserPlus className="mr-1.5 h-4 w-4" aria-hidden="true" />メンバーを招く
@@ -166,7 +166,7 @@ export default function MembersPage() {
                   onClick={() => setRoleDialog({ open: true, role: null })}
                   className="min-h-tap text-sub flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-primary"
                 >
-                  <Plus className="h-4 w-4" aria-hidden="true" />役割を足す
+                  <Plus className="h-4 w-4" aria-hidden="true" />役割を追加
                 </button>
               </>
             )}
@@ -182,7 +182,7 @@ export default function MembersPage() {
                     <span className="text-note block text-muted-foreground">{current.description}</span>
                   </span>
                   <Button variant="outline" size="sm" onClick={() => setRoleDialog({ open: true, role: current })}>
-                    <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />直す
+                    <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />編集
                   </Button>
                   {!current.is_builtin && (
                     <Button
@@ -190,9 +190,9 @@ export default function MembersPage() {
                       size="sm"
                       className="text-destructive"
                       onClick={() => confirmAction({
-                        title: `${current.name} を消しますか`,
-                        description: 'この役割を押している人がいると消せません。先に別の役割へ移してください。',
-                        confirmLabel: '消す',
+                        title: `${current.name} を削除しますか`,
+                        description: 'この役割があたっている人がいると削除できません。先に別の役割へ移してください。',
+                        confirmLabel: '削除',
                         tone: 'danger',
                       }).then((ok) => ok && delRole.mutate(current.id))}
                     >
@@ -230,7 +230,7 @@ export default function MembersPage() {
                 <EmptyState
                   icon={<Users className="h-6 w-6" aria-hidden="true" />}
                   title="この役割の人はまだいません"
-                  description="メンバーを招くとき、または一覧の鉛筆から役割を押せます。"
+                  description="メンバーを招くとき、または一覧の「編集」から役割を変えられます。"
                 />
               ) : (
                 <>
@@ -263,18 +263,18 @@ export default function MembersPage() {
                         </RowSlot>
                         <RowSlot w={128} align="right">
                           <div className="flex gap-0.5">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" title="直す" onClick={() => setUserDialog({ open: true, user: u })}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" title="編集" onClick={() => setUserDialog({ open: true, user: u })}>
                               <Pencil className="h-4 w-4" aria-hidden="true" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-destructive"
-                              title="消す"
+                              title="削除"
                               onClick={() => confirmAction({
-                                title: `${u.name} を消しますか`,
+                                title: `${u.name} を削除しますか`,
                                 description: 'ログインできなくなります。過去に作った案件や記録は残ります。',
-                                confirmLabel: '消す',
+                                confirmLabel: '削除',
                                 tone: 'danger',
                               }).then((ok) => ok && del.mutate(u.id))}
                             >
@@ -292,7 +292,7 @@ export default function MembersPage() {
             <p className="rounded-note text-note flex items-start gap-2 border border-border bg-surface-subtle px-3.5 py-3 text-muted-foreground">
               <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <span>
-                権限を直しても、<strong className="font-bold">本人がログインし直すまで効きません</strong>
+                権限を変えても、<strong className="font-bold">本人がログインし直すまで効きません</strong>
                 （ログインしたときの権限を持ち歩く作りのため）。急ぐときは本人に一度ログアウトしてもらってください。
               </span>
             </p>

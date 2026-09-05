@@ -42,7 +42,7 @@ export default function RentalMailPage() {
       queryClient.invalidateQueries({ queryKey: ['rental-reservations', ownerKey] });
       notifySuccess('予約リストを「依頼済み」にしました');
     },
-    onError: () => notifyError('「依頼済み」への更新に失敗しました'),
+    onError: () => notifyError('「依頼済み」にできませんでした。', { description: '少し待ってから、もう一度お試しください。' }),
   });
 
   const copyBody = async () => {
@@ -50,7 +50,7 @@ export default function RentalMailPage() {
       await navigator.clipboard.writeText(body);
       notifySuccess('本文をコピーしました');
     } catch {
-      notifyError('コピーに失敗しました');
+      notifyError('コピーできませんでした。', { description: '本文を選んで、手でコピーしてください。' });
     }
   };
 

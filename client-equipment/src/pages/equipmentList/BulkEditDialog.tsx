@@ -1,5 +1,5 @@
 /**
- * 選んだ機材をまとめて直す (manager 以上)。
+ * 選んだ機材をまとめて編集する (manager 以上)。
  *
  * 旧実装は 23 個の `if` を JSX に並べていました。**送る値は変えず**、
  * 「どの項目がどんな入力になるか」を1つの表にしています
@@ -24,21 +24,21 @@ const FIELDS: { key: BulkField; label: string; input: 'text' | 'number' | 'date'
   { key: 'name', label: '商品名', input: 'text', placeholder: '商品名' },
   { key: 'manufacturer_id', label: 'メーカー', input: 'text', opts: 'manufacturer' },
   { key: 'model_number', label: '型名', input: 'text', placeholder: '型名' },
-  { key: 'serial_number', label: 'シリアル', input: 'text', placeholder: 'シリアル' },
+  { key: 'serial_number', label: '製造番号', input: 'text', placeholder: '製造番号' },
   { key: 'unit_number', label: 'No. (個体番号)', input: 'number', placeholder: '0' },
   { key: 'fixed_asset_code', label: '資産コード', input: 'text', placeholder: '資産コード' },
-  { key: 'branch_code', label: '所管', input: 'text', placeholder: 'GMO-IG' },
-  { key: 'asset_class', label: '資産管理', input: 'text', opts: ASSET_CLASS_OPTIONS.map((o) => ({ value: o.value, label: o.label })) },
+  { key: 'branch_code', label: '持ち主の会社', input: 'text', placeholder: 'GMO-IG' },
+  { key: 'asset_class', label: '資産の区分', input: 'text', opts: ASSET_CLASS_OPTIONS.map((o) => ({ value: o.value, label: o.label })) },
   { key: 'equipment_section', label: '設備／貸出', input: 'text', opts: SECTIONS.map((s) => ({ value: s.value, label: s.label })) },
   { key: 'equipment_type_code', label: '種別', input: 'text', opts: TYPE_CODES.map((t) => ({ value: t.code, label: `${t.code} - ${t.label}` })) },
   // 表示は `CONDITION_LABELS` (新品同様／良好／普通／要注意)。旧実装と同じ言葉にしてある —
   // `CONDITION_OPTIONS.label` は返却の記録で使う別の言い方 (優良／良好／可／不良)
   { key: 'condition', label: 'コンディション', input: 'text', opts: CONDITION_OPTIONS.map((o) => ({ value: o.value, label: CONDITION_LABELS[o.value] ?? o.label })) },
   { key: 'color_id', label: '機材の色', input: 'text', opts: 'color' },
-  { key: 'location_id', label: '設置場所', input: 'text', opts: 'location' },
+  { key: 'location_id', label: '保管場所', input: 'text', opts: 'location' },
   { key: 'location_detail', label: '場所の詳細', input: 'text', placeholder: '場所の詳細' },
   { key: 'purchased_at', label: '購入年月', input: 'date' },
-  { key: 'warranty_years', label: '保証 (年)', input: 'number', placeholder: '0' },
+  { key: 'warranty_years', label: '保証期間 (年)', input: 'number', placeholder: '0' },
   { key: 'depreciation_years', label: '償却年数', input: 'number', placeholder: '0' },
   { key: 'status', label: '状態', input: 'text', opts: STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label })) },
   { key: 'rack_position', label: 'U位置 (下端)', input: 'number', placeholder: '0' },
@@ -84,10 +84,10 @@ export function BulkEditDialog({
     <FormDialog
       open={open}
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title={`まとめて直す (${count} 件)`}
+      title={`まとめて編集 (${count} 件)`}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button onClick={onSubmit} disabled={saving || !canApply}>
             {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
             {count} 件に当てる
@@ -103,7 +103,7 @@ export function BulkEditDialog({
 
       <div className="space-y-4">
         <div className="space-y-1">
-          <Label>直す項目</Label>
+          <Label>編集する項目</Label>
           <Select value={field} onValueChange={(v) => { onFieldChange(v as BulkField); onValueChange(''); }}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>

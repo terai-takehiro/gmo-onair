@@ -67,7 +67,7 @@ export default function LiveProgramSettingsPage() {
         <EmptyState
           icon={<Timer />}
           title="案件からのみ開けます"
-          description="計時・視聴者は案件（プロジェクト管理外の番組ではありません）に紐づく機能です。案件のハブ画面から開いてください。"
+          description="計時・視聴者は案件からだけ開けます。案件のハブ画面から開いてください。"
         />
       </div>
     );

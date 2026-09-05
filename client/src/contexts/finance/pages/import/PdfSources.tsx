@@ -42,7 +42,7 @@ export function PdfSources({
           <FolderSearch className="h-4 w-4 text-primary" aria-hidden="true" />Box フォルダから読み込み
         </p>
         <div>
-          <Label>取込元 Box フォルダ（ID または URL・空欄なら既定フォルダ）</Label>
+          <Label>取り込み元 Box フォルダ（ID または URL・空欄なら既定フォルダ）</Label>
           <Input
             value={folderInput}
             onChange={(e) => onFolderInput(e.target.value)}
@@ -55,7 +55,7 @@ export function PdfSources({
             : <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" />}
           {scanned ? 'フォルダを再読み込み' : 'フォルダを読み込み'}
         </Button>
-        {scanError && <p className="text-sub-sm text-destructive">読み込みに失敗しました: {scanError}</p>}
+        {scanError && <p className="text-sub-sm text-destructive">ファイルの一覧を読み込めませんでした。{scanError}</p>}
         {scanned && (
           <p className="text-note text-muted-foreground">
             フォルダ:{' '}
@@ -112,8 +112,8 @@ export function PdfSources({
           />
         </div>
         <p className="text-note text-muted-foreground">
-          アップロードした PDF は <strong className="font-bold">Box の取込フォルダに保存されてから</strong>解析されます
-          （読み取りに Box を使うので、Box が使えない日はどちらの取込元も動きません）。
+          アップロードした PDF は <strong className="font-bold">Box の取り込みフォルダに保存されてから</strong>解析されます
+          （読み取りに Box を使うので、Box が使えない日はどちらの取り込み元も動きません）。
         </p>
         {(uploadErrors.length > 0 || uploadNotices.length > 0) && (
           <div className="flex flex-col gap-0.5">

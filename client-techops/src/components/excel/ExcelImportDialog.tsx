@@ -45,7 +45,7 @@ export default function ExcelImportDialog({ docId, currentData, onApply, onApply
       setResult(res);
       setStage("review");
     } catch (e: any) {
-      const msg = e?.response?.data?.error?.message || e?.message || "解析に失敗しました";
+      const msg = e?.response?.data?.error?.message || "ファイルを読み取れませんでした。中身を確かめて、もう一度選び直してください。";
       setError(msg);
       setStage("error");
     }
@@ -70,7 +70,7 @@ export default function ExcelImportDialog({ docId, currentData, onApply, onApply
       onRestore(before);
       onClose();
     } catch (e: any) {
-      setError(e?.response?.data?.error?.message || "取消に失敗しました");
+      setError(e?.response?.data?.error?.message || "取り消せませんでした。少し待ってから、もう一度お試しください。");
     }
   };
 
@@ -112,7 +112,7 @@ export default function ExcelImportDialog({ docId, currentData, onApply, onApply
                   className="w-full flex items-center justify-center gap-2 px-4 py-6 border-2 border-dashed border-border rounded-xl text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors"
                 >
                   <Upload size={18} aria-hidden />
-                  {fileName ? fileName : ".xlsx ファイルを選択..."}
+                  {fileName ? fileName : ".xlsx ファイルを選ぶ…"}
                 </button>
               </div>
 
@@ -147,7 +147,7 @@ export default function ExcelImportDialog({ docId, currentData, onApply, onApply
 
           {stage === "loading" && (
             <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
-              <Loader2 size={16} className="animate-spin" aria-hidden /> 解析しています...
+              <Loader2 size={16} className="animate-spin" aria-hidden /> 解析しています…
             </div>
           )}
 
@@ -158,7 +158,7 @@ export default function ExcelImportDialog({ docId, currentData, onApply, onApply
                 <span>
                   ロール 追加{s.sections.add}/更新{s.sections.update}・行 追加{s.rows.add}/更新{s.rows.update}
                   {s.ledScenes.add > 0 && <>・LEDシーン新規{s.ledScenes.add}</>}
-                  {(s.masters.video + s.masters.audio + s.masters.telop + s.masters.persons) > 0 && <>・マスター追加あり</>}
+                  {(s.masters.video + s.masters.audio + s.masters.telop + s.masters.persons) > 0 && <>・登録した名前の追加あり</>}
                 </span>
               </div>
               {result!.warnings.length > 0 && (

@@ -116,13 +116,13 @@ export function FeedsTab({ onManage }: { onManage: () => void }) {
 
       <section className="rounded-card overflow-hidden border border-border bg-card">
         <div className="border-b border-border-faint bg-surface-subtle px-4 py-2.5">
-          <h2 className="text-cardtitle">ICS の購読</h2>
+          <h2 className="text-cardtitle">URL で取り込むカレンダー</h2>
         </div>
         {rows.length === 0 ? (
           <EmptyState
             icon={<CalendarSync className="h-6 w-6" aria-hidden="true" />}
-            title="購読はありません"
-            description="公開されている ICS の URL を登録すると、その予定が「自分」のレイヤーに出ます。"
+            title="まだ取り込むカレンダーがありません"
+            description="公開されている URL を登録すると、その予定が「出すもの」の『自分』に出ます。"
           />
         ) : (
           <>

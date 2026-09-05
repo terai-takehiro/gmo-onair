@@ -30,7 +30,7 @@ export function PredecessorField({ projectId, taskId }: { projectId: string; tas
 
   return (
     <div className="rounded-note border border-border bg-surface-subtle p-3">
-      <Label>先行タスク（これが終わってから着手する）</Label>
+      <Label>先行タスク</Label>
       {predOf.size === 0 && !adding && (
         <p className="text-sub-sm mt-1 text-muted-foreground">
           先行タスクなし。決めておくと、先行の日程がうしろへ動いたときに「後続もずらすか」をガントが訊きます。
@@ -83,7 +83,7 @@ export function PredecessorField({ projectId, taskId }: { projectId: string; tas
             disabled={candidates.length === 0}
             className="text-sub min-h-tap inline-flex items-center text-primary hover:underline disabled:text-muted-foreground disabled:no-underline lg:min-h-[32px]"
           >
-            ＋ 先行タスクを足す
+            ＋ 先行タスクを追加
           </button>
         )}
       </div>

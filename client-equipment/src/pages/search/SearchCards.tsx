@@ -104,7 +104,7 @@ export function EquipmentResultCards({
               </span>
               <span className="text-sub block truncate text-muted-foreground">
                 {[it.manufacturer_name, it.location_name || it.location_detail]
-                  .filter(Boolean).join(' ・ ') || '置き場所は登録されていません'}
+                  .filter(Boolean).join(' ・ ') || '保管場所は登録されていません'}
               </span>
             </span>
             <ChevronRight className="mt-2 h-4 w-4 shrink-0 self-start text-muted-foreground" aria-hidden="true" />

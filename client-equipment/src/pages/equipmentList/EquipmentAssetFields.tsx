@@ -8,14 +8,14 @@
  *
  * 台帳・詳細画面は「資産管理は日常では畳む」（既定は非表示）方針だが、
  * 登録・編集ダイアログには反映されておらず、375px幅でも毎回フル項目・密グリッドが
- * 出ていた（スマホ最適化の洗い出し 2026-08-20・要対応5）。「機材を足す」は
+ * 出ていた（スマホ最適化の洗い出し 2026-08-20・要対応5）。「機材を追加」は
  * `ItemsToolbar` でスマホでも残る唯一の追加導線（`isMobile` 分岐なし）なので、
  * ここが実質いちばんよく使われるモバイルの入力経路になる。
  *
  * **新規登録は畳んで開始・既存の編集は開いたまま**にした（`editingId` の有無で判定）。
  * 新規はまず必須3項目＋商品名だけで済ませられるようにし、既に値が入っている
  * 編集では黙って隠さない（隠すと「直したはずなのに消えた」に見える）。
- * 「設置場所」がこの折りたたみの中にあるため、ラック実装（場所がラックのときだけ出る
+ * 「保管場所」がこの折りたたみの中にあるため、ラック実装（場所がラックのときだけ出る
  * 条件付き表示）も自然にこの中へ入る。
  */
 import { useState } from 'react';
@@ -59,11 +59,11 @@ export function EquipmentAssetFields({
         <div className="space-y-4 pt-1">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="space-y-1">
-              <Label>所管</Label>
+              <Label>持ち主の会社</Label>
               <BranchCodeInput value={form.branch_code} onChange={(v) => setForm({ ...form, branch_code: v })} />
             </div>
             <div className="space-y-1">
-              <Label>資産管理</Label>
+              <Label>資産の区分</Label>
               <Select value={form.asset_class} onValueChange={(v) => setForm({ ...form, asset_class: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -93,7 +93,7 @@ export function EquipmentAssetFields({
               <Input type="date" value={form.purchased_at} onChange={(e) => setForm({ ...form, purchased_at: e.target.value })} />
             </div>
             <div className="space-y-1">
-              <Label>保証 (年)</Label>
+              <Label>保証期間 (年)</Label>
               <Input
                 type="number" min="0"
                 value={form.warranty_years}
@@ -102,7 +102,7 @@ export function EquipmentAssetFields({
               />
             </div>
             <div className="space-y-1">
-              <Label>設置場所</Label>
+              <Label>保管場所</Label>
               <Select
                 value={form.location_id || 'none'}
                 onValueChange={(v) => setForm({ ...form, location_id: v === 'none' ? '' : v })}

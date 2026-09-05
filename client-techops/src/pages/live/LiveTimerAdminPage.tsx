@@ -56,7 +56,7 @@ export default function LiveTimerAdminPage() {
         <EmptyState
           icon={<Timer />}
           title="案件からのみ開けます"
-          description="計時・視聴者は案件（プロジェクト管理外の番組ではありません）に紐づく機能です。案件のハブ画面から開いてください。"
+          description="計時・視聴者は案件からだけ開けます。案件のハブ画面から開いてください。"
         />
       </div>
     );
@@ -145,7 +145,7 @@ function TimerAdminContent({ owner, programId }: {
         <div className="sm:w-52 border-b sm:border-b-0 sm:border-r border-border overflow-y-auto">
           {timers.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-8 text-muted-foreground text-sm text-center">
-              <p>タイマーがありません</p>
+              <p>まだタイマーがありません</p>
               {canManage && (
                 <Button className="mt-3" size="sm" onClick={() => setCreateOpen(true)}>
                   <Plus className="h-4 w-4 mr-1" />作成

@@ -316,7 +316,7 @@ export default function GpmProjectListPage() {
         all.length === 0 && !appliedSearch ? (
           <EmptyState
             title="プロジェクトがまだありません"
-            description="発注が確定した構築案件をここで工程管理します。標準工程を選ぶと、工程とタスクが日付付きで入ります。"
+            description="発注が確定した構築案件をここで工程管理します。ひな形を選ぶと、工程とタスクが日付付きで入ります。"
             action={
               canEdit ? (
                 <Button onClick={() => navigate('/gpm/projects/new')}>

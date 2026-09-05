@@ -36,8 +36,8 @@ const VIEWS = [
 
 const LEAD: Record<string, string> = {
   items: '機材は常設が基本です。持ち出せるのは「貸出可」にした機材だけです',
-  lend: '「貸出可」にした機材だけが並びます。型番ごとにまとめ、開くと1台ずつ出ます',
-  supply: 'ケーブル・コネクタの在庫です。数をまとめて直すときは Excel の取込を使います',
+  lend: '「貸出可」にした機材だけが並びます。型名ごとにまとめ、開くと1台ずつ出ます',
+  supply: 'ケーブル・コネクタの在庫です。数をまとめて編集するときは Excel の取込を使います',
 };
 
 export default function EquipmentLedgerPage() {

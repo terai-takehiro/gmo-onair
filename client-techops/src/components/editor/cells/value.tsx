@@ -22,7 +22,7 @@ export default function ValueCell({ blk, cellKey, row, updateCell }: ValueCellPr
         onCommit={(v) => updateCell(blk.id, { ...(row.cells?.[blk.id] || {}), value: v })}
         className="w-full min-h-[20px] text-[12px] bg-transparent border-none outline-none resize-none"
         style={{ lineHeight: "20px" }}
-        placeholder="メモ..."
+        placeholder="メモ…"
       />
     </td>
   );

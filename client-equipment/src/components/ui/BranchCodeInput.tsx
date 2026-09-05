@@ -111,7 +111,7 @@ export default function BranchCodeInput({ value, onChange, placeholder = "GMO-IG
                   value={draft}
                   onChange={e => setDraft(e.target.value)}
                   onKeyDown={handleNewKeyDown}
-                  placeholder="新しい所管コードを入力..."
+                  placeholder="新しい会社名を入力（例 GMO-IG）"
                   className="flex-1 rounded border border-input bg-background px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-ring"
                 />
                 <button

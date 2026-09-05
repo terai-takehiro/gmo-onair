@@ -66,7 +66,7 @@ export function GpmTimelineView({
   return (
     <div className="rounded-card border border-border bg-card px-3.5 py-4">
       {phases.length === 0 && (
-        <p className="text-sub text-muted-foreground">工程がまだありません。リスト表示から足せます。</p>
+        <p className="text-sub text-muted-foreground">工程がまだありません。リスト表示から追加できます。</p>
       )}
       {phases.map((ph, i) => (
         <div key={ph.id}>

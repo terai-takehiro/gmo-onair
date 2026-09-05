@@ -153,7 +153,7 @@ export default function ExportDialog({
       notifySuccess('書き出しました。現場では Assistant で読み込んでください');
       onOpenChange(false);
     } catch (e) {
-      notifyError(await exportErrorMessage(e, '書き出しに失敗しました'));
+      notifyError(await exportErrorMessage(e, '書き出せませんでした。少し待ってから、もう一度お試しください。'));
     } finally {
       setExporting(false);
     }

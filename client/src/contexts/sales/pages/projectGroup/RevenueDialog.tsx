@@ -23,7 +23,7 @@ export function RevenueDialog({
 }: {
   groupId: string;
   members: GroupDetail['members'];
-  /** 直す売上。`null` なら新規 */
+  /** 編集する売上。`null` なら新規 */
   editing: GroupRevenue | null;
   onClose: () => void;
 }) {
@@ -67,7 +67,7 @@ export function RevenueDialog({
       notifySuccess(editing ? '売上を更新しました' : '売上を登録しました');
       onClose();
     },
-    onError: (err) => notifyApiError('売上の保存に失敗しました', err),
+    onError: (err) => notifyApiError('売上を保存できませんでした', err, '入力内容を確かめて、もう一度お試しください。'),
   });
 
   const invalidAlloc = alloc.mode === 'custom' && alloc.previewTotal !== total;
@@ -93,7 +93,7 @@ export function RevenueDialog({
           <Label>顧客 *</Label>
           <SearchableSelect
             options={customers.map((c) => ({ value: c.id, label: c.name, subLabel: c.short_name || '' }))}
-            value={customerId} onChange={setCustomerId} placeholder="顧客を検索..."
+            value={customerId} onChange={setCustomerId} placeholder="顧客を検索…"
           />
         </div>
         <div>

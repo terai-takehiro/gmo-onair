@@ -27,7 +27,7 @@ import {
 export function OpenItemRowsHeader({ withProject }: { withProject: boolean }) {
   return (
     <RowHeader className="hidden sm:flex">
-      <RowMain>{withProject ? '未確認事項 ／ プロジェクト' : '未確認事項'}</RowMain>
+      <RowMain>{withProject ? '持ち帰り ／ プロジェクト' : '持ち帰り'}</RowMain>
       <RowSlot w={96}>状態</RowSlot>
       <RowSlot w={96}>期限</RowSlot>
       <RowSlot w={160} align="right">できること</RowSlot>
@@ -95,7 +95,7 @@ export function OpenItemRow({
         {canEdit ? (
           <span className="flex items-center gap-1">
             <IconButton
-              label={resolved ? '返事待ちに戻す' : '解決にする'}
+              label={resolved ? '未解決に戻す' : '解決にする'}
               onClick={() => onToggleResolved(item)}
               tone={resolved ? 'muted' : 'success'}
             >
@@ -103,10 +103,10 @@ export function OpenItemRow({
                 ? <RotateCcw className="h-4 w-4" aria-hidden="true" />
                 : <Check className="h-4 w-4" aria-hidden="true" />}
             </IconButton>
-            <IconButton label="直す" onClick={() => onEdit(item)} tone="muted">
+            <IconButton label="編集" onClick={() => onEdit(item)} tone="muted">
               <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
             </IconButton>
-            <IconButton label="消す" onClick={() => onDelete(item)} tone="danger">
+            <IconButton label="削除" onClick={() => onDelete(item)} tone="danger">
               <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
             </IconButton>
           </span>

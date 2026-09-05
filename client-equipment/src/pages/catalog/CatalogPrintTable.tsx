@@ -36,7 +36,7 @@ export function CatalogPrintTable({
               <th className="check-col">✓</th>
               <th>種別</th>
               <th>用途</th>
-              <th>設置場所</th>
+              <th>保管場所</th>
               <th className="col-name">商品名</th>
               <th>メーカー</th>
               <th className="col-id">型名</th>

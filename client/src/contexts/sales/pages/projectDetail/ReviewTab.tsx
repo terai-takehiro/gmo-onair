@@ -145,7 +145,7 @@ export function ReviewTab({ project }: { project: ProjectDetail }) {
   const kptDelete = useMutation({
     mutationFn: (id: string) => api.delete(`/keep/kpt/${id}`),
     onSuccess: invalidateReport,
-    onError: (e) => notifyApiError('消せませんでした', e),
+    onError: (e) => notifyApiError('削除できませんでした', e),
   });
   const kptDraft = useMutation({
     mutationFn: () => api.post(`/keep/event-reports/${project.id}/kpt/draft`),
@@ -240,9 +240,9 @@ export function ReviewTab({ project }: { project: ProjectDetail }) {
               onConfirm={(id) => kptConfirm.mutate(id)}
               onDelete={async (id) => {
                 const ok = await confirmAction({
-                  title: 'この行を消しますか',
+                  title: 'この行を削除しますか',
                   description: '戻せません。AI が起こした行を消した記録は、次の下書きに効きます。',
-                  confirmLabel: '消す',
+                  confirmLabel: '削除',
                   tone: 'danger',
                 });
                 if (ok) kptDelete.mutate(id);

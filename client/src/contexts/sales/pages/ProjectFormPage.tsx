@@ -226,7 +226,7 @@ export default function ProjectFormPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-4 p-3 lg:space-y-5 lg:p-6">
       <PageHeader
-        title="案件を直す"
+        title="案件を編集"
         sub={[project?.name, project?.gls_number || project?.code].filter(Boolean).join(' ・ ')}
         icon={(
           <button
@@ -355,7 +355,7 @@ export default function ProjectFormPage() {
               {moreFieldCount(f.fields.v.audience, 'edit')}
             </span>
             <span className="flex-1" />
-            <span className="text-note text-muted-foreground">あとから足せます</span>
+            <span className="text-note text-muted-foreground">あとから追加できます</span>
           </button>
 
           {more && (
@@ -400,7 +400,7 @@ export default function ProjectFormPage() {
         <DocsSection form={form} />
 
         <div className="flex items-center justify-end gap-3">
-          <Button type="button" variant="outline" onClick={() => navigate(backTo)}>やめる</Button>
+          <Button type="button" variant="outline" onClick={() => navigate(backTo)}>キャンセル</Button>
           <Button type="submit" disabled={f.saveMutation.isPending || f.missing.length > 0}>
             {f.saveMutation.isPending
               ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />

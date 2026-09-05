@@ -73,13 +73,13 @@ export default function JourneyPage({ scope }: JourneyPageProps) {
   const createMark = useMutation({
     mutationFn: (payload: journeyApi.CreateMarkPayload) => journeyApi.createJourneyMark(payload),
     onSuccess: invalidateMarks,
-    onError: () => notifyError("記録に失敗しました"),
+    onError: () => notifyError("記録できませんでした。", { description: "少し待ってから、もう一度お試しください。" }),
   });
 
   const clearMark = useMutation({
     mutationFn: (markId: string) => journeyApi.clearJourneyMark(markId),
     onSuccess: invalidateMarks,
-    onError: () => notifyError("取り消しに失敗しました"),
+    onError: () => notifyError("取り消せませんでした。", { description: "少し待ってから、もう一度お試しください。" }),
   });
 
   const pending = createMark.isPending || clearMark.isPending;

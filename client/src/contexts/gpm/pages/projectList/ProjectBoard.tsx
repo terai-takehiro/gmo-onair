@@ -48,7 +48,7 @@ export function GpmProjectBoard({
     return (
       <EmptyState
         title="ボードに並べるプロジェクトがありません"
-        description="完了・見送りのプロジェクトはボードに出しません。絞り込みを「すべて」に戻すか、リスト表示に切り替えてください。"
+        description="完了・失注のプロジェクトはボードに出しません。絞り込みを「すべて」に戻すか、リスト表示に切り替えてください。"
       />
     );
   }

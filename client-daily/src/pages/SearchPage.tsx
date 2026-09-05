@@ -239,7 +239,7 @@ function Standby({ inview, cards, inquiries, onGo }: {
     rows.push({
       key: 'unsorted', icon: Inbox,
       title: `まだ仕分けていない情報 ${unsorted.length}件`,
-      sub: 'ストック・チケット・案件のどれにするか決める',
+      sub: 'あとで見る・タスク・案件のどれにするか決める',
       to: '/inquiries',
     });
   }

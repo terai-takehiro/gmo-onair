@@ -23,10 +23,12 @@ export function TeamTab() {
 
   return (
     <div className="space-y-3">
-      <p className="flex items-start gap-1.5 text-note text-muted-foreground">
+      <p
+        className="flex items-start gap-1.5 text-note text-muted-foreground"
+        title="「自分だけ」に設定されたタスクも件数には入りますが、中身は出ません。"
+      >
         <Eye className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        誰が溢れているかを見て仕事を配り直すための画面です。件数だけを出し、タスクの内容は表示しません
-        （「自分だけ」に設定されたタスクも件数には入りますが中身は出ません）。
+        誰に仕事が偏っているかを見て配り直す画面です。件数だけを出し、タスクの内容は出しません。
       </p>
       {rows.length === 0 ? (
         <Card><CardContent className="p-8 text-center text-sub text-muted-foreground">メンバーがいません。</CardContent></Card>
@@ -38,7 +40,7 @@ export function TeamTab() {
                 <th className="py-2 pr-2">メンバー</th>
                 <th className="px-2 py-2 text-right">未完了</th>
                 <th className="px-2 py-2 text-right">期限超過</th>
-                <th className="px-2 py-2 text-right" title="優先度スコア9(最優先)の未完了タスク数">スコア</th>
+                <th className="px-2 py-2 text-right" title="重要度 高 × 緊急度 高（最優先）の未完了タスク数">最優先</th>
                 <th className="px-2 py-2 text-right">未返答の依頼</th>
                 <th className="px-2 py-2 text-right">期限なし</th>
                 <th className="px-2 py-2 text-right">自分だけ</th>

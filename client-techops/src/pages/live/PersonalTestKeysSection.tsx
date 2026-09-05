@@ -44,7 +44,7 @@ export default function PersonalTestKeysSection({ settings, youtubeApiKey, setYo
             type={showYt.on ? 'text' : 'password'}
             value={youtubeApiKey}
             onChange={e => setYoutubeApiKey(e.target.value)}
-            placeholder={settings?.hasYoutubeKey ? '****' + (settings?.youtubeApiKeyMasked?.slice(-4) || '') : '未設定'}
+            placeholder={settings?.hasYoutubeKey ? '****' + (settings?.youtubeApiKeyMasked?.slice(-4) || '') : '未入力'}
             className="flex-1"
           />
           <Button variant="ghost" size="sm" onClick={showYt.toggle}>
@@ -75,7 +75,7 @@ export default function PersonalTestKeysSection({ settings, youtubeApiKey, setYo
             type={showJs.on ? 'text' : 'password'}
             value={jstreamToken}
             onChange={e => setJstreamToken(e.target.value)}
-            placeholder={settings?.hasJstreamToken ? '****' + (settings?.jstreamTokenMasked?.slice(-4) || '') : '未設定'}
+            placeholder={settings?.hasJstreamToken ? '****' + (settings?.jstreamTokenMasked?.slice(-4) || '') : '未入力'}
             className="flex-1"
           />
           <Button variant="ghost" size="sm" onClick={showJs.toggle}>

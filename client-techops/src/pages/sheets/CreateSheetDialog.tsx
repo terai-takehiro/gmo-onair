@@ -129,7 +129,7 @@ export function CreateSheetDialog({
     mutationFn: async () => {
       const selectedEpisode = episodes?.find((e) => e.id === selectedEpisodeId);
       const res = await api.post("/techops/documents", {
-        title: newTitle || "無題のQシート",
+        title: newTitle || "無題の進行台本",
         broadcast_date: newBroadcastDate || selectedEpisode?.broadcast_date || null,
         project_id: linkToProject && selectedProjectId ? selectedProjectId : null,
         program_id: !linkToProject && defaultProgramId ? defaultProgramId : null,
@@ -137,7 +137,7 @@ export function CreateSheetDialog({
         episode_code: linkToProject && selectedEpisode ? selectedEpisode.episode_code : null,
         data: {
           meta: {
-            title: newTitle || "無題のQシート",
+            title: newTitle || "無題の進行台本",
             draftNumber: 1,
             draftType: "numbered",
             location: newLocation,
@@ -161,11 +161,11 @@ export function CreateSheetDialog({
       queryClient.invalidateQueries({ queryKey: ["qsheet-documents"] });
       onOpenChange(false);
       resetForm();
-      notifySuccess("作成しました。このQシートはあなたと管理者のみ閲覧できます（他の人に見せるにはカードの「共有」ボタンから共有してください）");
+      notifySuccess("作りました。この進行台本はあなたと管理者だけが見られます（他の人に見せるにはカードの「共有」ボタンから共有してください）");
       onCreated(doc);
     },
     onError: () => {
-      notifyError("ドキュメントの作成に失敗しました");
+      notifyError("進行台本を作れませんでした。少し待ってから、もう一度お試しください。");
     },
   });
 
@@ -198,7 +198,7 @@ export function CreateSheetDialog({
         <DialogHeader>
           <DialogTitle>新規台本作成</DialogTitle>
           <DialogDescription>
-            作成したQシートは最初あなた（と管理者）だけが閲覧できます。他の人に見せるには、作成後にカードの「共有」ボタンから共有してください。
+            作った進行台本は、最初はあなた（と管理者）だけが見られます。他の人に見せるには、作成後にカードの「共有」ボタンから共有してください。
           </DialogDescription>
         </DialogHeader>
         <form
@@ -304,7 +304,7 @@ export function CreateSheetDialog({
                   <Label className="text-xs text-muted-foreground">GLS案件</Label>
                   <Select value={selectedProjectId} onValueChange={handleProjectChange}>
                     <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="案件を選択..." />
+                      <SelectValue placeholder="案件を選ぶ…" />
                     </SelectTrigger>
                     <SelectContent>
                       {glsProjects?.map((p) => (
@@ -321,7 +321,7 @@ export function CreateSheetDialog({
                     <Label className="text-xs text-muted-foreground">エピソード（任意）</Label>
                     <Select value={selectedEpisodeId} onValueChange={handleEpisodeChange}>
                       <SelectTrigger className="mt-1">
-                        <SelectValue placeholder="エピソードを選択..." />
+                        <SelectValue placeholder="エピソードを選ぶ…" />
                       </SelectTrigger>
                       <SelectContent>
                         {episodes.map((ep) => (
@@ -349,7 +349,7 @@ export function CreateSheetDialog({
             disabled={missingRequired.length > 0 || createMutation.isPending}
             className="w-full py-2.5 text-sm font-semibold min-h-[44px]"
           >
-            {createMutation.isPending ? "作成中..." : "台本を作成"}
+            {createMutation.isPending ? "作成中…" : "進行台本を作る"}
           </Button>
         </form>
       </DialogContent>

@@ -185,9 +185,9 @@ export default function SgaListPage() {
   const handleDelete = async (id: string) => {
     const item = crud.items.find((i) => i.id === id);
     const ok = await confirmAction({
-      title: 'この販管費を消しますか',
-      description: `${item?.vendor_name ?? '支払先なし'}「${item?.description ?? '詳細なし'}」を消します。元に戻せません。`,
-      confirmLabel: '消す',
+      title: 'この販管費を削除しますか',
+      description: `${item?.vendor_name ?? '支払先なし'}「${item?.description ?? '詳細なし'}」を削除します。元に戻せません。`,
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) crud.remove.mutate(id);

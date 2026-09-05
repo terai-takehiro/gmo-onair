@@ -293,7 +293,7 @@ export function LedgerTable({
                   {canEditOne && (
                     <Link
                       to={`/sales/projects/${row.id}/edit`}
-                      aria-label={`${row.name} を直す`}
+                      aria-label={`${row.name} を編集`}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-control text-muted-foreground hover:bg-muted hover:text-foreground"
                     >
                       <Pencil className="h-4 w-4" aria-hidden="true" />

@@ -66,7 +66,7 @@ export function LendDialog({ card, onClose }: { card: SecurityCard; onClose: () 
       onClose={onClose}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" className="min-h-tap" onClick={onClose}>やめる</Button>
+          <Button variant="outline" className="min-h-tap" onClick={onClose}>キャンセル</Button>
           <Button className="min-h-tap gap-1.5" onClick={submit} disabled={lend.isPending}>
             {lend.isPending
               ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -82,7 +82,7 @@ export function LendDialog({ card, onClose }: { card: SecurityCard; onClose: () 
         <Field label="連絡先" value={contact} onChange={setContact} placeholder="電話 / メール" />
         <Field label="使いみち" value={purpose} onChange={setPurpose} placeholder="例：収録の立ち会い" />
         <Field label="貸した日" type="date" value={lentOn} onChange={setLentOn} />
-        <Field label="返してもらう日" type="date" value={dueOn} onChange={setDueOn} />
+        <Field label="返却の予定日" type="date" value={dueOn} onChange={setDueOn} />
         <div className="sm:col-span-2">
           <Label htmlFor="lend-handler">渡した人（ONAiR のメンバー）</Label>
           <select
@@ -118,16 +118,16 @@ export function ReturnDialog({ card, onClose }: { card: SecurityCard; onClose: (
 
   return (
     <Shell
-      title={`No.${card.card_no}・${card.level_label} を返してもらう`}
+      title={`No.${card.card_no}・${card.level_label} の返却を記録`}
       onClose={onClose}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" className="min-h-tap" onClick={onClose}>やめる</Button>
+          <Button variant="outline" className="min-h-tap" onClick={onClose}>キャンセル</Button>
           <Button className="min-h-tap gap-1.5" onClick={submit} disabled={ret.isPending}>
             {ret.isPending
               ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               : <Undo2 className="h-4 w-4" aria-hidden="true" />}
-            返却する
+            返却を記録
           </Button>
         </FormDialogFooter>
       }
@@ -142,7 +142,7 @@ export function ReturnDialog({ card, onClose }: { card: SecurityCard; onClose: (
         </p>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="返してもらった日" type="date" value={returnedOn} onChange={setReturnedOn} />
+        <Field label="返却した日" type="date" value={returnedOn} onChange={setReturnedOn} />
       </div>
       <div>
         <Label htmlFor="return-notes">返却のときのメモ</Label>

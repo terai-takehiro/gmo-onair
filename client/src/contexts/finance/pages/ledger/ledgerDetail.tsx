@@ -68,7 +68,7 @@ export function purchaseDetailFields(p: PurchaseRow): LedgerDetailField[] {
     // 案件と按分グループは**別のもの**（按分グループは複数案件で分け合う費用の束）。
     // カードでは1行にまとめて出しているので、ここでは分けて出す
     { label: '案件', value: textOr(p.project_name) },
-    { label: 'グループ', value: textOr(p.group_name) },
+    { label: '按分グループ', value: textOr(p.group_name) },
     {
       label: '精算方法',
       value: p.settlement_method
@@ -128,9 +128,10 @@ export function sgaDetailFields(item: SgaLedgerItem): LedgerDetailField[] {
     { label: '支払期日', value: ymd(item.payment_due_date) },
     { label: 'インボイス', value: item.invoice_qualified ? '登録あり' : '登録なし' },
     {
-      // 「按分」は画面に出さないと決めた言葉（`scripts/check-ui-tokens.mjs`）。
+      // **「按分」は開かずにそのまま出す**（2026-09-05 の用語棚卸し）。会計の標準語で、
+      // 開くと「按分グループ」と「費用を分け合うグループ」のように同じものに名前が2つできる。
       // 月をまたいで分けている費用だけが値を持ち、それ以外は `—` になる
-      label: '分け合う期間',
+      label: '按分の期間',
       value: (
         // 期間は文字列で組み立てない（開始・区切り・終了を分ける部品を使う）。
         // 分け方の欄は `<input type="month">` なので `2026-04` の形で来る

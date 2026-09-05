@@ -1,5 +1,5 @@
 /**
- * 貸出機材の1つの塊 (型番ごと) と、開いたときの1台ずつの行。
+ * 貸出機材の1つの塊 (型名ごと) と、開いたときの1台ずつの行。
  */
 import { ChevronDown, ChevronRight, Pencil } from 'lucide-react';
 import { Row, RowMain, RowSlot, RowSub, RowTitle } from '@gmo-onair/shared/src/client/ui/row';
@@ -16,7 +16,7 @@ export function RentalGroupRow({
   /**
    * 高さを覚えるときの鍵（`rentalRowKey`）。**開いているかどうかを含む。**
    * 見えている塊だけ描くので、`useVarRowWindow` はこの鍵で実寸を覚えます。
-   * 型番だけを鍵にすると、閉じたあとも開いたときの高さを使い続けます。
+   * 型名だけを鍵にすると、閉じたあとも開いたときの高さを使い続けます。
    */
   measureKey: string;
   expanded: boolean;
@@ -107,7 +107,7 @@ export function RentalGroupRow({
         </RowSlot>
 
         <RowSlot w={56} align="right" placeholder="">
-          <Button variant="ghost" size="icon-sm" onClick={onEditRental} aria-label={`${displayName} の貸出の出しかたを直す`}>
+          <Button variant="ghost" size="icon-sm" onClick={onEditRental} aria-label={`${displayName} の出しかたを編集`}>
             <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
           </Button>
         </RowSlot>
@@ -124,7 +124,7 @@ export function RentalGroupRow({
                   </span>
                 </RowSlot>
                 <RowMain>
-                  <RowTitle>{[u.location_name, u.location_detail].filter(Boolean).join(' ／ ') || '置き場所なし'}</RowTitle>
+                  <RowTitle>{[u.location_name, u.location_detail].filter(Boolean).join(' ／ ') || '保管場所なし'}</RowTitle>
                   <RowSub>{u.eq_code}{u.serial_number ? ` ・ ${u.serial_number}` : ''}</RowSub>
                 </RowMain>
                 <RowSlot w={96}>

@@ -1,5 +1,5 @@
 /**
- * 機材の 登録 / 編集 / 写して足す ダイアログ (v4)
+ * 機材の 登録 / 編集 / 写して追加 ダイアログ (v4)
  *
  * `EquipmentListPage.tsx` から切り出したもので、**入力欄と送る値は変えていません**。
  * 変えたのは、保存できなかった理由を**スクロールの外・見出しの直下**に固定したこと
@@ -127,7 +127,7 @@ export function EquipmentDialog({
     });
   };
 
-  const title = mode.kind === 'edit' ? '機材を直す' : mode.kind === 'copy' ? '機材を写して足す' : '機材を足す';
+  const title = mode.kind === 'edit' ? '機材を編集' : mode.kind === 'copy' ? '機材を写して追加' : '機材を追加';
 
   return (
     <FormDialog
@@ -140,10 +140,10 @@ export function EquipmentDialog({
       wide
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button onClick={submit} disabled={saving || !form.name}>
             {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-            {mode.kind === 'edit' ? '直す' : '足す'}
+            {mode.kind === 'edit' ? '編集' : '追加'}
           </Button>
         </FormDialogFooter>
       }
@@ -270,7 +270,7 @@ export function EquipmentDialog({
             <Input type="number" min="1" value={form.unit_number} onChange={(e) => setForm({ ...form, unit_number: e.target.value })} />
           </div>
           <div className="space-y-1">
-            <Label>シリアル</Label>
+            <Label>製造番号</Label>
             <Input value={form.serial_number} onChange={(e) => setForm({ ...form, serial_number: e.target.value })} />
           </div>
         </div>

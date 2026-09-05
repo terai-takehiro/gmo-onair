@@ -118,7 +118,7 @@ export function OverviewTab({
         ends_on: phase.ends_on ? String(phase.ends_on).slice(0, 10) : null,
       }),
     onSuccess: () => invalidate(id),
-    onError: (err) => notifyApiError('工程の状態を変えられませんでした', err),
+    onError: (err) => notifyApiError('工程の状態を変更できませんでした', err),
   });
 
   const movePhase = useMutation({
@@ -134,20 +134,20 @@ export function OverviewTab({
       invalidate(id);
       notifySuccess(task.is_completed ? '未完了に戻しました' : '完了にしました');
     },
-    onError: (err) => notifyApiError('タスクを変えられませんでした', err),
+    onError: (err) => notifyApiError('タスクを変更できませんでした', err),
   });
 
   const removeTask = useMutation({
     mutationFn: (task: GpmTask) => api.delete(`/gpm/tasks/${task.id}`),
-    onSuccess: () => { invalidate(id); notifySuccess('タスクを消しました'); },
-    onError: (err) => notifyApiError('タスクを消せませんでした', err),
+    onSuccess: () => { invalidate(id); notifySuccess('タスクを削除しました'); },
+    onError: (err) => notifyApiError('タスクを削除できませんでした', err),
   });
 
   const onDeleteTask = async (task: GpmTask) => {
     const ok = await confirmAction({
-      title: 'このタスクを消しますか？',
+      title: 'このタスクを削除しますか？',
       description: `「${task.title}」\n終わったのなら消さずにチェックを入れてください（消すとやった記録が残りません）。`,
-      confirmLabel: '消す',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) removeTask.mutate(task);
@@ -193,7 +193,7 @@ export function OverviewTab({
         <div className="min-w-0 flex-1" />
         {canEdit && (
           <Button variant="outline" onClick={() => setPhaseAdding(true)}>
-            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />工程を足す
+            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />工程を追加
           </Button>
         )}
       </div>
@@ -237,8 +237,8 @@ export function OverviewTab({
       {effectiveView === 'list' && (p.phases.length === 0 ? (
         <EmptyState
           title="工程がまだありません"
-          description="標準工程を選んで作ると、工程とタスクが日付付きで入ります。ここから1つずつ足すこともできます。"
-          action={canEdit ? <Button onClick={() => setPhaseAdding(true)}>工程を足す</Button> : undefined}
+          description="ひな形を選んで作ると、工程とタスクが日付付きで入ります。ここから1つずつ足すこともできます。"
+          action={canEdit ? <Button onClick={() => setPhaseAdding(true)}>工程を追加</Button> : undefined}
         />
       ) : (
         <div className="overflow-hidden rounded-card border border-border bg-card">
@@ -298,7 +298,7 @@ export function OverviewTab({
               onClick={() => setTaskDialog({ task: null, phaseId: null })}
               className="text-sub min-h-tap inline-flex items-center gap-1 text-primary hover:underline lg:min-h-[32px]"
             >
-              <Plus className="h-3.5 w-3.5" aria-hidden="true" />タスクを足す
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />タスクを追加
             </button>
           )}
         </div>
@@ -340,7 +340,7 @@ export function OverviewTab({
 
       <p className="text-note text-muted-foreground">
         工程の日付を直しても、あとに続く工程は動きません（1つずつ直します）
-        {p.template_name ? `。この工程は標準工程「${p.template_name}」から写したものです（写したあとに標準工程を直しても、このプロジェクトは変わりません）` : ''}。
+        {p.template_name ? `。この工程はひな形「${p.template_name}」から写したものです（写したあとにひな形を直しても、このプロジェクトは変わりません）` : ''}。
         議事録はプロジェクト管理側のデータがまだ無いので出していません。
       </p>
 
@@ -348,7 +348,7 @@ export function OverviewTab({
         <div className="pt-2">
           <Button variant="outline" onClick={onDeleteProject}>
             <Trash2 className="mr-2 h-4 w-4 text-destructive" aria-hidden="true" />
-            このプロジェクトを消す
+            このプロジェクトを削除
           </Button>
         </div>
       )}

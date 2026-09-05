@@ -70,12 +70,12 @@ export default function AiOutlineDialog({ open, onOpenChange, documentId, schedu
         return box.result.data;
       });
       const result = box.result;
-      if (!result) throw new Error("取り込みに失敗しました");
+      if (!result) throw new Error("下書きを取り込めませんでした。もう一度お試しください。");
       const rejectedKeys = [...excludedSections, ...[...excludedRows].map((k) => k.split("::")[1])];
       await applyProposalRemote(proposal.id, {
         applied_payload: result.appliedPayload, applied_ids: result.appliedIds, rejected_keys: rejectedKeys,
       });
-      notifySuccess(`骨格を取り込みました（ロール${result.appliedIds.sections.length}件・行${result.appliedIds.rows.length}件）`);
+      notifySuccess(`下書き（構成）を取り込みました（ロール${result.appliedIds.sections.length}件・行${result.appliedIds.rows.length}件）`);
       onOpenChange(false);
       setProposal(null);
     } catch (e) {
@@ -95,12 +95,12 @@ export default function AiOutlineDialog({ open, onOpenChange, documentId, schedu
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>AIで骨格を作る</DialogTitle>
+          <DialogTitle>AIで下書きを作る（構成）</DialogTitle>
         </DialogHeader>
         {!proposal && (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              案件・会場・過去の似た回から、ロールと尺の並びの叩き台を作ります。本文（セリフ）は書きません。
+              案件・会場・過去の似た回から、ロールと尺の並びの下書きを作ります。本文（セリフ）は書きません。
             </p>
             <textarea
               value={instruction}
@@ -110,7 +110,7 @@ export default function AiOutlineDialog({ open, onOpenChange, documentId, schedu
             />
             <DialogFooter>
               <Button onClick={handleGenerate} disabled={loading} className="min-h-[44px]">
-                {loading ? "考えています…" : "骨格を作る"}
+                {loading ? "考えています…" : "下書きを作る"}
               </Button>
             </DialogFooter>
           </div>
@@ -141,7 +141,7 @@ export default function AiOutlineDialog({ open, onOpenChange, documentId, schedu
               )}
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={handleDiscard} className="min-h-[44px]">やめる</Button>
+              <Button variant="outline" onClick={handleDiscard} className="min-h-[44px]">キャンセル</Button>
               <Button onClick={handleApply} disabled={applying} className="min-h-[44px]">
                 {applying ? "取り込み中…" : "取り込む"}
               </Button>
@@ -162,6 +162,6 @@ function toggleSet<T>(s: Set<T>, v: T): Set<T> {
 function errorMessage(e: unknown): string {
   const err = e as { response?: { status?: number; data?: { error?: { message?: string } } } };
   if (err?.response?.status === 409) return "本番進行中のため AI 生成は使えません";
-  if (err?.response?.status === 503) return "この環境は AI につないでいません";
-  return err?.response?.data?.error?.message ?? "AI の呼び出しに失敗しました。手で作れます";
+  if (err?.response?.status === 503) return "いまは AI を使えません。手で作れます。";
+  return err?.response?.data?.error?.message ?? "AI を呼べませんでした。手で作れます。";
 }

@@ -105,7 +105,7 @@ export default function LiveDisplayTemplateLibraryPage() {
       notifySuccess('テンプレートを削除しました');
       setDeleteTarget(null);
     },
-    onError: () => notifyError('削除に失敗しました'),
+    onError: () => notifyError('削除できませんでした。', { description: '少し待ってから、もう一度お試しください。' }),
   });
 
   const templates = templatesQuery.data ?? [];
@@ -134,7 +134,7 @@ export default function LiveDisplayTemplateLibraryPage() {
         <EmptyState
           icon={<LayoutTemplate />}
           // 「0件でした」の判定は遅らせた値で行う（まだ問い合わせていない言葉で「該当なし」を出さない）
-          title={dq ? '該当するテンプレートがありません' : 'テンプレートがありません'}
+          title={dq ? '条件に合うテンプレートはありません' : 'まだテンプレートがありません'}
           description={dq ? '検索条件を変えてお試しください。' : 'タイマー管理からレイアウトを編集し、「テンプレート」→「現在のレイアウトを保存」で最初のテンプレートを作れます。'}
         />
       ) : (

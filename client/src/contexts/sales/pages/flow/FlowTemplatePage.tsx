@@ -69,28 +69,28 @@ export default function FlowTemplatePage() {
       setPicked(d.id);
       setDupOpen(false);
       setDupName('');
-      notifySuccess('型を複製しました', { description: '要らない工程を削ってお使いください。' });
+      notifySuccess('工程の型を複製しました', { description: '要らない作業を削ってお使いください。' });
     },
-    onError: (e) => notifyApiError('複製できませんでした', e),
+    onError: (e) => notifyApiError('工程の型を複製できませんでした', e, '時間をおいて、もう一度お試しください。'),
   });
 
   const del = useMutation({
     mutationFn: (id: string) => api.delete(`/flow-templates/${id}`),
-    onSuccess: () => { setPicked(null); qc.invalidateQueries({ queryKey: ['flow-templates'] }); notifySuccess('型を消しました'); },
-    onError: (e) => notifyApiError('消せませんでした', e),
+    onSuccess: () => { setPicked(null); qc.invalidateQueries({ queryKey: ['flow-templates'] }); notifySuccess('工程の型を削除しました'); },
+    onError: (e) => notifyApiError('工程の型を削除できませんでした', e, '時間をおいて、もう一度お試しください。'),
   });
 
   const setTypes = useMutation({
     mutationFn: (types: string[]) => api.put(`/flow-templates/${tpl!.id}`, { project_types: types }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['flow-templates'] }),
-    onError: (e) => notifyApiError('保存できませんでした', e),
+    onError: (e) => notifyApiError('工程の型を保存できませんでした', e, '時間をおいて、もう一度お試しください。'),
   });
 
   const addTask = useMutation({
     mutationFn: ({ phaseId, title }: { phaseId: string; title: string }) =>
       api.post(`/flow-templates/phases/${phaseId}/tasks`, { title }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['flow-templates'] }),
-    onError: (e) => notifyApiError('足せませんでした', e),
+    onError: (e) => notifyApiError('作業を追加できませんでした', e, '時間をおいて、もう一度お試しください。'),
   });
 
   if (q.isError) return <ErrorPanel title="工程の型を読み込めませんでした" error={q.error} onRetry={() => q.refetch()} />;
@@ -99,8 +99,8 @@ export default function FlowTemplatePage() {
   return (
     <div className="flex flex-col gap-3.5 p-3 lg:gap-4 lg:p-6">
       <PageHeader
-        title="標準工程テンプレート"
-        sub="案件詳細の工程を、自社の運用に合わせて決めます。案件をつくるときに一覧を見せて、要らないものを外してから入れます。"
+        title="工程の型"
+        sub="案件に入れる作業のひとそろいを、自社の運用に合わせて決めます。案件をつくるときに一覧を見せて、要らないものを外してから入れます。"
         primaryAction={canEditHere && tpl ? (
           <Button variant="outline" onClick={() => { setDupName(`${tpl.name}（複製）`); setDupOpen(true); }}>
             <Copy className="mr-1.5 h-4 w-4" aria-hidden="true" />複製する
@@ -111,8 +111,8 @@ export default function FlowTemplatePage() {
       {!canEdit ? (
         <p className="rounded-note text-note flex items-center gap-2 border border-border bg-surface-subtle px-3.5 py-2.5 text-muted-foreground">
           <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
-          直せるのは<strong className="font-bold">案件管理の管理者</strong>だけです。
-          型を変えると<strong className="font-bold">以後すべての案件に効く</strong>ので、1件を直すより強い権限にしてあります。
+          編集できるのは<strong className="font-bold">案件管理の管理者</strong>だけです。
+          工程の型を変えると<strong className="font-bold">以後すべての案件に効く</strong>ので、案件1件の編集より強い権限にしてあります。
         </p>
       ) : isMobile && (
         <PcOnlyNote
@@ -144,7 +144,7 @@ export default function FlowTemplatePage() {
                   <span className="min-w-0 flex-1">
                     <span className={cn('text-list block truncate', tpl?.id === t.id && 'text-primary')}>{t.name}</span>
                     <span className="text-note block text-muted-foreground">
-                      {n} 工程{t.project_types.length > 0 ? ` ・ ${t.project_types.length} 分類` : ' ・ すべての分類'}
+                      {n} 作業{t.project_types.length > 0 ? ` ・ ${t.project_types.length} 分類` : ' ・ すべての分類'}
                     </span>
                   </span>
                 </button>
@@ -166,16 +166,16 @@ export default function FlowTemplatePage() {
                   <span className="min-w-0 flex-1">
                     <span className="text-cardtitle block">{tpl.name}</span>
                     <span className="text-note block text-muted-foreground">
-                      {tpl.phases.length} 段 ・ {total} 工程（うち外せないもの {required}）
+                      {tpl.phases.length} 段 ・ {total} 作業（うち外せないもの {required}）
                     </span>
                   </span>
                   {canEditHere && !tpl.is_system && (
                     <Button
                       variant="outline" size="sm" className="text-destructive"
                       onClick={() => confirmAction({
-                        title: `${tpl.name} を消しますか`,
-                        description: 'すでに案件へ入れた工程は残ります。これから案件をつくるときに選べなくなるだけです。',
-                        confirmLabel: '消す', tone: 'danger',
+                        title: `${tpl.name} を削除しますか`,
+                        description: 'すでに案件へ入れた作業は残ります。これから案件をつくるときに選べなくなるだけです。',
+                        confirmLabel: '削除', tone: 'danger',
                       }).then((ok) => ok && del.mutate(tpl.id))}
                     >
                       <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -192,7 +192,7 @@ export default function FlowTemplatePage() {
                     残る4つは「客入れの有無 × 配信/収録/イベント」に置き換わったので、
                     ここもその6通りで選びます。
                   */}
-                  <p className="text-th mb-1.5 text-muted-foreground">この型を使う案件の分類</p>
+                  <p className="text-th mb-1.5 text-muted-foreground">この工程の型を使う案件の分類</p>
                   <div className="flex flex-wrap gap-1">
                     {CLASSIFICATION_COMBOS.map((combo) => {
                       const on = tpl.project_types.includes(combo.key);
@@ -232,7 +232,7 @@ export default function FlowTemplatePage() {
                 <div key={ph.id} className="rounded-card overflow-hidden border border-border bg-card">
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border-faint px-4 py-2.5">
                     <span className="text-cardtitle shrink-0">{ph.name}</span>
-                    <span className="text-note min-w-0 flex-1 text-muted-foreground">{ph.tasks.length} 工程</span>
+                    <span className="text-note min-w-0 flex-1 text-muted-foreground">{ph.tasks.length} 作業</span>
                   </div>
                   {ph.tasks.map((k) => <FlowTaskRow key={k.id} task={k} canEdit={canEditHere} />)}
                   {canEditHere && (
@@ -245,10 +245,10 @@ export default function FlowTemplatePage() {
                       }}
                     >
                       <Plus className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                      <Input name="t" className="h-9 flex-1" placeholder={`${ph.name} に工程を足す`} />
+                      <Input name="t" className="h-9 flex-1" placeholder={`${ph.name} に作業を追加`} />
                       <Button type="submit" variant="outline" size="sm" disabled={addTask.isPending}>
                         {addTask.isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
-                        足す
+                        追加
                       </Button>
                     </form>
                   )}
@@ -260,11 +260,11 @@ export default function FlowTemplatePage() {
           <p className="rounded-note text-note flex items-start gap-2 border border-info-border bg-info-surface px-3.5 py-3 text-secondary-foreground">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden="true" />
             <span>
-              モックは案件の種類ごとに工程数が違います（リアルイベント 18／ハイブリッド 26／生放送 24／
+              モックは案件の種類ごとに作業数が違います（リアルイベント 18／ハイブリッド 26／生放送 24／
               公開収録 22／収録ありイベント 20／スタジオ収録 14）。
               ただし<strong className="font-bold">どれを外すのかは書かれていません</strong>。
-              推測で消すと「この種類には要らない工程」を勝手に決めることになるので、
-              <strong className="font-bold">26 本の型を1つだけ入れてあります</strong>。
+              推測で外すと「この種類には要らない作業」を勝手に決めることになるので、
+              <strong className="font-bold">まずは1つだけ用意しています</strong>。
               種類ごとに変えたいときは<strong className="font-bold">複製して削って</strong>ください。
             </span>
           </p>
@@ -273,8 +273,8 @@ export default function FlowTemplatePage() {
 
       {dupOpen && (
         <div className="rounded-card fixed inset-x-3 bottom-3 z-50 flex flex-wrap items-center gap-2 border border-border bg-card p-3 shadow-lg lg:inset-x-auto lg:right-6 lg:w-[420px]">
-          <Input value={dupName} onChange={(e) => setDupName(e.target.value)} className="min-w-0 flex-1" placeholder="新しい型の名前" />
-          <Button variant="outline" onClick={() => setDupOpen(false)}>やめる</Button>
+          <Input value={dupName} onChange={(e) => setDupName(e.target.value)} className="min-w-0 flex-1" placeholder="新しい工程の型の名前" />
+          <Button variant="outline" onClick={() => setDupOpen(false)}>キャンセル</Button>
           <Button disabled={!dupName.trim() || dup.isPending} onClick={() => dup.mutate()}>
             {dup.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
             複製する

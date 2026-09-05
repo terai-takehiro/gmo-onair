@@ -55,18 +55,18 @@ export function MultiEpisodeEstimateDialog({
       notifySuccess('見積をつくりました');
       onCreated(created);
     },
-    onError: (e) => notifyApiError('見積をつくれませんでした', e),
+    onError: (e) => notifyApiError('見積をつくれませんでした', e, '選んだ回を確かめて、もう一度お試しください。'),
   });
 
   return (
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="複数の回をまとめて見積をつくる"
-      sub="1日で複数本撮影した日など、複数の回をひとまとまりで見積もるときに使います（1本だけ選んでもかまいません）。"
+      title="まとめて見積をつくる"
+      sub="1日で複数本撮った日など、選んだ回をまとめて1本の見積にします。"
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
           <Button onClick={() => create.mutate()} disabled={episodeIds.length === 0 || create.isPending}>
             つくる
           </Button>
@@ -87,7 +87,7 @@ export function MultiEpisodeEstimateDialog({
           </label>
         ))}
         {episodes.isSuccess && (episodes.data ?? []).length === 0 && (
-          <p className="text-sub text-muted-foreground">この案件にはまだ回がありません。先に「回を足す」で回を増やしてください。</p>
+          <p className="text-sub text-muted-foreground">この案件にはまだ回がありません。先に「回を追加」で回を増やしてください。</p>
         )}
       </div>
     </FormDialog>

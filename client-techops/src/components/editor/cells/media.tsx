@@ -43,7 +43,7 @@ export default function MediaCell({ blk, cellKey, rowUid, entry: en, masters, up
             onCommit={(v) => updateEntry(blk, "memo", v)}
             className="text-[12px] bg-transparent border-none outline-none min-w-0"
             style={{ flex: "1 1 0", lineHeight: "20px" }}
-            placeholder="メモ..."
+            placeholder="メモ…"
           />
           <EntryImageButton
             imageUrl={en?.image}

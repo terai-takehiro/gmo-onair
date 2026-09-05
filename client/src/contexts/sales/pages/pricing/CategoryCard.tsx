@@ -111,7 +111,7 @@ export function CategoryCard({
         <div className="flex-1" />
         {canEditItem && (
           <Button variant="outline" onClick={onAddItem}>
-            <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />品目を足す
+            <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />品目を追加
           </Button>
         )}
         {canEditCategory && (
@@ -126,7 +126,7 @@ export function CategoryCard({
             <Button variant="ghost" size="icon" onClick={onRename} aria-label={`${category.name} の名前を変える`}>
               <Pencil className="h-4 w-4" aria-hidden="true" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={onDelete} aria-label={`${category.name} を消す`}>
+            <Button variant="ghost" size="icon" onClick={onDelete} aria-label={`${category.name} を削除`}>
               <Trash2 className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             </Button>
           </>
@@ -137,7 +137,7 @@ export function CategoryCard({
         <div className="p-4">
           <EmptyState
             title={total === 0 ? 'この分類にはまだ品目がありません' : '探している言葉に当たる品目がありません'}
-            description={total === 0 ? '「品目を足す」から入れてください。' : '言葉を短くするか、消してみてください。'}
+            description={total === 0 ? '「品目を追加」から入れてください。' : '言葉を短くするか、消してみてください。'}
           />
         </div>
       ) : (
@@ -146,7 +146,7 @@ export function CategoryCard({
             <RowMain>品目 ／ 補足</RowMain>
             <RowSlot w={96}>数え方</RowSlot>
             <RowSlot w={128} align="right">定価</RowSlot>
-            <RowSlot w={128} align="right">グループ内</RowSlot>
+            <RowSlot w={128} align="right">グループ会社</RowSlot>
             <RowSlot w={128} align="right" />
           </RowHeader>
           {items.map((item) => (
@@ -161,7 +161,7 @@ export function CategoryCard({
                     PC専用にしていた理由がそのまま残るため) */}
                 <div className="mt-1 flex flex-col gap-0.5 sm:hidden">
                   <MobilePriceLine label="定価" value={item.unit_price} />
-                  <MobilePriceLine label="グループ内" value={item.group_price} muted />
+                  <MobilePriceLine label="グループ会社" value={item.group_price} muted />
                 </div>
               </RowMain>
               <RowSlot w={96} hideOnMobile>
@@ -173,10 +173,10 @@ export function CategoryCard({
                 {canEditItem && (
                   <span className="flex items-center justify-end gap-1">
                     <Button variant="outline" onClick={() => onEditItem(item)}>
-                      <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />直す
+                      <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />編集
                     </Button>
                     {canDeleteItem && (
-                      <Button variant="ghost" size="icon" onClick={() => onDeleteItem(item)} aria-label={`${item.name} を消す`}>
+                      <Button variant="ghost" size="icon" onClick={() => onDeleteItem(item)} aria-label={`${item.name} を削除`}>
                         <Trash2 className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                       </Button>
                     )}

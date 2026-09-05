@@ -1,4 +1,4 @@
-// 計時・視聴者（liveops）— 案件に紐づかない既存セッション（v4.1 段2・レビュー対応）。
+// 計時・視聴者（liveops）— 案件に入っていない既存の番組（v4.1 段2・レビュー対応）。
 //
 // セッション一覧の廃止（`client-live/src/pages/SessionHomePage.tsx` 削除）で、
 // `project_id IS NULL` の既存 `liveops_programs`（旧スタンドアロン作成）へ到達する画面が
@@ -57,9 +57,9 @@ export default function LiveLegacyProgramsPage() {
         <ChevronLeft className="h-5 w-5" />
       </button>
       <div className="min-w-0 flex-1">
-        <h1 className="truncate text-sm font-bold">計時・視聴者 — 案件に紐づかないセッション</h1>
+        <h1 className="truncate text-sm font-bold">計時・視聴者 — 案件に入っていない番組</h1>
         <p className="truncate text-xs text-muted-foreground">
-          制作技術支援に案件を紐づけずに作られた旧セッションの一覧です。新規作成はここではできません。
+          案件に結びつけずに作られた古い番組の一覧です。ここで新しく作ることはできません。
         </p>
       </div>
       {/* レビュー指摘（②組織の鍵設定への導線が実質1本しかない）対応: 従来はダッシュボードの
@@ -81,7 +81,7 @@ export default function LiveLegacyProgramsPage() {
         {Header}
         <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
           <ShieldOff className="h-5 w-5" />
-          <span className="text-sm">この一覧の閲覧は管理者権限が必要です</span>
+          <span className="text-sm">この一覧を見るには 制作技術支援の「管理」が必要です。</span>
         </div>
       </div>
     );
@@ -122,8 +122,8 @@ function LegacyProgramsContent({ Header, selectedId, onSelect }: {
             <div className="p-4">
               <EmptyState
                 icon={<Timer />}
-                title="案件に紐づかないセッションはありません"
-                description="いま残っている liveops_programs はすべて案件に紐づいています。"
+                title="案件に入っていない番組はありません"
+                description="いま残っている番組は、すべて案件に入っています。"
               />
             </div>
           ) : (
@@ -151,7 +151,7 @@ function LegacyProgramsContent({ Header, selectedId, onSelect }: {
         <div className="flex-1 overflow-y-auto p-3 sm:p-4">
           {!selected ? (
             <div className="flex h-full items-center justify-center py-16 text-sm text-muted-foreground">
-              左の一覧からセッションを選んでください
+              左の一覧から番組を選んでください
             </div>
           ) : (
             // key でセッションごとに作り直す — 同じインスタンスを使い回すと、
@@ -192,13 +192,13 @@ function LegacyProgramDetail({ program }: { program: LiveProgram }) {
           {program.teams_meeting_url && <span className="flex items-center gap-1"><Video className="h-3.5 w-3.5" />Teams</span>}
           {program.youtube_urls.length === 0 && !program.jstream_lpid && !program.zoom_meeting_id
             && !program.zoom_webinar_id && !program.teams_meeting_url && (
-            <span>視聴者ソースは未設定です</span>
+            <span>視聴者の数え先は未設定です</span>
           )}
         </div>
       </div>
 
       {timers.length === 0 ? (
-        <EmptyState icon={<Timer />} title="タイマーがありません" description="このセッションにはタイマーが登録されていません。" />
+        <EmptyState icon={<Timer />} title="まだタイマーがありません" description="この番組にはタイマーが1つも登録されていません。" />
       ) : (
         <div className="overflow-hidden rounded-lg border border-border bg-card">
           <div className="flex flex-wrap items-center gap-1 border-b border-border px-3 py-2">

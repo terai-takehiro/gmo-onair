@@ -61,7 +61,7 @@ export default function RentalItemDetailDialog({ ownerKey, target, onOpenChange,
       notifySuccess('予約リストに追加しました');
       onOpenChange(false);
     },
-    onError: () => notifyError('予約リストへの追加に失敗しました'),
+    onError: () => notifyError('予約リストに追加できませんでした。', { description: '少し待ってから、もう一度お試しください。' }),
   });
 
   const item = detailQuery.data;

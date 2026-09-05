@@ -88,7 +88,7 @@ export function PurchaseDialog({
           <div className="space-y-4">
             {purEpisodeId && (
               <div className="rounded-md bg-primary/5 border border-primary/20 px-3 py-2 text-xs">
-                月次ユニット{" "}
+                月ぶんの請求{" "}
                 <span className="font-medium">
                   {monthEpisodes.find((e) => e.id === purEpisodeId)?.episode_code || ""}
                 </span>
@@ -101,7 +101,7 @@ export function PurchaseDialog({
                 options={vendors.map((v) => ({ value: v.id, label: v.name, subLabel: v.vendor_type || "" }))}
                 value={purVendorId}
                 onChange={setPurVendorId}
-                placeholder="仕入先を検索..."
+                placeholder="仕入先を検索â¦"
               />
             </div>
 

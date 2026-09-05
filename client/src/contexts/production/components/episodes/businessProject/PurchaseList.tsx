@@ -57,7 +57,7 @@ export function PurchaseList({
         ) : flatPurchases.length === 0 ? (
           <Card>
             <CardContent className="py-6 text-center text-muted-foreground">
-              {monthlyMode ? "月次以外の仕入はありません。月締めの仕入は上の「月次管理」から追加します。" : "仕入データがありません"}
+              {monthlyMode ? "月ぶんの請求に入らない仕入はありません。月締めの仕入は上の「月次管理」から追加します。" : "まだ仕入がありません。上の「追加」から登録します。"}
             </CardContent>
           </Card>
         ) : (

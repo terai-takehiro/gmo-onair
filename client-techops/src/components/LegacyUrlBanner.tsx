@@ -15,7 +15,7 @@ export function LegacyUrlBanner() {
       className="flex-none flex items-center justify-center gap-2 border-b border-warning/30 bg-warning/10 px-4 py-1.5 text-center text-xs sm:text-sm font-bold text-warning"
     >
       <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
-      <span>この URL は近く使えなくなります。新しい QR を配布元に頼んでください</span>
+      <span>この URL はいずれ使えなくなります。配布元に新しい QR をもらって、新しい URL に切り替えてください。</span>
     </div>
   );
 }

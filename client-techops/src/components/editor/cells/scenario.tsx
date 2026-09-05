@@ -62,7 +62,7 @@ export default function ScenarioCell({
             rows={1}
             className="text-[13px] bg-transparent border-none outline-none resize-none overflow-hidden min-w-0 w-0"
             style={{ flex: "1 1 0", overflowWrap: "break-word", lineHeight: "20px" }}
-            placeholder={en?.isQWord ? "Qワード..." : "テキスト..."}
+            placeholder={en?.isQWord ? "Qワード…" : "テキスト…"}
           />
           <EntryImageButton
             imageUrl={en?.image}

@@ -4,6 +4,7 @@
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Download, Upload } from 'lucide-react';
+import { notifySuccess } from '@/lib/notify';
 
 async function handleExport() {
   const [progs, setts] = await Promise.all([
@@ -33,7 +34,7 @@ function handleImport() {
         }).catch(() => {});
       }
     }
-    alert('インポートが完了しました');
+    notifySuccess('読み込みが終わりました');
   };
   input.click();
 }
@@ -43,14 +44,14 @@ export default function ExportImportSection() {
     <section className="rounded-xl border bg-card p-4 space-y-3">
       <h2 className="text-sm font-semibold">設定の書き出し・読み込み</h2>
       <p className="text-xs text-muted-foreground">
-        番組プリセットをJSONファイルとして保存・復元できます。（APIキーは含まれません）
+        番組の設定をファイルに保存して、あとから戻せます。（APIキーは含まれません）
       </p>
       <div className="flex gap-2">
         <Button variant="outline" size="sm" onClick={handleExport}>
-          <Download className="h-4 w-4 mr-1" />エクスポート
+          <Download className="h-4 w-4 mr-1" />書き出す
         </Button>
         <Button variant="outline" size="sm" onClick={handleImport}>
-          <Upload className="h-4 w-4 mr-1" />インポート
+          <Upload className="h-4 w-4 mr-1" />読み込む
         </Button>
       </div>
     </section>

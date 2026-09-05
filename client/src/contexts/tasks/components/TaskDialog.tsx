@@ -139,7 +139,7 @@ export default function TaskDialog({
       }
       onClose();
     } catch {
-      setSaveError("保存に失敗しました。もう一度お試しください。");
+      setSaveError("保存できませんでした。もう一度お試しください。");
     }
   };
 
@@ -168,7 +168,7 @@ export default function TaskDialog({
               id="task-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="タスク名を入力..."
+              placeholder="タスク名を入力…"
               autoFocus
             />
           </div>
@@ -197,7 +197,7 @@ export default function TaskDialog({
                   onValueChange={(v) => setProductionStep(v as ProductionStep)}
                 >
                   <SelectTrigger className="h-9">
-                    <SelectValue placeholder="選択..." />
+                    <SelectValue placeholder="選択…" />
                   </SelectTrigger>
                   <SelectContent>
                     {PRODUCTION_STEPS.map((s) => (
@@ -340,7 +340,7 @@ export default function TaskDialog({
               id="task-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="詳細・備考..."
+              placeholder="詳細・備考…"
               rows={3}
             />
           </div>

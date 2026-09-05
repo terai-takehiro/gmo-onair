@@ -1,9 +1,9 @@
 /**
- * 役割をつくる／直す（v4 設定 ③）
+ * 役割を追加／編集する（v4 設定 ③）
  *
  * ── 直したときに「押してある人」へ反映するかを必ず訊く ──────
  *
- * 型を直すだけで全員の権限が黙って変わると、変えた本人にも
+ * 型を書き換えるだけで全員の権限が黙って変わると、変えた本人にも
  * **誰の何が変わったのか分かりません**。人数を出して選んでもらいます。
  * 既定は「反映しない」— 反映しないほうが取り返しがつくためです。
  */
@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
-import { MODULE_WHAT, MODULE_TITLE, LEVEL_CHOICES, LEVEL_TONE, ROLE_MODULE_ORDER } from './moduleLabels';
+import { MODULE_WHAT, MODULE_WHAT_DETAIL, MODULE_TITLE, LEVEL_CHOICES, LEVEL_TONE, ROLE_MODULE_ORDER } from './moduleLabels';
 import { MODULE_LABELS, useAuth } from '@/contexts/platform/AuthContext';
 import type { Role } from './types';
 
@@ -71,7 +71,7 @@ export function RoleDialog({ role, open, onOpenChange }: Props) {
       });
       onOpenChange(false);
     },
-    onError: (e) => notifyApiError(role ? '役割を直せませんでした' : '役割をつくれませんでした', e),
+    onError: (e) => notifyApiError(role ? '役割を保存できませんでした' : '役割を追加できませんでした', e),
   });
 
   const members = role?.member_count ?? 0;
@@ -80,14 +80,14 @@ export function RoleDialog({ role, open, onOpenChange }: Props) {
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={role ? `${role.name} を直す` : '役割をつくる'}
-      sub="ここで決めた中身が、この役割を押した人の権限になります。"
+      title={role ? `${role.name} を編集` : '役割を追加'}
+      sub="ここで決めた中身が、この役割の人の権限になります。"
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
           <Button onClick={() => save.mutate()} disabled={!name.trim() || save.isPending}>
             {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-            {role ? '保存する' : 'つくる'}
+            {role ? '保存' : '追加'}
           </Button>
         </FormDialogFooter>
       }
@@ -100,7 +100,7 @@ export function RoleDialog({ role, open, onOpenChange }: Props) {
             </div>
             <div>
               <Label htmlFor="role-desc">どんな役割か</Label>
-              <Input id="role-desc" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="自分の案件を作る・直す" />
+              <Input id="role-desc" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="自分の案件を作る・編集する" />
             </div>
           </div>
 
@@ -111,7 +111,8 @@ export function RoleDialog({ role, open, onOpenChange }: Props) {
                 <div key={m} className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border-faint px-3.5 py-2.5 last:border-b-0">
                   <span className="min-w-0 flex-1 basis-full sm:basis-auto">
                     <span className="text-list block">{MODULE_TITLE[m] ?? MODULE_LABELS[m] ?? m}</span>
-                    <span className="text-note block text-muted-foreground">{MODULE_WHAT[m]}</span>
+                    {/* 内訳（12 項目の列挙）は副題に出すと読めないのでツールチップへ */}
+                    <span className="text-note block text-muted-foreground" title={MODULE_WHAT_DETAIL[m] ?? MODULE_WHAT[m]}>{MODULE_WHAT[m]}</span>
                   </span>
                   <div className="flex shrink-0 gap-1">
                     {LEVEL_CHOICES.map((c) => (

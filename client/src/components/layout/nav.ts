@@ -91,7 +91,7 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         // **v4 で作り直したのでここへ移した**（「そのほか」から）。複数案件を横断して
         // 費用按分する画面なので、案件台帳・営業活動記録と同じ塊に置く。
         // 画面自体は先に作り直し済みだったが、メニューの移動が漏れていた
-        { label: "費用を分け合うグループ", to: "/sales/project-groups", icon: GitBranch },
+        { label: "按分グループ", to: "/sales/project-groups", icon: GitBranch },
       ],
     },
     {
@@ -108,7 +108,7 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         // 別々に編集できる状態を残す理由が無いので、メニューの項目も1つに減らした。
         // 旧 URL は `App.tsx` が `/sales/companies?role=customer` へ転送する
         { label: "取引先マスター", to: "/sales/companies", icon: Store },
-        { label: "標準工程テンプレート", to: "/sales/flow-templates", icon: ListChecks },
+        { label: "工程の型", to: "/sales/flow-templates", icon: ListChecks },
       ],
     },
     // **「そのほか（作り直し前）」は削除した**（v4 renewal・ご指示）。この段が
@@ -119,7 +119,7 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
     // **「確定案件（スタジオ）」**（v4 の③案件一覧が上位互換）／
     // **「ガントチャート」**（v4 の④タスク一覧と完全に同一コンポーネントの重複リンク。
     // URL `/sales/tasks/gantt` 自体はタスク一覧のガント表示として生きている）／
-    // **「営業活動記録」「費用を分け合うグループ」**（v4 で作り直したので「全案件」へ移した）／
+    // **「営業活動記録」「按分グループ」**（v4 で作り直したので「全案件」へ移した）／
     // **「旧GLS（決算取込）」**（決算取込自体は終わっており、案件台帳が上位互換）／
     // **「報告資料」**（v4 の要件未定・ご指示）／
     // **「AI活動履歴」**（監査ログに過ぎず、案件一覧・案件詳細のほうが記録単位で上位互換・ご指示）／
@@ -133,9 +133,11 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
   // （`estimates` にモックが持つ「提出先」の列が無く、足すと案件管理の
   //  見積画面に影響する。理由は `docs/design/gpm-model.md`）。
   //
-  // 「タスク一覧」ではなく**「やること」**にしてあります。工程の下のタスクを
+  // 「タスク一覧」ではなく**「タスクと持ち帰り」**にしてあります。工程の下のタスクを
   // 全部並べる口がサーバーに無く、出せるのはプロジェクトごとの次の1件と
-  // 未確認事項だけなので、名前で期待させないためです。
+  // 未確認事項（＝持ち帰り）だけなので、名前で期待させないためです。
+  // 開いた先のタブが「タスク／未確認事項」の2枚なので、そのまま名前にしています
+  // （旧「やること（未確認事項）」は1項目に名前が2つ並んでいました）。
   gpm: [
     {
       title: "プロジェクト",
@@ -147,13 +149,13 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
     {
       title: "全体",
       items: [
-        { label: "やること（未確認事項）", to: "/gpm/tasks", icon: ListTodo },
+        { label: "タスクと持ち帰り", to: "/gpm/tasks", icon: ListTodo },
       ],
     },
     {
       title: "設定",
       items: [
-        { label: "標準工程テンプレート", to: "/gpm/templates", icon: Layers },
+        { label: "工程のひな形", to: "/gpm/templates", icon: Layers },
       ],
     },
   ],
@@ -265,7 +267,7 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         // パスワード変更は全員が使う
         { label: "設定", to: "/settings", icon: Settings, end: true },
         { label: "拠点・部屋", to: "/settings/sites", icon: Building2, module: "sales" },
-        { label: "権限とメンバー", to: "/settings/users", icon: UserCog, module: "admin" },
+        { label: "人と権限", to: "/settings/users", icon: UserCog, module: "admin" },
         // AI の活動（Phase 2 ②）。月次レビュー通知の link がここを指すので URL は固定
         { label: "AIの活動", to: "/settings/ai-activity", icon: Bot, module: "sales" },
       ],
@@ -287,7 +289,7 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
 };
 
 /**
- * スマホ下端のタブ — **ホーム / やること / 検索**（v4 の決めごと）。
+ * スマホ下端のタブ — **ホーム / タスク / 検索**（v4 の決めごと）。
  *
  * 3つ目は S2 の時点では「メニューを開く」でした。**スマホに検索が1つも無かった**
  * ためです（上辺バーの `GlobalSearch` は `hidden sm:block` で 375px では出ない）。
@@ -298,6 +300,6 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
  */
 export const CLIENT_MOBILE_TABS: ShellMobileTab[] = [
   { label: "ホーム", to: "/", icon: Home, end: true },
-  { label: "やること", to: "/sales/tasks/list", icon: ListTodoTab },
+  { label: "タスク", to: "/sales/tasks/list", icon: ListTodoTab },
   { label: "探す", to: "/search", icon: SearchTab },
 ];

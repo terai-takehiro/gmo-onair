@@ -71,7 +71,7 @@ export function MoreFields({
         <Input id="np-contact" value={v.contact_name} onChange={(e) => set('contact_name', e.target.value)} placeholder="宮田 里香 様（広報部）" />
       </Field>
 
-      <Field label="継続区分" hint="レギュラーは「回」を持ちます（第1回・7月分…）">
+      <Field label="回のある案件か" hint="レギュラーは「回」を持ちます（第1回・7月分…）">
         <Select value={v.recurrence} onValueChange={(x) => set('recurrence', x as 'single' | 'regular')}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -85,7 +85,7 @@ export function MoreFields({
       {/* **実施日は「足す」で飛び日を何日でも。** 以前はスマホだけ足せなかった。
           直す画面では出しません（「スタジオの日程」が同じ列を持つ。冒頭の理由） */}
       {mode === 'create' && (
-      <Field label="実施日" full hint="未定のままでも登録できます。飛び日は「足す」で何日でも入れられます">
+      <Field label="実施日" full hint="未定のままでも登録できます。飛び日は「追加」で何日でも入れられます">
         <div className="flex flex-wrap items-center gap-2">
           <Input
             type="date"
@@ -96,7 +96,7 @@ export function MoreFields({
             aria-label="実施日"
           />
           <Button variant="outline" onClick={addDate} disabled={!newDate}>
-            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />足す
+            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />追加
           </Button>
           {v.dates.map((d) => (
             <span key={d} className="rounded-chip flex items-center gap-1 bg-muted px-2.5 py-1 text-sub">
@@ -147,7 +147,7 @@ export function MoreFields({
       </Field>
 
       <Field
-        label="リード経路"
+        label="どこから来た話か"
         hint={f.isGroup
           ? '取引先マスターでグループ会社になっているので、選べません'
           : 'あとで集計します。分からなければ空のままで大丈夫です'}
@@ -173,21 +173,21 @@ export function MoreFields({
       </Field>
 
       {/*
-        **グループ区分は選ぶ欄をやめました**（ご指示・migration 192）。
+        **グループ会社価格（旧「グループ区分」）は選ぶ欄をやめました**（ご指示・migration 192）。
 
-        見積の単価（定価 / グループ内価格）がこの値で決まるのに、**選び忘れても
+        見積の単価（定価 / グループ会社価格）がこの値で決まるのに、**選び忘れても
         画面には何も出ません** — グループ会社の案件に定価が並んでも、気づくのは
         見積を送ったあとです。決めるのは**取引先マスターのチェックボックス1か所**に
         して、ここはその結果を出すだけにしました。
 
         **消さずに出しておく**のは、見積の単価がどちらで出るかを、案件を直しに来た
-        人がここで確かめられるようにするためです（欄ごと消すと、なぜグループ内価格に
+        人がここで確かめられるようにするためです（欄ごと消すと、なぜグループ会社価格に
         ならないのかを調べる取っかかりがどこにも無くなります）。
         直したいときの行き先も書いておきます。
       */}
       {mode === 'edit' && (
         <Field
-          label="グループ区分"
+          label="グループ会社価格"
           hint="取引先マスターの「グループ会社」の印から決まります（案件ごとには選べません）"
         >
           <p className={`min-h-tap flex items-center gap-2 rounded-control border px-3 text-sub font-bold lg:min-h-[40px] ${
@@ -196,11 +196,11 @@ export function MoreFields({
               : 'border-border bg-muted/40 text-secondary-foreground'
           }`}>
             <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
-            {f.isGroup ? 'グループ内' : 'グループ外'}
+            {f.isGroup ? 'グループ会社価格' : '定価'}
           </p>
           <p className="text-note mt-1 text-muted-foreground">
             {f.isGroup
-              ? '見積の単価はグループ内価格になります。'
+              ? '見積の単価はグループ会社価格になります。'
               : '見積の単価は定価になります。'}
             違うときは
             <Link to="/sales/companies" className="mx-0.5 -my-[13px] inline-block py-[13px] text-primary underline">

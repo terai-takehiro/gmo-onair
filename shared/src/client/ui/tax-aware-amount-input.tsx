@@ -93,7 +93,7 @@ export function TaxHelperButton({
         )}
         onClick={openHelper}
         disabled={disabled}
-        title="税込/税抜ヘルパー"
+        title="税の入れ方"
       >
         <span className="text-[11px] font-bold">税</span>
       </Button>
@@ -107,7 +107,7 @@ export function TaxHelperButton({
           {step === "ask" && (
             <div className="space-y-4">
               <div>
-                <Label htmlFor={inputId} className="text-xs">入力する金額</Label>
+                <Label htmlFor={inputId} className="text-xs">入力した金額</Label>
                 <Input
                   id={inputId}
                   type="number"
@@ -117,7 +117,7 @@ export function TaxHelperButton({
                   autoFocus
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  入力した金額は <strong>税込</strong> ですか？それとも <strong>税抜</strong> ですか？
+                  下のボタンで、税込か税抜かを選んでください。
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-2">

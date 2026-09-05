@@ -1,7 +1,7 @@
 /**
  * ⑧ 設定 ／ 保管場所 (v4)
  *
- * 場所名 ＋ 拠点 ＋ 種別 (ラック／オペ卓／AV盤) ＋ 建物・フロア・エリアで持ちます。
+ * 保管場所 ＋ 拠点 ＋ 種別 (ラック／オペ卓／AV盤) ＋ 建物・フロア・エリアで持ちます。
  * 種別に「ラック」を選んだ場所だけが Uサイズを持ち、ラック図に1本として並びます。
  */
 import { useEffect, useState } from 'react';
@@ -55,7 +55,7 @@ export function LocationsTab() {
     endpoint: '/equipment/locations',
     queryKey: ['equipment-locations'],
     onSaveSuccess: () => notifySuccess('保管場所を保存しました'),
-    onDeleteSuccess: () => notifySuccess('保管場所を消しました'),
+    onDeleteSuccess: () => notifySuccess('保管場所を削除しました'),
     onError: (action, err) => notifyApiError(action === 'save' ? '保存できませんでした' : '消せませんでした', err),
   });
 
@@ -108,7 +108,7 @@ export function LocationsTab() {
     const ok = await confirmAction({
       title: `「${loc.name}」を消しますか`,
       description: 'この場所に置いてある機材は場所なしに戻ります。ラックだった場合はラック図から消えます。',
-      confirmLabel: '消す',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) crud.remove.mutate(loc.id);
@@ -121,14 +121,14 @@ export function LocationsTab() {
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-sub text-muted-foreground">
-          場所名・拠点・種別 (ラック／オペ卓／AV盤)・建物・フロア・エリアで持ちます
+          保管場所・拠点・種別 (ラック／オペ卓／AV盤)・建物・フロア・エリアで持ちます
         </p>
         <div className="flex-1" />
         <Button variant="outline" onClick={() => setMasterOpen(true)}>
           <Settings className="mr-1 h-4 w-4" aria-hidden="true" />拠点・種別
         </Button>
         <Button onClick={crud.openAdd}>
-          <Plus className="mr-1 h-4 w-4" aria-hidden="true" />保管場所を足す
+          <Plus className="mr-1 h-4 w-4" aria-hidden="true" />保管場所を追加
         </Button>
       </div>
 
@@ -139,13 +139,13 @@ export function LocationsTab() {
       ) : crud.items.length === 0 ? (
         <EmptyState
           title="保管場所がまだ1件もありません"
-          description="機材の置き場所とラック図はここで作った場所に紐づきます。まず1つ足してください。"
+          description="機材の保管場所とラック図はここで作った場所に紐づきます。まず1つ追加してください。"
         />
       ) : (
         <div className="flex flex-col rounded-card border border-border bg-card">
           <RowHeader className="hidden sm:flex">
             <RowSlot w={56}>拠点</RowSlot>
-            <RowMain>場所名 ／ 建物・フロア・エリア</RowMain>
+            <RowMain>保管場所 ／ 建物・フロア・エリア</RowMain>
             <RowSlot w={96}>種別</RowSlot>
             <RowSlot w={56} align="right">Uサイズ</RowSlot>
             <RowSlot w={56} align="right">表示順</RowSlot>
@@ -197,28 +197,28 @@ export function LocationsTab() {
 
       <p className="text-note text-muted-foreground">
         種別に<strong className="font-bold">ラック</strong>を選んだ場所だけが Uサイズを持ち、ラック図に1本として並びます。
-        棚卸しのチェックリストと機材台帳の設置場所は、この表示順のまま作られます。
+        棚卸しのチェックリストと機材台帳の保管場所は、この表示順のまま作られます。
       </p>
 
       <FormDialog
         open={crud.dialogOpen}
         onOpenChange={crud.setDialogOpen}
-        title={crud.isEditing ? '保管場所を直す' : '保管場所を足す'}
+        title={crud.isEditing ? '保管場所を編集' : '保管場所を追加'}
         // 入力10個・建物/フロア/エリアの3列グリッドを持つ複合フォームなので `lg`(840px)
         size="lg"
         footer={
           <FormDialogFooter>
-            <Button variant="outline" onClick={crud.closeDialog}>やめる</Button>
+            <Button variant="outline" onClick={crud.closeDialog}>キャンセル</Button>
             <Button onClick={handleSave} disabled={!canSave || crud.save.isPending}>
               {crud.save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-              {crud.isEditing ? '直す' : '足す'}
+              {crud.isEditing ? '編集' : '追加'}
             </Button>
           </FormDialogFooter>
         }
       >
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label>場所名 *</Label>
+            <Label>保管場所 *</Label>
             <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="カメラ庫" />
           </div>
           <div className="space-y-1">
@@ -231,7 +231,7 @@ export function LocationsTab() {
               </SelectContent>
             </Select>
             {branches.length === 0 && (
-              <p className="text-note text-muted-foreground">「拠点・種別」から先に拠点を足してください</p>
+              <p className="text-note text-muted-foreground">「拠点・種別」から先に拠点を追加してください</p>
             )}
           </div>
           <div className="space-y-1">
@@ -244,7 +244,7 @@ export function LocationsTab() {
               </SelectContent>
             </Select>
             {rackTypes.length === 0 && (
-              <p className="text-note text-muted-foreground">「拠点・種別」から先に種別を足してください</p>
+              <p className="text-note text-muted-foreground">「拠点・種別」から先に種別を追加してください</p>
             )}
           </div>
           {isRackForm && (

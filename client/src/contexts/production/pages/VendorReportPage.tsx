@@ -123,7 +123,10 @@ export default function VendorReportPage() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : items.length === 0 ? (
-            <EmptyState title="データがありません" />
+            <EmptyState
+              title="この期間に対象の仕入はありません"
+              description="上の期間や絞り込みを変えると、別の範囲を見られます。"
+            />
           ) : (
             <>
               {/* Mobile cards */}

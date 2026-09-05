@@ -23,7 +23,7 @@ export function PurchaseDialog({
 }: {
   groupId: string;
   members: GroupDetail['members'];
-  /** 直す仕入。`null` なら新規 */
+  /** 編集する仕入。`null` なら新規 */
   editing: GroupPurchase | null;
   onClose: () => void;
 }) {
@@ -62,7 +62,7 @@ export function PurchaseDialog({
       notifySuccess(editing ? '仕入を更新しました' : '仕入を登録しました');
       onClose();
     },
-    onError: (err) => notifyApiError('仕入の保存に失敗しました', err),
+    onError: (err) => notifyApiError('仕入を保存できませんでした', err, '入力内容を確かめて、もう一度お試しください。'),
   });
 
   const invalidAlloc = alloc.mode === 'custom' && alloc.previewTotal !== amount;
@@ -88,7 +88,7 @@ export function PurchaseDialog({
           <Label>仕入先 *</Label>
           <SearchableSelect
             options={vendors.map((v) => ({ value: v.id, label: v.name, subLabel: v.vendor_type || '' }))}
-            value={vendorId} onChange={setVendorId} placeholder="仕入先を検索..."
+            value={vendorId} onChange={setVendorId} placeholder="仕入先を検索…"
           />
         </div>
         <div>

@@ -1,5 +1,8 @@
 /**
- * ⑧ やること（スマホ・モックの端末枠 8枚目）
+ * ⑧ タスク（スマホ・モックの端末枠 8枚目）
+ *
+ * **画面名は「タスク」**。PC が「タスク」でスマホと下タブだけ「やること」だった
+ * ため、同じ画面が2つの名前で呼ばれていた（探すときに見つからない）。
  *
  * ── PC の一覧を縮めたものではありません ────────────────────
  *
@@ -139,11 +142,11 @@ export function MobileTaskList() {
     <div className="flex flex-col gap-3.5 p-3">
       {/* **説明はここ1か所だけ。** 以前は同じ文が画面末尾にもう一度出ていた（M7） */}
       <PageHeader
-        title="やること"
+        title="タスク"
         sub="押して消し込むだけ。並べ替え・担当の変更は PC で"
         primaryAction={
           <Button onClick={() => setAdding(true)}>
-            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />タスクを足す
+            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />タスクを追加
           </Button>
         }
       />
@@ -181,11 +184,11 @@ export function MobileTaskList() {
       {isLoading ? (
         <Delayed><SkeletonRows rows={5} /></Delayed>
       ) : isError ? (
-        <ErrorPanel title="やることを読み込めませんでした" onRetry={() => refetch()} />
+        <ErrorPanel title="タスクを読み込めませんでした" onRetry={() => refetch()} />
       ) : rows.length === 0 ? (
         <EmptyState
-          title={chip === 'today' ? '今日が期限のものはありません' : chip === 'over' ? '期限を過ぎたものはありません' : 'やることはありません'}
-          description={mineOnly ? '「全体」に切り替えると、ほかの人のぶんも見られます。' : '新しく足すのは上の「タスクを足す」か、案件の中からです。'}
+          title={chip === 'today' ? '条件に合うタスクはありません' : chip === 'over' ? '条件に合うタスクはありません' : 'まだタスクがありません'}
+          description={mineOnly ? '「全体」に切り替えると、ほかの人のぶんも見られます。' : '新しく追加するのは上の「タスクを追加」か、案件の中からです。'}
         />
       ) : (
         <PullToRefresh onRefresh={refetch}>

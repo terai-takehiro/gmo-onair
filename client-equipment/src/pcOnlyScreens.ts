@@ -23,7 +23,7 @@ export const EQUIPMENT_PC_ONLY: PcOnlyEntry[] = [
   {
     path: '/equipment/settings',
     what: '機材管理の設定',
-    why: '保管場所・メーカー・色・貸出の決めごとをまとめて触る画面です。',
+    why: '保管場所・メーカー・色・貸出のルールをまとめて触る画面です。',
     instead: ITEMS,
     // **スマホのメニューには出さない。** 現場で開く画面ではありません
     hidden: true,

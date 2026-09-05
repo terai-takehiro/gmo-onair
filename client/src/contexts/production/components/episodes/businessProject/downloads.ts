@@ -13,7 +13,7 @@ import { issueDocPdf, type DocKind } from '@/lib/docPdf';
  * 帳票を発行する（v4 で共通部品に寄せた）。
  *
  * 元はここに blob の受け取りとファイル名の取り出しが直に書いてあり、
- * 失敗すると `alert('PDF生成に失敗しました')` だけが出ていました
+ * 失敗すると `alert('PDF生成に失敗しました')` だけが出ていました（旧文言）
  * （権限が無いのか BOX が落ちているのか押した人には分からない）。
  * いまは `lib/docPdf.ts` が1つだけ持ち、**BOX に入ったかどうかも出します**。
  */
@@ -38,6 +38,6 @@ export const handleDownloadExcel = async (revenueId: string) => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   } catch {
-    alert('Excel生成に失敗しました');
+    alert('請求書 Excel を作れませんでした。少し時間をおいてもう一度お試しください。');
   }
 };

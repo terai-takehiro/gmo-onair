@@ -90,7 +90,7 @@ function MigrationBody() {
     mutationFn: (eventId: number) => commitAwardsMigration(eventId),
     onSuccess: (result) => {
       notifySuccess('移行が完了しました', {
-        description: `テロップCGプロジェクト #${result.projectId} に ${result.pageIds.length}件のページを作成しました`,
+        description: `テロップCG に ${result.pageIds.length}件のページを作りました`,
       });
       void queryClient.invalidateQueries({ queryKey: ['awards-migration-preview', selectedEventId] });
     },

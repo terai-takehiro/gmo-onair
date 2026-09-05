@@ -101,7 +101,7 @@ export default function LiveOrgSettingsPage() {
         {Header}
         <div className="flex flex-1 items-center justify-center text-muted-foreground gap-2">
           <ShieldOff className="h-5 w-5" />
-          <span className="text-sm">設定の変更は管理者権限が必要です</span>
+          <span className="text-sm">設定を変えるには 制作技術支援の「管理」が必要です。</span>
         </div>
       </div>
     );

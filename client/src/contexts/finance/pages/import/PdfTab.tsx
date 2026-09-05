@@ -64,7 +64,7 @@ export function PdfTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
       const parsedResults: { file: XpointFileRow; result: XpointParseResult }[] = [];
       for (let i = 0; i < files.length; i++) {
         const f = files[i];
-        setUploadProgress(`取込中 (${i + 1}/${files.length}): ${f.name} — Box への保存と解析に 1 分ほどかかることがあります`);
+        setUploadProgress(`取り込み中 (${i + 1}/${files.length}): ${f.name} — Box への保存と解析に 1 分ほどかかることがあります`);
         try {
           const fd = new FormData();
           fd.append('file', f);
@@ -125,12 +125,12 @@ export function PdfTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
   const skip = useMutation({
     mutationFn: async (file: XpointFileRow) => api.post(`/xpoint/files/${file.id}/skip`),
     onSuccess: () => scan.mutate(),
-    meta: { action: '取込対象外にする' },
+    meta: { action: '取り込みの対象外に設定' },
   });
   const reopen = useMutation({
     mutationFn: async (file: XpointFileRow) => api.post(`/xpoint/files/${file.id}/reopen`),
     onSuccess: () => scan.mutate(),
-    meta: { action: '取込を再開する' },
+    meta: { action: '取り込みを再開' },
   });
 
   const files = useMemo(() => scanned?.files ?? [], [scanned]);
@@ -169,7 +169,7 @@ export function PdfTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-cardtitle">
-              取込ファイル
+              取り込みファイル
               <span className="text-note ml-2 text-muted-foreground">
                 レビュー待ち {files.filter((f) => f.status === 'parsed').length}
                 {' ・ '}未解析 {files.filter((f) => f.status === 'new').length}
@@ -284,7 +284,7 @@ export function PdfTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
                           </Button>
                         )}
                         {(f.status === 'new' || f.status === 'parsed' || f.status === 'error') && (
-                          <Button variant="ghost" aria-label="取込対象外にする" onClick={() => skip.mutate(f)}>
+                          <Button variant="ghost" aria-label="取り込みの対象外にする" onClick={() => skip.mutate(f)}>
                             <SkipForward className="h-3.5 w-3.5" aria-hidden="true" />
                           </Button>
                         )}

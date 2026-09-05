@@ -6,7 +6,7 @@
  * PC の行は 「あと」72px ＋ 名前 ＋ 「本番日」96px ＋ 「決める」160px です。
  * スマホでは本番日だけ畳まれるので、**残り 150px に予定名と部屋が入る**ことになり、
  * `検証E 仮…` `WORLD S…` としか読めませんでした。
- * **何の予約か分からないまま「確定にする」を押させる**形です。
+ * **何の予約か分からないまま「本予約にする」を押させる**形です。
  *
  * → 縦に積みます。**読む（何の予約か）→ 決める（2つのボタン）** の順。
  *   ボタンは横に2つ並べて、下端の近くに置きます。
@@ -16,7 +16,11 @@
  * PC では `hideOnMobile` で畳んでいた列ですが、**外で見る人にいちばん要る数字**は
  * 「いつの予約か」です。「あと2日」だけだと、その2日後が何日なのか分かりません。
  *
- * ── 左スワイプで「確定にする」「落とす」の両方を出す（M11） ─────────
+ * ── 左スワイプで「本予約にする」「仮押さえを削除」の両方を出す（M11） ────
+ *
+ * ⚠️ **スワイプの札だけは短語**（「本予約」「削除」）。`SwipeAction` の1枠は
+ * 84px 固定で、下端のボタンと同じ長さの語を入れると折り返して読めなくなる。
+ * 行そのものが仮押さえの一覧なので、短くしても意味は落ちない。
  *
  * 下端のボタンはそのまま残し、`SwipeAction` でもう1つの入り口を足した。
  * 呼ぶのは同じ `onFix` / `onDrop`（`onDrop` は確認ダイアログを挟む `askDrop` を
@@ -47,10 +51,10 @@ export function HoldCards({
           key={b.id}
           actions={busy ? [] : [
             ...(canEdit ? [{
-              label: '確定', icon: <Check className="h-4 w-4" aria-hidden="true" />, tone: 'default' as const, onAction: () => onFix(b.id),
+              label: '本予約', icon: <Check className="h-4 w-4" aria-hidden="true" />, tone: 'default' as const, onAction: () => onFix(b.id),
             }] : []),
             ...(canDrop ? [{
-              label: '落とす', icon: <Trash2 className="h-4 w-4" aria-hidden="true" />, tone: 'danger' as const, onAction: () => onDrop(b),
+              label: '削除', icon: <Trash2 className="h-4 w-4" aria-hidden="true" />, tone: 'danger' as const, onAction: () => onDrop(b),
             }] : []),
           ]}
         >
@@ -89,11 +93,11 @@ export function HoldCards({
             {canEdit && (
               <div className="flex gap-2">
                 <Button className="flex-1" disabled={busy} onClick={() => onFix(b.id)}>
-                  <Check className="mr-1.5 h-4 w-4" aria-hidden="true" />確定にする
+                  <Check className="mr-1.5 h-4 w-4" aria-hidden="true" />本予約にする
                 </Button>
                 {canDrop && (
                   <Button variant="outline" className="flex-1" disabled={busy} onClick={() => onDrop(b)}>
-                    <Trash2 className="mr-1.5 h-4 w-4 text-destructive" aria-hidden="true" />落とす
+                    <Trash2 className="mr-1.5 h-4 w-4 text-destructive" aria-hidden="true" />仮押さえを削除
                   </Button>
                 )}
               </div>

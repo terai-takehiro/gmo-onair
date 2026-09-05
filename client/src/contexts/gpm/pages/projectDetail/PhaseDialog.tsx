@@ -69,10 +69,10 @@ export function PhaseDialog({
     },
     onSuccess: () => {
       invalidate(projectId);
-      notifySuccess(phase ? '工程を直しました' : '工程を足しました');
+      notifySuccess(phase ? '工程を更新しました' : '工程を追加しました');
       onClose();
     },
-    onError: (err) => notifyApiError(phase ? '工程を直せませんでした' : '工程を足せませんでした', err),
+    onError: (err) => notifyApiError(phase ? '工程を更新できませんでした' : '工程を追加できませんでした', err),
   });
 
   const remove = useMutation({
@@ -80,23 +80,23 @@ export function PhaseDialog({
     onSuccess: (res) => {
       invalidate(projectId);
       const detached = Number((res.data?.data as { detached?: number } | undefined)?.detached ?? 0);
-      notifySuccess(detached > 0 ? `工程を消しました（タスク ${detached}件は「工程なし」に残ります）` : '工程を消しました');
+      notifySuccess(detached > 0 ? `工程を削除しました（タスク ${detached}件は「工程なし」に残ります）` : '工程を削除しました');
       onClose();
     },
-    onError: (err) => notifyApiError('工程を消せませんでした', err),
+    onError: (err) => notifyApiError('工程を削除できませんでした', err),
   });
 
   const onDelete = async () => {
     if (!phase) return;
     const ok = await confirmAction({
-      title: 'この工程を消しますか？',
+      title: 'この工程を削除しますか？',
       description: [
         `「${phase.label}」`,
         phase.task_count > 0
           ? `配下のタスク ${phase.task_count}件は消えません。「工程なし」の束に残るので、あとから別の工程に付け直せます。`
           : 'この工程にタスクはありません。',
       ].join('\n'),
-      confirmLabel: '消す',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) remove.mutate();
@@ -109,20 +109,20 @@ export function PhaseDialog({
     <FormDialog
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title={phase ? '工程を直す' : '工程を足す'}
+      title={phase ? '工程を編集' : '工程を追加'}
       footer={
         <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-between">
           {phase ? (
             <Button variant="outline" onClick={onDelete} disabled={busy}>
               <Trash2 className="mr-2 h-4 w-4 text-destructive" aria-hidden="true" />
-              この工程を消す
+              この工程を削除
             </Button>
           ) : <span />}
           <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose} disabled={busy}>やめる</Button>
+            <Button variant="outline" onClick={onClose} disabled={busy}>キャンセル</Button>
             <Button onClick={() => save.mutate()} disabled={!label.trim() || badRange || busy}>
               {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-              {phase ? '直す' : '足す'}
+              {phase ? '編集' : '追加'}
             </Button>
           </div>
         </div>

@@ -92,7 +92,7 @@ export function SnoozeDialog({
               スヌーズを解除
             </Button>
           )}
-          <Button variant="outline" onClick={() => close(false)} disabled={snooze.isPending}>やめる</Button>
+          <Button variant="outline" onClick={() => close(false)} disabled={snooze.isPending}>キャンセル</Button>
           <Button disabled={!until || snooze.isPending} onClick={() => submit(until)}>
             {snooze.isPending
               ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />

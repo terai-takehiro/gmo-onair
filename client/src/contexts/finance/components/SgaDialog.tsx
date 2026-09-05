@@ -170,12 +170,12 @@ export default function SgaDialog({
         ) : (
         <div className="flex flex-wrap gap-2 sm:justify-between">
           <div>
-            {/* **消すのはここだけ。** 一覧の行にゴミ箱を並べると、
-                隣の行を押して消す事故が起きる（金額の記録なので戻せない） */}
+            {/* **削除できるのはここだけ。** 一覧の行にゴミ箱を並べると、
+                隣の行を押して削除する事故が起きる（金額の記録なので戻せない） */}
             {editingId && onDelete && (
               <Button variant="destructive" disabled={isDeleting} onClick={() => onDelete(editingId)}>
                 {isDeleting && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                消す
+                削除
               </Button>
             )}
           </div>
@@ -386,7 +386,7 @@ export default function SgaDialog({
                 onChange={(val) =>
                   setForm((f) => ({ ...f, assigned_to: val }))
                 }
-                placeholder="担当者を検索..."
+                placeholder="担当者を検索â¦"
               />
             </div>
           </div>

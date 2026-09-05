@@ -17,11 +17,11 @@ export function glsGuideText(stage: ProjectStage): string {
   }
   if (stage === 'c_proposal' || stage === 'b_verbal') {
     return `${ProjectStageLabels.a_won}になると自動で発番されます。`
-      + '「案件を直す」画面から先に発番することもできます。';
+      + '「案件を編集」画面から先に発番することもできます。';
   }
   // a_won / r_delivered / s_completed なのに番号が無い＝案件分類が未設定で自動発番に失敗した例外ケース
   // （`changeStage` の gls_error。まとめて直す統合チェックにも同じ案内がある）
-  return '受注済みですが自動発番に失敗しています。「案件を直す」画面で案件分類を選んでから発番してください。';
+  return '受注済みですが自動発番に失敗しています。「案件を編集」画面で案件分類を選んでから発番してください。';
 }
 
 /**

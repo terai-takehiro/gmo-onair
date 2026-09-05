@@ -173,7 +173,7 @@ const LAYER_ITEMS: Array<{ key: CalLayer; label: string; dot: string }> = [
  * ① 予定・スマホ / 「出すもの」を選ぶ
  *
  * PC 版の `CalToolbar` は帯の中にチップを並べる余白があるが、スマホは
- * 幅が無いのでダイアログに畳む（月表アイコン行の「レイヤー」ボタンから開く）。
+ * 幅が無いのでダイアログに畳む（月表アイコン行の「出すもの」ボタンから開く）。
  * 出し分けの対象は `layerPrefs.ts` の4層のみで、部屋・人の絞り込みは持たない。
  */
 export function LayerFilterDialog({
@@ -194,7 +194,7 @@ export function LayerFilterDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="出すものを選ぶ"
-      sub="カレンダーに重ねるもの（予約・予定・タスクの期限）を、出す/隠すで選びます。"
+      sub="カレンダーに出すもの（予約・予定・タスクの期限）を、出す/隠すで選びます。"
       footer={
         <FormDialogFooter>
           <Button onClick={() => onOpenChange(false)}>閉じる</Button>

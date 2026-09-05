@@ -120,7 +120,7 @@ export function DiscountLimits({ limits, canEdit }: { limits: DiscountLimitRow[]
               </RowSlot>
               {canEdit && (
                 <RowSlot w={72} align="right">
-                  <Button variant="outline" size="sm" onClick={() => open(l)}>直す</Button>
+                  <Button variant="outline" size="sm" onClick={() => open(l)}>編集</Button>
                 </RowSlot>
               )}
             </Row>
@@ -151,7 +151,7 @@ export function DiscountLimits({ limits, canEdit }: { limits: DiscountLimitRow[]
                   </select>
                 </label>
                 <div className="ml-auto flex gap-2">
-                  <Button variant="outline" onClick={() => setEditing(null)}>やめる</Button>
+                  <Button variant="outline" onClick={() => setEditing(null)}>キャンセル</Button>
                   <Button disabled={save.isPending} onClick={() => save.mutate(l.role_id)}>
                     {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
                     保存する

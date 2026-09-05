@@ -28,7 +28,7 @@ export function MobileTemplateRail({
           const n = t.phases.reduce((s, p) => s + p.tasks.length, 0);
           return (
             <SelectItem key={t.id} value={t.id}>
-              {t.name}（{n} 工程{t.project_types.length > 0 ? ` ・ ${t.project_types.length} 分類` : ' ・ すべての分類'}）
+              {t.name}（{n} 作業{t.project_types.length > 0 ? ` ・ ${t.project_types.length} 分類` : ' ・ すべての分類'}）
             </SelectItem>
           );
         })}

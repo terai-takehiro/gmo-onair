@@ -15,7 +15,7 @@ export function MembersSection({ projectId }: { projectId: string | undefined })
         <ProjectMembersEditor projectId={projectId} />
       ) : (
         <p className="text-sub text-muted-foreground">
-          担当メンバー（複数人・社外の方の手入力）は、案件を保存してから足せます。
+          担当メンバー（複数人・社外の方の手入力）は、案件を保存してから追加できます。
         </p>
       )}
     </FormSection>

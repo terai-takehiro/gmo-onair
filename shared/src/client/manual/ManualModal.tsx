@@ -133,7 +133,7 @@ export default function ManualModal({ open, onOpenChange, content }: ManualModal
 
         {/* モバイル用 TOC（横スクロールチップ） */}
         <div className="flex shrink-0 gap-1.5 overflow-x-auto border-b border-border px-4 py-2 sm:hidden">
-          {filteredFlat.length === 0 && <span className="px-1 py-1 text-xs text-muted-foreground">該当する項目がありません</span>}
+          {filteredFlat.length === 0 && <span className="px-1 py-1 text-xs text-muted-foreground">当てはまるものはありませんでした</span>}
           {filteredFlat.map((s) => {
             const Icon = s.icon;
             const isActive = s.id === activeId;
@@ -160,7 +160,7 @@ export default function ManualModal({ open, onOpenChange, content }: ManualModal
           {/* デスクトップ用 TOC（サイドバー） */}
           <nav className="hidden w-56 shrink-0 overflow-y-auto border-r border-border py-3 sm:block" aria-label="マニュアル目次">
             {filteredGroups.length === 0 && (
-              <p className="px-4 py-2 text-xs text-muted-foreground">該当する項目がありません</p>
+              <p className="px-4 py-2 text-xs text-muted-foreground">当てはまるものはありませんでした</p>
             )}
             {filteredGroups.map((g) => (
               <div key={g.name} className="px-3 pb-3">

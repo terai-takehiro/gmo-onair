@@ -34,9 +34,9 @@ export function companyBadgeClass(company: string): string {
 
 /** ISO日時 → '8/22 9:15'（取得状況の表示用。会社別の last_seen 最大値を渡す想定） */
 export function formatSyncTimestamp(iso: string | null): string {
-  if (!iso) return '未取得';
+  if (!iso) return 'まだありません';
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '未取得';
+  if (Number.isNaN(d.getTime())) return 'まだありません';
   const hh = String(d.getHours()).padStart(2, '0');
   const mm = String(d.getMinutes()).padStart(2, '0');
   return `${d.getMonth() + 1}/${d.getDate()} ${hh}:${mm}`;

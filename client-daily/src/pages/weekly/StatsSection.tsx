@@ -82,7 +82,7 @@ export function StatsSection({ stats, isMobile }: { stats: StatsShape; isMobile:
           <EventList events={stats.next_week?.events ?? []} empty="来週のイベントはありません" isMobile={isMobile} />
           {!!stats.next_week?.next_actions?.length && (
             <div className="mt-3 flex flex-col gap-1 border-t border-border-subtle pt-2">
-              <p className="text-th text-muted-foreground">期限が来る次のひと押し</p>
+              <p className="text-th text-muted-foreground">期限が近い次のアクション</p>
               {stats.next_week.next_actions.slice(0, 8).map((a, i) => (
                 <p key={i} className="text-sub-sm">
                   <span className="font-number text-muted-foreground">{formatDateJa(String(a.next_action_date ?? ''))}</span>{' '}

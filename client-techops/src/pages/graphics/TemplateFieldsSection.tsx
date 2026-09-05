@@ -19,25 +19,25 @@ import { defaultRankingEntries, normalizeRankingEntries } from './rankingFields'
 function describeLockedValue(kind: PartFieldDef['kind'], value: unknown): string {
   if (kind === 'entries') {
     const arr = normalizeScoreEntries(value);
-    return arr.length > 0 ? arr.map((e) => e.name || '（無題）').join('・') : '（未設定）';
+    return arr.length > 0 ? arr.map((e) => e.name || '（無題）').join('・') : '未設定';
   }
   if (kind === 'choices') {
     const arr = normalizeVoteChoices(value);
-    return arr.length > 0 ? arr.map((c) => c.label || '（無題）').join('・') : '（未設定）';
+    return arr.length > 0 ? arr.map((c) => c.label || '（無題）').join('・') : '未設定';
   }
   if (kind === 'list-items') {
     const arr = normalizeListItems(value);
-    return arr.length > 0 ? arr.map((it) => it.text || '（無題）').join('・') : '（未設定）';
+    return arr.length > 0 ? arr.map((it) => it.text || '（無題）').join('・') : '未設定';
   }
   if (kind === 'ranking') {
     const arr = normalizeRankingEntries(value);
-    return arr.length > 0 ? arr.map((e) => e.name || '（無題）').join('・') : '（未設定）';
+    return arr.length > 0 ? arr.map((e) => e.name || '（無題）').join('・') : '未設定';
   }
   if (kind === 'image') {
-    return typeof value === 'string' && value.trim() ? '設定済み' : '（未設定）';
+    return typeof value === 'string' && value.trim() ? '設定済み' : '未設定';
   }
-  if (typeof value === 'string') return value.trim() || '（未設定）';
-  if (value == null) return '（未設定）';
+  if (typeof value === 'string') return value.trim() || '未設定';
+  if (value == null) return '未設定';
   return String(value);
 }
 

@@ -87,7 +87,7 @@ export function InviewDialog({
       companions: companionsText.split('\n').map((s) => s.trim()).filter(Boolean),
       party_size: Number(f.party_size) || 1,
     };
-    const done = () => { notifySuccess(initial ? '来場予約を直しました' : '来場予約を足しました'); onClose(); };
+    const done = () => { notifySuccess(initial ? '来場予約を保存しました' : '来場予約を追加しました'); onClose(); };
     const fail = (e: unknown) => notifyApiError(initial ? '保存できませんでした' : '追加できませんでした', e);
     if (initial) update.mutate({ id: initial.id, fields: payload }, { onSuccess: done, onError: fail });
     else create.mutate(payload, { onSuccess: done, onError: fail });
@@ -100,13 +100,13 @@ export function InviewDialog({
     <FormDialog
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title={initial ? '来場予約を直す' : '来場予約を足す'}
+      title={initial ? '来場予約を編集' : '来場予約を追加'}
       // 旧幅 sm:max-w-2xl（672px）。名前〜郵便番号まで9項目を2列グリッドで並べる
       // 複合フォームなので既定の640pxには押し込めず wide を渡す
       wide
       footer={
         <FormDialogFooter>
-          <Button variant="outline" className="min-h-tap" onClick={onClose}>やめる</Button>
+          <Button variant="outline" className="min-h-tap" onClick={onClose}>キャンセル</Button>
           <Button
             className="min-h-tap"
             onClick={submit}

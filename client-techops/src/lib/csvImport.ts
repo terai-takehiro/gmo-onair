@@ -56,7 +56,7 @@ export interface CsvColumnMap {
 export function mapCsvColumns(headers: string[], blocks: Block[]): CsvColumnMap | { error: string } {
   const norm = (s: string) => s.trim();
   const sIdx = headers.findIndex((h) => ["セクション", "ロール"].includes(norm(h)) || norm(h).toLowerCase() === "section");
-  if (sIdx < 0) return { error: "「セクション」列が見つかりません。1 行目にヘッダー (#, セクション, 尺, ...) が必要です。" };
+  if (sIdx < 0) return { error: "「セクション」列が見つかりません。1 行目にヘッダー (#, セクション, 尺, …) が必要です。" };
   const durationIdx = headers.findIndex((h) => norm(h) === "尺" || norm(h).toLowerCase() === "duration");
 
   const used = new Set<number>([sIdx, durationIdx].filter((i) => i >= 0));

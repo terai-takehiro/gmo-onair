@@ -128,15 +128,15 @@ export function AttendeeCard({
 
   const onDelete = async () => {
     const ok = await confirmAction({
-      title: `${r.name} さんの来場予約を消しますか`,
+      title: `${r.name} さんの来場予約を削除しますか`,
       description: '同行者の受付記録もいっしょに消えます。元に戻せません。',
-      confirmLabel: '削除する',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (!ok) return;
     del.mutate(r.id, {
-      onSuccess: () => notifySuccess('来場予約を消しました'),
-      onError: (e) => notifyApiError('消せませんでした', e),
+      onSuccess: () => notifySuccess('来場予約を削除しました'),
+      onError: (e) => notifyApiError('来場予約を削除できませんでした', e),
     });
   };
 

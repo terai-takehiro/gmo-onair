@@ -12,7 +12,7 @@ import { STATE_TONE } from './state';
 /**
  * 行き先が決まっているものは、**何になったか**を出す。
  *
- * 「チケット」とだけ出しても、どのタスクなのか・まだ残っているのかが分かりません。
+ * 「タスク」とだけ出しても、どのタスクなのか・まだ残っているのかが分かりません。
  * タスクが消されていた場合もそう書きます（黙って何も出さないと、
  * 誰かが拾ったつもりのまま消えます）。
  */
@@ -33,7 +33,7 @@ export function Destination({ q }: { q: MiscInquiry }) {
             )}
           </span>
         ) : (
-          <span>チケットにしましたが、<strong className="font-bold">そのタスクは消されています</strong>。必要なら未仕分けに戻して作り直してください。</span>
+          <span>タスクにしましたが、<strong className="font-bold">そのタスクは消されています</strong>。必要なら未仕分けに戻して作り直してください。</span>
         )}
       </p>
     );
@@ -69,7 +69,7 @@ export function InquiryBody({ q, open, onToggle }: { q: MiscInquiry; open: boole
         className="text-note min-h-tap inline-flex items-center gap-1 text-primary lg:min-h-[32px]"
       >
         {open ? '中身を閉じる' : '中身を読む'}
-        {hasRich && <Sparkles className="h-3 w-3 text-ai" aria-label="AI が項目に分けて読み取りました" />}
+        {hasRich && <Sparkles className="h-3 w-3 text-ai" aria-label="AI作成" />}
       </button>
 
       {open && (

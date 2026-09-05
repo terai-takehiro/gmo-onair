@@ -60,7 +60,7 @@ export default function EventPlanDialog({ open, onOpenChange, scheduleId, existi
         applied_payload: result.appliedPayload, applied_ids: result.appliedIds,
         rejected_keys: [...excludedKeys],
       });
-      notifySuccess(`枠を取り込みました（${result.appliedIds.items.length}件）`);
+      notifySuccess(`下書き（当日の枠）を取り込みました（${result.appliedIds.items.length}件）`);
       onOpenChange(false);
       setProposal(null);
       onApplied();
@@ -81,12 +81,12 @@ export default function EventPlanDialog({ open, onOpenChange, scheduleId, existi
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>AIで枠の叩き台を作る</DialogTitle>
+          <DialogTitle>AIで下書きを作る（当日の枠）</DialogTitle>
         </DialogHeader>
         {!proposal && (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              案件・会場・既に入っている項目から、当日の進行枠の叩き台を作ります。
+              案件・会場・既に入っている項目から、当日の進行枠の下書きを作ります。
             </p>
             <textarea
               value={instruction}
@@ -96,7 +96,7 @@ export default function EventPlanDialog({ open, onOpenChange, scheduleId, existi
             />
             <DialogFooter>
               <Button onClick={handleGenerate} disabled={loading} className="min-h-[44px]">
-                {loading ? "考えています…" : "枠を作る"}
+                {loading ? "考えています…" : "下書きを作る"}
               </Button>
             </DialogFooter>
           </div>
@@ -121,7 +121,7 @@ export default function EventPlanDialog({ open, onOpenChange, scheduleId, existi
               )}
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={handleDiscard} className="min-h-[44px]">やめる</Button>
+              <Button variant="outline" onClick={handleDiscard} className="min-h-[44px]">キャンセル</Button>
               <Button onClick={handleApply} disabled={applying} className="min-h-[44px]">
                 {applying ? "取り込み中…" : "取り込む"}
               </Button>
@@ -141,6 +141,6 @@ function fmtMin(min: number): string {
 
 function errorMessage(e: unknown): string {
   const err = e as { response?: { status?: number; data?: { error?: { message?: string } } } };
-  if (err?.response?.status === 503) return "この環境は AI につないでいません";
-  return err?.response?.data?.error?.message ?? "AI の呼び出しに失敗しました。手で作れます";
+  if (err?.response?.status === 503) return "いまは AI を使えません。手で作れます。";
+  return err?.response?.data?.error?.message ?? "AI を呼べませんでした。手で作れます。";
 }

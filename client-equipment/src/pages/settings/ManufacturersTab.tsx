@@ -76,7 +76,7 @@ export function ManufacturersTab() {
     const ok = await confirmAction({
       title: `メーカー「${m.name}」を消しますか`,
       description: 'このメーカーを選んでいる機材・ケーブル・コネクタはメーカーなしに戻ります。',
-      confirmLabel: '消す',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) crud.remove.mutate(m.id);
@@ -89,7 +89,7 @@ export function ManufacturersTab() {
           <p className="text-sub text-muted-foreground">メーカー名の表記ゆれを1つにまとめます</p>
           <div className="flex-1" />
           <Button onClick={crud.openAdd}>
-            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />メーカーを足す
+            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />メーカーを追加
           </Button>
         </div>
 
@@ -140,18 +140,18 @@ export function ManufacturersTab() {
       <FormDialog
         open={crud.dialogOpen}
         onOpenChange={crud.setDialogOpen}
-        title={crud.isEditing ? 'メーカーを直す' : 'メーカーを足す'}
+        title={crud.isEditing ? 'メーカーを編集' : 'メーカーを追加'}
         // 入力7個・電話/メール・表示順/備考の2列グリッドを2つ持つので `lg`(840px)
         size="lg"
         footer={
           <FormDialogFooter>
-            <Button variant="outline" onClick={crud.closeDialog}>やめる</Button>
+            <Button variant="outline" onClick={crud.closeDialog}>キャンセル</Button>
             <Button
               onClick={() => crud.save.mutate({ ...form, sort_order: Number(form.sort_order) || 0 })}
               disabled={crud.save.isPending || !form.name.trim()}
             >
               {crud.save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-              {crud.isEditing ? '直す' : '足す'}
+              {crud.isEditing ? '編集' : '追加'}
             </Button>
           </FormDialogFooter>
         }

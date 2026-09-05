@@ -4,16 +4,16 @@
  *
  * ── 何を直せるか ────────────────────────────────────────
  *
- * タイトル・利用日（収録日）・放送日・1日あたりの本数・フェーズ。
+ * タイトル・利用日（収録日）・放送日・1日あたりの本数・ステージ。
  *
  * 本数は仕様変更 #16（migration 269）で回ごとに持つようにしたもの。
  * **利用日・放送日・タイトルは 9/2 の仕様変更（調査項目 S5）で足した** —
  * サーバーの `PUT /projects/:id/episodes/:id` は前からこの3つを部分更新できたのに
  * **呼ぶ画面がどこにも無く**、いったん作った回の日付を後から直せなかった
  * （「話数で指定」で作った回は日付を持たないまま残る）。
- * **フェーズ（`stage`）は 2026-09 の依頼で足した**（migration 274）——
+ * **ステージ（`stage`）は 2026-09 の依頼で足した**（migration 274）——
  * 回があるものは、各回（ひとまとまり）ごとに案件と同じ受注ステージの語彙で
- * フェーズを設定できるようにする、という依頼。
+ * ステージを設定できるようにする、という依頼。
  *
  * ⚠️ 「回の単価」（`episode_unit_price`）は同じ依頼で廃止した——1日で複数本撮ると
  * 回あたりの単価が下がるため固定値は成立せず、この画面からは欄ごと削除した。
@@ -28,7 +28,7 @@
  * ── 空欄で保存 = 「決めていない」に戻す（0本と混同しない） ──────────
  *
  * 本数の欄を空欄のまま保存すると `null` を送る（NULL＝決めていない。
- * `RegularSeriesFields.tsx` が案件側で守っていたのと同じ規則）。フェーズは
+ * `RegularSeriesFields.tsx` が案件側で守っていたのと同じ規則）。ステージは
  * 「未設定」を選ぶと同じく `null` を送る。
  * ⚠️ **送らない項目はサーバーが今の値を保つ**（部分更新の原則）。ここでは
  * 状態（`status`）・備考（`notes`）を持たないので、**送らない**
@@ -96,11 +96,11 @@ export function EditEpisodeDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={`#${episode.episode_number} ${episode.title || episode.episode_code} を直す`}
-      sub="利用日・放送日・タイトルと、この回で実際に撮った本数・フェーズを入れます。空欄／未設定にすると「決めていない」に戻ります。"
+      title={`#${episode.episode_number} ${episode.title || episode.episode_code} を編集`}
+      sub="利用日・放送日・タイトルと、この回で実際に撮った本数・ステージを入れます。空欄／未設定にすると「決めていない」に戻ります。"
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
           <Button onClick={() => save.mutate()} disabled={save.isPending}>保存する</Button>
         </FormDialogFooter>
       }
@@ -147,7 +147,7 @@ export function EditEpisodeDialog({
             />
           </div>
           <div>
-            <Label htmlFor="ep-edit-stage">フェーズ</Label>
+            <Label htmlFor="ep-edit-stage">ステージ</Label>
             <Select value={stage} onValueChange={setStage}>
               {/* Radix の SelectTrigger は button — htmlFor/id を結ぶとラベルのタップで開く */}
               <SelectTrigger id="ep-edit-stage" className="mt-1"><SelectValue /></SelectTrigger>

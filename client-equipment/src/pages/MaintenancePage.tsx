@@ -72,7 +72,7 @@ export default function MaintenancePage() {
       invalidate();
       setDialogOpen(false);
       setSaveError(null);
-      notifySuccess('メンテナンスの記録を足しました');
+      notifySuccess('メンテナンスの記録を追加しました');
     },
     onError: (err: unknown) => {
       const e = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
@@ -101,7 +101,7 @@ export default function MaintenancePage() {
         sub="故障・点検・修理の記録です。報告済 → 対応中 → 完了 で進みます"
         primaryAction={
           <Button onClick={() => { setSaveError(null); setDialogOpen(true); }}>
-            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />記録を足す
+            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />記録を追加
           </Button>
         }
       />
@@ -124,7 +124,7 @@ export default function MaintenancePage() {
       ) : records.length === 0 ? (
         <EmptyState
           title={status ? 'この状態の記録はありません' : 'メンテナンスの記録がまだ1件もありません'}
-          description="故障・点検・修理が出たら「記録を足す」から入れます。稼働停止中の台数はダッシュボードに出ます。"
+          description="故障・点検・修理が出たら「記録を追加」から入れます。稼働停止中の台数はダッシュボードに出ます。"
         />
       ) : isMobile ? (
         // **PC の行を縮めたものではない。** 業者名・報告日を畳まず出し、

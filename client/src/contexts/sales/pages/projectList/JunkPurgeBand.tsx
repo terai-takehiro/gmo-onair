@@ -163,7 +163,7 @@ export function JunkPurgeBand() {
         <p className="text-note mt-1 text-muted-foreground">
           あわせて、これらの案件にぶら下がった<b>請求前の見込み売上 {d.unbilledRevenues} 件</b>も落とします
           （売上台帳と集計から消えます。こちらも戻せます）。
-          費用を分け合うグループで他の案件にも配っている売上は、落としません。
+          按分グループで他の案件にも配っている売上は、落としません。
         </p>
       )}
 

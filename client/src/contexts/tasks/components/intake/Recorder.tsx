@@ -236,7 +236,7 @@ export function Recorder({
             <Mic className="h-4 w-4" aria-hidden="true" />録音を開始
           </Button>
           <Button type="button" variant="outline" size="sm" className="h-10" onClick={onCancel}>
-            やめる
+            キャンセル
           </Button>
         </div>
       </div>
@@ -261,7 +261,7 @@ export function Recorder({
         )}
         <div className="flex-1" />
         <Button type="button" variant="outline" size="sm" className="h-9" onClick={() => stop(false)}>
-          やめる
+          キャンセル
         </Button>
         <Button type="button" size="sm" className="h-9 gap-1.5" onClick={() => stop(true)}>
           <Square className="h-3.5 w-3.5" aria-hidden="true" />停止して読み取る

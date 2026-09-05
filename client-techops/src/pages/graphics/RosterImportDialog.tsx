@@ -131,7 +131,7 @@ export default function RosterImportDialog({
       setDryRunResult(r);
       setPhase('dryrun');
     } catch {
-      notifyError('確認に失敗しました');
+      notifyError('中身を確かめられませんでした。', { description: '少し待ってから、もう一度お試しください。' });
     } finally {
       setCreating(false);
     }
@@ -148,7 +148,7 @@ export default function RosterImportDialog({
       setPhase('done');
       if (r.createdCount > 0) onImported();
     } catch {
-      notifyError('一括作成に失敗しました');
+      notifyError('まとめて作れませんでした。', { description: '少し待ってから、もう一度お試しください。' });
       setPhase('dryrun');
     } finally {
       setCreating(false);

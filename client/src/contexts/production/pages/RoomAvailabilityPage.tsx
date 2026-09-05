@@ -24,8 +24,8 @@
  *
  * ① 予定と同じく、ミニカレンダーを共通の左メニューへ常設した
  * （`calendar/CalSidebarExtras.tsx` を `shared/.../shell/sideMenuSlot.ts` の
- * 差し込み口へ portal する）。**この画面はレイヤーという概念を持たない**ので
- * 「マイカレンダー」のチェックは出さず、代わりに「レイヤーの絞り込みは
+ * 差し込み口へ portal する）。**この画面は「出すもの」という概念を持たない**ので
+ * 「マイカレンダー」のチェックは出さず、代わりに「「出すもの」の絞り込みは
  * 持ちません」という説明文を出す（`emptyNote`）。ツールバーは
  * 今日／前後（日単位）／日付の見出し／拠点の絞り込み だけの1段
  * （`rooms/RoomAvailabilityToolbar.tsx`）。
@@ -197,15 +197,15 @@ export default function RoomAvailabilityPage() {
     onSuccess: () => {
       invalidateBookingQueries(qc);
       setDetailId(null);
-      notifySuccess('予約を消しました');
+      notifySuccess('予約を削除しました');
     },
     onError: (e) => notifyApiError('消せませんでした', e),
   });
 
   const askDelete = (id: string) => confirmAction({
-    title: 'この予約を消しますか',
+    title: 'この予約を削除しますか',
     description: '押さえていた部屋が空きになります。取り消せません。',
-    confirmLabel: '消す', tone: 'danger',
+    confirmLabel: '削除', tone: 'danger',
   }).then((ok) => ok && del.mutate(id));
 
   return (
@@ -214,7 +214,7 @@ export default function RoomAvailabilityPage() {
         <CalSidebarExtras
           miniAnchor={miniAnchor} onMiniAnchor={setMiniAnchor}
           today={today} selected={day} onPick={pickDay}
-          emptyNote="この画面は部屋の空きだけを見るので、レイヤー（スタジオ/パートナー/自分）の絞り込みは持ちません。"
+          emptyNote="この画面は部屋の空きだけを見るので、「出すもの」（スタジオ/パートナー/自分）の絞り込みは持ちません。"
         />,
         sideMenuTopSlot,
       )}

@@ -95,8 +95,8 @@ export function TaskRow({
             <button
               type="button"
               onClick={() => onEdit(task)}
-              aria-label={`${task.title} を直す`}
-              title="タスクを直す"
+              aria-label={`${task.title} を編集`}
+              title="タスクを編集"
               className="rounded-control-md min-h-tap flex w-9 items-center justify-center text-muted-foreground hover:bg-muted lg:min-h-[32px]"
             >
               <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
@@ -104,8 +104,8 @@ export function TaskRow({
             <button
               type="button"
               onClick={() => onDelete(task)}
-              aria-label={`${task.title} を消す`}
-              title="タスクを消す"
+              aria-label={`${task.title} を削除`}
+              title="タスクを削除"
               className="rounded-control-md min-h-tap flex w-9 items-center justify-center text-muted-foreground hover:bg-muted lg:min-h-[32px]"
             >
               <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -177,7 +177,7 @@ export function TaskCard({
             <button
               type="button"
               onClick={() => onEdit(task)}
-              aria-label={`${task.title} を直す`}
+              aria-label={`${task.title} を編集`}
               className={iconBtn}
             >
               <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
@@ -185,7 +185,7 @@ export function TaskCard({
             <button
               type="button"
               onClick={() => onDelete(task)}
-              aria-label={`${task.title} を消す`}
+              aria-label={`${task.title} を削除`}
               className={iconBtn}
             >
               <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -240,7 +240,7 @@ export function TaskGroup({
             onClick={onAdd}
             className="text-sub min-h-tap inline-flex items-center gap-1 text-primary hover:underline lg:min-h-[32px]"
           >
-            <Plus className="h-3.5 w-3.5" aria-hidden="true" />タスクを足す
+            <Plus className="h-3.5 w-3.5" aria-hidden="true" />タスクを追加
           </button>
         )}
       </div>

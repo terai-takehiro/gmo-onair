@@ -153,8 +153,8 @@ export function CompanyFormFields({ form, editing, open, canEditVendor }: {
           <span>
             <span className="block">GMOインターネットグループのグループ会社</span>
             <span className="text-note block text-muted-foreground">
-              この取引先の案件は<strong className="font-bold">グループ内</strong>になり、
-              見積の単価がグループ内価格になります（リード経路も「グループ案件」に固定）
+              この取引先の案件は<strong className="font-bold">グループ会社</strong>あつかいになり、
+              見積の単価がグループ会社価格になります（「どこから来た話か」も「グループ案件」に固定）
             </span>
           </span>
         </label>
@@ -183,7 +183,7 @@ export function CompanyFormFields({ form, editing, open, canEditVendor }: {
             // **ここに来るのは基本的に無い**（一覧側が編集ボタンごと止める）が、
             // 万一開けても直せないことを言い切る（押しても 403 になるだけ、を防ぐ）
             <p className="text-note text-muted-foreground">
-              仕入先の項目を直すには財務管理の編集権限が必要です。この画面からは変更できません。
+              仕入先の項目を編集するには財務管理の「書ける」が必要です。この画面からは変更できません。
             </p>
           )}
         </div>

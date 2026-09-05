@@ -1,14 +1,17 @@
 /**
- * フェーズごとの受注確度 — お金のルール ⑤ の下（値引きの上限のすぐ下）
+ * ステージごとの受注確度 — お金のルール ⑤ の下（値引きの上限のすぐ下）
+ *
+ * **画面の言い方は「ステージ」で統一**（案件詳細・案件一覧・案件台帳と同じ語。
+ * ここだけ「フェーズ」と書いていて、同じものだと分からなかった）。
  *
  * ── 何に効くか ────────────────────────────────────────────
  *
- * ここで決めた確度は、財務ダッシュボードの「営業見通し（パイプライン）」の
- * **確度加味見込み**（各案件の見込み金額 × 自分が今いるフェーズの確度、を
+ * ここで決めた確度は、財務ダッシュボードの「営業見通し」の
+ * **確度加味見込み**（各案件の見込み金額 × 自分が今いるステージの確度、を
  * 積み上げた額）に使われる。現場の肌感と数字がずれたまま放っておくと
  * 見通しそのものが信用されなくなるので、決め打ちにせずここで直せるようにする。
  *
- * ── 5フェーズしか出さない ──────────────────────────────────
+ * ── 5ステージしか出さない ──────────────────────────────────
  *
  * サーバーは8ステージぶんの確度を持つが、`r_delivered`（実施済）・
  * `s_completed`（完了）・`e_lost`（失注）は受注確定後・失注が確定した後の
@@ -27,7 +30,7 @@ import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/noti
 import { ProjectStageLabels, type ProjectStage } from '@/types/stages';
 import type { StageProbabilityRow } from './rules';
 
-// 業務上ユーザーが調整する対象になる5フェーズだけ・この並び順で出す。
+// 業務上ユーザーが調整する対象になる5ステージだけ・この並び順で出す。
 // r_delivered・s_completed・e_lost は固定値なので出さない（ファイル冒頭の説明）
 const EDITABLE_STAGES: ProjectStage[] = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won'];
 
@@ -61,14 +64,14 @@ export function StageProbabilities({ rows, canEdit }: { rows: StageProbabilityRo
         <span className="rounded-note inline-flex h-7 w-7 shrink-0 items-center justify-center bg-primary-surface">
           <TrendingUp className="h-4 w-4 text-primary" aria-hidden="true" />
         </span>
-        <span className="text-cardtitle shrink-0">フェーズごとの受注確度</span>
+        <span className="text-cardtitle shrink-0">ステージごとの受注確度</span>
         <span className="text-note min-w-0 flex-1 truncate text-muted-foreground">
-          財務ダッシュボードの営業見通し（パイプライン）の見込み額に使われます
+          財務ダッシュボードの「営業見通し」の見込み額に使われます
         </span>
       </div>
 
       <RowHeader className="hidden sm:flex">
-        <RowMain>フェーズ</RowMain>
+        <RowMain>ステージ</RowMain>
         <RowSlot w={96} align="right">受注確度</RowSlot>
         {canEdit && <RowSlot w={72} align="right"> </RowSlot>}
       </RowHeader>
@@ -92,7 +95,7 @@ export function StageProbabilities({ rows, canEdit }: { rows: StageProbabilityRo
                     variant="outline" size="sm" disabled={!row}
                     onClick={() => row && open(stage, row.probability)}
                   >
-                    直す
+                    編集
                   </Button>
                 </RowSlot>
               )}
@@ -108,10 +111,10 @@ export function StageProbabilities({ rows, canEdit }: { rows: StageProbabilityRo
                   />
                 </label>
                 <div className="ml-auto flex gap-2">
-                  <Button variant="outline" onClick={() => setEditing(null)}>やめる</Button>
+                  <Button variant="outline" onClick={() => setEditing(null)}>キャンセル</Button>
                   <Button disabled={save.isPending} onClick={() => save.mutate(stage)}>
                     {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
-                    保存する
+                    保存
                   </Button>
                 </div>
                 <p className="text-note w-full text-muted-foreground">

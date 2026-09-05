@@ -30,9 +30,9 @@ export interface InquiryListParams {
   importance?: Importance;
   /** 1つの行き先だけ */
   state?: InquiryState;
-  /** 複数の行き先をまとめて（「仕分け済み」タブ = チケット / 案件にした / 見送り） */
+  /** 複数の行き先をまとめて（「仕分け済み」タブ = タスク / 案件 / 見送り） */
   states?: InquiryState[];
-  /** 「今日さばくもの」= 未仕分け ＋ 見直しの日が来たストック */
+  /** 「今日さばくもの」= 未仕分け ＋ 見直しの日が来た「あとで見る」 */
   desk?: boolean;
   tag?: string | null;
   /** **必ず上限を付ける**（サーバー既定 50・最大 200） */
@@ -68,15 +68,15 @@ export function useInquiries(params: InquiryListParams = {}) {
 /**
  * タブに出す件数。**サーバーが COUNT で数えたものを使う。**
  *
- * `desk` は「今日さばくもの」（未仕分け ＋ 見直しの日が来たストック）で、
+ * `desk` は「今日さばくもの」（未仕分け ＋ 見直しの日が来た「あとで見る」）で、
  * ホームのタイル（`GET /dailyops/alerts`）と同じ数になる。
  */
 export interface InquiryStateCounts {
   unsorted: number;
   stock: number;
-  /** ストックのうち見直しの日が来たもの（`stock` の一部） */
+  /** 「あとで見る」のうち見直しの日が来たもの（`stock` の一部） */
   stock_due: number;
-  /** チケット ＋ 案件にした ＋ 見送り */
+  /** タスク ＋ 案件 ＋ 見送り */
   sorted: number;
   ticket: number;
   project: number;
@@ -133,12 +133,12 @@ export function useUpdateInquiry() {
   return useMutation({ mutationFn: ({ id, fields }: { id: string; fields: InquiryInput }) => api.put(`/dailyops/inquiries/${id}`, fields).then((r) => r.data.data as MiscInquiry), onSuccess: inv });
 }
 /**
- * 行き先を動かす（ストック / 見送り / 未仕分けに戻す）。
+ * 行き先を動かす（あとで見る / 見送り / 未仕分けに戻す）。
  *
- * **チケットと案件はここでは指定できません** — 実体（タスク・案件）を
+ * **タスクと案件はここでは指定できません** — 実体（タスク・案件）を
  * 作ったときだけ入る値なので、サーバーが弾きます。
  *
- * ストックにするときは **見直す日**（`stock_review_on`）を一緒に送ります
+ * 「あとで見る」にするときは **見直す日**（`stock_review_on`）を一緒に送ります
  * （migration 247）。送らなくても保存は通りますが、その行は
  * 「見直す日が決まっていない」ものとして翌日から机に出ます。
  */
@@ -156,7 +156,7 @@ export function useMoveInquiry() {
 
 export interface TicketInput { title: string; assigned_to?: string; due_at?: string | null; description?: string | null }
 
-/** チケットにする = 案件管理のタスクを1本作る。**2回押しても増えない** */
+/** タスクにする = 案件管理のタスクを1本作る。**2回押しても増えない** */
 export function useMakeTicket() {
   const inv = useInvalidateInq();
   return useMutation({
@@ -180,8 +180,8 @@ export function useDeleteInquiry() {
  * ・「未処理」の定義が画面とサーバーの2か所にあり、片方だけ変えると食い違う
  * という2つの問題があった。数えるのは1か所にする。
  *
- * `unhandledInquiries` は **未仕分け ＋ 見直しの日が来たストック**（migration 247）。
- * 未仕分けだけにすると、ストックの見直しは画面を開いた人しか気づけない。
+ * `unhandledInquiries` は **未仕分け ＋ 見直しの日が来た「あとで見る」**（migration 247）。
+ * 未仕分けだけにすると、「あとで見る」の見直しは画面を開いた人しか気づけない。
  *
  * 問い合わせを変えると `dailyops-alerts` は無効化される (`useInvalidateInq`)。
  * 書類は財務管理の画面が持つ（このアプリからは変えない）。

@@ -93,7 +93,7 @@ export function MobileEditProject({
           >
             <ArrowLeft className="h-4 w-4 text-secondary-foreground" aria-hidden="true" />
           </button>
-          <h1 className="text-h1 min-w-0 flex-1 truncate">案件を直す</h1>
+          <h1 className="text-h1 min-w-0 flex-1 truncate">案件を編集</h1>
           <button
             type="button"
             onClick={() => setMenuOpen(true)}
@@ -143,7 +143,7 @@ export function MobileEditProject({
                 {moreFieldCount(fields.v.audience, 'edit')}
               </span>
               <span className="flex-1" />
-              <span className="text-note text-muted-foreground">あとから足せます</span>
+              <span className="text-note text-muted-foreground">あとから追加できます</span>
             </button>
 
             {more && (
@@ -194,7 +194,7 @@ export function MobileEditProject({
           style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
         >
           <Button type="button" variant="outline" className="flex-1" onClick={() => navigate(backTo)}>
-            やめる
+            キャンセル
           </Button>
           <Button type="submit" className="flex-1" disabled={saveMutation.isPending || missing.length > 0}>
             {saveMutation.isPending

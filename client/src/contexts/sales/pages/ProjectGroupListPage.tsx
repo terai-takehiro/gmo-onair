@@ -37,19 +37,19 @@ export default function ProjectGroupListPage() {
   return (
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
       <PageHeader
-        title="費用を分け合うグループ"
-        sub="複数の案件にまたがる仕入・売上を、案件ごとに金額を分けて記録します"
+        title="按分グループ"
+        sub="複数案件にまたがる費用・売上を案件ごとに分ける"
         primaryAction={
           canEdit ? (
             <Button onClick={() => setDialogOpen(true)}>
-              <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />新規グループ
+              <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />按分グループを追加
             </Button>
           ) : undefined
         }
       />
 
       {query.isError ? (
-        <ErrorPanel title="費用を分け合うグループを読み込めませんでした" error={query.error} onRetry={() => query.refetch()} />
+        <ErrorPanel title="按分グループを読み込めませんでした" error={query.error} onRetry={() => query.refetch()} />
       ) : query.isLoading ? (
         <Delayed>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -58,8 +58,13 @@ export default function ProjectGroupListPage() {
         </Delayed>
       ) : groups.length === 0 ? (
         <EmptyState
-          title="費用を分け合うグループがありません"
-          description="複数案件で費用や売上を共有するとき、グループを作成すると案件ごとに自動で金額を分けて記録します。"
+          title="まだ按分グループがありません"
+          description="複数案件にまたがる費用・売上をまとめると、案件ごとに自動で金額を分けて記録できます。"
+          action={canEdit ? (
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />按分グループを追加
+            </Button>
+          ) : undefined}
         />
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

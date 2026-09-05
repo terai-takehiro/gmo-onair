@@ -46,7 +46,7 @@ export function TargetDialog({
       notifySuccess('営業目標を保存しました');
       onClose();
     },
-    onError: (err) => notifyApiError('営業目標の保存に失敗しました', err),
+    onError: (err) => notifyApiError('営業目標を保存できませんでした', err, '入力内容を確かめて、もう一度お試しください。'),
   });
 
   return (

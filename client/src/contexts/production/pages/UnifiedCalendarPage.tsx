@@ -224,7 +224,7 @@ function DesktopCalendar() {
     return `${anchor.slice(0, 4)}年${Number(anchor.slice(5, 7))}月`;
   }, [view, anchor, selected]);
 
-  /** レイヤーのチェックは、その層を読む権限がある人にだけ出す（押しても効かない項目を並べない） */
+  /** 「出すもの」のチェックは、その層を読む権限がある人にだけ出す（押しても効かない項目を並べない） */
   const layerVisible: Record<CalLayer, boolean> = {
     studio: cal.can.studio, partner: cal.can.partner, my: cal.can.personal, tasks: cal.can.tasks,
   };
@@ -366,16 +366,16 @@ function DesktopCalendar() {
         presetRange={editEvent ? null : edit.personalPreset}
       />
 
-      {/* 旧スタジオカレンダーの退役に伴い、ここが「既存の部屋予約を直す唯一の導線」になった（以前は読むだけ） */}
+      {/* 旧スタジオカレンダーの退役に伴い、ここが「既存の部屋予約を編集する唯一の導線」になった（以前は読むだけ） */}
       <StudioBookingDetailDialog
         open={!!detail}
         onOpenChange={(v) => !v && setDetail(null)}
         booking={detail as never}
         onEdit={(b) => { setDetail(null); setEditBooking(b as never); }}
         onDelete={(id) => confirmAction({
-          title: 'この予約を消しますか',
+          title: 'この予約を削除しますか',
           description: '押さえていた部屋が空きになります。取り消せません。',
-          confirmLabel: '消す', tone: 'danger',
+          confirmLabel: '削除', tone: 'danger',
         }).then((ok) => ok && edit.del.mutate(id))}
         canEdit={canStudioEdit}
         canDelete={canDeleteBooking}

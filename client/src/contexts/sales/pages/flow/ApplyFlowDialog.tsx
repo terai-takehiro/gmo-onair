@@ -123,7 +123,7 @@ export function ApplyFlowDialog({
       qc.invalidateQueries({ queryKey: ['task-dashboard'] });
       qc.invalidateQueries({ queryKey: ['project', projectId] });
       onOpenChange(false);
-      notifySuccess(`${chosen.length} 件の工程を入れました`, {
+      notifySuccess(`${chosen.length} 件の作業を入れました`, {
         description: noDue > 0
           ? `うち ${noDue} 件は実施日が決まっていないので期限なしです。実施日を入れたあとタスクタブで入れてください。`
           : 'タスクタブから担当と期限を直せます。',
@@ -136,7 +136,7 @@ export function ApplyFlowDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="標準の工程を入れる"
+      title="工程の型を入れる"
       // **旧幅は sm:max-w-[720px] で既定の640pxを超えていた。**
       // 工程一覧の表・役割バッジが横に並ぶ複合ダイアログなので `wide` を渡す
       wide
@@ -147,7 +147,7 @@ export function ApplyFlowDialog({
             {noDue > 0 && <>（うち <span className="font-number">{noDue}</span> 件は期限なし）</>}。
             <strong className="font-bold">入れられるのは一度だけ</strong>です。
           </p>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
           <Button disabled={!picked || chosen.length === 0 || apply.isPending} onClick={() => apply.mutate()}>
             {apply.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
             入れる
@@ -157,9 +157,9 @@ export function ApplyFlowDialog({
     >
       <div className="flex flex-col gap-4">
         <p className="text-sub text-muted-foreground">
-          入る工程を確かめて、要らないもののチェックを外してください。
+          入る作業を確かめて、要らないもののチェックを外してください。
           型が持っているのは<strong className="font-bold">職種</strong>で、誰がやるかは案件ごとに
-          決まります — 下の「役割ごとの担当者」で選べば、その役割の工程に担当が入ります
+          決まります — 下の「役割ごとの担当者」で選べば、その役割の作業に担当が入ります
           （<strong className="font-bold">選ばなければ未割当のまま</strong>）。
         </p>
 
@@ -169,7 +169,7 @@ export function ApplyFlowDialog({
         {tpls.data && tpls.data.length === 0 && (
           <EmptyState
             title="使える工程の型がありません"
-            description="設定 → 標準工程テンプレートで作ってから、もう一度お試しください。"
+            description="設定 → 工程の型 で作ってから、もう一度お試しください。"
           />
         )}
 
@@ -195,7 +195,7 @@ export function ApplyFlowDialog({
 
         {picked && (
           <div className="rounded-card border border-border">
-            {rows.isError && <ErrorPanel title="工程を読み込めませんでした" error={rows.error} onRetry={() => rows.refetch()} />}
+            {rows.isError && <ErrorPanel title="作業を読み込めませんでした" error={rows.error} onRetry={() => rows.refetch()} />}
             {rows.isLoading && <div className="p-3"><Delayed><SkeletonRows rows={8} /></Delayed></div>}
             {rows.data?.map((r) => {
               const on = r.is_required || !off.has(r.id);
@@ -254,7 +254,7 @@ export function ApplyFlowDialog({
           <div className="rounded-card border border-border p-3.5">
             <p className="text-th text-muted-foreground">役割ごとの担当者（選ばなくても入れられます）</p>
             <p className="text-note mt-0.5 text-muted-foreground">
-              選んだ役割の工程にだけ担当が入ります。あとからタスクタブでも直せます。
+              選んだ役割の作業にだけ担当が入ります。あとからタスクタブでも直せます。
             </p>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               {roles.map((role) => (
@@ -286,7 +286,7 @@ export function ApplyFlowDialog({
         {!eventDate && (
           <p className="rounded-note text-note border border-warning-border bg-warning-surface px-3.5 py-2.5 text-secondary-foreground">
             この案件は<strong className="font-bold">実施日が決まっていません</strong>。
-            実施日から逆算する工程は<strong className="font-bold">期限なし</strong>で入ります
+            実施日から逆算する作業は<strong className="font-bold">期限なし</strong>で入ります
             （推測の日付は作りません）。
           </p>
         )}

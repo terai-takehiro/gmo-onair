@@ -338,7 +338,7 @@ export function EstimateItems({
                 <div className="flex flex-wrap gap-2 px-4 py-2">
                   <Button variant="outline" size="sm" onClick={() => setItems((prev) => [...prev,
                     { description: '', quantity: 1, unit: null, unit_price: 0, amount: 0, cost: 0, category: c.key }])}>
-                    <Plus className="mr-1 h-3.5 w-3.5" aria-hidden="true" />{c.label}に行を足す
+                    <Plus className="mr-1 h-3.5 w-3.5" aria-hidden="true" />{c.label}に行を追加
                   </Button>
                   {estimate.project_id && (
                     <Button variant="outline" size="sm" onClick={() => setPickerCategory(c.key)}>

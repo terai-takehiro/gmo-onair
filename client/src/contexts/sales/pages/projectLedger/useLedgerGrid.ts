@@ -248,7 +248,7 @@ export function useLedgerGrid({
       setPlan(null);
       setEditing(null);
       onDone();
-      notifySuccess(`${res.rows} 件（${res.cells} か所）を直しました`);
+      notifySuccess(`${res.rows} 件（${res.cells} か所）を更新しました`);
     },
     onError: (e) => notifyApiError('直せませんでした', e),
   });

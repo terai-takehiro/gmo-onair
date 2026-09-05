@@ -215,7 +215,7 @@ export function ThreadCard({ a, today, canEdit, onRedo, redoing }: {
         </div>
         {aiFormatted && (
           <span className="text-badge inline-flex shrink-0 items-center gap-1 rounded-badge bg-ai-surface px-1.5 py-0.5 font-bold text-ai">
-            <Sparkles className="h-3 w-3" aria-hidden="true" />AI 整形
+            <Sparkles className="h-3 w-3" aria-hidden="true" />AI が整えました
           </span>
         )}
       </div>
@@ -278,7 +278,7 @@ export function ThreadCard({ a, today, canEdit, onRedo, redoing }: {
 
       {waitingRedo && (
         <p className="text-sub mt-3 text-muted-foreground">
-          整え直しの順番に入っています（毎晩 3:00 に自動で整えます）。それまでは打った文のまま出ます。
+          AI が整える順番に入っています（毎晩 3:00 に自動で整えます）。それまでは打った文のまま出ます。
         </p>
       )}
 

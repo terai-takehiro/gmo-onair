@@ -125,7 +125,7 @@ export default function GpmDashboardPage() {
             <div className="space-y-3.5 lg:col-span-2">
               <Panel
                 title="止まっているプロジェクト"
-                note="工程が進められない理由がついているもの"
+                note="返事待ち・判断待ちで止まっているもの"
                 icon={<AlertTriangle className="h-4 w-4" aria-hidden="true" />}
                 tone="alert"
                 to="/gpm/tasks"
@@ -133,7 +133,7 @@ export default function GpmDashboardPage() {
               >
                 {stuck.length === 0 ? (
                   <p className="text-sub text-muted-foreground">
-                    止まっているものはありません（「何が止まっているか」が書かれた未確認事項が無い状態です）。
+                    止まっているものはありません。返事待ち・判断待ちが出たら、プロジェクトの「持ち帰り」から登録してください。
                   </p>
                 ) : isMobile ? (
                   <ul className="v4-card-in flex flex-col gap-2">
@@ -211,7 +211,7 @@ export default function GpmDashboardPage() {
             </div>
 
             <Panel
-              title="未確認事項"
+              title="持ち帰り"
               note={`${openAsks.length}件`}
               icon={<CircleHelp className="h-4 w-4 text-destructive" aria-hidden="true" />}
               to="/gpm/tasks"

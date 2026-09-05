@@ -44,7 +44,7 @@ export function useNextActionActions(extraInvalidateKeys: unknown[][] = []) {
       invalidate();
       notifySuccess(p.action === 'complete' ? '次回アクションを完了にしました' : '期限を延ばしました');
     },
-    onError: (err) => notifyApiError('次回アクションの更新に失敗しました', err),
+    onError: (err) => notifyApiError('次にやることを更新できませんでした', err, '時間をおいて、もう一度お試しください。'),
   });
 
   return {

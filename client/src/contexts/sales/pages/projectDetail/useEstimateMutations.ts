@@ -50,7 +50,7 @@ export function useEstimateMutations({
   const setStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: Status }) => api.put(`${base}/${id}`, { status }),
     onSuccess: () => { invalidate(); qc.invalidateQueries({ queryKey: ['estimate', openId] }); },
-    onError: (e) => notifyApiError('状態を変えられませんでした', e),
+    onError: (e) => notifyApiError('状態を変更できませんでした', e),
   });
 
   const saveItems = useMutation({
@@ -72,8 +72,8 @@ export function useEstimateMutations({
 
   const remove = useMutation({
     mutationFn: (id: string) => api.delete(`${base}/${id}`),
-    onSuccess: () => { invalidate(); setOpenId(null); notifySuccess('見積を消しました'); },
-    onError: (e) => notifyApiError('見積を消せませんでした', e),
+    onSuccess: () => { invalidate(); setOpenId(null); notifySuccess('見積を削除しました'); },
+    onError: (e) => notifyApiError('見積を削除できませんでした', e),
   });
 
   /** 一覧から隠すだけ。`status` は変えない（消すのとは別。migration 236） */
@@ -81,18 +81,18 @@ export function useEstimateMutations({
     mutationFn: (id: string) => api.post(`${base}/${id}/archive`),
     onSuccess: () => {
       invalidate(); qc.invalidateQueries({ queryKey: ['estimate', openId] });
-      notifySuccess('アーカイブしました（一覧から隠しただけです。消えていません）');
+      notifySuccess('一覧から隠しました（削除はしていません）');
     },
-    onError: (e) => notifyApiError('アーカイブできませんでした', e),
+    onError: (e) => notifyApiError('見積を一覧から隠せませんでした', e, '時間をおいて、もう一度お試しください。'),
   });
 
   const unarchive = useMutation({
     mutationFn: (id: string) => api.post(`${base}/${id}/unarchive`),
     onSuccess: () => {
       invalidate(); qc.invalidateQueries({ queryKey: ['estimate', openId] });
-      notifySuccess('アーカイブを解除しました');
+      notifySuccess('一覧に戻しました');
     },
-    onError: (e) => notifyApiError('アーカイブを解除できませんでした', e),
+    onError: (e) => notifyApiError('見積を一覧に戻せませんでした', e, '時間をおいて、もう一度お試しください。'),
   });
 
   /**
@@ -116,8 +116,8 @@ export function useEstimateMutations({
 
   /**
    * `convertToRevenue` の取り消し（9/4 ご依頼）。①誤って売上に登録してしまった
-   * ものを見積もりに戻す ②見積を更新して売上を登録し直すため、いまの売上を
-   * いったん見積もりに戻す ── どちらもこの1つの操作。
+   * ものを見積に戻す ②見積を更新して売上を登録し直すため、いまの売上を
+   * いったん見積に戻す ── どちらもこの1つの操作。
    *
    * ⚠️ **`convertToRevenue` と同じ4つの鍵を必ず一緒に落とす。** 片方だけだと
    * 「取り消したのに売上一覧にまだ残っている」ように見える
@@ -130,7 +130,7 @@ export function useEstimateMutations({
       qc.invalidateQueries({ queryKey: ['revenues'] });
       qc.invalidateQueries({ queryKey: ['revenues-all'] });
       qc.invalidateQueries({ queryKey: ['billing'] });
-      notifySuccess('売上・請求への登録を取り消し、見積もりに戻しました');
+      notifySuccess('売上・請求への登録を取り消し、見積に戻しました');
     },
     onError: (e) => notifyApiError('取り消せませんでした', e),
   });

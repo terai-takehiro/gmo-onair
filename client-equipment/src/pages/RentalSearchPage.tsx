@@ -97,7 +97,7 @@ export default function RentalSearchPage() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="品名・型番でさがす"
+            placeholder="商品名・型名で探す"
             className="h-9 rounded-control bg-muted/40 pl-8 text-sub"
           />
         </div>

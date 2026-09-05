@@ -26,7 +26,7 @@ export function SearchPageDesktop({
           autoFocus
           value={query}
           onChange={(e) => onType(e.target.value)}
-          placeholder="名前・機材ID・型名・置き場所"
+          placeholder="名前・機材ID・型名・保管場所"
           aria-label="探す言葉"
           className="h-10 pl-10"
         />
@@ -50,8 +50,8 @@ export function SearchPageDesktop({
         <>
           <StandbyRows rows={standbyRows} onGo={onGo} />
           <p className="text-note text-muted-foreground">
-            機材は<strong className="font-bold">名前・機材ID・型名・製造番号・メーカー・置き場所</strong>、
-            ケーブル・コネクタは<strong className="font-bold">名前・型名・長さ・色・置き場所</strong>から探します。
+            機材は<strong className="font-bold">名前・機材ID・型名・製造番号・メーカー・保管場所</strong>、
+            ケーブル・コネクタは<strong className="font-bold">名前・型名・長さ・色・保管場所</strong>から探します。
             全角半角・ハイフンは区別しません（<code className="font-number">EQ-0001</code> と
             <code className="font-number">eq0001</code> は同じ）。
             <strong className="font-bold">付属品も一緒に出ます。</strong>

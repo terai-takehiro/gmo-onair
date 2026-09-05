@@ -172,19 +172,19 @@ export function EquipmentTable(p: EquipmentTableProps) {
     >
       <span className="flex justify-end gap-0.5">
         {p.canEdit && (
-          <Button variant="ghost" size="icon-sm" aria-label={`${item.name} を写して足す`} onClick={() => p.onCopy(item)}>
+          <Button variant="ghost" size="icon-sm" aria-label={`${item.name} を写して追加`} onClick={() => p.onCopy(item)}>
             <Copy className="h-3.5 w-3.5" aria-hidden="true" />
           </Button>
         )}
         {p.canEdit && (
-          <Button variant="ghost" size="icon-sm" aria-label={`${item.name} を直す`} onClick={() => p.onEdit(item)}>
+          <Button variant="ghost" size="icon-sm" aria-label={`${item.name} を編集`} onClick={() => p.onEdit(item)}>
             <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
           </Button>
         )}
         {p.canDelete && (
           <Button
             variant="ghost" size="icon-sm" className="text-destructive"
-            aria-label={`${item.name} を消す`} onClick={() => p.onDelete(item, parentId)}
+            aria-label={`${item.name} を削除`} onClick={() => p.onDelete(item, parentId)}
           >
             <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
           </Button>

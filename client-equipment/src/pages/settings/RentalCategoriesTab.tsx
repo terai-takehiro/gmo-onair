@@ -78,7 +78,7 @@ export function RentalCategoriesTab() {
     const ok = await confirmAction({
       title: `カテゴリ「${cat.name}」を消しますか`,
       description: '割り当てている機材は消えません。カテゴリなしに戻り、貸出機材の一覧の末尾にまとまります。',
-      confirmLabel: '消す',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) remove.mutate(cat.id);
@@ -104,7 +104,7 @@ export function RentalCategoriesTab() {
             {create.isPending
               ? <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />
               : <Plus className="mr-1 h-4 w-4" aria-hidden="true" />}
-            足す
+            追加
           </Button>
         </div>
 
@@ -164,7 +164,7 @@ export function RentalCategoriesTab() {
                       >
                         <Check className="h-3.5 w-3.5" aria-hidden="true" />
                       </Button>
-                      <Button variant="ghost" size="icon-sm" aria-label="やめる" onClick={() => setEditingId(null)}>
+                      <Button variant="ghost" size="icon-sm" aria-label="キャンセル" onClick={() => setEditingId(null)}>
                         <X className="h-3.5 w-3.5" aria-hidden="true" />
                       </Button>
                     </span>
@@ -191,7 +191,7 @@ export function RentalCategoriesTab() {
         <p className="text-note text-secondary-foreground">
           カテゴリを消しても機材は消えず、カテゴリなしに戻ります。
           <strong className="font-bold">どの機材をどのカテゴリに入れるか</strong>は、
-          機材台帳の「貸出機材」タブで型番ごとにまとめて決めます。
+          機材台帳の「貸出機材」タブで型名ごとにまとめて決めます。
         </p>
       </div>
     </div>

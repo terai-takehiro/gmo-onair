@@ -1,5 +1,5 @@
 /**
- * 集計方法（総額 / 確度加味）切り替え — ① 財務ダッシュボード（2026-09 依頼）
+ * 集計方法（全部を100%で / 確度をかけて）切り替え — ① 財務ダッシュボード（2026-09 依頼）
  *
  * ── なぜ `PipelineForecast` の中から引き上げたか ──────────────────
  *
@@ -14,12 +14,17 @@
  * ⚠️ **集計対象は変えていない。** `forecastMode` を使うのは引き続き
  * `PipelineForecast`（営業見通しカード）だけ——損益フロー・内訳・サマリーは
  * 確定売上のみの実績を表示しており、確度という概念を持たない（スコープ外）。
+ * 共通の帯にあるのに1枚にしか効かないため、**トグルの横に「営業見通しにだけ
+ * 効きます」と書いて**誤読を止める（置き場所を戻すと元の指摘に戻るので動かさない）。
  */
 import { cn } from '@gmo-onair/shared/src/client/utils';
 
 export type ForecastMode = 'total' | 'weighted';
 
-export const FORECAST_MODE_LABEL: Record<ForecastMode, string> = { total: '総額', weighted: '確度加味' };
+export const FORECAST_MODE_LABEL: Record<ForecastMode, string> = {
+  total: '全部を100%で',
+  weighted: '確度をかけて',
+};
 
 export function ForecastModeToggle({
   mode, onChange,
@@ -30,7 +35,7 @@ export function ForecastModeToggle({
   return (
     <div
       role="group"
-      aria-label="集計方法"
+      aria-label="営業見通しの集計方法"
       className="rounded-control inline-flex shrink-0 overflow-hidden border border-border"
     >
       {(['total', 'weighted'] as const).map((m) => (

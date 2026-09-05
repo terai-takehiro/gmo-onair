@@ -76,7 +76,7 @@ export function classificationLabel(
 }
 
 /**
- * 「有観客 ・ 収録 の標準工程が立ちます」の1行。
+ * 「有観客 ・ 収録 の工程の型が入ります」の1行。
  * **2つ揃ったときだけ**出します（この組み合わせが型の決定キーそのもの）。
  */
 export function flowHint(
@@ -84,7 +84,7 @@ export function flowHint(
   category: string | null | undefined,
 ): string | null {
   const label = classificationLabel(audience, category);
-  return label ? `${label} の標準工程が立ちます` : null;
+  return label ? `${label} の工程の型が入ります` : null;
 }
 
 /** 来場人数を聞くか。**無観客のときは聞かない**（人が来ないので） */

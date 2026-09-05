@@ -1,7 +1,7 @@
 /**
  * ⑤ 棚卸し ／ 1回ぶんのチェックリスト (v4)
  *
- * 保管場所ごとにまとめて ✓ (あった) / × (無かった) を押します。
+ * 保管場所ごとにまとめて ✓ (確認できた) / ✗ (見つからない) を押します。
  * 押した瞬間に保存されます (「一時保存」は一覧に戻るだけ)。
  */
 import { useMemo, useState } from 'react';
@@ -87,7 +87,7 @@ function DesktopCheckDetail({ checkId, onBack, onDeleted }: {
         note: p.item.note,
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['inventory-check', checkId] }),
-    onError: (e) => notifyApiError('印を付けられませんでした', e),
+    onError: (e) => notifyApiError('確認を記録できませんでした', e),
   });
 
   const setStatus = useMutation({
@@ -101,7 +101,7 @@ function DesktopCheckDetail({ checkId, onBack, onDeleted }: {
     onSuccess: (res: { data?: { data?: { added?: number } } }) => {
       qc.invalidateQueries({ queryKey: ['inventory-check', checkId] });
       const added = res?.data?.data?.added ?? 0;
-      notifySuccess(added > 0 ? `${added} 件の機材をチェックリストに足しました` : '足す機材はありませんでした');
+      notifySuccess(added > 0 ? `${added} 件の機材をチェックリストに追加しました` : '取り込む機材はありませんでした');
     },
     onError: (e) => notifyApiError('機材を取り込めませんでした', e),
   });
@@ -139,7 +139,7 @@ function DesktopCheckDetail({ checkId, onBack, onDeleted }: {
     const ok = await confirmAction({
       title: `棚卸し「${detail.title}」を消しますか`,
       description: `付けた ${checked} 件ぶんの印もいっしょに消えます。取り消せません。`,
-      confirmLabel: '消す',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) remove.mutate();
@@ -160,12 +160,12 @@ function DesktopCheckDetail({ checkId, onBack, onDeleted }: {
               variant="outline"
               onClick={() => sync.mutate()}
               disabled={sync.isPending}
-              title="棚卸しを作ったあとに登録された機材をチェックリストに足します"
+              title="棚卸しを作ったあとに登録された機材をチェックリストに追加します"
             >
               {sync.isPending
                 ? <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />
                 : <RefreshCw className="mr-1 h-4 w-4" aria-hidden="true" />}
-              あとから足された機材を取り込む
+              機材を取り込む
             </Button>
           )}
           {detail.status === 'draft' && (
@@ -180,7 +180,7 @@ function DesktopCheckDetail({ checkId, onBack, onDeleted }: {
             </Button>
           )}
           <Button variant="outline" className="text-destructive" onClick={onDelete} disabled={remove.isPending}>
-            <Trash2 className="mr-1 h-4 w-4" aria-hidden="true" />消す
+            <Trash2 className="mr-1 h-4 w-4" aria-hidden="true" />削除
           </Button>
         </PageHeader>
       </div>
@@ -202,7 +202,7 @@ function DesktopCheckDetail({ checkId, onBack, onDeleted }: {
       {items.length === 0 ? (
         <EmptyState
           title="チェックリストが空です"
-          description="「あとから足された機材を取り込む」を押すと、いまの機材台帳から作り直します。"
+          description="「機材を取り込む」を押すと、いまの機材台帳から作り直します。"
         />
       ) : (
         <div className="flex flex-col gap-4">
@@ -223,7 +223,7 @@ function DesktopCheckDetail({ checkId, onBack, onDeleted }: {
                         <button
                           type="button"
                           disabled={completed}
-                          aria-label={`${item.equipment_name} はあった`}
+                          aria-label={`${item.equipment_name} は確認できた`}
                           aria-pressed={item.found === 1}
                           className={`flex h-9 w-9 items-center justify-center rounded-control disabled:cursor-not-allowed ${
                             item.found === 1
@@ -237,7 +237,7 @@ function DesktopCheckDetail({ checkId, onBack, onDeleted }: {
                         <button
                           type="button"
                           disabled={completed}
-                          aria-label={`${item.equipment_name} は無かった`}
+                          aria-label={`${item.equipment_name} は見つからない`}
                           aria-pressed={item.found === 2}
                           className={`flex h-9 w-9 items-center justify-center rounded-control disabled:cursor-not-allowed ${
                             item.found === 2

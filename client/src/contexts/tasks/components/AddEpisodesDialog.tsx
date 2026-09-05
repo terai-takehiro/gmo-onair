@@ -123,16 +123,16 @@ export function AddEpisodesDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="回を足す"
+      title="回を追加"
       sub={MODE_SUB[mode]}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>やめる</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
           {/* 「日付で指定」「頻度で作る」は確認→実行の2段階を中のフォームが持つので、
               ここには置かない（下端に2つ実行ボタンが並ぶのを避ける） */}
           {mode === 'text' && (
             <Button onClick={() => create.mutate()} disabled={create.isPending || !parsed.ok}>
-              足す
+              追加
             </Button>
           )}
         </FormDialogFooter>

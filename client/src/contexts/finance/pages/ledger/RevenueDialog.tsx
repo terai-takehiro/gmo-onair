@@ -206,9 +206,9 @@ export function RevenueDialog({
   const handleDeleteRevenue = async () => {
     if (!existingRevenueId) return;
     const ok = await confirmAction({
-      title: 'この売上を消しますか',
+      title: 'この売上を削除しますか',
       description: '元に戻せません。請求・入金の記録も一緒に消えます。',
-      confirmLabel: '消す',
+      confirmLabel: '削除',
       tone: 'danger',
     });
     if (ok) deleteMutation.mutate(existingRevenueId);
@@ -217,7 +217,7 @@ export function RevenueDialog({
   type SubmitError = { response?: { data?: { error?: { message?: string } } }; message?: string } | null;
   const submitError = createMutation.error as SubmitError;
   const submitErrorMessage = submitError
-    ? submitError.response?.data?.error?.message || submitError.message || '登録に失敗しました'
+    ? submitError.response?.data?.error?.message || submitError.message || '売上を登録できませんでした。入力の内容を確かめてもう一度お試しください。'
     : '';
 
   const handleCreateSubmit = () => {
@@ -358,16 +358,16 @@ export function RevenueDialog({
             {/* ⚠️ **押せない理由は必ず出す。** 灰色のボタンだけだと「壊れている」としか見えない */}
             {blockReason && <p className="text-note text-warning">{blockReason}</p>}
             <div className="flex flex-wrap gap-2 pt-2 sm:justify-between">
-              <div>{/* **「消す」はスマホに出さない**（元に戻せない操作は、確認を挟んでも指では続けて押しやすい） */}
+              <div>{/* **「削除」はスマホに出さない**（元に戻せない操作は、確認を挟んでも指では続けて押しやすい） */}
                 {existingRevenueId && !isMobile && (
                   <Button variant="destructive" onClick={handleDeleteRevenue} disabled={deleteMutation.isPending}>
                     {deleteMutation.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
-                    消す
+                    削除
                   </Button>
                 )}
               </div>
               <div className="ml-auto flex gap-2">
-                <Button variant="outline" onClick={onClose}>やめる</Button>
+                <Button variant="outline" onClick={onClose}>キャンセル</Button>
                 <Button disabled={!canSubmit} title={blockReason || undefined} onClick={handleCreateSubmit}>
                   {createMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                   {existingRevenueId ? '更新' : '登録'}

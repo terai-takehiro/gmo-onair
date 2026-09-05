@@ -28,7 +28,7 @@ export default function AuthCallbackPage() {
     <div className="flex min-h-screen items-center justify-center">
       <div className="text-center">
         <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">認証中...</p>
+        <p className="mt-4 text-muted-foreground">認証中…</p>
       </div>
     </div>
   );

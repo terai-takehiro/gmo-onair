@@ -409,7 +409,7 @@ export default function DataViewerPage() {
       setEditFormValues({});
     },
     onError: (err: any) => {
-      window.alert(`更新に失敗しました: ${err?.response?.data?.error || err.message}`);
+      window.alert(`この行を更新できませんでした。入れた値を確かめて、もう一度お試しください。\n（${err?.response?.data?.error || err.message}）`);
     },
   });
 
@@ -423,7 +423,7 @@ export default function DataViewerPage() {
       setDeletingRow(null);
     },
     onError: (err: any) => {
-      window.alert(`削除に失敗しました: ${err?.response?.data?.error || err.message}`);
+      window.alert(`この行を削除できませんでした。時間をおいて、もう一度お試しください。\n（${err?.response?.data?.error || err.message}）`);
     },
   });
 
@@ -623,7 +623,7 @@ export default function DataViewerPage() {
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="検索..."
+                    placeholder="検索…"
                     value={searchInput}
                     onChange={e => setSearchInput(e.target.value)}
                     className="pl-9 w-40 sm:w-56"
@@ -704,7 +704,7 @@ export default function DataViewerPage() {
                                     variant="ghost"
                                     size="sm"
                                     className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    title="論理削除"
+                                    title="削除"
                                     onClick={() => setDeletingRow(row)}
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
@@ -726,7 +726,7 @@ export default function DataViewerPage() {
                                 className={`whitespace-nowrap ${isIdColumn(col) ? " text-xs" : ""}`}
                                 title={truncated ? fullText : undefined}
                               >
-                                {money ? <Money inline value={Number(raw)} /> : truncated ? display.substring(0, 30) + "..." : display}
+                                {money ? <Money inline value={Number(raw)} /> : truncated ? display.substring(0, 30) + "…" : display}
                               </TableCell>
                             );
                           })}
@@ -736,9 +736,18 @@ export default function DataViewerPage() {
                   </Table>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                <div className="flex flex-col items-center justify-center h-full gap-1 text-muted-foreground">
                   <Database className="h-10 w-10 mb-2" />
-                  <p>データがありません</p>
+                  {/* **空状態は2型**（絞り込んだ結果 0 件 と、そもそも 0 件）。
+                      混ぜると「検索が壊れている」のか「無い」のか分からない */}
+                  {debouncedSearch ? (
+                    <>
+                      <p>条件に合う行はありません。</p>
+                      <p className="text-xs">検索の言葉を短くするか、絞り込みを外してください。</p>
+                    </>
+                  ) : (
+                    <p>この表にはまだ行がありません。</p>
+                  )}
                 </div>
               )}
             </div>
@@ -842,7 +851,7 @@ export default function DataViewerPage() {
       <FormDialog
         open={!!deletingRow}
         onOpenChange={(open) => { if (!open) setDeletingRow(null); }}
-        title="論理削除の確認"
+        title="削除の確認"
         footer={
           <FormDialogFooter>
             <Button variant="outline" onClick={() => setDeletingRow(null)}>
@@ -850,7 +859,7 @@ export default function DataViewerPage() {
             </Button>
             <Button variant="destructive" onClick={submitDelete} disabled={deleteMutation.isPending}>
               {deleteMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-              論理削除する
+              削除
             </Button>
           </FormDialogFooter>
         }
@@ -858,7 +867,8 @@ export default function DataViewerPage() {
         <div className="flex flex-col gap-4">
           <p className="text-sub flex items-start gap-2 text-destructive">
             <Trash2 className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
-            <span>この行を <strong className="font-bold">論理削除</strong> します。<code>deleted_at</code> に現在時刻がセットされ、画面上から見えなくなります (DB からは削除されません)。</span>
+            {/* 実装は `deleted_at` に現在時刻を入れる論理削除。列名は画面に出さない */}
+            <span>この行を <strong className="font-bold">削除</strong> します。各画面から見えなくなりますが、データそのものは残るので、必要になったら戻せます。</span>
           </p>
           <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1">
             <div><span className="text-muted-foreground">テーブル:</span> {TABLE_LABELS[selectedTable] || selectedTable} <span className=" text-[10px]">({selectedTable})</span></div>

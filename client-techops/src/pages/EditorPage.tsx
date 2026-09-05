@@ -330,7 +330,7 @@ export default function EditorPage() {
         return;
       }
       setSaveStatus("error");
-      notifyError("保存に失敗しました", { description: "ネットワーク接続を確認して、もう一度保存してください。" });
+      notifyError("保存できませんでした。", { description: "つながっているか確かめて、もう一度保存してください。" });
     },
   });
 
@@ -591,8 +591,8 @@ export default function EditorPage() {
               value={doc.data.meta.title || ""}
               onChange={(e) => updateData((d) => ({ ...d, meta: { ...d.meta, title: e.target.value } }))}
               className="flex-1 min-w-0 bg-transparent text-[15px] font-bold border-none outline-none placeholder:text-muted-foreground/40 truncate"
-              placeholder="無題のドキュメント"
-              aria-label="ドキュメントタイトル"
+              placeholder="無題の進行台本"
+              aria-label="進行台本のタイトル"
             />
           </div>
           <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
@@ -602,9 +602,9 @@ export default function EditorPage() {
                 className={`hidden sm:inline text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${
                   collabSynced ? "text-primary bg-primary/10" : "text-muted-foreground bg-muted"
                 }`}
-                title={collabSynced ? "同時共同編集: 同期済み" : "同時共同編集: 接続中..."}
+                title={collabSynced ? "同時共同編集: 同期済み" : "同時共同編集: 接続中…"}
               >
-                {collabSynced ? "共同編集中" : "接続中..."}
+                {collabSynced ? "共同編集中" : "接続中…"}
               </span>
             )}
             {/* 在席表示 (このシートを今開いている人) */}
@@ -623,7 +623,7 @@ export default function EditorPage() {
             >
               {saveStatus === "saved"
                 ? `保存済み${lastSavedAt ? ` ${lastSavedAt.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : ""}`
-                : saveStatus === "saving" ? "保存中..."
+                : saveStatus === "saving" ? "保存中…"
                 : saveStatus === "error" ? "保存エラー"
                 : saveStatus === "conflict" ? "競合 (未保存)"
                 : `未保存${lastSavedAt ? ` (最終保存 ${lastSavedAt.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })})` : ""}`}

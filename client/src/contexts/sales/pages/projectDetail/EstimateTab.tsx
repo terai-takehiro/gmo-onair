@@ -180,7 +180,7 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
             className="text-sub inline-flex w-fit shrink-0 items-center gap-1.5 text-muted-foreground hover:text-foreground"
           >
             <Archive className="h-3.5 w-3.5" aria-hidden="true" />
-            {showArchived ? 'アーカイブした版を隠す' : 'アーカイブした版を表示する'}
+            {showArchived ? '隠した版を表示しない' : '隠した版も表示する'}
           </button>
           {/*
             レギュラー案件だけ、回で絞り込む（仕様変更 #18）。「全体」は今までどおり

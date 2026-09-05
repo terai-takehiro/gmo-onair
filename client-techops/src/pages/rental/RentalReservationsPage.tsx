@@ -30,7 +30,7 @@ export default function RentalReservationsPage() {
     mutationFn: ({ id, quantity }: { id: string; quantity: number }) =>
       rentalApi.updateRentalReservation(ownerKey, id, { quantity }),
     onSuccess: invalidate,
-    onError: () => notifyError('数量の変更に失敗しました'),
+    onError: () => notifyError('数量を変えられませんでした。', { description: '少し待ってから、もう一度お試しください。' }),
   });
 
   const deleteMutation = useMutation({
@@ -39,7 +39,7 @@ export default function RentalReservationsPage() {
       invalidate();
       notifySuccess('削除しました');
     },
-    onError: () => notifyError('削除に失敗しました'),
+    onError: () => notifyError('削除できませんでした。', { description: '少し待ってから、もう一度お試しください。' }),
   });
 
   const groups = reservationsQuery.data?.groups ?? [];

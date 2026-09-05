@@ -146,7 +146,7 @@ export function RevenueBillingPane({ projectId, projectName, mobile }: { project
       notifySuccess('仕入を登録しました');
       setAddPurchaseOpen(false);
     },
-    onError: (err) => notifyApiError('仕入の登録に失敗しました', err),
+    onError: (err) => notifyApiError('仕入を登録できませんでした', err, '入力内容を確かめて、もう一度お試しください。'),
   });
 
   if (revenues.isLoading || purchases.isLoading) {

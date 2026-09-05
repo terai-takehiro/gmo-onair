@@ -143,7 +143,7 @@ export default function ProjectDetailPage() {
           : `ステージを「${ProjectStageLabels[v.stage]}」にしました`,
       );
     },
-    onError: (err) => notifyApiError('ステージを変えられませんでした', err),
+    onError: (err) => notifyApiError('ステージを変更できませんでした', err),
   });
 
   if (project.isLoading) {

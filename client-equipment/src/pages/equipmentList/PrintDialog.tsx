@@ -1,5 +1,5 @@
 /**
- * 機材台帳の印刷設定 (何を・どの向きで刷るか)。
+ * 機材台帳の印刷設定 (何を・どの向きで印刷するか)。
  * 棚卸しを紙で回すときにチェック欄を足せます。
  */
 import { Printer } from 'lucide-react';
@@ -29,12 +29,12 @@ export function PrintDialog({ open, count, value, onChange, onClose, onPrint }: 
     <FormDialog
       open={open}
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title="印刷のしかた"
+      title="印刷の設定"
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button onClick={onPrint}>
-            <Printer className="mr-1 h-4 w-4" aria-hidden="true" />刷る
+            <Printer className="mr-1 h-4 w-4" aria-hidden="true" />印刷
           </Button>
         </FormDialogFooter>
       }
@@ -45,7 +45,7 @@ export function PrintDialog({ open, count, value, onChange, onClose, onPrint }: 
           <Input value={value.title} onChange={(e) => onChange({ ...value, title: e.target.value })} />
         </div>
         <div className="space-y-2">
-          <Label>刷る列</Label>
+          <Label>印刷する列</Label>
           <ToggleButtonGroup
             options={PRINT_COLS.map((c) => ({ value: c.key, label: c.label }))}
             value={Array.from(value.cols)}
@@ -57,11 +57,11 @@ export function PrintDialog({ open, count, value, onChange, onClose, onPrint }: 
           />
         </div>
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sub">チェック欄を足す (棚卸しを紙で回すとき)</span>
+          <span className="text-sub">チェック欄を追加 (棚卸しを紙で回すとき)</span>
           <Switch
             checked={value.checkbox}
             onCheckedChange={(v) => onChange({ ...value, checkbox: !!v })}
-            aria-label="チェック欄を足す"
+            aria-label="チェック欄を追加"
           />
         </div>
         {/*

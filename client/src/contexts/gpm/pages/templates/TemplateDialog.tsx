@@ -40,14 +40,14 @@ export function TemplateDialog({
         : api.post('/gpm/templates', toBody(draft)),
     onSuccess: () => {
       invalidate();
-      notifySuccess(template ? 'ひな形を直しました' : 'ひな形を作りました', {
+      notifySuccess(template ? 'ひな形を更新しました' : 'ひな形を作りました', {
         description: template && template.used_count > 0
           ? `すでに適用済みの ${template.used_count} 件は変わりません（写して使うため）。次に作るぶんから効きます。`
           : undefined,
       });
       onClose();
     },
-    onError: (err) => notifyApiError(template ? 'ひな形を直せませんでした' : 'ひな形を作れませんでした', err),
+    onError: (err) => notifyApiError(template ? 'ひな形を更新できませんでした' : 'ひな形を作れませんでした', err),
   });
 
   const phases = draft.phases.length;
@@ -58,14 +58,14 @@ export function TemplateDialog({
     <FormDialog
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title={template ? 'ひな形を直す' : 'ひな形を作る'}
+      title={template ? 'ひな形を編集' : 'ひな形を作る'}
       wide
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button onClick={() => save.mutate()} disabled={!draft.name.trim() || save.isPending}>
             {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-            {template ? '直す' : '作る'}
+            {template ? '編集' : '作る'}
           </Button>
         </FormDialogFooter>
       }

@@ -70,11 +70,11 @@ export function OpenItemDialog({ projectId, item, phases, onClose }: OpenItemDia
     },
     onSuccess: () => {
       invalidate(projectId);
-      notifySuccess(item ? '未確認事項を直しました' : '未確認事項を足しました');
+      notifySuccess(item ? '持ち帰りを更新しました' : '持ち帰りを追加しました');
       onClose();
     },
     onError: (err) =>
-      notifyApiError(item ? '未確認事項を直せませんでした' : '未確認事項を足せませんでした', err),
+      notifyApiError(item ? '持ち帰りを更新できませんでした' : '持ち帰りを追加できませんでした', err),
   });
 
   const canSubmit = question.trim() !== '' && !save.isPending;
@@ -83,14 +83,14 @@ export function OpenItemDialog({ projectId, item, phases, onClose }: OpenItemDia
     <FormDialog
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title={item ? '未確認事項を直す' : '未確認事項を足す'}
+      title={item ? '持ち帰りを編集' : '持ち帰りを追加'}
       size="lg"
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>やめる</Button>
+          <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button onClick={() => save.mutate()} disabled={!canSubmit}>
             {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-            {item ? '直す' : '足す'}
+            {item ? '編集' : '追加'}
           </Button>
         </FormDialogFooter>
       }

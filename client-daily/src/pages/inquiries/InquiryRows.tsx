@@ -85,7 +85,7 @@ export function InquiryRows({
           <RowMain>
             <RowTitle>
               {q.is_ai && (
-                <Sparkles className="mr-1 inline h-3.5 w-3.5 text-ai" aria-label="AI が取り込みました" />
+                <Sparkles className="mr-1 inline h-3.5 w-3.5 text-ai" aria-label="AI作成" />
               )}
               {q.summary}
             </RowTitle>
@@ -98,7 +98,7 @@ export function InquiryRows({
               ].filter(Boolean).join(' ・ ')}
             </RowSub>
 
-            {/* **ストックには見直す日が出る**（247）。無いと「捨てた」と見分けが付かない */}
+            {/* **「あとで見る」には見直す日が出る**（247）。無いと「捨てた」と見分けが付かない */}
             {review && (
               <span className={cn('rounded-note text-note mt-1 inline-flex items-center gap-1 px-2 py-1', REVIEW_TONE[review.tone])}>
                 <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -157,10 +157,10 @@ export function InquiryRows({
                   );
                 })}
                 <span className="flex gap-1">
-                  <Button variant="ghost" aria-label="直す" onClick={() => onEdit(q)}>
+                  <Button variant="ghost" aria-label="編集" onClick={() => onEdit(q)}>
                     <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>
-                  <Button variant="ghost" aria-label="消す" onClick={() => onDelete(q)}>
+                  <Button variant="ghost" aria-label="削除" onClick={() => onDelete(q)}>
                     <Trash2 className="h-3.5 w-3.5 text-destructive" aria-hidden="true" />
                   </Button>
                 </span>

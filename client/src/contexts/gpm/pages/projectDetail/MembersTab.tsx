@@ -97,9 +97,9 @@ export function MembersTab({
       <div className="p-4 lg:p-6">
         <EmptyState
           icon={<Users className="h-6 w-6" aria-hidden="true" />}
-          title="体制はまだ入っていません"
-          description="発注者・PM会社・自社・業者の担当者を、決める人／進める人／手を動かす人 の3段に並べます。"
-          action={canEdit ? <Button onClick={() => setAddingTier('top')}><Plus className="mr-2 h-4 w-4" aria-hidden="true" />人を足す</Button> : undefined}
+          title="まだ誰も入っていません"
+          description="発注者・PM会社・自社・業者の担当者を、決裁層／推進層／実務層の3段に並べます。まずは決裁層から追加してください。"
+          action={canEdit ? <Button onClick={() => setAddingTier('top')}><Plus className="mr-2 h-4 w-4" aria-hidden="true" />人を追加</Button> : undefined}
         />
         {addingTier && (
           <MemberDialog projectId={projectId} tier={addingTier} member={null} onClose={() => setAddingTier(null)} />
@@ -123,7 +123,7 @@ export function MembersTab({
             <div className="flex-1" />
             {canEdit && (
               <Button variant="outline" size="sm" onClick={() => setAddingTier(tier)}>
-                <Plus className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />この段に足す
+                <Plus className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />この段に追加
               </Button>
             )}
           </div>
@@ -154,8 +154,8 @@ export function MembersTab({
 
       <p className="text-note pt-2 text-muted-foreground">
         枠の色は<strong className="font-bold">立場</strong>（自社・発注者・PM会社・業者）です。
-        段は上から「決める人 → 進める人 → 手を動かす人」。
-        箱は<strong className="font-bold">同じ「まとまりの名前」を入れた人</strong>が1つになります。
+        段は上から「決裁層 → 推進層 → 実務層」。
+        箱は<strong className="font-bold">同じ「チーム名」を入れた人</strong>が1つになります。
       </p>
 
       {(addingTier || editing) && (
@@ -216,7 +216,7 @@ function BoxCard({
             </span>
             {canEdit && (
               <span className="flex shrink-0 gap-0.5">
-                <Button variant="ghost" size="icon-sm" onClick={() => onEdit(m)} aria-label={`${m.name} を直す`}>
+                <Button variant="ghost" size="icon-sm" onClick={() => onEdit(m)} aria-label={`${m.name} を編集`}>
                   <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
                 <Button
