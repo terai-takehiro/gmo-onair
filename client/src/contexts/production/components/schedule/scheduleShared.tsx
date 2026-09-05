@@ -17,7 +17,16 @@ export interface PartnerSchedule {
   end_time: string;
   notes: string | null;
   created_by?: string | null;
+  /** 確定 / 希望日（未確定）。studio_bookings.status と同じ2値 */
+  status: "confirmed" | "tentative";
+  /** 担当者（複数・任意） */
+  assignees: Array<{ id: string; name: string }>;
 }
+
+export const SCHEDULE_STATUS_LABELS: Record<string, string> = {
+  confirmed: "確定",
+  tentative: "希望日",
+};
 
 export interface PersonalEvent {
   id: string;

@@ -115,9 +115,15 @@ export function UserFilterDialog({
   value: string[];
   onChange: (v: string[]) => void;
 }) {
+  // ⚠️ `partner_schedule` は旧モジュール名（権限モデル単純化で `sales` に統合済み・
+  // migration 210）。この文字列のままだと system_admin 以外が誰も返らず、
+  // 「人で絞る」で普通のパートナーを選べない（Codex レビューで指摘・#564）。
+  // 鍵も他画面と同じ `users-by-module-sales` に揃える（`PartnerScheduleDialog.tsx` と
+  // 同じ理由 — 違う鍵のままだと `PersonalEventDialog.tsx` の旧鍵と別物になるだけで
+  // 実害は無いが、そろえておけばキャッシュも共有できる）
   const q = useQuery({
-    queryKey: ['partner-schedule-users'],
-    queryFn: async () => (await api.get('/users/by-module/partner_schedule')).data.data as UserRow[],
+    queryKey: ['users-by-module-sales'],
+    queryFn: async () => (await api.get('/users/by-module/sales')).data.data as UserRow[],
     staleTime: 5 * 60_000,
     enabled: open,
   });

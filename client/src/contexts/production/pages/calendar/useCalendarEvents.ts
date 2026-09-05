@@ -162,8 +162,13 @@ export function useCalendarEvents(from: string, to: string, f: CalFilters) {
     if (canPartner && f.layers.partner) {
       for (const s of partners.data ?? []) {
         if (f.roomIds.length > 0) continue;              // 部屋を持たない
-        if (f.userIds.length > 0 && !f.userIds.includes(s.user_id)) continue;
+        // **担当者も「人で絞る」の対象にする。** 予定の持ち主（user_id）だけを見ると、
+        // 担当者として入っている人を選んでも「空いている」ように見えてしまう
+        // （Codex レビューで指摘・#564）
+        const assigneeIds = (s.assignees ?? []).map((a) => a.id);
+        if (f.userIds.length > 0 && !f.userIds.includes(s.user_id) && !assigneeIds.some((id) => f.userIds.includes(id))) continue;
         const color = SCHEDULE_TYPE_COLORS[s.schedule_type] || SCHEDULE_TYPE_COLORS.other;
+        const assigneeNames = (s.assignees ?? []).map((a) => a.name);
         out.push({
           key: `ps-${s.id}`,
           id: s.id,
@@ -171,12 +176,14 @@ export function useCalendarEvents(from: string, to: string, f: CalFilters) {
           title: s.title,
           color,
           typeLabel: SCHEDULE_TYPE_LABELS[s.schedule_type] ?? 'その他',
-          sub: s.user_name,
+          sub: assigneeNames.length > 0 ? `${s.user_name} ・ 担当: ${assigneeNames.join('、')}` : s.user_name,
           source: '',
           allDay: !!s.all_day,
           start: at(s.start_time),
           end: at(s.end_time),
-          tentative: false,
+          // **希望日（未確定）は「仮押さえ」と同じ破線表示に乗せる。** ①〜③ のグリッドは
+          // studio_bookings.status 用に作った tentative の描画パイプラインを共用する
+          tentative: s.status === 'tentative',
         });
       }
     }

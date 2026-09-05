@@ -84,7 +84,8 @@ export function EventTable({
                 <span className="mr-2 inline-block h-2.5 w-2.5 rounded-badge-xs align-middle" style={{ backgroundColor: e.color }} />
                 {e.title}
               </RowTitle>
-              {e.tentative && <RowSub>仮押さえ</RowSub>}
+              {/* 仮押さえ（スタジオ）と希望日（パートナー）は同じ破線表示だが、文言は層で分ける */}
+              {e.tentative && <RowSub>{e.layer === 'partner' ? '希望日' : '仮押さえ'}</RowSub>}
             </RowMain>
             <RowSlot w={128}>
               <span className="text-sub-sm truncate text-muted-foreground">{e.sub || '—'}</span>
