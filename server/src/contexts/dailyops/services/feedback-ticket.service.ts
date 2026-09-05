@@ -286,18 +286,46 @@ export const feedbackTicketService = {
     return (await this.get(id))!;
   },
 
-  /** 状態ごと・対象アプリごとの件数 (絞り込みチップ用)。**上限つき一覧とは別に COUNT で数える**
-   *  ので、一覧が上限で切れてもチップの件数は嘘にならない。 */
+  /**
+   * 状態ごと・対象アプリごとの件数 (絞り込みチップ用)。**上限つき一覧とは別に COUNT で数える**
+   * ので、一覧が上限で切れてもチップの件数は嘘にならない。
+   *
+   * ⚠️ **1本の SQL 文で両方数える**（レビュー #562 で指摘）。以前は2本の
+   * `queryAll` に分けており、その間に別の利用者が起票すると、状態別の合計
+   * （`all`）と対象アプリ別の内訳の合計が**別々のスナップショット**を見てずれる
+   * （例: `all` は10のままなのに `byTargetApp` の合計は11）。1文の中の CTE は
+   * 同じスナップショットを見るので、CTE を2本（`totals`／`by_app`）に分けて
+   * 1つの SELECT にまとめている。
+   */
   async counts(): Promise<Record<Status, number> & { all: number; byTargetApp: Record<string, number> }> {
-    const rows = await queryAll(`SELECT status, COUNT(*)::int AS n FROM feedback_tickets GROUP BY status`, []);
-    const out = { all: 0, open: 0, in_progress: 0, resolved: 0, rejected: 0, byTargetApp: {} as Record<string, number> };
-    for (const r of rows) {
-      const key = String(r.status) as Status;
-      if (key in out) out[key] = Number(r.n);
-      out.all += Number(r.n);
-    }
-    const appRows = await queryAll(`SELECT target_app, COUNT(*)::int AS n FROM feedback_tickets GROUP BY target_app`, []);
-    for (const r of appRows) out.byTargetApp[String(r.target_app)] = Number(r.n);
-    return out;
+    const row = await queryOne(
+      `WITH totals AS (
+         SELECT
+           COUNT(*)::int AS "all",
+           COUNT(*) FILTER (WHERE status = 'open')::int AS open,
+           COUNT(*) FILTER (WHERE status = 'in_progress')::int AS in_progress,
+           COUNT(*) FILTER (WHERE status = 'resolved')::int AS resolved,
+           COUNT(*) FILTER (WHERE status = 'rejected')::int AS rejected
+         FROM feedback_tickets
+       ), by_app AS (
+         SELECT target_app, COUNT(*)::int AS n FROM feedback_tickets GROUP BY target_app
+       )
+       SELECT
+         (SELECT row_to_json(totals) FROM totals) AS totals,
+         (SELECT COALESCE(json_agg(by_app), '[]'::json) FROM by_app) AS by_app`,
+      [],
+    );
+    const totals = (row?.totals ?? {}) as Partial<Record<Status | 'all', number>>;
+    const byAppRows = (row?.by_app ?? []) as { target_app: string; n: number }[];
+    const byTargetApp: Record<string, number> = {};
+    for (const r of byAppRows) byTargetApp[r.target_app] = Number(r.n);
+    return {
+      all: Number(totals.all ?? 0),
+      open: Number(totals.open ?? 0),
+      in_progress: Number(totals.in_progress ?? 0),
+      resolved: Number(totals.resolved ?? 0),
+      rejected: Number(totals.rejected ?? 0),
+      byTargetApp,
+    };
   },
 };

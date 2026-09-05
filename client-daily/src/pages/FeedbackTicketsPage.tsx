@@ -155,9 +155,12 @@ export default function FeedbackTicketsPage() {
         />
         <FilterChips
           label="対象アプリで絞り込む"
+          // `?? 0` を付けない — `appCounts` は「まだ数えていない/失敗した」ときに
+          // `null` を持つので、ここで 0 に潰すと「集計に失敗しているだけ」なのに
+          // 「このアプリのチケットは0件」と言い切ってしまう（レビュー #562 で指摘）
           items={[
             { key: '', label: 'すべてのアプリ', count: appCounts[''] },
-            ...TARGET_APPS.map((a) => ({ key: a.key, label: TARGET_APP_LABEL[a.key], count: appCounts[a.key] ?? 0 })),
+            ...TARGET_APPS.map((a) => ({ key: a.key, label: TARGET_APP_LABEL[a.key], count: appCounts[a.key] })),
           ]}
           value={targetApp}
           onChange={setTargetApp}
