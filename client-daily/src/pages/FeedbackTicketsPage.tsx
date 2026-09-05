@@ -31,6 +31,12 @@
  *
  * 一覧は上限つき（既定50件）なので、それを超える一致があるときは末尾に
  * 「さらに読み込む」を出す（`financeDashboard/Breakdown.tsx` と同じ考え方）。
+ * ⚠️ **絞り込みを変えたときの上限のリセットは `useEffect` ではなく描画中に行う**
+ * （レビュー #562 で追加の指摘）。`useEffect` だと「新しい絞り込み ＋ 古い（伸ばした）上限」
+ * の組み合わせで1回だけ問い合わせが飛んでから直後にもう1回飛び直す — React 公式の
+ * 「Adjusting state when a prop changes」の形（前回の鍵を state に持ち、変わっていたら
+ * 描画の途中で `setLimit` を呼ぶ）に倣うと、コミットされない描画のうちに直るので
+ * 無駄な問い合わせが立たない。
  *
  * ── 0件の判定は「実際に返ってきた行」を優先する（レビュー #562 で直した） ──
  *
@@ -41,7 +47,7 @@
  * （`Breakdown.tsx` の「数えられなかったときは0と言わない」と同じ考え方）、
  * 絞り込みが効いているだけと見なして `NoSearchResults` 側に倒す。
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Loader2, MessageSquareWarning, Plus, Search, X } from 'lucide-react';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
@@ -81,9 +87,16 @@ export default function FeedbackTicketsPage() {
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState<FeedbackTicket | null>(null);
 
-  // 絞り込みを変えたら「さらに読み込む」で伸ばした分は最初からやり直す
-  // （前の絞り込みの続きの上限を引きずらないため）
-  useEffect(() => { setLimit(PAGE_SIZE); }, [status, targetApp, debouncedSearch]);
+  // 絞り込みを変えたら「さらに読み込む」で伸ばした分は最初からやり直す。
+  // **描画の途中でリセットする**（前回の鍵を覚えておき、変わっていたらこの描画中に
+  // `setLimit` を呼ぶ）— `useEffect` だと反映が1テンポ遅れ、「新しい絞り込み ＋
+  // 古い上限」のままの問い合わせが一度飛んでしまう（冒頭のコメント参照）
+  const filterKey = `${status}|${targetApp}|${debouncedSearch}`;
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (filterKey !== prevFilterKey) {
+    setPrevFilterKey(filterKey);
+    setLimit(PAGE_SIZE);
+  }
 
   const tickets = useFeedbackTickets({
     status: status === 'all' ? undefined : status,
