@@ -177,6 +177,15 @@ const SELECT = `SELECT id, title, description, target_app, target_page, category
 const DEFAULT_LIST_LIMIT = 50;
 const MAX_LIST_LIMIT = 200;
 
+/**
+ * ILIKE 検索の `%` / `_` / `\` をエスケープする（`qsheet/services/rental.service.ts` の
+ * `sanitizeSearch` と同じ要領）。エスケープしないと `%` だけで全件に一致したり、
+ * `foo_bar` が `fooXbar` にまで一致したりする（`_` は「任意の1文字」の意味を持つため）。
+ */
+function escapeLikePattern(s: string): string {
+  return s.replace(/[%_\\]/g, '\\$&');
+}
+
 export const feedbackTicketService = {
   /** 一覧 (状態/対象アプリ/種別/検索で絞り込み)。新しい起票順・上限つき。 */
   async list(filter: { status?: string; target_app?: string; category?: string; search?: string; limit?: number } = {}): Promise<Record<string, unknown>[]> {
@@ -188,9 +197,18 @@ export const feedbackTicketService = {
     // **検索も SQL 側で絞る**（以前は全件取ってから JS で filter していたため、
     // 上限を付けると「上限に入らなかった一致」を取りこぼす形になっていた）
     const search = filter.search?.trim();
-    if (search) { conds.push('(title ILIKE ? OR description ILIKE ?)'); params.push(`%${search}%`, `%${search}%`); }
+    if (search) {
+      conds.push(`(title ILIKE ? ESCAPE '\\' OR description ILIKE ? ESCAPE '\\')`);
+      const like = `%${escapeLikePattern(search)}%`;
+      params.push(like, like);
+    }
     const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
-    const limit = Math.max(1, Math.min(filter.limit ?? DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT));
+    // **不正な値（`NaN`・小数）は既定に丸める**（そのまま SQL の LIMIT に渡すと
+    // PostgreSQL が拒否して 500 になる。route 側で数値化した結果を信用しない）
+    const rawLimit = filter.limit;
+    const limit = Number.isFinite(rawLimit)
+      ? Math.max(1, Math.min(Math.trunc(rawLimit as number), MAX_LIST_LIMIT))
+      : DEFAULT_LIST_LIMIT;
     params.push(limit);
     return queryAll(`${SELECT} ${where} ORDER BY created_at DESC LIMIT ?`, params);
   },

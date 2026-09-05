@@ -26,9 +26,23 @@
  * `SecurityCardsPage` の状態チップ・分類チップも同じ考え方（互いにクロス集計しない）で、
  * それに揃えてある——揃えないと「状態チップは状態だけの数・アプリチップは掛け合わせた数」の
  * ように**チップごとに意味が変わり**、そちらのほうが読み間違えやすい。
+ *
+ * ── 上限を超える分は「さらに読み込む」で追う（レビュー #562 で追加） ──
+ *
+ * 一覧は上限つき（既定50件）なので、それを超える一致があるときは末尾に
+ * 「さらに読み込む」を出す（`financeDashboard/Breakdown.tsx` と同じ考え方）。
+ *
+ * ── 0件の判定は「実際に返ってきた行」を優先する（レビュー #562 で直した） ──
+ *
+ * `tickets`（一覧）と `counts`（総数）は別々の問い合わせなので、更新のタイミングが
+ * ずれる。**`visible.length > 0` を最優先で見る**——これを怠ると、`counts` がまだ
+ * 古いキャッシュ（0件）を持っている間に一覧だけ更新された瞬間、**行があるのに
+ * 「まだありません」と出る**。`counts` が失敗したときも同じ理由で「0件」とは断定せず
+ * （`Breakdown.tsx` の「数えられなかったときは0と言わない」と同じ考え方）、
+ * 絞り込みが効いているだけと見なして `NoSearchResults` 側に倒す。
  */
-import { useMemo, useState } from 'react';
-import { MessageSquareWarning, Plus, Search, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Loader2, MessageSquareWarning, Plus, Search, X } from 'lucide-react';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
 import { Delayed, EmptyState, ErrorPanel, NoSearchResults, SkeletonRows } from '@gmo-onair/shared/src/client/states';
@@ -49,6 +63,10 @@ import { TicketCards } from './feedbackTickets/TicketCards';
 
 type StatusFilter = 'all' | TicketStatus;
 
+// サーバー側の既定・上限と揃える（`feedback-ticket.service.ts` の DEFAULT_LIST_LIMIT/MAX_LIST_LIMIT）
+const PAGE_SIZE = 50;
+const MAX_PAGE_SIZE = 200;
+
 export default function FeedbackTicketsPage() {
   const isMobile = useIsMobile();
   const { canEdit } = usePermissions();
@@ -59,13 +77,19 @@ export default function FeedbackTicketsPage() {
   const [search, setSearch] = useState('');
   // **問い合わせの鍵だけ遅らせる**（入力欄自体は遅らせない・`useDebounced` の決めごと）
   const debouncedSearch = useDebounced(search);
+  const [limit, setLimit] = useState(PAGE_SIZE);
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState<FeedbackTicket | null>(null);
+
+  // 絞り込みを変えたら「さらに読み込む」で伸ばした分は最初からやり直す
+  // （前の絞り込みの続きの上限を引きずらないため）
+  useEffect(() => { setLimit(PAGE_SIZE); }, [status, targetApp, debouncedSearch]);
 
   const tickets = useFeedbackTickets({
     status: status === 'all' ? undefined : status,
     target_app: targetApp || undefined,
     search: debouncedSearch.trim() || undefined,
+    limit,
   });
   const createTicket = useCreateFeedbackTicket();
 
@@ -156,15 +180,49 @@ export default function FeedbackTicketsPage() {
 
       {tickets.isError ? (
         <ErrorPanel title="チケットを読み込めませんでした" error={tickets.error} onRetry={() => tickets.refetch()} />
-      ) : tickets.isLoading || counts.isLoading ? (
+      ) : tickets.isLoading ? (
         <Delayed><SkeletonRows rows={6} /></Delayed>
-      ) : counts.data?.all === 0 ? (
+      ) : visible.length > 0 ? (
+        <>
+          {isMobile ? (
+            <TicketCards tickets={visible} onSelect={setSelected} />
+          ) : (
+            <div className="rounded-card border border-border bg-card">
+              <TicketRowsHeader />
+              <div className="flex flex-col">
+                {visible.map((t) => <TicketRow key={t.id} ticket={t} onSelect={() => setSelected(t)} />)}
+              </div>
+            </div>
+          )}
+          {/* **上限で切れているかもしれない目安**は「ちょうど上限件返ってきたか」で判定する
+              （厳密な残り件数は絞り込みを跨いだ COUNT が無いと出せない）。押すと伸ばす */}
+          {visible.length === limit && (
+            limit < MAX_PAGE_SIZE ? (
+              <Button
+                variant="outline"
+                className="self-center"
+                onClick={() => setLimit((l) => Math.min(l + PAGE_SIZE, MAX_PAGE_SIZE))}
+                disabled={tickets.isFetching}
+              >
+                {tickets.isFetching && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
+                さらに読み込む
+              </Button>
+            ) : (
+              <p className="text-note text-center text-muted-foreground">
+                {MAX_PAGE_SIZE}件まで表示しています。絞り込みを使うとほかの一致も見つけやすくなります。
+              </p>
+            )
+          )}
+        </>
+      ) : counts.isLoading ? (
+        <Delayed><SkeletonRows rows={6} /></Delayed>
+      ) : !counts.isError && counts.data?.all === 0 ? (
         <EmptyState
           icon={<MessageSquareWarning />}
           title="フィードバックチケットはまだありません"
           description="GMO ONAiR への要望・不具合報告に気づいたら、右上の「チケットを起票する」から起こしてください。"
         />
-      ) : visible.length === 0 ? (
+      ) : (
         <NoSearchResults
           keyword={search || undefined}
           activeFilters={[
@@ -173,15 +231,6 @@ export default function FeedbackTicketsPage() {
           ].filter(Boolean)}
           onClearFilters={clearFilters}
         />
-      ) : isMobile ? (
-        <TicketCards tickets={visible} onSelect={setSelected} />
-      ) : (
-        <div className="rounded-card border border-border bg-card">
-          <TicketRowsHeader />
-          <div className="flex flex-col">
-            {visible.map((t) => <TicketRow key={t.id} ticket={t} onSelect={() => setSelected(t)} />)}
-          </div>
-        </div>
       )}
 
       {adding && (
