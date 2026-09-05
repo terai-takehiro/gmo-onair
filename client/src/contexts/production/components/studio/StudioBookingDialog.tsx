@@ -9,8 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Loader2, User } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { BookingRoomPicker } from "./bookingRoomPicker";
+import { GreenroomOccupants } from "./GreenroomOccupants";
+import { AssigneePicker, type AssigneeRef } from "../AssigneePicker";
 import { formatShortDate, localDateStr } from "@/lib/format";
 
 interface StudioRoom {
@@ -52,6 +54,7 @@ interface StudioBooking {
   status?: string;
   hold_rank?: number | null;
   rooms: BookingRoom[];
+  assignees?: AssigneeRef[];
 }
 
 interface Props {
@@ -123,6 +126,8 @@ export default function StudioBookingDialog({
   const [roomDetails, setRoomDetails] = useState<Record<string, { occupant: string; usage_note: string }>>({});
   const [locationNote, setLocationNote] = useState("");
   const [notes, setNotes] = useState("");
+  // 担当者（複数・任意）。登録ユーザーから選ぶので user_id の配列で持つ
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
 
   const [locationHistory] = useState<string[]>(() => loadLocationHistory());
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
@@ -194,6 +199,7 @@ export default function StudioBookingDialog({
         }
       }
       setRoomDetails(details);
+      setAssigneeIds((b.assignees ?? []).map((a) => a.id));
       if (b.all_day) {
         const sd = b.start_time.split("T")[0];
         const ed = b.end_time.split("T")[0];
@@ -212,6 +218,7 @@ export default function StudioBookingDialog({
       setLocationNote(""); setNotes("");
       setSelectedRoomIds(presetRoomIds ? new Set(presetRoomIds) : new Set());
       setRoomDetails({}); setMultiDay(false);
+      setAssigneeIds([]);
       if (presetDate) {
         setAllDay(presetDate.allDay);
         if (presetDate.allDay) {
@@ -355,6 +362,7 @@ export default function StudioBookingDialog({
       })),
       location_note: locationNote || null,
       notes: notes || null,
+      assignee_user_ids: assigneeIds,
     });
   };
 
@@ -571,56 +579,24 @@ export default function StudioBookingDialog({
               />
 
               {/* ⑥ 控室利用者 */}
-              {(() => {
-                const allRooms = roomLocations.flatMap((l) => l.rooms);
-                const greenrooms = allRooms.filter((r) => selectedRoomIds.has(r.id) && r.room_type === "greenroom");
-                if (greenrooms.length === 0) return null;
-                return (
-                  <div className="lg:col-span-2">
-                    <div className="flex items-center gap-1.5 mb-2 px-1">
-                      <User className="h-3.5 w-3.5 text-muted-foreground" />
-                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">控室の利用者・用途</p>
-                    </div>
-                    <div className="rounded-xl border bg-muted/30 divide-y overflow-hidden">
-                      {greenrooms.map((room) => {
-                        const detail = roomDetails[room.id] || { occupant: "", usage_note: "" };
-                        return (
-                          <div key={room.id} className="px-4 py-3 space-y-2">
-                            <div className="flex items-center gap-2">
-                              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: room.color }} />
-                              <span className="text-[14px] font-medium">{room.name}</span>
-                            </div>
-                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                              <input
-                                type="text"
-                                value={detail.occupant}
-                                onChange={(e) => setRoomDetails((prev) => ({
-                                  ...prev,
-                                  [room.id]: { ...prev[room.id] || { occupant: "", usage_note: "" }, occupant: e.target.value },
-                                }))}
-                                placeholder="利用者"
-                                className="text-[14px] px-3 py-2 rounded-lg border bg-background/80 outline-none placeholder:text-muted-foreground/40"
-                                style={{ fontSize: "16px" }}
-                              />
-                              <input
-                                type="text"
-                                value={detail.usage_note}
-                                onChange={(e) => setRoomDetails((prev) => ({
-                                  ...prev,
-                                  [room.id]: { ...prev[room.id] || { occupant: "", usage_note: "" }, usage_note: e.target.value },
-                                }))}
-                                placeholder="用途"
-                                className="text-[14px] px-3 py-2 rounded-lg border bg-background/80 outline-none placeholder:text-muted-foreground/40"
-                                style={{ fontSize: "16px" }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })()}
+              <GreenroomOccupants
+                roomLocations={roomLocations}
+                selectedRoomIds={selectedRoomIds}
+                roomDetails={roomDetails}
+                setRoomDetails={setRoomDetails}
+              />
+
+              {/* ⑥.5 担当者（複数・任意）。控室利用者（自由入力・社外可）とは別物 —
+                  こちらは登録ユーザーから選ぶ、実務の割り当ての補助情報 */}
+              <div className="lg:col-span-2">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">担当者（複数選択可・いなくてもよい）</p>{/* ui-tokens-ok: 同じダイアログの他見出し（予約種別・案件・日時・メモ）と揃える既存書式 */}
+                <AssigneePicker
+                  open={open}
+                  assigneeIds={assigneeIds}
+                  onChange={setAssigneeIds}
+                  existingAssignees={editingBooking?.assignees}
+                />
+              </div>
 
               {/* ⑦ メモ */}
               <div className="lg:col-span-2">

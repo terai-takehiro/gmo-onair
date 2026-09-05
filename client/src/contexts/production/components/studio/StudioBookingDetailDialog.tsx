@@ -3,7 +3,8 @@ import { formatDate } from "@/lib/format";
 import { FormDialog } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Trash2, ExternalLink, MapPin, Clock, Calendar } from "lucide-react";
+import { Pencil, Trash2, ExternalLink, MapPin, Clock, Calendar, Users } from "lucide-react";
+import type { AssigneeRef } from "../AssigneePicker";
 
 interface BookingRoom {
   room_id: string;
@@ -31,6 +32,7 @@ interface StudioBooking {
   episode_code: string | null;
   status?: string;
   rooms: BookingRoom[];
+  assignees?: AssigneeRef[];
 }
 
 const bookingTypeLabels: Record<string, string> = {
@@ -163,6 +165,17 @@ export default function StudioBookingDetailDialog({
                       </div>
                     </div>
                   ))}
+              </div>
+            </div>
+          )}
+
+          {/* Assignees */}
+          {!!booking.assignees?.length && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground">担当者</p>{/* ui-tokens-ok: 同じ画面の他見出し（使用スタジオ・控室の利用者・用途）と揃える既存書式 */}
+              <div className="flex items-start gap-2">
+                <Users className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                <span className="text-sm">{booking.assignees.map((a) => a.name).join("、")}</span>
               </div>
             </div>
           )}

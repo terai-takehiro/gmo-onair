@@ -6,6 +6,80 @@ import { checkPossibleDuplicate, stampPossibleDuplicate } from './booking-duplic
 import { syncProjectEventDates } from './project-event-dates.service';
 import { isReversedTimeRange } from '../../../shared/utils/timeRange';
 
+// ── 担当者 (複数・任意) ──────────────────────────────────────
+//
+// partner_schedule_assignees (278_partner_schedule_status_assignees.sql・PR #564) と
+// 同じ考え方・同じ落とし穴を踏まえた実装。詳しい経緯は 279_studio_booking_assignees.sql。
+
+/** 担当者の上限。総務代理入力等でも現実的にこれを超えることは無い想定 */
+const MAX_ASSIGNEES = 20;
+
+/**
+ * 担当者の user_id 配列を検証する。**渡さなければ `undefined`**（今の担当者を保つ。
+ * サーバーの部分更新の原則 — client/CLAUDE.md）。空配列は「担当者なし」の明示指定。
+ *
+ * 選択肢は `/users/by-module/sales` と同じ条件（`status='active'` かつ sales 権限保持
+ * or system_admin）に揃える。ただ「存在して削除されていない」だけだと、画面（担当者
+ * チップ）からは選べない/外せない担当者が付き得る（パートナースケジュールで踏んだ
+ * 落とし穴・Codex レビューで指摘・#564）。
+ */
+export async function resolveAssigneeIds(raw: unknown): Promise<string[] | undefined> {
+  if (raw === undefined) return undefined;
+  if (!Array.isArray(raw)) throw new AppError(400, 'VALIDATION_ERROR', '担当者の形式が不正です');
+  const ids = [...new Set(raw.map((v) => String(v)))];
+  // **超過分を黙って切り捨てない。** 切り捨てると選んだはずの担当者が保存後に
+  // 静かに消える（同じくパートナースケジュールで踏んだ落とし穴）
+  if (ids.length > MAX_ASSIGNEES) {
+    throw new AppError(400, 'VALIDATION_ERROR', `担当者は${MAX_ASSIGNEES}人までです`);
+  }
+  if (ids.length === 0) return [];
+  const rows = await queryAll(
+    `SELECT DISTINCT u.id
+     FROM users u
+     LEFT JOIN user_permissions p ON p.user_id = u.id AND p.module = 'sales'
+     WHERE u.id = ANY(?::text[]) AND u.deleted_at IS NULL AND u.status = 'active'
+       AND (u.role = 'system_admin' OR p.access_level IS NOT NULL)`,
+    [ids]
+  );
+  const valid = new Set(rows.map((r: any) => r.id));
+  if (ids.some((id) => !valid.has(id))) {
+    throw new AppError(400, 'VALIDATION_ERROR', '担当者に無効なユーザーが含まれています');
+  }
+  return ids;
+}
+
+/** studio_booking_assignees を置き換える (delete → 再insert)。ids===undefined なら何もしない */
+export async function replaceAssignees(bookingId: string, ids: string[] | undefined): Promise<void> {
+  if (ids === undefined) return;
+  await execute(`DELETE FROM studio_booking_assignees WHERE booking_id = ?`, [bookingId]);
+  for (let i = 0; i < ids.length; i++) {
+    await execute(
+      `INSERT INTO studio_booking_assignees (id, booking_id, user_id, sort_order) VALUES (?, ?, ?, ?)`,
+      [uuidv4(), bookingId, ids[i], i]
+    );
+  }
+}
+
+/** 複数の予約の担当者を一括で引き、`booking_id` ごとの `{id, name}[]` に畳む */
+export async function fetchAssigneesByBookingIds(bookingIds: string[]): Promise<Map<string, Array<{ id: string; name: string }>>> {
+  const out = new Map<string, Array<{ id: string; name: string }>>();
+  if (bookingIds.length === 0) return out;
+  const rows = await queryAll(
+    `SELECT sba.booking_id, u.id, u.name
+     FROM studio_booking_assignees sba
+     JOIN users u ON u.id = sba.user_id AND u.deleted_at IS NULL
+     WHERE sba.booking_id = ANY(?::text[])
+     ORDER BY sba.sort_order`,
+    [bookingIds]
+  );
+  for (const r of rows as any[]) {
+    const list = out.get(r.booking_id) ?? [];
+    list.push({ id: r.id, name: r.name });
+    out.set(r.booking_id, list);
+  }
+  return out;
+}
+
 /** from〜to (YYYY-MM-DD, 両端含む) の日付を昇順で列挙。UTC 基準で TZ ドリフトを回避。 */
 function enumerateDates(from: string, to: string): string[] {
   const out: string[] = [];
@@ -44,6 +118,8 @@ export interface CreateBookingInput {
   status?: string;
   /** 仮押さえの何番手か (1以上)。仮押さえどうしの相対順位を人が手入力する値。status とは独立 */
   hold_rank?: number | null;
+  /** 担当者 (複数・任意)。登録ユーザーの user_id 配列 */
+  assignee_user_ids?: string[];
 }
 
 export const studioBookingService = {
@@ -120,9 +196,12 @@ export const studioBookingService = {
       roomsByBooking.get(br.booking_id)!.push(br);
     }
 
+    const assigneesByBooking = await fetchAssigneesByBookingIds(bookingIds);
+
     return bookings.map((b) => ({
       ...b,
       rooms: roomsByBooking.get(b.id) ?? [],
+      assignees: assigneesByBooking.get(b.id) ?? [],
     }));
   },
 
@@ -211,6 +290,9 @@ export const studioBookingService = {
     const { title, booking_type, project_id, episode_id, all_day, start_time, end_time, room_ids, room_details, location_note, notes, status, hold_rank } = input;
     if (!title || !start_time || !end_time) throw new AppError(400, 'VALIDATION_ERROR', 'タイトル・開始・終了は必須です');
     if (isReversedTimeRange(start_time, end_time)) throw new AppError(400, 'VALIDATION_ERROR', '終了は開始より後にしてください');
+    // **行を作る前に検証する。** 無効な担当者IDで作成が失敗しても、既に挿入した
+    // 予約・部屋の行が孤立して残らないようにする
+    const assigneeIds = await resolveAssigneeIds(input.assignee_user_ids);
 
     const bookingStatus = ['confirmed', 'tentative'].includes(status ?? '') ? status : 'tentative';
     // 番手は仮押さえのときだけ意味を持つ。confirmed で紛れ込んでも保存しない
@@ -235,6 +317,8 @@ export const studioBookingService = {
         await execute(`INSERT INTO studio_booking_rooms (booking_id, room_id) VALUES (?, ?)`, [id, roomId]);
       }
     }
+
+    await replaceAssignees(id, assigneeIds ?? []);
 
     // 案件に紐づく本予約を登録したら、d_hold 遷移で自動生成された「仮押さえ」プレースホルダを
     // soft-delete して二重登録を防ぐ (ユーザーが手動で作った仮押さえ予約は notes が異なるため残る)。
@@ -282,8 +366,9 @@ export const studioBookingService = {
     if (dup) await stampPossibleDuplicate(id, dup);
 
     const row = await queryOne('SELECT * FROM studio_bookings WHERE id = ?', [id]) as Record<string, unknown>;
+    const assignees = (await fetchAssigneesByBookingIds([id])).get(id) ?? [];
     // 画面が注意を出せるように、判定の結果を**行とは別に**返す
     // （列に入れた文言をそのまま出すと、設定を直しても古い文が残る）
-    return { ...row, hours_check: check, duplicate_check: dup };
+    return { ...row, assignees, hours_check: check, duplicate_check: dup };
   },
 };

@@ -153,6 +153,8 @@ export function registerStudioTools(server: McpServer): void {
             '場所が確定していないときは空のままにする。',
           ),
         notes: z.string().optional().describe('備考'),
+        assignee_user_ids: z.array(z.string()).optional()
+          .describe('担当者に設定する登録ユーザーID (users.id) の配列。省略時は担当者なし。sales 権限を持たないユーザーは指定できない'),
         ...REQUESTED_BY,
       },
     },
@@ -172,6 +174,7 @@ export function registerStudioTools(server: McpServer): void {
           notes: args.notes ?? null,
           status: args.status,
           hold_rank: args.hold_rank ?? null,
+          assignee_user_ids: args.assignee_user_ids,
         },
         currentActorId(),
       ) as any;

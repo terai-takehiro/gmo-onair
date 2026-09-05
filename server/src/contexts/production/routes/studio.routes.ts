@@ -5,7 +5,7 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { requireAuth, requirePermission, requireRole } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateICalFeed, ICalEvent } from '../../../shared/utils/ical';
-import { studioBookingService } from '../services/studio-booking.service';
+import { studioBookingService, resolveAssigneeIds, replaceAssignees, fetchAssigneesByBookingIds } from '../services/studio-booking.service';
 import { checkBooking, locationOfBooking, stampOutOfHours } from '../services/business-hours.service';
 import { checkPossibleDuplicate, stampPossibleDuplicate } from '../services/booking-duplicate.service';
 import { syncProjectEventDates } from '../services/project-event-dates.service';
@@ -493,6 +493,7 @@ router.get('/bookings/:id', async (req, res) => {
      ORDER BY l.sort_order NULLS LAST, r.sort_order, r.name`, [req.params.id]
   );
   booking.rooms = rooms;
+  booking.assignees = (await fetchAssigneesByBookingIds([req.params.id])).get(req.params.id) ?? [];
   res.json({ success: true, data: booking });
 });
 
@@ -550,6 +551,8 @@ router.put('/bookings/:id', requirePermission('sales', 'editor'), async (req, re
   }
 
   const { room_ids, room_details } = b as { room_ids?: unknown; room_details?: unknown };
+  // 書き込みの前に検証する（無効な担当者IDで途中まで書いてしまわないように）
+  const assigneeIds = await resolveAssigneeIds(b.assignee_user_ids);
 
   if (sets.length > 0) {
     sets.push('updated_at=NOW()');
@@ -572,6 +575,8 @@ router.put('/bookings/:id', requirePermission('sales', 'editor'), async (req, re
       }
     }
   }
+
+  await replaceAssignees(String(req.params.id), assigneeIds);
 
   /**
    * ⚠️ **時間外の印を付け直す**（レビューでの指摘 #63）。
@@ -645,11 +650,14 @@ router.put('/bookings/:id', requirePermission('sales', 'editor'), async (req, re
     after.possible_duplicate_of = duplicateCheck?.bookingId ?? null;
   }
 
+  const assignees = (await fetchAssigneesByBookingIds([String(req.params.id)])).get(String(req.params.id)) ?? [];
+
   // 画面が注意を出せるように、判定の結果を**行とは別に**返す（作るときと同じ形）
   res.json({
     success: true,
     data: {
       ...after,
+      assignees,
       ...(hoursCheck ? { hours_check: hoursCheck } : {}),
       ...(duplicateCheck !== null || timeChanged || roomsChanged || titleChanged || projectChanged
         ? { duplicate_check: duplicateCheck } : {}),
