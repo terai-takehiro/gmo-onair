@@ -43,9 +43,15 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
   const [error, setError] = useState<string | null>(null);
 
   // 対象者プルダウン（manager のみ）／担当者チップ（全員）に使う。パートナー権限保持者一覧
+  // ⚠️ `partner_schedule` は旧モジュール名（権限モデル単純化で `sales` に統合済み・
+  // migration 210）。この文字列のままだと `user_permissions.module` の完全一致に外れ、
+  // system_admin 以外が誰も返らない（Codex レビューで指摘・#564）。鍵も他画面と同じ
+  // `users-by-module-sales` に揃える — 別の鍵のままだと同じ内容を2回引くだけでなく、
+  // 旧鍵 `partner-schedule-users`（`FilterDialogs.tsx` 等が今も使う）と同じ文字列に
+  // 別の queryFn を紐づけてしまい、どちらが先に走るかでキャッシュが化ける
   const { data: partnerUsers = [] } = useQuery<Array<{ id: string; name: string }>>({
-    queryKey: ["partner-schedule-users"],
-    queryFn: async () => (await api.get("/users/by-module/partner_schedule")).data.data,
+    queryKey: ["users-by-module-sales"],
+    queryFn: async () => (await api.get("/users/by-module/sales")).data.data,
     enabled: open,
     staleTime: 5 * 60 * 1000,
   });

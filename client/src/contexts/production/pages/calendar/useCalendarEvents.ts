@@ -162,7 +162,11 @@ export function useCalendarEvents(from: string, to: string, f: CalFilters) {
     if (canPartner && f.layers.partner) {
       for (const s of partners.data ?? []) {
         if (f.roomIds.length > 0) continue;              // 部屋を持たない
-        if (f.userIds.length > 0 && !f.userIds.includes(s.user_id)) continue;
+        // **担当者も「人で絞る」の対象にする。** 予定の持ち主（user_id）だけを見ると、
+        // 担当者として入っている人を選んでも「空いている」ように見えてしまう
+        // （Codex レビューで指摘・#564）
+        const assigneeIds = (s.assignees ?? []).map((a) => a.id);
+        if (f.userIds.length > 0 && !f.userIds.includes(s.user_id) && !assigneeIds.some((id) => f.userIds.includes(id))) continue;
         const color = SCHEDULE_TYPE_COLORS[s.schedule_type] || SCHEDULE_TYPE_COLORS.other;
         const assigneeNames = (s.assignees ?? []).map((a) => a.name);
         out.push({

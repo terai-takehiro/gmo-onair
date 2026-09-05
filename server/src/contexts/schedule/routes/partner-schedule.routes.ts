@@ -37,7 +37,12 @@ function isManager(req: Request): boolean {
 async function resolveAssigneeIds(raw: unknown): Promise<string[] | undefined> {
   if (raw === undefined) return undefined;
   if (!Array.isArray(raw)) throw new AppError(400, 'VALIDATION_ERROR', '担当者の形式が不正です');
-  const ids = [...new Set(raw.map((v) => String(v)))].slice(0, MAX_ASSIGNEES);
+  const ids = [...new Set(raw.map((v) => String(v)))];
+  // **超過分を黙って切り捨てない。** 画面は上限を出していないので、切り捨てると
+  // 選んだはずの担当者が保存後に静かに消える（Codex レビューで指摘・#564）
+  if (ids.length > MAX_ASSIGNEES) {
+    throw new AppError(400, 'VALIDATION_ERROR', `担当者は${MAX_ASSIGNEES}人までです`);
+  }
   if (ids.length === 0) return [];
   const rows = await queryAll(`SELECT id FROM users WHERE id = ANY(?::text[]) AND deleted_at IS NULL`, [ids]);
   const valid = new Set(rows.map((r: any) => r.id));
