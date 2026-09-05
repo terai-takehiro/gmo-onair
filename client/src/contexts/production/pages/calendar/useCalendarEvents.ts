@@ -52,6 +52,7 @@ export interface CalBooking {
   project_name?: string | null;
   gls_number?: string | null;
   rooms: Array<{ room_id: string; room_name: string; room_color?: string | null }>;
+  assignees?: Array<{ id: string; name: string }>;
 }
 
 export interface Holiday { date: string; name: string; estimated: boolean }
@@ -60,7 +61,7 @@ export interface CalFilters {
   layers: Record<CalLayer, boolean>;
   /** 押さえている部屋で絞る。空 = 絞らない */
   roomIds: string[];
-  /** パートナーを人で絞る。空 = 絞らない */
+  /** 担当者・パートナーを人で絞る。空 = 絞らない */
   userIds: string[];
 }
 
@@ -140,7 +141,13 @@ export function useCalendarEvents(from: string, to: string, f: CalFilters) {
         // 「部屋で絞る」を押した人は部屋の埋まり方を見たいので、
         // 部屋を持たない自分・パートナーの予定が残ると読み違える（モックの注記どおり）
         if (f.roomIds.length > 0 && !b.rooms?.some((r) => f.roomIds.includes(r.room_id))) continue;
+        // **担当者も「人で絞る」の対象にする。** パートナースケジュールと同じ理由
+        // （担当者として入っている人を選んでも「空いている」ように見えてしまう）
+        const assigneeIds = (b.assignees ?? []).map((a) => a.id);
+        if (f.userIds.length > 0 && !assigneeIds.some((id) => f.userIds.includes(id))) continue;
         const color = BOOKING_TYPE_COLORS[b.booking_type] || BOOKING_TYPE_COLORS.other;
+        const roomNames = b.rooms?.map((r) => r.room_name).join(' ・ ') || '部屋なし';
+        const assigneeNames = (b.assignees ?? []).map((a) => a.name);
         out.push({
           key: `bk-${b.id}`,
           id: b.id,
@@ -149,7 +156,7 @@ export function useCalendarEvents(from: string, to: string, f: CalFilters) {
           title: b.title.replace(/^GLS[-A-Z0-9]*\s+/i, '').trim() || b.title,
           color,
           typeLabel: BOOKING_TYPE_LABELS[b.booking_type] ?? 'その他',
-          sub: b.rooms?.map((r) => r.room_name).join(' ・ ') || '部屋なし',
+          sub: assigneeNames.length > 0 ? `${roomNames} ・ 担当: ${assigneeNames.join('、')}` : roomNames,
           source: '',
           allDay: !!b.all_day,
           start: at(b.start_time),

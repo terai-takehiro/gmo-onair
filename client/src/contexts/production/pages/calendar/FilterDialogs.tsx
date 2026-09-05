@@ -4,7 +4,8 @@
  * ── 絞ると何が消えるかを先に書く（モックの指定）──────────────
  *
  * 部屋で絞ると、**部屋を持たない自分・パートナーの予定は出なくなります**。
- * 人で絞ると、**人を持たないスタジオ予約が出なくなります**。
+ * 人で絞ると、**担当者を設定していないスタジオ予約が出なくなります**
+ * （スタジオ予約にも担当者(複数・任意)を持たせられるようになった・PR #564 の続き）。
  * どちらも「消えた＝壊れた」と読まれるので、押す前にダイアログへ書きます。
  */
 import { useQuery } from '@tanstack/react-query';
@@ -136,7 +137,7 @@ export function UserFilterDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="人で絞る"
-      sub="パートナーの予定を人で絞ります。アサインの空きを見るときに使います。"
+      sub="パートナーの予定・スタジオ予約の担当者を人で絞ります。アサインの空きを見るときに使います。"
       footer={
         <FormDialogFooter>
           <Button variant="outline" onClick={() => onChange([])} disabled={value.length === 0}>全員出す</Button>
@@ -145,7 +146,7 @@ export function UserFilterDialog({
       }
     >
         <Note>
-          スタジオの予約は<strong className="font-bold">人を持たない</strong>ので、絞ると出なくなります。
+          スタジオの予約は<strong className="font-bold">選んだ人を担当者に設定していないと</strong>出なくなります。
           自分の予定も出しません（人ごとの空きが読めなくなるため）。
         </Note>
 
