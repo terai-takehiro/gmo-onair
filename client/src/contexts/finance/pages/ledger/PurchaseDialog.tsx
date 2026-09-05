@@ -71,7 +71,7 @@ function ReadOnlyField({ children }: { children: ReactNode }) {
 }
 
 export function PurchaseDialog({
-  editing, defaultProjectId, projects = [], vendors = [], saving = false, deleting = false, onSave, onDelete, onClose, readOnly = false,
+  editing, defaultProjectId, projects = [], vendors = [], users = [], currentUserId, saving = false, deleting = false, onSave, onDelete, onClose, readOnly = false,
 }: {
   editing: PurchaseRow | null;
   /** 案件で絞り込んで見ているときの初期値 */
@@ -80,6 +80,10 @@ export function PurchaseDialog({
   projects?: PurchaseProjectOption[];
   /** `readOnly` のときは使わない（渡さなくてよい） */
   vendors?: Vendor[];
+  /** 担当者の候補一覧（`SgaDialog` と同じ形）。`readOnly` のときは使わない（渡さなくてよい） */
+  users?: { id: string; name: string }[];
+  /** 新規登録のときの担当者の初期値（ログインユーザー。`SgaListPage` と同じ挙動） */
+  currentUserId?: string;
   saving?: boolean;
   deleting?: boolean;
   onSave?: (payload: Record<string, unknown>) => void;
@@ -116,6 +120,8 @@ export function PurchaseDialog({
   const [recognitionMonth, setRecognitionMonth] = useState(editing?.recognition_date?.slice(0, 7) || '');
   const [paymentDueDate, setPaymentDueDate] = useState(editing?.payment_due_date?.slice(0, 10) || '');
   const [isProvisional, setIsProvisional] = useState(!!editing?.is_provisional);
+  // 新規登録のときはログインユーザーを初期選択（`SgaListPage` の `openFor` と同じ挙動）
+  const [assignedTo, setAssignedTo] = useState(editing?.assigned_to || (!editing ? currentUserId : '') || '');
 
   // 新規のとき、案件で絞り込んでいればその案件を初期値にする
   useEffect(() => {
@@ -150,6 +156,7 @@ export function PurchaseDialog({
       recognition_date: recognitionMonth ? `${recognitionMonth}-01` : null,
       payment_due_date: paymentDueDate || null,
       is_provisional: isProvisional,
+      assigned_to: assignedTo || null,
     });
   };
 
@@ -346,15 +353,36 @@ export function PurchaseDialog({
             </div>
           </div>
 
-          <div>
-            <Label>インボイス</Label>
-            <Select value={invoiceQualified} onValueChange={setInvoiceQualified} disabled={readOnly}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="qualified">適格事業者</SelectItem>
-                <SelectItem value="unqualified">非適格事業者</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <Label>インボイス</Label>
+              <Select value={invoiceQualified} onValueChange={setInvoiceQualified} disabled={readOnly}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="qualified">適格事業者</SelectItem>
+                  <SelectItem value="unqualified">非適格事業者</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>担当者</Label>
+              {/* `readOnly` のときは案件・仕入先と同じ扱いで素の文字にするが、担当者だけは
+                  `users` 一覧を引かなくても出せる ——サーバーが `assigned_to_name` を
+                  JOIN 済みで返すため（`users` を渡し忘れても生の UUID が漏れない。レビュー指摘）。
+                  存在しない・削除済みユーザーを指していれば「削除済みのユーザー」にする */}
+              {readOnly ? (
+                <ReadOnlyField>
+                  {editing?.assigned_to_name || (editing?.assigned_to ? '（削除済みのユーザー）' : '（担当者なし）')}
+                </ReadOnlyField>
+              ) : (
+                <SearchableSelect
+                  options={users.map((u) => ({ value: u.id, label: u.name }))}
+                  value={assignedTo}
+                  onChange={setAssignedTo}
+                  placeholder="担当者を検索..."
+                />
+              )}
+            </div>
           </div>
 
           <div>

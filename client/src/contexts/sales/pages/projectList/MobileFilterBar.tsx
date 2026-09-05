@@ -29,7 +29,7 @@ import { Input } from '@/components/ui/input';
 import { Sheet } from '@gmo-onair/shared/src/client-v4/sheet';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { STAGE_CHIPS } from './stages';
-import { SORT_OPTIONS, type FilterBarProps } from './FilterBar';
+import { sortLabel, sortChoices, type FilterBarProps } from './FilterBar';
 import {
   PERIOD_MODES, options, toValue, fromValue, label, switchMode, defaultPeriod,
 } from './period';
@@ -150,9 +150,11 @@ export function MobileFilterBar(p: MobileFilterBarProps) {
           className="min-h-tap flex shrink-0 items-center gap-1.5 rounded-control border border-border bg-card px-3 text-sub"
         >
           {/* **選んでいる並び順を出す。** 「並び順」とだけ書くと、
-              何順で並んでいるのかを知るのに毎回シートを開くことになる */}
+              何順で並んでいるのかを知るのに毎回シートを開くことになる。
+              ⚠️ ヘッダークリックが作った値（プリセットに無い）を「おすすめ順」に
+              読み替えないこと — `sortLabel` が列名＋昇順/降順で組み立てる（レビュー指摘） */}
           <span className={`${SORT_LABEL_W} truncate`}>
-            {SORT_OPTIONS.find((s) => s.value === p.sort)?.label ?? SORT_OPTIONS[0].label}
+            {sortLabel(p.sort)}
           </span>
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         </button>
@@ -225,7 +227,8 @@ export function MobileFilterBar(p: MobileFilterBarProps) {
 
       {/* ── 並び順（AI と用語もここ）──────────────────── */}
       <Sheet open={open === 'sort'} onOpenChange={(v) => !v && close()} title="並び順" rise>
-        {SORT_OPTIONS.map((s) => (
+        {/* プリセット5つ＋いまヘッダークリックで選ばれている列（プリセットに無ければ1件足す） */}
+        {sortChoices(p.sort).map((s) => (
           <Choice
             key={s.value}
             label={s.label}

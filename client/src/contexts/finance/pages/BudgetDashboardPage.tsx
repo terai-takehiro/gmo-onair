@@ -70,6 +70,7 @@ import SgaDialog, { initialFormData as initialSgaForm, type SgaFormData } from '
 import { formFromSga } from '../components/sgaPrefill';
 import { ProfitFlow, type FlowStep } from './financeDashboard/ProfitFlow';
 import { PipelineForecast } from './financeDashboard/PipelineForecast';
+import { ForecastModeToggle, type ForecastMode } from './financeDashboard/ForecastModeToggle';
 import { BreakdownColumn } from './financeDashboard/Breakdown';
 import { useProjectFilter, initialPeriodMode } from './financeDashboard/useProjectFilter';
 import {
@@ -89,6 +90,14 @@ export default function BudgetDashboardPage() {
   const [quarter, setQuarter] = useState(Math.floor(now.getMonth() / 3) + 1);
   const [rangeFrom, setRangeFrom] = useState(`${now.getFullYear()}-01`);
   const [rangeTo, setRangeTo] = useState(curYm);
+
+  /*
+   * 「総額」/「確度加味」の切り替え（営業見通しカードが使う）。**画面レベルの state**
+   * にして `PeriodBar` と同じ並びに置く（旧 `PipelineForecast.tsx` のローカル state を
+   * 引き上げたもの・ファイル冒頭コメント参照）。初期値は旧実装を踏襲し「確度加味」。
+   * ⚠️ 集計対象はこれまでどおり `PipelineForecast` だけ（損益フロー・内訳・サマリーには適用しない）
+   */
+  const [forecastMode, setForecastMode] = useState<ForecastMode>('weighted');
 
   // 案件の絞り込み（URL の `?project_id=` が正）は `financeDashboard/useProjectFilter.ts`。
   // この画面で案件を絞る道はプルダウン1本（内訳の行のうち売上だけ台帳へ移動する）
@@ -243,10 +252,21 @@ export default function BudgetDashboardPage() {
       />
 
       {/*
+        * 「総額」/「確度加味」の切り替え。**期間・案件の絞り込み（`PeriodBar`）と
+        * 同じ並びの画面レベルの設定として、常に見える・操作できる場所に置く**
+        * （旧実装は営業見通しカードの中に閉じていた・ファイル冒頭コメント参照）。
+        * 効くのは直下の営業見通しカードだけ（損益フロー・内訳・サマリーには適用しない）。
+        */}
+      <div className="rounded-card flex flex-wrap items-center gap-2 border border-border bg-card p-3 lg:px-4">
+        <span className="text-sub shrink-0 text-muted-foreground">営業見通しの集計方法</span>
+        <ForecastModeToggle mode={forecastMode} onChange={setForecastMode} />
+      </div>
+
+      {/*
         * 営業見通し（パイプライン）は期間の絞り込みと無関係（ファイル冒頭コメント参照）
         * なので、`periodReady` を待たずに常に出す。案件の絞り込みだけ引き継ぐ。
         */}
-      <PipelineForecast projectId={projectId} />
+      <PipelineForecast projectId={projectId} forecastMode={forecastMode} />
 
       {/*
         * 期間が入っていないときは読み込みに行かない。**何を待っているのか書かないと固まって見える**。
