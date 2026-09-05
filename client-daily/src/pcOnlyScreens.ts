@@ -41,4 +41,5 @@ export const DAILY_MOBILE_OK: string[] = [
   '/security-cards',   // カードの貸出・返却
   '/search',           // 探す — **スマホの下タブ3つ目**（M9）
   '/inquiries',        // 入ってきた情報 — 247 で PC 専用をやめた（スマホは2行カード）
+  '/feedback-tickets', // フィードバックチケット — 起票・閲覧はスマホでも完結する
 ];
