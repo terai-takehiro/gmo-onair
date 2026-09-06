@@ -66,7 +66,7 @@ export function LendDialog({ card, onClose }: { card: SecurityCard; onClose: () 
       onClose={onClose}
       // カウンターで相手を前にして打つ画面なので Enter で送れるようにする。
       // 送信ボタンは `type="submit"`・`onClick` は外す（両方だと二重送信）
-      onSubmit={(e) => { e.preventDefault(); submit(); }}
+      onSubmit={(e) => { e.preventDefault(); if (!lend.isPending) submit(); }}
       footer={
         <FormDialogFooter>
           <Button type="button" variant="outline" className="min-h-tap" onClick={onClose}>キャンセル</Button>
@@ -138,7 +138,7 @@ export function ReturnDialog({ card, onClose }: { card: SecurityCard; onClose: (
     <Shell
       title={`No.${card.card_no}・${card.level_label} の返却を記録`}
       onClose={onClose}
-      onSubmit={(e) => { e.preventDefault(); submit(); }}
+      onSubmit={(e) => { e.preventDefault(); if (!ret.isPending) submit(); }}
       footer={
         <FormDialogFooter>
           <Button type="button" variant="outline" className="min-h-tap" onClick={onClose}>キャンセル</Button>

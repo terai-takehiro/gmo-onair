@@ -121,7 +121,7 @@ export function TaskEditDialog({ task, onClose }: { task: MyTask; onClose: () =>
   };
 
   return (
-    <FormDialog open onOpenChange={onClose} title="タスクを編集" onSubmit={(e) => { e.preventDefault(); save(); }} footer={
+    <FormDialog open onOpenChange={onClose} title="タスクを編集" onSubmit={(e) => { e.preventDefault(); if (!update.isPending) save(); }} footer={
       <FormDialogFooter>
         <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>
         <Button type="submit" disabled={update.isPending}>
@@ -214,7 +214,7 @@ export function TaskCreateDialog({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <FormDialog open onOpenChange={onClose} title="タスク・依頼を追加" onSubmit={(e) => { e.preventDefault(); submit(); }} footer={
+    <FormDialog open onOpenChange={onClose} title="タスク・依頼を追加" onSubmit={(e) => { e.preventDefault(); if (!create.isPending) submit(); }} footer={
       <FormDialogFooter>
         <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>
         <Button type="submit" disabled={create.isPending}>

@@ -60,7 +60,7 @@ export default function ColumnDialog({ open, onClose, projectId, existing }: Pro
       title={existing ? "カラムを編集" : "カラムを追加"}
       // Enter で保存する。カラム名の欄で個別に拾っていた `onKeyDown` は
       // ここへ寄せた（同じ役目を2か所で持たない）。送信は `type="submit"` の1本だけ
-      onSubmit={(e) => { e.preventDefault(); handleSave(); }}
+      onSubmit={(e) => { e.preventDefault(); if (name.trim() && !isPending) handleSave(); }}
       footer={
         <FormDialogFooter>
           <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={isPending}>

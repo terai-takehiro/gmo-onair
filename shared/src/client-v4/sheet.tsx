@@ -234,8 +234,13 @@ export function Sheet({
            * その結果、開いてすぐ打ち始められず（Tab が1回要る）、開いた直後に Enter を
            * 押すと**保存ではなくダイアログが閉じる**（全アプリのフォーム 70本超で同じ）。
            *
-           * - **PC は本文の最初の入力欄へ移す。** `button` は選ばない（× と、
-           *   本文の先頭にチップ列を置くフォームを拾ってしまうため）
+           * - **PC は本文の最初の入力欄へ移す。** 素の `button` は選ばない（× と、
+           *   本文の先頭にチップ列を置くフォームを拾ってしまうため）。ただし
+           *   **選択欄（`role="combobox"`）は入力欄として扱う** — `SearchableSelect` も
+           *   Radix の `SelectTrigger` も実体は `<button>` なので、これを外すと
+           *   「案件を選ぶ」「仕入先を選ぶ」で始まるフォームが**それらを飛ばして
+           *   下の説明欄にフォーカスし**、打ち始めた文字が別の欄に入っていた
+           *   （仕入の登録がその形。Codex のレビュー指摘 P2）
            * - **スマホは何も選ばず、シート本体（`tabIndex=-1`）に置く。** 入力欄へ当てると
            *   ソフトキーボードが立ち上がってシートの表示領域が半分になる
            * - **画面側が `autoFocus` を書いているときはそれを尊重する。** React は
@@ -250,7 +255,10 @@ export function Sheet({
             const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
             if (!isMobile) {
               const first = root.querySelector<HTMLElement>(
-                'input:not([type="hidden"]):not([disabled]):not([readonly]), textarea:not([disabled]):not([readonly]), select:not([disabled])',
+                'input:not([type="hidden"]):not([disabled]):not([readonly]), '
+                + 'textarea:not([disabled]):not([readonly]), '
+                + 'select:not([disabled]), '
+                + '[role="combobox"]:not([disabled]):not([aria-disabled="true"])',
               );
               if (first) { first.focus(); return; }
             }

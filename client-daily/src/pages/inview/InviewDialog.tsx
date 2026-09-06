@@ -115,7 +115,7 @@ export function InviewDialog({
       // **Enter で保存できるようにする**（欄のほとんどが1行の入力欄で、
       // 受付は片手で打ちながら進める画面）。送信ボタンは `type="submit"` にして
       // `onClick` を外す — 両方あると二重に送信される（`_form-order.md` 4節）
-      onSubmit={(e) => { e.preventDefault(); submit(); }}
+      onSubmit={(e) => { e.preventDefault(); if (pending || !f.name?.trim() || !f.session_label?.trim()) return; submit(); }}
       footer={
         <FormDialogFooter>
           <Button type="button" variant="outline" className="min-h-tap" onClick={onClose}>キャンセル</Button>

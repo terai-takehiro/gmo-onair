@@ -71,7 +71,7 @@ export function InquiryDialog({ initial, onClose }: { initial: MiscInquiry | nul
       size="lg"
       // 1行の入力欄が主体のフォームなので Enter で送れるようにする
       // （要約・メモの textarea の中では今までどおり改行が入る）
-      onSubmit={(e) => { e.preventDefault(); submit(); }}
+      onSubmit={(e) => { e.preventDefault(); if (pending || !f.summary?.trim()) return; submit(); }}
       footer={
         <FormDialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>

@@ -203,7 +203,7 @@ export function CreateSheetDialog({
         </DialogHeader>
         <form
           className="space-y-4 pt-2"
-          onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }}
+          onSubmit={(e) => { e.preventDefault(); if (missingRequired.length === 0 && !createMutation.isPending) createMutation.mutate(); }}
         >
           {/* **案件をいちばん先に選ばせる。**
               案件（とエピソード）を選ぶと 番組名・撮影場所・放送日・収録日・リハーサル日が

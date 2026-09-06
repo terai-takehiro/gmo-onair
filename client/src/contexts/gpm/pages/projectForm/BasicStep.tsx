@@ -82,7 +82,12 @@ export function BasicStep({ values, onChange, users, customers, startedOn, onSta
                 key={k}
                 type="button"
                 aria-pressed={on}
-                onClick={() => onChange({ kind: k })}
+                // **グループ受託から離れたら PM会社を消す。** 欄を隠すだけだと、
+                // 一度入れた `pmCompany` が残ったまま送られ（`GpmProjectFormPage` は
+                // 区分に関係なく送る）、画面が「自社PM です」と言っているのに
+                // 外部の PM 会社が保存された状態になる。しかも隠れているので
+                // 見ることも消すこともできない（Codex のレビュー指摘 P2）
+                onClick={() => onChange(k === 'group_order' ? { kind: k } : { kind: k, pmCompany: '' })}
                 className={cn(
                   'min-h-tap rounded-control-lg flex items-start gap-2.5 border p-3 text-left',
                   on ? 'border-primary-border-strong bg-primary-surface-weak' : 'border-border hover:bg-muted',

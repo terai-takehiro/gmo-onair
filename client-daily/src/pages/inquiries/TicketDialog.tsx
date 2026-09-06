@@ -64,7 +64,7 @@ export function TicketDialog({ inquiry, onClose }: { inquiry: MiscInquiry; onClo
       onOpenChange={(o) => { if (!o) onClose(); }}
       title="タスクにする"
       // 打つ欄は「やること」1行だけなので Enter で送れるようにする
-      onSubmit={(e) => { e.preventDefault(); submit(); }}
+      onSubmit={(e) => { e.preventDefault(); if (make.isPending || !title.trim()) return; submit(); }}
       footer={
         <FormDialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>

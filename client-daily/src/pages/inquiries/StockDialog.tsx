@@ -57,7 +57,7 @@ export function StockDialog({
       title={already ? '見直す日を決め直す' : 'あとで見る'}
       // 打つのは日付1つだけなので Enter で送れるようにする。押すボタンは
       // すべて `type` を明示する（`<form>` の中では既定が submit になるため）
-      onSubmit={(e) => { e.preventDefault(); onSubmit(reviewOn || null); }}
+      onSubmit={(e) => { e.preventDefault(); if (!saving) onSubmit(reviewOn || null); }}
       footer={
         <FormDialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>

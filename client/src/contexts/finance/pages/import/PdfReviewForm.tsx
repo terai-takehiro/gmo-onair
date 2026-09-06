@@ -243,7 +243,17 @@ export function PdfReviewForm({
         <div className="sm:col-span-2 flex flex-col gap-3">
           {f.kind === 'purchase' && (
             <label className="text-sub flex cursor-pointer items-center gap-2">
-              <Switch checked={f.isProvisional} onCheckedChange={(v) => set('isProvisional', v)} />
+              <Switch
+                checked={f.isProvisional}
+                onCheckedChange={(v) => {
+                  set('isProvisional', v);
+                  // **仮にしたら精算番号を消す。** 入力欄を `disabled` にするだけだと、
+                  // PDF から読み取った番号が残ったまま送られ、「仮なのに精算番号が付いた仕入」に
+                  // なる（しかも仮の間は消せない）。画面が「この2つは両立しない」と言っている
+                  // 以上、値も合わせる（Codex のレビュー指摘 P2）
+                  if (v) set('settlementNumber', '');
+                }}
+              />
               仮（見込みの仕入）
             </label>
           )}
