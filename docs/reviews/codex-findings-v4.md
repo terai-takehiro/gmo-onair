@@ -2254,6 +2254,26 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#578**（`fix(sales,platform,production): 同種のフォーム初期化レースを他画面でも修正`・2026-09-06）—
+  [#575](https://github.com/terai-takehiro/gmo-onair/pull/575)（案件編集画面のSPA遷移で「案件分類」
+  保存不可バナーが誤表示される不具合）と同じ型・近縁のバグが他の編集画面にも無いか、
+  5アプリ（`client`/`client-daily`/`client-equipment`/`client-techops`/`client-live`）を
+  5体の並列サブエージェントで横断調査し、見つかった3件（`LiveDisplayLayoutEditorPage.tsx`・
+  `LiveProgramSettingsPage.tsx`・`UserDialog`/`RoleDialog`/`StudioBookingDialog` の対象切り替え）
+  を修正した回。⚠️ **`chatgpt-codex-connector` の Code Review が usage limits で一度も
+  実行されなかった**（PRコメントで明示: "You have reached your Codex usage limits for
+  code reviews"）。**Security Review は実行され 0 件**（`get_review_comments` で確認）。
+  つまり「指摘なし」に見えるのは Security 観点だけで、**コード品質観点のレビューは
+  一度も届いていない**——silence を「問題なし」と読まないこと。
+  表に移す指摘はない（レビュー自体が届いていないため）。**PR #575自体もこの棚卸しに
+  記録されていなかった**（見張り時点で `get_reviews`・`get_review_comments` とも0件を
+  確認済みだが、この文書への記載を今回まで漏らしていた——両レビューとも実行はされ
+  指摘0件だったことは確認済み、コード品質観点も届いていた点が#578と異なる）。
+  検証: `npx tsc -b client client-techops`・`npm run typecheck -w server`・`npm run lint`
+  （warning数は着手前と同数・0 errors）・`shared` の Vitest 1996件 全通過。⚠️ 実ブラウザでの
+  PC/スマホ確認・`npm run build`・権限別403の画面確認・実DB確認はいずれも未実施
+  （PR本文に明記済み）。
+
 - **#577**（`fix(equipment): 機材検索プルダウンで型名・Noも検索対象にした`・2026-09-06）—
   機材管理のメンテナンス記録の追加ダイアログ・貸出登録の機材選択で、機材ID・名前に加え
   型名(`model_number`)でも検索できるようにし、同名・同型機材の区別のため No.
