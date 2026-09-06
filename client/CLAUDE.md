@@ -88,6 +88,19 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに5つの「入�
 削除した画面（報告資料・AI活動履歴・旧GLS決算取込・営業レビュー単独ページ等）と
 その判断の根拠も経緯ログにある。**旧 URL は原則転送で生かす**（削除時の例外も経緯ログ参照）。
 
+## 事業主体（2026-09-06・migration 282）
+
+- **案件は事業主体（`projects.entity`）を1つ持つ**: グループ内のお客様 → `gss`（GMOサムライスタジオ）／
+  外部 → `gscs`（GMOサムライコンテンツスタジオ）。**お客様の区分から保存のたびに自動で決まる**
+  （`customer_type` と同じ導出。正は `server/src/contexts/sales/services/project-entity.ts`、
+  shared 側の写しは `shared/src/keepReport/entity.ts`）。`gig`（GMOインターネットグループ人格）は
+  人が案件で選んだときだけ（`entity_manual = TRUE`。「自動」に戻すには `entity: null` を送る）
+- **画面は「変えたときだけ `entity` を送る**」。値を送ると手で固定した印が付く
+- 隔週キープの目標（主体別の月次予算・経理の補正値）と稼働率の数え方は **設定「お金のルール」**
+  （`contexts/platform/pages/money/{MonthlyBudgets,MonthlyBudgetEditor,UtilizationRule}.tsx`・
+  `lib/keepApi.ts`）。全体の目標は主体の合計で、入力しない
+- ふりかえりタブの「隔週キープに載せる」（`projects.keep_pick`）は日常業務のヨミ表のチェックと同じ値
+
 ## v4 の設計判断（モックが明示しているもの）
 
 - **案件は主担当（`assigned_to`）を1人持つ**（実装の実態に合わせて 2026-08-27 に書き直し。

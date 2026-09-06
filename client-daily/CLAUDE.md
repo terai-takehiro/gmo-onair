@@ -6,7 +6,7 @@
 
 | v4 画面 | いまの実装 |
 | --- | --- |
-| ウィークリー活動報告 | `pages/WeeklyDetailPage`（**1画面 master-detail**）＋ `pages/weekly/{WeekRail,StatsSection,TopicsSection}.tsx`。`pages/WeeklyListPage` は `/weekly` → 最新週への転送だけ |
+| ウィークリー活動報告 | `pages/WeeklyDetailPage`（**1画面 master-detail**）＋ `pages/weekly/{WeekRail,StatsSection,TopicsSection,WeeklyTabs}.tsx`。`pages/WeeklyListPage` は `/weekly` → 最新週への転送だけ。**タブが3つ**: この週の報告（`/weekly/:id`）／隔週キープの数字（`/weekly/:id/keep`・`pages/weekly/keep/`）／資料をつくる（`/weekly/:id/deck`・`pages/weekly/deck/`・**PC 専用**） |
 | デイリーニュース報告 | `pages/DailyNewsPage` ＋ `pages/news/{NewsRows,NewsForm}.tsx` |
 | 内覧会 開催日の一覧 | `pages/InviewPage` |
 | 内覧会 その日の受付 | `pages/InviewDayPage` ＋ `pages/inview/{AttendeeCard,InviewDialog,CompanySummary}.tsx` ＋ `pages/inview/logic.ts` |
@@ -29,6 +29,22 @@
 ## このアプリ固有の決めごと
 
 - **ウィークリー活動報告**: 自動集計 → AI本文 → 人が書くトピック の3層。**確定後は追記不可**
+- **隔週キープ（業績報告）はこの画面のタブ**（設計の正は [docs/design/v4/keep-report.md](../docs/design/v4/keep-report.md)）。
+  - **数字は1本の「定例報告パック」**（`GET /dailyops/keep/pack?meeting=&entity=&segment=`・
+    型は `shared/src/keepReport/types.ts`）。画面・資料・MCP はこれを読むだけで、
+    **判定・比率・差はサーバーが計算する**（画面で足し引きしない）
+  - **週報を確定すると、その週の会議日のパックも凍る**（`ops_reports.payload.keep = { pack_id, meeting_date }`・
+    `keep_report_packs`）。画面は凍結版があればそれを出し、`?live=1` でいまの数字に切り替える
+  - **フィルタは URL**（`?meeting=&entity=&segment=`）。事業主体・お客様区分は
+    ヨミ表・案件ページ・実施報告だけに効き、数値報告の表は常に 全体／主体別 を持つ
+  - **稼働率**: 内覧・仮押さえを含め利用があった営業日 ÷ 営業日。メンテナンスは除く。数え方は
+    案件管理の設定「お金のルール」（`keep_settings.utilization`）
+  - **「資料」の印**（ヨミ表のチェック＝`projects.keep_pick`）を付けた案件だけ資料の案件ページになる。
+    案件管理のふりかえりタブと同じ値
+  - **ONAiR に無い数字**（内覧会の満足度など）は `keep_report_inputs` に手入力（画面の欄から `PUT /dailyops/keep/inputs/:meeting`）
+  - **資料をつくる**は PC 専用（`DAILY_PC_ONLY`）。構成 JSON（`keep_decks`）は保存のたびに版を残し、
+    人の直しは `keep_deck_edits` に差分で残る（原則「AIを使い捨てにしない」の器）。
+    スライドの骨組みは `shared/src/keepReport/templates.ts` が正で、画面のプレビューと pptx 出力が同じ位置で描く
 - **デイリーニュース**: 日付ナビ・分類・AI活用・採用1〜5・記入者。
   **採用した行を週報へ送る仕組みは無い**（サーバーに口が無く、由来を残す列も無い）。
   モックにはボタンがあるが**出していない** — 押しても何も起きないものを置かない
