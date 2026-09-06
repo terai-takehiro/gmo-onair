@@ -152,7 +152,7 @@ ONAiR から発行する**（§9-M）。**売上・仕入は必ず回に紐づ�
 | 上のうち受注済みで**番号が無い** | 1 | 「GMOパートナーズ・カンファレンス 2026_4Q」（10/6・`gls_category` が NULL） |
 | 進行中（active タブ） | 12 | A 9件・B 3件 |
 | プロジェクト管理（B）全体 | 7 | 依頼元は全部グループ会社。進行中 3（第3本社・渋谷スタジオ・セルリアン）・完了 4 |
-| 取引先「GMOサムライコンテンツスタジオ」 | **2行**（名寄せ前） | 「インテリジェンス」`GLS-A023`（レギュラー）と「紹介動画撮影」`GLS-B006` の顧客。**新しい親会社が今は「お客様」として登録されている** |
+| 取引先「GMOサムライコンテンツスタジオ」 | **2行**（名寄せ先は確定済み） | 「インテリジェンス」`GLS-A023`・「紹介動画撮影」`GLS-B006` とも `customer_id` は `3d099e40…`（「GMOサムライコンテンツスタジオ株式会社」・作成 4/20・案件2件が現に参照）。もう1行 `ff64b0e1…`（「GMOサムライコンテンツスタジオ」・決算取込が 6/15 に自動作成・**参照 0 件**）はこちらへ吸収して削除 |
 
 つまり**手で改番する対象は 10件前後**で、通知→手動の運用は現実的。
 一方で「切替日をまたぐ社外案件」（分割が要る唯一のパターン・§4.4）は**今日時点で 0 件**。
@@ -216,6 +216,19 @@ ONAiR から発行する**（§9-M）。**売上・仕入は必ず回に紐づ�
 
 `companies`（取引先）には `legal_entity_code`（NULL 可）を足し、「自社」の行を各社1つずつ持つ
 （GPM の依頼元「自社」・2社間の取引の相手先として使う。既存の `comp-self-gms` は GSS に紐づけ直す）。
+
+**発行者情報の入れ方（決定・2026-09-06）**: マイグレーションにハードコードせず、**設定画面（§4.8/§13 の
+「会社と切替」・`system_admin` のみ編集可）から GJV・GSS とも入力・変更できる**ようにする。
+
+- **GSS**（今の会社）は `pdf.service.ts` の `COMPANY` 定数が持つ**今の本物の値**（住所・登録番号）を
+  そのまま初期値としてマイグレーションで流し込む——値を消して打ち直させない。**そのうえで同じ画面から
+  変更できる**（振込先・ロゴは今どこにも無いので空欄から）
+- **GJV** は既存の値を持たないので**空欄で作成**。**GJV 名義で見積・請求書を1通でも出す前に**、
+  この画面で住所・登録番号（・分けるなら振込先）を入れておく必要がある
+- **ガード**: PDF 生成時に発行者情報が不足（住所または登録番号が空）なら、その計上会社の見積・請求書は
+  **発行を止め**「発行者情報が未設定です。設定 ＞ 会社と切替 で入力してください」と画面に出す
+  （`kind='cost_center'` の GMO は請求書を出さないので対象外）。**状態遷移（`preparing`/`cutover`）自体は
+  発行者情報の有無を条件にしない**——先取り（§5）で GJV の案件番号を採ることは発行者情報が無くても進められる
 
 ### 4.3 案件番号 — 形式・採番・履歴
 
@@ -331,6 +344,17 @@ resolveEntity(project, cutover):
 1. **会社マスター**の編集（4.2）と**切替日**・**状態**（§5）
 2. **改番の対象一覧**: 発番済みで「実施日 ≥ 切替日」または「B で進行中」の案件。列＝現在の番号・実施日・
    お客様・グループ内外・**導出された計上会社**・売上／請求の状態・**止める理由**（発行済み請求書あり など）
+
+   ⚠️ **導出規則どおりに機械で決めきれない例**（ご確認の実例・2026-09-06）: 「インテリジェンス」`GLS-A023`
+   （客先 GMOサムライコンテンツスタジオ株式会社）は、**9月まではサムライスタジオ（GSS）がコンテンツスタジオ
+   （GJV）へ請求する客先の仕事**（導出規則どおり＝客先がグループ内 → GSS で正しい）だが、
+   **10月以降はコンテンツスタジオ自身が制作する**予定（現時点）——つまり計上会社が GSS から GJV へ
+   **変わる**。導出規則は「客先の `is_gmo_group`」しか見ないため、この切り替わりを規則だけでは検出できない。
+   **対象一覧には「客先＝自社行（GJV／GSS）になり得る取引先」を含む案件を目立たせ**（客先名に
+   「サムライコンテンツスタジオ」「サムライスタジオ」を含む・または `intake_channel='group'`）、
+   **人が§4.4の上書き（理由必須）で GJV に直す**運用にする。同じ客先の案件が今後も出ることを見込み、
+   移行センターには「この客先はうちが計上会社そのものかもしれません」という注記だけ出す
+   （自動で書き換えはしない——GSS が実際にコンテンツスタジオへ請求する取引がこの先も残り得るため）
 3. **通知**: 主担当（`assigned_to`）へ既存の通知基盤（`notifications`＋メール）。「`GLS-A008` は 10/8 実施のため
    コンテンツスタジオ（GJV）の番号へ変更が必要です」＋ボタン。定時実行は **`scheduled_job_runs` ＋
    `notifications` の一意索引の2段**（既存の決めごと）で毎朝、残 0 になるまで
@@ -350,7 +374,7 @@ resolveEntity(project, cutover):
 | `notification_templates` の件名 `【GMOグローバルスタジオ】` | 変数 `{発行会社}` に置き換え（初期行の UPDATE ＋ 変数の追加）。既に手で直した行は触らない |
 | 機材レンタル見積依頼メール（`rental.service.ts`） | 差出人の会社＝案件の計上会社（案件が無ければ GSS） |
 | GPM の「自社（GMOグローバルスタジオ）」・マニュアル・案件作成のメール下書き | 会社マスターの名前を読む（文字列を消す） |
-| `comp-self-gms` | 名前を「自社（GMOサムライスタジオ）」に、`legal_entity_code='GSS'`。GJV の自社行を追加。**取引先「GMOサムライコンテンツスタジオ」2行の名寄せ**が先 |
+| `comp-self-gms` | 名前を「自社（GMOサムライスタジオ）」に、`legal_entity_code='GSS'`。GJV の自社行 `comp-self-gjv` を追加。**取引先「GMOサムライコンテンツスタジオ」2行の名寄せ**（`3d099e40…` に統合・§2.6）を同じマイグレーションで先に行う |
 | 検証環境の種データ（`seed.ts`） | 会社2つ・GMO・切替済みの状態を最初から入れる |
 | `looksLikeGmoGroup`（名前に GMO を含む） | 変えない。コンテンツスタジオ・本体・自社はいずれもグループ内で正しい |
 
@@ -541,7 +565,10 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
 - **I. グループ本体の事業担当**: ONAiR のアカウントを持って GMO 案件を見るか。**いまの前提: 持たない**（GMO 案件の仕入・予算はスタジオ側の PM が入れる）。
   持つなら第2段で**会社で見える範囲を分ける権限**（`entity_scope`）が要る
 - **J. 2社間の社内取引** ✅ 発生する → ONAiR に載せる（§4.12）
-- **K. コンテンツスタジオ** ✅ 2026-01 設立の既存法人。**切替前に GJV 名義の見積を出してよい** → 先取り（§4.4・§5）
+- **K. コンテンツスタジオ** ✅ 2026-01 設立の既存法人。**切替前に GJV 名義の見積を出してよい** → 先取り（§4.4・§5）。
+  補足（ご確認）: 9月まではサムライスタジオ（GSS）からコンテンツスタジオ（GJV）へ請求書を出す取引が実在する
+  （「インテリジェンス」「紹介動画撮影」）。10月以降はコンテンツスタジオ自身が制作する予定（現時点）——
+  この2件は導出規則では検出できない「客先＝将来の自社」ケースとして§4.8で個別に扱う
 - **L. GLS-B の完了済み4件**: 移管しない（GSS の履歴のまま `GLS-B` で残す）でよいか **[提案: 残す]**
 - **M. 社内取引の値決めと請求** ✅ 金額は手入力（見積の原価行の合計を初期値）。GSS → GJV の請求書 PDF は ONAiR から発行し、同じ締めの流れに乗せる
 - **N. 「統一」のやり方** ✅ 売上・仕入を必ず回に紐づける。単発の案件も受注時に第1回を自動で作る（§4.3）
@@ -577,20 +604,21 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
 
 | PR | 中身 | マイグレーション | 主に触る場所 |
 |---|---|---|---|
-| **0a** `feat(server): 計上会社マスターと切替状態の表を足した` | `legal_entities` に GJV／GSS／GMO の3行（GSS は `former_name`＝GMOグローバルスタジオ株式会社・`renamed_on`＝切替日）、`org_transition` を `off` の1行、`companies.legal_entity_code`（`comp-self-gms` → GSS、GJV の自社行 `comp-self-gjv` を追加。名前の書き換えは切替時）。`GET/PUT /legal-entities`・`GET/PUT /org-transition`（変更は `system_admin`。`cutover` は `cutover_date` 以降だけ・`done` は残件 0 だけ）。`migrate.ts` の起動時チェックに「3行と1行がある」を足す | 280 | `server/src/contexts/platform/{services,routes}/legal-entity.*`・`shared/db/migrate.ts` |
+| **0a** `feat(server): 計上会社マスターと切替状態の表を足した` | 取引先「GMOサムライコンテンツスタジオ」2行の名寄せ（`ff64b0e1…` を `3d099e40…` へ吸収）。`legal_entities` に GJV／GSS／GMO の3行——**GSS は `pdf.service.ts` の `COMPANY` 定数の値（住所・登録番号）をそのまま初期値に**、`former_name`＝GMOグローバルスタジオ株式会社・`renamed_on`＝切替日。**GJV は発行者情報が空欄**（設定画面から後で入れる）。`org_transition` を `off` の1行、`companies.legal_entity_code`（`comp-self-gms` → GSS、GJV の自社行 `comp-self-gjv` を追加。名前の書き換えは切替時）。`GET/PUT /legal-entities`（発行者情報の編集含む・`system_admin`）・`GET/PUT /org-transition`（`cutover` は `cutover_date` 以降だけ・`done` は残件 0 だけ）。`migrate.ts` の起動時チェックに「3行と1行がある」を足す | 280 | `server/src/contexts/platform/{services,routes}/legal-entity.*`・`shared/db/migrate.ts` |
 | **0b** `feat(server): 帳簿の行と案件に計上会社の列を足した` | `projects.entity_code/entity_source/entity_note`・`project_numbers`（既存の `gls_number` を `scheme='gls'`・`GSS` で流し込む）・`revenues/purchases/sga_expenses/estimates.entity_code`（`NOT NULL DEFAULT 'GSS'` で埋め戻し）・`finance_docs.entity_code`（NULL 可）・`monthly_budgets/monthly_actual_overrides/money_rules.entity_code`（**列だけ**。PK の付け替えと複数行化は P2）。サーバーの **INSERT を全部 `entity_code` 明示**にして（案件の `entity_code ?? 'GSS'`）、`shared/tests/entityCodeInserts.test.ts`（`droppedColumns.test.ts` と同じ走査で `INSERT INTO revenues|purchases|sga_expenses|estimates` に列があるか）が通ったら **同じ PR で `DROP DEFAULT`** | 281 | `sales/services/{project,estimate}.service.ts`・`finance/routes/*`・`platform/services/{kessan,xpoint}-import*`・`mcp/tools/{finance,budget}.tools.ts`・`gpm/*` |
 | **0c** `feat(server,client): 帳票とメールの発行者を計上会社マスターから読むようにした` | `pdf.service.ts` の `COMPANY` 定数を `PdfRevenueData.issuer` に置き換え、呼び出し側（`revenues.routes.ts:68`・`estimate-pdf.service.ts`）が行の `entity_code` から引く。名前は `nameAsOf(entity, 発行日)`（`renamed_on` より前なら旧社名・以後は新社名＋「（旧 …）」の併記＝§9-E の提案どおり）。`notification_templates` の初期4行の件名を `【{発行会社}】` に（手で直した行＝`updated_at` が初期値でない行は触らない）・送信時に変数を解決。機材レンタルの文面・GPM の「自社（…）」・マニュアル・案件作成のメール下書きをマスター読みに | 282 | `shared/services/pdf.service.ts`・`sales/services/estimate-pdf.service.ts`・`platform/services/notification*`・`qsheet/services/rental.service.ts`・`client/src/contexts/gpm/pages/projectForm/BasicStep.tsx` ほか |
-| **0d** `feat(client): 設定に「会社と切替」の画面を足した` | 設定トップ「ルール」に新カード（`/settings/reorg`・PC 専用・`CLIENT_PC_ONLY` に登録）。会社3行の発行者情報（住所・登録番号・振込先）、切替日、状態ボタン（P0 で押せるのは `off → preparing` だけ。`cutover` は P1 で活性化）。`system_admin` 以外は読むだけ | — | `client/src/contexts/platform/pages/reorg/`・`pages/settings/hubCards.ts`・`App.tsx`・`pcOnlyScreens.ts` |
+| **0d** `feat(client): 設定に「会社と切替」の画面を足した` | 設定トップ「ルール」に新カード（`/settings/reorg`・PC 専用・`CLIENT_PC_ONLY` に登録）。**会社ごとに（GJV・GSS の2枚。GMO は請求書を出さないので発行者情報欄は無し）**発行者情報の編集フォーム（住所1/2・適格請求書発行事業者登録番号・振込先・ロゴ）、切替日、状態ボタン（P0 で押せるのは `off → preparing` だけ。`cutover` は P1 で活性化）。**GSS は最初から値が入った状態で開く**（0a で流し込み済み）・**GJV は空欄から入力**。`system_admin` 以外は読むだけ | — | `client/src/contexts/platform/pages/reorg/`・`pages/settings/hubCards.ts`・`App.tsx`・`pcOnlyScreens.ts` |
 
 **受け入れ条件（`off` のまま）**: 全画面の見た目と API の応答が変わらない（`entity_code` が増えるだけ）／
-PDF の発行者ブロックの文字列が今と同一（切替日前なので旧社名）／`npm run typecheck`・`npm run test`・`npm run lint`／
+PDF の発行者ブロックの文字列が今と同一（切替日前なので旧社名・GSS の値は 0a で移した `COMPANY` 定数と一致）／
+`npm run typecheck`・`npm run test`・`npm run lint`／
 検証 DB（`npm run verify:up`）に 280〜282 を適用して起動時チェックが通る／`entityCodeInserts` が green。
 
 **コードの外でやる作業（P0 と並行）**:
-- 取引先「GMOサムライコンテンツスタジオ」**2行の名寄せ**（案件 `GLS-A023`・`GLS-B006` の `customer_id` をどちらかに寄せる。
-  本番の実データを見て手で決める。名前一致の UPDATE をマイグレーションに書かない）
-- **GJV の発行者情報**（住所・適格請求書発行事業者登録番号・振込先・ロゴの有無）を用意して 0d の画面から入れる。
-  GMO は請求書を出さないので発行者情報は不要
+- **GJV の発行者情報**（住所・適格請求書発行事業者登録番号・振込先・ロゴの有無）を、0d の画面から
+  `system_admin` に入力していただく（このセッションでは値を預からない・チャットでは受け取らない）。
+  **GJV 名義で最初の見積・請求書を出す前まで**に間に合えばよい（§9-K の先取り運用）
+- 名寄せ先の ID（`3d099e40…`）は実データで確認済みなので、この2点は判断待ちではなく**0a に実装として含める**
 
 **P1 の先出し（`preparing` に入るために要るもの・9月下旬）**: prefix 採番（`generateProjectNumber(entity)`・
 `sequences.seq_name = project_{code}`）／`resolveEntity`／受注時の第1回自動作成／改番 API＋MCP と追随／
@@ -605,3 +633,6 @@ PDF の発行者ブロックの文字列が今と同一（切替日前なので�
 - 2026-09-06（同日・2回目）: 分岐点 A/B/C/G/J/K の回答を決定に反映。社内取引（§4.12）・番号3段の統一（§4.3）・
   先取りの状態設計（§5 `preparing`）・GMO の最小案（§4.7）を追記。新しい分岐点 M/N を追加。
 - 2026-09-06（同日・3回目）: M/N を決定に反映。P0 の実装計画（§13）を追加。
+- 2026-09-06（同日・4回目）: 発行者情報は設定画面から入力（GSS は今の値を初期値に・GJV は空欄）に確定。
+  取引先「GMOサムライコンテンツスタジオ」2行の名寄せ先を実データで確認（`3d099e40…` に統合）。
+  「インテリジェンス」「紹介動画撮影」＝導出規則で検出できない「客先＝将来の自社」ケースを§4.8に追記。
