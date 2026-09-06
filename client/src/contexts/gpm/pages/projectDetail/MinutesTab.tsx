@@ -133,7 +133,7 @@ export function MinutesTab({ projectId, canEdit, canManage }: {
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-sub min-w-0 flex-1 text-muted-foreground">
           打合せを録音すると、文字起こしから<strong className="font-bold">下書き</strong>を作ります。
-          決定事項には<strong className="font-bold">文字起こしからの引用</strong>が付きます（根拠が出せないものは未解決事項に落ちます）。
+          決定事項には<strong className="font-bold">文字起こしからの引用</strong>が付きます（根拠が出せないものは持ち帰りに落ちます）。
         </p>
         {canEdit && sttAvailable && (
           <Button onClick={() => setRecOpen(true)}>
@@ -158,7 +158,7 @@ export function MinutesTab({ projectId, canEdit, canManage }: {
       ) : rows.length === 0 ? (
         <EmptyState
           title="議事録はまだありません"
-          description="打合せを録音すると、文字起こし → 下書き（要約・決定事項・未解決事項）まで作ります。音声は文字にしたら捨てるので残りません。"
+          description="打合せを録音すると、文字起こし → 下書き（要約・決定事項・持ち帰り）まで作ります。音声は文字にしたら捨てるので残りません。"
           action={canEdit && sttAvailable
             ? <Button onClick={() => setRecOpen(true)}>打合せを録音する</Button>
             : undefined}
@@ -186,7 +186,7 @@ export function MinutesTab({ projectId, canEdit, canManage }: {
 
       <p className="text-note text-muted-foreground">
         <strong className="font-bold">音声は保存しません</strong>（文字起こし後に破棄します）。残るのは文字起こしと議事録だけです。
-        未解決事項は<strong className="font-bold">持ち帰り</strong>にできます — 案件（スタジオ）ではタスクになりますが、
+持ち帰りに登録すると<strong className="font-bold">持ち帰りタブ</strong>に入ります — 案件（スタジオ）ではタスクになりますが、
         工事・構築の持ち帰りはほとんどが先方の判断待ちなので、止まっている件数として数えられるほうに入れます。
       </p>
 

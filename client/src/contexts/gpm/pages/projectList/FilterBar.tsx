@@ -130,7 +130,7 @@ export function TermHintBody() {
       <p><span className="font-bold text-foreground">{KIND_LABEL.self_build}</span> … {KIND_NOTE.self_build}</p>
       <p><span className="font-bold text-foreground">{KIND_LABEL.group_order}</span> … {KIND_NOTE.group_order}</p>
       <p><span className="font-bold text-foreground">おすすめ順</span> … 停滞しているプロジェクトが先。その中は次のアクションの期限が近い順です。</p>
-      <p><span className="font-bold text-foreground">未確認</span> … 止まっている持ち帰り（未確認事項）の件数です。0件のときも「0」を出します。</p>
+      <p><span className="font-bold text-foreground">持ち帰り</span> … 止まっている持ち帰りの件数です。0件のときも「0」を出します。</p>
     </>
   );
 }

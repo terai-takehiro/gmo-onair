@@ -34,6 +34,10 @@ import type { Minutes, MinutesPatch } from './types';
  */
 export interface MinutesTrack {
   markKey: 'task_id' | 'ask_id';
+  /** この下書きの項目を呼ぶ名前（見出し・空表示・「同じ◯◯からは〜」に使う）。
+   * Codexレビュー指摘（PR #594）: ここが無いとカードの見出しが常に「未解決事項」
+   * 固定になり、GPM 側では「持ち帰り」タブを開いているのに違う名前が出ていた */
+  itemNoun: string;
   label: string;
   doneLabel: string;
   note: string;
@@ -42,6 +46,7 @@ export interface MinutesTrack {
 /** 案件（GLS-A）の既定。持ち帰りはタスクになる */
 export const TASK_TRACK: MinutesTrack = {
   markKey: 'task_id',
+  itemNoun: '未解決事項',
   label: 'タスクにする',
   doneLabel: 'タスクにしました',
   note: 'タスクにすると、この案件のタスクタブに入ります。',
@@ -50,6 +55,7 @@ export const TASK_TRACK: MinutesTrack = {
 /** プロジェクト管理（GLS-B）。持ち帰りは「持ち帰り」タブの項目になる */
 export const ASK_TRACK: MinutesTrack = {
   markKey: 'ask_id',
+  itemNoun: '持ち帰り',
   label: '持ち帰りに登録',
   doneLabel: '持ち帰りに登録しました',
   note: '登録すると、「持ち帰り」タブと全プロジェクトの一覧に出て、'
@@ -283,7 +289,7 @@ export function MinutesCard({
             <h4 className="text-th">決まったこと（{decisions.length}）</h4>
             {decisions.length === 0 ? (
               <p className="text-sub mt-1 text-muted-foreground">
-                言い切れる決定はありませんでした（「〜の方向で」は未解決事項に入れています）。
+                言い切れる決定はありませんでした（「〜の方向で」は{track.itemNoun}に入れています）。
               </p>
             ) : (
               <ul className="mt-1 flex flex-col gap-2">
@@ -304,9 +310,9 @@ export function MinutesCard({
           </div>
 
           <div>
-            <h4 className="text-th">未解決事項（{openItems.length}）</h4>
+            <h4 className="text-th">{track.itemNoun}（{openItems.length}）</h4>
             {openItems.length === 0 ? (
-              <p className="text-sub mt-1 text-muted-foreground">未解決事項はありません。</p>
+              <p className="text-sub mt-1 text-muted-foreground">{track.itemNoun}はありません。</p>
             ) : (
               <ul className="mt-1 flex flex-col gap-1.5">
                 {openItems.map((o, i) => (
@@ -348,7 +354,7 @@ export function MinutesCard({
                 <><strong className="font-bold">担当は入りません</strong> — 打合せで出た名前は
                 文字起こしから拾った文字列で、利用者と結びついていないためです。</>
               )}
-              <strong className="font-bold">同じ未解決事項からは1つしか作れません。</strong>
+              <strong className="font-bold">同じ{track.itemNoun}からは1つしか作れません。</strong>
             </p>
           </div>
 
