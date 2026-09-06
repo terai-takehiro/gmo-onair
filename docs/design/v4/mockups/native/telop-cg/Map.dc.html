@@ -1,0 +1,133 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;800&family=Noto+Serif+JP:wght@700;900&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    button { font-family: inherit; }
+    .tap { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .row-tap { transition: background-color .12s ease; }
+    .row-tap:hover { background: #f7f8fa; }
+    .ghost:hover { background: #f2f4f7; }
+    .btn-primary { transition: background-color .12s ease; } .btn-primary:hover { background: #004d91; }
+    .card-tap { transition: border-color .14s ease, box-shadow .14s ease; } .card-tap:hover { border-color: #a6ceeb; box-shadow: 0 4px 14px rgba(26,29,36,.07); }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .clip2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    input, textarea { font-family: inherit; } input::placeholder, textarea::placeholder { color: #5d6470; }
+    .cg { font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; font-synthesis: none; }
+    .cg-serif { font-family: 'Noto Serif JP', 'Noto Sans JP', serif; font-synthesis: none; }
+    
+  </style>
+</helmet>
+
+<div style="width: 1200px; height: 800px; position: relative; overflow: hidden; background: #f7f8fa; color: #1a1d24; padding: 30px 34px;">
+  <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 20px;">
+    <div>
+      <span style="font-size: 11.5px; font-weight: 800; letter-spacing: .08em; color: #9aa1ab;">考え方の地図</span>
+      <h1 style="margin: 4px 0 0; font-size: 23px; line-height: 1.3; font-weight: 800; letter-spacing: -.01em;">テロップCG は「番組で出すテロップを、台本の順に並べておき、本番でボタンひとつで出す」道具</h1>
+      <p style="margin: 8px 0 0; font-size: 13px; line-height: 1.7; color: #3c424c;">旧リアルタイムCG（アワード専用）の後継。3つの場面に3種類の人が関わり、画面は PC 4枚・スマホ 2枚・出力 1枚。</p>
+    </div>
+  </div>
+
+  <div style="margin-top: 20px; display: flex; gap: 14px; align-items: stretch;">
+
+      <div style="flex: 1; min-width: 0; border-radius: 16px; border: 1px solid #e6e9ed; background: #ffffff; overflow: hidden;">
+        <div style="padding: 14px 16px 12px; background: #f4faff; display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 11.5px; font-weight: 800; letter-spacing: .08em; color: #005bac;">① 準備</span>
+          <span style="font-size: 17px; font-weight: 800; color: #1a1d24;">ディレクター ／ 技術</span>
+          <span style="font-size: 12px; color: #5d6470;">本番の数日前〜直前 ・ スマホ・PC</span>
+        </div>
+        <div style="padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 13px; line-height: 1.65; color: #3c424c;">ディレクターは文言と出すタイミングを依頼する。技術は種類を選んで文言を入れ、見た目を当て、確認済みにする。台本のテロップ列はそのまま出す順になる。</span>
+          <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;"><span style="display: flex; align-items: center; gap: 8px; height: 34px; border-radius: 9px; background: #ffffff; border: 1px solid #e6e9ed; padding: 0 10px; font-size: 12.5px; font-weight: 700;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>テロップ一覧（PC）</span><span style="display: flex; align-items: center; gap: 8px; height: 34px; border-radius: 9px; background: #ffffff; border: 1px solid #e6e9ed; padding: 0 10px; font-size: 12.5px; font-weight: 700;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>新しいテロップ（右パネル）</span><span style="display: flex; align-items: center; gap: 8px; height: 34px; border-radius: 9px; background: #ffffff; border: 1px solid #e6e9ed; padding: 0 10px; font-size: 12.5px; font-weight: 700;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>依頼（スマホ）</span><span style="display: flex; align-items: center; gap: 8px; height: 34px; border-radius: 9px; background: #ffffff; border: 1px solid #e6e9ed; padding: 0 10px; font-size: 12.5px; font-weight: 700;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>設定（出力URL・見た目）</span></div>
+        </div>
+      </div>
+
+      <div style="flex: 1; min-width: 0; border-radius: 16px; border: 1px solid #e6e9ed; background: #ffffff; overflow: hidden;">
+        <div style="padding: 14px 16px 12px; background: #fef6f7; display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 11.5px; font-weight: 800; letter-spacing: .08em; color: #c7243a;">② 本番</span>
+          <span style="font-size: 17px; font-weight: 800; color: #1a1d24;">送出担当（技術 or AD）</span>
+          <span style="font-size: 12px; color: #5d6470;">本番中 ・ PC ・ 配信卓の横</span>
+        </div>
+        <div style="padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 13px; line-height: 1.65; color: #3c424c;">NEXT を確かめて TAKE。終わったら CLEAR。投票・ランキング・スコアは OA の行の中で進める。TAKE すると NEXT は自動で次へ。</span>
+          <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;"><span style="display: flex; align-items: center; gap: 8px; height: 34px; border-radius: 9px; background: #ffffff; border: 1px solid #e6e9ed; padding: 0 10px; font-size: 12.5px; font-weight: 700;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>本番モード（PC・暗い全画面）</span><span style="display: flex; align-items: center; gap: 8px; height: 34px; border-radius: 9px; background: #ffffff; border: 1px solid #e6e9ed; padding: 0 10px; font-size: 12.5px; font-weight: 700;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>一覧（スマホ・見るだけ）</span></div>
+        </div>
+      </div>
+
+      <div style="flex: 1; min-width: 0; border-radius: 16px; border: 1px solid #e6e9ed; background: #ffffff; overflow: hidden;">
+        <div style="padding: 14px 16px 12px; background: #f2f4f7; display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 11.5px; font-weight: 800; letter-spacing: .08em; color: #3c424c;">③ 出力</span>
+          <span style="font-size: 17px; font-weight: 800; color: #1a1d24;">OBS ／ スイッチャー</span>
+          <span style="font-size: 12px; color: #5d6470;">ブラウザソース ・ 人は触らない</span>
+        </div>
+        <div style="padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 13px; line-height: 1.65; color: #3c424c;">公開URL・1920×1080・透過。メイン合成／確認用（黒背景）／英語版の3本。効果音は1台だけ。</span>
+          <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;"><span style="display: flex; align-items: center; gap: 8px; height: 34px; border-radius: 9px; background: #ffffff; border: 1px solid #e6e9ed; padding: 0 10px; font-size: 12.5px; font-weight: 700;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>出力（変更なし）</span></div>
+        </div>
+      </div>
+  </div>
+
+  <div style="margin-top: 16px; display: flex; gap: 14px; align-items: flex-start;">
+    <section style="flex: 1.35; min-width: 0; border-radius: 16px; border: 1px solid #e6e9ed; background: #ffffff; overflow: hidden;">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 12px 16px 10px;">
+        <h2 style="margin: 0; font-size: 15px; font-weight: 800;">利用者に見せる語は4つだけ</h2>
+        <span style="font-size: 11.5px; color: #5d6470;">右端は消す旧語（17語 → 4語）</span>
+      </div>
+      
+        <div style="display: flex; align-items: center; gap: 14px; padding: 11px 16px; border-top: 1px solid #f2f4f7;">
+          <span style="width: 92px; flex-shrink: 0; font-size: 17px; font-weight: 800; color: #005bac;">テロップ</span>
+          <span style="flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.55; color: #3c424c;">画面に出す1枚。種類＋文言＋見た目</span>
+          <span style="width: 170px; flex-shrink: 0; font-size: 11.5px; color: #9aa1ab; text-decoration: line-through;">ページ</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px; padding: 11px 16px; border-top: 1px solid #f2f4f7;">
+          <span style="width: 92px; flex-shrink: 0; font-size: 17px; font-weight: 800; color: #005bac;">種類</span>
+          <span style="flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.55; color: #3c424c;">ネーム／題字／一覧表／ティッカー／カウントダウン／スコア／投票／ランキング／速報帯／サイドスーパー</span>
+          <span style="width: 170px; flex-shrink: 0; font-size: 11.5px; color: #9aa1ab; text-decoration: line-through;">部品・スロット</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px; padding: 11px 16px; border-top: 1px solid #f2f4f7;">
+          <span style="width: 92px; flex-shrink: 0; font-size: 17px; font-weight: 800; color: #005bac;">出す順</span>
+          <span style="flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.55; color: #3c424c;">この番組の送出リスト。コーナーで区切る。台本と同期</span>
+          <span style="width: 170px; flex-shrink: 0; font-size: 11.5px; color: #9aa1ab; text-decoration: line-through;">送出リスト・呼出番号</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px; padding: 11px 16px; border-top: 1px solid #f2f4f7;">
+          <span style="width: 92px; flex-shrink: 0; font-size: 17px; font-weight: 800; color: #005bac;">見た目</span>
+          <span style="flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.55; color: #3c424c;">番組ごとの配色・書体・ロゴ</span>
+          <span style="width: 170px; flex-shrink: 0; font-size: 11.5px; color: #9aa1ab; text-decoration: line-through;">テーマ・テンプレート</span>
+        </div>
+    </section>
+    <section style="flex: 1; min-width: 0; border-radius: 16px; border: 1px solid #e6e9ed; background: #ffffff; overflow: hidden;">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 12px 16px 10px;">
+        <h2 style="margin: 0; font-size: 15px; font-weight: 800;">本番の動詞は3つ</h2>
+        <span style="font-size: 11.5px; color: #5d6470;">旧アプリの NEXT → TAKE → CLEAR に戻す</span>
+      </div>
+      <div style="display: flex; gap: 8px; padding: 0 16px 14px;">
+        <div style="flex: 1; border-radius: 12px; background: #fef6f7; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 17px; font-weight: 800; letter-spacing: .06em; color: #c7243a;">TAKE <span style="font-size: 12px; letter-spacing: 0;">出す</span></span>
+          <span style="font-size: 12px; line-height: 1.55; color: #3c424c;">NEXT を OA へ。終わると NEXT は次の行へ</span>
+        </div>
+        <div style="flex: 1; border-radius: 12px; background: #f2f4f7; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 17px; font-weight: 800; letter-spacing: .06em; color: #1a1d24;">CLEAR <span style="font-size: 12px; letter-spacing: 0;">消す</span></span>
+          <span style="font-size: 12px; line-height: 1.55; color: #3c424c;">最後に出したものを下ろす。帯からは1枚ずつ</span>
+        </div>
+        <div style="flex: 1; border-radius: 12px; background: #f4faff; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 17px; font-weight: 800; letter-spacing: .06em; color: #005bac;">進める <span style="font-size: 12px; letter-spacing: 0;"></span></span>
+          <span style="font-size: 12px; line-height: 1.55; color: #3c424c;">投票の締切・開票、ランキングの次の順位。OA の行の中にだけ出る</span>
+        </div></div>
+      <div style="border-top: 1px solid #f2f4f7; padding: 10px 16px 12px; font-size: 12px; line-height: 1.65; color: #5d6470;">隠す語: CGプロジェクト（自動で作る）／スロット（種類が位置を決める）／テンプレート（複製・前の番組からコピー）／校正3段（確認済み1つ）／PGM・PVW（OA・NEXT）</div>
+    </section>
+  </div>
+</div>
+</x-dc>
+
+</body>
+</html>

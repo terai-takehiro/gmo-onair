@@ -1,0 +1,280 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;800&family=Noto+Serif+JP:wght@700;900&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #1a90ff; text-decoration: none; } a:hover { color: #c6e1fa; }
+    button { font-family: inherit; }
+    .tap { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .row-tap { transition: background-color .12s ease; }
+    .row-tap:hover { background: #22262d; }
+    .ghost:hover { background: #282c33; }
+    .btn-primary { transition: background-color .12s ease; } .btn-primary:hover { background: #004d91; }
+    .card-tap { transition: border-color .14s ease, box-shadow .14s ease; } .card-tap:hover { border-color: #a6ceeb; box-shadow: 0 4px 14px rgba(26,29,36,.07); }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .clip2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    input, textarea { font-family: inherit; } input::placeholder, textarea::placeholder { color: #5d6470; }
+    .cg { font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; font-synthesis: none; }
+    .cg-serif { font-family: 'Noto Serif JP', 'Noto Sans JP', serif; font-synthesis: none; }
+    
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 1040px; position: relative; overflow: hidden; background: #14161a; display: flex; flex-direction: column; color: #dddfe3;">
+
+  <!-- ── 上辺（本番3画面と同じく共通シェルの外・暗い配色） ────────────── -->
+  <header style="display: flex; height: 56px; flex-shrink: 0; align-items: center; gap: 14px; border-bottom: 1px solid #32363e; background: #1b1d23; padding: 0 20px;">
+    <button class="tap ghost" style="display: flex; align-items: center; gap: 4px; height: 36px; border-radius: 9px; padding: 0 10px 0 6px; color: #9fa3ad;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9fa3ad" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg><span style="font-size: 12.5px; font-weight: 700;">準備に戻る</span></button>
+    <span style="height: 22px; width: 1px; background: #32363e;"></span>
+    <span style="font-size: 15px; font-weight: 800;">サイエンス・フロンティア 第7回</span>
+    <span style="display: inline-flex; align-items: center; gap: 6px; height: 24px; border-radius: 7px; background: rgba(215,66,66,.16); color: #ff8a8a; font-size: 11px; font-weight: 800; padding: 0 9px; letter-spacing: .06em;"><span style="width: 7px; height: 7px; border-radius: 9999px; background: #d74242;"></span>本番モード</span>
+    <span style="flex: 1;"></span>
+    <span style="display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; color: #9fa3ad;"><span style="width: 8px; height: 8px; border-radius: 9999px; background: #40bf84;"></span>同期中 ・ OBS 2台</span>
+    <span class="num" style="font-size: 15px; font-weight: 700; color: #dddfe3;">13:04:22</span>
+    <button class="tap" onClick="{{clearAll}}" style="display: flex; align-items: center; gap: 6px; height: 36px; border-radius: 9px; border: 1px solid rgba(215,66,66,.5); color: #ff8a8a; padding: 0 12px; font-size: 12.5px; font-weight: 700;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff8a8a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg>全部消す</button>
+  </header>
+
+  <div style="flex: 1; min-height: 0; padding: 18px 24px 20px; display: flex; flex-direction: column; gap: 14px;">
+
+    <!-- ── 上段: OA ／ NEXT ／ 操作 ─────────────────────────────── -->
+    <div style="display: flex; align-items: flex-start; gap: 16px;">
+
+        <div style="width: 480px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px; height: 26px;">
+            <span style="width: 9px; height: 9px; border-radius: 9999px; background: #d74242; box-shadow: 0 0 0 3px rgba(255,255,255,.06);"></span>
+            <span style="font-size: 12px; font-weight: 800; letter-spacing: .08em; color: #d74242;">OA　いま出ている</span>
+            <span style="flex: 1;"></span><span class="num" style="font-size: 11.5px; color: #9fa3ad;">{{oaCount}}</span>
+          </div>
+          <div style="position: relative; width: 480px; height: 270px; border-radius: 10px; overflow: hidden; background: #0f1115; background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px); background-size: 24px 24px; border: 2px solid #d74242;">
+            
+            <sc-if value="{{oaVote}}" hint-placeholder-val="{{true}}">
+      <div class="cg" style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,28,46,.9), rgba(7,10,18,.96)); padding: 26px 34px; display: flex; flex-direction: column; gap: 10px;">
+        <span style="font-size: 9px; font-weight: 700; color: #d4af37; letter-spacing: .16em;">視聴者クイズ</span>
+        <span class="cg-serif" style="font-size: 19px; line-height: 1.3; font-weight: 900; color: #f5f5f5;">Q. 火星の1日は地球の何時間？</span>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; margin-top: 4px;">
+        <div style="display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 12px; background: rgba(245,245,245,.08); border-left: 2px solid #d4af37;">
+          <span class="cg-serif" style="font-size: 14px; font-weight: 900; color: #d4af37; width: 16px;">A</span>
+          <span style="font-size: 12.5px; font-weight: 700; color: #f5f5f5;">12時間</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 12px; background: rgba(245,245,245,.08); border-left: 2px solid #d4af37;">
+          <span class="cg-serif" style="font-size: 14px; font-weight: 900; color: #d4af37; width: 16px;">B</span>
+          <span style="font-size: 12.5px; font-weight: 700; color: #f5f5f5;">24時間37分</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 12px; background: rgba(245,245,245,.08); border-left: 2px solid #d4af37;">
+          <span class="cg-serif" style="font-size: 14px; font-weight: 900; color: #d4af37; width: 16px;">C</span>
+          <span style="font-size: 12.5px; font-weight: 700; color: #f5f5f5;">36時間</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 12px; background: rgba(245,245,245,.08); border-left: 2px solid #d4af37;">
+          <span class="cg-serif" style="font-size: 14px; font-weight: 900; color: #d4af37; width: 16px;">D</span>
+          <span style="font-size: 12.5px; font-weight: 700; color: #f5f5f5;">48時間</span>
+        </div></div>
+        <span style="margin-top: auto; display: flex; align-items: center; gap: 8px; font-size: 9.5px; font-weight: 700; color: #f5f5f5;"><span style="width: 7px; height: 7px; border-radius: 9999px; background: #d74242;"></span>{{voteLine}}</span>
+      </div></sc-if>
+            <sc-if value="{{oaTitle}}" hint-placeholder-val="{{false}}">
+      <div class="cg" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: linear-gradient(180deg, rgba(20,28,46,.9), rgba(7,10,18,.96));">
+        <span style="width: 56px; height: 1px; background: #d4af37;"></span>
+        <span class="cg-serif" style="font-size: 24px; font-weight: 900; color: #f5f5f5; text-align: center; padding: 0 24px; line-height: 1.3;">正解は B ・ 約24時間37分</span>
+        <span style="font-size: 9px; font-weight: 700; color: #d4af37; letter-spacing: .14em;">視聴者クイズ</span>
+      </div></sc-if>
+            <sc-if value="{{oaRanking}}" hint-placeholder-val="{{false}}">
+      <div class="cg" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: linear-gradient(180deg, rgba(20,28,46,.9), rgba(7,10,18,.96));">
+        <span style="width: 56px; height: 1px; background: #d4af37;"></span>
+        <span class="cg-serif" style="font-size: 24px; font-weight: 900; color: #f5f5f5; text-align: center; padding: 0 24px; line-height: 1.3;">今月の科学ニュース TOP5</span>
+        <span style="font-size: 9px; font-weight: 700; color: #d4af37; letter-spacing: .14em;">ランキング発表 ・ 5位から</span>
+      </div></sc-if>
+            <sc-if value="{{oaSide}}" hint-placeholder-val="{{true}}">
+      <div class="cg" style="position: absolute; right: 5%; top: 6%; padding: 5px 10px; background: rgba(212,175,55,.92); color: #141c2e; font-size: 9px; font-weight: 800; letter-spacing: .04em;">実験映像：東都大学提供</div></sc-if>
+            <sc-if value="{{oaName}}" hint-placeholder-val="{{false}}">
+      <div class="cg" style="position: absolute; left: 5%; bottom: 8%; width: 58%; display: flex; flex-direction: column; gap: 3px; padding: 8px 14px 9px; background: linear-gradient(180deg, rgba(20,28,46,.94), rgba(7,10,18,.94)); border-left: 2px solid #d4af37;">
+        <span style="font-size: 8px; font-weight: 700; color: #d4af37; letter-spacing: .14em;">協賛</span>
+        <span class="cg-serif" style="font-size: 20px; line-height: 1.15; font-weight: 900; color: #f5f5f5;">東都電機株式会社</span>
+        <span style="font-size: 8.5px; font-weight: 700; color: #f5f5f5; opacity: .9;"></span>
+      </div></sc-if>
+            <sc-if value="{{oaEmpty}}" hint-placeholder-val="{{false}}"><span style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: rgba(255,255,255,.4);">何も出ていません（透過）</span></sc-if>
+
+          </div>
+        </div>
+
+        <div style="width: 480px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px; height: 26px;">
+            <span style="width: 9px; height: 9px; border-radius: 9999px; background: #1a90ff; box-shadow: 0 0 0 3px rgba(255,255,255,.06);"></span>
+            <span style="font-size: 12px; font-weight: 800; letter-spacing: .08em; color: #1a90ff;">NEXT　次に出す</span>
+            <span class="num" style="font-size: 12px; font-weight: 800; color: #dddfe3;">{{nxNo}}</span><span class="clip1" style="font-size: 12px; font-weight: 700; color: #dddfe3; max-width: 220px;">{{nxTitle2}}</span><span style="flex: 1;"></span><sc-if value="{{nxWarn}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; gap: 5px; height: 22px; border-radius: 7px; background: rgba(238,160,43,.16); color: #eea02b; font-size: 11px; font-weight: 800; padding: 0 8px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#eea02b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"></path><path d="M12 10v4"></path><path d="M12 17.5h.01"></path></svg>未確認 ・ 出せます</span></sc-if>
+          </div>
+          <div style="position: relative; width: 480px; height: 270px; border-radius: 10px; overflow: hidden; background: #0f1115; background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px); background-size: 24px 24px; border: 2px solid #1a90ff;">
+            
+            <sc-if value="{{nxTitle}}" hint-placeholder-val="{{true}}">
+      <div class="cg" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: linear-gradient(180deg, rgba(20,28,46,.9), rgba(7,10,18,.96));">
+        <span style="width: 56px; height: 1px; background: #d4af37;"></span>
+        <span class="cg-serif" style="font-size: 24px; font-weight: 900; color: #f5f5f5; text-align: center; padding: 0 24px; line-height: 1.3;">{{nxText}}</span>
+        <span style="font-size: 9px; font-weight: 700; color: #d4af37; letter-spacing: .14em;">{{nxSub}}</span>
+      </div></sc-if>
+            <sc-if value="{{nxName}}" hint-placeholder-val="{{false}}">
+      <div class="cg" style="position: absolute; left: 5%; bottom: 8%; width: 58%; display: flex; flex-direction: column; gap: 3px; padding: 8px 14px 9px; background: linear-gradient(180deg, rgba(20,28,46,.94), rgba(7,10,18,.94)); border-left: 2px solid #d4af37;">
+        <span style="font-size: 8px; font-weight: 700; color: #d4af37; letter-spacing: .14em;">{{nxSub}}</span>
+        <span class="cg-serif" style="font-size: 20px; line-height: 1.15; font-weight: 900; color: #f5f5f5;">{{nxText}}</span>
+        <span style="font-size: 8.5px; font-weight: 700; color: #f5f5f5; opacity: .9;"></span>
+      </div></sc-if>
+            <sc-if value="{{nxOther}}" hint-placeholder-val="{{false}}"><span style="position: absolute; left: 0; right: 0; bottom: 0; top: 0; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; font-size: 14px; font-weight: 800; color: #f5f5f5;">{{nxText}}</span></sc-if>
+            <sc-if value="{{nxEmpty}}" hint-placeholder-val="{{false}}"><span style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: rgba(255,255,255,.4);">出す順から行を押すと、ここに立ちます</span></sc-if>
+
+          </div>
+        </div>
+      <!-- 操作: 動詞は TAKE ／ CLEAR の2つ＋番号呼出 -->
+      <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding-top: 34px;">
+        <button class="tap" onClick="{{take}}" style="height: 104px; border-radius: 14px; background: {{takeBg}}; color: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; box-shadow: 0 10px 30px -12px rgba(215,66,66,.6);">
+          <span style="font-size: 26px; font-weight: 800; letter-spacing: .12em;">TAKE</span>
+          <span style="font-size: 12px; font-weight: 700; opacity: .9;">出す ・ Space</span>
+        </button>
+        <button class="tap" onClick="{{clearLast}}" style="height: 56px; border-radius: 12px; border: 1px solid #32363e; background: #1b1d23; color: #dddfe3; display: flex; align-items: center; justify-content: center; gap: 10px;">
+          <span style="font-size: 16px; font-weight: 800; letter-spacing: .1em;">CLEAR</span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #9fa3ad;">最後に出したものを消す ・ Backspace</span>
+        </button>
+        <div style="display: flex; align-items: center; gap: 8px; height: 44px; border-radius: 10px; border: 1px solid #32363e; background: #1b1d23; padding: 0 12px;">
+          <span style="font-size: 12px; font-weight: 700; color: #9fa3ad;">番号</span>
+          <span class="num" style="flex: 1; font-size: 15px; font-weight: 800; color: #dddfe3;">{{callBuf}}</span>
+          <span style="font-size: 11px; font-weight: 700; color: #9fa3ad;">テンキー → Enter で NEXT</span>
+        </div>
+        <p style="margin: 0; font-size: 11.5px; line-height: 1.7; color: #9fa3ad;">TAKE すると NEXT は自動で次の行へ進みます。同じ位置に出ているものは自動で下ります。</p>
+      </div>
+    </div>
+
+    <!-- ── 中段: いま出ているもの（位置名ではなく絵と文言で） ─────────── -->
+    <div style="display: flex; align-items: center; gap: 10px; min-height: 64px; border-radius: 12px; border: 1px solid #32363e; background: #1b1d23; padding: 8px 12px;">
+      <span style="flex-shrink: 0; width: 96px; font-size: 11.5px; font-weight: 800; color: #9fa3ad; letter-spacing: .06em;">いま出ている<br>もの</span>
+      <sc-for list="{{live}}" as="l" hint-placeholder-count="2">
+        <div style="display: flex; align-items: center; gap: 10px; height: 48px; border-radius: 10px; border: 1px solid rgba(215,66,66,.45); background: rgba(215,66,66,.08); padding: 0 8px 0 6px;">
+          <span style="width: 64px; height: 36px; flex-shrink: 0; border-radius: 5px; background: #0f1115; position: relative; overflow: hidden;"><span style="position: absolute; {{l.box}} border-radius: 2px;"></span></span>
+          <span style="display: flex; flex-direction: column; gap: 1px; min-width: 0; max-width: 240px;">
+            <span class="clip1" style="font-size: 12.5px; font-weight: 700; color: #dddfe3;"><span class="num">{{l.id}}</span>　{{l.title}}</span>
+            <span style="font-size: 11px; color: #9fa3ad;">{{l.kindLabel}} ・ {{l.posLabel}} ・ <span class="num">{{l.elapsed}}</span></span>
+          </span>
+          <button class="tap" onClick="{{l.clear}}" style="height: 32px; border-radius: 8px; border: 1px solid rgba(215,66,66,.5); color: #ff8a8a; padding: 0 10px; font-size: 11.5px; font-weight: 800;">消す</button>
+        </div>
+      </sc-for>
+      <sc-if value="{{liveEmpty}}" hint-placeholder-val="{{false}}"><span style="font-size: 12.5px; color: #9fa3ad;">何も出ていません（透過）</span></sc-if>
+    </div>
+
+    <!-- ── 下段: 出す順（準備と同じ一覧・行を押すと NEXT） ───────────── -->
+    <div style="flex: 1; min-height: 0; border-radius: 12px; border: 1px solid #32363e; background: #1b1d23; overflow: hidden; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 12px; height: 34px; flex-shrink: 0; padding: 0 14px; border-bottom: 1px solid #32363e; font-size: 11.5px; font-weight: 800; color: #9fa3ad; letter-spacing: .04em;">
+        <span style="width: 26px; text-align: right;">番号</span><span style="width: 64px;">絵</span><span style="flex: 1;">出す順</span><span style="width: 220px;">本番中の操作（OA の行にだけ出る）</span><span style="width: 72px; text-align: center;">状態</span>
+      </div>
+      <div style="flex: 1; min-height: 0; overflow: auto;">
+        <sc-for list="{{groups}}" as="g" hint-placeholder-count="4">
+          <div style="display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 14px; background: rgba(255,255,255,.03); border-top: 1px solid #32363e;">
+            <span style="font-size: 11px; font-weight: 800; color: #9fa3ad; letter-spacing: .05em;">{{g.name}}</span>
+            <sc-if value="{{g.collapsed}}" hint-placeholder-val="{{false}}"><span class="num" style="font-size: 11px; color: #9fa3ad;">{{g.doneNote}}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9fa3ad" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></sc-if>
+          </div>
+          <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="3">
+            <div class="row-tap" onClick="{{r.pick}}" style="display: flex; align-items: center; gap: 12px; min-height: {{r.h}}; padding: 4px 14px; border-top: 1px solid #32363e; background: {{r.bg}}; border-left: 3px solid {{r.edge}}; opacity: {{r.opacity}}; cursor: pointer;">
+              <span class="num" style="width: 23px; flex-shrink: 0; text-align: right; font-size: 12.5px; font-weight: 700; color: #9fa3ad;">{{r.id}}</span>
+              <span style="width: 64px; height: {{r.thumbH}}; flex-shrink: 0; border-radius: 5px; background: {{r.thumbBg}}; position: relative; overflow: hidden;"><sc-if value="{{r.showThumb}}" hint-placeholder-val="{{true}}"><span style="position: absolute; {{r.box}} border-radius: 2px;"></span></sc-if></span>
+              <span style="min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px;">
+                <span class="clip1" style="font-size: 13px; font-weight: 700; color: #dddfe3;">{{r.title}}</span>
+                <span class="clip1" style="font-size: 11px; color: #9fa3ad;">{{r.sub}}</span>
+              </span>
+              <span style="width: 220px; flex-shrink: 0; display: flex; align-items: center; gap: 6px;">
+                <sc-if value="{{r.voteCtl}}" hint-placeholder-val="{{false}}">
+                  <span class="num" style="font-size: 11px; font-weight: 700; color: #eea02b;">{{r.voteLabel}}</span>
+                  <button class="tap" onClick="{{r.voteClose}}" style="height: 30px; border-radius: 8px; border: 1px solid #32363e; background: #282c33; color: #dddfe3; padding: 0 10px; font-size: 11.5px; font-weight: 800;">締切</button>
+                  <button class="tap" onClick="{{r.voteReveal}}" style="height: 30px; border-radius: 8px; background: #1a90ff; color: #ffffff; padding: 0 10px; font-size: 11.5px; font-weight: 800;">開票</button>
+                </sc-if>
+                <sc-if value="{{r.rankCtl}}" hint-placeholder-val="{{false}}">
+                  <span class="num" style="font-size: 11px; font-weight: 700; color: #9fa3ad;">{{r.rankLabel}}</span>
+                  <button class="tap" onClick="{{r.rankNext}}" style="height: 30px; border-radius: 8px; background: #1a90ff; color: #ffffff; padding: 0 10px; font-size: 11.5px; font-weight: 800;">次の順位を発表</button>
+                </sc-if>
+                <sc-if value="{{r.hint}}" hint-placeholder-val="{{false}}"><span style="font-size: 11px; color: #9fa3ad;">{{r.hintText}}</span></sc-if>
+              </span>
+              <span style="width: 72px; flex-shrink: 0; display: flex; justify-content: center;">
+                <sc-if value="{{r.isOa}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; gap: 5px; height: 22px; width: 64px; justify-content: center; border-radius: 7px; background: rgba(215,66,66,.18); color: #ff8a8a; font-size: 11px; font-weight: 800; letter-spacing: .08em;"><span style="width: 6px; height: 6px; border-radius: 9999px; background: #d74242;"></span>OA</span></sc-if>
+                <sc-if value="{{r.isNext}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; height: 22px; width: 64px; justify-content: center; border-radius: 7px; background: rgba(26,144,255,.18); color: #8cc4ff; font-size: 11px; font-weight: 800; letter-spacing: .08em;">NEXT</span></sc-if>
+                <sc-if value="{{r.isDone}}" hint-placeholder-val="{{false}}"><span class="num" style="font-size: 11px; color: #9fa3ad;">{{r.doneAt}}</span></sc-if>
+                <sc-if value="{{r.isUnconfirmed}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; height: 22px; width: 64px; justify-content: center; border-radius: 7px; background: rgba(238,160,43,.16); color: #eea02b; font-size: 11px; font-weight: 800;">未確認</span></sc-if>
+              </span>
+            </div>
+          </sc-for>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":1040}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    // 場面: 視聴者クイズの出題中。8 と 7 が出ていて、次は 9。
+    this.state = { oa: [8, 7], next: 9, done: { 1: '13:01', 2: '13:01', 3: '13:00', 4: '13:02', 5: '13:03', 6: '13:03' }, vote: 'open', rank: 0, callBuf: '', lastTaken: 8 };
+  }
+  rows() { return [{"id": 1, "sec": "オープニング", "kind": "title", "kindLabel": "題字", "pos": "full", "posLabel": "画面いっぱい", "box": "left: 8%; top: 12%; width: 84%; height: 76%; background: rgba(245,245,245,.14); border-left: 2px solid #d4af37;", "title": "サイエンス・フロンティア 第7回", "sub": "題字 ・ 画面いっぱい", "ok": true}, {"id": 2, "sec": "オープニング", "kind": "name", "kindLabel": "ネーム", "pos": "lower", "posLabel": "下部", "box": "left: 6%; top: 68%; width: 62%; height: 24%; background: rgba(245,245,245,.26); border-left: 2px solid #d4af37;", "title": "佐伯 玲奈", "sub": "司会・サイエンスナビゲーター", "ok": true}, {"id": 3, "sec": "オープニング", "kind": "countdown", "kindLabel": "カウントダウン・時計", "pos": "clock", "posLabel": "左上", "box": "left: 5%; top: 6%; width: 30%; height: 16%; background: rgba(212,175,55,.9); ", "title": "開演まであと", "sub": "カウントダウン ・ 13:00 まで", "ok": true}, {"id": 4, "sec": "ゲストトーク", "kind": "name", "kindLabel": "ネーム", "pos": "lower", "posLabel": "下部", "box": "left: 6%; top: 68%; width: 62%; height: 24%; background: rgba(245,245,245,.26); border-left: 2px solid #d4af37;", "title": "高梨 一郎", "sub": "東都大学 理学部 教授", "ok": true}, {"id": 5, "sec": "ゲストトーク", "kind": "name", "kindLabel": "ネーム", "pos": "lower", "posLabel": "下部", "box": "left: 6%; top: 68%; width: 62%; height: 24%; background: rgba(245,245,245,.26); border-left: 2px solid #d4af37;", "title": "小野 美咲", "sub": "宇宙開発機構 主任研究員", "ok": false}, {"id": 6, "sec": "ゲストトーク", "kind": "list", "kindLabel": "一覧表", "pos": "full", "posLabel": "画面いっぱい", "box": "left: 8%; top: 12%; width: 84%; height: 76%; background: rgba(245,245,245,.14); border-left: 2px solid #d4af37;", "title": "今日のテーマ", "sub": "一覧表 ・ 3項目 ・ 画面いっぱい", "ok": true}, {"id": 7, "sec": "ゲストトーク", "kind": "side", "kindLabel": "サイドスーパー", "pos": "side", "posLabel": "右上", "box": "left: 60%; top: 8%; width: 34%; height: 16%; background: rgba(212,175,55,.9); ", "title": "実験映像：東都大学提供", "sub": "サイドスーパー ・ 右上", "ok": true}, {"id": 8, "sec": "視聴者クイズ", "kind": "vote", "kindLabel": "投票・クイズ", "pos": "full", "posLabel": "画面いっぱい", "box": "left: 8%; top: 12%; width: 84%; height: 76%; background: rgba(245,245,245,.14); border-left: 2px solid #d4af37;", "title": "Q. 火星の1日は地球の何時間？", "sub": "投票・クイズ ・ 4択 ・ 外部インタラクティブ連携", "ok": true}, {"id": 9, "sec": "視聴者クイズ", "kind": "title", "kindLabel": "題字", "pos": "full", "posLabel": "画面いっぱい", "box": "left: 8%; top: 12%; width: 84%; height: 76%; background: rgba(245,245,245,.14); border-left: 2px solid #d4af37;", "title": "正解は B ・ 約24時間37分", "sub": "題字 ・ 画面いっぱい", "ok": false}, {"id": 10, "sec": "ランキング", "kind": "ranking", "kindLabel": "ランキング発表", "pos": "full", "posLabel": "画面いっぱい", "box": "left: 8%; top: 12%; width: 84%; height: 76%; background: rgba(245,245,245,.14); border-left: 2px solid #d4af37;", "title": "今月の科学ニュース TOP5", "sub": "ランキング発表 ・ 5件 ・ 段階発表", "ok": true}, {"id": 11, "sec": "エンディング", "kind": "ticker", "kindLabel": "ティッカー", "pos": "ticker", "posLabel": "下端", "box": "left: 0%; top: 86%; width: 100%; height: 11%; background: #1d3f78; ", "title": "次回は 8/30（日）13:00 放送予定 ／ ご意見は番組サイトへ", "sub": "ティッカー ・ 下端 ・ 約 28 秒", "ok": true}, {"id": 12, "sec": "エンディング", "kind": "name", "kindLabel": "ネーム", "pos": "lower", "posLabel": "下部", "box": "left: 6%; top: 68%; width: 62%; height: 24%; background: rgba(245,245,245,.26); border-left: 2px solid #d4af37;", "title": "協賛 東都電機株式会社", "sub": "ネーム ・ 下部", "ok": true}]; }
+  byId(id) { return this.rows().find((r) => r.id === id); }
+  take() {
+    const st = this.state; if (!st.next) return;
+    const r = this.byId(st.next);
+    // 1枠1枚: 同じ位置は自動で下りる。画面いっぱい（full）が出たら 下部・右上 も下りる（設定「同時に出せないもの」の既定）
+    let oa = st.oa.filter((id) => { const x = this.byId(id); if (x.pos === r.pos) return false; if (r.pos === 'full' && (x.pos === 'lower' || x.pos === 'side')) return false; return true; });
+    oa = [r.id].concat(oa);
+    const done = Object.assign({}, st.done); done[r.id] = '13:04';
+    const all = this.rows(); const idx = all.findIndex((x) => x.id === r.id);
+    const next = idx + 1 < all.length ? all[idx + 1].id : null;
+    this.setState({ oa: oa, next: next, done: done, lastTaken: r.id, vote: r.kind === 'vote' ? 'open' : st.vote, rank: r.kind === 'ranking' ? 0 : st.rank });
+  }
+  clearLast() { const st = this.state; if (!st.oa.length) return; this.setState({ oa: st.oa.slice(1) }); }
+  clearAll() { this.setState({ oa: [] }); }
+  clearOne(id) { this.setState({ oa: this.state.oa.filter((x) => x !== id) }); }
+  renderVals() {
+    const self = this; const st = this.state; const all = this.rows();
+    const oaRows = st.oa.map((id) => self.byId(id));
+    const has = (k) => oaRows.some((r) => r.kind === k);
+    const nx = st.next ? self.byId(st.next) : null;
+    const voteLine = st.vote === 'open' ? '投票受付中 ・ 残り 18 秒' : (st.vote === 'closed' ? '投票締切' : '開票結果 ・ B 62%');
+    const live = oaRows.map((r, i) => ({ id: r.id, title: r.title, kindLabel: r.kindLabel, posLabel: r.posLabel, box: r.box, elapsed: i === 0 ? '00:42' : '03:40', clear: (e) => { if (e && e.stopPropagation) e.stopPropagation(); self.clearOne(r.id); } }));
+    const groups = [];
+    all.forEach((r) => {
+      let g = groups.find((x) => x.name === r.sec); if (!g) { g = { name: r.sec, rows: [] }; groups.push(g); }
+      const isOa = st.oa.indexOf(r.id) >= 0; const isNext = st.next === r.id; const isDone = !isOa && !isNext && !!st.done[r.id];
+      const voteCtl = isOa && r.kind === 'vote'; const rankCtl = isOa && r.kind === 'ranking';
+      g.rows.push({
+        id: r.id, title: r.title, sub: r.sub, box: r.box,
+        bg: isNext ? 'rgba(26,144,255,.10)' : (isOa ? 'rgba(215,66,66,.06)' : 'transparent'),
+        edge: isNext ? '#1a90ff' : (isOa ? '#d74242' : 'transparent'),
+        opacity: isDone ? '.55' : '1', h: isDone ? '34px' : '46px', thumbH: isDone ? '20px' : '36px', thumbBg: isDone ? 'transparent' : '#0f1115', showThumb: !isDone,
+        isOa: isOa, isNext: isNext, isDone: isDone, doneAt: st.done[r.id] || '', isUnconfirmed: !isOa && !isNext && !isDone && !r.ok,
+        voteCtl: voteCtl, voteLabel: st.vote === 'open' ? '出題中 ・ 残り 18 秒' : (st.vote === 'closed' ? '締切済み' : '開票済み'),
+        voteClose: (e) => { e.stopPropagation(); self.setState({ vote: 'closed' }); },
+        voteReveal: (e) => { e.stopPropagation(); self.setState({ vote: 'revealed' }); },
+        rankCtl: rankCtl, rankLabel: (st.rank >= 5 ? '1位まで発表済み' : (5 - st.rank) + '位から'),
+        rankNext: (e) => { e.stopPropagation(); self.setState({ rank: Math.min(5, st.rank + 1) }); },
+        hint: !voteCtl && !rankCtl && (r.kind === 'vote' || r.kind === 'ranking' || r.kind === 'score') && !isDone,
+        hintText: r.kind === 'vote' ? 'OA になると 出題 → 締切 → 開票 が出ます' : (r.kind === 'ranking' ? 'OA になると「次の順位を発表」が出ます' : 'OA になると ± が出ます'),
+        pick: () => self.setState({ next: r.id }),
+      });
+    });
+    groups.forEach((g) => { const allDone = g.rows.every((r) => r.isDone); g.collapsed = allDone; g.doneNote = g.rows.length + '件 出した'; if (allDone) g.rows = []; });
+    return {
+      oaVote: has('vote'), oaTitle: has('title'), oaRanking: has('ranking'), oaSide: has('side'), oaName: has('name'), oaEmpty: oaRows.length === 0,
+      oaCount: oaRows.length + '枚', voteLine: voteLine,
+      nxNo: nx ? String(nx.id) : '', nxTitle2: nx ? nx.kindLabel + '　' + nx.title : 'なし',
+      nxTitle: !!nx && nx.kind === 'title', nxName: !!nx && nx.kind === 'name', nxOther: !!nx && nx.kind !== 'title' && nx.kind !== 'name', nxEmpty: !nx,
+      nxText: nx ? nx.title : '', nxSub: nx ? nx.sec : '', nxWarn: !!nx && !nx.ok,
+      takeBg: nx ? '#d74242' : '#3a3f48',
+      take: () => self.take(), clearLast: () => self.clearLast(), clearAll: () => self.clearAll(),
+      callBuf: st.callBuf || '—',
+      live: live, liveEmpty: live.length === 0, groups: groups,
+    };
+  }
+}
+</script>
+</body>
+</html>

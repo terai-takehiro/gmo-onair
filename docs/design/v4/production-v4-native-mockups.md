@@ -45,6 +45,7 @@ v4化に着手するにあたり、ユーザーから次の第1段階の依頼�
 | ⑧ | **制作のジャーニー** | https://claude.ai/code/artifact/602a0c80-874e-4b43-b7a1-b84d5d7000f9 | 考え方の地図・PC段階ビュー・スマホ |
 | ⑨ | **収録設定・配信設定** | https://claude.ai/code/artifact/33ba14de-1fec-409f-967a-faf31962792d | 収録PC・配信PC・**WEB会議PC**・Excel書き出し・スマホ・**WEB会議スマホ** |
 | ⑩ | **計時・視聴者**（計時LIVE） | https://claude.ai/code/artifact/aa1b9c08-ffb4-4cb1-8ce9-c6aba576734a | 運用PC・表示画面・タイマー管理・スマホ |
+| ⑪ | **テロップCG（ゼロベース再設計・2026-09-06）** | https://claude.ai/code/artifact/bf5e785b-0075-459b-ad21-86410c419fde | 考え方の地図・PC 一覧／新しいテロップ／本番モード／設定・スマホ 依頼／一覧。設計書は [graphics-redesign.md](graphics-redesign.md)、作業ファイルは [`mockups/native/telop-cg/`](mockups/native/telop-cg/) |
 
 - プライベート公開です。閲覧には共有が必要な場合があります
 - クリック可能な試作です（未実装の操作はトーストで「これから作ります」と出る、

@@ -214,6 +214,23 @@
   もう存在しない — `server/src/contexts/liveops/routes/*.ts` の
   `requirePermission()` はすべて `'qsheet'` を見る
 
+## テロップCG（旧リアルタイムCGの移行先・`pages/graphics/`）
+
+旧「リアルタイムCG」（`client-awards/`・**移行中**）の後継ミニアプリ。ハブ（`JourneyPage`）のタイルから
+`/techops/graphics/:ownerKey` へ入る。サーバーは `server/src/contexts/graphics/`（Socket.IO `/graphics`・`cg:*`）。
+
+- **2026-09-06 に機能と UI/UX をゼロベースで再設計した（設計書・モックのみ。コードはまだ初版のまま）。**
+  正は [docs/design/v4/graphics-redesign.md](../docs/design/v4/graphics-redesign.md)（利用者に見せる語は
+  テロップ／種類／出す順／見た目 の4つ・画面は PC 4＋スマホ 2＋出力 1・本番の動詞は TAKE／CLEAR／進める）。
+  モックは同文書の冒頭のキャンバス（作業ファイル `docs/design/v4/mockups/native/telop-cg/`）
+- 初版の設計（部品の思想・出力の契約・組版の数値）は [docs/design/v4/graphics.md](../docs/design/v4/graphics.md)、
+  アワード演出の移植内容は [graphics-awards-migration-plan.md](../docs/design/v4/graphics-awards-migration-plan.md)
+- 実装の段取りは再設計 §11（段A: 一覧＋右パネル・設定1画面・左メニューのサブ項目 → 段B: 本番モード →
+  段C: 台本から取り込む → 段D: スマホ → 段E: 台本に追従・前の番組からコピー）。**段ごとに別 PR**
+- 触るときの注意（棚卸しで見つかった不具合・再設計で直す前提）: `nav.ts` の `GRAPHICS_RE` が `sounds`・
+  `interactive-link` を含まず、その2画面ではサイドバーが「トップ」だけに崩れる／`awards-migration` の GET 2本が
+  サーバー側 `qsheet` reader 止まり（UI は system_admin 限定）／`partLibraryData.ts` の「24番組」等は固定文字列
+
 ## このアプリの中身
 
 - **データ**: `qsheet_documents` テーブルに JSONB で台本全体を保存。同時編集は Yjs（`qsheet_doc_yjs`）
