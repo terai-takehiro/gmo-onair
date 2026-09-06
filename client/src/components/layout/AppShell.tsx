@@ -107,7 +107,15 @@ export default function AppShell() {
       mobileTabs={CLIENT_MOBILE_TABS}
       searchSlot={<GlobalSearch />}
       notificationSlot={<NotificationBell api={api} />}
-      manualContent={SALES_MANUAL}
+      /*
+        利用マニュアルのタイトルは今いる入口の名前にする。**`SALES_MANUAL` は
+        5入口（案件管理・財務管理・カレンダー・プロジェクト管理・設定）ぶんの
+        全項目を1つに束ねたコンテンツ**で、`appLabel` だけ「案件管理」に
+        固定していたため、財務管理・カレンダー・設定のどこから開いても
+        マニュアルの見出しが「案件管理 利用マニュアル」になっていた（レビューで発見）。
+        目次・本文（`sections`）はそのまま5入口ぶん全部を出す
+      */
+      manualContent={{ ...SALES_MANUAL, appLabel: app?.label ?? SALES_MANUAL.appLabel, appIcon: app?.icon ?? SALES_MANUAL.appIcon }}
       user={currentUser ? { name: currentUser.name, role: currentUser.role, email: currentUser.email } : null}
       onLogout={logout}
       onSwitchUser={logout}

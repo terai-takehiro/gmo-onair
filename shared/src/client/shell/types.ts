@@ -26,6 +26,14 @@ export interface ShellNavItem {
   adminOnly?: boolean;
   /** 別タブで開く外部リンク */
   external?: string;
+  /**
+   * 長い名前を **1行に省略しない**（既定は省略）。
+   *
+   * 案件名・番組名をそのままラベルにする項目（制作技術支援のハブ項目など）は、
+   * 1行省略だと「ZOZO 社内イベント用映像...」のように用が足りず、
+   * どの案件か分からなくなる。折り返して全部読ませたいときに立てる。
+   */
+  wrap?: boolean;
 }
 
 export interface ShellNavSection {

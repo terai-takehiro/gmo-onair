@@ -83,7 +83,7 @@ export default function HomePage() {
   return (
     <div className="flex flex-col gap-5 p-3 lg:gap-6 lg:p-6">
       <PageHeader
-        title="日常業務"
+        title="ホーム"
         sub="AI が集めて下書きし、人が確かめて仕上げる日々の仕事です"
       />
 

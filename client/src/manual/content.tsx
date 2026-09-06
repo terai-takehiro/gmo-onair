@@ -504,7 +504,7 @@ export const SALES_MANUAL: ManualContent = {
       blocks: [
         {
           type: "p",
-          text: "GLS発番済みの案件を一覧表示するページです。サイドバーの「確定案件（スタジオ）」（GLS-A：制作・配信案件）からアクセスします。GLS-B はプロジェクト管理アプリの「プロジェクト一覧」に移りました（旧 URL は自動で転送されます）。",
+          text: "GLS発番済みの案件を一覧表示するページです。サイドバーの「案件一覧」（GLS-A：制作・配信案件）からアクセスします。GLS-B はプロジェクト管理アプリの「プロジェクト一覧」に移りました（旧 URL は自動で転送されます）。",
         },
         {
           type: "bullets",
@@ -1083,7 +1083,7 @@ export const SALES_MANUAL: ManualContent = {
     // ── スタジオ予約 ───────────────────────────────────────
     {
       id: "studio-calendar",
-      group: "スタジオ予約",
+      group: "カレンダー",
       icon: Calendar,
       title: "① 予定",
       keywords: ["予約", "カレンダー", "香盤", "部屋フィルター", "月週一覧", "自分の予定", "パートナー"],
@@ -1113,7 +1113,7 @@ export const SALES_MANUAL: ManualContent = {
     },
     {
       id: "studio-booking",
-      group: "スタジオ予約",
+      group: "カレンダー",
       icon: DoorOpen,
       title: "予約の登録・編集",
       keywords: ["予約追加", "予約種別", "終日", "複数日", "外現場", "控室", "確定済み", "担当者"],
@@ -1142,7 +1142,7 @@ export const SALES_MANUAL: ManualContent = {
     },
     {
       id: "studio-feeds",
-      group: "スタジオ予約",
+      group: "カレンダー",
       icon: Link2,
       title: "カレンダー連携・サイネージ（④ 設定）",
       keywords: ["カレンダー連携", "ical", "google", "outlook", "サイネージ", "フィード", "トークン", "外部カレンダー", "設定"],
@@ -1175,7 +1175,7 @@ export const SALES_MANUAL: ManualContent = {
     },
     {
       id: "studio-rooms",
-      group: "スタジオ予約",
+      group: "カレンダー",
       icon: Wrench,
       title: "部屋・拠点の管理（管理者）",
       keywords: ["部屋管理", "ロケーション", "拠点", "略称", "色"],
@@ -1196,7 +1196,7 @@ export const SALES_MANUAL: ManualContent = {
     // ── システム管理 ───────────────────────────────────────
     {
       id: "admin-users",
-      group: "システム管理",
+      group: "設定",
       icon: UserCog,
       title: "人と権限",
       keywords: ["ユーザー", "権限", "管理者", "招待", "アクセスレベル", "役割", "型", "人と権限", "閲覧", "編集"],
@@ -1228,7 +1228,7 @@ export const SALES_MANUAL: ManualContent = {
     },
     {
       id: "admin-dataviewer",
-      group: "システム管理",
+      group: "設定",
       icon: Database,
       title: "データビューア",
       keywords: ["データ確認", "テーブル", "編集"],
@@ -1243,7 +1243,7 @@ export const SALES_MANUAL: ManualContent = {
     },
     {
       id: "admin-backup",
-      group: "システム管理",
+      group: "設定",
       icon: HardDrive,
       title: "DBバックアップ",
       keywords: ["バックアップ", "復元", "box"],
@@ -1270,7 +1270,7 @@ export const SALES_MANUAL: ManualContent = {
     },
     {
       id: "admin-settings",
-      group: "システム管理",
+      group: "設定",
       icon: Settings,
       title: "システム設定",
       keywords: ["設定", "パスワード変更", "全データバックアップ"],

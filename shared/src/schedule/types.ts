@@ -67,6 +67,11 @@ export interface ScheduleItem {
   kind: ItemKind;
   start_min: number;
   end_min: number;
+  /**
+   * 横串（列をまたぐ項目 = Excel のセル結合）。1 = 自分の列だけ・N = 自分の列から右へ N 列・
+   * 0 = 全列（migration 280）。読み方は `shared/src/schedule/span.ts`
+   */
+  span_cols: number;
   assignee: string | null;
   note: string | null;
   qsheet_document_id: string | null;

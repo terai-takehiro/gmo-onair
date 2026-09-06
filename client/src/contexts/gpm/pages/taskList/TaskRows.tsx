@@ -2,10 +2,16 @@
  * ⑤ タスクと持ち帰り — タスクタブの表本体（PC）
  *
  * `GpmTaskListPage.tsx` から切り出した（1ファイル400行の上限・`client/CLAUDE.md`）。
- * PC の行の見た目・動きは1文字も変えていない — 元の場所からそのまま移しただけ。
+ *
+ * 列は タスク・プロジェクト（伸びる）／ 工程(128px) ／ 担当(96px) ／ 期限(96px) ／
+ * 対応(128px・`canEdit` のときだけ) の5列。片づける操作は共通部品 `TaskDoneButton`
+ * （「対応済にする」文字のボタン。旧・四角のチェックは全アプリで置き換え済み — PR
+ * 「ToDoの完了チェックを『対応済にする』ボタンに替えた」）を使う。スマホのカード
+ * （`TaskCards.tsx`）と同じ部品・同じ判定（`dueTone`/`dueLabel`/`PHASE_STATE_TONE`）
+ * を読むので、写して書くと PC とスマホで違う日に赤くなる。
  */
-import { Check } from 'lucide-react';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
+import { TaskDoneButton } from '@gmo-onair/shared/src/client-v4/taskDoneButton';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import {
   PHASE_STATE_TONE, dueLabel, dueTone, ymd, type GpmTask,
@@ -14,11 +20,11 @@ import {
 export function TaskRowsHeader({ canEdit }: { canEdit: boolean }) {
   return (
     <RowHeader className="hidden sm:flex">
-      {canEdit && <RowSlot w={56} align="center">完了</RowSlot>}
       <RowMain>タスク ／ プロジェクト</RowMain>
       <RowSlot w={128}>工程</RowSlot>
       <RowSlot w={96}>担当</RowSlot>
       <RowSlot w={96}>期限</RowSlot>
+      {canEdit && <RowSlot w={128} align="center">対応</RowSlot>}
     </RowHeader>
   );
 }
@@ -36,29 +42,6 @@ export function TaskRow({
   const due = ymd(t.due_at);
   return (
     <Row divider stackOnMobile className={cn(t.is_completed && 'opacity-60')}>
-      {canEdit && (
-        <RowSlot w={56} align="center">
-          <button
-            type="button"
-            onClick={() => onToggleDone(t)}
-            disabled={togglePending}
-            aria-label={t.is_completed ? `${t.title} を未完了に戻す` : `${t.title} を完了にする`}
-            /*
-              **`v4-tap` で当たり判定だけ 44px にする**（M10）。
-              18px の四角は大きくすると別の部品に見えるので、
-              見た目は変えずに透明な擬似要素をかぶせる
-              （`tokens-v4.css`。押し間違えると取り消しに行くので、
-               指で確実に当たる大きさが要る）
-            */
-            className={cn(
-              'v4-tap rounded-badge-xs flex h-[18px] w-[18px] items-center justify-center border-[1.5px]',
-              t.is_completed ? 'border-success bg-success' : 'border-border-disabled hover:border-primary',
-            )}
-          >
-            {t.is_completed && <Check className="h-3 w-3 text-success-foreground" aria-hidden="true" />}
-          </button>
-        </RowSlot>
-      )}
       <RowMain>
         <RowTitle className={cn(t.is_completed && 'line-through')}>{t.title}</RowTitle>
         <RowSub>
@@ -88,6 +71,21 @@ export function TaskRow({
       <RowSlot w={96} className={cn('text-sub font-number', t.is_completed ? 'text-muted-foreground' : dueTone(due, today))}>
         {dueLabel(due, today)}
       </RowSlot>
+      {/*
+        片づける操作は**文字のボタン**にする（18px の四角は
+        「押すと何が起きるか」が読み取れなかった）。列は 7段の 128px
+      */}
+      {canEdit && (
+        <RowSlot w={128} align="center">
+          <TaskDoneButton
+            done={t.is_completed}
+            onToggle={() => onToggleDone(t)}
+            taskTitle={t.title}
+            disabled={togglePending}
+            size="sm"
+          />
+        </RowSlot>
+      )}
     </Row>
   );
 }

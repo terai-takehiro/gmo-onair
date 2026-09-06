@@ -152,7 +152,7 @@ export default function GpmTaskListPage() {
     mutationFn: (t: GpmTask) => api.put(`/gpm/tasks/${t.id}/done`, { done: !t.is_completed }),
     onSuccess: (_r, t) => {
       invalidate(t.project_id);
-      notifySuccess(t.is_completed ? '未完了に戻しました' : '完了にしました');
+      notifySuccess(t.is_completed ? '未対応に戻しました' : '対応済にしました');
     },
     onError: (e) => notifyApiError('タスクを変更できませんでした', e),
   });
@@ -195,15 +195,15 @@ export default function GpmTaskListPage() {
   return (
     <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       {/*
-        **見出しを左メニューと同じ文言に揃えた**（v4・一覧フォーマット統一 PR②・delta 20）。
-        左メニューの定義（`components/layout/nav.ts` の `CLIENT_NAV.gpm`）は
-        「タスクと持ち帰り」だが、この画面の見出しは「全プロジェクトのタスク」の
-        ままで、押した先に別の名前が出ていた。
+        **見出しは左メニューと同じ「タスクと持ち帰り」**（v4・一覧フォーマット統一 PR②・
+        delta 20）。着手時点では「全プロジェクトのタスク」で押した先の名前と食い違って
+        いたが、並行して進んでいたメニュー名の食い違い調査（PR #590）で main 側が先に
+        直したため、この PR では main を取り込んだ結果として揃っている。
       */}
       <PageHeader
         title="タスクと持ち帰り"
         sub={tasks.data
-          ? `未完了 ${taskCounts.open}件 ・ 止まっている未解決事項 ${openCount}件`
+          ? `未対応 ${taskCounts.open}件 ・ 止まっている未解決事項 ${openCount}件`
           : 'プロジェクトをまたいで見ます'}
       >
         {/* **スマホでは出さない。** ここは見出しの下に折り返るだけで専用のナビゲーションに
@@ -245,10 +245,10 @@ export default function GpmTaskListPage() {
           <FilterChips
             label="タスクの状態で絞り込む"
             items={[
-              { key: 'open', label: '未完了', count: tasks.data ? taskCounts.open : null },
+              { key: 'open', label: '未対応', count: tasks.data ? taskCounts.open : null },
               { key: 'week', label: '今週期限', count: tasks.data ? taskCounts.week : null },
               { key: 'overdue', label: '期限超過', count: tasks.data ? taskCounts.overdue : null },
-              { key: 'done', label: '完了', count: tasks.data ? taskCounts.done : null },
+              { key: 'done', label: '対応済', count: tasks.data ? taskCounts.done : null },
               { key: 'all', label: 'すべて', count: tasks.data ? taskCounts.all : null },
             ]}
             value={taskChip}
@@ -264,7 +264,7 @@ export default function GpmTaskListPage() {
           ) : taskRows.length === 0 ? (
             <EmptyState
               icon={<ListTodo className="h-6 w-6" aria-hidden="true" />}
-              title={taskChip === 'open' && !appliedTaskSearch ? '未完了のタスクはありません' : '条件に合うタスクはありません'}
+              title={taskChip === 'open' && !appliedTaskSearch ? '未対応のタスクはありません' : '条件に合うタスクはありません'}
               description="工程テンプレートからプロジェクトを作成すると、工程の下にタスクが日付付きで入ります。"
             />
           ) : isMobile ? (
