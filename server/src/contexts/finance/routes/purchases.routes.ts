@@ -8,6 +8,7 @@ import { generateBillingKey } from '../../../shared/services/billing-key.service
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 import { buildPurchaseWhere, buildPurchaseOrder } from '../list-query';
 import { assertVendorCompanyId } from '../../../shared/services/company-directory.service';
+import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 
 const router = Router();
 
@@ -152,9 +153,9 @@ router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
 
   const id = uuidv4();
   await execute(
-    `INSERT INTO purchases (id, billing_key, project_id, episode_id, vendor_id, assigned_to, settlement_method, settlement_number, settlement_url, tax_category, invoice_qualified, amount, description, recognition_date, inspection_date, payment_due_date, notes, is_provisional, service_completed_date, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, billing_key, project_id, episode_id || null, vendor_id, assignedToValue,
+    `INSERT INTO purchases (id, billing_key, project_id, entity_code, episode_id, vendor_id, assigned_to, settlement_method, settlement_number, settlement_url, tax_category, invoice_qualified, amount, description, recognition_date, inspection_date, payment_due_date, notes, is_provisional, service_completed_date, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, billing_key, project_id, CURRENT_ENTITY_CODE, episode_id || null, vendor_id, assignedToValue,
      settlement_method || null, settlement_number || null, settlement_url || null, tax_category || 'tax10',
      invoice_qualified !== undefined ? (invoice_qualified ? 1 : 0) : 1,
      amount || 0, description || null, recognition_date || null,

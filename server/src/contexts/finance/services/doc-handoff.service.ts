@@ -29,6 +29,7 @@ import { queryOne, execute, withTransaction } from '../../../shared/db/connectio
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateSgaBillingKey } from '../../../shared/services/billing-key.service';
 import { assertVendorCompanyId } from '../../../shared/services/company-directory.service';
+import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 
 export type HandoffKind = 'purchase' | 'sga';
 
@@ -132,10 +133,10 @@ export async function handoffDoc(
       const id = uuidv4();
       await tx.execute(
         `INSERT INTO purchases
-           (id, project_id, vendor_id, assigned_to, tax_category, invoice_qualified, amount,
+           (id, project_id, entity_code, vendor_id, assigned_to, tax_category, invoice_qualified, amount,
             description, recognition_date, payment_due_date, notes, is_provisional, created_by)
-         VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, false, ?)`,
-        [id, input.project_id, input.vendor_id, userId, tax, input.amount,
+         VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, false, ?)`,
+        [id, input.project_id, CURRENT_ENTITY_CODE, input.vendor_id, userId, tax, input.amount,
          input.description || null, input.recognition_date, input.payment_due_date || null,
          // **どの書類から来たかを台帳側にも残す。** 片側だけだと、
          // 台帳を見ている人が「これは何の請求か」を辿れない
@@ -150,10 +151,10 @@ export async function handoffDoc(
       // （「仮」は精算前の見込みのための状態で、ここには当てはまらない）
       await tx.execute(
         `INSERT INTO sga_expenses
-           (id, billing_key, vendor_name, description, notes, recognition_date, payment_due_date,
+           (id, entity_code, billing_key, vendor_name, description, notes, recognition_date, payment_due_date,
             tax_category, invoice_qualified, amount, expense_type, source, is_provisional, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 'staff', false, ?)`,
-        [id, generateSgaBillingKey(input.recognition_date, tax),
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 'staff', false, ?)`,
+        [id, CURRENT_ENTITY_CODE, generateSgaBillingKey(input.recognition_date, tax),
          input.vendor_name || String(doc.sender ?? '') || null,
          input.description || null,
          `受け取った書類から: ${String(doc.sender ?? '')} ${String(doc.subject ?? '')}`.trim(),

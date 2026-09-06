@@ -22,6 +22,7 @@ import { getBoxClient } from '../../../shared/services/box';
 import { normalizeTaxCategory } from '../../../shared/services/tax-category.service';
 import { looksLikeGmoGroup } from '../../../shared/services/gmo-group';
 import { createCustomerRecord, createVendorRecord, execFromPgClient } from '../../../shared/services/company-directory.service';
+import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 
 export const DEFAULT_GL_FILE_ID = '2285559397453'; // 総勘定元帳_20260507_1652.csv
 const FIXED_CODE = 'FIXED-COGS';
@@ -711,9 +712,9 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
           // 以前は `notes` の先頭に `[kessan:2026-03]` と書いていたが、
           // メモをやり取りへ畳んだので `notes` の列そのものが無い。
           // 列に持つと、人が書いたメモと印を取り違えなくなる
-          `INSERT INTO projects (id, code, gls_number, name, customer_id, stage, assigned_to, kessan_marker, created_by)
-           VALUES ($1,$2,$3,$4,$5,'a_won',$6,$7,$8)`,
-          [id, key, isFixed ? null : key, name || key, cid, fallbackUser, period, fallbackUser]
+          `INSERT INTO projects (id, code, entity_code, gls_number, name, customer_id, stage, assigned_to, kessan_marker, created_by)
+           VALUES ($1,$2,$3,$4,$5,$6,'a_won',$7,$8,$9)`,
+          [id, key, CURRENT_ENTITY_CODE, isFixed ? null : key, name || key, cid, fallbackUser, period, fallbackUser]
         );
         p = { id, customer_id: cid };
         report.masters.created.projects++;
@@ -728,10 +729,10 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
         for (const x of sga) {
           if (skipDuplicates && existSga) { const k = `${x.amount}|${x.vendor_name}|${ym(x.date)}`; if ((existSga.get(k) || 0) > 0) { existSga.set(k, existSga.get(k)! - 1); counts.dupSkipped++; continue; } }
           await client.query(
-            `INSERT INTO sga_expenses (id, billing_key, vendor_name, description, amount, tax_category,
+            `INSERT INTO sga_expenses (id, entity_code, billing_key, vendor_name, description, amount, tax_category,
                invoice_qualified, expense_type, source, recognition_date, notes, created_by)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,'spot','accounting',$8,$9,$10)`,
-            [randomUUID(), `KESSAN-${period}-${x.no}`, x.vendor_name, x.description, x.amount, x.tax_category, x.invoice_qualified, x.date, `${MARKER} ${x.no}`, fallbackUser]
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'spot','accounting',$9,$10,$11)`,
+            [randomUUID(), CURRENT_ENTITY_CODE, `KESSAN-${period}-${x.no}`, x.vendor_name, x.description, x.amount, x.tax_category, x.invoice_qualified, x.date, `${MARKER} ${x.no}`, fallbackUser]
           );
           counts.sga++;
         }
@@ -746,9 +747,9 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
           const proj = await ensureProject(x.gls, x.project_name, customerId);
           if (!proj) { counts.skipped++; continue; }
           await client.query(
-            `INSERT INTO revenues (id, billing_key, project_id, customer_id, tax_category, amount, recognition_date, status, notes, created_by)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,'confirmed',$8,$9)`,
-            [randomUUID(), `KESSAN-${period}-REV-${x.no}`, proj.id, proj.customer_id || customerId, x.tax_category, x.amount, x.date, `${MARKER} ${x.no} ${x.memo}`.slice(0, 240), fallbackUser]
+            `INSERT INTO revenues (id, billing_key, project_id, entity_code, customer_id, tax_category, amount, recognition_date, status, notes, created_by)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'confirmed',$9,$10)`,
+            [randomUUID(), `KESSAN-${period}-REV-${x.no}`, proj.id, CURRENT_ENTITY_CODE, proj.customer_id || customerId, x.tax_category, x.amount, x.date, `${MARKER} ${x.no} ${x.memo}`.slice(0, 240), fallbackUser]
           );
           counts.rev++;
         }
@@ -762,9 +763,9 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
           const vendorId = await ensureVendor(x.vendor_name);
           if (!vendorId) { counts.skipped++; continue; }
           await client.query(
-            `INSERT INTO purchases (id, project_id, vendor_id, tax_category, invoice_qualified, amount, description, recognition_date, notes, created_by)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-            [randomUUID(), proj.id, vendorId, x.tax_category, x.invoice_qualified, x.amount, x.description, x.date, `${MARKER} ${x.no}${x.split > 1 ? ` (1/${x.split}按分)` : ''}`.slice(0, 240), fallbackUser]
+            `INSERT INTO purchases (id, project_id, entity_code, vendor_id, tax_category, invoice_qualified, amount, description, recognition_date, notes, created_by)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+            [randomUUID(), proj.id, CURRENT_ENTITY_CODE, vendorId, x.tax_category, x.invoice_qualified, x.amount, x.description, x.date, `${MARKER} ${x.no}${x.split > 1 ? ` (1/${x.split}按分)` : ''}`.slice(0, 240), fallbackUser]
           );
           counts.pur++;
         }
@@ -777,9 +778,9 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
               const vendorId = await ensureVendor(x.vendor_name);
               if (!vendorId) { counts.skipped++; continue; }
               await client.query(
-                `INSERT INTO purchases (id, project_id, vendor_id, tax_category, invoice_qualified, amount, description, recognition_date, notes, created_by)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-                [randomUUID(), fixedProj.id, vendorId, x.tax_category, x.invoice_qualified, x.amount, x.description, x.date, `${MARKER} ${x.no} [固定原価]`.slice(0, 240), fallbackUser]
+                `INSERT INTO purchases (id, project_id, entity_code, vendor_id, tax_category, invoice_qualified, amount, description, recognition_date, notes, created_by)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+                [randomUUID(), fixedProj.id, CURRENT_ENTITY_CODE, vendorId, x.tax_category, x.invoice_qualified, x.amount, x.description, x.date, `${MARKER} ${x.no} [固定原価]`.slice(0, 240), fallbackUser]
               );
               counts.pur++;
             }

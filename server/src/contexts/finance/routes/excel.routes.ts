@@ -10,6 +10,7 @@ import {
   buildSgaWhere, buildSgaOrder,
 } from '../list-query';
 import { normalizeTaxCategory } from '../../../shared/services/tax-category.service';
+import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 
 // 日本語・％表記の別名だけを持つ。CHECK 制約の正準値 (nontax 含む) が漏れると
 // エクスポート→取込の往復で tax10 に化けるため、fallback は normalizeTaxCategory に委ねる
@@ -169,11 +170,11 @@ const REVENUES_CONFIG: ResourceConfig = {
   },
   insert: async (client, d, userId) => {
     await client.query(
-      `INSERT INTO revenues (id, billing_key, project_id, episode_id, customer_id, assigned_to,
+      `INSERT INTO revenues (id, billing_key, project_id, entity_code, episode_id, customer_id, assigned_to,
                              amount, tax_category, recognition_date, billing_date, payment_due_date,
                              notes, created_by, updated_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
-      [newId(), d.billing_key, d.project_id, d.episode_id, d.customer_id, d.assigned_to,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+      [newId(), d.billing_key, d.project_id, CURRENT_ENTITY_CODE, d.episode_id, d.customer_id, d.assigned_to,
        d.amount, d.tax_category, d.recognition_date, d.billing_date, d.payment_due_date,
        d.notes, userId, userId],
     );
@@ -347,12 +348,12 @@ const PURCHASES_CONFIG: ResourceConfig = {
   },
   insert: async (client, d, userId) => {
     await client.query(
-      `INSERT INTO purchases (id, billing_key, project_id, episode_id, vendor_id, assigned_to,
+      `INSERT INTO purchases (id, billing_key, project_id, entity_code, episode_id, vendor_id, assigned_to,
                               settlement_method, settlement_number, settlement_url, amount, tax_category, description,
                               recognition_date, inspection_date, payment_due_date, service_completed_date,
                               notes, created_by, updated_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
-      [newId(), d.billing_key, d.project_id, d.episode_id, d.vendor_id, d.assigned_to,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+      [newId(), d.billing_key, d.project_id, CURRENT_ENTITY_CODE, d.episode_id, d.vendor_id, d.assigned_to,
        d.settlement_method, d.settlement_number, d.settlement_url, d.amount, d.tax_category, d.description,
        d.recognition_date, d.inspection_date, d.payment_due_date, d.service_completed_date,
        d.notes, userId, userId],
@@ -474,12 +475,12 @@ const SGA_CONFIG: ResourceConfig = {
   },
   insert: async (client, d, userId) => {
     await client.query(
-      `INSERT INTO sga_expenses (id, billing_key, vendor_name, description, amount,
+      `INSERT INTO sga_expenses (id, entity_code, billing_key, vendor_name, description, amount,
                                  tax_category, expense_type, recognition_date, payment_due_date,
                                  amortize_start, amortize_end, settlement_method, settlement_number, settlement_url, assigned_to,
                                  notes, source, created_by, updated_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
-      [newId(), d.billing_key, d.vendor_name, d.description, d.amount,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+      [newId(), CURRENT_ENTITY_CODE, d.billing_key, d.vendor_name, d.description, d.amount,
        d.tax_category, d.expense_type, d.recognition_date, d.payment_due_date,
        d.amortize_start, d.amortize_end, d.settlement_method, d.settlement_number, d.settlement_url, d.assigned_to,
        d.notes, 'staff', userId, userId],

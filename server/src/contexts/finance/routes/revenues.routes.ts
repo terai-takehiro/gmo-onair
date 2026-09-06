@@ -13,6 +13,7 @@ import { fileFinanceDocToBox, applyDocBoxHeaders, docBoxSkipped } from '../../..
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 import { buildExcelWorkbook, excelResponse } from '../../../shared/utils/excel';
 import { buildRevenueWhere, buildRevenueOrder } from '../list-query';
+import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 import { taxBillingSuffix, normalizeTaxCategory, TAX_RATE_LABELS, toIncludedAmount } from '../../../shared/services/tax-category.service';
 import { loadRevenueItemCarryover } from '../services/revenue-item-carryover.service';
 import { BILLING_STATE_SQL } from '../../../shared/services/billing-state';
@@ -540,8 +541,8 @@ router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
       billing_key = `${base}-${seqNum}-${taxSuffix}`;
     }
 
-    await tx.execute(`INSERT INTO revenues (id, billing_key, project_id, customer_id, episode_id, assigned_to, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, subtitle, status, is_advance_payment, invoice_issued, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, billing_key, project_id, customer_id, episode_id || null, req.user!.id, tax_category || 'tax10', finalAmount, recognition_date || null, billing_date || null, dueDate || null, notes || null, subtitle || null, revenueStatus, isAdvancePayment, invoiceIssued, req.user!.id]);
+    await tx.execute(`INSERT INTO revenues (id, billing_key, project_id, entity_code, customer_id, episode_id, assigned_to, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, subtitle, status, is_advance_payment, invoice_issued, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, billing_key, project_id, CURRENT_ENTITY_CODE, customer_id, episode_id || null, req.user!.id, tax_category || 'tax10', finalAmount, recognition_date || null, billing_date || null, dueDate || null, notes || null, subtitle || null, revenueStatus, isAdvancePayment, invoiceIssued, req.user!.id]);
 
     // 明細行を保存
     if (Array.isArray(items)) {

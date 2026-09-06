@@ -5,6 +5,7 @@ import { hashPassword } from '../auth/password';
 import { looksLikeGmoGroup } from '../services/gmo-group';
 import { createCustomerRecord, createVendorRecord } from '../services/company-directory.service';
 import { classificationOf } from '../../contexts/sales/services/project-classification';
+import { CURRENT_ENTITY_CODE } from '../constants/entity-default';
 
 const USERS = {
   admin: '00000000-0000-0000-0000-000000000001',
@@ -175,7 +176,7 @@ export async function seed() {
    * 全部その見え方になり、実際に「登録してあるのに未登録になる」と報告されました。
    * 導く表は `project-classification.ts`（`classificationOf`）の1か所だけ。
    */
-  const projSql = `INSERT INTO projects (id, code, gls_number, gls_category, name, customer_id, stage, project_type, audience, project_category, expected_amount, event_start, event_end, broadcast_type, media_platform, assigned_to, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const projSql = `INSERT INTO projects (id, code, entity_code, gls_number, gls_category, name, customer_id, stage, project_type, audience, project_category, expected_amount, event_start, event_end, broadcast_type, media_platform, assigned_to, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   /** 旧種類から2段を引く。GLS-B の3種は `null`（2段を持たない） */
   const cls2 = (projType: string) => {
     const c = classificationOf(projType);
@@ -200,7 +201,7 @@ export async function seed() {
     PROJECTS[code] = id;
     // ヨミ段階のデフォルト分類: project_type からの推奨値 (A系項目なら 'A')
     const yomiCat = ['offline_event', 'hybrid_event', 'live_broadcast', 'recording'].includes(projType) ? 'A' : 'B';
-    await ins(projSql, [id, code, null, yomiCat, name, CUSTOMERS[custKey], stage, projType, ...cls2(projType), amt, eventStart, eventEnd, null, null, staffIds[i % 3], USERS.admin]);
+    await ins(projSql, [id, code, CURRENT_ENTITY_CODE, null, yomiCat, name, CUSTOMERS[custKey], stage, projType, ...cls2(projType), amt, eventStart, eventEnd, null, null, staffIds[i % 3], USERS.admin]);
   }
 
   // --- 失注 ---
@@ -222,8 +223,8 @@ export async function seed() {
     const id = uuidv4();
     LOST_PROJECTS[code] = id;
     await execute(
-      `INSERT INTO projects (id, code, name, customer_id, stage, project_type, audience, project_category, gls_category, expected_amount, event_start, assigned_to, lost_reason, lost_reason_note, lost_at, created_by) VALUES (?, ?, ?, ?, 'e_lost', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, code, name, CUSTOMERS[custKey], projType, ...cls2(projType),
+      `INSERT INTO projects (id, code, entity_code, name, customer_id, stage, project_type, audience, project_category, gls_category, expected_amount, event_start, assigned_to, lost_reason, lost_reason_note, lost_at, created_by) VALUES (?, ?, ?, ?, ?, 'e_lost', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, code, CURRENT_ENTITY_CODE, name, CUSTOMERS[custKey], projType, ...cls2(projType),
        ['offline_event', 'hybrid_event', 'live_broadcast', 'recording'].includes(projType) ? 'A' : 'B',
        amt, date, staffIds[i % 3], reason, note, lostAt, USERS.admin]
     );
@@ -254,7 +255,7 @@ export async function seed() {
     PROJECTS[gls] = id;
     // GLS発番済みなので code = OPP-xxx (元のヨミコード) + gls_number
     const oppCode = `OPP-202603-${String(20 + i).padStart(4, '0')}`;
-    await ins(projSql, [id, oppCode, gls, 'A', name, CUSTOMERS[custKey], stage, projType, ...cls2(projType), amt, es, ee, bType, mPlatform, staffIds[i % 3], USERS.admin]);
+    await ins(projSql, [id, oppCode, CURRENT_ENTITY_CODE, gls, 'A', name, CUSTOMERS[custKey], stage, projType, ...cls2(projType), amt, es, ee, bType, mPlatform, staffIds[i % 3], USERS.admin]);
   }
 
   // --- B系: GLS-B (その他売上) ---
@@ -265,13 +266,13 @@ export async function seed() {
   // **GLS-B は2段分類を持たない**（`project-classification.ts`）。**空を明示して書く** —
   // 列ごと書かないと「書き忘れ」と見分けが付かず、そのままにしていたのが
   // 上の A 系の壊れ方（詳細では登録済み・直す画面では未登録）の原因でした
-  const projBSql = `INSERT INTO projects (id, code, gls_number, gls_category, name, customer_id, stage, project_type, audience, project_category, expected_amount, assigned_to, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)`;
+  const projBSql = `INSERT INTO projects (id, code, entity_code, gls_number, gls_category, name, customer_id, stage, project_type, audience, project_category, expected_amount, assigned_to, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)`;
   for (let i = 0; i < glsBData.length; i++) {
     const [gls, name, custKey, projType, stage, amt] = glsBData[i];
     const id = uuidv4();
     PROJECTS[gls] = id;
     const oppCode = `OPP-202603-${String(30 + i).padStart(4, '0')}`;
-    await ins(projBSql, [id, oppCode, gls, 'B', name, CUSTOMERS[custKey], stage, projType, amt, staffIds[i % 3], USERS.admin]);
+    await ins(projBSql, [id, oppCode, CURRENT_ENTITY_CODE, gls, 'B', name, CUSTOMERS[custKey], stage, projType, amt, staffIds[i % 3], USERS.admin]);
   }
 
   // ============================================================
@@ -351,7 +352,7 @@ export async function seed() {
   // ============================================================
   // Revenues
   // ============================================================
-  const revSql = `INSERT INTO revenues (id, billing_key, project_id, episode_id, customer_id, assigned_to, tax_category, amount, recognition_date, notes, subtitle, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const revSql = `INSERT INTO revenues (id, billing_key, project_id, entity_code, episode_id, customer_id, assigned_to, tax_category, amount, recognition_date, notes, subtitle, status) VALUES (?, ?, ?, '${CURRENT_ENTITY_CODE}', ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const riSql = `INSERT INTO revenue_items (id, revenue_id, description, quantity, unit_price, amount, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)`;
 
   // GLS-A001: IR説明会（明細項目付き）
@@ -550,7 +551,7 @@ export async function seed() {
   // ============================================================
   // Purchases
   // ============================================================
-  const purSql = `INSERT INTO purchases (id, billing_key, project_id, episode_id, vendor_id, assigned_to, settlement_method, settlement_number, tax_category, invoice_qualified, amount, description, recognition_date, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const purSql = `INSERT INTO purchases (id, billing_key, project_id, entity_code, episode_id, vendor_id, assigned_to, settlement_method, settlement_number, tax_category, invoice_qualified, amount, description, recognition_date, notes) VALUES (?, ?, ?, '${CURRENT_ENTITY_CODE}', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
   await ins(purSql, [uuidv4(), 'GLS-A001-001-1', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'], VENDORS['技術'], USERS.staff1, 'rakuraku', '147510', 'tax10', 1, 800000, 'カメラクルー2名', '2026-03-31', null]);
   await ins(purSql, [uuidv4(), 'GLS-A001-001-2', PROJECTS['GLS-A001'], EPISODES['GLS-A001-001'], VENDORS['弁当'], USERS.staff1, 'rakuraku', '147511', 'tax8', 0, 50000, 'ケータリング30名分', '2026-03-31', null]);
@@ -646,7 +647,7 @@ export async function seed() {
   // ============================================================
   // SGA Expenses
   // ============================================================
-  const sgaSql = `INSERT INTO sga_expenses (id, billing_key, assigned_to, settlement_method, settlement_number, vendor_name, description, recognition_date, payment_due_date, tax_category, invoice_qualified, amount, expense_type, amortize_start, amortize_end, source, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const sgaSql = `INSERT INTO sga_expenses (id, entity_code, billing_key, assigned_to, settlement_method, settlement_number, vendor_name, description, recognition_date, payment_due_date, tax_category, invoice_qualified, amount, expense_type, amortize_start, amortize_end, source, created_by) VALUES (?, '${CURRENT_ENTITY_CODE}', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
   await ins(sgaSql, [uuidv4(), '20260101-1', USERS.staff1, 'other', '900001', '株式会社スタジオプロパティ', 'オフィス賃料（月額）', '2026-01-01', '2026-01-31', 'tax10', 1, 800000, 'fixed', '2026-01', '2026-12', 'staff', USERS.admin]);
   await ins(sgaSql, [uuidv4(), '20260401-1', USERS.staff2, 'other', '900002', '東日本セーフティ損害保険株式会社', '事業用火災保険', '2026-04-01', '2026-04-30', 'tax10', 1, 300000, 'spot', '2026-04', '2027-03', 'staff', USERS.admin]);
@@ -1050,18 +1051,18 @@ export async function seed() {
     const GPM1 = 'gpm-1';
     const GPM2 = 'gpm-2';
     await ins(
-      `INSERT INTO projects (id, code, gls_number, gls_category, name, customer_id, customer_type,
+      `INSERT INTO projects (id, code, entity_code, gls_number, gls_category, name, customer_id, customer_type,
          stage, gpm_kind, pm_company, started_on, ends_on, expected_amount, assigned_to, created_by)
-       VALUES (?, ?, ?, 'B', ?, ?, 'internal', 'a_won', 'self_build', ?, ?, ?, ?, ?, ?)`,
-      [GPM1, 'OPP-202605-0101', 'GLS-B101', '用賀スタジオ 第2副調整室 構築',
+       VALUES (?, ?, ?, ?, 'B', ?, ?, 'internal', 'a_won', 'self_build', ?, ?, ?, ?, ?, ?)`,
+      [GPM1, 'OPP-202605-0101', CURRENT_ENTITY_CODE, 'GLS-B101', '用賀スタジオ 第2副調整室 構築',
        CUSTOMERS[Object.keys(CUSTOMERS)[0]], '日建設計', '2026-05-12', '2026-09-30',
        18400000, USERS.staff1, USERS.admin],
     );
     await ins(
-      `INSERT INTO projects (id, code, gls_number, gls_category, name, customer_id, customer_type,
+      `INSERT INTO projects (id, code, entity_code, gls_number, gls_category, name, customer_id, customer_type,
          stage, gpm_kind, started_on, ends_on, expected_amount, assigned_to, created_by)
-       VALUES (?, ?, ?, 'B', ?, ?, 'internal', 'c_proposal', 'group_order', ?, ?, ?, ?, ?)`,
-      [GPM2, 'OPP-202607-0102', null, 'グループ本社 21F 会議室 AV 更新',
+       VALUES (?, ?, ?, ?, 'B', ?, ?, 'internal', 'c_proposal', 'group_order', ?, ?, ?, ?, ?)`,
+      [GPM2, 'OPP-202607-0102', CURRENT_ENTITY_CODE, null, 'グループ本社 21F 会議室 AV 更新',
        CUSTOMERS[Object.keys(CUSTOMERS)[0]], '2026-07-01', '2026-12-20',
        7200000, USERS.staff2, USERS.admin],
     );
@@ -1165,8 +1166,8 @@ export async function seed() {
       「見積なし」と「0円」の見分けが画面で確かめられません。
       合計 (`subtotal`) は明細から出るので、`recalc` と同じ値を入れてあります。
     */
-    const estSql = `INSERT INTO estimates (id, project_id, submit_to, group_id, version, title, status, tax_category, subtotal, discount, sent_at, valid_until, created_by, updated_by)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+    const estSql = `INSERT INTO estimates (id, project_id, entity_code, submit_to, group_id, version, title, status, tax_category, subtotal, discount, sent_at, valid_until, created_by, updated_by)
+                    VALUES (?,?,'${CURRENT_ENTITY_CODE}',?,?,?,?,?,?,?,?,?,?,?,?)`;
     await ins(estSql, ['gpm-est-1', GPM1, 'self', 'gpm-est-1', 2,
       '第2副調整室 構築一式（設計・機材・工事）', 'sent', 'tax10', 18400000, 0,
       // `sent_at` は時間帯を持たない列に `NOW()` を入れる運用（＝DB の設定の壁時計。

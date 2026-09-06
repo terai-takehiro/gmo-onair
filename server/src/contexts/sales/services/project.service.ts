@@ -3,6 +3,7 @@ import { queryAll, queryOne, execute, withTransaction, type TxClient } from '../
 import { generateSequenceNumber, generateGlsNumber, peekNextGlsNumber, generateEpisodeCode, getNextEpisodeNumberAtomic, type GlsCategory } from '../../../shared/services/sequence.service';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { normalizeJaText } from '../../../shared/utils/text';
+import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 import {
   createProjectFolderTree,
   renameProjectFolderPair,
@@ -764,7 +765,7 @@ export async function createCore(
   const cls = resolveClassification(audience, project_category, project_type, glsCategory);
 
   await tx.execute(
-    `INSERT INTO projects (id, code, gls_number, name, customer_id, stage, project_type, audience, project_category,
+    `INSERT INTO projects (id, code, entity_code, gls_number, name, customer_id, stage, project_type, audience, project_category,
                            gls_category, expected_amount, assigned_to,
                            event_start, event_end, broadcast_type, media_platform,
                            customer_type, box_url_internal, box_url_external,
@@ -773,8 +774,8 @@ export async function createCore(
                            recording_cadence, recording_per_day_count, fixed_studio_note,
                            episode_unit_price, billing_cycle, broadcast_offset_days,
                            idempotency_key, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, code, opts.externalGlsNumber || null, name, customer_id, safeStage, cls.project_type, cls.audience, cls.project_category,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, code, CURRENT_ENTITY_CODE, opts.externalGlsNumber || null, name, customer_id, safeStage, cls.project_type, cls.audience, cls.project_category,
      glsCategory, expected_amount || 0, assigned_to || userId,
      finalEventStart, finalEventEnd, broadcast_type || null, media_platform || null,
      cType, box_url_internal || null, box_url_external || null,

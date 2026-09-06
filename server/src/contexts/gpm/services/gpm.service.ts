@@ -21,6 +21,7 @@ import { queryAll, queryOne, execute, withTransaction } from '../../../shared/db
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateSequenceNumber } from '../../../shared/services/sequence.service';
 import { assertCustomerCompanyId } from '../../../shared/services/company-directory.service';
+import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 /**
  * 見積金額の出し方は**案件一覧と同じ式を読む**（写さない）。
  * 束ごとに最新版を採る・旧版と失注を外す・値引きは別建て・税を乗せない、の
@@ -427,11 +428,11 @@ export const projectService = {
     await withTransaction(async (tx) => {
       await tx.execute(
         `INSERT INTO projects
-           (id, code, name, customer_id, stage, gls_category, customer_type, assigned_to,
+           (id, code, entity_code, name, customer_id, stage, gls_category, customer_type, assigned_to,
             gpm_kind, pm_company, started_on, ends_on, gpm_template_id,
             created_by, updated_by)
-         VALUES (?, ?, ?, ?, ?, 'B', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, code, name, customerId, stage,
+         VALUES (?, ?, ?, ?, ?, ?, 'B', ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, code, CURRENT_ENTITY_CODE, name, customerId, stage,
          // グループ内 / グループ外は**お客様の印から決める**（migration 192）。
          // 自社の行（`comp-self-gms` ＝「自社（GMOグローバルスタジオ）」）にも
          // 印が付くので、自社構築はこれまでどおり internal になる

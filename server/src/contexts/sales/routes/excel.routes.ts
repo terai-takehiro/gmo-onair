@@ -17,6 +17,7 @@ import { resolveClassification } from '../services/project-classification';
 import {
   createCustomerRecord, createVendorRecord, updateCompanyDirectory, execFromPgClient,
 } from '../../../shared/services/company-directory.service';
+import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 
 // ============================================================
 // 顧客 (customers)
@@ -424,12 +425,12 @@ const PROJECTS_CONFIG: ResourceConfig = {
     // 取込は GLS 分類の列を持たないので NULL のまま = A 扱いで2段を導く
     const cls = resolveClassification(undefined, undefined, d.project_type, null);
     await client.query(
-      `INSERT INTO projects (id, code, gls_number, name, customer_id, stage,
+      `INSERT INTO projects (id, code, entity_code, gls_number, name, customer_id, stage,
                              project_type, audience, project_category,
                              expected_amount, event_start, event_end, broadcast_type, media_platform,
                              assigned_to, created_by, updated_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
-      [id, d.code, d.gls_number, d.name, d.customer_id, d.stage,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+      [id, d.code, CURRENT_ENTITY_CODE, d.gls_number, d.name, d.customer_id, d.stage,
        cls.project_type, cls.audience, cls.project_category,
        // 新規行には「保つべき既存値」が無いので、想定金額が空（undefined）なら 0 のままで良い
        // （update() 側の「渡さなければ今の値を保つ」とは非対称。C-1d の対象は update だけ）。
