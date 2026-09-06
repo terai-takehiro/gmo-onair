@@ -160,7 +160,10 @@ export async function ensureGroup(input: GroupInput): Promise<{ id: string; crea
         await execute(
           `UPDATE finance_doc_groups SET ${sets.join(', ')}, updated_at = NOW() WHERE id = ?`,
           [...fill.values(), found.id],
-        ).catch(() => { /* 埋められなくても取込は成功させる */ });
+        ).catch((err) => {
+          // **埋められなくても取込は成功させる。** ただし黙らない
+          console.error('[finance-doc-chain] failed to fill group terms:', (err as Error).message);
+        });
       }
       return { id: found.id, created: false };
     }
@@ -542,11 +545,22 @@ export async function removeGroup(id: string): Promise<void> {
       仕入・販管費の行だけが宙に浮きます（渡す側も取引の中で行を押さえるので、
       こちらも押さえないと擦れ違えます）。
     */
-    const handed = await tx.queryAll(
-      `SELECT id FROM finance_docs
-        WHERE group_id = ? AND deleted_at IS NULL AND status = 'processed' FOR UPDATE`,
+    /*
+      ⚠️ **押さえるのは「登録済みの書類」ではなく「束の中の生きている書類ぜんぶ」**
+      （自己レビューで気づいた。最初は登録済みだけを押さえていた）。
+
+      登録済みだけを押さえると、**そのとき0行なので何も押さえられません**。
+      その隙に別の人が「仕入・販管費に登録」を通すと（あちらは書類の行を
+      押さえてから状態を変える）、**擦れ違って両方成功**し、
+      台帳の行だけが残って消えた書類を指します。
+      **全部押さえてから状態を見る**ので、どちらが先でも必ず待たされます。
+    */
+    const docs = await tx.queryAll(
+      `SELECT id, status FROM finance_docs
+        WHERE group_id = ? AND deleted_at IS NULL FOR UPDATE`,
       [id],
-    ) as { id: string }[];
+    ) as { id: string; status: string }[];
+    const handed = docs.filter((d) => d.status === 'processed');
     if (handed.length > 0) {
       throw new AppError(409, 'ALREADY_PROCESSED',
         'この取引には仕入・販管費に登録済みの書類があるため消せません。'

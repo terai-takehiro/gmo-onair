@@ -448,8 +448,9 @@ describe('Codex 4巡目（cb6abca）で見つかった穴', () => {
     const s = chainSvc();
     const at = s.indexOf('export async function removeGroup');
     expect(at).toBeGreaterThan(-1);
-    const fn = s.slice(at, at + 1200);
-    expect(fn).toMatch(/status = 'processed'/);
+    const fn = s.slice(at, at + 2200);
+    // 数え方は「押さえたあとに JS で見る」に変えた（下の節で理由を書いている）
+    expect(fn).toMatch(/d\.status === 'processed'/);
     expect(fn).toContain('ALREADY_PROCESSED');
   });
 
@@ -519,18 +520,33 @@ describe('自己レビュー（Codex が上限で見られなかったぶん）'
     expect(s).toMatch(/fill\.set\('derived_payment_due'/);
   });
 
-  it('束を消すときの確認は取引の中で、行を押さえてから', () => {
+  it('束を消すときは、束の中の生きている書類を「全部」押さえてから状態を見る', () => {
     /*
-      取引の外で数えると、数えたあとに台帳へ渡した書類が消され、
-      仕入・販管費の行だけが宙に浮く（渡す側も取引の中で行を押さえる）。
-      この製品で何度も踏んでいる形（doc-handoff.service.ts の冒頭に同じ注意がある）。
+      ⚠️ **登録済みだけを押さえても意味がない。** そのとき0行なので何も押さえられず、
+      その隙に別の人が「仕入・販管費に登録」を通すと（あちらは書類の行を押さえてから
+      状態を変える）**擦れ違って両方成功**し、台帳の行だけが消えた書類を指す。
+      **全部押さえてから状態を見る**ので、どちらが先でも必ず待たされる。
     */
     const s = chainSvc();
     const at = s.indexOf('export async function removeGroup');
-    const fn = s.slice(at, at + 1600);
+    const fn = s.slice(at, at + 2200);
     expect(fn).toMatch(/withTransaction/);
-    expect(fn).toMatch(/FOR UPDATE/);
-    // 取引の外で数える形に戻っていないこと
-    expect(fn.indexOf('withTransaction')).toBeLessThan(fn.indexOf("status = 'processed'"));
+    // 絞り込みは deleted_at だけ。status で絞って FOR UPDATE してはいけない
+    expect(fn).toMatch(/WHERE group_id = \? AND deleted_at IS NULL FOR UPDATE/);
+    expect(fn).not.toMatch(/status = 'processed' FOR UPDATE/);
+    expect(fn).toMatch(/docs\.filter\(\(d\) => d\.status === 'processed'\)/);
+    expect(fn.indexOf('withTransaction')).toBeLessThan(fn.indexOf('FOR UPDATE'));
+  });
+
+  it('台帳へ渡すときは、押さえてから「消えていないか」も見る', () => {
+    /*
+      束ごと消す操作は書類を soft delete する。押さえたあとに見ないと、
+      待たされて先に進んだあとに**消えた書類から作った仕入・販管費の行**ができ、
+      どこからも辿れなくなる。
+    */
+    const h = handoff();
+    expect(h).toMatch(/SELECT linked_id, status, deleted_at FROM finance_docs WHERE id = \? FOR UPDATE/);
+    expect(h).toMatch(/if \(!locked \|\| locked\.deleted_at\)/);
+    expect(h).toContain('ALREADY_DELETED');
   });
 });
