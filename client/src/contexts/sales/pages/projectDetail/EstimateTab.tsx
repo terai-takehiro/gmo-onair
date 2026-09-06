@@ -49,6 +49,7 @@ import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import EpisodeScopeToggle from '@/contexts/tasks/components/EpisodeScopeToggle';
 import { RevenueBillingPane } from './RevenueBillingPane';
 import { InvoiceGroupsSection } from './InvoiceGroupsSection';
+import { IntercompanySection } from './IntercompanySection';
 import { EstimateItems, type EstimateItemRow as Item } from './EstimateItems';
 import { type EstimateStatus as Status } from './EstimateActions';
 import { EstimateVersionList } from './EstimateVersionList';
@@ -199,6 +200,8 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
         <>
           <InvoiceGroupsSection project={project} mobile={isMobile} />
           <RevenueBillingPane projectId={project.id} projectName={project.name} mobile={isMobile} />
+          {/* GJV の案件だけに出す社内取引（GJV⇄GSS）区画。詳細は `IntercompanySection.tsx` 冒頭コメント */}
+          <IntercompanySection project={project} mobile={isMobile} />
         </>
       ) : list.isLoading ? (
         <Delayed><SkeletonRows rows={4} /></Delayed>
