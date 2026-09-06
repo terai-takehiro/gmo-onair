@@ -158,5 +158,11 @@ export default function useScheduleItemDrag({ minOf, originRef, columnAt, onComm
     return matched;
   };
 
-  return { dragging: !!drag, draggingItemId: drag?.item.id ?? null, overrideOf, startMove, startResize, consumeClickSuppression };
+  return {
+    dragging: !!drag,
+    draggingItemId: drag?.item.id ?? null,
+    /** いま動かしているのが「移動」か「下端リサイズ」か（時刻の吹き出しの出し方に使う） */
+    dragKind: drag?.kind ?? null,
+    overrideOf, startMove, startResize, consumeClickSuppression,
+  };
 }

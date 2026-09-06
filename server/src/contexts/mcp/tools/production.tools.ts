@@ -490,6 +490,8 @@ export function registerProductionTools(server: McpServer): void {
         kind: z.enum(ITEM_KINDS).optional(),
         start_min: z.number().int().min(0).max(2880),
         end_min: z.number().int().min(0).max(2880),
+        span_cols: z.number().int().min(0).max(64).optional()
+          .describe('横串 (列をまたぐ枠)。1 = この列だけ (既定) / N = この列から右へ N 列 / 0 = 全列'),
         assignee: z.string().optional(),
         note: z.string().optional(),
         ...REQUESTED_BY,
@@ -503,6 +505,7 @@ export function registerProductionTools(server: McpServer): void {
         kind: args.kind,
         startMin: args.start_min,
         endMin: args.end_min,
+        spanCols: args.span_cols,
         assignee: args.assignee ?? null,
         note: args.note ?? null,
       });
@@ -527,6 +530,8 @@ export function registerProductionTools(server: McpServer): void {
         kind: z.enum(ITEM_KINDS).optional(),
         start_min: z.number().int().min(0).max(2880).optional(),
         end_min: z.number().int().min(0).max(2880).optional(),
+        span_cols: z.number().int().min(0).max(64).optional()
+          .describe('横串 (列をまたぐ枠)。1 = この列だけ / N = この列から右へ N 列 / 0 = 全列'),
         assignee: z.string().optional().describe('空文字で消せる'),
         note: z.string().optional().describe('空文字で消せる'),
         ...REQUESTED_BY,
@@ -540,6 +545,7 @@ export function registerProductionTools(server: McpServer): void {
         kind: args.kind,
         startMin: args.start_min,
         endMin: args.end_min,
+        spanCols: args.span_cols,
         assignee: 'assignee' in args ? args.assignee : undefined,
         note: 'note' in args ? args.note : undefined,
       });
