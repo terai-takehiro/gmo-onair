@@ -300,12 +300,22 @@ export default function MembersPage() {
         </div>
       )}
 
+      {/*
+        **`key` で対象ごとに作り直す。** ダイアログは開閉に関わらず常時マウントされており、
+        欄の値は `open`/`role`(`user`) の変化を `useEffect` で拾って流し込む形。
+        役割Aの編集を閉じずに役割Bの編集を続けて開く（`setRoleDialog`/`setUserDialog` が
+        1回で `open:true, role:B` に切り替わる）と、`useEffect` が効くまでの1フレーム、
+        **Aの値のままBの見出しでダイアログが描画される**。`key` を対象IDにして
+        対象が変わるたびに作り直せば、初回レンダーから props 由来の値でしか描画されない。
+      */}
       <RoleDialog
+        key={roleDialog.role?.id ?? 'new'}
         role={roleDialog.role}
         open={roleDialog.open}
         onOpenChange={(v) => setRoleDialog((s) => ({ ...s, open: v }))}
       />
       <UserDialog
+        key={userDialog.user?.id ?? 'new'}
         user={userDialog.user}
         roles={roles}
         open={userDialog.open}

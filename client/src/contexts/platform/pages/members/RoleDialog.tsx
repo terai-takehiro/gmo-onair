@@ -31,9 +31,12 @@ interface Props {
 export function RoleDialog({ role, open, onOpenChange }: Props) {
   const qc = useQueryClient();
   const { refreshPermissions } = useAuth();
-  const [name, setName] = useState('');
-  const [desc, setDesc] = useState('');
-  const [levels, setLevels] = useState<Record<string, string>>({});
+  // **初期値は props から遅延初期化する**（呼び出し側が対象ごとに `key` を変えて
+  // 作り直す前提。`useEffect` だけに任せると、対象を切り替えた1フレーム目は
+  // 前の対象の値のまま描画されてしまう）
+  const [name, setName] = useState(() => role?.name ?? '');
+  const [desc, setDesc] = useState(() => role?.description ?? '');
+  const [levels, setLevels] = useState<Record<string, string>>(() => ({ ...(role?.modules ?? {}) }));
   const [reapply, setReapply] = useState(false);
 
   useEffect(() => {

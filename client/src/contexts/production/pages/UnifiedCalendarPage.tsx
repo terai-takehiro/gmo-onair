@@ -342,7 +342,7 @@ function DesktopCalendar() {
       />
 
       {/* 部屋を押さえる。**既存のダイアログをそのまま呼ぶ**。新規（チューザー）／香盤のマス押下／編集の3つの入り口をここに集約した */}
-      <StudioBookingDialog
+      <StudioBookingDialog key={(editBooking as { id?: string } | null)?.id ?? 'new'} // 対象ごとに作り直す
         open={newKind === 'room' || !!koubanPreset || !!editBooking}
         onOpenChange={(v) => { if (!v) { setNewKind(null); setKoubanPreset(null); setEditBooking(null); edit.clearTimePreset(); } }}
         locations={locations.data ?? []}

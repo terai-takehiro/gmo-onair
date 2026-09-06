@@ -34,10 +34,13 @@ export function UserDialog({ user, roles, open, onOpenChange }: Props) {
   const qc = useQueryClient();
   const { currentUser, refreshPermissions } = useAuth();
   const isSelf = !!user && !!currentUser && user.id === currentUser.id;
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [sysRole, setSysRole] = useState('staff');
-  const [roleId, setRoleId] = useState<string | null>(null);
+  // **初期値は props から遅延初期化する**（呼び出し側が対象ごとに `key` を変えて
+  // 作り直す前提。`useEffect` だけに任せると、対象を切り替えた1フレーム目は
+  // 前の対象の値のまま描画されてしまう）
+  const [name, setName] = useState(() => user?.name ?? '');
+  const [email, setEmail] = useState(() => user?.email ?? '');
+  const [sysRole, setSysRole] = useState(() => (user?.role === 'system_admin' ? 'system_admin' : 'staff'));
+  const [roleId, setRoleId] = useState<string | null>(() => user?.permission_role_id ?? null);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
 
   useEffect(() => {

@@ -92,6 +92,11 @@ export function FormDialogs({
 
       {isEdit && id && (
         <StudioBookingDialog
+          // **対象ごとに作り直す。** 予約Aの編集を閉じて予約Bの編集を開くと、
+          // 内部の欄（title等）は前回の値のまま1フレーム描画されてから
+          // `editingBooking` 変化を見る `useEffect` で更新される。`key` を
+          // 対象IDにして毎回作り直せば、その中間状態自体が起きない
+          key={editingBooking?.id ?? 'new'}
           open={bookingDialogOpen}
           onOpenChange={(v) => {
             setBookingDialogOpen(v);
