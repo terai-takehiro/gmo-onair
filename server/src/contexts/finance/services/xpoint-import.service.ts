@@ -244,8 +244,12 @@ async function matchProjects(units: RegistrationUnit[]): Promise<UnitWithMatch[]
         project = cache.get(u.glsNumber)!;
       } else {
         const p = (await queryOne(
-          `SELECT id, name, gls_number FROM projects WHERE deleted_at IS NULL AND UPPER(gls_number) = ? LIMIT 1`,
-          [u.glsNumber]
+          `SELECT id, name, gls_number FROM projects
+            WHERE deleted_at IS NULL
+              AND (UPPER(gls_number) = ?
+                   OR id = (SELECT project_id FROM project_numbers WHERE UPPER(number) = ?))
+            LIMIT 1`,
+          [u.glsNumber, u.glsNumber]
         )) as any;
         project = p ? { id: p.id, name: p.name, gls_number: p.gls_number } : null;
         cache.set(u.glsNumber, project);

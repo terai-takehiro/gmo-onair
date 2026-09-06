@@ -45,8 +45,11 @@ router.get('/', requireAuth, async (req, res) => {
 
   const projects = can('projects')
     ? await queryAll(
-        `SELECT id, code, gls_number, name, stage FROM projects WHERE (name ILIKE ? ESCAPE '\\' OR code ILIKE ? ESCAPE '\\' OR gls_number ILIKE ? ESCAPE '\\') AND deleted_at IS NULL LIMIT 10`,
-        [like, like, like]
+        `SELECT id, code, gls_number, name, stage FROM projects
+          WHERE (name ILIKE ? ESCAPE '\\' OR code ILIKE ? ESCAPE '\\' OR gls_number ILIKE ? ESCAPE '\\'
+                 OR EXISTS (SELECT 1 FROM project_numbers pn WHERE pn.project_id = projects.id AND pn.number ILIKE ? ESCAPE '\\'))
+            AND deleted_at IS NULL LIMIT 10`,
+        [like, like, like, like]
       )
     : [];
 
