@@ -79,7 +79,7 @@ export function KeepMobile({ pack }: { pack: KeepReportPack }) {
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
         <span className="text-cardtitle">{ymLabel(table.year_month)} {mode === 'landing' ? '着地' : '見込'}</span>
-        <span className="text-sub-sm text-muted-foreground">千円 ・ 全体</span>
+        <span className="text-sub-sm text-muted-foreground">千円 ・ 全体（統合）</span>
         <button
           type="button"
           onClick={() => setMode(mode === 'landing' ? 'forecast' : 'landing')}
