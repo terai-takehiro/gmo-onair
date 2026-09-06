@@ -115,10 +115,14 @@ export function FilterBar(p: FilterBarProps) {
   );
 }
 
-/** 「用語」を押したときに出る説明（案件一覧 `FilterBar.tsx` の `TermHint` と同じ形） */
-export function TermHint({ onClose }: { onClose: () => void }) {
+/**
+ * 「用語」の説明そのもの（文章だけ）。**PC の `TermHint`（閉じるボタン付きの浮く帯）と
+ * スマホの絞り込みシートの中の1項目、両方から呼ぶ**——中身を2か所に書くと、
+ * 定義を直したときに片方だけ古いまま残る。
+ */
+export function TermHintBody() {
   return (
-    <div className="rounded-note border border-primary-border bg-primary-surface-weak px-3.5 py-3 text-note text-muted-foreground">
+    <>
       <p>
         <span className="font-bold text-foreground">プロジェクト管理</span> …
         発注が確定してから工程を管理する画面です。売れるかどうかを追う段階の案件は<b>案件管理</b>で扱います。
@@ -127,6 +131,25 @@ export function TermHint({ onClose }: { onClose: () => void }) {
       <p><span className="font-bold text-foreground">{KIND_LABEL.group_order}</span> … {KIND_NOTE.group_order}</p>
       <p><span className="font-bold text-foreground">おすすめ順</span> … 停滞しているプロジェクトが先。その中は次のアクションの期限が近い順です。</p>
       <p><span className="font-bold text-foreground">未確認</span> … 止まっている持ち帰り（未確認事項）の件数です。0件のときも「0」を出します。</p>
+    </>
+  );
+}
+
+/**
+ * 「用語」を押したときに出る説明（案件一覧 `FilterBar.tsx` の `TermHint` と同じ形）。
+ * **PC 専用**——絞り込み帯の下に浮く帯として出す。
+ *
+ * ⚠️ スマホでは使わない（レビュー指摘）。この帯は絞り込み帯の下（＝本文の並び）に
+ * 描くが、スマホの絞り込みは `MobileFilterBar` の下シートに畳んであり、シートを
+ * 開いたままだとこの帯は**シートの下に隠れて見えない**。スマホは `TermHintBody` を
+ * シートの中の1項目としてそのまま出す（`GpmProjectListPage.tsx` の
+ * `MobileFilterField label="用語"`）——開閉のトグルを持たず、シートを開けば
+ * 常に読める形にした。
+ */
+export function TermHint({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="rounded-note border border-primary-border bg-primary-surface-weak px-3.5 py-3 text-note text-muted-foreground">
+      <TermHintBody />
       <Button variant="outline" size="sm" className="mt-2" onClick={onClose}>閉じる</Button>
     </div>
   );

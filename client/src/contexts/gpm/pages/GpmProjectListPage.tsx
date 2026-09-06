@@ -86,7 +86,7 @@ import { KIND_LABEL, STAGE_GROUPS, type GpmKind } from '../types';
 import { ProjectRow, ProjectRowsHeader } from './projectList/ProjectRows';
 import { GpmProjectCards } from './projectList/ProjectCards';
 import { GpmProjectBoard } from './projectList/ProjectBoard';
-import { FilterBar, TermHint } from './projectList/FilterBar';
+import { FilterBar, TermHint, TermHintBody } from './projectList/FilterBar';
 import { PageNav, type GpmPagination } from './projectList/PageNav';
 import { SORT_OPTIONS, sortRows, type SortKey } from './projectList/sort';
 
@@ -120,43 +120,51 @@ export default function GpmProjectListPage() {
 
   const [params, setParams] = useSearchParams();
 
+  /**
+   * URL クエリを1回で書き換える。**この画面が持つ4つの鍵（`view`/`stage`/`kind`/`sort`）を
+   * 同じレンダーの中で複数書き換えるときは、必ずこれを1回だけ呼ぶこと。**
+   *
+   * ⚠️ 以前は鍵ごとに別々の setter（`setStageKey` 等）が、その都度
+   * `new URLSearchParams(params)` で**同じ古い `params` を元に**次の値を作っていた。
+   * `clearFilters`（絞り込みを外す）のように同じ関数の中で3つの setter を続けて呼ぶと、
+   * どれも同じ古い `params` から作った `next` を持つため、**最後に呼ばれた setter の
+   * 変更だけが残り、残り2つの変更が消えていた**（レビュー指摘）。
+   */
+  const updateParams = (mutate: (next: URLSearchParams) => void) => {
+    const next = new URLSearchParams(params);
+    mutate(next);
+    setParams(next, { replace: true });
+  };
+
   /** 見え方（リスト／ボード）。**キー名は案件一覧と同じ `?view=`** */
   const rawView = params.get('view');
   const rawViewKey: 'list' | 'board' = rawView === 'board' ? 'board' : 'list';
   // **スマホではボードをリストに落とす**（案件一覧と同じ理由）
   const view: 'list' | 'board' = isMobile && rawViewKey === 'board' ? 'list' : rawViewKey;
-  const setView = (v: 'list' | 'board') => {
-    const next = new URLSearchParams(params);
+  const setView = (v: 'list' | 'board') => updateParams((next) => {
     if (v === 'list') next.delete('view'); else next.set('view', v);
-    setParams(next, { replace: true });
-  };
+  });
 
   /** 状態のチップ。**キー名は案件一覧と同じ `?stage=`**。知らない値は既定に落とす */
   const rawStage = params.get('stage');
   const stageKey = rawStage && STAGE_CHIPS.some((c) => c.key === rawStage) ? rawStage : DEFAULT_STAGE_KEY;
-  const setStageKey = (v: string) => {
-    const next = new URLSearchParams(params);
+  const setStageKey = (v: string) => updateParams((next) => {
     if (v === DEFAULT_STAGE_KEY) next.delete('stage'); else next.set('stage', v);
-    setParams(next, { replace: true });
-  };
+  });
 
   /** 区分（自社構築／グループ受託）。`?kind=` */
   const rawKind = params.get('kind');
   const kind: GpmKind | '' = rawKind === 'self_build' || rawKind === 'group_order' ? rawKind : '';
-  const setKind = (v: GpmKind | '') => {
-    const next = new URLSearchParams(params);
+  const setKind = (v: GpmKind | '') => updateParams((next) => {
     if (!v) next.delete('kind'); else next.set('kind', v);
-    setParams(next, { replace: true });
-  };
+  });
 
   /** 並び順。`?sort=` */
   const rawSort = params.get('sort');
   const sort: SortKey = SORT_OPTIONS.some((o) => o.value === rawSort) ? (rawSort as SortKey) : 'recommended';
-  const setSort = (v: SortKey) => {
-    const next = new URLSearchParams(params);
+  const setSort = (v: SortKey) => updateParams((next) => {
     if (v === 'recommended') next.delete('sort'); else next.set('sort', v);
-    setParams(next, { replace: true });
-  };
+  });
 
   // **検索欄はローカル state のまま**（案件一覧の `search` も URL に持たせていない）
   const [search, setSearch] = useState('');
@@ -223,9 +231,15 @@ export default function GpmProjectListPage() {
    * スマホの `onClearAll` は「進行中・準備中」（`'open'`）に戻し、**同じ操作なのに
    * 戻り先が2通り**だった。**`DEFAULT_STAGE_KEY`（＝初期値と同じ「動いているもの」）
    * に統一**し、この1つの関数を両方から呼ぶ。
+   *
+   * ⚠️ `stage`/`kind`/`sort` の3つの URL 鍵は**1回の `updateParams` でまとめて外す**。
+   * `setStageKey` 等を3回続けて呼ぶと、どれも同じ古い `params` から次の値を作るため
+   * 最後の呼び出し以外が消えていた（レビュー指摘）。
    */
   const clearFilters = () => {
-    setSearch(''); setKind(''); setStageKey(DEFAULT_STAGE_KEY); setSort('recommended'); setPage(1);
+    setSearch('');
+    updateParams((next) => { next.delete('stage'); next.delete('kind'); next.delete('sort'); });
+    setPage(1);
   };
 
   const filterProps = {
@@ -305,23 +319,28 @@ export default function GpmProjectListPage() {
               onChange={reset(setSort)}
             />
           </MobileFilterField>
+          {/*
+            **PC の「用語」ボタン＋浮く帯（`TermHint`）はスマホでは使わない**
+            （レビュー指摘）。押した先の帯は本文の並びに描くが、スマホの絞り込みは
+            この下シートに畳んであるため、開いたままだと帯がシートの下に隠れて
+            見えなかった。開閉のトグルを持たず、シートを開けば常に読める形にする
+          */}
           <MobileFilterField label="用語">
-            <button
-              type="button"
-              onClick={() => setTermOpen(!termOpen)}
-              className="min-h-tap flex w-full items-center gap-1.5 text-sub text-primary"
-            >
-              <Info className="h-3.5 w-3.5" aria-hidden="true" />区分・状態・並び順の意味
-            </button>
+            <div className="flex items-start gap-1.5 text-sub text-muted-foreground">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <div className="space-y-1">
+                <TermHintBody />
+              </div>
+            </div>
           </MobileFilterField>
         </MobileFilterBar>
       ) : (
         <>
           <FilterChips label="状態で絞り込む" items={chips} value={stageKey} onChange={reset(setStageKey)} />
           <FilterBar {...filterProps} />
+          {termOpen && <TermHint onClose={() => setTermOpen(false)} />}
         </>
       )}
-      {termOpen && <TermHint onClose={() => setTermOpen(false)} />}
 
       {isError ? (
         <ErrorPanel title="プロジェクトを読み込めませんでした" onRetry={() => refetch()} />
