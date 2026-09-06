@@ -31,6 +31,7 @@ import { useState } from 'react';
 import { Link2 } from 'lucide-react';
 import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
+import { IntercompanyTag } from '@/contexts/shared/components/IntercompanyTag';
 import { monthOf } from './format';
 import { compactSettlementLabel } from './settlementState';
 import { LedgerDetailSheet } from './LedgerDetailSheet';
@@ -109,6 +110,7 @@ export function LedgerCards({
                     />
                   </span>
                 )}
+                <IntercompanyTag show={r.is_intercompany} />
               </div>
             </button>
           </li>

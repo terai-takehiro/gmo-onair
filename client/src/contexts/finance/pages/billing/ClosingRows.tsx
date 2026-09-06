@@ -31,6 +31,7 @@
  */
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { GroupTag, groupNote } from '@/contexts/shared/components/GroupTag';
+import { IntercompanyTag } from '@/contexts/shared/components/IntercompanyTag';
 import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Check, Lock } from 'lucide-react';
@@ -136,7 +137,7 @@ export function ClosingRows({
               {/* 案件名は1行で省略する（`RowTitle` の決めごと）。狭い画面では
                   切れるので、全文を `title` で読めるようにしておく */}
               <RowTitle title={r.project_name || undefined}>
-                {r.project_name || '（案件名なし）'}<GroupTag name={r.group_name} />
+                {r.project_name || '（案件名なし）'}<GroupTag name={r.group_name} /><IntercompanyTag show={r.is_intercompany} />
               </RowTitle>
               <RowSub>
                 {[r.customer_name,
