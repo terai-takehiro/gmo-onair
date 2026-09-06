@@ -58,6 +58,22 @@ describe('機材を検索', () => {
     expect(SEARCH).toMatch(/params: \{ search: debounced, include_children: '1' \}/);
   });
 
+  /**
+   * **メンテナンスは付属品（子機材）にも起きる。**
+   *
+   * カメラセットの中のレンズだけ AF 不良で修理に出す、マイクの中の1本だけ
+   * 断線している、は現場で普通に起きます。渡さないと候補に**1本も出てこない**ので、
+   * 「台帳に入っていない」ように見えて記録そのものが残せません
+   * （親のセットに付けて書くしかなく、どの1本かが分からなくなる）。
+   */
+  it('メンテナンスの機材選びにも付属品（子機材）が出る', () => {
+    const dialog = read('client-equipment', 'src', 'pages', 'MaintenancePage.tsx');
+    expect(dialog).toMatch(/params: \{ include_children: '1' \}/);
+    // **鍵を台帳と分ける**（同じ鍵だと「親だけ」の結果と混ざり、
+    // どちらが先に走ったかで候補が変わる）
+    expect(dialog).toMatch(/queryKey: \['equipment-items-all', 'include-children'\]/);
+  });
+
   it('台帳の案内も「保管場所」を書く（当たる範囲と書いてあることを合わせる）', () => {
     const filters = read('client-equipment', 'src', 'pages', 'equipmentList', 'EquipmentFilters.tsx');
     expect(filters).toMatch(/placeholder="名前・ID・型名・保管場所で検索"/);
