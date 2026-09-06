@@ -134,9 +134,36 @@ export async function ensureGroup(input: GroupInput): Promise<{ id: string; crea
   const key = input.group_key?.trim() || null;
   if (key) {
     const found = await queryOne(
-      'SELECT id FROM finance_doc_groups WHERE group_key = ? AND deleted_at IS NULL', [key],
-    ) as { id: string } | undefined;
-    if (found) return { id: found.id, created: false };
+      `SELECT id, processing_month, payment_terms_days
+         FROM finance_doc_groups WHERE group_key = ? AND deleted_at IS NULL`, [key],
+    ) as { id: string; processing_month: string | null; payment_terms_days: number | null } | undefined;
+    if (found) {
+      /*
+        **後から届いた書類が持っている値で、空いているところだけ埋める**（自己レビュー）。
+
+        束は最初の書類（多くは見積書）で作られますが、**処理月と支払サイトは
+        請求書に書いてあることのほうが多い**です。埋めないと、束は最後まで
+        期日を出せず、**払う期日があるのに一番後ろに沈んだまま**になります。
+
+        ⚠️ **すでに入っている値は上書きしません** — 人が直した値かもしれないので。
+      */
+      const fill = new Map<string, unknown>();
+      if (!found.processing_month && input.processing_month) fill.set('processing_month', input.processing_month);
+      if (found.payment_terms_days === null && input.payment_terms_days !== null && input.payment_terms_days !== undefined) {
+        fill.set('payment_terms_days', input.payment_terms_days);
+      }
+      if (fill.size > 0) {
+        const month = (fill.get('processing_month') as string | undefined) ?? found.processing_month;
+        const terms = (fill.get('payment_terms_days') as number | undefined) ?? found.payment_terms_days;
+        fill.set('derived_payment_due', derivedDue(month ?? null, terms ?? null));
+        const sets = [...fill.keys()].map((c) => `${c} = ?`);
+        await execute(
+          `UPDATE finance_doc_groups SET ${sets.join(', ')}, updated_at = NOW() WHERE id = ?`,
+          [...fill.values(), found.id],
+        ).catch(() => { /* 埋められなくても取込は成功させる */ });
+      }
+      return { id: found.id, created: false };
+    }
   }
   const id = uuidv4();
   await execute(
@@ -506,17 +533,25 @@ export async function updateGroup(
  * 行き先の変更・束の移動を止めているのと同じ理由で、**消すほうがもっと危ない**。
  */
 export async function removeGroup(id: string): Promise<void> {
-  const handed = await queryOne(
-    `SELECT COUNT(*) AS c FROM finance_docs
-      WHERE group_id = ? AND deleted_at IS NULL AND status = 'processed'`,
-    [id],
-  ) as { c?: number } | undefined;
-  if (Number(handed?.c ?? 0) > 0) {
-    throw new AppError(409, 'ALREADY_PROCESSED',
-      'この取引には仕入・販管費に登録済みの書類があるため消せません。'
-      + '先にその書類の登録を取り消してください');
-  }
   await withTransaction(async (tx) => {
+    /*
+      ⚠️ **確かめるのは取引の中で、行を押さえてから**（この製品で何度も踏んでいる形。
+      `doc-handoff.service.ts` の冒頭に同じ注意がある）。
+
+      取引の外で数えると、**数えたあとに台帳へ渡した書類**が消され、
+      仕入・販管費の行だけが宙に浮きます（渡す側も取引の中で行を押さえるので、
+      こちらも押さえないと擦れ違えます）。
+    */
+    const handed = await tx.queryAll(
+      `SELECT id FROM finance_docs
+        WHERE group_id = ? AND deleted_at IS NULL AND status = 'processed' FOR UPDATE`,
+      [id],
+    ) as { id: string }[];
+    if (handed.length > 0) {
+      throw new AppError(409, 'ALREADY_PROCESSED',
+        'この取引には仕入・販管費に登録済みの書類があるため消せません。'
+        + '先にその書類の登録を取り消してください');
+    }
     await tx.execute('UPDATE finance_docs SET deleted_at = NOW() WHERE group_id = ? AND deleted_at IS NULL', [id]);
     await tx.execute('UPDATE finance_doc_groups SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL', [id]);
   });

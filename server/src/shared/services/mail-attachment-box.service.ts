@@ -114,14 +114,22 @@ export function attachmentFailureLabel(reason: string | null | undefined): strin
  * （メールの添付は 76 文字ごとに折り返して届くのが普通）。
  */
 export function decodeStrictBase64(input: string): Buffer | null {
-  const cleaned = input.replace(/[\r\n\s]/g, '').replace(/-/g, '+').replace(/_/g, '/');
+  const cleaned = input.replace(/[\r\n\s]/g, '').replace(/-/g, '+').replace(/_/g, '/').replace(/=+$/, '');
   if (cleaned.length === 0) return null;
-  // 使える文字とパディングだけ。長さは4の倍数
-  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(cleaned)) return null;
-  if (cleaned.length % 4 !== 0) return null;
-  const buf = Buffer.from(cleaned, 'base64');
-  // **戻して同じになるか。** ここまで通っても、詰め物の位置が違うものは弾ける
-  if (buf.toString('base64').replace(/=+$/, '') !== cleaned.replace(/=+$/, '')) return null;
+  // 使える文字だけ（詰め物は上で落としてある）
+  if (!/^[A-Za-z0-9+/]+$/.test(cleaned)) return null;
+  /*
+    **詰め物はこちらで足します。** 呼び出し側が詰め物を省いた base64 を渡すことは
+    普通にあり（URL 用の書き方はそもそも詰め物を付けない）、そこで弾くと
+    **正しい原本を「読めません」で落とします**。
+    ⚠️ 余り1文字は base64 としてありえないので、そこは弾きます。
+  */
+  const rem = cleaned.length % 4;
+  if (rem === 1) return null;
+  const padded = rem === 0 ? cleaned : cleaned + '='.repeat(4 - rem);
+  const buf = Buffer.from(padded, 'base64');
+  // **戻して同じになるか。** ここまで通っても、知らない文字が落とされたものは弾ける
+  if (buf.toString('base64').replace(/=+$/, '') !== cleaned) return null;
   return buf;
 }
 

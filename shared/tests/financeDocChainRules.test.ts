@@ -15,6 +15,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { decodeStrictBase64 } from '../../server/src/shared/services/mail-attachment-box.service';
 
 const read = (...p: string[]) => readFileSync(join(__dirname, '..', '..', ...p), 'utf8');
 
@@ -368,19 +369,34 @@ describe('Codex 2巡目（8a047eb）で見つかった穴', () => {
 });
 
 describe('Codex 3巡目（1e0ddbc）で見つかった穴', () => {
-  it('P2: 壊れた base64 を「保存しました」と言わない', () => {
+  it('P2: 壊れた base64 を「保存しました」と言わない（実際に通して確かめる）', () => {
     /*
       Buffer.from(s, 'base64') は壊れた文字列でも投げず、知らない文字を捨てて
       それらしい長さのゴミを返す（'not base64' → 6バイト。実測）。
       長さだけ見ると通り、**壊れた PDF を BOX に上げて成功と報告する** —
       原本が壊れていることに、誰かが開くまで気づけない。
+
+      ⚠️ **厳しくしすぎて正しい原本を落とすのも同じくらい困る**ので、
+      詰め物なし・折り返し・URL 用の書き方は通すこと（両側を固定する）。
     */
-    const a = attach();
-    expect(a).toMatch(/export function decodeStrictBase64/);
-    expect(a).toMatch(/\^\[A-Za-z0-9\+\/\]\*=\{0,2\}\$/);
-    // 戻して同じになるかまで確かめる
-    expect(a).toMatch(/buf\.toString\('base64'\)\.replace\(\/=\+\$\/, ''\) !== cleaned\.replace\(\/=\+\$\/, ''\)/);
-    expect(a).not.toMatch(/buffer = Buffer\.from\(att\.content_base64, 'base64'\)/);
+    const pdf = Buffer.from('%PDF-1.4 hello world');
+    const good = pdf.toString('base64');
+
+    // 通すもの
+    expect(decodeStrictBase64(good)?.toString()).toBe(pdf.toString());
+    expect(decodeStrictBase64(good.replace(/=+$/, ''))?.toString()).toBe(pdf.toString());   // 詰め物なし
+    expect(decodeStrictBase64(good.replace(/(.{8})/g, '$1\n'))?.toString()).toBe(pdf.toString()); // 折り返し
+    expect(decodeStrictBase64('YWJjZGU')?.toString()).toBe('abcde');                        // 余り3（正しい）
+
+    // 落とすもの
+    expect(decodeStrictBase64('not base64')).toBeNull();
+    expect(decodeStrictBase64(good.slice(0, good.length - 3))).toBeNull();                   // 途中で切れた
+    expect(decodeStrictBase64('YWJjZ')).toBeNull();                                          // 余り1（ありえない）
+    expect(decodeStrictBase64('こんにちは')).toBeNull();
+    expect(decodeStrictBase64('')).toBeNull();
+
+    // 素の Buffer.from に戻していないこと
+    expect(attach()).not.toMatch(/buffer = Buffer\.from\(att\.content_base64, 'base64'\)/);
   });
 
   it('P2: 1件読みは一覧の上限（300）を通らない', () => {
@@ -486,5 +502,35 @@ describe('Codex 4巡目（cb6abca）で見つかった穴', () => {
     expect(d).toMatch(/const vendorName = doc\.vendor_name \?\? doc\.sender \?\? ''/);
     expect(d).toMatch(/vendor_name: kind === 'sga' \? \(vendorName \|\| null\) : null/);
     expect(d).not.toMatch(/vendor_name: kind === 'sga' \? doc\.sender : null/);
+  });
+});
+
+describe('自己レビュー（Codex が上限で見られなかったぶん）', () => {
+  it('後から届いた書類の処理月・サイトで、束の空いているところを埋める', () => {
+    /*
+      束は最初の書類（多くは見積書）で作られるが、**処理月と支払サイトは
+      請求書に書いてあることのほうが多い**。埋めないと束は最後まで期日を出せず、
+      払う期日があるのに一番後ろに沈んだままになる。
+      ⚠️ **すでに入っている値は上書きしない**（人が直した値かもしれない）。
+    */
+    const s = chainSvc();
+    expect(s).toMatch(/if \(!found\.processing_month && input\.processing_month\)/);
+    expect(s).toMatch(/if \(found\.payment_terms_days === null && input\.payment_terms_days !== null/);
+    expect(s).toMatch(/fill\.set\('derived_payment_due'/);
+  });
+
+  it('束を消すときの確認は取引の中で、行を押さえてから', () => {
+    /*
+      取引の外で数えると、数えたあとに台帳へ渡した書類が消され、
+      仕入・販管費の行だけが宙に浮く（渡す側も取引の中で行を押さえる）。
+      この製品で何度も踏んでいる形（doc-handoff.service.ts の冒頭に同じ注意がある）。
+    */
+    const s = chainSvc();
+    const at = s.indexOf('export async function removeGroup');
+    const fn = s.slice(at, at + 1600);
+    expect(fn).toMatch(/withTransaction/);
+    expect(fn).toMatch(/FOR UPDATE/);
+    // 取引の外で数える形に戻っていないこと
+    expect(fn.indexOf('withTransaction')).toBeLessThan(fn.indexOf("status = 'processed'"));
   });
 });
