@@ -171,6 +171,42 @@ export interface KeepReportPack {
   minutes: { decisions: string[]; topics: Array<{ area: string; text: string }>; next_meeting_date: string | null } | null;
 }
 
+// ── 設定・手入力 ────────────────────────────────────────────────
+
+/** 稼働率の数え方（keep_settings.key = 'utilization'）。既定はメンテナンス以外を全部数える（仮押さえも数える）。 */
+export interface UtilizationSettings {
+  /** 数える予定の種別（studio_bookings.booking_type）。既定: performance, rehearsal, hold, tour, internal, consultation, setup, other */
+  counted_types: string[];
+  /** 土曜を営業日に含めるか（既定 false。日祝は常に除く） */
+  count_saturday: boolean;
+}
+export const DEFAULT_UTILIZATION_SETTINGS: UtilizationSettings = {
+  counted_types: ['performance', 'rehearsal', 'hold', 'tour', 'internal', 'consultation', 'setup', 'other'],
+  count_saturday: false,
+};
+
+/** 主体ごとの月次予算（円）。null は未登録。 */
+export interface MonthlyBudget {
+  year_month: string;
+  entity: BusinessEntity;
+  revenue: number | null;
+  cogs_fixed: number | null;
+  cogs_variable: number | null;
+  sga: number | null;
+  operating_profit: number | null;
+  updated_at?: string | null;
+}
+
+/** ONAiR に無い数字の手入力（keep_report_inputs）。会議日 × key。 */
+export type KeepInputKey = 'inview_satisfaction' | 'attendance' | 'web_kpi' | 'note';
+export interface KeepInput {
+  meeting_date: string;
+  key: KeepInputKey;
+  value: Record<string, unknown>;
+  updated_at?: string | null;
+  updated_by?: string | null;
+}
+
 // ── 資料（デッキ）の構成 ────────────────────────────────────────
 
 /** テンプレの種類。増やすときは docs/design/v4/keep-report.md の構成表も直す。 */
@@ -183,13 +219,15 @@ export type SlideTemplateKey =
 /** ページに置く部品。`binding` はパックのどこを読むか。 */
 export interface SlidePart {
   id: string;
-  type: 'table' | 'chart' | 'image' | 'text' | 'kpi' | 'calendar';
+  type: 'table' | 'chart' | 'image' | 'text' | 'kpi' | 'calendar' | 'photos' | 'bullets';
   /** 例: 'landing' / 'forecast' / 'trend.revenue' / 'pipeline.external' / 'project_pages[0]' */
   binding: string | null;
   /** 位置と大きさ（%）。DisplayLayout と同じ考え方（1280×720 の仮想キャンバス） */
   x: number; y: number; w: number; h: number;
-  /** 人が上書きした文（binding があっても優先） */
+  /** 人が上書きした文（binding があっても優先）。写真は Box の file id の並び */
   text_override: string | null;
+  /** 部品ごとの小さな設定（例: 表の対象月 'YYYY-MM'、主体、写真の id 一覧） */
+  options?: Record<string, unknown>;
 }
 
 export interface SlidePage {
@@ -202,12 +240,31 @@ export interface SlidePage {
   /** 人が消したページは残して印を付ける（次回の既定に効かせるため） */
   removed: boolean;
   notes: string | null;
+  /** 題の書式【カテゴリ｜緊急×重要｜時間】の材料。固定ページは null */
+  agenda?: { category: string; priority: string; minutes: number } | null;
+}
+
+/** 人の直し1件（keep_deck_edits）。サーバーが保存時に前の版と比べて作る。 */
+export interface KeepDeckEdit {
+  id: string;
+  deck_id: string;
+  version: number;
+  page_id: string | null;
+  part_id: string | null;
+  field: string;
+  before_value: string | null;
+  after_value: string | null;
+  kind: 'reorder' | 'remove' | 'add' | 'override' | 'restore';
+  note: string | null;
+  edited_at: string;
+  edited_by: string | null;
 }
 
 export interface KeepDeck {
   id: string;
   meeting_date: string;
-  pack_id: string;                     // 読んだパック（凍結版）
+  pack_id: string | null;              // 読んだパック（凍結版）。凍結前は null（いまの数字で組む）
+  version: number;
   pages: SlidePage[];
   /** 出力した pptx の置き場（Box）。出力していなければ null */
   exported: { box_file_id: string; exported_at: string; by: string } | null;

@@ -169,7 +169,7 @@ KeepReportPack
 | 見込 | 着地 ＋ 受注前案件（失注除く）の売上・仕入 × 確度 | `getPipelineForecast` の「確度加味」。**`unconfirmed[]`** に見込みに入れた未確定の売上を列挙（資料の注記の材料） |
 | 目標 | `monthly_budgets`（主体別） | 無ければ null。全体の目標は主体の合計 |
 | 推移 | 月ごとの確定売上を `projects.customer_type` で分ける。案件数は本番日がその月にある案件 | 当時の値（`customer_type`）を使う。`companies.is_gmo_group` の今の値で塗り替えない |
-| ヨミ表 | `projects`（`stage NOT IN (e_lost, r_delivered, s_completed)`）＋ 最新見積 ＋ `OPEN_NEXT_ACTION_SQL` | **新規／更新** は前回の会議日と `created_at` / `updated_at` の比較 |
+| ヨミ表 | `projects`（`stage NOT IN (e_lost, r_delivered, s_completed)`。**ネタも載せる**・ご判断 2026-09-06）＋ 最新見積 ＋ `OPEN_NEXT_ACTION_SQL` | **新規／更新** は前回の会議日と `created_at` / `updated_at` の比較 |
 | 案件ページ | `projects`・見積・`studio_bookings`・Box `08_写真`・Qシート | 概要の3行は `projects.goal` を初期値に、人が直せる（構成側に持つ） |
 | 実施報告 | `event_reports`（`report_status` を問わず。下書きは印を出す）＋ `getSummaries` | 「前回の会議日以降に本番を終えた」は `event_end` で判定 |
 | カレンダー | `studio_bookings`（種別ごと） | 稼働率は §5.4 |
@@ -195,10 +195,10 @@ judge = higher_better: actual ≧ budget → ○ / lower_better: actual ≦ budg
 稼働率 = スタジオ利用があった日数 ÷ 営業日数 × 100
 ```
 
-- 数える予定の種別（`studio_bookings.booking_type`）: `performance` 本番・`rehearsal` リハ・`setup` 設営／準備・`tour` 内覧・`internal` 社内利用・`consultation` 相談・`other` その他
-- 数えない: `maintenance` メンテナンス。**`hold` 仮押さえも数えない**（まだ利用ではない。見込みの月に数えたいときは設定で変える）
+- 数える予定の種別（`studio_bookings.booking_type`）: `performance` 本番・`rehearsal` リハ・`hold` 仮押さえ・`setup` 設営／準備・`tour` 内覧・`internal` 社内利用・`consultation` 相談・`other` その他
+- **`hold` 仮押さえも数える**（ご判断 2026-09-06。見込みの月の稼働率に効く）。数えないのは `maintenance` メンテナンスだけ
 - 同じ日に複数の予定があっても1日と数える。部屋数は掛けない（部屋ごとの稼働率は別の指標として後で足せる）
-- 営業日は土日祝を除く（`@holiday-jp/holiday_jp`）。設定「稼働率の数え方」で 種別・仮押さえ・土曜 を変えられる
+- 営業日は土日祝を除く（`@holiday-jp/holiday_jp`）。設定「お金のルール」の「稼働率の数え方」で 種別・土曜 を変えられる（`keep_settings.utilization`）
 - 資料の 9月 42.1% ＝ 8 ÷ 19 はこの決まりで合う。10月 36.1% は合わない（半日か仮押さえの扱い）ので、実装時に過去3か月を照合して差の理由を書く
 
 ### 5.5 凍結と履歴
@@ -374,12 +374,15 @@ judge = higher_better: actual ≧ budget → ○ / lower_better: actual ≦ budg
 | pptx の書体 | Noto Sans JP。PowerPoint 上で直せるようにオブジェクトで出す（§6.2） |
 | 見た目 | GMO流会議フォーマットの決まりを守っていれば、内側のデザインは変えてよい。ヘッダー・フッターのデザインは踏襲、文字の大きさは目安で小さくてもよい（§6.3） |
 
+| 稼働率の仮押さえ | 仮押さえも数える（§5.4） |
+| ヨミ表 | ネタ（`neta`）も載せる。受注前の案件は全部（§5.2） |
+| 目標値 | ウェブで設定する。設定「お金のルール」に主体ごとの月次予算・経理の補正値・稼働率の数え方を置く（§8） |
+| 実装 | 2026-09-06 に着手（§11 の段取り。マルチエージェントで並行） |
+
 **まだ決めてほしいこと**
 
-1. 仮押さえ（`hold`）を稼働率に数えるか（既定: 数えない。§5.4）
-2. ヨミ表に載せる案件の初期値: 受注前の外部案件を全部か、確度 C 以上か
-3. 「配布は PDF だけ」（2026-07-26）の取り消し（pptx を出すご依頼なので取り消し前提で進める）
-4. 販管費・償却相当額を主体ごとに分ける入力（経理側の運用）をいつから始めるか。始まるまでは全額 GMOサムライスタジオ に載せ、GMOサムライコンテンツスタジオ の表は売上・原価・粗利だけ出す
+1. 「配布は PDF だけ」（2026-07-26）の取り消し（pptx を出すご依頼なので取り消し前提で進める）
+2. 販管費・償却相当額を主体ごとに分ける入力（経理側の運用）をいつから始めるか。始まるまでは全額 GMOサムライスタジオ に載せ、GMOサムライコンテンツスタジオ の表は売上・原価・粗利だけ出す
 
 ## 13. 参考
 
