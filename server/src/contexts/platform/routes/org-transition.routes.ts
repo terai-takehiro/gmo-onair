@@ -25,8 +25,12 @@ router.get('/', wrap(async (_req, res) => {
  * 改番の対象一覧（移行センター・§4.8）。件数は `data.length` で読む——
  * 一覧と進捗（残件数）・`done` への残件0ゲート・通知ジョブが全部この1本を使う
  * （同じ数字を2か所で数えない）。
+ *
+ * ⚠️ **`system_admin` だけ**（上の `GET /` と違い、お客様名・請求状況・
+ * 主担当まで含む一段細かいデータなので、認証済みなら誰でも、にはしない。
+ * 移行センターの画面自体も `system_admin` 専用ページ）。
  */
-router.get('/renumber-candidates', wrap(async (_req, res) => {
+router.get('/renumber-candidates', requireRole('system_admin'), wrap(async (_req, res) => {
   res.json({ success: true, data: await listRenumberCandidates() });
 }));
 
