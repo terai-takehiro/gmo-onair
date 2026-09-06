@@ -15,8 +15,11 @@
 //  - 左罫のアクセント（列の色の縦線）をやめた。列の色は見出しの丸だけで示す
 //  - カードの中に「開始–終了」と所要（何時間何分）を出す
 //  - ドラッグ／リサイズ中は、いまの時刻を吹き出しで出す
-//  - **横串**（列をまたぐ項目 = Excel のセル結合）を `ScheduleSpanLayer.tsx` の1枚重ねで描く。
-//    列ごとのレーン割り当てからは外す（横串が居るだけで他の項目が細くならないように）
+//  - **横串**（列をまたぐ項目 = Excel のセル結合）を足した。列ごとのレーン割り当てからは外す
+//    （横串が居るだけで他の項目が細くならないように）
+//  - **カードは列の中ではなく、表全体に重ねた1枚の層に描く**（`ScheduleCardLayer.tsx`）。
+//    位置・重ね順・文字を出してよい高さは `scheduleCardLayout.ts` が決める。
+//    重ね順は「遅く始まるカードほど手前」、重なった所には文字を出さない（追加のご依頼）
 //
 // ⚠️ タイムライン自体（縦軸の区切り・高さ）はドラッグ中も items（サーバーの値）から
 // 作ったまま変えない。ドラッグ中の項目の位置で毎回作り直すと、区切りが自分自身の
@@ -28,10 +31,10 @@ import { COL_GROUP_LABEL, type ColGroup } from "@gmo-onair/shared/src/schedule/k
 import { buildTimeline } from "@gmo-onair/shared/src/schedule/timeline";
 import { isSpanItem } from "@gmo-onair/shared/src/schedule/span";
 import type { Schedule, ScheduleColumn, ScheduleItem } from "@gmo-onair/shared/src/schedule/types";
-import { assignLanes, countOverlaps } from "./scheduleLanes";
+import { countOverlaps } from "./scheduleLanes";
 import { cssColor } from "./columnColors";
-import ScheduleItemCard from "./ScheduleItemCard";
-import ScheduleSpanLayer from "./ScheduleSpanLayer";
+import { layoutScheduleCards } from "./scheduleCardLayout";
+import ScheduleCardLayer from "./ScheduleCardLayer";
 import useScheduleItemDrag from "./useScheduleItemDrag";
 
 const TIME_COL_WIDTH = 64;
@@ -94,10 +97,16 @@ export default function ScheduleGrid({
 
   // 時刻ルーラー（時刻の列の本体）を Y=0 の基準にする。全列がここと同じ縦位置を共有する
   const rulerRef = useRef<HTMLDivElement>(null);
-  // ドラッグ中、ポインタの下にある列 id を探す（列をまたぐ移動用・§3 B1）
+  // ドラッグ中、ポインタの下にある列 id を探す（列をまたぐ移動用・§3 B1）。
+  // ⚠️ `elementFromPoint`（単数）ではなく `elementsFromPoint`（複数）で**重なりを全部**見る —
+  // カードは列の外側の層に描いているので、いちばん上に返るのは掴んでいるカード自身で、
+  // そこから列は辿れない（単数のままだと列をまたぐ移動が効かなくなる）
   const columnIdAt = (clientX: number, clientY: number): string | null => {
-    const el = document.elementFromPoint(clientX, clientY);
-    return el?.closest("[data-schedule-column-id]")?.getAttribute("data-schedule-column-id") ?? null;
+    for (const el of document.elementsFromPoint(clientX, clientY)) {
+      const hit = el.closest?.("[data-schedule-column-id]");
+      if (hit) return hit.getAttribute("data-schedule-column-id");
+    }
+    return null;
   };
   const { draggingItemId, dragKind, overrideOf, startMove, startResize, consumeClickSuppression } = useScheduleItemDrag({
     minOf: timeline.minOf,
@@ -124,17 +133,22 @@ export default function ScheduleGrid({
       : it));
   }, [items, draggingItemId, dragOverride]);
 
-  // 横串（列をまたぐ項目）は列の中には入れない。列ごとのレーン割り当て・重なり件数からも外す
-  // （横串は「表全体に引く帯」なので、同じ列の項目と場所を取り合う相手ではない）
-  const spanItems = useMemo(() => displayItems.filter((it) => isSpanItem(it.span_cols)), [displayItems]);
-  const itemsByColumn = useMemo(() => {
+  // カードの位置・重ね順・文字の高さは1か所で決める（`scheduleCardLayout.ts`）
+  const cards = useMemo(
+    () => layoutScheduleCards({ columns: sorted, items: displayItems, minToY, draggingItemId }),
+    [sorted, displayItems, minToY, draggingItemId],
+  );
+  const bodyWidth = useMemo(() => sorted.reduce((n, c) => n + c.width_px, 0), [sorted]);
+
+  // 列見出しの「重なり N件」。横串は列の中の項目と場所を取り合う相手ではないので数に入れない
+  const overlapCountOf = useMemo(() => {
     const m = new Map<string, ScheduleItem[]>();
     for (const item of displayItems) {
       if (isSpanItem(item.span_cols)) continue;
       if (!m.has(item.column_id)) m.set(item.column_id, []);
       m.get(item.column_id)!.push(item);
     }
-    return m;
+    return (columnId: string) => countOverlaps(m.get(columnId) ?? []);
   }, [displayItems]);
 
   // ドラッグ確定直後の click を1回だけ打ち消してから選ぶ（§4-3）
@@ -172,9 +186,7 @@ export default function ScheduleGrid({
           return (
             <div key={group} className="flex shrink-0">
               {inGroup.map((col) => {
-                const colItems = itemsByColumn.get(col.id) ?? [];
-                const lanes = assignLanes(colItems);
-                const overlapCount = countOverlaps(colItems);
+                const overlapCount = overlapCountOf(col.id);
                 const colColor = cssColor(col.color);
                 return (
                   <div key={col.id} className="shrink-0 border-r border-border" style={{ width: col.width_px }}>
@@ -219,30 +231,6 @@ export default function ScheduleGrid({
                       {ticks.map((min) => (
                         <div key={min} className="absolute left-0 right-0 border-t border-border/40" style={{ top: minToY(min) }} />
                       ))}
-                      {lanes.map(({ item, lane, laneCount }) => {
-                        const top = minToY(item.start_min);
-                        // 区間の最低高さ（timeline.ts の minBusyPx）で通常は下回らないが、
-                        // 開始・終了が同じ（尺0）データが紛れ込んだときの保険として床を残す
-                        const height = Math.max(20, minToY(item.end_min) - top);
-                        const laneWidthPct = 100 / laneCount;
-                        const isDraggingThis = draggingItemId === item.id;
-                        return (
-                          <ScheduleItemCard
-                            key={item.id}
-                            item={item}
-                            top={top}
-                            height={height}
-                            left={`${lane * laneWidthPct}%`}
-                            width={`calc(${laneWidthPct}% - 2px)`}
-                            conflicted={conflictedIds.has(item.id)}
-                            dragging={isDraggingThis}
-                            dragKind={isDraggingThis ? dragKind : null}
-                            onSelect={() => selectItem(item)}
-                            onPointerDownMove={onCommitDrag ? (e) => startMove(item, e) : undefined}
-                            onPointerDownResize={onCommitDrag ? (e) => { e.stopPropagation(); startResize(item, e); } : undefined}
-                          />
-                        );
-                      })}
                     </div>
                   </div>
                 );
@@ -251,23 +239,20 @@ export default function ScheduleGrid({
           );
         })}
 
-        {/* 横串（列をまたぐ項目）。列の外側に1枚だけ重ねる（`ScheduleSpanLayer.tsx` 冒頭の注記） */}
-        {spanItems.length > 0 && (
-          <ScheduleSpanLayer
-            items={spanItems}
-            columns={sorted}
-            leftOffset={TIME_COL_WIDTH}
-            topOffset={HEADER_H}
-            height={gridHeight}
-            minToY={minToY}
-            conflictedIds={conflictedIds}
-            draggingItemId={draggingItemId}
-            dragKind={dragKind}
-            onSelect={selectItem}
-            onPointerDownMove={onCommitDrag ? (item, e) => startMove(item, e) : undefined}
-            onPointerDownResize={onCommitDrag ? (item, e) => { e.stopPropagation(); startResize(item, e); } : undefined}
-          />
-        )}
+        {/* カードは列の中ではなく、表全体に重ねたこの1枚に描く（重ね順を時刻で決めるため）*/}
+        <ScheduleCardLayer
+          cards={cards}
+          leftOffset={TIME_COL_WIDTH}
+          topOffset={HEADER_H}
+          width={bodyWidth}
+          height={gridHeight}
+          conflictedIds={conflictedIds}
+          draggingItemId={draggingItemId}
+          dragKind={dragKind}
+          onSelect={selectItem}
+          onPointerDownMove={onCommitDrag ? (item, e) => startMove(item, e) : undefined}
+          onPointerDownResize={onCommitDrag ? (item, e) => { e.stopPropagation(); startResize(item, e); } : undefined}
+        />
 
         {/* 右端の「＋ 列」。列 0 本のときはこの表自体を出さない（空状態の 3 択が出る）。
             印刷では要らない操作なので隠す（B7・14-schedule-v2-plan.md §3 B7） */}
