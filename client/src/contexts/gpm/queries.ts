@@ -24,6 +24,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import type { LegalEntity } from '@/contexts/platform/pages/reorg/types';
+import type { ProjectStage } from '@/types';
 import type { GpmOpenItem, GpmProjectDetail, GpmProjectRow, GpmTask, GpmTemplate } from './types';
 
 export const gpmKeys = {
@@ -37,6 +38,7 @@ export const gpmKeys = {
   estimates: (projectId: string, includeArchived = false) =>
     ['gpm-estimates', projectId, includeArchived] as const,
   estimateSummary: () => ['gpm-estimate-summary'] as const,
+  costDashboard: () => ['gpm-cost-dashboard'] as const,
 };
 
 /**
@@ -205,6 +207,48 @@ export function useGpmUsers() {
   return useQuery<{ id: string; name: string; email: string }[]>({
     queryKey: gpmKeys.users(),
     queryFn: async () => (await api.get('/users/by-module/gpm')).data.data,
+  });
+}
+
+/**
+ * ── コスト側ダッシュボード（GMO コストセンター・旧 GLS-B）─────────────
+ * 2026年10月の事業再編・P3（`docs/reorg-2026-10-plan.md` §4.7）。
+ *
+ * `GET /gpm/cost-dashboard` は `legal_entities.kind='cost_center'` に
+ * 計上された案件だけを返す。**`org_transition.state` が `off`／未改番の
+ * あいだは常に0件**（壊れているのではなく正しい状態 — §4.7 参照。改番が
+ * 進むと自然に増える）。
+ */
+export interface CostCenterProjectSummary {
+  id: string;
+  /** GLS 番号（新方式なら GMO-xxxx）。発番前・未改番なら null */
+  gls_number: string | null;
+  name: string;
+  /** 案件と同じ 7 段（GPM プロジェクトも同じ stage 列を使う） */
+  stage: ProjectStage;
+  /** 予算（受理済みの最新版の見積合計）。見積が無ければ 0 */
+  budget: number;
+  /** 実績（確定した仕入の合計） */
+  actual: number;
+  /** 残 = 予算 − 実績 */
+  remaining: number;
+}
+
+export interface CostMonthlyTrendPoint {
+  /** "YYYY-MM" */
+  month: string;
+  total: number;
+}
+
+export interface CostDashboardData {
+  projects: CostCenterProjectSummary[];
+  monthly_trend: CostMonthlyTrendPoint[];
+}
+
+export function useCostDashboard() {
+  return useQuery<CostDashboardData>({
+    queryKey: gpmKeys.costDashboard(),
+    queryFn: async () => (await api.get('/gpm/cost-dashboard')).data.data,
   });
 }
 

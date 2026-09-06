@@ -42,6 +42,8 @@ import GpmProjectFormPage from "@/contexts/gpm/pages/GpmProjectFormPage";
 import GpmProjectDetailPage from "@/contexts/gpm/pages/GpmProjectDetailPage";
 import GpmTaskListPage from "@/contexts/gpm/pages/GpmTaskListPage";
 import GpmTemplateListPage from "@/contexts/gpm/pages/GpmTemplateListPage";
+// GMO コストセンター（旧 GLS-B）のコスト側ダッシュボード（2026年10月の事業再編・P3）
+import CostDashboardPage from "@/contexts/gpm/pages/CostDashboardPage";
 
 // Production (スタジオ予約)
 import RoomAvailabilityPage from '@/contexts/production/pages/RoomAvailabilityPage';
@@ -272,6 +274,10 @@ function AppRoutes() {
         <Route path="/gpm/projects/:id/:tab" element={<PermissionRoute module="sales"><GpmProjectDetailPage /></PermissionRoute>} />
         <Route path="/gpm/tasks" element={<PermissionRoute module="sales"><GpmTaskListPage /></PermissionRoute>} />
         <Route path="/gpm/templates" element={<PermissionRoute module="sales"><GpmTemplateListPage /></PermissionRoute>} />
+        {/* GMO コストセンター（旧 GLS-B）の予算 vs 実績・月次コスト集計（P3・§4.7）。
+            財務ダッシュボード（`/budget/dashboard`）とは別画面 — コストセンターは
+            売上を持たないため、あちらのステージ別損益フローには乗らない */}
+        <Route path="/gpm/cost-dashboard" element={<PermissionRoute module="sales"><CostDashboardPage /></PermissionRoute>} />
 
         {/* ===== 財務管理 (budget) ===== */}
         {/* v4 ⑥: 受け取った書類。日常業務から財務へ移した（経理が開けなかったため）。
