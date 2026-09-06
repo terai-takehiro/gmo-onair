@@ -2278,6 +2278,28 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#605**（`feat(techops): テロップCG 段F（旧リアルタイムCGの畳み込み）を実行した`・2026-09-06）—
+  テロップCG再設計の最終段（旧`client-awards`の「移行中」→「廃止」）。サーバーの配信・API・
+  Socket.IO・ビルド対象を撤去し、`shared/src/client/apps.ts`のコメント・PRテンプレートの
+  記述も揃えた。**#578・#583・#585・#590・#596・#598・#600に続いていたCode Review未実行の
+  連鎖がここで途切れ、Codexが2巡ともCode Reviewを実行して3件の指摘を返した**
+  （🔒Security Reviewは1巡目のみでfindingsなし）。3件とも検証・修正しマージ前に解消:
+  ① **P1** `awards_entries.photo_url`が`/api/v1/internal/awards/images/...`という
+  絶対パスを値としてそのまま持ち、テロップCGの過去実績移行ツールがこの文字列を書き換えずに
+  `RankingEntry.photoUrl`へコピーするため、`createAwardsRoutes()`をまるごと外すと
+  既に移行済み・今後移行するランキングの顔写真が全て欠ける指摘。`images.routes.ts`を
+  読み取り専用の`imageServingRouter`と書き込み系（顔写真アップロード・ZIP一括）に分離し、
+  前者だけ`createAwardsImageRoutes()`経由で残した（`ff47636`）。② **P2**
+  `.github/workflows/preview.yml`がプレビューデプロイのたびに廃止済みの`/awards/`を
+  リンクとして出し続けていた指摘。行を削除（`ff47636`）。③ **P2** `searchFeatures.ts`の
+  APPS走査が`hidden`は見るが`frozen`を見ておらず、⌘K検索に廃止済みアプリが死んだリンクとして
+  残っていた指摘。`visibleApps()`の既定と同じく`frozen`も除外するよう1行追加（`875f082`）。
+  いずれも実サーバー（`verify:up`）で修正前後の挙動差を実測してから返信・スレッド解決した。
+  changelog は [docs/changelog.d/claude-telop-cg-stage-f-retire-awards.md](../changelog.d/claude-telop-cg-stage-f-retire-awards.md)。
+  **未検証で残したもの**: `npm run build`（テロップCG以外の全クライアントのフルビルド）、
+  実ブラウザでのPC/スマホ確認、権限別403の画面確認（本PRはUI変更なし・サーバー配線と
+  ドキュメントのみのため相対的に優先度は低いと判断）。
+
 - **#600**（`feat(techops): テロップCG をゼロベースで再設計した（段A〜E）`・2026-09-06）—
   テロップCGの機能とUI/UXをゼロベースで再設計し、段A〜E（設計で定めた実装段の全て）を
   1本のPRにまとめて実装した回（段B〜Eはマルチエージェントのワークフローで実装・検証。
