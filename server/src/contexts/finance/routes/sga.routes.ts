@@ -8,6 +8,7 @@ import { generateSgaBillingKey } from '../../../shared/services/billing-key.serv
 import { buildSgaWhere, buildSgaWhereParts, buildSgaOrder } from '../list-query';
 import { assertVendorCompanyId } from '../../../shared/services/company-directory.service';
 import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
+import { getLegalEntity } from '../../platform/services/legal-entity.service';
 
 const router = Router();
 
@@ -17,6 +18,12 @@ router.use(requireAuth, requirePermission('sales'));
 // GET /sga - List with pagination, search, filters
 router.get('/', async (req, res) => {
   const { page, limit, offset } = extractPagination(req);
+  // 2026年10月の事業再編（P2 Round 1）: 会社（entity_code）で絞れるようにした。
+  // **省略時は絞らない＝今までどおり全社ぶん**（`revenues.routes.ts` と同じ判断）
+  const entityCode = req.query.entity_code as string | undefined;
+  if (entityCode && !(await getLegalEntity(entityCode))) {
+    throw new AppError(400, 'VALIDATION_ERROR', '不正な計上会社です');
+  }
   const orderBy = buildSgaOrder(req.query);
 
   /*

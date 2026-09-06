@@ -12,6 +12,22 @@ import {
 import { normalizeTaxCategory } from '../../../shared/services/tax-category.service';
 import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 
+/*
+ * 2026年10月の事業再編（P2 Round 1・docs/reorg-2026-10-plan.md §4.5・§4.6）:
+ * 一覧・MCP と同じく `?entity_code=` で会社を絞れる——ただし**このファイルには
+ * 変更が要らない**。`createExcelResourceRouter`（`shared/utils/excel-resource.ts`）の
+ * `/export-xlsx` は `buildExportQuery(req.query)` を呼び、下の `buildExportQuery` は
+ * その `q` をそのまま `buildRevenueWhere`/`buildPurchaseWhere`/`buildSgaWhere` へ渡す。
+ * それらが `q.entity_code` を読むようになった（`list-query.ts`）ので、**この口は
+ * 何も書き換えずに絞り込みを受け取れる**（省略時は今までどおり全社ぶん）。
+ *
+ * ⚠️ **`getLegalEntity` による 400 検証はここには足していない**（一覧・MCP と
+ * 違う点）。`createExcelResourceRouter` は customers/equipment 等も使う汎用ルーターで、
+ * entity_code を知らないため検証フックを持たせにくく、知らない/不正な値は
+ * パラメータ化された `= ?` 比較が単に 0 件を返すだけ（SQL 注入や誤集計の心配は無い）。
+ * 効果が薄い割に汎用ルーターを汚すので見送った（P2 Round 1 の判断）。
+ */
+
 // 日本語・％表記の別名だけを持つ。CHECK 制約の正準値 (nontax 含む) が漏れると
 // エクスポート→取込の往復で tax10 に化けるため、fallback は normalizeTaxCategory に委ねる
 const TAX_MAP: Record<string, string> = {

@@ -45,7 +45,13 @@ export function createFinanceRoutes(): Router {
    * （`getMonthlySummary` の「確定売上だけ」とは別軸——詳しくはそちらのコメント参照）。
    */
   router.get('/pipeline-forecast', requireAuth, requirePermission('sales'), async (req, res) => {
-    const data = await getPipelineForecast(req.query.project_id as string | undefined);
+    // 2026年10月の事業再編（P2 Round 1）: 会社（entity_code）で絞れるようにした。
+    // **省略時は絞らない＝今までどおり全社合算**（`/monthly-summary` と同じ判断）
+    const entityCode = req.query.entity_code as string | undefined;
+    if (entityCode && !(await getLegalEntity(entityCode))) {
+      throw new AppError(400, 'VALIDATION_ERROR', '不正な計上会社です');
+    }
+    const data = await getPipelineForecast(req.query.project_id as string | undefined, entityCode);
     res.json({ success: true, data });
   });
 

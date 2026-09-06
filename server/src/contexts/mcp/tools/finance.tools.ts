@@ -32,6 +32,14 @@ const PAGING = {
   limit: z.number().int().min(1).max(100).default(20),
 };
 
+// 2026年10月の事業再編（P2 Round 1・docs/reorg-2026-10-plan.md §4.5・§4.6）:
+// 省略時は絞らない＝全社合算（`get_monthly_summary` の entity_code と同じ言い回し。
+// budget.tools.ts の ENTITY_CODE は逆に「省略時は今の会社」なので混同しないこと —
+// あちらは月次予算/お金のルールという「1行に決まる」設定、こちらは加算できる一覧なので
+// 「省略＝全社」に倒す）
+const ENTITY_CODE_FILTER = z.enum(['GJV', 'GSS', 'GMO']).optional()
+  .describe('計上会社で絞り込み (省略時は全社合算)');
+
 export function registerFinanceTools(server: McpServer): void {
   server.registerTool(
     'get_monthly_summary',
@@ -73,6 +81,7 @@ export function registerFinanceTools(server: McpServer): void {
         project_id: z.string().optional().describe('案件 ID (按分配分された売上も含む)'),
         status: z.enum(['confirmed', 'estimate']).optional(),
         ...RECOGNITION_FILTERS,
+        entity_code: ENTITY_CODE_FILTER,
         sort: z.string().optional().describe('並び替え (例 amount_desc / recognition_desc / gls_asc。未指定=GLS昇順→金額降順)'),
         ...PAGING,
       },
@@ -85,6 +94,7 @@ export function registerFinanceTools(server: McpServer): void {
         recognition_month: args.recognition_month,
         recognition_from: args.recognition_from,
         recognition_to: args.recognition_to,
+        entity_code: args.entity_code,
         sort: args.sort,
       });
       const { where, params } = buildRevenueWhere(q);
@@ -119,6 +129,7 @@ export function registerFinanceTools(server: McpServer): void {
         group_id: z.string().optional().describe('費用按分グループ ID'),
         fixed_cost: z.enum(['1', '0']).optional(),
         ...RECOGNITION_FILTERS,
+        entity_code: ENTITY_CODE_FILTER,
         sort: z.string().optional().describe('並び替え (例 amount_desc / recognition_desc / vendor_asc。未指定=GLS昇順→金額降順)'),
         ...PAGING,
       },
@@ -132,6 +143,7 @@ export function registerFinanceTools(server: McpServer): void {
         recognition_month: args.recognition_month,
         recognition_from: args.recognition_from,
         recognition_to: args.recognition_to,
+        entity_code: args.entity_code,
         sort: args.sort,
       });
       const { where, params } = buildPurchaseWhere(q);
@@ -167,6 +179,7 @@ export function registerFinanceTools(server: McpServer): void {
         search: z.string().max(100).optional().describe('支払先名 / 説明の部分一致検索'),
         source: z.enum(['staff', 'accounting']).optional(),
         ...RECOGNITION_FILTERS,
+        entity_code: ENTITY_CODE_FILTER,
         sort: z.string().optional().describe('並び替え (例 amount_desc / recognition_desc / vendor_asc。未指定=金額降順)'),
         ...PAGING,
       },
@@ -178,6 +191,7 @@ export function registerFinanceTools(server: McpServer): void {
         recognition_month: args.recognition_month,
         recognition_from: args.recognition_from,
         recognition_to: args.recognition_to,
+        entity_code: args.entity_code,
         sort: args.sort,
       });
       const { where, params } = buildSgaWhere(q);

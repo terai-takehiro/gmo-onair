@@ -57,30 +57,43 @@ function totalsOf(rows: { stage: ProjectStage; revenue: number; purchase: number
   return { revenue, purchase, grossProfit, grossMarginRate: revenue > 0 ? grossProfit / revenue : null };
 }
 
-export async function getPipelineForecast(projectId?: string): Promise<PipelineForecastResult> {
+/**
+ * `entityCode` 引数（2026年10月の事業再編・P2 Round 1・§4.5〜§4.6）:
+ * 渡されたときだけ会社で絞る。財務は「案件ではなく行の entity_code」で切る
+ * （`list-query.ts` と同じ判断——改番・移管しても過去の行は前の会社に残る）ので、
+ * `p.entity_code`（案件の今の会社）ではなく `r.entity_code`/`pu.entity_code`
+ * （書いたときの会社）を見る。
+ */
+export async function getPipelineForecast(projectId?: string, entityCode?: string): Promise<PipelineForecastResult> {
   const params: string[] = [];
   let projectFilter = '';
   if (projectId) {
     projectFilter = ' AND p.id = ?';
     params.push(projectId);
   }
+  // ⚠️ entity_code の条件は末尾に足す（`?` は出現順で置換されるため、
+  // params 配列の順序と揃えること）。revenues/purchases で別名が違うので
+  // 条件文字列は2本用意する（積む params の値自体は共通の1個）
+  const revEntityFilter = entityCode ? ' AND r.entity_code = ?' : '';
+  const purEntityFilter = entityCode ? ' AND pu.entity_code = ?' : '';
+  const entityParams: string[] = entityCode ? [entityCode] : [];
 
   const [revRows, purRows, probabilityMap] = await Promise.all([
     queryAll(
       `SELECT p.stage AS stage, COALESCE(SUM(r.amount), 0) AS total
          FROM revenues r JOIN projects p ON p.id = r.project_id
         WHERE r.deleted_at IS NULL AND p.deleted_at IS NULL
-          AND p.stage != 'e_lost' AND p.code != ?${projectFilter}
+          AND p.stage != 'e_lost' AND p.code != ?${projectFilter}${revEntityFilter}
         GROUP BY p.stage`,
-      [FIXED_COGS_CODE, ...params],
+      [FIXED_COGS_CODE, ...params, ...entityParams],
     ) as Promise<{ stage: ProjectStage; total: string | number }[]>,
     queryAll(
       `SELECT p.stage AS stage, COALESCE(SUM(pu.amount), 0) AS total
          FROM purchases pu JOIN projects p ON p.id = pu.project_id
         WHERE pu.deleted_at IS NULL AND p.deleted_at IS NULL
-          AND p.stage != 'e_lost' AND p.code != ?${projectFilter}
+          AND p.stage != 'e_lost' AND p.code != ?${projectFilter}${purEntityFilter}
         GROUP BY p.stage`,
-      [FIXED_COGS_CODE, ...params],
+      [FIXED_COGS_CODE, ...params, ...entityParams],
     ) as Promise<{ stage: ProjectStage; total: string | number }[]>,
     getStageProbabilityMap(),
   ]);

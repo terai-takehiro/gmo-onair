@@ -19,7 +19,7 @@ import { loadRevenueItemCarryover } from '../services/revenue-item-carryover.ser
 import { BILLING_STATE_SQL } from '../../../shared/services/billing-state';
 import { assertCustomerCompanyId } from '../../../shared/services/company-directory.service';
 import { assignInvoiceNumbers } from '../services/invoice-number.service';
-import { resolveIssuer } from '../../platform/services/legal-entity.service';
+import { resolveIssuer, getLegalEntity } from '../../platform/services/legal-entity.service';
 
 const router = Router();
 
@@ -169,6 +169,13 @@ router.use(requireAuth, requirePermission('sales'));
 router.get('/', async (req, res) => {
   const { page, limit, offset } = extractPagination(req);
   const projectId = req.query.project_id as string;
+  // 2026年10月の事業再編（P2 Round 1・docs/reorg-2026-10-plan.md §4.5・§4.6）:
+  // 会社（entity_code）で絞れるようにした。**省略時は絞らない＝今までどおり全社ぶん**
+  // （`finance/index.ts` の `/monthly-summary` と同じ判断）
+  const entityCode = req.query.entity_code as string | undefined;
+  if (entityCode && !(await getLegalEntity(entityCode))) {
+    throw new AppError(400, 'VALIDATION_ERROR', '不正な計上会社です');
+  }
   const { where, params } = buildRevenueWhere(req.query);
   const orderBy = buildRevenueOrder(req.query);
 
