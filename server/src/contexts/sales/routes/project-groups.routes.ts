@@ -7,6 +7,7 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
 import { loadRevenueItemCarryover } from '../../finance/services/revenue-item-carryover.service';
 import { assertVendorCompanyId } from '../../../shared/services/company-directory.service';
+import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 
 const router = Router();
 
@@ -173,9 +174,9 @@ router.post('/:id/purchases', requirePermission('sales', 'editor'), async (req, 
   const purchaseId = uuidv4();
   await withTransaction(async (tx) => {
     await tx.execute(
-      `INSERT INTO purchases (id, billing_key, project_id, group_id, vendor_id, assigned_to, settlement_method, settlement_number, tax_category, invoice_qualified, amount, description, recognition_date, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [purchaseId, null, allocations[0].project_id, req.params.id, vendor_id, req.user!.id,
+      `INSERT INTO purchases (id, billing_key, project_id, entity_code, group_id, vendor_id, assigned_to, settlement_method, settlement_number, tax_category, invoice_qualified, amount, description, recognition_date, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [purchaseId, null, allocations[0].project_id, CURRENT_ENTITY_CODE, req.params.id, vendor_id, req.user!.id,
        settlement_method || null, settlement_number || null, tax_category || 'tax10',
        invoice_qualified !== undefined ? (invoice_qualified ? 1 : 0) : 1,
        amount || 0, description || null, recognition_date || null, req.user!.id]
@@ -243,9 +244,9 @@ router.post('/:id/revenues', requirePermission('sales', 'editor'), async (req, r
       : `${project?.gls_number || 'REV'}-${seqNum}-${taxSuffix}`;
 
     await tx.execute(
-      `INSERT INTO revenues (id, billing_key, project_id, group_id, customer_id, assigned_to, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, subtitle, status, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [revenueId, billing_key, allocations[0].project_id, req.params.id, customer_id, req.user!.id,
+      `INSERT INTO revenues (id, billing_key, project_id, entity_code, group_id, customer_id, assigned_to, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, subtitle, status, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [revenueId, billing_key, allocations[0].project_id, CURRENT_ENTITY_CODE, req.params.id, customer_id, req.user!.id,
        taxCat, finalAmount, recognition_date || null, billing_date || null, payment_due_date || null,
        notes || null, subtitle || null, revenueStatus, req.user!.id]
     );

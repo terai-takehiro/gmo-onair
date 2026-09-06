@@ -51,6 +51,18 @@ export function buildPurchaseWhere(q: Query): { where: string; params: unknown[]
   else if (state === 'nourl') where += ` AND (pu.settlement_url IS NULL OR pu.settlement_url = '')`;
   // 知らない値は素通しさせない（絞り込んだのに全件返ると気づけない）
   else if (state) where += ` AND FALSE`;
+
+  /*
+   * 2026年10月の事業再編（docs/reorg-2026-10-plan.md §4.5・§4.6・P2 Round 1）:
+   * 会社（`entity_code`）で絞る。**渡されたときだけ**——省略時は今までどおり
+   * 全社ぶんを返す（既存の呼び出し・画面・Excel・MCP の挙動を1ミリも変えない）。
+   * 財務は「案件ではなく行の entity_code」で切る（§4.5・改番しても過去の行は
+   * 前の会社に残る）ので、`p.entity_code` ではなく `pu.entity_code` を見る。
+   * ⚠️ 末尾に足すこと（`?` は出現順で $1..$n に置換されるため、params の順と
+   * ずれてはいけない）。
+   */
+  const entityCode = s(q.entity_code);
+  if (entityCode) { where += ` AND pu.entity_code = ?`; params.push(entityCode); }
   return { where, params };
 }
 
@@ -127,6 +139,11 @@ export function buildRevenueWhere(q: Query): { where: string; params: unknown[] 
   if (sql) where += ` AND ${sql}`;
   // 知らない値は**素通しさせない**。絞り込んだのに全件返ると気づけない
   else if (state) where += ` AND FALSE`;
+
+  // 2026年10月の事業再編（P2 Round 1）: 会社（entity_code）で絞る。渡されたときだけ
+  // （`buildPurchaseWhere` 側のコメント参照。行の entity_code＝ `r.entity_code` を見る）
+  const entityCode = s(q.entity_code);
+  if (entityCode) { where += ` AND r.entity_code = ?`; params.push(entityCode); }
   return { where, params };
 }
 
@@ -220,6 +237,18 @@ function buildSgaBaseWhere(q: Query): { where: string; params: unknown[] } {
   const rf = s(q.recognition_from), rt = s(q.recognition_to);
   if (rf) { where += ` AND s.recognition_date >= ?`; params.push(rf); }
   if (rt) { where += ` AND s.recognition_date <= ?`; params.push(rt); }
+
+  /*
+   * 2026年10月の事業再編（P2 Round 1）: 会社（entity_code）で絞る。渡されたときだけ
+   * （`buildPurchaseWhere` 側のコメント参照）。
+   *
+   * ⚠️ **ここ（`buildSgaBaseWhere`）に足すこと。** `buildSgaWhere` 自体の返り値の
+   * 組み立て方（Excel・MCP が読む文字列そのもの）は1文字も変えない——この関数は
+   * `buildSgaWhereParts` 経由で呼ばれ、`base.where`/`base.params` の末尾に自然に
+   * 混じるので、`buildSgaWhere` 側のコード自体には手を入れなくてよい。
+   */
+  const entityCode = s(q.entity_code);
+  if (entityCode) { where += ` AND s.entity_code = ?`; params.push(entityCode); }
   return { where, params };
 }
 

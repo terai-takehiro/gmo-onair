@@ -23,7 +23,9 @@ export function matchesSearch(item: TopItem, rawQuery: string): boolean {
   return (
     item.name.includes(q) ||
     (item.gls_number ?? '').includes(q) ||
-    (item.customer_name ?? '').includes(q)
+    (item.customer_name ?? '').includes(q) ||
+    // 改番で退役した旧番号でも見つけられるようにする（2026年10月の事業再編・P1・§4.10）
+    item.retired_numbers.some((n) => n.includes(q))
   );
 }
 

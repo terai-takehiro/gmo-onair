@@ -5,6 +5,9 @@ import { keepReportService } from '../services/keep-report.service';
 import {
   addKpt, updateKpt, confirmKpt, deleteKpt, generateKptDraft, isKptKind,
 } from '../services/kpt.service';
+// 2026年10月の事業再編（P2 Round 1）: 月次予算・損益は会社（entity_code）ごと
+import { getLegalEntity, type LegalEntityCode } from '../../platform/services/legal-entity.service';
+import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 
 // 隔週キープ資料 (報告資料) の基礎データ編集 API。
 // UI (案件管理アプリ /sales/keep-report) 用 — MCP ツールと同じ keepReportService を通る。
@@ -14,6 +17,15 @@ router.use(requireAuth, requirePermission('sales'));
 
 const YM_RE = /^\d{4}-\d{2}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** クエリの entity_code を検査する（`money-rules.routes.ts` と同じ形） */
+async function resolveEntityCode(raw: unknown): Promise<LegalEntityCode> {
+  if (raw === undefined || raw === null || raw === '') return CURRENT_ENTITY_CODE;
+  if (typeof raw !== 'string' || !(await getLegalEntity(raw))) {
+    throw new AppError(400, 'VALIDATION_ERROR', '不正な計上会社です');
+  }
+  return raw as LegalEntityCode;
+}
 
 // ============ イベント実施報告 ============
 
@@ -102,19 +114,30 @@ router.delete('/event-photos/:photoId', requirePermission('sales', 'editor'), as
 
 router.get('/monthly-pl/:ym', async (req, res) => {
   if (!YM_RE.test(req.params.ym as string)) throw new AppError(400, 'VALIDATION_ERROR', '年月は YYYY-MM');
-  res.json({ success: true, data: await keepReportService.getMonthlyPl(req.params.ym as string) });
+  const entityCode = await resolveEntityCode(req.query.entity_code);
+  res.json({ success: true, data: await keepReportService.getMonthlyPl(req.params.ym as string, entityCode) });
 });
 
 router.put('/monthly-budget/:ym', requirePermission('sales', 'editor'), async (req, res) => {
   if (!YM_RE.test(req.params.ym as string)) throw new AppError(400, 'VALIDATION_ERROR', '年月は YYYY-MM');
-  const { revenue, cogs_fixed, cogs_variable, sga, operating_profit } = req.body;
-  res.json({ success: true, data: await keepReportService.upsertBudget(req.params.ym as string, { revenue, cogs_fixed, cogs_variable, sga, operating_profit }) });
+  const { revenue, cogs_fixed, cogs_variable, sga, operating_profit, entity_code } = req.body;
+  const entityCode = await resolveEntityCode(entity_code);
+  res.json({
+    success: true,
+    data: await keepReportService.upsertBudget(
+      req.params.ym as string, { revenue, cogs_fixed, cogs_variable, sga, operating_profit }, entityCode,
+    ),
+  });
 });
 
 router.put('/monthly-override/:ym', requirePermission('sales', 'editor'), async (req, res) => {
   if (!YM_RE.test(req.params.ym as string)) throw new AppError(400, 'VALIDATION_ERROR', '年月は YYYY-MM');
-  const { cogs_fixed_actual, sga_actual, note } = req.body;
-  res.json({ success: true, data: await keepReportService.upsertOverride(req.params.ym as string, { cogs_fixed_actual, sga_actual, note }) });
+  const { cogs_fixed_actual, sga_actual, note, entity_code } = req.body;
+  const entityCode = await resolveEntityCode(entity_code);
+  res.json({
+    success: true,
+    data: await keepReportService.upsertOverride(req.params.ym as string, { cogs_fixed_actual, sga_actual, note }, entityCode),
+  });
 });
 
 // ============ 議事録サマリ ============

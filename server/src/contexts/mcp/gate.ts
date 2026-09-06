@@ -30,6 +30,12 @@ const WRITE_TOOL_PERMISSIONS: Record<string, ToolPermission> = {
   update_project: { module: 'sales', level: 'editor' },
   change_project_stage: { module: 'sales', level: 'editor' },
   issue_gls: { module: 'sales', level: 'editor' },
+  // 2026年10月の事業再編（P1）: 改番は HTTP 側 (`projects.routes.ts` の `POST /:id/renumber`) が
+  // `requirePermission('sales', 'manager')` なので、こちらも同じ水準に揃える
+  renumber_project: { module: 'sales', level: 'manager' },
+  // 2026年10月の事業再編（P2 Round 2）: 社内取引の作成は HTTP 側
+  // (`intercompany.routes.ts` の `POST /`) と同じ `sales` の editor 水準に揃える
+  create_intercompany_purchase: { module: 'sales', level: 'editor' },
   add_project_member: { module: 'sales', level: 'editor' },
   remove_project_member: { module: 'sales', level: 'editor' },
   set_project_simulation: { module: 'sales', level: 'editor' },

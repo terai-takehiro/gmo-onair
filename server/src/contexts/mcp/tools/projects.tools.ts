@@ -5,6 +5,8 @@ import { queryOne, execute } from '../../../shared/db/connection';
 import { ok, runTool, clampLimit, pagination, preview, audit, REQUESTED_BY, currentActorId } from '../helpers';
 import { recordAiOutput } from '../../../shared/services/ai-output.service';
 import { PROJECT_DRAFT_KIND } from '../../sales/services/project-ai-feedback.service';
+// 2026年10月の事業再編（docs/reorg-2026-10-plan.md §4.4・§4.8・§4.10）: 改番（GJV/GSS/GMO の番号系列への付け替え）
+import { previewRenumber, renumberProject } from '../../sales/services/entity-resolution.service';
 
 // 案件管理 (sales) の MCP ツール — 既存の projectService を再利用。
 // 書き込みは create / update (read-merge-write) / stage 変更 / GLS 発番。
@@ -72,6 +74,11 @@ function trimProjectRow(row: any) {
     code: row.code,
     gls_number: row.gls_number,
     gls_category: row.gls_category,
+    // 2026年10月の事業再編（docs/reorg-2026-10-plan.md §4.10）: 計上会社の導出結果。
+    // `org_transition` が 'off' のあいだも列自体は常にあり（既定 'GSS'）、常に返してよい
+    entity_code: row.entity_code,
+    entity_source: row.entity_source,
+    entity_note: row.entity_note,
     name: row.name,
     customer_name: row.customer_name,
     stage: row.stage,
@@ -487,7 +494,9 @@ export function registerProjectTools(server: McpServer): void {
       description:
         '案件に GLS 番号を発番する (重要操作・取り消し不可)。必ず confirm なしで一度実行してプレビューを取得し、' +
         'ユーザーの明示的な了承を得てから confirm: true で再実行すること (承認なしの confirm: true は禁止)。' +
-        '副作用: ステージ自動昇格 (neta/d_hold/c_proposal → b_verbal)、概算見積の確定売上への変換、BOX フォルダのリネーム。',
+        '副作用: 概算見積の確定売上への変換、BOX フォルダのリネーム。' +
+        '⚠️ ステージは変更しない (2026-09-02〜。発番したことと受注の合意が取れたことは別物のため、' +
+        '以前あった自動昇格 neta/d_hold/c_proposal → b_verbal は廃止済み)。',
       inputSchema: {
         id: z.string().min(1).describe('案件 ID'),
         confirm: z.boolean().default(false).describe('プレビューをユーザーに確認してもらってから true'),
@@ -513,14 +522,13 @@ export function registerProjectTools(server: McpServer): void {
       ) as any;
 
       if (!args.confirm) {
-        const willPromote = ['neta', 'd_hold', 'c_proposal'].includes(project.stage);
         return preview(
           `案件「${project.name}」に GLS 番号を発番する`,
           [
             `発番系列: GLS-${project.gls_category} (${project.gls_category === 'A' ? 'スタジオ' : 'ビジネス'})`,
-            willPromote
-              ? `ステージ: ${STAGE_LABELS[project.stage] ?? project.stage} → B 口頭決定 に自動昇格`
-              : `ステージ: ${STAGE_LABELS[project.stage] ?? project.stage} (変更なし)`,
+            // ⚠️ 発番してもステージは変えない (2026-09-02〜。project.service.ts issueGls 参照) —
+            // ここで「自動昇格する」と書くと実際には起きない変化を予告することになる
+            `ステージ: ${STAGE_LABELS[project.stage] ?? project.stage} (発番してもステージは変わらない)`,
             Number(estRow?.c ?? 0) > 0
               ? `概算見積 ${estRow.c} 件 (合計 ¥${Number(estRow.total).toLocaleString()}) が確定売上に変換され、請求キーが再生成される`
               : '変換対象の概算見積はなし',
@@ -537,6 +545,80 @@ export function registerProjectTools(server: McpServer): void {
       ) as any;
       audit('issue_gls', args, { id: row.id, gls_number: row.gls_number, stage: row.stage }, args.requested_by);
       return ok({ executed: true, gls_number: row.gls_number, stage: row.stage, project: row });
+    }),
+  );
+
+  /**
+   * 改番 — 2026年10月の事業再編（docs/reorg-2026-10-plan.md §4.4・§4.8・§4.10）。
+   * `issue_gls` と同じ confirm 2段階 (プレビュー→了承→実行)。**ツール名は設計書§4.8で固定**
+   * （「MCP にも同じ口（`renumber_project`・confirm 2段階）」）。
+   */
+  server.registerTool(
+    'renumber_project',
+    {
+      title: '案件の改番 (計上会社の付け替え)',
+      description:
+        '発番済みの案件を、別の計上会社 (GJV/GSS/GMO) の番号系列へ改番する (重要操作・取り消し不可)。' +
+        '必ず confirm なしで一度実行してプレビューを取得し、ユーザーの明示的な了承を得てから ' +
+        'confirm: true で再実行すること (承認なしの confirm: true は禁止)。' +
+        '副作用: 回 (episodes) と Qシートの写し (qsheet_documents) の episode_code を新番号へ書き換え、' +
+        'BOX フォルダ名を新番号にリネームし (失敗しても改番自体は成立する)、' +
+        '未請求 (未発行・未入金) の売上・仕入の請求キーを新番号へ書き換える' +
+        '(発行済み・入金済みの売上は触らない)。旧番号は project_numbers に履歴として残り、消えず引き続き解決できる。' +
+        'プレビュー (confirm 省略/false) は何も書き換えず old_number/new_number だけを返す。',
+      inputSchema: {
+        id: z.string().min(1).describe('案件 ID'),
+        target_entity_code: z.enum(['GJV', 'GSS', 'GMO']).describe('改番先の計上会社'),
+        reason: z.string().min(1).max(500).describe('改番の理由（必須）'),
+        confirm: z.boolean().default(false).describe('プレビューをユーザーに確認してもらってから true'),
+        ...REQUESTED_BY,
+      },
+    },
+    async (args) => runTool(async () => {
+      const project = await projectService.getById(args.id) as any;
+      // service と同じ前提チェックをプレビュー段階で行う (confirm 後に初めてエラーになる事故を防ぐ。issue_gls と同じ考え方)
+      if (!project.gls_number) {
+        return ok({ executed: false, error: 'まだ番号が発番されていません (先に issue_gls で発番してください)' });
+      }
+
+      if (!args.confirm) {
+        const p = await previewRenumber(args.id, args.target_entity_code);
+        return ok({
+          preview: true,
+          executed: false,
+          action: `案件「${project.name}」を ${args.target_entity_code} の番号へ改番する`,
+          old_number: p.oldNumber,
+          new_number: p.newNumber,
+          effects: [
+            `番号: ${p.oldNumber} → ${p.newNumber} (${args.target_entity_code})`,
+            '回・Qシートの写しの episode_code が新番号に書き換わる',
+            'BOX フォルダ名が新番号にリネームされる (失敗しても改番自体は成立する)',
+            '未請求 (未発行・未入金) の売上・仕入の請求キーが新番号に書き換わる (発行済み・入金済みは触らない)',
+            '旧番号は履歴 (project_numbers) に残り、消えず引き続き解決できる',
+          ],
+          warning: '改番は取り消せません',
+          next_step: '上記の内容をユーザーに提示し、明示的な了承を得てから confirm: true を付けて再実行してください',
+        });
+      }
+
+      const result = await renumberProject(args.id, args.target_entity_code, args.reason, currentActorId());
+      audit(
+        'renumber_project', args,
+        {
+          project_id: result.projectId, old_number: result.oldNumber, new_number: result.newNumber,
+          entity_code: result.entityCode,
+        },
+        args.requested_by,
+      );
+      return ok({
+        executed: true,
+        project_id: result.projectId,
+        old_number: result.oldNumber,
+        new_number: result.newNumber,
+        entity_code: result.entityCode,
+        box_renamed: result.boxRenamed,
+        box_reason: result.boxReason,
+      });
     }),
   );
 }

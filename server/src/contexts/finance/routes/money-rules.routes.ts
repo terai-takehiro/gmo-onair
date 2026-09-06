@@ -19,6 +19,10 @@ import {
   getMoneyRules, saveMoneyRules, ruleForCustomer, computeDueDate, previewDueDate,
 } from '../services/money-rules.service';
 import { describeRule, type DueDateRule, type HolidayShift } from '../../../shared/services/dueDate';
+// 2026年10月の事業再編（docs/reorg-2026-10-plan.md §4.5・§4.6・P2 Round 1）:
+// お金のルールは会社（entity_code）ごとに1本になった（migration 288）
+import { getLegalEntity, type LegalEntityCode } from '../../platform/services/legal-entity.service';
+import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 
 /** 画面から来た寄せ方が読める値か（知らない値は保存済みの設定に落とす） */
 const HOLIDAY_SHIFTS: readonly unknown[] = ['before', 'after', 'none'];
@@ -28,6 +32,19 @@ const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<u
 
 const router = Router();
 router.use(requireAuth);
+
+/**
+ * クエリ・本文の `entity_code` を検査する（`renumber-preview` と同じ形・
+ * `projects.routes.ts` 参照）。**省略時は今の会社（`CURRENT_ENTITY_CODE`）に落ちる**
+ * ので、entity_code を送らない古い呼び出しも今までどおり動く。
+ */
+async function resolveEntityCode(raw: unknown): Promise<LegalEntityCode> {
+  if (raw === undefined || raw === null || raw === '') return CURRENT_ENTITY_CODE;
+  if (typeof raw !== 'string' || !(await getLegalEntity(raw))) {
+    throw new AppError(400, 'VALIDATION_ERROR', '不正な計上会社です');
+  }
+  return raw as LegalEntityCode;
+}
 
 /** 値引きの上限（役割ごと）。役割の名前もいっしょに返す — 画面が引き直さずに済む */
 async function discountLimits() {
@@ -47,8 +64,9 @@ async function discountLimits() {
   );
 }
 
-router.get('/', requirePermission('sales', 'reader'), wrap(async (_req, res) => {
-  const rules = await getMoneyRules();
+router.get('/', requirePermission('sales', 'reader'), wrap(async (req, res) => {
+  const entityCode = await resolveEntityCode(req.query.entity_code);
+  const rules = await getMoneyRules(entityCode);
   const company: DueDateRule = {
     closingDay: rules.closing_day, paymentMonths: rules.payment_months, paymentDay: rules.payment_day,
   };
@@ -60,16 +78,20 @@ router.get('/', requirePermission('sales', 'reader'), wrap(async (_req, res) => 
   res.json({
     success: true,
     data: {
+      entity_code: entityCode,
       rules,
       // 「末日締め ・ 翌月末日」のような読める文。画面で組み立てると言い回しがぶれる
       describe: { payment: describeRule(company), purchase: describeRule(purchase) },
+      // 値引きの上限は役割ごとの全社共通ポリシー（会社では分けない）
       limits: await discountLimits(),
     },
   });
 }));
 
 router.put('/', requirePermission('sales', 'manager'), wrap(async (req, res) => {
-  const saved = await saveMoneyRules(req.body ?? {}, req.user!.id);
+  const patch = req.body ?? {};
+  const entityCode = await resolveEntityCode(patch.entity_code);
+  const saved = await saveMoneyRules(patch, req.user!.id, entityCode);
   res.json({ success: true, data: saved });
 }));
 
@@ -78,10 +100,11 @@ router.put('/', requirePermission('sales', 'manager'), wrap(async (req, res) => 
  * `rule` を渡さなければ、いま保存されているルール（＋取引先の例外）で出す。
  */
 router.post('/preview', requirePermission('sales', 'reader'), wrap(async (req, res) => {
-  const { recognition_date, customer_id, rule } = req.body ?? {};
+  const { recognition_date, customer_id, rule, entity_code } = req.body ?? {};
   if (!recognition_date || typeof recognition_date !== 'string') {
     throw new AppError(400, 'VALIDATION_ERROR', '計上日を入れてください');
   }
+  const entityCode = await resolveEntityCode(entity_code);
   if (rule && typeof rule === 'object') {
     const r: DueDateRule = {
       closingDay: Number(rule.closingDay), paymentMonths: Number(rule.paymentMonths), paymentDay: Number(rule.paymentDay),
@@ -92,7 +115,7 @@ router.post('/preview', requirePermission('sales', 'reader'), wrap(async (req, r
      * （「8/31 になります」と見せて 8/29 が入る）。
      * 寄せ方は**画面が試している値**を優先し、無ければ保存済みの設定を使う。
      */
-    const saved = await getMoneyRules();
+    const saved = await getMoneyRules(entityCode);
     const shift = HOLIDAY_SHIFTS.includes(rule.payment_holiday_shift)
       ? rule.payment_holiday_shift as HolidayShift
       : saved.payment_holiday_shift;
@@ -105,10 +128,13 @@ router.post('/preview', requirePermission('sales', 'reader'), wrap(async (req, r
     });
     return;
   }
-  const used = await ruleForCustomer(customer_id ?? null);
+  const used = await ruleForCustomer(customer_id ?? null, entityCode);
   res.json({
     success: true,
-    data: { due_date: await computeDueDate(recognition_date, customer_id ?? null), describe: describeRule(used) },
+    data: {
+      due_date: await computeDueDate(recognition_date, customer_id ?? null, entityCode),
+      describe: describeRule(used),
+    },
   });
 }));
 

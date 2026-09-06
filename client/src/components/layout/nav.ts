@@ -144,6 +144,9 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
       items: [
         { label: "ダッシュボード", to: "/gpm/dashboard", icon: LayoutDashboard },
         { label: "プロジェクト一覧", to: "/gpm/projects", icon: FolderKanban },
+        // GMO コストセンター（旧 GLS-B）の予算 vs 実績（2026年10月の事業再編・P3）。
+        // アイコンは財務ダッシュボードと同じ BarChart3（「集計を見る」画面の目印）
+        { label: "コストダッシュボード", to: "/gpm/cost-dashboard", icon: BarChart3 },
       ],
     },
     {

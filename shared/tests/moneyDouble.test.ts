@@ -118,7 +118,7 @@ describe('お金の二重計上・取りこぼし', () => {
     // すでに番号を持っていたら**入っている番号のほうを返す**
     expect(INVOICE_NO).toMatch(/if \(cur\.invoice_no\) return cur\.invoice_no/);
     // 採るのも同じ取引の中で（巻き戻っても番号だけ進む、を防ぐ）
-    expect(INVOICE_NO).toMatch(/nextInvoiceNo\(year, tx\)/);
+    expect(INVOICE_NO).toMatch(/nextInvoiceNo\(entityCode, year, tx\)/);
     // 旧: 採ってから `WHERE invoice_no IS NULL` で書く形に戻っていないか
     expect(INVOICE_NO).not.toMatch(/WHERE id = \? AND invoice_no IS NULL/);
   });

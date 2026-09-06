@@ -1,4 +1,5 @@
 import type { ProjectStage } from '@/types';
+import type { LegalEntityCode } from '@/contexts/platform/pages/reorg/types';
 
 /**
  * 案件一覧の1行 (`GET /projects` が返すもののうち、この画面が使う分だけ)。
@@ -13,6 +14,13 @@ export interface ProjectListRow {
   code: string | null;
   gls_number: string | null;
   stage: ProjectStage;
+  /**
+   * 計上会社（2026年10月の事業再編・`docs/reorg-2026-10-plan.md` §4.4）。
+   * `SELECT p.*` が既に返しているので `null` は「未導出（旧方式のまま）」の意味——
+   * 導出できない案件を一覧が壊れて見せないよう、バッジ側は null を「未決定」として
+   * 何も描かない（`ProjectRows.tsx`）。
+   */
+  entity_code: LegalEntityCode | null;
   customer_name: string | null;
   event_start: string | null;
   event_end: string | null;

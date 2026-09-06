@@ -33,7 +33,9 @@ import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
 import { DateRange } from '@gmo-onair/shared/src/client/ui/dateRange';
 import { formatRelativeTime } from '@gmo-onair/shared/src/client/format';
-import { STAGE_BADGE_LABEL, STAGE_BADGE_TONE, TERMINAL_STAGES } from './stages';
+import {
+  STAGE_BADGE_LABEL, STAGE_BADGE_TONE, TERMINAL_STAGES, ENTITY_BADGE_LABEL, ENTITY_BADGE_TONE,
+} from './stages';
 import { HealthBadge } from './health';
 import { TidyActions } from './TidyActions';
 import { rowInProps, type RowAnim } from './rowAnim';
@@ -109,6 +111,15 @@ export function ProjectRowsHeader({
       </RowMain>
       <RowSlot w={96} aria-sort={ariaSort(sortMark(sort, 'stage'))}>
         <HeaderLabel label="ステージ" sortKey="stage" sort={sort} onSort={onSort} />
+      </RowSlot>
+      {/*
+        計上会社（2026年10月の事業再編）。**並べ替えは無い**——サーバーの
+        `SORT_COLUMN_MAP` に `entity_code` を足すのはこの回のスコープ外
+        （指示書「絞り込みチップは今回追加しない」と同じ理由で表示だけに留める）ので、
+        押せるボタンにせず素の見出しにする。
+      */}
+      <RowSlot w={72}>
+        <span className="truncate">計上会社</span>
       </RowSlot>
       <RowSlot w={96} aria-sort={ariaSort(sortMark(sort, 'event_start'))}>
         <HeaderLabel label="実施日" sortKey="event_start" sort={sort} onSort={onSort} />
@@ -244,6 +255,26 @@ export function ProjectRow({
         label={STAGE_BADGE_LABEL[p.stage] ?? p.stage}
         className={STAGE_BADGE_TONE[p.stage]}
       />
+
+      {/*
+        計上会社（2026年10月の事業再編・`docs/reorg-2026-10-plan.md` §4.4）。
+        **バッジの文字は英字3文字の記号そのもの**（`GJV`/`GSS`/`GMO`）——
+        `ENTITY_BADGE_LABEL` の和文（「コンテンツスタジオ」等）は5字以上あり
+        `TableBadge` の 62px 均等割り付け（和文4字まで）に入らないため、
+        和文の短い名前は `title`（ホバーで出す全称）に退避する。
+        **`entity_code` が無い行は空欄**（旧方式のまま導出していない案件。
+        `RowSlot` の既定プレースホルダ「—」に任せる — 崩れて見せない）。
+      */}
+      <RowSlot w={72}>
+        {p.entity_code && (
+          <TableBadge
+            w={null}
+            label={p.entity_code}
+            title={ENTITY_BADGE_LABEL[p.entity_code]}
+            className={ENTITY_BADGE_TONE[p.entity_code]}
+          />
+        )}
+      </RowSlot>
 
       <RowSlot w={96} hideOnMobile>
         {p.event_start || p.event_end

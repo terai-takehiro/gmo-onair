@@ -19,7 +19,32 @@ router.get('/gls-options', async (_req, res) => {
      WHERE p.gls_number IS NOT NULL AND p.deleted_at IS NULL
      ORDER BY p.gls_number DESC`
   );
-  res.json({ success: true, data: rows });
+
+  // 改番で退役した旧番号（案件ごとに配列へ畳む。1行ずつ引かず案件IDをまとめて1回で引く —
+  // `qsheet/routes/top.routes.ts` の `GET /top-items` と同じ形）。旧番号でもこの
+  // セレクターが検索できるようにするため（2026年10月の事業再編・P1・§4.10）。
+  // 表示用のラベルは変えず、`CreateSheetDialog.tsx` 側で `SelectItem` の `textValue`
+  // （検索対象テキスト）にだけ混ぜる
+  const projectIds = rows.map((r) => r.id as string);
+  const retiredRows = projectIds.length === 0 ? [] : await queryAll(
+    `SELECT project_id, number FROM project_numbers
+      WHERE project_id = ANY(?::text[]) AND retired_at IS NOT NULL
+      ORDER BY retired_at`,
+    [projectIds]
+  );
+  const retiredByProject = new Map<string, string[]>();
+  for (const r of retiredRows) {
+    const pid = r.project_id as string;
+    const list = retiredByProject.get(pid) ?? [];
+    list.push(r.number as string);
+    retiredByProject.set(pid, list);
+  }
+
+  const data = rows.map((r) => ({
+    ...r,
+    retired_numbers: retiredByProject.get(r.id as string) ?? [],
+  }));
+  res.json({ success: true, data });
 });
 
 // エピソード一覧（セレクター用）

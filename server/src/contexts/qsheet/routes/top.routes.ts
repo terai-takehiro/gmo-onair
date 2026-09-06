@@ -36,6 +36,12 @@ export interface TopItemRow {
   customer_name: string | null;
   next_date: string | null;
   last_date: string | null;
+  /**
+   * 改番で退役した旧番号（`project_numbers.number` where `retired_at IS NOT NULL`）。
+   * 2026年10月の事業再編・P1（docs/reorg-2026-10-plan.md §4.10）— 旧番号でもこの一覧の
+   * 検索から引けるようにするため。`kind==='own'`（案件管理に無い番組）は常に空配列
+   */
+  retired_numbers: string[];
 }
 
 router.get('/top-items', async (_req: Request, res: Response) => {
@@ -81,6 +87,25 @@ router.get('/top-items', async (_req: Request, res: Response) => {
       ORDER BY event_date DESC NULLS LAST, created_at DESC
     `);
 
+    // 改番で退役した旧番号（案件ごとに配列へ畳む）。1行ずつ引くと一覧の件数ぶん
+    // 往復が増えるため、案件IDをまとめて1回で引く（studio-booking.service.ts の
+    // fetchAssigneesByBookingIds と同じ形）。旧番号でも検索から引けるようにするため
+    // （2026年10月の事業再編・P1・§4.10）
+    const projectIds = glsRows.map((r) => r.id as string);
+    const retiredRows = projectIds.length === 0 ? [] : await queryAll(
+      `SELECT project_id, number FROM project_numbers
+        WHERE project_id = ANY(?::text[]) AND retired_at IS NOT NULL
+        ORDER BY retired_at`,
+      [projectIds]
+    );
+    const retiredByProject = new Map<string, string[]>();
+    for (const r of retiredRows) {
+      const pid = r.project_id as string;
+      const list = retiredByProject.get(pid) ?? [];
+      list.push(r.number as string);
+      retiredByProject.set(pid, list);
+    }
+
     const items: TopItemRow[] = [
       ...glsRows.map((r) => ({
         kind: 'gls' as const,
@@ -90,6 +115,7 @@ router.get('/top-items', async (_req: Request, res: Response) => {
         customer_name: r.customer_name as string | null,
         next_date: r.next_date as string | null,
         last_date: r.last_date as string | null,
+        retired_numbers: retiredByProject.get(r.id as string) ?? [],
       })),
       ...ownRows.map((r) => ({
         kind: 'own' as const,
@@ -99,6 +125,7 @@ router.get('/top-items', async (_req: Request, res: Response) => {
         customer_name: null,
         next_date: r.next_date as string | null,
         last_date: r.event_date as string | null,
+        retired_numbers: [] as string[],
       })),
     ];
 

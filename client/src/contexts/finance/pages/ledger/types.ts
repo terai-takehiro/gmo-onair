@@ -50,6 +50,12 @@ export interface LedgerRow {
    */
   secondaryBadge?: Pick<LedgerState, 'label' | 'tone' | 'title'> | null;
   /**
+   * 2社間の社内取引（GJV⇄GSS・2026年10月の事業再編 P2 Round 2）。
+   * `secondaryBadge` とは別枠 — 検収済などの状態バッジと同時に出ることがあるため
+   * （`IntercompanyTag` を見出しの横にもう1つ並べる。押しても遷移しない表示だけ）
+   */
+  is_intercompany?: boolean;
+  /**
    * スマホの詳細シートに出す項目（税区分・支払期日・備考など）。
    *
    * **PC の表は読みません。** カードは4つの値しか出さない代わりに、
@@ -139,6 +145,8 @@ export interface RevenueRow {
   items?: RevenueItem[];
   /** 月次ユニット等エピソード紐づき時のコード (例 GLS-B005-2607)。表示は GLS 番号より優先 */
   episode_code?: string | null;
+  /** 2社間の社内取引（GJV⇄GSS）。サーバーは対応済み（`GET /revenues` の各行）。表示にだけ使う */
+  is_intercompany?: boolean;
 }
 
 export interface ProjectOption {
@@ -199,6 +207,8 @@ export interface PurchaseRow {
   invoice_qualified: number | boolean | null;
   /** 月次ユニット等エピソード紐づき時のコード。表示は GLS 番号より優先 */
   episode_code?: string | null;
+  /** 2社間の社内取引（GJV⇄GSS）。サーバーは対応済み（`GET /purchases` の各行）。表示にだけ使う */
+  is_intercompany?: boolean;
 }
 
 // ── 販管費（⑤）───────────────────────────────────────────────

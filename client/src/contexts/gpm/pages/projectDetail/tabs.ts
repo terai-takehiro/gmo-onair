@@ -32,7 +32,14 @@ export const DETAIL_TABS = [
   { key: 'minutes', label: '議事録', icon: Mic },
   // v4 大⑤: 提出先ごとの個別見積（migration 173）
   { key: 'estimates', label: '見積', icon: Receipt },
-  // migration 179 で案件詳細から移した「月次請求（月締め）」
+  /*
+   * migration 179 で案件詳細から移した「月次請求（月締め）」。
+   * ここの `label` は**普通の会社（GJV/GSS）向けの既定値**。
+   * コストセンター（GMO）の案件では「予算と実績」に出し分ける
+   * （2026年10月の事業再編・P3・§4.7）——**`key`（URL の一部）は変えない**。
+   * 変えると「請求」で開いていたブックマーク・共有 URL が壊れるため、
+   * 出し分けは描画側（`DetailHeader` の `t.key === 'billing' && isCostCenter` の分岐）でだけ行う。
+   */
   { key: 'billing', label: '請求', icon: Wallet },
   { key: 'files', label: '書類', icon: FolderCheck },
 ] as const satisfies readonly DetailTabDef[];
@@ -100,10 +107,19 @@ export const MOBILE_TABS_BY_PHASE: Record<DetailPhase, DetailTabKey[]> = {
  * 段階違いリダイレクト判定が**同じ関数**を通るようにして、
  * 「タブには出ているのに開くと弾かれる」／「タブに出ていないのに
  * リンクを踏むと弾かれる」の食い違いを防ぐ。
+ *
+ * `isCostCenter` も同じ理由で足す（2026年10月の事業再編・P3）。**新しく作った
+ * 「予算と実績」タブ（`BudgetTab`）はレスポンシブに作ってあるので**、下の
+ * 「請求はどの段階でもスマホに出さない」の対象から外し、コストセンターの
+ * プロジェクトだけ全段階のスマホ帯に足す。
  */
-export function effectiveMobileTabs(phase: DetailPhase, openAsksCount: number): DetailTabKey[] {
-  const base = MOBILE_TABS_BY_PHASE[phase];
-  return openAsksCount > 0 && !base.includes('asks') ? [...base, 'asks'] : base;
+export function effectiveMobileTabs(
+  phase: DetailPhase, openAsksCount: number, isCostCenter = false,
+): DetailTabKey[] {
+  let tabs = MOBILE_TABS_BY_PHASE[phase];
+  if (openAsksCount > 0 && !tabs.includes('asks')) tabs = [...tabs, 'asks'];
+  if (isCostCenter && !tabs.includes('billing')) tabs = [...tabs, 'billing'];
+  return tabs;
 }
 
 /**
@@ -112,6 +128,10 @@ export function effectiveMobileTabs(phase: DetailPhase, openAsksCount: number): 
  * （工程・体制・未確認事項・議事録・見積・書類の6タブとは違い、実測しても
  * 縦積みで読める形になっていません）。`GpmProjectDetailPage` の `everMobile` 判定は
  * この表に載っていないタブを自動でその扱いにするので、ここには載せません。
+ *
+ * ⚠️ **コストセンター（GMO）の案件はこの限りではありません。** 「予算と実績」
+ * （`BudgetTab`・2026年10月の事業再編・P3）は最初からレスポンシブに作ったので、
+ * `effectiveMobileTabs()` の `isCostCenter` 引数でスマホの帯に足しています。
  */
 
 /**

@@ -8,6 +8,7 @@
 | --- | --- |
 | ブランチ・PR・リリース手順 | [branching.md](branching.md) |
 | v4 の開発計画・スコープ・段取り | [v4-plan.md](v4-plan.md) |
+| **2026年10月の事業再編（社名変更・計上会社の2社化・案件番号の改番）の移行設計** | [reorg-2026-10-plan.md](reorg-2026-10-plan.md) — 設計下書き。§9 の分岐点が決まるまで実装しない |
 | 全画面をネイティブ級にする計画（2026-08〜） | [v4-native-ui-plan.md](v4-native-ui-plan.md)（監査: [v4-native-ui-audit-2026-08-20.md](v4-native-ui-audit-2026-08-20.md)・引き継ぎ: [handoff-2026-08-20-v4-native-ui.md](handoff-2026-08-20-v4-native-ui.md)） |
 | デプロイの仕組み（GHCR・キャッシュ・戻し方） | [deploy-pipeline.md](deploy-pipeline.md) |
 | 用語の決めごと | [wording.md](wording.md) |

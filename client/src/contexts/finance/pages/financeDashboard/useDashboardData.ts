@@ -13,6 +13,12 @@
  * ⚠️ **期間が決まっていないときは1本も叩かない**（`period.valid`）。
  * `!!period.from` で判定すると、`'-01'` のような壊れた日付を truthy と見て
  * 通してしまう（それが 400 の元だった）。
+ *
+ * ── 会社（`entityCode`）の絞り込み（2026年10月の事業再編 P2 Round 1）─────
+ *
+ * `/monthly-summary`・内訳4本（`/revenues`/`/purchases`（変動・固定原価の2回）/`/sga`）
+ * とも、サーバー側の絞り込みビルダー（`list-query.ts`）が対応済み（省略時は
+ * 全社合算のまま）。合計と内訳の行が同じ会社で揃う。
  */
 import { useMemo } from 'react';
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
@@ -46,7 +52,7 @@ export interface PagedResponse<T> {
 /** サーバー共通の上限（`shared/services/pagination.ts` の `Math.min(100, …)`）に合わせたページサイズ */
 const PAGE_SIZE = 100;
 
-export function useDashboardData(period: Period, projectId: string) {
+export function useDashboardData(period: Period, projectId: string, entityCode: string) {
   const periodParams = useMemo(() => summaryPeriodParams(period), [period]);
   const ledgerPeriodParams = useMemo(() => ledgerPeriodParamsOf(period), [period]);
   /** 期間が決まっているか。**壊れた日付で読みに行かないための唯一のゲート** */
@@ -98,10 +104,11 @@ export function useDashboardData(period: Period, projectId: string) {
   }, [projectsData, activeProjectsData]);
 
   const summaryQuery = useQuery({
-    queryKey: ['budget-monthly-summary', period.from, period.to, period.all, projectId],
+    queryKey: ['budget-monthly-summary', period.from, period.to, period.all, projectId, entityCode],
     queryFn: async ({ signal }) => {
       const params: Record<string, string> = { ...periodParams };
       if (projectId) params.project_id = projectId;
+      if (entityCode) params.entity_code = entityCode;
       return (await api.get('/monthly-summary', { params, timeout: 20_000, signal })).data;
     },
     enabled: periodReady,
@@ -109,13 +116,14 @@ export function useDashboardData(period: Period, projectId: string) {
   });
 
   const revenues = useInfiniteQuery({
-    queryKey: ['budget-breakdown-revenues', period.from, period.to, period.all, projectId],
+    queryKey: ['budget-breakdown-revenues', period.from, period.to, period.all, projectId, entityCode],
     queryFn: async ({ pageParam, signal }) => {
       // 合計 (monthly-summary) は確定売上だけを数えているので内訳も confirmed に揃える
       const params: Record<string, string | number> = {
         ...ledgerPeriodParams, limit: PAGE_SIZE, page: pageParam, status: 'confirmed',
       };
       if (projectId) params.project_id = projectId;
+      if (entityCode) params.entity_code = entityCode;
       return (await api.get('/revenues', { params, signal })).data as PagedResponse<any>; // 行の形は revItems 側で個別に絞る
     },
     initialPageParam: 1,
@@ -129,12 +137,13 @@ export function useDashboardData(period: Period, projectId: string) {
   // 仕入(変動原価): 固定原価Pjを除く。固定原価は gls_number=NULL で既定ソートの末尾に来るため、
   // 同じクエリだと limit 内に入らず消える（旧実装のコメントのまま）
   const purchases = useInfiniteQuery({
-    queryKey: ['budget-breakdown-purchases', period.from, period.to, period.all, projectId],
+    queryKey: ['budget-breakdown-purchases', period.from, period.to, period.all, projectId, entityCode],
     queryFn: async ({ pageParam, signal }) => {
       const params: Record<string, string | number> = {
         ...ledgerPeriodParams, limit: PAGE_SIZE, page: pageParam, fixed_cost: '0',
       };
       if (projectId) params.project_id = projectId;
+      if (entityCode) params.entity_code = entityCode;
       return (await api.get('/purchases', { params, signal })).data as PagedResponse<PurchaseRow>;
     },
     initialPageParam: 1,
@@ -148,9 +157,9 @@ export function useDashboardData(period: Period, projectId: string) {
   // 固定原価は案件に紐づかない。案件で絞り込み中は「限界利益まで」しか出さないので取りに行かない。
   // 償却負担額など全社共通の少数の行しか無い想定のため、こちらは単発取得のまま（「もっと見る」を持たない）
   const fixed = useQuery({
-    queryKey: ['budget-breakdown-fixed', period.from, period.to, period.all],
+    queryKey: ['budget-breakdown-fixed', period.from, period.to, period.all, entityCode],
     queryFn: async ({ signal }) => (await api.get('/purchases', {
-      params: { ...ledgerPeriodParams, limit: PAGE_SIZE, fixed_cost: '1' },
+      params: { ...ledgerPeriodParams, limit: PAGE_SIZE, fixed_cost: '1', ...(entityCode ? { entity_code: entityCode } : {}) },
       signal,
     })).data as PagedResponse<PurchaseRow>,
     enabled: periodReady && !projectId,
@@ -161,9 +170,9 @@ export function useDashboardData(period: Period, projectId: string) {
 
   // 販管費は案件に紐づかないので、案件で絞っているときは取りに行かない
   const sga = useInfiniteQuery({
-    queryKey: ['budget-breakdown-sga', period.from, period.to, period.all],
+    queryKey: ['budget-breakdown-sga', period.from, period.to, period.all, entityCode],
     queryFn: async ({ pageParam, signal }) => (await api.get('/sga', {
-      params: { ...ledgerPeriodParams, limit: PAGE_SIZE, page: pageParam },
+      params: { ...ledgerPeriodParams, limit: PAGE_SIZE, page: pageParam, ...(entityCode ? { entity_code: entityCode } : {}) },
       signal,
     })).data as PagedResponse<any>,
     initialPageParam: 1,

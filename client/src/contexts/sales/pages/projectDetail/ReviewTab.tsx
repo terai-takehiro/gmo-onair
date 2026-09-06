@@ -306,6 +306,7 @@ export function ReviewTab({ project }: { project: ProjectDetail }) {
         </section>
 
         <ReviewSide
+          projectId={project.id}
           expectedAmount={project.expected_amount}
           quoted={quoted}
           sentVersion={sent ? sent.version : null}

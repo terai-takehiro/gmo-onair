@@ -68,8 +68,11 @@ router.post('/projects/resolve', requirePermission('qsheet', 'editor'), wrap(asy
   let ownerName: string;
   if (ownerType === 'project') {
     const row = await queryOne(
-      `SELECT id, name FROM projects WHERE (id = ? OR gls_number = ?) AND deleted_at IS NULL`,
-      [key, key]
+      `SELECT id, name FROM projects
+        WHERE deleted_at IS NULL
+          AND (id = ? OR gls_number = ?
+               OR id = (SELECT project_id FROM project_numbers WHERE number = ?))`,
+      [key, key, key]
     );
     if (!row) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
     canonicalId = row.id as string;

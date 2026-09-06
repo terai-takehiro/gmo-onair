@@ -77,6 +77,7 @@ import {
   buildRevenueItems, buildPurchaseItems, buildSgaItems, type RevenueBreakdownRow,
 } from './financeDashboard/breakdownItems';
 import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth';
+import { useEntityFilter, EntityTabs } from './shared/entityFilter';
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
@@ -102,6 +103,7 @@ export default function BudgetDashboardPage() {
   // 案件の絞り込み（URL の `?project_id=` が正）は `financeDashboard/useProjectFilter.ts`。
   // この画面で案件を絞る道はプルダウン1本（内訳の行のうち売上だけ台帳へ移動する）
   const { projectId, selectProject } = useProjectFilter(mode, setMode);
+  const { entity, setEntity, options: entityOptions } = useEntityFilter(); // `?entity=` が正。省略=全社合算
 
   // 仕入・販管費の行を押したときに、この画面のまま開く閲覧専用モーダル
   // （台帳へは遷移しない・ファイル冒頭コメント参照）
@@ -116,7 +118,7 @@ export default function BudgetDashboardPage() {
     [mode, month, year, quarter, rangeFrom, rangeTo],
   );
   const { projects, summaryQuery, revenues, purchases, fixed, sga, periodReady } =
-    useDashboardData(period, projectId);
+    useDashboardData(period, projectId, entity);
   const s: MonthlySummary = (summaryQuery.data?.data as MonthlySummary) ?? EMPTY_SUMMARY;
 
   // 読み込み済みページを1本の配列に展開。**件数の badge には使わない**（読み込み済み分でしかない）
@@ -241,6 +243,7 @@ export default function BudgetDashboardPage() {
           : '期間を選んでください'}
       />
 
+      <EntityTabs entity={entity} setEntity={setEntity} options={entityOptions} />
       <PeriodBar
         mode={mode} setMode={setMode}
         month={month} setMonth={setMonth}
@@ -267,7 +270,7 @@ export default function BudgetDashboardPage() {
         * 営業見通しは期間の絞り込みと無関係（ファイル冒頭コメント参照）
         * なので、`periodReady` を待たずに常に出す。案件の絞り込みだけ引き継ぐ。
         */}
-      <PipelineForecast projectId={projectId} forecastMode={forecastMode} />
+      <PipelineForecast projectId={projectId} forecastMode={forecastMode} entityCode={entity} />
 
       {/*
         * 期間が入っていないときは読み込みに行かない。**何を待っているのか書かないと固まって見える**。

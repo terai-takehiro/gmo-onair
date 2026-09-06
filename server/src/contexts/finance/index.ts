@@ -7,10 +7,16 @@ import vendorsRoutes from './routes/vendors.routes';
 import partnersRoutes from './routes/partners.routes';
 import xpointRoutes from './routes/xpoint.routes';
 import moneyRulesRoutes from './routes/money-rules.routes';
+import intercompanyRoutes from './routes/intercompany.routes';
 import { createFinanceExcelRouter } from './routes/excel.routes';
 import { getMonthlySummary } from './services/monthly-summary.service';
 import { getPipelineForecast } from './services/pipeline-forecast.service';
 import { requireAuth, requirePermission } from '../../shared/middleware/auth';
+import { AppError } from '../../shared/middleware/errorHandler';
+// 2026年10月の事業再編（P2 Round 1）: 会社（entity_code）で絞れるようにした。
+// **省略時は絞らない＝今までどおり全社合算**（ダッシュボードは加算できる指標なので、
+// お金のルール・月次予算と違って「省略＝今の1社」ではなく「省略＝全社」に倒す）
+import { getLegalEntity } from '../platform/services/legal-entity.service';
 
 export function createFinanceRoutes(): Router {
   const router = Router();
@@ -18,6 +24,10 @@ export function createFinanceRoutes(): Router {
   // 月次損益サマリー (optional project_id 指定で案件別集計)。
   // 集計ロジックは monthly-summary.service.ts に集約 (MCP サーバーと共用)。
   router.get('/monthly-summary', requireAuth, requirePermission('sales'), async (req, res) => {
+    const entityCode = req.query.entity_code as string | undefined;
+    if (entityCode && !(await getLegalEntity(entityCode))) {
+      throw new AppError(400, 'VALIDATION_ERROR', '不正な計上会社です');
+    }
     const data = await getMonthlySummary({
       month: req.query.month as string | undefined,
       from: req.query.from as string | undefined,
@@ -25,6 +35,7 @@ export function createFinanceRoutes(): Router {
       projectId: req.query.project_id as string | undefined,
       // 期間を絞らない集計。画面の「全期間」ボタンだけが `all=1` を付ける
       allPeriods: req.query.all === '1' || req.query.all === 'true',
+      entityCode,
     });
     res.json({ success: true, data });
   });
@@ -35,7 +46,13 @@ export function createFinanceRoutes(): Router {
    * （`getMonthlySummary` の「確定売上だけ」とは別軸——詳しくはそちらのコメント参照）。
    */
   router.get('/pipeline-forecast', requireAuth, requirePermission('sales'), async (req, res) => {
-    const data = await getPipelineForecast(req.query.project_id as string | undefined);
+    // 2026年10月の事業再編（P2 Round 1）: 会社（entity_code）で絞れるようにした。
+    // **省略時は絞らない＝今までどおり全社合算**（`/monthly-summary` と同じ判断）
+    const entityCode = req.query.entity_code as string | undefined;
+    if (entityCode && !(await getLegalEntity(entityCode))) {
+      throw new AppError(400, 'VALIDATION_ERROR', '不正な計上会社です');
+    }
+    const data = await getPipelineForecast(req.query.project_id as string | undefined, entityCode);
     res.json({ success: true, data });
   });
 
@@ -95,6 +112,7 @@ export function createFinanceRoutes(): Router {
   router.use('/partners', partnersRoutes);
   router.use('/xpoint', xpointRoutes);
   router.use('/money-rules', moneyRulesRoutes);
+  router.use('/intercompany', intercompanyRoutes);
   router.use(createFinanceExcelRouter()); // /revenues/excel/*, /purchases/excel/*, /sga-expenses/excel/*
 
   return router;

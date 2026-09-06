@@ -23,6 +23,13 @@
  *
  * サブの組み立て（依頼元・区分・PM会社・自社担当）・タブ定義・段階の考え方は
  * **言葉づかいを変えていない**（このPRの対象外。文面はそのまま移しただけ）。
+ *
+ * ── コストセンター（GMO）だけ「請求」→「予算と実績」（2026年10月の事業再編・P3）──
+ *
+ * `isCostCenter` を受け取り、タブの表示ラベルだけを差し替える（`key` は
+ * 変えない——変えると「請求」で開いていたブックマーク・共有 URL が壊れる）。
+ * スマホのタブ構成も `effectiveMobileTabs()`（`tabs.ts`）に `isCostCenter` を渡し、
+ * レスポンシブに作った `BudgetTab` だけ全段階のスマホ帯に含める。
  */
 import { useCallback, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -61,7 +68,7 @@ function projectSub(project: GpmProjectDetail): string {
 }
 
 export function DetailHeader({
-  project, tab, counts, canEdit, onChangeStage, onEdit, mobile, phase,
+  project, tab, counts, canEdit, onChangeStage, onEdit, mobile, phase, isCostCenter = false,
 }: {
   project: GpmProjectDetail;
   tab: DetailTabKey;
@@ -73,9 +80,14 @@ export function DetailHeader({
   mobile?: boolean;
   /** プロジェクトの段階。**スマホのタブの組**を決める（PC は7タブのまま変えない） */
   phase: DetailPhase;
+  /**
+   * コストセンター（GMO）の案件か（`isCostCenterProject()`・2026年10月の事業再編・P3）。
+   * **`billing` の表示ラベルだけを差し替える**——`key` は変えない（同上の理由）。
+   */
+  isCostCenter?: boolean;
 }) {
   const navigate = useNavigate();
-  const mobileKeys = effectiveMobileTabs(phase, counts.asks ?? 0);
+  const mobileKeys = effectiveMobileTabs(phase, counts.asks ?? 0, isCostCenter);
   const tabs = DETAIL_TABS.filter((t) => !mobile || mobileKeys.includes(t.key));
 
   /**
@@ -244,7 +256,9 @@ export function DetailHeader({
               )}
             >
               <t.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span className="truncate">{t.label}</span>
+              {/* コストセンター（GMO）の案件だけ「請求」→「予算と実績」に出し分ける
+                  （`key` は変えない。`tabs.ts` の `DETAIL_TABS` のコメント参照） */}
+              <span className="truncate">{t.key === 'billing' && isCostCenter ? '予算と実績' : t.label}</span>
               {n !== undefined && n > 0 && (
                 <span className="text-badge font-number inline-flex h-[19px] min-w-[19px] shrink-0 items-center justify-center rounded-chip bg-muted px-1.5 text-muted-foreground">
                   {n}

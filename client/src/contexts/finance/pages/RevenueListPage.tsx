@@ -42,6 +42,7 @@ import { useLedgerUrlPeriod } from './ledger/useLedgerUrlPeriod';
 import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth';
 import { RevenueDialog } from './ledger/RevenueDialog';
 import type { LedgerRow, RevenueRow } from './ledger/types';
+import { useEntityFilter, entityFilterGroup } from './shared/entityFilter';
 
 /**
  * 絞り込み。モックの並びのまま。
@@ -93,6 +94,8 @@ export default function RevenueListPage() {
    */
   const period = useLedgerUrlPeriod(searchParams);
   const { month, range, setMonth } = period;
+  // 会社（計上会社）の絞り込み（URL の `?entity=` が正）。省略時は全社合算のまま（`shared/entityFilter.tsx`）
+  const { entity, setEntity, options: entityOptions } = useEntityFilter();
 
   /** 開いているダイアログ。`'new'` は新規、行なら編集 */
   const [editing, setEditing] = useState<RevenueRow | 'new' | null>(null);
@@ -100,8 +103,9 @@ export default function RevenueListPage() {
   const cur = CHIPS.find((c) => c.key === chip) ?? CHIPS[0];
 
   const query = useQuery<RevenueListResponse>({
-    queryKey: ['revenues-all', page, appliedSearch, filterProjectId, month, cur.status, cur.state, range?.from ?? '', range?.to ?? ''],
+    queryKey: ['revenues-all', page, appliedSearch, filterProjectId, month, cur.status, cur.state, range?.from ?? '', range?.to ?? '', entity],
     // ⚠️ `signal` を渡す（渡さないと、絞り込みを変えても前の重い通信が走り続ける）
+    // `entity_code` は `GET /revenues` の `buildRevenueWhere` が絞り込む（P2 Round 1・並行実装済み）
     queryFn: async ({ signal }) => {
       const params: Record<string, string | number> = { page, limit: 20, status: cur.status };
       if (appliedSearch) params.search = appliedSearch;
@@ -111,6 +115,7 @@ export default function RevenueListPage() {
       // （サーバーは AND で合成するので、両方送ると交差して0件になる）
       if (range) { params.recognition_from = range.from; params.recognition_to = range.to; }
       if (cur.state) params.state = cur.state;
+      if (entity) params.entity_code = entity;
       return (await api.get('/revenues', { params, signal })).data;
     },
     // 打鍵のたびに一覧が骨組みへ戻らないように、前の内容を残す
@@ -137,6 +142,8 @@ export default function RevenueListPage() {
       secondaryBadge: r.inspection_date
         ? { label: '検収済', tone: 'ok', title: `${r.inspection_date} に検収` }
         : null,
+      // 2社間の社内取引（GJV⇄GSS・2026年10月の事業再編 P2 Round 2）。サーバーは対応済み
+      is_intercompany: r.is_intercompany,
       // スマホの詳細シートに出す項目（PC は読まない）。**`useMemo` の外に出さない** —
       // 出すと20行ぶんを毎レンダリング作り直すことになる（`types.ts` の `detail`）
       detail: revenueDetailFields(r),
@@ -161,6 +168,7 @@ export default function RevenueListPage() {
       status: cur.status,
       state: cur.state || undefined,
       project_id: filterProjectId || undefined,
+      entity_code: entity || undefined,
     },
   });
 
@@ -201,6 +209,7 @@ export default function RevenueListPage() {
                 recognition_to: range?.to,
                 status: cur.status,
                 state: cur.state || undefined,
+                entity_code: entity || undefined,
               }}
             />
           </div>
@@ -233,7 +242,7 @@ export default function RevenueListPage() {
         month={month}
         onMonth={(v) => { setMonth(v); reset(); }}
         period={period}
-        onClearAll={() => { setChip('confirmed'); setMonth(''); period.clearPeriod(); reset(); }}
+        onClearAll={() => { setChip('confirmed'); setMonth(''); setEntity(''); period.clearPeriod(); reset(); }}
         groups={[{
           key: 'state',
           label: '売上の状態で絞り込む',
@@ -242,7 +251,7 @@ export default function RevenueListPage() {
           value: chip,
           defaultValue: 'confirmed',
           onChange: (k) => { setChip(k); reset(); },
-        }]}
+        }, entityFilterGroup({ entity, setEntity, options: entityOptions })]}
       />
 
       {query.isError ? (
@@ -258,8 +267,9 @@ export default function RevenueListPage() {
               month ? `計上月: ${month}` : '',
               // 期間で絞り込んで来たときも「なぜ0件か」が読めるようにする
               range ? `期間: ${range.label || range.from}` : '',
+              entity ? `会社: ${entityOptions.find((o) => o.key === entity)?.label ?? entity}` : '',
             ].filter(Boolean)}
-            onClearFilters={() => { setSearch(''); setChip('all'); setMonth(''); reset(); }}
+            onClearFilters={() => { setSearch(''); setChip('all'); setMonth(''); setEntity(''); reset(); }}
           />
         ) : (
           <EmptyState

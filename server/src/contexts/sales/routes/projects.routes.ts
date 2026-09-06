@@ -22,6 +22,9 @@ import {
 } from '../services/project-box-files.service';
 import { createPhotoAccess } from '../services/project-photo-access.service';
 import { countJunkProjects, purgeJunkProjects } from '../services/project-purge.service';
+// 2026年10月の事業再編（docs/reorg-2026-10-plan.md §4.4・§4.8）: 改番（GJV/GSS/GMO の番号系列への付け替え）
+import { previewRenumber, renumberProject } from '../services/entity-resolution.service';
+import { getLegalEntity, type LegalEntityCode } from '../../platform/services/legal-entity.service';
 
 const router = Router();
 
@@ -172,6 +175,12 @@ router.get('/:id/summary', async (req, res) => {
   res.json({ success: true, data: await projectService.getSummary(req.params.id as string) });
 });
 
+// サマリーの会社別内訳（2026年10月の事業再編・粗利の2通り表示・P2 Round 1・§4.12）。
+// 全体の値（上の /summary）は変えず、別入口として内訳の配列を返す。
+router.get('/:id/summary-by-entity', async (req, res) => {
+  res.json({ success: true, data: await projectService.getSummaryByEntity(req.params.id as string) });
+});
+
 // 新規作成（ヨミ段階）
 router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
   const result = await projectService.create(req.body, req.user!.id);
@@ -226,6 +235,49 @@ router.patch('/:id/gls-category', requirePermission('sales', 'manager'), async (
   const { gls_category } = req.body || {};
   const result = await projectService.changeGlsCategory(req.params.id as string, gls_category, req.user!.id);
   res.json({ success: true, data: result });
+});
+
+/**
+ * 改番の確認ダイアログ用の新旧番号（**採らない**）— 2026年10月の事業再編
+ * （docs/reorg-2026-10-plan.md §4.4・§4.8）。発番済みの案件を、別の計上会社
+ * (GJV/GSS/GMO) の番号系列へ改番したらどうなるかを見るだけ。
+ *
+ * `next-gls`（§206〜）と同じ注意点を持つ — 先に別の人が改番すると1つ後ろになる。
+ */
+router.get('/:id/renumber-preview', requirePermission('sales', 'manager'), async (req, res) => {
+  const targetEntityCode = req.query.target_entity_code as string | undefined;
+  if (!targetEntityCode || !(await getLegalEntity(targetEntityCode))) {
+    throw new AppError(400, 'VALIDATION_ERROR', '不正な計上会社です');
+  }
+  const result = await previewRenumber(req.params.id as string, targetEntityCode as LegalEntityCode);
+  res.json({ success: true, data: { old_number: result.oldNumber, new_number: result.newNumber } });
+});
+
+/**
+ * 改番の実行 — 発番済みの案件を、別の計上会社の番号へ改番する（§4.8）。
+ * **上書きは `sales:manager` のみ**（design doc §4.4 の「上書きは sales:manager」）。
+ * 追随するもの: 回コード・Qシートの写し・BOX フォルダ名・未請求の請求キー。
+ * 旧番号は `project_numbers` に履歴として残る（消えない・引き続き解決できる）。
+ */
+router.post('/:id/renumber', requirePermission('sales', 'manager'), async (req, res) => {
+  const { target_entity_code, reason } = req.body || {};
+  if (!target_entity_code || !(await getLegalEntity(target_entity_code))) {
+    throw new AppError(400, 'VALIDATION_ERROR', '不正な計上会社です');
+  }
+  const result = await renumberProject(
+    req.params.id as string, target_entity_code as LegalEntityCode, reason, req.user!.id,
+  );
+  res.json({
+    success: true,
+    data: {
+      project_id: result.projectId,
+      old_number: result.oldNumber,
+      new_number: result.newNumber,
+      entity_code: result.entityCode,
+      box_renamed: result.boxRenamed,
+      box_reason: result.boxReason,
+    },
+  });
 });
 
 /**

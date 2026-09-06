@@ -10,6 +10,23 @@ import {
   buildSgaWhere, buildSgaOrder,
 } from '../list-query';
 import { normalizeTaxCategory } from '../../../shared/services/tax-category.service';
+import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
+
+/*
+ * 2026年10月の事業再編（P2 Round 1・docs/reorg-2026-10-plan.md §4.5・§4.6）:
+ * 一覧・MCP と同じく `?entity_code=` で会社を絞れる——ただし**このファイルには
+ * 変更が要らない**。`createExcelResourceRouter`（`shared/utils/excel-resource.ts`）の
+ * `/export-xlsx` は `buildExportQuery(req.query)` を呼び、下の `buildExportQuery` は
+ * その `q` をそのまま `buildRevenueWhere`/`buildPurchaseWhere`/`buildSgaWhere` へ渡す。
+ * それらが `q.entity_code` を読むようになった（`list-query.ts`）ので、**この口は
+ * 何も書き換えずに絞り込みを受け取れる**（省略時は今までどおり全社ぶん）。
+ *
+ * ⚠️ **`getLegalEntity` による 400 検証はここには足していない**（一覧・MCP と
+ * 違う点）。`createExcelResourceRouter` は customers/equipment 等も使う汎用ルーターで、
+ * entity_code を知らないため検証フックを持たせにくく、知らない/不正な値は
+ * パラメータ化された `= ?` 比較が単に 0 件を返すだけ（SQL 注入や誤集計の心配は無い）。
+ * 効果が薄い割に汎用ルーターを汚すので見送った（P2 Round 1 の判断）。
+ */
 
 // 日本語・％表記の別名だけを持つ。CHECK 制約の正準値 (nontax 含む) が漏れると
 // エクスポート→取込の往復で tax10 に化けるため、fallback は normalizeTaxCategory に委ねる
@@ -169,11 +186,11 @@ const REVENUES_CONFIG: ResourceConfig = {
   },
   insert: async (client, d, userId) => {
     await client.query(
-      `INSERT INTO revenues (id, billing_key, project_id, episode_id, customer_id, assigned_to,
+      `INSERT INTO revenues (id, billing_key, project_id, entity_code, episode_id, customer_id, assigned_to,
                              amount, tax_category, recognition_date, billing_date, payment_due_date,
                              notes, created_by, updated_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
-      [newId(), d.billing_key, d.project_id, d.episode_id, d.customer_id, d.assigned_to,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+      [newId(), d.billing_key, d.project_id, CURRENT_ENTITY_CODE, d.episode_id, d.customer_id, d.assigned_to,
        d.amount, d.tax_category, d.recognition_date, d.billing_date, d.payment_due_date,
        d.notes, userId, userId],
     );
@@ -347,12 +364,12 @@ const PURCHASES_CONFIG: ResourceConfig = {
   },
   insert: async (client, d, userId) => {
     await client.query(
-      `INSERT INTO purchases (id, billing_key, project_id, episode_id, vendor_id, assigned_to,
+      `INSERT INTO purchases (id, billing_key, project_id, entity_code, episode_id, vendor_id, assigned_to,
                               settlement_method, settlement_number, settlement_url, amount, tax_category, description,
                               recognition_date, inspection_date, payment_due_date, service_completed_date,
                               notes, created_by, updated_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
-      [newId(), d.billing_key, d.project_id, d.episode_id, d.vendor_id, d.assigned_to,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+      [newId(), d.billing_key, d.project_id, CURRENT_ENTITY_CODE, d.episode_id, d.vendor_id, d.assigned_to,
        d.settlement_method, d.settlement_number, d.settlement_url, d.amount, d.tax_category, d.description,
        d.recognition_date, d.inspection_date, d.payment_due_date, d.service_completed_date,
        d.notes, userId, userId],
@@ -474,12 +491,12 @@ const SGA_CONFIG: ResourceConfig = {
   },
   insert: async (client, d, userId) => {
     await client.query(
-      `INSERT INTO sga_expenses (id, billing_key, vendor_name, description, amount,
+      `INSERT INTO sga_expenses (id, entity_code, billing_key, vendor_name, description, amount,
                                  tax_category, expense_type, recognition_date, payment_due_date,
                                  amortize_start, amortize_end, settlement_method, settlement_number, settlement_url, assigned_to,
                                  notes, source, created_by, updated_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
-      [newId(), d.billing_key, d.vendor_name, d.description, d.amount,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+      [newId(), CURRENT_ENTITY_CODE, d.billing_key, d.vendor_name, d.description, d.amount,
        d.tax_category, d.expense_type, d.recognition_date, d.payment_due_date,
        d.amortize_start, d.amortize_end, d.settlement_method, d.settlement_number, d.settlement_url, d.assigned_to,
        d.notes, 'staff', userId, userId],

@@ -22,6 +22,7 @@ import { getBoxClient } from '../../../shared/services/box';
 import { normalizeTaxCategory } from '../../../shared/services/tax-category.service';
 import { looksLikeGmoGroup } from '../../../shared/services/gmo-group';
 import { createCustomerRecord, createVendorRecord, execFromPgClient } from '../../../shared/services/company-directory.service';
+import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 
 export const DEFAULT_GL_FILE_ID = '2285559397453'; // 総勘定元帳_20260507_1652.csv
 const FIXED_CODE = 'FIXED-COGS';
@@ -101,8 +102,9 @@ const acct = (s: unknown): { code: number; name: string } => {
 };
 const firstNonEmpty = (...xs: unknown[]): string => xs.map((x) => String(x ?? '').trim()).find((x) => x.length > 0) || '';
 const stripCode = (s: unknown): string => String(s ?? '').trim().replace(/^\d+\s+/, '').trim();
-// GLS 番号トークン: 新形式 GLS-A004 / GLS-B005 と 旧形式 GLS137 / GLS149,150 の両対応
-const GLS_TOKEN_RE = /GLS-[A-Z]\d+|GLS\d+(?:,\d+)*/g;
+// 案件番号トークン: 新形式 GLS-A004 / GLS-B005・2026-10改番後の GJV-0001 / GSS-0001 / GMO-0001 と
+// 旧形式 GLS137 / GLS149,150 の全対応（抽出後の照合は `project_numbers` 経由で旧番号でも引ける。§4.10）
+const GLS_TOKEN_RE = /GLS-[A-Z]\d+|GLS\d+(?:,\d+)*|(?:GJV|GSS|GMO)-\d+(?:,\d+)*/g;
 function parseGls(memo: unknown): string[] {
   const out: string[] = [];
   const re = new RegExp(GLS_TOKEN_RE.source, 'g');
@@ -110,18 +112,22 @@ function parseGls(memo: unknown): string[] {
   while ((m = re.exec(String(memo ?? '')))) {
     const tok = m[0];
     if (tok.includes(',')) {
-      // 旧コンマ列挙 (GLS149,150,151) → GLS149 / GLS150 / GLS151
-      for (const n of tok.slice(3).split(',')) out.push('GLS' + n.trim());
+      // コンマ列挙 (GLS149,150,151 → GLS149/GLS150/GLS151・GJV-0001,0002 → GJV-0001/GJV-0002) を
+      // 展開する。prefix は先頭が新形式 (GJV-/GSS-/GMO-、ダッシュ込み) か旧形式 (GLS、ダッシュ無し) かで
+      // 長さが違うため固定の3文字決め打ちにはできない
+      const prefixMatch = tok.match(/^(GJV-|GSS-|GMO-|GLS)/);
+      const prefix = prefixMatch ? prefixMatch[1] : 'GLS';
+      for (const n of tok.slice(prefix.length).split(',')) out.push(prefix + n.trim());
     } else {
-      out.push(tok); // GLS-A004 / GLS137
+      out.push(tok); // GLS-A004 / GLS137 / GJV-0001
     }
   }
   return [...new Set(out)];
 }
 function stripGlsName(memo: unknown): string {
   const nm = String(memo ?? '')
-    .replace(/(仕入|売上)?GLS-[A-Z]\d+/g, '')
-    .replace(/(仕入|売上)?GLS\d+(?:,\d+)*/g, '')
+    .replace(/(仕入|売上)?(?:GLS-[A-Z]\d+|(?:GJV|GSS|GMO)-\d+(?:,\d+)*)/g, '')
+    .replace(/(仕入|売上)?(?:GLS\d+(?:,\d+)*|(?:GJV|GSS|GMO)-\d+(?:,\d+)*)/g, '')
     .replace(/XP\d+/g, '')
     .replace(/^[\s/、,･・]+/, '')
     .replace(/[\s/、,･・]+$/, '')
@@ -236,7 +242,8 @@ const parseFlexDate = (s: unknown): string => {
 /** 摘要から案件 GLS 番号 (1件) を抽出: 「GLS137｢…｣」のように鍵括弧直前を優先、無ければ最初の GLS 番号。新旧両形式対応 */
 function parseGlsPrimary(memo: unknown): string | null {
   const s = String(memo ?? '');
-  const m = s.match(/GLS\d+(?=\s*[｢「])/); // 旧形式の鍵括弧直前を優先
+  // 鍵括弧直前を優先（旧形式 GLS137｢…｣ / 新形式 GJV-0001｢…｣ の両対応）
+  const m = s.match(/(?:GLS\d+|(?:GJV|GSS|GMO)-\d+)(?=\s*[｢「])/);
   if (m) return m[0];
   return parseGls(s)[0] ?? null;
 }
@@ -559,7 +566,15 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
     }
     async function findProjectByGls(gls: string) {
       if (cache.projects.has(gls)) return cache.projects.get(gls)!;
-      const r = await client.query('SELECT id, customer_id FROM projects WHERE gls_number=$1 AND deleted_at IS NULL LIMIT 1', [gls]);
+      // 改番済みの旧番号でも `project_numbers` 経由で引けるようにする（§4.10）。
+      // これをしないと改番後の案件が「未登録マスタ」として誤って報告される。
+      const r = await client.query(
+        `SELECT id, customer_id FROM projects
+          WHERE deleted_at IS NULL
+            AND (gls_number=$1 OR id = (SELECT project_id FROM project_numbers WHERE number=$1))
+          LIMIT 1`,
+        [gls],
+      );
       const v = r.rows[0] || null; cache.projects.set(gls, v); return v;
     }
 
@@ -696,8 +711,21 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       // ここで作成を試みる必要があるため early-return しない (ensureCustomer/ensureVendor と同じ挙動)。
       const cached = cache.projects.get(cacheKey);
       if (cached) return cached;
-      const col = isFixed ? 'code' : 'gls_number';
-      const r = await client.query(`SELECT id, customer_id FROM projects WHERE ${col}=$1 AND deleted_at IS NULL LIMIT 1`, [key]);
+      // 固定原価の疑似案件は code で引く（GLS/案件番号の概念を持たない）。
+      // それ以外は gls_number に加え、改番済みの旧番号も `project_numbers` 経由で引く
+      // （でないと同じ案件が新番号側で二重に作られてしまう。§4.10）
+      const r = isFixed
+        ? await client.query(
+            `SELECT id, customer_id FROM projects WHERE code=$1 AND deleted_at IS NULL LIMIT 1`,
+            [key],
+          )
+        : await client.query(
+            `SELECT id, customer_id FROM projects
+              WHERE deleted_at IS NULL
+                AND (gls_number=$1 OR id = (SELECT project_id FROM project_numbers WHERE number=$1))
+              LIMIT 1`,
+            [key],
+          );
       let p = r.rows[0] || null;
       if (!p) {
         if (!createMasters) { cache.projects.set(cacheKey, null); return null; }
@@ -711,9 +739,9 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
           // 以前は `notes` の先頭に `[kessan:2026-03]` と書いていたが、
           // メモをやり取りへ畳んだので `notes` の列そのものが無い。
           // 列に持つと、人が書いたメモと印を取り違えなくなる
-          `INSERT INTO projects (id, code, gls_number, name, customer_id, stage, assigned_to, kessan_marker, created_by)
-           VALUES ($1,$2,$3,$4,$5,'a_won',$6,$7,$8)`,
-          [id, key, isFixed ? null : key, name || key, cid, fallbackUser, period, fallbackUser]
+          `INSERT INTO projects (id, code, entity_code, gls_number, name, customer_id, stage, assigned_to, kessan_marker, created_by)
+           VALUES ($1,$2,$3,$4,$5,$6,'a_won',$7,$8,$9)`,
+          [id, key, CURRENT_ENTITY_CODE, isFixed ? null : key, name || key, cid, fallbackUser, period, fallbackUser]
         );
         p = { id, customer_id: cid };
         report.masters.created.projects++;
@@ -728,10 +756,10 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
         for (const x of sga) {
           if (skipDuplicates && existSga) { const k = `${x.amount}|${x.vendor_name}|${ym(x.date)}`; if ((existSga.get(k) || 0) > 0) { existSga.set(k, existSga.get(k)! - 1); counts.dupSkipped++; continue; } }
           await client.query(
-            `INSERT INTO sga_expenses (id, billing_key, vendor_name, description, amount, tax_category,
+            `INSERT INTO sga_expenses (id, entity_code, billing_key, vendor_name, description, amount, tax_category,
                invoice_qualified, expense_type, source, recognition_date, notes, created_by)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,'spot','accounting',$8,$9,$10)`,
-            [randomUUID(), `KESSAN-${period}-${x.no}`, x.vendor_name, x.description, x.amount, x.tax_category, x.invoice_qualified, x.date, `${MARKER} ${x.no}`, fallbackUser]
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'spot','accounting',$9,$10,$11)`,
+            [randomUUID(), CURRENT_ENTITY_CODE, `KESSAN-${period}-${x.no}`, x.vendor_name, x.description, x.amount, x.tax_category, x.invoice_qualified, x.date, `${MARKER} ${x.no}`, fallbackUser]
           );
           counts.sga++;
         }
@@ -746,9 +774,9 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
           const proj = await ensureProject(x.gls, x.project_name, customerId);
           if (!proj) { counts.skipped++; continue; }
           await client.query(
-            `INSERT INTO revenues (id, billing_key, project_id, customer_id, tax_category, amount, recognition_date, status, notes, created_by)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,'confirmed',$8,$9)`,
-            [randomUUID(), `KESSAN-${period}-REV-${x.no}`, proj.id, proj.customer_id || customerId, x.tax_category, x.amount, x.date, `${MARKER} ${x.no} ${x.memo}`.slice(0, 240), fallbackUser]
+            `INSERT INTO revenues (id, billing_key, project_id, entity_code, customer_id, tax_category, amount, recognition_date, status, notes, created_by)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'confirmed',$9,$10)`,
+            [randomUUID(), `KESSAN-${period}-REV-${x.no}`, proj.id, CURRENT_ENTITY_CODE, proj.customer_id || customerId, x.tax_category, x.amount, x.date, `${MARKER} ${x.no} ${x.memo}`.slice(0, 240), fallbackUser]
           );
           counts.rev++;
         }
@@ -762,9 +790,9 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
           const vendorId = await ensureVendor(x.vendor_name);
           if (!vendorId) { counts.skipped++; continue; }
           await client.query(
-            `INSERT INTO purchases (id, project_id, vendor_id, tax_category, invoice_qualified, amount, description, recognition_date, notes, created_by)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-            [randomUUID(), proj.id, vendorId, x.tax_category, x.invoice_qualified, x.amount, x.description, x.date, `${MARKER} ${x.no}${x.split > 1 ? ` (1/${x.split}按分)` : ''}`.slice(0, 240), fallbackUser]
+            `INSERT INTO purchases (id, project_id, entity_code, vendor_id, tax_category, invoice_qualified, amount, description, recognition_date, notes, created_by)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+            [randomUUID(), proj.id, CURRENT_ENTITY_CODE, vendorId, x.tax_category, x.invoice_qualified, x.amount, x.description, x.date, `${MARKER} ${x.no}${x.split > 1 ? ` (1/${x.split}按分)` : ''}`.slice(0, 240), fallbackUser]
           );
           counts.pur++;
         }
@@ -777,9 +805,9 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
               const vendorId = await ensureVendor(x.vendor_name);
               if (!vendorId) { counts.skipped++; continue; }
               await client.query(
-                `INSERT INTO purchases (id, project_id, vendor_id, tax_category, invoice_qualified, amount, description, recognition_date, notes, created_by)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-                [randomUUID(), fixedProj.id, vendorId, x.tax_category, x.invoice_qualified, x.amount, x.description, x.date, `${MARKER} ${x.no} [固定原価]`.slice(0, 240), fallbackUser]
+                `INSERT INTO purchases (id, project_id, entity_code, vendor_id, tax_category, invoice_qualified, amount, description, recognition_date, notes, created_by)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+                [randomUUID(), fixedProj.id, CURRENT_ENTITY_CODE, vendorId, x.tax_category, x.invoice_qualified, x.amount, x.description, x.date, `${MARKER} ${x.no} [固定原価]`.slice(0, 240), fallbackUser]
               );
               counts.pur++;
             }
