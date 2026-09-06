@@ -217,7 +217,7 @@ export default function DailyNewsPage() {
               onClearFilters={() => setChip('all')}
             />
           ) : (
-            <PullToRefresh onRefresh={monthData.refetch}>
+            <PullToRefresh onRefresh={monthData.refetch} disabled={!isMobile}>
               {!isMobile && <NewsRowsHeader canEdit={canEdit} />}
               {visibleDays.map((day) => (
                 <div key={day.period_key}>
@@ -225,7 +225,13 @@ export default function DailyNewsPage() {
                     day={day}
                     canEdit={canEdit}
                     onReview={() => onReview(day.report_id)}
-                    reviewing={review.isPending}
+                    /*
+                      `review` は月内の全日で1つの mutation を共有するので、
+                      `isPending` だけを見ると押していない日の「確認した」まで
+                      一緒に無効化される。押した対象（`variables`）と見出しの
+                      `report_id` が一致するときだけ無効化する。
+                    */
+                    reviewing={review.isPending && review.variables === day.report_id}
                   />
                   {isMobile ? (
                     <NewsCards items={day.items} canEdit={canEdit} />

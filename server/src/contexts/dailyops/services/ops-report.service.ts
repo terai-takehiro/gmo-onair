@@ -362,12 +362,21 @@ export const opsReportService = {
    */
   async getReportItemsByMonth(kind: string, month: string): Promise<Record<string, unknown>[]> {
     assertKind(kind);
-    if (!MONTH_RE.test(month)) {
+    if (!MONTH_RE.test(month) || Number(month.slice(5, 7)) < 1 || Number(month.slice(5, 7)) > 12) {
       throw new AppError(400, 'VALIDATION_ERROR', 'month は YYYY-MM 形式で指定してください');
     }
     const rows = await queryAll(
+      /*
+       * `i.*` ではなく列を明示する。`ops_report_items` 自身が `report_id`（`ops_reports`
+       * への FK）列を持つため、`i.*` を展開すると `r.id AS report_id` と名前が衝突し、
+       * 同じ結果セットに `report_id` が2つ並ぶ（値は結合条件により常に一致するので今は
+       * 実害が無いが、driver がフィールド名の重複をどちらの値で解決するかに依存する
+       * 危うい書き方になる — 結合条件が変わった日に気づきにくい形で壊れる）。
+       */
       `SELECT r.id AS report_id, r.period_key, r.status, r.reviewed_at, r.reviewed_by,
-              i.*,
+              i.id, i.category, i.content, i.note, i.url, i.ai_related, i.pick,
+              i.recorded_by, i.source, i.sort_order, i.source_item_id,
+              i.created_at, i.updated_at,
               EXISTS (SELECT 1 FROM ops_report_items w
                        WHERE w.source_item_id = i.id AND w.deleted_at IS NULL) AS sent_to_weekly
          FROM ops_reports r
@@ -403,9 +412,13 @@ export const opsReportService = {
           items: [] as Record<string, unknown>[],
         });
       }
-      const { report_id: _reportId, period_key: _periodKey, status: _status, reviewed_at: _reviewedAt, reviewed_by: _reviewedBy, ...item } = row;
+      const { report_id: reportId, period_key: _periodKey, status: _status, reviewed_at: _reviewedAt, reviewed_by: _reviewedBy, ...item } = row;
       (days.get(periodKey)!.items as Record<string, unknown>[]).push({
         ...item,
+        // クライアントの `OpsReportItem` は `report_id` を持つ (どのレポートの行か)。
+        // SQL 側は `i.report_id` を選ばず（`r.id AS report_id` と列名が衝突するため）
+        // 結合元の `row.report_id`（＝この行の日の `report_id`）をそのまま使う。
+        report_id: reportId,
         weekly_locked: lockedWeeks.has(normalizeWeekStart(periodKey)),
       });
     }

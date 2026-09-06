@@ -276,24 +276,12 @@ export function toDateStr(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-/**
- * その日が属する**週の月曜**。週報の `period_key` はこの形（サーバーの
- * `normalizeWeekStart` と同じ決め方）。ニュースの画面が「送り先の週報」を
- * 引くのに使う。
+/*
+ * ⚠️ ここに `weekStartOf` / `addDays`（日付ナビ用）があったが、デイリーニュース報告を
+ * 月表示に作り替えたレビューで「呼び手が0件」と判明したため削除した（v4.5.26）。
+ * 週の月曜への丸めはサーバー側 `normalizeWeekStart`（`ops-report.service.ts`）が
+ * 正で、画面側は `weekly_locked` を受け取るだけになった。
  */
-export function weekStartOf(dateStr: string): string {
-  const d = new Date(`${dateStr}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return dateStr;
-  const dow = d.getDay(); // 0=日, 1=月, …
-  d.setDate(d.getDate() + (dow === 0 ? -6 : 1 - dow));
-  return toDateStr(d);
-}
-
-export function addDays(dateStr: string, days: number): string {
-  const d = new Date(`${dateStr}T00:00:00`);
-  d.setDate(d.getDate() + days);
-  return toDateStr(d);
-}
 
 export function toMonthStr(d: Date): string {
   const y = d.getFullYear();

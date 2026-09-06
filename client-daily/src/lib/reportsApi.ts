@@ -23,16 +23,6 @@ export function useReport(id?: string) {
   });
 }
 
-export function useReportByPeriod(kind: OpsReportKind, periodKey: string) {
-  return useQuery({
-    queryKey: ['ops-report-period', kind, periodKey],
-    queryFn: () =>
-      api.get('/dailyops/reports/by-period', { params: { kind, period_key: periodKey } })
-        .then((r) => r.data.data as OpsReport | null),
-    refetchOnMount: 'always',
-  });
-}
-
 /**
  * 月表示 (デイリーニュース報告)。日ごとにまとめた行を1回で取る
  * (`GET /dailyops/reports/items-by-month`)。
