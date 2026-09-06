@@ -345,8 +345,8 @@ export default function ControlPage({ embedded = false }: { embedded?: boolean }
         </button>
         <div className="flex items-center gap-1.5 shrink-0">
           <Tv className="h-4 w-4 text-amber-500" />
-          <span className="text-sm font-black text-slate-200 tracking-wider hidden sm:inline">リアルタイムCG</span>
-          <span className="text-xs font-black text-slate-200 tracking-wider sm:hidden">Ranking</span>
+          <span className="text-sm font-black text-slate-200 tracking-wider hidden sm:inline">ランキングCG</span>
+          <span className="text-xs font-black text-slate-200 tracking-wider sm:hidden">ランキングCG</span>
         </div>
         {event && <span className="text-xs text-slate-400 truncate hidden md:block">{event.name}</span>}
         <div className="flex-1 min-w-0" />

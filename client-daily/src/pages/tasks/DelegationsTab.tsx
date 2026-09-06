@@ -201,7 +201,7 @@ export function DelegationsTab() {
         onClick={() => setIncludeDone((v) => !v)}
         className={cn('min-h-tap lg:h-9 lg:min-h-0 rounded-md px-3 py-1.5 text-sub', includeDone ? 'bg-primary/15 font-bold text-primary' : 'text-muted-foreground hover:bg-accent')}
       >
-        完了した依頼も表示
+        対応済の依頼も表示
       </button>
 
       <section>
@@ -218,7 +218,7 @@ export function DelegationsTab() {
       <section>
         <h2 className="text-h2 mb-2">出した依頼 <span className="text-muted-foreground">{(sent ?? []).length}</span></h2>
         <p className="mb-2 text-note text-muted-foreground">
-          指示をしたら完了させるまでが依頼者の仕事です。反応が無いものと差し戻されたものを上に出しています。
+          指示をしたら対応済にするまでが依頼者の仕事です。反応が無いものと差し戻されたものを上に出しています。
         </p>
         {(sent ?? []).length === 0 ? (
           <Card><CardContent className="p-6 text-center text-sub text-muted-foreground">出した依頼はありません。</CardContent></Card>

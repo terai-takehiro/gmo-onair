@@ -21,6 +21,17 @@ async function fetchItem(itemId: string): Promise<Row | undefined> {
   );
 }
 
+/**
+ * 横串（列をまたぐ項目 = Excel のセル結合。migration 280）の検査。
+ * 0 = 全列・1 = 自分の列だけ・N = 自分の列から右へ N 列。上限 64（DB の CHECK と同じ）。
+ */
+function normalizeSpanCols(v: unknown): number {
+  if (!Number.isFinite(v as number)) throw new ValidationError('span_cols は数値で指定してください');
+  const n = Math.round(v as number);
+  if (n < 0 || n > 64) throw new ValidationError('span_cols は 0〜64 で指定してください');
+  return n;
+}
+
 function validateSpan(startMin: number, endMin: number): void {
   if (!Number.isFinite(startMin) || !Number.isFinite(endMin)) throw new ValidationError('start_min / end_min は数値で指定してください');
   if (endMin <= startMin) throw new ValidationError('end_min は start_min より後にしてください');
@@ -33,6 +44,8 @@ export interface CreateItemInput {
   kind?: string;
   startMin: number;
   endMin: number;
+  /** 横串（0 = 全列・1 = 自分の列だけ・N = 右へ N 列）。省略は 1 */
+  spanCols?: number;
   assignee?: string | null;
   note?: string | null;
 }
@@ -47,11 +60,13 @@ export async function createItem(scheduleId: string, input: CreateItemInput): Pr
   const kind = input.kind && ITEM_KINDS.includes(input.kind as (typeof ITEM_KINDS)[number]) ? input.kind : 'other';
   validateSpan(input.startMin, input.endMin);
 
+  const spanCols = input.spanCols === undefined ? 1 : normalizeSpanCols(input.spanCols);
+
   const id = uuid();
   await execute(
-    `INSERT INTO qsheet_schedule_items (id, schedule_id, column_id, title, kind, start_min, end_min, assignee, note)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-    [id, scheduleId, input.columnId, (input.title ?? '').slice(0, 500), kind, Math.round(input.startMin), Math.round(input.endMin), input.assignee || null, input.note || null],
+    `INSERT INTO qsheet_schedule_items (id, schedule_id, column_id, title, kind, start_min, end_min, span_cols, assignee, note)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+    [id, scheduleId, input.columnId, (input.title ?? '').slice(0, 500), kind, Math.round(input.startMin), Math.round(input.endMin), spanCols, input.assignee || null, input.note || null],
   );
   const row = await fetchItem(id);
   if (!row) throw new Error('createItem: INSERT 直後の SELECT が空でした');
@@ -64,6 +79,7 @@ export interface UpdateItemInput {
   kind?: string;
   startMin?: number;
   endMin?: number;
+  spanCols?: number;
   assignee?: string | null;
   note?: string | null;
   expectedUpdatedAt?: unknown;
@@ -100,6 +116,7 @@ export async function updateItem(scheduleId: string, itemId: string, userId: str
   }
   if (typeof input.startMin === 'number') { sets.push('start_min = ?'); params.push(Math.round(input.startMin)); }
   if (typeof input.endMin === 'number') { sets.push('end_min = ?'); params.push(Math.round(input.endMin)); }
+  if (input.spanCols !== undefined) { sets.push('span_cols = ?'); params.push(normalizeSpanCols(input.spanCols)); }
   if ('assignee' in input) { sets.push('assignee = ?'); params.push(input.assignee || null); }
   if ('note' in input) { sets.push('note = ?'); params.push(input.note || null); }
 

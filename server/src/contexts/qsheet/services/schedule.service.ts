@@ -285,7 +285,7 @@ export async function duplicateSchedule(sourceId: string, input: DuplicateSchedu
     // （項目自体はひな形適用の産物か手入力かを問わず、複製元では「もう当日の実データ」であり
     // 複製先での「ひな形からの適用」履歴として扱う理由が無いため）
     const items = await tx.queryAll(
-      `SELECT column_id, title, kind, start_min, end_min, assignee, note
+      `SELECT column_id, title, kind, start_min, end_min, span_cols, assignee, note
        FROM qsheet_schedule_items WHERE schedule_id = ? AND deleted_at IS NULL`,
       [sourceId],
     );
@@ -293,9 +293,9 @@ export async function duplicateSchedule(sourceId: string, input: DuplicateSchedu
       const newColId = colIdMap.get(it.column_id as string);
       if (!newColId) continue; // 対応する列が見つからない（想定外・静かに落とす）
       await tx.execute(
-        `INSERT INTO qsheet_schedule_items (id, schedule_id, column_id, title, kind, start_min, end_min, assignee, note)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [uuid(), newId, newColId, it.title, it.kind, it.start_min, it.end_min, it.assignee, it.note],
+        `INSERT INTO qsheet_schedule_items (id, schedule_id, column_id, title, kind, start_min, end_min, span_cols, assignee, note)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [uuid(), newId, newColId, it.title, it.kind, it.start_min, it.end_min, it.span_cols, it.assignee, it.note],
       );
     }
   });

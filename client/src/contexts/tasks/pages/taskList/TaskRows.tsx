@@ -3,20 +3,21 @@
  *
  * 列は**モックの並びそのまま**、幅だけ7段 (`SlotWidth`) に寄せています:
  *
- *   タスク       伸びる (`RowMain`。チェックボックスを内包)   モック flex:1
+ *   タスク       伸びる (`RowMain`)                           モック flex:1
  *   案件         200px (`RowSlot`)                            モック 210px
  *   担当         96px  (`RowSlot`)                            モック 96px
  *   状態         96px  (`TableBadge`)                         モック 88px
  *   期限         96px  (`RowSlot`)                            モック 104px
+ *   対応         128px (`RowSlot`)                            —
  *
- * **チェックボックスは列にしていません。** 7段のいちばん狭い枠が 56px で、
- * 18px の四角を入れるには広すぎます。段を1つ増やすと「その画面だけの幅」が
- * 生まれるので、**タスク名の左に貼り付けて `RowMain` の中に入れました**
- * (`RowMain` の左端は行をまたいで同じ位置なので、縦にはそろいます)。
+ * **片づける操作は「対応済にする」ボタンにしてあります。** 以前はタスク名の左に
+ * 18px の四角 (チェック) を貼り付けていましたが、四角には文字が無いので
+ * 「押すと何が起きるか」が読み取れませんでした。文字のボタンは狭い枠に入らないので、
+ * 7段の 128px を1つ足して**行の右端の列**にしています (縦にはそろいます)。
  */
-import { Check } from 'lucide-react';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
+import { TaskDoneButton } from '@gmo-onair/shared/src/client-v4/taskDoneButton';
 import { taskState, TASK_STATE_LABEL, TASK_STATE_TONE } from './state';
 import type { DashboardTask } from '@/types';
 
@@ -29,6 +30,7 @@ export function TaskRowsHeader() {
       <RowSlot w={96}>担当</RowSlot>
       <RowSlot w={96}>状態</RowSlot>
       <RowSlot w={96} align="right">期限</RowSlot>
+      <RowSlot w={128} align="center">対応</RowSlot>
     </RowHeader>
   );
 }
@@ -61,31 +63,6 @@ export function TaskRow({
   return (
     <Row divider interactive stackOnMobile align="center">
       <RowMain className="flex items-center gap-2.5">
-        {/*
-          その場で完了にできるのがこの画面の値打ち (モックもそうしている)。
-          タップ領域はスマホ 44px / PC 36px — どちらも決めた段の中にある。
-          押すのは行を開く操作と**別**なので、行全体を押せるようにはしていません
-          (チェックだけしたいのに詳細が開くと、毎回閉じることになる)。
-        */}
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-pressed={done}
-          title={done ? '完了を取り消します' : '完了にします'}
-          className="-ml-1.5 flex h-11 w-11 shrink-0 items-center justify-center sm:h-9 sm:w-9"
-        >
-          <span
-            className={`flex h-[18px] w-[18px] items-center justify-center rounded-badge-xs border-[1.5px] ${
-              done ? 'border-success bg-success' : 'border-border-disabled bg-card'
-            }`}
-          >
-            <Check
-              className={`h-3 w-3 text-success-foreground ${done ? '' : 'opacity-0'}`}
-              aria-hidden="true"
-            />
-          </span>
-        </button>
-
         <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
           <RowTitle className={done ? 'text-muted-foreground line-through' : ''}>
             {t.title}
@@ -123,6 +100,15 @@ export function TaskRow({
             {d.sub && <span className={`text-sub-sm ${d.tone}`}>{d.sub}</span>}
           </>
         ) : null}
+      </RowSlot>
+
+      {/*
+        その場で片づけられるのがこの画面の値打ち (モックもそうしている)。
+        押すのは行を開く操作と**別**なので、行全体を押せるようにはしていません
+        (片づけたいだけなのに詳細が開くと、毎回閉じることになる)。
+      */}
+      <RowSlot w={128} align="center">
+        <TaskDoneButton done={done} onToggle={onToggle} taskTitle={t.title} size="sm" />
       </RowSlot>
     </Row>
   );

@@ -1,10 +1,11 @@
 // 「優先度順」リスト・「重要度 × 緊急度」ボードの選んだマスが共有する1行分のカード。
-import { Check, Clock, EyeOff, Pencil, Sparkles } from 'lucide-react';
+import { Clock, EyeOff, Pencil, Sparkles } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { CELL_ACTION, DELEGATION_LABELS, formatDue, LEVEL_LABELS, useUpdateTask, type MyTask } from '@/lib/tasksApi';
+import { TaskDoneButton } from '@gmo-onair/shared/src/client-v4/taskDoneButton';
 import { CellScoreBadge } from './CellScoreBadge';
 
 export function TaskRow({ t, canEdit, canOpenProject, onEdit }: {
@@ -14,19 +15,6 @@ export function TaskRow({ t, canEdit, canOpenProject, onEdit }: {
   return (
     <Card className={cn(t.is_completed && 'opacity-60', t.is_overdue && 'border-red-200')}>
       <CardContent className="flex items-start gap-2.5 p-3">
-        {canEdit && (
-          <button
-            onClick={() => update.mutate({ id: t.id, patch: { is_completed: !t.is_completed } })}
-            disabled={update.isPending}
-            className={cn(
-              'v4-tap mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors',
-              t.is_completed ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-muted-foreground/40 hover:border-primary'
-            )}
-            title={t.is_completed ? '未完了に戻す' : '完了にする'}
-          >
-            {t.is_completed && <Check className="h-3.5 w-3.5" />}
-          </button>
-        )}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
             <CellScoreBadge score={t.priority_score} />
@@ -72,9 +60,19 @@ export function TaskRow({ t, canEdit, canOpenProject, onEdit }: {
           </p>
         </div>
         {canEdit && (
-          <Button variant="ghost" size="sm" className="h-8 w-8 shrink-0 p-0" onClick={onEdit} title="編集">
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
+          <span className="flex shrink-0 items-start gap-1">
+            {/* 片づける操作は**文字のボタン**にする（四角のチェックでは何が起きるか読めない） */}
+            <TaskDoneButton
+              done={t.is_completed}
+              onToggle={() => update.mutate({ id: t.id, patch: { is_completed: !t.is_completed } })}
+              taskTitle={t.title}
+              disabled={update.isPending}
+              size="sm"
+            />
+            <Button variant="ghost" size="sm" className="h-8 w-8 shrink-0 p-0" onClick={onEdit} title="編集">
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          </span>
         )}
       </CardContent>
     </Card>

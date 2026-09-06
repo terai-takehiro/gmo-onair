@@ -11,7 +11,7 @@
  * `finance/pages/ledger/LedgerTabs.tsx` と同じ考え方——ただし項目が2つしか無いので、
  * 横スクロールの下線タブではなく**幅いっぱいの2分割**にして、指の届く範囲に置く。
  *
- * 件数は `GpmTaskListPage.tsx` の `sub`（「未完了 N件 ・ 止まっている未確認事項 N件」）
+ * 件数は `GpmTaskListPage.tsx` の `sub`（「未対応 N件 ・ 止まっている未確認事項 N件」）
  * と**同じ数**を渡す。ここで数え直すと、見出しの1行とタブの数字が食い違う。
  */
 import { CircleHelp, ListTodo } from 'lucide-react';

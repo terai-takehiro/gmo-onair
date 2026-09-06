@@ -111,40 +111,40 @@ function DesktopTaskDashboard() {
     return [...list].sort((a, b) => {
       if (sort === 'project') return a.project_name.localeCompare(b.project_name, 'ja') || byDue(a, b);
       if (sort === 'state') return stateRank(a) - stateRank(b) || byDue(a, b);
-      // 期限順でも**完了は最後**に落とす (済んだものが上に居座ると今日の分が見えない)
+      // 期限順でも**対応済は最後**に落とす (済んだものが上に居座ると今日の分が見えない)
       return (Number(a.is_completed) - Number(b.is_completed)) || byDue(a, b);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scoped, filter, sort, today]);
 
-  /** チェックボックス。**その場で完了を切り替える** */
+  /** 「対応済にする」ボタン。**その場で切り替える** */
   const toggle = async (t: DashboardTask) => {
     try {
       await api.patch(`/projects/${t.project_id}/tasks/${t.id}/complete`, {});
       // episodes・task-deadlines も含めて4つ落とす（鍵の対は invalidateTasks に集約）
       invalidateTasks(qc, t.project_id);
     } catch (err) {
-      notifyApiError(t.is_completed ? '完了を取り消せませんでした' : '完了にできませんでした', err);
+      notifyApiError(t.is_completed ? '未対応に戻せませんでした' : '対応済にできませんでした', err);
     }
   };
 
   const chips = [
     { key: 'all' as const, label: 'すべて', count: data ? scoped.length : null },
-    { key: 'open' as const, label: '未完了', count: data ? scoped.filter((t) => !t.is_completed).length : null },
+    { key: 'open' as const, label: '未対応', count: data ? scoped.filter((t) => !t.is_completed).length : null },
     { key: 'over' as const, label: '期限超過', count: data ? scoped.filter(isOver).length : null },
   ];
 
   const openCount = scoped.filter((t) => !t.is_completed).length;
   const activeFilters = [
     scope === 'mine' ? '自分のタスクだけ' : null,
-    filter === 'open' ? '未完了だけ' : filter === 'over' ? '期限超過だけ' : null,
+    filter === 'open' ? '未対応だけ' : filter === 'over' ? '期限超過だけ' : null,
   ].filter((f): f is string => f !== null);
 
   return (
     <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <PageHeader
-        title="タスク"
-        sub={data ? `全案件のタスク ${scoped.length}件（うち未完了 ${openCount}件）` : '全案件のタスク'}
+        title="タスク一覧"
+        sub={data ? `全案件のタスク ${scoped.length}件（うち未対応 ${openCount}件）` : '全案件のタスク'}
         primaryAction={
           <Button onClick={() => setAdding(true)}>
             <Plus className="mr-2 h-4 w-4" aria-hidden="true" />タスクを追加

@@ -2,6 +2,7 @@
 import { useMemo } from "react";
 import { fmtHmPad, fmtSpan } from "@gmo-onair/shared/src/schedule/time";
 import { itemKindLabel, itemKindColor } from "@gmo-onair/shared/src/schedule/kinds";
+import { isSpanItem, spanLabel } from "@gmo-onair/shared/src/schedule/span";
 import type { ScheduleColumn, ScheduleItem } from "@gmo-onair/shared/src/schedule/types";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
@@ -24,7 +25,8 @@ interface Props {
 export default function MobileTimeline({ columns, items, conflictedIds, onSelect, filterColumnId, onFilterChange }: Props) {
   const visible = useMemo(
     () => [...items]
-      .filter((i) => !filterColumnId || i.column_id === filterColumnId)
+      // 横串（列をまたぐ項目）は、どの列で絞り込んでいても出す（その列にも掛かっているため）
+      .filter((i) => !filterColumnId || i.column_id === filterColumnId || isSpanItem(i.span_cols))
       .sort((a, b) => a.start_min - b.start_min),
     [items, filterColumnId],
   );
@@ -99,7 +101,10 @@ export default function MobileTimeline({ columns, items, conflictedIds, onSelect
                     )}
                   </div>
                   <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {itemKindLabel(item.kind)} ・ {col?.room_name || col?.label || "―"}
+                    {itemKindLabel(item.kind)} ・ {/* 横串（列をまたぐ項目）は列名の代わりにまたぐ範囲を出す */}
+                    {isSpanItem(item.span_cols)
+                      ? `横串（${spanLabel(item.span_cols)}）`
+                      : (col?.room_name || col?.label || "―")}
                     {item.assignee ? ` ・ ${item.assignee}` : ""}
                   </div>
                 </div>

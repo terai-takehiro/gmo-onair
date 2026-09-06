@@ -193,7 +193,7 @@ export function GpmGanttView({
     if (targets.length === 0) return;
     const ok = await confirmAction({
       title: `後続のタスク ${targets.length} 件も ${delta}日 後ろへ移動しますか？`,
-      description: '先行タスクの日程がうしろへ動いたので、依存でつながった後続も同じだけずらせます。完了済みのタスクは動かしません。',
+      description: '先行タスクの日程がうしろへ動いたので、依存でつながった後続も同じだけずらせます。対応済のタスクは動かしません。',
       confirmLabel: 'ずらす',
     });
     if (!ok) return;
