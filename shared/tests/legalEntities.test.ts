@@ -81,7 +81,7 @@ describe('issuerNameAsOf（§9-E: 社名変更前後の帳票の表記）', () =
   });
 
   it('formerName が無い（renamedOn だけ何かの理由で入っている想定の異常値）場合も name だけ', () => {
-    // 実運用では起きない組み合わせ（former_name は renamedOn とセットで入る・migration 282）だが、
+    // 実運用では起きない組み合わせ（former_name は renamedOn とセットで入る・migration 284）だが、
     // 関数の契約として「formerName が無ければ日付によらず name」を単独でも固定しておく。
     const weird = gjv({ renamedOn: '2026-10-01' });
     expect(issuerNameAsOf(weird, '2026-09-01')).toBe('GMOサムライコンテンツスタジオ株式会社');

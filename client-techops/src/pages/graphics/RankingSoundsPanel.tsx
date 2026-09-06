@@ -90,10 +90,18 @@ function graphicsSoundsQueryKey(projectId: string) {
   return ['graphics-ranking-sounds', projectId] as const;
 }
 
-function RankingSoundsContent({ ownerKey, owner, projectId }: {
+/**
+ * 設定画面（`GraphicsSettingsPage.tsx`・2026-09-06 再設計・連携タブ）から埋め込みで
+ * 再利用するため export した。owner を自分で解決しない（呼び出し側が解決済みの
+ * `projectId`/`owner` を渡す）— 単独画面としての `RankingSoundsPanel`（既定 export、
+ * 旧 `/sounds` URL 用に残す）と二重に fetch しない。中身・見た目は一切変えていない。
+ */
+export function RankingSoundsContent({ ownerKey, owner, projectId, embedded = false }: {
   ownerKey: string;
   owner: OwnerContext;
   projectId: string;
+  /** true のとき、設定画面（④）に埋め込む用に外枠・戻るリンク・h1 を出さない */
+  embedded?: boolean;
 }) {
   const queryClient = useQueryClient();
   const queryKey = graphicsSoundsQueryKey(projectId);
@@ -152,22 +160,21 @@ function RankingSoundsContent({ ownerKey, owner, projectId }: {
     deleteMutation.mutate(s.id);
   };
 
-  return (
-    <div className="px-4 py-6 sm:px-6 sm:py-8">
-      <Link
-        to={templatesPath(ownerKey)}
-        className="mb-2 inline-flex min-h-tap items-center gap-1 rounded-control-md px-1.5 text-sub font-bold text-muted-foreground hover:text-foreground"
-      >
-        <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-        テンプレート管理へ戻る
-      </Link>
-
-      <div className="min-w-0">
-        <h1 className="text-h1">演出SE ／ {owner.name}</h1>
-        <p className="mt-1 text-sub text-muted-foreground">
-          ランキング発表（<strong className="font-bold text-foreground">ranking</strong> パーツ）のステップ切替時に鳴らす効果音。旧リアルタイムCGの演出SEの移植です — 出力URLに <code className="rounded bg-surface-subtle px-1">?audio=1</code> を付けたときだけ鳴ります。
+  const body = (
+    <>
+      {!embedded && (
+        <div className="min-w-0">
+          <h1 className="text-h1">演出SE ／ {owner.name}</h1>
+          <p className="mt-1 text-sub text-muted-foreground">
+            ランキング発表（<strong className="font-bold text-foreground">ranking</strong> パーツ）のステップ切替時に鳴らす効果音。旧リアルタイムCGの演出SEの移植です — 出力URLに <code className="rounded bg-surface-subtle px-1">?audio=1</code> を付けたときだけ鳴ります。
+          </p>
+        </div>
+      )}
+      {embedded && (
+        <p className="text-sub text-muted-foreground">
+          ランキング発表のステップ切替時に鳴らす効果音。出力URLに <code className="rounded bg-surface-subtle px-1">?audio=1</code> を付けたときだけ鳴ります。
         </p>
-      </div>
+      )}
 
       {/* アップロードフォーム */}
       <div className="mt-4 flex flex-col gap-3 rounded-card border border-border bg-card p-4 sm:flex-row sm:flex-wrap sm:items-end">
@@ -279,6 +286,20 @@ function RankingSoundsContent({ ownerKey, owner, projectId }: {
           ))}
         </div>
       )}
+    </>
+  );
+
+  if (embedded) return body;
+  return (
+    <div className="px-4 py-6 sm:px-6 sm:py-8">
+      <Link
+        to={templatesPath(ownerKey)}
+        className="mb-2 inline-flex min-h-tap items-center gap-1 rounded-control-md px-1.5 text-sub font-bold text-muted-foreground hover:text-foreground"
+      >
+        <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+        テンプレート管理へ戻る
+      </Link>
+      {body}
     </div>
   );
 }

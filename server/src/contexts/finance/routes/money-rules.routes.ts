@@ -20,7 +20,7 @@ import {
 } from '../services/money-rules.service';
 import { describeRule, type DueDateRule, type HolidayShift } from '../../../shared/services/dueDate';
 // 2026年10月の事業再編（docs/reorg-2026-10-plan.md §4.5・§4.6・P2 Round 1）:
-// お金のルールは会社（entity_code）ごとに1本になった（migration 286）
+// お金のルールは会社（entity_code）ごとに1本になった（migration 288）
 import { getLegalEntity, type LegalEntityCode } from '../../platform/services/legal-entity.service';
 import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 

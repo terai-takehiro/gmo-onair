@@ -193,7 +193,7 @@ ONAiR から発行する**（§9-M）。**売上・仕入は必ず回に紐づ�
 | 概念 | 画面に出す語（候補） | 理由 |
 |---|---|---|
 | GJV／GSS／GMO の区分 | **計上会社**（副題「売上・費用をどの会社の帳簿に載せるか」） | 会計の標準語・4文字。「会社」だけだと取引先（`companies`）と衝突する |
-| 各社の呼び名 | コンテンツスタジオ／サムライスタジオ／**グループ本体** | 12文字以内。正式名は初出で1度だけ。「（コスト）」は付けない —— `legal_entities.short_name`（migration 282 で seed 済み）が既に「グループ本体」で、設定「会社と切替」画面もこれを表示している。実装（2026-09-06・案件一覧/詳細/台帳の計上会社表示）でこの食い違いが見つかり、**既に出ている値に合わせた**（同じ概念が画面によって違う文字列で出るのを避ける） |
+| 各社の呼び名 | コンテンツスタジオ／サムライスタジオ／**グループ本体** | 12文字以内。正式名は初出で1度だけ。「（コスト）」は付けない —— `legal_entities.short_name`（migration 284 で seed 済み）が既に「グループ本体」で、設定「会社と切替」画面もこれを表示している。実装（2026-09-06・案件一覧/詳細/台帳の計上会社表示）でこの食い違いが見つかり、**既に出ている値に合わせた**（同じ概念が画面によって違う文字列で出るのを避ける） |
 | 案件の番号 | **案件番号**（旧「GLS番号」。説明文「10月から GJV／GSS／GMO で始まる番号。それより前の案件は GLS のまま」） | GLS は特定の社名の略。帳簿・請求に出る語なので**旧番号の表示では GLS を消さない** |
 | 旧番号 | **旧番号**（`GLS-A008` のように併記） | 改番後も経理・取引先とのやり取りに残る |
 
@@ -502,7 +502,7 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
   料金表のグループ内価格は使わない（社内取引は原価の付け替えであって販売ではない）
 
 > **実装済み（P2 Round 2・2026-09-06）**: `intercompany_links`（`revenue_id`/`purchase_id`
-> をそれぞれ UNIQUE で1対1に結ぶ。migration 287）を新設し、`createIntercompanyPurchase`/
+> をそれぞれ UNIQUE で1対1に結ぶ。migration 289）を新設し、`createIntercompanyPurchase`/
 > `updateIntercompanyLink`/`deleteIntercompanyLink`（`finance/services/intercompany.service.ts`）
 > ＋ `POST/PUT/DELETE /intercompany`・MCP `create_intercompany_purchase` を実装した。
 > 通常の `PUT/DELETE /revenues|purchases/:id` はリンク済みの行を409 `INTERCOMPANY_LINKED`
@@ -607,7 +607,7 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
 > （`entity_code`）ごとに対応させた。**社内取引（`intercompany_links`・仕入タブの入口・
 > 粗利の相殺）は Round 2 として今回は実装していない**（下記・§4.12 参照）。
 >
-> - **migration 286**: `money_rules` を `id='default'` 固定の1行から、会社ごとの複数行
+> - **migration 288**: `money_rules` を `id='default'` 固定の1行から、会社ごとの複数行
 >   （`id=entity_code`）に変更。GJV/GMO は GSS の設定値の写しで初期化（§4.5 の決めごとどおり）。
 >   `monthly_budgets`/`monthly_actual_overrides` の PK も `(entity_code, year_month)` の
 >   複合キーに拡張（既存行は全部 `entity_code='GSS'` なので衝突なし）
@@ -769,17 +769,17 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
 ## 13. P0 の実装計画（土台・9月中旬）— 決めごとに依存しない部分 **✅ 実装済み（2026-09-06）**
 
 **目標: 会社という次元と発行者情報を入れ、状態 `off` のあいだは既存の振る舞いを1ミリも変えない。**
-マイグレーションは **280 番から**（2026-09-06 時点の最新は 279。**後日の改番で最終的に
-282番からになった** — 下の実装結果の注記参照）。すべて追加のみ。
+マイグレーションは **280 番から**（2026-09-06 時点の最新は 279。**後日の改番（2回）で最終的に
+284番からになった** — 下の実装結果の注記参照）。すべて追加のみ。
 
 > **実装結果（マルチエージェント・2026-09-06）**: 0a〜0d とも実装し、
 > `claude/2026-oct-system-migration-hu4a58` ブランチに commit 済み（PR は未作成）。
 > 計画からの差分:
-> - マイグレーションは **282（0a）／283（entity_code 列・NULL 可のまま追加）／
->   284（0b: 全 INSERT の配線後に NOT NULL 化）／285（0c: notification_templates の件名）**
->   の4本になった（原案の番号は280〜283だったが、後日の改番で最終的に282〜285に。
->   経緯は次の項）。283 は「列を足すだけ」に留め、NOT NULL 化は配線を終えた284で分離した
->   （`DEFAULT` は一度も持たせていない——284 が来るまでは列がただ NULL 可なだけで、
+> - マイグレーションは **284（0a）／285（entity_code 列・NULL 可のまま追加）／
+>   286（0b: 全 INSERT の配線後に NOT NULL 化）／287（0c: notification_templates の件名）**
+>   の4本になった（原案の番号は280〜283だったが、後日の改番（2回）で最終的に284〜287に。
+>   経緯は次の項）。285 は「列を足すだけ」に留め、NOT NULL 化は配線を終えた286で分離した
+>   （`DEFAULT` は一度も持たせていない——286 が来るまでは列がただ NULL 可なだけで、
 >   `entityCodeInserts.test.ts` を先に green にしてから締めた）
 > - ⚠️ **後日（P1残作業のPR統合時・2026-09-06）280〜286番の7本を、相対順序を保ったまま
 >   一律+2で282〜288番へ改番した。**
@@ -799,6 +799,18 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
 >   合わせた計7本を、相対順序を保ったまま一律+2で282〜288番へずらし直した。実体
 >   （`legal_entities`／`entity_code`列の追加ほか）・順序そのものは変えていない——
 >   ファイル名と本文中の参照番号だけの変更
+> - ⚠️ **さらに後日（PR統合後、`main`との再合流時・2026-09-06）同じ7本を282〜288番から
+>   284〜290番へ、もう一度相対順序を保ったまま一律+2で改番した。** 上の改番のあと`main`へ
+>   このPRをpushしてCIを回したところ、`main`側で別のPR（テロップCG再設計）が**同じ
+>   282・283番**（こちらも`main`側の280・281番との衝突を解消した結果の番号）を独立に
+>   使っており、CIの`check-migration-numbers`が新たな重複を検出した。この`main`側PRは
+>   既に`main`へマージ済み＝検証環境へデプロイ済みだったため、前回と同じ判断基準
+>   （まだどの環境にも流れていない自分の番号を動かす）でこちら側を改番した。前回の
+>   教訓（依存関係のある一連のマイグレーションは相対順序を保ったまま一律にずらす）を
+>   最初から適用したため、今回は`column does not exist`のような二次的な破壊は起きて
+>   いない。最終番号: `legal_entities`=284・`entity_code_columns`=285・
+>   `entity_code_not_null`=286・`notification_template_issuer_var`=287・
+>   `money_rules_per_entity`=288・`intercompany_links`=289・`renumber_notify_template`=290
 > - `entityCodeInserts.test.ts` は元の計画（`droppedColumns.test.ts` 方式）どおり実装し、
 >   これにより計画の一覧に無かった書き込み口を2つ発見・配線した
 >   （`finance/services/doc-handoff.service.ts` の受け取った書類→台帳引き渡し）
@@ -819,9 +831,9 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
 
 | PR | 中身 | マイグレーション | 主に触る場所 |
 |---|---|---|---|
-| **0a** `feat(server): 計上会社マスターと切替状態の表を足した` | 取引先「GMOサムライコンテンツスタジオ」2行の名寄せ（`ff64b0e1…` を `3d099e40…` へ吸収）。`legal_entities` に GJV／GSS／GMO の3行——**GSS は `pdf.service.ts` の `COMPANY` 定数の値（住所・登録番号）をそのまま初期値に**、`former_name`＝GMOグローバルスタジオ株式会社・`renamed_on`＝切替日。**GJV は発行者情報が空欄**（設定画面から後で入れる）。`org_transition` を `off` の1行、`companies.legal_entity_code`（`comp-self-gms` → GSS、GJV の自社行 `comp-self-gjv` を追加。名前の書き換えは切替時）。`GET/PUT /legal-entities`（発行者情報の編集含む・`system_admin`）・`GET/PUT /org-transition`（`cutover` は `cutover_date` 以降だけ・`done` は残件 0 だけ）。`migrate.ts` の起動時チェックに「3行と1行がある」を足す | 280→**282**（後日改番。上の実装結果の注記参照） | `server/src/contexts/platform/{services,routes}/legal-entity.*`・`shared/db/migrate.ts` |
-| **0b** `feat(server): 帳簿の行と案件に計上会社の列を足した` | `projects.entity_code/entity_source/entity_note`・`project_numbers`（既存の `gls_number` を `scheme='gls'`・`GSS` で流し込む）・`revenues/purchases/sga_expenses/estimates.entity_code`（`NOT NULL DEFAULT 'GSS'` で埋め戻し）・`finance_docs.entity_code`（NULL 可）・`monthly_budgets/monthly_actual_overrides/money_rules.entity_code`（**列だけ**。PK の付け替えと複数行化は P2）。サーバーの **INSERT を全部 `entity_code` 明示**にして（案件の `entity_code ?? 'GSS'`）、`shared/tests/entityCodeInserts.test.ts`（`droppedColumns.test.ts` と同じ走査で `INSERT INTO revenues|purchases|sga_expenses|estimates` に列があるか）が通ったら **同じ PR で `DROP DEFAULT`** | 281→**283**（後日改番） | `sales/services/{project,estimate}.service.ts`・`finance/routes/*`・`platform/services/{kessan,xpoint}-import*`・`mcp/tools/{finance,budget}.tools.ts`・`gpm/*` |
-| **0c** `feat(server,client): 帳票とメールの発行者を計上会社マスターから読むようにした` | `pdf.service.ts` の `COMPANY` 定数を `PdfRevenueData.issuer` に置き換え、呼び出し側（`revenues.routes.ts:68`・`estimate-pdf.service.ts`）が行の `entity_code` から引く。名前は `nameAsOf(entity, 発行日)`（`renamed_on` より前なら旧社名・以後は新社名＋「（旧 …）」の併記＝§9-E の提案どおり）。`notification_templates` の初期4行の件名を `【{発行会社}】` に（手で直した行＝`updated_at` が初期値でない行は触らない）・送信時に変数を解決。機材レンタルの文面・GPM の「自社（…）」・マニュアル・案件作成のメール下書きをマスター読みに | 283→**285**（後日改番） | `shared/services/pdf.service.ts`・`sales/services/estimate-pdf.service.ts`・`platform/services/notification*`・`qsheet/services/rental.service.ts`・`client/src/contexts/gpm/pages/projectForm/BasicStep.tsx` ほか |
+| **0a** `feat(server): 計上会社マスターと切替状態の表を足した` | 取引先「GMOサムライコンテンツスタジオ」2行の名寄せ（`ff64b0e1…` を `3d099e40…` へ吸収）。`legal_entities` に GJV／GSS／GMO の3行——**GSS は `pdf.service.ts` の `COMPANY` 定数の値（住所・登録番号）をそのまま初期値に**、`former_name`＝GMOグローバルスタジオ株式会社・`renamed_on`＝切替日。**GJV は発行者情報が空欄**（設定画面から後で入れる）。`org_transition` を `off` の1行、`companies.legal_entity_code`（`comp-self-gms` → GSS、GJV の自社行 `comp-self-gjv` を追加。名前の書き換えは切替時）。`GET/PUT /legal-entities`（発行者情報の編集含む・`system_admin`）・`GET/PUT /org-transition`（`cutover` は `cutover_date` 以降だけ・`done` は残件 0 だけ）。`migrate.ts` の起動時チェックに「3行と1行がある」を足す | 280→282→**284**（後日2回改番。上の実装結果の注記参照） | `server/src/contexts/platform/{services,routes}/legal-entity.*`・`shared/db/migrate.ts` |
+| **0b** `feat(server): 帳簿の行と案件に計上会社の列を足した` | `projects.entity_code/entity_source/entity_note`・`project_numbers`（既存の `gls_number` を `scheme='gls'`・`GSS` で流し込む）・`revenues/purchases/sga_expenses/estimates.entity_code`（`NOT NULL DEFAULT 'GSS'` で埋め戻し）・`finance_docs.entity_code`（NULL 可）・`monthly_budgets/monthly_actual_overrides/money_rules.entity_code`（**列だけ**。PK の付け替えと複数行化は P2）。サーバーの **INSERT を全部 `entity_code` 明示**にして（案件の `entity_code ?? 'GSS'`）、`shared/tests/entityCodeInserts.test.ts`（`droppedColumns.test.ts` と同じ走査で `INSERT INTO revenues|purchases|sga_expenses|estimates` に列があるか）が通ったら **同じ PR で `DROP DEFAULT`** | 281→283→**285**（後日2回改番） | `sales/services/{project,estimate}.service.ts`・`finance/routes/*`・`platform/services/{kessan,xpoint}-import*`・`mcp/tools/{finance,budget}.tools.ts`・`gpm/*` |
+| **0c** `feat(server,client): 帳票とメールの発行者を計上会社マスターから読むようにした` | `pdf.service.ts` の `COMPANY` 定数を `PdfRevenueData.issuer` に置き換え、呼び出し側（`revenues.routes.ts:68`・`estimate-pdf.service.ts`）が行の `entity_code` から引く。名前は `nameAsOf(entity, 発行日)`（`renamed_on` より前なら旧社名・以後は新社名＋「（旧 …）」の併記＝§9-E の提案どおり）。`notification_templates` の初期4行の件名を `【{発行会社}】` に（手で直した行＝`updated_at` が初期値でない行は触らない）・送信時に変数を解決。機材レンタルの文面・GPM の「自社（…）」・マニュアル・案件作成のメール下書きをマスター読みに | 283→285→**287**（後日2回改番） | `shared/services/pdf.service.ts`・`sales/services/estimate-pdf.service.ts`・`platform/services/notification*`・`qsheet/services/rental.service.ts`・`client/src/contexts/gpm/pages/projectForm/BasicStep.tsx` ほか |
 | **0d** `feat(client): 設定に「会社と切替」の画面を足した` | 設定トップ「ルール」に新カード（`/settings/reorg`・PC 専用・`CLIENT_PC_ONLY` に登録）。**会社ごとに（GJV・GSS の2枚。GMO は請求書を出さないので発行者情報欄は無し）**発行者情報の編集フォーム（住所1/2・適格請求書発行事業者登録番号・振込先・ロゴ）、切替日、状態ボタン（P0 で押せるのは `off → preparing` だけ。`cutover` は P1 で活性化）。**GSS は最初から値が入った状態で開く**（0a で流し込み済み）・**GJV は空欄から入力**。`system_admin` 以外は読むだけ | — | `client/src/contexts/platform/pages/reorg/`・`pages/settings/hubCards.ts`・`App.tsx`・`pcOnlyScreens.ts` |
 
 **受け入れ条件（`off` のまま）**: 全画面の見た目と API の応答が変わらない（`entity_code` が増えるだけ）／
@@ -864,7 +876,7 @@ PDF の発行者ブロックの文字列が今と同一（切替日前なので�
   実装結果と計画からの差分は§13の追記を参照。
 - 2026-09-06（同日・7回目）: **P2 Round 1（財務の多社対応。§6）をマルチエージェントで実装した。**
   社内取引（`intercompany_links`・§4.12）は Round 2 として今回は見送り、スコープを明示的に
-  2ラウンドへ分割。核（migration 286・`money_rules`/`monthly_budgets`/`monthly_actual_overrides`
+  2ラウンドへ分割。核（migration 288・`money_rules`/`monthly_budgets`/`monthly_actual_overrides`
   の会社化・請求書番号の系列分離・月次予算/損益のentity_code対応・案件粗利の会社別内訳
   `getSummaryByEntity`）は直接実装し、残る3本（一覧/Excel/MCP/パイプライン予測の
   entity_codeフィルタ・財務ダッシュボードの会社タブ・お金のルール設定の会社タブ化）を
@@ -873,7 +885,7 @@ PDF の発行者ブロックの文字列が今と同一（切替日前なので�
   P1の`renumber_project` MCPツールの権限ゲート未登録バグも発見・修正した。
   詳細と計画からの差分は§6・§4.6・§4.12の実装結果を参照。
 - 2026-09-06（同日・8回目）: **P2 Round 2（社内取引 GJV⇄GSS。§4.12）をマルチエージェントで
-  実装した。** 核（`intercompany_links`・migration 287・作成/編集/削除の専用経路・
+  実装した。** 核（`intercompany_links`・migration 289・作成/編集/削除の専用経路・
   `revenues`/`purchases`双方の409ガード・`getSummaries`の社内取引除外・パイプライン予測の
   除外・MCP `create_intercompany_purchase`）は直接実装し、残る2本（案件詳細の社内発注UI・
   締め/一覧の「社内」印と粗利の会社別切替表示）を並列worktreeで実装、マージして検証
@@ -934,3 +946,16 @@ PDF の発行者ブロックの文字列が今と同一（切替日前なので�
   Vitest 2112件・検証DB作り直し（migration 1〜288通し適用）・`npm run lint`一式が
   全通過することを確認した。PR本文には実ブラウザでの通し確認が一部の段のみである旨・
   権限のない利用者での403確認も全数網羅ではない旨を明記した。
+- 2026-09-06（同日・12回目）: **PR #599 の push 後、CIの`checks`が
+  `check-migration-numbers`で再び赤くなった。** `main`に別PR（テロップCG再設計）が
+  マージされ、そちらも`main`側の280・281番衝突を解消した結果として282・283番
+  （`282_graphics_qsheet_import.sql`/`283_graphics_follow_script.sql`）を使っており、
+  前回の改番で使った282〜288番とちょうど重なった。`main`を取り込み（コンフリクトなし）、
+  前回の教訓どおり今回は最初から依存する7本すべてを相対順序を保ったまま一律+2で
+  284〜290番へ改番し（`legal_entities`=284・`entity_code_columns`=285・
+  `entity_code_not_null`=286・`notification_template_issuer_var`=287・
+  `money_rules_per_entity`=288・`intercompany_links`=289・`renumber_notify_template`=290）、
+  参照番号もコード・ドキュメント全箇所（`main`側のグラフィックス関連の282/283番言及は
+  対象外と正しく識別して除外）を追随させた。検証: `server`/`client`/`client-techops`の
+  型チェック、`shared`のVitest 2112件、検証DBのフレッシュ再構築でmigration 1〜290番を
+  通しで適用、`npm run lint`一式（`check-migration-numbers`含む）すべてgreen。

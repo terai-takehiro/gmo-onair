@@ -2278,6 +2278,31 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#598**（`fix(skills,server): メール仕分けの枠が GitHub 通知に食い潰される問題と、本番・検証の MCP が同名を名乗る問題を直した`・2026-09-06）—
+  ⚠️ **📝 Code Review は Codex の usage limits で一度も実行されず**
+  （「You have reached your Codex usage limits for code reviews」と明示的に返答）、
+  🔒 Security Review だけが `25b857d` で完了し **findings なし**。
+  `get_reviews`・`get_review_comments` とも0件を API で確認（`npm run reviews:debt` は401）。
+  **#590・#595・#596 に続いて4本連続で Code Review が届いていない。**
+  通っているのは Security 観点だけなので「指摘なし」ではない。
+  0件だったことは[PR のコメント](https://github.com/terai-takehiro/gmo-onair/pull/598#issuecomment-5559617825)にも残した。
+  **表に移す指摘はない**（レビュー自体が届いていないため）。
+  CI green（`checks` 13:39:54Z / `build` 13:41:07Z）から**約9分後**に terai-takehiro 本人がマージ。
+  **この PR で見つけたものは自分の実測**（ルーティンの検索式を実メールに当てた）で、
+  内訳は下表。全文は
+  [docs/reviews/2026-09-06-mail-intake-taxonomy.md](2026-09-06-mail-intake-taxonomy.md) の「6. 試験実行」。
+  **未検証で残したもの**: 実ブラウザでの確認・`npm run verify:ui`・
+  **検証環境での実際のメール取り込み**（`gmo-onair-dev` のコネクタを繋いでから）。
+
+  | 重み | どこ | 何が起きるか | 状態 |
+  | --- | --- | --- | --- |
+  | **P1** | `mcp/server.ts` | **本番と検証の MCP が両方とも `gmo-onair` と名乗っていた**。コネクタを2本つなぐと見分けが付かず、**検証のつもりで本番に書ける**（今回この会話のコネクタが本番だと気づけたのは `list_users` が実在の社員を返したからで、名前からは分からなかった） | ⭕️ #598（検証は `gmo-onair-dev`・`instructions` にも環境と行き先を書く。`shared/tests/mcpEnvName.test.ts` が固定） |
+  | **P1** | `mail-intake/SKILL.md` | **1回30通の枠が GitHub の通知だけで尽きる**。3日窓201スレッドのうち新しい順40件で `notifications@github.com` が33件・`dmarc-report@` が2件（87.5%）。決定表 #1 は「拾ってから捨てる」なのでラベルでは間に合わない（印を付けても翌日また同じだけ届く）＝**その裏の請求書に永遠に届かない** | ⭕️ #598（検索式に `-from:` を4つ。**201 → 54**） |
+  | **P1** | `mail-intake/SKILL.md` | **「古いものから30通」が実行できない** — `search_threads` は新しい順にしか返さない。しかも古い順だと**その日届いた請求書が後回し** | ⭕️ #598（新しいものから30通） |
+  | **P1** | `mail-intake/SKILL.md` | **検索結果の抜粋は「いちばん古い5通」**（切れている印も出ない）。6月に始まって今日返信が来たスレッドを**6月の本文で仕分ける**（実測2件） | ⭕️ #598（判断は `get_thread` の最新メッセージで・3か所に明記） |
+  | P2 | `mail-intake/references/decision-table.md` | 社内メーリス経由の通知（54件中12件）が #12「残り」に落ち、**`record_inquiry` に大量に入る**（拾いすぎ） | ⭕️ #598（#1b を追加） |
+
+
 - **#596**（`fix(daily): PR #595 のレビュー棚卸しと、レビューが届かなかったぶんの自己修正4件`・2026-09-06）—
   #595 の棚卸し（下の表19件）を記録し、**Codex が読めなかった2コミット
   （`5482aec` / `05d00b4`）を自分で読み直して4件直した**回。

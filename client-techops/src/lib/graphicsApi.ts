@@ -108,6 +108,9 @@ export interface GraphicsProjectRow {
   theme: string;
   /** 既定は空配列（ルールはオプトイン） */
   slotExitRules: SlotExitRule[];
+  /** 台本に追従（段E・migration 283）。既定 false。ON で進行画面の現在行に本番モードの
+   *  NEXT が自動で移る（TAKEは対象外——常に人が押す。graphics-redesign.md §9 3番・§12-2） */
+  followScript: boolean;
 }
 
 /** 組み合わせページの1レイヤー（段6-2 本格拡張）。部品は自分の既定の位置のまま重ねて描かれる */
@@ -128,6 +131,23 @@ export interface GraphicsPageRow {
   fields: Record<string, unknown>;
   proofState: GraphicsProofState;
   sortOrder: number;
+  /**
+   * コーナー見出し（段C・graphics-redesign.md §9）。台本から取り込むと台本の
+   * section.label が入る。null＝コーナー無し（①一覧・②送出リストで見出しを挟まない）。
+   * 通常の作成・編集フォームからは触らせない（`GraphicsPageInput` には持たせていない）。
+   */
+  section: string | null;
+  /**
+   * 取り込み元の台本（段C）。null＝台本から取り込んでいない自由入力のページ。
+   * `qsheetRowId` と対で使う——`fetchQsheetLiveText`（`graphicsQsheetImportApi.ts`）が
+   * ドキュメントごとにまとめて「いまの文言」を引く際のグループ化キー。
+   */
+  qsheetDocId: string | null;
+  /**
+   * 取り込み元の台本の行 id（段C）。台本側の文言が変わったかどうかの判定
+   * （「台本と違います」バッジ）に使う。null＝台本から取り込んでいない自由入力のページ。
+   */
+  qsheetRowId: string | null;
   /** 作成元テンプレート（段6-2）。null＝テンプレートを使わない自由入力で作られたページ */
   templateId: string | null;
   /**
@@ -172,10 +192,10 @@ export async function getGraphicsProject(projectId: string): Promise<GraphicsBun
   return data.data;
 }
 
-/** プロジェクトの部分更新（theme / name / slotExitRules）。更新後の一式（bundle）が返る */
+/** プロジェクトの部分更新（theme / name / slotExitRules / followScript）。更新後の一式（bundle）が返る */
 export async function updateGraphicsProject(
   projectId: string | number,
-  input: { theme?: GraphicsThemeKey; name?: string; slotExitRules?: SlotExitRule[] },
+  input: { theme?: GraphicsThemeKey; name?: string; slotExitRules?: SlotExitRule[]; followScript?: boolean },
 ): Promise<GraphicsBundle> {
   const { data } = await api.put(`/graphics/projects/${encodeURIComponent(String(projectId))}`, input);
   return data.data;
@@ -200,6 +220,13 @@ export interface GraphicsPageInput {
    * 含まれるキーだけが反映される（それ以外は無視される — サーバー側で強制）
    */
   layerFields?: Record<string, unknown>[];
+  /**
+   * 出す順（段A・一覧の並べ替え）。**`callNo`（呼出番号）とは独立**——サーバー側
+   * （`pages.routes.ts`）は `sortOrder` だけを更新でき、並べ替えで `callNo` が
+   * 動くことは無い（graphics-redesign.md §10「出す順の番号は固定」）。作成時
+   * （`createGraphicsPage`）には使わない — 新規ページは常に末尾に追加される。
+   */
+  sortOrder?: number;
 }
 
 export async function createGraphicsPage(projectId: string, input: GraphicsPageInput): Promise<GraphicsPageRow> {
@@ -366,3 +393,7 @@ export async function deleteGraphicsRequest(requestId: string): Promise<void> {
 // `GraphicsTemplateRow`・`GraphicsTemplateLayer`・`fetchGraphicsTemplates` 等は
 // `graphicsTemplateApi.ts` に切り出した（ファイルサイズ規律・400行。roster と同じ判断）。
 export * from './graphicsTemplateApi';
+
+// ── 前の番組からコピー（段E）。`GraphicsProjectSummary`・`fetchGraphicsProjectsList`・
+// `copyGraphicsTemplatesFrom` は `graphicsProjectListApi.ts` へ（ファイルサイズ規律・400行）。
+export * from './graphicsProjectListApi';

@@ -34,7 +34,7 @@ import { cn } from '@gmo-onair/shared/src/client/utils';
 // **会社名は既存の `ENTITY_BADGE_LABEL` を再利用する**（新たに `/legal-entities` を
 // 読まない）。同じ定数が `OverviewTab.tsx`（この案件の「計上会社」欄）でも
 // 使われており、その docstring 自体が「案件詳細など枠の広い場所で使う」ことを
-// 明記している。値そのものは `legal_entities.short_name`（migration 282）の
+// 明記している。値そのものは `legal_entities.short_name`（migration 284）の
 // 実データと合わせてあり、発行者情報の編集口も name/short_name には無い
 // （`legal-entity.service.ts` の `WRITABLE`）ので、ここだけ生で問い合わせて
 // 2つ目の情報源を作るより、既にある1つに寄せるほうが「同じ数字を2か所で

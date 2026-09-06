@@ -32,7 +32,7 @@ export async function getOrgTransition(): Promise<OrgTransition> {
   const row = (await queryOne(
     `SELECT * FROM org_transition WHERE id = 'default'`,
   )) as Record<string, unknown> | null;
-  // migration 282 が 'default' 行を必ず1行 INSERT 済み。無ければ設定そのものが
+  // migration 284 が 'default' 行を必ず1行 INSERT 済み。無ければ設定そのものが
   // 壊れているという意味なので、'off' を捏造せず素直に落とす。
   if (!row) throw new AppError(500, 'INTERNAL_ERROR', '切替状態(org_transition)の行が見つかりません');
   return toOrgTransition(row);

@@ -5,6 +5,7 @@ import projectsRoutes from './routes/projects.routes';
 import pagesRoutes from './routes/pages.routes';
 import requestsRoutes from './routes/requests.routes';
 import rosterRoutes from './routes/roster.routes';
+import qsheetImportRoutes from './routes/qsheet-import.routes';
 import templatesRoutes from './routes/templates.routes';
 import soundsRoutes from './routes/sounds.routes';
 import interactiveRoutes from './routes/interactive.routes';
@@ -29,6 +30,7 @@ export function createGraphicsRoutes(): Router {
   router.use('/graphics', pagesRoutes);
   router.use('/graphics', requestsRoutes);
   router.use('/graphics', rosterRoutes);
+  router.use('/graphics', qsheetImportRoutes);
   router.use('/graphics', templatesRoutes);
   // 外部インタラクティブ連携（段6-7）: 連携設定 CRUD と、投票ページ↔外部設問の紐付けAPI
   router.use('/graphics', interactiveRoutes);

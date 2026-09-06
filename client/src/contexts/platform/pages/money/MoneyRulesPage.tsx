@@ -22,7 +22,7 @@
  *
  * 2026年10月の事業再編（`docs/reorg-2026-10-plan.md` §4.5・§4.6・§6 P2 Round 1）で、
  * 締め日・支払月/日・税率・税丸めなど**お金のルール本体は会社（`entity_code`）ごとの
- * 別設定**になった（`money_rules` は migration 286 で GJV/GSS/GMO の3行に）。
+ * 別設定**になった（`money_rules` は migration 288 で GJV/GSS/GMO の3行に）。
  * タブで選んだ会社の分だけを `GET /money-rules?entity_code=` で取得・
  * `PUT /money-rules` の本文の `entity_code` で保存する。
  *

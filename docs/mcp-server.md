@@ -103,29 +103,65 @@ URL 自体が秘密情報になるので共有・掲示しないこと。キー�
 
 ### 繋ぎ方
 
-**A. キー付き URL (手軽・APIキー方式)**
+**A. OAuth (推奨・キー不要)**
 
-```
-https://dev.gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY_DEV>
-```
-
-`MCP_API_KEY_DEV` は VPS の `/root/gmo-onair/.env` にある。
-⚠️ **URL 自体が秘密情報**なので共有・掲示しない。
-
-**B. OAuth (本人名義で監査ログに残したいとき)**
+カスタムコネクタの URL に入れるのはこれだけ (OAuth Client ID 欄は空のまま):
 
 ```
 https://dev.gmo-onair.jp/api/v1/mcp
 ```
 
 `app_dev` は `AUTH_MODE: password` なので、本番と同じく ONAiR のログイン画面が開く
-(検証 DB の利用者アカウントでサインインする)。
+(検証 DB の利用者アカウントでサインインする)。**OAuth は `MCP_API_KEY` の設定有無に
+関わらず常に有効**なので、キーを探さなくてよい。書き込みの actor も
+共用 `mcp-claude` ではなく**本人**になる。
+
+**B. キー付き URL (APIキー方式)**
+
+```
+https://dev.gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY_DEV>
+```
+
+⚠️ **`MCP_API_KEY_DEV` は設定されていないことがある。** `.env.example` では
+コメントアウトされており、`docker-compose.yml` は `MCP_API_KEY: ${MCP_API_KEY_DEV:-}` と
+**未設定なら空**で渡す。空だと `?key=` は一致しようがなく、
+**401 (`Unauthorized: sign in via OAuth or present a valid API key`)** になる
+(`mcpAuth` は静的キーが無くても OAuth に誘導するため 503 ではなく 401)。
+
+#### キーを調べる・無ければ作る (VPS で)
+
+```bash
+# ① .env に入っているか (値は出さない)
+grep -c '^MCP_API_KEY_DEV=' /root/gmo-onair/.env
+
+# ② 実際にコンテナへ渡っているか (値は出さない)
+docker compose -f /root/gmo-onair/docker-compose.yml exec app_dev \
+  sh -c '[ -n "$MCP_API_KEY" ] && echo set || echo unset'
+
+# ③ 値そのものを見る (画面共有・ログに残さないこと)
+grep '^MCP_API_KEY_DEV=' /root/gmo-onair/.env
+
+# ④ 無ければ作って追記し、app_dev だけ入れ直す
+echo "MCP_API_KEY_DEV=$(openssl rand -hex 32)" >> /root/gmo-onair/.env
+docker compose -f /root/gmo-onair/docker-compose.yml up -d app_dev
+```
+
+- ⚠️ **本番の `MCP_API_KEY` を検証で使わない** (CLAUDE.md「本番環境の秘密情報を
+  検証環境で使わないこと」)。**別のキーにする。**
+- ⚠️ **`?key=` を付けた URL 自体が秘密情報**。共有・掲示・コミットしない。
+  ローテーションは `.env` を差し替えて `up -d app_dev` するだけ (旧キー即失効)。
+  **コネクタ側の URL も更新する。**
+- ⚠️ このキー1本で全ツール (読み取り + 書き込み) が実行できる。
+  アプリ内の per-user 権限は適用されない。
 
 ### 何に使うか
 
 - **AI の書き込みを伴う仕組みを試すとき**は必ずこちら
   (メール自動仕分けの試験実行など。本番に試し打ちを残さない)
 - 検証 DB は自由に壊してよい。本番 DB とは**完全分離** (`onair_prod` / `onair_dev`)
+- ⚠️ **BOX のフォルダは分けること。** `BOX_MAIL_INTAKE_FOLDER_ID_DEV` を設定しないと
+  `BOX_MAIL_INTAKE_FOLDER_ID` (本番と同じフォルダ) に落ちるので、
+  **検証で取り込んだ試験用の請求書 PDF が本番のフォルダに混ざる** (DB は分かれていても BOX は分かれない)
 
 ## ツール一覧 (161 種 / 23 カテゴリ / v4)
 

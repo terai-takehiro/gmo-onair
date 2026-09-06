@@ -74,17 +74,6 @@ export const TECHOPS_PC_ONLY: PcOnlyEntry[] = [
     instead: { label: 'アプリのトップを開く', to: '/techops/top' },
   },
   {
-    // テロップCG のハブ（ページと送出リスト）。ページの一覧・作成・編集を
-    // 本番前にまとめて組む画面で、列の多い表とダイアログを並べて使うため PC 前提。
-    // 発注（テロ原）だけは別画面（`/techops/graphics/:ownerKey/request`）にして
-    // スマホ対応にした — graphics.md §3「発注はディレクターがスマホから」の分業設計
-    // （下の `TECHOPS_MOBILE_OK` を参照）
-    path: '/techops/graphics/:ownerKey',
-    what: 'テロップCG（ページと送出リスト）',
-    why: 'ページの一覧と送出リストをまとめて組む画面で、狭い幅では組めません。',
-    instead: { label: 'アプリのトップを開く', to: '/techops/top' },
-  },
-  {
     // テロップCG の送出コンソール。本番3画面（進行・ランダウン・プロンプター）と
     // 同じ理由 — 配信卓に固定して使う運用画面
     path: '/techops/graphics/:ownerKey/live',
@@ -93,11 +82,15 @@ export const TECHOPS_PC_ONLY: PcOnlyEntry[] = [
     instead: { label: 'アプリのトップを開く', to: '/techops/top' },
   },
   {
-    // テロップCG の部品ライブラリ。ハブと同じ理由（カード一覧＋チップの情報密度が
-    // 高く、狭い幅では組めない）で PC 専用にした
-    path: '/techops/graphics/:ownerKey/parts',
-    what: 'テロップCG（部品ライブラリ）',
-    why: '部品カードの一覧をまとめて見比べる画面で、狭い幅では組めません。',
+    // テロップCG の設定（④・1画面4タブ：出力URL／見た目／同時に出せないもの／連携）。
+    // 2026-09-06 のゼロベース再設計・段Aで新設。旧・部品ライブラリ／演出SE管理／
+    // 外部インタラクティブ連携設定の3独立画面（PC専用だった）を1画面へ統合したもので、
+    // 情報密度は変わらないため引き続き PC 専用にした（旧3画面のルートは
+    // `App.tsx` の `RedirectToGraphicsHub`/`RedirectToGraphicsSettings` に置き換わり、
+    // 「転送」として `check-mobile-declared.mjs` の対象外になったのでこの表から削除した）
+    path: '/techops/graphics/:ownerKey/settings',
+    what: 'テロップCG（設定）',
+    why: '出力URL・見た目・同時に出せないもの・連携の4タブをまとめて組む画面で、狭い幅では組めません。',
     instead: { label: 'アプリのトップを開く', to: '/techops/top' },
   },
   {
@@ -107,23 +100,6 @@ export const TECHOPS_PC_ONLY: PcOnlyEntry[] = [
     path: '/techops/graphics/:ownerKey/templates',
     what: 'テロップCG（テンプレート管理）',
     why: '部品の初期値と公開フィールドをまとめて組む画面で、狭い幅では組めません。',
-    instead: { label: 'アプリのトップを開く', to: '/techops/top' },
-  },
-  {
-    // テロップCG の演出SE管理（段6-5）。テンプレート管理と同じ理由——ステップ選択・
-    // 開始順位・アップロード欄・一覧（波形プレイヤー＋音量スライダー＋有効/無効）を
-    // 横に並べる情報密度のため PC 専用にした
-    path: '/techops/graphics/:ownerKey/sounds',
-    what: 'テロップCG（演出SE管理）',
-    why: 'ステップごとの音源一覧と音量調整をまとめて組む画面で、狭い幅では組めません。',
-    instead: { label: 'アプリのトップを開く', to: '/techops/top' },
-  },
-  {
-    // 外部インタラクティブ連携設定（段6-7）。`LiveOrgSettingsPage.tsx`（`live-org-settings`）
-    // と同じ理由 — 別VPSの接続先URL・APIキーを外部の管理画面と往復しながら入力する画面
-    path: '/techops/graphics/:ownerKey/interactive-link',
-    what: 'テロップCG（外部インタラクティブ連携設定）',
-    why: '接続先URL・APIキーなど外部サービスの資格情報を入力する画面で、PCでの操作を前提にしています。',
     instead: { label: 'アプリのトップを開く', to: '/techops/top' },
   },
   {
@@ -168,9 +144,10 @@ export const TECHOPS_MOBILE_OK: string[] = [
   // 独立ルートなので `<PcOnlyGate>` は通らない — client-live の表示画面（/display/:timerId）
   // と同じく「宣言として」こちら側に置く（1920×1080 を縮尺表示するだけでスマホでも壊れない）
   '/techops/graphics/output/:projectId',
-  // テロップCGの発注（テロ原）フォーム。ディレクターがスマホから文言・用途・
-  // 出すタイミングだけ書いて投げ込む1カラムフォーム＋自分の発注一覧（段5・graphics.md §3）
+  // テロップCGの発注（テロ原）フォーム。ディレクターがスマホから文言・出すタイミング・
+  // 種類だけ書いて投げ込む1カラムフォーム＋自分の発注一覧（段5・graphics.md §3）
   '/techops/graphics/:ownerKey/request',
+  '/techops/graphics/:ownerKey', // テロップCG（①一覧＝PC・⑥閲覧＋緊急CLEAR＝スマホ。同じURLの中でTailwindのブレークポイントにより出し分ける。段D）
   '/techops/schedules',      // スケジュール表の一覧
   '/techops/schedules/:id',  // スケジュール表の詳細（375px は縦積みカードに畳む）
   // 収録設定・配信設定の簡易入口（旧 `/techops/device-settings`）は2026-08-22 に廃止（`App.tsx` にルート無し）

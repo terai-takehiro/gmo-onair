@@ -103,7 +103,7 @@ export async function runMigrations(): Promise<void> {
 
   /*
    * legal_entities（GJV/GSS/GMO の3行）と org_transition（'default' の1行）は
-   * migration 282 が必ず作る土台。無いと計上会社まわりの API が全部落ちるが、
+   * migration 284 が必ず作る土台。無いと計上会社まわりの API が全部落ちるが、
    * 既存パターン（episodes の一意索引チェック）に揃え、**throw はしない**
    * （デプロイを止めない。詳細: docs/reorg-2026-10-plan.md）。
    */
@@ -114,9 +114,9 @@ export async function runMigrations(): Promise<void> {
     console.error(
       [
         '⚠️ [legal_entities] GJV/GSS/GMO の3行がありません',
-        '  （migration 282 が未適用、または誰かが削除した環境）。',
+        '  （migration 284 が未適用、または誰かが削除した環境）。',
         '  計上会社まわりの API・画面が動きません。',
-        '  直したら手動で: migration 282_legal_entities.sql の内容を再実行してください。',
+        '  直したら手動で: migration 284_legal_entities.sql の内容を再実行してください。',
       ].join('\n')
     );
   }
@@ -126,7 +126,7 @@ export async function runMigrations(): Promise<void> {
   if ((orgTransitionCount.rows[0]?.n ?? 0) !== 1) {
     console.error(
       [
-        '⚠️ [org_transition] \'default\' 行がありません（migration 282 が未適用の環境）。',
+        '⚠️ [org_transition] \'default\' 行がありません（migration 284 が未適用の環境）。',
         '  直したら手動で: INSERT INTO org_transition (id) VALUES (\'default\');',
       ].join('\n')
     );

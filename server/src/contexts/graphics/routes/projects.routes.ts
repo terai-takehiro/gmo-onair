@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { execute, queryOne } from '../../../shared/db/connection';
+import { execute, queryAll, queryOne } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import {
@@ -101,6 +101,35 @@ router.post('/projects/resolve', requirePermission('qsheet', 'editor'), wrap(asy
   res.json({ success: true, data: bundle });
 }));
 
+// ── プロジェクト一覧（軽量版。④「前の番組からコピー」のピッカー専用） ─────────
+// テーマ・スロット退出ルール等の重い列は含めない——一覧のピッカーが名前と更新日時しか
+// 使わないため。閲覧のみで書き込まないので editor は要らない（router.use の
+// requirePermission('qsheet') = reader をそのまま継承する。GET /projects/:id と同じ作法）。
+router.get('/projects', wrap(async (req, res) => {
+  const excludeIdRaw = parseInt(req.query.excludeId as string);
+  const excludeId = Number.isFinite(excludeIdRaw) ? excludeIdRaw : null;
+
+  const params: unknown[] = [];
+  if (excludeId !== null) params.push(excludeId);
+  const rows = await queryAll(
+    `SELECT id, name, owner_type, owner_id, updated_at FROM graphics_projects
+     ${excludeId !== null ? 'WHERE id != ?' : ''}
+     ORDER BY updated_at DESC
+     LIMIT 30`,
+    params
+  );
+  res.json({
+    success: true,
+    data: rows.map((r) => ({
+      id: r.id as number,
+      name: r.name as string,
+      ownerType: r.owner_type as string,
+      ownerId: r.owner_id as string,
+      updatedAt: r.updated_at,
+    })),
+  });
+}));
+
 // ── プロジェクト一式（project + pages + cues） ─────────────────────
 router.get('/projects/:id', wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
@@ -109,13 +138,15 @@ router.get('/projects/:id', wrap(async (req, res) => {
   res.json({ success: true, data: bundle });
 }));
 
-// ── プロジェクトの部分更新（いまは theme / name のみ） ─────────────────
+// ── プロジェクトの部分更新（theme / name / slotExitRules / followScript） ─────
 router.put('/projects/:id', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const project = id && !isNaN(id) ? await fetchProject(id) : null;
   if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
 
-  const body = (req.body ?? {}) as { theme?: string; name?: string; slotExitRules?: unknown };
+  const body = (req.body ?? {}) as {
+    theme?: string; name?: string; slotExitRules?: unknown; followScript?: boolean;
+  };
   const sets: string[] = [];
   const params: unknown[] = [];
 
@@ -133,6 +164,11 @@ router.put('/projects/:id', requirePermission('qsheet', 'editor'), wrap(async (r
   if (body.slotExitRules !== undefined) {
     const rules = validateSlotExitRules(body.slotExitRules);
     sets.push('slot_exit_rules = ?::jsonb'); params.push(JSON.stringify(rules));
+  }
+  // 台本に追従（段E・migration 283）。既定 false・番組ごとに ON にできるだけの
+  // 単純なスイッチ——theme/name と同じ「来ていれば上書き」のパターン
+  if (body.followScript !== undefined) {
+    sets.push('follow_script = ?'); params.push(!!body.followScript);
   }
 
   if (sets.length > 0) {
