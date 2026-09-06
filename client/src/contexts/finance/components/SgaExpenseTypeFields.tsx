@@ -1,9 +1,12 @@
 /**
- * 販管費の「仮フラグ・種別・月按分」（⑤ 販管費のダイアログの中身）
+ * 販管費の「種別・月按分」（⑤ 販管費のダイアログの中身）
  *
  * **`SgaDialog` から切り出したものです。動きは変えていません。**
- * 分けた理由は1ファイル400行の上限で、中身の作り直しではありません
- * （仮フラグ (migration 268) だけは仕様変更 #4・#6・#7 で新規に足したもの）。
+ * 分けた理由は1ファイル400行の上限で、中身の作り直しではありません。
+ *
+ * ⚠️ **仮フラグ (migration 268) はここには無い。** それが無効にする精算番号
+ * （`SgaSettlementFields`）より上に置くため、`SgaDialog` 側の精算ブロックの
+ * 直上へ移した（`docs/design/v4/_form-order.md` 2-1「依存する欄は依存される欄より下」）。
  *
  * 固定(毎月)を選ぶと按分の入力を閉じます。固定費は毎月同額で計上するので、
  * 期間で割る按分と両方が効くと二重に分けたことになります。
@@ -28,17 +31,6 @@ export function SgaExpenseTypeFields({
 }) {
   return (
     <div className="space-y-4">
-      {/* 仮フラグ。仕入の「仮（確定前の見込み仕入）」と同じ扱い。
-          ON の間は精算番号が入力不可になる（`SgaSettlementFields`） */}
-      <div className="flex items-center justify-between gap-2">
-        <Label htmlFor="sga-is-provisional" className="cursor-pointer">仮（確定前の見込み）</Label>
-        <Switch
-          id="sga-is-provisional"
-          checked={form.is_provisional}
-          onCheckedChange={(checked) => setForm((f) => ({ ...f, is_provisional: !!checked }))}
-        />
-      </div>
-
       <div className="space-y-2">
         <Label>販管費種別</Label>
         <div className="flex gap-4">

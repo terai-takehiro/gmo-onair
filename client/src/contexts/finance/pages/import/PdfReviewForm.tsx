@@ -1,10 +1,14 @@
 /**
  * 精算 PDF を台帳に入れる前の編集フォーム (⑦ 取り込み・v4)
  *
- * **中のフィールドと送る値は1行も変えていません。** 税抜換算 (`税込 ÷ (1+税率)`) と
+ * **中のフィールドと送る値は変えていません。** 税抜換算 (`税込 ÷ (1+税率)`) と
  * `billing_key` の作り方はサーバー側と噛み合っており、整理のついでに触ると
  * **実際の仕入・販管費の金額がずれます**（v3.2.0 の不課税バグと同じ壊れ方）。
  * ここは値を持つだけで、登録は `PdfReviewDialog` が行います。
+ *
+ * あとから直したのは**並び順**（`docs/design/v4/_form-order.md`）と、それに伴う2点:
+ * 役務提供完了日から**空いている計上月・支払予定日だけ**を埋めるようにしたこと、
+ * **仮の間は精算番号を入力できない**ようにしたこと（財務④と同じ条件）。
  */
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
@@ -17,6 +21,7 @@ import { Switch } from '@/components/ui/switch';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { previousBusinessDay, toLocalDateStr } from '@gmo-onair/shared/src/utils/businessDays';
 import { TaxCategoryLabels, taxRateOf, type Vendor } from '@/types';
 import type { ProjectOption, RegistrationUnit, XpointParseResult } from './types';
 
@@ -143,16 +148,10 @@ export function PdfReviewForm({
             </div>
           </>
         ) : (
-          <>
-            <div>
-              <Label>支払先 *</Label>
-              <Input value={f.vendorName} onChange={(e) => set('vendorName', e.target.value)} />
-            </div>
-            <div>
-              <Label>発生日（計上日）*</Label>
-              <Input type="date" value={f.recognitionDate} onChange={(e) => set('recognitionDate', e.target.value)} />
-            </div>
-          </>
+          <div className="sm:col-span-2">
+            <Label>支払先 *</Label>
+            <Input value={f.vendorName} onChange={(e) => set('vendorName', e.target.value)} />
+          </div>
         )}
 
         <div>
@@ -181,29 +180,49 @@ export function PdfReviewForm({
           )}
         </div>
 
-        {f.kind === 'purchase' && (
+        {/* 日付はここに一列にまとめる。**モードで置き場所を変えない** —
+            着手前は販管費だと発生日が支払先の隣（上部）、仕入だと計上月が下部にあり、
+            切り替えるたびに日付の位置が飛んでいた。
+            仕入は 役務提供完了日 → 計上月・支払予定日 の順（財務④・GPM と同じ）で、
+            **役務日を入れたら空の欄だけ自動で埋める** */}
+        {f.kind === 'purchase' ? (
           <>
+            <div className="sm:col-span-2">
+              <Label>役務提供完了日</Label>
+              <Input
+                type="date"
+                value={f.serviceCompletedDate}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  set('serviceCompletedDate', val);
+                  if (!val) return;
+                  const [y, m] = val.split('-').map(Number);
+                  if (!y || !m) return;
+                  // **空のときだけ入れる。** 人が直した計上月・支払予定日を
+                  // あとから役務日を入れ直しただけで書き戻さない
+                  if (!f.recognitionMonth) set('recognitionMonth', `${y}-${String(m).padStart(2, '0')}`);
+                  // 翌月末が土日祝のときは前営業日に調整（財務④・GPM と同じ規則）
+                  if (!f.paymentDueDate) set('paymentDueDate', toLocalDateStr(previousBusinessDay(new Date(y, m + 1, 0))));
+                }}
+              />
+              <p className="text-note mt-1 text-muted-foreground">
+                入力すると、空いている計上月（当月）・支払予定日（翌月末、土日祝は前営業日）を埋めます
+              </p>
+            </div>
             <div>
               <Label>計上月</Label>
               <Input type="month" value={f.recognitionMonth} onChange={(e) => set('recognitionMonth', e.target.value)} />
             </div>
-            <div>
-              <Label>役務提供完了日</Label>
-              <Input type="date" value={f.serviceCompletedDate} onChange={(e) => set('serviceCompletedDate', e.target.value)} />
-            </div>
           </>
+        ) : (
+          <div>
+            <Label>発生日（計上日）*</Label>
+            <Input type="date" value={f.recognitionDate} onChange={(e) => set('recognitionDate', e.target.value)} />
+          </div>
         )}
-
         <div>
           <Label>支払予定日</Label>
           <Input type="date" value={f.paymentDueDate} onChange={(e) => set('paymentDueDate', e.target.value)} />
-        </div>
-        <div>
-          <Label>精算番号（{isRakuraku ? '楽楽精算' : 'X-Point'}）</Label>
-          <div className="flex items-center gap-1">
-            <span className="text-sub text-muted-foreground">{isRakuraku ? '楽' : 'X'}-</span>
-            <Input value={f.settlementNumber} onChange={(e) => set('settlementNumber', e.target.value)} />
-          </div>
         </div>
 
         <div>
@@ -216,14 +235,31 @@ export function PdfReviewForm({
             </SelectContent>
           </Select>
         </div>
-        {f.kind === 'purchase' && (
-          <div className="flex items-end pb-1">
+
+        {/* 仮 → 精算番号 の順。**仮の間は精算番号を入力できない**ので効く相手の直上に置き、
+            2つが必ず同じ行に並ぶよう1つの枠にまとめている
+            （着手前は仮がインボイスの右隣にあり、精算番号とは連動もしていなかった。
+            `docs/design/v4/_form-order.md` 2-1） */}
+        <div className="sm:col-span-2 flex flex-col gap-3">
+          {f.kind === 'purchase' && (
             <label className="text-sub flex cursor-pointer items-center gap-2">
               <Switch checked={f.isProvisional} onCheckedChange={(v) => set('isProvisional', v)} />
               仮（見込みの仕入）
             </label>
+          )}
+          <div>
+            <Label>精算番号（{isRakuraku ? '楽楽精算' : 'X-Point'}）</Label>
+            <div className="flex items-center gap-1">
+              <span className="text-sub text-muted-foreground">{isRakuraku ? '楽' : 'X'}-</span>
+              <Input
+                value={f.settlementNumber}
+                onChange={(e) => set('settlementNumber', e.target.value)}
+                placeholder={f.isProvisional ? '仮の間は入力できません' : undefined}
+                disabled={f.isProvisional}
+              />
+            </div>
           </div>
-        )}
+        </div>
 
         <div className="sm:col-span-2">
           <Label>{f.kind === 'purchase' ? '説明' : '詳細'}</Label>

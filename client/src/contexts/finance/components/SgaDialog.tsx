@@ -5,21 +5,13 @@ import {
 import { FormDialog } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CurrencyInput } from "@/components/ui/currency-input";
-import { TaxHelperButton } from "@gmo-onair/shared/src/client/ui/tax-aware-amount-input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
-import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Switch } from "@/components/ui/switch";
 import { Loader2 } from "lucide-react";
+import { SgaPayeeAmountFields } from "./SgaPayeeAmountFields";
 import { SgaExpenseTypeFields } from "./SgaExpenseTypeFields";
 import { SgaSettlementFields } from "./SgaSettlementFields";
-import { TaxCategoryLabels } from "@/types";
+import { SgaClassificationFields } from "./SgaClassificationFields";
 
 export interface SgaFormData {
   vendor_name: string;
@@ -156,16 +148,29 @@ export default function SgaDialog({
     [form.amortize_start, form.amortize_end]
   );
 
+  /**
+   * Enter キーで保存できるようにする（`docs/design/v4/_form-order.md` 4）。
+   * **明細行を持たないフォームなので、入力中の Enter が誤送信になる心配が無い。**
+   * 登録ボタンは `type="submit"` にして `onClick` を外してある（両方あると二重送信）。
+   * ここのガードは登録ボタンの `disabled` と同じ条件をそのまま書いている。
+   */
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (readOnly || !form.vendor_name || isSaving) return;
+    onSubmit();
+  };
+
   return (
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
       title={readOnly ? "販管費の詳細" : (editingId ? "販管費編集" : "販管費 新規登録")}
       size="lg"
+      onSubmit={handleFormSubmit}
       footer={
         readOnly ? (
           <div className="flex justify-end">
-            <Button variant="outline" onClick={onClose}>閉じる</Button>
+            <Button type="button" variant="outline" onClick={onClose}>閉じる</Button>
           </div>
         ) : (
         <div className="flex flex-wrap gap-2 sm:justify-between">
@@ -173,19 +178,21 @@ export default function SgaDialog({
             {/* **削除できるのはここだけ。** 一覧の行にゴミ箱を並べると、
                 隣の行を押して削除する事故が起きる（金額の記録なので戻せない） */}
             {editingId && onDelete && (
-              <Button variant="destructive" disabled={isDeleting} onClick={() => onDelete(editingId)}>
+              <Button type="button" variant="destructive" disabled={isDeleting} onClick={() => onDelete(editingId)}>
                 {isDeleting && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                 削除
               </Button>
             )}
           </div>
           <div className="ml-auto flex gap-2">
-          <Button variant="outline" onClick={onClose}>
+          {/* ⚠️ 送信以外のボタンには必ず `type="button"` を付ける
+              （`<form>` の中では既定が submit になり、押すと保存が走る） */}
+          <Button type="button" variant="outline" onClick={onClose}>
             キャンセル
           </Button>
           <Button
+            type="submit"
             disabled={!form.vendor_name || isSaving}
-            onClick={onSubmit}
           >
             {isSaving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
             {editingId ? "更新" : "登録"}
@@ -197,51 +204,23 @@ export default function SgaDialog({
     >
         {/* ⚠️ 個別に `disabled` を足さない — `<fieldset disabled>` が中の input/select/button を漏れなく無効化する */}
         <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0 space-y-4">
-          {/* Row 1: vendor + tax */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label>支払先</Label>
-              <Input
-                value={form.vendor_name}
-                onChange={(e) => setForm((f) => ({ ...f, vendor_name: e.target.value }))}
-                placeholder="支払先名"
-              />
-              {/* 閲覧のみでは出さない（一覧を渡さずに開くため。上の Input が名前を持っている） */}
-              {!readOnly && vendors.length > 0 && (
-                <SearchableSelect
-                  className="mt-1"
-                  options={vendors.map((v) => ({ value: v.id, label: v.name, subLabel: v.vendor_type || '' }))}
-                  value={form.vendor_id}
-                  onChange={(val) => {
-                    const v = vendors.find((vn) => vn.id === val);
-                    setForm((f) => ({
-                      ...f,
-                      vendor_id: val,
-                      vendor_name: v?.name ?? f.vendor_name,
-                    }));
-                  }}
-                  placeholder="仕入先マスタから検索（任意）"
-                />
-              )}
-            </div>
-            <div className="space-y-1">
-              <Label>税区分</Label>
-              <Select value={form.tax_category} onValueChange={(val) => setForm((f) => ({ ...f, tax_category: val }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {/* 画面ごとに <SelectItem> を並べると足した区分が漏れる。
-                      実際ここだけ非課税が無く、販管費は非課税を選べなかった。 */}
-                  {(Object.keys(TaxCategoryLabels) as (keyof typeof TaxCategoryLabels)[]).map((k) => (
-                    <SelectItem key={k} value={k}>{TaxCategoryLabels[k]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          {/*
+            並び順は `docs/design/v4/_form-order.md` の6段に沿って組み直した
+            （着手前は 金額が下から4番目で、税区分・発生年月・支払期日・精算方法・
+            精算番号・申請URL の全部より下にあった）。上から
+            支払先 → 金額・税区分 → 種別/按分 → 発生年月・支払期日 →
+            仮・精算 → 分類（勘定科目・処理元・インボイス・担当者）→ 自由記述。
+          */}
+          {/* Row 1・2: 支払先 → 金額・税区分 — 1ファイル400行の上限で別ファイルに分けている。
+              **並び順はそのまま**（段3「いつ」より上に置いている理由は
+              `SgaPayeeAmountFields.tsx` の冒頭） */}
+          <SgaPayeeAmountFields form={form} setForm={setForm} vendors={vendors} readOnly={readOnly} />
 
-          {/* Row 2: recognition_date + billing_key preview */}
+          {/* Row 3: 種別と月按分 — 1ファイル400行の上限で別ファイルに分けている。
+              **按分は金額を月数で割るので、材料になる金額の直後に置く。** */}
+          <SgaExpenseTypeFields form={form} setForm={setForm} amortizeMonths={amortizeMonths} />
+
+          {/* Row 4: recognition_date + billing_key preview */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>発生年月</Label>
@@ -276,120 +255,31 @@ export default function SgaDialog({
             </div>
           </div>
 
-          {/* Row 3: 精算方法・精算番号・申請URL — 400行の上限で別ファイル */}
+          {/* Row 5: 仮（確定前の見込み）→ 精算方法・精算番号・申請URL。
+              **仮フラグは精算番号を入力不可にする**ので、`SgaExpenseTypeFields` から
+              ここへ移して、効く相手の直上に置いた
+              （`_form-order.md` 2-1「依存する欄は依存される欄より下」）。 */}
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="sga-is-provisional" className="cursor-pointer">仮（確定前の見込み）</Label>
+            <Switch
+              id="sga-is-provisional"
+              checked={form.is_provisional}
+              onCheckedChange={(checked) => setForm((f) => ({ ...f, is_provisional: !!checked }))}
+            />
+          </div>
+
+          {/* 精算方法・精算番号・申請URL — 400行の上限で別ファイル */}
           <SgaSettlementFields form={form} setForm={setForm} />
 
-          {/* Row 4: amount */}
-          <div className="space-y-1">
-            <Label>金額</Label>
-            <div className="flex items-center gap-1 max-w-xs">
-              <div className="flex-1">
-                <CurrencyInput
-                  value={form.amount}
-                  onChange={(v) =>
-                    setForm((f) => ({ ...f, amount: v }))
-                  }
-                />
-              </div>
-              <TaxHelperButton
-                fieldLabel="販管費 金額"
-                defaultIncludedAmount={form.amount}
-                onResult={(v) => setForm((f) => ({ ...f, amount: v }))}
-              />
-            </div>
-          </div>
-
-          {/* Row 4.5: 種別と月按分 — 1ファイル400行の上限で別ファイルに分けている */}
-          <SgaExpenseTypeFields form={form} setForm={setForm} amortizeMonths={amortizeMonths} />
-
-          {/* Row 5: description + notes */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label>詳細</Label>
-              <Input
-                value={form.description}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, description: e.target.value }))
-                }
-                placeholder="詳細"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>備考</Label>
-              <Input
-                value={form.notes}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, notes: e.target.value }))
-                }
-                placeholder="備考"
-              />
-            </div>
-          </div>
-
-          {/* 勘定科目 (migration 166)。**マスターが空なら欄ごと出さない** —
-              選べない Select を置いても押した人が困るだけ */}
-          {accountTitles.length > 0 && (
-            <div className="space-y-1">
-              <Label>勘定科目</Label>
-              <Select
-                value={form.account_title_id || 'none'}
-                onValueChange={(val) => setForm((f) => ({ ...f, account_title_id: val === 'none' ? '' : val }))}
-              >
-                <SelectTrigger><SelectValue placeholder="選んでください" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">未設定</SelectItem>
-                  {accountTitles.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Row 5.5: source */}
-          <div className="space-y-1">
-            <Label>処理元</Label>
-            <Select value={form.source} onValueChange={(val) => setForm(f => ({ ...f, source: val as 'staff' | 'accounting' }))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="staff">スタッフ入力</SelectItem>
-                <SelectItem value="accounting">経理入力</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Row 6: invoice + assigned_to */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label>インボイス</Label>
-              <Select
-                value={form.invoice_qualified ? "qualified" : "unqualified"}
-                onValueChange={(val) =>
-                  setForm((f) => ({
-                    ...f,
-                    invoice_qualified: val === "qualified",
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="qualified">適格事業者</SelectItem>
-                  <SelectItem value="unqualified">非適格事業者</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>担当者</Label>
-              <SearchableSelect
-                options={users.map((u) => ({ value: u.id, label: u.name }))}
-                value={form.assigned_to}
-                onChange={(val) =>
-                  setForm((f) => ({ ...f, assigned_to: val }))
-                }
-                placeholder="担当者を検索â¦"
-              />
-            </div>
-          </div>
+          {/* Row 6〜8: 勘定科目・処理元・インボイス・担当者 → 詳細・備考 —
+              1ファイル400行の上限で別ファイルに分けている。**並び順はそのまま**
+              （自由記述を最後に置いた理由は `SgaClassificationFields.tsx` の冒頭） */}
+          <SgaClassificationFields
+            form={form}
+            setForm={setForm}
+            users={users}
+            accountTitles={accountTitles}
+          />
         </fieldset>
     </FormDialog>
   );
