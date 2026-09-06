@@ -15,7 +15,10 @@
  *   （8/13 の資料で、手計算の写し間違いがそのまま会議に出た）
  */
 
-/** 事業主体（2026年10月の会社分割に備える）。案件に1つ付ける。 */
+/**
+ * 事業主体（2026年10月の会社分割に備える）。案件に1つ付ける。
+ * お客様の区分から自動で決まる: グループ内 → gss、外部 → gscs。gig は人が上書きしたときだけ。
+ */
 export type BusinessEntity = 'gss' | 'gscs' | 'gig';
 export const BUSINESS_ENTITY_LABELS: Record<BusinessEntity, string> = {
   gss: 'GMOサムライスタジオ',
@@ -69,9 +72,9 @@ export interface MonthlyTrendPoint {
   revenue_external: number;   // 外部顧客イベントの確定売上（円）
   project_count_internal: number;
   project_count_external: number;
-  /** 稼働率の材料 */
+  /** 稼働率の材料。内覧を含め何かしらの利用があった日を数え、メンテナンスと仮押さえは数えない（設定で変えられる） */
   business_days: number;
-  active_days: number;        // 数える種類の予定が入っていた日数（部屋を掛けるかは設定）
+  active_days: number;
   utilization: number | null; // active_days ÷ business_days ×100
 }
 
@@ -140,6 +143,14 @@ export interface InviewSummary {
   next_session: { date: string; applied_groups: number } | null;
 }
 
+/** 主体ごとの表と、統合した全体の表。`gig` は数字があるときだけ。 */
+export interface PlByEntity {
+  all: MonthlyPlTable;
+  gss: MonthlyPlTable;
+  gscs: MonthlyPlTable;
+  gig?: MonthlyPlTable;
+}
+
 /** 会議1回ぶんの「定例報告パック」。週報を確定した時点で凍結する。 */
 export interface KeepReportPack {
   version: 1;
@@ -148,8 +159,8 @@ export interface KeepReportPack {
   generated_at: string;                // ISO
   frozen_at: string | null;            // 凍結した時刻。null なら「いまの数字」
   scope: { entity: EntityScope; customer_segment: CustomerSegment | 'all' };
-  landing: MonthlyPlTable;             // 当月 着地
-  forecast: MonthlyPlTable;            // 翌月 着地見込
+  landing: PlByEntity;                 // 当月 着地（主体別 ＋ 全体）
+  forecast: PlByEntity;                // 翌月 着地見込（主体別 ＋ 全体）
   trend: MonthlyTrendPoint[];          // 2024-01〜
   pipeline: { external: PipelineRow[]; samurai: PipelineRow[]; weighted_revenue: number; total_revenue: number };
   project_pages: ProjectPageData[];    // ヨミ表で「資料」に印を付けた案件

@@ -61,7 +61,7 @@ GMO流会議フォーマット Ver.2.5 の固定ページ（0〜11）の間に�
   右「スタジオ稼働率の推移（2025/1〜）」＝ 稼働日数（棒）と稼働率（線）。吹き出しで当月の値（8月 売上高 ¥1,762,293・案件数 2件・稼働率 46.7%）
 - **ヨミ表**: 8/13 版は手作り（フェーズ A/B/C/D/ネタ/没・売上/粗利を万で丸め・大区分・担当・ステータス・新規/更新の印）、
   9/4 版は ONAiR の案件一覧そのもの。**「サムライ関連」は別表**（相手が サムライパートナーズ／GMOサムライコンテンツスタジオ）
-- **案件ページの確度の文字**: E 問い合わせ ／ C 提案済 ／ B 正式申込待 ／ A。v4.5.25 の受注確度の語彙
+- **案件ページの確度の文字**: E 問い合わせ ／ C 提案済 ／ B 正式申込待 ／ A。資料ではこの語を使い、ONAiR の画面はステージ名（口頭決定など）のまま。v4.5.25 の受注確度の語彙
   （E問い合わせ 10%／D要件確認 25%／C見積・提案 50%／B決定見込み 80%／A受注済 100%）と同じ並びなので、ステージから引ける
 - **稼働率**: 9月 42.1% は 8日 ÷ 19営業日 と読める。10月 36.1% はどの整数の組でも合わない（半日か部屋数を掛けている）。
   **定義を設定に出す**（§5.4）
@@ -120,26 +120,25 @@ p.37「審議事項の要約」: サムライパートナーズ 49.9% ＋ GMO-IG
 
 ## 4. 事業主体（10月〜）
 
-`projects.entity`（`gss` / `gscs` / `gig`、NOT NULL、既定 `gss`）を1つ持たせる。**お客様の区分（`customer_type`＝グループ内／外部）とは別の軸**。
+**ご判断（2026-09-06）: グループ内イベントは GMOサムライスタジオ、グループ外イベントは GMOサムライコンテンツスタジオ。
+収支は主体ごとに分けて出し、あわせて統合した全体の収支も出す。**
 
-| 値 | 主体 | 例 |
+`projects.entity`（`gss` / `gscs` / `gig`）を持たせ、**お客様の区分から自動で決める**（`customer_type` と同じく保存のたびに導出し、当時の値を残す）。
+
+| 値 | 主体 | 決まり方 |
 |---|---|---|
-| `gss` | GMOサムライスタジオ（旧 GMOグローバルスタジオ） | スタジオ運営・技術支援。**既存の全案件はここに倒す** |
-| `gscs` | GMOサムライコンテンツスタジオ（合弁） | 番組・コンテンツ制作（インテリジェンス） |
-| `gig` | GMOインターネットグループ人格 | GMO Yours・第1本社の会場・グループとして行うイベント |
+| `gss` | GMOサムライスタジオ（旧 GMOグローバルスタジオ） | お客様がグループ内（`customer_type = 'internal'`） |
+| `gscs` | GMOサムライコンテンツスタジオ（合弁） | お客様が外部（`customer_type = 'external'`） |
+| `gig` | GMOインターネットグループ人格 | 自動では付けない。グループとして行うもの（GMO Yours・第1本社の会場など）を **人が案件で上書き**したときだけ |
 
-- BI・ヨミ表・実施報告・案件ページは主体で絞れる。**全社 ＝ 主体の合計**
-- **月次予算は主体ごと**に持てるようにする（`monthly_budgets` に `entity` を足し、`year_month × entity` を主キーに。
-  既存行は `gss`）。主体の予算が無ければ表の目標は「—」で出し、勝手に按分しない
-- 「サムライ関連」の別表は主体ではなく **お客様** で決める（`companies` に `samurai_group` フラグ。
-  サムライパートナーズ／GMOサムライコンテンツスタジオ）。10月以降、`gscs` の案件は主体の絞り込みで見るのが自然になるが、
-  資料の並び（外部案件／サムライ関連）は当面そのまま出せるようにする
-- 案件作成・編集画面の欄に「事業主体」を足す。MCP `create_project` は任意引数（既定 `gss`）— 本番の無人バッチを壊さない
+- 上書きは `projects.entity_manual = TRUE` で印を付け、お客様を変えても自動で戻さない
+- **収支は主体別 ＋ 全体（統合）**。数値報告の表は「全体」「GMOサムライスタジオ」「GMOサムライコンテンツスタジオ」の3組を出す（`gig` は数字があるときだけ）
+- 売上・仕入は案件の主体で分かれる。**販管費・償却相当額は案件に紐づかない**ので `sga_expenses.entity`（既定 `gss`）と、償却の `FIXED-COGS` 仕入にも主体を持たせる。経理の補正値（`monthly_actual_overrides`）も主体別
+- **月次予算は主体ごと**（`monthly_budgets` に `entity` を足し、`year_month × entity` を主キーに。既存行は `gss`）。全体の目標 ＝ 主体の合計。主体の予算が無ければ「—」で出し、按分しない
+- 「サムライ関連」の別表は主体ではなく **お客様** で決める（`companies.samurai_group`。サムライパートナーズ／GMOサムライコンテンツスタジオ）
+- 案件の一覧・詳細に「事業主体」の列と欄を足す。MCP `create_project` は変えない（自動で決まる）
 
-⚠️ **決めてほしいこと**: 既存案件を全部 `gss` に倒してよいか／予算を主体ごとに入れるか／`gig` を「主体」として数えるか
-（グループ人格の案件は売上が立たないものも多い）。
-
----
+⚠️ 10月より前の月は分割前だが、同じ決まりで遡って分けて出す（お客様の区分は当時の値が残っている）。
 
 ## 5. 定例報告パック（JSON）
 
@@ -151,8 +150,8 @@ p.37「審議事項の要約」: サムライパートナーズ 49.9% ＋ GMO-IG
 KeepReportPack
   meeting_date / previous_meeting_date / generated_at / frozen_at
   scope: { entity: all|gss|gscs|gig, customer_segment: all|internal|external }
-  landing:  MonthlyPlTable   … 当月 着地（6行 × 目標/実績/差/比/判定）＋ 未確定の売上
-  forecast: MonthlyPlTable   … 翌月 着地見込（確定 ＋ 確度加味）
+  landing:  { all, gss, gscs, gig? }  … 当月 着地。主体ごとの表（6行 × 目標/実績/差/比/判定）＋ 全体（統合）＋ 未確定の売上
+  forecast: { all, gss, gscs, gig? }  … 翌月 着地見込（確定 ＋ 確度加味）。同じ形
   trend:    MonthlyTrendPoint[] … 2024-01〜。売上（グループ内/外部）・案件数・営業日数・稼働日数・稼働率
   pipeline: { external[], samurai[], weighted_revenue, total_revenue }
   project_pages[]  … ヨミ表で「資料」に印を付けた案件（案件ページの材料）
@@ -166,9 +165,9 @@ KeepReportPack
 
 | 部分 | 出どころ | 約束 |
 |---|---|---|
-| 着地の売上・原価 | `revenues`（**`status='confirmed'`**）・`purchases`、`recognition_date` の月 | `getMonthlySummary` と同じ。`FIXED-COGS` 案件の仕入 ＝ 償却相当額。経理の補正値があればそれを使う |
+| 着地の売上・原価 | `revenues`（**`status='confirmed'`**）・`purchases`、`recognition_date` の月。主体は案件の `entity` | `getMonthlySummary` と同じ。`FIXED-COGS` 案件の仕入 ＝ 償却相当額（主体別）。経理の補正値があればそれを使う。**全体 ＝ 主体の合計** |
 | 見込 | 着地 ＋ 受注前案件（失注除く）の売上・仕入 × 確度 | `getPipelineForecast` の「確度加味」。**`unconfirmed[]`** に見込みに入れた未確定の売上を列挙（資料の注記の材料） |
-| 目標 | `monthly_budgets`（主体別） | 無ければ null |
+| 目標 | `monthly_budgets`（主体別） | 無ければ null。全体の目標は主体の合計 |
 | 推移 | 月ごとの確定売上を `projects.customer_type` で分ける。案件数は本番日がその月にある案件 | 当時の値（`customer_type`）を使う。`companies.is_gmo_group` の今の値で塗り替えない |
 | ヨミ表 | `projects`（`stage NOT IN (e_lost, r_delivered, s_completed)`）＋ 最新見積 ＋ `OPEN_NEXT_ACTION_SQL` | **新規／更新** は前回の会議日と `created_at` / `updated_at` の比較 |
 | 案件ページ | `projects`・見積・`studio_bookings`・Box `08_写真`・Qシート | 概要の3行は `projects.goal` を初期値に、人が直せる（構成側に持つ） |
@@ -190,13 +189,17 @@ judge = higher_better: actual ≧ budget → ○ / lower_better: actual ≦ budg
 
 ### 5.4 稼働率
 
+**ご判断（2026-09-06）: 内覧を含め、何かしらのスタジオ利用があった日は数える。メンテナンス等は除く。**
+
 ```
-稼働率 = 数える種類の予定が入っていた日数 ÷ 営業日数 × 100
+稼働率 = スタジオ利用があった日数 ÷ 営業日数 × 100
 ```
 
-- 「数える種類」は既定で **本番・リハ・内覧**（仮・メンテは数えない）。設定「お金のルール」の隣に「稼働率の数え方」を置き、
-  種類の選択・部屋数を掛けるか・営業日に土曜を入れるか を決める（`settings` の1行、JSON）
-- 資料の 9月 42.1% ＝ 8 ÷ 19 はこの既定で合う。10月 36.1% は合わないので **既定を決めたら過去の値と照合して確かめる**
+- 数える予定の種別（`studio_bookings.booking_type`）: `performance` 本番・`rehearsal` リハ・`setup` 設営／準備・`tour` 内覧・`internal` 社内利用・`consultation` 相談・`other` その他
+- 数えない: `maintenance` メンテナンス。**`hold` 仮押さえも数えない**（まだ利用ではない。見込みの月に数えたいときは設定で変える）
+- 同じ日に複数の予定があっても1日と数える。部屋数は掛けない（部屋ごとの稼働率は別の指標として後で足せる）
+- 営業日は土日祝を除く（`@holiday-jp/holiday_jp`）。設定「稼働率の数え方」で 種別・仮押さえ・土曜 を変えられる
+- 資料の 9月 42.1% ＝ 8 ÷ 19 はこの決まりで合う。10月 36.1% は合わない（半日か仮押さえの扱い）ので、実装時に過去3か月を照合して差の理由を書く
 
 ### 5.5 凍結と履歴
 
@@ -225,7 +228,9 @@ judge = higher_better: actual ≧ budget → ○ / lower_better: actual ≦ budg
 - サーバーで `pptxgenjs`（新しい依存・4.0.1）。**表は表、グラフはグラフのオブジェクト**として出す（画像にしない）。最後は PowerPoint 上で直せる
 - 見た目は GMO流会議フォーマット Ver.2.5 の決まりを守る（§6.3 の「守るもの」）。内側の組み方は ONAiR が決める。
   マスターは**コードで再現**する（元の pptx をテンプレとして読み込む方式は、203MB の元ファイルに動画・写真が入っていて扱えない）
-- 書体は **Meiryo**（GMO の資料の標準。PowerPoint は名前で引くため LINE Seed JP は使えない）
+- 書体は **Noto Sans JP**（ご判断 2026-09-06）。サーバーに TTF がある（`server/fonts/NotoSansJP-*.ttf`・PDF と同じ）ので寸法の計算に使える。
+  pptx は書体を名前で引くため、開く PC に Noto Sans JP が無いと Meiryo／游ゴシックに置き換わる（無料なので入れてもらう）
+- **PowerPoint 上で直せる**ことを条件にする: 表は表・グラフはグラフ・文はテキストボックス。画像にするのは写真だけ
 - 写真は Box `08_写真` からサーバーが取ってきて埋め込む（`getThumbnailStream` ではなく元ファイル。長辺 1600px に縮める）
 - 置き場所: Box `02_隔週 橋口社長キープ/<YYMMDD>/` に `<YYMMDD>_橋口社長隔週キープ_ONAiR.pptx`。**既存の v1/v2 は上書きしない**
 - PDF は pptx から人が出す（2026-07-26 の「配布は PDF だけ」の決め（[archive](../../archive/2026/2026-07-26-design-change-request.md) 依頼3）は、今回のご依頼で取り消し）
@@ -283,7 +288,7 @@ judge = higher_better: actual ≧ budget → ○ / lower_better: actual ≦ budg
 |---|---|---|
 | 帯（お客様／イベント名／日付） | `companies.short_name`・`projects.name`・`event_start`（曜日つき） | ✕ |
 | 確度の文字と語 | `projects.stage` → E/D/C/B/A、語は受注確度の設定の名前 | ✕ |
-| 写真 | 案件 Box `08_写真`（**正はここ**。`event_reports.photos` の `box_file_id` は MCP が書くだけで画面が読んでいないため、移行時に `08_写真` へ寄せる） | ○（選ぶ） |
+| 写真 | 案件 Box `08_写真`（**正はここ。ご判断 2026-09-06**。`event_reports.photos` の `box_file_id` は MCP が書くだけで画面が読んでいないため、移行時に `08_写真` へ寄せる） | ○（選ぶ） |
 | 概要（3行） | `projects.goal` を行に割る。無ければ空 | ○ |
 | 進行表 | Qシートの香盤（あれば）。無ければ空の表 | ○ |
 | チェック／リハ／本番 | `studio_bookings` の種別と時刻 | ✕（カレンダーを直す） |
@@ -300,16 +305,14 @@ judge = higher_better: actual ≧ budget → ○ / lower_better: actual ≦ budg
 
 | # | 内容 |
 |---|---|
-| 282 | `projects.entity TEXT NOT NULL DEFAULT 'gss' CHECK (entity IN ('gss','gscs','gig'))`、`companies.samurai_group BOOLEAN NOT NULL DEFAULT FALSE`（サムライパートナーズ／GMOサムライコンテンツスタジオを backfill） |
-| 283 | `monthly_budgets` の主キーを `(year_month, entity)` に（既存行は `gss`）。`monthly_actual_overrides` も同じ |
+| 282 | `projects.entity TEXT NOT NULL DEFAULT 'gss' CHECK (entity IN ('gss','gscs','gig'))`・`projects.entity_manual BOOLEAN NOT NULL DEFAULT FALSE`。backfill は `customer_type` から（internal→gss・external→gscs）。`companies.samurai_group BOOLEAN NOT NULL DEFAULT FALSE`（サムライパートナーズ／GMOサムライコンテンツスタジオ） |
+| 283 | `sga_expenses.entity`・`purchases.entity`（`FIXED-COGS` 用。案件のある仕入は案件から引く）。`monthly_budgets` / `monthly_actual_overrides` の主キーを `(year_month, entity)` に（既存行は `gss`） |
 | 284 | `keep_report_packs`（凍結したパック）、`keep_report_inputs`（ONAiR に無い数字の手入力: 満足度・参加者・Web KPI。`meeting_date × key`） |
 | 285 | `keep_decks`・`keep_deck_versions`（構成の全文と版）、`keep_deck_edits`（人の直しの差分。§10） |
 | 286 | `projects.keep_pick BOOLEAN`（ヨミ表の「資料」の印）。`settings` に稼働率の数え方 |
 
-入力画面: 月次予算・経理の補正値は **設定「お金のルール」** に戻す（削除された `/sales/keep-report` タブ2の代わり）。
+入力画面: 月次予算・経理の補正値は **設定「お金のルール」** に戻す（削除された `/sales/keep-report` タブ2の代わり。主体ごとの欄）。
 議事録（決定事項・次回開催日）は「資料をつくる」の中の「次回開催日」ページで入れる（タブ3の代わり）。
-
----
 
 ## 9. API と MCP
 
@@ -357,20 +360,25 @@ judge = higher_better: actual ≧ budget → ○ / lower_better: actual ≦ budg
 
 ---
 
-## 12. 決めてほしいこと
+## 12. 決めてほしいこと／決まったこと
 
-1. 既存案件の事業主体を全部 **GMOサムライスタジオ** に倒してよいか（§4）
-2. 月次予算を **主体ごと** に入れるか、当面は全社だけか（§4）
-3. 稼働率の数え方（既定: 本番＋リハ＋内覧 ÷ 営業日。部屋数は掛けない）（§5.4）
-4. 案件ページの写真の正を **Box `08_写真`** にしてよいか（§7）
-5. 出力する pptx の書体は **Meiryo** でよいか（§6.2）
-6. 「配布は PDF だけ」（2026-07-26）の取り消しを確定してよいか（§6.2）
-7. ヨミ表に載せる案件の初期値: 受注前の外部案件を全部か、確度 C 以上か
-8. 表の中の文字は **18pt 以上** でよいか（本文の 24pt の決まりは文章向けと読んだ）（§6.3）
+**決まったこと（2026-09-06 ご判断）**
 
-**決まったこと**: フォーマットの決まり（§6.3 の「守るもの」）を守っていれば、内側のデザインは変えてよい（2026-09-06）。
+| 項目 | 決まり |
+|---|---|
+| 事業主体 | グループ内イベント → GMOサムライスタジオ、グループ外イベント → GMOサムライコンテンツスタジオ（お客様の区分から自動）。収支は主体別 ＋ 全体（統合）（§4） |
+| 稼働率 | 内覧を含め、何かしらのスタジオ利用があれば数える。メンテナンス等は除く（§5.4） |
+| 写真 | 案件 Box `08_写真` が正（§7） |
+| pptx の書体 | Noto Sans JP。PowerPoint 上で直せるようにオブジェクトで出す（§6.2） |
+| 見た目 | GMO流会議フォーマットの決まりを守っていれば、内側のデザインは変えてよい（§6.3） |
 
----
+**まだ決めてほしいこと**
+
+1. 仮押さえ（`hold`）を稼働率に数えるか（既定: 数えない。§5.4）
+2. 表の中の文字は **18pt 以上** でよいか（本文の 24pt の決まりは文章向けと読んだ。§6.3）
+3. ヨミ表に載せる案件の初期値: 受注前の外部案件を全部か、確度 C 以上か
+4. 「配布は PDF だけ」（2026-07-26）の取り消し（pptx を出すご依頼なので取り消し前提で進める）
+5. 販管費・償却相当額を主体ごとに分ける入力（経理側の運用）をいつから始めるか。始まるまでは全額 GMOサムライスタジオ に載せ、GMOサムライコンテンツスタジオ の表は売上・原価・粗利だけ出す
 
 ## 13. 参考
 
