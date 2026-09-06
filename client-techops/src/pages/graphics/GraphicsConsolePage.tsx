@@ -1,20 +1,34 @@
 // テロップCG — 送出コンソール（`/techops/graphics/:ownerKey/live`・モック②）。
 //
-// モック②のオペレーター運転モデル（docs/design/v4/graphics.md §4）:
-//   ・PGM / PVW の**本物のプレビュー**（出力画面と同じ renderGraphicsPage を縮尺表示）
-//   ・番号呼出（テンキー → Enter で PVW に立てる）
-//   ・5動詞: スタンバイ ／ TAKE ／ 続き（多段アニメ・後日）／ OUT ／ 次へ（Read Next）
-//   ・キーボード運転: Space=TAKE ／ Enter=次へ ／ ↑↓=スタンバイ移動 ／ テンキー=番号呼出
-//   ・スロットごとのオンエア状態レーン（現在ページ＋経過時間＋OUT）＝最終防衛線
-//   ・校正「未完成」は TAKE をブロック・「未確認」は警告してから
-// TAKE できるのは PVW に見えているものだけ — 一覧から直接オンエアするボタンは無い。
+// 段B（docs/design/v4/graphics-redesign.md §8）で本番モードの動詞を TAKE と CLEAR の
+// 2つに戻した——旧アプリ（client-awards）の「NEXT → TAKE → CLEAR」に倣い、TAKE すると
+// NEXT が自動で次へ進むため「TAKE 連打で1本回せる」。旧5動詞（スタンバイ／TAKE／続き／
+// OUT／次へ）のうち撤去した3つの行き先:
+//   ・スタンバイ・次へ → 行を押すと NEXT（ConsolePageList.tsx）＋ TAKE 自体の自動前進
+//     （useConsoleTake.ts の take()。旧 take()/takeAndNext() を1つに統合した）
+//   ・続き（進める）   → OA 中の行の中へ移した（ConsolePageList.tsx の担当）
+//   ・OUT             → ConsoleSlotLanes.tsx の「消す」ボタンが操作対象そのままで引き継ぐ
+//
+// 運転モデル:
+//   ・OA（いま出ている）／ NEXT（次に出す）の**本物のプレビュー**（出力画面と同じ
+//     renderGraphicsPage を縮尺表示・ConsolePreview.tsx）
+//   ・番号呼出（テンキー → Enter で NEXT に）／ 一覧の行を押しても NEXT になる
+//   ・TAKE = NEXT を OA へ出し、出す順（sortOrder＝useConsolePages の `pages`。呼出番号順の
+//     `callOrder` ではない — callNo は並べ替えても変わらない固定値で表示順と一致しない）の
+//     次の行へ NEXT を自動で進める（末尾では動かない）
+//   ・CLEAR = 最後に TAKE したもの（`lastTaken` で覚えておく）を消す
+//   ・キーボード運転: Space=TAKE ／ Backspace=CLEAR（数字が溜まっていれば1桁消す）／
+//     ↑↓=NEXT移動 ／ テンキー=番号呼出 ／ Esc=何もしない（useConsoleKeyboard.ts）
+//   ・スロットごとのオンエア状態レーン（現在ページ＋経過時間＋消す）＝最終防衛線
+//   ・校正「未完成」は TAKE をブロック・「未確認」は警告してから（guardTake・変更なし）
+// TAKE できるのは NEXT に見えているものだけ — 一覧から直接オンエアするボタンは無い。
 //
 // リアルタイムは Socket.IO `/graphics`（`lib/graphicsSocket.ts`・`cg:*`。本番進行の
 // `cue:*` とは別ネームスペース）。切断中は REST（`POST …/cue`）に落として操作を
 // 失わせない。経過時間・時計はサーバー時刻基準（`cg:sync` の timestamp で skew 補正）。
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { AlertCircle, ChevronLeft, Eraser, Loader2, Type } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronLeft, Circle, Eraser, Loader2, Type } from 'lucide-react';
 import type { Socket } from 'socket.io-client';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
@@ -30,15 +44,13 @@ import { useConsolePages } from './useConsolePages';
 import { useAutoOutHighlight } from './useAutoOutHighlight';
 import { useConsoleKeyboard } from './useConsoleKeyboard';
 import { useConsoleContinue } from './useConsoleContinue';
-import { ProofBadge } from './badges';
+import { useConsoleTake } from './useConsoleTake';
+import { isPageContentEmpty } from './pageFields';
 import { resolveTelopTheme } from './telopTheme';
 import { ConsolePreview } from './ConsolePreview';
 import { ConsoleControls } from './ConsoleControls';
 import { ConsoleSlotLanes } from './ConsoleSlotLanes';
 import { ConsolePageList } from './ConsolePageList';
-import { ScoreQuickAdjust } from './ScoreQuickAdjust';
-import { RankingControlPanel } from './RankingControlPanel';
-import { readRankingStep } from './rankingFields';
 import { readVoteState } from './voteState';
 
 export default function GraphicsConsolePage() {
@@ -78,12 +90,34 @@ function cuesToMap(cues: GraphicsCueRow[]): Partial<Record<GraphicsSlot, Graphic
   return map;
 }
 
+/**
+ * NEXT プレビュー右上の確認状態。3値の ProofBadge（badges.tsx・未完成／未確認／確認済の
+ * 旧語彙をそのまま表示する）は退役させた表現なのでここでは使わない——出す順一覧
+ * （ConsolePageList.tsx）の行と同じ、段Aに揃えた✓確認済み／○未確認の2値表示に、
+ * 文言が空のときだけ「未完成」の自動バッジを添える（レビュー指摘対応）。
+ */
+function NextProofStatus({ page }: { page: GraphicsPageRow }) {
+  const empty = isPageContentEmpty(page.partKey, page.fields);
+  return (
+    <span className="flex shrink-0 items-center gap-1.5">
+      {empty && (
+        <span className="rounded-badge-xs bg-destructive-surface px-1.5 py-0.5 text-badge font-bold text-destructive">未完成</span>
+      )}
+      {page.proofState === 'proofed' ? (
+        <CheckCircle2 className="h-5 w-5 text-success" aria-hidden="true" />
+      ) : (
+        <Circle className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+      )}
+    </span>
+  );
+}
+
 function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: GraphicsBundle }) {
   const projectId = bundle.project.id;
   const [cues, setCues] = useState(() => cuesToMap(bundle.cues));
   const [connected, setConnected] = useState(false);
   const [pvwPageId, setPvwPageId] = useState<string | null>(null);
-  /** テンキーで溜めている呼出番号（Enter / スタンバイで確定） */
+  /** テンキーで溜めている呼出番号（Enter または「NEXTにする」ボタンで確定） */
   const [callBuffer, setCallBuffer] = useState('');
   const socketRef = useRef<Socket | null>(null);
   /** サーバー時刻 − クライアント時刻（ms）。経過時間・時計をサーバー基準にする */
@@ -157,13 +191,15 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
     }
   };
 
-  // 「続き」ボタンの対象選定・実処理（list/score=reveal_phase・vote=fields.voteState、
-  // どちらの経路かの説明は useConsoleContinue.ts 参照）。400行の目安のためのフック切り出し
-  const { continueTarget, sendContinue, resetVoteStateForTake } = useConsoleContinue({
+  // 「進める」（旧「続き」）の実処理（list/score=reveal_phase・vote=fields.voteState・
+  // ranking=fields.step、どの経路かの説明は useConsoleContinue.ts 参照）。呼び出しは
+  // ConsolePageList.tsx の OA 中の行がページごとに直接行う（continueTarget はもう使わない）。
+  // 400行の目安のためのフック切り出し
+  const { sendContinue, resetVoteStateForTake } = useConsoleContinue({
     projectId, livePages, socketRef, setCuesFromRows: (rows) => setCues(cuesToMap(rows)),
   });
 
-  /** 校正の防衛線: 未完成はブロック・未確認は確認してから（TAKE と 次へ で共通） */
+  /** 校正の防衛線: 未完成はブロック・未確認は確認してから（TAKE 時に毎回通す。useConsoleTake.ts の take() から呼ぶ） */
   const guardTake = async (page: GraphicsPageRow): Promise<boolean> => {
     if (page.proofState === 'draft') {
       notifyError('未完成のページは TAKE できません', { description: `「${page.name}」の中身を仕上げて校正に回してください。` });
@@ -180,41 +216,20 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
     return true;
   };
 
-  const take = async (page: GraphicsPageRow) => {
-    if (!(await guardTake(page))) return;
-    await resetVoteStateForTake(page);
-    await sendSet(page.slot, page.id);
-    setPvwPageId(null);
-  };
+  // TAKE（自動前進込み）／CLEAR／↑↓NEXT移動の実処理は useConsoleTake.ts へ切り出した
+  // （400行の目安のため。useConsoleContinue.ts と同じ思想）。「次へ」を統合した理由・
+  // pages（出す順）を使う理由はそちらのファイル冒頭のコメント参照
+  const { take, canClear, clearLastTaken, moveNext, resetLastTaken } = useConsoleTake({
+    pages, cues, pvwPageId, setPvwPageId, guardTake, resetVoteStateForTake, sendSet,
+  });
 
-  /** 次へ（Read Next）= PVW を TAKE し、呼出番号順の次をスタンバイ（末尾では留まる） */
-  const takeAndNext = async () => {
-    const page = pvwPage;
-    if (!page) return;
-    if (!(await guardTake(page))) return;
-    await resetVoteStateForTake(page);
-    await sendSet(page.slot, page.id);
-    const idx = callOrder.findIndex((p) => p.id === page.id);
-    const next = idx >= 0 && idx + 1 < callOrder.length ? callOrder[idx + 1] : page;
-    setPvwPageId(next.id);
-  };
-
-  /** OUT（動詞）= PVW と同じスロットのオンエアを下ろす */
-  const outStandby = async () => {
-    if (pvwPage) await sendSet(pvwPage.slot, null);
-  };
-
-  /** ↑↓ のスタンバイ移動（呼出番号順・端で止まる） */
-  const movePvw = (dir: 1 | -1) => {
-    if (callOrder.length === 0) return;
-    const idx = pvwPageId ? callOrder.findIndex((p) => p.id === pvwPageId) : -1;
-    const next = idx < 0
-      ? (dir > 0 ? 0 : callOrder.length - 1)
-      : Math.min(callOrder.length - 1, Math.max(0, idx + dir));
-    setPvwPageId(callOrder[next].id);
-  };
-
-  /** 番号呼出の確定: 溜まった番号のページを PVW に立てる（無い番号は知らせるだけ） */
+  /**
+   * 番号呼出の確定: 溜まった番号のページを PVW に立てる（無い番号は知らせるだけ）。
+   * 安全装置③（文言が空のものは NEXT に立てられない）は行クリック（ConsolePageList.tsx）
+   * だけでなくここでも効かせる——テンキー→Enter は「口頭『5番出して』の運用」で引き続き
+   * 残す経路であり、行クリックだけ弾いて番号呼出は素通りでは③が経路によって不揃いになる
+   * （レビュー指摘対応）。
+   */
   const commitCall = () => {
     const buf = callBuffer;
     if (!buf) return;
@@ -225,22 +240,36 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
       notifyError(`番号 ${no} のページはありません`, { description: '一覧の「番号」列で呼出番号を確認してください。' });
       return;
     }
+    if (isPageContentEmpty(page.partKey, page.fields)) {
+      notifyError(`「${page.name}」は文言が未入力です`, { description: '文言を入力してから番号呼出してください。' });
+      return;
+    }
     setPvwPageId(page.id);
   };
 
+  /**
+   * 全部消す（旧オールクリア）。トリガーボタンを「全部消す」に改名したのに合わせて、
+   * 確認ダイアログの実行ボタンの文言も揃えた——トリガーだけ改名すると、押した本人の
+   * 目に「全部消す」を押したのに見慣れない「オールクリア」が出るという新しい不整合に
+   * なるため（レビュー指摘対応）。ロジック（対象スロット・確認の要否）自体は変えていない。
+   * 全部消したら CLEAR の対象（lastTaken）もクリアする——消した後は canClear が自然に
+   * false になるが、念のため明示的に外しておく。
+   */
   const allClear = async () => {
     if (!(await confirmAction({
       title: 'すべてのスロットをクリアしますか？',
       description: 'いま出ているテロップ・CGが全部下ります（放送に出ます）。',
-      confirmLabel: 'オールクリア',
+      confirmLabel: '全部消す',
       tone: 'danger',
     }))) return;
     for (const slot of GRAPHICS_SLOTS) {
       if (cues[slot]?.pageId) await sendSet(slot, null);
     }
+    resetLastTaken();
   };
 
-  // キーボード運転（Space=TAKE ／ Enter=次へ ／ ↑↓=スタンバイ移動 ／ テンキー=番号呼出）
+  // キーボード運転（Space=TAKE ／ Backspace=CLEAR（数字が溜まっていれば1桁消す）／
+  // ↑↓=NEXT移動 ／ テンキー=番号呼出）。「次へ」は無くなった——TAKE 自体が自動前進する
   useConsoleKeyboard({
     pushDigit: (d) => setCallBuffer((b) => (b + d).slice(0, 4)),
     popDigit: () => setCallBuffer((b) => b.slice(0, -1)),
@@ -248,30 +277,19 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
     hasDigits: callBuffer.length > 0,
     commitCall,
     take: () => { if (pvwPage) void take(pvwPage); },
-    next: () => { void takeAndNext(); },
-    move: movePvw,
+    clear: () => { void clearLastTaken(); },
+    move: moveNext,
   });
 
+  /** NEXT のプレビューに「他スロットの現在オンエア」を薄く重ねるための文脈（変更なし） */
   const pvwContext = pvwPage
     ? livePages.filter((p) => p.slot !== pvwPage.slot && p.id !== pvwPage.id)
     : [];
 
-  /** PGM/PVW に乗っているスコアボード（±クイック調整の対象）。同じページの二重表示はしない */
-  const liveScorePages = livePages.filter((p) => p.partKey === 'score');
-  const pvwScorePage = pvwPage && pvwPage.partKey === 'score' && !liveScorePages.some((p) => p.id === pvwPage.id)
-    ? pvwPage
-    : null;
-  const scoreWidgets = [
-    ...liveScorePages.map((page) => ({ page, label: 'オンエア中' })),
-    ...(pvwScorePage ? [{ page: pvwScorePage, label: '次に出す（PVW）' }] : []),
-  ];
+  // スコアボードの±クイック調整・ランキング Final Pitch パネルは OA 中の行の中へ移した
+  // （ConsolePageList.tsx の OaInlineAction）ので、ここでの算出・専用 JSX ブロックは廃止した。
 
-  /** PGM のランキング発表が final-pitch のときだけ出す操作パネル（RankingControlPanel.tsx） */
-  const rankingFinalPitchPage = livePages.find(
-    (p) => p.partKey === 'ranking' && readRankingStep(p.fields) === 'final-pitch',
-  ) ?? null;
-
-  /** PGM の投票・クイズページ（段6-6・締切連動の残り時間表示用・ConsoleControls.tsx） */
+  /** OA の投票・クイズページ（段6-6・締切連動の残り時間表示用・ConsoleControls.tsx） */
   const openVotePage = livePages.find(
     (p) => p.partKey === 'vote' && readVoteState(p.fields) === 'open',
   ) ?? null;
@@ -289,7 +307,9 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
         <div className="min-w-0">
           <h1 className="text-h1">送出コンソール ／ {bundle.project.name}</h1>
           <p className="mt-1 text-sub text-muted-foreground">
-            TAKE できるのは PVW に選んだものだけ。スロットは<strong>1枠1枚</strong>で、同じスロットに TAKE すると前のページは自動で下ります。
+            行を押す（またはテンキー→Enter）で <strong>NEXT</strong> に立ち、TAKE で <strong>OA</strong> に出します。
+            TAKE すると NEXT は出す順の次の行へ自動で進みます。スロットは<strong>1枠1枚</strong>で、
+            同じスロットに TAKE すると前のページは自動で下ります。
           </p>
         </div>
         <div className="flex-1" />
@@ -303,11 +323,11 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
           {connected ? '同期中' : '再接続中（操作はサーバー経由で届きます）'}
         </span>
         <Button type="button" variant="outline" onClick={allClear}>
-          <Eraser className="mr-1 h-4 w-4 text-destructive" aria-hidden="true" />オールクリア
+          <Eraser className="mr-1 h-4 w-4 text-destructive" aria-hidden="true" />全部消す
         </Button>
       </div>
 
-      {/* PGM ／ PVW の本物のプレビュー ＋ 操作卓（番号呼出・5動詞） */}
+      {/* OA ／ NEXT の本物のプレビュー ＋ 操作卓（番号呼出・TAKE／CLEARの2動詞） */}
       <div className="mt-4 flex flex-col items-stretch gap-3 lg:flex-row">
         <ConsolePreview
           tone="pgm"
@@ -327,59 +347,48 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
           title={pvwPage ? (
             <>次に出す ・ <span className="font-number">{pvwPage.callNo}</span> {pvwPage.name}</>
           ) : '次に出す絵（未設定）'}
-          right={pvwPage ? <ProofBadge state={pvwPage.proofState} w={null} /> : undefined}
+          right={pvwPage ? <NextProofStatus page={pvwPage} /> : undefined}
           items={pvwPage ? [...pvwContext.map((page) => ({ page, dim: true })), { page: pvwPage }] : []}
-          emptyText="番号呼出か「PVWへ」で選ぶと、ここに映ります"
+          emptyText="番号呼出か、一覧の行を押すと選べます"
           serverNowMs={serverNowMs}
           ctx={{ theme: resolveTelopTheme(bundle.project.theme) }}
         />
         <ConsoleControls
           callBuffer={callBuffer}
-          pvwPage={pvwPage}
-          onStandby={commitCall}
+          nextPage={pvwPage}
+          onCommitCall={commitCall}
           onTake={() => { if (pvwPage) void take(pvwPage); }}
-          onNext={() => { void takeAndNext(); }}
-          onOut={() => { void outStandby(); }}
-          continueTarget={continueTarget}
-          onContinue={() => { if (continueTarget) void sendContinue(continueTarget); }}
+          canClear={canClear}
+          onClear={() => { void clearLastTaken(); }}
           votePage={openVotePage}
         />
       </div>
 
-      {/* スコアボードの±クイック調整（PGM/PVW に score パーツが乗っているときだけ出す） */}
-      {scoreWidgets.length > 0 && (
-        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {scoreWidgets.map(({ page, label }) => (
-            <ScoreQuickAdjust key={page.id} page={page} label={label} />
-          ))}
-        </div>
-      )}
-
-      {/* ランキング発表 Final Pitch の操作パネル（PGM が partKey==='ranking' かつ
-          fields.step==='final-pitch' のときだけ出す） */}
-      {rankingFinalPitchPage && (
+      {/* 「いま出ているもの」帯。ConsoleSlotLanes 自身は見出しを描かない（グリッドのみ）ので
+          ここで見出しを添える。0件で帯が丸ごと消える（ConsoleSlotLanes.tsx参照）ときに
+          見出しだけ独りで残らないよう、同じ条件（cueが有る・または自動退出の一時ハイライト中）
+          で見出しごと隠す */}
+      {(GRAPHICS_SLOTS.some((slot) => !!cues[slot]?.pageId) || autoOutHighlight.size > 0) && (
         <div className="mt-3">
-          <RankingControlPanel page={rankingFinalPitchPage} />
+          <h2 className="mb-1.5 text-th font-bold text-muted-foreground">いま出ているもの</h2>
+          <ConsoleSlotLanes
+            cues={cues}
+            pageById={pageById}
+            serverNowMs={serverNowMs}
+            onOut={(slot) => { void sendSet(slot, null); }}
+            autoOutHighlight={autoOutHighlight}
+          />
         </div>
       )}
 
-      {/* スロットごとのオンエア状態（最終防衛線 — 今出ているもの＋経過時間が一目で分かる） */}
-      <div className="mt-3">
-        <ConsoleSlotLanes
-          cues={cues}
-          pageById={pageById}
-          serverNowMs={serverNowMs}
-          onOut={(slot) => { void sendSet(slot, null); }}
-          autoOutHighlight={autoOutHighlight}
-        />
-      </div>
-
-      {/* ページ一覧（送出リスト）。並び＝sortOrder・PGM/PVW の行は色で追える */}
+      {/* ページ一覧（送出リスト）。並び＝sortOrder・OA/NEXT の行は色で追える。行を押すと
+          NEXT（テンキー→Enter と同じ結果）。OA 中の行には「進める」操作が埋め込まれる */}
       <ConsolePageList
         pages={pages}
         cues={cues}
         pvwPageId={pvwPageId}
         onSelectPvw={setPvwPageId}
+        sendContinue={sendContinue}
       />
     </div>
   );

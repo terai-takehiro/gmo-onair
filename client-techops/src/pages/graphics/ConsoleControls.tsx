@@ -1,14 +1,22 @@
-// テロップCG — 送出コンソールの操作卓（番号呼出＋5動詞・モック②の右カラム）。
+// テロップCG — 送出コンソールの操作卓（番号呼出＋TAKE／CLEARの2動詞・モック②の右カラム）。
 //
-// 動詞は5つだけ（docs/design/v4/graphics.md §4）:
-//   スタンバイ（番号呼出→PVW）／ TAKE ／ 続き（多段アニメ・後日）／ OUT ／ 次へ
-// TAKE できるのは PVW に見えているものだけ — ここに「リストから直接オンエア」は無い。
+// 本番モードの動詞は TAKE と CLEAR の2つに戻した（docs/design/v4/graphics-redesign.md §8）。
+// 旧アプリ（client-awards）の「NEXT → TAKE → CLEAR」に倣う——TAKE すると NEXT が自動で
+// 次へ進むため「TAKE 連打で1本回せる」。現行にあった「続き」「OUT」「次へ」の3動詞は撤去した:
+//   ・続き（進める） → OA 中の行の中へ移した（ConsolePageList.tsx の担当。ここには置かない）
+//   ・次へ           → TAKE 自体の自動前進に吸収した（前進ロジックは呼び出し側 GraphicsConsolePage.tsx）
+//   ・OUT            → 新設計に無い動詞。スロット単位の個別退出は ConsoleSlotLanes.tsx の
+//                      「消す」ボタン（見た目・操作対象は今までの OUT のまま）が引き継ぐ
+// TAKE できるのは NEXT に見えているものだけ — ここに「一覧から直接オンエア」は無い
+// （行を押して NEXT にする経路がメイン＝ConsolePageList.tsx。ここは NEXT が決まった後の
+// 「出す（TAKE）」「消す（CLEAR）」の2手だけを持つ）。
 //
-// 番号はテンキーのグローバル捕捉（GraphicsConsolePage 側）で溜まる。ここは
-// 溜まった数字の表示と、マウス用のボタン（スタンバイ／TAKE／次へ／続き／OUT）だけ。
+// 番号入力はテンキーのグローバル捕捉（GraphicsConsolePage 側の useConsoleKeyboard）で溜まる。
+// ここは溜まった数字の表示と、マウス用のボタン（NEXTにする／TAKE 出す／CLEAR 消す）だけ
+// （口頭で「5番出して」と番号を呼ぶ運用のため、行クリックとは別にこの経路も残す）。
 import { useEffect, useState } from 'react';
 import {
-  Hash, Link2, Radio, SkipForward, Timer,
+  Eraser, Hash, Link2, Radio, Timer,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { GraphicsPageRow } from '@/lib/graphicsApi';
@@ -16,7 +24,7 @@ import { readCountdownSeconds, readInteractiveQuestionId, readOpenedAt } from '.
 import { readVoteState } from './voteState';
 
 /**
- * 締切連動（段6-6）の残り時間表示。PGM の投票・クイズページが `voteState==='open'` かつ
+ * 締切連動（段6-6）の残り時間表示。OA の投票・クイズページが `voteState==='open'` かつ
  * `countdownSeconds`/`openedAt` の両方が設定されているときだけ出す。凝った演出は不要
  * （タスク指示どおり）——`setInterval` で1秒ごとに再計算するだけの簡単な表示。
  */
@@ -58,25 +66,21 @@ function VoteCountdownBadge({ votePage }: { votePage: GraphicsPageRow | null }) 
 }
 
 export function ConsoleControls({
-  callBuffer, pvwPage, onStandby, onTake, onNext, onOut, continueTarget, onContinue, votePage = null,
+  callBuffer, nextPage, onCommitCall, onTake, canClear, onClear, votePage = null,
 }: {
   /** テンキーで溜まっている呼出番号（空文字 = 未入力） */
   callBuffer: string;
-  pvwPage: GraphicsPageRow | null;
-  /** 溜まった番号を PVW に立てる（Enter と同じ） */
-  onStandby: () => void;
+  /** NEXT に立っているページ（無ければ null）。TAKE の disabled 判定に使う */
+  nextPage: GraphicsPageRow | null;
+  /** 溜まった番号を NEXT に立てる（Enter と同じ。呼び出し側の commitCall をそのまま渡せる） */
+  onCommitCall: () => void;
+  /** NEXT を OA へ出す */
   onTake: () => void;
-  onNext: () => void;
-  /** PVW と同じスロットのオンエアを下ろす */
-  onOut: () => void;
-  /**
-   * 「続き」の対象（段6-1・汎用機構）。**PVW ではなく PGM**（いまオンエア中のページ）に
-   * 段階公開に対応した部品が乗っているときだけ非 null になる（`pageSupportsReveal`）。
-   * null の間はボタンを disabled のままにする。
-   */
-  continueTarget: GraphicsPageRow | null;
-  onContinue: () => void;
-  /** PGM の投票・クイズページ（段6-6・残り時間表示用）。無ければ null のまま渡す */
+  /** CLEAR を押せる状態か（＝消せる何かが残っているか。何を指すかの判定は呼び出し側に委ねる） */
+  canClear: boolean;
+  /** 最後に TAKE したものを消す */
+  onClear: () => void;
+  /** OA の投票・クイズページ（段6-6・残り時間表示用）。無ければ null のまま渡す */
   votePage?: GraphicsPageRow | null;
 }) {
   return (
@@ -89,48 +93,33 @@ export function ConsoleControls({
             {callBuffer || <span className="font-normal text-muted-foreground">番号で呼出</span>}
           </span>
         </span>
-        <Button type="button" variant="outline" disabled={!callBuffer} onClick={onStandby}>
-          スタンバイ
+        <Button type="button" variant="outline" disabled={!callBuffer} onClick={onCommitCall}>
+          NEXTにする
         </Button>
       </div>
       <Button
         type="button"
         variant="destructive"
         className="min-h-[56px] w-full text-h2 tracking-wider"
-        disabled={!pvwPage}
+        disabled={!nextPage}
         onClick={onTake}
       >
-        <Radio className="mr-2 h-5 w-5" aria-hidden="true" />TAKE
+        <Radio className="mr-2 h-5 w-5" aria-hidden="true" />TAKE 出す
       </Button>
       <Button
         type="button"
         variant="outline"
         size="lg"
-        className="w-full border-warning-border bg-warning-surface text-warning hover:bg-warning-surface"
-        disabled={!pvwPage}
-        onClick={onNext}
+        className="min-h-[48px] w-full border-warning-border bg-warning-surface text-warning hover:bg-warning-surface"
+        disabled={!canClear}
+        onClick={onClear}
+        title={canClear ? undefined : '消すものがありません'}
       >
-        <SkipForward className="mr-1.5 h-4 w-4" aria-hidden="true" />次へ（TAKE ＋ 次をスタンバイ）
+        <Eraser className="mr-2 h-4 w-4" aria-hidden="true" />CLEAR 消す
       </Button>
-      <div className="flex gap-2">
-        {/* 続き（段6-1・汎用機構）: PGM に段階公開対応の部品が乗っているときだけ押せる */}
-        <Button
-          type="button"
-          variant="outline"
-          className="flex-1"
-          disabled={!continueTarget}
-          onClick={onContinue}
-          title={continueTarget ? undefined : 'いま出ているページに段階公開の部品がありません'}
-        >
-          続き
-        </Button>
-        <Button type="button" variant="outline" className="flex-1" disabled={!pvwPage} onClick={onOut}>
-          OUT
-        </Button>
-      </div>
       <p className="mt-0.5 text-sub-sm text-muted-foreground">
-        テンキー＝番号呼出（Enter で確定）／ Space＝TAKE ／ Enter＝次へ ／ ↑↓＝スタンバイ移動。
-        入力欄・ダイアログを開いている間は効きません。
+        テンキー＝番号呼出（Enter で NEXT に）／ Space＝TAKE ／ Backspace＝CLEAR ／
+        ↑↓＝NEXT 移動。入力欄・ダイアログを開いている間は効きません。
       </p>
     </div>
   );
