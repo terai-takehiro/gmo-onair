@@ -102,6 +102,11 @@ export interface DetailHeaderProps {
   customerName: string | null;
   glsNumber: string | null;
   code: string | null;
+  /**
+   * 計上会社の呼び名（`ENTITY_BADGE_LABEL[entity_code]`・2026年10月の事業再編）。
+   * **導出前（null）は何も足さない**——GLS番号と同じく「無ければ出さない」に揃える。
+   */
+  entityLabel?: string | null;
   stage: ProjectStage;
   tab: ProjectTabKey;
   counts: Partial<Record<ProjectTabKey, number>>;
@@ -121,7 +126,7 @@ export interface DetailHeaderProps {
 }
 
 export function DetailHeader({
-  id, name, customerName, glsNumber, code, stage, tab, counts,
+  id, name, customerName, glsNumber, code, entityLabel, stage, tab, counts,
   onChangeStage, mobile, phase, updatedAt, series, health, snoozeUntil,
 }: DetailHeaderProps) {
   const navigate = useNavigate();
@@ -197,6 +202,7 @@ export function DetailHeader({
           <p className="text-sub mt-0.5 truncate text-muted-foreground">
             {customerName || 'お客様 未設定'}
             {(glsNumber || code) && ` ・ ${glsNumber || code}`}
+            {entityLabel && ` ・ ${entityLabel}`}
           </p>
         </div>
 

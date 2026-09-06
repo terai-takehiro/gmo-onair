@@ -28,6 +28,7 @@ import { Delayed, SkeletonRows, ErrorPanel, NotFoundPanel } from '@gmo-onair/sha
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { ProjectStageLabels, type ProjectStage } from '@/types';
+import { ENTITY_BADGE_LABEL } from './projectList/stages';
 import { DetailHeader } from './projectDetail/DetailHeader';
 import { LostDialog, type LostPayload } from './projectDetail/LostDialog';
 import { OverviewTab } from './projectDetail/OverviewTab';
@@ -275,6 +276,7 @@ export default function ProjectDetailPage() {
         customerName={p.customer_name}
         glsNumber={p.gls_number}
         code={p.code}
+        entityLabel={p.entity_code ? ENTITY_BADGE_LABEL[p.entity_code] : null}
         stage={p.stage}
         tab={tab}
         counts={counts}

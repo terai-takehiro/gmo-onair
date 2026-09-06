@@ -1,4 +1,5 @@
 import type { ProjectStage } from '@/types';
+import type { LegalEntityCode } from '@/contexts/platform/pages/reorg/types';
 
 /** `GET /projects/:id` のうち、案件詳細が使う分だけ */
 export interface ProjectDetail {
@@ -8,6 +9,15 @@ export interface ProjectDetail {
   gls_category: 'A' | 'B' | null;
   name: string;
   stage: ProjectStage;
+  /**
+   * 計上会社（2026年10月の事業再編・`docs/reorg-2026-10-plan.md` §4.4）。
+   * `entity_source` は導出方法（`'rule'`＝自動導出／`'manual'`＝`sales:manager` が
+   * 上書き）・`entity_note` はその理由。**3つとも `getById` の `SELECT p.*` が
+   * すでに返している**（サーバー側の型・応答の絞り込みは無い）。
+   */
+  entity_code: LegalEntityCode | null;
+  entity_source?: 'rule' | 'manual' | null;
+  entity_note?: string | null;
   project_type: string | null;
   /**
    * 案件分類の2段（migration 182）。**旧 `project_type` と併存**しており、
