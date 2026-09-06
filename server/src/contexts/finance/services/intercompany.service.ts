@@ -29,7 +29,7 @@
  * `estimate.service.ts` 参照）。
  */
 import { v4 as uuidv4 } from 'uuid';
-import { queryOne, queryAll, execute, withTransaction, type TxClient } from '../../../shared/db/connection';
+import { queryOne, queryAll, withTransaction, type TxClient } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateBillingKey } from '../../../shared/services/billing-key.service';
 import { normalizeTaxCategory } from '../../../shared/services/tax-category.service';

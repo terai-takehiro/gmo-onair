@@ -63,6 +63,15 @@ function totalsOf(rows: { stage: ProjectStage; revenue: number; purchase: number
  * （`list-query.ts` と同じ判断——改番・移管しても過去の行は前の会社に残る）ので、
  * `p.entity_code`（案件の今の会社）ではなく `r.entity_code`/`pu.entity_code`
  * （書いたときの会社）を見る。
+ *
+ * ⚠️ **社内取引（`intercompany_links`・§4.12・P2 Round 2）の扱いは entityCode の
+ * 有無で変える。** `entityCode` を渡さない＝全社合算のときは**社内取引ペアを
+ * 除外する**（設計どおり「外部の売上・仕入だけを数える」——除外しないと
+ * 社内売上・社内仕入が両方乗り、合計の revenue/purchase が水増しされる）。
+ * 一方、`entityCode` を指定して1社ぶんを見るときは**除外しない**——その会社
+ * 自身の社内取引（GJVなら社内仕入・GSSなら社内売上）は、その会社の本物の
+ * 売上・仕入予定なので、`getSummaryByEntity`（案件の会社別粗利）と同じ考え方で
+ * 含めたままにする。
  */
 export async function getPipelineForecast(projectId?: string, entityCode?: string): Promise<PipelineForecastResult> {
   const params: string[] = [];
@@ -74,8 +83,12 @@ export async function getPipelineForecast(projectId?: string, entityCode?: strin
   // ⚠️ entity_code の条件は末尾に足す（`?` は出現順で置換されるため、
   // params 配列の順序と揃えること）。revenues/purchases で別名が違うので
   // 条件文字列は2本用意する（積む params の値自体は共通の1個）
-  const revEntityFilter = entityCode ? ' AND r.entity_code = ?' : '';
-  const purEntityFilter = entityCode ? ' AND pu.entity_code = ?' : '';
+  const revEntityFilter = entityCode
+    ? ' AND r.entity_code = ?'
+    : ' AND NOT EXISTS (SELECT 1 FROM intercompany_links il WHERE il.revenue_id = r.id)';
+  const purEntityFilter = entityCode
+    ? ' AND pu.entity_code = ?'
+    : ' AND NOT EXISTS (SELECT 1 FROM intercompany_links il WHERE il.purchase_id = pu.id)';
   const entityParams: string[] = entityCode ? [entityCode] : [];
 
   const [revRows, purRows, probabilityMap] = await Promise.all([

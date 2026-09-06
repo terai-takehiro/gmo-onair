@@ -484,11 +484,39 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
 - **値決め**（決定・§9-M）: **金額は手入力**。初期値に、その案件の最新の見積の原価行（`estimate_items.cost`）の合計を出す。
   料金表のグループ内価格は使わない（社内取引は原価の付け替えであって販売ではない）
 
-> **未実装（P2 Round 2 へ先送り・2026-09-06）**: この節は丸ごと未着手。Round 1 で先に
-> 用意した「案件の粗利は2通り」の会社別内訳（`project.service.ts` の `getSummaryByEntity`）は
-> `entity_code` の素朴な GROUP BY で、ここに書いた**社内取引の相殺はまだ入っていない**
-> （`intercompany_links` が無いため）。Round 2 で `intercompany_links` を作ったら、
-> 除外ロジックを `getSummaryByEntity` に追加で入れる必要がある。
+> **実装済み（P2 Round 2・2026-09-06）**: `intercompany_links`（`revenue_id`/`purchase_id`
+> をそれぞれ UNIQUE で1対1に結ぶ。migration 285）を新設し、`createIntercompanyPurchase`/
+> `updateIntercompanyLink`/`deleteIntercompanyLink`（`finance/services/intercompany.service.ts`）
+> ＋ `POST/PUT/DELETE /intercompany`・MCP `create_intercompany_purchase` を実装した。
+> 通常の `PUT/DELETE /revenues|purchases/:id` はリンク済みの行を409 `INTERCOMPANY_LINKED`
+> で止め、売り手（GSS）側が請求書発行・検収・入金済みならこの専用経路からも
+> 直せない（409 `INTERCOMPANY_INVOICED`）。
+>
+> **「案件の粗利は2通り」も実装した。** 「全体（社内取引を除く）」＝`getSummary`/
+> `getSummaries`（既存のまま。社内取引ペアを `NOT EXISTS` で除外するよう改修）。
+> 「会社別」＝ Round 1 で先に用意した `getSummaryByEntity` を**無変更のまま**使う——
+> 実装して確かめた結果、社内売上は売り手（GSS）・社内仕入は買い手（GJV）の
+> `entity_code` で別々に計上されるため、`entity_code` の GROUP BY だけで
+> 自動的にこの節の式（GJV: 外部売上−外部仕入−社内仕入／GSS: 社内売上−GSSの仕入）と
+> 一致することが分かった（このメモの当初の想定「除外ロジックの追加が要る」は誤りだった）。
+>
+> 営業見通し（パイプライン）も、全社合算（`entity_code` 省略）のときだけ社内取引を
+> 除外し、1社ぶんに絞ったとき（GJV/GSS を指定）は除外しない（その会社自身の
+> 本物の売上・仕入予定として数える——`getSummaryByEntity` と同じ考え方）ようにした。
+> MCP の `create_intercompany_purchase` は confirm 2段階（`renumber_project` と同じ形）で、
+> `gate.ts` の権限ゲートにも最初から登録した（P1 で `renumber_project` の登録漏れが
+> あった教訓を活かした）。`list_revenues`/`list_purchases`（MCP・画面とも）に
+> `intercompany`/`is_intercompany` の印を追加。締め処理・案件詳細（見積タブの
+> 「売上・請求」ペイン——設計時は「仕入タブ」を想定していたが、実装に専用の
+> 仕入タブは無く、売上・仕入を実際に扱うのがこのペインだったため、入口はここに置いた）に
+> 「サムライスタジオへ社内発注」を実装した。連結（相殺後の合算）はこの段では作っていない
+> （§9-F のとおり第1段では見送り）。
+>
+> 検証: 検証DBのフレッシュ再構築で migration 1〜285 通し適用、社内取引の作成・編集・
+> 削除・ガード・粗利集計（全体/会社別/パイプライン）を確かめる統合スモークテスト、
+> 実サーバー起動での HTTP レベル確認、`server`/`client` の型チェック、`shared` の
+> Vitest 2004件、`npm run lint` 全項目。副産物として `purchases.routes.ts` に
+> 配分グループの編集ガード（`revenues.routes.ts` 相当）が無かった穴も塞いだ。
 
 ---
 
@@ -520,7 +548,7 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
 |---|---|---|---|
 | **P0 土台** | `legal_entities` / `org_transition` / `project_numbers` / 各表の `entity_code`（DEFAULT 'GSS' で埋め戻し）・会社マスター画面・切替状態・PDF とメールの発行者差し替え・取引先の名寄せと自社行 | **要る（9月中旬）** | 3〜4 PR |
 | **P1 番号** ⚠️ **一部実装済み（2026-09-06）** | prefix 採番・`resolveEntity`・先取り（`preparing` で導出規則どおりに採る）・受注時の第1回自動作成（売上は必ず回に）・改番 API＋MCP・追随（回コード／Qシート／BOX／未請求の請求キー）・旧番号での検索と `:ownerKey`・取込の正規表現・通知ジョブ・移行センターの対象一覧 | **要る（9月下旬・`preparing` へ）** | 5〜6 PR |
-| **P2 財務の2社＋社内取引** ⚠️ **Round 1 実装済み（2026-09-06）** | 8画面のセグメント（URL）・集計／締め／Excel／MCP の `entity_code`・月次予算と `money_rules` の会社化・請求書番号の系列・**社内取引**（`intercompany_links`・仕入タブの入口・案件の粗利2通り） | 10月中旬まで（最初の GJV 案件の請求が10月下旬） | 5 PR |
+| **P2 財務の2社＋社内取引** **✅ 実装済み（2026-09-06・Round 1+2）** | 8画面のセグメント（URL）・集計／締め／Excel／MCP の `entity_code`・月次予算と `money_rules` の会社化・請求書番号の系列・**社内取引**（`intercompany_links`・仕入タブの入口・案件の粗利2通り） | 10月中旬まで（最初の GJV 案件の請求が10月下旬） | 5 PR |
 | **P3 GMO コスト（最小案）** | `kind='cost_center'` の閉じ方・「予算と実績」タブ・コスト側ダッシュボード | 10月中 | 2〜3 PR |
 | **P4 仕上げ** | `done` 状態・旧経路の削除・`entity_scope` 権限・連結（要るなら）・文書と用語の更新（`CLAUDE.md` の公理・`wording.md`・`guide/words.md`・`mcp-server.md`） | 後 | 2〜3 PR |
 
@@ -598,10 +626,13 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
 >   `WRITE_TOOL_PERMISSIONS`）に未登録だったバグ（`npm run build:changed` の
 >   prebuild を止めていた）も発見・修正した
 >
-> **Round 2（次段・未着手）**: 社内取引（`intercompany_links` テーブル・売上/仕入の
-> リンクペアと編集/削除ガード——`purchases.routes.ts` に `revenues.routes.ts` の
-> `409 REVENUE_IN_ALLOCATION_GROUP` に相当するガードが無い穴も合わせて塞ぐ必要がある——
-> 「サムライスタジオへ社内発注」UI・`getSummaryByEntity` への相殺の反映）
+> **Round 2 実装結果（マルチエージェント・2026-09-06）**: 社内取引
+> （`intercompany_links` テーブル・売上/仕入のリンクペアと編集/削除ガード・
+> 「サムライスタジオへ社内発注」UI）を実装した。詳細は §4.12 の実装結果、
+> 変更点の一覧は §12 参照。当初この節で挙げていた「`getSummaryByEntity` への
+> 相殺の反映」は、実装して確かめた結果**不要**と判明した（§4.12 参照）。
+> ついでに `purchases.routes.ts` の `REVENUE_IN_ALLOCATION_GROUP` 相当のガード
+> （`PURCHASE_IN_ALLOCATION_GROUP`）が無かった穴も塞いだ。
 
 ---
 
@@ -769,3 +800,14 @@ PDF の発行者ブロックの文字列が今と同一（切替日前なので�
   スモークテスト・実サーバー起動してのHTTPレベル絞り込み確認）まで実施。副産物として
   P1の`renumber_project` MCPツールの権限ゲート未登録バグも発見・修正した。
   詳細と計画からの差分は§6・§4.6・§4.12の実装結果を参照。
+- 2026-09-06（同日・8回目）: **P2 Round 2（社内取引 GJV⇄GSS。§4.12）をマルチエージェントで
+  実装した。** 核（`intercompany_links`・migration 285・作成/編集/削除の専用経路・
+  `revenues`/`purchases`双方の409ガード・`getSummaries`の社内取引除外・パイプライン予測の
+  除外・MCP `create_intercompany_purchase`）は直接実装し、残る2本（案件詳細の社内発注UI・
+  締め/一覧の「社内」印と粗利の会社別切替表示）を並列worktreeで実装、マージして検証
+  （型チェック・Vitest・検証DB作り直し・統合スモークテスト・実サーバー起動してのHTTP
+  レベル確認）まで実施。§4.12で「Round 2で除外ロジックの追加が要る」としていた
+  `getSummaryByEntity`は、実装して確かめた結果**無変更のままで正しい**と判明した
+  （entity_codeのGROUP BYだけで自動的に会社別の式になるため）。副産物として
+  `purchases.routes.ts`の配分グループ編集ガード未実装（既知の穴）も塞いだ。
+  詳細と計画からの差分は§6・§4.12の実装結果を参照。
