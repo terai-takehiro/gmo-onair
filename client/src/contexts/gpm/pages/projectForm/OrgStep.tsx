@@ -5,7 +5,7 @@
  *
  * `gpm_members` は `project_id` を必須にしているので、**プロジェクトを
  * 作るまで人を保存できません**。そこでこの段では**入力だけ画面で貯めて、
- * 「作る」を押したときにプロジェクトと一緒に登録**します
+ * 「作成」を押したときにプロジェクトと一緒に登録**します
  * （`GpmProjectFormPage` の `create` が続けて `POST /members` を呼ぶ）。
  *
  * 作れなかったときに人だけ残る、ということは起きません（作ってから足すため）。
@@ -71,7 +71,7 @@ export function OrgStep({
       <section className="rounded-card border border-border bg-card p-4 lg:px-5">
         <h2 className="text-cardtitle">体制に入れる人</h2>
         <p className="text-note mt-1 text-muted-foreground">
-          ここで入れた人は<strong className="font-bold">「作る」を押したときに一緒に登録</strong>されます。
+          ここで入れた人は<strong className="font-bold">「作成」を押したときに一緒に登録</strong>されます。
           あとから体制タブで追加・編集もできます。
         </p>
 

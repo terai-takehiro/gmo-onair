@@ -133,7 +133,7 @@ export default function GpmDashboardPage() {
               >
                 {stuck.length === 0 ? (
                   <p className="text-sub text-muted-foreground">
-                    停滞しているプロジェクトはありません。返事待ち・判断待ちが出たら、プロジェクトの「未解決事項」から登録してください。
+                    停滞しているプロジェクトはありません。返事待ち・判断待ちが出たら、プロジェクトの「持ち帰り」から登録してください。
                   </p>
                 ) : isMobile ? (
                   <ul className="v4-card-in flex flex-col gap-2">
@@ -158,7 +158,7 @@ export default function GpmDashboardPage() {
                 {active.length === 0 ? (
                   <EmptyState
                     title="進行中のプロジェクトはありません"
-                    description="発注が確定した構築案件を作ると、ここに工程の進み具合が出ます。"
+                    description="発注が確定した構築案件を作成すると、ここに工程の進み具合が出ます。"
                     action={canEdit ? <Button onClick={() => navigate('/gpm/projects/new')}>プロジェクトを作成</Button> : undefined}
                   />
                 ) : isMobile ? (
@@ -197,7 +197,7 @@ export default function GpmDashboardPage() {
                               </span>
                               {p.open_items > 0 && (
                                 <span className="text-sub-sm font-number block text-destructive">
-                                  未確認 {p.open_items}
+                                  持ち帰り {p.open_items}
                                 </span>
                               )}
                             </span>
@@ -211,7 +211,7 @@ export default function GpmDashboardPage() {
             </div>
 
             <Panel
-              title="未解決事項"
+              title="持ち帰り"
               note={`${openAsks.length}件`}
               icon={<CircleHelp className="h-4 w-4 text-destructive" aria-hidden="true" />}
               to="/gpm/tasks"

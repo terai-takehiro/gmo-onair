@@ -70,11 +70,11 @@ export function OpenItemDialog({ projectId, item, phases, onClose }: OpenItemDia
     },
     onSuccess: () => {
       invalidate(projectId);
-      notifySuccess(item ? '未解決事項を更新しました' : '未解決事項を追加しました');
+      notifySuccess(item ? '持ち帰りを更新しました' : '持ち帰りを追加しました');
       onClose();
     },
     onError: (err) =>
-      notifyApiError(item ? '未解決事項を更新できませんでした' : '未解決事項を追加できませんでした', err),
+      notifyApiError(item ? '持ち帰りを更新できませんでした' : '持ち帰りを追加できませんでした', err),
   });
 
   const canSubmit = question.trim() !== '' && !save.isPending;
@@ -83,7 +83,7 @@ export function OpenItemDialog({ projectId, item, phases, onClose }: OpenItemDia
     <FormDialog
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title={item ? '未解決事項を編集' : '未解決事項を追加'}
+      title={item ? '持ち帰りを編集' : '持ち帰りを追加'}
       size="lg"
       // Enter で保存する（繰り返し入力を持たないフォーム）。質問欄は Textarea なので、
       // その中の Enter は今までどおり改行になる。送信は `type="submit"` の1本だけ

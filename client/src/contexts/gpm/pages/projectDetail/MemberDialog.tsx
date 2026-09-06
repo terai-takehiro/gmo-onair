@@ -79,7 +79,7 @@ export function MemberDialog({
     },
     onSuccess: () => {
       invalidate(projectId);
-      notifySuccess(member ? '直しました' : '体制に足しました');
+      notifySuccess(member ? '編集しました' : '体制に追加しました');
       onClose();
     },
     onError: (e: unknown) => {

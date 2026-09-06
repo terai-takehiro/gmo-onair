@@ -47,12 +47,12 @@ export const TASK_TRACK: MinutesTrack = {
   note: 'タスクにすると、この案件のタスクタブに入ります。',
 };
 
-/** プロジェクト管理（GLS-B）。持ち帰りは未確認事項になる */
+/** プロジェクト管理（GLS-B）。持ち帰りは「持ち帰り」タブの項目になる */
 export const ASK_TRACK: MinutesTrack = {
   markKey: 'ask_id',
-  label: '未解決事項に登録',
-  doneLabel: '未解決事項に登録しました',
-  note: '登録すると、「未解決事項」タブと全プロジェクトの一覧に出て、'
+  label: '持ち帰りに登録',
+  doneLabel: '持ち帰りに登録しました',
+  note: '登録すると、「持ち帰り」タブと全プロジェクトの一覧に出て、'
     + '止まっている件数として数えられます。',
 };
 

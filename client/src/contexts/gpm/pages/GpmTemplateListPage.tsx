@@ -59,7 +59,7 @@ export default function GpmTemplateListPage() {
         t.used_count > 0
           ? `この工程テンプレートから作った ${t.used_count} 件のプロジェクトは変わりません（作るときに写しているため）。`
           : 'この工程テンプレートから作ったプロジェクトはまだありません。',
-        '消すと、次に同じ工程を組む人は一から作ることになります。',
+        '削除すると、次に同じ工程を組む人は一から作ることになります。',
       ].join('\n'),
       confirmLabel: '削除',
       tone: 'danger',

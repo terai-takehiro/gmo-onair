@@ -58,7 +58,7 @@ export function ProjectRowsHeader() {
       <RowSlot w={96}>進み具合</RowSlot>
       <RowSlot w={128} align="right">見積</RowSlot>
       <RowSlot w={200}>次のアクション</RowSlot>
-      <RowSlot w={56} align="right">未確認</RowSlot>
+      <RowSlot w={56} align="right">持ち帰り</RowSlot>
     </RowHeader>
   );
 }

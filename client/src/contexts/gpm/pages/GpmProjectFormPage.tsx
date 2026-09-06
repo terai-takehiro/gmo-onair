@@ -10,7 +10,7 @@
  * ── 人はプロジェクトを作ってから登録する ────────────────────
  *
  * `gpm_members` は `project_id` が必須なので、**作る前には保存できません**。
- * 入力は画面で貯めておき、「作る」を押したときに
+ * 入力は画面で貯めておき、「作成」を押したときに
  * **プロジェクト → 人 の順**で登録します。
  *
  * **人の登録で失敗してもプロジェクトは残します。** 作り直させるほうが害が大きく、
@@ -107,19 +107,19 @@ export default function GpmProjectFormPage() {
       }
 
       invalidate(row.id);
-      notifySuccess('プロジェクトを作りました', {
+      notifySuccess('プロジェクトを作成しました', {
         description: [
           templateId
             ? '工程テンプレートから工程とタスクを入れました。ここから編集できます。'
             : '工程はまだありません。詳細画面から追加できます。',
           members.length > 0 && failed === 0 ? `体制に ${members.length}名 を入れました。` : '',
           // **入らなかった人を黙らない。** 気づかないと体制が欠けたまま進む
-          failed > 0 ? `体制の ${failed}名 は入れられませんでした。体制タブから足してください。` : '',
+          failed > 0 ? `体制の ${failed}名 は入れられませんでした。体制タブから追加してください。` : '',
         ].filter(Boolean).join(' '),
       });
       navigate(`/gpm/projects/${row.id}`);
     },
-    onError: (err) => notifyApiError('プロジェクトを作れませんでした', err),
+    onError: (err) => notifyApiError('プロジェクトを作成できませんでした', err),
   });
 
   /** 足りない項目。**押せなくするのではなく名指しする** */
@@ -139,7 +139,7 @@ export default function GpmProjectFormPage() {
             {create.isPending
               ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
               : <Check className="mr-2 h-4 w-4" aria-hidden="true" />}
-            作る
+            作成
           </Button>
         }
       >
@@ -224,15 +224,15 @@ export default function GpmProjectFormPage() {
         )}
         {missing.length > 0 && (
           <p className="text-sub text-destructive">
-            {missing.join(' と ')} が入っていないので、まだ作れません（ステップ1）
+            {missing.join(' と ')} が入っていないので、まだ作成できません（ステップ1）
           </p>
         )}
       </div>
 
       <p className="text-note text-muted-foreground">
-        <strong className="font-bold">作るのは最後の段でなくても押せます</strong>
+        <strong className="font-bold">作成するのは最後の段でなくても押せます</strong>
         （プロジェクト名と依頼元さえ入っていればよい）。
-        体制は空のままでも作れて、あとから体制タブで足せます。
+        体制は空のままでも作成できて、あとから体制タブで追加できます。
       </p>
     </div>
   );

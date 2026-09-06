@@ -100,12 +100,12 @@ export function MinutesTab({ projectId, canEdit, canManage }: {
     onSuccess: (r) => {
       invalidate();
       invalidateGpm(projectId);
-      notifySuccess('未解決事項に登録しました', {
+      notifySuccess('持ち帰りに登録しました', {
         description: `「${String((r.data as { data?: { question?: string } })?.data?.question ?? '').slice(0, 40)}」`
-          + 'を未解決事項タブに入れました。誰に訊くか・期限はそちらで編集できます。',
+          + 'を持ち帰りタブに入れました。誰に訊くか・期限はそちらで編集できます。',
       });
     },
-    onError: (e) => notifyApiError('未解決事項にできませんでした', e),
+    onError: (e) => notifyApiError('持ち帰りにできませんでした', e),
   });
 
   const onDelete = async (id: string, title: string) => {
@@ -186,8 +186,8 @@ export function MinutesTab({ projectId, canEdit, canManage }: {
 
       <p className="text-note text-muted-foreground">
         <strong className="font-bold">音声は保存しません</strong>（文字起こし後に破棄します）。残るのは文字起こしと議事録だけです。
-        未解決事項は<strong className="font-bold">未解決事項</strong>にできます — 案件（スタジオ）ではタスクになりますが、
-        工事・構築の未解決事項はほとんどが先方の判断待ちなので、止まっている件数として数えられるほうに入れます。
+        未解決事項は<strong className="font-bold">持ち帰り</strong>にできます — 案件（スタジオ）ではタスクになりますが、
+        工事・構築の持ち帰りはほとんどが先方の判断待ちなので、止まっている件数として数えられるほうに入れます。
       </p>
 
       {recOpen && (

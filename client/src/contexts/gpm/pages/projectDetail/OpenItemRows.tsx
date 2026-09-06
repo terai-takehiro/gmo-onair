@@ -27,7 +27,7 @@ import {
 export function OpenItemRowsHeader({ withProject }: { withProject: boolean }) {
   return (
     <RowHeader className="hidden sm:flex">
-      <RowMain>{withProject ? '未解決事項 ／ プロジェクト' : '未解決事項'}</RowMain>
+      <RowMain>{withProject ? '持ち帰り ／ プロジェクト' : '持ち帰り'}</RowMain>
       <RowSlot w={96}>状態</RowSlot>
       <RowSlot w={96}>期限</RowSlot>
       <RowSlot w={160} align="right">できること</RowSlot>
