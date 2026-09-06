@@ -84,7 +84,7 @@ interface TelopTextEntry {
  *
  * ⚠️ 1行に複数の telop 列がある場合、どちらの列から来たかは区別できない
  * （`graphics_pages.qsheet_row_id` は行 ID だけを覚え、列 ID までは覚えない設計——
- * migration 280 のコメント参照）。fetchQsheetLiveText 側はこの関数が返す配列の
+ * migration 282 のコメント参照）。fetchQsheetLiveText 側はこの関数が返す配列の
  * **最初の一致**を採用することで割り切っている。
  */
 function collectTelopEntries(data: RawDocData): TelopTextEntry[] {

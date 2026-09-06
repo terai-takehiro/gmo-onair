@@ -108,7 +108,7 @@ export interface GraphicsProjectRow {
   theme: string;
   /** 既定は空配列（ルールはオプトイン） */
   slotExitRules: SlotExitRule[];
-  /** 台本に追従（段E・migration 281）。既定 false。ON で進行画面の現在行に本番モードの
+  /** 台本に追従（段E・migration 283）。既定 false。ON で進行画面の現在行に本番モードの
    *  NEXT が自動で移る（TAKEは対象外——常に人が押す。graphics-redesign.md §9 3番・§12-2） */
   followScript: boolean;
 }

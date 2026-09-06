@@ -162,7 +162,7 @@ router.put('/projects/:id', requirePermission('qsheet', 'editor'), wrap(async (r
     const rules = validateSlotExitRules(body.slotExitRules);
     sets.push('slot_exit_rules = ?::jsonb'); params.push(JSON.stringify(rules));
   }
-  // 台本に追従（段E・migration 281）。既定 false・番組ごとに ON にできるだけの
+  // 台本に追従（段E・migration 283）。既定 false・番組ごとに ON にできるだけの
   // 単純なスイッチ——theme/name と同じ「来ていれば上書き」のパターン
   if (body.followScript !== undefined) {
     sets.push('follow_script = ?'); params.push(!!body.followScript);

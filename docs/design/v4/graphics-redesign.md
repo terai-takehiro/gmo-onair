@@ -286,7 +286,7 @@ graphics.md §2 の思想（部品＝描画＋フィールド＋アニメ＋専�
 | `call_no` | **現行のまま維持**（作成時に一度だけ自動採番。`sort_order` に連動させない）。手入力での変更は引き続き許す。§12-3 の決定により「並べ替え連動」案は採らない |
 | `proof_state` | 列はそのまま。UI は `unproofed`/`proofed` の2値＋必須欄空の自動判定（`draft` は自動でのみ付く） |
 | `graphics_templates` | 画面は廃止するが表は「前の番組からコピー」の器として残す（段E で複製元にも使う） |
-| `graphics_projects.follow_script BOOLEAN NOT NULL DEFAULT false` | 台本に追従の切替（段E・新規列・migration 281） |
+| `graphics_projects.follow_script BOOLEAN NOT NULL DEFAULT false` | 台本に追従の切替（段E・新規列・migration 283） |
 | その他の表・API・Socket `cg:*`・出力URL | 変更なし（段Eの自動追従は既存の qsheet 側 `/techops` `cue:*` を**読むだけ**で、graphics 側の Socket・DB には手を入れていない） |
 
 ## 11. 実装の段取り（モック確定後・段ごとに別 PR）
@@ -295,9 +295,9 @@ graphics.md §2 の思想（部品＝描画＋フィールド＋アニメ＋専�
 | --- | --- | --- | --- |
 | A | ✅ **実装済み（2026-09-06）** 一覧＋右パネル（①③）・設定1画面（④）・左メニューのサブ項目・戻り先の統一・死んだ UI と固定文字列の削除・`GRAPHICS_RE` の修正 | なし | 現行の 68 ファイルの**再配置**が中心 |
 | B | ✅ **実装済み（2026-09-06）** 本番モードの作り直し（②・3動詞・OA/NEXT・いま出ているものの帯・行内の操作） | なし | `GraphicsConsolePage` の再構成 |
-| C | ✅ **実装済み（2026-09-06）** コーナー・台本から取り込む・台本と違いますバッジ（§9 1〜2） | `section`・`qsheet_doc_id`・`qsheet_row_id`（migration 280） | 新規 |
+| C | ✅ **実装済み（2026-09-06）** コーナー・台本から取り込む・台本と違いますバッジ（§9 1〜2） | `section`・`qsheet_doc_id`・`qsheet_row_id`（migration 282） | 新規 |
 | D | ✅ **実装済み（2026-09-06）** 依頼の改修（台本の項目から選ぶ）・スマホ閲覧（⑤⑥） | なし | |
-| E | ✅ **実装済み（2026-09-06）** 本番で追従（§9 3）・前の番組からコピー | `follow_script`（migration 281） | Socket `/techops` の `cue:*` を読む |
+| E | ✅ **実装済み（2026-09-06）** 本番で追従（§9 3）・前の番組からコピー | `follow_script`（migration 283） | Socket `/techops` の `cue:*` を読む |
 | F | 旧 `/awards` の畳み込み（実行の承認は §12-5 で取得済み。**段A〜E を検証環境で1本通してから**実行する） | — | [migration-plan §4 段6-9](graphics-awards-migration-plan.md) |
 
 段A・B は既存の部品を並べ替える作業で、レンダラー・API はそのまま使う。
@@ -396,7 +396,7 @@ graphics.md §2 の思想（部品＝描画＋フィールド＋アニメ＋専�
 型チェック・lint 1体→検証・並列2体→修正0〜1体）で進めた。今回は Finalize 段の修正は
 発生しなかった（検証段の指摘が2件とも「note」＝ブロッカーでない既知の制約だったため）。
 
-- **新規（サーバー）**: `migrations/280_graphics_qsheet_import.sql`（`graphics_pages` に
+- **新規（サーバー）**: `migrations/282_graphics_qsheet_import.sql`（`graphics_pages` に
   `section`・`qsheet_doc_id`〈`qsheet_documents` への FK・`ON DELETE SET NULL`〉・
   `qsheet_row_id` を追加）・`services/qsheet-import.service.ts`（`inferPartKey`・
   `previewQsheetImport`・`commitQsheetImport`・`fetchQsheetLiveText` の4関数。
@@ -438,7 +438,7 @@ graphics.md §2 の思想（部品＝描画＋フィールド＋アニメ＋専�
      （他9部品・`score`/`ranking` 等の配列型主フィールドは無変更）。
 - **検証段の指摘（2件とも note＝非ブロッカー。対応不要と判断）**:
   1. 1行に telop 型の列が2つ以上ある台本では、`qsheet_row_id` が行 ID までしか覚えず
-     列 ID までは覚えない設計（DB影響を最小にするため。migration 280 のコメント参照）
+     列 ID までは覚えない設計（DB影響を最小にするため。migration 282 のコメント参照）
      のため、`fetchQsheetLiveText` は「最初に見つかった列」を機械的に採用する。取り込み時に
      2列目の候補を選んでいた場合、差分検出が実際の紐づけとずれうる——ただしこれは
      スキーマの意図的な単純化が原因で、この段の実装だけでは直せない。
@@ -466,7 +466,7 @@ graphics.md §2 の思想（部品＝描画＋フィールド＋アニメ＋専�
   （0 errors）／`npm run test`（1996件）／`npm run build -w client-techops`／
   `verify:up` でのマイグレーション適用確認、をすべて完了。**さらに呼び出し元（自分）が
   独立して**同じ4項目（tsc×2・lint・test）を再実行して確認し、`verify:up` で
-  マイグレーション280を再適用して3列・FK・部分インデックスを `\d graphics_pages` で
+  マイグレーション282を再適用して3列・FK・部分インデックスを `\d graphics_pages` で
   確認し、全ファイルを自分で読んで `canAccessDoc` が3関数すべてから呼ばれていることを
   確認したうえで、実サーバー・実 dev server 起動＋Playwright による実ブラウザ確認まで行った:
   ①の「＋テロップ」→「台本から取り込む」→台本を選ぶ→候補確認（コーナー見出し・種類の
@@ -535,7 +535,7 @@ graphics.md §2 の思想（部品＝描画＋フィールド＋アニメ＋専�
 （下記「レビューで見つかった問題」参照）。
 
 - **台本に追従**（既定OFF・番組ごとにON）: `graphics_projects.follow_script`
-  （migration 281・`NOT NULL DEFAULT false`）を新設し、`PUT /graphics/projects/:id`
+  （migration 283・`NOT NULL DEFAULT false`）を新設し、`PUT /graphics/projects/:id`
   を拡張して読み書きできるようにした（新しいエンドポイントは作っていない）。
   切替UIは`FollowScriptToggle.tsx`（新規）——台本から取り込んだページが1件も無い番組
   には出さない（`pages.some(p => p.qsheetDocId)`）。
@@ -573,7 +573,7 @@ graphics.md §2 の思想（部品＝描画＋フィールド＋アニメ＋専�
     ため、段Eのスコープでは対応しないと判断した。
 - **検証**: ワークフロー内で`tsc -b server`／`tsc -b client-techops`／`npm run lint`
   （0 errors）／`npm run test`（1996件）／`npm run build`／`verify:up`でのmigration
-  281適用確認（`follow_script`列の型・デフォルト値）に加え、統合・機械チェック両段が
+  283適用確認（`follow_script`列の型・デフォルト値）に加え、統合・機械チェック両段が
   実サーバーを起動しcurlで正常系・異常系（自分自身指定・存在しないID・非数値・権限なし
   ユーザーの403）を確認済み。**呼び出し元（自分）が独立して**同じ項目を再実行し、
   全ファイルを精読して`useScriptFollow.ts`に`.emit()`呼び出しが1つも無く
