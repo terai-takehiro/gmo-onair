@@ -48,6 +48,7 @@
  *   どちらか片方にだけ欄を作らないこと。
  */
 import type { ProjectStage } from '@/types';
+import type { BusinessEntity } from '@gmo-onair/shared/src/keepReport/types';
 import { asksAttendees, type Audience, type ProjectCategory } from '../../classification';
 
 export interface NewProjectValues {
@@ -70,6 +71,14 @@ export interface NewProjectValues {
    * 画面とサーバーで別々に決めると、出ている区分と保存された区分が食い違います。
    */
   customer_type: 'internal' | 'external';
+  /**
+   * 事業主体（migration 282・`keep-report.md` §4）。**空 ＝ 自動**
+   * （お客様の区分から: グループ内 → GMOサムライスタジオ、外部 → GMOサムライコンテンツスタジオ）。
+   * 値を入れたときだけ「人が上書きした」印（`entity_manual`）が付き、
+   * お客様を変えても自動で戻らない。自動に戻すには空（`null` で送る）にする。
+   * GMOインターネットグループ人格（`gig`）は自動では付かない — 人が選んだときだけ。
+   */
+  entity: BusinessEntity | '';
   recurrence: 'single' | 'regular';
   /**
    * レギュラー案件（シリーズ）が案件全体で1つだけ持つ取り決め
@@ -145,6 +154,8 @@ export const EMPTY_NEW_PROJECT: NewProjectValues = {
   project_category: '',
   gls_category: 'A',
   customer_type: 'external',
+  // **既定は自動**（空）。主体を選ばせると「選んだ」と「自動のまま」が見分けられない
+  entity: '',
   recurrence: 'single',
   // **既定の頻度を入れない。** cadence を入れると「決めた」と「決めていない」が
   // 見分けられない（shared/CLAUDE.md「NULL＝決めていない」）。billing_cycle だけは
@@ -197,9 +208,11 @@ export const BILLING_CYCLE_LABEL: Record<BillingCycle, string> = {
 /**
  * 「進んだら聞く」の畳んだ札に出す数。**来場人数は無観客のとき出ない**ので数も変わります。
  *
- *   作る画面 … ご担当・リード経路・実施日・案件内容・予算・
- *              最初のタスク・メモ ＝ 7（＋来場人数）
- *   直す画面 … ご担当・リード経路・案件内容・予算・グループ区分（読むだけ）＝ 5（＋来場人数）
+ *   作る画面 … ご担当・リード経路・事業主体・実施日・案件内容・予算・
+ *              最初のタスク・メモ ＝ 8（＋来場人数）
+ *   直す画面 … ご担当・リード経路・事業主体・案件内容・予算・グループ区分（読むだけ）＝ 6（＋来場人数）
+ *
+ * **事業主体は 2026-09-06 に足した**（migration 282・隔週キープの主体別の収支）。両方の画面に出る。
  *
  * ⚠️ **継続区分（回のある案件か）はこの枠から出しました**（`RegularSeriesSection`
  * の見出し行へ移動）。この値で出る／出ないが決まる「レギュラーの取り決め」が
@@ -211,7 +224,7 @@ export const BILLING_CYCLE_LABEL: Record<BillingCycle, string> = {
  * `shared/tests/projectFields.test.ts` が両方の段を固定しています。
  */
 export function moreFieldCount(audience: string, mode: FieldsMode = 'create'): number {
-  const base = mode === 'create' ? 7 : 5;
+  const base = mode === 'create' ? 8 : 6;
   return asksAttendees(audience) ? base + 1 : base;
 }
 

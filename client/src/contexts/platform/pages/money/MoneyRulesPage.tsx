@@ -32,6 +32,8 @@ import { useAuth } from '@/contexts/platform/AuthContext';
 import { localDateStr } from '@/lib/format';
 import { DiscountLimits } from './DiscountLimits';
 import { StageProbabilities } from './StageProbabilities';
+import { MonthlyBudgets } from './MonthlyBudgets';
+import { UtilizationRule } from './UtilizationRule';
 import {
   DAY_CHOICES, MONTH_CHOICES, ROUNDING_CHOICES, TAX_UNIT_CHOICES, DISPLAY_CHOICES,
   ISSUE_CHOICES, HOLIDAY_SHIFT_CHOICES, LABOR_UNIT_CHOICES, TAX_RATE_CHOICES,
@@ -100,7 +102,7 @@ function Group({ icon, tone, title, desc, children }: {
 
 export default function MoneyRulesPage() {
   const qc = useQueryClient();
-  const { currentUser, permissions } = useAuth();
+  const { currentUser, permissions, hasPermission } = useAuth();
   const [draft, setDraft] = useState<MoneyRules | null>(null);
   // **日付と説明文を一緒に持つ。** 日付だけ下見にして説明文を保存済みの値から
   // 描くと、締め日を変えたのに「末日締め」と出たままになる（実際にそうなっていた）
@@ -122,6 +124,14 @@ export default function MoneyRulesPage() {
 
   const canEdit = currentUser?.role === 'system_admin'
     || ['manager', 'owner'].includes(permissions?.budget ?? '');
+  /**
+   * 隔週キープの目標と数え方は**サーバーの縛りと同じ**にする（押せるのに 403 にしない）:
+   * 月次予算・経理の補正値は `sales: editor`（`PUT /keep/monthly-budget/:ym`）、
+   * 稼働率の数え方は `sales: manager`（`PUT /keep/utilization-settings`）。
+   * お金のルール本体（財務の管理者）とは別の縛りなので、別の変数で持つ
+   */
+  const canEditKeepBudgets = hasPermission('sales', 'editor');
+  const canManageUtilization = hasPermission('sales', 'manager');
 
   const set = <K extends keyof MoneyRules>(k: K, v: MoneyRules[K]) =>
     setDraft((d) => (d ? { ...d, [k]: v } : d));
@@ -284,6 +294,15 @@ export default function MoneyRulesPage() {
           ) : stageQ.data ? (
             <StageProbabilities rows={stageQ.data} canEdit={canEdit} />
           ) : null}
+
+          {/*
+            隔週キープ（業績報告）の材料。**目標はここでしか入れられない**
+            （v4 で `/sales/keep-report` を削除したあと入力画面が無くなっていた。
+            `docs/design/v4/keep-report.md` §8）。どちらも別のクエリなので、
+            お金のルール本体が読めなくても、こちらは出せる
+          */}
+          <MonthlyBudgets canEdit={canEditKeepBudgets} />
+          <UtilizationRule canManage={canManageUtilization} />
         </div>
 
         <div className="rounded-card w-full shrink-0 overflow-hidden border border-border bg-card lg:w-[240px]">
@@ -306,6 +325,7 @@ export default function MoneyRulesPage() {
             { t: '売上の登録', d: '締め日と支払サイトから期日が入ります', on: true },
             { t: '取り込み（精算PDF）', d: '税抜への直しが同じ端数になります', on: true },
             { t: '入金の消し込み', d: '期日から遅れを判定します', on: true },
+            { t: '隔週キープの数字', d: '月次予算が着地表・見込表の「目標」になります', on: true },
             { t: '請求書の下書き', d: '自動では作りません（手で出します）', on: false },
           ].map((u) => (
             <div key={u.t} className="flex items-start gap-2 border-b border-border-faint px-4 py-2.5 last:border-b-0">

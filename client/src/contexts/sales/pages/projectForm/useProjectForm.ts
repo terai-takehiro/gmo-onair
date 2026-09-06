@@ -171,6 +171,8 @@ export function useProjectForm(id: string | undefined) {
     'customer_id', 'contact_name', 'name', 'audience', 'project_category',
     'recurrence', 'attendee_count', 'goal', 'expected_amount',   // `customer_type` は入れない（読むだけ）
     'intake_channel', 'assigned_to',
+    // 事業主体（migration 282）。空 ＝ 自動。`MoreFields` が書く
+    'entity',
     // レギュラー案件が案件全体で1つだけ持つ取り決め（migration 262・264）。
     // `RegularSeriesFields` が書く（`recording_per_day_count`/`episode_unit_price` は
     // 仕様変更 #16 で無くなった — `NewProjectValues` にも無い）
@@ -196,6 +198,7 @@ export function useProjectForm(id: string | undefined) {
     project_category: values.project_category,
     gls_category: values.gls_category === 'B' ? 'B' : 'A',
     customer_type: groupType,   // お客様から導く（保存値ではない。サーバーも同じ規則）
+    entity: values.entity,
     recurrence: values.recurrence,
     recording_cadence: values.recording_cadence as NewProjectValues['recording_cadence'],
     fixed_studio_note: values.fixed_studio_note,

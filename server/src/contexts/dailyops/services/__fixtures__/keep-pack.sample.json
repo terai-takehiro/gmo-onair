@@ -1,0 +1,1432 @@
+{
+  "version": 1,
+  "meeting_date": "2026-09-16",
+  "previous_meeting_date": "2026-09-04",
+  "generated_at": "2026-09-06T04:20:00.000Z",
+  "frozen_at": null,
+  "scope": {
+    "entity": "all",
+    "customer_segment": "all"
+  },
+  "landing": {
+    "all": {
+      "year_month": "2026-08",
+      "mode": "landing",
+      "lines": [
+        {
+          "key": "revenue",
+          "label": "売上高",
+          "budget": 21000000,
+          "actual": 1762293,
+          "diff": -19237707,
+          "ratio": 8.4,
+          "judge": "✕",
+          "kind": "higher_better"
+        },
+        {
+          "key": "cogs_variable",
+          "label": "原価（案件仕入）",
+          "budget": 3300000,
+          "actual": 1223000,
+          "diff": -2077000,
+          "ratio": 37.1,
+          "judge": "○",
+          "kind": "lower_better"
+        },
+        {
+          "key": "gross_profit",
+          "label": "粗利",
+          "budget": 17700000,
+          "actual": 539293,
+          "diff": -17160707,
+          "ratio": 3,
+          "judge": "✕",
+          "kind": "higher_better"
+        },
+        {
+          "key": "sga",
+          "label": "販管費",
+          "budget": 26427000,
+          "actual": 21834000,
+          "diff": -4593000,
+          "ratio": 82.6,
+          "judge": "○",
+          "kind": "lower_better"
+        },
+        {
+          "key": "cogs_fixed",
+          "label": "償却相当額",
+          "budget": 19727000,
+          "actual": 18539000,
+          "diff": -1188000,
+          "ratio": 94,
+          "judge": "○",
+          "kind": "lower_better"
+        },
+        {
+          "key": "operating_profit",
+          "label": "営業利益",
+          "budget": -28454000,
+          "actual": -39833707,
+          "diff": -11379707,
+          "ratio": 60,
+          "judge": "✕",
+          "kind": "higher_better"
+        }
+      ],
+      "unconfirmed": [],
+      "has_override": false,
+      "override_note": null
+    },
+    "gss": {
+      "year_month": "2026-08",
+      "mode": "landing",
+      "lines": [
+        {
+          "key": "revenue",
+          "label": "売上高",
+          "budget": 15000000,
+          "actual": 1289293,
+          "diff": -13710707,
+          "ratio": 8.6,
+          "judge": "✕",
+          "kind": "higher_better"
+        },
+        {
+          "key": "cogs_variable",
+          "label": "原価（案件仕入）",
+          "budget": 2500000,
+          "actual": 1180000,
+          "diff": -1320000,
+          "ratio": 47.2,
+          "judge": "○",
+          "kind": "lower_better"
+        },
+        {
+          "key": "gross_profit",
+          "label": "粗利",
+          "budget": 12500000,
+          "actual": 109293,
+          "diff": -12390707,
+          "ratio": 0.9,
+          "judge": "✕",
+          "kind": "higher_better"
+        },
+        {
+          "key": "sga",
+          "label": "販管費",
+          "budget": 22000000,
+          "actual": 18500000,
+          "diff": -3500000,
+          "ratio": 84.1,
+          "judge": "○",
+          "kind": "lower_better"
+        },
+        {
+          "key": "cogs_fixed",
+          "label": "償却相当額",
+          "budget": 19727000,
+          "actual": 18539000,
+          "diff": -1188000,
+          "ratio": 94,
+          "judge": "○",
+          "kind": "lower_better"
+        },
+        {
+          "key": "operating_profit",
+          "label": "営業利益",
+          "budget": -29227000,
+          "actual": -36929707,
+          "diff": -7702707,
+          "ratio": 73.6,
+          "judge": "✕",
+          "kind": "higher_better"
+        }
+      ],
+      "unconfirmed": [],
+      "has_override": false,
+      "override_note": null
+    },
+    "gscs": {
+      "year_month": "2026-08",
+      "mode": "landing",
+      "lines": [
+        {
+          "key": "revenue",
+          "label": "売上高",
+          "budget": 6000000,
+          "actual": 473000,
+          "diff": -5527000,
+          "ratio": 7.9,
+          "judge": "✕",
+          "kind": "higher_better"
+        },
+        {
+          "key": "cogs_variable",
+          "label": "原価（案件仕入）",
+          "budget": 800000,
+          "actual": 43000,
+          "diff": -757000,
+          "ratio": 5.4,
+          "judge": "○",
+          "kind": "lower_better"
+        },
+        {
+          "key": "gross_profit",
+          "label": "粗利",
+          "budget": 5200000,
+          "actual": 430000,
+          "diff": -4770000,
+          "ratio": 8.3,
+          "judge": "✕",
+          "kind": "higher_better"
+        },
+        {
+          "key": "sga",
+          "label": "販管費",
+          "budget": 4427000,
+          "actual": 3334000,
+          "diff": -1093000,
+          "ratio": 75.3,
+          "judge": "○",
+          "kind": "lower_better"
+        },
+        {
+          "key": "cogs_fixed",
+          "label": "償却相当額",
+          "budget": 0,
+          "actual": 0,
+          "diff": 0,
+          "ratio": null,
+          "judge": "○",
+          "kind": "lower_better"
+        },
+        {
+          "key": "operating_profit",
+          "label": "営業利益",
+          "budget": 773000,
+          "actual": -2904000,
+          "diff": -3677000,
+          "ratio": -375.7,
+          "judge": "✕",
+          "kind": "higher_better"
+        }
+      ],
+      "unconfirmed": [],
+      "has_override": false,
+      "override_note": null
+    }
+  },
+  "forecast": {
+    "all": {
+      "year_month": "2026-09",
+      "mode": "forecast",
+      "lines": [
+        {
+          "key": "revenue",
+          "label": "売上高",
+          "budget": 21000000,
+          "actual": 8078000,
+          "diff": -12922000,
+          "ratio": 38.5,
+          "judge": "✕",
+          "kind": "higher_better"
+        },
+        {
+          "key": "cogs_variable",
+          "label": "原価（案件仕入）",
+          "budget": 3300000,
+          "actual": 2406000,
+          "diff": -894000,
+          "ratio": 72.9,
+          "judge": "○",
+          "kind": "lower_better"
+        },
+        {
+          "key": "gross_profit",
+          "label": "粗利",
+          "budget": 17700000,
+          "actual": 5672000,
+          "diff": -12028000,
+          "ratio": 32,
+          "judge": "✕",
+          "kind": "higher_better"
+        },
+        {
+          "key": "sga",
+          "label": "販管費",
+          "budget": 26435000,
+          "actual": 21842000,
+          "diff": -4593000,
+          "ratio": 82.6,
+          "judge": "○",
+          "kind": "lower_better"
+        },
+        {
+          "key": "cogs_fixed",
+          "label": "償却相当額",
+          "budget": 19727000,
+          "actual": 18540000,
+          "diff": -1187000,
+          "ratio": 94,
+          "judge": "○",
+          "kind": "lower_better"
+        },
+        {
+          "key": "operating_profit",
+          "label": "営業利益",
+          "budget": -28462000,
+          "actual": -34710000,
+          "diff": -6248000,
+          "ratio": 78,
+          "judge": "✕",
+          "kind": "higher_better"
+        }
+      ],
+      "unconfirmed": [
+        {
+          "project_id": "prj-docl",
+          "project_name": "第20期 事業計画発表会（DoCLASSE）",
+          "amount": 4457680
+        }
+      ],
+      "has_override": false,
+      "override_note": null
+    },
+    "gss": {
+      "year_month": "2026-09",
+      "mode": "forecast",
+      "lines": [
+        {
+          "key": "revenue",
+          "label": "売上高",
+          "budget": 15000000,
+          "actual": 5500000,
+          "diff": -9500000,
+          "ratio": 36.7,
+          "judge": "✕",
+          "kind": "higher_better"
+        },
+        {
+          "key": "cogs_variable",
+          "label": "原価（案件仕入）",
+          "budget": 2500000,
+          "actual": 1900000,
+          "diff": -600000,
+          "ratio": 76,
+          "judge": "○",
+          "kind": "lower_better"
+        },
+        {
+          "key": "gross_profit",
+          "label": "粗利",
+          "budget": 12500000,
+          "actual": 3600000,
+          "diff": -8900000,
+          "ratio": 28.8,
+          "judge": "✕",
+          "kind": "higher_better"
+        },
+        {
+          "key": "sga",
+          "label": "販管費",
+          "budget": 22000000,
+          "actual": 18500000,
+          "diff": -3500000,
+          "ratio": 84.1,
+          "judge": "○",
+          "kind": "lower_better"
+        },
+        {
+          "key": "cogs_fixed",
+          "label": "償却相当額",
+          "budget": 19727000,
+          "actual": 18540000,
+          "diff": -1187000,
+          "ratio": 94,
+          "judge": "○",
+          "kind": "lower_better"
+        },
+        {
+          "key": "operating_profit",
+          "label": "営業利益",
+          "budget": -29227000,
+          "actual": -33440000,
+          "diff": -4213000,
+          "ratio": 85.6,
+          "judge": "✕",
+          "kind": "higher_better"
+        }
+      ],
+      "unconfirmed": [],
+      "has_override": false,
+      "override_note": null
+    },
+    "gscs": {
+      "year_month": "2026-09",
+      "mode": "forecast",
+      "lines": [
+        {
+          "key": "revenue",
+          "label": "売上高",
+          "budget": 6000000,
+          "actual": 2578000,
+          "diff": -3422000,
+          "ratio": 43,
+          "judge": "✕",
+          "kind": "higher_better"
+        },
+        {
+          "key": "cogs_variable",
+          "label": "原価（案件仕入）",
+          "budget": 800000,
+          "actual": 506000,
+          "diff": -294000,
+          "ratio": 63.3,
+          "judge": "○",
+          "kind": "lower_better"
+        },
+        {
+          "key": "gross_profit",
+          "label": "粗利",
+          "budget": 5200000,
+          "actual": 2072000,
+          "diff": -3128000,
+          "ratio": 39.8,
+          "judge": "✕",
+          "kind": "higher_better"
+        },
+        {
+          "key": "sga",
+          "label": "販管費",
+          "budget": 4435000,
+          "actual": 3342000,
+          "diff": -1093000,
+          "ratio": 75.4,
+          "judge": "○",
+          "kind": "lower_better"
+        },
+        {
+          "key": "cogs_fixed",
+          "label": "償却相当額",
+          "budget": 0,
+          "actual": 0,
+          "diff": 0,
+          "ratio": null,
+          "judge": "○",
+          "kind": "lower_better"
+        },
+        {
+          "key": "operating_profit",
+          "label": "営業利益",
+          "budget": 765000,
+          "actual": -1270000,
+          "diff": -2035000,
+          "ratio": -166,
+          "judge": "✕",
+          "kind": "higher_better"
+        }
+      ],
+      "unconfirmed": [
+        {
+          "project_id": "prj-docl",
+          "project_name": "第20期 事業計画発表会（DoCLASSE）",
+          "amount": 4457680
+        }
+      ],
+      "has_override": false,
+      "override_note": null
+    }
+  },
+  "trend": [
+    {
+      "year_month": "2024-01",
+      "revenue_internal": 13900000,
+      "revenue_external": 9570000,
+      "project_count_internal": 2,
+      "project_count_external": 3,
+      "business_days": 21,
+      "active_days": 9,
+      "utilization": null
+    },
+    {
+      "year_month": "2024-02",
+      "revenue_internal": 7999000,
+      "revenue_external": 8315000,
+      "project_count_internal": 3,
+      "project_count_external": 2,
+      "business_days": 21,
+      "active_days": 11,
+      "utilization": null
+    },
+    {
+      "year_month": "2024-03",
+      "revenue_internal": 13635000,
+      "revenue_external": 12821000,
+      "project_count_internal": 2,
+      "project_count_external": 3,
+      "business_days": 20,
+      "active_days": 11,
+      "utilization": null
+    },
+    {
+      "year_month": "2024-04",
+      "revenue_internal": 7921000,
+      "revenue_external": 3135000,
+      "project_count_internal": 1,
+      "project_count_external": 2,
+      "business_days": 21,
+      "active_days": 9,
+      "utilization": null
+    },
+    {
+      "year_month": "2024-05",
+      "revenue_internal": 11082000,
+      "revenue_external": 14246000,
+      "project_count_internal": 2,
+      "project_count_external": 4,
+      "business_days": 20,
+      "active_days": 9,
+      "utilization": null
+    },
+    {
+      "year_month": "2024-06",
+      "revenue_internal": 6919000,
+      "revenue_external": 6330000,
+      "project_count_internal": 2,
+      "project_count_external": 2,
+      "business_days": 21,
+      "active_days": 13,
+      "utilization": null
+    },
+    {
+      "year_month": "2024-07",
+      "revenue_internal": 11671000,
+      "revenue_external": 7540000,
+      "project_count_internal": 3,
+      "project_count_external": 3,
+      "business_days": 21,
+      "active_days": 7,
+      "utilization": null
+    },
+    {
+      "year_month": "2024-08",
+      "revenue_internal": 7757000,
+      "revenue_external": 12602000,
+      "project_count_internal": 1,
+      "project_count_external": 3,
+      "business_days": 21,
+      "active_days": 15,
+      "utilization": null
+    },
+    {
+      "year_month": "2024-09",
+      "revenue_internal": 10431000,
+      "revenue_external": 9050000,
+      "project_count_internal": 2,
+      "project_count_external": 5,
+      "business_days": 19,
+      "active_days": 4,
+      "utilization": null
+    },
+    {
+      "year_month": "2024-10",
+      "revenue_internal": 10797000,
+      "revenue_external": 10083000,
+      "project_count_internal": 3,
+      "project_count_external": 4,
+      "business_days": 22,
+      "active_days": 5,
+      "utilization": null
+    },
+    {
+      "year_month": "2024-11",
+      "revenue_internal": 13548000,
+      "revenue_external": 10046000,
+      "project_count_internal": 3,
+      "project_count_external": 2,
+      "business_days": 20,
+      "active_days": 6,
+      "utilization": null
+    },
+    {
+      "year_month": "2024-12",
+      "revenue_internal": 6840000,
+      "revenue_external": 12318000,
+      "project_count_internal": 3,
+      "project_count_external": 2,
+      "business_days": 19,
+      "active_days": 14,
+      "utilization": null
+    },
+    {
+      "year_month": "2025-01",
+      "revenue_internal": 11036000,
+      "revenue_external": 3632000,
+      "project_count_internal": 1,
+      "project_count_external": 4,
+      "business_days": 20,
+      "active_days": 4,
+      "utilization": 20
+    },
+    {
+      "year_month": "2025-02",
+      "revenue_internal": 7371000,
+      "revenue_external": 4400000,
+      "project_count_internal": 3,
+      "project_count_external": 2,
+      "business_days": 19,
+      "active_days": 14,
+      "utilization": 73.7
+    },
+    {
+      "year_month": "2025-03",
+      "revenue_internal": 6682000,
+      "revenue_external": 7421000,
+      "project_count_internal": 3,
+      "project_count_external": 2,
+      "business_days": 19,
+      "active_days": 5,
+      "utilization": 26.3
+    },
+    {
+      "year_month": "2025-04",
+      "revenue_internal": 10781000,
+      "revenue_external": 11656000,
+      "project_count_internal": 3,
+      "project_count_external": 4,
+      "business_days": 20,
+      "active_days": 8,
+      "utilization": 40
+    },
+    {
+      "year_month": "2025-05",
+      "revenue_internal": 11430000,
+      "revenue_external": 11800000,
+      "project_count_internal": 1,
+      "project_count_external": 2,
+      "business_days": 20,
+      "active_days": 16,
+      "utilization": 80
+    },
+    {
+      "year_month": "2025-06",
+      "revenue_internal": 9177000,
+      "revenue_external": 8423000,
+      "project_count_internal": 2,
+      "project_count_external": 2,
+      "business_days": 22,
+      "active_days": 11,
+      "utilization": 50
+    },
+    {
+      "year_month": "2025-07",
+      "revenue_internal": 8040000,
+      "revenue_external": 14517000,
+      "project_count_internal": 4,
+      "project_count_external": 2,
+      "business_days": 21,
+      "active_days": 15,
+      "utilization": 71.4
+    },
+    {
+      "year_month": "2025-08",
+      "revenue_internal": 8649000,
+      "revenue_external": 3612000,
+      "project_count_internal": 3,
+      "project_count_external": 3,
+      "business_days": 21,
+      "active_days": 8,
+      "utilization": 38.1
+    },
+    {
+      "year_month": "2025-09",
+      "revenue_internal": 9135000,
+      "revenue_external": 5884000,
+      "project_count_internal": 2,
+      "project_count_external": 4,
+      "business_days": 20,
+      "active_days": 6,
+      "utilization": 30
+    },
+    {
+      "year_month": "2025-10",
+      "revenue_internal": 9363000,
+      "revenue_external": 7098000,
+      "project_count_internal": 4,
+      "project_count_external": 1,
+      "business_days": 21,
+      "active_days": 6,
+      "utilization": 28.6
+    },
+    {
+      "year_month": "2025-11",
+      "revenue_internal": 11997000,
+      "revenue_external": 6375000,
+      "project_count_internal": 4,
+      "project_count_external": 4,
+      "business_days": 20,
+      "active_days": 9,
+      "utilization": 45
+    },
+    {
+      "year_month": "2025-12",
+      "revenue_internal": 12373000,
+      "revenue_external": 7188000,
+      "project_count_internal": 2,
+      "project_count_external": 5,
+      "business_days": 20,
+      "active_days": 9,
+      "utilization": 45
+    },
+    {
+      "year_month": "2026-01",
+      "revenue_internal": 14945000,
+      "revenue_external": 10670000,
+      "project_count_internal": 3,
+      "project_count_external": 3,
+      "business_days": 21,
+      "active_days": 7,
+      "utilization": 33.3
+    },
+    {
+      "year_month": "2026-02",
+      "revenue_internal": 13149000,
+      "revenue_external": 4303000,
+      "project_count_internal": 4,
+      "project_count_external": 2,
+      "business_days": 19,
+      "active_days": 6,
+      "utilization": 31.6
+    },
+    {
+      "year_month": "2026-03",
+      "revenue_internal": 6664000,
+      "revenue_external": 7435000,
+      "project_count_internal": 3,
+      "project_count_external": 3,
+      "business_days": 22,
+      "active_days": 10,
+      "utilization": 45.5
+    },
+    {
+      "year_month": "2026-04",
+      "revenue_internal": 14221000,
+      "revenue_external": 10285000,
+      "project_count_internal": 3,
+      "project_count_external": 3,
+      "business_days": 20,
+      "active_days": 6,
+      "utilization": 30
+    },
+    {
+      "year_month": "2026-05",
+      "revenue_internal": 10518000,
+      "revenue_external": 14869000,
+      "project_count_internal": 4,
+      "project_count_external": 4,
+      "business_days": 21,
+      "active_days": 10,
+      "utilization": 47.6
+    },
+    {
+      "year_month": "2026-06",
+      "revenue_internal": 9987000,
+      "revenue_external": 6970000,
+      "project_count_internal": 2,
+      "project_count_external": 3,
+      "business_days": 20,
+      "active_days": 4,
+      "utilization": 20
+    },
+    {
+      "year_month": "2026-07",
+      "revenue_internal": 11765000,
+      "revenue_external": 3185000,
+      "project_count_internal": 2,
+      "project_count_external": 4,
+      "business_days": 21,
+      "active_days": 14,
+      "utilization": 66.7
+    },
+    {
+      "year_month": "2026-08",
+      "revenue_internal": 1289293,
+      "revenue_external": 473000,
+      "project_count_internal": 1,
+      "project_count_external": 1,
+      "business_days": 20,
+      "active_days": 9,
+      "utilization": 45
+    }
+  ],
+  "pipeline": {
+    "external": [
+      {
+        "project_id": "prj-docl",
+        "code": "GLS-A015",
+        "name": "第20期 事業計画発表会",
+        "customer_name": "株式会社DoCLASSE",
+        "customer_segment": "external",
+        "entity": "gscs",
+        "samurai_related": false,
+        "stage": "b_verbal",
+        "confidence": "B",
+        "probability": 80,
+        "event_start": "2026-09-16",
+        "event_end": "2026-09-16",
+        "estimate_amount": 4457680,
+        "estimate_gross_profit": 1890000,
+        "next_action": "【フォロー】DoCLASSE 見積の最終確認",
+        "next_action_date": "2026-09-04",
+        "next_action_owner": "掛田",
+        "last_activity_at": "2026-09-05T22:10:00+09:00",
+        "since_last": "updated"
+      },
+      {
+        "project_id": "prj-zozo",
+        "code": "GLS-A008",
+        "name": "ZOZO 社内イベント用撮影(仮称)",
+        "customer_name": "株式会社CROSS-ZERO",
+        "customer_segment": "external",
+        "entity": "gscs",
+        "samurai_related": false,
+        "stage": "b_verbal",
+        "confidence": "B",
+        "probability": 80,
+        "event_start": "2026-10-08",
+        "event_end": "2026-10-08",
+        "estimate_amount": 3155000,
+        "estimate_gross_profit": 1320000,
+        "next_action": "CROSS-ZERO 外村様 XRアセットの確認",
+        "next_action_date": "2026-08-25",
+        "next_action_owner": "掛田",
+        "last_activity_at": "2026-08-25T15:00:00+09:00",
+        "since_last": null
+      },
+      {
+        "project_id": "prj-emb",
+        "code": "GLS-A020",
+        "name": "第4部 開幕直前生放送【プリンセスコネクト】",
+        "customer_name": "株式会社エンブレム",
+        "customer_segment": "external",
+        "entity": "gscs",
+        "samurai_related": false,
+        "stage": "c_proposal",
+        "confidence": "C",
+        "probability": 50,
+        "event_start": "2026-09-26",
+        "event_end": "2026-09-26",
+        "estimate_amount": 3312000,
+        "estimate_gross_profit": 1410000,
+        "next_action": "【フォロー】エンブレム クリエイティブ確認",
+        "next_action_date": "2026-09-04",
+        "next_action_owner": "寺井",
+        "last_activity_at": "2026-09-04T18:30:00+09:00",
+        "since_last": "updated"
+      },
+      {
+        "project_id": "prj-blvck",
+        "code": "GLS-A024",
+        "name": "BLVCKOUT",
+        "customer_name": "株式会社Livetoon",
+        "customer_segment": "external",
+        "entity": "gscs",
+        "samurai_related": false,
+        "stage": "c_proposal",
+        "confidence": "C",
+        "probability": 50,
+        "event_start": "2026-11-20",
+        "event_end": "2026-11-23",
+        "estimate_amount": 2705000,
+        "estimate_gross_profit": 1100000,
+        "next_action": "BLVCKOUT 概算見積書作成",
+        "next_action_date": "2026-09-02",
+        "next_action_owner": "寺井",
+        "last_activity_at": "2026-09-01T11:00:00+09:00",
+        "since_last": "new"
+      },
+      {
+        "project_id": "prj-bushi",
+        "code": "OPP-202609-0006",
+        "name": "アニメ上映会・配信イベント",
+        "customer_name": "株式会社ブシロードムーブ",
+        "customer_segment": "external",
+        "entity": "gscs",
+        "samurai_related": false,
+        "stage": "d_hold",
+        "confidence": "D",
+        "probability": 25,
+        "event_start": "2026-11-06",
+        "event_end": "2026-11-08",
+        "estimate_amount": null,
+        "estimate_gross_profit": null,
+        "next_action": "【要返信】株式会社ブシロードムーブ 日程調整",
+        "next_action_date": "2026-09-07",
+        "next_action_owner": "長野",
+        "last_activity_at": "2026-09-05T16:00:00+09:00",
+        "since_last": "new"
+      },
+      {
+        "project_id": "prj-kulog",
+        "code": "OPP-202609-0011",
+        "name": "KULOG BOOK 第三弾ものまねフリースタイルバトル",
+        "customer_name": "株式会社KULOG",
+        "customer_segment": "external",
+        "entity": "gscs",
+        "samurai_related": false,
+        "stage": "d_hold",
+        "confidence": "D",
+        "probability": 25,
+        "event_start": "2027-01-11",
+        "event_end": "2027-01-11",
+        "estimate_amount": null,
+        "estimate_gross_profit": null,
+        "next_action": "仮スケジュール確認",
+        "next_action_date": "2026-09-10",
+        "next_action_owner": "長野",
+        "last_activity_at": "2026-09-04T10:00:00+09:00",
+        "since_last": "updated"
+      }
+    ],
+    "samurai": [
+      {
+        "project_id": "prj-27h",
+        "code": "GLS-A021",
+        "name": "27.5時間テレビ",
+        "customer_name": "株式会社サムライパートナーズ",
+        "customer_segment": "external",
+        "entity": "gscs",
+        "samurai_related": true,
+        "stage": "b_verbal",
+        "confidence": "B",
+        "probability": 80,
+        "event_start": "2026-10-22",
+        "event_end": "2026-10-24",
+        "estimate_amount": 6800000,
+        "estimate_gross_profit": 2500000,
+        "next_action": "進行台本の初稿",
+        "next_action_date": "2026-09-12",
+        "next_action_owner": "寺井",
+        "last_activity_at": "2026-09-03T09:00:00+09:00",
+        "since_last": "updated"
+      },
+      {
+        "project_id": "prj-nontitle",
+        "code": "OPP-202609-0012",
+        "name": "Nontitle",
+        "customer_name": "株式会社サムライパートナーズ",
+        "customer_segment": "external",
+        "entity": "gscs",
+        "samurai_related": true,
+        "stage": "c_proposal",
+        "confidence": "C",
+        "probability": 50,
+        "event_start": null,
+        "event_end": null,
+        "estimate_amount": null,
+        "estimate_gross_profit": null,
+        "next_action": "値下げ許容範囲の確認",
+        "next_action_date": "2026-09-08",
+        "next_action_owner": "掛田",
+        "last_activity_at": "2026-09-05T12:00:00+09:00",
+        "since_last": "new"
+      },
+      {
+        "project_id": "prj-intel",
+        "code": "GLS-A023",
+        "name": "インテリジェンス",
+        "customer_name": "GMOサムライコンテンツスタジオ株式会社",
+        "customer_segment": "external",
+        "entity": "gscs",
+        "samurai_related": true,
+        "stage": "a_won",
+        "confidence": "A",
+        "probability": 100,
+        "event_start": "2026-09-07",
+        "event_end": "2026-09-07",
+        "estimate_amount": 896000,
+        "estimate_gross_profit": 380000,
+        "next_action": "収録準備",
+        "next_action_date": null,
+        "next_action_owner": "長野",
+        "last_activity_at": "2026-09-06T11:00:00+09:00",
+        "since_last": "updated"
+      }
+    ],
+    "weighted_revenue": 15434644,
+    "total_revenue": 21325680
+  },
+  "project_pages": [
+    {
+      "project_id": "prj-docl",
+      "ordinal": 1,
+      "band": {
+        "customer_short": "DoCLASSE",
+        "event_name": "第20期 事業計画発表会",
+        "date_label": "2026/9/16（水）"
+      },
+      "confidence": "B",
+      "confidence_label": "正式申込待",
+      "photos": [
+        {
+          "box_file_id": "2445600000001",
+          "caption": "会場の下見"
+        },
+        {
+          "box_file_id": "2445600000002",
+          "caption": "ステージ案"
+        }
+      ],
+      "summary_lines": [
+        "全社員向けの事業計画発表会（約300名・配信あり）",
+        "メインステージ＋2カメ収録、社内配信は Teams",
+        "登壇者6名・スライド送出は先方PC"
+      ],
+      "schedule": [
+        {
+          "time": "10:00",
+          "content": "搬入・設営",
+          "venue": "スタジオA"
+        },
+        {
+          "time": "13:00",
+          "content": "リハーサル",
+          "venue": "スタジオA"
+        },
+        {
+          "time": "15:00",
+          "content": "本番（配信）",
+          "venue": "スタジオA"
+        },
+        {
+          "time": "17:30",
+          "content": "撤収",
+          "venue": "スタジオA"
+        }
+      ],
+      "key_dates": [
+        {
+          "label": "チェック",
+          "text": "9/9（水）14:00 下見"
+        },
+        {
+          "label": "リハ",
+          "text": "9/16（水）13:00"
+        },
+        {
+          "label": "本番",
+          "text": "9/16（水）15:00"
+        }
+      ],
+      "intake_channel": "Webお問い合わせ",
+      "revenue": 4457680,
+      "gross_profit": 1890000,
+      "gross_margin": 42.4,
+      "headline": null,
+      "highlights": [],
+      "report_status": null
+    },
+    {
+      "project_id": "prj-emb",
+      "ordinal": 2,
+      "band": {
+        "customer_short": "エンブレム",
+        "event_name": "第4部 開幕直前生放送【プリンセスコネクト】",
+        "date_label": "2026/9/26（土）"
+      },
+      "confidence": "C",
+      "confidence_label": "提案済",
+      "photos": [],
+      "summary_lines": [
+        "ゲームの新章公開に合わせた生放送（YouTube・約2時間）",
+        "MC 2名＋ゲスト3名、バーチャル背景を使用"
+      ],
+      "schedule": [
+        {
+          "time": "14:00",
+          "content": "リハーサル",
+          "venue": "スタジオB"
+        },
+        {
+          "time": "19:00",
+          "content": "生放送",
+          "venue": "スタジオB"
+        }
+      ],
+      "key_dates": [
+        {
+          "label": "チェック",
+          "text": "9/19（金）"
+        },
+        {
+          "label": "リハ",
+          "text": "9/26（土）14:00"
+        },
+        {
+          "label": "本番",
+          "text": "9/26（土）19:00"
+        }
+      ],
+      "intake_channel": "紹介",
+      "revenue": 3312000,
+      "gross_profit": 1410000,
+      "gross_margin": 42.6,
+      "headline": null,
+      "highlights": [],
+      "report_status": null
+    },
+    {
+      "project_id": "prj-27h",
+      "ordinal": 3,
+      "band": {
+        "customer_short": "サムライパートナーズ",
+        "event_name": "27.5時間テレビ",
+        "date_label": "2026/10/22（木）〜24（土）"
+      },
+      "confidence": "B",
+      "confidence_label": "正式申込待",
+      "photos": [
+        {
+          "box_file_id": "2445600000003",
+          "caption": null
+        }
+      ],
+      "summary_lines": [
+        "3日間の長時間生配信（サムライ関連）",
+        "技術は内製＋外部スイッチャー1名"
+      ],
+      "schedule": [],
+      "key_dates": [
+        {
+          "label": "本番",
+          "text": "10/22（木）〜10/24（土）"
+        }
+      ],
+      "intake_channel": "グループ内",
+      "revenue": 6800000,
+      "gross_profit": 2500000,
+      "gross_margin": 36.8,
+      "headline": null,
+      "highlights": [],
+      "report_status": null
+    }
+  ],
+  "event_reports": [
+    {
+      "project_id": "prj-tbs",
+      "ordinal": 1,
+      "band": {
+        "customer_short": "TBSテレビ",
+        "event_name": "TBSドラマ「君の好きは無敵」撮影",
+        "date_label": "2026/8/10（月）"
+      },
+      "confidence": "A",
+      "confidence_label": "受注済",
+      "photos": [
+        {
+          "box_file_id": "2445600000010",
+          "caption": "収録の様子"
+        }
+      ],
+      "summary_lines": [],
+      "schedule": [],
+      "key_dates": [],
+      "intake_channel": "紹介",
+      "revenue": 472600,
+      "gross_profit": 429171,
+      "gross_margin": 90.8,
+      "headline": "ドラマ撮影を1日で完了。次回作の相談あり",
+      "highlights": [
+        "美術の持ち込みが多かったが搬入導線を事前共有して滞りなし",
+        "照明の追加依頼に当日対応（追加売上 3万円）",
+        "次回作（10月クランクイン）の見積依頼を受領"
+      ],
+      "report_status": "confirmed"
+    },
+    {
+      "project_id": "prj-sp20",
+      "ordinal": 2,
+      "band": {
+        "customer_short": "サムライパートナーズ",
+        "event_name": "サムライパートナーズ 20周年感謝の会",
+        "date_label": "2026/8/28（金）"
+      },
+      "confidence": "A",
+      "confidence_label": "受注済",
+      "photos": [],
+      "summary_lines": [],
+      "schedule": [],
+      "key_dates": [],
+      "intake_channel": "グループ内",
+      "revenue": null,
+      "gross_profit": null,
+      "gross_margin": null,
+      "headline": null,
+      "highlights": [
+        "売上未登録（グループ内原価で計上予定）"
+      ],
+      "report_status": "draft"
+    }
+  ],
+  "calendars": [
+    {
+      "year_month": "2026-09",
+      "utilization": 42.1,
+      "days": {
+        "1": [
+          {
+            "kind": "tour",
+            "label": "下見"
+          }
+        ],
+        "2": [
+          {
+            "kind": "rehearsal",
+            "label": "エイチ・アイ・エス"
+          }
+        ],
+        "3": [
+          {
+            "kind": "performance",
+            "label": "ものづくり太郎"
+          }
+        ],
+        "4": [
+          {
+            "kind": "hold",
+            "label": "DoCLASSE"
+          }
+        ],
+        "7": [
+          {
+            "kind": "performance",
+            "label": "インテリジェンス"
+          }
+        ],
+        "8": [
+          {
+            "kind": "hold",
+            "label": "BLVCKOUT"
+          }
+        ],
+        "9": [
+          {
+            "kind": "tour",
+            "label": "DoCLASSE 下見"
+          },
+          {
+            "kind": "internal",
+            "label": "制作向け勉強会"
+          }
+        ],
+        "10": [
+          {
+            "kind": "rehearsal",
+            "label": "ヒューマン"
+          }
+        ],
+        "11": [
+          {
+            "kind": "maintenance",
+            "label": "消防設備点検"
+          }
+        ],
+        "16": [
+          {
+            "kind": "performance",
+            "label": "DoCLASSE 事業計画発表会"
+          }
+        ],
+        "17": [
+          {
+            "kind": "tour",
+            "label": "定期内覧会"
+          }
+        ],
+        "18": [
+          {
+            "kind": "internal",
+            "label": "社員向け説明会"
+          }
+        ],
+        "19": [
+          {
+            "kind": "performance",
+            "label": "児玉塾"
+          },
+          {
+            "kind": "other",
+            "label": "ケース展"
+          }
+        ],
+        "25": [
+          {
+            "kind": "performance",
+            "label": "匿匿バトル"
+          }
+        ],
+        "26": [
+          {
+            "kind": "performance",
+            "label": "第4部 開幕直前生放送"
+          }
+        ]
+      },
+      "counted_kinds": [
+        "performance",
+        "rehearsal",
+        "tour",
+        "internal",
+        "consultation",
+        "setup",
+        "other"
+      ]
+    },
+    {
+      "year_month": "2026-10",
+      "utilization": 36.1,
+      "days": {
+        "2": [
+          {
+            "kind": "performance",
+            "label": "SNS撮影"
+          }
+        ],
+        "6": [
+          {
+            "kind": "hold",
+            "label": "GMOバーチャル"
+          }
+        ],
+        "8": [
+          {
+            "kind": "performance",
+            "label": "ZOZO 社内イベント"
+          }
+        ],
+        "14": [
+          {
+            "kind": "rehearsal",
+            "label": "P-MACHINE"
+          }
+        ],
+        "15": [
+          {
+            "kind": "performance",
+            "label": "ヒカルCh"
+          }
+        ],
+        "21": [
+          {
+            "kind": "setup",
+            "label": "27.5時間テレビ 設営"
+          }
+        ],
+        "22": [
+          {
+            "kind": "performance",
+            "label": "27.5時間テレビ"
+          }
+        ],
+        "23": [
+          {
+            "kind": "performance",
+            "label": "27.5時間テレビ"
+          }
+        ],
+        "24": [
+          {
+            "kind": "performance",
+            "label": "27.5時間テレビ"
+          }
+        ],
+        "28": [
+          {
+            "kind": "maintenance",
+            "label": "空調メンテナンス"
+          }
+        ]
+      },
+      "counted_kinds": [
+        "performance",
+        "rehearsal",
+        "tour",
+        "internal",
+        "consultation",
+        "setup",
+        "other"
+      ]
+    }
+  ],
+  "inview": {
+    "session_date": "2026-08-26",
+    "groups": 50,
+    "people": 65,
+    "satisfaction": 3.9,
+    "promoted_projects": 2,
+    "by_category": [
+      {
+        "category": "放送機材メーカー・商社",
+        "groups": 12,
+        "people": 15
+      },
+      {
+        "category": "映像制作・配信サービス",
+        "groups": 11,
+        "people": 14
+      },
+      {
+        "category": "その他企業（総務・不動産・商社等）",
+        "groups": 9,
+        "people": 12
+      },
+      {
+        "category": "官公庁・研究機関",
+        "groups": 5,
+        "people": 7
+      },
+      {
+        "category": "メディア・報道",
+        "groups": 4,
+        "people": 5
+      },
+      {
+        "category": "スタジオ・バーチャルプロダクション関連",
+        "groups": 4,
+        "people": 6
+      },
+      {
+        "category": "個人事業主・フリーランス",
+        "groups": 3,
+        "people": 3
+      },
+      {
+        "category": "教育機関（学生）",
+        "groups": 2,
+        "people": 3
+      }
+    ],
+    "next_session": {
+      "date": "2026-09-17",
+      "applied_groups": 38
+    }
+  },
+  "minutes": {
+    "decisions": [
+      "10月からの会社分割に合わせ、数値報告は主体別＋全体の3組で出す",
+      "稼働率は内覧を含め「何かしらの利用があった日」で数える"
+    ],
+    "topics": [
+      {
+        "area": "営業",
+        "text": "DoCLASSE は 9/9 の下見後に正式申込の見込み"
+      },
+      {
+        "area": "施設",
+        "text": "9/11 消防設備点検のため終日利用不可"
+      }
+    ],
+    "next_meeting_date": "2026-09-16"
+  }
+}

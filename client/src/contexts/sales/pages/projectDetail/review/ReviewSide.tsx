@@ -3,7 +3,8 @@
  *
  * ── サブ列に入ることが前提 ──────────────────────────────────
  *
- * 指示書 2-1 で**実施記録がメイン**になったので、この2枚は 340px の列に入ります。
+ * 指示書 2-1 で**実施記録がメイン**になったので、この2枚は 340px の列に入ります
+ * （2026-09-06 に3枚目「隔週キープ」＝載せる印を足した。`KeepPickCard.tsx`）。
  * そのぶん詰め方が本文側と違います:
  *
  *   ・注記は**ラベルの下段**（横に並べると金額スロットが押されて桁がそろわない）
@@ -18,6 +19,7 @@
 import { Wallet, ListChecks } from 'lucide-react';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { cn } from '@gmo-onair/shared/src/client/utils';
+import { KeepPickCard } from './KeepPickCard';
 
 export interface ReviewSummary {
   total_revenue: number;
@@ -36,7 +38,12 @@ const num = (v: unknown): number => Number(v) || 0;
 
 export function ReviewSide({
   expectedAmount, quoted, sentVersion, summary, taskTotal, taskDone, taskLate, eventStart,
+  projectId, keepPick, canEdit,
 }: {
+  /** 隔週キープの印（`KeepPickCard`）に渡すもの */
+  projectId: string;
+  keepPick: boolean;
+  canEdit: boolean;
   expectedAmount: number | string | null;
   quoted: number | null;
   sentVersion: number | null;
@@ -92,6 +99,9 @@ export function ReviewSide({
           </div>
         )}
       </section>
+
+      {/* 3枚目: 隔週キープの資料に載せるか。お金・進み方（事実）のあとに置く（決めごと） */}
+      <KeepPickCard projectId={projectId} keepPick={keepPick} canEdit={canEdit} />
     </div>
   );
 }

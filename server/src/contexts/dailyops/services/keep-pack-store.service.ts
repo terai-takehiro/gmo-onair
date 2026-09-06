@@ -1,0 +1,157 @@
+/**
+ * 定例報告パックの凍結と読み出し（`keep_report_packs`・migration 284・keep-report.md §5.5）
+ *
+ * ── 決めごと ────────────────────────────────────────────────
+ * - 「いまの数字」は保存しない（毎回計算）。**週報を確定した時点で凍結**し、資料・Slack・MCP は
+ *   凍結した版を読む（週報の「自動集計は投稿時点の数字」と同じ約束）
+ * - **凍結した版は書き換えない。** 数字を直したいときは元データを直して凍結し直す —
+ *   新しい版を INSERT し、前の版は残す（`meeting_date` に UNIQUE は無い）。読むときは最新の版
+ * - 週報との結びは両側で持つ: `keep_report_packs.ops_report_id` と `ops_reports.payload.keep`
+ *
+ * HTTP（`keep.routes.ts`）と MCP（`keep.tools.ts`）は **`getPackForMeeting` の1本**を通る
+ * （画面と AI が同じ答えを読む）。
+ */
+import { v4 as uuidv4 } from 'uuid';
+import { queryAll, queryOne, execute } from '../../../shared/db/connection';
+import { AppError } from '../../../shared/middleware/errorHandler';
+import { isEntityScope, type EntityScope } from '../../sales/services/project-entity';
+import { buildPack, resolveMeetingDateForWeek, resolveMeetings } from './keep-pack.service';
+import { assertMeetingDate } from './keep-pack-inputs.service';
+import type { KeepReportPack, SegmentScope } from './keep-pack.types';
+
+export { getInputs, upsertInput, assertMeetingDate } from './keep-pack-inputs.service';
+
+export interface PackScope { entity: EntityScope; segment: SegmentScope }
+
+/** クエリ／引数の主体・区分を読む。無ければ `all`、知らない値は 400 */
+export function parseScope(entityRaw: unknown, segmentRaw: unknown): PackScope {
+  const entity = entityRaw == null || entityRaw === '' ? 'all' : entityRaw;
+  if (!isEntityScope(entity)) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'entity は all / gss / gscs / gig のいずれかを指定してください');
+  }
+  const segment = segmentRaw == null || segmentRaw === '' ? 'all' : segmentRaw;
+  if (segment !== 'all' && segment !== 'internal' && segment !== 'external') {
+    throw new AppError(400, 'VALIDATION_ERROR', 'segment は all / internal / external のいずれかを指定してください');
+  }
+  return { entity, segment };
+}
+
+export interface FrozenPack { id: string; pack: KeepReportPack; frozen_at: string }
+
+function toIso(v: unknown): string {
+  return v instanceof Date ? v.toISOString() : String(v);
+}
+
+/** いまの数字で組んで凍結する。返り値の `pack.frozen_at` は保存した時刻 */
+export async function freezePack(opts: {
+  meetingDate: string; entity?: EntityScope; segment?: SegmentScope;
+  opsReportId?: string | null; userId?: string | null;
+}): Promise<FrozenPack> {
+  const meetingDate = assertMeetingDate(opts.meetingDate);
+  const entity = opts.entity ?? 'all';
+  const segment = opts.segment ?? 'all';
+  const built = await buildPack({ meetingDate, entity, segment });
+  const frozenAt = new Date().toISOString();
+  const pack: KeepReportPack = { ...built, frozen_at: frozenAt };
+  const id = uuidv4();
+  await execute(
+    `INSERT INTO keep_report_packs
+       (id, meeting_date, scope_entity, scope_segment, pack, generated_at, frozen_at, frozen_by, ops_report_id)
+     VALUES (?, ?, ?, ?, ?::jsonb, ?::timestamptz, ?::timestamptz, ?, ?)`,
+    [id, meetingDate, entity, segment, JSON.stringify(pack), pack.generated_at, frozenAt, opts.userId ?? null, opts.opsReportId ?? null],
+  );
+  return { id, pack, frozen_at: frozenAt };
+}
+
+/** その会議日・その絞り込みの凍結済みの最新の版。無ければ null */
+export async function getFrozenPack(meetingDate: string, entity: EntityScope, segment: SegmentScope): Promise<FrozenPack | null> {
+  const row = await queryOne(
+    `SELECT id, pack, frozen_at FROM keep_report_packs
+      WHERE meeting_date = ? AND scope_entity = ? AND scope_segment = ? AND frozen_at IS NOT NULL
+      ORDER BY frozen_at DESC LIMIT 1`,
+    [meetingDate, entity, segment],
+  ) as { id: string; pack: KeepReportPack; frozen_at: unknown } | undefined;
+  if (!row) return null;
+  return { id: row.id, pack: row.pack, frozen_at: toIso(row.frozen_at) };
+}
+
+export interface PackListRow {
+  id: string;
+  meeting_date: string;
+  scope_entity: string;
+  scope_segment: string;
+  generated_at: string;
+  frozen_at: string | null;
+  frozen_by: string | null;
+  ops_report_id: string | null;
+}
+
+/** 凍結した版の一覧（新しい会議日・新しい凍結が先）。中身（pack）は運ばない */
+export async function listPacks(limit = 100): Promise<PackListRow[]> {
+  const rows = await queryAll(
+    `SELECT id, meeting_date, scope_entity, scope_segment, generated_at, frozen_at, frozen_by, ops_report_id
+       FROM keep_report_packs
+      ORDER BY meeting_date DESC, frozen_at DESC NULLS LAST, created_at DESC
+      LIMIT ?`,
+    [Math.min(500, Math.max(1, limit))],
+  );
+  return rows.map((r) => ({
+    id: String(r.id),
+    meeting_date: String(r.meeting_date),
+    scope_entity: String(r.scope_entity),
+    scope_segment: String(r.scope_segment),
+    generated_at: toIso(r.generated_at),
+    frozen_at: r.frozen_at == null ? null : toIso(r.frozen_at),
+    frozen_by: (r.frozen_by as string | null) ?? null,
+    ops_report_id: (r.ops_report_id as string | null) ?? null,
+  }));
+}
+
+export interface PackResponse {
+  pack: KeepReportPack;
+  /** 凍結した版を返したか。false は「いまの数字」（`pack.frozen_at` も null） */
+  frozen: boolean;
+  pack_id: string | null;
+}
+
+/**
+ * 会議日のパック。凍結した版があればそれ、無ければ（または `live`）いまの数字。
+ * `meetingDate` を省くと次回の開催日（`resolveMeetings`）。HTTP と MCP の共通の入口。
+ */
+export async function getPackForMeeting(opts: {
+  meetingDate?: string | null; entity?: unknown; segment?: unknown; live?: boolean;
+}): Promise<PackResponse> {
+  const { entity, segment } = parseScope(opts.entity, opts.segment);
+  const meetingDate = opts.meetingDate
+    ? assertMeetingDate(opts.meetingDate, 'meeting')
+    : (await resolveMeetings()).next_meeting_date;
+  if (!opts.live) {
+    const frozen = await getFrozenPack(meetingDate, entity, segment);
+    if (frozen) return { pack: frozen.pack, frozen: true, pack_id: frozen.id };
+  }
+  const pack = await buildPack({ meetingDate, entity, segment });
+  return { pack, frozen: false, pack_id: null };
+}
+
+/**
+ * 週報（`weekly_activity`）を確定したときに呼ぶ。その週にある会議日（無ければ次の開催日）の
+ * パックを 全体／全区分 で凍結し、`ops_reports.payload.keep = { pack_id, meeting_date }` を
+ * **他の鍵を残したまま**足す（`||` は上の階層の鍵だけ差し替える。`stats` は消えない）。
+ *
+ * ⚠️ **ここで失敗しても週報の確定は成功させる**（記録の失敗で業務を止めない）。
+ * 週報を確定し直すたびに新しい版ができ、payload は最新の版を指す（前の版は残る）。
+ */
+export async function freezeKeepPackForWeeklyReport(reportId: string, periodKey: string, userId: string | null): Promise<void> {
+  try {
+    const meetingDate = await resolveMeetingDateForWeek(periodKey);
+    const { id } = await freezePack({ meetingDate, entity: 'all', segment: 'all', opsReportId: reportId, userId });
+    await execute(
+      `UPDATE ops_reports
+          SET payload = COALESCE(payload, '{}'::jsonb) || ?::jsonb, updated_at = NOW()
+        WHERE id = ?`,
+      [JSON.stringify({ keep: { pack_id: id, meeting_date: meetingDate } }), reportId],
+    );
+  } catch (err) {
+    console.warn('[keep-pack] 週報の確定に伴うパックの凍結に失敗（確定は続行）:', reportId, (err as Error).message);
+  }
+}

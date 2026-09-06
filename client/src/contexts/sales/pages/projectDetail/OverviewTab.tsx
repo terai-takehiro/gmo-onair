@@ -29,6 +29,7 @@ import { CalendarDays, MapPin, Wallet, CalendarClock, Building2, ExternalLink } 
 import { Link } from 'react-router-dom';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { cn } from '@gmo-onair/shared/src/client/utils';
+import { BUSINESS_ENTITY_LABELS } from '@gmo-onair/shared/src/keepReport/types';
 import { BoxLogo } from '@/components/BoxLogo';
 import { DateRange } from '@gmo-onair/shared/src/client/ui/dateRange';
 import { localDateStr, formatShortDate } from '@/lib/format';
@@ -227,6 +228,24 @@ export function OverviewTab({
         */}
         <Section title="この案件のこと">
           <Field label="お客様">{project.customer_name}</Field>
+          {/*
+            **事業主体はお客様のすぐ下**（migration 282・隔週キープの主体別の収支）。
+            お客様の区分から自動で決まるものなので、お客様から離すと「なぜこの主体か」が
+            読めない。人が上書きしている案件はそう書く — 書かないと、お客様を変えたのに
+            主体が動かない理由が分からない
+          */}
+          <Field label="事業主体">
+            {project.entity ? (
+              <>
+                {BUSINESS_ENTITY_LABELS[project.entity] ?? project.entity}
+                <span className="text-note ml-2 text-muted-foreground">
+                  {project.entity_manual
+                    ? '手で指定（お客様を変えても戻りません）'
+                    : `お客様の区分（${project.customer_type === 'internal' ? 'グループ内' : '外部'}）から自動`}
+                </span>
+              </>
+            ) : null}
+          </Field>
           <Field label="ご担当">{project.contact_name}</Field>
           {/*
             **案件分類は2段**（migration 182）。**出すか出さないかの決めごとは

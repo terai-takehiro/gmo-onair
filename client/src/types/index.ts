@@ -222,6 +222,11 @@ export interface Project extends BaseEntity {
   lost_reason_note: string | null;
   application_form: boolean;
   notes: string | null;
+  /** 事業主体（migration 282）。値は `shared/src/keepReport/types.ts` の `BusinessEntity` */
+  entity?: 'gss' | 'gscs' | 'gig' | null;
+  entity_manual?: boolean;
+  /** 隔週キープの資料に載せる印（migration 282） */
+  keep_pick?: boolean;
   // joined fields
   customer_name?: string;
   assigned_to_name?: string;

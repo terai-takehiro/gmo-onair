@@ -26,6 +26,7 @@
  * 「幅が寸法表の段に乗っているか」を固定しています。
  */
 import type { ProjectStage } from '@/types';
+import type { BusinessEntity } from '@gmo-onair/shared/src/keepReport/types';
 
 /** 列の鍵。**`COL_DEFS` から導く**（2か所に書くと必ずずれる） */
 export type LedgerColKey = (typeof COL_DEFS)[number]['key'];
@@ -85,6 +86,12 @@ export const COL_DEFS = [
   { key: 'name', label: '案件名', default: true, width: 240, sort: 'name' },
   { key: 'customer_name', label: 'お客様', default: true, width: 160, sort: 'customer' },
   { key: 'contact_name', label: 'ご担当', default: false, width: 128 },
+  /**
+   * 事業主体（migration 282・隔週キープの主体別の収支）。**既定では出さない**
+   * （継続区分と同じ扱い — 毎日見る列ではない）。160 は
+   * 「GMOサムライコンテンツスタジオ」（14字）が切れずに入る段
+   */
+  { key: 'entity', label: '事業主体', default: false, width: 160 },
   { key: 'stage', label: 'ステージ', default: true, width: 96, sort: 'stage' },
   { key: 'gls_category', label: 'GLS分類', default: false, width: 72 },
   { key: 'classification', label: '案件分類', default: true, width: 128 },
@@ -126,6 +133,9 @@ export interface LedgerRow {
   customer_name: string | null;
   customer_id: string | null;
   contact_name: string | null;
+  /** 事業主体（migration 282）。古い一覧の応答には無いこともあるので省略可 */
+  entity?: BusinessEntity | null;
+  entity_manual?: boolean | null;
   stage: ProjectStage;
   audience: string | null;
   project_category: string | null;
