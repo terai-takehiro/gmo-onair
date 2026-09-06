@@ -1,4 +1,4 @@
-/** ⑥ 受け取った書類（財務）が読むデータの形 */
+/** ⑥ 受領書類（財務）が読むデータの形 */
 import type { RichBlock } from '@gmo-onair/shared/src/client-v4/richContent';
 
 export type DocType = 'quote' | 'invoice' | 'order';
@@ -50,7 +50,104 @@ export interface FinanceDoc {
   body_text: string | null;
   created_at: string;
   updated_at: string;
+
+  // ── migration 280: ひとつづり / 当て先 / 添付 ──────────────
+  group_id: string | null;
+  group_title: string | null;
+  group_key: string | null;
+  /**
+   * 当て先の案件。**AI は「仮」で置くだけで、決めるのは人**（ご指示）。
+   * `project_source` が `ai` のあいだは確かめていない印として扱う。
+   */
+  project_id: string | null;
+  project_source: 'ai' | 'human' | null;
+  project_confidence: 'high' | 'medium' | 'low' | null;
+  /** なぜその案件を当てたか。**そのまま画面に出す**（人が確かめる材料） */
+  project_reason: string | null;
+  project_gls_number: string | null;
+  project_name: string | null;
+  expense_kind: 'purchase' | 'sga' | null;
+  expense_kind_source: 'ai' | 'human' | null;
+  vendor_name: string | null;
+  /** 販管費のとき: 支払サイト（締日から何日後か） */
+  payment_terms_days: number | null;
+  /** 販管費のとき: 何月処理か（YYYY-MM） */
+  processing_month: string | null;
+  doc_no: string | null;
+  /** 見積の改定回数（1 始まり） */
+  revision: number | null;
+  attachments?: DocAttachment[];
 }
+
+/**
+ * メールの添付（BOX の「受領書類（メール）」フォルダ）。
+ *
+ * ⚠️ **入らなかったものも返ってくる**（`failure_reason` が入る）。
+ * 出さないと、**入ったつもりで原本がどこにも無い**状態に誰も気づけない。
+ */
+export interface DocAttachment {
+  id: string;
+  doc_id: string;
+  filename: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  box_file_id: string | null;
+  box_url: string | null;
+  stored_at: string | null;
+  failure_reason: string | null;
+  created_at: string;
+}
+
+/** 束のいまの段（`shared/src/utils/financeDocChain.ts` と同じ語） */
+export type ChainStage = 'quote_only' | 'ordered' | 'invoiced' | 'empty';
+
+/**
+ * ひとつづり（1つの取引）。**画面はこれを1行として出す。**
+ *
+ * 1通ずつ並べると「この請求書はどの見積の続きか」が読めず、
+ * 経理が毎回メールを探し直すことになる（migration 280 の狙い）。
+ */
+export interface FinanceDocGroup {
+  id: string;
+  title: string;
+  vendor_name: string | null;
+  group_key: string | null;
+  expense_kind: 'purchase' | 'sga' | null;
+  project_id: string | null;
+  project_gls_number: string | null;
+  project_name: string | null;
+  payment_terms_days: number | null;
+  processing_month: string | null;
+  created_at: string;
+  updated_at: string;
+  docs: FinanceDoc[];
+  stage: ChainStage;
+  /** 払う金額（請求書があればその合計・無ければ生きている見積） */
+  amount: number | null;
+  /** 台帳へ渡せる段か（見積書だけの束は渡せない） */
+  can_handoff: boolean;
+  /** 中の書類が全部 登録済/却下 なら片づき */
+  settled: boolean;
+}
+
+export const STAGE_LABEL: Record<ChainStage, string> = {
+  empty: '書類なし', quote_only: '見積書のみ', ordered: '発注済み', invoiced: '請求書あり',
+};
+
+/** 段の色。**意味で決める** — 「請求書あり」＝払う期日があるので急ぐ */
+export const STAGE_TONE: Record<ChainStage, string> = {
+  empty: 'border-transparent bg-muted text-muted-foreground',
+  quote_only: 'border-transparent bg-muted text-secondary-foreground',
+  ordered: 'border-transparent bg-info-surface text-info',
+  invoiced: 'border-transparent bg-warning-surface text-warning',
+};
+
+/** 当て先の確からしさ。**AI が当てたものは「確かめてください」と言い切る** */
+export const CONFIDENCE_NOTE: Record<'high' | 'medium' | 'low', string> = {
+  high: 'GLS 番号が一致しました',
+  medium: '名前が1件だけ当たりました（確かめてください）',
+  low: '決めきれませんでした',
+};
 
 export const TYPE_LABEL: Record<DocType, string> = {
   quote: '見積書', invoice: '請求書', order: '注文書',

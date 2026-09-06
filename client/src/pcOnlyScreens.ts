@@ -154,7 +154,7 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
     **表をそのまま縮めていた頃のもの**で、スマホ用に桁を読める形を作った時点で
     嘘になる。何をどう解いたかは下の `CLIENT_MOBILE_OK` に書いてある。
   */
-  { path: '/budget/documents', what: '受け取った書類', why: '金額・締月・支払期日を突き合わせる画面で、台帳に入れる操作は取り消せません。' },
+  { path: '/budget/documents', what: '受領書類', why: '金額・締月・支払期日を突き合わせる画面で、台帳に入れる操作は取り消せません。' },
   { path: '/budget/import', what: '取り込み', why: '外の数字を読んで確かめてから台帳に入れる3段の作業です。途中で止まると二重に入ります。', hidden: true },
   // **`/budget/detail`（案件月別詳細）は削除した**（v3時代の遺物の棚卸し・2026-08）。
   // `/budget/dashboard` への `RedirectKeepQuery` になったので、実体の画面が無く、

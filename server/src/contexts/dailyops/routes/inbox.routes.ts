@@ -15,7 +15,7 @@ const canRead = [requireAuth, requirePermission('dailyops', 'reader')] as const;
 const canEdit = [requireAuth, requirePermission('dailyops', 'editor')] as const;
 
 /**
- * 受け取った書類は**経理も見る**。
+ * 受領書類は**経理も見る**。
  *
  * 中身は 請求書・見積書・注文書 ＋ 金額・締月・支払期日・GLS番号 で、
  * 完全に経理の仕事の道具なのに `dailyops` だけを要求していました。
@@ -30,7 +30,7 @@ const canEdit = [requireAuth, requirePermission('dailyops', 'editor')] as const;
 const docsRead = [requireAuth, requireAnyPermission(['dailyops', 'sales'], 'reader')] as const;
 const docsEdit = [requireAuth, requireAnyPermission(['dailyops', 'sales'], 'editor')] as const;
 /**
- * **台帳（仕入・販管費）に行を作る操作。** 受け取った書類を見る・直すのは
+ * **台帳（仕入・販管費）に行を作る操作。** 受領書類を見る・直すのは
  * `dailyops` でよいが、**お金の台帳に書くのは `sales`（旧 `budget`）の
  * 編集権限**が要る（`purchases.routes` / `sga.routes` の作成口はどちらも
  * `sales:editor`）。
@@ -161,7 +161,7 @@ router.get('/finance-docs/:id/attachments', ...docsRead, async (req, res) => {
 });
 
 /**
- * 受け取った書類を台帳（仕入 / 販管費）へ渡す。
+ * 受領書類を台帳（仕入 / 販管費）へ渡す。
  *
  * **これが「処理完了」の中身です。** 以前は状態が変わるだけで台帳に何も作られず、
  * 同じ請求書を2回入力していました（届いた記録 ＋ 台帳の記録）。

@@ -110,10 +110,23 @@ export default function HomePage() {
   const canSeeSales = hasPermission('sales');
   const canSeeDailyops = hasPermission('dailyops');
 
+  /*
+    ⚠️ **受信箱は数人が同じものを見ている。**
+
+    受領書類（届いた請求書）は経理・営業の複数人が同じ机として見ており、
+    **誰かひとりが対応したら他の人の画面からも消える**必要があります
+    （2026-09 のご指示）。トップページは開きっぱなしにされるので、
+    取り直さないと**朝に消えた行が夕方まで残り続けます**。
+
+    30秒は「隣の席の人が処理したものが、次に目を上げたときには消えている」程度。
+    自分の操作は待たずにその場で映ります（`useFinanceDocActions` が鍵を落とす）。
+  */
   const inbox = useQuery<InboxData>({
     queryKey: queryKeys.dashboard.inbox(),
     queryFn: async () => (await api.get('/dashboard/inbox')).data.data,
     staleTime: 30_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
     enabled: canSeeSales || canSeeDailyops,
   });
 
@@ -167,6 +180,8 @@ export default function HomePage() {
     inquiries: canSeeDailyops,
     // `budget` は権限モデル単純化で `sales` に統合済み
     documents: canSeeSales || canSeeDailyops,
+    // **進める（確認する／承認）は editor が要る。** 開けるかどうかとは別
+    documentsEdit: hasPermission('sales', 'editor') || hasPermission('dailyops', 'editor'),
     // 期限超過の行を案件のやり取りとして開けるか。**`intake` とは別**
     // （`editor` 未満の閲覧だけの人でも案件は開けるので、要求する権限を分ける）
     viewProjects: canSeeSales,

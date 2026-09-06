@@ -99,12 +99,19 @@ router.get('/inbox', requireAuth, requireAnyPermission(['sales', 'dailyops']), a
    * 写したままだと**戻ってきたストックが受信箱にだけ出ない**（気づけない）。
    */
   const INQUIRY_BASE = `FROM misc_inquiries i WHERE i.deleted_at IS NULL AND ${DESK_COND}`;
-  // **見積書（quote）は台帳に入らない**（実際に仕入・販管費になるのは請求書・注文書だけ。
-  // ユーザー指摘）。受信箱に出しても「台帳に入れる」までたどり着けない行が並ぶだけなので、
-  // ここで最初から外す。`financeDocService.list()`（受け取った書類の一覧本体）・
-  // `pendingCount()`（同画面のバッジ）も同じ条件で揃える（下記）
+  /*
+    ⚠️ **見積書（quote）を外すのはやめました**（migration 280・2026-09 のご指示）。
+
+    以前は「台帳に入るのは請求書・注文書だけ」という理由でここから外していましたが、
+    実際の取引は 見積書 → 発注書 → 請求書 と段を踏み、「見積を取ったが発注しなかった」
+    ものも残ります。外していると**あの見積がどうなったかを引く道が無くなります**。
+
+    **`financeDocService.list()`（受領書類の一覧本体）・`pendingCount()`（同画面の
+    バッジ）と同じ条件にしてあります。** ここだけ揃え忘れると、
+    ホームの受信箱の件数と画面の件数が食い違います。
+  */
   const FINANCE_DOC_BASE =
-    `FROM finance_docs WHERE deleted_at IS NULL AND status NOT IN ('processed','rejected') AND doc_type <> 'quote'`;
+    `FROM finance_docs WHERE deleted_at IS NULL AND status NOT IN ('processed','rejected')`;
 
   const countOf = async (sql: string, params: unknown[] = []): Promise<number> =>
     Number(((await queryOne(sql, params)) as { c?: number } | undefined)?.c ?? 0);

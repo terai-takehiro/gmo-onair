@@ -1,5 +1,5 @@
 /**
- * AI が取り込んだメール（受け取った書類 / 入ってきた情報）を
+ * AI が取り込んだメール（受領書類 / 入ってきた情報）を
  * 「人がどこを直したか」として残す。
  *
  * ── なぜ要るか（会社方針「AI を使い捨てにしない」の条件2）──────
@@ -151,7 +151,7 @@ async function record(
   await recordCorrections(output.id, diffs, userId);
 }
 
-/** 受け取った書類を直したとき */
+/** 受領書類を直したとき */
 export async function recordFinanceDocCorrections(
   id: string, before: Record<string, unknown>, after: Record<string, unknown>, userId: string,
 ): Promise<void> {

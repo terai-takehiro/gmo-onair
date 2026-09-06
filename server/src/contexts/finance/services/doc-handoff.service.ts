@@ -1,5 +1,5 @@
 /**
- * 受け取った書類 → 台帳（仕入 / 販管費）への受け渡し (v4 ⑥)
+ * 受領書類 → 台帳（仕入 / 販管費）への受け渡し (v4 ⑥)
  *
  * ── なぜ要るか ──────────────────────────────────────────────
  *
@@ -171,7 +171,7 @@ export async function handoffDoc(
          input.description || null, recognitionDate, paymentDue || null,
          // **どの書類から来たかを台帳側にも残す。** 片側だけだと、
          // 台帳を見ている人が「これは何の請求か」を辿れない
-         `受け取った書類から: ${String(doc.sender ?? '')} ${String(doc.subject ?? '')}`.trim(),
+         `受領書類から: ${String(doc.sender ?? '')} ${String(doc.subject ?? '')}`.trim(),
          userId],
       );
       created = { kind: 'purchase', id };
@@ -188,7 +188,7 @@ export async function handoffDoc(
         [id, generateSgaBillingKey(recognitionDate, tax),
          input.vendor_name || String(doc.vendor_name ?? '') || String(doc.sender ?? '') || null,
          input.description || null,
-         `受け取った書類から: ${String(doc.sender ?? '')} ${String(doc.subject ?? '')}`.trim(),
+         `受領書類から: ${String(doc.sender ?? '')} ${String(doc.subject ?? '')}`.trim(),
          recognitionDate, paymentDue || null, tax, input.amount,
          input.expense_type || 'spot', userId],
       );

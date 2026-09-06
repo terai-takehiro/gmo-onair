@@ -273,7 +273,7 @@ function AppRoutes() {
         <Route path="/gpm/templates" element={<PermissionRoute module="sales"><GpmTemplateListPage /></PermissionRoute>} />
 
         {/* ===== 財務管理 (budget) ===== */}
-        {/* v4 ⑥: 受け取った書類。日常業務から財務へ移した（経理が開けなかったため）。
+        {/* v4 ⑥: 受領書類。日常業務から財務へ移した（経理が開けなかったため）。
             **権限は sales（旧 budget）か dailyops のどちらか** — いま見られる人は見られたまま */}
         <Route path="/budget/documents" element={<PermissionRoute anyOf={["sales", "dailyops"]}><DocumentsPage /></PermissionRoute>} />
         <Route path="/budget/billing" element={<PermissionRoute module="sales"><ClosingPage /></PermissionRoute>} />

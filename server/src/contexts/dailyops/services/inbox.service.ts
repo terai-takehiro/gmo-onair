@@ -71,7 +71,7 @@ export interface FinanceDocInput {
 }
 
 /**
- * 受け取った書類の列。
+ * 受領書類の列。
  *
  * ── AI の印は `source` では判定しない（247）──────────────────
  *

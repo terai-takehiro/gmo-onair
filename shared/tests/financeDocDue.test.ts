@@ -1,5 +1,5 @@
 /**
- * **受け取った書類は「払う前に確かめる机」**（⑥ 受け取った書類・migration 247）
+ * **受領書類は「払う前に確かめる机」**（⑥ 受領書類・migration 247）
  *
  * ── なぜ試験にするのか ──────────────────────────────────────
  *
@@ -80,21 +80,28 @@ describe('書類の経緯（誰がいつ）', () => {
   });
 });
 
-describe('押せるのに 403 にしない（受け取った書類）', () => {
+describe('押せるのに 403 にしない（受領書類）', () => {
   it('「仕入・販管費に登録」は sales の editor にだけ出す', () => {
+    // 2026-09（migration 280）: 一覧を「ひとつづり」で出すようにしたので、
+    // **権限の判定は画面（DocumentsPage）・出し分けはカード（GroupCard）**に分かれた。
+    // どちらが欠けても「押せるのに 403」に戻るので、両方見る
     const page = read('client', 'src', 'contexts', 'finance', 'pages', 'DocumentsPage.tsx');
+    const card = read('client', 'src', 'contexts', 'finance', 'pages', 'documents', 'GroupCard.tsx');
     // 確かめる（確認する / 承認 / 却下）は dailyops でも通る = `canReview`
     expect(page).toMatch(/canReview = hasPermission\('sales', 'editor'\) \|\| hasPermission\('dailyops', 'editor'\)/);
     // 台帳に書くのは sales だけ = `canLedger`
     expect(page).toMatch(/canLedger = hasPermission\('sales', 'editor'\)/);
     // 出し分けている（1つの `canEdit` に戻すと、また 403 になる）
-    expect(page).toMatch(/\{d\.status === 'approved' && \(canLedger \? \(/);
-    expect(page).toMatch(/\{canLedger && \(/);
+    expect(card).toMatch(/doc\.status === 'approved' && doc\.doc_type !== 'quote' && \(a\.canLedger \? \(/);
+    expect(card).toMatch(/\{a\.canLedger && \(/);
     // 出さない人には**誰に頼めばよいか**を書く（黙って消すと「機能が無い」に見える）
     // 2026-09-05: 操作名を「台帳に入れる」→「仕入・販管費に登録」に統一した
     // （同じ操作が「台帳に入れる／仕入に入れる／処理完了」の3表記だったため）。
     // **誰に頼めばよいかを書く**という趣旨は変えていない
-    expect(page).toContain('仕入・販管費に登録するのは財務の担当者です');
+    expect(card).toContain('仕入・販管費に登録するのは財務の担当者です');
+    // **見積書には登録ボタンを出さない**（migration 280 で一覧に出るようになったぶん、
+    // 押せない理由を書く。押せるボタンを出して 400 にするのは同じ形の失敗）
+    expect(card).toContain('見積書は仕入・販管費に入れられません');
 
     // サーバー側が sales:editor を要求していることも一緒に見る（緩めたら画面も見直す）
     const routes = read('server', 'src', 'contexts', 'dailyops', 'routes', 'inbox.routes.ts');
@@ -107,19 +114,36 @@ describe('押せるのに 403 にしない（受け取った書類）', () => {
     // `source` は出どころ（メール／手入力）であって「誰が入れたか」ではない。
     // 手で足したメールの行に嘘の ✨ が付いていた（入ってきた情報は
     // migration 171 で直っており、書類側だけ取り残されていた）
-    const page = read('client', 'src', 'contexts', 'finance', 'pages', 'DocumentsPage.tsx');
-    expect(page).toMatch(/\{d\.is_ai && \(/);
-    expect(page).not.toMatch(/\{d\.source === 'email' && \(/);
+    const card = read('client', 'src', 'contexts', 'finance', 'pages', 'documents', 'GroupCard.tsx');
+    expect(card).toMatch(/doc\.is_ai && </);
+    expect(card).not.toMatch(/doc\.source === 'email'/);
 
     const svc = read('server', 'src', 'contexts', 'dailyops', 'services', 'inbox.service.ts');
     expect(svc).toMatch(/o\.target_table = 'finance_docs'[\s\S]{0,120}o\.kind = 'finance_doc_intake'/);
   });
 
-  it('却下した書類に辿り着ける（チップがある）', () => {
-    // 一覧の既定は「未処理」で、その条件が processed と rejected を外している。
-    // チップが無いと、却下したものは画面から二度と見えない
+  it('却下した書類に辿り着ける（片づいたものの束に残る）', () => {
+    /*
+      一覧の既定は「片づいていない」で、その条件が 登録済 と 却下 を外している。
+      **辿り着く道が1本も無いと、間違えて却下したものは画面から二度と見えない。**
+
+      2026-09（migration 280）で一覧を「ひとつづり」にしたので、道の作り方が変わった:
+      以前は「却下」チップ、いまは **`settled`（中の書類が全部 登録済/却下）の束**を
+      「片づいたもの」チップで出し、**カードの中に却下した書類がそのまま並ぶ**。
+      そこから「受信に戻す」を押せる。
+    */
     const page = read('client', 'src', 'contexts', 'finance', 'pages', 'DocumentsPage.tsx');
-    expect(page).toMatch(/\{ key: 'rejected', label: '却下', status: 'rejected' \}/);
+    expect(page).toMatch(/\{ key: 'settled', label: '片づいたもの'/);
+    expect(page).toMatch(/chip === 'settled'\) return all\.filter\(\(g\) => g\.settled\)/);
+
+    const card = read('client', 'src', 'contexts', 'finance', 'pages', 'documents', 'GroupCard.tsx');
+    expect(card).toMatch(/doc\.status === 'rejected' && \(/);
+    expect(card).toContain('受信に戻す');
+
+    // サーバー側も「全部 登録済/却下 なら片づき」で数えている（片方だけ直すと
+    // チップの件数と中身が食い違う）
+    const svc = read('server', 'src', 'contexts', 'dailyops', 'services', 'finance-doc-chain.service.ts');
+    expect(svc).toMatch(/d\.status === 'processed' \|\| d\.status === 'rejected'/);
   });
 
   it('並びは支払期日が近い順（状態より先）', () => {

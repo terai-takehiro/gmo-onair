@@ -80,7 +80,7 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに5つの「入�
 | 財務 ① ダッシュボード | `contexts/finance/pages/BudgetDashboardPage.tsx` ＋ `pages/financeDashboard/` |
 | 財務 ② 請求・入金（締め） | `contexts/finance/pages/ClosingPage.tsx` ＋ `pages/closing/` |
 | 財務 ③④⑤ 売上・仕入・販管費 | `contexts/finance/pages/{Revenue,Purchase,Sga}ListPage.tsx` ＋ `pages/ledger/` |
-| 財務 ⑥ 受け取った書類 | `contexts/finance/pages/DocumentsPage.tsx` ＋ `pages/documents/` |
+| 財務 ⑥ 受領書類 | `contexts/finance/pages/DocumentsPage.tsx` ＋ `pages/documents/` |
 | 財務 ⑦ 取り込み | `contexts/finance/pages/ImportPage.tsx` ＋ `pages/import/` |
 | 財務 ⑧ 取引先（仕入先・パートナー） | `contexts/finance/pages/CounterpartyPage.tsx` ＋ `pages/counterparty/` |
 | プロジェクト管理（GPM）一式 | `contexts/gpm/` |

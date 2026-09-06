@@ -87,7 +87,7 @@ const WRITE_TOOL_PERMISSIONS: Record<string, ToolPermission> = {
   upsert_monthly_budget: { module: 'sales', level: 'editor' },
   upsert_monthly_actual_override: { module: 'sales', level: 'editor' },
   // dailyops (日常業務: 見積/請求書・問い合わせ・内覧会・週報/ニュース・セキュリティカード)
-  // v4 ⑥: 受け取った書類は財務へ移し、HTTP 側を `dailyops` か `budget` の
+  // v4 ⑥: 受領書類は財務へ移し、HTTP 側を `dailyops` か `budget` の
   // **どちらか**で通すようにした (経理が 403 で開けなかった)。
   // **MCP 側も同じにする** — 片方だけ直すと、画面からは書けるのに
   // MCP からは書けない（またはその逆の）ねじれが残る
@@ -220,7 +220,7 @@ const READ_TOOL_PERMISSIONS: Record<string, ToolPermission> = {
   list_security_cards: { module: 'dailyops', level: 'reader' },
   get_security_card: { module: 'dailyops', level: 'reader' },
   list_security_card_lendings: { module: 'dailyops', level: 'reader' },
-  // 受け取った書類。HTTP 側 (`inbox.routes.ts`) の docsRead =
+  // 受領書類。HTTP 側 (`inbox.routes.ts`) の docsRead =
   // requireAnyPermission(['dailyops','sales'],'reader') と一致 (record_finance_doc と同じ判断)
   list_finance_docs: { module: ['dailyops', 'sales'], level: 'reader' },
   // 機材管理 (equipment)。HTTP 側 (`equipment.routes.ts`) の router 既定 reader と一致
@@ -247,7 +247,7 @@ const LEVEL_ORDER: Record<string, number> = { reader: 1, exporter: 1, editor: 2,
 /**
  * `module` は**配列も受ける**（どれか1つを満たせばよい）。
  * HTTP 側の `requireAnyPermission` と同じ考え方で、v4 で
- * 「受け取った書類は経理も日常業務も開ける」にしたのに合わせてある。
+ * 「受領書類は経理も日常業務も開ける」にしたのに合わせてある。
  */
 async function actorHasPermission(
   userId: string,

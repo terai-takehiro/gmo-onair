@@ -86,7 +86,7 @@ AI バッジ・AI 起票インボックス・AI 活動履歴ページ（`/sales/
 
 ## メールの取込（v4・migration 160）
 
-`record_inquiry`（入ってきた情報）と `record_finance_doc`（受け取った書類）。
+`record_inquiry`（入ってきた情報）と `record_finance_doc`（受領書類）。
 
 **それまで AI は、メールから読み取った 差出人・要件・希望日・人数・予算・期限 を
 1本の自由文（`summary` / `content` / `notes`）に潰して渡していた。**
