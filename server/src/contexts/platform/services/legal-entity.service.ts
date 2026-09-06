@@ -142,3 +142,31 @@ export function issuerNameAsOf(entity: LegalEntity, atISODate: string): string {
   }
   return entity.formerName ? `${entity.name}（旧 ${entity.formerName}）` : entity.name;
 }
+
+export interface ResolvedIssuer {
+  name: string;
+  address1: string | null;
+  address2: string | null;
+  regNo: string | null;
+}
+
+/**
+ * PDF・メールの発行者ブロックを組み立てる。**知らない/未設定の entity_code は
+ * GSS にフォールバック**（今日時点で存在する唯一の実体・§4.5 の考え方と同じ）。
+ * `atISODate` は「この書類が何の日付についてのものか」（計上日・送付日など）。
+ */
+export async function resolveIssuer(
+  entityCode: string | null | undefined,
+  atISODate: string,
+): Promise<ResolvedIssuer> {
+  const entity = (entityCode ? await getLegalEntity(entityCode) : null) ?? await getLegalEntity('GSS');
+  if (!entity) {
+    throw new AppError(500, 'INTERNAL_ERROR', '発行者情報(計上会社)が読み込めません');
+  }
+  return {
+    name: issuerNameAsOf(entity, atISODate),
+    address1: entity.issuerAddress1,
+    address2: entity.issuerAddress2,
+    regNo: entity.invoiceRegistrationNumber,
+  };
+}

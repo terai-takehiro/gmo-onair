@@ -2,13 +2,6 @@ import PDFDocument from 'pdfkit';
 import { registerNotoFonts } from '../utils/pdf-fonts';
 import { jstDate } from '../utils/jst';
 
-const COMPANY = {
-  name:   'GMOグローバルスタジオ株式会社',
-  addr1:  '東京都世田谷区用賀四丁目10番1号',
-  addr2:  'GMOインターネットTOWER 27F',
-  regNo:  'T9011001154049',
-};
-
 interface PdfRevenueItem {
   description:  string;
   quantity:     number;
@@ -28,6 +21,13 @@ interface PdfRevenueItem {
 
 interface PdfRevenueData {
   billing_key:      string;
+  /**
+   * 発行者ブロック（右上の「発行元」欄）。**2026年10月の事業再編**で会社ごとの
+   * 発行者情報を出すようになった（`legal-entity.service.ts` の `resolveIssuer`）。
+   * 住所・登録番号は会社によって未設定のことがある（GJV は設定画面から入力するまで
+   * 空欄・GMO はそもそも請求書を出さない）ので、どちらも `null` 可。
+   */
+  issuer: { name: string; address1: string | null; address2: string | null; regNo: string | null };
   subtitle:         string | null;
   customer_name:    string;
   customer_address: string | null;
@@ -150,10 +150,12 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
       txt(data.customer_contact ? `${data.customer_contact} 様` : 'ご担当者 様', ML, yL, { sz: 9, w: colL }); yL += 14;
 
       let yR = yBlock;
-      txt(COMPANY.name,  xR, yR, { sz: 10, f: B, c: '#000000', w: colR, align: 'right' }); yR += 14;
-      txt(COMPANY.addr1, xR, yR, { sz: 8,  c: '#333333',       w: colR, align: 'right' }); yR += 12;
-      txt(COMPANY.addr2, xR, yR, { sz: 8,  c: '#333333',       w: colR, align: 'right' }); yR += 12;
-      txt(`登録番号: ${COMPANY.regNo}`, xR, yR, { sz: 8, c: '#333333', w: colR, align: 'right' });
+      txt(data.issuer.name, xR, yR, { sz: 10, f: B, c: '#000000', w: colR, align: 'right' }); yR += 14;
+      // 住所・登録番号は会社によって未設定のことがある（GJV は設定画面から入力するまで
+      // 空欄）。無い行は出さない — 空文字や "null" を印字すると帳票として破綻する
+      if (data.issuer.address1) { txt(data.issuer.address1, xR, yR, { sz: 8, c: '#333333', w: colR, align: 'right' }); yR += 12; }
+      if (data.issuer.address2) { txt(data.issuer.address2, xR, yR, { sz: 8, c: '#333333', w: colR, align: 'right' }); yR += 12; }
+      if (data.issuer.regNo) { txt(`登録番号: ${data.issuer.regNo}`, xR, yR, { sz: 8, c: '#333333', w: colR, align: 'right' }); }
 
       y = Math.max(yL, yR) + 14;
 
