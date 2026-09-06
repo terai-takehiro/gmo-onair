@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { RedirectOnce } from "@gmo-onair/shared/src/client/RedirectOnce";
 import AppShell from "@/components/layout/AppShell";
@@ -34,19 +34,20 @@ import LiveDisplayLayoutEditorPage from "@/pages/live/LiveDisplayLayoutEditorPag
 import LiveDisplayTemplateLibraryPage from "@/pages/live/LiveDisplayTemplateLibraryPage";
 // AIナレッジの承認（core-redesign-plan.md Phase 2 ④。qsheet_ai_knowledge の唯一のUI）
 import AiKnowledgePage from "@/pages/ai-knowledge/AiKnowledgePage";
-// テロップCG（旧リアルタイムCGの後継ミニアプリ・docs/design/v4/graphics.md 段1〜2）
+// テロップCG（旧リアルタイムCGの後継ミニアプリ）。
+// 2026-09-06 のゼロベース再設計（docs/design/v4/graphics-redesign.md）段A で
+// ①一覧＋右パネル・④設定（1画面・4タブ）へ作り直した。
 import GraphicsHubPage from "@/pages/graphics/GraphicsHubPage";
 import GraphicsConsolePage from "@/pages/graphics/GraphicsConsolePage";
 import GraphicsOutputPage from "@/pages/graphics/GraphicsOutputPage";
-import PartLibraryPage from "@/pages/graphics/PartLibraryPage";
+import GraphicsSettingsPage from "@/pages/graphics/GraphicsSettingsPage";
 import RequestFormPage from "@/pages/graphics/RequestFormPage";
-// テンプレート管理（段6-2・部品→テンプレート→ページ→送出リストの第2層）
+// テンプレート管理（段6-2・部品→テンプレート→ページ→送出リストの第2層）。
+// 主導線（①の「＋テロップ」）からは外したが、既存テンプレートからの作成・編集・削除は
+// 引き続き使える（④設定「見た目」タブに「上級者向け」リンクを残す・graphics-redesign.md §6）
 import TemplateManagerPage from "@/pages/graphics/TemplateManagerPage";
-// 演出SE 管理（段6-5・ranking パーツのステップ切替音）
-import RankingSoundsPanel from "@/pages/graphics/RankingSoundsPanel";
-// 外部インタラクティブ連携設定（段6-7・投票・クイズの締切連動先）
-import InteractiveLinkSettingsPanel from "@/pages/graphics/InteractiveLinkSettingsPanel";
-// 旧リアルタイムCG（client-awards）過去実績データの変換移行ツール（段6-9・system_admin限定）
+// 旧リアルタイムCG（client-awards）過去実績データの変換移行ツール（段6-9・system_admin限定）。
+// ④設定「連携」タブからだけリンクする（:ownerKey を取らない全体管理画面のため単独ルートのまま）
 import AwardsMigrationPage from "@/pages/graphics/AwardsMigrationPage";
 import { Loader2 } from "lucide-react";
 
@@ -72,6 +73,26 @@ function RedirectQsheetToTechops() {
   const { pathname, search } = useLocation();
   const to = pathname.replace(/^\/qsheet(?=\/|$)/, '/techops');
   return <Navigate to={`${to}${search}`} replace />;
+}
+
+/**
+ * テロップCG ゼロベース再設計（段A・2026-09-06）の後方互換転送。
+ * 部品ライブラリ（`/parts`）は独立画面をやめ、①一覧の「＋テロップ」から
+ * 直接カード（種類）を選ぶ動線に統合した。旧URLを開いたら①一覧へ。
+ */
+function RedirectToGraphicsHub() {
+  const { ownerKey } = useParams<{ ownerKey: string }>();
+  return <Navigate to={`/techops/graphics/${encodeURIComponent(ownerKey ?? '')}`} replace />;
+}
+
+/**
+ * 演出SE管理（`/sounds`）・外部インタラクティブ連携設定（`/interactive-link`）は
+ * 独立画面をやめ、④設定の「連携」タブに統合した。旧URLを開いたら
+ * 設定画面のそのタブへ（`?tab=link`）。
+ */
+function RedirectToGraphicsSettings() {
+  const { ownerKey } = useParams<{ ownerKey: string }>();
+  return <Navigate to={`/techops/graphics/${encodeURIComponent(ownerKey ?? '')}/settings?tab=link`} replace />;
 }
 
 export default function App() {
@@ -110,22 +131,26 @@ export default function App() {
             ファイルは残しコードからの導線だけ外した） */}
         <Route path="/techops/recording/:ownerKey" element={<RecordingPage />} />
         <Route path="/techops/streaming/:ownerKey" element={<StreamingPage />} />
-        {/* テロップCG。案件・番組単位（:ownerKey）。ハブ（ページと送出リスト）と
-            送出コンソール。出力画面だけはシェル無し・認証なしの独立ルート（下記） */}
+        {/* テロップCG。案件・番組単位（:ownerKey）。①ハブ（一覧＋右パネル）・本番モード
+            （送出コンソール）・④設定（1画面・4タブ）。出力画面だけはシェル無し・
+            認証なしの独立ルート（下記）。
+            2026-09-06 のゼロベース再設計（docs/design/v4/graphics-redesign.md）段A で
+            部品ライブラリ・演出SE管理・外部連携設定という3つの独立画面を畳み、
+            ①の「＋テロップ」・④設定「連携」タブへ統合した（旧URLは下の転送で維持） */}
         <Route path="/techops/graphics/:ownerKey" element={<GraphicsHubPage />} />
         <Route path="/techops/graphics/:ownerKey/live" element={<GraphicsConsolePage />} />
-        {/* 部品ライブラリ（全番組共通のカタログ・段4の入口部分）。URL は :ownerKey を
-            含めてハブと並びを揃えるが、中身は owner に紐づかない読み取り専用画面 */}
-        <Route path="/techops/graphics/:ownerKey/parts" element={<PartLibraryPage />} />
+        <Route path="/techops/graphics/:ownerKey/settings" element={<GraphicsSettingsPage />} />
+        {/* 旧・部品ライブラリの独立画面（段Aで廃止・①「＋テロップ」のカード選択に統合） */}
+        <Route path="/techops/graphics/:ownerKey/parts" element={<RedirectToGraphicsHub />} />
         {/* テンプレート管理（部品ライブラリの「組み合わせてテンプレートを作る」から。
-            段6-2・PC専用 — ページ作成フォームと同じ列の多い情報密度のため） */}
+            段6-2・PC専用 — ページ作成フォームと同じ列の多い情報密度のため。①の主導線からは
+            外したが、④設定「見た目」タブの「テンプレート管理（上級者向け）」リンクから
+            引き続き使える） */}
         <Route path="/techops/graphics/:ownerKey/templates" element={<TemplateManagerPage />} />
-        {/* 演出SE管理（段6-5・ranking パーツのステップ切替音。テンプレート管理と
-            同じ列の多い情報密度・同じ PC専用の判断） */}
-        <Route path="/techops/graphics/:ownerKey/sounds" element={<RankingSoundsPanel />} />
-        {/* 外部インタラクティブ連携設定（段6-7・別VPS interactive.gmo-onair.jp との接続先。
-            テンプレート管理・演出SE管理と同じ列の多い情報密度・同じ PC専用の判断） */}
-        <Route path="/techops/graphics/:ownerKey/interactive-link" element={<InteractiveLinkSettingsPanel />} />
+        {/* 旧・演出SE管理／外部インタラクティブ連携設定の独立画面（段Aで廃止・
+            ④設定「連携」タブに統合） */}
+        <Route path="/techops/graphics/:ownerKey/sounds" element={<RedirectToGraphicsSettings />} />
+        <Route path="/techops/graphics/:ownerKey/interactive-link" element={<RedirectToGraphicsSettings />} />
         {/* 発注（テロ原・段5）。スマホ最優先のフォーム＋自分の発注一覧。
             ハブ画面（PC専用）と違い、この画面だけは pcOnlyScreens.ts の対象外
             （graphics.md §3「発注はスマホ可」の分業設計） */}

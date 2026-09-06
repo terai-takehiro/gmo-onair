@@ -74,10 +74,16 @@ function interactiveLinkQueryKey(projectId: string) {
   return ['graphics-interactive-link', projectId] as const;
 }
 
-function InteractiveLinkContent({ ownerKey, owner, projectId }: {
+/**
+ * 設定画面（`GraphicsSettingsPage.tsx`・2026-09-06 再設計・連携タブ）から埋め込みで
+ * 再利用するため export した。`RankingSoundsContent` と同じ `embedded` の作法
+ * （true のとき外枠・戻るリンク・h1 を出さない）。中身・見た目は一切変えていない。
+ */
+export function InteractiveLinkContent({ ownerKey, owner, projectId, embedded = false }: {
   ownerKey: string;
   owner: OwnerContext;
   projectId: string;
+  embedded?: boolean;
 }) {
   const queryClient = useQueryClient();
   const queryKey = interactiveLinkQueryKey(projectId);
@@ -158,25 +164,25 @@ function InteractiveLinkContent({ ownerKey, owner, projectId }: {
     deleteMutation.mutate();
   };
 
-  return (
-    <div className="px-4 py-6 sm:px-6 sm:py-8">
-      <Link
-        to={templatesPath(ownerKey)}
-        className="mb-2 inline-flex min-h-tap items-center gap-1 rounded-control-md px-1.5 text-sub font-bold text-muted-foreground hover:text-foreground"
-      >
-        <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-        テンプレート管理へ戻る
-      </Link>
-
-      <div className="min-w-0">
-        <h1 className="text-h1">外部インタラクティブ連携 ／ {owner.name}</h1>
-        <p className="mt-1 text-sub text-muted-foreground">
+  const body = (
+    <>
+      {!embedded && (
+        <div className="min-w-0">
+          <h1 className="text-h1">外部インタラクティブ連携 ／ {owner.name}</h1>
+          <p className="mt-1 text-sub text-muted-foreground">
+            別VPS（<code className="rounded bg-surface-subtle px-1">interactive.gmo-onair.jp</code>）の
+            投票・クイズと連動させるための接続先です。プロジェクト単位の設定で、投票（
+            <strong className="font-bold text-foreground">vote</strong> パーツ）のページ編集フォームから
+            個別に「外部インタラクティブと同期」できるようになります。
+          </p>
+        </div>
+      )}
+      {embedded && (
+        <p className="text-sub text-muted-foreground">
           別VPS（<code className="rounded bg-surface-subtle px-1">interactive.gmo-onair.jp</code>）の
-          投票・クイズと連動させるための接続先です。プロジェクト単位の設定で、投票（
-          <strong className="font-bold text-foreground">vote</strong> パーツ）のページ編集フォームから
-          個別に「外部インタラクティブと同期」できるようになります。
+          投票・クイズと連動させる接続先です。投票（<strong className="font-bold text-foreground">vote</strong>）のページ編集フォームから個別に「外部インタラクティブと同期」できます。
         </p>
-      </div>
+      )}
 
       {linkQuery.isLoading ? (
         <div className="mt-8 flex justify-center">
@@ -283,6 +289,20 @@ function InteractiveLinkContent({ ownerKey, owner, projectId }: {
           </div>
         </form>
       )}
+    </>
+  );
+
+  if (embedded) return body;
+  return (
+    <div className="px-4 py-6 sm:px-6 sm:py-8">
+      <Link
+        to={templatesPath(ownerKey)}
+        className="mb-2 inline-flex min-h-tap items-center gap-1 rounded-control-md px-1.5 text-sub font-bold text-muted-foreground hover:text-foreground"
+      >
+        <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+        テンプレート管理へ戻る
+      </Link>
+      {body}
     </div>
   );
 }

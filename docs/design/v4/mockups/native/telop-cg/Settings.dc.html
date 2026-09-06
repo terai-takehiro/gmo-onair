@@ -1,0 +1,310 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;800&family=Noto+Serif+JP:wght@700;900&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    button { font-family: inherit; }
+    .tap { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .row-tap { transition: background-color .12s ease; }
+    .row-tap:hover { background: #f7f8fa; }
+    .ghost:hover { background: #f2f4f7; }
+    .btn-primary { transition: background-color .12s ease; } .btn-primary:hover { background: #004d91; }
+    .card-tap { transition: border-color .14s ease, box-shadow .14s ease; } .card-tap:hover { border-color: #a6ceeb; box-shadow: 0 4px 14px rgba(26,29,36,.07); }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .clip2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    input, textarea { font-family: inherit; } input::placeholder, textarea::placeholder { color: #5d6470; }
+    .cg { font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; font-synthesis: none; }
+    .cg-serif { font-family: 'Noto Serif JP', 'Noto Sans JP', serif; font-synthesis: none; }
+    
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 1000px; position: relative; overflow: hidden; background: #f7f8fa; display: flex; flex-direction: column; color: #1a1d24;">
+
+  <!-- ── 上辺バー（共通シェル・高さ64） ─────────────────────────── -->
+  <header style="display: flex; height: 64px; flex-shrink: 0; align-items: center; gap: 14px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 24px;">
+    <div style="display: flex; align-items: center; gap: 9px;">
+      <div style="width: 28px; height: 28px; border-radius: 9px; background: #005bac; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M7.8 7.8a6 6 0 0 0 0 8.4"></path><path d="M16.2 16.2a6 6 0 0 0 0-8.4"></path><path d="M4.9 4.9a10 10 0 0 0 0 14.2"></path><path d="M19.1 19.1a10 10 0 0 0 0-14.2"></path></svg></div>
+      <span style="font-size: 15px; font-weight: 800; letter-spacing: .01em;">ONAiR</span>
+    </div>
+    <span style="height: 22px; width: 1px; background: #e6e9ed;"></span>
+    <button class="tap" style="display: flex; height: 40px; align-items: center; gap: 10px; border-radius: 10px; border: 1px solid #cfe4f4; background: #f4faff; padding: 0 12px; color: #005bac;">
+      <span style="width: 22px; height: 22px; border-radius: 7px; background: #eaf4fb; display: flex; align-items: center; justify-content: center;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.6"></rect><rect x="14" y="3" width="7" height="7" rx="1.6"></rect><rect x="3" y="14" width="7" height="7" rx="1.6"></rect><rect x="14" y="14" width="7" height="7" rx="1.6"></rect></svg></span>
+      <span style="font-size: 13.5px; font-weight: 700; white-space: nowrap;">制作技術支援</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+    <span class="clip1" style="font-size: 12.5px; color: #5d6470; max-width: 520px;">／ 東都TV 特番収録「サイエンス・フロンティア」 ／ テロップCG ／ 設定</span>
+    <span style="flex: 1;"></span>
+    <button class="tap" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 7px; color: #5d6470;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 4.6 1.8 5.6 1.8 5.6H4.2S6 13.6 6 9z"></path><path d="M10.2 18.4a2 2 0 0 0 3.6 0"></path></svg></button>
+    <button class="tap" style="display: flex; align-items: center; gap: 10px; height: 44px;">
+      <span style="width: 32px; height: 32px; border-radius: 9999px; background: #eaf4fb; color: #005bac; font-size: 13.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;">寺</span>
+      <span style="font-size: 12.5px; white-space: nowrap;">寺井 岳宏</span>
+    </button>
+  </header>
+
+  <div style="display: flex; flex: 1; min-height: 0;">
+
+    <!-- ── 左メニュー（共通シェル・幅248）。テロップCG の下に 一覧／本番モード／設定 を出すのが提案 ── -->
+    <aside style="width: 248px; flex-shrink: 0; border-right: 1px solid #e6e9ed; background: #ffffff; padding: 14px 12px 20px; display: flex; flex-direction: column; gap: 2px;">
+      <div style="display: flex; align-items: center; gap: 10px; height: 38px; border-radius: 10px; padding: 0 10px; background: transparent; color: #3c424c;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.6"></rect><rect x="14" y="3" width="7" height="7" rx="1.6"></rect><rect x="3" y="14" width="7" height="7" rx="1.6"></rect><rect x="14" y="14" width="7" height="7" rx="1.6"></rect></svg><span style="font-size: 13.5px; font-weight: 700;">トップ</span></div><div style="display: flex; align-items: center; gap: 10px; height: 38px; border-radius: 10px; padding: 0 10px; background: transparent; color: #3c424c;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"></path><path d="M5 10v10h14V10"></path><path d="M10 20v-6h4v6"></path></svg><span style="font-size: 13.5px; font-weight: 700;">案件ホーム</span></div><div style="display: flex; align-items: center; gap: 10px; height: 38px; border-radius: 10px; padding: 0 10px; background: transparent; color: #3c424c;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><path d="M9 13h6"></path><path d="M9 17h4"></path></svg><span style="font-size: 13.5px; font-weight: 700;">進行台本</span></div><div style="display: flex; align-items: center; gap: 10px; height: 38px; border-radius: 10px; padding: 0 10px; background: transparent; color: #3c424c;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2.4"></rect><path d="M8 3v4"></path><path d="M16 3v4"></path><path d="M3 10h18"></path></svg><span style="font-size: 13.5px; font-weight: 700;">スケジュール表</span></div><div style="display: flex; align-items: center; gap: 10px; height: 38px; border-radius: 10px; padding: 0 10px; background: transparent; color: #3c424c;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10"></path><path d="M18 7h2"></path><path d="M4 17h4"></path><path d="M12 17h8"></path><circle cx="16" cy="7" r="2.2"></circle><circle cx="10" cy="17" r="2.2"></circle></svg><span style="font-size: 13.5px; font-weight: 700;">収録設定</span></div><div style="display: flex; align-items: center; gap: 10px; height: 38px; border-radius: 10px; padding: 0 10px; background: transparent; color: #3c424c;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M7.8 7.8a6 6 0 0 0 0 8.4"></path><path d="M16.2 16.2a6 6 0 0 0 0-8.4"></path><path d="M4.9 4.9a10 10 0 0 0 0 14.2"></path><path d="M19.1 19.1a10 10 0 0 0 0-14.2"></path></svg><span style="font-size: 13.5px; font-weight: 700;">配信設定</span></div><div style="display: flex; align-items: center; gap: 10px; height: 38px; border-radius: 10px; padding: 0 10px; background: transparent; color: #3c424c;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.2l9-4.2 9 4.2v7.6l-9 4.2-9-4.2z"></path><path d="M3 8.2l9 4.2 9-4.2"></path><path d="M12 12.4V20"></path></svg><span style="font-size: 13.5px; font-weight: 700;">レンタル機材検索</span></div><div style="display: flex; align-items: center; gap: 10px; height: 38px; border-radius: 10px; padding: 0 10px; background: transparent; color: #3c424c;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l2.5 2"></path><path d="M10 2h4"></path></svg><span style="font-size: 13.5px; font-weight: 700;">計時・視聴者</span></div><div style="display: flex; align-items: center; gap: 10px; height: 38px; border-radius: 10px; padding: 0 10px; background: #f4faff; color: #005bac;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"></path><path d="M9 20h6"></path><path d="M12 4v16"></path></svg><span style="font-size: 13.5px; font-weight: 800;">テロップCG</span></div><div style="display: flex; align-items: center; gap: 10px; height: 34px; border-radius: 10px; padding: 0 10px 0 38px; background: transparent; color: #3c424c;"><span style="width: 18px;"></span><span style="font-size: 13px; font-weight: 700;">一覧</span></div><div style="display: flex; align-items: center; gap: 10px; height: 34px; border-radius: 10px; padding: 0 10px 0 38px; background: transparent; color: #3c424c;"><span style="width: 18px;"></span><span style="font-size: 13px; font-weight: 700;">本番モード</span></div><div style="display: flex; align-items: center; gap: 10px; height: 34px; border-radius: 10px; padding: 0 10px 0 38px; background: #f4faff; color: #005bac;"><span style="width: 18px;"></span><span style="font-size: 13px; font-weight: 800;">設定</span></div>
+      <span style="flex: 1;"></span>
+      <p style="margin: 0; padding: 0 10px; font-size: 11.5px; line-height: 1.6; color: #9aa1ab;">東都TV 特番収録<br>「サイエンス・フロンティア」</p>
+    </aside>
+
+    <main style="flex: 1; min-width: 0; background: #f7f8fa; overflow: hidden;">
+      <div style="max-width: 980px; margin: 0 auto; padding: 20px 28px 32px;">
+        <button class="tap ghost" style="display: flex; align-items: center; gap: 3px; height: 32px; margin-left: -8px; border-radius: 8px; padding: 0 9px 0 5px; color: #005bac;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg><span style="font-size: 12.5px; font-weight: 700;">テロップ一覧</span></button>
+        <div style="margin-top: 6px; display: flex; align-items: flex-end; gap: 16px;">
+          <div style="min-width: 0;">
+            <h1 style="margin: 0; font-size: 23px; line-height: 1.3; font-weight: 800; letter-spacing: -.01em;">設定</h1>
+            <p style="margin: 6px 0 0; font-size: 13px; color: #3c424c;">東都TV 特番収録「サイエンス・フロンティア」 ・ この番組のテロップCGの決めごと。テロップの中身はここでは触りません</p>
+          </div>
+        </div>
+        <!-- タブ4つ -->
+        <div style="margin-top: 16px; display: flex; align-items: center; gap: 4px; border-bottom: 1px solid #e6e9ed;">
+          <sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+            <button class="tap" onClick="{{t.pick}}" style="display: flex; align-items: center; height: 42px; padding: 0 14px; font-size: 13.5px; font-weight: {{t.weight}}; color: {{t.color}}; border-bottom: 2px solid {{t.line}}; margin-bottom: -1px;">{{t.label}}</button>
+          </sc-for>
+        </div>
+        <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 14px;">
+          <sc-if value="{{isOut}}" hint-placeholder-val="{{true}}">
+          <section style="border-radius: 16px; border: 1px solid #e6e9ed; background: #ffffff; box-shadow: 0 1px 2px rgba(26,29,36,.04); overflow: hidden;">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 13px 16px 11px; border-bottom: 1px solid #eef0f3;">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 800;">OBS に貼る URL</h2>
+              <span style="font-size: 11.5px; color: #5d6470;">1920×1080 ・ 認証なし ・ 誰にでも見えるので URL を人に送らない</span>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-top: 1px solid #f2f4f7;">
+              <span style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 8px; border: 1px solid #e6e9ed; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><path d="M14 14h3v3"></path><path d="M21 14v7h-7"></path><path d="M17 21h.01"></path></svg></span>
+              <span style="display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1;">
+                <span style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 13.5px; font-weight: 700;">メイン合成（透過）</span><span style="display: inline-flex; align-items: center; height: 20px; border-radius: 6px; background: #fef6f7; color: #c7243a; font-size: 11px; font-weight: 700; padding: 0 7px;">本番用</span></span>
+                <span class="clip1 num" style="font-size: 12px; color: #5d6470;">https://gmo-onair.jp/techops/graphics/output/8f3a91c2-…-c1</span>
+              </span>
+              <button class="tap" style="display: flex; align-items: center; gap: 5px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 11px; font-size: 12px; font-weight: 700;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h10"></path></svg>コピー</button>
+              <button class="tap" style="display: flex; align-items: center; gap: 5px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 11px; font-size: 12px; font-weight: 700;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"></path><path d="M20 4l-9 9"></path><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"></path></svg>開く</button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-top: 1px solid #f2f4f7;">
+              <span style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 8px; border: 1px solid #e6e9ed; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><path d="M14 14h3v3"></path><path d="M21 14v7h-7"></path><path d="M17 21h.01"></path></svg></span>
+              <span style="display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1;">
+                <span style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 13.5px; font-weight: 700;">確認用（黒背景）</span><span style="display: inline-flex; align-items: center; height: 20px; border-radius: 6px; background: #f2f4f7; color: #5d6470; font-size: 11px; font-weight: 700; padding: 0 7px;">?bg=1</span></span>
+                <span class="clip1 num" style="font-size: 12px; color: #5d6470;">https://gmo-onair.jp/techops/graphics/output/8f3a91c2-…-c1?bg=1</span>
+              </span>
+              <button class="tap" style="display: flex; align-items: center; gap: 5px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 11px; font-size: 12px; font-weight: 700;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h10"></path></svg>コピー</button>
+              <button class="tap" style="display: flex; align-items: center; gap: 5px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 11px; font-size: 12px; font-weight: 700;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"></path><path d="M20 4l-9 9"></path><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"></path></svg>開く</button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-top: 1px solid #f2f4f7;">
+              <span style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 8px; border: 1px solid #e6e9ed; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><path d="M14 14h3v3"></path><path d="M21 14v7h-7"></path><path d="M17 21h.01"></path></svg></span>
+              <span style="display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1;">
+                <span style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 13.5px; font-weight: 700;">英語版（透過）</span><span style="display: inline-flex; align-items: center; height: 20px; border-radius: 6px; background: #f2f4f7; color: #5d6470; font-size: 11px; font-weight: 700; padding: 0 7px;">?lang=en</span></span>
+                <span class="clip1 num" style="font-size: 12px; color: #5d6470;">https://gmo-onair.jp/techops/graphics/output/8f3a91c2-…-c1?lang=en</span>
+              </span>
+              <button class="tap" style="display: flex; align-items: center; gap: 5px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 11px; font-size: 12px; font-weight: 700;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h10"></path></svg>コピー</button>
+              <button class="tap" style="display: flex; align-items: center; gap: 5px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 11px; font-size: 12px; font-weight: 700;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"></path><path d="M20 4l-9 9"></path><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"></path></svg>開く</button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-top: 1px solid #f2f4f7; background: #f7f8fa; font-size: 12px; color: #5d6470;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>効果音を鳴らす1台にだけ <span class="num" style="font-weight: 700; color: #3c424c;">?audio=1</span> を足します（2台以上に付けると二重に鳴ります）</div>
+          </section>
+
+          <section style="border-radius: 16px; border: 1px solid #e6e9ed; background: #ffffff; box-shadow: 0 1px 2px rgba(26,29,36,.04); overflow: hidden;">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 13px 16px 11px; border-bottom: 1px solid #eef0f3;">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 800;">OBS での貼り方</h2>
+              <span style="font-size: 11.5px; color: #5d6470;"></span>
+            </div>
+            
+            <div style="display: flex; align-items: flex-start; gap: 12px; padding: 11px 16px; border-top: 1px solid #f2f4f7;">
+              <span class="num" style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 9999px; background: #eaf4fb; color: #005bac; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center;">1</span>
+              <span style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 13.5px; font-weight: 700;">出力URLをコピーする</span><span style="font-size: 12px; line-height: 1.6; color: #5d6470;">上の「メイン合成（透過）」を使います。確認だけなら「確認用（黒背景）」</span></span>
+            </div>
+            <div style="display: flex; align-items: flex-start; gap: 12px; padding: 11px 16px; border-top: 1px solid #f2f4f7;">
+              <span class="num" style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 9999px; background: #eaf4fb; color: #005bac; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center;">2</span>
+              <span style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 13.5px; font-weight: 700;">OBS でブラウザソースを作る</span><span style="font-size: 12px; line-height: 1.6; color: #5d6470;">幅 1920 ・ 高さ 1080 ・ 「シャットダウン時にソースを非表示」はオフ</span></span>
+            </div>
+            <div style="display: flex; align-items: flex-start; gap: 12px; padding: 11px 16px; border-top: 1px solid #f2f4f7;">
+              <span class="num" style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 9999px; background: #eaf4fb; color: #005bac; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center;">3</span>
+              <span style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 13.5px; font-weight: 700;">本番モードで TAKE する</span><span style="font-size: 12px; line-height: 1.6; color: #5d6470;">このタブは閉じてかまいません。出力は自動でつながります</span></span>
+            </div>
+          </section></sc-if>
+          <sc-if value="{{isLook}}" hint-placeholder-val="{{false}}">
+          <section style="border-radius: 16px; border: 1px solid #e6e9ed; background: #ffffff; box-shadow: 0 1px 2px rgba(26,29,36,.04); overflow: hidden;">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 13px 16px 11px; border-bottom: 1px solid #eef0f3;">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 800;">見た目（テーマ）</h2>
+              <span style="font-size: 11.5px; color: #5d6470;">色・書体・罫はテーマがまとめて持ちます。テロップごとに色は選びません</span>
+            </div>
+            
+            <div style="padding: 14px 16px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;">
+              <button class="tap card-tap" style="position: relative; display: flex; flex-direction: column; gap: 8px; border-radius: 12px; border: 2px solid #005bac; background: #ffffff; padding: 10px; text-align: left;">
+                <span style="display: block; width: 100%; height: 88px; border-radius: 8px; background: #0f1115; position: relative; overflow: hidden;">
+                  <span class="cg" style="position: absolute; left: 6%; bottom: 10%; width: 62%; padding: 5px 8px; background: linear-gradient(180deg,#141c2e,#070a12); border-left: 2px solid #d4af37; display: flex; flex-direction: column; gap: 2px;">
+                    <span style="font-size: 6px; font-weight: 700; color: #d4af37; letter-spacing: .1em;">ゲスト</span>
+                    <span style="font-size: 11px; font-weight: 800; color: #f5f5f5;">小野 美咲</span>
+                  </span>
+                </span>
+                <span style="position: absolute; right: 10px; top: 10px; width: 22px; height: 22px; border-radius: 9999px; background: #005bac; display: flex; align-items: center; justify-content: center;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+                <span style="font-size: 13.5px; font-weight: 800;">式典（金）</span>
+                <span style="font-size: 11.5px; line-height: 1.5; color: #5d6470;">紺の面に金の罫。授賞式・記念式典</span>
+              </button>
+              <button class="tap card-tap" style="position: relative; display: flex; flex-direction: column; gap: 8px; border-radius: 12px; border: 2px solid #e6e9ed; background: #ffffff; padding: 10px; text-align: left;">
+                <span style="display: block; width: 100%; height: 88px; border-radius: 8px; background: #0f1115; position: relative; overflow: hidden;">
+                  <span class="cg" style="position: absolute; left: 6%; bottom: 10%; width: 62%; padding: 5px 8px; background: #102c54; border-left: 2px solid #f5f5f5; display: flex; flex-direction: column; gap: 2px;">
+                    <span style="font-size: 6px; font-weight: 700; color: #f5f5f5; letter-spacing: .1em;">ゲスト</span>
+                    <span style="font-size: 11px; font-weight: 800; color: #f5f5f5;">小野 美咲</span>
+                  </span>
+                </span>
+                
+                <span style="font-size: 13.5px; font-weight: 800;">報道（紺）</span>
+                <span style="font-size: 11.5px; line-height: 1.5; color: #5d6470;">ベタの紺帯。ニュース・情報番組</span>
+              </button>
+              <button class="tap card-tap" style="position: relative; display: flex; flex-direction: column; gap: 8px; border-radius: 12px; border: 2px solid #e6e9ed; background: #ffffff; padding: 10px; text-align: left;">
+                <span style="display: block; width: 100%; height: 88px; border-radius: 8px; background: #0f1115; position: relative; overflow: hidden;">
+                  <span class="cg" style="position: absolute; left: 6%; bottom: 10%; width: 62%; padding: 5px 8px; background: #ffffff; border-left: 2px solid #2f6fed; display: flex; flex-direction: column; gap: 2px;">
+                    <span style="font-size: 6px; font-weight: 700; color: #2f6fed; letter-spacing: .1em;">ゲスト</span>
+                    <span style="font-size: 11px; font-weight: 800; color: #1a1d24;">小野 美咲</span>
+                  </span>
+                </span>
+                
+                <span style="font-size: 13.5px; font-weight: 800;">コーポレート</span>
+                <span style="font-size: 11.5px; line-height: 1.5; color: #5d6470;">白の面に青の下罫。企業配信・セミナー</span>
+              </button>
+              <button class="tap card-tap" style="position: relative; display: flex; flex-direction: column; gap: 8px; border-radius: 12px; border: 2px solid #e6e9ed; background: #ffffff; padding: 10px; text-align: left;">
+                <span style="display: block; width: 100%; height: 88px; border-radius: 8px; background: #0f1115; position: relative; overflow: hidden;">
+                  <span class="cg" style="position: absolute; left: 6%; bottom: 10%; width: 62%; padding: 5px 8px; background: #fff3c4; border-left: 2px solid #ff5a7a; display: flex; flex-direction: column; gap: 2px;">
+                    <span style="font-size: 6px; font-weight: 700; color: #ff5a7a; letter-spacing: .1em;">ゲスト</span>
+                    <span style="font-size: 11px; font-weight: 800; color: #1a1d24;">小野 美咲</span>
+                  </span>
+                </span>
+                
+                <span style="font-size: 13.5px; font-weight: 800;">バラエティ</span>
+                <span style="font-size: 11.5px; line-height: 1.5; color: #5d6470;">太いフチと明るい色。トーク・エンタメ</span>
+              </button></div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-top: 1px solid #f2f4f7;">
+              <span style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 8px; border: 1px dashed #cbd2da; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"></path><path d="M6 10l6-6 6 6"></path><path d="M4 20h16"></path></svg></span>
+              <span style="display: flex; flex-direction: column; gap: 2px; flex: 1;"><span style="font-size: 13.5px; font-weight: 700;">番組ロゴ（任意）</span><span style="font-size: 12px; color: #5d6470;">題字と一覧表の隅に出ます。PNG・透過</span></span>
+              <button class="tap" style="height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12px; font-weight: 700;">選ぶ</button>
+            </div>
+          </section>
+
+          <section style="border-radius: 16px; border: 1px solid #e6e9ed; background: #ffffff; box-shadow: 0 1px 2px rgba(26,29,36,.04); overflow: hidden;">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 13px 16px 11px; border-bottom: 1px solid #eef0f3;">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 800;">前の番組からコピー</h2>
+              <span style="font-size: 11.5px; color: #5d6470;">レギュラー番組の立ち上げを速くする</span>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px;">
+              <span style="display: flex; align-items: center; gap: 10px; height: 40px; flex: 1; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px;"><span style="font-size: 13px; font-weight: 700;">サイエンス・フロンティア 第6回（8/16）</span><span style="flex: 1;"></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></span>
+              <button class="tap btn-primary" style="height: 40px; border-radius: 10px; background: #005bac; color: #ffffff; padding: 0 14px; font-size: 12.5px; font-weight: 800;">見た目と種類の既定値をコピー</button>
+            </div>
+            <p style="margin: 0; padding: 0 16px 12px; font-size: 12px; line-height: 1.6; color: #5d6470;">テーマ・ロゴ・同時に出せないもの・各種類の初期値だけを写します。テロップの中身（文言）は写しません。</p>
+          </section></sc-if>
+          <sc-if value="{{isRules}}" hint-placeholder-val="{{false}}">
+          <section style="border-radius: 16px; border: 1px solid #e6e9ed; background: #ffffff; box-shadow: 0 1px 2px rgba(26,29,36,.04); overflow: hidden;">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 13px 16px 11px; border-bottom: 1px solid #eef0f3;">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 800;">同時に出せないもの</h2>
+              <span style="font-size: 11.5px; color: #5d6470;">本番中に「重なった」を起こさないための表</span>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-top: 1px solid #f2f4f7;">
+              <span style="width: 300px; flex-shrink: 0; font-size: 13px; font-weight: 700;">題字・一覧表・投票・ランキング（画面いっぱい）</span>
+              <span style="font-size: 12px; color: #5d6470;">が出たら</span>
+              <span style="flex: 1; min-width: 0; font-size: 13px; font-weight: 700;">ネーム・サイドスーパー</span>
+              <span style="font-size: 12px; color: #5d6470;">を自動で消す</span>
+              <span style="display: inline-flex; align-items: center; height: 20px; border-radius: 6px; background: #f2f4f7; color: #5d6470; font-size: 11px; font-weight: 700; padding: 0 7px;">既定</span>
+              <span style="width: 52px; height: 30px; flex-shrink: 0; border-radius: 9999px; background: #197a4b; position: relative;"><span style="position: absolute; top: 3px; left: 25px; width: 24px; height: 24px; border-radius: 9999px; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,.25);"></span></span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-top: 1px solid #f2f4f7;">
+              <span style="width: 300px; flex-shrink: 0; font-size: 13px; font-weight: 700;">速報帯（上端）</span>
+              <span style="font-size: 12px; color: #5d6470;">が出たら</span>
+              <span style="flex: 1; min-width: 0; font-size: 13px; font-weight: 700;">サイドスーパー・カウントダウン</span>
+              <span style="font-size: 12px; color: #5d6470;">を自動で消す</span>
+              <span style="display: inline-flex; align-items: center; height: 20px; border-radius: 6px; background: #f2f4f7; color: #5d6470; font-size: 11px; font-weight: 700; padding: 0 7px;">既定</span>
+              <span style="width: 52px; height: 30px; flex-shrink: 0; border-radius: 9999px; background: #197a4b; position: relative;"><span style="position: absolute; top: 3px; left: 25px; width: 24px; height: 24px; border-radius: 9999px; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,.25);"></span></span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-top: 1px solid #f2f4f7;">
+              <span style="width: 300px; flex-shrink: 0; font-size: 13px; font-weight: 700;">ティッカー（下端）</span>
+              <span style="font-size: 12px; color: #5d6470;">が出たら</span>
+              <span style="flex: 1; min-width: 0; font-size: 13px; font-weight: 700;">ネーム</span>
+              <span style="font-size: 12px; color: #5d6470;">を自動で消す</span>
+              <span style="width: 34px;"></span>
+              <span style="width: 52px; height: 30px; flex-shrink: 0; border-radius: 9999px; background: #cbd2da; position: relative;"><span style="position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 9999px; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,.25);"></span></span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-top: 1px solid #f2f4f7;">
+              <span style="width: 300px; flex-shrink: 0; font-size: 13px; font-weight: 700;">カウントダウン・時計（左上）</span>
+              <span style="font-size: 12px; color: #5d6470;">が出たら</span>
+              <span style="flex: 1; min-width: 0; font-size: 13px; font-weight: 700;">（何も消さない）</span>
+              <span style="font-size: 12px; color: #5d6470;">を自動で消す</span>
+              <span style="display: inline-flex; align-items: center; height: 20px; border-radius: 6px; background: #f2f4f7; color: #5d6470; font-size: 11px; font-weight: 700; padding: 0 7px;">既定</span>
+              <span style="width: 52px; height: 30px; flex-shrink: 0; border-radius: 9999px; background: #197a4b; position: relative;"><span style="position: absolute; top: 3px; left: 25px; width: 24px; height: 24px; border-radius: 9999px; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,.25);"></span></span>
+            </div>
+            <p style="margin: 0; padding: 12px 16px; border-top: 1px solid #f2f4f7; font-size: 12px; line-height: 1.6; color: #5d6470;">同じ位置には1枚しか出ません（自動）。ここに書くのは<strong>違う位置</strong>のものを一緒に消す決めごとだけです。普段は既定のままで足ります。</p>
+          </section></sc-if>
+          <sc-if value="{{isLink}}" hint-placeholder-val="{{false}}">
+          <section style="border-radius: 16px; border: 1px solid #e6e9ed; background: #ffffff; box-shadow: 0 1px 2px rgba(26,29,36,.04); overflow: hidden;">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 13px 16px 11px; border-bottom: 1px solid #eef0f3;">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 800;">視聴者投票（インタラクティブ）</h2>
+              <span style="font-size: 11.5px; color: #5d6470;">投票・クイズの種類が票を受け取る先</span>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px;">
+              <span style="width: 9px; height: 9px; border-radius: 9999px; background: #197a4b;"></span>
+              <span style="display: flex; flex-direction: column; gap: 2px; flex: 1;"><span style="font-size: 13.5px; font-weight: 700;">接続できています ・ interactive.gmo-onair.jp</span><span class="num" style="font-size: 12px; color: #5d6470;">イベント #2026-0823 ・ 鍵 gmo_live_…7f2a ・ 締切バッファ 5 秒 ・ 最終確認 13:01:58</span></span>
+              <button class="tap" style="height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12px; font-weight: 700;">診断</button>
+              <button class="tap" style="height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12px; font-weight: 700;">接続を直す</button>
+            </div>
+          </section>
+
+          <section style="border-radius: 16px; border: 1px solid #e6e9ed; background: #ffffff; box-shadow: 0 1px 2px rgba(26,29,36,.04); overflow: hidden;">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 13px 16px 11px; border-bottom: 1px solid #eef0f3;">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 800;">効果音（ランキング発表）</h2>
+              <span style="font-size: 11.5px; color: #5d6470;"></span>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 12px; padding: 11px 16px;">
+              <span style="font-size: 13px; font-weight: 700; width: 140px;">順位が1つ出るとき</span><span class="num" style="flex: 1; font-size: 12px; color: #5d6470;">rank-step.mp3 ・ 0:01</span><span style="font-size: 12px; color: #5d6470;">音量 80</span><button class="tap" style="height: 32px; border-radius: 9px; border: 1px solid #e6e9ed; padding: 0 10px; font-size: 12px; font-weight: 700;">試聴</button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-top: 1px solid #f2f4f7;">
+              <span style="font-size: 13px; font-weight: 700; width: 140px;">1位が出るとき</span><span class="num" style="flex: 1; font-size: 12px; color: #5d6470;">winner.mp3 ・ 0:04</span><span style="font-size: 12px; color: #5d6470;">音量 90</span><button class="tap" style="height: 32px; border-radius: 9px; border: 1px solid #e6e9ed; padding: 0 10px; font-size: 12px; font-weight: 700;">試聴</button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-top: 1px solid #f2f4f7; background: #f7f8fa; font-size: 12px; color: #5d6470;">出力URLに <span class="num" style="font-weight: 700; color: #3c424c;">?audio=1</span> を付けた1台だけで鳴ります</div>
+          </section>
+
+          <section style="border-radius: 16px; border: 1px solid #e6e9ed; background: #ffffff; box-shadow: 0 1px 2px rgba(26,29,36,.04); overflow: hidden;">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 13px 16px 11px; border-bottom: 1px solid #eef0f3;">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 800;">旧リアルタイムCGから移す</h2>
+              <span style="font-size: 11.5px; color: #5d6470;">管理者だけ</span>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px;">
+              <span style="display: flex; flex-direction: column; gap: 2px; flex: 1;"><span style="font-size: 13.5px; font-weight: 700;">過去のアワード（awards）の実績を、この番組のランキング発表に変換します</span><span style="font-size: 12px; color: #5d6470;">確認 → 反映の2段。旧データは読むだけで書き換えません。システム管理者だけに出ます</span></span>
+              <button class="tap" style="height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12px; font-weight: 700;">イベントを選ぶ</button>
+            </div>
+          </section></sc-if>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { tab: 'out' }; }
+  renderVals() {
+    const self = this; const st = this.state;
+    const defs = [['out', '出力URL'], ['look', '見た目'], ['rules', '同時に出せないもの'], ['link', '連携']];
+    return {
+      tabs: defs.map((d) => ({ label: d[1], weight: st.tab === d[0] ? 800 : 700, color: st.tab === d[0] ? '#005bac' : '#3c424c', line: st.tab === d[0] ? '#005bac' : 'transparent', pick: () => self.setState({ tab: d[0] }) })),
+      isOut: st.tab === 'out', isLook: st.tab === 'look', isRules: st.tab === 'rules', isLink: st.tab === 'link',
+    };
+  }
+}
+</script>
+</body>
+</html>

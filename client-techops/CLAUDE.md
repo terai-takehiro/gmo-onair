@@ -218,6 +218,33 @@
   もう存在しない — `server/src/contexts/liveops/routes/*.ts` の
   `requirePermission()` はすべて `'qsheet'` を見る
 
+## テロップCG（旧リアルタイムCGの移行先・`pages/graphics/`）
+
+旧「リアルタイムCG」（`client-awards/`・**移行中**）の後継ミニアプリ。ハブ（`JourneyPage`）のタイルから
+`/techops/graphics/:ownerKey` へ入る。サーバーは `server/src/contexts/graphics/`（Socket.IO `/graphics`・`cg:*`）。
+
+- **2026-09-06 に機能と UI/UX をゼロベースで再設計した。段A〜E（①一覧＋右パネル・
+  ②本番モードの作り直し・③コーナー見出し＋台本から取り込む＋台本と違いますバッジ・
+  ④依頼フォームの3欄化＋台本から選ぶ＋スマホ閲覧＋緊急CLEAR・⑤台本に追従＋前の番組から
+  コピー）を全て実装済み。** これで再設計の実装段は完了——残るは段F（旧リアルタイムCGの
+  畳み込み）のみで、これは段A〜Eを検証環境で確認してから実行する（§12-5）。
+  正は [docs/design/v4/graphics-redesign.md](../docs/design/v4/graphics-redesign.md)（利用者に見せる語は
+  テロップ／種類／出す順／見た目 の4つ・画面は PC 4＋スマホ 2＋出力 1・本番の動詞は TAKE／CLEAR／進める）。
+  段A〜Eで実装したファイルの一覧・意図した簡略化は同文書 §11「段A 実装メモ」〜「段E 実装メモ」
+  （段B〜Eはマルチエージェントのワークフローで実装・検証し、検証段の批判的レビューが
+  実際に問題を検出→修正した経緯も記録してある——**段Eでは①状態帯に置くべきUI要素を
+  誤って別の場所〈上段ボタン行〉に実装してしまうブロッカーを検証段が検出**。段Cはさらに、
+  検証に使ったシード台本〈`seed-subapps.ts`〉自体に既存のギャップ〈テロップ/映像/音声セルが
+  実編集画面と違う形・行にIDが無い〉があることも見つけている）。
+  モックは同文書の冒頭のキャンバス（作業ファイル `docs/design/v4/mockups/native/telop-cg/`）
+- 初版の設計（部品の思想・出力の契約・組版の数値）は [docs/design/v4/graphics.md](../docs/design/v4/graphics.md)、
+  アワード演出の移植内容は [graphics-awards-migration-plan.md](../docs/design/v4/graphics-awards-migration-plan.md)
+- 段A〜Eは1本のPRにまとめて出した（開発中は段ごとに commit・push のみで PR は都度出さず、
+  「PRを」のご指示を受けてまとめて出す運用にした）。次は段F（[§13](../docs/design/v4/graphics-redesign.md#13-旧アプリ移行中の扱い)参照）
+  ——**PRがマージされ検証環境（dev.gmo-onair.jp）で段A〜Eを1本確認してから**着手する
+- 触るときの注意: `awards-migration` の GET 2本がサーバー側 `qsheet` reader 止まり
+  （UI は system_admin 限定・棚卸しで見つかった既知の不整合・再設計のスコープ外）
+
 ## このアプリの中身
 
 - **データ**: `qsheet_documents` テーブルに JSONB で台本全体を保存。同時編集は Yjs（`qsheet_doc_yjs`）

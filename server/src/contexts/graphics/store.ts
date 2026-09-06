@@ -84,6 +84,12 @@ export interface GraphicsProject {
   slotExitRules: SlotExitRule[];
   /** マスク済みビュー（`apiKeySecret` を含まない）。未設定は null */
   interactiveLink: InteractiveLinkView | null;
+  /**
+   * 台本に追従（段E・migration 283）。既定 false。ON の番組は進行画面の現在行に
+   * 合わせて本番モードの NEXT が自動で移る（TAKEは対象外——常に人が押す。
+   * docs/design/v4/graphics-redesign.md §9 3番・§12-2）。
+   */
+  followScript: boolean;
   createdAt: unknown;
   updatedAt: unknown;
 }
@@ -107,6 +113,12 @@ export interface GraphicsPage {
    * partKey には layers[0].partKey を入れておく運用——作成側の責務）。
    */
   layers: GraphicsPageLayer[] | null;
+  /** コーナー見出し（段C・migration 282）。台本から取り込んだページに付く。NULL＝コーナー無し */
+  section: string | null;
+  /** 取り込み元の台本ドキュメント ID（段C・migration 282）。NULL＝台本取り込みではない */
+  qsheetDocId: string | null;
+  /** 取り込み元の台本の行 ID（段C・migration 282）。「台本と違います」差分検出に使う */
+  qsheetRowId: string | null;
   createdAt: unknown;
   updatedAt: unknown;
 }
@@ -232,6 +244,7 @@ export function mapProject(r: Row): GraphicsProject {
     theme: r.theme as string,
     slotExitRules: normalizeSlotExitRules(r.slot_exit_rules),
     interactiveLink: toInteractiveLinkView(normalizeInteractiveLink(r.interactive_link)),
+    followScript: !!r.follow_script,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -287,6 +300,9 @@ export function mapPage(r: Row): GraphicsPage {
     sortOrder: r.sort_order as number,
     templateId: (r.template_id as number | null) ?? null,
     layers: normalizePageLayers(r.layers),
+    section: (r.section as string | null) ?? null,
+    qsheetDocId: (r.qsheet_doc_id as string | null) ?? null,
+    qsheetRowId: (r.qsheet_row_id as string | null) ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
