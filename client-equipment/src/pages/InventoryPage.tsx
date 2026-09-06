@@ -166,10 +166,14 @@ export default function InventoryPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         title="棚卸しを作る"
+        // Enter で作れるようにする（繰り返し入力も確認も無い単純なフォーム）。
+        // **「作る」は `type="submit"` で `onClick` を持たない** — 両方あると二重送信になる。
+        // キャンセルは `<form>` の中では既定が submit 扱いなので `type="button"` を明示する
+        onSubmit={(e) => { e.preventDefault(); if (form.title && !create.isPending) create.mutate(form); }}
         footer={
           <FormDialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>キャンセル</Button>
-            <Button onClick={() => create.mutate(form)} disabled={!form.title || create.isPending}>
+            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>キャンセル</Button>
+            <Button type="submit" disabled={!form.title || create.isPending}>
               {create.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
               作る
             </Button>

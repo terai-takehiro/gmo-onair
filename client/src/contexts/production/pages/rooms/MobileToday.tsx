@@ -156,15 +156,10 @@ export function MobileToday() {
 
   const dayList = useMemo(() => sortForList(eventsOn(cal.events, selected)), [cal.events, selected]);
 
-  /**
-   * 3つの登録ダイアログへ渡す preset は**同一性を保つ**（`useMemo`）。
-   *
-   * インラインの `{...}` で書くと毎レンダー新しいオブジェクトになり、3つのダイアログが
-   * どれも preset を初期化 `useEffect` の依存配列に入れているため、**背後のクエリが
-   * 解決するたびに入力中のフォームが黙って白紙に戻る**。
-   * PC 側（`pages/calendar/useCalendarEdit.ts`）は同じ理由で既に `useMemo` に
-   * 包んであり、スマホのこの画面だけ対策が漏れていた。
-   */
+  // 登録ダイアログへ渡す preset は**同一性を保つ**（`useMemo`）。インラインの `{...}` だと
+  // 毎レンダー新しいオブジェクトになり、3つのダイアログとも preset を初期化 `useEffect` の
+  // 依存に持つため、**背後のクエリが解決するたび入力中のフォームが白紙に戻る**。
+  // PC 側（`pages/calendar/useCalendarEdit.ts`）は対策済みで、ここだけ漏れていた
   const studioPreset = useMemo(() => ({ start: selected, end: selected, allDay: false }), [selected]);
   const partnerPreset = useMemo(() => ({ start: selected, end: selected }), [selected]);
   const personalPreset = useMemo(() => ({ start: selected, end: selected, allDay: false }), [selected]);

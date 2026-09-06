@@ -56,6 +56,15 @@ export function EquipmentFilters({
 
   return (
     <div className="flex flex-col gap-2">
+      {/* **探す欄がいちばん上。** スマホ版 (`MobileFilters`) は検索を絞り込みの外・先頭に
+          出しており、同じ機能で PC とスマホの入力順が逆になっていた
+          （PC では4段スクロールした先に「名前で探す」がある状態だった） */}
+      <SearchField
+        value={state.search}
+        onChange={(v) => onChange({ search: v })}
+        placeholder="名前・ID・型名・保管場所で探す"
+      />
+
       <FilterChips
         label="種別で絞り込む"
         items={typeChips}
@@ -115,17 +124,10 @@ export function EquipmentFilters({
           )}
         </div>
 
-        {filtering && (
-          <Button variant="ghost" onClick={onClear}>絞り込みを外す</Button>
-        )}
       </div>
 
+      {/* 「絞り込みを外す」は最後。絞り込みの軸を全部見せてから外す手を置く */}
       <div className="flex flex-wrap items-center gap-3">
-        <SearchField
-          value={state.search}
-          onChange={(v) => onChange({ search: v })}
-          placeholder="名前・ID・型名・保管場所で探す"
-        />
         <label className="flex items-center gap-2 whitespace-nowrap text-sub text-muted-foreground">
           <Switch
             checked={state.includeChildren}
@@ -134,6 +136,9 @@ export function EquipmentFilters({
           />
           <span>付属品も出す</span>
         </label>
+        {filtering && (
+          <Button variant="ghost" onClick={onClear}>絞り込みを外す</Button>
+        )}
       </div>
     </div>
   );

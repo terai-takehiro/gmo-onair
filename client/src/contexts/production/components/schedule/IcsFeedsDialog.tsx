@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Trash2, RefreshCw, Plus, AlertTriangle, ShieldAlert, ChevronDown, Link2 } from "lucide-react";
 import type { IcsFeed } from "./scheduleShared";
+import { IcsFeedList } from "./IcsFeedList";
 
 interface OAuthStatus {
   configured: boolean;
@@ -140,58 +141,15 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
       title="外部カレンダー連携（Outlook / Google）"
       sub="Google・Outlook はつなぐと両方向で同期します。URL を貼るだけの場合は ONAiR に取り込むだけです。"
     >
-        {/* フィード一覧。
-            **このダイアログを開く用途の大半は「止まっていないかの確認」**なので先頭に置く。
-            以前は Google・Outlook のパネル・手順ガイド・追加フォームをすべて越えた最下段にあり、
-            いま繋がっているものとエラーを見るのに毎回スクロールが要った。
-            同じ内容を出す `pages/calendarSettings/FeedsTab.tsx` は先に一覧を出しており、
-            このダイアログだけ順序が逆だった */}
-        <div className="space-y-2">
-          <p className="text-sm font-semibold">連携中のカレンダー</p>
-          {isLoading ? (
-            <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-          ) : feeds.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-2">まだ連携がありません。</p>
-          ) : (
-            feeds.map((f) => (
-              <div key={f.id} className="rounded-lg border p-3 space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm">{f.label}</span>
-                  <code className="text-[11px] text-muted-foreground">{f.url_masked}</code>
-                  <div className="ml-auto flex items-center gap-1">
-                    <Button
-                      size="sm" variant="outline" className="h-8"
-                      onClick={() => syncMutation.mutate(f.id)}
-                      disabled={syncMutation.isPending}
-                      title="今すぐ同期"
-                    >
-                      {syncMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                    </Button>
-                    <Button
-                      size="sm" variant="outline" className="h-8 text-destructive border-destructive/40 hover:bg-destructive/10"
-                      onClick={() => { if (confirm(`「${f.label}」の連携を解除しますか？（同期済みの予定も削除されます）`)) deleteMutation.mutate(f.id); }}
-                      disabled={deleteMutation.isPending}
-                      title="連携を解除"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  {f.last_synced_at
-                    ? `最終同期: ${new Date(f.last_synced_at).toLocaleString("ja-JP")}${f.event_count != null ? ` ・ ${f.event_count} 件` : ""}`
-                    : "未同期"}
-                </p>
-                {f.last_error && (
-                  <p className="flex items-start gap-1 text-[11px] text-destructive">
-                    <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
-                    {f.last_error}
-                  </p>
-                )}
-              </div>
-            ))
-          )}
-        </div>
+        {/* 連携中の一覧を先頭に置く（切り出した理由は `IcsFeedList.tsx` の冒頭） */}
+        <IcsFeedList
+          feeds={feeds}
+          isLoading={isLoading}
+          onSync={(id) => syncMutation.mutate(id)}
+          syncing={syncMutation.isPending}
+          onDelete={(id) => deleteMutation.mutate(id)}
+          deleting={deleteMutation.isPending}
+        />
 
         {/* Google カレンダー OAuth 連携 (会社 Workspace は ICS 公開が無効なことが多いため推奨) */}
         <div className="space-y-2 rounded-lg border border-green-600/30 bg-green-50/40 p-3">

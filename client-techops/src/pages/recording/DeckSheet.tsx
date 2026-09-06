@@ -1,5 +1,6 @@
 // 収録設定: スマホ用の下から出るシート（1台ずつ直す）。
 // ⚠️ 素の <input> で構わない（DeckRow.tsx と同じ理由。impl doc §5-2）。
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { audioChannelOptions, isHdPlus } from './deckOptions';
 import { listIdOf } from './DeckDatalists';
@@ -40,7 +41,7 @@ export default function DeckSheet({
             {/* ⚠️ シートは portal で本文の外に出るので、呼び出し側の <fieldset disabled> が
                 届かない。ここで自前に包む（`contents` なので見た目は変わらない） */}
             <fieldset disabled={readOnly} className="contents">
-              <DeckSheetBody deck={deck} onChange={onChange} />
+              <DeckSheetBody deck={deck} onChange={onChange} readOnly={readOnly} />
             </fieldset>
             {readOnly && (
               <p className="mt-3 rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-note text-foreground">
@@ -59,9 +60,19 @@ export default function DeckSheet({
   );
 }
 
-function DeckSheetBody({ deck, onChange }: { deck: Deck; onChange: (next: Deck) => void }) {
+function DeckSheetBody({ deck, onChange, readOnly = false }: {
+  deck: Deck;
+  onChange: (next: Deck) => void;
+  readOnly?: boolean;
+}) {
   const set = <K extends keyof Deck>(key: K, value: Deck[K]) => onChange({ ...deck, [key]: value });
   const hdPlus = isHdPlus(deck.deckId);
+  // 「使わないと決めた台」は残りの6欄を伏せる。**値は消さない**（伏せるだけ・
+  // 配信設定の `meetingFields.ts` と同じ決めごと）。見たいときは開ける。
+  // ⚠️ 見るだけの人には畳まない — 呼び出し側の `<fieldset disabled>` が
+  // 「設定を見る」ボタンまで押せなくするので、畳むと中身に到達できなくなる
+  const [showSkipped, setShowSkipped] = useState(false);
+  const collapsed = !!deck.skip && !showSkipped && !readOnly;
 
   // ⚠️ いま入っている値が候補に無くても必ず出す（候補外の値が「空欄」に見える不具合の再発防止）
   const chOptions = audioChannelOptions(deck.deckId);
@@ -81,6 +92,27 @@ function DeckSheetBody({ deck, onChange }: { deck: Deck; onChange: (next: Deck) 
           placeholder="本線 PGM"
         />
       </div>
+
+      {/* **「使う／使わない」を先に決めさせる。** これを入れると以下の6欄は意味を失うので、
+          6欄を橙で埋めさせたあとに最後で無効化する読み順にしない */}
+      <label className="flex min-h-tap items-center gap-2 text-sub">
+        <input type="checkbox" className="h-5 w-5" checked={!!deck.skip} onChange={(e) => set('skip', e.target.checked || undefined)} />
+        使わないと決めた台（Excel には出しません）
+      </label>
+
+      {collapsed ? (
+        <div className="rounded-note border border-border bg-muted px-3 py-2 text-sub text-muted-foreground">
+          <p>この台の設定は伏せています。入れた値は消えていません。</p>
+          <button
+            type="button"
+            className="min-h-tap mt-1 text-sub text-primary underline"
+            onClick={() => setShowSkipped(true)}
+          >
+            設定を見る
+          </button>
+        </div>
+      ) : (
+      <>
       <div>
         <Label htmlFor="deck-format">解像度</Label>
         <input
@@ -136,10 +168,8 @@ function DeckSheetBody({ deck, onChange }: { deck: Deck; onChange: (next: Deck) 
           placeholder="GLS002-003_PGM"
         />
       </div>
-      <label className="flex min-h-tap items-center gap-2 text-sub">
-        <input type="checkbox" className="h-5 w-5" checked={!!deck.skip} onChange={(e) => set('skip', e.target.checked || undefined)} />
-        使わないと決めた台（Excel には出しません）
-      </label>
+      </>
+      )}
     </div>
   );
 }

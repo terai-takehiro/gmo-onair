@@ -403,20 +403,16 @@ export default function EquipmentDetailPage() {
         }
       >
           <div className="space-y-4">
-            {isAdmin && (
-              <div className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                <Label className="text-amber-800 font-semibold">機材ID (管理者のみ変更可)</Label>
-                <Input
-                  value={editForm.eq_code || ""}
-                  onChange={(e) => setEditForm({ ...editForm, eq_code: e.target.value })}
-                  className=""
-                  placeholder="Y-V-000001"
-                />
-              </div>
+            {/* 保存できなかった理由は**本文の先頭**に置く。実行ボタンは下端のフッターに
+                固定されているので、末尾に置くとスクロールしない限り理由が見えない
+                （台帳の `EquipmentDialog` は同じ理由で見出し直下に固定してある） */}
+            {saveError && (
+              <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">{saveError}</p>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
-                <Label>拠点 *</Label>
+                {/* 設定＞保管場所の「拠点」(場所の分類マスタ) とは別物。こちらは機材IDの先頭に入るコード */}
+                <Label>拠点 * (機材IDの先頭)</Label>
                 <Select value={editForm.location_code} onValueChange={(v) => setEditForm({ ...editForm, location_code: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{LOC_CODES.map((l) => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
@@ -496,36 +492,15 @@ export default function EquipmentDetailPage() {
                 <Input value={editForm.serial_number} onChange={(e) => setEditForm({ ...editForm, serial_number: e.target.value })} />
               </div>
             </div>
+            {/* **いまの状態**（保管場所・ステータス・コンディション）を、資産・保証から切り離す。
+                日常的に触るこの3つが、月に一度も触らない償却年数・保証期間と同じ枠に
+                埋もれていた。保管場所はこの下の「ラック実装」の親でもあるので、
+                順番としてもここに来る */}
             <div className="border-t pt-4">
-              <p className="text-sm font-semibold mb-3">資産・保証</p>
+              {/* 新しく足す見出しは v4 の型スケール（ウェイトを内包する）で書く。
+                  周りの見出しは旧来の書き方のままだが、作り直しのときにまとめて寄せる */}
+              <p className="text-cardtitle mb-3">いまの状態</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <Label>持ち主の会社</Label>
-                  <BranchCodeInput value={editForm.branch_code} onChange={(v) => setEditForm({ ...editForm, branch_code: v })} />
-                </div>
-                <div className="space-y-1">
-                  <Label>資産の区分</Label>
-                  <Select value={editForm.asset_class} onValueChange={(v) => setEditForm({ ...editForm, asset_class: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{ASSET_CLASS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label>資産コード</Label>
-                  <Input value={editForm.fixed_asset_code} onChange={(e) => setEditForm({ ...editForm, fixed_asset_code: e.target.value })} />
-                </div>
-                <div className="space-y-1">
-                  <Label>償却年数</Label>
-                  <Input type="number" min="0" value={editForm.depreciation_years} onChange={(e) => setEditForm({ ...editForm, depreciation_years: e.target.value })} />
-                </div>
-                <div className="space-y-1">
-                  <Label>購入年月</Label>
-                  <Input type="date" value={editForm.purchased_at} onChange={(e) => setEditForm({ ...editForm, purchased_at: e.target.value })} />
-                </div>
-                <div className="space-y-1">
-                  <Label>保証期間 (年)</Label>
-                  <Input type="number" min="0" value={editForm.warranty_years} onChange={(e) => setEditForm({ ...editForm, warranty_years: e.target.value })} />
-                </div>
                 <div className="space-y-1">
                   <Label>保管場所</Label>
                   <Select value={editForm.location_id || "none"} onValueChange={(v) => setEditForm({ ...editForm, location_id: v === "none" ? "" : v })}>
@@ -551,24 +526,6 @@ export default function EquipmentDetailPage() {
                   </Select>
                 </div>
               </div>
-            </div>
-            {/* 色選択 */}
-            <div className="border-t pt-4">
-              <p className="text-sm font-semibold mb-3">機材色</p>
-              <Select value={editForm.color_id || "none"} onValueChange={(v) => setEditForm({ ...editForm, color_id: v === "none" ? "" : v })}>
-                <SelectTrigger><SelectValue placeholder="なし（種別色）" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">なし（種別色）</SelectItem>
-                  {colors.map((c: any) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      <span className="flex items-center gap-2">
-                        <span className="inline-block w-3 h-3 rounded-full border border-border/40" style={{ background: c.color_hex }} />
-                        {c.name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             {/* ラック実装フィールド */}
@@ -620,12 +577,8 @@ export default function EquipmentDetailPage() {
               );
             })()}
 
-            <div className="space-y-1">
-              <Label>備考</Label>
-              <Input value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
-            </div>
-
-            {/* 貸出設定 */}
+            {/* 貸出設定は「設備／貸出」の選択と対になる情報なので、備考より上に置く
+                （備考のあとに新しいセクションが続くのは後付けの形跡そのものだった） */}
             <div className="border-t pt-4">
               <p className="text-sm font-semibold mb-3">貸出一覧設定</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -655,8 +608,79 @@ export default function EquipmentDetailPage() {
               </div>
             </div>
 
-            {saveError && (
-              <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">{saveError}</p>
+            {/* 備考は任意。ここから下は「月に一度も触らないもの」なので、
+                日常の項目を埋めきったこの位置に置く */}
+            <div className="space-y-1">
+              <Label>備考</Label>
+              <Input value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
+            </div>
+
+            {/* 資産・保証は日常では触らない（台帳・詳細も「資産管理は既定で畳む」方針）。
+                いまの状態・貸出設定より下にまとめる */}
+            <div className="border-t pt-4">
+              <p className="text-sm font-semibold mb-3">資産・保証</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label>持ち主の会社</Label>
+                  <BranchCodeInput value={editForm.branch_code} onChange={(v) => setEditForm({ ...editForm, branch_code: v })} />
+                </div>
+                <div className="space-y-1">
+                  <Label>資産の区分</Label>
+                  <Select value={editForm.asset_class} onValueChange={(v) => setEditForm({ ...editForm, asset_class: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{ASSET_CLASS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>資産コード</Label>
+                  <Input value={editForm.fixed_asset_code} onChange={(e) => setEditForm({ ...editForm, fixed_asset_code: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label>償却年数</Label>
+                  <Input type="number" min="0" value={editForm.depreciation_years} onChange={(e) => setEditForm({ ...editForm, depreciation_years: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label>購入年月</Label>
+                  <Input type="date" value={editForm.purchased_at} onChange={(e) => setEditForm({ ...editForm, purchased_at: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label>保証期間 (年)</Label>
+                  <Input type="number" min="0" value={editForm.warranty_years} onChange={(e) => setEditForm({ ...editForm, warranty_years: e.target.value })} />
+                </div>
+              </div>
+            </div>
+
+            {/* 色選択 */}
+            <div className="border-t pt-4">
+              <p className="text-sm font-semibold mb-3">機材色</p>
+              <Select value={editForm.color_id || "none"} onValueChange={(v) => setEditForm({ ...editForm, color_id: v === "none" ? "" : v })}>
+                <SelectTrigger><SelectValue placeholder="なし（種別色）" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">なし（種別色）</SelectItem>
+                  {colors.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      <span className="flex items-center gap-2">
+                        <span className="inline-block w-3 h-3 rounded-full border border-border/40" style={{ background: c.color_hex }} />
+                        {c.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 機材IDは**いちばん最後**。管理者にしか出ず、触ると採番規則が壊れる欄なので、
+                必須の拠点・種別・商品名より上に置かない（危険であることを示す琥珀色はそのまま） */}
+            {isAdmin && (
+              <div className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <Label className="text-amber-800 font-semibold">機材ID (管理者のみ変更可)</Label>
+                <Input
+                  value={editForm.eq_code || ""}
+                  onChange={(e) => setEditForm({ ...editForm, eq_code: e.target.value })}
+                  className=""
+                  placeholder="Y-V-000001"
+                />
+              </div>
             )}
           </div>
       </FormDialog>
@@ -673,7 +697,8 @@ export default function EquipmentDetailPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
-                <Label>拠点 *</Label>
+                {/* 設定＞保管場所の「拠点」(場所の分類マスタ) とは別物。ここは機材IDの先頭に入るコード */}
+                <Label>拠点 * (機材IDの先頭)</Label>
                 <Select value={newChildForm.location_code} onValueChange={(v) => setNewChildForm({ ...newChildForm, location_code: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{LOC_CODES.map((l) => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
