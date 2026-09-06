@@ -2278,6 +2278,31 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#590**（`fix(client,daily,equipment,awards,shared): メニュー名とページ見出しの食い違い10件を修正`・2026-09-06）—
+  「メニューバーと実際のページのヘッダーのアプリ名が異なる箇所がある」というご指摘を受け、
+  6アプリ（client / client-daily / client-equipment / client-techops / client-live / client-awards）
+  をマルチエージェントで全件調査し、見つかった食い違い10件（凍結済み `client-awards` の1件を
+  含めると11件）を修正した回。案件管理の利用マニュアルの見出しが入口によらず常に「案件管理」
+  固定だった不具合・設定アプリの上辺バーが「設定／設定」と重複表示していた不具合を含む。
+  作成から `main` の並行マージ（PR #589）による本物のマージコンフリクト（
+  `client/src/contexts/tasks/pages/TaskDashboardPage.tsx`。タイトル修正と main側の
+  「未完了」→「未対応」表記統一が同じ行でぶつかった）を検出・解消してpush。
+  CI green（`checks` 11:41:47Z / `build` 11:42:22Z）から**約5分後**に terai-takehiro 本人が
+  手動マージ。⚠️ **`chatgpt-codex-connector` の Code Review は usage limits で一度も
+  実行されなかった**（PRコメントで明示: "You have reached your Codex usage limits for
+  code reviews"）。**Security Review は実行され 0 件**（`get_reviews`・`get_review_comments`
+  とも0件で確認。`npm run reviews:debt` は今回も401で使えず GitHub MCP で直接確認した）。
+  #578・#583・#585 と同型——「指摘なし」に見えるのは Security 観点だけで、
+  **コード品質観点のレビューは一度も届いていない**。表に移す指摘はない（レビュー自体が
+  届いていないため）。検証: `client`/`client-daily`/`client-equipment`/`client-awards`/`server`
+  の型チェック、`npm run lint`（0 errors・warning数は着手前と同数）、`shared` の Vitest は
+  PR #590 が `main`（`bd8d605`）を取り込んだ自分の頭で全通過（当時148ファイル/1998件）。
+  ⚠️ **この件数は以後の `main` の進み方に依存する**（この棚卸し行自体をレビューした
+  Codex の指摘どおり、この行を書いた時点の `main` 頭 `96dcb01` で走らせると
+  148ファイル/2017件になる——19件は #590 のマージ後に他PRが足したもの）。
+  実ブラウザでのPC/スマホ確認・`npm run build`・権限別403の画面確認・実DB確認は
+  いずれも未実施（PR本文に明記済み）。
+
 - **#585**（`fix(equipment): メンテナンスの機材選びに付属品を出し、保管場所と台帳の崩れを直した`・2026-09-06）—
   ①メンテナンスの「記録を追加」で選べる機材が**親機材だけ**で、カメラセットの中のレンズなどの
   付属品（子機材）が候補に1件も出なかったのを `include_children=1` で出るようにし、候補と一覧の
