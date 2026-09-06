@@ -2278,6 +2278,24 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#601**（`docs(mcp): PR #598 の棚卸しと、検証コネクタの繋ぎ方（キーが未設定のときを含む）`・2026-09-06）—
+  ⚠️ **📝 Code Review は Codex の usage limits で一度も実行されず**、
+  🔒 Security Review だけが `d2defc9` で完了し **findings なし**。
+  `get_reviews`・`get_review_comments` とも0件を API で確認。
+  **#590・#595・#596・#598 に続いて5本連続で Code Review が届いていない。**
+  0件だったことは[PR のコメント](https://github.com/terai-takehiro/gmo-onair/pull/601#issuecomment-5560003592)にも残した。
+  **表に移す指摘はない**（レビュー自体が届いていないため）。
+  差分は `docs/` 3ファイルと `docker-compose.yml` のコメント2行のみでコードの変更なし。
+  CI green（`build` 14:45:14Z / `checks` 14:47:34Z）から**約10分後**に terai-takehiro 本人がマージ。
+  **この PR で直したもの**（自分で見つけたもの。レビューではない）:
+  ①#598 で書いた検証コネクタの手順が**実際には繋げない**（`MCP_API_KEY_DEV` は
+  `.env.example` でコメントアウトされ `docker-compose.yml` は未設定なら空で渡すため、
+  `?key=` は 401 になる）→ **OAuth を推奨に格上げ**し、キーの有無を値を出さずに確かめる手順を追記。
+  ②**BOX のフォルダは DB のように分かれない** — `BOX_MAIL_INTAKE_FOLDER_ID_DEV` 未設定だと
+  **検証の試験用 PDF が本番のフォルダに混ざる**ことを、繋ぎ方を読む場所に明記。
+  ③`docker-compose.yml` の「migration 280」を、番号衝突で改番した実際の番号（281）に修正。
+
+
 - **#598**（`fix(skills,server): メール仕分けの枠が GitHub 通知に食い潰される問題と、本番・検証の MCP が同名を名乗る問題を直した`・2026-09-06）—
   ⚠️ **📝 Code Review は Codex の usage limits で一度も実行されず**
   （「You have reached your Codex usage limits for code reviews」と明示的に返答）、
