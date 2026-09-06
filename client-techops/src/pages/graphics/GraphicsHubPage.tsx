@@ -330,7 +330,7 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
             onOpen={openEdit}
             onToggleConfirmed={(p) => void toggleRowConfirmed(p)}
             onResync={(p) => void handleResync(p)}
-            onDragEnd={(e) => void handleDragEnd(e)}
+            onDragEnd={(e) => void handleDragEnd(e)} projectId={bundle.project.id} followScriptEnabled={bundle.project.followScript} onFollowScriptSaved={() => void reload()}
           />
 
           <div className="mt-4">

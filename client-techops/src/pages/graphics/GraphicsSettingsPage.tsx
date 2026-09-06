@@ -8,7 +8,7 @@
 // `InteractiveLinkContent`）は**一切変えていない**——置き場所だけを移した。
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { AlertCircle, ArrowRightLeft, ChevronLeft, Loader2, Type } from 'lucide-react';
+import { AlertCircle, ArrowRightLeft, ChevronLeft, Copy, Loader2, Type } from 'lucide-react';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
 import {
   Tabs, TabsList, TabsTrigger, TabsContent,
@@ -22,6 +22,7 @@ import ThemePicker from './ThemePicker';
 import SlotExitRulesEditor from './SlotExitRulesEditor';
 import { RankingSoundsContent } from './RankingSoundsPanel';
 import { InteractiveLinkContent } from './InteractiveLinkSettingsPanel';
+import CopyTemplatesDialog from './CopyTemplatesDialog';
 
 const TABS = ['output', 'look', 'rules', 'link'] as const;
 type TabKey = (typeof TABS)[number];
@@ -77,6 +78,7 @@ function SettingsContent({ ownerKey, owner, bundle, reload }: {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = isTabKey(searchParams.get('tab')) ? (searchParams.get('tab') as TabKey) : 'output';
   const [tab, setTab] = useState<TabKey>(initialTab);
+  const [copyOpen, setCopyOpen] = useState(false);
 
   const changeTab = (next: string) => {
     setTab(next as TabKey);
@@ -132,6 +134,19 @@ function SettingsContent({ ownerKey, owner, bundle, reload }: {
             </Link>
             {' '}から。
           </p>
+          <section className="mt-3 rounded-card border border-border bg-card p-4">
+            <h2 className="text-cardtitle">前の番組からコピー</h2>
+            <p className="mt-1 text-note text-muted-foreground">
+              別の番組・案件のテロップCGから、テンプレート一式をこのプロジェクトへコピーします。このプロジェクトの既存テンプレートは残ったまま追加されます。
+            </p>
+            <button
+              type="button"
+              onClick={() => setCopyOpen(true)}
+              className="mt-3 inline-flex min-h-tap items-center gap-1.5 rounded-control-md border border-border bg-card px-3 text-sub font-bold hover:bg-surface-subtle"
+            >
+              <Copy className="h-4 w-4" aria-hidden="true" />前の番組からコピー
+            </button>
+          </section>
         </TabsContent>
 
         <TabsContent value="rules" className="mt-4">
@@ -167,6 +182,13 @@ function SettingsContent({ ownerKey, owner, bundle, reload }: {
           )}
         </TabsContent>
       </Tabs>
+
+      <CopyTemplatesDialog
+        projectId={bundle.project.id}
+        open={copyOpen}
+        onOpenChange={setCopyOpen}
+        onCopied={reload}
+      />
     </div>
   );
 }

@@ -45,6 +45,7 @@ import { useAutoOutHighlight } from './useAutoOutHighlight';
 import { useConsoleKeyboard } from './useConsoleKeyboard';
 import { useConsoleContinue } from './useConsoleContinue';
 import { useConsoleTake } from './useConsoleTake';
+import { useScriptFollow } from './useScriptFollow';
 import { isPageContentEmpty } from './pageFields';
 import { resolveTelopTheme } from './telopTheme';
 import { ConsolePreview } from './ConsolePreview';
@@ -128,6 +129,8 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
   const [, forceTick] = useState(0);
   // ページ一覧＋ cg:sync のページ差分上書き（±ボタンなど）。詳細は useConsolePages.ts
   const { pages, callOrder, pageById, applyPageSync } = useConsolePages(bundle);
+  // 段E①「台本に追従」。ONの番組では進行台本の現在行が進むと NEXT だけが自動で移る（詳細は useScriptFollow.ts）
+  useScriptFollow({ enabled: bundle.project.followScript, pages, onAdvanceNext: setPvwPageId });
   const pvwPage = pvwPageId ? pageById.get(pvwPageId) ?? null : null;
 
   useEffect(() => {

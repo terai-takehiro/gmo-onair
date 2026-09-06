@@ -1,9 +1,9 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { execute, queryOne } from '../../../shared/db/connection';
+import { execute, queryOne, withTransaction } from '../../../shared/db/connection';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import {
-  fetchProject, fetchTemplates, mapTemplate,
+  fetchProject, fetchTemplates, mapTemplate, GraphicsTemplate,
   MAX_TEMPLATE_LAYERS, PART_KEYS, SLOTS, Slot,
 } from '../store';
 
@@ -144,6 +144,59 @@ router.get('/projects/:id/templates', wrap(async (req, res) => {
 
   const templates = await fetchTemplates(projectId);
   res.json({ success: true, data: templates });
+}));
+
+// ── 前の番組からコピー（段E・④設定「見た目」タブ） ───────────────────────
+// docs/design/v4/graphics-redesign.md §6「テンプレート」（前の番組からコピー）。
+// 別の CG プロジェクト（＝別の番組・案件）のテンプレート一式を、このプロジェクトへ
+// **新しい行として複製する**（コピー元は一切変更しない・このプロジェクトの既存
+// テンプレートも残ったまま追加されるだけ——上書きではない）。新しい行を作るので
+// editor 以上（作成 POST と同じ権限）。
+router.post('/projects/:id/templates/copy-from', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
+  const projectId = parseInt(req.params.id as string);
+  const project = projectId && !isNaN(projectId) ? await fetchProject(projectId) : null;
+  if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
+
+  const { sourceProjectId } = (req.body ?? {}) as { sourceProjectId?: number };
+  if (typeof sourceProjectId !== 'number' || !Number.isFinite(sourceProjectId)) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'sourceProjectId は数値です');
+  }
+  // 自分自身からのコピーは意味が無い（既存テンプレートが二重化されるだけ）——誤操作防止
+  if (sourceProjectId === projectId) {
+    throw new AppError(400, 'VALIDATION_ERROR', '自分自身のプロジェクトからはコピーできません');
+  }
+  const sourceProject = await fetchProject(sourceProjectId);
+  if (!sourceProject) throw new AppError(404, 'NOT_FOUND', 'コピー元のCGプロジェクトが見つかりません');
+
+  const sourceTemplates = await fetchTemplates(sourceProjectId);
+  if (sourceTemplates.length === 0) {
+    // コピー元にテンプレートが無いのは正常な状態——エラーにしない
+    res.json({ success: true, data: { created: [] } });
+    return;
+  }
+
+  // 複製は1トランザクションにまとめる——途中で失敗して一部だけ複製された状態を残さない
+  // （qsheet-import.service.ts の commitQsheetImport と同じ理由）
+  const created = await withTransaction(async (tx) => {
+    const out: GraphicsTemplate[] = [];
+    for (const t of sourceTemplates) {
+      const row = await tx.queryOne(
+        `INSERT INTO graphics_templates
+           (project_id, part_key, slot, name, description, base_fields, public_fields, layers)
+         VALUES (?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb)
+         RETURNING *`,
+        [
+          projectId, t.partKey, t.slot, t.name, t.description,
+          JSON.stringify(t.baseFields), JSON.stringify(t.publicFields),
+          t.layers ? JSON.stringify(t.layers) : null,
+        ]
+      );
+      if (row) out.push(mapTemplate(row));
+    }
+    return out;
+  });
+
+  res.json({ success: true, data: { created } });
 }));
 
 // ── 部分更新 ─────────────────────────────────────────────────────

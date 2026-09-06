@@ -84,6 +84,12 @@ export interface GraphicsProject {
   slotExitRules: SlotExitRule[];
   /** マスク済みビュー（`apiKeySecret` を含まない）。未設定は null */
   interactiveLink: InteractiveLinkView | null;
+  /**
+   * 台本に追従（段E・migration 281）。既定 false。ON の番組は進行画面の現在行に
+   * 合わせて本番モードの NEXT が自動で移る（TAKEは対象外——常に人が押す。
+   * docs/design/v4/graphics-redesign.md §9 3番・§12-2）。
+   */
+  followScript: boolean;
   createdAt: unknown;
   updatedAt: unknown;
 }
@@ -238,6 +244,7 @@ export function mapProject(r: Row): GraphicsProject {
     theme: r.theme as string,
     slotExitRules: normalizeSlotExitRules(r.slot_exit_rules),
     interactiveLink: toInteractiveLinkView(normalizeInteractiveLink(r.interactive_link)),
+    followScript: !!r.follow_script,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };

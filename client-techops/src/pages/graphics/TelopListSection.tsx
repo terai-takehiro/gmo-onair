@@ -24,13 +24,14 @@ import { isPageContentEmpty } from './pageFields';
 import { groupPagesBySection } from './telopGrouping';
 import TelopThumb from './TelopThumb';
 import type { resolveTelopTheme } from './telopTheme';
+import FollowScriptToggle from './FollowScriptToggle';
 
 export type StatusFilter = 'all' | 'ok' | 'un' | 'drift';
 
 export default function TelopListSection({
   pages, visiblePages, filter, onFilterChange, confirmedCount, unconfirmedCount,
   reorderable, theme, selectedPageId, togglingId, driftPageIds, onOpen, onToggleConfirmed,
-  onResync, onDragEnd,
+  onResync, onDragEnd, projectId, followScriptEnabled, onFollowScriptSaved,
 }: {
   /** 絞り込み前の全件（チップの件数・0件の理由分けに使う） */
   pages: GraphicsPageRow[];
@@ -50,6 +51,10 @@ export default function TelopListSection({
   /** 「台本と違います」の取り込み直しボタンが押されたときに呼ぶ（段C） */
   onResync: (page: GraphicsPageRow) => void;
   onDragEnd: (event: DragEndEvent) => void;
+  /** 「台本に追従」切替（段E）に渡す。状態帯の右端に置く（graphics-redesign.md §5） */
+  projectId: string;
+  followScriptEnabled: boolean;
+  onFollowScriptSaved: () => void;
 }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -72,6 +77,12 @@ export default function TelopListSection({
         <span className="text-note text-muted-foreground">
           {reorderable ? '行をつかんで並べ替え ・ 番号は固定' : '並べ替えは「全部」表示のときだけ'}
         </span>
+        <FollowScriptToggle
+          projectId={projectId}
+          enabled={followScriptEnabled}
+          visible={pages.some((p) => p.qsheetDocId)}
+          onSaved={onFollowScriptSaved}
+        />
       </div>
 
       <section className="mt-4 overflow-hidden rounded-card border border-border bg-card">

@@ -108,6 +108,9 @@ export interface GraphicsProjectRow {
   theme: string;
   /** 既定は空配列（ルールはオプトイン） */
   slotExitRules: SlotExitRule[];
+  /** 台本に追従（段E・migration 281）。既定 false。ON で進行画面の現在行に本番モードの
+   *  NEXT が自動で移る（TAKEは対象外——常に人が押す。graphics-redesign.md §9 3番・§12-2） */
+  followScript: boolean;
 }
 
 /** 組み合わせページの1レイヤー（段6-2 本格拡張）。部品は自分の既定の位置のまま重ねて描かれる */
@@ -189,10 +192,10 @@ export async function getGraphicsProject(projectId: string): Promise<GraphicsBun
   return data.data;
 }
 
-/** プロジェクトの部分更新（theme / name / slotExitRules）。更新後の一式（bundle）が返る */
+/** プロジェクトの部分更新（theme / name / slotExitRules / followScript）。更新後の一式（bundle）が返る */
 export async function updateGraphicsProject(
   projectId: string | number,
-  input: { theme?: GraphicsThemeKey; name?: string; slotExitRules?: SlotExitRule[] },
+  input: { theme?: GraphicsThemeKey; name?: string; slotExitRules?: SlotExitRule[]; followScript?: boolean },
 ): Promise<GraphicsBundle> {
   const { data } = await api.put(`/graphics/projects/${encodeURIComponent(String(projectId))}`, input);
   return data.data;
@@ -390,3 +393,7 @@ export async function deleteGraphicsRequest(requestId: string): Promise<void> {
 // `GraphicsTemplateRow`・`GraphicsTemplateLayer`・`fetchGraphicsTemplates` 等は
 // `graphicsTemplateApi.ts` に切り出した（ファイルサイズ規律・400行。roster と同じ判断）。
 export * from './graphicsTemplateApi';
+
+// ── 前の番組からコピー（段E）。`GraphicsProjectSummary`・`fetchGraphicsProjectsList`・
+// `copyGraphicsTemplatesFrom` は `graphicsProjectListApi.ts` へ（ファイルサイズ規律・400行）。
+export * from './graphicsProjectListApi';
