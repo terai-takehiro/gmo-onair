@@ -10,7 +10,7 @@
 //
 // マウント時の owner 解決・「取得または作成」は `useLiveProgram`
 // （ダッシュボード・タイマー管理と共通）。
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, Save, AlertCircle, Timer, Loader2 } from 'lucide-react';
@@ -118,6 +118,14 @@ function ProgramSettingsContent({ owner, programId }: {
    * 保存で送る中身も今までどおり全系統をそのまま送る — 出し分けは描画だけ。
    */
   const [sources, setSources] = useState<Set<SourceKey>>(new Set());
+  // **このprogramIdぶん、フォームへ流し込み終えたか。** `['program', programId]` は
+  // ダッシュボード（`LiveDashboardPage.tsx`）と同じキャッシュ鍵で、`refetchOnWindowFocus`
+  // の既定・保存成功後の `invalidateQueries` で `program` の参照はこの画面を開いたまま
+  // 何度も変わりうる。ここに絞りが無いと、そのたびに下の effect が走って
+  // **入力中の内容がサーバー値で黙って上書きされる**（`useProjectForm.ts` の
+  // `keepDirtyValues` と同じ問題。ここは react-hook-form を使っていないので、
+  // 素朴に「このIDの分は最初の1回しか流し込まない」で防ぐ）。
+  const syncedProgramIdRef = useRef<string | null>(null);
 
   const { data: program, isLoading } = useQuery({
     queryKey: ['program', programId],
@@ -126,9 +134,9 @@ function ProgramSettingsContent({ owner, programId }: {
     staleTime: 30_000,
   });
 
-  // Populate form when data loads
+  // Populate form when data loads（このprogramIdの分、まだ流し込んでいなければ1回だけ）
   useEffect(() => {
-    if (!program) return;
+    if (!program || syncedProgramIdRef.current === programId) return;
     setName(program.name);
     setJstreamLpid(program.jstream_lpid ?? '');
     setYoutubeUrls(program.youtube_urls.length > 0 ? program.youtube_urls : [{ label: '', url: '' }]);
@@ -142,7 +150,8 @@ function ProgramSettingsContent({ owner, programId }: {
     if (program.zoom_meeting_id || program.zoom_webinar_id) on.add('zoom');
     if (program.teams_meeting_url) on.add('teams');
     setSources(on);
-  }, [program]);
+    syncedProgramIdRef.current = programId;
+  }, [program, programId]);
 
   const toggleSource = (key: SourceKey) => setSources((prev) => {
     const next = new Set(prev);

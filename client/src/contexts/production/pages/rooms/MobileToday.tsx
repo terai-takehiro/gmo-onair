@@ -329,7 +329,7 @@ export function MobileToday() {
         onPick={setNewKind}
       />
 
-      <StudioBookingDialog
+      <StudioBookingDialog key={(editBooking as { id?: string } | null)?.id ?? 'new'} // 対象ごとに作り直す
         open={newKind === 'room' || !!editBooking}
         onOpenChange={(v) => { if (!v) { setNewKind(null); setEditBooking(null); } }}
         locations={locations.data ?? []}
