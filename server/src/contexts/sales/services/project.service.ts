@@ -848,8 +848,9 @@ export class ProjectService {
 
     // 個別フィルタ
     if (filter.search) {
-      where += ` AND (p.name ILIKE ? OR p.code ILIKE ? OR p.gls_number ILIKE ? OR c.name ILIKE ? OR c.short_name ILIKE ?)`;
-      params.push(`%${filter.search}%`, `%${filter.search}%`, `%${filter.search}%`, `%${filter.search}%`, `%${filter.search}%`);
+      where += ` AND (p.name ILIKE ? OR p.code ILIKE ? OR p.gls_number ILIKE ? OR c.name ILIKE ? OR c.short_name ILIKE ?
+                       OR EXISTS (SELECT 1 FROM project_numbers pn WHERE pn.project_id = p.id AND pn.number ILIKE ?))`;
+      params.push(`%${filter.search}%`, `%${filter.search}%`, `%${filter.search}%`, `%${filter.search}%`, `%${filter.search}%`, `%${filter.search}%`);
     }
     if (filter.assignedTo) {
       where += ` AND p.assigned_to = ?`;

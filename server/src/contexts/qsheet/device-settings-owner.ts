@@ -39,6 +39,7 @@ export type Owner =
 /**
  * `:ownerKey` と `?date=` を `Owner` に直す。
  *   - `projects.id` または `projects.gls_number` に一致するもの → `project`
+ *     （`project_numbers` に残る旧番号・改番前の番号でも一致する）
  *   - `qsheet_programs.id` に一致するもの → `program`（マニュアル番組。2026-08-22 追加）
  *   - それ以外（将来の `doc_no`）→ 今はまだ解決できないので `null`
  * 見つからない・見えない → **null を返す。呼び出し側は 404**（403 にしない。存在秘匿）。
@@ -52,7 +53,10 @@ export async function resolveOwner(
   if (!key) return null;
 
   const project = await queryOne(
-    `SELECT id FROM projects WHERE (id = $1 OR gls_number = $1) AND deleted_at IS NULL`,
+    `SELECT id FROM projects
+      WHERE deleted_at IS NULL
+        AND (id = $1 OR gls_number = $1
+             OR id = (SELECT project_id FROM project_numbers WHERE number = $1))`,
     [key]
   );
   if (project) {
