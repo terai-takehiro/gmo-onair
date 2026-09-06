@@ -89,7 +89,10 @@ function buildFeatures(): Feature[] {
     }
   }
   for (const a of APPS) {
-    if (a.comingSoon || a.hidden || a.key === 'home') continue;
+    // `frozen` (廃止済みの awards を含む) は `visibleApps()` の既定と同じく検索からも外す
+    // （レビュー指摘・段F）。URL を直接知っていないと辿り着けないアプリを検索に出すと、
+    // 押した先が黙ってホームに戻るだけの死んだ結果になる。
+    if (a.comingSoon || a.hidden || a.frozen || a.key === 'home') continue;
     push({
       label: a.label,
       sub: a.description,
