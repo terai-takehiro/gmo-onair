@@ -193,7 +193,7 @@ ONAiR から発行する**（§9-M）。**売上・仕入は必ず回に紐づ�
 | 概念 | 画面に出す語（候補） | 理由 |
 |---|---|---|
 | GJV／GSS／GMO の区分 | **計上会社**（副題「売上・費用をどの会社の帳簿に載せるか」） | 会計の標準語・4文字。「会社」だけだと取引先（`companies`）と衝突する |
-| 各社の呼び名 | コンテンツスタジオ／サムライスタジオ／**グループ本体（コスト）** | 12文字以内。正式名は初出で1度だけ |
+| 各社の呼び名 | コンテンツスタジオ／サムライスタジオ／**グループ本体** | 12文字以内。正式名は初出で1度だけ。「（コスト）」は付けない —— `legal_entities.short_name`（migration 280 で seed 済み）が既に「グループ本体」で、設定「会社と切替」画面もこれを表示している。実装（2026-09-06・案件一覧/詳細/台帳の計上会社表示）でこの食い違いが見つかり、**既に出ている値に合わせた**（同じ概念が画面によって違う文字列で出るのを避ける） |
 | 案件の番号 | **案件番号**（旧「GLS番号」。説明文「10月から GJV／GSS／GMO で始まる番号。それより前の案件は GLS のまま」） | GLS は特定の社名の略。帳簿・請求に出る語なので**旧番号の表示では GLS を消さない** |
 | 旧番号 | **旧番号**（`GLS-A008` のように併記） | 改番後も経理・取引先とのやり取りに残る |
 
@@ -507,7 +507,7 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
 | 段 | 中身 | 10/1 に要るか | 目安 |
 |---|---|---|---|
 | **P0 土台** | `legal_entities` / `org_transition` / `project_numbers` / 各表の `entity_code`（DEFAULT 'GSS' で埋め戻し）・会社マスター画面・切替状態・PDF とメールの発行者差し替え・取引先の名寄せと自社行 | **要る（9月中旬）** | 3〜4 PR |
-| **P1 番号** | prefix 採番・`resolveEntity`・先取り（`preparing` で導出規則どおりに採る）・受注時の第1回自動作成（売上は必ず回に）・改番 API＋MCP・追随（回コード／Qシート／BOX／未請求の請求キー）・旧番号での検索と `:ownerKey`・取込の正規表現・通知ジョブ・移行センターの対象一覧 | **要る（9月下旬・`preparing` へ）** | 5〜6 PR |
+| **P1 番号** ⚠️ **一部実装済み（2026-09-06）** | prefix 採番・`resolveEntity`・先取り（`preparing` で導出規則どおりに採る）・受注時の第1回自動作成（売上は必ず回に）・改番 API＋MCP・追随（回コード／Qシート／BOX／未請求の請求キー）・旧番号での検索と `:ownerKey`・取込の正規表現・通知ジョブ・移行センターの対象一覧 | **要る（9月下旬・`preparing` へ）** | 5〜6 PR |
 | **P2 財務の2社＋社内取引** | 8画面のセグメント（URL）・集計／締め／Excel／MCP の `entity_code`・月次予算と `money_rules` の会社化・請求書番号の系列・**社内取引**（`intercompany_links`・仕入タブの入口・案件の粗利2通り） | 10月中旬まで（最初の GJV 案件の請求が10月下旬） | 5 PR |
 | **P3 GMO コスト（最小案）** | `kind='cost_center'` の閉じ方・「予算と実績」タブ・コスト側ダッシュボード | 10月中 | 2〜3 PR |
 | **P4 仕上げ** | `done` 状態・旧経路の削除・`entity_scope` 権限・連結（要るなら）・文書と用語の更新（`CLAUDE.md` の公理・`wording.md`・`guide/words.md`・`mcp-server.md`） | 後 | 2〜3 PR |
@@ -516,6 +516,30 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
 - 各 PR は `docs/changelog.d/` に1つ・PR 後は `pr-watch`（既存の決めごと）
 - **自動テスト**: 採番・改番・導出を `shared/tests/` に足す（いま採番の直接のテストは 0 本）。
   最低: 導出規則の表・prefix 採番の一意性・改番の追随範囲（請求済みの請求キーが動かない）・旧番号検索
+
+> **P1 実装結果（マルチエージェント・2026-09-06）**: `resolveEntity`／新方式の採番
+> （`generateProjectNumber`）／改番（`renumberProject`・`RenumberPreview`／`RenumberResult`）を
+> `server/src/contexts/sales/services/entity-resolution.service.ts` に実装し、`issueGls`／
+> `peekGls`（発番・プレビュー）と `changeStage` の受注時第1回自動生成（単発 A への拡大は
+> `org_transition.state !== 'off'` のときだけ）に配線した。改番の `HTTPルート`
+> （`GET /:id/renumber-preview`・`POST /:id/renumber`）と MCP ツール `renumber_project`
+> （`issue_gls` と同じ confirm 2段階）も実装し、ついでに `issue_gls` の説明文に残っていた
+> 「発番で口頭決定に自動昇格する」という**2026-09-02 に撤去済みの挙動の記述**を削除した。
+> `project_numbers` を見る旧番号解決を `:ownerKey`（`device-settings-owner.ts`）・グラフィックスの
+> 案件検索・案件一覧の検索・全体検索・決算取込／X-point 取込の照合に配線し、
+> `kessan-import.service.ts` のトークン正規表現を `GJV-`/`GSS-`/`GMO-` にも広げた
+> （副産物として、新形式トークンでも起きていたであろう3文字決め打ちスライスのバグ
+> `parseGls` を同時に直した）。案件一覧・詳細・台帳に計上会社バッジ／列を追加した。
+> 検証: `server`/`client` の型チェック、`shared` の Vitest 2004件、検証DBを作り直しての
+> migration 001b〜283 通し適用、実データに近いスモークテスト（`resolveEntity` の分岐・
+> 改番の履歴と請求キーの発行済みガード・旧番号での検索・受注時の回自動生成の
+> off/preparing差異と冪等性を実際にDBへ通して確認）。
+>
+> **まだのもの（次段）**: 通知ジョブ・移行センターの画面（対象一覧はまだ専用の一覧化なし）・
+> `create_studio_booking` の番号指定・`client-techops` の旧番号検索・
+> 財務系 MCP ツールへの `entity_code` フィルタ（`list_revenues`/`list_purchases`/`list_sga`/
+> `get_monthly_pl`/`get_monthly_budget`/`upsert_monthly_budget` と `finance/list-query.ts`。
+> 本来 P2「財務の2社」の仕事なので、P1 の「先出し」一覧からは外してよいと判断した）。
 
 ---
 
@@ -666,4 +690,10 @@ PDF の発行者ブロックの文字列が今と同一（切替日前なので�
   280・281スキーマ・legal-entity/org-transition サービスとAPI）は直接実装し、残る3本
   （entity_code配線とNOT NULL化・PDF/通知の発行者切替・設定画面）を並列worktreeで実装、
   マージして検証（型チェック・Vitest・検証DB作り直しでの移行通し適用・各種lint）まで実施。
+- 2026-09-06（同日・6回目）: **P1（§6）の主要部分をマルチエージェントで実装した。**
+  核（`resolveEntity`・新方式の採番・改番・受注時の回自動生成の拡大）は直接実装し、
+  残る3本（改番API/MCP・旧番号での検索と取込正規表現の拡張・案件一覧/詳細/台帳の
+  計上会社表示）を並列worktreeで実装、マージして検証（型チェック・Vitest・検証DB
+  作り直しでの移行通し適用・4系統を通しで動かす統合スモークテスト）まで実施。
+  詳細と残作業は§6の実装結果を参照。
   実装結果と計画からの差分は§13の追記を参照。
