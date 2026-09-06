@@ -184,7 +184,7 @@ export function useLedgerGrid({
         const key = shown[anchor.col + dc];
         if (!key) return;                      // 同上
         if (!isEditable(key)) {
-          rejected.push({ name: row.name, col: key, raw, why: 'この列は直せません（読むだけの列です）' });
+          rejected.push({ name: row.name, col: key, raw, why: 'この列は編集できません（読むだけの列です）' });
           return;
         }
         /*
@@ -198,7 +198,7 @@ export function useLedgerGrid({
           rejected.push({
             name: row.name, col: key, raw,
             why: lookupsFailed[nameCol]
-              ? '候補を読み込めませんでした（帯の「やり直す」を押してから貼り直してください）'
+              ? '候補を読み込めませんでした（帯の「再試行」を押してから貼り直してください）'
               : '候補を読み込んでいます（少し待ってから貼り直してください）',
           });
           return;
@@ -250,7 +250,7 @@ export function useLedgerGrid({
       onDone();
       notifySuccess(`${res.rows} 件（${res.cells} か所）を更新しました`);
     },
-    onError: (e) => notifyApiError('直せませんでした', e),
+    onError: (e) => notifyApiError('編集できませんでした', e),
   });
 
   /** その場で1つ直す。**貼り付けと同じ口・同じ検査**を通す */
@@ -259,14 +259,14 @@ export function useLedgerGrid({
     const nameCol = col === 'assigned_to_name' ? 'users'
       : col === 'customer_name' ? 'customers' : null;
     if (nameCol && !lookupsReady[nameCol]) {
-      notifyApiError('まだ直せません', new Error(lookupsFailed[nameCol]
-        ? '候補を読み込めませんでした。帯の「やり直す」を押してからもう一度お試しください'
+      notifyApiError('まだ編集できません', new Error(lookupsFailed[nameCol]
+        ? '候補を読み込めませんでした。帯の「再試行」を押してからもう一度お試しください'
         : '候補を読み込んでいます。少し待ってからやり直してください'));
       setEditing(null);
       return;
     }
     const r = parseCell(col, raw, ctx);
-    if (!r.ok) { notifyApiError('直せませんでした', new Error(r.why)); return; }
+    if (!r.ok) { notifyApiError('編集できませんでした', new Error(r.why)); return; }
     const from = cellText(col, row) ?? '';
     if (from === r.display) { setEditing(null); return; }   // 変わっていなければ何もしない
     write.mutate([{ id: row.id, name: row.name, col, from, to: r.display, set: r.set }]);

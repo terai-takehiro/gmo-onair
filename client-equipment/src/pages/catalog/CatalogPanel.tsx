@@ -182,7 +182,7 @@ export function CatalogPanel() {
   const remove = useMutation({
     mutationFn: (it: SupplyItem) => api.delete(`${CONFIG_BY_SOURCE[it.source].endpoint}/${it.id}`),
     onSuccess: () => { invalidate(); notifySuccess('品目を削除しました'); },
-    onError: (e) => notifyApiError('消せませんでした', e),
+    onError: (e) => notifyApiError('削除できませんでした', e),
   });
 
   const onDelete = async (it: SupplyItem) => {
@@ -294,7 +294,7 @@ export function CatalogPanel() {
             {manufacturers.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        <SearchField value={search} onChange={setSearch} placeholder="商品名・型名・備考で探す" />
+        <SearchField value={search} onChange={setSearch} placeholder="商品名・型名・備考で検索" />
       </div>
 
       {failed ? (

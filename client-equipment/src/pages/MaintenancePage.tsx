@@ -183,7 +183,7 @@ export default function MaintenancePage() {
                       <SelectItem value="reported">報告済</SelectItem>
                       <SelectItem value="in_progress">対応中</SelectItem>
                       <SelectItem value="completed">完了</SelectItem>
-                      <SelectItem value="cancelled">取りやめ</SelectItem>
+                      <SelectItem value="cancelled">中止</SelectItem>
                     </SelectContent>
                   </Select>
                 )}

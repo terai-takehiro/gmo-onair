@@ -181,14 +181,14 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
       <div className="grid grid-cols-3 gap-2">
         <Count label="確認できた" n={done.length} tone="ok" />
         <Count label="見つからない" n={missing.length} tone={missing.length > 0 ? 'ng' : 'plain'} />
-        <Count label="のこり" n={rest.length} tone="plain" />
+        <Count label="未確認" n={rest.length} tone="plain" />
       </div>
 
       {/* 終わった棚卸しは**読むだけ**。理由と直し方を出す（PC 側と同じ判断） */}
       {closed && (
         <p className="rounded-note border border-border bg-muted px-3.5 py-3 text-note text-secondary-foreground">
           <strong className="font-bold">この棚卸しは終わっています。</strong>
-          確認の記録はできません。直すときは PC の棚卸し画面で「もう一度開く」を押してください。
+          確認の記録はできません。直すときは PC の棚卸し画面で「再開する」を押してください。
         </p>
       )}
 
@@ -247,7 +247,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
       <FilterChips
         label="絞り込み"
         items={[
-          { key: 'rest', label: 'のこり', count: rest.length },
+          { key: 'rest', label: '未確認', count: rest.length },
           { key: 'done', label: '確認できた', count: done.length },
           { key: 'missing', label: '見つからない', count: missing.length },
         ]}
@@ -258,8 +258,8 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
       {shown.length === 0 ? (
         <EmptyState
           icon={<PackageSearch className="h-6 w-6" aria-hidden="true" />}
-          title={chip === 'rest' ? 'のこりはありません' : chip === 'done' ? 'まだ1つも確認していません' : '見つからないものはありません'}
-          description={chip === 'rest' ? '「終わりにする」は PC の棚卸し画面から行います。' : undefined}
+          title={chip === 'rest' ? '未確認はありません' : chip === 'done' ? 'まだ1つも確認していません' : '見つからないものはありません'}
+          description={chip === 'rest' ? '「完了する」は PC の棚卸し画面から行います。' : undefined}
         />
       ) : (
         <ul className="flex flex-col gap-2">
@@ -301,7 +301,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
         貸出は相手・用途・期日を決める作業で、
         <strong className="font-bold">2回押すと2本できてしまう</strong>ので端末に溜められません
         （PC の「貸出・返却」から行います）。
-        棚卸しを終わりにするのも PC からです。
+        棚卸しを完了するのも PC からです。
       </p>
 
       {detailQuery.isFetching && (

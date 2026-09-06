@@ -45,7 +45,7 @@ export function PreviewStep({ startedOn, onStartedOn, template, templateName }: 
         </div>
         <p className="text-note min-w-0 flex-1 text-muted-foreground">
           {rows.length === 0 ? (
-            'ひな形を選んでいないので工程はまだありません。作ったあとに足せます。'
+            '工程テンプレートを選んでいないので工程はまだありません。作ったあとに足せます。'
           ) : startedOn ? (
             <>
               前の工程が終わったら次が始まる前提で日付を入れます。

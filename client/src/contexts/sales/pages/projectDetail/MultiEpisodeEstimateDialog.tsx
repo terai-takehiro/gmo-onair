@@ -52,7 +52,7 @@ export function MultiEpisodeEstimateDialog({
     })).data.data as Estimate,
     onSuccess: (created) => {
       qc.invalidateQueries({ queryKey: ['estimates', projectId] });
-      notifySuccess('見積をつくりました');
+      notifySuccess('見積を作成しました');
       onCreated(created);
     },
     onError: (e) => notifyApiError('見積をつくれませんでした', e, '選んだ回を確かめて、もう一度お試しください。'),
@@ -62,7 +62,7 @@ export function MultiEpisodeEstimateDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="まとめて見積をつくる"
+      title="まとめて見積を作成"
       sub="1日で複数本撮った日など、選んだ回をまとめて1本の見積にします。"
       footer={
         <FormDialogFooter>

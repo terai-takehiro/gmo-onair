@@ -55,9 +55,9 @@ export function TopicsSection({
     try {
       await addItem.mutateAsync({ reportId, item: { category: category || null, content, note: note || null } });
       setAdding(false);
-      notifySuccess('トピックを足しました');
+      notifySuccess('トピックを追加しました');
     } catch (e) {
-      notifyApiError('足せませんでした', e);
+      notifyApiError('追加できませんでした', e);
     }
   };
 
@@ -77,8 +77,8 @@ export function TopicsSection({
           className="border-0 bg-transparent"
           title="この週のトピックはまだありません"
           description={editable
-            ? '自動集計に出ない出来事（お客様の反応・現場で気づいたこと）をここに書きます。'
-            : 'この週は確定済みなので、これ以上は足せません。'}
+            ? '自動集計に出ない出来事（お客様の反応・現場で備考）をここに書きます。'
+            : 'この週は確定済みなので、これ以上は追加できません。'}
         />
       )}
 
@@ -100,7 +100,7 @@ export function TopicsSection({
         open={adding}
         onOpenChange={setAdding}
         title="トピックを追加"
-        sub="自動集計に出ない出来事（お客様の反応・現場で気づいたこと）を書きます"
+        sub="自動集計に出ない出来事（お客様の反応・現場で備考）を書きます"
         footer={(
           <FormDialogFooter>
             <Button variant="outline" className="min-h-tap" onClick={() => setAdding(false)}>キャンセル</Button>

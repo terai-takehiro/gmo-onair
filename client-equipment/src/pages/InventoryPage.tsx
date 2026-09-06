@@ -73,7 +73,7 @@ export default function InventoryPage() {
       qc.invalidateQueries({ queryKey: ['equipment-stats'] });
       notifySuccess('棚卸しを削除しました');
     },
-    onError: (e) => notifyApiError('消せませんでした', e),
+    onError: (e) => notifyApiError('削除できませんでした', e),
   });
 
   const onDelete = async (c: InventoryCheck) => {
@@ -103,7 +103,7 @@ export default function InventoryPage() {
         sub="保管場所ごとに ✓ を付けて回ります。下書き → 実施中 → 完了 で進みます"
         primaryAction={
           <Button type="button" onClick={() => { setForm({ title: '', check_date: today(), notes: '' }); setDialogOpen(true); }}>
-            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />棚卸しを作る
+            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />棚卸しを作成
           </Button>
         }
       />
@@ -115,7 +115,7 @@ export default function InventoryPage() {
       ) : checks.length === 0 ? (
         <EmptyState
           title="棚卸しがまだ1件もありません"
-          description="「棚卸しを作る」を押すと、いまの機材台帳からチェックリストが作られます。"
+          description="「棚卸しを作成」を押すと、いまの機材台帳からチェックリストが作られます。"
         />
       ) : isMobile ? (
         /*
@@ -165,9 +165,9 @@ export default function InventoryPage() {
       <FormDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        title="棚卸しを作る"
+        title="棚卸しを作成"
         // Enter で作れるようにする（繰り返し入力も確認も無い単純なフォーム）。
-        // **「作る」は `type="submit"` で `onClick` を持たない** — 両方あると二重送信になる。
+        // **「作成」は `type="submit"` で `onClick` を持たない** — 両方あると二重送信になる。
         // キャンセルは `<form>` の中では既定が submit 扱いなので `type="button"` を明示する
         onSubmit={(e) => { e.preventDefault(); if (form.title && !create.isPending) create.mutate(form); }}
         footer={

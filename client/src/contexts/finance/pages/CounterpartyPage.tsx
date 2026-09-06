@@ -82,13 +82,13 @@ const DEF: Record<Kind, {
     label: '仕入先', endpoint: '/vendors', queryKey: 'vendors',
     icon: <Truck className="h-4 w-4" aria-hidden="true" />,
     extraLabel: 'インボイス登録番号', extraHint: '例 T1234567890123（適格請求書発行事業者の番号）',
-    searchPh: '仕入先名で探す', excelName: '仕入先',
+    searchPh: '仕入先名で検索', excelName: '仕入先',
   },
   partner: {
     label: 'パートナー', endpoint: '/partners', queryKey: 'partners',
     icon: <Users className="h-4 w-4" aria-hidden="true" />,
     extraLabel: '得意分野', extraHint: 'カンマ区切り。例 映像, スイッチング',
-    searchPh: 'お名前で探す', excelName: 'パートナー',
+    searchPh: 'お名前で検索', excelName: 'パートナー',
   },
 };
 

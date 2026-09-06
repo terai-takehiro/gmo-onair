@@ -1,5 +1,5 @@
 /**
- * 入ってきた情報の「机」— ストックを見直す日の計算（migration 247）
+ * 問い合わせの一覧 — ストックの再確認日の計算（migration 247）
  *
  * ── なぜ画面の外に出すか ────────────────────────────────────
  *
@@ -94,10 +94,10 @@ export interface StockReviewNote {
  * それが過去か未来かを読む人が毎回引き算することになります。
  */
 export function stockReviewNote(reviewOn: string | null | undefined, today: string): StockReviewNote {
-  if (!reviewOn) return { tone: 'undecided', text: '見直す日が決まっていません', days: null };
+  if (!reviewOn) return { tone: 'undecided', text: '見直し日が未設定です', days: null };
   const days = daysBetweenIso(today, reviewOn);
   if (days < 0) return { tone: 'due', text: `見直し ${jaMd(reviewOn)}（${-days}日過ぎています）`, days };
-  if (days === 0) return { tone: 'due', text: '今日が見直しの日です', days };
+  if (days === 0) return { tone: 'due', text: '本日が見直し日です', days };
   if (days <= 7) return { tone: 'soon', text: `見直し ${jaMd(reviewOn)}（あと${days}日）`, days };
   return { tone: 'later', text: `見直し ${jaMd(reviewOn)}（あと${days}日）`, days };
 }
@@ -109,14 +109,14 @@ export function jaMd(iso: string): string {
 }
 
 /**
- * 「今日さばくもの」の内訳。**2つの数を足した1つの数だけを出さない** —
+ * 「本日対応」の内訳。**2つの数を足した1つの数だけを出さない** —
  * 未仕分けが0でも見直しが5件あるとき、「5件」とだけ出すと
  * 今日届いたものが5件あるように読めます。
  */
 export function deskSummary(unsorted: number, stockDue: number): string {
-  if (unsorted === 0 && stockDue === 0) return '今日さばくものはありません';
+  if (unsorted === 0 && stockDue === 0) return '本日対応する項目はありません';
   const parts: string[] = [];
-  if (unsorted > 0) parts.push(`未仕分け ${unsorted}件`);
+  if (unsorted > 0) parts.push(`未処理 ${unsorted}件`);
   if (stockDue > 0) parts.push(`見直し時期 ${stockDue}件`);
-  return `今日さばくもの ${unsorted + stockDue}件（${parts.join(' ・ ')}）`;
+  return `本日対応 ${unsorted + stockDue}件（${parts.join(' ・ ')}）`;
 }

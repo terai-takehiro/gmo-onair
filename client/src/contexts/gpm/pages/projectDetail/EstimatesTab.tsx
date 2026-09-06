@@ -113,7 +113,7 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
         </div>
         {canEdit && (
           <Button type="button" onClick={() => setAdding(true)}>
-            <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />見積をつくる
+            <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />見積を作成
           </Button>
         )}
       </div>
@@ -142,7 +142,7 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
           icon={<FileText className="h-6 w-6" aria-hidden="true" />}
           title="見積はまだありません"
           description="提出先（自社／依頼元／PM会社）ごとに1本ずつ作ります。"
-          action={canEdit ? <Button type="button" onClick={() => setAdding(true)}>見積をつくる</Button> : undefined}
+          action={canEdit ? <Button type="button" onClick={() => setAdding(true)}>見積を作成</Button> : undefined}
         />
       ) : (
         // 一覧は白い枠に入れる（他のタブ・⑤ 全プロジェクトの一覧と同じ形）。
@@ -237,7 +237,7 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
         行を押すと<strong className="font-bold">明細</strong>を開けます。
         中身は<strong className="font-bold">案件の見積と同じ部品</strong>で、
         合計と粗利の計算も1か所です（写しを作ると、片方だけ直した日から金額が食い違います）。
-        <strong className="font-bold">出したあと（送付済・受注・旧版）は直せません</strong> —
+        <strong className="font-bold">出したあと（送付済・受注・旧版）は編集できません</strong> —
         直すなら次の版をつくってください。
       </p>
 
@@ -258,17 +258,17 @@ function NewEstimateDialog({ projectId, onClose }: { projectId: string; onClose:
     }),
     onSuccess: () => {
       invalidate(projectId);
-      notifySuccess('見積をつくりました', { description: '明細は今後この画面で入れられるようにします。' });
+      notifySuccess('見積を作成しました', { description: '明細は今後この画面で入れられるようにします。' });
       onClose();
     },
-    onError: (e) => notifyApiError('見積をつくれませんでした', e),
+    onError: (e) => notifyApiError('見積を作成できませんでした', e),
   });
 
   return (
     <FormDialog
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title="見積をつくる"
+      title="見積を作成"
       // Enter で保存する（繰り返し入力を持たないフォーム）。送信は `type="submit"` の1本だけ
       onSubmit={(e) => { e.preventDefault(); if (!create.isPending) create.mutate(); }}
       footer={
@@ -276,7 +276,7 @@ function NewEstimateDialog({ projectId, onClose }: { projectId: string; onClose:
           <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>
           <Button type="submit" disabled={create.isPending}>
             {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-            つくる
+            作成
           </Button>
         </FormDialogFooter>
       }

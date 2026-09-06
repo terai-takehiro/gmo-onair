@@ -57,7 +57,7 @@ export interface MeetingIssue { field: string; message: string }
  * （緩めると保存で丸ごと弾かれ、しかも理由が画面に出ない）。
  */
 const LENGTH_LIMITS: { field: keyof Meeting; label: string; max: number }[] = [
-  { field: 'label', label: '呼び名', max: 64 },
+  { field: 'label', label: '表示名', max: 64 },
   { field: 'toolOther', label: 'ツール名', max: 64 },
   { field: 'url', label: '会議URL', max: 512 },
   { field: 'joinId', label: '会議ID', max: 64 },

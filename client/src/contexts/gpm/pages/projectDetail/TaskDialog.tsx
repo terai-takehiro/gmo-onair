@@ -190,7 +190,7 @@ export function TaskDialog({
               フォームの最下部だと、期限を入れる瞬間には読めない */}
           <p className="text-sub-sm text-muted-foreground">
             期限は<strong className="font-bold">その日の 18:00</strong> として入ります
-            （ひな形から写したタスクと同じ形にするため）。
+            （工程テンプレートから写したタスクと同じ形にするため）。
           </p>
 
           {/*

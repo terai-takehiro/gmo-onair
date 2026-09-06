@@ -56,8 +56,8 @@ export default function DeckRow({
             <button
               type="button"
               onClick={onCopyFromMain}
-              title={`${mainDeckId} の設定を写す（機種が持たない値は落とします）`}
-              aria-label={`${mainDeckId} の設定を ${deck.deckId} に写す`}
+              title={`${mainDeckId} の設定を複製（機種が持たない値は落とします）`}
+              aria-label={`${mainDeckId} の設定を ${deck.deckId} に複製`}
               className="ml-auto flex h-6 w-6 items-center justify-center rounded-control text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <Copy className="h-3.5 w-3.5" />
@@ -65,13 +65,13 @@ export default function DeckRow({
           )}
         </div>
         {/* 呼び名。⚠️ 型にも Excel の設計にもある欄なのに画面が持っておらず、
-            唯一 label に触るコードが「写すときに消す」だけだった */}
+            唯一 label に触るコードが「複製するときに消す」だけだった */}
         <input
           className="h-7 w-full min-w-0 rounded-control border border-input bg-background px-1.5 text-sub-sm"
           value={deck.label ?? ''}
           onChange={(e) => set('label', e.target.value || undefined)}
-          placeholder="呼び名（任意）"
-          aria-label={`${deck.deckId} の呼び名`}
+          placeholder="表示名（任意）"
+          aria-label={`${deck.deckId} の表示名`}
         />
       </div>
 

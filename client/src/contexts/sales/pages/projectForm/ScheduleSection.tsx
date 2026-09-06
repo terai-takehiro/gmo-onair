@@ -73,7 +73,7 @@ export function ScheduleSection({
       title="スタジオの日程"
       description={isEdit
         ? 'この案件にはまだ予約がありません。ここに入れると「登録済みの予約」から管理できるようになります。'
-        : 'ここに入れると、案件を登録したときにスタジオ予約もいっしょに作ります（あとから直せます）。'}
+        : 'ここに入れると、案件を登録したときにスタジオ予約もいっしょに作ります（あとから編集できます）。'}
       action={onOpenCalendar && (
         <Button type="button" variant="outline" size="sm" onClick={onOpenCalendar}>
           <CalendarDays className="mr-1 h-4 w-4" aria-hidden="true" />
@@ -217,7 +217,7 @@ export function ScheduleSection({
                           : 'border-input hover:bg-accent',
                       )}
                     >
-                      {allSelected ? '全部はずす' : '全部えらぶ'}
+                      {allSelected ? 'すべて解除' : 'すべて選択'}
                     </button>
                   )}
                 </div>

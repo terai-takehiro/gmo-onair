@@ -14,14 +14,14 @@ export function ScanHistoryRows({ rows, isLoading }: { rows: ScanRow[]; isLoadin
     <section className="flex flex-col gap-2" aria-labelledby="scan-history">
       <div className="flex items-center gap-2">
         <History className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-        <h2 id="scan-history" className="text-h2">さっき読んだもの</h2>
+        <h2 id="scan-history" className="text-h2">読み取り履歴</h2>
         <span className="text-sub text-muted-foreground">自分のぶん・新しい順</span>
       </div>
 
       {isLoading ? (
         <Delayed><SkeletonRows rows={3} /></Delayed>
       ) : rows.length === 0 ? (
-        <EmptyState title="まだ読んでいません" description="カメラで読むか、ID を打つとここに残ります。" />
+        <EmptyState title="まだ読んでいません" description="カメラで読むか、機材IDを入力とここに残ります。" />
       ) : (
         <div className="flex flex-col rounded-card border border-border bg-card">
           {rows.map((r) => (

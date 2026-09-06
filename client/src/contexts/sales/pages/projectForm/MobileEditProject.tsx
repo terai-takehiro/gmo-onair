@@ -124,7 +124,7 @@ export function MobileEditProject({
 
           {/* ここから2枚は**案件作成と同じ部品・同じ見た目**（`projectNew/`） */}
           <div className="rounded-card border border-primary-border bg-card px-4 py-4">
-            <p className="text-cardtitle mb-3">いま必要な5つ</p>
+            <p className="text-cardtitle mb-3">必須項目</p>
             <RequiredFields f={fields} mode="edit" />
           </div>
 
@@ -138,7 +138,7 @@ export function MobileEditProject({
               {more
                 ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
-              <span className="text-list font-bold">進んだら聞く</span>
+              <span className="text-list font-bold">任意項目</span>
               <span className="text-badge font-number rounded-badge-xs bg-muted px-1.5 py-0.5 text-muted-foreground">
                 {moreFieldCount(fields.v.audience, 'edit')}
               </span>

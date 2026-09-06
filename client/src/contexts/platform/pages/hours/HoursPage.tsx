@@ -81,7 +81,7 @@ export default function HoursPage() {
     mutationFn: (id: string) => api.delete(`/business-hours/closed-days/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['business-hours'] });
-      notifySuccess('休業日を消しました');
+      notifySuccess('休業日を削除しました');
     },
     onError: (e) => notifyApiError('消せませんでした', e),
   });
@@ -108,7 +108,7 @@ export default function HoursPage() {
       {!canEdit && (
         <p className="rounded-note text-note flex items-center gap-2 border border-border bg-surface-subtle px-3.5 py-2.5 text-muted-foreground">
           <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
-          直せるのは<strong className="font-bold">システム管理者</strong>だけです（拠点・部屋と同じ扱い）。中身は見られます。
+          編集できるのは<strong className="font-bold">システム管理者</strong>だけです（拠点・部屋と同じ扱い）。中身は見られます。
         </p>
       )}
 

@@ -50,7 +50,7 @@ export function ApplyEpisodeTaskTemplateDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="この回に標準工程を当てる"
+      title="この回に工程テンプレートを当てる"
       sub={`${episodeLabel} に、選んだ型の工程（列）ごとに1件ずつタスクを作ります。一度当てた回には重ねて当てられません。`}
       footer={
         <div className="flex justify-end">

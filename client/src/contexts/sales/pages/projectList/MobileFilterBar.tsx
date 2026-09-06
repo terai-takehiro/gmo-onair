@@ -137,11 +137,11 @@ export function MobileFilterBar(p: MobileFilterBarProps) {
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <Input
-            placeholder="案件名・お客様名で探す"
+            placeholder="案件名・お客様名で検索"
             value={p.search}
             onChange={(e) => p.onSearch(e.target.value)}
             className="pl-9"
-            aria-label="案件を探す"
+            aria-label="案件を検索"
           />
         </div>
         <button
@@ -179,7 +179,7 @@ export function MobileFilterBar(p: MobileFilterBarProps) {
           />
         ))}
         <p className="text-note pt-2 text-muted-foreground">
-          ネタは「ネタ」の見え方で見ます。終了（完了・失注）は「終了」または「すべて」を選んだときだけ出ます。
+          ネタは「ネタ」の表示形式で見ます。終了（完了・失注）は「終了」または「すべて」を選んだときだけ出ます。
         </p>
       </Sheet>
 

@@ -81,7 +81,7 @@ export function CatalogDialog({
   const title = mode.kind === 'edit'
     ? `${config.label}を編集`
     : mode.kind === 'copy'
-      ? `${config.label}を写して追加`
+      ? `${config.label}を複製して追加`
       : `${config.label}を追加`;
 
   const set = <K extends keyof CatalogForm>(k: K, v: CatalogForm[K]) => setForm((f) => ({ ...f, [k]: v }));

@@ -90,7 +90,7 @@ const MINI_APPS: Record<string, Array<{ label: string; to: string; icon: LucideI
   dailyops: [
     { label: 'ウィークリー活動報告', to: '/daily/weekly', icon: CalendarCheck },
     { label: 'デイリーニュース報告', to: '/daily/news', icon: Newspaper },
-    { label: '入ってきた情報', to: '/daily/inquiries', icon: Inbox },
+    { label: '問い合わせ', to: '/daily/inquiries', icon: Inbox },
     { label: '受け取った書類', to: '/daily/finance', icon: FileText },
     { label: '内覧会 来場予約', to: '/daily/inview', icon: DoorOpen },
     { label: 'セキュリティカード', to: '/daily/security-cards', icon: KeyRound },

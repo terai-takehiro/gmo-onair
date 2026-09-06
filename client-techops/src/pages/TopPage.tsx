@@ -62,7 +62,7 @@ export default function TopPage() {
   return (
     <div className="px-4 py-6 sm:px-6 sm:py-8">
       <h1 className="text-xl font-semibold text-foreground sm:text-2xl">進行台本</h1>
-      <p className="mt-1 text-sm text-muted-foreground">案件を選ぶと、その案件の台本づくりの状態がわかります。</p>
+      <p className="mt-1 text-sm text-muted-foreground">案件を選ぶと、その案件の台本制作の状態がわかります。</p>
 
       {isLoading && (
         <div className="mt-8 flex items-center justify-center gap-2 text-muted-foreground">

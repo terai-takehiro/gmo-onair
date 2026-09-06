@@ -19,7 +19,7 @@ import { cn } from '@gmo-onair/shared/src/client/utils';
 
 const ITEMS: { key: 'tasks' | 'asks'; label: string; icon: typeof ListTodo }[] = [
   { key: 'tasks', label: 'タスク', icon: ListTodo },
-  { key: 'asks', label: '持ち帰り', icon: CircleHelp },
+  { key: 'asks', label: '未解決事項', icon: CircleHelp },
 ];
 
 export function MobileTaskTabs({
@@ -35,7 +35,7 @@ export function MobileTaskTabs({
 
   return (
     // タブの ARIA は名乗らない (矢印キー・tabpanel 未実装)。aria-pressed の組にする
-    <div role="group" aria-label="見るものを切り替える" className="grid grid-cols-2 gap-1.5">
+    <div role="group" aria-label="表示形式を切り替える" className="grid grid-cols-2 gap-1.5">
       {ITEMS.map(({ key, label, icon: Icon }) => {
         const on = tab === key;
         const count = counts[key];

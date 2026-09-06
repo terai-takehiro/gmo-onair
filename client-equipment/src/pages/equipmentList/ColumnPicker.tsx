@@ -86,7 +86,7 @@ export function ColumnPicker({ open, onOpenChange, prefs, customColumns, onManag
           {customColumns.length > 0 && (
             <>
               <div className="my-1.5 border-t border-border" />
-              <p className="px-1 pb-1 text-th text-muted-foreground">自分で作った列</p>
+              <p className="px-1 pb-1 text-th text-muted-foreground">カスタム列</p>
               {customColumns.map((col, idx) => (
                 <div key={col.id} className="flex items-center gap-2 rounded-control px-1 py-1 hover:bg-muted">
                   <EnhancedCheckbox
@@ -131,7 +131,7 @@ export function ColumnPicker({ open, onOpenChange, prefs, customColumns, onManag
               className="flex w-full items-center gap-1.5 rounded-control px-2 py-1.5 text-sub text-muted-foreground hover:bg-muted hover:text-foreground"
               onClick={() => { onOpenChange(false); onManageCustom(); }}
             >
-              <Settings2 className="h-3.5 w-3.5" aria-hidden="true" />自分で作る列を管理する
+              <Settings2 className="h-3.5 w-3.5" aria-hidden="true" />カスタム列を管理
             </button>
           </div>
         </div>

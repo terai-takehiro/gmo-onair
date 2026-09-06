@@ -52,7 +52,7 @@ function Card({ c }: { c: HubCard }) {
         {!c.to && <Lock className="mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-label="これから作ります" />}
       </span>
       {c.to ? (
-        <span className="text-note mt-2.5 block text-muted-foreground">直せるのは {c.who}</span>
+        <span className="text-note mt-2.5 block text-muted-foreground">編集できるのは {c.who}</span>
       ) : (
         <span className="text-note mt-2.5 block text-warning">
           <strong className="font-bold">これから作ります。</strong>
@@ -97,8 +97,8 @@ export default function SettingsHubPage() {
       <p className="rounded-note flex items-start gap-2 border border-info-border bg-info-surface px-3.5 py-3 text-note text-secondary-foreground">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden="true" />
         <span>
-          設定を直せる人は<strong className="font-bold">役割ごとに決まっています</strong>。
-          カードに書いてあるのがその役割です。ほかの人は見るだけになります
+          設定を編集できる人は<strong className="font-bold">役割ごとに決まっています</strong>。
+          カードに書いてあるのがその役割です。ほかの人は閲覧のみになります
           {currentUser?.role === 'system_admin' && <>（あなたは<strong className="font-bold">管理者</strong>なので全部直せます）</>}。
         </span>
       </p>

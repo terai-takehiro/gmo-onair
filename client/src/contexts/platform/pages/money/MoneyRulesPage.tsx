@@ -180,7 +180,7 @@ export default function MoneyRulesPage() {
       {!canEdit && (
         <p className="rounded-note text-note flex items-center gap-2 border border-border bg-surface-subtle px-3.5 py-2.5 text-muted-foreground">
           <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
-          直せるのは<strong className="font-bold">財務管理の管理者</strong>だけです。中身は見られます。
+          編集できるのは<strong className="font-bold">財務管理の管理者</strong>だけです。中身は見られます。
         </p>
       )}
 
@@ -263,7 +263,7 @@ export default function MoneyRulesPage() {
             icon={<JapaneseYen className="h-4 w-4 text-warning" aria-hidden="true" />}
             tone="bg-warning-surface" title="通貨と単位" desc="見積・請求に出る書き方"
           >
-            <Line label="通貨" hint="外貨の見積は当面つくりません">
+            <Line label="通貨" hint="外貨の見積は当面作成しません">
               <span className="text-sub font-bold">日本円（￥）</span>
             </Line>
             <Line label="金額の丸め" hint="小計・合計とも同じ単位">

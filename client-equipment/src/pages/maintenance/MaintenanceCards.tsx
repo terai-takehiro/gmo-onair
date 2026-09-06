@@ -40,7 +40,7 @@ const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'reported', label: '報告済' },
   { value: 'in_progress', label: '対応中' },
   { value: 'completed', label: '完了' },
-  { value: 'cancelled', label: '取りやめ' },
+  { value: 'cancelled', label: '中止' },
 ];
 
 function Fact({ label, value }: { label: string; value: string }) {

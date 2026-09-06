@@ -203,7 +203,7 @@ function EpisodeRow({
       <RowSlot w={56}>
         <Button
           variant="ghost" size="icon-sm"
-          aria-label={`回 #${episode.episode_number} に標準工程を当てる`}
+          aria-label={`回 #${episode.episode_number} に工程テンプレートを当てる`}
           onClick={() => onApplyTemplate(episode)}
         >
           <ListChecks className="h-4 w-4" aria-hidden="true" />

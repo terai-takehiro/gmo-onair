@@ -105,7 +105,7 @@ export function DuplicateEstimateDialog({
       onOpenChange={onOpenChange}
       title="別の回の見積として複製する"
       sub={source
-        ? `v${source.version}（${source.title || '名前のない見積'}）の明細をコピーして、選んだ回向けの新しい見積（v1）をつくります。複製元はそのまま残ります。`
+        ? `v${source.version}（${source.title || '名前のない見積'}）の明細をコピーして、選んだ回向けの新しい見積（v1）を作成します。複製元はそのまま残ります。`
         : 'ベースにする見積と、その明細をコピーする先の回を選びます。複製元はそのまま残ります。'}
       footer={
         <FormDialogFooter>

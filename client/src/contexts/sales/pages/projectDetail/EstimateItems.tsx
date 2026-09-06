@@ -270,12 +270,12 @@ export function EstimateItems({
         <h2 className="text-cardtitle">v{estimate.version} の明細</h2>
         {statusLocked && (
           <span className="text-sub text-warning">
-            出したあと（または旧版）なので直せません。直すなら次の版をつくってください。
+            出したあと（または旧版）なので編集できません。直すなら次の版をつくってください。
           </span>
         )}
         {!statusLocked && !canEdit && (
           <span className="text-sub text-warning">
-            閲覧のみの権限です。明細の保存には案件管理の編集権限が必要です。
+            閲覧権限です。明細の保存には案件管理の編集権限が必要です。
           </span>
         )}
         <div className="ml-auto flex items-center gap-4">

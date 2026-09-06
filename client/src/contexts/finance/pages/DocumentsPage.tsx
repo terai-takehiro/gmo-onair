@@ -245,7 +245,7 @@ export default function DocumentsPage() {
                     {/* **`source` では判定しない**（247）。`source` は出どころで、
                         手で足したメールの行にも `email` が入る */}
                     {d.is_ai && (
-                      <Sparkles className="mr-1 inline h-3.5 w-3.5 text-ai" aria-label="AI が取り込みました" />
+                      <Sparkles className="mr-1 inline h-3.5 w-3.5 text-ai" aria-label="AI作成" />
                     )}
                     {d.subject || '（件名なし）'}
                   </RowTitle>

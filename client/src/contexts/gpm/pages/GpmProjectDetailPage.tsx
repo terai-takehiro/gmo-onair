@@ -95,13 +95,13 @@ export default function GpmProjectDetailPage() {
       invalidate(id);
       notifySuccess(item.status === 'resolved' ? '未解決に戻しました' : '解決にしました');
     },
-    onError: (err) => notifyApiError('持ち帰りを変更できませんでした', err),
+    onError: (err) => notifyApiError('未解決事項を変更できませんでした', err),
   });
 
   const removeAsk = useMutation({
     mutationFn: (item: GpmOpenItem) => api.delete(`/gpm/open-items/${item.id}`),
-    onSuccess: () => { invalidate(id); notifySuccess('持ち帰りを削除しました'); },
-    onError: (err) => notifyApiError('持ち帰りを削除できませんでした', err),
+    onSuccess: () => { invalidate(id); notifySuccess('未解決事項を削除しました'); },
+    onError: (err) => notifyApiError('未解決事項を削除できませんでした', err),
   });
 
   const removeProject = useMutation({
@@ -171,7 +171,7 @@ export default function GpmProjectDetailPage() {
 
   const onDeleteAsk = async (item: GpmOpenItem) => {
     const ok = await confirmAction({
-      title: 'この持ち帰りを削除しますか？',
+      title: 'この未解決事項を削除しますか？',
       description: `「${item.question}」\n解決したのなら消さずに「解決」にしてください。消すと訊いた記録が残りません。`,
       confirmLabel: '削除',
       tone: 'danger',
@@ -182,7 +182,7 @@ export default function GpmProjectDetailPage() {
   const onDeleteProject = async () => {
     const ok = await confirmAction({
       title: 'このプロジェクトを削除しますか？',
-      description: `「${p.name}」\n工程 ${p.phases.length}件・持ち帰り ${p.open_items.length}件・体制 ${p.members.length}名も一緒に見えなくなります。`,
+      description: `「${p.name}」\n工程 ${p.phases.length}件・未解決事項 ${p.open_items.length}件・体制 ${p.members.length}名も一緒に見えなくなります。`,
       confirmLabel: '削除',
       tone: 'danger',
     });
@@ -234,16 +234,16 @@ export default function GpmProjectDetailPage() {
             </p>
             {canEdit && (
               <Button onClick={() => setAskAdding(true)}>
-                <Plus className="mr-2 h-4 w-4" aria-hidden="true" />持ち帰りを追加
+                <Plus className="mr-2 h-4 w-4" aria-hidden="true" />未解決事項を追加
               </Button>
             )}
           </div>
 
           {p.open_items.length === 0 ? (
             <EmptyState
-              title="持ち帰りはありません"
+              title="未解決事項はありません"
               description="先方や社内の判断待ちで工程が進められないものを、ここに書いておくとダッシュボードと全プロジェクトの一覧に出ます。"
-              action={canEdit ? <Button onClick={() => setAskAdding(true)}>持ち帰りを追加</Button> : undefined}
+              action={canEdit ? <Button onClick={() => setAskAdding(true)}>未解決事項を追加</Button> : undefined}
             />
           ) : (
             <div className="overflow-hidden rounded-card border border-border bg-card">

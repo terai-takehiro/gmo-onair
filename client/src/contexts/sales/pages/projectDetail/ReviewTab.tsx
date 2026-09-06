@@ -135,7 +135,7 @@ export function ReviewTab({ project }: { project: ProjectDetail }) {
   const kptUpdate = useMutation({
     mutationFn: (v: { id: string; body: string }) => api.put(`/keep/kpt/${v.id}`, { body: v.body }),
     onSuccess: invalidateReport,
-    onError: (e) => notifyApiError('直せませんでした', e),
+    onError: (e) => notifyApiError('編集できませんでした', e),
   });
   const kptConfirm = useMutation({
     mutationFn: (id: string) => api.post(`/keep/kpt/${id}/confirm`),
@@ -154,7 +154,7 @@ export function ReviewTab({ project }: { project: ProjectDetail }) {
       const d = r.data?.data as { created: number; skipped?: string };
       // **起こせなかった理由を黙らない。** 押しても何も起きないのが一番困る
       notifySuccess(
-        d.created > 0 ? `下書きを ${d.created} 件つくりました` : '下書きは作りませんでした',
+        d.created > 0 ? `下書きを ${d.created} 件作成しました` : '下書きは作りませんでした',
         d.skipped ? { description: d.skipped } : { description: '確かめてから確定にしてください。' },
       );
     },
@@ -218,7 +218,7 @@ export function ReviewTab({ project }: { project: ProjectDetail }) {
 
           <div className="flex flex-col gap-3.5 p-4">
             <div>
-              <Label htmlFor="rv-headline">ひとことで言うと</Label>
+              <Label htmlFor="rv-headline">総括（1行）</Label>
               <Input
                 id="rv-headline"
                 value={cur.headline ?? ''}
@@ -264,7 +264,7 @@ export function ReviewTab({ project }: { project: ProjectDetail }) {
                   onChange={(e) => set({ attendees_online: e.target.value === '' ? null : Number(e.target.value) })} />
               </div>
               <div>
-                <Label htmlFor="rv-note">数え方のメモ</Label>
+                <Label htmlFor="rv-note">集計方法の補足</Label>
                 <Input id="rv-note" disabled={!canEdit} value={cur.attendees_note ?? ''}
                   placeholder="例）同時接続の最大値"
                   onChange={(e) => set({ attendees_note: e.target.value })} />

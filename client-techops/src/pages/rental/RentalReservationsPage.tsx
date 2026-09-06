@@ -147,7 +147,7 @@ function ReservationGroupCard({
         </span>
         <Button size="sm" className="min-h-[44px]" onClick={onOpenMail}>
           <Mail className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-          {group.status === 'draft' ? '依頼メールを作る' : 'メールをもう一度作る'}
+          {group.status === 'draft' ? '依頼メールを作成' : 'メールをもう一度作る'}
         </Button>
       </div>
 

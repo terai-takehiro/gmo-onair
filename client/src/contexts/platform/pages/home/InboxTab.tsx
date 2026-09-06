@@ -115,7 +115,7 @@ export function InboxTab({ data, can }: { data: InboxData | undefined; can: Inbo
             >
               {remaining > 0
                 ? `${all.label}で残り ${remaining} 件を見る`
-                : `${all.label}をひらく`}
+                : `${all.label}を開く`}
               <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           )}

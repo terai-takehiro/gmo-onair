@@ -116,7 +116,7 @@ export default function NotifyPage() {
     onError: (e) => notifyApiError('流せませんでした', e),
   });
 
-  if (q.isError) return <ErrorPanel title="ひな形を読み込めませんでした" error={q.error} onRetry={() => q.refetch()} />;
+  if (q.isError) return <ErrorPanel title="工程テンプレートを読み込めませんでした" error={q.error} onRetry={() => q.refetch()} />;
   if (q.isLoading || !q.data) return <Delayed><SkeletonRows rows={8} /></Delayed>;
 
   const counts = Object.fromEntries(q.data.counts.map((c) => [c.template_id, c.n]));
@@ -171,7 +171,7 @@ export default function NotifyPage() {
       {!canEdit && (
         <p className="rounded-note text-note flex items-center gap-2 border border-border bg-surface-subtle px-3.5 py-2.5 text-muted-foreground">
           <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
-          直せるのは<strong className="font-bold">システム管理者</strong>だけです。文面は誰でも見られます（コピーして使うため）。
+          編集できるのは<strong className="font-bold">システム管理者</strong>だけです。文面は誰でも見られます（コピーして使うため）。
         </p>
       )}
 
@@ -254,7 +254,7 @@ export default function NotifyPage() {
               <div key={`${r.job_key}-${r.run_date}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border-faint px-4 py-2 last:border-b-0">
                 <span className="text-sub font-number w-[96px] shrink-0">{r.run_date.slice(5).replace('-', '/')}</span>
                 {/*
-                  ⚠️ ここは**ジョブキー**（`scheduled_job_runs.job_key`）で、ひな形の id ではない。
+                  ⚠️ ここは**ジョブキー**（`scheduled_job_runs.job_key`）で、工程テンプレートの id ではない。
                   前は `templates.find(t => t.id === r.job_key)` で引いていたので必ず外れ、
                   `JOB_LABELS` にも無いキーが英字のまま出ていた（`sales_ai_review` など）。
                 */}

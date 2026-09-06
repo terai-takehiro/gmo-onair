@@ -62,7 +62,7 @@ export function EquipmentFilters({
       <SearchField
         value={state.search}
         onChange={(v) => onChange({ search: v })}
-        placeholder="名前・ID・型名・保管場所で探す"
+        placeholder="名前・ID・型名・保管場所で検索"
       />
 
       <FilterChips

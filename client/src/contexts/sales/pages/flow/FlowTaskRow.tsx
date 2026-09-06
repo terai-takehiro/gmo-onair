@@ -60,7 +60,7 @@ export function FlowTaskRow({ task, canEdit }: { task: FlowTask; canEdit: boolea
       is_required: required,
     }),
     onSuccess: done,
-    onError: (e) => notifyApiError('直せませんでした', e),
+    onError: (e) => notifyApiError('編集できませんでした', e),
   });
 
   const del = useMutation({
@@ -141,7 +141,7 @@ export function FlowTaskRow({ task, canEdit }: { task: FlowTask; canEdit: boolea
             className="h-[18px] w-[18px] rounded-badge-xs border-border"
           />
           <span>
-            <strong className="font-bold">外せない作業にする</strong>
+            <strong className="font-bold">必須作業にする</strong>
             <span className="text-muted-foreground">
               （案件に入れるときのチェックが外せなくなります）
             </span>
@@ -195,7 +195,7 @@ export function FlowTaskRow({ task, canEdit }: { task: FlowTask; canEdit: boolea
               variant="ghost" size="icon" aria-label={`${task.title} を削除`} disabled={del.isPending}
               onClick={() => confirmAction({
                 title: `${task.title} を削除しますか`,
-                description: 'すでに案件へ入れたタスクは残ります。これから案件をつくるときに出てこなくなるだけです。',
+                description: 'すでに案件へ入れたタスクは残ります。これから案件を作成するときに出てこなくなるだけです。',
                 confirmLabel: '削除', tone: 'danger',
               }).then((ok) => ok && del.mutate())}
             >

@@ -40,14 +40,14 @@ export function TemplateDialog({
         : api.post('/gpm/templates', toBody(draft)),
     onSuccess: () => {
       invalidate();
-      notifySuccess(template ? 'ひな形を更新しました' : 'ひな形を作りました', {
+      notifySuccess(template ? '工程テンプレートを更新しました' : '工程テンプレートを作りました', {
         description: template && template.used_count > 0
           ? `すでに適用済みの ${template.used_count} 件は変わりません（写して使うため）。次に作るぶんから効きます。`
           : undefined,
       });
       onClose();
     },
-    onError: (err) => notifyApiError(template ? 'ひな形を更新できませんでした' : 'ひな形を作れませんでした', err),
+    onError: (err) => notifyApiError(template ? '工程テンプレートを更新できませんでした' : '工程テンプレートを作れませんでした', err),
   });
 
   const phases = draft.phases.length;
@@ -58,7 +58,7 @@ export function TemplateDialog({
     <FormDialog
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title={template ? 'ひな形を編集' : 'ひな形を作る'}
+      title={template ? '工程テンプレートを編集' : '工程テンプレートを作成'}
       wide
       footer={
         <FormDialogFooter>

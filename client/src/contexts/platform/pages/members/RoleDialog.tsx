@@ -66,7 +66,7 @@ export function RoleDialog({ role, open, onOpenChange }: Props) {
       // 保存したのにメニュー・ボタンが古い権限のままリロードまで残る
       void refreshPermissions();
       const n = data.applied?.length ?? 0;
-      notifySuccess(role ? '役割を直しました' : '役割をつくりました', {
+      notifySuccess(role ? '役割を編集しました' : '役割を作成しました', {
         description: n > 0 ? `この役割の ${n} 名にも反映しました。` : undefined,
       });
       onOpenChange(false);

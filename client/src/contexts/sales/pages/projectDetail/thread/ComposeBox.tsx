@@ -109,7 +109,7 @@ export function ComposeBox({
         />
         <p className="text-note text-muted-foreground">
           {aiAvailable
-            ? '打ったままで大丈夫です。見出し・箇条書き・要点・次にやること は AI が起こします（元の文もそのまま残ります）。'
+            ? '打ったままで大丈夫です。見出し・箇条書き・要点・次のアクション は AI が起こします（元の文もそのまま残ります）。'
             : 'この環境は AI につないでいないので、打ったままの形で記録します。'}
         </p>
         <div className="flex flex-wrap items-center gap-2">

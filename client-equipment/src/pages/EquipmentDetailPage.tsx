@@ -621,7 +621,7 @@ export default function EquipmentDetailPage() {
               <p className="text-sm font-semibold mb-3">資産・保証</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
-                  <Label>持ち主の会社</Label>
+                  <Label>所有会社</Label>
                   <BranchCodeInput value={editForm.branch_code} onChange={(v) => setEditForm({ ...editForm, branch_code: v })} />
                 </div>
                 <div className="space-y-1">
@@ -749,7 +749,7 @@ export default function EquipmentDetailPage() {
             </div>
             <div className="border-t pt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
-                <Label>持ち主の会社</Label>
+                <Label>所有会社</Label>
                 <BranchCodeInput value={newChildForm.branch_code} onChange={(v) => setNewChildForm({ ...newChildForm, branch_code: v })} />
               </div>
               <div className="space-y-1">
@@ -784,7 +784,7 @@ export default function EquipmentDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            {item.branch_code && <InfoRow label="持ち主の会社" value={item.branch_code} />}
+            {item.branch_code && <InfoRow label="所有会社" value={item.branch_code} />}
             <InfoRow label="資産の区分" value={ASSET_CLASS_LABELS[item.asset_class] || item.asset_class} />
             <InfoRow label="設備／貸出" value={sectionLabel(item.equipment_type_code, item.equipment_section)} />
             <InfoRow label="メーカー" value={item.manufacturer_name} />

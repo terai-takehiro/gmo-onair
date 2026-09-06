@@ -70,7 +70,7 @@ export function MaintenanceDialog({ open, items, saving, error, onClose, onSubmi
             value={form.equipment_id}
             onChange={(v) => setForm((f) => ({ ...f, equipment_id: v }))}
             options={items.map((i) => ({ value: i.id, label: i.name, subLabel: i.eq_code }))}
-            placeholder="ID・名前で探す"
+            placeholder="ID・名前で検索"
           />
         </div>
         <div className="space-y-1">

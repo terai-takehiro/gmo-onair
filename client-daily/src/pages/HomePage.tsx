@@ -93,7 +93,7 @@ export default function HomePage() {
         title="タスク・依頼"
         description="案件と自分のタスクを、重要度 × 緊急度の順に。受けた依頼・出した依頼もここ"
         marks={taskMarks}
-        empty="待たせているものはありません"
+        empty="対応待ちのタスクはありません"
       />
 
       <Group title="定期報告" note="決まった周期で出すもの">
@@ -119,17 +119,17 @@ export default function HomePage() {
         <Tile
           to="/inquiries"
           icon={Inbox}
-          title="入ってきた情報"
-          description="届いた情報をタスク・案件・あとで見るに仕分けます。見直す日が来ると戻ります"
+          title="問い合わせ"
+          description="届いた情報をタスク・案件・保留に仕分けます。見直す日が来ると戻ります"
           // 「未対応」= 未仕分け ＋ 見直しの日が来た「あとで見る」（migration 247）。
           // 画面の見出しと同じ数（サーバーが数えたもの）
-          marks={unhandled ? [{ label: `今日さばくもの ${unhandled}件`, tone: MARK_TONE.ai }] : []}
-          empty="今日さばくものはありません"
+          marks={unhandled ? [{ label: `本日対応 ${unhandled}件`, tone: MARK_TONE.ai }] : []}
+          empty="本日対応はありません"
         />
         <Tile
           to="/finance"
           icon={FileText}
-          title="受け取った書類"
+          title="受領書類"
           description="届いた請求書・注文書を確かめて、台帳（仕入・販管費）に入れます"
           marks={pendingDocs ? [{ label: `未処理 ${pendingDocs}件`, tone: MARK_TONE.soon }] : []}
           empty="未処理はありません"
@@ -143,9 +143,9 @@ export default function HomePage() {
           title="フィードバックチケット"
           description="GMO ONAiR への要望・不具合を送り、対応状況を追いかけます"
           marks={ticketCounts.data && (ticketCounts.data.open + ticketCounts.data.in_progress)
-            ? [{ label: `対応が要るもの ${ticketCounts.data.open + ticketCounts.data.in_progress}件`, tone: MARK_TONE.soon }]
+            ? [{ label: `未対応 ${ticketCounts.data.open + ticketCounts.data.in_progress}件`, tone: MARK_TONE.soon }]
             : []}
-          empty="対応が要るチケットはありません"
+          empty="未対応のチケットはありません"
         />
       </Group>
 
@@ -162,13 +162,13 @@ export default function HomePage() {
           to={cardsHref}
           icon={KeyRound}
           title="セキュリティカード"
-          description="GMOサムライスタジオ用賀の 24 枚の貸し借りを追いかけます"
+          description="GMOサムライスタジオ用賀の 24 枚の貸出履歴を追いかけます"
           marks={[
             ...(cs ? [{ label: `貸せる ${cs.available}`, tone: MARK_TONE.done }] : []),
             ...(cs?.lent ? [{ label: `貸出中 ${cs.lent}`, tone: MARK_TONE.soon }] : []),
             ...(cs?.overdue ? [{ label: `返却遅延 ${cs.overdue}`, tone: MARK_TONE.urgent }] : []),
           ]}
-          empty="カードの数を数えています"
+          empty="カードの数を集計中"
         />
       </Group>
 

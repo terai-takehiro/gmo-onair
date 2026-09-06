@@ -143,7 +143,7 @@ function TemplateManagerContent({ ownerKey, owner, projectId }: {
           </Link>
         </Button>
         <Button onClick={openCreate}>
-          <Plus className="mr-1 h-4 w-4" aria-hidden="true" />テンプレートを作る
+          <Plus className="mr-1 h-4 w-4" aria-hidden="true" />テンプレートを作成
         </Button>
       </div>
 
@@ -156,7 +156,7 @@ function TemplateManagerContent({ ownerKey, owner, projectId }: {
           <EmptyState
             icon={<Blocks />}
             title="テンプレートがまだありません"
-            description="「テンプレートを作る」から、部品を選んで最初のテンプレートを作れます。"
+            description="「テンプレートを作成」から、部品を選んで最初のテンプレートを作れます。"
           />
         </div>
       ) : (

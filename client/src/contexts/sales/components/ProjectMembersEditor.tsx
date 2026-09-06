@@ -105,7 +105,7 @@ export default function ProjectMembersEditor({ projectId }: { projectId: string 
                 type="button"
                 onClick={() => removeMutation.mutate(m.id)}
                 className="rounded-full p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                title="担当から外す"
+                title="担当を解除"
               >
                 <X className="h-3.5 w-3.5" />
               </button>

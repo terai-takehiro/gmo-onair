@@ -16,12 +16,12 @@ import FeedbackTicketsPage from './pages/FeedbackTicketsPage';
 import SearchPage from './pages/SearchPage';
 import TasksPage from './pages/TasksPage';
 
-/** 受け取った書類は財務（別バンドル）へ移した。**フルリロードが要る** */
+/** 受領書類は財務（別バンドル）へ移した。**フルリロードが要る** */
 function RedirectToFinanceDocs() {
   useEffect(() => { window.location.replace('/budget/documents'); }, []);
   return (
     <p className="p-6 text-sm text-muted-foreground">
-      受け取った書類は「財務管理」に移りました。移動しています…
+      受領書類は「財務管理」に移りました。移動しています…
     </p>
   );
 }
@@ -50,7 +50,7 @@ export default function App() {
             <Route path="/inview" element={<InviewPage />} />
             <Route path="/inview/:date" element={<InviewDayPage />} />
             {/*
-              v4 ⑥: 受け取った書類は**財務へ移した**。
+              v4 ⑥: 受領書類は**財務へ移した**。
               `dailyops` 権限だけを要求していたので**経理が開けなかった**（実測で 403）。
               中身は 金額・締月・支払期日・GLS番号 で経理の道具なので、財務に置いて
               `budget` か `dailyops` のどちらかで通す形にした。

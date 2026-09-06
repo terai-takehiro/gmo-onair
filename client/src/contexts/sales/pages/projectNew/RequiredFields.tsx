@@ -76,7 +76,7 @@ export function RequiredFields({ f, mode = 'create' }: { f: ProjectFieldsState; 
         `full` にしてあるのは、社内の担当を下（自社の話のまとまり）へ動かした結果、
         2列のときに右半分が穴になるためです。会社を探す欄なので広いほうが押しやすい
       */}
-      <Field label="お客様" required full hint="無ければ「取引先マスター」で先につくります">
+      <Field label="お客様" required full hint="無ければ「取引先マスター」で先に作成します">
         <SearchableSelect
           options={f.customers.map((c) => ({
             value: c.id,

@@ -7,7 +7,7 @@
  *
  * ・原文は**届いたものそのもの**で、人が書き換えるものではありません
  *   （書き換えられると「AI がどこを読み違えたか」を確かめる術が無くなります）
- * ・項目のほうは、直したいときに 要約・推奨アクション・メモ を直せば足ります。
+ * ・項目のほうは、直したいときに 要約・次のアクション・メモ を直せば足ります。
  *   ブロックの配列を手で編集させる画面は、作っても誰も使いません
  *
  * **人が直した内容はサーバーが自動で差分に残します**
@@ -32,7 +32,7 @@ export function InquiryDialog({ initial, onClose }: { initial: MiscInquiry | nul
   const create = useCreateInquiry();
   const update = useUpdateInquiry();
   /**
-   * 手で足すときの出どころの既定は**電話**。
+   * 手で足すときの受付経路の既定は**電話**。
    * 手で入れるものは電話メモか口頭で、メールなら AI が取り込むためです
    * （メールを選び直すことはできます）。
    */
@@ -55,7 +55,7 @@ export function InquiryDialog({ initial, onClose }: { initial: MiscInquiry | nul
 
   const submit = () => {
     const done = () => { notifySuccess(initial ? '保存しました' : '追加しました'); onClose(); };
-    const fail = (e: unknown) => notifyApiError(initial ? '直せませんでした' : '足せませんでした', e);
+    const fail = (e: unknown) => notifyApiError(initial ? '保存できませんでした' : '追加できませんでした', e);
     // 読点・カンマ・空白のどれで区切っても同じに扱う（打ち方で結果が変わらないように）
     const fields = { ...f, tags: tagText.split(/[、,\s]+/).map((t) => t.trim()).filter(Boolean) };
     if (initial) update.mutate({ id: initial.id, fields }, { onSuccess: done, onError: fail });
@@ -67,7 +67,7 @@ export function InquiryDialog({ initial, onClose }: { initial: MiscInquiry | nul
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
       title={initial ? '問い合わせを編集' : '問い合わせを追加'}
-      // 入力10個・送信者/件名・出どころ/受信日の2列グリッドを持つので `lg`(840px)
+      // 入力10個・送信者/件名・受付経路/受信日の2列グリッドを持つので `lg`(840px)
       size="lg"
       // 1行の入力欄が主体のフォームなので Enter で送れるようにする
       // （要約・メモの textarea の中では今までどおり改行が入る）
@@ -96,10 +96,10 @@ export function InquiryDialog({ initial, onClose }: { initial: MiscInquiry | nul
           （どこから・いつ届いたか）が後ろにあった。
         */}
 
-        {/* ① 届いた事実 — 手で足すときの出どころの既定は電話（冒頭のコメント） */}
+        {/* ① 届いた事実 — 手で足すときの受付経路の既定は電話（冒頭のコメント） */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <Label>出どころ</Label>
+            <Label>受付経路</Label>
             <Select value={f.source ?? 'phone'} onValueChange={(v) => setF((p) => ({ ...p, source: v }))}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -144,14 +144,14 @@ export function InquiryDialog({ initial, onClose }: { initial: MiscInquiry | nul
               </SelectContent>
             </Select>
           </div>
-          <div><Label>推奨アクション</Label><Input value={f.action_needed ?? ''} onChange={set('action_needed')} /></div>
+          <div><Label>次のアクション</Label><Input value={f.action_needed ?? ''} onChange={set('action_needed')} /></div>
         </div>
         <div>
           <Label>タグ</Label>
           <Input value={tagText} onChange={(e) => setTagText(e.target.value)} placeholder="協業、取材、GLS-2607-009" />
           <p className="text-note mt-1 text-muted-foreground">
             読点・カンマ・空白のどれで区切っても同じです（8個まで・各24文字まで）。
-            <strong className="font-bold">「あとで見る」に入れたものを後から引く</strong>ための手がかりなので、
+            <strong className="font-bold">「保留」にしたものを後から引く</strong>ための手がかりなので、
             短い語にしてください。
           </p>
         </div>

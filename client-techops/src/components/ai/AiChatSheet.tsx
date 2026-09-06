@@ -76,7 +76,7 @@ export default function AiChatSheet({ open, onOpenChange, projectId, scheduleId,
         className="flex flex-col"
       >
         <DialogHeader>
-          <DialogTitle>壁打ち（あなただけに見えます）</DialogTitle>
+          <DialogTitle>AI に相談（あなただけに見えます）</DialogTitle>
         </DialogHeader>
         <div className="flex-1 max-h-[55vh] overflow-y-auto space-y-3 py-2">
           {messages.map((m) => (
@@ -134,6 +134,6 @@ export default function AiChatSheet({ open, onOpenChange, projectId, scheduleId,
 
 function errorMessage(e: unknown): string {
   const err = e as { response?: { status?: number; data?: { error?: { message?: string } } } };
-  if (err?.response?.status === 503) return "いまは AI を使えません。手で作れます。";
+  if (err?.response?.status === 503) return "いまは AI を使えません。手動で作成できます。";
   return err?.response?.data?.error?.message ?? "AI に相談できませんでした。少し待ってから、もう一度お試しください。";
 }

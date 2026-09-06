@@ -66,7 +66,7 @@ export function StandbyCards({
   if (rows.length === 0) return null;
   return (
     <section className="flex flex-col gap-2" aria-labelledby="search-standby-m">
-      <SectionEyebrow icon={Search} label="いまの様子" n={rows.length} headingId="search-standby-m" />
+      <SectionEyebrow icon={Search} label="現在の状況" n={rows.length} headingId="search-standby-m" />
       <div className="flex flex-col gap-2">
         {rows.map((r) => (
           <TapCard key={r.key} onOpen={() => onGo(r.to)}>

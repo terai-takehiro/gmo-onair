@@ -103,7 +103,7 @@ export function ThreadDigest({ items, today }: { items: ActivityLog[]; today: st
                   <span className="min-w-0 flex-1 line-clamp-2">
                     {/*
                       **言い切りの1文だけを出す**（`thread/nextAction.ts`）。
-                      「次にやること」は言い切り1文 ＋ 付随してやること数件で書かれているので、
+                      「次のアクション」は言い切り1文 ＋ 付随してやること数件で書かれているので、
                       全文を2行で切ると**2件目の途中で切れた文**が並ぶ。
                       **件数は必ず添える** — 消したのではなく続きがあることが分からないと、
                       ここで読んだつもりになって残りが見落とされる

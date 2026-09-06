@@ -105,7 +105,7 @@ export function ActivityLogDialog({
     if (!editing) return;
     if (!(await confirmAction({
       title: 'この活動記録を削除しますか？',
-      description: '次回アクションも一緒に消えます。',
+      description: '次のアクションも一緒に消えます。',
       confirmLabel: '削除',
       tone: 'danger',
     }))) return;
@@ -209,7 +209,7 @@ export function ActivityLogDialog({
           <Textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={3} />
         </div>
         <div className="border-t border-border pt-4">
-          <p className="mb-2 text-sub font-bold">次回アクション</p>
+          <p className="mb-2 text-sub font-bold">次のアクション</p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <div className="sm:col-span-2">
               <Label>内容</Label>

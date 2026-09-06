@@ -92,7 +92,7 @@ export function EmptyTable({
 
       {canEdit && sources.length > 0 && (
         <p className="text-note max-w-md text-muted-foreground">
-          写したあと、<strong className="font-bold">金額はこの場所のぶんだけ直せます</strong>
+          写したあと、<strong className="font-bold">金額はこの場所のぶんだけ編集できます</strong>
           （元の場所の料金は変わりません）。写せるのは空のときだけです — 2回写すと同じ品目が2つ並び、
           どちらを選んだかで金額が変わってしまいます。
         </p>

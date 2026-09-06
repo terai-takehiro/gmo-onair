@@ -100,7 +100,7 @@ export function LendDialog({ card, onClose }: { card: SecurityCard; onClose: () 
             空欄のままだと、返ってこなくても一覧の「返却遅延」に出ません
           </p>
         </div>
-        <Field label="使いみち" value={purpose} onChange={setPurpose} placeholder="例：収録の立ち会い" />
+        <Field label="用途" value={purpose} onChange={setPurpose} placeholder="例：収録の立ち会い" />
         <div className="sm:col-span-2">
           <Label htmlFor="lend-handler">渡した人（ONAiR のメンバー）</Label>
           <select

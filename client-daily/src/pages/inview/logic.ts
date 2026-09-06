@@ -192,7 +192,7 @@ export function buildCsv(rows: InviewRegistration[]): string {
     const sessionDate = r.session_date ? formatDateJa(r.session_date) : '';
     const checkin = r.checked_in_at ? '来場済み' : '未受付';
     const promoted = r.promoted_project_id ? '案件化済み' : '';
-    const src = r.source === 'kairos3' ? 'AI取込 (メール)' : '手入力';
+    const src = r.source === 'kairos3' ? 'AI作成 (メール)' : '手入力';
     const createdAt = r.created_at ? new Date(r.created_at).toLocaleString('ja-JP') : '';
     // 代表 (登録者)
     lines.push([

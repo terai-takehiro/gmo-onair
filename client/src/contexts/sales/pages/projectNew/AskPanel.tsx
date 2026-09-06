@@ -31,11 +31,11 @@ export function AskPanel({
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(text);
-      notifySuccess('下書きを写しました');
+      notifySuccess('下書きを複製しました');
     } catch {
       // クリップボードは端末・ブラウザの設定で塞がれていることがある。
       // **黙って失敗しない** — 押したのに何も起きないと壊れて見える
-      notifyError('写せませんでした', { description: '文面を選んでコピーしてください' });
+      notifyError('複製できませんでした', { description: '文面を選んでコピーしてください' });
     }
   };
 
@@ -73,7 +73,7 @@ export function AskPanel({
             <>
               {asks.length > 0 && (
                 <div>
-                  <p className="text-th mb-1.5 text-muted-foreground">お客様に聞くこと</p>
+                  <p className="text-th mb-1.5 text-muted-foreground">顧客への確認事項</p>
                   <ul className="flex flex-col gap-1.5">
                     {asks.map((a) => (
                       <li key={a.key} className="text-sub">
@@ -88,7 +88,7 @@ export function AskPanel({
                 <div>
                   {/* **社内で決めることは分ける。** 混ぜると、社内の未設定を
                       お客様に質問する文面ができる */}
-                  <p className="text-th mb-1.5 text-muted-foreground">社内で決めること</p>
+                  <p className="text-th mb-1.5 text-muted-foreground">社内で決定する事項</p>
                   <ul className="flex flex-col gap-1.5">
                     {todos.map((t) => (
                       <li key={t.key} className="text-sub">
@@ -104,7 +104,7 @@ export function AskPanel({
 
           <div>
             <div className="mb-1.5 flex flex-wrap items-center gap-2">
-              <p className="text-th text-muted-foreground">聞き方の下書き</p>
+              <p className="text-th text-muted-foreground">確認依頼文の下書き</p>
               <div className="inline-flex overflow-hidden rounded-control border border-border" role="group" aria-label="下書きの形">
                 {([['mail', 'メール'], ['phone', '電話']] as const).map(([m, label], i) => (
                   <button
@@ -133,7 +133,7 @@ export function AskPanel({
               readOnly
               value={text}
               rows={mode === 'phone' ? 5 : 10}
-              aria-label="聞き方の下書き"
+              aria-label="確認依頼文の下書き"
               className="text-sub w-full rounded-note border border-border bg-muted px-3 py-2 leading-relaxed"
             />
           </div>

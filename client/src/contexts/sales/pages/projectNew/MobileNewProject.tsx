@@ -44,7 +44,7 @@ import { RegularSeriesSection } from './RegularSeriesSection';
 import { IntakeRail } from './IntakeRail';
 import { AskPanel } from './AskPanel';
 
-const STEPS = ['いま必要', '進んだら聞く', '最初のタスク'];
+const STEPS = ['いま必要', '任意項目', '最初のタスク'];
 
 export function MobileNewProject() {
   const navigate = useNavigate();

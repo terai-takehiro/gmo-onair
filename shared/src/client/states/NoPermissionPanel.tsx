@@ -22,8 +22,8 @@ export const MODULE_LABELS: Record<string, string> = {
 
 /** アクセスレベルの表示名 (内部値 reader/editor/manager を人の言葉に) */
 export const LEVEL_LABELS: Record<string, string> = {
-  reader: '見るだけ',
-  editor: '書ける',
+  reader: '閲覧',
+  editor: '編集',
   manager: '管理',
 };
 
@@ -72,7 +72,7 @@ export function NoPermissionPanel({
         <Lock className="h-7 w-7" />
       </div>
       <p className="text-cardtitle text-foreground">
-        {target ? `${target}を見る権限がありません` : 'この画面を見る権限がありません'}
+        {target ? `${target}を閲覧する権限がありません` : 'この画面を閲覧する権限がありません'}
       </p>
       <p className="text-sub text-secondary-foreground">
         必要なのは <span className="font-bold text-foreground">{needed}</span> の

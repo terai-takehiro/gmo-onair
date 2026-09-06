@@ -259,7 +259,7 @@ export function BoxCleanupBand() {
           ⚠️ **引き合いのままの案件は「空なら消す」だけ。**
           まだ失注ではないので、失注の置き場へ入れるのは間違い。
         */}
-        引き合いのまま止まっている案件は、<b>中身が空のときだけ</b>消します
+        引き合いのまま停滞中の案件は、<b>中身が空のときだけ</b>消します
         （中身があれば触りません）。
         {/*
           ⚠️ **終了案件は移すだけ・消さない。** 納品物・請求書・検収書が入っており、
@@ -309,7 +309,7 @@ export function BoxCleanupBand() {
           onClick={() => runAll.mutate()}
           className="text-sub mt-2 inline-flex min-h-tap items-center gap-1.5 rounded-control border border-border bg-card px-3 font-bold hover:bg-muted lg:min-h-[36px]"
         >
-          {candidates} 件をまとめて片づける
+          {candidates} 件をまとめて整理
         </button>
       )}
 

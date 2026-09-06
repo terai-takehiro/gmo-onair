@@ -47,7 +47,7 @@ export default function CsvImportDialog({ blocks, onImport, onClose }: CsvImport
       setResult(res);
     } catch {
       // ⚠️ 例外のメッセージは画面に出さない（docs/wording.md ルール5）
-      setError("CSV を読み込めませんでした。ファイルの中身と1行目の見出しを確かめて、もう一度選び直してください。");
+      setError("CSV を読み込めませんでした。ファイルの内容と1行目の見出しを確かめて、もう一度選び直してください。");
     }
   };
 

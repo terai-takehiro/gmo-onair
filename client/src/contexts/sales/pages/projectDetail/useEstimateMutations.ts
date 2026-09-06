@@ -34,7 +34,7 @@ export function useEstimateMutations({
     // 「全体」（絞り込みなし）のときは今までどおり案件全体の見積になる。
     // 複数の回をまとめて選ぶ入口は別（`MultiEpisodeEstimateDialog`）
     mutationFn: () => api.post(base, { title: '', tax_category: 'tax10', customer_id: null, episode_ids: episodeId ? [episodeId] : [] }),
-    onSuccess: (r) => { invalidate(); setOpenId(r.data.data.id); notifySuccess('見積をつくりました'); },
+    onSuccess: (r) => { invalidate(); setOpenId(r.data.data.id); notifySuccess('見積を作成しました'); },
     onError: (e) => notifyApiError('見積をつくれませんでした', e),
   });
 
@@ -42,7 +42,7 @@ export function useEstimateMutations({
     mutationFn: (id: string) => api.post(`${base}/${id}/next-version`),
     onSuccess: (r) => {
       invalidate(); setOpenId(r.data.data.id);
-      notifySuccess(`v${r.data.data.version} をつくりました（前の版はそのまま残ります）`);
+      notifySuccess(`v${r.data.data.version} を作成しました（前の版はそのまま残ります）`);
     },
     onError: (e) => notifyApiError('次の版をつくれませんでした', e),
   });

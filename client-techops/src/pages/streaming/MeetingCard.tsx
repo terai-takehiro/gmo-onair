@@ -45,7 +45,7 @@ async function copyText(text: string, label: string) {
     await navigator.clipboard.writeText(text);
     notifySuccess(`${label}をコピーしました`);
   } catch {
-    notifyError('コピーできませんでした。', { description: 'URL を選んで、手でコピーしてください。' });
+    notifyError('コピーできませんでした。', { description: 'URL を選んで、手動でコピーしてください。' });
   }
 }
 
@@ -98,7 +98,7 @@ export default function MeetingInspector({
           {toolLabel(meeting)}
         </span>
         <span className="min-w-0 flex-1 truncate text-sm font-extrabold">
-          {meeting.label || '（呼び名なし）'}
+          {meeting.label || '（表示名なし）'}
         </span>
         {/* ⚠️ 編集できない人には削除を**出さない**（押せてから断られるのが最悪） */}
         {canEdit && (
@@ -133,7 +133,7 @@ export default function MeetingInspector({
       </div>
 
       <div>
-        <Label htmlFor="mtg-label">呼び名</Label>
+        <Label htmlFor="mtg-label">表示名</Label>
         <input
           id="mtg-label"
           className={fieldCls}

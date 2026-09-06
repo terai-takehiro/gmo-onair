@@ -90,7 +90,7 @@ export function IntakeComposer({
       {!compact && (
         <div className="mb-2.5 flex flex-wrap items-center gap-2">
           <Sparkles className="h-4 w-4 shrink-0 text-info" aria-hidden="true" />
-          <span className="text-cardtitle">依頼・タスクを書き留める</span>
+          <span className="text-cardtitle">依頼・タスクをメモ</span>
           <div className="flex-1" />
           {/* **行き先を人に選ばせない**ことを、書く前に見えるところに出す */}
           <span className="rounded-control text-sub-sm inline-flex items-center gap-1.5 border border-border bg-surface-subtle px-2.5 py-1 font-bold text-muted-foreground">

@@ -27,7 +27,7 @@ export function SearchPageDesktop({
           value={query}
           onChange={(e) => onType(e.target.value)}
           placeholder="名前・機材ID・型名・保管場所"
-          aria-label="探す言葉"
+          aria-label="検索語"
           className="h-10 pl-10"
         />
       </div>
@@ -62,8 +62,8 @@ export function SearchPageDesktop({
       ) : total === 0 ? (
         <EmptyState
           icon={<Search className="h-6 w-6" aria-hidden="true" />}
-          title={`「${debounced}」に当たるものはありません`}
-          description="機材IDの一部（0001 など）や、型名の一部でも探せます。全角半角・ハイフンは区別していません。"
+          title={`「${debounced}」に一致する項目はありません`}
+          description="機材IDの一部（0001 など）や、型名の一部でも検索できます。全角半角・ハイフンは区別していません。"
         />
       ) : (
         <div className="flex flex-col gap-4">

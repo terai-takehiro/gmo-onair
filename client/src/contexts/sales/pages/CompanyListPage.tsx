@@ -225,7 +225,7 @@ export default function CompanyListPage() {
               className="h-9 pl-9"
               value={crud.search}
               onChange={(e) => crud.setSearch(e.target.value)}
-              aria-label="取引先を探す"
+              aria-label="取引先を検索"
             />
           </div>
         </div>
