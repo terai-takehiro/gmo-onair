@@ -40,6 +40,8 @@ export interface GlsProject {
   gls_number: string;
   name: string;
   customer_name: string | null;
+  /** 改番で退役した旧番号（例 GLS-A012）。無ければ空配列。旧番号でも検索できるようにするため（§4.10） */
+  retired_numbers: string[];
 }
 
 export interface EpisodeOption {

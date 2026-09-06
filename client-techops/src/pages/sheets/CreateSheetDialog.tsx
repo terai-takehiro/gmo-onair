@@ -310,6 +310,13 @@ export function CreateSheetDialog({
                       {glsProjects?.map((p) => (
                         <SelectItem key={p.id} value={p.id}>
                           {p.gls_number} — {p.name}
+                          {/* 改番で退役した旧番号も表示する。単純な select（自由文字列で絞り込める
+                              コンポーネントではない）なので、旧番号で探す手がかりは選択肢のラベルに
+                              出す以外にない（旧番号を知っている人が一覧から目視で見つけられるように
+                              する。§4.10） */}
+                          {p.retired_numbers.length > 0 && (
+                            <span className="text-muted-foreground"> (旧: {p.retired_numbers.join("・")})</span>
+                          )}
                         </SelectItem>
                       ))}
                     </SelectContent>
