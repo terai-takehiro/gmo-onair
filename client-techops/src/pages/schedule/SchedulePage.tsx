@@ -27,6 +27,7 @@ import ColumnDialog from "@/components/schedule/ColumnDialog";
 import VenueColumnsDialog from "@/components/schedule/VenueColumnsDialog";
 import ScheduleEmptyState from "@/components/schedule/ScheduleEmptyState";
 import ScheduleSettingsDialog from "@/components/schedule/ScheduleSettingsDialog";
+import ScheduleSiblingDays from "@/components/schedule/ScheduleSiblingDays";
 import MoreMenu from "@/components/schedule/MoreMenu";
 import useItemCommitQueue from "@/components/schedule/useItemCommitQueue";
 import { SCHEDULE_STATUS_LABEL, SCHEDULE_STATUS_BADGE_VARIANT } from "@/components/schedule/scheduleStatus";
@@ -250,6 +251,9 @@ export default function SchedulePage() {
         <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />一覧へ
       </Button>
 
+      {/* 「同じイベントの他の日」（§3-3）。1 日しか無いイベントでは何も描かない */}
+      <ScheduleSiblingDays projectId={schedule.project_id} programId={schedule.program_id} currentId={schedule.id} />
+
       {/* 主＝項目を追加（PC は右上・スマホは下端）。設定は副ボタン、作る系（ひな形・AI）・
           Excel・列は「…」へ（§4-2 (b)） */}
       <PageHeader
@@ -335,6 +339,7 @@ export default function SchedulePage() {
         onDelete={selectedItem ? handleDelete : undefined}
         onCreateScript={handleCreateScript}
         onOpenScript={handleOpenScript}
+        scheduleFixed={schedule.status === "fixed"}
       />
 
       <ColumnDialog

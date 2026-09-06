@@ -47,6 +47,8 @@ interface Props {
   onCreateScript?: () => void;
   onOpenScript?: () => void;
   savingDisabled?: boolean;
+  /** 表の状態が「確定」のとき true。保存は止めない——事実を1行添えるだけ（§4-4） */
+  scheduleFixed?: boolean;
 }
 
 const LINKABLE_KINDS = ["onair", "rehearsal", "recording"];
@@ -63,7 +65,7 @@ const draftOf = (item: ScheduleItem | null | undefined, initial: Partial<ItemDra
 
 export default function ScheduleItemDialog({
   open, onOpenChange, columns, item, initial, conflicted, onReloadLatest, onSave, onDelete,
-  onCreateScript, onOpenScript, savingDisabled,
+  onCreateScript, onOpenScript, savingDisabled, scheduleFixed,
 }: Props) {
   const [draft, setDraft] = useState<ItemDraft>(() => draftOf(item, initial, columns));
 
@@ -204,13 +206,18 @@ export default function ScheduleItemDialog({
         )}
 
         {!conflicted && (
-          <DialogFooter className="gap-2">
-            {isEdit && onDelete && (
-              <Button type="button" variant="destructive" className="min-h-[44px]" onClick={onDelete}>削除</Button>
+          <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
+            {scheduleFixed && (
+              <p className="text-xs text-muted-foreground sm:mr-auto">確定後の変更として保存します</p>
             )}
-            <Button type="button" className="min-h-[44px]" disabled={savingDisabled} onClick={() => onSave(draft)}>
-              保存
-            </Button>
+            <div className="flex gap-2">
+              {isEdit && onDelete && (
+                <Button type="button" variant="destructive" className="min-h-[44px]" onClick={onDelete}>削除</Button>
+              )}
+              <Button type="button" className="min-h-[44px]" disabled={savingDisabled} onClick={() => onSave(draft)}>
+                保存
+              </Button>
+            </div>
           </DialogFooter>
         )}
       </DialogContent>

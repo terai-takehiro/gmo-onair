@@ -5,31 +5,63 @@
 // ミニアプリタイルから来る）。`SheetListPage.tsx` の `?project=` と揃えたクエリ名
 // （API 側は `project_id`/`program_id`）。新規作成もそのままこの案件・番組に紐付ける
 // （フィルタで来ている時点で owner は決まっているので、選び直すダイアログは設けない）。
+//
+// 2026-09-06 決定（14-schedule-v2-plan.md §3-3・§3 B6）:
+// 「イベント（案件・番組）ごとにまとめる」＋拠点・状態・検索の絞り込みを追加した。
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Loader2, Plus, Calendar, X } from "lucide-react";
+import { Loader2, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DashboardHeader, EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+import { useDebounced } from "@gmo-onair/shared/src/client/hooks/useDebounced";
 import * as scheduleApi from "@/lib/scheduleApi";
 import CreateScheduleDialog from "@/components/schedule/CreateScheduleDialog";
+import ScheduleListFilters, { type StatusFilter } from "./ScheduleListFilters";
+import ScheduleBundleGroup from "./ScheduleBundleGroup";
+import { bundleSchedules } from "./scheduleBundles";
 
 export default function ScheduleListPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [createOpen, setCreateOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounced(search, 300);
 
   const projectFilter = searchParams.get("project");
   const programFilter = searchParams.get("program");
+  const locationFilter = searchParams.get("location") || "";
+  // "保管" は既定の絞り込みから外れる（§4-4）。ここでは「すべて」を選んでいるときだけ
+  // 取得したあとで保管を除く（サーバーには status を送らず、取り違えたら怖いので明示フィルタは
+  // サーバー任せ・除外だけ画面側で行う）
+  const statusFilter = (searchParams.get("status") as StatusFilter | null) || "all";
+
+  const setQueryParam = (key: string, value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setSearchParams(next);
+  };
+
+  const locationsQuery = useQuery({
+    queryKey: ["studio-rooms"],
+    queryFn: scheduleApi.listStudioRooms,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const listQuery = useQuery({
-    queryKey: ["schedules", "list", projectFilter, programFilter],
+    queryKey: ["schedules", "list", projectFilter, programFilter, locationFilter, statusFilter, debouncedSearch],
     queryFn: () => scheduleApi.listSchedules({
       date_from: projectFilter || programFilter ? undefined : new Date().toISOString().slice(0, 10),
       project_id: projectFilter || undefined,
       program_id: programFilter || undefined,
+      location_id: locationFilter || undefined,
+      status: statusFilter !== "all" ? statusFilter : undefined,
+      search: debouncedSearch || undefined,
     }),
+    // 遅らせた検索語が切り替わる瞬間に一覧を骨組みへ戻さない（`SheetListPage.tsx` と同じ形）
+    placeholderData: keepPreviousData,
   });
 
   const clearFilter = () => {
@@ -39,7 +71,12 @@ export default function ScheduleListPage() {
     setSearchParams(next);
   };
 
-  const filterLabel = (listQuery.data ?? []).find((s) => s.project_name || s.program_name);
+  // 「すべて」選択中は保管を隠す（§4-4「保管は一覧の既定絞り込みから外れる」）。
+  // 「保管」を明示的に選んだときはサーバー側の status フィルタでちょうど保管だけが返る
+  const visibleRows = (listQuery.data ?? []).filter((s) => statusFilter !== "all" || s.status !== "archived");
+  const bundles = bundleSchedules(visibleRows);
+
+  const filterLabel = visibleRows.find((s) => s.project_name || s.program_name);
   const lockedOwner = (projectFilter || programFilter) && filterLabel
     ? { projectId: projectFilter, programId: programFilter, label: filterLabel.project_name ?? filterLabel.program_name ?? "" }
     : undefined;
@@ -68,41 +105,33 @@ export default function ScheduleListPage() {
         </div>
       )}
 
+      <ScheduleListFilters
+        locations={locationsQuery.data ?? []}
+        locationId={locationFilter}
+        onLocationChange={(v) => setQueryParam("location", v)}
+        status={statusFilter}
+        onStatusChange={(v) => setQueryParam("status", v === "all" ? "" : v)}
+        search={search}
+        onSearchChange={setSearch}
+      />
+
       {listQuery.isLoading && (
         <div className="mt-8 flex items-center justify-center gap-2 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" /><span className="text-sm">読み込み中…</span>
         </div>
       )}
 
-      {!listQuery.isLoading && (listQuery.data?.length ?? 0) === 0 && (
+      {!listQuery.isLoading && bundles.length === 0 && (
         <div className="mt-8">
-          <EmptyState title="まだスケジュール表がありません" description="「新しく作る」から最初の1枚を作れます。" />
+          <EmptyState
+            title="この条件に合う表はありません"
+            description={debouncedSearch || locationFilter || statusFilter !== "all" ? "絞り込みを変えるか、「新しく作る」から最初の1枚を作れます。" : "「新しく作る」から最初の1枚を作れます。"}
+          />
         </div>
       )}
 
-      <div className="mt-6 space-y-3">
-        {(listQuery.data ?? []).map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            onClick={() => navigate(`/techops/schedules/${s.id}`)}
-            className="flex w-full min-h-[44px] flex-col items-start gap-1 rounded-lg border border-border bg-card p-4 text-left hover:bg-accent"
-          >
-            <div className="flex w-full items-center gap-2">
-              <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-              <span className="text-base font-semibold text-foreground">{s.service_date}</span>
-              {s.location_name && <span className="text-sm text-muted-foreground">・ {s.location_name}</span>}
-            </div>
-            <div className="text-sm text-foreground">{s.title || "（無題）"}</div>
-            <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-              {s.project_name && <span>案件: {s.gls_number ? `${s.gls_number} ` : ""}{s.project_name}</span>}
-              {s.program_name && <span>番組: {s.program_name}</span>}
-              <span>項目 {s.item_count ?? 0} 件</span>
-              <span>共有 {s.share_count ?? 0} 人</span>
-              <span>更新 {new Date(s.updated_at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
-            </div>
-          </button>
-        ))}
+      <div className="mt-6 space-y-6">
+        {bundles.map((b) => <ScheduleBundleGroup key={b.key} bundle={b} />)}
       </div>
 
       <CreateScheduleDialog
