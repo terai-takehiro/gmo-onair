@@ -188,10 +188,10 @@ export function FlowTaskRow({ task, canEdit }: { task: FlowTask; canEdit: boolea
       {canEdit && (
         <RowSlot w={128} align="right">
           <span className="flex items-center justify-end gap-1">
-            <Button variant="outline" size="sm" onClick={start}>
+            <Button type="button" variant="outline" size="sm" onClick={start}>
               <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />編集
             </Button>
-            <Button
+            <Button type="button"
               variant="ghost" size="icon" aria-label={`${task.title} を削除`} disabled={del.isPending}
               onClick={() => confirmAction({
                 title: `${task.title} を削除しますか`,

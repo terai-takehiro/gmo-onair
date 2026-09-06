@@ -18,7 +18,11 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editing: PartnerSchedule | null;
-  /** カレンダーの日付選択から渡す初期値 (YYYY-MM-DD, end は inclusive) */
+  /**
+   * カレンダーの選択から渡す初期値（end は inclusive）。
+   * `YYYY-MM-DD` なら終日、`YYYY-MM-DDTHH:MM` なら**その時刻**で開く
+   * （週表の空きマスをなぞった時間をそのまま持ち込むため）。
+   */
   presetRange?: { start: string; end: string } | null;
   /** 他人の予定も操作できるか (manager / system_admin) */
   isManager: boolean;
@@ -69,10 +73,19 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
       setUserId(currentUser?.id || "");
       setScheduleType("daikyu");
       setTitle("");
-      setAllDay(true);
-      setStartDate(presetRange?.start || today);
-      setEndDate(presetRange?.end || presetRange?.start || today);
-      setStartTime("09:00"); setEndTime("18:00");
+      // **時刻付きの preset（週表の空きマスをなぞった時間）を捨てない。**
+      // 以前は日付だけを見ていたため、14:00–16:00 をなぞってから「パートナーの予定」を
+      // 選ぶと、時刻が黙って消えて終日 09:00–18:00 に戻っていた（画面には何も出ない）。
+      // 時刻が付いていたら終日を外し、その時刻を入れる。日付だけなら今までどおり終日。
+      const ps = presetRange?.start || today;
+      const pe = presetRange?.end || presetRange?.start || today;
+      const [psDate, psTime] = ps.split("T");
+      const [peDate, peTime] = pe.split("T");
+      setAllDay(!psTime);
+      setStartDate(psDate || today);
+      setEndDate(peDate || psDate || today);
+      setStartTime(psTime?.slice(0, 5) || "09:00");
+      setEndTime(peTime?.slice(0, 5) || "18:00");
       setNotes("");
       setTentative(false);
       setAssigneeIds([]);
@@ -125,6 +138,13 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
       title={editing ? "パートナー予定を編集" : "パートナー予定を登録"}
       size="lg"
       sub="ここに登録した予定はパートナースケジュール権限を持つメンバー全員に共有されます。"
+      /* Enterキーで登録できるようにする（`FormDialog` の `onSubmit` は opt-in）。
+         送信ボタンは `type="submit"` にして `onClick` を外してある — 両方あると二重送信になる */
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!canSubmit || !canModify || saveMutation.isPending) return;
+        saveMutation.mutate();
+      }}
       footer={
         <FormDialogFooter>
           {editing && canModify && (
@@ -140,7 +160,7 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
             </Button>
           )}
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
-          <Button type="button" onClick={() => saveMutation.mutate()} disabled={!canSubmit || !canModify || saveMutation.isPending}>
+          <Button type="submit" disabled={!canSubmit || !canModify || saveMutation.isPending}>
             {saveMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
             {editing ? "保存" : "登録"}
           </Button>
@@ -170,6 +190,22 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
               </div>
             </div>
           )}
+
+          {/* 担当者（複数・任意）。
+              **「対象者」のすぐ下に置く**（`docs/design/v4/_form-order.md` 段4「誰が」）。
+              以前は「メモ」の直前＝下から2番目にあり、間に 種別・タイトル・終日・日付・
+              時刻・希望日 が挟まっていた。どちらも人を選ぶ欄なのに離れているせいで、
+              **対象者（誰の予定か）と担当者（この予定に付く人）の違いが画面から読めなかった** */}
+          <div className="space-y-1.5">
+            <Label>担当者（複数選択可・いなくてもよい）</Label>
+            <p className="text-xs text-muted-foreground">対象者＝誰の予定か。担当者＝その予定に付く社内のメンバー。</p>
+            <AssigneePicker
+              open={open}
+              assigneeIds={assigneeIds}
+              onChange={setAssigneeIds}
+              existingAssignees={editing?.assignees}
+            />
+          </div>
 
           {/* 種別 */}
           <div className="space-y-1.5">
@@ -203,30 +239,32 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
             <Switch checked={allDay} onCheckedChange={setAllDay} id="ps-allday" />
             <Label htmlFor="ps-allday">終日</Label>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* 日時は**境界ごとに1行**（開始＝日＋時刻／終了＝日＋時刻）。
+              自分の予定（`PersonalEventDialog`）・スタジオ予約と同じ読み方にそろえる。
+              以前の「日付の行／時刻の行」だと、スマホ（1列）で
+              開始日→**終了日**→開始時刻→終了時刻 と落ちていた */}
+          <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label>開始日</Label>
-              <Input type="date" value={startDate} onChange={(e) => {
-                setStartDate(e.target.value);
-                if (!endDate || endDate < e.target.value) setEndDate(e.target.value);
-              }} />
+              <Label>開始</Label>
+              <div className="flex gap-2">
+                <Input type="date" className="min-w-0 flex-1" value={startDate} onChange={(e) => {
+                  setStartDate(e.target.value);
+                  if (!endDate || endDate < e.target.value) setEndDate(e.target.value);
+                }} />
+                {!allDay && (
+                  <Input type="time" className="w-28 shrink-0" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                )}
+              </div>
             </div>
             <div className="space-y-1.5">
-              <Label>終了日</Label>
-              <Input type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} />
+              <Label>終了</Label>
+              <div className="flex gap-2">
+                <Input type="date" className="min-w-0 flex-1" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} />
+                {!allDay && (
+                  <Input type="time" className="w-28 shrink-0" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                )}
+              </div>
             </div>
-            {!allDay && (
-              <>
-                <div className="space-y-1.5">
-                  <Label>開始時刻</Label>
-                  <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>終了時刻</Label>
-                  <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-                </div>
-              </>
-            )}
           </div>
 
           {/* 確定 / 希望日（未確定） */}
@@ -238,17 +276,6 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
             <p className="text-xs text-muted-foreground">
               オンにすると、カレンダーに破線の枠で「未確定」として表示されます。決まったらオフにしてください。
             </p>
-          </div>
-
-          {/* 担当者（複数・任意） */}
-          <div className="space-y-1.5">
-            <Label>担当者（複数選択可・いなくてもよい）</Label>
-            <AssigneePicker
-              open={open}
-              assigneeIds={assigneeIds}
-              onChange={setAssigneeIds}
-              existingAssignees={editing?.assignees}
-            />
           </div>
 
           {/* メモ */}

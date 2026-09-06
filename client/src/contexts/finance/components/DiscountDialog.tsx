@@ -159,20 +159,9 @@ export default function DiscountDialog({
             </div>
           )}
 
-          {/* 説明（任意） */}
-          <div>
-            <Label className="text-sm">表示する項目名（任意）</Label>
-            <Input
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder={previewDescription}
-            />
-            <p className="mt-1 text-xs text-muted-foreground">
-              空欄の場合は「{previewDescription}」と表示されます
-            </p>
-          </div>
-
-          {/* プレビュー */}
+          {/* プレビュー（計算結果）。**材料になる率・額のすぐ下に置く**
+              （`docs/design/v4/_form-order.md` 2-3「自動計算は材料になる欄より下」）。
+              着手前はここに任意の項目名が挟まっていて、入れた率と結果が離れていた */}
           <div className="rounded-md border bg-muted/50 p-3 space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">値引き額</span>
@@ -185,6 +174,19 @@ export default function DiscountDialog({
                 <span>計算: {baseAmount.toLocaleString()} × {rateInput}%</span>
               </div>
             )}
+          </div>
+
+          {/* 説明（任意）。無くても追加できるので最後にまとめる（同 段6） */}
+          <div>
+            <Label className="text-sm">表示する項目名（任意）</Label>
+            <Input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder={previewDescription}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              空欄の場合は「{previewDescription}」と表示されます
+            </p>
           </div>
         </div>
     </FormDialog>

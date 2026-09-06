@@ -190,9 +190,20 @@ export default function MoneyRulesPage() {
             icon={<CalendarCheck className="h-4 w-4 text-success" aria-hidden="true" />}
             tone="bg-success-surface" title="締めと支払" desc="請求書を出す日と、入金を待つ期間"
           >
+            {/*
+              並びは **もらう（売上）→ はらう（仕入）→ 両方に効くもの** の3かたまり。
+              以前は 締め日 → 入金2つ → 仕入2つ → 休業日 → 請求書の発行日 の順で、
+              **もらう話とはらう話が行き来し**、もらう側の「請求書の発行日」だけが
+              仕入の後ろに取り残されていた。もらう側は
+              締める → 出す → もらう の時間順に並べてある。
+            */}
             <Line label="売上の締め日" hint="月内に納品した分をまとめて請求します">
               <Pick value={draft.closing_day} choices={DAY_CHOICES} disabled={!canEdit}
                 onChange={(v) => set('closing_day', Number(v))} />
+            </Line>
+            <Line label="請求書の発行日" hint="いつ出すかの目安です。自動で下書きは作りません">
+              <Pick value={draft.invoice_issue_rule} choices={ISSUE_CHOICES} disabled={!canEdit}
+                onChange={(v) => set('invoice_issue_rule', v as MoneyRules['invoice_issue_rule'])} />
             </Line>
             {/* 「入金の期限」ではなく**支払サイト**（締めから何か月後か）。
                 日付の期限だと読まれて、月末を入れられていた */}
@@ -204,6 +215,8 @@ export default function MoneyRulesPage() {
               <Pick value={draft.payment_day} choices={DAY_CHOICES} disabled={!canEdit}
                 onChange={(v) => set('payment_day', Number(v))} />
             </Line>
+
+            {/* ここから「はらう」側 */}
             <Line label="仕入の支払日（月）" hint="こちらが払う側">
               <Pick value={draft.purchase_payment_months} choices={MONTH_CHOICES} disabled={!canEdit}
                 onChange={(v) => set('purchase_payment_months', Number(v))} />
@@ -212,16 +225,15 @@ export default function MoneyRulesPage() {
               <Pick value={draft.purchase_payment_day} choices={DAY_CHOICES} disabled={!canEdit}
                 onChange={(v) => set('purchase_payment_day', Number(v))} />
             </Line>
+
+            {/* **もらう・はらうの両方に効く**ので最後に置く（どちらか一方の
+                かたまりの中に入れると、他方には効かないように読める） */}
             <Line
               label="支払日が休業日のとき"
-              hint="土日・祝日と、全社の休業日（「休日・営業時間」の表）に当たったとき"
+              hint="土日・祝日と、全社の休業日（「休日・営業時間」の表）に当たったとき。入金・支払の両方に効きます"
             >
               <Pick value={draft.payment_holiday_shift} choices={HOLIDAY_SHIFT_CHOICES} disabled={!canEdit}
                 onChange={(v) => set('payment_holiday_shift', v as MoneyRules['payment_holiday_shift'])} />
-            </Line>
-            <Line label="請求書の発行日" hint="いつ出すかの目安です。自動で下書きは作りません">
-              <Pick value={draft.invoice_issue_rule} choices={ISSUE_CHOICES} disabled={!canEdit}
-                onChange={(v) => set('invoice_issue_rule', v as MoneyRules['invoice_issue_rule'])} />
             </Line>
           </Group>
 

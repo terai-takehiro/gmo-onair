@@ -132,6 +132,16 @@ function CardDetail({
 
         {canEdit && editing && (
           <div className="mt-3 flex flex-col gap-2 border-t border-border-subtle pt-3">
+            {/* **「貸し出せる」を先頭に置く。** 外すと紛失・廃止の扱いになり、
+                このカードは貸出そのものができなくなる（呼び名・備考より上位の話）。
+                末尾にあると、直したいのがそこだったときに下まで探すことになる */}
+            <div>
+              <label className="text-sub min-h-tap flex items-center gap-2">
+                <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-4 w-4" />
+                貸し出せる
+              </label>
+              <p className="text-note text-muted-foreground">外すと紛失・廃止の扱いになります。</p>
+            </div>
             <div>
               <Label htmlFor="card-label">表示名 (任意)</Label>
               <Input id="card-label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="例：貸出用の予備" />
@@ -145,13 +155,6 @@ function CardDetail({
                 rows={2}
                 className="text-sub mt-1 w-full resize-y rounded-control border border-border bg-background px-3 py-2"
               />
-            </div>
-            <div>
-              <label className="text-sub min-h-tap flex items-center gap-2">
-                <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-4 w-4" />
-                貸し出せる
-              </label>
-              <p className="text-note text-muted-foreground">外すと紛失・廃止の扱いになります。</p>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" className="min-h-tap" onClick={() => setEditing(false)}>

@@ -82,6 +82,53 @@ export function CompanyFormFields({ form, editing, open, canEditVendor }: {
 
   return (
     <>
+      {/*
+        **どこの会社かが先、役割はその次**（`docs/design/v4/_form-order.md` の段の順）。
+        元は「役割（顧客／仕入先／販管費支払先）」が1つ目で、必須の取引先名はその下でした
+        — 誰かを決める前に、その誰かの役割を訊く形です。
+        略称を隣に置いてあるのは、どちらも「呼び名」で対で読むためです。
+      */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor="name">取引先名 *</Label>
+          <Input id="name" {...form.register("name", { required: true })} placeholder="株式会社〇〇" />
+        </div>
+        <div>
+          <Label htmlFor="short_name">略称</Label>
+          <Input id="short_name" {...form.register("short_name")} placeholder="〇〇" />
+        </div>
+      </div>
+
+      {/*
+        グループ会社の印（冒頭の理由）。**取引先名のすぐ下**に置いてあります —
+        社名から自動で印が入る仕掛け（`useGmoGroupGuess`）があるので、
+        離すと**印が入った瞬間が画面の外で起きます**（入った理由の1行も見えません）。
+      */}
+      <div className="rounded-md border p-3">
+        <label className="flex min-h-tap items-center gap-2.5">
+          <input
+            type="checkbox"
+            {...form.register("is_gmo_group", {
+              // 人が触ったら、以後この登録では社名から入れ直さない
+              onChange: () => { touched.current = true; },
+            })}
+            className="v4-tap h-5 w-5 shrink-0 accent-primary"
+          />
+          <span>
+            <span className="block">GMOインターネットグループのグループ会社</span>
+            <span className="text-note block text-muted-foreground">
+              この取引先の案件は<strong className="font-bold">グループ会社</strong>あつかいになり、
+              見積の単価がグループ会社価格になります（「どこから来た話か」も「グループ案件」に固定）
+            </span>
+          </span>
+        </label>
+        {!editing && isGroup && looksLikeGmoGroup(name) && (
+          <p className="text-note mt-1.5 pl-[30px] text-muted-foreground">
+            社名に GMO が入っているので自動で付けました（違うときは外してください）
+          </p>
+        )}
+      </div>
+
       <div className="space-y-2">
         <Label>役割（複数選択可 / すべて未選択の場合は「その他」扱い）</Label>
         <ToggleButtonGroup
@@ -111,60 +158,7 @@ export function CompanyFormFields({ form, editing, open, canEditVendor }: {
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="sm:col-span-2">
-          <Label htmlFor="name">取引先名 *</Label>
-          <Input id="name" {...form.register("name", { required: true })} placeholder="株式会社〇〇" />
-        </div>
-        <div>
-          <Label htmlFor="short_name">略称</Label>
-          <Input id="short_name" {...form.register("short_name")} placeholder="〇〇" />
-        </div>
-        <div>
-          <Label htmlFor="contact_name">担当者名</Label>
-          <Input id="contact_name" {...form.register("contact_name")} placeholder="山田 太郎" />
-        </div>
-        <div>
-          <Label htmlFor="email">メールアドレス</Label>
-          <Input id="email" type="email" {...form.register("email")} />
-        </div>
-        <div>
-          <Label htmlFor="phone">電話番号</Label>
-          <Input id="phone" {...form.register("phone")} />
-        </div>
-      </div>
-
-      <div>
-        <Label htmlFor="address">住所</Label>
-        <Input id="address" {...form.register("address")} />
-      </div>
-
-      {/* グループ会社の印（冒頭の理由） */}
-      <div className="rounded-md border p-3">
-        <label className="flex min-h-tap items-center gap-2.5">
-          <input
-            type="checkbox"
-            {...form.register("is_gmo_group", {
-              // 人が触ったら、以後この登録では社名から入れ直さない
-              onChange: () => { touched.current = true; },
-            })}
-            className="v4-tap h-5 w-5 shrink-0 accent-primary"
-          />
-          <span>
-            <span className="block">GMOインターネットグループのグループ会社</span>
-            <span className="text-note block text-muted-foreground">
-              この取引先の案件は<strong className="font-bold">グループ会社</strong>あつかいになり、
-              見積の単価がグループ会社価格になります（「どこから来た話か」も「グループ案件」に固定）
-            </span>
-          </span>
-        </label>
-        {!editing && isGroup && looksLikeGmoGroup(name) && (
-          <p className="text-note mt-1.5 pl-[30px] text-muted-foreground">
-            社名に GMO が入っているので自動で付けました（違うときは外してください）
-          </p>
-        )}
-      </div>
-
+      {/* 「仕入先」を選んだときだけ出る欄なので、**役割トグルの真下**に置く */}
       {isVendor && (
         <div className="space-y-3 rounded-md border p-3 bg-muted/30">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">仕入先設定</p>
@@ -188,6 +182,26 @@ export function CompanyFormFields({ form, editing, open, canEditVendor }: {
           )}
         </div>
       )}
+
+      {/* 連絡先は1か所にまとめる（誰に・どこへ連絡するかは対で読むため） */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor="contact_name">担当者名</Label>
+          <Input id="contact_name" {...form.register("contact_name")} placeholder="山田 太郎" />
+        </div>
+        <div>
+          <Label htmlFor="email">メールアドレス</Label>
+          <Input id="email" type="email" {...form.register("email")} />
+        </div>
+        <div>
+          <Label htmlFor="phone">電話番号</Label>
+          <Input id="phone" {...form.register("phone")} />
+        </div>
+        <div className="sm:col-span-2">
+          <Label htmlFor="address">住所</Label>
+          <Input id="address" {...form.register("address")} />
+        </div>
+      </div>
 
       {/* 与信限度額・最新与信確認日（migration 272・登録は任意） */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -180,8 +180,10 @@ export default function CompanyListPage() {
         title="取引先マスター"
         sub="顧客・仕入先・販管費支払先を1つの台帳で管理します（同じ会社は1回登録すれば足ります）"
         primaryAction={
+          // このファイルは `CrudFormDialog onSubmit`（Enter送信）を持つので、
+          // **枠の外のボタンにも種類を書く**（`scripts/check-form-submit.mjs`）
           canManage ? (
-            <Button onClick={openAdd}>
+            <Button type="button" onClick={openAdd}>
               <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />新規取引先
             </Button>
           ) : undefined

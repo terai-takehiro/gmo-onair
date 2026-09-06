@@ -100,6 +100,19 @@ export function RevenueDialog({
           <Label>件名</Label>
           <Input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} placeholder="見積件名" />
         </div>
+
+        {/*
+          **金額の実体（明細）と按分を、伝票の属性より上に置く**
+          （`docs/design/v4/_form-order.md`「自動計算は材料になる欄より下」）。
+          登録できるかどうかは明細の合計（`total > 0`）で決まるのに、
+          明細が備考のさらに下にあり、上から埋めると
+          ステータス・税区分・日付・備考という**後で決まる／任意のもの**を
+          先に触ってから金額に着く形でした。按分は明細の合計に依存するので
+          明細のすぐ下です（グループ仕入のダイアログとも同じ並びになります）。
+        */}
+        <RevenueItemsEditor items={items} setItems={setItems} total={total} />
+        <AllocationEditor label="売上金額" alloc={alloc} total={total} />
+
         <div className={formGrid2}>
           <div>
             <Label>ステータス</Label>
@@ -131,13 +144,11 @@ export function RevenueDialog({
             <Input type="date" value={billingDate} onChange={(e) => setBillingDate(e.target.value)} />
           </div>
         </div>
+        {/* 備考は任意なので最後（`_form-order.md` の段6「補足」） */}
         <div>
           <Label>備考</Label>
           <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="備考" />
         </div>
-
-        <RevenueItemsEditor items={items} setItems={setItems} total={total} />
-        <AllocationEditor label="売上金額" alloc={alloc} total={total} />
       </div>
     </FormDialog>
   );

@@ -76,10 +76,13 @@ export function ActivityFormDialog({
       onOpenChange={(v) => { if (!v) { reset(); } onOpenChange(v); }}
       title="やり取りを記録"
       size="lg"
+      // **Enter で記録**（`formDialog.tsx`）。件名を打ってそのまま終われる。
+      // 記録するボタンは `type="submit"`・`onClick` は外す（両方あると二重送信）
+      onSubmit={(e) => { e.preventDefault(); if (subject.trim() && !create.isPending) create.mutate(); }}
       footer={
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
-          <Button disabled={!subject.trim() || create.isPending} onClick={() => create.mutate()}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
+          <Button type="submit" disabled={!subject.trim() || create.isPending}>
             記録する
           </Button>
         </div>

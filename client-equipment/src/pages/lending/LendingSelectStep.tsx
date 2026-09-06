@@ -7,11 +7,17 @@
 import { useMemo } from 'react';
 import { Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { EmptyState } from '@gmo-onair/shared/src/client/states';
+import { EmptyState, NoSearchResults } from '@gmo-onair/shared/src/client/states';
+import { SearchField } from '@/components/parts/SearchField';
 import { TYPE_CODES } from '@/lib/constants';
 import type { LendableItem } from './types';
 
-export function LendingSelectStep({ loading, parents, childrenMap, selectedIds, typeTab, onTypeTabChange, onToggle }: {
+/** ID は打ち方がぶれる (`Y-C-00001` / `yc00001`)。台帳の検索と同じく区切りを落として比べる */
+const loose = (s: string) => s.toLowerCase().replace(/[-_\s]/g, '');
+
+export function LendingSelectStep({
+  loading, parents, childrenMap, selectedIds, typeTab, onTypeTabChange, onToggle, search, onSearchChange,
+}: {
   loading: boolean;
   parents: LendableItem[];
   childrenMap: Map<string, LendableItem[]>;
@@ -19,39 +25,59 @@ export function LendingSelectStep({ loading, parents, childrenMap, selectedIds, 
   typeTab: string;
   onTypeTabChange: (code: string) => void;
   onToggle: (item: LendableItem) => void;
+  search: string;
+  onSearchChange: (v: string) => void;
 }) {
+  // 探す欄が先、種別のタブが後。貸出可の機材が増えるほどカードを目で探すことになるので、
+  // 台帳・「探す」画面と同じく**名前で当てる手段を絞り込みの先頭に置く**。
+  // 種別タブの件数も検索後の集合から数える（押す前に0件だと分かるように）
+  const matched = useMemo(() => {
+    const q = search.trim();
+    if (!q) return parents;
+    const lq = q.toLowerCase();
+    const cq = loose(q);
+    return parents.filter((i) => (
+      i.name.toLowerCase().includes(lq)
+      || loose(i.eq_code).includes(cq)
+      || (i.unit_number != null && String(i.unit_number).includes(cq))
+    ));
+  }, [parents, search]);
+
   const availableTypes = useMemo(() => {
-    const codes = new Set(parents.map((i) => i.equipment_type_code));
+    const codes = new Set(matched.map((i) => i.equipment_type_code));
     return TYPE_CODES.filter((t) => codes.has(t.code));
-  }, [parents]);
-  const shown = typeTab ? parents.filter((i) => i.equipment_type_code === typeTab) : parents;
+  }, [matched]);
+  const shown = typeTab ? matched.filter((i) => i.equipment_type_code === typeTab) : matched;
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="sticky top-0 z-10 -mt-1 flex gap-1.5 overflow-x-auto border-b border-border bg-card py-2.5">
-        <button
-          type="button"
-          onClick={() => onTypeTabChange('')}
-          className={cn(
-            'min-h-tap shrink-0 rounded-chip px-3 text-sub lg:min-h-[36px]',
-            !typeTab ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-background',
-          )}
-        >
-          すべて {parents.length}
-        </button>
-        {availableTypes.map((t) => (
+      <div className="sticky top-0 z-10 -mt-1 flex flex-col gap-2 border-b border-border bg-card py-2.5">
+        <SearchField value={search} onChange={onSearchChange} placeholder="名前・機材IDで探す" />
+        <div className="flex gap-1.5 overflow-x-auto">
           <button
-            key={t.code}
             type="button"
-            onClick={() => onTypeTabChange(t.code)}
+            onClick={() => onTypeTabChange('')}
             className={cn(
               'min-h-tap shrink-0 rounded-chip px-3 text-sub lg:min-h-[36px]',
-              typeTab === t.code ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-background',
+              !typeTab ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-background',
             )}
           >
-            {t.label} {parents.filter((i) => i.equipment_type_code === t.code).length}
+            すべて {matched.length}
           </button>
-        ))}
+          {availableTypes.map((t) => (
+            <button
+              key={t.code}
+              type="button"
+              onClick={() => onTypeTabChange(t.code)}
+              className={cn(
+                'min-h-tap shrink-0 rounded-chip px-3 text-sub lg:min-h-[36px]',
+                typeTab === t.code ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-background',
+              )}
+            >
+              {t.label} {matched.filter((i) => i.equipment_type_code === t.code).length}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading ? (
@@ -59,10 +85,19 @@ export function LendingSelectStep({ loading, parents, childrenMap, selectedIds, 
           <Loader2 className="mr-2 inline h-5 w-5 animate-spin" aria-hidden="true" />読み込み中…
         </p>
       ) : shown.length === 0 ? (
-        <EmptyState
-          title="持ち出せる機材がありません"
-          description="設定の「貸出のルール」で貸出可にした、稼働中の機材だけが出ます。"
-        />
+        // 0件の理由を分ける。1台も貸出可が無いのか、いま打った言葉で絞れているのか
+        (search.trim() || typeTab) ? (
+          <NoSearchResults
+            keyword={search.trim() || undefined}
+            activeFilters={typeTab ? [`種別: ${TYPE_CODES.find((t) => t.code === typeTab)?.label ?? typeTab}`] : []}
+            onClearFilters={() => onTypeTabChange('')}
+          />
+        ) : (
+          <EmptyState
+            title="持ち出せる機材がありません"
+            description="設定の「貸出のルール」で貸出可にした、稼働中の機材だけが出ます。"
+          />
+        )
       ) : (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {shown.map((item) => {

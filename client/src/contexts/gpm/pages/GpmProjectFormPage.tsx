@@ -187,6 +187,10 @@ export default function GpmProjectFormPage() {
           onChange={(p) => setBasic((v) => ({ ...v, ...p }))}
           users={users.data ?? []}
           customers={customers.data ?? []}
+          // 着手日は1段目と3段目の**両方から同じ state を触る**。
+          // 3段目は「その着手日で工程がこう並ぶ」を見ながら直す場所として残す
+          startedOn={startedOn}
+          onStartedOn={setStartedOn}
         />
       )}
       {step === 2 && (

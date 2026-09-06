@@ -167,7 +167,7 @@ export default function CounterpartyPage() {
         sub="仕入先とパートナーをここで管理します。請求先（顧客）は案件管理の「取引先マスター」です"
         primaryAction={
           canEdit ? (
-            <Button onClick={crud.openAdd}>
+            <Button type="button" onClick={crud.openAdd}>
               <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />{def.label}を追加
             </Button>
           ) : undefined
@@ -184,7 +184,7 @@ export default function CounterpartyPage() {
           <div className="flex shrink-0 flex-wrap gap-2">
             <ExcelToolbar resource={def.endpoint} name={def.excelName} queryKey={[def.queryKey]} />
             {kind === 'vendor' && (
-              <Button variant="outline" onClick={() => navigate('/budget/reports/vendors')}>
+              <Button type="button" variant="outline" onClick={() => navigate('/budget/reports/vendors')}>
                 <BarChart3 className="mr-1.5 h-4 w-4" aria-hidden="true" />仕入先集計
               </Button>
             )}
@@ -308,13 +308,13 @@ export default function CounterpartyPage() {
                     {canEdit && (
                       <span className="flex gap-0.5">
                         <Button
-                          variant="ghost" size="icon" aria-label="編集"
+                          type="button" variant="ghost" size="icon" aria-label="編集"
                           onClick={(e) => { e.stopPropagation(); crud.openEdit(p); }}
                         >
                           <Pencil className="h-4 w-4" aria-hidden="true" />
                         </Button>
                         <Button
-                          variant="ghost" size="icon" aria-label="削除" className="text-destructive"
+                          type="button" variant="ghost" size="icon" aria-label="削除" className="text-destructive"
                           onClick={(e) => { e.stopPropagation(); onDelete(p); }}
                         >
                           <Trash2 className="h-4 w-4" aria-hidden="true" />

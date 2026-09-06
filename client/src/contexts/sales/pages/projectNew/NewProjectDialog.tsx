@@ -125,6 +125,14 @@ function DesktopNewProject() {
           <RequiredFields f={f} />
         </div>
 
+        {/*
+          **「回のある案件か」とレギュラーの取り決めは、畳んだ枠より上**
+          （`docs/design/v4/_form-order.md`）。この2つは親子で、
+          畳んだ枠の中で親を選ばせると、子のカードが枠の外に生えて見落とされます。
+          単発のままなら欄1つぶんの高さで終わります
+        */}
+        <RegularSeriesSection f={f} />
+
         <div className="rounded-card overflow-hidden border border-border bg-card">
           <button
             type="button"
@@ -149,10 +157,6 @@ function DesktopNewProject() {
             </div>
           )}
         </div>
-
-        {/* 回を作るたびに聞かれては困る4つの取り決め（regular-series.md §3）を、
-            案件作成の時点でも入れられるようにする */}
-        <RegularSeriesSection f={f} />
 
         {/* 受付から持ち込んだ「聞くこと」と「聞き方の下書き」 */}
         <AskPanel v={v} customerName={f.customer?.name ?? null} senderName={currentUser?.name ?? ''} />

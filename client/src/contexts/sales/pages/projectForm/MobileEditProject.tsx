@@ -153,12 +153,18 @@ export function MobileEditProject({
             )}
           </div>
 
-          {/* 回を作るたびに聞かれては困る4つの取り決め（PC と同じ部品。`ProjectFormPage.tsx` 参照） */}
+          {/*
+            ⚠️ **節の並びは `ProjectFormPage.tsx`（PC）と必ず同じにすること。**
+            この画面は「PC と同じ並びで縦積みにする」と決めてあるので、
+            片方だけ直すと PC とスマホで並びが食い違います
+            （並べ替えの理由は PC 側のコメント・`docs/design/v4/_form-order.md`）。
+          */}
+          {hasGls && isCategoryA && <BroadcastSection form={form} />}
+
+          {/* 回のある案件か＋回の取り決め（PC と同じ部品。`ProjectFormPage.tsx` 参照） */}
           <RegularSeriesSection f={fields} />
 
           {/* ここから下は**直す画面だけが持つもの**（PC と同じセクション部品を縦積み） */}
-          <MembersSection projectId={isEdit ? id : undefined} />
-
           {isEdit && (
             <BookingListSection
               bookings={actions.bookings}
@@ -176,7 +182,7 @@ export function MobileEditProject({
             onOpenCalendar={openCalendar}
           />
 
-          {hasGls && isCategoryA && <BroadcastSection form={form} />}
+          <MembersSection projectId={isEdit ? id : undefined} />
 
           <BoxSection
             form={form}
@@ -212,7 +218,7 @@ export function MobileEditProject({
       */}
       <Sheet open={menuOpen} onOpenChange={setMenuOpen} title="操作" sub="この案件でできること">
         <div className="space-y-2 py-1">
-          <Button
+          <Button type="button"
             variant="outline" className="w-full justify-start"
             onClick={() => { setMenuOpen(false); navigate(`/sales/projects/${id}`); }}
           >
@@ -241,14 +247,14 @@ export function MobileEditProject({
 
           {hasGls && (
             <>
-              <Button
+              <Button type="button"
                 variant="outline" className="w-full justify-start"
                 onClick={() => { setMenuOpen(false); actions.setRelinkDialog({ open: true, target_project_id: '' }); }}
               >
                 <Link2 className="mr-2 h-4 w-4" aria-hidden="true" />
                 別の GLS へ付け替える
               </Button>
-              <Button
+              <Button type="button"
                 variant="outline" className="w-full justify-start"
                 onClick={() => { setMenuOpen(false); actions.setCategorySwitchDialog({ open: true, target: 'B' }); }}
               >
@@ -272,7 +278,7 @@ export function MobileEditProject({
           )}
 
           {isEdit && canDelete && (
-            <Button
+            <Button type="button"
               variant="outline"
               className="w-full justify-start text-destructive hover:text-destructive"
               disabled={actions.deleteMutation.isPending}

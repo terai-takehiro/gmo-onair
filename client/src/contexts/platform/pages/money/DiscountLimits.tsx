@@ -127,6 +127,13 @@ export function DiscountLimits({ limits, canEdit }: { limits: DiscountLimitRow[]
 
             {editing === l.role_id && (
               <div className="flex flex-wrap items-end gap-3 border-b border-border-faint bg-surface-subtle px-4 py-3">
+                {/* **注意文は入力欄の前。** 「空欄」と「0」で意味が正反対になる欄で、
+                    打ち終わってから読ませても遅い（以前は保存ボタンより後ろの
+                    DOM にあり、読み上げでも最後まで来ないと出なかった） */}
+                <p className="text-note w-full text-muted-foreground">
+                  <strong className="font-bold">空欄は「上限なし」</strong>です。
+                  0 と入れると<strong className="font-bold">1 円も値引けなくなります</strong>ので気をつけてください。
+                </p>
                 <label className="text-note flex flex-col gap-1">
                   値引き率の上限（％）
                   <Input className="w-32" inputMode="decimal" value={rate} placeholder="空欄 = 上限なし"
@@ -150,6 +157,13 @@ export function DiscountLimits({ limits, canEdit }: { limits: DiscountLimitRow[]
                     ))}
                   </select>
                 </label>
+                {/* **承認者は上限の下**（上限を決めて初めて効く欄なので上には出せない）。
+                    ただし既定が「決めない」なので、そのまま保存すると詰む —
+                    何が起きるかをこの位置で言う（上の一覧では起きてから赤くなる） */}
+                <p className="text-note w-full text-muted-foreground">
+                  上限を入れて承認者を<strong className="font-bold">「決めない」のままにすると</strong>、
+                  超えた見積を誰も承認できず<strong className="font-bold">送れなくなります</strong>。
+                </p>
                 <div className="ml-auto flex gap-2">
                   <Button variant="outline" onClick={() => setEditing(null)}>キャンセル</Button>
                   <Button disabled={save.isPending} onClick={() => save.mutate(l.role_id)}>
@@ -157,10 +171,6 @@ export function DiscountLimits({ limits, canEdit }: { limits: DiscountLimitRow[]
                     保存する
                   </Button>
                 </div>
-                <p className="text-note w-full text-muted-foreground">
-                  <strong className="font-bold">空欄は「上限なし」</strong>です。
-                  0 と入れると<strong className="font-bold">1 円も値引けなくなります</strong>ので気をつけてください。
-                </p>
               </div>
             )}
           </div>

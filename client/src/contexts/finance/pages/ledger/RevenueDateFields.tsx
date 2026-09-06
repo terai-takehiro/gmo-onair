@@ -1,5 +1,5 @@
 /**
- * 売上ダイアログの「日付・前金・検収・請求書発行済・備考」（③ 売上）
+ * 売上ダイアログの「日付・前金・備考・登録後に記録する状態（検収・請求書発行済）」（③ 売上）
  *
  * **`RevenueDialog` から切り出したものです。**
  * 分けた理由は1ファイル400行の上限で、日付欄の中身の作り直しではありません
@@ -14,7 +14,10 @@
  * 検収は「済んだかどうか」だけでなく「いつ済んだか」が要る（migration 140の
  * コメント参照）ため、フラグを新設せず**既存の日付列**を使う。トグルを
  * ONにすると当日の日付を入れ、OFFにすると `null` に戻す。
- * **表示順序は 前金 → 検収 → 請求書発行済**（ご指定）。
+ * **表示順序は 前金 → 検収 → 請求書発行済**（ご指定）。この順は保ったまま、
+ * **検収・請求書発行済は備考の下の「登録後に記録する」の塊へ移した** ——
+ * どちらも登録前は押せない欄で、必須の日付と備考の間に挟まると
+ * そこで手が止まるため（`docs/design/v4/_form-order.md` 2-2）。
  *
  * ⚠️ **検収だけは押した瞬間に保存される**（前金・請求書発行済は「更新」を
  * 押すまで待つ）。`POST/PUT /revenues` が `inspection_date` を受け取らない
@@ -118,12 +121,25 @@ export function RevenueDateFields({
         </div>
       </div>
 
-      {/* 表示順序: 前金 → 検収 → 請求書発行済（ご指定） */}
+      {/* 前金は売上そのものの性質（入金の順序）なので日付の直後に置く。
+          表示順序 前金 → 検収 → 請求書発行済（ご指定）は下の塊まで通して守っている */}
       <div className="flex items-center justify-between gap-2">
         <Label htmlFor="is-advance-payment" className="cursor-pointer">前金</Label>
         <Switch id="is-advance-payment" checked={isAdvancePayment}
           onCheckedChange={(v) => setIsAdvancePayment(!!v)} />
       </div>
+
+      <div className="space-y-1">
+        <Label>備考</Label>
+        <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="備考" rows={3} />
+      </div>
+
+      {/* **登録してからでないと記録できない状態**は、入力する欄を全部埋めたあとにまとめる。
+          着手前は新規登録では押せない検収・請求書発行済が、必須の日付と備考の間に挟まっていて、
+          埋める手が途中で止まっていた（`_form-order.md` 2-2）。
+          ⚠️ **新規登録でも枠は残す** — 押せない理由をここで読ませるため（下の注記）。
+          消すと「どこで検収を付けるのか」が画面から分からなくなる */}
+      <p className="text-sub-sm font-bold text-secondary-foreground">登録後に記録する</p>
 
       <div className="flex items-center justify-between gap-2">
         <span className="flex flex-col">
@@ -168,11 +184,6 @@ export function RevenueDateFields({
         </span>
         <Switch id="invoice-issued" checked={invoiceIssued} disabled={!!issueBlocked} title={issueBlocked}
           onCheckedChange={(v) => setInvoiceIssued(!!v)} />
-      </div>
-
-      <div className="space-y-1">
-        <Label>備考</Label>
-        <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="備考" rows={3} />
       </div>
     </>
   );

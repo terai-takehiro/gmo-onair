@@ -1,7 +1,7 @@
 /**
  * ⑦ 貸出・返却 ／ 貸出を登録する (2段階)
  *
- *   ①機材を選ぶ (種別のタブ ＋ カード) → ②借りる人と日付を入れる
+ *   ①機材を選ぶ (種別のタブ ＋ カード) → ②貸出先と日付を入れる
  *
  * 2段階なのは、現場では**先に機材を並べてから誰が持つかを決める**ためです
  * (1画面にすると、選んでいる最中に上の入力欄が邪魔になる)。
@@ -45,6 +45,8 @@ export function LendingDialog({ open, saving, error, onClose, onSubmit }: {
   const [step, setStep] = useState<'select' | 'form'>('select');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [typeTab, setTypeTab] = useState('');
+  /** 1段目の「名前・機材IDで探す」。種別タブと同じく親が持つ（次へ→選び直しで消えないように） */
+  const [itemSearch, setItemSearch] = useState('');
   const [kind, setKind] = useState<'standalone' | 'program'>('standalone');
   const [projectSearch, setProjectSearch] = useState('');
   const [form, setForm] = useState({
@@ -106,6 +108,7 @@ export function LendingDialog({ open, saving, error, onClose, onSubmit }: {
     setStep('select');
     setSelectedIds(new Set());
     setTypeTab('');
+    setItemSearch('');
     setKind('standalone');
     setProjectSearch('');
     setForm({ borrower_name: '', purpose: '', lent_at: today(), due_date: '', notes: '', project_id: '' });
@@ -190,6 +193,8 @@ export function LendingDialog({ open, saving, error, onClose, onSubmit }: {
           typeTab={typeTab}
           onTypeTabChange={setTypeTab}
           onToggle={toggle}
+          search={itemSearch}
+          onSearchChange={setItemSearch}
         />
       ) : (
         <div className="space-y-3">
@@ -202,6 +207,18 @@ export function LendingDialog({ open, saving, error, onClose, onSubmit }: {
                 </span>
               ))}
             </div>
+          </div>
+
+          {/* **貸出先がいちばん上**。現場の順は「機材 → 誰に → いつ返す」で、
+              必ず埋めるのはこの欄。「案件で使う」を選ぶと検索欄・候補・選び直しが
+              下に伸びるので、これより上に置くとスマホで氏名が折り返しの下へ落ちる */}
+          <div className="space-y-1">
+            <Label>貸出先 *</Label>
+            <Input
+              value={form.borrower_name}
+              onChange={(e) => setForm((f) => ({ ...f, borrower_name: e.target.value }))}
+              placeholder="氏名"
+            />
           </div>
 
           <div className="space-y-1">
@@ -265,22 +282,6 @@ export function LendingDialog({ open, saving, error, onClose, onSubmit }: {
             </div>
           )}
 
-          <div className="space-y-1">
-            <Label>貸出先 *</Label>
-            <Input
-              value={form.borrower_name}
-              onChange={(e) => setForm((f) => ({ ...f, borrower_name: e.target.value }))}
-              placeholder="氏名"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>用途</Label>
-            <Input
-              value={form.purpose}
-              onChange={(e) => setForm((f) => ({ ...f, purpose: e.target.value }))}
-              placeholder="夏フェス 中継"
-            />
-          </div>
           {/* **予定と実物を分ける** (migration 168)。予定の行は「まだ外に出ていない」ので、
               貸出中の一覧には出ず、ダッシュボードの「今日 出す／明日 出す」に出る。
               入れておかないと、先の予定を入れた瞬間に「いま貸出中」になってしまう */}
@@ -312,6 +313,17 @@ export function LendingDialog({ open, saving, error, onClose, onSubmit }: {
           <p className="text-note text-muted-foreground">
             返す予定の日は空でも登録できます。入れておくと、過ぎたときにダッシュボードに出ます。
           </p>
+
+          {/* 用途は任意。必須（貸出先・案件）と日付のあいだに挟むと
+              そこで手が止まるので、最後にまとめる */}
+          <div className="space-y-1">
+            <Label>用途</Label>
+            <Input
+              value={form.purpose}
+              onChange={(e) => setForm((f) => ({ ...f, purpose: e.target.value }))}
+              placeholder="夏フェス 中継"
+            />
+          </div>
         </div>
       )}
     </FormDialog>

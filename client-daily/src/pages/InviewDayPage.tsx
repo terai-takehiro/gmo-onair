@@ -286,6 +286,9 @@ export default function InviewDayPage() {
           key={editing?.id ?? 'new'}
           initial={editing}
           presetSessionLabel={adding ? presetSessionLabel : undefined}
+          // 回が2つ以上ある日は初期値を入れられない（どちらの回か決められない）ので、
+          // **この日にある回を候補として渡す** — 書式を丸ごと打ち直させない
+          sessionOptions={sessions.map((s) => s.label)}
           onClose={() => { setAdding(false); setEditing(null); }}
         />
       )}

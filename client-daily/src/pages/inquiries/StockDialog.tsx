@@ -55,10 +55,13 @@ export function StockDialog({
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
       title={already ? '再確認日を再設定' : '保留にする'}
+      // 打つのは日付1つだけなので Enter で送れるようにする。押すボタンは
+      // すべて `type` を明示する（`<form>` の中では既定が submit になるため）
+      onSubmit={(e) => { e.preventDefault(); if (!saving) onSubmit(reviewOn || null); }}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>キャンセル</Button>
-          <Button onClick={() => onSubmit(reviewOn || null)} disabled={saving}>
+          <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>
+          <Button type="submit" disabled={saving}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             <Archive className="mr-1.5 h-4 w-4" aria-hidden="true" />
             {already ? '再設定する' : '保留にする'}
@@ -80,6 +83,7 @@ export function StockDialog({
               return (
                 <Button
                   key={m}
+                  type="button"
                   variant={reviewOn === d ? 'default' : 'outline'}
                   onClick={() => setReviewOn(d)}
                 >
@@ -88,6 +92,7 @@ export function StockDialog({
               );
             })}
             <Button
+              type="button"
               variant={reviewOn === '' ? 'default' : 'outline'}
               onClick={() => setReviewOn('')}
             >

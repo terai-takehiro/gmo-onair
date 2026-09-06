@@ -109,6 +109,23 @@ export function TopicsSection({
         )}
       >
         <div className="flex flex-col gap-3">
+          {/*
+            **書く欄（唯一の必須）を先頭に置く。** 以前は任意の分類・補足が上に
+            あり、`autoFocus` を持つ「内容」がフォームの中段にあったので、
+            開いた瞬間にカーソルだけが2段目に落ちて、上の欄を飛ばしたように見えた。
+          */}
+          <div>
+            <label className="text-th text-muted-foreground" htmlFor="weekly-content">内容 *</label>
+            <textarea
+              id="weekly-content"
+              className={TEXTAREA}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="この週のトピックを書く"
+              autoFocus
+            />
+          </div>
+          {/* 分類と補足は書いたあとに決めるもの（段6） */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="text-th text-muted-foreground" htmlFor="weekly-category">分類</label>
@@ -124,17 +141,6 @@ export function TopicsSection({
               <label className="text-th text-muted-foreground" htmlFor="weekly-note">補足 (任意)</label>
               <Input id="weekly-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="補足など" />
             </div>
-          </div>
-          <div>
-            <label className="text-th text-muted-foreground" htmlFor="weekly-content">内容 *</label>
-            <textarea
-              id="weekly-content"
-              className={TEXTAREA}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="この週のトピックを書く"
-              autoFocus
-            />
           </div>
         </div>
       </FormDialog>
@@ -247,12 +253,41 @@ function TopicRow({ item, editable }: { item: OpsReportItem; editable: boolean }
             </FormDialogFooter>
           )}
         >
+          {/* **追加ダイアログと同じ並び・同じラベル。** 編集だけ `placeholder` に
+              頼っていたので、打ち始めると何の欄か分からなくなっていた
+              （id は行ごとに作る — 同じ週の行が同時に描かれるため） */}
           <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Input list="weekly-categories" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="分類" />
-              <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="補足" />
+            <div>
+              <label className="text-th text-muted-foreground" htmlFor={`weekly-content-${item.id}`}>内容 *</label>
+              <textarea
+                id={`weekly-content-${item.id}`}
+                className={TEXTAREA}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                autoFocus
+              />
             </div>
-            <textarea className={TEXTAREA} value={content} onChange={(e) => setContent(e.target.value)} autoFocus />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="text-th text-muted-foreground" htmlFor={`weekly-category-${item.id}`}>分類</label>
+                <Input
+                  id={`weekly-category-${item.id}`}
+                  list="weekly-categories"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  placeholder="例: イベント"
+                />
+              </div>
+              <div>
+                <label className="text-th text-muted-foreground" htmlFor={`weekly-note-${item.id}`}>補足 (任意)</label>
+                <Input
+                  id={`weekly-note-${item.id}`}
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="補足など"
+                />
+              </div>
+            </div>
           </div>
         </FormDialog>
       )}

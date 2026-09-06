@@ -155,7 +155,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
 
   return (
     <div className="flex flex-col gap-3 p-3">
-      <Button variant="ghost" onClick={onBack} className="self-start">
+      <Button type="button" variant="ghost" onClick={onBack} className="self-start">
         <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />中断する
       </Button>
 
@@ -166,11 +166,11 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
           : `${detail.check_date} ・ QR を読むと「確認できた」になります`}
         primaryAction={
           closed ? undefined : cameraOn ? (
-            <Button className="w-full sm:w-auto" variant="outline" onClick={stopCamera}>
+            <Button type="button" className="w-full sm:w-auto" variant="outline" onClick={stopCamera}>
               <CameraOff className="mr-1.5 h-4 w-4" aria-hidden="true" />カメラを止める
             </Button>
           ) : (
-            <Button className="w-full sm:w-auto" onClick={startCamera}>
+            <Button type="button" className="w-full sm:w-auto" onClick={startCamera}>
               <Camera className="mr-1.5 h-4 w-4" aria-hidden="true" />QR を読む
             </Button>
           )
@@ -202,7 +202,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
             <strong className="font-bold">送り終わるまでこの画面を閉じても大丈夫です</strong>
             （次に開いたときに送ります）。
           </span>
-          <Button variant="outline" size="sm" className="shrink-0" onClick={() => flush()}>いま送る</Button>
+          <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => flush()}>いま送る</Button>
         </p>
       )}
 
@@ -221,7 +221,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
 
       {!closed && (
         <div className="flex gap-2">
-          <Button variant="outline" className="flex-1" onClick={() => setManualOpen((v) => !v)}>
+          <Button type="button" variant="outline" className="flex-1" onClick={() => setManualOpen((v) => !v)}>
             <Keyboard className="mr-1.5 h-4 w-4" aria-hidden="true" />手で入れる
           </Button>
         </div>
@@ -273,7 +273,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
                   {[i.eq_code, i.location_name || i.location_detail].filter(Boolean).join(' ・ ')}
                 </span>
               </span>
-              <Button
+              <Button type="button"
                 variant={i.found === 1 ? 'default' : 'outline'}
                 size="icon"
                 aria-label="確認できた"
@@ -282,7 +282,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
               >
                 <Check className="h-4 w-4" aria-hidden="true" />
               </Button>
-              <Button
+              <Button type="button"
                 variant={i.found === 2 ? 'destructive' : 'outline'}
                 size="icon"
                 aria-label="見つからない"

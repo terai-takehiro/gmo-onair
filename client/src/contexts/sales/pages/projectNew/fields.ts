@@ -197,16 +197,21 @@ export const BILLING_CYCLE_LABEL: Record<BillingCycle, string> = {
 /**
  * 「進んだら聞く」の畳んだ札に出す数。**来場人数は無観客のとき出ない**ので数も変わります。
  *
- *   作る画面 … ご担当・継続区分・実施日・案件内容・予算・リード経路・
- *              最初のタスク・メモ ＝ 8（＋来場人数）
- *   直す画面 … ご担当・継続区分・案件内容・予算・リード経路・グループ区分（読むだけ）＝ 6（＋来場人数）
+ *   作る画面 … ご担当・リード経路・実施日・案件内容・予算・
+ *              最初のタスク・メモ ＝ 7（＋来場人数）
+ *   直す画面 … ご担当・リード経路・案件内容・予算・グループ区分（読むだけ）＝ 5（＋来場人数）
+ *
+ * ⚠️ **継続区分（回のある案件か）はこの枠から出しました**（`RegularSeriesSection`
+ * の見出し行へ移動）。この値で出る／出ないが決まる「レギュラーの取り決め」が
+ * 枠の外にあり、畳んだ枠の中で選ばせる形だったためです
+ * （`docs/design/v4/_form-order.md`）。数も1つ減っています。
  *
  * **`MoreFields` ではなくここに置いてあります** — 欄を足したときに数だけ
  * 直し忘れると、畳んだ札の数と中身が食い違って**開くまで気づけません**。
  * `shared/tests/projectFields.test.ts` が両方の段を固定しています。
  */
 export function moreFieldCount(audience: string, mode: FieldsMode = 'create'): number {
-  const base = mode === 'create' ? 8 : 6;
+  const base = mode === 'create' ? 7 : 5;
   return asksAttendees(audience) ? base + 1 : base;
 }
 

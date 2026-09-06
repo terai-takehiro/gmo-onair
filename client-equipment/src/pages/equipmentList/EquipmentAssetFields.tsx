@@ -1,5 +1,6 @@
 /**
- * 機材の登録・編集ダイアログの後半 (資産・保証 ／ 色 ／ ラック実装 ／ 親機材)
+ * 機材の登録・編集ダイアログの後半
+ * (置き場所 ＝ 保管場所・ラック実装 ／ 折りたたみ ＝ 資産・保証・色・親機材)
  *
  * 前半 (拠点・種別・商品名) と分けてあるのは**1ファイル 400 行の上限**のためで、
  * 入力欄の中身と送る値は旧実装から1つも変えていません。
@@ -15,8 +16,15 @@
  * **新規登録は畳んで開始・既存の編集は開いたまま**にした（`editingId` の有無で判定）。
  * 新規はまず必須3項目＋商品名だけで済ませられるようにし、既に値が入っている
  * 編集では黙って隠さない（隠すと「直したはずなのに消えた」に見える）。
- * 「保管場所」がこの折りたたみの中にあるため、ラック実装（場所がラックのときだけ出る
- * 条件付き表示）も自然にこの中へ入る。
+ *
+ * ── 保管場所・ラック実装を折りたたみの外へ出した回（入力順の見直し）──────
+ *
+ * 保管場所は台帳の既定列・棚卸しのチェックリストの見出し・ラック実装の親であって、
+ * 「月に一度も触らない資産・保証」とは性質が違う。畳んだまま新規登録すると
+ * **場所の無い機材が量産され、棚卸しで「(場所なし)」にまとめて落ちる**。
+ * そのため `EquipmentPlaceFields`（常に出る）と `EquipmentAssetFields`
+ * （畳んだままでよいもの）の2つに分けてある。ラック実装は `location` が
+ * ラックのときだけ出る条件付き表示なので、保管場所と同じ側に置く。
  */
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
@@ -27,19 +35,99 @@ import BranchCodeInput from '@/components/ui/BranchCodeInput';
 import { ASSET_CLASS_OPTIONS, RACK_SLOT_OPTIONS } from '@/lib/constants';
 import type { ColorRecord, EquipmentForm, EquipmentRecord, LocationRecord, NamedRecord } from './types';
 
-export function EquipmentAssetFields({
-  form, setForm, locations, colors, items, editingId,
+/** 置き場所（保管場所 ＋ 場所がラックのときだけのU位置）。**折りたたまない** */
+export function EquipmentPlaceFields({
+  form, setForm, locations,
 }: {
   form: EquipmentForm;
   setForm: (next: EquipmentForm) => void;
   locations: LocationRecord[];
-  colors: ColorRecord[];
-  items: EquipmentRecord[];
-  editingId: string | null;
 }) {
   const selLoc = locations.find((l) => l.id === form.location_id);
   const overflow = !!form.rack_position && !!selLoc?.rack_units
     && Number(form.rack_position) + Number(form.rack_height) - 1 > selLoc.rack_units;
+
+  return (
+    <>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="space-y-1">
+          <Label>保管場所</Label>
+          <Select
+            value={form.location_id || 'none'}
+            onValueChange={(v) => setForm({ ...form, location_id: v === 'none' ? '' : v })}
+          >
+            <SelectTrigger><SelectValue placeholder="選ぶ" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">なし</SelectItem>
+              {locations.map((loc) => <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* ラックの場所を選んだときだけ出す (ふつうの保管場所には U 位置が無い)。
+          親になる「保管場所」のすぐ下に置く */}
+      {selLoc?.is_rack && (
+        <div className="border-t border-border pt-4">
+          <p className="mb-3 text-cardtitle">ラック実装</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <div className="space-y-1">
+              <Label>U位置 (下端)</Label>
+              <Input
+                type="number" min={1} max={selLoc.rack_units || 99}
+                value={form.rack_position}
+                onChange={(e) => setForm({ ...form, rack_position: e.target.value })}
+                placeholder="1〜"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>高さ (U)</Label>
+              <Input
+                type="number" min={1}
+                value={form.rack_height}
+                onChange={(e) => setForm({ ...form, rack_height: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>横位置</Label>
+              <Select value={form.rack_slot} onValueChange={(v) => setForm({ ...form, rack_slot: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {RACK_SLOT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>面</Label>
+              <Select value={form.rack_side} onValueChange={(v) => setForm({ ...form, rack_side: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="front">前面</SelectItem>
+                  <SelectItem value="back">背面</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          {overflow && (
+            <p className="mt-2 text-sub text-destructive">
+              U位置 + 高さがラックの総U数 ({selLoc.rack_units}U) を超えています
+            </p>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+export function EquipmentAssetFields({
+  form, setForm, colors, items, editingId,
+}: {
+  form: EquipmentForm;
+  setForm: (next: EquipmentForm) => void;
+  colors: ColorRecord[];
+  items: EquipmentRecord[];
+  editingId: string | null;
+}) {
   // 新規登録は畳んで開始・既存の編集は開いたまま（既に入っている値を黙って隠さない）
   const [expanded, setExpanded] = useState(editingId !== null);
 
@@ -101,19 +189,6 @@ export function EquipmentAssetFields({
                 placeholder="0"
               />
             </div>
-            <div className="space-y-1">
-              <Label>保管場所</Label>
-              <Select
-                value={form.location_id || 'none'}
-                onValueChange={(v) => setForm({ ...form, location_id: v === 'none' ? '' : v })}
-              >
-                <SelectTrigger><SelectValue placeholder="選ぶ" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">なし</SelectItem>
-                  {locations.map((loc) => <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
           <div className="border-t border-border pt-4">
@@ -140,56 +215,6 @@ export function EquipmentAssetFields({
               </Select>
             </div>
           </div>
-
-          {/* ラックの場所を選んだときだけ出す (ふつうの保管場所には U 位置が無い) */}
-          {selLoc?.is_rack && (
-            <div className="border-t border-border pt-4">
-              <p className="mb-3 text-cardtitle">ラック実装</p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-                <div className="space-y-1">
-                  <Label>U位置 (下端)</Label>
-                  <Input
-                    type="number" min={1} max={selLoc.rack_units || 99}
-                    value={form.rack_position}
-                    onChange={(e) => setForm({ ...form, rack_position: e.target.value })}
-                    placeholder="1〜"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>高さ (U)</Label>
-                  <Input
-                    type="number" min={1}
-                    value={form.rack_height}
-                    onChange={(e) => setForm({ ...form, rack_height: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>横位置</Label>
-                  <Select value={form.rack_slot} onValueChange={(v) => setForm({ ...form, rack_slot: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {RACK_SLOT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label>面</Label>
-                  <Select value={form.rack_side} onValueChange={(v) => setForm({ ...form, rack_side: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="front">前面</SelectItem>
-                      <SelectItem value="back">背面</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              {overflow && (
-                <p className="mt-2 text-sub text-destructive">
-                  U位置 + 高さがラックの総U数 ({selLoc.rack_units}U) を超えています
-                </p>
-              )}
-            </div>
-          )}
 
           <div className="border-t border-border pt-4">
             <div className="space-y-1">

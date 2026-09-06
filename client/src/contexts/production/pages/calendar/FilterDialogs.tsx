@@ -8,10 +8,12 @@
  * （スタジオ予約にも担当者(複数・任意)を持たせられるようになった・PR #564 の続き）。
  * どちらも「消えた＝壊れた」と読まれるので、押す前にダイアログへ書きます。
  */
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Info } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Delayed, SkeletonRows, EmptyState } from '@gmo-onair/shared/src/client/states';
 import { cn } from '@gmo-onair/shared/src/client/utils';
@@ -69,7 +71,6 @@ export function RoomFilterDialog({
 
   const toggle = (id: string) =>
     onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
-
   return (
     <FormDialog
       open={open}
@@ -132,6 +133,14 @@ export function UserFilterDialog({
   const toggle = (id: string) =>
     onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
 
+  const [search, setSearch] = useState('');
+  /** 探す文字で絞り、**選んでいる人を先頭へ寄せた**一覧 */
+  const shown = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    const list = (q.data ?? []).filter((u) => !needle || u.name.toLowerCase().includes(needle));
+    return [...list].sort((a, b) => Number(value.includes(b.id)) - Number(value.includes(a.id)));
+  }, [q.data, search, value]);
+
   return (
     <FormDialog
       open={open}
@@ -153,10 +162,26 @@ export function UserFilterDialog({
         {q.isLoading && <Delayed><SkeletonRows rows={4} /></Delayed>}
         {q.data?.length === 0 && <EmptyState title="対象の人がいません" description="設定 → 権限とメンバーで「予定」の権限を付けてください。" />}
 
+        {/* **探す欄を先に置く。** 部屋は拠点で束ねてあるので読めるが、人は束ねも検索も無く、
+            人数が増えると1画面に入らない札の羅列を全部読むことになっていた。
+            共有先を選ぶ `PersonalEventDialog` は同じ形の検索を既に持っている。
+            **選んでいる人は先頭に寄せる** — 絞り込んだあとに何を選んでいるかが読めなくなるため */}
+        {(q.data?.length ?? 0) > 0 && (
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="名前で探す"
+            className="mb-2 h-9"
+          />
+        )}
+
         <div className="flex flex-wrap gap-1">
-          {q.data?.map((u) => (
+          {shown.map((u) => (
             <Chip key={u.id} on={value.includes(u.id)} label={u.name} onClick={() => toggle(u.id)} />
           ))}
+          {shown.length === 0 && (q.data?.length ?? 0) > 0 && (
+            <p className="py-2 text-note text-muted-foreground">見つかりませんでした</p>
+          )}
         </div>
     </FormDialog>
   );

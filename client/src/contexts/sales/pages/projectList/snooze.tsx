@@ -84,16 +84,20 @@ export function SnoozeDialog({
       title="スヌーズ"
       sub="再開日まで停滞にも自動整理にも出しません。期日が来たら自動で戻ります。"
       size="sm"
+      // **Enter で寝かせる**（`formDialog.tsx`）。日付を選んだらそのまま終われる。
+      // 「この日まで寝かせる」だけが `type="submit"`で、解除・キャンセル・近道ボタンは
+      // `type="button"`（`<form>` の中のボタンは既定が submit なので必ず付ける）
+      onSubmit={(e) => { e.preventDefault(); if (until && !snooze.isPending) submit(until); }}
       footer={
         <FormDialogFooter>
           {/* 解除は左に分ける（設定と並べると「どっちを押すと眠るのか」を毎回読むことになる） */}
           {current && (
-            <Button variant="outline" className="sm:mr-auto" disabled={snooze.isPending} onClick={() => submit(null)}>
+            <Button type="button" variant="outline" className="sm:mr-auto" disabled={snooze.isPending} onClick={() => submit(null)}>
               スヌーズを解除
             </Button>
           )}
-          <Button variant="outline" onClick={() => close(false)} disabled={snooze.isPending}>キャンセル</Button>
-          <Button disabled={!until || snooze.isPending} onClick={() => submit(until)}>
+          <Button type="button" variant="outline" onClick={() => close(false)} disabled={snooze.isPending}>キャンセル</Button>
+          <Button type="submit" disabled={!until || snooze.isPending}>
             {snooze.isPending
               ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
               : <AlarmClock className="mr-2 h-4 w-4" aria-hidden="true" />}
