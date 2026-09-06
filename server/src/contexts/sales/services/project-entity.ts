@@ -27,7 +27,7 @@ export const BUSINESS_ENTITIES: readonly BusinessEntity[] = ['gss', 'gscs', 'gig
 export const BUSINESS_ENTITY_LABELS: Record<BusinessEntity, string> = {
   gss: 'GMOサムライスタジオ',
   gscs: 'GMOサムライコンテンツスタジオ',
-  gig: 'GMOインターネットグループ',
+  gig: 'GMOインターネットグループ人格',
 };
 
 /** お客様の区分から主体を導く。分からないときは外部（gscs）— `customer_type` の既定と同じ側に倒す */

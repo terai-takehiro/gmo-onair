@@ -21,6 +21,10 @@
  * 5つの金額列（128px × 5）は 375px には入らない。縦積みにすると
  * どの数字がどの列か分からなくなる（表頭が消える）ので、
  * **この表だけ `overflow-x-auto` で横に流す**（この画面は PC 専用の枠に入っている）。
+ * 幅は**行ごと**に `w-fit min-w-full`（固定列が入らなければ中身ぶん・入るなら枠いっぱい）で持たせる。
+ * `w-max` だと合計の行の「2026年 合計」の文字ぶんだけ広がって 1440px でも 12px はみ出し、
+ * 包む側に `min-w-max` を置くと行の下に開く編集欄の説明文まで折り返さなくなって
+ * 表が説明文の長さまで広がった（どちらも実測で直した）。
  */
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Target } from 'lucide-react';
@@ -41,6 +45,8 @@ import {
 
 /** 金額の列幅。**7段のうち 128** — 予算は千万円台まで（8桁＋区切り）がこれに入る */
 const MONEY_W = 128;
+/** 行の幅（冒頭「表のまま横に流す」）。表頭・月の行・合計の行で同じ */
+const ROW_W = 'w-fit min-w-full';
 
 const SCOPE_ITEMS = [
   { key: 'all' as EntityScope, label: '全体（統合）', count: null },
@@ -120,8 +126,8 @@ export function MonthlyBudgets({ canEdit }: { canEdit: boolean }) {
         <div className="p-4"><Delayed><SkeletonRows rows={6} /></Delayed></div>
       ) : (
         <div className="overflow-x-auto">
-          <div className="min-w-max">
-            <RowHeader>
+          <div>
+            <RowHeader className={ROW_W}>
               <RowMain>月</RowMain>
               {BUDGET_FIELDS.map((f) => (
                 <RowSlot key={f.key} w={MONEY_W} align="right">{f.label}</RowSlot>
@@ -132,7 +138,7 @@ export function MonthlyBudgets({ canEdit }: { canEdit: boolean }) {
 
             {views.map(([ym, v]) => (
               <div key={ym}>
-                <Row density="table" divider className={cn(editing === ym && 'bg-primary-surface-weak')}>
+                <Row density="table" divider className={cn(ROW_W, editing === ym && 'bg-primary-surface-weak')}>
                   <RowMain>
                     <span className="text-list font-number">{ymLabel(ym)}</span>
                     {v.hasOverride && (
@@ -164,7 +170,7 @@ export function MonthlyBudgets({ canEdit }: { canEdit: boolean }) {
               </div>
             ))}
 
-            <Row density="table" className="border-t border-border-subtle bg-surface-subtle">
+            <Row density="table" className={cn(ROW_W, 'border-t border-border-subtle bg-surface-subtle')}>
               <RowMain><span className="text-list font-bold">{year}年 合計</span></RowMain>
               {BUDGET_FIELDS.map((f) => money(f.key, yearTotal[f.key], true))}
               {money('op', yearTotal.operating_profit, true)}
