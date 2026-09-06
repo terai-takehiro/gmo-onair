@@ -19,8 +19,12 @@ import { loadRevenueItemCarryover } from '../services/revenue-item-carryover.ser
 import { BILLING_STATE_SQL } from '../../../shared/services/billing-state';
 import { assertCustomerCompanyId } from '../../../shared/services/company-directory.service';
 import { assignInvoiceNumbers } from '../services/invoice-number.service';
+import { resolveIssuer } from '../../platform/services/legal-entity.service';
 
 const router = Router();
+
+/** 発行者名の解決に使う「今日」（計上日等が未入力の行のフォールバック）。 */
+const todayISO = (): string => new Date().toISOString().slice(0, 10);
 
 /**
  * 帳票 PDF だけ全体のゲートより前に置いています。
@@ -42,7 +46,7 @@ router.get('/:id/pdf',
   async (req, res, next) => {
   try {
     const row = await queryOne(
-      `SELECT r.*, p.name as project_name, p.gls_number, e.episode_code,
+      `SELECT r.*, r.entity_code, p.name as project_name, p.gls_number, e.episode_code,
               p.event_start as project_start, p.event_end as project_end,
               c.name as customer_name,
               c.address as customer_address,
@@ -66,8 +70,13 @@ router.get('/:id/pdf',
       : typeParam === 'inspection' ? 'inspection'
       : (row.status || 'confirmed');
 
+    // 発行者は行の計上会社（`entity_code`）から解決する。日付は計上日基準
+    // （見積・検収では入っていないことがあるので、無ければ今日で代用）
+    const issuer = await resolveIssuer(row.entity_code, row.recognition_date ?? todayISO());
+
     const pdfBuffer = await generateEstimatePdf({
       billing_key: row.billing_key,
+      issuer,
       subtitle: row.subtitle,
       customer_name: row.customer_name || '',
       customer_address: row.customer_address || null,
