@@ -15,7 +15,8 @@ import ScheduleItemDocLink from "./ScheduleItemDocLink";
 // 直書きすると片方だけスマホで2列のまま潰れるので、共通の定数を使う
 import { formGrid2 } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { ITEM_KIND_DEFS } from "@gmo-onair/shared/src/schedule/kinds";
-import { fmtHmPad, parseHm } from "@gmo-onair/shared/src/schedule/time";
+import { SPAN_ALL } from "@gmo-onair/shared/src/schedule/span";
+import { fmtHmPad, fmtSpan, parseHm } from "@gmo-onair/shared/src/schedule/time";
 import type { ScheduleColumn, ScheduleItem } from "@gmo-onair/shared/src/schedule/types";
 
 // ボトムシート風: 375px では下端に固定し、角丸は上だけ。PC は中央ダイアログのまま。
@@ -30,6 +31,8 @@ export interface ItemDraft {
   kind: string;
   startMin: number;
   endMin: number;
+  /** 横串（列をまたぐ）。1 = この列だけ・N = この列から右へ N 列・0 = 全列（migration 280） */
+  spanCols: number;
   assignee: string;
   note: string;
 }
@@ -69,6 +72,7 @@ const draftOf = (item: ScheduleItem | null | undefined, initial: Partial<ItemDra
   kind: item?.kind ?? initial?.kind ?? "other",
   startMin: item?.start_min ?? initial?.startMin ?? 540,
   endMin: item?.end_min ?? initial?.endMin ?? 600,
+  spanCols: item?.span_cols ?? initial?.spanCols ?? 1,
   assignee: item?.assignee ?? "",
   note: item?.note ?? "",
 });
@@ -104,6 +108,8 @@ export default function ScheduleItemDialog({
   const set = <K extends keyof ItemDraft>(key: K, value: ItemDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
 
   const isEdit = !!item;
+  // 「この列から N 列ぶん」の選択肢。列が2本以上あるときだけ出す（1本なら全列と同じなので出さない）
+  const spanChoices = Array.from({ length: Math.max(0, columns.length - 1) }, (_, i) => i + 2);
   const canLink = isEdit && LINKABLE_KINDS.includes(draft.kind);
 
   return (
@@ -156,6 +162,23 @@ export default function ScheduleItemDialog({
               </div>
             </div>
 
+            {/* 横串（Excel のセル結合と同じ考え方。2026-09-06 のご依頼）。
+                「全列」は数ではなく意味で持つので、列を足しても横串は切れない */}
+            <div>
+              <Label>横串（列をまたぐ）</Label>
+              <Select value={String(draft.spanCols)} onValueChange={(v) => set("spanCols", Number(v))}>
+                <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">この列だけ</SelectItem>
+                  {spanChoices.map((n) => <SelectItem key={n} value={String(n)}>{`この列から ${n} 列ぶん`}</SelectItem>)}
+                  <SelectItem value={String(SPAN_ALL)}>全列（表の端から端まで）</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                全体朝礼・昼食のように、複数の列にまたがって1本で引きたい項目に使います。
+              </p>
+            </div>
+
             <div className={formGrid2}>
               <div>
                 <Label htmlFor="item-start">開始（25:30 のように日跨ぎも可）</Label>
@@ -180,6 +203,10 @@ export default function ScheduleItemDialog({
                 />
               </div>
             </div>
+
+            <p className="-mt-2 text-xs text-muted-foreground">
+              所要 {draft.endMin > draft.startMin ? fmtSpan(draft.endMin - draft.startMin) : "―（終了は開始より後にしてください）"}
+            </p>
 
             <div>
               <Label htmlFor="item-assignee">担当（自由入力。社外の人も可）</Label>

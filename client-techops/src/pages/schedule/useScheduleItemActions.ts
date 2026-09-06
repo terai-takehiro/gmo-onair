@@ -62,6 +62,7 @@ export default function useScheduleItemActions({
       kind: draft.kind,
       start_min: draft.startMin,
       end_min: draft.endMin,
+      span_cols: draft.spanCols,
       assignee: draft.assignee || null,
       note: draft.note || null,
     };

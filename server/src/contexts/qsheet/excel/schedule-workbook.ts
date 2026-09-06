@@ -23,6 +23,8 @@ export interface WorkbookItem {
   kind: string;
   start_min: number;
   end_min: number;
+  /** 横串（0 = 全列・1 = 自分の列だけ・N = 右へ N 列。migration 280） */
+  span_cols?: number;
   assignee: string | null;
   note: string | null;
   qsheet_document_id: string | null;
@@ -83,9 +85,23 @@ function buildGridSheet(wb: ExcelJS.Workbook, schedule: WorkbookSchedule, column
   const colIndexOf = new Map(sorted.map((c, i) => [c.id, i + 2]));
   const occupied = new Set<string>(); // "row:col"
 
-  for (const item of items) {
+  // 横串（列をまたぐ項目）は「セルの結合」で描く。規則は shared/src/schedule/span.ts と同じ
+  // （サーバーは server/src/ の外を import できないため、ここに短く書き写している）。
+  // 幅の広い項目から先に置く — 先に置いた項目とぶつかった側を落とす仕組みなので、
+  // 1列の項目が先に場所を取ると横串が丸ごと消えてしまう。
+  const spanCount = (item: WorkbookItem): number => {
+    const v = item.span_cols ?? 1;
+    if (v === 0) return sorted.length;
+    return Math.max(1, Math.floor(v));
+  };
+  const placedFirst = [...items].sort((a, b) => spanCount(b) - spanCount(a));
+
+  for (const item of placedFirst) {
     const c = colIndexOf.get(item.column_id);
     if (!c) continue;
+    // 覆う列の範囲（全列は表の左端から。右に足りなければ、ある所までに詰める）
+    const startCol = (item.span_cols ?? 1) === 0 ? 2 : c;
+    const endCol = Math.min(sorted.length + 1, startCol + spanCount(item) - 1);
     let startRow = firstDataRow + Math.floor((item.start_min - viewStart) / slotMin);
     let endRow = firstDataRow + Math.ceil((item.end_min - viewStart) / slotMin) - 1;
     startRow = Math.max(firstDataRow, startRow);
@@ -94,15 +110,19 @@ function buildGridSheet(wb: ExcelJS.Workbook, schedule: WorkbookSchedule, column
 
     // 既に埋まっているセルと衝突するときは書かない（Excel はセルの二重結合を許さない）
     let collides = false;
-    for (let r = startRow; r <= endRow; r++) if (occupied.has(`${r}:${c}`)) collides = true;
+    for (let r = startRow; r <= endRow; r++) {
+      for (let cc = startCol; cc <= endCol; cc++) if (occupied.has(`${r}:${cc}`)) collides = true;
+    }
     if (collides) continue;
-    for (let r = startRow; r <= endRow; r++) occupied.add(`${r}:${c}`);
+    for (let r = startRow; r <= endRow; r++) {
+      for (let cc = startCol; cc <= endCol; cc++) occupied.add(`${r}:${cc}`);
+    }
 
-    const cell = ws.getCell(startRow, c);
+    const cell = ws.getCell(startRow, startCol);
     cell.value = item.title || '（無題）';
     cell.fill = fill(KIND_FILL.get(item.kind) ?? 'F2F2F2');
     cell.alignment = { vertical: 'top', wrapText: true };
-    if (endRow > startRow) ws.mergeCells(startRow, c, endRow, c);
+    if (endRow > startRow || endCol > startCol) ws.mergeCells(startRow, startCol, endRow, endCol);
   }
 
   ws.getColumn(1).font = { bold: true };
@@ -116,8 +136,9 @@ function buildListSheet(wb: ExcelJS.Workbook, columns: WorkbookColumn[], items: 
   ws.columns = [
     { header: '開始', key: 'start', width: 8 },
     { header: '終了', key: 'end', width: 8 },
-    { header: '所要(分)', key: 'span', width: 10 },
+    { header: '所要(分)', key: 'durationMin', width: 10 },
     { header: '列', key: 'col', width: 16 },
+    { header: '横串', key: 'span', width: 8 },
     { header: '区分', key: 'kind', width: 10 },
     { header: '項目名', key: 'title', width: 28 },
     { header: '担当', key: 'assignee', width: 16 },
@@ -136,8 +157,9 @@ function buildListSheet(wb: ExcelJS.Workbook, columns: WorkbookColumn[], items: 
     ws.addRow({
       start: fmtHmPad(item.start_min),
       end: fmtHmPad(item.end_min),
-      span: item.end_min - item.start_min,
+      durationMin: item.end_min - item.start_min,
       col: colLabel.get(item.column_id) ?? '',
+      span: (item.span_cols ?? 1) === 0 ? '全列' : ((item.span_cols ?? 1) > 1 ? `${item.span_cols}列` : ''),
       kind: kindLabel.get(item.kind) ?? item.kind,
       title: item.title,
       assignee: item.assignee ?? '',
