@@ -16,12 +16,9 @@
  *
  * ── 会社（`entityCode`）の絞り込み（2026年10月の事業再編 P2 Round 1）─────
  *
- * `/monthly-summary` はサーバー側が対応済み（省略時は全社合算のまま）。
- * ⚠️ **内訳3本（`/revenues`/`/purchases`/`/sga`）はまだサーバー未対応。**
- * `entity_code` を渡しておくのは将来サーバーが対応したときに動くようにする
- * ためで、いまは渡しても無視される＝**損益フローの合計は会社で絞られるのに
- * 内訳の行は全社ぶんのまま**という食い違いが残る（`BudgetDashboardPage.tsx`
- * 冒頭コメント・PR 報告に明記）。
+ * `/monthly-summary`・内訳4本（`/revenues`/`/purchases`（変動・固定原価の2回）/`/sga`）
+ * とも、サーバー側の絞り込みビルダー（`list-query.ts`）が対応済み（省略時は
+ * 全社合算のまま）。合計と内訳の行が同じ会社で揃う。
  */
 import { useMemo } from 'react';
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
@@ -126,7 +123,7 @@ export function useDashboardData(period: Period, projectId: string, entityCode: 
         ...ledgerPeriodParams, limit: PAGE_SIZE, page: pageParam, status: 'confirmed',
       };
       if (projectId) params.project_id = projectId;
-      if (entityCode) params.entity_code = entityCode; // ⚠️ サーバー未対応（ファイル冒頭コメント）
+      if (entityCode) params.entity_code = entityCode;
       return (await api.get('/revenues', { params, signal })).data as PagedResponse<any>; // 行の形は revItems 側で個別に絞る
     },
     initialPageParam: 1,
@@ -146,7 +143,7 @@ export function useDashboardData(period: Period, projectId: string, entityCode: 
         ...ledgerPeriodParams, limit: PAGE_SIZE, page: pageParam, fixed_cost: '0',
       };
       if (projectId) params.project_id = projectId;
-      if (entityCode) params.entity_code = entityCode; // ⚠️ サーバー未対応（ファイル冒頭コメント）
+      if (entityCode) params.entity_code = entityCode;
       return (await api.get('/purchases', { params, signal })).data as PagedResponse<PurchaseRow>;
     },
     initialPageParam: 1,

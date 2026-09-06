@@ -320,6 +320,12 @@ resolveEntity(project, cutover):
 - 切替前（状態 `preparing` 以前）は**セグメントを出さない**（1社なので選ぶものが無い）
 - **連結（2社合算）**は作らない（§9-F で要否を確認。社内取引の相殺が要るので別の設計）
 
+> **実装結果（P2 Round 1・2026-09-06）**: 対象は8画面ではなく**5画面**（ダッシュボード・
+> 請求入金PC版・売上・仕入・販管費）——取引先・取り込み・受け取った書類は自社の
+> 計上会社ではなく相手先・仕入先で絞る画面と判断し対象外にした。**既定は「全社合算」**
+> （この文書の原案は「既定はGSS」だったが、実装は「省略＝全社」を選んだ——理由は
+> §6 の P2 Round 1 実装結果を参照）。件数バッジは今回見送り。詳細は §6 参照。
+
 ### 4.7 GMO コストセンター（旧 GLS-B）
 
 `legal_entities.kind = 'cost_center'` の会社では:
@@ -478,6 +484,12 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
 - **値決め**（決定・§9-M）: **金額は手入力**。初期値に、その案件の最新の見積の原価行（`estimate_items.cost`）の合計を出す。
   料金表のグループ内価格は使わない（社内取引は原価の付け替えであって販売ではない）
 
+> **未実装（P2 Round 2 へ先送り・2026-09-06）**: この節は丸ごと未着手。Round 1 で先に
+> 用意した「案件の粗利は2通り」の会社別内訳（`project.service.ts` の `getSummaryByEntity`）は
+> `entity_code` の素朴な GROUP BY で、ここに書いた**社内取引の相殺はまだ入っていない**
+> （`intercompany_links` が無いため）。Round 2 で `intercompany_links` を作ったら、
+> 除外ロジックを `getSummaryByEntity` に追加で入れる必要がある。
+
 ---
 
 ## 5. 旧⇄新の共存と切替（モード設計）
@@ -508,7 +520,7 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
 |---|---|---|---|
 | **P0 土台** | `legal_entities` / `org_transition` / `project_numbers` / 各表の `entity_code`（DEFAULT 'GSS' で埋め戻し）・会社マスター画面・切替状態・PDF とメールの発行者差し替え・取引先の名寄せと自社行 | **要る（9月中旬）** | 3〜4 PR |
 | **P1 番号** ⚠️ **一部実装済み（2026-09-06）** | prefix 採番・`resolveEntity`・先取り（`preparing` で導出規則どおりに採る）・受注時の第1回自動作成（売上は必ず回に）・改番 API＋MCP・追随（回コード／Qシート／BOX／未請求の請求キー）・旧番号での検索と `:ownerKey`・取込の正規表現・通知ジョブ・移行センターの対象一覧 | **要る（9月下旬・`preparing` へ）** | 5〜6 PR |
-| **P2 財務の2社＋社内取引** | 8画面のセグメント（URL）・集計／締め／Excel／MCP の `entity_code`・月次予算と `money_rules` の会社化・請求書番号の系列・**社内取引**（`intercompany_links`・仕入タブの入口・案件の粗利2通り） | 10月中旬まで（最初の GJV 案件の請求が10月下旬） | 5 PR |
+| **P2 財務の2社＋社内取引** ⚠️ **Round 1 実装済み（2026-09-06）** | 8画面のセグメント（URL）・集計／締め／Excel／MCP の `entity_code`・月次予算と `money_rules` の会社化・請求書番号の系列・**社内取引**（`intercompany_links`・仕入タブの入口・案件の粗利2通り） | 10月中旬まで（最初の GJV 案件の請求が10月下旬） | 5 PR |
 | **P3 GMO コスト（最小案）** | `kind='cost_center'` の閉じ方・「予算と実績」タブ・コスト側ダッシュボード | 10月中 | 2〜3 PR |
 | **P4 仕上げ** | `done` 状態・旧経路の削除・`entity_scope` 権限・連結（要るなら）・文書と用語の更新（`CLAUDE.md` の公理・`wording.md`・`guide/words.md`・`mcp-server.md`） | 後 | 2〜3 PR |
 
@@ -540,6 +552,56 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
 > 財務系 MCP ツールへの `entity_code` フィルタ（`list_revenues`/`list_purchases`/`list_sga`/
 > `get_monthly_pl`/`get_monthly_budget`/`upsert_monthly_budget` と `finance/list-query.ts`。
 > 本来 P2「財務の2社」の仕事なので、P1 の「先出し」一覧からは外してよいと判断した）。
+
+> **P2 Round 1 実装結果（マルチエージェント・2026-09-06）**: 財務の基幹サービスを会社
+> （`entity_code`）ごとに対応させた。**社内取引（`intercompany_links`・仕入タブの入口・
+> 粗利の相殺）は Round 2 として今回は実装していない**（下記・§4.12 参照）。
+>
+> - **migration 284**: `money_rules` を `id='default'` 固定の1行から、会社ごとの複数行
+>   （`id=entity_code`）に変更。GJV/GMO は GSS の設定値の写しで初期化（§4.5 の決めごとどおり）。
+>   `monthly_budgets`/`monthly_actual_overrides` の PK も `(entity_code, year_month)` の
+>   複合キーに拡張（既存行は全部 `entity_code='GSS'` なので衝突なし）
+> - **請求書番号**: 発行者ごとの系列 `INV-{entity_code}-{年}-NNNN` に分離（§9-B の決定どおり
+>   GSS も新系列 `INV-GSS-2026-0001` から。旧 `INV-2026-…` 系列は凍結し変更しない）
+> - **お金のルール・月次予算/実績補正・損益**（`money-rules.service.ts`・`keep-report.service.ts`）を
+>   entity_code 引数対応。税の丸め方（`setTaxRounding`）は今の会社（`CURRENT_ENTITY_CODE`）を
+>   読んだときだけプロセス全体のグローバルへ反映する形にした——複数社が実際に税計算を
+>   持つのは INSERT 側の entity_code 解決が進む段（P1 の残項目・後述）以降のため、
+>   いまグローバルを会社ごとに毎回差し替えると、他社の設定画面を開いただけで同時実行中の
+>   別リクエストの税額計算が入れ替わる事故になる。**本格的な複数社対応は Round 2 以降**
+> - **一覧・Excel・MCP・パイプライン予測**（`finance/list-query.ts` の3ビルダー・
+>   `revenues`/`purchases`/`sga` の一覧ルート・`finance.tools.ts` の `list_revenues`/
+>   `list_purchases`/`list_sga`・`pipeline-forecast.service.ts`）に `entity_code` 絞り込みを
+>   追加。**省略時は絞らない＝今までどおり全社合算**（後方互換）
+> - **案件の粗利の内訳**: 既存の `getSummary`/`getSummaries`（全体・変更なし）とは別に
+>   `project.service.ts` に `getSummaryByEntity`（単一案件用・`GET /:id/summary-by-entity`）を
+>   新設。**ただし社内取引の相殺はまだ入っていない**（`intercompany_links` が無いため、
+>   今回は entity_code の素朴な GROUP BY——§4.12 の「案件の粗利は2通り」の前半＝
+>   会社別の内訳だけを先に用意した形。Round 2 で `intercompany_links` ができたら、
+>   相殺後の数字を出す改修が要る）
+> - **財務ダッシュボードの会社タブ**: ダッシュボード・請求入金（PC版）・売上・仕入・
+>   販管費の5画面（設計時点の「8画面」のうち、取引先・取り込み・受け取った書類は
+>   **相手先・仕入先で絞る画面であって自社の計上会社では絞らない**と判断し対象外にした）。
+>   **既定は「全社合算」**（設計の原案は「既定は GSS」だったが、ダッシュボード系は
+>   加算できる指標なので、お金のルール・月次予算のような「1行に決まる設定」と違い
+>   「省略＝今の1社」ではなく「省略＝全社」に倒した——`/monthly-summary` 等サーバー側の
+>   実装判断を優先）。タブの件数バッジは今回見送り（集計クエリが増えるため）。
+>   請求入金の**スマホ版**（`MobileCollect.tsx`）は見積・請求一覧とキャッシュキーを
+>   意図的に共有しているため今回は対象外のまま（サーバーもこの経路は entity_code 未対応）
+> - **お金のルール設定画面**: 会社タブ化（`EntityTabs.tsx`）。値引き上限・フェーズ確度は
+>   会社に依存しない全社共通ポリシーと確認し、タブの影響を受けないようにした
+> - 検証: `server`/`client` の型チェック、`shared` の Vitest 2004件、検証DBを作り直しての
+>   migration 1〜284 通し適用、各機能ごとの実データに近いスモークテスト、実際に
+>   サーバーを起動しての HTTP レベルの絞り込み確認（`entity_code` 指定で数字が
+>   discriminate すること・不正な値は 400・省略時は全社合算になること）。
+>   副産物として、P1 の `renumber_project` MCP ツールが権限ゲート（`gate.ts` の
+>   `WRITE_TOOL_PERMISSIONS`）に未登録だったバグ（`npm run build:changed` の
+>   prebuild を止めていた）も発見・修正した
+>
+> **Round 2（次段・未着手）**: 社内取引（`intercompany_links` テーブル・売上/仕入の
+> リンクペアと編集/削除ガード——`purchases.routes.ts` に `revenues.routes.ts` の
+> `409 REVENUE_IN_ALLOCATION_GROUP` に相当するガードが無い穴も合わせて塞ぐ必要がある——
+> 「サムライスタジオへ社内発注」UI・`getSummaryByEntity` への相殺の反映）
 
 ---
 
@@ -697,3 +759,13 @@ PDF の発行者ブロックの文字列が今と同一（切替日前なので�
   作り直しでの移行通し適用・4系統を通しで動かす統合スモークテスト）まで実施。
   詳細と残作業は§6の実装結果を参照。
   実装結果と計画からの差分は§13の追記を参照。
+- 2026-09-06（同日・7回目）: **P2 Round 1（財務の多社対応。§6）をマルチエージェントで実装した。**
+  社内取引（`intercompany_links`・§4.12）は Round 2 として今回は見送り、スコープを明示的に
+  2ラウンドへ分割。核（migration 284・`money_rules`/`monthly_budgets`/`monthly_actual_overrides`
+  の会社化・請求書番号の系列分離・月次予算/損益のentity_code対応・案件粗利の会社別内訳
+  `getSummaryByEntity`）は直接実装し、残る3本（一覧/Excel/MCP/パイプライン予測の
+  entity_codeフィルタ・財務ダッシュボードの会社タブ・お金のルール設定の会社タブ化）を
+  並列worktreeで実装、マージして検証（型チェック・Vitest・検証DB作り直し・各機能の
+  スモークテスト・実サーバー起動してのHTTPレベル絞り込み確認）まで実施。副産物として
+  P1の`renumber_project` MCPツールの権限ゲート未登録バグも発見・修正した。
+  詳細と計画からの差分は§6・§4.6・§4.12の実装結果を参照。

@@ -88,10 +88,7 @@ function DesktopClosing() {
 
   const query = useQuery<ClosingResponse>({
     queryKey: ['billing', 'closing', month, entity],
-    // ⚠️ **`GET /billing/closing` はまだ `entity_code` に対応していない**
-    // （`server/src/contexts/sales/routes/billing.routes.ts`）。渡しておくのは
-    // 将来の配線用で、いまはサーバー側で無視され、会社タブを切り替えても
-    // この画面の一覧・件数は全社ぶんのまま変わらない（PR 報告に明記）。
+    // `GET /billing/closing` が entity_code に対応済み（省略時は全社合算のまま）
     queryFn: async () => (await api.get('/billing/closing', {
       params: { month, ...(entity ? { entity_code: entity } : {}) },
     })).data,

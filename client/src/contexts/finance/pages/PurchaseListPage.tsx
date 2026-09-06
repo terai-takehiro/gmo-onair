@@ -109,7 +109,7 @@ export default function PurchaseListPage() {
       recognition_to: range?.to,
       fixed_cost: tab === 'fix' ? '1' : '0',
       state: cur.state || undefined,
-      entity_code: entity || undefined, // ⚠️ サーバー未対応（`buildPurchaseWhere`・将来の配線用）
+      entity_code: entity || undefined, // `buildPurchaseWhere` が絞り込む（P2 Round 1・並行実装済み）
     },
   });
 

@@ -105,8 +105,7 @@ export default function RevenueListPage() {
   const query = useQuery<RevenueListResponse>({
     queryKey: ['revenues-all', page, appliedSearch, filterProjectId, month, cur.status, cur.state, range?.from ?? '', range?.to ?? '', entity],
     // ⚠️ `signal` を渡す（渡さないと、絞り込みを変えても前の重い通信が走り続ける）
-    // ⚠️ **`entity_code` はまだサーバー未対応**（`GET /revenues` の `buildRevenueWhere`）。
-    // 渡しておくのは将来の配線用で、いまは無視される（PR 報告に明記）
+    // `entity_code` は `GET /revenues` の `buildRevenueWhere` が絞り込む（P2 Round 1・並行実装済み）
     queryFn: async ({ signal }) => {
       const params: Record<string, string | number> = { page, limit: 20, status: cur.status };
       if (appliedSearch) params.search = appliedSearch;

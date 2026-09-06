@@ -103,7 +103,7 @@ export default function SgaListPage() {
       // （サーバーは AND で合成するので、両方送ると交差して0件になる）
       recognition_from: range?.from,
       recognition_to: range?.to,
-      entity_code: entity || undefined, // ⚠️ サーバー未対応（`buildSgaWhere`・将来の配線用）
+      entity_code: entity || undefined, // `buildSgaBaseWhere` が絞り込む（P2 Round 1・並行実装済み）
     },
   });
 

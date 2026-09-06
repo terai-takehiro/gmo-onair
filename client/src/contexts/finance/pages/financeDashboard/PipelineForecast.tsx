@@ -41,10 +41,9 @@
  *
  * ── 会社（`entityCode`）の絞り込み（2026年10月の事業再編 P2 Round 1）─────
  *
- * ⚠️ **`GET /pipeline-forecast` はまだ `entity_code` に対応していない**
- * （`server/src/contexts/finance/index.ts` 参照）。渡しておくのは将来の配線用で、
- * いまはサーバー側で無視され、会社タブを切り替えてもこのカードの数字だけは
- * 全社ぶんのまま変わらない（`BudgetDashboardPage.tsx` 冒頭コメント・PR 報告に明記）。
+ * `GET /pipeline-forecast` はサーバー側（`server/src/contexts/finance/index.ts`）が
+ * `entity_code` に対応済み（省略時は全社合算のまま）。会社タブを切り替えると
+ * このカードの数字も連動する。
  */
 import { useQuery } from '@tanstack/react-query';
 import { TrendingUp } from 'lucide-react';
@@ -79,7 +78,7 @@ export function PipelineForecast({
     queryFn: async () => (await api.get('/pipeline-forecast', {
       params: {
         ...(projectId ? { project_id: projectId } : {}),
-        ...(entityCode ? { entity_code: entityCode } : {}), // ⚠️ サーバー未対応（ファイル冒頭コメント）
+        ...(entityCode ? { entity_code: entityCode } : {}), // `/pipeline-forecast` が絞り込む（P2 Round 1）
       },
     })).data.data,
   });

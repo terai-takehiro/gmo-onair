@@ -27,6 +27,8 @@ import { assignInvoiceNumbers } from '../../finance/services/invoice-number.serv
 import { BILLING_STATE_SQL, billingStateSql } from '../../../shared/services/billing-state';
 import { normalizeJaText } from '../../../shared/utils/text';
 import { jstDate } from '../../../shared/utils/jst';
+// 2026年10月の事業再編（P2 Round 1）: 締め処理も会社（entity_code）で絞れるようにした
+import { getLegalEntity } from '../../platform/services/legal-entity.service';
 
 /**
  * **案件名の半角カナ化けを表示側で直す。** 発生源は Box の OCR/AI起票等の外部由来
@@ -344,6 +346,16 @@ router.get('/closing', async (req, res) => {
     ? req.query.month
     : new Date().toISOString().slice(0, 7);
 
+  // 会社（entity_code）で絞れるようにした。**省略時は絞らない＝今までどおり全社ぶん**
+  // （`finance/index.ts` の `/monthly-summary` と同じ判断）
+  const entityCode = req.query.entity_code as string | undefined;
+  if (entityCode && !(await getLegalEntity(entityCode))) {
+    throw new AppError(400, 'VALIDATION_ERROR', '不正な計上会社です');
+  }
+  const entityFilter = entityCode ? ' AND r.entity_code = ?' : '';
+  const params: string[] = [`${month}-%`];
+  if (entityCode) params.push(entityCode);
+
   const rows = await queryAll(
     `SELECT r.id, r.project_id, r.amount, r.tax_category,
             r.recognition_date, r.billing_date, r.payment_due_date,
@@ -362,9 +374,9 @@ router.get('/closing', async (req, res) => {
        LEFT JOIN project_groups g ON g.id = r.group_id
       WHERE r.deleted_at IS NULL AND r.status = 'confirmed'
         AND p.deleted_at IS NULL
-        AND r.recognition_date LIKE ?
+        AND r.recognition_date LIKE ?${entityFilter}
       ORDER BY p.gls_number ASC NULLS LAST, r.amount DESC`,
-    [`${month}-%`],
+    params,
   );
   normalizeProjectNames(rows);
 
