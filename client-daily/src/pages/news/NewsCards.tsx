@@ -32,31 +32,30 @@ import type { OpsReportItem } from '@/lib/types';
 import { useNewsRowActions } from './NewsRows';
 import { NewsForm } from './NewsForm';
 
-export function NewsCards({ items, canEdit, weeklyLocked }: {
+export function NewsCards({ items, canEdit }: {
   items: OpsReportItem[];
   canEdit: boolean;
-  /** 送り先の週報が確定済み。**押す前に止める**（サーバーも断る） */
-  weeklyLocked: boolean;
 }) {
   return (
     <ul className="v4-card-in flex flex-col gap-2">
       {items.map((item) => (
         <li key={item.id}>
-          <NewsCard item={item} canEdit={canEdit} weeklyLocked={weeklyLocked} />
+          <NewsCard item={item} canEdit={canEdit} />
         </li>
       ))}
     </ul>
   );
 }
 
-function NewsCard({ item, canEdit, weeklyLocked }: {
+function NewsCard({ item, canEdit }: {
   item: OpsReportItem;
   canEdit: boolean;
-  weeklyLocked: boolean;
 }) {
   const {
     editing, setEditing, toWeekly, sendPending, setPick, remove, saveEdit, updatePending,
   } = useNewsRowActions(item);
+  /** 送り先（この行の日付が属する週）の週報が確定済み。**押す前に止める**（サーバーも断る） */
+  const weeklyLocked = !!item.weekly_locked;
 
   return (
     <>
