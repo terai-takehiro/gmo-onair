@@ -245,6 +245,7 @@ export default function SchedulePage() {
       <ScheduleItemDialog
         open={dialogOpen}
         onOpenChange={(o) => (o ? setDialogOpen(true) : closeDialog())}
+        scheduleId={id}
         columns={schedule.columns}
         item={selectedItem}
         initial={newDraft ?? undefined}
@@ -254,6 +255,9 @@ export default function SchedulePage() {
         onDelete={selectedItem ? handleDelete : undefined}
         onCreateScript={handleCreateScript}
         onOpenScript={handleOpenScript}
+        // 表の再取得だけだと開いたままの selectedItem が古いまま残る（「開く」が旧台本へ飛ぶ）ので、
+        // サーバーが返した最新の項目で selectedItem 自体も差し替える（§3 B3）
+        onDocumentLinked={(updated) => { setSelectedItem(updated); refetchDetail(); }}
         scheduleFixed={schedule.status === "fixed"}
       />
 
