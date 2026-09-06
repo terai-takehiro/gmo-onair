@@ -71,7 +71,10 @@ export default function ScheduleGrid({ schedule, columns, items, conflictedIds, 
   }, [items]);
 
   return (
-    <div className="overflow-auto rounded-lg border border-border" style={{ maxHeight: "calc(100vh - 260px)" }}>
+    // `schedule-grid-scroll` は印刷 CSS（14-schedule-v2-plan.md §3 B7・index.css）が
+    // maxHeight（インラインスタイル）と overflow-auto を上書きする先。クラス名だけでは
+    // インラインスタイルに勝てないため、印刷側は `!important` で明示的に上書きする
+    <div className="schedule-grid-scroll overflow-auto rounded-lg border border-border" style={{ maxHeight: "calc(100vh - 260px)" }}>
       <div className="flex" style={{ width: TIME_COL_WIDTH + sorted.reduce((n, c) => n + c.width_px, 0) + (onAddColumn ? ADD_COL_WIDTH : 0) }}>
         {/* 時刻の列 */}
         <div className="sticky left-0 z-20 shrink-0 bg-background" style={{ width: TIME_COL_WIDTH }}>
@@ -181,9 +184,10 @@ export default function ScheduleGrid({ schedule, columns, items, conflictedIds, 
           );
         })}
 
-        {/* 右端の「＋ 列」。列 0 本のときはこの表自体を出さない（空状態の 3 択が出る） */}
+        {/* 右端の「＋ 列」。列 0 本のときはこの表自体を出さない（空状態の 3 択が出る）。
+            印刷では要らない操作なので隠す（B7・14-schedule-v2-plan.md §3 B7） */}
         {onAddColumn && (
-          <div className="shrink-0" style={{ width: ADD_COL_WIDTH }}>
+          <div className="shrink-0 print:hidden" style={{ width: ADD_COL_WIDTH }}>
             <div className="sticky top-0 z-10 flex h-[60px] items-center justify-center border-b border-border bg-muted/60">
               <button
                 type="button"

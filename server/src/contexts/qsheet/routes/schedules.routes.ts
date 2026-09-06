@@ -8,7 +8,7 @@ import { wrap, p1 } from './wrap';
 import { NotFoundError, ForbiddenError } from '../services/httpErrors';
 import {
   listSchedules, createSchedule, getScheduleRaw, getScheduleWithMeta,
-  getScheduleColumns, getScheduleItems, updateSchedule, deleteSchedule, getShares, setShares,
+  getScheduleColumns, getScheduleItems, updateSchedule, deleteSchedule, duplicateSchedule, getShares, setShares,
 } from '../services/schedule.service';
 
 const router = Router();
@@ -84,6 +84,19 @@ router.put('/schedules/:id', requirePermission('qsheet', 'editor'), wrap(async (
 router.delete('/schedules/:id', requirePermission('qsheet', 'editor'), wrap(async (req: Request, res: Response) => {
   await deleteSchedule(p1(req.params.id), req.user!);
   res.json({ success: true, data: { id: p1(req.params.id) } });
+}));
+
+// 複製（「同じ日として写す」・14-schedule-v2-plan.md §3 B5）。SOURCE 側の可視性を
+// `requireAccessible` で確認する（このファイル冒頭のコメントどおり、既に無い/見えない表は 404 で秘匿）。
+// 新しく作る表そのものの権限は `POST /schedules` と同じ editor
+router.post('/schedules/:id/duplicate', requirePermission('qsheet', 'editor'), wrap(async (req: Request, res: Response) => {
+  await requireAccessible(req);
+  const b = req.body as Record<string, unknown>;
+  const row = await duplicateSchedule(p1(req.params.id), {
+    serviceDate: String(b.service_date ?? ''),
+    actingUserId: req.user!.id,
+  });
+  res.status(201).json({ success: true, data: row });
 }));
 
 // 共有設定を見る／変えるのは 作成者 または 管理者のみ（`documents.routes.ts` の共有 API と同じ作法）。

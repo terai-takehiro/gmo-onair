@@ -108,6 +108,48 @@
   nav, aside, .no-print { display: none !important; }
 }
 
+/* ── スケジュール表の印刷（B7・14-schedule-v2-plan.md §3 B7）──────────────
+ * A3 横・1 日 1 枚。PDF 生成は作らない（02-schedule.md §10-4）— これはブラウザの
+ * 素の印刷を通すためのスタイルだけ（`SchedulePage.tsx` の「…」→「印刷する」→ `window.print()`）。
+ *
+ * ⚠️ **意図して `@layer base` の外（この上のブロックと同じ場所）に置く。**
+ * shared/CLAUDE.md の「@media print は @layer base の中に置く」は、*base.css 自身が
+ * @layer base の中で持っている規則*（html/body/#root の overflow）を上書きするときの
+ * 話——上書き先が同じ base 層にあるので、後から来る base 層の規則として積む必要がある。
+ * ここで上書きしたい相手は逆に **Tailwind のユーティリティ層のクラス**
+ * （`overflow-auto`・列見出しの `sticky` 等）と、共通シェル（`AppShell.tsx`。触らない）
+ * が描く素の flex レイアウトで、ユーティリティ層は base 層より優先度が高いため
+ * base 層の中に書いても負ける。**この既存ブロックと同じ「レイヤーの外＋ `!important`」**
+ * にすれば、レイヤーの優劣に関係なく確実に上書きできる（実ブラウザ・
+ * `page.emulateMedia({ media: 'print' })` で確認済み）。
+ */
+@page {
+  size: A3 landscape;
+  margin: 10mm;
+}
+@media print {
+  /* 共通シェルの外枠（`shared/src/client/shell/AppShell.tsx` は触らず、
+     既存の属性セレクタだけで隠す） */
+  header[data-shell-topbar],
+  nav[aria-label="メニュー"],
+  nav[aria-label="下タブ"] {
+    display: none !important;
+  }
+  /* 表側の「…」メニュー・ボタン類・「同じイベントの他の日」・ブレイクダウン行。
+     印刷対象にしたい箇所は個別に `print:hidden`（Tailwind）を付けてある
+     （`SchedulePage.tsx`）。ここは Tailwind の変種で足りない・確実性を上げたい
+     箇所だけの保険 */
+  .schedule-print-hide {
+    display: none !important;
+  }
+  /* グリッドの縦スクロール枠を印刷では解除する。ここを直さないと画面に映っている
+     1 画面ぶんしか印刷されない（スクロールで隠れた時間帯が丸ごと消える） */
+  .schedule-grid-scroll {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+}
+
 /* ── Dialog as bottom sheet (mobile-friendly editor sidebar) ── */
 /* Override the centered DialogContent positioning to slide up from the bottom */
 .dialog-bottom-sheet {

@@ -53,6 +53,13 @@ export async function deleteSchedule(id: string): Promise<void> {
   await api.delete(`/techops/schedules/${id}`);
 }
 
+// 複製（「同じ日として写す」・14-schedule-v2-plan.md §3 B5）。写す先の日付だけを渡す
+// （題・列・項目・表示時間帯・拠点はサーバー側が元の表からそのまま写す）
+export async function duplicateSchedule(scheduleId: string, serviceDate: string): Promise<Schedule> {
+  const res = await api.post<Envelope<Schedule>>(`/techops/schedules/${scheduleId}/duplicate`, { service_date: serviceDate });
+  return res.data.data;
+}
+
 export async function getScheduleShares(id: string): Promise<ScheduleShare[]> {
   const res = await api.get<Envelope<ScheduleShare[]>>(`/techops/schedules/${id}/shares`);
   return res.data.data;
