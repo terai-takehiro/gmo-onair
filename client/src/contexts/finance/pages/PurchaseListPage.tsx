@@ -50,6 +50,7 @@ import { PurchaseDialog } from './ledger/PurchaseDialog';
 import { settlementState } from './ledger/settlementState';
 import { usePurchaseDialogData } from './ledger/usePurchaseDialogData';
 import type { LedgerRow, PurchaseRow } from './ledger/types';
+import { useEntityFilter, entityFilterGroup } from './shared/entityFilter';
 
 const CHIPS = [
   { key: 'all', label: 'すべて', state: '' },
@@ -92,6 +93,7 @@ export default function PurchaseListPage() {
    */
   const period = useLedgerUrlPeriod(searchParams);
   const { month, range, setMonth } = period;
+  const { entity, setEntity, options: entityOptions } = useEntityFilter(); // `?entity=` が正。省略=全社合算
 
   const cur = CHIPS.find((c) => c.key === chip) ?? CHIPS[0];
 
@@ -107,6 +109,7 @@ export default function PurchaseListPage() {
       recognition_to: range?.to,
       fixed_cost: tab === 'fix' ? '1' : '0',
       state: cur.state || undefined,
+      entity_code: entity || undefined, // ⚠️ サーバー未対応（`buildPurchaseWhere`・将来の配線用）
     },
   });
 
@@ -153,6 +156,7 @@ export default function PurchaseListPage() {
       fixed_cost: tab === 'fix' ? '1' : '0',
       state: cur.state || undefined,
       project_id: filterProjectId || undefined,
+      entity_code: entity || undefined,
     },
   });
 
@@ -193,6 +197,7 @@ export default function PurchaseListPage() {
                 recognition_to: range?.to,
                 fixed_cost: tab === 'fix' ? '1' : '0',
                 state: cur.state || undefined,
+                entity_code: entity || undefined,
               }}
             />
           )}
@@ -243,7 +248,7 @@ export default function PurchaseListPage() {
         month={month}
         onMonth={(v) => { setMonth(v); crud.setPage(1); }}
         period={period}
-        onClearAll={() => { setChip('all'); setMonth(''); period.clearPeriod(); crud.setPage(1); }}
+        onClearAll={() => { setChip('all'); setMonth(''); setEntity(''); period.clearPeriod(); crud.setPage(1); }}
         groups={[{
           key: 'state',
           label: '仕入の状態で絞り込む',
@@ -256,7 +261,7 @@ export default function PurchaseListPage() {
           value: chip,
           defaultValue: 'all',
           onChange: (k) => { setChip(k); crud.setPage(1); },
-        }]}
+        }, entityFilterGroup({ entity, setEntity, options: entityOptions })]}
       />
 
       {crud.isError ? (
@@ -273,8 +278,9 @@ export default function PurchaseListPage() {
               month ? `計上月: ${month}` : '',
               // 期間で絞り込んで来たときも「なぜ0件か」が読めるようにする
               range ? `期間: ${range.label || range.from}` : '',
+              entity ? `会社: ${entityOptions.find((o) => o.key === entity)?.label ?? entity}` : '',
             ].filter(Boolean)}
-            onClearFilters={() => { crud.setSearch(''); setChip('all'); setMonth(''); }}
+            onClearFilters={() => { crud.setSearch(''); setChip('all'); setMonth(''); setEntity(''); }}
           />
         ) : (
           <EmptyState

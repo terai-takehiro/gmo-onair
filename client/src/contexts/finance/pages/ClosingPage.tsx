@@ -48,6 +48,7 @@ import { ClosingRows } from './billing/ClosingRows';
 import type { ClosingResponse, ClosingRow, ClosingTab } from './billing/types';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { MobileCollect } from './closing/MobileCollect';
+import { useEntityFilter, EntityTabs } from './shared/entityFilter';
 
 const TABS: { key: ClosingTab; label: string; icon: JSX.Element }[] = [
   { key: 'issue', label: '請求書を出す', icon: <Receipt className="h-4 w-4" aria-hidden="true" /> },
@@ -82,10 +83,18 @@ function DesktopClosing() {
   const [month, setMonth] = useState(() => today.slice(0, 7));
   const [tab, setTab] = useState<ClosingTab>('issue');
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  // 会社（計上会社）の絞り込み（URL の `?entity=` が正）。省略時は全社合算のまま（`shared/entityFilter.tsx`）
+  const { entity, setEntity, options: entityOptions } = useEntityFilter();
 
   const query = useQuery<ClosingResponse>({
-    queryKey: ['billing', 'closing', month],
-    queryFn: async () => (await api.get('/billing/closing', { params: { month } })).data,
+    queryKey: ['billing', 'closing', month, entity],
+    // ⚠️ **`GET /billing/closing` はまだ `entity_code` に対応していない**
+    // （`server/src/contexts/sales/routes/billing.routes.ts`）。渡しておくのは
+    // 将来の配線用で、いまはサーバー側で無視され、会社タブを切り替えても
+    // この画面の一覧・件数は全社ぶんのまま変わらない（PR 報告に明記）。
+    queryFn: async () => (await api.get('/billing/closing', {
+      params: { month, ...(entity ? { entity_code: entity } : {}) },
+    })).data,
   });
 
   const counts = query.data?.counts;
@@ -160,6 +169,8 @@ function DesktopClosing() {
       >
         <MonthPicker value={month} onChange={(v) => { setMonth(v || today.slice(0, 7)); clearPick(); }} />
       </PageHeader>
+
+      <EntityTabs entity={entity} setEntity={setEntity} options={entityOptions} />
 
       <LedgerTabs
         value={tab}

@@ -60,6 +60,7 @@ import {
   sgaChipOf, sgaFilterGroups, sgaLedgerRows,
 } from './ledger/sgaLedgerRows';
 import type { SgaLedgerItem } from './ledger/types';
+import { useEntityFilter, entityFilterGroup } from './shared/entityFilter';
 
 export default function SgaListPage() {
   const { currentUser, hasPermission } = useAuth();
@@ -76,6 +77,7 @@ export default function SgaListPage() {
    */
   const period = useLedgerUrlPeriod(searchParams);
   const { month, range, setMonth } = period;
+  const { entity, setEntity, options: entityOptions } = useEntityFilter(); // `?entity=` が正。省略=全社合算
 
   const cur = sgaChipOf(chip);
 
@@ -101,6 +103,7 @@ export default function SgaListPage() {
       // （サーバーは AND で合成するので、両方送ると交差して0件になる）
       recognition_from: range?.from,
       recognition_to: range?.to,
+      entity_code: entity || undefined, // ⚠️ サーバー未対応（`buildSgaWhere`・将来の配線用）
     },
   });
 
@@ -205,6 +208,7 @@ export default function SgaListPage() {
       source: cur.source || undefined,
       expense_type: cur.expense_type || undefined,
       account_title_id: titleKey || undefined,
+      entity_code: entity || undefined,
     },
   });
 
@@ -241,6 +245,7 @@ export default function SgaListPage() {
                 recognition_month: month || undefined,
                 recognition_from: range?.from,
                 recognition_to: range?.to,
+                entity_code: entity || undefined,
               }}
             />
           </div>
@@ -263,9 +268,9 @@ export default function SgaListPage() {
         onMonth={(v) => { setMonth(v); crud.setPage(1); }}
         period={period}
         onClearAll={() => {
-          setChip('all'); setTitleKey(''); setMonth(''); period.clearPeriod(); crud.setPage(1);
+          setChip('all'); setTitleKey(''); setMonth(''); setEntity(''); period.clearPeriod(); crud.setPage(1);
         }}
-        groups={sgaFilterGroups({
+        groups={[...sgaFilterGroups({
           chip,
           onChip: (k) => { setChip(k); crud.setPage(1); },
           titleKey,
@@ -273,7 +278,7 @@ export default function SgaListPage() {
           counts,
           titleCounts,
           titles,
-        })}
+        }), entityFilterGroup({ entity, setEntity, options: entityOptions })]}
       />
 
       {crud.isError ? (
@@ -293,7 +298,7 @@ export default function SgaListPage() {
             ].filter(Boolean)}
             // ⚠️ 勘定科目も外す。**上の一覧に「勘定科目: 通信費」と出しているのに
             //    外れないと、押しても0件のままで「壊れている」と読まれる**
-            onClearFilters={() => { crud.setSearch(''); setChip('all'); setTitleKey(''); setMonth(''); }}
+            onClearFilters={() => { crud.setSearch(''); setChip('all'); setTitleKey(''); setMonth(''); setEntity(''); }}
           />
         ) : (
           <EmptyState
