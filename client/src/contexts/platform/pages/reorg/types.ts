@@ -84,3 +84,24 @@ export interface BankAccountFields {
   account_number?: string;
   account_holder?: string;
 }
+
+/**
+ * その案件はコストセンター（今日は GMO の1社だけ）に計上されているか
+ * — 2026年10月の事業再編・P3（`docs/reorg-2026-10-plan.md` §4.7 GMOコストセンター）。
+ *
+ * ⚠️ **`gls_category==='B'`（GPM の案件かどうか）では判定しないこと。**
+ * `org_transition.state` が `off`／未改番のあいだ、GLS-B 案件の `entity_code` は
+ * まだ `'GSS'` のまま（改番していないため）なので、実際に GMO へ改番された案件だけが
+ * 対象になる（切替に自然に追随する作り）。サーバー側の判定基準
+ * （`server/.../legal-entity.service.ts` の `isProjectCostCenter`）と揃えてある。
+ *
+ * 呼び出し側はこの判定を書き写さず、必ずこの1本を通すこと
+ * （GPM のプロジェクト詳細・「予算と実績」タブの切り替えが最初の呼び出し元）。
+ */
+export function isCostCenterProject(
+  project: { entity_code?: string | null } | null | undefined,
+  legalEntities: LegalEntity[] | null | undefined,
+): boolean {
+  if (!project?.entity_code || !legalEntities) return false;
+  return legalEntities.some((e) => e.code === project.entity_code && e.kind === 'cost_center');
+}

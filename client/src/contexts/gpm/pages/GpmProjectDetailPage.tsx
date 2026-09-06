@@ -34,7 +34,8 @@ import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { PcOnlyPanel } from '@gmo-onair/shared/src/client-v4/pcOnly';
-import { useGpmProject, useInvalidateGpm } from '../queries';
+import { isCostCenterProject } from '@/contexts/platform/pages/reorg/types';
+import { useGpmProject, useInvalidateGpm, useLegalEntities } from '../queries';
 import type { ProjectStage } from '@/types';
 import { STAGE_BADGE_LABEL } from '@/contexts/sales/pages/projectList/stages';
 import { type GpmOpenItem } from '../types';
@@ -43,6 +44,7 @@ import {
 } from './projectDetail/DetailHeader';
 import { EstimatesTab } from './projectDetail/EstimatesTab';
 import { BillingTab } from './projectDetail/BillingTab';
+import { BudgetTab } from './projectDetail/BudgetTab';
 import { OverviewTab } from './projectDetail/OverviewTab';
 import { OpenItemRow, OpenItemRowsHeader } from './projectDetail/OpenItemRows';
 import { OpenItemDialog } from './projectDetail/OpenItemDialog';
@@ -71,6 +73,12 @@ export default function GpmProjectDetailPage() {
   const [askEdit, setAskEdit] = useState<GpmOpenItem | null>(null);
   const [askAdding, setAskAdding] = useState(false);
   const query = useGpmProject(id);
+  /*
+   * 計上会社マスター（2026年10月の事業再編・P3）。**コストセンター（GMO）の案件かどうか**
+   * （`isCostCenterProject()`）の判定にだけ使う。フックはローディング中も含めて
+   * 必ず呼ぶ必要がある（Rules of Hooks）ので、早期 return より前に置く。
+   */
+  const legalEntities = useLegalEntities();
 
   const changeStage = useMutation({
     mutationFn: (stage: ProjectStage) => api.put(`/gpm/projects/${id}`, fullBody(query.data!, { stage })),
@@ -121,6 +129,14 @@ export default function GpmProjectDetailPage() {
   }
   const p = query.data!;
   const openAsks = p.open_items.filter((a) => a.status !== 'resolved');
+  /*
+   * コストセンター（GMO）の案件か（2026年10月の事業再編・P3・§4.7）。
+   * `true` のときだけ「請求」タブを「予算と実績」（`BudgetTab`）に差し替える——
+   * **普通の会社（GJV/GSS）の案件はこれまでどおり `BillingTab`**。
+   * 判定は書き写さず必ず `isCostCenterProject()` を通す（`entity_code` と
+   * `GET /legal-entities` の `kind` を見る。`gls_category==='B'` では判定しない）。
+   */
+  const isCostCenter = isCostCenterProject(p, legalEntities.data);
 
   /*
    * スマホのタブは**段階で入れ替わります**（`projectDetail/DetailHeader.tsx` の
@@ -139,7 +155,7 @@ export default function GpmProjectDetailPage() {
   // ダッシュボード・⑤ 全プロジェクトの未確認事項一覧は段階を見ずに
   // `/asks` へ直接リンクしてくるので、ここで外れたままだと概要へ
   // 強制的に飛ばされ、その項目を見る・解決する手段がスマホに無くなる。
-  const mobileKeys = effectiveMobileTabs(phase, openAsks.length);
+  const mobileKeys = effectiveMobileTabs(phase, openAsks.length, isCostCenter);
   /*
    * **2種類の「開けない」を混ぜません**（案件詳細⑥と同じ考え方）。
    *
@@ -200,12 +216,21 @@ export default function GpmProjectDetailPage() {
         onEdit={() => setEditing(true)}
         mobile={isMobile}
         phase={phase}
+        isCostCenter={isCostCenter}
       />
 
-      {/* 月次請求（月締め）。**案件詳細から移したもの** (migration 179)。
-          **どの段階でもスマホには出さない**（`BillingTab` 冒頭のコメント参照） */}
+      {/*
+        コストセンター（GMO）の案件は「予算と実績」（`BudgetTab`・2026年10月の事業再編・
+        P3）に差し替える。**普通の会社（GJV/GSS）の案件はこれまでどおり**——
+        月次請求（月締め）。**案件詳細から移したもの** (migration 179)。
+        **どの段階でもスマホには出さない**（`BillingTab` 冒頭のコメント参照）。
+        `BudgetTab` は最初からレスポンシブなので、こちらは PC 専用の案内を経由しない
+        （`effectiveMobileTabs` が `isCostCenter` のときだけスマホの帯にも足す）。
+      */}
       {tab === 'billing' && (
-        offPhone ? (
+        isCostCenter ? (
+          <BudgetTab projectId={p.id} />
+        ) : offPhone ? (
           <PcOnlyPanel
             what="請求（月次）"
             why="案件と同じ月締めの表（BusinessProjectView）を1行も変えずに呼んでいます。金額・入金月・請求済かどうかを横に並べて突き合わせる作りで、この幅ではまだ読み違えを防げません。"

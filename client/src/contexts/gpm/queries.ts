@@ -23,6 +23,7 @@
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import type { LegalEntity } from '@/contexts/platform/pages/reorg/types';
 import type { GpmOpenItem, GpmProjectDetail, GpmProjectRow, GpmTask, GpmTemplate } from './types';
 
 export const gpmKeys = {
@@ -108,6 +109,23 @@ export function useGpmProject(id: string) {
     queryKey: gpmKeys.project(id),
     queryFn: async () => (await api.get(`/gpm/projects/${id}`)).data.data,
     enabled: !!id,
+  });
+}
+
+/**
+ * 計上会社マスター（GJV/GSS/GMO の3行）。プロジェクト詳細が
+ * 「予算と実績」タブに切り替えるかどうか（`isCostCenterProject()`）の判定に使う
+ * （2026年10月の事業再編・P3）。
+ *
+ * ⚠️ **鍵は `entityFilter.tsx`/`ReorgPage.tsx` と同じ `['legal-entities']` にする。**
+ * 会社マスターはどこから開いても同じ内容なので、片方が読んだキャッシュを
+ * もう片方も使い回せる（鍵を分けると同じ3行を画面ごとに引き直すだけになる）。
+ */
+export function useLegalEntities() {
+  return useQuery<LegalEntity[]>({
+    queryKey: ['legal-entities'],
+    queryFn: async () => (await api.get('/legal-entities')).data.data,
+    staleTime: 5 * 60_000,
   });
 }
 

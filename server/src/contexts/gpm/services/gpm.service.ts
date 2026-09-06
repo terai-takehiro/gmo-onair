@@ -362,7 +362,10 @@ export const projectService = {
               p.started_on, p.ends_on, p.gpm_template_id,
               memo.description AS notes,
               p.box_url_internal, p.box_url_external, p.customer_id,
-              p.assigned_to, p.created_at, p.updated_at,
+              -- entity_code: 2026年10月の事業再編・P3（§4.7）。「予算と実績」タブに
+              -- 差し替えるかどうかを画面が判定する材料（isCostCenterProject）。
+              -- 一覧（list）はこの判定をしないので持たない
+              p.assigned_to, p.entity_code, p.created_at, p.updated_at,
               u.name AS assigned_to_name, c.name AS customer_name, t.name AS template_name
          FROM projects p
          LEFT JOIN users u ON u.id = p.assigned_to
@@ -431,7 +434,7 @@ export const projectService = {
            (id, code, entity_code, name, customer_id, stage, gls_category, customer_type, assigned_to,
             gpm_kind, pm_company, started_on, ends_on, gpm_template_id,
             created_by, updated_by)
-         VALUES (?, ?, ?, ?, ?, ?, 'B', ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, 'B', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [id, code, CURRENT_ENTITY_CODE, name, customerId, stage,
          // グループ内 / グループ外は**お客様の印から決める**（migration 192）。
          // 自社の行（`comp-self-gms` ＝「自社（GMOグローバルスタジオ）」）にも

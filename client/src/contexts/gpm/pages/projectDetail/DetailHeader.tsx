@@ -31,7 +31,14 @@ export const DETAIL_TABS = [
   { key: 'minutes', label: '議事録' },
   // v4 大⑤: 提出先ごとの個別見積（migration 173）
   { key: 'estimates', label: '見積' },
-  // migration 179 で案件詳細から移した「月次請求（月締め）」
+  /*
+   * migration 179 で案件詳細から移した「月次請求（月締め）」。
+   * ここの `label` は**普通の会社（GJV/GSS）向けの既定値**。
+   * コストセンター（GMO）の案件では「予算と実績」に出し分ける
+   * （2026年10月の事業再編・P3・§4.7）——**`key`（URL の一部）は変えない**。
+   * 変えると「請求」で開いていたブックマーク・共有 URL が壊れるため、
+   * 出し分けは下の描画側（`t.key === 'billing' && isCostCenter` の分岐）でだけ行う。
+   */
   { key: 'billing', label: '請求' },
   { key: 'files', label: '書類' },
 ] as const;
@@ -99,10 +106,19 @@ export const MOBILE_TABS_BY_PHASE: Record<DetailPhase, DetailTabKey[]> = {
  * 段階違いリダイレクト判定が**同じ関数**を通るようにして、
  * 「タブには出ているのに開くと弾かれる」／「タブに出ていないのに
  * リンクを踏むと弾かれる」の食い違いを防ぐ。
+ *
+ * `isCostCenter` も同じ理由で足す（2026年10月の事業再編・P3）。**新しく作った
+ * 「予算と実績」タブ（`BudgetTab`）はレスポンシブに作ってあるので**、下の
+ * 「請求はどの段階でもスマホに出さない」の対象から外し、コストセンターの
+ * プロジェクトだけ全段階のスマホ帯に足す。
  */
-export function effectiveMobileTabs(phase: DetailPhase, openAsksCount: number): DetailTabKey[] {
-  const base = MOBILE_TABS_BY_PHASE[phase];
-  return openAsksCount > 0 && !base.includes('asks') ? [...base, 'asks'] : base;
+export function effectiveMobileTabs(
+  phase: DetailPhase, openAsksCount: number, isCostCenter = false,
+): DetailTabKey[] {
+  let tabs = MOBILE_TABS_BY_PHASE[phase];
+  if (openAsksCount > 0 && !tabs.includes('asks')) tabs = [...tabs, 'asks'];
+  if (isCostCenter && !tabs.includes('billing')) tabs = [...tabs, 'billing'];
+  return tabs;
 }
 
 /**
@@ -111,6 +127,10 @@ export function effectiveMobileTabs(phase: DetailPhase, openAsksCount: number): 
  * （工程・体制・未確認事項・議事録・見積・書類の6タブとは違い、実測しても
  * 縦積みで読める形になっていません）。`GpmProjectDetailPage` の `everMobile` 判定は
  * この表に載っていないタブを自動でその扱いにするので、ここには載せません。
+ *
+ * ⚠️ **コストセンター（GMO）の案件はこの限りではありません。** 「予算と実績」
+ * （`BudgetTab`・2026年10月の事業再編・P3）は最初からレスポンシブに作ったので、
+ * `effectiveMobileTabs()` の `isCostCenter` 引数でスマホの帯に足しています。
  */
 
 /**
@@ -123,7 +143,7 @@ export function effectiveMobileTabs(phase: DetailPhase, openAsksCount: number): 
 const STAGE_STEPS: ProjectStage[] = ['c_proposal', 'b_verbal', 'a_won', 'r_delivered', 's_completed'];
 
 export function DetailHeader({
-  project, tab, counts, canEdit, onChangeStage, onEdit, mobile, phase,
+  project, tab, counts, canEdit, onChangeStage, onEdit, mobile, phase, isCostCenter = false,
 }: {
   project: GpmProjectDetail;
   tab: DetailTabKey;
@@ -135,9 +155,14 @@ export function DetailHeader({
   mobile?: boolean;
   /** プロジェクトの段階。**スマホのタブの組**を決める（PC は7タブのまま変えない） */
   phase: DetailPhase;
+  /**
+   * コストセンター（GMO）の案件か（`isCostCenterProject()`・2026年10月の事業再編・P3）。
+   * **`billing` の表示ラベルだけを差し替える**——`key` は変えない（同上の理由）。
+   */
+  isCostCenter?: boolean;
 }) {
   const progress = phaseProgress(project.phases);
-  const mobileKeys = effectiveMobileTabs(phase, counts.asks ?? 0);
+  const mobileKeys = effectiveMobileTabs(phase, counts.asks ?? 0, isCostCenter);
   const tabs = DETAIL_TABS.filter((t) => !mobile || mobileKeys.includes(t.key));
   const sub = [
     project.customer_name,
@@ -224,7 +249,9 @@ export function DetailHeader({
                   on ? 'border-primary text-primary' : 'border-transparent font-normal text-muted-foreground hover:text-foreground',
                 )}
               >
-                {t.label}
+                {/* コストセンター（GMO）の案件だけ「請求」→「予算と実績」に出し分ける
+                    （`key` は変えない。上の `DETAIL_TABS` のコメント参照） */}
+                {t.key === 'billing' && isCostCenter ? '予算と実績' : t.label}
                 {n !== undefined && n > 0 && (
                   <span className="text-badge font-number inline-flex h-[19px] min-w-[19px] items-center justify-center rounded-chip bg-muted px-1.5 text-muted-foreground">
                     {n}
