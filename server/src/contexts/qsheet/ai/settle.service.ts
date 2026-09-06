@@ -151,6 +151,37 @@ export async function settleProposalManual(proposalId: string, actorId: string |
 }
 
 /**
+ * 表を「確定」にした瞬間に呼ぶ、AI 由来項目（①枠）の**1段目（early）だけ**の締め。
+ * 14-schedule-v2-plan.md §3 B10・§5「穴: 取り込んだ後にグリッド上で直した分が差分に残らない」。
+ *
+ * ⚠️ **`final` は締めない。** `settleProposalManual` と違い、ここで最後まで締めてしまうと
+ * この機能が埋めたい穴——「当日の押し・巻き」——を二度と拾えなくなる
+ * （`settleDueProposals`／将来の手動締めは `settled_final_at IS NULL` の行しか見ないため）。
+ * final は今までどおり、本番日翌日の夜間バッチ（`settleDueProposals`）か
+ * `settleProposalManual` に任せる——確定は本番より何日も前に押されるのが普通なので、
+ * ここで先取りしない。
+ *
+ * 対象はこの表に紐づく、取り込み済み（`state='applied'`）の①枠提案**全部**
+ * （1つの表に複数回 AI 生成していれば複数件ありうる）。二重計上は `settleOneStage` の
+ * 条件付き UPDATE（`WHERE settled_at IS NULL`）が防ぐので、確定の保存を何度繰り返しても
+ * 安全（呼び出し側は「確定で保存するたび呼ぶ」でよい）。AI を呼ばない・失敗しても
+ * 表の保存自体は止めない（呼び出し側で catch する）。
+ */
+export async function settleScheduleEarlyOnConfirm(scheduleId: string, actorId: string | null): Promise<void> {
+  const rows = await queryAll(
+    `SELECT * FROM qsheet_ai_proposals WHERE schedule_id = ? AND state = 'applied' AND settled_at IS NULL`,
+    [scheduleId],
+  ) as unknown as ProposalRow[];
+  for (const row of rows) {
+    try {
+      await settleOneStage(row, 'early', 'manual', actorId);
+    } catch (e) {
+      console.error('[qsheet-ai] settleScheduleEarlyOnConfirm failed:', row.id, (e as Error).message);
+    }
+  }
+}
+
+/**
  * 夜間バッチ本体。**通知は出さない**（呼び出し側の `scheduler.service.ts` が `[]` を返す）。
  * 同じ回で early・final 両方の期限に達していたら、**必ず early → final の順**に締める（§5-2）。
  */

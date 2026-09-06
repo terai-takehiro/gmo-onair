@@ -3,14 +3,28 @@
 // ②③と違い `data`（Yjs）ではなく `qsheet_schedule_items` への REST 書き込みなので、
 // 取り込みは `applyEventPlanOps`（`lib/applyEventPlan.ts`）を使う。
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRange } from "@gmo-onair/shared/src/client/ui/dateRange";
 import { generateEventPlan, discardProposal, applyProposalRemote, type AiProposal, type EventPlanProposal } from "@/lib/aiApi";
 import { applyEventPlanOps } from "@/lib/applyEventPlan";
+import { listStudioRooms } from "@/lib/scheduleApi";
 import { notifySuccess, notifyError } from "@/lib/notify";
+
+// 種別の固定セット。`projects.project_category` と同じ語彙（`broadcast`/`recording`/`event`）——
+// §5「集計側の type:|loc: 区分（ai-feedback.service.ts）が既に待っている」に合わせて、
+// 新しい分類を作らず既存のものを再利用する（ひな形分類の軸 §6 とは別の話。あちらは未決）。
+const CATEGORY_OPTIONS: { value: string; label: string }[] = [
+  { value: "broadcast", label: "配信/生放送" },
+  { value: "recording", label: "収録" },
+  { value: "event", label: "イベント（会場のみ）" },
+];
+const NONE = "__none__"; // Radix の Select.Item は value="" を許さないため（このアプリの既定の作法）
 
 interface Props {
   open: boolean;
@@ -24,13 +38,28 @@ export default function EventPlanDialog({ open, onOpenChange, scheduleId, existi
   const [loading, setLoading] = useState(false);
   const [proposal, setProposal] = useState<AiProposal<EventPlanProposal> | null>(null);
   const [instruction, setInstruction] = useState("");
+  // 拠点・種別（14-schedule-v2-plan.md §3 B10）。どちらも任意——決めていなければ
+  // 今までどおり表・案件の値で生成する。ダイアログが動かなくならないよう既定は「決めていない」
+  const [locationId, setLocationId] = useState<string>(NONE);
+  const [category, setCategory] = useState<string>(NONE);
   const [excludedKeys, setExcludedKeys] = useState<Set<string>>(new Set());
   const [applying, setApplying] = useState(false);
+
+  const locationsQuery = useQuery({
+    queryKey: ["studio-rooms"],
+    queryFn: listStudioRooms,
+    enabled: open,
+    staleTime: 5 * 60 * 1000,
+  });
 
   async function handleGenerate() {
     setLoading(true);
     try {
-      const p = await generateEventPlan(scheduleId, instruction || undefined);
+      const p = await generateEventPlan(scheduleId, {
+        instruction: instruction || undefined,
+        locationId: locationId === NONE ? undefined : locationId,
+        category: category === NONE ? undefined : category,
+      });
       setProposal(p);
       setExcludedKeys(new Set());
     } catch (e) {
@@ -88,6 +117,28 @@ export default function EventPlanDialog({ open, onOpenChange, scheduleId, existi
             <p className="text-sm text-muted-foreground">
               案件・会場・既に入っている項目から、当日の進行枠の下書きを作ります。
             </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <Label>拠点（任意）</Label>
+                <Select value={locationId} onValueChange={setLocationId}>
+                  <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue placeholder="表の拠点のまま" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>表の拠点のまま</SelectItem>
+                    {(locationsQuery.data ?? []).map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>種別（任意）</Label>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue placeholder="案件の種別のまま" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>案件の種別のまま</SelectItem>
+                    {CATEGORY_OPTIONS.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <textarea
               value={instruction}
               onChange={(e) => setInstruction(e.target.value)}

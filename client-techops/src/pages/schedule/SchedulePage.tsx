@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, ArrowLeft, LayoutTemplate, Download, Plus, Sparkles, Columns3, Settings } from "lucide-react";
+import { Loader2, ArrowLeft, LayoutTemplate, Download, Plus, Sparkles, Columns3, Settings, CalendarClock } from "lucide-react";
 import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { confirmAction } from "@gmo-onair/shared/src/client/ui/confirm";
 import { Badge } from "@gmo-onair/shared/src/client/ui/badge";
@@ -25,6 +25,7 @@ import ScheduleItemDialog, { type ItemDraft } from "@/components/schedule/Schedu
 import ApplyTemplateDialog from "@/components/schedule/ApplyTemplateDialog";
 import ColumnDialog from "@/components/schedule/ColumnDialog";
 import VenueColumnsDialog from "@/components/schedule/VenueColumnsDialog";
+import BookingColumnsDialog from "@/components/schedule/BookingColumnsDialog";
 import ScheduleEmptyState from "@/components/schedule/ScheduleEmptyState";
 import ScheduleSettingsDialog from "@/components/schedule/ScheduleSettingsDialog";
 import ScheduleSiblingDays from "@/components/schedule/ScheduleSiblingDays";
@@ -47,6 +48,7 @@ export default function SchedulePage() {
   const [applyOpen, setApplyOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [venueOpen, setVenueOpen] = useState(false);
+  const [bookingColumnsOpen, setBookingColumnsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // スマホの列チップの絞り込み。「項目を追加」の既定列に使うため親に持ち上げてある（§3 A6）
   const [mobileFilterColumnId, setMobileFilterColumnId] = useState<string | null>(null);
@@ -55,7 +57,7 @@ export default function SchedulePage() {
 
   const queue = useItemCommitQueue();
   // 列・表の設定を開いている間もポーリングを止める（書きかけを上書きしないため・§4-3）
-  const anySheetOpen = dialogOpen || columnDialog.open || venueOpen || settingsOpen;
+  const anySheetOpen = dialogOpen || columnDialog.open || venueOpen || bookingColumnsOpen || settingsOpen;
 
   const detailQuery = useQuery({
     queryKey: ["schedule", id],
@@ -282,6 +284,7 @@ export default function SchedulePage() {
         <MoreMenu
           items={[
             { label: "列を足す", icon: <Columns3 />, onSelect: () => openAddColumn(schedule.columns[schedule.columns.length - 1]?.col_group ?? "venue") },
+            { label: "予約から列を入れる", icon: <CalendarClock />, onSelect: () => setBookingColumnsOpen(true) },
             { label: "ひな形を適用", icon: <LayoutTemplate />, onSelect: () => setApplyOpen(true) },
             { label: "AI で下書き", icon: <Sparkles />, onSelect: () => setAiOpen(true) },
             { label: "Excel に書き出す", icon: <Download />, onSelect: () => void handleExport(), disabled: !hasColumns },
@@ -371,6 +374,8 @@ export default function SchedulePage() {
         columns={schedule.columns}
         onCreated={refetchAfterColumns}
       />
+      <BookingColumnsDialog open={bookingColumnsOpen} onOpenChange={setBookingColumnsOpen} scheduleId={id} scheduleLocationId={schedule.location_id}
+        scheduleProjectId={schedule.project_id} columns={schedule.columns} onCreated={refetchAfterColumns} />
 
       <ApplyTemplateDialog
         open={applyOpen}

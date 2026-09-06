@@ -65,6 +65,11 @@ export interface GenerationMaterials {
   advice: string[];
   /** `type:<project_category>|loc:<location_id>` の形（04-ai.md §6-1） */
   segmentKey: string | null;
+  /**
+   * `segmentKey` の `type:` 部分に使った値（案件の種別、または人が生成のときに選んだ上書き）。
+   * プロンプトに「種別」として書き出すため、生の文字列でも持っておく（14-schedule-v2-plan.md §3 B10）
+   */
+  categoryHint: string | null;
   /** 過去の類似 Qシート（骨格の要約のみ・本文は含まない） */
   similar: SimilarDocSummary[];
   /** 人が承認したナレッジ（3段目・§6-3）。`draft` は含まない */
@@ -209,6 +214,14 @@ export interface GatherOptions {
   isAdmin: boolean;
   /** 見本探しから除く自分自身（②③生成なら生成元の document_id） */
   excludeDocumentId?: string | null;
+  /**
+   * ①枠のみ・14-schedule-v2-plan.md §3 B10・§5。「表にまだ拠点が無い」「案件の種別が
+   * 未設定」ときのための**人が選んだ上書き**。`segmentKey`（`type:|loc:` の集計軸）と
+   * プロンプトの両方に効かせる。表・案件が実際に持つ値を書き換えるものではない
+   * （ここだけの一時的なヒント。DB へは一切書かない）。
+   */
+  locationIdOverride?: string | null;
+  categoryOverride?: string | null;
 }
 
 /** ②骨格・③セリフ: 対象文書から材料を集める */
@@ -233,7 +246,8 @@ export async function gatherMaterialsForDocument(
     fetchKnowledge(opts.kind, segmentKey),
   ]);
   return {
-    project, episode, venue: null, scheduleItems: [], advice, segmentKey, similar, knowledge, knowledgeRev,
+    project, episode, venue: null, scheduleItems: [], advice, segmentKey,
+    categoryHint: project?.projectCategory ?? null, similar, knowledge, knowledgeRev,
   };
 }
 
@@ -247,15 +261,18 @@ export async function gatherMaterialsForSchedule(
   );
   const projectId = (sch?.project_id as string) ?? null;
   const episodeId = (sch?.episode_id as string) ?? null;
-  const locationId = (sch?.location_id as string) ?? null;
+  // 表の拠点が無ければ、人が生成のときに選んだ拠点で埋める（§3 B10）。表・DB は書き換えない
+  const locationId = opts.locationIdOverride ?? (sch?.location_id as string) ?? null;
   const project = await fetchProject(projectId);
-  const segmentKey = buildSegmentKey(project?.projectCategory ?? null, locationId);
+  const category = opts.categoryOverride ?? project?.projectCategory ?? null;
+  const segmentKey = buildSegmentKey(category, locationId);
   const [episode, venue, scheduleItems, advice, { knowledge, knowledgeRev }] = await Promise.all([
     fetchEpisode(episodeId), fetchVenue(locationId),
     fetchScheduleItems(scheduleId), fetchAdvice(opts.kind, segmentKey),
     fetchKnowledge(opts.kind, segmentKey),
   ]);
   return {
-    project, episode, venue, scheduleItems, advice, segmentKey, similar: [], knowledge, knowledgeRev,
+    project, episode, venue, scheduleItems, advice, segmentKey, categoryHint: category,
+    similar: [], knowledge, knowledgeRev,
   };
 }
