@@ -1,0 +1,709 @@
+<title>プロジェクト管理 フォーマット統一案</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&display=swap">
+<style>
+/* ── v4 トークン（shared/src/client/tokens-v4.css の値をそのまま） ─────────── */
+:root{
+  --primary:#005bac; --primary-surface:#eaf4fb; --primary-surface-weak:#f4faff;
+  --primary-border:#cfe4f4; --primary-border-strong:#a6ceeb;
+  --fg:#1a1d24; --fg2:#3c424c; --fg3:#5d6470; --fg4:#9aa1ab;
+  --card:#fff; --bg:#f7f8fa; --subtle:#fbfcfd; --muted:#f2f4f7;
+  --bd:#e6e9ed; --bd-sub:#eef0f3; --bd-faint:#f2f4f7;
+  --ok:#197a4b; --ok-bg:#e7f6ee; --ok-bd:#bfe3ce;
+  --warn:#c2410e; --warn-bg:#fff7ed; --warn-bd:#fed7aa;
+  --bad:#c7243a; --bad-bg:#fef6f7; --bad-bd:#f6cdd2;
+  --info:#4338ca; --info-bg:#eef2ff;
+  --ai:#6d28d9; --ai-bg:#f5f3ff;
+  /* この提案書自身の地色（製品の面と混ざらないよう一段だけ寒色に振る） */
+  --page:#eef1f5; --page-ink:#171a20; --page-ink2:#4b525d; --page-line:#d5dbe3;
+  --old:#8a5a2b; --old-bg:#fdf6ec; --old-bd:#e8d5b8;
+  --new:#005bac; --new-bg:#eaf4fb; --new-bd:#cfe4f4;
+}
+:root:not([data-theme="light"]){}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --page:#14171c; --page-ink:#e9edf3; --page-ink2:#9aa4b2; --page-line:#2a3038;
+    --old:#d5a76a; --old-bg:#241d13; --old-bd:#4a3a24;
+    --new:#7db8e8; --new-bg:#10222f; --new-bd:#254a63;
+  }
+}
+:root[data-theme="dark"]{
+  --page:#14171c; --page-ink:#e9edf3; --page-ink2:#9aa4b2; --page-line:#2a3038;
+  --old:#d5a76a; --old-bg:#241d13; --old-bd:#4a3a24;
+  --new:#7db8e8; --new-bg:#10222f; --new-bd:#254a63;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--page); color:var(--page-ink);
+  font-family:'LINE Seed JP','Noto Sans JP',-apple-system,'Hiragino Sans','BIZ UDPGothic','Meiryo',sans-serif;
+  font-feature-settings:'palt' 1,'kern' 1; line-height:1.7;
+}
+.wrap{max-width:1180px; margin:0 auto; padding:40px 20px 90px; display:flex; flex-direction:column; gap:34px}
+h1,h2,h3{margin:0; text-wrap:balance; font-weight:800}
+p{margin:0}
+a{color:var(--new)}
+
+/* ── 提案書の見出し ───────────────────────────────────────── */
+.masthead{display:flex; flex-direction:column; gap:12px; padding-bottom:26px; border-bottom:2px solid var(--page-line)}
+.eyebrow{font-size:11.5px; font-weight:800; letter-spacing:.08em; color:var(--page-ink2)}
+.masthead h1{font-size:30px; line-height:1.25}
+.lede{font-size:14.5px; color:var(--page-ink2); max-width:64ch}
+.legend{display:flex; flex-wrap:wrap; gap:8px; margin-top:4px}
+.tag{display:inline-flex; align-items:center; gap:6px; height:26px; padding:0 10px; border-radius:999px; font-size:11.5px; font-weight:700; border:1px solid}
+.tag.old{color:var(--old); background:var(--old-bg); border-color:var(--old-bd)}
+.tag.new{color:var(--new); background:var(--new-bg); border-color:var(--new-bd)}
+
+/* ── 方針 ───────────────────────────────────────────────── */
+.axioms{display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.axiom{border-left:3px solid var(--new); padding:2px 0 2px 14px}
+.axiom h3{font-size:14.5px; margin-bottom:4px}
+.axiom p{font-size:13px; color:var(--page-ink2)}
+
+/* ── 画面セクション ─────────────────────────────────────── */
+.screen{display:flex; flex-direction:column; gap:16px}
+.screen > header{display:flex; flex-wrap:wrap; align-items:baseline; gap:10px}
+.screen h2{font-size:20px}
+.route{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; color:var(--page-ink2);
+  border:1px solid var(--page-line); border-radius:6px; padding:1px 7px; background:var(--page)}
+.compare{display:grid; gap:16px; grid-template-columns:1fr}
+@media (min-width:900px){ .compare{grid-template-columns:1fr 1fr} }
+.pane{display:flex; flex-direction:column; gap:8px; min-width:0}
+.pane > .cap{display:flex; align-items:center; gap:8px; font-size:12px; font-weight:800}
+.pane.o > .cap{color:var(--old)} .pane.n > .cap{color:var(--new)}
+.frame{border-radius:14px; overflow:hidden; border:1px solid var(--page-line); background:#fff;
+  box-shadow:0 14px 34px -26px rgba(16,24,40,.5)}
+.pane.o .frame{border-color:var(--old-bd)}
+.pane.n .frame{border-color:var(--new-bd); box-shadow:0 16px 38px -24px rgba(0,91,172,.45)}
+.scroll{overflow-x:auto}
+
+/* ── 製品 UI の再現（常に light の面。製品はライト固定のため） ────────── */
+.ui{width:560px; background:var(--bg); color:var(--fg); font-size:12.5px; line-height:1.55}
+.ui *{box-sizing:border-box}
+.ui .pad{padding:14px 16px; display:flex; flex-direction:column; gap:11px}
+.h1{font-size:19px; font-weight:800; line-height:1.3}
+.sub{font-size:11.5px; color:var(--fg3); margin-top:2px}
+.note{font-size:11px; color:var(--fg3)}
+.btn{display:inline-flex; align-items:center; justify-content:center; gap:5px; height:32px; padding:0 12px;
+  border-radius:10px; background:var(--primary); color:#fff; font-size:12px; font-weight:700; border:0; white-space:nowrap}
+.btn.g{background:var(--card); color:var(--fg3); border:1px solid var(--bd)}
+.seg{display:inline-flex; border:1px solid var(--bd); border-radius:7px; overflow:hidden; background:var(--card)}
+.seg > span{display:inline-flex; align-items:center; gap:5px; height:32px; padding:0 11px; font-size:12px; color:var(--fg3); white-space:nowrap}
+.seg > span + span{border-left:1px solid var(--bd)}
+.seg > span.on{background:var(--primary-surface); color:var(--primary); font-weight:700}
+.chips{display:inline-flex; border:1px solid var(--bd); border-radius:7px; overflow:hidden; background:var(--card); max-width:100%}
+.chips > span{display:inline-flex; align-items:baseline; gap:5px; height:30px; padding:0 11px; font-size:12px; color:var(--fg3); white-space:nowrap; line-height:30px}
+.chips > span.on{background:var(--primary-surface); color:var(--primary); font-weight:700}
+.chips i{font-style:normal; font-size:11px; color:var(--fg3); font-variant-numeric:tabular-nums}
+.chips > span.on i{color:var(--primary)}
+.lbl{font-size:11px; font-weight:700; color:var(--fg3)}
+.card{border:1px solid var(--bd); border-radius:16px; background:var(--card); overflow:hidden}
+.bar{border:1px solid var(--bd); border-radius:16px; background:var(--card); padding:9px 11px; display:flex; flex-direction:column; gap:7px}
+.bar .r{display:flex; gap:7px; align-items:stretch}
+.inp{flex:1; min-width:0; height:34px; border:1px solid var(--bd); border-radius:7px; background:var(--card);
+  display:flex; align-items:center; padding:0 10px; font-size:12px; color:var(--fg4)}
+.pill{height:34px; border:1px solid var(--bd); border-radius:7px; background:var(--card); display:inline-flex;
+  align-items:center; justify-content:center; padding:0 9px; font-size:11.5px; color:var(--fg3); white-space:nowrap; flex-shrink:0}
+.pill.on{border-color:var(--primary-border-strong); background:var(--primary-surface); color:var(--primary); font-weight:700}
+.pill.dim{opacity:.35}
+.th{display:flex; gap:10px; align-items:center; padding:7px 14px; background:var(--subtle);
+  border-bottom:1px solid var(--bd-sub); font-size:11px; font-weight:800; color:var(--fg3)}
+.tr{display:flex; gap:10px; align-items:center; padding:9px 14px; border-bottom:1px solid var(--bd-faint)}
+.tr:last-child{border-bottom:0}
+.main{flex:1; min-width:0}
+.main b{display:block; font-size:12.5px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.main s{display:block; text-decoration:none; font-size:11px; color:var(--fg3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.sl{flex-shrink:0; font-size:11.5px; color:var(--fg2); font-variant-numeric:tabular-nums}
+.sl.r{text-align:right}
+.w56{width:56px}.w72{width:72px}.w96{width:96px}.w128{width:128px}.w160{width:160px}.w200{width:200px}
+.bdg{display:inline-flex; align-items:center; justify-content:center; height:21px; border-radius:6px;
+  font-size:11px; font-weight:700; padding:0 6px; width:100%}
+.bdg.pri{background:var(--primary-surface); color:var(--primary)}
+.bdg.ok{background:var(--ok-bg); color:var(--ok)}
+.bdg.wr{background:var(--warn-bg); color:var(--warn)}
+.bdg.bd{background:var(--bad-bg); color:var(--bad)}
+.bdg.mt{background:var(--muted); color:var(--fg3)}
+.money{display:flex; justify-content:space-between; gap:5px; font-variant-numeric:tabular-nums; font-size:11.5px}
+.money em{font-style:normal; color:var(--fg3)}
+.foot{display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:11px; color:var(--fg3)}
+/* 詳細ヘッダー帯 */
+.dh{background:var(--card); border-bottom:1px solid var(--bd)}
+.dh .row1{display:flex; align-items:center; gap:10px; padding:11px 16px 9px}
+.back{width:32px; height:32px; border:1px solid var(--bd); border-radius:10px; display:flex; align-items:center;
+  justify-content:center; color:var(--fg2); flex-shrink:0; font-size:13px}
+.stband{display:flex; align-items:center; gap:6px; padding:0 16px; height:40px; overflow:hidden}
+.st{height:26px; border:1px solid var(--bd); border-radius:7px; background:var(--card); display:inline-flex;
+  align-items:center; justify-content:center; font-size:11px; color:var(--fg3); flex-shrink:0}
+.st.w104{width:104px} .st.w60{width:60px} .st.auto{padding:0 9px}
+.st.on{background:var(--primary); border-color:var(--primary); color:#fff; font-weight:700}
+.tabs{display:flex; height:38px; padding:0 16px; border-top:0}
+.tabs span{display:inline-flex; align-items:center; justify-content:center; gap:5px; font-size:12.5px;
+  color:var(--fg3); border-bottom:2px solid transparent; min-width:0}
+.tabs.eq span{flex:1}
+.tabs.sc{gap:14px; overflow:hidden}
+.tabs.sc span{flex-shrink:0}
+.tabs span.on{color:var(--primary); border-bottom-color:var(--primary); font-weight:700}
+.tabs .n{display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px;
+  border-radius:999px; background:var(--muted); color:var(--fg3); font-size:10.5px; padding:0 5px; font-variant-numeric:tabular-nums}
+.ic{display:inline-block; width:13px; height:13px; border:1.5px solid currentColor; border-radius:3px; opacity:.75; flex-shrink:0}
+.kpi{display:grid; grid-template-columns:repeat(5,1fr); border:1px solid var(--bd); border-radius:16px; background:var(--card); padding:11px 2px}
+.kpi > div{padding:0 11px; border-left:1px solid var(--bd-sub); min-width:0}
+.kpi > div:first-child{border-left:0}
+.kpi .k{font-size:10.5px; color:var(--fg3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.kpi .v{font-size:17px; font-weight:800; line-height:1.2; font-variant-numeric:tabular-nums}
+.kpi .u{font-size:10.5px; color:var(--fg3); font-weight:400}
+.pan{border:1px solid var(--bd); border-radius:16px; background:var(--card)}
+.pan > h4{margin:0; font-size:13px; font-weight:800; padding:10px 14px; border-bottom:1px solid var(--bd-sub);
+  display:flex; align-items:baseline; gap:8px}
+.pan > h4 .nt{font-size:11px; font-weight:400; color:var(--fg3)}
+.pan.al{border-color:var(--bad-bd)}
+.pan.al > h4{background:var(--bad-bg); color:var(--bad); border-bottom-color:var(--bad-bd)}
+.fld{display:flex; gap:10px; padding:6px 0; border-bottom:1px solid var(--bd-faint); font-size:11.5px}
+.fld:last-child{border-bottom:0}
+.fld > span:first-child{width:76px; flex-shrink:0; color:var(--fg3)}
+.step{display:flex; gap:6px; flex-wrap:wrap}
+.step > span{display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 11px; border:1px solid var(--bd);
+  border-radius:10px; font-size:11.5px; color:var(--fg3); background:var(--card)}
+.step > span.on{border-color:var(--primary-border-strong); background:var(--primary-surface); color:var(--primary); font-weight:700}
+.step .no{width:17px; height:17px; border-radius:999px; background:var(--muted); color:var(--fg3);
+  display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:800}
+.step > span.on .no{background:var(--primary); color:#fff}
+.g2{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.f label{display:block; font-size:11px; color:var(--fg2); font-weight:700; margin-bottom:3px}
+.f label i{font-style:normal; color:var(--bad); margin-left:3px}
+.f .box{height:32px; border:1px solid var(--bd); border-radius:7px; background:var(--card); display:flex;
+  align-items:center; padding:0 9px; font-size:11.5px; color:var(--fg4)}
+.warnbar{border:1px solid var(--warn-bd); background:var(--warn-bg); color:var(--warn); border-radius:14px;
+  padding:7px 11px; font-size:11.5px}
+.aibar{border:1px solid #cfd4f7; background:var(--info-bg); color:var(--info); border-radius:14px; padding:8px 11px; font-size:11.5px}
+
+/* ── 変更点リスト ───────────────────────────────────────── */
+.deltas{display:flex; flex-direction:column; gap:0; border-top:1px solid var(--page-line)}
+.delta{display:grid; grid-template-columns:22px 1fr; gap:11px; padding:11px 0; border-bottom:1px solid var(--page-line); align-items:start}
+.delta .n{font-size:11px; font-weight:800; color:var(--new); font-variant-numeric:tabular-nums; padding-top:2px}
+.delta h4{margin:0 0 3px; font-size:13.5px; font-weight:700}
+.delta p{font-size:12.5px; color:var(--page-ink2)}
+.delta code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11.5px;
+  background:var(--muted); color:var(--fg2); padding:1px 5px; border-radius:5px}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .delta code{background:#232a33; color:#c9d3de} }
+:root[data-theme="dark"] .delta code{background:#232a33; color:#c9d3de}
+
+/* ── 決めてほしいこと ───────────────────────────────────── */
+.asks{display:flex; flex-direction:column; gap:0}
+.ask{padding:15px 0; border-bottom:1px solid var(--page-line); display:grid; gap:5px}
+.ask h3{font-size:15px}
+.ask p{font-size:13px; color:var(--page-ink2)}
+.ask .opt{font-size:12.5px; color:var(--page-ink); background:var(--new-bg); border:1px solid var(--new-bd);
+  border-radius:9px; padding:7px 11px; margin-top:3px}
+.tbl{width:100%; border-collapse:collapse; font-size:12.5px}
+.tbl th,.tbl td{text-align:left; padding:8px 10px; border-bottom:1px solid var(--page-line); vertical-align:top}
+.tbl th{font-size:11px; font-weight:800; color:var(--page-ink2); letter-spacing:.04em}
+.tbl td:first-child{white-space:nowrap; font-weight:700}
+.tbl .s{font-variant-numeric:tabular-nums; white-space:nowrap; color:var(--page-ink2)}
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <p class="eyebrow">GMO ONAiR ／ v4 ／ UI フォーマット統一案</p>
+  <h1>プロジェクト管理を、案件管理と同じ<br>フォーマットに揃える</h1>
+  <p class="lede">
+    機能は今のままです。変えるのは <b>見え方の作法</b> だけ —
+    ページの骨格・絞り込み帯の組み方・詳細ヘッダーの段組み・状態を URL に持つか・言葉づかい。
+    調べたところ、ずれの根っこは <b>プロジェクト管理だけが旧世代のモックを見て作られている</b> ことでした。
+  </p>
+  <div class="legend">
+    <span class="tag old">いま</span>
+    <span class="tag new">案（案件管理と同じ作法）</span>
+  </div>
+</header>
+
+<section class="axioms">
+  <div class="axiom">
+    <h3>① 世代を揃える</h3>
+    <p>案件管理は新世代モック（<code>v4-live-sales</code>）、プロジェクト管理は旧世代モック（<code>v4-mockup-project</code>）を見て作られています。旧世代の基調色インディゴ <code>#4338ca</code> は、新世代では「AI」の意味色に降格済み。</p>
+  </div>
+  <div class="axiom">
+    <h3>② 部品を借りず、共有する</h3>
+    <p>共通部品（<code>PageHeader</code> / <code>Row</code> / <code>FilterChips</code>）は既に同じものを使えています。足りないのは <code>FilterBar</code>・<code>PageNav</code>・<code>tabs.ts</code> の3つ。</p>
+  </div>
+  <div class="axiom">
+    <h3>③ 同じものを同じ名前で呼ぶ</h3>
+    <p>いま <code>gpm_open_items</code> は「持ち帰り／未確認事項／未確認／ask」の4通りで呼ばれ、<code>status='sent'</code> は一覧で「提出済」・詳細で「送付済」と出ます。</p>
+  </div>
+</section>
+
+<!-- ══════════ ② プロジェクト一覧 ══════════ -->
+<section class="screen">
+  <header>
+    <h2>② プロジェクト一覧</h2>
+    <span class="route">/gpm/projects</span>
+  </header>
+
+  <div class="compare">
+    <div class="pane o">
+      <p class="cap">いま</p>
+      <div class="frame scroll"><div class="ui"><div class="pad">
+        <div style="display:flex; align-items:flex-end; gap:10px">
+          <div style="flex:1; min-width:0">
+            <div class="h1">プロジェクト一覧</div>
+            <div class="sub">4件 ・ すべて発注が確定したもの（売れるかどうかを追う段階は案件管理です）</div>
+          </div>
+          <span class="seg"><span class="on">リスト</span><span>ボード</span></span>
+          <span class="btn">＋ プロジェクトを作る</span>
+        </div>
+        <div>
+          <div class="lbl" style="margin-bottom:5px">状態で絞り込む</div>
+          <span class="chips"><span class="on">動いているもの <i>4</i></span><span>進行中 <i>3</i></span><span>準備中 <i>1</i></span><span>実施済 <i>0</i></span><span>すべて <i>4</i></span></span>
+        </div>
+        <div style="display:flex; gap:7px; align-items:center; flex-wrap:wrap">
+          <div class="inp" style="flex:1; min-width:150px">プロジェクト名で探す</div>
+          <span class="seg"><span class="on">すべて</span><span>自社構築</span><span>グループ受託</span></span>
+          <span class="pill" style="width:130px">おすすめ順</span>
+        </div>
+        <div class="card">
+          <div class="th"><span class="main">プロジェクト ／ 依頼元・担当</span><span class="sl w96">状態</span><span class="sl w128">いまの工程</span><span class="sl w96">進み具合</span><span class="sl w128 r">見積</span></div>
+          <div class="tr">
+            <span class="main"><b>用賀スタジオ 第2副調整室 構築</b><s>自社（GMOグローバルスタジオ）・ 寺井</s></span>
+            <span class="sl w96"><span class="bdg ok">受注済</span></span>
+            <span class="sl w128">設計・機材選定</span>
+            <span class="sl w96">42%</span>
+            <span class="sl w128 r"><span class="money"><em>¥</em>18,400,000</span></span>
+          </div>
+          <div class="tr">
+            <span class="main"><b>渋谷 配信スタジオ 改修</b><s>グループ会社 ・ 中西</s></span>
+            <span class="sl w96"><span class="bdg pri">見積・提案</span></span>
+            <span class="sl w128">要件確認</span>
+            <span class="sl w96">12%</span>
+            <span class="sl w128 r"><span class="money"><em>¥</em>4,200,000</span></span>
+          </div>
+        </div>
+        <p class="note">「見積」はいま出ている金額です（束ごとに最新版・値引きを引いた税抜）。請求の状況はプロジェクトを開いて「請求」タブで見ます。</p>
+      </div></div></div>
+    </div>
+
+    <div class="pane n">
+      <p class="cap">案</p>
+      <div class="frame scroll"><div class="ui"><div class="pad">
+        <div style="display:flex; align-items:flex-end; gap:10px">
+          <div style="flex:1; min-width:0">
+            <div class="h1">プロジェクト一覧</div>
+            <div class="sub">4件 ・ 全員が同じものを見ています</div>
+          </div>
+          <span class="btn g">Excel 入出力</span>
+          <span class="seg"><span class="on"><i class="ic"></i>リスト</span><span><i class="ic"></i>ボード</span></span>
+          <span class="btn">＋ プロジェクトを作る</span>
+        </div>
+        <div>
+          <div class="lbl" style="margin-bottom:5px">状態で絞り込む</div>
+          <span class="chips"><span class="on">動いているもの <i>4</i></span><span>進行中 <i>3</i></span><span>準備中 <i>1</i></span><span>実施済 <i>0</i></span><span>完了 <i>7</i></span><span>すべて <i>11</i></span></span>
+        </div>
+        <div class="bar">
+          <div class="r">
+            <div class="inp">プロジェクト名・依頼元・担当で探す</div>
+            <span class="pill" style="width:66px">自社</span>
+            <span class="pill" style="width:66px">受託</span>
+            <span class="pill" style="width:150px">2026年 下期（7〜12月）</span>
+          </div>
+          <div class="r">
+            <span class="pill" style="width:150px">おすすめ順</span>
+            <span class="pill dim" style="width:98px">停滞のみ</span>
+            <span class="pill" style="width:66px">用語</span>
+            <span style="flex:1"></span>
+            <span class="pill" style="border:0; background:transparent">着手日 2026/07–12</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="th"><span class="main">プロジェクト ／ 依頼元・担当</span><span class="sl w96">状態</span><span class="sl w128">いまの工程</span><span class="sl w96">進み具合</span><span class="sl w128 r">見積 ⇅</span><span class="sl w56 r">未解決</span></div>
+          <div class="tr">
+            <span class="main"><b>用賀スタジオ 第2副調整室 構築</b><s>自社（GMOグローバルスタジオ）・ 寺井</s></span>
+            <span class="sl w96"><span class="bdg ok">受注済</span></span>
+            <span class="sl w128">設計・機材選定</span>
+            <span class="sl w96">42%</span>
+            <span class="sl w128 r"><span class="money"><em>¥</em>18,400,000</span></span>
+            <span class="sl w56 r">2</span>
+          </div>
+          <div class="tr">
+            <span class="main"><b>渋谷 配信スタジオ 改修</b><s>グループ会社 ・ 中西</s></span>
+            <span class="sl w96"><span class="bdg pri">見積・提案</span></span>
+            <span class="sl w128">要件確認</span>
+            <span class="sl w96">12%</span>
+            <span class="sl w128 r"><span class="money"><em>¥</em>4,200,000</span></span>
+            <span class="sl w56 r">—</span>
+          </div>
+        </div>
+        <div class="foot"><span>全<b style="font-variant-numeric:tabular-nums">11</b>件を表示しています</span>
+          <span style="display:flex; gap:6px"><span class="btn g" style="height:28px">前へ</span><span class="btn g" style="height:28px">次へ</span></span></div>
+      </div></div></div>
+    </div>
+  </div>
+
+  <div class="deltas">
+    <div class="delta"><span class="n">1</span><div><h4>絞り込み帯を「2段固定・幅決め打ち」にして専用ファイルへ出す</h4>
+      <p>いまはページ本体に直書きで <code>flex-wrap</code> 任せ。案件管理は <code>FilterBar.tsx</code> に切り出し、1段目 40px・2段目 36px の高さと各枠の px 幅を固定しています（帯が1↔2行で動くと下の一覧が上下にずれるため）。<b>PC とスマホで props を共有</b>するのも案件管理の作法です。</p></div></div>
+    <div class="delta"><span class="n">2</span><div><h4>見え方・絞り込み・並び順を URL に持つ</h4>
+      <p>いまは全部 <code>useState</code> なので、共有した URL でも戻る操作でも見え方が再現しません。案件管理と同じ <code>?view=</code> <code>?stage=</code> にします。</p></div></div>
+    <div class="delta"><span class="n">3</span><div><h4>件数表示とページ送り（<code>PageNav</code>）を入れる</h4>
+      <p>いまは全件描画で件数もページ送りもありません。案件管理は 1 ページで収まるときも件数を出し、絞り込み中は「全」と言わない作法です。</p></div></div>
+    <div class="delta"><span class="n">4</span><div><h4>列ヘッダのクリック並べ替え・Excel 入出力を揃える</h4>
+      <p>並べ替えの印は指を乗せたときだけ薄く出す（常時出すと 72px の列が切れる）。プルダウンと同じ state を共有します。</p></div></div>
+    <div class="delta"><span class="n">5</span><div><h4>「絞り込みを外す」の戻り先を1つにする</h4>
+      <p>いま PC は「すべて」・スマホは「動いているもの」に戻り、同じ画面で 2 通りです。</p></div></div>
+    <div class="delta"><span class="n">6</span><div><h4>サブタイトルを「件数 ・ その画面が何を見せているか」に短くする</h4>
+      <p>方針の説明（「売れるかどうかを追う段階は案件管理です」）は毎日読ませず、案件管理と同じ<b>「用語」ボタン</b>の中へ。</p></div></div>
+  </div>
+</section>
+
+<!-- ══════════ ③ プロジェクト詳細 ══════════ -->
+<section class="screen">
+  <header>
+    <h2>③ プロジェクト詳細 — ヘッダー帯</h2>
+    <span class="route">/gpm/projects/:id/:tab</span>
+  </header>
+
+  <div class="compare">
+    <div class="pane o">
+      <p class="cap">いま</p>
+      <div class="frame scroll"><div class="ui">
+        <div class="dh">
+          <div class="row1">
+            <span class="back">←</span>
+            <div style="flex:1; min-width:0">
+              <div class="h1" style="display:flex; align-items:center; gap:6px">用賀スタジオ 第2副調整室 構築 <span style="font-size:12px; color:var(--fg3)">✎</span></div>
+              <div class="sub">自社（GMOグローバルスタジオ）・ 自社構築 ・ 自社PM ・ 担当 寺井</div>
+            </div>
+            <div style="text-align:right; flex-shrink:0">
+              <div class="note">期間</div><div style="font-size:11.5px; font-variant-numeric:tabular-nums">05/12 〜 09/30</div>
+            </div>
+            <div style="text-align:right; flex-shrink:0">
+              <div class="note">進み具合</div><div style="font-size:11.5px">42% ・ 5 / 12 工程</div>
+            </div>
+          </div>
+          <div class="stband">
+            <span class="st auto">見積・提案</span><span class="st auto">決定見込み</span><span class="st auto on">受注済</span><span class="st auto">実施済</span><span class="st auto">完了</span>
+          </div>
+          <div class="tabs sc">
+            <span class="on">概要</span><span>持ち帰り <span class="n">2</span></span><span>体制</span><span>議事録</span><span>見積</span><span>請求</span><span>書類</span>
+          </div>
+        </div>
+        <div class="pad">
+          <div class="card" style="padding:11px 14px">
+            <div class="fld"><span>依頼元</span><span>自社（GMOグローバルスタジオ）</span></div>
+            <div class="fld"><span>いまの工程</span><span>設計・機材選定</span></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="pane n">
+      <p class="cap">案</p>
+      <div class="frame scroll"><div class="ui">
+        <div class="dh">
+          <div class="row1">
+            <span class="back">←</span>
+            <div style="flex:1; min-width:0">
+              <div class="h1" style="display:flex; align-items:center; gap:6px">用賀スタジオ 第2副調整室 構築 <span style="font-size:12px; color:var(--fg3)">✎</span></div>
+              <div class="sub">自社（GMOグローバルスタジオ）・ GLS-A-2026-0184</div>
+            </div>
+            <span class="btn">＋ タスクを追加</span>
+          </div>
+          <div class="stband">
+            <span class="st w104">C 見積・提案</span><span class="st w104">B 決定見込み</span><span class="st w104 on">A 受注済</span><span class="st w104">R 実施済</span>
+            <span style="width:9px"></span>
+            <span class="st w60">完了</span><span class="st w60">失注</span>
+            <span style="flex:1"></span>
+            <span class="note" style="white-space:nowrap; font-variant-numeric:tabular-nums">最後の更新 2026-09-04</span>
+          </div>
+          <div class="tabs eq">
+            <span class="on"><i class="ic"></i>概要</span><span><i class="ic"></i>持ち帰り <span class="n">2</span></span><span><i class="ic"></i>体制</span><span><i class="ic"></i>議事録</span><span><i class="ic"></i>見積</span><span><i class="ic"></i>請求</span><span><i class="ic"></i>書類</span>
+          </div>
+        </div>
+        <div class="pad">
+          <div class="kpi" style="grid-template-columns:repeat(4,1fr)">
+            <div><div class="k">期間</div><div class="v" style="font-size:13px">05/12〜09/30</div></div>
+            <div><div class="k">進み具合</div><div class="v">42<span class="u">%</span></div><div class="k">5 / 12 工程</div></div>
+            <div><div class="k">見積</div><div class="v" style="font-size:14px">¥18,400,000</div></div>
+            <div><div class="k">持ち帰り</div><div class="v">2<span class="u">件</span></div><div class="k">未解決</div></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="deltas">
+    <div class="delta"><span class="n">7</span><div><h4>タブ定義を <code>projectDetail/tabs.ts</code> に切り出し、アイコンを付ける</h4>
+      <p>いまは <code>DetailHeader.tsx</code> の中に混ざっています。案件管理は各タブが <code>icon: LucideIcon</code> を持ち、タブ定義・段階ごとのスマホ用タブ・判定関数を1ファイルにまとめています。</p></div></div>
+    <div class="delta"><span class="n">8</span><div><h4>PC のタブバーを均等割りにする（横スクロールをやめる）</h4>
+      <p>いまは PC が横スクロール・スマホだけ均等割りで、逆になっています。案件管理は PC も <code>flex-1</code> の均等割りです。</p></div></div>
+    <div class="delta"><span class="n">9</span><div><h4>ステージ帯に記号を出し、等幅 104px ＋「終わり方」を別組にする</h4>
+      <p>いまは和名だけ・幅は内容なり・5 段。案件管理は「C 見積・提案」のように<b>記号＋名前</b>を常に出し、104px の等幅、完了／失注は 60px の別グループ、横に滑るレールにしています。</p></div></div>
+    <div class="delta"><span class="n">10</span><div><h4>ヘッダー右上を「その画面でいちばんやること」にする</h4>
+      <p>いまは期間と進み具合の<b>数値表示</b>が右上を占めています。案件管理は右上が主アクション（＝「タスクを追加」）、右端に「最後の更新」。数値は本文先頭の<b>事実の帯</b>へ移します。</p></div></div>
+    <div class="delta"><span class="n">11</span><div><h4>スマホでプロジェクト名を折り返す</h4>
+      <p>いまは常に <code>truncate</code> なので、似た名前のプロジェクトをスマホで見分けられません。案件管理はスマホだけ <code>[overflow-wrap:anywhere]</code> で折り返します。</p></div></div>
+  </div>
+</section>
+
+<!-- ══════════ ① ダッシュボード ══════════ -->
+<section class="screen">
+  <header>
+    <h2>① ダッシュボード</h2>
+    <span class="route">/gpm/dashboard</span>
+  </header>
+
+  <div class="compare">
+    <div class="pane o">
+      <p class="cap">いま</p>
+      <div class="frame scroll"><div class="ui"><div class="pad">
+        <div style="display:flex; align-items:flex-end; gap:10px">
+          <div style="flex:1; min-width:0">
+            <div class="h1">ダッシュボード</div>
+            <div class="sub">案件管理とは別の画面（自社構築・グループ受託の工程管理）。いま何が動いていて、どこで止まっているか</div>
+          </div>
+          <span class="btn">＋ プロジェクトを作る</span>
+        </div>
+        <div class="kpi">
+          <div><div class="k">進行中</div><div class="v">4</div></div>
+          <div><div class="k">今週が期限</div><div class="v">7</div></div>
+          <div><div class="k">持ち帰り</div><div class="v" style="color:var(--bad)">3</div></div>
+          <div><div class="k">見積 未提出</div><div class="v">2</div></div>
+          <div><div class="k">検収待ち</div><div class="v">1</div></div>
+        </div>
+        <div class="pan al"><h4>止まっているプロジェクト <span class="nt">返事待ち・判断待ちで止まっているもの</span></h4>
+          <div class="tr"><span class="main"><b>渋谷 配信スタジオ 改修</b><s>放置 12日 ・ 中西</s></span><span class="sl w96"><span class="bdg bd">停滞</span></span></div>
+        </div>
+      </div></div></div>
+    </div>
+
+    <div class="pane n">
+      <p class="cap">案</p>
+      <div class="frame scroll"><div class="ui"><div class="pad">
+        <div style="display:flex; align-items:flex-end; gap:10px">
+          <div style="flex:1; min-width:0"><div class="h1">ダッシュボード</div></div>
+          <span class="btn">＋ プロジェクトを作る</span>
+        </div>
+        <div class="kpi">
+          <div><div class="k"><i class="ic" style="width:10px;height:10px"></i> 進行中</div><div class="v">4<span class="u">件</span></div><div class="k">工程が動いている</div></div>
+          <div><div class="k"><i class="ic" style="width:10px;height:10px"></i> 今週が期限</div><div class="v">7<span class="u">件</span></div><div class="k">9/6 まで</div></div>
+          <div><div class="k"><i class="ic" style="width:10px;height:10px"></i> 持ち帰り</div><div class="v" style="color:var(--bad)">3<span class="u">件</span></div><div class="k">未解決</div></div>
+          <div><div class="k"><i class="ic" style="width:10px;height:10px"></i> 見積 未提出</div><div class="v">2<span class="u">件</span></div><div class="k">¥6,100,000</div></div>
+          <div><div class="k"><i class="ic" style="width:10px;height:10px"></i> 検収待ち</div><div class="v">1<span class="u">件</span></div><div class="k">¥2,400,000</div></div>
+        </div>
+        <div class="pan al"><h4>止まっているプロジェクト <span class="nt">返事待ち・判断待ちで止まっているもの</span><span style="flex:1"></span><span class="nt" style="color:var(--primary); font-weight:700">見る →</span></h4>
+          <div class="tr"><span class="main"><b>渋谷 配信スタジオ 改修</b><s>放置 12日 ・ 中西</s></span><span class="sl w96"><span class="bdg bd">停滞</span></span></div>
+        </div>
+      </div></div></div>
+    </div>
+  </div>
+
+  <div class="deltas">
+    <div class="delta"><span class="n">12</span><div><h4>毎日開く画面のサブタイトルを外す</h4>
+      <p>案件管理のダッシュボードは <b>あえて <code>sub</code> を置いていません</b>（方針の説明を毎日読ませない）。「案件管理とは別の画面」の説明は左メニューの並びで既に伝わっています。</p></div></div>
+    <div class="delta"><span class="n">13</span><div><h4>KPI を「アイコン＋ラベル → 数値＋単位 → サブ」の3段にする</h4>
+      <p>いまは数値とラベルだけ。新世代は単位を数値から分けて描き、下に一言（対象期間・金額）を添えます。</p></div></div>
+    <div class="delta"><span class="n">14</span><div><h4>パネル見出しの右に「見る →」を置く</h4>
+      <p>案件管理のパネルは見出し右端に必ず遷移リンクがあります。<code>dashboard/Panel.tsx</code> は案件管理と同型の2つ目なので、この機に <code>contexts/shared/components/</code> へ出します。</p></div></div>
+  </div>
+</section>
+
+<!-- ══════════ ④ プロジェクトを作る ══════════ -->
+<section class="screen">
+  <header>
+    <h2>④ プロジェクトを作る</h2>
+    <span class="route">/gpm/projects/new</span>
+  </header>
+
+  <div class="compare">
+    <div class="pane o">
+      <p class="cap">いま</p>
+      <div class="frame scroll"><div class="ui"><div class="pad">
+        <div style="display:flex; align-items:flex-end; gap:10px">
+          <div style="flex:1; min-width:0">
+            <div class="h1">プロジェクトを作る</div>
+            <div class="sub">発注が確定してから立ち上げます。売れるかどうかを追う段階のものはここに入りません（案件管理で扱います）</div>
+          </div>
+          <span class="btn g">キャンセル</span><span class="btn">作る</span>
+        </div>
+        <div class="step">
+          <span class="on"><span class="no">1</span>基本情報</span><span><span class="no">2</span>ひな形を選ぶ</span><span><span class="no">3</span>着手日と工程の確認</span><span><span class="no">4</span>体制（組織図）</span><span><span class="no">5</span>メンバー・書類</span>
+        </div>
+        <div class="card f" style="padding:12px 14px">
+          <div class="g2">
+            <div style="grid-column:1/-1"><label>プロジェクト名 <i>必須</i></label><div class="box">用賀スタジオ 第2副調整室 構築</div></div>
+            <div><label>PM会社</label><div class="box">自社PM のときは空のまま</div></div>
+            <div><label>自社担当（PM）</label><div class="box">寺井 武大</div></div>
+          </div>
+        </div>
+        <div style="display:flex; gap:7px; justify-content:flex-end"><span class="btn g">前に戻る</span><span class="btn">次へ（ひな形を選ぶ）</span></div>
+      </div></div></div>
+    </div>
+
+    <div class="pane n">
+      <p class="cap">案</p>
+      <div class="frame scroll"><div class="ui"><div class="pad">
+        <div style="display:flex; align-items:flex-end; gap:10px">
+          <span class="back">←</span>
+          <div style="flex:1; min-width:0"><div class="h1">プロジェクトを作る</div></div>
+          <span class="btn g">キャンセル</span><span class="btn">作る</span>
+        </div>
+        <div class="step">
+          <span class="on"><span class="no">1</span>基本情報</span><span><span class="no">2</span>ひな形を選ぶ</span><span><span class="no">3</span>着手日と工程の確認</span><span><span class="no">4</span>体制（組織図）</span><span><span class="no">5</span>確かめて作る</span>
+        </div>
+        <div class="warnbar">依頼元 ・ 自社担当（PM） が入っていないので、まだ作れません</div>
+        <div class="card f" style="border-color:var(--primary-border); padding:12px 14px">
+          <div style="font-size:13px; font-weight:800; margin-bottom:9px">いま必要な4つ</div>
+          <div class="g2">
+            <div style="grid-column:1/-1"><label>プロジェクト名 <i>*</i></label><div class="box">用賀スタジオ 第2副調整室 構築</div></div>
+            <div><label>依頼元 <i>*</i></label><div class="box">自社（GMOグローバルスタジオ）</div></div>
+            <div><label>自社担当（PM） <i>*</i></label><div class="box">寺井 武大</div></div>
+          </div>
+        </div>
+        <div class="card" style="padding:10px 14px; display:flex; align-items:center; gap:8px">
+          <span style="font-size:12px; color:var(--fg3)">▸</span>
+          <span style="font-size:12.5px; font-weight:700">あとから足せるもの</span>
+          <span class="bdg mt" style="width:auto; padding:0 6px">3</span>
+          <span style="flex:1"></span><span class="note">PM会社 ・ メモ ・ いまの段</span>
+        </div>
+        <div style="display:flex; gap:7px; justify-content:flex-end"><span class="btn g">前に戻る</span><span class="btn">次へ（ひな形を選ぶ）</span></div>
+      </div></div></div>
+    </div>
+  </div>
+
+  <div class="deltas">
+    <div class="delta"><span class="n">15</span><div><h4>足りない項目を名指しする黄色の帯を出す</h4>
+      <p>いまは「作る」を押せなくするだけ。案件管理は欄のすぐ上に「<b>◯◯ ・ ◯◯ が入っていないので、まだ〜できません</b>」を出し、<b>文面をボタン名に合わせます</b>。</p></div></div>
+    <div class="delta"><span class="n">16</span><div><h4>「必須」表記を赤い <code>*</code> に統一する</h4>
+      <p>いま GPM の中で <code>&lt;span class="text-destructive"&gt;必須&lt;/span&gt;</code> と <code>*</code> の2通りが混在しています。案件管理は <code>Field</code> 部品が持つ赤い <code>*</code> 一本です。</p></div></div>
+    <div class="delta"><span class="n">17</span><div><h4>段の中を「いま必要な◯つ ＋ あとから足せるもの（折りたたみ）」にする</h4>
+      <p>案件管理の作成・編集はこの2段構えで、<b>新規と編集で同じ欄の部品を共有</b>しています。GPM は新規（<code>BasicStep</code>）と編集（<code>EditProjectDialog</code>）で欄が食い違っており、編集側に区分・段・依頼元がありません。</p></div></div>
+    <div class="delta"><span class="n">18</span><div><h4>5段目を実際に「確かめて作る」段にする</h4>
+      <p>いまは段 4 と段 5 が同じ部品を描いていて、押しても1ピクセルも変わりません（ラベルだけ違う）。</p></div></div>
+    <div class="delta"><span class="n">19</span><div><h4>見出しの左に戻るボタンを置く</h4>
+      <p>案件管理のフォームは <code>PageHeader</code> の <code>icon</code> に戻るボタンを差し、<code>aria-label</code> で行き先を言います。</p></div></div>
+  </div>
+</section>
+
+<!-- ══════════ ⑤ タスクと持ち帰り ══════════ -->
+<section class="screen">
+  <header>
+    <h2>⑤ タスクと持ち帰り</h2>
+    <span class="route">/gpm/tasks</span>
+  </header>
+
+  <div class="compare">
+    <div class="pane o">
+      <p class="cap">いま</p>
+      <div class="frame scroll"><div class="ui"><div class="pad">
+        <div style="display:flex; align-items:flex-end; gap:10px">
+          <div style="flex:1; min-width:0">
+            <div class="h1">全プロジェクトのタスク</div>
+            <div class="sub">未完了 12件 ・ 止まっている持ち帰り 3件</div>
+          </div>
+          <span class="seg"><span class="on">タスク</span><span>持ち帰り</span></span>
+        </div>
+        <span class="chips"><span class="on">未完了 <i>12</i></span><span>今週期限 <i>7</i></span><span>期限超過 <i>2</i></span><span>完了 <i>34</i></span><span>すべて <i>46</i></span></span>
+        <div class="card">
+          <div class="th"><span class="sl w56">完了</span><span class="main">タスク ／ プロジェクト</span><span class="sl w128">工程</span><span class="sl w96">担当</span><span class="sl w96">期限</span></div>
+          <div class="tr"><span class="sl w56" style="text-align:center">☐</span><span class="main"><b>機材選定の確定</b><s>用賀スタジオ 第2副調整室 構築</s></span><span class="sl w128"><span class="bdg wr">設計・機材選定</span></span><span class="sl w96">寺井</span><span class="sl w96">09/05</span></div>
+        </div>
+        <p class="note">タスクの追加・編集はプロジェクト詳細の工程からです。</p>
+      </div></div></div>
+    </div>
+
+    <div class="pane n">
+      <p class="cap">案</p>
+      <div class="frame scroll"><div class="ui"><div class="pad">
+        <div style="display:flex; align-items:flex-end; gap:10px">
+          <div style="flex:1; min-width:0">
+            <div class="h1">タスクと持ち帰り</div>
+            <div class="sub">未完了 12件 ・ 止まっている持ち帰り 3件</div>
+          </div>
+          <span class="seg"><span class="on"><i class="ic"></i>タスク</span><span><i class="ic"></i>持ち帰り</span></span>
+        </div>
+        <span class="chips"><span class="on">未完了 <i>12</i></span><span>今週期限 <i>7</i></span><span>期限超過 <i>2</i></span><span>完了 <i>34</i></span><span>すべて <i>46</i></span></span>
+        <div class="bar">
+          <div class="r">
+            <div class="inp">タスク名・プロジェクト名で探す</div>
+            <span class="pill" style="width:150px">期限が近い順</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="th"><span class="sl w56">完了</span><span class="main">タスク ／ プロジェクト</span><span class="sl w128">工程</span><span class="sl w96">担当</span><span class="sl w96 r">期限 ⇅</span></div>
+          <div class="tr"><span class="sl w56" style="text-align:center">☐</span><span class="main"><b>機材選定の確定</b><s>用賀スタジオ 第2副調整室 構築</s></span><span class="sl w128"><span class="bdg wr">設計・機材選定</span></span><span class="sl w96">寺井</span><span class="sl w96 r">09/05</span></div>
+        </div>
+        <div class="foot"><span>全<b style="font-variant-numeric:tabular-nums">46</b>件を表示しています</span>
+          <span style="display:flex; gap:6px"><span class="btn g" style="height:28px">前へ</span><span class="btn g" style="height:28px">次へ</span></span></div>
+        <p class="note">タスクの追加・編集はプロジェクト詳細の工程からです。</p>
+      </div></div></div>
+    </div>
+  </div>
+
+  <div class="deltas">
+    <div class="delta"><span class="n">20</span><div><h4>見出しを左メニューと同じ「タスクと持ち帰り」にする</h4>
+      <p>いまメニューは「タスクと持ち帰り」、画面の見出しは「全プロジェクトのタスク」。押した先に別の名前が出ています。同じ食い違いが「工程のひな形／ひな形」にもあります。</p></div></div>
+    <div class="delta"><span class="n">21</span><div><h4>検索欄と並び順を足す（絞り込み帯を持たせる）</h4>
+      <p>いまチップだけで、検索も並べ替えもありません。46 件から目的の1件を探せない状態です。</p></div></div>
+    <div class="delta"><span class="n">22</span><div><h4>タブの持ち方を詳細画面と揃える</h4>
+      <p>この画面だけ <code>?tab=</code> のクエリ、詳細画面は URL の区間です。案件管理はどちらも区間。<b>ここは要相談</b>（下の「決めてほしいこと」参照）。</p></div></div>
+  </div>
+</section>
+
+<!-- ══════════ 言葉づかい ══════════ -->
+<section class="screen">
+  <header><h2>言葉づかいの統一</h2></header>
+  <div style="overflow-x:auto">
+  <table class="tbl">
+    <thead><tr><th>対象</th><th>いま</th><th>案</th><th>理由</th></tr></thead>
+    <tbody>
+      <tr><td>gpm_open_items</td><td>持ち帰り／未確認事項／未確認／ask の4通り</td><td><b>持ち帰り</b> に統一</td><td>1つの事実に4通りの表記を作ると、読む人には表記の違いに意味があるように見える（wording ルール1）</td></tr>
+      <tr><td>estimates.status = sent</td><td>一覧「提出済」／詳細「送付済」</td><td><b>提出済</b> に統一</td><td>同じ値が画面で違う言葉になっている</td></tr>
+      <tr><td>画面の見出し</td><td>メニュー「タスクと持ち帰り」→ 見出し「全プロジェクトのタスク」<br>メニュー「工程のひな形」→ 見出し「ひな形」</td><td>メニューと見出しを一致</td><td>押した先に別の名前が出る</td></tr>
+      <tr><td>見え方切替の aria-label</td><td>「見え方を切り替える」／「見え方」／「見るものを切り替える」</td><td>「見え方を切り替える」</td><td>読み上げの言葉がばらつく</td></tr>
+      <tr><td>概要タブ末尾の注記</td><td>「議事録はプロジェクト管理側のデータがまだ無いので出していません」</td><td><b>削除</b></td><td>議事録タブは実装済み。<b>利用者に見える嘘</b>になっている</td></tr>
+      <tr><td>動詞</td><td>作る／直す が混在</td><td>追加 / 編集 / 削除 / キャンセル / 保存</td><td>wording ルール8。案件管理に残る和語系（「まとめて直す」等）は真似しない</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ══════════ 色 ══════════ -->
+<section class="screen">
+  <header><h2>色 — 旧世代の残骸をトークンに戻す</h2></header>
+  <div style="overflow-x:auto">
+  <table class="tbl">
+    <thead><tr><th>場所</th><th>いま</th><th>案</th></tr></thead>
+    <tbody>
+      <tr><td>ガント・工程表の今日線</td><td class="s">#f87171 の直書き</td><td class="s">--destructive（#c7243a）</td></tr>
+      <tr><td>マイルストーン</td><td class="s">#f59e0b / #b45309 の直書き</td><td class="s">--warning 系</td></tr>
+      <tr><td>依存の矢印</td><td class="s">#64748b の直書き</td><td class="s">--muted-foreground（#5d6470）</td></tr>
+      <tr><td>セグメントの角丸</td><td class="s">rounded-control と rounded-control-md が混在</td><td class="s">rounded-control に統一</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p style="font-size:12.5px; color:var(--page-ink2)">SVG のため一部はトークンが直接使えません。CSS 変数を <code>getComputedStyle</code> で読むか、SVG 用の色定数を1か所に置く形にします。</p>
+</section>
+
+<!-- ══════════ 決めてほしいこと ══════════ -->
+<section class="screen">
+  <header><h2>決めてほしいこと（3つ）</h2></header>
+  <div class="asks">
+    <div class="ask">
+      <h3>1. プロジェクトの編集を、別ページにするか今のダイアログのままにするか</h3>
+      <p>案件管理は <code>/sales/projects/:id/edit</code> の<b>別ページ</b>で、新規作成と同じ欄の部品を共有しています。GPM は<b>ダイアログ</b>で、「項目が9つなので別ページにすると戻る操作が増えるだけ」という判断がコードに残っています。</p>
+      <div class="opt"><b>おすすめ：ダイアログのまま。</b>ただし新規（<code>BasicStep</code>）と欄の部品を共有し、いま編集側に無い「区分・依頼元・いまの段」を足す。フォーマットの統一は「同じ欄が同じ順で出る」ことで達成でき、器がページかダイアログかは業務上の判断です。</div>
+    </div>
+    <div class="ask">
+      <h3>2. ⑤ のタブを、区間（<code>/gpm/tasks/asks</code>）に変えるか</h3>
+      <p>案件管理はタブを URL の区間で持ちます。GPM も詳細画面は区間ですが、⑤ だけクエリ（<code>?tab=asks</code>）です。</p>
+      <div class="opt"><b>おすすめ：クエリのまま。</b>案件管理でも取引先・取り込み・営業活動記録はクエリで、<b>「詳細画面は区間・一覧画面はクエリ」</b>が実際の作法だからです。⑤ は一覧画面なので今のままで揃っています。</div>
+    </div>
+    <div class="ask">
+      <h3>3. どこまで一度に出すか</h3>
+      <p>上の 22 項目は独立して直せます。</p>
+      <div class="opt"><b>おすすめ：3本の PR に分ける。</b><br>
+        ① <b>言葉と色</b>（見た目が動かない・レビューが軽い）… 上の「言葉づかい」「色」の表<br>
+        ② <b>一覧</b>（1〜6, 20〜22）… <code>FilterBar</code> / <code>PageNav</code> の切り出しが中心<br>
+        ③ <b>詳細とダッシュボードとフォーム</b>（7〜19）… <code>tabs.ts</code> 切り出しとヘッダー再構成</div>
+    </div>
+  </div>
+</section>
+
+</div>
