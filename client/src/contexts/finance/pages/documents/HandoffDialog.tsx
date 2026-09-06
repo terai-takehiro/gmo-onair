@@ -1,5 +1,5 @@
 /**
- * 受け取った書類を仕入・販管費に登録するダイアログ（⑥ 受け取った書類）
+ * 受領書類を仕入・販管費に登録するダイアログ（⑥ 受領書類）
  *
  * **ここが「登録済」の中身です。** 以前は状態が変わるだけで台帳に何も作られず、
  * 同じ請求書を2回入力していました（届いた記録 ＋ 台帳の記録）。
@@ -73,14 +73,39 @@ export function HandoffDialog({
   onSubmit: (p: HandoffPayload) => void;
 }) {
   const incl = Number(doc.amount) || 0;
-  // GLS番号が読み取れていれば案件のものなので仕入を初期選択
-  const [kind, setKind] = useState<'purchase' | 'sga'>(doc.gls_number ? 'purchase' : 'sga');
+  /*
+    行き先の初期選択。**人が受領書類の画面で決めた当て先を最優先**にする（migration 281）。
+
+    以前は GLS 番号の有無だけで決めていたので、**人が束の当て先を「この案件」と
+    決めていても、ここでは販管費に倒れて**いました（決めた意味が無い）。
+    見る順は 人が決めた行き先 → 当て先の案件 → GLS 番号 → 販管費。
+  */
+  const [kind, setKind] = useState<'purchase' | 'sga'>(
+    doc.expense_kind ?? (doc.project_id || doc.gls_number ? 'purchase' : 'sga'),
+  );
   const [tax, setTax] = useState('tax10');
   const [amount, setAmount] = useState(exclTax(incl, 'tax10'));
-  const [month, setMonth] = useState(doc.closing_month || (doc.received_at ?? '').slice(0, 7));
+  /*
+    計上月。**人が決めた処理月があればそれが先**（Codex P1）。
+    書類の `processing_month` は取込のとき受信日から当てた値なので、
+    先に見ると人が直した月が効かず、**違う月の販管費**になります。
+    束を直すと書類にも降りてくる（`updateGroup`）ので、ここは書類側を読めば足ります。
+  */
+  const [month, setMonth] = useState(
+    doc.processing_month || doc.closing_month || (doc.received_at ?? '').slice(0, 7),
+  );
   const [due, setDue] = useState(doc.payment_due ?? '');
   const [description, setDescription] = useState(doc.subject ?? '');
-  const [projectId, setProjectId] = useState('');
+  /*
+    販管費の取引先。**人が直した取引先が先**（Codex P2）。
+    `doc.sender` は差出人のメール署名そのままなので、
+    先に見ると**束の editor で直した取引先が台帳に1文字も届きません**。
+  */
+  // **ここでは直せる欄にしない。** 取引先を直す場所は当て先のダイアログ1つ
+  //（2か所で同じものを直せるようにすると、片方だけ直した行ができる）
+  const vendorName = doc.vendor_name ?? doc.sender ?? '';
+  // **当て先が決まっていればそれを初期値に**（空にすると人が選び直す羽目になる）
+  const [projectId, setProjectId] = useState(doc.project_id ?? '');
   const [vendorId, setVendorId] = useState('');
 
   // **GLS発番済みではなく「受注確定済み」で絞る**（v4.1.8・矛盾修正。理由は PurchaseListPage と同じ）
@@ -103,7 +128,11 @@ export function HandoffDialog({
   });
   const vendors: Vendor[] = vendorsData?.data ?? [];
 
-  // 書類の GLS番号 と同じ案件があれば初期選択（AI が読み取った値を活かす）
+  /*
+    書類の GLS番号 と同じ案件があれば初期選択（AI が読み取った値を活かす）。
+    **当て先（`doc.project_id`）が入っていればそちらが先**で、これは
+    「番号は読めたが当て先はまだ決めていない」ときの受け皿。
+  */
   const guessedProject = useMemo(
     () => (doc.gls_number ? projects.find((p) => p.gls_number === doc.gls_number) : undefined),
     [projects, doc.gls_number],
@@ -123,7 +152,7 @@ export function HandoffDialog({
     description: description || null,
     project_id: kind === 'purchase' ? effectiveProject : null,
     vendor_id: kind === 'purchase' ? vendorId : null,
-    vendor_name: kind === 'sga' ? doc.sender : null,
+    vendor_name: kind === 'sga' ? (vendorName || null) : null,
   });
 
   return (

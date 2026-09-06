@@ -104,7 +104,7 @@ describe('押せるのに 403 にしない', () => {
     const kinds = read('client', 'src', 'contexts', 'sales', 'pages', 'inbox', 'kinds.ts');
     expect(kinds).toMatch(/export function inboxHrefOf/);
     expect(kinds).toMatch(/export function inboxAllHrefOf/);
-    // 種類ごとの行き先（問い合わせ → 入ってきた情報／書類 → 受け取った書類）
+    // 種類ごとの行き先（問い合わせ → 入ってきた情報／書類 → 受領書類）
     expect(kinds).toContain("'/daily/inquiries'");
     expect(kinds).toContain("'/budget/documents'");
     // **別バンドルへは素の遷移**（ルーターでは動けない）
@@ -131,10 +131,10 @@ describe('押せるのに 403 にしない', () => {
     expect(home).toMatch(/overdueHref = canSeeDailyops \? '\/daily\/tasks' : null/);
   });
 
-  it('「お待たせ中」の期限超過・受け取った書類は案件作成に送らない（ユーザー指摘）', () => {
+  it('「お待たせ中」の期限超過・受領書類は案件作成に送らない（ユーザー指摘）', () => {
     // ⚠️ 以前は `kind` を見ずに `can.intake` が真なら**全種類**を `/sales/projects/new`
     // へ送っていた。あの画面はネタ案件・問い合わせしか並べないので、期限超過の
-    // 次回アクションや受け取った書類を押しても該当の行は出てこず（押した意味が無い）、
+    // 次回アクションや受領書類を押しても該当の行は出てこず（押した意味が無い）、
     // しかも `/sales/projects/new` は `editor` を要求するため、`editor` を持たない
     // `sales` 利用者にはその条件自体が偽になり、期限超過の行が**一律クリックできない
     // ままだった**（押しても本当に何も起きない＝「機能していない」）

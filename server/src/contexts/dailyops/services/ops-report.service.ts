@@ -10,7 +10,19 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 // - ops_report_items … レポート内の行 (1 行 = 1 項目)。AI と人間が行単位で追加する。
 // AI の report upsert は本体 (title/body/payload/status) のみを更新し、items には一切触らない。
 
-export const OPS_REPORT_KINDS = ['weekly_activity', 'daily_news'] as const;
+/**
+ * レポートの種類。
+ *
+ * `mail_intake`（メール取込ログ・2026-09）は**メールの仕分けが「何を落としたか」を残すため**の
+ * 1日1本の記録です。取り込んだものは各テーブルに残りますが、
+ * **落とした判断はどこにも残らない**ので、取りこぼしを後から数えられませんでした
+ * （実測: Kairos3 の資料ダウンロード通知 21件のうち 17件が未処理のまま、
+ * 1か月誰にも気づかれなかった）。
+ *
+ * ⚠️ **中身の全文は入れません。** 走査した通数・種別ごとの件数・落とした件数と
+ * 代表の件名だけです（メール本文は取り込んだ側の `body_text` にあります）。
+ */
+export const OPS_REPORT_KINDS = ['weekly_activity', 'daily_news', 'mail_intake'] as const;
 export type OpsReportKind = (typeof OPS_REPORT_KINDS)[number];
 
 export interface OpsReportItemInput {

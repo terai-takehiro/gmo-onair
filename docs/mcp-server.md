@@ -225,6 +225,8 @@ HTTP 側 (`/api/v1/internal/gpm/*`) と同じサービス層を呼ぶので、�
 kind と運用契約:
 - `weekly_activity` (ウィークリー活動報告) — 全社で週 1 本。period_key = 週開始日の月曜。`get_weekly_activity_stats` の結果を文章化して body に、結果そのものを payload の `{stats: ...}` に入れて **status='draft'** で `submit_ops_report`。人間がアプリでトピック行を追記し「確認・確定」で published にする。
 - `daily_news` (デイリーニュース報告) — 日 1 本。period_key = 日付。Web の業界ニュースを `add_ops_report_items` で行として投稿 (**published** で直接公開・確定操作なし)。行のフィールド: category (LED/照明/映像/音声/配信/コンテンツ/スタジオ/AR/XR/その他)、content (1行要約)、url、ai_related (AI 関連か)、note。採用フラグ (pick 1〜5) は人間がアプリで設定する。
+- `mail_intake` (メール取込ログ・v4.5.26) — 日 1 本。period_key = 日付。**メールの仕分けが「何を取り込み、何を落としたか」**を `add_ops_report_items` で行として投稿 (**published** で直接公開)。行のフィールド: category (種別 `kairos3_contact` / `kairos3_download` / `kairos3_inview` / `finance_doc` / `sales_thread` / `inquiry` / `dropped`)、content (「走査N通 / 取込N件 / 落としN件」)、note (落としたものの代表の件名・10本まで)。
+  **取り込んだものは各テーブルに残りますが、落とした判断はどこにも残りません。** これが無いと**取りこぼしを後から数えられません** — 実測で Kairos3 の資料ダウンロード通知 21件のうち 17件が未処理のまま1か月誰にも気づかれませんでした ([docs/reviews/2026-09-06-mail-intake-taxonomy.md](reviews/2026-09-06-mail-intake-taxonomy.md))。**中身の全文は入れません**（原文は取り込んだ側の `body_text` にあります）。
 
 ### 内覧会 来場予約 (dailyops — inview)
 | ツール | 種別 | 概要 |
@@ -237,10 +239,42 @@ kind と運用契約:
 ### 見積/請求・その他問い合わせ (dailyops — inbox)
 | ツール | 種別 | 概要 |
 |---|---|---|
-| `record_finance_doc` | write | メール受信の 見積書/請求書/注文書 を取込 (doc_type / 送付者 / 金額 / 締月 / 支払期日 / message_id で重複ガード)。status=new。承認/却下/処理完了は人がアプリで操作 |
-| `list_finance_docs` | read | 見積/請求書の一覧 (status / doc_type / pending) |
+| `record_finance_doc` | write | メール受信の 見積書/発注書/請求書 を取込 (doc_type / 送付者 / 金額 / 締月 / 支払期日 / message_id で重複ガード)。status=new。承認/却下/仕入・販管費への登録は人がアプリで操作。**v4.5.26 で ひとつづり・当て先・添付 の引数が増えた**（下記） |
+| `list_finance_docs` | read | 受領書類を1通ずつ一覧 (status / doc_type / pending) |
+| `list_finance_doc_groups` | read | **受領書類を「1つの取引」単位で一覧**（見積書→発注書→請求書のひとつづり）。stage は quote_only / ordered / invoiced / empty。**取り込む前にこれを読むと、同じ取引の続きかどうかが分かる** |
 | `record_inquiry` | write | 他カテゴリに属さない**有益メールのみ**登録。**スパム・営業・メルマガ・他ツール対象 (見積請求/内覧会/案件) は呼び出し前に AI が除外する契約**。summary / importance / source / tags / action_needed を付与 |
 | `list_inquiries` | read | その他問い合わせの一覧 (importance / **state** / **tag** / unhandled / **desk** / limit)。**返す件数に上限あり**（既定 50・最大 200） |
+
+**v4.5.26: 受領書類は「ひとつづり」になりました**（migration 281・2026-09 のご指示）。
+
+見積書 → 発注書 → 請求書 は1つの取引です。1通ずつ入れると
+**「この請求書はどの見積の続きか」が読めず**、経理が毎回メールを探し直すことになります。
+`record_finance_doc` に**任意の引数**が増えました（**既存の呼び出しは1つも壊れません**）。
+
+| 引数 | 中身 |
+|---|---|
+| `group_key` | 同じ取引を束ねる鍵。**書類番号が同じ → `doc:<番号>` ／ 同じスレッドの続き → `thread:<最初の msgid>` ／ どちらでもなければ渡さない**。⚠️ 取引先名だけで束ねると、別件の請求書が混ざる |
+| `group_title` | 束の題名（何の取引か） |
+| `doc_no` / `revision` | 書類番号 ／ 見積の改定回数（改定された見積は同じ `group_key` で `revision` を増やす） |
+| `vendor_name` | 取引先の会社名（署名から。台帳の取引先名になる） |
+| `project_hint` | 当て先の手がかり（GLS 番号か案件名）。**AI は案件を決め打たない** — サーバーが探し、確からしさ（high/medium/low）と理由を付ける。**候補が複数あるときは付かない** |
+| `expense_kind` | `purchase`（案件の仕入）/ `sga`（販管費）。**決めきれないときは渡さない**（画面に「未定」と出て人が決める） |
+| `payment_terms_days` / `processing_month` | 販管費のとき。「30日サイト」なら 30。「翌月末払い」は日数で表せないので渡さない（月によって日数が変わる） |
+| `attachments` | メールの添付。**BOX の「受領書類（メール）」フォルダ**に入る。1ファイル 10MB・1通 10個まで、`pdf/png/jpg/jpeg/xlsx/xls/csv/zip` のみ。⚠️ **Gmail コネクタは添付の中身を返さない**（名前と id だけ・実測）ので、通常は `gmail_message_id` ＋ `gmail_attachment_id` を渡し、**サーバーが Gmail API から取りに行く**。手元にバイト列があるときだけ `content_base64`。**添付 id は呼ぶたびに変わる**ので、その場で取った新しいものを渡すこと |
+
+- **請求書の PDF は原本です。必ず渡してください。** 渡さないと ONAiR には金額だけが残り、
+  原本はメールボックスの中だけになります
+- **入らなかった添付は黙って消えません。** 返り値の `attachments[].stored` が `false` の
+  ときは `failure_reason`（`NOT_CONFIGURED` / `UNAVAILABLE` / `TOO_LARGE` / `BAD_TYPE` /
+  `NO_GMAIL_ACCESS` / `NO_GMAIL_SCOPE` / `GMAIL_UNAVAILABLE`）が付き、
+  画面も「BOX に入っていません」と出します。
+  **`NO_GMAIL_SCOPE` は人の作業が要ります** — 設定画面から Google 連携をやり直すと
+  `gmail.readonly` が付きます（既に連携済みの人には自動では付きません）
+- **見積書も取り込んでください。** 以前は「台帳に入るのは請求書だけ」として画面から
+  外していましたが、**外すと「あの見積どうなった」を引く道が無くなります**。
+  台帳（仕入・販管費）に入らないのは変わりません（画面がそう言います）
+- **添付の中身は監査ログにも教師データにも入れません**（base64 が 1000 文字の切り詰めを
+  食い潰し、肝心の 差出人・件名・金額 が消えるため）。残るのはファイル名と種類だけです
 
 **v4 大②: 出どころ・行き先・タグを持つようになりました**（migration 171）。
 
@@ -255,7 +289,7 @@ kind と運用契約:
   （見送り率）** として返ってきます。**取り込む前に一度読み、拾いすぎていないかを確かめること**
 - AI が入れた行かどうかは `ai_outputs` に記録があるかで判定します。
   **`source` は出どころであって「誰が入れたか」ではありません**（v4 より前は混同していました）。
-  **受け取った書類（`finance_docs`）も同じ判定に揃えました**（migration 247）—
+  **受領書類（`finance_docs`）も同じ判定に揃えました**（migration 247）—
   それまで書類側だけが `source === 'email'` を印にしており、
   手で足したメールの行に嘘の ✨ が付いていました
 
@@ -289,6 +323,8 @@ kind と運用契約:
   人が画面で直すと、サーバーが自動で差分を `ai_corrections` に入れます（条件2）
 
 > ⚠️ **本番のメール取込スキルは `/root/.claude/skills/sales-mail-gmoonair/` にあり Git 管理外です。**
+> **正はリポジトリの [`.claude/skills/mail-intake/`](../.claude/skills/mail-intake/SKILL.md)**（2026-09 に新設）で、
+> 直したら VPS へ写してください。
 > ツール側に引数を足しても**スキルが追随しないと1件も埋まりません**。
 > このリポジトリからは触れないので、**人が直す必要があります**。
 >

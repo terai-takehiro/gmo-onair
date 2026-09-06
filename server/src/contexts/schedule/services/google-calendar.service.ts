@@ -26,6 +26,8 @@ const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
 const CALENDAR_EVENTS_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 
+export type { AccountRow as GoogleAccountRow };
+
 export function isGoogleConfigured(): boolean {
   return !!(config.googleClientId && config.googleClientSecret);
 }
@@ -90,7 +92,13 @@ interface AccountRow {
   token_expiry: string | Date | null;
 }
 
-/** アカウントの access_token を返す (キャッシュ有効ならそれ、失効なら refresh で更新) */
+/**
+ * アカウントの access_token を返す (キャッシュ有効ならそれ、失効なら refresh で更新)
+ *
+ * **受領書類のメール添付取得（`gmail-attachment.service.ts`）も同じ経路を使う。**
+ * 認証の仕組みを2つ作ると、片方だけ refresh の扱いを直した日に
+ * どちらかが黙って失効します。外向けの名前は `getAccessTokenForAccount`。
+ */
 async function getAccessToken(account: AccountRow): Promise<string> {
   const cached = account.access_token_enc ? decrypt(account.access_token_enc) : null;
   const expiry = account.token_expiry ? new Date(account.token_expiry).getTime() : 0;
@@ -454,4 +462,10 @@ export function initGoogleSyncPoller(): void {
 
 export function shutdownGoogleSyncPoller(): void {
   if (timer) { clearInterval(timer); timer = null; }
+}
+
+
+/** 他のサービスから使う口（`gmail-attachment.service.ts`）。中身は同じ1本 */
+export async function getAccessTokenForAccount(account: AccountRow): Promise<string> {
+  return getAccessToken(account);
 }

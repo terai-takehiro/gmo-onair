@@ -101,7 +101,7 @@ export interface InviewSession {
 }
 
 /*
-  ── 受け取った書類（`finance_docs`）の型はここには置かない ──────────
+  ── 受領書類（`finance_docs`）の型はここには置かない ──────────
   画面は財務管理（`client/src/contexts/finance/pages/documents/`）にあり、
   型もそちらの `documents/types.ts` が持っている。ここにあった写しは
   **どこからも使われていなかった**（読む画面がこのアプリに無いため）。

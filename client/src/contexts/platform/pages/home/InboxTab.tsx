@@ -27,6 +27,7 @@ import {
   type InboxData, type InboxItem, type InboxOpenable,
 } from '@/contexts/sales/pages/inbox/kinds';
 import { useDismissAiProject } from '@/contexts/sales/pages/inbox/useInboxActions';
+import { useAdvanceFinanceDoc, nextStepOf, type InboxDocStatus } from '@/contexts/sales/pages/inbox/useFinanceDocActions';
 import { TODAY_SALES_KEY } from '@/contexts/platform/pages/salesDashboard/TodaySalesCard';
 import { useNextActionActions } from '@/contexts/sales/pages/activityLog/useNextActionActions';
 
@@ -38,6 +39,12 @@ export function InboxTab({ data, can }: { data: InboxData | undefined; can: Inbo
   const items = data?.items ?? [];
   const counts = data?.counts;
   const dismiss = useDismissAiProject();
+  /*
+    **受領書類はその場で1歩進められる**（2026-09 のご指示）。
+    押すと受信箱・受領書類の一覧・アプリのバッジが同時に落ちるので、
+    **誰かひとりが対応すれば他の人の画面からも消えます**。
+  */
+  const advanceDoc = useAdvanceFinanceDoc();
   /**
    * 「済んだ」は既存の次回アクション完了の口（`POST /activity-logs/:id/
    * complete-next-action`）をそのまま使う。受信箱の鍵と、同じ行を持つ
@@ -102,6 +109,9 @@ export function InboxTab({ data, can }: { data: InboxData | undefined; can: Inbo
                     dismissPending={dismiss.isPending}
                     onDone={nextAction.complete}
                     donePending={nextAction.isPending}
+                    onAdvanceDoc={advanceDoc.advance}
+                    advanceDocPending={advanceDoc.isPending}
+                    canEditDocs={can.documentsEdit}
                   />
                 ))}
               </div>
@@ -132,6 +142,7 @@ export function InboxTab({ data, can }: { data: InboxData | undefined; can: Inbo
  */
 function InboxRow({
   item, can, go, onDismiss, dismissPending, onDone, donePending,
+  onAdvanceDoc, advanceDocPending, canEditDocs,
 }: {
   item: InboxItem;
   can: InboxOpenable;
@@ -140,6 +151,10 @@ function InboxRow({
   dismissPending: boolean;
   onDone: (activityId: string) => void;
   donePending: boolean;
+  onAdvanceDoc: (p: { id: string; status: 'reviewing' | 'approved' }) => void;
+  advanceDocPending: boolean;
+  /** `PUT /dailyops/finance-docs/:id` は `dailyops` か `sales` の editor を要求する */
+  canEditDocs: boolean;
 }) {
   /* ⚠️ **行き先はその人が開ける場所。** 開けない行は押せなくする —
      押して「権限がありません」に送るのは、API の 403 を画面に
@@ -192,6 +207,27 @@ function InboxRow({
     return null;
   })();
 
+  /*
+    受領書類だけは**別の権限**（`dailyops` か `sales` の editor）で動くので、
+    `can.intake`（= `sales` editor）で束ねた上の判定とは分けて出す。
+    ⚠️ **却下はここに置かない** — スクロール中に押してしまった請求書が
+    誰の目にも触れなくなる。却下は中身を開ける受領書類の画面だけにある。
+  */
+  const docAction = (() => {
+    if (item.kind !== 'finance_doc' || !canEditDocs) return null;
+    const id = typeof item.meta.id === 'string' ? item.meta.id : null;
+    const step = nextStepOf(item.meta.status as InboxDocStatus | undefined);
+    if (!id || !step) return null;
+    return (
+      <RowActionButton
+        label={step.label}
+        tone="success"
+        disabled={advanceDocPending}
+        onClick={() => onAdvanceDoc({ id, status: step.to })}
+      />
+    );
+  })();
+
   return (
     <div className="flex items-center gap-1.5 border-t border-border-subtle">
       {href ? (
@@ -206,6 +242,7 @@ function InboxRow({
         <div className="min-h-tap flex min-w-0 flex-1 items-start gap-2.5 py-2">{body}</div>
       )}
       {action}
+      {docAction}
     </div>
   );
 }

@@ -181,7 +181,7 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         { label: "仕入", to: "/budget/purchases", icon: ShoppingCart },
         { label: "販管費", to: "/budget/sga", icon: Receipt },
         // v4 ⑥: 日常業務から移した（経理が開けなかった）。権限は sales か dailyops
-        { label: "受け取った書類", to: "/budget/documents", icon: Inbox, modules: ["sales", "dailyops"] },
+        { label: "受領書類", to: "/budget/documents", icon: Inbox, modules: ["sales", "dailyops"] },
       ],
     },
     {
