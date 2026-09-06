@@ -350,6 +350,9 @@ judge = higher_better: actual ≧ budget → ○ / lower_better: actual ≦ budg
 
 ## 11. 段取り
 
+**2026-09-06 に段1〜4 を実装した**（枝 `claude/weekly-report-bi-powerpoint-kh02s2`）。段5（Slack の投稿そのもの）は
+下書きの文面（`GET /dailyops/keep/slack-draft`・MCP `get_keep_slack_draft`）まで。残りは §11.1。
+
 | 段 | 作るもの | 検証 |
 |---|---|---|
 | 1 | migration 282〜284・`keep-pack.service`・`GET /keep/pack`・MCP `get_keep_report_pack`・型 | 260904 の表と数字が一致するか（8月 着地の6行、稼働率 46.7%／42.1%） |
@@ -359,6 +362,19 @@ judge = higher_better: actual ≧ budget → ○ / lower_better: actual ≦ budg
 | 5 | Slack 定例投稿（パックから）・反応の回収・digest | — |
 
 段1は画面が無くても効く（bot の下準備）。**段2まででご要望の「BI」、段4までで「半自動生成」**。
+
+### 11.1 実装して分かったこと・残っていること
+
+- **サーバーは `shared/` を import できない**（`rootDir`）ので、純粋関数（比率・判定・営業日・主体の導出・差分・テンプレ）は
+  `server/src/contexts/dailyops/services/keep-*.ts` に写しを置き、`shared/tests/keepReport*.test.ts` の parity テストで一致を固定している。
+  直すときは **shared 側と server 側の両方**を直す（テストが止める）
+- 案件ページの **進行表は空**（Qシートとの連携は未実装。人が「このページ」で書く）。写真は Box 未接続の環境では灰色の枠
+- pptx の写真は縮小していない（サーバーに画像ライブラリが無い）。**画像化しての目視は未実施**（この環境に Impress が無い）。
+  実機の PowerPoint で開いて確かめること
+- 稼働率は「利用があった営業日 ÷ 営業日」。土日の利用は数えない（分母と同じ日だけ数える）
+- 「変更点は赤字」は **前回の凍結パックがあるときだけ**付く（初回は脚注も無い）
+- Slack への投稿・反応の回収（§10 条件3）は未実装。bot は下書きの文を投稿し、`ts` と `pack_id` を残す
+- 案件台帳の主体フィルタは入れたが、台帳の列の既定は非表示（列の設定で出す）
 
 ---
 
