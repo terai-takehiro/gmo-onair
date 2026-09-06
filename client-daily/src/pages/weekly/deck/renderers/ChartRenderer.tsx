@@ -10,7 +10,7 @@ import { C, emptyBox } from './slideStyle';
 
 interface Box { w: number; h: number }
 
-const M = { top: 34, right: 52, bottom: 30, left: 60 } as const;
+const MARGIN = { top: 34, right: 52, bottom: 30, left: 60 };
 
 function niceMax(v: number): number {
   if (v <= 0) return 1;
@@ -52,6 +52,9 @@ export function TrendChart({ metric, points, box }: { metric: 'revenue' | 'utili
 
   const W = box.w;
   const H = box.h;
+  // 低い枠（縮めて入れた部品）では目盛り・凡例・吹き出しを省き、棒と線だけにする
+  const compact = H < 150;
+  const M = compact ? { top: 18, right: 8, bottom: 4, left: 8 } : MARGIN;
   const pw = Math.max(10, W - M.left - M.right);
   const ph = Math.max(10, H - M.top - M.bottom);
   const n = data.length;
@@ -84,14 +87,16 @@ export function TrendChart({ metric, points, box }: { metric: 'revenue' | 'utili
 
   return (
     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', fontFamily: 'inherit' }}>
-      <text x={0} y={14} fontSize={16} fontWeight={700} fill={C.title}>{title}</text>
-      <Legend
-        x={W - (metric === 'revenue' ? 300 : 210)} y={2}
-        items={metric === 'revenue'
-          ? [{ color: C.band, label: 'グループ内' }, { color: C.line, label: '外部' }, { color: C.negative, label: '案件数', line: true }]
-          : [{ color: C.positive, label: '稼働日数' }, { color: C.negative, label: '稼働率', line: true }]}
-      />
-      {ticks.map((t) => (
+      <text x={0} y={14} fontSize={compact ? 12 : 16} fontWeight={700} fill={C.title}>{title}</text>
+      {!compact && (
+        <Legend
+          x={W - (metric === 'revenue' ? 300 : 210)} y={2}
+          items={metric === 'revenue'
+            ? [{ color: C.band, label: 'グループ内' }, { color: C.line, label: '外部' }, { color: C.negative, label: '案件数', line: true }]
+            : [{ color: C.positive, label: '稼働日数' }, { color: C.negative, label: '稼働率', line: true }]}
+        />
+      )}
+      {!compact && ticks.map((t) => (
         <g key={t}>
           <line x1={M.left} x2={M.left + pw} y1={yBar(barMax * t)} y2={yBar(barMax * t)} stroke={t === 0 ? C.muted : C.softLine} strokeWidth={1} />
           <text x={M.left - 6} y={yBar(barMax * t) + 4} fontSize={11} textAnchor="end" fill={C.muted} style={{ fontVariantNumeric: 'tabular-nums' }}>
@@ -121,13 +126,15 @@ export function TrendChart({ metric, points, box }: { metric: 'revenue' | 'utili
         const v = lineValue(p);
         return v === null ? null : <circle key={p.year_month} cx={xOf(i)} cy={yLine(v)} r={3} fill={C.negative} />;
       })}
-      {data.map((p, i) => (i % labelEvery === 0 || i === n - 1) && (
+      {!compact && data.map((p, i) => (i % labelEvery === 0 || i === n - 1) && (
         <text key={p.year_month} x={xOf(i)} y={H - M.bottom + 16} fontSize={11} textAnchor="middle" fill={C.muted}>{monthLabel(p.year_month)}</text>
       ))}
-      <g transform={`translate(${M.left + 6},${M.top + 4})`}>
-        <rect width={callout.length * 11.5 + 16} height={22} rx={4} fill="#fff" stroke={C.negative} />
-        <text x={8} y={15} fontSize={12} fontWeight={700} fill={C.negative}>{callout}</text>
-      </g>
+      {!compact && (
+        <g transform={`translate(${M.left + 6},${M.top + 4})`}>
+          <rect width={callout.length * 11.5 + 16} height={22} rx={4} fill="#fff" stroke={C.negative} />
+          <text x={8} y={15} fontSize={12} fontWeight={700} fill={C.negative}>{callout}</text>
+        </g>
+      )}
     </svg>
   );
 }

@@ -88,14 +88,30 @@ export function composeTitle(base: string, agenda: SlidePage['agenda']): string 
   return `${head}【${agenda.category}｜${agenda.priority}｜${agenda.minutes}分】`;
 }
 
+/**
+ * 新しい部品の置き場所。**既存の部品のいちばん下**に入れる（「このページの下に部品が入ります」）。
+ * 下に余地が無ければ、空いている帯のうちいちばん広いところに縮めて入れる。
+ * それも無ければ本文の下端に重ねる（人が右の「このページ」で位置を直せる）。
+ */
+const MIN_H = 8;
 function placeBelow(page: SlidePage, spec: NewPartSpec): Pick<SlidePart, 'x' | 'y' | 'w' | 'h'> {
   const tpl = SLIDE_TEMPLATES[page.template];
   const top = BODY_TOP[tpl?.header === 'none' ? 'none' : tpl?.header === 'title' ? 'title' : 'bands'] + 1;
+  const want = spec.h ?? DEFAULT_H[spec.type];
   const bottom = page.parts.reduce((m, p) => Math.max(m, p.y + p.h), top);
-  let h = spec.h ?? DEFAULT_H[spec.type];
-  let y = Math.min(bottom + 1, BODY_BOTTOM - h);
-  if (y < top) { y = top; h = Math.max(8, BODY_BOTTOM - top); }
-  return { x: 2, y, w: 96, h };
+  if (BODY_BOTTOM - (bottom + 1) >= MIN_H) return { x: 2, y: bottom + 1, w: 96, h: Math.min(want, BODY_BOTTOM - (bottom + 1)) };
+  // 空いている帯（部品と部品のあいだ）を探す
+  const spans = [...page.parts].map((p) => [p.y, p.y + p.h] as const).sort((a, b) => a[0] - b[0]);
+  let cursor = top;
+  let best: { y: number; h: number } | null = null;
+  for (const [y0, y1] of [...spans, [BODY_BOTTOM, BODY_BOTTOM] as const]) {
+    const free = y0 - 1 - cursor;
+    if (free >= MIN_H && (!best || free > best.h)) best = { y: cursor, h: free };
+    cursor = Math.max(cursor, y1 + 1);
+  }
+  if (best) return { x: 2, y: best.y, w: 96, h: Math.min(want, best.h) };
+  const h = Math.min(want, BODY_BOTTOM - top);
+  return { x: 2, y: Math.max(top, BODY_BOTTOM - h), w: 96, h };
 }
 
 interface DeckState {

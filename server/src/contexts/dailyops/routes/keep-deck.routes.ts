@@ -4,6 +4,7 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { isBoxConfigured, ensureSubfolder, uploadToFolder } from '../../../shared/services/box';
 import { keepDeckService } from '../services/keep-deck.service';
 import { renderDeckPptx, deckFileName, deckFolderName } from '../services/keep-pptx.service';
+import { loadPreviousPack } from '../services/keep-prev-pack.service';
 
 // 日常業務アプリ (dailyops) — 隔週キープの「資料をつくる」（構成の版・差分・pptx 出力）。
 // 読む: dailyops か sales の reader（財務の数字なので営業・経理も見る）。書く: dailyops の editor。
@@ -58,7 +59,9 @@ router.post('/keep/decks/:meeting/export', ...canEdit, async (req, res) => {
   const { deck, pack } = await keepDeckService.getOrCreateDeck(meeting, req.user!.id);
   const meetingTitle = typeof req.body?.meeting_title === 'string' ? req.body.meeting_title : null;
   const inputs = req.body?.inputs && typeof req.body.inputs === 'object' ? (req.body.inputs as Record<string, unknown>) : null;
-  const { buffer, pages, warnings } = await renderDeckPptx(deck, pack, { meeting_title: meetingTitle, inputs });
+  // 「変更点は赤字」の比較相手 = 会議日より前でいちばん新しい凍結した版（無ければ赤字なし・脚注なし）
+  const previousPack = await loadPreviousPack(meeting);
+  const { buffer, pages, warnings } = await renderDeckPptx(deck, pack, { meeting_title: meetingTitle, inputs, previousPack });
   const filename = deckFileName(meeting);
 
   const folderId = process.env.KEEP_REPORT_BOX_FOLDER_ID;

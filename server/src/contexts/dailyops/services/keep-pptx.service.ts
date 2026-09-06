@@ -7,16 +7,22 @@
  * - 見た目は GMO流会議フォーマット Ver.2.5 の枠（`keep-pptx-chrome.service`）を守り、内側は ONAiR が決める
  * - 部品の値は `resolveBinding`（`keep-binding.ts`・画面と同じ写し）で読む。**材料が無くても投げない** —
  *   ラベル付きの灰色の枠にする。人が上書きした文は赤（「変更点は赤字」）
+ * - **「変更点は赤字」は前回の資料（凍結したパック・`opts.previousPack`）と比べて自動で付ける**（§6.3）:
+ *   数値報告の表の動いた升・ヨミ表の新規／更新の案件・稼働率。どこが動いたかは `keep-pack-diff.ts` が決める。
+ *   赤字を付けたページには左下に「赤字＝前回（M/D）の資料から変わった所」の脚注を出す。前回の資料が無ければ何も付けない
  * - 守るものの検査は止めずに警告だけ（題の書式・文字の大きさ）。`warnings` で返す
  *
  * 大きさ: 13.333in × 7.5in（LAYOUT_WIDE・16:9）。部品の % はテンプレの仮想キャンバス（1280×720）に対する値。
  */
 import PptxGenJS from 'pptxgenjs';
-import type { KeepDeck, KeepReportPack, SlidePage, SlidePart, ProjectPageData } from './keep-deck.types';
+import type {
+  KeepDeck, KeepReportPack, SlidePage, SlidePart, ProjectPageData, MonthlyPlTable, PlByEntity, UtilizationCalendar, BusinessEntity,
+} from './keep-deck.types';
 import { FORMAT_COLORS } from './keep-templates';
+import { changedPlKeys, changedUtilization, changeNoteLabel, previousCalendar, previousPlTable } from './keep-pack-diff';
 import { resolveBinding, deckAgenda, dateLabel, type BindingContext, type TrendRevenuePoint, type TrendUtilizationPoint } from './keep-binding';
 import {
-  toBox, addText, addBullets, addPlaceholder, addHeader, addFooter, checkTitleFormat, type Box,
+  toBox, addText, addBullets, addPlaceholder, addHeader, addFooter, addChangeNote, checkTitleFormat, type Box,
 } from './keep-pptx-chrome.service';
 import {
   isPlTable, isPlByEntity, isPipelineRows, isCalendar, renderPlTable, renderPlByEntity, plNotes, renderPipeline,
@@ -34,6 +40,11 @@ export interface RenderOptions {
   inputs?: Record<string, unknown> | null;
   /** 試験用: Box を読まない */
   skipPhotos?: boolean;
+  /**
+   * 前回の資料のパック（凍結版・`loadPreviousPack`）。あれば「変更点は赤字」— 前回から動いた升・案件・稼働率を
+   * 赤にして脚注を出す。無ければ（初回の資料）何も付けない
+   */
+  previousPack?: KeepReportPack | null;
 }
 export interface RenderResult { buffer: Buffer; pages: number; warnings: string[] }
 
@@ -75,7 +86,45 @@ function textStyle(page: SlidePage, part: SlidePart): { size: number; bold?: boo
   return { size: 18 };
 }
 
-interface Ctx { pack: KeepReportPack | null; bind: BindingContext; photos: Map<string, string>; warnings: string[] }
+interface Ctx {
+  pack: KeepReportPack | null; bind: BindingContext; photos: Map<string, string>; warnings: string[];
+  /** 前回の資料のパック。「変更点は赤字」の比較相手 */
+  prev: KeepReportPack | null;
+  /** このページに赤字の対象（表・ヨミ表・カレンダー）を描いたか（脚注を出す印。ページごとに戻す） */
+  marked: boolean;
+}
+
+// ── 「変更点は赤字」: どの升・行・数字を赤にするか（前回の資料が無ければ何も返さない）────
+/** binding（`landing.gss` など）から主体を読む。読めなければ all */
+function entityOfBinding(binding: string | null): keyof PlByEntity {
+  const m = /^(?:landing|forecast)\.(all|gss|gscs|gig)$/.exec(binding ?? '');
+  return (m?.[1] as keyof PlByEntity | undefined) ?? 'all';
+}
+function plChanges(c: Ctx, binding: string | null, t: MonthlyPlTable): ReadonlySet<string> | undefined {
+  if (!c.prev) return undefined;
+  c.marked = true;
+  return changedPlKeys(previousPlTable(c.prev, entityOfBinding(binding), t.year_month), t);
+}
+function plChangesByEntity(c: Ctx, p: PlByEntity): Partial<Record<BusinessEntity, ReadonlySet<string>>> | undefined {
+  if (!c.prev) return undefined;
+  c.marked = true;
+  const out: Partial<Record<BusinessEntity, ReadonlySet<string>>> = {};
+  for (const e of ['gss', 'gscs', 'gig'] as const) {
+    const t = p[e];
+    if (t) out[e] = changedPlKeys(previousPlTable(c.prev, e, t.year_month), t);
+  }
+  return out;
+}
+function pipelineMarks(c: Ctx): boolean {
+  if (!c.prev) return false;
+  c.marked = true;
+  return true;
+}
+function utilizationChanged(c: Ctx, cal: UtilizationCalendar): boolean {
+  if (!c.prev) return false;
+  c.marked = true;
+  return changedUtilization(previousCalendar(c.prev, cal.year_month), cal);
+}
 
 function renderPart(slide: PptxGenJS.Slide, page: SlidePage, part: SlidePart, c: Ctx): void {
   const box: Box = toBox(part);
@@ -94,9 +143,9 @@ function renderPart(slide: PptxGenJS.Slide, page: SlidePage, part: SlidePart, c:
   switch (part.type) {
     case 'table':
       if (typeof v === 'string') { addText(slide, v, box, { size: 12, color: red }); return; }
-      if (isPlTable(v)) { renderPlTable(slide, v, box); return; }
-      if (isPlByEntity(v)) { renderPlByEntity(slide, v, box); return; }
-      if (isPipelineRows(v)) { renderPipeline(slide, v, box); return; }
+      if (isPlTable(v)) { renderPlTable(slide, v, box, { changed: plChanges(c, part.binding, v) }); return; }
+      if (isPlByEntity(v)) { renderPlByEntity(slide, v, box, plChangesByEntity(c, v)); return; }
+      if (isPipelineRows(v)) { renderPipeline(slide, v, box, pipelineMarks(c)); return; }
       if (isObj(v) && 'gross_margin' in v) { renderMoney(slide, v as unknown as ProjectPageData, box); return; }
       if (part.binding?.endsWith('.schedule') && Array.isArray(v)) { renderSchedule(slide, v as ProjectPageData['schedule'], box); return; }
       if (part.binding === 'inview.by_category' && Array.isArray(v)) { renderCategoryTable(slide, v as Array<{ category: string; groups: number; people: number }>, box); return; }
@@ -108,7 +157,7 @@ function renderPart(slide: PptxGenJS.Slide, page: SlidePage, part: SlidePart, c:
     case 'photos':
       renderPhotos(slide, photosOf(c.pack, page, part, c.bind), box, c.photos, label); return;
     case 'calendar':
-      if (isCalendar(v)) { renderCalendar(slide, v, box); return; }
+      if (isCalendar(v)) { renderCalendar(slide, v, box, utilizationChanged(c, v)); return; }
       addPlaceholder(slide, box, label); return;
     case 'bullets': {
       if (typeof v === 'string') { addBullets(slide, v.split(/\r?\n/).filter(Boolean), box, { size: 18, color: red, label }); return; }
@@ -151,7 +200,7 @@ export async function renderDeckPptx(deck: KeepDeck, pack: KeepReportPack | null
     for (const page of pages) for (const part of page.parts) if (part.type === 'photos') ids.push(...photosOf(pack, page, part, bind).map((p) => p.box_file_id));
   }
   const photos = await fetchPhotos(ids);
-  const c: Ctx = { pack, bind, photos, warnings };
+  const c: Ctx = { pack, bind, photos, warnings, prev: opts.previousPack ?? null, marked: false };
 
   const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_WIDE';
@@ -163,6 +212,7 @@ export async function renderDeckPptx(deck: KeepDeck, pack: KeepReportPack | null
     const slide = pptx.addSlide();
     slide.background = { color: 'FFFFFF' };
     addHeader(slide, page);
+    c.marked = false;
     for (const part of page.parts) {
       try { renderPart(slide, page, part, c); } catch (err) {
         // 1つの部品で落ちても資料全体は出す（材料の形が想定外のとき）
@@ -170,12 +220,15 @@ export async function renderDeckPptx(deck: KeepDeck, pack: KeepReportPack | null
         addPlaceholder(slide, toBox(part), String(part.options?.label ?? part.id));
       }
     }
+    // 「変更点は赤字」の脚注: 赤字の対象を描いたページだけ。文の M/D は前回の資料の会議日
+    if (c.marked && c.prev) addChangeNote(slide, changeNoteLabel(c.prev.meeting_date));
     addFooter(slide, i + 1);
     if (page.notes) slide.addNotes(page.notes);
     const w = checkTitleFormat(page, i + 1);
     if (w) warnings.push(w);
   });
   if (pages.length) warnings.push('表・一覧・注記は中身が収まる大きさ（9〜18pt）で出しています（目安 24pt・§6.3）');
+  if (pages.length && !c.prev) warnings.push('前回の資料（凍結したパック）が無いので「変更点は赤字」は付けていません');
 
   const buffer = (await pptx.write({ outputType: 'nodebuffer' })) as Buffer;
   return { buffer, pages: pages.length, warnings };

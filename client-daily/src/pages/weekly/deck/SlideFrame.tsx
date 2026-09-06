@@ -5,7 +5,7 @@
  * 縮尺だけ変えて描く（別々に描くと「一覧では出ているのにキャンバスに無い」が起きる）。
  * 枠の位置と色は `shared/src/keepReport/templates.ts`（pptx 出力と共通）と `renderers/slideStyle.ts`。
  */
-import { memo, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { memo, useEffect, useLayoutEffect, useState, type CSSProperties, type RefObject } from 'react';
 import { FORMAT_FOOTER, SLIDE_TEMPLATES, TALK_BANDS } from '@gmo-onair/shared/src/keepReport/templates';
 import type { KeepDeck, KeepReportPack, SlidePage } from '@gmo-onair/shared/src/keepReport/types';
 import { cn } from '@gmo-onair/shared/src/client/utils';
@@ -146,9 +146,4 @@ export function pageNumbers(pages: SlidePage[]): Map<string, number> {
     map.set(p.id, n);
   }
   return map;
-}
-
-export function useSlideHover() {
-  const ref = useRef<HTMLDivElement | null>(null);
-  return ref;
 }

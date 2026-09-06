@@ -5,6 +5,15 @@
  * （docs/design/v4/keep-report.md §5.3。手計算の写し間違いが会議に出た経緯）。
  * 見せ方の決まり（§6.3「変えてよいもの」）: 千円は3桁区切り・右揃え、マイナスは赤、比率は○✕の色に揃える。
  * 表・一覧は 24pt より小さくてよい（中身が収まる大きさ）。
+ *
+ * ── 「変更点は赤字」（§6.3 守るもの）────────────────────────────
+ * 前回の資料（凍結したパック）から動いた所を**自動で**赤にする。どの升が動いたかは
+ * `keep-pack-diff.ts`（`changedPlKeys` / `changedUtilization`）が決め、ここは色を付けるだけ:
+ *   - 数値報告の表: 動いた升を赤い太字。合計行（紺の帯・白い文字）は赤い文字では読めないので升の地を赤にする
+ *   - ヨミ表: 前回の会議日以降に増えた案件（`since_last: 'new'`）は行ごと赤、動いた案件（`'updated'`）は案件名だけ赤
+ *   - 稼働カレンダー: 見出しの稼働率の数字を赤
+ * 前回の資料が無いとき（初回）は何も赤くしない（呼ぶ側が印を渡さない）。
+ * ⚠️ マイナスの数字も赤（上の決まり）なので、動いたかどうかは**太字**でも見分ける。
  */
 import type PptxGenJS from 'pptxgenjs';
 import type {
@@ -12,12 +21,23 @@ import type {
 } from './keep-deck.types';
 import { BUSINESS_ENTITY_LABELS } from './keep-deck.types';
 import { FORMAT_COLORS, FORMAT_FONT } from './keep-templates';
-import { addTable, addText, addBullets, addPlaceholder, fmtSen, fmtYen, fmtPct, fmtMd, type Box, type Cell, FONT } from './keep-pptx-chrome.service';
+import { plCellKey, type PlCellColumn } from './keep-pack-diff';
+import {
+  addTable, addText, addBullets, addPlaceholder, fmtSen, fmtYen, fmtPct, fmtMd, type Box, type Cell, FONT, SLIDE_H,
+} from './keep-pptx-chrome.service';
 
 const C = FORMAT_COLORS;
 const judgeColor = (j: string) => (j === '○' ? C.positive : j === '✕' ? C.negative : C.muted);
 const numCell = (yen: number | null, o: Partial<Cell> = {}): Cell =>
   ({ text: fmtSen(yen), align: 'right', ...(yen != null && yen < 0 ? { color: C.negative } : {}), ...o });
+
+/** 動いた升の印（`keep-pack-diff.ts` の鍵 `<行>.<列>`）。無ければ赤にしない */
+export type ChangedCells = ReadonlySet<string>;
+/** 前回から動いた升を赤い太字に。合計行（紺の帯）は白い文字のままで升の地を赤にする */
+function markChanged(cell: Cell, changed: ChangedCells | undefined, key: string, totalRow: boolean): Cell {
+  if (!changed?.has(key)) return cell;
+  return totalRow ? { ...cell, fill: C.negative, bold: true } : { ...cell, color: C.negative, bold: true };
+}
 
 // ── 型の見分け（binding の値は unknown で来る）────────────────────
 export const isPlTable = (v: unknown): v is MonthlyPlTable =>
@@ -29,27 +49,32 @@ export const isCalendar = (v: unknown): v is UtilizationCalendar =>
   !!v && typeof v === 'object' && 'days' in (v as object) && 'year_month' in (v as object);
 
 // ── ①数値報告 ────────────────────────────────────────────────
-export function renderPlTable(slide: PptxGenJS.Slide, t: MonthlyPlTable, box: Box, size = FORMAT_FONT.table): void {
+export function renderPlTable(
+  slide: PptxGenJS.Slide, t: MonthlyPlTable, box: Box, o: { size?: number; changed?: ChangedCells } = {},
+): void {
   const actualHead = t.mode === 'forecast' ? '見通し' : '着地';
   const rows: Cell[][] = [[{ text: '項目' }, { text: '目標' }, { text: actualHead }, { text: '判定' }, { text: '対目標比' }, { text: '対目標' }]];
   t.lines.forEach((l, i) => {
     const last = i === t.lines.length - 1;
     const base: Partial<Cell> = last ? { fill: C.tableHead, color: 'FFFFFF', bold: true } : {};
     const jc = last ? 'FFFFFF' : judgeColor(l.judge);
+    const mark = (col: PlCellColumn, cell: Cell) => markChanged(cell, o.changed, plCellKey(l.key, col), last);
     rows.push([
       { text: l.label, ...base },
-      numCell(l.budget, { ...base, ...(last ? { color: 'FFFFFF' } : {}) }),
-      numCell(l.actual, { ...base, ...(last ? { color: 'FFFFFF' } : {}) }),
-      { text: l.judge, align: 'center', ...base, color: jc, bold: true },
-      { text: fmtPct(l.ratio), align: 'right', ...base, color: jc },
-      numCell(l.diff, { ...base, ...(last ? { color: 'FFFFFF' } : {}) }),
+      mark('budget', numCell(l.budget, { ...base, ...(last ? { color: 'FFFFFF' } : {}) })),
+      mark('actual', numCell(l.actual, { ...base, ...(last ? { color: 'FFFFFF' } : {}) })),
+      mark('judge', { text: l.judge, align: 'center', ...base, color: jc, bold: true }),
+      mark('ratio', { text: fmtPct(l.ratio), align: 'right', ...base, color: jc }),
+      mark('diff', numCell(l.diff, { ...base, ...(last ? { color: 'FFFFFF' } : {}) })),
     ]);
   });
-  addTable(slide, rows, box, [30, 15, 15, 10, 15, 15], { size });
+  addTable(slide, rows, box, [30, 15, 15, 10, 15, 15], { size: o.size ?? FORMAT_FONT.table });
 }
 
-/** 主体別: 2つの表を横に並べる（gig は数字があるときだけ3つ目） */
-export function renderPlByEntity(slide: PptxGenJS.Slide, p: PlByEntity, box: Box): void {
+/** 主体別: 2つの表を横に並べる（gig は数字があるときだけ3つ目）。`changed` は主体ごとの動いた升 */
+export function renderPlByEntity(
+  slide: PptxGenJS.Slide, p: PlByEntity, box: Box, changed?: Partial<Record<BusinessEntity, ChangedCells>>,
+): void {
   const entities: BusinessEntity[] = ['gss', 'gscs', ...(p.gig ? (['gig'] as BusinessEntity[]) : [])];
   const gap = 0.2;
   const w = (box.w - gap * (entities.length - 1)) / entities.length;
@@ -62,10 +87,12 @@ export function renderPlByEntity(slide: PptxGenJS.Slide, p: PlByEntity, box: Box
       const last = li === t.lines.length - 1;
       const base: Partial<Cell> = last ? { fill: C.tableHead, color: 'FFFFFF', bold: true } : {};
       const jc = last ? 'FFFFFF' : judgeColor(l.judge);
+      const mark = (col: PlCellColumn, cell: Cell) => markChanged(cell, changed?.[e], plCellKey(l.key, col), last);
       rows.push([
-        { text: l.label, ...base }, numCell(l.budget, { ...base, ...(last ? { color: 'FFFFFF' } : {}) }),
-        numCell(l.actual, { ...base, ...(last ? { color: 'FFFFFF' } : {}) }),
-        { text: l.judge, align: 'center', ...base, color: jc, bold: true }, { text: fmtPct(l.ratio), align: 'right', ...base, color: jc },
+        { text: l.label, ...base }, mark('budget', numCell(l.budget, { ...base, ...(last ? { color: 'FFFFFF' } : {}) })),
+        mark('actual', numCell(l.actual, { ...base, ...(last ? { color: 'FFFFFF' } : {}) })),
+        mark('judge', { text: l.judge, align: 'center', ...base, color: jc, bold: true }),
+        mark('ratio', { text: fmtPct(l.ratio), align: 'right', ...base, color: jc }),
       ]);
     });
     addTable(slide, rows, { x, y: box.y + 0.4, w, h: box.h - 0.4 }, [30, 18, 18, 12, 22], { size: entities.length > 2 ? 10 : FORMAT_FONT.tableDense });
@@ -86,19 +113,22 @@ export function plNotes(t: MonthlyPlTable | null): string[] {
 
 // ── ①ヨミ表 ──────────────────────────────────────────────────
 const MAX_PIPELINE_ROWS = 16;
-export function renderPipeline(slide: PptxGenJS.Slide, rowsIn: PipelineRow[], box: Box): void {
+/** `markChanges`（前回の資料があるとき）: 新規の案件は行ごと赤、動いた案件は案件名だけ赤 */
+export function renderPipeline(slide: PptxGenJS.Slide, rowsIn: PipelineRow[], box: Box, markChanges = false): void {
   const rows: Cell[][] = [[{ text: '案件／お客様' }, { text: '確度' }, { text: '実施日' }, { text: '見積金額' }, { text: '次のタスク' }, { text: '担当' }]];
   const shown = rowsIn.slice(0, MAX_PIPELINE_ROWS);
   const size = shown.length > 10 ? 9 : FORMAT_FONT.tableDense;
   shown.forEach((r) => {
     const mark = r.since_last === 'new' ? '【新規】' : r.since_last === 'updated' ? '【更新】' : '';
+    const rowRed = markChanges && r.since_last === 'new' ? { color: C.negative } : {};
+    const nameRed = markChanges && (r.since_last === 'new' || r.since_last === 'updated') ? { color: C.negative } : {};
     rows.push([
-      { text: `${mark}${r.name}\n${r.customer_name}・${r.code}`, size },
-      { text: `${r.confidence}（${r.probability}%）`, align: 'center', size, bold: true, color: r.confidence === 'A' || r.confidence === 'B' ? C.positive : C.text },
-      { text: fmtMd(r.event_start, r.event_end), align: 'center', size },
-      { text: r.estimate_amount == null ? '—' : fmtYen(r.estimate_amount), align: 'right', size },
-      { text: `${r.next_action ?? '—'}${r.next_action_date ? `（${fmtMd(r.next_action_date)}）` : ''}`, size },
-      { text: r.next_action_owner ?? '—', align: 'center', size },
+      { text: `${mark}${r.name}\n${r.customer_name}・${r.code}`, size, ...nameRed },
+      { text: `${r.confidence}（${r.probability}%）`, align: 'center', size, bold: true, color: r.confidence === 'A' || r.confidence === 'B' ? C.positive : C.text, ...rowRed },
+      { text: fmtMd(r.event_start, r.event_end), align: 'center', size, ...rowRed },
+      { text: r.estimate_amount == null ? '—' : fmtYen(r.estimate_amount), align: 'right', size, ...rowRed },
+      { text: `${r.next_action ?? '—'}${r.next_action_date ? `（${fmtMd(r.next_action_date)}）` : ''}`, size, ...rowRed },
+      { text: r.next_action_owner ?? '—', align: 'center', size, ...rowRed },
     ]);
   });
   if (rowsIn.length > shown.length) rows.push([{ text: `ほか ${rowsIn.length - shown.length} 件（案件一覧を参照）`, colspan: 6, color: C.muted, size }]);
@@ -154,10 +184,15 @@ const KIND_COLOR: Record<string, string> = {
 };
 const KIND_LABEL: Record<string, string> = { performance: '本番', rehearsal: 'リハ', hold: '仮', maintenance: 'メンテ', tour: '内覧', internal: '社内', setup: '設営', consultation: '相談', other: 'その他' };
 
-export function renderCalendar(slide: PptxGenJS.Slide, cal: UtilizationCalendar, box: Box): void {
+/** `utilizationChanged`: 前回の資料から稼働率が動いたら見出しの数字を赤に */
+export function renderCalendar(slide: PptxGenJS.Slide, cal: UtilizationCalendar, box: Box, utilizationChanged = false): void {
   const [y, m] = cal.year_month.split('-').map(Number);
-  const title = `${m}月（稼働率${cal.utilization == null ? '—' : fmtPct(cal.utilization)}）`;
-  addText(slide, title, { x: box.x, y: box.y, w: box.w, h: 0.35 }, { size: 16, bold: true, color: C.title, valign: 'middle', margin: 2 });
+  const rate = cal.utilization == null ? '—' : fmtPct(cal.utilization);
+  slide.addText([
+    { text: `${m}月（稼働率`, options: { bold: true, color: C.title } },
+    { text: rate, options: { bold: true, color: utilizationChanged ? C.negative : C.title } },
+    { text: '）', options: { bold: true, color: C.title } },
+  ], { x: box.x, y: box.y, w: box.w, h: 0.35, fontFace: FONT, fontSize: 16, valign: 'middle', margin: 2 });
   const legend: PptxGenJS.TextProps[] = Object.entries(KIND_LABEL).filter(([k]) => k !== 'consultation' && k !== 'other')
     .map(([k, l]) => ({ text: `■${l}　`, options: { color: KIND_COLOR[k], fontSize: 9 } }));
   slide.addText(legend, { x: box.x, y: box.y + 0.33, w: box.w, h: 0.22, fontFace: FONT, margin: 0, valign: 'middle' });
@@ -185,7 +220,9 @@ export function renderCalendar(slide: PptxGenJS.Slide, cal: UtilizationCalendar,
   const rows: PptxGenJS.TableRow[] = [head];
   for (let i = 0; i < cells.length; i += 7) rows.push(cells.slice(i, i + 7).map((c) => ({ ...c, options: { ...c.options, border, margin: [1, 2, 1, 2] as [number, number, number, number] } })));
   const top = box.y + 0.6;
-  const rowH = (box.h - 0.6) / rows.length;
+  // 下端はフッターと脚注（「赤字＝前回から変わった所」）の上で止める。テンプレの枠は 95% まであり、そのままだとフッターに重なる
+  const bottom = Math.min(box.y + box.h, SLIDE_H - 0.8);
+  const rowH = (bottom - top) / rows.length;
   slide.addTable(rows, { x: box.x, y: top, w: box.w, colW: Array(7).fill(box.w / 7), rowH, fontFace: FONT, autoPage: false });
 }
 

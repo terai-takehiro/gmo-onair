@@ -11,7 +11,8 @@
  * 位置は 13.333in × 7.5in（16:9・LAYOUT_WIDE）。部品の位置はテンプレの %（1280×720 の仮想キャンバス）から換算する。
  *
  * ── templates.ts に無い寸法（ここで決めている。共通化したいものは報告に書く）────
- * 題の箱 0.4in/0.2in/12.5in/0.7in、帯 0.32in × 2（0.95in〜）、フッターの y 7.1in、ページ番号 20pt。
+ * 題の箱 0.4in/0.2in/12.5in/0.7in、帯 0.32in × 2（0.95in〜）、フッターの y 7.1in、ページ番号 20pt、
+ * 「赤字＝前回から変わった所」の脚注 0.4in/6.74in/7.5in/0.28in（フッターの罫線 7.05in のすぐ上・10pt・灰）。
  */
 import type PptxGenJS from 'pptxgenjs';
 import type { SlidePage, SlidePart } from './keep-deck.types';
@@ -118,6 +119,14 @@ export function addHeader(slide: PptxGenJS.Slide, page: SlidePage): void {
     const note = 'note' in b ? b.note : null;
     if (note) addText(slide, note, { x: 7.9, y, w: 5.0, h: 0.32 }, { size: 11, color: C.negative, align: 'right', valign: 'middle', margin: 2 });
   });
+}
+
+/**
+ * 「赤字＝前回（M/D）の資料から変わった所」の脚注（§6.3「変更点は赤字」）。
+ * 表・ヨミ表・稼働カレンダーを描いたページの左下・フッターの罫線のすぐ上。文は `keep-pack-diff.ts` の `changeNoteLabel`
+ */
+export function addChangeNote(slide: PptxGenJS.Slide, label: string): void {
+  addText(slide, label, { x: 0.4, y: 6.74, w: 7.5, h: 0.28 }, { size: 10, color: C.muted, valign: 'bottom', margin: 2 });
 }
 
 export function addFooter(slide: PptxGenJS.Slide, pageNo: number): void {
