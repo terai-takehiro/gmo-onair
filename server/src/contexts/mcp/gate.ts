@@ -223,6 +223,11 @@ const READ_TOOL_PERMISSIONS: Record<string, ToolPermission> = {
   // 受領書類。HTTP 側 (`inbox.routes.ts`) の docsRead =
   // requireAnyPermission(['dailyops','sales'],'reader') と一致 (record_finance_doc と同じ判断)
   list_finance_docs: { module: ['dailyops', 'sales'], level: 'reader' },
+  // 束（見積書→発注書→請求書のひとつづり）。**中身は list_finance_docs と同じもの**
+  // なので同じ権限。⚠️ 表に足し忘れると、`enforceToolPermissions` は
+  // どちらの表にも無いツールを素通りさせるので、**権限が1つも無い利用者でも
+  // 取引先・案件・金額・支払期日・BOX の在り処まで読めます**（Codex 指摘・High）
+  list_finance_doc_groups: { module: ['dailyops', 'sales'], level: 'reader' },
   // 機材管理 (equipment)。HTTP 側 (`equipment.routes.ts`) の router 既定 reader と一致
   list_equipment: { module: 'equipment', level: 'reader' },
   get_equipment: { module: 'equipment', level: 'reader' },

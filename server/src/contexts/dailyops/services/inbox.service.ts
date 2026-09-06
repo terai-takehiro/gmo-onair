@@ -5,7 +5,7 @@ import { normalizeRichContent } from '../../../shared/services/rich-content';
 import { recordFinanceDocCorrections, recordInquiryCorrections } from './inbox-ai-feedback.service';
 import { ensureGroup, guessProject, type ExpenseKind } from './finance-doc-chain.service';
 import {
-  storeAttachment, MAX_ATTACHMENTS_PER_DOC, type IncomingAttachment,
+  storeAttachment, safeFilename, MAX_ATTACHMENTS_PER_DOC, type IncomingAttachment,
 } from '../../../shared/services/mail-attachment-box.service';
 import { guessProcessingMonth } from '../../../shared/services/finance-chain';
 
@@ -138,6 +138,41 @@ async function listAttachments(docId: string): Promise<Record<string, unknown>[]
 }
 
 /**
+ * 取り直しのときに、**入らなかった添付だけ**もう一度 BOX へ置きにいく。
+ *
+ * ⚠️ **入っているものには触りません。** 同じ名前で置き直すと BOX に新しい版が増え、
+ * Gmail の取得と BOX の書き込みを無駄に1往復します
+ * （中身は同じなので、版が増えても得るものがありません）。
+ *
+ * 入らなかった行は**先に消してから**入れ直します。残したままだと、
+ * 中身が取れなかったとき `content_sha256` が空なので一意索引が効かず、
+ * **失敗の記録が溜まり続けます**。
+ */
+async function retryFailedAttachments(docId: string, input: FinanceDocInput): Promise<void> {
+  const list = (input.attachments ?? []).slice(0, MAX_ATTACHMENTS_PER_DOC);
+  if (list.length === 0) return;
+
+  const stored = await queryAll(
+    `SELECT filename FROM finance_doc_attachments WHERE doc_id = ? AND box_file_id IS NOT NULL`,
+    [docId],
+  ) as { filename: string }[];
+  const done = new Set(stored.map((a) => a.filename));
+  // BOX に置くときは受信日と取引先を頭に足すので、素の名前でも当たるようにする
+  const alreadyStored = (filename: string) =>
+    done.has(filename) || [...done].some((n) => n.endsWith(`_${filename}`));
+
+  const retry = list.filter((a) => !alreadyStored(safeFilename(a.filename)));
+  if (retry.length === 0) return;
+
+  await execute(
+    `DELETE FROM finance_doc_attachments WHERE doc_id = ? AND box_file_id IS NULL`,
+    [docId],
+  ).catch(() => { /* 消せなくても入れ直しは試す */ });
+
+  await saveAttachments(docId, { ...input, attachments: retry });
+}
+
+/**
  * メールの添付を BOX に置いて記録する。
  *
  * **取込そのものは止めません。** BOX が落ちている日に請求書を記録できなく
@@ -236,10 +271,24 @@ export const financeDocService = {
     const status = (input.status ?? 'new').trim() || 'new';
     assertIn(status, FINANCE_DOC_STATUSES, 'status');
 
-    // Message-ID による重複取込ガード
+    /*
+      Message-ID による重複取込ガード。
+
+      ⚠️ **取り直しのときも添付を拾い直します**（Codex P1）。
+      添付が入らなかった理由には**時間が経てば直るもの**があります —
+      `GMAIL_UNAVAILABLE`（Gmail が応答しなかった）や
+      `NO_GMAIL_SCOPE`（人が Google 連携をやり直せば付く）です。
+      スキルには「次の実行で拾い直せる」と書いてありますが、
+      ここで素通りしていたので**一度失敗した原本は永久に入りませんでした**
+      （Gmail の添付 id は毎回変わるので、取り直すには再取込しかありません）。
+    */
     if (input.message_id) {
       const dup = await queryOne(`SELECT id FROM finance_docs WHERE deleted_at IS NULL AND message_id = ?`, [input.message_id]);
-      if (dup) return { row: await this.update(String(dup.id), input), action: 'updated' };
+      if (dup) {
+        const row = await this.update(String(dup.id), input);
+        await retryFailedAttachments(String(dup.id), input);
+        return { row: (await this.getById(String(dup.id))) ?? row, action: 'updated' };
+      }
     }
     /*
       ── 束（ひとつづり）に入れる（migration 281）──────────────

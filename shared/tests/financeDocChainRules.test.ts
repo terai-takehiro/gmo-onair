@@ -13,7 +13,7 @@
  * どれも「そのとき動いているように見える」ので、報告されません。
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const read = (...p: string[]) => readFileSync(join(__dirname, '..', '..', ...p), 'utf8');
@@ -58,8 +58,10 @@ describe('人が直した当て先は human として残る', () => {
   it('AI の印のまま残すと無修正採用率が実際より良く見える', () => {
     const s = inboxSvc();
     expect(s).toMatch(/input\.project_id !== undefined[\s\S]{0,400}set\('project_source', 'human'\)/);
+    // 束から降ろすときも `human` の印を付ける（付けないと、人が直した行が
+    // 「AI が当てた」まま残り、無修正採用率が実際より良く見える）
     const c = chainSvc();
-    expect(c).toMatch(/project_source = 'human'/);
+    expect(c).toMatch(/downstream\.set\('project_source', 'human'\)/);
   });
 
   it('AI は案件を決め打たない（候補が複数なら付けない）', () => {
@@ -280,5 +282,86 @@ describe('15秒ごとに取り直す画面に、メールの原文を運ばせ�
     const body = s.slice(start, s.indexOf('`', start));
     expect(body).toContain('has_body_text');
     expect(body).not.toContain('${');
+  });
+});
+
+describe('Codex 2巡目（8a047eb）で見つかった穴', () => {
+  it('P1(High): 新しい MCP の読み取りツールに権限を掛ける', () => {
+    /*
+      `enforceToolPermissions` は**どちらの表にも無いツールを素通り**させる
+      （個人スコープの読み取り用の逃がし）。表に足し忘れると、
+      権限が1つも無い利用者でも取引先・案件・金額・支払期日・BOX の在り処まで読める。
+    */
+    const g = read('server', 'src', 'contexts', 'mcp', 'gate.ts');
+    expect(g).toMatch(/list_finance_doc_groups: \{ module: \['dailyops', 'sales'\], level: 'reader' \}/);
+  });
+
+  it('登録した MCP ツールは、権限表か「個人スコープ」の名簿のどちらかに載っている', () => {
+    /*
+      **これが今回の穴の本体**（1本足し忘れただけで素通りした）。
+      素通りを止める（fail closed）と、下の7本＝自分のものだけを読む道具が
+      いきなり権限を要求し始めるので、**ここは名簿で守る**。
+      新しい道具を足したら、どちらかに入れること。
+    */
+    const dir = join(__dirname, '..', '..', 'server', 'src', 'contexts', 'mcp', 'tools');
+    const registered = new Set<string>();
+    for (const f of readdirSync(dir).filter((n) => n.endsWith('.ts'))) {
+      const src = readFileSync(join(dir, f), 'utf8');
+      for (const m of src.matchAll(/registerTool\(\s*'([a-z_0-9]+)'/g)) registered.add(m[1]);
+    }
+    const gate = read('server', 'src', 'contexts', 'mcp', 'gate.ts');
+    const gated = new Set([...gate.matchAll(/^ {2}([a-z_0-9]+): \{ module/gm)].map((m) => m[1]));
+
+    /** 自分のものだけを読む道具（権限で縛ると自分の仕事が見えなくなる） */
+    const PERSONAL = new Set([
+      'get_ai_feedback_digest', 'get_my_task_summary', 'get_task_intake',
+      'list_my_delegations', 'list_my_tasks', 'list_task_intakes', 'list_users',
+    ]);
+
+    const ungated = [...registered].filter((n) => !gated.has(n) && !PERSONAL.has(n)).sort();
+    expect(ungated).toEqual([]);
+    expect(registered.size).toBeGreaterThan(100); // 抽出が壊れたら気づく
+  });
+
+  it('P1: 台帳に渡した書類がある束は行き先を変えられない', () => {
+    // 台帳の行はこの操作では直らないので、変えると書類と台帳が食い違う
+    const s = chainSvc();
+    expect(s).toMatch(/const changesDestination = patch\.expense_kind !== undefined \|\| patch\.project_id !== undefined/);
+    expect(s).toMatch(/status = 'processed'[\s\S]{0,300}ALREADY_PROCESSED/);
+  });
+
+  it('P1/P2: 束で決めたことを中の書類にも降ろす（登録済みは除く）', () => {
+    /*
+      束にだけ書いて降ろさないと、台帳へ渡すダイアログが古い値を読む
+      （人が「販管費」に直したのに仕入として開く／人が直した処理月が効かない）。
+    */
+    const s = chainSvc();
+    expect(s).toMatch(/downstream\.set\('expense_kind'/);
+    expect(s).toMatch(/downstream\.set\('processing_month'/);
+    expect(s).toMatch(/downstream\.set\('payment_terms_days'/);
+    expect(s).toMatch(/AND status <> 'processed'/);
+  });
+
+  it('P1: 処理月と支払サイトは束（人が決めたほう）が先', () => {
+    // 書類側の processing_month は取込時に受信日から当てた値なので、
+    // 書類を先に見ると人が直した月がいつまでも効かない
+    const h = handoff();
+    expect(h).toMatch(/COALESCE\(g\.processing_month, d\.processing_month\)/);
+    expect(h).toMatch(/COALESCE\(g\.payment_terms_days, d\.payment_terms_days\)/);
+    // 案件は逆（書類ごとに人が付け替えられる欄がある）
+    expect(h).toMatch(/COALESCE\(d\.project_id, g\.project_id\)/);
+  });
+
+  it('P1: 取り直しのときに、入らなかった添付を拾い直す', () => {
+    /*
+      Gmail の添付 id は毎回変わるので、取り直すには再取込しかない。
+      素通りしていたので、一度失敗した原本は永久に入らなかった。
+    */
+    const s = inboxSvc();
+    expect(s).toMatch(/await retryFailedAttachments\(String\(dup\.id\), input\)/);
+    // 入っているものには触らない（BOX に無駄な版が増える）
+    expect(s).toMatch(/box_file_id IS NOT NULL/);
+    // 失敗の記録は消してから入れ直す（sha が空だと一意索引が効かず溜まる）
+    expect(s).toMatch(/DELETE FROM finance_doc_attachments WHERE doc_id = \? AND box_file_id IS NULL/);
   });
 });

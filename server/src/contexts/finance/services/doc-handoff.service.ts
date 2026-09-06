@@ -74,8 +74,13 @@ export async function handoffDoc(
   const doc = await queryOne(
     `SELECT d.id, d.status, d.linked_kind, d.linked_id, d.sender, d.subject, d.doc_type,
             d.project_id, d.vendor_name, d.expense_kind,
-            COALESCE(d.processing_month, g.processing_month)     AS processing_month,
-            COALESCE(d.payment_terms_days, g.payment_terms_days) AS payment_terms_days,
+            -- ⚠️ 処理月と支払サイトは **束（人が決めたほう）が先**（Codex P1）。
+            -- 書類側の processing_month は取込のとき受信日から当てた値が入っているので、
+            -- 書類を先に見ると **人が直した月がいつまでも効きません**
+            -- （販管費が違う月に計上される）。書類側にこれを人が直す欄は無い
+            COALESCE(g.processing_month, d.processing_month)     AS processing_month,
+            COALESCE(g.payment_terms_days, d.payment_terms_days) AS payment_terms_days,
+            -- 案件は逆に **書類が先**。書類ごとに人が付け替えられる欄があるため
             COALESCE(d.project_id, g.project_id)                 AS chain_project_id
        FROM finance_docs d
        LEFT JOIN finance_doc_groups g ON g.id = d.group_id

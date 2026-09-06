@@ -85,7 +85,15 @@ export function HandoffDialog({
   );
   const [tax, setTax] = useState('tax10');
   const [amount, setAmount] = useState(exclTax(incl, 'tax10'));
-  const [month, setMonth] = useState(doc.closing_month || (doc.received_at ?? '').slice(0, 7));
+  /*
+    計上月。**人が決めた処理月があればそれが先**（Codex P1）。
+    書類の `processing_month` は取込のとき受信日から当てた値なので、
+    先に見ると人が直した月が効かず、**違う月の販管費**になります。
+    束を直すと書類にも降りてくる（`updateGroup`）ので、ここは書類側を読めば足ります。
+  */
+  const [month, setMonth] = useState(
+    doc.processing_month || doc.closing_month || (doc.received_at ?? '').slice(0, 7),
+  );
   const [due, setDue] = useState(doc.payment_due ?? '');
   const [description, setDescription] = useState(doc.subject ?? '');
   // **当て先が決まっていればそれを初期値に**（空にすると人が選び直す羽目になる）

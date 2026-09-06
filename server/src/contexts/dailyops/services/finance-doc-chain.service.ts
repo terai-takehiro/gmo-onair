@@ -337,20 +337,73 @@ export async function updateGroup(
     }
     put('processing_month', patch.processing_month ?? null);
   }
+  /*
+    ⚠️ **台帳に渡した書類がある束は、行き先を変えられない**（Codex P1）。
+
+    「仕入・販管費に登録」で作った台帳の行は**この操作では直りません**。
+    束だけ販管費に変えると、**書類は販管費だと言っているのに、
+    台帳には案件の仕入として載ったまま**になります（どちらが正か誰にも分からない）。
+    先に登録を取り消してもらいます（取り消しの口は既にあります）。
+
+    行き先以外（題名・取引先・支払サイト・処理月）は変えられます —
+    台帳の行と食い違わないためです。
+  */
+  const changesDestination = patch.expense_kind !== undefined || patch.project_id !== undefined;
+  if (changesDestination) {
+    const locked = await queryOne(
+      `SELECT COUNT(*) AS c FROM finance_docs
+        WHERE group_id = ? AND deleted_at IS NULL AND status = 'processed'`,
+      [id],
+    ) as { c?: number } | undefined;
+    if (Number(locked?.c ?? 0) > 0) {
+      throw new AppError(409, 'ALREADY_PROCESSED',
+        'この取引には仕入・販管費に登録済みの書類があるため、行き先を変えられません。'
+        + '先にその書類の登録を取り消してください');
+    }
+  }
+
   if (assigned.size === 0) return getGroup(id);
 
   const sets = [...assigned.keys()].map((c) => `${c} = ?`);
   const params = [...assigned.values()];
   await execute(`UPDATE finance_doc_groups SET ${sets.join(', ')}, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`, [...params, id]);
 
-  // 束の案件を人が決めたら、中の書類も同じ案件に揃える（`human` として記録）
-  if (patch.project_id !== undefined || patch.expense_kind === 'sga') {
-    const pid = patch.expense_kind === 'sga' ? null : (patch.project_id ?? null);
+  /*
+    ── 決めたことを中の書類にも降ろす ──────────────────────────
+
+    **束にだけ書いて書類に降ろさないと、下流が古い値を読みます**（Codex P1/P2）。
+    実際に起きていたのは:
+
+     ・人が「販管費」に直したのに、書類の `expense_kind` は AI の `purchase` のまま
+       → 台帳へ渡すダイアログが**仕入として開く**
+     ・人が処理月を直したのに、書類には受信日から当てた月が入ったまま
+       → **違う月の販管費として計上される**
+
+    `project_source='human'` に変えるのは、**人が直したことを差分に残す**ため
+    （AI の無修正採用率が実際より良く見えないように）。
+
+    ⚠️ **登録済みの書類には降ろしません。** 台帳の行はこの操作では直らないので、
+    書き換えると台帳と食い違います（上のガードで行き先は止めていますが、
+    処理月・サイトはガードの対象外なのでここでも外します）。
+  */
+  const downstream = new Map<string, unknown>();
+  if (patch.project_id !== undefined || patch.expense_kind !== undefined) {
+    downstream.set('project_id', patch.expense_kind === 'sga' ? null : (patch.project_id ?? null));
+    downstream.set('project_source', 'human');
+  }
+  if (patch.expense_kind !== undefined) {
+    downstream.set('expense_kind', patch.expense_kind ?? null);
+    downstream.set('expense_kind_source', 'human');
+  }
+  if (patch.processing_month !== undefined) downstream.set('processing_month', patch.processing_month ?? null);
+  if (patch.payment_terms_days !== undefined) downstream.set('payment_terms_days', patch.payment_terms_days ?? null);
+
+  if (downstream.size > 0) {
+    const dsets = [...downstream.keys()].map((c) => `${c} = ?`);
     await execute(
-      `UPDATE finance_docs
-          SET project_id = ?, project_source = 'human', updated_at = NOW()
-        WHERE group_id = ? AND deleted_at IS NULL`,
-      [pid, id],
+      `UPDATE finance_docs SET ${dsets.join(', ')}, updated_at = NOW()
+        WHERE group_id = ? AND deleted_at IS NULL AND status <> 'processed'`,
+      [...downstream.values(), id],
     );
   }
   return getGroup(id);
