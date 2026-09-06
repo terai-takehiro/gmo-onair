@@ -22,29 +22,28 @@
  *   絞り込みを揃えるため (2026-08 監査で確定)
  */
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { CalendarDays, ChevronRight, Download, Search, UserPlus, X } from 'lucide-react';
+import { Download, Search, UserPlus, X } from 'lucide-react';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import {
   MobileFilterBar, MobileFilterField, MobileFilterSegments,
 } from '@gmo-onair/shared/src/client-v4/mobileFilterBar';
-import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
-import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
+import { RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import {
-  Delayed, EmptyState, ErrorPanel, NoSearchResults, SkeletonRows,
+  Delayed, EmptyState, ErrorPanel, SkeletonRows,
 } from '@gmo-onair/shared/src/client/states';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { usePermissions } from '@/hooks/usePermissions';
 import type { InviewRegistration } from '@/lib/types';
 import { useInviewList } from '@/lib/inviewApi';
-import { AttendeeCard } from './inview/AttendeeCard';
 import { DayCards } from './inview/DayCards';
+import { DayRow } from './inview/DayRow';
 import { InviewDialog } from './inview/InviewDialog';
+import { SearchHits } from './inview/SearchHits';
 import {
-  UNDATED, checkedInHeadOf, dayKey, downloadCsv, formatDayTitle, headOf,
+  checkedInHeadOf, dayKey, downloadCsv, headOf,
   matchedFields, matchesTerms, searchTerms, todayKey,
 } from './inview/logic';
 
@@ -307,96 +306,6 @@ export default function InviewPage() {
           onClose={() => { setAdding(false); setEditing(null); }}
         />
       )}
-    </div>
-  );
-}
-
-/**
- * 開催日1行 (PC専用)。**押すとその日の受付ページ**へ行く (この行では受付できない)
- *
- * スマホは `./inview/DayCards.tsx` の `DayCards`（カード型）に差し替え済み
- * (v4 ネイティブUI監査 2026-08-20)。この行は 1024px 以上でだけ描かれるので、
- * `hideOnMobile` / `RowSub` の畳みは不要 (画面の出し分けは `InviewPage` の `isMobile` 分岐)。
- */
-function DayRow({ g, today }: { g: DayGroup; today: string }) {
-  const isToday = g.key === today;
-  const isPast = !!g.date && g.date < today;
-  return (
-    <Row divider interactive align="start" className="p-0">
-      <Link
-        to={`/inview/${g.key}`}
-        className="flex min-h-[46px] w-full items-start gap-3 px-4 py-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <RowMain>
-          <RowTitle>{g.key === UNDATED ? '日付未定の回' : formatDayTitle(g.key)}</RowTitle>
-          <RowSub>
-            {g.sessions
-              .map((s) => [s.time, s.audience, `${s.head}名`].filter(Boolean).join(' '))
-              .join(' ／ ')}
-          </RowSub>
-        </RowMain>
-
-        <RowSlot w={72} placeholder="">
-          {isToday ? <TableBadge label="今日" w={null} className="bg-primary text-primary-foreground" />
-            : isPast ? <TableBadge label="終了" w={null} className="bg-muted text-muted-foreground" />
-              : null}
-        </RowSlot>
-
-        <RowSlot w={72} align="right">
-          <span className="font-number text-sub">{g.regs}組</span>
-        </RowSlot>
-
-        <RowSlot w={72} align="right">
-          <span className="font-number text-sub">{g.head}名</span>
-        </RowSlot>
-
-        <RowSlot w={96} align="right">
-          <span className={`font-number text-sub ${g.checkedIn > 0 ? 'text-success' : 'text-muted-foreground'}`}>
-            {g.checkedIn} / {g.head}名
-          </span>
-        </RowSlot>
-
-        <RowSlot w={56} align="right" placeholder="">
-          <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-        </RowSlot>
-      </Link>
-    </Row>
-  );
-}
-
-/** 回をまたいだ検索の結果。**当たった人ごとに、その日の受付ページへの入口**を付ける */
-function SearchHits({
-  query, hits, canEdit, onEdit, onClear,
-}: {
-  query: string;
-  hits: Array<{ r: InviewRegistration; matchedIn: string[] }>;
-  canEdit: boolean;
-  onEdit: (r: InviewRegistration) => void;
-  onClear: () => void;
-}) {
-  if (hits.length === 0) {
-    return <NoSearchResults keyword={query} onClearFilters={onClear} />;
-  }
-  return (
-    <div className="flex flex-col gap-3">
-      <p className="text-sub text-muted-foreground">
-        「{query}」に当てはまる来場予約 <span className="font-number font-bold text-foreground">{hits.length}</span> 件
-      </p>
-      {hits.map(({ r, matchedIn }) => (
-        <div key={r.id} className="flex flex-col gap-1">
-          <Link
-            to={`/inview/${dayKey(r)}`}
-            className="text-sub-sm inline-flex items-center gap-1 font-bold text-primary hover:underline"
-          >
-            <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
-            {r.session_date ? formatDayTitle(r.session_date) : '日付未定の回'}
-            {r.session_time ? ` ${r.session_time}` : ''}
-            の受付ページを開く
-            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
-          </Link>
-          <AttendeeCard r={r} canEdit={canEdit} onEdit={() => onEdit(r)} matchedIn={matchedIn} />
-        </div>
-      ))}
     </div>
   );
 }

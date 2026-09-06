@@ -638,7 +638,7 @@ export default function StudioBookingDialog({
                   手で題名を考えて書いた直後に下で案件を選ぶと書き換わっていた。
                   **唯一の必須**なので、プレースホルダだけで済ませず見出しに印を出す */}
               <div className="lg:col-span-2">
-                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">タイトル（必須）</p>
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">タイトル（必須）</p>{/* ui-tokens-ok: 同じダイアログの他見出し（予約種別・案件・日時・メモ）と揃える既存書式 */}
                 <div className="rounded-xl border bg-muted/30">
                   <input
                     type="text"
