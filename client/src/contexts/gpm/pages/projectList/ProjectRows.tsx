@@ -23,8 +23,15 @@
  * 42% とだけ出ても、10 工程の 4 つ目なのか 100 タスクの 42 なのか分かりません。
  * 帯の下に **`4 / 10 工程`** を添えます（サーバーが数えた `phase_done` /
  * `phase_count` をそのまま使う — 画面で数え直さない）。
+ *
+ * ── 表頭はクリックで並べ替えられる（v4・一覧フォーマット統一 PR②・delta 4） ──
+ *
+ * 並び替え自体は既にプルダウン（`FilterBar.tsx` の `SORT_OPTIONS`）で実装済みなので、
+ * ここは**同じ `sort` state を押しボタンにして見せているだけ**（案件一覧
+ * `sales/pages/projectList/ProjectRows.tsx` と同じ作法: 印は指を乗せたときだけ薄く出す）。
+ * 押せるのは `SORT_OPTIONS` に対応する2列（見積・次のアクション）だけ。
  */
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, ArrowDown, ChevronsUpDown } from 'lucide-react';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
@@ -33,6 +40,7 @@ import {
   ESTIMATE_STATUS_LABEL, KIND_LABEL, dueLabel, dueTone, progressPct, ymd,
   type GpmProjectRow,
 } from '../../types';
+import { headerSortActive, nextHeaderSort, type SortKey } from './sort';
 /**
  * **ステージのバッジは案件一覧と同じものを使う** (migration 179)。
  * プロジェクトは GLS-B の案件なので、同じステージに別の色・別の言葉を当てると
@@ -49,15 +57,65 @@ import {
  */
 import { HealthBadge } from '@/contexts/sales/pages/projectList/health';
 
-export function ProjectRowsHeader() {
+/**
+ * 押せる表頭1マス。`headerKey` が無い列（プロジェクト ／ 状態 ／ いまの工程 ／
+ * 進み具合 ／ 未確認）はプルダウンに対応する並び順が無いので、ただの文字のまま
+ * （`ProjectRowsHeader` が `headerKey` を渡した列だけボタンになる）。
+ */
+function HeaderLabel({
+  label, headerKey, sort, onSort, align,
+}: {
+  label: string;
+  headerKey?: SortKey;
+  sort?: SortKey;
+  onSort?: (key: SortKey) => void;
+  align?: 'right';
+}) {
+  if (!headerKey || !sort || !onSort) {
+    return <span className={cn('truncate', align === 'right' && 'block text-right')}>{label}</span>;
+  }
+  const active = headerSortActive(sort, headerKey);
+  return (
+    <button
+      type="button"
+      onClick={() => onSort(nextHeaderSort(sort, headerKey))}
+      title={`${label}で並べ替える`}
+      aria-label={`${label}で並べ替える${active ? '・並べ替え中' : ''}`}
+      className={cn(
+        'group -mx-1 flex w-full items-center gap-1 rounded-control px-1 py-0.5 hover:bg-border-faint',
+        align === 'right' && 'justify-end',
+        active && 'font-bold text-primary',
+      )}
+    >
+      <span className="truncate">{label}</span>
+      {/* **並べ替えていないときの印は、指を乗せたときだけ出す**（案件一覧と同じ理由 —
+          常に出すと固定幅の列が切れる） */}
+      {active
+        ? <ArrowDown className="h-3 w-3 shrink-0" aria-hidden="true" />
+        : <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-40" aria-hidden="true" />}
+    </button>
+  );
+}
+
+export function ProjectRowsHeader({
+  sort, onSort,
+}: {
+  /** いまの並び順。プルダウン（`FilterBar`）と共有する。省略すると表頭は押せないただの文字になる */
+  sort?: SortKey;
+  onSort?: (key: SortKey) => void;
+}) {
   return (
     <RowHeader className="hidden sm:flex">
       <RowMain>プロジェクト ／ 依頼元・担当</RowMain>
       <RowSlot w={96}>状態</RowSlot>
       <RowSlot w={128}>いまの工程</RowSlot>
       <RowSlot w={96}>進み具合</RowSlot>
-      <RowSlot w={128} align="right">見積</RowSlot>
-      <RowSlot w={200}>次のアクション</RowSlot>
+      <RowSlot w={128} align="right" aria-sort={sort ? (headerSortActive(sort, 'estimate_desc') ? 'descending' : 'none') : undefined}>
+        <HeaderLabel label="見積" headerKey="estimate_desc" sort={sort} onSort={onSort} align="right" />
+      </RowSlot>
+      <RowSlot w={200} aria-sort={sort ? (headerSortActive(sort, 'due_asc') ? 'ascending' : 'none') : undefined}>
+        <HeaderLabel label="次のアクション" headerKey="due_asc" sort={sort} onSort={onSort} />
+      </RowSlot>
       <RowSlot w={56} align="right">未確認</RowSlot>
     </RowHeader>
   );

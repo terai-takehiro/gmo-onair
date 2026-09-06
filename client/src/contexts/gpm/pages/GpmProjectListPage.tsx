@@ -23,10 +23,33 @@
  * サーバーに並び替えを頼むと1回のやり取りが増えるだけで正確さは変わらない
  * （`useGpmProjects` の説明と同じ理由）。
  *
- * **案件管理の台帳と違って持たせていないもの**: 実施期間の絞り込み・ページ送り・
- * Excel 入出力・並び替え時の FLIP アニメーション。
- * 構築プロジェクトは同時に数十件で、案件のように四半期単位で積み上がる数（数百件）
- * ではないため、まずは軽い形にしてある。件数が増えたら案件台帳から同じ部品を移す。
+ * **案件管理の台帳と違って持たせていないもの**: 実施期間の絞り込み・
+ * Excel 入出力・並び替え時の FLIP アニメーション。構築プロジェクトは同時に数十件で、
+ * 案件のように四半期単位で積み上がる数（数百件）ではないため、まずは軽い形にしてある。
+ *
+ * ⚠️ **Excel 入出力は今回のフォーマット統一 PR では足していない**（モックの
+ * delta 4 は「表頭クリック並べ替え・Excel 入出力を案件管理と揃える」と書いているが、
+ * 表頭クリック並べ替えだけをこの PR で入れた）。案件一覧の Excel 入出力は
+ * `POST/GET /projects/excel/*`（`server/.../excel.routes.ts` の `PROJECTS_CONFIG`）
+ * という**サーバー側の入出力そのもの**を持っており、GPM プロジェクト
+ * （`gls_category='B'`）には同等の口が無い。それを新設するのは「見え方の作法を
+ * 揃える」を超えて**新しい機能を足す**ことになり、このPRの注意書き
+ * 「機能は変えない。見え方の作法だけ変える」に反するため、別タスクへ切り出した。
+ *
+ * ── 見え方（リスト/ボード）・状態・区分・並び順は URL クエリに持つ
+ *    （v4・一覧フォーマット統一 PR②・delta 2）────────────────────
+ *
+ * 旧実装は全部 `useState` だったので、共有した URL でも戻る操作でも
+ * 絞り込みが再現しなかった。**案件一覧と同じキー名**（`?view=` `?stage=`）に
+ * 揃え、区分・並び順にも `?kind=` `?sort=` を足す。検索欄だけは案件一覧と
+ * 同じくローカル state のまま（案件一覧の `search` も URL に持たせていない）。
+ *
+ * ── 件数表示とページ送り（v4・一覧フォーマット統一 PR②・delta 3）──────
+ *
+ * サーバーは全件返す設計のまま（絞り込みチップの件数を保つため）なので、
+ * 画面側で切って `PageNav.tsx`（`projectList/PageNav.tsx`）に渡す。
+ * ボードは案件一覧と同じく**ページ送りを掛けずに絞り込み後の全件**を並べる
+ * （かんばんは列で分けるので、ページで割ると列ごとの件数が実態とずれる）。
  *
  * ── ボードはスマホに出さない（2026-08 追記）─────────────────
  *
@@ -41,17 +64,12 @@
  * 重なっていた（スマホ最適化の洗い出し 2026-08-20・要対応2）。案件一覧・機材台帳
  * などと同じ共通部品（`shared/src/client-v4/mobileFilterBar.tsx`）に載せ替えた。
  * **検索欄だけは畳まない**（探すのは絞り込みではなく目的そのもの、という決めごと）。
- * PC 側は1文字も変えていない。
  */
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { List, LayoutGrid, Plus, Search } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { List, LayoutGrid, Plus, Info } from 'lucide-react';
 import { localDateStr } from '@/lib/format';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
@@ -64,62 +82,23 @@ import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { PullToRefresh } from '@gmo-onair/shared/src/client-v4/pullToRefresh';
 import { MobileFilterBar, MobileFilterField, MobileFilterSegments } from '@gmo-onair/shared/src/client-v4/mobileFilterBar';
 import { useGpmProjects } from '../queries';
-import { KIND_LABEL, STAGE_GROUPS, ymd, type GpmKind, type GpmProjectRow } from '../types';
+import { KIND_LABEL, STAGE_GROUPS, type GpmKind } from '../types';
 import { ProjectRow, ProjectRowsHeader } from './projectList/ProjectRows';
 import { GpmProjectCards } from './projectList/ProjectCards';
 import { GpmProjectBoard } from './projectList/ProjectBoard';
+import { FilterBar, TermHint } from './projectList/FilterBar';
+import { PageNav, type GpmPagination } from './projectList/PageNav';
+import { SORT_OPTIONS, sortRows, type SortKey } from './projectList/sort';
 
-type SortKey = 'recommended' | 'estimate_desc' | 'due_asc';
-
-const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: 'recommended', label: 'おすすめ順' },
-  { value: 'estimate_desc', label: '見積金額が大きい順' },
-  { value: 'due_asc', label: '期限が近い順' },
-];
-
-/** 期限なしは末尾（無いことを「近い」とは見なさない）。null 同士・値同士はそれぞれ元の順を保つ */
-function compareDue(da: string | null, db: string | null, tie: number): number {
-  if (da === db) return tie;
-  if (da === null) return 1;
-  if (db === null) return -1;
-  return da < db ? -1 : 1;
-}
-
-/**
- * **「おすすめ順」は案件台帳の `sort_by=recommended` と同じ考え方で並べる**
- * （`server/.../project.service.ts` の `RECOMMENDED_SORT_SQL`）:
- * ① 停滞している案件を先に ② 期限が近い順。
- *
- * 「停滞」の判定は**サーバーが一覧の行に付けて返す `health`**
- * （`project-health.ts` の単一定義。終端・スヌーズ中・期限超過は 'stalled' に
- * ならない）をそのまま読む。以前は `STALE_DAYS`（7日・`updated_at` 比較）で
- * この画面だけ近似していて、案件一覧のしきい値を直しても GPM だけ古い判定の
- * ままになる形だった（docs/core-redesign-plan.md §3-1 で単一定義へ寄せた）。
- */
-function recommendedRank(p: GpmProjectRow): number {
-  return p.health === 'stalled' ? 0 : 1;
-}
-
-function sortRows(rows: GpmProjectRow[], sort: SortKey): GpmProjectRow[] {
-  const withKey = rows.map((p, i) => ({ p, i }));
-  if (sort === 'estimate_desc') {
-    withKey.sort((a, b) => (b.p.estimate_amount ?? -1) - (a.p.estimate_amount ?? -1) || a.i - b.i);
-  } else if (sort === 'due_asc') {
-    withKey.sort((a, b) => compareDue(ymd(a.p.next_due), ymd(b.p.next_due), a.i - b.i));
-  } else {
-    withKey.sort((a, b) => {
-      const rankDiff = recommendedRank(a.p) - recommendedRank(b.p);
-      if (rankDiff !== 0) return rankDiff;
-      return compareDue(ymd(a.p.next_due), ymd(b.p.next_due), a.i - b.i);
-    });
-  }
-  return withKey.map((x) => x.p);
-}
+/** 1ページの件数。案件一覧と同じ（`sales/pages/ProjectListPage.tsx` の `PAGE_SIZE`） */
+const PAGE_SIZE = 20;
 
 /**
  * 状態のチップ。**束ねるのは読むときだけ** — 保存するのはいつも `stage` そのもの
  * （`types.ts` の `STAGE_GROUPS`。サーバーの `STAGE_GROUPS` と同じ束ね方）。
- * 「動いているもの」を先頭に置く（毎日見るのはここ）。
+ * 「動いているもの」を先頭に置く（毎日見るのはここ）。**既定はこの `open`**
+ * （`stageKey` の初期値・`clearFilters` の両方がここを指す。案件一覧の
+ * `ACTIVE_STAGES`＝既定「進行中」と同じ役目）。
  */
 const STAGE_GROUP_STAGES = (key: string) => STAGE_GROUPS.find((g) => g.key === key)?.stages ?? [];
 const STAGE_CHIPS = [
@@ -128,6 +107,7 @@ const STAGE_CHIPS = [
   ...STAGE_GROUPS.filter((g) => g.key !== 'all'),
   { key: 'all', label: 'すべて', stages: [] as typeof STAGE_GROUPS[number]['stages'] },
 ];
+const DEFAULT_STAGE_KEY = 'open';
 
 const KINDS: GpmKind[] = ['self_build', 'group_order'];
 
@@ -137,22 +117,66 @@ export default function GpmProjectListPage() {
   // **作れない人にボタンを出さない。** 出しても押せば権限がありませんと言われるだけ
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('sales', 'editor');
-  const [stageKey, setStageKey] = useState('open');
-  const [kind, setKind] = useState<GpmKind | ''>('');
+
+  const [params, setParams] = useSearchParams();
+
+  /** 見え方（リスト／ボード）。**キー名は案件一覧と同じ `?view=`** */
+  const rawView = params.get('view');
+  const rawViewKey: 'list' | 'board' = rawView === 'board' ? 'board' : 'list';
+  // **スマホではボードをリストに落とす**（案件一覧と同じ理由）
+  const view: 'list' | 'board' = isMobile && rawViewKey === 'board' ? 'list' : rawViewKey;
+  const setView = (v: 'list' | 'board') => {
+    const next = new URLSearchParams(params);
+    if (v === 'list') next.delete('view'); else next.set('view', v);
+    setParams(next, { replace: true });
+  };
+
+  /** 状態のチップ。**キー名は案件一覧と同じ `?stage=`**。知らない値は既定に落とす */
+  const rawStage = params.get('stage');
+  const stageKey = rawStage && STAGE_CHIPS.some((c) => c.key === rawStage) ? rawStage : DEFAULT_STAGE_KEY;
+  const setStageKey = (v: string) => {
+    const next = new URLSearchParams(params);
+    if (v === DEFAULT_STAGE_KEY) next.delete('stage'); else next.set('stage', v);
+    setParams(next, { replace: true });
+  };
+
+  /** 区分（自社構築／グループ受託）。`?kind=` */
+  const rawKind = params.get('kind');
+  const kind: GpmKind | '' = rawKind === 'self_build' || rawKind === 'group_order' ? rawKind : '';
+  const setKind = (v: GpmKind | '') => {
+    const next = new URLSearchParams(params);
+    if (!v) next.delete('kind'); else next.set('kind', v);
+    setParams(next, { replace: true });
+  };
+
+  /** 並び順。`?sort=` */
+  const rawSort = params.get('sort');
+  const sort: SortKey = SORT_OPTIONS.some((o) => o.value === rawSort) ? (rawSort as SortKey) : 'recommended';
+  const setSort = (v: SortKey) => {
+    const next = new URLSearchParams(params);
+    if (v === 'recommended') next.delete('sort'); else next.set('sort', v);
+    setParams(next, { replace: true });
+  };
+
+  // **検索欄はローカル state のまま**（案件一覧の `search` も URL に持たせていない）
   const [search, setSearch] = useState('');
   // 問い合わせの鍵だけ遅らせる（入力欄は `search` のまま即時に描く）。
   // 一覧APIは行ごとの相関サブクエリが重く、1文字ごとに投げると打鍵の数だけ全件走査が走る
   const appliedSearch = useDebounced(search.trim(), 300);
-  const [view, setView] = useState<'list' | 'board'>('list');
-  const [sort, setSort] = useState<SortKey>('recommended');
+  const [page, setPage] = useState(1);
+  const [termOpen, setTermOpen] = useState(false);
+
+  // 何か触ったら1ページ目に戻す。戻さないと「3ページ目のまま 0 件」になる（案件一覧と同じ作法）
+  const reset = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPage(1); };
 
   // **スマホでボードを選んだまま画面を回転・PCから引き継いだ場合に備える。**
   // 240px 固定カラムが5列並ぶボードは375pxに1列も入らないので、スマホでは常にリストへ落とす。
   // useEffect は描画のあとに走るので、state の書き戻しだけだと**1コマだけボードが出る**。
   // 描くときは `effectiveView` を見る（概要タブのガント・かんばんと同じ形）
   useEffect(() => {
-    if (isMobile && view === 'board') setView('list');
-  }, [isMobile, view]);
+    if (isMobile && rawViewKey === 'board') setView('list');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile, rawViewKey]);
   const effectiveView = isMobile ? 'list' : view;
 
   const today = useMemo(() => localDateStr(new Date()), []);
@@ -166,7 +190,17 @@ export default function GpmProjectListPage() {
     // 「すべて」は畳まない（見送りも含めて全部出す）
     return stages.length === 0 ? byKind : byKind.filter((p) => stages.includes(p.stage));
   }, [byKind, stageKey]);
-  const rows = useMemo(() => sortRows(stageFiltered, sort), [stageFiltered, sort]);
+  const sortedRows = useMemo(() => sortRows(stageFiltered, sort), [stageFiltered, sort]);
+
+  // **ボードはページ送りを掛けない**（列で分けるので、ページで割ると列ごとの件数が実態とずれる）
+  const totalPages = Math.max(1, Math.ceil(sortedRows.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const rows = effectiveView === 'board'
+    ? sortedRows
+    : sortedRows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pagination: GpmPagination = {
+    page: safePage, limit: PAGE_SIZE, total: sortedRows.length, totalPages,
+  };
 
   const chips = STAGE_CHIPS.map((c) => ({
     key: c.key,
@@ -180,20 +214,34 @@ export default function GpmProjectListPage() {
   const activeFilters = [
     search.trim() ? `探している言葉: ${search.trim()}` : null,
     kind ? `区分: ${KIND_LABEL[kind]}` : null,
-    stageKey !== 'all' ? `状態: ${STAGE_CHIPS.find((c) => c.key === stageKey)?.label}` : null,
+    stageKey !== DEFAULT_STAGE_KEY ? `状態: ${STAGE_CHIPS.find((c) => c.key === stageKey)?.label}` : null,
   ].filter((f): f is string => f !== null);
 
-  const clearFilters = () => { setSearch(''); setKind(''); setStageKey('all'); };
+  /**
+   * 「絞り込みを外す」の戻り先を1つにする（v4・一覧フォーマット統一 PR②・delta 5）。
+   * 旧実装は PC の `clearFilters` が「すべて」（`stageKey: 'all'`）に戻す一方、
+   * スマホの `onClearAll` は「進行中・準備中」（`'open'`）に戻し、**同じ操作なのに
+   * 戻り先が2通り**だった。**`DEFAULT_STAGE_KEY`（＝初期値と同じ「動いているもの」）
+   * に統一**し、この1つの関数を両方から呼ぶ。
+   */
+  const clearFilters = () => {
+    setSearch(''); setKind(''); setStageKey(DEFAULT_STAGE_KEY); setSort('recommended'); setPage(1);
+  };
+
+  const filterProps = {
+    search, onSearch: reset(setSearch),
+    kind, onKind: reset(setKind),
+    sort, onSort: reset(setSort),
+    termOpen, onTermOpen: setTermOpen,
+  };
 
   return (
     <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <PageHeader
         title="プロジェクト一覧"
-        sub={
-          data
-            ? `${all.length}件 ・ すべて発注が確定したもの（売れるかどうかを追う段階は案件管理です）`
-            : 'すべて発注が確定したもの'
-        }
+        // **サブタイトルは「件数 ・ 画面が何を見せているか」の短い形**（delta 6）。
+        // 方針の説明（「発注が確定したもの…」）は「用語」ボタンの中身（`TermHint`）へ移した
+        sub={data ? `${all.length}件 ・ 全員が同じものを見ています` : '全員が同じものを見ています'}
         primaryAction={
           canEdit ? (
             <Button onClick={() => navigate('/gpm/projects/new')}>
@@ -230,23 +278,23 @@ export default function GpmProjectListPage() {
         <MobileFilterBar
           search={{
             value: search,
-            onChange: setSearch,
+            onChange: reset(setSearch),
             placeholder: 'プロジェクト名・依頼元で検索',
             label: 'プロジェクトを検索',
           }}
-          activeCount={(stageKey !== 'open' ? 1 : 0) + (kind ? 1 : 0) + (sort !== 'recommended' ? 1 : 0)}
-          onClearAll={() => { setStageKey('open'); setKind(''); setSort('recommended'); }}
+          activeCount={(stageKey !== DEFAULT_STAGE_KEY ? 1 : 0) + (kind ? 1 : 0) + (sort !== 'recommended' ? 1 : 0)}
+          onClearAll={clearFilters}
           title="状態・区分・並び順"
         >
           <MobileFilterField label="状態">
-            <FilterChips label="状態で絞り込む" items={chips} value={stageKey} onChange={setStageKey} />
+            <FilterChips label="状態で絞り込む" items={chips} value={stageKey} onChange={reset(setStageKey)} />
           </MobileFilterField>
           <MobileFilterField label="区分">
             <MobileFilterSegments
               label="区分で絞り込む"
               items={[['', 'すべて'], ...KINDS.map((k) => [k, KIND_LABEL[k]] as const)] as [GpmKind | '', string][]}
               value={kind}
-              onChange={setKind}
+              onChange={reset(setKind)}
             />
           </MobileFilterField>
           <MobileFilterField label="並び順">
@@ -254,56 +302,26 @@ export default function GpmProjectListPage() {
               label="並び順"
               items={SORT_OPTIONS.map((o) => [o.value, o.label] as [SortKey, string])}
               value={sort}
-              onChange={setSort}
+              onChange={reset(setSort)}
             />
+          </MobileFilterField>
+          <MobileFilterField label="用語">
+            <button
+              type="button"
+              onClick={() => setTermOpen(!termOpen)}
+              className="min-h-tap flex w-full items-center gap-1.5 text-sub text-primary"
+            >
+              <Info className="h-3.5 w-3.5" aria-hidden="true" />区分・状態・並び順の意味
+            </button>
           </MobileFilterField>
         </MobileFilterBar>
       ) : (
         <>
-          <FilterChips label="状態で絞り込む" items={chips} value={stageKey} onChange={setStageKey} />
-
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative min-w-0 flex-1 sm:max-w-md">
-              <Search
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="プロジェクト名・依頼元で検索"
-                className="pl-9"
-                aria-label="プロジェクトを検索"
-              />
-            </div>
-            <div className="inline-flex overflow-hidden rounded-control border border-border" role="group" aria-label="区分で絞り込む">
-              {([['', 'すべての区分'], ...KINDS.map((k) => [k, KIND_LABEL[k]] as const)] as const).map(([v, label], i) => (
-                <button
-                  key={v || 'all'}
-                  type="button"
-                  aria-pressed={kind === v}
-                  onClick={() => setKind(v as GpmKind | '')}
-                  className={cn(
-                    'min-h-tap text-sub inline-flex items-center px-3.5 lg:min-h-[40px]',
-                    i > 0 && 'border-l border-border',
-                    kind === v ? 'bg-primary-surface font-bold text-primary' : 'text-muted-foreground hover:bg-muted',
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
-              <SelectTrigger className="w-auto min-w-0 gap-1.5" aria-label="並び順">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SORT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+          <FilterChips label="状態で絞り込む" items={chips} value={stageKey} onChange={reset(setStageKey)} />
+          <FilterBar {...filterProps} />
         </>
       )}
+      {termOpen && <TermHint onClose={() => setTermOpen(false)} />}
 
       {isError ? (
         <ErrorPanel title="プロジェクトを読み込めませんでした" onRetry={() => refetch()} />
@@ -331,15 +349,21 @@ export default function GpmProjectListPage() {
       ) : effectiveView === 'board' ? (
         <GpmProjectBoard rows={rows} today={today} onOpen={(id) => navigate(`/gpm/projects/${id}`)} />
       ) : isMobile ? (
-        <PullToRefresh onRefresh={refetch}>
-          <GpmProjectCards rows={rows} today={today} onOpen={(id) => navigate(`/gpm/projects/${id}`)} />
-        </PullToRefresh>
+        <div className="space-y-3.5">
+          <PullToRefresh onRefresh={refetch}>
+            <GpmProjectCards rows={rows} today={today} onOpen={(id) => navigate(`/gpm/projects/${id}`)} />
+          </PullToRefresh>
+          <PageNav pagination={pagination} page={safePage} onPage={setPage} filtered={activeFilters.length > 0} />
+        </div>
       ) : (
-        <div className="overflow-hidden rounded-card border border-border bg-card">
-          <ProjectRowsHeader />
-          {rows.map((p) => (
-            <ProjectRow key={p.id} p={p} today={today} onOpen={() => navigate(`/gpm/projects/${p.id}`)} />
-          ))}
+        <div className="space-y-3.5">
+          <div className="overflow-hidden rounded-card border border-border bg-card">
+            <ProjectRowsHeader sort={sort} onSort={reset(setSort)} />
+            {rows.map((p) => (
+              <ProjectRow key={p.id} p={p} today={today} onOpen={() => navigate(`/gpm/projects/${p.id}`)} />
+            ))}
+          </div>
+          <PageNav pagination={pagination} page={safePage} onPage={setPage} filtered={activeFilters.length > 0} />
         </div>
       )}
 
