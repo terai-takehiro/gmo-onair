@@ -17,10 +17,11 @@
  *          （そのまま足すと二重に数える。失注の案件はどちらにも足さない）
  *   粗利・営業利益はそこから引き直す。確度は `project_stage_probabilities`（v4.5.25）。
  *
- * ── unconfirmed[]（資料の注記の材料）────────────────────────────
- *   その月の `status='estimate'` の売上（案件ごとの合計）と、その月に本番があるのに確定売上が
- *   1件も無い案件（金額は最新の見積 → 想定金額 → 0 の順）。**後者は表の数字には足していない**
- *   （売上の行が無い案件は確度加味の対象にならない。注記で人が気づけるようにするだけ）。
+ * ── unconfirmed[] / unregistered[]（資料の注記の材料）───────────────
+ *   unconfirmed … その月の `status='estimate'` の売上（案件ごとの合計）。**見込の表に確度加味で入っている**
+ *   unregistered … その月に本番があるのに売上（確定・見積）が 1件も無い案件（金額は最新の見積 → 想定金額 → 0）。
+ *   **表の数字には足していない**（売上の行が無い案件は確度加味の対象にならない。注記で人が気づけるようにするだけ）。
+ *   2つを混ぜると「見込に含めた」と書いた注記に含めていない金額が並び、資料の説明と表が合わなくなる。
  *
  * ── 表の行 ──────────────────────────────────────────────────
  * 9/4 版の 6 行。「粗利」は 売上 − 変動原価（＝限界利益）、「営業利益」は 粗利 − 販管費 − 償却相当額。
@@ -131,11 +132,12 @@ async function weightedAdditions(ym: string): Promise<Record<EntityScope, Additi
   return out;
 }
 
-// ── 未確定の売上（注記の材料）──────────────────────────────────
+// ── 未確定の売上・売上未登録の案件（注記の材料）──────────────────────
 
 interface Unconfirmed { project_id: string; project_name: string; amount: number; entity_code: BusinessEntity }
+interface PlNotes { unconfirmed: Unconfirmed[]; unregistered: Unconfirmed[] }
 
-async function listUnconfirmed(ym: string): Promise<Unconfirmed[]> {
+async function listUnconfirmed(ym: string): Promise<PlNotes> {
   const [from, to] = monthRange(ym);
   const [estimateRows, eventRows] = await Promise.all([
     queryAll(
@@ -166,20 +168,19 @@ async function listUnconfirmed(ym: string): Promise<Unconfirmed[]> {
       [FIXED_COGS_CODE, to, from],
     ) as Promise<{ id: string; name: string; entity_code: string; amount: unknown }[]>,
   ]);
-  const seen = new Set<string>();
-  const out: Unconfirmed[] = [];
-  for (const r of [...estimateRows, ...eventRows]) {
-    if (seen.has(r.id)) continue;
-    seen.add(r.id);
-    out.push({ project_id: r.id, project_name: r.name, amount: n(r.amount), entity_code: r.entity_code as BusinessEntity });
-  }
-  return out;
+  const toNote = (r: { id: string; name: string; entity_code: string; amount: unknown }): Unconfirmed =>
+    ({ project_id: r.id, project_name: r.name, amount: n(r.amount), entity_code: r.entity_code as BusinessEntity });
+  const unconfirmed = estimateRows.map(toNote);
+  // 見積の売上がある案件は上に入っている（見込に含めた側）。残りが「売上の行が 1 件も無い」案件
+  const inForecast = new Set(unconfirmed.map((u) => u.project_id));
+  const unregistered = eventRows.filter((r) => !inForecast.has(r.id)).map(toNote);
+  return { unconfirmed, unregistered };
 }
 
 // ── 表を組む ────────────────────────────────────────────────
 
 function toTable(
-  ym: string, mode: MonthlyPlTable['mode'], pl: MonthlyPl, addition: Addition | null, unconfirmed: Unconfirmed[],
+  ym: string, mode: MonthlyPlTable['mode'], pl: MonthlyPl, addition: Addition | null, notes: PlNotes,
 ): MonthlyPlTable {
   const actual: PlActual = { ...pl.actual };
   if (addition) {
@@ -193,7 +194,8 @@ function toTable(
     year_month: ym,
     mode,
     lines: toLines(actual, pl.budget),
-    unconfirmed: unconfirmed.map(({ project_id, project_name, amount }) => ({ project_id, project_name, amount })),
+    unconfirmed: notes.unconfirmed.map(({ project_id, project_name, amount }) => ({ project_id, project_name, amount })),
+    unregistered: notes.unregistered.map(({ project_id, project_name, amount }) => ({ project_id, project_name, amount })),
     has_override: pl.has_override,
     override_note: pl.override_note,
   };
@@ -201,7 +203,8 @@ function toTable(
 
 /** `GMO`（コストセンター）は数字があるときだけ出す（実績が 1 円でもある・目標が入っている） */
 function hasAnyNumber(table: MonthlyPlTable): boolean {
-  return table.lines.some((l) => l.actual !== 0 || l.budget != null) || table.unconfirmed.length > 0;
+  return table.lines.some((l) => l.actual !== 0 || l.budget != null)
+    || table.unconfirmed.length > 0 || table.unregistered.length > 0;
 }
 
 /**
@@ -209,14 +212,15 @@ function hasAnyNumber(table: MonthlyPlTable): boolean {
  * `mode: 'forecast'` は着地に受注前案件の確度加味を上乗せする。
  */
 export async function buildPlByEntity(ym: string, mode: MonthlyPlTable['mode']): Promise<PlByEntity> {
-  const [pls, additions, unconfirmed] = await Promise.all([
+  const [pls, additions, notes] = await Promise.all([
     Promise.all(SCOPES.map((scope) => keepReportService.getMonthlyPl(ym, scope))),
     mode === 'forecast' ? weightedAdditions(ym) : Promise.resolve(null),
     listUnconfirmed(ym),
   ]);
   const tables = new Map<EntityScope, MonthlyPlTable>();
   SCOPES.forEach((scope, i) => {
-    const forScope = scope === 'all' ? unconfirmed : unconfirmed.filter((u) => u.entity_code === scope);
+    const pick = (rows: Unconfirmed[]) => (scope === 'all' ? rows : rows.filter((u) => u.entity_code === scope));
+    const forScope: PlNotes = { unconfirmed: pick(notes.unconfirmed), unregistered: pick(notes.unregistered) };
     tables.set(scope, toTable(ym, mode, pls[i], additions ? additions[scope] : null, forScope));
   });
   const out: PlByEntity = { all: tables.get('all')!, GJV: tables.get('GJV')!, GSS: tables.get('GSS')! };

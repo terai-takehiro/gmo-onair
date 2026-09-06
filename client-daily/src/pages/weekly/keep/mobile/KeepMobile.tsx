@@ -65,6 +65,7 @@ export function KeepMobile({ pack }: { pack: KeepReportPack }) {
   const cal = pack.calendars[0];
   const calNext = pack.calendars[1];
   const unconfirmed = pack.landing.all.unconfirmed;
+  const unregistered = pack.landing.all.unregistered;
 
   const pickedIds = new Set(pack.project_pages.map((p) => p.project_id));
   const ordinal = new Map(pack.project_pages.map((p) => [p.project_id, p.ordinal ?? 99]));
@@ -108,6 +109,15 @@ export function KeepMobile({ pack }: { pack: KeepReportPack }) {
           <span className="text-sub-sm text-foreground">
             未確定の売上 {unconfirmed.length}件（{unconfirmed.slice(0, 2).map((u) => u.project_name).join('・')}
             {unconfirmed.length > 2 ? ' ほか' : ''}）
+          </span>
+        </div>
+      )}
+      {unregistered.length > 0 && (
+        <div className="flex items-start gap-2 rounded-note border border-primary-border bg-primary-surface-weak px-3 py-2.5">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden="true" />
+          <span className="text-sub-sm text-foreground">
+            本番があるのに売上が未登録 {unregistered.length}件（{unregistered.slice(0, 2).map((u) => u.project_name).join('・')}
+            {unregistered.length > 2 ? ' ほか' : ''}・表には入れていません）
           </span>
         </div>
       )}

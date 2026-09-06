@@ -160,10 +160,15 @@ export function buildSlackDraft(pack: KeepReportPack, opts: SlackDraftOptions = 
     push('・直近の定期内覧会はありません');
   }
 
-  // 見込に含めた未確定の売上（注記）
-  push(`■ ${monthLabel(forecast.year_month)}の見込に含めた未確定の売上`);
+  // 見込に含めた未確定の売上（注記）— 確度加味で表に入っているもの
+  push(`■ ${monthLabel(forecast.year_month)}の見込に含めた未確定の売上（確度加味）`);
   if (forecast.unconfirmed.length === 0) push('・なし');
   for (const u of forecast.unconfirmed) push(`・${u.project_name} ${senLabel(u.amount)}`);
+  // 本番があるのに売上が未登録の案件 — 表には入っていない（登録し忘れの注意。無ければ節ごと出さない）
+  if (forecast.unregistered.length > 0) {
+    push(`■ ${monthLabel(forecast.year_month)}に本番があるのに売上が未登録の案件（見込には入れていない・見積または想定額）`);
+    for (const u of forecast.unregistered) push(`・${u.project_name} ${senLabel(u.amount)}`);
+  }
 
   // 脚注と数字の元
   if (starred && prev) push(`${CHANGED_MARK}＝前回（${mdLabel(prev.meeting_date)}）の資料から変わった数字`);

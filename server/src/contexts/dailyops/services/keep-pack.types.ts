@@ -74,6 +74,8 @@ export interface MonthlyPlTable {
   mode: 'landing' | 'forecast';
   lines: BudgetLine[];
   unconfirmed: Array<{ project_id: string; project_name: string; amount: number }>;
+  /** 本番があるのに売上が未登録の案件。表の数字には入っていない（shared の同名の型と同じ） */
+  unregistered: Array<{ project_id: string; project_name: string; amount: number }>;
   has_override: boolean;
   override_note: string | null;
 }

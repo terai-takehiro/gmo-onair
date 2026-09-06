@@ -68,8 +68,13 @@ export interface MonthlyPlTable {
   year_month: string;              // 'YYYY-MM'
   mode: 'landing' | 'forecast';    // 着地 / 着地見込
   lines: BudgetLine[];
-  /** 見通しに含めた「まだ確定していない」売上（案件名と金額）。資料の注記の材料 */
+  /** 見通しに含めた「まだ確定していない」売上（`status='estimate'` の売上・案件ごとの合計）。資料の注記の材料 */
   unconfirmed: Array<{ project_id: string; project_name: string; amount: number }>;
+  /**
+   * その月に本番があるのに売上（確定・見積）が 1 件も無い案件。金額は 最新の見積 → 想定金額 → 0。
+   * **表の数字には入っていない**（売上の行が無いので確度加味の対象にならない）。人が登録し忘れに気づくための注意
+   */
+  unregistered: Array<{ project_id: string; project_name: string; amount: number }>;
   /** 経理の補正値（monthly_actual_overrides）を使ったか */
   has_override: boolean;
   override_note: string | null;

@@ -185,7 +185,7 @@ KeepReportPack
 | 部分 | 出どころ | 約束 |
 |---|---|---|
 | 着地の売上・原価 | `revenues`（**`status='confirmed'`**）・`purchases`、`recognition_date` の月。計上会社は **行の `entity_code`**（案件の値ではない・§4） | `getMonthlySummary` と同じ。`FIXED-COGS` 案件の仕入 ＝ 償却相当額（行の `entity_code` で会社別）。経理の補正値（`monthly_actual_overrides.entity_code`）があればそれを使う。**全体 ＝ 会社の合計** |
-| 見込 | 着地 ＋ 受注前案件（失注除く）の売上・仕入 × 確度 | `getPipelineForecast` の「確度加味」。**`unconfirmed[]`** に見込みに入れた未確定の売上を列挙（資料の注記の材料） |
+| 見込 | 着地 ＋ 受注前案件（失注除く）の売上・仕入 × 確度 | `getPipelineForecast` の「確度加味」。**`unconfirmed[]`** に見込みに入れた未確定の売上を列挙（資料の注記の材料）。**`unregistered[]`** は本番があるのに売上（確定・見積）が無い案件で、**表の数字には入れない**（登録し忘れの注意。混ぜると「含めた」と書いた注記に含めていない金額が並ぶ） |
 | 目標 | `monthly_budgets`（`entity_code` ごと） | 無ければ null。全体の目標は会社の合計 |
 | 推移 | 月ごとの確定売上を `projects.customer_type` で分ける。案件数は本番日がその月にある案件 | 当時の値（`customer_type`）を使う。`companies.is_gmo_group` の今の値で塗り替えない |
 | ヨミ表 | `projects`（`stage NOT IN (e_lost, r_delivered, s_completed)`。**ネタも載せる**・ご判断 2026-09-06）＋ 最新見積 ＋ `OPEN_NEXT_ACTION_SQL` | **新規／更新** は前回の会議日と `created_at` / `updated_at` の比較 |

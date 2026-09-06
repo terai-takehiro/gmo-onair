@@ -165,3 +165,29 @@ SQL の列一覧（バッククオートのテンプレート文字列）の中�
 **次はこうする**: **まだマージしていない移行を直したら `bash scripts/dev-verify/up.sh --fresh`**
 （`down.sh` はデータを残すので足りない）。本番では初回適用なので問題は起きないが、
 **手元で確かめた結果が嘘になる**ほうが危ない。
+
+## 2026-09-07 / PR #607 — 新しい依存を足した PR は、手元の gate に `npm audit` が入っていなかった
+
+`checks` は型・lint・テストのあとに **`npm audit --omit=dev --audit-level=high`** を走らせる
+（この文書の隣の [ci-jobs.md](ci-jobs.md) の表に載っていなかった）。pptxgenjs を足した PR が、
+手元では typecheck / lint / test が全部緑のまま **CI だけ赤**になった。
+しかも pptxgenjs の推移的依存 `image-size` は**全版**に High の勧告があり修正版が無い
+（`npm audit fix` は pptxgenjs を 1.1.5 に落とす破壊的変更を提案する）。npm の `overrides` は
+`file:` を扱えず（依存が missing になる）、名前が `image-size` のままでは版を変えても勧告に当たる
+（範囲が `*`）。
+
+**次はこうする**: 依存を足す PR は push 前に `npm audit --omit=dev --audit-level=high` を回す。
+修正版が無い推移的依存で、**実行時に読まれていないことを dist で確かめられる**なら、
+宣言を外した tarball を `vendor/` に同梱して `file:` で参照する
+（`scripts/vendor-pptxgenjs.mjs`・[vendor/README.md](../../../../vendor/README.md)）。
+
+## 2026-09-07 / PR #607 — `verify:ui` を検証DB以外に向けるときは `VERIFY_USER` が要る（落ち方が原因を隠す）
+
+`scripts/verify-ui.mjs` は既定で `x-user-id: v-admin` を送る。シードした別の DB（`v-admin` が居ない）
+に向けると全ページが認証で弾かれてログイン画面へ遷移し、
+`page.evaluate: Execution context was destroyed, most likely because of a navigation` で
+**最初のページで丸ごと落ちる**（原因の 401 はどこにも出ない）。
+
+**次はこうする**: `VERIFY_USER=<その DB の system_admin の id>` を渡す。
+落ち方が「context destroyed」なら、レイアウトではなくまず認証を疑う。
+

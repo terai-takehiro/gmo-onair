@@ -162,7 +162,11 @@ function classify(binding: string, part: SlidePart, value: unknown, pack: KeepRe
       };
     }
     if (isPlTable(value)) {
-      const caption = value.unconfirmed.length ? `未確定: ${value.unconfirmed.map((u) => `${u.project_name}（${k(u.amount)}千円）`).join('・')}` : null;
+      const notes = [
+        value.unconfirmed.length ? `未確定: ${value.unconfirmed.map((u) => `${u.project_name}（${k(u.amount)}千円）`).join('・')}` : null,
+        value.unregistered.length ? `売上未登録（表に入れていない）: ${value.unregistered.map((u) => `${u.project_name}（${k(u.amount)}千円）`).join('・')}` : null,
+      ].filter((x): x is string => x !== null);
+      const caption = notes.length ? notes.join('／') : null;
       return { kind: 'pl', table: value, mode, caption };
     }
   }

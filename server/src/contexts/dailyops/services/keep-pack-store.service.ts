@@ -22,6 +22,7 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { buildPack, resolveMeetingDateForWeek, resolveMeetings } from './keep-pack.service';
 import { assertMeetingDate } from './keep-pack-inputs.service';
 import { isEntityScope, type EntityScope, type KeepReportPack, type SegmentScope } from './keep-pack.types';
+import { samePackContent } from './keep-pack-identity';
 
 export { getInputs, upsertInput, assertMeetingDate } from './keep-pack-inputs.service';
 
@@ -81,7 +82,9 @@ export async function freezePack(opts: {
         ORDER BY frozen_at DESC LIMIT 1`,
       [meetingDate, entity, segment, FREEZE_DEDUPE_SECONDS],
     );
-    if (recent) {
+    // 直近の凍結と**中身が同じとき**だけ 1 行にまとめる（時刻だけで束ねると、数字を直してすぐ
+    // 確定し直した版が捨てられ、読む人・出力・Slack の文面が古い数字のまま残る）
+    if (recent && samePackContent(recent.pack, pack)) {
       if (opsReportId && recent.ops_report_id == null) {
         await tx.execute('UPDATE keep_report_packs SET ops_report_id = ? WHERE id = ?', [opsReportId, recent.id]);
       }

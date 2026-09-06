@@ -21,7 +21,7 @@ export function registerKeepTools(server: McpServer): void {
       title: '隔週キープの定例報告パック取得',
       description:
         '隔週キープ (業績報告) の会議1回ぶんの数字を1本の JSON (KeepReportPack) で取得する。' +
-        '中身: landing (会議の前の月の着地・全体＋計上会社別 [GJV=GMOサムライコンテンツスタジオ / GSS=GMOサムライスタジオ / GMO=グループ本体は数字があるときだけ]・6行の目標/実績/差/比/判定) / forecast (会議の月の着地見込＝確定＋受注前案件の確度加味・unconfirmed に未確定の売上) / ' +
+        '中身: landing (会議の前の月の着地・全体＋計上会社別 [GJV=GMOサムライコンテンツスタジオ / GSS=GMOサムライスタジオ / GMO=グループ本体は数字があるときだけ]・6行の目標/実績/差/比/判定) / forecast (会議の月の着地見込＝確定＋受注前案件の確度加味・unconfirmed に見込に含めた未確定の売上・unregistered に本番があるのに売上が未登録の案件〔表には入れていない〕) / ' +
         'trend (2024-01〜の売上[グループ内/外部]・案件数・営業日数・稼働日数・稼働率) / pipeline (ヨミ表: external と samurai [サムライ関連] の2表・見積金額の確度加味/総額) / ' +
         'project_pages (ヨミ表で「資料」に印を付けた案件のページ材料) / event_reports (前回の会議日以降に本番を終えた案件のふりかえり) / ' +
         'calendars (会議の月と翌月の稼働カレンダー) / inview (直近の定期内覧会。満足度は手入力) / minutes (前回議事録)。' +

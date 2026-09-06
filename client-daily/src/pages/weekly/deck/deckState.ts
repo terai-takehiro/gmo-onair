@@ -274,16 +274,25 @@ export function useDeckAutosave(save: (deck: KeepDeck) => Promise<SaveDeckResult
   const inFlight = useRef<Promise<void> | null>(null);
 
   const saveNow = useCallback(async () => {
-    const snapshot = useDeckStore.getState().deck;
-    if (!snapshot || !enabled) return;
-    if (inFlight.current) await inFlight.current.catch(() => undefined);
-    useDeckStore.getState().setSaveStatus('saving');
-    const run = save(snapshot)
-      .then((r) => useDeckStore.getState().markSaved(snapshot, r))
-      .catch(() => useDeckStore.getState().setSaveStatus('error'));
+    if (!enabled) return;
+    // 保存は必ず直列にし、**自分の番が来てから**写しを取る。先に写しを取って待つと、
+    // 先の保存で進んだ版より古い version を送って 409 になる（出力・会議日の切り替えの直前に
+    // 自動保存が重なったとき）。同時に2つ呼ばれても後のものは前の結果を見てから送る
+    const prev = inFlight.current ?? Promise.resolve();
+    const run = prev.catch(() => undefined).then(async () => {
+      const snapshot = useDeckStore.getState().deck;
+      if (!snapshot) return;
+      useDeckStore.getState().setSaveStatus('saving');
+      try {
+        const r = await save(snapshot);
+        useDeckStore.getState().markSaved(snapshot, r);
+      } catch {
+        useDeckStore.getState().setSaveStatus('error');
+      }
+    });
     inFlight.current = run;
     await run;
-    inFlight.current = null;
+    if (inFlight.current === run) inFlight.current = null;
   }, [save, enabled]);
 
   useEffect(() => {

@@ -75,6 +75,7 @@
         }
       ],
       "unconfirmed": [],
+      "unregistered": [],
       "has_override": false,
       "override_note": null
     },
@@ -144,6 +145,7 @@
         }
       ],
       "unconfirmed": [],
+      "unregistered": [],
       "has_override": false,
       "override_note": null
     },
@@ -213,6 +215,7 @@
         }
       ],
       "unconfirmed": [],
+      "unregistered": [],
       "has_override": false,
       "override_note": null
     }
@@ -290,6 +293,7 @@
           "amount": 4457680
         }
       ],
+      "unregistered": [],
       "has_override": false,
       "override_note": null
     },
@@ -359,6 +363,7 @@
         }
       ],
       "unconfirmed": [],
+      "unregistered": [],
       "has_override": false,
       "override_note": null
     },
@@ -434,6 +439,7 @@
           "amount": 4457680
         }
       ],
+      "unregistered": [],
       "has_override": false,
       "override_note": null
     }

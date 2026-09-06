@@ -501,7 +501,7 @@ GMOサムライスタジオ用賀のセキュリティカード 24 枚。カー�
 
 パックの中身 (`docs/design/v4/keep-report.md` §5)。**会社の区分は 2026年10月の事業再編の計上会社 `entity_code`** ([reorg-2026-10-plan.md](reorg-2026-10-plan.md) §4.5・`legal_entities.code`): `GJV` = GMOサムライコンテンツスタジオ (グループ外のお客様) / `GSS` = GMOサムライスタジオ (グループ内のお客様・旧 GMOグローバルスタジオ) / `GMO` = GMOインターネットグループ本体 (コストセンター)。着地・見込は財務と同じく**案件ではなく行 (revenues / purchases / sga_expenses) の `entity_code`** で切り、ヨミ表・案件ページの絞り込みは案件の `entity_code` で行う:
 - `landing` … **会議の前の月**の着地 (9/4 の会議なら 8月)。`all` / `GJV` / `GSS` (/ `GMO` は数字があるときだけ) の 6行 (売上高・原価〔案件仕入〕・粗利・販管費・償却相当額・営業利益) × 目標/実績/差/比/判定。確定売上 (`status='confirmed'`) だけを数える。`all` の目標は3社の合計 (`get_monthly_pl` の `entity_code=all` と同じ)
-- `forecast` … **会議の月**の着地見込 ＝ 着地 ＋ 受注前案件 (失注除く) の `status='estimate'` の売上 × ステージの受注確度。受注前案件の仕入は 100% → 確度に置き換える (二重に数えない)。`unconfirmed[]` はその月の未確定の売上と、その月に本番があるのに確定売上が無い案件 (注記の材料。後者は表の数字に足していない)
+- `forecast` … **会議の月**の着地見込 ＝ 着地 ＋ 受注前案件 (失注除く) の `status='estimate'` の売上 × ステージの受注確度。受注前案件の仕入は 100% → 確度に置き換える (二重に数えない)。`unconfirmed[]` はその月の `status='estimate'` の売上 (案件ごとの合計・**見込に確度加味で入っている**・注記の材料)。`unregistered[]` はその月に本番があるのに売上 (確定・見積) が 1 件も無い案件 (金額は最新の見積 → 想定金額。**表の数字には入っていない**・登録し忘れの注意)
 - `trend` … 2024-01〜会議の月 (最後の点は進行中)。売上 (グループ内/外部は案件の `customer_type` の当時の値)・案件数 (本番開始日がその月の受注済み以降)・営業日数・稼働日数・稼働率
 - `pipeline` … 終わっていない案件 (ネタを含む) のヨミ表。行の `entity_code` は案件の計上会社 (`projects.entity_code`: `GJV` / `GSS` / `GMO`)。`samurai` は `companies.samurai_group` のお客様、`external` はそれ以外の全部 (グループ内も。`segment` で絞る)。見積金額・粗利は最新の見積、次のやることは未対応の次回アクションのうち期限が近いもの、`since_last` は前回の会議日以降の new / updated
 - `project_pages` … ヨミ表で「資料」に印 (`projects.keep_pick`) を付けた案件のページ材料。写真は案件 Box の社外フォルダ `08_写真` (BOX につないでいなければ空)、チェック/リハ/本番は `studio_bookings` (setup / rehearsal / performance)、進行表 (Qシート) は段3以降で空

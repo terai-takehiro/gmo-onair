@@ -9,6 +9,7 @@
  * 列幅は `RowSlot` の7段から（千円は 72・判定は 56）。2枚並べると 1440px で
  * 名前列に 129px 残る計算で、それより狭い画面では表の中だけ横に流す。
  */
+import type { ReactNode } from 'react';
 import { AlertTriangle, Table2 } from 'lucide-react';
 import { Row, RowHeader, RowMain, RowSlot, RowTitle } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
@@ -90,7 +91,29 @@ function PlCard({ table, title, actualHead }: { table: MonthlyPlTable; title: st
           {table.lines.map((line) => <PlRow key={line.key} line={line} />)}
         </div>
       </div>
-      {table.unconfirmed.length > 0 && <UnconfirmedNote items={table.unconfirmed} />}
+      {table.unconfirmed.length > 0 && (
+        <PlNote
+          items={table.unconfirmed}
+          label={`未確定 ${table.unconfirmed.length}件`}
+          describe={(u) => (
+            <>
+              {u.project_name} — 売上 <Money value={u.amount} inline className="text-sub-sm" /> がまだ確定売上になっていません
+              {table.mode === 'forecast' ? '（見込には確度加味で含めています）' : '（着地には入れていません）'}
+            </>
+          )}
+        />
+      )}
+      {table.unregistered.length > 0 && (
+        <PlNote
+          items={table.unregistered}
+          label={`売上未登録 ${table.unregistered.length}件`}
+          describe={(u) => (
+            <>
+              {u.project_name} — この月に本番があるのに売上が登録されていません（見積・想定額 <Money value={u.amount} inline className="text-sub-sm" />・表には入れていません）
+            </>
+          )}
+        />
+      )}
     </div>
   );
 }
@@ -116,8 +139,12 @@ function PlRow({ line }: { line: BudgetLine }) {
 /**
  * 見通しに入れた「まだ確定していない売上」。資料の注記の材料になるので、
  * 表の下に**消えない帯**で出し、案件へ飛べるようにする（案件管理は別バンドルなので素の `<a>`）。
+ * 「未確定の売上」（見込には確度加味で入っている・着地には入っていない）と
+ * 「売上未登録の案件」（どちらの表にも入っていない）は帯を分ける — 混ぜると表と注記が合わない。
  */
-function UnconfirmedNote({ items }: { items: MonthlyPlTable['unconfirmed'] }) {
+type PlNoteItem = MonthlyPlTable['unconfirmed'][number];
+
+function PlNote({ items, label, describe }: { items: PlNoteItem[]; label: string; describe: (u: PlNoteItem) => ReactNode }) {
   const shown = items.slice(0, 3);
   return (
     <div className="flex flex-col gap-1 border-t border-border-faint bg-warning-surface px-4 py-2">
@@ -126,10 +153,8 @@ function UnconfirmedNote({ items }: { items: MonthlyPlTable['unconfirmed'] }) {
           {i === 0
             ? <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning" aria-hidden="true" />
             : <span className="w-3.5 shrink-0" aria-hidden="true" />}
-          {i === 0 && <span className="text-sub-sm shrink-0 font-bold text-warning">未確定 {items.length}件</span>}
-          <span className="text-sub-sm min-w-0 flex-1 truncate text-foreground">
-            {u.project_name} — 売上 <Money value={u.amount} inline className="text-sub-sm" /> がまだ確定売上になっていません
-          </span>
+          {i === 0 && <span className="text-sub-sm shrink-0 font-bold text-warning">{label}</span>}
+          <span className="text-sub-sm min-w-0 flex-1 truncate text-foreground">{describe(u)}</span>
           <a
             href={`/sales/projects/${u.project_id}`}
             className="text-sub-sm shrink-0 whitespace-nowrap font-bold text-primary hover:underline"

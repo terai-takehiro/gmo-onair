@@ -99,14 +99,22 @@ export function renderPlByEntity(
   });
 }
 
-/** 数値報告の注記（人の上書きが無いとき）: 見通しに含めた未確定の売上・経理の補正 */
+/**
+ * 数値報告の注記（人の上書きが無いとき）: 未確定の売上・売上未登録の案件・経理の補正。
+ * 見込（forecast）の表は未確定の売上を確度加味で**含めている**が、着地（landing）の表には入っていない —
+ * 書き分けないと「含めた」と書いた注記に含めていない金額が並ぶ。売上未登録の案件はどちらの表にも入っていない
+ */
 export function plNotes(t: MonthlyPlTable | null): string[] {
   if (!t) return [];
   const out: string[] = [];
   if (t.has_override) out.push(t.override_note ? `経理の補正値を使用（${t.override_note}）` : '経理の補正値を使用');
   if (t.unconfirmed.length) {
-    out.push('見通しに含めた未確定の売上:');
+    out.push(t.mode === 'forecast' ? '見通しに含めた未確定の売上（確度加味）:' : '未確定の売上（着地には入れていない・確定待ち）:');
     for (const u of t.unconfirmed) out.push(`・${u.project_name} ${fmtSen(u.amount)}千円`);
+  }
+  if (t.unregistered.length) {
+    out.push('本番があるのにこの月の売上が未登録の案件（表には入れていない・見積または想定額）:');
+    for (const u of t.unregistered) out.push(`・${u.project_name} ${fmtSen(u.amount)}千円`);
   }
   return out;
 }
