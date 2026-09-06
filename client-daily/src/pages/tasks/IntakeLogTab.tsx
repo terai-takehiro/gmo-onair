@@ -142,7 +142,7 @@ function IntakeDetailDialog({ id, onClose }: { id: string; onClose: () => void }
                         <span>{t.assigned_to_name ?? '担当者未定'}</span>
                         <span>{formatDue(t.due_at)}</span>
                         {t.gls_number && <span>{t.gls_number}</span>}
-                        {t.is_completed && <span className="text-emerald-700">完了</span>}
+                        {t.is_completed && <span className="text-emerald-700">対応済</span>}
                       </p>
                     </div>
                   ))}

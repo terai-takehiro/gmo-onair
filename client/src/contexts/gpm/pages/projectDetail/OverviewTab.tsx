@@ -4,7 +4,7 @@
  * ── なぜタブごとにファイルを分けたか ────────────────────────
  *
  * 工程の下にタスクを出したことで、この1タブだけで
- * 「工程を足す・直す・消す・並べ替える」「タスクを足す・直す・消す・完了にする」の
+ * 「工程を足す・直す・消す・並べ替える」「タスクを足す・直す・消す・対応済にする」の
  * 8つの操作を持つことになりました。詳細画面に置いたままだと**1か所直すのに
  * 450行を読む**形になるので、タブごとに分けています（`npm run lint` の 400行の検査）。
  *
@@ -132,7 +132,7 @@ export function OverviewTab({
     mutationFn: (task: GpmTask) => api.put(`/gpm/tasks/${task.id}/done`, { done: !task.is_completed }),
     onSuccess: (_r, task) => {
       invalidate(id);
-      notifySuccess(task.is_completed ? '未完了に戻しました' : '完了にしました');
+      notifySuccess(task.is_completed ? '未対応に戻しました' : '対応済にしました');
     },
     onError: (err) => notifyApiError('タスクを変更できませんでした', err),
   });
