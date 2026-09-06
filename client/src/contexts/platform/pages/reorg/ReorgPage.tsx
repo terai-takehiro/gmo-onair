@@ -2,16 +2,20 @@
  * ⑧ 会社と切替（設定・v4）— 2026年10月の事業再編（社名変更・計上会社の2社化・
  * 案件番号の改番）の下準備をする画面。詳しい設計は `docs/reorg-2026-10-plan.md`。
  *
- * ── この画面が作る範囲（P0）───────────────────────────────────
- * 会社マスター（`legal_entities`）の発行者情報の編集と、切替状態
- * （`org_transition`）の表示・前進だけ。**改番の対象一覧（移行センター）は
- * 別の PR（P1）の仕事**。ここで状態を進めても、案件番号の採番方式など
- * 他の画面の振る舞いは P1 が入るまで変わらない（記録が変わるだけ）。
+ * ── この画面が作る範囲（P0＋P1「移行センター」）───────────────────
+ * 会社マスター（`legal_entities`）の発行者情報の編集・切替状態
+ * （`org_transition`）の表示・前進に加え、**改番の対象一覧**（移行センター・§4.8）。
+ *
+ * ── 対象一覧・進捗・doneゲートは同じ1本のデータを使い回す（§4.8点5）─────
+ * `GET /org-transition/renumber-candidates` はここで1回だけ読み、
+ * `RenumberCandidatesPanel`（対象一覧・進捗の帯）と `TransitionPanel`
+ * （`done` への残件0ゲート）の両方へ渡す。**別の集計 API を作らない** —
+ * 「残り件数」は常にこの配列の `.length`。
  *
  * ── 権限 ────────────────────────────────────────────────────
- * 直せるのは `system_admin` だけ（発行者情報・切替状態とも）。それ以外は
- * 全項目を disabled で見せる（`MoneyRulesPage`/`HoursPage` と同じ Lock アイコンの
- * 帯を1本だけ出す — セクションごとに繰り返さない）。
+ * 直せるのは `system_admin` だけ（発行者情報・切替状態・改番ボタンとも）。
+ * それ以外は全項目を disabled／非表示で見せる（`MoneyRulesPage`/`HoursPage` と
+ * 同じ Lock アイコンの帯を1本だけ出す — セクションごとに繰り返さない）。
  */
 import { useQuery } from '@tanstack/react-query';
 import { Building2, Lock } from 'lucide-react';
@@ -21,7 +25,8 @@ import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { EntityCard } from './EntityCard';
 import { TransitionPanel } from './TransitionPanel';
-import type { LegalEntity, OrgTransition } from './types';
+import { RenumberCandidatesPanel } from './RenumberCandidatesPanel';
+import type { LegalEntity, OrgTransition, RenumberCandidate } from './types';
 
 export default function ReorgPage() {
   const { currentUser } = useAuth();
@@ -37,6 +42,14 @@ export default function ReorgPage() {
   const transitionQ = useQuery<OrgTransition>({
     queryKey: ['org-transition'],
     queryFn: async () => (await api.get('/org-transition')).data.data,
+  });
+
+  // 改番の対象一覧。**対象一覧・進捗・doneゲートの3箇所がこの1本を使い回す**
+  // （§4.8点5「数字は同じ API を使い回す」）。こちらが失敗しても会社マスター・
+  // 切替状態は表示できる（同じ考え方で独立させてある）
+  const candidatesQ = useQuery<RenumberCandidate[]>({
+    queryKey: ['renumber-candidates'],
+    queryFn: async () => (await api.get('/org-transition/renumber-candidates')).data.data,
   });
 
   if (entitiesQ.isError) {
@@ -85,10 +98,23 @@ export default function ReorgPage() {
           切替状態を読み込めませんでした。
         </p>
       ) : transitionQ.data ? (
-        <TransitionPanel transition={transitionQ.data} canEdit={canEdit} />
+        <TransitionPanel
+          transition={transitionQ.data}
+          canEdit={canEdit}
+          remainingCount={candidatesQ.data?.length}
+        />
       ) : (
         <Delayed><SkeletonRows rows={3} /></Delayed>
       )}
+
+      <RenumberCandidatesPanel
+        candidates={candidatesQ.data}
+        isLoading={candidatesQ.isLoading}
+        isError={candidatesQ.isError}
+        error={candidatesQ.error}
+        onRetry={() => candidatesQ.refetch()}
+        canEdit={canEdit}
+      />
     </div>
   );
 }

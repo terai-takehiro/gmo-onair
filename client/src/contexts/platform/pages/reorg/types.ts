@@ -105,3 +105,52 @@ export function isCostCenterProject(
   if (!project?.entity_code || !legalEntities) return false;
   return legalEntities.some((e) => e.code === project.entity_code && e.kind === 'cost_center');
 }
+
+/**
+ * 改番の対象一覧（移行センター・`docs/reorg-2026-10-plan.md` §4.8）—
+ * `GET /org-transition/renumber-candidates` の1行。
+ *
+ * 対象の決め方・並びはサーバー側 `migration-center.service.ts` の
+ * `listRenumberCandidates()` が正（画面側では判定を書き写さない）。
+ * **件数（`.length`）がそのまま進捗の「残件数」になる**——対象一覧・進捗の帯・
+ * `done` への残件0ゲートが同じこの配列を数える（§4.8「数字は同じ API を使い回す」）。
+ */
+export interface RenumberCandidate {
+  project_id: string;
+  /** 現在の番号 (GLS-xxx) */
+  current_number: string;
+  /** 案件名 */
+  name: string;
+  customer_id: string | null;
+  customer_name: string | null;
+  /** グループ内外（お客様マスターの印。導出理由の裏取り表示に使う） */
+  is_gmo_group: boolean;
+  /** 導出された計上会社 */
+  target_entity_code: LegalEntityCode;
+  /** 導出理由（人が読める文。`entity_note` に書くのと同じもの） */
+  reason: string;
+  /** 実施日 (YYYY-MM-DD) */
+  event_date: string | null;
+  /** 発行済み・入金済みの売上がある（改番自体は止めないが「請求キーは変わりません」の注記に使う） */
+  has_invoiced_revenue: boolean;
+  /** 客先がグループ内外の自社行になり得る取引先か（§4.8の実例。目立たせるだけで自動では書き換えない） */
+  self_customer_hint: boolean;
+  assigned_to: string | null;
+}
+
+/** `GET /projects/:id/renumber-preview?target_entity_code=X` の `data`。改番の確認ダイアログ用（採らない） */
+export interface RenumberPreview {
+  old_number: string;
+  new_number: string;
+}
+
+/** `POST /projects/:id/renumber` の `data`（改番の実行結果） */
+export interface RenumberResult {
+  project_id: string;
+  old_number: string;
+  new_number: string;
+  entity_code: LegalEntityCode;
+  /** BOX フォルダの付け替えができたか。失敗しても改番そのものは成立する */
+  box_renamed: boolean;
+  box_reason: string | null;
+}

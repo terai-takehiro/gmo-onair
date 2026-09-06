@@ -15,6 +15,15 @@
  * どの前進も「1つ前の状態に戻る」画面上の手段が無い（`cutover→preparing` の
  * 巻き戻し以外）。`docs/reorg-2026-10-plan.md`「計上会社の切替は人の操作だけ」を
  * 画面でも徹底するため、`confirmAction` で一度立ち止まらせる。
+ *
+ * ── `done` は残件0を先回りして見る（§4.8点5・移行センターの残り件数） ──
+ * サーバー（`org-transition.routes.ts`）は `state:'done'` への遷移で改番の
+ * 対象一覧が0件でないと400 `RENUMBER_REMAINING` を返す。**ここでも同じ条件を
+ * 先に見て、ボタンを無効化し理由を添える** — 400 を待たせてから
+ * 「対象一覧を見てください」と言うより、その場で分かるほうが親切。
+ * `remainingCount` が `undefined`（対象一覧がまだ読めていない／失敗した）のときは
+ * 判断できないので**ブロックしない**——実際に押せばサーバーが最終的に守る
+ * （`notifyApiError` がその 400 のメッセージをそのまま出す）。
  */
 import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -31,7 +40,14 @@ import {
   type OrgTransition, type OrgTransitionState,
 } from './types';
 
-export function TransitionPanel({ transition, canEdit }: { transition: OrgTransition; canEdit: boolean }) {
+export function TransitionPanel({
+  transition, canEdit, remainingCount,
+}: {
+  transition: OrgTransition;
+  canEdit: boolean;
+  /** 改番の対象一覧の件数（`ReorgPage` が1本の `renumber-candidates` から渡す）。未取得なら `undefined` */
+  remainingCount?: number;
+}) {
   const qc = useQueryClient();
   const [draftDate, setDraftDate] = useState(transition.cutoverDate ?? '');
 
@@ -60,8 +76,11 @@ export function TransitionPanel({ transition, canEdit }: { transition: OrgTransi
 
   const next = NEXT_ORG_TRANSITION_STATE[transition.state];
 
+  // 「まだ N 件残っています」— `done` への前進だけ、対象一覧の残り件数で先回りする
+  const blockedByRemaining = next === 'done' && typeof remainingCount === 'number' && remainingCount > 0;
+
   const advance = async () => {
-    if (!next) return;
+    if (!next || blockedByRemaining) return;
     const ok = await confirmAction({
       title: `「${ORG_TRANSITION_STATE_LABELS[next]}」にしますか`,
       description: next === 'cutover'
@@ -132,7 +151,11 @@ export function TransitionPanel({ transition, canEdit }: { transition: OrgTransi
         {canEdit && (next || transition.state === 'cutover') && (
           <div className="flex flex-wrap items-center gap-2 border-t border-border-faint pt-3.5">
             {next && (
-              <Button disabled={changeState.isPending} onClick={advance}>
+              <Button
+                disabled={changeState.isPending || blockedByRemaining}
+                title={blockedByRemaining ? `まだ ${remainingCount} 件残っています` : undefined}
+                onClick={advance}
+              >
                 {changeState.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
                 {NEXT_ORG_TRANSITION_LABEL[transition.state]}
               </Button>
@@ -141,6 +164,11 @@ export function TransitionPanel({ transition, canEdit }: { transition: OrgTransi
               <Button variant="outline" disabled={changeState.isPending} onClick={rollback}>
                 元に戻す
               </Button>
+            )}
+            {blockedByRemaining && (
+              <p className="text-note w-full text-warning">
+                まだ {remainingCount} 件残っています。上の「改番の対象」から先に改番してください。
+              </p>
             )}
           </div>
         )}
