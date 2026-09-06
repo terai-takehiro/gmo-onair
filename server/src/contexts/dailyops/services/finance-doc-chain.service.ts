@@ -171,7 +171,12 @@ const GROUP_DOC_COLS = `d.id, d.group_id, d.doc_type, d.sender, d.subject, d.con
   d.amount, d.status, d.received_at, d.payment_due, d.closing_month,
   d.revision, d.doc_no, d.gls_number, d.notes, d.source,
   d.processed_by, d.processed_at, d.created_at, d.updated_at,
-  d.details, d.body_text,
+  d.details,
+  -- ⚠️ 原文 (body_text) だけは一覧に載せない。この画面は絞り込み無しで全部の束を引き、
+  -- 15秒ごとに取り直すので、切り詰めていない原文 (1通 1〜3KB) を載せると
+  -- 開きっぱなしの画面が1日中それを運び続ける。読むのは「メールの原文を見る」を
+  -- 開いたときだけなので、有無だけ返し、中身は GET /dailyops/finance-docs/:id で1件取る
+  (d.body_text IS NOT NULL AND d.body_text <> '') AS has_body_text,
   d.project_id, d.project_source, d.project_confidence, d.project_reason,
   d.expense_kind, d.expense_kind_source, d.vendor_name,
   d.payment_terms_days, d.processing_month,

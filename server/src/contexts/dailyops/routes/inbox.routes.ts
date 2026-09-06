@@ -155,6 +155,18 @@ router.post('/finance-docs/:id/move-group', ...docsEdit, async (req, res) => {
   res.json({ success: true, data: await getGroup(groupId) });
 });
 
+/**
+ * 書類を1件だけ読む（**原文つき**）。
+ *
+ * 束の一覧は原文を載せません（15秒ごとに取り直す画面が1日中それを運ぶため）。
+ * 「メールの原文を見る」を開いたときだけ、ここから1件取りに行きます。
+ */
+router.get('/finance-docs/:id', ...docsRead, async (req, res) => {
+  const row = await financeDocService.getById(String(req.params.id));
+  if (!row) throw new AppError(404, 'NOT_FOUND', '書類が見つかりません');
+  res.json({ success: true, data: row });
+});
+
 /** 添付（BOX に置いた PDF）の一覧。**入らなかったものも理由付きで返す** */
 router.get('/finance-docs/:id/attachments', ...docsRead, async (req, res) => {
   res.json({ success: true, data: await financeDocService.attachments(String(req.params.id)) });

@@ -239,3 +239,46 @@ describe('Codex レビュー #595 で見つかった穴（戻さない）', () =
     expect(d).toMatch(/useState\(doc\.project_id \?\? ''\)/);
   });
 });
+
+describe('15秒ごとに取り直す画面に、メールの原文を運ばせない', () => {
+  /*
+    受領書類の画面は**絞り込み無しで全部の束**を引き（チップの件数を出すため）、
+    **15秒ごとに取り直します**。原文は切り詰めずに持っている（1通 1〜3KB）ので、
+    一覧に載せると**開きっぱなしの画面が1日中それを運び続けます**。
+    読むのは「メールの原文を見る」を開いたときだけです。
+  */
+  it('束の一覧は原文そのものではなく有無だけ返す', () => {
+    const s = chainSvc();
+    expect(s).toMatch(/\(d\.body_text IS NOT NULL AND d\.body_text <> ''\) AS has_body_text/);
+    // 列一覧に素の d.body_text を戻していないこと
+    expect(s).not.toMatch(/d\.details, d\.body_text/);
+  });
+
+  it('開いたときだけ1件取りに行く口がある', () => {
+    const r = read('server', 'src', 'contexts', 'dailyops', 'routes', 'inbox.routes.ts');
+    expect(r).toMatch(/router\.get\('\/finance-docs\/:id', \.\.\.docsRead/);
+    const d = read('client', 'src', 'contexts', 'finance', 'pages', 'documents', 'DocDetails.tsx');
+    // 開くまで取りに行かない
+    expect(d).toMatch(/enabled: wantBody && !doc\.body_text/);
+    expect(d).toMatch(/onToggle=\{\(e\) => setWantBody/);
+  });
+
+  it('一覧の列を並べたテンプレート文字列に逆クオートを書かない', () => {
+    /*
+      2026-09-06: 説明のつもりで `GET /…` と逆クオート付きで書いたら、
+      そこでテンプレート文字列が閉じて型エラーになった
+      （.claude/skills/pr-watch/references/pitfalls.md）。
+      テンプレート文字列の中の注記は SQL のコメント（--）で書く。
+    */
+    const s = chainSvc();
+    // **開きの逆クオートから数える。** 直前の説明コメントにも逆クオートがあるので、
+    // 単に最初の1つを探すとコメントごと拾ってしまう（試験自体が嘘になる）
+    const marker = 'const GROUP_DOC_COLS = `';
+    const from = s.indexOf(marker);
+    expect(from).toBeGreaterThan(-1);
+    const start = from + marker.length;
+    const body = s.slice(start, s.indexOf('`', start));
+    expect(body).toContain('has_body_text');
+    expect(body).not.toContain('${');
+  });
+});

@@ -46,8 +46,16 @@ export interface FinanceDoc {
    * どちらも出す（`RichContent` の `fallback` がその役）。
    */
   details: RichBlock[] | null;
-  /** メール本文の全文。切り詰めていない */
+  /**
+   * メール本文の全文。切り詰めていない。
+   *
+   * ⚠️ **束の一覧には入っていません**（`has_body_text` だけ来ます）。
+   * この画面は15秒ごとに取り直すので、原文まで運ぶと1日中それを繰り返します。
+   * 「メールの原文を見る」を開いたときに `GET /dailyops/finance-docs/:id` で取ります。
+   */
   body_text: string | null;
+  /** 原文があるか（束の一覧はこれだけ返す） */
+  has_body_text?: boolean;
   created_at: string;
   updated_at: string;
 
