@@ -47,7 +47,7 @@ import { useInvalidateGpm } from '../../queries';
 import { lateDays, ymd, type GpmPhase, type GpmProjectDetail, type GpmTask } from '../../types';
 import { GanttBar, ROW_H, type Mode, type RowItem } from './GpmGanttBar';
 import { collectSuccessors, DependencyArrows, GanttLeftRow, WeekendShade, type BarGeom } from './GpmGanttExtras';
-
+import { GANTT_COLORS } from './ganttColors';
 const LEFT_W = 224;
 const MS_DAY = 86_400_000;
 
@@ -192,8 +192,8 @@ export function GpmGanttView({
     const targets = tasks.filter((t) => ids.has(t.id) && !t.is_completed && ymd(t.due_at));
     if (targets.length === 0) return;
     const ok = await confirmAction({
-      title: `後続のタスク ${targets.length} 件も ${delta}日 うしろへずらしますか？`,
-      description: '先行タスクの日程がうしろへ動いたので、依存でつながった後続も同じだけずらせます。完了済みのタスクは動かしません。',
+      title: `後続のタスク ${targets.length} 件も ${delta}日 後ろへ移動しますか？`,
+      description: '先行タスクの日程がうしろへ動いたので、依存でつながった後続も同じだけずらせます。対応済のタスクは動かしません。',
       confirmLabel: 'ずらす',
     });
     if (!ok) return;
@@ -304,10 +304,10 @@ export function GpmGanttView({
       <div className="flex flex-wrap items-center gap-2 border-b border-border-subtle bg-surface-subtle px-4 py-1.5">
         <p className="text-note min-w-0 flex-1 text-muted-foreground">
           {canEdit
-            ? 'バーを押すと直せます。ドラッグで日程ごと移動・端をつまむと期間が変わります。先行タスクを持つバーには矢印が出ます。'
+            ? 'バーを押すと編集できます。ドラッグで日程ごと移動・端をつまむと期間が変わります。先行タスクを持つバーには矢印が出ます。'
             : '赤い枠は期限を過ぎた工程・タスクです。矢印は先行→後続の順序です。'}
         </p>
-        <div role="group" aria-label="ズーム" className="flex shrink-0 overflow-hidden rounded-control-md border border-border bg-card">
+        <div role="group" aria-label="ズーム" className="flex shrink-0 overflow-hidden rounded-control border border-border bg-card">
           {ZOOMS.map((z, i) => (
             <button
               key={z.key}
@@ -387,8 +387,8 @@ export function GpmGanttView({
             })}
             {todayX >= 0 && todayX <= totalWidth && (
               <g>
-                <line x1={todayX} y1={0} x2={todayX} y2={svgH} stroke="#f87171" strokeWidth={1.5} strokeDasharray="4,3" />
-                <text x={todayX + 3} y={12} fontSize={9} fill="#f87171">今日</text>
+                <line x1={todayX} y1={0} x2={todayX} y2={svgH} stroke={GANTT_COLORS.destructive} strokeWidth={1.5} strokeDasharray="4,3" />
+                <text x={todayX + 3} y={12} fontSize={9} fill={GANTT_COLORS.destructive}>今日</text>
               </g>
             )}
           </svg>

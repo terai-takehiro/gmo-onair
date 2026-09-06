@@ -24,7 +24,7 @@ export function Destination({ q }: { q: MiscInquiry }) {
         {q.task_title ? (
           <span className="min-w-0">
             <a href="/sales/tasks/list" className="font-bold underline">{q.task_title}</a>
-            {q.task_done && '（完了）'}
+            {q.task_done && '（対応済）'}
             {!q.task_done && q.task_due_at && (
               <span className="ml-1 inline-flex items-center gap-0.5">
                 <Clock className="h-3 w-3" aria-hidden="true" />
@@ -68,7 +68,7 @@ export function InquiryBody({ q, open, onToggle }: { q: MiscInquiry; open: boole
         aria-expanded={open}
         className="text-note min-h-tap inline-flex items-center gap-1 text-primary lg:min-h-[32px]"
       >
-        {open ? '中身を閉じる' : '中身を読む'}
+        {open ? '詳細を閉じる' : '詳細を表示'}
         {hasRich && <Sparkles className="h-3 w-3 text-ai" aria-label="AI作成" />}
       </button>
 

@@ -67,11 +67,11 @@ export function SignageTab({
     mutationFn: () => api.post('/studios/rooms/feeds/regenerate-token'),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['studio-room-feeds'] });
-      notifySuccess('作り直しました', {
+      notifySuccess('再作成しました', {
         description: '配ってある URL は使えなくなりました。表示機に新しい URL を入れ直してください。',
       });
     },
-    onError: (e) => notifyApiError('作り直せませんでした', e),
+    onError: (e) => notifyApiError('再作成できませんでした', e),
   });
 
   const askRegenerate = async () => {

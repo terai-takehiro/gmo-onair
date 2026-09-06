@@ -162,7 +162,7 @@ export function SearchableSelect({
           {value && (
             <X
               className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground"
-              aria-label="選んだものを外す"
+              aria-label="選択を解除"
               onClick={(e) => { e.stopPropagation(); onChange(""); setOpen(false); }}
             />
           )}

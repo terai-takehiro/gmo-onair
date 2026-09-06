@@ -33,6 +33,7 @@ router.post('/schedules/:id/items', requirePermission('qsheet', 'editor'), wrap(
     kind: typeof b.kind === 'string' ? b.kind : undefined,
     startMin: b.start_min,
     endMin: b.end_min,
+    spanCols: typeof b.span_cols === 'number' ? b.span_cols : undefined,
     assignee: typeof b.assignee === 'string' ? b.assignee : null,
     note: typeof b.note === 'string' ? b.note : null,
   });
@@ -62,6 +63,7 @@ router.put('/schedules/:id/items/:itemId', requirePermission('qsheet', 'editor')
     kind: typeof b.kind === 'string' ? b.kind : undefined,
     startMin: typeof b.start_min === 'number' ? b.start_min : undefined,
     endMin: typeof b.end_min === 'number' ? b.end_min : undefined,
+    spanCols: typeof b.span_cols === 'number' ? b.span_cols : undefined,
     assignee: 'assignee' in b ? (b.assignee as string | null) : undefined,
     note: 'note' in b ? (b.note as string | null) : undefined,
     expectedUpdatedAt: b.expected_updated_at,

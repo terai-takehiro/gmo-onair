@@ -17,7 +17,7 @@ export function ItemTooltip({ item, x, y }: { item: any; x: number; y: number })
       className="fixed z-50 pointer-events-none"
       style={{ left, top: y, maxWidth: TOOLTIP_W }}
     >
-      <div className="bg-card text-foreground rounded-lg shadow-xl border border-border p-3 space-y-1.5" style={{ width: TOOLTIP_W }}>
+      <div className="rounded-control-lg space-y-1.5 border border-border bg-card p-3 text-foreground shadow-xl" style={{ width: TOOLTIP_W }}>
         <div className="font-bold text-sm leading-tight">{item.name}</div>
         {item.model_number && (
           <div className="text-xs text-muted-foreground leading-tight tracking-tight ">{item.model_number}</div>
@@ -29,18 +29,18 @@ export function ItemTooltip({ item, x, y }: { item: any; x: number; y: number })
           {item.serial_number && (
             <div className="flex gap-1.5 text-[11px]">
               <span className="text-muted-foreground shrink-0">製造番号</span>
-              <span className="font-semibold tracking-tight ">{item.serial_number}</span>
+              <span className="font-bold tracking-tight ">{item.serial_number}</span>
             </div>
           )}
           {(item.status || item.condition) && (
             <div className="flex gap-2 text-[11px]">
               {item.status && (
-                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${item.status === "active" ? "bg-emerald-100 text-emerald-800" : item.status === "repair" ? "bg-amber-100 text-amber-800" : item.status === "retired" ? "bg-red-100 text-red-800" : "bg-muted text-muted-foreground"}`}>
+                <span className={`rounded-badge-xs px-1.5 py-0.5 text-[10px] font-bold ${item.status === "active" ? "bg-success-surface text-success" : item.status === "repair" ? "bg-warning-surface text-warning" : item.status === "retired" ? "bg-muted text-muted-foreground" : "bg-muted text-muted-foreground"}`}>
                   {STATUS_LABEL[item.status] ?? item.status}
                 </span>
               )}
               {item.condition && item.condition !== "good" && (
-                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${item.condition === "poor" ? "bg-amber-100 text-amber-800" : item.condition === "broken" ? "bg-red-100 text-red-800" : "bg-muted text-muted-foreground"}`}>
+                <span className={`rounded-badge-xs px-1.5 py-0.5 text-[10px] font-bold ${item.condition === "poor" ? "bg-warning-surface text-warning" : item.condition === "broken" ? "bg-destructive-surface text-destructive" : "bg-muted text-muted-foreground"}`}>
                   {CONDITION_LABEL[item.condition] ?? item.condition}
                 </span>
               )}

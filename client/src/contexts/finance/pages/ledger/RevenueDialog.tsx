@@ -14,20 +14,17 @@
  */
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Loader2, Plus, Trash2, Download, Link2, Percent } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
 import { useDebounced } from '@gmo-onair/shared/src/client/hooks/useDebounced';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import api from '@/lib/api';
-import { TaxHelperButton } from '@gmo-onair/shared/src/client/ui/tax-aware-amount-input';
-import { CurrencyInput } from '@/components/ui/currency-input';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { getProjectCategory, taxBillingSuffix } from '@/types';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import PricingItemPicker from '../../components/PricingItemPicker';
 import DiscountDialog from '../../components/DiscountDialog';
-import { RevenueItemsTable } from './RevenueItemsTable';
+import { RevenueAmountFields } from './RevenueAmountFields';
 import { RevenueProjectFields } from './RevenueProjectFields';
 import { RevenueDateFields } from './RevenueDateFields';
 import { useRevenueItems } from './useRevenueItems';
@@ -259,7 +256,13 @@ export function RevenueDialog({
           )}
 
           <div className="space-y-4">
-            {/* 案件・話数・税区分 — 400行の上限で別ファイル */}
+            {/*
+              並び順は `docs/design/v4/_form-order.md` の6段に沿って組み直した。上から
+              案件・話数（どれに付けるか）→ 金額 → 明細行と合計 → 税区分 → 日付・状態・備考。
+              **GPM の売上明細ダイアログ（`businessProject/RevenueDialog.tsx`）と同じ順**に
+              そろえてある（着手前は税区分と操作ボタンの位置が両画面で正反対だった）。
+            */}
+            {/* 案件・話数 — 400行の上限で別ファイル */}
             <RevenueProjectFields
               projectSearch={projectSearch}
               setProjectSearch={setProjectSearch}
@@ -272,69 +275,34 @@ export function RevenueDialog({
               episodes={episodes}
               selectedEpisodeId={selectedEpisodeId}
               setSelectedEpisodeId={setSelectedEpisodeId}
+            />
+
+            {/* 金額・明細行・税区分 — 400行の上限で別ファイル。
+                **並び順はそのまま**（総額を常に出す理由・操作ボタンを行の下に置く理由は
+                `RevenueAmountFields.tsx` の中のコメント） */}
+            <RevenueAmountFields
+              amount={amount}
+              setAmount={setAmount}
+              items={items}
+              itemsTotal={itemsTotal}
+              flashRowIdx={flashRowIdx}
+              updateItem={updateItem}
+              removeItem={removeItem}
+              openItemDiscount={openItemDiscount}
+              addItem={addItem}
+              openGlobalDiscount={openGlobalDiscount}
+              discountable={discountable}
+              importSimulation={importSimulation}
+              simulationItems={simulationItems}
+              selectedProjectId={selectedProjectId}
+              isProjectCategoryB={isProjectCategoryB}
+              setPricingPickerOpen={setPricingPickerOpen}
               taxCategory={taxCategory}
               setTaxCategory={setTaxCategory}
               billingKeyPreview={billingKeyPreview}
             />
 
-            {/* 明細行 */}
-            <div className="space-y-2">
-              <datalist id="revenue-item-categories">
-                <option value="制作費" /><option value="機材費" /><option value="人件費" />
-                <option value="スタジオ費" /><option value="配信費" /><option value="諸経費" />
-              </datalist>
-              <div className="flex items-center justify-between gap-2">
-                <Label>明細行</Label>
-                <div className="flex flex-wrap gap-2">
-                  {selectedProjectId && !isProjectCategoryB && simulationItems.length > 0 && (
-                    <Button type="button" variant="outline" size="sm" onClick={() => importSimulation(simulationItems)}>
-                      <Download className="mr-1 h-3 w-3" />見積の積算を引用
-                    </Button>
-                  )}
-                  <Button
-                    type="button" variant="outline" size="sm"
-                    onClick={() => setPricingPickerOpen(true)}
-                    disabled={!selectedProjectId}
-                    title={!selectedProjectId ? '案件を選んでください' : undefined}
-                  >
-                    <Link2 className="mr-1 h-3 w-3" />料金表から追加
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={addItem}>
-                    <Plus className="mr-1 h-3 w-3" />行追加
-                  </Button>
-                  <Button
-                    type="button" variant="outline" size="sm"
-                    onClick={openGlobalDiscount}
-                    disabled={!discountable}
-                    title={discountable ? undefined : '値引きの対象になる明細がありません'}
-                  >
-                    <Percent className="mr-1 h-3 w-3" />全体値引き
-                  </Button>
-                </div>
-              </div>
-
-              <RevenueItemsTable
-                items={items}
-                itemsTotal={itemsTotal}
-                flashRowIdx={flashRowIdx}
-                updateItem={updateItem}
-                removeItem={removeItem}
-                openItemDiscount={openItemDiscount}
-              />
-            </div>
-
-            {/* 明細行がないときだけ総額を直に入れる */}
-            {items.length === 0 && (
-              <div className="space-y-1">
-                <Label>金額</Label>
-                <div className="flex items-center gap-1">
-                  <div className="flex-1"><CurrencyInput value={amount} onChange={(v) => setAmount(v)} /></div>
-                  <TaxHelperButton fieldLabel="売上金額" defaultIncludedAmount={amount} onResult={setAmount} />
-                </div>
-              </div>
-            )}
-
-            {/* 日付・前金・検収・請求書発行済・備考 — 400行の上限で別ファイル */}
+            {/* 日付・前金・備考・登録後に記録する状態 — 400行の上限で別ファイル */}
             <RevenueDateFields
               recognitionMonth={recognitionMonth}
               setRecognitionMonth={setRecognitionMonth}

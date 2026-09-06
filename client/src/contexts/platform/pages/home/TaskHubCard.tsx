@@ -25,7 +25,7 @@
  *    タブで維持している——**中身を混ぜたわけではない**。トップの縦の長さを縮める
  *    ための整理で、`WaitingCard.tsx` / `MyTasksCard.tsx` はこの回で統合した
  * ③ **「お待たせ中」自体をやめるかどうかも検討したが、残す判断にした。**
- *    `GET /dashboard/inbox` は問い合わせ・受け取った書類・期限超過アクション・
+ *    `GET /dashboard/inbox` は問い合わせ・受領書類・期限超過アクション・
  *    AI起票ネタの4種類を実データから数えており（常に0件になる作りではない）、
  *    やめる積極的な理由が実装からは出てこなかったため
  *
@@ -45,10 +45,11 @@
  */
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { UserCheck, Inbox, ArrowRight, Check } from 'lucide-react';
+import { UserCheck, Inbox, ArrowRight } from 'lucide-react';
 import api from '@/lib/api';
 import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
 import { notifyApiError } from '@gmo-onair/shared/src/client/notify';
+import { TaskDoneButton } from '@gmo-onair/shared/src/client-v4/taskDoneButton';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import type { InboxData, InboxOpenable } from '@/contexts/sales/pages/inbox/kinds';
 import { InboxTab } from './InboxTab';
@@ -153,7 +154,7 @@ function TabButton({
 function MineTab() {
   const qc = useQueryClient();
   const { hasPermission } = useAuth();
-  /** 完了にできるか。`PATCH /dailyops/tasks/:id` が editor を要求する */
+  /** 対応済にできるか。`PATCH /dailyops/tasks/:id` が editor を要求する */
   const canComplete = hasPermission('dailyops', 'editor');
 
   const summary = useQuery<MyTaskSummary>({
@@ -176,7 +177,7 @@ function MineTab() {
       // 全案件のタスク一覧も同じタスクを別の鍵で持っている
       qc.invalidateQueries({ queryKey: ['task-dashboard'] });
     },
-    onError: (e) => notifyApiError('完了にできませんでした', e),
+    onError: (e) => notifyApiError('対応済にできませんでした', e),
   });
 
   const rows = useMemo(() => mine.data?.data ?? [], [mine.data]);
@@ -197,7 +198,7 @@ function MineTab() {
           href="/daily/tasks"
           className="min-h-tap text-note flex items-center gap-0.5 font-bold text-primary hover:underline lg:min-h-0"
         >
-          全部ひらく<ArrowRight className="h-3 w-3" aria-hidden="true" />
+          すべて開く<ArrowRight className="h-3 w-3" aria-hidden="true" />
         </a>
       </div>
 
@@ -212,29 +213,12 @@ function MineTab() {
 
       {rows.length === 0 ? (
         <p className="text-sub mt-3 text-secondary-foreground">
-          {mine.isLoading ? '' : '自分に割り当てられた未完了のタスクはありません。'}
+          {mine.isLoading ? '' : '自分に割り当てられた未対応のタスクはありません。'}
         </p>
       ) : (
         <div className="mt-1.5 flex flex-col">
           {rows.slice(0, SHOWN).map((t) => (
             <div key={t.id} className="flex items-start gap-2.5 border-t border-border-subtle py-2">
-              {/* ⚠️ **完了にできる人にだけ出す。** 読むだけの人に出すと押した先が 403 */}
-              {canComplete && (
-              <button
-                type="button"
-                aria-label={`「${t.title}」を完了にする`}
-                disabled={complete.isPending}
-                onClick={() => complete.mutate(t.id)}
-                // **スマホでは 44×44。** 四角そのものは 18px のまま中に置く —
-                // 「完了にする」は押し間違えると取り消しに行くことになるので、
-                // 指で確実に当たる大きさが要る（PC は今までどおり 18px）
-                className="group -m-3 flex h-11 w-11 shrink-0 items-center justify-center lg:m-0 lg:mt-0.5 lg:h-[18px] lg:w-[18px]"
-              >
-                <span className="rounded-badge-xs flex h-[18px] w-[18px] items-center justify-center border-[1.5px] border-border-disabled group-hover:border-primary group-hover:bg-primary-surface">
-                  <Check className="h-3 w-3 text-transparent group-hover:text-primary" aria-hidden="true" />
-                </span>
-              </button>
-              )}
               <span className="min-w-0 flex-1">
                 <span className="text-sub block [overflow-wrap:anywhere]">{t.title}</span>
                 <span className="text-note block truncate text-muted-foreground">
@@ -245,6 +229,19 @@ function MineTab() {
                 <span className="rounded-badge-xs inline-flex h-[22px] shrink-0 items-center bg-destructive-surface px-2 text-note font-bold text-destructive">
                   超過
                 </span>
+              )}
+              {/*
+                ⚠️ **対応済にできる人にだけ出す。** 読むだけの人に出すと押した先が 403。
+                四角のチェックから**文字のボタン**に替えた（押すと何が起きるか読める）
+              */}
+              {canComplete && (
+                <TaskDoneButton
+                  done={false}
+                  onToggle={() => complete.mutate(t.id)}
+                  taskTitle={t.title}
+                  disabled={complete.isPending}
+                  size="sm"
+                />
               )}
             </div>
           ))}

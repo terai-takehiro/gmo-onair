@@ -25,7 +25,7 @@ export const MODULE_LABELS: Record<string, string> = {
 };
 
 // **アクセスレベルの日本語ラベルはここに持たない。**
-// 画面に出す言い方は「見るだけ／書ける／管理」で全アプリ共通にしてあり、正は
+// 画面に出す言い方は「閲覧／編集／管理」で全アプリ共通にしてあり、正は
 // `pages/members/moduleLabels.ts` の `LEVEL_CHOICES` と
 // `shared/src/client/states/NoPermissionPanel.tsx`。
 // ここにあった `ACCESS_LEVEL_LABELS`（閲覧／編集／管理）は参照 0 件のまま
@@ -40,7 +40,7 @@ export const ACCESS_LEVEL_DESCRIPTIONS: Record<string, string> = {
 
 /** 旧レベルの互換ラベル（DBに古い値が残っている場合の表示用） */
 export const LEGACY_LEVEL_LABELS: Record<string, string> = {
-  exporter: "見るだけ",
+  exporter: "閲覧",
   owner:    "管理",
 };
 

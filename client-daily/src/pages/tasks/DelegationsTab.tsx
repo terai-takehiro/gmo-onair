@@ -56,7 +56,7 @@ function ReceivedRow({ t, canEdit }: { t: MyTask; canEdit: boolean }) {
             <div className="mt-2 flex flex-wrap gap-1.5">
               <Button size="sm" className="h-8 gap-1 text-xs" disabled={respond.isPending}
                 onClick={() => respond.mutate({ id: t.id, decision: 'accepted' })}>
-                <Check className="h-3.5 w-3.5" />受ける
+                <Check className="h-3.5 w-3.5" />承諾する
               </Button>
               <Button size="sm" variant="outline" className="h-8 gap-1 text-xs"
                 onClick={() => { setNoteFor('consulting'); setNote(''); }}
@@ -142,12 +142,12 @@ function SentRow({ t, canEdit }: { t: MyTask; canEdit: boolean }) {
             <div className="flex flex-wrap gap-1.5">
               <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={resolve.isPending}
                 onClick={() => resolve.mutate({ id: t.id, action: 'take_over' })}>
-                <Undo2 className="h-3.5 w-3.5" />自分でやる
+                <Undo2 className="h-3.5 w-3.5" />自分が担当する
               </Button>
-              <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={resolve.isPending || !reassignTo}
-                onClick={() => resolve.mutate({ id: t.id, action: 'reassign', assigned_to: reassignTo })}>
-                <UserPlus className="h-3.5 w-3.5" />振り直す
-              </Button>
+              {/* **相手を選ぶ select は「担当者を変更」より前。** 選ぶまでボタンは
+                  押せない（`disabled={!reassignTo}`）ので、ボタンが先にあると
+                  押せないものを先に触ってから戻ることになる
+                  （`_form-order.md` 2-1「依存する欄は依存される欄より下」） */}
               <select
                 value={reassignTo}
                 onChange={(e) => setReassignTo(e.target.value)}
@@ -158,6 +158,10 @@ function SentRow({ t, canEdit }: { t: MyTask; canEdit: boolean }) {
                   <option key={u.id} value={u.id}>{u.name}</option>
                 ))}
               </select>
+              <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={resolve.isPending || !reassignTo}
+                onClick={() => resolve.mutate({ id: t.id, action: 'reassign', assigned_to: reassignTo })}>
+                <UserPlus className="h-3.5 w-3.5" />担当者を変更
+              </Button>
               <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs text-destructive" disabled={resolve.isPending}
                 onClick={async () => {
                   const ok = await confirmAction({
@@ -197,7 +201,7 @@ export function DelegationsTab() {
         onClick={() => setIncludeDone((v) => !v)}
         className={cn('min-h-tap lg:h-9 lg:min-h-0 rounded-md px-3 py-1.5 text-sub', includeDone ? 'bg-primary/15 font-bold text-primary' : 'text-muted-foreground hover:bg-accent')}
       >
-        完了した依頼も表示
+        対応済の依頼も表示
       </button>
 
       <section>
@@ -214,7 +218,7 @@ export function DelegationsTab() {
       <section>
         <h2 className="text-h2 mb-2">出した依頼 <span className="text-muted-foreground">{(sent ?? []).length}</span></h2>
         <p className="mb-2 text-note text-muted-foreground">
-          指示をしたら完了させるまでが依頼者の仕事です。反応が無いものと差し戻されたものを上に出しています。
+          指示をしたら対応済にするまでが依頼者の仕事です。反応が無いものと差し戻されたものを上に出しています。
         </p>
         {(sent ?? []).length === 0 ? (
           <Card><CardContent className="p-6 text-center text-sub text-muted-foreground">出した依頼はありません。</CardContent></Card>

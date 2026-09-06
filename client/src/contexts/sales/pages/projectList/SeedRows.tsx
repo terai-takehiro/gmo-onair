@@ -60,7 +60,7 @@ function stateOf(p: ProjectListRow): { label: string; tone: string } {
   if (p.stage === 'e_lost') return { label: '失注', tone: 'text-muted-foreground' };
   if (p.ai_reviewed_at) return { label: '確認済み', tone: 'text-secondary-foreground' };
   if (p.is_ai_created) return { label: '新しいネタ', tone: 'font-bold text-primary' };
-  return { label: '手で登録', tone: 'text-secondary-foreground' };
+  return { label: '手動登録', tone: 'text-secondary-foreground' };
 }
 
 /** `2026-08-07T…` → `8/07`。受けた日は「いつ待たせ始めたか」なので月日だけでよい */

@@ -50,7 +50,7 @@ export function RelinkDialog({
               .map((p) => ({ value: p.id, label: `${p.gls_number}　${p.name}`, subLabel: p.customer_name }))}
             value={state.target_project_id}
             onChange={(v) => setState((s) => ({ ...s, target_project_id: v }))}
-            placeholder="GLS 番号で探す…"
+            placeholder="GLS 番号で検索…"
           />
         </div>
         <div className="text-note space-y-1 rounded-note border border-warning-border bg-warning-surface p-3 text-secondary-foreground">

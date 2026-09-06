@@ -55,7 +55,7 @@ import { Button } from '@/components/ui/button';
 import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { EnhancedCheckbox } from '@gmo-onair/shared/src/client/ui/enhanced-checkbox';
 import {
-  ACTION_W, CHECK_W, COL_DEFS, COL_W, CUSTOM_COL_W, LEAD_W, flattenRows, ledgerMinWidth,
+  ACTION_W, CHECK_W, COL_DEFS, COL_W, LEAD_W, customColWidth, flattenRows, ledgerMinWidth,
   type ColKey, type EquipmentRecord,
 } from './types';
 import { customCells, standardCells, type CellContext, type CustomCellContext } from './EquipmentCells';
@@ -143,7 +143,10 @@ export function EquipmentTable(p: EquipmentTableProps) {
   const minWidth = ledgerMinWidth({
     canBulkEdit: p.canBulkEdit,
     visibleStd,
-    customCount: visibleCustom.length,
+    // **本数ではなく幅を渡す。** チェックの列だけ 72px なので、
+    // 本数 × 128 で数えると実際より広く見積もり、**まだ余裕があるのに
+    // 横に流れ始めます**（＝商品名が痩せたまま）
+    customWidths: visibleCustom.map((c) => customColWidth(c.col_type)),
   });
 
   const scroller = useRef<HTMLDivElement>(null);
@@ -172,7 +175,7 @@ export function EquipmentTable(p: EquipmentTableProps) {
     >
       <span className="flex justify-end gap-0.5">
         {p.canEdit && (
-          <Button variant="ghost" size="icon-sm" aria-label={`${item.name} を写して追加`} onClick={() => p.onCopy(item)}>
+          <Button variant="ghost" size="icon-sm" aria-label={`${item.name} を複製して追加`} onClick={() => p.onCopy(item)}>
             <Copy className="h-3.5 w-3.5" aria-hidden="true" />
           </Button>
         )}
@@ -268,7 +271,8 @@ export function EquipmentTable(p: EquipmentTableProps) {
                 : <RowSlot key={key} w={COL_W[key as keyof typeof COL_W]}>{label}</RowSlot>;
             })}
             {visibleCustom.map((col) => (
-              <RowSlot key={col.id} w={CUSTOM_COL_W}>
+              // 幅は本文（`customCells`）と**同じ関数**を通す。別に書くと必ずずれる
+              <RowSlot key={col.id} w={customColWidth(col.col_type)}>
                 <span className="truncate">{col.name}</span>
                 <span className="text-note ml-1 shrink-0 text-fg-disabled">{col.scope === 'shared' ? '共' : '個'}</span>
               </RowSlot>
@@ -290,7 +294,7 @@ export function EquipmentTable(p: EquipmentTableProps) {
                     data-eq-row
                     className="text-sub-sm flex items-center gap-1.5 border-b border-border-faint bg-muted px-4 py-2 text-muted-foreground"
                   >
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />付属品を読み込んでいます
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />付属品を読み込み中…
                   </div>
                 );
               }

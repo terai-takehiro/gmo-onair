@@ -170,8 +170,8 @@ export default function FeedbackTicketsPage() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="題名・内容で探す"
-            aria-label="チケットを探す"
+            placeholder="題名・内容で検索"
+            aria-label="チケットを検索"
             className="pl-9 pr-9"
           />
           {search && (
@@ -190,7 +190,7 @@ export default function FeedbackTicketsPage() {
 
       {!canEdit && (
         <p className="text-note text-muted-foreground">
-          送るのは誰でもできます。対応状況を変える（対応中・対応済み・見送り）には「書ける」が要ります。
+          送るのは誰でもできます。対応状況を変える（対応中・対応済み・見送り）には「編集」が必要です。
         </p>
       )}
 

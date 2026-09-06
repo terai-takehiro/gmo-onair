@@ -51,7 +51,7 @@ export const TECHOPS_PC_ONLY: PcOnlyEntry[] = [
   },
   {
     path: '/techops/settings/schedule-templates',
-    what: 'スケジュール表のひな形の編集',
+    what: 'スケジュール表の工程テンプレートの編集',
     why: '列・項目の組み合わせを一度に見ながら組む画面で、狭い幅では組めません。',
     instead: { label: 'スケジュール表の一覧を開く', to: '/techops/schedules' },
   },
@@ -69,8 +69,8 @@ export const TECHOPS_PC_ONLY: PcOnlyEntry[] = [
     // 一覧＋タイマー操作＋視聴者計測パネルを1画面に収めた管理者向けの診断画面で、
     // 組織の鍵設定と同じ理由（狭い幅で運用する想定ではない）でPC専用にした。
     path: '/techops/live-legacy',
-    what: '計時・視聴者の「案件に入っていない番組」一覧',
-    why: '案件に入っていない古い番組を探して開き直すための管理者向け画面で、日常的にスマホから開く運用ではありません。',
+    what: '計時・視聴者の「案件未紐付けの番組」一覧',
+    why: '案件未紐付けの古い番組を探して開き直すための管理者向け画面で、日常的にスマホから開く運用ではありません。',
     instead: { label: 'アプリのトップを開く', to: '/techops/top' },
   },
   {

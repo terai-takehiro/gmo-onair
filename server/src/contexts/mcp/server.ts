@@ -1,4 +1,5 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { config } from '../../config';
 import { registerProjectTools } from './tools/projects.tools';
 import { registerStudioTools } from './tools/studio.tools';
 import { registerFinanceTools } from './tools/finance.tools';
@@ -27,10 +28,41 @@ import { registerGpmTools } from './tools/gpm.tools';
 // 書き込みツールは helpers の audit() で mcp_audit_log に記録し、
 // 重要操作 (GLS 発番 / 失注) は confirm 2段階 (preview → 了承 → 実行)。
 
+/**
+ * **本番と検証で違う名前を名乗る**（2026-09-06）
+ *
+ * 検証環境にも同じ MCP が立っている（`https://dev.gmo-onair.jp/api/v1/mcp`）。
+ * ところが**両方とも `gmo-onair` と名乗っていた**ので、コネクタを2本つないだ
+ * クライアントには**見分けの付かない同名の口が2つ**並ぶ。呼ぶ側は
+ * どちらに書いているか分からず、**検証のつもりで本番に書けてしまう**
+ * （実際に、この製品の MCP コネクタが本番を指していることに気づけたのは
+ * `list_users` が実在の社員を返したからで、名前からは分からなかった）。
+ *
+ * 環境の分離は会社の決めごとの中でも最上位（CLAUDE.md「環境分離ポリシー」）なので、
+ * **名乗りの時点で区別**する。`instructions` は MCP クライアントが
+ * モデルに渡す説明文で、こちらにも書いておく（名前を見落としても気づける）。
+ *
+ * ⚠️ **本番側の名前は変えない。** 変えると既存のコネクタの表示名が変わり、
+ * 利用者から見て別物に見える。足すのは検証側の `-dev` だけ。
+ */
+const DEV_INSTRUCTIONS = [
+  '⚠️ これは **検証環境**（dev.gmo-onair.jp / DB は onair_dev）の GMO ONAiR です。',
+  'ここに書いたデータは本番（gmo-onair.jp）には一切反映されません。自由に壊して構いません。',
+  '本番のデータを見たい・直したいときは、本番のコネクタ（gmo-onair）を使ってください。',
+].join('\n');
+
+const PROD_INSTRUCTIONS = [
+  'これは **本番環境**（gmo-onair.jp）の GMO ONAiR です。',
+  '書き込みは実際の業務データに残ります。試し打ちは検証環境（gmo-onair-dev）で行ってください。',
+].join('\n');
+
 export function buildMcpServer(): McpServer {
+  const isProd = config.isProduction;
   const server = new McpServer({
-    name: 'gmo-onair',
+    name: isProd ? 'gmo-onair' : 'gmo-onair-dev',
     version: process.env.npm_package_version || 'unknown',
+  }, {
+    instructions: isProd ? PROD_INSTRUCTIONS : DEV_INSTRUCTIONS,
   });
 
   registerProjectTools(server);   // 案件管理 (read + create/update/stage/GLS発番)

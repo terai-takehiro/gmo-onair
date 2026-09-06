@@ -138,9 +138,13 @@ export function AppShell({
     ? visibleSections(sections, { role, permissions, can, mobile: isMobile, mobileHiddenPaths })
     : [];
   const activeTo = hasMenu ? currentTo(pathname, menuSections, search) : null;
-  const crumbText =
+  const rawCrumbText =
     crumb ??
     (activeTo ? menuSections.flatMap((s) => s.items).find((i) => i.to === activeTo)?.label : undefined);
+  // **アプリ名そのものと同じ文字列は出さない。** 設定アプリのように「入口の
+  // 案内板」がアプリ名と同じ名前（「設定」）を持つ入口があり、そのまま出すと
+  // 上辺バーが「設定 ／ 設定」と重複表示になる（レビューで発見）
+  const crumbText = rawCrumbText === label ? undefined : rawCrumbText;
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -182,7 +186,7 @@ export function AppShell({
           <PrimaryActionSlotContext.Provider value={actionSlot}>
             <SideMenuTopSlotContext.Provider value={sideMenuTopSlot}>
               {/* **鍵は「画面」までで、クエリは含めない。** `?tab=` や `?page=`
-                  まで鍵にすると、絞り込みを押すたびに画面ぜんぶが動いて酔う */}
+                  まで鍵にすると、絞り込みを押すたびに画面全体が動いて酔う */}
               <div key={pathname} className="v4-screen-in">
                 {children}
               </div>

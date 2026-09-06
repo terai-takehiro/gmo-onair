@@ -43,7 +43,7 @@ export default function PredecessorEditor({ projectId, taskId }: { projectId: st
   return (
     <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
       <div className="flex items-center justify-between">
-        <Label className="text-sm">先行タスク（完了後にこのタスクを開始）</Label>
+        <Label className="text-sm">先行タスク（対応済になってからこのタスクを開始）</Label>
         {predOf.size > 0 && <Badge variant="secondary" className="text-xs">{predOf.size}</Badge>}
       </div>
       {predOf.size === 0 && !adding && (

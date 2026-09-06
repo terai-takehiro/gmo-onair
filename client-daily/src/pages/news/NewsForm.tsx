@@ -79,6 +79,23 @@ export function NewsForm({
       }
     >
       <div className="flex flex-col gap-3">
+        {/*
+          **唯一の必須である「1行の要約」を先頭に置く**（一覧に並ぶのはこの文字）。
+          以前は任意の分類・URL のあとで、報告したい中身を書く前に
+          分類を考えさせる形だった（`docs/design/v4/_form-order.md` 段2）。
+        */}
+        <div>
+          <label className="text-th text-muted-foreground" htmlFor="news-content">1行の要約 *</label>
+          <textarea
+            id="news-content"
+            className="text-sub min-h-[60px] w-full rounded-control border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="ニュースの1行の要約"
+          />
+        </div>
+
+        {/* 分類と出どころ。要約を書いてからのほうが分類は決めやすい */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
             <label className="text-th text-muted-foreground" htmlFor="news-category">分類</label>
@@ -99,17 +116,7 @@ export function NewsForm({
           </div>
         </div>
 
-        <div>
-          <label className="text-th text-muted-foreground" htmlFor="news-content">1行の要約 *</label>
-          <textarea
-            id="news-content"
-            className="text-sub min-h-[60px] w-full rounded-control border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="ニュースの1行の要約"
-          />
-        </div>
-
+        {/* 段6 補足（無くても保存できるもの） */}
         <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2">
           <div>
             <label className="text-th text-muted-foreground" htmlFor="news-note">メモ (任意)</label>

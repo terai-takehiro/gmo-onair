@@ -105,7 +105,7 @@ export default function VersionHistoryModal({
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="バージョン番号・キーワードで探す"
+              placeholder="バージョン番号・キーワードで検索"
               className="h-9 pl-9 text-sm"
             />
           </div>
@@ -114,10 +114,10 @@ export default function VersionHistoryModal({
             disabled={!data}
             className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-border px-3 text-xs font-medium text-foreground hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
             style={{ touchAction: "manipulation" }}
-            title="AI に読ませる形で書き出す"
+            title="テキスト形式で書き出す"
           >
             <Download className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">AI に読ませる形で書き出す</span>
+            <span className="hidden sm:inline">テキスト形式で書き出す</span>
             <span className="sm:hidden">書き出す</span>
           </button>
         </div>
@@ -171,7 +171,7 @@ export default function VersionHistoryModal({
                 ))}
               </ol>
               {filtered.length === 0 && (
-                <p className="py-10 text-center text-sm text-muted-foreground">当てはまるものはありませんでした</p>
+                <p className="py-10 text-center text-sm text-muted-foreground">該当する項目はありません</p>
               )}
               {hasMore && (
                 <div className="mt-4 flex justify-center">

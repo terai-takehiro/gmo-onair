@@ -93,7 +93,7 @@ export function PhaseDialog({
       description: [
         `「${phase.label}」`,
         phase.task_count > 0
-          ? `配下のタスク ${phase.task_count}件は消えません。「工程なし」の束に残るので、あとから別の工程に付け直せます。`
+          ? `配下のタスク ${phase.task_count}件は消えません。「工程なし」の束に残るので、あとから別の工程に付け編集できます。`
           : 'この工程にタスクはありません。',
       ].join('\n'),
       confirmLabel: '削除',
@@ -110,17 +110,21 @@ export function PhaseDialog({
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
       title={phase ? '工程を編集' : '工程を追加'}
+      // Enter で保存する（繰り返し入力を持たないフォーム）。**保存以外のボタンには
+      // 必ず `type="button"` を付ける** — `<form>` の中では既定が submit になり、
+      // 「削除」「キャンセル」を押しただけで保存も走ってしまう
+      onSubmit={(e) => { e.preventDefault(); if (label.trim() && !badRange && !busy) save.mutate(); }}
       footer={
         <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-between">
           {phase ? (
-            <Button variant="outline" onClick={onDelete} disabled={busy}>
+            <Button type="button" variant="outline" onClick={onDelete} disabled={busy}>
               <Trash2 className="mr-2 h-4 w-4 text-destructive" aria-hidden="true" />
               この工程を削除
             </Button>
           ) : <span />}
           <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose} disabled={busy}>キャンセル</Button>
-            <Button onClick={() => save.mutate()} disabled={!label.trim() || badRange || busy}>
+            <Button type="button" variant="outline" onClick={onClose} disabled={busy}>キャンセル</Button>
+            <Button type="submit" disabled={!label.trim() || badRange || busy}>
               {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
               {phase ? '編集' : '追加'}
             </Button>
@@ -140,20 +144,12 @@ export function PhaseDialog({
               placeholder="設計・機材選定"
             />
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="ph-state">状態</Label>
-              <Select value={state} onValueChange={(v) => setState(v as PhaseState)}>
-                <SelectTrigger id="ph-state"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {STATES.map((s) => <SelectItem key={s} value={s}>{PHASE_STATE_LABEL[s]}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="ph-role">担当ロール</Label>
-              <Input id="ph-role" value={role} onChange={(e) => setRole(e.target.value)} placeholder="PM / 技術 / 制作" />
-            </div>
+          {/* 担当ロールは名前の次（誰の工程か）。もとはここに「状態」があったが、
+              足すときの状態はつねに「これから」なので日付の下へ降ろした
+              （`docs/design/v4/_form-order.md`） */}
+          <div>
+            <Label htmlFor="ph-role">担当ロール</Label>
+            <Input id="ph-role" value={role} onChange={(e) => setRole(e.target.value)} placeholder="PM / 技術 / 制作" />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
@@ -168,6 +164,18 @@ export function PhaseDialog({
           {badRange && (
             <p className="text-sub text-destructive">終わりが始まりより前になっています。</p>
           )}
+          {/* 状態は名前・ロール・期間を決めたあと。**欄は残す** — `PUT /gpm/phases/:id` は
+              4項目まとめて送る決めごと（冒頭の注記）なので、値そのものは今までどおり持つ。
+              同じ GPM の持ち帰り（OpenItemDialog）も状態を最後に置いている */}
+          <div>
+            <Label htmlFor="ph-state">状態</Label>
+            <Select value={state} onValueChange={(v) => setState(v as PhaseState)}>
+              <SelectTrigger id="ph-state"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {STATES.map((s) => <SelectItem key={s} value={s}>{PHASE_STATE_LABEL[s]}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
           <p className="text-sub-sm text-muted-foreground">
             {phase
               ? 'この工程の日付を直しても、あとに続く工程は動きません（1つずつ直します）。'

@@ -341,7 +341,7 @@ export default function ExportDialog({
           {result && result.red.length > 0 && (
             // ⚠️ 赤があっても書き出しは止めない（08 §6）。**件数は必ずボタンの手前に出す**
             <p className="tabular-nums text-sub font-bold text-destructive">
-              直したほうがよい {result.red.length} 件のまま書き出します
+              要修正 {result.red.length} 件のまま書き出します
             </p>
           )}
           <Button

@@ -50,7 +50,7 @@ export function IntakeReview(props: IntakeReviewProps) {
       // 押すまで登録しない下書き（原文・AI抽出行・編集内容）を、確認も破棄APIの呼び出しも
       // 無いまま失うのを防ぐ。閉じるには右上の × か「全部いらない」を使う
       onInteractOutside={(e) => e.preventDefault()}
-      title="AI が読み取りました"
+      title="AI作成"
       sub="下書き・押すまで登録しません"
       wide
       footer={
@@ -94,7 +94,7 @@ function ReviewBody({
       {embedded && (
         <p className="text-cardtitle flex flex-wrap items-center gap-2">
           <Sparkles className="h-4 w-4 shrink-0 text-ai" aria-hidden="true" />
-          AI が読み取りました
+          AI作成
           <span className="rounded-badge border border-warning-border bg-warning-surface px-2 py-0.5 text-badge text-warning">
             下書き
           </span>
@@ -205,7 +205,7 @@ function ReviewButtons({
     <>
       <Button type="button" variant="outline" size="sm" className="h-9 gap-1 text-note"
         disabled={discarding} onClick={onDiscard}>
-        <X className="h-3.5 w-3.5" aria-hidden="true" />全部いらない
+        <X className="h-3.5 w-3.5" aria-hidden="true" />すべて破棄
       </Button>
       <Button type="button" size="sm" className="h-9 gap-1.5" disabled={disabled} onClick={onCommit}>
         {committing

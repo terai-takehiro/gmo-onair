@@ -19,6 +19,7 @@ import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
+import { HIDE_UNTIL_WIDE } from '@/lib/rowVisibility';
 import { RowActions } from './RowActions';
 import { MasterDialog } from './MasterDialog';
 
@@ -56,7 +57,7 @@ export function LocationsTab() {
     queryKey: ['equipment-locations'],
     onSaveSuccess: () => notifySuccess('保管場所を保存しました'),
     onDeleteSuccess: () => notifySuccess('保管場所を削除しました'),
-    onError: (action, err) => notifyApiError(action === 'save' ? '保存できませんでした' : '消せませんでした', err),
+    onError: (action, err) => notifyApiError(action === 'save' ? '保存できませんでした' : '削除できませんでした', err),
   });
 
   const { data: branchData } = useQuery({
@@ -106,7 +107,7 @@ export function LocationsTab() {
 
   const onDelete = async (loc: Location) => {
     const ok = await confirmAction({
-      title: `「${loc.name}」を消しますか`,
+      title: `「${loc.name}」を削除しますか`,
       description: 'この場所に置いてある機材は場所なしに戻ります。ラックだった場合はラック図から消えます。',
       confirmLabel: '削除',
       tone: 'danger',
@@ -124,10 +125,10 @@ export function LocationsTab() {
           保管場所・拠点・種別 (ラック／オペ卓／AV盤)・建物・フロア・エリアで持ちます
         </p>
         <div className="flex-1" />
-        <Button variant="outline" onClick={() => setMasterOpen(true)}>
+        <Button type="button" variant="outline" onClick={() => setMasterOpen(true)}>
           <Settings className="mr-1 h-4 w-4" aria-hidden="true" />拠点・種別
         </Button>
-        <Button onClick={crud.openAdd}>
+        <Button type="button" onClick={crud.openAdd}>
           <Plus className="mr-1 h-4 w-4" aria-hidden="true" />保管場所を追加
         </Button>
       </div>
@@ -144,7 +145,23 @@ export function LocationsTab() {
       ) : (
         <div className="flex flex-col rounded-card border border-border bg-card">
           <RowHeader className="hidden sm:flex">
-            <RowSlot w={56}>拠点</RowSlot>
+            {/*
+              ⚠️ **56px では拠点名が入りません**（実際に崩れて報告を受けた）。
+              ここに出るのは**利用者が自由に付けた拠点マスタの名前**で、
+              検証データにも「GMOグローバルスタジオ」（11字 ＝ 実測 約 120px）が
+              入っています。`RowSlot` は `shrink-0` なので押し出されず、
+              札が**右隣の保管場所名の上に重なって**いました。
+              7段のうち名前が丸ごと入る段は **160**（128 では札の中身が 108px しか
+              残らず、実ブラウザで「GMOグローバル…」まで切れた）。
+              それでも長い拠点名は `TableBadge` 側で `…` になる。
+
+              **そのぶん出す幅を 1024px 以上にずらす**（`HIDE_UNTIL_WIDE`）。
+              128px を 640px から出すと、伸びる列（保管場所名）に残るのが
+              **92px** になり、名前のほうが消えます（`shared/tests/rowNameWidth.test.ts`
+              の下限 128px 割れ）。**狭い側では列を消し、拠点名は
+              保管場所名の下の行に出す** — v4 の「スマホは出す情報を絞る」に沿う形。
+            */}
+            <RowSlot w={160} hideOnMobile className={HIDE_UNTIL_WIDE}>拠点</RowSlot>
             <RowMain>保管場所 ／ 建物・フロア・エリア</RowMain>
             <RowSlot w={96}>種別</RowSlot>
             <RowSlot w={56} align="right">Uサイズ</RowSlot>
@@ -153,7 +170,7 @@ export function LocationsTab() {
           </RowHeader>
           {crud.items.map((loc) => (
             <Row key={loc.id} divider interactive stackOnMobile>
-              <RowSlot w={56}>
+              <RowSlot w={160} hideOnMobile className={HIDE_UNTIL_WIDE}>
                 {loc.branch_id && (
                   <TableBadge
                     label={branchMap[loc.branch_id] ?? '—'}
@@ -165,6 +182,11 @@ export function LocationsTab() {
               <RowMain>
                 <RowTitle>{loc.name}</RowTitle>
                 <RowSub>
+                  {/* 1024px 未満は上の「拠点」の列を出していないので、ここに出す
+                      （列が出る幅では二重になるため `lg:hidden` で消す） */}
+                  {loc.branch_id && branchMap[loc.branch_id] && (
+                    <span className="lg:hidden">{branchMap[loc.branch_id]} ／ </span>
+                  )}
                   {[loc.building, loc.floor, loc.area, loc.description].filter(Boolean).join(' ／ ') || '場所の詳細なし'}
                 </RowSub>
               </RowMain>
@@ -206,10 +228,14 @@ export function LocationsTab() {
         title={crud.isEditing ? '保管場所を編集' : '保管場所を追加'}
         // 入力10個・建物/フロア/エリアの3列グリッドを持つ複合フォームなので `lg`(840px)
         size="lg"
+        // Enter で保存できるようにする（繰り返し入力も確認も無い単純なフォーム）。
+        // **保存ボタンは `type="submit"` で `onClick` を持たない** — 両方あると二重送信になる。
+        // キャンセルは `<form>` の中では既定が submit 扱いになるため `type="button"` を明示する
+        onSubmit={(e) => { e.preventDefault(); if (canSave && !crud.save.isPending) handleSave(); }}
         footer={
           <FormDialogFooter>
-            <Button variant="outline" onClick={crud.closeDialog}>キャンセル</Button>
-            <Button onClick={handleSave} disabled={!canSave || crud.save.isPending}>
+            <Button type="button" variant="outline" onClick={crud.closeDialog}>キャンセル</Button>
+            <Button type="submit" disabled={!canSave || crud.save.isPending}>
               {crud.save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
               {crud.isEditing ? '編集' : '追加'}
             </Button>
@@ -217,12 +243,12 @@ export function LocationsTab() {
         }
       >
         <div className="space-y-3">
+          {/* **場所は粗いほうから細いほうへ。** 階層は「拠点＞建物＞フロア＞エリア＞保管場所」なので、
+              保管場所の名前は、それを含む枠を全部選んだあとに打つ */}
           <div className="space-y-1">
-            <Label>保管場所 *</Label>
-            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="カメラ庫" />
-          </div>
-          <div className="space-y-1">
-            <Label>拠点</Label>
+            {/* 機材登録の「拠点」(機材IDの先頭に入るコード) とは別物。
+                こちらは場所を分類するマスタ (`equipment_branches`) */}
+            <Label>拠点 (場所の分類)</Label>
             <Select value={form.branch_id || 'none'} onValueChange={(v) => setForm({ ...form, branch_id: v === 'none' ? '' : v })}>
               <SelectTrigger><SelectValue placeholder="選ぶ" /></SelectTrigger>
               <SelectContent>
@@ -233,6 +259,24 @@ export function LocationsTab() {
             {branches.length === 0 && (
               <p className="text-note text-muted-foreground">「拠点・種別」から先に拠点を追加してください</p>
             )}
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="space-y-1">
+              <Label>建物</Label>
+              <Input value={form.building} onChange={(e) => setForm({ ...form, building: e.target.value })} placeholder="A棟" />
+            </div>
+            <div className="space-y-1">
+              <Label>フロア</Label>
+              <Input value={form.floor} onChange={(e) => setForm({ ...form, floor: e.target.value })} placeholder="3F" />
+            </div>
+            <div className="space-y-1">
+              <Label>エリア</Label>
+              <Input value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })} placeholder="機材エリア" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label>保管場所 *</Label>
+            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="カメラ庫" />
           </div>
           <div className="space-y-1">
             <Label>種別</Label>
@@ -264,20 +308,6 @@ export function LocationsTab() {
               </div>
             </div>
           )}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="space-y-1">
-              <Label>建物</Label>
-              <Input value={form.building} onChange={(e) => setForm({ ...form, building: e.target.value })} placeholder="A棟" />
-            </div>
-            <div className="space-y-1">
-              <Label>フロア</Label>
-              <Input value={form.floor} onChange={(e) => setForm({ ...form, floor: e.target.value })} placeholder="3F" />
-            </div>
-            <div className="space-y-1">
-              <Label>エリア</Label>
-              <Input value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })} placeholder="機材エリア" />
-            </div>
-          </div>
           <div className="space-y-1">
             <Label>説明</Label>
             <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="補足" />

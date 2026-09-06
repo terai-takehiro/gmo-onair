@@ -161,20 +161,37 @@ function hubLabelOf(ctx: ProductionNavContext): string {
 }
 
 /**
- * AIナレッジの承認（`/techops/ai-knowledge`）— qsheet **manager 以上にだけ**出すメニュー。
+ * 管理系メニュー（AIナレッジの承認・スケジュール表の工程テンプレート）— 権限で
+ * 出し分ける2項目を **1つの「管理」節にまとめる**（2026-09-06・階層化）。
  *
- * 共通シェルの `ShellNavItem.module` は「そのモジュール権限を持つか」しか見ない
- * （レベル manager の判定ができない。`AppSideMenu.tsx` の `visibleSections`）ので、
- * 呼び出し側（`AppShell.tsx`）が `hasPermission('qsheet', 'manager')` を判定して
- * ここへ渡す形にした。reader も直URLでは読める（読み専）が、承認業務の入口である
- * このメニューは承認できる人にだけ見せる。
+ * それまでは各項目が見出し無しの節として個別に積まれ、上のミニアプリ群と
+ * 見分けがつかないフラットな1本の並びになっていた（「どこからが管理メニューか」
+ * が読めない、というご指摘）。
  *
- * 案件/番組の文脈に依存しない全体設定なので、文脈あり・なしのどちらの並びにも
- * 独立した節として最後に足す（スマホ下タブには足さない — 3本ルールの枠を
- * 日常業務でない管理メニューで潰さないため。スマホでは左メニューから開ける）。
+ * - **AIナレッジの承認**（`/techops/ai-knowledge`）は qsheet **manager 以上にだけ**出す。
+ *   共通シェルの `ShellNavItem.module` は「そのモジュール権限を持つか」しか見ない
+ *   （レベル manager の判定ができない。`AppSideMenu.tsx` の `visibleSections`）ので、
+ *   呼び出し側（`AppShell.tsx`）が `hasPermission('qsheet', 'manager')` を判定して
+ *   ここへ渡す形にした。reader も直URLでは読める（読み専）が、承認業務の入口である
+ *   このメニューは承認できる人にだけ見せる
+ * - **スケジュール表の工程テンプレート**（`/techops/settings/schedule-templates`）は
+ *   **system_admin にだけ**出す（14-schedule-v2-plan.md §3 A7）。編集系 REST が
+ *   `role === 'system_admin'` を直接見ている（`schedule-templates.routes.ts` の
+ *   `requireSystemAdmin`）ので、ここも `qsheet` の権限レベルではなく role で判定する。
+ *   これまで導線がまったく無く、URL を直打ちしないと開けなかった
+ *   （監査 2026-09-06・14-schedule-v2-plan.md §8 の穴 #10）
+ *
+ * どちらも案件/番組の文脈に依存しない全体設定なので、文脈あり・なしのどちらの並びにも
+ * 最後に足す（スマホ下タブには足さない — 3本ルールの枠を日常業務でない管理メニューで
+ * 潰さないため。スマホでは左メニューから開ける）。
  */
-function aiKnowledgeSection(): ShellNavSection {
-  return { items: [{ label: 'AIナレッジの承認', to: '/techops/ai-knowledge', icon: BookOpenCheck }] };
+function adminSection(opts?: { canManageAiKnowledge?: boolean; isSystemAdmin?: boolean }): ShellNavSection | null {
+  const items = [];
+  if (opts?.canManageAiKnowledge) items.push({ label: 'AIナレッジの承認', to: '/techops/ai-knowledge', icon: BookOpenCheck });
+  if (opts?.isSystemAdmin) {
+    items.push({ label: 'スケジュール表の工程テンプレート', to: '/techops/settings/schedule-templates', icon: CalendarDays });
+  }
+  return items.length > 0 ? { title: '管理', items } : null;
 }
 
 /**
@@ -197,11 +214,30 @@ function graphicsNavItems(ctx: ProductionNavContext, inGraphics: boolean) {
   ];
 }
 
+/**
+ * 「いまの案件/番組」の並びを **2つの節に分ける**（2026-09-06・階層化。ご指摘対応）。
+ *
+ * それまでは「トップ」「案件ホーム」とミニアプリ6〜7項目が見出し無しの1本の
+ * リストで、しかも `hubLabel`（案件名・番組名。長いと省略記号で切れる）が
+ * トップ直下に紛れて「どこからがこの案件の中身か」が読み取りにくかった。
+ *
+ * - 見出し無しの節: 「トップ」＋「（案件/番組の）ホーム」——アプリ全体の起点
+ * - 「ミニアプリ」節: 進行台本〜計時・視聴者——いまの案件/番組に属する子アプリ群
+ *
+ * `hubLabel` は案件名・番組名そのものなので**省略しない**（`wrap: true`。
+ * `AppSideMenu.tsx` の `ShellNavItem.wrap` 参照）。
+ *
+ * テロップCG の項目だけは `graphicsNavItems(ctx, inGraphics)` に展開を任せる——
+ * いまテロップCGの中を見ているときだけ①一覧・本番モード・④設定の3本になる
+ * （上の `graphicsNavItems` のコメント参照）。
+ */
 function buildResolvedSections(ctx: ProductionNavContext, inGraphics: boolean): ShellNavSection[] {
   const hubLabel = hubLabelOf(ctx);
-  const items = [
+  const topItems = [
     { label: 'トップ', to: '/techops/top', icon: LayoutGrid },
-    { label: hubLabel, to: hubPathOf(ctx), icon: LayoutDashboard, end: true },
+    { label: hubLabel, to: hubPathOf(ctx), icon: LayoutDashboard, end: true, wrap: true },
+  ];
+  const miniAppItems = [
     { label: MINI_APP_BY_KEY.sheet.label, to: listPathOf('sheet', ctx), icon: LayoutDashboard },
     { label: MINI_APP_BY_KEY.schedule.label, to: listPathOf('schedule', ctx), icon: CalendarDays },
     { label: MINI_APP_BY_KEY.recording.label, to: panelPathOf('recording', ctx.id), icon: Settings2 },
@@ -214,9 +250,9 @@ function buildResolvedSections(ctx: ProductionNavContext, inGraphics: boolean): 
   // 計時・視聴者（liveops）は scope === 'project' のときだけ（liveops_programs.project_id
   // は projects テーブルのみを指すため。MiniAppTiles.tsx/MiniAppSwitcher.tsx と同じ制約）
   if (ctx.scope === 'project') {
-    items.push({ label: MINI_APP_BY_KEY.liveops.label, to: panelPathOf('liveops', ctx.id), icon: Timer });
+    miniAppItems.push({ label: MINI_APP_BY_KEY.liveops.label, to: panelPathOf('liveops', ctx.id), icon: Timer });
   }
-  return [{ items }];
+  return [{ items: topItems }, { title: 'ミニアプリ', items: miniAppItems }];
 }
 
 function buildDefaultSections(): ShellNavSection[] {
@@ -245,13 +281,14 @@ export function buildQsheetNav(
   pathname: string,
   searchParams: URLSearchParams,
   storeCtx: ProductionNavContext | null,
-  opts?: { canManageAiKnowledge?: boolean },
+  opts?: { canManageAiKnowledge?: boolean; isSystemAdmin?: boolean },
 ): { sections: ShellNavSection[]; mobileTabs: ShellMobileTab[] } {
   const ctx = resolveContext(pathname, searchParams, storeCtx);
   const inGraphics = !!ctx && GRAPHICS_RE.test(pathname);
   const sections = ctx ? buildResolvedSections(ctx, inGraphics) : buildDefaultSections();
-  // manager にだけ「AIナレッジの承認」を独立した節で足す（aiKnowledgeSection のコメント参照）
-  if (opts?.canManageAiKnowledge) sections.push(aiKnowledgeSection());
+  // 権限で出し分ける2項目を「管理」節にまとめて足す（adminSection のコメント参照）
+  const admin = adminSection(opts);
+  if (admin) sections.push(admin);
   const mobileTabs = ctx ? buildResolvedMobileTabs(ctx) : buildDefaultMobileTabs();
   return { sections, mobileTabs };
 }

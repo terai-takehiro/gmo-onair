@@ -65,7 +65,7 @@ export function ScanPageDesktop({
       <div className="rounded-card border border-border bg-card p-4">
         <div className="mb-3 flex items-center gap-2">
           <QrCode className="h-4 w-4 text-primary" aria-hidden="true" />
-          <h2 className="text-cardtitle">ID を打つ</h2>
+          <h2 className="text-cardtitle">機材IDを入力</h2>
         </div>
         <div className="flex gap-2">
           <div className="flex-1 space-y-1">
@@ -89,11 +89,11 @@ export function ScanPageDesktop({
       </div>
 
       <div className="rounded-note border border-info-border bg-info-surface p-4">
-        <p className="text-cardtitle text-foreground">使いかた</p>
+        <p className="text-cardtitle text-foreground">使い方</p>
         <ol className="mt-2 list-decimal space-y-1 pl-5 text-note text-secondary-foreground">
           <li>機材の詳細から「QRコードを印刷」でシールを作って貼る</li>
           <li>この画面で「カメラで読む」→ QR にかざす → 機材の詳細が開く</li>
-          <li>QR が読めないときは ID を打つ</li>
+          <li>QR が読めないときは 機材IDを入力</li>
         </ol>
         <p className="mt-2 text-note text-secondary-foreground">
           読んだものは下に残ります。

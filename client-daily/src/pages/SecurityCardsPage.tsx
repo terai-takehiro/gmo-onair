@@ -123,7 +123,7 @@ export default function SecurityCardsPage() {
       */}
       {isMobile ? (
         <MobileFilterBar
-          search={{ value: search, onChange: setSearch, placeholder: '番号 / 会社 / 担当者で探す', label: 'カードを探す' }}
+          search={{ value: search, onChange: setSearch, placeholder: '番号 / 会社 / 担当者で検索', label: 'カードを検索' }}
           activeCount={(filter !== 'all' ? 1 : 0) + (group !== '' ? 1 : 0)}
           onClearAll={() => { setFilter('all'); setGroup(''); }}
           title="カードの絞り込み"
@@ -190,8 +190,8 @@ export default function SecurityCardsPage() {
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="番号 / 会社 / 担当者で探す"
-                aria-label="カードを探す"
+                placeholder="番号 / 会社 / 担当者で検索"
+                aria-label="カードを検索"
                 className="pl-9 pr-9"
               />
               {search && (

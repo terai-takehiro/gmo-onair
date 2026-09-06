@@ -5,7 +5,7 @@
  *
  * `gpm_members` は `project_id` を必須にしているので、**プロジェクトを
  * 作るまで人を保存できません**。そこでこの段では**入力だけ画面で貯めて、
- * 「作る」を押したときにプロジェクトと一緒に登録**します
+ * 「作成」を押したときにプロジェクトと一緒に登録**します
  * （`GpmProjectFormPage` の `create` が続けて `POST /members` を呼ぶ）。
  *
  * 作れなかったときに人だけ残る、ということは起きません（作ってから足すため）。
@@ -71,10 +71,18 @@ export function OrgStep({
       <section className="rounded-card border border-border bg-card p-4 lg:px-5">
         <h2 className="text-cardtitle">体制に入れる人</h2>
         <p className="text-note mt-1 text-muted-foreground">
-          ここで入れた人は<strong className="font-bold">「作る」を押したときに一緒に登録</strong>されます。
+          ここで入れた人は<strong className="font-bold">「作成」を押したときに一緒に登録</strong>されます。
           あとから体制タブで追加・編集もできます。
         </p>
 
+        {/*
+          欄の並びは**体制タブの `MemberDialog` と同じ**にしてある
+          （名前・所属 → 立場・役割の層 → 役割・チーム名）。同じ「体制に人を入れる」
+          入力なのに順が違うと、作るときと直すときで別の画面に見える
+          （`docs/design/v4/_form-order.md`）。
+          ⚠️ メール・目立たせる印はこの段には無い（`DraftMember` は持っているが
+          新規作成では埋められない）。足すかどうかは別途判断する。
+        */}
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1">
             <Label>名前</Label>
@@ -86,12 +94,8 @@ export function OrgStep({
             />
           </div>
           <div className="space-y-1">
-            <Label>チーム名</Label>
-            <Input
-              value={draft.group_label}
-              onChange={(e) => set('group_label', e.target.value)}
-              placeholder="例: 設計ユニット"
-            />
+            <Label>所属</Label>
+            <Input value={draft.org} onChange={(e) => set('org', e.target.value)} placeholder="日建スペースデザイン" />
           </div>
           <div className="space-y-1">
             <Label>立場</Label>
@@ -116,8 +120,12 @@ export function OrgStep({
             <Input value={draft.role} onChange={(e) => set('role', e.target.value)} placeholder="AV設計・機材選定" />
           </div>
           <div className="space-y-1">
-            <Label>所属</Label>
-            <Input value={draft.org} onChange={(e) => set('org', e.target.value)} placeholder="日建スペースデザイン" />
+            <Label>チーム名</Label>
+            <Input
+              value={draft.group_label}
+              onChange={(e) => set('group_label', e.target.value)}
+              placeholder="例: 設計ユニット"
+            />
           </div>
         </div>
 

@@ -47,9 +47,30 @@ export default function MaintenancePage() {
   const all = useMemo(() => list.data ?? [], [list.data]);
   const records = useMemo(() => (status ? all.filter((r) => r.status === status) : all), [all, status]);
 
+  /**
+   * 記録を付ける機材の候補。
+   *
+   * ⚠️ **`include_children=1` を渡す。** 台帳は木で見せるので既定では親だけを
+   * 返しますが、**メンテナンスは付属品 (子機材) にも起きます** —
+   * カメラセットの中のレンズだけ AF 不良で修理に出す、マイクの中の1本だけ
+   * 断線している、は現場で普通に起きることです。渡さないと候補に1本も
+   * 出てこないため、**「台帳に入っていない」ように見えて記録が残せません**
+   * (親のセットに付けて書くしかなく、どの1本かが分からなくなる)。
+   *
+   * ⚠️ **鍵は台帳の `['equipment-items-all']` と分ける。** 同じ鍵にすると
+   * 機材詳細 (`EquipmentDetailPage`) の「親だけ」の問い合わせと中身を
+   * 共有してしまい、**どちらが先に走ったかで候補が変わります**
+   * (気づけない壊れ方)。前に置く形にしてあるので、詳細側の
+   * `invalidateQueries(['equipment-items-all'])` はこちらにも届きます。
+   */
   const { data: allItems } = useQuery({
-    queryKey: ['equipment-items-all'],
-    queryFn: async () => (await api.get('/equipment/items')).data.data as { id: string; eq_code: string; name: string }[],
+    queryKey: ['equipment-items-all', 'include-children'],
+    queryFn: async () => (await api.get('/equipment/items', {
+      params: { include_children: '1' },
+    })).data.data as {
+      id: string; eq_code: string; name: string; model_number: string | null; unit_number: number | null;
+      parent_name?: string | null;
+    }[],
     enabled: dialogOpen,
   });
 
@@ -155,6 +176,9 @@ export default function MaintenancePage() {
                 <RowTitle>{r.title}</RowTitle>
                 <RowSub>
                   <span className="font-number text-primary">{r.eq_code}</span> ・ {r.equipment_name}
+                  {/* **付属品なら親を添える。** 同じ名前のレンズが何本もあると
+                      「どのセットの1本か」が機材名だけでは分からない */}
+                  {r.parent_name ? `（${r.parent_name} の付属品）` : ''}
                   {r.description ? ` ／ ${r.description}` : ''}
                 </RowSub>
               </RowMain>
@@ -183,7 +207,7 @@ export default function MaintenancePage() {
                       <SelectItem value="reported">報告済</SelectItem>
                       <SelectItem value="in_progress">対応中</SelectItem>
                       <SelectItem value="completed">完了</SelectItem>
-                      <SelectItem value="cancelled">取りやめ</SelectItem>
+                      <SelectItem value="cancelled">中止</SelectItem>
                     </SelectContent>
                   </Select>
                 )}

@@ -22,10 +22,11 @@ import {
   type DragEndEvent, type DragStartEvent,
 } from '@dnd-kit/core';
 import { useMutation } from '@tanstack/react-query';
-import { Check, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import api from '@/lib/api';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
+import { TaskDoneButton } from '@gmo-onair/shared/src/client-v4/taskDoneButton';
 import { notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { useInvalidateGpm } from '../../queries';
 import {
@@ -91,7 +92,7 @@ export function GpmKanbanView({
     <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={onDragStart} onDragEnd={onDragEnd}>
       {canEdit && (
         <p className="text-note text-muted-foreground">
-          カードをドラッグすると工程を付け替えられます。カードを押すと直せます。
+          カードをドラッグすると工程を付け替えられます。カードを押すと編集できます。
         </p>
       )}
       <div className="flex items-start gap-3 overflow-x-auto pb-3">
@@ -238,26 +239,12 @@ function CardBody({
       )}
     >
       <div className="flex items-start gap-1.5">
-        {onToggleDone && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onToggleDone(); }}
-            onPointerDown={(e) => e.stopPropagation()}
-            aria-label={task.is_completed ? `${task.title} を未完了に戻す` : `${task.title} を完了にする`}
-            className={cn(
-              'rounded-badge-xs mt-0.5 flex h-[16px] w-[16px] shrink-0 items-center justify-center border-[1.5px]',
-              task.is_completed ? 'border-success bg-success' : 'border-border-disabled hover:border-primary',
-            )}
-          >
-            {task.is_completed && <Check className="h-3 w-3 text-success-foreground" aria-hidden="true" />}
-          </button>
-        )}
         <p className={cn('text-sub min-w-0 flex-1', task.is_completed && 'text-muted-foreground line-through')}>
           {task.title}
         </p>
       </div>
       {(due || task.assigned_to_name) && (
-        <div className="mt-1 flex items-center gap-2 pl-[22px]">
+        <div className="mt-1 flex items-center gap-2">
           {due && (
             <span className={cn('text-sub-sm font-number', task.is_completed ? 'text-muted-foreground' : dueTone(due, today))}>
               {dueLabel(due, today)}
@@ -267,6 +254,17 @@ function CardBody({
             <span className="text-sub-sm min-w-0 truncate text-muted-foreground">{task.assigned_to_name}</span>
           )}
         </div>
+      )}
+
+      {/* カードは幅が狭いので**下に1行**で置く（掴んで運ぶ操作に渡さないのは部品側の役目） */}
+      {onToggleDone && (
+        <TaskDoneButton
+          done={task.is_completed}
+          onToggle={onToggleDone}
+          taskTitle={task.title}
+          size="sm"
+          className="mt-1.5 w-full"
+        />
       )}
     </div>
   );

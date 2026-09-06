@@ -45,19 +45,19 @@ export function RentalCategoriesTab() {
 
   const create = useMutation({
     mutationFn: (name: string) => api.post('/equipment/rental-categories', { name }),
-    onSuccess: () => { invalidate(); setNewName(''); notifySuccess('カテゴリを足しました'); },
-    onError: (e) => notifyApiError('足せませんでした', e),
+    onSuccess: () => { invalidate(); setNewName(''); notifySuccess('カテゴリを追加しました'); },
+    onError: (e) => notifyApiError('追加できませんでした', e),
   });
   const update = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) =>
       api.put(`/equipment/rental-categories/${id}`, { name }),
-    onSuccess: () => { invalidate(); setEditingId(null); notifySuccess('名前を直しました'); },
-    onError: (e) => notifyApiError('直せませんでした', e),
+    onSuccess: () => { invalidate(); setEditingId(null); notifySuccess('名前を保存しました'); },
+    onError: (e) => notifyApiError('保存できませんでした', e),
   });
   const remove = useMutation({
     mutationFn: (id: string) => api.delete(`/equipment/rental-categories/${id}`),
-    onSuccess: () => { invalidate(); notifySuccess('カテゴリを消しました'); },
-    onError: (e) => notifyApiError('消せませんでした', e),
+    onSuccess: () => { invalidate(); notifySuccess('カテゴリを削除しました'); },
+    onError: (e) => notifyApiError('削除できませんでした', e),
   });
   const reorder = useMutation({
     mutationFn: (order: { id: string; sort_order: number }[]) =>
@@ -76,7 +76,7 @@ export function RentalCategoriesTab() {
 
   const onDelete = async (cat: RentalCategory) => {
     const ok = await confirmAction({
-      title: `カテゴリ「${cat.name}」を消しますか`,
+      title: `カテゴリ「${cat.name}」を削除しますか`,
       description: '割り当てている機材は消えません。カテゴリなしに戻り、貸出機材の一覧の末尾にまとまります。',
       confirmLabel: '削除',
       tone: 'danger',
@@ -115,7 +115,7 @@ export function RentalCategoriesTab() {
         ) : categories.length === 0 ? (
           <EmptyState
             title="貸出カテゴリがまだ1件もありません"
-            description="カテゴリを作ると、貸出機材の一覧がこの並びで見出しごとにまとまります。"
+            description="カテゴリを作成すると、貸出機材の一覧がこの並びで見出しごとにまとまります。"
           />
         ) : (
           <div className="flex flex-col rounded-card border border-border bg-card">

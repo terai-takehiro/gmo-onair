@@ -50,7 +50,7 @@ const CROSS_APP_LINKS = [
     file: 'client-daily/src/App.tsx',
     literal: "'/budget/documents'",
     target: '/budget/documents',
-    note: '受け取った書類 → 財務管理（別バンドル）への転送',
+    note: '受領書類 → 財務管理（別バンドル）への転送',
   },
   {
     file: 'client-daily/src/pages/inquiries/InquiryBody.tsx',

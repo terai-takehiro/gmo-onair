@@ -94,18 +94,19 @@ export default function GpmDashboardPage() {
     <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <PageHeader
         title="ダッシュボード"
-        // ⚠️ **先頭に「案件管理とは別の画面」を足した**（UXレポート 2026-08-18 指摘）。
-        // 案件管理（営業活動・GLS-A）とプロジェクト管理（自社構築・グループ受託の
-        // 工程管理・GLS-B）は見た目の構成が似ており初見では判別しづらいため、
-        // ここでだけ一言添える。案件管理側の見出しには説明を置かない方針
-        // （`platform/pages/DashboardPage.tsx` の「見出しの下に説明を置かない」）
-        // はそのまま変えない — GPM 側はもともと `sub` を使っていた画面なので、
-        // 先頭の一言を足すだけで新しい方針を持ち込まずに済む
-        sub="案件管理とは別の画面（自社構築・グループ受託の工程管理）。いま何が動いていて、どこで止まっているか"
+        // ⚠️ **`sub` は PR③（`gpm-format-alignment.html` 項目12）で外した。**
+        // 2026-08-18 の UX レポートで「案件管理と見分けが付かない」という指摘を受け、
+        // いったんここに「案件管理とは別の画面（自社構築・グループ受託の工程管理）」を
+        // 足していたが、**毎日開く画面のサブタイトルは読ませない**という案件管理の
+        // ダッシュボードと同じ方針をこちらにも揃えることになった
+        // （`platform/pages/DashboardPage.tsx` の「見出しの下に説明を置かない」）。
+        // 見分ける手掛かりは左メニューの並び（「プロジェクト管理」の区画）に
+        // すでにある、というのがこの版の判断。もし見分けにくさが再燃したら、
+        // ここへ戻す前に左メニュー側の見え方を先に見直すこと。
         primaryAction={
           canEdit ? (
             <Button onClick={() => navigate('/gpm/projects/new')}>
-              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />プロジェクトを作る
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />プロジェクトを作成
             </Button>
           ) : undefined
         }
@@ -124,16 +125,16 @@ export default function GpmDashboardPage() {
           <div className="grid gap-3.5 lg:grid-cols-3">
             <div className="space-y-3.5 lg:col-span-2">
               <Panel
-                title="止まっているプロジェクト"
-                note="返事待ち・判断待ちで止まっているもの"
+                title="停滞プロジェクト"
+                note="返事待ち・判断待ちで停滞"
                 icon={<AlertTriangle className="h-4 w-4" aria-hidden="true" />}
                 tone="alert"
                 to="/gpm/tasks"
-                toLabel="全部見る"
+                toLabel="すべて表示"
               >
                 {stuck.length === 0 ? (
                   <p className="text-sub text-muted-foreground">
-                    止まっているものはありません。返事待ち・判断待ちが出たら、プロジェクトの「持ち帰り」から登録してください。
+                    停滞しているプロジェクトはありません。返事待ち・判断待ちが出たら、プロジェクトの「持ち帰り」から登録してください。
                   </p>
                 ) : isMobile ? (
                   <ul className="v4-card-in flex flex-col gap-2">
@@ -149,17 +150,17 @@ export default function GpmDashboardPage() {
               </Panel>
 
               <Panel
-                title="動いているプロジェクト"
+                title="進行中のプロジェクト"
                 note="進行中と準備中"
                 icon={<FolderOpen className="h-4 w-4 text-primary" aria-hidden="true" />}
                 to="/gpm/projects"
-                toLabel="一覧をひらく"
+                toLabel="一覧を開く"
               >
                 {active.length === 0 ? (
                   <EmptyState
-                    title="動いているプロジェクトはありません"
-                    description="発注が確定した構築案件を作ると、ここに工程の進み具合が出ます。"
-                    action={canEdit ? <Button onClick={() => navigate('/gpm/projects/new')}>プロジェクトを作る</Button> : undefined}
+                    title="進行中のプロジェクトはありません"
+                    description="発注が確定した構築案件を作成すると、ここに工程の進み具合が出ます。"
+                    action={canEdit ? <Button onClick={() => navigate('/gpm/projects/new')}>プロジェクトを作成</Button> : undefined}
                   />
                 ) : isMobile ? (
                   <ul className="v4-card-in flex flex-col gap-2">
@@ -197,7 +198,7 @@ export default function GpmDashboardPage() {
                               </span>
                               {p.open_items > 0 && (
                                 <span className="text-sub-sm font-number block text-destructive">
-                                  未確認 {p.open_items}
+                                  持ち帰り {p.open_items}
                                 </span>
                               )}
                             </span>
@@ -215,7 +216,7 @@ export default function GpmDashboardPage() {
               note={`${openAsks.length}件`}
               icon={<CircleHelp className="h-4 w-4 text-destructive" aria-hidden="true" />}
               to="/gpm/tasks"
-              toLabel="全部見る"
+              toLabel="すべて表示"
             >
               {openAsks.length === 0 ? (
                 <p className="text-sub text-muted-foreground">返事待ちのものはありません。</p>

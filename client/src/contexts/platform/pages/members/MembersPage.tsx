@@ -81,7 +81,7 @@ export default function MembersPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] });
       qc.invalidateQueries({ queryKey: ['permission-roles'] });
-      notifySuccess('メンバーを消しました');
+      notifySuccess('メンバーを削除しました');
     },
     onError: (e) => notifyApiError('消せませんでした', e),
   });
@@ -107,7 +107,7 @@ export default function MembersPage() {
         sub="権限は人ではなく役割に付けます。役割をあてると、その人の権限がまとめて書き換わります。"
         primaryAction={
           <Button onClick={() => setUserDialog({ open: true, user: null })}>
-            <UserPlus className="mr-1.5 h-4 w-4" aria-hidden="true" />メンバーを招く
+            <UserPlus className="mr-1.5 h-4 w-4" aria-hidden="true" />メンバーを招待
           </Button>
         }
       />
@@ -230,7 +230,7 @@ export default function MembersPage() {
                 <EmptyState
                   icon={<Users className="h-6 w-6" aria-hidden="true" />}
                   title="この役割の人はまだいません"
-                  description="メンバーを招くとき、または一覧の「編集」から役割を変えられます。"
+                  description="メンバーを招待するとき、または一覧の「編集」から役割を変えられます。"
                 />
               ) : (
                 <>
@@ -300,12 +300,22 @@ export default function MembersPage() {
         </div>
       )}
 
+      {/*
+        **`key` で対象ごとに作り直す。** ダイアログは開閉に関わらず常時マウントされており、
+        欄の値は `open`/`role`(`user`) の変化を `useEffect` で拾って流し込む形。
+        役割Aの編集を閉じずに役割Bの編集を続けて開く（`setRoleDialog`/`setUserDialog` が
+        1回で `open:true, role:B` に切り替わる）と、`useEffect` が効くまでの1フレーム、
+        **Aの値のままBの見出しでダイアログが描画される**。`key` を対象IDにして
+        対象が変わるたびに作り直せば、初回レンダーから props 由来の値でしか描画されない。
+      */}
       <RoleDialog
+        key={roleDialog.role?.id ?? 'new'}
         role={roleDialog.role}
         open={roleDialog.open}
         onOpenChange={(v) => setRoleDialog((s) => ({ ...s, open: v }))}
       />
       <UserDialog
+        key={userDialog.user?.id ?? 'new'}
         user={userDialog.user}
         roles={roles}
         open={userDialog.open}

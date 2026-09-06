@@ -29,7 +29,7 @@ type TabKey = 'mine' | 'delegations' | 'intake' | 'team';
 const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: 'mine', label: 'マイタスク', icon: ListChecks },
   { key: 'delegations', label: '依頼', icon: Send },
-  { key: 'intake', label: '書き留めたもの', icon: Inbox },
+  { key: 'intake', label: 'メモ履歴', icon: Inbox },
   { key: 'team', label: 'チーム', icon: Users },
 ];
 

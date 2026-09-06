@@ -38,7 +38,7 @@ function dueTone(due: string | null, today: string): string {
 
 function dueSub(due: string | null, today: string): string | null {
   if (!due) return null;
-  if (due < today) return '期限切れ';
+  if (due < today) return '期限超過';
   if (due === today) return '今日が期限';
   return null;
 }

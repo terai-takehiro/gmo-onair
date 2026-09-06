@@ -57,7 +57,7 @@ function MeetingRow({
             {toolLabel(meeting)}
           </span>
           <span className="min-w-0 flex-1 truncate text-sm font-bold">
-            {meeting.label || '（呼び名なし）'}
+            {meeting.label || '（表示名なし）'}
           </span>
         </div>
         <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -135,7 +135,7 @@ export default function MeetingList({
           {meetings.length === 0 ? (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">
               {canEdit
-                ? 'WEB会議はまだ1本もありません。「会議を追加」から足してください。'
+                ? 'WEB会議はまだ1本もありません。「会議を追加」から追加してください。'
                 : 'WEB会議はまだ1本もありません。'}
             </p>
           ) : (

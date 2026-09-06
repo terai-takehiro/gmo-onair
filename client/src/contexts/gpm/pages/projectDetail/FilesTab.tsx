@@ -49,21 +49,21 @@ export function FilesTab({ project, canEdit }: { project: GpmProjectDetail; canE
 
   const create = useMutation({
     mutationFn: () => api.post(`/gpm/projects/${project.id}/box-folder`),
-    onSuccess: () => { invalidate(project.id); notifySuccess('BOX にフォルダを作りました'); },
-    onError: (e) => notifyApiError('BOX にフォルダを作れませんでした', e),
+    onSuccess: () => { invalidate(project.id); notifySuccess('BOX にフォルダを作成しました'); },
+    onError: (e) => notifyApiError('BOX にフォルダを作成できませんでした', e),
   });
 
   const onCreate = async () => {
     const p = preview.data;
     const ok = await confirmAction({
-      title: `「${project.name}」の BOX フォルダを作りますか？`,
+      title: `「${project.name}」の BOX フォルダを作成しますか？`,
       description: [
         '**本番の BOX に実際にフォルダができます。ONAiR からは削除できません**（削除するときは BOX で手で行います）。',
         p ? `社内限り: ${p.internal.join(' / ')}` : '',
         p ? `社外共有可: ${p.external.join(' / ')}` : '',
         '社内限りには仕入値と発注書を置きます（発注者にも PM 会社にも見せません）。',
       ].filter(Boolean).join('\n'),
-      confirmLabel: 'フォルダを作る',
+      confirmLabel: 'フォルダを作成',
     });
     if (ok) create.mutate();
   };
@@ -75,18 +75,18 @@ export function FilesTab({ project, canEdit }: { project: GpmProjectDetail; canE
       <div className="p-4 lg:px-6 lg:pb-6 lg:pt-5">
         <EmptyState
           icon={<FolderPlus className="h-6 w-6" aria-hidden="true" />}
-          title="BOX フォルダはまだ作っていません"
+          title="BOX フォルダはまだ作成していません"
           description={
             preview.data
-              ? `作ると 社内限り（${preview.data.internal.join(' / ')}）と `
+              ? `作成すると 社内限り（${preview.data.internal.join(' / ')}）と `
                 + `社外共有可（${preview.data.external.join(' / ')}）の2つができます。`
-                + 'ONAiR からは消せないので、要るときだけ作ってください。'
-              : 'ONAiR からは消せないので、要るときだけ作ってください。'
+                + 'ONAiR からは消せないので、要るときだけ作成してください。'
+              : 'ONAiR からは消せないので、要るときだけ作成してください。'
           }
           action={canEdit
             ? (
               <Button onClick={onCreate} disabled={create.isPending}>
-                <FolderPlus className="mr-2 h-4 w-4" aria-hidden="true" />BOX フォルダを作る
+                <FolderPlus className="mr-2 h-4 w-4" aria-hidden="true" />BOX フォルダを作成
               </Button>
             )
             : undefined}

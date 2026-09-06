@@ -155,7 +155,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
 
   return (
     <div className="flex flex-col gap-3 p-3">
-      <Button variant="ghost" onClick={onBack} className="self-start">
+      <Button type="button" variant="ghost" onClick={onBack} className="self-start">
         <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />中断する
       </Button>
 
@@ -166,11 +166,11 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
           : `${detail.check_date} ・ QR を読むと「確認できた」になります`}
         primaryAction={
           closed ? undefined : cameraOn ? (
-            <Button className="w-full sm:w-auto" variant="outline" onClick={stopCamera}>
+            <Button type="button" className="w-full sm:w-auto" variant="outline" onClick={stopCamera}>
               <CameraOff className="mr-1.5 h-4 w-4" aria-hidden="true" />カメラを止める
             </Button>
           ) : (
-            <Button className="w-full sm:w-auto" onClick={startCamera}>
+            <Button type="button" className="w-full sm:w-auto" onClick={startCamera}>
               <Camera className="mr-1.5 h-4 w-4" aria-hidden="true" />QR を読む
             </Button>
           )
@@ -181,14 +181,14 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
       <div className="grid grid-cols-3 gap-2">
         <Count label="確認できた" n={done.length} tone="ok" />
         <Count label="見つからない" n={missing.length} tone={missing.length > 0 ? 'ng' : 'plain'} />
-        <Count label="のこり" n={rest.length} tone="plain" />
+        <Count label="未確認" n={rest.length} tone="plain" />
       </div>
 
       {/* 終わった棚卸しは**読むだけ**。理由と直し方を出す（PC 側と同じ判断） */}
       {closed && (
         <p className="rounded-note border border-border bg-muted px-3.5 py-3 text-note text-secondary-foreground">
           <strong className="font-bold">この棚卸しは終わっています。</strong>
-          確認の記録はできません。直すときは PC の棚卸し画面で「もう一度開く」を押してください。
+          確認の記録はできません。直すときは PC の棚卸し画面で「再開する」を押してください。
         </p>
       )}
 
@@ -202,7 +202,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
             <strong className="font-bold">送り終わるまでこの画面を閉じても大丈夫です</strong>
             （次に開いたときに送ります）。
           </span>
-          <Button variant="outline" size="sm" className="shrink-0" onClick={() => flush()}>いま送る</Button>
+          <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => flush()}>いま送る</Button>
         </p>
       )}
 
@@ -221,7 +221,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
 
       {!closed && (
         <div className="flex gap-2">
-          <Button variant="outline" className="flex-1" onClick={() => setManualOpen((v) => !v)}>
+          <Button type="button" variant="outline" className="flex-1" onClick={() => setManualOpen((v) => !v)}>
             <Keyboard className="mr-1.5 h-4 w-4" aria-hidden="true" />手で入れる
           </Button>
         </div>
@@ -247,7 +247,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
       <FilterChips
         label="絞り込み"
         items={[
-          { key: 'rest', label: 'のこり', count: rest.length },
+          { key: 'rest', label: '未確認', count: rest.length },
           { key: 'done', label: '確認できた', count: done.length },
           { key: 'missing', label: '見つからない', count: missing.length },
         ]}
@@ -258,8 +258,8 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
       {shown.length === 0 ? (
         <EmptyState
           icon={<PackageSearch className="h-6 w-6" aria-hidden="true" />}
-          title={chip === 'rest' ? 'のこりはありません' : chip === 'done' ? 'まだ1つも確認していません' : '見つからないものはありません'}
-          description={chip === 'rest' ? '「終わりにする」は PC の棚卸し画面から行います。' : undefined}
+          title={chip === 'rest' ? '未確認はありません' : chip === 'done' ? 'まだ1つも確認していません' : '見つからないものはありません'}
+          description={chip === 'rest' ? '「完了する」は PC の棚卸し画面から行います。' : undefined}
         />
       ) : (
         <ul className="flex flex-col gap-2">
@@ -273,7 +273,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
                   {[i.eq_code, i.location_name || i.location_detail].filter(Boolean).join(' ・ ')}
                 </span>
               </span>
-              <Button
+              <Button type="button"
                 variant={i.found === 1 ? 'default' : 'outline'}
                 size="icon"
                 aria-label="確認できた"
@@ -282,7 +282,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
               >
                 <Check className="h-4 w-4" aria-hidden="true" />
               </Button>
-              <Button
+              <Button type="button"
                 variant={i.found === 2 ? 'destructive' : 'outline'}
                 size="icon"
                 aria-label="見つからない"
@@ -301,7 +301,7 @@ export function MobileScanSession({ checkId, onBack }: { checkId: string; onBack
         貸出は相手・用途・期日を決める作業で、
         <strong className="font-bold">2回押すと2本できてしまう</strong>ので端末に溜められません
         （PC の「貸出・返却」から行います）。
-        棚卸しを終わりにするのも PC からです。
+        棚卸しを完了するのも PC からです。
       </p>
 
       {detailQuery.isFetching && (

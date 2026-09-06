@@ -103,7 +103,7 @@ export function useScanQueue(
     if (closed) {
       onMessage({
         tone: 'ng',
-        text: 'この棚卸しは終わっています。PC の棚卸し画面で「もう一度開く」を押してください',
+        text: 'この棚卸しは終わっています。PC の棚卸し画面で「再開する」を押してください',
       });
       return;
     }

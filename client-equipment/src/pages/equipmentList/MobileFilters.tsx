@@ -64,8 +64,8 @@ export function MobileFilters({
       search={{
         value: state.search,
         onChange: (v) => onChange({ search: v }),
-        placeholder: '名前・ID・型名で探す',
-        label: '機材を探す',
+        placeholder: '名前・ID・型名で検索',
+        label: '機材を検索',
       }}
       activeCount={activeCount(state)}
       onClearAll={onClear}

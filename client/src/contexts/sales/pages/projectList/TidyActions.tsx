@@ -85,7 +85,7 @@ export function TidyActions({ p }: { p: ProjectListRow }) {
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
     >
-      <ActionButton icon={ArrowRight} label="次の一手" onClick={() => navigate(`/sales/projects/${p.id}/thread`)} />
+      <ActionButton icon={ArrowRight} label="次のアクション" onClick={() => navigate(`/sales/projects/${p.id}/thread`)} />
       {canEdit && (
         <>
           <ActionButton icon={AlarmClock} label="スヌーズ" onClick={() => setDialog('snooze')} />

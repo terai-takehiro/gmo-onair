@@ -98,7 +98,7 @@ export function CatalogRow({
         <RowSlot w={96} align="right" placeholder="">
           <span className="flex gap-0.5">
             {canEdit && (
-              <Button variant="ghost" size="icon-sm" onClick={() => onCopy(item)} aria-label={`${item.name} を写して追加`}>
+              <Button variant="ghost" size="icon-sm" onClick={() => onCopy(item)} aria-label={`${item.name} を複製して追加`}>
                 <Copy className="h-3.5 w-3.5" aria-hidden="true" />
               </Button>
             )}

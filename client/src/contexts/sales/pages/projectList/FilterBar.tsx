@@ -55,7 +55,7 @@ export const SORT_OPTIONS: { value: string; label: string }[] = [
   { value: 'estimate_amount:desc', label: '見積金額が大きい順' },
   { value: 'event_start:asc', label: '実施日が近い順' },
   { value: 'next_task_due:asc', label: '期限が近い順' },
-  { value: 'last_move:asc', label: '最後の動きが古い順' },
+  { value: 'last_move:asc', label: '最終更新が古い順' },
 ];
 
 /**
@@ -109,7 +109,7 @@ const SORT_COLUMN_LABELS: Record<string, string> = {
   event_start: '実施日',
   estimate_amount: '見積金額',
   next_task_due: '次のタスク',
-  last_move: '最後の動き',
+  last_move: '最終更新',
 };
 
 /**
@@ -179,11 +179,11 @@ export function FilterBar(p: FilterBarProps) {
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <Input
-            placeholder="案件名・GLS番号・お客様名で探す"
+            placeholder="案件名・GLS番号・お客様名で検索"
             value={p.search}
             onChange={(e) => p.onSearch(e.target.value)}
             className="h-10 pl-9"
-            aria-label="案件を探す"
+            aria-label="案件を検索"
           />
         </div>
 
@@ -350,12 +350,12 @@ function BarButton({
 export function TermHint({ onClose }: { onClose: () => void }) {
   return (
     <div className="rounded-note border border-primary-border bg-primary-surface-weak px-3.5 py-3 text-note text-muted-foreground">
-      <p><span className="font-bold text-foreground">ネタ</span> … まだ提案していない案件のタネ。見え方「ネタ」で見ます。</p>
-      <p><span className="font-bold text-foreground">ヨミ</span> … GLS 発番前の見込み案件ぜんぶ。受注の確度を読む段階です。</p>
+      <p><span className="font-bold text-foreground">ネタ</span> … まだ提案していない案件のタネ。表示形式「ネタ」で見ます。</p>
+      <p><span className="font-bold text-foreground">ヨミ</span> … GLS 発番前の見込み案件すべて。受注の確度を読む段階です。</p>
       <p><span className="font-bold text-foreground">GLS 番号</span> … 受注が固まった案件に振る正式な番号です。</p>
       <p><span className="font-bold text-foreground">おすすめ順</span> … 停滞している案件が先。その中は期限が近い順です。</p>
-      <p><span className="font-bold text-foreground">期限超過</span> … 次の一手の期日が過ぎているもの。最優先で浮上します。</p>
-      <p><span className="font-bold text-foreground">停滞</span> … 次の一手が無いまま、ステージごとの日数を超えて動いていないもの。</p>
+      <p><span className="font-bold text-foreground">期限超過</span> … 次のアクションの期日が過ぎているもの。最優先で浮上します。</p>
+      <p><span className="font-bold text-foreground">停滞</span> … 次のアクションが無いまま、ステージごとの日数を超えて動いていないもの。</p>
       <p><span className="font-bold text-foreground">スヌーズ</span> … 再開日を決めて寝かせること。期日が来たら普通の判定に戻ります。</p>
       <p><span className="font-bold text-foreground">すべて</span> … ネタを除く全ステージ。完了・失注も含みます。</p>
       <p><span className="font-bold text-foreground">進行中</span> … 仮押さえ〜受注済の4ステージ。既定はこちらです。</p>

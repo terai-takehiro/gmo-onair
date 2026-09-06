@@ -38,9 +38,9 @@ export function TeamTab() {
             <thead>
               <tr className="border-b border-border text-left text-th text-muted-foreground">
                 <th className="py-2 pr-2">メンバー</th>
-                <th className="px-2 py-2 text-right">未完了</th>
+                <th className="px-2 py-2 text-right">未対応</th>
                 <th className="px-2 py-2 text-right">期限超過</th>
-                <th className="px-2 py-2 text-right" title="重要度 高 × 緊急度 高（最優先）の未完了タスク数">最優先</th>
+                <th className="px-2 py-2 text-right" title="重要度 高 × 緊急度 高（最優先）の未対応タスク数">最優先</th>
                 <th className="px-2 py-2 text-right">未返答の依頼</th>
                 <th className="px-2 py-2 text-right">期限なし</th>
                 <th className="px-2 py-2 text-right">自分だけ</th>

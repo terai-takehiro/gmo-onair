@@ -72,7 +72,7 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
       qc.invalidateQueries({ queryKey: ['equipment-custom-values'] });
       notifySuccess('列を削除しました');
     },
-    onError: (e) => notifyApiError('列を消せませんでした', e),
+    onError: (e) => notifyApiError('列を削除できませんでした', e),
   });
 
   /**
@@ -111,7 +111,7 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
           <div>
             <div className="flex items-center gap-1.5 mb-2">
               <Users className="h-3.5 w-3.5 text-blue-600" />
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">共有列（全員表示）</span>
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">共有列（全員表示）</span>
             </div>
             {sharedCols.length === 0 && (
               <p className="text-xs text-muted-foreground px-1">共有列はありません</p>
@@ -136,7 +136,7 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
           <div>
             <div className="flex items-center gap-1.5 mb-2">
               <User className="h-3.5 w-3.5 text-slate-500" />
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">個人列（自分のみ表示）</span>
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">個人列（自分のみ表示）</span>
             </div>
             {personalCols.length === 0 && (
               <p className="text-xs text-muted-foreground px-1">個人列はありません</p>
@@ -160,7 +160,7 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
           {/* Add new */}
           {addMode ? (
             <div className="border rounded-lg p-3 space-y-3 bg-muted/30">
-              <p className="text-sm font-medium">新しい列を追加</p>
+              <p className="text-sm font-bold">新しい列を追加</p>
               <div className="space-y-2">
                 <div>
                   <Label className="text-xs">列名</Label>
@@ -187,7 +187,7 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-xs">見せる範囲</Label>
+                    <Label className="text-xs">公開範囲</Label>
                     <Select value={form.scope} onValueChange={v => setForm(f => ({ ...f, scope: v }))}>
                       <SelectTrigger className="h-8 text-sm mt-1">
                         <SelectValue />
@@ -291,7 +291,7 @@ function ColRow({ col, isEditing, editForm, setEditForm, canEdit, onEdit, onSave
 
   return (
     <div className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/40 group mb-1">
-      <span className="flex-1 text-sm font-medium truncate">{col.name}</span>
+      <span className="flex-1 text-sm font-bold truncate">{col.name}</span>
       <span className="text-xs text-muted-foreground shrink-0">{COL_TYPE_LABELS[col.col_type] ?? col.col_type}</span>
       {canEdit && (
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

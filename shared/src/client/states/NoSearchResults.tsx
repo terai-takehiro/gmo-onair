@@ -34,11 +34,11 @@ export function NoSearchResults({ keyword, activeFilters = [], onClearFilters, c
         <SearchX className="h-7 w-7" />
       </div>
       <p className="text-cardtitle text-foreground">
-        {keyword ? `「${keyword}」に当てはまるものはありませんでした` : '当てはまるものはありませんでした'}
+        {keyword ? `「${keyword}」に該当する項目はありません` : '該当する項目はありません'}
       </p>
       {activeFilters.length > 0 ? (
         <div className="max-w-lg text-sub text-secondary-foreground">
-          <p>次の絞り込みが効いています。外すと出てくることがあります。</p>
+          <p>次の絞り込みが適用されています。解除すると表示される場合があります。</p>
           <ul className="mt-2 flex flex-wrap justify-center gap-1.5">
             {activeFilters.map((f) => (
               <li
@@ -52,7 +52,7 @@ export function NoSearchResults({ keyword, activeFilters = [], onClearFilters, c
         </div>
       ) : (
         <p className="max-w-lg text-sub text-secondary-foreground">
-          言葉を短くするか、別の言い方で探してください。
+          検索語を短くするか、別の表現でお試しください。
         </p>
       )}
       {onClearFilters && activeFilters.length > 0 ? (

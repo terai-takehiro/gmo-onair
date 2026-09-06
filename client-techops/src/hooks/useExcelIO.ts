@@ -50,7 +50,7 @@ export function useExcelIO(
         broadcast_date: metaPatch.broadcast_date ?? prev.broadcast_date,
       } : prev));
     } catch {
-      notifyError("台本情報（タイトル・状態・放送日）を反映できませんでした。", { description: "台本本体の取込は終わっています。情報バーから手で直してください。" });
+      notifyError("台本情報（タイトル・状態・放送日）を反映できませんでした。", { description: "台本本体の取込は終わっています。情報バーから手動で修正してください。" });
     }
   }, [doc, setDoc]);
 

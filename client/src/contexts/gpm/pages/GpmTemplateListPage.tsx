@@ -48,8 +48,8 @@ export default function GpmTemplateListPage() {
 
   const remove = useMutation({
     mutationFn: (t: GpmTemplate) => api.delete(`/gpm/templates/${t.id}`),
-    onSuccess: () => { invalidate(); notifySuccess('ひな形を削除しました'); },
-    onError: (err) => notifyApiError('ひな形を削除できませんでした', err),
+    onSuccess: () => { invalidate(); notifySuccess('工程テンプレートを削除しました'); },
+    onError: (err) => notifyApiError('工程テンプレートを削除できませんでした', err),
   });
 
   const onDelete = async (t: GpmTemplate) => {
@@ -57,9 +57,9 @@ export default function GpmTemplateListPage() {
       title: `「${t.name}」を削除しますか？`,
       description: [
         t.used_count > 0
-          ? `このひな形から作った ${t.used_count} 件のプロジェクトは変わりません（作るときに写しているため）。`
-          : 'このひな形から作ったプロジェクトはまだありません。',
-        '消すと、次に同じ工程を組む人は一から作ることになります。',
+          ? `この工程テンプレートから作った ${t.used_count} 件のプロジェクトは変わりません（作るときに写しているため）。`
+          : 'この工程テンプレートから作ったプロジェクトはまだありません。',
+        '削除すると、次に同じ工程を組む人は一から作ることになります。',
       ].join('\n'),
       confirmLabel: '削除',
       tone: 'danger',
@@ -70,31 +70,31 @@ export default function GpmTemplateListPage() {
   return (
     <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <PageHeader
-        title="ひな形"
+        title="工程テンプレート"
         sub={
           data
-            ? `${templates.length}件 ・ プロジェクトを作るときに写して使います（あとで直しても適用済みには影響しません）`
-            : 'プロジェクトを作るときに写して使います'
+            ? `${templates.length}件 ・ プロジェクトを作成するときに複製して使用します（あとで直しても適用済みには影響しません）`
+            : 'プロジェクトを作成するときに複製して使用します'
         }
         primaryAction={
           canEdit ? (
             <Button onClick={() => setAdding(true)}>
-              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />ひな形を作る
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />工程テンプレートを作成
             </Button>
           ) : undefined
         }
       />
 
       {isError ? (
-        <ErrorPanel title="ひな形を読み込めませんでした" onRetry={() => refetch()} />
+        <ErrorPanel title="工程テンプレートを読み込めませんでした" onRetry={() => refetch()} />
       ) : isLoading ? (
         <Delayed><SkeletonRows rows={3} /></Delayed>
       ) : templates.length === 0 ? (
         <EmptyState
           icon={<Layers className="h-6 w-6" aria-hidden="true" />}
-          title="ひな形がまだありません"
-          description="よく作る工程の並びを登録しておくと、プロジェクトを作るときに日付付きで一気に入ります。"
-          action={canEdit ? <Button onClick={() => setAdding(true)}>ひな形を作る</Button> : undefined}
+          title="工程テンプレートがまだありません"
+          description="よく作る工程の並びを登録しておくと、プロジェクトを作成するときに日付付きで一気に入ります。"
+          action={canEdit ? <Button onClick={() => setAdding(true)}>工程テンプレートを作成</Button> : undefined}
         />
       ) : (
         <div className="space-y-2.5">
@@ -178,7 +178,7 @@ function TemplateCard({
               size="sm"
               onClick={onDelete}
               disabled={t.is_system}
-              title={t.is_system ? '最初から入っているひな形は削除できません' : 'このひな形を削除'}
+              title={t.is_system ? '最初から入っている工程テンプレートは削除できません' : 'この工程テンプレートを削除'}
             >
               <Trash2 className={cn('h-3.5 w-3.5', !t.is_system && 'text-destructive')} aria-hidden="true" />
               <span className="sr-only">削除</span>

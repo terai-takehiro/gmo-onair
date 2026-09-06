@@ -131,8 +131,8 @@ export function PhaseRow({
               type="button"
               onClick={() => onMove(phase, 'up')}
               disabled={!canMoveUp}
-              aria-label={`${phase.label} を上に動かす`}
-              title="上に動かす"
+              aria-label={`${phase.label} を上へ移動`}
+              title="上へ移動"
               className="rounded-control-md min-h-tap flex w-8 items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 lg:min-h-[36px]"
             >
               <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
@@ -141,8 +141,8 @@ export function PhaseRow({
               type="button"
               onClick={() => onMove(phase, 'down')}
               disabled={!canMoveDown}
-              aria-label={`${phase.label} を下に動かす`}
-              title="下に動かす"
+              aria-label={`${phase.label} を下へ移動`}
+              title="下へ移動"
               className="rounded-control-md min-h-tap flex w-8 items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 lg:min-h-[36px]"
             >
               <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
@@ -245,7 +245,7 @@ export function PhaseCard({
               type="button"
               onClick={() => onMove(phase, 'up')}
               disabled={!canMoveUp}
-              aria-label={`${phase.label} を上に動かす`}
+              aria-label={`${phase.label} を上へ移動`}
               className={iconBtn}
             >
               <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
@@ -254,7 +254,7 @@ export function PhaseCard({
               type="button"
               onClick={() => onMove(phase, 'down')}
               disabled={!canMoveDown}
-              aria-label={`${phase.label} を下に動かす`}
+              aria-label={`${phase.label} を下へ移動`}
               className={iconBtn}
             >
               <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />

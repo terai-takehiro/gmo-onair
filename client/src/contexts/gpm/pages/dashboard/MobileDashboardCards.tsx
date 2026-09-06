@@ -51,7 +51,7 @@ export function MobileActiveProjectCard({ p, today }: { p: GpmProjectRow; today:
             </span>
             {p.open_items > 0 && (
               <span className="text-badge rounded-badge-xs bg-destructive-surface px-1.5 py-0.5 text-destructive">
-                未確認 {p.open_items}
+                持ち帰り {p.open_items}
               </span>
             )}
           </span>

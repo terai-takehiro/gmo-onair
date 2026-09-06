@@ -3,6 +3,11 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { normalizeRichContent } from '../../../shared/services/rich-content';
 import { recordFinanceDocCorrections, recordInquiryCorrections } from './inbox-ai-feedback.service';
+import { ensureGroup, guessProject, type ExpenseKind } from './finance-doc-chain.service';
+import {
+  storeAttachment, safeFilename, MAX_ATTACHMENTS_PER_DOC, type IncomingAttachment,
+} from '../../../shared/services/mail-attachment-box.service';
+import { guessProcessingMonth } from '../../../shared/services/finance-chain';
 
 // 日常業務アプリ (dailyops) — 受信箱型トラッキングの service 層。
 // 見積/請求書 (finance_docs) と その他問い合わせ (misc_inquiries)。
@@ -35,10 +40,38 @@ export interface FinanceDocInput {
   details?: unknown;
   /** メール本文の全文。**切り詰めない** — AI がどこを読み違えたかを後から確かめるため */
   body_text?: string | null;
+
+  // ── migration 281: ひとつづり / 当て先 / 添付 ──────────────
+  /** 束（見積書→発注書→請求書）。渡さなければ取込時に1つ作る */
+  group_id?: string | null;
+  /** 束ね直しの鍵（見積番号・取引先＋件名など）。同じ鍵なら同じ束に入る */
+  group_key?: string | null;
+  /** 束の題名。渡さなければ件名から作る */
+  group_title?: string | null;
+  /** 取引先名（差出人の会社名） */
+  vendor_name?: string | null;
+  /** 当て先の案件。**AI は直接渡さず `project_hint` を渡すこと** */
+  project_id?: string | null;
+  /** 当て先を当てる手がかり（GLS 番号・案件名）。サーバーが解決して確からしさを付ける */
+  project_hint?: string | null;
+  /** 誰が付けたか。人が直したら `human` */
+  project_source?: 'ai' | 'human' | null;
+  /** 案件の仕入か販管費か。決めきれなければ渡さない */
+  expense_kind?: ExpenseKind | null;
+  /** 販管費のとき: 支払サイト（日数） */
+  payment_terms_days?: number | null;
+  /** 販管費のとき: 処理月（YYYY-MM） */
+  processing_month?: string | null;
+  /** 書類番号（見積番号・請求番号） */
+  doc_no?: string | null;
+  /** 見積の改定回数（1 始まり） */
+  revision?: number | null;
+  /** メールの添付。BOX の「受領書類（メール）」フォルダへ置く */
+  attachments?: IncomingAttachment[] | null;
 }
 
 /**
- * 受け取った書類の列。
+ * 受領書類の列。
  *
  * ── AI の印は `source` では判定しない（247）──────────────────
  *
@@ -58,6 +91,11 @@ const FD_COLS = `d.id, d.doc_type, d.sender, d.subject, d.content, d.amount, d.c
   d.linked_kind, d.linked_id,
   -- 160: AI が組み立てた「読める形」の中身と、メール本文の全文
   d.details, d.body_text,
+  -- 281: ひとつづり（束）と当て先。**片側だけだと「どの案件の何番目の書類か」が読めない**
+  d.group_id, d.project_id, d.project_source, d.project_confidence, d.project_reason,
+  d.expense_kind, d.expense_kind_source, d.vendor_name,
+  d.payment_terms_days, d.processing_month, d.doc_no, d.revision,
+  g.title AS group_title, g.group_key, pr.gls_number AS project_gls_number, pr.name AS project_name,
   -- 247: 経緯（誰が取り込んだか）。created_by は利用者 id なのでそのままでは読めない
   cu.name AS created_by_name,
   EXISTS (SELECT 1 FROM ai_outputs o
@@ -65,7 +103,9 @@ const FD_COLS = `d.id, d.doc_type, d.sender, d.subject, d.content, d.amount, d.c
              AND o.kind = 'finance_doc_intake') AS is_ai`;
 
 const FD_FROM = `FROM finance_docs d
-  LEFT JOIN users cu ON cu.id = d.created_by`;
+  LEFT JOIN users cu ON cu.id = d.created_by
+  LEFT JOIN finance_doc_groups g ON g.id = d.group_id
+  LEFT JOIN projects pr ON pr.id = d.project_id`;
 
 /**
  * `details` を DB へ入れる形にする。**検査を通ったものだけ**が入る。
@@ -83,17 +123,107 @@ function assertIn<T extends string>(val: string, allowed: readonly T[], label: s
   }
 }
 
+/**
+ * 添付を読む。**BOX に入らなかったものも返す** — 画面が
+ * 「BOX に入っていません（理由）」と言えないと、**入ったつもりで原本がどこにも無い**
+ * 状態に誰も気づけない。
+ */
+async function listAttachments(docId: string): Promise<Record<string, unknown>[]> {
+  return queryAll(
+    `SELECT id, doc_id, filename, mime_type, size_bytes, box_file_id, box_url,
+            stored_at, failure_reason, created_at
+       FROM finance_doc_attachments WHERE doc_id = ? ORDER BY created_at ASC`,
+    [docId],
+  );
+}
+
+/**
+ * 取り直しのときに、**入らなかった添付だけ**もう一度 BOX へ置きにいく。
+ *
+ * ⚠️ **入っているものには触りません。** 同じ名前で置き直すと BOX に新しい版が増え、
+ * Gmail の取得と BOX の書き込みを無駄に1往復します
+ * （中身は同じなので、版が増えても得るものがありません）。
+ *
+ * 入らなかった行は**先に消してから**入れ直します。残したままだと、
+ * 中身が取れなかったとき `content_sha256` が空なので一意索引が効かず、
+ * **失敗の記録が溜まり続けます**。
+ */
+async function retryFailedAttachments(docId: string, input: FinanceDocInput): Promise<void> {
+  const list = (input.attachments ?? []).slice(0, MAX_ATTACHMENTS_PER_DOC);
+  if (list.length === 0) return;
+
+  const stored = await queryAll(
+    `SELECT filename FROM finance_doc_attachments WHERE doc_id = ? AND box_file_id IS NOT NULL`,
+    [docId],
+  ) as { filename: string }[];
+  const done = new Set(stored.map((a) => a.filename));
+  // BOX に置くときは受信日と取引先を頭に足すので、素の名前でも当たるようにする
+  const alreadyStored = (filename: string) =>
+    done.has(filename) || [...done].some((n) => n.endsWith(`_${filename}`));
+
+  const retry = list.filter((a) => !alreadyStored(safeFilename(a.filename)));
+  if (retry.length === 0) return;
+
+  await execute(
+    `DELETE FROM finance_doc_attachments WHERE doc_id = ? AND box_file_id IS NULL`,
+    [docId],
+  ).catch(() => { /* 消せなくても入れ直しは試す */ });
+
+  await saveAttachments(docId, { ...input, attachments: retry });
+}
+
+/**
+ * メールの添付を BOX に置いて記録する。
+ *
+ * **取込そのものは止めません。** BOX が落ちている日に請求書を記録できなく
+ * なるのは本末転倒なので、失敗しても行だけ残し、理由を持たせます。
+ * 同じ中身の添付は `content_sha256` の一意索引が弾きます（再取込で増えない）。
+ */
+async function saveAttachments(docId: string, input: FinanceDocInput): Promise<void> {
+  const list = (input.attachments ?? []).slice(0, MAX_ATTACHMENTS_PER_DOC);
+  if (list.length === 0) return;
+  const month = (input.received_at ?? '').slice(0, 7) || new Date().toISOString().slice(0, 7);
+  const prefix = [(input.received_at ?? '').replace(/-/g, ''), input.vendor_name ?? input.sender ?? '']
+    .filter(Boolean).join('_') || null;
+
+  for (const att of list) {
+    const stored = await storeAttachment(att, month, prefix);
+    try {
+      await execute(
+        `INSERT INTO finance_doc_attachments
+           (id, doc_id, filename, mime_type, size_bytes, content_sha256,
+            box_file_id, box_url, stored_at, failure_reason)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT DO NOTHING`,
+        [uuidv4(), docId, stored.filename, stored.mime_type, stored.size_bytes,
+         stored.content_sha256, stored.box_file_id, stored.box_url,
+         stored.stored_at, stored.failure_reason],
+      );
+    } catch (err) {
+      // **記録に失敗しても取込は成功させる。** ただし黙らない
+      console.error(`[finance-doc] failed to record attachment '${stored.filename}':`, (err as Error).message);
+    }
+  }
+}
+
 export const financeDocService = {
   async list(filter: { status?: string; doc_type?: string; pendingOnly?: boolean } = {}): Promise<Record<string, unknown>[]> {
     const conds = ['d.deleted_at IS NULL'];
     const params: unknown[] = [];
     if (filter.status) { assertIn(filter.status, FINANCE_DOC_STATUSES, 'status'); conds.push('d.status = ?'); params.push(filter.status); }
     if (filter.doc_type) { assertIn(filter.doc_type, FINANCE_DOC_TYPES, 'doc_type'); conds.push('d.doc_type = ?'); params.push(filter.doc_type); }
-    // **見積書（quote）は既定では出さない**（ユーザー指摘「実際に台帳に入れるのは
-    // 請求書になるので」）。「受け取った書類」画面はこの一覧を doc_type 無指定で呼ぶため、
-    // 承認しても「台帳に入れる」にたどり着けない見積書がキューに並び続けていた。
-    // `doc_type=quote` を明示すれば見える（MCP の一覧・監査用の抜け道は残す）
-    else conds.push(`d.doc_type <> 'quote'`);
+    /*
+      ⚠️ **見積書（quote）を一覧から外すのはやめました**（migration 281・2026-09 のご指示）。
+
+      以前は「実際に台帳へ入るのは請求書・注文書だけ」という理由で既定の一覧から
+      外していましたが、実際の取引は **見積書 → 発注書 → 請求書** と段を踏み、
+      しかも「見積を取ったが発注しなかった」「見積が3回改定された」が普通に起きます。
+      外していると **あの見積がどうなったかを後から引けません**（画面に出る道が無い）。
+
+      いまは束（`finance_doc_groups`）で1つの取引としてまとめ、
+      **見積だけの束は「見積書のみ」の段として残ります**。台帳へ渡せないのは
+      変わりません（`doc-handoff.service.ts` が境界で止める）。
+    */
     if (filter.pendingOnly) conds.push(`d.status NOT IN ('processed','rejected')`);
     /*
       ⚠️ **並びは「支払期日が近い順」が先**（247）。
@@ -113,16 +243,24 @@ export const financeDocService = {
   },
 
   async getById(id: string): Promise<Record<string, unknown> | undefined> {
-    return (await queryOne(`SELECT ${FD_COLS} ${FD_FROM} WHERE d.id = ? AND d.deleted_at IS NULL`, [id])) ?? undefined;
+    const row = (await queryOne(`SELECT ${FD_COLS} ${FD_FROM} WHERE d.id = ? AND d.deleted_at IS NULL`, [id])) ?? undefined;
+    if (!row) return undefined;
+    return { ...row, attachments: await listAttachments(id) };
+  },
+
+  /** 添付だけ読む（画面が PDF を開くとき） */
+  async attachments(docId: string): Promise<Record<string, unknown>[]> {
+    return listAttachments(docId);
   },
 
   /** 未処理件数 (アラート用): processed / rejected 以外 */
   async pendingCount(): Promise<number> {
-    // list() と同じ条件（見積書は数えない）。ここだけ揃え忘れると
-    // ホームのバッジと画面の件数が食い違う
+    // **list() と同じ条件**。ここだけ揃え忘れると、ホームのバッジと画面の件数が
+    // 食い違う（281 で見積書も数えるようにした — 一覧に出るのに数えないと
+    // 「0件」と出ている画面に行が並ぶ）
     const row = await queryOne(
       `SELECT COUNT(*) AS c FROM finance_docs
-        WHERE deleted_at IS NULL AND status NOT IN ('processed','rejected') AND doc_type <> 'quote'`,
+        WHERE deleted_at IS NULL AND status NOT IN ('processed','rejected')`,
     );
     return Number(row?.c ?? 0);
   },
@@ -133,32 +271,119 @@ export const financeDocService = {
     const status = (input.status ?? 'new').trim() || 'new';
     assertIn(status, FINANCE_DOC_STATUSES, 'status');
 
-    // Message-ID による重複取込ガード
+    /*
+      Message-ID による重複取込ガード。
+
+      ⚠️ **取り直しのときも添付を拾い直します**（Codex P1）。
+      添付が入らなかった理由には**時間が経てば直るもの**があります —
+      `GMAIL_UNAVAILABLE`（Gmail が応答しなかった）や
+      `NO_GMAIL_SCOPE`（人が Google 連携をやり直せば付く）です。
+      スキルには「次の実行で拾い直せる」と書いてありますが、
+      ここで素通りしていたので**一度失敗した原本は永久に入りませんでした**
+      （Gmail の添付 id は毎回変わるので、取り直すには再取込しかありません）。
+    */
     if (input.message_id) {
       const dup = await queryOne(`SELECT id FROM finance_docs WHERE deleted_at IS NULL AND message_id = ?`, [input.message_id]);
-      if (dup) return { row: await this.update(String(dup.id), input), action: 'updated' };
+      if (dup) {
+        const row = await this.update(String(dup.id), input);
+        await retryFailedAttachments(String(dup.id), input);
+        return { row: (await this.getById(String(dup.id))) ?? row, action: 'updated' };
+      }
     }
+    /*
+      ── 束（ひとつづり）に入れる（migration 281）──────────────
+
+      **1通ずつ並べると「この請求書はどの見積の続きか」が読めません。**
+      取込のたびに束を用意し、`group_key` が同じなら**同じ束に入れます**。
+      鍵が渡されないときは**そのつど新しい束**を作ります —
+      勝手に別の取引とくっつけるより、あとで人が束ね直すほうが安全です。
+    */
+    const groupId = input.group_id
+      ?? (await ensureGroup({
+        title: (input.group_title || input.subject || input.sender || '受領書類').slice(0, 200),
+        vendor_name: input.vendor_name ?? input.sender ?? null,
+        group_key: input.group_key ?? null,
+        expense_kind: input.expense_kind ?? null,
+        processing_month: input.processing_month ?? guessProcessingMonth(input.received_at ?? null),
+        payment_terms_days: input.payment_terms_days ?? null,
+        created_by: input.created_by ?? null,
+      })).id;
+
+    /*
+      ── 当て先は「仮」で置く。決めるのは人（ご指示）──────────
+
+      `project_id` を AI に直接書かせません。手がかり（`project_hint`）を
+      サーバーが解決し、**どれくらい確からしいか**を一緒に残します。
+      候補が複数あるときは**付けません**（適当に1件付けると、人は
+      「合っている」と思って確かめずに登録します）。
+    */
+    const guess = input.project_id
+      ? { project_id: input.project_id, confidence: 'high' as const, reason: '呼び出し側が案件を指定しました' }
+      : await guessProject(input.project_hint ?? input.gls_number ?? null, input.vendor_name ?? input.sender ?? null);
+
     const id = uuidv4();
     await execute(
       `INSERT INTO finance_docs
          (id, doc_type, sender, subject, content, amount, closing_month, payment_due, status,
           received_at, gls_number, notes, source, message_id, requested_by, created_by,
-          details, body_text)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?)`,
+          details, body_text,
+          group_id, project_id, project_source, project_confidence, project_reason,
+          expense_kind, expense_kind_source, vendor_name, payment_terms_days, processing_month,
+          doc_no, revision)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?,
+               ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id, docType, input.sender ?? null, input.subject ?? null, input.content ?? null,
         input.amount ?? null, input.closing_month ?? null, input.payment_due ?? null, status,
         input.received_at ?? null, input.gls_number ?? null, input.notes ?? null,
         input.source ?? 'email', input.message_id ?? null, input.requested_by ?? null, input.created_by ?? null,
         jsonOrNull(input.details), input.body_text ?? null,
+        groupId, guess.project_id, guess.project_id ? (input.project_source ?? 'ai') : null,
+        guess.confidence, guess.reason,
+        input.expense_kind ?? null, input.expense_kind ? 'ai' : null,
+        input.vendor_name ?? null, input.payment_terms_days ?? null,
+        input.processing_month ?? guessProcessingMonth(input.received_at ?? null),
+        input.doc_no ?? null, input.revision ?? null,
       ],
     );
+
+    await saveAttachments(id, input);
+    /*
+      **束の更新時刻を進める**（Codex P2）。進めないと、束の一覧は
+      `updated_at` を並びの2番目の鍵に使っているので、
+      **いま届いた請求書が後ろに沈んだまま**になります
+      （期日が入っていない書類ほど起きやすい）。
+    */
+    await execute('UPDATE finance_doc_groups SET updated_at = NOW() WHERE id = ?', [groupId])
+      .catch(() => { /* 束の時刻が進まないだけ。取込は成功させる */ });
     return { row: (await this.getById(id))!, action: 'created' };
   },
 
   async update(id: string, input: FinanceDocInput & { processed_by_user?: string | null }): Promise<Record<string, unknown>> {
     const existing = await queryOne(`SELECT * FROM finance_docs WHERE id = ? AND deleted_at IS NULL`, [id]);
     if (!existing) throw new AppError(404, 'NOT_FOUND', '書類が見つかりません');
+    /*
+      ⚠️ **仕入・販管費に登録済みの書類の中身は直せない**（migration 281）。
+
+      直せてしまうと、**台帳に載っている金額と書類の金額が食い違い**、
+      どちらが正しいのか誰にも分からなくなります（台帳側は直りません）。
+      画面はボタンを出しませんが、**守りは境界に置きます** —
+      別の画面・MCP・直接叩きからも同じ形で入れるためです
+      （client/CLAUDE.md「二重登録・押し直しへの守り」と同じ考え方）。
+
+      **状態を戻す（登録の取り消し）は別の口**（`handoff/undo`）なので、
+      ここで止めるのは中身の項目だけです。
+    */
+    const CONTENT_FIELDS = [
+      'doc_type', 'amount', 'payment_due', 'closing_month', 'doc_no', 'revision',
+      'sender', 'subject', 'content', 'gls_number', 'project_id', 'expense_kind',
+      'vendor_name', 'payment_terms_days', 'processing_month', 'group_id',
+    ] as const;
+    if (existing.status === 'processed'
+      && CONTENT_FIELDS.some((f) => (input as Record<string, unknown>)[f] !== undefined)) {
+      throw new AppError(409, 'ALREADY_PROCESSED',
+        '仕入・販管費に登録済みの書類は直せません。先に登録を取り消してください');
+    }
     const sets: string[] = [];
     const params: unknown[] = [];
     const set = (c: string, v: unknown) => { sets.push(`${c} = ?`); params.push(v); };
@@ -189,6 +414,35 @@ export const financeDocService = {
       set('processed_by', input.processed_by ?? null);
     }
     if (input.requested_by !== undefined && input.requested_by !== null) set('requested_by', input.requested_by);
+    /*
+      ── 人が直せる項目（migration 281）────────────────────────
+
+      **案件の付け替えは `project_source='human'` に変える。** 変えないと、
+      人が直した行が「AI が当てた」ままになり、`ai_corrections` の
+      無修正採用率が実際より良く見えます（会社方針・条件2 の計測バグ）。
+    */
+    if (input.project_id !== undefined) {
+      if (input.project_id) {
+        const okp = await queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [input.project_id]);
+        if (!okp) throw new AppError(400, 'VALIDATION_ERROR', 'その案件が見つかりません');
+      }
+      set('project_id', input.project_id ?? null);
+      set('project_source', 'human');
+      set('project_confidence', input.project_id ? 'high' : null);
+    }
+    if (input.expense_kind !== undefined) {
+      if (input.expense_kind && input.expense_kind !== 'purchase' && input.expense_kind !== 'sga') {
+        throw new AppError(400, 'VALIDATION_ERROR', '行き先は 仕入 か 販管費 のどちらかです');
+      }
+      set('expense_kind', input.expense_kind ?? null);
+      set('expense_kind_source', 'human');
+    }
+    if (input.vendor_name !== undefined) set('vendor_name', input.vendor_name ?? null);
+    if (input.payment_terms_days !== undefined) set('payment_terms_days', input.payment_terms_days ?? null);
+    if (input.processing_month !== undefined) set('processing_month', input.processing_month ?? null);
+    if (input.doc_no !== undefined) set('doc_no', input.doc_no ?? null);
+    if (input.revision !== undefined) set('revision', input.revision ?? null);
+    if (input.group_id !== undefined && input.group_id) set('group_id', input.group_id);
     if (!sets.length) return (await this.getById(id))!;
     sets.push('updated_at = NOW()');
     params.push(id);

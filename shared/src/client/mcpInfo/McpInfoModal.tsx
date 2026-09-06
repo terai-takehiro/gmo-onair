@@ -144,7 +144,7 @@ export default function McpInfoModal({
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="ツール名・機能で探す"
+              placeholder="ツール名・機能で検索"
               className="h-9 pl-9 text-sm"
             />
           </div>
@@ -190,7 +190,7 @@ export default function McpInfoModal({
                 </section>
               ))}
               {filtered.length === 0 && (
-                <p className="py-10 text-center text-sm text-muted-foreground">当てはまるものはありませんでした</p>
+                <p className="py-10 text-center text-sm text-muted-foreground">該当する項目はありません</p>
               )}
             </div>
           )}

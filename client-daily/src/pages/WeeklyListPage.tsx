@@ -62,7 +62,7 @@ export default function WeeklyListPage() {
           description="AI が毎週の定期実行で下書きを作ります。待てないときは、先週ぶんの箱を先に作れます。"
           action={canEdit ? (
             <Button onClick={createForLastWeek} disabled={ensure.isPending}>
-              <Plus className="mr-1 h-4 w-4" aria-hidden="true" />先週ぶんを作る
+              <Plus className="mr-1 h-4 w-4" aria-hidden="true" />先週ぶんを作成
             </Button>
           ) : undefined}
         />

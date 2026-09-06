@@ -108,6 +108,43 @@ export function TemplateDialog({ template, canEdit, open, onOpenChange }: Props)
         )}
 
         <div className="flex flex-col gap-4">
+          {/*
+            **「この通知を出す」は文面より上。** 出すか出さないかがこの画面の
+            いちばん大きな判断で、外すなら文面を読み込む必要すらない。
+            以前はいちばん下＝本文を全部スクロールした先にあった。
+          */}
+          {!external && canEdit && (
+            <label className="rounded-note flex cursor-pointer items-start gap-2.5 border border-border bg-surface-subtle px-3.5 py-3">
+              <input
+                type="checkbox"
+                checked={enabled}
+                onChange={(e) => setEnabled(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0"
+              />
+              <span className="text-note">
+                この通知を出す
+                <span className="mt-0.5 block text-muted-foreground">
+                  外すと、定時実行がこの通知を作らなくなります（すでに出したものは残ります）。
+                </span>
+              </span>
+            </label>
+          )}
+
+          {/* **差し込み語は件名・本文より前。** 打つ前に「何が差し替わるか」が
+              分かっていないと書けない（`{案件名}` はそのまま残す決まり） */}
+          {template.vars.length > 0 && (
+            <div>
+              <Label>差し込み語</Label>
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {template.vars.map((v) => (
+                  <span key={v} className="rounded-note text-note bg-surface-subtle px-2 py-0.5 text-muted-foreground">
+                    {v}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <Label htmlFor="tpl-subject" className="flex-1">件名</Label>
@@ -135,36 +172,6 @@ export function TemplateDialog({ template, canEdit, open, onOpenChange }: Props)
               onChange={(e) => setBody(e.target.value)}
             />
           </div>
-
-          {template.vars.length > 0 && (
-            <div>
-              <Label>差し込み語</Label>
-              <div className="mt-1.5 flex flex-wrap gap-1">
-                {template.vars.map((v) => (
-                  <span key={v} className="rounded-note text-note bg-surface-subtle px-2 py-0.5 text-muted-foreground">
-                    {v}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {!external && canEdit && (
-            <label className="rounded-note flex cursor-pointer items-start gap-2.5 border border-border bg-surface-subtle px-3.5 py-3">
-              <input
-                type="checkbox"
-                checked={enabled}
-                onChange={(e) => setEnabled(e.target.checked)}
-                className="mt-0.5 h-4 w-4 shrink-0"
-              />
-              <span className="text-note">
-                この通知を出す
-                <span className="mt-0.5 block text-muted-foreground">
-                  外すと、定時実行がこの通知を作らなくなります（すでに出したものは残ります）。
-                </span>
-              </span>
-            </label>
-          )}
         </div>
       </div>
     </FormDialog>

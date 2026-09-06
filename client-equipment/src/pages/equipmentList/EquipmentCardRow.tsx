@@ -186,7 +186,7 @@ export function EquipmentCardRow({
               )}
             </div>
           ))}
-          {loading && <p className="px-3 py-2 text-sub-sm text-muted-foreground">読み込んでいます…</p>}
+          {loading && <p className="px-3 py-2 text-sub-sm text-muted-foreground">読み込み中……</p>}
         </div>
       )}
     </div>

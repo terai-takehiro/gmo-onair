@@ -64,7 +64,7 @@ export default function TaskDialog({
   const [dueDate, setDueDate] = useState("");
   const [progress, setProgress] = useState(0);
   const [isMilestone, setIsMilestone] = useState(false);
-  // 完了していないときの止まり方 (v4 ④)。完了はここではなく一覧のチェックで切り替える
+  // 対応済でないときの止まり方 (v4 ④)。対応済はここではなく一覧のボタンで切り替える
   const [workState, setWorkState] = useState<TaskWorkState>("todo");
 
   const { data: columns = [] } = useTaskColumns(projectId);
@@ -209,7 +209,79 @@ export default function TaskDialog({
             )}
           </div>
 
-          {/* カラム */}
+          {/*
+            チェック項目は**種別のすぐ下**に置く（`docs/design/v4/_form-order.md`）。
+            「チェックリスト」を選んだ結果が現れる場所が11個下だと、選んでも何も
+            起きていないように見えるため。新規追加のときは部品を出せない
+            （`ChecklistItems` は保存済みの親タスクを要る）ので、欄を消さずに
+            **同じ位置に理由を1行出す**。
+          */}
+          {taskType === "checklist" && (
+            existing ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label>チェック項目</Label>
+                  {existing.children && existing.children.length > 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      {existing.children.filter((c) => c.is_completed).length}/{existing.children.length}
+                    </Badge>
+                  )}
+                </div>
+                <ChecklistItems projectId={projectId} parentTask={existing} />
+              </div>
+            ) : (
+              <p className="text-sub-sm text-muted-foreground">
+                チェック項目は、このタスクを追加してからこの画面を開き直すと入れられます。
+              </p>
+            )
+          )}
+
+          {/* 期間 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="task-start">開始日</Label>
+              <Input
+                id="task-start"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="task-due">期日</Label>
+              <Input
+                id="task-due"
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="h-9"
+              />
+            </div>
+          </div>
+
+          {/*
+            担当者・カラムは「誰が・どこに置くか」。期日より下に降ろした
+            （`docs/design/v4/_form-order.md` の段: 日程 → 人 → 補足）。
+          */}
+          <div className="space-y-1">
+            <Label>担当者</Label>
+            <Select
+              value={assignedTo || "_none_"}
+              onValueChange={(v) => setAssignedTo(v === "_none_" ? "" : v)}
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none_">なし</SelectItem>
+                {users.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-1">
             <Label>カラム</Label>
             <Select
@@ -236,72 +308,12 @@ export default function TaskDialog({
             </Select>
           </div>
 
-          {/* 担当者 */}
-          <div className="space-y-1">
-            <Label>担当者</Label>
-            <Select
-              value={assignedTo || "_none_"}
-              onValueChange={(v) => setAssignedTo(v === "_none_" ? "" : v)}
-            >
-              <SelectTrigger className="h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_none_">なし</SelectItem>
-                {users.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
           {/*
-            状態 (v4 ④)。**完了はここに出しません** — 完了は `is_completed` が持ち、
-            一覧のチェックボックスと詳細の「完了にする」で切り替えます。
-            ここは「完了していないときにどう止まっているか」だけを選ぶ場所です。
+            マイルストーン + 状態 + 進捗。**「どこまで進んだか」の3つを1つの枠に束ねる**
+            — どれも新規追加では既定のまま素通りする欄なので、必ず入れる期日より
+            手前に置くと「まだ始めていないタスクの止まり方」を先に訊く形になる。
+            状態はここへ降ろした（もとは期日の上にあり、日付の入力を分断していた）。
           */}
-          <div className="space-y-1">
-            <Label>状態</Label>
-            <Select value={workState} onValueChange={(v) => setWorkState(v as TaskWorkState)}>
-              <SelectTrigger className="h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {WORK_STATE_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-sub-sm text-muted-foreground">
-              「相手待ち」はお客様や他部署の返事を待っていて、自分では進められないときに使います。
-            </p>
-          </div>
-
-          {/* 期間 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="task-start">開始日</Label>
-              <Input
-                id="task-start"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="task-due">期日</Label>
-              <Input
-                id="task-due"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="h-9"
-              />
-            </div>
-          </div>
-
-          {/* マイルストーン + 進捗 */}
           <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
             <div className="flex items-center justify-between">
               <Label htmlFor="task-milestone" className="flex items-center gap-2">
@@ -309,6 +321,29 @@ export default function TaskDialog({
               </Label>
               <Switch id="task-milestone" checked={isMilestone} onCheckedChange={setIsMilestone} />
             </div>
+
+            {/*
+              状態 (v4 ④)。**対応済はここに出しません** — 対応済は `is_completed` が持ち、
+              一覧・かんばんの「対応済にする」ボタンで切り替えます。
+              ここは「対応済でないときにどう止まっているか」だけを選ぶ場所です。
+            */}
+            <div className="space-y-1">
+              <Label>状態</Label>
+              <Select value={workState} onValueChange={(v) => setWorkState(v as TaskWorkState)}>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {WORK_STATE_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-sub-sm text-muted-foreground">
+                「相手待ち」はお客様や他部署の返事を待っていて、自分では進められないときに使います。
+              </p>
+            </div>
+
             {!isMilestone && (
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
@@ -328,9 +363,15 @@ export default function TaskDialog({
             )}
           </div>
 
-          {/* 先行タスク (依存関係) — 既存タスクのみ */}
-          {existing && (
+          {/* 先行タスク (依存関係) — 既存タスクのみ。
+              新規追加のときも**位置だけ残して理由を書く**（欄が黙って消えると
+              「あるはずのものが無い」と読まれる） */}
+          {existing ? (
             <PredecessorEditor projectId={projectId} taskId={existing.id} />
+          ) : (
+            <p className="text-sub-sm text-muted-foreground">
+              先行タスクは、このタスクを追加してからこの画面を開き直すと決められます。
+            </p>
           )}
 
           {/* メモ */}
@@ -344,21 +385,6 @@ export default function TaskDialog({
               rows={3}
             />
           </div>
-
-          {/* チェックリスト子タスク (既存タスクのみ) */}
-          {existing && taskType === "checklist" && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Label>チェック項目</Label>
-                {existing.children && existing.children.length > 0 && (
-                  <Badge variant="secondary" className="text-xs">
-                    {existing.children.filter((c) => c.is_completed).length}/{existing.children.length}
-                  </Badge>
-                )}
-              </div>
-              <ChecklistItems projectId={projectId} parentTask={existing} />
-            </div>
-          )}
         </div>
 
         {saveError && (

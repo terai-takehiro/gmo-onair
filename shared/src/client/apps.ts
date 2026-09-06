@@ -212,7 +212,7 @@ export const APPS: AppDef[] = [
    * `/live/open?project=` を経由するミニアプリ導線・旧URLの転送はそのまま生きているため、
    * `appOfPath()` がこの定義を引けなくなると壊れる。
    */
-  { key: 'liveops',     label: '計時・視聴者',       description: '本番の残り時間と同時視聴者数を大画面に出す',      icon: Timer,         color: '#ef4444', path: '/live',       permissionModule: 'qsheet',    hidden: true },
+  { key: 'liveops',     label: '計時・視聴者',       description: '本番の残り時間と同時視聴者数を大画面に表示',      icon: Timer,         color: '#ef4444', path: '/live',       permissionModule: 'qsheet',    hidden: true },
 
   /* ── 移行中 (後継＝制作技術支援＞テロップCG。URL は生きている・一覧には出さない) ── */
   { key: 'awards',      label: 'リアルタイムCG',     description: '制作技術支援＞テロップCGへ移行中の旧アプリ', icon: Tv,            color: '#f59e0b', path: '/awards',     permissionModule: 'awards',    frozen: true },

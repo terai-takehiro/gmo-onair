@@ -102,7 +102,7 @@ export function MinutesTab({ projectId, canEdit, canManage }: {
       invalidateGpm(projectId);
       notifySuccess('持ち帰りに登録しました', {
         description: `「${String((r.data as { data?: { question?: string } })?.data?.question ?? '').slice(0, 40)}」`
-          + 'を持ち帰りタブに入れました。誰に訊くか・期限はそちらで直せます。',
+          + 'を持ち帰りタブに入れました。誰に訊くか・期限はそちらで編集できます。',
       });
     },
     onError: (e) => notifyApiError('持ち帰りにできませんでした', e),
@@ -185,8 +185,8 @@ export function MinutesTab({ projectId, canEdit, canManage }: {
       )}
 
       <p className="text-note text-muted-foreground">
-        <strong className="font-bold">音声は保存しません</strong>（文字にしたら捨てます）。残るのは文字起こしと議事録だけです。
-        持ち帰りは<strong className="font-bold">持ち帰り</strong>にできます — 案件（スタジオ）ではタスクになりますが、
+        <strong className="font-bold">音声は保存しません</strong>（文字起こし後に破棄します）。残るのは文字起こしと議事録だけです。
+持ち帰りに登録すると<strong className="font-bold">持ち帰りタブ</strong>に入ります — 案件（スタジオ）ではタスクになりますが、
         工事・構築の持ち帰りはほとんどが先方の判断待ちなので、止まっている件数として数えられるほうに入れます。
       </p>
 

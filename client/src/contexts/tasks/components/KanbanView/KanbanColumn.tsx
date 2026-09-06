@@ -73,7 +73,7 @@ export default function KanbanColumn({ column, tasks, projectId, episodeId }: Pr
             {...colListeners}
             type="button"
             className="cursor-grab active:cursor-grabbing p-0.5 rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            aria-label={`${column.name} 列をドラッグして並び替え`}
+            aria-label={`${column.name} 列をドラッグして並べ替え`}
           >
             <GripVertical className="h-3.5 w-3.5" />
           </button>

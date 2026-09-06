@@ -27,7 +27,7 @@ export function RecentSection({
   if (entries.length === 0) return null;
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="text-sub-sm font-bold tracking-wide text-muted-foreground">続きから</h2>
+      <h2 className="text-sub-sm font-bold tracking-wide text-muted-foreground">最近開いた項目</h2>
       <div className="flex snap-x gap-3 overflow-x-auto pb-1">
         {entries.map((entry) => (
           <RecentCard key={`${entry.kind}-${entry.id}`} entry={entry} onNavigate={onNavigate} />

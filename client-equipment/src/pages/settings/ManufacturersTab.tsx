@@ -47,13 +47,13 @@ export function ManufacturersTab() {
     endpoint: '/equipment/manufacturers',
     queryKey: ['equipment-manufacturers'],
     onSaveSuccess: () => { setSaveError(null); notifySuccess('メーカーを保存しました'); },
-    onDeleteSuccess: () => notifySuccess('メーカーを消しました'),
+    onDeleteSuccess: () => notifySuccess('メーカーを削除しました'),
     onError: (action, err) => {
       if (action === 'save') {
         const e = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
         setSaveError(e?.response?.data?.error?.message || e?.message || '保存できませんでした');
       } else {
-        notifyApiError('消せませんでした', err);
+        notifyApiError('削除できませんでした', err);
       }
     },
   });
@@ -74,7 +74,7 @@ export function ManufacturersTab() {
 
   const onDelete = async (m: Manufacturer) => {
     const ok = await confirmAction({
-      title: `メーカー「${m.name}」を消しますか`,
+      title: `メーカー「${m.name}」を削除しますか`,
       description: 'このメーカーを選んでいる機材・ケーブル・コネクタはメーカーなしに戻ります。',
       confirmLabel: '削除',
       tone: 'danger',

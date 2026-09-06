@@ -34,10 +34,13 @@ export function UserDialog({ user, roles, open, onOpenChange }: Props) {
   const qc = useQueryClient();
   const { currentUser, refreshPermissions } = useAuth();
   const isSelf = !!user && !!currentUser && user.id === currentUser.id;
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [sysRole, setSysRole] = useState('staff');
-  const [roleId, setRoleId] = useState<string | null>(null);
+  // **初期値は props から遅延初期化する**（呼び出し側が対象ごとに `key` を変えて
+  // 作り直す前提。`useEffect` だけに任せると、対象を切り替えた1フレーム目は
+  // 前の対象の値のまま描画されてしまう）
+  const [name, setName] = useState(() => user?.name ?? '');
+  const [email, setEmail] = useState(() => user?.email ?? '');
+  const [sysRole, setSysRole] = useState(() => (user?.role === 'system_admin' ? 'system_admin' : 'staff'));
+  const [roleId, setRoleId] = useState<string | null>(() => user?.permission_role_id ?? null);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -84,15 +87,21 @@ export function UserDialog({ user, roles, open, onOpenChange }: Props) {
       sub={inviteUrl
         ? 'この URL を本人に渡してください（7日間だけ使えます）。'
         : (user ? '名前・メール・役割を直します。' : '招待のリンクを出します。役割はここで決められます。')}
+      // 氏名・メールを打つだけのフォームなので Enter で送れるようにする。
+      // **招待リンクが出たあとは送信しない**（あの段のボタンは「閉じる」だけ）
+      onSubmit={inviteUrl ? undefined : (e) => {
+        e.preventDefault();
+        if (name.trim() && email.trim() && !save.isPending) save.mutate();
+      }}
       footer={inviteUrl ? (
         <FormDialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>閉じる</Button>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>閉じる</Button>
         </FormDialogFooter>
       ) : (
         <FormDialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
           <Button
-            onClick={() => save.mutate()}
+            type="submit"
             disabled={!name.trim() || !email.trim() || save.isPending}
           >
             {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
@@ -104,10 +113,10 @@ export function UserDialog({ user, roles, open, onOpenChange }: Props) {
       {inviteUrl ? (
         <div className="flex flex-col gap-3">
           <p className="text-sub flex items-center gap-2 text-success">
-            <CheckCircle2 className="h-4 w-4" aria-hidden="true" />メンバーをつくりました
+            <CheckCircle2 className="h-4 w-4" aria-hidden="true" />メンバーを作成しました
           </p>
           <p className="rounded-note text-note select-all break-all bg-muted px-3.5 py-3">{inviteUrl}</p>
-          <Button className="w-full" onClick={() => navigator.clipboard.writeText(inviteUrl)}>
+          <Button type="button" className="w-full" onClick={() => navigator.clipboard.writeText(inviteUrl)}>
             <Copy className="mr-1.5 h-4 w-4" aria-hidden="true" />URL をコピーする
           </Button>
         </div>
@@ -120,6 +129,39 @@ export function UserDialog({ user, roles, open, onOpenChange }: Props) {
           <div>
             <Label htmlFor="u-mail">メール</Label>
             <Input id="u-mail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          </div>
+
+          {/*
+            **「システム上の区別」を役割より上に置く。** システム管理者は
+            権限の判定を**すべて素通り**するので、下の役割はその人には効かない。
+            役割を選ばせてから「実は素通りでした」と分かる並びだったのを入れ替えた。
+          */}
+          <div>
+            <Label>システム上の区別</Label>
+            <div className="mt-1.5 flex gap-1.5">
+              {[
+                { v: 'staff', l: 'スタッフ', d: '役割と例外のとおりに通ります' },
+                { v: 'system_admin', l: 'システム管理者', d: 'すべての判定を素通りします' },
+              ].map((o) => (
+                <button
+                  key={o.v}
+                  type="button"
+                  onClick={() => setSysRole(o.v)}
+                  className={cn(
+                    'rounded-note min-h-tap flex-1 border px-3 py-2 text-left',
+                    sysRole === o.v ? 'border-primary bg-primary-surface' : 'border-border bg-card',
+                  )}
+                >
+                  <span className="text-list block">{o.l}</span>
+                  <span className="text-note block text-muted-foreground">{o.d}</span>
+                </button>
+              ))}
+            </div>
+            {sysRole === 'system_admin' && (
+              <p className="text-note mt-1.5 text-warning">
+                システム管理者は<strong className="font-bold">下で選ぶ役割に関係なく、すべての画面を開けます</strong>。
+              </p>
+            )}
           </div>
 
           <div>
@@ -154,29 +196,6 @@ export function UserDialog({ user, roles, open, onOpenChange }: Props) {
                   権限は 0 のままです。あとから役割を選び直してください
                 </span>
               </button>
-            </div>
-          </div>
-
-          <div>
-            <Label>システム上の区別</Label>
-            <div className="mt-1.5 flex gap-1.5">
-              {[
-                { v: 'staff', l: 'スタッフ', d: '役割と例外のとおりに通ります' },
-                { v: 'system_admin', l: 'システム管理者', d: 'すべての判定を素通りします' },
-              ].map((o) => (
-                <button
-                  key={o.v}
-                  type="button"
-                  onClick={() => setSysRole(o.v)}
-                  className={cn(
-                    'rounded-note min-h-tap flex-1 border px-3 py-2 text-left',
-                    sysRole === o.v ? 'border-primary bg-primary-surface' : 'border-border bg-card',
-                  )}
-                >
-                  <span className="text-list block">{o.l}</span>
-                  <span className="text-note block text-muted-foreground">{o.d}</span>
-                </button>
-              ))}
             </div>
           </div>
         </div>

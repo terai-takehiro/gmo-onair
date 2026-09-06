@@ -117,7 +117,7 @@ export default function LiveDisplayTemplateLibraryPage() {
       <div className="mb-4">
         <h1 className="text-lg font-bold">表示レイアウト テンプレート</h1>
         <p className="mt-1 text-xs text-muted-foreground">
-          全案件横断で使える、表示画面レイアウトのひな形です。適用すると選んだタイマーへコピーされ、以後テンプレート側を変えても適用済みのタイマーの表示には影響しません。
+          全案件横断で使える、表示画面レイアウトの工程テンプレートです。適用すると選んだタイマーへコピーされ、以後テンプレート側を変えても適用済みのタイマーの表示には影響しません。
         </p>
       </div>
 

@@ -112,6 +112,31 @@ export default function InquiryQuickPage() {
         }
       />
 
+      {/*
+        **この画面の目的そのもの（聞いた話の貼り付け）を先頭に置く。**
+        送れるかどうかは本文だけで決まる（`!body`）のに、
+        元は既定値が入っている出どころ・いつ・任意の「誰から」を3つ越えてから
+        本文に着く形でした。電話を切った直後にその場で開く画面なので、
+        **開いたらすぐ貼れる**のが正しい（`docs/design/v4/_form-order.md`）。
+        `autoFocus` はこの画面だけの例外です — ダイアログではないので
+        共通シェル（`client-v4/sheet.tsx`）の初期フォーカスが効きません。
+      */}
+      <div>
+        <Label htmlFor="iq-body">聞いた話・メモを貼る</Label>
+        <Textarea
+          id="iq-body"
+          autoFocus
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={8}
+          placeholder={'10月に配信の相談。カメラ3台くらい。\n予算は500万前後、日程は10/3の土曜が第一希望。\n宮田様（宣伝部）から折り返し希望。'}
+          className="min-h-[168px]"
+        />
+        <p className="text-note mt-1 text-muted-foreground">
+          1行目が受付の見出しになります。長さは気にせず、聞いたままで大丈夫です。
+        </p>
+      </div>
+
       <fieldset className="flex flex-col gap-2">
         <legend className="text-sub mb-1 font-bold">どこから来た話ですか</legend>
         <div className="grid grid-cols-2 gap-2">
@@ -152,21 +177,6 @@ export default function InquiryQuickPage() {
         </div>
       </div>
 
-      <div>
-        <Label htmlFor="iq-body">聞いた話・メモを貼る</Label>
-        <Textarea
-          id="iq-body"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          rows={8}
-          placeholder={'10月に配信の相談。カメラ3台くらい。\n予算は500万前後、日程は10/3の土曜が第一希望。\n宮田様（宣伝部）から折り返し希望。'}
-          className="min-h-[168px]"
-        />
-        <p className="text-note mt-1 text-muted-foreground">
-          1行目が受付の見出しになります。長さは気にせず、聞いたままで大丈夫です。
-        </p>
-      </div>
-
       <p className="rounded-note flex items-start gap-2 border border-info-border bg-info-surface px-3.5 py-3 text-note text-secondary-foreground">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden="true" />
         <span>
@@ -182,7 +192,7 @@ export default function InquiryQuickPage() {
         onClick={() => navigate('/sales/projects/new')}
         className="min-h-tap text-sub self-start text-primary underline lg:min-h-0"
       >
-        案件作成をひらく
+        案件作成を開く
       </button>
     </div>
   );

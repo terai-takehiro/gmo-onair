@@ -4,7 +4,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Calendar, User, Pencil, Trash2, GripVertical, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { TaskDoneButton } from "@gmo-onair/shared/src/client-v4/taskDoneButton";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import TaskDialog from "../TaskDialog";
@@ -69,18 +69,10 @@ export default function KanbanCard({ task, projectId, episodeId, columnId }: Pro
             {...listeners}
             type="button"
             className="mt-0.5 shrink-0 cursor-grab active:cursor-grabbing p-0.5 rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            aria-label="ドラッグして並び替え"
+            aria-label="ドラッグして並べ替え"
           >
             <GripVertical className="h-3.5 w-3.5" />
           </button>
-
-          {/* チェックボックス */}
-          <Checkbox
-            checked={task.is_completed}
-            onCheckedChange={() => toggleComplete.mutate(task.id)}
-            aria-label={`${task.title} 完了チェック`}
-            className="mt-0.5 shrink-0"
-          />
 
           {/* コンテンツ */}
           <div className="flex-1 min-w-0">
@@ -97,7 +89,7 @@ export default function KanbanCard({ task, projectId, episodeId, columnId }: Pro
               {task.is_ai_created && (
                 <span
                   className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 text-[10px] font-medium text-violet-700 h-4"
-                  title={task.ai_requested_by ? `AI が作りました (指示: ${task.ai_requested_by})` : "AI が作りました"}
+                  title={task.ai_requested_by ? `AI作成 (指示: ${task.ai_requested_by})` : "AI作成"}
                 >
                   <Sparkles className="h-2.5 w-2.5" />
                   AI作成
@@ -164,6 +156,19 @@ export default function KanbanCard({ task, projectId, episodeId, columnId }: Pro
             </Button>
           </div>
         </div>
+
+        {/*
+          対応済にする / 未対応に戻す。カードは幅が狭いので**下に1行**で置く
+          （左の四角のままだと、押すと何が起きるか読み取れなかった）
+        */}
+        <TaskDoneButton
+          done={task.is_completed}
+          onToggle={() => toggleComplete.mutate(task.id)}
+          taskTitle={task.title}
+          disabled={toggleComplete.isPending}
+          size="sm"
+          className="mt-2 w-full"
+        />
       </div>
 
       <TaskDialog

@@ -66,7 +66,7 @@ export function IntegrityPanel({
         )}
         <span className="flex-1" />
         {active && (
-          <Button variant="outline" size="sm" onClick={() => onPick('')}>絞り込みを外す</Button>
+          <Button variant="outline" size="sm" onClick={() => onPick('')}>絞り込みを解除</Button>
         )}
       </div>
 
