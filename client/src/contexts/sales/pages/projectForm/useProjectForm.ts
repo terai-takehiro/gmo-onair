@@ -59,6 +59,20 @@ export function useProjectForm(id: string | undefined) {
   const justSavedRef = useRef(false);
   /** 保存に出した時点の欄の控え。**保存中に人が触った欄を踏み潰さない**ために使う */
   const submittedRef = useRef<FormValues | null>(null);
+  /**
+   * **この案件IDぶん、フォームへ `reset()` を掛け終えたか**（SPA遷移のレース対策）。
+   *
+   * 案件詳細（`ProjectDetailPage.tsx`）とこの画面は `['project', id]` の**同じキャッシュ鍵**を
+   * 読む。詳細→編集の SPA 遷移では最初からキャッシュ済みの `data` があるため、
+   * `projectQuery.isLoading` だけで「読み込み終わった」と判定すると、**下の
+   * `useEffect` の `reset()` が効くより前の1フレーム**、`EMPTY_FORM` のままの空の値で
+   * `RequiredFields`（案件分類 `Select` 等）が描画されてしまう
+   * （`Select is changing from uncontrolled to controlled` の警告・
+   * 保存不可バナーの誤判定の元）。フルリロードはキャッシュが無く `reset()` を待ってから
+   * 描くのでこの空の1フレームが起きない — 「SPA遷移だけ再現しリロードで直る」の正体。
+   * 「データが来た」でなく「このIDの分の `reset()` が終わった」まで骨組みを見せ続ける。
+   */
+  const syncedProjectIdRef = useRef<string | undefined>(undefined);
   const [simOpen, setSimOpen] = useState(false);
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
 
@@ -121,6 +135,7 @@ export function useProjectForm(id: string | undefined) {
     const serverValues = projectToFormValues(project);
     if (!justSavedRef.current) {
       reset(serverValues, { keepDirtyValues: true });
+      syncedProjectIdRef.current = id;
       return;
     }
     justSavedRef.current = false;
@@ -131,7 +146,8 @@ export function useProjectForm(id: string | undefined) {
     // 残した欄は dirty に付け直す — 付け直さないと、次の読み直しで
     // keepDirtyValues に守られず、書きかけの入力がサーバー値で消える
     for (const key of keptKeys) setValue(key, merged[key] as never, { shouldDirty: true });
-  }, [project, reset, getValues, setValue]);
+    syncedProjectIdRef.current = id;
+  }, [project, id, reset, getValues, setValue]);
 
   /* ── 案件作成の入力欄に渡す形（`ProjectFieldsState`）─────────────────
    *
@@ -358,7 +374,12 @@ export function useProjectForm(id: string | undefined) {
 
   return {
     form, isEdit, project,
-    isLoading: isEdit && projectQuery.isLoading,
+    // データが来ただけでは「読み込み終わった」にしない —
+    // この案件IDぶんフォームへ `reset()` を掛け終えるまで骨組みのまま待つ
+    // （`syncedProjectIdRef` の注記。SPA遷移でキャッシュ済みデータがある場合のレース対策）。
+    // **失敗時は除く** — 読み込みが失敗すると `reset()` は永遠に走らないので、
+    // 除かないと `isLoadError` の案内へ進めず骨組みのまま固まる
+    isLoading: isEdit && !projectQuery.isError && (projectQuery.isLoading || syncedProjectIdRef.current !== id),
     isLoadError: isEdit && projectQuery.isError,
     customers, users, studioLocations,
     schedule, actions,
