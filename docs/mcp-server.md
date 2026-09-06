@@ -210,7 +210,7 @@ HTTP 側 (`/api/v1/internal/gpm/*`) と同じサービス層を呼ぶので、�
 |---|---|---|
 | `list_studio_rooms` / `list_studio_bookings` | read | 拠点部屋一覧・予約一覧 (上限500件) |
 | `get_studio_availability` | read | 空き照会 (部屋ごとの busy 予約 + 終日空き日)。単日照会の境界取りこぼしが無い。「◯日空いてますか」回答用。最大92日 |
-| `create_studio_booking` | write | スタジオ予約作成 (既定 status=tentative) |
+| `create_studio_booking` | write | スタジオ予約作成 (既定 status=tentative)。`project_id` の代わりに `gls_number`（現行・改番後の旧番号どちらも可）で指定してよい |
 | `get_monthly_summary` | read | 月次/期間の損益サマリー (損益7指標) |
 | `list_revenues` / `list_purchases` / `list_sga` | read | 売上/仕入/販管費一覧 |
 | `get_sales_funnel` | read | 営業ファネル (ステージ別件数/金額・転換率・滞留・月次推移) |

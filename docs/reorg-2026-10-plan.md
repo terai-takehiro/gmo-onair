@@ -369,7 +369,12 @@ resolveEntity(project, cutover):
    **10月以降はコンテンツスタジオ自身が制作する**予定（現時点）——つまり計上会社が GSS から GJV へ
    **変わる**。導出規則は「客先の `is_gmo_group`」しか見ないため、この切り替わりを規則だけでは検出できない。
    **対象一覧には「客先＝自社行（GJV／GSS）になり得る取引先」を含む案件を目立たせ**（客先名に
-   「サムライコンテンツスタジオ」「サムライスタジオ」を含む・または `intake_channel='group'`）、
+   「サムライコンテンツスタジオ」「サムライスタジオ」を含むかどうかで判定。
+   ⚠️ 当初案にあった「または `intake_channel='group'`」は実装時に見送った——
+   `intake_channel` の CHECK 制約に `'group'` という値は無く（`mail`/`phone`/`meeting`/`web`/
+   `referral`/`other` の6つだけ）、`customer_type='internal'` の書き間違いだった可能性が高いが、
+   `customer_type` は `resolveEntity()` 自身が見る `companies.is_gmo_group` と同じ事実を指すため
+   足しても新しい情報にならない。名前一致だけで足りると判断した）、
    **人が§4.4の上書き（理由必須）で GJV に直す**運用にする。同じ客先の案件が今後も出ることを見込み、
    移行センターには「この客先はうちが計上会社そのものかもしれません」という注記だけ出す
    （自動で書き換えはしない——GSS が実際にコンテンツスタジオへ請求する取引がこの先も残り得るため）
@@ -559,7 +564,7 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
 | 段 | 中身 | 10/1 に要るか | 目安 |
 |---|---|---|---|
 | **P0 土台** | `legal_entities` / `org_transition` / `project_numbers` / 各表の `entity_code`（DEFAULT 'GSS' で埋め戻し）・会社マスター画面・切替状態・PDF とメールの発行者差し替え・取引先の名寄せと自社行 | **要る（9月中旬）** | 3〜4 PR |
-| **P1 番号** ⚠️ **一部実装済み（2026-09-06）** | prefix 採番・`resolveEntity`・先取り（`preparing` で導出規則どおりに採る）・受注時の第1回自動作成（売上は必ず回に）・改番 API＋MCP・追随（回コード／Qシート／BOX／未請求の請求キー）・旧番号での検索と `:ownerKey`・取込の正規表現・通知ジョブ・移行センターの対象一覧 | **要る（9月下旬・`preparing` へ）** | 5〜6 PR |
+| **P1 番号** **✅ 実装済み（2026-09-06）** | prefix 採番・`resolveEntity`・先取り（`preparing` で導出規則どおりに採る）・受注時の第1回自動作成（売上は必ず回に）・改番 API＋MCP・追随（回コード／Qシート／BOX／未請求の請求キー）・旧番号での検索と `:ownerKey`・取込の正規表現・通知ジョブ・移行センターの対象一覧 | **要る（9月下旬・`preparing` へ）** | 5〜6 PR |
 | **P2 財務の2社＋社内取引** **✅ 実装済み（2026-09-06・Round 1+2）** | 8画面のセグメント（URL）・集計／締め／Excel／MCP の `entity_code`・月次予算と `money_rules` の会社化・請求書番号の系列・**社内取引**（`intercompany_links`・仕入タブの入口・案件の粗利2通り） | 10月中旬まで（最初の GJV 案件の請求が10月下旬） | 5 PR |
 | **P3 GMO コスト（最小案）** **✅ 実装済み（2026-09-06）** | `kind='cost_center'` の閉じ方・「予算と実績」タブ・コスト側ダッシュボード | 10月中 | 2〜3 PR |
 | **P4 仕上げ** | `done` 状態・旧経路の削除・`entity_scope` 権限・連結（要るなら）・文書と用語の更新（`CLAUDE.md` の公理・`wording.md`・`guide/words.md`・`mcp-server.md`） | 後 | 2〜3 PR |
@@ -587,11 +592,16 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
 > 改番の履歴と請求キーの発行済みガード・旧番号での検索・受注時の回自動生成の
 > off/preparing差異と冪等性を実際にDBへ通して確認）。
 >
-> **まだのもの（次段）**: 通知ジョブ・移行センターの画面（対象一覧はまだ専用の一覧化なし）・
-> `create_studio_booking` の番号指定・`client-techops` の旧番号検索・
-> 財務系 MCP ツールへの `entity_code` フィルタ（`list_revenues`/`list_purchases`/`list_sga`/
-> `get_monthly_pl`/`get_monthly_budget`/`upsert_monthly_budget` と `finance/list-query.ts`。
-> 本来 P2「財務の2社」の仕事なので、P1 の「先出し」一覧からは外してよいと判断した）。
+> **P1残作業 実装結果（マルチエージェント・2026-09-06）**: 上で「まだのもの」としていた
+> 通知ジョブ・移行センターの画面（対象一覧）・`create_studio_booking` の番号指定・
+> `client-techops` の旧番号検索を実装した（財務系 MCP ツールへの `entity_code` フィルタは
+> 想定どおり P2 Round 1/2 で実装済み）。核（`migration-center.service.ts` の
+> `listRenumberCandidates()`・`org-transition.routes.ts` の対象一覧 API と `done` への
+> 残件0ゲート・`scheduler.service.ts` の `renumber_needed` ジョブ）は直接実装し、残る3本
+> （移行センターの対象一覧UI・`create_studio_booking`/`client-techops` の番号解決配線・
+> `docs/mcp-server.md`/`docs/wording.md` の文書更新）を並列worktreeで実装、マージして検証
+> （型チェック・Vitest・検証DB作り直し・lint一式・実サーバー起動してのHTTPレベル確認）まで
+> 実施した。詳細は §12 の更新履歴を参照。
 
 > **P2 Round 1 実装結果（マルチエージェント・2026-09-06）**: 財務の基幹サービスを会社
 > （`entity_code`）ごとに対応させた。**社内取引（`intercompany_links`・仕入タブの入口・
@@ -852,6 +862,7 @@ PDF の発行者ブロックの文字列が今と同一（切替日前なので�
   `getSummaryByEntity`は、実装して確かめた結果**無変更のままで正しい**と判明した
   （entity_codeのGROUP BYだけで自動的に会社別の式になるため）。副産物として
   `purchases.routes.ts`の配分グループ編集ガード未実装（既知の穴）も塞いだ。
+  詳細と計画からの差分は§6・§4.12の実装結果を参照。
 - 2026-09-06（同日・9回目）: **P3（GMOコストセンター・旧GLS-B。§4.7）をマルチエージェントで
   実装した。** 核（`isProjectCostCenter`・`gpm-budget.service.ts`の予算対実績集計・
   `POST/PUT /revenues`の409ガード・パイプライン予測の除外・コスト側ダッシュボードAPI）は
@@ -863,4 +874,20 @@ PDF の発行者ブロックの文字列が今と同一（切替日前なので�
   `gpm.service.ts`の1箇所（列とVALUESの数が食い違い、GPMプロジェクト作成が常に
   失敗していた）を発見・修正し、残り33箇所も全数棚卸しして他に見落としが無いことを
   確認した。詳細と計画からの差分は§4.7・§6の実装結果を参照。
-  詳細と計画からの差分は§6・§4.12の実装結果を参照。
+- 2026-09-06（同日・10回目）: **P1の残作業（移行センター・通知ジョブ・番号解決の配線・
+  文書更新。§4.8・§4.10）をマルチエージェントで実装した。** 核（`migration-center.service.ts`
+  の`listRenumberCandidates()`・対象一覧API・`done`への残件0ゲート・`renumber_needed`
+  通知ジョブ）は直接実装し、残る3本（移行センターの対象一覧UI・`create_studio_booking`/
+  `client-techops`の番号解決配線・`docs/mcp-server.md`/`docs/wording.md`の文書更新）を
+  並列worktreeで実装、マージして検証（型チェック・Vitest・検証DB作り直し・`npm run lint`・
+  実サーバー起動してのHTTPレベル確認）まで実施。P4（`done`状態の残り・旧経路の削除・
+  `entity_scope`権限・連結）は見送った——旧経路の削除は実際の10/1切替が起きるまで
+  `off`状態の唯一の稼働を壊す実操作になるため、`entity_scope`権限は既存の権限判定
+  （`requirePermission`）が311箇所に散らばっており「1箇所でも取りこぼすと事故る」と
+  コード自身が明記する規模でこの回の他項目と釣り合わないため（§9-Iの現状の前提
+  「グループ本体はアカウントを持たない」とも整合）、連結は設計自身の推奨
+  （§9-F「第1段では作らない」）どおり見送った。副産物として、§4.8の自己修正
+  （`intake_channel='group'`という当初案は`intake_channel`のCHECK制約に存在しない値で、
+  名前一致だけで足りると判断し§4.8本文も訂正）と、`generate-mcp-tools.mjs`の
+  `CATEGORY_LABELS`にP2 Round 2で新設した`intercompany`カテゴリのラベルが
+  未登録だった穴も発見・修正した。詳細と計画からの差分は§4.8・§6の実装結果を参照。
