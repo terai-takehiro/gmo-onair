@@ -40,6 +40,16 @@ const LEAD: Record<string, string> = {
   supply: 'ケーブル・コネクタの在庫です。数をまとめて編集するときは Excel の取込を使います',
 };
 
+// 左メニューは同じページを2つの入口（「機材台帳」＝items既定 と「貸出対象の機材」
+// ＝?view=lend）で持っている。見出しがどちらでも固定「機材台帳」だったため、
+// 「貸出対象の機材」から開いても見出しだけ違う名前のままになっていた（レビューで発見）。
+// ケーブル・コネクタは専用の左メニュー項目を持たないので機材台帳のままでよい
+const TITLE: Record<string, string> = {
+  items: '機材台帳',
+  lend: '貸出対象の機材',
+  supply: '機材台帳',
+};
+
 export default function EquipmentLedgerPage() {
   const [params, setParams] = useSearchParams();
   const raw = params.get('view') ?? 'items';
@@ -57,7 +67,7 @@ export default function EquipmentLedgerPage() {
 
   return (
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
-      <PageHeader title="機材台帳" sub={LEAD[view]} />
+      <PageHeader title={TITLE[view]} sub={LEAD[view]} />
       <SubTabs label="台帳の種類" items={VIEWS} value={view} onChange={setView} />
       {view === 'items' && <ItemsPanel />}
       {view === 'lend' && <RentalPanel />}

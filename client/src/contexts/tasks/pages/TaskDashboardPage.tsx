@@ -143,7 +143,7 @@ function DesktopTaskDashboard() {
   return (
     <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <PageHeader
-        title="タスク"
+        title="タスク一覧"
         sub={data ? `全案件のタスク ${scoped.length}件（うち未対応 ${openCount}件）` : '全案件のタスク'}
         primaryAction={
           <Button onClick={() => setAdding(true)}>
