@@ -3,17 +3,15 @@
 // 第2版（列の管理・空状態の 3 択・見出しの整理）: 14-schedule-v2-plan.md §3 段A・§4-2 (b)(c)(d)
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Loader2, ArrowLeft, LayoutTemplate, Download, Plus, Sparkles, Columns3, Settings } from "lucide-react";
 import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
-import { confirmAction } from "@gmo-onair/shared/src/client/ui/confirm";
 import { Badge } from "@gmo-onair/shared/src/client/ui/badge";
 import EventPlanDialog from "@/components/ai/EventPlanDialog";
 import { Button } from "@/components/ui/button";
-import { notifyError, notifySuccess } from "@/lib/notify";
+import { notifyError } from "@/lib/notify";
 import api from "@/lib/api";
 import * as scheduleApi from "@/lib/scheduleApi";
-import { isConflict } from "@/lib/scheduleApi";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useAuth } from "@/hooks/useAuth";
 import { setProductionNavContext } from "@/lib/productionNavContext";
@@ -30,6 +28,7 @@ import ScheduleSettingsDialog from "@/components/schedule/ScheduleSettingsDialog
 import ScheduleSiblingDays from "@/components/schedule/ScheduleSiblingDays";
 import MoreMenu from "@/components/schedule/MoreMenu";
 import useItemCommitQueue from "@/components/schedule/useItemCommitQueue";
+import useScheduleItemActions from "./useScheduleItemActions";
 import { SCHEDULE_STATUS_LABEL, SCHEDULE_STATUS_BADGE_VARIANT } from "@/components/schedule/scheduleStatus";
 
 const POLL_MS = 15000;
@@ -37,7 +36,6 @@ const POLL_MS = 15000;
 export default function SchedulePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const isMobile = useMediaQuery("(max-width: 1023px)");
   const { currentUser } = useAuth();
 
@@ -52,10 +50,12 @@ export default function SchedulePage() {
   const [mobileFilterColumnId, setMobileFilterColumnId] = useState<string | null>(null);
   // 列を足す／直す（ColumnDialog）。`column` が無ければ新規作成
   const [columnDialog, setColumnDialog] = useState<{ open: boolean; column: ScheduleColumn | null; group: ColGroup }>({ open: false, column: null, group: "venue" });
+  // ドラッグ移動・下端リサイズの最中かどうか（`ScheduleGrid` から。§3 B1・§4-3）
+  const [isDragging, setIsDragging] = useState(false);
 
   const queue = useItemCommitQueue();
-  // 列・表の設定を開いている間もポーリングを止める（書きかけを上書きしないため・§4-3）
-  const anySheetOpen = dialogOpen || columnDialog.open || venueOpen || settingsOpen;
+  // 列・表の設定・ドラッグ中もポーリングを止める（書きかけを上書きしないため・§4-3）
+  const anySheetOpen = dialogOpen || columnDialog.open || venueOpen || settingsOpen || isDragging;
 
   const detailQuery = useQuery({
     queryKey: ["schedule", id],
@@ -72,6 +72,13 @@ export default function SchedulePage() {
     enabled: !!id,
     refetchInterval: POLL_MS,
   });
+
+  const closeDialog = () => setDialogOpen(false);
+  // 項目の保存・削除・ドラッグ確定・台本連携と関連する invalidate 群（1ファイル400行の上限で分割）
+  const {
+    refetchDetail, refetchAfterColumns, refetchAfterSettings, handleDeleted,
+    handleSave, handleDragCommit, handleDelete, handleCreateScript, handleOpenScript,
+  } = useScheduleItemActions({ scheduleId: id ?? "", schedule: detailQuery.data, queue, selectedItem, closeDialog });
 
   // いまの案件/番組をサイドバー・スマホ下タブに教える（buildQsheetNav が参照）
   useEffect(() => {
@@ -106,114 +113,6 @@ export default function SchedulePage() {
   };
   const openAddColumn = (group: ColGroup) => setColumnDialog({ open: true, column: null, group });
   const openEditColumn = (column: ScheduleColumn) => setColumnDialog({ open: true, column, group: column.col_group });
-
-  const closeDialog = () => {
-    setDialogOpen(false);
-  };
-
-  const refetchDetail = () => queryClient.invalidateQueries({ queryKey: ["schedule", id] });
-  const refetchBreakdown = () => queryClient.invalidateQueries({ queryKey: ["schedule-breakdown", id] });
-  // 項目（枠）を足す/直す/消す/台本化すると、一覧（`ScheduleListPage.tsx` の ["schedules","list",...]）と
-  // ハブ画面（`JourneyPage.tsx` の ["qsheet-journey", scope, id]）が読む件数・提案が古いまま残る
-  // （既定の staleTime=60秒。監査 2026-08-24）。この2つも合わせて invalidate する。
-  const refetchListsAndHub = () => {
-    queryClient.invalidateQueries({ queryKey: ["schedules", "list"] });
-    const data = detailQuery.data;
-    if (data?.project_id) {
-      queryClient.invalidateQueries({ queryKey: ["qsheet-journey", "project", data.project_id] });
-    } else if (data?.program_id) {
-      queryClient.invalidateQueries({ queryKey: ["qsheet-journey", "program", data.program_id] });
-    } else {
-      // owner がまだ分からない（読み込み中 等）ときは絞り込めないので全ジャーニーを対象にする
-      queryClient.invalidateQueries({ queryKey: ["qsheet-journey"] });
-    }
-  };
-  // 列を消すと中の項目も消える（件数が動く）ので、列の変更は一覧・ハブまで読み直す
-  const refetchAfterColumns = () => { refetchDetail(); refetchBreakdown(); refetchListsAndHub(); };
-  // 表の設定は案件/番組そのものを付け替えられる。旧・新どちらのハブが古くなるか
-  // 事前には分からないので、ジャーニー全体を読み直す（表の設定はそう何度も開かない操作）
-  const refetchAfterSettings = () => {
-    refetchDetail();
-    queryClient.invalidateQueries({ queryKey: ["schedules", "list"] });
-    queryClient.invalidateQueries({ queryKey: ["qsheet-journey"] });
-  };
-  const handleDeleted = () => {
-    queryClient.invalidateQueries({ queryKey: ["schedules", "list"] });
-    navigate("/techops/schedules");
-  };
-
-  const handleSave = async (draft: ItemDraft) => {
-    const body = {
-      column_id: draft.columnId,
-      title: draft.title,
-      kind: draft.kind,
-      start_min: draft.startMin,
-      end_min: draft.endMin,
-      assignee: draft.assignee || null,
-      note: draft.note || null,
-    };
-    try {
-      if (selectedItem) {
-        await queue.commit(selectedItem.id, selectedItem.updated_at, (expectedUpdatedAt) =>
-          scheduleApi.updateItem(id, selectedItem.id, { ...body, expected_updated_at: expectedUpdatedAt }));
-      } else {
-        await scheduleApi.createItem(id, body);
-      }
-      notifySuccess("保存しました");
-      closeDialog();
-      refetchDetail();
-      refetchBreakdown();
-      refetchListsAndHub();
-    } catch (err) {
-      if (isConflict(err)) {
-        notifyError("この項目は別のタブ/端末で更新されています");
-        refetchDetail();
-      } else {
-        notifyError("保存できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
-      }
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!selectedItem) return;
-    // 確認の器（ConfirmHost）は共通シェル（shared/src/client/shell/AppShell.tsx）が持っている
-    const ok = await confirmAction({
-      title: `「${selectedItem.title || "（無題）"}」を削除しますか？`,
-      description: selectedItem.qsheet_document_id ? "結ばれている進行台本は残ります（枠だけが消えます）。" : undefined,
-      confirmLabel: "削除する",
-      tone: "danger",
-    });
-    if (!ok) return;
-    try {
-      await scheduleApi.deleteItem(id, selectedItem.id);
-      notifySuccess("削除しました");
-      closeDialog();
-      refetchDetail();
-      refetchBreakdown();
-      refetchListsAndHub();
-    } catch {
-      notifyError("削除できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
-    }
-  };
-
-  const handleCreateScript = async () => {
-    if (!selectedItem) return;
-    try {
-      const { document } = await scheduleApi.createAndLinkDocument(id, selectedItem.id);
-      notifySuccess("進行台本を作りました");
-      closeDialog();
-      refetchDetail();
-      refetchListsAndHub();
-      navigate(`/techops/editor/${document.id}`);
-    } catch (err) {
-      if (isConflict(err)) notifyError("すでに台本が結ばれています");
-      else notifyError("台本を作れませんでした");
-    }
-  };
-
-  const handleOpenScript = () => {
-    if (selectedItem?.qsheet_document_id) navigate(`/techops/editor/${selectedItem.qsheet_document_id}`);
-  };
 
   const handleExport = async () => {
     try {
@@ -323,6 +222,8 @@ export default function SchedulePage() {
             onAddAt={openCreate}
             onEditColumn={openEditColumn}
             onAddColumn={openAddColumn}
+            onCommitDrag={handleDragCommit}
+            onDragStateChange={setIsDragging}
           />
         )}
       </div>
