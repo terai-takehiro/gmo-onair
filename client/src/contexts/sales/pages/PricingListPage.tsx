@@ -98,11 +98,11 @@ export default function PricingListPage() {
     onSuccess: (r) => {
       invalidate();
       const d = r.data.data as { categories: number; items: number };
-      notifySuccess(`写しました（分類 ${d.categories} ／ 品目 ${d.items}）`, {
-        description: '金額はこの場所のぶんだけ直せます。元の場所の料金は変わりません。',
+      notifySuccess(`複製しました（分類 ${d.categories} ／ 品目 ${d.items}）`, {
+        description: '金額はこの場所のぶんだけ編集できます。元の場所の料金は変わりません。',
       });
     },
-    onError: (e) => notifyApiError('写せませんでした', e),
+    onError: (e) => notifyApiError('複製できませんでした', e),
   });
 
   /** 品目名と補足の両方で探す。**補足に部屋名が入っている**ので、そこも当たらないと引けない */
@@ -181,8 +181,8 @@ export default function PricingListPage() {
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="品目名・補足で探す"
-            aria-label="品目を探す"
+            placeholder="品目名・補足で検索"
+            aria-label="品目を検索"
             className="w-full pl-9 sm:w-56"
           />
         </div>
@@ -204,7 +204,7 @@ export default function PricingListPage() {
           <strong className="font-bold">ここを直しても、すでに作った見積の金額は変わりません。</strong>
           <strong className="font-bold">料金表は場所ごとに別</strong>です（この表は {activeName} のぶん）。
           グループ会社価格が「設定なし」の品目は、グループ会社の案件では選べません（逆も同じ）。
-          料金表を直すには 案件管理の「書ける」が必要です。
+          料金表を直すには 案件管理の「編集」が必要です。
         </p>
       </div>
 

@@ -57,7 +57,7 @@ export function ProjectRowsHeader() {
       <RowSlot w={128}>いまの工程</RowSlot>
       <RowSlot w={96}>進み具合</RowSlot>
       <RowSlot w={128} align="right">見積</RowSlot>
-      <RowSlot w={200}>次にやること</RowSlot>
+      <RowSlot w={200}>次のアクション</RowSlot>
       <RowSlot w={56} align="right">未確認</RowSlot>
     </RowHeader>
   );

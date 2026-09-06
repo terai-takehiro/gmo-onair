@@ -1,5 +1,5 @@
 /**
- * スタジオの日程 — 部屋 / 本番日 / リハーサル / 追加の日程 (v4)
+ * スタジオの日程 — 本番日 / リハーサル / 追加の日程 / 部屋 (v4)
  *
  * ── 触るまで送らない ────────────────────────────────────────
  *
@@ -73,7 +73,7 @@ export function ScheduleSection({
       title="スタジオの日程"
       description={isEdit
         ? 'この案件にはまだ予約がありません。ここに入れると「登録済みの予約」から管理できるようになります。'
-        : 'ここに入れると、案件を登録したときにスタジオ予約もいっしょに作ります（あとから直せます）。'}
+        : 'ここに入れると、案件を登録したときにスタジオ予約もいっしょに作ります（あとから編集できます）。'}
       action={onOpenCalendar && (
         <Button type="button" variant="outline" size="sm" onClick={onOpenCalendar}>
           <CalendarDays className="mr-1 h-4 w-4" aria-hidden="true" />
@@ -81,7 +81,117 @@ export function ScheduleSection({
         </Button>
       )}
     >
-      {/* 部屋 */}
+      {/*
+        本番日。**「複数日程」は本番日の直後・終了日の上**
+        （`docs/design/v4/_form-order.md`「期間は開始→終了」「依存する欄は
+        依存される欄より下」）。終了日はこのトグルを入りにしたときだけ出るのに、
+        トグルが終了日より下にあると**出しかたを終了日の下で探す**ことになります。
+        リハーサル側と同じ並び（日付 → 複数日程 → 終了日）にそろえてあります
+      */}
+      <div className="space-y-2">
+        <div className="max-w-[16rem]">
+          <Field label="本番日" htmlFor="pf-prod-start">
+            <Input
+              id="pf-prod-start" type="date" value={s.productionStart}
+              onChange={(e) => s.setProductionStart(e.target.value)}
+            />
+          </Field>
+        </div>
+        <ToggleRow label="複数日程" checked={s.productionMultiDay} onChange={s.setProductionMultiDay} />
+        {s.productionMultiDay && (
+          <div className="max-w-[16rem]">
+            <Field label="本番 終了日" htmlFor="pf-prod-end">
+              <Input
+                id="pf-prod-end" type="date" value={s.productionEnd}
+                onChange={(e) => s.setProductionEnd(e.target.value)}
+              />
+            </Field>
+          </div>
+        )}
+      </div>
+
+      {/* リハーサル（本番日と同じ並び: 日付 → 複数日程 → 終了日） */}
+      <div className="space-y-2">
+        <ToggleRow label="リハーサルあり" checked={s.hasRehearsal} onChange={s.setHasRehearsal} />
+        {s.hasRehearsal && (
+          <div className="space-y-2 pl-6">
+            <div className="max-w-[16rem]">
+              <Field label="リハーサル日" htmlFor="pf-reh-start">
+                <Input
+                  id="pf-reh-start" type="date" value={s.rehearsalStart}
+                  onChange={(e) => s.setRehearsalStart(e.target.value)}
+                />
+              </Field>
+            </div>
+            <ToggleRow label="複数日程" checked={s.rehearsalMultiDay} onChange={s.setRehearsalMultiDay} />
+            {s.rehearsalMultiDay && (
+              <div className="max-w-[16rem]">
+                <Field label="リハーサル 終了日" htmlFor="pf-reh-end">
+                  <Input
+                    id="pf-reh-end" type="date" value={s.rehearsalEnd}
+                    onChange={(e) => s.setRehearsalEnd(e.target.value)}
+                  />
+                </Field>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 追加の日程（飛び日） */}
+      <div className="space-y-2 border-t border-border-subtle pt-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-sub text-secondary-foreground">追加の日程（飛び日）</p>
+            <p className="text-note text-muted-foreground">本番・リハと別の日（撤去日や中日など）を足せます。</p>
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={s.addExtraDate}>
+            ＋ 日程を追加
+          </Button>
+        </div>
+        {s.extraDates.length > 0 && (
+          <div className="space-y-2">
+            {s.extraDates.map((d, idx) => (
+              <div key={idx} className="flex items-end gap-2">
+                <div className="flex-1">
+                  <Field label="日付">
+                    <Input
+                      type="date" value={d.date}
+                      onChange={(e) => s.updateExtraDate(idx, { date: e.target.value })}
+                    />
+                  </Field>
+                </div>
+                <div className="flex-1">
+                  <Field label="呼び名">
+                    <Input
+                      value={d.label}
+                      placeholder="例: 撤去 / 中日 / 予備日"
+                      onChange={(e) => s.updateExtraDate(idx, { label: e.target.value })}
+                    />
+                  </Field>
+                </div>
+                <Button
+                  type="button" variant="ghost" size="icon"
+                  className="shrink-0 text-destructive"
+                  aria-label="この日程を削除"
+                  onClick={() => s.removeExtraDate(idx)}
+                >
+                  ×
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/*
+        **使う部屋・空間は日程の下**（`docs/design/v4/_form-order.md` の段の順）。
+        実務は「いつやるか」が先に決まり、空きを見てから部屋を決めます。
+        拠点の数だけ縦に伸びる（この節でいちばん長い）ブロックなので、
+        上に置くと日付の欄に着くまでにそれを越えることになっていました。
+        ⚠️ 新規登録では**部屋と日付の両方**から予約を作ります（`createInitialBookings`）。
+        片方だけでは予約になりません
+      */}
       <Field label="使う部屋・空間">
         <div className="space-y-4">
           {studioLocations.map((loc) => {
@@ -107,7 +217,7 @@ export function ScheduleSection({
                           : 'border-input hover:bg-accent',
                       )}
                     >
-                      {allSelected ? '全部はずす' : '全部えらぶ'}
+                      {allSelected ? 'すべて解除' : 'すべて選択'}
                     </button>
                   )}
                 </div>
@@ -180,106 +290,6 @@ export function ScheduleSection({
         </div>
       </Field>
 
-      {/* 本番日 */}
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-start gap-4">
-          <div className="min-w-[10rem] flex-1">
-            <Field label="本番日" htmlFor="pf-prod-start">
-              <Input
-                id="pf-prod-start" type="date" value={s.productionStart}
-                onChange={(e) => s.setProductionStart(e.target.value)}
-              />
-            </Field>
-          </div>
-          {s.productionMultiDay && (
-            <div className="min-w-[10rem] flex-1">
-              <Field label="本番 終了日" htmlFor="pf-prod-end">
-                <Input
-                  id="pf-prod-end" type="date" value={s.productionEnd}
-                  onChange={(e) => s.setProductionEnd(e.target.value)}
-                />
-              </Field>
-            </div>
-          )}
-        </div>
-        <ToggleRow label="複数日程" checked={s.productionMultiDay} onChange={s.setProductionMultiDay} />
-      </div>
-
-      {/* リハーサル */}
-      <div className="space-y-2">
-        <ToggleRow label="リハーサルあり" checked={s.hasRehearsal} onChange={s.setHasRehearsal} />
-        {s.hasRehearsal && (
-          <div className="space-y-2 pl-6">
-            <div className="flex flex-wrap items-start gap-4">
-              <div className="min-w-[10rem] flex-1">
-                <Field label="リハーサル日" htmlFor="pf-reh-start">
-                  <Input
-                    id="pf-reh-start" type="date" value={s.rehearsalStart}
-                    onChange={(e) => s.setRehearsalStart(e.target.value)}
-                  />
-                </Field>
-              </div>
-              {s.rehearsalMultiDay && (
-                <div className="min-w-[10rem] flex-1">
-                  <Field label="リハーサル 終了日" htmlFor="pf-reh-end">
-                    <Input
-                      id="pf-reh-end" type="date" value={s.rehearsalEnd}
-                      onChange={(e) => s.setRehearsalEnd(e.target.value)}
-                    />
-                  </Field>
-                </div>
-              )}
-            </div>
-            <ToggleRow label="複数日程" checked={s.rehearsalMultiDay} onChange={s.setRehearsalMultiDay} />
-          </div>
-        )}
-      </div>
-
-      {/* 追加の日程（飛び日） */}
-      <div className="space-y-2 border-t border-border-subtle pt-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-sub text-secondary-foreground">追加の日程（飛び日）</p>
-            <p className="text-note text-muted-foreground">本番・リハと別の日（撤去日や中日など）を足せます。</p>
-          </div>
-          <Button type="button" variant="outline" size="sm" onClick={s.addExtraDate}>
-            ＋ 日程を追加
-          </Button>
-        </div>
-        {s.extraDates.length > 0 && (
-          <div className="space-y-2">
-            {s.extraDates.map((d, idx) => (
-              <div key={idx} className="flex items-end gap-2">
-                <div className="flex-1">
-                  <Field label="日付">
-                    <Input
-                      type="date" value={d.date}
-                      onChange={(e) => s.updateExtraDate(idx, { date: e.target.value })}
-                    />
-                  </Field>
-                </div>
-                <div className="flex-1">
-                  <Field label="呼び名">
-                    <Input
-                      value={d.label}
-                      placeholder="例: 撤去 / 中日 / 予備日"
-                      onChange={(e) => s.updateExtraDate(idx, { label: e.target.value })}
-                    />
-                  </Field>
-                </div>
-                <Button
-                  type="button" variant="ghost" size="icon"
-                  className="shrink-0 text-destructive"
-                  aria-label="この日程を削除"
-                  onClick={() => s.removeExtraDate(idx)}
-                >
-                  ×
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </FormSection>
   );
 }

@@ -133,7 +133,7 @@ export function ItemsPanel() {
         return;
       }
       setDialog(null);
-      notifySuccess(wasEdit ? '機材を直しました' : '機材を足しました');
+      notifySuccess(wasEdit ? '機材を保存しました' : '機材を追加しました');
     },
     onSaveError: setSaveError,
     onBulkError: bulk.setError,
@@ -144,7 +144,7 @@ export function ItemsPanel() {
 
   const onDelete = async (item: EquipmentRecord, parentId?: string) => {
     const ok = await confirmAction({
-      title: `「${item.name}」を台帳から消しますか`,
+      title: `「${item.name}」を台帳から削除しますか`,
       description: (item.children_count ?? 0) > 0
         ? `付属品 ${item.children_count} 点の親子の結びつきも外れます。取り消せません。`
         : '貸出とメンテナンスの記録もいっしょに見えなくなります。取り消せません。',
@@ -212,7 +212,7 @@ export function ItemsPanel() {
 
       {/*
         **絞り込みは中身を変えずに、置き方だけ幅で入れ替えます**（M8）。
-        `onChange` の割り振りは1か所（写すと片方だけ軸が増える）。
+        `onChange` の割り振りは1か所（コピーと片方だけ軸が増える）。
       */}
       {isMobile ? (
         <MobileFilters

@@ -155,7 +155,7 @@ export function MobileTaskList() {
         label="絞り込む"
         items={[
           { key: 'today', label: '今日', count: counts.today },
-          { key: 'over', label: '期限切れ', count: counts.over },
+          { key: 'over', label: '期限超過', count: counts.over },
           { key: 'all', label: 'すべて', count: counts.all },
         ]}
         value={chip}

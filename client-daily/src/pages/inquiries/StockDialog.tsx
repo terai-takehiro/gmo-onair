@@ -1,10 +1,10 @@
 /**
- * ⑤ 入ってきた情報 — 「あとで見る」に入れるときに**見直す日**を決める（migration 247）
+ * ⑤ 入ってきた情報 — 「あとで見る」に入れるときに**再確認日**を決める（migration 247）
  *
  * ── なぜ訊くか ──────────────────────────────────────────────
  *
  * それまでの「あとで見る」は押した瞬間に行が消えるだけで、
- * **戻ってくる仕掛けが1つもありませんでした**（見直す日も通知も無し）。
+ * **戻ってくる仕掛けが1つもありませんでした**（再確認日も通知も無し）。
  * 実質「見送り」と同じで、行き先が2つあるように見えて違うのは名前だけです。
  *
  * ここで日を1つ決めれば、その日に**未仕分けと同じ扱いで机に戻ります**
@@ -16,7 +16,7 @@
  * よく使う3つ（1か月後 / 3か月後 / 半年後）は押すだけで、
  * それ以外は端末の日付入力に任せます（自作の日付ホイールは作らない）。
  *
- * ⚠️ **「決めない」も選べます。** 決められないときに保存できないと、
+ * ⚠️ **「設定しない」も選べます。** 決められないときに保存できないと、
  * 「じゃあ見送りで」になって話が消えます。決めなかったものは
  * **翌日から机に出ます**（そう画面にも書いてあります）。
  */
@@ -40,7 +40,7 @@ export function StockDialog({
   today: string;
   saving: boolean;
   onClose: () => void;
-  /** `null` は「見直す日を決めない」 */
+  /** `null` は「再確認日を設定しない」 */
   onSubmit: (reviewOn: string | null) => void;
 }) {
   const already = inquiry.state === 'stock';
@@ -54,32 +54,36 @@ export function StockDialog({
     <FormDialog
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title={already ? '見直す日を決め直す' : 'あとで見る'}
+      title={already ? '再確認日を再設定' : '保留にする'}
+      // 打つのは日付1つだけなので Enter で送れるようにする。押すボタンは
+      // すべて `type` を明示する（`<form>` の中では既定が submit になるため）
+      onSubmit={(e) => { e.preventDefault(); if (!saving) onSubmit(reviewOn || null); }}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>キャンセル</Button>
-          <Button onClick={() => onSubmit(reviewOn || null)} disabled={saving}>
+          <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>
+          <Button type="submit" disabled={saving}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             <Archive className="mr-1.5 h-4 w-4" aria-hidden="true" />
-            {already ? '決め直す' : 'あとで見る'}
+            {already ? '再設定する' : '保留にする'}
           </Button>
         </FormDialogFooter>
       }
     >
       <div className="flex flex-col gap-3">
         <p className="text-sub text-secondary-foreground">
-          「{inquiry.summary}」を<strong className="font-bold">あとで見るに入れます</strong>。
-          決めた日が来ると、未仕分けと同じように「今日さばくもの」に出てきます。
+          「{inquiry.summary}」を<strong className="font-bold">保留にします</strong>。
+          設定した日が来ると、未処理と同じように「本日対応」に表示されます。
         </p>
 
         <div>
-          <Label>見直す日</Label>
+          <Label>再確認日</Label>
           <div className="mt-1 flex flex-wrap gap-1.5">
             {PRESETS.map((m) => {
               const d = addMonthsIso(today, m);
               return (
                 <Button
                   key={m}
+                  type="button"
                   variant={reviewOn === d ? 'default' : 'outline'}
                   onClick={() => setReviewOn(d)}
                 >
@@ -88,10 +92,11 @@ export function StockDialog({
               );
             })}
             <Button
+              type="button"
               variant={reviewOn === '' ? 'default' : 'outline'}
               onClick={() => setReviewOn('')}
             >
-              決めない
+              設定しない
             </Button>
           </div>
           <Input
@@ -100,12 +105,12 @@ export function StockDialog({
             value={reviewOn}
             min={today}
             onChange={(e) => setReviewOn(e.target.value)}
-            aria-label="見直す日"
+            aria-label="再確認日"
           />
           <p className="text-note mt-1 text-muted-foreground">
             {reviewOn
               ? note.text
-              : '見直す日を決めないと、明日また出てきます。'}
+              : '再確認日を設定しないと、翌日また表示されます。'}
           </p>
         </div>
 

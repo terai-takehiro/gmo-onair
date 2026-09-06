@@ -183,7 +183,7 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
           </Button>
         )}
         <Button onClick={openCreate}>
-          <Plus className="mr-1 h-4 w-4" aria-hidden="true" />ページを作る
+          <Plus className="mr-1 h-4 w-4" aria-hidden="true" />ページを作成
         </Button>
       </div>
 
@@ -210,7 +210,7 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
         {pages.length === 0 ? (
           <EmptyState
             title="ページがまだありません"
-            description="「ページを作る」から最初のページ（ネーム・題字など）を作るとここに並びます。"
+            description="「ページを作成」から最初のページ（ネーム・題字など）を作成とここに並びます。"
           />
         ) : pages.map((p) => (
           <div key={p.id} className="flex items-center gap-3 border-b border-border-faint px-4 py-2 last:border-b-0 hover:bg-surface-subtle">

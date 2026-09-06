@@ -188,7 +188,7 @@ export function AttendeeCard({
                     className="text-badge border-ai-border bg-ai-surface text-ai"
                     title="AI がメールから取り込んだ登録です"
                   >
-                    <Sparkles className="mr-0.5 h-3 w-3" aria-hidden="true" />AI取込
+                    <Sparkles className="mr-0.5 h-3 w-3" aria-hidden="true" />AI作成
                   </Badge>
                 ) : null}
                 {r.checked_in_at ? (

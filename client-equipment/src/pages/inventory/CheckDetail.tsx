@@ -108,8 +108,8 @@ function DesktopCheckDetail({ checkId, onBack, onDeleted }: {
 
   const remove = useMutation({
     mutationFn: () => api.delete(`/equipment/inventory-checks/${checkId}`),
-    onSuccess: () => { invalidate(); onDeleted(); notifySuccess('棚卸しを消しました'); },
-    onError: (e) => notifyApiError('消せませんでした', e),
+    onSuccess: () => { invalidate(); onDeleted(); notifySuccess('棚卸しを削除しました'); },
+    onError: (e) => notifyApiError('削除できませんでした', e),
   });
 
   if (detailQuery.isError) {
@@ -137,7 +137,7 @@ function DesktopCheckDetail({ checkId, onBack, onDeleted }: {
 
   const onDelete = async () => {
     const ok = await confirmAction({
-      title: `棚卸し「${detail.title}」を消しますか`,
+      title: `棚卸し「${detail.title}」を削除しますか`,
       description: `付けた ${checked} 件ぶんの印もいっしょに消えます。取り消せません。`,
       confirmLabel: '削除',
       tone: 'danger',
@@ -172,11 +172,11 @@ function DesktopCheckDetail({ checkId, onBack, onDeleted }: {
             <Button onClick={() => setStatus.mutate('in_progress')}>棚卸しを始める</Button>
           )}
           {detail.status === 'in_progress' && (
-            <Button onClick={() => setStatus.mutate('completed')}>終わりにする</Button>
+            <Button onClick={() => setStatus.mutate('completed')}>完了する</Button>
           )}
           {completed && (
             <Button variant="outline" onClick={() => setStatus.mutate('in_progress')}>
-              <Undo2 className="mr-1 h-4 w-4" aria-hidden="true" />もう一度開く
+              <Undo2 className="mr-1 h-4 w-4" aria-hidden="true" />再開する
             </Button>
           )}
           <Button variant="outline" className="text-destructive" onClick={onDelete} disabled={remove.isPending}>
@@ -255,7 +255,7 @@ function DesktopCheckDetail({ checkId, onBack, onDeleted }: {
                         <span className="font-number mr-2 text-primary">{item.eq_code}</span>
                         {item.equipment_name}{item.unit_number ? ` No.${item.unit_number}` : ''}
                       </RowTitle>
-                      <RowSub>あるはずの場所: {item.expected_location || '決まっていません'}</RowSub>
+                      <RowSub>登録上の保管場所: {item.expected_location || '決まっていません'}</RowSub>
                     </RowMain>
                     <RowSlot w={56} align="center" placeholder="">
                       {item.found === 0 && (

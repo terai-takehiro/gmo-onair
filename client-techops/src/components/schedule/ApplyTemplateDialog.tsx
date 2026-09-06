@@ -59,7 +59,7 @@ export default function ApplyTemplateDialog({ open, onOpenChange, scheduleId, lo
       onApplied();
       onOpenChange(false);
     },
-    onError: () => notifyError("ひな形を適用できませんでした。", { description: "少し待ってから、もう一度お試しください。" }),
+    onError: () => notifyError("工程テンプレートを適用できませんでした。", { description: "少し待ってから、もう一度お試しください。" }),
   });
 
   const needsOnairStart = previewQuery.data?.requires_onair_start ?? false;
@@ -77,20 +77,20 @@ export default function ApplyTemplateDialog({ open, onOpenChange, scheduleId, lo
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
-        <DialogHeader><DialogTitle>ひな形を適用</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>工程テンプレートを適用</DialogTitle></DialogHeader>
 
         <div className="space-y-4">
           <div>
             <div className="flex items-center justify-between gap-2">
-              <Label>ひな形</Label>
-              {/* ひな形の編集は system_admin のみ（サーバーも role で絞っている）。
+              <Label>工程テンプレート</Label>
+              {/* 工程テンプレートの編集は system_admin のみ（サーバーも role で絞っている）。
                   導線が無く URL 直打ちでしか届かなかった穴を塞ぐ（14-schedule-v2-plan.md §3 A7） */}
               {isSystemAdmin && (
                 <Link
                   to={templateId ? `/techops/settings/schedule-templates?template=${templateId}` : "/techops/settings/schedule-templates"}
                   className="inline-flex min-h-[44px] items-center gap-1 text-sm text-primary hover:underline"
                 >
-                  <Pencil className="h-3.5 w-3.5" aria-hidden="true" />ひな形を直す
+                  <Pencil className="h-3.5 w-3.5" aria-hidden="true" />工程テンプレートを編集
                 </Link>
               )}
             </div>
@@ -104,7 +104,7 @@ export default function ApplyTemplateDialog({ open, onOpenChange, scheduleId, lo
 
           {needsOnairStart && (
             <div>
-              <Label htmlFor="onair-start">本番開始時刻（このひな形に必要です）</Label>
+              <Label htmlFor="onair-start">本番開始時刻（この工程テンプレートに必要です）</Label>
               <BufferedInput
                 id="onair-start"
                 value={onairStartMin != null ? fmtHmPad(onairStartMin) : ""}

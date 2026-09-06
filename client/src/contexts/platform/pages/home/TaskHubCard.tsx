@@ -197,7 +197,7 @@ function MineTab() {
           href="/daily/tasks"
           className="min-h-tap text-note flex items-center gap-0.5 font-bold text-primary hover:underline lg:min-h-0"
         >
-          全部ひらく<ArrowRight className="h-3 w-3" aria-hidden="true" />
+          すべて開く<ArrowRight className="h-3 w-3" aria-hidden="true" />
         </a>
       </div>
 

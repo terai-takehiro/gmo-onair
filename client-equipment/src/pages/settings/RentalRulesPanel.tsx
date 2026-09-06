@@ -49,7 +49,7 @@ const CHOICES: { key: string; label: string; hint: string; options: { v: string;
 const TOGGLES: { key: string; label: string; hint: string }[] = [
   { key: 'allow_external', label: '社外への貸出を許可する', hint: '準備中 — いまはまだ効きません。切にすると社外の会社を選べなくなる予定です' },
   { key: 'external_approval', label: '社外貸出に承認を必要とする', hint: '準備中 — いまはまだ効きません。入にすると承認されるまで持ち出せなくなる予定です' },
-  { key: 'qr_lend_return', label: 'QRスキャンから貸出・返却を記録する', hint: '準備中 — いまはまだ効きません。切にすると QR は機材を探すだけになる予定です' },
+  { key: 'qr_lend_return', label: 'QRスキャンから貸出・返却を記録する', hint: '準備中 — いまはまだ効きません。切にすると QR は機材を検索だけになる予定です' },
   { key: 'block_broken_lending', label: '修理中・引退の機材を貸し出せないようにする', hint: '入にすると、その状態の機材は貸出を登録できなくなります' },
 ];
 

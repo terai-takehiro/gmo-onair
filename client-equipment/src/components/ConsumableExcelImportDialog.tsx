@@ -170,7 +170,7 @@ export default function ConsumableExcelImportDialog({
                 <span>初めての方は<strong>テンプレート</strong>をダウンロードして編集してください</span>
               </div>
               <Button size="sm" variant="outline" onClick={downloadTemplate}>
-                <Download className="h-4 w-4 mr-1" />テンプレートを取る
+                <Download className="h-4 w-4 mr-1" />テンプレートをダウンロード
               </Button>
             </CardContent>
           </Card>
@@ -253,7 +253,7 @@ export default function ConsumableExcelImportDialog({
                     disabled={!file || validateMutation.isPending}
                   >
                     <Upload className="h-4 w-4 mr-1" />
-                    {validateMutation.isPending ? '試しています…' : '試す'}
+                    {validateMutation.isPending ? '検証中…' : '試す'}
                   </Button>
                 </div>
                 {validateMutation.error && (

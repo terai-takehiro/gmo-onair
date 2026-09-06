@@ -91,7 +91,7 @@ export function GpmKanbanView({
     <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={onDragStart} onDragEnd={onDragEnd}>
       {canEdit && (
         <p className="text-note text-muted-foreground">
-          カードをドラッグすると工程を付け替えられます。カードを押すと直せます。
+          カードをドラッグすると工程を付け替えられます。カードを押すと編集できます。
         </p>
       )}
       <div className="flex items-start gap-3 overflow-x-auto pb-3">

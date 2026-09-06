@@ -109,7 +109,7 @@ export function MobileSalesDashboard() {
         primaryAction={
           canEdit ? (
             <Button className="w-full sm:w-auto" onClick={() => navigate('/sales/projects/new')}>
-              <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />案件をつくる
+              <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />案件を作成
             </Button>
           ) : undefined
         }

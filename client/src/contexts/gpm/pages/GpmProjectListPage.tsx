@@ -123,7 +123,7 @@ function sortRows(rows: GpmProjectRow[], sort: SortKey): GpmProjectRow[] {
  */
 const STAGE_GROUP_STAGES = (key: string) => STAGE_GROUPS.find((g) => g.key === key)?.stages ?? [];
 const STAGE_CHIPS = [
-  { key: 'open', label: '動いているもの',
+  { key: 'open', label: '進行中・準備中',
     stages: [...STAGE_GROUP_STAGES('active'), ...STAGE_GROUP_STAGES('planning')] },
   ...STAGE_GROUPS.filter((g) => g.key !== 'all'),
   { key: 'all', label: 'すべて', stages: [] as typeof STAGE_GROUPS[number]['stages'] },
@@ -197,14 +197,14 @@ export default function GpmProjectListPage() {
         primaryAction={
           canEdit ? (
             <Button onClick={() => navigate('/gpm/projects/new')}>
-              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />プロジェクトを作る
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />プロジェクトを作成
             </Button>
           ) : undefined
         }
       >
         {/* **スマホでは出さない。** ボードは選べても開けない画面になるので、切替そのものを隠す */}
         {!isMobile && (
-          <div className="inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="見え方を切り替える">
+          <div className="inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="表示形式を切り替える">
             {([['list', 'リスト', List], ['board', 'ボード', LayoutGrid]] as const).map(([v, label, Icon], i) => (
               <button
                 key={v}
@@ -231,8 +231,8 @@ export default function GpmProjectListPage() {
           search={{
             value: search,
             onChange: setSearch,
-            placeholder: 'プロジェクト名・依頼元で探す',
-            label: 'プロジェクトを探す',
+            placeholder: 'プロジェクト名・依頼元で検索',
+            label: 'プロジェクトを検索',
           }}
           activeCount={(stageKey !== 'open' ? 1 : 0) + (kind ? 1 : 0) + (sort !== 'recommended' ? 1 : 0)}
           onClearAll={() => { setStageKey('open'); setKind(''); setSort('recommended'); }}
@@ -271,9 +271,9 @@ export default function GpmProjectListPage() {
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="プロジェクト名・依頼元で探す"
+                placeholder="プロジェクト名・依頼元で検索"
                 className="pl-9"
-                aria-label="プロジェクトを探す"
+                aria-label="プロジェクトを検索"
               />
             </div>
             <div className="inline-flex overflow-hidden rounded-control border border-border" role="group" aria-label="区分で絞り込む">
@@ -316,11 +316,11 @@ export default function GpmProjectListPage() {
         all.length === 0 && !appliedSearch ? (
           <EmptyState
             title="プロジェクトがまだありません"
-            description="発注が確定した構築案件をここで工程管理します。ひな形を選ぶと、工程とタスクが日付付きで入ります。"
+            description="発注が確定した構築案件をここで工程管理します。工程テンプレートを選ぶと、工程とタスクが日付付きで入ります。"
             action={
               canEdit ? (
                 <Button onClick={() => navigate('/gpm/projects/new')}>
-                  <Plus className="mr-1 h-4 w-4" aria-hidden="true" />プロジェクトを作る
+                  <Plus className="mr-1 h-4 w-4" aria-hidden="true" />プロジェクトを作成
                 </Button>
               ) : undefined
             }

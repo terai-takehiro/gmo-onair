@@ -68,7 +68,7 @@ export default function GlobalSearch() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="案件・お客様・機材を探す"
+        aria-label="案件・お客様・機材を検索"
         className={cn(
           'text-sub hidden h-10 shrink-0 items-center gap-2.5 rounded-control-lg border border-border bg-background px-3.5 text-left text-muted-foreground sm:flex',
           'hover:border-primary-border-strong hover:bg-card',
@@ -77,7 +77,7 @@ export default function GlobalSearch() {
         )}
       >
         <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
-        <span className="min-w-0 flex-1 truncate">案件・お客様・機材を探す</span>
+        <span className="min-w-0 flex-1 truncate">案件・お客様・機材を検索</span>
         <span className="text-badge rounded-control shrink-0 border border-border bg-card px-2 py-0.5 text-muted-foreground">
           {keys}
         </span>

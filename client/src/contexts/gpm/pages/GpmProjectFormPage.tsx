@@ -46,7 +46,7 @@ import { OrgStep, type DraftMember } from './projectForm/OrgStep';
 
 const STEPS = [
   { n: 1, label: '基本情報' },
-  { n: 2, label: 'ひな形を選ぶ' },
+  { n: 2, label: '工程テンプレートを選ぶ' },
   { n: 3, label: '着手日と工程の確認' },
   { n: 4, label: '体制（組織図）' },
   { n: 5, label: 'メンバー・書類' },
@@ -110,7 +110,7 @@ export default function GpmProjectFormPage() {
       notifySuccess('プロジェクトを作りました', {
         description: [
           templateId
-            ? 'ひな形から工程とタスクを入れました。ここから直せます。'
+            ? '工程テンプレートから工程とタスクを入れました。ここから編集できます。'
             : '工程はまだありません。詳細画面から追加できます。',
           members.length > 0 && failed === 0 ? `体制に ${members.length}名 を入れました。` : '',
           // **入らなかった人を黙らない。** 気づかないと体制が欠けたまま進む
@@ -132,7 +132,7 @@ export default function GpmProjectFormPage() {
   return (
     <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <PageHeader
-        title="プロジェクトを作る"
+        title="プロジェクトを作成"
         sub="発注が確定してから立ち上げます。売れるかどうかを追う段階のものはここに入りません（案件管理で扱います）"
         primaryAction={
           <Button onClick={() => create.mutate()} disabled={missing.length > 0 || create.isPending}>
@@ -187,6 +187,10 @@ export default function GpmProjectFormPage() {
           onChange={(p) => setBasic((v) => ({ ...v, ...p }))}
           users={users.data ?? []}
           customers={customers.data ?? []}
+          // 着手日は1段目と3段目の**両方から同じ state を触る**。
+          // 3段目は「その着手日で工程がこう並ぶ」を見ながら直す場所として残す
+          startedOn={startedOn}
+          onStartedOn={setStartedOn}
         />
       )}
       {step === 2 && (

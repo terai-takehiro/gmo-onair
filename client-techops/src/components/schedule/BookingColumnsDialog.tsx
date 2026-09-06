@@ -114,14 +114,14 @@ export default function BookingColumnsDialog({
         <FormDialogFooter>
           <Button type="button" variant="outline" className="min-h-[44px]" onClick={() => onOpenChange(false)} disabled={busy}>閉じる</Button>
           <Button type="button" className="min-h-[44px]" onClick={() => void create()} disabled={busy || selected.length === 0}>
-            {selected.length > 0 ? `列を作る（${selected.length}）` : "列を作る"}
+            {selected.length > 0 ? `列を作成（${selected.length}）` : "列を作成"}
           </Button>
         </FormDialogFooter>
       }
     >
       {suggestionsQuery.isLoading && <p className="text-sm text-muted-foreground">読み込み中…</p>}
       {!suggestionsQuery.isLoading && bookings.every((b) => b.rooms.length === 0) && (
-        <EmptyState title="この日に部屋の予約がありません" description="部屋を選んで列を作るには「会場を選んで列を作る」を使ってください。" />
+        <EmptyState title="この日に部屋の予約がありません" description="部屋を選んで列を作成するには「会場を選んで列を作成」を使ってください。" />
       )}
       <div className="space-y-4">
         {bookings.filter((b) => b.rooms.length > 0).map((b) => (

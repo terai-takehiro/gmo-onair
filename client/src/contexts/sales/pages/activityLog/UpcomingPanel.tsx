@@ -34,7 +34,7 @@ export function UpcomingPanel({
       <p className="flex flex-wrap items-center justify-between gap-1.5 text-sub font-bold text-warning">
         <span className="flex items-center gap-1.5">
           <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
-          次回アクション予定（{shown.length}件）
+          次のアクション予定（{shown.length}件）
         </span>
         {hasMore && onSeeAll && (
           <button

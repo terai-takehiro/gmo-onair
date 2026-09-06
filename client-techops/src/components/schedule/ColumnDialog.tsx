@@ -1,6 +1,6 @@
 // 列（会場・支度・運営）を 1 本つくる／直す。14-schedule-v2-plan.md §3 A1・§4-2 (d)
 //
-// 列見出しの鉛筆・「列を足す」から開く。名前・部屋（会場だけ）・色と、
+// 列見出しの鉛筆・「列を追加」から開く。名前・部屋（会場だけ）・色と、
 // 左へ／右へ・削除をここに集める（ドロップダウンの部品を増やさないため）。
 // PC は中央、375px は下端のシート（`Sheet`）。
 import { useEffect, useState } from "react";
@@ -167,7 +167,7 @@ export default function ColumnDialog({ open, onOpenChange, scheduleId, columns, 
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={isEdit ? "列を直す" : "列を足す"}
+      title={isEdit ? "列を編集" : "列を追加"}
       sub={isEdit ? `${COL_GROUP_LABEL[column!.col_group]}の列` : "会場は 1 部屋 1 列。支度・運営は役割ごとに 1 列にします。"}
       size="sm"
       onSubmit={(e) => { e.preventDefault(); void save(); }}
@@ -186,7 +186,7 @@ export default function ColumnDialog({ open, onOpenChange, scheduleId, columns, 
               </Button>
             </div>
           ) : <span />}
-          <Button type="submit" className="min-h-[44px]" disabled={busy}>{isEdit ? "保存" : "列を足す"}</Button>
+          <Button type="submit" className="min-h-[44px]" disabled={busy}>{isEdit ? "保存" : "列を追加"}</Button>
         </FormDialogFooter>
       }
     >

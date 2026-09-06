@@ -104,7 +104,7 @@ function DesktopSalesDashboard() {
         title="ダッシュボード"
         primaryAction={
           <Button onClick={() => navigate('/sales/projects/new')}>
-            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />案件をつくる
+            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />案件を作成
           </Button>
         }
       >

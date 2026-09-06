@@ -14,6 +14,7 @@ import { BookingRoomPicker } from "./bookingRoomPicker";
 import { GreenroomOccupants } from "./GreenroomOccupants";
 import { AssigneePicker, type AssigneeRef } from "../AssigneePicker";
 import { formatShortDate, localDateStr } from "@/lib/format";
+import { BOOKING_TYPE_OPTIONS } from "../schedule/scheduleShared";
 
 interface StudioRoom {
   id: string;
@@ -67,17 +68,6 @@ interface Props {
   presetProjectId?: string;
 }
 
-const bookingTypeOptions = [
-  { value: "performance", label: "本番" },
-  { value: "rehearsal", label: "リハーサル" },
-  { value: "hold", label: "仮押さえ" },
-  { value: "tour", label: "内覧" },
-  { value: "consultation", label: "相談" },
-  { value: "setup", label: "設営/準備" },
-  { value: "maintenance", label: "メンテナンス" },
-  { value: "internal", label: "社内利用" },
-  { value: "other", label: "その他" },
-];
 
 const SINGLE_DATE_TYPES = new Set(["performance", "rehearsal"]);
 const LOCATION_NOTE_HISTORY_KEY = "studio_location_note_history";
@@ -339,9 +329,13 @@ export default function StudioBookingDialog({
 
   const handleSubmit = () => {
     setSaveError(null);
-    if (!title || !startDate) return;
+    // **足りない欄は「押せないボタン」ではなく理由で伝える。** 以前は
+    // `disabled={!title || !startDate}` で黙って押せなくしていたが、タイトルには
+    // 必須の印も押せない理由も無く、「壊れている」としか見えなかった
+    if (!title) { setSaveError("タイトルを入れてください（案件と開始日を選ぶと自動で入ります）"); return; }
+    if (!startDate) { setSaveError("開始日を入れてください"); return; }
     const effectiveEndDate = (isSingleDateType && !multiDay) ? startDate : endDate;
-    if (!effectiveEndDate) return;
+    if (!effectiveEndDate) { setSaveError("終了日を入れてください"); return; }
     if (locationNote.trim()) saveLocationHistory(locationNote.trim());
     const parsedHoldRank = holdRank.trim() ? Number(holdRank) : null;
     createMutation.mutate({
@@ -378,13 +372,16 @@ export default function StudioBookingDialog({
       // 1列に潰れて縦に長くなりすぎる（load-testing不要な単純な折返しではなく、
       // 部屋の grid-cols-4 チップ等、横幅を前提にした部品が複数ある）
       wide
+      /* Enterキーで予約できるようにする（`FormDialog` の `onSubmit` は opt-in）。
+         「予約する」は `type="submit"` にして `onClick` を外してある — 両方あると二重送信になる。
+         足りない欄は `handleSubmit` が `saveError` に理由を出す */
+      onSubmit={(e) => { e.preventDefault(); if (!createMutation.isPending) handleSubmit(); }}
       footer={
         <FormDialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
           <Button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!title || !startDate || createMutation.isPending}
+            type="submit"
+            disabled={createMutation.isPending}
           >
             {createMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
             {editingBooking ? "更新" : "予約する"}
@@ -408,23 +405,11 @@ export default function StudioBookingDialog({
                 なければ何もしない no-op になる（実際にそうなっていたのを復元した） */}
             <div className="space-y-5 lg:grid lg:grid-cols-2 lg:gap-x-6 lg:gap-y-5 lg:space-y-0">
 
-              {/* ① タイトル */}
-              <div className="rounded-xl border bg-muted/30">
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="タイトル"
-                  className="w-full px-4 py-3.5 bg-transparent outline-none placeholder:text-muted-foreground/40"
-                  style={{ fontSize: "16px" }}
-                />
-              </div>
-
-              {/* ② 予約種別 */}
+              {/* ① 予約種別 */}
               <div>
                 <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">予約種別</p>
                 <div className="flex flex-wrap gap-2 pb-0.5 -mx-1 px-1">
-                  {bookingTypeOptions.map((opt) => (
+                  {BOOKING_TYPE_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}
                       type="button"
@@ -481,7 +466,38 @@ export default function StudioBookingDialog({
                 </div>
               </div>
 
-              {/* ④ 日時 */}
+              {/* ③ スタジオ・部屋（＋外現場）。
+                  **日時より前に置く**（`docs/design/v4/_form-order.md` 段1「どれに付けるか」）。
+                  部屋は「この予約が何を押さえるか」そのもので、案件と同じ段に属する。
+                  以前は日時が先だったが、このフォームには空き状況が出ないため、
+                  先に時間を決めても確かめる材料が無く、重複・営業時間外は保存後の
+                  通知（`hours_check` / `duplicate_check`）でしか分からなかった */}
+              <BookingRoomPicker
+                roomLocations={roomLocations}
+                selectedRoomIds={selectedRoomIds}
+                setSelectedRoomIds={setSelectedRoomIds}
+                toggleRoom={toggleRoom}
+                locationNote={locationNote}
+                setLocationNote={setLocationNote}
+                onLocationNoteChange={handleLocationNoteChange}
+                onLocationNoteFocus={handleLocationNoteFocus}
+                locationInputRef={locationInputRef}
+                showSuggestions={showLocationSuggestions}
+                setShowSuggestions={setShowLocationSuggestions}
+                suggestions={filteredSuggestions}
+                suggestionsRef={suggestionsRef}
+              />
+
+              {/* ④ 控室利用者。**選んだ部屋にゲストルームが含まれるときだけ出る**ので、
+                  部屋のすぐ下に置く（離すと、部屋を選んだ拍子に画面の下のほうへ欄が生える） */}
+              <GreenroomOccupants
+                roomLocations={roomLocations}
+                selectedRoomIds={selectedRoomIds}
+                roomDetails={roomDetails}
+                setRoomDetails={setRoomDetails}
+              />
+
+              {/* ⑤ 日時 */}
               <div>
                 <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">日時</p>
                 <div className="rounded-xl border bg-muted/30 divide-y overflow-hidden">
@@ -490,6 +506,21 @@ export default function StudioBookingDialog({
                     <span className="text-[15px]">終日</span>
                     <Switch checked={allDay} onCheckedChange={setAllDay} />
                   </div>
+
+                  {/* 複数日 toggle (本番/リハーサルのみ)。
+                      **開始・終了より前に置く**（`docs/design/v4/_form-order.md` 2-1）。
+                      このトグルが終了「日」欄の有無を決める（下の `!isSingleDateType || multiDay`）ので、
+                      下に置くと「終了に日付が入れられない」と詰まってから戻ることになる。
+                      同じ性質の「終日」と並べれば、日付の欄が出る条件がひと目で分かる */}
+                  {isSingleDateType && (
+                    <div className="flex items-center justify-between px-4 py-3.5">
+                      <span className="text-[15px]">複数日</span>
+                      <Switch
+                        checked={multiDay}
+                        onCheckedChange={(c) => { setMultiDay(c); if (!c) setEndDate(startDate); }}
+                      />
+                    </div>
+                  )}
 
                   {/* 開始 */}
                   <div className="flex items-center px-4 py-3.5 gap-2">
@@ -548,70 +579,15 @@ export default function StudioBookingDialog({
                       </div>
                     </div>
                   )}
-
-                  {/* 複数日 toggle (本番/リハーサルのみ) */}
-                  {isSingleDateType && (
-                    <div className="flex items-center justify-between px-4 py-3.5">
-                      <span className="text-[15px]">複数日</span>
-                      <Switch
-                        checked={multiDay}
-                        onCheckedChange={(c) => { setMultiDay(c); if (!c) setEndDate(startDate); }}
-                      />
-                    </div>
-                  )}
                 </div>
               </div>
 
-              <BookingRoomPicker
-                roomLocations={roomLocations}
-                selectedRoomIds={selectedRoomIds}
-                setSelectedRoomIds={setSelectedRoomIds}
-                toggleRoom={toggleRoom}
-                locationNote={locationNote}
-                setLocationNote={setLocationNote}
-                onLocationNoteChange={handleLocationNoteChange}
-                onLocationNoteFocus={handleLocationNoteFocus}
-                locationInputRef={locationInputRef}
-                showSuggestions={showLocationSuggestions}
-                setShowSuggestions={setShowLocationSuggestions}
-                suggestions={filteredSuggestions}
-                suggestionsRef={suggestionsRef}
-              />
-
-              {/* ⑥ 控室利用者 */}
-              <GreenroomOccupants
-                roomLocations={roomLocations}
-                selectedRoomIds={selectedRoomIds}
-                roomDetails={roomDetails}
-                setRoomDetails={setRoomDetails}
-              />
-
-              {/* ⑥.5 担当者（複数・任意）。控室利用者（自由入力・社外可）とは別物 —
-                  こちらは登録ユーザーから選ぶ、実務の割り当ての補助情報 */}
-              <div className="lg:col-span-2">
-                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">担当者（複数選択可・いなくてもよい）</p>{/* ui-tokens-ok: 同じダイアログの他見出し（予約種別・案件・日時・メモ）と揃える既存書式 */}
-                <AssigneePicker
-                  open={open}
-                  assigneeIds={assigneeIds}
-                  onChange={setAssigneeIds}
-                  existingAssignees={editingBooking?.assignees}
-                />
-              </div>
-
-              {/* ⑦ メモ */}
-              <div className="lg:col-span-2">
-                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">メモ</p>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="備考を入力"
-                  rows={3}
-                  className="w-full rounded-xl border bg-muted/30 px-4 py-3 resize-none outline-none placeholder:text-muted-foreground/40"
-                  style={{ fontSize: "16px" }}
-                />
-              </div>
-
-              {/* ⑧ 予約状態 */}
+              {/* ⑥ 予約状態。
+                  **①予約種別のすぐ後ろではなく、日時・部屋が決まった直後に置く**
+                  （パートナーの予定の「希望日」トグルと同じ位置。同じ意味の2値が
+                  画面ごとに違う場所にあると、どちらの画面でも探すことになる）。
+                  以前はメモの下＝最下段にあり、①で「仮押さえ／相談」を押すと
+                  画面外のこの欄が黙って仮押さえに落ちていた（下の `disabled`）。 */}
               <div className="rounded-xl border bg-muted/30 lg:col-span-2">
                 <div className="flex items-center justify-between px-4 py-3.5">
                   <div>
@@ -652,6 +628,52 @@ export default function StudioBookingDialog({
                     />
                   </div>
                 )}
+              </div>
+
+              {/* ⑦ タイトル。
+                  **材料になる欄（種別・案件・日時）より後ろに置く**
+                  （`docs/design/v4/_form-order.md` 2-3「自動計算は入力の下」）。
+                  この欄は案件と開始日から `案件名 (YY/MM/DD)` が自動で入る
+                  （上の `lastAutoTitleRef` の useEffect）。以前は最上段にあったため、
+                  手で題名を考えて書いた直後に下で案件を選ぶと書き換わっていた。
+                  **唯一の必須**なので、プレースホルダだけで済ませず見出しに印を出す */}
+              <div className="lg:col-span-2">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">タイトル（必須）</p>{/* ui-tokens-ok: 同じダイアログの他見出し（予約種別・案件・日時・メモ）と揃える既存書式 */}
+                <div className="rounded-xl border bg-muted/30">
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="案件と開始日から自動で入ります"
+                    className="w-full px-4 py-3.5 bg-transparent outline-none placeholder:text-muted-foreground/40"
+                    style={{ fontSize: "16px" }}
+                  />
+                </div>
+              </div>
+
+              {/* ⑧ 担当者（複数・任意）。控室利用者（自由入力・社外可）とは別物 —
+                  こちらは登録ユーザーから選ぶ、実務の割り当ての補助情報 */}
+              <div className="lg:col-span-2">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">担当者（複数選択可・いなくてもよい）</p>{/* ui-tokens-ok: 同じダイアログの他見出し（予約種別・案件・日時・メモ）と揃える既存書式 */}
+                <AssigneePicker
+                  open={open}
+                  assigneeIds={assigneeIds}
+                  onChange={setAssigneeIds}
+                  existingAssignees={editingBooking?.assignees}
+                />
+              </div>
+
+              {/* ⑨ メモ */}
+              <div className="lg:col-span-2">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">メモ</p>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="備考を入力"
+                  rows={3}
+                  className="w-full rounded-xl border bg-muted/30 px-4 py-3 resize-none outline-none placeholder:text-muted-foreground/40"
+                  style={{ fontSize: "16px" }}
+                />
               </div>
 
             </div>

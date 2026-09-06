@@ -161,7 +161,7 @@ export default function DashboardPage() {
           <section className="flex flex-col gap-2" aria-labelledby="eq-overdue">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
-              <h2 id="eq-overdue" className="shrink-0 text-h2">返してもらう</h2>
+              <h2 id="eq-overdue" className="shrink-0 text-h2">返却待ち</h2>
               {/* 見出しは折らない。狭いときに縮むのは説明のほう（375px で
                   「返してもら／う」と2行に折れていた） */}
               <span className="truncate text-sub text-muted-foreground">返却予定日を過ぎているもの・近いもの</span>
@@ -170,7 +170,7 @@ export default function DashboardPage() {
             </div>
             {overdueLendings.length + soonLendings.length === 0 ? (
               <EmptyState
-                title="返してもらうものはありません"
+                title="返却待ちものはありません"
                 description="貸出中の機材はすべて期限内です。"
               />
             ) : isMobile ? (

@@ -251,7 +251,7 @@ export function DetailHeader({
           })}
         </div>
 
-        <div className="inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="案件を終わらせる">
+        <div className="inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="案件を完了する">
           {END_STEPS.map((st, i) => {
             const on = st.stage === stage;
             const lost = st.stage === 'e_lost';

@@ -1,4 +1,4 @@
-// ひな形の編集（設定）。PC 専用。実装設計: 04-schedule-impl.md §5-1・§11-1
+// 工程テンプレートの編集（設定）。PC 専用。実装設計: 04-schedule-impl.md §5-1・§11-1
 // 導線・複製・名称編集・項目の中身編集は 14-schedule-v2-plan.md §3 A7 で追加。
 //
 // ⚠️ このアプリはまだ shared/src/client-v4/pcOnly.tsx の実際のゲートに載せ替えていない
@@ -22,7 +22,7 @@ import TemplateItemsSection from "./TemplateItemsSection";
 function PcOnlyNotice() {
   return (
     <div className="mx-auto max-w-md px-4 py-16 text-center">
-      <h1 className="text-lg font-semibold text-foreground">ひな形の編集は PC で行ってください</h1>
+      <h1 className="text-lg font-semibold text-foreground">工程テンプレートの編集は PC で行ってください</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         列・項目の組み合わせを一度に見ながら組む画面のため、幅の狭い端末には対応していません。
       </p>
@@ -35,7 +35,7 @@ export default function ScheduleTemplateSettingsPage() {
   const isMobile = useMediaQuery("(max-width: 1023px)");
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
-  // `?template=<id>`（`ApplyTemplateDialog.tsx` の「ひな形を直す」から）で開いたひな形を選ぶ
+  // `?template=<id>`（`ApplyTemplateDialog.tsx` の「工程テンプレートを編集」から）で開いた工程テンプレートを選ぶ
   const [selectedId, setSelectedId] = useState<string | null>(() => searchParams.get("template"));
   const [newName, setNewName] = useState("");
 
@@ -51,7 +51,7 @@ export default function ScheduleTemplateSettingsPage() {
       setNewName("");
       setSelectedId(row.id);
     },
-    onError: () => notifyError("ひな形を作れませんでした。", { description: "ひな形を作れるのは 制作技術支援の「管理」を持つ人だけです。" }),
+    onError: () => notifyError("工程テンプレートを作れませんでした。", { description: "工程テンプレートを作れるのは 制作技術支援の「管理」を持つ人だけです。" }),
   });
 
   const deleteMutation = useMutation({
@@ -65,7 +65,7 @@ export default function ScheduleTemplateSettingsPage() {
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["schedule-templates", null] });
       setSelectedId(res.data.data.id);
-      notifySuccess("複製しました。名前・列・項目は直せます");
+      notifySuccess("複製しました。名前・列・項目は編集できます");
     },
     onError: () => notifyError("複製できませんでした。", { description: "少し待ってから、もう一度お試しください。" }),
   });
@@ -77,13 +77,13 @@ export default function ScheduleTemplateSettingsPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-8">
-      <h1 className="text-xl font-semibold text-foreground">スケジュール表のひな形</h1>
+      <h1 className="text-xl font-semibold text-foreground">スケジュール表の工程テンプレート</h1>
       <p className="mt-1 text-sm text-muted-foreground">拠点ごとの標準の列・項目を作っておくと、当日の表に一括で流し込めます。</p>
 
       <div className="mt-6 grid grid-cols-3 gap-6">
         <div className="space-y-2">
           <div className="flex gap-2">
-            <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="新しいひな形の名前" className="min-h-[44px]" />
+            <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="新しい工程テンプレートの名前" className="min-h-[44px]" />
             <Button className="min-h-[44px]" disabled={!newName.trim() || createMutation.isPending} onClick={() => createMutation.mutate()}>
               <Plus className="h-4 w-4" />
             </Button>
@@ -105,8 +105,8 @@ export default function ScheduleTemplateSettingsPage() {
 
         <div className="col-span-2">
           {selected ? (
-            // key={selected.id}: ひな形を切り替えても内部 state が前のひな形の値のまま残ると、
-            // 別ひな形の列 id へ項目を追加してしまう
+            // key={selected.id}: 工程テンプレートを切り替えても内部 state が前の工程テンプレートの値のまま残ると、
+            // 別の工程テンプレートの列 id へ項目を追加してしまう
             <TemplateDetail
               key={selected.id}
               template={selected}
@@ -115,7 +115,7 @@ export default function ScheduleTemplateSettingsPage() {
               duplicating={duplicateMutation.isPending}
             />
           ) : (
-            <p className="text-sm text-muted-foreground">左からひな形を選んでください。</p>
+            <p className="text-sm text-muted-foreground">左から工程テンプレートを選んでください。</p>
           )}
         </div>
       </div>
@@ -129,7 +129,7 @@ function TemplateMetaForm({ template }: { template: ScheduleTemplate }) {
   const [description, setDescription] = useState(template.description ?? "");
   const [locationId, setLocationId] = useState<string | null>(template.location_id);
 
-  // ひな形を切り替えたら、そのひな形の値で作り直す
+  // 工程テンプレートを切り替えたら、その工程テンプレートの値で作り直す
   useEffect(() => { setName(template.name); setDescription(template.description ?? ""); setLocationId(template.location_id); }, [template.id, template.name, template.description, template.location_id]);
 
   const locationsQuery = useQuery({ queryKey: ["studio-rooms"], queryFn: scheduleApi.listStudioRooms, staleTime: 5 * 60 * 1000 });
@@ -196,7 +196,7 @@ function TemplateDetail({ template, onDelete, onDuplicate, duplicating }: { temp
           </Button>
           {!template.is_system && (
             <Button variant="destructive" size="sm" className="min-h-[44px]" onClick={onDelete}>
-              <Trash2 className="mr-1 h-4 w-4" />このひな形を削除
+              <Trash2 className="mr-1 h-4 w-4" />この工程テンプレートを削除
             </Button>
           )}
         </div>
@@ -206,7 +206,7 @@ function TemplateDetail({ template, onDelete, onDuplicate, duplicating }: { temp
 
       <section>
         <h3 className="text-sm font-medium text-foreground">列</h3>
-        <p className="mt-1 text-xs text-muted-foreground">名前・部屋・色の変更はできません（消して作り直してください）。</p>
+        <p className="mt-1 text-xs text-muted-foreground">名前・部屋・色の変更はできません（削除して作成し直してください）。</p>
         <ul className="mt-2 divide-y divide-border rounded-md border border-border">
           {template.columns.map((c) => (
             <li key={c.id} className="flex min-h-[44px] items-center justify-between px-3 text-sm">

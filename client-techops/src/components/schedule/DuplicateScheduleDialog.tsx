@@ -1,7 +1,7 @@
-// 複製（「同じイベントの別の日として写す」）。14-schedule-v2-plan.md §3 B5・§3-3
+// 複製（「同じイベントの別の日として複製する」）。14-schedule-v2-plan.md §3 B5・§3-3
 //
-// 訊くのは写す先の日付だけ。写すのは 題・列・項目・表示時間帯・拠点（サーバー側が
-// 元の表からそのまま写す・server/.../schedule.service.ts の duplicateSchedule）。
+// 訊くのは複製先の日付だけ。複製するのは 題・列・項目・表示時間帯・拠点（サーバー側が
+// 元の表からそのまま複製する・server/.../schedule.service.ts の duplicateSchedule）。
 // 共有は写さない（案件メンバーの自動共有で足りる）。状態は常に「下書き」に戻る。
 // PC は中央、375px は下端のシート（`FormDialog`＝`Sheet` の既定の振る舞い）。
 import { useEffect, useState } from "react";
@@ -50,18 +50,18 @@ export default function DuplicateScheduleDialog({ open, onOpenChange, scheduleId
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="別の日として写す"
-      sub="題・列・項目・表示時間帯・拠点を写します。共有は写しません（案件メンバーには自動で見えます）。"
+      title="別の日として複製する"
+      sub="題・列・項目・表示時間帯・拠点を複製します。共有は複製しません（案件メンバーには自動で見えます）。"
       size="sm"
       onSubmit={(e) => { e.preventDefault(); void save(); }}
       footer={
         <FormDialogFooter>
-          <Button type="submit" className="min-h-[44px]" disabled={busy}>写す</Button>
+          <Button type="submit" className="min-h-[44px]" disabled={busy}>複製する</Button>
         </FormDialogFooter>
       }
     >
       <div>
-        <Label htmlFor="duplicate-service-date">写す先の日付</Label>
+        <Label htmlFor="duplicate-service-date">複製先の日付</Label>
         <Input
           id="duplicate-service-date"
           type="date"

@@ -161,8 +161,8 @@ export default function JourneyPage({ scope }: JourneyPageProps) {
         title={title}
         description={
           scope === "document"
-            ? "この資料の状態を、当日の枠・番組の流れ・台本の中身の3段で確認できます。"
-            : "当日の枠 → 番組の流れ → 台本の中身の3段で、いまの状態を確認できます。"
+            ? "この資料の状態を、当日スケジュール・番組進行・進行台本の内容の3段で確認できます。"
+            : "当日スケジュール → 番組進行 → 進行台本の内容の3段で、いまの状態を確認できます。"
         }
         period={project?.glsNumber ? `GLS: ${project.glsNumber}` : undefined}
       />
@@ -171,7 +171,7 @@ export default function JourneyPage({ scope }: JourneyPageProps) {
 
       {days.length === 0 && (
         <div className="mt-8">
-          <EmptyState title="まだ何もありません" description="当日の枠や進行台本ができると、ここに表示されます。" />
+          <EmptyState title="まだ何もありません" description="当日スケジュールや進行台本ができると、ここに表示されます。" />
         </div>
       )}
 

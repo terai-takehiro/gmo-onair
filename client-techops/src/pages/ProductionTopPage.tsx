@@ -86,10 +86,10 @@ export default function ProductionTopPage() {
     <div className="px-4 py-6 sm:px-6 sm:py-8">
       <PageHeader
         title="制作技術支援"
-        sub="番組・イベントを選ぶと、台本づくり・スケジュール表・収録配信の設定が開けます"
+        sub="番組・イベントを選ぶと、台本制作・スケジュール表・収録配信の設定が開けます"
         primaryAction={(
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-1 h-4 w-4" />番組を作る
+          <Button type="button" onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-1 h-4 w-4" />番組を作成
           </Button>
         )}
       />
@@ -97,7 +97,7 @@ export default function ProductionTopPage() {
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Input
           className="min-h-[44px] sm:max-w-sm"
-          placeholder="案件名・GLS番号・番組名でさがす"
+          placeholder="案件名・GLS番号・番組名で検索"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -166,7 +166,7 @@ function ActiveView({
         ) : (
           <EmptyState
             title={searching ? '条件に合う番組・イベントはありません' : 'まだ番組・イベントがありません'}
-            description={searching ? '別の言葉でさがすか、「番組を作る」から新しく作れます。' : '受注が確定するか、「番組を作る」から作るとここに出ます。'}
+            description={searching ? '別の言葉で検索するか、「番組を作成」から新しく作れます。' : '受注が確定するか、「番組を作成」から作るとここに出ます。'}
           />
         )}
       </section>
@@ -197,7 +197,7 @@ function ArchiveView({
       {items.length === 0 ? (
         <EmptyState
           title="条件に合う番組・イベントはありません"
-          description="別の言葉でさがすか、絞り込みを変えてみてください。"
+          description="別の言葉で検索するか、絞り込みを変えてみてください。"
         />
       ) : (
         <div className="flex flex-col overflow-hidden rounded-card border border-border">
@@ -239,7 +239,7 @@ function CreateProgramDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader><DialogTitle>番組を作る</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>番組を作成</DialogTitle></DialogHeader>
         <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (name.trim()) createMutation.mutate(); }}>
           <div>
             <Label htmlFor="new-program-name">番組名 <span className="text-destructive">*</span></Label>

@@ -175,7 +175,7 @@ function aiKnowledgeSection(): ShellNavSection {
 }
 
 /**
- * スケジュール表のひな形（`/techops/settings/schedule-templates`）— **system_admin にだけ**
+ * スケジュール表の工程テンプレート（`/techops/settings/schedule-templates`）— **system_admin にだけ**
  * 出すメニュー（14-schedule-v2-plan.md §3 A7）。編集系 REST が `role === 'system_admin'` を
  * 直接見ている（`schedule-templates.routes.ts` の `requireSystemAdmin`）ので、ここも
  * `qsheet` の権限レベルではなく role で判定する（`aiKnowledgeSection` と同じ形）。
@@ -185,7 +185,7 @@ function aiKnowledgeSection(): ShellNavSection {
  * （`pcOnlyScreens.ts`）なのでスマホ下タブには足さない。
  */
 function scheduleTemplatesSection(): ShellNavSection {
-  return { items: [{ label: 'スケジュール表のひな形', to: '/techops/settings/schedule-templates', icon: CalendarDays }] };
+  return { items: [{ label: 'スケジュール表の工程テンプレート', to: '/techops/settings/schedule-templates', icon: CalendarDays }] };
 }
 
 function buildResolvedSections(ctx: ProductionNavContext): ShellNavSection[] {
@@ -242,7 +242,7 @@ export function buildQsheetNav(
   const sections = ctx ? buildResolvedSections(ctx) : buildDefaultSections();
   // manager にだけ「AIナレッジの承認」を独立した節で足す（aiKnowledgeSection のコメント参照）
   if (opts?.canManageAiKnowledge) sections.push(aiKnowledgeSection());
-  // system_admin にだけ「スケジュール表のひな形」を足す（scheduleTemplatesSection のコメント参照）
+  // system_admin にだけ「スケジュール表の工程テンプレート」を足す（scheduleTemplatesSection のコメント参照）
   if (opts?.isSystemAdmin) sections.push(scheduleTemplatesSection());
   const mobileTabs = ctx ? buildResolvedMobileTabs(ctx) : buildDefaultMobileTabs();
   return { sections, mobileTabs };

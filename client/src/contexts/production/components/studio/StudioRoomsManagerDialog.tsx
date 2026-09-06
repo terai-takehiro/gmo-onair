@@ -139,6 +139,49 @@ export default function StudioRoomsManagerDialog({ open, onOpenChange, locations
         </div>
 
         <div className="space-y-6 mt-2">
+          {/* 新規ロケーション追加。
+              **部屋は拠点の下にしか作れない（親子）ので、親を作る欄を子の一覧より前に置く**
+              （`docs/design/v4/_form-order.md` 段1「どれに付けるか」）。以前は全拠点＋
+              全部屋を描き切った後の最下部にあり、拠点が増えるほど「拠点を1つ足す」に
+              着くまでのスクロールが伸びていた */}
+          <div className="rounded-lg border bg-muted/20 p-3">
+            <Label className="text-sm font-semibold">新しい拠点 (ロケーション) を追加</Label>
+            <p className="text-xs text-muted-foreground mb-2">例: 福岡スタジオ、外現場 等</p>
+            <div className="flex items-end gap-2">
+              <div className="min-w-0 flex-1">
+                <Label className="text-[10px] text-muted-foreground">拠点名（正式名） <span className="text-destructive">*</span></Label>
+                <Input
+                  value={newLocationName}
+                  onChange={(e) => setNewLocationName(e.target.value)}
+                  placeholder="例: GMOサムライスタジオ福岡"
+                  className="h-9"
+                />
+              </div>
+              <div className="w-28 shrink-0">
+                <Label className="text-[10px] text-muted-foreground">略称</Label>
+                <Input
+                  value={newLocationAbbr}
+                  onChange={(e) => setNewLocationAbbr(e.target.value)}
+                  placeholder="例: 福岡"
+                  maxLength={20}
+                  className="h-9"
+                />
+              </div>
+              <Button
+                onClick={() => {
+                  if (!newLocationName.trim()) return;
+                  addLocation.mutate({
+                    name: newLocationName.trim(),
+                    abbreviation: newLocationAbbr.trim() || undefined,
+                  });
+                }}
+                disabled={!newLocationName.trim()}
+              >
+                <Plus className="h-4 w-4 mr-1" />追加
+              </Button>
+            </div>
+          </div>
+
           {/* 各ロケーション */}
           {locations.map((loc) => (
             <div key={loc.id} className="border rounded-xl p-4 space-y-3 bg-muted/20">
@@ -246,44 +289,6 @@ export default function StudioRoomsManagerDialog({ open, onOpenChange, locations
             </div>
           ))}
 
-          {/* 新規ロケーション追加 */}
-          <div className="border-t pt-4">
-            <Label className="text-sm font-semibold">新しい拠点 (ロケーション) を追加</Label>
-            <p className="text-xs text-muted-foreground mb-2">例: 福岡スタジオ、外現場 等</p>
-            <div className="flex items-end gap-2">
-              <div className="min-w-0 flex-1">
-                <Label className="text-[10px] text-muted-foreground">拠点名（正式名） <span className="text-destructive">*</span></Label>
-                <Input
-                  value={newLocationName}
-                  onChange={(e) => setNewLocationName(e.target.value)}
-                  placeholder="例: GMOサムライスタジオ福岡"
-                  className="h-9"
-                />
-              </div>
-              <div className="w-28 shrink-0">
-                <Label className="text-[10px] text-muted-foreground">略称</Label>
-                <Input
-                  value={newLocationAbbr}
-                  onChange={(e) => setNewLocationAbbr(e.target.value)}
-                  placeholder="例: 福岡"
-                  maxLength={20}
-                  className="h-9"
-                />
-              </div>
-              <Button
-                onClick={() => {
-                  if (!newLocationName.trim()) return;
-                  addLocation.mutate({
-                    name: newLocationName.trim(),
-                    abbreviation: newLocationAbbr.trim() || undefined,
-                  });
-                }}
-                disabled={!newLocationName.trim()}
-              >
-                <Plus className="h-4 w-4 mr-1" />追加
-              </Button>
-            </div>
-          </div>
         </div>
     </FormDialog>
   );

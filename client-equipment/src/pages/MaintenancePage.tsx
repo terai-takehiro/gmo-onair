@@ -49,7 +49,9 @@ export default function MaintenancePage() {
 
   const { data: allItems } = useQuery({
     queryKey: ['equipment-items-all'],
-    queryFn: async () => (await api.get('/equipment/items')).data.data as { id: string; eq_code: string; name: string }[],
+    queryFn: async () => (await api.get('/equipment/items')).data.data as {
+      id: string; eq_code: string; name: string; model_number: string | null; unit_number: number | null;
+    }[],
     enabled: dialogOpen,
   });
 
@@ -183,7 +185,7 @@ export default function MaintenancePage() {
                       <SelectItem value="reported">報告済</SelectItem>
                       <SelectItem value="in_progress">対応中</SelectItem>
                       <SelectItem value="completed">完了</SelectItem>
-                      <SelectItem value="cancelled">取りやめ</SelectItem>
+                      <SelectItem value="cancelled">中止</SelectItem>
                     </SelectContent>
                   </Select>
                 )}

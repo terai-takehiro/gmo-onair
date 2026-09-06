@@ -65,7 +65,7 @@ export function useNewsRowActions(item: OpsReportItem) {
     onSuccess: (r) => notifySuccess(
       r.already
         ? 'この行はすでにウィークリー活動報告へ送られています'
-        : `${r.weekStart} の週のウィークリー活動報告に写しました`,
+        : `${r.weekStart} の週のウィークリー活動報告に複製しました`,
     ),
     onError: (e) => notifyApiError('ウィークリー活動報告に送れませんでした', e),
   });
@@ -214,7 +214,7 @@ export function NewsRow({ item, canEdit, weeklyLocked = false }: {
                 title={item.sent_to_weekly
                   ? 'この行はウィークリー活動報告へ送り済みです'
                   : weeklyLocked
-                    ? 'この週のウィークリー活動報告は確定済みです。その画面で「確定を解く」を押すと送れます'
+                    ? 'この週のウィークリー活動報告は確定済みです。その画面で「確定を取り消す」を押すと送れます'
                     : 'この日が入る週のウィークリー活動報告へ写します'}
               >
                 {item.sent_to_weekly

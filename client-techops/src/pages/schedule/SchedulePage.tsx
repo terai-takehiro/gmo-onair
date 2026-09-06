@@ -49,18 +49,18 @@ export default function SchedulePage() {
   const [venueOpen, setVenueOpen] = useState(false);
   const [bookingColumnsOpen, setBookingColumnsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  // 別の日として写す（B5・14-schedule-v2-plan.md §3 B5）
+  // 別の日として複製する（B5・14-schedule-v2-plan.md §3 B5）
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   // スマホの列チップの絞り込み。「項目を追加」の既定列に使うため親に持ち上げてある（§3 A6）
   const [mobileFilterColumnId, setMobileFilterColumnId] = useState<string | null>(null);
-  // 列を足す／直す（ColumnDialog）。`column` が無ければ新規作成
+  // 列を追加／編集する（ColumnDialog）。`column` が無ければ新規作成
   const [columnDialog, setColumnDialog] = useState<{ open: boolean; column: ScheduleColumn | null; group: ColGroup }>({ open: false, column: null, group: "venue" });
   // ドラッグ移動・下端リサイズの最中かどうか（`ScheduleGrid` から。§3 B1・§4-3）
   const [isDragging, setIsDragging] = useState(false);
 
   const queue = useItemCommitQueue();
   const queryClient = useQueryClient();
-  // 列・表の設定・ドラッグ中・別の日として写す最中もポーリングを止める（書きかけを上書きしないため・§4-3）
+  // 列・表の設定・ドラッグ中・別の日として複製する最中もポーリングを止める（書きかけを上書きしないため・§4-3）
   const anySheetOpen = dialogOpen || columnDialog.open || venueOpen || bookingColumnsOpen || settingsOpen || isDragging || duplicateOpen;
 
   const detailQuery = useQuery({
@@ -166,7 +166,7 @@ export default function SchedulePage() {
         <ScheduleSiblingDays projectId={schedule.project_id} programId={schedule.program_id} currentId={schedule.id} />
       </div>
 
-      {/* 主＝項目を追加（PC は右上・スマホは下端）。設定は副ボタン、作る系（ひな形・AI）・
+      {/* 主＝項目を追加（PC は右上・スマホは下端）。設定は副ボタン、作る系（工程テンプレート・AI）・
           Excel・列は「…」へ（§4-2 (b)） */}
       <PageHeader
         title={
@@ -194,12 +194,12 @@ export default function SchedulePage() {
         <MoreMenu
           className="print:hidden"
           items={[
-            { label: "列を足す", icon: <Columns3 />, onSelect: () => openAddColumn(schedule.columns[schedule.columns.length - 1]?.col_group ?? "venue") },
+            { label: "列を追加", icon: <Columns3 />, onSelect: () => openAddColumn(schedule.columns[schedule.columns.length - 1]?.col_group ?? "venue") },
             { label: "予約から列を入れる", icon: <CalendarClock />, onSelect: () => setBookingColumnsOpen(true) },
-            { label: "ひな形を適用", icon: <LayoutTemplate />, onSelect: () => setApplyOpen(true) },
+            { label: "工程テンプレートを適用", icon: <LayoutTemplate />, onSelect: () => setApplyOpen(true) },
             { label: "AI で下書き", icon: <Sparkles />, onSelect: () => setAiOpen(true) },
             { label: "Excel に書き出す", icon: <Download />, onSelect: () => void handleExport(), disabled: !hasColumns },
-            { label: "別の日として写す", icon: <Copy />, onSelect: () => setDuplicateOpen(true) },
+            { label: "別の日として複製する", icon: <Copy />, onSelect: () => setDuplicateOpen(true) },
             { label: "印刷する", icon: <Printer />, onSelect: handlePrint, disabled: !hasColumns },
           ]}
         />
@@ -310,7 +310,7 @@ export default function SchedulePage() {
         scheduleId={id}
         sourceServiceDate={schedule.service_date}
         onDuplicated={(created) => {
-          notifySuccess("別の日として写しました");
+          notifySuccess("別の日として複製しました");
           queryClient.invalidateQueries({ queryKey: ["schedules", "list"] });
           navigate(`/techops/schedules/${created.id}`);
         }}

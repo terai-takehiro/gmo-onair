@@ -16,7 +16,7 @@
  *
  *   来場予約           「田中さん」「GMO」で名簿を引く（受付）
  *   セキュリティカード  「あの制作会社に何番を渡したか」
- *   入ってきた情報      「その話、前に来ていませんでしたか」
+ *   問い合わせ      「その話、前に来ていませんでしたか」
  *
  * ── 揺れを吸う正規化は内覧会と同じ1本 ──────────────────────
  *
@@ -93,8 +93,8 @@ export default function SearchPage() {
   return (
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
       <PageHeader
-        title="探す"
-        sub="来場予約・セキュリティカード・入ってきた情報をまとめて探します"
+        title="検索"
+        sub="来場予約・セキュリティカード・問い合わせをまとめて探します"
       />
 
       <div className="relative">
@@ -106,7 +106,7 @@ export default function SearchPage() {
           value={query}
           onChange={(e) => onType(e.target.value)}
           placeholder="氏名・会社名・電話番号・カード番号"
-          aria-label="探す言葉"
+          aria-label="検索語"
           className="min-h-tap h-11 pl-10 lg:h-10"
         />
       </div>
@@ -118,7 +118,7 @@ export default function SearchPage() {
       ) : total === 0 ? (
         <EmptyState
           icon={<Search className="h-6 w-6" aria-hidden="true" />}
-          title={`「${query.trim()}」に当たるものはありません`}
+          title={`「${query.trim()}」に一致する項目はありません`}
           description="言葉を短くするか、別の言い方で試してください。カタカナ・ひらがな・全角半角・電話のハイフンは区別していません。"
         />
       ) : (
@@ -176,11 +176,11 @@ export default function SearchPage() {
             /*
               **スマホでも押せる行にした**（247）。
               ここは長らく「押すと PC 専用の案内に着いて行き止まりになる」ため
-              スマホだけ押せない行にしていましたが、**「入ってきた情報」の
+              スマホだけ押せない行にしていましたが、**「問い合わせ」の
               PC 専用をやめた**ので、その理由が無くなりました
               （`pcOnlyScreens.ts` の `DAILY_MOBILE_OK` に移してあります）。
             */
-            <Group icon={Inbox} label="入ってきた情報" n={hits!.inquiries.length}>
+            <Group icon={Inbox} label="問い合わせ" n={hits!.inquiries.length}>
               {hits!.inquiries.map((q) => (
                 <ClickRow key={q.id} onOpen={() => navigate('/inquiries')}>
                   <RowMain>
@@ -239,7 +239,7 @@ function Standby({ inview, cards, inquiries, onGo }: {
     rows.push({
       key: 'unsorted', icon: Inbox,
       title: `まだ仕分けていない情報 ${unsorted.length}件`,
-      sub: 'あとで見る・タスク・案件のどれにするか決める',
+      sub: '保留・タスク・案件のどれにするか決める',
       to: '/inquiries',
     });
   }
@@ -247,7 +247,7 @@ function Standby({ inview, cards, inquiries, onGo }: {
   return (
     <div className="flex flex-col gap-3.5">
       {rows.length > 0 && (
-        <Group icon={Search} label="いまの様子" n={rows.length}>
+        <Group icon={Search} label="現在の状況" n={rows.length}>
           {rows.map((r) => (
             <ClickRow key={r.key} onOpen={() => onGo(r.to)}>
               <r.icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -264,7 +264,7 @@ function Standby({ inview, cards, inquiries, onGo }: {
       <p className="text-note text-muted-foreground">
         来場予約は<strong className="font-bold">氏名・ふりがな・会社・役職・メール・電話・住所・同行者名・回</strong>、
         セキュリティカードは<strong className="font-bold">番号・貸出先</strong>、
-        入ってきた情報は<strong className="font-bold">差出人・件名・要約・タグ</strong>から探します。
+        問い合わせは<strong className="font-bold">差出人・件名・要約・タグ</strong>から探します。
         カタカナ・ひらがな・全角半角・電話のハイフンは区別しません。
         <strong className="font-bold">来場予約は開催日に関係なく全部の回</strong>から探します
         （申し込んだ回を覚えていない人が普通にいるため）。

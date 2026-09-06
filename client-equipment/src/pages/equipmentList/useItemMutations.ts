@@ -38,22 +38,22 @@ export function useItemMutations({ editingId, onSaved, onSaveError, onBulkError,
 
   const remove = useMutation({
     mutationFn: (id: string) => api.delete(`/equipment/items/${id}`),
-    onSuccess: () => { invalidate(); notifySuccess('機材を消しました'); },
-    onError: (e) => notifyApiError('消せませんでした', e),
+    onSuccess: () => { invalidate(); notifySuccess('機材を削除しました'); },
+    onError: (e) => notifyApiError('削除できませんでした', e),
   });
 
   const inlineEdit = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, string> }) =>
       api.patch(`/equipment/items/${id}`, data),
     onSuccess: () => invalidate(),
-    onError: (e) => notifyApiError('その場で直せませんでした', e),
+    onError: (e) => notifyApiError('その場で編集できませんでした', e),
   });
 
   const bulkUpdate = useMutation({
     mutationFn: (payload: { ids: string[]; fields: Record<string, unknown> }) =>
       api.put('/equipment/items/bulk-update', payload),
     onSuccess: (_r, v) => { invalidate(); onBulkDone(v.ids.length); },
-    onError: (err) => onBulkError(message(err, 'まとめて直せませんでした')),
+    onError: (err) => onBulkError(message(err, '一括編集を保存できませんでした')),
   });
 
   return { save, remove, inlineEdit, bulkUpdate };

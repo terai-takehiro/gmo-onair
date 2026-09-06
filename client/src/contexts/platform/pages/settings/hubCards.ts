@@ -59,7 +59,7 @@ export const HUB_GROUPS: HubGroup[] = [
         to: '/sales/pricing', module: 'sales', who: '案件管理の『管理』',
       },
       {
-        key: 'flow', title: '工程の型（案件）', desc: '案件の種類ごとに立つ工程のひな形',
+        key: 'flow', title: '工程テンプレート（案件）', desc: '案件の種類ごとに立つ工程のテンプレート',
         icon: ListChecks, tone: 'bg-info-surface text-info',
         to: '/sales/flow-templates', module: 'sales', who: '案件管理の『管理』',
       },
@@ -68,14 +68,14 @@ export const HUB_GROUPS: HubGroup[] = [
         // 「発注確定 → 設計 → 調達 → 施工 → 検収」で、放送案件の工程
         // （企画 → 準備 → リハ → 本番 → 精算）とは1つも重なりません。
         // 1つの表にまとめると、どちらの画面にも要らない工程が並びます
-        key: 'gpm-flow', title: '工程のひな形（プロジェクト）', desc: '工事・構築の段取りのひな形',
+        key: 'gpm-flow', title: '工程テンプレート（プロジェクト）', desc: '工事・構築の段取りのテンプレート',
         icon: ListChecks, tone: 'bg-info-surface text-info',
-        to: '/gpm/templates', module: 'sales', who: 'プロジェクト管理の『書ける』',
+        to: '/gpm/templates', module: 'sales', who: 'プロジェクト管理の「編集」',
       },
       {
         key: 'partner', title: '取引先・仕入先', desc: '見積・請求・発注の宛先',
         icon: Contact, tone: 'bg-warning-surface text-warning',
-        to: '/budget/vendors', module: 'sales', who: '財務管理の『書ける』',
+        to: '/budget/vendors', module: 'sales', who: '財務管理の「編集」',
       },
     ],
   },
@@ -98,7 +98,7 @@ export const HUB_GROUPS: HubGroup[] = [
     label: '組織',
     cards: [
       {
-        key: 'member', title: '人と権限', desc: '誰がどこまで見られる・書けるか',
+        key: 'member', title: '人と権限', desc: '誰がどこまで閲覧・編集できるか',
         icon: Users, tone: 'bg-ai-surface text-ai',
         to: '/settings/users', module: 'admin', who: 'システム管理者',
       },

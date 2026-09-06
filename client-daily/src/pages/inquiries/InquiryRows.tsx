@@ -68,9 +68,9 @@ export function InquiryRows({
   <div className="flex flex-col">
     <RowHeader className="hidden sm:flex">
       <RowSlot w={72}>重要度</RowSlot>
-      <RowMain>内容 ／ 出どころ</RowMain>
+      <RowMain>内容 ／ 受付経路</RowMain>
       <RowSlot w={96}>受信</RowSlot>
-      <RowSlot w={160}>{canEdit ? '次にやること' : ''}</RowSlot>
+      <RowSlot w={160}>{canEdit ? '次のアクション' : ''}</RowSlot>
     </RowHeader>
 
     {rows.map((q) => {

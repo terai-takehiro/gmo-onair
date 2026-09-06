@@ -64,7 +64,7 @@ export function AiReviewBanner({
       <Sparkles className="h-4 w-4 shrink-0 text-ai" aria-hidden="true" />
       {/* 文言はモック（`v4-live-sales.dc.html` の案件詳細）のまま */}
       <span className="min-w-0 flex-1">
-        <span className="text-list block text-foreground">この案件は AI が起票しました</span>
+        <span className="text-list block text-foreground">この案件は AI作成</span>
         <span className="text-note block text-muted-foreground">
           まだ誰も内容を確かめていません。確認するまで「未確認」として残ります。
         </span>

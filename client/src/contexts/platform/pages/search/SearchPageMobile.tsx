@@ -42,7 +42,7 @@ export function SearchPageMobile({
 
   return (
     <div className="flex flex-col gap-3.5 p-3">
-      <PageHeader title="探す" sub="案件・お客様・仕入先をまとめて探します" />
+      <PageHeader title="検索" sub="案件・お客様・仕入先をまとめて検索します" />
 
       <div className="flex items-center gap-2">
         <div className="relative min-w-0 flex-1">
@@ -58,7 +58,7 @@ export function SearchPageMobile({
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             placeholder="案件名・GLS番号・お客様名・仕入先名"
-            aria-label="探す言葉"
+            aria-label="検索語"
             className="min-h-tap h-11 pl-10 pr-10"
           />
           {searching && (
@@ -104,14 +104,14 @@ export function SearchPageMobile({
           />
 
           <p className="text-note text-muted-foreground">
-            案件名の一部・GLS番号・お客様名・仕入先名で探せます。
+            案件名の一部・GLS番号・お客様名・仕入先名で検索できます。
             <strong className="font-bold">見る権限が無いものはここに出ません。</strong>
             {recent.length > 0 && '「最近見たもの」はこの端末で開いたものだけです（別の端末では出ません）。'}
           </p>
         </div>
       ) : failed ? (
         // **失敗を読み込み中に化けさせない。** もう一度押せる口を必ず置く
-        <ErrorPanel title="探せませんでした" error={failed} onRetry={onRetry} />
+        <ErrorPanel title="検索できませんでした" error={failed} onRetry={onRetry} />
       ) : results === null || searching ? (
         <Delayed>
           <div className="flex flex-col gap-2">
@@ -121,7 +121,7 @@ export function SearchPageMobile({
       ) : total === 0 ? (
         <EmptyState
           icon={<Search className="h-6 w-6" aria-hidden="true" />}
-          title={`「${query.trim()}」に当たるものはありません`}
+          title={`「${query.trim()}」に一致する項目はありません`}
           description="言葉を短くするか、別の言い方で試してください。見る権限が無い種類はここに出ません。"
         />
       ) : (

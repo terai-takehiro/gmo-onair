@@ -23,13 +23,13 @@ export function ScanHistoryCards({
     <section className="flex flex-col gap-2" aria-labelledby="scan-history-m">
       <div className="v4-eyebrow flex items-center gap-1.5 text-muted-foreground">
         <History className="h-3.5 w-3.5" aria-hidden="true" />
-        <h2 id="scan-history-m">さっき読んだもの</h2>
+        <h2 id="scan-history-m">読み取り履歴</h2>
       </div>
 
       {isLoading ? (
         <Delayed><div className="flex flex-col gap-2"><SkeletonCard /><SkeletonCard /></div></Delayed>
       ) : rows.length === 0 ? (
-        <EmptyState title="まだ読んでいません" description="カメラで読むか、ID を打つとここに残ります。" />
+        <EmptyState title="まだ読んでいません" description="カメラで読むか、機材IDを入力とここに残ります。" />
       ) : (
         <div className="flex flex-col gap-2">
           {rows.map((r) => {

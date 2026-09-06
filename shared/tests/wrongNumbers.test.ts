@@ -74,7 +74,7 @@ describe('「次にやること」を1件にまとめない', () => {
 
   it('概要は「ほか N 件」を出す（帯に出せないものを黙らせない）', () => {
     expect(OVERVIEW).toMatch(/const subTasks = nextAction \? parseNextAction\(nextAction\.next_action\)\.items\.length : 0;/);
-    expect(OVERVIEW).toMatch(/ほか <span className="font-number">\{subTasks\}<\/span> 件（全部読む）/);
+    expect(OVERVIEW).toMatch(/ほか <span className="font-number">\{subTasks\}<\/span> 件（すべて表示）/);
   });
 });
 

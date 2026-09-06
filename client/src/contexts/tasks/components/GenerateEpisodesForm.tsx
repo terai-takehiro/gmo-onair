@@ -132,24 +132,19 @@ export function GenerateEpisodesForm({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="gen-cadence">繰り返し</Label>
-          <Select value={cadence} onValueChange={(v) => { setCadence(v as Cadence); touch(); }}>
-            {/* Radix の SelectTrigger は button — htmlFor/id を結ぶとラベルのタップで開く */}
-            <SelectTrigger id="gen-cadence" className="mt-1"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {CADENCE_ORDER.map((c) => <SelectItem key={c} value={c}>{CADENCE_LABEL[c]}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor="gen-per-day">1日あたりの本数</Label>
-          <Input
-            id="gen-per-day" type="number" inputMode="numeric" min={1} className="mt-1"
-            value={perDayCount} onChange={(e) => { setPerDayCount(e.target.value); touch(); }}
-          />
-        </div>
+      {/* 実務の手順は「どの頻度で・いつからいつまで → その日に何本」。
+          本数は日付が決まったあとの値なので、繰り返しと同じ行には置かず、
+          終了条件（または収録日の手入力）の下へ降ろしてある
+          （`docs/design/v4/_form-order.md`）。ここは繰り返しだけの単独行 */}
+      <div>
+        <Label htmlFor="gen-cadence">繰り返し</Label>
+        <Select value={cadence} onValueChange={(v) => { setCadence(v as Cadence); touch(); }}>
+          {/* Radix の SelectTrigger は button — htmlFor/id を結ぶとラベルのタップで開く */}
+          <SelectTrigger id="gen-cadence" className="mt-1"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {CADENCE_ORDER.map((c) => <SelectItem key={c} value={c}>{CADENCE_LABEL[c]}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
 
       {cadence === 'none' ? (
@@ -202,6 +197,18 @@ export function GenerateEpisodesForm({
           </div>
         </>
       )}
+
+      {/* 日付が決まってから本数を訊く（上の「繰り返し」の注記も参照） */}
+      <div>
+        <Label htmlFor="gen-per-day">1日あたりの本数</Label>
+        <Input
+          id="gen-per-day" type="number" inputMode="numeric" min={1} className="mt-1"
+          value={perDayCount} onChange={(e) => { setPerDayCount(e.target.value); touch(); }}
+        />
+        <p className="text-sub-sm mt-1 text-muted-foreground">
+          その日に何本撮るかです。案件に「レギュラーの取り決め」があれば初期値に入っています。
+        </p>
+      </div>
 
       <Button
         type="button" variant="outline" disabled={!canSubmit || previewMutation.isPending}

@@ -4,6 +4,7 @@ export interface LendableItem {
   name: string;
   eq_code: string;
   unit_number: number | null;
+  model_number: string | null;
   equipment_type_code: string;
   location_name: string | null;
   parent_id: string | null;

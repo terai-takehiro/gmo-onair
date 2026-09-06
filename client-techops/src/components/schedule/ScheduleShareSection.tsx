@@ -75,7 +75,7 @@ export default function ScheduleShareSection({ projectMemberCount, glsAndProject
         ))}
         {!readOnly && (
           <Button type="button" variant="outline" size="sm" className="min-h-[44px]" onClick={() => setPickerOpen((v) => !v)}>
-            ＋ 人を足す
+            ＋ 人を追加
           </Button>
         )}
       </div>

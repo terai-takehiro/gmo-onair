@@ -121,26 +121,34 @@ export function TaskEditDialog({ task, onClose }: { task: MyTask; onClose: () =>
   };
 
   return (
-    <FormDialog open onOpenChange={onClose} title="タスクを編集" footer={
+    <FormDialog open onOpenChange={onClose} title="タスクを編集" onSubmit={(e) => { e.preventDefault(); if (!update.isPending) save(); }} footer={
       <FormDialogFooter>
-        <Button variant="outline" onClick={onClose}>キャンセル</Button>
-        <Button onClick={save} disabled={update.isPending}>
+        <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>
+        <Button type="submit" disabled={update.isPending}>
           {update.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}保存
         </Button>
       </FormDialogFooter>
     }>
+      {/*
+        欄の並びは追加ダイアログ（`TaskCreateDialog`）と同じ順にそろえてある:
+        やること → （担当者）→ 期限 → 重要度/緊急度 → 判定 → 段6（任意）。
+        ⚠️ **欄そのものは食い違ったまま**（編集には担当者・補足が無く、
+        追加には見せる範囲が無い）。並び順だけをそろえ、欄の増減は別の回で扱う。
+      */}
       <div className="space-y-3">
         {err && <p className="rounded bg-destructive/10 px-2 py-1.5 text-xs text-destructive">{err}</p>}
         <div>
           <Label className="text-xs">やること</Label>
           <Input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1" />
         </div>
-        <DueField value={due} onChange={setDue} required={isDelegation} />
+        {/* **期限が必須になる理由は期限欄より前に出す。** 追加ダイアログでも
+            「人に頼む依頼になります」は担当者の直下＝期限の上に出ている */}
         {isDelegation && (
           <p className="text-[11px] text-muted-foreground">
             これは {task.requester_name ?? '誰か'} さんからの依頼です。期限は必須です。
           </p>
         )}
+        <DueField value={due} onChange={setDue} required={isDelegation} />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <LevelPicker label="重要度" value={imp} onChange={setImp} />
           <LevelPicker label="緊急度" value={urg} onChange={setUrg} />
@@ -154,7 +162,7 @@ export function TaskEditDialog({ task, onClose }: { task: MyTask; onClose: () =>
         </div>
         {!isDelegation && (
           <div>
-            <Label className="text-xs">見せる範囲</Label>
+            <Label className="text-xs">公開範囲</Label>
             <div className="mt-1 flex gap-1">
               <button type="button" onClick={() => setVis('team')}
                 className={cn('min-h-tap lg:min-h-[36px] flex-1 rounded-md border py-1.5 text-xs', vis === 'team' ? 'border-primary bg-primary/15 font-medium text-primary' : 'border-input hover:bg-accent')}>
@@ -206,14 +214,20 @@ export function TaskCreateDialog({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <FormDialog open onOpenChange={onClose} title="タスク・依頼を追加" footer={
+    <FormDialog open onOpenChange={onClose} title="タスク・依頼を追加" onSubmit={(e) => { e.preventDefault(); if (!create.isPending) submit(); }} footer={
       <FormDialogFooter>
-        <Button variant="outline" onClick={onClose}>キャンセル</Button>
-        <Button onClick={submit} disabled={create.isPending}>
+        <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>
+        <Button type="submit" disabled={create.isPending}>
           {create.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}登録する
         </Button>
       </FormDialogFooter>
     }>
+      {/*
+        並びは やること → 担当者 → 期限 → 重要度/緊急度 → 判定 → 補足。
+        **担当者（段4）が期限（段3）より上にあるのは意図的** — 自分以外を
+        選んだ瞬間に「依頼」になって期限が必須に変わるので、期限は担当者に
+        依存する欄（`_form-order.md` 2-1）。編集ダイアログも同じ順にそろえてある。
+      */}
       <div className="space-y-3">
         {err && <p className="rounded bg-destructive/10 px-2 py-1.5 text-xs text-destructive">{err}</p>}
         <div>
@@ -234,7 +248,7 @@ export function TaskCreateDialog({ onClose }: { onClose: () => void }) {
           </select>
           {isDelegation && (
             <p className="mt-1 text-[11px] text-violet-700">
-              人に頼む依頼になります。期限は必須です。相手は受ける / 相談 / 辞退を選べます。
+              人に頼む依頼になります。期限は必須です。相手は承諾 / 相談 / 辞退を選べます。
             </p>
           )}
         </div>

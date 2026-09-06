@@ -65,7 +65,7 @@ const KIND_LABEL: Record<string, string> = {
   event_plan: '枠の叩き台（制作資料）',
   script_outline: '台本の骨格（制作資料）',
   script_line: 'セリフ（制作資料）',
-  production_chat: '壁打ち（制作資料）',
+  production_chat: 'AI に相談（制作技術支援）',
 };
 
 const PERIODS = [7, 30, 90];

@@ -94,7 +94,7 @@ export default function CreateScheduleDialog({ open, onOpenChange, lockedOwner, 
       // createSchedule はテンプレートの本番開始が必須なのに空だと 400 を返す（サーバー側の検証）
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 400 && templateId) {
-        notifyError("本番開始時刻を入力してください。", { description: "選んだひな形は本番開始が基準の項目を含みます。" });
+        notifyError("本番開始時刻を入力してください。", { description: "選んだ工程テンプレートは本番開始が基準の項目を含みます。" });
       } else {
         notifyError("スケジュール表を作れませんでした。", { description: "少し待ってから、もう一度お試しください。" });
       }
@@ -158,18 +158,18 @@ export default function CreateScheduleDialog({ open, onOpenChange, lockedOwner, 
 
         <div className={formGrid2}>
           <div>
-            <Label>ひな形（任意）</Label>
+            <Label>工程テンプレート（任意）</Label>
             <Select value={templateId ?? NO_TEMPLATE} onValueChange={(v) => setTemplateId(v === NO_TEMPLATE ? null : v)}>
               <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value={NO_TEMPLATE}>使わない（あとで列を作る）</SelectItem>
+                <SelectItem value={NO_TEMPLATE}>使わない（あとで列を追加）</SelectItem>
                 {(templatesQuery.data ?? []).map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           {templateId && (
             <div>
-              <Label htmlFor="new-schedule-onair">本番開始時刻（ひな形によっては必須）</Label>
+              <Label htmlFor="new-schedule-onair">本番開始時刻（工程テンプレートによっては必須）</Label>
               <BufferedInput
                 id="new-schedule-onair"
                 value={onairStartMin != null ? fmtHmPad(onairStartMin) : ""}

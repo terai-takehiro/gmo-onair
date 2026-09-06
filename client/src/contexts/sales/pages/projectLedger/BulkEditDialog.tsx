@@ -82,7 +82,7 @@ export function BulkEditDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={`選んだ ${count} 件をまとめて直す`}
+      title={`選んだ ${count} 件を一括編集`}
       footer={
         <div className="flex items-center justify-end gap-3">
           <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>

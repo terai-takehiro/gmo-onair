@@ -89,7 +89,7 @@ export default function EventPlanDialog({ open, onOpenChange, scheduleId, existi
         applied_payload: result.appliedPayload, applied_ids: result.appliedIds,
         rejected_keys: [...excludedKeys],
       });
-      notifySuccess(`下書き（当日の枠）を取り込みました（${result.appliedIds.items.length}件）`);
+      notifySuccess(`下書き（当日スケジュール）を取り込みました（${result.appliedIds.items.length}件）`);
       onOpenChange(false);
       setProposal(null);
       onApplied();
@@ -110,7 +110,7 @@ export default function EventPlanDialog({ open, onOpenChange, scheduleId, existi
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>AIで下書きを作る（当日の枠）</DialogTitle>
+          <DialogTitle>AIで下書きを作成（当日スケジュール）</DialogTitle>
         </DialogHeader>
         {!proposal && (
           <div className="space-y-3">
@@ -147,7 +147,7 @@ export default function EventPlanDialog({ open, onOpenChange, scheduleId, existi
             />
             <DialogFooter>
               <Button onClick={handleGenerate} disabled={loading} className="min-h-[44px]">
-                {loading ? "考えています…" : "下書きを作る"}
+                {loading ? "生成中…" : "下書きを作成"}
               </Button>
             </DialogFooter>
           </div>
@@ -192,6 +192,6 @@ function fmtMin(min: number): string {
 
 function errorMessage(e: unknown): string {
   const err = e as { response?: { status?: number; data?: { error?: { message?: string } } } };
-  if (err?.response?.status === 503) return "いまは AI を使えません。手で作れます。";
-  return err?.response?.data?.error?.message ?? "AI を呼べませんでした。手で作れます。";
+  if (err?.response?.status === 503) return "いまは AI を使えません。手動で作成できます。";
+  return err?.response?.data?.error?.message ?? "AI に接続できませんでした。手動で作成できます。";
 }

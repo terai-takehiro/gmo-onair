@@ -171,7 +171,7 @@ export function JunkPurgeBand() {
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <span className="text-sub inline-flex items-center gap-1.5 font-bold">
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-            台帳から外しています… {done} / {total || d.total} 件
+            台帳から除外しています… {done} / {total || d.total} 件
           </span>
           {/* **長い処理には必ず逃げ道を置く** */}
           <button
@@ -196,18 +196,18 @@ export function JunkPurgeBand() {
                 + (d.unbilledRevenues > 0
                   ? `あわせて請求前の見込み売上 ${d.unbilledRevenues} 件も売上台帳から落とします。`
                   : ''),
-              confirmLabel: '台帳から外す', tone: 'danger',
+              confirmLabel: '台帳から除外', tone: 'danger',
             }))) return;
             runAll.mutate();
           }}
           className="text-sub mt-2 inline-flex min-h-tap items-center gap-1.5 rounded-control border border-border bg-card px-3 font-bold hover:bg-muted lg:min-h-[36px]"
         >
-          {d.total} 件を台帳から外す
+          {d.total} 件を台帳から除外
         </button>
       )}
 
       {/* ⚠️ **BOX のフォルダを置き去りにしたら必ず書く。**
-          台帳から外すと、その案件のフォルダは片づけの対象に選ばれなくなる */}
+          台帳から除外と、その案件のフォルダは片づけの対象に選ばれなくなる */}
       {!running && boxLeft > 0 && (
         <p className="text-note mt-1.5 text-muted-foreground">
           外した案件のうち {boxLeft} 件は、BOX のフォルダを片づけられませんでした

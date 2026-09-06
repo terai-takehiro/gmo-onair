@@ -68,7 +68,7 @@ export function SettingsHubList({ groups }: { groups: HubGroup[] }) {
                     ) : (
                       <>
                         <span className="text-note mt-0.5 block truncate text-muted-foreground">{c.desc}</span>
-                        <span className="text-note mt-0.5 block text-muted-foreground">直せるのは {c.who}</span>
+                        <span className="text-note mt-0.5 block text-muted-foreground">編集できるのは {c.who}</span>
                       </>
                     )}
                   </RowMain>

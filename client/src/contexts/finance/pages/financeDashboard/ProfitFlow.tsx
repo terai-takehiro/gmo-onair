@@ -80,7 +80,7 @@ function ResultCard({ step }: { step: FlowStep }) {
       type="button"
       onClick={() => navigate(step.to!)}
       className={`rounded-card min-w-0 flex-1 border px-3.5 py-3 text-left hover:border-primary-border-strong ${cls}`}
-      title={`${step.label}の明細をひらく`}
+      title={`${step.label}の明細を開く`}
     >
       {inner}
     </button>
@@ -119,7 +119,7 @@ function InputRow({ step }: { step: FlowStep }) {
       type="button"
       onClick={() => navigate(step.to!)}
       className="flex flex-col rounded-control border border-border-faint px-3 py-2 text-left hover:border-border-strong hover:bg-muted"
-      title={`${step.label}の明細をひらく`}
+      title={`${step.label}の明細を開く`}
     >
       {inner}
     </button>

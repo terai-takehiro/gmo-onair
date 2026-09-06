@@ -19,9 +19,9 @@ import type { JourneyDay, JourneyStage, HintTone, Suggestion, SuggestionKey } fr
 import type { JourneyMarkRow } from "@/lib/journeyApi";
 
 const STAGE_LABEL: Record<JourneyStage, string> = {
-  day: "当日の枠",
-  flow: "番組の流れ",
-  script: "台本の中身",
+  day: "当日スケジュール",
+  flow: "番組進行",
+  script: "進行台本の内容",
 };
 
 const TONE_LABEL: Record<HintTone, string> = {
@@ -176,7 +176,7 @@ export default function JourneyDayCard({ day, marksByKey, onTogglePin, onDismiss
 
           {day.frames.length > 0 && (
             <div className="border-t border-border px-4 py-3 sm:px-6">
-              <h3 className="text-xs font-semibold text-muted-foreground">当日の枠</h3>
+              <h3 className="text-xs font-semibold text-muted-foreground">当日スケジュール</h3>
               <ul className="mt-2 space-y-1.5">
                 {day.frames.map((f) => (
                   <li key={f.itemId} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">

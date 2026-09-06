@@ -98,10 +98,17 @@ export function MemberDialog({
       onOpenChange={(o) => { if (!o) onClose(); }}
       title={member ? '体制の人を編集' : '体制に人を追加'}
       size="lg"
+      // Enter で保存する（繰り返し入力を持たないフォーム）。送信は `type="submit"` の1本だけ
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!form.name.trim() || save.isPending) return;
+        setError(null);
+        save.mutate();
+      }}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>キャンセル</Button>
-          <Button onClick={() => { setError(null); save.mutate(); }} disabled={!form.name.trim() || save.isPending}>
+          <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>
+          <Button type="submit" disabled={!form.name.trim() || save.isPending}>
             {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
             {member ? '編集' : '追加'}
           </Button>
@@ -116,9 +123,22 @@ export function MemberDialog({
         )}
 
         <div className="space-y-3">
-          <div className="space-y-1">
-            <Label>名前 *</Label>
-            <Input value={form.name} onChange={(e) => set('name', e.target.value)} autoFocus placeholder="井上 直樹" />
+          {/*
+            並びは「その人が誰か（名前・所属）→ どういう立場か（立場・役割の層）→
+            何をするか（役割・チーム名）→ 連絡先と印」。
+            **新規作成の `OrgStep` と同じ順**にしてある（同じ入力なのに順が違うと、
+            作るときと直すときで別の画面に見える。`docs/design/v4/_form-order.md`）。
+            所属は「どこの会社の人か」なので、離して置かず立場の手前へ上げた。
+          */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label>名前 *</Label>
+              <Input value={form.name} onChange={(e) => set('name', e.target.value)} autoFocus placeholder="井上 直樹" />
+            </div>
+            <div className="space-y-1">
+              <Label>所属</Label>
+              <Input value={form.org} onChange={(e) => set('org', e.target.value)} placeholder="日建スペースデザイン" />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -143,30 +163,27 @@ export function MemberDialog({
             </div>
           </div>
 
-          <div className="space-y-1">
-            <Label>チーム名</Label>
-            <Input
-              list="gpm-group-labels"
-              value={form.group_label}
-              onChange={(e) => set('group_label', e.target.value)}
-              placeholder="例: 設計ユニット"
-            />
-            <datalist id="gpm-group-labels">
-              {existingGroups.map((g) => <option key={g} value={g} />)}
-            </datalist>
-            <p className="text-note text-muted-foreground">
-              同じ名前を入れた人が組織図の1つの箱に入ります。空なら立場の名前でまとまります。
-            </p>
-          </div>
-
+          {/* チーム名は「役割の層」と「役割」の間から降ろした
+              — 名前の似た2つの欄を分断していたため。説明文はそのまま持ってくる */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label>役割</Label>
               <Input value={form.role} onChange={(e) => set('role', e.target.value)} placeholder="AV設計・機材選定" />
             </div>
             <div className="space-y-1">
-              <Label>所属</Label>
-              <Input value={form.org} onChange={(e) => set('org', e.target.value)} placeholder="日建スペースデザイン" />
+              <Label>チーム名</Label>
+              <Input
+                list="gpm-group-labels"
+                value={form.group_label}
+                onChange={(e) => set('group_label', e.target.value)}
+                placeholder="例: 設計ユニット"
+              />
+              <datalist id="gpm-group-labels">
+                {existingGroups.map((g) => <option key={g} value={g} />)}
+              </datalist>
+              <p className="text-note text-muted-foreground">
+                同じ名前を入れた人が組織図の1つの箱に入ります。空なら立場の名前でまとまります。
+              </p>
             </div>
           </div>
 
@@ -176,7 +193,7 @@ export function MemberDialog({
               <Input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label>目立たせる印</Label>
+              <Label>バッジ（表示ラベル）</Label>
               <Input
                 list="gpm-badges"
                 value={form.badge}

@@ -129,7 +129,7 @@ export default function ProjectGroupDetailPage() {
                     onClick={async () => {
                       if (!(await confirmAction({
                         title: 'この按分グループを削除しますか？',
-                        description: '登録済みのグループ売上・仕入の分けた額もすべて消えます。元に戻せません。',
+                        description: '登録済みのグループ売上・仕入の按分額もすべて消えます。元に戻せません。',
                         confirmLabel: '削除', tone: 'danger',
                       }))) return;
                       deleteGroupMutation.mutate();

@@ -66,7 +66,7 @@ function DestinationRow({ dest, selected, warn, blocked, onSelect }: RowProps) {
             {ks.label}
           </span>
           {warn ? (
-            <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" aria-label="直したほうがよい点があります" />
+            <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" aria-label="要修正点があります" />
           ) : (
             <span className="h-4 w-4 shrink-0" aria-hidden="true" />
           )}
@@ -172,7 +172,7 @@ export default function EncoderList({
     <div className="space-y-3">
       {usedIds.length === 0 && (
         <p className="rounded-card border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
-          配信先がまだ1件もありません。下の「使っていない台」から足してください。
+          配信先がまだ1件もありません。下の「使っていない台」から追加してください。
         </p>
       )}
       {usedIds.map(card)}

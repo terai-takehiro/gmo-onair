@@ -91,17 +91,31 @@ export const BOOKING_TYPE_COLORS: Record<string, string> = {
   other: "#6b7280",
 };
 
-export const BOOKING_TYPE_LABELS: Record<string, string> = {
-  performance: "本番",
-  rehearsal: "リハーサル",
-  hold: "仮押さえ",
-  consultation: "相談",
-  maintenance: "メンテナンス",
-  tour: "内覧",
-  internal: "社内利用",
-  setup: "設営/準備",
-  other: "その他",
-};
+/**
+ * 予約種別の**表示順つき**の正。
+ *
+ * 同じ選択肢が `StudioBookingDialog`（自前の配列）・`StudioBookingDetailDialog`
+ * （自前の写し）・ここ、の3か所にあり、**並びが3通りに割れていた**
+ * （相談とメンテナンスと内覧の前後が画面ごとに違う）。写しを消してここだけを読む。
+ * よく使うものから並べる: 本番 → リハーサル → 仮押さえ → 相談 →
+ * 内覧 → 設営/準備 → メンテナンス → 社内利用 → その他
+ */
+export const BOOKING_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "performance", label: "本番" },
+  { value: "rehearsal", label: "リハーサル" },
+  { value: "hold", label: "仮押さえ" },
+  { value: "consultation", label: "相談" },
+  { value: "tour", label: "内覧" },
+  { value: "setup", label: "設営/準備" },
+  { value: "maintenance", label: "メンテナンス" },
+  { value: "internal", label: "社内利用" },
+  { value: "other", label: "その他" },
+];
+
+/** 値 → 表示名。**並びは `BOOKING_TYPE_OPTIONS` が正**（この表は引くためだけに使う） */
+export const BOOKING_TYPE_LABELS: Record<string, string> = Object.fromEntries(
+  BOOKING_TYPE_OPTIONS.map((o) => [o.value, o.label]),
+);
 
 // 日本の祝日 (2025–2027) — StudioCalendarPage と同一セット
 export const JP_HOLIDAYS = new Set([

@@ -18,9 +18,15 @@ import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 export function MasterDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <FormDialog open={open} onOpenChange={(o) => { if (!o) onClose(); }} title="拠点・種別">
+      {/* ⚠️ ここの「拠点」は保管場所を分類するマスタ (`equipment_branches`) で、
+          機材IDの先頭になるコード (`lib/constants.ts` の `LOC_CODES`) とは別物。
+          ここで足した拠点は機材登録の「拠点」の選択肢には出てこないため、
+          「拠点は機材IDの先頭になります」という以前の注記は誤りだった
+          （どちらを選んでいるのか分からなくなる原因なので、両方の画面のラベルも書き分けた） */}
       <p className="text-note text-muted-foreground">
-        拠点は機材IDの先頭 (Y／S) になります。種別に「ラック」を選んだ場所だけが
-        Uサイズを持ち、ラック図に1本として並びます。
+        ここの拠点は、保管場所を分類するためのものです。機材IDの先頭 (Y／S) になる拠点は別で、
+        機材の登録画面で選びます。種別に「ラック」を選んだ場所だけが Uサイズを持ち、
+        ラック図に1本として並びます。
       </p>
       <div className="space-y-6 pt-3">
         <MasterSection
@@ -59,24 +65,24 @@ function MasterSection({ title, apiPath, queryKey, placeholder }: {
 
   const add = useMutation({
     mutationFn: (name: string) => api.post(apiPath, { name, sort_order: items.length }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: [queryKey] }); setAddName(''); notifySuccess(`${title}を足しました`); },
-    onError: (e) => notifyApiError('足せませんでした', e),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: [queryKey] }); setAddName(''); notifySuccess(`${title}を追加しました`); },
+    onError: (e) => notifyApiError('追加できませんでした', e),
   });
   const update = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) => api.put(`${apiPath}/${id}`, { name }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: [queryKey] }); setEditingId(null); notifySuccess('名前を直しました'); },
-    onError: (e) => notifyApiError('直せませんでした', e),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: [queryKey] }); setEditingId(null); notifySuccess('名前を保存しました'); },
+    onError: (e) => notifyApiError('保存できませんでした', e),
   });
   const remove = useMutation({
     mutationFn: (id: string) => api.delete(`${apiPath}/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: [queryKey] }); notifySuccess(`${title}を消しました`); },
-    onError: (e) => notifyApiError('消せませんでした', e),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: [queryKey] }); notifySuccess(`${title}を削除しました`); },
+    onError: (e) => notifyApiError('削除できませんでした', e),
   });
 
   const onDelete = async (item: { id: string; name: string }) => {
     const ok = await confirmAction({
-      title: `${title}「${item.name}」を消しますか`,
-      description: '使われている場所があると消せません。消せた場合も取り消せません。',
+      title: `${title}「${item.name}」を削除しますか`,
+      description: '使用中の場所があると削除できません。消せた場合も取り消せません。',
       confirmLabel: '削除',
       tone: 'danger',
     });

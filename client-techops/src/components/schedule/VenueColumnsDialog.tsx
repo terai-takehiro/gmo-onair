@@ -71,21 +71,21 @@ export default function VenueColumnsDialog({ open, onOpenChange, scheduleId, sch
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="会場を選んで列を作る"
-      sub="1 部屋が 1 列になります。あとから列の名前・色は直せます。"
+      title="会場を選んで列を作成"
+      sub="1 部屋が 1 列になります。あとから列の名前・色は編集できます。"
       size="md"
       footer={
         <FormDialogFooter>
           <Button type="button" variant="outline" className="min-h-[44px]" onClick={() => onOpenChange(false)} disabled={busy}>閉じる</Button>
           <Button type="button" className="min-h-[44px]" onClick={() => void create()} disabled={busy || selected.length === 0}>
-            {selected.length > 0 ? `列を作る（${selected.length}）` : "列を作る"}
+            {selected.length > 0 ? `列を作成（${selected.length}）` : "列を作成"}
           </Button>
         </FormDialogFooter>
       }
     >
       {roomsQuery.isLoading && <p className="text-sm text-muted-foreground">読み込み中…</p>}
       {!roomsQuery.isLoading && locations.every((l) => l.rooms.length === 0) && (
-        <EmptyState title="選べる部屋がありません" description="部屋はカレンダーのスタジオ設定で登録します。列の名前を手で付けるには「列を足す」を使ってください。" />
+        <EmptyState title="選べる部屋がありません" description="部屋はカレンダーのスタジオ設定で登録します。列の名前を手で付けるには「列を追加」を使ってください。" />
       )}
       <div className="space-y-4">
         {locations.filter((l) => l.rooms.length > 0).map((loc) => (

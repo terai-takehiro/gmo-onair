@@ -50,7 +50,7 @@ export default function RentalMailPage() {
       await navigator.clipboard.writeText(body);
       notifySuccess('本文をコピーしました');
     } catch {
-      notifyError('コピーできませんでした。', { description: '本文を選んで、手でコピーしてください。' });
+      notifyError('コピーできませんでした。', { description: '本文を選んで、手動でコピーしてください。' });
     }
   };
 

@@ -10,7 +10,7 @@ interface Props {
   onTemplate: () => void;
   onVenue: () => void;
   onAi: () => void;
-  /** 拠点が未設定なら、ひな形の案内に 1 行足す */
+  /** 拠点が未設定なら、工程テンプレートの案内に 1 行追加する */
   locationSet: boolean;
 }
 
@@ -35,18 +35,18 @@ export default function ScheduleEmptyState({ onTemplate, onVenue, onAi, location
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Choice
           icon={<LayoutTemplate />}
-          title="ひな形から"
+          title="工程テンプレートから"
           description={
             <>
               拠点の標準の列と項目を流し込みます。
-              {!locationSet && <><br />拠点を決めると拠点別のひな形だけが出ます。</>}
+              {!locationSet && <><br />拠点を決めると拠点別の工程テンプレートだけが出ます。</>}
             </>
           }
           onClick={onTemplate}
         />
         <Choice
           icon={<DoorOpen />}
-          title="会場を選んで列を作る"
+          title="会場を選んで列を作成"
           description="スタジオの部屋から選びます。1 部屋が 1 列になります。"
           onClick={onVenue}
         />

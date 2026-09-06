@@ -190,7 +190,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
               </div>
               <Button size="sm" variant="outline" onClick={downloadTemplate}>
                 <Download className="h-4 w-4 mr-1" />
-                テンプレートを取る
+                テンプレートをダウンロード
               </Button>
             </CardContent>
           </Card>
@@ -275,7 +275,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div>
-                    <label className="block text-xs text-muted-foreground mb-1">同じIDがあったら</label>
+                    <label className="block text-xs text-muted-foreground mb-1">重複時の処理</label>
                     <Select value={duplicateMode} onValueChange={(v) => setDuplicateMode(v as 'skip' | 'update' | 'error')}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -292,7 +292,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
                       className="w-full"
                     >
                       <Upload className="h-4 w-4 mr-1" />
-                      {validateMutation.isPending ? '試しています…' : '試す'}
+                      {validateMutation.isPending ? '検証中…' : '試す'}
                     </Button>
                   </div>
                 </div>

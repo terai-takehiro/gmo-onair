@@ -44,7 +44,7 @@ export default function DeckGrid({
             onClick={onMirrorAll}
             className="flex min-h-tap items-center lg:min-h-[32px] gap-1.5 rounded-control-md bg-muted px-3 text-sub-sm font-bold text-foreground hover:bg-muted/70"
           >
-            <Copy className="h-3.5 w-3.5" /> 本線の設定を写す
+            <Copy className="h-3.5 w-3.5" /> 本線の設定を複製
           </button>
         )}
       </div>
@@ -63,7 +63,7 @@ export default function DeckGrid({
               onChange={() => onToggleGroup(ids, !allSelected)}
               aria-label={`${title}の全台を選ぶ`}
             />
-            <span>デッキ ／ 呼び名</span>
+            <span>デッキ ／ 表示名</span>
             <span>解像度</span>
             <span>コーデック</span>
             <span>音声ch</span>

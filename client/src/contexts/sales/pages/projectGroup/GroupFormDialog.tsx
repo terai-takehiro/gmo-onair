@@ -65,15 +65,22 @@ export function GroupFormDialog({
     onError: (err) => notifyApiError('按分グループを保存できませんでした', err, '入力内容を確かめて、もう一度お試しください。'),
   });
 
+  /** 保存できるか。Enter 送信とボタンの `disabled` で**同じ条件**を使う */
+  const canSave = !!name && selectedIds.length >= 2 && !saveMutation.isPending;
+
   return (
     <FormDialog
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
       title={editing ? '按分グループを編集' : '按分グループを追加'}
+      // **Enter で保存**（`formDialog.tsx`）。保存ボタンは `type="submit"` にして
+      // `onClick` を外す（両方あると二重送信になる）。`<form>` の中に入る他の
+      // ボタンには必ず `type="button"` を付けること
+      onSubmit={(e) => { e.preventDefault(); if (canSave) saveMutation.mutate(); }}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>キャンセル</Button>
-          <Button onClick={() => saveMutation.mutate()} disabled={!name || selectedIds.length < 2 || saveMutation.isPending}>
+          <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>
+          <Button type="submit" disabled={!canSave}>
             {saveMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
             {editing ? '更新' : '作成'}
           </Button>
@@ -85,10 +92,12 @@ export function GroupFormDialog({
           <Label>グループ名 *</Label>
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="例: GH 2026年度 IR関連" />
         </div>
-        <div>
-          <Label>説明</Label>
-          <Textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="グループの目的・対象案件の説明" rows={2} />
-        </div>
+        {/*
+          **必須の2つ（グループ名・所属案件）を続けて置く。**
+          間に任意の説明を挟むと、そこで手が止まります
+          （`docs/design/v4/_form-order.md`「必須の欄の間に任意の欄を挟まない」）。
+          所属案件は 288px のスクロール枠なので、下に置くほど飛ばされやすくもあります。
+        */}
         <div>
           <Label>所属案件 *（2案件以上）</Label>
           <div className="mt-1 max-h-72 space-y-1.5 overflow-y-auto rounded-note border border-border p-2">
@@ -121,6 +130,11 @@ export function GroupFormDialog({
             )}
           </div>
           {selectedIds.length > 0 && <p className="text-note mt-1 text-muted-foreground">{selectedIds.length}案件選択中</p>}
+        </div>
+        {/* 説明は任意なので最後（`_form-order.md` の段6「補足」） */}
+        <div>
+          <Label>説明</Label>
+          <Textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="グループの目的・対象案件の説明" rows={2} />
         </div>
       </div>
     </FormDialog>

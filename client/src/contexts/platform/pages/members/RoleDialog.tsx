@@ -31,9 +31,12 @@ interface Props {
 export function RoleDialog({ role, open, onOpenChange }: Props) {
   const qc = useQueryClient();
   const { refreshPermissions } = useAuth();
-  const [name, setName] = useState('');
-  const [desc, setDesc] = useState('');
-  const [levels, setLevels] = useState<Record<string, string>>({});
+  // **初期値は props から遅延初期化する**（呼び出し側が対象ごとに `key` を変えて
+  // 作り直す前提。`useEffect` だけに任せると、対象を切り替えた1フレーム目は
+  // 前の対象の値のまま描画されてしまう）
+  const [name, setName] = useState(() => role?.name ?? '');
+  const [desc, setDesc] = useState(() => role?.description ?? '');
+  const [levels, setLevels] = useState<Record<string, string>>(() => ({ ...(role?.modules ?? {}) }));
   const [reapply, setReapply] = useState(false);
 
   useEffect(() => {
@@ -66,7 +69,7 @@ export function RoleDialog({ role, open, onOpenChange }: Props) {
       // 保存したのにメニュー・ボタンが古い権限のままリロードまで残る
       void refreshPermissions();
       const n = data.applied?.length ?? 0;
-      notifySuccess(role ? '役割を直しました' : '役割をつくりました', {
+      notifySuccess(role ? '役割を編集しました' : '役割を作成しました', {
         description: n > 0 ? `この役割の ${n} 名にも反映しました。` : undefined,
       });
       onOpenChange(false);
@@ -82,10 +85,13 @@ export function RoleDialog({ role, open, onOpenChange }: Props) {
       onOpenChange={onOpenChange}
       title={role ? `${role.name} を編集` : '役割を追加'}
       sub="ここで決めた中身が、この役割の人の権限になります。"
+      // 打つ欄は名前と説明の2つだけなので Enter で送れるようにする
+      // （権限の12区画はすべて `type="button"` のボタンなので送信しない）
+      onSubmit={(e) => { e.preventDefault(); if (name.trim() && !save.isPending) save.mutate(); }}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
-          <Button onClick={() => save.mutate()} disabled={!name.trim() || save.isPending}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
+          <Button type="submit" disabled={!name.trim() || save.isPending}>
             {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             {role ? '保存' : '追加'}
           </Button>
@@ -103,6 +109,29 @@ export function RoleDialog({ role, open, onOpenChange }: Props) {
               <Input id="role-desc" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="自分の案件を作る・編集する" />
             </div>
           </div>
+
+          {/*
+            **「この役割の N 名にも反映する」は権限の表より上。** これから触る
+            12 区画の変更が**いまこの役割の人に効くのかどうか**を決めるスイッチで、
+            表の下にあると、押し終わってから前提が変わることになる。
+          */}
+          {role && members > 0 && (
+            <label className="rounded-note flex cursor-pointer items-start gap-2.5 border border-warning-border bg-warning-surface px-3.5 py-3">
+              <input
+                type="checkbox"
+                checked={reapply}
+                onChange={(e) => setReapply(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0"
+              />
+              <span className="text-note text-secondary-foreground">
+                この役割の <strong className="font-bold">{members} 名</strong>にも反映する
+                <span className="mt-0.5 block">
+                  チェックを外したままだと、<strong className="font-bold">これから押す人にだけ</strong>新しい中身が効きます。
+                  いまこの役割の人の権限はそのままです。
+                </span>
+              </span>
+            </label>
+          )}
 
           <div className="rounded-card overflow-hidden border border-border">
             {ROLE_MODULE_ORDER.map((m) => {
@@ -140,24 +169,6 @@ export function RoleDialog({ role, open, onOpenChange }: Props) {
               );
             })}
           </div>
-
-          {role && members > 0 && (
-            <label className="rounded-note flex cursor-pointer items-start gap-2.5 border border-warning-border bg-warning-surface px-3.5 py-3">
-              <input
-                type="checkbox"
-                checked={reapply}
-                onChange={(e) => setReapply(e.target.checked)}
-                className="mt-0.5 h-4 w-4 shrink-0"
-              />
-              <span className="text-note text-secondary-foreground">
-                この役割の <strong className="font-bold">{members} 名</strong>にも反映する
-                <span className="mt-0.5 block">
-                  チェックを外したままだと、<strong className="font-bold">これから押す人にだけ</strong>新しい中身が効きます。
-                  いまこの役割の人の権限はそのままです。
-                </span>
-              </span>
-            </label>
-          )}
         </div>
     </FormDialog>
   );

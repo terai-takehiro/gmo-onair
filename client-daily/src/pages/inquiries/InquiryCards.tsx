@@ -79,7 +79,7 @@ export function InquiryCards({
               </span>
               <span className="text-list min-w-0 flex-1 [overflow-wrap:anywhere]">
                 {q.is_ai && (
-                  <Sparkles className="mr-1 inline h-3.5 w-3.5 text-ai" aria-label="AI が取り込みました" />
+                  <Sparkles className="mr-1 inline h-3.5 w-3.5 text-ai" aria-label="AI作成" />
                 )}
                 {q.summary}
               </span>

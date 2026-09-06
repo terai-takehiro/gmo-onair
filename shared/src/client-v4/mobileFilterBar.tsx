@@ -19,7 +19,7 @@
  *   畳むと「探す」だけのために2タップかかります
  * - **効いている数をボタンに出す。** 0 のときは出しません
  *   （0 を出すと押す理由があるように見える）
- * - **シートの下端に「ぜんぶ外す」と「結果を見る」。** 中身が長いときでも
+ * - **シートの下端に「すべて解除」と「閉じる」。** 中身が長いときでも
  *   親指の届く位置に残ります（`Sheet` が下端に固定する）
  * - **消すボタン（×）を検索欄に出す。** スマホのキーボードで1文字ずつ
  *   消すのは苦痛です
@@ -56,7 +56,7 @@ export interface MobileFilterBarProps {
    * 「既定と同じもの」は数えないこと — 常に数が付くと意味が消えます。
    */
   activeCount: number;
-  /** 「ぜんぶ外す」。省略するとボタンを出しません */
+  /** 「すべて解除」。省略するとボタンを出しません */
   onClearAll?: () => void;
   /** シートの見出し。省略すると「絞り込み」 */
   title?: string;
@@ -152,7 +152,7 @@ export function MobileFilterBar({
               <button
                 type="button"
                 onClick={() => search.onChange('')}
-                aria-label="検索をやめる"
+                aria-label="検索語を消去"
                 className="v4-tap absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
@@ -187,13 +187,13 @@ export function MobileFilterBar({
         open={open}
         onOpenChange={setOpen}
         title={title}
-        sub={sub ?? '結果はその場で変わります'}
+        sub={sub ?? '選ぶとすぐ絞り込まれます'}
         footer={
           <div className="flex gap-2">
             {onClearAll && activeCount > 0 && (
-              <Button variant="outline" className="flex-1" onClick={onClearAll}>ぜんぶ外す</Button>
+              <Button variant="outline" className="flex-1" onClick={onClearAll}>すべて解除</Button>
             )}
-            <Button className="flex-1" onClick={() => setOpen(false)}>結果を見る</Button>
+            <Button className="flex-1" onClick={() => setOpen(false)}>閉じる</Button>
           </div>
         }
       >

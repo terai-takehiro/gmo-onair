@@ -16,7 +16,9 @@
  * 書類の金額は**税込**で入っています（AI がメールから読むときの決まり）。
  * 台帳は税抜なので、**税抜の金額を人に確かめてもらいます**。
  * 書類に税区分が無いので、こちらで割り戻すと必ずどこかでずれます。
- * 目安として「税込 ÷ 1.1」を初期値に入れ、**そう入れたことを画面に書きます**。
+ * 目安として「税込 ÷ (1+税率)」を初期値に入れ、**そう入れたことを画面に書きます**。
+ * **税区分を選び直したらその場で入れ直します**（区分だけ変えても金額が動かないと、
+ * 画面の説明文と実際の金額が食い違ったまま登録できてしまう）。
  *
  * ── 仕入か販管費か ──────────────────────────────────────────
  *
@@ -34,13 +36,20 @@ import { Label } from '@/components/ui/label';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { TaxCategoryLabels } from '@/types';
+import { TaxCategoryLabels, taxRateOf } from '@/types';
 import type { Vendor } from '@/types';
 import { TYPE_LABEL, type FinanceDoc } from './types';
 
-/** 税込 → 税抜の目安。**あくまで初期値**で、人が直せる */
-function exclTax(incl: number): number {
-  return Math.round(incl / 1.1);
+/**
+ * 税込 → 税抜の目安。**あくまで初期値**で、人が直せる。
+ *
+ * ⚠️ **税区分を渡すこと。** 以前は 10% 固定で割り戻していたので、
+ * 8%（軽減）や非課税・不課税を選び直しても金額が動かず、
+ * **画面には「10% として割り戻した」と書いてあるのに区分だけ違う**行ができていた。
+ * 率は `taxRateOf`（サーバーの `tax-category.service` と同じ規則）に合わせる。
+ */
+function exclTax(incl: number, taxCategory: string): number {
+  return Math.round(incl / (1 + taxRateOf(taxCategory)));
 }
 
 export interface HandoffPayload {
@@ -66,8 +75,8 @@ export function HandoffDialog({
   const incl = Number(doc.amount) || 0;
   // GLS番号が読み取れていれば案件のものなので仕入を初期選択
   const [kind, setKind] = useState<'purchase' | 'sga'>(doc.gls_number ? 'purchase' : 'sga');
-  const [amount, setAmount] = useState(exclTax(incl));
   const [tax, setTax] = useState('tax10');
+  const [amount, setAmount] = useState(exclTax(incl, 'tax10'));
   const [month, setMonth] = useState(doc.closing_month || (doc.received_at ?? '').slice(0, 7));
   const [due, setDue] = useState(doc.payment_due ?? '');
   const [description, setDescription] = useState(doc.subject ?? '');
@@ -105,6 +114,18 @@ export function HandoffDialog({
     ? !!month && amount > 0
     : !!month && amount > 0 && !!effectiveProject && !!vendorId;
 
+  const submit = () => onSubmit({
+    kind,
+    amount,
+    tax_category: tax,
+    recognition_date: `${month}-01`,
+    payment_due_date: due || null,
+    description: description || null,
+    project_id: kind === 'purchase' ? effectiveProject : null,
+    vendor_id: kind === 'purchase' ? vendorId : null,
+    vendor_name: kind === 'sga' ? doc.sender : null,
+  });
+
   return (
     <FormDialog
       open
@@ -112,22 +133,18 @@ export function HandoffDialog({
       title="仕入・販管費に登録"
       size="lg"
       sub="仕入か販管費に登録します。登録すると「登録済」になります。"
+      // Enter キーで登録できるようにする（`docs/design/v4/_form-order.md` 4）。
+      // **明細行を持たないフォームなので、入力中の Enter が誤送信になる心配が無い。**
+      // 登録ボタンは `type="submit"` にして `onClick` を外してある（両方あると二重送信）。
+      onSubmit={(e) => { e.preventDefault(); if (!ready || saving) return; submit(); }}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>キャンセル</Button>
+          {/* ⚠️ 送信以外のボタンには必ず `type="button"` を付ける
+              （`<form>` の中では既定が submit になり、押すと登録が走る） */}
+          <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>
           <Button
+            type="submit"
             disabled={!ready || saving}
-            onClick={() => onSubmit({
-              kind,
-              amount,
-              tax_category: tax,
-              recognition_date: `${month}-01`,
-              payment_due_date: due || null,
-              description: description || null,
-              project_id: kind === 'purchase' ? effectiveProject : null,
-              vendor_id: kind === 'purchase' ? vendorId : null,
-              vendor_name: kind === 'sga' ? doc.sender : null,
-            })}
           >
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             {kind === 'purchase' ? '仕入に登録' : '販管費に登録'}
@@ -192,33 +209,43 @@ export function HandoffDialog({
             </>
           )}
 
+          {/* **税区分は金額より上。** 税抜の金額はこの区分で割り戻した結果なので、
+              材料になる欄を先に置く（`docs/design/v4/_form-order.md` 2-3）。
+              選び直したらその場で金額も入れ直す（⑦ 取り込みの `PdfReviewForm` と同じ扱い） */}
+          <div>
+            <Label>税区分</Label>
+            <Select
+              value={tax}
+              onValueChange={(v) => { setTax(v); setAmount(exclTax(incl, v)); }}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(TaxCategoryLabels).map(([v, label]) => (
+                  <SelectItem key={v} value={v}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div>
             <Label>金額（税抜）*</Label>
             <CurrencyInput value={amount} onChange={setAmount} />
-            {/* **勝手に割り戻していることを書く。** 黙って 1.1 で割ると、
-                8% や 非課税 の書類で静かにずれる */}
+            {/* **勝手に割り戻していることを書く。** 黙って割ると書類と静かにずれる */}
             <p className="text-note mt-1 flex items-start gap-1.5 text-warning">
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <span>
                 書類の金額 <strong className="font-bold">{incl.toLocaleString()}円は税込</strong>です。
-                10% として割り戻した目安を入れています（{exclTax(incl).toLocaleString()}円）。
+                {taxRateOf(tax) > 0
+                  ? `${TaxCategoryLabels[tax as keyof typeof TaxCategoryLabels]} として割り戻した目安を入れています（${exclTax(incl, tax).toLocaleString()}円）。`
+                  : `${TaxCategoryLabels[tax as keyof typeof TaxCategoryLabels]} なので割り戻していません（${exclTax(incl, tax).toLocaleString()}円）。`}
                 <strong className="font-bold">書類を見て確かめてください。</strong>
               </span>
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div>
-              <Label>税区分</Label>
-              <Select value={tax} onValueChange={setTax}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(TaxCategoryLabels).map(([v, label]) => (
-                    <SelectItem key={v} value={v}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* 必須の計上月を先頭に置く。着手前は任意の税区分と支払期日に挟まれた
+              3列の真ん中で、必須と任意が交互に並んでいた（同 2-2） */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label>計上月 *</Label>
               <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />

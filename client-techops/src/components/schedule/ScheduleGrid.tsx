@@ -170,7 +170,7 @@ export default function ScheduleGrid({
                           <button
                             type="button"
                             onClick={() => onEditColumn(col)}
-                            aria-label={`列「${col.room_name || col.label}」を直す`}
+                            aria-label={`列「${col.room_name || col.label}」を編集`}
                             className="-mr-1 -mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
                           >
                             <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
@@ -266,8 +266,8 @@ export default function ScheduleGrid({
               <button
                 type="button"
                 onClick={() => onAddColumn(sorted[sorted.length - 1]?.col_group ?? "venue")}
-                aria-label="列を足す"
-                title="列を足す"
+                aria-label="列を追加"
+                title="列を追加"
                 className="flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Plus className="h-4 w-4" aria-hidden="true" />

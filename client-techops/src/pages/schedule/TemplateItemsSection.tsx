@@ -49,7 +49,7 @@ export default function TemplateItemsSection({ template }: { template: ScheduleT
   const cancelEdit = () => { setEditingId(null); setDraft(emptyDraft(template.columns[0]?.id ?? "")); };
 
   // 列が増えた／選んでいた列が消えた（同じひな形のまま列を足す・削除する）ときに追随する。
-  // 追随させないと「列を1本足しただけの初回」に選択欄が空のままで「項目を足す」を押せない
+  // 追随させないと「列を1本追加しただけの初回」に選択欄が空のままで「項目を追加」を押せない
   // （旧実装から split したときに一度落として気づいた不具合。編集中は差し替えない）
   useEffect(() => {
     if (editingId) return;
@@ -97,7 +97,7 @@ export default function TemplateItemsSection({ template }: { template: ScheduleT
                 <span className="text-xs text-muted-foreground"> ・ {anchorLabel} {i.offset_min >= 0 ? "+" : ""}{i.offset_min}分 ・ {i.duration_min}分{i.is_required ? "" : " ・ 任意"}</span>
               </span>
               <span className="flex shrink-0 gap-1">
-                <button type="button" onClick={() => startEdit(i)} aria-label={`項目「${i.title}」を直す`} className="text-muted-foreground hover:text-foreground">
+                <button type="button" onClick={() => startEdit(i)} aria-label={`項目「${i.title}」を編集`} className="text-muted-foreground hover:text-foreground">
                   <Pencil className="h-4 w-4" />
                 </button>
                 <button type="button" onClick={() => removeItem.mutate(i.id)} aria-label={`項目「${i.title}」を削除`} className="text-muted-foreground hover:text-destructive">
@@ -172,7 +172,7 @@ export default function TemplateItemsSection({ template }: { template: ScheduleT
           disabled={!canSubmit || addItem.isPending || updateItem.isPending}
           onClick={() => (editingId ? updateItem.mutate() : addItem.mutate())}
         >
-          {editingId ? "更新する" : "項目を足す"}
+          {editingId ? "更新する" : "項目を追加"}
         </Button>
       </div>
     </section>

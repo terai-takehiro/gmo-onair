@@ -34,7 +34,7 @@ export function LookupNotices({ lookups }: { lookups: LedgerLookups }) {
           <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden="true" />
           <p className="text-sub text-muted-foreground">
             社内の担当・お客様の候補を読み込んでいます。
-            <strong className="font-bold">読み終わるまで、この2つの列は直せません</strong>
+            <strong className="font-bold">読み終わるまで、この2つの列は編集できません</strong>
             （いま貼ると、実在する名前でも「いません」と断ってしまうためです）。
           </p>
         </div>
@@ -50,10 +50,10 @@ export function LookupNotices({ lookups }: { lookups: LedgerLookups }) {
                 .filter(Boolean).join('・')}
               の候補を読み込めませんでした。
             </strong>
-            この列は名前では直せません（実在する名前でも「いません」と断ってしまうため）。
-            ほかの列は今までどおり直せます。
+            この列は名前では編集できません（実在する名前でも「いません」と断ってしまうため）。
+            ほかの列は今までどおり編集できます。
           </p>
-          <Button variant="outline" size="sm" onClick={retry}>やり直す</Button>
+          <Button variant="outline" size="sm" onClick={retry}>再試行</Button>
         </div>
       )}
 

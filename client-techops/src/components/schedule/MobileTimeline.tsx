@@ -63,7 +63,7 @@ export default function MobileTimeline({ columns, items, conflictedIds, onSelect
         <div className="mt-6">
           <EmptyState
             title={filterColumnId ? "この列にはまだ項目がありません" : "まだ項目がありません"}
-            description={filterColumnId ? "「すべて」に戻すか、下のボタンから項目を足してください。" : "グリッド／下のボタンから項目を足せます。"}
+            description={filterColumnId ? "「すべて」に戻すか、下のボタンから項目を追加してください。" : "グリッド／下のボタンから項目を追加できます。"}
           />
         </div>
       )}
