@@ -2278,6 +2278,37 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#600**（`feat(techops): テロップCG をゼロベースで再設計した（段A〜E）`・2026-09-06）—
+  テロップCGの機能とUI/UXをゼロベースで再設計し、段A〜E（設計で定めた実装段の全て）を
+  1本のPRにまとめて実装した回（段B〜Eはマルチエージェントのワークフローで実装・検証。
+  詳細は [docs/design/v4/graphics-redesign.md](../design/v4/graphics-redesign.md) §11
+  「段A 実装メモ」〜「段E 実装メモ」・changelog は
+  [docs/changelog.d/claude-telop-cg-redesign-e4bwep.md](../changelog.d/claude-telop-cg-redesign-e4bwep.md)）。
+  作成14:42:45Z → CI green 15:04:41〜15:05:04Z（作成から約22分。作成直後に本物の
+  マージコンフリクトを検出・解消し、途中でCIが1周走っている）→ terai-takehiro 本人が
+  マージ15:06:29Z（CI greenから約1分半）。**`get_reviews` 0件**（API で直接確認。
+  `npm run reviews:debt` はこの環境のトークンでは401）。📝 Code Review は
+  **usage limits で一度も実行されず**（PRコメントで明示）、🔒 Security Review だけが
+  実行され **findings なし**（コメントの状態が"Completed"になっただけで、指摘コメントは
+  投稿されなかった）。**#578・#583・#585・#590・#596・#598 に続いて Code Review が
+  届かない回が連続している。** 通っているのは Security 観点だけなので「指摘なし」ではない。
+  **表に移す Codex指摘はない**（レビュー自体が届いていないため）。
+  ⚠️ **このPR自身のマージ作業中に、`main`との合流で実際のコンフリクトとマイグレーション
+  番号衝突を両方踏んだ**（#512・#570/#569 と同型の「並行開発でぶつかる」パターン）:
+  ① `nav.ts`・`GraphicsHubPage.tsx`・`PartLibraryPage.tsx` の3ファイルで本物の
+  マージコンフリクトが発生（`main`側の別PRが左メニューの階層化・用語統一・部品ライブラリ
+  削除ファイルの編集を並行して行っていたため）。手動で解消し、tsc・lint・test・build・
+  migration適用を再検証してからpush。
+  ② `main`が別PRで先に`280`・`281`番を使っており（`280_schedule_item_span_cols.sql`・
+  `281_finance_doc_chain.sql`）、テロップCG側の同番号2本と衝突した
+  （`check-migration-numbers.mjs`が検出）。新しく足した側（このブランチ）を`282`・`283`へ
+  改番し、コード内コメント・設計書・changelogの参照も揃えた。
+  **未検証で残したもの**（各段の実装メモに一貫して明記済み）: 実機（物理デバイス）での
+  タップ操作、権限のない利用者での403の**画面レベル**確認（段Eの新規APIについては
+  curlでのAPIレベル確認は実施済み）、1行に複数のテロップ列がある台本のケース、
+  vote・score・ranking種類の行内操作の実ブラウザ確認（seedデータに存在しないためコード
+  レビューのみ）。
+
 - **#598**（`fix(skills,server): メール仕分けの枠が GitHub 通知に食い潰される問題と、本番・検証の MCP が同名を名乗る問題を直した`・2026-09-06）—
   ⚠️ **📝 Code Review は Codex の usage limits で一度も実行されず**
   （「You have reached your Codex usage limits for code reviews」と明示的に返答）、
