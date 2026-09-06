@@ -92,6 +92,13 @@ export const HUB_GROUPS: HubGroup[] = [
         icon: CalendarClock, tone: 'bg-warning-surface text-warning',
         to: '/settings/hours', module: 'sales', who: 'システム管理者',
       },
+      {
+        // 2026年10月の事業再編（社名変更・計上会社の2社化・案件番号の改番）の
+        // 下準備（P0）。詳しい設計は docs/reorg-2026-10-plan.md
+        key: 'reorg', title: '会社と切替', desc: '10月の事業再編（社名変更・計上会社・案件番号）',
+        icon: Building2, tone: 'bg-info-surface text-info',
+        to: '/settings/reorg', module: 'sales', who: 'システム管理者（発行者情報・切替状態の変更）',
+      },
     ],
   },
   {
