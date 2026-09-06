@@ -84,32 +84,6 @@ export function TaskCommentsThread({ taskId, canWrite }: {
 
       {open && (
         <div className="mt-2 space-y-2">
-          {canWrite && (
-            <div className="space-y-1.5">
-              <Textarea
-                rows={2}
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="例: 期限を1日ずらせますか"
-              />
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  size="sm"
-                  className="h-8 gap-1 text-xs"
-                  disabled={add.isPending || !body.trim()}
-                  onClick={() => add.mutate(body.trim())}
-                >
-                  {add.isPending
-                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                    : <Send className="h-3.5 w-3.5" aria-hidden="true" />}
-                  送る
-                </Button>
-                {/* 黙って通知が飛ぶと「見られていると思わなかった」になる。先に書く */}
-                <span className="text-note text-muted-foreground">送ると相手に通知が届きます</span>
-              </div>
-            </div>
-          )}
-
           {list.isLoading ? (
             <p className="text-sub-sm flex items-center gap-1.5 text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />読み込んでいます
@@ -137,6 +111,35 @@ export function TaskCommentsThread({ taskId, canWrite }: {
                 );
               })}
             </ul>
+          )}
+
+          {/* **書く欄は既存のやり取りの後ろ。** 前に置くと、何が話されたかを
+              読む前に打ち始めることになる（この欄は新しい順に並ぶので、
+              いちばん近い行＝最新のコメントのすぐ下が入力欄になる） */}
+          {canWrite && (
+            <div className="space-y-1.5">
+              <Textarea
+                rows={2}
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder="例: 期限を1日ずらせますか"
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  className="h-8 gap-1 text-xs"
+                  disabled={add.isPending || !body.trim()}
+                  onClick={() => add.mutate(body.trim())}
+                >
+                  {add.isPending
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                    : <Send className="h-3.5 w-3.5" aria-hidden="true" />}
+                  送る
+                </Button>
+                {/* 黙って通知が飛ぶと「見られていると思わなかった」になる。先に書く */}
+                <span className="text-note text-muted-foreground">送ると相手に通知が届きます</span>
+              </div>
+            </div>
           )}
         </div>
       )}

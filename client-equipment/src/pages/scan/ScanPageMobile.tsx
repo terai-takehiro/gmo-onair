@@ -43,11 +43,11 @@ export function ScanPageMobile({
         sub="機材の QR を読むと、その機材の詳細が開きます"
         primaryAction={
           cameraOn ? (
-            <Button variant="outline" onClick={stopCamera}>
+            <Button type="button" variant="outline" onClick={stopCamera}>
               <CameraOff className="mr-1 h-4 w-4" aria-hidden="true" />止める
             </Button>
           ) : (
-            <Button onClick={startCamera}>
+            <Button type="button" onClick={startCamera}>
               <Camera className="mr-1 h-4 w-4" aria-hidden="true" />カメラで読む
             </Button>
           )

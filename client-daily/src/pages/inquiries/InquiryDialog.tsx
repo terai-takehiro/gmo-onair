@@ -67,12 +67,15 @@ export function InquiryDialog({ initial, onClose }: { initial: MiscInquiry | nul
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
       title={initial ? '問い合わせを編集' : '問い合わせを追加'}
-      // 入力10個・送信者/重要度・出どころ/受信日の2列グリッドを持つので `lg`(840px)
+      // 入力10個・送信者/件名・出どころ/受信日の2列グリッドを持つので `lg`(840px)
       size="lg"
+      // 1行の入力欄が主体のフォームなので Enter で送れるようにする
+      // （要約・メモの textarea の中では今までどおり改行が入る）
+      onSubmit={(e) => { e.preventDefault(); if (pending || !f.summary?.trim()) return; submit(); }}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>キャンセル</Button>
-          <Button onClick={submit} disabled={pending || !f.summary?.trim()}>
+          <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>
+          <Button type="submit" disabled={pending || !f.summary?.trim()}>
             {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             {initial ? '保存' : '追加'}
           </Button>
@@ -86,34 +89,14 @@ export function InquiryDialog({ initial, onClose }: { initial: MiscInquiry | nul
             直した内容は AI の改善に使われます（何を直したかを入力する必要はありません）。
           </p>
         )}
-        <div>
-          <Label>要約 *</Label>
-          <textarea
-            className="rounded-control mt-1 w-full border border-border bg-background px-3 py-2 text-sub"
-            rows={2}
-            value={f.summary ?? ''}
-            onChange={set('summary')}
-            placeholder="内容の1行要約"
-          />
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div><Label>送信者</Label><Input value={f.sender ?? ''} onChange={set('sender')} /></div>
-          <div>
-            <Label>重要度</Label>
-            <Select
-              value={f.importance ?? 'medium'}
-              onValueChange={(v) => setF((p) => ({ ...p, importance: v as Importance }))}
-            >
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {(['high', 'medium', 'low'] as const).map((k) => (
-                  <SelectItem key={k} value={k}>{IMPORTANCE_LABELS[k]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div><Label>件名</Label><Input value={f.subject ?? ''} onChange={set('subject')} /></div>
+        {/*
+          並びは「届いた事実 → 中身 → 仕分けの手がかり」の3ブロック。
+          以前は 要約 → 送信者/重要度 → 件名 → 出どころ/受信日 の順で、
+          **重要度が送信者と件名の間に割り込み**、しかもその重要度を決める材料
+          （どこから・いつ届いたか）が後ろにあった。
+        */}
+
+        {/* ① 届いた事実 — 手で足すときの出どころの既定は電話（冒頭のコメント） */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <Label>出どころ</Label>
@@ -128,6 +111,41 @@ export function InquiryDialog({ initial, onClose }: { initial: MiscInquiry | nul
           </div>
           <div><Label>受信日</Label><Input type="date" value={f.received_at ?? ''} onChange={set('received_at')} /></div>
         </div>
+
+        {/* ② 中身 — 誰から・何の件・要約。**要約だけが必須**（一覧に出る文字） */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div><Label>送信者</Label><Input value={f.sender ?? ''} onChange={set('sender')} /></div>
+          <div><Label>件名</Label><Input value={f.subject ?? ''} onChange={set('subject')} /></div>
+        </div>
+        <div>
+          <Label>要約 *</Label>
+          <textarea
+            className="rounded-control mt-1 w-full border border-border bg-background px-3 py-2 text-sub"
+            rows={2}
+            value={f.summary ?? ''}
+            onChange={set('summary')}
+            placeholder="内容の1行要約"
+          />
+        </div>
+
+        {/* ③ 仕分けの手がかり — 中身を読んでから決めるもの */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <Label>重要度</Label>
+            <Select
+              value={f.importance ?? 'medium'}
+              onValueChange={(v) => setF((p) => ({ ...p, importance: v as Importance }))}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(['high', 'medium', 'low'] as const).map((k) => (
+                  <SelectItem key={k} value={k}>{IMPORTANCE_LABELS[k]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div><Label>推奨アクション</Label><Input value={f.action_needed ?? ''} onChange={set('action_needed')} /></div>
+        </div>
         <div>
           <Label>タグ</Label>
           <Input value={tagText} onChange={(e) => setTagText(e.target.value)} placeholder="協業、取材、GLS-2607-009" />
@@ -137,7 +155,7 @@ export function InquiryDialog({ initial, onClose }: { initial: MiscInquiry | nul
             短い語にしてください。
           </p>
         </div>
-        <div><Label>推奨アクション</Label><Input value={f.action_needed ?? ''} onChange={set('action_needed')} /></div>
+        {/* 段6 無くても保存できるものは最後にまとめる */}
         <div><Label>参考URL</Label><Input value={f.url ?? ''} onChange={set('url')} placeholder="https://..." /></div>
         <div>
           <Label>メモ</Label>

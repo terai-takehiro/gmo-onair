@@ -88,7 +88,7 @@ export default function ProductionTopPage() {
         title="制作技術支援"
         sub="番組・イベントを選ぶと、台本づくり・スケジュール表・収録配信の設定が開けます"
         primaryAction={(
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button type="button" onClick={() => setCreateOpen(true)}>
             <Plus className="mr-1 h-4 w-4" />番組を作る
           </Button>
         )}

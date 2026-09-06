@@ -144,10 +144,10 @@ function SentRow({ t, canEdit }: { t: MyTask; canEdit: boolean }) {
                 onClick={() => resolve.mutate({ id: t.id, action: 'take_over' })}>
                 <Undo2 className="h-3.5 w-3.5" />自分でやる
               </Button>
-              <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={resolve.isPending || !reassignTo}
-                onClick={() => resolve.mutate({ id: t.id, action: 'reassign', assigned_to: reassignTo })}>
-                <UserPlus className="h-3.5 w-3.5" />振り直す
-              </Button>
+              {/* **相手を選ぶ select は「振り直す」より前。** 選ぶまでボタンは
+                  押せない（`disabled={!reassignTo}`）ので、ボタンが先にあると
+                  押せないものを先に触ってから戻ることになる
+                  （`_form-order.md` 2-1「依存する欄は依存される欄より下」） */}
               <select
                 value={reassignTo}
                 onChange={(e) => setReassignTo(e.target.value)}
@@ -158,6 +158,10 @@ function SentRow({ t, canEdit }: { t: MyTask; canEdit: boolean }) {
                   <option key={u.id} value={u.id}>{u.name}</option>
                 ))}
               </select>
+              <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={resolve.isPending || !reassignTo}
+                onClick={() => resolve.mutate({ id: t.id, action: 'reassign', assigned_to: reassignTo })}>
+                <UserPlus className="h-3.5 w-3.5" />振り直す
+              </Button>
               <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs text-destructive" disabled={resolve.isPending}
                 onClick={async () => {
                   const ok = await confirmAction({

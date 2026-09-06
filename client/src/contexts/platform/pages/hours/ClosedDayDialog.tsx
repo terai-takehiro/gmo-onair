@@ -91,10 +91,13 @@ export function ClosedDayDialog({ day, locationId, locationName, open, onOpenCha
       open={open}
       onOpenChange={onOpenChange}
       title={day ? `${day.name} を編集` : '休業日を追加'}
+      // 名前と日付を打つだけのフォームなので Enter で保存できるようにする
+      // （送信は `type="submit"` 1か所に寄せる。`onClick` と併用すると二重送信）
+      onSubmit={(e) => { e.preventDefault(); if (from && name.trim() && !bad && !save.isPending) save.mutate(); }}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
-          <Button disabled={!from || !name.trim() || bad || save.isPending} onClick={() => save.mutate()}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
+          <Button type="submit" disabled={!from || !name.trim() || bad || save.isPending}>
             {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
             保存する
           </Button>
@@ -105,6 +108,44 @@ export function ClosedDayDialog({ day, locationId, locationName, open, onOpenCha
           <p className="text-sub text-muted-foreground">
             ここで閉じた日は、カレンダーで注意が出ます。<strong className="font-bold">予約は止まりません</strong>。
           </p>
+          {/*
+            **「どこに効かせるか」を先頭に置く。** ここは段1（何にぶら下げるか）で、
+            全拠点かこの拠点かで下の欄の意味が変わるうえ、**重なる予約を訊きに行く
+            条件そのもの**（`location_id`）でもある。末尾にあったころは、
+            期間を入れて出てきた予約の一覧が、あとから拠点を変えると
+            黙って入れ替わっていた。
+          */}
+          <div>
+            <Label>どこに効かせるか</Label>
+            <div className="mt-1.5 flex gap-1.5">
+              {[
+                { v: true, l: '全拠点', d: 'どの拠点でも休みになります' },
+                { v: false, l: locationName, d: 'この拠点だけ' },
+              ].map((o) => (
+                <button
+                  key={String(o.v)}
+                  type="button"
+                  onClick={() => setAllSites(o.v)}
+                  className={cn(
+                    'rounded-note min-h-tap flex-1 border px-3 py-2 text-left',
+                    allSites === o.v ? 'border-primary bg-primary-surface' : 'border-border bg-card',
+                  )}
+                >
+                  <span className="text-list block truncate">{o.l}</span>
+                  <span className="text-note block text-muted-foreground">{o.d}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 段2 名前（必須）。**期間より上**に置く — 表の見出しになる欄で、
+              必須の欄を任意の期間の後ろに置かない（`_form-order.md` 2-2） */}
+          <div>
+            <Label htmlFor="cd-name">名前</Label>
+            <Input id="cd-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="夏季休業" />
+          </div>
+
+          {/* 段3 いつ（はじまり → おわりの順は動かさない） */}
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="cd-from">はじまり</Label>
@@ -121,11 +162,6 @@ export function ClosedDayDialog({ day, locationId, locationName, open, onOpenCha
               おわりがはじまりより前になっています
             </p>
           )}
-
-          <div>
-            <Label htmlFor="cd-name">名前</Label>
-            <Input id="cd-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="夏季休業" />
-          </div>
 
           <div>
             <Label>この期間の受付</Label>
@@ -150,29 +186,7 @@ export function ClosedDayDialog({ day, locationId, locationName, open, onOpenCha
             </p>
           </div>
 
-          <div>
-            <Label>どこに効かせるか</Label>
-            <div className="mt-1.5 flex gap-1.5">
-              {[
-                { v: true, l: '全拠点', d: 'どの拠点でも休みになります' },
-                { v: false, l: locationName, d: 'この拠点だけ' },
-              ].map((o) => (
-                <button
-                  key={String(o.v)}
-                  type="button"
-                  onClick={() => setAllSites(o.v)}
-                  className={cn(
-                    'rounded-note min-h-tap flex-1 border px-3 py-2 text-left',
-                    allSites === o.v ? 'border-primary bg-primary-surface' : 'border-border bg-card',
-                  )}
-                >
-                  <span className="text-list block truncate">{o.l}</span>
-                  <span className="text-note block text-muted-foreground">{o.d}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
+          {/* 重なる予約は**入れた条件の結果**なので、材料になる欄より下に置く */}
           {affected !== null && affected.length > 0 && (
             <div className="rounded-note overflow-hidden border border-warning-border bg-warning-surface">
               <p className="text-note flex items-center gap-2 px-3.5 py-2.5 font-bold text-warning">

@@ -112,7 +112,7 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
           </p>
         </div>
         {canEdit && (
-          <Button onClick={() => setAdding(true)}>
+          <Button type="button" onClick={() => setAdding(true)}>
             <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />見積をつくる
           </Button>
         )}
@@ -142,7 +142,7 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
           icon={<FileText className="h-6 w-6" aria-hidden="true" />}
           title="見積はまだありません"
           description="提出先（自社／依頼元／PM会社）ごとに1本ずつ作ります。"
-          action={canEdit ? <Button onClick={() => setAdding(true)}>見積をつくる</Button> : undefined}
+          action={canEdit ? <Button type="button" onClick={() => setAdding(true)}>見積をつくる</Button> : undefined}
         />
       ) : (
         // 一覧は白い枠に入れる（他のタブ・⑤ 全プロジェクトの一覧と同じ形）。
@@ -208,14 +208,14 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
                     ボタンを押した瞬間に行が開閉してしまう）。`status` は変えない —
                     「もう見ない版を一覧から隠す」だけの操作 */}
                 {e.archived_at ? (
-                  <Button
+                  <Button type="button"
                     variant="outline" size="sm" title="一覧に戻す"
                     onClick={(ev) => { ev.stopPropagation(); unarchive.mutate(e.id); }}
                   >
                     <ArchiveRestore className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>
                 ) : (
-                  <Button
+                  <Button type="button"
                     variant="outline" size="sm" title="一覧から隠す"
                     onClick={(ev) => { ev.stopPropagation(); archive.mutate(e.id); }}
                   >
@@ -269,10 +269,12 @@ function NewEstimateDialog({ projectId, onClose }: { projectId: string; onClose:
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
       title="見積をつくる"
+      // Enter で保存する（繰り返し入力を持たないフォーム）。送信は `type="submit"` の1本だけ
+      onSubmit={(e) => { e.preventDefault(); if (!create.isPending) create.mutate(); }}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>キャンセル</Button>
-          <Button onClick={() => create.mutate()} disabled={create.isPending}>
+          <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>
+          <Button type="submit" disabled={create.isPending}>
             {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             つくる
           </Button>
@@ -284,6 +286,18 @@ function NewEstimateDialog({ projectId, onClose }: { projectId: string; onClose:
             <strong className="font-bold">提出先ごとに1本</strong>です。同じ工事でも、
             自社への社内見積と PM 会社へ出す見積は中身も金額も別物になります。
           </p>
+          {/* 件名を先頭に上げる。**一覧でこの見積を見分ける見出し**になるのに、
+              既定値のある「提出先」より下にあり、素通りすると「（件名なし）」で並んでいた
+              （`docs/design/v4/_form-order.md` の段2「何か（同定）」）。
+              ⚠️ 必須にはしていない — 空のまま作られた見積が実データにどれだけあるかを
+              確かめてから決める */}
+          <div>
+            <Label>件名</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="AV設備 一式" />
+            <p className="text-sub-sm mt-1 text-muted-foreground">
+              一覧の見出しになります。空のままだと「（件名なし）」と並びます。
+            </p>
+          </div>
           <div>
             <Label>提出先 *</Label>
             <Select value={submitTo} onValueChange={(v) => setSubmitTo(v as 'self' | 'client' | 'pm')}>
@@ -294,10 +308,6 @@ function NewEstimateDialog({ projectId, onClose }: { projectId: string; onClose:
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div>
-            <Label>件名</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="AV設備 一式" />
           </div>
           <div>
             <Label>有効期限</Label>

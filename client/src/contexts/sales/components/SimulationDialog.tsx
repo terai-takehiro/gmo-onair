@@ -155,7 +155,12 @@ export default function SimulationDialog({ open, onOpenChange, projectId: propPr
       open={open}
       onOpenChange={onOpenChange}
       title="料金シミュレーション"
-      sub={`項目を選択して数量・日数を入力すると見積金額を自動算出します。単価は${customerType === "internal" ? "「グループ会社価格」" : "「定価」"}を初期値として反映しますが、明細ごとに上書き可能です。`}
+      // **書いてあるとおりのことしかできない文にする**（`docs/wording.md`）。
+      // 元は「明細ごとに上書き可能です」と書いてあったが、単価の列は PC の表も
+      // スマホのカードも**読むだけ**で、どこにも入力欄が無い。上書きできると
+      // 書かれた値が上書きできないので、文のほうを実装に合わせた
+      // （単価そのものを直すのは料金表）。
+      sub={`項目を選択して数量・日数を入力すると見積金額を自動算出します。単価は${customerType === "internal" ? "「グループ会社価格」" : "「定価」"}をそのまま使います（この画面では変えられません。単価を直すのは「料金表」です）。`}
       wide
       footer={
         <div className="w-full">

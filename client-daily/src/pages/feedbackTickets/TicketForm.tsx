@@ -64,6 +64,11 @@ export function TicketForm({ onCancel, onSubmit, submitting }: {
       }
     >
       <div className="flex flex-col gap-3">
+        {/*
+          **必須の2つ（題名・内容）を続けて置く。** 以前は間に対象アプリ・
+          対象の画面・種別の任意3欄が挟まっていて、いちばん書きたい「内容」に
+          着くまでに選択欄で3回手が止まっていた（`_form-order.md` 2-2）。
+        */}
         <div>
           <Label htmlFor="ticket-title">題名 *</Label>
           <Input
@@ -74,6 +79,20 @@ export function TicketForm({ onCancel, onSubmit, submitting }: {
           />
         </div>
 
+        <div>
+          <Label htmlFor="ticket-description">内容 *</Label>
+          <textarea
+            id="ticket-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={5}
+            className={TEXTAREA}
+            placeholder="何が困っているか / どうなってほしいかを具体的に書いてください"
+          />
+        </div>
+
+        {/* どこの話かの仕分け。**対象アプリ → 画面・機能**の順は動かさない
+            （アプリを選び直すと画面の選択肢が入れ替わる） */}
         <div>
           <Label htmlFor="ticket-target-app">対象アプリ</Label>
           <select
@@ -110,18 +129,6 @@ export function TicketForm({ onCancel, onSubmit, submitting }: {
               <option key={k} value={k}>{CATEGORY_LABELS[k]}</option>
             ))}
           </select>
-        </div>
-
-        <div>
-          <Label htmlFor="ticket-description">内容 *</Label>
-          <textarea
-            id="ticket-description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={5}
-            className={TEXTAREA}
-            placeholder="何が困っているか / どうなってほしいかを具体的に書いてください"
-          />
         </div>
       </div>
     </FormDialog>

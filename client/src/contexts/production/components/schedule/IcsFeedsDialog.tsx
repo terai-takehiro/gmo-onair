@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Trash2, RefreshCw, Plus, AlertTriangle, ShieldAlert, ChevronDown, Link2 } from "lucide-react";
 import type { IcsFeed } from "./scheduleShared";
+import { IcsFeedList } from "./IcsFeedList";
 
 interface OAuthStatus {
   configured: boolean;
@@ -26,9 +27,27 @@ interface Props {
 // Outlook/Google → GMO ONAiR の ICS 購読設定ダイアログ。
 // ユーザーが各サービスで発行した「公開 ICS URL」を登録すると、サーバーが 15 分ごとに
 // 同期してマイカレンダーに表示する (一方向・読み取りのみ)。
+/**
+ * 貼られた ICS の URL から**ラベルの既定値**を作る。
+ * 「名前を先に考えさせない」ための補助なので、外したときは空を返して手入力に任せる。
+ */
+function labelFromUrl(raw: string): string {
+  let host = '';
+  try { host = new URL(raw.trim()).hostname.toLowerCase(); } catch { return ''; }
+  if (!host) return '';
+  if (host.includes('office365') || host.includes('outlook') || host.includes('live.com')) return 'Outlook';
+  if (host.includes('google')) return 'Google カレンダー';
+  if (host.includes('icloud')) return 'iCloud';
+  return host.replace(/^www\./, '');
+}
+
 export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
   const qc = useQueryClient();
   const [label, setLabel] = useState("");
+  // ラベルを**人が手で書いたか**。書かれるまでは URL を打つたび既定値を入れ直す
+  // （`https://g` のような途中の文字列も `new URL` は通るので、「空のときだけ」だと
+  //  最初の一打で `g` に固まってしまう。Codex のレビュー指摘 P2）
+  const [labelTouched, setLabelTouched] = useState(false);
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -95,7 +114,7 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
     mutationFn: async () => (await api.post("/schedule/feeds", { label, url })).data.data,
     onSuccess: (data: any) => {
       invalidate();
-      setLabel(""); setUrl(""); setError(null);
+      setLabel(""); setLabelTouched(false); setUrl(""); setError(null);
       setNotice(data?.sync
         ? `連携しました（${data.sync.total} 件の予定を同期）`
         : "連携しました。初回同期に失敗した場合は一覧のエラーを確認してください");
@@ -126,6 +145,16 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
       title="外部カレンダー連携（Outlook / Google）"
       sub="Google・Outlook はつなぐと両方向で同期します。URL を貼るだけの場合は ONAiR に取り込むだけです。"
     >
+        {/* 連携中の一覧を先頭に置く（切り出した理由は `IcsFeedList.tsx` の冒頭） */}
+        <IcsFeedList
+          feeds={feeds}
+          isLoading={isLoading}
+          onSync={(id) => syncMutation.mutate(id)}
+          syncing={syncMutation.isPending}
+          onDelete={(id) => deleteMutation.mutate(id)}
+          deleting={deleteMutation.isPending}
+        />
+
         {/* Google カレンダー OAuth 連携 (会社 Workspace は ICS 公開が無効なことが多いため推奨) */}
         <div className="space-y-2 rounded-lg border border-green-600/30 bg-green-50/40 p-3">
           <div className="flex items-center gap-2">
@@ -324,14 +353,31 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
 
         {/* 追加フォーム */}
         <div className="space-y-3 rounded-lg border p-3">
-          <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-3">
-            <div className="space-y-1.5">
-              <Label>ラベル</Label>
-              <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="例：会社Outlook" />
-            </div>
+          {/* **URL を先に訊く。** 上の手順ガイドが言うとおり、この欄に来た人が手に持っているのは
+              コピーした URL のほうで、ラベルは後から付ける名前。以前は「ラベル → URL」の順で、
+              先に名前を考えさせていた（`docs/design/v4/_form-order.md` 3.）。
+              ラベルは URL のホスト名から既定値を入れる（**手で書き換えるまでは入れ直す**）。
+              「空のときだけ」にすると、`https://g` のような打ちかけでも `new URL` が通って
+              しまうので、最初の一打で `g` に固まる */}
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px] gap-3">
             <div className="space-y-1.5">
               <Label>公開 ICS URL</Label>
-              <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://outlook.office365.com/owa/calendar/…/calendar.ics" />
+              <Input
+                value={url}
+                onChange={(e) => {
+                  setUrl(e.target.value);
+                  if (!labelTouched) setLabel(labelFromUrl(e.target.value));
+                }}
+                placeholder="https://outlook.office365.com/owa/calendar/…/calendar.ics"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>ラベル</Label>
+              <Input
+                value={label}
+                onChange={(e) => { setLabel(e.target.value); setLabelTouched(true); }}
+                placeholder="例：会社Outlook"
+              />
             </div>
           </div>
           <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
@@ -351,53 +397,6 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
         {notice && <p className="text-sm text-green-700">{notice}</p>}
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        {/* フィード一覧 */}
-        <div className="space-y-2">
-          <p className="text-sm font-semibold">連携中のカレンダー</p>
-          {isLoading ? (
-            <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-          ) : feeds.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-2">まだ連携がありません。</p>
-          ) : (
-            feeds.map((f) => (
-              <div key={f.id} className="rounded-lg border p-3 space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm">{f.label}</span>
-                  <code className="text-[11px] text-muted-foreground">{f.url_masked}</code>
-                  <div className="ml-auto flex items-center gap-1">
-                    <Button
-                      size="sm" variant="outline" className="h-8"
-                      onClick={() => syncMutation.mutate(f.id)}
-                      disabled={syncMutation.isPending}
-                      title="今すぐ同期"
-                    >
-                      {syncMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                    </Button>
-                    <Button
-                      size="sm" variant="outline" className="h-8 text-destructive border-destructive/40 hover:bg-destructive/10"
-                      onClick={() => { if (confirm(`「${f.label}」の連携を解除しますか？（同期済みの予定も削除されます）`)) deleteMutation.mutate(f.id); }}
-                      disabled={deleteMutation.isPending}
-                      title="連携を解除"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  {f.last_synced_at
-                    ? `最終同期: ${new Date(f.last_synced_at).toLocaleString("ja-JP")}${f.event_count != null ? ` ・ ${f.event_count} 件` : ""}`
-                    : "未同期"}
-                </p>
-                {f.last_error && (
-                  <p className="flex items-start gap-1 text-[11px] text-destructive">
-                    <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
-                    {f.last_error}
-                  </p>
-                )}
-              </div>
-            ))
-          )}
-        </div>
     </FormDialog>
   );
 }

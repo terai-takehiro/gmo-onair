@@ -100,18 +100,29 @@ export function MaintenanceDialog({ open, items, saving, error, onClose, onSubmi
             placeholder="中望遠でAFが迷う。作例あり"
           />
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="space-y-1">
-            <Label>修理業者</Label>
-            <Input value={form.vendor_name} onChange={(e) => setForm((f) => ({ ...f, vendor_name: e.target.value }))} />
-          </div>
-          <div className="space-y-1">
-            <Label>修理費用 (円)</Label>
-            <Input
-              type="number" min="0"
-              value={form.repair_cost}
-              onChange={(e) => setForm((f) => ({ ...f, repair_cost: e.target.value }))}
-            />
+        {/* **ここから下は「後で決まること」。** 故障を報告する時点では業者も費用も
+            未定なことが多いので、必須の機材・内容と混ぜず、区切って最後にまとめる。
+            ⚠️ いまは記録を開き直して直す画面が無いため、決まってから登録できるよう
+            注記を出している（編集ダイアログの新設は別の回）。
+            ⚠️ `MaintenanceForm.assigned_to`（担当）は入力欄がどこにも無く、常に空で
+            送られている。欄を足すか型・送る値から落とすかは別途判断する */}
+        <div className="space-y-3 border-t border-border pt-3">
+          <p className="text-note text-muted-foreground">
+            修理業者と費用は、決まってから登録しても構いません。
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label>修理業者</Label>
+              <Input value={form.vendor_name} onChange={(e) => setForm((f) => ({ ...f, vendor_name: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <Label>修理費用 (円)</Label>
+              <Input
+                type="number" min="0"
+                value={form.repair_cost}
+                onChange={(e) => setForm((f) => ({ ...f, repair_cost: e.target.value }))}
+              />
+            </div>
           </div>
         </div>
       </div>

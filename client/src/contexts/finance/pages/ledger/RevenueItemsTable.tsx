@@ -218,26 +218,14 @@ export function RevenueItemsTable({
               className="text-sm"
               list="revenue-item-categories"
             />
+            {/* **単価 → 数量 → 金額 の順**（`docs/design/v4/_form-order.md` 段5
+                「単価 → 数量 → 税 → 合計」・2-3「自動計算は材料の下」）。
+                着手前は 数量 → 金額 → 単価 で、**手で入れる単価より、その計算結果の
+                金額が上**にあった（PC の表は 数量 → 単価 → 金額 で正しい）。
+                単価だけ全幅なのは、3等分だと 375px で1列 ~90px しかなく、¥接頭辞(pl-7)＋
+                税ボタン(スマホは min-width 44px)で数字がほぼ見えなくなるため。
+                その単価を先頭に出すと、下の 数量／金額 が2列にきれいに収まる */}
             <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label htmlFor={`revenue-item-qty-${idx}`} className="text-xs text-muted-foreground">数量</Label>
-                <Input
-                  id={`revenue-item-qty-${idx}`}
-                  type="number"
-                  min={1}
-                  value={item.quantity}
-                  onChange={(e) => updateItem(idx, 'quantity', parseInt(e.target.value) || 0)}
-                  className="text-sm"
-                />
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">金額</Label>
-                <div className="flex items-center h-9 text-sm">
-                  <Money value={item.amount} className="font-medium" />
-                </div>
-              </div>
-              {/* 単価は全幅。3等分だと 375px で1列 ~90px しかなく、¥接頭辞(pl-7)＋
-                  税ボタン(スマホは min-width 44px)で数字がほぼ見えなくなる */}
               <div className="col-span-2">
                 <Label htmlFor={`revenue-item-unit-price-${idx}`} className="text-xs text-muted-foreground">単価</Label>
                 <div className="flex items-center gap-0.5">
@@ -256,6 +244,23 @@ export function RevenueItemsTable({
                     defaultIncludedAmount={item.unit_price}
                     onResult={(v) => updateItem(idx, 'unit_price', v)}
                   />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor={`revenue-item-qty-${idx}`} className="text-xs text-muted-foreground">数量</Label>
+                <Input
+                  id={`revenue-item-qty-${idx}`}
+                  type="number"
+                  min={1}
+                  value={item.quantity}
+                  onChange={(e) => updateItem(idx, 'quantity', parseInt(e.target.value) || 0)}
+                  className="text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">金額</Label>
+                <div className="flex items-center h-9 text-sm">
+                  <Money value={item.amount} className="font-medium" />
                 </div>
               </div>
             </div>

@@ -49,15 +49,21 @@ export function TargetDialog({
     onError: (err) => notifyApiError('営業目標を保存できませんでした', err, '入力内容を確かめて、もう一度お試しください。'),
   });
 
+  /** 保存できるか。Enter 送信とボタンの `disabled` で**同じ条件**を使う */
+  const canSave = !!userId && !!amount && !mutation.isPending;
+
   return (
     <FormDialog
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
       title="営業目標の設定"
+      // **Enter で保存**（`formDialog.tsx`）。金額を打ってそのまま Enter で終われる。
+      // 保存ボタンは `type="submit"`・`onClick` は外す（両方あると二重送信）
+      onSubmit={(e) => { e.preventDefault(); if (canSave) mutation.mutate(); }}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>キャンセル</Button>
-          <Button onClick={() => mutation.mutate()} disabled={!userId || !amount || mutation.isPending}>
+          <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>
+          <Button type="submit" disabled={!canSave}>
             {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             保存
           </Button>

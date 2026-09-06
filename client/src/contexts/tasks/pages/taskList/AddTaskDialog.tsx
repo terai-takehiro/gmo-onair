@@ -7,6 +7,15 @@
  * 全案件の一覧から足すときに同じ数の入力を求めると、**その場で足す**という
  * この画面の目的が消えるので、ここは最小の4つだけにしました。
  * 細かい設定は、足したあと行を押して編集します。
+ *
+ * ── 欄の並びは `TaskDialog` の部分集合にする ────────────────────
+ *
+ * 一覧から足したタスクを直そうと行を押すと `components/TaskDialog.tsx` が開くので、
+ * **同じ人が「追加したときと直すときで並びが違う」を必ず体験します**。
+ * そこで並びを 案件 → タスク → 期日 → 担当者 と、あちらの順の部分集合にし、
+ * ラベルも『担当者』『期日』に揃えました（`docs/design/v4/_form-order.md`）。
+ * **状態だけは最後**です — 新しく足すタスクは事実上つねに「未着手」で、
+ * 必須の2項目と同じ重みで並べる欄ではないため。
  */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -75,10 +84,13 @@ export function AddTaskDialog({ onClose }: { onClose: () => void }) {
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
       title="タスクを追加"
+      // Enter で保存する（明細行のような繰り返し入力を持たないフォームなので安全）。
+      // 送信は `type="submit"` の1本だけにする — `onClick` と併用すると二重送信になる
+      onSubmit={(e) => { e.preventDefault(); if (canSubmit) create.mutate(); }}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>キャンセル</Button>
-          <Button onClick={() => create.mutate()} disabled={!canSubmit}>
+          <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>
+          <Button type="submit" disabled={!canSubmit}>
             {create.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
             追加
           </Button>
@@ -107,9 +119,15 @@ export function AddTaskDialog({ onClose }: { onClose: () => void }) {
           </Label>
           <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="見積を送る" />
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
+        {/* 「いつまでに」→「誰が」の順。編集ダイアログと同じ並びにするため
+            期日を担当者より上に置く */}
+        <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <Label>担当</Label>
+            <Label>期日</Label>
+            <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          </div>
+          <div>
+            <Label>担当者</Label>
             <Select value={assignedTo || '_none_'} onValueChange={(v) => setAssignedTo(v === '_none_' ? '' : v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -118,19 +136,21 @@ export function AddTaskDialog({ onClose }: { onClose: () => void }) {
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label>期限</Label>
-            <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-          </div>
-          <div>
-            <Label>状態</Label>
-            <Select value={workState} onValueChange={(v) => setWorkState(v as TaskWorkState)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {WORK_STATE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+        </div>
+
+        {/* 状態は**いちばん最後に単独行**。既定の「未着手」のまま素通りするのが普通で、
+            必須の欄の間に挟むと、そこで手が止まる */}
+        <div>
+          <Label>状態</Label>
+          <Select value={workState} onValueChange={(v) => setWorkState(v as TaskWorkState)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {WORK_STATE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <p className="text-sub-sm mt-1 text-muted-foreground">
+            既定は「未着手」です。相手の返事を待って始まるタスクのときだけ変えてください。
+          </p>
         </div>
       </div>
     </FormDialog>

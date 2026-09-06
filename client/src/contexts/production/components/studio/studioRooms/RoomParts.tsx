@@ -69,18 +69,13 @@ export function RoomRow({
     <div className="rounded-lg border bg-background p-2.5">
       {editing ? (
         /* ── 編集モード ── */
+        /* 並びは**追加フォーム（下の `RoomAddForm`）と同じ 部屋名 → 略称 → 種別 → 色**にそろえる。
+           以前は先頭が「並び順」で、名前より先に細目を訊いていた（Tab の1番目も並び順だった）。
+           並び順は編集でしか触れない項目なので末尾へ回す
+           （`docs/design/v4/_form-order.md` 段2「何か」を先に、段6「補足」を最後に） */
         <div className="space-y-2">
           <div className="grid grid-cols-12 gap-2 items-end">
-            <div className="col-span-2">
-              <Label className="text-[10px] text-muted-foreground">並び順</Label>
-              <Input
-                type="number"
-                value={draft.sort_order ?? 0}
-                onChange={(e) => onDraft((p) => ({ ...p, sort_order: parseInt(e.target.value) || 0 }))}
-                className="h-9"
-              />
-            </div>
-            <div className="col-span-6 sm:col-span-5">
+            <div className="col-span-8 sm:col-span-5">
               <Label className="text-[10px] text-muted-foreground">部屋名</Label>
               <Input
                 value={draft.name || ''}
@@ -98,18 +93,9 @@ export function RoomRow({
                 className="h-9 "
               />
             </div>
-            <div className="col-span-2 sm:col-span-2">
-              <Label className="text-[10px] text-muted-foreground">色</Label>
-              <Input
-                type="color"
-                value={draft.color || '#3b82f6'}
-                onChange={(e) => onDraft((p) => ({ ...p, color: e.target.value }))}
-                className="h-9 p-1"
-              />
-            </div>
-          </div>
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
+            {/* 種別は「その部屋が何か」を決める分類（ゲストルームを選ぶと予約フォームに
+                控室の欄が出る）。飾りである色より前に置く */}
+            <div className="col-span-8 sm:col-span-2">
               <Label className="text-[10px] text-muted-foreground">種別</Label>
               <Select
                 value={draft.room_type || 'studio'}
@@ -123,6 +109,27 @@ export function RoomRow({
                 </SelectContent>
               </Select>
             </div>
+            <div className="col-span-4 sm:col-span-2">
+              <Label className="text-[10px] text-muted-foreground">色</Label>
+              <Input
+                type="color"
+                value={draft.color || '#3b82f6'}
+                onChange={(e) => onDraft((p) => ({ ...p, color: e.target.value }))}
+                className="h-9 p-1"
+              />
+            </div>
+          </div>
+          <div className="flex items-end gap-2">
+            <div className="w-24">
+              <Label className="text-[10px] text-muted-foreground">並び順</Label>
+              <Input
+                type="number"
+                value={draft.sort_order ?? 0}
+                onChange={(e) => onDraft((p) => ({ ...p, sort_order: parseInt(e.target.value) || 0 }))}
+                className="h-9"
+              />
+            </div>
+            <div className="flex-1" />
             <Button size="sm" onClick={onSave}><Check className="h-4 w-4 mr-1" />保存</Button>
             <Button size="sm" variant="ghost" onClick={onCancel}><X className="h-4 w-4" /></Button>
           </div>
@@ -184,16 +191,8 @@ export function AddRoomForm({
             className="h-9 "
           />
         </div>
+        {/* 種別（その部屋が何か）を、飾りである色より前に置く */}
         <div className="col-span-6 sm:col-span-2">
-          <Label className="text-[10px] text-muted-foreground">色</Label>
-          <Input
-            type="color"
-            value={draft?.color || '#3b82f6'}
-            onChange={(e) => onDraft((p) => ({ ...p, color: e.target.value }))}
-            className="h-9 p-1"
-          />
-        </div>
-        <div className="col-span-12 sm:col-span-2">
           <Label className="text-[10px] text-muted-foreground">種別</Label>
           <Select
             value={draft?.room_type || 'studio'}
@@ -206,6 +205,15 @@ export function AddRoomForm({
               ))}
             </SelectContent>
           </Select>
+        </div>
+        <div className="col-span-6 sm:col-span-2">
+          <Label className="text-[10px] text-muted-foreground">色</Label>
+          <Input
+            type="color"
+            value={draft?.color || '#3b82f6'}
+            onChange={(e) => onDraft((p) => ({ ...p, color: e.target.value }))}
+            className="h-9 p-1"
+          />
         </div>
       </div>
       <div className="flex justify-end mt-2">

@@ -50,8 +50,14 @@ export function useCalendarEdit({
     () => (timePreset ? { ...timePreset, allDay: false } : { start: selected, end: selected, allDay: false }),
     [timePreset, selected],
   );
-  // パートナーの予定は日付だけ受ける（代休・有給など日単位が主。時刻付きを渡すと日付欄が壊れる）
-  const partnerPreset = useMemo(() => ({ start: selected, end: selected }), [selected]);
+  // パートナーの予定も**なぞった時刻をそのまま渡す**。代休・有給など日単位が主なので
+  // 日付だけのときは今までどおり終日で開くが、週表で時間をなぞってから選んだときに
+  // その時刻が黙って捨てられる（終日 09:00–18:00 に戻る）のは「消えた」としか見えなかった。
+  // 受け取る側（`PartnerScheduleDialog`）が `T` の有無で終日/時刻指定を切り替える
+  const partnerPreset = useMemo(
+    () => (timePreset ?? { start: selected, end: selected }),
+    [timePreset, selected],
+  );
 
   /** 週表の空きマスの選択が確定した → その時間で「予定を入れる」を開く */
   const createFromRange = (day: string, start: string, end: string) => {

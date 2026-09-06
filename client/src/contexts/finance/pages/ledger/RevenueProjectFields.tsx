@@ -1,20 +1,24 @@
 /**
- * 売上ダイアログの「案件・話数・税区分」（③ 売上）
+ * 売上ダイアログの「案件・話数」（③ 売上）
  *
- * **`RevenueDialog` から切り出したものです。動きは変えていません。**
+ * **`RevenueDialog` から切り出したものです。**
  * 分けた理由は1ファイル400行の上限で、中身の作り直しではありません。
+ *
+ * ⚠️ **税区分はここには無い。** 金額（明細の合計）より上にあると、まだ決めていない
+ * 金額の税の扱いを先に訊くことになるので、`RevenueDialog` 側の明細・合計の直後へ移した
+ * （GPM の売上明細ダイアログと同じ並び。`docs/design/v4/_form-order.md` 段5
+ * 「単価 → 数量 → 税 → 合計」）。ここに残るのは**案件 → 話数**だけで、
+ * 話数は案件を選ぶまで出ない子の欄なので親のすぐ下に置いている（同 2-1）。
  */
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { TaxCategoryLabels } from '@/types';
 import type { EpisodeOption, ProjectOption } from './types';
 
 export function RevenueProjectFields({
   projectSearch, setProjectSearch, projects, selectedProjectId, setSelectedProjectId,
   setSelectedProjectObj, selectedProject, isProjectCategoryB,
   episodes, selectedEpisodeId, setSelectedEpisodeId,
-  taxCategory, setTaxCategory, billingKeyPreview,
 }: {
   projectSearch: string;
   setProjectSearch: (v: string) => void;
@@ -27,9 +31,6 @@ export function RevenueProjectFields({
   episodes: EpisodeOption[];
   selectedEpisodeId: string;
   setSelectedEpisodeId: (v: string) => void;
-  taxCategory: string;
-  setTaxCategory: (v: string) => void;
-  billingKeyPreview: string;
 }) {
   return (
     <>
@@ -93,21 +94,6 @@ export function RevenueProjectFields({
           </Select>
         </div>
       )}
-
-      <div className="space-y-1">
-        <Label>税区分</Label>
-        <Select value={taxCategory} onValueChange={setTaxCategory}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {Object.entries(TaxCategoryLabels).map(([v, label]) => (
-              <SelectItem key={v} value={v}>{label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {billingKeyPreview && (
-          <p className="font-number text-note text-muted-foreground">請求KEY: {billingKeyPreview}</p>
-        )}
-      </div>
     </>
   );
 }

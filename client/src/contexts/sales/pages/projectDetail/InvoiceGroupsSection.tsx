@@ -220,17 +220,17 @@ export function InvoiceGroupsSection({ project, mobile }: { project: ProjectDeta
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {cycle === 'monthly_close' && (
-            <Button size="sm" onClick={() => setMonthlyOpen(true)}>対象月で締める</Button>
+            <Button type="button" size="sm" onClick={() => setMonthlyOpen(true)}>対象月で締める</Button>
           )}
           {cycle === 'per_recording_date' && (
-            <Button size="sm" onClick={() => byRecordingDate.mutate()} disabled={byRecordingDate.isPending}>
+            <Button type="button" size="sm" onClick={() => byRecordingDate.mutate()} disabled={byRecordingDate.isPending}>
               {byRecordingDate.isPending ? '作成中…' : '収録日ごとにまとめる'}
             </Button>
           )}
           {cycle === 'contract_lump_sum' && (
             /* 一覧が返るまで押させない。読み込み中は `existingLump` が必ず null なので、
                既存の契約一括があっても「作る」の顔で開き、保存済みの金額を 0 で上書きしうる */
-            <Button size="sm" onClick={() => setLumpOpen(true)} disabled={list.isLoading}>
+            <Button type="button" size="sm" onClick={() => setLumpOpen(true)} disabled={list.isLoading}>
               {existingLump ? '金額を編集' : '金額を入力して作る'}
             </Button>
           )}

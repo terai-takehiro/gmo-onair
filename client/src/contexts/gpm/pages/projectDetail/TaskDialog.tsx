@@ -142,31 +142,38 @@ export function TaskDialog({
             </Select>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="tk-who">担当</Label>
-              <Select value={assignedTo || NONE} onValueChange={(v) => setAssignedTo(v === NONE ? '' : v)}>
-                <SelectTrigger id="tk-who"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>決めない</SelectItem>
-                  {(users.data ?? []).map((u) => (
-                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="tk-progress">進み具合</Label>
-              <Select value={String(progress)} onValueChange={(v) => setProgress(Number(v))}>
-                <SelectTrigger id="tk-progress"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {[0, 25, 50, 75, 100].map((p) => (
-                    <SelectItem key={p} value={String(p)}>{p}%</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div>
+            <Label htmlFor="tk-who">担当</Label>
+            <Select value={assignedTo || NONE} onValueChange={(v) => setAssignedTo(v === NONE ? '' : v)}>
+              <SelectTrigger id="tk-who"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>決めない</SelectItem>
+                {(users.data ?? []).map((u) => (
+                  <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-sub-sm mt-1 text-muted-foreground">
+              担当を決めると、その人の「自分のタスク」に出ます。
+            </p>
           </div>
+
+          {/*
+            マイルストーンは**日付より上**に置く（`docs/design/v4/_form-order.md`）。
+            マイルストーンにすると「1日の節目」になり着手日の意味が変わるので、
+            日付を入れる前に決まっている必要がある。
+          */}
+          <label className="flex min-h-tap cursor-pointer items-center gap-2.5 lg:min-h-0">
+            <input
+              type="checkbox"
+              checked={isMilestone}
+              onChange={(e) => setIsMilestone(e.target.checked)}
+              className="h-4 w-4 accent-primary"
+            />
+            <span className="text-sub">
+              マイルストーン（◆）にする — 引渡し・検収など<strong className="font-bold">1日の節目</strong>。ガントでひし形になります
+            </span>
+          </label>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
@@ -179,17 +186,28 @@ export function TaskDialog({
             </div>
           </div>
 
-          <label className="flex min-h-tap cursor-pointer items-center gap-2.5 lg:min-h-0">
-            <input
-              type="checkbox"
-              checked={isMilestone}
-              onChange={(e) => setIsMilestone(e.target.checked)}
-              className="h-4 w-4 accent-primary"
-            />
-            <span className="text-sub">
-              マイルストーン（◆）にする — 引渡し・検収など<strong className="font-bold">1日の節目</strong>。ガントでひし形になります
-            </span>
-          </label>
+          {/* 期限の決めごとは**期限の入力のすぐ下**に置く。
+              フォームの最下部だと、期限を入れる瞬間には読めない */}
+          <p className="text-sub-sm text-muted-foreground">
+            期限は<strong className="font-bold">その日の 18:00</strong> として入ります
+            （ひな形から写したタスクと同じ形にするため）。
+          </p>
+
+          {/*
+            進み具合は**着手日・期限のあと**。まだ日付も入れていない段階で
+            0/25/50/75/100% を訊く形になっていたため降ろした
+          */}
+          <div>
+            <Label htmlFor="tk-progress">進み具合</Label>
+            <Select value={String(progress)} onValueChange={(v) => setProgress(Number(v))}>
+              <SelectTrigger id="tk-progress"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {[0, 25, 50, 75, 100].map((p) => (
+                  <SelectItem key={p} value={String(p)}>{p}%</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* 先行タスクは別テーブルへその場で保存するので、タスクがまだ無い（足すとき）は出せない */}
           {task && <PredecessorField projectId={projectId} taskId={task.id} />}
@@ -204,11 +222,6 @@ export function TaskDialog({
               placeholder="担当: 技術"
             />
           </div>
-
-          <p className="text-sub-sm text-muted-foreground">
-            期限は<strong className="font-bold">その日の 18:00</strong> として入ります
-            （ひな形から写したタスクと同じ形にするため）。担当を決めると、その人の「自分のタスク」に出ます。
-          </p>
         </div>
     </FormDialog>
   );

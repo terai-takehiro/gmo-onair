@@ -102,7 +102,7 @@ export default function InventoryPage() {
         title="棚卸し"
         sub="保管場所ごとに ✓ を付けて回ります。下書き → 実施中 → 完了 で進みます"
         primaryAction={
-          <Button onClick={() => { setForm({ title: '', check_date: today(), notes: '' }); setDialogOpen(true); }}>
+          <Button type="button" onClick={() => { setForm({ title: '', check_date: today(), notes: '' }); setDialogOpen(true); }}>
             <Plus className="mr-1 h-4 w-4" aria-hidden="true" />棚卸しを作る
           </Button>
         }
@@ -147,8 +147,8 @@ export default function InventoryPage() {
               </RowSlot>
               <RowSlot w={96} align="right" placeholder="">
                 <span className="flex gap-1">
-                  <Button variant="outline" onClick={() => setSelected(c.id)}>開く</Button>
-                  <Button
+                  <Button type="button" variant="outline" onClick={() => setSelected(c.id)}>開く</Button>
+                  <Button type="button"
                     variant="ghost" size="icon-sm" className="text-destructive"
                     aria-label={`${c.title} を削除`} disabled={remove.isPending}
                     onClick={() => onDelete(c)}
@@ -166,10 +166,14 @@ export default function InventoryPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         title="棚卸しを作る"
+        // Enter で作れるようにする（繰り返し入力も確認も無い単純なフォーム）。
+        // **「作る」は `type="submit"` で `onClick` を持たない** — 両方あると二重送信になる。
+        // キャンセルは `<form>` の中では既定が submit 扱いなので `type="button"` を明示する
+        onSubmit={(e) => { e.preventDefault(); if (form.title && !create.isPending) create.mutate(form); }}
         footer={
           <FormDialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>キャンセル</Button>
-            <Button onClick={() => create.mutate(form)} disabled={!form.title || create.isPending}>
+            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>キャンセル</Button>
+            <Button type="submit" disabled={!form.title || create.isPending}>
               {create.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
               作る
             </Button>
