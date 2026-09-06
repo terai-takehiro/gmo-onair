@@ -53,7 +53,7 @@
  * 実装（3本前提の決め打ちレイアウトは無い）ので、1本・3本のどちらでも崩れない
  * ことを確認した上でこの形にしている。
  */
-import { LayoutDashboard, LayoutGrid, CalendarDays, Settings2, Package, Timer, Type, BookOpenCheck } from 'lucide-react';
+import { LayoutDashboard, LayoutGrid, CalendarDays, Settings2, Package, Timer, Type, Radio, BookOpenCheck } from 'lucide-react';
 import type { ShellMobileTab, ShellNavSection } from '@gmo-onair/shared/src/client/shell';
 import { MINI_APP_BY_KEY, panelPathOf } from '@gmo-onair/shared/src/production/miniapps';
 import type { ProductionNavContext } from '@/lib/productionNavContext';
@@ -65,12 +65,15 @@ const STREAMING_RE = /^\/techops\/streaming\/([^/?#]+)\/?$/;
 const RENTAL_RE = /^\/techops\/rental\/([^/?#]+)(?:\/(?:list|mail\/[^/?#]+))?\/?$/;
 // 計時・視聴者（liveops）。`/timers`・`/timers/:timerId/layout`・`/settings` の配下も含む
 const LIVE_RE = /^\/techops\/live\/([^/?#]+)(?:\/(?:timers(?:\/[^/?#]+\/layout)?|settings))?\/?$/;
-// テロップCG。ハブ（`/graphics/:ownerKey`）・送出コンソール（`/live`）・
-// 部品ライブラリ（`/parts`）・テンプレート管理（`/templates`・段6-2）・
-// 発注フォーム（`/request`・段5）。出力画面（`/techops/graphics/output/:projectId`）は
+// テロップCG。①ハブ（`/graphics/:ownerKey`）・本番モード送出コンソール（`/live`）・
+// ④設定（`/settings`・段Aで新設。旧・部品ライブラリ／演出SE管理／外部連携設定の
+// 3独立画面を統合）・テンプレート管理（`/templates`・段6-2）・発注フォーム
+// （`/request`・段5）。出力画面（`/techops/graphics/output/:projectId`）は
 // シェル無しの独立ルートなのでここには来ない（`App.tsx` の
-// 「Full-screen pages without AppShell」側）
-const GRAPHICS_RE = /^\/techops\/graphics\/([^/?#]+)(?:\/(?:live|parts|templates|request))?\/?$/;
+// 「Full-screen pages without AppShell」側）。旧 `/parts`・`/sounds`・
+// `/interactive-link` は `App.tsx` の `Redirect*` へ転送するだけの URL になり
+// 画面ではなくなったので、この正規表現の対象からも外した
+const GRAPHICS_RE = /^\/techops\/graphics\/([^/?#]+)(?:\/(?:live|settings|templates|request))?\/?$/;
 const EDITOR_RE = /^\/techops\/editor\/[^/?#]+\/?$/;
 const SCHEDULE_DETAIL_RE = /^\/techops\/schedules\/[^/?#]+\/?$/;
 const DOCS_RE = /^\/techops\/docs\/[^/?#]+\/?$/;
@@ -174,7 +177,27 @@ function aiKnowledgeSection(): ShellNavSection {
   return { items: [{ label: 'AIナレッジの承認', to: '/techops/ai-knowledge', icon: BookOpenCheck }] };
 }
 
-function buildResolvedSections(ctx: ProductionNavContext): ShellNavSection[] {
+/**
+ * テロップCG のメニュー項目。**普段は「テロップCG」1本**（`ShellNavItem` に
+ * インデント付きの子項目という概念が無いため、他のミニアプリと同じ「1項目→ハブへ」の
+ * 形に揃えている）。**いまテロップCGの中を見ているとき（`inGraphics`）だけ**、
+ * 同じ木の深さのまま①一覧・本番モード・④設定の3本に展開する
+ * （再設計 §11 段A「左メニューのサブ項目」・アイコンは `GraphicsHubPage.tsx` の
+ * ヘッダーボタンと揃えた）。
+ */
+function graphicsNavItems(ctx: ProductionNavContext, inGraphics: boolean) {
+  const hub = panelPathOf('graphics', ctx.id);
+  if (!inGraphics) {
+    return [{ label: MINI_APP_BY_KEY.graphics.label, to: hub, icon: Type }];
+  }
+  return [
+    { label: 'テロップ一覧', to: hub, icon: Type, end: true },
+    { label: '本番モード', to: `${hub}/live`, icon: Radio },
+    { label: 'テロップCG設定', to: `${hub}/settings`, icon: Settings2 },
+  ];
+}
+
+function buildResolvedSections(ctx: ProductionNavContext, inGraphics: boolean): ShellNavSection[] {
   const hubLabel = hubLabelOf(ctx);
   const items = [
     { label: 'トップ', to: '/techops/top', icon: LayoutGrid },
@@ -186,7 +209,7 @@ function buildResolvedSections(ctx: ProductionNavContext): ShellNavSection[] {
     { label: MINI_APP_BY_KEY.rental.label, to: panelPathOf('rental', ctx.id), icon: Package },
     // テロップCG は project / program のどちらの scope でも開ける
     // （resolve が両方の owner を受ける — 収録設定・配信設定と同じ形）
-    { label: MINI_APP_BY_KEY.graphics.label, to: panelPathOf('graphics', ctx.id), icon: Type },
+    ...graphicsNavItems(ctx, inGraphics),
   ];
   // 計時・視聴者（liveops）は scope === 'project' のときだけ（liveops_programs.project_id
   // は projects テーブルのみを指すため。MiniAppTiles.tsx/MiniAppSwitcher.tsx と同じ制約）
@@ -225,7 +248,8 @@ export function buildQsheetNav(
   opts?: { canManageAiKnowledge?: boolean },
 ): { sections: ShellNavSection[]; mobileTabs: ShellMobileTab[] } {
   const ctx = resolveContext(pathname, searchParams, storeCtx);
-  const sections = ctx ? buildResolvedSections(ctx) : buildDefaultSections();
+  const inGraphics = !!ctx && GRAPHICS_RE.test(pathname);
+  const sections = ctx ? buildResolvedSections(ctx, inGraphics) : buildDefaultSections();
   // manager にだけ「AIナレッジの承認」を独立した節で足す（aiKnowledgeSection のコメント参照）
   if (opts?.canManageAiKnowledge) sections.push(aiKnowledgeSection());
   const mobileTabs = ctx ? buildResolvedMobileTabs(ctx) : buildDefaultMobileTabs();

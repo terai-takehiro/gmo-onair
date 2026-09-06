@@ -93,11 +93,15 @@ export const TECHOPS_PC_ONLY: PcOnlyEntry[] = [
     instead: { label: 'アプリのトップを開く', to: '/techops/top' },
   },
   {
-    // テロップCG の部品ライブラリ。ハブと同じ理由（カード一覧＋チップの情報密度が
-    // 高く、狭い幅では組めない）で PC 専用にした
-    path: '/techops/graphics/:ownerKey/parts',
-    what: 'テロップCG（部品ライブラリ）',
-    why: '部品カードの一覧をまとめて見比べる画面で、狭い幅では組めません。',
+    // テロップCG の設定（④・1画面4タブ：出力URL／見た目／同時に出せないもの／連携）。
+    // 2026-09-06 のゼロベース再設計・段Aで新設。旧・部品ライブラリ／演出SE管理／
+    // 外部インタラクティブ連携設定の3独立画面（PC専用だった）を1画面へ統合したもので、
+    // 情報密度は変わらないため引き続き PC 専用にした（旧3画面のルートは
+    // `App.tsx` の `RedirectToGraphicsHub`/`RedirectToGraphicsSettings` に置き換わり、
+    // 「転送」として `check-mobile-declared.mjs` の対象外になったのでこの表から削除した）
+    path: '/techops/graphics/:ownerKey/settings',
+    what: 'テロップCG（設定）',
+    why: '出力URL・見た目・同時に出せないもの・連携の4タブをまとめて組む画面で、狭い幅では組めません。',
     instead: { label: 'アプリのトップを開く', to: '/techops/top' },
   },
   {
@@ -107,23 +111,6 @@ export const TECHOPS_PC_ONLY: PcOnlyEntry[] = [
     path: '/techops/graphics/:ownerKey/templates',
     what: 'テロップCG（テンプレート管理）',
     why: '部品の初期値と公開フィールドをまとめて組む画面で、狭い幅では組めません。',
-    instead: { label: 'アプリのトップを開く', to: '/techops/top' },
-  },
-  {
-    // テロップCG の演出SE管理（段6-5）。テンプレート管理と同じ理由——ステップ選択・
-    // 開始順位・アップロード欄・一覧（波形プレイヤー＋音量スライダー＋有効/無効）を
-    // 横に並べる情報密度のため PC 専用にした
-    path: '/techops/graphics/:ownerKey/sounds',
-    what: 'テロップCG（演出SE管理）',
-    why: 'ステップごとの音源一覧と音量調整をまとめて組む画面で、狭い幅では組めません。',
-    instead: { label: 'アプリのトップを開く', to: '/techops/top' },
-  },
-  {
-    // 外部インタラクティブ連携設定（段6-7）。`LiveOrgSettingsPage.tsx`（`live-org-settings`）
-    // と同じ理由 — 別VPSの接続先URL・APIキーを外部の管理画面と往復しながら入力する画面
-    path: '/techops/graphics/:ownerKey/interactive-link',
-    what: 'テロップCG（外部インタラクティブ連携設定）',
-    why: '接続先URL・APIキーなど外部サービスの資格情報を入力する画面で、PCでの操作を前提にしています。',
     instead: { label: 'アプリのトップを開く', to: '/techops/top' },
   },
   {

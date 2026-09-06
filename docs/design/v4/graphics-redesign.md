@@ -169,7 +169,8 @@ graphics.md §2 の思想（部品＝描画＋フィールド＋アニメ＋専�
 
 テロップCG の文脈にいるときは、サイドバーの「テロップCG」の下に **一覧／本番モード／設定** の3つを出す
 （いまは何も出ない）。`GRAPHICS_RE` を `settings|live|request` に合わせ、戻りリンクの文言は
-「**テロップ一覧**」の1種類に統一する。
+「**テロップ一覧**」の1種類に統一する。**段Aで実装済み**（`ShellNavItem` はインデント付き子項目を
+持たないため、テロップCGの中を見ているときだけ「テロップCG」1本を同じ深さの3本に展開する形にした）。
 
 ## 6. 機能の棚卸し（残す／畳む／統合／足す）
 
@@ -291,7 +292,7 @@ graphics.md §2 の思想（部品＝描画＋フィールド＋アニメ＋専�
 
 | 段 | 内容 | DB | 目安 |
 | --- | --- | --- | --- |
-| A | 一覧＋右パネル（①③）・設定1画面（④）・左メニューのサブ項目・戻り先の統一・死んだ UI と固定文字列の削除・`GRAPHICS_RE` の修正 | なし | 現行の 68 ファイルの**再配置**が中心 |
+| A | ✅ **実装済み（2026-09-06）** 一覧＋右パネル（①③）・設定1画面（④）・左メニューのサブ項目・戻り先の統一・死んだ UI と固定文字列の削除・`GRAPHICS_RE` の修正 | なし | 現行の 68 ファイルの**再配置**が中心 |
 | B | 本番モードの作り直し（②・3動詞・OA/NEXT・いま出ているものの帯・行内の操作） | なし | `GraphicsConsolePage` の再構成 |
 | C | コーナー・台本から取り込む・台本と違いますバッジ（§9 1〜2） | `section`・`qsheet_row_id` | 新規 |
 | D | 依頼の改修（台本の項目から選ぶ）・スマホ閲覧（⑤⑥） | なし | |
@@ -299,6 +300,37 @@ graphics.md §2 の思想（部品＝描画＋フィールド＋アニメ＋専�
 | F | 旧 `/awards` の畳み込み（実行の承認は §12-5 で取得済み。**段A〜E を検証環境で1本通してから**実行する） | — | [migration-plan §4 段6-9](graphics-awards-migration-plan.md) |
 
 段A・B は既存の部品を並べ替える作業で、レンダラー・API はそのまま使う。
+
+### 段A 実装メモ（2026-09-06）
+
+- **新規**: `TelopThumb.tsx`（実描画サムネイル・行と種類カードで共用）・`TelopKindGrid.tsx`
+  （旧・部品ライブラリのカードを「種類を選ぶ」ステップに埋め込み）・`TelopEditorPanel.tsx`
+  （旧 `PageFormDialog.tsx` をダイアログの外枠なしで①に埋め込む右パネルに作り直し。
+  400行基準のため `TelopKindOrTemplateStep.tsx`〈1段目〉・`TelopEditorFormBody.tsx`
+  〈2段目の本体〉に分割）・`GraphicsSettingsPage.tsx`（④・1画面4タブ）。
+- **全面書き換え**: `GraphicsHubPage.tsx`（①。同じ理由で `TelopAddMenu.tsx`〈＋テロップの
+  ドロップダウン〉・`TelopListSection.tsx`〈状態チップ＋表〉に分割）。
+- **削除**: `PartLibraryPage.tsx`（独立画面としての部品ライブラリ）。旧URL
+  （`/parts`・`/sounds`・`/interactive-link`）は `App.tsx` の `RedirectToGraphicsHub`・
+  `RedirectToGraphicsSettings` が①・④「連携」タブへ転送する（`RankingSoundsPanel`・
+  `InteractiveLinkSettingsPanel` 自体は削除せず、`embedded` prop で④に埋め込んで再利用）。
+- **意図した持ち越し・簡略化**:
+  - フィールドの真の自動保存はまだ実装しない。明示的な保存ボタンを維持した
+    （1文字ごとの自動保存はレース条件のリスクがあり、段Aのスコープでは踏み込まない）
+  - 左メニューの子項目に見た目のインデントは付けていない（`ShellNavItem` がインデント付き
+    子項目を持たないため、同じ深さの3項目に展開する形にした。上記「左メニュー」参照）
+  - 「テンプレートから作る」は①の主導線からは外したが、機能自体は廃止していない
+    （新規作成の1段目に「テンプレートから作る」タブとして残し、④設定「見た目」タブから
+    テンプレート管理画面〈上級者向け〉へのリンクも残した）
+  - サムネイル（`TelopThumb`）は①の行・②新規作成の種類カードに付けた。本番モード
+    （②・送出コンソール）側の見せ方は段Bのスコープ
+- **検証**: `tsc -b client-techops`／`npm run lint`（0 errors）／`npm run test`
+  （shared Vitest 1996件）に加え、`npm run verify:up` の Postgres に対して実サーバー・
+  実 `client-techops` dev server を起動し、Playwright で①一覧・行の右パネル編集・
+  新規作成の1段目/2段目・④設定の4タブ・旧URL3本の転送先・375px幅でのPC専用ガード表示を
+  実ブラウザで確認し、`npm run build -w client-techops` も通した。**未検証のまま残したこと**:
+  実機（iOS/Android）でのタップ操作確認・権限別（reader/editor 等）の403表示確認はなし
+  ——PRを出す段になったら棚卸しの対象にする
 
 ## 12. 決まったこと（2026-09-06 ユーザー回答）
 

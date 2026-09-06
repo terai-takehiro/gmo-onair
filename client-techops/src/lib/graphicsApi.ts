@@ -200,6 +200,13 @@ export interface GraphicsPageInput {
    * 含まれるキーだけが反映される（それ以外は無視される — サーバー側で強制）
    */
   layerFields?: Record<string, unknown>[];
+  /**
+   * 出す順（段A・一覧の並べ替え）。**`callNo`（呼出番号）とは独立**——サーバー側
+   * （`pages.routes.ts`）は `sortOrder` だけを更新でき、並べ替えで `callNo` が
+   * 動くことは無い（graphics-redesign.md §10「出す順の番号は固定」）。作成時
+   * （`createGraphicsPage`）には使わない — 新規ページは常に末尾に追加される。
+   */
+  sortOrder?: number;
 }
 
 export async function createGraphicsPage(projectId: string, input: GraphicsPageInput): Promise<GraphicsPageRow> {
