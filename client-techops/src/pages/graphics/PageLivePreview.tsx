@@ -85,6 +85,10 @@ export default function PageLivePreview({
     fields,
     proofState: 'draft',
     sortOrder: 0,
+    // プレビュー専用のダミー行——実データではないので台本連携（段C）のキーは持たない
+    section: null,
+    qsheetDocId: null,
+    qsheetRowId: null,
     templateId: null,
     layers: layers && layers.length > 0 ? layers : null,
   }), [slot, partKey, name, fields, callNo, layers]);

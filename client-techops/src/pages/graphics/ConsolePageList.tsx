@@ -24,6 +24,13 @@
 // （設計書§8「進める」）を行の中に足す: vote=出題→締切→開票／ranking=次の順位 または
 // Final Pitch パネル／list=次の項目／score=±クイック調整。この操作エリアは
 // stopPropagation を付け、押しても行クリック（NEXT化）に巻き込まれないようにしてある。
+//
+// コーナー見出し（段C）: ①一覧（`TelopListSection.tsx`）と同じ `groupPagesBySection` で
+// 束ね、シンプルな小見出し（テキストだけ）を挟む。**「台本と違います」バッジはここには
+// 足さない**——本番中の一覧を必要以上に賑やかにしないための意図的な非対称（①だけの機能）。
+// 見出しの配色もこのファイルの既存トーンのまま（②本体のダーク配色は `GraphicsConsolePage.tsx`
+// 側の話で、このファイルはその対象外——既存のまま変えない）。
+import { Fragment } from 'react';
 import { CheckCircle2, Circle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
@@ -37,6 +44,7 @@ import { readRankingStep } from './rankingFields';
 import { readVoteState } from './voteState';
 import { RankingControlPanel } from './RankingControlPanel';
 import { ScoreQuickAdjust } from './ScoreQuickAdjust';
+import { groupPagesBySection } from './telopGrouping';
 
 export function ConsolePageList({ pages, cues, pvwPageId, onSelectPvw, sendContinue }: {
   /** 表示順（送出リスト順＝sortOrder）に並べ替え済みのページ */
@@ -70,15 +78,24 @@ export function ConsolePageList({ pages, cues, pvwPageId, onSelectPvw, sendConti
           title="ページがまだありません"
           description="ハブ画面（ページと送出リスト）で本番前にページを作っておきます。"
         />
-      ) : pages.map((p) => (
-        <ConsoleRow
-          key={p.id}
-          page={p}
-          onAir={cues[p.slot]?.pageId === p.id}
-          isNext={p.id === pvwPageId}
-          onSelectPvw={onSelectPvw}
-          sendContinue={sendContinue}
-        />
+      ) : groupPagesBySection(pages).map((group) => (
+        <Fragment key={group.pages[0].id}>
+          {group.section != null && (
+            <div className="border-b border-border-faint bg-surface-subtle px-4 py-1 text-note font-bold text-muted-foreground">
+              {group.section}
+            </div>
+          )}
+          {group.pages.map((p) => (
+            <ConsoleRow
+              key={p.id}
+              page={p}
+              onAir={cues[p.slot]?.pageId === p.id}
+              isNext={p.id === pvwPageId}
+              onSelectPvw={onSelectPvw}
+              sendContinue={sendContinue}
+            />
+          ))}
+        </Fragment>
       ))}
     </section>
   );

@@ -26,6 +26,7 @@ import {
   fetchGraphicsRequests, updateGraphicsPage, updateGraphicsRequest,
   type GraphicsBundle, type GraphicsPageRow, type GraphicsRequestRow,
 } from '@/lib/graphicsApi';
+import { fetchQsheetLiveText } from '@/lib/graphicsQsheetImportApi';
 import type { OwnerContext } from '@/lib/deviceSettingsApi';
 import { useGraphicsProject } from './useGraphicsProject';
 import TelopEditorPanel, { type PageFormInitialValues } from './TelopEditorPanel';
@@ -33,8 +34,10 @@ import TelopAddMenu from './TelopAddMenu';
 import TelopListSection, { type StatusFilter } from './TelopListSection';
 import RequestQueueSection, { graphicsRequestsQueryKey } from './RequestQueueSection';
 import RosterImportDialog from './RosterImportDialog';
+import QsheetImportDialog from './QsheetImportDialog';
 import OutputUrlCard from './OutputUrlCard';
 import { resolveTelopTheme } from './telopTheme';
+import { PRIMARY_FIELD_KEY } from './pageFields';
 
 export default function GraphicsHubPage() {
   const { ownerKey } = useParams<{ ownerKey: string }>();
@@ -76,6 +79,13 @@ function hubPath(owner: OwnerContext): string {
   return owner.kind === 'project' ? `/techops/projects/${id}` : `/techops/programs/${id}`;
 }
 
+/** 台本のいまの文言（段C・「台本と違います」バッジの判定材料）。`RequestQueueSection.tsx` の
+ *  `graphicsRequestsQueryKey` と同じ考え方——今はこのファイルだけが使うが、キーを
+ *  一か所にまとめておくと invalidate 漏れが起きにくい */
+function qsheetLiveTextQueryKey(projectId: string) {
+  return ['graphics-qsheet-live-text', projectId] as const;
+}
+
 type PanelState =
   | { mode: 'closed' }
   | { mode: 'edit'; pageId: string }
@@ -90,6 +100,7 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
   const queryClient = useQueryClient();
   const [panel, setPanel] = useState<PanelState>({ mode: 'closed' });
   const [rosterOpen, setRosterOpen] = useState(false);
+  const [qsheetImportOpen, setQsheetImportOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [obsOpen, setObsOpen] = useState(false);
@@ -105,6 +116,15 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
   });
   const pendingRequestCount = pendingRequestsQuery.data?.length ?? 0;
 
+  // 台本から取り込んだページの「いまの文言」（段C。「台本と違います」バッジの判定材料）。
+  // 取り込み済みページが1件も無いプロジェクトでは空配列が返るだけ（サーバー側は
+  // qsheet_row_id が入っている行だけを見る契約 — graphicsQsheetImportApi.ts 冒頭コメント）
+  const qsheetLiveTextQuery = useQuery({
+    queryKey: qsheetLiveTextQueryKey(bundle.project.id),
+    queryFn: () => fetchQsheetLiveText(bundle.project.id),
+  });
+  const liveTextEntries = useMemo(() => qsheetLiveTextQuery.data ?? [], [qsheetLiveTextQuery.data]);
+
   const pages = useMemo(
     () => [...bundle.pages].sort((a, b) => (a.sortOrder - b.sortOrder) || (a.callNo - b.callNo)),
     [bundle.pages],
@@ -113,7 +133,34 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
   const unconfirmedCount = pages.filter((p) => !isConfirmed(p)).length;
   const confirmedCount = pages.length - unconfirmedCount;
 
-  const visiblePages = filter === 'ok' ? pages.filter(isConfirmed) : filter === 'un' ? pages.filter((p) => !isConfirmed(p)) : pages;
+  // 「台本と違います」の判定（段C）。liveText が null（台本・行・テロップ列のいずれかが
+  // 無くなっている）のときは差分ありと判定しない——false negative でよい・誤検知を避ける
+  // という設計判断（graphics-redesign.md §9 実装指示）。主フィールドが文字列でない部品
+  // （一覧・スコア・ランキング等の配列型）も同じ理由で対象外にする——取り込みが作るのは
+  // 常に name/title（inferPartKey）だが、取り込み後に手動で種類を変えることもできるため、
+  // 型が合わない組み合わせは「違う」と決め打たず安全側に倒す
+  const driftPageIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const entry of liveTextEntries) {
+      if (entry.liveText == null) continue;
+      const page = pages.find((p) => p.id === entry.pageId);
+      if (!page) continue;
+      const key = PRIMARY_FIELD_KEY[page.partKey];
+      if (!key) continue;
+      const current = page.fields[key];
+      if (typeof current !== 'string') continue;
+      if (current !== entry.liveText) ids.add(page.id);
+    }
+    return ids;
+  }, [liveTextEntries, pages]);
+
+  const visiblePages = filter === 'ok'
+    ? pages.filter(isConfirmed)
+    : filter === 'un'
+    ? pages.filter((p) => !isConfirmed(p))
+    : filter === 'drift'
+    ? pages.filter((p) => driftPageIds.has(p.id))
+    : pages;
   // 並べ替えは「全部」表示のときだけ許す — 絞り込み中に動かすと、見えていない行との
   // 前後関係が分からなくなる（§12-3の決定を安全に運用するための最小限のガード）
   const reorderable = filter === 'all';
@@ -166,6 +213,22 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
       notifyError('確認の状態を変更できませんでした');
     } finally {
       setTogglingId(null);
+    }
+  };
+
+  // 「台本と違います」の取り込み直し（段C）。台本のいまの文言を主フィールドへ上書きする
+  // だけで liveText 自体は再取得しない——上書き後は page.fields[key] が liveText と
+  // 一致するため、次の再描画で driftPageIds から自然に外れる（画面がちらつかない）
+  const handleResync = async (page: GraphicsPageRow) => {
+    const entry = liveTextEntries.find((e) => e.pageId === page.id);
+    if (!entry || entry.liveText == null) return;
+    const key = PRIMARY_FIELD_KEY[page.partKey];
+    if (!key) return;
+    try {
+      await updateGraphicsPage(page.id, { fields: { ...page.fields, [key]: entry.liveText } });
+      await reload();
+    } catch {
+      notifyError('台本の文言を取り込み直せませんでした');
     }
   };
 
@@ -229,6 +292,7 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
             onOpenChange={setAddMenuOpen}
             onPickRoster={() => { setAddMenuOpen(false); setRosterOpen(true); }}
             onPickRequestQueue={requestSectionScroll}
+            onPickQsheetImport={() => { setAddMenuOpen(false); setQsheetImportOpen(true); }}
             onPickBlank={() => openNew()}
           />
           <Button asChild>
@@ -260,8 +324,10 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
             theme={resolveTelopTheme(bundle.project.theme)}
             selectedPageId={panel.mode === 'edit' ? panel.pageId : null}
             togglingId={togglingId}
+            driftPageIds={driftPageIds}
             onOpen={openEdit}
             onToggleConfirmed={(p) => void toggleRowConfirmed(p)}
+            onResync={(p) => void handleResync(p)}
             onDragEnd={(e) => void handleDragEnd(e)}
           />
 
@@ -308,6 +374,19 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
         open={rosterOpen}
         onOpenChange={setRosterOpen}
         onImported={() => { void reload(); }}
+      />
+
+      <QsheetImportDialog
+        projectId={bundle.project.id}
+        owner={owner}
+        open={qsheetImportOpen}
+        onOpenChange={setQsheetImportOpen}
+        onImported={() => {
+          void reload();
+          // 取り込んだページは qsheetRowId を新しく持つため、次に台本側で文言が変わったときに
+          // 「台本と違います」が正しく検出できるよう、いまの文言のキャッシュも読み直しておく
+          void queryClient.invalidateQueries({ queryKey: qsheetLiveTextQueryKey(bundle.project.id) });
+        }}
       />
     </div>
   );

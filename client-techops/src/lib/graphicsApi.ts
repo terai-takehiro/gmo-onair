@@ -128,6 +128,23 @@ export interface GraphicsPageRow {
   fields: Record<string, unknown>;
   proofState: GraphicsProofState;
   sortOrder: number;
+  /**
+   * コーナー見出し（段C・graphics-redesign.md §9）。台本から取り込むと台本の
+   * section.label が入る。null＝コーナー無し（①一覧・②送出リストで見出しを挟まない）。
+   * 通常の作成・編集フォームからは触らせない（`GraphicsPageInput` には持たせていない）。
+   */
+  section: string | null;
+  /**
+   * 取り込み元の台本（段C）。null＝台本から取り込んでいない自由入力のページ。
+   * `qsheetRowId` と対で使う——`fetchQsheetLiveText`（`graphicsQsheetImportApi.ts`）が
+   * ドキュメントごとにまとめて「いまの文言」を引く際のグループ化キー。
+   */
+  qsheetDocId: string | null;
+  /**
+   * 取り込み元の台本の行 id（段C）。台本側の文言が変わったかどうかの判定
+   * （「台本と違います」バッジ）に使う。null＝台本から取り込んでいない自由入力のページ。
+   */
+  qsheetRowId: string | null;
   /** 作成元テンプレート（段6-2）。null＝テンプレートを使わない自由入力で作られたページ */
   templateId: string | null;
   /**

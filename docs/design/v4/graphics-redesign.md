@@ -294,7 +294,7 @@ graphics.md §2 の思想（部品＝描画＋フィールド＋アニメ＋専�
 | --- | --- | --- | --- |
 | A | ✅ **実装済み（2026-09-06）** 一覧＋右パネル（①③）・設定1画面（④）・左メニューのサブ項目・戻り先の統一・死んだ UI と固定文字列の削除・`GRAPHICS_RE` の修正 | なし | 現行の 68 ファイルの**再配置**が中心 |
 | B | ✅ **実装済み（2026-09-06）** 本番モードの作り直し（②・3動詞・OA/NEXT・いま出ているものの帯・行内の操作） | なし | `GraphicsConsolePage` の再構成 |
-| C | コーナー・台本から取り込む・台本と違いますバッジ（§9 1〜2） | `section`・`qsheet_row_id` | 新規 |
+| C | ✅ **実装済み（2026-09-06）** コーナー・台本から取り込む・台本と違いますバッジ（§9 1〜2） | `section`・`qsheet_doc_id`・`qsheet_row_id`（migration 280） | 新規 |
 | D | 依頼の改修（台本の項目から選ぶ）・スマホ閲覧（⑤⑥） | なし | |
 | E | 本番で追従（§9 3）・前の番組からコピー | なし | Socket `/techops` の `cue:*` を読む |
 | F | 旧 `/awards` の畳み込み（実行の承認は §12-5 で取得済み。**段A〜E を検証環境で1本通してから**実行する） | — | [migration-plan §4 段6-9](graphics-awards-migration-plan.md) |
@@ -388,6 +388,93 @@ graphics.md §2 の思想（部品＝描画＋フィールド＋アニメ＋専�
   `useConsoleContinue.ts`・`ScoreQuickAdjust.tsx`・`RankingControlPanel.tsx` の
   既存ロジックをそのまま呼ぶだけで新規ロジックは無いためコードレビューでの確認に留めた）・
   実機でのタップ操作・権限別403表示。
+
+### 段C 実装メモ（2026-09-06・マルチエージェントで実装）
+
+ユーザーの「Cへ」のご指示を受け、段Bと同じ5段のワークフロー（実装・並列3体→統合1体→
+型チェック・lint 1体→検証・並列2体→修正0〜1体）で進めた。今回は Finalize 段の修正は
+発生しなかった（検証段の指摘が2件とも「note」＝ブロッカーでない既知の制約だったため）。
+
+- **新規（サーバー）**: `migrations/280_graphics_qsheet_import.sql`（`graphics_pages` に
+  `section`・`qsheet_doc_id`〈`qsheet_documents` への FK・`ON DELETE SET NULL`〉・
+  `qsheet_row_id` を追加）・`services/qsheet-import.service.ts`（`inferPartKey`・
+  `previewQsheetImport`・`commitQsheetImport`・`fetchQsheetLiveText` の4関数。
+  台本 JSONB の走査〈`collectTelopEntries`〉と、共有されていない台本を弾くアクセス制御
+  〈`loadAccessibleQsheetDoc` が `qsheet/access.ts` の `canAccessDoc` を通す〉を持つ）・
+  `routes/qsheet-import.routes.ts`（3エンドポイント。他の graphics ルートと同じ
+  `requirePermission('qsheet')`、投入だけ `editor` 以上）。
+- **新規（クライアント）**: `graphicsQsheetImportApi.ts`（APIラッパー）・
+  `QsheetImportDialog.tsx`＋`QsheetImportPickStep.tsx`＋`QsheetImportReviewStep.tsx`
+  （台本を選ぶ→候補を確認する→取り込む、の3段ダイアログ。`RosterImportDialog.tsx` と
+  同じ外枠）・`telopGrouping.ts`（`groupPagesBySection`。①②共用の純粋関数）。
+- **拡張のみ**: `store.ts`/`graphicsApi.ts`（`GraphicsPage`/`GraphicsPageRow` に3列を追加。
+  `GraphicsPageInput` には追加せず、通常の作成・編集フォームからは触れないようにした）・
+  `TelopAddMenu.tsx`（「台本から取り込む」を4つ目のメニュー項目に追加）・
+  `TelopListSection.tsx`（状態チップに「台本と違う」を追加・コーナー見出し行の挿入・
+  行に警告バッジ＋取り込み直しボタン）・`GraphicsHubPage.tsx`（`fetchQsheetLiveText` の
+  取得・`driftPageIds` の算出・取り込み直しハンドラ・ダイアログの開閉配線）・
+  `ConsolePageList.tsx`（コーナー見出しの挿入**のみ**。「台本と違います」バッジは
+  意図して追加していない——本番中の一覧を賑やかにしないための①だけの非対称。設計指示どおり）。
+- **「台本と違います」の判定方法**: 台本側のいまの文言（`liveText`）と、ページの主フィールド
+  （`pageFields.ts` の `PRIMARY_FIELD_KEY`）を突き合わせる。`liveText` が `null`（台本・行・
+  テロップ列のいずれかが無くなっている）、対応するページが見つからない、主フィールドが
+  無い・文字列でない（一覧・スコア・ランキング等の配列型）のいずれかに該当する行は
+  **差分ありと判定しない**——false negative 上等・誤検知を避ける設計判断（下記「検証段の
+  指摘」2件目もこの制約について）。
+- **統合段で見つけて直した不具合2件**（担当1〜3の実装は個別には正しかったが、繋いだ
+  ときに顕在化。いずれも検証DBで実データを流して再現・修正確認済み）:
+  1. `fetchQsheetLiveText` のクライアント側ラッパーが `pageId` を `String()` 変換していたが、
+     `driftPageIds` の算出は `page.id`（実体は number）とそのまま `===` 比較していたため
+     `number === string` で常に false——「台本と違います」が**絶対に出ない**状態だった。
+     両辺とも型注釈が `string` のため `tsc` では検出できない類のバグ。`String()` 変換を
+     やめて解消。
+  2. `buildDefaultFields(partKey, text)` は「部品の先頭入力欄」に文言を入れるが、
+     ネーム部品だけ先頭欄（`label`＝役割）と主フィールド（`mainText`＝氏名）がずれている
+     ——取り込み例そのものである「山田太郎／ゲスト」がまさに該当し、直さないと
+     取り込んだ氏名が主フィールドに入らず「未完成」バッジが付き、かつ①の修正後は
+     常に「台本と違います」も誤検出される状態だった。`QsheetImportDialog.tsx` に
+     ネームだけ主フィールドへ明示上書きする `buildImportFields` を追加して解消
+     （他9部品・`score`/`ranking` 等の配列型主フィールドは無変更）。
+- **検証段の指摘（2件とも note＝非ブロッカー。対応不要と判断）**:
+  1. 1行に telop 型の列が2つ以上ある台本では、`qsheet_row_id` が行 ID までしか覚えず
+     列 ID までは覚えない設計（DB影響を最小にするため。migration 280 のコメント参照）
+     のため、`fetchQsheetLiveText` は「最初に見つかった列」を機械的に採用する。取り込み時に
+     2列目の候補を選んでいた場合、差分検出が実際の紐づけとずれうる——ただしこれは
+     スキーマの意図的な単純化が原因で、この段の実装だけでは直せない。
+  2. 確認画面で候補の種類を score/ranking/list（配列型主フィールド）に手動変更して
+     取り込むと、台本の文言は `page.name` にしか残らず `fields` 側には反映されない。
+     `buildDefaultFields` 自体は段Aからの既存共有ヘルパーで、`TelopEditorPanel.tsx` の
+     依頼変換パスなど既存の他経路にも同じ制約が元々あり、段Cが新たに悪化させたものではない
+     （`inferPartKey` がこれらの種類を提案することもない）。
+- **実装とは別に見つけた、シードデータ側の既存ギャップ（段Cのコードの不具合ではない）**:
+  ブラウザ確認のため検証DBの既存シード台本（`seed-subapps.ts`）で試したところ、
+  取り込み候補が0件になった。調査の結果、原因はシード生成側にあった——
+  ①`row()`ヘルパーが `telop`/`video`/`audio` セルを実際の編集画面が読み書きする
+  `{ entries: [{ label, memo }] }` 形ではなく素の文字列のまま入れている
+  （`CueRow.tsx` の `getEntry()` で確かめると、この形は実際の編集画面でも空欄として
+  読まれる——`v2.8.155` の統一前の形が残ったものと見られる）。②同ヘルパーが行に
+  `id` を一切振っていない（`stableIds.ts` の `genId()` 規約を使っていない）ため、
+  `qsheet_row_id` の元になる `row.id` が存在しない。段Cの `qsheet-import.service.ts` は
+  実際の編集画面・`rundownData.ts` の型定義どおりの形を前提に書いており、この2点は
+  シード生成コード側の既存の欠陥。段Cでは修正していない（`seed-subapps.ts` は他の
+  qsheet/rundown機能の検証にも使われる共有シードで、影響範囲の精査が要るため）——
+  ブラウザ確認は使い捨て検証DB上で該当ドキュメントの `blk_t1` セルと行IDをその場限りで
+  修正して行った（コミットはしていない・検証DBごと破棄済み）。段D/Eも同じ台本連携を
+  触るため、次にこの経路を検証する際は同じ制約に当たる可能性がある。
+- **検証**: ワークフロー内で `tsc -b server`／`tsc -b client-techops`／`npm run lint`
+  （0 errors）／`npm run test`（1996件）／`npm run build -w client-techops`／
+  `verify:up` でのマイグレーション適用確認、をすべて完了。**さらに呼び出し元（自分）が
+  独立して**同じ4項目（tsc×2・lint・test）を再実行して確認し、`verify:up` で
+  マイグレーション280を再適用して3列・FK・部分インデックスを `\d graphics_pages` で
+  確認し、全ファイルを自分で読んで `canAccessDoc` が3関数すべてから呼ばれていることを
+  確認したうえで、実サーバー・実 dev server 起動＋Playwright による実ブラウザ確認まで行った:
+  ①の「＋テロップ」→「台本から取り込む」→台本を選ぶ→候補確認（コーナー見出し・種類の
+  初期推定を含む）→取り込み（15件）→①一覧にコーナー見出し付きで反映・「台本と違う」
+  チップが0のまま、を確認。続けて台本側の文言を書き換えて①を再読み込みし、「台本と違う」
+  チップが1に増え行に警告バッジと取り込み直しボタンが出ること、押すと0に戻ることを確認。
+  最後に②本番モードでコーナー見出しは出るが「台本と違います」バッジは出ないこと
+  （設計どおりの非対称）を確認。**未検証**: 実機でのタップ操作・権限別403表示・
+  1行に複数telop列がある台本（上記指摘1件目のケース）。
 
 ## 12. 決まったこと（2026-09-06 ユーザー回答）
 

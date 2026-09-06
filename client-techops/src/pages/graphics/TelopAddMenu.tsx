@@ -2,16 +2,18 @@
 // 分離。400行基準）。位置決め（`relative`）は呼び出し側の見出し行に残したまま、
 // トリガーボタンと開いたときのメニューだけをここに持つ（`absolute right-0 top-full` は
 // 呼び出し側の `relative` コンテナ基準のまま・見た目は変えていない）。
-import { ChevronDown, Plus, Tv, Users } from 'lucide-react';
+import { ChevronDown, FileText, Plus, Tv, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function TelopAddMenu({
-  open, onOpenChange, onPickRoster, onPickRequestQueue, onPickBlank,
+  open, onOpenChange, onPickRoster, onPickRequestQueue, onPickQsheetImport, onPickBlank,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onPickRoster: () => void;
   onPickRequestQueue: () => void;
+  /** 4つ目: 進行台本のテロップ列から取り込む（`QsheetImportDialog`。段C・graphics-redesign.md §9） */
+  onPickQsheetImport: () => void;
   onPickBlank: () => void;
 }) {
   return (
@@ -50,6 +52,17 @@ export default function TelopAddMenu({
               <span>
                 <span className="block text-sub font-bold">依頼から作る</span>
                 <span className="block text-note text-muted-foreground">ディレクターからの依頼を1枚ずつテロップに</span>
+              </span>
+            </button>
+            <button
+              type="button"
+              className="flex min-h-tap w-full items-start gap-2.5 rounded-control-md px-2.5 py-2 text-left hover:bg-surface-subtle"
+              onClick={onPickQsheetImport}
+            >
+              <FileText className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+              <span>
+                <span className="block text-sub font-bold">台本から取り込む</span>
+                <span className="block text-note text-muted-foreground">進行台本のテロップ列から、まとめてテロップに</span>
               </span>
             </button>
             <button
