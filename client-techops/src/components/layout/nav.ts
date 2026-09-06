@@ -174,6 +174,20 @@ function aiKnowledgeSection(): ShellNavSection {
   return { items: [{ label: 'AIナレッジの承認', to: '/techops/ai-knowledge', icon: BookOpenCheck }] };
 }
 
+/**
+ * スケジュール表のひな形（`/techops/settings/schedule-templates`）— **system_admin にだけ**
+ * 出すメニュー（14-schedule-v2-plan.md §3 A7）。編集系 REST が `role === 'system_admin'` を
+ * 直接見ている（`schedule-templates.routes.ts` の `requireSystemAdmin`）ので、ここも
+ * `qsheet` の権限レベルではなく role で判定する（`aiKnowledgeSection` と同じ形）。
+ *
+ * これまで導線がまったく無く、URL を直打ちしないと開けなかった
+ * （監査 2026-09-06・14-schedule-v2-plan.md §8 の穴 #10）。PC 専用画面
+ * （`pcOnlyScreens.ts`）なのでスマホ下タブには足さない。
+ */
+function scheduleTemplatesSection(): ShellNavSection {
+  return { items: [{ label: 'スケジュール表のひな形', to: '/techops/settings/schedule-templates', icon: CalendarDays }] };
+}
+
 function buildResolvedSections(ctx: ProductionNavContext): ShellNavSection[] {
   const hubLabel = hubLabelOf(ctx);
   const items = [
@@ -222,12 +236,14 @@ export function buildQsheetNav(
   pathname: string,
   searchParams: URLSearchParams,
   storeCtx: ProductionNavContext | null,
-  opts?: { canManageAiKnowledge?: boolean },
+  opts?: { canManageAiKnowledge?: boolean; isSystemAdmin?: boolean },
 ): { sections: ShellNavSection[]; mobileTabs: ShellMobileTab[] } {
   const ctx = resolveContext(pathname, searchParams, storeCtx);
   const sections = ctx ? buildResolvedSections(ctx) : buildDefaultSections();
   // manager にだけ「AIナレッジの承認」を独立した節で足す（aiKnowledgeSection のコメント参照）
   if (opts?.canManageAiKnowledge) sections.push(aiKnowledgeSection());
+  // system_admin にだけ「スケジュール表のひな形」を足す（scheduleTemplatesSection のコメント参照）
+  if (opts?.isSystemAdmin) sections.push(scheduleTemplatesSection());
   const mobileTabs = ctx ? buildResolvedMobileTabs(ctx) : buildDefaultMobileTabs();
   return { sections, mobileTabs };
 }

@@ -18,21 +18,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import BufferedInput from "@/components/editor/BufferedInput";
 import BufferedTextarea from "./BufferedTextarea";
 import ScheduleShareSection from "./ScheduleShareSection";
+import ScheduleOwnerFields, { ownerValueOf, type OwnerValue } from "./ScheduleOwnerFields";
 import { SCHEDULE_STATUS_LABEL, SCHEDULE_STATUS_ORDER } from "./scheduleStatus";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import * as scheduleApi from "@/lib/scheduleApi";
 import { isConflict } from "@/lib/scheduleApi";
 
-type OwnerType = "none" | "project" | "program";
-
 interface Draft {
   title: string;
   serviceDate: string;
   locationId: string | null;
-  ownerType: OwnerType;
-  projectId: string | null;
-  programId: string | null;
-  episodeId: string | null;
+  owner: OwnerValue;
   viewStartMin: number;
   viewEndMin: number;
   status: string;
@@ -43,10 +39,7 @@ const draftOf = (s: ScheduleDetail): Draft => ({
   title: s.title,
   serviceDate: s.service_date,
   locationId: s.location_id,
-  ownerType: s.project_id ? "project" : s.program_id ? "program" : "none",
-  projectId: s.project_id,
-  programId: s.program_id ?? null,
-  episodeId: s.episode_id,
+  owner: ownerValueOf(s.project_id, s.program_id, s.episode_id),
   viewStartMin: s.view_start_min,
   viewEndMin: s.view_end_min,
   status: s.status,
@@ -89,32 +82,8 @@ export default function ScheduleSettingsDialog({ open, onOpenChange, schedule, c
     enabled: open,
     staleTime: 5 * 60 * 1000,
   });
-  const projectsQuery = useQuery({
-    queryKey: ["gls-options"],
-    queryFn: scheduleApi.listGlsProjects,
-    enabled: open && draft.ownerType === "project",
-  });
-  const programsQuery = useQuery({
-    queryKey: ["techops-programs"],
-    queryFn: scheduleApi.listPrograms,
-    enabled: open && draft.ownerType === "program",
-  });
-  const episodesQuery = useQuery({
-    queryKey: ["episode-options", draft.projectId],
-    queryFn: () => scheduleApi.listEpisodes(draft.projectId!),
-    enabled: open && draft.ownerType === "project" && !!draft.projectId,
-  });
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
-
-  const setOwnerType = (t: OwnerType) => {
-    setDraft((d) => ({
-      ...d, ownerType: t,
-      projectId: t === "project" ? d.projectId : null,
-      programId: t === "program" ? d.programId : null,
-      episodeId: t === "project" ? d.episodeId : null,
-    }));
-  };
 
   const glsAndProjectName = schedule.project_id
     ? `${schedule.gls_number ? `${schedule.gls_number} ` : ""}${schedule.project_name ?? ""}`.trim()
@@ -129,9 +98,9 @@ export default function ScheduleSettingsDialog({ open, onOpenChange, schedule, c
         title: draft.title.trim(),
         service_date: draft.serviceDate,
         location_id: draft.locationId,
-        project_id: draft.ownerType === "project" ? draft.projectId : null,
-        program_id: draft.ownerType === "program" ? draft.programId : null,
-        episode_id: draft.ownerType === "project" ? draft.episodeId : null,
+        project_id: draft.owner.ownerType === "project" ? draft.owner.projectId : null,
+        program_id: draft.owner.ownerType === "program" ? draft.owner.programId : null,
+        episode_id: draft.owner.ownerType === "project" ? draft.owner.episodeId : null,
         view_start_min: draft.viewStartMin,
         view_end_min: draft.viewEndMin,
         status: draft.status,
@@ -231,61 +200,7 @@ export default function ScheduleSettingsDialog({ open, onOpenChange, schedule, c
           </div>
         </div>
 
-        <div>
-          <Label>案件／番組</Label>
-          <div className="mt-1">
-            <ToggleButtonGroup
-              options={[{ value: "none", label: "なし" }, { value: "project", label: "案件" }, { value: "program", label: "番組" }]}
-              value={[draft.ownerType]}
-              onChange={(next) => { const t = next[next.length - 1] as OwnerType | undefined; if (t) setOwnerType(t); }}
-              multi={false}
-              cols={{ base: 3 }}
-              size="sm"
-              ariaLabel="案件・番組の別"
-            />
-          </div>
-        </div>
-
-        {draft.ownerType === "project" && (
-          <div className={formGrid2}>
-            <div>
-              <Label>案件（GLS）</Label>
-              <Select value={draft.projectId ?? ""} onValueChange={(v) => set("projectId", v || null)}>
-                <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue placeholder="案件を選ぶ" /></SelectTrigger>
-                <SelectContent>
-                  {(projectsQuery.data ?? []).map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.gls_number ? `${p.gls_number} — ` : ""}{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {draft.projectId && (episodesQuery.data ?? []).length > 0 && (
-              <div>
-                <Label>回（任意）</Label>
-                <Select value={draft.episodeId ?? ""} onValueChange={(v) => set("episodeId", v || null)}>
-                  <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue placeholder="決めていない" /></SelectTrigger>
-                  <SelectContent>
-                    {(episodesQuery.data ?? []).map((ep) => (
-                      <SelectItem key={ep.id} value={ep.id}>{ep.episode_code}{ep.broadcast_date ? ` — ${ep.broadcast_date}` : ""}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-        )}
-
-        {draft.ownerType === "program" && (
-          <div>
-            <Label>番組</Label>
-            <Select value={draft.programId ?? ""} onValueChange={(v) => set("programId", v || null)}>
-              <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue placeholder="番組を選ぶ" /></SelectTrigger>
-              <SelectContent>
-                {(programsQuery.data ?? []).map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        <ScheduleOwnerFields value={draft.owner} onChange={(owner) => set("owner", owner)} />
 
         <div className={formGrid2}>
           <div>

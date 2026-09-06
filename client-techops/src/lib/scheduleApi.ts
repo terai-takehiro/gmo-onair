@@ -86,6 +86,21 @@ export async function listEpisodes(projectId: string): Promise<EpisodeOption[]> 
   return res.data.data;
 }
 
+/**
+ * 案件1件の「作るのに要る事実」（題・本番日の候補）。新規作成の先埋め専用（14-schedule-v2-plan.md §3 A5）。
+ * **拠点の id は返らない**（`venue` は部屋名を並べた文字列で `studio_locations.id` を持たない）ので、
+ * 拠点の先埋めはしない — 実在しない対応付けを当てに行くと事実でないものを先埋めすることになる。
+ */
+export interface ProjectContext {
+  id: string; name: string; glsNumber: string | null; customerName: string | null;
+  eventStart: string | null; eventEnd: string | null; venue: string | null;
+  performanceDates: string[]; rehearsalDates: string[];
+}
+export async function getProjectContext(projectId: string): Promise<ProjectContext> {
+  const res = await api.get<Envelope<ProjectContext>>(`/lookup/${projectId}/context`);
+  return res.data.data;
+}
+
 // ── 列 ──────────────────────────────────────────────────────
 export async function createColumn(scheduleId: string, body: Record<string, unknown>): Promise<ScheduleColumn> {
   const res = await api.post<Envelope<ScheduleColumn>>(`/techops/schedules/${scheduleId}/columns`, body);

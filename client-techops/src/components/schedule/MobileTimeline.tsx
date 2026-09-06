@@ -1,5 +1,5 @@
 // 375px の畳み方: 時系列の縦積みカード（表は作らない）。実装設計: 04-schedule-impl.md §5-4
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { fmtHmPad, fmtSpan } from "@gmo-onair/shared/src/schedule/time";
 import { itemKindLabel, itemKindColor } from "@gmo-onair/shared/src/schedule/kinds";
 import type { ScheduleColumn, ScheduleItem } from "@gmo-onair/shared/src/schedule/types";
@@ -11,11 +11,17 @@ interface Props {
   items: ScheduleItem[];
   conflictedIds: Set<string>;
   onSelect: (item: ScheduleItem) => void;
+  /**
+   * 絞り込み中の列。**親（`SchedulePage.tsx`）に持ち上げてある**（14-schedule-v2-plan.md §3 A6）。
+   * 「項目を追加」ボタンは PageHeader の主ボタンで、この画面のさらに外（見出し）にあるため、
+   * ここだけの state だと「いま絞り込んでいる列」を追加の既定列に使えなかった
+   * （以前は常に先頭の列に追加していた）。
+   */
+  filterColumnId: string | null;
+  onFilterChange: (columnId: string | null) => void;
 }
 
-export default function MobileTimeline({ columns, items, conflictedIds, onSelect }: Props) {
-  const [filterColumnId, setFilterColumnId] = useState<string | null>(null);
-
+export default function MobileTimeline({ columns, items, conflictedIds, onSelect, filterColumnId, onFilterChange }: Props) {
   const visible = useMemo(
     () => [...items]
       .filter((i) => !filterColumnId || i.column_id === filterColumnId)
@@ -30,7 +36,7 @@ export default function MobileTimeline({ columns, items, conflictedIds, onSelect
       <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
         <button
           type="button"
-          onClick={() => setFilterColumnId(null)}
+          onClick={() => onFilterChange(null)}
           className={cn(
             "shrink-0 min-h-[44px] rounded-full border px-3 text-sm",
             !filterColumnId ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground",
@@ -42,7 +48,7 @@ export default function MobileTimeline({ columns, items, conflictedIds, onSelect
           <button
             key={c.id}
             type="button"
-            onClick={() => setFilterColumnId(c.id)}
+            onClick={() => onFilterChange(c.id)}
             className={cn(
               "shrink-0 min-h-[44px] rounded-full border px-3 text-sm",
               filterColumnId === c.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground",

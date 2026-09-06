@@ -6,24 +6,19 @@
 // （API 側は `project_id`/`program_id`）。新規作成もそのままこの案件・番組に紐付ける
 // （フィルタで来ている時点で owner は決まっているので、選び直すダイアログは設けない）。
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, Plus, Calendar, X } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { DashboardHeader, EmptyState } from "@gmo-onair/shared/src/client/dashboard";
-import { notifyError } from "@/lib/notify";
 import * as scheduleApi from "@/lib/scheduleApi";
+import CreateScheduleDialog from "@/components/schedule/CreateScheduleDialog";
 
 export default function ScheduleListPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [createOpen, setCreateOpen] = useState(false);
-  const [title, setTitle] = useState("");
-  const [serviceDate, setServiceDate] = useState(() => new Date().toISOString().slice(0, 10));
 
   const projectFilter = searchParams.get("project");
   const programFilter = searchParams.get("program");
@@ -37,21 +32,6 @@ export default function ScheduleListPage() {
     }),
   });
 
-  const createMutation = useMutation({
-    mutationFn: () => scheduleApi.createSchedule({
-      title: title || "無題のスケジュール表",
-      service_date: serviceDate,
-      project_id: projectFilter || null,
-      program_id: programFilter || null,
-    }),
-    onSuccess: (row) => {
-      queryClient.invalidateQueries({ queryKey: ["schedules", "list"] });
-      setCreateOpen(false);
-      navigate(`/techops/schedules/${row.id}`);
-    },
-    onError: () => notifyError("スケジュール表を作れませんでした。", { description: "少し待ってから、もう一度お試しください。" }),
-  });
-
   const clearFilter = () => {
     const next = new URLSearchParams(searchParams);
     next.delete("project");
@@ -60,6 +40,9 @@ export default function ScheduleListPage() {
   };
 
   const filterLabel = (listQuery.data ?? []).find((s) => s.project_name || s.program_name);
+  const lockedOwner = (projectFilter || programFilter) && filterLabel
+    ? { projectId: projectFilter, programId: programFilter, label: filterLabel.project_name ?? filterLabel.program_name ?? "" }
+    : undefined;
 
   return (
     <div className="px-4 py-6 sm:px-6 sm:py-8">
@@ -122,24 +105,15 @@ export default function ScheduleListPage() {
         ))}
       </div>
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>スケジュール表を新しく作る</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="new-schedule-title">題</Label>
-              <Input id="new-schedule-title" value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1 min-h-[44px]" placeholder="例: 本番当日" />
-            </div>
-            <div>
-              <Label htmlFor="new-schedule-date">日付</Label>
-              <Input id="new-schedule-date" type="date" value={serviceDate} onChange={(e) => setServiceDate(e.target.value)} className="mt-1 min-h-[44px]" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button className="min-h-[44px]" disabled={createMutation.isPending} onClick={() => createMutation.mutate()}>作る</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateScheduleDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        lockedOwner={lockedOwner}
+        onCreated={(row) => {
+          queryClient.invalidateQueries({ queryKey: ["schedules", "list"] });
+          navigate(`/techops/schedules/${row.id}`);
+        }}
+      />
     </div>
   );
 }

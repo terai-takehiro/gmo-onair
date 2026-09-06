@@ -47,6 +47,8 @@ export default function SchedulePage() {
   const [aiOpen, setAiOpen] = useState(false);
   const [venueOpen, setVenueOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // スマホの列チップの絞り込み。「項目を追加」の既定列に使うため親に持ち上げてある（§3 A6）
+  const [mobileFilterColumnId, setMobileFilterColumnId] = useState<string | null>(null);
   // 列を足す／直す（ColumnDialog）。`column` が無ければ新規作成
   const [columnDialog, setColumnDialog] = useState<{ open: boolean; column: ScheduleColumn | null; group: ColGroup }>({ open: false, column: null, group: "venue" });
 
@@ -80,6 +82,14 @@ export default function SchedulePage() {
       setProductionNavContext({ scope: "program", id: data.program_id, label: null });
     }
   }, [detailQuery.data]);
+
+  // 列を削除したら絞り込みを外す（消えた列 id のまま残ると、
+  // フィルタチップが「すべて」に戻らず一覧が空のまま固まって見える）
+  useEffect(() => {
+    const cols = detailQuery.data?.columns;
+    if (!cols) return;
+    setMobileFilterColumnId((prev) => (prev && cols.some((c) => c.id === prev) ? prev : null));
+  }, [detailQuery.data?.columns]);
 
   if (!id) return null;
 
@@ -255,7 +265,7 @@ export default function SchedulePage() {
         primaryAction={
           <Button
             className="min-h-[44px]"
-            onClick={() => openCreate(schedule.columns[0]?.id ?? "", schedule.view_start_min)}
+            onClick={() => openCreate(mobileFilterColumnId ?? schedule.columns[0]?.id ?? "", schedule.view_start_min)}
             disabled={!hasColumns}
           >
             <Plus className="mr-1 h-4 w-4" aria-hidden="true" />項目を追加
@@ -296,6 +306,8 @@ export default function SchedulePage() {
             items={schedule.items}
             conflictedIds={queue.conflictedIds}
             onSelect={openEdit}
+            filterColumnId={mobileFilterColumnId}
+            onFilterChange={setMobileFilterColumnId}
           />
         ) : (
           <ScheduleGrid
