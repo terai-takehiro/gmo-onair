@@ -293,6 +293,14 @@ export const CLIENT_MOBILE_OK: string[] = [
   '/gpm/projects',                      // プロジェクト一覧（カードで並ぶ）
   '/gpm/tasks',                         // GPM のやること（読む＋消し込み）
   /*
+    ── コストダッシュボード（この回・2026-10 事業再編 P3）──
+    読むだけの画面（入力欄・設定は無い）。KPI カードは `grid-cols-1 sm:grid-cols-3`、
+    月次推移は横棒（幅%指定で自然に縮む）、案件別内訳は `Row stackOnMobile` ＋
+    `RowSlot hideOnMobile`（予算・実績・執行率を隠し、ステージと「残」だけ残す）
+    で、`/gpm/dashboard` `/gpm/projects` と同じ理由でそのまま開ける。
+  */
+  '/gpm/cost-dashboard',                 // コストダッシュボード（読むだけ）
+  /*
     ── ③ プロジェクト詳細（この回・2026-08・v4ネイティブUI化の監査の再検証）──
     7タブのうち概要・未確認事項・体制・議事録・書類は実装済みの `Row stackOnMobile`
     ／`hideOnMobile`／カードグリッドで375pxでも崩れないことを実測済み。見積は一覧の
