@@ -27,16 +27,14 @@ import { localDateStr } from '@/lib/format';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
-import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { EmptyState, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
-import { TaskDoneButton } from '@gmo-onair/shared/src/client-v4/taskDoneButton';
 import { useGpmOpenItems, useGpmTasks, useInvalidateGpm } from '../queries';
 import {
-  PHASE_STATE_LABEL, PHASE_STATE_TONE, dueLabel, dueTone, ymd,
+  PHASE_STATE_LABEL, ymd,
   type GpmOpenItem, type GpmTask, type OpenItemStatus,
 } from '../types';
 import { OpenItemRow, OpenItemRowsHeader } from './projectDetail/OpenItemRows';
@@ -44,6 +42,8 @@ import { OpenItemDialog } from './projectDetail/OpenItemDialog';
 import { MobileTaskTabs } from './taskList/MobileTaskTabs';
 import { TaskCards } from './taskList/TaskCards';
 import { OpenItemCards } from './taskList/OpenItemCards';
+import { FilterBar, sortTasks, type TaskSortKey } from './taskList/FilterBar';
+import { TaskRow, TaskRowsHeader } from './taskList/TaskRows';
 
 const CHIPS: { key: string; label: string; statuses: OpenItemStatus[] }[] = [
   { key: 'open', label: '停滞中', statuses: ['waiting', 'checking'] },
@@ -91,6 +91,16 @@ export default function GpmTaskListPage() {
   const [chip, setChip] = useState('open');
   const [editing, setEditing] = useState<GpmOpenItem | null>(null);
 
+  /**
+   * 検索欄と並び順（v4・一覧フォーマット統一 PR②・delta 21）。**タスクタブだけ**
+   * 持たせる（モックの比較対象もタスクタブ側だけ）。`GET /gpm/tasks` に
+   * 絞り込み用のクエリパラメータは無いので、どちらも手元の配列を画面で処理する
+   * だけ（サーバーには触れていない）。
+   */
+  const [taskSearch, setTaskSearch] = useState('');
+  const [taskSort, setTaskSort] = useState<TaskSortKey>('default');
+  const appliedTaskSearch = taskSearch.trim().toLowerCase();
+
   // **解決済みも含めて1回で取る。** 開いているタブだけ取ると、
   // 閉じているチップの件数が 0 のままになって数字が嘘になる
   const asks = useGpmOpenItems('all');
@@ -120,14 +130,23 @@ export default function GpmTaskListPage() {
     all: allTasks.length,
   }), [allTasks, today, isWeekDue]);
   const taskRows = useMemo(() => {
-    if (taskChip === 'all') return allTasks;
-    if (taskChip === 'done') return allTasks.filter((t) => t.is_completed);
-    if (taskChip === 'week') return allTasks.filter(isWeekDue);
-    if (taskChip === 'overdue') {
-      return allTasks.filter((t) => !t.is_completed && !!t.due_at && ymd(t.due_at)! < today);
+    let base: GpmTask[];
+    if (taskChip === 'all') base = allTasks;
+    else if (taskChip === 'done') base = allTasks.filter((t) => t.is_completed);
+    else if (taskChip === 'week') base = allTasks.filter(isWeekDue);
+    else if (taskChip === 'overdue') {
+      base = allTasks.filter((t) => !t.is_completed && !!t.due_at && ymd(t.due_at)! < today);
+    } else base = allTasks.filter((t) => !t.is_completed);
+
+    // **チップの件数（`taskCounts`）は検索の影響を受けない**（絞り込み中に
+    // 「12件しかないのはなぜ」を防ぐため、案件一覧のチップ件数と同じくチップの
+    // 軸だけで数える）。検索は最後に掛ける
+    if (appliedTaskSearch) {
+      base = base.filter((t) => t.title.toLowerCase().includes(appliedTaskSearch)
+        || t.project_name.toLowerCase().includes(appliedTaskSearch));
     }
-    return allTasks.filter((t) => !t.is_completed);
-  }, [allTasks, taskChip, today, isWeekDue]);
+    return sortTasks(base, taskSort);
+  }, [allTasks, taskChip, today, isWeekDue, appliedTaskSearch, taskSort]);
 
   const setDone = useMutation({
     mutationFn: (t: GpmTask) => api.put(`/gpm/tasks/${t.id}/done`, { done: !t.is_completed }),
@@ -175,6 +194,12 @@ export default function GpmTaskListPage() {
 
   return (
     <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
+      {/*
+        **見出しは左メニューと同じ「タスクと持ち帰り」**（v4・一覧フォーマット統一 PR②・
+        delta 20）。着手時点では「全プロジェクトのタスク」で押した先の名前と食い違って
+        いたが、並行して進んでいたメニュー名の食い違い調査（PR #590）で main 側が先に
+        直したため、この PR では main を取り込んだ結果として揃っている。
+      */}
       <PageHeader
         title="タスクと持ち帰り"
         sub={tasks.data
@@ -230,6 +255,8 @@ export default function GpmTaskListPage() {
             onChange={setTaskChip}
           />
 
+          <FilterBar search={taskSearch} onSearch={setTaskSearch} sort={taskSort} onSort={setTaskSort} />
+
           {tasks.isError ? (
             <ErrorPanel title="タスクを読み込めませんでした" onRetry={() => tasks.refetch()} />
           ) : tasks.isLoading ? (
@@ -237,7 +264,7 @@ export default function GpmTaskListPage() {
           ) : taskRows.length === 0 ? (
             <EmptyState
               icon={<ListTodo className="h-6 w-6" aria-hidden="true" />}
-              title={taskChip === 'open' ? '未対応のタスクはありません' : '条件に合うタスクはありません'}
+              title={taskChip === 'open' && !appliedTaskSearch ? '未対応のタスクはありません' : '条件に合うタスクはありません'}
               description="工程テンプレートからプロジェクトを作成すると、工程の下にタスクが日付付きで入ります。"
             />
           ) : isMobile ? (
@@ -250,64 +277,18 @@ export default function GpmTaskListPage() {
             />
           ) : (
             <div className="overflow-hidden rounded-card border border-border bg-card">
-              <RowHeader className="hidden sm:flex">
-                <RowMain>タスク ／ プロジェクト</RowMain>
-                <RowSlot w={128}>工程</RowSlot>
-                <RowSlot w={96}>担当</RowSlot>
-                <RowSlot w={96}>期限</RowSlot>
-                {canEdit && <RowSlot w={128} align="center">対応</RowSlot>}
-              </RowHeader>
-              {taskRows.map((t) => {
-                const due = ymd(t.due_at);
-                return (
-                  <Row key={t.id} divider stackOnMobile className={cn(t.is_completed && 'opacity-60')}>
-                    <RowMain>
-                      <RowTitle className={cn(t.is_completed && 'line-through')}>{t.title}</RowTitle>
-                      <RowSub>
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/gpm/projects/${t.project_id}`)}
-                          /* 文中のリンクは **行の高さを変えずに当たり判定だけ広げる**（M10）。
-                             素で高さを足すと行送りが崩れる */
-                          className="inline-block py-[13px] -my-[13px] text-primary hover:underline"
-                        >
-                          {t.project_name}
-                        </button>
-                      </RowSub>
-                    </RowMain>
-                    {/* **工程に付いていないタスクもある** (migration 179)。
-                        枠は残す — 値が無い行だけ列が詰まると桁がずれる */}
-                    <RowSlot w={128} hideOnMobile placeholder="工程なし">
-                      {t.phase_state && t.phase_label ? (
-                        <span className={cn('text-badge rounded-badge px-1.5 py-0.5 truncate', PHASE_STATE_TONE[t.phase_state])}>
-                          {t.phase_label}
-                        </span>
-                      ) : null}
-                    </RowSlot>
-                    <RowSlot w={96} hideOnMobile>
-                      <span className="truncate text-sub-sm text-muted-foreground">{t.assigned_to_name ?? '—'}</span>
-                    </RowSlot>
-                    <RowSlot w={96} className={cn('text-sub font-number', t.is_completed ? 'text-muted-foreground' : dueTone(due, today))}>
-                      {dueLabel(due, today)}
-                    </RowSlot>
-                    {/*
-                      片づける操作は**文字のボタン**にする（18px の四角は
-                      「押すと何が起きるか」が読み取れなかった）。列は 7段の 128px
-                    */}
-                    {canEdit && (
-                      <RowSlot w={128} align="center">
-                        <TaskDoneButton
-                          done={t.is_completed}
-                          onToggle={() => setDone.mutate(t)}
-                          taskTitle={t.title}
-                          disabled={setDone.isPending}
-                          size="sm"
-                        />
-                      </RowSlot>
-                    )}
-                  </Row>
-                );
-              })}
+              <TaskRowsHeader canEdit={canEdit} />
+              {taskRows.map((t) => (
+                <TaskRow
+                  key={t.id}
+                  t={t}
+                  today={today}
+                  canEdit={canEdit}
+                  onToggleDone={(row) => setDone.mutate(row)}
+                  togglePending={setDone.isPending}
+                  onOpenProject={(projectId) => navigate(`/gpm/projects/${projectId}`)}
+                />
+              ))}
             </div>
           )}
 
