@@ -15,11 +15,10 @@ import { initQsheetSocketIO } from './contexts/qsheet/socket';
 import { initProjectCollabSocketIO } from './contexts/sales/collab-socket';
 import { initLiveopsSocketIO, initLiveopsServices } from './contexts/liveops';
 import { initIcsSyncPoller, shutdownIcsSyncPoller, initGoogleSyncPoller, shutdownGoogleSyncPoller, initMsSyncPoller, shutdownMsSyncPoller } from './contexts/schedule';
-import { initAwardsSocketIO } from './contexts/awards';
 import { initGraphicsSocketIO, initGraphicsInteractivePoller, shutdownGraphicsInteractivePoller } from './contexts/graphics';
-import { initQuizSocketIO, initInteractivePoller, shutdownInteractivePoller } from './contexts/quiz';
-// awards (リアルタイムCG) / quiz は「凍結」相当に戻した (2026-08-25)。Socket.IO・ポーラーも生かす
-// (client-awards/CLAUDE.md 参照)
+// awards (旧リアルタイムCG) / quiz の Socket.IO・ポーラーは段F で「廃止」にした (2026-09-06・
+// client-awards/CLAUDE.md 参照)。過去実績データ (awards_events 等) は残っており、
+// テロップCGの移行ツール (AwardsMigrationPage・graphics コンテキスト) がそのまま読む
 
 async function main() {
   await initDb();
@@ -99,11 +98,8 @@ async function main() {
   initQsheetSocketIO(io);
   initProjectCollabSocketIO(io);
   initLiveopsSocketIO(io);
-  initAwardsSocketIO(io);
   initGraphicsSocketIO(io);
   initGraphicsInteractivePoller(io);  // 段6-7: テロップCG 投票の外部インタラクティブ得票反映（quiz向けとは別インスタンス）
-  initQuizSocketIO(io);
-  initInteractivePoller(io);
   initIcsSyncPoller();        // v2.9.186: マイカレンダーの ICS 購読同期 (Outlook/Google → ONAiR)
   initGoogleSyncPoller();     // v2.9.190: マイカレンダーの Google OAuth 同期 (Google → ONAiR)
   initMsSyncPoller();         // v2.9.191: マイカレンダーの Outlook OAuth 同期 (Microsoft → ONAiR)
@@ -119,7 +115,6 @@ async function main() {
   process.on('SIGTERM', () => {
     shutdownSocketIO();
     shutdownGraphicsInteractivePoller();
-    shutdownInteractivePoller();
     shutdownIcsSyncPoller();
     shutdownGoogleSyncPoller();
     shutdownMsSyncPoller();

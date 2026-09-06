@@ -10,6 +10,11 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { uploadAwardsImageToBox, restoreAwardsImageFromBox } from '../services/awards-box.service';
 
 const router = Router();
+// 読み取り専用の画像配信だけの部分ルーター（段F・レビュー指摘対応）。
+// `createAwardsRoutes()` を丸ごと外した後も、`imageServingRouter` だけは
+// `contexts/awards/index.ts` の `createAwardsImageRoutes` から生かす
+// （下記「Static image serving」ブロック参照）。
+const imageServingRouter = Router();
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
   (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
 
@@ -32,13 +37,13 @@ function detectExt(buf: Buffer): string | null {
 }
 
 // Static image serving (no auth required for CG output)
-router.use('/images', (req, _res, next) => {
+imageServingRouter.use('/images', (req, _res, next) => {
   if (req.path.includes('..')) return next(new AppError(400, 'BAD_REQUEST', 'invalid path'));
   next();
 });
 // ローカルキャッシュにファイルが無ければ BOX からの復元を試みる (v2.8.50+)
 // volume 障害や手動削除などでローカルが空でも、BOX に mirror があれば自動回復する。
-router.use('/images', wrap(async (req, _res, next) => {
+imageServingRouter.use('/images', wrap(async (req, _res, next) => {
   const filename = path.basename(req.path);
   if (!filename || filename === '/') return next();
   const localPath = path.join(UPLOAD_DIR, filename);
@@ -56,7 +61,10 @@ router.use('/images', wrap(async (req, _res, next) => {
   if (!ok) return next();
   next();
 }));
-router.use('/images', express.static(UPLOAD_DIR, { maxAge: '7d' }));
+imageServingRouter.use('/images', express.static(UPLOAD_DIR, { maxAge: '7d' }));
+
+// `router`（`createAwardsRoutes()`用）は読み取り専用の配信もそのまま含む
+router.use(imageServingRouter);
 
 // ── 顔写真アップロード ──────────────────────────────────────
 router.post(
@@ -141,3 +149,4 @@ router.post(
 );
 
 export default router;
+export { imageServingRouter };

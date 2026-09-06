@@ -298,7 +298,7 @@ graphics.md §2 の思想（部品＝描画＋フィールド＋アニメ＋専�
 | C | ✅ **実装済み（2026-09-06）** コーナー・台本から取り込む・台本と違いますバッジ（§9 1〜2） | `section`・`qsheet_doc_id`・`qsheet_row_id`（migration 282） | 新規 |
 | D | ✅ **実装済み（2026-09-06）** 依頼の改修（台本の項目から選ぶ）・スマホ閲覧（⑤⑥） | なし | |
 | E | ✅ **実装済み（2026-09-06）** 本番で追従（§9 3）・前の番組からコピー | `follow_script`（migration 283） | Socket `/techops` の `cue:*` を読む |
-| F | 旧 `/awards` の畳み込み（実行の承認は §12-5 で取得済み。**段A〜E を検証環境で1本通してから**実行する） | — | [migration-plan §4 段6-9](graphics-awards-migration-plan.md) |
+| F | ✅ **実装済み（2026-09-06）** 旧 `/awards` の畳み込み（実行の承認は §12-5 で取得済み。段A〜E を検証環境で確認してから実行した） | — | [migration-plan §4 段6-9](graphics-awards-migration-plan.md) |
 
 段A・B は既存の部品を並べ替える作業で、レンダラー・API はそのまま使う。
 
@@ -590,6 +590,53 @@ graphics.md §2 の思想（部品＝描画＋フィールド＋アニメ＋専�
   トースト表示→コピー先DBへの反映も実ブラウザで確認した。
   **未検証**: 実機でのタップ操作・権限別403表示の画面確認（APIレベルでは確認済み）。
 
+### 段F 実装メモ（2026-09-06・旧 `/awards` の畳み込み）
+
+段A〜Eが検証環境（dev.gmo-onair.jp）で1本通ることをユーザーに確認いただいたのを受けて実行。
+`client-awards/CLAUDE.md`が既に持っていた「さらに廃止に戻したいとき」の手順（過去に一度
+廃止→凍結を辿った実績があるため、正確な手順が記録として残っていた）をそのまま逆向きに適用した。
+
+- **削除した配線（3箇所・コードは残す）**: `server/src/app.ts`の`serveApp('/awards', …)`、
+  `server/src/routes/index.ts`の`createAwardsRoutes()`/`createQuizRoutes()`、
+  `server/src/index.ts`の`initAwardsSocketIO()`/`initQuizSocketIO()`/`initInteractivePoller()`
+  （起動時呼び出し・シャットダウン時呼び出しの両方）。`contexts/awards/`・`contexts/quiz/`
+  自体のファイルは削除していない——`contexts/graphics/`（テロップCG）は投票の外部連携用
+  ポーラー（`initGraphicsInteractivePoller`）を含め完全に独立した実装であることを事前に
+  確認済みのため、この撤去による影響はない。
+- **Dockerfile**: `build-client-awards`ステージとproductionステージへの`COPY`を削除。
+  `manifests`/`deps`ステージの`client-awards/package.json`関連行は**削除していない**——
+  `client-awards`はワークスペースとして残る（コード保存ポリシー）ため`npm ci --workspaces`が
+  引き続きこのpackage.jsonを必要とする。
+- **`shared/src/client/apps.ts`**: エントリ自体（`path`/`permissionModule`/`frozen: true`）は
+  前回の廃止時と同じく触っていない。コメントと`description`文言だけ「移行中」→「廃止」に更新。
+- **意図して変更しなかったもの**: `seedAwards()`の起動時呼び出し（検証/開発環境のみ・
+  本番は`SKIP_SEED=true`で無効）——「廃止」の定義は到達可能性（配信・API・ビルド・入口）の
+  話であり、シードデータの投入とは無関係。むしろ`awards_events`にダミーデータが入っている
+  ことは、移行ツール（`AwardsMigrationPage.tsx`）の検証環境での動作確認に有用なため残した。
+  `scripts/check-frozen-css.mjs`・`verify-ui.mjs`・`check-links.mjs`等の検査スクリプトは
+  変更不要だった——過去の廃止時期に書かれた「廃止済み」というコメント・除外設定が、
+  その後の凍結への巻き戻し時に更新されないまま残っており、今回の実行によって偶然
+  正しい記述に戻った（`check-file-size.mjs`・`check-shared-wiring.mjs`・`build-changed.mjs`は
+  「凍結アプリ」という別の枠組みで既に`client-awards`を除外扱いしており、これも変更不要）。
+- **本番の実データ移行は実行していない（スコープ外）**: 本番`awards_events`等に実データが
+  入っているかどうか自体、本番へ直接アクセスできないこの環境からは判定できない。
+  移行ツール自体は段6-9で実装・検証用Postgresでの動作確認済みだが、本番へ向けて実際に
+  実行する判断と操作は、system_admin権限を持つ利用者が本番アプリ上で行う運用上の作業として
+  残っている（`AwardsMigrationPage.tsx`のコード内コメントに元々明記されていた既定方針を継承）。
+- **検証**: `npx tsc --noEmit -p server`・`npm run typecheck:all`・`npm run lint`（0 errors。
+  `check-migration-numbers`含む全チェック通過）・`shared`のVitest 2112件、加えて`verify:up`の
+  Postgresに対し実サーバー（`tsx src/index.ts`）を起動して確認: ①`/api/v1/internal/awards/events`
+  が404（APIルートが本当に外れている）、②`/api/v1/internal/graphics/projects`は認証なしで401・
+  `v-admin`で200（テロップCG自体は無傷）、③`/api/v1/internal/graphics/awards-migration/events`が
+  `v-admin`で200（移行ツールが`client-awards`の配信停止後も独立して動くことを実証）、
+  ④`client`をビルドしたうえで`/awards/`を叩くと**文字通りのHTTP 404ではなく**、案件管理アプリの
+  SPAシェルへフォールバック（200・`/`と同一の`index.html`）した後、そのクライアント側ルーターの
+  catch-all（`<Navigate to="/" replace />`）が即座に`/`へ戻すことを確認した（`check-links.mjs`が
+  想定していた「黙ってホームに戻る壊れリンク」どおりの挙動。当初「404になる」と書いていた
+  ドキュメント側の記述をこの実測に合わせて訂正した）。**未検証**: `npm run build`（サーバー・
+  テロップCG以外の全クライアントのフルビルド）、実ブラウザでの他画面（権限管理・
+  データビューア等）への影響確認。
+
 ## 12. 決まったこと（2026-09-06 ユーザー回答）
 
 1. **本番モードの「未確認」の扱い → TAKE 可能（△警告のみ・止めない）。** モックのまま確定。
@@ -613,13 +660,17 @@ graphics.md §2 の思想（部品＝描画＋フィールド＋アニメ＋専�
    この承認は記録済みなので、段F（畳み込み）の実行時に改めて確認を取り直す必要はない
    （[§13](#13-旧アプリ移行中の扱い)・[段F](#11-実装の段取りモック確定後段ごとに別-pr)参照）
 
-## 13. 旧アプリ（移行中）の扱い
+## 13. 旧アプリ（廃止）の扱い
 
-- `client-awards/` は「移行中」。URL・API・配信は生かし、新しい機能は足さない
+- `client-awards/` は段F（2026-09-06）で「廃止」にした。URL・API・配信・ビルド対象・
+  画面上の入口はすべて外した。コードは今後の参照のためリポジトリに残す
 - アワード固有の演出（段階発表・Final Pitch・Celebration・演出SE・外部投票）は既にこのエンジンの
   `ranking`／`vote` 種類へ移植済み（[migration-plan](graphics-awards-migration-plan.md) 段6-5〜6-7）。
-  本再設計はそれらの**置き場と操作**を変えるだけで、演出の実装には触らない
-- 過去実績データの移行ツールは設定「連携」タブの管理者項目として残す。実行の判断はユーザー
-- **畳み込み（「移行中」→「廃止」）は§12-5でユーザーの承認を取得済み。** 「移行中」という状態は
-  期限のない待機ではなく、**段A〜E の実装が終わり検証環境で確認できた時点で畳む、と決まっている**
-  終着駅つきの状態——実装が追いつくのを待っているだけで、判断待ちではない
+  本再設計はそれらの**置き場と操作**を変えただけで、演出の実装には触っていない
+- 過去実績データの移行ツール（`AwardsMigrationPage.tsx`）は設定「連携」タブの管理者項目として
+  残っている。`client-awards`の配信を止めても、このツールはDBの`awards_*`テーブルを
+  直接読む独立した実装のため影響を受けない。**本番の実データへ向けて実際に実行する判断と
+  操作**は、本番へ直接アクセスできないこの環境のスコープ外であり、system_admin権限を持つ
+  利用者が本番アプリ上で行う
+- **畳み込み（「移行中」→「廃止」）は§12-5でユーザーの承認を取得済みで、2026-09-06に実行した。**
+  段A〜E の実装が終わり検証環境で確認できた時点で畳む、と決まっていた終着駅どおりに進めた
