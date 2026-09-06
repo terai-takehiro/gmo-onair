@@ -34,9 +34,7 @@ import type { Minutes, MinutesPatch } from './types';
  */
 export interface MinutesTrack {
   markKey: 'task_id' | 'ask_id';
-  /** この下書きの項目を呼ぶ名前（見出し・空表示・「同じ◯◯からは〜」に使う）。
-   * Codexレビュー指摘（PR #594）: ここが無いとカードの見出しが常に「未解決事項」
-   * 固定になり、GPM 側では「持ち帰り」タブを開いているのに違う名前が出ていた */
+  /** この下書きの項目を呼ぶ名前（見出し・空表示・「同じ◯◯からは〜」に使う） */
   itemNoun: string;
   label: string;
   doneLabel: string;
