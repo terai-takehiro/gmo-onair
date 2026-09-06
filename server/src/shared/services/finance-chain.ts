@@ -1,5 +1,5 @@
 /**
- * 受領書類の段と支払サイト — **サーバー側の写し**（migration 280）
+ * 受領書類の段と支払サイト — **サーバー側の写し**（migration 281）
  *
  * ⚠️ **サーバーは `shared/`（ルートの `@gmo-onair/shared`）を import できません**
  * （`server/tsconfig.json` の `rootDir: "./src"`）。画面側は

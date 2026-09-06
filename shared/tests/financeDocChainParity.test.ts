@@ -1,5 +1,5 @@
 /**
- * **受領書類の計算は2か所にある — 同じであることを固定する**（migration 280）
+ * **受領書類の計算は2か所にある — 同じであることを固定する**（migration 281）
  *
  * サーバーは `shared/`（`@gmo-onair/shared`）を import できないため
  * （`server/tsconfig.json` の `rootDir: "./src"`）、段の判定と支払サイトの計算が

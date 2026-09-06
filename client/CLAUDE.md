@@ -153,7 +153,7 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに5つの「入�
 - **`estimates` の `project_id`（案件）と `gpm_project_id`（GPM）は CHECK で排他。**
   版を作るときは両方の行き先と提出先を写す。請求の一覧は `status='confirmed'` かつ
   `group_id IS NULL`（按分の親行を二重に数えない）
-- **受領書類は「1通」ではなく「1つの取引」が単位**（migration 280）。段（見積書のみ/発注済み/
+- **受領書類は「1通」ではなく「1つの取引」が単位**（migration 281）。段（見積書のみ/発注済み/
   請求書あり）・払う金額・台帳へ渡せるかは `shared/src/utils/financeDocChain.ts` が決める。
   **サーバーにも同じ計算がある**（`server/src/shared/services/finance-chain.ts`。サーバーは
   `shared` を import できない）ので、**片方だけ直すと画面が出す支払期日と台帳に入る期日が

@@ -41,7 +41,7 @@ export interface FinanceDocInput {
   /** メール本文の全文。**切り詰めない** — AI がどこを読み違えたかを後から確かめるため */
   body_text?: string | null;
 
-  // ── migration 280: ひとつづり / 当て先 / 添付 ──────────────
+  // ── migration 281: ひとつづり / 当て先 / 添付 ──────────────
   /** 束（見積書→発注書→請求書）。渡さなければ取込時に1つ作る */
   group_id?: string | null;
   /** 束ね直しの鍵（見積番号・取引先＋件名など）。同じ鍵なら同じ束に入る */
@@ -91,7 +91,7 @@ const FD_COLS = `d.id, d.doc_type, d.sender, d.subject, d.content, d.amount, d.c
   d.linked_kind, d.linked_id,
   -- 160: AI が組み立てた「読める形」の中身と、メール本文の全文
   d.details, d.body_text,
-  -- 280: ひとつづり（束）と当て先。**片側だけだと「どの案件の何番目の書類か」が読めない**
+  -- 281: ひとつづり（束）と当て先。**片側だけだと「どの案件の何番目の書類か」が読めない**
   d.group_id, d.project_id, d.project_source, d.project_confidence, d.project_reason,
   d.expense_kind, d.expense_kind_source, d.vendor_name,
   d.payment_terms_days, d.processing_month, d.doc_no, d.revision,
@@ -178,7 +178,7 @@ export const financeDocService = {
     if (filter.status) { assertIn(filter.status, FINANCE_DOC_STATUSES, 'status'); conds.push('d.status = ?'); params.push(filter.status); }
     if (filter.doc_type) { assertIn(filter.doc_type, FINANCE_DOC_TYPES, 'doc_type'); conds.push('d.doc_type = ?'); params.push(filter.doc_type); }
     /*
-      ⚠️ **見積書（quote）を一覧から外すのはやめました**（migration 280・2026-09 のご指示）。
+      ⚠️ **見積書（quote）を一覧から外すのはやめました**（migration 281・2026-09 のご指示）。
 
       以前は「実際に台帳へ入るのは請求書・注文書だけ」という理由で既定の一覧から
       外していましたが、実際の取引は **見積書 → 発注書 → 請求書** と段を踏み、
@@ -221,7 +221,7 @@ export const financeDocService = {
   /** 未処理件数 (アラート用): processed / rejected 以外 */
   async pendingCount(): Promise<number> {
     // **list() と同じ条件**。ここだけ揃え忘れると、ホームのバッジと画面の件数が
-    // 食い違う（280 で見積書も数えるようにした — 一覧に出るのに数えないと
+    // 食い違う（281 で見積書も数えるようにした — 一覧に出るのに数えないと
     // 「0件」と出ている画面に行が並ぶ）
     const row = await queryOne(
       `SELECT COUNT(*) AS c FROM finance_docs
@@ -242,7 +242,7 @@ export const financeDocService = {
       if (dup) return { row: await this.update(String(dup.id), input), action: 'updated' };
     }
     /*
-      ── 束（ひとつづり）に入れる（migration 280）──────────────
+      ── 束（ひとつづり）に入れる（migration 281）──────────────
 
       **1通ずつ並べると「この請求書はどの見積の続きか」が読めません。**
       取込のたびに束を用意し、`group_key` が同じなら**同じ束に入れます**。
@@ -306,7 +306,7 @@ export const financeDocService = {
     const existing = await queryOne(`SELECT * FROM finance_docs WHERE id = ? AND deleted_at IS NULL`, [id]);
     if (!existing) throw new AppError(404, 'NOT_FOUND', '書類が見つかりません');
     /*
-      ⚠️ **仕入・販管費に登録済みの書類の中身は直せない**（migration 280）。
+      ⚠️ **仕入・販管費に登録済みの書類の中身は直せない**（migration 281）。
 
       直せてしまうと、**台帳に載っている金額と書類の金額が食い違い**、
       どちらが正しいのか誰にも分からなくなります（台帳側は直りません）。
@@ -358,7 +358,7 @@ export const financeDocService = {
     }
     if (input.requested_by !== undefined && input.requested_by !== null) set('requested_by', input.requested_by);
     /*
-      ── 人が直せる項目（migration 280）────────────────────────
+      ── 人が直せる項目（migration 281）────────────────────────
 
       **案件の付け替えは `project_source='human'` に変える。** 変えないと、
       人が直した行が「AI が当てた」ままになり、`ai_corrections` の

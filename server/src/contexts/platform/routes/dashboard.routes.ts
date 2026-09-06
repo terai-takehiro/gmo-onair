@@ -100,7 +100,7 @@ router.get('/inbox', requireAuth, requireAnyPermission(['sales', 'dailyops']), a
    */
   const INQUIRY_BASE = `FROM misc_inquiries i WHERE i.deleted_at IS NULL AND ${DESK_COND}`;
   /*
-    ⚠️ **見積書（quote）を外すのはやめました**（migration 280・2026-09 のご指示）。
+    ⚠️ **見積書（quote）を外すのはやめました**（migration 281・2026-09 のご指示）。
 
     以前は「台帳に入るのは請求書・注文書だけ」という理由でここから外していましたが、
     実際の取引は 見積書 → 発注書 → 請求書 と段を踏み、「見積を取ったが発注しなかった」

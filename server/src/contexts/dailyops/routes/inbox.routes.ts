@@ -77,7 +77,7 @@ router.delete('/finance-docs/:id', ...docsEdit, async (req, res) => {
   res.json({ success: true, data: { deleted: true } });
 });
 
-// ── ひとつづり（見積書 → 発注書 → 請求書）── migration 280 ─────
+// ── ひとつづり（見積書 → 発注書 → 請求書）── migration 281 ─────
 /**
  * 束の一覧。**中の書類と添付までまとめて返す。**
  *

@@ -51,7 +51,7 @@ export interface FinanceDoc {
   created_at: string;
   updated_at: string;
 
-  // ── migration 280: ひとつづり / 当て先 / 添付 ──────────────
+  // ── migration 281: ひとつづり / 当て先 / 添付 ──────────────
   group_id: string | null;
   group_title: string | null;
   group_key: string | null;
@@ -105,7 +105,7 @@ export type ChainStage = 'quote_only' | 'ordered' | 'invoiced' | 'empty';
  * ひとつづり（1つの取引）。**画面はこれを1行として出す。**
  *
  * 1通ずつ並べると「この請求書はどの見積の続きか」が読めず、
- * 経理が毎回メールを探し直すことになる（migration 280 の狙い）。
+ * 経理が毎回メールを探し直すことになる（migration 281 の狙い）。
  */
 export interface FinanceDocGroup {
   id: string;

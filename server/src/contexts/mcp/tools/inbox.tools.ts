@@ -56,7 +56,7 @@ export function registerInboxTools(server: McpServer): void {
         gls_number: z.string().optional().describe('関連案件の GLS 番号 (分かれば)'),
         notes: z.string().optional(),
         message_id: z.string().optional().describe('メールの Message-ID (重複取込ガード)'),
-        // ── migration 280: ひとつづり / 当て先 / 添付 ──────────────
+        // ── migration 281: ひとつづり / 当て先 / 添付 ──────────────
         group_key: z.string().max(200).optional()
           .describe('同じ取引を束ねる鍵 (見積番号・「取引先名:件名」など)。見積書→発注書→請求書を1つの取引にまとめる。渡さないと1通で1つの束になる'),
         group_title: z.string().max(200).optional().describe('束の題名 (何の取引か)。渡さなければ件名を使う'),
@@ -102,7 +102,7 @@ export function registerInboxTools(server: McpServer): void {
         source: 'email', message_id: args.message_id ?? null,
         details: args.details, body_text: args.body_text ?? null,
         requested_by: args.requested_by ?? null, created_by: currentActorId(),
-        // migration 280: ひとつづり・当て先・添付
+        // migration 281: ひとつづり・当て先・添付
         group_key: args.group_key ?? null, group_title: args.group_title ?? null,
         vendor_name: args.vendor_name ?? null, project_hint: args.project_hint ?? null,
         project_source: 'ai',
