@@ -24,7 +24,16 @@ const SELECT_BASE = `
          p.name AS project_name, p.gls_number,
          pr.name AS program_name,
          (SELECT COUNT(*)::int FROM qsheet_schedule_items i WHERE i.schedule_id = s.id AND i.deleted_at IS NULL) AS item_count,
-         (SELECT COUNT(*)::int FROM qsheet_schedule_shares sh WHERE sh.schedule_id = s.id) AS share_count
+         (SELECT COUNT(*)::int FROM qsheet_schedule_shares sh WHERE sh.schedule_id = s.id) AS share_count,
+         -- 案件メンバー＋主担当の人数（自動で見える人数・14-schedule-v2-plan.md §3-2）。
+         -- 番組の表は project_id が無いので常に NULL（明示共有だけ・画面はこの列を出さない）
+         (CASE WHEN s.project_id IS NULL THEN NULL ELSE (
+           SELECT COUNT(*)::int FROM (
+             SELECT pm.user_id FROM project_members pm WHERE pm.project_id = s.project_id AND pm.deleted_at IS NULL AND pm.user_id IS NOT NULL
+             UNION
+             SELECT pj.assigned_to FROM projects pj WHERE pj.id = s.project_id
+           ) member_ids
+         ) END) AS project_member_count
   FROM qsheet_schedules s
   LEFT JOIN users u ON s.created_by = u.id
   LEFT JOIN studio_locations l ON s.location_id = l.id
@@ -52,8 +61,11 @@ export async function listSchedules(user: AccessUser, filter: ListFilter): Promi
   let i = 1;
 
   if (!isQsheetAdmin(user)) {
+    // 案件メンバー・主担当は自動で見える（§3-2）。番組は project_id が無いので対象外のまま
     sql += ` AND (s.created_by = $${i} OR EXISTS (
-               SELECT 1 FROM qsheet_schedule_shares sh WHERE sh.schedule_id = s.id AND sh.user_id = $${i}))`;
+               SELECT 1 FROM qsheet_schedule_shares sh WHERE sh.schedule_id = s.id AND sh.user_id = $${i})
+             OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = s.project_id AND pm.user_id = $${i} AND pm.deleted_at IS NULL)
+             OR EXISTS (SELECT 1 FROM projects pj WHERE pj.id = s.project_id AND pj.assigned_to = $${i}))`;
     params.push(user.id);
     i++;
   }
@@ -201,6 +213,18 @@ export async function deleteSchedule(id: string, user: AccessUser): Promise<void
     throw new ForbiddenError('このスケジュール表を削除する権限がありません');
   }
   await execute('UPDATE qsheet_schedules SET deleted_at = NOW(), updated_by = $1 WHERE id = $2', [user.id, id]);
+}
+
+/** 明示共有の一覧（案件メンバーは含まない・§3-2 は動的判定のため一覧に写らない） */
+export async function getShares(id: string): Promise<Row[]> {
+  return queryAll(
+    `SELECT s.user_id, u.name, u.email
+     FROM qsheet_schedule_shares s
+     LEFT JOIN users u ON s.user_id = u.id
+     WHERE s.schedule_id = $1
+     ORDER BY u.name`,
+    [id],
+  );
 }
 
 export async function setShares(id: string, userIds: unknown, actingUserId: string): Promise<number> {

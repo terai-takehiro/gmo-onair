@@ -4,9 +4,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, ArrowLeft, LayoutTemplate, Download, Plus, Sparkles, Columns3 } from "lucide-react";
+import { Loader2, ArrowLeft, LayoutTemplate, Download, Plus, Sparkles, Columns3, Settings } from "lucide-react";
 import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { confirmAction } from "@gmo-onair/shared/src/client/ui/confirm";
+import { Badge } from "@gmo-onair/shared/src/client/ui/badge";
 import EventPlanDialog from "@/components/ai/EventPlanDialog";
 import { Button } from "@/components/ui/button";
 import { notifyError, notifySuccess } from "@/lib/notify";
@@ -14,6 +15,7 @@ import api from "@/lib/api";
 import * as scheduleApi from "@/lib/scheduleApi";
 import { isConflict } from "@/lib/scheduleApi";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useAuth } from "@/hooks/useAuth";
 import { setProductionNavContext } from "@/lib/productionNavContext";
 import type { ColGroup } from "@gmo-onair/shared/src/schedule/kinds";
 import type { ScheduleColumn, ScheduleItem } from "@gmo-onair/shared/src/schedule/types";
@@ -24,8 +26,10 @@ import ApplyTemplateDialog from "@/components/schedule/ApplyTemplateDialog";
 import ColumnDialog from "@/components/schedule/ColumnDialog";
 import VenueColumnsDialog from "@/components/schedule/VenueColumnsDialog";
 import ScheduleEmptyState from "@/components/schedule/ScheduleEmptyState";
+import ScheduleSettingsDialog from "@/components/schedule/ScheduleSettingsDialog";
 import MoreMenu from "@/components/schedule/MoreMenu";
 import useItemCommitQueue from "@/components/schedule/useItemCommitQueue";
+import { SCHEDULE_STATUS_LABEL, SCHEDULE_STATUS_BADGE_VARIANT } from "@/components/schedule/scheduleStatus";
 
 const POLL_MS = 15000;
 
@@ -34,6 +38,7 @@ export default function SchedulePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isMobile = useMediaQuery("(max-width: 1023px)");
+  const { currentUser } = useAuth();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ScheduleItem | null>(null);
@@ -41,12 +46,13 @@ export default function SchedulePage() {
   const [applyOpen, setApplyOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [venueOpen, setVenueOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   // 列を足す／直す（ColumnDialog）。`column` が無ければ新規作成
   const [columnDialog, setColumnDialog] = useState<{ open: boolean; column: ScheduleColumn | null; group: ColGroup }>({ open: false, column: null, group: "venue" });
 
   const queue = useItemCommitQueue();
   // 列・表の設定を開いている間もポーリングを止める（書きかけを上書きしないため・§4-3）
-  const anySheetOpen = dialogOpen || columnDialog.open || venueOpen;
+  const anySheetOpen = dialogOpen || columnDialog.open || venueOpen || settingsOpen;
 
   const detailQuery = useQuery({
     queryKey: ["schedule", id],
@@ -113,6 +119,17 @@ export default function SchedulePage() {
   };
   // 列を消すと中の項目も消える（件数が動く）ので、列の変更は一覧・ハブまで読み直す
   const refetchAfterColumns = () => { refetchDetail(); refetchBreakdown(); refetchListsAndHub(); };
+  // 表の設定は案件/番組そのものを付け替えられる。旧・新どちらのハブが古くなるか
+  // 事前には分からないので、ジャーニー全体を読み直す（表の設定はそう何度も開かない操作）
+  const refetchAfterSettings = () => {
+    refetchDetail();
+    queryClient.invalidateQueries({ queryKey: ["schedules", "list"] });
+    queryClient.invalidateQueries({ queryKey: ["qsheet-journey"] });
+  };
+  const handleDeleted = () => {
+    queryClient.invalidateQueries({ queryKey: ["schedules", "list"] });
+    navigate("/techops/schedules");
+  };
 
   const handleSave = async (draft: ItemDraft) => {
     const body = {
@@ -223,9 +240,17 @@ export default function SchedulePage() {
         <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />一覧へ
       </Button>
 
-      {/* 主＝項目を追加（PC は右上・スマホは下端）。作る系（ひな形・AI）・Excel・列は「…」へ（§4-2 (b)） */}
+      {/* 主＝項目を追加（PC は右上・スマホは下端）。設定は副ボタン、作る系（ひな形・AI）・
+          Excel・列は「…」へ（§4-2 (b)） */}
       <PageHeader
-        title={`${schedule.service_date} ${schedule.title}`}
+        title={
+          <span className="inline-flex flex-wrap items-center gap-2">
+            {schedule.service_date} {schedule.title}
+            <Badge variant={SCHEDULE_STATUS_BADGE_VARIANT[schedule.status]}>
+              {SCHEDULE_STATUS_LABEL[schedule.status]}
+            </Badge>
+          </span>
+        }
         sub={subParts.length > 0 ? subParts.join(" ・ ") : undefined}
         primaryAction={
           <Button
@@ -237,6 +262,9 @@ export default function SchedulePage() {
           </Button>
         }
       >
+        <Button variant="outline" size="sm" className="min-h-[44px]" onClick={() => setSettingsOpen(true)}>
+          <Settings className="mr-1 h-4 w-4" aria-hidden="true" />表の設定
+        </Button>
         <MoreMenu
           items={[
             { label: "列を足す", icon: <Columns3 />, onSelect: () => openAddColumn(schedule.columns[schedule.columns.length - 1]?.col_group ?? "venue") },
@@ -306,6 +334,16 @@ export default function SchedulePage() {
         initialGroup={columnDialog.group}
         itemCount={columnDialog.column ? itemCountOf(columnDialog.column.id) : 0}
         onChanged={refetchAfterColumns}
+      />
+
+      <ScheduleSettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        schedule={schedule}
+        currentUserId={currentUser?.id ?? null}
+        isAdmin={currentUser?.role === "system_admin"}
+        onSaved={refetchAfterSettings}
+        onDeleted={handleDeleted}
       />
 
       <VenueColumnsDialog

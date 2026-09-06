@@ -2,7 +2,7 @@
 import api from "@/lib/api";
 import type {
   Schedule, ScheduleDetail, ScheduleColumn, ScheduleItem,
-  ScheduleTemplate, ApplyPreview, ItemBreakdown,
+  ScheduleTemplate, ApplyPreview, ItemBreakdown, ScheduleShare,
 } from "@gmo-onair/shared/src/schedule/types";
 
 interface Envelope<T> { success: boolean; data: T }
@@ -53,9 +53,37 @@ export async function deleteSchedule(id: string): Promise<void> {
   await api.delete(`/techops/schedules/${id}`);
 }
 
-export async function setScheduleShares(id: string, userIds: string[]): Promise<number> {
-  const res = await api.put<Envelope<{ share_count: number }>>(`/techops/schedules/${id}/shares`, { user_ids: userIds });
-  return res.data.data.share_count;
+export async function getScheduleShares(id: string): Promise<ScheduleShare[]> {
+  const res = await api.get<Envelope<ScheduleShare[]>>(`/techops/schedules/${id}/shares`);
+  return res.data.data;
+}
+export async function setScheduleShares(id: string, userIds: string[]): Promise<{ share_count: number; shares: ScheduleShare[] }> {
+  const res = await api.put<Envelope<{ share_count: number; shares: ScheduleShare[] }>>(`/techops/schedules/${id}/shares`, { user_ids: userIds });
+  return res.data.data;
+}
+
+// ── 共有相手の候補（`share-users` は台本の共有ピッカーと共用。qsheet 権限だけで引ける）───
+export interface ShareUserOption { id: string; name: string; email: string }
+export async function listShareUsers(): Promise<ShareUserOption[]> {
+  const res = await api.get<Envelope<ShareUserOption[]>>("/techops/share-users");
+  return res.data.data;
+}
+
+// ── 案件・番組（表の設定「案件/番組」欄）─────────────────────
+export interface ProjectOption { id: string; gls_number: string | null; name: string; customer_name: string | null }
+export async function listGlsProjects(): Promise<ProjectOption[]> {
+  const res = await api.get<Envelope<ProjectOption[]>>("/lookup/gls-options");
+  return res.data.data;
+}
+export interface ProgramOption { id: string; name: string; event_date: string | null }
+export async function listPrograms(): Promise<ProgramOption[]> {
+  const res = await api.get<Envelope<ProgramOption[]>>("/techops/programs");
+  return res.data.data;
+}
+export interface EpisodeOption { id: string; episode_code: string; episode_number: number; broadcast_date: string | null; recording_date: string | null }
+export async function listEpisodes(projectId: string): Promise<EpisodeOption[]> {
+  const res = await api.get<Envelope<EpisodeOption[]>>(`/lookup/${projectId}/episodes-options`);
+  return res.data.data;
 }
 
 // ── 列 ──────────────────────────────────────────────────────
