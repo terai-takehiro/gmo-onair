@@ -47,17 +47,21 @@
       <h1 style="margin: 0; font-size: 19px; line-height: 1.35; font-weight: 800; letter-spacing: -.01em;">テロップCG</h1>
       <span style="display: inline-flex; align-items: center; gap: 6px; height: 24px; border-radius: 7px; background: #fef6f7; color: #c7243a; font-size: 11px; font-weight: 800; padding: 0 8px;"><span style="width: 7px; height: 7px; border-radius: 9999px; background: #c7243a;"></span>本番中</span>
     </div>
-    <p style="margin: 6px 0 0; font-size: 12.5px; line-height: 1.6; color: #5d6470;">見るだけの画面です。直すのは PC のテロップ一覧から。</p>
+    <p style="margin: 6px 0 0; font-size: 12.5px; line-height: 1.6; color: #5d6470;">見るだけの画面です。直す・並べ替えるのは PC のテロップ一覧から。<strong style="color: #3c424c;">「いま出ているもの」だけ、緊急時はここからも消せます。</strong></p>
 
-    <!-- いま出ているもの -->
+    <!-- いま出ているもの（緊急CLEAR・§12-4） -->
     <div style="margin-top: 14px; border-radius: 16px; border: 1px solid #f6cdd2; background: #ffffff; overflow: hidden;">
-      <div style="display: flex; align-items: center; gap: 8px; padding: 11px 14px 9px; font-size: 12px; font-weight: 800; color: #c7243a; letter-spacing: .06em;"><span style="width: 7px; height: 7px; border-radius: 9999px; background: #c7243a;"></span>OA　いま出ている ・ 2枚</div>
+      <div style="display: flex; align-items: center; gap: 8px; padding: 11px 14px 9px; font-size: 12px; font-weight: 800; color: #c7243a; letter-spacing: .06em;"><span style="width: 7px; height: 7px; border-radius: 9999px; background: #c7243a;"></span>OA　いま出ている ・ <span class="num">{{liveCount}}</span></div>
       <sc-for list="{{live}}" as="l" hint-placeholder-count="2">
         <div style="display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 14px; border-top: 1px solid #f2f4f7;">
-          <span style="width: 64px; height: 36px; flex-shrink: 0; border-radius: 5px; background: #0f1115; position: relative; overflow: hidden;"><span style="position: absolute; {{l.box}} border-radius: 2px;"></span></span>
+          <span style="width: 56px; height: 32px; flex-shrink: 0; border-radius: 5px; background: #0f1115; position: relative; overflow: hidden;"><span style="position: absolute; {{l.box}} border-radius: 2px;"></span></span>
           <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1;"><span class="clip1" style="font-size: 13.5px; font-weight: 700;"><span class="num">{{l.id}}</span>　{{l.title}}</span><span style="font-size: 11.5px; color: #5d6470;">{{l.kindLabel}} ・ <span class="num">{{l.elapsed}}</span></span></span>
+          <button class="tap" onClick="{{l.clear}}" style="flex-shrink: 0; height: 40px; border-radius: 10px; border: 1px solid #f6cdd2; background: #fef6f7; color: #c7243a; padding: 0 12px; font-size: 12.5px; font-weight: 800;">消す</button>
         </div>
       </sc-for>
+      <sc-if value="{{liveEmpty}}" hint-placeholder-val="{{false}}">
+        <div style="padding: 16px 14px; font-size: 12.5px; color: #5d6470;">何も出ていません（透過）</div>
+      </sc-if>
       <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid #f2f4f7; background: #f4faff;">
         <span style="font-size: 11px; font-weight: 800; color: #005bac; letter-spacing: .06em;">NEXT</span>
         <span class="clip1" style="font-size: 13px; font-weight: 700;"><span class="num">9</span>　正解は B ・ 約24時間37分</span>
@@ -80,17 +84,19 @@
         </sc-for>
       </sc-for>
     </div>
-    <p style="margin: 14px 0 0; font-size: 12px; line-height: 1.6; color: #5d6470;">依頼は「テロップを依頼する」から。緊急の CLEAR（消す）をここに置くかは検討中（§12）。</p>
+    <p style="margin: 14px 0 0; font-size: 12px; line-height: 1.6; color: #5d6470;">依頼は「テロップを依頼する」から。「消す」は確認なしの1タップです——本番の並びは変わりません。</p>
   </div>
 </div>
 </x-dc>
 
 <script data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
 class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { oa: [8, 7] }; }
   rows() { return [{"id": 1, "sec": "オープニング", "kindLabel": "題字", "box": "left: 8%; top: 12%; width: 84%; height: 76%; background: rgba(245,245,245,.14); border-left: 2px solid #d4af37;", "title": "サイエンス・フロンティア 第7回", "ok": true}, {"id": 2, "sec": "オープニング", "kindLabel": "ネーム", "box": "left: 6%; top: 68%; width: 62%; height: 24%; background: rgba(245,245,245,.26); border-left: 2px solid #d4af37;", "title": "佐伯 玲奈", "ok": true}, {"id": 3, "sec": "オープニング", "kindLabel": "カウントダウン・時計", "box": "left: 5%; top: 6%; width: 30%; height: 16%; background: rgba(212,175,55,.9); ", "title": "開演まであと", "ok": true}, {"id": 4, "sec": "ゲストトーク", "kindLabel": "ネーム", "box": "left: 6%; top: 68%; width: 62%; height: 24%; background: rgba(245,245,245,.26); border-left: 2px solid #d4af37;", "title": "高梨 一郎", "ok": true}, {"id": 5, "sec": "ゲストトーク", "kindLabel": "ネーム", "box": "left: 6%; top: 68%; width: 62%; height: 24%; background: rgba(245,245,245,.26); border-left: 2px solid #d4af37;", "title": "小野 美咲", "ok": false}, {"id": 6, "sec": "ゲストトーク", "kindLabel": "一覧表", "box": "left: 8%; top: 12%; width: 84%; height: 76%; background: rgba(245,245,245,.14); border-left: 2px solid #d4af37;", "title": "今日のテーマ", "ok": true}, {"id": 7, "sec": "ゲストトーク", "kindLabel": "サイドスーパー", "box": "left: 60%; top: 8%; width: 34%; height: 16%; background: rgba(212,175,55,.9); ", "title": "実験映像：東都大学提供", "ok": true}, {"id": 8, "sec": "視聴者クイズ", "kindLabel": "投票・クイズ", "box": "left: 8%; top: 12%; width: 84%; height: 76%; background: rgba(245,245,245,.14); border-left: 2px solid #d4af37;", "title": "Q. 火星の1日は地球の何時間？", "ok": true}, {"id": 9, "sec": "視聴者クイズ", "kindLabel": "題字", "box": "left: 8%; top: 12%; width: 84%; height: 76%; background: rgba(245,245,245,.14); border-left: 2px solid #d4af37;", "title": "正解は B ・ 約24時間37分", "ok": false}, {"id": 10, "sec": "ランキング", "kindLabel": "ランキング発表", "box": "left: 8%; top: 12%; width: 84%; height: 76%; background: rgba(245,245,245,.14); border-left: 2px solid #d4af37;", "title": "今月の科学ニュース TOP5", "ok": true}, {"id": 11, "sec": "エンディング", "kindLabel": "ティッカー", "box": "left: 0%; top: 86%; width: 100%; height: 11%; background: #1d3f78; ", "title": "次回は 8/30（日）13:00 放送予定 ／ ご意見は番組サイトへ", "ok": true}, {"id": 12, "sec": "エンディング", "kindLabel": "ネーム", "box": "left: 6%; top: 68%; width: 62%; height: 24%; background: rgba(245,245,245,.26); border-left: 2px solid #d4af37;", "title": "協賛 東都電機株式会社", "ok": true}]; }
+  clear(id) { this.setState({ oa: this.state.oa.filter((x) => x !== id) }); }
   renderVals() {
-    const all = this.rows(); const oa = [8, 7]; const next = 9; const done = [1, 2, 3, 4, 5, 6];
-    const live = oa.map((id, i) => Object.assign({}, all.find((r) => r.id === id), { elapsed: i === 0 ? '00:42' : '03:40' }));
+    const self = this; const all = this.rows(); const oa = this.state.oa; const next = 9; const done = [1, 2, 3, 4, 5, 6];
+    const live = oa.map((id, i) => Object.assign({}, all.find((r) => r.id === id), { elapsed: i === 0 ? '00:42' : '03:40', clear: () => self.clear(id) }));
     const groups = [];
     all.forEach((r) => {
       let g = groups.find((x) => x.name === r.sec); if (!g) { g = { name: r.sec, rows: [] }; groups.push(g); }
@@ -100,7 +106,7 @@ class Component extends DCLogic {
         bg: isOa ? '#fef6f7' : (isNext ? '#eaf4fb' : (isDone ? '#f2f4f7' : (r.ok ? '#e7f6ee' : '#fff7ed'))),
         fg: isOa ? '#c7243a' : (isNext ? '#005bac' : (isDone ? '#5d6470' : (r.ok ? '#197a4b' : '#c2410e'))) });
     });
-    return { live: live, groups: groups };
+    return { live: live, liveEmpty: live.length === 0, liveCount: live.length + '枚', groups: groups };
   }
 }
 </script>
