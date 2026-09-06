@@ -29,6 +29,7 @@ import { queryOne, execute, withTransaction } from '../../../shared/db/connectio
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateSgaBillingKey } from '../../../shared/services/billing-key.service';
 import { assertVendorCompanyId } from '../../../shared/services/company-directory.service';
+import { paymentDueFromTerms, startOfMonthIso } from '../../../shared/services/finance-chain';
 
 export type HandoffKind = 'purchase' | 'sga';
 
@@ -65,9 +66,20 @@ export async function handoffDoc(
   input: HandoffInput,
   userId: string,
 ): Promise<HandoffResult> {
+  /*
+    束（migration 280）から既定値を引く。**画面が入れ忘れた項目を書類・束が補う** —
+    販管費の計上月と支払期日は「処理月 ＋ 何日サイト」で決まっており、
+    書類に書いていないことのほうが多い（`shared/src/utils/financeDocChain.ts`）。
+  */
   const doc = await queryOne(
-    `SELECT id, status, linked_kind, linked_id, sender, subject, doc_type
-       FROM finance_docs WHERE id = ? AND deleted_at IS NULL`,
+    `SELECT d.id, d.status, d.linked_kind, d.linked_id, d.sender, d.subject, d.doc_type,
+            d.project_id, d.vendor_name, d.expense_kind,
+            COALESCE(d.processing_month, g.processing_month)     AS processing_month,
+            COALESCE(d.payment_terms_days, g.payment_terms_days) AS payment_terms_days,
+            COALESCE(d.project_id, g.project_id)                 AS chain_project_id
+       FROM finance_docs d
+       LEFT JOIN finance_doc_groups g ON g.id = d.group_id
+      WHERE d.id = ? AND d.deleted_at IS NULL`,
     [docId],
   ) as Record<string, unknown> | null;
   if (!doc) throw new AppError(404, 'NOT_FOUND', '書類が見つかりません');
@@ -82,17 +94,37 @@ export async function handoffDoc(
     throw new AppError(400, 'NOT_APPROVED',
       '承認済みの書類だけ台帳へ渡せます（確認中のものは先に承認してください）');
   }
-  // **見積書は台帳に渡せない。** 実際に仕入・販管費になるのは請求書・注文書だけ
-  // （ユーザー指摘）。「受け取った書類」画面は既定で見積書を出さないが、
-  // `doc_type=quote` を明示すれば見える MCP 経路や、この口を直接叩く手も残るため、
-  // 台帳へ書き込む境界でも二重に止める
+  /*
+    **見積書は台帳に渡せない。** 実際に仕入・販管費になるのは請求書・注文書だけです。
+
+    ⚠️ migration 280 で**見積書も一覧に出るようになりました**（見積 → 発注 → 請求 の
+    ひとつづりとして見せるため）。出るようになったぶん、**ここで止める意味が増えています** —
+    「見積を取ったが発注しなかった」束は画面に残り続けるので、
+    承認を押し間違えても台帳には入りません。
+  */
   if (doc.doc_type === 'quote') {
     throw new AppError(400, 'QUOTE_NOT_HANDOFFABLE',
       '見積書は台帳（仕入・販管費）に入れられません。請求書が届いてから渡してください');
   }
 
-  if (!YMD.test(input.recognition_date)) {
-    throw new AppError(400, 'VALIDATION_ERROR', '計上月は YYYY-MM-DD で指定してください');
+  /*
+    ── 入っていないぶんは束から作る（migration 280）──────────────
+
+    **勝手に埋めるのは「書いていないもの」だけ。** 画面が渡した値は必ず勝ちます
+    （人が直したものを上書きすると、直した意味が無くなる）。
+  */
+  const termsDays = typeof doc.payment_terms_days === 'number' ? doc.payment_terms_days : null;
+  const month = typeof doc.processing_month === 'string' ? doc.processing_month : null;
+  const recognitionDate = input.recognition_date || (month ? startOfMonthIso(month) : '');
+  const paymentDue = input.payment_due_date
+    ?? (month !== null && termsDays !== null ? paymentDueFromTerms(month, termsDays) : null);
+  // 仕入のときは書類・束が持っている案件を既定にする（人が画面で決めた案件が最優先）
+  const projectId = input.project_id
+    ?? (typeof doc.chain_project_id === 'string' ? doc.chain_project_id : null);
+
+  if (!YMD.test(recognitionDate)) {
+    throw new AppError(400, 'VALIDATION_ERROR',
+      '計上月を指定してください（販管費は「処理月」を入れると自動で決まります）');
   }
   if (!Number.isFinite(input.amount) || input.amount < 0) {
     throw new AppError(400, 'VALIDATION_ERROR', '金額を正しく入力してください');
@@ -123,7 +155,7 @@ export async function handoffDoc(
     }
 
     if (input.kind === 'purchase') {
-      if (!input.project_id || !input.vendor_id) {
+      if (!projectId || !input.vendor_id) {
         throw new AppError(400, 'VALIDATION_ERROR', '仕入にするには案件と仕入先が必要です');
       }
       // `vendor_id` は companies.id（Phase 3-2b）を直接指すため確かめる
@@ -135,8 +167,8 @@ export async function handoffDoc(
            (id, project_id, vendor_id, assigned_to, tax_category, invoice_qualified, amount,
             description, recognition_date, payment_due_date, notes, is_provisional, created_by)
          VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, false, ?)`,
-        [id, input.project_id, input.vendor_id, userId, tax, input.amount,
-         input.description || null, input.recognition_date, input.payment_due_date || null,
+        [id, projectId, input.vendor_id, userId, tax, input.amount,
+         input.description || null, recognitionDate, paymentDue || null,
          // **どの書類から来たかを台帳側にも残す。** 片側だけだと、
          // 台帳を見ている人が「これは何の請求か」を辿れない
          `受け取った書類から: ${String(doc.sender ?? '')} ${String(doc.subject ?? '')}`.trim(),
@@ -153,11 +185,11 @@ export async function handoffDoc(
            (id, billing_key, vendor_name, description, notes, recognition_date, payment_due_date,
             tax_category, invoice_qualified, amount, expense_type, source, is_provisional, created_by)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 'staff', false, ?)`,
-        [id, generateSgaBillingKey(input.recognition_date, tax),
-         input.vendor_name || String(doc.sender ?? '') || null,
+        [id, generateSgaBillingKey(recognitionDate, tax),
+         input.vendor_name || String(doc.vendor_name ?? '') || String(doc.sender ?? '') || null,
          input.description || null,
          `受け取った書類から: ${String(doc.sender ?? '')} ${String(doc.subject ?? '')}`.trim(),
-         input.recognition_date, input.payment_due_date || null, tax, input.amount,
+         recognitionDate, paymentDue || null, tax, input.amount,
          input.expense_type || 'spot', userId],
       );
       created = { kind: 'sga', id };

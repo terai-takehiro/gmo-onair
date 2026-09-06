@@ -3,6 +3,10 @@ import { requireAuth, requirePermission, requireAnyPermission } from '../../../s
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { financeDocService, inquiryService } from '../services/inbox.service';
 import { handoffDoc, undoHandoff, type HandoffKind } from '../../finance/services/doc-handoff.service';
+import {
+  listGroups, getGroup, updateGroup, removeGroup, moveDocToGroup, ensureGroup,
+} from '../services/finance-doc-chain.service';
+import { mailIntakeFolderUrl, MAIL_INTAKE_FOLDER_NAME } from '../../../shared/services/mail-attachment-box.service';
 
 // 日常業務アプリ (dailyops) — 見積/請求書 + その他問い合わせ の受信箱 API + アラート集計。
 
@@ -71,6 +75,89 @@ router.put('/finance-docs/:id', ...docsEdit, async (req, res) => {
 router.delete('/finance-docs/:id', ...docsEdit, async (req, res) => {
   await financeDocService.remove(String(req.params.id));
   res.json({ success: true, data: { deleted: true } });
+});
+
+// ── ひとつづり（見積書 → 発注書 → 請求書）── migration 280 ─────
+/**
+ * 束の一覧。**中の書類と添付までまとめて返す。**
+ *
+ * 画面は「1通ずつの行」ではなく「1つの取引」を出します。
+ * 別々に取りに行かせると、**書類が3通ある束で N+1 回の往復**になり、
+ * しかも取りに行っている間に他の人が処理した書類が混ざります。
+ *
+ * `pending=1` … まだ片づいていない束だけ（中の書類が全部 登録済/却下 なら片づき）
+ */
+router.get('/finance-doc-groups', ...docsRead, async (req, res) => {
+  const rows = await listGroups({
+    pendingOnly: req.query.pending === '1' || req.query.pending === 'true',
+    expense_kind: req.query.expense_kind ? String(req.query.expense_kind) : undefined,
+  });
+  res.json({
+    success: true,
+    data: rows,
+    // 添付の在り処。**画面が「BOX のどこを見ればよいか」を言えるようにする**
+    meta: { box_folder_name: MAIL_INTAKE_FOLDER_NAME, box_folder_url: mailIntakeFolderUrl() },
+  });
+});
+
+router.get('/finance-doc-groups/:id', ...docsRead, async (req, res) => {
+  const row = await getGroup(String(req.params.id));
+  if (!row) throw new AppError(404, 'NOT_FOUND', 'その束が見つかりません');
+  res.json({ success: true, data: row });
+});
+
+/** 束を1つ作る（人が手で束ね直すとき） */
+router.post('/finance-doc-groups', ...docsEdit, async (req, res) => {
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  const title = String(b.title ?? '').trim();
+  if (!title) throw new AppError(400, 'VALIDATION_ERROR', '題名を入れてください');
+  const { id, created } = await ensureGroup({
+    title,
+    vendor_name: typeof b.vendor_name === 'string' ? b.vendor_name : null,
+    group_key: typeof b.group_key === 'string' ? b.group_key : null,
+    created_by: req.user!.id,
+  });
+  res.status(created ? 201 : 200).json({ success: true, data: await getGroup(id), created });
+});
+
+/**
+ * 束を直す（案件の付け替え・販管費への切替・支払サイト・処理月）。
+ *
+ * ⚠️ **どの案件かは人が決めるもの**（ご指示）。AI が置いた候補をここで上書きすると
+ * `project_source='human'` になり、**その差分が `ai_corrections` に入ります**
+ * （会社方針「AI を使い捨てにしない」条件2）。
+ */
+router.put('/finance-doc-groups/:id', ...docsEdit, async (req, res) => {
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  const patch: Parameters<typeof updateGroup>[1] = {};
+  if (b.title !== undefined) patch.title = String(b.title);
+  if (b.vendor_name !== undefined) patch.vendor_name = (b.vendor_name as string | null) ?? null;
+  if (b.expense_kind !== undefined) patch.expense_kind = (b.expense_kind as 'purchase' | 'sga' | null) ?? null;
+  if (b.project_id !== undefined) patch.project_id = (b.project_id as string | null) ?? null;
+  if (b.payment_terms_days !== undefined) {
+    patch.payment_terms_days = b.payment_terms_days === null ? null : Number(b.payment_terms_days);
+  }
+  if (b.processing_month !== undefined) patch.processing_month = (b.processing_month as string | null) ?? null;
+  res.json({ success: true, data: await updateGroup(String(req.params.id), patch) });
+});
+
+/** 束ごと消す（そもそもゴミだったとき）。**中の書類もまとめて消える** */
+router.delete('/finance-doc-groups/:id', ...docsEdit, async (req, res) => {
+  await removeGroup(String(req.params.id));
+  res.json({ success: true, data: { deleted: true } });
+});
+
+/** 書類を別の束へ移す（束ね直し）。**台帳に渡した書類は動かせない** */
+router.post('/finance-docs/:id/move-group', ...docsEdit, async (req, res) => {
+  const groupId = String((req.body ?? {}).group_id ?? '');
+  if (!groupId) throw new AppError(400, 'VALIDATION_ERROR', '移す先の束を指定してください');
+  await moveDocToGroup(String(req.params.id), groupId);
+  res.json({ success: true, data: await getGroup(groupId) });
+});
+
+/** 添付（BOX に置いた PDF）の一覧。**入らなかったものも理由付きで返す** */
+router.get('/finance-docs/:id/attachments', ...docsRead, async (req, res) => {
+  res.json({ success: true, data: await financeDocService.attachments(String(req.params.id)) });
 });
 
 /**
