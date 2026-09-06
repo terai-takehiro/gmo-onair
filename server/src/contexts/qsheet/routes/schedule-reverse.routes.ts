@@ -6,6 +6,15 @@
  *
  * ⚠️ 返す型は `ScheduleItemRef`（必要最小限）。`SELECT i.*` を書かない —
  * `*` は将来足した列（assignee / note など）を自動で漏らす。
+ *
+ * ⚠️ **PR7a で見つけて直したバグ**: ②の行条件が `canAccessSchedule`（`access.ts`）と
+ * 揃っていなかった。案件メンバーの自動共有（14-schedule-v2-plan.md §3-2・2026-09-06 決定）を
+ * `canAccessSchedule` に足した PR2 のとき、この一覧固有の SQL 条件（作成者／明示共有のみ）は
+ * 直し忘れていた——「逆引きと AI 提案は canAccessSchedule 経由なので自動で揃う」という同計画書
+ * §3-2 の記述は、AI 提案（`canAccessProposal`）には当てはまるが、行条件を自前の SQL に
+ * 埋め込んでいるこの一覧には当てはまらなかった（コードは関数を呼んでおらず、条件を複製していた）。
+ * 案件メンバーは表自体は見えるのに、この逆引きの一覧にだけ出ない状態だったため、
+ * `canAccessSchedule` と同じ「案件メンバー／主担当」の OR 条件を SQL に足して揃えた。
  */
 import { Router, Request, Response } from 'express';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
@@ -36,8 +45,14 @@ router.get('/documents/:docId/schedule-items', wrap(async (req: Request, res: Re
   `;
   const params: unknown[] = [p1(req.params.docId)];
   if (!isQsheetAdmin(req.user!)) {
+    // canAccessSchedule と同じ4条件（作成者／明示共有／案件メンバー／案件の主担当）。OR を1つでも
+    // 落とすと、その条件だけで表にアクセスできる人にこの一覧の項目が見えなくなる（上の注記参照）
     sql += ` AND (s.created_by = $2 OR EXISTS (
-               SELECT 1 FROM qsheet_schedule_shares sh WHERE sh.schedule_id = s.id AND sh.user_id = $2))`;
+               SELECT 1 FROM qsheet_schedule_shares sh WHERE sh.schedule_id = s.id AND sh.user_id = $2)
+             OR (s.project_id IS NOT NULL AND (
+               EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = s.project_id AND pm.user_id = $2 AND pm.deleted_at IS NULL)
+               OR EXISTS (SELECT 1 FROM projects p2 WHERE p2.id = s.project_id AND p2.assigned_to = $2)
+             )))`;
     params.push(req.user!.id);
   }
   sql += ' ORDER BY s.service_date, i.start_min';

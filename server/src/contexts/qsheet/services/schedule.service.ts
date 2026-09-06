@@ -24,7 +24,16 @@ const SELECT_BASE = `
          p.name AS project_name, p.gls_number,
          pr.name AS program_name,
          (SELECT COUNT(*)::int FROM qsheet_schedule_items i WHERE i.schedule_id = s.id AND i.deleted_at IS NULL) AS item_count,
-         (SELECT COUNT(*)::int FROM qsheet_schedule_shares sh WHERE sh.schedule_id = s.id) AS share_count
+         (SELECT COUNT(*)::int FROM qsheet_schedule_shares sh WHERE sh.schedule_id = s.id) AS share_count,
+         -- 案件メンバー＋主担当の人数（自動で見える人数・14-schedule-v2-plan.md §3-2）。
+         -- 番組の表は project_id が無いので常に NULL（明示共有だけ・画面はこの列を出さない）
+         (CASE WHEN s.project_id IS NULL THEN NULL ELSE (
+           SELECT COUNT(*)::int FROM (
+             SELECT pm.user_id FROM project_members pm WHERE pm.project_id = s.project_id AND pm.deleted_at IS NULL AND pm.user_id IS NOT NULL
+             UNION
+             SELECT pj.assigned_to FROM projects pj WHERE pj.id = s.project_id
+           ) member_ids
+         ) END) AS project_member_count
   FROM qsheet_schedules s
   LEFT JOIN users u ON s.created_by = u.id
   LEFT JOIN studio_locations l ON s.location_id = l.id
@@ -52,8 +61,11 @@ export async function listSchedules(user: AccessUser, filter: ListFilter): Promi
   let i = 1;
 
   if (!isQsheetAdmin(user)) {
+    // 案件メンバー・主担当は自動で見える（§3-2）。番組は project_id が無いので対象外のまま
     sql += ` AND (s.created_by = $${i} OR EXISTS (
-               SELECT 1 FROM qsheet_schedule_shares sh WHERE sh.schedule_id = s.id AND sh.user_id = $${i}))`;
+               SELECT 1 FROM qsheet_schedule_shares sh WHERE sh.schedule_id = s.id AND sh.user_id = $${i})
+             OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = s.project_id AND pm.user_id = $${i} AND pm.deleted_at IS NULL)
+             OR EXISTS (SELECT 1 FROM projects pj WHERE pj.id = s.project_id AND pj.assigned_to = $${i}))`;
     params.push(user.id);
     i++;
   }
@@ -201,6 +213,108 @@ export async function deleteSchedule(id: string, user: AccessUser): Promise<void
     throw new ForbiddenError('このスケジュール表を削除する権限がありません');
   }
   await execute('UPDATE qsheet_schedules SET deleted_at = NOW(), updated_by = $1 WHERE id = $2', [user.id, id]);
+}
+
+export interface DuplicateScheduleInput {
+  serviceDate: string;
+  actingUserId: string;
+}
+
+/**
+ * 複製（「同じイベントの別の日として写す」・14-schedule-v2-plan.md §3 B5・§3-3）。
+ * 写すのは 題・列・項目・表示時間帯・拠点・案件/番組/回だけ。**共有は写さない**
+ * （案件メンバーの自動共有で足りる・§3-2）。状態は常に `'draft'` に戻す（写した直後は
+ * 未確定の日という扱い・元の表の状態に引きずられない）。台本リンク（`qsheet_document_id`）も
+ * 写さない — 台本は 1 枠にしか結べない制約（`PUT items/:id/qsheet`）があるため、写すと
+ * 「どちらの表の枠が本当にその台本を持っているか」が曖昧になる。
+ * `duplicateTemplate`（schedule-template.service.ts）と同じ「1トランザクションで
+ * 子を丸ごと写し、新しい id を発行する」形。ひな形はテーブルに `updated_at`/`deleted_at` が
+ * 無く行 UPDATE で足りるが、こちらは実運用データなので `withTransaction` で確実にロールバックする。
+ */
+export async function duplicateSchedule(sourceId: string, input: DuplicateScheduleInput): Promise<Row> {
+  if (!input.serviceDate || !/^\d{4}-\d{2}-\d{2}$/.test(input.serviceDate)) {
+    throw new ValidationError('service_date は YYYY-MM-DD 形式で指定してください');
+  }
+  const source = await queryOne(
+    `SELECT title, location_id, project_id, program_id, episode_id, view_start_min, view_end_min, slot_min
+     FROM qsheet_schedules WHERE id = $1 AND deleted_at IS NULL`,
+    [sourceId],
+  );
+  if (!source) throw new NotFoundError('スケジュール表が見つかりません');
+
+  const newId = uuid();
+  const docNo = await issueDocNo('schedule');
+
+  await withTransaction(async (tx) => {
+    await tx.execute(
+      `INSERT INTO qsheet_schedules
+         (id, title, doc_no, service_date, location_id, project_id, program_id, episode_id,
+          view_start_min, view_end_min, slot_min, status, created_by, updated_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?)`,
+      [
+        newId, source.title, docNo, input.serviceDate,
+        source.location_id, source.project_id, source.program_id, source.episode_id,
+        source.view_start_min, source.view_end_min, source.slot_min,
+        input.actingUserId, input.actingUserId,
+      ],
+    );
+
+    // 列: col_group/label/room_id/color/sort_order をそのまま写す。width_px（列幅）も
+    // 見た目を保つために写す（プロンプトの必須列挙には無いが、落とすと幅が既定 160px に
+    // リセットされ「同じ日として写す」の期待に反するため）。source_template_* は列自身が
+    // ひな形由来なら由来ごと写す（削除しても孤児のまま残る弱リンク・§3-6 と同じ扱い）
+    const columns = await tx.queryAll(
+      `SELECT id, col_group, label, room_id, color, width_px, sort_order, source_template_id, source_template_col_id
+       FROM qsheet_schedule_columns WHERE schedule_id = ? AND deleted_at IS NULL`,
+      [sourceId],
+    );
+    const colIdMap = new Map<string, string>();
+    for (const c of columns) {
+      const newColId = uuid();
+      colIdMap.set(c.id as string, newColId);
+      await tx.execute(
+        `INSERT INTO qsheet_schedule_columns
+           (id, schedule_id, col_group, label, room_id, color, width_px, sort_order, source_template_id, source_template_col_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [newColId, newId, c.col_group, c.label, c.room_id, c.color, c.width_px, c.sort_order, c.source_template_id, c.source_template_col_id],
+      );
+    }
+
+    // 項目: title/kind/start_min/end_min/assignee/note のみ写す。qsheet_document_id は
+    // 常に NULL（意図的に写さない・上記コメント参照）。source_template_* も写さない
+    // （項目自体はひな形適用の産物か手入力かを問わず、複製元では「もう当日の実データ」であり
+    // 複製先での「ひな形からの適用」履歴として扱う理由が無いため）
+    const items = await tx.queryAll(
+      `SELECT column_id, title, kind, start_min, end_min, assignee, note
+       FROM qsheet_schedule_items WHERE schedule_id = ? AND deleted_at IS NULL`,
+      [sourceId],
+    );
+    for (const it of items) {
+      const newColId = colIdMap.get(it.column_id as string);
+      if (!newColId) continue; // 対応する列が見つからない（想定外・静かに落とす）
+      await tx.execute(
+        `INSERT INTO qsheet_schedule_items (id, schedule_id, column_id, title, kind, start_min, end_min, assignee, note)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [uuid(), newId, newColId, it.title, it.kind, it.start_min, it.end_min, it.assignee, it.note],
+      );
+    }
+  });
+
+  const row = await getScheduleWithMeta(newId);
+  if (!row) throw new Error('duplicateSchedule: INSERT 直後の SELECT が空でした');
+  return row;
+}
+
+/** 明示共有の一覧（案件メンバーは含まない・§3-2 は動的判定のため一覧に写らない） */
+export async function getShares(id: string): Promise<Row[]> {
+  return queryAll(
+    `SELECT s.user_id, u.name, u.email
+     FROM qsheet_schedule_shares s
+     LEFT JOIN users u ON s.user_id = u.id
+     WHERE s.schedule_id = $1
+     ORDER BY u.name`,
+    [id],
+  );
 }
 
 export async function setShares(id: string, userIds: unknown, actingUserId: string): Promise<number> {
