@@ -21,8 +21,9 @@
  * （サーバーは工程を消してもタスクを消しません）。**0件のときも枠を出します** —
  * 工程が決まる前のタスクを置く場所があることが分からないと使われません。
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { CalendarRange, GanttChartSquare, KanbanSquare, List, Plus, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -94,6 +95,20 @@ export function OverviewTab({
   /** タスクを足す／直すダイアログ。足すときは `task` が null で `phaseId` が入る */
   const [taskDialog, setTaskDialog] = useState<{ task: GpmTask | null; phaseId: string | null } | null>(null);
   const [openPhases, setOpenPhases] = useState<Set<string>>(new Set());
+
+  /**
+   * ヘッダー右上の主アクション「＋タスクを追加」（PR③・項目10）から来る合図。
+   * ヘッダーはこのタブの外にいる（`DetailHeader.tsx`）ので、`?add=task` を
+   * 概要タブへの遷移に載せて渡す — 開いたら1回だけダイアログを開き、
+   * URL からは消す（ブラウザの戻るで再び開かないように）。
+   */
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get('add') !== 'task') return;
+    if (canEdit) setTaskDialog({ task: null, phaseId: null });
+    setSearchParams((prev) => { const next = new URLSearchParams(prev); next.delete('add'); return next; }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   /** 工程ごとのタスク。**工程に付いていないものは `''` の束**に集める */
   const tasksByPhase = useMemo(() => {

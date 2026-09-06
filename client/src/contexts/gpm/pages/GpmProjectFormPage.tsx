@@ -3,9 +3,12 @@
  *
  * ── モックどおり5段 ────────────────────────────────────────
  *
- * 基本情報 → 標準工程 → 着手日と工程 → 体制（組織図） → メンバー・書類。
- * 4段目と5段目は**同じ入力**（体制に入れる人）を扱うので1つの部品にし、
- * 5段目は「確かめて作る」段にしてあります。
+ * 基本情報 → 標準工程 → 着手日と工程 → 体制（組織図） → 確かめて作る。
+ *
+ * ⚠️ **5段目は以前「メンバー・書類」という名前で、4段目とまったく同じ
+ * `OrgStep` を描いていた**（押しても1ピクセルも変わらない不具合）。
+ * PR③（`gpm-format-alignment.html` 項目18）で直し、5段目を実際に
+ * **入れた内容の確認**（`ReviewStep`）にした。体制は4段目だけで完結する。
  *
  * ── 人はプロジェクトを作ってから登録する ────────────────────
  *
@@ -27,6 +30,14 @@
  * 上の番号は押して直接行けます。ひな形を選び直したあとに着手日を見に行く、が
  * 普通に起きるので、順番に進むしかない形にすると戻る操作が増えます。
  * **作るのは最後の段でなくても押せます**（名前と依頼元さえ入っていればよい）。
+ *
+ * ── 足りない項目を名指しする（PR③・項目15）───────────────────
+ *
+ * 「作る」ボタンを押せなくするだけでは、何が足りないかを探すことになる。
+ * 案件作成（`sales/pages/projectNew/NewProjectDialog.tsx`）と同じく、
+ * **段の上に黄色い帯**を出し、**文面をボタンの名前（「作る」）に合わせる**。
+ * どの段にいても見えるよう、段タブのすぐ下に置く（足りない項目そのものは
+ * 1段目にしか無いが、「作る」はどの段からでも押せるため）。
  */
 import { useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
@@ -43,13 +54,14 @@ import { BasicStep, type BasicValues } from './projectForm/BasicStep';
 import { TemplateStep } from './projectForm/TemplateStep';
 import { PreviewStep } from './projectForm/PreviewStep';
 import { OrgStep, type DraftMember } from './projectForm/OrgStep';
+import { ReviewStep } from './projectForm/ReviewStep';
 
 const STEPS = [
   { n: 1, label: '基本情報' },
   { n: 2, label: '工程テンプレートを選ぶ' },
   { n: 3, label: '着手日と工程の確認' },
   { n: 4, label: '体制（組織図）' },
-  { n: 5, label: 'メンバー・書類' },
+  { n: 5, label: '確かめて作る' },
 ] as const;
 
 export default function GpmProjectFormPage() {
@@ -129,10 +141,32 @@ export default function GpmProjectFormPage() {
     basic.kind === 'group_order' && !basic.customerId ? '依頼元' : null,
   ].filter((m): m is string => m !== null);
 
+  const customerName = useMemo(
+    () => customers.data?.find((c) => c.id === basic.customerId)?.name ?? null,
+    [customers.data, basic.customerId],
+  );
+  const pmUserName = useMemo(
+    () => users.data?.find((u) => u.id === basic.pmUserId)?.name ?? null,
+    [users.data, basic.pmUserId],
+  );
+
   return (
     <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <PageHeader
         title="プロジェクトを作成"
+        // **見出しの左に戻るボタン**（PR③・項目19）。案件作成の `EditHeader.tsx` と
+        // 同じ形——以前は右側の「キャンセル」ボタンだけが戻る手段だった
+        icon={(
+          <button
+            type="button"
+            onClick={() => navigate('/gpm/projects')}
+            aria-label="プロジェクト一覧に戻る"
+            title="プロジェクト一覧に戻る"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-control-lg border border-border hover:bg-muted"
+          >
+            <ArrowLeft className="h-4 w-4 text-secondary-foreground" aria-hidden="true" />
+          </button>
+        )}
         sub="発注が確定してから立ち上げます。売れるかどうかを追う段階のものはここに入りません（案件管理で扱います）"
         primaryAction={
           <Button onClick={() => create.mutate()} disabled={missing.length > 0 || create.isPending}>
@@ -144,7 +178,7 @@ export default function GpmProjectFormPage() {
         }
       >
         <Button variant="outline" onClick={() => navigate('/gpm/projects')}>
-          <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />キャンセル
+          キャンセル
         </Button>
       </PageHeader>
 
@@ -181,6 +215,17 @@ export default function GpmProjectFormPage() {
         })}
       </div>
 
+      {/*
+        **足りない項目を名指しする黄色い帯**（項目15）。「作る」がどの段からでも
+        押せるので、段タブのすぐ下・どの段でも見える位置に置く。
+        文面はボタンと同じ言い方（「作る」）にそろえる。
+      */}
+      {missing.length > 0 && (
+        <p className="rounded-note border border-warning-border bg-warning-surface px-3.5 py-2 text-sub text-warning">
+          {missing.join(' ・ ')} が入っていないので、まだ作れません
+        </p>
+      )}
+
       {step === 1 && (
         <BasicStep
           values={basic}
@@ -209,8 +254,19 @@ export default function GpmProjectFormPage() {
           templateName={template?.name ?? null}
         />
       )}
-      {(step === 4 || step === 5) && (
+      {step === 4 && (
         <OrgStep members={members} onChange={setMembers} />
+      )}
+      {step === 5 && (
+        <ReviewStep
+          basic={basic}
+          customerName={customerName}
+          pmUserName={pmUserName}
+          templateName={template?.name ?? null}
+          template={template}
+          startedOn={startedOn}
+          members={members}
+        />
       )}
 
       <div className="flex flex-wrap items-center gap-3">
@@ -221,11 +277,6 @@ export default function GpmProjectFormPage() {
           <Button variant="outline" onClick={() => setStep(step + 1)}>
             次へ（{STEPS[step].label}）
           </Button>
-        )}
-        {missing.length > 0 && (
-          <p className="text-sub text-destructive">
-            {missing.join(' と ')} が入っていないので、まだ作れません（ステップ1）
-          </p>
         )}
       </div>
 
