@@ -71,7 +71,7 @@ const INVOICE_CHIPS = [
   { key: 'all', label: 'すべて', state: '' },
   { key: 'unissued', label: '未請求', state: 'unissued' },
   { key: 'unpaid', label: '入金待ち', state: 'unpaid' },
-  { key: 'overdue', label: '期日超過', state: 'overdue' },
+  { key: 'overdue', label: '期限超過', state: 'overdue' },
   { key: 'uninspected', label: '検収前', state: 'uninspected' },
   { key: 'paid', label: '入金済', state: 'paid' },
 ];
@@ -157,7 +157,7 @@ export default function BillingListPage() {
       // **取り消しは訊く。** 黙って戻せると、経理の訂正が誰にも気づかれない
       const ok = await confirmAction({
         title: `${label}の記録を取り消しますか`,
-        description: `「${row.project_name}」の${label}日（${current}）を消します。もう一度押せば入れ直せます。`,
+        description: `「${row.project_name}」の${label}日（${current}）を消します。もう一度押せば入れ編集できます。`,
         confirmLabel: '取り消す',
         tone: 'danger',
       });
@@ -286,7 +286,7 @@ export default function BillingListPage() {
               <EmptyState
                 title={tab === 'estimate' ? '見積がまだありません' : '確定した請求がまだありません'}
                 description={tab === 'estimate'
-                  ? '案件を開いて「見積・請求」タブからつくります。'
+                  ? '案件を開いて「見積・請求」タブから作成します。'
                   : '売上を確定すると、ここに並びます。'}
               />
             )}

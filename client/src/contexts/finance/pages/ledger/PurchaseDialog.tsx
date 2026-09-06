@@ -4,10 +4,16 @@
  * **旧 `PurchaseListPage` から切り出したものです。入力欄も送る値も変えていません。**
  * 一覧の作り直しと、金額を扱うフォームの作り直しを同じ回でやらないためです。
  *
- * 変えたのは2点だけ:
+ * 変えたのは3点だけ:
  * ・削除の確認を `window.confirm` から共通の確認ダイアログに変えた
  *   （`check-ui-tokens` が `window.confirm` を止めます。文面も「何が消えるか」を出す形に）
  * ・生の色指定を同じ意味のトークンに置き換えた
+ * ・**欄の並び順**を `docs/design/v4/_form-order.md` の6段に沿って組み直した
+ *   （欄そのものと送る値は変えていません。理由は本文中のコメント）
+ *
+ * 日付（`PurchaseDateFields.tsx`）と精算（`PurchaseSettlementFields.tsx`）は
+ * **1ファイル400行の上限で別ファイルに出しています**（JSX はそのまま・state は
+ * ここが持ったまま props で渡すだけ）。
  *
  * ── `readOnly`（案件詳細「見積・請求」から閲覧だけで開くため） ─────
  *
@@ -23,28 +29,26 @@
  * ・保存・削除の口（`onSave`/`onDelete`）は呼ばれない（渡さなくてよい）。
  *   `projects`/`vendors` も渡さなくてよい（空配列で足りる）
  */
-import { useEffect, useState, type ReactNode } from 'react';
-import { Loader2, Trash2, ExternalLink } from 'lucide-react';
-import { localDateStr } from '@/lib/format';
-import { previousBusinessDay } from '@gmo-onair/shared/src/utils/businessDays';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { Loader2, Trash2 } from 'lucide-react';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { TaxHelperButton } from '@gmo-onair/shared/src/client/ui/tax-aware-amount-input';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { FormDialog } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import {
-  TaxCategoryLabels, SettlementMethodLabels,
-  type TaxCategory, type SettlementMethod, type Vendor,
+  TaxCategoryLabels,
+  type TaxCategory, type Vendor,
 } from '@/types';
 import type { PurchaseRow } from './types';
 import { toServiceDateInput } from './serviceDate';
+import { PurchaseDateFields } from './PurchaseDateFields';
+import { PurchaseSettlementFields } from './PurchaseSettlementFields';
 
 export interface PurchaseProjectOption {
   id: string;
@@ -160,16 +164,29 @@ export function PurchaseDialog({
     });
   };
 
+  /**
+   * Enter キーで保存できるようにする（`docs/design/v4/_form-order.md` 4）。
+   * **明細行を持たないフォームなので、入力中の Enter が誤送信になる心配が無い。**
+   * 登録ボタンは `type="submit"` にして `onClick` を外してある（両方あると二重送信）。
+   * 案件・仕入先の未選択は `handleSubmit` 自身が弾くので、ここでは保存中だけ足す。
+   */
+  const handleFormSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (readOnly || saving) return;
+    handleSubmit();
+  };
+
   return (
     <FormDialog
       open
       onOpenChange={(v) => { if (!v) onClose(); }}
       title={readOnly ? '仕入の詳細' : (editing ? '仕入を編集' : '仕入を登録')}
       size="lg"
+      onSubmit={handleFormSubmit}
       footer={
         readOnly ? (
           <div className="flex justify-end">
-            <Button variant="outline" onClick={onClose}>閉じる</Button>
+            <Button type="button" variant="outline" onClick={onClose}>閉じる</Button>
           </div>
         ) : (
           <div className="flex gap-2 sm:justify-between">
@@ -182,15 +199,17 @@ export function PurchaseDialog({
                 起きない死んだボタンになる。**描かないこと自体で守る。**
               */}
               {editing && !isMobile && (
-                <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+                <Button type="button" variant="destructive" onClick={handleDelete} disabled={deleting}>
                   {deleting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
                   削除
                 </Button>
               )}
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={onClose}>キャンセル</Button>
-              <Button disabled={!selectedProjectId || !vendorId || saving} onClick={handleSubmit}>
+              {/* ⚠️ 送信以外のボタンには必ず `type="button"` を付ける
+                  （`<form>` の中では既定が submit になり、押すと保存が走る） */}
+              <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>
+              <Button type="submit" disabled={!selectedProjectId || !vendorId || saving}>
                 {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                 {editing ? '更新' : '登録'}
               </Button>
@@ -200,6 +219,14 @@ export function PurchaseDialog({
       }
     >
         <div className="space-y-4">
+          {/*
+            並び順は `docs/design/v4/_form-order.md` の6段に沿って組み直した。上から
+            案件・仕入先（どれに付けるか）→ 説明（何の仕入か）→ 担当者（誰が）→
+            金額・税区分/インボイス（いくら）→ 日付 → 仮・精算（手続き）→ 備考。
+            **税区分はインボイスと同じ行**（どちらも「この仕入の税の扱い」）、
+            **精算方法は精算番号と同じ行**（着手前は税区分と並び、精算番号とは
+            日付ブロックで分断されていた）。
+          */}
           <div>
             <Label>案件 *</Label>
             {readOnly ? (
@@ -236,14 +263,7 @@ export function PurchaseDialog({
             )}
           </div>
 
-          <div>
-            <Label>金額</Label>
-            <div className="flex items-center gap-1">
-              <div className="flex-1"><CurrencyInput value={amount} onChange={setAmount} disabled={readOnly} /></div>
-              <TaxHelperButton fieldLabel="仕入金額" defaultIncludedAmount={amount} onResult={setAmount} disabled={readOnly} />
-            </div>
-          </div>
-
+          {/* 説明は「何の仕入か」＝一覧の見出しになる欄なので、案件・仕入先のすぐ下に置く */}
           <div>
             <Label>説明</Label>
             <Textarea
@@ -255,11 +275,38 @@ export function PurchaseDialog({
             />
           </div>
 
-          <div className="flex items-center justify-between gap-2">
-            <Label htmlFor="is-provisional" className="cursor-pointer">仮（確定前の見込み仕入）</Label>
-            <Switch id="is-provisional" checked={isProvisional} onCheckedChange={(v) => setIsProvisional(!!v)} disabled={readOnly} />
+          {/* 担当者は「誰が抱えている仕入か」。着手前は下から2番目で、
+              備考の直前まで下りないと出てこなかった（`_form-order.md` 段4） */}
+          <div>
+            <Label>担当者</Label>
+            {/* `readOnly` のときは案件・仕入先と同じ扱いで素の文字にするが、担当者だけは
+                `users` 一覧を引かなくても出せる ——サーバーが `assigned_to_name` を
+                JOIN 済みで返すため（`users` を渡し忘れても生の UUID が漏れない。レビュー指摘）。
+                存在しない・削除済みユーザーを指していれば「削除済みのユーザー」にする */}
+            {readOnly ? (
+              <ReadOnlyField>
+                {editing?.assigned_to_name || (editing?.assigned_to ? '（削除済みのユーザー）' : '（担当者なし）')}
+              </ReadOnlyField>
+            ) : (
+              <SearchableSelect
+                options={users.map((u) => ({ value: u.id, label: u.name }))}
+                value={assignedTo}
+                onChange={setAssignedTo}
+                placeholder="担当者を検索â¦"
+              />
+            )}
           </div>
 
+          <div>
+            <Label>金額</Label>
+            <div className="flex items-center gap-1">
+              <div className="flex-1"><CurrencyInput value={amount} onChange={setAmount} disabled={readOnly} /></div>
+              <TaxHelperButton fieldLabel="仕入金額" defaultIncludedAmount={amount} onResult={setAmount} disabled={readOnly} />
+            </div>
+          </div>
+
+          {/* 税区分とインボイスは対で読む（どちらも「この金額の税の扱い」）。
+              精算方法は精算の欄へ移したので、ここは金額の直後にまとまる */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label>税区分</Label>
@@ -273,88 +320,6 @@ export function PurchaseDialog({
               </Select>
             </div>
             <div>
-              <Label>精算方法</Label>
-              <Select value={settlementMethod} onValueChange={setSettlementMethod} disabled={readOnly}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(SettlementMethodLabels) as SettlementMethod[]).map((key) => (
-                    <SelectItem key={key} value={key}>{SettlementMethodLabels[key]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-3 rounded-note border p-3">
-            <div>
-              <Label>役務提供完了日</Label>
-              <Input
-                type="date"
-                value={serviceCompletedDate}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setServiceCompletedDate(val);
-                  if (val) {
-                    const [y, m] = val.split('-').map(Number);
-                    setRecognitionMonth(`${y}-${String(m).padStart(2, '0')}`);
-                    // v2.8.103+: 翌月末が土日祝のときは前営業日に調整
-                    setPaymentDueDate(localDateStr(previousBusinessDay(new Date(y, m + 1, 0))));
-                  }
-                }}
-                disabled={readOnly}
-              />
-              <p className="text-note mt-0.5 text-muted-foreground">
-                入力すると計上月（当月）・支払予定日（翌月末、土日祝は前営業日）を自動入力します
-              </p>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <Label>計上月</Label>
-                <Input type="month" value={recognitionMonth} onChange={(e) => setRecognitionMonth(e.target.value)} disabled={readOnly} />
-              </div>
-              <div>
-                <Label>支払予定日</Label>
-                <Input type="date" value={paymentDueDate} onChange={(e) => setPaymentDueDate(e.target.value)} disabled={readOnly} />
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <Label>精算番号</Label>
-              {/* 仮フラグ ON の間は入力不可。まだ確定していない金額に精算番号だけ
-                  先に入る、という矛盾した状態を避ける（仕様変更 #4・#6・#7） */}
-              <Input
-                value={settlementNumber}
-                onChange={(e) => setSettlementNumber(e.target.value)}
-                placeholder={isProvisional ? '仮の間は入力できません' : '任意'}
-                disabled={readOnly || isProvisional}
-              />
-            </div>
-            <div>
-              <Label>申請URL</Label>
-              <Input
-                type="url"
-                value={settlementUrl}
-                onChange={(e) => setSettlementUrl(e.target.value)}
-                placeholder="精算申請ページのURL（任意）"
-                disabled={readOnly}
-              />
-              {settlementUrl && (
-                <a
-                  href={settlementUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sub mt-1 inline-flex min-h-tap items-center gap-1.5 text-primary hover:underline lg:min-h-[28px]"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />精算ページを開く
-                </a>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
               <Label>インボイス</Label>
               <Select value={invoiceQualified} onValueChange={setInvoiceQualified} disabled={readOnly}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -364,26 +329,35 @@ export function PurchaseDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>担当者</Label>
-              {/* `readOnly` のときは案件・仕入先と同じ扱いで素の文字にするが、担当者だけは
-                  `users` 一覧を引かなくても出せる ——サーバーが `assigned_to_name` を
-                  JOIN 済みで返すため（`users` を渡し忘れても生の UUID が漏れない。レビュー指摘）。
-                  存在しない・削除済みユーザーを指していれば「削除済みのユーザー」にする */}
-              {readOnly ? (
-                <ReadOnlyField>
-                  {editing?.assigned_to_name || (editing?.assigned_to ? '（削除済みのユーザー）' : '（担当者なし）')}
-                </ReadOnlyField>
-              ) : (
-                <SearchableSelect
-                  options={users.map((u) => ({ value: u.id, label: u.name }))}
-                  value={assignedTo}
-                  onChange={setAssignedTo}
-                  placeholder="担当者を検索â¦"
-                />
-              )}
-            </div>
           </div>
+
+          {/* 役務提供完了日・計上月・支払予定日 — 400行の上限で別ファイル。
+              3つが連動する（役務提供完了日から他2つを埋める）ので1つの塊のまま移した */}
+          <PurchaseDateFields
+            serviceCompletedDate={serviceCompletedDate}
+            setServiceCompletedDate={setServiceCompletedDate}
+            recognitionMonth={recognitionMonth}
+            setRecognitionMonth={setRecognitionMonth}
+            paymentDueDate={paymentDueDate}
+            setPaymentDueDate={setPaymentDueDate}
+            readOnly={readOnly}
+          />
+
+          {/* 仮 → 精算方法・精算番号・申請URL の順にまとめた（400行の上限で別ファイル）。
+              **仮フラグは精算番号を入力不可にする**ので、効く相手の直上へ移した
+              （着手前は説明と税区分の間にあり、効く先まで4ブロック離れていた）。
+              精算方法も精算番号と同じ行へ寄せている（`_form-order.md` 2-1・3-4） */}
+          <PurchaseSettlementFields
+            isProvisional={isProvisional}
+            setIsProvisional={setIsProvisional}
+            settlementMethod={settlementMethod}
+            setSettlementMethod={setSettlementMethod}
+            settlementNumber={settlementNumber}
+            setSettlementNumber={setSettlementNumber}
+            settlementUrl={settlementUrl}
+            setSettlementUrl={setSettlementUrl}
+            readOnly={readOnly}
+          />
 
           <div>
             <Label>備考</Label>

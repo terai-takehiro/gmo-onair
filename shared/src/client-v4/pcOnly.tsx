@@ -113,7 +113,7 @@ export function PcOnlyPanel({ what, why, instead, onOpenAnyway, onGoInstead, ins
         </div>
 
         <div {...rise(1)}>
-          <p className="v4-eyebrow mt-5">PC で触る画面</p>
+          <p className="v4-eyebrow mt-5">PC 専用の画面</p>
           <h2 className="text-cardtitle mt-1.5">{what}</h2>
           <p className="text-sub mt-2 text-secondary-foreground">{why}</p>
         </div>
@@ -121,7 +121,7 @@ export function PcOnlyPanel({ what, why, instead, onOpenAnyway, onGoInstead, ins
         {/* **「消えた」と読ませない。** これが無いと「機能が無くなった」と受け取られる。
             理由文と分けて、丸い札で目立たせている */}
         <p {...rise(2)} className="text-list mt-4 inline-block rounded-chip bg-muted px-3 py-1 text-muted-foreground">
-          消したのではなく、PC にあります。
+          機能は PC 版に用意しています。
         </p>
 
         {/* 立ち上がりはボタンではなく**この入れ物**に掛ける。ボタン自身に掛けると、
@@ -170,7 +170,7 @@ export function PcOnlyNote({ what, why }: { what: string; why: string }) {
     <div className="flex items-start gap-2.5 rounded-note border border-info-border bg-info-surface px-3.5 py-3">
       <Monitor className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden="true" />
       <p className="text-note text-secondary-foreground">
-        <strong className="font-bold">{what}は PC で触る画面です。</strong>
+        <strong className="font-bold">{what}は PC 専用の画面です。</strong>
         {why}
       </p>
     </div>

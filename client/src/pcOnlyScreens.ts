@@ -69,7 +69,7 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   },
   {
     path: '/sales/flow-templates',
-    what: '工程の型',
+    what: '工程テンプレート',
     why: '型を変えると以後すべての案件に効くので、落ち着いて触る画面です。',
   },
   {
@@ -154,7 +154,7 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
     **表をそのまま縮めていた頃のもの**で、スマホ用に桁を読める形を作った時点で
     嘘になる。何をどう解いたかは下の `CLIENT_MOBILE_OK` に書いてある。
   */
-  { path: '/budget/documents', what: '受け取った書類', why: '金額・締月・支払期日を突き合わせる画面で、台帳に入れる操作は取り消せません。' },
+  { path: '/budget/documents', what: '受領書類', why: '金額・締月・支払期日を突き合わせる画面で、台帳に入れる操作は取り消せません。' },
   { path: '/budget/import', what: '取り込み', why: '外の数字を読んで確かめてから台帳に入れる3段の作業です。途中で止まると二重に入ります。', hidden: true },
   // **`/budget/detail`（案件月別詳細）は削除した**（v3時代の遺物の棚卸し・2026-08）。
   // `/budget/dashboard` への `RedirectKeepQuery` になったので、実体の画面が無く、
@@ -355,7 +355,7 @@ export const CLIENT_MOBILE_OK: string[] = [
   // 同じ行に詰め込まれ、和文は1文字ごとに改行できるためこの欄だけが数pxに
   // 潰れて見出しも入力欄も読めなくなっていた。スマホでは常にこの欄を単独の行に
   // する直しを工程・タスクの両方の名前欄に入れて解消
-  '/gpm/templates',                     // ⑦ 工程のひな形（GPM）
+  '/gpm/templates',                     // ⑦ 工程テンプレート（GPM）
   // 選択肢は`flex-wrap`のチップ（`Pick`）で元から縮まない塊を作っていなかったが、
   // 選択肢が3つ以上ある行（例:「支払日が休業日のとき」）では`Pick`のチップ群だけで
   // 行の大半を使い切り、隣の説明文（`hint`）に残る幅が数pxしかなくなって、

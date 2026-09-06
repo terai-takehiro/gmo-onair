@@ -44,7 +44,7 @@ const CHIP_LABELS: Record<Chip, string> = {
   all: 'すべて',
   picked: '注目度あり',
   ai: 'AIの話題',
-  human: '人が足したもの',
+  human: '手動で追加',
 };
 
 /** チップの意味。**行の見た目ではなく DB の値で決める** (AIの話題 = `ai_related` の列) */
@@ -90,9 +90,9 @@ export default function DailyNewsPage() {
       const reportId = report.data?.id ?? (await ensure.mutateAsync({ kind: 'daily_news', period_key: date })).id;
       await addItem.mutateAsync({ reportId, item: fields });
       setAdding(false);
-      notifySuccess('ニュースを足しました');
+      notifySuccess('ニュースを追加しました');
     } catch (e) {
-      notifyApiError('足せませんでした', e);
+      notifyApiError('追加できませんでした', e);
     }
   };
 
@@ -227,7 +227,7 @@ export default function DailyNewsPage() {
         <strong className="font-bold">自動では送られません</strong> — 選ぶのは人です。
         {weeklyLocked && (
           <> この日が入る週のウィークリー活動報告は<strong className="font-bold">確定済み</strong>なので、
-          いまは送れません（ウィークリー活動報告の画面で「確定を解く」を押すと送れるようになります）。</>
+          いまは送れません（ウィークリー活動報告の画面で「確定を取り消す」を押すと送れるようになります）。</>
         )}
       </p>
     </div>

@@ -153,20 +153,35 @@ export function useRowWindow(listRef: React.RefObject<HTMLElement>, count: numbe
     if (!list) return;
 
     /*
-     * 送り幅は**実物の2行から測る**（`data-eq-row`）。
+     * 送り幅は**実物の行から測る**（`data-eq-row`）。
      * 1行の高さだけ測ると、`gap` で並べている一覧（スマホのカード）で
-     * 1枚あたり 8px ずつ足りなくなります。
+     * 1枚あたり 8px ずつ足りなくなるので、**行の頭どうしの間隔**を測る。
      * 編集モードや列の出し入れで高さが変わるので毎回測り直す。
+     *
+     * ⚠️ **先頭の2行だけで決めないこと。** 商品名が2行になる行とならない行が
+     * 混ざるようになったので（`EquipmentCells.tsx` の `line-clamp-2`）、
+     * たまたま上の2行が短いと送り幅を低く見積もり、**下に行くほど
+     * 描く範囲と実際の位置がずれます**。**見えている行ぜんぶの平均**
+     * （先頭から末尾までの距離 ÷ 間隔の数）にすると、混ざり方に寄らず
+     * 実際の平均に収束します。
      */
     const sample = list.querySelectorAll<HTMLElement>('[data-eq-row]');
     if (sample.length >= 1) {
-      const h = sample[0].getBoundingClientRect().height;
-      if (h > 0) {
+      const first = sample[0].getBoundingClientRect();
+      if (first.height > 0) {
         if (sample.length >= 2) {
-          const p = sample[1].getBoundingClientRect().top - sample[0].getBoundingClientRect().top;
-          if (p > 0) { pitch.current = p; gap.current = Math.max(p - h, 0); }
+          const last = sample[sample.length - 1].getBoundingClientRect();
+          const p = (last.top - first.top) / (sample.length - 1);
+          // 隙間は「送り幅 − 1行の高さ」。行の高さがまちまちなので**いちばん低い行**を
+          // 高さとみなす（高いほうで引くと隙間が 0 に潰れ、カードの一覧で足りなくなる）
+          let minH = first.height;
+          for (const el of sample) {
+            const h = el.getBoundingClientRect().height;
+            if (h > 0 && h < minH) minH = h;
+          }
+          if (p > 0) { pitch.current = p; gap.current = Math.max(p - minH, 0); }
         } else {
-          pitch.current = h; gap.current = 0;
+          pitch.current = first.height; gap.current = 0;
         }
       }
     }

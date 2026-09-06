@@ -3,7 +3,7 @@
  *
  * 2026年10月の事業再編（社名変更・計上会社の2社化・GLS→GJV/GSS/GMO の改番）で新設。
  * 設計の全文: docs/reorg-2026-10-plan.md（§4.2・§4.9・§13）。マイグレーションは
- * `280_legal_entities.sql`（表そのもの）・`281_entity_code_columns.sql`（他表への列追加）。
+ * `282_legal_entities.sql`（表そのもの）・`283_entity_code_columns.sql`（他表への列追加）。
  *
  * ── 読むたびに DB を叩かない ────────────────────────────────
  *

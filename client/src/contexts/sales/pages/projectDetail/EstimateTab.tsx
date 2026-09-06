@@ -157,7 +157,7 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3.5 p-4 lg:p-6">
-      <div className="inline-flex w-fit shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="見るものを切り替える">
+      <div className="inline-flex w-fit shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="表示形式を切り替える">
         {([['estimate', '見積', Receipt], ['revenue', '売上・請求', Wallet]] as const).map(([k, label, Icon], i) => (
           <button
             key={k}
@@ -209,15 +209,15 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
         <EmptyState
           title={episodeId ? 'この回の見積はまだありません' : '見積はまだありません'}
           description={episodeId
-            ? '「見積をつくる」でこの回向けの見積をつくります（この絞り込みのまま作ると、この回に紐づきます）。'
-            : '明細を積んで金額を出します。お客様に出したあとに直したくなったら、版を上げれば前に出したものは残ります。1案件で見積を分けたいとき（本編とケータリングなど）は「見積をつくる」を必要な数だけ押してください。'}
+            ? '「見積を作成」でこの回向けの見積を作成します（この絞り込みのまま作ると、この回に紐づきます）。'
+            : '明細を積んで金額を出します。お客様に出したあとに直したくなったら、版を上げれば前に出したものは残ります。1案件で見積を分けたいとき（本編とケータリングなど）は「見積を作成」を必要な数だけ押してください。'}
           action={canEdit ? (
             <div className="flex flex-wrap justify-center gap-2">
-              <Button onClick={() => create.mutate()}><Plus className="mr-1 h-4 w-4" aria-hidden="true" />見積をつくる</Button>
+              <Button onClick={() => create.mutate()}><Plus className="mr-1 h-4 w-4" aria-hidden="true" />見積を作成</Button>
               {/* 1日複数本の日をひとまとまりで見積る入口（仕様変更 #20）。回で絞り込んで空のときこそ「前の回の見積を写す」も要る */}
               {isSeries && (
                 <Button variant="outline" onClick={() => setMultiEpisode(true)}>
-                  <Layers className="mr-1 h-4 w-4" aria-hidden="true" />複数の回をまとめて見積をつくる
+                  <Layers className="mr-1 h-4 w-4" aria-hidden="true" />複数の回をまとめて見積を作成
                 </Button>
               )}
               {isSeries && (list.data ?? []).length > 0 && (
@@ -241,13 +241,13 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
           <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
             {canEdit && (
               <Button className="shrink-0" onClick={() => create.mutate()}>
-                <Plus className="mr-2 h-4 w-4" aria-hidden="true" />見積をつくる
+                <Plus className="mr-2 h-4 w-4" aria-hidden="true" />見積を作成
               </Button>
             )}
             {/* 1日複数本の日をひとまとまりで見積る入口（仕様変更 #20・レギュラー案件だけ） */}
             {canEdit && isSeries && (
               <Button variant="outline" className="shrink-0" onClick={() => setMultiEpisode(true)}>
-                <Layers className="mr-2 h-4 w-4" aria-hidden="true" />複数の回をまとめて見積をつくる
+                <Layers className="mr-2 h-4 w-4" aria-hidden="true" />複数の回をまとめて見積を作成
               </Button>
             )}
             {/* **複製の入口はここにも置く**（仕様変更 #18）。版一覧の右端のアイコンだけ
@@ -259,8 +259,8 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
             )}
             <p className="text-sub text-muted-foreground">
               {canEdit
-                ? '「見積をつくる」は押すたびに独立した見積が増えます（本編とケータリングなど、1案件を複数の見積に分けたいときに）。版を上げると前の版はそのまま残ります（出したあとに書き換えないため。まだ出していない下書きはそのまま直せます）。'
-                : '閲覧のみの権限です。新しい版の作成・明細の保存には案件管理の編集権限が必要です。'}
+                ? '「見積を作成」は押すたびに独立した見積が増えます（本編とケータリングなど、1案件を複数の見積に分けたいときに）。版を上げると前の版はそのまま残ります（出したあとに書き換えないため。まだ出していない下書きはそのまま編集できます）。'
+                : '閲覧権限です。新しい版の作成・明細の保存には案件管理の編集権限が必要です。'}
             </p>
           </div>
 

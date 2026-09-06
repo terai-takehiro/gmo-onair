@@ -34,7 +34,7 @@ import { cn } from '@gmo-onair/shared/src/client/utils';
 // **会社名は既存の `ENTITY_BADGE_LABEL` を再利用する**（新たに `/legal-entities` を
 // 読まない）。同じ定数が `OverviewTab.tsx`（この案件の「計上会社」欄）でも
 // 使われており、その docstring 自体が「案件詳細など枠の広い場所で使う」ことを
-// 明記している。値そのものは `legal_entities.short_name`（migration 280）の
+// 明記している。値そのものは `legal_entities.short_name`（migration 282）の
 // 実データと合わせてあり、発行者情報の編集口も name/short_name には無い
 // （`legal-entity.service.ts` の `WRITABLE`）ので、ここだけ生で問い合わせて
 // 2つ目の情報源を作るより、既にある1つに寄せるほうが「同じ数字を2か所で
@@ -125,7 +125,7 @@ export function ReviewSide({
               />
             </div>
             <p className="text-note border-t border-border-faint bg-surface-subtle px-4 py-2.5 text-muted-foreground">
-              売上と仕入は<strong className="font-bold">分け合った額も足した実績</strong>です（財務管理と同じ数え方）。
+              売上と仕入は<strong className="font-bold">按分後の実績も足した実績</strong>です（財務管理と同じ数え方）。
               <strong className="font-bold">見積との差の読み方はここでは書きません</strong> —
               値引きなのか追加受注なのかは数字からは分からないためです。
             </p>

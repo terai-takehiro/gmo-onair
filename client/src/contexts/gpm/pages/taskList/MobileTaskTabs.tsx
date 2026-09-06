@@ -11,7 +11,7 @@
  * `finance/pages/ledger/LedgerTabs.tsx` と同じ考え方——ただし項目が2つしか無いので、
  * 横スクロールの下線タブではなく**幅いっぱいの2分割**にして、指の届く範囲に置く。
  *
- * 件数は `GpmTaskListPage.tsx` の `sub`（「未完了 N件 ・ 止まっている未確認事項 N件」）
+ * 件数は `GpmTaskListPage.tsx` の `sub`（「未対応 N件 ・ 止まっている未確認事項 N件」）
  * と**同じ数**を渡す。ここで数え直すと、見出しの1行とタブの数字が食い違う。
  */
 import { CircleHelp, ListTodo } from 'lucide-react';
@@ -35,7 +35,7 @@ export function MobileTaskTabs({
 
   return (
     // タブの ARIA は名乗らない (矢印キー・tabpanel 未実装)。aria-pressed の組にする
-    <div role="group" aria-label="見るものを切り替える" className="grid grid-cols-2 gap-1.5">
+    <div role="group" aria-label="表示形式を切り替える" className="grid grid-cols-2 gap-1.5">
       {ITEMS.map(({ key, label, icon: Icon }) => {
         const on = tab === key;
         const count = counts[key];

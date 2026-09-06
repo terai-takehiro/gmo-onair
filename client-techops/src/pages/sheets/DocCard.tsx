@@ -1,4 +1,6 @@
 // 進行台本の一覧 — 1件ぶんのカード。旧 DashboardPage.tsx の DocCard をそのまま分割。
+import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   Radio,
   Pencil,
@@ -12,8 +14,42 @@ import {
   Users,
   Lock,
   ListOrdered,
+  CalendarClock,
 } from "lucide-react";
+import * as scheduleApi from "@/lib/scheduleApi";
 import { type QsheetDocument, fmtDate, getDraftLabel, getDraftColor } from "./types";
+
+// `2026-09-12` → `9/12`。カードの他バッジ（例: `9 セクション`）と同じ短さに揃える
+// （フル書式の fmtDate は「2026年9月12日(金)」で1件のバッジには長すぎる）
+function fmtMd(isoDate: string): string {
+  const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(isoDate);
+  return m ? `${Number(m[1])}/${Number(m[2])}` : isoDate;
+}
+
+// 逆引き（この台本がスケジュール表のどの枠に結ばれているか）。14-schedule-v2-plan.md §3 B3。
+// 無ければ何も描かない（このアプリの決めごと — 事実だけを出し、否定を並べない）。
+// 結ばれる枠は kind が onair/rehearsal/recording の項目だけ（02-schedule.md §6-1）なので、
+// 1件のカードに複数ヒットすることは実運用上まれ——最初の1件だけをバッジにする。
+function ScheduleLinkBadge({ docId }: { docId: string }) {
+  const { data } = useQuery({
+    queryKey: ["schedule-items-for-document", docId],
+    queryFn: () => scheduleApi.getScheduleItemsForDocument(docId),
+    staleTime: 60 * 1000,
+  });
+  const ref = data?.[0];
+  if (!ref) return null;
+  return (
+    <Link
+      to={`/techops/schedules/${ref.scheduleId}`}
+      onClick={(e) => e.stopPropagation()}
+      className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-primary hover:bg-primary/20"
+      title="この進行台本が結ばれているスケジュール表の枠を開く"
+    >
+      <CalendarClock size={9} aria-hidden />
+      スケジュール表: {fmtMd(ref.serviceDate)} {ref.title || ref.columnLabel}
+    </Link>
+  );
+}
 
 export function DocCard({
   doc,
@@ -160,6 +196,7 @@ export function DocCard({
             <ListOrdered size={9} aria-hidden />
             {sectionCount} セクション
           </span>
+          <ScheduleLinkBadge docId={doc.id} />
           {shareCount > 0 ? (
             <span className="inline-flex items-center gap-0.5 text-primary" title={`${shareCount} 名に共有中`}>
               <Users size={10} aria-hidden />

@@ -156,6 +156,14 @@ export function MobileToday() {
 
   const dayList = useMemo(() => sortForList(eventsOn(cal.events, selected)), [cal.events, selected]);
 
+  // 登録ダイアログへ渡す preset は**同一性を保つ**（`useMemo`）。インラインの `{...}` だと
+  // 毎レンダー新しいオブジェクトになり、3つのダイアログとも preset を初期化 `useEffect` の
+  // 依存に持つため、**背後のクエリが解決するたび入力中のフォームが白紙に戻る**。
+  // PC 側（`pages/calendar/useCalendarEdit.ts`）は対策済みで、ここだけ漏れていた
+  const studioPreset = useMemo(() => ({ start: selected, end: selected, allDay: false }), [selected]);
+  const partnerPreset = useMemo(() => ({ start: selected, end: selected }), [selected]);
+  const personalPreset = useMemo(() => ({ start: selected, end: selected, allDay: false }), [selected]);
+
   /** その層を読む権限があるか（「出すもの」のダイアログも件数の脚注も同じ表を見る） */
   const layerVisible: Record<CalLayer, boolean> = {
     studio: cal.can.studio, partner: cal.can.partner, my: cal.can.personal, tasks: cal.can.tasks,
@@ -321,19 +329,19 @@ export function MobileToday() {
         onPick={setNewKind}
       />
 
-      <StudioBookingDialog
+      <StudioBookingDialog key={(editBooking as { id?: string } | null)?.id ?? 'new'} // 対象ごとに作り直す
         open={newKind === 'room' || !!editBooking}
         onOpenChange={(v) => { if (!v) { setNewKind(null); setEditBooking(null); } }}
         locations={locations.data ?? []}
         editingBooking={editBooking as never}
-        presetDate={{ start: selected, end: selected, allDay: false }}
+        presetDate={studioPreset}
       />
 
       <PartnerScheduleDialog
         open={newKind === 'partner' || !!editSchedule}
         onOpenChange={(v) => { if (!v) { setNewKind(null); setEditSchedule(null); } }}
         editing={editSchedule}
-        presetRange={editSchedule ? null : { start: selected, end: selected }}
+        presetRange={editSchedule ? null : partnerPreset}
         isManager={isPartnerManager}
       />
 
@@ -341,7 +349,7 @@ export function MobileToday() {
         open={newKind === 'mine' || !!editEvent}
         onOpenChange={(v) => { if (!v) { setNewKind(null); setEditEvent(null); } }}
         editing={editEvent}
-        presetRange={editEvent ? null : { start: selected, end: selected, allDay: false }}
+        presetRange={editEvent ? null : personalPreset}
       />
 
       {/* **旧スタジオカレンダーの退役に伴い、ここが「既存の部屋予約を編集する唯一の導線」になった** */}

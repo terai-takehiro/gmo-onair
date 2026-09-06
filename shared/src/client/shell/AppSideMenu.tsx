@@ -271,7 +271,9 @@ export function AppSideMenu({
                       )}
                     >
                       <Dot active={active} />
-                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      <span className={cn('min-w-0 flex-1', item.wrap ? 'break-words' : 'truncate')}>
+                        {item.label}
+                      </span>
                       {item.tag && (
                         <span className="text-sub-sm inline-flex h-[19px] shrink-0 items-center rounded-badge-xs bg-muted px-1.5 font-bold text-muted-foreground">
                           {item.tag}

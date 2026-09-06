@@ -9,6 +9,7 @@
 import type { TaskDependency } from '@/contexts/tasks/hooks/useProjectTasks';
 import { lateDays, PHASE_STATE_LABEL, ymd } from '../../types';
 import { PHASE_COLOR, ROW_H, type RowItem } from './GpmGanttBar';
+import { GANTT_COLORS } from './ganttColors';
 
 /** 左パネルの1行（工程名／タスク名＋遅れ・件数の印）。`GpmGanttView` の400行対策で分離 */
 export function GanttLeftRow({ r, today }: { r: RowItem; today: string }) {
@@ -101,9 +102,9 @@ export function DependencyArrows({
           <g key={dep.id} style={{ pointerEvents: 'none' }}>
             <polyline
               points={`${ex},${ey} ${midX},${ey} ${midX},${sy} ${sx},${sy}`}
-              fill="none" stroke="#64748b" strokeWidth={1.3} strokeOpacity={0.75}
+              fill="none" stroke={GANTT_COLORS.mutedForeground} strokeWidth={1.3} strokeOpacity={0.75}
             />
-            <polygon points={`${sx - 6},${sy - 3} ${sx},${sy} ${sx - 6},${sy + 3}`} fill="#64748b" fillOpacity={0.85} />
+            <polygon points={`${sx - 6},${sy - 3} ${sx},${sy} ${sx - 6},${sy + 3}`} fill={GANTT_COLORS.mutedForeground} fillOpacity={0.85} />
           </g>
         );
       })}

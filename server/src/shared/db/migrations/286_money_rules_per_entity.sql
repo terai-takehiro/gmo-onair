@@ -1,16 +1,16 @@
--- 284: お金のルール・月次予算/実績上書きを会社（entity_code）ごとに持てるようにした
+-- 286: お金のルール・月次予算/実績上書きを会社（entity_code）ごとに持てるようにした
 -- （2026年10月の事業再編・財務の2社タブ・P2 Round 1）
 --
 -- 設計の全文: docs/reorg-2026-10-plan.md（§4.5・§4.6・§6 P2）
 --
 -- money_rules は「id='default' の1行だけ」という前提で作られていた
--- （281 で entity_code 列を足したのは DEFAULT 'GSS' で埋めるためだけで、
+-- （283 で entity_code 列を足したのは DEFAULT 'GSS' で埋めるためだけで、
 -- 複数行にする配線はまだ入れていない）。ここで id そのものを entity_code と
 -- 一致させ、GJV・GMO ぶんの行を GSS の設定値の写しで足す（値を分けたくなったら
 -- あとで設定画面から個別に直せる。ここでは「揃っている」状態を作るだけ・§4.5）。
 --
 -- monthly_budgets / monthly_actual_overrides も同様に year_month 単独の PK を
--- (entity_code, year_month) に広げる。既存行は 281 の DEFAULT で全部
+-- (entity_code, year_month) に広げる。既存行は 283 の DEFAULT で全部
 -- entity_code='GSS' なので、広げても重複キーにはならない。
 
 -- ── money_rules: id 固定チェックを外し、id = entity_code に付け替える ──────

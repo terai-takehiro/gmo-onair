@@ -109,7 +109,7 @@ function CardDetail({
               {card.overdue ? <span className="text-destructive">返却の日を過ぎています</span> : null}
             </p>
             {card.lent_by_name && <p className="text-sub text-muted-foreground">渡した人: {card.lent_by_name}</p>}
-            {card.purpose && <p className="text-sub text-muted-foreground">使いみち: {card.purpose}</p>}
+            {card.purpose && <p className="text-sub text-muted-foreground">用途: {card.purpose}</p>}
           </div>
         )}
 
@@ -132,8 +132,18 @@ function CardDetail({
 
         {canEdit && editing && (
           <div className="mt-3 flex flex-col gap-2 border-t border-border-subtle pt-3">
+            {/* **「貸し出せる」を先頭に置く。** 外すと紛失・廃止の扱いになり、
+                このカードは貸出そのものができなくなる（呼び名・備考より上位の話）。
+                末尾にあると、直したいのがそこだったときに下まで探すことになる */}
             <div>
-              <Label htmlFor="card-label">呼び名 (任意)</Label>
+              <label className="text-sub min-h-tap flex items-center gap-2">
+                <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-4 w-4" />
+                貸し出せる
+              </label>
+              <p className="text-note text-muted-foreground">外すと紛失・廃止の扱いになります。</p>
+            </div>
+            <div>
+              <Label htmlFor="card-label">表示名 (任意)</Label>
               <Input id="card-label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="例：貸出用の予備" />
             </div>
             <div>
@@ -145,13 +155,6 @@ function CardDetail({
                 rows={2}
                 className="text-sub mt-1 w-full resize-y rounded-control border border-border bg-background px-3 py-2"
               />
-            </div>
-            <div>
-              <label className="text-sub min-h-tap flex items-center gap-2">
-                <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-4 w-4" />
-                貸し出せる
-              </label>
-              <p className="text-note text-muted-foreground">外すと紛失・廃止の扱いになります。</p>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" className="min-h-tap" onClick={() => setEditing(false)}>
@@ -188,7 +191,7 @@ function CardDetail({
       </div>
 
       <div className="rounded-card border border-border bg-card">
-        <p className="text-th border-b border-border-subtle px-4 py-2 text-muted-foreground">このカードの貸し借り</p>
+        <p className="text-th border-b border-border-subtle px-4 py-2 text-muted-foreground">このカードの貸出履歴</p>
         {history.isLoading ? (
           <Delayed><SkeletonRows rows={3} /></Delayed>
         ) : (history.data ?? []).length === 0 ? (
@@ -212,14 +215,14 @@ function RecentLendings() {
   return (
     <div className="rounded-card border border-border bg-card">
       <p className="text-th border-b border-border-subtle px-4 py-2 text-muted-foreground">
-        最近の貸し借り（すべてのカード）
+        最近の貸出履歴（すべてのカード）
       </p>
       {lendings.isLoading ? (
         <Delayed><SkeletonRows rows={5} /></Delayed>
       ) : rows.length === 0 ? (
         <EmptyState
           className="border-0 bg-transparent"
-          title="貸し借りの記録はまだありません"
+          title="貸出履歴の記録はまだありません"
           description="左のカードを選ぶと、そのカードで開けられる部屋と貸し出しの操作が出ます。"
         />
       ) : (

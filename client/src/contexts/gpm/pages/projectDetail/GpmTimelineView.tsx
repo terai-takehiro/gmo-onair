@@ -23,6 +23,7 @@ import {
   lateDays, PHASE_STATE_LABEL, ymd,
   type GpmPhase, type GpmProjectDetail, type GpmTask, type PhaseState,
 } from '../../types';
+import { GANTT_COLORS } from './ganttColors';
 
 /** 状態 → 節の色（ガントのバーと同じ系統。別の色を作ると対応が読めない） */
 const NODE_TONE: Record<PhaseState, string> = {
@@ -90,11 +91,11 @@ export function GpmTimelineView({
 function TodayRule({ today, last = false }: { today: string; last?: boolean }) {
   return (
     <div className={cn('flex items-center gap-2', last ? 'pt-1' : 'pb-3')}>
-      {/* 今日線はガントの今日線と同じ実色（#f87171）。クラスにせず style で当てる */}
-      <span className="text-badge shrink-0 rounded-chip px-2.5 py-0.5 font-bold text-white" style={{ backgroundColor: '#f87171' }}>
+      {/* 今日線はガントの今日線と同じ実色（`GANTT_COLORS.destructive`）。クラスにせず style で当てる */}
+      <span className="text-badge shrink-0 rounded-chip px-2.5 py-0.5 font-bold text-white" style={{ backgroundColor: GANTT_COLORS.destructive }}>
         今日 {today.slice(5).replace('-', '/')}
       </span>
-      <span className="min-w-0 flex-1 border-t-2 border-dashed" style={{ borderColor: '#f87171' }} aria-hidden="true" />
+      <span className="min-w-0 flex-1 border-t-2 border-dashed" style={{ borderColor: GANTT_COLORS.destructive }} aria-hidden="true" />
     </div>
   );
 }
@@ -188,7 +189,7 @@ function PhaseNode({
             className="text-sub min-h-tap mt-1 flex max-w-full items-center gap-1.5 text-left text-muted-foreground lg:min-h-0"
           >
             <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true" className="shrink-0">
-              <polygon points="6,0 12,6 6,12 0,6" fill="#f59e0b" stroke="#b45309" strokeWidth="1" />
+              <polygon points="6,0 12,6 6,12 0,6" fill={GANTT_COLORS.warning} stroke={GANTT_COLORS.warning} strokeWidth="1" />
             </svg>
             <span className="min-w-0 truncate">
               {ymd(t.due_at) ? `${ymd(t.due_at)!.slice(5).replace('-', '/')} ` : ''}{t.title}

@@ -45,7 +45,7 @@ export default function ExcelImportDialog({ docId, currentData, onApply, onApply
       setResult(res);
       setStage("review");
     } catch (e: any) {
-      const msg = e?.response?.data?.error?.message || "ファイルを読み取れませんでした。中身を確かめて、もう一度選び直してください。";
+      const msg = e?.response?.data?.error?.message || "ファイルを読み取れませんでした。内容を確認して、もう一度選び直してください。";
       setError(msg);
       setStage("error");
     }

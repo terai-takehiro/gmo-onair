@@ -5,11 +5,11 @@
  *
  * 2026年10月の事業再編（docs/reorg-2026-10-plan.md §4.3・§4.5・§4.11・§13）で
  * `projects` / `revenues` / `purchases` / `sga_expenses` / `estimates` に
- * `entity_code` 列を足した（migration 281）。列はまだ NULL 可で足しただけなので、
+ * `entity_code` 列を足した（migration 283）。列はまだ NULL 可で足しただけなので、
  * 書き込み側が明示しなくてもエラーにはならない —
  * **書き忘れても気づけない**まま NULL の行が増え続ける。
  *
- * migration 282 でこの列を NOT NULL にする前に、**全ての INSERT が
+ * migration 284 でこの列を NOT NULL にする前に、**全ての INSERT が
  * 明示的に書いているか**をここで固定する。落ちたらそれは「新しい書き込み口が
  * 増えたのに `entity_code` を書いていない」ということなので、
  * `shared/constants/entity-default.ts` の `CURRENT_ENTITY_CODE` を import して
@@ -29,7 +29,7 @@ import { join } from 'node:path';
 const ROOT = join(__dirname, '..', '..');
 const SERVER_SRC = join(ROOT, 'server', 'src');
 
-/** 対象は「書いた時の計上会社」を持たせた5表だけ（§4.5・281番）。 */
+/** 対象は「書いた時の計上会社」を持たせた5表だけ（§4.5・283番）。 */
 const TARGET_TABLES = ['projects', 'revenues', 'purchases', 'sga_expenses', 'estimates'] as const;
 
 function tsFiles(dir: string): string[] {

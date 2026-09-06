@@ -109,7 +109,7 @@ export function OverviewTab({
         {/*
           事実の帯。
 
-          ⚠️ **モックは4列だが、「次にやること」だけ1行ぶん使う**
+          ⚠️ **モックは4列だが、「次のアクション」だけ1行ぶん使う**
           （`docs/v4-mock-deviations.md` に記録）。モックの値は「田中：見積を送る」の
           **8文字**だが、本番に入っている言い切りの1文は
           「★8/14(金)までに 8/28分の備品レンタル発注可否を確定し発注する(…)」で
@@ -175,7 +175,7 @@ export function OverviewTab({
           */}
           <Fact
             icon={CalendarClock}
-            label="次にやること"
+            label="次のアクション"
             mobile={mobile}
             className={mobile ? undefined : 'col-span-2 border-l-0 border-t border-border-faint pt-3 lg:col-span-3'}
           >
@@ -208,7 +208,7 @@ export function OverviewTab({
                     to={`/sales/projects/${project.id}/thread`}
                     className="text-sub-sm min-h-tap inline-flex items-center text-primary hover:underline lg:min-h-0"
                   >
-                    ほか <span className="font-number">{subTasks}</span> 件（全部読む）
+                    ほか <span className="font-number">{subTasks}</span> 件（すべて表示）
                   </Link>
                 )}
                 {nextAction.next_action_date && (
@@ -223,7 +223,7 @@ export function OverviewTab({
 
         {/*
           並びは**登録の16項目と同じ**にしてある（`projectNew/fields.ts`）。
-          入れた順に読めないと、どこに入れた値なのかを探すことになる。
+          入れた順に読めないと、どこに入れた値なのかを検索ことになる。
           `Field` は中身が空なら「—」を出すので、空欄でも列がずれない
         */}
         <Section title="この案件のこと">
@@ -324,10 +324,10 @@ export function OverviewTab({
           事実の帯と**同じ組み立て**（`venue.ts`）を使う。ここも
           `b.room_name ?? b.location_name` で「部屋 未設定」だけが並び、
           しかも日付は**存在しない `booking_date`** を描いていたので**空行**でした
-          ⚠️ **見出しは「押さえている部屋」→「押さえている予定」**（UXレポート指摘）。
+          ⚠️ **見出しは「押さえている部屋」→「予約済みの日程」**（UXレポート指摘）。
           場所が空の行の「場所が未設定」と矛盾して読めていたため
         */}
-        <Section title="押さえている予定">
+        <Section title="予約済みの日程">
           {bookings.length === 0 ? (
             <p className="text-sub text-muted-foreground">押さえていません。</p>
           ) : (

@@ -80,7 +80,7 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに5つの「入�
 | 財務 ① ダッシュボード | `contexts/finance/pages/BudgetDashboardPage.tsx` ＋ `pages/financeDashboard/` |
 | 財務 ② 請求・入金（締め） | `contexts/finance/pages/ClosingPage.tsx` ＋ `pages/closing/` |
 | 財務 ③④⑤ 売上・仕入・販管費 | `contexts/finance/pages/{Revenue,Purchase,Sga}ListPage.tsx` ＋ `pages/ledger/` |
-| 財務 ⑥ 受け取った書類 | `contexts/finance/pages/DocumentsPage.tsx` ＋ `pages/documents/` |
+| 財務 ⑥ 受領書類（**ひとつづり表示**） | `contexts/finance/pages/DocumentsPage.tsx` ＋ `pages/documents/`（`GroupCard` / `GroupEditDialog`） |
 | 財務 ⑦ 取り込み | `contexts/finance/pages/ImportPage.tsx` ＋ `pages/import/` |
 | 財務 ⑧ 取引先（仕入先・パートナー） | `contexts/finance/pages/CounterpartyPage.tsx` ＋ `pages/counterparty/` |
 | プロジェクト管理（GPM）一式 | `contexts/gpm/` |
@@ -157,6 +157,15 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに5つの「入�
   持つ——見分けは `gls_category` と、版を作るときは行き先（`project_id`）と提出先
   （`customer_id`/`submit_to`）を写す。請求の一覧は `status='confirmed'` かつ
   `group_id IS NULL`（按分の親行を二重に数えない）
+- **受領書類は「1通」ではなく「1つの取引」が単位**（migration 281）。段（見積書のみ/発注済み/
+  請求書あり）・払う金額・台帳へ渡せるかは `shared/src/utils/financeDocChain.ts` が決める。
+  **サーバーにも同じ計算がある**（`server/src/shared/services/finance-chain.ts`。サーバーは
+  `shared` を import できない）ので、**片方だけ直すと画面が出す支払期日と台帳に入る期日が
+  別の日になる** — `shared/tests/financeDocChainParity.test.ts` が両方を突き合わせている
+- **受領書類の当て先（どの案件か）は人が決める。** AI は `project_hint` を渡すだけで、
+  サーバーが探して確からしさを付ける（**候補が複数なら付けない**）。人が直したら
+  `project_source='human'` に変える — 変えないと、直した行が「AI が当てた」まま残り
+  無修正採用率が実際より良く見える
 - **万円へ丸めるのは `toMan` 1本**（`shared/src/client/ui/numbers.tsx`）。単位は数字と別に描く
 - **同じ数字を2か所で数えない。** トップのタイル件数・ダッシュボードの帯は既存 API の
   数字を使い回す（数え直すと必ず食い違う）

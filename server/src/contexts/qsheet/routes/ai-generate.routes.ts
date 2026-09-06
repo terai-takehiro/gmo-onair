@@ -44,9 +44,15 @@ router.post('/ai/event-plan', requirePermission('qsheet', 'editor'), wrap(async 
   if (!scheduleId) throw new ValidationError('schedule_id を指定してください');
   await requireScheduleAccess(req, scheduleId);
 
+  // 拠点・種別（14-schedule-v2-plan.md §3 B10）。任意——空なら今までどおり表・案件の値を使う
   const proposal = await generateEventPlan(
     scheduleId,
-    { instruction: typeof b.instruction === 'string' ? b.instruction : undefined, isAdmin: isQsheetAdmin(req.user!) },
+    {
+      instruction: typeof b.instruction === 'string' ? b.instruction : undefined,
+      isAdmin: isQsheetAdmin(req.user!),
+      locationId: typeof b.location_id === 'string' && b.location_id ? b.location_id : undefined,
+      category: typeof b.category === 'string' && b.category ? b.category : undefined,
+    },
     req.user!.id,
   );
   proposalResponse(res, proposal);

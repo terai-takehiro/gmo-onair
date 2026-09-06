@@ -62,7 +62,7 @@ export function ItemsToolbar({
       {!isMobile && columnPicker}
       {!isMobile && canEdit && (
         <Button variant={editMode ? 'default' : 'outline'} onClick={onToggleEdit}>
-          <Edit3 className="mr-1 h-4 w-4" aria-hidden="true" />{editMode ? '編集を終わる' : '表で編集'}
+          <Edit3 className="mr-1 h-4 w-4" aria-hidden="true" />{editMode ? '編集を終了' : '表で編集'}
         </Button>
       )}
       {canEdit && (

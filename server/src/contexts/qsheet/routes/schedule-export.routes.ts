@@ -44,7 +44,8 @@ router.get('/schedules/:id/export-xlsx', requirePermission('qsheet', 'exporter')
     columns.map((c) => ({ id: c.id as string, col_group: c.col_group as 'venue' | 'prep' | 'ops', label: c.label as string, room_name: (c.room_name as string) ?? null, sort_order: c.sort_order as number })),
     items.map((i) => ({
       id: i.id as string, column_id: i.column_id as string, title: i.title as string, kind: i.kind as string,
-      start_min: i.start_min as number, end_min: i.end_min as number, assignee: (i.assignee as string) ?? null,
+      start_min: i.start_min as number, end_min: i.end_min as number, span_cols: (i.span_cols as number) ?? 1,
+      assignee: (i.assignee as string) ?? null,
       note: (i.note as string) ?? null, qsheet_document_id: (i.qsheet_document_id as string) ?? null, link_broken: !!i.link_broken,
     })),
     breakdown,

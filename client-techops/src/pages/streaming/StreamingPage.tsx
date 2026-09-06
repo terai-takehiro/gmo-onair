@@ -259,7 +259,7 @@ export default function StreamingPage() {
       <div className="mb-3 flex flex-wrap items-center gap-2">
         {canEdit && (
           <Button variant="outline" className="h-11" onClick={() => setCopyFromOpen(true)}>
-            <Copy className="mr-2 h-4 w-4" /> 前回の設定を写す
+            <Copy className="mr-2 h-4 w-4" /> 前回の設定を複製
           </Button>
         )}
         <Button variant="outline" className="h-11" onClick={() => setExportOpen(true)}>
@@ -276,9 +276,9 @@ export default function StreamingPage() {
       {/* 打ち終わってから捨てられるのがいちばん困るので、**打つ前に**言う */}
       {!canEdit && (
         <p className="mb-3 rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-note text-foreground">
-          <strong>いまは「見るだけ」です。</strong>内容を見ることと Excel の書き出し（キーは空欄）は
+          <strong>現在は閲覧のみです。</strong>内容を見ることと Excel の書き出し（キーは空欄）は
           できますが、保存と「キーを入れて出す」はできません。
-          直すには 制作技術支援の「書ける」が必要です。
+          編集するには制作技術支援の「編集」が必要です。
         </p>
       )}
 
@@ -294,7 +294,7 @@ export default function StreamingPage() {
       {/* 状態の帯（配信先 / 直したほうがよい / 出ない台） */}
       <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-card border bg-card px-3 py-2">
         <Stat label="配信先" value={`${destinations.length}件`} tone="primary" />
-        <Stat label="直したほうがよい" value={`${warnIds.size}件`} tone="bad" />
+        <Stat label="要修正" value={`${warnIds.size}件`} tone="bad" />
         <Stat label="出ない台" value={`${emptyEncoders}台`} tone="mute" />
         <span className="flex-1" />
         <span className="truncate text-xs text-muted-foreground">

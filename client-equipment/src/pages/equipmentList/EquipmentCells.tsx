@@ -21,7 +21,7 @@ import { EnhancedCheckbox } from '@gmo-onair/shared/src/client/ui/enhanced-check
 import type { CustomColumn } from '@/components/CustomColumnDialog';
 import { CONDITION_LABELS } from '@/lib/constants';
 import { SectionBadge } from './badges';
-import { COL_DEFS, COL_W, CUSTOM_COL_W, type ColKey, type EquipmentRecord } from './types';
+import { COL_DEFS, COL_W, CUSTOM_COL_W, customColWidth, type ColKey, type EquipmentRecord } from './types';
 
 export interface CellContext {
   editMode: boolean;
@@ -161,7 +161,25 @@ export function standardCells(
           <RowMain key={key}>
             {ctx.editMode
               ? <InlineInput item={item} field="name" ctx={ctx} />
-              : <div className="text-list truncate" title={item.name}>{item.name}{nameSuffix}</div>}
+              : (
+                /*
+                 * **商品名だけ2行まで出す**（ご指摘）。
+                 *
+                 * 1行で切っていたため、「1.2G帯 ワイヤレス4chレシーバー」のような
+                 * 実際の機材名が **どれも同じ「1.2G帯 ワイヤレス4chレシ…」** になり、
+                 * 一覧で見分けが付きませんでした（同じ型名が縦に並ぶ台帳なので、
+                 * 見分けが付くのは名前の後ろのほうです）。
+                 *
+                 * ・**2行目までは出す** → `line-clamp-2`（3行目以降は `…`）
+                 * ・**短い名前の行は今までどおり1行**。空の2行目は作らない
+                 *   （高さを固定すると全行が 16px ずつ高くなり、1画面に入る
+                 *   行数が減る＝「余白が多い」を悪化させる）
+                 *
+                 * 行の高さが2通りになるので、間引き（`useRowWindow`）の送り幅は
+                 * **見えている行の平均**から測るようにしてある。
+                 */
+                <div className="text-list line-clamp-2" title={item.name}>{item.name}{nameSuffix}</div>
+              )}
           </RowMain>
         );
       case 'manufacturer':
@@ -247,7 +265,9 @@ export function customCells(item: EquipmentRecord, ctx: CustomCellContext): Reac
     if (col.col_type === 'checkbox') {
       const checked = val === 'true' || val === '1';
       return (
-        <RowSlot key={col.id} w={CUSTOM_COL_W} align="center" placeholder={null} onClick={(e) => e.stopPropagation()}>
+        // チェックの列だけ細くする（`customColWidth`）。中身は四角ひとつなので
+        // 128px では**表頭ごと空白が並ぶ**だけで、そのぶん商品名が痩せる
+        <RowSlot key={col.id} w={customColWidth(col.col_type)} align="center" placeholder={null} onClick={(e) => e.stopPropagation()}>
           <EnhancedCheckbox
             checked={checked}
             aria-label={col.name}

@@ -34,8 +34,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useEdgeSwipeBack } from '@gmo-onair/shared/src/client-v4/edgeSwipeBack';
 import { useAuth } from '@/contexts/platform/AuthContext';
@@ -46,13 +44,13 @@ import { RegularSeriesSection } from './RegularSeriesSection';
 import { IntakeRail } from './IntakeRail';
 import { AskPanel } from './AskPanel';
 
-const STEPS = ['いま必要', '進んだら聞く', '最初のタスク'];
+const STEPS = ['いま必要', '任意項目', '最初のタスク'];
 
 export function MobileNewProject() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const f = useNewProjectForm();
-  const { v, set, missing, decisions } = f;
+  const { v, missing, decisions } = f;
   const [step, setStep] = useState(0);
 
   /** その段で足りないもの。**1段目にしか必須は無い** */
@@ -103,36 +101,24 @@ export function MobileNewProject() {
 
         {step === 1 && (
           <>
-            <MoreFields f={f} />
-            {/* 回を作るたびに聞かれては困る4つの取り決め（regular-series.md §3） */}
+            {/* 回のある案件か（＋レギュラーの取り決め）。**PC と同じで必須の次**
+                — 親を選ぶ欄と、その結果として出る取り決めが1枚に入っている */}
             <RegularSeriesSection f={f} />
+            {/* 3段目が持つ「最初のタスク・メモ・会場の案内」はここでは出さない
+                （出すと同じ欄が2つの段に並ぶ。`MoreFields` の `part` の説明を参照） */}
+            <MoreFields f={f} part="main" />
           </>
         )}
 
         {step === 2 && (
           <>
-            <div>
-              <Label htmlFor="mnp-task">最初のタスク</Label>
-              <Input
-                id="mnp-task" className="mt-1"
-                value={v.first_task_title}
-                onChange={(e) => set('first_task_title', e.target.value)}
-                placeholder="見積を送る"
-              />
-              <p className="text-note mt-1 text-muted-foreground">
-                入れなくても大丈夫です。あとから案件詳細で足せます
-              </p>
-            </div>
-
-            <div>
-              <Label htmlFor="mnp-due">期限</Label>
-              <Input
-                id="mnp-due" className="mt-1" type="date"
-                value={v.first_task_due}
-                onChange={(e) => set('first_task_due', e.target.value)}
-              />
-              <p className="text-note mt-1 text-muted-foreground">日付だけ入れると 18:00 になります</p>
-            </div>
+            {/*
+              段の名前どおり「最初のタスク」＋メモ・会場の案内。
+              **ベタ書きをやめて `MoreFields` の同じ欄を呼ぶ** —
+              以前はここが `first_task_title`/`first_task_due` を別の id で
+              もう一度描いており、2段目の同じ欄と二重に出ていた
+            */}
+            <MoreFields f={f} part="closing" />
 
             <AskPanel v={v} customerName={f.customer?.name ?? null} senderName={currentUser?.name ?? ''} />
 

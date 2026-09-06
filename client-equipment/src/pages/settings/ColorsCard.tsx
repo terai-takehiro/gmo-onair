@@ -34,8 +34,8 @@ export function ColorsCard() {
     endpoint: '/equipment/colors',
     queryKey: ['equipment-colors'],
     onSaveSuccess: () => notifySuccess('色を保存しました'),
-    onDeleteSuccess: () => notifySuccess('色を消しました'),
-    onError: (action, err) => notifyApiError(action === 'save' ? '保存できませんでした' : '消せませんでした', err),
+    onDeleteSuccess: () => notifySuccess('色を削除しました'),
+    onError: (action, err) => notifyApiError(action === 'save' ? '保存できませんでした' : '削除できませんでした', err),
   });
   const [form, setForm] = useState<ColorForm>(EMPTY_FORM);
 
@@ -51,7 +51,7 @@ export function ColorsCard() {
 
   const onDelete = async (c: Color) => {
     const ok = await confirmAction({
-      title: `色「${c.name}」を消しますか`,
+      title: `色「${c.name}」を削除しますか`,
       description: 'この色を選んでいる機材はラック図で種別の色に戻ります。取り消せません。',
       confirmLabel: '削除',
       tone: 'danger',

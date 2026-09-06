@@ -161,7 +161,7 @@ export function CreateSheetDialog({
       queryClient.invalidateQueries({ queryKey: ["qsheet-documents"] });
       onOpenChange(false);
       resetForm();
-      notifySuccess("作りました。この進行台本はあなたと管理者だけが見られます（他の人に見せるにはカードの「共有」ボタンから共有してください）");
+      notifySuccess("作成しました。この進行台本はあなたと管理者だけが見られます（他の人に見せるにはカードの「共有」ボタンから共有してください）");
       onCreated(doc);
     },
     onError: () => {
@@ -203,8 +203,72 @@ export function CreateSheetDialog({
         </DialogHeader>
         <form
           className="space-y-4 pt-2"
-          onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }}
+          onSubmit={(e) => { e.preventDefault(); if (missingRequired.length === 0 && !createMutation.isPending) createMutation.mutate(); }}
         >
+          {/* **案件をいちばん先に選ばせる。**
+              案件（とエピソード）を選ぶと 番組名・撮影場所・放送日・収録日・リハーサル日が
+              自動で入るが、その自動入力は**空欄のときだけ**効く（`useCreateSheetPrefill` の
+              `canPrefill`。手で打った値は絶対に上書きしない）。末尾に置いていたころは、
+              縦順どおり上から埋めた人には自動入力が1つも効かず、案件を選んでも画面が
+              何も変わらなかった。依存する欄（自動で埋まる欄）は、依存される欄より下に置く */}
+          <div className="border-b pb-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Link2 className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">GLS案件に紐付ける</span>
+              </div>
+              <Switch
+                checked={linkToProject}
+                onCheckedChange={(v) => {
+                  setLinkToProject(!!v);
+                  if (!v) {
+                    if (!defaultProjectId) setSelectedProjectId("");
+                    setSelectedEpisodeId("");
+                  }
+                }}
+              />
+            </div>
+
+            {linkToProject && (
+              <div className="mt-3 space-y-3 pl-6">
+                <div>
+                  <Label className="text-xs text-muted-foreground">GLS案件</Label>
+                  <Select value={selectedProjectId} onValueChange={handleProjectChange}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="案件を選ぶ…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {glsProjects?.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.gls_number} — {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedProjectId && episodes && episodes.length > 0 && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">エピソード（任意）</Label>
+                    <Select value={selectedEpisodeId} onValueChange={handleEpisodeChange}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="エピソードを選ぶ…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {episodes.map((ep) => (
+                          <SelectItem key={ep.id} value={ep.id}>
+                            {ep.episode_code}
+                            {ep.broadcast_date && ` — ${ep.broadcast_date}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div>
             <Label className="text-xs text-muted-foreground">番組名 <span className="text-destructive">*</span></Label>
             <Input
@@ -212,7 +276,9 @@ export function CreateSheetDialog({
               placeholder="例：サンプル情報バラエティ"
               value={newTitle}
               onChange={(e) => { setNewTitle(e.target.value); markPrefilled("title", null); }}
-              autoFocus
+              // 案件に紐付けて開いた（`?project=` 付き）ときは、先に案件を見てほしいので
+              // ここへカーソルを当てない。紐付けないときだけ最初の入力欄に当てる
+              autoFocus={!linkToProject}
             />
             <PrefillNote field="title" source={prefilled.title} />
           </div>
@@ -356,7 +422,7 @@ export function CreateSheetDialog({
             disabled={missingRequired.length > 0 || createMutation.isPending}
             className="w-full py-2.5 text-sm font-semibold min-h-[44px]"
           >
-            {createMutation.isPending ? "作成中…" : "進行台本を作る"}
+            {createMutation.isPending ? "作成中…" : "進行台本を作成"}
           </Button>
         </form>
       </DialogContent>

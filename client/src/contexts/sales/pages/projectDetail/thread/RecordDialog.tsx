@@ -136,7 +136,7 @@ export function RecordDialog({
     >
       <div className="flex flex-col gap-4">
         <p className="text-sub text-muted-foreground">
-          文字起こし（Whisper）のあと、AI が決定事項と持ち帰りを下書きします。
+          文字起こし（Whisper）のあと、AI が決定事項と未解決事項を下書きします。
           <strong className="font-bold">確定するのは自分で</strong>、直した内容は AI の直しに使われます。
         </p>
 
@@ -145,7 +145,7 @@ export function RecordDialog({
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
             <strong className="font-bold">録音することを相手にお伝えください。</strong>
-            音声はこのあと文字にしたら<strong className="font-bold">保存せずに捨てます</strong>（残るのは文字だけです）。
+            音声はこのあと文字にしたら<strong className="font-bold">保存せず破棄します</strong>（残るのは文字だけです）。
           </span>
         </p>
 

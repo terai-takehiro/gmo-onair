@@ -81,7 +81,7 @@ export function GpmProjectCards({
                   {p.open_items > 0 && (
                     <span className="text-badge inline-flex shrink-0 items-center gap-0.5 text-destructive">
                       <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                      未確認 {p.open_items}
+                      持ち帰り {p.open_items}
                     </span>
                   )}
                 </span>

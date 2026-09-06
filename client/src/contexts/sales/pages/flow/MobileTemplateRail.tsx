@@ -20,8 +20,8 @@ export function MobileTemplateRail({
 }) {
   return (
     <Select value={selectedId ?? undefined} onValueChange={onSelect}>
-      <SelectTrigger aria-label="工程の型を選ぶ" className="w-full">
-        <SelectValue placeholder="工程の型を選ぶ" />
+      <SelectTrigger aria-label="工程テンプレートを選ぶ" className="w-full">
+        <SelectValue placeholder="工程テンプレートを選ぶ" />
       </SelectTrigger>
       <SelectContent>
         {templates.map((t) => {

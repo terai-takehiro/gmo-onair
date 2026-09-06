@@ -263,7 +263,7 @@ export default function SgaListPage() {
         いちばん起きやすい画面**でもある
       */}
       <LedgerFilterBar
-        search={{ value: crud.search, onChange: crud.setSearch, placeholder: '支払先・詳細で探す' }}
+        search={{ value: crud.search, onChange: crud.setSearch, placeholder: '支払先・詳細で検索' }}
         month={month}
         onMonth={(v) => { setMonth(v); crud.setPage(1); }}
         period={period}

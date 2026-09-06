@@ -131,7 +131,7 @@ export default function RosterImportDialog({
       setDryRunResult(r);
       setPhase('dryrun');
     } catch {
-      notifyError('中身を確かめられませんでした。', { description: '少し待ってから、もう一度お試しください。' });
+      notifyError('内容を確認できませんでした。', { description: '少し待ってから、もう一度お試しください。' });
     } finally {
       setCreating(false);
     }

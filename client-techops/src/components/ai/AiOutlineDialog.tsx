@@ -95,7 +95,7 @@ export default function AiOutlineDialog({ open, onOpenChange, documentId, schedu
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>AIで下書きを作る（構成）</DialogTitle>
+          <DialogTitle>AIで下書きを作成（構成）</DialogTitle>
         </DialogHeader>
         {!proposal && (
           <div className="space-y-3">
@@ -110,7 +110,7 @@ export default function AiOutlineDialog({ open, onOpenChange, documentId, schedu
             />
             <DialogFooter>
               <Button onClick={handleGenerate} disabled={loading} className="min-h-[44px]">
-                {loading ? "考えています…" : "下書きを作る"}
+                {loading ? "生成中…" : "下書きを作成"}
               </Button>
             </DialogFooter>
           </div>
@@ -162,6 +162,6 @@ function toggleSet<T>(s: Set<T>, v: T): Set<T> {
 function errorMessage(e: unknown): string {
   const err = e as { response?: { status?: number; data?: { error?: { message?: string } } } };
   if (err?.response?.status === 409) return "本番進行中のため AI 生成は使えません";
-  if (err?.response?.status === 503) return "いまは AI を使えません。手で作れます。";
-  return err?.response?.data?.error?.message ?? "AI を呼べませんでした。手で作れます。";
+  if (err?.response?.status === 503) return "いまは AI を使えません。手動で作成できます。";
+  return err?.response?.data?.error?.message ?? "AI に接続できませんでした。手動で作成できます。";
 }

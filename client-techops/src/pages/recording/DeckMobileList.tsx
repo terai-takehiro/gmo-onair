@@ -35,7 +35,7 @@ export default function DeckMobileList({ decks, onPick }: { decks: Deck[]; onPic
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="flex items-center gap-2">
                 <span className="shrink-0 text-list tabular-nums">{d.deckId}</span>
-                <span className="truncate text-sub text-muted-foreground">{d.label ?? '呼び名なし'}</span>
+                <span className="truncate text-sub text-muted-foreground">{d.label ?? '表示名なし'}</span>
               </span>
               <span className={`truncate text-sub-sm ${parts.length ? 'text-muted-foreground' : 'text-warning'}`}>
                 {parts.length ? parts.join('・') : 'まだ何も決めていません'}

@@ -22,7 +22,7 @@
  *
  * 2026年10月の事業再編（`docs/reorg-2026-10-plan.md` §4.5・§4.6・§6 P2 Round 1）で、
  * 締め日・支払月/日・税率・税丸めなど**お金のルール本体は会社（`entity_code`）ごとの
- * 別設定**になった（`money_rules` は migration 284 で GJV/GSS/GMO の3行に）。
+ * 別設定**になった（`money_rules` は migration 286 で GJV/GSS/GMO の3行に）。
  * タブで選んだ会社の分だけを `GET /money-rules?entity_code=` で取得・
  * `PUT /money-rules` の本文の `entity_code` で保存する。
  *
@@ -190,7 +190,7 @@ export default function MoneyRulesPage() {
       {!canEdit && (
         <p className="rounded-note text-note flex items-center gap-2 border border-border bg-surface-subtle px-3.5 py-2.5 text-muted-foreground">
           <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
-          直せるのは<strong className="font-bold">財務管理の管理者</strong>だけです。中身は見られます。
+          編集できるのは<strong className="font-bold">財務管理の管理者</strong>だけです。中身は見られます。
         </p>
       )}
 
@@ -206,6 +206,18 @@ export default function MoneyRulesPage() {
             <Delayed><SkeletonRows rows={6} /></Delayed>
           ) : (
             <RulesBody draft={draft} canEdit={canEdit} set={set} />
+          )}
+
+          {/* 値引きの上限は会社では分かれない（全社共通ポリシー）。
+              会社タブ（entityCode）とは無関係な limitsQ から描く */}
+          {limitsQ.isError ? (
+            <p className="rounded-card text-note border border-border bg-card px-4 py-3 text-muted-foreground">
+              値引きの上限を読み込めませんでした。
+            </p>
+          ) : limitsQ.data ? (
+            <DiscountLimits limits={limitsQ.data} canEdit={canEdit} />
+          ) : (
+            <Delayed><SkeletonRows rows={4} /></Delayed>
           )}
 
           {/* 値引きの上限は会社では分かれない（全社共通ポリシー）。

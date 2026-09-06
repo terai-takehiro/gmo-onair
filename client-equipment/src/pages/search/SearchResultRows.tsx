@@ -48,7 +48,7 @@ function GroupPanel({ icon: Icon, label, n, children }: {
 export function StandbyRows({ rows, onGo }: { rows: StandbyRow[]; onGo: (to: string) => void }) {
   if (rows.length === 0) return null;
   return (
-    <GroupPanel icon={rows[0].icon} label="いまの様子" n={rows.length}>
+    <GroupPanel icon={rows[0].icon} label="現在の状況" n={rows.length}>
       {rows.map((r) => (
         <ClickRow key={r.key} onOpen={() => onGo(r.to)}>
           <r.icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />

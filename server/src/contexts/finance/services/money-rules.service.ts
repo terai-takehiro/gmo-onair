@@ -5,7 +5,7 @@
  *
  * モックの指定どおり（「案件ごとに書き換えず、例外は取引先ごとの設定で持ちます」）。
  * 案件ごとの上書きは持ちません。**2026年10月の事業再編で会社が複数になった
- * ため（migration 284・P2 Round 1）、いまは会社ごとに1本**（`money_rules.id`
+ * ため（migration 286・P2 Round 1）、いまは会社ごとに1本**（`money_rules.id`
  * が `entity_code` と同じ値）。entityCode を省略した呼び出しは
  * `CURRENT_ENTITY_CODE`（今までの唯一の会社ぶん）に落ちるので、
  * 呼び出し側を直していない箇所も今までどおり動く。
@@ -55,7 +55,7 @@ const FALLBACK: MoneyRules = {
 
 /**
  * 会社（`entity_code`）ごとにキャッシュする（2026年10月の事業再編・財務の2社タブ・
- * P2 Round 1。`money_rules` は migration 284 で `id='default'` の1行から
+ * P2 Round 1。`money_rules` は migration 286 で `id='default'` の1行から
  * `id=entity_code` の複数行に変わった）。
  *
  * ⚠️ **税の丸め方 (`setTaxRounding`) は `CURRENT_ENTITY_CODE` を読んだときだけ反映する。**

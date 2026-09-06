@@ -1,7 +1,7 @@
 /**
  * 計上会社の導出・新方式の採番・改番 — 2026年10月の事業再編
  *
- * 設計の全文: docs/reorg-2026-10-plan.md（§4.3・§4.4・§4.8）。P0（migration 280〜283・
+ * 設計の全文: docs/reorg-2026-10-plan.md（§4.3・§4.4・§4.8）。P0（migration 282・283・284・285・
  * `legal_entities`／`org_transition`／`entity_code` 列／`project_numbers`）の続き。
  *
  * ── いつ効くか ────────────────────────────────────────────────

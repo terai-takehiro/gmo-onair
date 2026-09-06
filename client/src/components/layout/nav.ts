@@ -108,7 +108,7 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         // 別々に編集できる状態を残す理由が無いので、メニューの項目も1つに減らした。
         // 旧 URL は `App.tsx` が `/sales/companies?role=customer` へ転送する
         { label: "取引先マスター", to: "/sales/companies", icon: Store },
-        { label: "工程の型", to: "/sales/flow-templates", icon: ListChecks },
+        { label: "工程テンプレート", to: "/sales/flow-templates", icon: ListChecks },
       ],
     },
     // **「そのほか（作り直し前）」は削除した**（v4 renewal・ご指示）。この段が
@@ -158,7 +158,7 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
     {
       title: "設定",
       items: [
-        { label: "工程のひな形", to: "/gpm/templates", icon: Layers },
+        { label: "工程テンプレート", to: "/gpm/templates", icon: Layers },
       ],
     },
   ],
@@ -184,7 +184,7 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
         { label: "仕入", to: "/budget/purchases", icon: ShoppingCart },
         { label: "販管費", to: "/budget/sga", icon: Receipt },
         // v4 ⑥: 日常業務から移した（経理が開けなかった）。権限は sales か dailyops
-        { label: "受け取った書類", to: "/budget/documents", icon: Inbox, modules: ["sales", "dailyops"] },
+        { label: "受領書類", to: "/budget/documents", icon: Inbox, modules: ["sales", "dailyops"] },
       ],
     },
     {
@@ -214,7 +214,7 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
       items: [
         { label: "仕入先集計", to: "/budget/reports/vendors", icon: BarChart3 },
         // 請求先は案件管理の持ち物。**同じ相手を2か所から直せるようにしない**
-        { label: "取引先マスター（請求先）", to: "/sales/companies", icon: Store },
+        { label: "取引先マスター", to: "/sales/companies", icon: Store },
       ],
     },
   ],
@@ -304,5 +304,5 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
 export const CLIENT_MOBILE_TABS: ShellMobileTab[] = [
   { label: "ホーム", to: "/", icon: Home, end: true },
   { label: "タスク", to: "/sales/tasks/list", icon: ListTodoTab },
-  { label: "探す", to: "/search", icon: SearchTab },
+  { label: "検索", to: "/search", icon: SearchTab },
 ];

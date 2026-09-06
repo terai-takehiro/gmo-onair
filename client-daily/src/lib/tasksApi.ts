@@ -109,7 +109,7 @@ export const DELEGATION_LABELS: Record<DelegationStatus, string> = {
   accepted: '承諾',
   declined: '辞退',
   consulting: '相談',
-  done: '完了',
+  done: '対応済',
 };
 
 // ── 取得 ────────────────────────────────────────────

@@ -26,8 +26,8 @@ export function formatDateJp(dateStr: string): string {
 /** 「きょう」「あす」「◯（曜日）」— 直近の本番・収録カードの見出し */
 export function relativeDayLabel(dateStr: string, today: string = todayStr()): string {
   const diff = daysBetween(today, dateStr);
-  if (diff === 0) return "きょう";
-  if (diff === 1) return "あす";
+  if (diff === 0) return "今日";
+  if (diff === 1) return "明日";
   const d = new Date(`${dateStr}T00:00:00`);
   if (Number.isNaN(d.getTime())) return dateStr;
   return WEEKDAYS_JA[d.getDay()];

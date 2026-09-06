@@ -287,8 +287,10 @@ export const projectService = {
     }
     if (filter.q) {
       const like = `%${filter.q.replace(/[%_\\]/g, (m) => `\\${m}`)}%`;
-      conds.push(`(p.name ILIKE ? ESCAPE '\\' OR c.name ILIKE ? ESCAPE '\\' OR p.gls_number ILIKE ? ESCAPE '\\')`);
-      params.push(like, like, like);
+      // 絞り込み帯の placeholder が「プロジェクト名・依頼元・担当で探す」と謳っている以上、
+      // 担当（u.name）も検索対象にする（Codexレビュー指摘・PR #593）。u は下の JOIN で既に結合済み
+      conds.push(`(p.name ILIKE ? ESCAPE '\\' OR c.name ILIKE ? ESCAPE '\\' OR p.gls_number ILIKE ? ESCAPE '\\' OR u.name ILIKE ? ESCAPE '\\')`);
+      params.push(like, like, like, like);
     }
     return queryAll(
       `SELECT p.id, p.name, p.gls_number, p.stage, p.gpm_kind, p.pm_company,

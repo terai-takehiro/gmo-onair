@@ -241,16 +241,16 @@ export default function ProjectListPage() {
     <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <PageHeader
         title="案件一覧"
-        sub={pagination ? `${pagination.total}件 ・ 全員が同じものを見ています` : '全員が同じものを見ています'}
+        sub={pagination ? `${pagination.total}件 ・ 全ユーザー共通の一覧です` : '全ユーザー共通の一覧です'}
         primaryAction={
           <Button onClick={() => navigate('/sales/projects/new')}>
-            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />案件をつくる
+            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />案件を作成
           </Button>
         }
       >
         <div className="flex shrink-0 items-center gap-2">
           {!isMobile && <ExcelToolbar resource="/projects" name="案件" queryKey={['projects']} />}
-          <div className="inline-flex overflow-hidden rounded-control border border-border" role="group" aria-label="見え方を切り替える">
+          <div className="inline-flex overflow-hidden rounded-control border border-border" role="group" aria-label="表示形式を切り替える">
             {(isMobile
               ? ([['list', 'リスト', List], ['seed', 'ネタ', Inbox]] as const)
               : ([['list', 'リスト', List], ['board', 'ボード', LayoutGrid], ['seed', 'ネタ', Inbox]] as const)
@@ -308,7 +308,7 @@ export default function ProjectListPage() {
             <EmptyState
               title="案件がまだありません"
               description="引き合いが届いたら案件作成で案件にします。ここから直接つくることもできます。"
-              action={<Button onClick={() => navigate('/sales/projects/new')}><Plus className="mr-1 h-4 w-4" aria-hidden="true" />案件をつくる</Button>}
+              action={<Button onClick={() => navigate('/sales/projects/new')}><Plus className="mr-1 h-4 w-4" aria-hidden="true" />案件を作成</Button>}
             />
           )
         ) : view === 'board' ? (
@@ -347,7 +347,7 @@ export default function ProjectListPage() {
                 案件作成
               </button>
               です。<strong className="font-bold">入口と確信は AI が起票したときだけ</strong>入ります
-              （手で登録したものは「—」）。
+              （手動登録したものは「—」）。
             </p>
           </div>
         ) : (

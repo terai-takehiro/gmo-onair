@@ -14,9 +14,9 @@ import { Label } from '@/components/ui/label';
 import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@gmo-onair/shared/src/client/ui/switch';
-import { LOC_CODES, SECTIONS, TYPE_CODES } from '@/lib/constants';
+import { CONDITION_OPTIONS, LOC_CODES, SECTIONS, STATUS_OPTIONS, TYPE_CODES } from '@/lib/constants';
 import type { CustomColumn } from '@/components/CustomColumnDialog';
-import { EquipmentAssetFields } from './EquipmentAssetFields';
+import { EquipmentAssetFields, EquipmentPlaceFields } from './EquipmentAssetFields';
 import { EquipmentCustomFields } from './EquipmentCustomFields';
 import {
   CARRY_OVER_KEYS, defaultForm, toEquipmentForm,
@@ -127,7 +127,7 @@ export function EquipmentDialog({
     });
   };
 
-  const title = mode.kind === 'edit' ? '機材を編集' : mode.kind === 'copy' ? '機材を写して追加' : '機材を追加';
+  const title = mode.kind === 'edit' ? '機材を編集' : mode.kind === 'copy' ? '機材を複製して追加' : '機材を追加';
 
   return (
     <FormDialog
@@ -176,7 +176,10 @@ export function EquipmentDialog({
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="space-y-1">
-            <Label>拠点 *</Label>
+            {/* 設定＞保管場所の「拠点」(場所の分類マスタ) とは別物。
+                こちらは機材IDの先頭に入るコード (`LOC_CODES`) なので、
+                同じ「拠点」でも何を選んでいるのかが分かるよう書き分ける */}
+            <Label>拠点 * (機材IDの先頭)</Label>
             <Select value={form.location_code} onValueChange={(v) => setForm({ ...form, location_code: v })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -275,19 +278,49 @@ export function EquipmentDialog({
           </div>
         </div>
 
-        <EquipmentAssetFields
-          form={form}
-          setForm={setForm}
-          locations={locations}
-          colors={colors}
-          items={items}
-          editingId={editingId}
-        />
+        {/* 保管場所（とラック実装）は折りたたみの中から出してある。
+            畳んだまま登録されると場所の無い機材が増え、棚卸しで「(場所なし)」に落ちる */}
+        <EquipmentPlaceFields form={form} setForm={setForm} locations={locations} />
 
+        {/* **いまの状態**。詳細ページの編集フォームには前からあり、送る値
+            (`status` / `condition`) も既に載っていたのに、台帳のこのダイアログにだけ
+            入力欄が無く既定のまま固定されていた。選択肢・ラベルは詳細ページと同じ */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-1">
+            <Label>ステータス</Label>
+            <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>コンディション</Label>
+            <Select value={form.condition} onValueChange={(v) => setForm({ ...form, condition: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {CONDITION_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* 備考は任意なので、必須・日常の項目を埋めきったここに置く。
+            折りたたみ（月に一度も触らない資産・保証）より**上** —
+            畳んだままだと、見出しの下に1欄だけ残って宙に浮いて見えていた */}
         <div className="space-y-1">
           <Label>備考</Label>
           <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
         </div>
+
+        <EquipmentAssetFields
+          form={form}
+          setForm={setForm}
+          colors={colors}
+          items={items}
+          editingId={editingId}
+        />
 
         {/* 新規登録では出さない — カスタム値は既存の equipment_id に紐づく */}
         {mode.kind === 'edit' && customColumns && customColumns.length > 0 && onCustomChange && (

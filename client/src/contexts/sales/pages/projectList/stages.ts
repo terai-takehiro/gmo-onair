@@ -62,7 +62,7 @@ export const STAGE_BADGE_TONE: Record<ProjectStage, string> = {
 /**
  * 計上会社（2026年10月の事業再編・`docs/reorg-2026-10-plan.md` §4.1/§4.4）の呼び名。
  *
- * **`legal_entities.short_name`（migration 280 の実際の投入値）に合わせてある**——
+ * **`legal_entities.short_name`（migration 282 の実際の投入値）に合わせてある**——
  * §4.1 の用語表は本文中で「グループ本体（コスト）」と強調して書いているが、
  * 実際にマイグレーションが投入した値・設定「会社と切替」画面（`EntityCard.tsx` の
  * `entity.shortName`）が出しているのは「グループ本体」（かっこ書き無し）。

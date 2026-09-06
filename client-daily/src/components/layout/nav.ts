@@ -12,7 +12,7 @@
  *
  * ── 消せないもの ────────────────────────────────────────────
  *
- * ・**受け取った書類 (`/finance`)** — 画面は財務管理へ移した (`/budget/documents`)
+ * ・**受領書類 (`/finance`)** — 画面は財務管理へ移した (`/budget/documents`)
  *   が、`dailyops` だけの人はアプリ切替に財務管理が出ないので、**ここを消すと
  *   辿り着く道が無くなる**。行き先の権限は `budget` か `dailyops` のどちらか
  * ・**タスク・依頼 (`/tasks`)** — 案件管理の「わたしのタスク」から
@@ -50,7 +50,7 @@ export const DAILY_NAV: ShellNavSection[] = [
   {
     title: '届いたもの',
     items: [
-      { label: '入ってきた情報', to: '/inquiries', icon: Inbox },
+      { label: '問い合わせ', to: '/inquiries', icon: Inbox },
       { label: 'フィードバックチケット', to: '/feedback-tickets', icon: MessageSquareWarning },
       /*
         **画面は財務管理にある**（`/budget/documents`）。ここを消すと
@@ -61,7 +61,7 @@ export const DAILY_NAV: ShellNavSection[] = [
         右端の札で行き先のアプリ名を出す（シェルの `tag`。`external` は使わない —
         あれは別タブで開く外部リンク用で、ここは同じタブで移る）。
       */
-      { label: '受け取った書類', to: '/finance', icon: FileText, tag: '財務管理' },
+      { label: '受領書類', to: '/finance', icon: FileText, tag: '財務管理' },
     ],
   },
   {

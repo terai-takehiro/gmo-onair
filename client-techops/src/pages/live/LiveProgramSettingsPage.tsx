@@ -10,7 +10,7 @@
 //
 // マウント時の owner 解決・「取得または作成」は `useLiveProgram`
 // （ダッシュボード・タイマー管理と共通）。
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, Save, AlertCircle, Timer, Loader2 } from 'lucide-react';
@@ -39,6 +39,15 @@ interface LiveProgram {
   qsheet_program_id: string | null;
   qsheet_program_name?: string;
 }
+
+/** 視聴者数を取る先。並びはそのまま画面の並びになる */
+type SourceKey = 'youtube' | 'jstream' | 'zoom' | 'teams';
+const SOURCE_LABELS: { key: SourceKey; label: string }[] = [
+  { key: 'youtube', label: 'YouTube' },
+  { key: 'jstream', label: 'Jstream' },
+  { key: 'zoom', label: 'Zoom' },
+  { key: 'teams', label: 'Teams' },
+];
 
 export default function LiveProgramSettingsPage() {
   const { ownerKey } = useParams<{ ownerKey: string }>();
@@ -100,6 +109,23 @@ function ProgramSettingsContent({ owner, programId }: {
   const [zoomWebinarId, setZoomWebinarId] = useState('');
   const [teamsMeetingUrl, setTeamsMeetingUrl] = useState('');
   const [saved, setSaved] = useState(false);
+  /**
+   * **どの配信基盤から視聴者数を取るか。**（入力順の見直し）
+   * 5系統の欄を常に全部縦に並べていたが、同じアプリの配信設定（`streaming/MeetingCard.tsx`）は
+   * 「どのツールか」を先に選ばせ、そのツールに要る欄だけを出す。同じ種類の入力で
+   * 作法が2つあったので、先に取る先を選ばせる形へそろえる。
+   * ⚠️ **伏せた欄の値は消さない**（`streaming/meetingFields.ts` 冒頭と同じ決めごと）。
+   * 保存で送る中身も今までどおり全系統をそのまま送る — 出し分けは描画だけ。
+   */
+  const [sources, setSources] = useState<Set<SourceKey>>(new Set());
+  // **このprogramIdぶん、フォームへ流し込み終えたか。** `['program', programId]` は
+  // ダッシュボード（`LiveDashboardPage.tsx`）と同じキャッシュ鍵で、`refetchOnWindowFocus`
+  // の既定・保存成功後の `invalidateQueries` で `program` の参照はこの画面を開いたまま
+  // 何度も変わりうる。ここに絞りが無いと、そのたびに下の effect が走って
+  // **入力中の内容がサーバー値で黙って上書きされる**（`useProjectForm.ts` の
+  // `keepDirtyValues` と同じ問題。ここは react-hook-form を使っていないので、
+  // 素朴に「このIDの分は最初の1回しか流し込まない」で防ぐ）。
+  const syncedProgramIdRef = useRef<string | null>(null);
 
   const { data: program, isLoading } = useQuery({
     queryKey: ['program', programId],
@@ -108,16 +134,31 @@ function ProgramSettingsContent({ owner, programId }: {
     staleTime: 30_000,
   });
 
-  // Populate form when data loads
+  // Populate form when data loads（このprogramIdの分、まだ流し込んでいなければ1回だけ）
   useEffect(() => {
-    if (!program) return;
+    if (!program || syncedProgramIdRef.current === programId) return;
     setName(program.name);
     setJstreamLpid(program.jstream_lpid ?? '');
     setYoutubeUrls(program.youtube_urls.length > 0 ? program.youtube_urls : [{ label: '', url: '' }]);
     setZoomMeetingId(program.zoom_meeting_id ?? '');
     setZoomWebinarId(program.zoom_webinar_id ?? '');
     setTeamsMeetingUrl(program.teams_meeting_url ?? '');
-  }, [program]);
+    // 既に値が入っている系統は最初から開いておく（設定済みの内容が画面から消えて見えないように）
+    const on = new Set<SourceKey>();
+    if (program.youtube_urls.some((u) => u.url.trim())) on.add('youtube');
+    if (program.jstream_lpid) on.add('jstream');
+    if (program.zoom_meeting_id || program.zoom_webinar_id) on.add('zoom');
+    if (program.teams_meeting_url) on.add('teams');
+    setSources(on);
+    syncedProgramIdRef.current = programId;
+  }, [program, programId]);
+
+  const toggleSource = (key: SourceKey) => setSources((prev) => {
+    const next = new Set(prev);
+    // 外しても値は消さない（もう一度入れれば、入れた値がそのまま出る）
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
 
   const saveMutation = useMutation({
     mutationFn: () => api.put(`/liveops/programs/${programId}`, {
@@ -196,6 +237,34 @@ function ProgramSettingsContent({ owner, programId }: {
             />
           </div>
 
+          {/* **先に「どこから取るか」を決める。** 使わない基盤の欄まで常に縦に並んでいると、
+              5系統ぶんスクロールしてから自分の使う欄を探すことになる */}
+          <div className="space-y-2">
+            <Label>視聴者数を取る先</Label>
+            <div className="flex flex-wrap gap-2">
+              {SOURCE_LABELS.map((s) => (
+                <button
+                  key={s.key}
+                  type="button"
+                  aria-pressed={sources.has(s.key)}
+                  onClick={() => toggleSource(s.key)}
+                  disabled={!canManage}
+                  className={`min-h-tap rounded-chip border px-3 text-sm lg:min-h-[36px] ${
+                    sources.has(s.key)
+                      ? 'border-primary bg-primary-surface text-primary'
+                      : 'border-border text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              選んだ先の欄だけを出します。外しても、入れた値は消えません。
+            </p>
+          </div>
+
+          {sources.has('youtube') && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>YouTube URL</Label>
@@ -233,7 +302,9 @@ function ProgramSettingsContent({ owner, programId }: {
               </div>
             ))}
           </div>
+          )}
 
+          {sources.has('jstream') && (
           <div className="space-y-1.5">
             <Label>Jstream LPID</Label>
             <Input
@@ -243,7 +314,10 @@ function ProgramSettingsContent({ owner, programId }: {
               disabled={!canManage}
             />
           </div>
+          )}
 
+          {sources.has('zoom') && (
+          <>
           <div className="space-y-1.5">
             <Label>Zoom ミーティング ID</Label>
             <Input
@@ -266,7 +340,10 @@ function ProgramSettingsContent({ owner, programId }: {
               <p className="text-xs text-muted-foreground">両方設定すると参加者数を合算します</p>
             )}
           </div>
+          </>
+          )}
 
+          {sources.has('teams') && (
           <div className="space-y-1.5">
             <Label>Teams 会議 URL</Label>
             <Input
@@ -277,6 +354,7 @@ function ProgramSettingsContent({ owner, programId }: {
             />
             <p className="text-xs text-muted-foreground">「会議リンクをコピー」で取得したURLを貼り付け。ミーティング・ウェビナー共通。</p>
           </div>
+          )}
 
           {canManage && (
             <Button

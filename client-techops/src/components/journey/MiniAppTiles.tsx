@@ -64,7 +64,7 @@ export default function MiniAppTiles({ scope, id, days }: MiniAppTilesProps) {
     {
       key: "sheet",
       label: MINI_APP_BY_KEY.sheet.label,
-      description: "台本づくりと本番進行",
+      description: "台本制作と本番進行",
       icon: FileText,
       to: `/techops/sheets?${filterKey}=${encodeURIComponent(id)}`,
       count: sheetCount,

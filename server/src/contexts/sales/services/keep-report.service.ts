@@ -5,7 +5,7 @@ import { projectService } from './project.service';
 import { getMonthlySummary } from '../../finance/services/monthly-summary.service';
 import { listKpt, listKptForProjects } from './kpt.service';
 // 2026年10月の事業再編（docs/reorg-2026-10-plan.md §4.6・P2 Round 1）:
-// 月次予算・実績補正は会社（entity_code）ごとに持つ（migration 284・PK が (entity_code, year_month) に）
+// 月次予算・実績補正は会社（entity_code）ごとに持つ（migration 286・PK が (entity_code, year_month) に）
 import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 import type { LegalEntityCode } from '../../platform/services/legal-entity.service';
 

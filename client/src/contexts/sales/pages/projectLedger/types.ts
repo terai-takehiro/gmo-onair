@@ -107,7 +107,7 @@ export const COL_DEFS = [
   { key: 'intake_channel', label: 'どこから来た話か', default: false, width: 128 },
   { key: 'application_form', label: '申込書', default: false, width: 72 },
   { key: 'next_task_due', label: '次の期限', default: false, width: 128, sort: 'next_task_due' },
-  { key: 'last_activity_at', label: '最後の動き', default: true, width: 128, sort: 'last_move' },
+  { key: 'last_activity_at', label: '最終更新', default: true, width: 128, sort: 'last_move' },
 ] as const satisfies readonly LedgerColDef[];
 
 export const DEFAULT_COL_ORDER: LedgerColKey[] = COL_DEFS.map((c) => c.key);

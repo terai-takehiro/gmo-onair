@@ -30,10 +30,15 @@ export async function canAccessDoc(
 }
 
 /**
- * schedule に対して user がアクセス可能か（作成者 / 共有先 / 管理者）を判定。
+ * schedule に対して user がアクセス可能か（作成者 / 共有先 / **案件メンバー** / 管理者）を判定。
  * `canAccessDoc` と同じ形（04-schedule-impl.md §6-1）。
  * 全件見えるのは isQsheetAdmin（＝ system_admin）だけ — qsheet の manager でも
  * 他人の非共有表は見えない（documents 側と同じ約束）。
+ *
+ * ⚠️ **案件メンバーは自動で見える**（14-schedule-v2-plan.md §3-2・2026-09-06 決定）。
+ * `qsheet_schedule_shares` に写さず、判定のたびに `project_members`／`projects.assigned_to`
+ * を見る（メンバーの追加・削除に追随させるため）。番組（`qsheet_programs`）はメンバーを
+ * 持たないので対象外 — 番組の表は今までどおり 作成者＋明示共有＋管理者のまま。
  */
 export async function canAccessSchedule(
   user: AccessUser,
@@ -46,7 +51,15 @@ export async function canAccessSchedule(
     'SELECT 1 FROM qsheet_schedule_shares WHERE schedule_id = $1 AND user_id = $2',
     [scheduleId, user.id]
   );
-  return !!share;
+  if (share) return true;
+  const member = await queryOne(
+    `SELECT 1 FROM qsheet_schedules s WHERE s.id = $1 AND s.project_id IS NOT NULL AND (
+       EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = s.project_id AND pm.user_id = $2 AND pm.deleted_at IS NULL)
+       OR EXISTS (SELECT 1 FROM projects p WHERE p.id = s.project_id AND p.assigned_to = $2)
+     )`,
+    [scheduleId, user.id],
+  );
+  return !!member;
 }
 
 /**

@@ -98,10 +98,12 @@ export function EditEpisodeDialog({
       onOpenChange={onOpenChange}
       title={`#${episode.episode_number} ${episode.title || episode.episode_code} を編集`}
       sub="利用日・放送日・タイトルと、この回で実際に撮った本数・ステージを入れます。空欄／未設定にすると「決めていない」に戻ります。"
+      // Enter で保存する（繰り返し入力を持たないフォーム）。送信は `type="submit"` の1本だけ
+      onSubmit={(e) => { e.preventDefault(); if (!save.isPending) save.mutate(); }}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
-          <Button onClick={() => save.mutate()} disabled={save.isPending}>保存する</Button>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
+          <Button type="submit" disabled={save.isPending}>保存する</Button>
         </FormDialogFooter>
       }
     >
@@ -113,6 +115,30 @@ export function EditEpisodeDialog({
             value={title} onChange={(e) => setTitle(e.target.value)}
             placeholder={episode.episode_code}
           />
+        </div>
+
+        {/*
+          ステージは**この回の商談としての位置づけ**で、収録の実務値（日付・本数）とは
+          別の判断項目。あとから足した欄をフォームの末尾に置いたままだと、
+          「1日あたりの本数」と同じ行に同じ重みで並び、まとまりが崩れる
+          （`docs/design/v4/_form-order.md`）。タイトルの直後に単独で置き、
+          以降を「いつ・何本」のまとまりにする。
+        */}
+        <div>
+          <Label htmlFor="ep-edit-stage">ステージ</Label>
+          <Select value={stage} onValueChange={setStage}>
+            {/* Radix の SelectTrigger は button — htmlFor/id を結ぶとラベルのタップで開く */}
+            <SelectTrigger id="ep-edit-stage" className="mt-1"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={STAGE_UNSET}>未設定</SelectItem>
+              {STAGE_ORDER.map((s) => (
+                <SelectItem key={s} value={s}>{STAGE_BADGE_LABEL[s]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-sub-sm mt-1 text-muted-foreground">
+            既定は「未設定」です。案件と同じ段の言葉で、この回だけの位置づけを入れます。
+          </p>
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -137,28 +163,14 @@ export function EditEpisodeDialog({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <Label htmlFor="ep-edit-per-day">1日あたりの本数</Label>
-            <Input
-              id="ep-edit-per-day" type="number" min="1" inputMode="numeric" className="mt-1"
-              value={perDayCount} onChange={(e) => setPerDayCount(e.target.value)}
-              placeholder="1"
-            />
-          </div>
-          <div>
-            <Label htmlFor="ep-edit-stage">ステージ</Label>
-            <Select value={stage} onValueChange={setStage}>
-              {/* Radix の SelectTrigger は button — htmlFor/id を結ぶとラベルのタップで開く */}
-              <SelectTrigger id="ep-edit-stage" className="mt-1"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={STAGE_UNSET}>未設定</SelectItem>
-                {STAGE_ORDER.map((s) => (
-                  <SelectItem key={s} value={s}>{STAGE_BADGE_LABEL[s]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        {/* 本数は日付の直後（「いつ・何本」のまとまりの末尾）に単独で置く */}
+        <div>
+          <Label htmlFor="ep-edit-per-day">1日あたりの本数</Label>
+          <Input
+            id="ep-edit-per-day" type="number" min="1" inputMode="numeric" className="mt-1"
+            value={perDayCount} onChange={(e) => setPerDayCount(e.target.value)}
+            placeholder="1"
+          />
         </div>
       </div>
     </FormDialog>

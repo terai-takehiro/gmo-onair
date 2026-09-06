@@ -23,7 +23,7 @@
  * 外した2つには行き先があります:
  *
  *  ・**期限超過** → 案件管理ダッシュボードの「期限が過ぎたやること」
- *  ・**見積・請求の書類** → 財務の「受け取った書類」（`/budget/documents`）
+ *  ・**見積・請求の書類** → 財務の「受領書類」（`/budget/documents`）
  *
  * **口そのものは変えません** — ホームの「受信箱」とタイルの件数が
  * 同じ口を読んでおり、口を変えると受付以外の数字も動きます。絞るのは画面側だけ。
@@ -79,8 +79,18 @@ export interface InboxOpenable {
   intake: boolean;
   /** 入ってきた情報（`/daily/inquiries`）— `dailyops`。**別バンドル** */
   inquiries: boolean;
-  /** 受け取った書類（`/budget/documents`）— `budget` か `dailyops` */
+  /** 受領書類（`/budget/documents`）— `budget` か `dailyops` */
   documents: boolean;
+  /**
+   * **受領書類を進められるか**（受信箱の「確認する」「承認」）。
+   * `PUT /dailyops/finance-docs/:id` は **`dailyops` か `sales` の editor** を
+   * 要求します（`inbox.routes.ts` の `docsEdit`）。
+   *
+   * ⚠️ **`documents`（開けるか）を使い回さないこと。** あちらは reader で通るので、
+   * 流用すると**読むだけの人にボタンが出て、押すと 403** になります
+   * （`shared/tests/clickable403.test.ts` の形）。
+   */
+  documentsEdit: boolean;
   /**
    * 既存案件を1件開ける（`/sales/projects/:id/*`）— `sales` の**閲覧権限だけで足りる**
    * （`editor` 未満でも可）。⚠️ **`intake` を使い回さないこと**（前回の不具合）。
@@ -95,14 +105,14 @@ export interface InboxOpenable {
  * 受信箱の1件を**開ける場所**。開けないときは `null`（**押して 403 にしない**）。
  *
  * ⚠️ **行き先を「案件作成」に固定しないこと。** 受信箱には日常業務のもの
- * （問い合わせ・受け取った書類）も入っており、`dailyops` だけの人には
+ * （問い合わせ・受領書類）も入っており、`dailyops` だけの人には
  * 案件作成が開けません。固定すると、**API の 403 を画面の「権限がありません」に
  * 移し替えただけ**になります（レビューでの指摘）。
  *
- * ⚠️ **期限超過・受け取った書類は「案件作成」に行き先が無い。**（ご指摘で発覚）
+ * ⚠️ **期限超過・受領書類は「案件作成」に行き先が無い。**（ご指摘で発覚）
  * 以前はここも `can.intake` が真なら無条件に `/sales/projects/new` へ送っていたが、
  * その画面は**ネタ案件・問い合わせしか並べない**（`INTAKE_KINDS`）ので、
- * 期限超過の次回アクションや受け取った書類を押しても該当の行はどこにも出てこず
+ * 期限超過の次回アクションや受領書類を押しても該当の行はどこにも出てこず
  * （＝押しても意味が無い＝「機能していない」に見えた）、しかも `editor` 未満の
  * `sales` 利用者にはその画面自体が開けず**完全に無反応**だった。
  * **種類ごとに本来の行き先へ振り分ける。**
@@ -117,7 +127,7 @@ export function inboxHrefOf(item: Pick<InboxItem, 'kind' | 'meta'>, can: InboxOp
         ? `/sales/projects/${projectId}/thread` : null;
     }
     case 'finance_doc':
-      // 受け取った書類。案件作成ではなく財務の「受け取った書類」へ
+      // 受領書類。案件作成ではなく財務の「受領書類」へ
       return can.documents ? '/budget/documents' : null;
     case 'inquiry':
       // sales の人は引き合いとして案件作成へ（レールに問い合わせも並ぶ）、
@@ -133,8 +143,8 @@ export function inboxHrefOf(item: Pick<InboxItem, 'kind' | 'meta'>, can: InboxOp
 /** 「残りを見る」の行き先と札。開ける場所が1つも無ければ `null`（出さない） */
 export function inboxAllHrefOf(can: InboxOpenable): { href: string; label: string } | null {
   if (can.intake) return { href: '/sales/projects/new', label: '案件作成' };
-  if (can.inquiries) return { href: '/daily/inquiries', label: '入ってきた情報' };
-  if (can.documents) return { href: '/budget/documents', label: '受け取った書類' };
+  if (can.inquiries) return { href: '/daily/inquiries', label: '問い合わせ情報' };
+  if (can.documents) return { href: '/budget/documents', label: '受領書類' };
   return null;
 }
 
@@ -174,7 +184,7 @@ export interface InboxData {
  * **「自動取込案件」の件数**（＝案件作成のレールに出るものだけ）。
  *
  * ⚠️ **`counts.total` を使わないこと。** `total` は受信箱の**4種類の合計**で、
- * 期限が過ぎたやること・受け取った書類まで入っています。ダッシュボードの
+ * 期限が過ぎたやること・受領書類まで入っています。ダッシュボードの
  * 「自動取込案件を確認」はその `total` を出していたので、
  * **押した先の画面に並ぶ件数と一致しませんでした**（実測: バッジ 14 ／ レール 7）。
  * バッジは押す前に「何件たまっているか」を言う数字なので、

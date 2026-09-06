@@ -109,7 +109,7 @@ describe('お金の二重計上・取りこぼし', () => {
 
   it('書類の台帳への引き渡しは、取引の中で書類を押さえてから書く', () => {
     const body = txBody(HANDOFF, HANDOFF.indexOf('export async function handoffDoc'));
-    expect(body).toMatch(/SELECT linked_id, status FROM finance_docs WHERE id = \? FOR UPDATE/);
+    expect(body).toMatch(/SELECT linked_id, status[^']*FROM finance_docs WHERE id = \? FOR UPDATE/);
     expect(body).toMatch(/ALREADY_LINKED/);
   });
 

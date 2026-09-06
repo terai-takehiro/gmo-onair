@@ -109,9 +109,9 @@ export function MobileTaskList() {
       // episodes・task-deadlines も含めて4つ落とす（鍵の対は invalidateTasks に集約）
       invalidateTasks(qc, t.project_id);
       setOpen(null);
-      notifySuccess('完了にしました');
+      notifySuccess('対応済にしました');
     } catch (e) {
-      notifyApiError('完了にできませんでした', e);
+      notifyApiError('対応済にできませんでした', e);
     } finally {
       setBusy(false);
     }
@@ -155,7 +155,7 @@ export function MobileTaskList() {
         label="絞り込む"
         items={[
           { key: 'today', label: '今日', count: counts.today },
-          { key: 'over', label: '期限切れ', count: counts.over },
+          { key: 'over', label: '期限超過', count: counts.over },
           { key: 'all', label: 'すべて', count: counts.all },
         ]}
         value={chip}
@@ -230,7 +230,7 @@ export function MobileTaskList() {
           sub={[open.project_gls_number, open.project_name].filter(Boolean).join(' ・ ')}
           footer={
             <Button className="w-full" disabled={busy} onClick={() => complete(open)}>
-              <Check className="mr-1.5 h-4 w-4" aria-hidden="true" />完了にする
+              <Check className="mr-1.5 h-4 w-4" aria-hidden="true" />対応済にする
             </Button>
           }
         >

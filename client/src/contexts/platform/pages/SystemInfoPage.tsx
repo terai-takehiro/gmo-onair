@@ -126,7 +126,7 @@ export default function SystemInfoPage() {
                 日本語ヘッダー付きの単一xlsxファイルとして出力します（バックアップ・監査用）。
               </span>
             </p>
-            <Button onClick={downloadBackup} className="self-start">
+            <Button type="button" onClick={downloadBackup} className="self-start">
               <Download className="mr-1 h-4 w-4" aria-hidden="true" />
               バックアップを取得
             </Button>

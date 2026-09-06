@@ -4,7 +4,7 @@
  * ── なぜタブごとにファイルを分けたか ────────────────────────
  *
  * 工程の下にタスクを出したことで、この1タブだけで
- * 「工程を足す・直す・消す・並べ替える」「タスクを足す・直す・消す・完了にする」の
+ * 「工程を足す・直す・消す・並べ替える」「タスクを足す・直す・消す・対応済にする」の
  * 8つの操作を持つことになりました。詳細画面に置いたままだと**1か所直すのに
  * 450行を読む**形になるので、タブごとに分けています（`npm run lint` の 400行の検査）。
  *
@@ -21,8 +21,9 @@
  * （サーバーは工程を消してもタスクを消しません）。**0件のときも枠を出します** —
  * 工程が決まる前のタスクを置く場所があることが分からないと使われません。
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { CalendarRange, GanttChartSquare, KanbanSquare, List, Plus, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -95,6 +96,20 @@ export function OverviewTab({
   const [taskDialog, setTaskDialog] = useState<{ task: GpmTask | null; phaseId: string | null } | null>(null);
   const [openPhases, setOpenPhases] = useState<Set<string>>(new Set());
 
+  /**
+   * ヘッダー右上の主アクション「＋タスクを追加」（PR③・項目10）から来る合図。
+   * ヘッダーはこのタブの外にいる（`DetailHeader.tsx`）ので、`?add=task` を
+   * 概要タブへの遷移に載せて渡す — 開いたら1回だけダイアログを開き、
+   * URL からは消す（ブラウザの戻るで再び開かないように）。
+   */
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get('add') !== 'task') return;
+    if (canEdit) setTaskDialog({ task: null, phaseId: null });
+    setSearchParams((prev) => { const next = new URLSearchParams(prev); next.delete('add'); return next; }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   /** 工程ごとのタスク。**工程に付いていないものは `''` の束**に集める */
   const tasksByPhase = useMemo(() => {
     const map = new Map<string, GpmTask[]>();
@@ -132,7 +147,7 @@ export function OverviewTab({
     mutationFn: (task: GpmTask) => api.put(`/gpm/tasks/${task.id}/done`, { done: !task.is_completed }),
     onSuccess: (_r, task) => {
       invalidate(id);
-      notifySuccess(task.is_completed ? '未完了に戻しました' : '完了にしました');
+      notifySuccess(task.is_completed ? '未対応に戻しました' : '対応済にしました');
     },
     onError: (err) => notifyApiError('タスクを変更できませんでした', err),
   });
@@ -146,7 +161,7 @@ export function OverviewTab({
   const onDeleteTask = async (task: GpmTask) => {
     const ok = await confirmAction({
       title: 'このタスクを削除しますか？',
-      description: `「${task.title}」\n終わったのなら消さずにチェックを入れてください（消すとやった記録が残りません）。`,
+      description: `「${task.title}」\n終わったのなら削除せずにチェックを入れてください（削除するとやった記録が残りません）。`,
       confirmLabel: '削除',
       tone: 'danger',
     });
@@ -163,7 +178,7 @@ export function OverviewTab({
     <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <div className="flex flex-wrap items-center gap-2">
         {/* 見え方の切り替え。スマホは リスト／工程表・PC は リスト／ガント／かんばん */}
-        <div role="group" aria-label="見え方" className="flex overflow-hidden rounded-control-md border border-border bg-card">
+        <div role="group" aria-label="表示形式を切り替える" className="flex overflow-hidden rounded-control border border-border bg-card">
           {views.map(({ key, label, icon: Icon }, i) => (
             <button
               key={key}
@@ -237,7 +252,7 @@ export function OverviewTab({
       {effectiveView === 'list' && (p.phases.length === 0 ? (
         <EmptyState
           title="工程がまだありません"
-          description="ひな形を選んで作ると、工程とタスクが日付付きで入ります。ここから1つずつ足すこともできます。"
+          description="工程テンプレートを選んで作成すると、工程とタスクが日付付きで入ります。ここから1つずつ追加することもできます。"
           action={canEdit ? <Button onClick={() => setPhaseAdding(true)}>工程を追加</Button> : undefined}
         />
       ) : (
@@ -339,9 +354,8 @@ export function OverviewTab({
       )}
 
       <p className="text-note text-muted-foreground">
-        工程の日付を直しても、あとに続く工程は動きません（1つずつ直します）
-        {p.template_name ? `。この工程はひな形「${p.template_name}」から写したものです（写したあとにひな形を直しても、このプロジェクトは変わりません）` : ''}。
-        議事録はプロジェクト管理側のデータがまだ無いので出していません。
+        工程の日付を編集しても、あとに続く工程は動きません（1つずつ編集します）
+        {p.template_name ? `。この工程は工程テンプレート「${p.template_name}」から写したものです（写したあとに工程テンプレートを編集しても、このプロジェクトは変わりません）` : ''}。
       </p>
 
       {canManage && (

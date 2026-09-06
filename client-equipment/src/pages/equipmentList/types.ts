@@ -166,6 +166,23 @@ export const COL_W = {
 /** 自分で作った列の幅。**1つに決める** — 中身で決めると列ごとにばらつく */
 export const CUSTOM_COL_W = 128;
 
+/**
+ * **チェックの列だけは細く**（`col_type === 'checkbox'`）。
+ *
+ * 中身は四角ひとつ（20px）で、文字が入る余地がありません。それを 128px で
+ * 置くと、**「検収」「QR」「Ver」を出しているだけで 384px が空白**になり、
+ * そのぶん伸びる列（商品名）が最低幅の 200px まで痩せて
+ * **機材名がすぐ `…` で切れます**（ご報告のスクリーンショットがこの状態）。
+ * 72 は表頭の3〜4字（「検収」「Ver」）が入る段で、**四角は中央に置く**ので
+ * 縦の並びも崩れません。
+ */
+export const CUSTOM_CHECK_W = 72;
+
+/** 自分で作った列1本の幅。**表頭・本文・`ledgerMinWidth` の3か所で同じ関数を通す** */
+export function customColWidth(colType: string): typeof CUSTOM_COL_W | typeof CUSTOM_CHECK_W {
+  return colType === 'checkbox' ? CUSTOM_CHECK_W : CUSTOM_COL_W;
+}
+
 /** 行の頭（開閉）・選ぶ四角・操作の幅。本文と表頭で同じ値を使う */
 export const LEAD_W = 56;
 export const CHECK_W = 56;
@@ -192,17 +209,26 @@ export const ROW_PX = 16;
  * `shared/tests/equipmentLedgerWidth.test.ts` で固定するためです。
  */
 export function ledgerMinWidth(
-  { canBulkEdit, visibleStd, customCount }:
-  { canBulkEdit: boolean; visibleStd: ColKey[]; customCount: number },
+  { canBulkEdit, visibleStd, customWidths }:
+  {
+    canBulkEdit: boolean;
+    visibleStd: ColKey[];
+    /**
+     * 出している「自分で作った列」の幅を**1本ずつ**並べたもの
+     * （`customColWidth(col.col_type)`）。**本数だけでは足りません** —
+     * チェックの列は 72px で、他は 128px だからです。
+     */
+    customWidths: number[];
+  },
 ): number {
   const hasName = visibleStd.includes('name');
   const fixed = LEAD_W
     + (canBulkEdit ? CHECK_W : 0)
     + visibleStd.reduce((n, k) => n + (k === 'name' ? 0 : COL_W[k as keyof typeof COL_W] ?? 0), 0)
-    + customCount * CUSTOM_COL_W
+    + customWidths.reduce((n, w) => n + w, 0)
     + ACTION_W;
   // 行の頭 ＋ 選ぶ四角 ＋ 標準の列 ＋ 自分で作った列 ＋ 操作
-  const slots = 1 + (canBulkEdit ? 1 : 0) + visibleStd.length + customCount + 1;
+  const slots = 1 + (canBulkEdit ? 1 : 0) + visibleStd.length + customWidths.length + 1;
   return fixed + Math.max(slots - 1, 0) * ROW_GAP + ROW_PX * 2 + (hasName ? NAME_MIN_PX : 0);
 }
 

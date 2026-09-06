@@ -1,8 +1,10 @@
 /**
  * GPM の請求タブ — 仕入の追加・編集ダイアログ（段10）
  *
- * ⚠️ **`BusinessProjectView.tsx` から切り出したもので、中身は1文字も変えていません。**
- * インデントも元のまま。
+ * ⚠️ **`BusinessProjectView.tsx` から切り出したものです。** インデントも元のまま。
+ * あとから変えたのは3点だけ: **仮フラグを精算番号の直上へ移した**こと、
+ * **仮の間は精算番号を入力不可にした**こと（財務④と同じ条件。ここだけ連動していなかった）、
+ * **Enter キーで保存できるようにした**こと。欄そのものと送る値は変えていません。
  *
  * ⚠️ **props は `form` 1つだけ**（`usePurchaseForm` の返り値をそのまま渡す）。
  * 25 個の値を1つずつ props にすると**型を推測して間違えます**（過去の分割で5件間違えた）。
@@ -54,11 +56,20 @@ export function PurchaseDialog({
         open={purDialogOpen}
         onOpenChange={(open) => { if (!open) closePurDialog(); }}
         title={editingPurId ? "仕入の編集" : "仕入の追加"} size="lg"
+        // Enter キーで保存できるようにする（`docs/design/v4/_form-order.md` 4）。
+        // **明細行を持たないフォームなので、入力中の Enter が誤送信になる心配が無い。**
+        // 追加ボタンは `type="submit"` にして `onClick` を外してある（両方あると二重送信）。
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!purVendorId || savePurMutation.isPending) return;
+          handlePurSubmit();
+        }}
         footer={
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               {editingPurId && (
                 <Button
+                  type="button"
                   variant="destructive"
                   onClick={() => {
                     if (!confirm("この仕入を削除しますか？この操作は元に戻せません。")) return;
@@ -76,8 +87,10 @@ export function PurchaseDialog({
               )}
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={closePurDialog}>キャンセル</Button>
-              <Button disabled={!purVendorId || savePurMutation.isPending} onClick={handlePurSubmit}>
+              {/* ⚠️ 送信以外のボタンには必ず `type="button"` を付ける
+                  （`<form>` の中では既定が submit になり、押すと保存が走る） */}
+              <Button type="button" variant="outline" onClick={closePurDialog}>キャンセル</Button>
+              <Button type="submit" disabled={!purVendorId || savePurMutation.isPending}>
                 {savePurMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {editingPurId ? "更新" : "追加"}
               </Button>
@@ -126,17 +139,6 @@ export function PurchaseDialog({
                 onChange={(e) => setPurDesc(e.target.value)}
                 placeholder="仕入の説明"
                 rows={3}
-              />
-            </div>
-
-            <div className="flex items-center justify-between gap-2">
-              <Label htmlFor="pur-is-provisional" className="cursor-pointer">
-                仮（確定前の見込み仕入）
-              </Label>
-              <Switch
-                id="pur-is-provisional"
-                checked={purIsProvisional}
-                onCheckedChange={(v) => setPurIsProvisional(!!v)}
               />
             </div>
 
@@ -208,10 +210,31 @@ export function PurchaseDialog({
               </div>
             </div>
 
+            {/* 仮 → 精算番号 の順に置く。**仮フラグは精算番号を入力不可にする**ので、
+                効く相手の直上に来るよう金額の下から移した（財務④の仕入ダイアログと同じ扱い。
+                `docs/design/v4/_form-order.md` 2-1「依存する欄は依存される欄より下」） */}
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="pur-is-provisional" className="cursor-pointer">
+                仮（確定前の見込み仕入）
+              </Label>
+              <Switch
+                id="pur-is-provisional"
+                checked={purIsProvisional}
+                onCheckedChange={(v) => setPurIsProvisional(!!v)}
+              />
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>精算番号</Label>
-                <Input value={purSettlementNo} onChange={(e) => setPurSettlementNo(e.target.value)} placeholder="任意" />
+                {/* 仮の間は入力不可。まだ確定していない金額に精算番号だけ先に入る、という
+                    矛盾した状態を避ける（財務④と同じ条件。ここだけ連動していなかった） */}
+                <Input
+                  value={purSettlementNo}
+                  onChange={(e) => setPurSettlementNo(e.target.value)}
+                  placeholder={purIsProvisional ? '仮の間は入力できません' : '任意'}
+                  disabled={purIsProvisional}
+                />
               </div>
               <div>
                 <Label>申請URL</Label>

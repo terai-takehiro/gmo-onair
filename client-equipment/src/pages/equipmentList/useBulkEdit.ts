@@ -32,7 +32,7 @@ export function useBulkEdit(clearSelection: () => void) {
     setError(null);
     clearSelection();
     setValue('');
-    notifySuccess(`${count} 件を直しました`);
+    notifySuccess(`${count} 件を保存しました`);
   };
 
   return { open, field, value, error, setOpen, setField, setValue, setError, openDialog, buildPayload, onDone };

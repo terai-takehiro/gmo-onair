@@ -123,15 +123,15 @@ export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
 
   const handleRevoke = async () => {
     // 同上 (凍結アプリなので素の confirm() を使う)
-    if (!confirm("配布をやめます。配った QR はすべて使えなくなり、元に戻せません。よろしいですか？")) return; // ui-tokens-ok
+    if (!confirm("配布を停止します。配った QR はすべて使えなくなり、元に戻せません。よろしいですか？")) return; // ui-tokens-ok
     setBusy(true);
     try {
       await api.post(`/techops/documents/${docId}/audio-share/revoke`);
       setShare(null);
       setRevoked(true);
-      notifySuccess("配布をやめました");
+      notifySuccess("配布を停止しました");
     } catch {
-      notifyError("配布をやめられませんでした。少し待ってから、もう一度お試しください。");
+      notifyError("配布を停止できませんでした。少し待ってから、もう一度お試しください。");
     } finally {
       setBusy(false);
     }
@@ -163,7 +163,7 @@ export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
         size="md"
       >
         <DialogHeader>
-          <DialogTitle>本番のURLを配る</DialogTitle>
+          <DialogTitle>本番URLを共有</DialogTitle>
           <DialogDescription>
             音声オペレーター用のマイク香盤画面です。ログイン不要で、この URL を知っていれば誰でも開けます。
           </DialogDescription>
@@ -255,13 +255,13 @@ export default function AudioShareDialog({ open, onOpenChange, docId }: Props) {
                 className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-tap text-xs font-semibold rounded-lg border border-destructive/40 text-destructive hover:bg-destructive/10 disabled:opacity-60"
               >
                 <Ban size={13} aria-hidden />
-                配布をやめる
+                配布を停止
               </button>
             </div>
 
             <p className="text-[11px] text-muted-foreground bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-md p-2 leading-relaxed">
               ※ シナリオ本文や放送日は返却されません。マイク香盤データのみ表示されます。
-              「新しい URL にする」で出し直し、「配布をやめる」で今すぐ使えなくできます（取り消せません）。
+              「新しい URL にする」で出し直し、「配布を停止」で今すぐ使えなくできます（取り消せません）。
             </p>
           </>
         )}

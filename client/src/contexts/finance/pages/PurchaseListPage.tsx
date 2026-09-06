@@ -245,7 +245,7 @@ export default function PurchaseListPage() {
         search={{
           value: crud.search,
           onChange: crud.setSearch,  // `setSearch` がページを1に戻す
-          placeholder: 'GLS番号・案件名・仕入先・説明で探す',
+          placeholder: 'GLS番号・案件名・仕入先・説明で検索',
         }}
         month={month}
         onMonth={(v) => { setMonth(v); crud.setPage(1); }}

@@ -164,7 +164,7 @@ export function NotificationBell({ api }: Props) {
                 onClick={() => read.mutate('all')}
                 className="text-note inline-flex items-center gap-1 text-primary"
               >
-                <Check className="h-3.5 w-3.5" aria-hidden="true" />すべて読んだことにする
+                <Check className="h-3.5 w-3.5" aria-hidden="true" />すべて既読にする
               </button>
             )}
           </div>

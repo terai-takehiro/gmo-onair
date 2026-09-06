@@ -168,7 +168,7 @@ export function useLedgerState() {
           : undefined,
       });
     },
-    onError: (e) => notifyApiError('まとめて直せませんでした', e),
+    onError: (e) => notifyApiError('まとめて編集できませんでした', e),
   });
 
   /**

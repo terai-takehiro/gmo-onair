@@ -16,6 +16,9 @@ import { OPS_NEWS_ITEM_KIND } from '../../../shared/services/ai-feedback.service
 //   status='draft' 投稿する。人間がアプリでトピック行を追記し「確認・確定」して published にする。
 // - daily_news … 日1本 (period_key = 日付)。Web の業界ニュースを add_ops_report_items で行として
 //   投稿する (レポートが無ければ自動作成・published)。人間もアプリから行を追記できる。
+// - mail_intake … 日1本 (period_key = 日付)。メールの仕分けが「何を取り込み、何を落としたか」を
+//   残す。**取り込んだものは各テーブルに残るが、落とした判断はどこにも残らない** ので、
+//   これが無いと取りこぼしを後から数えられない (会社方針「AI を使い捨てにしない」条件1)。
 // - レポート本体 (title/body/payload) と行 (items) は分離されており、submit_ops_report は
 //   items に一切触らない。人間の追記が消えることはない。
 
@@ -51,7 +54,7 @@ export function registerOpsReportTools(server: McpServer): void {
         'daily_news は period_key=日付・status=published で送る (閲覧型のため確定操作は不要)。' +
         '注意: このツールは行 (items) には一切触れない。人間がアプリで追記した行は消えない。published 済みのレポートを draft に戻すこともない。',
       inputSchema: {
-        kind: KIND_ENUM.describe('weekly_activity=ウィークリー活動報告 / daily_news=デイリーニュース報告'),
+        kind: KIND_ENUM.describe('weekly_activity=ウィークリー活動報告 / daily_news=デイリーニュース報告 / mail_intake=メール取込ログ'),
         period_key: z.string().regex(DATE_RE).describe('対象期間 (週次=週開始日の月曜 / 日次=日付、YYYY-MM-DD)'),
         title: z.string().max(200).optional().describe('レポートタイトル (例: 週次活動報告 2026-07-06週)'),
         body: z.string().optional().describe('AI 生成本文 (markdown)。weekly のナラティブ'),
@@ -86,7 +89,13 @@ export function registerOpsReportTools(server: McpServer): void {
         `daily_news の行 = ニュース 1 件: category (${NEWS_CATEGORIES})、content (1行要約)、url (記事URL・必須推奨)、ai_related (AI 関連ニュースか)、note (補足メモ)。` +
         '同じ URL の行が既にあればスキップされる (再実行しても重複しない)。' +
         'weekly_activity の行 = トピック 1 件: category (グループへの技術支援 / イベント / セールス・マーケティング / 技術内製化 / 技術高度化 / AI活用 / その他)、content (内容)、note (補足)。' +
-        'pick (採用フラグ 1〜5) は通常人間がアプリで設定するため AI からは省略してよい。',
+        'pick (採用フラグ 1〜5) は通常人間がアプリで設定するため AI からは省略してよい。' +
+        '\n\nmail_intake (メール取込ログ・日1本) の行 = 1つの種別についての1行: ' +
+        'category に種別 (kairos3_contact / kairos3_download / kairos3_inview / finance_doc / sales_thread / inquiry / dropped)、' +
+        'content に「走査N通 / 取込N件 / 落としN件」、note に落としたものの代表の件名 (10本まで)。' +
+        '**中身の全文は入れない** — 取り込んだメールの原文は各テーブルの body_text にある。' +
+        '⚠️ これは「何を落としたか」を残すための記録。落とした判断がどこにも残らないと、' +
+        '取りこぼしを後から数えられない (実測で資料ダウンロード通知 17件が1か月気づかれなかった)。',
       inputSchema: {
         kind: KIND_ENUM,
         period_key: z.string().regex(DATE_RE).describe('対象期間 (週次は月曜へ自動正規化)'),
@@ -105,8 +114,8 @@ export function registerOpsReportTools(server: McpServer): void {
     },
     async (args) => runTool(async () => {
       const report = await opsReportService.ensureReport(args.kind, args.period_key, currentActorId());
-      // daily_news の新規レポートは published に昇格 (閲覧型のため)
-      if (args.kind === 'daily_news' && report.status !== 'published') {
+      // daily_news / mail_intake の新規レポートは published に昇格 (閲覧型・確定操作が無い)
+      if ((args.kind === 'daily_news' || args.kind === 'mail_intake') && report.status !== 'published') {
         await opsReportService.upsertReport({ kind: args.kind, period_key: args.period_key, status: 'published' });
       }
       const { added, skipped } = await opsReportService.addItems(
@@ -120,7 +129,16 @@ export function registerOpsReportTools(server: McpServer): void {
       // ニュース投稿そのものは止めない）。ここで拾うのは今回入れた source='ai' の行だけ:
       // `addItems` は id を返さないので、sort_order が単調増加であることを使って
       // 末尾 `added` 件を引き直す（人の行は source='human' なので混ざらない）。
-      if (added > 0) {
+      /*
+        ⚠️ **ニュース以外の行をニュースとして記録しない**（Codex P2）。
+
+        `mail_intake`（メール取込ログ）の行にもこれを付けていたため、
+        `getFeedbackDigest('ops_news_item')` が**取込ログをニュース記事として数え**、
+        取込ログには pick（採用フラグ 1〜5）が一生付かないので、
+        **回すほどニュースの採用率が下がって見えて**いました
+        （AI の成績を測るための数字が、AI と関係ない行で薄まる）。
+      */
+      if (added > 0 && args.kind === 'daily_news') {
         try {
           const inserted = await queryAll(
             `SELECT id, category, content, note, url, ai_related, pick

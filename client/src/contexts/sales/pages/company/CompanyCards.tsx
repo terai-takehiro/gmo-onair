@@ -157,7 +157,7 @@ export function CompanyCards({
                     disabled={editBlockedByVendor}
                     title={
                       editBlockedByVendor
-                        ? "仕入先を兼ねているため、財務管理の編集権限が無いと直せません"
+                        ? "仕入先を兼ねているため、財務管理の編集権限が無いと編集できません"
                         : undefined
                     }
                     onClick={(e) => {

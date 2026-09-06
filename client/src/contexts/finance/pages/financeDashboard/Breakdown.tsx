@@ -39,7 +39,7 @@
  * `ledger/settlementState.ts` を呼ぶだけで、ここには書き写しません
  * （2か所に書くと必ず片方が古くなる。実際そうなっていた）。
  *
- * カード下の「台帳をひらく」も残します。行クリックとの違いは**案件を付けるかどうか
+ * カード下の「台帳を開く」も残します。行クリックとの違いは**案件を付けるかどうか
  * だけ**（行＝その行の案件で絞り込む／フッター＝いま画面で絞り込み中の案件のまま、
  * 絞っていなければ全件）。期間はどちらも同じ `period.ts` の `ledgerOpenQuery` が
  * 組み立てるので、押す場所によって期間が変わることはありません。
@@ -178,7 +178,7 @@ export function BreakdownColumn({
   hasMore: boolean;
   isLoadingMore?: boolean;
   onLoadMore?: () => void;
-  /** 「台帳をひらく」の行き先 */
+  /** 「台帳を開く」の行き先 */
   to: string;
   empty: string;
   /**
@@ -294,7 +294,7 @@ export function BreakdownColumn({
           onClick={() => navigate(to)}
           className="text-sub min-h-tap flex items-center justify-center gap-1 font-bold text-primary hover:bg-surface-subtle"
         >
-          台帳をひらく
+          台帳を開く
           <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
       </div>

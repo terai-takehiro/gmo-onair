@@ -137,7 +137,7 @@ export function ThreadTab({ projectId }: { projectId: string }) {
       qc.invalidateQueries({ queryKey: ['task-columns', projectId] });
       qc.invalidateQueries({ queryKey: ['task-dashboard'] });
       notifySuccess('タスクにしました', {
-        description: `「${(r.data?.data?.title ?? '').slice(0, 40)}」をタスクタブに入れました。担当や期限はそちらで直せます。`,
+        description: `「${(r.data?.data?.title ?? '').slice(0, 40)}」をタスクタブに入れました。担当や期限はそちらで編集できます。`,
       });
     },
     onError: (e) => notifyApiError('タスクにできませんでした', e),
@@ -254,9 +254,9 @@ export function ThreadTab({ projectId }: { projectId: string }) {
       <div className="flex items-start gap-2.5 rounded-note border border-primary-border bg-primary-surface-weak px-3.5 py-3">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
         <p className="text-note text-secondary-foreground">
-          <strong className="font-bold">録音した音声は文字にしたら保存せずに捨てます。</strong>
+          <strong className="font-bold">録音した音声は文字にしたら保存せず破棄します。</strong>
           残るのは文字起こしと議事録だけです。録音を残したい打合せは、BOX の社内限りフォルダに置いてください。
-          <strong className="font-bold">持ち帰りは1件ずつタスクにできます</strong>（議事録を開くとボタンが出ます）。
+          <strong className="font-bold">未解決事項は1件ずつタスクにできます</strong>（議事録を開くとボタンが出ます）。
         </p>
       </div>
 

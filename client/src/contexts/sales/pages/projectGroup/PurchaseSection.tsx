@@ -12,7 +12,7 @@ function AllocationBreakdown({ allocations }: { allocations: Allocation[] }) {
   if (allocations.length === 0) return null;
   return (
     <div className="mt-2 space-y-0.5 border-t border-border-faint pt-2">
-      <p className="text-note mb-1 font-bold text-muted-foreground">分けた額の内訳</p>
+      <p className="text-note mb-1 font-bold text-muted-foreground">按分額の内訳</p>
       {allocations.map((a, i) => (
         <div key={i} className="flex items-center justify-between text-sub">
           <span className="truncate text-secondary-foreground">{a.gls_number} {a.project_name}</span>
@@ -71,7 +71,7 @@ export function PurchaseSection({
                         onClick={async () => {
                           if (!(await confirmAction({
                             title: 'この仕入を削除しますか？',
-                            description: '分けた額の内訳も一緒に消えます。',
+                            description: '按分額の内訳も一緒に消えます。',
                             confirmLabel: '削除', tone: 'danger',
                           }))) return;
                           onDelete(pu.id);

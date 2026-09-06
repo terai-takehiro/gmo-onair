@@ -40,7 +40,7 @@ const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'reported', label: '報告済' },
   { value: 'in_progress', label: '対応中' },
   { value: 'completed', label: '完了' },
-  { value: 'cancelled', label: '取りやめ' },
+  { value: 'cancelled', label: '中止' },
 ];
 
 function Fact({ label, value }: { label: string; value: string }) {
@@ -77,6 +77,8 @@ export function MaintenanceCards({
                 <span className="text-list block font-bold [overflow-wrap:anywhere]">{r.title}</span>
                 <span className="text-sub mt-0.5 block text-muted-foreground [overflow-wrap:anywhere]">
                   <span className="font-number text-primary">{r.eq_code}</span> ・ {r.equipment_name}
+                  {/* 付属品なら親も出す（`MaintenancePage.tsx` の行と同じ書き方） */}
+                  {r.parent_name ? `（${r.parent_name} の付属品）` : ''}
                 </span>
                 {r.description && (
                   <span className="text-sub mt-0.5 block text-muted-foreground [overflow-wrap:anywhere]">

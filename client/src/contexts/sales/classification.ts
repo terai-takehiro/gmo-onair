@@ -84,7 +84,7 @@ export function flowHint(
   category: string | null | undefined,
 ): string | null {
   const label = classificationLabel(audience, category);
-  return label ? `${label} の工程の型が入ります` : null;
+  return label ? `${label} の工程テンプレートが入ります` : null;
 }
 
 /** 来場人数を聞くか。**無観客のときは聞かない**（人が来ないので） */

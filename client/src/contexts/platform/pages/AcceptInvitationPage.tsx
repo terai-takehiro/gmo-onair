@@ -69,7 +69,7 @@ export default function AcceptInvitationPage() {
           <CheckCircle2 className="h-12 w-12 mx-auto text-green-500 mb-4" />
           <h2 className="text-lg font-bold mb-2">アカウント有効化完了</h2>
           <p className="text-sm text-muted-foreground mb-4">パスワードが設定されました。ログインしてください。</p>
-          <Button onClick={() => navigate("/login", { replace: true })} className="w-full">ログインへ</Button>
+          <Button type="button" onClick={() => navigate("/login", { replace: true })} className="w-full">ログインへ</Button>
         </CardContent>
       </Card>
     </div>

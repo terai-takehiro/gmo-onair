@@ -31,6 +31,8 @@ export function PreviewStep({ startedOn, onStartedOn, template, templateName }: 
   return (
     <div className="rounded-card overflow-hidden border border-border bg-card">
       <div className="flex flex-wrap items-end gap-4 border-b border-border-subtle p-4 lg:px-5">
+        {/* **1段目（基本情報）と同じ値**。ここは工程の並びを見ながら直す場所として残す
+            （`GpmProjectFormPage` の `startedOn` を両方が触る） */}
         <div>
           <Label htmlFor="gpm-start">着手日</Label>
           <Input
@@ -43,7 +45,7 @@ export function PreviewStep({ startedOn, onStartedOn, template, templateName }: 
         </div>
         <p className="text-note min-w-0 flex-1 text-muted-foreground">
           {rows.length === 0 ? (
-            'ひな形を選んでいないので工程はまだありません。作ったあとに足せます。'
+            '工程テンプレートを選んでいないので工程はまだありません。作ったあとに足せます。'
           ) : startedOn ? (
             <>
               前の工程が終わったら次が始まる前提で日付を入れます。

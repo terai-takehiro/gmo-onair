@@ -19,9 +19,9 @@ export function AllocationEditor({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sub font-bold">{label}の分け方</span>
+        <span className="text-sub font-bold">{label}の按分方法</span>
         <div
-          role="radiogroup" aria-label={`${label}の分け方`}
+          role="radiogroup" aria-label={`${label}の按分方法`}
           className="inline-flex overflow-hidden rounded-control border border-border"
         >
           {([['equal', '均等に分ける'], ['custom', '任意の比率']] as const).map(([v, text], i) => (
@@ -58,7 +58,7 @@ export function AllocationEditor({
         ))}
         {alloc.mode === 'custom' && (
           <div className="flex items-center justify-between border-t border-border-faint pt-2 text-sub">
-            <span className="font-bold">分けた額の合計</span>
+            <span className="font-bold">按分額の合計</span>
             <span className="flex items-center gap-1">
               <Money value={alloc.previewTotal} className={alloc.previewTotal !== total ? 'text-destructive' : 'font-bold'} />
               <span className="text-muted-foreground">/</span>

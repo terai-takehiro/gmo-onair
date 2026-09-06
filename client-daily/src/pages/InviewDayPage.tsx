@@ -129,14 +129,14 @@ export default function InviewDayPage() {
           search={{
             value: query,
             onChange: setQuery,
-            placeholder: '氏名・会社名・電話で探す',
+            placeholder: '氏名・会社名・電話で検索',
             label: 'この日の来場者を検索',
           }}
           activeCount={sortKey === 'default' ? 0 : 1}
           onClearAll={() => setSortKey('default')}
           title="並び順"
           note={searching
-            ? `「${query}」に当てはまる ${hitCount} 件 / この日 ${dayRows.length} 件`
+            ? `「${query}」に一致する ${hitCount} 件 / この日 ${dayRows.length} 件`
             : 'かな・全角半角・ハイフンは区別せず、この日のすべての回から探します'}
         >
           <MobileFilterField label="並び替え">
@@ -176,7 +176,7 @@ export default function InviewDayPage() {
                 ref={searchRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="氏名・会社名・電話番号などで探す"
+                placeholder="氏名・会社名・電話番号などで検索"
                 aria-label="この日の来場者を検索"
                 className="pl-9 pr-9"
               />
@@ -203,7 +203,7 @@ export default function InviewDayPage() {
             </p>
             {searching && (
               <p className="text-sub mt-1.5">
-                「{query}」に当てはまる <span className="font-number font-bold">{hitCount}</span> 件 / この日 {dayRows.length} 件
+                「{query}」に一致する <span className="font-number font-bold">{hitCount}</span> 件 / この日 {dayRows.length} 件
               </p>
             )}
           </div>
@@ -286,6 +286,9 @@ export default function InviewDayPage() {
           key={editing?.id ?? 'new'}
           initial={editing}
           presetSessionLabel={adding ? presetSessionLabel : undefined}
+          // 回が2つ以上ある日は初期値を入れられない（どちらの回か決められない）ので、
+          // **この日にある回を候補として渡す** — 書式を丸ごと打ち直させない
+          sessionOptions={sessions.map((s) => s.label)}
           onClose={() => { setAdding(false); setEditing(null); }}
         />
       )}

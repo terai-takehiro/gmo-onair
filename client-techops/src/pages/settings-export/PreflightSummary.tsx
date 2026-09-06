@@ -65,11 +65,11 @@ export default function PreflightSummary({
 
   return (
     <div className="space-y-2">
-      <Block title="直したほうがよい" meaning="現地で必ず弾かれます" tone="bad" count={red.length}>
+      <Block title="要修正" meaning="現地で必ず弾かれます" tone="bad" count={red.length}>
         {red.length > 0 && <IssueList issues={red} />}
       </Block>
 
-      <Block title="そのままでよい" meaning="出せますが、意図の確認を" tone="warn" count={amber.length}>
+      <Block title="要確認" meaning="出せますが、意図の確認を" tone="warn" count={amber.length}>
         {amber.length > 0 && <IssueList issues={amber} />}
       </Block>
 

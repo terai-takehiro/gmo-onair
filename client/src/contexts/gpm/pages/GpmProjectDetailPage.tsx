@@ -40,8 +40,10 @@ import type { ProjectStage } from '@/types';
 import { STAGE_BADGE_LABEL } from '@/contexts/sales/pages/projectList/stages';
 import { type GpmOpenItem } from '../types';
 import {
-  DetailHeader, isDetailTab, gpmDetailPhase, MOBILE_TABS_BY_PHASE, effectiveMobileTabs, type DetailTabKey,
-} from './projectDetail/DetailHeader';
+  isDetailTab, gpmDetailPhase, MOBILE_TABS_BY_PHASE, effectiveMobileTabs, type DetailTabKey,
+} from './projectDetail/tabs';
+import { DetailHeader } from './projectDetail/DetailHeader';
+import { ProjectFactsBand } from './projectDetail/ProjectFactsBand';
 import { EstimatesTab } from './projectDetail/EstimatesTab';
 import { BillingTab } from './projectDetail/BillingTab';
 import { BudgetTab } from './projectDetail/BudgetTab';
@@ -188,7 +190,7 @@ export default function GpmProjectDetailPage() {
   const onDeleteAsk = async (item: GpmOpenItem) => {
     const ok = await confirmAction({
       title: 'この持ち帰りを削除しますか？',
-      description: `「${item.question}」\n解決したのなら消さずに「解決」にしてください。消すと訊いた記録が残りません。`,
+      description: `「${item.question}」\n解決したのなら削除せずに「解決」にしてください。削除すると訊いた記録が残りません。`,
       confirmLabel: '削除',
       tone: 'danger',
     });
@@ -218,6 +220,12 @@ export default function GpmProjectDetailPage() {
         phase={phase}
         isCostCenter={isCostCenter}
       />
+
+      {/* 事実の帯（期間・進み具合）。**どのタブでも本文のいちばん上**に出す
+          （ヘッダー右上から移した。`ProjectFactsBand` 冒頭のコメント参照） */}
+      <div className="px-4 pt-3.5 lg:px-6 lg:pt-4">
+        <ProjectFactsBand project={p} />
+      </div>
 
       {/*
         コストセンター（GMO）の案件は「予算と実績」（`BudgetTab`・2026年10月の事業再編・

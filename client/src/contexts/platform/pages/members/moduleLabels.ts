@@ -88,8 +88,8 @@ export const MODULE_WHAT_DETAIL: Record<string, string> = {
  */
 export const LEVEL_CHOICES = [
   { value: 'none', label: 'なし', hint: 'メニューにも出ません' },
-  { value: 'reader', label: '見るだけ', hint: '参照・CSV 出力' },
-  { value: 'editor', label: '書ける', hint: '追加・編集' },
+  { value: 'reader', label: '閲覧', hint: '参照・CSV 出力' },
+  { value: 'editor', label: '編集', hint: '追加・編集' },
   { value: 'manager', label: '管理', hint: '追加・編集・削除・設定' },
 ] as const;
 

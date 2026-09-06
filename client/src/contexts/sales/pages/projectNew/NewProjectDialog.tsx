@@ -121,9 +121,17 @@ function DesktopNewProject() {
         )}
 
         <div className="rounded-card border border-primary-border bg-card px-4 py-4 lg:px-5">
-          <p className="text-cardtitle mb-3">いま必要な5つ</p>
+          <p className="text-cardtitle mb-3">必須項目</p>
           <RequiredFields f={f} />
         </div>
+
+        {/*
+          **「回のある案件か」とレギュラーの取り決めは、畳んだ枠より上**
+          （`docs/design/v4/_form-order.md`）。この2つは親子で、
+          畳んだ枠の中で親を選ばせると、子のカードが枠の外に生えて見落とされます。
+          単発のままなら欄1つぶんの高さで終わります
+        */}
+        <RegularSeriesSection f={f} />
 
         <div className="rounded-card overflow-hidden border border-border bg-card">
           <button
@@ -135,7 +143,7 @@ function DesktopNewProject() {
             {more
               ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
               : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
-            <span className="text-list font-bold">進んだら聞く</span>
+            <span className="text-list font-bold">任意項目</span>
             <span className="text-badge font-number rounded-badge-xs bg-muted px-1.5 py-0.5 text-muted-foreground">
               {moreFieldCount(v.audience)}
             </span>
@@ -149,10 +157,6 @@ function DesktopNewProject() {
             </div>
           )}
         </div>
-
-        {/* 回を作るたびに聞かれては困る4つの取り決め（regular-series.md §3）を、
-            案件作成の時点でも入れられるようにする */}
-        <RegularSeriesSection f={f} />
 
         {/* 受付から持ち込んだ「聞くこと」と「聞き方の下書き」 */}
         <AskPanel v={v} customerName={f.customer?.name ?? null} senderName={currentUser?.name ?? ''} />

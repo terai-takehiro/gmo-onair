@@ -226,7 +226,7 @@ export function Recorder({
         {/* **録る前に出す。** 録音中に出しても、もう録り始めているので手遅れ */}
         <p className="text-note mt-1.5 text-secondary-foreground">
           <strong className="font-bold">録音することを相手にお伝えください。</strong>
-          音声は文字にしたら<strong className="font-bold">保存せずに捨てます</strong>（残るのは文字だけです）。
+          音声は文字にしたら<strong className="font-bold">保存せず破棄します</strong>（残るのは文字だけです）。
           <strong className="font-bold">約100分まで</strong>録れます。
           止めたあとの文字起こしは<strong className="font-bold">裏で進みます</strong> — 画面を閉じても止まりません。
         </p>

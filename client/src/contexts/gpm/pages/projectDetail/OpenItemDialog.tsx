@@ -85,10 +85,13 @@ export function OpenItemDialog({ projectId, item, phases, onClose }: OpenItemDia
       onOpenChange={(o) => { if (!o) onClose(); }}
       title={item ? '持ち帰りを編集' : '持ち帰りを追加'}
       size="lg"
+      // Enter で保存する（繰り返し入力を持たないフォーム）。質問欄は Textarea なので、
+      // その中の Enter は今までどおり改行になる。送信は `type="submit"` の1本だけ
+      onSubmit={(e) => { e.preventDefault(); if (canSubmit) save.mutate(); }}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>キャンセル</Button>
-          <Button onClick={() => save.mutate()} disabled={!canSubmit}>
+          <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>
+          <Button type="submit" disabled={!canSubmit}>
             {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
             {item ? '編集' : '追加'}
           </Button>
@@ -108,6 +111,24 @@ export function OpenItemDialog({ projectId, item, phases, onClose }: OpenItemDia
               placeholder="副調のモニター壁は据置か可動か"
             />
           </div>
+
+          {/*
+            並びは「何を・どこの話か・誰に・何が止まる・いつまでに」。
+            工程は**どこの話かという文脈**なので期限と同じ行には置かず、質問の直後に上げた
+            （`docs/design/v4/_form-order.md`）。
+          */}
+          {phases && phases.length > 0 && (
+            <div>
+              <Label htmlFor="oi-phase">どの工程の話か</Label>
+              <Select value={phaseId || '_none_'} onValueChange={(v) => setPhaseId(v === '_none_' ? '' : v)}>
+                <SelectTrigger id="oi-phase"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none_">紐づけない</SelectItem>
+                  {phases.map((p) => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
@@ -130,27 +151,10 @@ export function OpenItemDialog({ projectId, item, phases, onClose }: OpenItemDia
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="oi-due">いつまでに返事がほしいか</Label>
-              <Input id="oi-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-            </div>
-            {phases && phases.length > 0 && (
-              <div>
-                <Label htmlFor="oi-phase">どの工程の話か</Label>
-                <Select value={phaseId || '_none_'} onValueChange={(v) => setPhaseId(v === '_none_' ? '' : v)}>
-                  <SelectTrigger id="oi-phase"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none_">紐づけない</SelectItem>
-                    {phases.map((p) => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-
+          {/* 「これが止めているもの」は**一覧で赤く出て優先順位を決める最重要の欄**なのに、
+              最後まで読まないと出てこなかった。誰に訊くかの直後へ上げる（説明文も一緒に移す） */}
           <div>
-            <Label htmlFor="oi-blocks">これが止めているもの</Label>
+            <Label htmlFor="oi-blocks">停滞している工程・作業</Label>
             <Input
               id="oi-blocks"
               value={blocks}
@@ -160,6 +164,11 @@ export function OpenItemDialog({ projectId, item, phases, onClose }: OpenItemDia
             <p className="text-sub-sm mt-1 text-muted-foreground">
               書くと一覧とダッシュボードで赤く出て、優先して片づける対象になります。空でもかまいません。
             </p>
+          </div>
+
+          <div>
+            <Label htmlFor="oi-due">いつまでに返事がほしいか</Label>
+            <Input id="oi-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </div>
 
           {item && (

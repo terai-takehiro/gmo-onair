@@ -3,12 +3,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EnhancedCheckbox } from "@gmo-onair/shared/src/client/ui/enhanced-checkbox";
+import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
+import { Row, RowMain, RowSub, RowTitle } from "@gmo-onair/shared/src/client/ui/row";
+import { Delayed, NotFoundPanel, SkeletonRows } from "@gmo-onair/shared/src/client/states";
 import {
   ArrowLeft, Copy, Loader2, Wrench, ArrowRightLeft, Package, QrCode, Printer, Link2, X, Pencil, Plus, LayoutList,
 } from "lucide-react";
@@ -308,15 +310,18 @@ export default function EquipmentDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
+        <Delayed><SkeletonRows rows={6} /></Delayed>
       </div>
     );
   }
 
   if (!data) {
     return (
-      <div className="p-6 text-center text-muted-foreground">機材が見つかりません</div>
+      <NotFoundPanel
+        path={`/equipment/items/${id}`}
+        home={{ label: "機材台帳にもどる", onGo: () => navigate("/equipment/items") }}
+      />
     );
   }
 
@@ -327,48 +332,54 @@ export default function EquipmentDetailPage() {
   };
 
   return (
-    <div className="space-y-4 p-4 lg:p-6">
+    <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" aria-label="機材一覧に戻る" onClick={() => navigate("/equipment/items")}>
-          <ArrowLeft className="h-4 w-4" />
+      <div>
+        <Button variant="ghost" onClick={() => navigate("/equipment/items")} className="mb-1">
+          <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />機材台帳へ
         </Button>
-        <div className="flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant={statusOf(EQUIPMENT_STATUS, item.status).variant}>
-              {statusOf(EQUIPMENT_STATUS, item.status).label}
-            </Badge>
-            <Badge variant="outline">{item.equipment_section === "rental" ? "貸出" : "設備"}</Badge>
-            {item.rental_category_name && (
-              <Badge variant="secondary" className="text-xs">{item.rental_category_name}</Badge>
-            )}
-          </div>
-          <h1 className="heading-page text-xl mt-1">
-            {item.rental_display_name || item.name}
-            {item.rental_display_name && item.rental_display_name !== item.name && (
-              <span className="text-sm text-muted-foreground font-normal ml-1">({item.name})</span>
-            )}
-            {item.model_number && <span className="text-muted-foreground font-normal ml-2">({item.model_number})</span>}
-            {item.unit_number && <span className="text-primary ml-2">No.{item.unit_number}</span>}
-          </h1>
-          <button
-            onClick={copyEqCode}
-            className="v4-tap flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground mt-1 transition-colors"
-            title="IDをコピー"
-          >
-            <QrCode className="h-3 w-3" />
-            {item.eq_code}
-            <Copy className="h-2.5 w-2.5 opacity-40" />
-          </button>
-        </div>
-        <Button variant="outline" size="sm" onClick={openEdit}>
-          <Pencil className="h-4 w-4 mr-1" />
-          編集
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => setQrOpen(true)}>
-          <Printer className="h-4 w-4 mr-1" />
-          QRコード
-        </Button>
+        <PageHeader
+          title={
+            <>
+              {item.rental_display_name || item.name}
+              {item.rental_display_name && item.rental_display_name !== item.name && (
+                <span className="text-sub ml-1 font-normal text-muted-foreground">({item.name})</span>
+              )}
+              {item.model_number && <span className="text-sub ml-2 font-normal text-muted-foreground">({item.model_number})</span>}
+              {item.unit_number && <span className="ml-2 text-primary">No.{item.unit_number}</span>}
+            </>
+          }
+          sub={
+            <span className="flex flex-wrap items-center gap-2">
+              <Badge variant={statusOf(EQUIPMENT_STATUS, item.status).variant}>
+                {statusOf(EQUIPMENT_STATUS, item.status).label}
+              </Badge>
+              <Badge variant="outline">{item.equipment_section === "rental" ? "貸出" : "設備"}</Badge>
+              {item.rental_category_name && (
+                <Badge variant="secondary" className="text-xs">{item.rental_category_name}</Badge>
+              )}
+              <button
+                type="button"
+                onClick={copyEqCode}
+                className="v4-tap flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground"
+                title="IDをコピー"
+              >
+                <QrCode className="h-3 w-3" aria-hidden="true" />
+                {item.eq_code}
+                <Copy className="h-2.5 w-2.5 opacity-40" aria-hidden="true" />
+              </button>
+            </span>
+          }
+          primaryAction={
+            <Button variant="outline" onClick={openEdit}>
+              <Pencil className="mr-1 h-4 w-4" aria-hidden="true" />編集
+            </Button>
+          }
+        >
+          <Button variant="outline" onClick={() => setQrOpen(true)}>
+            <Printer className="mr-1 h-4 w-4" aria-hidden="true" />QRコード
+          </Button>
+        </PageHeader>
       </div>
 
       {/* QRコード表示・印刷ダイアログ */}
@@ -403,20 +414,16 @@ export default function EquipmentDetailPage() {
         }
       >
           <div className="space-y-4">
-            {isAdmin && (
-              <div className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                <Label className="text-amber-800 font-semibold">機材ID (管理者のみ変更可)</Label>
-                <Input
-                  value={editForm.eq_code || ""}
-                  onChange={(e) => setEditForm({ ...editForm, eq_code: e.target.value })}
-                  className=""
-                  placeholder="Y-V-000001"
-                />
-              </div>
+            {/* 保存できなかった理由は**本文の先頭**に置く。実行ボタンは下端のフッターに
+                固定されているので、末尾に置くとスクロールしない限り理由が見えない
+                （台帳の `EquipmentDialog` は同じ理由で見出し直下に固定してある） */}
+            {saveError && (
+              <p className="rounded-control border border-destructive-border bg-destructive-surface px-3 py-2 text-sub text-destructive">{saveError}</p>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
-                <Label>拠点 *</Label>
+                {/* 設定＞保管場所の「拠点」(場所の分類マスタ) とは別物。こちらは機材IDの先頭に入るコード */}
+                <Label>拠点 * (機材IDの先頭)</Label>
                 <Select value={editForm.location_code} onValueChange={(v) => setEditForm({ ...editForm, location_code: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{LOC_CODES.map((l) => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
@@ -448,15 +455,15 @@ export default function EquipmentDetailPage() {
                     autoComplete="off"
                   />
                   {suggestItems.length > 0 && (
-                    <div className="absolute z-50 top-full left-0 right-0 bg-card border rounded-md shadow-lg mt-0.5">
-                      <p className="px-3 py-1.5 text-xs text-muted-foreground border-b">同名の型名が複数あります。選択してください</p>
+                    <div className="absolute left-0 right-0 top-full z-50 mt-0.5 rounded-control-lg border border-border bg-card shadow-lg">
+                      <p className="border-b border-border px-3 py-1.5 text-sub-sm text-muted-foreground">同名の型名が複数あります。選択してください</p>
                       {Array.from(
                         new Map(suggestItems.map((i: any) => [i.model_number ?? '', i])).values()
                       ).map((item: any) => (
                         <button
                           key={item.model_number ?? 'none'}
                           type="button"
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sub hover:bg-muted"
                           onMouseDown={() => {
                             setEditForm(f => ({
                               ...f,
@@ -466,7 +473,7 @@ export default function EquipmentDetailPage() {
                             setSuggestItems([]);
                           }}
                         >
-                          <span className="font-medium">{item.model_number || '（型名なし）'}</span>
+                          <span className="font-bold">{item.model_number || '（型名なし）'}</span>
                         </button>
                       ))}
                     </div>
@@ -496,36 +503,15 @@ export default function EquipmentDetailPage() {
                 <Input value={editForm.serial_number} onChange={(e) => setEditForm({ ...editForm, serial_number: e.target.value })} />
               </div>
             </div>
+            {/* **いまの状態**（保管場所・ステータス・コンディション）を、資産・保証から切り離す。
+                日常的に触るこの3つが、月に一度も触らない償却年数・保証期間と同じ枠に
+                埋もれていた。保管場所はこの下の「ラック実装」の親でもあるので、
+                順番としてもここに来る */}
             <div className="border-t pt-4">
-              <p className="text-sm font-semibold mb-3">資産・保証</p>
+              {/* 新しく足す見出しは v4 の型スケール（ウェイトを内包する）で書く。
+                  周りの見出しは旧来の書き方のままだが、作り直しのときにまとめて寄せる */}
+              <p className="text-cardtitle mb-3">いまの状態</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <Label>持ち主の会社</Label>
-                  <BranchCodeInput value={editForm.branch_code} onChange={(v) => setEditForm({ ...editForm, branch_code: v })} />
-                </div>
-                <div className="space-y-1">
-                  <Label>資産の区分</Label>
-                  <Select value={editForm.asset_class} onValueChange={(v) => setEditForm({ ...editForm, asset_class: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{ASSET_CLASS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label>資産コード</Label>
-                  <Input value={editForm.fixed_asset_code} onChange={(e) => setEditForm({ ...editForm, fixed_asset_code: e.target.value })} />
-                </div>
-                <div className="space-y-1">
-                  <Label>償却年数</Label>
-                  <Input type="number" min="0" value={editForm.depreciation_years} onChange={(e) => setEditForm({ ...editForm, depreciation_years: e.target.value })} />
-                </div>
-                <div className="space-y-1">
-                  <Label>購入年月</Label>
-                  <Input type="date" value={editForm.purchased_at} onChange={(e) => setEditForm({ ...editForm, purchased_at: e.target.value })} />
-                </div>
-                <div className="space-y-1">
-                  <Label>保証期間 (年)</Label>
-                  <Input type="number" min="0" value={editForm.warranty_years} onChange={(e) => setEditForm({ ...editForm, warranty_years: e.target.value })} />
-                </div>
                 <div className="space-y-1">
                   <Label>保管場所</Label>
                   <Select value={editForm.location_id || "none"} onValueChange={(v) => setEditForm({ ...editForm, location_id: v === "none" ? "" : v })}>
@@ -552,24 +538,6 @@ export default function EquipmentDetailPage() {
                 </div>
               </div>
             </div>
-            {/* 色選択 */}
-            <div className="border-t pt-4">
-              <p className="text-sm font-semibold mb-3">機材色</p>
-              <Select value={editForm.color_id || "none"} onValueChange={(v) => setEditForm({ ...editForm, color_id: v === "none" ? "" : v })}>
-                <SelectTrigger><SelectValue placeholder="なし（種別色）" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">なし（種別色）</SelectItem>
-                  {colors.map((c: any) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      <span className="flex items-center gap-2">
-                        <span className="inline-block w-3 h-3 rounded-full border border-border/40" style={{ background: c.color_hex }} />
-                        {c.name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
 
             {/* ラック実装フィールド */}
             {(() => {
@@ -577,7 +545,7 @@ export default function EquipmentDetailPage() {
               if (!selLoc?.is_rack) return null;
               return (
                 <div className="border-t pt-4">
-                  <p className="text-sm font-semibold mb-3">ラック実装</p>
+                  <p className="text-cardtitle mb-3">ラック実装</p>
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                     <div className="space-y-1">
                       <Label>U位置 (下端)</Label>
@@ -620,14 +588,10 @@ export default function EquipmentDetailPage() {
               );
             })()}
 
-            <div className="space-y-1">
-              <Label>備考</Label>
-              <Input value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
-            </div>
-
-            {/* 貸出設定 */}
+            {/* 貸出設定は「設備／貸出」の選択と対になる情報なので、備考より上に置く
+                （備考のあとに新しいセクションが続くのは後付けの形跡そのものだった） */}
             <div className="border-t pt-4">
-              <p className="text-sm font-semibold mb-3">貸出一覧設定</p>
+              <p className="text-cardtitle mb-3">貸出一覧設定</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label>貸出カテゴリ</Label>
@@ -655,8 +619,79 @@ export default function EquipmentDetailPage() {
               </div>
             </div>
 
-            {saveError && (
-              <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">{saveError}</p>
+            {/* 備考は任意。ここから下は「月に一度も触らないもの」なので、
+                日常の項目を埋めきったこの位置に置く */}
+            <div className="space-y-1">
+              <Label>備考</Label>
+              <Input value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
+            </div>
+
+            {/* 資産・保証は日常では触らない（台帳・詳細も「資産管理は既定で畳む」方針）。
+                いまの状態・貸出設定より下にまとめる */}
+            <div className="border-t pt-4">
+              <p className="text-cardtitle mb-3">資産・保証</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label>所有会社</Label>
+                  <BranchCodeInput value={editForm.branch_code} onChange={(v) => setEditForm({ ...editForm, branch_code: v })} />
+                </div>
+                <div className="space-y-1">
+                  <Label>資産の区分</Label>
+                  <Select value={editForm.asset_class} onValueChange={(v) => setEditForm({ ...editForm, asset_class: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{ASSET_CLASS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>資産コード</Label>
+                  <Input value={editForm.fixed_asset_code} onChange={(e) => setEditForm({ ...editForm, fixed_asset_code: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label>償却年数</Label>
+                  <Input type="number" min="0" value={editForm.depreciation_years} onChange={(e) => setEditForm({ ...editForm, depreciation_years: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label>購入年月</Label>
+                  <Input type="date" value={editForm.purchased_at} onChange={(e) => setEditForm({ ...editForm, purchased_at: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label>保証期間 (年)</Label>
+                  <Input type="number" min="0" value={editForm.warranty_years} onChange={(e) => setEditForm({ ...editForm, warranty_years: e.target.value })} />
+                </div>
+              </div>
+            </div>
+
+            {/* 色選択 */}
+            <div className="border-t pt-4">
+              <p className="text-cardtitle mb-3">機材色</p>
+              <Select value={editForm.color_id || "none"} onValueChange={(v) => setEditForm({ ...editForm, color_id: v === "none" ? "" : v })}>
+                <SelectTrigger><SelectValue placeholder="なし（種別色）" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">なし（種別色）</SelectItem>
+                  {colors.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      <span className="flex items-center gap-2">
+                        <span className="inline-block w-3 h-3 rounded-full border border-border/40" style={{ background: c.color_hex }} />
+                        {c.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 機材IDは**いちばん最後**。管理者にしか出ず、触ると採番規則が壊れる欄なので、
+                必須の拠点・種別・商品名より上に置かない（危険であることを示す琥珀色はそのまま） */}
+            {isAdmin && (
+              <div className="space-y-1 rounded-note border border-warning-border bg-warning-surface p-3">
+                <Label className="font-bold text-warning">機材ID (管理者のみ変更可)</Label>
+                <Input
+                  value={editForm.eq_code || ""}
+                  onChange={(e) => setEditForm({ ...editForm, eq_code: e.target.value })}
+                  className=""
+                  placeholder="Y-V-000001"
+                />
+              </div>
             )}
           </div>
       </FormDialog>
@@ -673,7 +708,8 @@ export default function EquipmentDetailPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
-                <Label>拠点 *</Label>
+                {/* 設定＞保管場所の「拠点」(場所の分類マスタ) とは別物。ここは機材IDの先頭に入るコード */}
+                <Label>拠点 * (機材IDの先頭)</Label>
                 <Select value={newChildForm.location_code} onValueChange={(v) => setNewChildForm({ ...newChildForm, location_code: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{LOC_CODES.map((l) => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
@@ -724,7 +760,7 @@ export default function EquipmentDetailPage() {
             </div>
             <div className="border-t pt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
-                <Label>持ち主の会社</Label>
+                <Label>所有会社</Label>
                 <BranchCodeInput value={newChildForm.branch_code} onChange={(v) => setNewChildForm({ ...newChildForm, branch_code: v })} />
               </div>
               <div className="space-y-1">
@@ -744,22 +780,19 @@ export default function EquipmentDetailPage() {
               <Input value={newChildForm.notes} onChange={(e) => setNewChildForm({ ...newChildForm, notes: e.target.value })} />
             </div>
             {createChildError && (
-              <p className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">{createChildError}</p>
+              <p className="rounded-control border border-destructive-border bg-destructive-surface px-3 py-2 text-sub text-destructive">{createChildError}</p>
             )}
           </div>
       </FormDialog>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* 基本情報 */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Package className="h-4 w-4" />
-              基本情報
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {item.branch_code && <InfoRow label="持ち主の会社" value={item.branch_code} />}
+        <section className="rounded-card border border-border bg-card p-4" aria-labelledby="eq-basic-info">
+          <h2 id="eq-basic-info" className="text-cardtitle mb-3 flex items-center gap-2">
+            <Package className="h-4 w-4" aria-hidden="true" />基本情報
+          </h2>
+          <div className="space-y-2">
+            {item.branch_code && <InfoRow label="所有会社" value={item.branch_code} />}
             <InfoRow label="資産の区分" value={ASSET_CLASS_LABELS[item.asset_class] || item.asset_class} />
             <InfoRow label="設備／貸出" value={sectionLabel(item.equipment_type_code, item.equipment_section)} />
             <InfoRow label="メーカー" value={item.manufacturer_name} />
@@ -768,113 +801,103 @@ export default function EquipmentDetailPage() {
             <InfoRow label="保管場所" value={item.location_name || item.location_detail} />
             <InfoRow label="コンディション" value={statusOf(EQUIPMENT_CONDITION, item.condition).label} />
             {item.notes && <InfoRow label="備考" value={item.notes} />}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
 
         {/* Asset info */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">資産情報</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+        <section className="rounded-card border border-border bg-card p-4" aria-labelledby="eq-asset-info">
+          <h2 id="eq-asset-info" className="text-cardtitle mb-3">資産情報</h2>
+          <div className="space-y-2">
             <InfoRow label="資産コード" value={item.fixed_asset_code || '(消耗品)'} />
             <InfoRow label="償却年数" value={item.depreciation_years != null ? `${item.depreciation_years}年` : null} />
             <InfoRow label="購入年月" value={item.purchased_at?.slice(0, 10)} />
             <InfoRow label="保証期間" value={item.warranty_years ? `${item.warranty_years}年` : null} />
             <InfoRow label="保証終了" value={item.warranty_end?.slice(0, 10)} />
-          </CardContent>
-        </Card>
+          </div>
+        </section>
 
         {/* Lending history (貸出可の機材のみ = is_rental_listed。equipment_section は見ない) */}
         {item.is_rental_listed && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <ArrowRightLeft className="h-4 w-4" />
-              貸出履歴
-              <Badge variant="outline" className="text-xs">貸出可</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {(item.lendings || []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">履歴なし</p>
-            ) : (
-              <div className="space-y-2">
-                {item.lendings.map((l: any) => (
-                  <div key={l.id} className="text-sm border rounded-lg p-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{l.borrower_name}</span>
-                      <span className={`text-xs rounded-full px-2 py-0.5 ${l.status === "lent" ? "bg-amber-100 text-amber-800" : "bg-green-100 text-green-800"}`}>
-                        {l.status === "lent" ? "貸出中" : "返却済"}
-                      </span>
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
+        <section className="rounded-card border border-border bg-card p-4" aria-labelledby="eq-lending-history">
+          <h2 id="eq-lending-history" className="text-cardtitle mb-3 flex items-center gap-2">
+            <ArrowRightLeft className="h-4 w-4" aria-hidden="true" />貸出履歴
+            <Badge variant="outline" className="text-xs">貸出可</Badge>
+          </h2>
+          {(item.lendings || []).length === 0 ? (
+            <p className="text-sub text-muted-foreground">履歴なし</p>
+          ) : (
+            <div className="flex flex-col rounded-card border border-border">
+              {item.lendings.map((l: any) => (
+                <Row key={l.id} divider align="start">
+                  <RowMain>
+                    <RowTitle>{l.borrower_name}</RowTitle>
+                    <RowSub>
                       {l.lent_at?.split("T")[0]} → {l.returned_at?.split("T")[0] || l.due_date || "未定"}
-                    </div>
-                    {l.purpose && <div className="text-xs text-muted-foreground">{l.purpose}</div>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                      {l.purpose ? ` ／ ${l.purpose}` : ""}
+                    </RowSub>
+                  </RowMain>
+                  <Badge
+                    variant="outline"
+                    className={l.status === "lent"
+                      ? "bg-warning-surface text-warning border-transparent"
+                      : "bg-success-surface text-success border-transparent"}
+                  >
+                    {l.status === "lent" ? "貸出中" : "返却済"}
+                  </Badge>
+                </Row>
+              ))}
+            </div>
+          )}
+        </section>
         )}
 
         {/* Maintenance records */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Wrench className="h-4 w-4" />
-              メンテナンス記録
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {(item.maintenance || []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">記録なし</p>
-            ) : (
-              <div className="space-y-2">
-                {item.maintenance.map((m: any) => (
-                  <div key={m.id} className="text-sm border rounded-lg p-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{m.title}</span>
-                      <div className="flex items-center gap-1">
-                        <Badge variant="outline" className="text-xs">
-                          {statusOf(MAINTENANCE_TYPE, m.record_type).label}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {statusOf(MAINTENANCE_STATUS, m.status).label}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
+        <section className="rounded-card border border-border bg-card p-4" aria-labelledby="eq-maintenance">
+          <h2 id="eq-maintenance" className="text-cardtitle mb-3 flex items-center gap-2">
+            <Wrench className="h-4 w-4" aria-hidden="true" />メンテナンス記録
+          </h2>
+          {(item.maintenance || []).length === 0 ? (
+            <p className="text-sub text-muted-foreground">記録なし</p>
+          ) : (
+            <div className="flex flex-col rounded-card border border-border">
+              {item.maintenance.map((m: any) => (
+                <Row key={m.id} divider align="start">
+                  <RowMain>
+                    <RowTitle>{m.title}</RowTitle>
+                    <RowSub>
                       {m.reported_at?.split("T")[0]}
-                      {m.repair_cost ? ` / 費用: ¥${m.repair_cost.toLocaleString()}` : ""}
-                    </div>
+                      {m.repair_cost ? ` ・ 費用: ¥${m.repair_cost.toLocaleString()}` : ""}
+                    </RowSub>
+                  </RowMain>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Badge variant="outline" className="text-xs">
+                      {statusOf(MAINTENANCE_TYPE, m.record_type).label}
+                    </Badge>
+                    <span className="text-sub-sm text-muted-foreground">
+                      {statusOf(MAINTENANCE_STATUS, m.status).label}
+                    </span>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                </Row>
+              ))}
+            </div>
+          )}
+        </section>
 
         {/* 共有カスタム列（値が入力済みのもののみ表示） */}
         {sharedColumns.some(c => customValueMap[c.id] !== undefined && customValueMap[c.id] !== '') && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <LayoutList className="h-4 w-4" />
-                カスタム情報
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
+          <section className="rounded-card border border-border bg-card p-4" aria-labelledby="eq-custom-info">
+            <h2 id="eq-custom-info" className="text-cardtitle mb-3 flex items-center gap-2">
+              <LayoutList className="h-4 w-4" aria-hidden="true" />カスタム情報
+            </h2>
+            <div className="space-y-2">
               {sharedColumns.filter(col => customValueMap[col.id] !== undefined && customValueMap[col.id] !== '').map(col => {
                 const val = customValueMap[col.id] ?? '';
                 const isEditing = editingCustomCell === col.id;
                 if (col.col_type === 'checkbox') {
                   const checked = val === 'true' || val === '1';
                   return (
-                    <div key={col.id} className="flex justify-between items-center">
-                      <span className="text-muted-foreground">{col.name}</span>
+                    <div key={col.id} className="flex items-center justify-between">
+                      <span className="text-sub text-muted-foreground">{col.name}</span>
                       <EnhancedCheckbox
                         checked={checked}
                         onCheckedChange={(v) => customValueMutation.mutate({ columnId: col.id, value: v ? 'true' : 'false' })}
@@ -883,12 +906,12 @@ export default function EquipmentDetailPage() {
                   );
                 }
                 return (
-                  <div key={col.id} className="flex justify-between items-center gap-4">
-                    <span className="text-muted-foreground shrink-0">{col.name}</span>
+                  <div key={col.id} className="flex items-center justify-between gap-4">
+                    <span className="text-sub shrink-0 text-muted-foreground">{col.name}</span>
                     {isEditing ? (
                       <input
                         type={col.col_type === 'number' ? 'number' : 'text'}
-                        className="flex-1 text-right bg-transparent border-b border-primary/60 focus:border-primary focus:outline-none text-sm font-medium"
+                        className="flex-1 border-b border-primary/60 bg-transparent text-right text-sub font-bold focus:border-primary focus:outline-none"
                         defaultValue={val}
                         autoFocus
                         onBlur={e => { setEditingCustomCell(null); customValueMutation.mutate({ columnId: col.id, value: e.target.value }); }}
@@ -896,45 +919,42 @@ export default function EquipmentDetailPage() {
                       />
                     ) : (
                       <span
-                        className="font-medium text-right cursor-text hover:text-primary transition-colors"
+                        className="cursor-text text-right text-sub font-bold transition-colors hover:text-primary"
                         onClick={() => setEditingCustomCell(col.id)}
                         title="クリックして編集"
                       >
-                        {val || <span className="text-muted-foreground/40 font-normal">—</span>}
+                        {val || <span className="font-normal text-muted-foreground/40">—</span>}
                       </span>
                     )}
                   </div>
                 );
               })}
-            </CardContent>
-          </Card>
+            </div>
+          </section>
         )}
 
         {/* 関連機材 / オプション品 */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Link2 className="h-4 w-4" />
-              関連機材 / オプション品
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <section className="rounded-card border border-border bg-card p-4 lg:col-span-2" aria-labelledby="eq-related">
+          <h2 id="eq-related" className="text-cardtitle mb-3 flex items-center gap-2">
+            <Link2 className="h-4 w-4" aria-hidden="true" />関連機材 / オプション品
+          </h2>
+          <div className="space-y-4">
             {/* 付属品リスト（children） */}
             <div>
-              <p className="text-xs font-semibold text-muted-foreground mb-2">付属品 / オプション品（この機材に紐付いているもの）</p>
+              <p className="text-th mb-2 text-muted-foreground">付属品 / オプション品（この機材に紐付いているもの）</p>
               {(item.children ?? []).length === 0 ? (
-                <p className="text-sm text-muted-foreground">なし</p>
+                <p className="text-sub text-muted-foreground">なし</p>
               ) : (
                 <div className="space-y-1">
                   {item.children.map((c: any) => (
-                    <div key={c.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                    <div key={c.id} className="flex items-center justify-between rounded-control border border-border px-3 py-2 text-sub">
                       <button
-                        className="min-h-tap lg:min-h-0 flex items-center gap-2 hover:underline text-left"
+                        className="min-h-tap lg:min-h-0 flex items-center gap-2 text-left hover:underline"
                         onClick={() => navigate(`/equipment/items/${c.id}`)}
                       >
-                        <span className=" text-xs text-muted-foreground">{c.eq_code}</span>
+                        <span className="text-sub-sm text-muted-foreground">{c.eq_code}</span>
                         <span>{c.name}{c.model_number ? ` (${c.model_number})` : ""}{c.unit_number ? ` No.${c.unit_number}` : ""}</span>
-                        {c.notes && <span className="text-xs text-muted-foreground truncate max-w-[160px]">{c.notes}</span>}
+                        {c.notes && <span className="max-w-[160px] truncate text-sub-sm text-muted-foreground">{c.notes}</span>}
                       </button>
                       <div className="flex items-center gap-0.5">
                         <Button
@@ -960,7 +980,7 @@ export default function EquipmentDetailPage() {
 
               {/* 機材追加 */}
               <div className="mt-3 space-y-2">
-                <p className="text-xs text-muted-foreground font-medium">既存の機材を紐付ける</p>
+                <p className="text-th text-muted-foreground">既存の機材を紐付ける</p>
                 <div className="flex gap-2">
                   <SearchableSelect
                     value={selectedChildId}
@@ -988,22 +1008,22 @@ export default function EquipmentDetailPage() {
             </div>
 
             {/* 親機材表示 */}
-            <div className="border-t pt-3">
-              <p className="text-xs font-semibold text-muted-foreground mb-2">親機材（この機材が付属している先）</p>
+            <div className="border-t border-border pt-3">
+              <p className="text-th mb-2 text-muted-foreground">親機材（この機材が付属している先）</p>
               {item.parent ? (
                 <button
-                  className="min-h-tap lg:min-h-0 flex items-center gap-2 text-sm hover:underline"
+                  className="min-h-tap lg:min-h-0 flex items-center gap-2 text-sub hover:underline"
                   onClick={() => navigate(`/equipment/items/${item.parent.id}`)}
                 >
-                  <span className=" text-xs text-muted-foreground">{item.parent.eq_code}</span>
+                  <span className="text-sub-sm text-muted-foreground">{item.parent.eq_code}</span>
                   <span>{item.parent.name}</span>
                 </button>
               ) : (
-                <p className="text-sm text-muted-foreground">なし</p>
+                <p className="text-sub text-muted-foreground">なし</p>
               )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       </div>
     </div>
   );

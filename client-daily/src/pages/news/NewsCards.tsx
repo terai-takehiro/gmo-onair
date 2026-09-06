@@ -105,7 +105,7 @@ function NewsCard({ item, canEdit, weeklyLocked }: {
           {(item.note || item.recorded_by) && (
             <p className="text-sub inline-flex flex-wrap items-center gap-1 text-muted-foreground">
               {[item.note, item.recorded_by].filter(Boolean).join(' ・ ')}
-              {item.source === 'ai' && <Bot className="h-3 w-3 shrink-0 text-ai" aria-label="AI が入れました" />}
+              {item.source === 'ai' && <Bot className="h-3 w-3 shrink-0 text-ai" aria-label="AI作成" />}
             </p>
           )}
 
@@ -119,7 +119,7 @@ function NewsCard({ item, canEdit, weeklyLocked }: {
                 title={item.sent_to_weekly
                   ? 'この行はウィークリー活動報告へ送り済みです'
                   : weeklyLocked
-                    ? 'この週のウィークリー活動報告は確定済みです。その画面で「確定を解く」を押すと送れます'
+                    ? 'この週のウィークリー活動報告は確定済みです。その画面で「確定を取り消す」を押すと送れます'
                     : 'この日が入る週のウィークリー活動報告へ写します'}
               >
                 {item.sent_to_weekly

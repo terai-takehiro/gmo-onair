@@ -19,20 +19,20 @@
  */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CalendarPlus, Pencil, Trash2, Info, Lock, AlertTriangle, Loader2 } from 'lucide-react';
+import { CalendarPlus, Lock, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
-import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { EmptyState, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
-import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
-import { DateRange } from '@gmo-onair/shared/src/client/ui/dateRange';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { ClosedDayDialog } from './ClosedDayDialog';
+// 表の2枚は行数（1ファイル400行）の都合で切り出した。中身は動かしていない
+import { ClosedDayList } from './ClosedDayList';
+import { HolidayList } from './HolidayList';
 import {
-  WEEKDAYS, WEEK_ORDER, OVER_POLICY, AVAILABILITY, KIND_LABEL, KIND_TONE, TIME_CHOICES, label,
+  WEEKDAYS, WEEK_ORDER, OVER_POLICY, TIME_CHOICES,
   type DayHours, type ClosedDay, type LocationRow,
 } from './hoursTypes';
 
@@ -81,7 +81,7 @@ export default function HoursPage() {
     mutationFn: (id: string) => api.delete(`/business-hours/closed-days/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['business-hours'] });
-      notifySuccess('休業日を消しました');
+      notifySuccess('休業日を削除しました');
     },
     onError: (e) => notifyApiError('消せませんでした', e),
   });
@@ -108,7 +108,7 @@ export default function HoursPage() {
       {!canEdit && (
         <p className="rounded-note text-note flex items-center gap-2 border border-border bg-surface-subtle px-3.5 py-2.5 text-muted-foreground">
           <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
-          直せるのは<strong className="font-bold">システム管理者</strong>だけです（拠点・部屋と同じ扱い）。中身は見られます。
+          編集できるのは<strong className="font-bold">システム管理者</strong>だけです（拠点・部屋と同じ扱い）。中身は見られます。
         </p>
       )}
 
@@ -180,6 +180,22 @@ export default function HoursPage() {
                       {WEEKDAYS[wd]}
                     </span>
 
+                    {/* **「開ける／休みにする」は時刻より先。** 実際の手順が
+                        「この曜日は開けるのか」→「では何時から何時か」の順で、
+                        時刻の後ろにあると、時刻を選んでから休みにする（＝選んだ
+                        時刻が消える）操作になっていた */}
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => setDay(wd, closedDay
+                          ? { open_time: '10:00', close_time: '18:00' }
+                          : { open_time: null, close_time: null })}
+                        className="text-note min-h-tap rounded-note shrink-0 border border-border bg-card px-2.5 font-bold text-muted-foreground lg:min-h-[32px]"
+                      >
+                        {closedDay ? '開ける' : '休みにする'}
+                      </button>
+                    )}
+
                     {closedDay ? (
                       <span className="text-sub w-[160px] shrink-0 text-muted-foreground">休み</span>
                     ) : (
@@ -202,18 +218,6 @@ export default function HoursPage() {
                           {TIME_CHOICES.map((t) => <option key={t} value={t}>{t}</option>)}
                         </select>
                       </span>
-                    )}
-
-                    {canEdit && (
-                      <button
-                        type="button"
-                        onClick={() => setDay(wd, closedDay
-                          ? { open_time: '10:00', close_time: '18:00' }
-                          : { open_time: null, close_time: null })}
-                        className="text-note min-h-tap rounded-note shrink-0 border border-border bg-card px-2.5 font-bold text-muted-foreground lg:min-h-[32px]"
-                      >
-                        {closedDay ? '開ける' : '休みにする'}
-                      </button>
                     )}
 
                     <span className="flex shrink-0 gap-1">
@@ -249,137 +253,18 @@ export default function HoursPage() {
               </p>
             </div>
 
-            {/* 休業日 */}
-            <div className="rounded-card overflow-hidden border border-border bg-card">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border-faint px-4 py-3">
-                <span className="text-cardtitle shrink-0">休業日</span>
-                <span className="text-note min-w-0 flex-1 truncate text-muted-foreground">
-                  全社の休みと、この拠点だけの休み
-                </span>
-              </div>
-
-              {others.length === 0 ? (
-                <EmptyState title="休業日はありません" description="年末年始や設備点検を入れておくと、その期間の予約に注意が出ます。" />
-              ) : (
-                <>
-                  {/*
-                    375pxで実測して見つけた崩れ（このタスクで修正）: 本文行は
-                    `stackOnMobile` で縦積みだが表頭だけ無く、4列が横一列に
-                    はみ出して見出し文字が重なっていた（`拠点・部屋`と同じ理由）。
-                    祝日の表は元々表頭が無く本文だけで読めているので、ここも隠す
-                  */}
-                  <RowHeader className="hidden sm:flex">
-                    <RowMain>期間</RowMain>
-                    <RowSlot w={200}>名前</RowSlot>
-                    <RowSlot w={72}>種類</RowSlot>
-                    <RowSlot w={128}>受付</RowSlot>
-                    {canEdit && <RowSlot w={96} align="right"> </RowSlot>}
-                  </RowHeader>
-                  {others.map((c) => (
-                    <Row key={c.id} density="table" divider stackOnMobile>
-                      <RowMain>
-                        <DateRange start={c.from_date} end={c.to_date} short className="text-list block" />
-                        <span className="text-note block text-muted-foreground">
-                          {c.location_id ? site?.name : '全拠点'}
-                        </span>
-                      </RowMain>
-                      <RowSlot w={200}><span className="text-sub truncate">{c.name}</span></RowSlot>
-                      <RowSlot w={72}>
-                        <span className={cn('rounded-note text-note px-2 py-0.5 font-bold', KIND_TONE[c.kind])}>
-                          {KIND_LABEL[c.kind]}
-                        </span>
-                      </RowSlot>
-                      <RowSlot w={128}>
-                        <span className={cn('rounded-note text-note px-2 py-0.5 font-bold', label(AVAILABILITY, c.availability).tone)}>
-                          {label(AVAILABILITY, c.availability).label}
-                        </span>
-                      </RowSlot>
-                      {canEdit && (
-                        <RowSlot w={96} align="right">
-                          <div className="flex gap-0.5">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" title="編集"
-                              onClick={() => setDialog({ open: true, day: c })}>
-                              <Pencil className="h-4 w-4" aria-hidden="true" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="削除"
-                              onClick={() => confirmAction({
-                                title: `${c.name} を消しますか`,
-                                description: 'この期間の予約は消えません（もともと消していません）。注意が出なくなるだけです。',
-                                confirmLabel: '削除', tone: 'danger',
-                              }).then((ok) => ok && del.mutate(c.id))}>
-                              <Trash2 className="h-4 w-4" aria-hidden="true" />
-                            </Button>
-                          </div>
-                        </RowSlot>
-                      )}
-                    </Row>
-                  ))}
-                </>
-              )}
-            </div>
+            {/* 休業日（表は `ClosedDayList.tsx`・祝日は下の `HolidayList.tsx`） */}
+            <ClosedDayList others={others} site={site} canEdit={canEdit} setDialog={setDialog} del={del} />
 
             {/* 祝日 */}
-            <div className="rounded-card overflow-hidden border border-border bg-card">
-              <button
-                type="button"
-                onClick={() => setShowHolidays((v) => !v)}
-                className="flex w-full flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 text-left"
-              >
-                <span className="text-cardtitle shrink-0">祝日</span>
-                <span className="text-note min-w-0 flex-1 text-muted-foreground">
-                  2026〜2030 の {holidays.length} 件。
-                  {decided > 0
-                    ? `うち ${decided} 件を「休む」にしています`
-                    : '初期値はすべて「営業する」で、注意は出ません'}
-                </span>
-                <span className="text-note shrink-0 text-primary">{showHolidays ? '閉じる' : '開く'}</span>
-              </button>
-
-              {showHolidays && (
-                <>
-                  <p className="text-note flex items-start gap-2 border-t border-info-border bg-info-surface px-4 py-3 text-secondary-foreground">
-                    <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden="true" />
-                    <span>
-                      放送・制作は祝日こそ稼働することがあるので、<strong className="font-bold">初期値は「営業する」</strong>にしてあります。
-                      休む祝日だけ「受け付けない」に変えてください。
-                      <strong className="font-bold">春分の日・秋分の日は予測です</strong>（政府が前年2月に公示するまで確定しません）。
-                    </span>
-                  </p>
-                  <div className="max-h-96 overflow-y-auto">
-                    {holidays.map((c) => (
-                      <Row key={c.id} density="table" divider stackOnMobile>
-                        <RowMain>
-                          <DateRange start={c.from_date} end={c.to_date} className="text-list block" />
-                        </RowMain>
-                        <RowSlot w={200}>
-                          <span className="text-sub flex items-center gap-1.5 truncate">
-                            {c.name}
-                            {c.estimated && (
-                              <span className="text-note inline-flex items-center gap-0.5 text-warning" title="政府の公示まで確定しません">
-                                <AlertTriangle className="h-3 w-3" aria-hidden="true" />予測
-                              </span>
-                            )}
-                          </span>
-                        </RowSlot>
-                        <RowSlot w={128}>
-                          <span className={cn('rounded-note text-note px-2 py-0.5 font-bold', label(AVAILABILITY, c.availability).tone)}>
-                            {label(AVAILABILITY, c.availability).label}
-                          </span>
-                        </RowSlot>
-                        {canEdit && (
-                          <RowSlot w={96} align="right">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" title="編集"
-                              onClick={() => setDialog({ open: true, day: c })}>
-                              <Pencil className="h-4 w-4" aria-hidden="true" />
-                            </Button>
-                          </RowSlot>
-                        )}
-                      </Row>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+            <HolidayList
+              holidays={holidays}
+              decided={decided}
+              showHolidays={showHolidays}
+              setShowHolidays={setShowHolidays}
+              canEdit={canEdit}
+              setDialog={setDialog}
+            />
           </div>
         </div>
       )}

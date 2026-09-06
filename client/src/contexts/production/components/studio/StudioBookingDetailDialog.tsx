@@ -1,10 +1,11 @@
 import { useNavigate } from "react-router-dom";
 import { formatDate } from "@/lib/format";
-import { FormDialog } from "@gmo-onair/shared/src/client-v4/formDialog";
+import { FormDialog, FormDialogFooter } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Pencil, Trash2, ExternalLink, MapPin, Clock, Calendar, Users } from "lucide-react";
 import type { AssigneeRef } from "../AssigneePicker";
+import { BOOKING_TYPE_LABELS } from "../schedule/scheduleShared";
 
 interface BookingRoom {
   room_id: string;
@@ -35,17 +36,6 @@ interface StudioBooking {
   assignees?: AssigneeRef[];
 }
 
-const bookingTypeLabels: Record<string, string> = {
-  performance: "本番",
-  rehearsal: "リハーサル",
-  hold: "仮押さえ",
-  consultation: "相談",
-  maintenance: "メンテナンス",
-  tour: "内覧",
-  internal: "社内利用",
-  setup: "設営/準備",
-  other: "その他",
-};
 
 const bookingTypeColors: Record<string, string> = {
   performance: "bg-rose-100 text-rose-700",
@@ -101,12 +91,41 @@ export default function StudioBookingDetailDialog({
   if (!booking) return null;
 
   return (
-    <FormDialog open={open} onOpenChange={onOpenChange} title={booking.title}>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={booking.title}
+      /* **操作は下端固定のフッターに置く**（カレンダーの他4ダイアログと同じ）。
+         以前は本文の末尾に流し込んでいたため、メモが長い予約では下までスクロールしないと
+         「編集」「削除」が出てこなかった。この画面は旧スタジオカレンダーの退役後、
+         **既存の予約を直す唯一の導線**（`UnifiedCalendarPage.tsx` のコメント参照） */
+      footer={(canEdit || canDelete) ? (
+        <FormDialogFooter>
+          {canDelete && (
+            <Button
+              variant="destructive"
+              className="sm:mr-auto"
+              onClick={() => onDelete(booking.id)}
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              削除
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => onOpenChange(false)}>閉じる</Button>
+          {canEdit && (
+            <Button onClick={() => onEdit(booking)}>
+              <Pencil className="h-4 w-4 mr-1" />
+              編集
+            </Button>
+          )}
+        </FormDialogFooter>
+      ) : undefined}
+    >
         <div className="space-y-4">
           {/* Type and status badges */}
           <div className="flex flex-wrap gap-1.5">
             <Badge className={bookingTypeColors[booking.booking_type] || "bg-gray-100 text-gray-700"}>
-              {bookingTypeLabels[booking.booking_type] || booking.booking_type}
+              {BOOKING_TYPE_LABELS[booking.booking_type] || booking.booking_type}
             </Badge>
             {booking.status === "tentative" ? (
               <Badge className="bg-gray-100 text-gray-500 italic">仮押さえ</Badge>
@@ -114,16 +133,34 @@ export default function StudioBookingDetailDialog({
               <Badge className="bg-blue-100 text-blue-700">本予約</Badge>
             )}
           </div>
-
-          {/* Date & Time */}
-          <div className="flex items-start gap-2">
-            {booking.all_day ? (
-              <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
-            ) : (
-              <Clock className="h-4 w-4 text-muted-foreground mt-0.5" />
-            )}
-            <span className="text-sm">{formatTimeRange(booking)}</span>
-          </div>
+          {/* 読む順は書く順（`StudioBookingDialog`）と同じにする。
+              **紐付け案件 → 部屋・外現場 → 日時 → 担当者 → メモ**。
+              以前は案件が下から2番目・外現場が担当者の後ろにあり、詳細で見た位置を
+              頼りに編集へ入ると毎回探し直しになっていた */}
+          {/* Project link */}
+          {booking.project_id && (
+            <div className="rounded-lg border p-3">
+              <p className="text-xs text-muted-foreground mb-1">紐付け案件</p>
+              <button
+                className="text-sm font-medium text-primary hover:underline flex items-center gap-1"
+                onClick={() => {
+                  onOpenChange(false);
+                  navigate(`/sales/projects/${booking.project_id}/episodes`);
+                }}
+              >
+                <ExternalLink className="h-3 w-3" />
+                {booking.gls_number && (
+                  <span className="">{booking.gls_number}</span>
+                )}
+                {booking.project_name}
+                {booking.episode_code && (
+                  <span className="text-muted-foreground ml-1">
+                    ({booking.episode_code})
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
 
           {/* Rooms */}
           {booking.rooms.length > 0 && (
@@ -140,6 +177,14 @@ export default function StudioBookingDetailDialog({
                   </span>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* External location */}
+          {booking.location_note && (
+            <div className="flex items-start gap-2">
+              <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+              <span className="text-sm">{booking.location_note}</span>
             </div>
           )}
 
@@ -169,6 +214,16 @@ export default function StudioBookingDetailDialog({
             </div>
           )}
 
+          {/* Date & Time */}
+          <div className="flex items-start gap-2">
+            {booking.all_day ? (
+              <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
+            ) : (
+              <Clock className="h-4 w-4 text-muted-foreground mt-0.5" />
+            )}
+            <span className="text-sm">{formatTimeRange(booking)}</span>
+          </div>
+
           {/* Assignees */}
           {!!booking.assignees?.length && (
             <div className="space-y-1.5">
@@ -180,39 +235,6 @@ export default function StudioBookingDetailDialog({
             </div>
           )}
 
-          {/* External location */}
-          {booking.location_note && (
-            <div className="flex items-start gap-2">
-              <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-              <span className="text-sm">{booking.location_note}</span>
-            </div>
-          )}
-
-          {/* Project link */}
-          {booking.project_id && (
-            <div className="rounded-lg border p-3">
-              <p className="text-xs text-muted-foreground mb-1">紐付け案件</p>
-              <button
-                className="text-sm font-medium text-primary hover:underline flex items-center gap-1"
-                onClick={() => {
-                  onOpenChange(false);
-                  navigate(`/sales/projects/${booking.project_id}/episodes`);
-                }}
-              >
-                <ExternalLink className="h-3 w-3" />
-                {booking.gls_number && (
-                  <span className="">{booking.gls_number}</span>
-                )}
-                {booking.project_name}
-                {booking.episode_code && (
-                  <span className="text-muted-foreground ml-1">
-                    ({booking.episode_code})
-                  </span>
-                )}
-              </button>
-            </div>
-          )}
-
           {/* Notes */}
           {booking.notes && (
             <div>
@@ -221,30 +243,6 @@ export default function StudioBookingDetailDialog({
             </div>
           )}
 
-          {/* Actions */}
-          {(canEdit || canDelete) && (
-            <div className="flex justify-between pt-2 border-t">
-              {canDelete ? (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => onDelete(booking.id)}
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  削除
-                </Button>
-              ) : <span />}
-              {canEdit && (
-                <Button
-                  size="sm"
-                  onClick={() => onEdit(booking)}
-                >
-                  <Pencil className="h-4 w-4 mr-1" />
-                  編集
-                </Button>
-              )}
-            </div>
-          )}
         </div>
     </FormDialog>
   );

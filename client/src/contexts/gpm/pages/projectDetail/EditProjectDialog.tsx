@@ -9,34 +9,40 @@
  * だから**いま入っている値を初期値にして、必ず全部送ります** —
  * 「名前だけ直したら PM が消えた」を作らないため。
  *
- * ── 依頼元はここでは変えられない ────────────────────────────
+ * ── 依頼元・ステージはここでは変えられない ──────────────────
  *
  * migration 179 でプロジェクトは GLS-B の案件になり、依頼元は
  * **お客様マスターへの参照**になりました（自由入力ではなくなった）。
  * ここに文字を打つ欄を残すと、打った名前がどこにも保存されません。
  * 付け替えは案件の「直す」画面（お客様の選択欄）で行います。
+ * ステージ（いまの段）も同じ理由で読むだけ — 変えるのは案件詳細⑥と同じ
+ * ヘッダーのステージ帯からです（`ProjectFields.tsx` の `StageField` 参照）。
  *
  * ── 直す画面をダイアログにした理由 ──────────────────────────
  *
  * 案件管理は「読む画面」と「直す画面（`/edit`）」を分けていますが、
  * あちらは 2,178 行のフォームを持っていたからです。ここは項目が9つなので、
- * 別ページにすると**戻る操作が増えるだけ**になります。
+ * 別ページにすると**戻る操作が増えるだけ**になります
+ * （PR③・`gpm-format-alignment.html`「決めてほしいこと1」もこのままでよいとしている）。
+ *
+ * ── 「いま必要な4つ ＋ あとから足せるもの」（PR③・項目17）──────────
+ *
+ * 欄の部品（`RequiredFields`/`MoreFields`）は**新規作成（`BasicStep`）と共有**。
+ * 以前は編集だけ「区分・依頼元・いまの段」を欄として持っていなかった
+ * （区分・依頼元自体はあったが、独自markupで別の見た目だった）。
+ * 共有部品にしたことで3つとも新規作成と同じ見た目・同じ並びになった。
  */
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { FormDialog, FormDialogFooter } from '@gmo-onair/shared/src/client-v4/formDialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { useGpmUsers, useInvalidateGpm } from '../../queries';
-import { KIND_LABEL, ymd, type GpmKind, type GpmProjectDetail } from '../../types';
-
-const KINDS: GpmKind[] = ['self_build', 'group_order'];
+import { ymd, type GpmKind, type GpmProjectDetail } from '../../types';
+import { RequiredFields } from '../projectForm/RequiredFields';
+import { MoreFields, moreFieldCount } from '../projectForm/MoreFields';
 
 export function EditProjectDialog({
   project, onClose,
@@ -54,6 +60,10 @@ export function EditProjectDialog({
   const [startedOn, setStartedOn] = useState(ymd(project.started_on) ?? '');
   const [endsOn, setEndsOn] = useState(ymd(project.ends_on) ?? '');
   const [notes, setNotes] = useState(project.notes ?? '');
+  // **編集は開いた状態で始める。** 新規作成と違い、ここには既に入っている値
+  // （PM会社・着手日・メモ等）があることが多く、畳んだままだと直しに来た人が
+  // 「消えた」と読む。折りたためるのは画面をすっきりさせたいときのため
+  const [more, setMore] = useState(true);
 
   const save = useMutation({
     mutationFn: () =>
@@ -63,7 +73,10 @@ export function EditProjectDialog({
         gpm_kind: kind,
         stage: project.stage,
         customer_id: project.customer_id,
-        pm_company: pmCompany.trim() || null,
+        // 自社構築は PM会社という概念自体が無い（KindField の分岐と同じ）。
+        // 欄を隠している間に入力欄経由で直せなくなるので、送るときに正規化する
+        // （既存データに自社構築のまま PM会社が入っている行があっても、次の保存で消える）
+        pm_company: kind === 'group_order' ? (pmCompany.trim() || null) : null,
         assigned_to: pmUserId || null,
         started_on: startedOn || null,
         ends_on: endsOn || null,
@@ -83,80 +96,68 @@ export function EditProjectDialog({
       onOpenChange={(o) => { if (!o) onClose(); }}
       title="プロジェクトを編集"
       size="lg"
+      // Enter で保存する（繰り返し入力を持たないフォーム）。送信は `type="submit"` の1本だけ
+      onSubmit={(e) => { e.preventDefault(); if (name.trim() && !save.isPending) save.mutate(); }}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>キャンセル</Button>
-          <Button onClick={() => save.mutate()} disabled={!name.trim() || save.isPending}>
+          <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>
+          <Button type="submit" disabled={!name.trim() || save.isPending}>
             {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
             編集
           </Button>
         </FormDialogFooter>
       }
     >
-    <div className="space-y-3">
-      <div>
-        <Label htmlFor="ep-name">プロジェクト名</Label>
-        <Input id="ep-name" value={name} onChange={(e) => setName(e.target.value)} />
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="ep-kind">区分</Label>
-          <Select value={kind} onValueChange={(v) => setKind(v as GpmKind)}>
-            <SelectTrigger id="ep-kind"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {KINDS.map((k) => <SelectItem key={k} value={k}>{KIND_LABEL[k]}</SelectItem>)}
-            </SelectContent>
-          </Select>
+      <div className="space-y-3.5">
+        <RequiredFields
+          mode="edit"
+          name={name}
+          onName={setName}
+          kind={kind}
+          onKind={(k) => { setKind(k); if (k !== 'group_order') setPmCompany(''); }}
+          customerName={project.customer_name}
+          users={users.data ?? []}
+          pmUserId={pmUserId}
+          onPmUserId={setPmUserId}
+        />
+
+        <div className="rounded-card overflow-hidden border border-border bg-card">
+          <button
+            type="button"
+            onClick={() => setMore((o) => !o)}
+            aria-expanded={more}
+            className="min-h-tap flex w-full items-center gap-2.5 px-4 py-3 text-left hover:bg-muted"
+          >
+            {more
+              ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+            <span className="text-list font-bold">あとから足せるもの</span>
+            <span className="text-badge font-number rounded-badge-xs bg-muted px-1.5 py-0.5 text-muted-foreground">
+              {moreFieldCount('edit')}
+            </span>
+            <span className="flex-1" />
+            <span className="text-note text-muted-foreground">PM会社 ・ 着手日 ・ 完了予定日 ・ いまの段 ・ メモ</span>
+          </button>
+
+          {more && (
+            <div className="border-t border-border-faint px-4 pb-4 pt-4 lg:px-5">
+              <MoreFields
+                mode="edit"
+                kind={kind}
+                pmCompany={pmCompany}
+                onPmCompany={setPmCompany}
+                startedOn={startedOn}
+                onStartedOn={setStartedOn}
+                startedOnHint="着手日を直しても、すでに入っている工程の日付は動きません。工程の日付は工程ごとに直します。"
+                endsOn={endsOn}
+                onEndsOn={setEndsOn}
+                stage={project.stage}
+                notes={notes}
+                onNotes={setNotes}
+              />
+            </div>
+          )}
         </div>
-        <div>
-          <Label htmlFor="ep-pm">自社担当（PM）</Label>
-          <Select value={pmUserId || '_none_'} onValueChange={(v) => setPmUserId(v === '_none_' ? '' : v)}>
-            <SelectTrigger id="ep-pm"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_none_">未定</SelectItem>
-              {(users.data ?? []).map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <Label>依頼元</Label>
-          {/* **読むだけ。** お客様マスターへの参照なので、ここで打っても保存されない */}
-          <p className="text-list min-h-tap flex items-center lg:min-h-[36px]">
-            {project.customer_name ?? '未設定'}
-          </p>
-          <p className="text-note text-muted-foreground">
-            付け替えは案件の「編集」画面から行います
-          </p>
-        </div>
-        <div>
-          <Label htmlFor="ep-pmco">PM会社</Label>
-          <Input
-            id="ep-pmco"
-            value={pmCompany}
-            onChange={(e) => setPmCompany(e.target.value)}
-            placeholder="自社PM のときは空のまま"
-          />
-        </div>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="ep-start">着手日</Label>
-          <Input id="ep-start" type="date" value={startedOn} onChange={(e) => setStartedOn(e.target.value)} />
-        </div>
-        <div>
-          <Label htmlFor="ep-end">完了予定日</Label>
-          <Input id="ep-end" type="date" value={endsOn} onChange={(e) => setEndsOn(e.target.value)} />
-        </div>
-      </div>
-      <p className="text-sub-sm text-muted-foreground">
-        着手日を直しても、すでに入っている工程の日付は動きません。工程の日付は工程ごとに直します。
-      </p>
-      <div>
-        <Label htmlFor="ep-notes">メモ</Label>
-        <Textarea id="ep-notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
-      </div>
       </div>
     </FormDialog>
   );

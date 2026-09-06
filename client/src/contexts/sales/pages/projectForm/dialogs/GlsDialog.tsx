@@ -163,7 +163,7 @@ export function GlsDialog({
               }))}
               value={state.target_project_id}
               onChange={(v) => setState((s) => ({ ...s, target_project_id: v }))}
-              placeholder="GLS 番号で探す…"
+              placeholder="GLS 番号で検索…"
             />
             <p className="text-note mt-1 text-muted-foreground">
               選んだ案件の GLS 番号が付き、想定金額は確定売上に変わります。

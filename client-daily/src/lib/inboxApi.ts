@@ -4,7 +4,7 @@ import type { MiscInquiry, Importance, InquiryState } from './types';
 
 // その他問い合わせ（入ってきた情報）API の react-query フック集。
 //
-// ⚠️ **受け取った書類（`/dailyops/finance-docs`）のフックはここには無い。**
+// ⚠️ **受領書類（`/dailyops/finance-docs`）のフックはここには無い。**
 // 画面は財務管理（`/budget/documents`）にあり、このアプリには読む画面が
 // 1つも無いのに `useFinanceDocs` / `useCreateFinanceDoc` / `useUpdateFinanceDoc` /
 // `useDeleteFinanceDoc` と `FinanceDocInput` が**呼び手ゼロのまま**残っていた。

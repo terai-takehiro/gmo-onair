@@ -124,9 +124,12 @@ function LayoutEditorContent({ owner, timerId }: {
 
   // マウント時に一度だけ draft/savedLayout を初期化する。以後の layoutQuery の再取得
   // （フォーカス復帰等）で編集中の draft を上書きしない。
+  // ⚠️ **失敗時も「初期化済み」にする。** 下の描画ガードが `initializedRef.current` を
+  // 見るようになったため、成功時にしか立てないと通信が失敗したときに骨組みのまま
+  // 固まる（失敗時は「保存済みレイアウトは無い」扱いで既定配置から編集を始められるようにする）。
   useEffect(() => {
-    if (initializedRef.current || !layoutQuery.isSuccess) return;
-    const data = layoutQuery.data;
+    if (initializedRef.current || layoutQuery.isLoading) return;
+    const data = layoutQuery.isSuccess ? layoutQuery.data : null;
     if (data && isValidDisplayLayout(data)) {
       setSavedLayout(data);
       setDraft(normalizeDisplayLayout(data));
@@ -135,7 +138,7 @@ function LayoutEditorContent({ owner, timerId }: {
       setDraft(defaultDisplayLayout());
     }
     initializedRef.current = true;
-  }, [layoutQuery.isSuccess, layoutQuery.data]);
+  }, [layoutQuery.isLoading, layoutQuery.isSuccess, layoutQuery.data]);
 
   // プレビュー用のタイマー状態（設計 §6-2: `useTimer` を通常どおり使う）
   const { state } = useTimer(timerId);
@@ -203,7 +206,7 @@ function LayoutEditorContent({ owner, timerId }: {
       qc.setQueryData(['timer-layout', timerId], null);
       notifySuccess('未設定に戻しました。表示画面は既定の描画に戻ります。');
     },
-    onError: () => notifyError('この操作をやり切れませんでした。', { description: '少し待ってから、もう一度お試しください。' }),
+    onError: () => notifyError('削除できませんでした。', { description: '少し待ってから、もう一度お試しください。' }),
   });
 
   async function handleReset() {
@@ -218,7 +221,15 @@ function LayoutEditorContent({ owner, timerId }: {
 
   const selectedEl = selectedKey ? draft.elements.find((e) => e.key === selectedKey) ?? null : null;
 
-  if (timerQuery.isLoading) {
+  // **`layoutQuery` が来ただけでは「読み込み終わった」にしない。** `['timer-layout', timerId]`
+  // は「テンプレート」画面（`LiveDisplayTemplateLibraryPage.tsx`）と同じキャッシュ鍵を読むため、
+  // そちらを経由してから戻ってくる・同じタイマーのレイアウト編集を開き直すSPA遷移では、
+  // このコンポーネントが新規マウントされた1回目のレンダーから `layoutQuery` が
+  // キャッシュ済みの値を持つ。`initializedRef` の effect（`reset` 相当）が効くのはその後の
+  // コミットなので、ここで `layoutQuery.isLoading` だけを見ると、保存済みレイアウトが
+  // 一瞬 `defaultDisplayLayout()` のまま描画されてしまう。`initializedRef.current` も
+  // 一緒に見て、この画面が実際にサーバー値へ同期し終えるまで骨組みのまま待つ。
+  if (timerQuery.isLoading || layoutQuery.isLoading || !initializedRef.current) {
     return (
       <div className="flex h-full items-center justify-center py-16">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label="読み込み中" />
@@ -267,7 +278,7 @@ function LayoutEditorContent({ owner, timerId }: {
         <div className="flex-1 space-y-6 overflow-y-auto p-4">
           <div>
             <p className="mb-2 text-xs font-semibold text-muted-foreground">
-              編集キャンバス（{canManage ? 'ドラッグで移動・右下の丸で拡大縮小' : '見るだけ'}）
+              編集キャンバス（{canManage ? 'ドラッグで移動・右下の丸で拡大縮小' : '閲覧のみ'}）
             </p>
             <DisplayLayoutEditCanvas
               layout={draft}
@@ -361,7 +372,7 @@ function LayoutEditorContent({ owner, timerId }: {
           </div>
 
           {!canManage && (
-            <p className="text-xs text-muted-foreground">いまは「見るだけ」です。動かして保存するには 制作技術支援の「管理」が必要です。</p>
+            <p className="text-xs text-muted-foreground">現在は閲覧のみです。編集して保存するには 制作技術支援の「管理」が必要です。</p>
           )}
         </aside>
       </div>

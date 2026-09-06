@@ -247,7 +247,7 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
           開くたびに console にエラーを出していた（実ブラウザで実測）。
           読み上げでは「何の窓が開いたのか」が分からないまま候補だけが読まれる。
         */}
-        <DialogTitle className="sr-only">探す</DialogTitle>
+        <DialogTitle className="sr-only">検索</DialogTitle>
         <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
           <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <Input
@@ -256,8 +256,8 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            aria-label="案件・お客様・機材を探す"
-            placeholder="案件・お客様・機材を探す"
+            aria-label="案件・お客様・機材を検索"
+            placeholder="案件・お客様・機材を検索"
             className="h-9 border-0 px-0 shadow-none focus-visible:ring-0"
           />
           {searching && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden="true" />}
@@ -268,19 +268,19 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
               サーバーに届かなかっただけなのに、無いと言い切ると探すのをやめる */}
           {failed && (
             <p className="text-sub rounded-control m-1.5 bg-warning-surface px-3 py-2 text-secondary-foreground">
-              案件・お客様・機材は<strong className="font-bold">いま探せませんでした</strong>（画面の名前だけ出しています）。
+              案件・お客様・機材は<strong className="font-bold">いま検索できませんでした</strong>（画面の名前だけ出しています）。
               打ち直すともう一度試します。
             </p>
           )}
           {hits.length === 0 ? (
             <p className="text-sub px-3 py-6 text-center text-muted-foreground">
               {!query.trim()
-                ? '案件名・GLS番号・お客様名・仕入先名・画面の名前で探せます'
+                ? '案件名・GLS番号・お客様名・仕入先名・画面の名前で検索できます'
                 : searching
-                  ? '探しています…'
+                  ? '検索中…'
                   : failed
                     ? '打ち直すともう一度試します'
-                    : '見つかりませんでした。案件名の一部・GLS番号・お客様名・仕入先名でも探せます'}
+                    : '見つかりませんでした。案件名の一部・GLS番号・お客様名・仕入先名でも検索できます'}
             </p>
           ) : (
             hits.map((hit, i) => {

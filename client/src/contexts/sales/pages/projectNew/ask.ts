@@ -102,7 +102,7 @@ export function asksFor(v: NewProjectValues, customerName: string | null): AskIt
 export function internalTodos(v: NewProjectValues): AskItem[] {
   const out: AskItem[] = [];
   if (blank(v.assigned_to)) {
-    out.push({ key: 'assignee', q: '社内の担当を決める', why: '案件をつくるときに要ります' });
+    out.push({ key: 'assignee', q: '社内の担当を決める', why: '案件を作成するときに要ります' });
   }
   if (blank(v.name)) {
     out.push({ key: 'name', q: '案件名を決める', why: '一覧・見積・BOX のフォルダ名になります' });
