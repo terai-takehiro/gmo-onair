@@ -1,39 +1,61 @@
-# リアルタイムCG — **凍結中（URLのみ・一覧には出さない）**
+# リアルタイムCG — **廃止（→ 制作技術支援＞テロップCG。コードは参照用に保存のみ）**
 
-ベースパス `/awards/`・ポート 5179。
+⚠️ **2026-09-06 に段F を実行し、「移行中」から「廃止」へ進めた。** 後継の
+**制作技術支援のミニアプリ「テロップCG」（`client-techops/src/pages/graphics/`・
+`server/src/contexts/graphics/`）が段A〜E で完成し、検証環境で確認できた**ため、
+[docs/design/v4/graphics-redesign.md](../docs/design/v4/graphics-redesign.md) §12-5 で
+取得済みの承認に基づき、旧アプリの畳み込みを実行した。用語の定義は
+[docs/v4-plan.md](../docs/v4-plan.md) の「用語」の節。
 
-## いまの状態（2026-08-25〜）
+ベースパス `/awards/`・ポート 5179（開発サーバーの設定のみ残す。本番では配信しない）。
 
-このアプリは v4.0.0 の「凍結」（見た目は変えないが URL は生かす）に戻してある。
-2026-08〜しばらくは「廃止」（Web サイト・URL のどこからも到達できない）まで一段進めていたが、
-「URL を叩けばアクセスできるようにしてほしい」という要望を受けて凍結まで戻した
-（ユーザー判断・詳細は `docs/changelog.d/closed-realtime-cg-url-access-60c3n6.md`）。
+## いまの状態（2026-09-06〜・段F）
 
-- **サーバーが配信している。** `server/src/app.ts` の `serveApp('/awards', …)` を戻したので、
-  `/awards/*` は通常どおりビルド済み SPA を返す
-- **API・Socket.IO も登録している。** `server/src/routes/index.ts` の `createAwardsRoutes()`・
-  `createQuizRoutes()`、`server/src/index.ts` の `initAwardsSocketIO()` / `initQuizSocketIO()` /
-  `initInteractivePoller()` の呼び出しを戻した
-- **本番イメージに入る。** `Dockerfile` に `build-client-awards` ステージと
-  `production` ステージへの `COPY` を戻したので、通常のビルドでイメージに入る
-- **トップページのタイル・アプリ切替・左メニューには出さない。** `client/.../home/AppTiles.tsx` の
-  `EVENT_KEYS` には `awards` を戻していない（上辺バー・アプリ切替・左メニューはそれ以前から
-  `frozen: true` で出していない）。**URL を直接知っている・ブックマークしている人だけが開ける**
-- `shared/src/client/apps.ts` の `APPS` エントリは廃止のあいだも触っていない。権限モデル
-  （`permissionModule: 'awards'`）・権限とメンバー画面の表示・DB のデータビューア
-  （`awards_events` 等）はそのまま動いていた
+**「URL は生かす」がここで初めて成り立たなくなった。** サーバーの配信・API・Socket.IO・
+ビルド対象・画面上の入口をすべて外し、Web サイトのどこからも到達できなくした
+（コード自体は今後の参照のため削除せず残す）。
 
-## さらに廃止に戻したいとき
+- **サーバーが配信しない。** `server/src/app.ts` の `serveApp('/awards', …)` を外した。
+  `/awards/*` は専用の配信が無くなり、案件管理アプリ（ルート `client`）の SPA シェルへの
+  フォールバック（実測: HTTP 200・`/` と同一の `index.html`）を経て、その
+  クライアント側ルーター（`App.tsx` の `<Route path="*" element={<Navigate to="/" replace />} />`）が
+  即座に `/`（ホーム）へ戻す。**文字通りの HTTP 404 ではなく、`check-links.mjs` が言う
+  「黙ってホームに戻る壊れリンク」**——旧アプリの機能・見た目は一切表示されない
+- **API・Socket.IO を登録していない。** `server/src/routes/index.ts` から `createAwardsRoutes()`・
+  `createQuizRoutes()`、`server/src/index.ts` から `initAwardsSocketIO()` / `initQuizSocketIO()` /
+  `initInteractivePoller()` の呼び出しを外した（`contexts/awards/`・`contexts/quiz/` 自体は
+  ファイルとして残っている。テロップCG側の `contexts/graphics/` は完全に独立した実装なので、
+  この撤去による影響はない）
+- **本番イメージに入らない。** `Dockerfile` の `build-client-awards` ステージと production
+  ステージへの `COPY` を外した。ワークスペース自体は `package.json` に残っている
+  （`npm ci --workspaces` の対象・`typecheck:all`/`build:all`/`dev:all` は元から対象外）
+- **トップページ・アプリ切替・左メニューには出さない**（移行中のときと同じ。
+  `shared/src/client/apps.ts` の `frozen: true` は「一覧に出さない印」として維持）
+- **過去実績データは消していない。** `awards_events`・`awards_categories`・`awards_entries`
+  等のDBテーブル、`uploads/awards/` の画像・音声ファイルはそのまま残っている。
+  テロップCG側の移行ツール（`AwardsMigrationPage.tsx`。設定＞連携＞過去実績の移行・
+  system_admin限定）が直接このデータを読むので、`client-awards` が配信されなくなっても
+  移行ツールの機能には影響しない
+  - ⚠️ **本番の実データを実際に移行する（プレビュー→確認→反映）操作自体は、この
+    リポジトリ側の作業のスコープ外。** 本番環境への直接アクセスができないため、
+    実データが入っているかどうかもこの環境からは判定できない。system_admin 権限を持つ
+    利用者が本番アプリ上で実行する運用上の作業として残っている
+- `shared/src/client/apps.ts` の `APPS` エントリは今回も触っていない（前回の廃止と同じ扱い）。
+  権限モデル（`permissionModule: 'awards'`）・権限とメンバー画面の表示・DB のデータビューア
+  （`awards_events` 等）はそのまま動く
+
+## さらに凍結・移行中へ戻したいとき
 
 上の3点（`server/src/app.ts` / `server/src/routes/index.ts` / `server/src/index.ts` の関連呼び出し・
-`Dockerfile` の `build-client-awards` ステージと `COPY`）を外せばよい。過去の「廃止」時の
-コメントは git 履歴（このファイルの1つ前の版）に残っている。
+`Dockerfile` の `build-client-awards` ステージと `COPY`）を戻せばよい。過去に一度
+同じ経路（廃止→凍結）を辿った実績があり、そのときの手順はこのファイルの
+更に前の版（git 履歴）に残っている。
 
 ## ホームのタイルにも出したいとき
 
 `client/.../home/AppTiles.tsx` の `EVENT_KEYS` に `awards` を足すだけでよい（画面・API・DB
-スキーマのどれも変えていないので、これだけで一覧に出るようになる）。**今回はユーザーが
-「URL を叩ければよい」とだけ求めたため、あえて行っていない。**
+スキーマのどれも変えていないので、これだけで一覧に出るようになる。ただし配信を止めた
+ままだと開いても 404 になるので、上の配信を戻すことと合わせて行うこと）。
 
 ## 廃止前の決めごと（当時の記録・コードを読むときの参考）
 

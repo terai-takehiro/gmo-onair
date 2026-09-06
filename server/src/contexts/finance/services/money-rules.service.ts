@@ -1,21 +1,28 @@
 /**
  * お金のルール — v4 設定 ⑤
  *
- * ── 会社ぜんぶで1本 ＋ 取引先ごとに例外 ────────────────────
+ * ── 会社（entity_code）ごとに1本 ＋ 取引先ごとに例外 ────────────
  *
  * モックの指定どおり（「案件ごとに書き換えず、例外は取引先ごとの設定で持ちます」）。
- * 案件ごとの上書きは持ちません。
+ * 案件ごとの上書きは持ちません。**2026年10月の事業再編で会社が複数になった
+ * ため（migration 288・P2 Round 1）、いまは会社ごとに1本**（`money_rules.id`
+ * が `entity_code` と同じ値）。entityCode を省略した呼び出しは
+ * `CURRENT_ENTITY_CODE`（今までの唯一の会社ぶん）に落ちるので、
+ * 呼び出し側を直していない箇所も今までどおり動く。
  *
  * ── 読むたびに DB を叩かない ────────────────────────────────
  *
  * 支払期日は売上を作るたびに要るので、1 行の設定を毎回 SELECT すると
  * 一覧の N 件ぶん問い合わせが増えます。**保存したときだけ読み直す**形で
- * 覚えておきます（プロセスが 1 つの構成なので、保存 = 自分のキャッシュを捨てる）。
+ * 会社ごとに覚えておきます（プロセスが 1 つの構成なので、保存 = その会社ぶんの
+ * キャッシュを捨てる）。
  */
 import { queryOne, queryAll, execute } from '../../../shared/db/connection';
 import { setTaxRounding, type TaxRounding } from '../../../shared/services/tax-category.service';
 import { dueDateOf, mergeRule, type DueDateRule } from '../../../shared/services/dueDate';
 import { holidaysOf } from '../../../shared/services/holidays';
+import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
+import type { LegalEntityCode } from '../../platform/services/legal-entity.service';
 
 export interface MoneyRules {
   closing_day: number;
@@ -46,15 +53,34 @@ const FALLBACK: MoneyRules = {
   estimate_display: 'excluded', currency: 'JPY', amount_unit: 1, labor_unit: 'person_day',
 };
 
-let cache: MoneyRules | null = null;
+/**
+ * 会社（`entity_code`）ごとにキャッシュする（2026年10月の事業再編・財務の2社タブ・
+ * P2 Round 1。`money_rules` は migration 288 で `id='default'` の1行から
+ * `id=entity_code` の複数行に変わった）。
+ *
+ * ⚠️ **税の丸め方 (`setTaxRounding`) は `CURRENT_ENTITY_CODE` を読んだときだけ反映する。**
+ * `tax-category.service.ts` の丸め方は意図的にプロセス全体で1つのグローバル変数
+ * （同ファイルのコメント参照——引き回すと渡し忘れた所だけ既定に落ちて食い違うため）。
+ * ここを entityCode ごとに毎回差し替えると、**他社の設定画面を開いただけで
+ * 同時に処理している別リクエストの税額計算が入れ替わる**（Node は単一プロセス）。
+ * いまは売上・仕入・販管費の INSERT が実際に書く entity_code は
+ * `CURRENT_ENTITY_CODE` 定数だけ（resolveEntity の結果を書き込むのは案件番号だけ・P1）
+ * なので、税計算のグローバルに効かせてよいのも今はそのぶんだけでよい。
+ * 複数社が実際に税計算を持つようになったら（P2 Round 2 以降・INSERT 側の
+ * entity_code 解決が進んでから）、`roundByRule` の呼び出し側に entity_code を
+ * 引き回す設計に本格対応する。
+ */
+const cache = new Map<LegalEntityCode, MoneyRules>();
 
-export async function getMoneyRules(): Promise<MoneyRules> {
-  if (cache) return cache;
+export async function getMoneyRules(entityCode: LegalEntityCode = CURRENT_ENTITY_CODE): Promise<MoneyRules> {
+  const hit = cache.get(entityCode);
+  if (hit) return hit;
+  let rules: MoneyRules;
   try {
-    const row = await queryOne(`SELECT * FROM money_rules WHERE id = 'default'`) as Record<string, unknown> | null;
-    if (!row) { cache = FALLBACK; }
+    const row = await queryOne(`SELECT * FROM money_rules WHERE id = ?`, [entityCode]) as Record<string, unknown> | null;
+    if (!row) { rules = FALLBACK; }
     else {
-      cache = {
+      rules = {
         closing_day: Number(row.closing_day),
         payment_months: Number(row.payment_months),
         payment_day: Number(row.payment_day),
@@ -72,16 +98,20 @@ export async function getMoneyRules(): Promise<MoneyRules> {
       };
     }
   } catch {
-    cache = FALLBACK;
+    rules = FALLBACK;
   }
-  setTaxRounding(cache.tax_rounding);
-  return cache;
+  cache.set(entityCode, rules);
+  if (entityCode === CURRENT_ENTITY_CODE) setTaxRounding(rules.tax_rounding);
+  return rules;
 }
 
-/** 保存したら覚え直す。**税の丸め方もここで差し替える** */
-export function invalidateMoneyRules(): void { cache = null; }
+/** 保存したら覚え直す。**税の丸め方もここで差し替わりうる**（entityCode 省略時は全社ぶん捨てる） */
+export function invalidateMoneyRules(entityCode?: LegalEntityCode): void {
+  if (entityCode) cache.delete(entityCode);
+  else cache.clear();
+}
 
-/** 起動時に一度読む（税の丸め方を反映させるため） */
+/** 起動時に一度読む（税の丸め方を反映させるため。今の会社ぶんだけでよい——上のコメント参照） */
 export async function primeMoneyRules(): Promise<void> {
   await getMoneyRules();
 }
@@ -156,8 +186,11 @@ async function closedDayChecker(): Promise<(ymd: string) => boolean> {
   };
 }
 
-export async function ruleForCustomer(customerId: string | null | undefined): Promise<DueDateRule> {
-  const r = await getMoneyRules();
+export async function ruleForCustomer(
+  customerId: string | null | undefined,
+  entityCode: LegalEntityCode = CURRENT_ENTITY_CODE,
+): Promise<DueDateRule> {
+  const r = await getMoneyRules(entityCode);
   const company: DueDateRule = {
     closingDay: r.closing_day, paymentMonths: r.payment_months, paymentDay: r.payment_day,
   };
@@ -167,14 +200,18 @@ export async function ruleForCustomer(customerId: string | null | undefined): Pr
 /**
  * 計上日から支払期日を出す。**読めない日付のときは null** を返し、
  * 呼び出し側は「入れない」でよい（推測の期日が入ると遅延の一覧が狂う）。
+ *
+ * `entityCode` はその売上を計上する会社のお金のルールを引くため
+ * （省略時は `CURRENT_ENTITY_CODE`＝今まで通りの1社ぶんの設定）。
  */
 export async function computeDueDate(
   recognitionDate: string | null | undefined,
   customerId: string | null | undefined,
+  entityCode: LegalEntityCode = CURRENT_ENTITY_CODE,
 ): Promise<string | null> {
   if (!recognitionDate) return null;
-  const r = await getMoneyRules();
-  return dueDateOf(recognitionDate, await ruleForCustomer(customerId), {
+  const r = await getMoneyRules(entityCode);
+  return dueDateOf(recognitionDate, await ruleForCustomer(customerId, entityCode), {
     shift: r.payment_holiday_shift,
     isClosed: await closedDayChecker(),
   });
@@ -206,9 +243,10 @@ export async function previewDueDate(
 export async function computeVendorDueDate(
   recognitionDate: string | null | undefined,
   vendorId: string | null | undefined,
+  entityCode: LegalEntityCode = CURRENT_ENTITY_CODE,
 ): Promise<string | null> {
   if (!recognitionDate) return null;
-  const r = await getMoneyRules();
+  const r = await getMoneyRules(entityCode);
   let ex: Partial<DueDateRule> | null = null;
   if (vendorId) {
     const row = await queryOne(
@@ -243,7 +281,11 @@ const WRITABLE = [
   'currency', 'amount_unit', 'labor_unit',
 ] as const;
 
-export async function saveMoneyRules(patch: Record<string, unknown>, userId: string): Promise<MoneyRules> {
+export async function saveMoneyRules(
+  patch: Record<string, unknown>,
+  userId: string,
+  entityCode: LegalEntityCode = CURRENT_ENTITY_CODE,
+): Promise<MoneyRules> {
   const sets: string[] = [];
   const params: unknown[] = [];
   for (const col of WRITABLE) {
@@ -253,10 +295,10 @@ export async function saveMoneyRules(patch: Record<string, unknown>, userId: str
   }
   if (sets.length > 0) {
     await execute(
-      `UPDATE money_rules SET ${sets.join(', ')}, updated_at = NOW(), updated_by = ? WHERE id = 'default'`,
-      [...params, userId],
+      `UPDATE money_rules SET ${sets.join(', ')}, updated_at = NOW(), updated_by = ? WHERE id = ?`,
+      [...params, userId, entityCode],
     );
-    invalidateMoneyRules();
+    invalidateMoneyRules(entityCode);
   }
-  return getMoneyRules();
+  return getMoneyRules(entityCode);
 }

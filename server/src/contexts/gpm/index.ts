@@ -42,6 +42,10 @@ import {
   fileFinanceDocToBox, docBoxSkipped, applyDocBoxHeaders,
 } from '../../shared/services/doc-box.service';
 import { createGpmFolderTree, GPM_FOLDER_PREVIEW } from './services/gpm-box-folder.service';
+import {
+  getProjectBudgetActual, getProjectMonthlyCost, listCostCenterProjectSummaries, getCostCenterMonthlyTrend,
+} from './services/gpm-budget.service';
+import { isProjectCostCenter } from '../platform/services/legal-entity.service';
 
 /**
  * **その id はプロジェクト（GLS-B）か。**
@@ -61,6 +65,20 @@ async function isGpmProject(projectId: string | null | undefined): Promise<boole
 
 async function assertGpmProject(projectId: string): Promise<void> {
   if (!(await isGpmProject(projectId))) {
+    throw new AppError(404, 'NOT_FOUND', 'プロジェクトが見つかりません');
+  }
+}
+
+/**
+ * **その id はコストセンター（GMO）の会社に計上された案件か。**
+ *
+ * 2026年10月の事業再編（P3・§4.7）: 予算対実績・月次コスト集計は
+ * コストセンターの案件だけの機能。判定の実体は `legal-entity.service.ts` の
+ * `isProjectCostCenter`（`gls_category='B'` ではなく実際に解決した
+ * `entity_code` を見る——コメントはそちらを参照）。
+ */
+async function assertCostCenterProject(projectId: string): Promise<void> {
+  if (!(await isProjectCostCenter(projectId))) {
     throw new AppError(404, 'NOT_FOUND', 'プロジェクトが見つかりません');
   }
 }
@@ -419,6 +437,34 @@ export function createGpmRoutes(): Router {
       throw new AppError(404, 'NOT_FOUND', '見積が見つかりません');
     }
     res.json({ success: true, data: await estimateService.unarchive(id, req.user!.id) });
+  });
+
+  /**
+   * ── 予算対実績・月次コスト集計（コストセンター・2026年10月の事業再編 P3・§4.7）──
+   *
+   * GPM の「見積・請求」タブに代わる「予算と実績」タブが読む。対象はコストセンター
+   * （GMO）の案件だけ——`assertCostCenterProject` が `off`/未改番のあいだは
+   * 常に 404 にする（上のコメント参照。切替に自然に追随する）。
+   *
+   * ⚠️ **`/cost-dashboard` は `/projects/:id/...` より前に置く必要は無い**
+   * （`:id` を含まない別パスなので `estimates/summary` のような早取り問題は起きない）。
+   */
+  router.get('/cost-dashboard', ...canRead, async (_req, res) => {
+    const [projects, monthlyTrend] = await Promise.all([
+      listCostCenterProjectSummaries(),
+      getCostCenterMonthlyTrend(),
+    ]);
+    res.json({ success: true, data: { projects, monthly_trend: monthlyTrend } });
+  });
+
+  router.get('/projects/:id/budget', ...canRead, async (req, res) => {
+    const id = String(req.params.id);
+    await assertCostCenterProject(id);
+    const [budgetActual, monthlyCost] = await Promise.all([
+      getProjectBudgetActual(id),
+      getProjectMonthlyCost(id),
+    ]);
+    res.json({ success: true, data: { ...budgetActual, monthly_cost: monthlyCost } });
   });
 
   /**

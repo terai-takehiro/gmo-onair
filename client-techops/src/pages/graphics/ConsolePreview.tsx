@@ -70,7 +70,7 @@ export function ConsolePreview({ tone, title, right, items, emptyText, serverNow
             tone === 'pgm' ? 'bg-destructive text-destructive-foreground' : 'bg-warning text-warning-foreground'
           }`}
         >
-          {tone === 'pgm' ? 'PGM' : 'PVW'}
+          {tone === 'pgm' ? 'OA' : 'NEXT'}
         </span>
         <span className="min-w-0 flex-1 truncate text-sub font-bold">{title}</span>
         {right}

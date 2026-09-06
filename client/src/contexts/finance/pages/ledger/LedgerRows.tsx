@@ -39,6 +39,7 @@ import { ExternalLink } from 'lucide-react';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
+import { IntercompanyTag } from '@/contexts/shared/components/IntercompanyTag';
 // 計上月・税区分の書き方は `ledger/format.ts` に切り出した
 // （スマホのカード `LedgerCards.tsx` と詳細シートが同じ関数を読む。
 //  写すと必ず片方だけ直されて食い違う）
@@ -96,6 +97,7 @@ export function LedgerRows({
             <RowMain>
               <div className="flex items-center gap-1">
                 <RowTitle className="min-w-0 flex-1">{r.title || '（名称なし）'}</RowTitle>
+                <IntercompanyTag show={r.is_intercompany} />
                 {/* もう1つのバッジ（例: 売上の「検収済」）。**表示だけ**（押しても遷移しない） */}
                 {r.secondaryBadge && (
                   // `shrink-0` — 固定幅の帯を持つ他のバッジ・アイコンと同じく、

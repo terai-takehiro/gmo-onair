@@ -24,7 +24,7 @@ import { formatRelativeTime } from '@gmo-onair/shared/src/client/format';
 import { BUSINESS_ENTITY_LABELS } from '@gmo-onair/shared/src/keepReport/types';
 import { ProjectStageLabels } from '@/types';
 import { classificationLabel } from '@/contexts/sales/classification';
-import { STAGE_BADGE_LABEL, STAGE_BADGE_TONE } from '../projectList/stages';
+import { STAGE_BADGE_LABEL, STAGE_BADGE_TONE, ENTITY_BADGE_LABEL } from '../projectList/stages';
 import { INTAKE_CHANNEL_LABEL } from '../projectList/intake';
 import { truncateName } from './display';
 import type { LedgerColKey, LedgerRow } from './types';
@@ -109,6 +109,18 @@ export function LedgerCell({ col, row }: { col: LedgerColKey; row: LedgerRow }) 
 
     case 'gls_category':
       return row.gls_category ? <span className="font-number">{row.gls_category}</span> : <Dash />;
+
+    /*
+      計上会社（2026年10月の事業再編）。**バッジにしない**（この画面はバッジを
+      使わない列がほとんど・`gls_category` と同じ「素の文字」でよい）。
+      `gls_category` の1文字と違い和文の名前は長い（「コンテンツスタジオ」など）ので、
+      `customer_name`/`assigned_to_name` と同じ `truncate` + `title` を付けて
+      96px の列からあふれても全文が読めるようにする。
+    */
+    case 'entity_code':
+      return row.entity_code
+        ? <span className="truncate" title={ENTITY_BADGE_LABEL[row.entity_code]}>{ENTITY_BADGE_LABEL[row.entity_code]}</span>
+        : <Dash />;
 
     /*
       ⚠️ **入っていない案件は空欄のまま出す。** 案件詳細は旧「案件種類」に

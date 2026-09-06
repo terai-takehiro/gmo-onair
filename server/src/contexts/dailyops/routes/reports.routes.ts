@@ -32,6 +32,17 @@ router.get('/reports/by-period', ...canRead, async (req, res) => {
   res.json({ success: true, data: report ?? null });
 });
 
+/**
+ * 月ぶんの行を日付ごとにまとめて返す (デイリーニュース報告の月表示)。
+ * **`/reports/:id` より前に置くこと** — 無いと `items-by-month` が `:id` に食われる。
+ */
+router.get('/reports/items-by-month', ...canRead, async (req, res) => {
+  const { kind, month } = req.query;
+  if (!kind || !month) throw new AppError(400, 'VALIDATION_ERROR', 'kind と month は必須です');
+  const days = await opsReportService.getReportItemsByMonth(String(kind), String(month));
+  res.json({ success: true, data: days });
+});
+
 // 週次集計 (ウィークリー活動報告のデータソース)
 router.get('/weekly-stats', ...canRead, async (req, res) => {
   const week = req.query.week ? String(req.query.week) : undefined;

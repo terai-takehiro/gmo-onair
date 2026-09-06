@@ -29,6 +29,7 @@ import { ProjectStageLabels } from '@/types';
 import { BUSINESS_ENTITY_LABELS } from '@gmo-onair/shared/src/keepReport/types';
 import { classificationLabel } from '@/contexts/sales/classification';
 import { INTAKE_CHANNEL_LABEL } from '../projectList/intake';
+import { ENTITY_BADGE_LABEL } from '../projectList/stages';
 import { COL_DEFS, colDef, type LedgerColKey, type LedgerRow } from './types';
 import { toCsv } from './csv';
 
@@ -65,6 +66,8 @@ export function cellText(col: LedgerColKey, row: LedgerRow): string | undefined 
     // **表のバッジ（「受注」）ではなく記号つきの正式名**。CSV は並べ替えに使う
     case 'stage': return ProjectStageLabels[row.stage] ?? row.stage;
     case 'gls_category': return row.gls_category ?? '';
+    // 表と同じ短い呼び名（`intake_channel` と同じやり方——コードのままでは Excel で読めない）
+    case 'entity_code': return row.entity_code ? (ENTITY_BADGE_LABEL[row.entity_code] ?? row.entity_code) : '';
     // **2つ揃ったときだけ。** 片方だけ書くと、決めているのか決めていないのかが読めない
     case 'classification': return classificationLabel(row.audience, row.project_category) ?? '';
     case 'recurrence': return row.recurrence === 'regular' ? 'レギュラー' : '単発';

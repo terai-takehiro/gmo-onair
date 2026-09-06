@@ -32,6 +32,14 @@ const PAGING = {
   limit: z.number().int().min(1).max(100).default(20),
 };
 
+// 2026年10月の事業再編（P2 Round 1・docs/reorg-2026-10-plan.md §4.5・§4.6）:
+// 省略時は絞らない＝全社合算（`get_monthly_summary` の entity_code と同じ言い回し。
+// budget.tools.ts の ENTITY_CODE は逆に「省略時は今の会社」なので混同しないこと —
+// あちらは月次予算/お金のルールという「1行に決まる」設定、こちらは加算できる一覧なので
+// 「省略＝全社」に倒す）
+const ENTITY_CODE_FILTER = z.enum(['GJV', 'GSS', 'GMO']).optional()
+  .describe('計上会社で絞り込み (省略時は全社合算)');
+
 export function registerFinanceTools(server: McpServer): void {
   server.registerTool(
     'get_monthly_summary',
@@ -46,6 +54,7 @@ export function registerFinanceTools(server: McpServer): void {
         from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('期間開始 (YYYY-MM-DD)。to とセットで指定 (month より優先)'),
         to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         project_id: z.string().optional().describe('案件 ID で絞り込み (任意)'),
+        entity_code: z.enum(['GJV', 'GSS', 'GMO']).optional().describe('計上会社で絞り込み (省略時は全社合算)'),
       },
     },
     async (args) => runTool(async () => {
@@ -54,6 +63,7 @@ export function registerFinanceTools(server: McpServer): void {
         from: args.from,
         to: args.to,
         projectId: args.project_id,
+        entityCode: args.entity_code,
       });
       return ok(data);
     }),
@@ -71,6 +81,7 @@ export function registerFinanceTools(server: McpServer): void {
         project_id: z.string().optional().describe('案件 ID (按分配分された売上も含む)'),
         status: z.enum(['confirmed', 'estimate']).optional(),
         ...RECOGNITION_FILTERS,
+        entity_code: ENTITY_CODE_FILTER,
         sort: z.string().optional().describe('並び替え (例 amount_desc / recognition_desc / gls_asc。未指定=GLS昇順→金額降順)'),
         ...PAGING,
       },
@@ -83,20 +94,23 @@ export function registerFinanceTools(server: McpServer): void {
         recognition_month: args.recognition_month,
         recognition_from: args.recognition_from,
         recognition_to: args.recognition_to,
+        entity_code: args.entity_code,
         sort: args.sort,
       });
       const { where, params } = buildRevenueWhere(q);
       const orderBy = buildRevenueOrder(q);
       const joins = `FROM revenues r
          LEFT JOIN projects p ON p.id = r.project_id
-         LEFT JOIN companies c ON c.id = r.customer_id`;
+         LEFT JOIN companies c ON c.id = r.customer_id
+         LEFT JOIN intercompany_links il ON il.revenue_id = r.id`;
       const limit = clampLimit(args.limit);
       const page = args.page ?? 1;
       const totalRow = await queryOne(`SELECT COUNT(*) as c ${joins} ${where}`, params) as any;
       const rows = await queryAll(
         `SELECT r.id, r.billing_key, r.subtitle, r.amount, r.tax_category, r.status,
                 r.recognition_date, r.billing_date, r.payment_due_date, r.notes,
-                p.gls_number, p.name AS project_name, c.name AS customer_name
+                p.gls_number, p.name AS project_name, c.name AS customer_name,
+                (il.id IS NOT NULL) AS intercompany
          ${joins} ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
         [...params, limit, (page - 1) * limit],
       );
@@ -117,6 +131,7 @@ export function registerFinanceTools(server: McpServer): void {
         group_id: z.string().optional().describe('費用按分グループ ID'),
         fixed_cost: z.enum(['1', '0']).optional(),
         ...RECOGNITION_FILTERS,
+        entity_code: ENTITY_CODE_FILTER,
         sort: z.string().optional().describe('並び替え (例 amount_desc / recognition_desc / vendor_asc。未指定=GLS昇順→金額降順)'),
         ...PAGING,
       },
@@ -130,6 +145,7 @@ export function registerFinanceTools(server: McpServer): void {
         recognition_month: args.recognition_month,
         recognition_from: args.recognition_from,
         recognition_to: args.recognition_to,
+        entity_code: args.entity_code,
         sort: args.sort,
       });
       const { where, params } = buildPurchaseWhere(q);
@@ -138,7 +154,8 @@ export function registerFinanceTools(server: McpServer): void {
       // （purchases.routes.ts と同じ理由）
       const joins = `FROM purchases pu
          LEFT JOIN projects p ON p.id = pu.project_id
-         LEFT JOIN companies vco ON vco.id = pu.vendor_id`;
+         LEFT JOIN companies vco ON vco.id = pu.vendor_id
+         LEFT JOIN intercompany_links il ON il.purchase_id = pu.id`;
       const limit = clampLimit(args.limit);
       const page = args.page ?? 1;
       const totalRow = await queryOne(`SELECT COUNT(*) as c ${joins} ${where}`, params) as any;
@@ -146,7 +163,8 @@ export function registerFinanceTools(server: McpServer): void {
         `SELECT pu.id, pu.description, pu.amount, pu.tax_category, pu.recognition_date,
                 pu.payment_due_date, pu.settlement_number, pu.invoice_qualified, pu.is_provisional,
                 TO_CHAR(pu.service_completed_date, 'YYYY-MM-DD') AS service_completed_date,
-                vco.name AS vendor_name, p.gls_number, p.name AS project_name
+                vco.name AS vendor_name, p.gls_number, p.name AS project_name,
+                (il.id IS NOT NULL) AS intercompany
          ${joins} ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
         [...params, limit, (page - 1) * limit],
       );
@@ -165,6 +183,7 @@ export function registerFinanceTools(server: McpServer): void {
         search: z.string().max(100).optional().describe('支払先名 / 説明の部分一致検索'),
         source: z.enum(['staff', 'accounting']).optional(),
         ...RECOGNITION_FILTERS,
+        entity_code: ENTITY_CODE_FILTER,
         sort: z.string().optional().describe('並び替え (例 amount_desc / recognition_desc / vendor_asc。未指定=金額降順)'),
         ...PAGING,
       },
@@ -176,6 +195,7 @@ export function registerFinanceTools(server: McpServer): void {
         recognition_month: args.recognition_month,
         recognition_from: args.recognition_from,
         recognition_to: args.recognition_to,
+        entity_code: args.entity_code,
         sort: args.sort,
       });
       const { where, params } = buildSgaWhere(q);

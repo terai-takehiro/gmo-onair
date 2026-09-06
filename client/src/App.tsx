@@ -42,6 +42,8 @@ import GpmProjectFormPage from "@/contexts/gpm/pages/GpmProjectFormPage";
 import GpmProjectDetailPage from "@/contexts/gpm/pages/GpmProjectDetailPage";
 import GpmTaskListPage from "@/contexts/gpm/pages/GpmTaskListPage";
 import GpmTemplateListPage from "@/contexts/gpm/pages/GpmTemplateListPage";
+// GMO コストセンター（旧 GLS-B）のコスト側ダッシュボード（2026年10月の事業再編・P3）
+import CostDashboardPage from "@/contexts/gpm/pages/CostDashboardPage";
 
 // Production (スタジオ予約)
 import RoomAvailabilityPage from '@/contexts/production/pages/RoomAvailabilityPage';
@@ -71,6 +73,7 @@ import SystemInfoPage from "@/contexts/platform/pages/SystemInfoPage";
 import MoneyRulesPage from "@/contexts/platform/pages/money/MoneyRulesPage";
 import HoursPage from "@/contexts/platform/pages/hours/HoursPage";
 import NotifyPage from "@/contexts/platform/pages/notify/NotifyPage";
+import ReorgPage from "@/contexts/platform/pages/reorg/ReorgPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -271,6 +274,10 @@ function AppRoutes() {
         <Route path="/gpm/projects/:id/:tab" element={<PermissionRoute module="sales"><GpmProjectDetailPage /></PermissionRoute>} />
         <Route path="/gpm/tasks" element={<PermissionRoute module="sales"><GpmTaskListPage /></PermissionRoute>} />
         <Route path="/gpm/templates" element={<PermissionRoute module="sales"><GpmTemplateListPage /></PermissionRoute>} />
+        {/* GMO コストセンター（旧 GLS-B）の予算 vs 実績・月次コスト集計（P3・§4.7）。
+            財務ダッシュボード（`/budget/dashboard`）とは別画面 — コストセンターは
+            売上を持たないため、あちらのステージ別損益フローには乗らない */}
+        <Route path="/gpm/cost-dashboard" element={<PermissionRoute module="sales"><CostDashboardPage /></PermissionRoute>} />
 
         {/* ===== 財務管理 (budget) ===== */}
         {/* v4 ⑥: 受領書類。日常業務から財務へ移した（経理が開けなかったため）。
@@ -331,6 +338,8 @@ function AppRoutes() {
         <Route path="/settings/money" element={<PermissionRoute module="sales"><MoneyRulesPage /></PermissionRoute>} />
         {/* ⑥ 休日・営業時間。読むのは `sales`（旧 `studio`＝カレンダー）の reader（予約を入れる人は取れる時間を知る必要がある）。直せるのは system_admin だけで、拠点・部屋と揃えてある */}
         <Route path="/settings/hours" element={<PermissionRoute module="sales"><HoursPage /></PermissionRoute>} />
+        {/* ⑧ 会社と切替（2026年10月の事業再編・P0）。読むのは `sales` の reader。直せるのは system_admin だけで、画面とサーバーの両方で見ている。PC 専用（pcOnlyScreens.ts・hidden） */}
+        <Route path="/settings/reorg" element={<PermissionRoute module="sales"><ReorgPage /></PermissionRoute>} />
         {/* ⑦ 知らせと文面（旧「通知とテンプレート」）。読むのは `admin` の reader（文面をコピーして使う人が来る）。直せるのは system_admin だけ */}
         <Route path="/settings/notify" element={<PermissionRoute module="admin"><NotifyPage /></PermissionRoute>} />
         {/* AI の活動（Phase 2 ②）。読むのは `sales` の reader。「確認した」だけ manager（画面とサーバーの両方で見ている）。URL は月次レビュー通知の link と対 — 変えない */}

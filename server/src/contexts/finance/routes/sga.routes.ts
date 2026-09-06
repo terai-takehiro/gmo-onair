@@ -7,6 +7,8 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateSgaBillingKey } from '../../../shared/services/billing-key.service';
 import { buildSgaWhere, buildSgaWhereParts, buildSgaOrder } from '../list-query';
 import { assertVendorCompanyId } from '../../../shared/services/company-directory.service';
+import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
+import { getLegalEntity } from '../../platform/services/legal-entity.service';
 
 const router = Router();
 
@@ -16,6 +18,12 @@ router.use(requireAuth, requirePermission('sales'));
 // GET /sga - List with pagination, search, filters
 router.get('/', async (req, res) => {
   const { page, limit, offset } = extractPagination(req);
+  // 2026年10月の事業再編（P2 Round 1）: 会社（entity_code）で絞れるようにした。
+  // **省略時は絞らない＝今までどおり全社ぶん**（`revenues.routes.ts` と同じ判断）
+  const entityCode = req.query.entity_code as string | undefined;
+  if (entityCode && !(await getLegalEntity(entityCode))) {
+    throw new AppError(400, 'VALIDATION_ERROR', '不正な計上会社です');
+  }
   const orderBy = buildSgaOrder(req.query);
 
   /*
@@ -119,9 +127,9 @@ router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
   const id = uuidv4();
 
   await execute(
-    `INSERT INTO sga_expenses (id, billing_key, vendor_name, vendor_id, settlement_method, settlement_number, settlement_url, description, notes, recognition_date, payment_due_date, tax_category, invoice_qualified, amount, expense_type, amortize_start, amortize_end, source, account_title_id, is_provisional, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO sga_expenses (id, entity_code, billing_key, vendor_name, vendor_id, settlement_method, settlement_number, settlement_url, description, notes, recognition_date, payment_due_date, tax_category, invoice_qualified, amount, expense_type, amortize_start, amortize_end, source, account_title_id, is_provisional, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      id, billing_key, vendor_name || null, vendor_id || null,
+      id, CURRENT_ENTITY_CODE, billing_key, vendor_name || null, vendor_id || null,
       settlement_method || null, settlement_number || null, settlement_url || null,
       description || null, notes || null,
       recognition_date, payment_due_date || null,

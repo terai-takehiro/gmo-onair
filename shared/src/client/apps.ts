@@ -60,9 +60,11 @@
  * `'liveops'` → `'qsheet'` に変更している（`key: 'liveops'` 自体はアプリ識別子
  * なので変えていない）。
  *
- * **残る `frozen: true` はリアルタイムCG（`awards`）だけ。** ただし `awards` は
- * その後さらに一段先の「廃止」（配信停止・コードのみ保存）になっているので、
- * この一覧に出続けていても実際には開けない（`client-awards/CLAUDE.md` 参照）。
+ * **残る `frozen: true` はリアルタイムCG（`awards`）だけ。** ただし `awards` の位置づけは
+ * 2026-09-06 に「凍結」から**「移行中」**（後継＝制作技術支援のミニアプリ「テロップCG」へ
+ * 機能を移している途中の移行元）へ整理した。`frozen: true` は**「一覧・アプリ切替に出さない印」
+ * として据え置いている**だけで、凍結（据え置き）の意味ではない。URL `/awards/*` は配信も
+ * API も生きているので直打ちでは開ける（`client-awards/CLAUDE.md`・`docs/v4-plan.md` の「用語」）。
  *
  * **カレンダーの `AppKey`/URL は 2026-08-22 に `studio` → `calendar` へ改名した。**
  * 表示名「カレンダー」は S1 の統合時点（上の比較表）から変わっていない —
@@ -212,8 +214,8 @@ export const APPS: AppDef[] = [
    */
   { key: 'liveops',     label: '計時・視聴者',       description: '本番の残り時間と同時視聴者数を大画面に表示',      icon: Timer,         color: '#ef4444', path: '/live',       permissionModule: 'qsheet',    hidden: true },
 
-  /* ── 凍結 (v4.0.0 では作り直さない。URL は生きている) ────────────── */
-  { key: 'awards',      label: 'リアルタイムCG',     description: 'リアルタイム放送CG演出・送出管理',      icon: Tv,            color: '#f59e0b', path: '/awards',     permissionModule: 'awards',    frozen: true },
+  /* ── 廃止 (後継＝制作技術支援＞テロップCG。段F・2026-09-06。コードは保存のみ・URL到達不可) ── */
+  { key: 'awards',      label: 'リアルタイムCG',     description: '制作技術支援＞テロップCGへ移行済み（廃止）', icon: Tv,            color: '#f59e0b', path: '/awards',     permissionModule: 'awards',    frozen: true },
 
   /* ── 外部リンク (別 VPS・別タブ。権限は見ない) ─────────────────── */
   { key: 'interactive', label: 'インタラクティブ',   description: 'スタンプ・リアルタイム演出支援 (外部)', icon: Sparkles,      color: '#db2777', path: 'https://interactive.gmo-onair.jp/', external: 'https://interactive.gmo-onair.jp/' },

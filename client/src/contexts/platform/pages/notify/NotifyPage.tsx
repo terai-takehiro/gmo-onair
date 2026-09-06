@@ -71,6 +71,7 @@ const JOB_LABELS: Record<string, string> = {
   qsheet_ai_settle: '制作技術支援のAI提案：期限が来た提案の成果を締める',
   ai_review_production_draft: '制作技術支援のAI月次レビューの下書き',
   sales_ai_review: '営業のAI月次レビューの下書き',
+  renumber_needed: '改番が必要な案件のお知らせ（10月の事業再編）',
 };
 
 /**

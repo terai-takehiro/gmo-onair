@@ -345,6 +345,72 @@ export function CreateSheetDialog({
             )}
           </div>
 
+          {/* GLS Project Linking */}
+          <div className="border-t pt-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Link2 className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">GLS案件に紐付ける</span>
+              </div>
+              <Switch
+                checked={linkToProject}
+                onCheckedChange={(v) => {
+                  setLinkToProject(!!v);
+                  if (!v) {
+                    if (!defaultProjectId) setSelectedProjectId("");
+                    setSelectedEpisodeId("");
+                  }
+                }}
+              />
+            </div>
+
+            {linkToProject && (
+              <div className="mt-3 space-y-3 pl-6">
+                <div>
+                  <Label className="text-xs text-muted-foreground">GLS案件</Label>
+                  <Select value={selectedProjectId} onValueChange={handleProjectChange}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="案件を選ぶ…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {glsProjects?.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.gls_number} — {p.name}
+                          {/* 改番で退役した旧番号も表示する。単純な select（自由文字列で絞り込める
+                              コンポーネントではない）なので、旧番号で探す手がかりは選択肢のラベルに
+                              出す以外にない（旧番号を知っている人が一覧から目視で見つけられるように
+                              する。§4.10） */}
+                          {p.retired_numbers.length > 0 && (
+                            <span className="text-muted-foreground"> (旧: {p.retired_numbers.join("・")})</span>
+                          )}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedProjectId && episodes && episodes.length > 0 && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">エピソード（任意）</Label>
+                    <Select value={selectedEpisodeId} onValueChange={handleEpisodeChange}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="エピソードを選ぶ…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {episodes.map((ep) => (
+                          <SelectItem key={ep.id} value={ep.id}>
+                            {ep.episode_code}
+                            {ep.broadcast_date && ` — ${ep.broadcast_date}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {missingRequired.length > 0 && (
             <p className="text-xs text-destructive" role="alert">
               未入力：{missingRequired.join("・")}

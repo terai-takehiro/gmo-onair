@@ -16,6 +16,7 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateBillingKey, generateSgaBillingKey } from '../../../shared/services/billing-key.service';
 import { createVendorRecord, assertVendorCompanyId } from '../../../shared/services/company-directory.service';
 import { isBoxConfigured, getBoxFolderUrl } from '../../../shared/services/box';
+import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 import {
   resolveXpointFolderId, scanXpointFolder, parseXpointFile, uploadXpointPdf,
   RepresentationPendingError,
@@ -188,10 +189,10 @@ router.post('/files/:id/register', async (req, res) => {
     registeredTable = 'purchases';
     registeredId = uuidv4();
     insertSql =
-      `INSERT INTO purchases (id, billing_key, project_id, episode_id, vendor_id, assigned_to, settlement_method, settlement_number, settlement_url, tax_category, invoice_qualified, amount, description, recognition_date, inspection_date, payment_due_date, notes, is_provisional, service_completed_date, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      `INSERT INTO purchases (id, billing_key, project_id, entity_code, episode_id, vendor_id, assigned_to, settlement_method, settlement_number, settlement_url, tax_category, invoice_qualified, amount, description, recognition_date, inspection_date, payment_due_date, notes, is_provisional, service_completed_date, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     insertParams =
-      [registeredId, billing_key, p.project_id, p.episode_id || null, vendorId, req.user!.id,
+      [registeredId, billing_key, p.project_id, CURRENT_ENTITY_CODE, p.episode_id || null, vendorId, req.user!.id,
        p.settlement_method || defaultMethod, p.settlement_number || file.xp_number || null, p.settlement_url || null,
        p.tax_category || 'tax10',
        p.invoice_qualified !== undefined ? (p.invoice_qualified ? 1 : 0) : 1,
@@ -212,10 +213,10 @@ router.post('/files/:id/register', async (req, res) => {
     registeredTable = 'sga_expenses';
     registeredId = uuidv4();
     insertSql =
-      `INSERT INTO sga_expenses (id, billing_key, vendor_name, vendor_id, settlement_method, settlement_number, settlement_url, description, notes, recognition_date, payment_due_date, tax_category, invoice_qualified, amount, expense_type, amortize_start, amortize_end, source, is_provisional, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      `INSERT INTO sga_expenses (id, entity_code, billing_key, vendor_name, vendor_id, settlement_method, settlement_number, settlement_url, description, notes, recognition_date, payment_due_date, tax_category, invoice_qualified, amount, expense_type, amortize_start, amortize_end, source, is_provisional, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     insertParams =
-      [registeredId, billing_key, s.vendor_name || null, sgaVendorId,
+      [registeredId, CURRENT_ENTITY_CODE, billing_key, s.vendor_name || null, sgaVendorId,
        s.settlement_method || defaultMethod, s.settlement_number || file.xp_number || null, s.settlement_url || null,
        s.description || null, s.notes || null,
        s.recognition_date, s.payment_due_date || null,

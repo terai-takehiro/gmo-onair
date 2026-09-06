@@ -183,6 +183,43 @@ export const PART_FIELDS: Record<GraphicsPartKey, PartFieldDef[]> = {
 export const PART_KEYS = Object.keys(PART_FIELDS) as GraphicsPartKey[];
 
 /**
+ * 各部品の「これが空なら未完成」の主フィールド（再設計 §4-1・§12-3。
+ * docs/design/v4/graphics-redesign.md「校正（未完成／未確認／確認済） →
+ * 『確認済み』のチェック1つにする。『未完成』は必須の文言が空なら自動でバッジが付く」）。
+ *
+ * `PART_FIELDS[partKey][0]` を機械的に使わない — `name` の先頭（`label`＝賞名・役割）は
+ * 任意項目で、必須なのは2番目の `mainText`（氏名）。部品ごとに「これが無いと絵にならない」
+ * フィールドを明示する。`countdown` は `null`＝このチェックの対象外（枕詞も目標時刻も
+ * 空のままで「現在時刻の時計」として成立するため — pageFields.ts の countdown 定義コメント参照）。
+ */
+export const PRIMARY_FIELD_KEY: Partial<Record<GraphicsPartKey, string>> = {
+  name: 'mainText',
+  title: 'title',
+  list: 'items',
+  ticker: 'text',
+  // countdown: 対象外（意図的に未設定）
+  score: 'entries',
+  flash: 'text',
+  side: 'text',
+  vote: 'question',
+  ranking: 'entries',
+};
+
+function isFieldValueEmpty(value: unknown): boolean {
+  if (value == null) return true;
+  if (typeof value === 'string') return value.trim() === '';
+  if (Array.isArray(value)) return value.length === 0;
+  return false;
+}
+
+/** 主フィールドが空（＝未完成）かどうか。対象外の部品（countdown）は常に false */
+export function isPageContentEmpty(partKey: GraphicsPartKey, fields: Record<string, unknown>): boolean {
+  const key = PRIMARY_FIELD_KEY[partKey];
+  if (!key) return false;
+  return isFieldValueEmpty(fields[key]);
+}
+
+/**
  * 部品を選んだ直後（新規作成のマウント時／部品切替 `pickPart` の両方）の `fields` 既定値を
  * 組み立てる。`PageFormDialog.tsx` から切り出した（400行規律の副産物・2箇所で同じロジックを
  * 持たないための共通化でもある）。

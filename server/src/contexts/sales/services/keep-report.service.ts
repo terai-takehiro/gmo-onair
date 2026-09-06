@@ -3,12 +3,25 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { projectService } from './project.service';
 import { getMonthlySummary } from '../../finance/services/monthly-summary.service';
-import { BUSINESS_ENTITIES, BUSINESS_ENTITY_LABELS, type BusinessEntity, type EntityScope } from './project-entity';
-import {
-  varianceOf, sumBudgetFields, normalizeUtilizationSettings, mergeUtilizationSettings,
-  type BudgetFields, type UtilizationSettings,
-} from './keep-report-rules';
 import { listKpt, listKptForProjects } from './kpt.service';
+// 2026年10月の事業再編（docs/reorg-2026-10-plan.md §4.6・P2 Round 1）:
+// 月次予算・実績補正は会社（entity_code）ごとに持つ（migration 288・PK が (entity_code, year_month) に）
+import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
+import type { LegalEntityCode } from '../../platform/services/legal-entity.service';
+// 隔週キープの計算列・稼働率の設定（純粋関数は keep-report-rules.ts。テストが直接固定する）
+import {
+  varianceOf, sumBudgetFields, normalizeUtilizationSettings, mergeUtilizationSettings, type UtilizationSettings,
+} from './keep-report-rules';
+
+/** 計上会社の並び（legal_entities の sort_order と同じ。'all' の合計はこの3社） */
+const ENTITY_CODES: readonly LegalEntityCode[] = ['GJV', 'GSS', 'GMO'];
+const UTILIZATION_KEY = 'utilization';
+const YM_RANGE_RE = /^\d{4}-\d{2}$/;
+function assertYmRange(range: { from: string; to: string }): void {
+  if (!YM_RANGE_RE.test(range.from) || !YM_RANGE_RE.test(range.to) || range.from > range.to) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'from / to は YYYY-MM で from ≦ to');
+  }
+}
 
 // 隔週キープ資料 (報告資料) の基礎データ service。
 // UI (案件管理アプリの報告資料ページ) と MCP ツール (eventreports/budget/minutes.tools) の
@@ -45,70 +58,6 @@ async function assertProject(projectId: string): Promise<Record<string, unknown>
   ) as Record<string, unknown> | null;
   if (!p) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません (project_id を確認してください)');
   return p;
-}
-
-/** 主体別の月次予算（円）。null は未登録。`shared/src/keepReport/types.ts` の MonthlyBudget と同じ形 */
-export interface MonthlyBudgetRow extends BudgetFields {
-  year_month: string;
-  entity: BusinessEntity;
-  updated_at: unknown;
-}
-
-/** 主体別の経理の補正値（円）。null は補正なし */
-export interface MonthlyOverrideRow {
-  year_month: string;
-  entity: BusinessEntity;
-  cogs_fixed_actual: number | null;
-  sga_actual: number | null;
-  note: string | null;
-  updated_at: unknown;
-}
-
-const YM_RE = /^\d{4}-\d{2}$/;
-const UTILIZATION_KEY = 'utilization';
-
-function assertYm(ym: string, label = '年月'): void {
-  if (!YM_RE.test(ym)) throw new AppError(400, 'VALIDATION_ERROR', `${label}は YYYY-MM`);
-}
-function assertYmRange(range: { from: string; to: string }): void {
-  assertYm(range.from, 'from');
-  assertYm(range.to, 'to');
-  if (range.from > range.to) throw new AppError(400, 'VALIDATION_ERROR', 'from は to 以前の年月');
-}
-
-function mapBudget(r: Record<string, unknown>): MonthlyBudgetRow {
-  return {
-    year_month: r.year_month as string,
-    entity: r.entity as BusinessEntity,
-    revenue: num(r.revenue),
-    cogs_fixed: num(r.cogs_fixed),
-    cogs_variable: num(r.cogs_variable),
-    sga: num(r.sga),
-    operating_profit: num(r.operating_profit),
-    updated_at: r.updated_at,
-  };
-}
-
-function mapOverride(r: Record<string, unknown>): MonthlyOverrideRow {
-  return {
-    year_month: r.year_month as string,
-    entity: r.entity as BusinessEntity,
-    cogs_fixed_actual: num(r.cogs_fixed_actual),
-    sga_actual: num(r.sga_actual),
-    note: (r.note as string | null) ?? null,
-    updated_at: r.updated_at,
-  };
-}
-
-/** 何行かの updated_at のうち一番新しいもの（全体の予算は主体の合計なので「最後に直した時刻」を出す） */
-function latestUpdatedAt(rows: { updated_at: unknown }[]): unknown {
-  let best: unknown = null;
-  let bestMs = -Infinity;
-  for (const r of rows) {
-    const ms = new Date(r.updated_at as string).getTime();
-    if (Number.isFinite(ms) && ms > bestMs) { bestMs = ms; best = r.updated_at; }
-  }
-  return best;
 }
 
 export const keepReportService = {
@@ -280,39 +229,50 @@ export const keepReportService = {
   },
 
   // ============================================================
-  // Phase 2: 月次予算 + 実績補正 + 損益 (目標 vs 実績) — 主体別 (migration 283)
+  // Phase 2: 月次予算 + 実績補正 + 損益 (目標 vs 実績)
   // ============================================================
-  //
-  // 予算・補正値は (year_month, entity) の行。既定の主体は gss（既存の呼び出し・MCP が
-  // そのまま動くように）。「全体」は主体の合計で、按分はしない（keep-report.md §4）。
-
-  async getBudget(ym: string, entity: BusinessEntity = 'gss'): Promise<MonthlyBudgetRow | null> {
+  async getBudget(ym: string, entityCode: LegalEntityCode = CURRENT_ENTITY_CODE) {
     const r = await queryOne(
-      'SELECT * FROM monthly_budgets WHERE year_month = ? AND entity = ?', [ym, entity],
+      'SELECT * FROM monthly_budgets WHERE entity_code = ? AND year_month = ?', [entityCode, ym],
     ) as Record<string, unknown> | null;
-    return r ? mapBudget(r) : null;
+    if (!r) return null;
+    return {
+      year_month: r.year_month,
+      entity_code: r.entity_code,
+      revenue: num(r.revenue),
+      cogs_fixed: num(r.cogs_fixed),
+      cogs_variable: num(r.cogs_variable),
+      sga: num(r.sga),
+      operating_profit: num(r.operating_profit),
+      updated_at: r.updated_at,
+    };
   },
 
-  /** 期間内の全主体の予算（YYYY-MM の範囲・両端を含む）。「お金のルール」の入力表と資料の推移用 */
-  async listBudgets(range: { from: string; to: string }): Promise<MonthlyBudgetRow[]> {
+  /** 期間内の全会社の予算（YYYY-MM の範囲・両端を含む）。「お金のルール」の入力表と隔週キープの推移用 */
+  async listBudgets(range: { from: string; to: string }) {
     assertYmRange(range);
     const rows = await queryAll(
-      'SELECT * FROM monthly_budgets WHERE year_month >= ? AND year_month <= ? ORDER BY year_month, entity',
+      'SELECT * FROM monthly_budgets WHERE year_month >= ? AND year_month <= ? ORDER BY year_month, entity_code',
       [range.from, range.to],
     ) as Record<string, unknown>[];
-    return rows.map(mapBudget);
+    return rows.map((r) => ({
+      year_month: String(r.year_month),
+      entity_code: r.entity_code as LegalEntityCode,
+      revenue: num(r.revenue),
+      cogs_fixed: num(r.cogs_fixed),
+      cogs_variable: num(r.cogs_variable),
+      sga: num(r.sga),
+      operating_profit: num(r.operating_profit),
+      updated_at: r.updated_at,
+    }));
   },
 
-  /**
-   * 渡したフィールドだけ更新（未指定・null は今の値を保つ）。
-   * 営業利益: 明示指定が無く構成要素が揃っていれば 売上 − 固定原価 − 変動原価 − 販管費 で自動計算。
-   */
   async upsertBudget(
     ym: string,
-    fields: { revenue?: number | null; cogs_fixed?: number | null; cogs_variable?: number | null; sga?: number | null; operating_profit?: number | null },
-    entity: BusinessEntity = 'gss',
+    fields: { revenue?: number; cogs_fixed?: number; cogs_variable?: number; sga?: number; operating_profit?: number },
+    entityCode: LegalEntityCode = CURRENT_ENTITY_CODE,
   ) {
-    const existing = await this.getBudget(ym, entity);
+    const existing = await this.getBudget(ym, entityCode);
     const merged = {
       revenue: fields.revenue ?? existing?.revenue ?? null,
       cogs_fixed: fields.cogs_fixed ?? existing?.cogs_fixed ?? null,
@@ -320,127 +280,138 @@ export const keepReportService = {
       sga: fields.sga ?? existing?.sga ?? null,
       operating_profit: fields.operating_profit ?? existing?.operating_profit ?? null,
     };
-    if (fields.operating_profit == null
+    // 営業利益: 明示指定が無く構成要素が揃っていれば自動計算
+    if (fields.operating_profit === undefined
         && merged.revenue != null && merged.cogs_fixed != null && merged.cogs_variable != null && merged.sga != null) {
       merged.operating_profit = merged.revenue - merged.cogs_fixed - merged.cogs_variable - merged.sga;
     }
     await execute(
-      `INSERT INTO monthly_budgets (year_month, entity, revenue, cogs_fixed, cogs_variable, sga, operating_profit)
+      `INSERT INTO monthly_budgets (entity_code, year_month, revenue, cogs_fixed, cogs_variable, sga, operating_profit)
        VALUES (?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT (year_month, entity) DO UPDATE SET
+       ON CONFLICT (entity_code, year_month) DO UPDATE SET
          revenue = EXCLUDED.revenue, cogs_fixed = EXCLUDED.cogs_fixed, cogs_variable = EXCLUDED.cogs_variable,
          sga = EXCLUDED.sga, operating_profit = EXCLUDED.operating_profit, updated_at = NOW()`,
-      [ym, entity, merged.revenue, merged.cogs_fixed, merged.cogs_variable, merged.sga, merged.operating_profit],
+      [entityCode, ym, merged.revenue, merged.cogs_fixed, merged.cogs_variable, merged.sga, merged.operating_profit],
     );
-    return { action: existing ? 'updated' as const : 'created' as const, budget: (await this.getBudget(ym, entity))! };
+    return { action: existing ? 'updated' as const : 'created' as const, budget: (await this.getBudget(ym, entityCode))! };
   },
 
-  async getOverride(ym: string, entity: BusinessEntity = 'gss'): Promise<MonthlyOverrideRow | null> {
+  async getOverride(ym: string, entityCode: LegalEntityCode = CURRENT_ENTITY_CODE) {
     const r = await queryOne(
-      'SELECT * FROM monthly_actual_overrides WHERE year_month = ? AND entity = ?', [ym, entity],
+      'SELECT * FROM monthly_actual_overrides WHERE entity_code = ? AND year_month = ?', [entityCode, ym],
     ) as Record<string, unknown> | null;
-    return r ? mapOverride(r) : null;
+    if (!r) return null;
+    return {
+      year_month: r.year_month,
+      entity_code: r.entity_code,
+      cogs_fixed_actual: num(r.cogs_fixed_actual),
+      sga_actual: num(r.sga_actual),
+      note: r.note,
+      updated_at: r.updated_at,
+    };
   },
 
-  /** 期間内の全主体の補正値（YYYY-MM の範囲・両端を含む） */
-  async listOverrides(range: { from: string; to: string }): Promise<MonthlyOverrideRow[]> {
+  /** 期間内の全会社の補正値（YYYY-MM の範囲・両端を含む） */
+  async listOverrides(range: { from: string; to: string }) {
     assertYmRange(range);
     const rows = await queryAll(
-      'SELECT * FROM monthly_actual_overrides WHERE year_month >= ? AND year_month <= ? ORDER BY year_month, entity',
+      'SELECT * FROM monthly_actual_overrides WHERE year_month >= ? AND year_month <= ? ORDER BY year_month, entity_code',
       [range.from, range.to],
     ) as Record<string, unknown>[];
-    return rows.map(mapOverride);
+    return rows.map((r) => ({
+      year_month: String(r.year_month),
+      entity_code: r.entity_code as LegalEntityCode,
+      cogs_fixed_actual: num(r.cogs_fixed_actual),
+      sga_actual: num(r.sga_actual),
+      note: (r.note as string | null) ?? null,
+      updated_at: r.updated_at,
+    }));
   },
 
-  /** 渡したフィールドだけ更新（未指定は今の値を保つ。null は「補正なし」に戻す） */
   async upsertOverride(
     ym: string,
     fields: { cogs_fixed_actual?: number | null; sga_actual?: number | null; note?: string | null },
-    entity: BusinessEntity = 'gss',
+    entityCode: LegalEntityCode = CURRENT_ENTITY_CODE,
   ) {
-    const existing = await this.getOverride(ym, entity);
+    const existing = await this.getOverride(ym, entityCode);
     const merged = {
       cogs_fixed_actual: fields.cogs_fixed_actual !== undefined ? fields.cogs_fixed_actual : existing?.cogs_fixed_actual ?? null,
       sga_actual: fields.sga_actual !== undefined ? fields.sga_actual : existing?.sga_actual ?? null,
       note: fields.note !== undefined ? fields.note : existing?.note ?? null,
     };
     await execute(
-      `INSERT INTO monthly_actual_overrides (year_month, entity, cogs_fixed_actual, sga_actual, note)
+      `INSERT INTO monthly_actual_overrides (entity_code, year_month, cogs_fixed_actual, sga_actual, note)
        VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT (year_month, entity) DO UPDATE SET
+       ON CONFLICT (entity_code, year_month) DO UPDATE SET
          cogs_fixed_actual = EXCLUDED.cogs_fixed_actual, sga_actual = EXCLUDED.sga_actual,
          note = EXCLUDED.note, updated_at = NOW()`,
-      [ym, entity, merged.cogs_fixed_actual, merged.sga_actual, merged.note],
+      [entityCode, ym, merged.cogs_fixed_actual, merged.sga_actual, merged.note],
     );
-    return { action: existing ? 'updated' as const : 'created' as const, override: (await this.getOverride(ym, entity))! };
+    return { action: existing ? 'updated' as const : 'created' as const, override: (await this.getOverride(ym, entityCode))! };
   },
 
   /**
    * 損益ページの単一入口: 予算 / 補正込み実績 / 対目標差・比・判定。
    *
-   * `scope` を省くと従来どおり全社（= 'all'）。'all' の予算は**主体の合計**（無ければ null）、
-   * 主体を指定すると売上・仕入・販管費をその主体で絞る（`getMonthlySummary` の `entity`）。
+   * `scope` は会社1つ（既定は今の会社 = GSS。既存の呼び出し・MCP はそのまま）か `'all'`（隔週キープの
+   * 「全体（統合）」）。`'all'` の予算は**3社の合計**（1つも無ければ null・按分しない）、実績は会社ごとに
+   * 「補正があればそれ、無ければ集計」を足す（片方の会社だけ経理確定した月に、もう片方の集計値が
+   * 落ちないように）。
    * 判定 (要件書 §2.5): 売上・利益系 実績≧目標→○ / 費用系 実績≦目標→○ / 目標未登録→"-"。
-   * 対目標比は `keep-report-rules.ts` の ratioOf（目標が赤字の行は 9/4 の資料の式）。
+   * 対目標比は `keep-report-rules.ts` の `varianceOf`（目標が赤字の行は 9/4 の資料の式）。
    */
-  async getMonthlyPl(ym: string, scope: EntityScope = 'all') {
-    const entity: BusinessEntity | null = scope === 'all' ? null : scope;
+  async getMonthlyPl(ym: string, scope: LegalEntityCode | 'all' = CURRENT_ENTITY_CODE) {
+    const entityCode: LegalEntityCode | null = scope === 'all' ? null : scope;
     const [allBudgets, allOverrides] = await Promise.all([
       this.listBudgets({ from: ym, to: ym }),
       this.listOverrides({ from: ym, to: ym }),
     ]);
-    const budgets = entity ? allBudgets.filter((b) => b.entity === entity) : allBudgets;
-    const overrides = entity ? allOverrides.filter((o) => o.entity === entity) : allOverrides;
+    const budgets = entityCode ? allBudgets.filter((b) => b.entity_code === entityCode) : allBudgets;
+    const overrides = entityCode ? allOverrides.filter((o) => o.entity_code === entityCode) : allOverrides;
 
     let revenue = 0;
     let cogsVariable = 0;
     let cogsFixed = 0;
     let sga = 0;
-    if (entity) {
-      const summary = await getMonthlySummary({ month: ym, entity });
+    if (entityCode) {
+      const summary = await getMonthlySummary({ month: ym, entityCode });
       const ov = overrides[0] ?? null;
       revenue = Number(summary.revenue_total);
       cogsVariable = Number(summary.variable_cost_total);
       cogsFixed = ov?.cogs_fixed_actual ?? Number(summary.fixed_cost_total);
       sga = ov?.sga_actual ?? Number(summary.sga_total);
     } else if (overrides.length === 0) {
-      // 補正が1つも無ければ全社集計そのまま（従来の挙動・クエリ4本）
+      // 補正が1つも無ければ全社集計そのまま（クエリ4本）
       const summary = await getMonthlySummary({ month: ym });
       revenue = Number(summary.revenue_total);
       cogsVariable = Number(summary.variable_cost_total);
       cogsFixed = Number(summary.fixed_cost_total);
       sga = Number(summary.sga_total);
     } else {
-      // 主体ごとに「補正があればそれ、無ければ集計」を足す。
-      // 補正を1つの数にまとめて「?? 全社集計」とすると、片方の主体だけ補正した月に
-      // もう片方の主体の集計値が丸ごと落ちる（片方だけ経理確定、が普通に起きる）
-      const summaries = await Promise.all(BUSINESS_ENTITIES.map((e) => getMonthlySummary({ month: ym, entity: e })));
-      BUSINESS_ENTITIES.forEach((e, i) => {
-        const s = summaries[i];
-        const ov = overrides.find((o) => o.entity === e) ?? null;
-        revenue += Number(s.revenue_total);
-        cogsVariable += Number(s.variable_cost_total);
-        cogsFixed += ov?.cogs_fixed_actual ?? Number(s.fixed_cost_total);
-        sga += ov?.sga_actual ?? Number(s.sga_total);
+      const summaries = await Promise.all(ENTITY_CODES.map((code) => getMonthlySummary({ month: ym, entityCode: code })));
+      ENTITY_CODES.forEach((code, i) => {
+        const sm = summaries[i];
+        const ov = overrides.find((o) => o.entity_code === code) ?? null;
+        revenue += Number(sm.revenue_total);
+        cogsVariable += Number(sm.variable_cost_total);
+        cogsFixed += ov?.cogs_fixed_actual ?? Number(sm.fixed_cost_total);
+        sga += ov?.sga_actual ?? Number(sm.sga_total);
       });
     }
 
-    // 全体の目標 ＝ 主体の合計（主体の予算が1つも無ければ null・按分しない）。主体指定なら その1行
     const budgetFields = sumBudgetFields(budgets);
-    const budget = budgetFields
-      ? { year_month: ym, entity: scope, ...budgetFields, updated_at: latestUpdatedAt(budgets) }
-      : null;
+    const latest = budgets.map((b) => b.updated_at).filter((v): v is NonNullable<typeof v> => v != null).sort().at(-1) ?? null;
+    const budget = budgetFields ? { year_month: ym, entity_code: scope, ...budgetFields, updated_at: latest } : null;
     const marginalProfit = revenue - cogsVariable;
     const grossProfit = marginalProfit - cogsFixed;
     const operatingProfit = grossProfit - sga;
-    // 注記: 主体を跨ぐときは主体名を添える（どの補正の注記か分かるように）
     const notes = overrides.filter((o) => o.note);
     const overrideNote = notes.length === 0 ? null
-      : notes.length === 1 && entity ? notes[0].note
-      : notes.map((o) => `${BUSINESS_ENTITY_LABELS[o.entity]}: ${o.note}`).join(' ／ ');
+      : notes.length === 1 && entityCode ? notes[0].note
+      : notes.map((o) => `${o.entity_code}: ${o.note}`).join(' ／ ');
     return {
       year_month: ym,
-      entity: scope,
+      entity_code: scope,
       budget,
       actual: {
         revenue,
@@ -460,8 +431,8 @@ export const keepReportService = {
       },
       has_override: overrides.length > 0,
       override_note: overrideNote,
-      /** 主体を指定したときのその主体の補正（'all' は null。内訳は overrides） */
-      override: entity ? (overrides[0] ?? null) : null,
+      /** 会社を指定したときのその会社の補正（'all' は null。内訳は overrides） */
+      override: entityCode ? (overrides[0] ?? null) : null,
       /** この月に効いた補正の行（0〜3件） */
       overrides,
     };

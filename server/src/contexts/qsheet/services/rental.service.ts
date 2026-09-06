@@ -10,6 +10,7 @@
 import { v4 as uuid } from 'uuid';
 import { queryAll, queryOne, execute, Row } from '../../../shared/db/connection';
 import { Owner, ownerWhere } from '../device-settings-owner';
+import { resolveIssuer } from '../../platform/services/legal-entity.service';
 
 const COMPANIES = ['TOC', 'レスター'] as const;
 type Company = (typeof COMPANIES)[number];
@@ -648,11 +649,14 @@ export async function buildMailDraft(owner: Owner, company: string, userName: st
   const senderName = userName && userName.trim() ? userName : '【氏名】';
   const itemLines = rows.map((r) => `・${r.item_name}（貴社ID: ${r.item_id}） × ${r.quantity}`).join('\n');
 
-  const subject = `機材レンタルのお見積・ご手配のお願い（${formatMonthDay(minStart)}〜${formatMonthDay(maxEnd)}・GMOグローバルスタジオ）`;
+  // この依頼メールは案件・見積に紐づかない（スタジオ自身の機材調達）ので、常に GSS で解決する
+  const issuer = await resolveIssuer('GSS', new Date().toISOString().slice(0, 10));
+
+  const subject = `機材レンタルのお見積・ご手配のお願い（${formatMonthDay(minStart)}〜${formatMonthDay(maxEnd)}・${issuer.name}）`;
 
   const body = `${company} ご担当者様
 
-いつもお世話になっております。GMOグローバルスタジオの${senderName}です。
+いつもお世話になっております。${issuer.name}の${senderName}です。
 下記機材のお見積・ご手配をお願いいたします。
 
 【利用期間】
@@ -670,7 +674,7 @@ ${itemLines}
 
 --
 ${senderName}
-GMOグローバルスタジオ
+${issuer.name}
 【部署名】
 【電話番号】
 【メールアドレス】

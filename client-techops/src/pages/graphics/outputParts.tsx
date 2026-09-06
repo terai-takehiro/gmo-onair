@@ -237,13 +237,15 @@ export function renderPart(
   const theme = resolveTelopTheme(ctx?.theme);
   // 既存の各部品コンポーネントは `page: GraphicsPageRow` を丸ごと受け取る形なので、
   // 表示に使うフィールドだけを持つ最小限のダミー行を組み立てて渡す（レンダラー本体は
-  // 変更しない——移設のみ）。callNo/proofState/sortOrder/templateId/projectId は
-  // どの部品の描画にも使われていない値なのでダミーで埋めてよい
+  // 変更しない——移設のみ）。callNo/proofState/sortOrder/templateId/projectId・
+  // section/qsheetDocId/qsheetRowId（段C）は、どの部品の描画にも使われていない値なので
+  // ダミーで埋めてよい
   const page: GraphicsPageRow = {
     id: String(key ?? `${slot}-${partKey}`),
     projectId: '', callNo: 0, slot: slot as GraphicsPageRow['slot'],
     partKey: partKey as GraphicsPageRow['partKey'], name: '', fields,
     proofState: 'proofed', sortOrder: 0, templateId: null,
+    section: null, qsheetDocId: null, qsheetRowId: null,
   };
   if (slot === 'clock' || partKey === 'countdown') {
     return <ClockCountdown key={page.id} page={page} serverNowMs={serverNowMs} />;

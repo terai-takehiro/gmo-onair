@@ -17,6 +17,7 @@
  * 先頭10文字を切るだけの `ymd()` を通してください。
  */
 import type { ProjectStage } from '@/types';
+import type { LegalEntityCode } from '@/contexts/platform/pages/reorg/types';
 
 
 export type GpmKind = 'self_build' | 'group_order';
@@ -199,6 +200,12 @@ export interface GpmProjectDetail extends GpmProjectBase {
   /** 未確認事項の**中身**（一覧の `open_items` は件数なので別物） */
   open_items: GpmOpenItem[];
   members: GpmMember[];
+  /**
+   * 計上会社（2026年10月の事業再編・§4.7）。**「予算と実績」タブに切り替えるかどうかの
+   * 判定にだけ使う**（`isCostCenterProject()`・`platform/pages/reorg/types.ts`）。
+   * **詳細だけが返す列** — 一覧（`GpmProjectRow`）はこの判定をしないので持たない。
+   */
+  entity_code: LegalEntityCode | null;
 }
 
 /**

@@ -6,7 +6,7 @@
  *
  * 正は docs/design/v4/keep-report.md §5.3（計算列）・§5.4（稼働率）。
  */
-import type { BusinessEntity } from './project-entity';
+import type { LegalEntityCode } from '../../platform/services/legal-entity.service';
 
 // ── 計算列（手計算しない・§5.3）──────────────────────────────────────
 
@@ -138,4 +138,4 @@ export function mergeUtilizationSettings(
 }
 
 /** 主体別の月次予算・補正値の行が持つ共通の鍵 */
-export interface EntityKeyed { year_month: string; entity: BusinessEntity }
+export interface EntityKeyed { year_month: string; entity_code: LegalEntityCode }

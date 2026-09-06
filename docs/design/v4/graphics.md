@@ -1,11 +1,13 @@
 # テロップ・CG（リアルタイムCG の後継）— ゼロベース再設計
 
-**状態: モックアップでの検討段階**（2026-08-30 起こし・実装未着手）。
-モックは [mockups/v4-mockup-graphics.dc.html](mockups/v4-mockup-graphics.dc.html)（**モックが正**）。
+**状態: 初版設計（2026-08-30）。段1〜6 を実装したあと、2026-09-06 に利用者に見せる語・画面の数・本番の操作モデルを
+[graphics-redesign.md](graphics-redesign.md) で作り直した（**UI はそちらが正**。出力の契約・部品の思想・組版の数値はこの文書のまま）。**
+初版のモックは [mockups/v4-mockup-graphics.dc.html](mockups/v4-mockup-graphics.dc.html)（経緯として残す。再設計のモックは
+[mockups/native/telop-cg/](mockups/native/telop-cg/)）。
 
 ## 0. これは何か
 
-凍結中の「リアルタイムCG」（`client-awards/`・アワード授賞式専用の CG 送出）を、
+移行中（2026-09-06 に「凍結」から整理）の「リアルタイムCG」（`client-awards/`・アワード授賞式専用の CG 送出）を、
 **番組を問わず使える汎用テロップ・CG システム**として作り直し、
 **制作技術支援（techops）のミニアプリ**に組み込む計画。
 

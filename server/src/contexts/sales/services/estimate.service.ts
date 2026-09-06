@@ -35,6 +35,7 @@ import { checkDiscount, NO_LIMIT, type DiscountLimit } from '../../../shared/ser
 import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
 import { assertCustomerCompanyId } from '../../../shared/services/company-directory.service';
 import { loadRevenueItemCarryover } from '../../finance/services/revenue-item-carryover.service';
+import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 
 export type EstimateStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'superseded';
 
@@ -379,11 +380,11 @@ export const estimateService = {
 
     const id = uuidv4();
     await execute(
-      `INSERT INTO estimates (id, project_id, submit_to, group_id, version, title,
+      `INSERT INTO estimates (id, project_id, entity_code, submit_to, group_id, version, title,
          tax_category, valid_until, created_by, updated_by)
-       VALUES ($1, $2, $3, $1, 1, $4, $5, $6, $7, $7)`,
+       VALUES ($1, $2, $8, $3, $1, 1, $4, $5, $6, $7, $7)`,
       [id, projectId, submitTo, data.title ?? '', data.tax_category ?? 'tax10',
-       data.valid_until ?? null, userId]
+       data.valid_until ?? null, userId, CURRENT_ENTITY_CODE]
     );
     return (await this.getById(id))!;
   },
@@ -456,11 +457,11 @@ export const estimateService = {
     await this.assertEpisodesOfProject(episodeIds, projectId);
     const id = uuidv4();
     await execute(
-      `INSERT INTO estimates (id, project_id, customer_id, group_id, version, title,
+      `INSERT INTO estimates (id, project_id, entity_code, customer_id, group_id, version, title,
          tax_category, valid_until, created_by, updated_by)
-       VALUES ($1, $2, $3, $1, 1, $4, $5, $6, $7, $7)`,
+       VALUES ($1, $2, $8, $3, $1, 1, $4, $5, $6, $7, $7)`,
       [id, projectId, data.customer_id ?? null, data.title ?? '',
-       data.tax_category ?? 'tax10', data.valid_until ?? null, userId]
+       data.tax_category ?? 'tax10', data.valid_until ?? null, userId, CURRENT_ENTITY_CODE]
     );
     for (const episodeId of episodeIds) {
       await execute(
@@ -498,12 +499,12 @@ export const estimateService = {
     await execute(
       // **提出先も写す** (v4 大⑤)。写さないと、v2 を作った瞬間に
       // 「自社への見積」だったものが行き先の分からない見積になる
-      `INSERT INTO estimates (id, project_id, submit_to, customer_id, group_id, version, title,
+      `INSERT INTO estimates (id, project_id, entity_code, submit_to, customer_id, group_id, version, title,
          tax_category, discount, valid_until, notes, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)`,
+       VALUES ($1, $2, $13, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)`,
       [id, from.project_id, from.submit_to, from.customer_id, from.group_id,
        Number(maxRow.v) + 1,
-       from.title, from.tax_category, from.discount, from.valid_until, from.notes, userId]
+       from.title, from.tax_category, from.discount, from.valid_until, from.notes, userId, CURRENT_ENTITY_CODE]
     );
     // **紐づく回も写す**（仕様変更 #18・#20）。次の版は同じ商談・同じ回（の組）の
     // 書き直しなので、版を上げただけで「案件全体の見積」に戻ってしまうと
@@ -589,11 +590,11 @@ export const estimateService = {
       // （複製元の版を重ねても複製先には影響しない・逆も同様）。
       // 提出先・お客様・税区分・値引きは複製元の状態をそのまま初期値にする —
       // 回が違うだけで取引の相手・税の扱いまで変わることは無いため
-      `INSERT INTO estimates (id, project_id, submit_to, customer_id, group_id, version, title,
+      `INSERT INTO estimates (id, project_id, entity_code, submit_to, customer_id, group_id, version, title,
          tax_category, discount, valid_until, notes, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $1, 1, $5, $6, $7, $8, $9, $10, $10)`,
+       VALUES ($1, $2, $11, $3, $4, $1, 1, $5, $6, $7, $8, $9, $10, $10)`,
       [id, from.project_id, from.submit_to, from.customer_id,
-       from.title, from.tax_category, from.discount, from.valid_until, from.notes, userId]
+       from.title, from.tax_category, from.discount, from.valid_until, from.notes, userId, CURRENT_ENTITY_CODE]
     );
     for (const episodeId of targets) {
       await execute(
@@ -1083,11 +1084,11 @@ export const estimateService = {
           // （`revenues.episode_id` を読む台帳・回一覧の集計）に載らない。案件全体の
           // 見積、または複数回の「ひとまとまり」の見積（episode_ids が0件/2件以上）は
           // 今までどおり null のまま（上の `revenueEpisodeId` の注記）
-          `INSERT INTO revenues (id, billing_key, project_id, customer_id, episode_id, tax_category, amount,
+          `INSERT INTO revenues (id, billing_key, project_id, entity_code, customer_id, episode_id, tax_category, amount,
              subtitle, notes, status, created_by, updated_by)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'confirmed', $10, $10)`,
+           VALUES ($1, $2, $3, $11, $4, $5, $6, $7, $8, $9, 'confirmed', $10, $10)`,
           [revenueId, billingKey, projectId, customerId, revenueEpisodeId,
-           taxCategory, amount, (est.title as string) || null, (est.notes as string) || null, userId],
+           taxCategory, amount, (est.title as string) || null, (est.notes as string) || null, userId, CURRENT_ENTITY_CODE],
         );
         let order = 1;
         for (const it of items) {

@@ -24,6 +24,10 @@
 import { queryAll, queryOne } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { generateEstimatePdf } from '../../../shared/services/pdf.service';
+import { resolveIssuer } from '../../platform/services/legal-entity.service';
+
+/** 発行者名の解決に使う「今日」（送付日が未入力の下書きのフォールバック）。 */
+const todayISO = (): string => new Date().toISOString().slice(0, 10);
 
 export interface EstimatePdf {
   buffer: Buffer;
@@ -97,6 +101,7 @@ export async function buildEstimatePdf(estimateId: string): Promise<EstimatePdf>
     // 片方だけ書くと、夕方に出した見積の発行日が1日ずれます（JST の朝 = 前日の UTC）。
     // 'UTC' とベタ書きしないのは、DB の時間帯が JST の環境で逆に9時間ずれるため
     `SELECT e.id, e.project_id, e.version, e.title, e.status, e.tax_category, e.approval_state,
+            e.entity_code,
             e.subtotal, e.discount, e.valid_until, e.notes, e.created_at,
             to_char(e.sent_at AT TIME ZONE current_setting('TimeZone') AT TIME ZONE 'Asia/Tokyo',
                     'YYYY-MM-DD') AS sent_on,
@@ -230,9 +235,14 @@ export async function buildEstimatePdf(estimateId: string): Promise<EstimatePdf>
   const episodeNumbers = (est.episode_numbers as number[] | null) ?? [];
   const episodeLabel = episodeNumbers.length > 0 ? `第${episodeNumbers.join(',')}回` : null;
 
+  // 発行者は見積の計上会社（`entity_code`）から解決する。日付は送付日基準
+  // （まだ送っていない下書きは今日で代用）
+  const issuer = await resolveIssuer(est.entity_code as string | null, (est.sent_on as string | null) ?? todayISO());
+
   const buffer = await generateEstimatePdf({
     // 紙に出す「見積コード」。GLS が無い（ヨミ段階の）案件では版だけを出す
     billing_key: glsNumber ? `${glsNumber}-v${version}` : `v${version}`,
+    issuer,
     // 回に紐づく見積は件名の頭に「第N回」を出す。件名（タイトル）が無い見積でも
     // どの回のものか分かるようにする
     subtitle: [episodeLabel, (est.title as string | null) || null].filter(Boolean).join(' ') || null,

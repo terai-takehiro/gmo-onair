@@ -8,6 +8,16 @@
  * 選ばせれば保存される値は必ず 1〜31 の数字になります。
  */
 import type { ProjectStage } from '@/types/stages';
+import type { LegalEntityCode } from '../reorg/types';
+
+/**
+ * 初期表示のタブ（2026年10月の事業再編・`docs/reorg-2026-10-plan.md` §4.5・§4.6・
+ * §6 P2 Round 1）。サーバー既定の `CURRENT_ENTITY_CODE`（今の唯一の会社＝GSS。
+ * `server/src/shared/constants/entity-default.ts`）と合わせてある。クライアントは
+ * サーバー側のファイルを import できないため、値をここに持つ——**リテラル `'GSS'`
+ * を画面側に直書きせず、必ずこの定数を import して使うこと**（サーバー側と同じ注意）。
+ */
+export const DEFAULT_ENTITY_CODE: LegalEntityCode = 'GSS';
 
 export interface MoneyRules {
   closing_day: number;
@@ -37,8 +47,17 @@ export interface DiscountLimitRow {
 }
 
 export interface MoneyResponse {
+  /** どの会社ぶんの応答か（サーバーがエコーで返す。省略呼び出しは `CURRENT_ENTITY_CODE`） */
+  entity_code: LegalEntityCode;
   rules: MoneyRules;
   describe: { payment: string; purchase: string };
+  /**
+   * 値引きの上限は役割ごとの全社共通ポリシーで、会社では分かれない
+   * （サーバーは entity_code を見ずに返す）。**この画面では `q.data.limits` を使わず、
+   * `['money-rules-limits']` の専用クエリで受け取る**（タブを切り替えても
+   * 再取得しないため。`MoneyRulesPage.tsx` 冒頭のコメント参照）。ここに残すのは
+   * 型をサーバー応答と一致させておくため
+   */
   limits: DiscountLimitRow[];
 }
 

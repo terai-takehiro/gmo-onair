@@ -74,7 +74,7 @@ describe('設定が実際に効いている', () => {
   it('保存される行にも支払期日を入れる（人が入れた値は上書きしない）', () => {
     // `computeDueDate` は**どこからも呼ばれていなかった**（下見の画面だけが使っていた）
     const routes = read('server', 'src', 'contexts', 'finance', 'routes', 'revenues.routes.ts');
-    expect(routes).toMatch(/const dueDate = payment_due_date \|\| await computeDueDate\(recognition_date, customer_id\)/);
+    expect(routes).toMatch(/const dueDate = payment_due_date \|\| await computeDueDate\(recognition_date, customer_id, CURRENT_ENTITY_CODE\)/);
   });
 
   it('休業日は土日・祝日・全社の休業日で見る（拠点ごとの休みは見ない）', () => {

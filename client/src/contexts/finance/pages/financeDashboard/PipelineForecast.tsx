@@ -38,6 +38,12 @@
  * トグル UI は `PeriodBar` と同じ並びの `ForecastModeToggle` に引き上げた。
  * **このカードは `forecastMode` を props で受け取るだけ**（集計対象は変えていない
  * ——`forecastMode` を使うのは引き続きこのカードだけ）。
+ *
+ * ── 会社（`entityCode`）の絞り込み（2026年10月の事業再編 P2 Round 1）─────
+ *
+ * `GET /pipeline-forecast` はサーバー側（`server/src/contexts/finance/index.ts`）が
+ * `entity_code` に対応済み（省略時は全社合算のまま）。会社タブを切り替えると
+ * このカードの数字も連動する。
  */
 import { useQuery } from '@tanstack/react-query';
 import { TrendingUp } from 'lucide-react';
@@ -64,11 +70,16 @@ function pctLabel(rate: number | null): string {
   return rate == null ? '—' : `${(rate * 100).toFixed(1)}％`;
 }
 
-export function PipelineForecast({ projectId, forecastMode }: { projectId: string; forecastMode: ForecastMode }) {
+export function PipelineForecast({
+  projectId, forecastMode, entityCode,
+}: { projectId: string; forecastMode: ForecastMode; entityCode: string }) {
   const q = useQuery<PipelineForecastData>({
-    queryKey: ['pipeline-forecast', projectId],
+    queryKey: ['pipeline-forecast', projectId, entityCode],
     queryFn: async () => (await api.get('/pipeline-forecast', {
-      params: projectId ? { project_id: projectId } : {},
+      params: {
+        ...(projectId ? { project_id: projectId } : {}),
+        ...(entityCode ? { entity_code: entityCode } : {}), // `/pipeline-forecast` が絞り込む（P2 Round 1）
+      },
     })).data.data,
   });
 

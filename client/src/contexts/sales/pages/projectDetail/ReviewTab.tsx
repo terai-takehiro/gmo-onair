@@ -307,8 +307,6 @@ export function ReviewTab({ project }: { project: ProjectDetail }) {
 
         <ReviewSide
           projectId={project.id}
-          keepPick={!!project.keep_pick}
-          canEdit={canEdit}
           expectedAmount={project.expected_amount}
           quoted={quoted}
           sentVersion={sent ? sent.version : null}
@@ -317,6 +315,8 @@ export function ReviewTab({ project }: { project: ProjectDetail }) {
           taskDone={done}
           taskLate={late}
           eventStart={project.event_start}
+          keepPick={!!project.keep_pick}
+          canEdit={canEdit}
         />
       </div>
     </div>

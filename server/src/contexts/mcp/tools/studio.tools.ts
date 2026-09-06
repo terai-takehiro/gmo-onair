@@ -2,6 +2,8 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { studioBookingService } from '../../production/services/studio-booking.service';
 import { ok, runTool, audit, REQUESTED_BY, currentActorId } from '../helpers';
+import { queryOne } from '../../../shared/db/connection';
+import { AppError } from '../../../shared/middleware/errorHandler';
 
 // スタジオ予約カレンダー (production/studio) の MCP ツール。
 // 参照 2 種 + 予約作成。
@@ -12,6 +14,24 @@ const BOOKING_TYPES = [
 ] as const;
 
 const BOOKING_LIST_CAP = 500;
+
+/**
+ * 案件番号（現行 `projects.gls_number` ／ 改番で退役した旧番号 `project_numbers.number`）から
+ * 案件 id を解決する。完全一致のみ（2026年10月の事業再編・P1 で配線済みの他6箇所——
+ * `qsheet/device-settings-owner.ts` の `resolveOwner()` 等——と同じ形。docs/reorg-2026-10-plan.md §4.10）。
+ *
+ * ⚠️ `qsheet/services/production/doc-list.service.ts` の `resolveProjectId()` は
+ * 現行番号しか見ないため使い回さない（意図的な重複 — 他6箇所も同様に個別に書いている）。
+ */
+async function resolveProjectIdByNumber(number: string): Promise<string | null> {
+  const row = await queryOne(
+    `SELECT id FROM projects
+      WHERE deleted_at IS NULL
+        AND (gls_number = ? OR id = (SELECT project_id FROM project_numbers WHERE number = ?))`,
+    [number, number]
+  );
+  return (row?.id as string) ?? null;
+}
 
 /** 予約行を要約列に絞る */
 function trimBookingRow(row: any) {
@@ -142,6 +162,8 @@ export function registerStudioTools(server: McpServer): void {
           .describe('仮押さえ (status=tentative) の何番手か (1=第一希望、2=次点…)。status が confirmed のときは無視される。同じ枠を取り合う仮押さえどうしの相対順位を人が把握している場合のみ指定する'),
         all_day: z.boolean().default(false),
         project_id: z.string().optional().describe('紐づける案件 ID (任意)'),
+        gls_number: z.string().optional()
+          .describe('案件番号（現行 GJV-0001 系。旧番号 GLS-A012 等・改番前の番号でも解決される）。project_id の代わりに使える（project_id を渡した場合はそちらが優先）'),
         episode_id: z.string().optional(),
         room_ids: z.array(z.string()).optional().describe('使用する部屋 ID の配列'),
         room_details: z.array(z.object({
@@ -164,11 +186,20 @@ export function registerStudioTools(server: McpServer): void {
       },
     },
     async (args) => runTool(async () => {
+      // project_id が無く gls_number だけ渡された場合はここで解決する。
+      // 現行番号・旧番号どちらでも当たる（resolveProjectIdByNumber・§4.10）。
+      let projectId = args.project_id ?? null;
+      if (!projectId && args.gls_number) {
+        projectId = await resolveProjectIdByNumber(args.gls_number);
+        if (!projectId) {
+          throw new AppError(404, 'NOT_FOUND', `案件番号「${args.gls_number}」に一致する案件が見つかりません`);
+        }
+      }
       const row = await studioBookingService.createBooking(
         {
           title: args.title,
           booking_type: args.booking_type,
-          project_id: args.project_id ?? null,
+          project_id: projectId,
           episode_id: args.episode_id ?? null,
           all_day: args.all_day,
           start_time: args.start_time,

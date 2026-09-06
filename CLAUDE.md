@@ -17,7 +17,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 | 機材管理 | [`client-equipment/`](client-equipment/CLAUDE.md) | `/equipment/` | 5175 | **対象** | 機材台帳・ラック図・貸出・棚卸し |
 | 制作技術支援 (中の Qシート) | [`client-techops/`](client-techops/CLAUDE.md) | `/techops/`（旧`/qsheet/`も後方互換で生存） | 5174 | 凍結解除中 | 台本作成・本番進行 (進行/ランダウン/プロンプター/音声サポート)＋計時・視聴者のミニアプリ。旧「制作資料」を 2026-08-22 に改名・大アプリへ格上げ。qsheet→techops 改名は Phase 1〜4 済み（旧URL・旧MCPツール名はブリッジ/二重登録で互換維持。`permissionModule`・DBは `qsheet` のまま、詳細は[docs/reviews/qsheet-techops-migration-plan.md](docs/reviews/qsheet-techops-migration-plan.md)） |
 | 計時・視聴者 | [`client-live/`](client-live/CLAUDE.md) | `/live/` | 5178 | **対象** | タイマー・視聴者カウンター。運用画面は共通シェル・v4トークン化済み。**表示画面 (`/live/display/`) だけ例外**（見た目を変えない） |
-| リアルタイムCG | [`client-awards/`](client-awards/CLAUDE.md) | `/awards/` | 5179 | 凍結 | 放送CG演出・送出 (内部識別子は `awards` のまま)。**URLは生かすがトップページ・アプリ切替・左メニューには出さない**（2026-08-25〜。それ以前は「廃止」で配信も停止していた） |
+| リアルタイムCG | [`client-awards/`](client-awards/CLAUDE.md) | `/awards/`（URL到達不可） | — | **廃止** | 放送CG演出・送出。**後継の「テロップCG」（`client-techops/src/pages/graphics/`）へ機能を移し終え、2026-09-06 に段F（畳み込み）を実行して廃止した。** コードは参照用にリポジトリへ残すが、サーバーの配信・API・Socket.IO・ビルド対象・画面上の入口をすべて外し、Webサイトのどこからも到達できない。過去実績データ（`awards_events`等）はDBに残っており、テロップCG側の移行ツール（設定＞連携＞過去実績の移行。system_admin限定）が読む。経緯は [docs/v4-plan.md](docs/v4-plan.md) の「用語」 |
 | 共通ライブラリ | [`shared/`](shared/CLAUDE.md) | — | — | **対象** | トークン・UI部品・共通シェル。**触ると全アプリに効く** |
 
 **「凍結」「凍結解除中」「廃止」の定義と経緯は [docs/v4-plan.md](docs/v4-plan.md) の「用語」の節。**
@@ -37,7 +37,7 @@ GLS番号を中核として全アプリのデータが紐づく。
 
 ## 技術構成
 - **フロントエンド**: React 18 + Vite 6 + TailwindCSS 3 + shadcn/ui
-- **バックエンド**: Express + PostgreSQL (pg)。1つのサーバーが配信中5アプリの静的ファイルを配信する**単一イメージ構成**（廃止したリアルタイムCGは配信しない）
+- **バックエンド**: Express + PostgreSQL (pg)。1つのサーバーが配信中5アプリ（廃止済みのリアルタイムCGを除く）の静的ファイルを配信する**単一イメージ構成**
 - **モノレポ**: npm workspaces (client, client-daily, client-equipment, client-techops, client-live, client-awards, server, shared)
 - **リアルタイム**: Socket.IO (`/techops` ネームスペース: OnAir↔ランダウン同期。旧 `/qsheet` も
   ブリッジで生存中・詳細は[client-techops/CLAUDE.md](client-techops/CLAUDE.md), awards/quiz/liveops 各ネームスペース)
@@ -61,6 +61,7 @@ npm run test           # shared の Vitest (**CI が回す。手元の gate に�
 | 知りたいこと | 読む場所 |
 | --- | --- |
 | v4 の開発計画・スコープ・段取り | [docs/v4-plan.md](docs/v4-plan.md) |
+| **2026年10月の事業再編（社名変更・計上会社の2社化・GLS→GJV/GSS/GMO の改番）の移行設計** | [docs/reorg-2026-10-plan.md](docs/reorg-2026-10-plan.md) — 設計下書き。分岐点（§9）が決まるまで実装しない |
 | **v4 でどこまで出来たか (サイトツリー)** | [docs/v4-progress.md](docs/v4-progress.md) — `node scripts/v4-progress.mjs --write` で**画面のファイルを読んで作る生成物**。手で書くとずれるので、v4 の PR では毎回作り直して本文に貼る |
 | **全画面を macOS/iOS ネイティブ級にする計画（2026-08〜）** | [docs/v4-native-ui-plan.md](docs/v4-native-ui-plan.md) — PC専用を原則廃止し全画面をマルチデバイス対応にする追加の取り組み。対象範囲の決定・監査結果・バックログ |
 | ブランチ・PR・リリース手順 | [docs/branching.md](docs/branching.md) |

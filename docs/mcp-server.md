@@ -103,31 +103,67 @@ URL 自体が秘密情報になるので共有・掲示しないこと。キー�
 
 ### 繋ぎ方
 
-**A. キー付き URL (手軽・APIキー方式)**
+**A. OAuth (推奨・キー不要)**
 
-```
-https://dev.gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY_DEV>
-```
-
-`MCP_API_KEY_DEV` は VPS の `/root/gmo-onair/.env` にある。
-⚠️ **URL 自体が秘密情報**なので共有・掲示しない。
-
-**B. OAuth (本人名義で監査ログに残したいとき)**
+カスタムコネクタの URL に入れるのはこれだけ (OAuth Client ID 欄は空のまま):
 
 ```
 https://dev.gmo-onair.jp/api/v1/mcp
 ```
 
 `app_dev` は `AUTH_MODE: password` なので、本番と同じく ONAiR のログイン画面が開く
-(検証 DB の利用者アカウントでサインインする)。
+(検証 DB の利用者アカウントでサインインする)。**OAuth は `MCP_API_KEY` の設定有無に
+関わらず常に有効**なので、キーを探さなくてよい。書き込みの actor も
+共用 `mcp-claude` ではなく**本人**になる。
+
+**B. キー付き URL (APIキー方式)**
+
+```
+https://dev.gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY_DEV>
+```
+
+⚠️ **`MCP_API_KEY_DEV` は設定されていないことがある。** `.env.example` では
+コメントアウトされており、`docker-compose.yml` は `MCP_API_KEY: ${MCP_API_KEY_DEV:-}` と
+**未設定なら空**で渡す。空だと `?key=` は一致しようがなく、
+**401 (`Unauthorized: sign in via OAuth or present a valid API key`)** になる
+(`mcpAuth` は静的キーが無くても OAuth に誘導するため 503 ではなく 401)。
+
+#### キーを調べる・無ければ作る (VPS で)
+
+```bash
+# ① .env に入っているか (値は出さない)
+grep -c '^MCP_API_KEY_DEV=' /root/gmo-onair/.env
+
+# ② 実際にコンテナへ渡っているか (値は出さない)
+docker compose -f /root/gmo-onair/docker-compose.yml exec app_dev \
+  sh -c '[ -n "$MCP_API_KEY" ] && echo set || echo unset'
+
+# ③ 値そのものを見る (画面共有・ログに残さないこと)
+grep '^MCP_API_KEY_DEV=' /root/gmo-onair/.env
+
+# ④ 無ければ作って追記し、app_dev だけ入れ直す
+echo "MCP_API_KEY_DEV=$(openssl rand -hex 32)" >> /root/gmo-onair/.env
+docker compose -f /root/gmo-onair/docker-compose.yml up -d app_dev
+```
+
+- ⚠️ **本番の `MCP_API_KEY` を検証で使わない** (CLAUDE.md「本番環境の秘密情報を
+  検証環境で使わないこと」)。**別のキーにする。**
+- ⚠️ **`?key=` を付けた URL 自体が秘密情報**。共有・掲示・コミットしない。
+  ローテーションは `.env` を差し替えて `up -d app_dev` するだけ (旧キー即失効)。
+  **コネクタ側の URL も更新する。**
+- ⚠️ このキー1本で全ツール (読み取り + 書き込み) が実行できる。
+  アプリ内の per-user 権限は適用されない。
 
 ### 何に使うか
 
 - **AI の書き込みを伴う仕組みを試すとき**は必ずこちら
   (メール自動仕分けの試験実行など。本番に試し打ちを残さない)
 - 検証 DB は自由に壊してよい。本番 DB とは**完全分離** (`onair_prod` / `onair_dev`)
+- ⚠️ **BOX のフォルダは分けること。** `BOX_MAIL_INTAKE_FOLDER_ID_DEV` を設定しないと
+  `BOX_MAIL_INTAKE_FOLDER_ID` (本番と同じフォルダ) に落ちるので、
+  **検証で取り込んだ試験用の請求書 PDF が本番のフォルダに混ざる** (DB は分かれていても BOX は分かれない)
 
-## ツール一覧 (162 種 / 23 カテゴリ / v4)
+## ツール一覧 (164 種 / 23 カテゴリ / v4)
 
 > **この一覧は手で書いています。** 実際に登録されているツールは
 > `node scripts/generate-mcp-tools.mjs` が `server/src/contexts/mcp/tools/*.ts` から
@@ -137,7 +173,8 @@ https://dev.gmo-onair.jp/api/v1/mcp
 > 2026-08 には「90 種」のまま取り残されたこともありました（qsheet→techops Phase 4 の改名で
 > production に旧名 `*_qsheet` 系 5 種が二重登録された分が未反映だった）。
 >
-> 内訳: projects 6 / gpm 40（読み取り12・書き込み28。2026-08 新設。プロジェクト管理の
+> 内訳: projects 7（うち `renumber_project` は2026年10月の事業再編で新設。下記参照）/
+> gpm 40（読み取り12・書き込み28。2026-08 新設。プロジェクト管理の
 > プロジェクト・工程・タスク・未確認事項・体制（並び替え含む）・標準工程テンプレート・
 > 見積・議事録・BOXフォルダ。下記参照）/
 > customers 4 / activities 4 / tasks 17（タスク10＋かんばん列 7。2026-08 に列 CRUD・
@@ -149,7 +186,8 @@ https://dev.gmo-onair.jp/api/v1/mcp
 > スケジュール表の枠 CRUD 3種（2026-08 新設）＋スケジュール表そのもの・列の CRUD 6種
 > （2026-08 追加新設。表の新規作成 `create_schedule`/更新 `update_schedule` と、列の
 > 追加/更新/削除/並べ替え）。**このカテゴリだけ OAuth actor 専用**。下記参照）/
-> equipment 7（読み取り5・書き込み2。2026-08 新設。下記参照）
+> equipment 7（読み取り5・書き込み2。2026-08 新設。下記参照）/
+> intercompany 1（**2026年10月の事業再編で新設**。社内取引 GJV⇄GSS。下記参照）
 >
 > **live（計時・視聴者）向けの MCP ツールはまだ無い。** 廃止決定ではなく、着手対象になった
 > ことがない（未検討）。equipment は 2026-08 に新設した。
@@ -163,6 +201,15 @@ https://dev.gmo-onair.jp/api/v1/mcp
 | `update_project` | write | 部分更新 (サーバー側で既存値とマージ — 渡したフィールドだけ変わる) |
 | `change_project_stage` | write | ステージ変更。**e_lost (失注) は confirm 2段階**。d_hold で仮押さえ予約を自動作成 |
 | `issue_gls` | write | **GLS 発番 (confirm 2段階・取消不可)**。プレビューで昇格ステージ / 見積変換件数 / BOXリネームを提示 |
+| `renumber_project` | write | **改番 (confirm 2段階・取消不可・sales の manager 権限)**。発番済み案件を別の計上会社 (GJV/GSS/GMO) の番号系列へ付け替える。回・Qシートの写し・BOXフォルダ名・未請求 (未発行・未入金) の請求キーが追随し、発行済み・入金済みの請求キーは変えない。旧番号は `project_numbers` に履歴として残り、引き続き解決できる。2026年10月の事業再編（[docs/reorg-2026-10-plan.md](reorg-2026-10-plan.md) §4.4/§4.8）で新設 |
+
+> **2026年10月の事業再編**（[docs/reorg-2026-10-plan.md](reorg-2026-10-plan.md)）: `list_projects` / `get_project` の
+> 出力に **計上会社** (`entity_code`＝`GJV`/`GSS`/`GMO`。列は常に存在し導出結果を返す) /
+> `entity_source`（`rule`=導出のまま／`manual`=人が上書き）/ `entity_note` を追加した。
+> **`gls_number` フィールド名はそのまま**（改名していない）——ただし値は改番されると
+> 新方式の番号（`GJV-0001` 等）になり得る（§4.3）。**`org_transition.state` は今日時点 `off`**（§5）
+> なので、既存案件はすべて `entity_code='GSS'`・`gls_number` も旧方式（`GLS-A024` 等）のまま —
+> 今日の時点では列が増えるだけで値は変わらない（休眠中の仕組み）。
 
 ### プロジェクト管理 (GPM — GLS-B・2026-08 新設)
 
@@ -245,12 +292,35 @@ HTTP 側 (`/api/v1/internal/gpm/*`) と同じサービス層を呼ぶので、�
 |---|---|---|
 | `list_studio_rooms` / `list_studio_bookings` | read | 拠点部屋一覧・予約一覧 (上限500件) |
 | `get_studio_availability` | read | 空き照会 (部屋ごとの busy 予約 + 終日空き日)。単日照会の境界取りこぼしが無い。「◯日空いてますか」回答用。最大92日 |
-| `create_studio_booking` | write | スタジオ予約作成 (既定 status=tentative) |
+| `create_studio_booking` | write | スタジオ予約作成 (既定 status=tentative)。`project_id` の代わりに `gls_number`（現行・改番後の旧番号どちらも可）で指定してよい |
 | `get_monthly_summary` | read | 月次/期間の損益サマリー (損益7指標) |
 | `list_revenues` / `list_purchases` / `list_sga` | read | 売上/仕入/販管費一覧 |
 | `get_sales_funnel` | read | 営業ファネル (ステージ別件数/金額・転換率・滞留・月次推移) |
 | `get_lost_reason_analysis` | read | 失注理由分析 (+教訓・学び) |
 | `get_sales_performance` | read | 担当者別 目標vs実績 |
+
+> **2026年10月の事業再編**（[docs/reorg-2026-10-plan.md](reorg-2026-10-plan.md) §4.5/§4.6/§4.12）:
+> `get_monthly_summary` / `list_revenues` / `list_purchases` / `list_sga` に **`entity_code`**
+> (`GJV`/`GSS`/`GMO`) の絞り込みを追加した。**省略時は絞らない＝全社合算**（後方互換。
+> 加算できる一覧・集計なので「省略＝1社」ではなく「省略＝全社」に倒した）。
+> `list_revenues` / `list_purchases` の出力行には社内取引の印 **`intercompany`**（true/false）も付く
+> （GSS⇄GJV の社内売上・社内仕入のペア。次の「社内取引」節を参照）。**`org_transition.state` は
+> 今日時点 `off`**（§5）のため、絞り込んでも全件が `GSS`・`intercompany` は常に false（休眠中）。
+
+### 社内取引 (intercompany — GJV⇄GSS・2026年10月の事業再編で新設)
+
+GSS のスタジオ・人員・機材を使って GJV の案件を行うときに発生する、計上会社間の
+社内売上・社内仕入のペアを扱う（[docs/reorg-2026-10-plan.md](reorg-2026-10-plan.md) §4.12）。
+GSS 側の社内売上 (`revenues`) と GJV 側の社内仕入 (`purchases`) を同じ回に1本ずつ作り
+`intercompany_links` で1対1に結ぶ（写しの案件は作らない）。作成後は片方だけを直せない・
+消せない（専用の経路以外は 409）。
+
+| ツール | 種別 | 概要 |
+|---|---|---|
+| `create_intercompany_purchase` | write | **社内取引の作成 (confirm 2段階・取消不可・sales の editor 権限)**。買い手 (GJV) の案件・回・金額を指定すると、GSS 側の社内売上と GJV 側の社内仕入が同時に作られる。プレビューはその案件の直近の見積の原価行の合計を参考金額として提示する |
+
+⚠️ **`org_transition.state` は今日時点 `off`**（§5）のため、社内取引はまだ実運用では発生しない
+（休眠中の仕組み）。
 
 ### 料金表・見積 (v2.9.193+)
 | ツール | 種別 | 概要 |
@@ -407,18 +477,20 @@ GMOサムライスタジオ用賀のセキュリティカード 24 枚。カー�
 | `upsert_event_report` | write | 実施報告の作成/更新 (**渡したフィールドのみマージ更新**)。headline / highlights / 来場者数 / report_status (draft→confirmed で資料掲載) |
 | `attach_event_photo` | write | 写真の追加 (実体は Box・box_file_id 参照のみ保持。レポート未作成なら draft を自動作成) |
 | `detach_event_photo` | write | 写真の削除 (Box 上の実体は削除しない) |
-| `get_monthly_budget` | read | 月次予算 (売上/固定原価/変動原価/販管費/営業利益の目標) を**主体別**に取得。`entity` (gss / gscs / gig・省略時 gss) |
-| `upsert_monthly_budget` | write | 月次予算の登録/更新 (マージ更新。operating_profit 未指定は構成要素から自動計算)。`entity` (省略時 gss)。全体の目標は主体の合計なので全体の値は入れない |
-| `upsert_monthly_actual_override` | write | 実績補正 (経理確定値) の登録 — FIXED-COGS 償却の未計上補完・販管費確定値。`entity` (省略時 gss) |
-| `get_monthly_pl` | read | **損益ページの単一入口**: 予算 / 補正込み実績 / 対目標差・比・判定 (売上・利益系: 実績≧目標→○、費用系: 実績≦目標→○、目標未登録→"-")。`entity` は `all` (主体の合計・**省略時**) か gss / gscs / gig。対目標比は目標が赤字の行だけ 100 − (目標 − 実績) ÷ \|目標\| × 100 (9/4 の資料の式) |
+| `get_monthly_budget` | read | 月次予算 (売上/固定原価/変動原価/販管費/営業利益の目標) を**計上会社別**に取得。`entity_code` (GJV / GSS / GMO・省略時 GSS) |
+| `upsert_monthly_budget` | write | 月次予算の登録/更新 (マージ更新。operating_profit 未指定は構成要素から自動計算)。`entity_code` (省略時 GSS)。全体の目標は会社の合計なので全体の値は入れない |
+| `upsert_monthly_actual_override` | write | 実績補正 (経理確定値) の登録 — FIXED-COGS 償却の未計上補完・販管費確定値。`entity_code` (省略時 GSS) |
+| `get_monthly_pl` | read | **損益ページの単一入口**: 予算 / 補正込み実績 / 対目標差・比・判定 (売上・利益系: 実績≧目標→○、費用系: 実績≦目標→○、目標未登録→"-")。`entity_code` は GJV / GSS / GMO (省略時 GSS) か `all` (会社の合計)。対目標比は目標が赤字の行だけ 100 − (目標 − 実績) ÷ \|目標\| × 100 (9/4 の資料の式) |
 | `get_meeting_minutes` | read | 議事録サマリ (決定事項 / 領域別トピック / 次回開催日) |
 | `upsert_meeting_minutes` | write | 議事録サマリの登録/更新 (マージ更新) |
 | `list_meeting_minutes` | read | 議事録サマリの一覧 (開催日範囲・新しい順) — 前回会議分の取得に使用 |
 
-事業主体 (migration 282/283・2026-09): 予算・補正値は (年月 × 主体) の行で、`entity` を省くと gss (GMOサムライスタジオ)。
-gscs = GMOサムライコンテンツスタジオ、gig = GMOインターネットグループ人格 (人が案件で上書きしたときだけ付く)。
-`get_monthly_pl` だけ `all` (主体の合計) を受け、省略時も `all`。売上・仕入は案件の主体、販管費は `sga_expenses.entity`、
-償却相当 (FIXED-COGS) の仕入は `purchases.entity` で分かれる (`docs/design/v4/keep-report.md` §4)。
+> **2026年10月の事業再編**（[docs/reorg-2026-10-plan.md](reorg-2026-10-plan.md) §4.5）:
+> `get_monthly_budget` / `upsert_monthly_budget` / `upsert_monthly_actual_override` / `get_monthly_pl` に
+> **`entity_code`**（`GJV`/`GSS`/`GMO`）を追加した。**こちらは省略時は「今の会社」1社ぶん**
+> （`money_rules` と同じ「1行に決まる」設定のため — 上の一覧・集計系ツールの「省略＝全社合算」とは
+> 逆の既定なので混同しないこと）。**`org_transition.state` は今日時点 `off`**（§5）のため、
+> 「今の会社」は常に `GSS`（休眠中の仕組み）。
 
 ### 隔週キープの定例報告パック (dailyops — keep・2026-09 新設)
 | ツール | 種別 | 概要 |
@@ -428,7 +500,7 @@ gscs = GMOサムライコンテンツスタジオ、gig = GMOインターネッ�
 | `get_keep_slack_draft` | read | **Slack の定例投稿の下書き** (`text` = 日本語の mrkdwn 文字列)。引数は `get_keep_report_pack` と同じ (`meeting_date` / `entity` / `segment` / `live`)。中身: 見出し (会議日) → 前月 着地の 売上高／粗利／営業利益 (目標比と○✕・全体と主体別) → 当月 見込 (1行) → ヨミ表の上位8件 (確度順) → 実施報告 (日付・案件名・売上/粗利率) → 内覧会 (組・名・満足度) → 見込に含めた未確定の売上 → 数字の元 (凍結した時刻か「いまの数字」)。金額は千円 (3桁区切り)・絵文字なし。前回の資料 (凍結した版) があれば動いた数字に ＊。HTTP は `GET /dailyops/keep/slack-draft`、画面は「隔週キープの数字」タブの「Slack の文面をコピー」と同じ `getSlackDraftForMeeting` |
 
 パックの中身 (`docs/design/v4/keep-report.md` §5):
-- `landing` … **会議の前の月**の着地 (9/4 の会議なら 8月)。`all` / `gss` / `gscs` (/ `gig` は数字があるときだけ) の 6行 (売上高・原価〔案件仕入〕・粗利・販管費・償却相当額・営業利益) × 目標/実績/差/比/判定。確定売上 (`status='confirmed'`) だけを数える
+- `landing` … **会議の前の月**の着地 (9/4 の会議なら 8月)。`all` / `GSS` / `GJV` (/ `GMO` は数字があるときだけ) の 6行 (売上高・原価〔案件仕入〕・粗利・販管費・償却相当額・営業利益) × 目標/実績/差/比/判定。確定売上 (`status='confirmed'`) だけを数える
 - `forecast` … **会議の月**の着地見込 ＝ 着地 ＋ 受注前案件 (失注除く) の `status='estimate'` の売上 × ステージの受注確度。受注前案件の仕入は 100% → 確度に置き換える (二重に数えない)。`unconfirmed[]` はその月の未確定の売上と、その月に本番があるのに確定売上が無い案件 (注記の材料。後者は表の数字に足していない)
 - `trend` … 2024-01〜会議の月 (最後の点は進行中)。売上 (グループ内/外部は案件の `customer_type` の当時の値)・案件数 (本番開始日がその月の受注済み以降)・営業日数・稼働日数・稼働率
 - `pipeline` … 終わっていない案件 (ネタを含む) のヨミ表。`samurai` は `companies.samurai_group` のお客様、`external` はそれ以外の全部 (グループ内も。`segment` で絞る)。見積金額・粗利は最新の見積、次のやることは未対応の次回アクションのうち期限が近いもの、`since_last` は前回の会議日以降の new / updated
@@ -523,7 +595,8 @@ Slack の定例投稿 (bot 化の下準備・`docs/design/v4/keep-report.md` §6
 
 ## confirm 2段階フロー (重要操作)
 
-`issue_gls` と `change_project_stage` (e_lost) は誤操作防止のため 2段階:
+`issue_gls`・`change_project_stage` (e_lost)・`renumber_project`（改番・2026年10月の事業再編）・
+`create_intercompany_purchase`（社内取引の作成・同）は誤操作防止のため 2段階:
 
 1. `confirm` なし (または false) で実行 → **書き込まず** に `{preview: true, effects: [...], warning}` を返す
 2. AI がプレビュー内容をユーザーに提示し、明示的な了承を得る
@@ -596,7 +669,8 @@ server/src/contexts/mcp/
 │   ├── context.ts       authorizeContext (ALS で /authorize の ONAiR ユーザーを provider へ渡す)
 │   └── token-secret.ts  アクセストークン JWT 署名鍵 (JWT_SECRET 派生の別鍵) + TTL
 └── tools/
-    ├── projects.tools.ts   projectService を再利用
+    ├── projects.tools.ts   projectService を再利用。`renumber_project`（2026年10月の事業再編）は
+    │                        entity-resolution.service を再利用
     ├── studio.tools.ts     studio-booking.service を再利用
     ├── finance.tools.ts    monthly-summary.service + list-query を再利用
     ├── richContentSchema.ts メールの中身を「読める形」で受け取る引数 (v4・migration 160)
@@ -615,7 +689,9 @@ server/src/contexts/mcp/
     │                        BOX フォルダ (gpm-box-folder.service) を再利用。
     │                        create 系は ai_outputs に記録し、人の修正差分は
     │                        gpm-ai-feedback.service が update の中で自動記録する
-    ├── keep.tools.ts        隔週キープの定例報告パック 2 種 (read。2026-09 新設)。
+    ├── intercompany.tools.ts 社内取引 (GJV⇄GSS) 1 種 (2026年10月の事業再編で新設)。
+    │                        finance/services/intercompany.service を再利用
+    ├── keep.tools.ts        隔週キープの定例報告パック 3 種 (read。2026-09 新設)。
     │                        dailyops/services/keep-pack-store.service の getPackForMeeting
     │                        (HTTP の GET /dailyops/keep/pack と同じ入口) を再利用
     └── … (customers / activities / tasks / members / minutes / analytics / users /
@@ -628,7 +704,10 @@ server/src/contexts/mcp/
 - **静的 APIキー**はフルアクセス運用鍵として素通り
 - **OAuth actor** は書き込みツールごとに対応モジュールの権限が要る（`WRITE_TOOL_PERMISSIONS`）。
   `module` は**配列も受ける**（どれか1つを満たせばよい）—
-  v4 で `record_finance_doc` を「`dailyops` か `budget`」にした（HTTP 側と揃えた）
+  v4 で `record_finance_doc` を「`dailyops` か `budget`」にした（HTTP 側と揃えた）。
+  2026年10月の事業再編では `renumber_project` を `sales` の manager 水準（HTTP 側の改番ルートと
+  同じ）、`create_intercompany_purchase` を `sales` の editor 水準（HTTP 側の社内取引作成ルートと
+  同じ）で登録した
 - **読み取りツールも OAuth actor には対応モジュールの reader 以上を要求する**
   （`READ_TOOL_PERMISSIONS`）。それまでは読み取りが素通りで、権限ゼロの ONAiR アカウントでも
   OAuth を完走すれば `list_projects` / `list_revenues` / `list_inquiries` / `list_equipment`

@@ -1,0 +1,118 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;800&family=Noto+Serif+JP:wght@700;900&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    button { font-family: inherit; }
+    .tap { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .row-tap { transition: background-color .12s ease; }
+    .row-tap:hover { background: #f7f8fa; }
+    .ghost:hover { background: #f2f4f7; }
+    .btn-primary { transition: background-color .12s ease; } .btn-primary:hover { background: #004d91; }
+    .card-tap { transition: border-color .14s ease, box-shadow .14s ease; } .card-tap:hover { border-color: #a6ceeb; box-shadow: 0 4px 14px rgba(26,29,36,.07); }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .clip2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    input, textarea { font-family: inherit; } input::placeholder, textarea::placeholder { color: #5d6470; }
+    .cg { font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; font-synthesis: none; }
+    .cg-serif { font-family: 'Noto Serif JP', 'Noto Sans JP', serif; font-synthesis: none; }
+    
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #f7f8fa; display: flex; flex-direction: column; color: #1a1d24;">
+
+  <header style="display: flex; height: 64px; flex-shrink: 0; align-items: center; gap: 8px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 8px 0 6px;">
+    <button class="tap" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 7px; color: #5d6470;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"></path><path d="M4 12h16"></path><path d="M4 17h16"></path></svg></button>
+    <div style="width: 26px; height: 26px; border-radius: 8px; background: #005bac; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M7.8 7.8a6 6 0 0 0 0 8.4"></path><path d="M16.2 16.2a6 6 0 0 0 0-8.4"></path><path d="M4.9 4.9a10 10 0 0 0 0 14.2"></path><path d="M19.1 19.1a10 10 0 0 0 0-14.2"></path></svg></div>
+    <button class="tap" style="display: flex; height: 44px; align-items: center; gap: 6px; border-radius: 10px; border: 1px solid #cfe4f4; background: #f4faff; padding: 0 10px; color: #005bac; min-width: 0;">
+      <span style="font-size: 13px; font-weight: 700; white-space: nowrap;">制作技術支援</span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+    <span style="flex: 1;"></span>
+    <button class="tap" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #5d6470;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 4.6 1.8 5.6 1.8 5.6H4.2S6 13.6 6 9z"></path><path d="M10.2 18.4a2 2 0 0 0 3.6 0"></path></svg></button>
+    <span style="width: 32px; height: 32px; border-radius: 9999px; background: #eaf4fb; color: #005bac; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">田</span>
+  </header>
+  <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 14px 16px 120px;">
+    <button class="tap" style="display: flex; align-items: center; gap: 3px; height: 44px; margin-left: -6px; padding: 0 6px; color: #005bac;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg><span style="font-size: 12.5px; font-weight: 700;">サイエンス・フロンティア 第7回</span></button>
+    <h1 style="margin: 2px 0 0; font-size: 19px; line-height: 1.35; font-weight: 800; letter-spacing: -.01em;">テロップを依頼する</h1>
+    <p style="margin: 6px 0 0; font-size: 12.5px; line-height: 1.6; color: #5d6470;">文言と、出すタイミングだけ書けば足ります。作画と確認は技術が行います。</p>
+
+    <label style="display: flex; flex-direction: column; gap: 6px; margin-top: 16px;">
+      <span style="display: flex; align-items: baseline; gap: 6px;"><span style="font-size: 13px; font-weight: 800;">文言</span><span style="font-size: 11px; font-weight: 700; color: #c7243a;">必須</span></span>
+      <span style="display: block; min-height: 96px; border-radius: 12px; border: 1px solid #005bac; background: #ffffff; padding: 11px 12px; font-size: 14px; line-height: 1.6; font-weight: 700; box-shadow: 0 0 0 3px rgba(0,91,172,.14);">協賛社のロゴ付きで社名を最後に出したい<br><span style="font-weight: 400; color: #5d6470;">東都電機株式会社（ロゴは BOX の「協賛」フォルダ）</span></span>
+    </label>
+
+    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px;">
+      <span style="font-size: 13px; font-weight: 800;">出すタイミング</span>
+      <span style="font-size: 11.5px; color: #5d6470;">台本の項目から選ぶか、下に書きます</span>
+      
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+          <sc-for list="{{timing}}" as="c" hint-placeholder-count="4">
+            <button class="tap" onClick="{{c.pick}}" style="display: inline-flex; align-items: center; height: 40px; border-radius: 12px; border: 1px solid {{c.border}}; background: {{c.bg}}; color: {{c.fg}}; padding: 0 14px; font-size: 13px; font-weight: 700;">{{c.label}}</button>
+          </sc-for>
+        </div>
+      <span style="display: flex; align-items: center; height: 44px; border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 13px; color: #5d6470;">例：主催者あいさつの後</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px;">
+      <span style="display: flex; align-items: baseline; gap: 6px;"><span style="font-size: 13px; font-weight: 800;">種類</span><span style="font-size: 11px; color: #5d6470;">分からなければ「おまかせ」</span></span>
+      
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+          <sc-for list="{{kinds}}" as="c" hint-placeholder-count="4">
+            <button class="tap" onClick="{{c.pick}}" style="display: inline-flex; align-items: center; height: 40px; border-radius: 12px; border: 1px solid {{c.border}}; background: {{c.bg}}; color: {{c.fg}}; padding: 0 14px; font-size: 13px; font-weight: 700;">{{c.label}}</button>
+          </sc-for>
+        </div>
+    </div>
+
+    <h2 style="margin: 24px 0 8px; font-size: 15px; font-weight: 800;">自分の依頼</h2>
+    <div style="border-radius: 16px; border: 1px solid #e6e9ed; background: #ffffff; overflow: hidden;">
+      <sc-for list="{{mine}}" as="m" hint-placeholder-count="2">
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 10px 14px; border-top: 1px solid #f2f4f7;">
+          <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1;"><span class="clip1" style="font-size: 13.5px; font-weight: 700;">{{m.text}}</span><span style="font-size: 11.5px; color: #5d6470;">{{m.meta}}</span></span>
+          <span style="display: inline-flex; align-items: center; justify-content: center; height: 22px; width: 76px; flex-shrink: 0; border-radius: 7px; background: {{m.bg}}; color: {{m.fg}}; font-size: 11px; font-weight: 700;">{{m.state}}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- 下端固定の主ボタン（共通シェルの primaryAction と同じ置き方） -->
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 16px 28px; background: linear-gradient(180deg, rgba(247,248,250,0), #f7f8fa 30%);">
+    <sc-if value="{{hasToast}}" hint-placeholder-val="{{false}}"><div style="margin-bottom: 10px; border-radius: 12px; background: #e7f6ee; border: 1px solid #bfe3ce; color: #197a4b; padding: 10px 14px; font-size: 13px; font-weight: 700;">{{toast}}</div></sc-if>
+    <button class="tap btn-primary" onClick="{{send}}" style="display: flex; width: 100%; height: 52px; align-items: center; justify-content: center; gap: 8px; border-radius: 14px; background: #005bac; color: #ffffff; font-size: 15px; font-weight: 800;">依頼を送る</button>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { timing: 'エンディング', kind: 'おまかせ', toast: null }; }
+  chip(list, key, cur) {
+    const self = this;
+    return list.map((l) => ({ label: l, border: cur === l ? '#005bac' : '#e6e9ed', bg: cur === l ? '#f4faff' : '#ffffff', fg: cur === l ? '#005bac' : '#1a1d24', pick: () => { const s = {}; s[key] = l; self.setState(s); } }));
+  }
+  renderVals() {
+    const self = this; const st = this.state;
+    return {
+      timing: this.chip(['オープニング', 'ゲストトーク', '視聴者クイズ', 'ランキング', 'エンディング'], 'timing', st.timing),
+      kinds: this.chip(['おまかせ', 'ネーム', '題字', '一覧表', 'サイドスーパー', 'ティッカー'], 'kind', st.kind),
+      mine: [
+        { text: '高梨教授の肩書を「名誉教授」に直してください', meta: '9/5 18:24 ・ ゲストトーク', state: '未対応', bg: '#fff7ed', fg: '#c2410e' },
+        { text: '司会の肩書に「サイエンスナビゲーター」を', meta: '9/4 11:02 ・ オープニング', state: '一覧に入った', bg: '#e7f6ee', fg: '#197a4b' },
+      ],
+      hasToast: !!st.toast, toast: st.toast || '',
+      send: () => { self.setState({ toast: '依頼を送りました。一覧の「依頼」に入ります' }); clearTimeout(self._t); self._t = setTimeout(() => self.setState({ toast: null }), 2600); },
+    };
+  }
+}
+</script>
+</body>
+</html>

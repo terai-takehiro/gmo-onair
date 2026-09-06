@@ -36,6 +36,7 @@ export interface OpsReportItemInput {
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MONTH_RE = /^\d{4}-\d{2}$/;
 
 function assertDateStr(value: string, label: string): void {
   if (!DATE_RE.test(value) || Number.isNaN(new Date(`${value}T00:00:00Z`).getTime())) {
@@ -346,6 +347,83 @@ export const opsReportService = {
     );
     if (!report) return undefined;
     return { ...report, items: await this.getReportItems(report.id as string) };
+  },
+
+  /**
+   * 月ぶんの行を日付ごとにまとめて返す (デイリーニュース報告の月表示・migration 不要)。
+   *
+   * **1件も無い日は含まない** — その日のレポート自体が作られていないので、
+   * 空の見出しを出しても意味が無い（一覧の0件は「その月に無い」で表す）。
+   *
+   * ── 週報の確定状態は行ごとに計算する ─────────────────────────
+   *
+   * `sendItemToWeekly` と同じ規則（週はニュースの日付で決まる）で、月をまたぐと
+   * 行によって送り先の週が違う。ページ単位の1つの真偽値では表せないため、
+   * 月内で使う週ぶんだけまとめて1回引き、行ごとに `weekly_locked` を付ける。
+   */
+  async getReportItemsByMonth(kind: string, month: string): Promise<Record<string, unknown>[]> {
+    assertKind(kind);
+    if (!MONTH_RE.test(month) || Number(month.slice(5, 7)) < 1 || Number(month.slice(5, 7)) > 12) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'month は YYYY-MM 形式で指定してください');
+    }
+    const rows = await queryAll(
+      /*
+       * `i.*` ではなく列を明示する。`ops_report_items` 自身が `report_id`（`ops_reports`
+       * への FK）列を持つため、`i.*` を展開すると `r.id AS report_id` と名前が衝突し、
+       * 同じ結果セットに `report_id` が2つ並ぶ（値は結合条件により常に一致するので今は
+       * 実害が無いが、driver がフィールド名の重複をどちらの値で解決するかに依存する
+       * 危うい書き方になる — 結合条件が変わった日に気づきにくい形で壊れる）。
+       */
+      `SELECT r.id AS report_id, r.period_key, r.status, r.reviewed_at, r.reviewed_by,
+              i.id, i.category, i.content, i.note, i.url, i.ai_related, i.pick,
+              i.recorded_by, i.source, i.sort_order, i.source_item_id,
+              i.created_at, i.updated_at,
+              EXISTS (SELECT 1 FROM ops_report_items w
+                       WHERE w.source_item_id = i.id AND w.deleted_at IS NULL) AS sent_to_weekly
+         FROM ops_reports r
+         JOIN ops_report_items i ON i.report_id = r.id AND i.deleted_at IS NULL
+        WHERE r.kind = ? AND r.deleted_at IS NULL AND r.period_key LIKE ?
+        ORDER BY r.period_key DESC, i.sort_order ASC, i.created_at ASC`,
+      [kind, `${month}-%`],
+    );
+    if (!rows.length) return [];
+
+    const weekStarts = [...new Set(rows.map((r) => normalizeWeekStart(String(r.period_key))))];
+    const lockedWeeks = new Set<string>();
+    if (weekStarts.length) {
+      const weeklyRows = await queryAll(
+        `SELECT period_key FROM ops_reports
+          WHERE kind = 'weekly_activity' AND status = 'published' AND deleted_at IS NULL
+            AND period_key IN (${weekStarts.map(() => '?').join(',')})`,
+        weekStarts,
+      );
+      for (const w of weeklyRows) lockedWeeks.add(String(w.period_key));
+    }
+
+    const days = new Map<string, Record<string, unknown>>();
+    for (const row of rows) {
+      const periodKey = String(row.period_key);
+      if (!days.has(periodKey)) {
+        days.set(periodKey, {
+          report_id: row.report_id,
+          period_key: periodKey,
+          status: row.status,
+          reviewed_at: row.reviewed_at,
+          reviewed_by: row.reviewed_by,
+          items: [] as Record<string, unknown>[],
+        });
+      }
+      const { report_id: reportId, period_key: _periodKey, status: _status, reviewed_at: _reviewedAt, reviewed_by: _reviewedBy, ...item } = row;
+      (days.get(periodKey)!.items as Record<string, unknown>[]).push({
+        ...item,
+        // クライアントの `OpsReportItem` は `report_id` を持つ (どのレポートの行か)。
+        // SQL 側は `i.report_id` を選ばず（`r.id AS report_id` と列名が衝突するため）
+        // 結合元の `row.report_id`（＝この行の日の `report_id`）をそのまま使う。
+        report_id: reportId,
+        weekly_locked: lockedWeeks.has(normalizeWeekStart(periodKey)),
+      });
+    }
+    return [...days.values()];
   },
 
   /**

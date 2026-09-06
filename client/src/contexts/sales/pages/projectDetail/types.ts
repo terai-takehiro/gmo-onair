@@ -1,5 +1,5 @@
 import type { ProjectStage } from '@/types';
-import type { BusinessEntity } from '@gmo-onair/shared/src/keepReport/types';
+import type { LegalEntityCode } from '@/contexts/platform/pages/reorg/types';
 
 /** `GET /projects/:id` のうち、案件詳細が使う分だけ */
 export interface ProjectDetail {
@@ -9,6 +9,17 @@ export interface ProjectDetail {
   gls_category: 'A' | 'B' | null;
   name: string;
   stage: ProjectStage;
+  /**
+   * 計上会社（2026年10月の事業再編・`docs/reorg-2026-10-plan.md` §4.4）。
+   * `entity_source` は導出方法（`'rule'`＝自動導出／`'manual'`＝`sales:manager` が
+   * 上書き）・`entity_note` はその理由。**3つとも `getById` の `SELECT p.*` が
+   * すでに返している**（サーバー側の型・応答の絞り込みは無い）。
+   */
+  entity_code: LegalEntityCode | null;
+  entity_source?: 'rule' | 'manual' | null;
+  entity_note?: string | null;
+  /** 隔週キープの資料に案件ページとして載せる印（ヨミ表の「資料」チェックと同じ値） */
+  keep_pick?: boolean | null;
   project_type: string | null;
   /**
    * 案件分類の2段（migration 182）。**旧 `project_type` と併存**しており、
@@ -67,15 +78,6 @@ export interface ProjectDetail {
    * この値で決まる。**読むだけの固定表示** — 直す画面は取引先マスターへ送る
    */
   customer_type?: 'internal' | 'external' | string | null;
-  /**
-   * 事業主体（migration 282・隔週キープの主体別の収支）。お客様の区分から自動で
-   * 決まり、`entity_manual` が立っている案件だけ人が上書きしたもの。**読むだけ** —
-   * 直すのは案件を直す画面の「事業主体」の欄
-   */
-  entity?: BusinessEntity | null;
-  entity_manual?: boolean | null;
-  /** 隔週キープの資料に案件ページとして載せる印（ヨミ表の「資料」チェックと同じ値） */
-  keep_pick?: boolean | null;
   /**
    * 健全性・スヌーズ（`project-health.ts` 単一定義）。DetailHeader.tsx はこれを
    * 自前の `useQuery` で二重に持たず、ここ（ProjectDetailPage が既に読んでいる分）

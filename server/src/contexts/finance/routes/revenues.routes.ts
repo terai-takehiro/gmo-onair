@@ -13,13 +13,19 @@ import { fileFinanceDocToBox, applyDocBoxHeaders, docBoxSkipped } from '../../..
 import { generateCsv, csvResponse } from '../../../shared/utils/csv-export';
 import { buildExcelWorkbook, excelResponse } from '../../../shared/utils/excel';
 import { buildRevenueWhere, buildRevenueOrder } from '../list-query';
+import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 import { taxBillingSuffix, normalizeTaxCategory, TAX_RATE_LABELS, toIncludedAmount } from '../../../shared/services/tax-category.service';
 import { loadRevenueItemCarryover } from '../services/revenue-item-carryover.service';
 import { BILLING_STATE_SQL } from '../../../shared/services/billing-state';
 import { assertCustomerCompanyId } from '../../../shared/services/company-directory.service';
 import { assignInvoiceNumbers } from '../services/invoice-number.service';
+import { resolveIssuer, getLegalEntity, isProjectCostCenter } from '../../platform/services/legal-entity.service';
+import { assertNotIntercompanyLinked } from '../services/intercompany.service';
 
 const router = Router();
+
+/** 発行者名の解決に使う「今日」（計上日等が未入力の行のフォールバック）。 */
+const todayISO = (): string => new Date().toISOString().slice(0, 10);
 
 /**
  * 帳票 PDF だけ全体のゲートより前に置いています。
@@ -41,7 +47,7 @@ router.get('/:id/pdf',
   async (req, res, next) => {
   try {
     const row = await queryOne(
-      `SELECT r.*, p.name as project_name, p.gls_number, e.episode_code,
+      `SELECT r.*, r.entity_code, p.name as project_name, p.gls_number, e.episode_code,
               p.event_start as project_start, p.event_end as project_end,
               c.name as customer_name,
               c.address as customer_address,
@@ -65,8 +71,13 @@ router.get('/:id/pdf',
       : typeParam === 'inspection' ? 'inspection'
       : (row.status || 'confirmed');
 
+    // 発行者は行の計上会社（`entity_code`）から解決する。日付は計上日基準
+    // （見積・検収では入っていないことがあるので、無ければ今日で代用）
+    const issuer = await resolveIssuer(row.entity_code, row.recognition_date ?? todayISO());
+
     const pdfBuffer = await generateEstimatePdf({
       billing_key: row.billing_key,
+      issuer,
       subtitle: row.subtitle,
       customer_name: row.customer_name || '',
       customer_address: row.customer_address || null,
@@ -159,6 +170,13 @@ router.use(requireAuth, requirePermission('sales'));
 router.get('/', async (req, res) => {
   const { page, limit, offset } = extractPagination(req);
   const projectId = req.query.project_id as string;
+  // 2026年10月の事業再編（P2 Round 1・docs/reorg-2026-10-plan.md §4.5・§4.6）:
+  // 会社（entity_code）で絞れるようにした。**省略時は絞らない＝今までどおり全社ぶん**
+  // （`finance/index.ts` の `/monthly-summary` と同じ判断）
+  const entityCode = req.query.entity_code as string | undefined;
+  if (entityCode && !(await getLegalEntity(entityCode))) {
+    throw new AppError(400, 'VALIDATION_ERROR', '不正な計上会社です');
+  }
   const { where, params } = buildRevenueWhere(req.query);
   const orderBy = buildRevenueOrder(req.query);
 
@@ -172,11 +190,13 @@ router.get('/', async (req, res) => {
   const allocCol = projectId ? ', ra.allocated_amount, pg.name as group_name' : '';
 
   const rows = await queryAll(
-    `SELECT r.*, p.name as project_name, p.gls_number, p.project_type, p.event_end, c.name as customer_name, e.episode_code${allocCol}
+    `SELECT r.*, p.name as project_name, p.gls_number, p.project_type, p.event_end, c.name as customer_name, e.episode_code,
+            (il.id IS NOT NULL) AS is_intercompany${allocCol}
      FROM revenues r
      LEFT JOIN projects p ON p.id = r.project_id
      LEFT JOIN companies c ON c.id = r.customer_id
      LEFT JOIN episodes e ON e.id = r.episode_id
+     LEFT JOIN intercompany_links il ON il.revenue_id = r.id
      ${allocJoin}
      ${projectId ? 'LEFT JOIN project_groups pg ON pg.id = r.group_id' : ''}
      ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
@@ -318,7 +338,7 @@ router.get('/export', requirePermission('sales', 'exporter'), async (_req, res) 
 
 // 売上詳細（明細行つき）
 router.get('/:id', async (req, res) => {
-  const row = await queryOne(`SELECT r.*, p.name as project_name, p.gls_number, p.project_type, p.event_end, c.name as customer_name, e.episode_code FROM revenues r LEFT JOIN projects p ON p.id = r.project_id LEFT JOIN companies c ON c.id = r.customer_id LEFT JOIN episodes e ON e.id = r.episode_id WHERE r.id = ? AND r.deleted_at IS NULL`, [req.params.id]) as any;
+  const row = await queryOne(`SELECT r.*, p.name as project_name, p.gls_number, p.project_type, p.event_end, c.name as customer_name, e.episode_code, (il.id IS NOT NULL) AS is_intercompany FROM revenues r LEFT JOIN projects p ON p.id = r.project_id LEFT JOIN companies c ON c.id = r.customer_id LEFT JOIN episodes e ON e.id = r.episode_id LEFT JOIN intercompany_links il ON il.revenue_id = r.id WHERE r.id = ? AND r.deleted_at IS NULL`, [req.params.id]) as any;
   if (!row) throw new AppError(404, 'NOT_FOUND', '売上が見つかりません');
 
   const items = await queryAll('SELECT * FROM revenue_items WHERE revenue_id = ? ORDER BY sort_order', [req.params.id]);
@@ -455,6 +475,13 @@ router.get('/:id/excel', async (req, res, next) => {
 router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
   const { project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle, status: reqStatus, is_advance_payment, invoice_issued } = req.body;
   if (!project_id || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件と顧客は必須です');
+  // 2026年10月の事業再編・P3（§4.7）: コストセンター（GMO）の案件には
+  // 新規の売上を登録させない（仕入・予算対実績は引き続き開いたまま）。
+  // `org_transition.state='off'`／未改番のあいだは常に false（下記コメント参照）
+  if (await isProjectCostCenter(project_id)) {
+    throw new AppError(409, 'NO_REVENUE_ENTITY',
+      'この案件の計上会社は売上を持ちません（コストセンター）。仕入として登録してください');
+  }
   // `customer_id` は companies.id（Phase 3-2a）を直接指すため、DB の FK は
   // 「顧客ロールの会社か」を保証しない（レビュー指摘・PR #199 P2 の2巡目）
   await assertCustomerCompanyId(customer_id);
@@ -502,7 +529,9 @@ router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
    * **人が入れた期日は上書きしません**（渡ってきたらそちらが勝つ）。
    * 埋めるのは**空のときだけ**です。
    */
-  const dueDate = payment_due_date || await computeDueDate(recognition_date, customer_id);
+  // entity_code は下の INSERT が書く値（CURRENT_ENTITY_CODE）と揃える —
+  // 違う会社のお金のルールで期日を出すと、その行自身の計上会社と食い違う
+  const dueDate = payment_due_date || await computeDueDate(recognition_date, customer_id, CURRENT_ENTITY_CODE);
 
   // 本体 + 明細 + 案件想定金額の同期を単一トランザクションで実行 (途中失敗で明細が
   // 半端に残らないように)
@@ -540,8 +569,8 @@ router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
       billing_key = `${base}-${seqNum}-${taxSuffix}`;
     }
 
-    await tx.execute(`INSERT INTO revenues (id, billing_key, project_id, customer_id, episode_id, assigned_to, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, subtitle, status, is_advance_payment, invoice_issued, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, billing_key, project_id, customer_id, episode_id || null, req.user!.id, tax_category || 'tax10', finalAmount, recognition_date || null, billing_date || null, dueDate || null, notes || null, subtitle || null, revenueStatus, isAdvancePayment, invoiceIssued, req.user!.id]);
+    await tx.execute(`INSERT INTO revenues (id, billing_key, project_id, entity_code, customer_id, episode_id, assigned_to, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, subtitle, status, is_advance_payment, invoice_issued, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, billing_key, project_id, CURRENT_ENTITY_CODE, customer_id, episode_id || null, req.user!.id, tax_category || 'tax10', finalAmount, recognition_date || null, billing_date || null, dueDate || null, notes || null, subtitle || null, revenueStatus, isAdvancePayment, invoiceIssued, req.user!.id]);
 
     // 明細行を保存
     if (Array.isArray(items)) {
@@ -591,6 +620,9 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
     throw new AppError(400, 'REVENUE_IN_ALLOCATION_GROUP',
       'この売上は配分グループに入っています。費用を分け合うグループの画面（案件管理 > 費用を分け合うグループ）から編集してください');
   }
+  // 社内取引（§4.12・P2 Round 2）の売上はこの口では触らない——片方だけ直すと
+  // 仕入側と食い違う。直すのは `PUT /intercompany/:id` から
+  await assertNotIntercompanyLinked('revenue', req.params.id as string);
   // 請求キーはサーバーが組み立てる値なので、`req.body.billing_key` は受け取らない
   // (下の `finalBillingKey` が `existing.billing_key` から作る。取り出すだけで使っていなかった)
   const { project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle, is_advance_payment, invoice_issued } = req.body;
@@ -599,6 +631,12 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   // 画面は他の項目を直すときも今の customer_id を送り直すので、変化の有無を見ないと
   // あとから顧客ロールを外された会社の売上は無関係な直しまで止まってしまう
   if (customer_id && customer_id !== existing.customer_id) await assertCustomerCompanyId(customer_id);
+  // 案件を付け替えるときだけ確かめる（同じ判断・上のコメント参照）。
+  // 2026年10月の事業再編・P3（§4.7）: コストセンター（GMO）の案件へは付け替えさせない
+  if (project_id && project_id !== existing.project_id && await isProjectCostCenter(project_id)) {
+    throw new AppError(409, 'NO_REVENUE_ENTITY',
+      'この案件の計上会社は売上を持ちません（コストセンター）');
+  }
 
   // 税区分変更時はbilling_keyの末尾税枝番を更新
   let finalBillingKey = existing.billing_key;
@@ -706,6 +744,8 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
 
 // 売上削除
 router.delete('/:id', requirePermission('sales', 'manager'), async (req, res) => {
+  // 社内取引（§4.12・P2 Round 2）の売上は単独で消せない——`DELETE /intercompany/:id` から
+  await assertNotIntercompanyLinked('revenue', req.params.id as string);
   await execute(`UPDATE revenues SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`, [req.user!.id, req.params.id]);
   res.json({ success: true, message: '削除しました' });
 });

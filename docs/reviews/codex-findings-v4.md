@@ -2278,6 +2278,84 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#605**（`feat(techops): テロップCG 段F（旧リアルタイムCGの畳み込み）を実行した`・2026-09-06）—
+  テロップCG再設計の最終段（旧`client-awards`の「移行中」→「廃止」）。サーバーの配信・API・
+  Socket.IO・ビルド対象を撤去し、`shared/src/client/apps.ts`のコメント・PRテンプレートの
+  記述も揃えた。**#578・#583・#585・#590・#596・#598・#600に続いていたCode Review未実行の
+  連鎖がここで途切れ、Codexが2巡ともCode Reviewを実行して3件の指摘を返した**
+  （🔒Security Reviewは1巡目のみでfindingsなし）。3件とも検証・修正しマージ前に解消:
+  ① **P1** `awards_entries.photo_url`が`/api/v1/internal/awards/images/...`という
+  絶対パスを値としてそのまま持ち、テロップCGの過去実績移行ツールがこの文字列を書き換えずに
+  `RankingEntry.photoUrl`へコピーするため、`createAwardsRoutes()`をまるごと外すと
+  既に移行済み・今後移行するランキングの顔写真が全て欠ける指摘。`images.routes.ts`を
+  読み取り専用の`imageServingRouter`と書き込み系（顔写真アップロード・ZIP一括）に分離し、
+  前者だけ`createAwardsImageRoutes()`経由で残した（`ff47636`）。② **P2**
+  `.github/workflows/preview.yml`がプレビューデプロイのたびに廃止済みの`/awards/`を
+  リンクとして出し続けていた指摘。行を削除（`ff47636`）。③ **P2** `searchFeatures.ts`の
+  APPS走査が`hidden`は見るが`frozen`を見ておらず、⌘K検索に廃止済みアプリが死んだリンクとして
+  残っていた指摘。`visibleApps()`の既定と同じく`frozen`も除外するよう1行追加（`875f082`）。
+  いずれも実サーバー（`verify:up`）で修正前後の挙動差を実測してから返信・スレッド解決した。
+  changelog は [docs/changelog.d/claude-telop-cg-stage-f-retire-awards.md](../changelog.d/claude-telop-cg-stage-f-retire-awards.md)。
+  **未検証で残したもの**: `npm run build`（テロップCG以外の全クライアントのフルビルド）、
+  実ブラウザでのPC/スマホ確認、権限別403の画面確認（本PRはUI変更なし・サーバー配線と
+  ドキュメントのみのため相対的に優先度は低いと判断）。
+
+- **#600**（`feat(techops): テロップCG をゼロベースで再設計した（段A〜E）`・2026-09-06）—
+  テロップCGの機能とUI/UXをゼロベースで再設計し、段A〜E（設計で定めた実装段の全て）を
+  1本のPRにまとめて実装した回（段B〜Eはマルチエージェントのワークフローで実装・検証。
+  詳細は [docs/design/v4/graphics-redesign.md](../design/v4/graphics-redesign.md) §11
+  「段A 実装メモ」〜「段E 実装メモ」・changelog は
+  [docs/changelog.d/claude-telop-cg-redesign-e4bwep.md](../changelog.d/claude-telop-cg-redesign-e4bwep.md)）。
+  作成14:42:45Z → CI green 15:04:41〜15:05:04Z（作成から約22分。作成直後に本物の
+  マージコンフリクトを検出・解消し、途中でCIが1周走っている）→ terai-takehiro 本人が
+  マージ15:06:29Z（CI greenから約1分半）。**`get_reviews` 0件**（API で直接確認。
+  `npm run reviews:debt` はこの環境のトークンでは401）。📝 Code Review は
+  **usage limits で一度も実行されず**（PRコメントで明示）、🔒 Security Review だけが
+  実行され **findings なし**（コメントの状態が"Completed"になっただけで、指摘コメントは
+  投稿されなかった）。**#578・#583・#585・#590・#596・#598 に続いて Code Review が
+  届かない回が連続している。** 通っているのは Security 観点だけなので「指摘なし」ではない。
+  **表に移す Codex指摘はない**（レビュー自体が届いていないため）。
+  ⚠️ **このPR自身のマージ作業中に、`main`との合流で実際のコンフリクトとマイグレーション
+  番号衝突を両方踏んだ**（#512・#570/#569 と同型の「並行開発でぶつかる」パターン）:
+  ① `nav.ts`・`GraphicsHubPage.tsx`・`PartLibraryPage.tsx` の3ファイルで本物の
+  マージコンフリクトが発生（`main`側の別PRが左メニューの階層化・用語統一・部品ライブラリ
+  削除ファイルの編集を並行して行っていたため）。手動で解消し、tsc・lint・test・build・
+  migration適用を再検証してからpush。
+  ② `main`が別PRで先に`280`・`281`番を使っており（`280_schedule_item_span_cols.sql`・
+  `281_finance_doc_chain.sql`）、テロップCG側の同番号2本と衝突した
+  （`check-migration-numbers.mjs`が検出）。新しく足した側（このブランチ）を`282`・`283`へ
+  改番し、コード内コメント・設計書・changelogの参照も揃えた。
+  **未検証で残したもの**（各段の実装メモに一貫して明記済み）: 実機（物理デバイス）での
+  タップ操作、権限のない利用者での403の**画面レベル**確認（段Eの新規APIについては
+  curlでのAPIレベル確認は実施済み）、1行に複数のテロップ列がある台本のケース、
+  vote・score・ranking種類の行内操作の実ブラウザ確認（seedデータに存在しないためコード
+  レビューのみ）。
+
+- **#598**（`fix(skills,server): メール仕分けの枠が GitHub 通知に食い潰される問題と、本番・検証の MCP が同名を名乗る問題を直した`・2026-09-06）—
+  ⚠️ **📝 Code Review は Codex の usage limits で一度も実行されず**
+  （「You have reached your Codex usage limits for code reviews」と明示的に返答）、
+  🔒 Security Review だけが `25b857d` で完了し **findings なし**。
+  `get_reviews`・`get_review_comments` とも0件を API で確認（`npm run reviews:debt` は401）。
+  **#590・#595・#596 に続いて4本連続で Code Review が届いていない。**
+  通っているのは Security 観点だけなので「指摘なし」ではない。
+  0件だったことは[PR のコメント](https://github.com/terai-takehiro/gmo-onair/pull/598#issuecomment-5559617825)にも残した。
+  **表に移す指摘はない**（レビュー自体が届いていないため）。
+  CI green（`checks` 13:39:54Z / `build` 13:41:07Z）から**約9分後**に terai-takehiro 本人がマージ。
+  **この PR で見つけたものは自分の実測**（ルーティンの検索式を実メールに当てた）で、
+  内訳は下表。全文は
+  [docs/reviews/2026-09-06-mail-intake-taxonomy.md](2026-09-06-mail-intake-taxonomy.md) の「6. 試験実行」。
+  **未検証で残したもの**: 実ブラウザでの確認・`npm run verify:ui`・
+  **検証環境での実際のメール取り込み**（`gmo-onair-dev` のコネクタを繋いでから）。
+
+  | 重み | どこ | 何が起きるか | 状態 |
+  | --- | --- | --- | --- |
+  | **P1** | `mcp/server.ts` | **本番と検証の MCP が両方とも `gmo-onair` と名乗っていた**。コネクタを2本つなぐと見分けが付かず、**検証のつもりで本番に書ける**（今回この会話のコネクタが本番だと気づけたのは `list_users` が実在の社員を返したからで、名前からは分からなかった） | ⭕️ #598（検証は `gmo-onair-dev`・`instructions` にも環境と行き先を書く。`shared/tests/mcpEnvName.test.ts` が固定） |
+  | **P1** | `mail-intake/SKILL.md` | **1回30通の枠が GitHub の通知だけで尽きる**。3日窓201スレッドのうち新しい順40件で `notifications@github.com` が33件・`dmarc-report@` が2件（87.5%）。決定表 #1 は「拾ってから捨てる」なのでラベルでは間に合わない（印を付けても翌日また同じだけ届く）＝**その裏の請求書に永遠に届かない** | ⭕️ #598（検索式に `-from:` を4つ。**201 → 54**） |
+  | **P1** | `mail-intake/SKILL.md` | **「古いものから30通」が実行できない** — `search_threads` は新しい順にしか返さない。しかも古い順だと**その日届いた請求書が後回し** | ⭕️ #598（新しいものから30通） |
+  | **P1** | `mail-intake/SKILL.md` | **検索結果の抜粋は「いちばん古い5通」**（切れている印も出ない）。6月に始まって今日返信が来たスレッドを**6月の本文で仕分ける**（実測2件） | ⭕️ #598（判断は `get_thread` の最新メッセージで・3か所に明記） |
+  | P2 | `mail-intake/references/decision-table.md` | 社内メーリス経由の通知（54件中12件）が #12「残り」に落ち、**`record_inquiry` に大量に入る**（拾いすぎ） | ⭕️ #598（#1b を追加） |
+
+
 - **#596**（`fix(daily): PR #595 のレビュー棚卸しと、レビューが届かなかったぶんの自己修正4件`・2026-09-06）—
   #595 の棚卸し（下の表19件）を記録し、**Codex が読めなかった2コミット
   （`5482aec` / `05d00b4`）を自分で読み直して4件直した**回。
@@ -2923,6 +3001,29 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   （`x-user-id: v-none`で403・`v-admin`/`v-keiri`で200・未認証で401）まで実施できている。
   **意図して残した未検証事項**: 実DBへの書き込み→読み直しの往復確認（スタイル統一のみで
   ロジック変更を伴わないため）・権限別403の画面レベルでの目視確認（APIレベルでのみ確認）。
+
+- **#599**（`feat(reorg): 2026年10月の事業再編（計上会社の2社化・案件番号の改番）の基盤を実装`・
+  2026-09-06）— P0〜P1残作業（`docs/reorg-2026-10-plan.md`）を1本のPRにまとめて出した回
+  （ユーザーからの明示的な依頼で、複数ラウンドをマルチエージェントで並行実装したうえで
+  作成・監視・マージまで実施）。⚠️ **Codexのコードレビューは一度も走らず**（`You have reached
+  your Codex usage limits for code reviews.`・#570/#574/#581/#592-594と同じ落ち方）、
+  **セキュリティレビューだけが完走し指摘0**（`cdba46a`・14:43完了。以後のpush 2回では
+  再レビュー自体が走っていない）。`get_review_comments`は0件・`get_comments`は上記の
+  bot通知2件のみで新規の指摘なし。`npm run reviews:debt`はこの環境のトークンでは401
+  （過去と同じ）のためAPIで直接確認した。**レビューが実質0件のままマージされた**。
+  ⚠️ **`main`との統合で自分で見つけて直した実害バグ3件**（Codexではなく衝突解消・検証中に
+  発見）:
+  ①`doc-handoff.service.ts`——こちらのentity_code配線が`main`側の「束から既定値を引く」
+  派生値（`recognitionDate`/`paymentDue`等）を上書きしていた実装当時のバグ
+  ②新設した改番対象一覧API（`GET /org-transition/renumber-candidates`）が当初
+  `requireAuth`のみで、お客様名・請求状況・主担当まで認証済みなら誰でも読めた権限漏れ
+  ③マイグレーション番号の改番で依存順序が壊れ（`entity_code`列を足す前に`NOT NULL`化を
+  実行しようとして`column "entity_code" does not exist`）、検証DB再構築で発見。
+  さらに`main`側の別PR（テロップCG再設計）と番号が再度衝突し、都合2回改番した
+  （最終的に7本が284〜290番。詳細は`docs/reorg-2026-10-plan.md` §13・§12）。
+  **意図して残した未検証事項**（PR本文に明記済み）: 実ブラウザでの通し確認はP3
+  （GMOコストセンター）のみで他の段はHTTPレベル確認どまり・権限別403確認も主要な
+  ものだけで45コミット・141ファイル全数の網羅ではない。
 
 - **#592/#593/#594**（プロジェクト管理（GPM）を案件管理のUIフォーマットに揃える・2026-09-06）—
   「PR #574（提案・モックアップのみ）が反映されていない」というご指摘を受け、

@@ -36,6 +36,7 @@ import { localDateStr, formatShortDate } from '@/lib/format';
 import { GlsNumberField } from './glsGuide';
 import { classificationText } from './classificationText';
 import { channelLabel } from '../projectList/intake';
+import { ENTITY_BADGE_LABEL } from '../projectList/stages';
 import { AiReviewBanner } from './AiReviewBanner';
 import { ThreadDigest } from './ThreadDigest';
 import { nextActionLine, parseNextAction } from './thread/nextAction';
@@ -267,6 +268,10 @@ export function OverviewTab({
           <Field label="どこから来た話か">{channelLabel(project.intake_channel) === '—' ? null : channelLabel(project.intake_channel)}</Field>
           <Field label="GLS 番号">
             <GlsNumberField glsNumber={project.gls_number} stage={project.stage} />
+          </Field>
+          {/* 計上会社（2026年10月の事業再編）。未導出（null）は `Field` 既定の「—」に任せる */}
+          <Field label="計上会社">
+            {project.entity_code ? ENTITY_BADGE_LABEL[project.entity_code] : null}
           </Field>
           <Field label="社内コード">{project.code}</Field>
           {/*

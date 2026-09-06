@@ -26,7 +26,7 @@
  * 「幅が寸法表の段に乗っているか」を固定しています。
  */
 import type { ProjectStage } from '@/types';
-import type { BusinessEntity } from '@gmo-onair/shared/src/keepReport/types';
+import type { LegalEntityCode } from '@/contexts/platform/pages/reorg/types';
 
 /** 列の鍵。**`COL_DEFS` から導く**（2か所に書くと必ずずれる） */
 export type LedgerColKey = (typeof COL_DEFS)[number]['key'];
@@ -86,14 +86,14 @@ export const COL_DEFS = [
   { key: 'name', label: '案件名', default: true, width: 240, sort: 'name' },
   { key: 'customer_name', label: 'お客様', default: true, width: 160, sort: 'customer' },
   { key: 'contact_name', label: 'ご担当', default: false, width: 128 },
-  /**
-   * 事業主体（migration 282・隔週キープの主体別の収支）。**既定では出さない**
-   * （継続区分と同じ扱い — 毎日見る列ではない）。160 は
-   * 「GMOサムライコンテンツスタジオ」（14字）が切れずに入る段
-   */
-  { key: 'entity', label: '事業主体', default: false, width: 160 },
   { key: 'stage', label: 'ステージ', default: true, width: 96, sort: 'stage' },
   { key: 'gls_category', label: 'GLS分類', default: false, width: 72 },
+  /**
+   * 計上会社（2026年10月の事業再編・`docs/reorg-2026-10-plan.md` §4.4）。
+   * `gls_category` と同じ「短い分類コード」の並びに置く。**既定では出さない**
+   * （`default: false`）——切替前は全案件が同じ会社で、出しても意味が無い列が増えるだけ。
+   */
+  { key: 'entity_code', label: '計上会社', default: false, width: 96 },
   { key: 'classification', label: '案件分類', default: true, width: 128 },
   { key: 'recurrence', label: '回のある案件か', default: false, width: 128 },
   { key: 'event_start', label: '実施日', default: true, width: 128, sort: 'event_start' },
@@ -129,13 +129,12 @@ export interface LedgerRow {
   code: string | null;
   gls_number: string | null;
   gls_category: 'A' | 'B' | null;
+  /** 計上会社（2026年10月の事業再編・`docs/reorg-2026-10-plan.md` §4.4） */
+  entity_code: LegalEntityCode | null;
   name: string;
   customer_name: string | null;
   customer_id: string | null;
   contact_name: string | null;
-  /** 事業主体（migration 282）。古い一覧の応答には無いこともあるので省略可 */
-  entity?: BusinessEntity | null;
-  entity_manual?: boolean | null;
   stage: ProjectStage;
   audience: string | null;
   project_category: string | null;

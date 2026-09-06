@@ -16,6 +16,8 @@ export interface TopItem {
   next_date: string | null;
   /** 最後の回・実施日。アーカイブ判定（「最後の回の翌日」）に使う */
   last_date: string | null;
+  /** 改番で退役した旧番号（例 GLS-A012）。無ければ空配列。検索で旧番号にも当てるため（§4.10） */
+  retired_numbers: string[];
 }
 
 export async function listTopItems(): Promise<TopItem[]> {
