@@ -73,7 +73,10 @@ export function EditProjectDialog({
         gpm_kind: kind,
         stage: project.stage,
         customer_id: project.customer_id,
-        pm_company: pmCompany.trim() || null,
+        // 自社構築は PM会社という概念自体が無い（KindField の分岐と同じ）。
+        // 欄を隠している間に入力欄経由で直せなくなるので、送るときに正規化する
+        // （既存データに自社構築のまま PM会社が入っている行があっても、次の保存で消える）
+        pm_company: kind === 'group_order' ? (pmCompany.trim() || null) : null,
         assigned_to: pmUserId || null,
         started_on: startedOn || null,
         ends_on: endsOn || null,
