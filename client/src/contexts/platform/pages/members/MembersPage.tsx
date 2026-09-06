@@ -81,7 +81,7 @@ export default function MembersPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] });
       qc.invalidateQueries({ queryKey: ['permission-roles'] });
-      notifySuccess('メンバーを消しました');
+      notifySuccess('メンバーを削除しました');
     },
     onError: (e) => notifyApiError('消せませんでした', e),
   });
@@ -107,7 +107,7 @@ export default function MembersPage() {
         sub="権限は人ではなく役割に付けます。役割をあてると、その人の権限がまとめて書き換わります。"
         primaryAction={
           <Button onClick={() => setUserDialog({ open: true, user: null })}>
-            <UserPlus className="mr-1.5 h-4 w-4" aria-hidden="true" />メンバーを招く
+            <UserPlus className="mr-1.5 h-4 w-4" aria-hidden="true" />メンバーを招待
           </Button>
         }
       />
@@ -230,7 +230,7 @@ export default function MembersPage() {
                 <EmptyState
                   icon={<Users className="h-6 w-6" aria-hidden="true" />}
                   title="この役割の人はまだいません"
-                  description="メンバーを招くとき、または一覧の「編集」から役割を変えられます。"
+                  description="メンバーを招待するとき、または一覧の「編集」から役割を変えられます。"
                 />
               ) : (
                 <>

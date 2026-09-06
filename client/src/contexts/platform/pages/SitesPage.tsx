@@ -86,7 +86,7 @@ export default function SitesPage() {
           （案件詳細の「会場・スタジオ」など）で正式名の代わりに出ます
           — 「GMOサムライスタジオ用賀」→「<strong className="font-bold">用賀 WORLD STUDIO</strong>」。
           決めていない拠点は<strong className="font-bold">部屋名だけ</strong>になります。
-          {!canEdit && <>直せるのは<strong className="font-bold">管理者</strong>だけです。</>}
+          {!canEdit && <>編集できるのは<strong className="font-bold">管理者</strong>だけです。</>}
         </span>
       </p>
 

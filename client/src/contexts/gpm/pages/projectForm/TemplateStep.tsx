@@ -42,15 +42,15 @@ export function TemplateStep({ templates, loading, value, onChange }: TemplateSt
   return (
     <div className="rounded-card border border-border bg-card p-4 lg:p-5">
       <p className="text-note mb-3 text-muted-foreground">
-        近いひな形を選ぶと、工程とタスクがそのまま入ります。入れたあとは自由に直せます。
+        近い工程テンプレートを選ぶと、工程とタスクがそのまま入ります。入れたあとは自由に編集できます。
         <br />
-        写したあとにひな形のほうを直しても、このプロジェクトは変わりません。
+        写したあとに工程テンプレートのほうを直しても、このプロジェクトは変わりません。
       </p>
 
       <div className="space-y-2.5">
         <Option
           on={value === ''}
-          title="ひな形を使わない"
+          title="工程テンプレートを使わない"
           sub="工程はあとから足します。何を作るか決まっていないときはこちら"
           onClick={() => onChange('')}
         />

@@ -157,7 +157,7 @@ export default function InviewPage() {
       </PageHeader>
 
       {/*
-        全部の回をまたぐ検索 — 受付で「どの回か分からない人」を探す入口。
+        全部の回をまたぐ検索 — 受付で「どの回か分からない人」を検索入口。
 
         **スマホでは枠と説明を畳みます**（M8）。390px で実測すると、
         カード枠 ＋ 4行の説明で **約 250px** を使い、名簿に着く前に
@@ -169,7 +169,7 @@ export default function InviewPage() {
           search={{
             value: query,
             onChange: setQuery,
-            placeholder: '氏名・会社名・電話で探す',
+            placeholder: '氏名・会社名・電話で検索',
             label: '来場者を検索',
           }}
           activeCount={(scope === 'all' ? 0 : 1) + (dateAsc ? 1 : 0)}
@@ -377,7 +377,7 @@ function SearchHits({
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sub text-muted-foreground">
-        「{query}」に当てはまる来場予約 <span className="font-number font-bold text-foreground">{hits.length}</span> 件
+        「{query}」に一致する来場予約 <span className="font-number font-bold text-foreground">{hits.length}</span> 件
       </p>
       {hits.map(({ r, matchedIn }) => (
         <div key={r.id} className="flex flex-col gap-1">

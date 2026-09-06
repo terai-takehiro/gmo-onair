@@ -74,7 +74,7 @@ export function ClosedDayDialog({ day, locationId, locationName, open, onOpenCha
     })).data.data,
     onSuccess: (d: { affected: Affected[] }) => {
       qc.invalidateQueries({ queryKey: ['business-hours'] });
-      notifySuccess(day ? '休業日を直しました' : '休業日を足しました', {
+      notifySuccess(day ? '休業日を編集しました' : '休業日を追加しました', {
         description: d.affected?.length
           ? `この期間に予約が ${d.affected.length} 件あります。消していないので、動かす必要があるものは個別に連絡してください。`
           : undefined,

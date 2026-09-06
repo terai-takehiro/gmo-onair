@@ -196,10 +196,10 @@ export default function SchedulePage() {
         <h1 className="text-lg font-semibold text-foreground">{schedule.service_date} {schedule.title}</h1>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" className="min-h-[44px]" onClick={() => setApplyOpen(true)}>
-            <LayoutTemplate className="mr-1 h-4 w-4" />ひな形を適用
+            <LayoutTemplate className="mr-1 h-4 w-4" />工程テンプレートを適用
           </Button>
           <Button variant="outline" size="sm" className="min-h-[44px]" onClick={() => setAiOpen(true)}>
-            <Sparkles className="mr-1 h-4 w-4" />AIで枠を作る
+            <Sparkles className="mr-1 h-4 w-4" />AIで枠を作成
           </Button>
           <Button variant="outline" size="sm" className="min-h-[44px]" onClick={handleExport}>
             <Download className="mr-1 h-4 w-4" />Excel

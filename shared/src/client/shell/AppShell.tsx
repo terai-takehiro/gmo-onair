@@ -182,7 +182,7 @@ export function AppShell({
           <PrimaryActionSlotContext.Provider value={actionSlot}>
             <SideMenuTopSlotContext.Provider value={sideMenuTopSlot}>
               {/* **鍵は「画面」までで、クエリは含めない。** `?tab=` や `?page=`
-                  まで鍵にすると、絞り込みを押すたびに画面ぜんぶが動いて酔う */}
+                  まで鍵にすると、絞り込みを押すたびに画面全体が動いて酔う */}
               <div key={pathname} className="v4-screen-in">
                 {children}
               </div>

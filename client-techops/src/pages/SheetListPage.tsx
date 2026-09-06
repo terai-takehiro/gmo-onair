@@ -253,7 +253,7 @@ export default function SheetListPage() {
             action={
               <Button onClick={() => setShowCreate(true)}>
                 <Plus className="h-4 w-4 mr-1" aria-hidden="true" />
-                最初の進行台本を作る
+                最初の進行台本を作成
               </Button>
             }
           />

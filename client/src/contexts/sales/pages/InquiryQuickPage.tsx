@@ -182,7 +182,7 @@ export default function InquiryQuickPage() {
         onClick={() => navigate('/sales/projects/new')}
         className="min-h-tap text-sub self-start text-primary underline lg:min-h-0"
       >
-        案件作成をひらく
+        案件作成を開く
       </button>
     </div>
   );

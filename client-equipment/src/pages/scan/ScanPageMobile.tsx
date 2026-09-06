@@ -87,7 +87,7 @@ export function ScanPageMobile({
           aria-expanded={manualOpen}
         >
           <Keyboard className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-          <span className="text-cardtitle flex-1">ID を打つ</span>
+          <span className="text-cardtitle flex-1">機材IDを入力</span>
           <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', manualOpen && 'rotate-180')} aria-hidden="true" />
         </button>
         {manualOpen && (
@@ -124,7 +124,7 @@ export function ScanPageMobile({
           onClick={() => setTipsOpen((v) => !v)}
           aria-expanded={tipsOpen}
         >
-          <span className="text-sub flex-1 text-foreground">使いかた</span>
+          <span className="text-sub flex-1 text-foreground">使い方</span>
           <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', tipsOpen && 'rotate-180')} aria-hidden="true" />
         </button>
         {tipsOpen && (
@@ -132,7 +132,7 @@ export function ScanPageMobile({
             <ol className="list-decimal space-y-1 pl-5 text-note text-secondary-foreground">
               <li>機材の詳細から「QRコードを印刷」でシールを作って貼る</li>
               <li>この画面で「カメラで読む」→ QR にかざす → 機材の詳細が開く</li>
-              <li>QR が読めないときは ID を打つ</li>
+              <li>QR が読めないときは 機材IDを入力</li>
             </ol>
             <p className="mt-2 text-note text-secondary-foreground">
               読んだものは下に残ります。

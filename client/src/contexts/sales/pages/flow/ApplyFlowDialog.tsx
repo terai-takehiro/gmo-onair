@@ -126,7 +126,7 @@ export function ApplyFlowDialog({
       notifySuccess(`${chosen.length} 件の作業を入れました`, {
         description: noDue > 0
           ? `うち ${noDue} 件は実施日が決まっていないので期限なしです。実施日を入れたあとタスクタブで入れてください。`
-          : 'タスクタブから担当と期限を直せます。',
+          : 'タスクタブから担当と期限を編集できます。',
       });
     },
     onError: (e) => notifyApiError('入れられませんでした', e),
@@ -136,7 +136,7 @@ export function ApplyFlowDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="工程の型を入れる"
+      title="工程テンプレートを入れる"
       // **旧幅は sm:max-w-[720px] で既定の640pxを超えていた。**
       // 工程一覧の表・役割バッジが横に並ぶ複合ダイアログなので `wide` を渡す
       wide
@@ -163,13 +163,13 @@ export function ApplyFlowDialog({
           （<strong className="font-bold">選ばなければ未割当のまま</strong>）。
         </p>
 
-        {tpls.isError && <ErrorPanel title="工程の型を読み込めませんでした" error={tpls.error} onRetry={() => tpls.refetch()} />}
+        {tpls.isError && <ErrorPanel title="工程テンプレートを読み込めませんでした" error={tpls.error} onRetry={() => tpls.refetch()} />}
         {tpls.isLoading && <Delayed><SkeletonRows rows={5} /></Delayed>}
 
         {tpls.data && tpls.data.length === 0 && (
           <EmptyState
-            title="使える工程の型がありません"
-            description="設定 → 工程の型 で作ってから、もう一度お試しください。"
+            title="使える工程テンプレートがありません"
+            description="設定 → 工程テンプレート で作ってから、もう一度お試しください。"
           />
         )}
 
@@ -254,7 +254,7 @@ export function ApplyFlowDialog({
           <div className="rounded-card border border-border p-3.5">
             <p className="text-th text-muted-foreground">役割ごとの担当者（選ばなくても入れられます）</p>
             <p className="text-note mt-0.5 text-muted-foreground">
-              選んだ役割の作業にだけ担当が入ります。あとからタスクタブでも直せます。
+              選んだ役割の作業にだけ担当が入ります。あとからタスクタブでも編集できます。
             </p>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               {roles.map((role) => (

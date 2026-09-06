@@ -69,7 +69,7 @@ export default function KanbanCard({ task, projectId, episodeId, columnId }: Pro
             {...listeners}
             type="button"
             className="mt-0.5 shrink-0 cursor-grab active:cursor-grabbing p-0.5 rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            aria-label="ドラッグして並び替え"
+            aria-label="ドラッグして並べ替え"
           >
             <GripVertical className="h-3.5 w-3.5" />
           </button>
@@ -97,7 +97,7 @@ export default function KanbanCard({ task, projectId, episodeId, columnId }: Pro
               {task.is_ai_created && (
                 <span
                   className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 border border-violet-200 px-1.5 text-[10px] font-medium text-violet-700 h-4"
-                  title={task.ai_requested_by ? `AI が作りました (指示: ${task.ai_requested_by})` : "AI が作りました"}
+                  title={task.ai_requested_by ? `AI作成 (指示: ${task.ai_requested_by})` : "AI作成"}
                 >
                   <Sparkles className="h-2.5 w-2.5" />
                   AI作成

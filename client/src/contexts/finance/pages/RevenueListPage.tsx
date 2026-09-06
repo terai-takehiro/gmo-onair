@@ -228,7 +228,7 @@ export default function RevenueListPage() {
           // 入力欄の値は即時。**遅らせるのは問い合わせに渡す値だけ**（`appliedSearch`）
           value: search,
           onChange: (v) => { setSearch(v); reset(); },
-          placeholder: 'GLS番号・案件名・請求先で探す',
+          placeholder: 'GLS番号・案件名・請求先で検索',
         }}
         month={month}
         onMonth={(v) => { setMonth(v); reset(); }}
@@ -324,7 +324,7 @@ export default function RevenueListPage() {
             total={query.data?.total_amount ?? 0}
             hideTotals={isMobile}
             note={`請求の状態（未請求／発行済／入金済）はこの台帳では変えられません。請求書の発行と入金の記録は「見積・請求」だけで行い、ここは結果を映します。${
-              isMobile ? '行を押すと詳しい内容と「請求・入金をひらく」が出ます。' : '状態を押すとその画面に移ります。'
+              isMobile ? '行を押すと詳しい内容と「請求・入金を開く」が出ます。' : '状態を押すとその画面に移ります。'
             }`}
           />
 

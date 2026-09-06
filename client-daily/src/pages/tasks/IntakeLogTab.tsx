@@ -1,9 +1,9 @@
 /**
- * 書き留めたもの — 後から遡ってレビューする画面（`TasksPage` の4つ目のタブ）
+ * メモ履歴 — 後から遡ってレビューする画面（`TasksPage` の4つ目のタブ）
  *
  * **`TasksPage.tsx` から切り出したもの**（中身は移しただけ）。あの画面は
  * 1,000 行を超えていて、`scripts/check-file-size.mjs` が**足すことを止めます**
- * （「足すのではなく、分ける方向で直してください」）。ここは書き留めたものだけで
+ * （「足すのではなく、分ける方向で直してください」）。ここはメモ履歴だけで
  * 完結しており、ほかのタブと共有しているのは `tasksApi` の型と `formatDue` だけです。
  */
 import { useState } from 'react';
@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 import { useTaskIntakes, useTaskIntake, formatDue, type TaskIntake } from '@/lib/tasksApi';
 
 // ══════════════════════════════════════════════════
-// 書き留めたもの — 後から遡ってレビューする画面
+// メモ履歴 — 後から遡ってレビューする画面
 // ══════════════════════════════════════════════════
 
 /**
@@ -47,16 +47,16 @@ export function IntakeLogTab() {
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        書き留めた文は切り詰めずに全文残しています。タスクの元になった発言まで遡れます。
+        メモ本文は切り詰めずに全文残しています。タスクの元になった発言まで遡れます。
       </p>
       <div className="flex items-center gap-1.5 text-sm">
-        <button onClick={() => setAll(false)} className={cn('min-h-tap lg:min-h-[36px] rounded-md px-3 py-1.5', !all ? 'bg-primary/15 font-medium text-primary' : 'text-muted-foreground hover:bg-accent')}>自分のぶん</button>
+        <button onClick={() => setAll(false)} className={cn('min-h-tap lg:min-h-[36px] rounded-md px-3 py-1.5', !all ? 'bg-primary/15 font-medium text-primary' : 'text-muted-foreground hover:bg-accent')}>自分の分</button>
         <button onClick={() => setAll(true)} className={cn('min-h-tap lg:min-h-[36px] rounded-md px-3 py-1.5', all ? 'bg-primary/15 font-medium text-primary' : 'text-muted-foreground hover:bg-accent')}>全員のぶん</button>
       </div>
 
       {list.length === 0 ? (
         <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">
-          まだ書き留めたものがありません。案件管理アプリのトップの入力欄から書き留められます。
+          メモはまだありません。案件管理アプリのトップの入力欄から書き留められます。
         </CardContent></Card>
       ) : (
         <div className="space-y-2">
@@ -114,7 +114,7 @@ function IntakeDetailDialog({ id, onClose }: { id: string; onClose: () => void }
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader><DialogTitle>書き留めた文</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>メモ本文</DialogTitle></DialogHeader>
         {isLoading || !data ? (
           <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
         ) : (
@@ -126,7 +126,7 @@ function IntakeDetailDialog({ id, onClose }: { id: string; onClose: () => void }
               {data.created_by_name && <span>{data.created_by_name}</span>}
             </div>
             <div>
-              <Label className="text-xs">書き留めた文（全文）</Label>
+              <Label className="text-xs">メモ本文（全文）</Label>
               <p className="mt-1 whitespace-pre-wrap rounded-lg border border-border bg-muted/40 p-3 text-sm">{data.raw_text}</p>
             </div>
             <div>

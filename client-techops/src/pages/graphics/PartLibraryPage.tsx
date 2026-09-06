@@ -49,7 +49,7 @@ export default function PartLibraryPage() {
         </Button>
         <Button asChild>
           <Link to={templatesPath}>
-            <Blocks className="mr-1 h-4 w-4" aria-hidden="true" />組み合わせてテンプレートを作る
+            <Blocks className="mr-1 h-4 w-4" aria-hidden="true" />組み合わせてテンプレートを作成
           </Link>
         </Button>
       </div>
@@ -63,7 +63,7 @@ export default function PartLibraryPage() {
       <div className="mt-4 flex items-start gap-3 rounded-note border border-warning-border bg-warning-surface px-4 py-3">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
         <p className="text-sub leading-relaxed text-foreground">
-          部品は<strong className="font-bold">足すたびに全番組の資産</strong>になります。テンプレートは部品の組み合わせ＋テーマ（色・ロゴ・書体）＋公開フィールドの絞り込みで、ゼロから描く場所ではありません。新しい表現が要るときだけ部品そのものを開発します（HTML/CSS・社内で保守）。
+          部品は<strong className="font-bold">追加するたびに全番組の資産</strong>になります。テンプレートは部品の組み合わせ＋テーマ（色・ロゴ・書体）＋公開フィールドの絞り込みで、ゼロから描く場所ではありません。新しい表現が要るときだけ部品そのものを開発します（HTML/CSS・社内で保守）。
         </p>
       </div>
     </div>

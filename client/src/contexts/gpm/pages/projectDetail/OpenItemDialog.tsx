@@ -70,11 +70,11 @@ export function OpenItemDialog({ projectId, item, phases, onClose }: OpenItemDia
     },
     onSuccess: () => {
       invalidate(projectId);
-      notifySuccess(item ? '持ち帰りを更新しました' : '持ち帰りを追加しました');
+      notifySuccess(item ? '未解決事項を更新しました' : '未解決事項を追加しました');
       onClose();
     },
     onError: (err) =>
-      notifyApiError(item ? '持ち帰りを更新できませんでした' : '持ち帰りを追加できませんでした', err),
+      notifyApiError(item ? '未解決事項を更新できませんでした' : '未解決事項を追加できませんでした', err),
   });
 
   const canSubmit = question.trim() !== '' && !save.isPending;
@@ -83,7 +83,7 @@ export function OpenItemDialog({ projectId, item, phases, onClose }: OpenItemDia
     <FormDialog
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title={item ? '持ち帰りを編集' : '持ち帰りを追加'}
+      title={item ? '未解決事項を編集' : '未解決事項を追加'}
       size="lg"
       footer={
         <FormDialogFooter>
@@ -150,7 +150,7 @@ export function OpenItemDialog({ projectId, item, phases, onClose }: OpenItemDia
           </div>
 
           <div>
-            <Label htmlFor="oi-blocks">これが止めているもの</Label>
+            <Label htmlFor="oi-blocks">停滞している工程・作業</Label>
             <Input
               id="oi-blocks"
               value={blocks}

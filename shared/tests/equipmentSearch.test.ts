@@ -25,7 +25,7 @@ const read = (...p: string[]) => readFileSync(join(ROOT, ...p), 'utf8');
 const SERVICE = read('server', 'src', 'contexts', 'equipment', 'services', 'item.service.ts');
 const SEARCH = read('client-equipment', 'src', 'pages', 'SearchPage.tsx');
 
-describe('機材を探す', () => {
+describe('機材を検索', () => {
   it('全角で打っても当たる', () => {
     // 画面は「全角半角・ハイフンは区別しません」と書いているのに、
     // サーバーは打たれた文字をそのまま `ILIKE` に渡していた
@@ -60,6 +60,6 @@ describe('機材を探す', () => {
 
   it('台帳の案内も「保管場所」を書く（当たる範囲と書いてあることを合わせる）', () => {
     const filters = read('client-equipment', 'src', 'pages', 'equipmentList', 'EquipmentFilters.tsx');
-    expect(filters).toMatch(/placeholder="名前・ID・型名・保管場所で探す"/);
+    expect(filters).toMatch(/placeholder="名前・ID・型名・保管場所で検索"/);
   });
 });

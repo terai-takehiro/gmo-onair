@@ -44,7 +44,7 @@ export default function LiveHomeNoticePage() {
           href="/techops/live-legacy"
           className="flex min-h-tap items-center px-2 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
         >
-          案件に入っていない番組を探す
+          案件未紐付けの番組を検索
         </a>
       )}
     </div>

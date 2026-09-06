@@ -61,7 +61,7 @@ export function RequiredFields({ f, mode = 'create' }: { f: ProjectFieldsState; 
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      <Field label="お客様" required hint="無ければ「取引先マスター」で先につくります">
+      <Field label="お客様" required hint="無ければ「取引先マスター」で先に作成します">
         <SearchableSelect
           options={f.customers.map((c) => ({
             value: c.id,

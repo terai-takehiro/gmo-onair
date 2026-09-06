@@ -176,7 +176,7 @@ export function MemberDialog({
               <Input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label>目立たせる印</Label>
+              <Label>バッジ（表示ラベル）</Label>
               <Input
                 list="gpm-badges"
                 value={form.badge}

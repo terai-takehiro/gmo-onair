@@ -56,7 +56,7 @@ function ReceivedRow({ t, canEdit }: { t: MyTask; canEdit: boolean }) {
             <div className="mt-2 flex flex-wrap gap-1.5">
               <Button size="sm" className="h-8 gap-1 text-xs" disabled={respond.isPending}
                 onClick={() => respond.mutate({ id: t.id, decision: 'accepted' })}>
-                <Check className="h-3.5 w-3.5" />受ける
+                <Check className="h-3.5 w-3.5" />承諾する
               </Button>
               <Button size="sm" variant="outline" className="h-8 gap-1 text-xs"
                 onClick={() => { setNoteFor('consulting'); setNote(''); }}
@@ -142,11 +142,11 @@ function SentRow({ t, canEdit }: { t: MyTask; canEdit: boolean }) {
             <div className="flex flex-wrap gap-1.5">
               <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={resolve.isPending}
                 onClick={() => resolve.mutate({ id: t.id, action: 'take_over' })}>
-                <Undo2 className="h-3.5 w-3.5" />自分でやる
+                <Undo2 className="h-3.5 w-3.5" />自分が担当する
               </Button>
               <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={resolve.isPending || !reassignTo}
                 onClick={() => resolve.mutate({ id: t.id, action: 'reassign', assigned_to: reassignTo })}>
-                <UserPlus className="h-3.5 w-3.5" />振り直す
+                <UserPlus className="h-3.5 w-3.5" />担当者を変更
               </Button>
               <select
                 value={reassignTo}

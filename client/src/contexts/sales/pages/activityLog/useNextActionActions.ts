@@ -42,9 +42,9 @@ export function useNextActionActions(extraInvalidateKeys: unknown[][] = []) {
       ).then((r) => r.data),
     onSuccess: (_data, p) => {
       invalidate();
-      notifySuccess(p.action === 'complete' ? '次回アクションを完了にしました' : '期限を延ばしました');
+      notifySuccess(p.action === 'complete' ? '次のアクションを完了にしました' : '期限を延ばしました');
     },
-    onError: (err) => notifyApiError('次にやることを更新できませんでした', err, '時間をおいて、もう一度お試しください。'),
+    onError: (err) => notifyApiError('次のアクションを更新できませんでした', err, '時間をおいて、もう一度お試しください。'),
   });
 
   return {

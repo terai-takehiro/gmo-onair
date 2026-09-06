@@ -133,7 +133,7 @@ export function MoreFields({
         <Input id="np-goal" value={v.goal} onChange={(e) => set('goal', e.target.value)} placeholder="式典のライブ配信と収録" />
       </Field>
 
-      <Field label="予算" htmlFor="np-amount" hint="見積をつくると金額はそちらが正になります">
+      <Field label="予算" htmlFor="np-amount" hint="見積を作成すると金額はそちらが正になります">
         <div className="flex items-center gap-2">
           <span className="text-sub shrink-0 text-muted-foreground">¥</span>
           <Input

@@ -59,7 +59,7 @@ export function EquipmentAssetFields({
         <div className="space-y-4 pt-1">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="space-y-1">
-              <Label>持ち主の会社</Label>
+              <Label>所有会社</Label>
               <BranchCodeInput value={form.branch_code} onChange={(v) => setForm({ ...form, branch_code: v })} />
             </div>
             <div className="space-y-1">

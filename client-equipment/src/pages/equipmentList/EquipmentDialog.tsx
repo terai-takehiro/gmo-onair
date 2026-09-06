@@ -127,7 +127,7 @@ export function EquipmentDialog({
     });
   };
 
-  const title = mode.kind === 'edit' ? '機材を編集' : mode.kind === 'copy' ? '機材を写して追加' : '機材を追加';
+  const title = mode.kind === 'edit' ? '機材を編集' : mode.kind === 'copy' ? '機材を複製して追加' : '機材を追加';
 
   return (
     <FormDialog

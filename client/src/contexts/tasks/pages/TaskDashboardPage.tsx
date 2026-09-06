@@ -131,13 +131,13 @@ function DesktopTaskDashboard() {
   const chips = [
     { key: 'all' as const, label: 'すべて', count: data ? scoped.length : null },
     { key: 'open' as const, label: '未完了', count: data ? scoped.filter((t) => !t.is_completed).length : null },
-    { key: 'over' as const, label: '期限切れ', count: data ? scoped.filter(isOver).length : null },
+    { key: 'over' as const, label: '期限超過', count: data ? scoped.filter(isOver).length : null },
   ];
 
   const openCount = scoped.filter((t) => !t.is_completed).length;
   const activeFilters = [
     scope === 'mine' ? '自分のタスクだけ' : null,
-    filter === 'open' ? '未完了だけ' : filter === 'over' ? '期限切れだけ' : null,
+    filter === 'open' ? '未完了だけ' : filter === 'over' ? '期限超過だけ' : null,
   ].filter((f): f is string => f !== null);
 
   return (
@@ -151,7 +151,7 @@ function DesktopTaskDashboard() {
           </Button>
         }
       >
-        <div className="inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="見え方を切り替える">
+        <div className="inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="表示形式を切り替える">
           {([['list', 'リスト', ListTodo], ['gantt', 'ガント', GanttChart]] as const).map(([v, label, Icon], i) => (
             <button
               key={v}

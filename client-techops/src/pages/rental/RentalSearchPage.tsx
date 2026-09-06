@@ -198,7 +198,7 @@ export default function RentalSearchPage() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="品名・型番でさがす"
+            placeholder="品名・型番で検索"
             className="h-9 rounded-control bg-muted/40 pl-8 text-sub"
           />
         </div>
@@ -227,7 +227,7 @@ export default function RentalSearchPage() {
       ) : items.length === 0 ? (
         <EmptyState
           title={debouncedQ || category || company !== 'all' ? '条件に合う機材はありません' : 'まだ機材を取得できていません'}
-          description={debouncedQ || category || company !== 'all' ? '別の言葉でさがすか、絞り込みを外してください。' : '毎朝5時の自動取得を待つか、時間を置いてお試しください。'}
+          description={debouncedQ || category || company !== 'all' ? '別の言葉で検索か、絞り込みを外してください。' : '毎朝5時の自動取得を待つか、時間を置いてお試しください。'}
         />
       ) : (
         <>
@@ -246,7 +246,7 @@ export default function RentalSearchPage() {
           {hasMore && (
             <div className="flex justify-center py-2">
               <Button variant="outline" className="min-h-[44px]" onClick={() => setPage((p) => p + 1)} disabled={itemsQuery.isFetching}>
-                {itemsQuery.isFetching ? '読み込み中…' : 'もっと見る'}
+                {itemsQuery.isFetching ? '読み込み中…' : 'さらに表示'}
               </Button>
             </div>
           )}

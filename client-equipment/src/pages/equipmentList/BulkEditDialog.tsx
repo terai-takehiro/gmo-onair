@@ -27,7 +27,7 @@ const FIELDS: { key: BulkField; label: string; input: 'text' | 'number' | 'date'
   { key: 'serial_number', label: '製造番号', input: 'text', placeholder: '製造番号' },
   { key: 'unit_number', label: 'No. (個体番号)', input: 'number', placeholder: '0' },
   { key: 'fixed_asset_code', label: '資産コード', input: 'text', placeholder: '資産コード' },
-  { key: 'branch_code', label: '持ち主の会社', input: 'text', placeholder: 'GMO-IG' },
+  { key: 'branch_code', label: '所有会社', input: 'text', placeholder: 'GMO-IG' },
   { key: 'asset_class', label: '資産の区分', input: 'text', opts: ASSET_CLASS_OPTIONS.map((o) => ({ value: o.value, label: o.label })) },
   { key: 'equipment_section', label: '設備／貸出', input: 'text', opts: SECTIONS.map((s) => ({ value: s.value, label: s.label })) },
   { key: 'equipment_type_code', label: '種別', input: 'text', opts: TYPE_CODES.map((t) => ({ value: t.code, label: `${t.code} - ${t.label}` })) },

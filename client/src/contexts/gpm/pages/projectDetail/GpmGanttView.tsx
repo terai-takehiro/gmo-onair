@@ -192,7 +192,7 @@ export function GpmGanttView({
     const targets = tasks.filter((t) => ids.has(t.id) && !t.is_completed && ymd(t.due_at));
     if (targets.length === 0) return;
     const ok = await confirmAction({
-      title: `後続のタスク ${targets.length} 件も ${delta}日 うしろへずらしますか？`,
+      title: `後続のタスク ${targets.length} 件も ${delta}日 後ろへ移動しますか？`,
       description: '先行タスクの日程がうしろへ動いたので、依存でつながった後続も同じだけずらせます。完了済みのタスクは動かしません。',
       confirmLabel: 'ずらす',
     });
@@ -304,7 +304,7 @@ export function GpmGanttView({
       <div className="flex flex-wrap items-center gap-2 border-b border-border-subtle bg-surface-subtle px-4 py-1.5">
         <p className="text-note min-w-0 flex-1 text-muted-foreground">
           {canEdit
-            ? 'バーを押すと直せます。ドラッグで日程ごと移動・端をつまむと期間が変わります。先行タスクを持つバーには矢印が出ます。'
+            ? 'バーを押すと編集できます。ドラッグで日程ごと移動・端をつまむと期間が変わります。先行タスクを持つバーには矢印が出ます。'
             : '赤い枠は期限を過ぎた工程・タスクです。矢印は先行→後続の順序です。'}
         </p>
         <div role="group" aria-label="ズーム" className="flex shrink-0 overflow-hidden rounded-control-md border border-border bg-card">

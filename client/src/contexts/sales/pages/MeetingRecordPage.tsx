@@ -129,7 +129,7 @@ export default function MeetingRecordPage() {
           </p>
           <p className="text-note mt-2 text-secondary-foreground">
             文字起こしは裏で進みます（1時間の録音で数分かかります）。
-            <strong className="font-bold">決定事項と持ち帰りの確かめは PC が向いています</strong> —
+            <strong className="font-bold">決定事項と未解決事項の確かめは PC が向いています</strong> —
             引用と突き合わせながら直す作業なので、小さい画面では読み切れません。
           </p>
         </div>
@@ -191,18 +191,18 @@ export default function MeetingRecordPage() {
         <Delayed><SkeletonRows rows={5} /></Delayed>
       ) : rows.length === 0 ? (
         <EmptyState
-          title={q ? `「${q}」に当たる案件はありません` : '動いている案件がありません'}
+          title={q ? `「${q}」に当たる案件はありません` : '進行中の案件がありません'}
           description={q ? '言葉を短くして試してください。' : '受付から案件にすると、ここに出ます。'}
         />
       ) : (
         <ul className="flex flex-col gap-2">
           {/* **何が並んでいるかを書く**（レビューでの指摘 #60）。書かないと
-              「動いている案件はこれで全部」と読まれ、51 件目の案件は
+              「進行中の案件はこれで全部」と読まれ、51 件目の案件は
               打てば出ることに気づけない */}
           <li className="text-note text-muted-foreground">
             {debounced
               ? <>「{debounced}」に当たる案件（最大 50 件）</>
-              : <>最後に動いた <span className="font-number">50</span> 件です。無ければ案件名・GLS番号で絞ってください</>}
+              : <>最終更新 <span className="font-number">50</span> 件です。無ければ案件名・GLS番号で絞ってください</>}
           </li>
           {rows.map((r) => (
             <li key={r.id}>
@@ -235,7 +235,7 @@ export default function MeetingRecordPage() {
         <span>
           <strong className="font-bold">先に案件を選んでください。</strong>
           「案件なし」で録って後から紐づける形は、置き場所（列）がまだ無いので作れていません。
-          録った音声は<strong className="font-bold">文字にしたら捨てます</strong>（取引先の声が入るため）。
+          録った音声は<strong className="font-bold">文字起こし後に破棄します</strong>（取引先の声が入るため）。
           残るのは文字起こしと議事録だけです。
         </span>
       </p>

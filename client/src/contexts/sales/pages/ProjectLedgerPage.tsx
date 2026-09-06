@@ -107,7 +107,7 @@ export default function ProjectLedgerPage() {
     <div className="space-y-4 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <PageHeader
         title="案件台帳"
-        sub="案件のデータを列で見比べて、まとめて直す画面です（毎日の仕事は「案件一覧」から）"
+        sub="案件のデータを列で見比べて、一括編集画面です（毎日の仕事は「案件一覧」から）"
       />
 
       {/*
@@ -132,8 +132,8 @@ export default function ProjectLedgerPage() {
           className="h-10 w-[260px]"
           value={s.filters.search}
           onChange={(e) => s.setFilter('search', e.target.value)}
-          placeholder="案件名・GLS番号・お客様で探す"
-          aria-label="案件を探す"
+          placeholder="案件名・GLS番号・お客様で検索"
+          aria-label="案件を検索"
         />
         <Select value={s.filters.stage || 'all'} onValueChange={(v) => s.setFilter('stage', v === 'all' ? '' : v)}>
           <SelectTrigger className="h-10 w-[160px]"><SelectValue /></SelectTrigger>
@@ -223,14 +223,14 @@ export default function ProjectLedgerPage() {
             <span className="text-sub font-bold">{s.selected.size} 件を選んでいます</span>
             <Button variant="outline" onClick={s.clearSelection}>選択を解除</Button>
             <Button onClick={() => setBulkOpen(true)}>
-              <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />まとめて直す
+              <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />一括編集
             </Button>
           </>
         )}
         {/* **権限が無い理由を書く。** スマホでは出さない — 切り替えボタン自体が無い */}
         {!canBulk && !isMobile && (
           <span className="text-note text-muted-foreground">
-            まとめて直すには案件管理の「管理者」の権限が要ります
+            一括編集には案件管理の「管理者」の権限が要ります
           </span>
         )}
       </div>
@@ -241,7 +241,7 @@ export default function ProjectLedgerPage() {
           <PencilLine className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
           <p className="text-sub text-warning">
             <strong className="font-bold">編集モードです。</strong>
-            行を選んでまとめて直す／
+            行を選んで一括編集／
             <strong className="font-bold">セルを二度押しでその場で直す</strong>／
             <strong className="font-bold">Excel から貼り付ける（Ctrl+V）</strong>ことができます。
             <strong className="font-bold">直したものは元に戻せません。</strong>
@@ -334,8 +334,8 @@ export default function ProjectLedgerPage() {
         <EmptyState
           title="この条件に合う案件はありません"
           description={s.filters.issue
-            ? 'このチェックに当たる案件はありません。上の「絞り込みを外す」で全部に戻せます。'
-            : '絞り込みを外すか、探す言葉を変えてみてください。'}
+            ? 'このチェックに当たる案件はありません。上の「絞り込みを解除」で全部に戻せます。'
+            : '絞り込みを解除か、検索語を変えてみてください。'}
         />
       ) : isMobile ? (
         <MobileLedgerCards rows={s.rows} /> // 既定表示9列のカード（詳細は同ファイル冒頭コメント）

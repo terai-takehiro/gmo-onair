@@ -168,7 +168,7 @@ export default function ProjectFormPage() {
               </p>
               {f.aiDraftCreatedAt && (
                 <p className="text-sub-sm mt-0.5 text-muted-foreground">
-                  {formatRelativeTime(f.aiDraftCreatedAt)}に AI が作りました
+                  {formatRelativeTime(f.aiDraftCreatedAt)}に AI作成
                 </p>
               )}
               <div className="mt-2 flex flex-wrap gap-2">
@@ -185,7 +185,7 @@ export default function ProjectFormPage() {
                 </Button>
                 <Button type="button" size="sm" variant="outline" onClick={() => f.setSimOpen(true)}>
                   <Calculator className="mr-1 h-3 w-3" aria-hidden="true" />
-                  中身を見て直す
+                  内容を確認して編集
                 </Button>
               </div>
             </div>
@@ -325,7 +325,7 @@ export default function ProjectFormPage() {
       {/*
         入れ忘れ。**欄のすぐ上に出す** — 帯に出すと画面外で気づかれない。
         **文面と色は案件作成と同じ**（黄色の帯・項目を名指し）にしてあります。
-        押せないボタンだけだと、何が足りないのかを探すことになります。
+        押せないボタンだけだと、何が足りないのかを検索ことになります。
       */}
       {f.missing.length > 0 && (
         <p className="rounded-note border border-warning-border bg-warning-surface px-3.5 py-2 text-sub text-warning">
@@ -336,7 +336,7 @@ export default function ProjectFormPage() {
       <form onSubmit={form.handleSubmit(f.onSubmit)} className="space-y-4 lg:space-y-5">
         {/* ここから2枚は**案件作成と同じ部品・同じ見た目**（`projectNew/`） */}
         <div className="rounded-card border border-primary-border bg-card px-4 py-4 lg:px-5">
-          <p className="text-cardtitle mb-3">いま必要な5つ</p>
+          <p className="text-cardtitle mb-3">必須項目</p>
           <RequiredFields f={f.fields} mode="edit" />
         </div>
 
@@ -350,7 +350,7 @@ export default function ProjectFormPage() {
             {more
               ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
               : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
-            <span className="text-list font-bold">進んだら聞く</span>
+            <span className="text-list font-bold">任意項目</span>
             <span className="text-badge font-number rounded-badge-xs bg-muted px-1.5 py-0.5 text-muted-foreground">
               {moreFieldCount(f.fields.v.audience, 'edit')}
             </span>

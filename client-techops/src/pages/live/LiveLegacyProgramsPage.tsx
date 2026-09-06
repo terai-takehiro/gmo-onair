@@ -57,7 +57,7 @@ export default function LiveLegacyProgramsPage() {
         <ChevronLeft className="h-5 w-5" />
       </button>
       <div className="min-w-0 flex-1">
-        <h1 className="truncate text-sm font-bold">計時・視聴者 — 案件に入っていない番組</h1>
+        <h1 className="truncate text-sm font-bold">計時・視聴者 — 案件未紐付けの番組</h1>
         <p className="truncate text-xs text-muted-foreground">
           案件に結びつけずに作られた古い番組の一覧です。ここで新しく作ることはできません。
         </p>
@@ -122,7 +122,7 @@ function LegacyProgramsContent({ Header, selectedId, onSelect }: {
             <div className="p-4">
               <EmptyState
                 icon={<Timer />}
-                title="案件に入っていない番組はありません"
+                title="案件未紐付けの番組はありません"
                 description="いま残っている番組は、すべて案件に入っています。"
               />
             </div>

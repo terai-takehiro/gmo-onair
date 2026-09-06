@@ -90,11 +90,11 @@ describe('行に出す一言（色だけに頼らない）', () => {
   });
 
   it('今日・近い・先・決めていない を言い分ける', () => {
-    expect(stockReviewNote('2026-08-31', '2026-08-31').text).toBe('今日が見直しの日です');
+    expect(stockReviewNote('2026-08-31', '2026-08-31').text).toBe('本日が見直し日です');
     expect(stockReviewNote('2026-09-03', '2026-08-31')).toMatchObject({ tone: 'soon', days: 3 });
     expect(stockReviewNote('2026-11-30', '2026-08-31').tone).toBe('later');
     expect(stockReviewNote(null, '2026-08-31')).toMatchObject({ tone: 'undecided', days: null });
-    expect(stockReviewNote(null, '2026-08-31').text).toBe('見直す日が決まっていません');
+    expect(stockReviewNote(null, '2026-08-31').text).toBe('見直し日が未設定です');
   });
 
   it('日付は 9/30 の形（0 を付けない）', () => {
@@ -102,17 +102,17 @@ describe('行に出す一言（色だけに頼らない）', () => {
   });
 });
 
-describe('「今日さばくもの」の見出し', () => {
+describe('「本日対応」の見出し', () => {
   it('内訳を分けて書く', () => {
     // 未仕分け 0・見直し 5 のとき「5件」とだけ出すと、
     // 今日届いたものが5件あるように読める
-    expect(deskSummary(0, 5)).toBe('今日さばくもの 5件（見直し時期 5件）');
-    expect(deskSummary(3, 5)).toBe('今日さばくもの 8件（未仕分け 3件 ・ 見直し時期 5件）');
-    expect(deskSummary(3, 0)).toBe('今日さばくもの 3件（未仕分け 3件）');
+    expect(deskSummary(0, 5)).toBe('本日対応 5件（見直し時期 5件）');
+    expect(deskSummary(3, 5)).toBe('本日対応 8件（未処理 3件 ・ 見直し時期 5件）');
+    expect(deskSummary(3, 0)).toBe('本日対応 3件（未処理 3件）');
   });
 
   it('0 のときは「ありません」と言い切る（0件と書かない）', () => {
-    expect(deskSummary(0, 0)).toBe('今日さばくものはありません');
+    expect(deskSummary(0, 0)).toBe('本日対応する項目はありません');
   });
 });
 

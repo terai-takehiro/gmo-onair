@@ -56,7 +56,7 @@ export function LendingSelectStep({ loading, parents, childrenMap, selectedIds, 
 
       {loading ? (
         <p className="py-12 text-center text-sub text-muted-foreground">
-          <Loader2 className="mr-2 inline h-5 w-5 animate-spin" aria-hidden="true" />読み込んでいます
+          <Loader2 className="mr-2 inline h-5 w-5 animate-spin" aria-hidden="true" />読み込み中…
         </p>
       ) : shown.length === 0 ? (
         <EmptyState

@@ -93,7 +93,7 @@ export function PhaseDialog({
       description: [
         `「${phase.label}」`,
         phase.task_count > 0
-          ? `配下のタスク ${phase.task_count}件は消えません。「工程なし」の束に残るので、あとから別の工程に付け直せます。`
+          ? `配下のタスク ${phase.task_count}件は消えません。「工程なし」の束に残るので、あとから別の工程に付け編集できます。`
           : 'この工程にタスクはありません。',
       ].join('\n'),
       confirmLabel: '削除',

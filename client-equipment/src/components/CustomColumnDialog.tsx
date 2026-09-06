@@ -72,7 +72,7 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
       qc.invalidateQueries({ queryKey: ['equipment-custom-values'] });
       notifySuccess('列を削除しました');
     },
-    onError: (e) => notifyApiError('列を消せませんでした', e),
+    onError: (e) => notifyApiError('列を削除できませんでした', e),
   });
 
   /**
@@ -187,7 +187,7 @@ export default function CustomColumnDialog({ open, onOpenChange }: Props) {
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-xs">見せる範囲</Label>
+                    <Label className="text-xs">公開範囲</Label>
                     <Select value={form.scope} onValueChange={v => setForm(f => ({ ...f, scope: v }))}>
                       <SelectTrigger className="h-8 text-sm mt-1">
                         <SelectValue />

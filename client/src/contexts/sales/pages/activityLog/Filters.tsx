@@ -29,7 +29,7 @@ export interface ActivityFiltersProps {
 
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'date', label: '活動日が新しい順' },
-  { value: 'next_action', label: '次回アクション期限順' },
+  { value: 'next_action', label: '次のアクション期限順' },
 ];
 
 const ORIGIN_SEGMENTS: Array<[OriginFilter, string]> = [
@@ -37,7 +37,7 @@ const ORIGIN_SEGMENTS: Array<[OriginFilter, string]> = [
 ];
 
 const TYPE_W = 'h-9 w-[128px]'; // ui-tokens-ok: 「デモ/見学」まで1行で収まる幅
-const SORT_W = 'h-9 w-[188px]'; // ui-tokens-ok: 「次回アクション期限順」が1行で収まる幅
+const SORT_W = 'h-9 w-[188px]'; // ui-tokens-ok: 「次のアクション期限順」が1行で収まる幅
 
 export function DesktopFilterBar(p: ActivityFiltersProps) {
   return (
@@ -45,11 +45,11 @@ export function DesktopFilterBar(p: ActivityFiltersProps) {
       <div className="relative min-w-[220px] flex-1">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
         <Input
-          placeholder="件名・案件名・顧客名で探す"
+          placeholder="件名・案件名・顧客名で検索"
           className="h-9 pl-9"
           value={p.search}
           onChange={(e) => p.onSearch(e.target.value)}
-          aria-label="活動記録を探す"
+          aria-label="活動記録を検索"
         />
       </div>
       <Select value={p.typeFilter || 'all'} onValueChange={(v) => p.onTypeFilter(v === 'all' ? '' : v)}>
@@ -75,7 +75,7 @@ export function ActivityMobileFilters(p: ActivityFiltersProps) {
   return (
     <div className="sm:hidden">
       <MobileFilterBar
-        search={{ value: p.search, onChange: p.onSearch, placeholder: '件名・案件名・顧客名で探す' }}
+        search={{ value: p.search, onChange: p.onSearch, placeholder: '件名・案件名・顧客名で検索' }}
         activeCount={activeCount}
         onClearAll={() => { p.onTypeFilter(''); p.onOriginFilter(''); p.onSort('date'); }}
         title="活動記録の絞り込み"

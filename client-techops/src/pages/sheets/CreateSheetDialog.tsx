@@ -161,7 +161,7 @@ export function CreateSheetDialog({
       queryClient.invalidateQueries({ queryKey: ["qsheet-documents"] });
       onOpenChange(false);
       resetForm();
-      notifySuccess("作りました。この進行台本はあなたと管理者だけが見られます（他の人に見せるにはカードの「共有」ボタンから共有してください）");
+      notifySuccess("作成しました。この進行台本はあなたと管理者だけが見られます（他の人に見せるにはカードの「共有」ボタンから共有してください）");
       onCreated(doc);
     },
     onError: () => {
@@ -349,7 +349,7 @@ export function CreateSheetDialog({
             disabled={missingRequired.length > 0 || createMutation.isPending}
             className="w-full py-2.5 text-sm font-semibold min-h-[44px]"
           >
-            {createMutation.isPending ? "作成中…" : "進行台本を作る"}
+            {createMutation.isPending ? "作成中…" : "進行台本を作成"}
           </Button>
         </form>
       </DialogContent>

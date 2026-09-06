@@ -207,7 +207,7 @@ export function TaskDialog({
 
           <p className="text-sub-sm text-muted-foreground">
             期限は<strong className="font-bold">その日の 18:00</strong> として入ります
-            （ひな形から写したタスクと同じ形にするため）。担当を決めると、その人の「自分のタスク」に出ます。
+            （工程テンプレートから写したタスクと同じ形にするため）。担当を決めると、その人の「自分のタスク」に出ます。
           </p>
         </div>
     </FormDialog>

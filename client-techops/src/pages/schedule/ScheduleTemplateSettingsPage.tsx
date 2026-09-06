@@ -17,7 +17,7 @@ import type { ScheduleTemplate } from "@gmo-onair/shared/src/schedule/types";
 function PcOnlyNotice() {
   return (
     <div className="mx-auto max-w-md px-4 py-16 text-center">
-      <h1 className="text-lg font-semibold text-foreground">ひな形の編集は PC で行ってください</h1>
+      <h1 className="text-lg font-semibold text-foreground">工程テンプレートの編集は PC で行ってください</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         列・項目の組み合わせを一度に見ながら組む画面のため、幅の狭い端末には対応していません。
       </p>
@@ -44,7 +44,7 @@ export default function ScheduleTemplateSettingsPage() {
       setNewName("");
       setSelectedId(row.id);
     },
-    onError: () => notifyError("ひな形を作れませんでした。", { description: "ひな形を作れるのは 制作技術支援の「管理」を持つ人だけです。" }),
+    onError: () => notifyError("工程テンプレートを作れませんでした。", { description: "工程テンプレートを作れるのは 制作技術支援の「管理」を持つ人だけです。" }),
   });
 
   const deleteMutation = useMutation({
@@ -60,13 +60,13 @@ export default function ScheduleTemplateSettingsPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-8">
-      <h1 className="text-xl font-semibold text-foreground">スケジュール表のひな形</h1>
+      <h1 className="text-xl font-semibold text-foreground">スケジュール表の工程テンプレート</h1>
       <p className="mt-1 text-sm text-muted-foreground">拠点ごとの標準の列・項目を作っておくと、当日の表に一括で流し込めます。</p>
 
       <div className="mt-6 grid grid-cols-3 gap-6">
         <div className="space-y-2">
           <div className="flex gap-2">
-            <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="新しいひな形の名前" className="min-h-[44px]" />
+            <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="新しい工程テンプレートの名前" className="min-h-[44px]" />
             <Button className="min-h-[44px]" disabled={!newName.trim() || createMutation.isPending} onClick={() => createMutation.mutate()}>
               <Plus className="h-4 w-4" />
             </Button>
@@ -92,7 +92,7 @@ export default function ScheduleTemplateSettingsPage() {
             // 前のひな形の値のまま残ると、別ひな形の列 id へ項目を追加してしまう
             <TemplateDetail key={selected.id} template={selected} onDelete={() => deleteMutation.mutate(selected.id)} />
           ) : (
-            <p className="text-sm text-muted-foreground">左からひな形を選んでください。</p>
+            <p className="text-sm text-muted-foreground">左から工程テンプレートを選んでください。</p>
           )}
         </div>
       </div>
@@ -142,7 +142,7 @@ function TemplateDetail({ template, onDelete }: { template: ScheduleTemplate; on
         <h2 className="text-base font-semibold text-foreground">{template.name}</h2>
         {!template.is_system && (
           <Button variant="destructive" size="sm" className="min-h-[44px]" onClick={onDelete}>
-            <Trash2 className="mr-1 h-4 w-4" />このひな形を削除
+            <Trash2 className="mr-1 h-4 w-4" />この工程テンプレートを削除
           </Button>
         )}
       </div>

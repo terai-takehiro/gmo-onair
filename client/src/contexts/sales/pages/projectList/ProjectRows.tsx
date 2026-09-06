@@ -59,7 +59,7 @@ function HeaderLabel({
   align?: 'right';
 }) {
   const mark = sortMark(sort, sortKey);
-  const stateText = mark === 'asc' ? '・昇順で並び替え中' : mark === 'desc' ? '・降順で並び替え中' : '';
+  const stateText = mark === 'asc' ? '・昇順で並べ替え中' : mark === 'desc' ? '・降順で並べ替え中' : '';
   return (
     <button
       type="button"
@@ -72,7 +72,7 @@ function HeaderLabel({
     >
       <span className="truncate">{label}</span>
       {/* ⚠️ **並べ替えていないときの印は、指を乗せたときだけ出す**
-          （`LedgerTable.tsx` と同じ理由 — 常に出すと 72px の「最後の動き」が
+          （`LedgerTable.tsx` と同じ理由 — 常に出すと 72px の「最終更新」が
           切れる） */}
       {mark === 'asc' ? <ArrowUp className="h-3 w-3 shrink-0" aria-hidden="true" />
         : mark === 'desc' ? <ArrowDown className="h-3 w-3 shrink-0" aria-hidden="true" />
@@ -122,7 +122,7 @@ export function ProjectRowsHeader({
         <HeaderLabel label="次のタスク" sortKey="next_task_due" sort={sort} onSort={onSort} />
       </RowSlot>
       <RowSlot w={72} align="right" aria-sort={ariaSort(sortMark(sort, 'last_move'))}>
-        <HeaderLabel label="最後の動き" sortKey="last_move" sort={sort} onSort={onSort} align="right" />
+        <HeaderLabel label="最終更新" sortKey="last_move" sort={sort} onSort={onSort} align="right" />
       </RowSlot>
     </RowHeader>
   );
@@ -223,7 +223,7 @@ export function ProjectRow({
           {p.is_ai_created && (
             <span
               className="text-badge inline-flex shrink-0 items-center gap-0.5 rounded-badge-xs bg-ai-surface px-1.5 py-0.5 text-ai"
-              title={p.ai_reviewed_at ? 'AI が作りました (確認済み)' : 'AI が作りました (未確認)'}
+              title={p.ai_reviewed_at ? 'AI作成 (確認済み)' : 'AI作成 (未確認)'}
             >
               <Sparkles className="h-3 w-3" aria-hidden="true" />
               AI

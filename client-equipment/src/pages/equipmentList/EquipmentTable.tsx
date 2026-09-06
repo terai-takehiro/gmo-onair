@@ -172,7 +172,7 @@ export function EquipmentTable(p: EquipmentTableProps) {
     >
       <span className="flex justify-end gap-0.5">
         {p.canEdit && (
-          <Button variant="ghost" size="icon-sm" aria-label={`${item.name} を写して追加`} onClick={() => p.onCopy(item)}>
+          <Button variant="ghost" size="icon-sm" aria-label={`${item.name} を複製して追加`} onClick={() => p.onCopy(item)}>
             <Copy className="h-3.5 w-3.5" aria-hidden="true" />
           </Button>
         )}
@@ -290,7 +290,7 @@ export function EquipmentTable(p: EquipmentTableProps) {
                     data-eq-row
                     className="text-sub-sm flex items-center gap-1.5 border-b border-border-faint bg-muted px-4 py-2 text-muted-foreground"
                   >
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />付属品を読み込んでいます
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />付属品を読み込み中…
                   </div>
                 );
               }

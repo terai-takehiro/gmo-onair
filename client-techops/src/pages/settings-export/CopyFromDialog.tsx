@@ -68,7 +68,7 @@ export default function CopyFromDialog({
         notifyError('コピー元にその日の設定が見つかりませんでした');
         return;
       }
-      notifySuccess('前回の設定を写しました');
+      notifySuccess('前回の設定を複製しました');
       onOpenChange(false);
       onCopied();
     } catch (e) {
@@ -81,7 +81,7 @@ export default function CopyFromDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>前回の設定を写す</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>前回の設定を複製</DialogTitle></DialogHeader>
 
         <p className="text-sm text-muted-foreground">
           選んだ日の{whatLabel(what)}を、この画面（<strong>{date}</strong>）に上書きコピーします。
@@ -109,7 +109,7 @@ export default function CopyFromDialog({
                 className="mt-2 min-h-[44px] text-sm text-primary underline underline-offset-2"
                 onClick={() => setOtherOwner(true)}
               >
-                別の案件から写す
+                別の案件から複製
               </button>
             </div>
           ) : (
@@ -133,14 +133,14 @@ export default function CopyFromDialog({
           )}
 
           <p className="rounded-lg border border-warning-border bg-warning-surface px-3 py-2 text-xs text-muted-foreground">
-            <strong className="text-warning">ストリームキーと WEB会議は写しません。</strong>
-            鍵は「前回の設定を写す」で付いてくると意図しない配信につながるため、
+            <strong className="text-warning">ストリームキーと WEB会議は複製しません。</strong>
+            鍵は「前回の設定を複製」で付いてくると意図しない配信につながるため、
             会議の URL・パスコードは日ごとに別物のためです。
           </p>
         </div>
 
         <Button className="mt-6 h-[52px] w-full text-base" onClick={run} disabled={!canRun}>
-          {busy ? '写しています…' : '写す'}
+          {busy ? '複製中…' : '複製'}
         </Button>
       </DialogContent>
     </Dialog>

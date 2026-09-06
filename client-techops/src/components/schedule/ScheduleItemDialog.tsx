@@ -195,7 +195,7 @@ export default function ScheduleItemDialog({
                   )
                 ) : (
                   <Button type="button" variant="outline" className="min-h-[44px] w-full" onClick={onCreateScript}>
-                    この枠から進行台本を作る
+                    この枠から進行台本を作成
                   </Button>
                 )}
               </div>

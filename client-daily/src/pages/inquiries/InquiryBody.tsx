@@ -68,7 +68,7 @@ export function InquiryBody({ q, open, onToggle }: { q: MiscInquiry; open: boole
         aria-expanded={open}
         className="text-note min-h-tap inline-flex items-center gap-1 text-primary lg:min-h-[32px]"
       >
-        {open ? '中身を閉じる' : '中身を読む'}
+        {open ? '詳細を閉じる' : '詳細を表示'}
         {hasRich && <Sparkles className="h-3 w-3 text-ai" aria-label="AI作成" />}
       </button>
 

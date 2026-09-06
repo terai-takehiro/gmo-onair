@@ -1,19 +1,19 @@
 /**
  * ⑤ 入ってきた情報（日常業務） (v4)
  *
- * **未仕分けを空にするための机です。**
+ * **未処理を空にするための机です。**
  * 案件・営業・見積請求・内覧会のどれにも属さない有益な情報を AI が取り込み、
- * 人が「やること（タスク）／案件／あとで効く話（あとで見る）／見送り」に仕分けます。
+ * 人が「やること（タスク）／案件／あとで効く話（保留）／見送り」に仕分けます。
  *
  * ── 247 で直したこと（ユーザー報告「結局何をしたいのかわからない」）──
  *
- * ① **「あとで見る」に出口を作った。** 「あとで効く話は置いておける」と謳いながら、
+ * ① **「保留」に出口を作った。** 「あとで効く話は置いておける」と謳いながら、
  *    置いたものを戻す仕掛けが**1つもありません**でした（見直す日も通知も無し）。
  *    実質「見送り」と同じで、行き先が2つあるように見えて違うのは名前だけ。
- *    「あとで見る」に入れるときに**見直す日**を訊き（migration 247）、その日が来たものを
- *    未仕分けと同じ扱いで「今日さばくもの」に含めます
+ *    「保留」に入れるときに**見直す日**を訊き（migration 247）、その日が来たものを
+ *    未処理と同じ扱いで「本日対応」に含めます
  * ② **タブを5つから3つに畳んだ。** 5つのうち4つが「受領証」で、
- *    そこでできることは「未仕分けに戻す」だけでした。片づいたものは
+ *    そこでできることは「未処理に戻す」だけでした。片づいたものは
  *    1つのタブにまとめ、その中で行き先を絞れるようにしています
  * ③ **空の枠を描くのをやめた**（`SidePanels.tsx`）
  * ④ **PC 専用をやめた。** 現場で開くアプリなのに、仕分けの机だけ
@@ -108,7 +108,7 @@ export default function InquiriesPage() {
   const onMove = (q: MiscInquiry, state: 'unsorted' | 'stock' | 'dropped', msg: string, reviewOn?: string | null) =>
     move.mutate({ id: q.id, state, stock_review_on: reviewOn ?? null }, {
       onSuccess: () => notifySuccess(msg),
-      onError: (e) => notifyApiError('動かせませんでした', e),
+      onError: (e) => notifyApiError('仕分けできませんでした。少し待ってから、もう一度お試しください。', e),
     });
 
   const onAction = async (q: MiscInquiry, a: InquiryAction) => {
@@ -119,13 +119,13 @@ export default function InquiriesPage() {
       window.location.href = `/sales/projects/new?inquiry=${encodeURIComponent(q.id)}`;
       return;
     }
-    // **「あとで見る」は日を訊いてから動かす**（247）。押した瞬間に消えると、
+    // **「保留」は日を訊いてから動かす**（247）。押した瞬間に消えると、
     // それは「見送り」と同じで、戻ってくる仕掛けが無い
     if (a === 'stock' || a === 'restock') { setStocking(q); return; }
     if (a === 'unsort') {
       if (q.state === 'ticket' || q.state === 'project') {
         const ok = await confirmAction({
-          title: '未仕分けに戻しますか',
+          title: '未処理に戻しますか',
           description: q.state === 'ticket'
             ? '**作ったタスクは消しません。**結びつきだけ外すので、いらなければ案件管理のタスク一覧で消してください。'
             : '**作った案件は消しません。**結びつきだけ外すので、いらなければ案件一覧で消してください。',
@@ -133,7 +133,7 @@ export default function InquiriesPage() {
         });
         if (!ok) return;
       }
-      onMove(q, 'unsorted', '未仕分けに戻しました');
+      onMove(q, 'unsorted', '未処理に戻しました');
       return;
     }
     onMove(q, 'dropped', '見送りにしました');
@@ -158,17 +158,17 @@ export default function InquiriesPage() {
       <PageHeader
         title="入ってきた情報"
         // **見出しが「この画面で今日やること」を言う。**
-        // 内訳を分けて書くのは、未仕分け 0・見直し 5 のときに
+        // 内訳を分けて書くのは、未処理 0・見直し 5 のときに
         // 「5件」とだけ出すと今日届いたものが5件あるように読めるため
-        sub={counts ? deskSummary(counts.unsorted, counts.stock_due) : '数えています…'}
-        primaryAction={canEdit ? <Button onClick={() => setAdding(true)}>手で追加</Button> : undefined}
+        sub={counts ? deskSummary(counts.unsorted, counts.stock_due) : '集計中…'}
+        primaryAction={canEdit ? <Button onClick={() => setAdding(true)}>手動で追加</Button> : undefined}
       />
 
       {/*
         タブは3つ（247）。以前は5つで、**うち4つが「受領証」**だった
-        （タスク / 案件 / 見送りは「未仕分けに戻す」しかできない）。
+        （タスク / 案件 / 見送りは「未処理に戻す」しかできない）。
         片づいたものは「仕分け済み」1つにまとめ、その中で行き先を絞る。
-        ⚠️ **「今日さばくもの」と「あとで見る」は重なる**（見直しの日が来たものは両方に出る）。
+        ⚠️ **「本日対応」と「保留」は重なる**（見直しの日が来たものは両方に出る）。
         セキュリティカードの「返却遅延は貸出中の一部」と同じで、足しても全件にならない
       */}
       <FilterChips
@@ -286,8 +286,8 @@ export default function InquiriesPage() {
             onMove(
               q, 'stock',
               reviewOn
-                ? `あとで見るに入れました。${jaMd(reviewOn)} に「今日さばくもの」へ戻ってきます`
-                : 'あとで見るに入れました。見直す日を決めていないので、明日また出てきます',
+                ? `保留に入れました。${jaMd(reviewOn)} に「本日対応」へ戻ってきます`
+                : '保留に入れました。見直す日を決めていないので、明日また出てきます',
               reviewOn,
             );
           }}
@@ -299,12 +299,12 @@ export default function InquiriesPage() {
 
 /**
  * 0 件のときの見出し。**タブの名前をそのまま出さない** —
- * 「今日さばくもののものはありません」では何も伝わらない
+ * 「本日対応のものはありません」では何も伝わらない
  */
 function emptyTitle(tab: InquiryTab, filtered: boolean): string {
   if (filtered) return 'このタグが付いたものはありません';
-  if (tab === 'desk') return '未仕分けはありません';
-  if (tab === 'stock') return 'あとで見るものはありません';
+  if (tab === 'desk') return '未処理はありません';
+  if (tab === 'stock') return '保留ものはありません';
   return '仕分け済みのものはまだありません';
 }
 
@@ -312,12 +312,12 @@ function emptyTitle(tab: InquiryTab, filtered: boolean): string {
 function emptyDescription(tab: InquiryTab, filtered: boolean): string {
   if (filtered) return 'タグの絞り込みを解除すると、ほかの情報が出ます。';
   if (tab === 'desk') {
-    return '届いた情報は、ここでタスク・案件・あとで見るに仕分けてください。';
+    return '届いた情報は、ここでタスク・案件・保留に仕分けてください。';
   }
   if (tab === 'stock') {
-    return 'あとで効く話は「あとで見る」で置いておけます。見直す日を決めると、その日にここへ戻ってきます。';
+    return 'あとで効く話は「保留」で置いておけます。見直す日を決めると、その日にここへ戻ってきます。';
   }
-  return 'タスク・案件・見送りにしたものがここに残ります。間違えたときは「未仕分けに戻す」で戻せます。';
+  return 'タスク・案件・見送りにしたものがここに残ります。間違えたときは「未処理に戻す」で戻せます。';
 }
 
 /**

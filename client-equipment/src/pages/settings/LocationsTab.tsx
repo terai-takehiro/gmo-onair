@@ -56,7 +56,7 @@ export function LocationsTab() {
     queryKey: ['equipment-locations'],
     onSaveSuccess: () => notifySuccess('保管場所を保存しました'),
     onDeleteSuccess: () => notifySuccess('保管場所を削除しました'),
-    onError: (action, err) => notifyApiError(action === 'save' ? '保存できませんでした' : '消せませんでした', err),
+    onError: (action, err) => notifyApiError(action === 'save' ? '保存できませんでした' : '削除できませんでした', err),
   });
 
   const { data: branchData } = useQuery({
@@ -106,7 +106,7 @@ export function LocationsTab() {
 
   const onDelete = async (loc: Location) => {
     const ok = await confirmAction({
-      title: `「${loc.name}」を消しますか`,
+      title: `「${loc.name}」を削除しますか`,
       description: 'この場所に置いてある機材は場所なしに戻ります。ラックだった場合はラック図から消えます。',
       confirmLabel: '削除',
       tone: 'danger',

@@ -98,7 +98,7 @@ export function AddTaskDialog({ onClose }: { onClose: () => void }) {
               label: p.name,
               subLabel: p.gls_number || p.code || undefined,
             }))}
-            placeholder="案件を探す"
+            placeholder="案件を検索"
           />
         </div>
         <div>

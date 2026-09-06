@@ -49,7 +49,7 @@ export function ReturnDialog({ open, name, saving, error, onClose, onSubmit }: {
       <div className="space-y-3">
         <p className="rounded-control bg-muted px-3 py-2 text-sub">{name}</p>
         <div className="space-y-1">
-          <Label>戻ってきたときの状態</Label>
+          <Label>返却時の状態</Label>
           <Select value={condition} onValueChange={setCondition}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -58,7 +58,7 @@ export function ReturnDialog({ open, name, saving, error, onClose, onSubmit }: {
           </Select>
         </div>
         <div className="space-y-1">
-          <Label>気づいたこと</Label>
+          <Label>備考</Label>
           <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ケーブルに折れあり など" />
         </div>
       </div>

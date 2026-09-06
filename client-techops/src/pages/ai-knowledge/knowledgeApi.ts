@@ -69,7 +69,7 @@ export const KIND_LABELS: Record<string, string> = {
   event_plan_draft: 'イベント設計',
   script_outline_draft: '台本の骨格',
   script_line_draft: 'セリフ',
-  production_chat: '壁打ち',
+  production_chat: 'AI に相談',
 };
 
 export function kindLabel(kind: string | null): string {

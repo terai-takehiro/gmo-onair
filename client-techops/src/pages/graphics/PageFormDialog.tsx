@@ -198,7 +198,7 @@ export default function PageFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="xl" className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{page ? `ページを編集（番号 ${page.callNo}）` : 'ページを作る'}</DialogTitle>
+          <DialogTitle>{page ? `ページを編集（番号 ${page.callNo}）` : 'ページを作成'}</DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">

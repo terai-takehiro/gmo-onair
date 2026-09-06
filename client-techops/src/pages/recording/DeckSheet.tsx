@@ -44,7 +44,7 @@ export default function DeckSheet({
             </fieldset>
             {readOnly && (
               <p className="mt-3 rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-note text-foreground">
-                いまは「見るだけ」です。直すには 制作技術支援の「書ける」が必要です。
+                現在は閲覧のみです。編集するには制作技術支援の「編集」が必要です。
               </p>
             )}
             <Button className="mt-6 h-[52px] w-full text-base" onClick={onClose}>
@@ -72,7 +72,7 @@ function DeckSheetBody({ deck, onChange }: { deck: Deck; onChange: (next: Deck) 
   return (
     <div className="space-y-4">
       <div>
-        <Label htmlFor="deck-label">呼び名</Label>
+        <Label htmlFor="deck-label">表示名</Label>
         <input
           id="deck-label"
           className={fieldCls}

@@ -154,7 +154,7 @@ export function TaskEditDialog({ task, onClose }: { task: MyTask; onClose: () =>
         </div>
         {!isDelegation && (
           <div>
-            <Label className="text-xs">見せる範囲</Label>
+            <Label className="text-xs">公開範囲</Label>
             <div className="mt-1 flex gap-1">
               <button type="button" onClick={() => setVis('team')}
                 className={cn('min-h-tap lg:min-h-[36px] flex-1 rounded-md border py-1.5 text-xs', vis === 'team' ? 'border-primary bg-primary/15 font-medium text-primary' : 'border-input hover:bg-accent')}>
@@ -234,7 +234,7 @@ export function TaskCreateDialog({ onClose }: { onClose: () => void }) {
           </select>
           {isDelegation && (
             <p className="mt-1 text-[11px] text-violet-700">
-              人に頼む依頼になります。期限は必須です。相手は受ける / 相談 / 辞退を選べます。
+              人に頼む依頼になります。期限は必須です。相手は承諾 / 相談 / 辞退を選べます。
             </p>
           )}
         </div>

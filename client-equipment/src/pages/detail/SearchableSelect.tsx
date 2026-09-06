@@ -55,7 +55,7 @@ export function SearchableSelect({ value, onChange, items, placeholder }: {
               ref={inputRef}
               type="text"
               className="flex-1 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
-              placeholder="名前・型名・IDで探す"
+              placeholder="名前・型名・IDで検索"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />

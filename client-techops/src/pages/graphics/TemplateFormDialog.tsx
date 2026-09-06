@@ -216,7 +216,7 @@ export default function TemplateFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="xl" className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{template ? `テンプレートを編集（${template.name}）` : 'テンプレートを作る'}</DialogTitle>
+          <DialogTitle>{template ? `テンプレートを編集（${template.name}）` : 'テンプレートを作成'}</DialogTitle>
         </DialogHeader>
 
         <form id="graphics-template-form" className="space-y-4" onSubmit={submit}>

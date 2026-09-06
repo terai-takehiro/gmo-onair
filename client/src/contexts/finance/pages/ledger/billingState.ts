@@ -32,7 +32,7 @@ export interface BillingStateSource {
  * （`types.ts` の `toLabel` の説明）。既定の文言「状態の画面をひらく」は
  * どこへ行くのか分からないので、行き先の名前をそのまま出す。
  */
-const TO_LABEL = '請求・入金をひらく';
+const TO_LABEL = '請求・入金を開く';
 
 export function billingState(r: BillingStateSource): NonNullable<LedgerRow['state']> {
   // **同じ財務の中の「請求・入金」へ送る。** 台帳から状態を変えられるようにすると、

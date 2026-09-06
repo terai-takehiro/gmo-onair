@@ -71,7 +71,7 @@ export function ReviewSide({
           />
         </div>
         <p className="text-note border-t border-border-faint bg-surface-subtle px-4 py-2.5 text-muted-foreground">
-          売上と仕入は<strong className="font-bold">分け合った額も足した実績</strong>です（財務管理と同じ数え方）。
+          売上と仕入は<strong className="font-bold">按分後の実績も足した実績</strong>です（財務管理と同じ数え方）。
           <strong className="font-bold">見積との差の読み方はここでは書きません</strong> —
           値引きなのか追加受注なのかは数字からは分からないためです。
         </p>

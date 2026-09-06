@@ -80,12 +80,12 @@ export default function WeeklyDetailPage() {
     const ok = await confirmAction({
       title: 'この週の報告の確定を解きますか',
       description: 'トピックをまた足せるようになります。確定した日付は記録に残ります。直したら、もう一度確定してください。',
-      confirmLabel: '確定を解く',
+      confirmLabel: '確定を取り消す',
     });
     if (!ok) return;
     reopen.mutate(report.id, {
-      onSuccess: () => notifySuccess('確定を解きました。直したら、もう一度確定してください'),
-      onError: (e) => notifyApiError('確定を解けませんでした', e),
+      onSuccess: () => notifySuccess('確定を取り消しました。直したら、もう一度確定してください'),
+      onError: (e) => notifyApiError('確定を取り消せませんでした', e),
     });
   };
 
@@ -123,7 +123,7 @@ export default function WeeklyDetailPage() {
         ) : !report ? (
           <NotFoundPanel
             path={`/weekly/${id ?? ''}`}
-            home={{ label: 'いちばん新しい週を開く', onGo: () => navigate('/weekly') }}
+            home={{ label: '最新の週を開く', onGo: () => navigate('/weekly') }}
           />
         ) : (
           <>
@@ -136,7 +136,7 @@ export default function WeeklyDetailPage() {
                 </Button>
               ) : canEdit && isPublished ? (
                 <Button variant="outline" onClick={onReopen} disabled={reopen.isPending}>
-                  <Undo2 className="mr-1.5 h-4 w-4" aria-hidden="true" />確定を解く
+                  <Undo2 className="mr-1.5 h-4 w-4" aria-hidden="true" />確定を取り消す
                 </Button>
               ) : undefined}
             >
@@ -164,7 +164,7 @@ export default function WeeklyDetailPage() {
               <p className="text-note text-muted-foreground">
                 {new Date(report.published_at).toLocaleString('ja-JP')} に確定しました。
                 追加も編集もできません（ニュースからの「ウィークリー活動報告へ送る」も入りません）。
-                直すときは「確定を解く」を押してください。
+                直すときは「確定を取り消す」を押してください。
               </p>
             )}
 
@@ -172,7 +172,7 @@ export default function WeeklyDetailPage() {
             {stats ? <StatsSection stats={stats} isMobile={isMobile} /> : (
               <EmptyState
                 title="集計はまだありません"
-                description="AI がウィークリー活動報告を作ると、その時点の案件・活動・売上がここに出ます。"
+                description="AI がウィークリー活動報告を作成すると、その時点の案件・活動・売上がここに出ます。"
               />
             )}
 

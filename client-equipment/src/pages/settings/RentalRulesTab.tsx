@@ -117,7 +117,7 @@ export function RentalRulesTab() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <SearchField value={search} onChange={setSearch} placeholder="商品名・型名・メーカーで探す" />
+          <SearchField value={search} onChange={setSearch} placeholder="商品名・型名・メーカーで検索" />
           <Select value={typeFilter || '_all'} onValueChange={(v) => setTypeFilter(v === '_all' ? '' : v)}>
             <SelectTrigger className="w-36" aria-label="種別で絞り込む">
               <SelectValue placeholder="種別すべて" />

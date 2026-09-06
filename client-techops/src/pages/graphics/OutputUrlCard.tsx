@@ -28,7 +28,7 @@ export default function OutputUrlCard({ projectId }: { projectId: string }) {
     <section className="rounded-card border border-border bg-card p-4">
       <div className="flex items-center gap-2">
         <Share2 className="h-4 w-4 text-primary" aria-hidden="true" />
-        <h3 className="text-cardtitle">出力URLの配り方</h3>
+        <h3 className="text-cardtitle">出力URLの共有方法</h3>
       </div>
       <p className="mt-2 text-note text-muted-foreground">
         OBS・スイッチャーのブラウザソースに貼る<strong>ログイン不要の公開URL</strong>です。

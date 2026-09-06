@@ -37,28 +37,28 @@ export default function AiEditorTools({ documentId, projectId, updateData, varia
       {variant === "menu" ? (
         <>
           <button type="button" className={toolbarMenuItemClass} onClick={() => setShowOutline(true)}>
-            <Sparkles className="h-3.5 w-3.5" aria-hidden />AIで下書きを作る（構成）
+            <Sparkles className="h-3.5 w-3.5" aria-hidden />AIで下書きを作成（構成）
           </button>
           <button type="button" className={toolbarMenuItemClass} onClick={() => setShowLines(true)}>
-            <Sparkles className="h-3.5 w-3.5" aria-hidden />AIで下書きを作る（セリフ）
+            <Sparkles className="h-3.5 w-3.5" aria-hidden />AIで下書きを作成（セリフ）
           </button>
           <button type="button" className={toolbarMenuItemClass} onClick={() => setShowChat(true)}>
-            <MessageSquare className="h-3.5 w-3.5" aria-hidden />AIと壁打ちする
+            <MessageSquare className="h-3.5 w-3.5" aria-hidden />AIとAI に相談する
           </button>
         </>
       ) : (
         <>
-          <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1 text-xs" onClick={() => setShowOutline(true)} title="AIで下書きを作る（構成）">
+          <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1 text-xs" onClick={() => setShowOutline(true)} title="AIで下書きを作成（構成）">
             <Sparkles className="h-3.5 w-3.5" />
             <span className="hidden lg:inline">AI構成</span>
           </Button>
-          <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1 text-xs" onClick={() => setShowLines(true)} title="AIで下書きを作る（セリフ）">
+          <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1 text-xs" onClick={() => setShowLines(true)} title="AIで下書きを作成（セリフ）">
             <Sparkles className="h-3.5 w-3.5" />
             <span className="hidden lg:inline">AIセリフ</span>
           </Button>
-          <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1 text-xs" onClick={() => setShowChat(true)} title="AIと壁打ちする（あなただけに見えます）">
+          <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1 text-xs" onClick={() => setShowChat(true)} title="AIとAI に相談する（あなただけに見えます）">
             <MessageSquare className="h-3.5 w-3.5" />
-            <span className="hidden lg:inline">壁打ち</span>
+            <span className="hidden lg:inline">AI に相談</span>
           </Button>
         </>
       )}

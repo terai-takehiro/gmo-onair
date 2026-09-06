@@ -122,7 +122,7 @@ export function LendingDialog({ open, saving, error, onClose, onSubmit }: {
     <FormDialog
       open={open}
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title={step === 'select' ? '持ち出す機材を選ぶ' : '借りる人と日付'}
+      title={step === 'select' ? '持ち出す機材を選ぶ' : '貸出先と日付'}
       // 旧実装は `sm:max-w-2xl`（672px）で PC 幅を広く取っていた複合画面
       // （選択ステップの機材カードが `grid-cols-3`・入力ステップの日付欄が
       // `sm:grid-cols-2`）なので、既定の640pxに押し込めず `wide` を渡す
@@ -231,7 +231,7 @@ export function LendingDialog({ open, saving, error, onClose, onSubmit }: {
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                 <Input
                   className="pl-9"
-                  placeholder="GLS番号か案件名で探す"
+                  placeholder="GLS番号か案件名で検索"
                   value={projectSearch}
                   onChange={(e) => {
                     setProjectSearch(e.target.value);
@@ -266,7 +266,7 @@ export function LendingDialog({ open, saving, error, onClose, onSubmit }: {
           )}
 
           <div className="space-y-1">
-            <Label>借りる人 *</Label>
+            <Label>貸出先 *</Label>
             <Input
               value={form.borrower_name}
               onChange={(e) => setForm((f) => ({ ...f, borrower_name: e.target.value }))}
@@ -274,7 +274,7 @@ export function LendingDialog({ open, saving, error, onClose, onSubmit }: {
             />
           </div>
           <div className="space-y-1">
-            <Label>使いみち</Label>
+            <Label>用途</Label>
             <Input
               value={form.purpose}
               onChange={(e) => setForm((f) => ({ ...f, purpose: e.target.value }))}

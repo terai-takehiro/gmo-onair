@@ -1,5 +1,5 @@
 /**
- * ⑤ 入ってきた情報 — 右側の枠（出どころ別・よく使うタグ・この画面ですること）
+ * ⑤ 入ってきた情報 — 右側の枠（受付経路別・よく使うタグ・この画面ですること）
  *
  * ── 247: **空の枠を描かない** ────────────────────────────────
  *
@@ -16,7 +16,7 @@
  *
  * ── 数えるのはサーバー ──────────────────────────────────────
  *
- * 出どころ別もタグも `GET /dailyops/inquiries/counts` /
+ * 受付経路別もタグも `GET /dailyops/inquiries/counts` /
  * `GET /dailyops/inquiries/tags` の数を使います。一覧は上限つきで引くので、
  * 運んだ行から数えると**その画面ぶんの内訳**を全体の内訳として出してしまいます。
  */
@@ -42,7 +42,7 @@ export interface SourceCount { source: string; total: number; ticket: number }
 export function SidePanels({
   sources, tags, activeTag, onPickTag,
 }: {
-  /** サーバーが数えた出どころ別（0 件のものは入っていない） */
+  /** サーバーが数えた受付経路別（0 件のものは入っていない） */
   sources: SourceCount[];
   tags: { tag: string; count: number }[];
   activeTag: string | null;
@@ -67,7 +67,7 @@ export function SidePanels({
 
       {showSources && (
         <section className="rounded-card border border-border bg-card p-4">
-          <h2 className="text-cardtitle">出どころ別</h2>
+          <h2 className="text-cardtitle">受付経路別</h2>
           <p className="text-note mt-0.5 text-muted-foreground">すべての件数 ／ うちタスクにしたもの</p>
           <ul className="mt-2">
             {sources.map((s) => {
@@ -121,7 +121,7 @@ export function SidePanels({
       */}
       {!showSources && !showTags && (
         <p className="text-note text-muted-foreground">
-          出どころ別の内訳とタグは、メールの取り込みが出どころ（メール／Slack／電話／口頭）と
+          受付経路別の内訳とタグは、メールの取り込みが受付経路（メール／Slack／電話／口頭）と
           タグを渡すようになると出ます。いまは<strong className="font-bold">まだ分かれていません</strong>。
           手で足した情報にタグを付けると、その分だけここに出ます。
         </p>

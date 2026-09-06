@@ -118,9 +118,9 @@ export function RentalPanel() {
     onSuccess: (_r, p) => {
       qc.invalidateQueries({ queryKey: ['model-groups'] });
       setEditGroup(null);
-      notifySuccess(`${p.ids.length} 台の貸出の出しかたを直しました`);
+      notifySuccess(`${p.ids.length} 台の貸出の出しかたを保存しました`);
     },
-    onError: (e) => notifyApiError('直せませんでした', e),
+    onError: (e) => notifyApiError('保存できませんでした', e),
   });
 
   const filtering = !!(debounced || typeFilter || categoryFilter);
@@ -149,7 +149,7 @@ export function RentalPanel() {
       <FilterChips label="種別で絞り込む" items={typeChips} value={typeFilter} onChange={setTypeFilter} />
 
       <div className="flex flex-wrap items-center gap-2">
-        <SearchField value={search} onChange={setSearch} placeholder="商品名・型名・メーカーで探す" />
+        <SearchField value={search} onChange={setSearch} placeholder="商品名・型名・メーカーで検索" />
         {allCategories.length > 0 && (
           <Select value={categoryFilter || '_all'} onValueChange={(v) => setCategoryFilter(v === '_all' ? '' : v)}>
             <SelectTrigger className="w-40" aria-label="貸出カテゴリで絞り込む">

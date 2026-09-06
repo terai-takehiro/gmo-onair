@@ -54,7 +54,7 @@ export default function ApplyTemplateDialog({ open, onOpenChange, scheduleId, lo
       onApplied();
       onOpenChange(false);
     },
-    onError: () => notifyError("ひな形を適用できませんでした。", { description: "少し待ってから、もう一度お試しください。" }),
+    onError: () => notifyError("工程テンプレートを適用できませんでした。", { description: "少し待ってから、もう一度お試しください。" }),
   });
 
   const needsOnairStart = previewQuery.data?.requires_onair_start ?? false;
@@ -72,11 +72,11 @@ export default function ApplyTemplateDialog({ open, onOpenChange, scheduleId, lo
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
-        <DialogHeader><DialogTitle>ひな形を適用</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>工程テンプレートを適用</DialogTitle></DialogHeader>
 
         <div className="space-y-4">
           <div>
-            <Label>ひな形</Label>
+            <Label>工程テンプレート</Label>
             <Select value={templateId} onValueChange={setTemplateId}>
               <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue placeholder="選んでください" /></SelectTrigger>
               <SelectContent>
@@ -87,7 +87,7 @@ export default function ApplyTemplateDialog({ open, onOpenChange, scheduleId, lo
 
           {needsOnairStart && (
             <div>
-              <Label htmlFor="onair-start">本番開始時刻（このひな形に必要です）</Label>
+              <Label htmlFor="onair-start">本番開始時刻（この工程テンプレートに必要です）</Label>
               <BufferedInput
                 id="onair-start"
                 value={onairStartMin != null ? fmtHmPad(onairStartMin) : ""}

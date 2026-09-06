@@ -112,7 +112,7 @@ export function TaskCommentsThread({ taskId, canWrite }: {
 
           {list.isLoading ? (
             <p className="text-sub-sm flex items-center gap-1.5 text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />読み込んでいます
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />読み込み中…
             </p>
           ) : rows.length === 0 ? (
             <p className="text-sub-sm text-muted-foreground">まだコメントはありません。</p>

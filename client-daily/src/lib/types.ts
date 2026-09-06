@@ -134,10 +134,10 @@ export interface MiscInquiry {
   /** 行き先（migration 171）。**絞り込みはこれだけを見る**（`handled_at` は記録） */
   state: InquiryState;
   /**
-   * 「あとで見る」を机に戻す日（migration 247）。
+   * 「保留」を机に戻す日（migration 247）。
    *
-   * ⚠️ **これが無いと「あとで見る」は見送りと同じ**です（どちらも「未仕分けから消えて
-   * 二度と出てこない」で終わる）。この日が来たものは未仕分けと同じ扱いで
+   * ⚠️ **これが無いと「保留」は見送りと同じ**です（どちらも「未処理から消えて
+   * 二度と出てこない」で終わる）。この日が来たものは未処理と同じ扱いで
    * 「今日さばくもの」に入ります。空（決めていない）も同じ扱いです。
    */
   stock_review_on: string | null;
@@ -165,14 +165,14 @@ export const IMPORTANCE_LABELS: Record<Importance, string> = { high: '高', medi
 export const INQUIRY_STATES = ['unsorted', 'stock', 'ticket', 'project', 'dropped'] as const;
 export type InquiryState = (typeof INQUIRY_STATES)[number];
 export const INQUIRY_STATE_LABELS: Record<InquiryState, string> = {
-  unsorted: '未仕分け', stock: 'あとで見る', ticket: 'タスク', project: '案件', dropped: '見送り',
+  unsorted: '未処理', stock: '保留', ticket: 'タスク', project: '案件', dropped: '見送り',
 };
 
 /** 出どころ。`manual` は**出どころが分からない既存行**（新規では入らない） */
 export const INQUIRY_SOURCES = ['mail', 'slack', 'phone', 'talk'] as const;
 export type InquirySource = (typeof INQUIRY_SOURCES)[number];
 export const INQUIRY_SOURCE_LABELS: Record<string, string> = {
-  mail: 'メール', slack: 'Slack', phone: '電話', talk: '口頭', manual: '手で足した',
+  mail: 'メール', slack: 'Slack', phone: '電話', talk: '口頭', manual: '手入力',
 };
 
 /** ホームのメニュー定義 — 今後の小メニュー追加はこの配列に 1 行足してページを作るだけ */

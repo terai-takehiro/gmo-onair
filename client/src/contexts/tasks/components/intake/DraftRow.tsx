@@ -97,7 +97,7 @@ export function DraftRow({
             <select
               value={dest}
               onChange={(e) => onChange({ dest: e.target.value as Dest })}
-              aria-label="行き先を変える"
+              aria-label="登録先を変更"
               className="h-8 rounded-control border border-input bg-background px-1.5 text-note"
             >
               {DEST_ORDER.map((d) => (
@@ -314,7 +314,7 @@ function LogFields({ r, projects, onChange }: { r: Row; projects: IntakeProject[
         </p>
       </div>
       <div>
-        <Label className="text-[11px] text-muted-foreground">次にやること（あれば）</Label>
+        <Label className="text-[11px] text-muted-foreground">次のアクション（あれば）</Label>
         <Input
           value={r.next_action ?? ''}
           onChange={(e) => onChange({ next_action: e.target.value })}
@@ -324,7 +324,7 @@ function LogFields({ r, projects, onChange }: { r: Row; projects: IntakeProject[
           type="date"
           value={r.next_action_date ?? ''}
           onChange={(e) => onChange({ next_action_date: e.target.value || null })}
-          aria-label="次にやることの期日"
+          aria-label="次のアクションの期日"
           className="mt-1 h-9 text-sm"
         />
       </div>
@@ -354,9 +354,9 @@ function MinutesFields({ r, projects, onChange }: { r: Row; projects: IntakeProj
       {/* **決定事項と持ち帰りはここで直させない。** 引用と突き合わせながら直す作業なので、
           案件の「やり取り」で腰を据えて確かめる（下書きのまま入ります） */}
       <p className="text-[11px] text-muted-foreground">
-        決まったこと {r.decisions?.length ?? 0} 件 ・ 持ち帰り {r.open_items?.length ?? 0} 件を下書きで入れます。
+        決まったこと {r.decisions?.length ?? 0} 件 ・ 未解決事項 {r.open_items?.length ?? 0} 件を下書きで入れます。
         <span className="font-bold text-foreground">確かめるのは案件の「やり取り」で</span>
-        （引用と突き合わせる作業なので、この画面では直せません）
+        （引用と突き合わせる作業なので、この画面では編集できません）
       </p>
     </div>
   );

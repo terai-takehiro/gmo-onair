@@ -139,10 +139,10 @@ function ApplyFlowBanner({ project }: { project: ProjectDetail }) {
     <div className="rounded-card flex flex-wrap items-center gap-x-3 gap-y-2 border border-border bg-surface-subtle px-4 py-2.5">
       <ListChecks className="h-4 w-4 shrink-0 text-info" aria-hidden="true" />
       <p className="text-sub min-w-0 flex-1 text-muted-foreground">
-        この案件にはまだ<strong className="font-bold">工程の型</strong>が入っていません。
+        この案件にはまだ<strong className="font-bold">工程テンプレート</strong>が入っていません。
         入る物を見て、要らないものを外してから入れられます。
       </p>
-      <Button variant="outline" onClick={() => setOpen(true)}>工程の型を入れる</Button>
+      <Button variant="outline" onClick={() => setOpen(true)}>工程テンプレートを入れる</Button>
       {open && (
         <ApplyFlowDialog
           open={open}

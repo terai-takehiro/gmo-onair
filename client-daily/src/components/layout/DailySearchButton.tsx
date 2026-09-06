@@ -44,14 +44,14 @@ export default function DailySearchButton() {
     <button
       type="button"
       onClick={() => navigate('/search')}
-      aria-label="内覧会・セキュリティカード・入ってきた情報を探す"
+      aria-label="内覧会・セキュリティカード・入ってきた情報を検索"
       className={cn(
         'text-sub hidden h-10 w-56 shrink-0 items-center gap-2.5 rounded-control-lg border border-border bg-background px-3.5 text-left text-muted-foreground sm:flex lg:w-64',
         'hover:border-primary-border-strong hover:bg-card',
       )}
     >
       <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
-      <span className="min-w-0 flex-1 truncate">内覧会・カード・受付情報を探す</span>
+      <span className="min-w-0 flex-1 truncate">内覧会・カード・受付情報を検索</span>
       <span className="text-badge rounded-control shrink-0 border border-border bg-card px-2 py-0.5 text-muted-foreground">
         {keys}
       </span>

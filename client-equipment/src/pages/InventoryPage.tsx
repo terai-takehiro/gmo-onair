@@ -73,7 +73,7 @@ export default function InventoryPage() {
       qc.invalidateQueries({ queryKey: ['equipment-stats'] });
       notifySuccess('棚卸しを削除しました');
     },
-    onError: (e) => notifyApiError('消せませんでした', e),
+    onError: (e) => notifyApiError('削除できませんでした', e),
   });
 
   const onDelete = async (c: InventoryCheck) => {
@@ -103,7 +103,7 @@ export default function InventoryPage() {
         sub="保管場所ごとに ✓ を付けて回ります。下書き → 実施中 → 完了 で進みます"
         primaryAction={
           <Button onClick={() => { setForm({ title: '', check_date: today(), notes: '' }); setDialogOpen(true); }}>
-            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />棚卸しを作る
+            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />棚卸しを作成
           </Button>
         }
       />
@@ -115,7 +115,7 @@ export default function InventoryPage() {
       ) : checks.length === 0 ? (
         <EmptyState
           title="棚卸しがまだ1件もありません"
-          description="「棚卸しを作る」を押すと、いまの機材台帳からチェックリストが作られます。"
+          description="「棚卸しを作成」を押すと、いまの機材台帳からチェックリストが作られます。"
         />
       ) : isMobile ? (
         /*
@@ -165,7 +165,7 @@ export default function InventoryPage() {
       <FormDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        title="棚卸しを作る"
+        title="棚卸しを作成"
         footer={
           <FormDialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>キャンセル</Button>

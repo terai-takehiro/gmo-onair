@@ -104,7 +104,7 @@ export function UserDialog({ user, roles, open, onOpenChange }: Props) {
       {inviteUrl ? (
         <div className="flex flex-col gap-3">
           <p className="text-sub flex items-center gap-2 text-success">
-            <CheckCircle2 className="h-4 w-4" aria-hidden="true" />メンバーをつくりました
+            <CheckCircle2 className="h-4 w-4" aria-hidden="true" />メンバーを作成しました
           </p>
           <p className="rounded-note text-note select-all break-all bg-muted px-3.5 py-3">{inviteUrl}</p>
           <Button className="w-full" onClick={() => navigator.clipboard.writeText(inviteUrl)}>

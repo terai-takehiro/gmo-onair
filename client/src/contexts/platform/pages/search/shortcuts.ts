@@ -58,7 +58,7 @@ export const DO_ITEMS: Shortcut[] = [
   // **`/studio/my-calendar`（旧マイカレンダー）は退役した**（2026-08・v4ネイティブUI化の
   // バックログB）。① 予定はスマホでも「予定を入れる」→「自分の予定」で同じダイアログを開ける
   { key: 'myevent', label: '自分の予定を入れる', sub: 'スタジオ予約を作るのは PC', to: '/studio/calendar', icon: CalendarPlus, module: 'sales', minLevel: 'editor' },
-  { key: 'newproj', label: '案件をつくる', sub: '名前とお客様だけで始められる', to: '/sales/projects/new', icon: FolderPlus, module: 'sales', minLevel: 'editor' },
+  { key: 'newproj', label: '案件を作成', sub: '名前とお客様だけで始められる', to: '/sales/projects/new', icon: FolderPlus, module: 'sales', minLevel: 'editor' },
 ];
 
 /** 場所 — モックの6つ */

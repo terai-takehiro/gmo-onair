@@ -121,7 +121,7 @@ export function ActivityFormDialog({
         </div>
 
         <div className="border-t border-border pt-4">
-          <p className="text-sub mb-2 font-bold">次回アクション（任意）</p>
+          <p className="text-sub mb-2 font-bold">次のアクション（任意）</p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <Label>内容</Label>

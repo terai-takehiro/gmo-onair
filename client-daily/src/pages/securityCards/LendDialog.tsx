@@ -80,7 +80,7 @@ export function LendDialog({ card, onClose }: { card: SecurityCard; onClose: () 
         <Field label="貸出先の会社" value={company} onChange={setCompany} placeholder="例：株式会社〇〇" />
         <Field label="担当者" required value={person} onChange={setPerson} placeholder="例：山田 太郎" />
         <Field label="連絡先" value={contact} onChange={setContact} placeholder="電話 / メール" />
-        <Field label="使いみち" value={purpose} onChange={setPurpose} placeholder="例：収録の立ち会い" />
+        <Field label="用途" value={purpose} onChange={setPurpose} placeholder="例：収録の立ち会い" />
         <Field label="貸した日" type="date" value={lentOn} onChange={setLentOn} />
         <Field label="返却の予定日" type="date" value={dueOn} onChange={setDueOn} />
         <div className="sm:col-span-2">

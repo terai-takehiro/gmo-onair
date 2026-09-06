@@ -157,7 +157,7 @@ export function parseCell(col: EditableCol, raw: string, ctx: ParseCtx): ParseRe
     }
 
     default:
-      return { ok: false, why: 'この列は直せません' };
+      return { ok: false, why: 'この列は編集できません' };
   }
 }
 
