@@ -160,9 +160,8 @@ export function createApp(): express.Express {
       // '/techops/*' へリダイレクトする。
       serveApp('/techops', path.join(__dirname, '../../client-techops/dist'));
       serveApp('/live', path.join(__dirname, '../../client-live/dist'));
-      // '/awards' (リアルタイムCG) は「凍結」相当に戻した (2026-08-25)。URL は生かすが
-      // トップページのタイル・アプリ切替・左メニューには出さない (client-awards/CLAUDE.md 参照)。
-      serveApp('/awards', path.join(__dirname, '../../client-awards/dist'));
+      // '/awards' (旧リアルタイムCG) は段F で「廃止」にした (2026-09-06)。後継の
+      // テロップCG (client-techops) へ移行済み。詳細は client-awards/CLAUDE.md 参照。
       serveApp('/daily', path.join(__dirname, '../../client-daily/dist'));
 
       app.use(express.static(clientDistPath, staticOptions));

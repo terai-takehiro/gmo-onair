@@ -214,8 +214,8 @@ export const APPS: AppDef[] = [
    */
   { key: 'liveops',     label: '計時・視聴者',       description: '本番の残り時間と同時視聴者数を大画面に表示',      icon: Timer,         color: '#ef4444', path: '/live',       permissionModule: 'qsheet',    hidden: true },
 
-  /* ── 移行中 (後継＝制作技術支援＞テロップCG。URL は生きている・一覧には出さない) ── */
-  { key: 'awards',      label: 'リアルタイムCG',     description: '制作技術支援＞テロップCGへ移行中の旧アプリ', icon: Tv,            color: '#f59e0b', path: '/awards',     permissionModule: 'awards',    frozen: true },
+  /* ── 廃止 (後継＝制作技術支援＞テロップCG。段F・2026-09-06。コードは保存のみ・URL到達不可) ── */
+  { key: 'awards',      label: 'リアルタイムCG',     description: '制作技術支援＞テロップCGへ移行済み（廃止）', icon: Tv,            color: '#f59e0b', path: '/awards',     permissionModule: 'awards',    frozen: true },
 
   /* ── 外部リンク (別 VPS・別タブ。権限は見ない) ─────────────────── */
   { key: 'interactive', label: 'インタラクティブ',   description: 'スタンプ・リアルタイム演出支援 (外部)', icon: Sparkles,      color: '#db2777', path: 'https://interactive.gmo-onair.jp/', external: 'https://interactive.gmo-onair.jp/' },

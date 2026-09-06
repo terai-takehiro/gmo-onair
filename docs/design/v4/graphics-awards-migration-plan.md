@@ -299,6 +299,13 @@ interactive_link`（migration 258・旧`awards_events.interactive_link`と同じ
 向けて実際に実行する判断はまだ行っていない**（本番に実データが入っているか自体
 不明・§1-2参照。ユーザーの別途の明示的な指示が必要）。
 
+> 📝 **段6-9のうち「旧`/awards`畳み込み判断」は2026-09-06に実行した**
+> （[graphics-redesign.md](graphics-redesign.md) 段F・§13）。`client-awards`の配信・API・
+> ビルド対象・画面上の入口を外したが、**この移行ツール自体・DBの`awards_*`テーブルは
+> 一切変更していない**——ツールは`contexts/graphics/`側の独立した実装として動き続ける。
+> **上記の「本番への実際の実行」は畳み込みとは別の判断であり、引き続き未実行のまま**
+> （本番へ直接アクセスできない環境からは実行できない運用上の作業として残っている）。
+
 ## 6. 参照ファイル（この設計の元データ）
 
 - 現行実装: `client-awards/src/pages/{EventEditorPage,ControlPage,OneShotControlPage,QuizStackControlPage,CgCockpitPage}.tsx`・

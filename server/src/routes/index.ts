@@ -11,8 +11,6 @@ import { createLiveopsRoutes } from '../contexts/liveops';
 import { createTasksRoutes } from '../contexts/tasks';
 import { createDailyopsRoutes } from '../contexts/dailyops';
 import { createScheduleRoutes } from '../contexts/schedule';
-import { createAwardsRoutes } from '../contexts/awards';
-import { createQuizRoutes } from '../contexts/quiz';
 import { createGraphicsRoutes } from '../contexts/graphics';
 
 export function createRoutes(): Router {
@@ -32,10 +30,7 @@ export function createRoutes(): Router {
   router.use(createQsheetRoutes('/qsheet'));
   router.use(createQsheetRoutes('/techops'));
   router.use(createLiveopsRoutes());
-  // awards (リアルタイムCG) / quiz は「凍結」相当に戻した (2026-08-25)。API は生かすが
-  // トップページ・アプリ切替・左メニューには出さない (client-awards/CLAUDE.md 参照)。
-  router.use(createAwardsRoutes());
-  router.use(createQuizRoutes());
+  // awards (旧リアルタイムCG) / quiz の API は段F で「廃止」にした (2026-09-06・client-awards/CLAUDE.md 参照)。
   // テロップCG (techops ミニアプリ graphics。リアルタイムCG の後継 — docs/design/v4/graphics.md)
   router.use(createGraphicsRoutes());
   router.use(createTasksRoutes());
