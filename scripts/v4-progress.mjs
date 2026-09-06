@@ -92,7 +92,7 @@ const TREE = [
     ['販管費', '/budget/sga', 'client/src/contexts/finance/pages/SgaListPage.tsx'],
     ['取引先 (仕入先・パートナー)', '/budget/vendors', 'client/src/contexts/finance/pages/CounterpartyPage.tsx'],
     // 日常業務 (`/daily/finance`) から移した。`dailyops` だけを要求していて経理が開けなかった
-    ['受け取った書類', '/budget/documents', 'client/src/contexts/finance/pages/DocumentsPage.tsx'],
+    ['受領書類', '/budget/documents', 'client/src/contexts/finance/pages/DocumentsPage.tsx'],
     // v4 ⑦: 精算PDF・総勘定元帳・二重計上を1画面3タブに畳んだ（旧3 URL は転送）
     ['取り込み (精算PDF・総勘定元帳・二重計上)', '/budget/import', 'client/src/contexts/finance/pages/ImportPage.tsx'],
   ]],
@@ -244,7 +244,7 @@ const TREE = [
     ['デイリーニュース', '/daily/news', 'client-daily/src/pages/DailyNewsPage.tsx'],
     ['内覧会 開催日', '/daily/inview', 'client-daily/src/pages/InviewPage.tsx'],
     ['入ってきた情報 (その他問い合わせ)', '/daily/inquiries', 'client-daily/src/pages/InquiriesPage.tsx'],
-    ['受け取った書類', '/budget/documents', 'client/src/contexts/finance/pages/DocumentsPage.tsx', undefined,
+    ['受領書類', '/budget/documents', 'client/src/contexts/finance/pages/DocumentsPage.tsx', undefined,
       '**財務管理へ移しました**（`/daily/finance` は転送）。`dailyops` 権限だけを要求していたので' +
       '**経理が開けませんでした**（実測で 403）。いまは `budget` か `dailyops` のどちらかで通ります'],
     ['セキュリティカード', '/daily/security-cards', 'client-daily/src/pages/SecurityCardsPage.tsx'],
