@@ -25,7 +25,8 @@ import { download, filenameOf, messageOf, PPTX_MIME } from './download';
 
 export interface DeckBundle {
   deck: KeepDeck;
-  pack: KeepReportPack;
+  /** 数字が組めなかったときは null（構成だけ出す） */
+  pack: KeepReportPack | null;
   /** 週報の確定で凍結したパックを読んでいるか（true なら「数字を更新」は効かない） */
   pack_frozen: boolean;
   previous_meeting_date: string | null;
@@ -47,9 +48,27 @@ export interface ExportResult {
   /** Box に入ったか（`X-Box-Stored: 1`） */
   stored: boolean;
   fileId: string | null;
+  /** 入った場所の言い方（`X-Box-Where`。サーバーが作る） */
+  where: string | null;
   /** 入らなかった理由（`X-Box-Reason`） */
   reason: string;
   filename: string;
+  /** フォーマットの検査の警告（`X-Keep-Warnings`。出力は止めない） */
+  warnings: string[];
+  pages: number | null;
+}
+
+/** 構成の一覧の1行（`GET /dailyops/keep/decks`） */
+export interface DeckListItem {
+  id: string;
+  meeting_date: string;
+  version: number;
+  pack_id: string | null;
+  page_count: number;
+  exported_box_file_id: string | null;
+  exported_at: string | null;
+  updated_at: string;
+  updated_by: string | null;
 }
 
 /** `{ success, data }` で包まれていても、素で返ってきても同じに読む */
@@ -70,6 +89,16 @@ export function useKeepMeetings() {
   return useQuery({
     queryKey: deckKeys.meetings,
     queryFn: () => api.get('/dailyops/keep/meetings').then((r) => unwrap<KeepMeetings>(r.data)),
+    staleTime: 60_000,
+  });
+}
+
+/** 作った資料の一覧（前回との見比べ・過去の版を開く入口） */
+export function useDeckList(enabled = true) {
+  return useQuery({
+    queryKey: [...deckKeys.all, 'list'] as const,
+    enabled,
+    queryFn: () => api.get('/dailyops/keep/decks').then((r) => unwrap<DeckListItem[]>(r.data)),
     staleTime: 60_000,
   });
 }
@@ -114,14 +143,25 @@ export function useRebuildDeck(meeting: string | null) {
 export function useExportDeck(meeting: string | null) {
   return useMutation({
     mutationFn: async (): Promise<ExportResult> => {
-      const res = await api.post(`/dailyops/keep/decks/${meeting}/export`, null, { responseType: 'blob' });
+      const res = await api.post(`/dailyops/keep/decks/${meeting}/export`, {}, { responseType: 'blob' });
       const filename = filenameOf(res, `${(meeting ?? '').replace(/-/g, '').slice(2)}_橋口社長隔週キープ_ONAiR.pptx`);
       download(res.data, filename, PPTX_MIME);
+      let warnings: string[] = [];
+      try {
+        const raw = res.headers['x-keep-warnings'];
+        if (raw) warnings = (JSON.parse(decodeURIComponent(String(raw))) as unknown[]).map(String);
+      } catch { /* 警告が読めなくても出力は済んでいる */ }
+      let where: string | null = null;
+      try { where = res.headers['x-box-where'] ? decodeURIComponent(String(res.headers['x-box-where'])) : null; } catch { where = null; }
+      const pagesRaw = Number(res.headers['x-keep-pages']);
       return {
         stored: String(res.headers['x-box-stored'] ?? '') === '1',
         fileId: res.headers['x-box-file-id'] ? String(res.headers['x-box-file-id']) : null,
+        where,
         reason: String(res.headers['x-box-reason'] ?? ''),
         filename,
+        warnings,
+        pages: Number.isFinite(pagesRaw) ? pagesRaw : null,
       };
     },
     onError: async (err) => {

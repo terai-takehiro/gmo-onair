@@ -171,6 +171,8 @@ export function pipelineList(page: SlidePage): 'external' | 'samurai' {
 
 /** 部品の呼び名（テンプレの領域の名前があればそれ。無ければ種類） */
 export function partLabel(part: SlidePart, page: SlidePage): string {
+  // サーバーが組んだ部品はテンプレの領域の名前を `options.label` に持つ（`buildStandardDeck`）
+  if (typeof part.options?.label === 'string' && part.options.label) return part.options.label;
   const region = SLIDE_TEMPLATES[page.template]?.regions.find((r) => r.binding === part.binding && r.type === part.type);
   if (region) return region.label;
   const byType: Record<SlidePart['type'], string> = {

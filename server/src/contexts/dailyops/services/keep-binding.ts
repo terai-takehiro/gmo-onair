@@ -11,7 +11,7 @@
  *   `.` で区切り、配列は `[i]`。**無いところを指したら `ok: false`**（投げない。画面は灰色の枠、pptx は灰色の文字にする）
  * - **仮想の葉**（パックに実体は無いが部品が要るもの）:
  *   `project_pages[i].money` / `event_reports[i].money` → `{ revenue, gross_profit, gross_margin }`
- *   `project_pages[i].confidence` → `{ letter, label }`（`confidence` と `confidence_label` を束ねる）
+ *   `project_pages[i].confidence` → `{ letter, label }`（実体の文字ではなく、`confidence` と `confidence_label` を束ねたもの）
  *   `trend.revenue` → `TrendRevenuePoint[]`、`trend.utilization` → `TrendUtilizationPoint[]`
  *   `inview.summary` → 箇条書きの文字列の並び（開催日・参加・満足度・ヨミ化・次回）
  * - `$meeting_date` / `$meeting_title` / `$agenda` / `$pl_heading` … 資料の設定（`BindingContext`）。
@@ -131,10 +131,10 @@ function inviewSummary(pack: KeepReportPack): string[] {
 function step(cur: unknown, key: string, pack: KeepReportPack): unknown {
   if (cur == null || typeof cur !== 'object') return undefined;
   const obj = cur as Record<string, unknown>;
-  if (key in obj) return obj[key];
-  // 仮想の葉
-  if (key === 'money' && 'gross_margin' in obj) return money(obj as unknown as ProjectPageData);
+  // 仮想の葉（`confidence` は実体の文字より先に、文字と語を束ねたものを返す）
   if (key === 'confidence' && 'confidence_label' in obj) return { letter: obj.confidence, label: obj.confidence_label };
+  if (key in obj) return obj[key];
+  if (key === 'money' && 'gross_margin' in obj) return money(obj as unknown as ProjectPageData);
   if (cur === pack.trend) {
     if (key === 'revenue') return trendRevenue(pack.trend);
     if (key === 'utilization') return trendUtilization(pack.trend);

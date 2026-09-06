@@ -22,7 +22,7 @@ import { queryAll } from '../../../shared/db/connection';
 import { keepReportService } from '../../sales/services/keep-report.service';
 import type { UtilizationSettings } from '../../sales/services/keep-report-rules';
 import {
-  addDays, addMonths, businessDaysInMonth, holidayPredicate, listMonthDays, utilizationRate,
+  addDays, addMonths, businessDaysInMonth, holidayPredicate, listMonthDays, utilizationRate, weekdayOf,
 } from './keep-pack-calc';
 import type { MonthlyTrendPoint, UtilizationCalendar } from './keep-pack.types';
 
@@ -69,12 +69,27 @@ function daysOf(b: BookingRow, from: string, to: string): string[] {
   return out;
 }
 
-/** 月ごとの「利用があった日」の集合 */
-function activeDaysByMonth(bookings: BookingRow[], counted: Set<string>, from: string, to: string): Map<string, Set<string>> {
+/**
+ * その日を営業日として数えるか（分母と同じ決まり）。
+ * 分子（利用があった日）も営業日に限る — 土日の利用まで数えると分母を超えて 100% を越えるため。
+ */
+function isBusinessDay(day: string, settings: UtilizationSettings, isHoliday: (d: string) => boolean): boolean {
+  const w = weekdayOf(day);
+  if (w === 0) return false;
+  if (w === 6 && !settings.count_saturday) return false;
+  return !isHoliday(day);
+}
+
+/** 月ごとの「利用があった営業日」の集合 */
+function activeDaysByMonth(
+  bookings: BookingRow[], settings: UtilizationSettings, isHoliday: (d: string) => boolean, from: string, to: string,
+): Map<string, Set<string>> {
+  const counted = new Set(settings.counted_types);
   const out = new Map<string, Set<string>>();
   for (const b of bookings) {
     if (!counted.has(b.booking_type)) continue;
     for (const day of daysOf(b, from, to)) {
+      if (!isBusinessDay(day, settings, isHoliday)) continue;
       const ym = day.slice(0, 7);
       const set = out.get(ym) ?? new Set<string>();
       set.add(day);
@@ -124,8 +139,8 @@ export async function buildTrend(meetingMonth: string, settings: UtilizationSett
   for (const r of revRows) rev.set(`${r.ym}:${r.seg}`, Number(r.total) || 0);
   const cnt = new Map<string, number>();
   for (const r of countRows) cnt.set(`${r.ym}:${r.seg}`, Number(r.n) || 0);
-  const active = activeDaysByMonth(bookings, new Set(settings.counted_types), from, to);
   const isHoliday = holidayPredicate(Number(TREND_FROM.slice(0, 4)), Number(meetingMonth.slice(0, 4)));
+  const active = activeDaysByMonth(bookings, settings, isHoliday, from, to);
 
   return months.map((ym) => {
     const businessDays = businessDaysInMonth(ym, { countSaturday: settings.count_saturday, isHoliday });
@@ -164,7 +179,7 @@ export async function buildCalendars(months: string[], settings: UtilizationSett
       const label = (b.title || b.project_name || '').trim() || b.booking_type;
       for (const day of daysOf(b, first, last)) {
         (days[day] ??= []).push({ kind: b.booking_type, label });
-        if (counted.has(b.booking_type)) activeDays.add(day);
+        if (counted.has(b.booking_type) && isBusinessDay(day, settings, isHoliday)) activeDays.add(day);
       }
     }
     const businessDays = businessDaysInMonth(ym, { countSaturday: settings.count_saturday, isHoliday });

@@ -170,7 +170,7 @@ export function dateRangeLabel(start: string | null | undefined, end: string | n
   if (!s) return '';
   if (!end || end.slice(0, 10) === (start ?? '').slice(0, 10)) return s;
   const sameYear = start!.slice(0, 4) === end.slice(0, 4);
-  return `${s}〜${dateLabel(end, { withYear: !sameYear })}`;
+  return `${s}〜${dateLabel(end, { withYear: !sameYear })}`; // ui-tokens-ok: 資料（pptx）の帯の文字列。画面の行は DateRange を使う
 }
 
 /** Date か ISO 文字列を `YYYY-MM-DD` にする（Date はその環境のローカル日付） */

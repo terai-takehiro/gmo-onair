@@ -17,7 +17,8 @@ import { LegendItem, SectionHead } from './SectionHead';
 import { pctLabel, toThousandYen, ymLabel } from './format';
 
 const W = 720;
-const PAD = { l: 44, r: 12, t: 12, b: 22 };
+// 上の余白は「単位の文字」の1行ぶん（いちばん上の目盛りと重ねない）
+const PAD = { l: 44, r: 12, t: 26, b: 22 };
 
 /** きりのいい目盛り（最大値を 4 分割して 1・2・5 の倍数に寄せる） */
 function niceMax(max: number): number {
@@ -74,7 +75,7 @@ export function RevenueTrendChart({ points }: { points: MonthlyTrendPoint[] }) {
           </g>
         );
       })}
-      <text x={PAD.l - 6} y={PAD.t - 2} fontSize={10} textAnchor="end" className="fill-muted-foreground">千円</text>
+      <text x={PAD.l - 6} y={11} fontSize={10} textAnchor="end" className="fill-muted-foreground">千円</text>
       {points.map((p, i) => {
         const x = xOf(i, n, innerW) + (slot - bw) / 2;
         const inK = toThousandYen(p.revenue_internal) ?? 0;
@@ -123,7 +124,8 @@ export function UtilizationTrendChart({ points }: { points: MonthlyTrendPoint[] 
           </g>
         );
       })}
-      <text x={PAD.l - 6} y={PAD.t - 2} fontSize={10} textAnchor="end" className="fill-muted-foreground">日</text>
+      <text x={PAD.l - 6} y={11} fontSize={10} textAnchor="end" className="fill-muted-foreground">日</text>
+      <text x={W - 34} y={11} fontSize={10} textAnchor="start" className="fill-muted-foreground">稼働率</text>
       {points.map((p, i) => {
         const x = xOf(i, n, innerW) + (slot - bw) / 2;
         return (

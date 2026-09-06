@@ -68,7 +68,8 @@ export function buildPage(spec: NewPageSpec): SlidePage {
     : tpl.regions.map((r) => ({
         id: newId('part'), type: r.type, binding: bindingFor(r.binding, spec.scope),
         x: r.x, y: r.y, w: r.w, h: r.h, text_override: null,
-        options: spec.options ? { ...spec.options } : undefined,
+        // `label` はサーバーが組む部品と同じ約束（`buildStandardDeck`）。右のパネルの呼び名に使う
+        options: { label: r.label, ...(spec.options ?? {}) },
       }));
   const title = spec.title ?? tpl.defaultTitle;
   const agenda = title.includes('【') ? parseAgenda(title) : null;
@@ -127,7 +128,7 @@ interface DeckState {
   replacePart: (pageId: string, partId: string, spec: NewPartSpec) => void;
   duplicatePart: (pageId: string, partId: string) => void;
   removePart: (pageId: string, partId: string) => void;
-  updatePart: (pageId: string, partId: string, patch: Partial<Pick<SlidePart, 'text_override' | 'options' | 'binding'>>) => void;
+  updatePart: (pageId: string, partId: string, patch: Partial<Pick<SlidePart, 'text_override' | 'options' | 'binding' | 'x' | 'y' | 'w' | 'h'>>) => void;
   setSaveStatus: (status: SaveStatus) => void;
   markSaved: (snapshot: KeepDeck, result: SaveDeckResult) => void;
 }

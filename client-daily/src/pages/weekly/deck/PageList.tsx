@@ -96,7 +96,7 @@ export function PageList() {
   const restorePage = useDeckStore((s) => s.restorePage);
   const addPage = useDeckStore((s) => s.addPage);
 
-  const pages = deck?.pages ?? [];
+  const pages = useMemo(() => deck?.pages ?? [], [deck]);
   const numbers = useMemo(() => pageNumbers(pages), [pages]);
   const ids = useMemo(() => pages.map((p) => p.id), [pages]);
 

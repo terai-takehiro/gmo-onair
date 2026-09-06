@@ -33,7 +33,9 @@ export function renderRevenueChart(slide: PptxGenJS.Slide, pts: TrendRevenuePoin
       { type: ct.bar, data: bars, options: { barGrouping: 'stacked', chartColors: [C.tableHead, '7FB3E6'] } },
       { type: ct.line, data: line, options: { chartColors: [C.negative], lineSize: 2, lineDataSymbol: 'circle', lineDataSymbolSize: 5, secondaryValAxis: true, secondaryCatAxis: true } },
     ],
-    [],
+    // ⚠️ 複合グラフでは pptxgenjs 4.0.1 が `data || opt` で **第2引数を設定として読む**（データは type 側に持つ）。
+    // `[]` を渡すと配列が設定になって色の生成で落ちる。必ず null
+    null as unknown as unknown[],
     {
       x: box.x, y: box.y, w: box.w, h: box.h, ...axisFont,
       showTitle: true, title: `売上高と稼働件数（${ym(pts[0].year_month)}〜）`, titleFontFace: FONT, titleFontSize: 12, titleColor: C.title,
@@ -56,7 +58,9 @@ export function renderUtilizationChart(slide: PptxGenJS.Slide, all: TrendUtiliza
       { type: ct.bar, data: [{ name: '稼働日数', labels, values: pts.map((p) => p.active_days) }], options: { chartColors: ['7FB3E6'] } },
       { type: ct.line, data: [{ name: '稼働率', labels, values: pts.map((p) => p.utilization ?? 0) }], options: { chartColors: [C.title], lineSize: 2, lineDataSymbol: 'circle', lineDataSymbolSize: 5, secondaryValAxis: true, secondaryCatAxis: true } },
     ],
-    [],
+    // ⚠️ 複合グラフでは pptxgenjs 4.0.1 が `data || opt` で **第2引数を設定として読む**（データは type 側に持つ）。
+    // `[]` を渡すと配列が設定になって色の生成で落ちる。必ず null
+    null as unknown as unknown[],
     {
       x: box.x, y: box.y, w: box.w, h: box.h, ...axisFont,
       showTitle: true, title: `スタジオ稼働率の推移（${ym(pts[0].year_month)}〜）`, titleFontFace: FONT, titleFontSize: 12, titleColor: C.title,

@@ -98,7 +98,7 @@ export function PartsPanel() {
   const setReplaceTarget = useDeckStore((s) => s.setReplaceTarget);
 
   const groups: ChipGroup[] = useMemo(() => buildChips(pack), [pack]);
-  const pages = deck?.pages ?? [];
+  const pages = useMemo(() => deck?.pages ?? [], [deck]);
   const page = pages.find((p) => p.id === selectedPageId) ?? null;
   const no = useMemo(() => (page ? pageNumbers(pages).get(page.id) : undefined), [pages, page]);
   const replacing = !!replaceTargetPartId && !!page?.parts.some((p) => p.id === replaceTargetPartId);

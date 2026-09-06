@@ -127,7 +127,7 @@ https://dev.gmo-onair.jp/api/v1/mcp
   (メール自動仕分けの試験実行など。本番に試し打ちを残さない)
 - 検証 DB は自由に壊してよい。本番 DB とは**完全分離** (`onair_prod` / `onair_dev`)
 
-## ツール一覧 (159 種 / 22 カテゴリ / v4)
+## ツール一覧 (161 種 / 23 カテゴリ / v4)
 
 > **この一覧は手で書いています。** 実際に登録されているツールは
 > `node scripts/generate-mcp-tools.mjs` が `server/src/contexts/mcp/tools/*.ts` から
@@ -144,7 +144,7 @@ https://dev.gmo-onair.jp/api/v1/mcp
 > テンプレート適用と work_state / production_step / episode_id / parent_task_id の
 > 細かい編集を追加）/ members 3 / minutes 3 /
 > studio 4 / finance 4 / budget 4 / pricing 3 / analytics 3 / users 1 / mytasks 10 /
-> opsreports 5 / eventreports 5 / inview 4 / inbox 4 / security-cards 5 / aifeedback 1 /
+> opsreports 5 / eventreports 5 / inview 4 / inbox 4 / security-cards 5 / aifeedback 1 / keep 2（定例報告パック。2026-09 新設。下記参照）/
 > production 22（読み取り7・書き込み15。新名5種＋旧名 `[非推奨/deprecated]` 5種＋改名対象外3種＋
 > スケジュール表の枠 CRUD 3種（2026-08 新設）＋スケジュール表そのもの・列の CRUD 6種
 > （2026-08 追加新設。表の新規作成 `create_schedule`/更新 `update_schedule` と、列の
@@ -407,13 +407,38 @@ GMOサムライスタジオ用賀のセキュリティカード 24 枚。カー�
 | `upsert_event_report` | write | 実施報告の作成/更新 (**渡したフィールドのみマージ更新**)。headline / highlights / 来場者数 / report_status (draft→confirmed で資料掲載) |
 | `attach_event_photo` | write | 写真の追加 (実体は Box・box_file_id 参照のみ保持。レポート未作成なら draft を自動作成) |
 | `detach_event_photo` | write | 写真の削除 (Box 上の実体は削除しない) |
-| `get_monthly_budget` | read | 月次予算 (売上/固定原価/変動原価/販管費/営業利益の目標) |
-| `upsert_monthly_budget` | write | 月次予算の登録/更新 (マージ更新。operating_profit 未指定は構成要素から自動計算) |
-| `upsert_monthly_actual_override` | write | 実績補正 (経理確定値) の登録 — FIXED-COGS 償却の未計上補完・販管費確定値 |
-| `get_monthly_pl` | read | **損益ページの単一入口**: 予算 / 補正込み実績 / 対目標差・比・判定 (売上・利益系: 実績≧目標→○、費用系: 実績≦目標→○、目標未登録→"-") |
+| `get_monthly_budget` | read | 月次予算 (売上/固定原価/変動原価/販管費/営業利益の目標) を**主体別**に取得。`entity` (gss / gscs / gig・省略時 gss) |
+| `upsert_monthly_budget` | write | 月次予算の登録/更新 (マージ更新。operating_profit 未指定は構成要素から自動計算)。`entity` (省略時 gss)。全体の目標は主体の合計なので全体の値は入れない |
+| `upsert_monthly_actual_override` | write | 実績補正 (経理確定値) の登録 — FIXED-COGS 償却の未計上補完・販管費確定値。`entity` (省略時 gss) |
+| `get_monthly_pl` | read | **損益ページの単一入口**: 予算 / 補正込み実績 / 対目標差・比・判定 (売上・利益系: 実績≧目標→○、費用系: 実績≦目標→○、目標未登録→"-")。`entity` は `all` (主体の合計・**省略時**) か gss / gscs / gig。対目標比は目標が赤字の行だけ 100 − (目標 − 実績) ÷ \|目標\| × 100 (9/4 の資料の式) |
 | `get_meeting_minutes` | read | 議事録サマリ (決定事項 / 領域別トピック / 次回開催日) |
 | `upsert_meeting_minutes` | write | 議事録サマリの登録/更新 (マージ更新) |
 | `list_meeting_minutes` | read | 議事録サマリの一覧 (開催日範囲・新しい順) — 前回会議分の取得に使用 |
+
+事業主体 (migration 282/283・2026-09): 予算・補正値は (年月 × 主体) の行で、`entity` を省くと gss (GMOサムライスタジオ)。
+gscs = GMOサムライコンテンツスタジオ、gig = GMOインターネットグループ人格 (人が案件で上書きしたときだけ付く)。
+`get_monthly_pl` だけ `all` (主体の合計) を受け、省略時も `all`。売上・仕入は案件の主体、販管費は `sga_expenses.entity`、
+償却相当 (FIXED-COGS) の仕入は `purchases.entity` で分かれる (`docs/design/v4/keep-report.md` §4)。
+
+### 隔週キープの定例報告パック (dailyops — keep・2026-09 新設)
+| ツール | 種別 | 概要 |
+|---|---|---|
+| `get_keep_report_pack` | read | 会議1回ぶんの数字を1本の JSON (`KeepReportPack`・`shared/src/keepReport/types.ts`) で取得。`meeting_date` (省略時=次回の開催日) / `entity` (all・省略時) / `segment` (all / internal / external) / `live` (true でいまの数字)。**凍結した版 (週報の確定時点) があればそれ**、無ければいまの数字 (`frozen=false`・`pack.frozen_at=null`)。HTTP の `GET /dailyops/keep/pack` と同じ `getPackForMeeting` を通る |
+| `list_keep_report_packs` | read | 凍結した版の一覧 (id / 会議日 / 絞り込み / 凍結した時刻と人 / 結んだ週報の id)。中身は含まない。同じ会議日の複数の版は凍結し直したもの (新しい版が先・前の版は消さない) |
+
+パックの中身 (`docs/design/v4/keep-report.md` §5):
+- `landing` … **会議の前の月**の着地 (9/4 の会議なら 8月)。`all` / `gss` / `gscs` (/ `gig` は数字があるときだけ) の 6行 (売上高・原価〔案件仕入〕・粗利・販管費・償却相当額・営業利益) × 目標/実績/差/比/判定。確定売上 (`status='confirmed'`) だけを数える
+- `forecast` … **会議の月**の着地見込 ＝ 着地 ＋ 受注前案件 (失注除く) の `status='estimate'` の売上 × ステージの受注確度。受注前案件の仕入は 100% → 確度に置き換える (二重に数えない)。`unconfirmed[]` はその月の未確定の売上と、その月に本番があるのに確定売上が無い案件 (注記の材料。後者は表の数字に足していない)
+- `trend` … 2024-01〜会議の月 (最後の点は進行中)。売上 (グループ内/外部は案件の `customer_type` の当時の値)・案件数 (本番開始日がその月の受注済み以降)・営業日数・稼働日数・稼働率
+- `pipeline` … 終わっていない案件 (ネタを含む) のヨミ表。`samurai` は `companies.samurai_group` のお客様、`external` はそれ以外の全部 (グループ内も。`segment` で絞る)。見積金額・粗利は最新の見積、次のやることは未対応の次回アクションのうち期限が近いもの、`since_last` は前回の会議日以降の new / updated
+- `project_pages` … ヨミ表で「資料」に印 (`projects.keep_pick`) を付けた案件のページ材料。写真は案件 Box の社外フォルダ `08_写真` (BOX につないでいなければ空)、チェック/リハ/本番は `studio_bookings` (setup / rehearsal / performance)、進行表 (Qシート) は段3以降で空
+- `event_reports` … 前回の会議日より後・今回の会議日以前に本番を終えた受注済み以降の案件。総括は `event_reports.headline`、箇条書きは KPT の keep (**人が確かめた行だけ**)
+- `calendars` … 会議の月と翌月。稼働率 = 利用があった日数 ÷ 営業日数 (`keep_settings` の種別・土曜の設定。既定はメンテナンス以外を数える)
+- `inview` … 会議日以前の直近の定期内覧会。組数・人数は受付した人 (誰も受付していない回は申込)、分類は来場者の会社、満足度は手入力 (`PUT /dailyops/keep/inputs/:meeting` の `inview_satisfaction` = `{score}`)
+- `minutes` … 前回の会議日の議事録サマリ
+- 金額は円の整数・比率は % (小数1桁)・判定と比率はサーバーが計算済み。千円に丸めるのは表示側 (`shared/src/keepReport/calc.ts` の `toThousandYen`)
+
+凍結: 週報 (`weekly_activity`) を確定すると、その週の会議日 (無ければ次の開催日) のパックを 全体／全区分 で凍結し、`ops_reports.payload.keep = { pack_id, meeting_date }` で結ぶ (凍結に失敗しても確定は成功する)。単独で凍結するのは `POST /dailyops/keep/pack/freeze`。凍結した版は書き換えず、直したいときは元データを直して凍結し直す (前の版は残る)。
 
 ### 制作技術支援 (production — 進行台本・スケジュール表)
 
@@ -587,6 +612,9 @@ server/src/contexts/mcp/
     │                        BOX フォルダ (gpm-box-folder.service) を再利用。
     │                        create 系は ai_outputs に記録し、人の修正差分は
     │                        gpm-ai-feedback.service が update の中で自動記録する
+    ├── keep.tools.ts        隔週キープの定例報告パック 2 種 (read。2026-09 新設)。
+    │                        dailyops/services/keep-pack-store.service の getPackForMeeting
+    │                        (HTTP の GET /dailyops/keep/pack と同じ入口) を再利用
     └── … (customers / activities / tasks / members / minutes / analytics / users /
            mytasks / pricing / budget / opsreports / eventreports / inview / inbox /
            security-cards / aifeedback)

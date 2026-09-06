@@ -19,6 +19,21 @@ import { useDeckStore } from './deckState';
 import { ScaledSlide, pageNumbers, useFitScale } from './SlideFrame';
 import { SLIDE_H, SLIDE_W } from './renderers/slideStyle';
 
+/** 部品の削除（確認つき）。キャンバスの道具と Delete キーの両方がこれを呼ぶ */
+export async function confirmRemovePart(): Promise<void> {
+  const s = useDeckStore.getState();
+  const page = s.deck?.pages.find((p) => p.id === s.selectedPageId);
+  const part = page?.parts.find((p) => p.id === s.selectedPartId);
+  if (!page || !part) return;
+  const ok = await confirmAction({
+    title: 'この部品を削除しますか',
+    description: `「${partLabel(part, page)}」をこのページから外します。数字は元のデータに残るので、右の「部品」からまた置けます。`,
+    confirmLabel: '削除する',
+    tone: 'danger',
+  });
+  if (ok) s.removePart(page.id, part.id);
+}
+
 function ToolButton({ icon: Icon, label, onClick, disabled, active, title }: {
   icon: typeof Copy; label: string; onClick: () => void; disabled?: boolean; active?: boolean; title?: string;
 }) {
@@ -48,10 +63,9 @@ export function SlideCanvas({ onRefreshNumbers, refreshing }: { onRefreshNumbers
   const removePage = useDeckStore((s) => s.removePage);
   const restorePage = useDeckStore((s) => s.restorePage);
   const duplicatePart = useDeckStore((s) => s.duplicatePart);
-  const removePart = useDeckStore((s) => s.removePart);
   const setReplaceTarget = useDeckStore((s) => s.setReplaceTarget);
 
-  const pages = deck?.pages ?? [];
+  const pages = useMemo(() => deck?.pages ?? [], [deck]);
   const numbers = useMemo(() => pageNumbers(pages), [pages]);
   const idx = pages.findIndex((p) => p.id === selectedPageId);
   const page = idx >= 0 ? pages[idx] : null;
@@ -65,16 +79,6 @@ export function SlideCanvas({ onRefreshNumbers, refreshing }: { onRefreshNumbers
   const H = SLIDE_H * scale;
   const { setNodeRef, isOver } = useDroppable({ id: 'canvas-drop', data: { type: 'canvas' } });
 
-  const onRemovePart = async () => {
-    if (!page || !part) return;
-    const ok = await confirmAction({
-      title: 'この部品を削除しますか',
-      description: `「${partLabel(part, page)}」をこのページから外します。数字は元のデータに残るので、右の「部品」からまた置けます。`,
-      confirmLabel: '削除する',
-      tone: 'danger',
-    });
-    if (ok) removePart(page.id, part.id);
-  };
   const onRemovePage = async () => {
     if (!page) return;
     const ok = await confirmAction({
@@ -151,7 +155,7 @@ export function SlideCanvas({ onRefreshNumbers, refreshing }: { onRefreshNumbers
                   />
                   <ToolButton icon={Replace} label="差し替え" onClick={() => setReplaceTarget(replaceTargetPartId === part.id ? null : part.id)} active={replaceTargetPartId === part.id} title="右の「部品」の＋で、この部品を置き換えます" />
                   <ToolButton icon={Copy} label="複製" onClick={() => duplicatePart(page.id, part.id)} />
-                  <ToolButton icon={Trash2} label="削除" onClick={() => { void onRemovePart(); }} />
+                  <ToolButton icon={Trash2} label="削除" onClick={() => { void confirmRemovePart(); }} />
                 </div>
               </>
             )}
