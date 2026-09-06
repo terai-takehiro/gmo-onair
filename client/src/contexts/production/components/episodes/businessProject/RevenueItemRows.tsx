@@ -1,8 +1,9 @@
 /**
  * GPM の請求タブ — 売上明細ダイアログの「明細項目」の行（段13）
  *
- * ⚠️ **`BusinessProjectView.tsx` から切り出したもので、中身は1文字も変えていません。**
- * インデントも元のまま。
+ * ⚠️ **`BusinessProjectView.tsx` から切り出したものです。** インデントも元のまま。
+ * 変えたのは**スマホのカードの並び順だけ**（数量 → 金額 → 単価 を
+ * 単価 → 数量 → 金額 に。理由はその場所のコメント）。欄も送る値も変えていません。
  *
  * ⚠️ **PC の表とスマホのカードは、同じ項目を2度書いています**（`hidden sm:block` と
  * `sm:hidden`）。**片方だけ直すと、もう片方から欄が消えます** — 過去にそれで
@@ -208,17 +209,14 @@ export function RevenueItemRows({
                         list="revenue-item-categories"
                       />
                     </div>
+                    {/* **単価 → 数量 → 金額 の順**（`docs/design/v4/_form-order.md` 段5
+                        「単価 → 数量 → 税 → 合計」・2-3「自動計算は材料の下」）。
+                        着手前は 数量 → 金額 → 単価 で、**手で入れる単価より、その計算結果の
+                        金額が上**にあった（PC の表は 数量 → 単価 → 金額 で正しい）。
+                        単価だけ全幅なのは、3等分だと 375px で1列 ~90px しかなく、¥接頭辞＋
+                        税ボタン(スマホは min-width 44px)で数字がほぼ見えなくなるため。
+                        その単価を先頭に出すと、下の 数量／金額 が2列にきれいに収まる */}
                     <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-xs">数量</Label>
-                        <Input type="number" min={1} value={item.quantity} onChange={(e) => updateItem(idx, "quantity", parseInt(e.target.value) || 0)} />
-                      </div>
-                      <div>
-                        <Label className="text-xs">金額</Label>
-                        <p className="h-9 flex items-center font-number font-medium text-sm">{formatCurrency(item.amount)}</p>
-                      </div>
-                      {/* 単価は全幅。3等分だと 375px で1列 ~90px しかなく、¥接頭辞＋
-                          税ボタン(スマホは min-width 44px)で数字がほぼ見えなくなる */}
                       <div className="col-span-2">
                         <Label className="text-xs">単価</Label>
                         <div className="flex items-center gap-0.5">
@@ -233,6 +231,14 @@ export function RevenueItemRows({
                             onResult={(v) => updateItem(idx, "unit_price", v)}
                           />
                         </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs">数量</Label>
+                        <Input type="number" min={1} value={item.quantity} onChange={(e) => updateItem(idx, "quantity", parseInt(e.target.value) || 0)} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">金額</Label>
+                        <p className="h-9 flex items-center font-number font-medium text-sm">{formatCurrency(item.amount)}</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

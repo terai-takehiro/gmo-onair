@@ -26,6 +26,20 @@ interface Props {
 // Outlook/Google → GMO ONAiR の ICS 購読設定ダイアログ。
 // ユーザーが各サービスで発行した「公開 ICS URL」を登録すると、サーバーが 15 分ごとに
 // 同期してマイカレンダーに表示する (一方向・読み取りのみ)。
+/**
+ * 貼られた ICS の URL から**ラベルの既定値**を作る。
+ * 「名前を先に考えさせない」ための補助なので、外したときは空を返して手入力に任せる。
+ */
+function labelFromUrl(raw: string): string {
+  let host = '';
+  try { host = new URL(raw.trim()).hostname.toLowerCase(); } catch { return ''; }
+  if (!host) return '';
+  if (host.includes('office365') || host.includes('outlook') || host.includes('live.com')) return 'Outlook';
+  if (host.includes('google')) return 'Google カレンダー';
+  if (host.includes('icloud')) return 'iCloud';
+  return host.replace(/^www\./, '');
+}
+
 export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
   const qc = useQueryClient();
   const [label, setLabel] = useState("");
@@ -126,6 +140,59 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
       title="外部カレンダー連携（Outlook / Google）"
       sub="Google・Outlook はつなぐと両方向で同期します。URL を貼るだけの場合は ONAiR に取り込むだけです。"
     >
+        {/* フィード一覧。
+            **このダイアログを開く用途の大半は「止まっていないかの確認」**なので先頭に置く。
+            以前は Google・Outlook のパネル・手順ガイド・追加フォームをすべて越えた最下段にあり、
+            いま繋がっているものとエラーを見るのに毎回スクロールが要った。
+            同じ内容を出す `pages/calendarSettings/FeedsTab.tsx` は先に一覧を出しており、
+            このダイアログだけ順序が逆だった */}
+        <div className="space-y-2">
+          <p className="text-sm font-semibold">連携中のカレンダー</p>
+          {isLoading ? (
+            <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          ) : feeds.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-2">まだ連携がありません。</p>
+          ) : (
+            feeds.map((f) => (
+              <div key={f.id} className="rounded-lg border p-3 space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-sm">{f.label}</span>
+                  <code className="text-[11px] text-muted-foreground">{f.url_masked}</code>
+                  <div className="ml-auto flex items-center gap-1">
+                    <Button
+                      size="sm" variant="outline" className="h-8"
+                      onClick={() => syncMutation.mutate(f.id)}
+                      disabled={syncMutation.isPending}
+                      title="今すぐ同期"
+                    >
+                      {syncMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                    </Button>
+                    <Button
+                      size="sm" variant="outline" className="h-8 text-destructive border-destructive/40 hover:bg-destructive/10"
+                      onClick={() => { if (confirm(`「${f.label}」の連携を解除しますか？（同期済みの予定も削除されます）`)) deleteMutation.mutate(f.id); }}
+                      disabled={deleteMutation.isPending}
+                      title="連携を解除"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  {f.last_synced_at
+                    ? `最終同期: ${new Date(f.last_synced_at).toLocaleString("ja-JP")}${f.event_count != null ? ` ・ ${f.event_count} 件` : ""}`
+                    : "未同期"}
+                </p>
+                {f.last_error && (
+                  <p className="flex items-start gap-1 text-[11px] text-destructive">
+                    <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+                    {f.last_error}
+                  </p>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+
         {/* Google カレンダー OAuth 連携 (会社 Workspace は ICS 公開が無効なことが多いため推奨) */}
         <div className="space-y-2 rounded-lg border border-green-600/30 bg-green-50/40 p-3">
           <div className="flex items-center gap-2">
@@ -324,14 +391,28 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
 
         {/* 追加フォーム */}
         <div className="space-y-3 rounded-lg border p-3">
-          <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-3">
+          {/* **URL を先に訊く。** 上の手順ガイドが言うとおり、この欄に来た人が手に持っているのは
+              コピーした URL のほうで、ラベルは後から付ける名前。以前は「ラベル → URL」の順で、
+              先に名前を考えさせていた（`docs/design/v4/_form-order.md` 3.）。
+              ラベルは URL のホスト名から既定値を入れる（空のときだけ・手で書き換えられる） */}
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px] gap-3">
+            <div className="space-y-1.5">
+              <Label>公開 ICS URL</Label>
+              <Input
+                value={url}
+                onChange={(e) => {
+                  setUrl(e.target.value);
+                  if (!label.trim()) {
+                    const guess = labelFromUrl(e.target.value);
+                    if (guess) setLabel(guess);
+                  }
+                }}
+                placeholder="https://outlook.office365.com/owa/calendar/…/calendar.ics"
+              />
+            </div>
             <div className="space-y-1.5">
               <Label>ラベル</Label>
               <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="例：会社Outlook" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>公開 ICS URL</Label>
-              <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://outlook.office365.com/owa/calendar/…/calendar.ics" />
             </div>
           </div>
           <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
@@ -351,53 +432,6 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
         {notice && <p className="text-sm text-green-700">{notice}</p>}
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        {/* フィード一覧 */}
-        <div className="space-y-2">
-          <p className="text-sm font-semibold">連携中のカレンダー</p>
-          {isLoading ? (
-            <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-          ) : feeds.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-2">まだ連携がありません。</p>
-          ) : (
-            feeds.map((f) => (
-              <div key={f.id} className="rounded-lg border p-3 space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm">{f.label}</span>
-                  <code className="text-[11px] text-muted-foreground">{f.url_masked}</code>
-                  <div className="ml-auto flex items-center gap-1">
-                    <Button
-                      size="sm" variant="outline" className="h-8"
-                      onClick={() => syncMutation.mutate(f.id)}
-                      disabled={syncMutation.isPending}
-                      title="今すぐ同期"
-                    >
-                      {syncMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                    </Button>
-                    <Button
-                      size="sm" variant="outline" className="h-8 text-destructive border-destructive/40 hover:bg-destructive/10"
-                      onClick={() => { if (confirm(`「${f.label}」の連携を解除しますか？（同期済みの予定も削除されます）`)) deleteMutation.mutate(f.id); }}
-                      disabled={deleteMutation.isPending}
-                      title="連携を解除"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  {f.last_synced_at
-                    ? `最終同期: ${new Date(f.last_synced_at).toLocaleString("ja-JP")}${f.event_count != null ? ` ・ ${f.event_count} 件` : ""}`
-                    : "未同期"}
-                </p>
-                {f.last_error && (
-                  <p className="flex items-start gap-1 text-[11px] text-destructive">
-                    <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
-                    {f.last_error}
-                  </p>
-                )}
-              </div>
-            ))
-          )}
-        </div>
     </FormDialog>
   );
 }

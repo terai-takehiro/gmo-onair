@@ -150,6 +150,13 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
       onOpenChange={onOpenChange}
       title={editing ? (isExternalSynced ? "取り込んだ予定" : isSharedIn ? "共有された予定" : "個人予定を編集") : "個人予定を登録"}
       size="lg"
+      /* Enterキーで登録できるようにする（`FormDialog` の `onSubmit` は opt-in）。
+         送信ボタンは `type="submit"` にして `onClick` を外してある — 両方あると二重送信になる */
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (isExternalSynced || !canSubmit || saveMutation.isPending) return;
+        saveMutation.mutate();
+      }}
       sub={
         isSharedIn
           ? "ほかの人から共有された予定です。内容は編集できます。消せるのは作成者だけで、あなたは自分のカレンダーから外せます。"
@@ -179,7 +186,7 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
             {isExternalSynced ? "閉じる" : "キャンセル"}
           </Button>
           {!isExternalSynced && (
-            <Button type="button" onClick={() => saveMutation.mutate()} disabled={!canSubmit || saveMutation.isPending}>
+            <Button type="submit" disabled={!canSubmit || saveMutation.isPending}>
               {saveMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
               {editing ? "保存" : "登録"}
             </Button>
@@ -204,6 +211,17 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
           </div>
         )}
 
+        {/* 外部カレンダーへの書き戻し案内。
+            **他の2つの帯と同じくフォーム本体の前に置く。** 「保存先がもう1つ増える」は
+            入力を始める前に知りたいことなのに、以前は共有先のさらに下＝最下段にあり、
+            全部入力してスクロールしないと読めなかった */}
+        {isOwner && !isExternalSynced && writeTarget && (
+          <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-[11px] text-emerald-800">
+            <CloudUpload className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+            <span>この予定は連携中の <b>{writeTarget}</b> カレンダーにも自動で反映されます。</span>
+          </div>
+        )}
+
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label>タイトル</Label>
@@ -215,42 +233,40 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
             <Label htmlFor="pe-allday">終日</Label>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* 日時は**境界ごとに1行**（開始＝日＋時刻／終了＝日＋時刻）。
+              以前は「日付の行／時刻の行」というマトリクス組みで、スマホ（1列）では
+              開始日→**終了日**→開始時刻→終了時刻 と落ち、開始日のすぐ下が終了日になっていた。
+              同じアプリのスタジオ予約は境界ごとの組みで、日時の読み方が2通りあった
+              （`docs/design/v4/_form-order.md` 2-3「期間は開始→終了」） */}
+          <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label>開始日</Label>
-              <Input type="date" value={startDate} disabled={isExternalSynced} onChange={(e) => {
-                setStartDate(e.target.value);
-                if (!endDate || endDate < e.target.value) setEndDate(e.target.value);
-              }} />
+              <Label>開始</Label>
+              <div className="flex gap-2">
+                <Input type="date" className="min-w-0 flex-1" value={startDate} disabled={isExternalSynced} onChange={(e) => {
+                  setStartDate(e.target.value);
+                  if (!endDate || endDate < e.target.value) setEndDate(e.target.value);
+                }} />
+                {!allDay && (
+                  <Input type="time" className="w-28 shrink-0" value={startTime} disabled={isExternalSynced} onChange={(e) => setStartTime(e.target.value)} />
+                )}
+              </div>
             </div>
             <div className="space-y-1.5">
-              <Label>終了日</Label>
-              <Input type="date" value={endDate} min={startDate} disabled={isExternalSynced} onChange={(e) => setEndDate(e.target.value)} />
+              <Label>終了</Label>
+              <div className="flex gap-2">
+                <Input type="date" className="min-w-0 flex-1" value={endDate} min={startDate} disabled={isExternalSynced} onChange={(e) => setEndDate(e.target.value)} />
+                {!allDay && (
+                  <Input type="time" className="w-28 shrink-0" value={endTime} disabled={isExternalSynced} onChange={(e) => setEndTime(e.target.value)} />
+                )}
+              </div>
             </div>
-            {!allDay && (
-              <>
-                <div className="space-y-1.5">
-                  <Label>開始時刻</Label>
-                  <Input type="time" value={startTime} disabled={isExternalSynced} onChange={(e) => setStartTime(e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>終了時刻</Label>
-                  <Input type="time" value={endTime} disabled={isExternalSynced} onChange={(e) => setEndTime(e.target.value)} />
-                </div>
-              </>
-            )}
           </div>
 
-          <div className="space-y-1.5">
-            <Label>場所（任意）</Label>
-            <Input value={location} onChange={(e) => setLocation(e.target.value)} disabled={isExternalSynced} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>メモ（任意）</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} disabled={isExternalSynced} />
-          </div>
-
-          {/* 共有先 (作成者のみ・手入力予定のみ) */}
+          {/* 共有先 (作成者のみ・手入力予定のみ)。
+              **場所・メモより前に置く**（`_form-order.md` 段4「誰が」）。
+              共有先は「この予定を誰が見て、誰が直せるか」を決める設定で、
+              任意の補足（場所・メモ）より先に決めるもの。以前は末尾の畳んだ枠にあり、
+              共有し忘れたまま登録されていた */}
           {isOwner && !isExternalSynced && (
             <div className="space-y-2 rounded-lg border p-3">
               <button
@@ -307,13 +323,15 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
             </div>
           )}
 
-          {/* 外部カレンダーへの書き戻し案内 */}
-          {isOwner && !isExternalSynced && writeTarget && (
-            <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-[11px] text-emerald-800">
-              <CloudUpload className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-              <span>この予定は連携中の <b>{writeTarget}</b> カレンダーにも自動で反映されます。</span>
-            </div>
-          )}
+          {/* 補足（任意）は最後にまとめる（`_form-order.md` 段6） */}
+          <div className="space-y-1.5">
+            <Label>場所（任意）</Label>
+            <Input value={location} onChange={(e) => setLocation(e.target.value)} disabled={isExternalSynced} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>メモ（任意）</Label>
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} disabled={isExternalSynced} />
+          </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>

@@ -226,6 +226,36 @@ export function Sheet({
         <DialogPrimitive.Content
           data-v4-sheet={rise ? 'rise' : undefined}
           onInteractOutside={onInteractOutside}
+          /**
+           * **開いた直後のフォーカスを「閉じる(×)」に置かない。**
+           *
+           * この骨格では見出しの `<DialogPrimitive.Close>` が本文より先に DOM に出るため、
+           * Radix の既定（最初のフォーカス可能要素へ移す）だと**必ず ×** に乗っていた。
+           * その結果、開いてすぐ打ち始められず（Tab が1回要る）、開いた直後に Enter を
+           * 押すと**保存ではなくダイアログが閉じる**（全アプリのフォーム 70本超で同じ）。
+           *
+           * - **PC は本文の最初の入力欄へ移す。** `button` は選ばない（× と、
+           *   本文の先頭にチップ列を置くフォームを拾ってしまうため）
+           * - **スマホは何も選ばず、シート本体（`tabIndex=-1`）に置く。** 入力欄へ当てると
+           *   ソフトキーボードが立ち上がってシートの表示領域が半分になる
+           * - **画面側が `autoFocus` を書いているときはそれを尊重する。** React は
+           *   マウント時に自分で `focus()` を当てているので、ここで横取りしない
+           */
+          onOpenAutoFocus={(e) => {
+            const root = e.currentTarget as HTMLElement | null;
+            if (!root) return;
+            e.preventDefault(); // 既定（＝閉じる×）を止める
+            // 画面が `autoFocus` で当てた先があるならそのまま
+            if (document.activeElement && document.activeElement !== root && root.contains(document.activeElement)) return;
+            const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
+            if (!isMobile) {
+              const first = root.querySelector<HTMLElement>(
+                'input:not([type="hidden"]):not([disabled]):not([readonly]), textarea:not([disabled]):not([readonly]), select:not([disabled])',
+              );
+              if (first) { first.focus(); return; }
+            }
+            root.focus();
+          }}
           {...back.handlers}
           style={(back.dragX || dragY)
             ? { transform: `translate(${back.dragX}px, ${dragY}px)`, transition: 'none' }
