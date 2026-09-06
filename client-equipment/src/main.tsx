@@ -22,7 +22,7 @@ class ErrorBoundary extends React.Component<
     if (this.state.hasError) {
       return (
         <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
-          <p className="text-lg font-semibold text-destructive">エラーが発生しました</p>
+          <p className="text-lg font-bold text-destructive">エラーが発生しました</p>
           <p className="text-sm text-muted-foreground">ページを再読み込みしてください</p>
           <button
             onClick={() => window.location.reload()}

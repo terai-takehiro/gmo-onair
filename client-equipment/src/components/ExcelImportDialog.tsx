@@ -198,7 +198,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
           {/* ファイル選択 */}
           <Card>
             <CardContent className="p-4 space-y-3">
-              <label className="block text-sm font-medium">Excelファイル (.xlsx)</label>
+              <label className="block text-sm">Excelファイル (.xlsx)</label>
               <input
                 ref={inputRef}
                 type="file"
@@ -224,7 +224,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
             <Card className={unmatchedCount > 0 ? "border-amber-400/60" : "border-green-500/40"}>
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">列の対応づけ</h3>
+                  <h3 className="font-bold">列の対応づけ</h3>
                   <span className="text-xs text-muted-foreground">
                     読み取った列: {preview.detectedHeaders.length} / 未対応: {unmatchedCount}
                   </span>
@@ -247,7 +247,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
                         const isUnmatched = !current;
                         return (
                           <tr key={col.key} className={isUnmatched ? 'bg-amber-50' : ''}>
-                            <td className="px-2 py-1.5 font-medium">{col.header}</td>
+                            <td className="px-2 py-1.5 font-bold">{col.header}</td>
                             <td className="px-2 py-1">
                               <Select
                                 value={current || NONE_VALUE}
@@ -312,7 +312,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
             <Card className={errorCount > 0 ? "border-destructive/40" : "border-green-500/40"}>
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">検証結果</h3>
+                  <h3 className="font-bold">検証結果</h3>
                   <div className="flex flex-wrap gap-2 text-xs">
                     <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800">新規 {dryRun.summary.insert}</span>
                     <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800">更新 {dryRun.summary.update}</span>
@@ -391,7 +391,7 @@ export default function ExcelImportDialog({ open, onOpenChange }: Props) {
               <CardContent className="p-4 space-y-2">
                 <div className="flex items-center gap-2 text-green-700">
                   <CheckCircle2 className="h-5 w-5" />
-                  <span className="font-semibold">インポート完了</span>
+                  <span className="font-bold">インポート完了</span>
                 </div>
                 <p className="text-sm">
                   新規追加: <strong>{committed.inserted.length}</strong>件 / 更新: <strong>{committed.updated.length}</strong>件

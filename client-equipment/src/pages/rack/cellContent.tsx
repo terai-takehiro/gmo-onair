@@ -28,7 +28,7 @@ export function DefaultCellContent({ it, height }: { it: any; height: number }) 
           </span>
           {it.unit_number && <UnitBadge n={it.unit_number} size="md" />}
         </div>
-        <span className="font-semibold truncate leading-tight opacity-60" style={{ fontSize: 11 }}>
+        <span className="font-bold truncate leading-tight opacity-60" style={{ fontSize: 11 }}>
           {it.name}
         </span>
       </div>
@@ -41,7 +41,7 @@ export function DefaultCellContent({ it, height }: { it: any; height: number }) 
         {it.name}
       </span>
       <div className="flex items-center gap-1.5 min-w-0">
-        <span className="font-semibold truncate leading-tight opacity-80 tracking-tight" style={{ fontSize: 12 }}>
+        <span className="font-bold truncate leading-tight opacity-80 tracking-tight" style={{ fontSize: 12 }}>
           {it.model_number}
         </span>
         {it.unit_number && <UnitBadge n={it.unit_number} size="md" />}
@@ -84,7 +84,7 @@ export function ConfiguredCellContent({ it, cfg, height }: { it: any; cfg: CellC
         {cfg.showNo && it.unit_number && <UnitBadge n={it.unit_number} size="md" />}
       </div>
       {extras.map((ex, i) => (
-        <span key={i} className="truncate leading-tight font-semibold opacity-60" style={{ fontSize: 11 }}>
+        <span key={i} className="truncate leading-tight font-bold opacity-60" style={{ fontSize: 11 }}>
           {ex.text}
         </span>
       ))}
