@@ -36,7 +36,7 @@ export function SearchableSelect({ value, onChange, items, placeholder }: {
     <div ref={ref} className="relative flex-1">
       <button
         type="button"
-        className="min-h-tap lg:min-h-0 w-full flex items-center justify-between px-3 py-2 text-sm border rounded-md bg-background hover:bg-muted/50 transition-colors"
+        className="min-h-tap lg:min-h-0 w-full flex items-center justify-between px-3 py-2 text-sm border rounded-control-lg bg-background hover:bg-muted/50 transition-colors"
         onClick={() => {
           setOpen((o) => !o);
           if (!open) setTimeout(() => inputRef.current?.focus(), 50);
@@ -48,7 +48,7 @@ export function SearchableSelect({ value, onChange, items, placeholder }: {
         <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-1" />
       </button>
       {open && (
-        <div className="absolute top-full mt-1 left-0 right-0 z-50 bg-popover border rounded-md shadow-lg">
+        <div className="absolute top-full mt-1 left-0 right-0 z-50 bg-popover border rounded-control-lg shadow-lg">
           <div className="flex items-center gap-1.5 px-2 py-1.5 border-b">
             <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             <input
@@ -68,7 +68,7 @@ export function SearchableSelect({ value, onChange, items, placeholder }: {
                 <button
                   key={it.id}
                   type="button"
-                  className={`w-full text-left px-3 py-1.5 text-sm hover:bg-muted transition-colors truncate block ${value === it.id ? "bg-primary/10 font-medium" : ""}`}
+                  className={`w-full text-left px-3 py-1.5 text-sm hover:bg-muted transition-colors truncate block ${value === it.id ? "bg-primary/10 font-bold" : ""}`}
                   onClick={() => { onChange(it.id); setOpen(false); setSearch(""); }}
                 >
                   {it.label}
