@@ -57,10 +57,18 @@ get_ai_feedback_digest(kind='finance_doc_intake')
 |---|---|
 | `studio-intake-done` | 案件・活動記録・受領書類・入ってきた情報のどれかに入れた |
 | `inview-reg-done` | 内覧会の来場予約に入れた |
+| `mail-intake-skipped` | **読んだうえで取り込まないと決めた**（メルマガ・自動通知・売り込み） |
 
 ```
-search_threads(query: '-label:studio-intake-done -label:inview-reg-done newer_than:3d -in:sent -in:draft')
+search_threads(query: '-label:studio-intake-done -label:inview-reg-done -label:mail-intake-skipped newer_than:3d -in:sent -in:draft')
 ```
+
+⚠️ **捨てたメールにも印を付けます**（`mail-intake-skipped`）。
+付けないと、**捨てたものが毎回この検索に当たり続けます**。1回30通までしか扱わないので、
+**捨てるメール30通が枠を占め、その裏で届いた請求書が3日間ずっと見られません**。
+
+印を分けてあるので「読んだけど捨てた」と「まだ読んでいない」は区別できます
+（何を捨てたかは手順5の取込ログにも残ります）。
 
 - **`newer_than:3d`** は保険です（ラベルが正）。取りこぼしても翌日拾えます。
 - **1回で扱うのは 30通まで。** それ以上あるときは古いほうから 30通だけ処理し、
@@ -89,19 +97,25 @@ search_threads(query: '-label:studio-intake-done -label:inview-reg-done newer_th
 
 ### 4. ラベルを付ける
 
-取り込んだメールに `studio-intake-done`（内覧会だけ `inview-reg-done`）を付けます。
+**扱った全部のメールに印を付けます**（取り込んだものも、捨てたものも）。
+
+| どうしたか | 付けるラベル |
+|---|---|
+| 案件・活動記録・受領書類・入ってきた情報 に入れた | `studio-intake-done` |
+| 内覧会の来場予約に入れた | `inview-reg-done` |
+| 読んだうえで取り込まないと決めた | `mail-intake-skipped` |
 
 ```
-label_thread(threadId: '<スレッドの id>', labelIds: ['Label_1'])   # studio-intake-done
-label_thread(threadId: '<スレッドの id>', labelIds: ['Label_2'])   # inview-reg-done
+label_thread(threadId: '<スレッドの id>', labelIds: ['<ラベルの id>'])
 ```
 
 ⚠️ **ラベルの id は名前ではありません。** `list_labels` で引いてから使ってください
-（実測では `studio-intake-done` = `Label_1`、`inview-reg-done` = `Label_2` ですが、
-確かめずに決め打たないこと）。
+（実測では `studio-intake-done` = `Label_1`、`inview-reg-done` = `Label_2`。
+`mail-intake-skipped` は**まだ無いので `create_label` で作ります**。
+どれも確かめずに決め打たないこと）。
 
-**捨てたメールにはラベルを付けません** — 付けると「読んだけど捨てた」と
-「まだ読んでいない」の区別が付かなくなります（区別は手順5の取込ログで残します）。
+⚠️ **捨てたメールにも必ず印を付けます。** 付けないと手順1の検索に当たり続け、
+**1回30通の枠を捨てるメールが占めて、その裏で届いた請求書が見られません**。
 
 ⚠️ **1通取り込んだら、その場でラベルを付けます。** まとめて最後に付けると、
 途中で止まったときに**入れたのに印が無いメール**が残り、次の実行で二重に処理します

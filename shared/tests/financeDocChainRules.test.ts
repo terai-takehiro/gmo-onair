@@ -365,3 +365,59 @@ describe('Codex 2巡目（8a047eb）で見つかった穴', () => {
     expect(s).toMatch(/DELETE FROM finance_doc_attachments WHERE doc_id = \? AND box_file_id IS NULL/);
   });
 });
+
+describe('Codex 3巡目（1e0ddbc）で見つかった穴', () => {
+  it('P2: 壊れた base64 を「保存しました」と言わない', () => {
+    /*
+      Buffer.from(s, 'base64') は壊れた文字列でも投げず、知らない文字を捨てて
+      それらしい長さのゴミを返す（'not base64' → 6バイト。実測）。
+      長さだけ見ると通り、**壊れた PDF を BOX に上げて成功と報告する** —
+      原本が壊れていることに、誰かが開くまで気づけない。
+    */
+    const a = attach();
+    expect(a).toMatch(/export function decodeStrictBase64/);
+    expect(a).toMatch(/\^\[A-Za-z0-9\+\/\]\*=\{0,2\}\$/);
+    // 戻して同じになるかまで確かめる
+    expect(a).toMatch(/buf\.toString\('base64'\)\.replace\(\/=\+\$\/, ''\) !== cleaned\.replace\(\/=\+\$\/, ''\)/);
+    expect(a).not.toMatch(/buffer = Buffer\.from\(att\.content_base64, 'base64'\)/);
+  });
+
+  it('P2: 1件読みは一覧の上限（300）を通らない', () => {
+    /*
+      一覧を引いてから探すと、束が増えたときに古い束が 404 になり、
+      直したあとに返す getGroup も「無い」を返す
+      （保存できたのに画面が「見つかりません」と言う）。
+    */
+    const s = chainSvc();
+    expect(s).toMatch(/GROUP_SELECT\} WHERE g\.id = \? AND g\.deleted_at IS NULL/);
+    expect(s).not.toMatch(/const rows = await listGroups\(\);/);
+    // 一覧と1件読みで同じ SELECT・同じ組み立てを使う
+    expect(s).toMatch(/const GROUP_SELECT = /);
+    expect(s).toMatch(/async function assembleGroups/);
+  });
+
+  it('P2: メール取込ログをニュースの成績に混ぜない', () => {
+    /*
+      取込ログの行に ops_news_item を付けていたため、ニュースの採用率が
+      回すほど下がって見えていた（取込ログに pick は一生付かない）。
+    */
+    const t = read('server', 'src', 'contexts', 'mcp', 'tools', 'opsreports.tools.ts');
+    expect(t).toMatch(/if \(added > 0 && args\.kind === 'daily_news'\)/);
+  });
+
+  it('P1: 捨てたメールにも印を付ける（付けないと取込の列が進まない）', () => {
+    /*
+      捨てたものに印が無いと毎回同じ検索に当たり、1回30通の枠を占めて、
+      その裏で届いた請求書が3日間見られない。
+    */
+    const skill = read('.claude', 'skills', 'mail-intake', 'SKILL.md');
+    const prompt = read('.claude', 'skills', 'mail-intake', 'references', 'routine-prompt.md');
+    for (const doc of [skill, prompt]) {
+      expect(doc).toContain('mail-intake-skipped');
+      // 検索から除いていないと意味がない
+      expect(doc).toMatch(/-label:studio-intake-done -label:inview-reg-done\s*\n?\s*-label:mail-intake-skipped|-label:inview-reg-done -label:mail-intake-skipped/);
+    }
+    // 「捨てたメールにはラベルを付けません」に戻っていないこと
+    expect(skill).not.toContain('捨てたメールにはラベルを付けません');
+  });
+});

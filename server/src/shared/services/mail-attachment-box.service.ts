@@ -107,6 +107,24 @@ export function attachmentFailureLabel(reason: string | null | undefined): strin
   }
 }
 
+/**
+ * base64 を**厳しく**読む。読めなければ `null`（黙ってゴミを返さない）。
+ *
+ * 素の base64 と URL 用（`-` `_`）の両方を受けます。改行は捨てます
+ * （メールの添付は 76 文字ごとに折り返して届くのが普通）。
+ */
+export function decodeStrictBase64(input: string): Buffer | null {
+  const cleaned = input.replace(/[\r\n\s]/g, '').replace(/-/g, '+').replace(/_/g, '/');
+  if (cleaned.length === 0) return null;
+  // 使える文字とパディングだけ。長さは4の倍数
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(cleaned)) return null;
+  if (cleaned.length % 4 !== 0) return null;
+  const buf = Buffer.from(cleaned, 'base64');
+  // **戻して同じになるか。** ここまで通っても、詰め物の位置が違うものは弾ける
+  if (buf.toString('base64').replace(/=+$/, '') !== cleaned.replace(/=+$/, '')) return null;
+  return buf;
+}
+
 /** ファイル名から拡張子（小文字・ドット無し） */
 function extOf(filename: string): string {
   const i = filename.lastIndexOf('.');
@@ -171,13 +189,17 @@ export async function storeAttachment(
   */
   let buffer: Buffer;
   if (att.content_base64) {
-    try {
-      buffer = Buffer.from(att.content_base64, 'base64');
-    } catch {
-      return fail('BAD_CONTENT');
-    }
-    // Buffer.from は壊れた base64 でも投げずに短いものを返すので、長さで見る
-    if (buffer.length === 0) return fail('BAD_CONTENT');
+    /*
+      ⚠️ **`Buffer.from(s, 'base64')` は壊れた文字列でも投げません。**
+      知らない文字を黙って捨てて**それらしい長さのゴミ**を返します
+      （`'not base64'` → 6 バイト。実測）。長さだけ見ると通ってしまい、
+      **壊れた PDF を BOX に上げて「保存しました」と報告します** — 原本が
+      壊れていることに、誰かが開くまで気づけません。
+      **使える文字だけか**を先に見て、**戻して同じになるか**まで確かめます。
+    */
+    const decoded = decodeStrictBase64(att.content_base64);
+    if (!decoded || decoded.length === 0) return fail('BAD_CONTENT');
+    buffer = decoded;
   } else if (att.gmail_message_id && att.gmail_attachment_id) {
     const got = await fetchGmailAttachment(att.gmail_message_id, att.gmail_attachment_id);
     if (!got.buffer) return fail(got.failure ?? 'BAD_CONTENT');

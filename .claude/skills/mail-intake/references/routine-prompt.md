@@ -9,13 +9,16 @@ Claude のルーティン（スケジュール実行）は**毎回まっさら�
 mail-intake スキルを使って、受信メールを仕分けて GMO ONAiR に取り込んでください。
 
 対象は Gmail の
-  -label:studio-intake-done -label:inview-reg-done newer_than:3d -in:sent -in:draft
+  -label:studio-intake-done -label:inview-reg-done -label:mail-intake-skipped
+  newer_than:3d -in:sent -in:draft
 に当たるスレッドのうち、古いものから最大30通です。
 
 スキルの手順（0 傾向を読む → 1 範囲 → 2 決定表 → 3 取込 → 4 ラベル →
 5 取込ログ → 6 報告）をその順に守ってください。特に:
 
-- 1通取り込んだら、その場でラベルを付ける（まとめて最後に付けない）
+- 1通扱ったら、その場でラベルを付ける（まとめて最後に付けない）
+- **捨てたメールにも `mail-intake-skipped` を付ける** — 付けないと毎回同じものが
+  検索に当たり、30通の枠を占めて新しい請求書が見られなくなる
 - 添付は中身ではなく gmail_message_id + gmail_attachment_id を渡す
   （添付 id は呼ぶたびに変わるので、その場で get_message から取ったものを使う）
 - どの案件かは決め打たず project_hint を渡す
@@ -42,8 +45,10 @@ UTC で登録するので **cron は `0 23 * * 0-4`**（＝JST 平日 8:00）で
 
 ## 繋いでおくコネクタ
 
-- **Gmail**（読み取りとラベル付け）
+- **Gmail**（読み取りとラベル付け・**ラベルの作成**）
 - **GMO ONAiR**（取込）
+
+`mail-intake-skipped` ラベルは最初の実行時に `create_label` で作ります。
 
 ## 最初の1回は見ていること
 

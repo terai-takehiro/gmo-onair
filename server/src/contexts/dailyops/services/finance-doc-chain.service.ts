@@ -188,6 +188,21 @@ const GROUP_DOC_COLS = `d.id, d.group_id, d.doc_type, d.sender, d.subject, d.con
              AND o.kind = 'finance_doc_intake') AS is_ai`;
 
 /**
+ * 束の行を引く SELECT。**一覧と1件読みで同じもの**を使う
+ * （1件読みが一覧の上限を通ると、古い束が 404 になる）。
+ */
+const GROUP_SELECT = `SELECT ${GROUP_COLS}, agg.next_due, agg.live_count, agg.doc_count
+   FROM finance_doc_groups g
+   LEFT JOIN projects p ON p.id = g.project_id
+   LEFT JOIN LATERAL (
+     SELECT COUNT(*) AS doc_count,
+            COUNT(*) FILTER (WHERE d.status NOT IN ('processed','rejected')) AS live_count,
+            MIN(d.payment_due) FILTER (WHERE d.status NOT IN ('processed','rejected')) AS next_due
+       FROM finance_docs d
+      WHERE d.group_id = g.id AND d.deleted_at IS NULL
+   ) agg ON TRUE`;
+
+/**
  * 束の一覧（中の書類つき）。
  *
  * **見積書だけの束も出します**（ご指示。以前は一覧から外していた）。
@@ -215,21 +230,22 @@ export async function listGroups(filter: { pendingOnly?: boolean; expense_kind?:
   if (filter.pendingOnly) conds.push('(agg.doc_count = 0 OR agg.live_count > 0)');
 
   const groups = await queryAll(
-    `SELECT ${GROUP_COLS}, agg.next_due, agg.live_count, agg.doc_count
-       FROM finance_doc_groups g
-       LEFT JOIN projects p ON p.id = g.project_id
-       LEFT JOIN LATERAL (
-         SELECT COUNT(*) AS doc_count,
-                COUNT(*) FILTER (WHERE d.status NOT IN ('processed','rejected')) AS live_count,
-                MIN(d.payment_due) FILTER (WHERE d.status NOT IN ('processed','rejected')) AS next_due
-           FROM finance_docs d
-          WHERE d.group_id = g.id AND d.deleted_at IS NULL
-       ) agg ON TRUE
+    `${GROUP_SELECT}
       WHERE ${conds.join(' AND ')}
       ORDER BY agg.next_due ASC NULLS LAST, g.updated_at DESC
       LIMIT 300`,
     params,
   ) as Record<string, unknown>[];
+  return assembleGroups(groups);
+}
+
+/**
+ * 束の行に、中の書類と添付を付ける。
+ *
+ * **一覧と1件読みで同じものを使います** — 写すと、一覧では出るのに
+ * 1件開くと形が違う、が起きます。
+ */
+async function assembleGroups(groups: Record<string, unknown>[]): Promise<Record<string, unknown>[]> {
   if (groups.length === 0) return [];
 
   const ids = groups.map((g) => String(g.id));
@@ -277,9 +293,19 @@ export async function listGroups(filter: { pendingOnly?: boolean; expense_kind?:
   });
 }
 
+/**
+ * 束を1つ読む。
+ *
+ * ⚠️ **一覧を引いてから探さないこと**（Codex P2）。一覧は 300 件で切ってあるので、
+ * 束が増えると**古い束が 404 になり**、直したあとに返す `getGroup` も
+ * 「無い」を返します（保存できたのに画面が「見つかりません」と言う）。
+ * **id で直接引きます。**
+ */
 export async function getGroup(id: string): Promise<Record<string, unknown> | undefined> {
-  const rows = await listGroups();
-  return rows.find((r) => r.id === id);
+  const rows = await queryAll(
+    `${GROUP_SELECT} WHERE g.id = ? AND g.deleted_at IS NULL`, [id],
+  ) as Record<string, unknown>[];
+  return (await assembleGroups(rows))[0];
 }
 
 /**

@@ -129,7 +129,16 @@ export function registerOpsReportTools(server: McpServer): void {
       // ニュース投稿そのものは止めない）。ここで拾うのは今回入れた source='ai' の行だけ:
       // `addItems` は id を返さないので、sort_order が単調増加であることを使って
       // 末尾 `added` 件を引き直す（人の行は source='human' なので混ざらない）。
-      if (added > 0) {
+      /*
+        ⚠️ **ニュース以外の行をニュースとして記録しない**（Codex P2）。
+
+        `mail_intake`（メール取込ログ）の行にもこれを付けていたため、
+        `getFeedbackDigest('ops_news_item')` が**取込ログをニュース記事として数え**、
+        取込ログには pick（採用フラグ 1〜5）が一生付かないので、
+        **回すほどニュースの採用率が下がって見えて**いました
+        （AI の成績を測るための数字が、AI と関係ない行で薄まる）。
+      */
+      if (added > 0 && args.kind === 'daily_news') {
         try {
           const inserted = await queryAll(
             `SELECT id, category, content, note, url, ai_related, pick
