@@ -109,6 +109,13 @@ export function TableBadge({ label, w = 96, fixedW, className, style, ...rest }:
       data-ui="table-badge"
       className={cn(
         'text-badge max-w-full whitespace-nowrap font-bold',
+        // **あふれたら隠す。** 札は `whitespace-nowrap` なので、列より長い中身は
+        // 折り返さずに**隣の列の上へそのまま伸びます**（`RowSlot` は `shrink-0`
+        // なので押し出されず、上に乗るだけ＝利用者からは「レイアウトが崩れている」
+        // としか見えない）。実際に設定＞保管場所の「拠点」列（56px）で、拠点名
+        // 「GMOグローバルスタジオ」が右隣の保管場所名に重なっていました。
+        // 中の文字は `truncate` で `…` にするので、**切れたことが読めます**。
+        'overflow-hidden',
         // 幅を固定するときはモックと同じ形にする — 中央に寄せ、左右の padding を
         // 6px に落として中身の幅を稼ぎ (既定の 10px では 4字が収まらない。
         // 上の計算参照)、あふれ分は隠す (モックにもある)。
@@ -120,12 +127,25 @@ export function TableBadge({ label, w = 96, fixedW, className, style, ...rest }:
       style={fixed ? { width, ...style } : style}
       {...rest}
     >
-      {label}
+      {/*
+        **`…` を出すには、文字を包む子が要ります。** `Badge` は `inline-flex` なので
+        `text-overflow` は文字に直接は効きません（`display` を block 系に変えるのは
+        禁止 — 上の注意書きのとおり均等割り付けの事故が戻る）。子に分けると
+        **フレックスの子は block 化される**ので、そこで `truncate` が効きます。
+        `truncate` / `min-w-0` はすでに `row.tsx` などが使っている一般的な
+        クラスなので、**凍結アプリの CSS は1バイトも増えません**。
+      */}
+      <span className="min-w-0 truncate">{label}</span>
     </Badge>
   );
 
   // 枠を持たない形。`<RowSlot>` の中に置くときはこちら
-  if (w === null) return <span data-badge-slot>{badge}</span>;
+  // `min-w-0` が要る: `RowSlot` は `flex` なので、この包みは**中身の最小幅より
+  // 縮まず**（フレックスの子の既定は `min-width: auto`）、上の `max-w-full` も
+  // 効かないまま列からはみ出します。**`display` は変えない** — フレックスの中では
+  // どのみち block 化されるので `min-w-0` が効き、フレックスでない所（カードの中など）
+  // では今までどおり素の inline のままで、行の途中に置いても改行しません
+  if (w === null) return <span data-badge-slot className="min-w-0">{badge}</span>;
 
   return (
     <span data-badge-slot className="inline-flex shrink-0 justify-center" style={{ width: w }}>

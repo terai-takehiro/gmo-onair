@@ -2,6 +2,10 @@ export interface MaintenanceRecord {
   id: string;
   eq_code: string;
   equipment_name: string;
+  /** 付属品 (子機材) の記録なら、その親。親が無い機材では null */
+  parent_id: string | null;
+  parent_eq_code: string | null;
+  parent_name: string | null;
   record_type: string;
   title: string;
   description: string | null;
