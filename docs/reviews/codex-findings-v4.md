@@ -2254,6 +2254,35 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#583**（`feat(techops): スケジュール表を第2版として作り直した`・2026-09-06）—
+  制作技術支援＞スケジュール表を「MCP くらいしかできる機能がなく、根本的な機能性が皆無」という
+  ご指摘から、段A〜C相当（7本のPR分）を1つのブランチにまとめて作り直した回
+  （詳細は [docs/design/v4/qsheet-v4-coding/14-schedule-v2-plan.md](../design/v4/qsheet-v4-coding/14-schedule-v2-plan.md)、
+  changelog は [docs/changelog.d/claude-schedule-table-features-uiux-kskvms.md](../changelog.d/claude-schedule-table-features-uiux-kskvms.md)）。
+  作成から約5分でCI green・その5秒後にユーザー自身がマージ。⚠️ **`chatgpt-codex-connector` の
+  Code Review は usage limits で一度も実行されなかった**（PRコメントで明示: "You have reached
+  your Codex usage limits for code reviews"）。**Security Review は実行され、マージの約35秒後に
+  完了・0件**（`get_reviews` で確認。マージ前は "Running" のままだった）。#578 と同型——
+  「指摘なし」に見えるのは Security 観点だけで、**コード品質観点のレビューは一度も届いていない**。
+  表に移す指摘はない（レビュー自体が届いていないため）。実装時に意図して残した判断・未検証事項
+  （PR本文にも記載済み）:
+  1. **項目編集シートを初めて開いたときだけ「項目名」欄が空欄になる**（2回目以降は正しく表示される）。
+     Radix Dialog の自動フォーカスと、IME保護のための `useBufferedValue`（全社共通フック）の
+     「フォーカス中は外部値を取り込まない」仕様が競合するのが原因。この PR の変更とは無関係な
+     既存バグ（base ブランチだけでも再現することを確認済み）だが、`useBufferedValue` は影響範囲が
+     広いため直していない。
+  2. **`POST /techops/ai/event-plan`（AI下書き生成）が常に500エラーになる**
+     （`assertGenerationAllowed` のSQLでPostgresがパラメータ型を決められない）。今回追加した
+     拠点・種別の入力欄より前から存在する既存バグで、この PR が原因ではないことを確認済み。
+     AI下書きダイアログ自体は正しく表示・入力できるが、実際に生成を押すと現状失敗する。
+  3. **権限のない利用者での403/非表示の画面確認は一部のみ**（案件メンバー自動共有の可視条件・
+     非メンバーの404は確認済みだが、全画面を全ロールで機械的に確認してはいない）。
+  検証: `npm run typecheck:all`（client / client-equipment / client-techops / client-live /
+  client-daily / server 全ワークスペース）・`npm run lint`（`0 errors`。warning数は着手前と同数）・
+  `shared` の Vitest 1996件 全通過・検証用Postgres＋実ブラウザ（Playwright・PC 1280/375px）で
+  列作成・ドラッグ移動・複製・印刷・台本結び直し・担当補完・予約から列コピー・AI下書きダイアログの
+  拠点/種別欄まで一通り確認（横はみ出し 0px・JS エラー 0 件）。フル `npm run build` は未実施。
+
 - **#578**（`fix(sales,platform,production): 同種のフォーム初期化レースを他画面でも修正`・2026-09-06）—
   [#575](https://github.com/terai-takehiro/gmo-onair/pull/575)（案件編集画面のSPA遷移で「案件分類」
   保存不可バナーが誤表示される不具合）と同じ型・近縁のバグが他の編集画面にも無いか、
