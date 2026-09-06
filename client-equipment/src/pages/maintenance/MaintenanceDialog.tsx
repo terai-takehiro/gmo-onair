@@ -31,7 +31,11 @@ const EMPTY: MaintenanceForm = {
 
 export function MaintenanceDialog({ open, items, saving, error, onClose, onSubmit }: {
   open: boolean;
-  items: { id: string; eq_code: string; name: string; model_number: string | null; unit_number: number | null }[];
+  items: {
+    id: string; eq_code: string; name: string; model_number: string | null; unit_number: number | null;
+    /** 付属品 (子機材) なら親の名前。`include_children=1` で引いた一覧だけが持つ */
+    parent_name?: string | null;
+  }[];
   saving: boolean;
   error: string | null;
   onClose: () => void;
@@ -75,11 +79,21 @@ export function MaintenanceDialog({ open, items, saving, error, onClose, onSubmi
               // 同名・同型の機材が複数台あると eq_code だけでは現物が分からないため、
               // 型名・No.（unit_number）も一緒に出す。`SearchableSelect` は label と
               // subLabel の両方を検索対象にするので、ここに含めれば型名・No.でも当たる
-              subLabel: [i.eq_code, i.model_number, i.unit_number != null ? `No.${i.unit_number}` : null]
+              //
+              // **付属品 (子機材) は親の名前も出す。** 一覧には親と子が混ざって
+              // 並ぶので、「レンズ」だけでは**どのセットの1本か**が分からない。
+              // ここに入れておけば**親の名前で探しても子が出ます**
+              // （「カメラセット」と打つと、その中のレンズも候補に並ぶ）
+              subLabel: [
+                i.eq_code,
+                i.model_number,
+                i.unit_number != null ? `No.${i.unit_number}` : null,
+                i.parent_name ? `${i.parent_name} の付属品` : null,
+              ]
                 .filter(Boolean)
                 .join(' / '),
             }))}
-            placeholder="ID・名前・型名・Noで検索"
+            placeholder="ID・名前・型名・No・親の機材名で検索"
           />
         </div>
         <div className="space-y-1">

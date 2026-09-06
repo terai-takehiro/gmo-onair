@@ -34,8 +34,8 @@ import { describe, it, expect } from 'vitest';
 import { SLOT_WIDTHS } from '../src/client/ui/row';
 import { SECTIONS, TYPE_CODES } from '../../client-equipment/src/lib/constants';
 import {
-  ACTION_W, CHECK_W, COL_DEFS, COL_W, CUSTOM_COL_W, LEAD_W, NAME_MIN_PX,
-  ROW_GAP, ROW_PX, ledgerMinWidth, sectionDisplay, type ColKey,
+  ACTION_W, CHECK_W, COL_DEFS, COL_W, CUSTOM_CHECK_W, CUSTOM_COL_W, LEAD_W, NAME_MIN_PX,
+  ROW_GAP, ROW_PX, customColWidth, ledgerMinWidth, sectionDisplay, type ColKey,
 } from '../../client-equipment/src/pages/equipmentList/types';
 
 /** 既定で出る列（利用者が何も触っていないとき） */
@@ -75,7 +75,7 @@ describe('列の幅', () => {
     for (const [key, w] of Object.entries(COL_W)) {
       expect(SLOT_WIDTHS, `${key} が7段に無い`).toContain(w);
     }
-    for (const [name, w] of Object.entries({ LEAD_W, CHECK_W, ACTION_W, CUSTOM_COL_W })) {
+    for (const [name, w] of Object.entries({ LEAD_W, CHECK_W, ACTION_W, CUSTOM_COL_W, CUSTOM_CHECK_W })) {
       expect(SLOT_WIDTHS, `${name} が7段に無い`).toContain(w);
     }
   });
@@ -96,33 +96,36 @@ describe('列の幅', () => {
 
 describe('ledgerMinWidth', () => {
   /** テストが読む側でもう一度、素直に足し直したもの */
-  const naive = (cols: ColKey[], canBulkEdit: boolean, custom: number) => {
+  const naive = (cols: ColKey[], canBulkEdit: boolean, custom: number[]) => {
     const widths = [
       LEAD_W,
       ...(canBulkEdit ? [CHECK_W] : []),
       ...cols.map((k) => (k === 'name' ? NAME_MIN_PX : COL_W[k as keyof typeof COL_W])),
-      ...Array.from({ length: custom }, () => CUSTOM_COL_W),
+      ...custom,
       ACTION_W,
     ];
     return widths.reduce((a, b) => a + b, 0) + (widths.length - 1) * ROW_GAP + ROW_PX * 2;
   };
 
+  /** 自分で作った列を n 本ぶん、素の（チェックでない）幅で並べたもの */
+  const plainCustom = (n: number) => Array.from({ length: n }, () => CUSTOM_COL_W);
+
   it('既定の8列: 列 ＋ 隙間 ＋ 左右の余白 を素直に足した値と一致する', () => {
-    expect(ledgerMinWidth({ canBulkEdit: true, visibleStd: DEFAULT_COLS, customCount: 0 }))
-      .toBe(naive(DEFAULT_COLS, true, 0));
+    expect(ledgerMinWidth({ canBulkEdit: true, visibleStd: DEFAULT_COLS, customWidths: [] }))
+      .toBe(naive(DEFAULT_COLS, true, []));
   });
 
   it('選ぶ四角が無いとき・自分で作った列があるときも一致する', () => {
-    expect(ledgerMinWidth({ canBulkEdit: false, visibleStd: DEFAULT_COLS, customCount: 0 }))
-      .toBe(naive(DEFAULT_COLS, false, 0));
-    expect(ledgerMinWidth({ canBulkEdit: true, visibleStd: DEFAULT_COLS, customCount: 3 }))
-      .toBe(naive(DEFAULT_COLS, true, 3));
+    expect(ledgerMinWidth({ canBulkEdit: false, visibleStd: DEFAULT_COLS, customWidths: [] }))
+      .toBe(naive(DEFAULT_COLS, false, []));
+    expect(ledgerMinWidth({ canBulkEdit: true, visibleStd: DEFAULT_COLS, customWidths: plainCustom(3) }))
+      .toBe(naive(DEFAULT_COLS, true, plainCustom(3)));
   });
 
   it('隙間は「列の数 − 1」。列を1つ足すと 幅 ＋ 12 だけ増える', () => {
-    const base = ledgerMinWidth({ canBulkEdit: true, visibleStd: DEFAULT_COLS, customCount: 0 });
+    const base = ledgerMinWidth({ canBulkEdit: true, visibleStd: DEFAULT_COLS, customWidths: [] });
     const plus = ledgerMinWidth({
-      canBulkEdit: true, visibleStd: [...DEFAULT_COLS, 'manufacturer'], customCount: 0,
+      canBulkEdit: true, visibleStd: [...DEFAULT_COLS, 'manufacturer'], customWidths: [],
     });
     expect(plus - base).toBe(COL_W.manufacturer + ROW_GAP);
 
@@ -134,14 +137,14 @@ describe('ledgerMinWidth', () => {
   });
 
   it('既定の列が基準の枠に収まる（右端の「貸出可」が操作の下に隠れない）', () => {
-    const need = ledgerMinWidth({ canBulkEdit: true, visibleStd: DEFAULT_COLS, customCount: 0 });
+    const need = ledgerMinWidth({ canBulkEdit: true, visibleStd: DEFAULT_COLS, customWidths: [] });
     expect(need).toBeLessThanOrEqual(REFERENCE_PX);
 
     // **反証**: 備考を既定に戻すと収まらない（＝この検査は緩くない）
     const withNotes = ledgerMinWidth({
       canBulkEdit: true,
       visibleStd: [...DEFAULT_COLS.slice(0, -1), 'notes', 'rental'] as ColKey[],
-      customCount: 0,
+      customWidths: [],
     });
     expect(withNotes).toBeGreaterThan(REFERENCE_PX);
   });
@@ -151,12 +154,33 @@ describe('ledgerMinWidth', () => {
     expect(COL_DEFS.find((c) => c.key === 'notes')?.default).toBe(false);
   });
 
+  /**
+   * **チェックの列は細い。**
+   *
+   * 中身は四角ひとつ（20px）なので、128px で置くと**表頭ごと空白が並ぶ**だけです。
+   * ご報告のスクリーンショットでは「検収／QR／Ver」の3本が出ていて、
+   * それだけで **384px が空白**、そのぶん伸びる列（商品名）が最低幅の 200px まで
+   * 痩せて機材名が `…` で切れていました。
+   */
+  it('チェックの列は 72px。素の列（128px）より 56px ずつ細い', () => {
+    expect(customColWidth('checkbox')).toBe(CUSTOM_CHECK_W);
+    for (const t of ['text', 'number', 'date', 'select']) {
+      expect(customColWidth(t), `${t} は素の幅のまま`).toBe(CUSTOM_COL_W);
+    }
+
+    const checks = [customColWidth('checkbox'), customColWidth('checkbox'), customColWidth('checkbox')];
+    const plain = ledgerMinWidth({ canBulkEdit: true, visibleStd: DEFAULT_COLS, customWidths: plainCustom(3) });
+    const withChecks = ledgerMinWidth({ canBulkEdit: true, visibleStd: DEFAULT_COLS, customWidths: checks });
+    // 実測どおり: チェック3本ぶんで 168px が商品名に回る
+    expect(plain - withChecks).toBe(168);
+  });
+
   it('商品名を消したら、その最低幅 200 は要求しない', () => {
     const without = DEFAULT_COLS.filter((k) => k !== 'name');
-    const base = ledgerMinWidth({ canBulkEdit: true, visibleStd: DEFAULT_COLS, customCount: 0 });
-    expect(ledgerMinWidth({ canBulkEdit: true, visibleStd: without, customCount: 0 }))
-      .toBe(naive(without, true, 0));
-    expect(base - ledgerMinWidth({ canBulkEdit: true, visibleStd: without, customCount: 0 }))
+    const base = ledgerMinWidth({ canBulkEdit: true, visibleStd: DEFAULT_COLS, customWidths: [] });
+    expect(ledgerMinWidth({ canBulkEdit: true, visibleStd: without, customWidths: [] }))
+      .toBe(naive(without, true, []));
+    expect(base - ledgerMinWidth({ canBulkEdit: true, visibleStd: without, customWidths: [] }))
       .toBe(NAME_MIN_PX + ROW_GAP);
   });
 });

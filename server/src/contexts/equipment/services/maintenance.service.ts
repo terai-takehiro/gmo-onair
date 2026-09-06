@@ -40,10 +40,21 @@ export interface UpdateInput {
 
 export const maintenanceService = {
   async list(filter: ListFilter) {
+    /*
+     * **付属品 (子機材) の記録も、どの親のものかが分かる形で返す。**
+     *
+     * メンテナンスは子機材にも起きます (カメラセットの中のレンズだけ修理に出す)。
+     * 記録そのものは前から `equipment_id` に何を入れても作れましたが、一覧には
+     * `Y-C-000012 ・ レンズ` としか出ないため、**同じ名前のレンズが何本もあると
+     * どのセットのものか分かりません**。親を引いて `parent_name` を添えます
+     * (親が無い機材では NULL。画面側は出し分ける)。
+     */
     let sql = `
-      SELECT mr.*, ei.name as equipment_name, ei.eq_code
+      SELECT mr.*, ei.name as equipment_name, ei.eq_code, ei.parent_id,
+             p.eq_code as parent_eq_code, p.name as parent_name
       FROM maintenance_records mr
       JOIN equipment_items ei ON ei.id = mr.equipment_id
+      LEFT JOIN equipment_items p ON p.id = ei.parent_id AND p.deleted_at IS NULL
       WHERE 1=1
     `;
     const params: unknown[] = [];

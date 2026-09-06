@@ -2250,9 +2250,71 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   [docs/reviews/2026-09-01-multiagent-app-review.md](2026-09-01-multiagent-app-review.md)
   の末尾にまとめてある**（この文書に重複転記しない）。
 
+- **#585（fix(equipment): メンテナンスの機材選びに付属品を出し、保管場所と台帳の崩れを直した・2026-09-06）** —
+  **レビュー0件でマージ**（`get_reviews` / `get_review_comments` とも空）。
+  作成 11:12:00 / CI（`checks` 11:15:41・`build` 11:16:09）両方成功 / マージ 11:19 頃
+  （**CI green から約3分後**）。`npm run reviews:debt` は今回も **401** で使えず、
+  GitHub MCP で直接確かめた。
+  ⚠️ **今回は0件の理由がはっきりしている** — Codex が PR 作成の 5 秒後に
+  「**You have reached your Codex usage limits for code reviews.**」を投稿しており
+  （[コメント](https://github.com/terai-takehiro/gmo-onair/pull/585#issuecomment-5558828883)）、
+  **通常のコードレビューは1行も走っていない**。走ったのは別枠のセキュリティレビューだけで、
+  そちらは「Completed・指摘なし」。**つまり「指摘なし」なのはセキュリティ観点だけで、
+  ふだんの Codex レビューは読まれていない**。原因不明で0件だった #165・#244・#262 と違い、
+  **これは「読まれていない」と確定している 0 件**なので、そう読むこと。
+  表に移す指摘はない（レビュー自体が届いていないため）。
+  ⚠️ **意図して残した未検証事項**（PR 本文にも明記済み）:
+  ① `npm run verify:ui` を走らせていない（実ブラウザで 1440/768/375px の実測に代えた）
+  ② 権限のない利用者で開いて 403 / 非表示になることを確認していない
+  ③ `shared/src/client/ui/tableBadge.tsx` を触っているので**配信中の5アプリ全部に効く** —
+  足したのは `truncate` / `min-w-0` / `overflow-hidden` の3つで、どれも既に使われている
+  クラスなので CSS は増えない想定だが、**`npm run check:frozen` でのビルド出力の
+  突き合わせはしていない**（凍結アプリは 0 個なので `APPS` が空＝実質何も照合しない）
+  ④ 機材台帳の商品名を `line-clamp-2` にしたことで**行の高さが2通りになる**。
+  間引き（`useRowWindow`）の送り幅を「先頭2行」から「見えている行の平均」に直してあるが、
+  **数千行の実データで長くスクロールしたときのずれは測っていない**
+
 ---
 
 ## 一覧（PR の新しい順）
+
+- **#585**（`fix(equipment): メンテナンスの機材選びに付属品を出し、保管場所と台帳の崩れを直した`・2026-09-06）—
+  ①メンテナンスの「記録を追加」で選べる機材が**親機材だけ**で、カメラセットの中のレンズなどの
+  付属品（子機材）が候補に1件も出なかったのを `include_children=1` で出るようにし、候補と一覧の
+  両方に親の機材名を添えた。②設定＞保管場所で拠点名の札が右隣の保管場所名に重なっていたのを直し
+  （列 56px → 160px・1024px 以上でだけ出す。`TableBadge` 自体もあふれたら `…` にした）。
+  ③機材台帳のチェック列を 128px → 72px にし、商品名を2行目まで表示するようにした。
+  **レビュー0件でマージ（Codex が利用上限で通常レビューを走らせていない）** — 上の
+  「レビューが0件のままマージされた PR」を参照。**表に移す指摘なし**
+
+- **#583**（`feat(techops): スケジュール表を第2版として作り直した`・2026-09-06）—
+  制作技術支援＞スケジュール表を「MCP くらいしかできる機能がなく、根本的な機能性が皆無」という
+  ご指摘から、段A〜C相当（7本のPR分）を1つのブランチにまとめて作り直した回
+  （詳細は [docs/design/v4/qsheet-v4-coding/14-schedule-v2-plan.md](../design/v4/qsheet-v4-coding/14-schedule-v2-plan.md)、
+  changelog は [docs/changelog.d/claude-schedule-table-features-uiux-kskvms.md](../changelog.d/claude-schedule-table-features-uiux-kskvms.md)）。
+  作成から約5分でCI green・その5秒後にユーザー自身がマージ。⚠️ **`chatgpt-codex-connector` の
+  Code Review は usage limits で一度も実行されなかった**（PRコメントで明示: "You have reached
+  your Codex usage limits for code reviews"）。**Security Review は実行され、マージの約35秒後に
+  完了・0件**（`get_reviews` で確認。マージ前は "Running" のままだった）。#578 と同型——
+  「指摘なし」に見えるのは Security 観点だけで、**コード品質観点のレビューは一度も届いていない**。
+  表に移す指摘はない（レビュー自体が届いていないため）。実装時に意図して残した判断・未検証事項
+  （PR本文にも記載済み）:
+  1. **項目編集シートを初めて開いたときだけ「項目名」欄が空欄になる**（2回目以降は正しく表示される）。
+     Radix Dialog の自動フォーカスと、IME保護のための `useBufferedValue`（全社共通フック）の
+     「フォーカス中は外部値を取り込まない」仕様が競合するのが原因。この PR の変更とは無関係な
+     既存バグ（base ブランチだけでも再現することを確認済み）だが、`useBufferedValue` は影響範囲が
+     広いため直していない。
+  2. **`POST /techops/ai/event-plan`（AI下書き生成）が常に500エラーになる**
+     （`assertGenerationAllowed` のSQLでPostgresがパラメータ型を決められない）。今回追加した
+     拠点・種別の入力欄より前から存在する既存バグで、この PR が原因ではないことを確認済み。
+     AI下書きダイアログ自体は正しく表示・入力できるが、実際に生成を押すと現状失敗する。
+  3. **権限のない利用者での403/非表示の画面確認は一部のみ**（案件メンバー自動共有の可視条件・
+     非メンバーの404は確認済みだが、全画面を全ロールで機械的に確認してはいない）。
+  検証: `npm run typecheck:all`（client / client-equipment / client-techops / client-live /
+  client-daily / server 全ワークスペース）・`npm run lint`（`0 errors`。warning数は着手前と同数）・
+  `shared` の Vitest 1996件 全通過・検証用Postgres＋実ブラウザ（Playwright・PC 1280/375px）で
+  列作成・ドラッグ移動・複製・印刷・台本結び直し・担当補完・予約から列コピー・AI下書きダイアログの
+  拠点/種別欄まで一通り確認（横はみ出し 0px・JS エラー 0 件）。フル `npm run build` は未実施。
 
 - **#578**（`fix(sales,platform,production): 同種のフォーム初期化レースを他画面でも修正`・2026-09-06）—
   [#575](https://github.com/terai-takehiro/gmo-onair/pull/575)（案件編集画面のSPA遷移で「案件分類」

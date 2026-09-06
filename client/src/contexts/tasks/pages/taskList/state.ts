@@ -1,9 +1,9 @@
 /**
  * タスクの状態 4つ (v4 ④ タスク一覧)
  *
- *   未着手 / 進行中 / 相手待ち / 完了
+ *   未着手 / 進行中 / 相手待ち / 対応済
  *
- * ── 4つ目 (完了) だけ持ち方が違う ──────────────────────────────
+ * ── 4つ目 (対応済) だけ持ち方が違う ──────────────────────────
  *
  * DB は `is_completed`(完了したか) と `work_state`(未完了のときの止まり方) の
  * **2列に分けて**持っています。1列に4値を持たせると「完了したか」が
@@ -36,7 +36,7 @@ export const TASK_STATE_LABEL: Record<TaskState, string> = {
   todo: '未着手',
   doing: '進行中',
   waiting: '相手待ち',
-  done: '完了',
+  done: '対応済',
 };
 
 /**
@@ -50,7 +50,7 @@ export const TASK_STATE_TONE: Record<TaskState, string> = {
   done: 'border-transparent bg-success-surface text-success',
 };
 
-/** 状態を切り替えるときの選択肢 (完了はチェックボックスで切り替えるのでここには出さない) */
+/** 状態を切り替えるときの選択肢 (対応済は「対応済にする」ボタンで切り替えるのでここには出さない) */
 export const WORK_STATE_OPTIONS: { value: TaskWorkState; label: string }[] = [
   { value: 'todo', label: '未着手' },
   { value: 'doing', label: '進行中' },

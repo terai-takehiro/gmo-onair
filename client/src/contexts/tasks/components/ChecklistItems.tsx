@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
+import { TaskDoneButton } from "@gmo-onair/shared/src/client-v4/taskDoneButton";
 import { useCreateTask, useToggleComplete, useDeleteTask } from "../hooks/useProjectTasks";
 import type { ProjectTask } from "@/types";
 
@@ -40,17 +40,19 @@ export default function ChecklistItems({ projectId, parentTask }: Props) {
     <div className="space-y-2">
       {children.map((child) => (
         <div key={child.id} className="flex items-center gap-2 group min-h-[44px]">
-          <Checkbox
-            checked={child.is_completed}
-            onCheckedChange={() => toggleComplete.mutate(child.id)}
-            aria-label={`${child.title} 完了チェック`}
-            className="shrink-0"
-          />
           <span
             className={`flex-1 text-sm ${child.is_completed ? "line-through text-muted-foreground" : ""}`}
           >
             {child.title}
           </span>
+          {/* サブタスクも文字のボタンで片づける（四角のチェックはやめた） */}
+          <TaskDoneButton
+            done={child.is_completed}
+            onToggle={() => toggleComplete.mutate(child.id)}
+            taskTitle={child.title}
+            disabled={toggleComplete.isPending}
+            size="sm"
+          />
           <button
             type="button"
             onClick={() => { if (window.confirm('このサブタスクを削除しますか？')) deleteTask.mutate(child.id); }}
