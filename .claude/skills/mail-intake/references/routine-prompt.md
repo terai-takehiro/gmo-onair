@@ -10,13 +10,18 @@ mail-intake スキルを使って、受信メールを仕分けて GMO ONAiR に
 
 対象は Gmail の
   -label:studio-intake-done -label:inview-reg-done -label:mail-intake-skipped
+  -from:notifications@github.com -from:dmarc-report@gmo-globalstudio.com
+  -from:noreply@box.com -from:notification@8card.net
   newer_than:3d -in:sent -in:draft
-に当たるスレッドのうち、古いものから最大30通です。
+に当たるスレッドのうち、新しいものから最大30通です。
+（差出人の除外は必ず付けてください。外すと GitHub の通知だけで枠が尽きます）
 
 スキルの手順（0 傾向を読む → 1 範囲 → 2 決定表 → 3 取込 → 4 ラベル →
 5 取込ログ → 6 報告）をその順に守ってください。特に:
 
 - 1通扱ったら、その場でラベルを付ける（まとめて最後に付けない）
+- **判断は `get_thread` で最新のメッセージを読んでから**する
+  （検索結果の抜粋は「いちばん古い5通」で、新しいものは入っていない）
 - **捨てたメールにも `mail-intake-skipped` を付ける** — 付けないと毎回同じものが
   検索に当たり、30通の枠を占めて新しい請求書が見られなくなる
 - 添付は中身ではなく gmail_message_id + gmail_attachment_id を渡す
