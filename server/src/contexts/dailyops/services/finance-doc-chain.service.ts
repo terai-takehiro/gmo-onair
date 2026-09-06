@@ -36,6 +36,7 @@ import {
   startOfMonthIso, type ChainDoc,
 } from '../../../shared/services/finance-chain';
 import { attachmentFailureLabel } from '../../../shared/services/mail-attachment-box.service';
+import { recordFinanceDocCorrections } from './inbox-ai-feedback.service';
 
 export type ExpenseKind = 'purchase' | 'sga';
 export type ProjectConfidence = 'high' | 'medium' | 'low';
@@ -141,17 +142,31 @@ export async function ensureGroup(input: GroupInput): Promise<{ id: string; crea
   await execute(
     `INSERT INTO finance_doc_groups
        (id, title, vendor_name, group_key, expense_kind, project_id,
-        payment_terms_days, processing_month, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        payment_terms_days, processing_month, derived_payment_due, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, input.title.slice(0, 200), input.vendor_name ?? null, key,
      input.expense_kind ?? null, input.project_id ?? null,
-     input.payment_terms_days ?? null, input.processing_month ?? null, input.created_by ?? null],
+     input.payment_terms_days ?? null, input.processing_month ?? null,
+     derivedDue(input.processing_month ?? null, input.payment_terms_days ?? null),
+     input.created_by ?? null],
   );
   return { id, created: true };
 }
 
+/**
+ * 処理月 ＋ 支払サイト から支払期日を出す。**計算は1か所**
+ * （`shared/src/utils/financeDocChain.ts` と同じ規則の写しである `finance-chain.ts`）。
+ *
+ * ⚠️ **SQL で計算し直さないこと。** 並び替えのためだけに SQL 側で同じ式を書くと、
+ * 画面が出す期日と並び順の根拠が別々に育ちます。**TS で1回出して列に置きます。**
+ */
+function derivedDue(month: string | null, terms: number | null): string | null {
+  if (!month || terms === null || terms === undefined) return null;
+  return paymentDueFromTerms(month, terms);
+}
+
 const GROUP_COLS = `g.id, g.title, g.vendor_name, g.group_key, g.expense_kind, g.project_id,
-  g.payment_terms_days, g.processing_month, g.created_at, g.updated_at,
+  g.payment_terms_days, g.processing_month, g.derived_payment_due, g.created_at, g.updated_at,
   p.gls_number AS project_gls_number, p.name AS project_name`;
 
 /**
@@ -232,7 +247,9 @@ export async function listGroups(filter: { pendingOnly?: boolean; expense_kind?:
   const groups = await queryAll(
     `${GROUP_SELECT}
       WHERE ${conds.join(' AND ')}
-      ORDER BY agg.next_due ASC NULLS LAST, g.updated_at DESC
+      -- ⚠️ **期日が書いていない販管費を後ろに沈めない**（Codex P1）。
+      -- 書類の期日が無くても、処理月＋サイトから出した期日があるならそれで並べる
+      ORDER BY COALESCE(agg.next_due, g.derived_payment_due) ASC NULLS LAST, g.updated_at DESC
       LIMIT 300`,
     params,
   ) as Record<string, unknown>[];
@@ -317,6 +334,8 @@ export async function getGroup(id: string): Promise<Record<string, unknown> | un
 export async function updateGroup(
   id: string,
   patch: Partial<Pick<GroupInput, 'title' | 'vendor_name' | 'expense_kind' | 'project_id' | 'payment_terms_days' | 'processing_month'>>,
+  /** 直した人（`ai_corrections` に残す。**誰が直したかが無いと差分を読み解けない**） */
+  editedBy?: string | null,
 ): Promise<Record<string, unknown> | undefined> {
   /*
     ⚠️ **同じ列を2回入れない**（Codex P1）。
@@ -388,6 +407,20 @@ export async function updateGroup(
     }
   }
 
+  /*
+    支払期日の見込みを出し直す（並び替えに使う列）。**片方だけ渡されたときは
+    いまの値と合わせて出す** — 処理月だけ直したのに期日が古いままだと、
+    机の並びが直らない。
+  */
+  if (patch.processing_month !== undefined || patch.payment_terms_days !== undefined) {
+    const cur = await queryOne(
+      'SELECT processing_month, payment_terms_days FROM finance_doc_groups WHERE id = ?', [id],
+    ) as { processing_month: string | null; payment_terms_days: number | null } | undefined;
+    const month = patch.processing_month !== undefined ? patch.processing_month : (cur?.processing_month ?? null);
+    const terms = patch.payment_terms_days !== undefined ? patch.payment_terms_days : (cur?.payment_terms_days ?? null);
+    assigned.set('derived_payment_due', derivedDue(month ?? null, terms ?? null));
+  }
+
   if (assigned.size === 0) return getGroup(id);
 
   const sets = [...assigned.keys()].map((c) => `${c} = ?`);
@@ -421,22 +454,68 @@ export async function updateGroup(
     downstream.set('expense_kind', patch.expense_kind ?? null);
     downstream.set('expense_kind_source', 'human');
   }
+  /*
+    **取引先も降ろす**（Codex P2）。降ろさないと、台帳へ渡すダイアログが
+    `doc.sender`（差出人のメール署名そのまま）を送り、`handoffDoc` はそれを優先するので、
+    **束の editor で直した取引先が台帳に1文字も届きません**（直した意味が無い）。
+  */
+  if (patch.vendor_name !== undefined) downstream.set('vendor_name', patch.vendor_name ?? null);
   if (patch.processing_month !== undefined) downstream.set('processing_month', patch.processing_month ?? null);
   if (patch.payment_terms_days !== undefined) downstream.set('payment_terms_days', patch.payment_terms_days ?? null);
 
   if (downstream.size > 0) {
+    /*
+      ⚠️ **人が直したことを `ai_corrections` に残す**（Codex P2・会社方針の条件2）。
+
+      ここは `financeDocService.update()` を通らず SQL を直接書くので、
+      **差分の記録が1件も走っていませんでした**。当て先を直すのはこの PR の主目的
+      そのものなのに、**間違った当て先が「そのまま採用された」と数えられて**いました。
+      `FD_FIELDS` にも当て先の項目を足してあります（足さないと比べません）。
+
+      before は**書き換える前の行**。取ってから書きます。
+    */
+    const targets = await queryAll(
+      `SELECT * FROM finance_docs
+        WHERE group_id = ? AND deleted_at IS NULL AND status <> 'processed'`,
+      [id],
+    ) as Record<string, unknown>[];
+
     const dsets = [...downstream.keys()].map((c) => `${c} = ?`);
     await execute(
       `UPDATE finance_docs SET ${dsets.join(', ')}, updated_at = NOW()
         WHERE group_id = ? AND deleted_at IS NULL AND status <> 'processed'`,
       [...downstream.values(), id],
     );
+
+    for (const before of targets) {
+      const after = { ...before, ...Object.fromEntries(downstream) };
+      // **記録に失敗しても保存は成功させる**（差分は best-effort）
+      await recordFinanceDocCorrections(String(before.id), before, after, editedBy ?? 'unknown')
+        .catch((err) => console.error('[finance-doc-chain] failed to record corrections:', (err as Error).message));
+    }
   }
   return getGroup(id);
 }
 
-/** 束を消す（ゴミだったとき）。**中の書類もまとめて消す**（残すと親無しの行になる） */
+/**
+ * 束を消す（ゴミだったとき）。**中の書類もまとめて消す**（残すと親無しの行になる）。
+ *
+ * ⚠️ **台帳に渡した書類がある束は消せません**（Codex P1）。消すと、
+ * **仕入・販管費の行だけが台帳に残り、どの書類から来たのかを辿れなくなります**
+ * （書類が消えているので、画面からも監査の記録からも消える）。
+ * 行き先の変更・束の移動を止めているのと同じ理由で、**消すほうがもっと危ない**。
+ */
 export async function removeGroup(id: string): Promise<void> {
+  const handed = await queryOne(
+    `SELECT COUNT(*) AS c FROM finance_docs
+      WHERE group_id = ? AND deleted_at IS NULL AND status = 'processed'`,
+    [id],
+  ) as { c?: number } | undefined;
+  if (Number(handed?.c ?? 0) > 0) {
+    throw new AppError(409, 'ALREADY_PROCESSED',
+      'この取引には仕入・販管費に登録済みの書類があるため消せません。'
+      + '先にその書類の登録を取り消してください');
+  }
   await withTransaction(async (tx) => {
     await tx.execute('UPDATE finance_docs SET deleted_at = NOW() WHERE group_id = ? AND deleted_at IS NULL', [id]);
     await tx.execute('UPDATE finance_doc_groups SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL', [id]);

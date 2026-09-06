@@ -215,7 +215,8 @@ describe('Codex レビュー #595 で見つかった穴（戻さない）', () =
 
   it('P2: 並びは支払期日が近い順（さっき触った先の取引を上に出さない）', () => {
     const s = chainSvc();
-    expect(s).toMatch(/ORDER BY agg\.next_due ASC NULLS LAST, g\.updated_at DESC/);
+    // 4巡目で「処理月＋サイトから出した期日」も並びに入れた（下の節）
+    expect(s).toMatch(/ORDER BY COALESCE\(agg\.next_due, g\.derived_payment_due\) ASC NULLS LAST, g\.updated_at DESC/);
     expect(s).toMatch(/MIN\(d\.payment_due\) FILTER \(WHERE d\.status NOT IN \('processed','rejected'\)\)/);
   });
 
@@ -419,5 +420,71 @@ describe('Codex 3巡目（1e0ddbc）で見つかった穴', () => {
     }
     // 「捨てたメールにはラベルを付けません」に戻っていないこと
     expect(skill).not.toContain('捨てたメールにはラベルを付けません');
+  });
+});
+
+describe('Codex 4巡目（cb6abca）で見つかった穴', () => {
+  it('P1: 台帳に渡した書類がある束は消せない（消すほうがもっと危ない）', () => {
+    /*
+      消すと仕入・販管費の行だけが台帳に残り、**どの書類から来たのかを辿れなくなる**
+      （書類が消えているので、画面からも監査の記録からも消える）。
+    */
+    const s = chainSvc();
+    const at = s.indexOf('export async function removeGroup');
+    expect(at).toBeGreaterThan(-1);
+    const fn = s.slice(at, at + 1200);
+    expect(fn).toMatch(/status = 'processed'/);
+    expect(fn).toContain('ALREADY_PROCESSED');
+  });
+
+  it('P1: 期日が書いていない販管費を後ろに沈めない', () => {
+    /*
+      販管費は書類に期日が書いていないことのほうが多く、「処理月 + 何日サイト」で決まる。
+      書類の payment_due だけで並べると、払う期日があるのに一番後ろに沈む。
+    */
+    const s = chainSvc();
+    expect(s).toMatch(/ORDER BY COALESCE\(agg\.next_due, g\.derived_payment_due\) ASC NULLS LAST/);
+    // 計算は TS で1回だけ（SQL に同じ式を書くと画面と食い違う）
+    expect(s).toMatch(/function derivedDue\(month: string \| null, terms: number \| null\)/);
+    expect(s).toMatch(/return paymentDueFromTerms\(month, terms\)/);
+    // 画面も同じ根拠を使う（計算し直さない）
+    const card = read('client', 'src', 'contexts', 'finance', 'pages', 'documents', 'GroupCard.tsx');
+    expect(card).toMatch(/dues\[0\] \?\? g\.derived_payment_due \?\? null/);
+    // 月やサイトを直したら出し直す
+    expect(s).toMatch(/assigned\.set\('derived_payment_due'/);
+  });
+
+  it('P2: 束で直した当て先が ai_corrections に残る', () => {
+    /*
+      **この PR の主目的そのもの**（AI の当て先を人が直す）なのに、
+      束の editor は SQL を直接書いていて差分の記録が1件も走っていなかった。
+      間違った当て先が「そのまま採用された」と数えられていた。
+    */
+    const s = chainSvc();
+    expect(s).toMatch(/await recordFinanceDocCorrections\(String\(before\.id\), before, after, editedBy/);
+    // before は書き換える前の行（取ってから書く）
+    expect(s.indexOf('const targets = await queryAll')).toBeLessThan(s.indexOf('UPDATE finance_docs SET ${dsets'));
+
+    // 比べる項目に当て先が入っていないと、記録しても差分が出ない
+    const fb = read('server', 'src', 'contexts', 'dailyops', 'services', 'inbox-ai-feedback.service.ts');
+    for (const f of ['project_id', 'expense_kind', 'vendor_name', 'processing_month', 'payment_terms_days']) {
+      expect(fb).toMatch(new RegExp(`path: '${f}'`));
+    }
+    // 誰が直したかを渡している（渡さないと差分を読み解けない）
+    const r = read('server', 'src', 'contexts', 'dailyops', 'routes', 'inbox.routes.ts');
+    expect(r).toMatch(/updateGroup\(String\(req\.params\.id\), patch, req\.user!\.id\)/);
+  });
+
+  it('P2: 束で直した取引先が台帳に届く', () => {
+    /*
+      降ろさないと、台帳へ渡すダイアログが doc.sender（メール署名そのまま）を送り、
+      handoffDoc はそれを優先するので、直した取引先が1文字も届かない。
+    */
+    const s = chainSvc();
+    expect(s).toMatch(/patch\.vendor_name !== undefined\) downstream\.set\('vendor_name'/);
+    const d = read('client', 'src', 'contexts', 'finance', 'pages', 'documents', 'HandoffDialog.tsx');
+    expect(d).toMatch(/const vendorName = doc\.vendor_name \?\? doc\.sender \?\? ''/);
+    expect(d).toMatch(/vendor_name: kind === 'sga' \? \(vendorName \|\| null\) : null/);
+    expect(d).not.toMatch(/vendor_name: kind === 'sga' \? doc\.sender : null/);
   });
 });

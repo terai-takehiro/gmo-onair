@@ -57,6 +57,19 @@ const FD_FIELDS: { path: string; label: string }[] = [
   { path: 'payment_due', label: '支払期日' },
   { path: 'gls_number', label: 'GLS番号' },
   { path: 'details', label: '読める形の中身' },
+  /*
+    281: **当て先も AI が埋める**（`project_hint` から探して仮で置く）。
+    ⚠️ **ここに足さないと、人が案件を付け替えても記録に残りません** —
+    この PR の主目的そのものが「AI の当て先を人が直す」なのに、
+    直した差分が1件も貯まらず、**間違った当て先が「そのまま採用された」と数えられます**
+    （会社方針「AI を使い捨てにしない」の条件2。171 で `source`/`tags` を
+    足し忘れていたのとまったく同じ形）。
+  */
+  { path: 'project_id', label: '当て先の案件' },
+  { path: 'expense_kind', label: '行き先（仕入／販管費）' },
+  { path: 'vendor_name', label: '取引先' },
+  { path: 'processing_month', label: '処理月' },
+  { path: 'payment_terms_days', label: '支払サイト' },
 ];
 
 const IQ_FIELDS: { path: string; label: string }[] = [

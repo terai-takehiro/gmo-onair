@@ -54,13 +54,21 @@ export interface GroupCardActions {
   onOpenLedger: (kind: 'purchase' | 'sga') => void;
 }
 
-/** 束のいちばん急ぐ支払期日（中の書類のうち、まだ登録していないもの） */
+/**
+ * 束のいちばん急ぐ支払期日（中の書類のうち、まだ登録していないもの）。
+ *
+ * ⚠️ **書類に期日が無くても「期日なし」と言わない**（Codex P1）。
+ * 販管費は書類に期日が書いていないことのほうが多く、
+ * 「処理月 ＋ 何日サイト」で決まります。サーバーがそれを出した値
+ * （`derived_payment_due`）を**並び順と同じ根拠**として使います
+ * （画面で計算し直すと、並びと表示が食い違う）。
+ */
 function nearestDue(g: FinanceDocGroup): string | null {
   const dues = g.docs
     .filter((d) => d.status !== 'processed' && d.status !== 'rejected' && d.payment_due)
     .map((d) => d.payment_due as string)
     .sort();
-  return dues[0] ?? null;
+  return dues[0] ?? g.derived_payment_due ?? null;
 }
 
 /** 当て先の1行。**AI が仮で置いたままかどうかが読めることが肝** */

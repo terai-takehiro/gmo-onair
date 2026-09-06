@@ -138,7 +138,7 @@ router.put('/finance-doc-groups/:id', ...docsEdit, async (req, res) => {
     patch.payment_terms_days = b.payment_terms_days === null ? null : Number(b.payment_terms_days);
   }
   if (b.processing_month !== undefined) patch.processing_month = (b.processing_month as string | null) ?? null;
-  res.json({ success: true, data: await updateGroup(String(req.params.id), patch) });
+  res.json({ success: true, data: await updateGroup(String(req.params.id), patch, req.user!.id) });
 });
 
 /** 束ごと消す（そもそもゴミだったとき）。**中の書類もまとめて消える** */

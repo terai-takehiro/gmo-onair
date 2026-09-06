@@ -135,6 +135,14 @@ export interface FinanceDocGroup {
   project_name: string | null;
   payment_terms_days: number | null;
   processing_month: string | null;
+  /**
+   * 処理月 ＋ 支払サイト から出した支払期日。
+   *
+   * **書類に期日が書いていない販管費のためにある**（実際そのほうが多い）。
+   * 無いと、払う期日があるのに「期日なし」として一番後ろに沈みます。
+   * 計算はサーバーが1回だけ行い、**画面は計算し直しません**（食い違うため）。
+   */
+  derived_payment_due: string | null;
   created_at: string;
   updated_at: string;
   docs: FinanceDoc[];

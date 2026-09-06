@@ -54,6 +54,12 @@ CREATE TABLE IF NOT EXISTS finance_doc_groups (
   processing_month   TEXT,
   -- 束ね直しの手がかり。取込時に AI が渡した鍵 (見積番号・取引先+件名 など)
   group_key      TEXT,
+  -- 処理月 + 支払サイト から出した支払期日 (YYYY-MM-DD)。
+  -- ⚠️ **並び替えのために持つ。** 販管費は書類に期日が書いていないことのほうが多く、
+  -- 書類の payment_due だけで並べると **払う期日があるのに一番後ろ**に沈む。
+  -- SQL で計算し直すと画面と食い違うので、**TS で1回だけ出して置く**
+  -- (`shared/src/utils/financeDocChain.ts` の paymentDueFromTerms)
+  derived_payment_due TEXT,
   created_by     TEXT,
   created_at     TIMESTAMP NOT NULL DEFAULT NOW(),
   updated_at     TIMESTAMP NOT NULL DEFAULT NOW(),

@@ -96,6 +96,14 @@ export function HandoffDialog({
   );
   const [due, setDue] = useState(doc.payment_due ?? '');
   const [description, setDescription] = useState(doc.subject ?? '');
+  /*
+    販管費の取引先。**人が直した取引先が先**（Codex P2）。
+    `doc.sender` は差出人のメール署名そのままなので、
+    先に見ると**束の editor で直した取引先が台帳に1文字も届きません**。
+  */
+  // **ここでは直せる欄にしない。** 取引先を直す場所は当て先のダイアログ1つ
+  //（2か所で同じものを直せるようにすると、片方だけ直した行ができる）
+  const vendorName = doc.vendor_name ?? doc.sender ?? '';
   // **当て先が決まっていればそれを初期値に**（空にすると人が選び直す羽目になる）
   const [projectId, setProjectId] = useState(doc.project_id ?? '');
   const [vendorId, setVendorId] = useState('');
@@ -144,7 +152,7 @@ export function HandoffDialog({
     description: description || null,
     project_id: kind === 'purchase' ? effectiveProject : null,
     vendor_id: kind === 'purchase' ? vendorId : null,
-    vendor_name: kind === 'sga' ? doc.sender : null,
+    vendor_name: kind === 'sga' ? (vendorName || null) : null,
   });
 
   return (
