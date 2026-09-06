@@ -85,7 +85,7 @@ export const PAGES_BY_APP: Record<string, PageDef[]> = {
     { key: 'weekly', label: 'ウィークリー活動報告' },
     { key: 'news', label: 'デイリーニュース報告' },
     { key: 'inquiries', label: '問い合わせ' },
-    { key: 'finance_docs', label: '受領書類' },
+    { key: 'finance_docs', label: '受け取った書類' },
     { key: 'inview', label: '内覧会 来場予約' },
     { key: 'security_cards', label: 'セキュリティカード' },
     { key: 'feedback_tickets', label: 'フィードバックチケット' },

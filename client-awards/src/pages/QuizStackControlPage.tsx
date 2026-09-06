@@ -259,10 +259,10 @@ export default function QuizStackControlPage({ embedded = false }: { embedded?: 
         <button
           onClick={() => navigate(`/event/${eventId}/control`)}
           className="hidden sm:flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors"
-          title="リアルタイムCG (ランキング演出) コントロールへ"
+          title="ランキングCG コントロールへ"
         >
           <Tv className="h-3.5 w-3.5" />
-          <span className="hidden md:inline">リアルタイムCG</span>
+          <span className="hidden md:inline">ランキングCG</span>
         </button>
         <button
           onClick={() => navigate(`/event/${eventId}/oneshot/control`)}

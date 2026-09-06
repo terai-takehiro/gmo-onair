@@ -175,7 +175,7 @@ export default function GpmTaskListPage() {
   return (
     <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <PageHeader
-        title="全プロジェクトのタスク"
+        title="タスクと持ち帰り"
         sub={tasks.data
           ? `未完了 ${taskCounts.open}件 ・ 止まっている未解決事項 ${openCount}件`
           : 'プロジェクトをまたいで見ます'}
