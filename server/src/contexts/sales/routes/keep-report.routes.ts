@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { keepReportService } from '../services/keep-report.service';
+import { isBusinessEntity, isEntityScope, type BusinessEntity, type EntityScope } from '../services/project-entity';
 import {
   addKpt, updateKpt, confirmKpt, deleteKpt, generateKptDraft, isKptKind,
 } from '../services/kpt.service';
@@ -98,23 +99,100 @@ router.delete('/event-photos/:photoId', requirePermission('sales', 'editor'), as
   res.json({ success: true, data: await keepReportService.detachEventPhoto(req.params.photoId as string) });
 });
 
-// ============ 月次予算・損益 ============
+// ============ 月次予算・損益（主体別・migration 283）============
+//
+// `entity` は gss / gscs / gig（`shared/src/keepReport/types.ts` の BusinessEntity）。
+// 予算・補正の既定は gss（既存の呼び出しがそのまま動く）、損益の既定は all（主体の合計）。
+// 予算の入力画面は設定「お金のルール」（keep-report.md §8）。
+
+/** クエリ・本文の entity を読む。空なら既定、知らない値は 400 */
+function readEntity(v: unknown, fallback: BusinessEntity): BusinessEntity {
+  if (v === undefined || v === null || v === '') return fallback;
+  if (!isBusinessEntity(v)) throw new AppError(400, 'VALIDATION_ERROR', 'entity は gss / gscs / gig');
+  return v;
+}
+function readScope(v: unknown): EntityScope {
+  if (v === undefined || v === null || v === '') return 'all';
+  if (!isEntityScope(v)) throw new AppError(400, 'VALIDATION_ERROR', 'entity は all / gss / gscs / gig');
+  return v;
+}
+/**
+ * 金額欄: 未指定は「渡さなかった」、null / 空文字は null、それ以外は整数（円）だけ。
+ * 小数・文字列をそのまま通すと BIGINT 列で Postgres が例外を返し、意図した 400 でなく素の 500 になる
+ */
+function readAmount(v: unknown, label: string): number | null | undefined {
+  if (v === undefined) return undefined;
+  if (v === null || v === '') return null;
+  const n = typeof v === 'number' ? v : (typeof v === 'string' ? Number(v) : NaN);
+  if (!Number.isInteger(n)) throw new AppError(400, 'VALIDATION_ERROR', `${label}は整数（円）で送ってください`);
+  return n;
+}
 
 router.get('/monthly-pl/:ym', async (req, res) => {
   if (!YM_RE.test(req.params.ym as string)) throw new AppError(400, 'VALIDATION_ERROR', '年月は YYYY-MM');
-  res.json({ success: true, data: await keepReportService.getMonthlyPl(req.params.ym as string) });
+  res.json({ success: true, data: await keepReportService.getMonthlyPl(req.params.ym as string, readScope(req.query.entity)) });
+});
+
+/** 期間内の全主体の予算と補正値（「お金のルール」の入力表・資料の推移） */
+router.get('/monthly-budgets', async (req, res) => {
+  const from = req.query.from as string | undefined;
+  const to = req.query.to as string | undefined;
+  if (!from || !to || !YM_RE.test(from) || !YM_RE.test(to)) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'from / to は YYYY-MM で両方必要です');
+  }
+  const [budgets, overrides] = await Promise.all([
+    keepReportService.listBudgets({ from, to }),
+    keepReportService.listOverrides({ from, to }),
+  ]);
+  res.json({ success: true, data: { from, to, budgets, overrides } });
+});
+
+router.get('/monthly-budget/:ym', async (req, res) => {
+  const ym = req.params.ym as string;
+  if (!YM_RE.test(ym)) throw new AppError(400, 'VALIDATION_ERROR', '年月は YYYY-MM');
+  const entity = readEntity(req.query.entity, 'gss');
+  const budget = await keepReportService.getBudget(ym, entity);
+  res.json({ success: true, data: { year_month: ym, entity, found: !!budget, budget } });
 });
 
 router.put('/monthly-budget/:ym', requirePermission('sales', 'editor'), async (req, res) => {
   if (!YM_RE.test(req.params.ym as string)) throw new AppError(400, 'VALIDATION_ERROR', '年月は YYYY-MM');
-  const { revenue, cogs_fixed, cogs_variable, sga, operating_profit } = req.body;
-  res.json({ success: true, data: await keepReportService.upsertBudget(req.params.ym as string, { revenue, cogs_fixed, cogs_variable, sga, operating_profit }) });
+  const body = req.body ?? {};
+  const entity = readEntity(body.entity, 'gss');
+  const fields = {
+    revenue: readAmount(body.revenue, '売上目標'),
+    cogs_fixed: readAmount(body.cogs_fixed, '固定原価目標'),
+    cogs_variable: readAmount(body.cogs_variable, '変動原価目標'),
+    sga: readAmount(body.sga, '販管費目標'),
+    operating_profit: readAmount(body.operating_profit, '営業利益目標'),
+  };
+  res.json({ success: true, data: await keepReportService.upsertBudget(req.params.ym as string, fields, entity) });
 });
 
 router.put('/monthly-override/:ym', requirePermission('sales', 'editor'), async (req, res) => {
   if (!YM_RE.test(req.params.ym as string)) throw new AppError(400, 'VALIDATION_ERROR', '年月は YYYY-MM');
-  const { cogs_fixed_actual, sga_actual, note } = req.body;
-  res.json({ success: true, data: await keepReportService.upsertOverride(req.params.ym as string, { cogs_fixed_actual, sga_actual, note }) });
+  const body = req.body ?? {};
+  const entity = readEntity(body.entity, 'gss');
+  if (body.note !== undefined && body.note !== null && typeof body.note !== 'string') {
+    throw new AppError(400, 'VALIDATION_ERROR', 'note は文字列');
+  }
+  const fields = {
+    cogs_fixed_actual: readAmount(body.cogs_fixed_actual, '償却費の経理確定値'),
+    sga_actual: readAmount(body.sga_actual, '販管費の経理確定値'),
+    note: body.note as string | null | undefined,
+  };
+  res.json({ success: true, data: await keepReportService.upsertOverride(req.params.ym as string, fields, entity) });
+});
+
+// ============ 稼働率の数え方（keep_settings・keep-report.md §5.4）============
+
+router.get('/utilization-settings', async (_req, res) => {
+  res.json({ success: true, data: await keepReportService.getUtilizationSettings() });
+});
+
+/** 数え方を変えると過去の稼働率も変わるので、営業マネージャーだけ */
+router.put('/utilization-settings', requirePermission('sales', 'manager'), async (req, res) => {
+  res.json({ success: true, data: await keepReportService.setUtilizationSettings(req.body, req.user!.id) });
 });
 
 // ============ 議事録サマリ ============

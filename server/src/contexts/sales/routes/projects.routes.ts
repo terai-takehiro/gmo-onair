@@ -203,6 +203,18 @@ router.patch('/:id/snooze', requirePermission('sales', 'editor'), async (req, re
 });
 
 /**
+ * 隔週キープの資料に載せる印（migration 282・docs/design/v4/keep-report.md §3）。
+ * 本文は `{ keep_pick: true | false }` だけ。ヨミ表の「資料」チェックと
+ * 案件詳細のふりかえりタブの「隔週キープに載せる」が同じ口を叩く。
+ */
+router.put('/:id/keep-pick', requirePermission('sales', 'editor'), async (req, res) => {
+  const { keep_pick } = req.body || {};
+  if (typeof keep_pick !== 'boolean') throw new AppError(400, 'VALIDATION_ERROR', 'keep_pick は true / false');
+  const result = await projectService.setKeepPick(req.params.id as string, keep_pick, req.user!.id);
+  res.json({ success: true, data: result });
+});
+
+/**
  * 次に出る GLS 番号を**採らずに**見る。
  *
  * 受注に上げる前の確認ダイアログが「GLS-A012 を採ります」と出すために使う。

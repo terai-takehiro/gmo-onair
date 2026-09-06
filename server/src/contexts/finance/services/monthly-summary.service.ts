@@ -1,5 +1,6 @@
 import { queryOne } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import type { BusinessEntity } from '../../sales/services/project-entity';
 
 // 月次損益サマリーの集計ロジック。finance/index.ts のインラインハンドラ本体を抽出したもので、
 // HTTP ルート (財務ダッシュボード) と MCP サーバーの両方から同じコードパスで呼ばれる。
@@ -21,6 +22,15 @@ export interface MonthlySummaryParams {
    * 桁の違う数字が正しい値のように出るため。壊れた日付はこれまでどおり 400 で弾く。
    */
   allPeriods?: boolean;
+  /**
+   * 事業主体で絞る（migration 282/283・隔週キープの主体別の収支）。
+   *   売上 … 案件の主体（projects.entity）
+   *   仕入 … COALESCE(purchases.entity, projects.entity)（FIXED-COGS の償却相当だけ仕入側が明示）
+   *   販管費 … sga_expenses.entity（既定 gss）
+   * 省略すると従来どおり全社。**案件で絞るとき（projectId）は見ない** — 案件の主体は1つなので
+   * 絞る意味が無く、付けると「その案件の数字が 0 で返る」だけになる。
+   */
+  entity?: BusinessEntity;
 }
 
 export interface MonthlySummaryResult {
@@ -37,7 +47,7 @@ export interface MonthlySummaryResult {
 }
 
 export async function getMonthlySummary(params: MonthlySummaryParams): Promise<MonthlySummaryResult> {
-  const { month, from: qFrom, to: qTo, projectId, allPeriods } = params;
+  const { month, from: qFrom, to: qTo, projectId, allPeriods, entity } = params;
 
   // 期間を [from, to] (YYYY-MM-DD) に正規化。全期間 > from/to > month の単月の順に見る。
   let from = '', to = '';
@@ -119,25 +129,39 @@ export async function getMonthlySummary(params: MonthlySummaryParams): Promise<M
   // 子行はなく、内訳は別表（revenue_allocations / purchase_allocations）にある（migration 006・
   // billing.routes.ts 冒頭と同じ理由）。絞ると全社集計からグループ請求の金額が丸ごと消える。
   // 上の案件別ブランチは按分を allocation 側から足すので、あちらは `group_id IS NULL` のまま。
+  //
+  // 主体で絞るとき（`entity`）は案件を JOIN して主体の条件を足す。`revenues.project_id` /
+  // `purchases.project_id` は NOT NULL（グループ請求の1行も案件を持つ）ので、JOIN で落ちる行は無い
+  // — 3主体の合計は全社の数字と一致する。絞らないときは従来の SQL のまま（JOIN しない）。
+  // ⚠️ 主体の `?` は日付の `?` より**前**に置く（上の注意: 日付の条件は必ず末尾）。
+  const entityArgs: string[] = entity ? [entity] : [];
   const [revRow, purRow, sgaRow, fixedRow] = await Promise.all([
     queryOne(
-      `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues WHERE deleted_at IS NULL AND status = 'confirmed'${dateWhere('recognition_date')}`,
-      [...dateArgs]
+      entity
+        ? `SELECT COALESCE(SUM(r.amount), 0) AS total FROM revenues r
+           JOIN projects pr ON pr.id = r.project_id
+           WHERE r.deleted_at IS NULL AND r.status = 'confirmed' AND pr.entity = ?${dateWhere('r.recognition_date')}`
+        : `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues WHERE deleted_at IS NULL AND status = 'confirmed'${dateWhere('recognition_date')}`,
+      [...entityArgs, ...dateArgs]
     ) as Promise<any>,
     queryOne(
-      `SELECT COALESCE(SUM(amount), 0) AS total FROM purchases WHERE deleted_at IS NULL${dateWhere('recognition_date')}`,
-      [...dateArgs]
+      entity
+        ? `SELECT COALESCE(SUM(pu.amount), 0) AS total FROM purchases pu
+           JOIN projects pr ON pr.id = pu.project_id
+           WHERE pu.deleted_at IS NULL AND COALESCE(pu.entity, pr.entity) = ?${dateWhere('pu.recognition_date')}`
+        : `SELECT COALESCE(SUM(amount), 0) AS total FROM purchases WHERE deleted_at IS NULL${dateWhere('recognition_date')}`,
+      [...entityArgs, ...dateArgs]
     ) as Promise<any>,
     queryOne(
-      `SELECT COALESCE(SUM(amount), 0) AS total FROM sga_expenses WHERE deleted_at IS NULL${dateWhere('recognition_date')}`,
-      [...dateArgs]
+      `SELECT COALESCE(SUM(amount), 0) AS total FROM sga_expenses WHERE deleted_at IS NULL${entity ? ' AND entity = ?' : ''}${dateWhere('recognition_date')}`,
+      [...entityArgs, ...dateArgs]
     ) as Promise<any>,
-    // 固定原価 = 固定原価Pj (code=FIXED-COGS) に計上された仕入
+    // 固定原価 = 固定原価Pj (code=FIXED-COGS) に計上された仕入（主体は仕入側の明示が優先）
     queryOne(
       `SELECT COALESCE(SUM(pu.amount), 0) AS total FROM purchases pu
        JOIN projects p ON p.id = pu.project_id
-       WHERE pu.deleted_at IS NULL AND pu.group_id IS NULL AND p.code = ?${dateWhere('pu.recognition_date')}`,
-      [FIXED_COGS_CODE, ...dateArgs]
+       WHERE pu.deleted_at IS NULL AND pu.group_id IS NULL AND p.code = ?${entity ? ' AND COALESCE(pu.entity, p.entity) = ?' : ''}${dateWhere('pu.recognition_date')}`,
+      [FIXED_COGS_CODE, ...entityArgs, ...dateArgs]
     ) as Promise<any>,
   ]);
   const revenue_total = Number((revRow as any)?.total ?? 0);

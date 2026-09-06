@@ -13,6 +13,7 @@ import { config } from '../../../config';
 import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
 import { recordProjectCorrections, recordIntakeDecision, recordProjectAccepted } from './project-ai-feedback.service';
 import { classificationOf, projectTypeOf, resolveClassification } from './project-classification';
+import { parseEntityInput, resolveProjectEntity } from './project-entity';
 import { assertCustomerCompanyId } from '../../../shared/services/company-directory.service';
 import { buildIntegrityCountSql, findCheck, INTEGRITY_CHECKS } from './project-integrity';
 import { syncProjectEventDates } from '../../production/services/project-event-dates.service';
@@ -668,6 +669,11 @@ export async function createCore(
   // **グループ区分はお客様が決める**（migration 192）。渡された値は、お客様が
   // 見つからないときの控えとしてだけ使う（`resolveCustomerType` の理由）
   const cType = await resolveCustomerType(customer_id, customer_type);
+  // **事業主体もお客様から決める**（migration 282・`project-entity.ts`）。
+  // gss / gscs / gig を渡したときだけ人の上書き（entity_manual）、null で自動に戻す
+  const entityInput = parseEntityInput(data.entity);
+  if (entityInput.kind === 'invalid') throw new AppError(400, 'VALIDATION_ERROR', '事業主体は gss / gscs / gig のいずれか（null で自動）');
+  const ent = resolveProjectEntity(entityInput, cType, null);
 
   // dates 配列がある場合は MIN/MAX を event_start/event_end に同期
   let finalEventStart: string | null = (event_start as string) || null;
@@ -767,17 +773,17 @@ export async function createCore(
     `INSERT INTO projects (id, code, gls_number, name, customer_id, stage, project_type, audience, project_category,
                            gls_category, expected_amount, assigned_to,
                            event_start, event_end, broadcast_type, media_platform,
-                           customer_type, box_url_internal, box_url_external,
+                           customer_type, entity, entity_manual, box_url_internal, box_url_external,
                            application_form, intake_channel, intake_confidence,
                            contact_name, recurrence, attendee_count, goal,
                            recording_cadence, recording_per_day_count, fixed_studio_note,
                            episode_unit_price, billing_cycle, broadcast_offset_days,
                            idempotency_key, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, code, opts.externalGlsNumber || null, name, customer_id, safeStage, cls.project_type, cls.audience, cls.project_category,
      glsCategory, expected_amount || 0, assigned_to || userId,
      finalEventStart, finalEventEnd, broadcast_type || null, media_platform || null,
-     cType, box_url_internal || null, box_url_external || null,
+     cType, ent.entity, ent.entity_manual, box_url_internal || null, box_url_external || null,
      application_form ? 1 : 0, channel, confidence,
      contact_name || null, recur, scale, goal || null,
      cadence, perDayCount, (typeof fixed_studio_note === 'string' && fixed_studio_note.trim()) ? fixed_studio_note.trim() : null,
@@ -1545,6 +1551,11 @@ export class ProjectService {
       await assertCustomerCompanyId(customer_id);
     }
     const cType = await resolveCustomerType(targetCustomer, existing.customer_type);
+    // **事業主体**（migration 282）: 渡されなければ人の上書き（entity_manual）を保ち、
+    // 無ければお客様から引き直す。null は上書きを外して自動に戻す
+    const entityInput = parseEntityInput(data.entity);
+    if (entityInput.kind === 'invalid') throw new AppError(400, 'VALIDATION_ERROR', '事業主体は gss / gscs / gig のいずれか（null で自動）');
+    const ent = resolveProjectEntity(entityInput, cType, existing);
 
     // dates 配列が来ている場合は project_dates を全削除→再INSERT。
     // 同時に event_start = MIN(date), event_end = MAX(date) を自動同期
@@ -1578,7 +1589,7 @@ export class ProjectService {
          broadcast_type=?, media_platform=?,
          contact_name=?, recurrence=?, attendee_count=?, goal=?,
          intake_channel=?, intake_confidence=?,
-         application_form=?, customer_type=?,
+         application_form=?, customer_type=?, entity=?, entity_manual=?,
          box_url_internal=?, box_url_external=?, gls_category=?,
          recording_cadence=?, recording_per_day_count=?, fixed_studio_note=?,
          episode_unit_price=?, billing_cycle=?, broadcast_offset_days=?,
@@ -1594,7 +1605,7 @@ export class ProjectService {
          broadcast_type || null, media_platform || null,
          contactName, recurrenceValue, attendeeFinal, goalValue,
          channelValue, confidenceValue,
-         application_form ? 1 : 0, cType,
+         application_form ? 1 : 0, cType, ent.entity, ent.entity_manual,
          box_url_internal || null, box_url_external || null, reqCategory,
          recordingCadenceValue, recordingPerDayCountValue, fixedStudioNoteValue,
          episodeUnitPriceValue, billingCycleValue, broadcastOffsetDaysValue,
@@ -1607,7 +1618,7 @@ export class ProjectService {
          broadcast_type=?, media_platform=?,
          contact_name=?, recurrence=?, attendee_count=?, goal=?,
          intake_channel=?, intake_confidence=?,
-         application_form=?, customer_type=?,
+         application_form=?, customer_type=?, entity=?, entity_manual=?,
          box_url_internal=?, box_url_external=?,
          recording_cadence=?, recording_per_day_count=?, fixed_studio_note=?,
          episode_unit_price=?, billing_cycle=?, broadcast_offset_days=?,
@@ -1619,7 +1630,7 @@ export class ProjectService {
          broadcast_type || null, media_platform || null,
          contactName, recurrenceValue, attendeeFinal, goalValue,
          channelValue, confidenceValue,
-         application_form ? 1 : 0, cType,
+         application_form ? 1 : 0, cType, ent.entity, ent.entity_manual,
          box_url_internal || null, box_url_external || null,
          recordingCadenceValue, recordingPerDayCountValue, fixedStudioNoteValue,
          episodeUnitPriceValue, billingCycleValue, broadcastOffsetDaysValue,
@@ -1683,6 +1694,21 @@ export class ProjectService {
     // 「AI の誤り」として数えられ、修正率が意味のない数字になる
     await recordProjectCorrections(id, existing, saved, userId);
     return saved;
+  }
+
+  /**
+   * 隔週キープの資料に載せる印（`PUT /projects/:id/keep-pick`・migration 282）。
+   * ヨミ表の「資料」チェックとふりかえりタブの「隔週キープに載せる」が同じ値を書く。
+   * 消した案件には付けない（`deleted_at IS NULL` で絞り、当たらなければ 404）。
+   */
+  async setKeepPick(id: string, keepPick: boolean, userId: string) {
+    const row = await queryOne(
+      `UPDATE projects SET keep_pick = ?, updated_at = NOW(), updated_by = ?
+        WHERE id = ? AND deleted_at IS NULL RETURNING id, keep_pick`,
+      [keepPick, userId, id],
+    ) as { id: string; keep_pick: boolean } | null;
+    if (!row) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
+    return { id: row.id, keep_pick: row.keep_pick === true };
   }
 
   /**
