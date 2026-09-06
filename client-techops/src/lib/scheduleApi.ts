@@ -2,7 +2,7 @@
 import api from "@/lib/api";
 import type {
   Schedule, ScheduleDetail, ScheduleColumn, ScheduleItem,
-  ScheduleTemplate, ApplyPreview, ItemBreakdown, ScheduleShare,
+  ScheduleTemplate, ApplyPreview, ItemBreakdown, ScheduleShare, ScheduleItemRef,
 } from "@gmo-onair/shared/src/schedule/types";
 
 interface Envelope<T> { success: boolean; data: T }
@@ -151,6 +151,14 @@ export async function createAndLinkDocument(scheduleId: string, itemId: string):
 }
 export async function setDocumentLink(scheduleId: string, itemId: string, documentId: string | null): Promise<ScheduleItem> {
   const res = await api.put<Envelope<ScheduleItem>>(`/techops/schedules/${scheduleId}/items/${itemId}/qsheet`, { qsheet_document_id: documentId });
+  return res.data.data;
+}
+
+// ── 逆引き（台本 → この台本が結ばれているスケジュール表の枠）14-schedule-v2-plan.md §3 B3 ──
+// 型は `shared/src/schedule/types.ts` の `ScheduleItemRef`（キー集合を固定するテストが
+// `shared/tests/scheduleItemRef.test.ts` にある。ここで独自に再定義しない）。
+export async function getScheduleItemsForDocument(documentId: string): Promise<ScheduleItemRef[]> {
+  const res = await api.get<Envelope<ScheduleItemRef[]>>(`/techops/documents/${documentId}/schedule-items`);
   return res.data.data;
 }
 

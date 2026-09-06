@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import BufferedInput from "@/components/editor/BufferedInput";
 import BufferedTextarea from "./BufferedTextarea";
+import AssigneeAutocomplete from "./AssigneeAutocomplete";
+import ScheduleItemDocLink from "./ScheduleItemDocLink";
 // 2つの欄を横に並べる慣用クラス（スマホ1列・sm 以上で2列）。同じクラス列を各画面で
 // 直書きすると片方だけスマホで2列のまま潰れるので、共通の定数を使う
 import { formGrid2 } from "@gmo-onair/shared/src/client-v4/formDialog";
@@ -35,6 +37,8 @@ export interface ItemDraft {
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** 台本への橋（結び直し・逆引き導線）の呼び出しに要る。§3 B3 */
+  scheduleId: string;
   columns: ScheduleColumn[];
   /** 既存項目を編集するときに渡す。無ければ新規作成モード */
   item?: ScheduleItem | null;
@@ -46,6 +50,12 @@ interface Props {
   onDelete?: () => void;
   onCreateScript?: () => void;
   onOpenScript?: () => void;
+  /**
+   * 既存台本への結び直し・解除が成功したら呼ぶ。**サーバーが返した最新の項目**を渡す
+   * （表の再取得だけだと、開いたままのこのダイアログの `item` は古いまま——
+   * 直後に「進行台本を開く」を押すと結び直す前の台本へ飛んでしまう。§3 B3）
+   */
+  onDocumentLinked?: (item: ScheduleItem) => void;
   savingDisabled?: boolean;
   /** 表の状態が「確定」のとき true。保存は止めない——事実を1行添えるだけ（§4-4） */
   scheduleFixed?: boolean;
@@ -64,8 +74,8 @@ const draftOf = (item: ScheduleItem | null | undefined, initial: Partial<ItemDra
 });
 
 export default function ScheduleItemDialog({
-  open, onOpenChange, columns, item, initial, conflicted, onReloadLatest, onSave, onDelete,
-  onCreateScript, onOpenScript, savingDisabled, scheduleFixed,
+  open, onOpenChange, scheduleId, columns, item, initial, conflicted, onReloadLatest, onSave, onDelete,
+  onCreateScript, onOpenScript, onDocumentLinked, savingDisabled, scheduleFixed,
 }: Props) {
   const [draft, setDraft] = useState<ItemDraft>(() => draftOf(item, initial, columns));
 
@@ -80,8 +90,16 @@ export default function ScheduleItemDialog({
     if (open) setDraft(draftOf(item, initial, columns));
     // columns は open のたびに再取得されるが、フォームを開き直す判定には使わない
     // （画面全体の再取得でリファレンスが変わるたびにフォームをリセットしないため）
+    //
+    // ⚠️ 依存は `item` 本体ではなく `item?.id`（§3 B3・relink 実装中に見つけて直したバグ）。
+    // 台本への結び直し・解除（`ScheduleItemDocLink`）は、開いたままの**同じ項目**に対して
+    // `SchedulePage.tsx` の `selectedItem` を新しい参照へ差し替える。`item` 本体を依存に
+    // 入れていると、この差し替えのたびに（id は同じでも参照が変わるので）ここが発火し、
+    // 打ちかけの題・時刻・担当（`draft`）が保存前に読み込み直され消えてしまう。
+    // `item?.id` だけを見れば、同じ項目のまま結び直しても打ちかけの入力は保たれる
+    // （台本の結び状態は `draft` ではなく `item` プロパティを直接読むので、これで最新のまま）。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, item, initial]);
+  }, [open, item?.id, initial]);
 
   const set = <K extends keyof ItemDraft>(key: K, value: ItemDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
 
@@ -165,13 +183,15 @@ export default function ScheduleItemDialog({
 
             <div>
               <Label htmlFor="item-assignee">担当（自由入力。社外の人も可）</Label>
-              <BufferedInput
-                id="item-assignee"
-                value={draft.assignee}
-                onCommit={(v) => set("assignee", v)}
-                className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                placeholder="例: MC / 社長 / 出演者受賞者"
-              />
+              <div className="mt-1">
+                <AssigneeAutocomplete
+                  id="item-assignee"
+                  value={draft.assignee}
+                  onCommit={(v) => set("assignee", v)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  placeholder="例: MC / 社長 / 出演者受賞者"
+                />
+              </div>
             </div>
 
             <div>
@@ -185,21 +205,15 @@ export default function ScheduleItemDialog({
               />
             </div>
 
-            {canLink && (
+            {canLink && item && (
               <div className="rounded-md border border-border bg-muted/40 p-3">
-                {item?.qsheet_document_id ? (
-                  item.link_broken ? (
-                    <p className="text-sm text-destructive">結んでいた進行台本が見つかりません（削除されています）。</p>
-                  ) : (
-                    <Button type="button" variant="outline" className="min-h-[44px] w-full" onClick={onOpenScript}>
-                      進行台本を開く
-                    </Button>
-                  )
-                ) : (
-                  <Button type="button" variant="outline" className="min-h-[44px] w-full" onClick={onCreateScript}>
-                    この枠から進行台本を作る
-                  </Button>
-                )}
+                <ScheduleItemDocLink
+                  scheduleId={scheduleId}
+                  item={item}
+                  onOpenScript={() => onOpenScript?.()}
+                  onCreateScript={() => onCreateScript?.()}
+                  onLinked={(updated) => onDocumentLinked?.(updated)}
+                />
               </div>
             )}
           </div>
