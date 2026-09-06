@@ -36,6 +36,7 @@ import RequestQueueSection, { graphicsRequestsQueryKey } from './RequestQueueSec
 import RosterImportDialog from './RosterImportDialog';
 import QsheetImportDialog from './QsheetImportDialog';
 import OutputUrlCard from './OutputUrlCard';
+import MobileTelopList from './MobileTelopList';
 import { resolveTelopTheme } from './telopTheme';
 import { PRIMARY_FIELD_KEY } from './pageFields';
 
@@ -264,6 +265,7 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
   };
 
   return (
+    <><div className="hidden sm:block">
     <div className="px-4 py-6 sm:px-6 sm:py-8">
       <Link
         to={hubPath(owner)}
@@ -389,5 +391,9 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
         }}
       />
     </div>
+    </div><div className="block px-4 py-6 sm:hidden">{/* ⑥一覧（スマホ・閲覧＋緊急CLEAR。段D）。中身は `MobileTelopList` 側 */}
+      <MobileTelopList projectName={bundle.project.name} projectId={bundle.project.id} pages={pages} cues={bundle.cues} reload={reload} />
+    </div>
+    </>
   );
 }

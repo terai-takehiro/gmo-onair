@@ -74,17 +74,6 @@ export const TECHOPS_PC_ONLY: PcOnlyEntry[] = [
     instead: { label: 'アプリのトップを開く', to: '/techops/top' },
   },
   {
-    // テロップCG のハブ（ページと送出リスト）。ページの一覧・作成・編集を
-    // 本番前にまとめて組む画面で、列の多い表とダイアログを並べて使うため PC 前提。
-    // 発注（テロ原）だけは別画面（`/techops/graphics/:ownerKey/request`）にして
-    // スマホ対応にした — graphics.md §3「発注はディレクターがスマホから」の分業設計
-    // （下の `TECHOPS_MOBILE_OK` を参照）
-    path: '/techops/graphics/:ownerKey',
-    what: 'テロップCG（ページと送出リスト）',
-    why: 'ページの一覧と送出リストをまとめて組む画面で、狭い幅では組めません。',
-    instead: { label: 'アプリのトップを開く', to: '/techops/top' },
-  },
-  {
     // テロップCG の送出コンソール。本番3画面（進行・ランダウン・プロンプター）と
     // 同じ理由 — 配信卓に固定して使う運用画面
     path: '/techops/graphics/:ownerKey/live',
@@ -155,9 +144,10 @@ export const TECHOPS_MOBILE_OK: string[] = [
   // 独立ルートなので `<PcOnlyGate>` は通らない — client-live の表示画面（/display/:timerId）
   // と同じく「宣言として」こちら側に置く（1920×1080 を縮尺表示するだけでスマホでも壊れない）
   '/techops/graphics/output/:projectId',
-  // テロップCGの発注（テロ原）フォーム。ディレクターがスマホから文言・用途・
-  // 出すタイミングだけ書いて投げ込む1カラムフォーム＋自分の発注一覧（段5・graphics.md §3）
+  // テロップCGの発注（テロ原）フォーム。ディレクターがスマホから文言・出すタイミング・
+  // 種類だけ書いて投げ込む1カラムフォーム＋自分の発注一覧（段5・graphics.md §3）
   '/techops/graphics/:ownerKey/request',
+  '/techops/graphics/:ownerKey', // テロップCG（①一覧＝PC・⑥閲覧＋緊急CLEAR＝スマホ。同じURLの中でTailwindのブレークポイントにより出し分ける。段D）
   '/techops/schedules',      // スケジュール表の一覧
   '/techops/schedules/:id',  // スケジュール表の詳細（375px は縦積みカードに畳む）
   // 収録設定・配信設定の簡易入口（旧 `/techops/device-settings`）は2026-08-22 に廃止（`App.tsx` にルート無し）

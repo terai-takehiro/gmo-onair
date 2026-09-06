@@ -1,7 +1,8 @@
 // テロップCG — 発注（テロ原）フォーム（`/techops/graphics/:ownerKey/request`）。
 //
 // docs/design/v4/graphics.md §3・§9 段5「発注（テロ原・スマホ）」。
-// ディレクターがスマホから「出したい文言・用途・出すタイミング」だけを投げ込む画面。
+// ディレクターがスマホから「出したい文言・出すタイミング・種類」だけを投げ込む画面
+// （欄を3つに絞る設計。「用途・補足」欄は段Dで削除した — graphics-redesign.md §5⑤）。
 // **スマホ最優先** — `pcOnlyScreens.ts` の PC専用リストには入れない（ここだけは
 // スマホから完結させる、という graphics.md §3 の分業設計そのもの）。
 //
@@ -10,7 +11,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, Loader2, Send, Trash2 } from 'lucide-react';
+import { ChevronLeft, FileText, Loader2, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,8 +27,10 @@ import {
   createGraphicsRequest, fetchGraphicsRequests, deleteGraphicsRequest,
   type GraphicsPartKey, type GraphicsRequestRow,
 } from '@/lib/graphicsApi';
+import type { OwnerContext } from '@/lib/deviceSettingsApi';
 import { useGraphicsProject } from './useGraphicsProject';
 import { RequestStatusBadge } from './badges';
+import ScriptPositionPickerDialog from './ScriptPositionPickerDialog';
 
 const NO_PART = '__none__';
 
@@ -53,21 +56,29 @@ export default function RequestFormPage() {
     );
   }
 
-  return <FormContent ownerKey={ownerKey ?? ''} ownerName={state.owner.name} projectId={state.bundle.project.id} />;
+  return (
+    <FormContent
+      ownerKey={ownerKey ?? ''}
+      ownerName={state.owner.name}
+      owner={state.owner}
+      projectId={state.bundle.project.id}
+    />
+  );
 }
 
-function FormContent({ ownerKey, ownerName, projectId }: {
+function FormContent({ ownerKey, ownerName, owner, projectId }: {
   ownerKey: string;
   ownerName: string;
+  owner: OwnerContext;
   projectId: string;
 }) {
   const queryClient = useQueryClient();
   const listKey = ['graphics-requests', projectId] as const;
 
   const [title, setTitle] = useState('');
-  const [detail, setDetail] = useState('');
   const [desiredTiming, setDesiredTiming] = useState('');
   const [desiredPartKey, setDesiredPartKey] = useState<string>(NO_PART);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const listQuery = useQuery({
     queryKey: listKey,
@@ -80,13 +91,11 @@ function FormContent({ ownerKey, ownerName, projectId }: {
   const createMutation = useMutation({
     mutationFn: () => createGraphicsRequest(projectId, {
       title: title.trim(),
-      detail: detail.trim() || undefined,
       desiredTiming: desiredTiming.trim() || undefined,
       desiredPartKey: desiredPartKey === NO_PART ? undefined : (desiredPartKey as GraphicsPartKey),
     }),
     onSuccess: () => {
       setTitle('');
-      setDetail('');
       setDesiredTiming('');
       setDesiredPartKey(NO_PART);
       notifySuccess('発注を送りました');
@@ -132,7 +141,7 @@ function FormContent({ ownerKey, ownerName, projectId }: {
 
       <PageHeader
         title="テロップの発注（テロ原）"
-        sub={`${ownerName} ／ 文言・用途・出すタイミングだけ書けば大丈夫です`}
+        sub={`${ownerName} ／ 文言・出すタイミング・種類だけ書けば大丈夫です`}
       />
 
       <form onSubmit={submit} className="mt-4 space-y-4 rounded-card border border-border bg-card p-4">
@@ -149,25 +158,24 @@ function FormContent({ ownerKey, ownerName, projectId }: {
         </div>
 
         <div>
-          <Label htmlFor="request-detail">用途・補足</Label>
-          <textarea
-            id="request-detail"
-            className="mt-1 min-h-[80px] w-full rounded-md border border-input bg-background p-2 text-sm"
-            value={detail}
-            onChange={(e) => setDetail(e.target.value)}
-            placeholder="例：登壇者の紹介テロップ。肩書も出したい"
-          />
-        </div>
-
-        <div>
           <Label htmlFor="request-timing">出したいタイミング</Label>
-          <Input
-            id="request-timing"
-            className="mt-1 min-h-[44px]"
-            value={desiredTiming}
-            onChange={(e) => setDesiredTiming(e.target.value)}
-            placeholder="例：オープニング映像の後"
-          />
+          <div className="mt-1 flex flex-col gap-2 sm:flex-row">
+            <Input
+              id="request-timing"
+              className="min-h-[44px] sm:flex-1"
+              value={desiredTiming}
+              onChange={(e) => setDesiredTiming(e.target.value)}
+              placeholder="例：オープニング映像の後"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-[44px] w-full sm:w-auto"
+              onClick={() => setPickerOpen(true)}
+            >
+              <FileText className="mr-1 h-4 w-4" aria-hidden="true" />台本から選ぶ
+            </Button>
+          </div>
         </div>
 
         <div>
@@ -233,6 +241,13 @@ function FormContent({ ownerKey, ownerName, projectId }: {
           ))}
         </div>
       </section>
+
+      <ScriptPositionPickerDialog
+        owner={owner}
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        onPick={(label) => setDesiredTiming(label)}
+      />
     </div>
   );
 }
