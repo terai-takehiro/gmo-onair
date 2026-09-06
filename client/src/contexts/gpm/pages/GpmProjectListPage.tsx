@@ -255,7 +255,9 @@ export default function GpmProjectListPage() {
         title="プロジェクト一覧"
         // **サブタイトルは「件数 ・ 画面が何を見せているか」の短い形**（delta 6）。
         // 方針の説明（「発注が確定したもの…」）は「用語」ボタンの中身（`TermHint`）へ移した
-        sub={data ? `${all.length}件 ・ 全員が同じものを見ています` : '全員が同じものを見ています'}
+        // ⚠️ 件数は区分・状態の絞り込みを掛けたあとの `sortedRows`（Codexレビュー指摘・PR #593）。
+        // `all` は検索だけを掛けた集合なので、区分「自社構築」を選んでも件数が変わらず見えていた
+        sub={data ? `${sortedRows.length}件 ・ 全員が同じものを見ています` : '全員が同じものを見ています'}
         primaryAction={
           canEdit ? (
             <Button onClick={() => navigate('/gpm/projects/new')}>
