@@ -59,7 +59,7 @@ export const HUB_GROUPS: HubGroup[] = [
         to: '/sales/pricing', module: 'sales', who: '案件管理の『管理』',
       },
       {
-        key: 'flow', title: '工程テンプレート（案件）', desc: '案件の種類ごとに立つ工程の工程テンプレート',
+        key: 'flow', title: '工程テンプレート（案件）', desc: '案件の種類ごとに立つ工程のテンプレート',
         icon: ListChecks, tone: 'bg-info-surface text-info',
         to: '/sales/flow-templates', module: 'sales', who: '案件管理の『管理』',
       },
@@ -68,7 +68,7 @@ export const HUB_GROUPS: HubGroup[] = [
         // 「発注確定 → 設計 → 調達 → 施工 → 検収」で、放送案件の工程
         // （企画 → 準備 → リハ → 本番 → 精算）とは1つも重なりません。
         // 1つの表にまとめると、どちらの画面にも要らない工程が並びます
-        key: 'gpm-flow', title: '工程の工程テンプレート（プロジェクト）', desc: '工事・構築の段取りの工程テンプレート',
+        key: 'gpm-flow', title: '工程テンプレート（プロジェクト）', desc: '工事・構築の段取りのテンプレート',
         icon: ListChecks, tone: 'bg-info-surface text-info',
         to: '/gpm/templates', module: 'sales', who: 'プロジェクト管理の「編集」',
       },

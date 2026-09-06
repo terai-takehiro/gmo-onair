@@ -335,7 +335,7 @@ export default function ProjectLedgerPage() {
           title="この条件に合う案件はありません"
           description={s.filters.issue
             ? 'このチェックに当たる案件はありません。上の「絞り込みを解除」で全部に戻せます。'
-            : '絞り込みを解除か、検索語を変えてみてください。'}
+            : '絞り込みを解除するか、検索語を変えてみてください。'}
         />
       ) : isMobile ? (
         <MobileLedgerCards rows={s.rows} /> // 既定表示9列のカード（詳細は同ファイル冒頭コメント）

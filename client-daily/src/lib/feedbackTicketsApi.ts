@@ -55,7 +55,7 @@ export const PAGES_BY_APP: Record<string, PageDef[]> = {
     { key: 'gpm_dashboard', label: 'プロジェクト管理：ダッシュボード' },
     { key: 'gpm_projects', label: 'プロジェクト管理：プロジェクト一覧' },
     { key: 'gpm_tasks', label: 'プロジェクト管理：やること（未確認事項）' },
-    { key: 'gpm_templates', label: 'プロジェクト管理：工程の工程テンプレート' },
+    { key: 'gpm_templates', label: 'プロジェクト管理：工程テンプレート' },
     { key: 'budget_dashboard', label: '財務管理：財務ダッシュボード' },
     { key: 'budget_billing', label: '財務管理：請求・入金' },
     { key: 'budget_revenues', label: '財務管理：売上' },
