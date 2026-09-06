@@ -12,6 +12,7 @@ import { createTasksRoutes } from '../contexts/tasks';
 import { createDailyopsRoutes } from '../contexts/dailyops';
 import { createScheduleRoutes } from '../contexts/schedule';
 import { createGraphicsRoutes } from '../contexts/graphics';
+import { createAwardsImageRoutes } from '../contexts/awards';
 
 export function createRoutes(): Router {
   const router = Router();
@@ -31,6 +32,10 @@ export function createRoutes(): Router {
   router.use(createQsheetRoutes('/techops'));
   router.use(createLiveopsRoutes());
   // awards (旧リアルタイムCG) / quiz の API は段F で「廃止」にした (2026-09-06・client-awards/CLAUDE.md 参照)。
+  // ⚠️ 画像配信 (/awards/images/*) だけは読み取り専用で生かす — テロップCGの過去実績移行
+  // ツールが作る RankingEntry.photoUrl が旧 awards_entries.photo_url をそのまま指しており、
+  // 外すと移行済み・今後移行するランキングの顔写真が欠ける (レビュー指摘・実測で確認)。
+  router.use('/awards', createAwardsImageRoutes());
   // テロップCG (techops ミニアプリ graphics。リアルタイムCG の後継 — docs/design/v4/graphics.md)
   router.use(createGraphicsRoutes());
   router.use(createTasksRoutes());
