@@ -39,8 +39,10 @@ import type { ProjectStage } from '@/types';
 import { STAGE_BADGE_LABEL } from '@/contexts/sales/pages/projectList/stages';
 import { type GpmOpenItem } from '../types';
 import {
-  DetailHeader, isDetailTab, gpmDetailPhase, MOBILE_TABS_BY_PHASE, effectiveMobileTabs, type DetailTabKey,
-} from './projectDetail/DetailHeader';
+  isDetailTab, gpmDetailPhase, MOBILE_TABS_BY_PHASE, effectiveMobileTabs, type DetailTabKey,
+} from './projectDetail/tabs';
+import { DetailHeader } from './projectDetail/DetailHeader';
+import { ProjectFactsBand } from './projectDetail/ProjectFactsBand';
 import { EstimatesTab } from './projectDetail/EstimatesTab';
 import { BillingTab } from './projectDetail/BillingTab';
 import { OverviewTab } from './projectDetail/OverviewTab';
@@ -201,6 +203,12 @@ export default function GpmProjectDetailPage() {
         mobile={isMobile}
         phase={phase}
       />
+
+      {/* 事実の帯（期間・進み具合）。**どのタブでも本文のいちばん上**に出す
+          （ヘッダー右上から移した。`ProjectFactsBand` 冒頭のコメント参照） */}
+      <div className="px-4 pt-3.5 lg:px-6 lg:pt-4">
+        <ProjectFactsBand project={p} />
+      </div>
 
       {/* 月次請求（月締め）。**案件詳細から移したもの** (migration 179)。
           **どの段階でもスマホには出さない**（`BillingTab` 冒頭のコメント参照） */}
