@@ -1,6 +1,8 @@
 // ひな形適用ダイアログ。実装設計: 04-schedule-impl.md §5-5
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,6 +11,7 @@ import BufferedInput from "@/components/editor/BufferedInput";
 import { fmtHmPad, parseHm } from "@gmo-onair/shared/src/schedule/time";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import * as scheduleApi from "@/lib/scheduleApi";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Props {
   open: boolean;
@@ -19,6 +22,8 @@ interface Props {
 }
 
 export default function ApplyTemplateDialog({ open, onOpenChange, scheduleId, locationId, onApplied }: Props) {
+  const { currentUser } = useAuth();
+  const isSystemAdmin = currentUser?.role === "system_admin";
   const [templateId, setTemplateId] = useState<string>("");
   const [onairStartMin, setOnairStartMin] = useState<number | null>(null);
   const [checkedCols, setCheckedCols] = useState<Set<string>>(new Set());
@@ -76,7 +81,19 @@ export default function ApplyTemplateDialog({ open, onOpenChange, scheduleId, lo
 
         <div className="space-y-4">
           <div>
-            <Label>工程テンプレート</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label>工程テンプレート</Label>
+              {/* 工程テンプレートの編集は system_admin のみ（サーバーも role で絞っている）。
+                  導線が無く URL 直打ちでしか届かなかった穴を塞ぐ（14-schedule-v2-plan.md §3 A7） */}
+              {isSystemAdmin && (
+                <Link
+                  to={templateId ? `/techops/settings/schedule-templates?template=${templateId}` : "/techops/settings/schedule-templates"}
+                  className="inline-flex min-h-[44px] items-center gap-1 text-sm text-primary hover:underline"
+                >
+                  <Pencil className="h-3.5 w-3.5" aria-hidden="true" />工程テンプレートを編集
+                </Link>
+              )}
+            </div>
             <Select value={templateId} onValueChange={setTemplateId}>
               <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue placeholder="選んでください" /></SelectTrigger>
               <SelectContent>

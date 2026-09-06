@@ -31,7 +31,17 @@ export interface Schedule {
   created_at: string;
   updated_at: string;
   item_count?: number;
+  /** 明示共有の人数（案件メンバーは含まない・14-schedule-v2-plan.md §3-2） */
   share_count?: number;
+  /** 案件メンバー＋主担当の人数。番組の表・案件が無い表は null（自動で見える人数） */
+  project_member_count?: number | null;
+}
+
+/** 明示共有の1行（`GET/PUT /schedules/:id/shares`） */
+export interface ScheduleShare {
+  user_id: string;
+  name: string | null;
+  email: string | null;
 }
 
 export interface ScheduleColumn {
@@ -57,6 +67,11 @@ export interface ScheduleItem {
   kind: ItemKind;
   start_min: number;
   end_min: number;
+  /**
+   * 横串（列をまたぐ項目 = Excel のセル結合）。1 = 自分の列だけ・N = 自分の列から右へ N 列・
+   * 0 = 全列（migration 280）。読み方は `shared/src/schedule/span.ts`
+   */
+  span_cols: number;
   assignee: string | null;
   note: string | null;
   qsheet_document_id: string | null;

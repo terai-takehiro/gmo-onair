@@ -32,7 +32,7 @@ import { PrintTable } from './PrintTable';
 import type { EquipmentRecord } from './types';
 
 const DEFAULT_PRINT: PrintSettings = {
-  title: '機材一覧',
+  title: '機材台帳',
   cols: new Set(['eq_code', 'equipment_type', 'name', 'manufacturer_name', 'model_number', 'unit_number', 'location', 'notes']),
   checkbox: true,
 };

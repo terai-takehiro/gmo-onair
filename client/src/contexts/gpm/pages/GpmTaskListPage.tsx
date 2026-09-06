@@ -21,7 +21,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Check, CircleHelp, ListTodo } from 'lucide-react';
+import { CircleHelp, ListTodo } from 'lucide-react';
 import api from '@/lib/api';
 import { localDateStr } from '@/lib/format';
 import { useAuth } from '@/contexts/platform/AuthContext';
@@ -33,6 +33,7 @@ import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { TaskDoneButton } from '@gmo-onair/shared/src/client-v4/taskDoneButton';
 import { useGpmOpenItems, useGpmTasks, useInvalidateGpm } from '../queries';
 import {
   PHASE_STATE_LABEL, PHASE_STATE_TONE, dueLabel, dueTone, ymd,
@@ -132,7 +133,7 @@ export default function GpmTaskListPage() {
     mutationFn: (t: GpmTask) => api.put(`/gpm/tasks/${t.id}/done`, { done: !t.is_completed }),
     onSuccess: (_r, t) => {
       invalidate(t.project_id);
-      notifySuccess(t.is_completed ? '未完了に戻しました' : '完了にしました');
+      notifySuccess(t.is_completed ? '未対応に戻しました' : '対応済にしました');
     },
     onError: (e) => notifyApiError('タスクを変更できませんでした', e),
   });
@@ -175,9 +176,9 @@ export default function GpmTaskListPage() {
   return (
     <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <PageHeader
-        title="全プロジェクトのタスク"
+        title="タスクと持ち帰り"
         sub={tasks.data
-          ? `未完了 ${taskCounts.open}件 ・ 止まっている未解決事項 ${openCount}件`
+          ? `未対応 ${taskCounts.open}件 ・ 止まっている未解決事項 ${openCount}件`
           : 'プロジェクトをまたいで見ます'}
       >
         {/* **スマホでは出さない。** ここは見出しの下に折り返るだけで専用のナビゲーションに
@@ -219,10 +220,10 @@ export default function GpmTaskListPage() {
           <FilterChips
             label="タスクの状態で絞り込む"
             items={[
-              { key: 'open', label: '未完了', count: tasks.data ? taskCounts.open : null },
+              { key: 'open', label: '未対応', count: tasks.data ? taskCounts.open : null },
               { key: 'week', label: '今週期限', count: tasks.data ? taskCounts.week : null },
               { key: 'overdue', label: '期限超過', count: tasks.data ? taskCounts.overdue : null },
-              { key: 'done', label: '完了', count: tasks.data ? taskCounts.done : null },
+              { key: 'done', label: '対応済', count: tasks.data ? taskCounts.done : null },
               { key: 'all', label: 'すべて', count: tasks.data ? taskCounts.all : null },
             ]}
             value={taskChip}
@@ -236,7 +237,7 @@ export default function GpmTaskListPage() {
           ) : taskRows.length === 0 ? (
             <EmptyState
               icon={<ListTodo className="h-6 w-6" aria-hidden="true" />}
-              title={taskChip === 'open' ? '未完了のタスクはありません' : '条件に合うタスクはありません'}
+              title={taskChip === 'open' ? '未対応のタスクはありません' : '条件に合うタスクはありません'}
               description="工程テンプレートからプロジェクトを作成すると、工程の下にタスクが日付付きで入ります。"
             />
           ) : isMobile ? (
@@ -250,39 +251,16 @@ export default function GpmTaskListPage() {
           ) : (
             <div className="overflow-hidden rounded-card border border-border bg-card">
               <RowHeader className="hidden sm:flex">
-                {canEdit && <RowSlot w={56} align="center">完了</RowSlot>}
                 <RowMain>タスク ／ プロジェクト</RowMain>
                 <RowSlot w={128}>工程</RowSlot>
                 <RowSlot w={96}>担当</RowSlot>
                 <RowSlot w={96}>期限</RowSlot>
+                {canEdit && <RowSlot w={128} align="center">対応</RowSlot>}
               </RowHeader>
               {taskRows.map((t) => {
                 const due = ymd(t.due_at);
                 return (
                   <Row key={t.id} divider stackOnMobile className={cn(t.is_completed && 'opacity-60')}>
-                    {canEdit && (
-                      <RowSlot w={56} align="center">
-                        <button
-                          type="button"
-                          onClick={() => setDone.mutate(t)}
-                          disabled={setDone.isPending}
-                          aria-label={t.is_completed ? `${t.title} を未完了に戻す` : `${t.title} を完了にする`}
-                          /*
-                            **`v4-tap` で当たり判定だけ 44px にする**（M10）。
-                            18px の四角は大きくすると別の部品に見えるので、
-                            見た目は変えずに透明な擬似要素をかぶせる
-                            （`tokens-v4.css`。押し間違えると取り消しに行くので、
-                             指で確実に当たる大きさが要る）
-                          */
-                          className={cn(
-                            'v4-tap rounded-badge-xs flex h-[18px] w-[18px] items-center justify-center border-[1.5px]',
-                            t.is_completed ? 'border-success bg-success' : 'border-border-disabled hover:border-primary',
-                          )}
-                        >
-                          {t.is_completed && <Check className="h-3 w-3 text-success-foreground" aria-hidden="true" />}
-                        </button>
-                      </RowSlot>
-                    )}
                     <RowMain>
                       <RowTitle className={cn(t.is_completed && 'line-through')}>{t.title}</RowTitle>
                       <RowSub>
@@ -312,6 +290,21 @@ export default function GpmTaskListPage() {
                     <RowSlot w={96} className={cn('text-sub font-number', t.is_completed ? 'text-muted-foreground' : dueTone(due, today))}>
                       {dueLabel(due, today)}
                     </RowSlot>
+                    {/*
+                      片づける操作は**文字のボタン**にする（18px の四角は
+                      「押すと何が起きるか」が読み取れなかった）。列は 7段の 128px
+                    */}
+                    {canEdit && (
+                      <RowSlot w={128} align="center">
+                        <TaskDoneButton
+                          done={t.is_completed}
+                          onToggle={() => setDone.mutate(t)}
+                          taskTitle={t.title}
+                          disabled={setDone.isPending}
+                          size="sm"
+                        />
+                      </RowSlot>
+                    )}
                   </Row>
                 );
               })}

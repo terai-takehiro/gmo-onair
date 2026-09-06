@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +10,7 @@ import {
   ChevronRight,
   Sparkles,
 } from "lucide-react";
+import { TaskDoneButton } from "@gmo-onair/shared/src/client-v4/taskDoneButton";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { useToggleComplete, useDeleteTask } from "../../hooks/useProjectTasks";
@@ -52,14 +52,6 @@ export default function TaskListItem({ task, projectId, episodeId }: Props) {
           task.is_completed ? "opacity-60" : ""
         }`}
       >
-        {/* チェックボックス */}
-        <Checkbox
-          checked={task.is_completed}
-          onCheckedChange={() => toggleComplete.mutate(task.id)}
-          aria-label={`${task.title} 完了チェック`}
-          className="mt-0.5 shrink-0"
-        />
-
         {/* メインコンテンツ */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start gap-2 flex-wrap">
@@ -143,6 +135,19 @@ export default function TaskListItem({ task, projectId, episodeId }: Props) {
           </div>
         </div>
 
+        {/*
+          対応済にする / 未対応に戻す。**hover で隠さない**（片づけるのがこの行の
+          主な用事なので、常に読める場所に置く）。編集・削除だけを hover に残す
+        */}
+        <TaskDoneButton
+          done={task.is_completed}
+          onToggle={() => toggleComplete.mutate(task.id)}
+          taskTitle={task.title}
+          disabled={toggleComplete.isPending}
+          size="sm"
+          className="mt-0.5"
+        />
+
         {/* アクションボタン (タッチ端末では常時表示・sm以上はhover) */}
         <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 shrink-0">
           <Button
@@ -170,7 +175,7 @@ export default function TaskListItem({ task, projectId, episodeId }: Props) {
 
       {/* チェックリスト展開 */}
       {task.task_type === "checklist" && expanded && (
-        <div className="ml-9 pr-3 pb-2">
+        <div className="ml-3 pr-3 pb-2">
           <ChecklistItems projectId={projectId} parentTask={task} />
         </div>
       )}

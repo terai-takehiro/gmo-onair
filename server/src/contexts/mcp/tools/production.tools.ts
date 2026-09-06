@@ -323,18 +323,24 @@ export function registerProductionTools(server: McpServer): void {
     },
     async (args) => runTool(async () => {
       const actor = await requireProductionActor('editor');
+      // ⚠️ `locationId: 条件 ? 値 : undefined` は**キー自体を常に持つ**オブジェクトになる。
+      // `updateScheduleTable`（schedule.service.ts）は `'locationId' in input` で
+      // 「渡されたか」を判定するため、この形だと常に true になり、指定しなかっただけで
+      // location_id・project_id・program_id・episode_id・notes を毎回 null に戻していた
+      // （schedules.routes.ts の PUT と同じ地雷。2026-09-06 に発見・同時に直した）。
+      // スプレッドで「渡されたときだけキーを足す」形にする。
       const row = await updateScheduleTable(actor, args.schedule_id, {
         title: args.title,
         serviceDate: args.service_date,
-        locationId: 'location_id' in args ? (args.location_id || null) : undefined,
-        projectId: 'project_id' in args ? (args.project_id || null) : undefined,
-        programId: 'program_id' in args ? (args.program_id || null) : undefined,
-        episodeId: 'episode_id' in args ? (args.episode_id || null) : undefined,
+        ...('location_id' in args ? { locationId: args.location_id || null } : {}),
+        ...('project_id' in args ? { projectId: args.project_id || null } : {}),
+        ...('program_id' in args ? { programId: args.program_id || null } : {}),
+        ...('episode_id' in args ? { episodeId: args.episode_id || null } : {}),
         viewStartMin: args.view_start_min,
         viewEndMin: args.view_end_min,
         slotMin: args.slot_min,
         status: args.status,
-        notes: 'notes' in args ? (args.notes || null) : undefined,
+        ...('notes' in args ? { notes: args.notes || null } : {}),
         expectedUpdatedAt: args.expected_updated_at,
       });
       audit('update_schedule', args, { schedule_id: args.schedule_id }, args.requested_by);
@@ -484,6 +490,8 @@ export function registerProductionTools(server: McpServer): void {
         kind: z.enum(ITEM_KINDS).optional(),
         start_min: z.number().int().min(0).max(2880),
         end_min: z.number().int().min(0).max(2880),
+        span_cols: z.number().int().min(0).max(64).optional()
+          .describe('横串 (列をまたぐ枠)。1 = この列だけ (既定) / N = この列から右へ N 列 / 0 = 全列'),
         assignee: z.string().optional(),
         note: z.string().optional(),
         ...REQUESTED_BY,
@@ -497,6 +505,7 @@ export function registerProductionTools(server: McpServer): void {
         kind: args.kind,
         startMin: args.start_min,
         endMin: args.end_min,
+        spanCols: args.span_cols,
         assignee: args.assignee ?? null,
         note: args.note ?? null,
       });
@@ -521,6 +530,8 @@ export function registerProductionTools(server: McpServer): void {
         kind: z.enum(ITEM_KINDS).optional(),
         start_min: z.number().int().min(0).max(2880).optional(),
         end_min: z.number().int().min(0).max(2880).optional(),
+        span_cols: z.number().int().min(0).max(64).optional()
+          .describe('横串 (列をまたぐ枠)。1 = この列だけ / N = この列から右へ N 列 / 0 = 全列'),
         assignee: z.string().optional().describe('空文字で消せる'),
         note: z.string().optional().describe('空文字で消せる'),
         ...REQUESTED_BY,
@@ -534,6 +545,7 @@ export function registerProductionTools(server: McpServer): void {
         kind: args.kind,
         startMin: args.start_min,
         endMin: args.end_min,
+        spanCols: args.span_cols,
         assignee: 'assignee' in args ? args.assignee : undefined,
         note: 'note' in args ? args.note : undefined,
       });

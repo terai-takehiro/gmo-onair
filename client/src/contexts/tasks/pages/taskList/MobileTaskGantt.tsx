@@ -29,14 +29,14 @@ import DashboardGanttView from '@/contexts/tasks/components/DashboardGantt/Dashb
 export function MobileTaskGantt() {
   const { data, isLoading, isError, refetch } = useTaskDashboard();
   // PC のガントを開いたときの既定（未完了だけ）に合わせる。データの取り方・
-  // 完了かどうかの判定は変えていない（`is_completed` をそのまま見るだけ）
+  // 対応済かどうかの判定は変えていない（`is_completed` をそのまま見るだけ）
   const tasks = (data?.tasks ?? []).filter((t) => !t.is_completed);
 
   return (
     <div className="flex flex-col gap-3.5 p-3">
       <PageHeader
         title="ガント"
-        sub="全案件のタスクを時間軸で（未完了だけ）。並べ替え・絞り込みは PC の一覧から"
+        sub="全案件のタスクを時間軸で（未対応だけ）。並べ替え・絞り込みは PC の一覧から"
       />
 
       <Link

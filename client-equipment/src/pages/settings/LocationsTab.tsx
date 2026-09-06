@@ -19,6 +19,7 @@ import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
+import { HIDE_UNTIL_WIDE } from '@/lib/rowVisibility';
 import { RowActions } from './RowActions';
 import { MasterDialog } from './MasterDialog';
 
@@ -144,7 +145,23 @@ export function LocationsTab() {
       ) : (
         <div className="flex flex-col rounded-card border border-border bg-card">
           <RowHeader className="hidden sm:flex">
-            <RowSlot w={56}>拠点</RowSlot>
+            {/*
+              ⚠️ **56px では拠点名が入りません**（実際に崩れて報告を受けた）。
+              ここに出るのは**利用者が自由に付けた拠点マスタの名前**で、
+              検証データにも「GMOグローバルスタジオ」（11字 ＝ 実測 約 120px）が
+              入っています。`RowSlot` は `shrink-0` なので押し出されず、
+              札が**右隣の保管場所名の上に重なって**いました。
+              7段のうち名前が丸ごと入る段は **160**（128 では札の中身が 108px しか
+              残らず、実ブラウザで「GMOグローバル…」まで切れた）。
+              それでも長い拠点名は `TableBadge` 側で `…` になる。
+
+              **そのぶん出す幅を 1024px 以上にずらす**（`HIDE_UNTIL_WIDE`）。
+              128px を 640px から出すと、伸びる列（保管場所名）に残るのが
+              **92px** になり、名前のほうが消えます（`shared/tests/rowNameWidth.test.ts`
+              の下限 128px 割れ）。**狭い側では列を消し、拠点名は
+              保管場所名の下の行に出す** — v4 の「スマホは出す情報を絞る」に沿う形。
+            */}
+            <RowSlot w={160} hideOnMobile className={HIDE_UNTIL_WIDE}>拠点</RowSlot>
             <RowMain>保管場所 ／ 建物・フロア・エリア</RowMain>
             <RowSlot w={96}>種別</RowSlot>
             <RowSlot w={56} align="right">Uサイズ</RowSlot>
@@ -153,7 +170,7 @@ export function LocationsTab() {
           </RowHeader>
           {crud.items.map((loc) => (
             <Row key={loc.id} divider interactive stackOnMobile>
-              <RowSlot w={56}>
+              <RowSlot w={160} hideOnMobile className={HIDE_UNTIL_WIDE}>
                 {loc.branch_id && (
                   <TableBadge
                     label={branchMap[loc.branch_id] ?? '—'}
@@ -165,6 +182,11 @@ export function LocationsTab() {
               <RowMain>
                 <RowTitle>{loc.name}</RowTitle>
                 <RowSub>
+                  {/* 1024px 未満は上の「拠点」の列を出していないので、ここに出す
+                      （列が出る幅では二重になるため `lg:hidden` で消す） */}
+                  {loc.branch_id && branchMap[loc.branch_id] && (
+                    <span className="lg:hidden">{branchMap[loc.branch_id]} ／ </span>
+                  )}
                   {[loc.building, loc.floor, loc.area, loc.description].filter(Boolean).join(' ／ ') || '場所の詳細なし'}
                 </RowSub>
               </RowMain>

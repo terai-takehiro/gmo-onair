@@ -30,9 +30,14 @@ export interface EventPlanProposal {
 }
 
 // ── 生成 ────────────────────────────────────────────────────
-export async function generateEventPlan(scheduleId: string, instruction?: string): Promise<AiProposal<EventPlanProposal>> {
+// 拠点・種別は任意の構造化入力（14-schedule-v2-plan.md §3 B10）。空なら今までどおり
+// 表・案件が持つ値で生成する——自由文だけだと集計側（type:|loc: の segmentKey）が
+// 拾えない・表にまだ拠点が無い／案件に種別が未設定のとき埋まらない、という穴を埋める。
+export interface EventPlanGenerateOpts { instruction?: string; locationId?: string | null; category?: string | null }
+export async function generateEventPlan(scheduleId: string, opts: EventPlanGenerateOpts = {}): Promise<AiProposal<EventPlanProposal>> {
   const res = await api.post<Envelope<AiProposal<EventPlanProposal>>>("/techops/ai/event-plan", {
-    schedule_id: scheduleId, instruction,
+    schedule_id: scheduleId, instruction: opts.instruction,
+    location_id: opts.locationId || undefined, category: opts.category || undefined,
   });
   return res.data.data;
 }

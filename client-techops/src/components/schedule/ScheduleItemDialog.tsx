@@ -9,11 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import BufferedInput from "@/components/editor/BufferedInput";
 import BufferedTextarea from "./BufferedTextarea";
+import AssigneeAutocomplete from "./AssigneeAutocomplete";
+import ScheduleItemDocLink from "./ScheduleItemDocLink";
 // 2つの欄を横に並べる慣用クラス（スマホ1列・sm 以上で2列）。同じクラス列を各画面で
 // 直書きすると片方だけスマホで2列のまま潰れるので、共通の定数を使う
 import { formGrid2 } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { ITEM_KIND_DEFS } from "@gmo-onair/shared/src/schedule/kinds";
-import { fmtHmPad, parseHm } from "@gmo-onair/shared/src/schedule/time";
+import { SPAN_ALL } from "@gmo-onair/shared/src/schedule/span";
+import { fmtHmPad, fmtSpan, parseHm } from "@gmo-onair/shared/src/schedule/time";
 import type { ScheduleColumn, ScheduleItem } from "@gmo-onair/shared/src/schedule/types";
 
 // ボトムシート風: 375px では下端に固定し、角丸は上だけ。PC は中央ダイアログのまま。
@@ -28,6 +31,8 @@ export interface ItemDraft {
   kind: string;
   startMin: number;
   endMin: number;
+  /** 横串（列をまたぐ）。1 = この列だけ・N = この列から右へ N 列・0 = 全列（migration 280） */
+  spanCols: number;
   assignee: string;
   note: string;
 }
@@ -35,6 +40,8 @@ export interface ItemDraft {
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** 台本への橋（結び直し・逆引き導線）の呼び出しに要る。§3 B3 */
+  scheduleId: string;
   columns: ScheduleColumn[];
   /** 既存項目を編集するときに渡す。無ければ新規作成モード */
   item?: ScheduleItem | null;
@@ -46,7 +53,15 @@ interface Props {
   onDelete?: () => void;
   onCreateScript?: () => void;
   onOpenScript?: () => void;
+  /**
+   * 既存台本への結び直し・解除が成功したら呼ぶ。**サーバーが返した最新の項目**を渡す
+   * （表の再取得だけだと、開いたままのこのダイアログの `item` は古いまま——
+   * 直後に「進行台本を開く」を押すと結び直す前の台本へ飛んでしまう。§3 B3）
+   */
+  onDocumentLinked?: (item: ScheduleItem) => void;
   savingDisabled?: boolean;
+  /** 表の状態が「確定」のとき true。保存は止めない——事実を1行添えるだけ（§4-4） */
+  scheduleFixed?: boolean;
 }
 
 const LINKABLE_KINDS = ["onair", "rehearsal", "recording"];
@@ -57,13 +72,14 @@ const draftOf = (item: ScheduleItem | null | undefined, initial: Partial<ItemDra
   kind: item?.kind ?? initial?.kind ?? "other",
   startMin: item?.start_min ?? initial?.startMin ?? 540,
   endMin: item?.end_min ?? initial?.endMin ?? 600,
+  spanCols: item?.span_cols ?? initial?.spanCols ?? 1,
   assignee: item?.assignee ?? "",
   note: item?.note ?? "",
 });
 
 export default function ScheduleItemDialog({
-  open, onOpenChange, columns, item, initial, conflicted, onReloadLatest, onSave, onDelete,
-  onCreateScript, onOpenScript, savingDisabled,
+  open, onOpenChange, scheduleId, columns, item, initial, conflicted, onReloadLatest, onSave, onDelete,
+  onCreateScript, onOpenScript, onDocumentLinked, savingDisabled, scheduleFixed,
 }: Props) {
   const [draft, setDraft] = useState<ItemDraft>(() => draftOf(item, initial, columns));
 
@@ -78,12 +94,22 @@ export default function ScheduleItemDialog({
     if (open) setDraft(draftOf(item, initial, columns));
     // columns は open のたびに再取得されるが、フォームを開き直す判定には使わない
     // （画面全体の再取得でリファレンスが変わるたびにフォームをリセットしないため）
+    //
+    // ⚠️ 依存は `item` 本体ではなく `item?.id`（§3 B3・relink 実装中に見つけて直したバグ）。
+    // 台本への結び直し・解除（`ScheduleItemDocLink`）は、開いたままの**同じ項目**に対して
+    // `SchedulePage.tsx` の `selectedItem` を新しい参照へ差し替える。`item` 本体を依存に
+    // 入れていると、この差し替えのたびに（id は同じでも参照が変わるので）ここが発火し、
+    // 打ちかけの題・時刻・担当（`draft`）が保存前に読み込み直され消えてしまう。
+    // `item?.id` だけを見れば、同じ項目のまま結び直しても打ちかけの入力は保たれる
+    // （台本の結び状態は `draft` ではなく `item` プロパティを直接読むので、これで最新のまま）。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, item, initial]);
+  }, [open, item?.id, initial]);
 
   const set = <K extends keyof ItemDraft>(key: K, value: ItemDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
 
   const isEdit = !!item;
+  // 「この列から N 列ぶん」の選択肢。列が2本以上あるときだけ出す（1本なら全列と同じなので出さない）
+  const spanChoices = Array.from({ length: Math.max(0, columns.length - 1) }, (_, i) => i + 2);
   const canLink = isEdit && LINKABLE_KINDS.includes(draft.kind);
 
   return (
@@ -136,6 +162,23 @@ export default function ScheduleItemDialog({
               </div>
             </div>
 
+            {/* 横串（Excel のセル結合と同じ考え方。2026-09-06 のご依頼）。
+                「全列」は数ではなく意味で持つので、列を足しても横串は切れない */}
+            <div>
+              <Label>横串（列をまたぐ）</Label>
+              <Select value={String(draft.spanCols)} onValueChange={(v) => set("spanCols", Number(v))}>
+                <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">この列だけ</SelectItem>
+                  {spanChoices.map((n) => <SelectItem key={n} value={String(n)}>{`この列から ${n} 列ぶん`}</SelectItem>)}
+                  <SelectItem value={String(SPAN_ALL)}>全列（表の端から端まで）</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                全体朝礼・昼食のように、複数の列にまたがって1本で引きたい項目に使います。
+              </p>
+            </div>
+
             <div className={formGrid2}>
               <div>
                 <Label htmlFor="item-start">開始（25:30 のように日跨ぎも可）</Label>
@@ -161,15 +204,21 @@ export default function ScheduleItemDialog({
               </div>
             </div>
 
+            <p className="-mt-2 text-xs text-muted-foreground">
+              所要 {draft.endMin > draft.startMin ? fmtSpan(draft.endMin - draft.startMin) : "―（終了は開始より後にしてください）"}
+            </p>
+
             <div>
               <Label htmlFor="item-assignee">担当（自由入力。社外の人も可）</Label>
-              <BufferedInput
-                id="item-assignee"
-                value={draft.assignee}
-                onCommit={(v) => set("assignee", v)}
-                className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                placeholder="例: MC / 社長 / 出演者受賞者"
-              />
+              <div className="mt-1">
+                <AssigneeAutocomplete
+                  id="item-assignee"
+                  value={draft.assignee}
+                  onCommit={(v) => set("assignee", v)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  placeholder="例: MC / 社長 / 出演者受賞者"
+                />
+              </div>
             </div>
 
             <div>
@@ -183,34 +232,33 @@ export default function ScheduleItemDialog({
               />
             </div>
 
-            {canLink && (
+            {canLink && item && (
               <div className="rounded-md border border-border bg-muted/40 p-3">
-                {item?.qsheet_document_id ? (
-                  item.link_broken ? (
-                    <p className="text-sm text-destructive">結んでいた進行台本が見つかりません（削除されています）。</p>
-                  ) : (
-                    <Button type="button" variant="outline" className="min-h-[44px] w-full" onClick={onOpenScript}>
-                      進行台本を開く
-                    </Button>
-                  )
-                ) : (
-                  <Button type="button" variant="outline" className="min-h-[44px] w-full" onClick={onCreateScript}>
-                    この枠から進行台本を作成
-                  </Button>
-                )}
+                <ScheduleItemDocLink
+                  scheduleId={scheduleId}
+                  item={item}
+                  onOpenScript={() => onOpenScript?.()}
+                  onCreateScript={() => onCreateScript?.()}
+                  onLinked={(updated) => onDocumentLinked?.(updated)}
+                />
               </div>
             )}
           </div>
         )}
 
         {!conflicted && (
-          <DialogFooter className="gap-2">
-            {isEdit && onDelete && (
-              <Button type="button" variant="destructive" className="min-h-[44px]" onClick={onDelete}>削除</Button>
+          <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
+            {scheduleFixed && (
+              <p className="text-xs text-muted-foreground sm:mr-auto">確定後の変更として保存します</p>
             )}
-            <Button type="button" className="min-h-[44px]" disabled={savingDisabled} onClick={() => onSave(draft)}>
-              保存
-            </Button>
+            <div className="flex gap-2">
+              {isEdit && onDelete && (
+                <Button type="button" variant="destructive" className="min-h-[44px]" onClick={onDelete}>削除</Button>
+              )}
+              <Button type="button" className="min-h-[44px]" disabled={savingDisabled} onClick={() => onSave(draft)}>
+                保存
+              </Button>
+            </div>
           </DialogFooter>
         )}
       </DialogContent>

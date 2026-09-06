@@ -8,8 +8,11 @@ import { wrap, p1 } from './wrap';
 import { NotFoundError, ForbiddenError } from '../services/httpErrors';
 import {
   listSchedules, createSchedule, getScheduleRaw, getScheduleWithMeta,
-  getScheduleColumns, getScheduleItems, updateSchedule, deleteSchedule, setShares,
+  getScheduleColumns, getScheduleItems, updateSchedule, deleteSchedule, duplicateSchedule, getShares, setShares,
 } from '../services/schedule.service';
+// 表を「確定」にした瞬間の AI 事後差分（14-schedule-v2-plan.md §3 B10・§5）。
+// `ai/` を import するのはルート層だけ（`services/` は AI を知らない構成を保つ）
+import { settleScheduleEarlyOnConfirm } from '../ai/settle.service';
 
 const router = Router();
 router.use(requireAuth, requirePermission('qsheet'));
@@ -58,20 +61,34 @@ router.get('/schedules/:id', wrap(async (req: Request, res: Response) => {
 router.put('/schedules/:id', requirePermission('qsheet', 'editor'), wrap(async (req: Request, res: Response) => {
   await requireAccessible(req);
   const b = req.body as Record<string, unknown>;
+  // ⚠️ **キーを常に持つオブジェクトを組み立てないこと。** `updateSchedule`（schedule.service.ts）は
+  // `'projectId' in input` で「送られたか」を判定するが、`{ projectId: 送られていれば値 : undefined }`
+  // という形は**値が undefined でもキー自体は必ず存在する**ため常に true になり、location_id・
+  // project_id・program_id・episode_id・notes を**指定しなかっただけで毎回 null に戻していた**
+  // （2026-09-06・第2版計画の表の設定シートを実装するまで、この経路の呼び出し元が無く
+  // 誰も踏んでいなかった）。スプレッドで「送られたときだけキーを足す」形にする。
   const row = await updateSchedule(p1(req.params.id), req.user!.id, {
-    title: typeof b.title === 'string' ? b.title : undefined,
-    serviceDate: typeof b.service_date === 'string' ? b.service_date : undefined,
-    locationId: 'location_id' in b ? (b.location_id as string | null) : undefined,
-    projectId: 'project_id' in b ? (b.project_id as string | null) : undefined,
-    programId: 'program_id' in b ? (b.program_id as string | null) : undefined,
-    episodeId: 'episode_id' in b ? (b.episode_id as string | null) : undefined,
-    viewStartMin: typeof b.view_start_min === 'number' ? b.view_start_min : undefined,
-    viewEndMin: typeof b.view_end_min === 'number' ? b.view_end_min : undefined,
-    slotMin: typeof b.slot_min === 'number' ? b.slot_min : undefined,
-    status: typeof b.status === 'string' ? b.status : undefined,
-    notes: 'notes' in b ? (b.notes as string | null) : undefined,
+    ...(typeof b.title === 'string' ? { title: b.title } : {}),
+    ...(typeof b.service_date === 'string' ? { serviceDate: b.service_date } : {}),
+    ...('location_id' in b ? { locationId: b.location_id as string | null } : {}),
+    ...('project_id' in b ? { projectId: b.project_id as string | null } : {}),
+    ...('program_id' in b ? { programId: b.program_id as string | null } : {}),
+    ...('episode_id' in b ? { episodeId: b.episode_id as string | null } : {}),
+    ...(typeof b.view_start_min === 'number' ? { viewStartMin: b.view_start_min } : {}),
+    ...(typeof b.view_end_min === 'number' ? { viewEndMin: b.view_end_min } : {}),
+    ...(typeof b.slot_min === 'number' ? { slotMin: b.slot_min } : {}),
+    ...(typeof b.status === 'string' ? { status: b.status } : {}),
+    ...('notes' in b ? { notes: b.notes as string | null } : {}),
     expectedUpdatedAt: b.expected_updated_at,
   });
+  // 確定（status='fixed'）になった瞬間、AI 由来項目（①枠）の事後差分を記録する（§3 B10）。
+  // best-effort — 失敗しても表の保存自体は止めない。何度確定を保存しても二重計上しない
+  // （`settleScheduleEarlyOnConfirm` 側の条件付き UPDATE で守っている）
+  if (row.status === 'fixed') {
+    await settleScheduleEarlyOnConfirm(p1(req.params.id), req.user!.id).catch((e: unknown) => {
+      console.error('[schedules] settleScheduleEarlyOnConfirm failed:', (e as Error).message);
+    });
+  }
   res.json({ success: true, data: row });
 }));
 
@@ -80,14 +97,40 @@ router.delete('/schedules/:id', requirePermission('qsheet', 'editor'), wrap(asyn
   res.json({ success: true, data: { id: p1(req.params.id) } });
 }));
 
-router.put('/schedules/:id/shares', requirePermission('qsheet', 'editor'), wrap(async (req: Request, res: Response) => {
+// 複製（「同じ日として写す」・14-schedule-v2-plan.md §3 B5）。SOURCE 側の可視性を
+// `requireAccessible` で確認する（このファイル冒頭のコメントどおり、既に無い/見えない表は 404 で秘匿）。
+// 新しく作る表そのものの権限は `POST /schedules` と同じ editor
+router.post('/schedules/:id/duplicate', requirePermission('qsheet', 'editor'), wrap(async (req: Request, res: Response) => {
+  await requireAccessible(req);
+  const b = req.body as Record<string, unknown>;
+  const row = await duplicateSchedule(p1(req.params.id), {
+    serviceDate: String(b.service_date ?? ''),
+    actingUserId: req.user!.id,
+  });
+  res.status(201).json({ success: true, data: row });
+}));
+
+// 共有設定を見る／変えるのは 作成者 または 管理者のみ（`documents.routes.ts` の共有 API と同じ作法）。
+// **案件メンバーはここには写らない**（§3-2 は動的判定。ここは「ほかに見せる人」の明示共有だけ）
+async function requireShareManager(req: Request) {
   const raw = await getScheduleRaw(p1(req.params.id));
   if (!raw) throw new NotFoundError('スケジュール表が見つかりません');
   if (!isQsheetAdmin(req.user!) && (raw.created_by as string) !== req.user!.id) {
     throw new ForbiddenError('共有設定を変更する権限がありません');
   }
+}
+
+router.get('/schedules/:id/shares', wrap(async (req: Request, res: Response) => {
+  await requireShareManager(req);
+  const rows = await getShares(p1(req.params.id));
+  res.json({ success: true, data: rows });
+}));
+
+router.put('/schedules/:id/shares', requirePermission('qsheet', 'editor'), wrap(async (req: Request, res: Response) => {
+  await requireShareManager(req);
   const count = await setShares(p1(req.params.id), (req.body as Record<string, unknown>).user_ids, req.user!.id);
-  res.json({ success: true, data: { share_count: count } });
+  const rows = await getShares(p1(req.params.id));
+  res.json({ success: true, data: { share_count: count, shares: rows } });
 }));
 
 export default router;

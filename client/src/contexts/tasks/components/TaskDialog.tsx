@@ -64,7 +64,7 @@ export default function TaskDialog({
   const [dueDate, setDueDate] = useState("");
   const [progress, setProgress] = useState(0);
   const [isMilestone, setIsMilestone] = useState(false);
-  // 完了していないときの止まり方 (v4 ④)。完了はここではなく一覧のチェックで切り替える
+  // 対応済でないときの止まり方 (v4 ④)。対応済はここではなく一覧のボタンで切り替える
   const [workState, setWorkState] = useState<TaskWorkState>("todo");
 
   const { data: columns = [] } = useTaskColumns(projectId);
@@ -323,9 +323,9 @@ export default function TaskDialog({
             </div>
 
             {/*
-              状態 (v4 ④)。**完了はここに出しません** — 完了は `is_completed` が持ち、
-              一覧のチェックボックスと詳細の「完了にする」で切り替えます。
-              ここは「完了していないときにどう止まっているか」だけを選ぶ場所です。
+              状態 (v4 ④)。**対応済はここに出しません** — 対応済は `is_completed` が持ち、
+              一覧・かんばんの「対応済にする」ボタンで切り替えます。
+              ここは「対応済でないときにどう止まっているか」だけを選ぶ場所です。
             */}
             <div className="space-y-1">
               <Label>状態</Label>

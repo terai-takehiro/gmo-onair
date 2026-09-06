@@ -211,7 +211,7 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
       items: [
         { label: "仕入先集計", to: "/budget/reports/vendors", icon: BarChart3 },
         // 請求先は案件管理の持ち物。**同じ相手を2か所から直せるようにしない**
-        { label: "取引先マスター（請求先）", to: "/sales/companies", icon: Store },
+        { label: "取引先マスター", to: "/sales/companies", icon: Store },
       ],
     },
   ],

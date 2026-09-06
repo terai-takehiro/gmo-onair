@@ -105,6 +105,10 @@
 
 （旧 `/qsheet/*` はすべて Phase 2 の後方互換リダイレクトとして生きている）
 
+- **スケジュール表の第2版計画（機能・UI/UX・PR の切り方）は [`docs/design/v4/qsheet-v4-coding/14-schedule-v2-plan.md`](../docs/design/v4/qsheet-v4-coding/14-schedule-v2-plan.md)。**
+  現状は列 0 本の表で何もできない（列を作る UI が無い）・表の設定／共有／削除が画面に無い、が最大の穴。
+  段A はサーバー変更なしで既存 REST を配線するだけ。触る前に必ず読む
+
 - **`qsheet_programs`（migration 227）が「番組（マニュアル）」の実体。** 案件（`projects`）とは
   別の軽い入れ物（id・name・event_date・notes だけ）。進行台本・スケジュール表・収録設定・
   配信設定はすべて `project_id` と対称の `program_id` を持てる（同時には持たない —
