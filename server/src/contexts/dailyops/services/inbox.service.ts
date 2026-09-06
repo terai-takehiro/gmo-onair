@@ -305,6 +305,28 @@ export const financeDocService = {
   async update(id: string, input: FinanceDocInput & { processed_by_user?: string | null }): Promise<Record<string, unknown>> {
     const existing = await queryOne(`SELECT * FROM finance_docs WHERE id = ? AND deleted_at IS NULL`, [id]);
     if (!existing) throw new AppError(404, 'NOT_FOUND', '書類が見つかりません');
+    /*
+      ⚠️ **仕入・販管費に登録済みの書類の中身は直せない**（migration 280）。
+
+      直せてしまうと、**台帳に載っている金額と書類の金額が食い違い**、
+      どちらが正しいのか誰にも分からなくなります（台帳側は直りません）。
+      画面はボタンを出しませんが、**守りは境界に置きます** —
+      別の画面・MCP・直接叩きからも同じ形で入れるためです
+      （client/CLAUDE.md「二重登録・押し直しへの守り」と同じ考え方）。
+
+      **状態を戻す（登録の取り消し）は別の口**（`handoff/undo`）なので、
+      ここで止めるのは中身の項目だけです。
+    */
+    const CONTENT_FIELDS = [
+      'doc_type', 'amount', 'payment_due', 'closing_month', 'doc_no', 'revision',
+      'sender', 'subject', 'content', 'gls_number', 'project_id', 'expense_kind',
+      'vendor_name', 'payment_terms_days', 'processing_month', 'group_id',
+    ] as const;
+    if (existing.status === 'processed'
+      && CONTENT_FIELDS.some((f) => (input as Record<string, unknown>)[f] !== undefined)) {
+      throw new AppError(409, 'ALREADY_PROCESSED',
+        '仕入・販管費に登録済みの書類は直せません。先に登録を取り消してください');
+    }
     const sets: string[] = [];
     const params: unknown[] = [];
     const set = (c: string, v: unknown) => { sets.push(`${c} = ?`); params.push(v); };

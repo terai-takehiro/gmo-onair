@@ -48,6 +48,8 @@ export interface GroupCardActions {
   onHandoff: (doc: FinanceDoc) => void;
   onUndoHandoff: (doc: FinanceDoc) => void;
   onEditGroup: (group: FinanceDocGroup) => void;
+  /** 届いた書類そのものを直す（金額・期日・種類の読み違え） */
+  onEditDoc: (doc: FinanceDoc) => void;
   onDeleteGroup: (group: FinanceDocGroup) => void;
   onOpenLedger: (kind: 'purchase' | 'sga') => void;
 }
@@ -161,6 +163,17 @@ function DocLine({ doc, a }: { doc: FinanceDoc; a: GroupCardActions }) {
 
       {a.canReview && (
         <div className="flex flex-wrap gap-1">
+          {/*
+            **読み違えを直せる道を必ず出す**（ご指示「金額等が違えば、そこもマニュアル
+            修正できるようにする」）。無いと、人は書類ごと消して手で入れ直すか、
+            間違った金額のまま台帳に入れる。**登録済みの書類は直せない**
+            （台帳の行と食い違う。先に登録を取り消す）
+          */}
+          {doc.status !== 'processed' && (
+            <Button variant="ghost" onClick={() => a.onEditDoc(doc)}>
+              <Pencil className="mr-1 h-3.5 w-3.5" aria-hidden="true" />直す
+            </Button>
+          )}
           {doc.status === 'new' && (
             <Button variant="outline" onClick={() => a.onSetStatus(doc.id, 'reviewing')}>確認する</Button>
           )}

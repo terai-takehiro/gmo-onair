@@ -50,6 +50,7 @@ import { useAuth } from '@/contexts/platform/AuthContext';
 import { HandoffDialog, type HandoffPayload } from './documents/HandoffDialog';
 import { GroupCard, type GroupCardActions } from './documents/GroupCard';
 import { GroupEditDialog, type GroupPatch } from './documents/GroupEditDialog';
+import { DocEditDialog, type DocPatch } from './documents/DocEditDialog';
 import type { DocStatus, FinanceDoc, FinanceDocGroup } from './documents/types';
 
 /**
@@ -95,6 +96,7 @@ export default function DocumentsPage() {
   const [chip, setChip] = useState('pending');
   const [handoff, setHandoff] = useState<FinanceDoc | null>(null);
   const [editing, setEditing] = useState<FinanceDocGroup | null>(null);
+  const [editingDoc, setEditingDoc] = useState<FinanceDoc | null>(null);
   // **開いた書類だけ中身を出す。** 全部出すとカードが縦に伸びて段が読めなくなる
   const [openedDocId, setOpenedDocId] = useState<string | null>(null);
 
@@ -151,6 +153,17 @@ export default function DocumentsPage() {
     onError: (e) => notifyApiError('決められませんでした', e),
   });
 
+  /**
+   * 届いた書類そのものを直す。**サーバーが `ai_corrections` に差分を入れる**ので、
+   * 直したところは AI の教師データになる（会社方針・条件2）。
+   */
+  const saveDoc = useMutation({
+    mutationFn: (p: DocPatch & { id: string }) =>
+      api.put(`/dailyops/finance-docs/${p.id}`, p),
+    onSuccess: () => { invalidate(); setEditingDoc(null); notifySuccess('書類を直しました'); },
+    onError: (e) => notifyApiError('直せませんでした', e),
+  });
+
   const deleteGroup = useMutation({
     mutationFn: (id: string) => api.delete(`/dailyops/finance-doc-groups/${id}`),
     onSuccess: () => { invalidate(); notifySuccess('消しました'); },
@@ -204,6 +217,7 @@ export default function DocumentsPage() {
     onHandoff: setHandoff,
     onUndoHandoff: onUndo,
     onEditGroup: setEditing,
+    onEditDoc: setEditingDoc,
     onDeleteGroup,
     onOpenLedger: (kind) => navigate(kind === 'purchase' ? '/budget/purchases' : '/budget/sga'),
   };
@@ -277,6 +291,15 @@ export default function DocumentsPage() {
           saving={doHandoff.isPending}
           onClose={() => setHandoff(null)}
           onSubmit={(p) => doHandoff.mutate({ ...p, id: handoff.id })}
+        />
+      )}
+
+      {editingDoc && (
+        <DocEditDialog
+          doc={editingDoc}
+          saving={saveDoc.isPending}
+          onClose={() => setEditingDoc(null)}
+          onSubmit={(patch) => saveDoc.mutate({ ...patch, id: editingDoc.id })}
         />
       )}
 
