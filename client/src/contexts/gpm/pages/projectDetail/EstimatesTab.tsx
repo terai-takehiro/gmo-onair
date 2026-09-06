@@ -112,7 +112,7 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
           </p>
         </div>
         {canEdit && (
-          <Button onClick={() => setAdding(true)}>
+          <Button type="button" onClick={() => setAdding(true)}>
             <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />見積をつくる
           </Button>
         )}
@@ -142,7 +142,7 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
           icon={<FileText className="h-6 w-6" aria-hidden="true" />}
           title="見積はまだありません"
           description="提出先（自社／依頼元／PM会社）ごとに1本ずつ作ります。"
-          action={canEdit ? <Button onClick={() => setAdding(true)}>見積をつくる</Button> : undefined}
+          action={canEdit ? <Button type="button" onClick={() => setAdding(true)}>見積をつくる</Button> : undefined}
         />
       ) : (
         // 一覧は白い枠に入れる（他のタブ・⑤ 全プロジェクトの一覧と同じ形）。
@@ -208,14 +208,14 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
                     ボタンを押した瞬間に行が開閉してしまう）。`status` は変えない —
                     「もう見ない版を一覧から隠す」だけの操作 */}
                 {e.archived_at ? (
-                  <Button
+                  <Button type="button"
                     variant="outline" size="sm" title="一覧に戻す"
                     onClick={(ev) => { ev.stopPropagation(); unarchive.mutate(e.id); }}
                   >
                     <ArchiveRestore className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>
                 ) : (
-                  <Button
+                  <Button type="button"
                     variant="outline" size="sm" title="一覧から隠す"
                     onClick={(ev) => { ev.stopPropagation(); archive.mutate(e.id); }}
                   >

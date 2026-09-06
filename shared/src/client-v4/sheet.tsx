@@ -254,13 +254,22 @@ export function Sheet({
             if (document.activeElement && document.activeElement !== root && root.contains(document.activeElement)) return;
             const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
             if (!isMobile) {
+              // **`:disabled`（擬似クラス）で見る。** `[disabled]`（属性）だと
+              // 親の `<fieldset disabled>` で無効になっている欄を拾ってしまい、
+              // 読み取り専用で開くフォーム（販管費など）で `focus()` が空振りする
               const first = root.querySelector<HTMLElement>(
-                'input:not([type="hidden"]):not([disabled]):not([readonly]), '
-                + 'textarea:not([disabled]):not([readonly]), '
-                + 'select:not([disabled]), '
-                + '[role="combobox"]:not([disabled]):not([aria-disabled="true"])',
+                'input:not([type="hidden"]):not(:disabled):not([readonly]), '
+                + 'textarea:not(:disabled):not([readonly]), '
+                + 'select:not(:disabled), '
+                + '[role="combobox"]:not(:disabled):not([aria-disabled="true"])',
               );
-              if (first) { first.focus(); return; }
+              if (first) {
+                first.focus();
+                // **当たったことを確かめてから戻る。** 空振りしたまま戻ると、
+                // 既定（Radix の自動フォーカス）を止めた分だけフォーカスが
+                // ダイアログの外に残り、Tab も Esc も効かなくなる
+                if (document.activeElement === first) return;
+              }
             }
             root.focus();
           }}

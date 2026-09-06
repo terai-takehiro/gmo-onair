@@ -218,7 +218,7 @@ export function MobileEditProject({
       */}
       <Sheet open={menuOpen} onOpenChange={setMenuOpen} title="操作" sub="この案件でできること">
         <div className="space-y-2 py-1">
-          <Button
+          <Button type="button"
             variant="outline" className="w-full justify-start"
             onClick={() => { setMenuOpen(false); navigate(`/sales/projects/${id}`); }}
           >
@@ -247,14 +247,14 @@ export function MobileEditProject({
 
           {hasGls && (
             <>
-              <Button
+              <Button type="button"
                 variant="outline" className="w-full justify-start"
                 onClick={() => { setMenuOpen(false); actions.setRelinkDialog({ open: true, target_project_id: '' }); }}
               >
                 <Link2 className="mr-2 h-4 w-4" aria-hidden="true" />
                 別の GLS へ付け替える
               </Button>
-              <Button
+              <Button type="button"
                 variant="outline" className="w-full justify-start"
                 onClick={() => { setMenuOpen(false); actions.setCategorySwitchDialog({ open: true, target: 'B' }); }}
               >
@@ -278,7 +278,7 @@ export function MobileEditProject({
           )}
 
           {isEdit && canDelete && (
-            <Button
+            <Button type="button"
               variant="outline"
               className="w-full justify-start text-destructive hover:text-destructive"
               disabled={actions.deleteMutation.isPending}

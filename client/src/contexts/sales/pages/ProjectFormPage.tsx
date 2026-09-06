@@ -113,7 +113,7 @@ export default function ProjectFormPage() {
     return (
       <div className="p-4 lg:p-6">
         <ErrorPanel title="案件を読み込めませんでした" onRetry={() => navigate(0)} />
-        <Button variant="outline" className="mt-3" onClick={() => navigate('/sales/projects')}>
+        <Button type="button" variant="outline" className="mt-3" onClick={() => navigate('/sales/projects')}>
           <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />
           案件一覧に戻る
         </Button>

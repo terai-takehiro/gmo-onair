@@ -44,6 +44,10 @@ function labelFromUrl(raw: string): string {
 export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
   const qc = useQueryClient();
   const [label, setLabel] = useState("");
+  // ラベルを**人が手で書いたか**。書かれるまでは URL を打つたび既定値を入れ直す
+  // （`https://g` のような途中の文字列も `new URL` は通るので、「空のときだけ」だと
+  //  最初の一打で `g` に固まってしまう。Codex のレビュー指摘 P2）
+  const [labelTouched, setLabelTouched] = useState(false);
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -110,7 +114,7 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
     mutationFn: async () => (await api.post("/schedule/feeds", { label, url })).data.data,
     onSuccess: (data: any) => {
       invalidate();
-      setLabel(""); setUrl(""); setError(null);
+      setLabel(""); setLabelTouched(false); setUrl(""); setError(null);
       setNotice(data?.sync
         ? `連携しました（${data.sync.total} 件の予定を同期）`
         : "連携しました。初回同期に失敗した場合は一覧のエラーを確認してください");
@@ -352,7 +356,9 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
           {/* **URL を先に訊く。** 上の手順ガイドが言うとおり、この欄に来た人が手に持っているのは
               コピーした URL のほうで、ラベルは後から付ける名前。以前は「ラベル → URL」の順で、
               先に名前を考えさせていた（`docs/design/v4/_form-order.md` 3.）。
-              ラベルは URL のホスト名から既定値を入れる（空のときだけ・手で書き換えられる） */}
+              ラベルは URL のホスト名から既定値を入れる（**手で書き換えるまでは入れ直す**）。
+              「空のときだけ」にすると、`https://g` のような打ちかけでも `new URL` が通って
+              しまうので、最初の一打で `g` に固まる */}
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px] gap-3">
             <div className="space-y-1.5">
               <Label>公開 ICS URL</Label>
@@ -360,17 +366,18 @@ export default function IcsFeedsDialog({ open, onOpenChange }: Props) {
                 value={url}
                 onChange={(e) => {
                   setUrl(e.target.value);
-                  if (!label.trim()) {
-                    const guess = labelFromUrl(e.target.value);
-                    if (guess) setLabel(guess);
-                  }
+                  if (!labelTouched) setLabel(labelFromUrl(e.target.value));
                 }}
                 placeholder="https://outlook.office365.com/owa/calendar/…/calendar.ics"
               />
             </div>
             <div className="space-y-1.5">
               <Label>ラベル</Label>
-              <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="例：会社Outlook" />
+              <Input
+                value={label}
+                onChange={(e) => { setLabel(e.target.value); setLabelTouched(true); }}
+                placeholder="例：会社Outlook"
+              />
             </div>
           </div>
           <div className="flex items-start gap-1.5 text-xs text-muted-foreground">

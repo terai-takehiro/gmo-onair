@@ -124,10 +124,10 @@ export function LocationsTab() {
           保管場所・拠点・種別 (ラック／オペ卓／AV盤)・建物・フロア・エリアで持ちます
         </p>
         <div className="flex-1" />
-        <Button variant="outline" onClick={() => setMasterOpen(true)}>
+        <Button type="button" variant="outline" onClick={() => setMasterOpen(true)}>
           <Settings className="mr-1 h-4 w-4" aria-hidden="true" />拠点・種別
         </Button>
-        <Button onClick={crud.openAdd}>
+        <Button type="button" onClick={crud.openAdd}>
           <Plus className="mr-1 h-4 w-4" aria-hidden="true" />保管場所を追加
         </Button>
       </div>

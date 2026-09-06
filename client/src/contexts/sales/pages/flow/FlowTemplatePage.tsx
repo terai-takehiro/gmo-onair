@@ -102,7 +102,7 @@ export default function FlowTemplatePage() {
         title="工程の型"
         sub="案件に入れる作業のひとそろいを、自社の運用に合わせて決めます。案件をつくるときに一覧を見せて、要らないものを外してから入れます。"
         primaryAction={canEditHere && tpl ? (
-          <Button variant="outline" onClick={() => { setDupName(`${tpl.name}（複製）`); setDupOpen(true); }}>
+          <Button type="button" variant="outline" onClick={() => { setDupName(`${tpl.name}（複製）`); setDupOpen(true); }}>
             <Copy className="mr-1.5 h-4 w-4" aria-hidden="true" />複製する
           </Button>
         ) : undefined}
@@ -170,7 +170,7 @@ export default function FlowTemplatePage() {
                     </span>
                   </span>
                   {canEditHere && !tpl.is_system && (
-                    <Button
+                    <Button type="button"
                       variant="outline" size="sm" className="text-destructive"
                       onClick={() => confirmAction({
                         title: `${tpl.name} を削除しますか`,
@@ -274,8 +274,8 @@ export default function FlowTemplatePage() {
       {dupOpen && (
         <div className="rounded-card fixed inset-x-3 bottom-3 z-50 flex flex-wrap items-center gap-2 border border-border bg-card p-3 shadow-lg lg:inset-x-auto lg:right-6 lg:w-[420px]">
           <Input value={dupName} onChange={(e) => setDupName(e.target.value)} className="min-w-0 flex-1" placeholder="新しい工程の型の名前" />
-          <Button variant="outline" onClick={() => setDupOpen(false)}>キャンセル</Button>
-          <Button disabled={!dupName.trim() || dup.isPending} onClick={() => dup.mutate()}>
+          <Button type="button" variant="outline" onClick={() => setDupOpen(false)}>キャンセル</Button>
+          <Button type="button" disabled={!dupName.trim() || dup.isPending} onClick={() => dup.mutate()}>
             {dup.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
             複製する
           </Button>
