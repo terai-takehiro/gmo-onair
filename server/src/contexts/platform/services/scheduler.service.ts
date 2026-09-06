@@ -38,6 +38,8 @@ import { jstParts, shiftYmd } from '../../../shared/utils/jst';
  */
 import { BILLING_STATE_SQL } from '../../../shared/services/billing-state';
 import { reminderBucket, REMINDER_CADENCE_TEXT } from '../../../shared/services/reminder-bucket';
+import { listRenumberCandidates } from './migration-center.service';
+import { sendMailAsync } from '../../../shared/auth/email';
 import {
   listTidyCandidates, autoLoseStaleNeta, completeElapsedWonProjects,
   TIDY_CANDIDATE_DAYS, TIDY_AUTO_LOST_DAYS,
@@ -206,6 +208,60 @@ async function tasksDueSoon(today: string): Promise<NotifyInput[]> {
       // リンク先は「やること」（/daily/tasks）。以前の /sales/tasks/list は sales 専用で、
       // **dailyops だけの担当者が通知から 403 に飛ばされていた**
       link: '/daily/tasks', refType: 'task', refId: String(t.id), refDate: today,
+    };
+  });
+}
+
+/**
+ * 改番の督促（2026年10月の事業再編・§4.8）→ 主担当。
+ *
+ * ⚠️ **この仕事だけメールも送る**（`sendMailAsync`。ファイル冒頭の「送るのは
+ * 社内通知だけ」は**お客様・仕入先へのメールを送らない**という意味で、これは
+ * 逆に**社内の担当者へ**送るメール——他の10月再編の仕組みと同じく、
+ * `org_transition.state==='off'` のあいだ・実施日未定・切替日前は
+ * `listRenumberCandidates()` が自然に0件を返すため、このジョブも
+ * 何もしない（state='off' で挙動が変わらない、という全体の原則どおり）。
+ *
+ * `refDate: today` で**間引かない**（§4.8「毎朝、残0になるまで」。他の督促
+ * `inv_late` 等は `reminderBucket()` で節目に間引くが、これは対象が少数
+ * （本番規模・§2.6）かつ10/1という動かせない締切のカウントダウンなので、
+ * 対象で無くなる＝改番される、まで律儀に毎朝出す）。
+ */
+async function renumberNeeded(today: string): Promise<NotifyInput[]> {
+  const candidates = await listRenumberCandidates();
+  const withAssignee = candidates.filter((c) => c.assigned_to);
+  if (withAssignee.length === 0) return [];
+
+  const userIds = [...new Set(withAssignee.map((c) => c.assigned_to as string))];
+  const users = await queryAll(
+    `SELECT id, email FROM users WHERE id = ANY(?)`, [userIds],
+  ) as { id: string; email: string }[];
+  const emailById = new Map(users.map((u) => [u.id, u.email]));
+
+  return withAssignee.map((c) => {
+    const vars = {
+      '案件名': c.name,
+      '現番号': c.current_number,
+      '新会社': c.target_entity_code,
+      'お客様名': c.customer_name ?? '（お客様未設定）',
+      '実施日': c.event_date ? c.event_date.replace(/-/g, '/') : '未定',
+    };
+    const title = fill('［改番が必要］{案件名}（{現番号}）', vars);
+    const body = fill(
+      '{案件名}（現番号 {現番号}）は10月の事業再編で {新会社} の番号への改番が必要です。お客様：{お客様名}／実施日：{実施日}',
+      vars,
+    );
+    const email = emailById.get(c.assigned_to as string);
+    if (email) {
+      sendMailAsync({
+        to: email, subject: title,
+        html: `<p>${body.replace(/\n/g, '<br>')}</p><p>設定＞「10月の切替」の移行センターから改番してください。</p>`,
+      });
+    }
+    return {
+      userId: c.assigned_to as string, templateId: 'renumber_needed',
+      title, body, link: '/settings/reorg',
+      refType: 'renumber_needed', refId: c.project_id, refDate: today,
     };
   });
 }
@@ -774,6 +830,13 @@ const JOBS: Job[] = [
     key: 'tk_due', at: '09:00', templateId: 'tk_due',
     sendTo: 'タスクの担当者', cadence: '期限の2日前に1回だけ',
     run: tasksDueSoon,
+  },
+  // 2026年10月の事業再編（§4.8）。対象は listRenumberCandidates() が0件を返せば
+  // 何もしない（org_transition.state==='off' のあいだは常に0件）
+  {
+    key: 'renumber_needed', at: '09:15', templateId: 'renumber_needed',
+    sendTo: '案件の主担当（ベル＋メール）', cadence: '毎朝・改番されるまで（間引きません）',
+    run: renumberNeeded,
   },
   {
     key: 'inv_late', at: '09:00', templateId: 'inv_late',

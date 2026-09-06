@@ -87,7 +87,9 @@ export async function updateOrgTransition(
         throw new AppError(400, 'INVALID_TRANSITION', '切替日をこの日付以前に設定してから切り替えてください');
       }
     }
-    // cutover → done: この段では「残件0」の自動チェックはまだ無い（後続フェーズで追加予定・§5の done行）。
+    // cutover → done の「残件0」チェックは `org-transition.routes.ts` 側にある
+    // （`migration-center.service.ts` 経由で `entity-resolution.service.ts` を呼ぶため、
+    // ここに置くと循環 import になる。§5 の done 行）。
   }
 
   const sets: string[] = [];

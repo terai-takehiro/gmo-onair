@@ -7,7 +7,9 @@
  */
 import { Router, Request, Response, NextFunction } from 'express';
 import { requireAuth, requireRole } from '../../../shared/middleware/auth';
+import { AppError } from '../../../shared/middleware/errorHandler';
 import { getOrgTransition, updateOrgTransition } from '../services/org-transition.service';
+import { listRenumberCandidates } from '../services/migration-center.service';
 
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
   (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
@@ -19,8 +21,32 @@ router.get('/', wrap(async (_req, res) => {
   res.json({ success: true, data: await getOrgTransition() });
 }));
 
+/**
+ * 改番の対象一覧（移行センター・§4.8）。件数は `data.length` で読む——
+ * 一覧と進捗（残件数）・`done` への残件0ゲート・通知ジョブが全部この1本を使う
+ * （同じ数字を2か所で数えない）。
+ */
+router.get('/renumber-candidates', wrap(async (_req, res) => {
+  res.json({ success: true, data: await listRenumberCandidates() });
+}));
+
 router.put('/', requireRole('system_admin'), wrap(async (req, res) => {
-  // 検証は org-transition.service.ts 側。投げた AppError はそのまま errorHandler へ流す
+  // ⚠️ **`done` への遷移だけ、ここで「残件0」を検査する。**
+  // `org-transition.service.ts` 側に置くと `migration-center.service.ts` →
+  // `entity-resolution.service.ts` → `org-transition.service.ts` の循環 import になる
+  // （`entity-resolution.service.ts` 冒頭のコメントで実測済みの罠と同じ）ため、
+  // ルート層（循環しない）にガードを置く。
+  const current = await getOrgTransition();
+  if (req.body?.state === 'done' && current.state !== 'done') {
+    const remaining = await listRenumberCandidates();
+    if (remaining.length > 0) {
+      throw new AppError(
+        400, 'RENUMBER_REMAINING',
+        `改番が済んでいない案件が ${remaining.length} 件残っています。移行センターの対象一覧から先に改番してください`,
+      );
+    }
+  }
+  // それ以外の検証は org-transition.service.ts 側。投げた AppError はそのまま errorHandler へ流す
   // （ここで捕まえて書き直さない）。
   const updated = await updateOrgTransition(req.body ?? {}, req.user!.id);
   res.json({ success: true, data: updated });
