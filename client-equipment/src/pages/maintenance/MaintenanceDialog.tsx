@@ -31,7 +31,7 @@ const EMPTY: MaintenanceForm = {
 
 export function MaintenanceDialog({ open, items, saving, error, onClose, onSubmit }: {
   open: boolean;
-  items: { id: string; eq_code: string; name: string }[];
+  items: { id: string; eq_code: string; name: string; model_number: string | null; unit_number: number | null }[];
   saving: boolean;
   error: string | null;
   onClose: () => void;
@@ -69,8 +69,17 @@ export function MaintenanceDialog({ open, items, saving, error, onClose, onSubmi
           <SearchableSelect
             value={form.equipment_id}
             onChange={(v) => setForm((f) => ({ ...f, equipment_id: v }))}
-            options={items.map((i) => ({ value: i.id, label: i.name, subLabel: i.eq_code }))}
-            placeholder="ID・名前で検索"
+            options={items.map((i) => ({
+              value: i.id,
+              label: i.name,
+              // 同名・同型の機材が複数台あると eq_code だけでは現物が分からないため、
+              // 型名・No.（unit_number）も一緒に出す。`SearchableSelect` は label と
+              // subLabel の両方を検索対象にするので、ここに含めれば型名・No.でも当たる
+              subLabel: [i.eq_code, i.model_number, i.unit_number != null ? `No.${i.unit_number}` : null]
+                .filter(Boolean)
+                .join(' / '),
+            }))}
+            placeholder="ID・名前・型名・Noで検索"
           />
         </div>
         <div className="space-y-1">
