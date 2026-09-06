@@ -81,6 +81,52 @@ https://gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY>
 
 URL 自体が秘密情報になるので共有・掲示しないこと。キーをローテーションしたらコネクタ URL も更新する。
 
+## 検証環境のコネクタを別に繋ぐ (2026-09-06)
+
+**検証用の MCP は最初から在ります** (`https://dev.gmo-onair.jp/api/v1/mcp`)。
+新しく作る必要はなく、claude.ai / Claude アプリに**2本目のコネクタとして足すだけ**。
+
+⚠️ **足す前に、この版 (2026-09-06 以降) が検証環境にデプロイされていること**を確かめること。
+それ以前は**本番も検証も `gmo-onair` と名乗っていた**ので、2本つなぐと
+**見分けの付かない同名の口が2つ**並び、**検証のつもりで本番に書けます**。
+いまは名乗りで区別する:
+
+| 環境 | MCP の名前 | `instructions` |
+|---|---|---|
+| 本番 (`NODE_ENV=production`) | `gmo-onair` | 「これは本番環境です。書き込みは実際の業務データに残ります」 |
+| 検証 (`NODE_ENV=development`) | **`gmo-onair-dev`** | 「⚠️ これは検証環境です。本番には一切反映されません」 |
+
+判定は `config.isProduction` (= `NODE_ENV`)。`docker-compose.yml` が
+`app_prod` に `production` / `app_dev` に `development` を渡している。
+`shared/tests/mcpEnvName.test.ts` が名乗りの分岐を固定している
+(**同じ名前に戻すと試験が落ちる**)。
+
+### 繋ぎ方
+
+**A. キー付き URL (手軽・APIキー方式)**
+
+```
+https://dev.gmo-onair.jp/api/v1/mcp?key=<MCP_API_KEY_DEV>
+```
+
+`MCP_API_KEY_DEV` は VPS の `/root/gmo-onair/.env` にある。
+⚠️ **URL 自体が秘密情報**なので共有・掲示しない。
+
+**B. OAuth (本人名義で監査ログに残したいとき)**
+
+```
+https://dev.gmo-onair.jp/api/v1/mcp
+```
+
+`app_dev` は `AUTH_MODE: password` なので、本番と同じく ONAiR のログイン画面が開く
+(検証 DB の利用者アカウントでサインインする)。
+
+### 何に使うか
+
+- **AI の書き込みを伴う仕組みを試すとき**は必ずこちら
+  (メール自動仕分けの試験実行など。本番に試し打ちを残さない)
+- 検証 DB は自由に壊してよい。本番 DB とは**完全分離** (`onair_prod` / `onair_dev`)
+
 ## ツール一覧 (159 種 / 22 カテゴリ / v4)
 
 > **この一覧は手で書いています。** 実際に登録されているツールは
