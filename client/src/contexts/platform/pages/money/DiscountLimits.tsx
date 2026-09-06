@@ -42,7 +42,10 @@ export function DiscountLimits({ limits, canEdit }: { limits: DiscountLimitRow[]
       can_estimate: true,
     }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['money-rules'] });
+      // **`['money-rules', entityCode]`（会社タブごとのお金のルール）ではなく
+      // `['money-rules-limits']` を落とす。** 値引きの上限は会社に依存しない全社共通
+      // ポリシーなので、専用の鍵で持っている（`MoneyRulesPage.tsx` 冒頭のコメント参照）。
+      qc.invalidateQueries({ queryKey: ['money-rules-limits'] });
       setEditing(null);
       notifySuccess('値引きの上限を保存しました');
     },

@@ -17,102 +17,78 @@
  * モックの指定です。**今後つくる書類の税額が最大 1 円下がります**が、
  * すでに出した書類の金額は 1 円も動きません（保存済みの値を読むだけ）。
  * 画面にもそう書いてあります — 経理が気づかないまま数字が変わるのが一番困る。
+ *
+ * ── 会社（計上会社）タブ ─────────────────────────────────────
+ *
+ * 2026年10月の事業再編（`docs/reorg-2026-10-plan.md` §4.5・§4.6・§6 P2 Round 1）で、
+ * 締め日・支払月/日・税率・税丸めなど**お金のルール本体は会社（`entity_code`）ごとの
+ * 別設定**になった（`money_rules` は migration 284 で GJV/GSS/GMO の3行に）。
+ * タブで選んだ会社の分だけを `GET /money-rules?entity_code=` で取得・
+ * `PUT /money-rules` の本文の `entity_code` で保存する。
+ *
+ * **値引きの上限（`DiscountLimits`）とステージごとの受注確度（`StageProbabilities`）は
+ * 会社に依存しない全社共通の設定**（`role_discount_limits`／`project_stage_probabilities`
+ * とも `entity_code` 列を持たない。サーバーの `discountLimits()` は entity_code を
+ * 見ずに返す）。**この2つはタブと無関係な react-query の鍵**
+ * （`['money-rules-limits']`／`['stage-probabilities']`）で持ち、会社タブを
+ * 切り替えても再取得・再描画しない——誤って会社ごとに分けると存在しない区分を作ることになる。
  */
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CalendarCheck, Calculator, JapaneseYen, Info, Lock, Loader2 } from 'lucide-react';
+import { Info, Lock, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
+import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { localDateStr } from '@/lib/format';
 import { DiscountLimits } from './DiscountLimits';
 import { StageProbabilities } from './StageProbabilities';
+import { MoneyRulesEntityTabs } from './EntityTabs';
+import { RulesBody } from './RulesBody';
+import type { LegalEntity, LegalEntityCode } from '../reorg/types';
 import {
-  DAY_CHOICES, MONTH_CHOICES, ROUNDING_CHOICES, TAX_UNIT_CHOICES, DISPLAY_CHOICES,
-  ISSUE_CHOICES, HOLIDAY_SHIFT_CHOICES, LABOR_UNIT_CHOICES, TAX_RATE_CHOICES,
-  type Choice, type MoneyResponse, type MoneyRules, type StageProbabilityRow,
+  DEFAULT_ENTITY_CODE,
+  type MoneyResponse, type MoneyRules, type StageProbabilityRow, type DiscountLimitRow,
 } from './rules';
-
-/** 選択肢を横に並べる。**選べる値がその場で全部見える**ので、開いて探さずに済む */
-function Pick({ value, choices, onChange, disabled }: {
-  value: string | number; choices: Choice[]; onChange: (v: string | number) => void; disabled?: boolean;
-}) {
-  return (
-    <div className="flex flex-wrap gap-1">
-      {choices.map((c) => (
-        <button
-          key={String(c.value)}
-          type="button"
-          disabled={disabled}
-          onClick={() => onChange(c.value)}
-          className={cn(
-            'text-note min-h-tap rounded-note border px-2.5 font-bold lg:min-h-[32px]',
-            String(value) === String(c.value)
-              ? 'border-transparent bg-primary-surface text-primary'
-              : 'border-border bg-card text-muted-foreground',
-            disabled && 'opacity-60',
-          )}
-        >
-          {c.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function Line({ label, hint, children }: { label: string; hint: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border-faint px-4 py-2.5 last:border-b-0">
-      <span className="text-sub w-full shrink-0 sm:w-[160px]">{label}</span>
-      <span className="shrink-0">{children}</span>
-      {/*
-        **375pxで実測して見つけた崩れ（このタスクで修正）**: 選択肢が3つ以上ある行
-        （例:「支払日が休業日のとき」）では `children`（選べる値のボタン群）だけで
-        1行の大半を使い切り、`hint` に残る幅が数px しかなくなる。`min-w-0 flex-1`
-        のままだと、そのわずかな幅に和文を1文字ずつ縦に折り返して描いてしまい
-        （「見出し」と同じ現象）、説明文が読めない縦長の帯になっていた。
-        `label` と同じく**スマホでは常に単独の行**にして、この崩れ方を避ける
-      */}
-      <span className="text-note w-full text-muted-foreground sm:min-w-0 sm:w-auto sm:flex-1">{hint}</span>
-    </div>
-  );
-}
-
-function Group({ icon, tone, title, desc, children }: {
-  icon: React.ReactNode; tone: string; title: string; desc: string; children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-card overflow-hidden border border-border bg-card">
-      <div className="flex flex-wrap items-center gap-2.5 border-b border-border-faint px-4 py-3">
-        <span className={cn('rounded-note inline-flex h-7 w-7 shrink-0 items-center justify-center', tone)}>{icon}</span>
-        <span className="text-cardtitle shrink-0">{title}</span>
-        <span className="text-note min-w-0 flex-1 truncate text-muted-foreground">{desc}</span>
-      </div>
-      {children}
-    </div>
-  );
-}
 
 export default function MoneyRulesPage() {
   const qc = useQueryClient();
   const { currentUser, permissions } = useAuth();
+  const [entityCode, setEntityCode] = useState<LegalEntityCode>(DEFAULT_ENTITY_CODE);
   const [draft, setDraft] = useState<MoneyRules | null>(null);
   // **日付と説明文を一緒に持つ。** 日付だけ下見にして説明文を保存済みの値から
   // 描くと、締め日を変えたのに「末日締め」と出たままになる（実際にそうなっていた）
   const [preview, setPreview] = useState<{ due: string | null; describe: string } | null>(null);
 
-  const q = useQuery<MoneyResponse>({
-    queryKey: ['money-rules'],
-    queryFn: async () => (await api.get('/money-rules')).data.data,
+  // 会社タブの並び。**`GET /legal-entities` が返した順（`sort_order`）にそのまま従う**
+  // （並べ替えない）。`ReorgPage.tsx` と同じ鍵にして、キャッシュを共有する
+  const entitiesQ = useQuery<LegalEntity[]>({
+    queryKey: ['legal-entities'],
+    queryFn: async () => (await api.get('/legal-entities')).data.data,
   });
 
-  // ステージごとの受注確度は別 API（`StageProbabilities.tsx` 冒頭を参照）。
-  // 別クエリにしてあるので、こちらが失敗してもお金のルール本体は表示できる
+  // お金のルール本体は会社ごとに別設定。鍵に entityCode を含め、タブを切り替えたら
+  // 選んだ会社の分だけ取り直す
+  const q = useQuery<MoneyResponse>({
+    queryKey: ['money-rules', entityCode],
+    queryFn: async () => (await api.get('/money-rules', { params: { entity_code: entityCode } })).data.data,
+  });
+
+  // **値引きの上限は会社タブと無関係の鍵。** `/money-rules` のレスポンスに同梱されて
+  // 返ってくるが、entity_code に依らない全社共通ポリシーなので、
+  // 会社タブを切り替えても再取得しない専用クエリで受け取る（ファイル冒頭の説明）
+  const limitsQ = useQuery<DiscountLimitRow[]>({
+    queryKey: ['money-rules-limits'],
+    queryFn: async () => (await api.get('/money-rules')).data.data.limits,
+  });
+
+  // ステージごとの受注確度も別 API・会社に依存しない別クエリ（`StageProbabilities.tsx` 冒頭を参照）。
+  // 失敗してもお金のルール本体・値引き上限は表示できる
   const stageQ = useQuery<StageProbabilityRow[]>({
     queryKey: ['stage-probabilities'],
     queryFn: async () => (await api.get('/stage-probabilities')).data.data,
@@ -127,6 +103,29 @@ export default function MoneyRulesPage() {
     setDraft((d) => (d ? { ...d, [k]: v } : d));
 
   const dirty = !!draft && !!q.data && JSON.stringify(draft) !== JSON.stringify(q.data.rules);
+
+  const entityName = (code: LegalEntityCode) => entitiesQ.data?.find((e) => e.code === code)?.shortName ?? code;
+
+  /**
+   * タブを切り替える。**保存していない変更は黙って捨てない** — `draft` は
+   * `entityCode` を切り替えても即座には空にならず（次の `q.data` が届くまで前の会社の
+   * 値を持ったまま）、確認なしに切り替えると編集中の内容が静かに消える。
+   */
+  const changeEntity = async (code: LegalEntityCode) => {
+    if (code === entityCode) return;
+    if (dirty) {
+      const ok = await confirmAction({
+        title: '保存していない変更があります',
+        description: `${entityName(entityCode)}のお金のルールへの変更を保存せずに、${entityName(code)}に切り替えます。よろしいですか？`,
+        confirmLabel: '切り替える',
+        cancelLabel: 'このまま留まる',
+        tone: 'danger',
+      });
+      if (!ok) return;
+    }
+    setPreview(null); // 前の会社の下見を残さない（新しい会社の分が届くまで「—」に戻す）
+    setEntityCode(code);
+  };
 
   // **期日の計算はサーバーが持つ。** 画面で同じ式を書くと必ず食い違うので、
   // 保存前の値を渡して結果だけ訊く（`server が shared を import しない構成`のため）
@@ -144,25 +143,36 @@ export default function MoneyRulesPage() {
     let alive = true;
     api.post('/money-rules/preview', {
       recognition_date: today,
+      entity_code: entityCode,
       rule: { closingDay, paymentMonths, paymentDay, payment_holiday_shift: holidayShift },
     }).then((r) => { if (alive) setPreview({ due: r.data.data.due_date, describe: r.data.data.describe }); })
       .catch(() => { if (alive) setPreview(null); });
     return () => { alive = false; };
-  }, [closingDay, paymentMonths, paymentDay, holidayShift, today]);
+  }, [closingDay, paymentMonths, paymentDay, holidayShift, today, entityCode]);
 
   const save = useMutation({
-    mutationFn: async () => (await api.put('/money-rules', draft)).data.data,
+    mutationFn: async () => (await api.put('/money-rules', { ...draft, entity_code: entityCode })).data.data,
     onSuccess: () => {
+      // 会社タブごとの鍵をまとめて落とす（`['money-rules', 'GJV']` など全部にマッチする
+      // プレフィックス）。**`['money-rules-limits']` は別の鍵なのでここでは触らない**
       qc.invalidateQueries({ queryKey: ['money-rules'] });
-      notifySuccess('お金のルールを保存しました', {
+      notifySuccess(`${entityName(entityCode)}のお金のルールを保存しました`, {
         description: 'これから作る見積・請求から効きます。すでに出した書類の金額は変わりません。',
       });
     },
     onError: (e) => notifyApiError('保存できませんでした', e),
   });
 
-  if (q.isError) return <ErrorPanel title="お金のルールを読み込めませんでした" error={q.error} onRetry={() => q.refetch()} />;
-  if (!draft || !q.data) return <Delayed><SkeletonRows rows={8} /></Delayed>;
+  if (entitiesQ.isError) {
+    return (
+      <ErrorPanel
+        title="会社の一覧を読み込めませんでした"
+        error={entitiesQ.error}
+        onRetry={() => entitiesQ.refetch()}
+      />
+    );
+  }
+  if (!entitiesQ.data) return <Delayed><SkeletonRows rows={8} /></Delayed>;
 
   return (
     <div className="flex flex-col gap-3.5 p-3 lg:gap-4 lg:p-6">
@@ -184,86 +194,31 @@ export default function MoneyRulesPage() {
         </p>
       )}
 
+      {/* 締め日・支払月/日・税率・税丸めは会社（計上会社）ごとの別設定。
+          値引きの上限・受注確度はこのタブの影響を受けない（下の DiscountLimits/StageProbabilities 参照） */}
+      <MoneyRulesEntityTabs entities={entitiesQ.data} value={entityCode} onChange={changeEntity} />
+
       <div className="flex flex-col gap-3.5 lg:flex-row lg:items-start">
         <div className="flex min-w-0 flex-1 flex-col gap-3.5">
-          <Group
-            icon={<CalendarCheck className="h-4 w-4 text-success" aria-hidden="true" />}
-            tone="bg-success-surface" title="締めと支払" desc="請求書を出す日と、入金を待つ期間"
-          >
-            <Line label="売上の締め日" hint="月内に納品した分をまとめて請求します">
-              <Pick value={draft.closing_day} choices={DAY_CHOICES} disabled={!canEdit}
-                onChange={(v) => set('closing_day', Number(v))} />
-            </Line>
-            {/* 「入金の期限」ではなく**支払サイト**（締めから何か月後か）。
-                日付の期限だと読まれて、月末を入れられていた */}
-            <Line label="入金は締めの何か月後か" hint="取引先ごとに例外があればそちらが優先します">
-              <Pick value={draft.payment_months} choices={MONTH_CHOICES} disabled={!canEdit}
-                onChange={(v) => set('payment_months', Number(v))} />
-            </Line>
-            <Line label="その月の何日か" hint="上で決めた月の、この日までに入金してもらいます">
-              <Pick value={draft.payment_day} choices={DAY_CHOICES} disabled={!canEdit}
-                onChange={(v) => set('payment_day', Number(v))} />
-            </Line>
-            <Line label="仕入の支払日（月）" hint="こちらが払う側">
-              <Pick value={draft.purchase_payment_months} choices={MONTH_CHOICES} disabled={!canEdit}
-                onChange={(v) => set('purchase_payment_months', Number(v))} />
-            </Line>
-            <Line label="仕入の支払日（日）" hint="休業日のときの寄せ方は下で決めます">
-              <Pick value={draft.purchase_payment_day} choices={DAY_CHOICES} disabled={!canEdit}
-                onChange={(v) => set('purchase_payment_day', Number(v))} />
-            </Line>
-            <Line
-              label="支払日が休業日のとき"
-              hint="土日・祝日と、全社の休業日（「休日・営業時間」の表）に当たったとき"
-            >
-              <Pick value={draft.payment_holiday_shift} choices={HOLIDAY_SHIFT_CHOICES} disabled={!canEdit}
-                onChange={(v) => set('payment_holiday_shift', v as MoneyRules['payment_holiday_shift'])} />
-            </Line>
-            <Line label="請求書の発行日" hint="いつ出すかの目安です。自動で下書きは作りません">
-              <Pick value={draft.invoice_issue_rule} choices={ISSUE_CHOICES} disabled={!canEdit}
-                onChange={(v) => set('invoice_issue_rule', v as MoneyRules['invoice_issue_rule'])} />
-            </Line>
-          </Group>
+          {q.isError ? (
+            <ErrorPanel title="お金のルールを読み込めませんでした" error={q.error} onRetry={() => q.refetch()} />
+          ) : !draft || !q.data ? (
+            <Delayed><SkeletonRows rows={6} /></Delayed>
+          ) : (
+            <RulesBody draft={draft} canEdit={canEdit} set={set} />
+          )}
 
-          <Group
-            icon={<Calculator className="h-4 w-4 text-primary" aria-hidden="true" />}
-            tone="bg-primary-surface" title="消費税" desc="端数と税の載せ方"
-          >
-            <Line label="標準の税率" hint="軽減税率の品目は料金表側で指定します">
-              <Pick value={draft.standard_tax_rate} choices={TAX_RATE_CHOICES} disabled={!canEdit}
-                onChange={(v) => set('standard_tax_rate', Number(v))} />
-            </Line>
-            <Line label="税の計算単位" hint="明細ごとではなく合計に対して計算します">
-              <Pick value={draft.tax_unit} choices={TAX_UNIT_CHOICES} disabled={!canEdit}
-                onChange={(v) => set('tax_unit', v as MoneyRules['tax_unit'])} />
-            </Line>
-            <Line label="端数の扱い" hint="1 円未満をどうするか。見積・請求・取込のすべてに効きます">
-              <Pick value={draft.tax_rounding} choices={ROUNDING_CHOICES} disabled={!canEdit}
-                onChange={(v) => set('tax_rounding', v as MoneyRules['tax_rounding'])} />
-            </Line>
-            <Line label="見積の表示" hint="合計欄にのみ税込を併記します">
-              <Pick value={draft.estimate_display} choices={DISPLAY_CHOICES} disabled={!canEdit}
-                onChange={(v) => set('estimate_display', v as MoneyRules['estimate_display'])} />
-            </Line>
-          </Group>
-
-          <Group
-            icon={<JapaneseYen className="h-4 w-4 text-warning" aria-hidden="true" />}
-            tone="bg-warning-surface" title="通貨と単位" desc="見積・請求に出る書き方"
-          >
-            <Line label="通貨" hint="外貨の見積は当面つくりません">
-              <span className="text-sub font-bold">日本円（￥）</span>
-            </Line>
-            <Line label="金額の丸め" hint="小計・合計とも同じ単位">
-              <span className="text-sub font-bold">1 円単位</span>
-            </Line>
-            <Line label="人件費の単位" hint="見積の明細で使います">
-              <Pick value={draft.labor_unit} choices={LABOR_UNIT_CHOICES} disabled={!canEdit}
-                onChange={(v) => set('labor_unit', v as MoneyRules['labor_unit'])} />
-            </Line>
-          </Group>
-
-          <DiscountLimits limits={q.data.limits} canEdit={canEdit} />
+          {/* 値引きの上限は会社では分かれない（全社共通ポリシー）。
+              会社タブ（entityCode）とは無関係な limitsQ から描く */}
+          {limitsQ.isError ? (
+            <p className="rounded-card text-note border border-border bg-card px-4 py-3 text-muted-foreground">
+              値引きの上限を読み込めませんでした。
+            </p>
+          ) : limitsQ.data ? (
+            <DiscountLimits limits={limitsQ.data} canEdit={canEdit} />
+          ) : (
+            <Delayed><SkeletonRows rows={4} /></Delayed>
+          )}
 
           {stageQ.isError ? (
             <p className="rounded-card text-note border border-border bg-card px-4 py-3 text-muted-foreground">
@@ -274,42 +229,44 @@ export default function MoneyRulesPage() {
           ) : null}
         </div>
 
-        <div className="rounded-card w-full shrink-0 overflow-hidden border border-border bg-card lg:w-[240px]">
-          <p className="text-cardtitle border-b border-border-faint px-4 py-3">この設定が効く場所</p>
+        {draft && q.data && (
+          <div className="rounded-card w-full shrink-0 overflow-hidden border border-border bg-card lg:w-[240px]">
+            <p className="text-cardtitle border-b border-border-faint px-4 py-3">この設定が効く場所</p>
 
-          <div className="border-b border-border-faint px-4 py-3">
-            <p className="text-note text-muted-foreground">いま試すと</p>
-            <p className="text-sub mt-1">
-              {today.replace(/-/g, '/')} に計上した売上の<br />
-              支払期日は{' '}
-              <strong className="font-bold text-primary">
-                {preview?.due ? preview.due.replace(/-/g, '/') : '—'}
-              </strong>
-            </p>
-            <p className="text-note mt-1.5 text-muted-foreground">{preview?.describe ?? q.data.describe.payment}</p>
-          </div>
-
-          {[
-            { t: '見積の作成', d: '税率・端数・値引き上限がそのまま効きます', on: true },
-            { t: '売上の登録', d: '締め日と支払サイトから期日が入ります', on: true },
-            { t: '取り込み（精算PDF）', d: '税抜への直しが同じ端数になります', on: true },
-            { t: '入金の消し込み', d: '期日から遅れを判定します', on: true },
-            { t: '請求書の下書き', d: '自動では作りません（手で出します）', on: false },
-          ].map((u) => (
-            <div key={u.t} className="flex items-start gap-2 border-b border-border-faint px-4 py-2.5 last:border-b-0">
-              <span className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full', u.on ? 'bg-success' : 'bg-border')} />
-              <span className="min-w-0 flex-1">
-                <span className="text-sub block">{u.t}</span>
-                <span className="text-note block text-muted-foreground">{u.d}</span>
-              </span>
+            <div className="border-b border-border-faint px-4 py-3">
+              <p className="text-note text-muted-foreground">いま試すと</p>
+              <p className="text-sub mt-1">
+                {today.replace(/-/g, '/')} に計上した売上の<br />
+                支払期日は{' '}
+                <strong className="font-bold text-primary">
+                  {preview?.due ? preview.due.replace(/-/g, '/') : '—'}
+                </strong>
+              </p>
+              <p className="text-note mt-1.5 text-muted-foreground">{preview?.describe ?? q.data.describe.payment}</p>
             </div>
-          ))}
 
-          <p className="text-note bg-surface-subtle px-4 py-3 text-muted-foreground">
-            ここを直しても、<strong className="font-bold">すでに出した見積・請求の金額はそのまま</strong>です。
-            作り直すと新しいルールで計算されます。
-          </p>
-        </div>
+            {[
+              { t: '見積の作成', d: '税率・端数・値引き上限がそのまま効きます', on: true },
+              { t: '売上の登録', d: '締め日と支払サイトから期日が入ります', on: true },
+              { t: '取り込み（精算PDF）', d: '税抜への直しが同じ端数になります', on: true },
+              { t: '入金の消し込み', d: '期日から遅れを判定します', on: true },
+              { t: '請求書の下書き', d: '自動では作りません（手で出します）', on: false },
+            ].map((u) => (
+              <div key={u.t} className="flex items-start gap-2 border-b border-border-faint px-4 py-2.5 last:border-b-0">
+                <span className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full', u.on ? 'bg-success' : 'bg-border')} />
+                <span className="min-w-0 flex-1">
+                  <span className="text-sub block">{u.t}</span>
+                  <span className="text-note block text-muted-foreground">{u.d}</span>
+                </span>
+              </div>
+            ))}
+
+            <p className="text-note bg-surface-subtle px-4 py-3 text-muted-foreground">
+              ここを直しても、<strong className="font-bold">すでに出した見積・請求の金額はそのまま</strong>です。
+              作り直すと新しいルールで計算されます。
+            </p>
+          </div>
+        )}
       </div>
 
       <p className="rounded-note text-note flex items-start gap-2 border border-info-border bg-info-surface px-3.5 py-3 text-secondary-foreground">
