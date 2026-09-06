@@ -14,13 +14,16 @@
  * 開いているかどうかは呼ぶ側（詳細画面）が持ちます — 行の中に持たせると
  * 並べ替えで行が作り直された瞬間に閉じます。
  *
- * ── 完了は取り消せる ────────────────────────────────────────
+ * ── 対応済は取り消せる ──────────────────────────────────────
  *
- * チェックは押すたびに入切します（確認を出しません）。押し間違えても
+ * 「対応済にする」は押すたびに入切します（確認を出しません）。押し間違えても
  * もう一度押せば戻り、記録も消えないためです。**消す**ほうは確認を出します。
+ * ⚠️ 以前は 18px の四角（チェック）でしたが、**四角には文字が無く**
+ * 「押すと何が起きるか」が読み取れなかったので、文字のボタンにしてあります。
  */
-import { Check, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { Row, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
+import { TaskDoneButton } from '@gmo-onair/shared/src/client-v4/taskDoneButton';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { dueLabel, dueTone, ymd, type GpmTask } from '../../types';
 
@@ -47,25 +50,11 @@ export function TaskRow({
       stackOnMobile
       className={cn('bg-background', indent && 'sm:pl-[68px]', task.is_completed && 'opacity-60')}
     >
+      {/* 状態は文字で出す（操作は行の右端の「対応済にする」ボタン） */}
       <RowSlot w={56} align="center">
-        {canEdit ? (
-          <button
-            type="button"
-            onClick={() => onToggleDone(task)}
-            aria-label={task.is_completed ? `${task.title} を未完了に戻す` : `${task.title} を完了にする`}
-            /* 見た目は 18px のまま、当たり判定だけ 44px にする（M10・`v4-tap`） */
-            className={cn(
-              'v4-tap rounded-badge-xs flex h-[18px] w-[18px] items-center justify-center border-[1.5px]',
-              task.is_completed ? 'border-success bg-success' : 'border-border-disabled hover:border-primary',
-            )}
-          >
-            {task.is_completed && <Check className="h-3 w-3 text-success-foreground" aria-hidden="true" />}
-          </button>
-        ) : (
-          <span className={cn('text-badge', task.is_completed ? 'text-success' : 'text-muted-foreground')}>
-            {task.is_completed ? '完了' : '—'}
-          </span>
-        )}
+        <span className={cn('text-badge', task.is_completed ? 'text-success' : 'text-muted-foreground')}>
+          {task.is_completed ? '対応済' : '—'}
+        </span>
       </RowSlot>
 
       <RowMain>
@@ -89,9 +78,15 @@ export function TaskRow({
         {dueLabel(due, today)}
       </RowSlot>
 
-      <RowSlot w={56} align="right" placeholder="">
+      <RowSlot w={200} align="right" placeholder="">
         {canEdit ? (
-          <span className="flex items-center justify-end">
+          <span className="flex items-center justify-end gap-1">
+            <TaskDoneButton
+              done={task.is_completed}
+              onToggle={() => onToggleDone(task)}
+              taskTitle={task.title}
+              size="sm"
+            />
             <button
               type="button"
               onClick={() => onEdit(task)}
@@ -120,9 +115,9 @@ export function TaskRow({
 /**
  * スマホのタスクカード（2行固定）。
  *
- * PC の行（`TaskRow`）を `stackOnMobile` で折り返すと、チェックボックスが
- * 題名と別の行に落ち、操作ボタン（44px×2）が 56px の枠を突き破っていた。
- * スマホは**1行目 = チェック＋題名 / 2行目 = 期限・担当＋操作**に固定する。
+ * PC の行（`TaskRow`）を `stackOnMobile` で折り返すと、状態の文字が題名と別の行に
+ * 落ち、操作ボタン（44px×2）が 56px の枠を突き破っていた。
+ * スマホは**1行目 = 状態＋題名 / 2行目 = 期限・担当＋操作**に固定する。
  */
 export function TaskCard({
   task, today, canEdit, indent = true, onToggleDone, onEdit, onDelete,
@@ -138,24 +133,9 @@ export function TaskCard({
       )}
     >
       <div className="flex items-center gap-2.5">
-        {canEdit ? (
-          <button
-            type="button"
-            onClick={() => onToggleDone(task)}
-            aria-label={task.is_completed ? `${task.title} を未完了に戻す` : `${task.title} を完了にする`}
-            /* 見た目は 18px のまま、当たり判定だけ 44px にする（M10・`v4-tap`） */
-            className={cn(
-              'v4-tap rounded-badge-xs flex h-[18px] w-[18px] shrink-0 items-center justify-center border-[1.5px]',
-              task.is_completed ? 'border-success bg-success' : 'border-border-disabled hover:border-primary',
-            )}
-          >
-            {task.is_completed && <Check className="h-3 w-3 text-success-foreground" aria-hidden="true" />}
-          </button>
-        ) : (
-          <span className={cn('text-badge shrink-0', task.is_completed ? 'text-success' : 'text-muted-foreground')}>
-            {task.is_completed ? '完了' : '—'}
-          </span>
-        )}
+        <span className={cn('text-badge shrink-0', task.is_completed ? 'text-success' : 'text-muted-foreground')}>
+          {task.is_completed ? '対応済' : '—'}
+        </span>
         <div className="min-w-0 flex-1">
           <RowTitle className={cn('font-normal', task.is_completed && 'text-muted-foreground line-through')}>
             {task.title}
@@ -163,7 +143,7 @@ export function TaskCard({
           {task.description && <RowSub>{task.description}</RowSub>}
         </div>
       </div>
-      <div className="flex items-center gap-2 pl-[28px]">
+      <div className="flex items-center gap-2 pl-[38px]">
         <p className="text-sub min-w-0 flex-1 truncate">
           <span className={cn('font-number', task.is_completed ? 'text-muted-foreground' : dueTone(due, today))}>
             {dueLabel(due, today) ?? '期限なし'}
@@ -173,7 +153,13 @@ export function TaskCard({
           )}
         </p>
         {canEdit && (
-          <span className="flex shrink-0 items-center">
+          <span className="flex shrink-0 items-center gap-1">
+            <TaskDoneButton
+              done={task.is_completed}
+              onToggle={() => onToggleDone(task)}
+              taskTitle={task.title}
+              size="sm"
+            />
             <button
               type="button"
               onClick={() => onEdit(task)}

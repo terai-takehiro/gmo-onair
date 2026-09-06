@@ -93,9 +93,9 @@ export function MyTasksTab() {
           onClick={() => setShowDone((v) => !v)}
           className={cn('min-h-tap lg:h-9 lg:min-h-0 rounded-md px-3 py-1.5 text-sub', showDone ? 'bg-primary/15 font-bold text-primary' : 'text-muted-foreground hover:bg-accent')}
         >
-          完了も表示
+          対応済も表示
         </button>
-        <span className="text-sub-sm text-muted-foreground">未完了 {open.length} 件</span>
+        <span className="text-sub-sm text-muted-foreground">未対応 {open.length} 件</span>
         {canEdit && (
           <Button size="sm" className="ml-auto shrink-0" onClick={() => setAdding(true)}>
             <Plus className="mr-1 h-4 w-4" />追加

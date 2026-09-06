@@ -3,24 +3,25 @@
  *
  * ── 行を縮めたものではありません ────────────────────────────
  *
- * PC の行（`GpmTaskListPage.tsx`）は 完了(56px・canEdit時のみ) ／
- * タスク・プロジェクト（伸びる）／ 工程(128px) ／ 担当(96px) ／ 期限(96px) の
+ * PC の行（`GpmTaskListPage.tsx`）は タスク・プロジェクト（伸びる）／ 工程(128px) ／
+ * 担当(96px) ／ 期限(96px) ／ 対応(128px・canEdit時のみ) の
  * 5列で、これまでのスマホは `Row stackOnMobile` が工程・担当の2列を
  * `hideOnMobile` で消すだけの縮小表でした（`docs/v4-native-ui-audit-2026-08-20.md`
  * ⑤ 指摘）。**工程の状態や誰が持っているかは、外で確認するときこそ要る情報**なので、
  * 消すのではなくカードとして組み直します:
  *
- *   1行目  完了チェック（直せる人だけ）＋ タスク名 ＋ 工程バッジ
+ *   1行目  タスク名 ＋ 工程バッジ
  *   2行目  プロジェクト名（押せる。押すとプロジェクト詳細へ）
  *   3行目  担当 ・ 期限（PC で hideOnMobile されていた2列）
+ *   4行目  「対応済にする」ボタン（直せる人だけ）
  *
  * ── 期限・工程の色は書き写さない ────────────────────────────
  *
  * `dueTone` / `dueLabel` / `PHASE_STATE_TONE` は `../types.ts` から読む。
  * ここで判定を書き直すと、PC とスマホで違う日に赤くなる。
  */
-import { Check } from 'lucide-react';
 import { cn } from '@gmo-onair/shared/src/client/utils';
+import { TaskDoneButton } from '@gmo-onair/shared/src/client-v4/taskDoneButton';
 import { PHASE_STATE_TONE, dueLabel, dueTone, ymd, type GpmTask } from '../../types';
 
 export function TaskCards({
@@ -28,7 +29,7 @@ export function TaskCards({
 }: {
   rows: GpmTask[];
   today: string;
-  /** 完了チェックを出すか（サーバーは `sales:editor` を要求する。出しても押せば 403 になるだけ） */
+  /** 「対応済にする」ボタンを出すか（サーバーは `sales:editor` を要求する。出しても押せば 403 になるだけ） */
   canEdit: boolean;
   onToggleDone: (t: GpmTask) => void;
   onOpenProject: (projectId: string) => void;
@@ -47,24 +48,6 @@ export function TaskCards({
               t.is_completed && 'opacity-60',
             )}
           >
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() => onToggleDone(t)}
-                aria-label={t.is_completed ? `${t.title} を未完了に戻す` : `${t.title} を完了にする`}
-                /*
-                  **`v4-tap` で当たり判定だけ 44px にする**（PC の行と同じ考え方）。
-                  18px の四角のまま指の当たる範囲だけ広げる。
-                */
-                className={cn(
-                  'v4-tap rounded-badge-xs mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center border-[1.5px]',
-                  t.is_completed ? 'border-success bg-success' : 'border-border-disabled',
-                )}
-              >
-                {t.is_completed && <Check className="h-3 w-3 text-success-foreground" aria-hidden="true" />}
-              </button>
-            )}
-
             <span className="min-w-0 flex-1">
               <span className="mb-1 flex flex-wrap items-start gap-1.5">
                 <span
@@ -109,6 +92,17 @@ export function TaskCards({
                   </span>
                 )}
               </span>
+
+              {/* 片づける操作は**文字のボタン**で（四角のチェックはやめた） */}
+              {canEdit && (
+                <TaskDoneButton
+                  done={t.is_completed}
+                  onToggle={() => onToggleDone(t)}
+                  taskTitle={t.title}
+                  size="sm"
+                  className="mt-2 w-full"
+                />
+              )}
             </span>
           </li>
         );
