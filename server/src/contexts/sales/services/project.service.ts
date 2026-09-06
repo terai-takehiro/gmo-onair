@@ -4,6 +4,8 @@ import { generateSequenceNumber, generateGlsNumber, peekNextGlsNumber, generateE
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { normalizeJaText } from '../../../shared/utils/text';
 import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
+import { resolveEntity, generateProjectNumber, peekNextProjectNumber, recordFirstIssue } from './entity-resolution.service';
+import { getOrgTransition } from '../../platform/services/org-transition.service';
 import {
   createProjectFolderTree,
   renameProjectFolderPair,
@@ -1842,8 +1844,17 @@ export class ProjectService {
      * GLS 番号が採れていない（`glsError` が立った）ときは回も作らない
      * （エピソードコードが GLS 番号ありきのため）。
      */
+    /*
+     * 2026年10月の事業再編（docs/reorg-2026-10-plan.md §4.3・N「統一」）: **売上・仕入は
+     * 必ず回に紐づける**ため、単発（`recurrence !== 'regular'`）の A 案件も対象に広げる。
+     * ⚠️ **`org_transition.state !== 'off'` のときだけ**——'off' のあいだは今までどおり
+     * レギュラーだけ（P0/P1 の受け入れ条件「状態が進むまで振る舞いを変えない」）。
+     */
     let firstEpisodeId: string | null = null;
-    if (stage === 'a_won' && project.recurrence === 'regular') {
+    const broadenFirstEpisode = project.recurrence !== 'regular'
+      && project.gls_category === 'A'
+      && (await getOrgTransition()).state !== 'off';
+    if (stage === 'a_won' && (project.recurrence === 'regular' || broadenFirstEpisode)) {
       const glsNumber = (issuedProject?.gls_number as string | undefined) ?? (project.gls_number as string | undefined);
       if (glsNumber) {
         try {
@@ -1966,17 +1977,22 @@ export class ProjectService {
    */
   async peekGls(id: string) {
     const project = await queryOne(
-      'SELECT gls_number, gls_category FROM projects WHERE id = ? AND deleted_at IS NULL', [id],
-    ) as { gls_number: string | null; gls_category: string | null } | null;
+      'SELECT gls_number, gls_category, customer_id FROM projects WHERE id = ? AND deleted_at IS NULL', [id],
+    ) as { gls_number: string | null; gls_category: string | null; customer_id: string | null } | null;
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
     if (project.gls_number) {
       return { already: true, gls_number: project.gls_number, next: null, category: project.gls_category };
     }
     const category = normalizeGlsCategory(project.gls_category);
+    if (!category) {
+      return { already: false, gls_number: null, next: null, category };
+    }
+    // 実際に発番したときと同じ判定（§4.4）で、見せる番号も新方式に揃える
+    const resolved = await resolveEntity(id, category, project.customer_id);
     return {
       already: false,
       gls_number: null,
-      next: category ? await peekNextGlsNumber(category) : null,
+      next: resolved.entityCode ? await peekNextProjectNumber(resolved.entityCode) : await peekNextGlsNumber(category),
       category,
     };
   }
@@ -2016,7 +2032,18 @@ export class ProjectService {
     if (!category) {
       throw new AppError(400, 'VALIDATION_ERROR', '案件分類（スタジオ / ビジネス）が未設定です。先に案件編集で分類を選択してください。');
     }
-    const glsNumber = await generateGlsNumber(category);
+
+    /*
+     * 2026年10月の事業再編（docs/reorg-2026-10-plan.md §4.4）: `org_transition.state`
+     * が 'off' のあいだ `resolveEntity` は必ず `entityCode: null` を返すので、
+     * 下は今までどおり `generateGlsNumber` を使う（挙動は1ミリも変わらない）。
+     * 'preparing' 以降で条件（B はグループ本体／実施日が切替日以降）を満たすと
+     * 新方式（GJV-/GSS-/GMO-）の番号を採る。
+     */
+    const resolved = await resolveEntity(id, category, project.customer_id as string | null);
+    const glsNumber = resolved.entityCode
+      ? await generateProjectNumber(resolved.entityCode)
+      : await generateGlsNumber(category);
 
     /*
      * ⚠️ **渡されなかった項目は触らない**（レビューでの指摘 #57）。
@@ -2038,6 +2065,15 @@ export class ProjectService {
     const params: unknown[] = [glsNumber];
     if (data.broadcast_type !== undefined) { sets.push('broadcast_type=?'); params.push(data.broadcast_type || null); }
     if (data.media_platform !== undefined) { sets.push('media_platform=?'); params.push(data.media_platform || null); }
+    /*
+     * `resolved.entityCode` が null（＝旧方式のまま）のときは entity_code に触らない —
+     * 案件作成時に既に 'GSS'（暫定値）が入っており、それを「導出した」と偽らないため。
+     * 非 null のときだけ、実際に導出した計上会社で上書きする。
+     */
+    if (resolved.entityCode) {
+      sets.push("entity_code=?", "entity_source='rule'", 'entity_note=?');
+      params.push(resolved.entityCode, resolved.reason);
+    }
 
     /**
      * ⚠️ **ステージは触らない**（2026-09-02）。ここには
@@ -2051,6 +2087,9 @@ export class ProjectService {
       `UPDATE projects SET ${sets.join(', ')}, updated_at=NOW(), updated_by=? WHERE id=?`,
       [...params, userId, id]
     );
+
+    // 案件番号の履歴（§4.3）。旧番号（GLS）も新番号（GJV/GSS/GMO）も、発番の瞬間に必ず1行残す
+    await recordFirstIssue(id, glsNumber, resolved.entityCode, userId);
 
     /*
      * 概算見積（`revenues.status='estimate'`）を確定売上へ変換する。
