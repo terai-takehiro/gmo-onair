@@ -1,10 +1,18 @@
 /**
  * 「進んだら聞く」（**案件作成と案件を直す・PC とスマホで共通**）
  *
- * 作る画面 … ご担当 ／ 継続区分 ／ 実施日 ／ 来場人数 ／ 案件内容 ／ 予算 ／
- *            リード経路 ／ 最初のタスク ／ メモ ／ 会場の案内
- * 直す画面 … ご担当 ／ 継続区分 ／ 来場人数 ／ 案件内容 ／ 予算 ／
- *            リード経路 ／ グループ区分
+ * 作る画面 … ご担当 ／ リード経路 ／ 実施日 ／ 来場人数 ／ 案件内容 ／ 予算 ／
+ *            最初のタスク ／ メモ ／ 会場の案内
+ * 直す画面 … ご担当 ／ リード経路 ／ 来場人数 ／ 案件内容 ／ 予算 ／ グループ区分
+ *
+ * ── 並びの決めごと（`docs/design/v4/_form-order.md`）──────────────
+ *
+ *  ・**リード経路（どこから来た話か）はご担当の直後**。お客様がグループ会社なら
+ *    値が固定される（`f.isGroup`）ので、お客様まわりの話をひとまとまりで読める
+ *  ・**継続区分（回のある案件か）はこの枠から出した**。この値で出る／出ないが
+ *    決まる「レギュラーの取り決め」カードが枠の外にあり、
+ *    **畳んだ枠を開いて選ぶと枠の外にカードが生える**形だったため
+ *    （`RegularSeriesSection` の見出し行に移した）
  *
  * ── ここに置いたものは全部「あとから足せる」──────────────────
  *
@@ -42,14 +50,32 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { INTAKE_CHANNEL_LABEL } from '../projectList/intake';
 import { asksAttendees } from '../../classification';
-import { RECURRENCE_LABEL, type FieldsMode, type ProjectFieldsState } from './fields';
+import { type FieldsMode, type ProjectFieldsState } from './fields';
 import { Field } from './Field';
 
+/**
+ * どこまで出すか。**スマホの案件作成（3段ウィザード）だけが使い分けます。**
+ *
+ *   `all`     … 全部（PC の案件作成・案件を直す。既定）
+ *   `main`    … 最初のタスク・メモ・会場の案内**以外**（スマホ 2/3「進んだら聞く」）
+ *   `closing` … 最初のタスク・メモ・会場の案内**だけ**（スマホ 3/3「最初のタスク」）
+ *
+ * スマホは2段目でこの部品を丸ごと出しつつ、3段目でも「最初のタスク」と「期限」を
+ * **同じ `first_task_title`/`first_task_due` に対して**もう一度ベタ書きしていました。
+ * 同じ値の欄が2つの段に出るので、2段目で入れた人は3段目でまた訊かれ、
+ * 3段目で入れた人が前の段に戻ると同じ値が別の場所に出ます。
+ * → **段の切り分けもこの部品の中に書く**（`fields.ts` 冒頭「出し分けは項目の
+ * 部品の中に書く」）。呼ぶ側で欄を組み直すと、また片方だけ古い欄が残ります。
+ */
+export type MoreFieldsPart = 'all' | 'main' | 'closing';
+
 export function MoreFields({
-  f, mode = 'create', amountExtra,
+  f, mode = 'create', part = 'all', amountExtra,
 }: {
   f: ProjectFieldsState;
   mode?: FieldsMode;
+  /** どこまで出すか（既定は全部）。スマホの案件作成だけが段ごとに分けます */
+  part?: MoreFieldsPart;
   /**
    * 予算の欄のすぐ下に置くもの。直す画面が料金シミュレーションと
    * AI の見積下書きを差し込みます — **金額の欄から離すと、
@@ -65,21 +91,48 @@ export function MoreFields({
     setNewDate('');
   };
 
+  /** スマホ 3/3（`closing`）では出さないもの */
+  const showMain = part !== 'closing';
+  /** スマホ 2/3（`main`）では出さないもの（3段目「最初のタスク」が持つ） */
+  const showClosing = part !== 'main';
+
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {showMain && (
+      <>
       <Field label="ご担当" htmlFor="np-contact" hint="この案件の窓口。会社の代表窓口とは別に持ちます">
         <Input id="np-contact" value={v.contact_name} onChange={(e) => set('contact_name', e.target.value)} placeholder="宮田 里香 様（広報部）" />
       </Field>
 
-      <Field label="回のある案件か" hint="レギュラーは「回」を持ちます（第1回・7月分…）">
-        <Select value={v.recurrence} onValueChange={(x) => set('recurrence', x as 'single' | 'regular')}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {(Object.keys(RECURRENCE_LABEL) as ('single' | 'regular')[]).map((k) => (
-              <SelectItem key={k} value={k}>{RECURRENCE_LABEL[k]}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {/*
+        **リード経路はご担当の直後**（お客様まわりの話をひとまとまりにする）。
+        お客様がグループ会社なら「グループ案件」で固定される値なので、
+        お客様・ご担当から離すと、なぜ選べないのかが読めなくなります
+      */}
+      <Field
+        label="どこから来た話か"
+        hint={f.isGroup
+          ? '取引先マスターでグループ会社になっているので、選べません'
+          : 'あとで集計します。分からなければ空のままで大丈夫です'}
+      >
+        {f.isGroup ? (
+          <p className="min-h-tap flex items-center gap-2 rounded-control border border-ai-border bg-ai-surface px-3 text-sub font-bold text-ai lg:min-h-[40px]">
+            <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />グループ案件
+          </p>
+        ) : (
+          <Select value={v.intake_channel || 'none'} onValueChange={(x) => set('intake_channel', x === 'none' ? '' : x)}>
+            <SelectTrigger><SelectValue placeholder="選ぶ" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">分からない</SelectItem>
+              {Object.entries(INTAKE_CHANNEL_LABEL)
+                // 「グループ案件」は人が選ぶものではない（マスターが決める）
+                .filter(([k]) => k !== 'group')
+                .map(([k, label]) => (
+                  <SelectItem key={k} value={k}>{label}</SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        )}
       </Field>
 
       {/* **実施日は「足す」で飛び日を何日でも。** 以前はスマホだけ足せなかった。
@@ -146,32 +199,6 @@ export function MoreFields({
         {amountExtra}
       </Field>
 
-      <Field
-        label="どこから来た話か"
-        hint={f.isGroup
-          ? '取引先マスターでグループ会社になっているので、選べません'
-          : 'あとで集計します。分からなければ空のままで大丈夫です'}
-      >
-        {f.isGroup ? (
-          <p className="min-h-tap flex items-center gap-2 rounded-control border border-ai-border bg-ai-surface px-3 text-sub font-bold text-ai lg:min-h-[40px]">
-            <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />グループ案件
-          </p>
-        ) : (
-          <Select value={v.intake_channel || 'none'} onValueChange={(x) => set('intake_channel', x === 'none' ? '' : x)}>
-            <SelectTrigger><SelectValue placeholder="選ぶ" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">分からない</SelectItem>
-              {Object.entries(INTAKE_CHANNEL_LABEL)
-                // 「グループ案件」は人が選ぶものではない（マスターが決める）
-                .filter(([k]) => k !== 'group')
-                .map(([k, label]) => (
-                  <SelectItem key={k} value={k}>{label}</SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-        )}
-      </Field>
-
       {/*
         **グループ会社価格（旧「グループ区分」）は選ぶ欄をやめました**（ご指示・migration 192）。
 
@@ -210,9 +237,11 @@ export function MoreFields({
           </p>
         </Field>
       )}
+      </>
+      )}
 
       {/* 以下は作るときだけ。直す画面での理由は冒頭に書いてあります */}
-      {mode === 'create' && (
+      {mode === 'create' && showClosing && (
       <>
       <Field label="最初のタスク" full hint="入れなくても大丈夫です。期限は日付だけ入れると 18:00 になります">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">

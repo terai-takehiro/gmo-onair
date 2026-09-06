@@ -1,7 +1,17 @@
 /**
  * 「いま必要な5つ」（**案件作成と案件を直す・PC とスマホで共通**）
  *
- *   お客様 ／ 社内の担当 ／ 案件名 ／ 客入れの有無 ／ 案件分類（＋ ステージ）
+ *   お客様 ／ 案件名 ／ 客入れの有無 ／ 案件分類 ／ 社内の担当（＋ ステージ）
+ *
+ * ── 並びは3か所で1つにそろえる（`docs/design/v4/_form-order.md`）────
+ *
+ * この5つは **①画面の案内文（`NewProjectDialog`）②足りない項目の黄色い帯
+ * （`fields.ts` の `missingOf`）③実際の欄** の3か所に出ますが、
+ * 欄だけが「お客様 → 社内の担当 → 案件名 …」と別の順でした。
+ * `missingOf` は「並びはフォームの並びと同じにする（上から順に埋めれば消える）」と
+ * 書いてあるのに、帯の指す順に目で追うと欄が飛びます。
+ * → **欄の側を①②に合わせました**（お客様＝相手の話 → 案件名・客入れ・分類＝
+ * その案件の話 → 社内の担当＝自社の話。電話で聞く順にもそろいます）。
  *
  * ステージは必須ではありませんが**同じ枠に置きます** — いま何段目の話なのかは
  * 上の5つと一緒に決まるもので、「進んだら聞く」に畳むと
@@ -61,7 +71,12 @@ export function RequiredFields({ f, mode = 'create' }: { f: ProjectFieldsState; 
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      <Field label="お客様" required hint="無ければ「取引先マスター」で先につくります">
+      {/*
+        **お客様がいちばん上**（`_form-order.md` の段1「どれに付けるか」）。
+        `full` にしてあるのは、社内の担当を下（自社の話のまとまり）へ動かした結果、
+        2列のときに右半分が穴になるためです。会社を探す欄なので広いほうが押しやすい
+      */}
+      <Field label="お客様" required full hint="無ければ「取引先マスター」で先につくります">
         <SearchableSelect
           options={f.customers.map((c) => ({
             value: c.id,
@@ -71,15 +86,6 @@ export function RequiredFields({ f, mode = 'create' }: { f: ProjectFieldsState; 
           value={v.customer_id}
           onChange={(id) => set('customer_id', id)}
           placeholder="会社を選ぶ"
-        />
-      </Field>
-
-      <Field label="社内の担当" required hint="この案件を持つ人。タスクの担当は1件ずつ別に決められます">
-        <SearchableSelect
-          options={f.users.map((u) => ({ value: u.id, label: u.name }))}
-          value={v.assigned_to}
-          onChange={(id) => set('assigned_to', id)}
-          placeholder="担当を選ぶ"
         />
       </Field>
 
@@ -162,6 +168,20 @@ export function RequiredFields({ f, mode = 'create' }: { f: ProjectFieldsState; 
         )}
       </Field>
       )}
+
+      {/*
+        **社内の担当は5つの最後**（`_form-order.md` の段4「誰が」）。
+        お客様・案件名・客入れ・分類までが「聞いた話」で、ここから自社の話に移ります。
+        間に挟むと、顧客の話と社内の話を交互に行き来することになります
+      */}
+      <Field label="社内の担当" required hint="この案件を持つ人。タスクの担当は1件ずつ別に決められます">
+        <SearchableSelect
+          options={f.users.map((u) => ({ value: u.id, label: u.name }))}
+          value={v.assigned_to}
+          onChange={(id) => set('assigned_to', id)}
+          placeholder="担当を選ぶ"
+        />
+      </Field>
 
       {/* 直す画面では出しません（この保存は `stage` を見ないため。冒頭の理由） */}
       {mode === 'create' && (

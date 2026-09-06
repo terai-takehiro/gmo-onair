@@ -365,12 +365,22 @@ export default function ProjectFormPage() {
           )}
         </div>
 
-        {/* 回を作るたびに聞かれては困る4つの取り決め（regular-series.md §3・案件作成と同じ部品） */}
+        {/*
+          ⚠️ **節の並びは `MobileEditProject.tsx` と必ず同じにすること**
+          （スマホは「PC と同じ並びで縦積みにする」と決めてあります）。
+          並びは `docs/design/v4/_form-order.md` の段の順:
+          案件の素性（必須5つ・進んだら聞く・番組情報・回の取り決め）→
+          いつ・どこで（予約・スタジオの日程）→ 誰が（担当メンバー）→
+          置き場所・書類（BOX・申込書）。
+          **担当メンバーを日程より下に置いた**のは、日程が決まらないと人を
+          押さえられないためです（元は日程より上にありました）。
+        */}
+        {f.hasGls && f.isCategoryA && <BroadcastSection form={form} />}
+
+        {/* 回のある案件か＋回を作るたびに聞かれては困る取り決め（案件作成と同じ部品） */}
         <RegularSeriesSection f={f.fields} />
 
         {/* ここから下は**直す画面だけが持つもの**（案件作成には無い） */}
-        <MembersSection projectId={isEdit ? id : undefined} />
-
         {isEdit && (
           <BookingListSection
             bookings={actions.bookings}
@@ -388,7 +398,7 @@ export default function ProjectFormPage() {
           onOpenCalendar={isEdit && f.isCategoryA ? openCalendar : undefined}
         />
 
-        {f.hasGls && f.isCategoryA && <BroadcastSection form={form} />}
+        <MembersSection projectId={isEdit ? id : undefined} />
 
         <BoxSection
           form={form}
