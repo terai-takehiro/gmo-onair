@@ -19,7 +19,7 @@ import { loadRevenueItemCarryover } from '../services/revenue-item-carryover.ser
 import { BILLING_STATE_SQL } from '../../../shared/services/billing-state';
 import { assertCustomerCompanyId } from '../../../shared/services/company-directory.service';
 import { assignInvoiceNumbers } from '../services/invoice-number.service';
-import { resolveIssuer, getLegalEntity } from '../../platform/services/legal-entity.service';
+import { resolveIssuer, getLegalEntity, isProjectCostCenter } from '../../platform/services/legal-entity.service';
 import { assertNotIntercompanyLinked } from '../services/intercompany.service';
 
 const router = Router();
@@ -475,6 +475,13 @@ router.get('/:id/excel', async (req, res, next) => {
 router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
   const { project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle, status: reqStatus, is_advance_payment, invoice_issued } = req.body;
   if (!project_id || !customer_id) throw new AppError(400, 'VALIDATION_ERROR', '案件と顧客は必須です');
+  // 2026年10月の事業再編・P3（§4.7）: コストセンター（GMO）の案件には
+  // 新規の売上を登録させない（仕入・予算対実績は引き続き開いたまま）。
+  // `org_transition.state='off'`／未改番のあいだは常に false（下記コメント参照）
+  if (await isProjectCostCenter(project_id)) {
+    throw new AppError(409, 'NO_REVENUE_ENTITY',
+      'この案件の計上会社は売上を持ちません（コストセンター）。仕入として登録してください');
+  }
   // `customer_id` は companies.id（Phase 3-2a）を直接指すため、DB の FK は
   // 「顧客ロールの会社か」を保証しない（レビュー指摘・PR #199 P2 の2巡目）
   await assertCustomerCompanyId(customer_id);
@@ -624,6 +631,12 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   // 画面は他の項目を直すときも今の customer_id を送り直すので、変化の有無を見ないと
   // あとから顧客ロールを外された会社の売上は無関係な直しまで止まってしまう
   if (customer_id && customer_id !== existing.customer_id) await assertCustomerCompanyId(customer_id);
+  // 案件を付け替えるときだけ確かめる（同じ判断・上のコメント参照）。
+  // 2026年10月の事業再編・P3（§4.7）: コストセンター（GMO）の案件へは付け替えさせない
+  if (project_id && project_id !== existing.project_id && await isProjectCostCenter(project_id)) {
+    throw new AppError(409, 'NO_REVENUE_ENTITY',
+      'この案件の計上会社は売上を持ちません（コストセンター）');
+  }
 
   // 税区分変更時はbilling_keyの末尾税枝番を更新
   let finalBillingKey = existing.billing_key;

@@ -11,7 +11,7 @@
  * 発行者情報として毎回読まれるようになるので、**保存したときだけ読み直す**キャッシュに
  * する（プロセスが1つの構成なので、保存＝自分のキャッシュを捨てるで足りる）。
  */
-import { queryAll, execute } from '../../../shared/db/connection';
+import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 
 export type LegalEntityCode = 'GJV' | 'GSS' | 'GMO';
@@ -141,6 +141,27 @@ export function issuerNameAsOf(entity: LegalEntity, atISODate: string): string {
     return entity.formerName ?? entity.name;
   }
   return entity.formerName ? `${entity.name}（旧 ${entity.formerName}）` : entity.name;
+}
+
+/**
+ * その案件は、計上会社がコストセンター（`kind='cost_center'`。今日は GMO の1社だけ）に
+ * 解決しているか。2026年10月の事業再編・P3（§4.7 GMOコストセンター）。
+ *
+ * ⚠️ **`gls_category='B'`（GPM の案件かどうか）ではなく、実際に解決した
+ * `projects.entity_code` を見る。** `org_transition.state` が `off` のあいだ、
+ * B案件の `entity_code` はまだ 'GSS' のまま（改番していないため）なので、
+ * この確かめは今日はどの案件にも通らない——他の entity_code 依存の機能と同じ、
+ * 切替に自然に追随する作り（`entity_code` が無い＝解決前の案件も false）。
+ */
+export async function isProjectCostCenter(projectId: string | null | undefined): Promise<boolean> {
+  if (!projectId) return false;
+  const row = await queryOne(
+    `SELECT p.id FROM projects p
+       JOIN legal_entities le ON le.code = p.entity_code
+      WHERE p.id = ? AND le.kind = 'cost_center' AND p.deleted_at IS NULL`,
+    [projectId],
+  );
+  return !!row;
 }
 
 export interface ResolvedIssuer {
