@@ -8,9 +8,15 @@
  * ── null と 0 を混ぜない ────────────────────────────────────
  *
  * `null` は「未登録」、`0` は「0 円と決めた」。全体（統合）の合計は
- * **登録のある主体だけを足し、1つも無ければ null（「—」）のまま**にする（按分しない）。
+ * **登録のある会社だけを足し、1つも無ければ null（「—」）のまま**にする（按分しない）。
  * 営業利益は4つとも入って初めて出す — 片方が未登録のまま引き算すると、
  * 「販管費を決めていない月」が「販管費 0 円の月」として利益に見える。
+ *
+ * ── 会社は `entity_code`（GJV / GSS / GMO）────────────────────
+ *
+ * 行は `(entity_code, year_month)` で1つ（migration 288）。`scope` が `'all'` のときは
+ * **その月にサーバーが返した全会社の行**を足す（会社の一覧をここに写さない —
+ * `legal_entities` に会社が増えても、この式は直さなくてよい）。
  */
 import type { BusinessEntity, EntityScope, MonthlyBudget } from '@gmo-onair/shared/src/keepReport/types';
 import type { MonthlyOverride } from '@/lib/keepApi';
@@ -60,42 +66,52 @@ export function hasOverrideValues(o: MonthlyOverride | undefined): boolean {
   return num(o.cogs_fixed_actual) !== null || num(o.sga_actual) !== null || !!(o.note && o.note.trim());
 }
 
-/** 表の1行（主体1つ、または全体の合計） */
+/** 表の1行（会社1つ、または全体の合計） */
 export interface BudgetView extends Record<BudgetField, number | null> {
   operating_profit: number | null;
   hasOverride: boolean;
 }
 
-export const budgetKey = (ym: string, entity: BusinessEntity) => `${ym}:${entity}`;
+/** ある月・ある会社の行を1つ引く（無ければ undefined ＝ 未登録） */
+export function rowOf<T extends { year_month: string; entity_code: BusinessEntity }>(
+  rows: readonly T[], ym: string, entityCode: BusinessEntity,
+): T | undefined {
+  return rows.find((r) => r.year_month === ym && r.entity_code === entityCode);
+}
+
+/** `scope` に入る行だけ（`'all'` はその月の全会社） */
+function inScope<T extends { year_month: string; entity_code: BusinessEntity }>(
+  rows: readonly T[], ym: string, scope: EntityScope,
+): T[] {
+  return rows.filter((r) => r.year_month === ym && (scope === 'all' || r.entity_code === scope));
+}
 
 /**
- * 主体ごとの値を表の1行に。`all` は主体の合計。
- * **営業利益の合計は「主体ごとの営業利益」を足す**（合計の4つから引き直さない —
- * 販管費が未登録の主体があると、合計の引き算では利益が実際より大きく見える）。
+ * 会社ごとの値を表の1行に。`all` は会社の合計。
+ * **営業利益の合計は「会社ごとの営業利益」を足す**（合計の4つから引き直さない —
+ * 販管費が未登録の会社があると、合計の引き算では利益が実際より大きく見える）。
  */
 export function viewOf(
   ym: string,
   scope: EntityScope,
-  entities: readonly BusinessEntity[],
-  budgets: Map<string, MonthlyBudget>,
-  overrides: Map<string, MonthlyOverride>,
+  budgets: readonly MonthlyBudget[],
+  overrides: readonly MonthlyOverride[],
 ): BudgetView {
-  const targets = scope === 'all' ? entities : [scope];
-  const rows = targets.map((e) => budgets.get(budgetKey(ym, e)));
-  const field = (k: BudgetField) => sumNullable(rows.map((r) => (r ? num(r[k]) : null)));
+  const rows = inScope(budgets, ym, scope);
+  const field = (k: BudgetField) => sumNullable(rows.map((r) => num(r[k])));
   const view: Record<BudgetField, number | null> = {
     revenue: field('revenue'),
     cogs_fixed: field('cogs_fixed'),
     cogs_variable: field('cogs_variable'),
     sga: field('sga'),
   };
-  const ops = rows.map((r) => (r ? operatingProfit({
+  const ops = rows.map((r) => operatingProfit({
     revenue: num(r.revenue), cogs_fixed: num(r.cogs_fixed), cogs_variable: num(r.cogs_variable), sga: num(r.sga),
-  }) : null));
+  }));
   return {
     ...view,
     operating_profit: sumNullable(ops),
-    hasOverride: targets.some((e) => hasOverrideValues(overrides.get(budgetKey(ym, e)))),
+    hasOverride: inScope(overrides, ym, scope).some((o) => hasOverrideValues(o)),
   };
 }
 

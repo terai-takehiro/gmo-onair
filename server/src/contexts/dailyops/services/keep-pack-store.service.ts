@@ -1,33 +1,37 @@
 /**
- * 定例報告パックの凍結と読み出し（`keep_report_packs`・migration 284・keep-report.md §5.5）
+ * 定例報告パックの凍結と読み出し（`keep_report_packs`・migration 291・keep-report.md §5.5）
  *
  * ── 決めごと ────────────────────────────────────────────────
  * - 「いまの数字」は保存しない（毎回計算）。**週報を確定した時点で凍結**し、資料・Slack・MCP は
  *   凍結した版を読む（週報の「自動集計は投稿時点の数字」と同じ約束）
  * - **凍結した版は書き換えない。** 数字を直したいときは元データを直して凍結し直す —
  *   新しい版を INSERT し、前の版は残す（`meeting_date` に UNIQUE は無い）。読むときは最新の版
- * - 週報との結びは両側で持つ: `keep_report_packs.ops_report_id` と `ops_reports.payload.keep`
+ * - ただし**同じ会議日・同じ絞り込みを 60 秒以内に凍結し直しても版は増やさない**（直前の版を返す）。
+ *   週報の確定ボタンの二度押し・確定と単独の凍結の同時押しで、同じ数字の版が2つ並ぶのを止める。
+ *   同時に走った2本は `pg_advisory_xact_lock` で直列にする（片方が INSERT を終えてからもう片方が読む）
+ * - 週報との結びは両側で持つ: `keep_report_packs.ops_report_id` と `ops_reports.payload.keep`。
+ *   `ops_report_id` は存在する週報だけ（知らない id は 400。FK の 500 にしない）
+ * - `scope_entity` は計上会社 `entity_code`（all / GJV / GSS / GMO・2026年10月の事業再編）
  *
  * HTTP（`keep.routes.ts`）と MCP（`keep.tools.ts`）は **`getPackForMeeting` の1本**を通る
  * （画面と AI が同じ答えを読む）。
  */
 import { v4 as uuidv4 } from 'uuid';
-import { queryAll, queryOne, execute } from '../../../shared/db/connection';
+import { queryAll, queryOne, execute, withTransaction } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
-import { isEntityScope, type EntityScope } from '../../sales/services/project-entity';
 import { buildPack, resolveMeetingDateForWeek, resolveMeetings } from './keep-pack.service';
 import { assertMeetingDate } from './keep-pack-inputs.service';
-import type { KeepReportPack, SegmentScope } from './keep-pack.types';
+import { isEntityScope, type EntityScope, type KeepReportPack, type SegmentScope } from './keep-pack.types';
 
 export { getInputs, upsertInput, assertMeetingDate } from './keep-pack-inputs.service';
 
 export interface PackScope { entity: EntityScope; segment: SegmentScope }
 
-/** クエリ／引数の主体・区分を読む。無ければ `all`、知らない値は 400 */
+/** クエリ／引数の計上会社（`entity_code`）・区分を読む。無ければ `all`、知らない値は 400 */
 export function parseScope(entityRaw: unknown, segmentRaw: unknown): PackScope {
   const entity = entityRaw == null || entityRaw === '' ? 'all' : entityRaw;
   if (!isEntityScope(entity)) {
-    throw new AppError(400, 'VALIDATION_ERROR', 'entity は all / gss / gscs / gig のいずれかを指定してください');
+    throw new AppError(400, 'VALIDATION_ERROR', 'entity_code は all / GJV / GSS / GMO のいずれかを指定してください');
   }
   const segment = segmentRaw == null || segmentRaw === '' ? 'all' : segmentRaw;
   if (segment !== 'all' && segment !== 'internal' && segment !== 'external') {
@@ -42,7 +46,14 @@ function toIso(v: unknown): string {
   return v instanceof Date ? v.toISOString() : String(v);
 }
 
-/** いまの数字で組んで凍結する。返り値の `pack.frozen_at` は保存した時刻 */
+/** 同じ会議日・同じ絞り込みの凍結を「凍結し直し」ではなく同じ版とみなす時間幅 */
+const FREEZE_DEDUPE_SECONDS = 60;
+
+/**
+ * いまの数字で組んで凍結する。返り値の `pack.frozen_at` は保存した時刻。
+ * 60 秒以内に同じ会議日・同じ絞り込みの版があればそれを返す（新しい版は作らない。
+ * その版に週報が結ばれていなければ `ops_report_id` だけ足す — 結びが片側だけ欠けないように）。
+ */
 export async function freezePack(opts: {
   meetingDate: string; entity?: EntityScope; segment?: SegmentScope;
   opsReportId?: string | null; userId?: string | null;
@@ -50,17 +61,40 @@ export async function freezePack(opts: {
   const meetingDate = assertMeetingDate(opts.meetingDate);
   const entity = opts.entity ?? 'all';
   const segment = opts.segment ?? 'all';
+  const opsReportId = opts.opsReportId ?? null;
+  if (opsReportId) {
+    const report = await queryOne('SELECT id FROM ops_reports WHERE id = ? AND deleted_at IS NULL', [opsReportId]);
+    if (!report) throw new AppError(400, 'VALIDATION_ERROR', 'ops_report_id の週報が見つかりません');
+  }
+  // パックは取引の外で組む（数十本の SELECT。ロックを持ったまま長く走らせない）
   const built = await buildPack({ meetingDate, entity, segment });
   const frozenAt = new Date().toISOString();
   const pack: KeepReportPack = { ...built, frozen_at: frozenAt };
   const id = uuidv4();
-  await execute(
-    `INSERT INTO keep_report_packs
-       (id, meeting_date, scope_entity, scope_segment, pack, generated_at, frozen_at, frozen_by, ops_report_id)
-     VALUES (?, ?, ?, ?, ?::jsonb, ?::timestamptz, ?::timestamptz, ?, ?)`,
-    [id, meetingDate, entity, segment, JSON.stringify(pack), pack.generated_at, frozenAt, opts.userId ?? null, opts.opsReportId ?? null],
-  );
-  return { id, pack, frozen_at: frozenAt };
+  return await withTransaction(async (tx) => {
+    // 同じ会議日・同じ絞り込みの凍結を直列にする（advisory lock はこの取引の終わりで外れる）
+    await tx.execute(`SELECT pg_advisory_xact_lock(hashtext(? || '|' || ? || '|' || ?))`, [meetingDate, entity, segment]);
+    const recent = await tx.queryOne(
+      `SELECT id, pack, frozen_at, ops_report_id FROM keep_report_packs
+        WHERE meeting_date = ? AND scope_entity = ? AND scope_segment = ?
+          AND frozen_at IS NOT NULL AND frozen_at > NOW() - (? || ' seconds')::interval
+        ORDER BY frozen_at DESC LIMIT 1`,
+      [meetingDate, entity, segment, FREEZE_DEDUPE_SECONDS],
+    );
+    if (recent) {
+      if (opsReportId && recent.ops_report_id == null) {
+        await tx.execute('UPDATE keep_report_packs SET ops_report_id = ? WHERE id = ?', [opsReportId, recent.id]);
+      }
+      return { id: String(recent.id), pack: recent.pack as KeepReportPack, frozen_at: toIso(recent.frozen_at) };
+    }
+    await tx.execute(
+      `INSERT INTO keep_report_packs
+         (id, meeting_date, scope_entity, scope_segment, pack, generated_at, frozen_at, frozen_by, ops_report_id)
+       VALUES (?, ?, ?, ?, ?::jsonb, ?::timestamptz, ?::timestamptz, ?, ?)`,
+      [id, meetingDate, entity, segment, JSON.stringify(pack), pack.generated_at, frozenAt, opts.userId ?? null, opsReportId],
+    );
+    return { id, pack, frozen_at: frozenAt };
+  });
 }
 
 /** その会議日・その絞り込みの凍結済みの最新の版。無ければ null */

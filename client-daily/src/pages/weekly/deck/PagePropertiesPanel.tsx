@@ -87,13 +87,13 @@ export function PagePropertiesPanel() {
               <option value="forecast">翌月 着地見込</option>
             </select>
           </Field>
-          <Field label="事業主体">
+          <Field label="計上会社">
             <select className={SELECT} value={plOptions(table).entity} onChange={(e) => updatePart(page.id, table.id, { options: { ...(table.options ?? {}), entity: e.target.value } })}>
               <option value="all">全社（統合）</option>
-              <option value="gss">{BUSINESS_ENTITY_LABELS.gss}</option>
-              <option value="gscs">{BUSINESS_ENTITY_LABELS.gscs}</option>
-              <option value="gig">{BUSINESS_ENTITY_LABELS.gig}</option>
-              <option value="by_entity">主体別（並べる）</option>
+              <option value="GSS">{BUSINESS_ENTITY_LABELS.GSS}</option>
+              <option value="GJV">{BUSINESS_ENTITY_LABELS.GJV}</option>
+              <option value="GMO">{BUSINESS_ENTITY_LABELS.GMO}</option>
+              <option value="by_entity">計上会社別（並べる）</option>
             </select>
           </Field>
         </>

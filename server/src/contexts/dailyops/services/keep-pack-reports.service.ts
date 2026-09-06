@@ -19,10 +19,9 @@
 import { queryAll, queryOne } from '../../../shared/db/connection';
 import { ESTIMATE_AMOUNT_LATERAL } from '../../sales/services/project.service';
 import { keepReportService } from '../../sales/services/keep-report.service';
-import type { EntityScope } from '../../sales/services/project-entity';
 import { PAGE_SOURCE_COLUMNS, ESTIMATE_COST_LATERAL, type PageSource } from './keep-pack-pages.service';
 import { scopeWhere } from './keep-pack-pipeline.service';
-import type { InviewSummary, KeepInput, KeepReportPack, SegmentScope } from './keep-pack.types';
+import type { EntityScope, InviewSummary, KeepInput, KeepReportPack, SegmentScope } from './keep-pack.types';
 
 const FIXED_COGS_CODE = 'FIXED-COGS';
 const WON_STAGES = ['a_won', 'r_delivered', 's_completed'];

@@ -228,7 +228,7 @@ function interfaceFields(src: string): Map<string, string[]> {
       i += 1;
     }
     const body = src.slice(start, i - 1);
-    out.set(m[1], [...body.matchAll(/^\s*([a-z_]+)\??:/gm)].map((x) => x[1]).sort());
+    out.set(m[1], [...body.matchAll(/^\s*([A-Za-z_]+)\??:/gm)].map((x) => x[1]).sort());
   }
   return out;
 }

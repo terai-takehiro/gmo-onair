@@ -1,5 +1,5 @@
 /**
- * 定例報告パック — ONAiR に無い数字の手入力（`keep_report_inputs`・migration 284）
+ * 定例報告パック — ONAiR に無い数字の手入力（`keep_report_inputs`・migration 291）
  *
  * 内覧会の満足度（Kairos3 のアンケート）・参加者・Web KPI・注記など、会議日 × key で1行。
  * 値は JSON（`inview_satisfaction` なら `{ score: 3.9 }`）。**パックを組むとき読む**

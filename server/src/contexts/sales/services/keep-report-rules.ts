@@ -137,5 +137,5 @@ export function mergeUtilizationSettings(
   return { ok: true, value: next };
 }
 
-/** 主体別の月次予算・補正値の行が持つ共通の鍵 */
+/** 計上会社別の月次予算・補正値の行が持つ共通の鍵 */
 export interface EntityKeyed { year_month: string; entity_code: LegalEntityCode }

@@ -21,7 +21,6 @@ import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { Num } from '@gmo-onair/shared/src/client/ui/numbers';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { formatRelativeTime } from '@gmo-onair/shared/src/client/format';
-import { BUSINESS_ENTITY_LABELS } from '@gmo-onair/shared/src/keepReport/types';
 import { ProjectStageLabels } from '@/types';
 import { classificationLabel } from '@/contexts/sales/classification';
 import { STAGE_BADGE_LABEL, STAGE_BADGE_TONE, ENTITY_BADGE_LABEL } from '../projectList/stages';
@@ -80,17 +79,6 @@ export function LedgerCell({ col, row }: { col: LedgerColKey; row: LedgerRow }) 
 
     case 'contact_name':
       return row.contact_name ? <span className="truncate" title={row.contact_name}>{row.contact_name}</span> : <Dash />;
-
-    /* 事業主体。人が上書きした案件は `title` で分かるようにする（列を増やさない） */
-    case 'entity': {
-      if (!row.entity) return <Dash />;
-      const label = BUSINESS_ENTITY_LABELS[row.entity] ?? row.entity;
-      return (
-        <span className="truncate" title={row.entity_manual ? `${label}（手で指定）` : label}>
-          {label}
-        </span>
-      );
-    }
 
     /*
       **バッジは `<TableBadge>` を使う。** 自分で幅を書くと「この画面だけの幅」ができ、

@@ -9,7 +9,7 @@
  *
  * ── id の決め方（組み直しても同じページが同じ id になるように）──────────
  *   固定ページ … テンプレの名前（`cover` / `agenda` …）
- *   数値報告   … `pl_table:<mode>:<entity>`（`pl_table:landing:all` …）
+ *   数値報告   … `pl_table:<mode>:<entity>`（`pl_table:landing:all` …。entity は all / GJV / GSS / GMO / by_entity）
  *   ヨミ表     … `pipeline_table:<list>`
  *   案件ページ … `project_page:<project_id>`、実施報告 … `event_report:<project_id>`
  *   部品       … `<page id>:p<番号>`（テンプレの regions の順）
@@ -19,7 +19,7 @@
  * ── 相対パスの書き換え ──────────────────────────────────────
  * テンプレの `project.*` / `report.*` は、ここで `project_pages[i].*` / `event_reports[i].*` に書き換える
  * （`resolveBinding` は絶対パスしか読まない）。数値報告の表は `options.mode` / `options.entity` から
- * `landing.all` / `forecast`（主体別のときはまとまりごと）に、ヨミ表は `pipeline.external` / `pipeline.samurai` に決める。
+ * `landing.all` / `forecast.GSS` / `forecast`（計上会社別＝by_entity のときはまとまりごと）に、ヨミ表は `pipeline.external` / `pipeline.samurai` に決める。
  *
  * ⚠️ **server は `shared/` を import できません**。写しが
  * `server/src/contexts/dailyops/services/keep-deck-compose.ts` にあり、

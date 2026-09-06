@@ -27,7 +27,6 @@ import type { InboxItem } from '../inbox/kinds';
 import type { InquirySeed } from './fromInquiry';
 import type { Audience, ProjectCategory } from '../../classification';
 import type { ProjectStage } from '@/types';
-import { isBusinessEntity } from '@/lib/keepApi';
 
 /** 案件（ネタ）の読み取り結果のうち、この画面が使う分だけ */
 export interface SeedProject {
@@ -51,9 +50,6 @@ export interface SeedProject {
   event_end: string | null;
   gls_number: string | null;
   dates?: { date: string }[];
-  /** 事業主体（migration 282）。`entity_manual` が立っているときだけ欄に写す（それ以外は「自動」） */
-  entity?: string | null;
-  entity_manual?: boolean | null;
 }
 
 export interface IntakeSelection {
@@ -82,9 +78,6 @@ function fromProject(p: SeedProject): NewProjectValues {
     expected_amount: Number(p.expected_amount) > 0 ? String(Number(p.expected_amount)) : '',
     intake_channel: p.intake_channel ?? '',
     assigned_to: p.assigned_to ?? '',
-    // 人が上書きした主体だけ欄に出す。自動で決まった値を欄に写すと「選んだ」ことになり、
-    // 保存でその値が固定されてお客様を変えても戻らなくなる
-    entity: p.entity_manual && isBusinessEntity(p.entity) ? p.entity : '',
     notes: p.memo_excerpt ?? '',
   };
 }

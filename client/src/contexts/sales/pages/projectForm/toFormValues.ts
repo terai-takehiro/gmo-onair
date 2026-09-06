@@ -6,7 +6,6 @@
  * 欄そのものは `projectNew/RequiredFields` / `projectNew/MoreFields` が持ちます。
  */
 import type { Audience, ProjectCategory } from '../../classification';
-import { isBusinessEntity } from '@/lib/keepApi';
 import type { FormValues } from './types';
 
 export function projectToFormValues(project: any): FormValues {
@@ -14,9 +13,6 @@ export function projectToFormValues(project: any): FormValues {
     name: project.name || '',
     customer_id: project.customer_id || '',
     customer_type: project.customer_type === 'internal' ? 'internal' : 'external',
-    // 事業主体は**人が上書きしているときだけ**欄に出す（それ以外は「自動」のまま）。
-    // 自動で決まった値を欄に写すと、保存でその値が固定されてお客様を変えても戻らなくなる
-    entity: project.entity_manual && isBusinessEntity(project.entity) ? project.entity : '',
     project_type: project.project_type || 'other',
     // 2段分類（migration 182）。**旧 `project_type` から埋め直さない** —
     // 旧分類は4種しかないので「有観客の収録」が「有観客の配信」に化ける。

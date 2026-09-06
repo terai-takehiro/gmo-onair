@@ -14,6 +14,7 @@
  * （受領書類の `financeDocChainParity.test.ts` と同じ形）。
  */
 import { holidaysOf } from '../../../shared/services/holidays';
+import { jstDate } from '../../../shared/utils/jst';
 
 export type ConfidenceLetter = 'A' | 'B' | 'C' | 'D' | 'E';
 
@@ -144,12 +145,17 @@ export function dateRangeLabel(start: string | null | undefined, end: string | n
   return `${s}〜${dateLabel(end, { withYear: !sameYear })}`;
 }
 
-/** Date か ISO 文字列を `YYYY-MM-DD` にする（Date はその環境のローカル日付） */
+/**
+ * Date か ISO 文字列を `YYYY-MM-DD` にする。
+ * **Date は日本時間の日付**（`shared/utils/jst.ts`）— コンテナは UTC で動くので、`getDate()` を
+ * そのまま使うと JST の 0〜8 時台に「前日」になる（画面側の写し `calc.ts` は端末のローカル日付＝
+ * 利用者は日本にいるので同じ答えになる）。文字列は先頭 10 桁だけを見る（時差に触らない）
+ */
 export function toDateOnly(value: string | Date | null | undefined): string | null {
   if (value == null) return null;
   if (value instanceof Date) {
     if (Number.isNaN(value.getTime())) return null;
-    return `${value.getFullYear()}-${pad2(value.getMonth() + 1)}-${pad2(value.getDate())}`;
+    return jstDate(value);
   }
   return /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : null;
 }
@@ -172,7 +178,7 @@ export function pipelineSinceLast(
   return null;
 }
 
-/** 今日（サーバーのローカル日付・`YYYY-MM-DD`）。週報の `toDateStr` と同じ決め方 */
+/** 今日（**日本時間**の `YYYY-MM-DD`・`shared/utils/jst.ts`）。次回の開催日の既定・会議日の計算に使う */
 export function todayStr(now: Date = new Date()): string {
-  return toDateOnly(now)!;
+  return jstDate(now);
 }

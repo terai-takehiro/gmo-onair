@@ -120,7 +120,7 @@ export default function ProjectLedgerPage() {
         onPick={s.pickIssue}
       />
 
-      {/* ── 絞り込み（1段目）── 中身は `projectLedger/LedgerFilterBar.tsx`（検索・ステージ・分類・事業主体・出す列・CSV） */}
+      {/* ── 絞り込み（1段目）── 中身は `projectLedger/LedgerFilterBar.tsx`（検索・ステージ・分類・計上会社・出す列・CSV） */}
       <LedgerFilterBar s={s} prefs={prefs} csv={csv} isMobile={isMobile} onOpenColumns={() => setColsOpen(true)} />
 
       {/* ── 件数と、選んだときの操作（2段目）────────────────── */}

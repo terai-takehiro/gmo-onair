@@ -172,27 +172,23 @@ describe('isPartialClassification — 片方だけ入っているか', () => {
  * 畳んだ枠の中で選ぶと、その値に依存する「レギュラーの取り決め」カードが
  * **枠の外に**生える形だったため。作る画面・直す画面とも数が1つ減っている。
  */
-/**
- * **事業主体（2026-09-06・migration 282）が両方の画面に1つ増えた。**
- * 隔週キープの主体別の収支のための欄で、既定は「自動」（お客様の区分から）。
- */
 describe('moreFieldCount — 畳んだ「進んだら聞く」の札の数', () => {
-  it('作る画面: 有観客は9・無観客は8（来場人数の欄ごと出ないため）', () => {
-    expect(moreFieldCount('with_audience')).toBe(9);
-    expect(moreFieldCount('no_audience')).toBe(8);
+  it('作る画面: 有観客は8・無観客は7（来場人数の欄ごと出ないため）', () => {
+    expect(moreFieldCount('with_audience')).toBe(8);
+    expect(moreFieldCount('no_audience')).toBe(7);
   });
 
   it('作る画面: まだ選んでいないときは来場人数を数えない', () => {
-    expect(moreFieldCount('')).toBe(8);
+    expect(moreFieldCount('')).toBe(7);
   });
 
   /**
    * 直す画面は 実施日・最初のタスク・メモ を出さず（それぞれ
    * スタジオの日程・タスクタブ・やり取りが持つ）、グループ区分を出す。
    */
-  it('直す画面: 有観客は7・無観客は6', () => {
-    expect(moreFieldCount('with_audience', 'edit')).toBe(7);
-    expect(moreFieldCount('no_audience', 'edit')).toBe(6);
+  it('直す画面: 有観客は6・無観客は5', () => {
+    expect(moreFieldCount('with_audience', 'edit')).toBe(6);
+    expect(moreFieldCount('no_audience', 'edit')).toBe(5);
   });
 
   it('直す画面のほうが必ず少ない（3つ落として1つ足すため）', () => {

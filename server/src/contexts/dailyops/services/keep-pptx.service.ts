@@ -15,8 +15,10 @@
  * 大きさ: 13.333in × 7.5in（LAYOUT_WIDE・16:9）。部品の % はテンプレの仮想キャンバス（1280×720）に対する値。
  */
 import PptxGenJS from 'pptxgenjs';
-import type {
-  KeepDeck, KeepReportPack, SlidePage, SlidePart, ProjectPageData, MonthlyPlTable, PlByEntity, UtilizationCalendar, BusinessEntity,
+import {
+  BUSINESS_ENTITIES,
+  type KeepDeck, type KeepReportPack, type SlidePage, type SlidePart, type ProjectPageData, type MonthlyPlTable, type PlByEntity,
+  type UtilizationCalendar, type BusinessEntity,
 } from './keep-deck.types';
 import { FORMAT_COLORS } from './keep-templates';
 import { changedPlKeys, changedUtilization, changeNoteLabel, previousCalendar, previousPlTable } from './keep-pack-diff';
@@ -53,11 +55,31 @@ const isPhotos = (v: unknown): v is Photos => Array.isArray(v) && (v.length === 
 const isStrings = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string');
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
-function photosOf(pack: KeepReportPack | null, page: SlidePage, part: SlidePart, ctx: BindingContext): Photos {
+/** 1つの写真の部品に置く上限（`renderPhotos` の 2×2 と同じ）。**Box を読む前に**ここで切る */
+const MAX_PHOTOS_PER_PART = 4;
+
+/**
+ * パックが知っている写真の Box file id（案件ページ・実施報告・内覧会）。
+ * 人の上書き（`text_override` に並べた id）は**この中の id だけ**を通す — 構成の JSON に
+ * 任意の file id を書けば Box の任意のファイルをサーバー経由で読み出せる、という穴を閉じる。
+ */
+function knownPhotoIds(pack: KeepReportPack | null): Set<string> {
+  const ids = new Set<string>();
+  if (!pack) return ids;
+  for (const p of [...pack.project_pages, ...pack.event_reports]) for (const ph of p.photos) ids.add(ph.box_file_id);
+  const inview = pack.inview as (KeepReportPack['inview'] & { photos?: Photos }) | null;
+  if (inview && isPhotos(inview.photos)) for (const ph of inview.photos) ids.add(ph.box_file_id);
+  return ids;
+}
+
+function photosOf(pack: KeepReportPack | null, page: SlidePage, part: SlidePart, ctx: BindingContext, known: Set<string>): Photos {
   const r = resolveBinding(pack, page, part, ctx);
   if (!r.ok) return [];
-  if (typeof r.value === 'string') return photosFromOverride(r.value);
-  return isPhotos(r.value) ? r.value : [];
+  if (typeof r.value === 'string') {
+    // 上書きの id はパックに載っている写真だけ。知らない id は黙って飛ばす（灰色の枠にもしない）
+    return photosFromOverride(r.value).filter((p) => known.has(p.box_file_id)).slice(0, MAX_PHOTOS_PER_PART);
+  }
+  return isPhotos(r.value) ? r.value.slice(0, MAX_PHOTOS_PER_PART) : [];
 }
 
 /** 数値報告ページの表の値（注記を自動で組むときに使う） */
@@ -88,6 +110,8 @@ function textStyle(page: SlidePage, part: SlidePart): { size: number; bold?: boo
 
 interface Ctx {
   pack: KeepReportPack | null; bind: BindingContext; photos: Map<string, string>; warnings: string[];
+  /** パックが知っている写真の id（上書きの検査に使う） */
+  knownPhotos: Set<string>;
   /** 前回の資料のパック。「変更点は赤字」の比較相手 */
   prev: KeepReportPack | null;
   /** このページに赤字の対象（表・ヨミ表・カレンダー）を描いたか（脚注を出す印。ページごとに戻す） */
@@ -95,9 +119,9 @@ interface Ctx {
 }
 
 // ── 「変更点は赤字」: どの升・行・数字を赤にするか（前回の資料が無ければ何も返さない）────
-/** binding（`landing.gss` など）から主体を読む。読めなければ all */
+/** binding（`landing.GSS` など）から計上会社を読む。読めなければ all */
 function entityOfBinding(binding: string | null): keyof PlByEntity {
-  const m = /^(?:landing|forecast)\.(all|gss|gscs|gig)$/.exec(binding ?? '');
+  const m = /^(?:landing|forecast)\.(all|GJV|GSS|GMO)$/.exec(binding ?? '');
   return (m?.[1] as keyof PlByEntity | undefined) ?? 'all';
 }
 function plChanges(c: Ctx, binding: string | null, t: MonthlyPlTable): ReadonlySet<string> | undefined {
@@ -109,7 +133,7 @@ function plChangesByEntity(c: Ctx, p: PlByEntity): Partial<Record<BusinessEntity
   if (!c.prev) return undefined;
   c.marked = true;
   const out: Partial<Record<BusinessEntity, ReadonlySet<string>>> = {};
-  for (const e of ['gss', 'gscs', 'gig'] as const) {
+  for (const e of BUSINESS_ENTITIES) {
     const t = p[e];
     if (t) out[e] = changedPlKeys(previousPlTable(c.prev, e, t.year_month), t);
   }
@@ -157,7 +181,7 @@ function renderPart(slide: PptxGenJS.Slide, page: SlidePage, part: SlidePart, c:
       if (part.binding === 'trend.utilization' && Array.isArray(v)) { renderUtilizationChart(slide, v as TrendUtilizationPoint[], box, CT); return; }
       addPlaceholder(slide, box, label); return;
     case 'photos':
-      renderPhotos(slide, photosOf(c.pack, page, part, c.bind), box, c.photos, label); return;
+      renderPhotos(slide, photosOf(c.pack, page, part, c.bind, c.knownPhotos), box, c.photos, label); return;
     case 'calendar':
       if (isCalendar(v)) { renderCalendar(slide, v, box, utilizationChanged(c, v)); return; }
       addPlaceholder(slide, box, label); return;
@@ -196,13 +220,14 @@ export async function renderDeckPptx(deck: KeepDeck, pack: KeepReportPack | null
   const bind: BindingContext = { meeting_date: deck.meeting_date, meeting_title: opts.meeting_title ?? null, agenda: deckAgenda(deck.pages), inputs: opts.inputs ?? null };
   const warnings: string[] = [];
 
-  // 写真は先にまとめて取る（描く側は同期）
+  // 写真は先にまとめて取る（描く側は同期）。部品ごとに 4 枚まで・パックが知っている id だけ（`photosOf`）
+  const knownPhotos = knownPhotoIds(pack);
   const ids: string[] = [];
   if (!opts.skipPhotos) {
-    for (const page of pages) for (const part of page.parts) if (part.type === 'photos') ids.push(...photosOf(pack, page, part, bind).map((p) => p.box_file_id));
+    for (const page of pages) for (const part of page.parts) if (part.type === 'photos') ids.push(...photosOf(pack, page, part, bind, knownPhotos).map((p) => p.box_file_id));
   }
   const photos = await fetchPhotos(ids);
-  const c: Ctx = { pack, bind, photos, warnings, prev: opts.previousPack ?? null, marked: false };
+  const c: Ctx = { pack, bind, photos, warnings, knownPhotos, prev: opts.previousPack ?? null, marked: false };
 
   const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_WIDE';

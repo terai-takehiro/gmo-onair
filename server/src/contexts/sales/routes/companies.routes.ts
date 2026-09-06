@@ -296,7 +296,7 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
    * **渡してきたらそちらが正** — 画面のチェックボックスで外せます。
    */
   const groupFlag = is_gmo_group === undefined ? looksLikeGmoGroup(name) : is_gmo_group === true;
-  // **「サムライ関連」の印**（migration 282）。隔週キープのヨミ表で別表に出すお客様
+  // **「サムライ関連」の印**（migration 291）。隔週キープのヨミ表で別表に出すお客様
   // （サムライパートナーズ／GMOサムライコンテンツスタジオ）。社名から見立てない — 人が付ける
   const samuraiFlag = samurai_group === true;
 

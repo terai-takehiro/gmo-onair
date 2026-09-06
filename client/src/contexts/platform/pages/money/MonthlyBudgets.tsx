@@ -1,5 +1,5 @@
 /**
- * 月次予算（隔週キープの目標）— お金のルール ⑤ の下
+ * 月次予算（隔週キープの目標）— お金のルール ⑤ の下・会社タブの会社ぶん
  *
  * ── なぜここにあるか ────────────────────────────────────────
  *
@@ -9,12 +9,15 @@
  * **どこからも入れられなくなっていた**。お金の決めごとは1画面に集める方針なので
  * ここに戻す（§8「入力画面: 月次予算・経理の補正値は設定「お金のルール」に戻す」）。
  *
- * ── 主体ごとに持つ（2026年10月の会社分割）────────────────────
+ * ── 会社（計上会社）ごとに持つ ──────────────────────────────
  *
- * GMOサムライスタジオ／GMOサムライコンテンツスタジオ／GMOインターネットグループ人格
- * の3つ（migration 283 で `year_month × entity` が主キー）。
- * **全体（統合）は主体の合計で、入力させない** — 合計だけ入れると主体別の表が
- * 「—」のままになり、按分すると数字の出どころが消える。
+ * 2026年10月の事業再編（`docs/reorg-2026-10-plan.md` §4.5・§6 P2 Round 1）で
+ * `monthly_budgets` は `(entity_code, year_month)` が主キーになった（migration 288）。
+ * **どの会社の分を見る・直すかはこの部品では選ばず、お金のルールの会社タブ（`entityCode`）
+ * に従う** — 締め日・税率と同じ「会社ごとの設定」なので、同じ切替で動くほうが迷わない
+ * （ここに別の切替を置くと「タブは GSS なのに表は GJV」ができる）。
+ * **全体（統合）＝3社の合計は読むだけ**（切替で見られる・入力させない） — 合計だけ入れると
+ * 会社別の表が「—」のままになり、按分すると数字の出どころが消える。
  *
  * ── 表のまま横に流す ────────────────────────────────────────
  *
@@ -29,45 +32,42 @@
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
-import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
 import { Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { cn } from '@gmo-onair/shared/src/client/utils';
-import {
-  BUSINESS_ENTITY_LABELS, type EntityScope, type MonthlyBudget,
-} from '@gmo-onair/shared/src/keepReport/types';
-import { BUSINESS_ENTITIES, useMonthlyBudgets, type MonthlyOverride } from '@/lib/keepApi';
+import type { EntityScope } from '@gmo-onair/shared/src/keepReport/types';
+import { ENTITY_BADGE_LABEL } from '@/contexts/sales/pages/projectList/stages';
+import { useMonthlyBudgets } from '@/lib/keepApi';
+import type { LegalEntityCode } from '../reorg/types';
 import { MonthlyBudgetEditor } from './MonthlyBudgetEditor';
-import {
-  BUDGET_FIELDS, budgetKey, monthsOf, sumNullable, viewOf, ymLabel, type BudgetView,
-} from './budgetMath';
+import { BUDGET_FIELDS, monthsOf, rowOf, sumNullable, viewOf, ymLabel, type BudgetView } from './budgetMath';
 
 /** 金額の列幅。**7段のうち 128** — 予算は千万円台まで（8桁＋区切り）がこれに入る */
 const MONEY_W = 128;
 /** 行の幅（冒頭「表のまま横に流す」）。表頭・月の行・合計の行で同じ */
 const ROW_W = 'w-fit min-w-full';
 
-const SCOPE_ITEMS = [
-  { key: 'all' as EntityScope, label: '全体（統合）', count: null },
-  ...BUSINESS_ENTITIES.map((e) => ({ key: e as EntityScope, label: BUSINESS_ENTITY_LABELS[e], count: null })),
-];
-
-export function MonthlyBudgets({ canEdit }: { canEdit: boolean }) {
+export function MonthlyBudgets({ entityCode, canEdit }: {
+  /** お金のルールの会社タブで選んでいる会社（`MoneyRulesPage.tsx` の `entityCode`） */
+  entityCode: LegalEntityCode;
+  canEdit: boolean;
+}) {
   // **年度ではなく暦年**（資料の表が暦年の月で並んでいる）。年は前後に動かせる
   const [year, setYear] = useState(() => new Date().getFullYear());
-  const [scope, setScope] = useState<EntityScope>('all');
-  const [editing, setEditing] = useState<string | null>(null);
+  // 全体（統合）＝3社の合計を見る（読むだけ）。既定はタブの会社
+  const [showTotal, setShowTotal] = useState(false);
+  // 開いている編集欄。**会社ごとに持つ** — タブを切り替えたら別の会社の欄は出さない
+  //（同じ月の欄が別の会社の値で開いたままになると、どの会社に保存されるのか読めない）
+  const [editing, setEditing] = useState<{ entityCode: LegalEntityCode; ym: string } | null>(null);
   const q = useMonthlyBudgets(`${year}-01`, `${year}-12`);
 
+  const scope: EntityScope = showTotal ? 'all' : entityCode;
+  const budgets = q.data?.budgets ?? [];
+  const overrides = q.data?.overrides ?? [];
   const months = monthsOf(year);
-  const budgets = new Map<string, MonthlyBudget>(
-    (q.data?.budgets ?? []).map((b) => [budgetKey(b.year_month, b.entity), b]),
-  );
-  const overrides = new Map<string, MonthlyOverride>(
-    (q.data?.overrides ?? []).map((o) => [budgetKey(o.year_month, o.entity), o]),
-  );
-  const views = months.map((ym) => [ym, viewOf(ym, scope, BUSINESS_ENTITIES, budgets, overrides)] as const);
+  const views = months.map((ym) => [ym, viewOf(ym, scope, budgets, overrides)] as const);
   const yearTotal: BudgetView = {
     revenue: sumNullable(views.map(([, v]) => v.revenue)),
     cogs_fixed: sumNullable(views.map(([, v]) => v.cogs_fixed)),
@@ -77,10 +77,11 @@ export function MonthlyBudgets({ canEdit }: { canEdit: boolean }) {
     hasOverride: false,
   };
 
-  // **主体を選んだときだけ直せる。** 全体は合計なので入力欄を出さない（冒頭の理由）
-  const editable = canEdit && scope !== 'all';
+  // **会社を選んでいるときだけ直せる。** 全体は合計なので入力欄を出さない（冒頭の理由）
+  const editable = canEdit && !showTotal;
+  const editingYm = editing && editing.entityCode === entityCode ? editing.ym : null;
   const moveYear = (delta: number) => { setYear((y) => y + delta); setEditing(null); };
-  const pickScope = (s: EntityScope) => { setScope(s); setEditing(null); };
+  const toggleTotal = (on: boolean) => { setShowTotal(on); setEditing(null); };
 
   /** 金額の1マス。`key` は行の中で列を見分けるため（同じ行に同じ値が並ぶ） */
   const money = (key: string, v: number | null, bold = false) => (
@@ -100,12 +101,24 @@ export function MonthlyBudgets({ canEdit }: { canEdit: boolean }) {
         </span>
         <span className="text-cardtitle shrink-0">月次予算（隔週キープの目標）</span>
         <span className="text-note min-w-0 flex-1 truncate text-muted-foreground">
-          主体ごとの目標。着地表・見込表の「目標」と対目標比になります
+          会社ごとの目標。着地表・見込表の「目標」と対目標比になります
         </span>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 border-b border-border-faint px-4 py-2.5">
-        <FilterChips label="事業主体で絞り込む" items={SCOPE_ITEMS} value={scope} onChange={pickScope} />
+        {/* いま出している会社。タブと同じ呼び名（`ENTITY_BADGE_LABEL` ＝ `legal_entities.short_name`） */}
+        <span className="text-sub">
+          {showTotal ? (
+            <><strong className="font-bold">全体（統合）</strong>＝3社の合計（読むだけ）</>
+          ) : (
+            <><strong className="font-bold">{ENTITY_BADGE_LABEL[entityCode]}</strong>
+              <span className="font-number ml-1 text-muted-foreground">{entityCode}</span> の目標</>
+          )}
+        </span>
+        <span className="flex items-center gap-2">
+          <Switch id="mb-total" checked={showTotal} onCheckedChange={(v) => toggleTotal(!!v)} />
+          <label htmlFor="mb-total" className="text-note text-muted-foreground">全体（統合）を見る</label>
+        </span>
         <span className="flex-1" />
         <div className="flex items-center gap-1">
           <Button type="button" variant="outline" size="sm" aria-label="前の年" onClick={() => moveYear(-1)}>
@@ -138,7 +151,7 @@ export function MonthlyBudgets({ canEdit }: { canEdit: boolean }) {
 
             {views.map(([ym, v]) => (
               <div key={ym}>
-                <Row density="table" divider className={cn(ROW_W, editing === ym && 'bg-primary-surface-weak')}>
+                <Row density="table" divider className={cn(ROW_W, editingYm === ym && 'bg-primary-surface-weak')}>
                   <RowMain>
                     <span className="text-list font-number">{ymLabel(ym)}</span>
                     {v.hasOverride && (
@@ -149,21 +162,22 @@ export function MonthlyBudgets({ canEdit }: { canEdit: boolean }) {
                   {money('op', v.operating_profit, true)}
                   {editable && (
                     <RowSlot w={72} align="right">
-                      <Button type="button" variant="outline" size="sm" onClick={() => setEditing(ym)}>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setEditing({ entityCode, ym })}>
                         編集
                       </Button>
                     </RowSlot>
                   )}
                 </Row>
-                {/* `editable` が真なら `scope` は主体（`all` ではない）— 上の定義どおり */}
-                {editable && editing === ym && (
+                {/* `editable` が真なら `showTotal` は偽 — 表もこの会社の行だけを出している */}
+                {editable && editingYm === ym && (
                   <MonthlyBudgetEditor
-                    // 年・主体を変えたら閉じる（`moveYear` / `pickScope`）ので、月ごとに作り直せば十分
-                    key={`${ym}:${scope}`}
+                    // 年を動かす・全体に切り替えると閉じる（`moveYear` / `toggleTotal`）。
+                    // 会社が変われば `editingYm` が null になるので、月×会社で作り直せば十分
+                    key={`${ym}:${entityCode}`}
                     ym={ym}
-                    entity={scope}
-                    budget={budgets.get(budgetKey(ym, scope))}
-                    override={overrides.get(budgetKey(ym, scope))}
+                    entityCode={entityCode}
+                    budget={rowOf(budgets, ym, entityCode)}
+                    override={rowOf(overrides, ym, entityCode)}
                     onClose={() => setEditing(null)}
                   />
                 )}
@@ -181,8 +195,8 @@ export function MonthlyBudgets({ canEdit }: { canEdit: boolean }) {
       )}
 
       <p className="text-note border-t border-border-faint bg-surface-subtle px-4 py-3 text-muted-foreground">
-        <strong className="font-bold">全体（統合）は主体の合計</strong>です。主体を選んで月ごとに入れてください
-        （主体の予算が無い月は「—」のままで、按分しません）。
+        <strong className="font-bold">全体（統合）は3社の合計</strong>です。上の会社タブで会社を選び、月ごとに入れてください
+        （会社の予算が無い月は「—」のままで、按分しません）。
         営業利益は 売上高 − 固定原価 − 変動原価 − 販管費 で計算し、手では入れません。
         {!canEdit && <> 直せるのは<strong className="font-bold">案件管理の編集以上</strong>の人です。</>}
       </p>

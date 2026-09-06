@@ -1,5 +1,5 @@
 /**
- * 資料ビルダーの「構成（デッキ）」— 会議日ごとの KeepDeck の版と、人の直しの差分（migration 285）。
+ * 資料ビルダーの「構成（デッキ）」— 会議日ごとの KeepDeck の版と、人の直しの差分（migration 291）。
  *
  * ── 版の考え方（docs/design/v4/keep-report.md §6.1・§10）────────────
  * - `keep_decks` は最新、`keep_deck_versions` に全文の版（切り詰めない。条件1）
@@ -10,11 +10,17 @@
  *   集計（条件4）は**デッキごとに最新の人の版の行だけ**を数えればよい（版をまたいで足さない）
  * - 初めての会議日は、前回（会議日が一つ前）の構成を写して自動ページを組み直す。前回が無ければ標準の構成
  *
+ * ── 同時に触ったとき ───────────────────────────────────────────
+ * - 初めて開く2人が同時に版1を作る → `keep_decks.meeting_date` の UNIQUE に `ON CONFLICT DO NOTHING` で
+ *   負けた側は相手の版を読み直す（自分の版1は捨てる。版の番号が飛ばない）
+ * - 保存・組み直しは **`UPDATE … WHERE version = 今の版`** で書き、更新できなければ 409（画面が送ってきた
+ *   `expectedVersion` の前検査だけでは、読んでから書くまでの間に入った保存を止められない）
+ *
  * 純粋な部分（構成を組む・差分を作る）は `keep-deck-compose.ts` / `keep-deck-diff.ts`（shared の写し）。
  * ここは DB の出し入れだけ。
  */
 import { v4 as uuidv4 } from 'uuid';
-import { queryAll, queryOne, execute, withTransaction, type Row } from '../../../shared/db/connection';
+import { queryAll, queryOne, execute, withTransaction, type Row, type TxClient } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import type { KeepDeck, KeepReportPack, SlidePage, SlidePart } from './keep-deck.types';
 import { SLIDE_TEMPLATES } from './keep-templates';
@@ -110,6 +116,21 @@ async function findRow(meetingDate: string): Promise<Row | undefined> {
   return queryOne('SELECT * FROM keep_decks WHERE meeting_date = ?', [meetingDate]);
 }
 
+/**
+ * 最新の版を1つ進める。**読んだときの版（`current.version`）のままの行だけ**を更新し、その間に
+ * 別の保存が入っていれば（更新できる行が無い）409 で止める — 取引ごと ROLLBACK される
+ */
+async function bumpVersion(tx: TxClient, current: KeepDeck, next: KeepDeck): Promise<void> {
+  const updated = await tx.queryOne(
+    `UPDATE keep_decks SET deck = ?::jsonb, version = ?, pack_id = ?, updated_at = NOW(), updated_by = ?
+      WHERE id = ? AND version = ? RETURNING id`,
+    [JSON.stringify(next), next.version, next.pack_id, next.updated_by, current.id, current.version],
+  );
+  if (!updated) {
+    throw new AppError(409, 'CONFLICT', `別の保存が先に入っています（開いたときの版 ${current.version}）。開き直してください`);
+  }
+}
+
 async function previousMeetingDate(meetingDate: string): Promise<{ date: string; pages: SlidePage[] } | null> {
   const row = await queryOne('SELECT meeting_date, deck FROM keep_decks WHERE meeting_date < ? ORDER BY meeting_date DESC LIMIT 1', [meetingDate]);
   if (!row) return null;
@@ -159,16 +180,25 @@ export const keepDeckService = {
       id, meeting_date: meetingDate, pack_id, version: 1,
       pages: composeDeckPages(prev?.pages ?? null, pack), exported: null, updated_at: now, updated_by: userId,
     };
-    await withTransaction(async (tx) => {
-      await tx.execute(
-        'INSERT INTO keep_decks (id, meeting_date, pack_id, deck, version, updated_by) VALUES (?, ?, ?, ?::jsonb, 1, ?)',
+    const created = await withTransaction(async (tx) => {
+      // 同じ会議日を同時に初めて開いた相手がいれば、こちらの版1は作らない（UNIQUE (meeting_date) が砦）
+      const inserted = await tx.queryOne(
+        `INSERT INTO keep_decks (id, meeting_date, pack_id, deck, version, updated_by) VALUES (?, ?, ?, ?::jsonb, 1, ?)
+         ON CONFLICT (meeting_date) DO NOTHING RETURNING id`,
         [id, meetingDate, pack_id, JSON.stringify(deck), userId],
       );
+      if (!inserted) return false;
       await tx.execute(
         'INSERT INTO keep_deck_versions (id, deck_id, version, deck, source, created_by) VALUES (?, ?, 1, ?::jsonb, ?, ?)',
         [uuidv4(), id, JSON.stringify(deck), 'auto', userId],
       );
+      return true;
     });
+    if (!created) {
+      const theirs = await findRow(meetingDate);
+      if (!theirs) throw new AppError(409, 'CONFLICT', '同じ会議日の構成が同時に作られました。開き直してください');
+      return { deck: rowToDeck(theirs), pack, pack_frozen: frozen, previous_meeting_date: prev?.date ?? null, inputs };
+    }
     return { deck, pack, pack_frozen: frozen, previous_meeting_date: prev?.date ?? null, inputs };
   },
 
@@ -194,8 +224,7 @@ export const keepDeckService = {
     const now = new Date().toISOString();
     const deck: KeepDeck = { ...current, pages, version, updated_at: now, updated_by: userId };
     await withTransaction(async (tx) => {
-      await tx.execute('UPDATE keep_decks SET deck = ?::jsonb, version = ?, updated_at = NOW(), updated_by = ? WHERE id = ?',
-        [JSON.stringify(deck), version, userId, current.id]);
+      await bumpVersion(tx, current, deck);
       await tx.execute('INSERT INTO keep_deck_versions (id, deck_id, version, deck, source, created_by) VALUES (?, ?, ?, ?::jsonb, ?, ?)',
         [uuidv4(), current.id, version, JSON.stringify(deck), 'human', userId]);
       for (const e of edits) {
@@ -223,8 +252,7 @@ export const keepDeckService = {
       ...current, pack_id, version, pages: composeDeckPages(current.pages, pack), updated_at: new Date().toISOString(), updated_by: userId,
     };
     await withTransaction(async (tx) => {
-      await tx.execute('UPDATE keep_decks SET deck = ?::jsonb, version = ?, pack_id = ?, updated_at = NOW(), updated_by = ? WHERE id = ?',
-        [JSON.stringify(deck), version, pack_id, userId, current.id]);
+      await bumpVersion(tx, current, deck);
       await tx.execute('INSERT INTO keep_deck_versions (id, deck_id, version, deck, source, created_by) VALUES (?, ?, ?, ?::jsonb, ?, ?)',
         [uuidv4(), current.id, version, JSON.stringify(deck), 'auto', userId]);
     });

@@ -6,7 +6,7 @@
  *   if (r.ok) draw(r.value) else drawPlaceholder(r.label)
  *
  * ── binding の文法 ────────────────────────────────────────────
- * - `landing.all` / `forecast.gss` / `pipeline.external` / `project_pages[3].summary_lines` /
+ * - `landing.all` / `forecast.GSS` / `pipeline.external` / `project_pages[3].summary_lines` /
  *   `calendars[0]` / `minutes.next_meeting_date` … パック（KeepReportPack）へのパス。
  *   `.` で区切り、配列は `[i]`。**無いところを指したら `ok: false`**（投げない。画面は灰色の枠、pptx は灰色の文字にする）
  * - **仮想の葉**（パックに実体は無いが部品が要るもの）:
@@ -15,7 +15,7 @@
  *   `trend.revenue` → `TrendRevenuePoint[]`、`trend.utilization` → `TrendUtilizationPoint[]`
  *   `inview.summary` → 箇条書きの文字列の並び（開催日・参加・満足度・ヨミ化・次回）
  * - `$meeting_date` / `$meeting_title` / `$agenda` / `$pl_heading` … 資料の設定（`BindingContext`）。
- *   `$pl_heading` だけはページの部品の `options.mode` / `options.entity` とパックの対象月から組む
+ *   `$pl_heading` だけはページの部品の `options.mode` / `options.entity`（all / GJV / GSS / GMO / by_entity）とパックの対象月から組む
  * - `inputs.attendance` … ONAiR に無い手入力（`BindingContext.inputs`）
  * - **パスの形をしていない文字列は、そのまま文として使う**（`単位：千円` / `Appendix` など。テンプレの固定文）
  * - `project.*` / `report.*`（テンプレの相対パス）は、`buildStandardDeck` が組むときに
@@ -93,7 +93,8 @@ function plHeading(pack: KeepReportPack | null, page: SlidePage): string {
   const ym = pack ? pack[mode].all.year_month : null;
   const month = monthLabel(ym);
   const what = mode === 'forecast' ? '着地見込' : '着地';
-  const suffix = entity === 'by_entity' ? '（主体別）' : entity === 'all' ? '' : `（${entity}）`;
+  // by_entity は「計上会社別」（画面の一覧・チップと同じ語）。1社なら entity_code をそのまま（GSS / GJV / GMO）
+  const suffix = entity === 'by_entity' ? '（計上会社別）' : entity === 'all' ? '' : `（${entity}）`;
   return `${month} ${what}${suffix}`.trim();
 }
 

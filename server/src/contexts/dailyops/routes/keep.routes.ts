@@ -20,13 +20,14 @@ const canEdit = [requireAuth, requirePermission('dailyops', 'editor')] as const;
 
 /**
  * パック。凍結した版があればそれ、無ければ（または `live=1`）いまの数字。
- *   ?meeting=YYYY-MM-DD（省略時は次回の開催日）&entity=all|gss|gscs|gig&segment=all|internal|external&live=1
+ *   ?meeting=YYYY-MM-DD（省略時は次回の開催日）&entity_code=all|GJV|GSS|GMO&segment=all|internal|external&live=1
+ * `entity_code` は計上会社（2026年10月の事業再編・`legal_entities.code`）。知らない値は 400
  * → { pack, frozen, pack_id }
  */
 router.get('/keep/pack', ...canRead, async (req, res) => {
   const meeting = req.query.meeting ? String(req.query.meeting) : null;
   const live = req.query.live === '1' || req.query.live === 'true';
-  const data = await getPackForMeeting({ meetingDate: meeting, entity: req.query.entity, segment: req.query.segment, live });
+  const data = await getPackForMeeting({ meetingDate: meeting, entity: req.query.entity_code, segment: req.query.segment, live });
   res.json({ success: true, data });
 });
 
@@ -38,15 +39,19 @@ router.get('/keep/pack', ...canRead, async (req, res) => {
 router.get('/keep/slack-draft', ...canRead, async (req, res) => {
   const meeting = req.query.meeting ? String(req.query.meeting) : null;
   const live = req.query.live === '1' || req.query.live === 'true';
-  const data = await getSlackDraftForMeeting({ meetingDate: meeting, entity: req.query.entity, segment: req.query.segment, live });
+  const data = await getSlackDraftForMeeting({ meetingDate: meeting, entity: req.query.entity_code, segment: req.query.segment, live });
   res.json({ success: true, data });
 });
 
-/** 凍結（週報の確定から呼ぶのが本線。単独でも可） → { pack_id, frozen_at, meeting_date } */
+/**
+ * 凍結（週報の確定から呼ぶのが本線。単独でも可）。body { meeting_date, entity_code?, segment?, ops_report_id? }
+ * → { pack_id, frozen_at, meeting_date }。同じ会議日・同じ絞り込みを 60 秒以内に凍結し直しても
+ * 版は増えず、直前の版の id が返る（`freezePack`）
+ */
 router.post('/keep/pack/freeze', ...canEdit, async (req, res) => {
-  const { meeting_date, entity, segment, ops_report_id } = req.body ?? {};
+  const { meeting_date, entity_code, segment, ops_report_id } = req.body ?? {};
   if (!meeting_date) throw new AppError(400, 'VALIDATION_ERROR', 'meeting_date は必須です');
-  const scope = parseScope(entity, segment);
+  const scope = parseScope(entity_code, segment);
   const frozen = await freezePack({
     meetingDate: String(meeting_date), entity: scope.entity, segment: scope.segment,
     opsReportId: ops_report_id ? String(ops_report_id) : null, userId: req.user!.id,

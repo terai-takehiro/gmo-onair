@@ -1,17 +1,14 @@
 /**
  * 「進んだら聞く」（**案件作成と案件を直す・PC とスマホで共通**）
  *
- * 作る画面 … ご担当 ／ リード経路 ／ 事業主体 ／ 実施日 ／ 来場人数 ／ 案件内容 ／ 予算 ／
+ * 作る画面 … ご担当 ／ リード経路 ／ 実施日 ／ 来場人数 ／ 案件内容 ／ 予算 ／
  *            最初のタスク ／ メモ ／ 会場の案内
- * 直す画面 … ご担当 ／ リード経路 ／ 事業主体 ／ 来場人数 ／ 案件内容 ／ 予算 ／ グループ区分
+ * 直す画面 … ご担当 ／ リード経路 ／ 来場人数 ／ 案件内容 ／ 予算 ／ グループ区分
  *
  * ── 並びの決めごと（`docs/design/v4/_form-order.md`）──────────────
  *
  *  ・**リード経路（どこから来た話か）はご担当の直後**。お客様がグループ会社なら
  *    値が固定される（`f.isGroup`）ので、お客様まわりの話をひとまとまりで読める
- *  ・**事業主体はリード経路の直後**（2026-09-06・migration 282）。これもお客様の区分から
- *    自動で決まるものなので、同じまとまりに置く。**既定は「自動」で、選ぶのは
- *    グループ人格として行うもの（GMO Yours・第1本社の会場）などの例外だけ**
  *  ・**継続区分（回のある案件か）はこの枠から出した**。この値で出る／出ないが
  *    決まる「レギュラーの取り決め」カードが枠の外にあり、
  *    **畳んだ枠を開いて選ぶと枠の外にカードが生える**形だったため
@@ -51,9 +48,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { BUSINESS_ENTITY_LABELS } from '@gmo-onair/shared/src/keepReport/types';
 import { INTAKE_CHANNEL_LABEL } from '../projectList/intake';
-import { BUSINESS_ENTITIES, autoEntity, isBusinessEntity } from '@/lib/keepApi';
 import { asksAttendees } from '../../classification';
 import { type FieldsMode, type ProjectFieldsState } from './fields';
 import { Field } from './Field';
@@ -138,30 +133,6 @@ export function MoreFields({
             </SelectContent>
           </Select>
         )}
-      </Field>
-
-      {/*
-        **事業主体**（隔週キープの主体別の収支・`keep-report.md` §4）。
-        **既定は「自動」**で、お客様の区分から決まる（グループ内 → GMOサムライスタジオ、
-        外部 → GMOサムライコンテンツスタジオ）。自動の結果を案内に出す — 出さないと
-        「自動」が何になるのか分からず、確かめるためだけに選ぶ人が出る。
-        人が選んだ値はお客様を変えても戻らない（`entity_manual`）ので、その旨も書く
-      */}
-      <Field
-        label="事業主体"
-        hint={v.entity
-          ? '手で指定しています。お客様を変えても自動では戻りません（「自動」に戻すと元の決まりに従います）'
-          : `自動のときは ${BUSINESS_ENTITY_LABELS[autoEntity(v.customer_type)]}（お客様の区分から）。GMOインターネットグループ人格として行うものだけ選びます`}
-      >
-        <Select value={v.entity || 'auto'} onValueChange={(x) => set('entity', isBusinessEntity(x) ? x : '')}>
-          <SelectTrigger aria-label="事業主体"><SelectValue placeholder="自動" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="auto">自動（お客様の区分から）</SelectItem>
-            {BUSINESS_ENTITIES.map((e) => (
-              <SelectItem key={e} value={e}>{BUSINESS_ENTITY_LABELS[e]}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </Field>
 
       {/* **実施日は「足す」で飛び日を何日でも。** 以前はスマホだけ足せなかった。

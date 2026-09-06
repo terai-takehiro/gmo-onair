@@ -267,20 +267,30 @@ export const keepReportService = {
     }));
   },
 
+  /**
+   * 渡したフィールドだけ更新する。**`undefined` は「渡さなかった＝今の値を保つ」、明示の `null` は
+   * 「消す」**（`upsertOverride`・`saveMoneyRules` と同じ契約）。`??` で畳むと null が「保つ」に化け、
+   * 「お金のルール」で目標の升を空にしても消えない（実測して直した）。MCP は省略を undefined で渡す。
+   */
   async upsertBudget(
     ym: string,
-    fields: { revenue?: number; cogs_fixed?: number; cogs_variable?: number; sga?: number; operating_profit?: number },
+    fields: {
+      revenue?: number | null; cogs_fixed?: number | null; cogs_variable?: number | null;
+      sga?: number | null; operating_profit?: number | null;
+    },
     entityCode: LegalEntityCode = CURRENT_ENTITY_CODE,
   ) {
     const existing = await this.getBudget(ym, entityCode);
+    const pick = (next: number | null | undefined, current: number | null | undefined): number | null =>
+      (next !== undefined ? next : current ?? null);
     const merged = {
-      revenue: fields.revenue ?? existing?.revenue ?? null,
-      cogs_fixed: fields.cogs_fixed ?? existing?.cogs_fixed ?? null,
-      cogs_variable: fields.cogs_variable ?? existing?.cogs_variable ?? null,
-      sga: fields.sga ?? existing?.sga ?? null,
-      operating_profit: fields.operating_profit ?? existing?.operating_profit ?? null,
+      revenue: pick(fields.revenue, existing?.revenue),
+      cogs_fixed: pick(fields.cogs_fixed, existing?.cogs_fixed),
+      cogs_variable: pick(fields.cogs_variable, existing?.cogs_variable),
+      sga: pick(fields.sga, existing?.sga),
+      operating_profit: pick(fields.operating_profit, existing?.operating_profit),
     };
-    // 営業利益: 明示指定が無く構成要素が揃っていれば自動計算
+    // 営業利益: 明示指定が無く構成要素が揃っていれば自動計算（明示の null は「消す」なので計算しない）
     if (fields.operating_profit === undefined
         && merged.revenue != null && merged.cogs_fixed != null && merged.cogs_variable != null && merged.sga != null) {
       merged.operating_profit = merged.revenue - merged.cogs_fixed - merged.cogs_variable - merged.sga;

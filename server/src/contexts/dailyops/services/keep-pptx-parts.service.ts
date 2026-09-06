@@ -19,7 +19,7 @@ import type PptxGenJS from 'pptxgenjs';
 import type {
   MonthlyPlTable, PlByEntity, PipelineRow, ProjectPageData, UtilizationCalendar, BusinessEntity,
 } from './keep-deck.types';
-import { BUSINESS_ENTITY_LABELS } from './keep-deck.types';
+import { BUSINESS_ENTITY_LABELS, BUSINESS_ENTITIES } from './keep-deck.types';
 import { FORMAT_COLORS, FORMAT_FONT } from './keep-templates';
 import { plCellKey, type PlCellColumn } from './keep-pack-diff';
 import {
@@ -71,11 +71,11 @@ export function renderPlTable(
   addTable(slide, rows, box, [30, 15, 15, 10, 15, 15], { size: o.size ?? FORMAT_FONT.table });
 }
 
-/** 主体別: 2つの表を横に並べる（gig は数字があるときだけ3つ目）。`changed` は主体ごとの動いた升 */
+/** 計上会社別: GJV・GSS の2つの表を横に並べる（GMO は数字があるときだけ3つ目）。`changed` は会社ごとの動いた升 */
 export function renderPlByEntity(
   slide: PptxGenJS.Slide, p: PlByEntity, box: Box, changed?: Partial<Record<BusinessEntity, ChangedCells>>,
 ): void {
-  const entities: BusinessEntity[] = ['gss', 'gscs', ...(p.gig ? (['gig'] as BusinessEntity[]) : [])];
+  const entities: BusinessEntity[] = BUSINESS_ENTITIES.filter((e) => p[e] != null);
   const gap = 0.2;
   const w = (box.w - gap * (entities.length - 1)) / entities.length;
   entities.forEach((e, i) => {
@@ -204,7 +204,9 @@ export function renderCalendar(slide: PptxGenJS.Slide, cal: UtilizationCalendar,
   for (let i = 0; i < lead; i++) cells.push({ text: '', options: { fill: { color: 'F7F7F7' } } });
   for (let d = 1; d <= daysInMonth; d++) {
     const dow = (lead + d - 1) % 7;
-    const items = cal.days[String(d)] ?? [];
+    // `days` の鍵は `YYYY-MM-DD`（`keep-pack-calendar.service.ts` の `daysOf` が作る形。画面の
+    // CalendarRenderer と同じ読み方）。`String(d)` は古い形のパックへの保険
+    const items = cal.days[`${cal.year_month}-${String(d).padStart(2, '0')}`] ?? cal.days[String(d)] ?? [];
     const runs: PptxGenJS.TextProps[] = [{ text: String(d), options: { bold: true, fontSize: 9, color: dow >= 5 ? C.negative : C.text, breakLine: items.length > 0 } }];
     items.slice(0, 3).forEach((it, i) => runs.push({
       text: it.label.length > 7 ? `${it.label.slice(0, 7)}…` : it.label,

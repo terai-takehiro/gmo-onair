@@ -35,22 +35,22 @@ function nextPack(): KeepReportPack {
   rev.actual += 1_000_000;
   rev.diff = rev.actual - rev.budget!;
   rev.ratio = 13.2;
-  // 9月 見込（gss）: 販管費の目標だけ動いた（実績は同じ）
-  const sga = next.forecast.gss.lines.find((l) => l.key === 'sga')!;
+  // 9月 見込（GSS）: 販管費の目標だけ動いた（実績は同じ）
+  const sga = next.forecast.GSS.lines.find((l) => l.key === 'sga')!;
   sga.budget = (sga.budget ?? 0) + 100_000;
   // 9月の稼働率が動いた。10月は同じ
   next.calendars[0].utilization = 47.4;
   return next;
 }
 
-describe('前回の表を探す（同じ主体・同じ年月）', () => {
+describe('前回の表を探す（同じ計上会社・同じ年月）', () => {
   it('同じ月は着地／見込のどちらからでも見つかる', () => {
     expect(shared.previousPlTable(prev, 'all', '2026-08')?.mode).toBe('landing');
-    expect(shared.previousPlTable(prev, 'gscs', '2026-09')?.mode).toBe('forecast');
+    expect(shared.previousPlTable(prev, 'GJV', '2026-09')?.mode).toBe('forecast');
   });
-  it('前回に無い月・無い主体・前回そのものが無いときは null', () => {
+  it('前回に無い月・無い計上会社・前回そのものが無いときは null', () => {
     expect(shared.previousPlTable(prev, 'all', '2026-10')).toBeNull();
-    expect(shared.previousPlTable(prev, 'gig', '2026-08')).toBeNull(); // 見本のパックに gig は無い
+    expect(shared.previousPlTable(prev, 'GMO', '2026-08')).toBeNull(); // 見本のパックに GMO（グループ本体）は無い
     expect(shared.previousPlTable(null, 'all', '2026-08')).toBeNull();
   });
 });
@@ -63,11 +63,11 @@ describe('変わった升', () => {
     expect([...changed].sort()).toEqual(['revenue.actual', 'revenue.diff', 'revenue.ratio']);
   });
   it('目標だけ動いた行は 目標 だけ赤（実績・差・比率・判定は見本のまま）', () => {
-    const changed = shared.changedPlKeys(shared.previousPlTable(prev, 'gss', '2026-09'), next.forecast.gss);
+    const changed = shared.changedPlKeys(shared.previousPlTable(prev, 'GSS', '2026-09'), next.forecast.GSS);
     expect([...changed]).toEqual(['sga.budget']);
   });
   it('何も動いていない表は空', () => {
-    expect(shared.changedPlKeys(shared.previousPlTable(prev, 'gscs', '2026-08'), next.landing.gscs).size).toBe(0);
+    expect(shared.changedPlKeys(shared.previousPlTable(prev, 'GJV', '2026-08'), next.landing.GJV).size).toBe(0);
   });
   it('前回に無い月（初めて載る月）は何も赤くしない', () => {
     const oct = clone(next.forecast.all);
@@ -122,14 +122,14 @@ describe('脚注の文', () => {
 
 describe('サーバーの写しは同じ答えを出す', () => {
   const next = nextPack();
-  const entities = ['all', 'gss', 'gscs', 'gig'] as const;
+  const entities = ['all', 'GJV', 'GSS', 'GMO'] as const;
   const months = ['2026-08', '2026-09', '2026-10'];
 
   it('列の並び・鍵の作り方', () => {
     expect(server.PL_CELL_COLUMNS).toEqual(shared.PL_CELL_COLUMNS);
     expect(server.plCellKey('revenue', 'ratio')).toBe(shared.plCellKey('revenue', 'ratio'));
   });
-  it('前回の表・変わった升（主体 × 年月 × 着地/見込 の全部）', () => {
+  it('前回の表・変わった升（計上会社 × 年月 × 着地/見込 の全部）', () => {
     for (const p of [prev, null]) for (const e of entities) for (const ym of months) {
       expect(server.previousPlTable(p, e, ym)).toEqual(shared.previousPlTable(p, e, ym));
       for (const mode of ['landing', 'forecast'] as const) {

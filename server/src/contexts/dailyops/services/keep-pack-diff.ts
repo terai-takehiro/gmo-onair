@@ -28,8 +28,8 @@ export function plCellKey(line: BudgetLine['key'], column: PlCellColumn): PlCell
 }
 
 /**
- * 前回のパックから、同じ主体・同じ年月の表を探す（着地／見込のどちらでも）。無ければ null。
- * `gig` は数字があるときだけ入っているので、無いときは null（＝赤にしない）。
+ * 前回のパックから、同じ計上会社・同じ年月の表を探す（着地／見込のどちらでも）。無ければ null。
+ * `GMO` は数字があるときだけ入っているので、無いときは null（＝赤にしない）。
  */
 export function previousPlTable(
   prev: KeepReportPack | null | undefined, entity: keyof PlByEntity, yearMonth: string,

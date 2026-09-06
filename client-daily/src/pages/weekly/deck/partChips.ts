@@ -34,7 +34,7 @@ export function buildChips(pack: KeepReportPack | null): ChipGroup[] {
     chips: [
       part('pl-landing', `${landingM ? `${landingM}月 ` : ''}着地 表`, '自動', { type: 'table', binding: 'landing.all', options: { mode: 'landing', entity: 'all' }, h: 52 }),
       part('pl-forecast', `${forecastM ? `${forecastM}月 ` : ''}着地見込 表`, '自動', { type: 'table', binding: 'forecast.all', options: { mode: 'forecast', entity: 'all' }, h: 52 }),
-      part('pl-landing-entity', `${landingM ? `${landingM}月 ` : ''}着地 主体別`, '自動', { type: 'table', binding: 'landing', options: { mode: 'landing', entity: 'by_entity' }, h: 52 }),
+      part('pl-landing-entity', `${landingM ? `${landingM}月 ` : ''}着地 計上会社別`, '自動', { type: 'table', binding: 'landing', options: { mode: 'landing', entity: 'by_entity' }, h: 52 }),
       part('kpi', 'KPI の数字（売上・粗利・稼働率）', '自動', { type: 'kpi', binding: 'landing.all', options: { mode: 'landing' }, h: 16 }),
     ],
   };

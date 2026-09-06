@@ -154,9 +154,10 @@ function classify(binding: string, part: SlidePart, value: unknown, pack: KeepRe
       return {
         kind: 'pl_by_entity', mode,
         tables: [
-          { label: BUSINESS_ENTITY_LABELS.gss, table: value.gss },
-          { label: BUSINESS_ENTITY_LABELS.gscs, table: value.gscs },
-          ...(value.gig ? [{ label: BUSINESS_ENTITY_LABELS.gig, table: value.gig }] : []),
+          // GSS を先に（画面のチップ・計上会社別の表と同じ並び）
+          { label: BUSINESS_ENTITY_LABELS.GSS, table: value.GSS },
+          { label: BUSINESS_ENTITY_LABELS.GJV, table: value.GJV },
+          ...(value.GMO ? [{ label: BUSINESS_ENTITY_LABELS.GMO, table: value.GMO }] : []),
         ],
       };
     }

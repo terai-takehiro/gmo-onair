@@ -7,11 +7,15 @@
 > 絵は [`mockups/keep-report/`](mockups/keep-report/README.md)
 > （公開: https://claude.ai/code/artifact/26a5d2e5-87c9-4bb9-a597-9c1631438651 ）。
 > JSON の型は [`shared/src/keepReport/types.ts`](../../../shared/src/keepReport/types.ts)。
-> **画面・サーバーの実装はまだ無い。** モックの確認のあとに §11 の段取りで作る。
+> 画面・サーバーは 2026-09-06 に実装済み（状況は §11.1）。
 
 ---
 
 ## 0. ゴール
+
+> **土台は 2026年10月の事業再編の実装**（[reorg-2026-10-plan.md](../../reorg-2026-10-plan.md)・main の migration 282〜290・2026-09-06 に合流）。
+> 計上会社 `entity_code`（GJV／GSS／GMO）・`legal_entities`・`org_transition`・帳簿の行の `entity_code` は **main のものをそのまま読む**。
+> このブランチが先に持っていた独自の「事業主体」（`projects.entity` ＝ gss／gscs／gig）は合流時に廃止し、語も main の「計上会社」に揃えた（§4・§8）。
 
 | ゴール | この設計での答え |
 |---|---|
@@ -94,7 +98,7 @@ p.37「審議事項の要約」: サムライパートナーズ 49.9% ＋ GMO-IG
 | 自由配置のレイアウト JSON とテンプレの「写し」モデル | `shared/src/client/live/displayLayout.ts`・migration 233 | 資料ビルダーの構成 JSON はこれと同じ考え（テンプレは読み取り専用、適用は写し） |
 | Box の口 `uploadToFolder` / `08_写真` | `shared/services/box.ts`・`box-folder.service.ts` | 出力した pptx の配置と、写真の取得 |
 
-**無いもの**: 事業主体の列、pptx を書く仕組み、グラフ部品（client-daily）、ドラッグ＆ドロップ（client には `@dnd-kit` がある）。
+**無いもの**（着手時点）: pptx を書く仕組み、グラフ部品（client-daily）、ドラッグ＆ドロップ（client には `@dnd-kit` がある）。計上会社の列は main の事業再編が持ってきた（§4）。
 
 ---
 
@@ -105,7 +109,7 @@ p.37「審議事項の要約」: サムライパートナーズ 49.9% ＋ GMO-IG
 | タブ | URL | 中身 | 権限 |
 |---|---|---|---|
 | この週の報告 | `/weekly/:id` | いまのまま（自動集計 → AI の要約 → 週次トピックス） | `dailyops` reader／editor |
-| **隔週キープの数字** | `/weekly/:id/keep` | 対象月・事業主体・お客様区分の絞り込み ＋ 着地表・見込表・推移・ヨミ表・稼働カレンダー・実施報告・内覧会。「JSON を見る」「資料をつくる」 | 読む: `dailyops` か `sales` の reader（財務の数字なので営業・経理も見る） |
+| **隔週キープの数字** | `/weekly/:id/keep` | 対象月・計上会社・お客様区分の絞り込み ＋ 着地表・見込表・推移・ヨミ表・稼働カレンダー・実施報告・内覧会。「JSON を見る」「資料をつくる」 | 読む: `dailyops` か `sales` の reader（財務の数字なので営業・経理も見る） |
 | **資料をつくる** | `/weekly/:id/deck` | ページ一覧 ／ スライドのキャンバス ／ 部品。PowerPoint に出力 | `dailyops` editor。**PC 専用**（`DAILY_PC_ONLY` に理由つきで入れる） |
 
 - **数字は「いまの数字」**（`frozen_at: null`）。週報を **確定した時点でパックを凍結**し、資料・Slack・MCP は凍結した版を読む。
@@ -118,27 +122,42 @@ p.37「審議事項の要約」: サムライパートナーズ 49.9% ＋ GMO-IG
 
 ---
 
-## 4. 事業主体（10月〜）
+## 4. 計上会社（10月〜）— main の `entity_code` をそのまま読む
 
-**ご判断（2026-09-06）: グループ内イベントは GMOサムライスタジオ、グループ外イベントは GMOサムライコンテンツスタジオ。
-収支は主体ごとに分けて出し、あわせて統合した全体の収支も出す。**
+**ご判断（2026-09-06）: グループ内のお客様のイベントは GMOサムライスタジオ、グループ外のお客様のイベントは GMOサムライコンテンツスタジオ。
+収支は計上会社ごとに分けて出し、あわせて統合した全体の収支も出す。**
 
-`projects.entity`（`gss` / `gscs` / `gig`）を持たせ、**お客様の区分から自動で決める**（`customer_type` と同じく保存のたびに導出し、当時の値を残す）。
+隔週キープはこのための独自の列を持たない。**main の 2026年10月の事業再編（[reorg-2026-10-plan.md](../../reorg-2026-10-plan.md) §4.1〜§4.5）が
+入れた「計上会社」`entity_code` をそのまま読む**。画面の語も main に合わせて **「計上会社」**（副題「売上・費用をどの会社の帳簿に載せるか」）。
+旧「事業主体」`projects.entity`（gss／gscs／gig）は main 合流時に廃止した。
 
-| 値 | 主体 | 決まり方 |
+| `entity_code` | 会社（`legal_entities`・main の migration 284） | いつその値になるか（`sales/services/entity-resolution.service.ts`・reorg §4.4） |
 |---|---|---|
-| `gss` | GMOサムライスタジオ（旧 GMOグローバルスタジオ） | お客様がグループ内（`customer_type = 'internal'`） |
-| `gscs` | GMOサムライコンテンツスタジオ（合弁） | お客様が外部（`customer_type = 'external'`） |
-| `gig` | GMOインターネットグループ人格 | 自動では付けない。グループとして行うもの（GMO Yours・第1本社の会場など）を **人が案件で上書き**したときだけ |
+| `GSS` | GMOサムライスタジオ（旧 GMOグローバルスタジオ。社名変更・同じ法人） | お客様がグループ内（`companies.is_gmo_group`）。**切替前の既存の行はすべて GSS** |
+| `GJV` | GMOサムライコンテンツスタジオ（合弁） | お客様がグループ外で、実施日が切替日以降 |
+| `GMO` | GMOインターネットグループ本体（コストセンター・`kind='cost_center'`） | プロジェクト（旧 GLS-B）。売上は無く費用だけ |
 
-- 上書きは `projects.entity_manual = TRUE` で印を付け、お客様を変えても自動で戻さない
-- **収支は主体別 ＋ 全体（統合）**。数値報告の表は「全体」「GMOサムライスタジオ」「GMOサムライコンテンツスタジオ」の3組を出す（`gig` は数字があるときだけ）
-- 売上・仕入は案件の主体で分かれる。**販管費・償却相当額は案件に紐づかない**ので `sga_expenses.entity`（既定 `gss`）と、償却の `FIXED-COGS` 仕入にも主体を持たせる。経理の補正値（`monthly_actual_overrides`）も主体別
-- **月次予算は主体ごと**（`monthly_budgets` に `entity` を足し、`year_month × entity` を主キーに。既存行は `gss`）。全体の目標 ＝ 主体の合計。主体の予算が無ければ「—」で出し、按分しない
-- 「サムライ関連」の別表は主体ではなく **お客様** で決める（`companies.samurai_group`。サムライパートナーズ／GMOサムライコンテンツスタジオ）
-- 案件の一覧・詳細に「事業主体」の列と欄を足す。MCP `create_project` は変えない（自動で決まる）
+- 値の型は [`shared/src/keepReport/types.ts`](../../../shared/src/keepReport/types.ts) の `BusinessEntity = 'GJV' | 'GSS' | 'GMO'`
+  （＝ server の `LegalEntityCode`）。表示名 `BUSINESS_ENTITY_LABELS` は `legal_entities.name` から「株式会社」を落としたもの
+  （`shared/tests/keepReportEntity.test.ts` が seed と型の文面を突き合わせる。server は `shared/` を import できないので型では結べない）
+- **決め方は shared に写さない。** 規則（実施日 ≧ 切替日／取引先の `is_gmo_group`／GLS-B → GMO）と人の上書き
+  （`entity_source='manual'`・理由必須・`sales:manager`）は main の `entity-resolution.service.ts` と案件詳細が持つ。
+  隔週キープはサーバーが保存した `entity_code` を読むだけで、お客様の区分から自分で導かない（写しを持つと切替日の前後で必ず食い違う）
+- **`org_transition.state = 'off'` のあいだは規則が効かず、全行が GSS。** 計上会社別の表は GJV の列が空（目標 null・実績 0）で出る。
+  切替（`cutover`）のあとに登録・改番された案件から GJV／GMO の数字が入り始め、そこから「計上会社別」が意味を持つ
+- **収支は計上会社別 ＋ 全体（統合）**。数値報告の表は「全体」「GMOサムライスタジオ」「GMOサムライコンテンツスタジオ」の3組
+  （`GMO` は数字があるときだけ）。画面のチップ・表は GSS を先に置く（切替前は全行 GSS）
+- 売上・原価・販管費・償却相当額は **帳簿の行の `entity_code`** で分ける（reorg §4.5「行は書いた時の計上会社を持つ」。
+  案件の `entity_code` で GROUP BY するのではない — 案件を改番・移管しても過去の行は前の会社に残る）。
+  `FIXED-COGS` の仕入（償却相当額）・経理の補正値（`monthly_actual_overrides`）も行の `entity_code`
+- **「全体（統合）」は3社の行の単純合計**。2社間の社内取引（GSS→GJV の売上と GJV の仕入・reorg §4.12）は相殺しないので、
+  発生した月は売上と原価が同じ額だけ両建てでふくらむ（粗利・営業利益は変わらない）。相殺した連結が要るなら別の設計（reorg §4.6・§9-F）
+- **月次予算は計上会社ごと**（`monthly_budgets` に `entity_code`・main の migration 285／288）。全体の目標 ＝ 会社の合計。
+  会社の予算が無ければ「—」で出し、按分しない
+- 「サムライ関連」の別表は計上会社ではなく **お客様** で決める（`companies.samurai_group`。サムライパートナーズ／GMOサムライコンテンツスタジオ）
+- 案件の一覧・詳細の「計上会社」列・欄は main（案件管理）が持つ。MCP `create_project` は変えない（規則で決まる）
 
-⚠️ 10月より前の月は分割前だが、同じ決まりで遡って分けて出す（お客様の区分は当時の値が残っている）。
+⚠️ 10月より前の月は分割前で全行 GSS。切替後も過去の行は動かないので、遡って「もし分けていたら」は出さない（reorg 原則5）。
 
 ## 5. 定例報告パック（JSON）
 
@@ -149,9 +168,9 @@ p.37「審議事項の要約」: サムライパートナーズ 49.9% ＋ GMO-IG
 ```
 KeepReportPack
   meeting_date / previous_meeting_date / generated_at / frozen_at
-  scope: { entity: all|gss|gscs|gig, customer_segment: all|internal|external }
-  landing:  { all, gss, gscs, gig? }  … 当月 着地。主体ごとの表（6行 × 目標/実績/差/比/判定）＋ 全体（統合）＋ 未確定の売上
-  forecast: { all, gss, gscs, gig? }  … 翌月 着地見込（確定 ＋ 確度加味）。同じ形
+  scope: { entity: all|GJV|GSS|GMO, customer_segment: all|internal|external }   … entity の値は計上会社の entity_code（§4）
+  landing:  { all, GJV, GSS, GMO? }  … 当月 着地。計上会社ごとの表（6行 × 目標/実績/差/比/判定・鍵は entity_code）＋ 全体（統合）＋ 未確定の売上
+  forecast: { all, GJV, GSS, GMO? }  … 翌月 着地見込（確定 ＋ 確度加味）。同じ形
   trend:    MonthlyTrendPoint[] … 2024-01〜。売上（グループ内/外部）・案件数・営業日数・稼働日数・稼働率
   pipeline: { external[], samurai[], weighted_revenue, total_revenue }
   project_pages[]  … ヨミ表で「資料」に印を付けた案件（案件ページの材料）
@@ -165,9 +184,9 @@ KeepReportPack
 
 | 部分 | 出どころ | 約束 |
 |---|---|---|
-| 着地の売上・原価 | `revenues`（**`status='confirmed'`**）・`purchases`、`recognition_date` の月。主体は案件の `entity` | `getMonthlySummary` と同じ。`FIXED-COGS` 案件の仕入 ＝ 償却相当額（主体別）。経理の補正値があればそれを使う。**全体 ＝ 主体の合計** |
+| 着地の売上・原価 | `revenues`（**`status='confirmed'`**）・`purchases`、`recognition_date` の月。計上会社は **行の `entity_code`**（案件の値ではない・§4） | `getMonthlySummary` と同じ。`FIXED-COGS` 案件の仕入 ＝ 償却相当額（行の `entity_code` で会社別）。経理の補正値（`monthly_actual_overrides.entity_code`）があればそれを使う。**全体 ＝ 会社の合計** |
 | 見込 | 着地 ＋ 受注前案件（失注除く）の売上・仕入 × 確度 | `getPipelineForecast` の「確度加味」。**`unconfirmed[]`** に見込みに入れた未確定の売上を列挙（資料の注記の材料） |
-| 目標 | `monthly_budgets`（主体別） | 無ければ null。全体の目標は主体の合計 |
+| 目標 | `monthly_budgets`（`entity_code` ごと） | 無ければ null。全体の目標は会社の合計 |
 | 推移 | 月ごとの確定売上を `projects.customer_type` で分ける。案件数は本番日がその月にある案件 | 当時の値（`customer_type`）を使う。`companies.is_gmo_group` の今の値で塗り替えない |
 | ヨミ表 | `projects`（`stage NOT IN (e_lost, r_delivered, s_completed)`。**ネタも載せる**・ご判断 2026-09-06）＋ 最新見積 ＋ `OPEN_NEXT_ACTION_SQL` | **新規／更新** は前回の会議日と `created_at` / `updated_at` の比較 |
 | 案件ページ | `projects`・見積・`studio_bookings`・Box `08_写真`・Qシート | 概要の3行は `projects.goal` を初期値に、人が直せる（構成側に持つ） |
@@ -186,6 +205,9 @@ judge = higher_better: actual ≧ budget → ○ / lower_better: actual ≦ budg
 
 `getMonthlyPl.varianceOf` は赤字行も `actual ÷ budget` を返す（−39,834 ÷ −28,454 = 140%）ので、**赤字行だけ式を変える**。
 表示は千円に丸める（`Math.round(円 / 1000)`）。丸めは表示側でだけ行い、パックは円のまま。
+
+全体（`all`）の表は、`entity_code` ごとの行を**先に合計してから**同じ式で `diff`／`ratio`／`judge` を出す（会社ごとの比率や判定を足し合わせない）。
+会社ごとの表（`GJV`／`GSS`／`GMO`）はその会社の行だけで同じ式。
 
 ### 5.4 稼働率
 
@@ -206,7 +228,7 @@ judge = higher_better: actual ≧ budget → ○ / lower_better: actual ≦ budg
 - `keep_report_packs`（`id, meeting_date, scope, pack JSONB, generated_at, frozen_at, frozen_by`）。
   「いまの数字」は保存しない（毎回計算）。週報の確定で `frozen_at` を入れ、`ops_reports.payload.keep = { pack_id }` で結ぶ
 - 凍結した版は書き換えない。数字を直したいときは元データ（売上・予算）を直して **凍結し直す**（新しい版を作り、前の版は残す）
-- MCP `get_keep_report_pack({ meeting_date?, entity? })`: 凍結版があればそれ、無ければいまの数字（`frozen_at: null` で分かる）
+- MCP `get_keep_report_pack({ meeting_date?, entity_code? })`: 凍結版があればそれ、無ければいまの数字（`frozen_at: null` で分かる）
 
 ---
 
@@ -303,24 +325,28 @@ judge = higher_better: actual ≧ budget → ○ / lower_better: actual ≦ budg
 
 ---
 
-## 8. DB の変更（migration 282〜）
+## 8. DB の変更（migration 291・main の 282〜290 の上に載せる）
+
+計上会社まわりの列は **main の 2026年10月の事業再編の migration が持つ**（[reorg-2026-10-plan.md](../../reorg-2026-10-plan.md) §13:
+`legal_entities`・`org_transition` ＝ 284、案件と帳簿の行の `entity_code` ＝ 285・286、`monthly_budgets`／`monthly_actual_overrides`／`money_rules` の
+会社ごと化 ＝ 285・288）。隔週キープが足すのは **1本だけ**:
 
 | # | 内容 |
 |---|---|
-| 282 | `projects.entity TEXT NOT NULL DEFAULT 'gss' CHECK (entity IN ('gss','gscs','gig'))`・`projects.entity_manual BOOLEAN NOT NULL DEFAULT FALSE`。backfill は `customer_type` から（internal→gss・external→gscs）。`companies.samurai_group BOOLEAN NOT NULL DEFAULT FALSE`（サムライパートナーズ／GMOサムライコンテンツスタジオ） |
-| 283 | `sga_expenses.entity`・`purchases.entity`（`FIXED-COGS` 用。案件のある仕入は案件から引く）。`monthly_budgets` / `monthly_actual_overrides` の主キーを `(year_month, entity)` に（既存行は `gss`） |
-| 284 | `keep_report_packs`（凍結したパック）、`keep_report_inputs`（ONAiR に無い数字の手入力: 満足度・参加者・Web KPI。`meeting_date × key`） |
-| 285 | `keep_decks`・`keep_deck_versions`（構成の全文と版）、`keep_deck_edits`（人の直しの差分。§10） |
-| 286 | `projects.keep_pick BOOLEAN`（ヨミ表の「資料」の印）。`settings` に稼働率の数え方 |
+| 291 `291_keep_report_tables.sql` | `projects.keep_pick BOOLEAN`（ヨミ表の「資料」の印）・`companies.samurai_group BOOLEAN NOT NULL DEFAULT FALSE`（サムライパートナーズ／GMOサムライコンテンツスタジオ）・`keep_settings`（稼働率の数え方 `utilization`・§5.4）・`keep_report_packs`（凍結したパック）・`keep_report_inputs`（ONAiR に無い数字の手入力: 満足度・参加者・Web KPI。`meeting_date × key`）・`keep_decks`／`keep_deck_versions`（構成の全文と版）・`keep_deck_edits`（人の直しの差分。§10） |
 
-入力画面: 月次予算・経理の補正値は **設定「お金のルール」** に戻す（削除された `/sales/keep-report` タブ2の代わり。主体ごとの欄）。
+⚠️ このブランチが main 合流前に持っていた 282〜286（`projects.entity`／`entity_manual`・`sga_expenses.entity`・`purchases.entity`・
+`monthly_budgets` の `(year_month, entity)` 主キー）は**廃止**した。番号が main の 282〜290 と重なるうえ、同じ概念を main が `entity_code` で持つため。
+
+入力画面: 月次予算・経理の補正値は **設定「お金のルール」** に戻す（削除された `/sales/keep-report` タブ2の代わり。計上会社ごとの欄）。
 議事録（決定事項・次回開催日）は「資料をつくる」の中の「次回開催日」ページで入れる（タブ3の代わり）。
 
 ## 9. API と MCP
 
 | 種類 | 口 | 権限 |
 |---|---|---|
-| GET | `/dailyops/keep/pack?meeting=YYYY-MM-DD&entity=all&segment=all` — いまの数字（凍結版があればそれ） | `dailyops` or `sales` reader |
+| GET | `/dailyops/keep/pack?meeting=YYYY-MM-DD&entity_code=all&segment=all` — いまの数字（凍結版があればそれ）。`entity_code` は GJV／GSS／GMO か `all`（main の帳簿の列と同じ名前。旧 `entity` は廃止） | `dailyops` or `sales` reader |
+| GET | `/dailyops/keep/slack-draft?meeting=&entity_code=&segment=` — Slack の定例投稿の文（パックから決定的に組む） | `dailyops` or `sales` reader |
 | POST | `/dailyops/keep/pack/freeze`（週報の確定から呼ぶ。単独でも可） | `dailyops` editor |
 | GET/PUT | `/dailyops/keep/decks/:meeting` — 構成。PUT は差分を記録（§10） | `dailyops` editor |
 | POST | `/dailyops/keep/decks/:meeting/export` — pptx を作り Box へ置く。返り値は Box の file id とダウンロード | `dailyops` editor |
@@ -355,7 +381,7 @@ judge = higher_better: actual ≧ budget → ○ / lower_better: actual ≦ budg
 
 | 段 | 作るもの | 検証 |
 |---|---|---|
-| 1 | migration 282〜284・`keep-pack.service`・`GET /keep/pack`・MCP `get_keep_report_pack`・型 | 260904 の表と数字が一致するか（8月 着地の6行、稼働率 46.7%／42.1%） |
+| 1 | migration 291（§8）・`keep-pack.service`・`GET /keep/pack`・MCP `get_keep_report_pack`・型 | 260904 の表と数字が一致するか（8月 着地の6行、稼働率 46.7%／42.1%） |
 | 2 | 「隔週キープの数字」タブ（PC／スマホ）・週報確定での凍結・「お金のルール」の予算入力 | 375px で崩れない・`npm run lint`・Vitest（計算列のテスト） |
 | 3 | 構成 JSON・標準の構成・「資料をつくる」タブ（ページ一覧／キャンバス／部品）・差分の記録 | 前回の構成から組み直して人の直しが残るか |
 | 4 | pptx 出力（`pptxgenjs`）・Box への配置・案件ページ／実施報告のテンプレ・ふりかえりタブの導線 | 出した pptx を PowerPoint で開き、表・グラフが直せるか |
@@ -365,7 +391,7 @@ judge = higher_better: actual ≧ budget → ○ / lower_better: actual ≦ budg
 
 ### 11.1 実装して分かったこと・残っていること
 
-- **サーバーは `shared/` を import できない**（`rootDir`）ので、純粋関数（比率・判定・営業日・主体の導出・差分・テンプレ）は
+- **サーバーは `shared/` を import できない**（`rootDir`）ので、純粋関数（比率・判定・営業日・差分・テンプレ）は
   `server/src/contexts/dailyops/services/keep-*.ts` に写しを置き、`shared/tests/keepReport*.test.ts` の parity テストで一致を固定している。
   直すときは **shared 側と server 側の両方**を直す（テストが止める）
 - 案件ページの **進行表は空**（Qシートとの連携は未実装。人が「このページ」で書く）。写真は Box 未接続の環境では灰色の枠
@@ -374,7 +400,9 @@ judge = higher_better: actual ≧ budget → ○ / lower_better: actual ≦ budg
 - 稼働率は「利用があった営業日 ÷ 営業日」。土日の利用は数えない（分母と同じ日だけ数える）
 - 「変更点は赤字」は **前回の凍結パックがあるときだけ**付く（初回は脚注も無い）
 - Slack への投稿・反応の回収（§10 条件3）は未実装。bot は下書きの文を投稿し、`ts` と `pack_id` を残す
-- 案件台帳の主体フィルタは入れたが、台帳の列の既定は非表示（列の設定で出す）
+- 案件台帳の計上会社フィルタは入れたが、台帳の列の既定は非表示（列の設定で出す）
+- **計上会社の導出は shared に写さない**（main の `entity-resolution.service.ts` が正・§4）。shared の `keepReport/entity.ts` は値の検査と表示名だけ。
+  `entity_code` の3文字は `shared/tests/keepReportEntity.test.ts` が server の `LegalEntityCode` と seed の文面で突き合わせる
 
 ---
 
@@ -384,7 +412,7 @@ judge = higher_better: actual ≧ budget → ○ / lower_better: actual ≦ budg
 
 | 項目 | 決まり |
 |---|---|
-| 事業主体 | グループ内イベント → GMOサムライスタジオ、グループ外イベント → GMOサムライコンテンツスタジオ（お客様の区分から自動）。収支は主体別 ＋ 全体（統合）（§4） |
+| 計上会社 | グループ内のお客様のイベント → GMOサムライスタジオ（GSS）、グループ外 → GMOサムライコンテンツスタジオ（GJV）、プロジェクト → グループ本体（GMO）。値は main の `entity_code`・決め方も main の規則（§4）。収支は計上会社別 ＋ 全体（統合） |
 | 稼働率 | 内覧を含め、何かしらのスタジオ利用があれば数える。メンテナンス等は除く（§5.4） |
 | 写真 | 案件 Box `08_写真` が正（§7） |
 | pptx の書体 | Noto Sans JP。PowerPoint 上で直せるようにオブジェクトで出す（§6.2） |
@@ -392,13 +420,13 @@ judge = higher_better: actual ≧ budget → ○ / lower_better: actual ≦ budg
 
 | 稼働率の仮押さえ | 仮押さえも数える（§5.4） |
 | ヨミ表 | ネタ（`neta`）も載せる。受注前の案件は全部（§5.2） |
-| 目標値 | ウェブで設定する。設定「お金のルール」に主体ごとの月次予算・経理の補正値・稼働率の数え方を置く（§8） |
+| 目標値 | ウェブで設定する。設定「お金のルール」に計上会社ごとの月次予算・経理の補正値・稼働率の数え方を置く（§8） |
 | 実装 | 2026-09-06 に着手（§11 の段取り。マルチエージェントで並行） |
 
 **まだ決めてほしいこと**
 
 1. 「配布は PDF だけ」（2026-07-26）の取り消し（pptx を出すご依頼なので取り消し前提で進める）
-2. 販管費・償却相当額を主体ごとに分ける入力（経理側の運用）をいつから始めるか。始まるまでは全額 GMOサムライスタジオ に載せ、GMOサムライコンテンツスタジオ の表は売上・原価・粗利だけ出す
+2. 販管費・償却相当額を計上会社ごとに分ける入力（経理側の運用・帳簿の行の `entity_code`）をいつから始めるか。始まるまでは全額 GMOサムライスタジオ に載せ、GMOサムライコンテンツスタジオ の表は売上・原価・粗利だけ出す
 
 ## 13. 参考
 

@@ -181,7 +181,7 @@ docker compose -f /root/gmo-onair/docker-compose.yml up -d app_dev
 > テンプレート適用と work_state / production_step / episode_id / parent_task_id の
 > 細かい編集を追加）/ members 3 / minutes 3 /
 > studio 4 / finance 4 / budget 4 / pricing 3 / analytics 3 / users 1 / mytasks 10 /
-> opsreports 5 / eventreports 5 / inview 4 / inbox 4 / security-cards 5 / aifeedback 1 / keep 2（定例報告パック。2026-09 新設。下記参照）/
+> opsreports 5 / eventreports 5 / inview 4 / inbox 4 / security-cards 5 / aifeedback 1 / keep 3（定例報告パック。2026-09 新設。下記参照）/
 > production 22（読み取り7・書き込み15。新名5種＋旧名 `[非推奨/deprecated]` 5種＋改名対象外3種＋
 > スケジュール表の枠 CRUD 3種（2026-08 新設）＋スケジュール表そのもの・列の CRUD 6種
 > （2026-08 追加新設。表の新規作成 `create_schedule`/更新 `update_schedule` と、列の
@@ -495,23 +495,23 @@ GMOサムライスタジオ用賀のセキュリティカード 24 枚。カー�
 ### 隔週キープの定例報告パック (dailyops — keep・2026-09 新設)
 | ツール | 種別 | 概要 |
 |---|---|---|
-| `get_keep_report_pack` | read | 会議1回ぶんの数字を1本の JSON (`KeepReportPack`・`shared/src/keepReport/types.ts`) で取得。`meeting_date` (省略時=次回の開催日) / `entity` (all・省略時) / `segment` (all / internal / external) / `live` (true でいまの数字)。**凍結した版 (週報の確定時点) があればそれ**、無ければいまの数字 (`frozen=false`・`pack.frozen_at=null`)。HTTP の `GET /dailyops/keep/pack` と同じ `getPackForMeeting` を通る |
+| `get_keep_report_pack` | read | 会議1回ぶんの数字を1本の JSON (`KeepReportPack`・`shared/src/keepReport/types.ts`) で取得。`meeting_date` (省略時=次回の開催日) / `entity_code` (計上会社の絞り込み: `all`〔省略時〕/ `GJV` / `GSS` / `GMO`。ヨミ表・案件ページ・実施報告に効く。数値報告の表は常に全体＋会社別を持つ) / `segment` (all / internal / external) / `live` (true でいまの数字)。**凍結した版 (週報の確定時点) があればそれ**、無ければいまの数字 (`frozen=false`・`pack.frozen_at=null`)。HTTP の `GET /dailyops/keep/pack` と同じ `getPackForMeeting` を通る |
 | `list_keep_report_packs` | read | 凍結した版の一覧 (id / 会議日 / 絞り込み / 凍結した時刻と人 / 結んだ週報の id)。中身は含まない。同じ会議日の複数の版は凍結し直したもの (新しい版が先・前の版は消さない) |
-| `get_keep_slack_draft` | read | **Slack の定例投稿の下書き** (`text` = 日本語の mrkdwn 文字列)。引数は `get_keep_report_pack` と同じ (`meeting_date` / `entity` / `segment` / `live`)。中身: 見出し (会議日) → 前月 着地の 売上高／粗利／営業利益 (目標比と○✕・全体と主体別) → 当月 見込 (1行) → ヨミ表の上位8件 (確度順) → 実施報告 (日付・案件名・売上/粗利率) → 内覧会 (組・名・満足度) → 見込に含めた未確定の売上 → 数字の元 (凍結した時刻か「いまの数字」)。金額は千円 (3桁区切り)・絵文字なし。前回の資料 (凍結した版) があれば動いた数字に ＊。HTTP は `GET /dailyops/keep/slack-draft`、画面は「隔週キープの数字」タブの「Slack の文面をコピー」と同じ `getSlackDraftForMeeting` |
+| `get_keep_slack_draft` | read | **Slack の定例投稿の下書き** (`text` = 日本語の mrkdwn 文字列)。引数は `get_keep_report_pack` と同じ (`meeting_date` / `entity_code` / `segment` / `live`)。中身: 見出し (会議日) → 前月 着地の 売上高／粗利／営業利益 (目標比と○✕・全体と計上会社別) → 当月 見込 (1行) → ヨミ表の上位8件 (確度順) → 実施報告 (日付・案件名・売上/粗利率) → 内覧会 (組・名・満足度) → 見込に含めた未確定の売上 → 数字の元 (凍結した時刻か「いまの数字」)。金額は千円 (3桁区切り)・絵文字なし。前回の資料 (凍結した版) があれば動いた数字に ＊。HTTP は `GET /dailyops/keep/slack-draft`、画面は「隔週キープの数字」タブの「Slack の文面をコピー」と同じ `getSlackDraftForMeeting` |
 
-パックの中身 (`docs/design/v4/keep-report.md` §5):
-- `landing` … **会議の前の月**の着地 (9/4 の会議なら 8月)。`all` / `GSS` / `GJV` (/ `GMO` は数字があるときだけ) の 6行 (売上高・原価〔案件仕入〕・粗利・販管費・償却相当額・営業利益) × 目標/実績/差/比/判定。確定売上 (`status='confirmed'`) だけを数える
+パックの中身 (`docs/design/v4/keep-report.md` §5)。**会社の区分は 2026年10月の事業再編の計上会社 `entity_code`** ([reorg-2026-10-plan.md](reorg-2026-10-plan.md) §4.5・`legal_entities.code`): `GJV` = GMOサムライコンテンツスタジオ (グループ外のお客様) / `GSS` = GMOサムライスタジオ (グループ内のお客様・旧 GMOグローバルスタジオ) / `GMO` = GMOインターネットグループ本体 (コストセンター)。着地・見込は財務と同じく**案件ではなく行 (revenues / purchases / sga_expenses) の `entity_code`** で切り、ヨミ表・案件ページの絞り込みは案件の `entity_code` で行う:
+- `landing` … **会議の前の月**の着地 (9/4 の会議なら 8月)。`all` / `GJV` / `GSS` (/ `GMO` は数字があるときだけ) の 6行 (売上高・原価〔案件仕入〕・粗利・販管費・償却相当額・営業利益) × 目標/実績/差/比/判定。確定売上 (`status='confirmed'`) だけを数える。`all` の目標は3社の合計 (`get_monthly_pl` の `entity_code=all` と同じ)
 - `forecast` … **会議の月**の着地見込 ＝ 着地 ＋ 受注前案件 (失注除く) の `status='estimate'` の売上 × ステージの受注確度。受注前案件の仕入は 100% → 確度に置き換える (二重に数えない)。`unconfirmed[]` はその月の未確定の売上と、その月に本番があるのに確定売上が無い案件 (注記の材料。後者は表の数字に足していない)
 - `trend` … 2024-01〜会議の月 (最後の点は進行中)。売上 (グループ内/外部は案件の `customer_type` の当時の値)・案件数 (本番開始日がその月の受注済み以降)・営業日数・稼働日数・稼働率
-- `pipeline` … 終わっていない案件 (ネタを含む) のヨミ表。`samurai` は `companies.samurai_group` のお客様、`external` はそれ以外の全部 (グループ内も。`segment` で絞る)。見積金額・粗利は最新の見積、次のやることは未対応の次回アクションのうち期限が近いもの、`since_last` は前回の会議日以降の new / updated
+- `pipeline` … 終わっていない案件 (ネタを含む) のヨミ表。行の `entity_code` は案件の計上会社 (`projects.entity_code`: `GJV` / `GSS` / `GMO`)。`samurai` は `companies.samurai_group` のお客様、`external` はそれ以外の全部 (グループ内も。`segment` で絞る)。見積金額・粗利は最新の見積、次のやることは未対応の次回アクションのうち期限が近いもの、`since_last` は前回の会議日以降の new / updated
 - `project_pages` … ヨミ表で「資料」に印 (`projects.keep_pick`) を付けた案件のページ材料。写真は案件 Box の社外フォルダ `08_写真` (BOX につないでいなければ空)、チェック/リハ/本番は `studio_bookings` (setup / rehearsal / performance)、進行表 (Qシート) は段3以降で空
 - `event_reports` … 前回の会議日より後・今回の会議日以前に本番を終えた受注済み以降の案件。総括は `event_reports.headline`、箇条書きは KPT の keep (**人が確かめた行だけ**)
-- `calendars` … 会議の月と翌月。稼働率 = 利用があった日数 ÷ 営業日数 (`keep_settings` の種別・土曜の設定。既定はメンテナンス以外を数える)
+- `calendars` … 会議の月と翌月。`days` の鍵は `YYYY-MM-DD`。稼働率 = 利用があった日数 ÷ 営業日数 (`keep_settings` の種別・土曜の設定。既定はメンテナンス以外を数える)
 - `inview` … 会議日以前の直近の定期内覧会。組数・人数は受付した人 (誰も受付していない回は申込)、分類は来場者の会社、満足度は手入力 (`PUT /dailyops/keep/inputs/:meeting` の `inview_satisfaction` = `{score}`)
 - `minutes` … 前回の会議日の議事録サマリ
 - 金額は円の整数・比率は % (小数1桁)・判定と比率はサーバーが計算済み。千円に丸めるのは表示側 (`shared/src/keepReport/calc.ts` の `toThousandYen`)
 
-凍結: 週報 (`weekly_activity`) を確定すると、その週の会議日 (無ければ次の開催日) のパックを 全体／全区分 で凍結し、`ops_reports.payload.keep = { pack_id, meeting_date }` で結ぶ (凍結に失敗しても確定は成功する)。単独で凍結するのは `POST /dailyops/keep/pack/freeze`。凍結した版は書き換えず、直したいときは元データを直して凍結し直す (前の版は残る)。
+凍結: 週報 (`weekly_activity`) を確定すると、その週の会議日 (無ければ次の開催日) のパックを 全体／全区分 で凍結し、`ops_reports.payload.keep = { pack_id, meeting_date }` で結ぶ (凍結に失敗しても確定は成功する)。単独で凍結するのは `POST /dailyops/keep/pack/freeze` (body `meeting_date` / `entity_code` / `segment` / `ops_report_id`。知らない `ops_report_id` は 400)。凍結した版は書き換えず、直したいときは元データを直して凍結し直す (前の版は残る)。ただし**同じ会議日・同じ絞り込みを 60 秒以内に凍結し直しても版は増えない** (直前の版の id が返る。確定ボタンの二度押し対策。同時に走った2本は `pg_advisory_xact_lock` で直列)。
 
 Slack の定例投稿 (bot 化の下準備・`docs/design/v4/keep-report.md` §6.2・§10): `get_keep_slack_draft` の `text` は**パックからの決定的な整形で AI の生成ではない**ので `ai_outputs` には記録しない (`get_ai_feedback_digest` にも出ない)。投稿する bot は **この `text` をそのまま投稿し、投稿の id (Slack の `ts`) を `pack_id` と一緒に残す**こと — §10 の条件3 (成果を紐づける) はこの id が無いと反応 (リアクション・返信) を回収できない。人が文面を直して投稿したときは、直した文も一緒に残す (資料の `keep_deck_edits` と同じ「人の直しを差分で残す」・条件2)。
 

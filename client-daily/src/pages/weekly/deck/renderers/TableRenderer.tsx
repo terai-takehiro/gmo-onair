@@ -100,7 +100,7 @@ export function PlTable({ table, mode, box }: { table: MonthlyPlTable; mode: 'la
   );
 }
 
-/** 主体別（2〜3表を横に並べる） */
+/** 計上会社別（2〜3表を横に並べる） */
 export function PlByEntity({ tables, mode, box }: { tables: Array<{ label: string; table: MonthlyPlTable }>; mode: 'landing' | 'forecast'; box: Box }) {
   const each = { w: box.w / tables.length - 12, h: box.h - 26 };
   return (

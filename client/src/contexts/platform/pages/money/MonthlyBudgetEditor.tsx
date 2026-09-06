@@ -1,5 +1,5 @@
 /**
- * 月次予算の1か月ぶんを直す欄（`MonthlyBudgets.tsx` の行の下に開く）
+ * 月次予算の1か月ぶんを直す欄（`MonthlyBudgets.tsx` の行の下に開く）— 会社タブの会社ぶん
  *
  * ── 入れるのは4つだけ・営業利益は出すだけ ──────────────────
  *
@@ -11,7 +11,7 @@
  * ── 空欄は「未登録」・0 は「0 円と決めた」 ──────────────────
  *
  * 部品の `CurrencyInput` は空欄を 0 として返すので、ここでは使わない。
- * 販管費を主体ごとに分け始めるまでは GMOサムライコンテンツスタジオ の販管費は
+ * 販管費を会社ごとに分け始めるまではコンテンツスタジオ（GJV）の販管費は
  * **未登録のまま**にする決め（`keep-report.md` §12-4）で、0 と区別が要る。
  *
  * ── 経理の補正値は畳んでおく ────────────────────────────────
@@ -23,6 +23,8 @@
  *
  * 予算と補正値は別の口（`PUT /keep/monthly-budget/:ym`・`PUT /keep/monthly-override/:ym`）。
  * 触っていない側まで送ると、補正値を入れていない月に空の補正の行ができる。
+ * どちらも**会社（`entity_code`）を必ず付けて送る** — 省くとサーバーが今の会社（GSS）に
+ * 倒すので、GJV のタブで直した値が GSS の予算に書かれる（`lib/keepApi.ts` 冒頭）。
  */
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
@@ -31,7 +33,8 @@ import { Input } from '@/components/ui/input';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { cn } from '@gmo-onair/shared/src/client/utils';
-import { BUSINESS_ENTITY_LABELS, type BusinessEntity, type MonthlyBudget } from '@gmo-onair/shared/src/keepReport/types';
+import type { BusinessEntity, MonthlyBudget } from '@gmo-onair/shared/src/keepReport/types';
+import { ENTITY_BADGE_LABEL } from '@/contexts/sales/pages/projectList/stages';
 import { useSaveMonthlyBudget, useSaveMonthlyOverride, type MonthlyOverride } from '@/lib/keepApi';
 import {
   BUDGET_FIELDS, formatDigits, fromYen, hasOverrideValues, num, operatingProfit, toYen, ymLabel,
@@ -72,9 +75,10 @@ function YenInput({ id, value, onChange, disabled }: {
   );
 }
 
-export function MonthlyBudgetEditor({ ym, entity, budget, override, onClose }: {
+export function MonthlyBudgetEditor({ ym, entityCode, budget, override, onClose }: {
   ym: string;
-  entity: BusinessEntity;
+  /** 計上会社（GJV / GSS / GMO）。呼び名はタブと同じ `ENTITY_BADGE_LABEL` で出す */
+  entityCode: BusinessEntity;
   budget: MonthlyBudget | undefined;
   override: MonthlyOverride | undefined;
   onClose: () => void;
@@ -107,10 +111,10 @@ export function MonthlyBudgetEditor({ ym, entity, budget, override, onClose }: {
       || nextOverride.note !== (override?.note?.trim() || null);
     if (!budgetChanged && !overrideChanged) { onClose(); return; }
     try {
-      if (budgetChanged) await saveBudget.mutateAsync({ ym, entity, ...values, operating_profit: op });
-      if (overrideChanged) await saveOverride.mutateAsync({ ym, entity, ...nextOverride });
+      if (budgetChanged) await saveBudget.mutateAsync({ ym, entity_code: entityCode, ...values, operating_profit: op });
+      if (overrideChanged) await saveOverride.mutateAsync({ ym, entity_code: entityCode, ...nextOverride });
       notifySuccess(`${ymLabel(ym)} の予算を保存しました`, {
-        description: `${BUSINESS_ENTITY_LABELS[entity]}。隔週キープの着地表・見込表の「目標」に効きます。`,
+        description: `${ENTITY_BADGE_LABEL[entityCode]}（${entityCode}）。隔週キープの着地表・見込表の「目標」に効きます。`,
       });
       onClose();
     } catch (e) {
@@ -121,7 +125,7 @@ export function MonthlyBudgetEditor({ ym, entity, budget, override, onClose }: {
   return (
     <div className="flex flex-col gap-3 border-b border-border-faint bg-surface-subtle px-4 py-3">
       <p className="text-note text-muted-foreground">
-        <strong className="font-bold">{ymLabel(ym)}・{BUSINESS_ENTITY_LABELS[entity]}</strong> の目標を円で入れます。
+        <strong className="font-bold">{ymLabel(ym)}・{ENTITY_BADGE_LABEL[entityCode]}</strong> の目標を円で入れます。
         <strong className="font-bold">空欄は「未登録」</strong>です（0 と入れると「0 円と決めた」になります）。
       </p>
 

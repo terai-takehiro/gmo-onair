@@ -27,6 +27,19 @@ async function resolveEntityCode(raw: unknown): Promise<LegalEntityCode> {
   return raw as LegalEntityCode;
 }
 
+/**
+ * 金額欄: 未指定は「渡さなかった＝今の値を保つ」（undefined）、null / 空文字は「消す」（null）、
+ * それ以外は整数（円）だけ。小数・文字列をそのまま通すと BIGINT 列で Postgres が例外を返し、
+ * 意図した 400 でなく素の 500 になる。「消す」と「保つ」の区別は `keepReportService.upsertBudget` が守る
+ */
+function readAmount(v: unknown, label: string): number | null | undefined {
+  if (v === undefined) return undefined;
+  if (v === null || v === '') return null;
+  const n = typeof v === 'number' ? v : (typeof v === 'string' ? Number(v) : NaN);
+  if (!Number.isInteger(n)) throw new AppError(400, 'VALIDATION_ERROR', `${label}は整数（円）で送ってください`);
+  return n;
+}
+
 // ============ イベント実施報告 ============
 
 // 一覧 (レポート + 未作成の報告候補)
@@ -143,24 +156,31 @@ router.get('/monthly-budget/:ym', async (req, res) => {
 
 router.put('/monthly-budget/:ym', requirePermission('sales', 'editor'), async (req, res) => {
   if (!YM_RE.test(req.params.ym as string)) throw new AppError(400, 'VALIDATION_ERROR', '年月は YYYY-MM');
-  const { revenue, cogs_fixed, cogs_variable, sga, operating_profit, entity_code } = req.body;
-  const entityCode = await resolveEntityCode(entity_code);
-  res.json({
-    success: true,
-    data: await keepReportService.upsertBudget(
-      req.params.ym as string, { revenue, cogs_fixed, cogs_variable, sga, operating_profit }, entityCode,
-    ),
-  });
+  const body = req.body ?? {};
+  const entityCode = await resolveEntityCode(body.entity_code);
+  const fields = {
+    revenue: readAmount(body.revenue, '売上目標'),
+    cogs_fixed: readAmount(body.cogs_fixed, '固定原価目標'),
+    cogs_variable: readAmount(body.cogs_variable, '変動原価目標'),
+    sga: readAmount(body.sga, '販管費目標'),
+    operating_profit: readAmount(body.operating_profit, '営業利益目標'),
+  };
+  res.json({ success: true, data: await keepReportService.upsertBudget(req.params.ym as string, fields, entityCode) });
 });
 
 router.put('/monthly-override/:ym', requirePermission('sales', 'editor'), async (req, res) => {
   if (!YM_RE.test(req.params.ym as string)) throw new AppError(400, 'VALIDATION_ERROR', '年月は YYYY-MM');
-  const { cogs_fixed_actual, sga_actual, note, entity_code } = req.body;
-  const entityCode = await resolveEntityCode(entity_code);
-  res.json({
-    success: true,
-    data: await keepReportService.upsertOverride(req.params.ym as string, { cogs_fixed_actual, sga_actual, note }, entityCode),
-  });
+  const body = req.body ?? {};
+  const entityCode = await resolveEntityCode(body.entity_code);
+  if (body.note !== undefined && body.note !== null && typeof body.note !== 'string') {
+    throw new AppError(400, 'VALIDATION_ERROR', 'note は文字列');
+  }
+  const fields = {
+    cogs_fixed_actual: readAmount(body.cogs_fixed_actual, '償却費の経理確定値'),
+    sga_actual: readAmount(body.sga_actual, '販管費の経理確定値'),
+    note: body.note as string | null | undefined,
+  };
+  res.json({ success: true, data: await keepReportService.upsertOverride(req.params.ym as string, fields, entityCode) });
 });
 
 // ============ 稼働率の数え方（keep_settings・docs/design/v4/keep-report.md §5.4）============

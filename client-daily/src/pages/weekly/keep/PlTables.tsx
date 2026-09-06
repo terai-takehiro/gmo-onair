@@ -1,5 +1,5 @@
 /**
- * 隔週キープの数字 — ①数値報告（当月 着地 ／ 翌月 着地見込 ／ 主体別）
+ * 隔週キープの数字 — ①数値報告（当月 着地 ／ 翌月 着地見込 ／ 計上会社別）
  *
  * 資料の p.13/14 と同じ6行（売上高・原価（案件仕入）・粗利・販管費・償却相当額・
  * 営業利益）× 目標／実績／判定／対目標比／対目標。**判定・比率・差はサーバーが
@@ -145,20 +145,21 @@ function UnconfirmedNote({ items }: { items: MonthlyPlTable['unconfirmed'] }) {
   );
 }
 
-/** 主体別の表（主体ごとの 目標／実績／判定 ＋ 全体の 目標／実績）。`gig` は数字があるときだけ列を足す */
+/** 計上会社別の表（会社ごとの 目標／実績／判定 ＋ 全体の 目標／実績）。`GMO`（グループ本体）は数字があるときだけ列を足す */
 const GROUP_W = 72 + 72 + 56 + 12 * 2;   // RowSlot 3つ ＋ gap-3 ×2
 const ALL_W = 72 + 72 + 12;
 
 function ByEntityCard({ by, title, actualHead }: { by: PlByEntity; title: string; actualHead: string }) {
-  const entities: BusinessEntity[] = ['gss', 'gscs', ...(by.gig ? (['gig'] as BusinessEntity[]) : [])];
+  // GSS を先に（チップと同じ並び。切替前は全行 GSS）
+  const entities: BusinessEntity[] = ['GSS', 'GJV', ...(by.GMO ? (['GMO'] as BusinessEntity[]) : [])];
   const tables = entities.map((e) => by[e]!).filter(Boolean);
   const lines = by.all.lines;
-  const sub: Record<BusinessEntity, string> = { gss: 'グループ内', gscs: '外部', gig: '人格' };
+  const sub: Record<BusinessEntity, string> = { GSS: 'グループ内', GJV: '外部', GMO: 'グループ本体' };
   return (
     <div className="overflow-hidden rounded-card border border-border bg-card">
       <CardHead
         title={title}
-        note="売上・原価は案件の主体で、販管費・償却相当額は台帳の主体で分けます ・ 全体 ＝ 主体の合計"
+        note="売上・原価・販管費・償却相当額は帳簿の行の計上会社（entity_code）で分けます ・ 全体 ＝ 会社の合計"
         table={by.all}
       />
       <div className="overflow-x-auto">
@@ -204,10 +205,10 @@ function ByEntityCard({ by, title, actualHead }: { by: PlByEntity; title: string
       </div>
       <div className="flex flex-wrap items-center gap-2 border-t border-border-faint bg-surface-subtle px-4 py-2">
         <span className="text-sub-sm text-muted-foreground">
-          GMOインターネットグループ人格は数字があるときだけ列を足します。翌月の見込も同じ形で出ます
+          GMOインターネットグループ（グループ本体）は数字があるときだけ列を足します。翌月の見込も同じ形で出ます
         </span>
         <a href="/settings/money" className="text-sub-sm ml-auto whitespace-nowrap font-bold text-primary hover:underline">
-          主体ごとの予算を入れる（お金のルール）
+          会社ごとの予算を入れる（お金のルール）
         </a>
       </div>
     </div>
@@ -232,7 +233,7 @@ export function PlTables({ pack, entity }: { pack: KeepReportPack; entity: Entit
         <PlCard table={landing} title={`${ymLabel(landing.year_month)} 着地 ・ ${scope}`} actualHead="着地" />
         <PlCard table={forecast} title={`${ymLabel(forecast.year_month)} 着地見込 ・ ${scope}`} actualHead="見通し" />
       </div>
-      <ByEntityCard by={pack.landing} title={`${ymLabel(landing.year_month)} 着地 ・ 主体別`} actualHead="着地" />
+      <ByEntityCard by={pack.landing} title={`${ymLabel(landing.year_month)} 着地 ・ 計上会社別`} actualHead="着地" />
     </div>
   );
 }

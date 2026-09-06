@@ -69,13 +69,6 @@ export function buildProjectBody(v: NewProjectValues): Record<string, unknown> {
     intake_channel: v.intake_channel || undefined,
     notes: v.notes.trim() || null,
   };
-  /**
-   * **事業主体は選んだときだけ送る**（migration 282）。空（自動）は送らない —
-   * `null` を送ると「自動に戻す」の意味になり、レールから選んだ既存の案件で
-   * 人が上書きしていた主体が黙って外れる。自動の値はサーバーがお客様から決める。
-   * 「自動に戻す」は案件を直す画面（`buildSavePayload.ts`）だけが送る
-   */
-  if (v.entity) body.entity = v.entity;
   // 実施日は**複数日**を持てる（飛び日）。1日でも同じ形で送る
   if (v.dates.length > 0) body.dates = v.dates.map((d) => ({ date: d }));
   if (v.first_task_title.trim()) {

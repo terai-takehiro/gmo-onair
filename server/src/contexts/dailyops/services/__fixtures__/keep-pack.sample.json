@@ -78,7 +78,7 @@
       "has_override": false,
       "override_note": null
     },
-    "gss": {
+    "GSS": {
       "year_month": "2026-08",
       "mode": "landing",
       "lines": [
@@ -147,7 +147,7 @@
       "has_override": false,
       "override_note": null
     },
-    "gscs": {
+    "GJV": {
       "year_month": "2026-08",
       "mode": "landing",
       "lines": [
@@ -293,7 +293,7 @@
       "has_override": false,
       "override_note": null
     },
-    "gss": {
+    "GSS": {
       "year_month": "2026-09",
       "mode": "forecast",
       "lines": [
@@ -362,7 +362,7 @@
       "has_override": false,
       "override_note": null
     },
-    "gscs": {
+    "GJV": {
       "year_month": "2026-09",
       "mode": "forecast",
       "lines": [
@@ -768,7 +768,7 @@
         "name": "第20期 事業計画発表会",
         "customer_name": "株式会社DoCLASSE",
         "customer_segment": "external",
-        "entity": "gscs",
+        "entity_code": "GJV",
         "samurai_related": false,
         "stage": "b_verbal",
         "confidence": "B",
@@ -789,7 +789,7 @@
         "name": "ZOZO 社内イベント用撮影(仮称)",
         "customer_name": "株式会社CROSS-ZERO",
         "customer_segment": "external",
-        "entity": "gscs",
+        "entity_code": "GJV",
         "samurai_related": false,
         "stage": "b_verbal",
         "confidence": "B",
@@ -810,7 +810,7 @@
         "name": "第4部 開幕直前生放送【プリンセスコネクト】",
         "customer_name": "株式会社エンブレム",
         "customer_segment": "external",
-        "entity": "gscs",
+        "entity_code": "GJV",
         "samurai_related": false,
         "stage": "c_proposal",
         "confidence": "C",
@@ -831,7 +831,7 @@
         "name": "BLVCKOUT",
         "customer_name": "株式会社Livetoon",
         "customer_segment": "external",
-        "entity": "gscs",
+        "entity_code": "GJV",
         "samurai_related": false,
         "stage": "c_proposal",
         "confidence": "C",
@@ -852,7 +852,7 @@
         "name": "アニメ上映会・配信イベント",
         "customer_name": "株式会社ブシロードムーブ",
         "customer_segment": "external",
-        "entity": "gscs",
+        "entity_code": "GJV",
         "samurai_related": false,
         "stage": "d_hold",
         "confidence": "D",
@@ -873,7 +873,7 @@
         "name": "KULOG BOOK 第三弾ものまねフリースタイルバトル",
         "customer_name": "株式会社KULOG",
         "customer_segment": "external",
-        "entity": "gscs",
+        "entity_code": "GJV",
         "samurai_related": false,
         "stage": "d_hold",
         "confidence": "D",
@@ -896,7 +896,7 @@
         "name": "27.5時間テレビ",
         "customer_name": "株式会社サムライパートナーズ",
         "customer_segment": "external",
-        "entity": "gscs",
+        "entity_code": "GJV",
         "samurai_related": true,
         "stage": "b_verbal",
         "confidence": "B",
@@ -917,7 +917,7 @@
         "name": "Nontitle",
         "customer_name": "株式会社サムライパートナーズ",
         "customer_segment": "external",
-        "entity": "gscs",
+        "entity_code": "GJV",
         "samurai_related": true,
         "stage": "c_proposal",
         "confidence": "C",
@@ -938,7 +938,7 @@
         "name": "インテリジェンス",
         "customer_name": "GMOサムライコンテンツスタジオ株式会社",
         "customer_segment": "external",
-        "entity": "gscs",
+        "entity_code": "GJV",
         "samurai_related": true,
         "stage": "a_won",
         "confidence": "A",
@@ -1174,43 +1174,43 @@
       "year_month": "2026-09",
       "utilization": 42.1,
       "days": {
-        "1": [
+        "2026-09-01": [
           {
             "kind": "tour",
             "label": "下見"
           }
         ],
-        "2": [
+        "2026-09-02": [
           {
             "kind": "rehearsal",
             "label": "エイチ・アイ・エス"
           }
         ],
-        "3": [
+        "2026-09-03": [
           {
             "kind": "performance",
             "label": "ものづくり太郎"
           }
         ],
-        "4": [
+        "2026-09-04": [
           {
             "kind": "hold",
             "label": "DoCLASSE"
           }
         ],
-        "7": [
+        "2026-09-07": [
           {
             "kind": "performance",
             "label": "インテリジェンス"
           }
         ],
-        "8": [
+        "2026-09-08": [
           {
             "kind": "hold",
             "label": "BLVCKOUT"
           }
         ],
-        "9": [
+        "2026-09-09": [
           {
             "kind": "tour",
             "label": "DoCLASSE 下見"
@@ -1220,37 +1220,37 @@
             "label": "制作向け勉強会"
           }
         ],
-        "10": [
+        "2026-09-10": [
           {
             "kind": "rehearsal",
             "label": "ヒューマン"
           }
         ],
-        "11": [
+        "2026-09-11": [
           {
             "kind": "maintenance",
             "label": "消防設備点検"
           }
         ],
-        "16": [
+        "2026-09-16": [
           {
             "kind": "performance",
             "label": "DoCLASSE 事業計画発表会"
           }
         ],
-        "17": [
+        "2026-09-17": [
           {
             "kind": "tour",
             "label": "定期内覧会"
           }
         ],
-        "18": [
+        "2026-09-18": [
           {
             "kind": "internal",
             "label": "社員向け説明会"
           }
         ],
-        "19": [
+        "2026-09-19": [
           {
             "kind": "performance",
             "label": "児玉塾"
@@ -1260,13 +1260,13 @@
             "label": "ケース展"
           }
         ],
-        "25": [
+        "2026-09-25": [
           {
             "kind": "performance",
             "label": "匿匿バトル"
           }
         ],
-        "26": [
+        "2026-09-26": [
           {
             "kind": "performance",
             "label": "第4部 開幕直前生放送"
@@ -1287,61 +1287,61 @@
       "year_month": "2026-10",
       "utilization": 36.1,
       "days": {
-        "2": [
+        "2026-10-02": [
           {
             "kind": "performance",
             "label": "SNS撮影"
           }
         ],
-        "6": [
+        "2026-10-06": [
           {
             "kind": "hold",
             "label": "GMOバーチャル"
           }
         ],
-        "8": [
+        "2026-10-08": [
           {
             "kind": "performance",
             "label": "ZOZO 社内イベント"
           }
         ],
-        "14": [
+        "2026-10-14": [
           {
             "kind": "rehearsal",
             "label": "P-MACHINE"
           }
         ],
-        "15": [
+        "2026-10-15": [
           {
             "kind": "performance",
             "label": "ヒカルCh"
           }
         ],
-        "21": [
+        "2026-10-21": [
           {
             "kind": "setup",
             "label": "27.5時間テレビ 設営"
           }
         ],
-        "22": [
+        "2026-10-22": [
           {
             "kind": "performance",
             "label": "27.5時間テレビ"
           }
         ],
-        "23": [
+        "2026-10-23": [
           {
             "kind": "performance",
             "label": "27.5時間テレビ"
           }
         ],
-        "24": [
+        "2026-10-24": [
           {
             "kind": "performance",
             "label": "27.5時間テレビ"
           }
         ],
-        "28": [
+        "2026-10-28": [
           {
             "kind": "maintenance",
             "label": "空調メンテナンス"

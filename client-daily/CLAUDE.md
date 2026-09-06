@@ -35,8 +35,9 @@
     **判定・比率・差はサーバーが計算する**（画面で足し引きしない）
   - **週報を確定すると、その週の会議日のパックも凍る**（`ops_reports.payload.keep = { pack_id, meeting_date }`・
     `keep_report_packs`）。画面は凍結版があればそれを出し、`?live=1` でいまの数字に切り替える
-  - **フィルタは URL**（`?meeting=&entity_code=&segment=`）。事業主体・お客様区分は
-    ヨミ表・案件ページ・実施報告だけに効き、数値報告の表は常に 全体／主体別 を持つ
+  - **フィルタは URL**（`?meeting=&entity_code=&segment=`。`entity_code` は main の計上会社
+    GJV／GSS／GMO か `all`）。計上会社・お客様区分はヨミ表・案件ページ・実施報告だけに効き、
+    数値報告の表は常に 全体／計上会社別 を持つ
   - **稼働率**: 内覧・仮押さえを含め利用があった営業日 ÷ 営業日。メンテナンスは除く。数え方は
     案件管理の設定「お金のルール」（`keep_settings.utilization`）
   - **「資料」の印**（ヨミ表のチェック＝`projects.keep_pick`）を付けた案件だけ資料の案件ページになる。

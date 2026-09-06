@@ -2,11 +2,12 @@
  * 隔週キープ（業績報告）の「定例報告パック」と「資料の構成」の型。
  *
  * ── なぜ shared に置くか ──────────────────────────────────────
- * サーバーが作り（`server/src/contexts/dailyops/services/keep-pack.service.ts` 予定）、
+ * サーバーが作り（`server/src/contexts/dailyops/services/keep-pack.service.ts`）、
  * 日常業務の画面・PowerPoint 出力・Slack 定例投稿・MCP（`get_keep_report_pack`）が
  * **同じ形を読む**ため。片方だけ直すと資料と画面の数字が食い違う。
  *
- * 設計の正は docs/design/v4/keep-report.md。ここは型だけ（まだ実装は無い）。
+ * 設計の正は docs/design/v4/keep-report.md。ここは型だけ（server 側の写しは `keep-pack.types.ts`・
+ * `shared/tests/keepReportCalc.test.ts` が鍵の名前を突き合わせる）。
  *
  * ── 数字の約束 ────────────────────────────────────────────────
  * - 金額は **円** の整数で持つ。千円・万円に丸めるのは表示側（`manYen` と同じ考え）
@@ -16,16 +17,25 @@
  */
 
 /**
- * 事業主体（2026年10月の会社分割に備える）。案件に1つ付ける。
- * お客様の区分から自動で決まる: グループ内 → gss、外部 → gscs。gig は人が上書きしたときだけ。
+ * 計上会社（2026年10月の事業再編・docs/reorg-2026-10-plan.md §4.1〜§4.4）。
+ * 売上・費用をどの会社の帳簿に載せるかの区分で、案件・帳簿の行の `entity_code` 列の値。
+ *
+ * `server/src/contexts/platform/services/legal-entity.service.ts` の `LegalEntityCode` と
+ * **同じ3文字**（`legal_entities.code`・案件番号の prefix `GJV-0001` と同じ文字列）。
+ *   GJV … GMOサムライコンテンツスタジオ（グループ外のお客様の案件）
+ *   GSS … GMOサムライスタジオ（旧 GMOグローバルスタジオ。グループ内のお客様の案件）
+ *   GMO … GMOインターネットグループ本体（旧 GLS-B のプロジェクト。コストセンター）
+ * 決め方「グループ外→GJV／グループ内→GSS／プロジェクト→GMO」は server の
+ * `sales/services/entity-resolution.service.ts` が持つ（shared には写しを置かない）。
+ * `org_transition.state = 'off'` のあいだはこの規則は効かず、既存の行はすべて GSS。
  */
-export type BusinessEntity = 'gss' | 'gscs' | 'gig';
+export type BusinessEntity = 'GJV' | 'GSS' | 'GMO';
 export const BUSINESS_ENTITY_LABELS: Record<BusinessEntity, string> = {
-  gss: 'GMOサムライスタジオ',
-  gscs: 'GMOサムライコンテンツスタジオ',
-  gig: 'GMOインターネットグループ人格',
+  GJV: 'GMOサムライコンテンツスタジオ',
+  GSS: 'GMOサムライスタジオ',
+  GMO: 'GMOインターネットグループ',
 };
-/** 絞り込みの値。`all` は主体の合計。 */
+/** 絞り込みの値。`all` は計上会社の合計（統合）。 */
 export type EntityScope = BusinessEntity | 'all';
 
 /** お客様の区分。`projects.customer_type` の写し（当時の値）。 */
@@ -85,7 +95,8 @@ export interface PipelineRow {
   name: string;
   customer_name: string;
   customer_segment: CustomerSegment;
-  entity: BusinessEntity;
+  /** 案件の計上会社（`projects.entity_code`。切替前はすべて GSS） */
+  entity_code: BusinessEntity;
   /** サムライパートナーズ／GMOサムライコンテンツスタジオが相手の案件（資料では別表） */
   samurai_related: boolean;
   stage: string;                // ONAiR のステージ
@@ -143,12 +154,15 @@ export interface InviewSummary {
   next_session: { date: string; applied_groups: number } | null;
 }
 
-/** 主体ごとの表と、統合した全体の表。`gig` は数字があるときだけ。 */
+/**
+ * 計上会社ごとの表と、統合した全体の表。鍵は `entity_code` そのもの。
+ * GSS ＝ グループ内のお客様の案件、GJV ＝ グループ外。`GMO`（グループ本体のコストセンター）は数字があるときだけ。
+ */
 export interface PlByEntity {
   all: MonthlyPlTable;
-  gss: MonthlyPlTable;
-  gscs: MonthlyPlTable;
-  gig?: MonthlyPlTable;
+  GJV: MonthlyPlTable;
+  GSS: MonthlyPlTable;
+  GMO?: MonthlyPlTable;
 }
 
 /** 会議1回ぶんの「定例報告パック」。週報を確定した時点で凍結する。 */
@@ -158,9 +172,10 @@ export interface KeepReportPack {
   previous_meeting_date: string | null;
   generated_at: string;                // ISO
   frozen_at: string | null;            // 凍結した時刻。null なら「いまの数字」
+  /** 絞り込み。`entity` の値は計上会社の `entity_code`（GJV / GSS / GMO）か `all` */
   scope: { entity: EntityScope; customer_segment: CustomerSegment | 'all' };
-  landing: PlByEntity;                 // 当月 着地（主体別 ＋ 全体）
-  forecast: PlByEntity;                // 翌月 着地見込（主体別 ＋ 全体）
+  landing: PlByEntity;                 // 当月 着地（計上会社別 ＋ 全体）
+  forecast: PlByEntity;                // 翌月 着地見込（計上会社別 ＋ 全体）
   trend: MonthlyTrendPoint[];          // 2024-01〜
   pipeline: { external: PipelineRow[]; samurai: PipelineRow[]; weighted_revenue: number; total_revenue: number };
   project_pages: ProjectPageData[];    // ヨミ表で「資料」に印を付けた案件
@@ -185,10 +200,10 @@ export const DEFAULT_UTILIZATION_SETTINGS: UtilizationSettings = {
   count_saturday: false,
 };
 
-/** 主体ごとの月次予算（円）。null は未登録。 */
+/** 計上会社ごとの月次予算（円・`monthly_budgets` の `(entity_code, year_month)`）。null は未登録。 */
 export interface MonthlyBudget {
   year_month: string;
-  entity: BusinessEntity;
+  entity_code: BusinessEntity;
   revenue: number | null;
   cogs_fixed: number | null;
   cogs_variable: number | null;
@@ -226,7 +241,7 @@ export interface SlidePart {
   x: number; y: number; w: number; h: number;
   /** 人が上書きした文（binding があっても優先）。写真は Box の file id の並び */
   text_override: string | null;
-  /** 部品ごとの小さな設定（例: 表の対象月 'YYYY-MM'、主体、写真の id 一覧） */
+  /** 部品ごとの小さな設定（例: 表の対象月 'YYYY-MM'、計上会社（`entity`: all / GJV / GSS / GMO / by_entity）、写真の id 一覧） */
   options?: Record<string, unknown>;
 }
 

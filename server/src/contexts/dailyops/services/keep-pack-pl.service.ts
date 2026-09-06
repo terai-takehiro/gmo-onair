@@ -1,11 +1,14 @@
 /**
- * 定例報告パック — ①数値報告の表（当月 着地／翌月 着地見込）を主体別＋全体で組む
+ * 定例報告パック — ①数値報告の表（当月 着地／翌月 着地見込）を計上会社別＋全体で組む
  *
  * 正は docs/design/v4/keep-report.md §5.2（出どころ）・§5.3（計算列）。
+ * 「主体」＝ main の**計上会社 `entity_code`**（GJV／GSS／GMO・docs/reorg-2026-10-plan.md §4.5）。
+ * 財務と同じく**案件ではなく行（revenues / purchases / sga_expenses）の `entity_code`** で切る
+ * — 案件を改番・移管しても過去の行は書いた時の会社に残る（`pipeline-forecast.service.ts` と同じ判断）。
  *
  * ── 着地（landing）────────────────────────────────────────────
- * `keepReportService.getMonthlyPl(ym, 主体)` そのもの（確定売上 `status='confirmed'`・仕入・販管費・
- * 経理の補正値・主体別の予算）。**未確定の売上は数えない**。
+ * `keepReportService.getMonthlyPl(ym, 会社)` そのもの（確定売上 `status='confirmed'`・仕入・販管費・
+ * 経理の補正値・会社別の予算）。**未確定の売上は数えない**。
  *
  * ── 着地見込（forecast）＝ 着地 ＋ 受注前案件の確度加味 ─────────────
  *   売上 … 着地（確定）＋ Σ（`status='estimate'` の売上 × ステージの受注確度）
@@ -29,8 +32,9 @@ import { keepReportService } from '../../sales/services/keep-report.service';
 import { getStageProbabilityMap } from '../../sales/services/stage-probability.service';
 import { ESTIMATE_AMOUNT_LATERAL } from '../../sales/services/project.service';
 import { varianceOf } from '../../sales/services/keep-report-rules';
-import { BUSINESS_ENTITIES, type BusinessEntity, type EntityScope } from '../../sales/services/project-entity';
-import type { BudgetLine, MonthlyPlTable, PlByEntity } from './keep-pack.types';
+import {
+  BUSINESS_ENTITIES, isBusinessEntity, type BudgetLine, type BusinessEntity, type EntityScope, type MonthlyPlTable, type PlByEntity,
+} from './keep-pack.types';
 
 const FIXED_COGS_CODE = 'FIXED-COGS';
 /** 受注前のステージ（見込みで確度を掛ける側）。失注はどちらにも数えない */
@@ -78,76 +82,77 @@ interface Addition { revenue: number; cogs_variable: number }
 
 const emptyAdditions = (): Record<EntityScope, Addition> => ({
   all: { revenue: 0, cogs_variable: 0 },
-  gss: { revenue: 0, cogs_variable: 0 },
-  gscs: { revenue: 0, cogs_variable: 0 },
-  gig: { revenue: 0, cogs_variable: 0 },
+  GJV: { revenue: 0, cogs_variable: 0 },
+  GSS: { revenue: 0, cogs_variable: 0 },
+  GMO: { revenue: 0, cogs_variable: 0 },
 });
 
 async function weightedAdditions(ym: string): Promise<Record<EntityScope, Addition>> {
   const [from, to] = monthRange(ym);
   const [revRows, purRows, probability] = await Promise.all([
     queryAll(
-      `SELECT p.entity, p.stage, COALESCE(SUM(r.amount), 0)::bigint AS amount
+      // 会社は行の entity_code（書いた時の会社。`getMonthlySummary` が着地を切るのと同じ列）
+      `SELECT r.entity_code, p.stage, COALESCE(SUM(r.amount), 0)::bigint AS amount
          FROM revenues r
          JOIN projects p ON p.id = r.project_id AND p.deleted_at IS NULL
         WHERE r.deleted_at IS NULL AND r.status = 'estimate'
           AND r.recognition_date >= ? AND r.recognition_date <= ?
           AND p.stage <> 'e_lost' AND COALESCE(p.code, '') <> ?
-        GROUP BY p.entity, p.stage`,
+        GROUP BY r.entity_code, p.stage`,
       [from, to, FIXED_COGS_CODE],
-    ) as Promise<{ entity: string; stage: string; amount: unknown }[]>,
-    // 仕入は主体を COALESCE(purchases.entity, projects.entity) で決める（migration 283）
+    ) as Promise<{ entity_code: string; stage: string; amount: unknown }[]>,
     queryAll(
-      `SELECT COALESCE(pu.entity, p.entity) AS entity, p.stage, COALESCE(SUM(pu.amount), 0)::bigint AS amount
+      `SELECT pu.entity_code, p.stage, COALESCE(SUM(pu.amount), 0)::bigint AS amount
          FROM purchases pu
          JOIN projects p ON p.id = pu.project_id AND p.deleted_at IS NULL
         WHERE pu.deleted_at IS NULL
           AND pu.recognition_date >= ? AND pu.recognition_date <= ?
           AND p.stage = ANY(?) AND COALESCE(p.code, '') <> ?
-        GROUP BY COALESCE(pu.entity, p.entity), p.stage`,
+        GROUP BY pu.entity_code, p.stage`,
       [from, to, PRE_WON_STAGES, FIXED_COGS_CODE],
-    ) as Promise<{ entity: string; stage: string; amount: unknown }[]>,
+    ) as Promise<{ entity_code: string; stage: string; amount: unknown }[]>,
     getStageProbabilityMap(),
   ]);
   const out = emptyAdditions();
-  const add = (entity: string, field: keyof Addition, delta: number) => {
+  const add = (entityCode: string, field: keyof Addition, delta: number) => {
     out.all[field] += delta;
-    if (entity === 'gss' || entity === 'gscs' || entity === 'gig') out[entity][field] += delta;
+    if (isBusinessEntity(entityCode)) out[entityCode][field] += delta;
   };
   for (const r of revRows) {
     const p = probability.get(r.stage as never) ?? 0;
-    add(r.entity, 'revenue', Math.round(n(r.amount) * (p / 100)));
+    add(r.entity_code, 'revenue', Math.round(n(r.amount) * (p / 100)));
   }
   for (const r of purRows) {
     // 100% で入っているぶんを確度に置き換える（差分は 0 以下）
     const p = probability.get(r.stage as never) ?? 0;
     const amount = n(r.amount);
-    add(r.entity, 'cogs_variable', Math.round(amount * (p / 100)) - amount);
+    add(r.entity_code, 'cogs_variable', Math.round(amount * (p / 100)) - amount);
   }
   return out;
 }
 
 // ── 未確定の売上（注記の材料）──────────────────────────────────
 
-interface Unconfirmed { project_id: string; project_name: string; amount: number; entity: BusinessEntity }
+interface Unconfirmed { project_id: string; project_name: string; amount: number; entity_code: BusinessEntity }
 
 async function listUnconfirmed(ym: string): Promise<Unconfirmed[]> {
   const [from, to] = monthRange(ym);
   const [estimateRows, eventRows] = await Promise.all([
     queryAll(
-      `SELECT p.id, p.name, p.entity, COALESCE(SUM(r.amount), 0)::bigint AS amount
+      // 注記は案件単位なので会社は案件の entity_code（案件の今の会社）で見る
+      `SELECT p.id, p.name, p.entity_code, COALESCE(SUM(r.amount), 0)::bigint AS amount
          FROM revenues r
          JOIN projects p ON p.id = r.project_id AND p.deleted_at IS NULL
         WHERE r.deleted_at IS NULL AND r.status = 'estimate'
           AND r.recognition_date >= ? AND r.recognition_date <= ?
           AND p.stage <> 'e_lost' AND COALESCE(p.code, '') <> ?
-        GROUP BY p.id, p.name, p.entity
+        GROUP BY p.id, p.name, p.entity_code
         ORDER BY amount DESC, p.name`,
       [from, to, FIXED_COGS_CODE],
-    ) as Promise<{ id: string; name: string; entity: string; amount: unknown }[]>,
+    ) as Promise<{ id: string; name: string; entity_code: string; amount: unknown }[]>,
     // その月に本番があるのに確定売上が1件も無い案件。金額は 最新の見積 → 想定金額 → 0
     queryAll(
-      `SELECT p.id, p.name, p.entity, COALESCE(est.amount, p.expected_amount, 0)::bigint AS amount
+      `SELECT p.id, p.name, p.entity_code, COALESCE(est.amount, p.expected_amount, 0)::bigint AS amount
          FROM projects p
          ${ESTIMATE_AMOUNT_LATERAL}
         WHERE p.deleted_at IS NULL AND p.stage <> 'e_lost' AND COALESCE(p.code, '') <> ?
@@ -159,14 +164,14 @@ async function listUnconfirmed(ym: string): Promise<Unconfirmed[]> {
           )
         ORDER BY p.event_start, p.name`,
       [FIXED_COGS_CODE, to, from],
-    ) as Promise<{ id: string; name: string; entity: string; amount: unknown }[]>,
+    ) as Promise<{ id: string; name: string; entity_code: string; amount: unknown }[]>,
   ]);
   const seen = new Set<string>();
   const out: Unconfirmed[] = [];
   for (const r of [...estimateRows, ...eventRows]) {
     if (seen.has(r.id)) continue;
     seen.add(r.id);
-    out.push({ project_id: r.id, project_name: r.name, amount: n(r.amount), entity: r.entity as BusinessEntity });
+    out.push({ project_id: r.id, project_name: r.name, amount: n(r.amount), entity_code: r.entity_code as BusinessEntity });
   }
   return out;
 }
@@ -194,13 +199,13 @@ function toTable(
   };
 }
 
-/** `gig` は数字があるときだけ出す（実績が 1 円でもある・目標が入っている） */
+/** `GMO`（コストセンター）は数字があるときだけ出す（実績が 1 円でもある・目標が入っている） */
 function hasAnyNumber(table: MonthlyPlTable): boolean {
   return table.lines.some((l) => l.actual !== 0 || l.budget != null) || table.unconfirmed.length > 0;
 }
 
 /**
- * 主体ごとの表＋全体（統合）。`gig` は数字があるときだけ。
+ * 計上会社ごとの表＋全体（統合）。`GMO` は数字があるときだけ。
  * `mode: 'forecast'` は着地に受注前案件の確度加味を上乗せする。
  */
 export async function buildPlByEntity(ym: string, mode: MonthlyPlTable['mode']): Promise<PlByEntity> {
@@ -211,11 +216,11 @@ export async function buildPlByEntity(ym: string, mode: MonthlyPlTable['mode']):
   ]);
   const tables = new Map<EntityScope, MonthlyPlTable>();
   SCOPES.forEach((scope, i) => {
-    const forScope = scope === 'all' ? unconfirmed : unconfirmed.filter((u) => u.entity === scope);
+    const forScope = scope === 'all' ? unconfirmed : unconfirmed.filter((u) => u.entity_code === scope);
     tables.set(scope, toTable(ym, mode, pls[i], additions ? additions[scope] : null, forScope));
   });
-  const out: PlByEntity = { all: tables.get('all')!, gss: tables.get('gss')!, gscs: tables.get('gscs')! };
-  const gig = tables.get('gig')!;
-  if (hasAnyNumber(gig)) out.gig = gig;
+  const out: PlByEntity = { all: tables.get('all')!, GJV: tables.get('GJV')!, GSS: tables.get('GSS')! };
+  const gmo = tables.get('GMO')!;
+  if (hasAnyNumber(gmo)) out.GMO = gmo;
   return out;
 }

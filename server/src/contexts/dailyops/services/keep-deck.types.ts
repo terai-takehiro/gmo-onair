@@ -4,7 +4,7 @@
  * ⚠️ **server は `shared/` を import できません**（`server/tsconfig.json` の `rootDir: "./src"`）。
  * 正は `shared/src/keepReport/types.ts` の「資料（デッキ）の構成」の節で、ここはその写しです。
  * パックの型（KeepReportPack など）は段1の写し `keep-pack.types.ts` を **再輸出**する（写しを3つにしない）。
- * 主体の表示名は `sales/services/project-entity.ts`（Agent A の server 側の実体）から。
+ * 計上会社（GJV／GSS／GMO）の表示名も `keep-pack.types.ts` から再輸出する。
  *
  * 形が同じであることは `shared/tests/keepReportDeckParity.test.ts` が、同じ材料（`__fixtures__/keep-pack.sample.json`）を
  * shared と server の関数に通して同じ答えになることで固定しています。
@@ -13,7 +13,7 @@ export type {
   BusinessEntity, EntityScope, CustomerSegment, ConfidenceLetter, Judge, BudgetLine, MonthlyPlTable, MonthlyTrendPoint,
   PipelineRow, ProjectPageData, UtilizationCalendar, InviewSummary, PlByEntity, KeepReportPack,
 } from './keep-pack.types';
-export { BUSINESS_ENTITY_LABELS } from '../../sales/services/project-entity';
+export { BUSINESS_ENTITY_LABELS, BUSINESS_ENTITIES } from './keep-pack.types';
 
 // ── 資料（デッキ）の構成 ────────────────────────────────────────
 

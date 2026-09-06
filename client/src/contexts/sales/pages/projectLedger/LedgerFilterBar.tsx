@@ -1,20 +1,22 @@
 /**
- * 案件台帳の絞り込みの帯（検索・ステージ・分類・事業主体・出す列・CSV）
+ * 案件台帳の絞り込みの帯（検索・ステージ・分類・計上会社・出す列・CSV）
  *
  * `ProjectLedgerPage` から切り出した（1ファイル 400 行の決めごと）。**状態は持たない** —
  * 絞り込みの値と決め方は `useLedgerState` / `filters.ts` にあり、ここは並べて押すだけ。
  *
- * 事業主体（`entity`）は案件の持ち物（`projects.entity`・お客様の区分から自動で決まり、
- * 人格だけ手で付ける）。**サーバーの `GET /projects?entity=` で絞る** — 画面で絞ると
- * そのページの 100 件の中だけになり、全体で何件かが分からない（整合性チェックと同じ理由）。
+ * 計上会社（`entity_code`・GJV / GSS / GMO）は案件の持ち物（`projects.entity_code`・
+ * 2026年10月の事業再編。サーバーが規則で導き、人が変えるのは管理者だけの改番経由）。
+ * **サーバーの `GET /projects?entity_code=` で絞る** — 画面で絞るとそのページの 100 件の
+ * 中だけになり、全体で何件かが分からない（整合性チェックと同じ理由）。
+ * 呼び名は表の「計上会社」列（`LedgerCells.tsx`）と同じ `ENTITY_BADGE_LABEL`。
  */
 import { Columns3, Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { BUSINESS_ENTITY_LABELS } from '@gmo-onair/shared/src/keepReport/types';
-import { BUSINESS_ENTITIES } from '@/lib/keepApi';
+import { BUSINESS_ENTITIES } from '@gmo-onair/shared/src/keepReport/entity';
 import { ProjectStageLabels, type ProjectStage } from '@/types';
+import { ENTITY_BADGE_LABEL } from '../projectList/stages';
 import type { LedgerState } from './useLedgerState';
 import type { ColumnPrefs } from './useColumnPrefs';
 import type { useLedgerCsv } from './useLedgerCsv';
@@ -57,13 +59,13 @@ export function LedgerFilterBar({ s, prefs, csv, isMobile, onOpenColumns }: {
           <SelectItem value="all">どちらも</SelectItem>
         </SelectContent>
       </Select>
-      {/* 事業主体。表示名は `shared` の1表（案件詳細・隔週キープと同じ言い方） */}
-      <Select value={s.filters.entity || 'all'} onValueChange={(v) => s.setFilter('entity', v === 'all' ? '' : v)}>
-        <SelectTrigger className="h-10 w-[240px]" aria-label="事業主体で絞り込む"><SelectValue /></SelectTrigger>
+      {/* 計上会社。並びは `legal_entities.sort_order` と同じ（shared の `BUSINESS_ENTITIES`）・呼び名は表の列と同じ */}
+      <Select value={s.filters.entityCode || 'all'} onValueChange={(v) => s.setFilter('entityCode', v === 'all' ? '' : v)}>
+        <SelectTrigger className="h-10 w-[200px]" aria-label="計上会社で絞り込む"><SelectValue /></SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">事業主体：すべて</SelectItem>
+          <SelectItem value="all">計上会社：すべて</SelectItem>
           {BUSINESS_ENTITIES.map((e) => (
-            <SelectItem key={e} value={e}>{BUSINESS_ENTITY_LABELS[e]}</SelectItem>
+            <SelectItem key={e} value={e}>{ENTITY_BADGE_LABEL[e]}（{e}）</SelectItem>
           ))}
         </SelectContent>
       </Select>

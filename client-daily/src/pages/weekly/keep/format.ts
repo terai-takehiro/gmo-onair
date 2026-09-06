@@ -33,12 +33,17 @@ export const CONFIDENCE_TONE: Record<ConfidenceLetter, { letter: string; badge: 
   E: { letter: 'text-muted-foreground', badge: 'bg-muted text-muted-foreground' },
 };
 
-/** 絞り込みチップの並びと表示名（資料の言い方 ＝ 主体 と お客様の区分の対応を1行で見せる） */
+/**
+ * 計上会社の絞り込みチップの並びと表示名（資料の言い方 ＝ 会社 と お客様の区分の対応を1行で見せる）。
+ * 鍵は main の `entity_code`（`legal_entities.code`）そのもの。GSS を先に置く — 切替前（`org_transition.state='off'`）は
+ * 全行 GSS なので、いちばん左に数字のある会社が来る（`shared/src/keepReport/entity.ts` の `BUSINESS_ENTITIES` は
+ * main の sort_order どおり GJV が先）。
+ */
 export const ENTITY_CHIPS: Array<{ key: EntityScope; label: string }> = [
   { key: 'all', label: '全体（統合）' },
-  { key: 'gss', label: 'GMOサムライスタジオ ＝ グループ内' },
-  { key: 'gscs', label: 'GMOサムライコンテンツスタジオ ＝ 外部' },
-  { key: 'gig', label: 'GMOインターネットグループ人格' },
+  { key: 'GSS', label: 'GMOサムライスタジオ ＝ グループ内' },
+  { key: 'GJV', label: 'GMOサムライコンテンツスタジオ ＝ 外部' },
+  { key: 'GMO', label: 'GMOインターネットグループ' },
 ];
 
 export const SEGMENT_CHIPS: Array<{ key: SegmentScope; label: string }> = [
@@ -47,7 +52,7 @@ export const SEGMENT_CHIPS: Array<{ key: SegmentScope; label: string }> = [
   { key: 'external', label: '外部' },
 ];
 
-/** 表の見出しに出す短い主体名 */
+/** 表の見出しに出す短い会社名（「＝ …」の前だけ） */
 export function scopeTitle(scope: EntityScope): string {
   return ENTITY_CHIPS.find((c) => c.key === scope)?.label.split(' ＝ ')[0] ?? '全体（統合）';
 }

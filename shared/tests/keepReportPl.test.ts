@@ -85,26 +85,26 @@ describe('varianceOf（差・比・判定）', () => {
   });
 });
 
-describe('sumBudgetFields（全体の目標 ＝ 主体の合計）', () => {
+describe('sumBudgetFields（全体の目標 ＝ 計上会社の合計）', () => {
   it('行が無ければ null（未登録を 0 にしない）', () => {
     expect(sumBudgetFields([])).toBeNull();
   });
 
-  it('主体ごとの値を項目ごとに足す', () => {
+  it('計上会社ごとの値を項目ごとに足す', () => {
     expect(sumBudgetFields([
       { revenue: 21_000_000, cogs_fixed: 19_727_000, cogs_variable: 0, sga: 26_427_000, operating_profit: -25_154_000 },
       { revenue: 5_000_000, cogs_fixed: null, cogs_variable: 1_000_000, sga: null, operating_profit: 4_000_000 },
     ])).toEqual({ revenue: 26_000_000, cogs_fixed: 19_727_000, cogs_variable: 1_000_000, sga: 26_427_000, operating_profit: -21_154_000 });
   });
 
-  it('どの主体にも無い項目は null のまま（按分もしない）', () => {
+  it('どの計上会社にも無い項目は null のまま（按分もしない）', () => {
     expect(sumBudgetFields([
       { revenue: 1, cogs_fixed: null, cogs_variable: null, sga: null, operating_profit: null },
       { revenue: null, cogs_fixed: null, cogs_variable: null, sga: null, operating_profit: null },
     ])).toEqual({ revenue: 1, cogs_fixed: null, cogs_variable: null, sga: null, operating_profit: null });
   });
 
-  it('1行なら その行の値そのまま（主体を指定したときの形）', () => {
+  it('1行なら その行の値そのまま（計上会社を指定したときの形）', () => {
     const row = { revenue: 10, cogs_fixed: 2, cogs_variable: 3, sga: 4, operating_profit: 1 };
     expect(sumBudgetFields([row])).toEqual(row);
   });

@@ -10,19 +10,12 @@
  * （BOX の URL・申込書・番組情報・日程）と、react-hook-form が持つ形だけです。
  * **新しい項目をここにだけ足さないこと** — 作る画面に無い欄がまた増えます。
  */
-import type { BusinessEntity } from '@gmo-onair/shared/src/keepReport/types';
 import type { Audience, ProjectCategory } from '../../classification';
 
 export interface FormValues {
   name: string;
   customer_id: string;
   customer_type: 'internal' | 'external';
-  /**
-   * 事業主体（migration 282）。**空 ＝ 自動**（お客様の区分から決まる）。
-   * 案件作成と同じ欄（`projectNew/MoreFields`）。保存では空を `null` で送り、
-   * 人の上書き（`entity_manual`）を外して自動に戻す（`buildSavePayload.ts`）
-   */
-  entity: BusinessEntity | '';
   /**
    * 旧1段の案件種類。**この画面はもう欄を持ちません**（読むだけ）。
    * 分類は下の2段が正で、`project_type` はサーバーが2段から導きます
@@ -71,7 +64,7 @@ export interface FormValues {
 }
 
 export const EMPTY_FORM: FormValues = {
-  name: '', customer_id: '', customer_type: 'external', entity: '', project_type: '',
+  name: '', customer_id: '', customer_type: 'external', project_type: '',
   audience: '', project_category: '',
   gls_category: '',
   contact_name: '', recurrence: 'single',

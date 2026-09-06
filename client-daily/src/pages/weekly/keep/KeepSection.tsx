@@ -2,7 +2,7 @@
  * ウィークリー活動報告 ▸ 「隔週キープの数字」タブ（`/weekly/:id/keep`）
  *
  * 会議1回ぶんの数字（定例報告パック）を、資料と同じ切り口で見せる:
- *   数値報告（着地・見込・主体別）→ 進捗のグラフ → ヨミ表 → 稼働カレンダー →
+ *   数値報告（着地・見込・計上会社別）→ 進捗のグラフ → ヨミ表 → 稼働カレンダー →
  *   実施報告 → 定期内覧会。設計の正は `docs/design/v4/keep-report.md` §3・§5。
  *
  * ── 数字は「いまの数字」。確定で凍る ────────────────────────
@@ -11,8 +11,9 @@
  * 帯で「いまの数字か・凍った数字か」を必ず言う。
  *
  * ── 絞り込みは URL に持つ ───────────────────────────────────
- * `?meeting=&entity=&segment=&live=1`。共有した URL で同じ数字が開くようにする。
- * 主体・お客様のチップの件数は**絞り込まない全体のパック**から数える
+ * `?meeting=&entity_code=&segment=&live=1`（`entity_code` は main の帳簿の列と同じ名前・値は GJV / GSS / GMO）。
+ * 共有した URL で同じ数字が開くようにする。
+ * 計上会社・お客様のチップの件数は**絞り込まない全体のパック**から数える
  * （絞ったパックから数えると、押していないチップが 0 件に見える）。
  *
  * スマホは要約だけ（`mobile/KeepMobile.tsx`）。出し分けは親から渡る `isMobile` 1本。
@@ -53,7 +54,7 @@ export function KeepSection({ report, isMobile }: { report: OpsReport; isMobile:
   const settled = meetings.isFetched || meetings.isError;
   const meeting = params.get('meeting') ?? fromReport ?? meetings.data?.next_meeting_date
     ?? (settled ? localDateStr(new Date()) : null);
-  const entity = parseEntity(params.get('entity'));
+  const entity = parseEntity(params.get('entity_code'));
   const segment = parseSegment(params.get('segment'));
   const live = params.get('live') === '1';
 
@@ -97,12 +98,12 @@ export function KeepSection({ report, isMobile }: { report: OpsReport; isMobile:
           </span>
           {/* 見出しとチップは**組で折り返す**（別々に折り返すと見出しだけが行末に残る） */}
           <span className="inline-flex max-w-full items-center gap-2">
-            <span className="text-sub-sm shrink-0 font-bold text-muted-foreground">事業主体</span>
+            <span className="text-sub-sm shrink-0 font-bold text-muted-foreground">計上会社</span>
             <FilterChips
-              label="事業主体で絞り込む"
+              label="計上会社で絞り込む"
               items={ENTITY_CHIPS.map((c) => ({ key: c.key, label: c.label, count: counts.entity[c.key] ?? null }))}
               value={entity}
-              onChange={(k) => set({ entity: k })}
+              onChange={(k) => set({ entity_code: k })}
             />
           </span>
           <span className="inline-flex max-w-full items-center gap-2">
@@ -125,7 +126,7 @@ export function KeepSection({ report, isMobile }: { report: OpsReport; isMobile:
           </span>
           <p className="text-sub-sm flex basis-full items-center gap-1.5 text-muted-foreground">
             <Info className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            主体はお客様の区分から自動で決まります（グループ内 → GMOサムライスタジオ／外部 → GMOサムライコンテンツスタジオ）。人格で行う案件だけ手で付けます
+            計上会社は案件の計上会社（グループ内のお客様 → GMOサムライスタジオ／外部のお客様 → GMOサムライコンテンツスタジオ／プロジェクトはグループ本体）。切替前はすべて GMOサムライスタジオです
           </p>
         </div>
       )}
@@ -212,14 +213,14 @@ function InfoBar({ pack, frozen, live, frozenExists, previous, next, meeting, on
   );
 }
 
-/** チップの件数（ヨミ表の案件数を主体・区分で数える）。パックが無ければ null＝出さない */
+/** チップの件数（ヨミ表の案件数を計上会社・区分で数える）。パックが無ければ null＝出さない */
 function countsOf(pack: KeepReportPack | null) {
   const entity: Record<string, number | null> = {};
   const segment: Record<string, number | null> = {};
   if (!pack) return { entity, segment };
   const rows = [...pack.pipeline.external, ...pack.pipeline.samurai];
   entity.all = rows.length; segment.all = rows.length;
-  for (const k of ['gss', 'gscs', 'gig']) entity[k] = rows.filter((r) => r.entity === k).length;
+  for (const k of ['GJV', 'GSS', 'GMO']) entity[k] = rows.filter((r) => r.entity_code === k).length;
   for (const k of ['internal', 'external']) segment[k] = rows.filter((r) => r.customer_segment === k).length;
   return { entity, segment };
 }

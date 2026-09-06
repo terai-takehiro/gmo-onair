@@ -41,14 +41,6 @@ export function buildSavePayload(
   delete body.customer_type;
 
   /**
-   * **事業主体は空なら `null` で送る**（migration 282）。`null` は「自動に戻す」で、
-   * サーバーが人の上書きの印（`entity_manual`）を外してお客様の区分から決め直す。
-   * 送らない（`undefined`）と今の値を保つので、「自動」を選び直した人の操作が
-   * 黙って無視される。案件作成側は逆に空を送らない（`useCreateProject.ts`）
-   */
-  body.entity = values.entity || null;
-
-  /**
    * **新しく作るときだけ「入口」を送る** (migration 165)。
    * ダッシュボードの受付カードから「電話・打合せを取り込む」で来ると
    * `?intake=phone` が付いているので、それを引き継ぐ。

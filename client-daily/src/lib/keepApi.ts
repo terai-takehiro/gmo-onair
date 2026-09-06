@@ -6,10 +6,12 @@
  * 千円への丸めは画面側 `pages/weekly/keep/format.ts` の `toThousandYen`）。
  *
  * ── 鍵の決めごと ────────────────────────────────────────────
- * パックは **会議日 × 主体 × お客様区分 × いまの数字か** で1本。凍結した版があれば
+ * パックは **会議日 × 計上会社（`entity_code`: GJV / GSS / GMO / all）× お客様区分 × いまの数字か** で1本。凍結した版があれば
  * サーバーがそれを返し、`live=1` を付けたときだけ「いまの数字」を計算し直す。
  * 「資料」の印（`keep_pick`）と手入力（満足度）を保存したら `KEEP_PACK_KEY` ごと
- * 捨てる — 主体・区分の組み合わせぶんの鍵を1つずつ追いかけない。
+ * 捨てる — 計上会社・区分の組み合わせぶんの鍵を1つずつ追いかけない。
+ *
+ * クエリの名前は main の帳簿の列と同じ `entity_code`（`GET /dailyops/keep/pack?meeting=&entity_code=&segment=`）。
  */
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from './api';
@@ -53,7 +55,7 @@ export function useKeepPack(meeting: string | null, entity: EntityScope, segment
     queryKey: [KEEP_PACK_KEY, meeting, entity, segment, live],
     queryFn: () =>
       api.get('/dailyops/keep/pack', {
-        params: { meeting, entity, segment, ...(live ? { live: 1 } : {}) },
+        params: { meeting, entity_code: entity, segment, ...(live ? { live: 1 } : {}) },
       }).then((r) => r.data.data as KeepPackResponse),
     enabled: !!meeting,
     // 絞り込みを切り替えても前の表を消さない（白紙 → 骨組み → 表 の点滅を避ける）
@@ -73,7 +75,7 @@ export function useKeepSlackDraft(meeting: string | null, entity: EntityScope, s
   return useMutation({
     mutationFn: () =>
       api.get('/dailyops/keep/slack-draft', {
-        params: { meeting, entity, segment, ...(live ? { live: 1 } : {}) },
+        params: { meeting, entity_code: entity, segment, ...(live ? { live: 1 } : {}) },
       }).then((r) => r.data.data as KeepSlackDraft),
     meta: { silent: true },
   });

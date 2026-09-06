@@ -230,18 +230,6 @@ export default function MoneyRulesPage() {
             <Delayed><SkeletonRows rows={4} /></Delayed>
           )}
 
-          {/* 値引きの上限は会社では分かれない（全社共通ポリシー）。
-              会社タブ（entityCode）とは無関係な limitsQ から描く */}
-          {limitsQ.isError ? (
-            <p className="rounded-card text-note border border-border bg-card px-4 py-3 text-muted-foreground">
-              値引きの上限を読み込めませんでした。
-            </p>
-          ) : limitsQ.data ? (
-            <DiscountLimits limits={limitsQ.data} canEdit={canEdit} />
-          ) : (
-            <Delayed><SkeletonRows rows={4} /></Delayed>
-          )}
-
           {stageQ.isError ? (
             <p className="rounded-card text-note border border-border bg-card px-4 py-3 text-muted-foreground">
               受注確度を読み込めませんでした。

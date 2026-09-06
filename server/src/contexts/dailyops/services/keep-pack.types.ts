@@ -12,9 +12,44 @@
  *
  * 数字の約束（shared 側と同じ）: 金額は円の整数、比率は %（小数1桁）、null は「目標が無い」。
  */
-import type { BusinessEntity, EntityScope } from '../../sales/services/project-entity';
+import type { LegalEntityCode } from '../../platform/services/legal-entity.service';
 
-export type { BusinessEntity, EntityScope };
+// ── 計上会社（2026年10月の事業再編・docs/reorg-2026-10-plan.md §4.2）────────
+//
+// 隔週キープの「主体別の収支」は main の**計上会社 `entity_code`**（GJV／GSS／GMO）そのもの。
+// 語彙: GJV = GMOサムライコンテンツスタジオ（グループ外のお客様）／GSS = GMOサムライスタジオ
+// （グループ内のお客様・旧 GMOグローバルスタジオ）／GMO = GMOインターネットグループ本体（コストセンター）。
+// 案件・行にどの会社を付けるかは `sales/services/entity-resolution.service.ts`（§4.4）だけが決める。
+// ⚠️ このファイルは**型と純粋な定数・判定だけ**（DB も HTTP も触らない）。
+// `shared/tests/keepReport*.test.ts` が直接 import して shared 側の写しと突き合わせる。
+
+/** 計上会社の code。`legal_entities.code`（`LegalEntityCode`）と同じ文字列 */
+export type BusinessEntity = LegalEntityCode;
+/** 絞り込みの値。`all` は3社の合計（統合） */
+export type EntityScope = BusinessEntity | 'all';
+
+/** 計上会社の並び（`legal_entities.sort_order`・`keep-report.service.ts` の ENTITY_CODES と同じ） */
+export const BUSINESS_ENTITIES: readonly BusinessEntity[] = ['GJV', 'GSS', 'GMO'];
+
+/** 資料・Slack に出す短い表示名（`legal_entities.name` から「株式会社」を除いたもの） */
+export const BUSINESS_ENTITY_LABELS: Record<BusinessEntity, string> = {
+  GJV: 'GMOサムライコンテンツスタジオ',
+  GSS: 'GMOサムライスタジオ',
+  GMO: 'GMOインターネットグループ',
+};
+
+export function isBusinessEntity(x: unknown): x is BusinessEntity {
+  return x === 'GJV' || x === 'GSS' || x === 'GMO';
+}
+
+export function isEntityScope(x: unknown): x is EntityScope {
+  return x === 'all' || isBusinessEntity(x);
+}
+
+/** 絞り込みの値の表示名。`all` は「全体（統合）」（shared の `entity.ts` と同じ文字） */
+export function entityLabel(scope: EntityScope): string {
+  return scope === 'all' ? '全体（統合）' : BUSINESS_ENTITY_LABELS[scope];
+}
 
 /** お客様の区分。`projects.customer_type` の写し（当時の値） */
 export type CustomerSegment = 'internal' | 'external';
@@ -60,7 +95,7 @@ export interface PipelineRow {
   name: string;
   customer_name: string;
   customer_segment: CustomerSegment;
-  entity: BusinessEntity;
+  entity_code: BusinessEntity;
   samurai_related: boolean;
   stage: string;
   confidence: ConfidenceLetter;
@@ -112,11 +147,12 @@ export interface InviewSummary {
   next_session: { date: string; applied_groups: number } | null;
 }
 
+/** 計上会社ごとの表と、統合した全体の表。`GMO`（コストセンター）は数字があるときだけ。 */
 export interface PlByEntity {
   all: MonthlyPlTable;
-  gss: MonthlyPlTable;
-  gscs: MonthlyPlTable;
-  gig?: MonthlyPlTable;
+  GJV: MonthlyPlTable;
+  GSS: MonthlyPlTable;
+  GMO?: MonthlyPlTable;
 }
 
 export interface KeepReportPack {

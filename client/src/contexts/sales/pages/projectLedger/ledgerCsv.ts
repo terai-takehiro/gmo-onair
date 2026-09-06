@@ -26,7 +26,6 @@
  * （画面では出ているので、書き出したファイルを開くまで気づけません）。
  */
 import { ProjectStageLabels } from '@/types';
-import { BUSINESS_ENTITY_LABELS } from '@gmo-onair/shared/src/keepReport/types';
 import { classificationLabel } from '@/contexts/sales/classification';
 import { INTAKE_CHANNEL_LABEL } from '../projectList/intake';
 import { ENTITY_BADGE_LABEL } from '../projectList/stages';
@@ -61,8 +60,6 @@ export function cellText(col: LedgerColKey, row: LedgerRow): string | undefined 
     case 'name': return row.name;
     case 'customer_name': return row.customer_name ?? '';
     case 'contact_name': return row.contact_name ?? '';
-    // 事業主体は名前で出す（`gss` のままだと Excel で読めない）
-    case 'entity': return row.entity ? (BUSINESS_ENTITY_LABELS[row.entity] ?? row.entity) : '';
     // **表のバッジ（「受注」）ではなく記号つきの正式名**。CSV は並べ替えに使う
     case 'stage': return ProjectStageLabels[row.stage] ?? row.stage;
     case 'gls_category': return row.gls_category ?? '';

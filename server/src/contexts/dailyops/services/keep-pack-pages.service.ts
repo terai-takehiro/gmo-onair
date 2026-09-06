@@ -35,7 +35,7 @@ const PHOTO_SCAN_MAX = 200;
  * `est` = 最新見積の金額 / `estc` = 最新見積の仕入見込み（`ESTIMATE_*_LATERAL` を JOIN すること）。
  */
 export const PAGE_SOURCE_COLUMNS = `
-  p.id, p.name, p.gls_number, p.code, p.stage, p.customer_type, p.entity,
+  p.id, p.name, p.gls_number, p.code, p.stage, p.customer_type, p.entity_code,
   p.event_start, p.event_end, p.intake_channel, p.goal,
   c.name AS customer_name, c.short_name AS customer_short,
   est.amount AS estimate_amount, estc.amount AS estimate_cost`;
@@ -65,7 +65,8 @@ export interface PageSource {
   code: string | null;
   stage: string;
   customer_type: string | null;
-  entity: string | null;
+  /** 計上会社（`projects.entity_code`・GJV／GSS／GMO） */
+  entity_code: string | null;
   event_start: string | null;
   event_end: string | null;
   intake_channel: string | null;

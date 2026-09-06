@@ -68,7 +68,7 @@ function PageSummary({ page, pack, no }: { page: SlidePage | null; pack: KeepRep
   const edits = pageHumanEdits(page);
   const rows: Array<[string, string, string?]> = [
     ['対象月', month],
-    ['事業主体', page.template === 'pl_table' ? entityShort(entity) : '—'],
+    ['計上会社', page.template === 'pl_table' ? entityShort(entity) : '—'],
     ['直し', edits ? `人が直した ${edits}件` : '無し', edits ? 'text-warning' : undefined],
     ['出力', out],
   ];

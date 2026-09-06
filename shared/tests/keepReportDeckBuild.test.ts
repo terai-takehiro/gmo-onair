@@ -39,7 +39,7 @@ describe('標準の構成（buildStandardPages）', () => {
     expect(p.parts[0].id).toBe('project_page:prj-emb:p0');
   });
 
-  it('数値報告は options から binding を決める（主体別はまとまりごと）', () => {
+  it('数値報告は options から binding を決める（計上会社別はまとまりごと）', () => {
     expect(find(pages, 'pl_table:landing:all').parts.find((x) => x.type === 'table')!.binding).toBe('landing.all');
     expect(find(pages, 'pl_table:forecast:by_entity').parts.find((x) => x.type === 'table')).toMatchObject({ binding: 'forecast', options: { mode: 'forecast', entity: 'by_entity' } });
     expect(find(pages, 'pipeline_table:samurai').parts.map((x) => x.binding)).toEqual(['サムライ関連案件 ヨミ表', 'pipeline.samurai']);
@@ -128,7 +128,7 @@ describe('binding の解決（resolveBinding）', () => {
     expect(value('cover', 1)).toBe('2026-09-16');
     expect(value('cover', 0)).toBe('GMOサムライスタジオ 隔週キープ');
     expect(value('pl_table:landing:all', 0)).toBe('8月 着地');
-    expect(value('pl_table:forecast:by_entity', 0)).toBe('9月 着地見込（主体別）');
+    expect(value('pl_table:forecast:by_entity', 0)).toBe('9月 着地見込（計上会社別）');
     expect(value('pl_table:landing:all', 1)).toBe('単位：千円');
     expect(value('appendix', 0)).toBe('Appendix');
     const [p, x] = partOf('agenda', 0);

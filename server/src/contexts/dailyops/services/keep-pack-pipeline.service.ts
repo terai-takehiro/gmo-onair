@@ -10,7 +10,7 @@
  *   新規／更新     … 前回の会議日と `created_at` / `updated_at` の比較（`pipelineSinceLast`）
  *   確度           … ステージ → A〜E。受注確度（%）は `project_stage_probabilities`
  *
- * 「サムライ関連」は主体ではなく**お客様**で分ける（`companies.samurai_group`）。
+ * 「サムライ関連」は計上会社ではなく**お客様**で分ける（`companies.samurai_group`）。
  * `external` には それ以外の全部（グループ内のお客様の案件も含む。`scope.customer_segment` で絞れる）。
  * `weighted_revenue` / `total_revenue` は両方の表を合わせた見積金額の 確度加味／総額。
  */
@@ -18,10 +18,10 @@ import { queryAll } from '../../../shared/db/connection';
 import { OPEN_NEXT_ACTION_SQL } from '../../../shared/services/next-action-state';
 import { ESTIMATE_AMOUNT_LATERAL } from '../../sales/services/project.service';
 import { getStageProbabilityMap } from '../../sales/services/stage-probability.service';
-import { deriveEntity, isBusinessEntity, type EntityScope } from '../../sales/services/project-entity';
 import { confidenceOf, CONFIDENCE_ORDER, pipelineSinceLast } from './keep-pack-calc';
 import { PAGE_SOURCE_COLUMNS, ESTIMATE_COST_LATERAL, type PageSource } from './keep-pack-pages.service';
-import type { KeepReportPack, PipelineRow, SegmentScope } from './keep-pack.types';
+import { isBusinessEntity, type EntityScope, type KeepReportPack, type PipelineRow, type SegmentScope } from './keep-pack.types';
+import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 
 const FIXED_COGS_CODE = 'FIXED-COGS';
 
@@ -42,11 +42,15 @@ export interface PipelineBuild {
   picked: PageSource[];
 }
 
-/** 絞り込みの WHERE（主体・お客様の区分）。`customer_type` が無い行は外部とみなす（`deriveEntity` と同じ側） */
+/**
+ * 絞り込みの WHERE（計上会社・お客様の区分）。会社は**案件の** `entity_code`（ヨミ表・案件ページは
+ * 案件単位なので、財務の「行の entity_code」ではなく案件の今の会社で絞る）。
+ * `customer_type` が無い行は外部とみなす（`customer_type` の既定と同じ側）
+ */
 export function scopeWhere(entity: EntityScope, segment: SegmentScope): { sql: string; params: unknown[] } {
   let sql = '';
   const params: unknown[] = [];
-  if (entity !== 'all') { sql += ' AND p.entity = ?'; params.push(entity); }
+  if (entity !== 'all') { sql += ' AND p.entity_code = ?'; params.push(entity); }
   if (segment !== 'all') { sql += " AND COALESCE(p.customer_type, 'external') = ?"; params.push(segment); }
   return { sql, params };
 }
@@ -119,7 +123,8 @@ export async function buildPipeline(opts: {
       name: r.name,
       customer_name: r.customer_name ?? '',
       customer_segment: segment,
-      entity: isBusinessEntity(r.entity) ? r.entity : deriveEntity(segment),
+      // `projects.entity_code` は NOT NULL（migration 286）。知らない値だけ今の会社に倒す
+      entity_code: isBusinessEntity(r.entity_code) ? r.entity_code : CURRENT_ENTITY_CODE,
       samurai_related: r.samurai_group === true,
       stage: r.stage,
       confidence: confidenceOf(r.stage),

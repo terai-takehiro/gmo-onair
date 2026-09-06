@@ -13,12 +13,14 @@
  *
  * HTTP（`GET /dailyops/keep/slack-draft`）と MCP（`get_keep_slack_draft`）は `getSlackDraftForMeeting` の1本を通る。
  */
-import { BUSINESS_ENTITY_LABELS, type BusinessEntity } from '../../sales/services/project-entity';
 import { CONFIDENCE_ORDER, dateLabel } from './keep-pack-calc';
 import { changedPlKeys, previousPlTable } from './keep-pack-diff';
 import { getPackForMeeting } from './keep-pack-store.service';
 import { loadPreviousPack } from './keep-prev-pack.service';
-import type { BudgetLine, KeepReportPack, MonthlyPlTable, PipelineRow, ProjectPageData } from './keep-pack.types';
+import {
+  BUSINESS_ENTITIES, BUSINESS_ENTITY_LABELS,
+  type BudgetLine, type BusinessEntity, type KeepReportPack, type MonthlyPlTable, type PipelineRow, type ProjectPageData,
+} from './keep-pack.types';
 
 export interface SlackDraftOptions {
   /** 見出しに出す会議日。省略時はパックの会議日 */
@@ -31,7 +33,6 @@ export interface SlackDraftOptions {
 const MAX_PIPELINE_ROWS = 8;
 /** 数値報告で Slack に出す3行 */
 const HEADLINE_KEYS: readonly BudgetLine['key'][] = ['revenue', 'gross_profit', 'operating_profit'];
-const ENTITIES: readonly BusinessEntity[] = ['gss', 'gscs', 'gig'];
 /** 動いた数字の印（`*` は mrkdwn の太字なので全角） */
 const CHANGED_MARK = '＊';
 
@@ -117,15 +118,16 @@ export function buildSlackDraft(pack: KeepReportPack, opts: SlackDraftOptions = 
 
   push(`*隔週キープ ${dateLabel(opts.meetingDate ?? pack.meeting_date, { withYear: false })}の数字*`);
 
-  // 前月の着地（全体・主体別）
+  // 前月の着地（全体・計上会社別）
   const landing = pack.landing.all;
   push(`■ ${monthLabel(landing.year_month)} 着地（全体）`);
   for (const k of HEADLINE_KEYS) {
     const l = landing.lines.find((x) => x.key === k);
     if (l) push(`・${lineLabel(l, changedOf(landing, 'all'))}`);
   }
-  push('主体別');
-  for (const e of ENTITIES) {
+  // 計上会社別（GJV・GSS・数字があるときだけ GMO。並びは legal_entities.sort_order）
+  push('計上会社別');
+  for (const e of BUSINESS_ENTITIES) {
     const t = pack.landing[e];
     if (t) push(`・${BUSINESS_ENTITY_LABELS[e]}: ${headline(t, changedOf(t, e), '／')}`);
   }

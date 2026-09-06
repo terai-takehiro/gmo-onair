@@ -35,16 +35,17 @@ export interface LedgerFilters {
    */
   issue: string;
   /**
-   * 事業主体（`projects.entity`・`''` は絞らない／`gss` `gscs` `gig`）。
-   * 主体はお客様の区分から自動で決まり、人格（gig）だけ人が付ける（`client/CLAUDE.md` の「事業主体」）。
-   * **サーバーで絞る**（`GET /projects?entity=`）— 画面で絞るとそのページの 100 件の中だけになる。
+   * 計上会社（`projects.entity_code`・`''` は絞らない／`GJV` `GSS` `GMO`）。
+   * 2026年10月の事業再編（`docs/reorg-2026-10-plan.md` §4.4）。値はサーバーが規則で導き、
+   * 人が変えるのは管理者だけの改番経由（`client/CLAUDE.md` の「計上会社」）。
+   * **サーバーで絞る**（`GET /projects?entity_code=`）— 画面で絞るとそのページの 100 件の中だけになる。
    */
-  entity: string;
+  entityCode: string;
 }
 
 /** ⚠️ **既定は GLS-A**。この既定が下の `nextFiltersForIssue` の理由そのものです */
 export const EMPTY_FILTERS: LedgerFilters = {
-  search: '', stage: '', glsCategory: 'A', source: '', issue: '', entity: '',
+  search: '', stage: '', glsCategory: 'A', source: '', issue: '', entityCode: '',
 };
 
 /**

@@ -10,8 +10,8 @@
  *   calendars … 会議の月と翌月の稼働カレンダー（資料の「当月・翌月」）
  *   inview / minutes … 直近の内覧会・前回の議事録
  *
- * `scope`（主体・お客様の区分）は ヨミ表・案件ページ・実施報告 に効く。数値報告の表は
- * 常に 全体／主体別 の全部を持つ（資料が3組を並べるため）。
+ * `scope`（計上会社 `entity_code`・お客様の区分）は ヨミ表・案件ページ・実施報告 に効く。数値報告の表は
+ * 常に 全体／会社別（GJV・GSS・数字があれば GMO）の全部を持つ（資料が3組を並べるため）。
  *
  * ── 前回の会議日 ────────────────────────────────────────────
  *   1. `meeting_minutes` に会議日より前の行があればその最新
@@ -21,7 +21,6 @@
  * 各部分は別ファイル（1ファイル 400 行の決めごと）。ここは呼び出しの並列化と組み立てだけ。
  */
 import { queryOne } from '../../../shared/db/connection';
-import type { EntityScope } from '../../sales/services/project-entity';
 import { addDays, addMonths, todayStr, weekdayOf } from './keep-pack-calc';
 import { buildPlByEntity } from './keep-pack-pl.service';
 import { buildPipeline } from './keep-pack-pipeline.service';
@@ -29,7 +28,7 @@ import { buildProjectPages } from './keep-pack-pages.service';
 import { buildCalendars, buildTrend, loadUtilizationSettings } from './keep-pack-calendar.service';
 import { buildInview, buildMinutes, listEventReportSources } from './keep-pack-reports.service';
 import { getInputs } from './keep-pack-inputs.service';
-import type { KeepInput, KeepReportPack, SegmentScope } from './keep-pack.types';
+import type { EntityScope, KeepInput, KeepReportPack, SegmentScope } from './keep-pack.types';
 
 export interface BuildPackOptions {
   meetingDate: string;
