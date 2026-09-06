@@ -156,7 +156,7 @@ export default function InquiriesPage() {
   return (
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
       <PageHeader
-        title="入ってきた情報"
+        title="問い合わせ"
         // **見出しが「この画面で今日やること」を言う。**
         // 内訳を分けて書くのは、未処理 0・見直し 5 のときに
         // 「5件」とだけ出すと今日届いたものが5件あるように読めるため
@@ -303,8 +303,8 @@ export default function InquiriesPage() {
  */
 function emptyTitle(tab: InquiryTab, filtered: boolean): string {
   if (filtered) return 'このタグが付いたものはありません';
-  if (tab === 'desk') return '未処理はありません';
-  if (tab === 'stock') return '保留ものはありません';
+  if (tab === 'desk') return '未処理の問い合わせはありません';
+  if (tab === 'stock') return '保留中の問い合わせはありません';
   return '仕分け済みのものはまだありません';
 }
 

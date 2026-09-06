@@ -166,7 +166,7 @@ function ActiveView({
         ) : (
           <EmptyState
             title={searching ? '条件に合う番組・イベントはありません' : 'まだ番組・イベントがありません'}
-            description={searching ? '別の言葉で検索か、「番組を作成」から新しく作れます。' : '受注が確定するか、「番組を作成」から作るとここに出ます。'}
+            description={searching ? '別の言葉で検索するか、「番組を作成」から新しく作れます。' : '受注が確定するか、「番組を作成」から作るとここに出ます。'}
           />
         )}
       </section>
@@ -197,7 +197,7 @@ function ArchiveView({
       {items.length === 0 ? (
         <EmptyState
           title="条件に合う番組・イベントはありません"
-          description="別の言葉で検索か、絞り込みを変えてみてください。"
+          description="別の言葉で検索するか、絞り込みを変えてみてください。"
         />
       ) : (
         <div className="flex flex-col overflow-hidden rounded-card border border-border">

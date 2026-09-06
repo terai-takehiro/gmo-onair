@@ -120,7 +120,7 @@ export default function HomePage() {
           to="/inquiries"
           icon={Inbox}
           title="問い合わせ"
-          description="届いた情報をタスク・案件・あとで見るに仕分けます。見直す日が来ると戻ります"
+          description="届いた情報をタスク・案件・保留に仕分けます。見直す日が来ると戻ります"
           // 「未対応」= 未仕分け ＋ 見直しの日が来た「あとで見る」（migration 247）。
           // 画面の見出しと同じ数（サーバーが数えたもの）
           marks={unhandled ? [{ label: `本日対応 ${unhandled}件`, tone: MARK_TONE.ai }] : []}

@@ -133,7 +133,7 @@ export function InquiryDialog({ initial, onClose }: { initial: MiscInquiry | nul
           <Input value={tagText} onChange={(e) => setTagText(e.target.value)} placeholder="協業、取材、GLS-2607-009" />
           <p className="text-note mt-1 text-muted-foreground">
             読点・カンマ・空白のどれで区切っても同じです（8個まで・各24文字まで）。
-            <strong className="font-bold">「あとで見る」に入れたものを後から引く</strong>ための手がかりなので、
+            <strong className="font-bold">「保留」にしたものを後から引く</strong>ための手がかりなので、
             短い語にしてください。
           </p>
         </div>

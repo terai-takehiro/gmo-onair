@@ -133,7 +133,7 @@ export function inboxHrefOf(item: Pick<InboxItem, 'kind' | 'meta'>, can: InboxOp
 /** 「残りを見る」の行き先と札。開ける場所が1つも無ければ `null`（出さない） */
 export function inboxAllHrefOf(can: InboxOpenable): { href: string; label: string } | null {
   if (can.intake) return { href: '/sales/projects/new', label: '案件作成' };
-  if (can.inquiries) return { href: '/daily/inquiries', label: '入ってきた情報' };
+  if (can.inquiries) return { href: '/daily/inquiries', label: '問い合わせ情報' };
   if (can.documents) return { href: '/budget/documents', label: '受け取った書類' };
   return null;
 }

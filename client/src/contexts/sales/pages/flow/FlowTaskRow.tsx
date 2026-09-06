@@ -195,7 +195,7 @@ export function FlowTaskRow({ task, canEdit }: { task: FlowTask; canEdit: boolea
               variant="ghost" size="icon" aria-label={`${task.title} を削除`} disabled={del.isPending}
               onClick={() => confirmAction({
                 title: `${task.title} を削除しますか`,
-                description: 'すでに案件へ入れたタスクは残ります。これから案件を作成ときに出てこなくなるだけです。',
+                description: 'すでに案件へ入れたタスクは残ります。これから案件を作成するときに出てこなくなるだけです。',
                 confirmLabel: '削除', tone: 'danger',
               }).then((ok) => ok && del.mutate())}
             >

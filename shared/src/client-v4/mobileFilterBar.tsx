@@ -19,7 +19,7 @@
  *   畳むと「探す」だけのために2タップかかります
  * - **効いている数をボタンに出す。** 0 のときは出しません
  *   （0 を出すと押す理由があるように見える）
- * - **シートの下端に「すべて解除」と「絞り込みを適用」。** 中身が長いときでも
+ * - **シートの下端に「すべて解除」と「閉じる」。** 中身が長いときでも
  *   親指の届く位置に残ります（`Sheet` が下端に固定する）
  * - **消すボタン（×）を検索欄に出す。** スマホのキーボードで1文字ずつ
  *   消すのは苦痛です
@@ -193,7 +193,7 @@ export function MobileFilterBar({
             {onClearAll && activeCount > 0 && (
               <Button variant="outline" className="flex-1" onClick={onClearAll}>すべて解除</Button>
             )}
-            <Button className="flex-1" onClick={() => setOpen(false)}>絞り込みを適用</Button>
+            <Button className="flex-1" onClick={() => setOpen(false)}>閉じる</Button>
           </div>
         }
       >

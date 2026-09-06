@@ -69,7 +69,7 @@ export default function PreflightSummary({
         {red.length > 0 && <IssueList issues={red} />}
       </Block>
 
-      <Block title="問題なし" meaning="出せますが、意図の確認を" tone="warn" count={amber.length}>
+      <Block title="要確認" meaning="出せますが、意図の確認を" tone="warn" count={amber.length}>
         {amber.length > 0 && <IssueList issues={amber} />}
       </Block>
 

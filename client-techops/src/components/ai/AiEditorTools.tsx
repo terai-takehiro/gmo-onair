@@ -43,7 +43,7 @@ export default function AiEditorTools({ documentId, projectId, updateData, varia
             <Sparkles className="h-3.5 w-3.5" aria-hidden />AIで下書きを作成（セリフ）
           </button>
           <button type="button" className={toolbarMenuItemClass} onClick={() => setShowChat(true)}>
-            <MessageSquare className="h-3.5 w-3.5" aria-hidden />AIとAI に相談する
+            <MessageSquare className="h-3.5 w-3.5" aria-hidden />AI に相談する
           </button>
         </>
       ) : (
@@ -56,7 +56,7 @@ export default function AiEditorTools({ documentId, projectId, updateData, varia
             <Sparkles className="h-3.5 w-3.5" />
             <span className="hidden lg:inline">AIセリフ</span>
           </Button>
-          <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1 text-xs" onClick={() => setShowChat(true)} title="AIとAI に相談する（あなただけに見えます）">
+          <Button variant="ghost" size="sm" className="hidden md:flex h-8 gap-1 text-xs" onClick={() => setShowChat(true)} title="AI に相談する（あなただけに見えます）">
             <MessageSquare className="h-3.5 w-3.5" />
             <span className="hidden lg:inline">AI に相談</span>
           </Button>

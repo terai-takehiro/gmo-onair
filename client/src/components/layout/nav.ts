@@ -155,7 +155,7 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
     {
       title: "設定",
       items: [
-        { label: "工程の工程テンプレート", to: "/gpm/templates", icon: Layers },
+        { label: "工程テンプレート", to: "/gpm/templates", icon: Layers },
       ],
     },
   ],

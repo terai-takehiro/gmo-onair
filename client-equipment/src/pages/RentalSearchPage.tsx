@@ -124,7 +124,7 @@ export default function RentalSearchPage() {
       ) : items.length === 0 ? (
         <EmptyState
           title={debouncedQ || category || company !== 'all' ? '条件に合う機材はありません' : '機材がまだ取得できていません'}
-          description={debouncedQ || category || company !== 'all' ? '別の言葉で検索か、絞り込みを外してください。' : '毎朝5時の自動取得を待つか、時間を置いてお試しください。'}
+          description={debouncedQ || category || company !== 'all' ? '別の言葉で検索するか、絞り込みを外してください。' : '毎朝5時の自動取得を待つか、時間を置いてお試しください。'}
         />
       ) : (
         <>

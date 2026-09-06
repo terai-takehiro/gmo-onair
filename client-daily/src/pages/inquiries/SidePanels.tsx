@@ -59,8 +59,8 @@ export function SidePanels({
         <p className="text-note text-secondary-foreground">
           <strong className="font-bold">未仕分けを空にするのがこの画面の仕事です。</strong>
           やることになるならタスク（案件管理のタスクになります）、案件になりそうなら案件の受付へ、
-          <strong className="font-bold">あとで効く話は「あとで見る」に入れて見直す日を決める</strong>。
-          どれでもないものは見送りにします。「あとで見る」は見直す日が来ると、
+          <strong className="font-bold">あとで効く話は「保留」に入れて見直す日を決める</strong>。
+          どれでもないものは見送りにします。「保留」は見直す日が来ると、
           未仕分けと同じようにここへ戻ってきます。
         </p>
       </section>

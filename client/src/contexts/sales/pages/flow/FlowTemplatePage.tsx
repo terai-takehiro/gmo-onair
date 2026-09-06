@@ -100,7 +100,7 @@ export default function FlowTemplatePage() {
     <div className="flex flex-col gap-3.5 p-3 lg:gap-4 lg:p-6">
       <PageHeader
         title="工程テンプレート"
-        sub="案件に入れる作業のひとそろいを、自社の運用に合わせて決めます。案件を作成ときに一覧を見せて、要らないものを外してから入れます。"
+        sub="案件に入れる作業のひとそろいを、自社の運用に合わせて決めます。案件を作成するときに一覧を見せて、要らないものを外してから入れます。"
         primaryAction={canEditHere && tpl ? (
           <Button variant="outline" onClick={() => { setDupName(`${tpl.name}（複製）`); setDupOpen(true); }}>
             <Copy className="mr-1.5 h-4 w-4" aria-hidden="true" />複製する
@@ -174,7 +174,7 @@ export default function FlowTemplatePage() {
                       variant="outline" size="sm" className="text-destructive"
                       onClick={() => confirmAction({
                         title: `${tpl.name} を削除しますか`,
-                        description: 'すでに案件へ入れた作業は残ります。これから案件を作成ときに選べなくなるだけです。',
+                        description: 'すでに案件へ入れた作業は残ります。これから案件を作成するときに選べなくなるだけです。',
                         confirmLabel: '削除', tone: 'danger',
                       }).then((ok) => ok && del.mutate(tpl.id))}
                     >

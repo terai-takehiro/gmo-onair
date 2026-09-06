@@ -54,21 +54,21 @@ export function StockDialog({
     <FormDialog
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title={already ? '再確認日を再設定' : 'あとで見る'}
+      title={already ? '再確認日を再設定' : '保留にする'}
       footer={
         <FormDialogFooter>
           <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button onClick={() => onSubmit(reviewOn || null)} disabled={saving}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             <Archive className="mr-1.5 h-4 w-4" aria-hidden="true" />
-            {already ? '決め直す' : 'あとで見る'}
+            {already ? '再設定する' : '保留にする'}
           </Button>
         </FormDialogFooter>
       }
     >
       <div className="flex flex-col gap-3">
         <p className="text-sub text-secondary-foreground">
-          「{inquiry.summary}」を<strong className="font-bold">あとで見るに入れます</strong>。
+          「{inquiry.summary}」を<strong className="font-bold">保留にします</strong>。
           設定した日が来ると、未処理と同じように「本日対応」に表示されます。
         </p>
 

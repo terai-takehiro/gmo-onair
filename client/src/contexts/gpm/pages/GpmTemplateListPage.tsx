@@ -93,7 +93,7 @@ export default function GpmTemplateListPage() {
         <EmptyState
           icon={<Layers className="h-6 w-6" aria-hidden="true" />}
           title="工程テンプレートがまだありません"
-          description="よく作る工程の並びを登録しておくと、プロジェクトを作成ときに日付付きで一気に入ります。"
+          description="よく作る工程の並びを登録しておくと、プロジェクトを作成するときに日付付きで一気に入ります。"
           action={canEdit ? <Button onClick={() => setAdding(true)}>工程テンプレートを作成</Button> : undefined}
         />
       ) : (

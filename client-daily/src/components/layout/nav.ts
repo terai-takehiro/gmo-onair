@@ -50,7 +50,7 @@ export const DAILY_NAV: ShellNavSection[] = [
   {
     title: '届いたもの',
     items: [
-      { label: '入ってきた情報', to: '/inquiries', icon: Inbox },
+      { label: '問い合わせ', to: '/inquiries', icon: Inbox },
       { label: 'フィードバックチケット', to: '/feedback-tickets', icon: MessageSquareWarning },
       /*
         **画面は財務管理にある**（`/budget/documents`）。ここを消すと
