@@ -21,7 +21,7 @@ import { isBoxConfigured, listFolderItems, isImageName } from '../../../shared/s
 import { projectService, ESTIMATE_AMOUNT_LATERAL } from '../../sales/services/project.service';
 import { listProjectFolder } from '../../sales/services/project-box-files.service';
 import { PHOTOS_SUBFOLDER } from '../../sales/services/box-folder.service';
-import { listKptForProjects } from '../../sales/services/kpt.service';
+import { listKptForProjects, type KptRow } from '../../sales/services/kpt.service';
 import { confidenceOf, CONFIDENCE_LABELS, dateRangeLabel, dateLabel } from './keep-pack-calc';
 import type { ProjectPageData } from './keep-pack.types';
 
@@ -173,7 +173,7 @@ export async function buildProjectPages(
     // ⚠️ **人が確かめた行だけ**（`listEventReports` と同じ。AI の推測をそのまま資料に載せない）
     kind === 'event_report'
       ? listKptForProjects(ids, { confirmedOnly: true })
-      : Promise.resolve(new Map<string, Awaited<ReturnType<typeof listKptForProjects>> extends Map<string, infer V> ? V : never>()),
+      : Promise.resolve(new Map<string, KptRow[]>()),
   ]);
   // 写真は BOX を叩くので**順に**引く（案件数ぶん同時に投げると BOX に絞られる）
   const photos = new Map<string, Photo[]>();

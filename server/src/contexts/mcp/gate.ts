@@ -228,6 +228,10 @@ const READ_TOOL_PERMISSIONS: Record<string, ToolPermission> = {
   // どちらの表にも無いツールを素通りさせるので、**権限が1つも無い利用者でも
   // 取引先・案件・金額・支払期日・BOX の在り処まで読めます**（Codex 指摘・High）
   list_finance_doc_groups: { module: ['dailyops', 'sales'], level: 'reader' },
+  // 隔週キープの定例報告パック（2026-09 新設）。HTTP 側 (`keep.routes.ts`) の canRead =
+  // requireAnyPermission(['dailyops','sales'],'reader') と一致（財務の数字なので営業・経理も読む）
+  get_keep_report_pack: { module: ['dailyops', 'sales'], level: 'reader' },
+  list_keep_report_packs: { module: ['dailyops', 'sales'], level: 'reader' },
   // 機材管理 (equipment)。HTTP 側 (`equipment.routes.ts`) の router 既定 reader と一致
   list_equipment: { module: 'equipment', level: 'reader' },
   get_equipment: { module: 'equipment', level: 'reader' },

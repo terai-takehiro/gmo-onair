@@ -79,6 +79,8 @@ services:
       # 取り込みの置き場所。未設定ならコード側の既定フォルダを見る
       XPOINT_BOX_FOLDER_ID: ${XPOINT_BOX_FOLDER_ID:-}
       KESSAN_BOX_FOLDER_ID: ${KESSAN_BOX_FOLDER_ID:-}
+      # 隔週キープの資料（pptx）を置く Box フォルダ（02_隔週 橋口社長キープ）。未設定ならダウンロードだけ
+      KEEP_REPORT_BOX_FOLDER_ID: ${KEEP_REPORT_BOX_FOLDER_ID:-}
       # CoNoHa VPS スケーリング (v2.7.1+) — 未設定なら resize は 503 NOT_CONFIGURED
       CONOHA_API_USERNAME: ${CONOHA_API_USERNAME:-}
       CONOHA_API_PASSWORD: ${CONOHA_API_PASSWORD:-}
@@ -184,6 +186,8 @@ services:
       MAIL_INTAKE_GOOGLE_EMAIL: ${MAIL_INTAKE_GOOGLE_EMAIL_DEV:-${MAIL_INTAKE_GOOGLE_EMAIL:-}}
       XPOINT_BOX_FOLDER_ID: ${XPOINT_BOX_FOLDER_ID_DEV:-${XPOINT_BOX_FOLDER_ID:-}}
       KESSAN_BOX_FOLDER_ID: ${KESSAN_BOX_FOLDER_ID_DEV:-${KESSAN_BOX_FOLDER_ID:-}}
+      # 隔週キープの資料の置き場。**検証は本番と別のフォルダにできる**（試しに出した資料が本番の会議フォルダに混ざらないように）
+      KEEP_REPORT_BOX_FOLDER_ID: ${KEEP_REPORT_BOX_FOLDER_ID_DEV:-${KEEP_REPORT_BOX_FOLDER_ID:-}}
       # CoNoHa VPS スケーリング (v2.7.1+) — dev も同じ VPS をリサイズするので prod と共有
       CONOHA_API_USERNAME: ${CONOHA_API_USERNAME:-}
       CONOHA_API_PASSWORD: ${CONOHA_API_PASSWORD:-}

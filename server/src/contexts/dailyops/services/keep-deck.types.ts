@@ -10,10 +10,11 @@
  * このファイルは型と表示名の表だけ（DB も HTTP も触らない）。
  */
 export type BusinessEntity = 'gss' | 'gscs' | 'gig';
+export type BusinessEntity = 'gss' | 'gscs' | 'gig';
 export const BUSINESS_ENTITY_LABELS: Record<BusinessEntity, string> = {
   gss: 'GMOサムライスタジオ',
   gscs: 'GMOサムライコンテンツスタジオ',
-  gig: 'GMOインターネットグループ',
+  gig: 'GMOインターネットグループ人格',
 };
 /** 絞り込みの値。`all` は主体の合計。 */
 export type EntityScope = BusinessEntity | 'all';

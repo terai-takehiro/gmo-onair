@@ -26,6 +26,12 @@ const JUDGE_TONE: Record<Judge, string> = {
   '✕': 'text-destructive',
   '-': 'text-muted-foreground',
 };
+/** 対目標比の色。資料と同じく、達している行は青（主色）・足りない行は赤 */
+const RATIO_TONE: Record<Judge, string> = {
+  '○': 'text-primary',
+  '✕': 'text-destructive',
+  '-': 'text-muted-foreground',
+};
 
 /** 千円の1マス。null は「目標が無い」= 薄い「—」。負の数は赤 */
 function KYen({ value, strong }: { value: number | null | undefined; strong?: boolean }) {
@@ -98,7 +104,7 @@ function PlRow({ line }: { line: BudgetLine }) {
       <RowSlot w={72} align="right"><KYen value={line.actual} strong /></RowSlot>
       <RowSlot w={56} align="center"><JudgeMark judge={line.judge} /></RowSlot>
       <RowSlot w={72} align="right">
-        <span className={`font-number text-list ${line.ratio === null ? 'text-muted-foreground' : JUDGE_TONE[line.judge]}`}>
+        <span className={`font-number text-list ${line.ratio === null ? 'text-muted-foreground' : RATIO_TONE[line.judge]}`}>
           {pctLabel(line.ratio)}
         </span>
       </RowSlot>

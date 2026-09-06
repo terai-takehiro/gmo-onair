@@ -105,7 +105,7 @@ export async function buildPipeline(opts: {
           AND COALESCE(p.code, '') <> ?${scope.sql}
         ORDER BY p.event_start NULLS LAST, p.created_at`,
       [FIXED_COGS_CODE, ...scope.params],
-    ) as Promise<PipelineSourceRow[]>,
+    ) as unknown as Promise<PipelineSourceRow[]>,
     getStageProbabilityMap(),
   ]);
 

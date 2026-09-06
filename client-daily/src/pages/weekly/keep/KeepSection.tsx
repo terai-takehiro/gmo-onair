@@ -75,6 +75,7 @@ export function KeepSection({ report, isMobile }: { report: OpsReport; isMobile:
     <div className="flex flex-col gap-4">
       {!isMobile && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span className="inline-flex items-center gap-2">
           <span className="text-sub-sm font-bold text-muted-foreground">対象月</span>
           <label className="inline-flex h-9 items-center gap-2 rounded-control-lg border border-border bg-card px-3 text-sub font-bold">
             <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
@@ -92,22 +93,26 @@ export function KeepSection({ report, isMobile }: { report: OpsReport; isMobile:
               {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </label>
-          <span className="h-5 w-px bg-border" aria-hidden="true" />
-          <span className="text-sub-sm font-bold text-muted-foreground">事業主体</span>
-          <FilterChips
-            label="事業主体で絞り込む"
-            items={ENTITY_CHIPS.map((c) => ({ key: c.key, label: c.label, count: counts.entity[c.key] ?? null }))}
-            value={entity}
-            onChange={(k) => set({ entity: k })}
-          />
-          <span className="h-5 w-px bg-border" aria-hidden="true" />
-          <span className="text-sub-sm font-bold text-muted-foreground">お客様</span>
-          <FilterChips
-            label="お客様の区分で絞り込む"
-            items={SEGMENT_CHIPS.map((c) => ({ key: c.key, label: c.label, count: counts.segment[c.key] ?? null }))}
-            value={segment}
-            onChange={(k) => set({ segment: k })}
-          />
+          </span>
+          {/* 見出しとチップは**組で折り返す**（別々に折り返すと見出しだけが行末に残る） */}
+          <span className="inline-flex max-w-full items-center gap-2">
+            <span className="text-sub-sm shrink-0 font-bold text-muted-foreground">事業主体</span>
+            <FilterChips
+              label="事業主体で絞り込む"
+              items={ENTITY_CHIPS.map((c) => ({ key: c.key, label: c.label, count: counts.entity[c.key] ?? null }))}
+              value={entity}
+              onChange={(k) => set({ entity: k })}
+            />
+          </span>
+          <span className="inline-flex max-w-full items-center gap-2">
+            <span className="text-sub-sm shrink-0 font-bold text-muted-foreground">お客様</span>
+            <FilterChips
+              label="お客様の区分で絞り込む"
+              items={SEGMENT_CHIPS.map((c) => ({ key: c.key, label: c.label, count: counts.segment[c.key] ?? null }))}
+              value={segment}
+              onChange={(k) => set({ segment: k })}
+            />
+          </span>
           <span className="ml-auto flex items-center gap-2">
             {q.data && <JsonDialog pack={q.data.pack} packId={q.data.pack_id} />}
             <Button type="button" size="sm" asChild>
@@ -146,7 +151,7 @@ export function KeepSection({ report, isMobile }: { report: OpsReport; isMobile:
         <div className={`flex flex-col gap-5 ${q.isPlaceholderData ? 'opacity-60' : ''}`}>
           <PlTables pack={q.data.pack} entity={entity} />
           <TrendCharts trend={q.data.pack.trend} />
-          <PipelineTable pack={q.data.pack} canPick={canEdit || hasPermission('sales', 'editor')} />
+          <PipelineTable pack={q.data.pack} canPick={hasPermission('sales', 'editor')} />
           <UtilizationCalendars calendars={q.data.pack.calendars} />
           <EventReportCards reports={q.data.pack.event_reports} previousMeeting={q.data.pack.previous_meeting_date} />
           <InviewCard inview={q.data.pack.inview} meeting={meeting} canEdit={canEdit} />
@@ -171,16 +176,17 @@ function InfoBar({ pack, frozen, live, frozenExists, previous, next, meeting, on
       {frozen
         ? <Snowflake className="h-4 w-4 shrink-0 text-info" aria-hidden="true" />
         : <Info className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />}
-      <span className="text-sub min-w-0 flex-1 text-foreground">
+      {/* スマホは1行目を文だけにして、切り替えの文言は次の行へ（同じ行に置くと文が細い柱になる） */}
+      <span className="text-sub min-w-0 grow basis-full text-foreground lg:basis-0">
         {frozen ? (
           <>
             <span className="font-number">{timeLabel(pack.frozen_at)}</span> に凍結した数字です。
-            資料と Slack の投稿はこの版を読みます。数字を直したいときは元のデータを直してから、もう一度確定してください
+            <span className="hidden lg:inline">資料と Slack の投稿はこの版を読みます。数字を直したいときは元のデータを直してから、もう一度確定してください</span>
           </>
         ) : (
           <>
             いま ONAiR にある数字です（<span className="font-number">{timeLabel(pack.generated_at)}</span> 時点）。
-            この週の報告を<strong className="font-bold">確定</strong>すると、この画面の数字も一緒に凍り、資料と Slack の元データになります
+            <span className="hidden lg:inline">この週の報告を<strong className="font-bold">確定</strong>すると、この画面の数字も一緒に凍り、資料と Slack の元データになります</span>
           </>
         )}
       </span>

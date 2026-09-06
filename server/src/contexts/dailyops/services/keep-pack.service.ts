@@ -28,6 +28,7 @@ import { buildPipeline } from './keep-pack-pipeline.service';
 import { buildProjectPages } from './keep-pack-pages.service';
 import { buildCalendars, buildTrend, loadUtilizationSettings } from './keep-pack-calendar.service';
 import { buildInview, buildMinutes, listEventReportSources } from './keep-pack-reports.service';
+import { getInputs } from './keep-pack-inputs.service';
 import type { KeepInput, KeepReportPack, SegmentScope } from './keep-pack.types';
 
 export interface BuildPackOptions {
@@ -98,11 +99,6 @@ export async function resolveMeetingDateForWeek(weekStart: string): Promise<stri
   return (await resolveMeetings(weekStart)).next_meeting_date;
 }
 
-async function loadInputs(meetingDate: string): Promise<KeepInput[]> {
-  const { getInputs } = await import('./keep-pack-store.service');
-  return getInputs(meetingDate);
-}
-
 /** 「いまの数字」で会議1回ぶんのパックを組む（`frozen_at: null`）。凍結は `keep-pack-store.service.ts` */
 export async function buildPack(opts: BuildPackOptions): Promise<KeepReportPack> {
   const meetingDate = opts.meetingDate;
@@ -115,7 +111,7 @@ export async function buildPack(opts: BuildPackOptions): Promise<KeepReportPack>
   const [previousMeetingDate, settings, inputs] = await Promise.all([
     resolvePreviousMeetingDate(meetingDate),
     loadUtilizationSettings(),
-    opts.inputs ? Promise.resolve(opts.inputs) : loadInputs(meetingDate),
+    opts.inputs ? Promise.resolve(opts.inputs) : getInputs(meetingDate),
   ]);
 
   const [landing, forecast, trend, calendars, pipelineBuild, eventSources, inview, minutes] = await Promise.all([
