@@ -13,6 +13,10 @@ v4 UI/UX 刷新の design handoff（8ファイル・51画面のハイファイ�
 > 「`v4-live-sales.dc.html` との突き合わせ」節と、モック本体を必ず確認してください。
 > `projects.md` は料金表・標準工程テンプレートなど、他の画面のぶんはそのまま使えます。
 
+> 📊 **隔週キープ（業績報告）の数字と資料ビルダー（2026-09 設計・実装前）**:
+> [`keep-report.md`](keep-report.md) がロジックの正、絵は [`mockups/keep-report/`](mockups/keep-report/README.md)。
+> ウィークリー活動報告に「隔週キープの数字」「資料をつくる」の2タブを足し、PowerPoint を半自動で組む。
+
 > 📱 **iOS ネイティブ風のスマホ見た目探索（コード変更なし）**:
 > [`ios-native-mobile-mockups.md`](ios-native-mobile-mockups.md)。
 > 上の「モックが正」を置き換えるものではなく、実装済み画面の見た目・手触りを

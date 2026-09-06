@@ -1,0 +1,207 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>資料の構成表</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&family=BIZ+UDPGothic:wght@400;700&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+
+<style>
+  body { margin:0; background:#f7f8fa; color:#1a1d24; font-family:'LINE Seed JP','Noto Sans JP',-apple-system,'Hiragino Sans','BIZ UDPGothic','Meiryo',sans-serif; -webkit-font-smoothing:antialiased; font-feature-settings:'palt' 1,'kern' 1; }
+  a { color:#005bac; text-decoration:none; } a:hover { color:#0068b8; text-decoration:underline; }
+  .t-h1 { font-size:23px; line-height:1.3; font-weight:800; }
+  .t-h2 { font-size:19px; line-height:1.35; font-weight:800; }
+  .t-ct { font-size:14.5px; line-height:1.4; font-weight:800; }
+  .t-list { font-size:13.5px; line-height:1.5; font-weight:700; }
+  .t-body { font-size:13.5px; line-height:1.6; font-weight:400; }
+  .t-sub { font-size:12.5px; line-height:1.55; font-weight:400; }
+  .t-ssm { font-size:11.5px; line-height:1.6; font-weight:400; }
+  .t-th { font-size:11.5px; line-height:1.4; font-weight:700; color:#5d6470; }
+  .t-bdg { font-size:11px; line-height:1.4; font-weight:700; }
+  .t-note { font-size:12px; line-height:1.6; font-weight:400; }
+  .num { font-variant-numeric:tabular-nums; font-feature-settings:'palt' 0,'tnum' 1; }
+  button { font-family:inherit; }
+</style>
+</helmet>
+<div style="width:1180px; box-sizing:border-box; padding:24px 26px 28px; background:#f7f8fa; display:flex; flex-direction:column; gap:12px">
+  <div><h1 class="t-h1" style="margin:0">資料の構成表 — 何のページに、何を、どこから</h1><p class="t-sub" style="margin:4px 0 0; color:#5d6470">260904 の資料（34ページ＋Appendix）を正として、ページごとに「載せるもの」「ONAiR のどこから来るか」「人が直せる所」を決めたもの。「自動」のページは資料をつくるたびに最新の数字で組み直し、人が直した所だけ残します。</p></div>
+  <div style="display:flex; gap:10px"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">自動</span><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#f2f4f7; color:#5d6470; white-space:nowrap; overflow:hidden; flex-shrink:0">固定</span><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#f2f4f7; color:#5d6470; white-space:nowrap; overflow:hidden; flex-shrink:0">前回から</span><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#fdf1ea; color:#c2410e; white-space:nowrap; overflow:hidden; flex-shrink:0">手で書く</span><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">自動＋手</span><span class="t-ssm" style="color:#5d6470; align-self:center">「前回から」は前回の資料のページをそのまま持ってきて、人が赤字で直す</span></div>
+  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:14px; overflow:hidden">
+    <div style="display:flex; align-items:center; gap:14px; padding:9px 16px; border-bottom:1px solid #eef0f3; background:#f7f8fa"><span class="t-th" style="width:22px"></span><span class="t-th" style="width:200px">ページ</span><span class="t-th" style="flex:1">載せるもの</span><span class="t-th" style="width:250px">出どころ（ONAiR）</span><span class="t-th" style="width:80px">つくり方</span><span class="t-th" style="width:150px">人が直せる所</span></div>
+    <div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fff">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">1</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">表紙</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">会議名・開催日</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">会議日（資料の設定）</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">自動</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#9aa1ab">—</span>
+  </div><div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fff">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">2</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">0. 利用方法チェックリスト</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">フォーマットの自己点検 11項目</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">固定文</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#f2f4f7; color:#5d6470; white-space:nowrap; overflow:hidden; flex-shrink:0">固定</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#9aa1ab">—</span>
+  </div><div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fff">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">3</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">1. 会議スローガン</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">会議の目的文</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">固定文</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#f2f4f7; color:#5d6470; white-space:nowrap; overflow:hidden; flex-shrink:0">固定</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#3c424c">文</span>
+  </div><div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fff">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">4</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">2. 情報サマリ</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">会議名・目的・責任者・進行・頻度・共有ツール</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">前回の資料</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#f2f4f7; color:#5d6470; white-space:nowrap; overflow:hidden; flex-shrink:0">前回から</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#3c424c">全部</span>
+  </div><div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fff">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">5</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">3. 責任者＆組織図</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">組織図</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">前回の資料</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#f2f4f7; color:#5d6470; white-space:nowrap; overflow:hidden; flex-shrink:0">前回から</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#3c424c">全部</span>
+  </div><div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fffaf6">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">6</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">4. 参加者＆欠席者</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">参加者・参加率・未済者</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">手入力（将来: カレンダーの出欠）</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#fdf1ea; color:#c2410e; white-space:nowrap; overflow:hidden; flex-shrink:0">手で書く</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#3c424c">全部</span>
+  </div><div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fff">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">7</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">5. 前回議事録サマリ</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">前回の決定事項・領域別サマリ・営利の数字</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">議事録（meeting_minutes）＋ 前回の着地</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">自動</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#3c424c">文</span>
+  </div><div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fff">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">8</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">6. ToDoリスト</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">ID・項目・緊急×重要・期限・依頼者・担当・進捗</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">タスク（GMO ToDo リストの写し）</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">自動</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#3c424c">進捗の付記</span>
+  </div><div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fff">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">9</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">7. 全体スケジュール</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">年間ガント・イマココ</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">前回の資料</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#f2f4f7; color:#5d6470; white-space:nowrap; overflow:hidden; flex-shrink:0">前回から</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#3c424c">全部</span>
+  </div><div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fff">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">10</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">8. KPIツリー</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">KGI 粗利 → 売上高・稼働件数</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">固定図</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#f2f4f7; color:#5d6470; white-space:nowrap; overflow:hidden; flex-shrink:0">固定</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#9aa1ab">—</span>
+  </div><div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fff">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">11</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">9. 進捗状況（グラフ）</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">売上高と稼働件数 2024/1〜 ／ 稼働率 2025/1〜</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">確定売上（お客様区分別）・案件数・カレンダー</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">自動</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#9aa1ab">—</span>
+  </div><div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fff">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">12</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">10. アジェンダ</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">①〜⑦ の見出し</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">後ろのページの見出しから作る</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">自動</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#3c424c">順番・時間</span>
+  </div><div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fff">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">13</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">①数値報告 当月 着地</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">売上高・原価・粗利・販管費・償却相当額・営業利益 × 目標/着地/判定/比/差</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">月次予算 ＋ 確定売上・仕入・販管費・補正値</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">自動</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#3c424c">注記</span>
+  </div><div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fff">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">14</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">①数値報告 翌月 着地見込</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">同上（見通し）</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">月次予算 ＋ 確定＋見込み（確度加味）</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">自動</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#3c424c">注記・見通しの上書き</span>
+  </div><div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fff">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">15</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">①ヨミ表（外部案件）</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">案件・お客様・確度・実施日・見積金額・次のタスク・最後の動き</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">案件一覧（受注前・失注除く）</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">自動</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#3c424c">載せる案件の選択</span>
+  </div><div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fff">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">16</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">①ヨミ表（サムライ関連）</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">同上</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">案件一覧（お客様＝サムライパートナーズ／GMOサムライコンテンツスタジオ）</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">自動</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#3c424c">載せる案件の選択</span>
+  </div><div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fff">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">17</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">案件ページ ①〜⑧</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">帯（お客様／イベント名／日付）・確度・写真・概要・進行表・チェック/リハ/本番・経路・売上/粗利</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">案件・見積・カレンダー・Box 08_写真・Qシート</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">自動＋手</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#3c424c">写真・概要・進行表</span>
+  </div><div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fff">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">18</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">稼働カレンダー 当月・翌月</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">本番/リハ/仮/メンテ/内覧 の予定と稼働率</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">カレンダー（スタジオ予約）</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">自動</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#9aa1ab">—</span>
+  </div><div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fff">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">19</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">②案件実施報告 ①〜③</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">帯・写真・成果の箇条書き・売上/粗利（グループ内はコスト内訳）</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">ふりかえり（event_reports）＋ 確定売上・仕入</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">自動＋手</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#3c424c">総括・箇条書き・写真</span>
+  </div><div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fff">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">20</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">③新規案件獲得（内覧会）</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">開催日・参加組数/人数・満足度・分類別の表・ヨミ化件数</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">内覧会の受付 ＋ 満足度は手入力</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">自動</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#3c424c">満足度・所感</span>
+  </div><div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fffaf6">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">21</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">④〜⑦ 報告（施設・課題）</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">写真と文</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">手で書く（前回のページを複製できる）</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#fdf1ea; color:#c2410e; white-space:nowrap; overflow:hidden; flex-shrink:0">手で書く</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#3c424c">全部</span>
+  </div><div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fff">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">22</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">11. ToDo＆次回開催日</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">今日決まった ToDo・次回開催日</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">会議中に足す ＋ 次回日（議事録）</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">自動＋手</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#3c424c">全部</span>
+  </div><div style="display:flex; align-items:flex-start; gap:14px; padding:10px 16px; border-bottom:1px solid #f2f4f7; background:#fff">
+    <span class="num t-ssm" style="width:22px; color:#9aa1ab; padding-top:2px">23</span>
+    <span class="t-list" style="width:200px; flex-shrink:0; line-height:1.45">Appendix</span>
+    <span class="t-sub" style="flex:1; min-width:0; color:#3c424c">過去のスケジュール・稟議資料など</span>
+    <span class="t-sub" style="width:250px; flex-shrink:0; color:#3c424c">前回の資料をそのまま</span>
+    <span style="width:80px; flex-shrink:0"><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:76px; height:22px; border-radius:6px; background:#f2f4f7; color:#5d6470; white-space:nowrap; overflow:hidden; flex-shrink:0">前回から</span></span>
+    <span class="t-sub" style="width:150px; flex-shrink:0; color:#3c424c">全部</span>
+  </div>
+  </div>
+  <div style="display:flex; gap:12px">
+    <div style="flex:1; padding:12px 14px; border:1px solid #cfe4f4; border-radius:12px; background:#f4faff" class="t-sub"><strong>10月からの会社分割。</strong> 案件に「事業主体」（GMOサムライスタジオ／GMOサムライコンテンツスタジオ／GMOインターネットグループ人格）を1つ持たせ、数値報告・ヨミ表・実施報告は主体で絞れる。全社の表は主体の合計。月次予算は主体ごとに持ち、無い主体は「—」で出す</div>
+    <div style="flex:1; padding:12px 14px; border:1px solid #cfe4f4; border-radius:12px; background:#f4faff" class="t-sub"><strong>ONAiR に無い数字</strong>（内覧会の満足度・Web の KPI・参加者数）は、資料の設定画面で手入力する欄を持ち、次回はその値を初期値にする。無いものは空欄のまま出し、勝手に埋めない</div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
