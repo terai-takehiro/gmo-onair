@@ -150,8 +150,12 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに5つの「入�
 - **見積は `estimates` 別テーブル。`revenues` に相乗りさせない**（`revenues` を読む多数の
   箇所が `status` を見ておらず、混ぜると売上に足される）。版は `group_id` で束ね、
   `sent`/`superseded` は直せない（次の版を作る）。**合計はサーバーが出す**
-- **`estimates` の `project_id`（案件）と `gpm_project_id`（GPM）は CHECK で排他。**
-  版を作るときは両方の行き先と提出先を写す。請求の一覧は `status='confirmed'` かつ
+- **`estimates` は GLS-A・GLS-B(GPM) とも `project_id` 1本だけを使う**（旧 `gpm_project_id`
+  列と `project_id`/`gpm_project_id` の CHECK 排他は migration 179「プロジェクト管理を
+  GLS-B に一本化」で廃止済み。GPM 案件も `projects.gls_category='B'` の行になった）。
+  GLS-A の見積は `customer_id` を持ち、GPM の見積は代わりに `submit_to`（`self`/`client`/`pm`）を
+  持つ——見分けは `gls_category` と、版を作るときは行き先（`project_id`）と提出先
+  （`customer_id`/`submit_to`）を写す。請求の一覧は `status='confirmed'` かつ
   `group_id IS NULL`（按分の親行を二重に数えない）
 - **万円へ丸めるのは `toMan` 1本**（`shared/src/client/ui/numbers.tsx`）。単位は数字と別に描く
 - **同じ数字を2か所で数えない。** トップのタイル件数・ダッシュボードの帯は既存 API の
