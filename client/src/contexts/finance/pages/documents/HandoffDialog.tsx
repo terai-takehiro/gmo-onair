@@ -73,14 +73,23 @@ export function HandoffDialog({
   onSubmit: (p: HandoffPayload) => void;
 }) {
   const incl = Number(doc.amount) || 0;
-  // GLS番号が読み取れていれば案件のものなので仕入を初期選択
-  const [kind, setKind] = useState<'purchase' | 'sga'>(doc.gls_number ? 'purchase' : 'sga');
+  /*
+    行き先の初期選択。**人が受領書類の画面で決めた当て先を最優先**にする（migration 281）。
+
+    以前は GLS 番号の有無だけで決めていたので、**人が束の当て先を「この案件」と
+    決めていても、ここでは販管費に倒れて**いました（決めた意味が無い）。
+    見る順は 人が決めた行き先 → 当て先の案件 → GLS 番号 → 販管費。
+  */
+  const [kind, setKind] = useState<'purchase' | 'sga'>(
+    doc.expense_kind ?? (doc.project_id || doc.gls_number ? 'purchase' : 'sga'),
+  );
   const [tax, setTax] = useState('tax10');
   const [amount, setAmount] = useState(exclTax(incl, 'tax10'));
   const [month, setMonth] = useState(doc.closing_month || (doc.received_at ?? '').slice(0, 7));
   const [due, setDue] = useState(doc.payment_due ?? '');
   const [description, setDescription] = useState(doc.subject ?? '');
-  const [projectId, setProjectId] = useState('');
+  // **当て先が決まっていればそれを初期値に**（空にすると人が選び直す羽目になる）
+  const [projectId, setProjectId] = useState(doc.project_id ?? '');
   const [vendorId, setVendorId] = useState('');
 
   // **GLS発番済みではなく「受注確定済み」で絞る**（v4.1.8・矛盾修正。理由は PurchaseListPage と同じ）
@@ -103,7 +112,11 @@ export function HandoffDialog({
   });
   const vendors: Vendor[] = vendorsData?.data ?? [];
 
-  // 書類の GLS番号 と同じ案件があれば初期選択（AI が読み取った値を活かす）
+  /*
+    書類の GLS番号 と同じ案件があれば初期選択（AI が読み取った値を活かす）。
+    **当て先（`doc.project_id`）が入っていればそちらが先**で、これは
+    「番号は読めたが当て先はまだ決めていない」ときの受け皿。
+  */
   const guessedProject = useMemo(
     () => (doc.gls_number ? projects.find((p) => p.gls_number === doc.gls_number) : undefined),
     [projects, doc.gls_number],

@@ -125,12 +125,22 @@ function Attachments({ doc }: { doc: FinanceDoc }) {
           <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
         </a>
       ) : (
+        /*
+          **理由まで出す**（Codex P2）。「BOX に入っていません」だけだと、
+          押し直せば直るのか、人が Google 連携をやり直す必要があるのかが
+          分かりません。**原本が無い状態に気づいても、直し方が分からなければ同じ**です。
+        */
         <span
           key={a.id}
-          className="text-sub-sm inline-flex items-center gap-1 rounded-note bg-warning-surface px-1.5 py-0.5 text-warning"
+          className="text-sub-sm inline-flex items-start gap-1 rounded-note bg-warning-surface px-1.5 py-0.5 text-warning"
         >
-          <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          {a.filename}（BOX に入っていません）
+          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span>
+            {a.filename}
+            <span className="block">
+              BOX に入っていません{a.failure_label ? `（${a.failure_label}）` : ''}
+            </span>
+          </span>
         </span>
       )))}
     </div>

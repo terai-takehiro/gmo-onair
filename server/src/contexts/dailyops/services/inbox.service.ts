@@ -299,6 +299,14 @@ export const financeDocService = {
     );
 
     await saveAttachments(id, input);
+    /*
+      **束の更新時刻を進める**（Codex P2）。進めないと、束の一覧は
+      `updated_at` を並びの2番目の鍵に使っているので、
+      **いま届いた請求書が後ろに沈んだまま**になります
+      （期日が入っていない書類ほど起きやすい）。
+    */
+    await execute('UPDATE finance_doc_groups SET updated_at = NOW() WHERE id = ?', [groupId])
+      .catch(() => { /* 束の時刻が進まないだけ。取込は成功させる */ });
     return { row: (await this.getById(id))!, action: 'created' };
   },
 

@@ -170,3 +170,72 @@ describe('メール取込ログの器', () => {
     expect(t).toMatch(/args\.kind === 'daily_news' \|\| args\.kind === 'mail_intake'/);
   });
 });
+
+describe('Codex レビュー #595 で見つかった穴（戻さない）', () => {
+  it('P1: 同じ列を2回 SET しない（販管費として確定する操作が必ず失敗していた）', () => {
+    /*
+      画面は行き先と案件を**必ず両方**送る。`expense_kind='sga'` は
+      「案件を外す」も意味するので、素直に積むと
+      `SET project_id = ?, project_id = ?` になり PostgreSQL が弾く。
+    */
+    const s = chainSvc();
+    expect(s).toMatch(/const assigned = new Map<string, unknown>\(\)/);
+    expect(s).toMatch(/const put = \(col: string, val: unknown\) => \{ assigned\.set\(col, val\); \}/);
+    // 配列に push して join する形（＝重複が通る形）に戻っていないこと
+    expect(s).not.toMatch(/const put = \(col: string, val: unknown\) => \{ sets\.push/);
+  });
+
+  it('P1: 束の一覧が返す書類の列を間引かない（メモが消える・販管費に倒れる）', () => {
+    /*
+      画面はこの行をそのまま `FinanceDoc` として扱い、書類を直すダイアログ・
+      台帳へ渡すダイアログ・「中身を読む」の3つが同じ行を読む。
+      `notes` が来ないと金額だけ直したつもりでメモが消え、
+      `gls_number` が来ないと台帳へ渡すとき必ず販管費に倒れる。
+    */
+    const s = chainSvc();
+    for (const col of ['d.notes', 'd.gls_number', 'd.details', 'd.body_text', 'd.content']) {
+      expect(s).toContain(col);
+    }
+    expect(s).toMatch(/AND o\.kind = 'finance_doc_intake'\) AS is_ai/);
+  });
+
+  it('P1: 移行で既存の書類を束に入れる（当てた瞬間に画面から消えていた）', () => {
+    /*
+      画面は束から引くので、`group_id` が空の行はどの束にも属さず一覧に出ない。
+      ところがホームの受信箱は `finance_docs` を直接数えるので、
+      「9件あります」と出ているのに開くと空、になる。
+    */
+    const m = read('server', 'src', 'shared', 'db', 'migrations', '281_finance_doc_chain.sql');
+    expect(m).toMatch(/INSERT INTO finance_doc_groups[\s\S]{0,600}FROM finance_docs d/);
+    expect(m).toMatch(/UPDATE finance_docs SET group_id = id/);
+    expect(m).toContain('ON CONFLICT (id) DO NOTHING');
+  });
+
+  it('P2: 並びは支払期日が近い順（さっき触った先の取引を上に出さない）', () => {
+    const s = chainSvc();
+    expect(s).toMatch(/ORDER BY agg\.next_due ASC NULLS LAST, g\.updated_at DESC/);
+    expect(s).toMatch(/MIN\(d\.payment_due\) FILTER \(WHERE d\.status NOT IN \('processed','rejected'\)\)/);
+  });
+
+  it('P2: 上限より先に絞り込む（古い未処理が上限に押し出されていた）', () => {
+    const s = chainSvc();
+    // pendingOnly は SQL の WHERE に入る（在庫を運んでから画面で捨てない）
+    expect(s).toMatch(/filter\.pendingOnly\) conds\.push\('\(agg\.doc_count = 0 OR agg\.live_count > 0\)'\)/);
+    expect(s).not.toMatch(/filter\.pendingOnly \? rows\.filter/);
+    // 書類を足したら束の時刻も進める（進めないと新着が後ろに沈む）
+    expect(inboxSvc()).toMatch(/UPDATE finance_doc_groups SET updated_at = NOW\(\) WHERE id = \?/);
+  });
+
+  it('P2: 添付が入らなかった理由を画面に出す（直し方が分からないと同じ）', () => {
+    // 文言はサーバーが付ける（2か所に散ると片方だけ直る）
+    expect(chainSvc()).toMatch(/failure_label: attachmentFailureLabel/);
+    const card = read('client', 'src', 'contexts', 'finance', 'pages', 'documents', 'GroupCard.tsx');
+    expect(card).toMatch(/a\.failure_label \? `（\$\{a\.failure_label\}）` : ''/);
+  });
+
+  it('台帳へ渡すとき、人が決めた当て先を最優先にする', () => {
+    const d = read('client', 'src', 'contexts', 'finance', 'pages', 'documents', 'HandoffDialog.tsx');
+    expect(d).toMatch(/doc\.expense_kind \?\? \(doc\.project_id \|\| doc\.gls_number \? 'purchase' : 'sga'\)/);
+    expect(d).toMatch(/useState\(doc\.project_id \?\? ''\)/);
+  });
+});

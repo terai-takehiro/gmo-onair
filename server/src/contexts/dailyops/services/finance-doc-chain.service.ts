@@ -35,6 +35,7 @@ import {
   canHandoffChain, chainAmount, chainStage, paymentDueFromTerms,
   startOfMonthIso, type ChainDoc,
 } from '../../../shared/services/finance-chain';
+import { attachmentFailureLabel } from '../../../shared/services/mail-attachment-box.service';
 
 export type ExpenseKind = 'purchase' | 'sga';
 export type ProjectConfidence = 'high' | 'medium' | 'low';
@@ -154,23 +155,73 @@ const GROUP_COLS = `g.id, g.title, g.vendor_name, g.group_key, g.expense_kind, g
   p.gls_number AS project_gls_number, p.name AS project_name`;
 
 /**
+ * 束に出す書類の列。
+ *
+ * ⚠️ **一覧用に列を間引かないこと**（Codex P1）。画面はこの行をそのまま
+ * `FinanceDoc` として扱い、**書類を直すダイアログ・台帳へ渡すダイアログ・
+ * 「中身を読む」の3つが同じ行を読みます**。間引くと、
+ *
+ *  ・`notes` が空で初期化され、金額だけ直したつもりが**メモが消える**
+ *  ・`gls_number` が来ないので、台帳へ渡すとき**必ず販管費に倒れる**
+ *  ・`is_ai` / `details` / `body_text` が来ないので **✨ が出ず、原文も読めない**
+ *
+ * が起きます。**必要なぶんだけ返す**のではなく、**行そのものを返します**。
+ */
+const GROUP_DOC_COLS = `d.id, d.group_id, d.doc_type, d.sender, d.subject, d.content,
+  d.amount, d.status, d.received_at, d.payment_due, d.closing_month,
+  d.revision, d.doc_no, d.gls_number, d.notes, d.source,
+  d.processed_by, d.processed_at, d.created_at, d.updated_at,
+  d.details, d.body_text,
+  d.project_id, d.project_source, d.project_confidence, d.project_reason,
+  d.expense_kind, d.expense_kind_source, d.vendor_name,
+  d.payment_terms_days, d.processing_month,
+  d.linked_kind, d.linked_id,
+  cu.name AS created_by_name,
+  pr.gls_number AS project_gls_number, pr.name AS project_name,
+  EXISTS (SELECT 1 FROM ai_outputs o
+           WHERE o.target_table = 'finance_docs' AND o.target_id = d.id
+             AND o.kind = 'finance_doc_intake') AS is_ai`;
+
+/**
  * 束の一覧（中の書類つき）。
  *
  * **見積書だけの束も出します**（ご指示。以前は一覧から外していた）。
  * 「見積を取ったが発注しなかった」ものが見えないと、
  * **あの見積どうなったかを後から引けません**。
+ *
+ * ── 並びと上限（Codex P2 で直した）────────────────────────────
+ *
+ * この画面は**払う前に確かめる机**なので、**急ぐ順＝支払期日が近い順**です。
+ * `updated_at` で並べていたときは、**さっき触った期日2か月先の取引が、
+ * 期日を過ぎた請求書より上**に来ていました。
+ *
+ * 上限（300）を**絞り込みより先に**掛けてもいけません。片づいた履歴が
+ * 上限を食い潰し、**古い未処理の請求書が一覧から消えます**。
+ * どちらも SQL 側でやります。
  */
 export async function listGroups(filter: { pendingOnly?: boolean; expense_kind?: string } = {}): Promise<Record<string, unknown>[]> {
   const conds = ['g.deleted_at IS NULL'];
   const params: unknown[] = [];
   if (filter.expense_kind) { conds.push('g.expense_kind = ?'); params.push(filter.expense_kind); }
+  /*
+    片づき = **書類があって、その全部が 登録済/却下**。
+    書類が0本の束は片づきではありません（残骸なので、机に出して消してもらう）。
+  */
+  if (filter.pendingOnly) conds.push('(agg.doc_count = 0 OR agg.live_count > 0)');
 
   const groups = await queryAll(
-    `SELECT ${GROUP_COLS}
+    `SELECT ${GROUP_COLS}, agg.next_due, agg.live_count, agg.doc_count
        FROM finance_doc_groups g
        LEFT JOIN projects p ON p.id = g.project_id
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*) AS doc_count,
+                COUNT(*) FILTER (WHERE d.status NOT IN ('processed','rejected')) AS live_count,
+                MIN(d.payment_due) FILTER (WHERE d.status NOT IN ('processed','rejected')) AS next_due
+           FROM finance_docs d
+          WHERE d.group_id = g.id AND d.deleted_at IS NULL
+       ) agg ON TRUE
       WHERE ${conds.join(' AND ')}
-      ORDER BY g.updated_at DESC
+      ORDER BY agg.next_due ASC NULLS LAST, g.updated_at DESC
       LIMIT 300`,
     params,
   ) as Record<string, unknown>[];
@@ -178,11 +229,10 @@ export async function listGroups(filter: { pendingOnly?: boolean; expense_kind?:
 
   const ids = groups.map((g) => String(g.id));
   const docs = await queryAll(
-    `SELECT d.id, d.group_id, d.doc_type, d.sender, d.subject, d.amount, d.status,
-            d.received_at, d.payment_due, d.closing_month, d.revision, d.doc_no,
-            d.project_id, d.project_source, d.project_confidence, d.project_reason,
-            d.linked_kind, d.linked_id
+    `SELECT ${GROUP_DOC_COLS}
        FROM finance_docs d
+       LEFT JOIN users cu ON cu.id = d.created_by
+       LEFT JOIN projects pr ON pr.id = d.project_id
       WHERE d.group_id IN (${ids.map(() => '?').join(',')}) AND d.deleted_at IS NULL
       ORDER BY d.received_at ASC NULLS LAST, d.created_at ASC`,
     ids,
@@ -198,10 +248,17 @@ export async function listGroups(filter: { pendingOnly?: boolean; expense_kind?:
     ids,
   ) as Record<string, unknown>[];
 
-  const rows = groups.map((g) => {
+  return groups.map((g) => {
     const mine: Record<string, unknown>[] = docs
       .filter((d) => d.group_id === g.id)
-      .map((d) => ({ ...d, attachments: atts.filter((a) => a.doc_id === d.id) }));
+      .map((d) => ({
+        ...d,
+        // **入らなかった理由は「言葉」で返す**（Codex P2）。理由コードだけ渡すと
+        // 画面が独自に文言を持ち、サーバーと2か所に散る（片方だけ直る）
+        attachments: atts.filter((a) => a.doc_id === d.id).map((a) => ({
+          ...a, failure_label: attachmentFailureLabel(a.failure_reason as string | null),
+        })),
+      }));
     const chain = mine as unknown as ChainDoc[];
     return {
       ...g,
@@ -209,12 +266,10 @@ export async function listGroups(filter: { pendingOnly?: boolean; expense_kind?:
       stage: chainStage(chain),
       amount: chainAmount(chain),
       can_handoff: canHandoffChain(chain),
-      /** 束として片づいたか。**中の書類が全部「登録済/却下」なら片づき** */
-      settled: mine.length > 0 && mine.every((d) => d.status === 'processed' || d.status === 'rejected'),
+      /** 束として片づいたか。**中の書類が全部「登録済/却下」なら片づき**（数えるのは SQL） */
+      settled: Number(g.doc_count ?? 0) > 0 && Number(g.live_count ?? 0) === 0,
     };
   });
-
-  return filter.pendingOnly ? rows.filter((r) => !r.settled) : rows;
 }
 
 export async function getGroup(id: string): Promise<Record<string, unknown> | undefined> {
@@ -232,9 +287,19 @@ export async function updateGroup(
   id: string,
   patch: Partial<Pick<GroupInput, 'title' | 'vendor_name' | 'expense_kind' | 'project_id' | 'payment_terms_days' | 'processing_month'>>,
 ): Promise<Record<string, unknown> | undefined> {
-  const sets: string[] = [];
-  const params: unknown[] = [];
-  const put = (col: string, val: unknown) => { sets.push(`${col} = ?`); params.push(val); };
+  /*
+    ⚠️ **同じ列を2回入れない**（Codex P1）。
+
+    `expense_kind='sga'` は「案件を外す」も意味するので `project_id` を書きます。
+    ところが画面（`GroupEditDialog`）は**行き先と案件を必ず両方送る**ので、
+    素直に積むと `SET project_id = ?, project_id = ?` になり、
+    PostgreSQL が「同じ列への代入が複数ある」で弾きます
+    （= **販管費として確定する操作が必ず失敗する**）。
+
+    最後に書いた値が勝つよう、**列ごとに1つだけ**持ちます。
+  */
+  const assigned = new Map<string, unknown>();
+  const put = (col: string, val: unknown) => { assigned.set(col, val); };
 
   if (patch.title !== undefined) put('title', String(patch.title).slice(0, 200));
   if (patch.vendor_name !== undefined) put('vendor_name', patch.vendor_name ?? null);
@@ -267,8 +332,10 @@ export async function updateGroup(
     }
     put('processing_month', patch.processing_month ?? null);
   }
-  if (sets.length === 0) return getGroup(id);
+  if (assigned.size === 0) return getGroup(id);
 
+  const sets = [...assigned.keys()].map((c) => `${c} = ?`);
+  const params = [...assigned.values()];
   await execute(`UPDATE finance_doc_groups SET ${sets.join(', ')}, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`, [...params, id]);
 
   // 束の案件を人が決めたら、中の書類も同じ案件に揃える（`human` として記録）

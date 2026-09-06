@@ -141,9 +141,11 @@ describe('押せるのに 403 にしない（受領書類）', () => {
     expect(card).toContain('受信に戻す');
 
     // サーバー側も「全部 登録済/却下 なら片づき」で数えている（片方だけ直すと
-    // チップの件数と中身が食い違う）
+    // チップの件数と中身が食い違う）。**数えるのは SQL**（Codex P2 で移した） —
+    // 上限 300 を絞り込みより先に掛けると、古い未処理が一覧から消えるため
     const svc = read('server', 'src', 'contexts', 'dailyops', 'services', 'finance-doc-chain.service.ts');
-    expect(svc).toMatch(/d\.status === 'processed' \|\| d\.status === 'rejected'/);
+    expect(svc).toMatch(/live_count[\s\S]{0,120}status NOT IN \('processed','rejected'\)/);
+    expect(svc).toMatch(/settled: Number\(g\.doc_count \?\? 0\) > 0 && Number\(g\.live_count \?\? 0\) === 0/);
   });
 
   it('並びは支払期日が近い順（状態より先）', () => {

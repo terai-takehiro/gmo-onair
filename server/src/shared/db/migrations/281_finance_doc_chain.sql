@@ -109,3 +109,28 @@ CREATE INDEX IF NOT EXISTS idx_finance_doc_attachments_doc ON finance_doc_attach
 -- 同じ書類に同じ中身の添付を2つ作らない
 CREATE UNIQUE INDEX IF NOT EXISTS idx_finance_doc_attachments_sha
   ON finance_doc_attachments(doc_id, content_sha256) WHERE content_sha256 IS NOT NULL;
+
+-- ── 既に届いている書類を束に入れる ────────────────────────────
+--
+-- ⚠️ **これが無いと、この移行を当てた瞬間に既存の書類が画面から消えます。**
+-- 受領書類の画面は束（`finance_doc_groups`）から引くようになったので、
+-- `group_id` が空の行はどの束にも属さず、一覧に出ません。
+-- ところが**ホームの受信箱の件数は `finance_docs` を直接数える**ので、
+-- 「9件あります」と出ているのに開くと空、という状態になります。
+--
+-- 1通 = 1つの束として入れます（束ね直しは画面からできます）。
+-- **束の id には書類の id をそのまま使います** — 別表なので衝突せず、
+-- あとから「これは移行で作った束か」を突き合わせられます。
+INSERT INTO finance_doc_groups (id, title, vendor_name, created_by, created_at, updated_at)
+SELECT d.id,
+       LEFT(COALESCE(NULLIF(d.subject, ''), NULLIF(d.sender, ''), '受領書類'), 200),
+       d.sender,
+       d.created_by,
+       d.created_at,
+       d.updated_at
+  FROM finance_docs d
+ WHERE d.deleted_at IS NULL AND d.group_id IS NULL
+ON CONFLICT (id) DO NOTHING;
+
+UPDATE finance_docs SET group_id = id
+ WHERE deleted_at IS NULL AND group_id IS NULL;

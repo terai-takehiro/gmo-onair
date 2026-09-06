@@ -95,6 +95,15 @@ export interface DocAttachment {
   box_url: string | null;
   stored_at: string | null;
   failure_reason: string | null;
+  /**
+   * 入らなかった理由の**言葉**（サーバーが付ける）。
+   *
+   * ⚠️ **画面で理由コードから文言を作らないこと。** サーバー側にも同じ表が要り、
+   * 2か所に散ると片方だけ直ります。とくに `NO_GMAIL_SCOPE` は
+   * **人が Google 連携をやり直さないと直らない**ので、
+   * 「入っていません」だけだと何をすればよいか分かりません。
+   */
+  failure_label?: string | null;
   created_at: string;
 }
 
