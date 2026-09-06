@@ -177,7 +177,7 @@ export default function ConsumableExcelImportDialog({
 
           <Card>
             <CardContent className="p-4 space-y-3">
-              <label className="block text-sm font-medium">Excelファイル (.xlsx)</label>
+              <label className="block text-sm">Excelファイル (.xlsx)</label>
               <input
                 ref={inputRef}
                 type="file"
@@ -201,7 +201,7 @@ export default function ConsumableExcelImportDialog({
             <Card className={unmatchedCount > 0 ? "border-amber-400/60" : "border-green-500/40"}>
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">列の対応づけ</h3>
+                  <h3 className="font-bold">列の対応づけ</h3>
                   <span className="text-xs text-muted-foreground">
                     読み取った列: {preview.detectedHeaders.length} / 未対応: {unmatchedCount}
                   </span>
@@ -222,7 +222,7 @@ export default function ConsumableExcelImportDialog({
                         const current = mapping[col.key];
                         return (
                           <tr key={col.key} className={!current ? 'bg-amber-50' : ''}>
-                            <td className="px-2 py-1.5 font-medium">{col.header}</td>
+                            <td className="px-2 py-1.5 font-bold">{col.header}</td>
                             <td className="px-2 py-1">
                               <Select
                                 value={current || NONE_VALUE}
@@ -270,7 +270,7 @@ export default function ConsumableExcelImportDialog({
             <Card className={errorCount > 0 ? "border-destructive/40" : "border-green-500/40"}>
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">検証結果</h3>
+                  <h3 className="font-bold">検証結果</h3>
                   <div className="flex flex-wrap gap-2 text-xs">
                     <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800">新規 {dryRun.summary.insert}</span>
                     {errorCount > 0 && (
@@ -333,7 +333,7 @@ export default function ConsumableExcelImportDialog({
               <CardContent className="p-4 space-y-2">
                 <div className="flex items-center gap-2 text-green-700">
                   <CheckCircle2 className="h-5 w-5" />
-                  <span className="font-semibold">インポート完了</span>
+                  <span className="font-bold">インポート完了</span>
                 </div>
                 <p className="text-sm">
                   新規追加: <strong>{committed.inserted.length}</strong> 件
