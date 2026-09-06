@@ -366,12 +366,15 @@ router.get('/closing', async (req, res) => {
             c.name AS customer_name,
             e.episode_code,
             -- 按分（グループ請求）も締められる。金額はグループ全体のもの
-            r.group_id, g.name AS group_name
+            r.group_id, g.name AS group_name,
+            -- 社内取引（§4.12・P2 Round 2）。締めの画面はここで「社内」の印を出す
+            (il.id IS NOT NULL) AS is_intercompany
        FROM revenues r
        JOIN projects p ON p.id = r.project_id
        LEFT JOIN companies c ON c.id = p.customer_id
        LEFT JOIN episodes e ON e.id = r.episode_id
        LEFT JOIN project_groups g ON g.id = r.group_id
+       LEFT JOIN intercompany_links il ON il.revenue_id = r.id
       WHERE r.deleted_at IS NULL AND r.status = 'confirmed'
         AND p.deleted_at IS NULL
         AND r.recognition_date LIKE ?${entityFilter}

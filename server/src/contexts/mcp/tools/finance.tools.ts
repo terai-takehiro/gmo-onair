@@ -101,14 +101,16 @@ export function registerFinanceTools(server: McpServer): void {
       const orderBy = buildRevenueOrder(q);
       const joins = `FROM revenues r
          LEFT JOIN projects p ON p.id = r.project_id
-         LEFT JOIN companies c ON c.id = r.customer_id`;
+         LEFT JOIN companies c ON c.id = r.customer_id
+         LEFT JOIN intercompany_links il ON il.revenue_id = r.id`;
       const limit = clampLimit(args.limit);
       const page = args.page ?? 1;
       const totalRow = await queryOne(`SELECT COUNT(*) as c ${joins} ${where}`, params) as any;
       const rows = await queryAll(
         `SELECT r.id, r.billing_key, r.subtitle, r.amount, r.tax_category, r.status,
                 r.recognition_date, r.billing_date, r.payment_due_date, r.notes,
-                p.gls_number, p.name AS project_name, c.name AS customer_name
+                p.gls_number, p.name AS project_name, c.name AS customer_name,
+                (il.id IS NOT NULL) AS intercompany
          ${joins} ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
         [...params, limit, (page - 1) * limit],
       );
@@ -152,7 +154,8 @@ export function registerFinanceTools(server: McpServer): void {
       // （purchases.routes.ts と同じ理由）
       const joins = `FROM purchases pu
          LEFT JOIN projects p ON p.id = pu.project_id
-         LEFT JOIN companies vco ON vco.id = pu.vendor_id`;
+         LEFT JOIN companies vco ON vco.id = pu.vendor_id
+         LEFT JOIN intercompany_links il ON il.purchase_id = pu.id`;
       const limit = clampLimit(args.limit);
       const page = args.page ?? 1;
       const totalRow = await queryOne(`SELECT COUNT(*) as c ${joins} ${where}`, params) as any;
@@ -160,7 +163,8 @@ export function registerFinanceTools(server: McpServer): void {
         `SELECT pu.id, pu.description, pu.amount, pu.tax_category, pu.recognition_date,
                 pu.payment_due_date, pu.settlement_number, pu.invoice_qualified, pu.is_provisional,
                 TO_CHAR(pu.service_completed_date, 'YYYY-MM-DD') AS service_completed_date,
-                vco.name AS vendor_name, p.gls_number, p.name AS project_name
+                vco.name AS vendor_name, p.gls_number, p.name AS project_name,
+                (il.id IS NOT NULL) AS intercompany
          ${joins} ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
         [...params, limit, (page - 1) * limit],
       );

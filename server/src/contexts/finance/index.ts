@@ -7,6 +7,7 @@ import vendorsRoutes from './routes/vendors.routes';
 import partnersRoutes from './routes/partners.routes';
 import xpointRoutes from './routes/xpoint.routes';
 import moneyRulesRoutes from './routes/money-rules.routes';
+import intercompanyRoutes from './routes/intercompany.routes';
 import { createFinanceExcelRouter } from './routes/excel.routes';
 import { getMonthlySummary } from './services/monthly-summary.service';
 import { getPipelineForecast } from './services/pipeline-forecast.service';
@@ -111,6 +112,7 @@ export function createFinanceRoutes(): Router {
   router.use('/partners', partnersRoutes);
   router.use('/xpoint', xpointRoutes);
   router.use('/money-rules', moneyRulesRoutes);
+  router.use('/intercompany', intercompanyRoutes);
   router.use(createFinanceExcelRouter()); // /revenues/excel/*, /purchases/excel/*, /sga-expenses/excel/*
 
   return router;

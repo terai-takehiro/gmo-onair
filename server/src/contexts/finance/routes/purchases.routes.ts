@@ -10,6 +10,7 @@ import { buildPurchaseWhere, buildPurchaseOrder } from '../list-query';
 import { assertVendorCompanyId } from '../../../shared/services/company-directory.service';
 import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 import { getLegalEntity } from '../../platform/services/legal-entity.service';
+import { assertNotIntercompanyLinked } from '../services/intercompany.service';
 
 const router = Router();
 
@@ -56,13 +57,15 @@ router.get('/', async (req, res) => {
   // （行を引くクエリだけ join があり、COUNT/SUM/件数には無かったのが 500 の原因）。
   const total = ((await queryOne(`SELECT COUNT(*) as c FROM purchases pu LEFT JOIN projects p ON p.id = pu.project_id LEFT JOIN companies vco ON vco.id = pu.vendor_id ${allocJoin} ${where}`, [...allocParams, ...params])) as any).c;
   const rows = await queryAll(
-    `SELECT pu.*, p.name as project_name, p.gls_number, p.code as project_code, vco.name as vendor_name, pg.name as group_name, e.episode_code, au.name as assigned_to_name${allocCol}
+    `SELECT pu.*, p.name as project_name, p.gls_number, p.code as project_code, vco.name as vendor_name, pg.name as group_name, e.episode_code, au.name as assigned_to_name,
+            (il.id IS NOT NULL) AS is_intercompany${allocCol}
      FROM purchases pu
      LEFT JOIN projects p ON p.id = pu.project_id
      LEFT JOIN companies vco ON vco.id = pu.vendor_id
      LEFT JOIN project_groups pg ON pg.id = pu.group_id
      LEFT JOIN episodes e ON e.id = pu.episode_id
      LEFT JOIN users au ON au.id = pu.assigned_to
+     LEFT JOIN intercompany_links il ON il.purchase_id = pu.id
      ${allocJoin}
      ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
     [...allocParams, ...params, limit, offset]
@@ -125,11 +128,13 @@ router.get('/export', requirePermission('sales', 'exporter'), async (_req, res) 
 
 router.get('/:id', async (req, res) => {
   const row = await queryOne(
-    `SELECT pu.*, p.name as project_name, p.gls_number, vco.name as vendor_name, e.episode_code, au.name as assigned_to_name
+    `SELECT pu.*, p.name as project_name, p.gls_number, vco.name as vendor_name, e.episode_code, au.name as assigned_to_name,
+            (il.id IS NOT NULL) AS is_intercompany
      FROM purchases pu LEFT JOIN projects p ON p.id = pu.project_id
      LEFT JOIN companies vco ON vco.id = pu.vendor_id
      LEFT JOIN episodes e ON e.id = pu.episode_id
      LEFT JOIN users au ON au.id = pu.assigned_to
+     LEFT JOIN intercompany_links il ON il.purchase_id = pu.id
      WHERE pu.id = ? AND pu.deleted_at IS NULL`, [req.params.id]);
   if (!row) throw new AppError(404, 'NOT_FOUND', '仕入が見つかりません');
   res.json({ success: true, data: row });
@@ -176,6 +181,15 @@ router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
 router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   const existing = await queryOne('SELECT * FROM purchases WHERE id = ? AND deleted_at IS NULL', [req.params.id]) as any;
   if (!existing) throw new AppError(404, 'NOT_FOUND', '仕入が見つかりません');
+  // 配分グループの仕入はこの口では触らない（`revenues.routes.ts` の
+  // `REVENUE_IN_ALLOCATION_GROUP` と同じ理由・以前はここに相当するガードが無かった）
+  if (existing.group_id) {
+    throw new AppError(400, 'PURCHASE_IN_ALLOCATION_GROUP',
+      'この仕入は配分グループに入っています。費用を分け合うグループの画面（案件管理 > 費用を分け合うグループ）から編集してください');
+  }
+  // 社内取引（§4.12・P2 Round 2）の仕入はこの口では触らない——片方だけ直すと
+  // 売上側と食い違う。直すのは `PUT /intercompany/:id` から
+  await assertNotIntercompanyLinked('purchase', req.params.id as string);
 
   const { project_id, episode_id, vendor_id, assigned_to, settlement_method, settlement_number, settlement_url,
           tax_category, invoice_qualified, amount, description,
@@ -219,6 +233,8 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
 });
 
 router.delete('/:id', requirePermission('sales', 'manager'), async (req, res) => {
+  // 社内取引（§4.12・P2 Round 2）の仕入は単独で消せない——`DELETE /intercompany/:id` から
+  await assertNotIntercompanyLinked('purchase', req.params.id as string);
   await execute(`UPDATE purchases SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`, [req.user!.id, req.params.id]);
   res.json({ success: true, message: '削除しました' });
 });

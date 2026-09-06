@@ -20,6 +20,7 @@ import { BILLING_STATE_SQL } from '../../../shared/services/billing-state';
 import { assertCustomerCompanyId } from '../../../shared/services/company-directory.service';
 import { assignInvoiceNumbers } from '../services/invoice-number.service';
 import { resolveIssuer, getLegalEntity } from '../../platform/services/legal-entity.service';
+import { assertNotIntercompanyLinked } from '../services/intercompany.service';
 
 const router = Router();
 
@@ -189,11 +190,13 @@ router.get('/', async (req, res) => {
   const allocCol = projectId ? ', ra.allocated_amount, pg.name as group_name' : '';
 
   const rows = await queryAll(
-    `SELECT r.*, p.name as project_name, p.gls_number, p.project_type, p.event_end, c.name as customer_name, e.episode_code${allocCol}
+    `SELECT r.*, p.name as project_name, p.gls_number, p.project_type, p.event_end, c.name as customer_name, e.episode_code,
+            (il.id IS NOT NULL) AS is_intercompany${allocCol}
      FROM revenues r
      LEFT JOIN projects p ON p.id = r.project_id
      LEFT JOIN companies c ON c.id = r.customer_id
      LEFT JOIN episodes e ON e.id = r.episode_id
+     LEFT JOIN intercompany_links il ON il.revenue_id = r.id
      ${allocJoin}
      ${projectId ? 'LEFT JOIN project_groups pg ON pg.id = r.group_id' : ''}
      ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
@@ -335,7 +338,7 @@ router.get('/export', requirePermission('sales', 'exporter'), async (_req, res) 
 
 // 売上詳細（明細行つき）
 router.get('/:id', async (req, res) => {
-  const row = await queryOne(`SELECT r.*, p.name as project_name, p.gls_number, p.project_type, p.event_end, c.name as customer_name, e.episode_code FROM revenues r LEFT JOIN projects p ON p.id = r.project_id LEFT JOIN companies c ON c.id = r.customer_id LEFT JOIN episodes e ON e.id = r.episode_id WHERE r.id = ? AND r.deleted_at IS NULL`, [req.params.id]) as any;
+  const row = await queryOne(`SELECT r.*, p.name as project_name, p.gls_number, p.project_type, p.event_end, c.name as customer_name, e.episode_code, (il.id IS NOT NULL) AS is_intercompany FROM revenues r LEFT JOIN projects p ON p.id = r.project_id LEFT JOIN companies c ON c.id = r.customer_id LEFT JOIN episodes e ON e.id = r.episode_id LEFT JOIN intercompany_links il ON il.revenue_id = r.id WHERE r.id = ? AND r.deleted_at IS NULL`, [req.params.id]) as any;
   if (!row) throw new AppError(404, 'NOT_FOUND', '売上が見つかりません');
 
   const items = await queryAll('SELECT * FROM revenue_items WHERE revenue_id = ? ORDER BY sort_order', [req.params.id]);
@@ -610,6 +613,9 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
     throw new AppError(400, 'REVENUE_IN_ALLOCATION_GROUP',
       'この売上は配分グループに入っています。費用を分け合うグループの画面（案件管理 > 費用を分け合うグループ）から編集してください');
   }
+  // 社内取引（§4.12・P2 Round 2）の売上はこの口では触らない——片方だけ直すと
+  // 仕入側と食い違う。直すのは `PUT /intercompany/:id` から
+  await assertNotIntercompanyLinked('revenue', req.params.id as string);
   // 請求キーはサーバーが組み立てる値なので、`req.body.billing_key` は受け取らない
   // (下の `finalBillingKey` が `existing.billing_key` から作る。取り出すだけで使っていなかった)
   const { project_id, customer_id, episode_id, tax_category, amount, recognition_date, billing_date, payment_due_date, notes, items, subtitle, is_advance_payment, invoice_issued } = req.body;
@@ -725,6 +731,8 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
 
 // 売上削除
 router.delete('/:id', requirePermission('sales', 'manager'), async (req, res) => {
+  // 社内取引（§4.12・P2 Round 2）の売上は単独で消せない——`DELETE /intercompany/:id` から
+  await assertNotIntercompanyLinked('revenue', req.params.id as string);
   await execute(`UPDATE revenues SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`, [req.user!.id, req.params.id]);
   res.json({ success: true, message: '削除しました' });
 });

@@ -2710,6 +2710,12 @@ export class ProjectService {
    * 呼ぶと N+1（1件あたり5クエリ）になる場所用 — 何件でもクエリは4本。
    * 案件の存在確認はしない（呼び出し元が `projects` を `deleted_at IS NULL` で
    * JOIN 済みの前提）。渡した id には売上・仕入が1件も無くても必ず 0 埋めで返す。
+   *
+   * ⚠️ **社内取引（`intercompany_links`・§4.12・P2 Round 2）は除外する。**
+   * ここが返す「案件全体」は「社内取引を除く」＝外部売上−外部仕入という意味
+   * （設計どおり・GJV/GSS それぞれの取り分は `getSummaryByEntity` が別に出す）。
+   * 除外しないと、社内売上と社内仕入が同額で両方に乗り、粗利の円グラフは
+   * 変わらないが `total_revenue`/`total_purchase`（＝粗利率の分母）が水増しされる。
    */
   async getSummaries(ids: string[]): Promise<Map<string, { total_revenue: number; total_purchase: number; gross_profit: number; gross_margin: number }>> {
     const map = new Map<string, { total_revenue: number; total_purchase: number; gross_profit: number; gross_margin: number }>();
@@ -2734,6 +2740,7 @@ export class ProjectService {
        ) ri ON TRUE
        WHERE r.project_id = ANY(?) AND r.group_id IS NULL
          AND r.status = 'confirmed' AND r.deleted_at IS NULL
+         AND NOT EXISTS (SELECT 1 FROM intercompany_links il WHERE il.revenue_id = r.id)
        GROUP BY r.project_id`,
       [ids]
     ) as { project_id: string; total: unknown }[];
@@ -2742,14 +2749,16 @@ export class ProjectService {
        FROM revenue_allocations ra
        JOIN revenues r ON r.id = ra.revenue_id AND r.deleted_at IS NULL
        WHERE ra.project_id = ANY(?)
+         AND NOT EXISTS (SELECT 1 FROM intercompany_links il WHERE il.revenue_id = r.id)
        GROUP BY ra.project_id`,
       [ids]
     ) as { project_id: string; total: unknown }[];
     // 直接仕入（group_id なし）+ グループ按分された金額
     const directPur = await queryAll(
-      `SELECT project_id, SUM(amount) as total FROM purchases
-       WHERE project_id = ANY(?) AND group_id IS NULL AND deleted_at IS NULL
-       GROUP BY project_id`,
+      `SELECT pu.project_id, SUM(pu.amount) as total FROM purchases pu
+       WHERE pu.project_id = ANY(?) AND pu.group_id IS NULL AND pu.deleted_at IS NULL
+         AND NOT EXISTS (SELECT 1 FROM intercompany_links il WHERE il.purchase_id = pu.id)
+       GROUP BY pu.project_id`,
       [ids]
     ) as { project_id: string; total: unknown }[];
     const allocatedPur = await queryAll(
@@ -2757,6 +2766,7 @@ export class ProjectService {
        FROM purchase_allocations pa
        JOIN purchases pu ON pu.id = pa.purchase_id AND pu.deleted_at IS NULL
        WHERE pa.project_id = ANY(?)
+         AND NOT EXISTS (SELECT 1 FROM intercompany_links il WHERE il.purchase_id = pu.id)
        GROUP BY pa.project_id`,
       [ids]
     ) as { project_id: string; total: unknown }[];
@@ -2791,6 +2801,15 @@ export class ProjectService {
    * 通常は1案件につき1エンティティだが、エンティティのINSERT配線が全箇所
    * 揃うまでの過渡期は行ごとに `entity_code` が食い違いうる（P1 の項目）ため、
    * 単一の値ではなく**内訳の配列**で返す。
+   *
+   * ⚠️ **社内取引（`intercompany_links`・§4.12・P2 Round 2）はここでは除外しない
+   * （`getSummaries` と違う）。** 社内売上は売り手（GSS）の entity_code・
+   * 社内仕入は買い手（GJV）の entity_code で別々に計上されるため、
+   * entity_code の GROUP BY だけで自動的に「会社別」の意味になる——
+   * GJV: 外部売上−外部仕入−社内仕入（社内仕入も GJV の entity_code）／
+   * GSS: 社内売上−GSSの仕入（両方 GSS の entity_code）と、設計（§4.12）の
+   * 式にそのまま一致する。除外ロジックの追加は不要（当初の設計メモは
+   * 「Round 2 で除外が要る」としていたが、実装して確認した結果、要らないと分かった）。
    */
   async getSummaryByEntity(projectId: string): Promise<Array<{
     entity_code: string | null;
