@@ -148,8 +148,22 @@ export async function handoffDoc(
      * 議事録の持ち帰り（v4.0.10）・見積の売上変換とまったく同じ形です。
      */
     const locked = await tx.queryOne(
-      'SELECT linked_id, status FROM finance_docs WHERE id = ? FOR UPDATE', [docId],
-    ) as { linked_id: string | null; status: string } | undefined;
+      'SELECT linked_id, status, deleted_at FROM finance_docs WHERE id = ? FOR UPDATE', [docId],
+    ) as { linked_id: string | null; status: string; deleted_at: Date | null } | undefined;
+    /*
+      ⚠️ **消えていないかも、押さえてから見る**（281 の自己レビュー）。
+
+      束ごと消す操作（`removeGroup`）は書類を soft delete します。
+      **ここで `deleted_at` を見ないと、待たされて先に進んだあとに
+      「消えた書類から作った仕入・販管費の行」ができ**、どこからも辿れなくなります。
+      取引の外の確認（この関数の冒頭）は `deleted_at IS NULL` で引いていますが、
+      **正はこちら**です。
+    */
+    if (!locked || locked.deleted_at) {
+      throw new AppError(409, 'ALREADY_DELETED',
+        'この書類は取り消されています（取引ごと消された可能性があります）。'
+        + '受領書類の画面を開き直してください');
+    }
     if (locked?.linked_id) {
       throw new AppError(409, 'ALREADY_LINKED',
         'この書類はすでに台帳へ渡しています。取り消してから渡し直してください');

@@ -15,6 +15,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { decodeStrictBase64 } from '../../server/src/shared/services/mail-attachment-box.service';
 
 const read = (...p: string[]) => readFileSync(join(__dirname, '..', '..', ...p), 'utf8');
 
@@ -368,19 +369,34 @@ describe('Codex 2巡目（8a047eb）で見つかった穴', () => {
 });
 
 describe('Codex 3巡目（1e0ddbc）で見つかった穴', () => {
-  it('P2: 壊れた base64 を「保存しました」と言わない', () => {
+  it('P2: 壊れた base64 を「保存しました」と言わない（実際に通して確かめる）', () => {
     /*
       Buffer.from(s, 'base64') は壊れた文字列でも投げず、知らない文字を捨てて
       それらしい長さのゴミを返す（'not base64' → 6バイト。実測）。
       長さだけ見ると通り、**壊れた PDF を BOX に上げて成功と報告する** —
       原本が壊れていることに、誰かが開くまで気づけない。
+
+      ⚠️ **厳しくしすぎて正しい原本を落とすのも同じくらい困る**ので、
+      詰め物なし・折り返し・URL 用の書き方は通すこと（両側を固定する）。
     */
-    const a = attach();
-    expect(a).toMatch(/export function decodeStrictBase64/);
-    expect(a).toMatch(/\^\[A-Za-z0-9\+\/\]\*=\{0,2\}\$/);
-    // 戻して同じになるかまで確かめる
-    expect(a).toMatch(/buf\.toString\('base64'\)\.replace\(\/=\+\$\/, ''\) !== cleaned\.replace\(\/=\+\$\/, ''\)/);
-    expect(a).not.toMatch(/buffer = Buffer\.from\(att\.content_base64, 'base64'\)/);
+    const pdf = Buffer.from('%PDF-1.4 hello world');
+    const good = pdf.toString('base64');
+
+    // 通すもの
+    expect(decodeStrictBase64(good)?.toString()).toBe(pdf.toString());
+    expect(decodeStrictBase64(good.replace(/=+$/, ''))?.toString()).toBe(pdf.toString());   // 詰め物なし
+    expect(decodeStrictBase64(good.replace(/(.{8})/g, '$1\n'))?.toString()).toBe(pdf.toString()); // 折り返し
+    expect(decodeStrictBase64('YWJjZGU')?.toString()).toBe('abcde');                        // 余り3（正しい）
+
+    // 落とすもの
+    expect(decodeStrictBase64('not base64')).toBeNull();
+    expect(decodeStrictBase64(good.slice(0, good.length - 3))).toBeNull();                   // 途中で切れた
+    expect(decodeStrictBase64('YWJjZ')).toBeNull();                                          // 余り1（ありえない）
+    expect(decodeStrictBase64('こんにちは')).toBeNull();
+    expect(decodeStrictBase64('')).toBeNull();
+
+    // 素の Buffer.from に戻していないこと
+    expect(attach()).not.toMatch(/buffer = Buffer\.from\(att\.content_base64, 'base64'\)/);
   });
 
   it('P2: 1件読みは一覧の上限（300）を通らない', () => {
@@ -432,8 +448,9 @@ describe('Codex 4巡目（cb6abca）で見つかった穴', () => {
     const s = chainSvc();
     const at = s.indexOf('export async function removeGroup');
     expect(at).toBeGreaterThan(-1);
-    const fn = s.slice(at, at + 1200);
-    expect(fn).toMatch(/status = 'processed'/);
+    const fn = s.slice(at, at + 2200);
+    // 数え方は「押さえたあとに JS で見る」に変えた（下の節で理由を書いている）
+    expect(fn).toMatch(/d\.status === 'processed'/);
     expect(fn).toContain('ALREADY_PROCESSED');
   });
 
@@ -486,5 +503,50 @@ describe('Codex 4巡目（cb6abca）で見つかった穴', () => {
     expect(d).toMatch(/const vendorName = doc\.vendor_name \?\? doc\.sender \?\? ''/);
     expect(d).toMatch(/vendor_name: kind === 'sga' \? \(vendorName \|\| null\) : null/);
     expect(d).not.toMatch(/vendor_name: kind === 'sga' \? doc\.sender : null/);
+  });
+});
+
+describe('自己レビュー（Codex が上限で見られなかったぶん）', () => {
+  it('後から届いた書類の処理月・サイトで、束の空いているところを埋める', () => {
+    /*
+      束は最初の書類（多くは見積書）で作られるが、**処理月と支払サイトは
+      請求書に書いてあることのほうが多い**。埋めないと束は最後まで期日を出せず、
+      払う期日があるのに一番後ろに沈んだままになる。
+      ⚠️ **すでに入っている値は上書きしない**（人が直した値かもしれない）。
+    */
+    const s = chainSvc();
+    expect(s).toMatch(/if \(!found\.processing_month && input\.processing_month\)/);
+    expect(s).toMatch(/if \(found\.payment_terms_days === null && input\.payment_terms_days !== null/);
+    expect(s).toMatch(/fill\.set\('derived_payment_due'/);
+  });
+
+  it('束を消すときは、束の中の生きている書類を「全部」押さえてから状態を見る', () => {
+    /*
+      ⚠️ **登録済みだけを押さえても意味がない。** そのとき0行なので何も押さえられず、
+      その隙に別の人が「仕入・販管費に登録」を通すと（あちらは書類の行を押さえてから
+      状態を変える）**擦れ違って両方成功**し、台帳の行だけが消えた書類を指す。
+      **全部押さえてから状態を見る**ので、どちらが先でも必ず待たされる。
+    */
+    const s = chainSvc();
+    const at = s.indexOf('export async function removeGroup');
+    const fn = s.slice(at, at + 2200);
+    expect(fn).toMatch(/withTransaction/);
+    // 絞り込みは deleted_at だけ。status で絞って FOR UPDATE してはいけない
+    expect(fn).toMatch(/WHERE group_id = \? AND deleted_at IS NULL FOR UPDATE/);
+    expect(fn).not.toMatch(/status = 'processed' FOR UPDATE/);
+    expect(fn).toMatch(/docs\.filter\(\(d\) => d\.status === 'processed'\)/);
+    expect(fn.indexOf('withTransaction')).toBeLessThan(fn.indexOf('FOR UPDATE'));
+  });
+
+  it('台帳へ渡すときは、押さえてから「消えていないか」も見る', () => {
+    /*
+      束ごと消す操作は書類を soft delete する。押さえたあとに見ないと、
+      待たされて先に進んだあとに**消えた書類から作った仕入・販管費の行**ができ、
+      どこからも辿れなくなる。
+    */
+    const h = handoff();
+    expect(h).toMatch(/SELECT linked_id, status, deleted_at FROM finance_docs WHERE id = \? FOR UPDATE/);
+    expect(h).toMatch(/if \(!locked \|\| locked\.deleted_at\)/);
+    expect(h).toContain('ALREADY_DELETED');
   });
 });
