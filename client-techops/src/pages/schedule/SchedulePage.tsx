@@ -3,8 +3,8 @@
 // 第2版（列の管理・空状態の 3 択・見出しの整理）: 14-schedule-v2-plan.md §3 段A・§4-2 (b)(c)(d)
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { Loader2, ArrowLeft, LayoutTemplate, Download, Plus, Sparkles, Columns3, Settings } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Loader2, ArrowLeft, LayoutTemplate, Download, Plus, Sparkles, Columns3, Settings, Copy, Printer } from "lucide-react";
 import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { Badge } from "@gmo-onair/shared/src/client/ui/badge";
 import EventPlanDialog from "@/components/ai/EventPlanDialog";
@@ -26,6 +26,7 @@ import VenueColumnsDialog from "@/components/schedule/VenueColumnsDialog";
 import ScheduleEmptyState from "@/components/schedule/ScheduleEmptyState";
 import ScheduleSettingsDialog from "@/components/schedule/ScheduleSettingsDialog";
 import ScheduleSiblingDays from "@/components/schedule/ScheduleSiblingDays";
+import DuplicateScheduleDialog from "@/components/schedule/DuplicateScheduleDialog";
 import MoreMenu from "@/components/schedule/MoreMenu";
 import useItemCommitQueue from "@/components/schedule/useItemCommitQueue";
 import useScheduleItemActions from "./useScheduleItemActions";
@@ -46,6 +47,8 @@ export default function SchedulePage() {
   const [aiOpen, setAiOpen] = useState(false);
   const [venueOpen, setVenueOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // 別の日として写す（B5・14-schedule-v2-plan.md §3 B5）
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
   // スマホの列チップの絞り込み。「項目を追加」の既定列に使うため親に持ち上げてある（§3 A6）
   const [mobileFilterColumnId, setMobileFilterColumnId] = useState<string | null>(null);
   // 列を足す／直す（ColumnDialog）。`column` が無ければ新規作成
@@ -54,8 +57,9 @@ export default function SchedulePage() {
   const [isDragging, setIsDragging] = useState(false);
 
   const queue = useItemCommitQueue();
-  // 列・表の設定・ドラッグ中もポーリングを止める（書きかけを上書きしないため・§4-3）
-  const anySheetOpen = dialogOpen || columnDialog.open || venueOpen || settingsOpen || isDragging;
+  const queryClient = useQueryClient();
+  // 列・表の設定・ドラッグ中・別の日として写す最中もポーリングを止める（書きかけを上書きしないため・§4-3）
+  const anySheetOpen = dialogOpen || columnDialog.open || venueOpen || settingsOpen || isDragging || duplicateOpen;
 
   const detailQuery = useQuery({
     queryKey: ["schedule", id],
@@ -129,6 +133,10 @@ export default function SchedulePage() {
     }
   };
 
+  // 印刷（B7・14-schedule-v2-plan.md §3 B7）。ブラウザの素の印刷を通すだけ
+  // （PDF 生成は作らない・02-schedule.md §10-4）。見た目は index.css の `@media print`
+  const handlePrint = () => window.print();
+
   if (detailQuery.isLoading) {
     return <div className="flex h-64 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   }
@@ -146,12 +154,15 @@ export default function SchedulePage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-      <Button variant="ghost" size="sm" className="mb-2 min-h-[44px] -ml-2" onClick={() => navigate("/techops/schedules")}>
+      <Button variant="ghost" size="sm" className="mb-2 min-h-[44px] -ml-2 print:hidden" onClick={() => navigate("/techops/schedules")}>
         <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />一覧へ
       </Button>
 
-      {/* 「同じイベントの他の日」（§3-3）。1 日しか無いイベントでは何も描かない */}
-      <ScheduleSiblingDays projectId={schedule.project_id} programId={schedule.program_id} currentId={schedule.id} />
+      {/* 「同じイベントの他の日」（§3-3）。1 日しか無いイベントでは何も描かない。
+          印刷は「1 日 1 枚」なので他の日への導線は要らない（B7） */}
+      <div className="print:hidden">
+        <ScheduleSiblingDays projectId={schedule.project_id} programId={schedule.program_id} currentId={schedule.id} />
+      </div>
 
       {/* 主＝項目を追加（PC は右上・スマホは下端）。設定は副ボタン、作る系（ひな形・AI）・
           Excel・列は「…」へ（§4-2 (b)） */}
@@ -167,7 +178,7 @@ export default function SchedulePage() {
         sub={subParts.length > 0 ? subParts.join(" ・ ") : undefined}
         primaryAction={
           <Button
-            className="min-h-[44px]"
+            className="min-h-[44px] print:hidden"
             onClick={() => openCreate(mobileFilterColumnId ?? schedule.columns[0]?.id ?? "", schedule.view_start_min)}
             disabled={!hasColumns}
           >
@@ -175,21 +186,24 @@ export default function SchedulePage() {
           </Button>
         }
       >
-        <Button variant="outline" size="sm" className="min-h-[44px]" onClick={() => setSettingsOpen(true)}>
+        <Button variant="outline" size="sm" className="min-h-[44px] print:hidden" onClick={() => setSettingsOpen(true)}>
           <Settings className="mr-1 h-4 w-4" aria-hidden="true" />表の設定
         </Button>
         <MoreMenu
+          className="print:hidden"
           items={[
             { label: "列を足す", icon: <Columns3 />, onSelect: () => openAddColumn(schedule.columns[schedule.columns.length - 1]?.col_group ?? "venue") },
             { label: "ひな形を適用", icon: <LayoutTemplate />, onSelect: () => setApplyOpen(true) },
             { label: "AI で下書き", icon: <Sparkles />, onSelect: () => setAiOpen(true) },
             { label: "Excel に書き出す", icon: <Download />, onSelect: () => void handleExport(), disabled: !hasColumns },
+            { label: "別の日として写す", icon: <Copy />, onSelect: () => setDuplicateOpen(true) },
+            { label: "印刷する", icon: <Printer />, onSelect: handlePrint, disabled: !hasColumns },
           ]}
         />
       </PageHeader>
 
       {breakdownQuery.data && breakdownQuery.data.length > 0 && (
-        <p className="mt-2 text-xs text-muted-foreground">
+        <p className="mt-2 text-xs text-muted-foreground print:hidden">
           {breakdownQuery.data.map((b) => `${b.title || "（無題）"}: ロール ${b.section_count} ／ 行 ${b.row_count} ／ 枠 ${b.frame_min}分`
             + (b.doc_total_sec != null ? `・台本 ${Math.ceil(b.doc_total_sec / 60)}分` : "")).join(" ｜ ")}
         </p>
@@ -279,6 +293,18 @@ export default function SchedulePage() {
         scheduleId={id}
         locationId={schedule.location_id}
         onApplied={refetchAfterColumns}
+      />
+
+      <DuplicateScheduleDialog
+        open={duplicateOpen}
+        onOpenChange={setDuplicateOpen}
+        scheduleId={id}
+        sourceServiceDate={schedule.service_date}
+        onDuplicated={(created) => {
+          notifySuccess("別の日として写しました");
+          queryClient.invalidateQueries({ queryKey: ["schedules", "list"] });
+          navigate(`/techops/schedules/${created.id}`);
+        }}
       />
 
       {/* AI 生成（段8・①イベント設計）。`qsheet_schedule_items` への REST 書き込みなので
