@@ -40,6 +40,7 @@ export function LendingSelectStep({
       i.name.toLowerCase().includes(lq)
       || loose(i.eq_code).includes(cq)
       || (i.unit_number != null && String(i.unit_number).includes(cq))
+      || (i.model_number != null && loose(i.model_number).includes(cq))
     ));
   }, [parents, search]);
 
@@ -52,7 +53,7 @@ export function LendingSelectStep({
   return (
     <div className="flex flex-col gap-3">
       <div className="sticky top-0 z-10 -mt-1 flex flex-col gap-2 border-b border-border bg-card py-2.5">
-        <SearchField value={search} onChange={onSearchChange} placeholder="名前・機材IDで探す" />
+        <SearchField value={search} onChange={onSearchChange} placeholder="名前・機材ID・型名で探す" />
         <div className="flex gap-1.5 overflow-x-auto">
           <button
             type="button"
@@ -126,6 +127,9 @@ export function LendingSelectStep({
                 <span className="font-number mt-1 block text-sub-sm text-muted-foreground">
                   {item.unit_number != null ? `No.${item.unit_number}` : item.eq_code}
                 </span>
+                {item.model_number && (
+                  <span className="mt-0.5 block truncate text-sub-sm text-muted-foreground">{item.model_number}</span>
+                )}
                 {item.location_name && (
                   <span className="mt-0.5 block truncate text-sub-sm text-muted-foreground">{item.location_name}</span>
                 )}
