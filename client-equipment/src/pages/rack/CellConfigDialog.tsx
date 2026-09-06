@@ -45,7 +45,7 @@ export function CellConfigDialog({
     >
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label className="text-xs font-semibold uppercase text-muted-foreground">優先表示</Label>
+          <Label className="text-xs font-bold uppercase text-muted-foreground">優先表示</Label>
           <div className="flex flex-col gap-1.5">
             {[
               { value: "model", label: "型名を優先" },
@@ -76,7 +76,7 @@ export function CellConfigDialog({
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs font-semibold uppercase text-muted-foreground">追加表示項目</Label>
+          <Label className="text-xs font-bold uppercase text-muted-foreground">追加表示項目</Label>
           <div>
             <ToggleButtonGroup
               options={[

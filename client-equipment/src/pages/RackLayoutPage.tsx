@@ -14,6 +14,9 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { notifyApiError } from "@gmo-onair/shared/src/client/notify";
+import { cn } from "@gmo-onair/shared/src/client/utils";
+import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
+import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from "@gmo-onair/shared/src/client/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -96,7 +99,9 @@ export default function RackLayoutPage() {
   const [blankForm, setBlankForm] = useState({ rack_height: "1", rack_slot: "full", panel_type: "blank", label: "" });
   const [confirmDeleteBlankId, setConfirmDeleteBlankId] = useState<string | null>(null);
 
-  const { data: racksData, isLoading: racksLoading, isError: racksError } = useQuery({
+  const {
+    data: racksData, isLoading: racksLoading, isError: racksError, error: racksErrorObj, refetch: refetchRacks,
+  } = useQuery({
     queryKey: ["equipment-racks"],
     queryFn: async () => (await api.get("/equipment/racks")).data.data,
   });
@@ -425,24 +430,6 @@ export default function RackLayoutPage() {
     return (currentRack?.items ?? []).some((it: any) => it.rack_side === opposite);
   }, [currentRack, side]);
 
-  if (racksLoading) {
-    return (
-      <div className="flex justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (racksError) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 text-muted-foreground gap-3">
-        <Server className="h-12 w-12 opacity-20" />
-        <p className="text-sm">ラック図を読み込めませんでした。</p>
-        <p className="text-xs">通信が途切れたのかもしれません。ページを開き直してください。</p>
-      </div>
-    );
-  }
-
   return (
     <>
     {/*
@@ -452,43 +439,54 @@ export default function RackLayoutPage() {
       （v4 大④ で左に一覧を置いたときに実測: 2ページ → 3ページ）。
       印刷用の領域はこの外に置いてあるので影響を受けません。
     */}
-    <div className="space-y-3 p-3 sm:p-4 lg:p-6 print:hidden">
-      {/* Header */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <h1 className="heading-page text-lg sm:text-xl lg:text-2xl flex items-center gap-2">
-            <Server className="h-5 w-5 text-amber-500" />
-            ラック図
-            <span className="text-sub font-normal text-muted-foreground">
-              ラック <span className="font-number font-bold">{rackSummaries.length}本</span>
-              {" ・ "}実装 <span className="font-number font-bold">{totalUsed}U</span>
-              {" ／ "}<span className="font-number">{totalSize}U</span>
-            </span>
-          </h1>
-
-          {/* 前面/背面 (モバイルでも常時表示) */}
-          <div className="flex rounded-lg overflow-hidden border border-border shadow-sm shrink-0">
-            <button
-              className={`relative px-3 sm:px-4 h-9 text-sm font-semibold transition-colors ${side === "front" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}
-              onClick={() => setSide("front")}
-            >
-              前面
-              {side === "back" && oppositeSideHasContent && (
-                <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-amber-500 shadow-[0_0_0_2px_white]" />
-              )}
-            </button>
-            <button
-              className={`relative px-3 sm:px-4 h-9 text-sm font-semibold transition-colors ${side === "back" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}
-              onClick={() => setSide("back")}
-            >
-              背面
-              {side === "front" && oppositeSideHasContent && (
-                <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-amber-500 shadow-[0_0_0_2px_white]" />
-              )}
-            </button>
-          </div>
+    <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6 print:hidden">
+      <PageHeader
+        title="ラック図"
+        icon={<Server className="h-5 w-5 text-warning" aria-hidden="true" />}
+        sub={
+          <>
+            ラック <span className="font-number font-bold">{rackSummaries.length}本</span>
+            {" ・ "}実装 <span className="font-number font-bold">{totalUsed}U</span>
+            {" ／ "}<span className="font-number">{totalSize}U</span>
+          </>
+        }
+      >
+        {/* 前面/背面 (モバイルでも常時表示) */}
+        <div className="flex shrink-0 overflow-hidden rounded-control-lg border border-border shadow-sm">
+          <Button
+            type="button"
+            variant={side === "front" ? "default" : "ghost"}
+            size="sm"
+            className={cn(
+              "relative h-9 rounded-none px-3 sm:px-4",
+              side !== "front" && "bg-card text-muted-foreground hover:bg-muted",
+            )}
+            onClick={() => setSide("front")}
+          >
+            前面
+            {side === "back" && oppositeSideHasContent && (
+              <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-warning shadow-[0_0_0_2px_white]" />
+            )}
+          </Button>
+          <Button
+            type="button"
+            variant={side === "back" ? "default" : "ghost"}
+            size="sm"
+            className={cn(
+              "relative h-9 rounded-none px-3 sm:px-4",
+              side !== "back" && "bg-card text-muted-foreground hover:bg-muted",
+            )}
+            onClick={() => setSide("back")}
+          >
+            背面
+            {side === "front" && oppositeSideHasContent && (
+              <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-warning shadow-[0_0_0_2px_white]" />
+            )}
+          </Button>
         </div>
+      </PageHeader>
 
+      <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           {branches.length > 0 && (
             <Select value={branchFilter} onValueChange={setBranchFilter}>
@@ -544,15 +542,15 @@ export default function RackLayoutPage() {
       </div>
 
       {displayEditMode && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-          <strong>表示変更モード：</strong>機材ブロックをクリックして表示項目をカスタマイズします。空きスペースのクリックは無効です。
+        <div className="rounded-note border border-warning-border bg-warning-surface p-3 text-sub text-secondary-foreground">
+          <strong className="font-bold">表示変更モード：</strong>機材ブロックをクリックして表示項目をカスタマイズします。空きスペースのクリックは無効です。
         </div>
       )}
 
       {inventoryMode && (
-        <div className="rounded-lg border bg-muted/30 p-3 flex flex-col gap-2">
+        <div className="rounded-card flex flex-col gap-2 border bg-muted/30 p-3">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-medium">棚卸し選択:</span>
+            <span className="text-sub">棚卸し選択:</span>
             <Select value={selectedCheckId || "none"} onValueChange={(v) => setSelectedCheckId(v === "none" ? "" : v)}>
               <SelectTrigger className="w-56 h-8 text-sm"><SelectValue placeholder="棚卸しを選ぶ" /></SelectTrigger>
               <SelectContent>
@@ -577,7 +575,7 @@ export default function RackLayoutPage() {
                 <div className="flex items-center gap-2 ml-auto">
                   <div className="h-2 w-40 rounded-full bg-muted overflow-hidden">
                     <div
-                      className="h-full bg-emerald-500 transition-all"
+                      className="h-full bg-success transition-all"
                       style={{ width: totalItems > 0 ? `${(totalChecked / totalItems) * 100}%` : "0%" }}
                     />
                   </div>
@@ -587,20 +585,28 @@ export default function RackLayoutPage() {
             )}
           </div>
           {inventoryNotice && (
-            <div className="flex items-center gap-1.5 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5">
-              <AlertCircle className="h-4 w-4 shrink-0" />
+            <div className="rounded-note flex items-center gap-1.5 border border-warning-border bg-warning-surface px-2.5 py-1.5 text-sub text-secondary-foreground">
+              <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
               {inventoryNotice}
             </div>
           )}
         </div>
       )}
 
-      {filteredRacks.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
-          <Server className="h-16 w-16 opacity-20" />
-          <p className="text-sm">ラックが登録されていません</p>
-          <p className="text-xs">設定の「保管場所」でラックを追加してください</p>
-        </div>
+      {racksError ? (
+        <ErrorPanel
+          title="ラック図を読み込めませんでした"
+          error={racksErrorObj}
+          onRetry={() => refetchRacks()}
+        />
+      ) : racksLoading ? (
+        <Delayed><SkeletonRows rows={5} /></Delayed>
+      ) : filteredRacks.length === 0 ? (
+        <EmptyState
+          icon={<Server />}
+          title="ラックが登録されていません"
+          description="設定の「保管場所」でラックを追加してください"
+        />
       ) : (
         <>
           <div className="flex flex-col items-start gap-3.5 lg:flex-row">
@@ -649,8 +655,8 @@ export default function RackLayoutPage() {
           </div>
 
           {colors.length > 0 && (
-            <div className="border rounded-lg p-3">
-              <p className="text-xs font-semibold text-muted-foreground mb-2">凡例</p>
+            <div className="rounded-card border p-3">
+              <p className="text-xs font-bold text-muted-foreground mb-2">凡例</p>
               <div className="flex flex-wrap gap-3">
                 {colors.map((c: any) => (
                   <div key={c.id} className="flex items-center gap-1.5 text-xs">
@@ -705,7 +711,7 @@ export default function RackLayoutPage() {
                 <button
                   key={opt.value}
                   type="button"
-                  className={`py-1.5 text-sm rounded border transition-colors ${blankForm.panel_type === opt.value ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:bg-muted"}`}
+                  className={`rounded-control py-1.5 text-sm border transition-colors ${blankForm.panel_type === opt.value ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:bg-muted"}`}
                   onClick={() => setBlankForm(f => ({ ...f, panel_type: opt.value }))}
                 >
                   {opt.label}
@@ -763,13 +769,13 @@ export default function RackLayoutPage() {
           <p className="text-sm text-muted-foreground">同一U位置・同一スロットに複数の機材が登録されています。機材の詳細ページからU位置またはスロットを変更してください。</p>
           <div className="space-y-2 pt-1">
             {overlapDialog?.items.map((it: any) => (
-              <div key={it.id} className="flex items-center gap-3 rounded-lg border p-3">
+              <div key={it.id} className="rounded-control-lg flex items-center gap-3 border p-3">
                 <div
                   className="h-8 w-2 rounded-full shrink-0"
                   style={{ background: it.color_hex ?? TYPE_BG[it.equipment_type_code] ?? "#e5e7eb" }}
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm truncate">{it.name}{it.unit_number != null ? ` No.${it.unit_number}` : ""}</div>
+                  <div className="text-sm truncate">{it.name}{it.unit_number != null ? ` No.${it.unit_number}` : ""}</div>
                   <div className="text-xs text-muted-foreground truncate">{it.model_number || "—"}</div>
                 </div>
                 <Button
@@ -928,7 +934,7 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
         {/* U numbers (left) */}
         <div className="flex flex-col shrink-0" style={{ width: 22 }}>
           {Array.from({ length: rackUnits }, (_, i) => rackUnits - i).map((u) => (
-            <div key={u} style={{ height: CELL_H, fontSize: 9 }} className="flex items-center justify-end pr-1.5 text-zinc-500 tabular-nums leading-none font-semibold">
+            <div key={u} style={{ height: CELL_H, fontSize: 9 }} className="flex items-center justify-end pr-1.5 text-muted-foreground tabular-nums leading-none font-bold">
               {u}
             </div>
           ))}
@@ -1033,13 +1039,13 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
                 )}
                 {displayEditMode && (
                   <span className="absolute bottom-0.5 right-0.5 opacity-60">
-                    <Pencil className="h-2.5 w-2.5 text-gray-600" />
+                    <Pencil className="h-2.5 w-2.5 text-muted-foreground" />
                   </span>
                 )}
                 {inventoryMode && mapEntry && (
                   <span
                     className={`absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white flex items-center justify-center text-[8px] font-bold ${
-                      found === 1 ? "bg-emerald-500 text-white" : "bg-white text-muted-foreground"
+                      found === 1 ? "bg-success text-success-foreground" : "bg-white text-muted-foreground"
                     }`}
                   >
                     {found === 1 ? "✓" : "○"}
@@ -1064,10 +1070,10 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
               <div
                 key={u}
                 style={{ height: CELL_H, fontSize: 9 }}
-                className={`relative flex items-center pl-1.5 tabular-nums leading-none font-semibold ${hasBack ? "text-amber-500" : "text-zinc-500"}`}
+                className={`relative flex items-center pl-1.5 tabular-nums leading-none font-bold ${hasBack ? "text-warning" : "text-muted-foreground"}`}
               >
                 {hasBack && (
-                  <span className="absolute left-0 inset-y-0 w-[3px] bg-amber-500 rounded-r-sm" />
+                  <span className="absolute left-0 inset-y-0 w-[3px] bg-warning rounded-r-sm" />
                 )}
                 <span className="pl-1">{u}</span>
               </div>
@@ -1076,7 +1082,7 @@ function RackDisplay({ rackData, side, inventoryMode, inventoryMap, displayEditM
         </div>
       </div>
 
-      <div className="text-center text-[10px] text-zinc-500 font-semibold tracking-widest mt-1.5 uppercase">{rackUnits}U</div>
+      <div className="text-center text-[10px] text-muted-foreground font-bold tracking-widest mt-1.5 uppercase">{rackUnits}U</div>
     </div>
   );
 }
