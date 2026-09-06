@@ -161,7 +161,7 @@ export function OverviewTab({
   const onDeleteTask = async (task: GpmTask) => {
     const ok = await confirmAction({
       title: 'このタスクを削除しますか？',
-      description: `「${task.title}」\n終わったのなら消さずにチェックを入れてください（消すとやった記録が残りません）。`,
+      description: `「${task.title}」\n終わったのなら削除せずにチェックを入れてください（削除するとやった記録が残りません）。`,
       confirmLabel: '削除',
       tone: 'danger',
     });
@@ -178,7 +178,7 @@ export function OverviewTab({
     <div className="space-y-3.5 p-4 lg:px-6 lg:pb-6 lg:pt-5">
       <div className="flex flex-wrap items-center gap-2">
         {/* 見え方の切り替え。スマホは リスト／工程表・PC は リスト／ガント／かんばん */}
-        <div role="group" aria-label="表示形式" className="flex overflow-hidden rounded-control-md border border-border bg-card">
+        <div role="group" aria-label="表示形式を切り替える" className="flex overflow-hidden rounded-control border border-border bg-card">
           {views.map(({ key, label, icon: Icon }, i) => (
             <button
               key={key}
@@ -252,7 +252,7 @@ export function OverviewTab({
       {effectiveView === 'list' && (p.phases.length === 0 ? (
         <EmptyState
           title="工程がまだありません"
-          description="工程テンプレートを選んで作ると、工程とタスクが日付付きで入ります。ここから1つずつ足すこともできます。"
+          description="工程テンプレートを選んで作成すると、工程とタスクが日付付きで入ります。ここから1つずつ追加することもできます。"
           action={canEdit ? <Button onClick={() => setPhaseAdding(true)}>工程を追加</Button> : undefined}
         />
       ) : (
@@ -354,9 +354,8 @@ export function OverviewTab({
       )}
 
       <p className="text-note text-muted-foreground">
-        工程の日付を直しても、あとに続く工程は動きません（1つずつ直します）
-        {p.template_name ? `。この工程は工程テンプレート「${p.template_name}」から写したものです（写したあとに工程テンプレートを直しても、このプロジェクトは変わりません）` : ''}。
-        議事録はプロジェクト管理側のデータがまだ無いので出していません。
+        工程の日付を編集しても、あとに続く工程は動きません（1つずつ編集します）
+        {p.template_name ? `。この工程は工程テンプレート「${p.template_name}」から写したものです（写したあとに工程テンプレートを編集しても、このプロジェクトは変わりません）` : ''}。
       </p>
 
       {canManage && (

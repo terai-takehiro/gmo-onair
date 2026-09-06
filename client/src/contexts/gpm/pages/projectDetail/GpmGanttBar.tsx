@@ -5,6 +5,7 @@
  * ドラッグの状態は持たない — 押した位置を親（`GpmGanttView`）に渡すだけ。
  */
 import type { GpmPhase, GpmTask } from '../../types';
+import { GANTT_COLORS } from './ganttColors';
 
 export const ROW_H = 32;
 
@@ -62,8 +63,8 @@ export function GanttBar({
         <title>{row.task.title}</title>
         <polygon
           points={`${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`}
-          fill="#f59e0b" fillOpacity={row.task.is_completed ? 0.4 : 0.95}
-          stroke={late ? LATE_STROKE : '#b45309'} strokeWidth={late ? 1.8 : 1}
+          fill={GANTT_COLORS.warning} fillOpacity={row.task.is_completed ? 0.4 : 0.95}
+          stroke={late ? LATE_STROKE : GANTT_COLORS.warning} strokeWidth={late ? 1.8 : 1}
           style={{ cursor, touchAction: 'none' }}
           onPointerDown={start('move')}
         />

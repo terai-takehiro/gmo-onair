@@ -64,7 +64,7 @@ const STATUS_TONE: Record<GpmEstimate['status'], string> = {
   superseded: 'border-transparent bg-muted text-muted-foreground',
 };
 const STATUS_LABEL: Record<GpmEstimate['status'], string> = {
-  draft: '作成中', sent: '送付済', accepted: '受注', rejected: '失注', superseded: '旧版',
+  draft: '作成中', sent: '提出済', accepted: '受注', rejected: '失注', superseded: '旧版',
 };
 
 export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdit: boolean }) {
@@ -141,7 +141,7 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
         <EmptyState
           icon={<FileText className="h-6 w-6" aria-hidden="true" />}
           title="見積はまだありません"
-          description="提出先（自社／依頼元／PM会社）ごとに1本ずつ作ります。"
+          description="提出先（自社／依頼元／PM会社）ごとに1本ずつ作成します。"
           action={canEdit ? <Button type="button" onClick={() => setAdding(true)}>見積を作成</Button> : undefined}
         />
       ) : (
@@ -237,7 +237,7 @@ export function EstimatesTab({ projectId, canEdit }: { projectId: string; canEdi
         行を押すと<strong className="font-bold">明細</strong>を開けます。
         中身は<strong className="font-bold">案件の見積と同じ部品</strong>で、
         合計と粗利の計算も1か所です（写しを作ると、片方だけ直した日から金額が食い違います）。
-        <strong className="font-bold">出したあと（送付済・受注・旧版）は編集できません</strong> —
+        <strong className="font-bold">出したあと（提出済・受注・旧版）は編集できません</strong> —
         直すなら次の版をつくってください。
       </p>
 

@@ -171,19 +171,19 @@ export default function GpmTaskListPage() {
       invalidate(item.project_id);
       notifySuccess(item.status === 'resolved' ? '未解決に戻しました' : '解決にしました');
     },
-    onError: (err) => notifyApiError('未解決事項を変更できませんでした', err),
+    onError: (err) => notifyApiError('持ち帰りを変更できませんでした', err),
   });
 
   const remove = useMutation({
     mutationFn: (item: GpmOpenItem) => api.delete(`/gpm/open-items/${item.id}`),
-    onSuccess: (_r, item) => { invalidate(item.project_id); notifySuccess('未解決事項を削除しました'); },
-    onError: (err) => notifyApiError('未解決事項を削除できませんでした', err),
+    onSuccess: (_r, item) => { invalidate(item.project_id); notifySuccess('持ち帰りを削除しました'); },
+    onError: (err) => notifyApiError('持ち帰りを削除できませんでした', err),
   });
 
   const onDelete = async (item: GpmOpenItem) => {
     const ok = await confirmAction({
-      title: 'この未解決事項を削除しますか？',
-      description: `「${item.question}」\n解決したのなら消さずに「解決」にしてください。消すと訊いた記録が残りません。`,
+      title: 'この持ち帰りを削除しますか？',
+      description: `「${item.question}」\n解決したのなら削除せずに「解決」にしてください。削除すると訊いた記録が残りません。`,
       confirmLabel: '削除',
       tone: 'danger',
     });
@@ -203,14 +203,14 @@ export default function GpmTaskListPage() {
       <PageHeader
         title="タスクと持ち帰り"
         sub={tasks.data
-          ? `未対応 ${taskCounts.open}件 ・ 止まっている未解決事項 ${openCount}件`
+          ? `未対応 ${taskCounts.open}件 ・ 止まっている持ち帰り ${openCount}件`
           : 'プロジェクトをまたいで見ます'}
       >
         {/* **スマホでは出さない。** ここは見出しの下に折り返るだけで専用のナビゲーションに
             ならない（監査 2026-08-20 ⑤ 指摘）。スマホは下の `MobileTaskTabs` に譲る */}
         {!isMobile && (
           <div className="inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="表示形式を切り替える">
-            {([['tasks', 'タスク', ListTodo], ['asks', '未解決事項', CircleHelp]] as const).map(([v, label, Icon], i) => (
+            {([['tasks', 'タスク', ListTodo], ['asks', '持ち帰り', CircleHelp]] as const).map(([v, label, Icon], i) => (
               <button
                 key={v}
                 type="button"
@@ -311,14 +311,14 @@ export default function GpmTaskListPage() {
           />
 
           {asks.isError ? (
-            <ErrorPanel title="未解決事項を読み込めませんでした" onRetry={() => asks.refetch()} />
+            <ErrorPanel title="持ち帰りを読み込めませんでした" onRetry={() => asks.refetch()} />
           ) : asks.isLoading ? (
             <Delayed><SkeletonRows rows={5} /></Delayed>
           ) : askRows.length === 0 ? (
             <EmptyState
               icon={<CircleHelp className="h-6 w-6" aria-hidden="true" />}
-              title={chip === 'open' ? '停滞中の未解決事項はありません' : '条件に合う未解決事項はありません'}
-              description="先方や社内の判断待ちで工程が進められないものは、プロジェクト詳細の「未解決事項」から足します。"
+              title={chip === 'open' ? '停滞中の持ち帰りはありません' : '条件に合う持ち帰りはありません'}
+              description="先方や社内の判断待ちで工程が進められないものは、プロジェクト詳細の「持ち帰り」から追加します。"
             />
           ) : isMobile ? (
             <OpenItemCards

@@ -116,7 +116,8 @@ export function ProjectRowsHeader({
       <RowSlot w={200} aria-sort={sort ? (headerSortActive(sort, 'due_asc') ? 'ascending' : 'none') : undefined}>
         <HeaderLabel label="次のアクション" headerKey="due_asc" sort={sort} onSort={onSort} />
       </RowSlot>
-      <RowSlot w={56} align="right">未確認</RowSlot>
+      {/* gpm_open_items は「持ち帰り」に統一（PR①・言葉づかいの統一 項目1） */}
+      <RowSlot w={56} align="right">持ち帰り</RowSlot>
     </RowHeader>
   );
 }

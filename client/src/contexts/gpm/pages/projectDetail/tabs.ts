@@ -25,7 +25,7 @@ export interface DetailTabDef {
 
 export const DETAIL_TABS = [
   { key: 'overview', label: '概要', icon: LayoutDashboard },
-  { key: 'asks', label: '未解決事項', icon: CircleHelp },
+  { key: 'asks', label: '持ち帰り', icon: CircleHelp },
   { key: 'members', label: '体制', icon: Users },
   // 打合せの録音 → 文字起こし → AI の下書き。**案件と同じ表・同じサービス**
   // （`project_minutes` は `projects` にぶら下がる）。持ち帰りの行き先だけが違う

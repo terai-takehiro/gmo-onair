@@ -40,14 +40,14 @@ export function TemplateDialog({
         : api.post('/gpm/templates', toBody(draft)),
     onSuccess: () => {
       invalidate();
-      notifySuccess(template ? '工程テンプレートを更新しました' : '工程テンプレートを作りました', {
+      notifySuccess(template ? '工程テンプレートを更新しました' : '工程テンプレートを作成しました', {
         description: template && template.used_count > 0
           ? `すでに適用済みの ${template.used_count} 件は変わりません（写して使うため）。次に作るぶんから効きます。`
           : undefined,
       });
       onClose();
     },
-    onError: (err) => notifyApiError(template ? '工程テンプレートを更新できませんでした' : '工程テンプレートを作れませんでした', err),
+    onError: (err) => notifyApiError(template ? '工程テンプレートを更新できませんでした' : '工程テンプレートを作成できませんでした', err),
   });
 
   const phases = draft.phases.length;
@@ -65,7 +65,7 @@ export function TemplateDialog({
           <Button variant="outline" onClick={onClose}>キャンセル</Button>
           <Button onClick={() => save.mutate()} disabled={!draft.name.trim() || save.isPending}>
             {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
-            {template ? '編集' : '作る'}
+            {template ? '編集' : '作成'}
           </Button>
         </FormDialogFooter>
       }

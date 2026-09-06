@@ -126,7 +126,7 @@ export function ReviewStep({
       </section>
 
       <p className="text-note text-muted-foreground">
-        <strong className="font-bold">「作る」を押すとこの内容でプロジェクトができます。</strong>
+        <strong className="font-bold">「作成」を押すとこの内容でプロジェクトができます。</strong>
         直したいところがあれば、上の番号を押してその段に戻ってください。
       </p>
     </div>

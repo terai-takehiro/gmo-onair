@@ -19,7 +19,7 @@ import { cn } from '@gmo-onair/shared/src/client/utils';
 
 const ITEMS: { key: 'tasks' | 'asks'; label: string; icon: typeof ListTodo }[] = [
   { key: 'tasks', label: 'タスク', icon: ListTodo },
-  { key: 'asks', label: '未解決事項', icon: CircleHelp },
+  { key: 'asks', label: '持ち帰り', icon: CircleHelp },
 ];
 
 export function MobileTaskTabs({
