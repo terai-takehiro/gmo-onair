@@ -20,6 +20,7 @@ import { templatesRouter as scheduleTemplatesRouter, applyRouter as scheduleAppl
 import scheduleExportRoutes from './routes/schedule-export.routes';
 import scheduleReverseRoutes from './routes/schedule-reverse.routes';
 import scheduleRoomsRoutes from './routes/schedule-rooms.routes';
+import scheduleBookingSuggestionsRoutes from './routes/schedule-booking-suggestions.routes';
 import aiProposalsRoutes from './routes/ai-proposals.routes';
 import aiGenerateRoutes from './routes/ai-generate.routes';
 import aiChatRoutes from './routes/ai-chat.routes';
@@ -61,6 +62,7 @@ export function createQsheetRoutes(prefix: string): Router {
   router.use(prefix, scheduleExportRoutes);
   router.use(prefix, scheduleReverseRoutes);
   router.use(prefix, scheduleRoomsRoutes);   // 会場列が結べる部屋（読み取りのみ・14-schedule-v2-plan.md）
+  router.use(prefix, scheduleBookingSuggestionsRoutes);   // 予約から列を入れる（読み取りのみ・§3 B9）
 
   // AI 提案の受け止め（段7・07-ai-proposals-impl.md）＋ 生成4機能（段8・04-ai.md）
   router.use(prefix, aiProposalsRoutes);

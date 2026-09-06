@@ -16,7 +16,21 @@ import type { ProposalRow } from './types';
 export interface GenerateEventPlanOptions {
   instruction?: string;
   isAdmin: boolean;
+  /**
+   * 拠点・種別の構造化入力（14-schedule-v2-plan.md §3 B10・§5）。自由文だけだと
+   * 集計側（`getFeedbackDigest` の `segmentKey` = `type:|loc:`）が拾えない・表にまだ
+   * 拠点が無い／案件に種別が未設定のときに埋まらない、という穴を埋める。
+   * 表・案件の実際の値は書き換えない（`materials.ts` の `GatherOptions` 参照）。
+   */
+  locationId?: string | null;
+  category?: string | null;
 }
+
+/** 種別の表示名。`client/src/contexts/sales/classification.ts` の `PROJECT_CATEGORY_LABEL` と
+ *  同じ語彙（`projects.project_category`）— サーバー側なのでここに写しを持つ。書き換えるときは両方直す。 */
+const CATEGORY_LABEL: Record<string, string> = {
+  broadcast: '配信/生放送', recording: '収録', event: 'イベント（会場のみ）',
+};
 
 function buildSystemPrompt(): string {
   return `あなたは放送・イベント制作会社の制作進行です。
@@ -33,8 +47,10 @@ function buildSystemPrompt(): string {
 function buildUserPrompt(materials: GenerationMaterials, instruction?: string): string {
   const p = materials.project;
   const lines: string[] = [];
+  // categoryHint は「人が生成のときに選んだ種別」を案件本体の値より優先する（§3 B10）
+  const categoryLabel = materials.categoryHint ? (CATEGORY_LABEL[materials.categoryHint] ?? materials.categoryHint) : null;
   lines.push('## 案件');
-  lines.push(p ? `${p.name}（${p.projectCategory ?? p.projectType ?? '種別不明'}・${p.companyName ?? '顧客不明'}）` : '（案件情報なし）');
+  lines.push(p ? `${p.name}（${categoryLabel ?? p.projectType ?? '種別不明'}・${p.companyName ?? '顧客不明'}）` : `（案件情報なし・種別: ${categoryLabel ?? '不明'}）`);
   if (p?.memoExcerpt) lines.push(`備考: ${p.memoExcerpt}`);
   if (materials.venue) {
     lines.push(`## 会場: ${materials.venue.locationName ?? '不明'}（部屋: ${materials.venue.roomNames.join('・') || '未設定'}）`);
@@ -68,6 +84,7 @@ export async function generateEventPlan(
 ): Promise<ProposalRow> {
   const materials = await gatherMaterialsForSchedule(scheduleId, {
     kind: EVENT_PLAN_KIND, viewerId: userId, isAdmin: opts.isAdmin,
+    locationIdOverride: opts.locationId ?? null, categoryOverride: opts.category ?? null,
   });
   const existingColumns = await queryAll(
     'SELECT id FROM qsheet_schedule_columns WHERE schedule_id = ? AND deleted_at IS NULL', [scheduleId],
@@ -84,7 +101,10 @@ export async function generateEventPlan(
     normalize: (raw) => normalizeEventPlan(raw, { existingColumnIds }),
     isEmpty: (plan) => plan.columns.length === 0 && plan.items.length === 0,
     contextSummary: {
-      segment_key: materials.segmentKey, advice_count: materials.advice.length,
+      // segment_key が digest の `type:|loc:` 集計軸そのもの（§6-1）。location_id/category は
+      // 画面表示・デバッグ用の生値（人が明示的に選んだ拠点・種別が入っていれば分かるように）
+      segment_key: materials.segmentKey, location_id: materials.venue?.locationId ?? null,
+      category: materials.categoryHint, advice_count: materials.advice.length,
       knowledge_count: materials.knowledge.length, references: [],
     },
     inputSnapshot: { materials, instruction: opts.instruction ?? null },

@@ -10,6 +10,9 @@ import {
   listSchedules, createSchedule, getScheduleRaw, getScheduleWithMeta,
   getScheduleColumns, getScheduleItems, updateSchedule, deleteSchedule, duplicateSchedule, getShares, setShares,
 } from '../services/schedule.service';
+// 表を「確定」にした瞬間の AI 事後差分（14-schedule-v2-plan.md §3 B10・§5）。
+// `ai/` を import するのはルート層だけ（`services/` は AI を知らない構成を保つ）
+import { settleScheduleEarlyOnConfirm } from '../ai/settle.service';
 
 const router = Router();
 router.use(requireAuth, requirePermission('qsheet'));
@@ -78,6 +81,14 @@ router.put('/schedules/:id', requirePermission('qsheet', 'editor'), wrap(async (
     ...('notes' in b ? { notes: b.notes as string | null } : {}),
     expectedUpdatedAt: b.expected_updated_at,
   });
+  // 確定（status='fixed'）になった瞬間、AI 由来項目（①枠）の事後差分を記録する（§3 B10）。
+  // best-effort — 失敗しても表の保存自体は止めない。何度確定を保存しても二重計上しない
+  // （`settleScheduleEarlyOnConfirm` 側の条件付き UPDATE で守っている）
+  if (row.status === 'fixed') {
+    await settleScheduleEarlyOnConfirm(p1(req.params.id), req.user!.id).catch((e: unknown) => {
+      console.error('[schedules] settleScheduleEarlyOnConfirm failed:', (e as Error).message);
+    });
+  }
   res.json({ success: true, data: row });
 }));
 

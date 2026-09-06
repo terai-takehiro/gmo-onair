@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, ArrowLeft, LayoutTemplate, Download, Plus, Sparkles, Columns3, Settings, Copy, Printer } from "lucide-react";
+import { Loader2, ArrowLeft, LayoutTemplate, Download, Plus, Sparkles, Columns3, Settings, Copy, Printer, CalendarClock } from "lucide-react";
 import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { Badge } from "@gmo-onair/shared/src/client/ui/badge";
 import EventPlanDialog from "@/components/ai/EventPlanDialog";
@@ -23,6 +23,7 @@ import ScheduleItemDialog, { type ItemDraft } from "@/components/schedule/Schedu
 import ApplyTemplateDialog from "@/components/schedule/ApplyTemplateDialog";
 import ColumnDialog from "@/components/schedule/ColumnDialog";
 import VenueColumnsDialog from "@/components/schedule/VenueColumnsDialog";
+import BookingColumnsDialog from "@/components/schedule/BookingColumnsDialog";
 import ScheduleEmptyState from "@/components/schedule/ScheduleEmptyState";
 import ScheduleSettingsDialog from "@/components/schedule/ScheduleSettingsDialog";
 import ScheduleSiblingDays from "@/components/schedule/ScheduleSiblingDays";
@@ -46,6 +47,7 @@ export default function SchedulePage() {
   const [applyOpen, setApplyOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [venueOpen, setVenueOpen] = useState(false);
+  const [bookingColumnsOpen, setBookingColumnsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // 別の日として写す（B5・14-schedule-v2-plan.md §3 B5）
   const [duplicateOpen, setDuplicateOpen] = useState(false);
@@ -59,7 +61,7 @@ export default function SchedulePage() {
   const queue = useItemCommitQueue();
   const queryClient = useQueryClient();
   // 列・表の設定・ドラッグ中・別の日として写す最中もポーリングを止める（書きかけを上書きしないため・§4-3）
-  const anySheetOpen = dialogOpen || columnDialog.open || venueOpen || settingsOpen || isDragging || duplicateOpen;
+  const anySheetOpen = dialogOpen || columnDialog.open || venueOpen || bookingColumnsOpen || settingsOpen || isDragging || duplicateOpen;
 
   const detailQuery = useQuery({
     queryKey: ["schedule", id],
@@ -193,6 +195,7 @@ export default function SchedulePage() {
           className="print:hidden"
           items={[
             { label: "列を足す", icon: <Columns3 />, onSelect: () => openAddColumn(schedule.columns[schedule.columns.length - 1]?.col_group ?? "venue") },
+            { label: "予約から列を入れる", icon: <CalendarClock />, onSelect: () => setBookingColumnsOpen(true) },
             { label: "ひな形を適用", icon: <LayoutTemplate />, onSelect: () => setApplyOpen(true) },
             { label: "AI で下書き", icon: <Sparkles />, onSelect: () => setAiOpen(true) },
             { label: "Excel に書き出す", icon: <Download />, onSelect: () => void handleExport(), disabled: !hasColumns },
@@ -290,6 +293,8 @@ export default function SchedulePage() {
         columns={schedule.columns}
         onCreated={refetchAfterColumns}
       />
+      <BookingColumnsDialog open={bookingColumnsOpen} onOpenChange={setBookingColumnsOpen} scheduleId={id} scheduleLocationId={schedule.location_id}
+        scheduleProjectId={schedule.project_id} columns={schedule.columns} onCreated={refetchAfterColumns} />
 
       <ApplyTemplateDialog
         open={applyOpen}

@@ -134,6 +134,24 @@ export async function listStudioRooms(): Promise<StudioLocationOption[]> {
   return res.data.data;
 }
 
+// ── 予約から列を入れる（読み取りのみ・14-schedule-v2-plan.md §3 B9・§3-1）────────
+// 自動生成はしない。ここは「下見」だけで、列を作るのは人が選んだ分だけ
+// （`BookingColumnsDialog.tsx`）。営業情報（金額・顧客連絡先・備考）は返らない。
+export interface BookingSuggestionRoom {
+  room_id: string; room_name: string; room_color: string | null;
+  location_id: string | null; location_name: string | null; location_abbreviation: string | null;
+}
+export interface BookingSuggestion {
+  id: string; title: string; booking_type: string; status: string;
+  hold_rank: number | null; possible_duplicate: boolean;
+  project_id: string | null; project_name: string | null; gls_number: string | null;
+  rooms: BookingSuggestionRoom[];
+}
+export async function listBookingSuggestions(scheduleId: string): Promise<BookingSuggestion[]> {
+  const res = await api.get<Envelope<BookingSuggestion[]>>(`/techops/schedules/${scheduleId}/booking-suggestions`);
+  return res.data.data;
+}
+
 // ── 項目 ────────────────────────────────────────────────────
 export async function createItem(scheduleId: string, body: Record<string, unknown>): Promise<ScheduleItem> {
   const res = await api.post<Envelope<ScheduleItem>>(`/techops/schedules/${scheduleId}/items`, body);
