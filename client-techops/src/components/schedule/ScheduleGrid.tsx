@@ -8,11 +8,13 @@
 // 何も予定が無い時間帯は短い帯に圧縮され、項目がある時間帯はほぼ実際の長さで描かれるので、
 // 空白の多い日でも表全体の縦スクロールが無駄に伸びない（ユーザー指摘への対応）。
 import { useMemo } from "react";
+import { Pencil, Plus } from "lucide-react";
 import { fmtHmPad } from "@gmo-onair/shared/src/schedule/time";
 import { itemKindColor, COL_GROUP_LABEL, type ColGroup } from "@gmo-onair/shared/src/schedule/kinds";
 import { buildTimeline } from "@gmo-onair/shared/src/schedule/timeline";
 import type { Schedule, ScheduleColumn, ScheduleItem } from "@gmo-onair/shared/src/schedule/types";
 import { assignLanes, countOverlaps } from "./scheduleLanes";
+import { cssColor } from "./columnColors";
 import { cn } from "@/lib/utils";
 
 const TIME_COL_WIDTH = 64;
@@ -29,9 +31,16 @@ interface Props {
   conflictedIds: Set<string>;
   onSelect: (item: ScheduleItem) => void;
   onAddAt: (columnId: string, startMin: number) => void;
+  /** 列見出しの鉛筆から。無ければ鉛筆を出さない（閲覧だけの画面） */
+  onEditColumn?: (column: ScheduleColumn) => void;
+  /** 右端の「＋ 列」から。無ければ出さない */
+  onAddColumn?: (group: ColGroup) => void;
 }
 
-export default function ScheduleGrid({ schedule, columns, items, conflictedIds, onSelect, onAddAt }: Props) {
+// 右端の「＋ 列」の幅
+const ADD_COL_WIDTH = 72;
+
+export default function ScheduleGrid({ schedule, columns, items, conflictedIds, onSelect, onAddAt, onEditColumn, onAddColumn }: Props) {
   const viewStart = schedule.view_start_min;
   const viewEnd = schedule.view_end_min;
 
@@ -63,10 +72,10 @@ export default function ScheduleGrid({ schedule, columns, items, conflictedIds, 
 
   return (
     <div className="overflow-auto rounded-lg border border-border" style={{ maxHeight: "calc(100vh - 260px)" }}>
-      <div className="flex" style={{ width: TIME_COL_WIDTH + sorted.reduce((n, c) => n + c.width_px, 0) }}>
+      <div className="flex" style={{ width: TIME_COL_WIDTH + sorted.reduce((n, c) => n + c.width_px, 0) + (onAddColumn ? ADD_COL_WIDTH : 0) }}>
         {/* 時刻の列 */}
         <div className="sticky left-0 z-20 shrink-0 bg-background" style={{ width: TIME_COL_WIDTH }}>
-          <div className="sticky top-0 z-30 h-[52px] border-b border-r border-border bg-muted/60" />
+          <div className="sticky top-0 z-30 h-[60px] border-b border-r border-border bg-muted/60" />
           <div className="relative border-r border-border" style={{ height: gridHeight }}>
             {ticks.map((min) => (
               <div
@@ -90,14 +99,34 @@ export default function ScheduleGrid({ schedule, columns, items, conflictedIds, 
                 const colItems = itemsByColumn.get(col.id) ?? [];
                 const lanes = assignLanes(colItems);
                 const overlapCount = countOverlaps(colItems);
+                const colColor = cssColor(col.color);
                 return (
                   <div key={col.id} className="shrink-0 border-r border-border" style={{ width: col.width_px }}>
-                    <div className="sticky top-0 z-10 h-[52px] border-b border-border bg-muted/60 px-2 py-1">
-                      <div className="truncate text-[11px] font-medium text-muted-foreground">{COL_GROUP_LABEL[group]}</div>
-                      <div className="truncate text-sm font-semibold text-foreground">{col.room_name || col.label}</div>
-                      {overlapCount > 0 && (
-                        <div className="text-[11px] text-destructive">重なり {overlapCount}件</div>
-                      )}
+                    <div className="group sticky top-0 z-10 h-[60px] border-b border-border bg-muted/60 px-2 py-1">
+                      {/* 1 行目: グループ名＋鉛筆（名前の行を狭めないよう、余白のあるこの行に置く） */}
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="truncate text-[11px] font-medium text-muted-foreground">{COL_GROUP_LABEL[group]}</span>
+                        {onEditColumn && (
+                          // PC のグリッドだけに出る（375px は縦積みカードで、列は表の設定から直す）。
+                          // hover/focus で見せるが、キーボードでも辿れるよう DOM には常に置く
+                          <button
+                            type="button"
+                            onClick={() => onEditColumn(col)}
+                            aria-label={`列「${col.room_name || col.label}」を直す`}
+                            className="-mr-1 -mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+                          >
+                            <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                          </button>
+                        )}
+                      </div>
+                      {/* 名前は 2 行まで折り返す（160px の列に「LOUNGE STUDIO」が入り切らず「LOUNGE STU…」になっていた） */}
+                      <div className="flex min-w-0 items-start gap-1.5">
+                        {colColor && <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: colColor }} aria-hidden="true" />}
+                        <span className="line-clamp-2 min-w-0 flex-1 text-[13px] font-semibold leading-tight text-foreground" title={col.room_name || col.label}>{col.room_name || col.label}</span>
+                        {overlapCount > 0 && (
+                          <span className="shrink-0 text-[11px] text-destructive">重なり {overlapCount}件</span>
+                        )}
+                      </div>
                     </div>
                     <div
                       className="relative cursor-pointer"
@@ -134,6 +163,8 @@ export default function ScheduleGrid({ schedule, columns, items, conflictedIds, 
                               left: `${lane * laneWidthPct}%`,
                               width: `calc(${laneWidthPct}% - 2px)`,
                               backgroundColor: `#${itemKindColor(item.kind)}`,
+                              // 列の色は項目の左罫に。区分の色（背景）と混ざらない
+                              borderLeft: colColor ? `3px solid ${colColor}` : undefined,
                             }}
                             title={item.title}
                           >
@@ -149,6 +180,24 @@ export default function ScheduleGrid({ schedule, columns, items, conflictedIds, 
             </div>
           );
         })}
+
+        {/* 右端の「＋ 列」。列 0 本のときはこの表自体を出さない（空状態の 3 択が出る） */}
+        {onAddColumn && (
+          <div className="shrink-0" style={{ width: ADD_COL_WIDTH }}>
+            <div className="sticky top-0 z-10 flex h-[60px] items-center justify-center border-b border-border bg-muted/60">
+              <button
+                type="button"
+                onClick={() => onAddColumn(sorted[sorted.length - 1]?.col_group ?? "venue")}
+                aria-label="列を足す"
+                title="列を足す"
+                className="flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+            <div style={{ height: gridHeight }} />
+          </div>
+        )}
       </div>
     </div>
   );

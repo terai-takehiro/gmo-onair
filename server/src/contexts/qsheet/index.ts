@@ -19,6 +19,7 @@ import scheduleBreakdownRoutes from './routes/schedule-breakdown.routes';
 import { templatesRouter as scheduleTemplatesRouter, applyRouter as scheduleApplyRouter } from './routes/schedule-templates.routes';
 import scheduleExportRoutes from './routes/schedule-export.routes';
 import scheduleReverseRoutes from './routes/schedule-reverse.routes';
+import scheduleRoomsRoutes from './routes/schedule-rooms.routes';
 import aiProposalsRoutes from './routes/ai-proposals.routes';
 import aiGenerateRoutes from './routes/ai-generate.routes';
 import aiChatRoutes from './routes/ai-chat.routes';
@@ -59,6 +60,7 @@ export function createQsheetRoutes(prefix: string): Router {
   router.use(prefix, scheduleApplyRouter);
   router.use(prefix, scheduleExportRoutes);
   router.use(prefix, scheduleReverseRoutes);
+  router.use(prefix, scheduleRoomsRoutes);   // 会場列が結べる部屋（読み取りのみ・14-schedule-v2-plan.md）
 
   // AI 提案の受け止め（段7・07-ai-proposals-impl.md）＋ 生成4機能（段8・04-ai.md）
   router.use(prefix, aiProposalsRoutes);

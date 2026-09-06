@@ -80,12 +80,12 @@ REST prefix は `/techops`（`server/src/contexts/qsheet/index.ts:53-61`）。
 
 | # | 機能 | 使う既存 API | なぜ最初か |
 | --- | --- | --- | --- |
-| A1 | **列の管理**（追加・改名・グループ・部屋を結ぶ・色・左右へ・削除） | `POST/PUT/DELETE .../columns`・`PUT .../columns/reorder` | 列 0 本の袋小路を塞ぐ。色は固定パレット 6 色＋`studio_rooms` の既定色 |
-| A2 | **空状態の 3 択**（ひな形から／会場を選んで列を作る／AI で下書き） | ひな形 preview/apply・`POST columns`・`ai/event-plan` | 作った直後に次の一手が見える |
+| A1 | **列の管理**（追加・改名・グループ・部屋を結ぶ・色・左右へ・削除）— **PR1 で実装済（2026-09-06）** | `POST/PUT/DELETE .../columns`・`PUT .../columns/reorder`・**新設 `GET /techops/studio-rooms`（読み取りのみ・§3-4）** | 列 0 本の袋小路を塞ぐ。色は固定パレット 6 色＋`studio_rooms` の既定色 |
+| A2 | **空状態の 3 択**（ひな形から／会場を選んで列を作る／AI で下書き）— **PR1 で実装済** | ひな形 preview/apply・`POST columns`・`ai/event-plan` | 作った直後に次の一手が見える |
 | A3 | **表の設定シート**（題・日付・拠点・案件/番組・回・表示時間帯・状態・備考）と**削除** | `PUT /schedules/:id`・`DELETE /schedules/:id` | 題・日付を直せない・`doc_no` が見えない |
 | A4 | **共有** — 案件メンバーは**自動で見える**（§3-2）。それ以外の人はユーザー検索→追加／外す | `PUT /schedules/:id/shares`＋**`access.ts`・`listSchedules` に案件メンバー判定を足す** | 作成者以外に見えない。2026-09-06 の決定 |
 | A5 | **新規作成に拠点・回・ひな形・本番開始時刻**。案件を選んだら題・日付・拠点を先埋め | `POST /schedules` の既存引数・`GET /lookup/:projectId/context` | codex 棚卸し #325「案件から引けるのに手入力」 |
-| A6 | **スマホから項目を追加**（下端固定ボタン→既存ボトムシート） | `POST .../items` | 空状態の案内「下のボタンから足せます」が今は嘘 |
+| A6 | **スマホから項目を追加**（下端固定ボタン→既存ボトムシート）— **PR1 で実装済**（見出しを `PageHeader` にしたので主ボタンがスマホの下端に出る。既定の列は先頭の列。絞り込み中の列を既定にするのは PR3） | `POST .../items` | 空状態の案内「下のボタンから足せます」が今は嘘 |
 | A7 | **ひな形設定への導線**＋ひな形項目の中身（区分・基準・オフセット・尺・必須）の編集 | 既存のひな形 REST（更新・複製・項目更新） | URL 直打ちでしか届かない。既定値 `other/day/0/30` で固定されている |
 
 ### 段B「日々の運用が楽になる」
@@ -131,6 +131,18 @@ REST prefix は `/techops`（`server/src/contexts/qsheet/index.ts:53-61`）。
 - 一覧（§4-2 (a)）は 束＝イベント（GLS 番号・題）、その中の行＝日付順の表。`?project=`・`?program=` で来たときは束が 1 つになるだけで同じ画面
 - 表のヘッダーに「同じイベントの他の日」を日付チップで出す（`GET /schedules?project_id=`／`program_id=` を一覧と同じキャッシュで読む）。前日／翌日の矢印は付けない（飛び日のイベントで意味がずれる）
 - 複製（B5）は「同じイベントの別の日として写す」に限定する。写すのは 列・項目・表示時間帯・拠点。共有は写さない（自動共有で足りる）
+
+#### 3-4. PR1 で足した小さな読み取り API と、見出しの「…」
+
+- **`GET /techops/studio-rooms`**（`server/src/contexts/qsheet/routes/schedule-rooms.routes.ts`）: 拠点ごとの部屋（id・名前・種別・色）。
+  `/studios/locations` は `requirePermission('sales')` の下にあり、制作技術支援だけを使う技術・運営のアカウントには 403 になるため、
+  qsheet の権限で同じ `studio_rooms` を読むだけの口を足した。書き込みは無い
+- **見出しの「…」は依存を増やさず自前で作った**（`components/schedule/MoreMenu.tsx`）。このアプリと shared にドロップダウンの部品が無く、
+  Radix の dropdown-menu も依存に入っていない。外側クリック・Esc で閉じる・項目 44px
+- **列の削除は `confirmAction`**（`window.confirm` をやめた）。`SchedulePage.tsx` にあった「ConfirmHost 未設置」のコメントは古く、
+  共通シェルが器を持っている
+- 実ブラウザ確認（PC 1280 / 375px・Playwright）: 空状態→会場 2 部屋から列作成→「…」→列を足す（支度・MC）→鉛筆→左へ→項目を置いて
+  列を削除（確認文に項目数）まで通し、横はみ出し 0px・JS エラー 0 件・スマホの主ボタンが下端（48px）に出ることを確認した
 
 ### 段C「考えてから」— §6 の判断が出るまで着手しない
 
@@ -304,7 +316,7 @@ GLS-2401 ○○社 授賞式                                    3 日 ・ メン
 
 | PR | 中身 | 大きさ |
 | --- | --- | --- |
-| 1 | A1 列の管理＋A2 空状態の 3 択（`window.confirm`→`confirmAction` の置換も） | 中 |
+| 1 | A1 列の管理＋A2 空状態の 3 択（`window.confirm`→`confirmAction` の置換も）— **済（2026-09-06）** | 中 |
 | 2 | A3 表の設定シート＋A4 共有（**案件メンバーの自動共有・サーバー小**）＋削除 | 中 |
 | 3 | A5 新規作成の拡張＋A6 スマホ追加＋A7 ひな形導線・項目編集 | 中 |
 | 4 | B4 イベントごとにまとめる（一覧の束ね＋ヘッダーの日付チップ）＋B6 絞り込み＋B2 状態 | 中 |

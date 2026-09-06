@@ -1,9 +1,12 @@
 // スケジュール表の詳細。PC はグリッド・スマホは縦積みカード。
 // 実装設計: 04-schedule-impl.md §5-3・§5-4・§4-2（項目単位の楽観ロック）
+// 第2版（列の管理・空状態の 3 択・見出しの整理）: 14-schedule-v2-plan.md §3 段A・§4-2 (b)(c)(d)
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, ArrowLeft, LayoutTemplate, Download, Plus, Sparkles } from "lucide-react";
+import { Loader2, ArrowLeft, LayoutTemplate, Download, Plus, Sparkles, Columns3 } from "lucide-react";
+import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
+import { confirmAction } from "@gmo-onair/shared/src/client/ui/confirm";
 import EventPlanDialog from "@/components/ai/EventPlanDialog";
 import { Button } from "@/components/ui/button";
 import { notifyError, notifySuccess } from "@/lib/notify";
@@ -12,11 +15,16 @@ import * as scheduleApi from "@/lib/scheduleApi";
 import { isConflict } from "@/lib/scheduleApi";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { setProductionNavContext } from "@/lib/productionNavContext";
-import type { ScheduleItem } from "@gmo-onair/shared/src/schedule/types";
+import type { ColGroup } from "@gmo-onair/shared/src/schedule/kinds";
+import type { ScheduleColumn, ScheduleItem } from "@gmo-onair/shared/src/schedule/types";
 import ScheduleGrid from "@/components/schedule/ScheduleGrid";
 import MobileTimeline from "@/components/schedule/MobileTimeline";
 import ScheduleItemDialog, { type ItemDraft } from "@/components/schedule/ScheduleItemDialog";
 import ApplyTemplateDialog from "@/components/schedule/ApplyTemplateDialog";
+import ColumnDialog from "@/components/schedule/ColumnDialog";
+import VenueColumnsDialog from "@/components/schedule/VenueColumnsDialog";
+import ScheduleEmptyState from "@/components/schedule/ScheduleEmptyState";
+import MoreMenu from "@/components/schedule/MoreMenu";
 import useItemCommitQueue from "@/components/schedule/useItemCommitQueue";
 
 const POLL_MS = 15000;
@@ -32,8 +40,13 @@ export default function SchedulePage() {
   const [newDraft, setNewDraft] = useState<Partial<ItemDraft> | null>(null);
   const [applyOpen, setApplyOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [venueOpen, setVenueOpen] = useState(false);
+  // 列を足す／直す（ColumnDialog）。`column` が無ければ新規作成
+  const [columnDialog, setColumnDialog] = useState<{ open: boolean; column: ScheduleColumn | null; group: ColGroup }>({ open: false, column: null, group: "venue" });
 
   const queue = useItemCommitQueue();
+  // 列・表の設定を開いている間もポーリングを止める（書きかけを上書きしないため・§4-3）
+  const anySheetOpen = dialogOpen || columnDialog.open || venueOpen;
 
   const detailQuery = useQuery({
     queryKey: ["schedule", id],
@@ -41,7 +54,7 @@ export default function SchedulePage() {
     enabled: !!id,
     // 打鍵中・in-flight の項目はポーリングの取り込みから除く（§4-2 (d)）。
     // 編集はシート（ダイアログ）経由でのみ行うため、シートが開いている間はポーリングを止める。
-    refetchInterval: dialogOpen ? false : POLL_MS,
+    refetchInterval: anySheetOpen ? false : POLL_MS,
   });
 
   const breakdownQuery = useQuery({
@@ -74,6 +87,8 @@ export default function SchedulePage() {
     setNewDraft({ columnId, startMin, endMin: startMin + 30 });
     setDialogOpen(true);
   };
+  const openAddColumn = (group: ColGroup) => setColumnDialog({ open: true, column: null, group });
+  const openEditColumn = (column: ScheduleColumn) => setColumnDialog({ open: true, column, group: column.col_group });
 
   const closeDialog = () => {
     setDialogOpen(false);
@@ -96,6 +111,8 @@ export default function SchedulePage() {
       queryClient.invalidateQueries({ queryKey: ["qsheet-journey"] });
     }
   };
+  // 列を消すと中の項目も消える（件数が動く）ので、列の変更は一覧・ハブまで読み直す
+  const refetchAfterColumns = () => { refetchDetail(); refetchBreakdown(); refetchListsAndHub(); };
 
   const handleSave = async (draft: ItemDraft) => {
     const body = {
@@ -131,8 +148,14 @@ export default function SchedulePage() {
 
   const handleDelete = async () => {
     if (!selectedItem) return;
-    // client-techops は凍結アプリ（ConfirmHost 未設置）。confirmAction は器が無いと黙って false を返す
-    if (!window.confirm("この項目を削除しますか？")) return; // ui-tokens-ok
+    // 確認の器（ConfirmHost）は共通シェル（shared/src/client/shell/AppShell.tsx）が持っている
+    const ok = await confirmAction({
+      title: `「${selectedItem.title || "（無題）"}」を削除しますか？`,
+      description: selectedItem.qsheet_document_id ? "結ばれている進行台本は残ります（枠だけが消えます）。" : undefined,
+      confirmLabel: "削除する",
+      tone: "danger",
+    });
+    if (!ok) return;
     try {
       await scheduleApi.deleteItem(id, selectedItem.id);
       notifySuccess("削除しました");
@@ -186,29 +209,43 @@ export default function SchedulePage() {
     return <div className="p-6 text-sm text-muted-foreground">スケジュール表が見つかりません。</div>;
   }
   const schedule = detailQuery.data;
+  const hasColumns = schedule.columns.length > 0;
+  const itemCountOf = (columnId: string) => schedule.items.filter((it) => it.column_id === columnId).length;
+  const subParts = [
+    schedule.location_name,
+    schedule.project_name ? `${schedule.gls_number ? `${schedule.gls_number} ` : ""}${schedule.project_name}` : null,
+    schedule.program_name ? `番組: ${schedule.program_name}` : null,
+  ].filter(Boolean);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button variant="ghost" size="sm" className="min-h-[44px]" onClick={() => navigate("/techops/schedules")}>
-          <ArrowLeft className="mr-1 h-4 w-4" />一覧へ
-        </Button>
-        <h1 className="text-lg font-semibold text-foreground">{schedule.service_date} {schedule.title}</h1>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" className="min-h-[44px]" onClick={() => setApplyOpen(true)}>
-            <LayoutTemplate className="mr-1 h-4 w-4" />ひな形を適用
+      <Button variant="ghost" size="sm" className="mb-2 min-h-[44px] -ml-2" onClick={() => navigate("/techops/schedules")}>
+        <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />一覧へ
+      </Button>
+
+      {/* 主＝項目を追加（PC は右上・スマホは下端）。作る系（ひな形・AI）・Excel・列は「…」へ（§4-2 (b)） */}
+      <PageHeader
+        title={`${schedule.service_date} ${schedule.title}`}
+        sub={subParts.length > 0 ? subParts.join(" ・ ") : undefined}
+        primaryAction={
+          <Button
+            className="min-h-[44px]"
+            onClick={() => openCreate(schedule.columns[0]?.id ?? "", schedule.view_start_min)}
+            disabled={!hasColumns}
+          >
+            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />項目を追加
           </Button>
-          <Button variant="outline" size="sm" className="min-h-[44px]" onClick={() => setAiOpen(true)}>
-            <Sparkles className="mr-1 h-4 w-4" />AIで枠を作る
-          </Button>
-          <Button variant="outline" size="sm" className="min-h-[44px]" onClick={handleExport}>
-            <Download className="mr-1 h-4 w-4" />Excel
-          </Button>
-          <Button size="sm" className="min-h-[44px]" onClick={() => openCreate(schedule.columns[0]?.id ?? "", schedule.view_start_min)} disabled={schedule.columns.length === 0}>
-            <Plus className="mr-1 h-4 w-4" />項目を追加
-          </Button>
-        </div>
-      </div>
+        }
+      >
+        <MoreMenu
+          items={[
+            { label: "列を足す", icon: <Columns3 />, onSelect: () => openAddColumn(schedule.columns[schedule.columns.length - 1]?.col_group ?? "venue") },
+            { label: "ひな形を適用", icon: <LayoutTemplate />, onSelect: () => setApplyOpen(true) },
+            { label: "AI で下書き", icon: <Sparkles />, onSelect: () => setAiOpen(true) },
+            { label: "Excel に書き出す", icon: <Download />, onSelect: () => void handleExport(), disabled: !hasColumns },
+          ]}
+        />
+      </PageHeader>
 
       {breakdownQuery.data && breakdownQuery.data.length > 0 && (
         <p className="mt-2 text-xs text-muted-foreground">
@@ -218,7 +255,14 @@ export default function SchedulePage() {
       )}
 
       <div className="mt-4">
-        {isMobile ? (
+        {!hasColumns ? (
+          <ScheduleEmptyState
+            locationSet={!!schedule.location_id}
+            onTemplate={() => setApplyOpen(true)}
+            onVenue={() => setVenueOpen(true)}
+            onAi={() => setAiOpen(true)}
+          />
+        ) : isMobile ? (
           <MobileTimeline
             columns={schedule.columns}
             items={schedule.items}
@@ -233,6 +277,8 @@ export default function SchedulePage() {
             conflictedIds={queue.conflictedIds}
             onSelect={openEdit}
             onAddAt={openCreate}
+            onEditColumn={openEditColumn}
+            onAddColumn={openAddColumn}
           />
         )}
       </div>
@@ -251,12 +297,32 @@ export default function SchedulePage() {
         onOpenScript={handleOpenScript}
       />
 
+      <ColumnDialog
+        open={columnDialog.open}
+        onOpenChange={(o) => setColumnDialog((s) => ({ ...s, open: o }))}
+        scheduleId={id}
+        columns={schedule.columns}
+        column={columnDialog.column}
+        initialGroup={columnDialog.group}
+        itemCount={columnDialog.column ? itemCountOf(columnDialog.column.id) : 0}
+        onChanged={refetchAfterColumns}
+      />
+
+      <VenueColumnsDialog
+        open={venueOpen}
+        onOpenChange={setVenueOpen}
+        scheduleId={id}
+        scheduleLocationId={schedule.location_id}
+        columns={schedule.columns}
+        onCreated={refetchAfterColumns}
+      />
+
       <ApplyTemplateDialog
         open={applyOpen}
         onOpenChange={setApplyOpen}
         scheduleId={id}
         locationId={schedule.location_id}
-        onApplied={refetchDetail}
+        onApplied={refetchAfterColumns}
       />
 
       {/* AI 生成（段8・①イベント設計）。`qsheet_schedule_items` への REST 書き込みなので
@@ -266,7 +332,7 @@ export default function SchedulePage() {
         onOpenChange={setAiOpen}
         scheduleId={id!}
         existingColumnIds={schedule.columns.map((c) => c.id)}
-        onApplied={refetchDetail}
+        onApplied={refetchAfterColumns}
       />
     </div>
   );

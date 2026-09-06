@@ -76,6 +76,14 @@ export async function reorderColumns(scheduleId: string, order: { id: string; co
   return res.data.data;
 }
 
+// ── 会場列が結べる部屋（読み取りのみ・14-schedule-v2-plan.md §3 A1・A2）────────
+export interface StudioRoomOption { id: string; name: string; room_type: string | null; color: string | null }
+export interface StudioLocationOption { id: string; name: string; abbreviation: string | null; rooms: StudioRoomOption[] }
+export async function listStudioRooms(): Promise<StudioLocationOption[]> {
+  const res = await api.get<Envelope<StudioLocationOption[]>>("/techops/studio-rooms");
+  return res.data.data;
+}
+
 // ── 項目 ────────────────────────────────────────────────────
 export async function createItem(scheduleId: string, body: Record<string, unknown>): Promise<ScheduleItem> {
   const res = await api.post<Envelope<ScheduleItem>>(`/techops/schedules/${scheduleId}/items`, body);
