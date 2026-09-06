@@ -5,6 +5,7 @@
  * 上書きの書き方は種類で違う: 文＝そのまま／箇条書き＝1行1項目／表＝タブ区切り（1行目が見出し）／
  * 写真＝Box の file id を1行に1つ。
  */
+import { useDeckStore } from './deckState';
 import { useMemo } from 'react';
 import type { KeepDeck, KeepReportPack, SlidePage, SlidePart } from '@gmo-onair/shared/src/keepReport/types';
 import { hasOverride } from './deckLabels';
@@ -31,7 +32,8 @@ const fileIds = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : ty
 
 export function PartRenderer({ pack, page, part, deck, meeting, thumb }: PartRendererProps) {
   const box = { w: (part.w / 100) * SLIDE_W, h: (part.h / 100) * SLIDE_H };
-  const resolved = useMemo(() => resolveBinding(pack, page, part, { deck, meeting }), [pack, page, part, deck, meeting]);
+  const inputs = useDeckStore((st) => st.inputs);
+  const resolved = useMemo(() => resolveBinding(pack, page, part, { deck, meeting, inputs }), [pack, page, part, deck, meeting, inputs]);
   const fontSize = typeof part.options?.font_size === 'number' ? (part.options.font_size as number) : undefined;
   const projectId = (part.options?.project_id as string | undefined)
     ?? (resolved.kind === 'photos' ? resolved.projectId : null) ?? null;

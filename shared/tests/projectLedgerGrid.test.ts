@@ -143,8 +143,11 @@ describe('⑥ 分類プルダウンは glsCategory と source を1つの4択と�
   });
 
   it('画面は `pickCategory` を呼ぶ（`setFilter(\'glsCategory\'…)` を直接呼ばない）', () => {
+    // 分類のプルダウンは絞り込みの帯 `LedgerFilterBar.tsx` にある（ページから切り出した）。直接呼ばないことは両方で見る
+    const bar = readCode('client/src/contexts/sales/pages/projectLedger/LedgerFilterBar.tsx');
     const page = readCode('client/src/contexts/sales/pages/ProjectLedgerPage.tsx');
-    expect(page).toMatch(/onValueChange=\{\(v\) => s\.pickCategory/);
+    expect(bar).toMatch(/onValueChange=\{\(v\) => s\.pickCategory/);
+    expect(bar).not.toMatch(/setFilter\('glsCategory'/);
     expect(page).not.toMatch(/setFilter\('glsCategory'/);
   });
 });

@@ -127,7 +127,7 @@ https://dev.gmo-onair.jp/api/v1/mcp
   (メール自動仕分けの試験実行など。本番に試し打ちを残さない)
 - 検証 DB は自由に壊してよい。本番 DB とは**完全分離** (`onair_prod` / `onair_dev`)
 
-## ツール一覧 (161 種 / 23 カテゴリ / v4)
+## ツール一覧 (162 種 / 23 カテゴリ / v4)
 
 > **この一覧は手で書いています。** 実際に登録されているツールは
 > `node scripts/generate-mcp-tools.mjs` が `server/src/contexts/mcp/tools/*.ts` から
@@ -425,6 +425,7 @@ gscs = GMOサムライコンテンツスタジオ、gig = GMOインターネッ�
 |---|---|---|
 | `get_keep_report_pack` | read | 会議1回ぶんの数字を1本の JSON (`KeepReportPack`・`shared/src/keepReport/types.ts`) で取得。`meeting_date` (省略時=次回の開催日) / `entity` (all・省略時) / `segment` (all / internal / external) / `live` (true でいまの数字)。**凍結した版 (週報の確定時点) があればそれ**、無ければいまの数字 (`frozen=false`・`pack.frozen_at=null`)。HTTP の `GET /dailyops/keep/pack` と同じ `getPackForMeeting` を通る |
 | `list_keep_report_packs` | read | 凍結した版の一覧 (id / 会議日 / 絞り込み / 凍結した時刻と人 / 結んだ週報の id)。中身は含まない。同じ会議日の複数の版は凍結し直したもの (新しい版が先・前の版は消さない) |
+| `get_keep_slack_draft` | read | **Slack の定例投稿の下書き** (`text` = 日本語の mrkdwn 文字列)。引数は `get_keep_report_pack` と同じ (`meeting_date` / `entity` / `segment` / `live`)。中身: 見出し (会議日) → 前月 着地の 売上高／粗利／営業利益 (目標比と○✕・全体と主体別) → 当月 見込 (1行) → ヨミ表の上位8件 (確度順) → 実施報告 (日付・案件名・売上/粗利率) → 内覧会 (組・名・満足度) → 見込に含めた未確定の売上 → 数字の元 (凍結した時刻か「いまの数字」)。金額は千円 (3桁区切り)・絵文字なし。前回の資料 (凍結した版) があれば動いた数字に ＊。HTTP は `GET /dailyops/keep/slack-draft`、画面は「隔週キープの数字」タブの「Slack の文面をコピー」と同じ `getSlackDraftForMeeting` |
 
 パックの中身 (`docs/design/v4/keep-report.md` §5):
 - `landing` … **会議の前の月**の着地 (9/4 の会議なら 8月)。`all` / `gss` / `gscs` (/ `gig` は数字があるときだけ) の 6行 (売上高・原価〔案件仕入〕・粗利・販管費・償却相当額・営業利益) × 目標/実績/差/比/判定。確定売上 (`status='confirmed'`) だけを数える
@@ -439,6 +440,8 @@ gscs = GMOサムライコンテンツスタジオ、gig = GMOインターネッ�
 - 金額は円の整数・比率は % (小数1桁)・判定と比率はサーバーが計算済み。千円に丸めるのは表示側 (`shared/src/keepReport/calc.ts` の `toThousandYen`)
 
 凍結: 週報 (`weekly_activity`) を確定すると、その週の会議日 (無ければ次の開催日) のパックを 全体／全区分 で凍結し、`ops_reports.payload.keep = { pack_id, meeting_date }` で結ぶ (凍結に失敗しても確定は成功する)。単独で凍結するのは `POST /dailyops/keep/pack/freeze`。凍結した版は書き換えず、直したいときは元データを直して凍結し直す (前の版は残る)。
+
+Slack の定例投稿 (bot 化の下準備・`docs/design/v4/keep-report.md` §6.2・§10): `get_keep_slack_draft` の `text` は**パックからの決定的な整形で AI の生成ではない**ので `ai_outputs` には記録しない (`get_ai_feedback_digest` にも出ない)。投稿する bot は **この `text` をそのまま投稿し、投稿の id (Slack の `ts`) を `pack_id` と一緒に残す**こと — §10 の条件3 (成果を紐づける) はこの id が無いと反応 (リアクション・返信) を回収できない。人が文面を直して投稿したときは、直した文も一緒に残す (資料の `keep_deck_edits` と同じ「人の直しを差分で残す」・条件2)。
 
 ### 制作技術支援 (production — 進行台本・スケジュール表)
 

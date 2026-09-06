@@ -115,6 +115,8 @@ function placeBelow(page: SlidePage, spec: NewPartSpec): Pick<SlidePart, 'x' | '
 }
 
 interface DeckState {
+  /** 手入力（keep_report_inputs）。部品の `inputs.*` が読む */
+  inputs: Record<string, unknown> | null;
   meeting: string | null;
   deck: KeepDeck | null;
   pack: KeepReportPack | null;
@@ -161,7 +163,7 @@ export const useDeckStore = create<DeckState>((set, get) => {
     touch((d) => ({ ...d, pages: d.pages.map((p) => (p.id === pageId ? fn(p) : p)) }));
 
   return {
-    meeting: null, deck: null, pack: null, packFrozen: false, previousMeetingDate: null,
+    meeting: null, deck: null, pack: null, packFrozen: false, previousMeetingDate: null, inputs: null,
     selectedPageId: null, selectedPartId: null, dirty: false, saveStatus: 'idle', savedAt: null, serverEdits: null,
     replaceTargetPartId: null, dragging: null,
 
@@ -171,7 +173,7 @@ export const useDeckStore = create<DeckState>((set, get) => {
       const stillThere = keep && bundle.deck.pages.some((p) => p.id === get().selectedPageId);
       set({
         meeting, deck: bundle.deck, pack: bundle.pack, packFrozen: bundle.pack_frozen,
-        previousMeetingDate: bundle.previous_meeting_date,
+        previousMeetingDate: bundle.previous_meeting_date, inputs: bundle.inputs ?? null,
         selectedPageId: stillThere ? get().selectedPageId : firstVisible,
         selectedPartId: null, dirty: false, saveStatus: keep ? get().saveStatus : 'idle', replaceTargetPartId: null,
       });

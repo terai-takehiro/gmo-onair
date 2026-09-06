@@ -32,6 +32,7 @@ import { InviewCard } from './InviewCard';
 import { JsonDialog } from './JsonDialog';
 import { PipelineTable } from './PipelineTable';
 import { PlTables } from './PlTables';
+import { SlackDraftButton } from './SlackDraftButton';
 import { TrendCharts } from './TrendCharts';
 import { UtilizationCalendars } from './UtilizationCalendars';
 import { KeepMobile } from './mobile/KeepMobile';
@@ -114,6 +115,7 @@ export function KeepSection({ report, isMobile }: { report: OpsReport; isMobile:
             />
           </span>
           <span className="ml-auto flex items-center gap-2">
+            <SlackDraftButton meeting={meeting} entity={entity} segment={segment} live={live} />
             {q.data && <JsonDialog pack={q.data.pack} packId={q.data.pack_id} />}
             <Button type="button" size="sm" asChild>
               <Link to={`/weekly/${report.id}/deck`}>

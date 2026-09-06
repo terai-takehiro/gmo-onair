@@ -39,6 +39,15 @@ export interface KeepPackSummary {
 
 export const KEEP_PACK_KEY = 'keep-pack';
 
+/** Slack の定例投稿の下書き（`GET /dailyops/keep/slack-draft`） */
+export interface KeepSlackDraft {
+  text: string;
+  pack_id: string | null;
+  /** 凍結した版から組んだか（false は「いまの数字」） */
+  frozen: boolean;
+  meeting_date: string;
+}
+
 export function useKeepPack(meeting: string | null, entity: EntityScope, segment: SegmentScope, live: boolean) {
   return useQuery({
     queryKey: [KEEP_PACK_KEY, meeting, entity, segment, live],
@@ -51,6 +60,22 @@ export function useKeepPack(meeting: string | null, entity: EntityScope, segment
     placeholderData: keepPreviousData,
     // 1本の計算が重い（売上・予算・カレンダー・内覧会を横断する）ので、少しの間は使い回す
     staleTime: 30_000,
+  });
+}
+
+/**
+ * Slack の定例投稿の下書き。サーバーがパックから組んだ文（`keep-slack-draft.service.ts`）をそのまま受ける —
+ * 画面で数字を並べ直さない（資料・MCP と同じ文になるように）。
+ * **押したときに取りに行く**ので mutation の形（開くたびに組まない。パックの計算と同じ重さ）。
+ * 失敗の知らせは押した側が出す（`meta.silent`）— クリップボードの失敗と1つの帯にまとめるため。
+ */
+export function useKeepSlackDraft(meeting: string | null, entity: EntityScope, segment: SegmentScope, live: boolean) {
+  return useMutation({
+    mutationFn: () =>
+      api.get('/dailyops/keep/slack-draft', {
+        params: { meeting, entity, segment, ...(live ? { live: 1 } : {}) },
+      }).then((r) => r.data.data as KeepSlackDraft),
+    meta: { silent: true },
   });
 }
 

@@ -13,7 +13,7 @@ import { config } from '../../../config';
 import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
 import { recordProjectCorrections, recordIntakeDecision, recordProjectAccepted } from './project-ai-feedback.service';
 import { classificationOf, projectTypeOf, resolveClassification } from './project-classification';
-import { parseEntityInput, resolveProjectEntity } from './project-entity';
+import { parseEntityInput, resolveProjectEntity, type BusinessEntity } from './project-entity';
 import { assertCustomerCompanyId } from '../../../shared/services/company-directory.service';
 import { buildIntegrityCountSql, findCheck, INTEGRITY_CHECKS } from './project-integrity';
 import { syncProjectEventDates } from '../../production/services/project-event-dates.service';
@@ -222,6 +222,8 @@ export async function customerIsGroup(customerId: unknown): Promise<boolean> {
 
 export interface ProjectFilter {
   search?: string;
+  /** 事業主体（gss / gscs / gig・`projects.entity`）。案件台帳の絞り込み。値の検査はルート側（`isBusinessEntity`） */
+  entity?: BusinessEntity;
   /**
    * ステージ。**カンマ区切りで複数渡せる** (`s_completed,e_lost` = 終了)。
    * v4 の案件一覧はチップで A〜E と「終了」を切り替えるので、
@@ -857,6 +859,10 @@ export class ProjectService {
     if (filter.assignedTo) {
       where += ` AND p.assigned_to = ?`;
       params.push(filter.assignedTo);
+    }
+    if (filter.entity) {
+      where += ` AND p.entity = ?`;
+      params.push(filter.entity);
     }
     // 決算インポート分のみ。**印は `kessan_marker` の列が持つ**（migration 184）。
     // 以前は `notes` の先頭の `[kessan:2026-03]` という文字列を読んでいたが、

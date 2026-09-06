@@ -93,6 +93,7 @@ export function useLedgerState() {
     gls_category: filters.glsCategory || undefined,
     source: filters.source || undefined,
     issue: filters.issue || undefined,
+    entity: filters.entity || undefined,
     sort_by: sort.by || undefined,
     sort_dir: sort.by ? sort.dir : undefined,
   }), [page, filters, sort]);

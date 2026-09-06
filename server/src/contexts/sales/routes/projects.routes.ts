@@ -22,6 +22,7 @@ import {
 } from '../services/project-box-files.service';
 import { createPhotoAccess } from '../services/project-photo-access.service';
 import { countJunkProjects, purgeJunkProjects } from '../services/project-purge.service';
+import { isBusinessEntity } from '../services/project-entity';
 
 const router = Router();
 
@@ -31,8 +32,14 @@ router.use(requireAuth, requirePermission('sales'));
 // 統合一覧（タブ: all/yomi/active/completed/lost）
 router.get('/', async (req, res) => {
   const { page, limit, offset, search } = extractPagination(req);
+  // 事業主体 (gss / gscs / gig)。知らない値は素通しせず 400 — 素通しすると絞ったつもりで全件が返り、気づけない
+  const entityRaw = req.query.entity;
+  if (entityRaw != null && entityRaw !== '' && !isBusinessEntity(entityRaw)) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'entity は gss / gscs / gig のいずれかを指定してください');
+  }
   const filter: ProjectFilter = {
     search,
+    entity: isBusinessEntity(entityRaw) ? entityRaw : undefined,
     stage: req.query.stage as string,
     assignedTo: req.query.assigned_to as string,
     tab: (req.query.tab as ProjectFilter['tab']) || 'all',

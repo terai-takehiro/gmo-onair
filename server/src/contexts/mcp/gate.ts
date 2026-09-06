@@ -232,6 +232,8 @@ const READ_TOOL_PERMISSIONS: Record<string, ToolPermission> = {
   // requireAnyPermission(['dailyops','sales'],'reader') と一致（財務の数字なので営業・経理も読む）
   get_keep_report_pack: { module: ['dailyops', 'sales'], level: 'reader' },
   list_keep_report_packs: { module: ['dailyops', 'sales'], level: 'reader' },
+  // Slack の定例投稿の下書き。中身はパックそのもの (数字を読めるのは上と同じ人)
+  get_keep_slack_draft: { module: ['dailyops', 'sales'], level: 'reader' },
   // 機材管理 (equipment)。HTTP 側 (`equipment.routes.ts`) の router 既定 reader と一致
   list_equipment: { module: 'equipment', level: 'reader' },
   get_equipment: { module: 'equipment', level: 'reader' },

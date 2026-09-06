@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { getPackForMeeting, listPacks } from '../../dailyops/services/keep-pack-store.service';
+import { getSlackDraftForMeeting } from '../../dailyops/services/keep-slack-draft.service';
 import { ok, runTool, clampLimit } from '../helpers';
 
 // 隔週キープの「定例報告パック」(keep_report_packs) — docs/design/v4/keep-report.md §5・§9。
@@ -8,6 +9,8 @@ import { ok, runTool, clampLimit } from '../helpers';
 // を1本の JSON で読む。Slack の定例投稿・pptx の自動生成はどちらも**パックを読むだけ**にし、
 // 人の直しは構成 (デッキ) 側に持つ (条件2)。
 // HTTP の GET /dailyops/keep/pack と同じ `getPackForMeeting` を通る (画面と AI が同じ答えを読む)。
+// `get_keep_slack_draft` はパックから Slack の定例投稿の文面を組む (決定的な整形・AI ではない)。
+// bot がこの文を投稿したら投稿の id (ts) を版に残すのが §10 の条件3 (反応の回収はその後)。
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -35,6 +38,29 @@ export function registerKeepTools(server: McpServer): void {
       },
     },
     async (args) => runTool(async () => ok(await getPackForMeeting({
+      meetingDate: args.meeting_date ?? null, entity: args.entity, segment: args.segment, live: args.live === true,
+    }))),
+  );
+
+  server.registerTool(
+    'get_keep_slack_draft',
+    {
+      title: '隔週キープの Slack 投稿の下書き',
+      description:
+        '隔週キープ (業績報告) の Slack 定例投稿の下書きを、定例報告パックから組んだ日本語の mrkdwn 文字列 (text) で取得する。' +
+        '中身: 見出し (会議日) → 前月 着地の 売上高／粗利／営業利益 (目標比と○✕・全体と主体別) → 当月 見込 (1行) → ' +
+        'ヨミ表の上位8件 (確度順: 確度・案件名・お客様・実施日・見積金額) → 実施報告 (日付・案件名・売上/粗利率) → 内覧会 (組・名・満足度) → ' +
+        '見込に含めた未確定の売上 → 数字の元 (凍結した時刻か「いまの数字」)。金額は千円 (3桁区切り)・絵文字なし。' +
+        '前回の資料 (凍結した版) があれば動いた数字に ＊ が付く。同じパックからは必ず同じ文になる (AI の生成ではない)。' +
+        '引数は get_keep_report_pack と同じ。Slack へ投稿する bot はこの text をそのまま投稿し、投稿の id (ts) を版に残すこと。',
+      inputSchema: {
+        meeting_date: z.string().regex(DATE_RE).optional().describe('会議の開催日 YYYY-MM-DD (省略時=次回の開催日)'),
+        entity: z.enum(['all', 'gss', 'gscs', 'gig']).optional().describe('事業主体の絞り込み (ヨミ表・実施報告に効く)。既定 all'),
+        segment: z.enum(['all', 'internal', 'external']).optional().describe('お客様の区分の絞り込み。既定 all'),
+        live: z.boolean().optional().describe('true でいまの数字から組む (凍結した版があっても読まない)。既定 false'),
+      },
+    },
+    async (args) => runTool(async () => ok(await getSlackDraftForMeeting({
       meetingDate: args.meeting_date ?? null, entity: args.entity, segment: args.segment, live: args.live === true,
     }))),
   );

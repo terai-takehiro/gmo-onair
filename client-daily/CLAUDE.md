@@ -42,6 +42,8 @@
   - **「資料」の印**（ヨミ表のチェック＝`projects.keep_pick`）を付けた案件だけ資料の案件ページになる。
     案件管理のふりかえりタブと同じ値
   - **ONAiR に無い数字**（内覧会の満足度など）は `keep_report_inputs` に手入力（画面の欄から `PUT /dailyops/keep/inputs/:meeting`）
+  - **「Slack の文面をコピー」**はパックから決定的に作った文（`GET /dailyops/keep/slack-draft`・MCP `get_keep_slack_draft`）。
+    bot が投稿するときは Slack の `ts` と `pack_id` を残す（反応の回収 ＝ 原則の条件3）
   - **資料をつくる**は PC 専用（`DAILY_PC_ONLY`）。構成 JSON（`keep_decks`）は保存のたびに版を残し、
     人の直しは `keep_deck_edits` に差分で残る（原則「AIを使い捨てにしない」の器）。
     スライドの骨組みは `shared/src/keepReport/templates.ts` が正で、画面のプレビューと pptx 出力が同じ位置で描く

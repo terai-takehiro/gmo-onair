@@ -115,8 +115,9 @@ function plChangesByEntity(c: Ctx, p: PlByEntity): Partial<Record<BusinessEntity
   }
   return out;
 }
-function pipelineMarks(c: Ctx): boolean {
-  if (!c.prev) return false;
+/** ヨミ表（`pipeline.*`）だけ印を付ける。空の配列は `isPipelineRows` を通ってしまうので binding でも見る */
+function pipelineMarks(c: Ctx, binding: string | null): boolean {
+  if (!c.prev || !binding?.startsWith('pipeline')) return false;
   c.marked = true;
   return true;
 }
@@ -145,9 +146,10 @@ function renderPart(slide: PptxGenJS.Slide, page: SlidePage, part: SlidePart, c:
       if (typeof v === 'string') { addText(slide, v, box, { size: 12, color: red }); return; }
       if (isPlTable(v)) { renderPlTable(slide, v, box, { changed: plChanges(c, part.binding, v) }); return; }
       if (isPlByEntity(v)) { renderPlByEntity(slide, v, box, plChangesByEntity(c, v)); return; }
-      if (isPipelineRows(v)) { renderPipeline(slide, v, box, pipelineMarks(c)); return; }
-      if (isObj(v) && 'gross_margin' in v) { renderMoney(slide, v as unknown as ProjectPageData, box); return; }
+      // 進行表はヨミ表より先に見る — 空の配列は `isPipelineRows` を通り、空のヨミ表として描かれてしまう（灰色の枠にならない）
       if (part.binding?.endsWith('.schedule') && Array.isArray(v)) { renderSchedule(slide, v as ProjectPageData['schedule'], box); return; }
+      if (isPipelineRows(v)) { renderPipeline(slide, v, box, pipelineMarks(c, part.binding)); return; }
+      if (isObj(v) && 'gross_margin' in v) { renderMoney(slide, v as unknown as ProjectPageData, box); return; }
       if (part.binding === 'inview.by_category' && Array.isArray(v)) { renderCategoryTable(slide, v as Array<{ category: string; groups: number; people: number }>, box); return; }
       renderGenericTable(slide, v, box, label); return;
     case 'chart':
@@ -227,7 +229,6 @@ export async function renderDeckPptx(deck: KeepDeck, pack: KeepReportPack | null
     const w = checkTitleFormat(page, i + 1);
     if (w) warnings.push(w);
   });
-  if (pages.length) warnings.push('表・一覧・注記は中身が収まる大きさ（9〜18pt）で出しています（目安 24pt・§6.3）');
   if (pages.length && !c.prev) warnings.push('前回の資料（凍結したパック）が無いので「変更点は赤字」は付けていません');
 
   const buffer = (await pptx.write({ outputType: 'nodebuffer' })) as Buffer;

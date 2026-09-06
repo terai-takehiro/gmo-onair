@@ -5,6 +5,7 @@ import {
   getPackForMeeting, freezePack, listPacks, parseScope, getInputs, upsertInput, assertMeetingDate,
 } from '../services/keep-pack-store.service';
 import { resolveMeetings } from '../services/keep-pack.service';
+import { getSlackDraftForMeeting } from '../services/keep-slack-draft.service';
 
 // 日常業務アプリ (dailyops) — 隔週キープの「定例報告パック」API（docs/design/v4/keep-report.md §9）。
 //
@@ -26,6 +27,18 @@ router.get('/keep/pack', ...canRead, async (req, res) => {
   const meeting = req.query.meeting ? String(req.query.meeting) : null;
   const live = req.query.live === '1' || req.query.live === 'true';
   const data = await getPackForMeeting({ meetingDate: meeting, entity: req.query.entity, segment: req.query.segment, live });
+  res.json({ success: true, data });
+});
+
+/**
+ * Slack の定例投稿の下書き（パックから組んだ mrkdwn の文。§6.2「Slack の定例投稿」の下準備）。
+ * 引数と権限は GET /keep/pack と同じ。→ { text, pack_id, frozen, meeting_date }
+ * AI ではない決定的な整形なので `ai_outputs` には残さない。bot が投稿したら投稿の id を版に残す（§10 条件3）
+ */
+router.get('/keep/slack-draft', ...canRead, async (req, res) => {
+  const meeting = req.query.meeting ? String(req.query.meeting) : null;
+  const live = req.query.live === '1' || req.query.live === 'true';
+  const data = await getSlackDraftForMeeting({ meetingDate: meeting, entity: req.query.entity, segment: req.query.segment, live });
   res.json({ success: true, data });
 });
 

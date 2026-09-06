@@ -165,7 +165,7 @@ export function SlideCanvas({ onRefreshNumbers, refreshing }: { onRefreshNumbers
                 'text-badge absolute inset-x-4 z-10 flex items-center justify-center gap-2 rounded-control-md border-2 border-dashed transition-colors',
                 isOver ? 'border-primary bg-primary-surface text-primary' : 'border-primary-border-strong bg-primary-surface-weak text-primary',
               )}
-              style={{ top: H * 0.855, height: 34 }}
+              style={{ top: H * 0.905 - 34, height: 34 }}
               data-canvas-drop
             >
               <Download className="h-3.5 w-3.5" aria-hidden="true" />

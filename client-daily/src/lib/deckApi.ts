@@ -30,6 +30,8 @@ export interface DeckBundle {
   /** 週報の確定で凍結したパックを読んでいるか（true なら「数字を更新」は効かない） */
   pack_frozen: boolean;
   previous_meeting_date: string | null;
+  /** ONAiR に無い数字の手入力（keep_report_inputs）。部品の `inputs.*` が読む */
+  inputs?: Record<string, unknown> | null;
 }
 
 export interface SaveDeckResult {

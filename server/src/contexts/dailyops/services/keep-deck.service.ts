@@ -21,6 +21,7 @@ import { SLIDE_TEMPLATES } from './keep-templates';
 import { composeDeckPages } from './keep-deck-compose';
 import { diffDecks } from './keep-deck-diff';
 import { loadPackForMeeting } from './keep-deck-pack';
+import { getInputs } from './keep-pack-inputs.service';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -31,6 +32,16 @@ export interface DeckEnvelope {
   pack_frozen: boolean;
   /** 構成の写し元になった（なる）前回の会議日。無ければ null */
   previous_meeting_date: string | null;
+  /** ONAiR に無い数字の手入力（keep_report_inputs）。key → value。部品の `inputs.*` が読む */
+  inputs: Record<string, unknown>;
+}
+
+/** 手入力を key → value の辞書にする（無ければ空） */
+async function loadInputs(meetingDate: string): Promise<Record<string, unknown>> {
+  const rows = await getInputs(meetingDate);
+  const out: Record<string, unknown> = {};
+  for (const r of rows) out[r.key] = r.value;
+  return out;
 }
 
 export interface DeckListItem {
@@ -121,13 +132,26 @@ export const keepDeckService = {
     }));
   },
 
+  /**
+   * 会議日の構成を読むだけ（無ければ null）。「前回の資料と見比べる」のように
+   * 読むだけの場面で、うっかり版1を作らないための口。
+   */
+  async getDeckIfExists(meetingDate: string): Promise<DeckEnvelope | null> {
+    assertMeetingDate(meetingDate);
+    const existing = await findRow(meetingDate);
+    if (!existing) return null;
+    const [{ pack, frozen }, prev, inputs] = await Promise.all([loadPackForMeeting(meetingDate), previousMeetingDate(meetingDate), loadInputs(meetingDate)]);
+    return { deck: rowToDeck(existing), pack, pack_frozen: frozen, previous_meeting_date: prev?.date ?? null, inputs };
+  },
+
   /** 会議日の構成を読む。無ければ前回の構成（無ければ標準）から組んで版1（auto）として保存する */
   async getOrCreateDeck(meetingDate: string, userId: string): Promise<DeckEnvelope> {
     assertMeetingDate(meetingDate);
     const { pack, pack_id, frozen } = await loadPackForMeeting(meetingDate);
     const prev = await previousMeetingDate(meetingDate);
+    const inputs = await loadInputs(meetingDate);
     const existing = await findRow(meetingDate);
-    if (existing) return { deck: rowToDeck(existing), pack, pack_frozen: frozen, previous_meeting_date: prev?.date ?? null };
+    if (existing) return { deck: rowToDeck(existing), pack, pack_frozen: frozen, previous_meeting_date: prev?.date ?? null, inputs };
 
     const id = uuidv4();
     const now = new Date().toISOString();
@@ -145,7 +169,7 @@ export const keepDeckService = {
         [uuidv4(), id, JSON.stringify(deck), 'auto', userId],
       );
     });
-    return { deck, pack, pack_frozen: frozen, previous_meeting_date: prev?.date ?? null };
+    return { deck, pack, pack_frozen: frozen, previous_meeting_date: prev?.date ?? null, inputs };
   },
 
   /**
@@ -193,6 +217,7 @@ export const keepDeckService = {
     const current = rowToDeck(row);
     const { pack, pack_id, frozen } = await loadPackForMeeting(meetingDate);
     const prev = await previousMeetingDate(meetingDate);
+    const inputs = await loadInputs(meetingDate);
     const version = current.version + 1;
     const deck: KeepDeck = {
       ...current, pack_id, version, pages: composeDeckPages(current.pages, pack), updated_at: new Date().toISOString(), updated_by: userId,
@@ -203,7 +228,7 @@ export const keepDeckService = {
       await tx.execute('INSERT INTO keep_deck_versions (id, deck_id, version, deck, source, created_by) VALUES (?, ?, ?, ?::jsonb, ?, ?)',
         [uuidv4(), current.id, version, JSON.stringify(deck), 'auto', userId]);
     });
-    return { deck, pack, pack_frozen: frozen, previous_meeting_date: prev?.date ?? null };
+    return { deck, pack, pack_frozen: frozen, previous_meeting_date: prev?.date ?? null, inputs };
   },
 
   /** 出力した pptx の置き場（Box の file id）を最新に記録する（条件3） */

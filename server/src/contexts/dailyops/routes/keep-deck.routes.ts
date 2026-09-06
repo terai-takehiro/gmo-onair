@@ -21,8 +21,16 @@ router.get('/keep/decks', ...canRead, async (_req, res) => {
 
 // 会議日の構成（無ければ前回の構成／標準の構成から組んで版1を作る）
 // → { deck, pack, pack_frozen, previous_meeting_date }
+// `?create=0` は読むだけ（無ければ 404）。「前回の資料と見比べる」で版1を作ってしまわないため
 router.get('/keep/decks/:meeting', ...canRead, async (req, res) => {
-  const data = await keepDeckService.getOrCreateDeck(String(req.params.meeting), req.user!.id);
+  const meeting = String(req.params.meeting);
+  if (req.query.create === '0') {
+    const data = await keepDeckService.getDeckIfExists(meeting);
+    if (!data) throw new AppError(404, 'NOT_FOUND', 'その会議日の資料の構成はまだありません');
+    res.json({ success: true, data });
+    return;
+  }
+  const data = await keepDeckService.getOrCreateDeck(meeting, req.user!.id);
   res.json({ success: true, data });
 });
 
@@ -56,9 +64,11 @@ router.post('/keep/decks/:meeting/rebuild', ...canEdit, async (req, res) => {
  */
 router.post('/keep/decks/:meeting/export', ...canEdit, async (req, res) => {
   const meeting = String(req.params.meeting);
-  const { deck, pack } = await keepDeckService.getOrCreateDeck(meeting, req.user!.id);
+  const { deck, pack, inputs: storedInputs } = await keepDeckService.getOrCreateDeck(meeting, req.user!.id);
   const meetingTitle = typeof req.body?.meeting_title === 'string' ? req.body.meeting_title : null;
-  const inputs = req.body?.inputs && typeof req.body.inputs === 'object' ? (req.body.inputs as Record<string, unknown>) : null;
+  // 手入力は保存済みのもの（keep_report_inputs）を土台に、body で渡された分を上書き
+  const bodyInputs = req.body?.inputs && typeof req.body.inputs === 'object' ? (req.body.inputs as Record<string, unknown>) : {};
+  const inputs = { ...storedInputs, ...bodyInputs };
   // 「変更点は赤字」の比較相手 = 会議日より前でいちばん新しい凍結した版（無ければ赤字なし・脚注なし）
   const previousPack = await loadPreviousPack(meeting);
   const { buffer, pages, warnings } = await renderDeckPptx(deck, pack, { meeting_title: meetingTitle, inputs, previousPack });

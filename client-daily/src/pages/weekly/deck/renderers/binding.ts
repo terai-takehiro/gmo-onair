@@ -34,6 +34,8 @@ export type Resolved =
 export interface ResolveContext {
   deck?: KeepDeck | null;
   meeting?: string | null;
+  /** 手入力（keep_report_inputs）。`inputs.*` の部品が読む */
+  inputs?: Record<string, unknown> | null;
 }
 
 const k = (v: number | null | undefined) => (v === null || v === undefined ? '—' : Math.round(v / 1000).toLocaleString('ja-JP'));
@@ -197,7 +199,7 @@ export function resolveBinding(pack: KeepReportPack | null, page: SlidePage, par
     meeting_date: ctx.meeting ?? pack?.meeting_date ?? '',
     meeting_title: null,
     agenda: ctx.deck ? deckAgenda(ctx.deck.pages) : undefined,
-    inputs: null,
+    inputs: ctx.inputs ?? null,
   };
   const r = sharedResolve(pack, page, { ...part, text_override: null }, bctx);
   if (!r.ok) {

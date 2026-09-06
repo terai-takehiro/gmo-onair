@@ -34,11 +34,17 @@ export interface LedgerFilters {
    * （`server/.../project-integrity.ts`）。
    */
   issue: string;
+  /**
+   * 事業主体（`projects.entity`・`''` は絞らない／`gss` `gscs` `gig`）。
+   * 主体はお客様の区分から自動で決まり、人格（gig）だけ人が付ける（`client/CLAUDE.md` の「事業主体」）。
+   * **サーバーで絞る**（`GET /projects?entity=`）— 画面で絞るとそのページの 100 件の中だけになる。
+   */
+  entity: string;
 }
 
 /** ⚠️ **既定は GLS-A**。この既定が下の `nextFiltersForIssue` の理由そのものです */
 export const EMPTY_FILTERS: LedgerFilters = {
-  search: '', stage: '', glsCategory: 'A', source: '', issue: '',
+  search: '', stage: '', glsCategory: 'A', source: '', issue: '', entity: '',
 };
 
 /**
