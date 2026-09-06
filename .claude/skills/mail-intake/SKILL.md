@@ -60,8 +60,19 @@ get_ai_feedback_digest(kind='finance_doc_intake')
 | `mail-intake-skipped` | **読んだうえで取り込まないと決めた**（メルマガ・自動通知・売り込み） |
 
 ```
-search_threads(query: '-label:studio-intake-done -label:inview-reg-done -label:mail-intake-skipped newer_than:3d -in:sent -in:draft')
+search_threads(query: '-label:studio-intake-done -label:inview-reg-done -label:mail-intake-skipped
+  -from:notifications@github.com -from:dmarc-report@gmo-globalstudio.com
+  -from:noreply@box.com -from:notification@8card.net
+  newer_than:3d -in:sent -in:draft', pageSize: 50)
 ```
+
+⚠️ **雪崩のように来る通知は、検索式で先に外します**（2026-09-06 実測）。
+決定表 #1 は「拾ってから捨てる」ですが、**捨てる作業そのものが枠を食い潰します**。
+このときの3日窓は **201スレッド**で、新しい順に40件を数えると
+**`notifications@github.com` が 33件・`dmarc-report@` が 2件（87.5%）**でした。
+GitHub は開発中1日に25通以上出すので、**枠30通は毎回 GitHub の通知だけで尽きます**。
+上の4つを外すだけで **201 → 54** に落ちました。**ラベルでは間に合いません**
+（印を付けても翌日また同じだけ届くため）。
 
 ⚠️ **捨てたメールにも印を付けます**（`mail-intake-skipped`）。
 付けないと、**捨てたものが毎回この検索に当たり続けます**。1回30通までしか扱わないので、
@@ -71,10 +82,12 @@ search_threads(query: '-label:studio-intake-done -label:inview-reg-done -label:m
 （何を捨てたかは手順5の取込ログにも残ります）。
 
 - **`newer_than:3d`** は保険です（ラベルが正）。取りこぼしても翌日拾えます。
-- **1回で扱うのは 30通まで。** それ以上あるときは古いほうから 30通だけ処理し、
-  残りは次の実行に回します。**1回のルーティンで全部やろうとして途中で止まると、
-  どこまで入れたか分からなくなります**（ラベルは1通ずつ付けるので、
-  途中で止まっても入れたぶんは印が付いています）。
+- **1回で扱うのは 30通まで。新しいほうから 30通**です。
+  ⚠️ **「古いほうから」にしないこと**（2026-09-06 に直した）。`search_threads` は
+  **新しい順にしか返さない**ので、古い30通を採るには全件めくる必要があり、
+  そのうえ**その日届いた請求書がいつまでも後回し**になります。
+  上の除外を入れると3日で 54件まで落ちるので、**30通/日で追いつきます**。
+- **1通ずつラベルを付ける**ので、途中で止まっても入れたぶんには印が付いています。
 
 ### 2. 決定表に当てる
 
@@ -84,6 +97,13 @@ search_threads(query: '-label:studio-intake-done -label:inview-reg-done -label:m
 **宛先（To / Cc）と差出人と件名でほとんど決まります。**
 本文を読む（`get_message`）のは、そこで決まらなかったときと、
 取り込むと決めたときだけにしてください — 全部の本文を読むと実行のたびに費用が膨らみます。
+
+⚠️ **検索結果の抜粋は「いちばん古い5通」です**（`search_threads` の仕様・実測で確認）。
+新しいメッセージは**入っていないのに、切れている印も出ません**。
+Gmail はスレッド単位で当てるので、**3か月前に始まったスレッドが `newer_than:3d` に出て、
+抜粋だけ3か月前の本文**になります（実測: 6月の「ZOZOの件」「貸倉庫の件」が
+3日窓に出てきました）。**判断は必ず `get_thread` で最新のメッセージを読んでから**行い、
+抜粋だけで決めないこと。
 
 ### 3. 取り込む
 
