@@ -10,6 +10,15 @@
  * ③ **既存の行は空のまま。** 新しく発行するぶんから採る —
  *    経理がいま使っている番号と二重に付けないため
  *
+ * ── 2026年10月の事業再編: 発行者ごとの系列に分けた（P2 Round 1） ─────
+ *
+ * 会社が2つ（GJV/GSS）になり、請求書は発行者ごとに別の紙になるため、
+ * 番号も発行者ごとの系列に分ける（`docs/reorg-2026-10-plan.md` §9-B・決定）。
+ * **`INV-2026-0001` の旧系列は発行済みのまま凍結**（決めごと③の延長——
+ * 過去の紙と食い違わせない）。**GSS も含めて新系列 `INV-GSS-2026-0001` から
+ * 始める**（旧系列の続き番号にはしない — 発行者名そのものが変わるので
+ * 系列も切ってよい、という判断）。GJV は最初から新系列のみ。
+ *
  * ── なぜ「発行のとき」に採るのか ────────────────────────────
  *
  * 売上を作った時点で採ると、**出さなかった見込みの行にも番号が付いて**
@@ -24,6 +33,8 @@
  * 張ってあるので、経路が増えても DB が最後の砦になる。
  */
 import { queryAll, queryOne, withTransaction } from '../../../shared/db/connection';
+import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
+import type { LegalEntityCode } from '../../platform/services/legal-entity.service';
 
 /**
  * 年度の始まり月 (1 = 暦年)。
@@ -33,34 +44,34 @@ import { queryAll, queryOne, withTransaction } from '../../../shared/db/connecti
  */
 const FISCAL_START_MONTH = 1;
 
-/** その日が属する年度 (`INV-<この値>-0001`) */
+/** その日が属する年度 (`INV-<会社>-<この値>-0001`) */
 export function fiscalYearOf(date: Date): number {
   const y = date.getFullYear();
   return date.getMonth() + 1 >= FISCAL_START_MONTH ? y : y - 1;
 }
 
-export function formatInvoiceNo(year: number, counter: number): string {
-  return `INV-${year}-${String(counter).padStart(4, '0')}`;
+export function formatInvoiceNo(entityCode: LegalEntityCode, year: number, counter: number): string {
+  return `INV-${entityCode}-${year}-${String(counter).padStart(4, '0')}`;
 }
 
 /** 取引の中でも外でも同じ SQL を使うための最小の口 */
 interface Q { queryOne(sql: string, params?: unknown[]): Promise<Record<string, unknown> | undefined> }
 
 /**
- * 年度ごとの次の番号を1つ採る。**アトミック**。
+ * 発行者・年度ごとの次の番号を1つ採る。**アトミック**。
  * `tx` を渡すと**その取引の中で**採る — 渡さないと、行を押さえている取引の外で
  * 採ることになり、書き込みが巻き戻っても番号だけ進む。
  */
-async function nextInvoiceNo(year: number, tx?: Q): Promise<string> {
+async function nextInvoiceNo(entityCode: LegalEntityCode, year: number, tx?: Q): Promise<string> {
   const q: Q = tx ?? { queryOne };
   const row = await q.queryOne(
     `INSERT INTO sequences (seq_name, prefix, year_month, counter)
      VALUES (?, ?, ?, 1)
      ON CONFLICT (seq_name) DO UPDATE SET counter = sequences.counter + 1
      RETURNING counter`,
-    [`invoice_${year}`, `INV-${year}`, String(year)],
+    [`invoice_${entityCode}_${year}`, `INV-${entityCode}-${year}`, String(year)],
   );
-  return formatInvoiceNo(year, row!.counter as number);
+  return formatInvoiceNo(entityCode, year, row!.counter as number);
 }
 
 /**
@@ -78,11 +89,11 @@ export async function assignInvoiceNumbers(
   if (revenueIds.length === 0) return [];
 
   const pending = await queryAll(
-    `SELECT id FROM revenues
+    `SELECT id, entity_code FROM revenues
       WHERE id = ANY($1::text[]) AND deleted_at IS NULL AND invoice_no IS NULL
       ORDER BY billing_date NULLS LAST, created_at`,
     [revenueIds],
-  ) as { id: string }[];
+  ) as { id: string; entity_code: LegalEntityCode | null }[];
   if (pending.length === 0) return [];
 
   const year = fiscalYearOf(now);
@@ -110,7 +121,9 @@ export async function assignInvoiceNumbers(
       if (!cur) return null;                      // 押さえる間に消えた
       if (cur.invoice_no) return cur.invoice_no;  // 先に採られていた = その番号が正
 
-      const minted = await nextInvoiceNo(year, tx);
+      // entity_code が無い行（このマイグレーション以前のデータ等）は今の会社ぶんに落とす
+      const entityCode = row.entity_code ?? CURRENT_ENTITY_CODE;
+      const minted = await nextInvoiceNo(entityCode, year, tx);
       await tx.execute(
         'UPDATE revenues SET invoice_no = ?, updated_at = NOW() WHERE id = ?',
         [minted, row.id],

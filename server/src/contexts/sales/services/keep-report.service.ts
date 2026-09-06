@@ -4,6 +4,10 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { projectService } from './project.service';
 import { getMonthlySummary } from '../../finance/services/monthly-summary.service';
 import { listKpt, listKptForProjects } from './kpt.service';
+// 2026年10月の事業再編（docs/reorg-2026-10-plan.md §4.6・P2 Round 1）:
+// 月次予算・実績補正は会社（entity_code）ごとに持つ（migration 284・PK が (entity_code, year_month) に）
+import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
+import type { LegalEntityCode } from '../../platform/services/legal-entity.service';
 
 // 隔週キープ資料 (報告資料) の基礎データ service。
 // UI (案件管理アプリの報告資料ページ) と MCP ツール (eventreports/budget/minutes.tools) の
@@ -213,11 +217,14 @@ export const keepReportService = {
   // ============================================================
   // Phase 2: 月次予算 + 実績補正 + 損益 (目標 vs 実績)
   // ============================================================
-  async getBudget(ym: string) {
-    const r = await queryOne('SELECT * FROM monthly_budgets WHERE year_month = ?', [ym]) as Record<string, unknown> | null;
+  async getBudget(ym: string, entityCode: LegalEntityCode = CURRENT_ENTITY_CODE) {
+    const r = await queryOne(
+      'SELECT * FROM monthly_budgets WHERE entity_code = ? AND year_month = ?', [entityCode, ym],
+    ) as Record<string, unknown> | null;
     if (!r) return null;
     return {
       year_month: r.year_month,
+      entity_code: r.entity_code,
       revenue: num(r.revenue),
       cogs_fixed: num(r.cogs_fixed),
       cogs_variable: num(r.cogs_variable),
@@ -227,8 +234,12 @@ export const keepReportService = {
     };
   },
 
-  async upsertBudget(ym: string, fields: { revenue?: number; cogs_fixed?: number; cogs_variable?: number; sga?: number; operating_profit?: number }) {
-    const existing = await this.getBudget(ym);
+  async upsertBudget(
+    ym: string,
+    fields: { revenue?: number; cogs_fixed?: number; cogs_variable?: number; sga?: number; operating_profit?: number },
+    entityCode: LegalEntityCode = CURRENT_ENTITY_CODE,
+  ) {
+    const existing = await this.getBudget(ym, entityCode);
     const merged = {
       revenue: fields.revenue ?? existing?.revenue ?? null,
       cogs_fixed: fields.cogs_fixed ?? existing?.cogs_fixed ?? null,
@@ -242,21 +253,24 @@ export const keepReportService = {
       merged.operating_profit = merged.revenue - merged.cogs_fixed - merged.cogs_variable - merged.sga;
     }
     await execute(
-      `INSERT INTO monthly_budgets (year_month, revenue, cogs_fixed, cogs_variable, sga, operating_profit)
-       VALUES (?, ?, ?, ?, ?, ?)
-       ON CONFLICT (year_month) DO UPDATE SET
+      `INSERT INTO monthly_budgets (entity_code, year_month, revenue, cogs_fixed, cogs_variable, sga, operating_profit)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT (entity_code, year_month) DO UPDATE SET
          revenue = EXCLUDED.revenue, cogs_fixed = EXCLUDED.cogs_fixed, cogs_variable = EXCLUDED.cogs_variable,
          sga = EXCLUDED.sga, operating_profit = EXCLUDED.operating_profit, updated_at = NOW()`,
-      [ym, merged.revenue, merged.cogs_fixed, merged.cogs_variable, merged.sga, merged.operating_profit],
+      [entityCode, ym, merged.revenue, merged.cogs_fixed, merged.cogs_variable, merged.sga, merged.operating_profit],
     );
-    return { action: existing ? 'updated' as const : 'created' as const, budget: (await this.getBudget(ym))! };
+    return { action: existing ? 'updated' as const : 'created' as const, budget: (await this.getBudget(ym, entityCode))! };
   },
 
-  async getOverride(ym: string) {
-    const r = await queryOne('SELECT * FROM monthly_actual_overrides WHERE year_month = ?', [ym]) as Record<string, unknown> | null;
+  async getOverride(ym: string, entityCode: LegalEntityCode = CURRENT_ENTITY_CODE) {
+    const r = await queryOne(
+      'SELECT * FROM monthly_actual_overrides WHERE entity_code = ? AND year_month = ?', [entityCode, ym],
+    ) as Record<string, unknown> | null;
     if (!r) return null;
     return {
       year_month: r.year_month,
+      entity_code: r.entity_code,
       cogs_fixed_actual: num(r.cogs_fixed_actual),
       sga_actual: num(r.sga_actual),
       note: r.note,
@@ -264,33 +278,37 @@ export const keepReportService = {
     };
   },
 
-  async upsertOverride(ym: string, fields: { cogs_fixed_actual?: number | null; sga_actual?: number | null; note?: string | null }) {
-    const existing = await this.getOverride(ym);
+  async upsertOverride(
+    ym: string,
+    fields: { cogs_fixed_actual?: number | null; sga_actual?: number | null; note?: string | null },
+    entityCode: LegalEntityCode = CURRENT_ENTITY_CODE,
+  ) {
+    const existing = await this.getOverride(ym, entityCode);
     const merged = {
       cogs_fixed_actual: fields.cogs_fixed_actual !== undefined ? fields.cogs_fixed_actual : existing?.cogs_fixed_actual ?? null,
       sga_actual: fields.sga_actual !== undefined ? fields.sga_actual : existing?.sga_actual ?? null,
       note: fields.note !== undefined ? fields.note : existing?.note ?? null,
     };
     await execute(
-      `INSERT INTO monthly_actual_overrides (year_month, cogs_fixed_actual, sga_actual, note)
-       VALUES (?, ?, ?, ?)
-       ON CONFLICT (year_month) DO UPDATE SET
+      `INSERT INTO monthly_actual_overrides (entity_code, year_month, cogs_fixed_actual, sga_actual, note)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT (entity_code, year_month) DO UPDATE SET
          cogs_fixed_actual = EXCLUDED.cogs_fixed_actual, sga_actual = EXCLUDED.sga_actual,
          note = EXCLUDED.note, updated_at = NOW()`,
-      [ym, merged.cogs_fixed_actual, merged.sga_actual, merged.note],
+      [entityCode, ym, merged.cogs_fixed_actual, merged.sga_actual, merged.note],
     );
-    return { action: existing ? 'updated' as const : 'created' as const, override: (await this.getOverride(ym))! };
+    return { action: existing ? 'updated' as const : 'created' as const, override: (await this.getOverride(ym, entityCode))! };
   },
 
   /**
    * 損益ページの単一入口: 予算 / 補正込み実績 / 対目標差・比・判定。
    * 判定 (要件書 §2.5): 売上・利益系 実績≧目標→○ / 費用系 実績≦目標→○ / 目標未登録→"-"
    */
-  async getMonthlyPl(ym: string) {
+  async getMonthlyPl(ym: string, entityCode: LegalEntityCode = CURRENT_ENTITY_CODE) {
     const [budget, override, summary] = await Promise.all([
-      this.getBudget(ym),
-      this.getOverride(ym),
-      getMonthlySummary({ month: ym }),
+      this.getBudget(ym, entityCode),
+      this.getOverride(ym, entityCode),
+      getMonthlySummary({ month: ym, entityCode }),
     ]);
     const revenue = Number(summary.revenue_total);
     const cogsVariable = Number(summary.variable_cost_total);
@@ -308,6 +326,7 @@ export const keepReportService = {
     };
     return {
       year_month: ym,
+      entity_code: entityCode,
       budget,
       actual: {
         revenue,

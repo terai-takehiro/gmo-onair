@@ -9,6 +9,9 @@ import { ok, runTool, audit, REQUESTED_BY } from '../helpers';
 // ロジックは keepReportService に集約 — UI (報告資料ページ) と同一コードパス。
 
 const YM_RE = /^\d{4}-\d{2}$/;
+// 2026年10月の事業再編（P2 Round 1）: 省略時は今の会社（CURRENT_ENTITY_CODE）のぶん
+const ENTITY_CODE = z.enum(['GJV', 'GSS', 'GMO']).optional()
+  .describe('対象の計上会社 (省略時は今の会社)');
 
 export function registerBudgetTools(server: McpServer): void {
   server.registerTool(
@@ -18,10 +21,11 @@ export function registerBudgetTools(server: McpServer): void {
       description: '月次予算 (売上 / 固定原価 / 変動原価 / 販管費 / 営業利益の目標値) を取得する。未登録なら found=false。',
       inputSchema: {
         year_month: z.string().regex(YM_RE).describe('対象年月 YYYY-MM'),
+        entity_code: ENTITY_CODE,
       },
     },
     async (args) => runTool(async () => {
-      const budget = await keepReportService.getBudget(args.year_month);
+      const budget = await keepReportService.getBudget(args.year_month, args.entity_code);
       return ok(budget ? { found: true, budget } : { found: false, year_month: args.year_month });
     }),
   );
@@ -40,6 +44,7 @@ export function registerBudgetTools(server: McpServer): void {
         cogs_variable: z.number().int().optional().describe('変動原価目標'),
         sga: z.number().int().optional().describe('販管費目標'),
         operating_profit: z.number().int().optional().describe('営業利益目標 (未指定は自動計算)'),
+        entity_code: ENTITY_CODE,
         ...REQUESTED_BY,
       },
     },
@@ -47,7 +52,7 @@ export function registerBudgetTools(server: McpServer): void {
       const { action, budget } = await keepReportService.upsertBudget(args.year_month, {
         revenue: args.revenue, cogs_fixed: args.cogs_fixed, cogs_variable: args.cogs_variable,
         sga: args.sga, operating_profit: args.operating_profit,
-      });
+      }, args.entity_code);
       audit('upsert_monthly_budget', { ...budget },
         { year_month: args.year_month, action }, args.requested_by);
       return ok({ [action]: true, action, budget });
@@ -67,13 +72,14 @@ export function registerBudgetTools(server: McpServer): void {
         cogs_fixed_actual: z.number().int().optional().describe('償却費の経理確定値 (円)'),
         sga_actual: z.number().int().optional().describe('販管費の経理確定値 (円)'),
         note: z.string().max(200).optional().describe('「償却再計上」等の注記'),
+        entity_code: ENTITY_CODE,
         ...REQUESTED_BY,
       },
     },
     async (args) => runTool(async () => {
       const { action, override } = await keepReportService.upsertOverride(args.year_month, {
         cogs_fixed_actual: args.cogs_fixed_actual, sga_actual: args.sga_actual, note: args.note,
-      });
+      }, args.entity_code);
       audit('upsert_monthly_actual_override', { ...override },
         { year_month: args.year_month, action }, args.requested_by);
       return ok({ [action]: true, action, override });
@@ -90,10 +96,11 @@ export function registerBudgetTools(server: McpServer): void {
         '判定: 売上・利益系は 実績≧目標 → ○、費用系は 実績≦目標 → ○。目標未登録の月は判定 "-" (翌月見込みページ用)。',
       inputSchema: {
         year_month: z.string().regex(YM_RE).describe('対象年月 YYYY-MM'),
+        entity_code: ENTITY_CODE,
       },
     },
     async (args) => runTool(async () => {
-      const { override: _override, ...pl } = await keepReportService.getMonthlyPl(args.year_month);
+      const { override: _override, ...pl } = await keepReportService.getMonthlyPl(args.year_month, args.entity_code);
       return ok(pl);
     }),
   );

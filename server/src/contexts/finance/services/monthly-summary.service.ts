@@ -21,11 +21,17 @@ export interface MonthlySummaryParams {
    * 桁の違う数字が正しい値のように出るため。壊れた日付はこれまでどおり 400 で弾く。
    */
   allPeriods?: boolean;
+  /**
+   * 会社（`entity_code`）で絞る（2026年10月の事業再編・財務の2社タブ・P2 Round 1）。
+   * **省略時は絞らない**＝今までどおり全社合算（後方互換）。
+   */
+  entityCode?: string;
 }
 
 export interface MonthlySummaryResult {
   month: string;
   project_id?: string;
+  entity_code?: string;
   revenue_total: number;
   purchase_total: number;
   fixed_cost_total: number;
@@ -37,7 +43,7 @@ export interface MonthlySummaryResult {
 }
 
 export async function getMonthlySummary(params: MonthlySummaryParams): Promise<MonthlySummaryResult> {
-  const { month, from: qFrom, to: qTo, projectId, allPeriods } = params;
+  const { month, from: qFrom, to: qTo, projectId, allPeriods, entityCode } = params;
 
   // 期間を [from, to] (YYYY-MM-DD) に正規化。全期間 > from/to > month の単月の順に見る。
   let from = '', to = '';
@@ -65,6 +71,9 @@ export async function getMonthlySummary(params: MonthlySummaryParams): Promise<M
    */
   const dateWhere = (col: string) => (allPeriods ? '' : ` AND ${col} >= ? AND ${col} <= ?`);
   const dateArgs: string[] = allPeriods ? [] : [from, to];
+  // 会社で絞る条件も同じ理由で**必ずクエリの末尾**（日付条件のさらに後ろ）に置く
+  const entityWhere = (col: string) => (entityCode ? ` AND ${col} = ?` : '');
+  const entityArgs: string[] = entityCode ? [entityCode] : [];
 
   // 案件絞り込み時: 直接売上/仕入 + group_id による按分配分両方を集計
   // 販管費は案件紐付かないので project_id 指定時は除外 (0)
@@ -73,34 +82,34 @@ export async function getMonthlySummary(params: MonthlySummaryParams): Promise<M
       queryOne(
         `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues
          WHERE deleted_at IS NULL AND status = 'confirmed' AND group_id IS NULL
-         AND project_id = ?${dateWhere('recognition_date')}`,
-        [projectId, ...dateArgs]
+         AND project_id = ?${dateWhere('recognition_date')}${entityWhere('entity_code')}`,
+        [projectId, ...dateArgs, ...entityArgs]
       ) as Promise<any>,
       queryOne(
         `SELECT COALESCE(SUM(ra.allocated_amount), 0) AS total FROM revenue_allocations ra
          JOIN revenues r ON r.id = ra.revenue_id AND r.deleted_at IS NULL AND r.status = 'confirmed'
-         WHERE ra.project_id = ?${dateWhere('r.recognition_date')}`,
-        [projectId, ...dateArgs]
+         WHERE ra.project_id = ?${dateWhere('r.recognition_date')}${entityWhere('r.entity_code')}`,
+        [projectId, ...dateArgs, ...entityArgs]
       ) as Promise<any>,
       queryOne(
         `SELECT COALESCE(SUM(amount), 0) AS total FROM purchases
          WHERE deleted_at IS NULL AND group_id IS NULL
-         AND project_id = ?${dateWhere('recognition_date')}`,
-        [projectId, ...dateArgs]
+         AND project_id = ?${dateWhere('recognition_date')}${entityWhere('entity_code')}`,
+        [projectId, ...dateArgs, ...entityArgs]
       ) as Promise<any>,
       queryOne(
         `SELECT COALESCE(SUM(pa.allocated_amount), 0) AS total FROM purchase_allocations pa
          JOIN purchases p ON p.id = pa.purchase_id AND p.deleted_at IS NULL
-         WHERE pa.project_id = ?${dateWhere('p.recognition_date')}`,
-        [projectId, ...dateArgs]
+         WHERE pa.project_id = ?${dateWhere('p.recognition_date')}${entityWhere('p.entity_code')}`,
+        [projectId, ...dateArgs, ...entityArgs]
       ) as Promise<any>,
       // 固定原価 = この案件が固定原価Pj (code=FIXED-COGS) の場合の仕入
       queryOne(
         `SELECT COALESCE(SUM(pu.amount), 0) AS total FROM purchases pu
          JOIN projects p ON p.id = pu.project_id
          WHERE pu.deleted_at IS NULL AND pu.group_id IS NULL
-         AND pu.project_id = ? AND p.code = ?${dateWhere('pu.recognition_date')}`,
-        [projectId, FIXED_COGS_CODE, ...dateArgs]
+         AND pu.project_id = ? AND p.code = ?${dateWhere('pu.recognition_date')}${entityWhere('pu.entity_code')}`,
+        [projectId, FIXED_COGS_CODE, ...dateArgs, ...entityArgs]
       ) as Promise<any>,
     ]);
     const revenue_total = Number(revDirectRow?.total ?? 0) + Number(revAllocRow?.total ?? 0);
@@ -111,7 +120,7 @@ export async function getMonthlySummary(params: MonthlySummaryParams): Promise<M
     const marginal_profit = revenue_total - variable_cost_total; // 限界利益 = 売上 − 変動原価
     const gross_profit = marginal_profit - fixed_cost_total;      // 売上総利益 = 限界利益 − 固定原価
     const operating_profit = gross_profit - sga_total;            // 営業利益 = 売上総利益 − 販管費
-    return { month: periodLabel, project_id: projectId, revenue_total, purchase_total, fixed_cost_total, variable_cost_total, marginal_profit, gross_profit, sga_total, operating_profit };
+    return { month: periodLabel, project_id: projectId, entity_code: entityCode, revenue_total, purchase_total, fixed_cost_total, variable_cost_total, marginal_profit, gross_profit, sga_total, operating_profit };
   }
 
   // 案件絞り込みなし: 全体集計
@@ -121,23 +130,23 @@ export async function getMonthlySummary(params: MonthlySummaryParams): Promise<M
   // 上の案件別ブランチは按分を allocation 側から足すので、あちらは `group_id IS NULL` のまま。
   const [revRow, purRow, sgaRow, fixedRow] = await Promise.all([
     queryOne(
-      `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues WHERE deleted_at IS NULL AND status = 'confirmed'${dateWhere('recognition_date')}`,
-      [...dateArgs]
+      `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues WHERE deleted_at IS NULL AND status = 'confirmed'${dateWhere('recognition_date')}${entityWhere('entity_code')}`,
+      [...dateArgs, ...entityArgs]
     ) as Promise<any>,
     queryOne(
-      `SELECT COALESCE(SUM(amount), 0) AS total FROM purchases WHERE deleted_at IS NULL${dateWhere('recognition_date')}`,
-      [...dateArgs]
+      `SELECT COALESCE(SUM(amount), 0) AS total FROM purchases WHERE deleted_at IS NULL${dateWhere('recognition_date')}${entityWhere('entity_code')}`,
+      [...dateArgs, ...entityArgs]
     ) as Promise<any>,
     queryOne(
-      `SELECT COALESCE(SUM(amount), 0) AS total FROM sga_expenses WHERE deleted_at IS NULL${dateWhere('recognition_date')}`,
-      [...dateArgs]
+      `SELECT COALESCE(SUM(amount), 0) AS total FROM sga_expenses WHERE deleted_at IS NULL${dateWhere('recognition_date')}${entityWhere('entity_code')}`,
+      [...dateArgs, ...entityArgs]
     ) as Promise<any>,
     // 固定原価 = 固定原価Pj (code=FIXED-COGS) に計上された仕入
     queryOne(
       `SELECT COALESCE(SUM(pu.amount), 0) AS total FROM purchases pu
        JOIN projects p ON p.id = pu.project_id
-       WHERE pu.deleted_at IS NULL AND pu.group_id IS NULL AND p.code = ?${dateWhere('pu.recognition_date')}`,
-      [FIXED_COGS_CODE, ...dateArgs]
+       WHERE pu.deleted_at IS NULL AND pu.group_id IS NULL AND p.code = ?${dateWhere('pu.recognition_date')}${entityWhere('pu.entity_code')}`,
+      [FIXED_COGS_CODE, ...dateArgs, ...entityArgs]
     ) as Promise<any>,
   ]);
   const revenue_total = Number((revRow as any)?.total ?? 0);
@@ -148,5 +157,5 @@ export async function getMonthlySummary(params: MonthlySummaryParams): Promise<M
   const marginal_profit = revenue_total - variable_cost_total; // 限界利益 = 売上 − 変動原価
   const gross_profit = marginal_profit - fixed_cost_total;      // 売上総利益 = 限界利益 − 固定原価
   const operating_profit = gross_profit - sga_total;            // 営業利益 = 売上総利益 − 販管費
-  return { month: periodLabel, revenue_total, purchase_total, fixed_cost_total, variable_cost_total, marginal_profit, gross_profit, sga_total, operating_profit };
+  return { month: periodLabel, entity_code: entityCode, revenue_total, purchase_total, fixed_cost_total, variable_cost_total, marginal_profit, gross_profit, sga_total, operating_profit };
 }

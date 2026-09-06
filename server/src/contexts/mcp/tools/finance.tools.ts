@@ -46,6 +46,7 @@ export function registerFinanceTools(server: McpServer): void {
         from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('期間開始 (YYYY-MM-DD)。to とセットで指定 (month より優先)'),
         to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         project_id: z.string().optional().describe('案件 ID で絞り込み (任意)'),
+        entity_code: z.enum(['GJV', 'GSS', 'GMO']).optional().describe('計上会社で絞り込み (省略時は全社合算)'),
       },
     },
     async (args) => runTool(async () => {
@@ -54,6 +55,7 @@ export function registerFinanceTools(server: McpServer): void {
         from: args.from,
         to: args.to,
         projectId: args.project_id,
+        entityCode: args.entity_code,
       });
       return ok(data);
     }),

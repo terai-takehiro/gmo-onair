@@ -2778,6 +2778,95 @@ export class ProjectService {
     return map;
   }
 
+  /**
+   * 案件サマリーの会社（entity_code）別内訳（2026年10月の事業再編・粗利の2通り表示・
+   * P2 Round 1・§4.12）。**全体の粗利（`getSummary`）はこの機能を入れても変えない**
+   * ——見るのは案件詳細が別途これを呼んだときだけ。
+   *
+   * ⚠️ **`getSummaries` と同じ4本のクエリの絞り込みをそのまま使う**
+   * （status='confirmed'・group_id IS NULL・deleted_at IS NULL）。数え方を
+   * 2つ持たない、という同メソッドの注意はここにも適用される——足すのは
+   * `entity_code` の GROUP BY だけ。
+   *
+   * 通常は1案件につき1エンティティだが、エンティティのINSERT配線が全箇所
+   * 揃うまでの過渡期は行ごとに `entity_code` が食い違いうる（P1 の項目）ため、
+   * 単一の値ではなく**内訳の配列**で返す。
+   */
+  async getSummaryByEntity(projectId: string): Promise<Array<{
+    entity_code: string | null;
+    total_revenue: number;
+    total_purchase: number;
+    gross_profit: number;
+    gross_margin: number;
+  }>> {
+    const project = await queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [projectId]);
+    if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
+
+    // `getSummaries` と同じく直列に投げる（1案件だけなので Promise.all にする実益は薄く、
+    // 書き方も揃えておく）
+    const directRev = await queryAll(
+      `SELECT r.entity_code, SUM(
+         CASE WHEN ri.items_sum IS NOT NULL THEN ri.items_sum ELSE r.amount END
+       ) as total
+       FROM revenues r
+       LEFT JOIN LATERAL (
+         SELECT SUM(amount) as items_sum FROM revenue_items WHERE revenue_id = r.id
+       ) ri ON TRUE
+       WHERE r.project_id = ? AND r.group_id IS NULL
+         AND r.status = 'confirmed' AND r.deleted_at IS NULL
+       GROUP BY r.entity_code`,
+      [projectId]
+    ) as { entity_code: string | null; total: unknown }[];
+    const allocatedRev = await queryAll(
+      `SELECT r.entity_code, SUM(ra.allocated_amount) as total
+       FROM revenue_allocations ra
+       JOIN revenues r ON r.id = ra.revenue_id AND r.deleted_at IS NULL
+       WHERE ra.project_id = ?
+       GROUP BY r.entity_code`,
+      [projectId]
+    ) as { entity_code: string | null; total: unknown }[];
+    const directPur = await queryAll(
+      `SELECT entity_code, SUM(amount) as total FROM purchases
+       WHERE project_id = ? AND group_id IS NULL AND deleted_at IS NULL
+       GROUP BY entity_code`,
+      [projectId]
+    ) as { entity_code: string | null; total: unknown }[];
+    const allocatedPur = await queryAll(
+      `SELECT pu.entity_code, SUM(pa.allocated_amount) as total
+       FROM purchase_allocations pa
+       JOIN purchases pu ON pu.id = pa.purchase_id AND pu.deleted_at IS NULL
+       WHERE pa.project_id = ?
+       GROUP BY pu.entity_code`,
+      [projectId]
+    ) as { entity_code: string | null; total: unknown }[];
+
+    const sumBy = (rows: { entity_code: string | null; total: unknown }[]) => {
+      const m = new Map<string | null, number>();
+      for (const row of rows) m.set(row.entity_code, (m.get(row.entity_code) ?? 0) + (Number(row.total) || 0));
+      return m;
+    };
+    const rev1 = sumBy(directRev); const rev2 = sumBy(allocatedRev);
+    const pur1 = sumBy(directPur); const pur2 = sumBy(allocatedPur);
+
+    const entities = new Set<string | null>([...rev1.keys(), ...rev2.keys(), ...pur1.keys(), ...pur2.keys()]);
+    const result: Array<{
+      entity_code: string | null; total_revenue: number; total_purchase: number; gross_profit: number; gross_margin: number;
+    }> = [];
+    for (const entityCode of entities) {
+      const totalRevenue = (rev1.get(entityCode) ?? 0) + (rev2.get(entityCode) ?? 0);
+      const totalPurchase = (pur1.get(entityCode) ?? 0) + (pur2.get(entityCode) ?? 0);
+      const grossProfit = totalRevenue - totalPurchase;
+      const grossMargin = totalRevenue > 0 ? Math.round((grossProfit / totalRevenue) * 1000) / 10 : 0;
+      result.push({
+        entity_code: entityCode, total_revenue: totalRevenue, total_purchase: totalPurchase,
+        gross_profit: grossProfit, gross_margin: grossMargin,
+      });
+    }
+    // 会社コードの昇順（null は最後）で安定させる — 画面が並び替えずにそのまま使える
+    result.sort((a, b) => (a.entity_code ?? 'zzz').localeCompare(b.entity_code ?? 'zzz'));
+    return result;
+  }
+
   async delete(id: string, userId: string) {
     await execute(`UPDATE projects SET deleted_at=NOW(), updated_by=? WHERE id=? AND deleted_at IS NULL`, [userId, id]);
   }

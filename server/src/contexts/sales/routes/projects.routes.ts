@@ -175,6 +175,12 @@ router.get('/:id/summary', async (req, res) => {
   res.json({ success: true, data: await projectService.getSummary(req.params.id as string) });
 });
 
+// サマリーの会社別内訳（2026年10月の事業再編・粗利の2通り表示・P2 Round 1・§4.12）。
+// 全体の値（上の /summary）は変えず、別入口として内訳の配列を返す。
+router.get('/:id/summary-by-entity', async (req, res) => {
+  res.json({ success: true, data: await projectService.getSummaryByEntity(req.params.id as string) });
+});
+
 // 新規作成（ヨミ段階）
 router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
   const result = await projectService.create(req.body, req.user!.id);

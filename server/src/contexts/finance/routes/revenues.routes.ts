@@ -512,7 +512,9 @@ router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
    * **人が入れた期日は上書きしません**（渡ってきたらそちらが勝つ）。
    * 埋めるのは**空のときだけ**です。
    */
-  const dueDate = payment_due_date || await computeDueDate(recognition_date, customer_id);
+  // entity_code は下の INSERT が書く値（CURRENT_ENTITY_CODE）と揃える —
+  // 違う会社のお金のルールで期日を出すと、その行自身の計上会社と食い違う
+  const dueDate = payment_due_date || await computeDueDate(recognition_date, customer_id, CURRENT_ENTITY_CODE);
 
   // 本体 + 明細 + 案件想定金額の同期を単一トランザクションで実行 (途中失敗で明細が
   // 半端に残らないように)
