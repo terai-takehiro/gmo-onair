@@ -39,8 +39,11 @@ export function registerInboxTools(server: McpServer): void {
         'サーバーが案件を探して「どれくらい確からしいか」を付ける。**候補が複数あるときは付かない**。' +
         '案件に紐づかない経費 (家賃・回線・ソフトの月額など) は expense_kind="sga" を渡し、' +
         '分かれば payment_terms_days (何日サイト) と processing_month (何月処理・YYYY-MM) も渡す。' +
-        '\n\n【添付】attachments に PDF を base64 で渡すと BOX の「受領書類（メール）」フォルダに保存される。' +
-        '**原本なので必ず渡すこと**。BOX につないでいない環境では理由付きで記録だけ残る。',
+        '\n\n【添付】attachments で BOX の「受領書類（メール）」フォルダに保存される。**原本なので必ず渡すこと**。' +
+        'Gmail コネクタは添付の中身を返さない (名前と id だけ) ので、' +
+        '**gmail_message_id + gmail_attachment_id をそのまま渡す** — サーバーが Gmail API から取りに行く。' +
+        '手元にバイト列があるときだけ content_base64 を使う。' +
+        '返り値の attachments[].stored が false のときは failure_reason が付く (黙って消えない)。',
       inputSchema: {
         doc_type: z.enum(FINANCE_DOC_TYPES).describe('quote=見積書 / invoice=請求書 / order=注文書'),
         sender: z.string().optional().describe('送付者 (取引先・担当者名)'),
@@ -71,9 +74,17 @@ export function registerInboxTools(server: McpServer): void {
         attachments: z.array(z.object({
           filename: z.string().max(255).describe('ファイル名 (拡張子つき)'),
           mime_type: z.string().max(100).optional(),
-          content_base64: z.string().describe('中身を base64 で。1ファイル 10MB まで'),
+          content_base64: z.string().optional()
+            .describe('中身を base64 で。1ファイル 10MB まで。**手元にバイト列があるときだけ**'),
+          gmail_message_id: z.string().max(200).optional()
+            .describe('Gmail のメール id。**中身を持っていないときはこれと gmail_attachment_id を渡す** — サーバーが Gmail API から取りに行く'),
+          gmail_attachment_id: z.string().max(2000).optional()
+            .describe('Gmail の添付 id。⚠️ **呼ぶたびに変わる**ので、その場で get_message から取った新しいものを渡すこと (保存して後で使えない)'),
         })).max(10).optional()
-          .describe('メールの添付 (PDF など)。BOX の「受領書類（メール）」フォルダに保存する。**請求書の原本なので必ず渡すこと**'),
+          .describe(
+            'メールの添付 (PDF など)。BOX の「受領書類（メール）」フォルダに保存する。**請求書の原本なので必ず渡すこと**。'
+            + 'Gmail コネクタは添付の中身を返さないので、**gmail_message_id + gmail_attachment_id の組で渡す**のが通常。'
+            + '取りに行けなかったときは理由付きで記録だけ残る (NO_GMAIL_SCOPE なら Google 連携のやり直しが要る)。'),
         // Phase 2（prompt_version の全 kind 展開）。**任意のまま増やすだけ** — 毎時動く
         // メール取込スキルの後方互換が制約なので、必須にしない・既存引数は変えない
         prompt_version: z.string().max(100).optional()

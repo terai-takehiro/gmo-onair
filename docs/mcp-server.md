@@ -260,13 +260,16 @@ kind と運用契約:
 | `project_hint` | 当て先の手がかり（GLS 番号か案件名）。**AI は案件を決め打たない** — サーバーが探し、確からしさ（high/medium/low）と理由を付ける。**候補が複数あるときは付かない** |
 | `expense_kind` | `purchase`（案件の仕入）/ `sga`（販管費）。**決めきれないときは渡さない**（画面に「未定」と出て人が決める） |
 | `payment_terms_days` / `processing_month` | 販管費のとき。「30日サイト」なら 30。「翌月末払い」は日数で表せないので渡さない（月によって日数が変わる） |
-| `attachments` | メールの添付（`filename` / `mime_type` / `content_base64`）。**BOX の「受領書類（メール）」フォルダ**に入る。1ファイル 10MB・1通 10個まで。`pdf/png/jpg/jpeg/xlsx/xls/csv/zip` のみ |
+| `attachments` | メールの添付。**BOX の「受領書類（メール）」フォルダ**に入る。1ファイル 10MB・1通 10個まで、`pdf/png/jpg/jpeg/xlsx/xls/csv/zip` のみ。⚠️ **Gmail コネクタは添付の中身を返さない**（名前と id だけ・実測）ので、通常は `gmail_message_id` ＋ `gmail_attachment_id` を渡し、**サーバーが Gmail API から取りに行く**。手元にバイト列があるときだけ `content_base64`。**添付 id は呼ぶたびに変わる**ので、その場で取った新しいものを渡すこと |
 
 - **請求書の PDF は原本です。必ず渡してください。** 渡さないと ONAiR には金額だけが残り、
   原本はメールボックスの中だけになります
 - **入らなかった添付は黙って消えません。** 返り値の `attachments[].stored` が `false` の
-  ときは `failure_reason`（`NOT_CONFIGURED` / `UNAVAILABLE` / `TOO_LARGE` / `BAD_TYPE`）が付き、
-  画面も「BOX に入っていません」と出します
+  ときは `failure_reason`（`NOT_CONFIGURED` / `UNAVAILABLE` / `TOO_LARGE` / `BAD_TYPE` /
+  `NO_GMAIL_ACCESS` / `NO_GMAIL_SCOPE` / `GMAIL_UNAVAILABLE`）が付き、
+  画面も「BOX に入っていません」と出します。
+  **`NO_GMAIL_SCOPE` は人の作業が要ります** — 設定画面から Google 連携をやり直すと
+  `gmail.readonly` が付きます（既に連携済みの人には自動では付きません）
 - **見積書も取り込んでください。** 以前は「台帳に入るのは請求書だけ」として画面から
   外していましたが、**外すと「あの見積どうなった」を引く道が無くなります**。
   台帳（仕入・販管費）に入らないのは変わりません（画面がそう言います）

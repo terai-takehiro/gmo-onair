@@ -113,6 +113,44 @@ describe('BOX に入らなかった添付を黙って捨てない', () => {
   });
 });
 
+describe('Gmail の添付は「在り処」で受け取る', () => {
+  /*
+    メールの仕分けを Claude のルーティンで回すことにした結果、
+    **Gmail コネクタが添付の中身を返さない**ことが分かった（実測。返るのは
+    filename / id / mimeType だけで、FULL_CONTENT でも同じ）。
+    AI が在り処だけ渡し、**サーバーが Gmail API から取りに行く**。
+  */
+  it('中身が無くても、Gmail の id があれば取りに行く', () => {
+    const a = attach();
+    expect(a).toMatch(/att\.gmail_message_id && att\.gmail_attachment_id/);
+    expect(a).toMatch(/fetchGmailAttachment\(att\.gmail_message_id, att\.gmail_attachment_id\)/);
+  });
+
+  it('base64url を素の base64 として読まない（壊れた PDF は開くまで気づけない）', () => {
+    const g = read('server', 'src', 'shared', 'services', 'gmail-attachment.service.ts');
+    expect(g).toMatch(/replace\(\/-\/g, '\+'\)\.replace\(\/_\/g, '\/'\)/);
+  });
+
+  it('取りに行けなかった理由を分けて返す（NO_GMAIL_SCOPE は人の作業が要る）', () => {
+    const g = read('server', 'src', 'shared', 'services', 'gmail-attachment.service.ts');
+    for (const r of ['NO_GMAIL_ACCESS', 'NO_GMAIL_SCOPE', 'GMAIL_UNAVAILABLE']) {
+      expect(g).toContain(r);
+    }
+    // 401/403 は「スコープが無い」— 落ちたのではなく人が直す話
+    expect(g).toMatch(/status === 401 \|\| status === 403[\s\S]{0,200}NO_GMAIL_SCOPE/);
+    // 画面に出す文言も用意してある（理由コードだけ出しても誰も直せない）
+    expect(attach()).toContain('Google 連携をやり直してください');
+  });
+
+  it('認証の仕組みを2つ作らない（カレンダー連携の口を使い回す）', () => {
+    const g = read('server', 'src', 'shared', 'services', 'gmail-attachment.service.ts');
+    expect(g).toMatch(/getAccessTokenForAccount/);
+    // OAuth のスコープに gmail.readonly が入っている（入れないと必ず 403）
+    const o = read('server', 'src', 'contexts', 'schedule', 'routes', 'google-oauth.routes.ts');
+    expect(o).toContain('gmail.readonly');
+  });
+});
+
 describe('添付の中身を監査ログ・教師データに入れない', () => {
   it('base64 が 1000 文字の切り詰めを食い潰すと、差出人・件名・金額が消える', () => {
     const t = read('server', 'src', 'contexts', 'mcp', 'tools', 'inbox.tools.ts');

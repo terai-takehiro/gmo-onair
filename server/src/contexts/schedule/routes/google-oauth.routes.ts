@@ -30,7 +30,20 @@ const canUse = [requireAuth, requirePermission('sales', 'editor')] as const;
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 // calendar.events = イベントの読み取り + 書き込み (取込と ONAiR→Google の書き戻しの両方に必要)。
 // 旧 calendar.readonly で連携済みのアカウントは can_write=0 のまま → UI が再連携を促す。
-const SCOPE = 'https://www.googleapis.com/auth/calendar.events openid email';
+/**
+ * 求めるスコープ。
+ *
+ * `gmail.readonly` は**受領書類のメール添付を取りに行くため**（2026-09）。
+ * メールの仕分けを Claude のルーティンで回すようにしたところ、
+ * **Gmail コネクタが添付の中身を返さない**ことが分かったので、
+ * サーバーが Gmail API から取りに行きます（`gmail-attachment.service.ts`）。
+ *
+ * ⚠️ **既に連携済みの人には自動では付きません。** その人が設定画面から
+ * **連携し直す**と付きます。付いていないあいだ、添付は
+ * `failure_reason='NO_GMAIL_SCOPE'` として記録だけ残ります（黙って消えません）。
+ */
+const SCOPE = 'https://www.googleapis.com/auth/calendar.events '
+  + 'https://www.googleapis.com/auth/gmail.readonly openid email';
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 分
 
 // state = base64url(payload).hmac  (payload = userId:nonce:issuedAt)

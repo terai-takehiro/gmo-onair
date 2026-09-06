@@ -30,6 +30,7 @@
  */
 import { createHash } from 'node:crypto';
 import { isBoxConfigured, ensureSubfolder, uploadToFolder, getBoxFolderUrl } from './box';
+import { fetchGmailAttachment, type GmailFetchFailure } from './gmail-attachment.service';
 
 /** 受け皿フォルダの名前。**画面にもこの名前を出す**（探しに行けるように） */
 export const MAIL_INTAKE_FOLDER_NAME = '受領書類（メール）';
@@ -48,6 +49,8 @@ const ALLOWED_EXT = ['pdf', 'png', 'jpg', 'jpeg', 'xlsx', 'xls', 'csv', 'zip'] a
 export type AttachmentFailure =
   /** この環境は BOX につないでいない（検証・手元） */
   | 'NOT_CONFIGURED'
+  /** Gmail から中身を取りに行けなかった（`gmail-attachment.service.ts` の理由をそのまま） */
+  | GmailFetchFailure
   /** 受け皿フォルダを用意できなかった */
   | 'NO_FOLDER'
   /** BOX が応答しない・アップロードに失敗した */
@@ -62,8 +65,20 @@ export type AttachmentFailure =
 export interface IncomingAttachment {
   filename: string;
   mime_type?: string | null;
-  /** 中身（base64）。**渡されないと在り処だけの記録になる** */
+  /** 中身（base64）。手元にバイト列がある呼び出し（VPS の取込など）はこちら */
   content_base64?: string | null;
+  /**
+   * **中身の在り処（Gmail）。**
+   *
+   * Claude のルーティンから取り込むときはこちらです。
+   * **Gmail コネクタは添付の中身を返さない**（名前と id だけ。実測）ので、
+   * AI は在り処を渡し、**サーバーが Gmail API から取りに行きます**。
+   *
+   * ⚠️ **`gmail_attachment_id` は呼ぶたびに変わります。**
+   * その場で取った新しいものを渡すこと（保存して後で使えません）。
+   */
+  gmail_message_id?: string | null;
+  gmail_attachment_id?: string | null;
 }
 
 export interface StoredAttachment {
@@ -85,6 +100,9 @@ export function attachmentFailureLabel(reason: string | null | undefined): strin
     case 'TOO_LARGE': return `${Math.floor(MAX_ATTACHMENT_BYTES / 1024 / 1024)}MB を超えるため保存していません`;
     case 'BAD_TYPE': return `${ALLOWED_EXT.join(' / ')} 以外は保存していません`;
     case 'BAD_CONTENT': return '中身を読み取れませんでした';
+    case 'NO_GMAIL_ACCESS': return 'Gmail から取りに行けませんでした（Google 連携が無い環境です）';
+    case 'NO_GMAIL_SCOPE': return 'Gmail の読み取りが許可されていません（設定画面から Google 連携をやり直してください）';
+    case 'GMAIL_UNAVAILABLE': return 'Gmail が応答しなかったため取りに行けませんでした';
     default: return '';
   }
 }
@@ -143,6 +161,14 @@ export async function storeAttachment(
 
   if (!ALLOWED_EXT.includes(extOf(filename) as (typeof ALLOWED_EXT)[number])) return fail('BAD_TYPE');
 
+  /*
+    中身の取り方は2通り。**どちらも無ければ記録だけ残します**
+    （あとで人が BOX に置いたときに突き合わせられる）。
+
+     ① `content_base64` … 呼び出し側の手元にバイト列がある
+     ② `gmail_*_id`     … 在り処だけ渡され、**サーバーが Gmail から取りに行く**
+        （Claude のルーティンはこちら。Gmail コネクタは中身を返さないため）
+  */
   let buffer: Buffer;
   if (att.content_base64) {
     try {
@@ -152,8 +178,11 @@ export async function storeAttachment(
     }
     // Buffer.from は壊れた base64 でも投げずに短いものを返すので、長さで見る
     if (buffer.length === 0) return fail('BAD_CONTENT');
+  } else if (att.gmail_message_id && att.gmail_attachment_id) {
+    const got = await fetchGmailAttachment(att.gmail_message_id, att.gmail_attachment_id);
+    if (!got.buffer) return fail(got.failure ?? 'BAD_CONTENT');
+    buffer = got.buffer;
   } else {
-    // 中身が無いときは**記録だけ残す**（あとで人が BOX に置いたときに突き合わせられる）
     return fail('BAD_CONTENT');
   }
 

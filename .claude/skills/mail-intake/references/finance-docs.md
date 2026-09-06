@@ -78,21 +78,45 @@
 
 `processing_month` は「何月分の費用か」。書いていなければ**受信日の月**が既定です。
 
-## 添付（PDF）
+## 添付（PDF）— **中身ではなく在り処を渡す**
+
+⚠️ **Gmail コネクタは添付の中身を返しません。** `get_message` が返すのは
 
 ```
-attachments = [
-  { filename: '請求書_202608.pdf', mime_type: 'application/pdf', content_base64: '...' },
-]
+attachments: [{ filename: '請求書.pdf', id: 'ANGjdJ9…', mimeType: 'application/pdf' }]
 ```
 
+の**名前と id だけ**です（`FULL_CONTENT` で呼んでも同じ。実測で確認済み）。
+**サーバーが Gmail API から取りに行く**ので、在り処をそのまま渡してください。
+
+```
+attachments = [{
+  filename: '請求書_202608.pdf',
+  mime_type: 'application/pdf',
+  gmail_message_id: '<get_message で見たメールの id>',
+  gmail_attachment_id: '<attachments[].id>',
+}]
+```
+
+- ⚠️ **`gmail_attachment_id` は呼ぶたびに変わります。** 同じ添付を2回引くと別の文字列が
+  返ります（実測）。**その場で取った新しいものを渡すこと** — 保存して後で使えません。
 - **請求書の PDF は原本です。必ず渡してください。**
   渡さないと ONAiR には金額だけが残り、原本はメールボックスの中だけになります。
 - 受け取れるのは `pdf / png / jpg / jpeg / xlsx / xls / csv / zip`、**1ファイル 10MB まで**、
   1通あたり 10個まで。超えたものは理由付きで記録だけ残ります。
 - BOX の **「受領書類（メール）」フォルダ / 受信月** に入ります。
-  戻り値の `attachments[].stored` が `false` のときは `failure_reason` が付きます
-  （`NOT_CONFIGURED` は BOX につないでいない環境なので、そのままで構いません）。
+- 戻り値の `attachments[].stored` が `false` のときは `failure_reason` が付きます:
+
+  | 理由 | 意味・どうするか |
+  |---|---|
+  | `NO_GMAIL_SCOPE` | Gmail の読み取りが許可されていない。**人が設定画面から Google 連携をやり直す**必要がある。**報告に必ず書く** |
+  | `NO_GMAIL_ACCESS` | Google 連携が無い環境（検証・手元）。そのままでよい |
+  | `GMAIL_UNAVAILABLE` | Gmail が応答しなかった。次の実行で拾い直せる |
+  | `NOT_CONFIGURED` | BOX につないでいない環境。そのままでよい |
+  | `TOO_LARGE` / `BAD_TYPE` | 10MB 超・受け取らない種類。人が BOX に手で置く |
+
+  **`content_base64` は、手元にバイト列があるときだけ**使います
+  （Gmail コネクタ経由の取込では使いません）。
 
 ### パスワード別送（PPAP）
 
