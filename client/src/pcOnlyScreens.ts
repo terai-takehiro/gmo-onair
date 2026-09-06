@@ -180,6 +180,10 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   //   M11 で `CLIENT_MOBILE_OK` へ移した。** 理由は下の `CLIENT_MOBILE_OK` を参照
   { path: '/settings/data-viewer', what: 'データビューア', why: 'データベースの中身をそのまま出す道具です。', hidden: true },
   { path: '/settings/db-backups', what: 'DBバックアップ', why: '復元は取り消せない操作なので、手元が広い場所で行います。', hidden: true },
+  // 2026年10月の事業再編（社名変更・計上会社の2社化・案件番号の改番）の下準備。
+  // 案件の仕事に出てこないシステム管理者向けの道具なので、決算の取込・DB バックアップと
+  // 同じ扱いにする（データビューア・DBバックアップの2枚と同じ理由の形）
+  { path: '/settings/reorg', what: '会社と切替', why: '10月の事業再編で使う会社マスターと切替状態を扱う管理ツールです。', hidden: true },
 
   // ── プロジェクト管理（工事・構築）────────────────────────
   //   **`new` を `:id` より前に置くこと**（後ろだと「詳細」と案内される）
