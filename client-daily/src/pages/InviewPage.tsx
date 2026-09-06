@@ -301,6 +301,9 @@ export default function InviewPage() {
         <InviewDialog
           key={editing?.id ?? 'new'}
           initial={editing}
+          // 開催日をまたぐ一覧から開くので、候補は**登録済みの回ぜんぶ**。
+          // ここで新しい回を打てば新しい開催日ができる（候補は打ち直しを省くだけ）
+          sessionOptions={[...new Set(all.map((r) => r.session_label))]}
           onClose={() => { setAdding(false); setEditing(null); }}
         />
       )}

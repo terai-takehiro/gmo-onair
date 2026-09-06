@@ -804,7 +804,15 @@ export default function DataViewerPage() {
           </p>
           {schema && editingRow && (
             <div className="space-y-3">
-              {schema.map((col) => {
+              {/*
+                **編集できる列を先に、編集できないシステム列を後ろにまとめる。**
+                DB のカラム順のまま並べると id / created_at / 認証情報のような
+                触れない欄が入力欄の間に挟まり、そのたびに手が止まる。
+                並べ替えているのは描く順だけで、送る中身は列名で持つ
+                `editFormValues` が決めるので変わらない（`sort` は安定なので、
+                かたまりの中の並びは今までどおり DB のカラム順）。
+              */}
+              {[...schema].sort((a, b) => Number(!a.editable) - Number(!b.editable)).map((col) => {
                 const isLong = col.type === 'text' || col.type === 'jsonb' || col.type === 'json';
                 const value = editFormValues[col.name] ?? "";
                 return (

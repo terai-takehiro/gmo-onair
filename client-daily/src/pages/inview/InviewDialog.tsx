@@ -23,11 +23,19 @@ import { companionsOf } from './logic';
 const TEXTAREA = 'mt-1 w-full rounded-control border border-border bg-background px-3 py-2 text-sub';
 
 export function InviewDialog({
-  initial, presetSessionLabel, onClose,
+  initial, presetSessionLabel, sessionOptions, onClose,
 }: {
   initial: InviewRegistration | null;
   /** 新規登録をその日の回に入れるための初期値 (日ページから開いたとき) */
   presetSessionLabel?: string;
+  /**
+   * **その日 (一覧からは全日) に実在する回のラベル。** 候補として出すだけで、
+   * 打ち込みは今までどおり自由 — 回の書式は「日付・時間帯・対象」を1行に
+   * 詰めたもので、**新しい回はこの欄に打つことで生まれる**（日付を変えると
+   * 別の日のページに移る）。`select` に閉じると新しい回を作れなくなるので、
+   * `datalist` で候補を添えるだけにしてある。
+   */
+  sessionOptions?: string[];
   onClose: () => void;
 }) {
   const create = useCreateInview();
@@ -101,15 +109,19 @@ export function InviewDialog({
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
       title={initial ? '来場予約を編集' : '来場予約を追加'}
-      // 旧幅 sm:max-w-2xl（672px）。名前〜郵便番号まで9項目を2列グリッドで並べる
+      // 旧幅 sm:max-w-2xl（672px）。名乗り・連絡先・住所を2列グリッドで並べる
       // 複合フォームなので既定の640pxには押し込めず wide を渡す
       wide
+      // **Enter で保存できるようにする**（欄のほとんどが1行の入力欄で、
+      // 受付は片手で打ちながら進める画面）。送信ボタンは `type="submit"` にして
+      // `onClick` を外す — 両方あると二重に送信される（`_form-order.md` 4節）
+      onSubmit={(e) => { e.preventDefault(); submit(); }}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" className="min-h-tap" onClick={onClose}>キャンセル</Button>
+          <Button type="button" variant="outline" className="min-h-tap" onClick={onClose}>キャンセル</Button>
           <Button
+            type="submit"
             className="min-h-tap"
-            onClick={submit}
             disabled={pending || !f.name?.trim() || !f.session_label?.trim()}
           >
             {pending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
@@ -119,28 +131,59 @@ export function InviewDialog({
       }
     >
       <div className="flex flex-col gap-3">
+        {/* 段1 どの回にぶら下げるか。**先頭のまま動かさない** — この1行で
+            開催日まで決まる（日付を変えると別の日のページに移る） */}
         <div>
-          <Label>参加希望の回 <span className="text-destructive">*</span></Label>
+          <Label htmlFor="inview-session">参加希望の回 <span className="text-destructive">*</span></Label>
           <Input
+            id="inview-session"
+            // **その日にある回を候補に出す。** 1日に2回以上あると自動では
+            // 埋まらず、書式を丸ごと打ち直させていた（打ち間違えると別の回になる）
+            list={sessionOptions && sessionOptions.length > 0 ? 'inview-session-options' : undefined}
             value={f.session_label ?? ''}
             onChange={upd('session_label')}
             placeholder="例: 2026/7/29(水)14:00-17:00｜イベント主催者向け"
           />
+          {sessionOptions && sessionOptions.length > 0 && (
+            <datalist id="inview-session-options">
+              {sessionOptions.map((s) => <option key={s} value={s} />)}
+            </datalist>
+          )}
           <p className="text-note mt-1 text-muted-foreground">
             日付・時間帯・対象は自動で読み取ります（日付を変えると別の日のページに移ります）
           </p>
         </div>
 
+        {/* 段2 誰か（名乗り）。一覧の見出しになる欄を先に埋めきる */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="名前" required value={f.name ?? ''} onChange={upd('name')} placeholder="生城山 博敏" />
           <Field label="ふりがな" value={f.furigana ?? ''} onChange={upd('furigana')} />
           <Field label="会社情報" value={f.company ?? ''} onChange={upd('company')} placeholder="株式会社◯◯ ◯◯部" />
           <Field label="役職" value={f.role ?? ''} onChange={upd('role')} />
+        </div>
+
+        {/* 連絡先。**名乗りの直後にまとめる**（受付から折り返す先） */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="メールアドレス" value={f.email ?? ''} onChange={upd('email')} />
           <Field label="電話番号" value={f.phone ?? ''} onChange={upd('phone')} />
           <Field label="携帯番号" value={f.mobile ?? ''} onChange={upd('mobile')} />
           <Field label="FAX番号" value={f.fax ?? ''} onChange={upd('fax')} />
+        </div>
+
+        {/* **郵便番号と住所は対で読む欄**なので横に並べる。以前は
+            郵便番号の隣が「ご参加人数」で、住所だけ次の行に独りで落ちていた */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="郵便番号" value={f.postal_code ?? ''} onChange={upd('postal_code')} placeholder="1020083" />
+          <Field label="住所" value={f.address ?? ''} onChange={upd('address')} />
+        </div>
+
+        {/* 段3 いつ来るか */}
+        <Field label="ご来場予定時間" value={f.visit_time ?? ''} onChange={upd('visit_time')} />
+
+        {/* 段4 来場する人。**人数と同行者は必ず隣に置く** —
+            この2つの差で「氏名未登録N名」が出る（`AttendeeCard.tsx`）ので、
+            離すと片方だけ直した予約が生まれる */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <Label>ご参加人数</Label>
             <Input
@@ -150,12 +193,6 @@ export function InviewDialog({
               onChange={(e) => setF((p) => ({ ...p, party_size: Number(e.target.value) || 1 }))}
             />
           </div>
-        </div>
-
-        <Field label="住所" value={f.address ?? ''} onChange={upd('address')} />
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="ご来場予定時間" value={f.visit_time ?? ''} onChange={upd('visit_time')} />
           <div>
             <Label>同行者 (1行に1名)</Label>
             <textarea
@@ -171,6 +208,7 @@ export function InviewDialog({
           </div>
         </div>
 
+        {/* 段6 無くても保存できるものは最後にまとめる */}
         <div>
           <Label>ご興味・ご相談事項</Label>
           <textarea

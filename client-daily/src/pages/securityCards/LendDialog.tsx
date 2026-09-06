@@ -64,10 +64,13 @@ export function LendDialog({ card, onClose }: { card: SecurityCard; onClose: () 
     <Shell
       title={`No.${card.card_no}・${card.level_label} を貸す`}
       onClose={onClose}
+      // カウンターで相手を前にして打つ画面なので Enter で送れるようにする。
+      // 送信ボタンは `type="submit"`・`onClick` は外す（両方だと二重送信）
+      onSubmit={(e) => { e.preventDefault(); submit(); }}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" className="min-h-tap" onClick={onClose}>キャンセル</Button>
-          <Button className="min-h-tap gap-1.5" onClick={submit} disabled={lend.isPending}>
+          <Button type="button" variant="outline" className="min-h-tap" onClick={onClose}>キャンセル</Button>
+          <Button type="submit" className="min-h-tap gap-1.5" disabled={lend.isPending}>
             {lend.isPending
               ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               : <ArrowRightLeft className="h-4 w-4" aria-hidden="true" />}
@@ -77,12 +80,27 @@ export function LendDialog({ card, onClose }: { card: SecurityCard; onClose: () 
       }
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="貸出先の会社" value={company} onChange={setCompany} placeholder="例：株式会社〇〇" />
+        {/*
+          並びは「誰に渡すか → いつ返るか → 何のために → 誰が渡したか」。
+          **唯一の必須である担当者を先頭に置く**（ここが空だと、あとから
+          誰に渡したのか分からなくなる）。以前は任意の「貸出先の会社」が先頭で、
+          必須の欄が2番目・返却の予定日が5番目に沈んでいた。
+        */}
         <Field label="担当者" required value={person} onChange={setPerson} placeholder="例：山田 太郎" />
+        <Field label="貸出先の会社" value={company} onChange={setCompany} placeholder="例：株式会社〇〇" />
         <Field label="連絡先" value={contact} onChange={setContact} placeholder="電話 / メール" />
-        <Field label="使いみち" value={purpose} onChange={setPurpose} placeholder="例：収録の立ち会い" />
+        {/* 期間は 開始 → 終了 の順（`_form-order.md` 2-3）。連絡先の次に置くのは、
+            返却の予定日が「返却遅延」の絞り込みの唯一の材料だから */}
         <Field label="貸した日" type="date" value={lentOn} onChange={setLentOn} />
-        <Field label="返却の予定日" type="date" value={dueOn} onChange={setDueOn} />
+        <div>
+          <Field label="返却の予定日" type="date" value={dueOn} onChange={setDueOn} />
+          {/* **空欄のまま貸すと一覧の「返却遅延」に一生出ない。** 任意の欄だが、
+              入れないと何が起きるかをここで言う（一覧を見て気づける形にする） */}
+          <p className="text-note mt-1 text-muted-foreground">
+            空欄のままだと、返ってこなくても一覧の「返却遅延」に出ません
+          </p>
+        </div>
+        <Field label="使いみち" value={purpose} onChange={setPurpose} placeholder="例：収録の立ち会い" />
         <div className="sm:col-span-2">
           <Label htmlFor="lend-handler">渡した人（ONAiR のメンバー）</Label>
           <select
@@ -120,10 +138,11 @@ export function ReturnDialog({ card, onClose }: { card: SecurityCard; onClose: (
     <Shell
       title={`No.${card.card_no}・${card.level_label} の返却を記録`}
       onClose={onClose}
+      onSubmit={(e) => { e.preventDefault(); submit(); }}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" className="min-h-tap" onClick={onClose}>キャンセル</Button>
-          <Button className="min-h-tap gap-1.5" onClick={submit} disabled={ret.isPending}>
+          <Button type="button" variant="outline" className="min-h-tap" onClick={onClose}>キャンセル</Button>
+          <Button type="submit" className="min-h-tap gap-1.5" disabled={ret.isPending}>
             {ret.isPending
               ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               : <Undo2 className="h-4 w-4" aria-hidden="true" />}
@@ -141,9 +160,9 @@ export function ReturnDialog({ card, onClose }: { card: SecurityCard; onClose: (
           <DateRange start={card.lent_on} end={card.due_on} className="text-sub" />
         </p>
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="返却した日" type="date" value={returnedOn} onChange={setReturnedOn} />
-      </div>
+      {/* 欄が1つしかないので2列グリッドで囲まない（貸出フォームから写した跡で、
+          PC では日付欄が半分の幅に縮んで右半分が空いていた） */}
+      <Field label="返却した日" type="date" value={returnedOn} onChange={setReturnedOn} />
       <div>
         <Label htmlFor="return-notes">返却のときのメモ</Label>
         <textarea id="return-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={TEXTAREA} placeholder="任意" />
@@ -152,11 +171,16 @@ export function ReturnDialog({ card, onClose }: { card: SecurityCard; onClose: (
   );
 }
 
-function Shell({ title, onClose, footer, children }: {
-  title: string; onClose: () => void; footer: React.ReactNode; children: React.ReactNode;
+function Shell({ title, onClose, footer, onSubmit, children }: {
+  title: string;
+  onClose: () => void;
+  footer: React.ReactNode;
+  /** 渡すと本文とフッターが1つの `<form>` に入り、Enter と `type="submit"` が効く */
+  onSubmit?: (e: React.FormEvent<HTMLFormElement>) => void;
+  children: React.ReactNode;
 }) {
   return (
-    <FormDialog open onOpenChange={(o) => { if (!o) onClose(); }} title={title} footer={footer}>
+    <FormDialog open onOpenChange={(o) => { if (!o) onClose(); }} title={title} footer={footer} onSubmit={onSubmit}>
       <div className="flex flex-col gap-3">{children}</div>
     </FormDialog>
   );

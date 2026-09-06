@@ -63,10 +63,12 @@ export function TicketDialog({ inquiry, onClose }: { inquiry: MiscInquiry; onClo
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
       title="タスクにする"
+      // 打つ欄は「やること」1行だけなので Enter で送れるようにする
+      onSubmit={(e) => { e.preventDefault(); submit(); }}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>キャンセル</Button>
-          <Button onClick={submit} disabled={make.isPending || !title.trim()}>
+          <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>
+          <Button type="submit" disabled={make.isPending || !title.trim()}>
             {make.isPending
               ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
               : <ListChecks className="mr-2 h-4 w-4" aria-hidden="true" />}
@@ -80,6 +82,14 @@ export function TicketDialog({ inquiry, onClose }: { inquiry: MiscInquiry; onClo
           <strong className="font-bold">案件管理のタスクが1本できます。</strong>
           案件には紐づきません（この用件は案件の外の仕事なのでここに来ています）。
         </p>
+        {/* **元の情報は入力欄より前に置く。** 「やること」の初期値は AI の推奨
+            アクションか要約で、それを書き直すかどうかを決める材料がこれ。
+            後ろにあると、材料を読む前に書き換えることになる */}
+        <div className="rounded-control-lg border border-border bg-surface-subtle p-3">
+          <p className="text-note text-muted-foreground">元の情報</p>
+          <p className="text-sub mt-0.5">{inquiry.summary}</p>
+        </div>
+
         <div>
           <Label>やること *</Label>
           <Input
@@ -109,11 +119,6 @@ export function TicketDialog({ inquiry, onClose }: { inquiry: MiscInquiry; onClo
             <Label>期限</Label>
             <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
           </div>
-        </div>
-
-        <div className="rounded-control-lg border border-border bg-surface-subtle p-3">
-          <p className="text-note text-muted-foreground">元の情報</p>
-          <p className="text-sub mt-0.5">{inquiry.summary}</p>
         </div>
       </div>
     </FormDialog>

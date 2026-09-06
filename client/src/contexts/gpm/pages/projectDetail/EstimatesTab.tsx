@@ -269,10 +269,12 @@ function NewEstimateDialog({ projectId, onClose }: { projectId: string; onClose:
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
       title="見積をつくる"
+      // Enter で保存する（繰り返し入力を持たないフォーム）。送信は `type="submit"` の1本だけ
+      onSubmit={(e) => { e.preventDefault(); if (!create.isPending) create.mutate(); }}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>キャンセル</Button>
-          <Button onClick={() => create.mutate()} disabled={create.isPending}>
+          <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>
+          <Button type="submit" disabled={create.isPending}>
             {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             つくる
           </Button>
@@ -284,6 +286,18 @@ function NewEstimateDialog({ projectId, onClose }: { projectId: string; onClose:
             <strong className="font-bold">提出先ごとに1本</strong>です。同じ工事でも、
             自社への社内見積と PM 会社へ出す見積は中身も金額も別物になります。
           </p>
+          {/* 件名を先頭に上げる。**一覧でこの見積を見分ける見出し**になるのに、
+              既定値のある「提出先」より下にあり、素通りすると「（件名なし）」で並んでいた
+              （`docs/design/v4/_form-order.md` の段2「何か（同定）」）。
+              ⚠️ 必須にはしていない — 空のまま作られた見積が実データにどれだけあるかを
+              確かめてから決める */}
+          <div>
+            <Label>件名</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="AV設備 一式" />
+            <p className="text-sub-sm mt-1 text-muted-foreground">
+              一覧の見出しになります。空のままだと「（件名なし）」と並びます。
+            </p>
+          </div>
           <div>
             <Label>提出先 *</Label>
             <Select value={submitTo} onValueChange={(v) => setSubmitTo(v as 'self' | 'client' | 'pm')}>
@@ -294,10 +308,6 @@ function NewEstimateDialog({ projectId, onClose }: { projectId: string; onClose:
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div>
-            <Label>件名</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="AV設備 一式" />
           </div>
           <div>
             <Label>有効期限</Label>

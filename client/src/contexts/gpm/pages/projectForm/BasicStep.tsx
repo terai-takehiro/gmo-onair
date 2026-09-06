@@ -38,6 +38,14 @@ export interface BasicStepProps {
   onChange: (patch: Partial<BasicValues>) => void;
   users: { id: string; name: string }[];
   customers: { id: string; name: string }[];
+  /**
+   * 着手日。**3段目（`PreviewStep`）と同じ値を両方から触る。**
+   * 編集ダイアログでは着手日が基本情報の一部なのに、新規作成では3段目にしか
+   * 無く、同じ値が新規と編集で違う場所にあった（`docs/design/v4/_form-order.md`）。
+   * 3段目は「入れた着手日で工程がこう並ぶ」を見ながら直す場所として残す。
+   */
+  startedOn: string;
+  onStartedOn: (v: string) => void;
 }
 
 const KINDS: GpmKind[] = ['self_build', 'group_order'];
@@ -47,7 +55,7 @@ const KINDS: GpmKind[] = ['self_build', 'group_order'];
  */
 const STAGES: ProjectStage[] = ['a_won', 'b_verbal', 'c_proposal', 'neta'];
 
-export function BasicStep({ values, onChange, users, customers }: BasicStepProps) {
+export function BasicStep({ values, onChange, users, customers, startedOn, onStartedOn }: BasicStepProps) {
   return (
     <div className="rounded-card space-y-4 border border-border bg-card p-4 lg:p-5">
       <div>
@@ -129,16 +137,34 @@ export function BasicStep({ values, onChange, users, customers }: BasicStepProps
           </p>
         </div>
         <div>
-          <Label htmlFor="gpm-pmco">PM会社</Label>
-          <Input
-            id="gpm-pmco"
-            value={values.pmCompany}
-            onChange={(e) => onChange({ pmCompany: e.target.value })}
-            placeholder="自社PM のときは空のまま"
-          />
-          <p className="text-sub-sm mt-1 text-muted-foreground">
-            間に PM 会社が入るときだけ書きます。空なら自社 PM です。
-          </p>
+          {/*
+            **PM会社はグループ受託のときだけ**（冒頭の注記のとおり、区分で
+            そのあとの入力が変わる）。左隣の依頼元は区分で出し分けているのに
+            ここだけ分岐が無く、自社構築でも意味のない欄が並んでいた。
+            欄をただ消すと行の高さが詰まって見えるので、代わりに1行を置く。
+          */}
+          {values.kind === 'group_order' ? (
+            <>
+              <Label htmlFor="gpm-pmco">PM会社</Label>
+              <Input
+                id="gpm-pmco"
+                value={values.pmCompany}
+                onChange={(e) => onChange({ pmCompany: e.target.value })}
+                placeholder="自社PM のときは空のまま"
+              />
+              <p className="text-sub-sm mt-1 text-muted-foreground">
+                間に PM 会社が入るときだけ書きます。空なら自社 PM です。
+              </p>
+            </>
+          ) : (
+            <>
+              <Label>PM会社</Label>
+              <p className="text-list min-h-tap flex items-center lg:min-h-[36px]">自社PM です</p>
+              <p className="text-sub-sm mt-1 text-muted-foreground">
+                自社構築なので、間に入る PM 会社はありません。
+              </p>
+            </>
+          )}
         </div>
       </div>
 
@@ -171,6 +197,23 @@ export function BasicStep({ values, onChange, users, customers }: BasicStepProps
             案件と同じ段です。GLS 番号は受注してから採ります。
           </p>
         </div>
+      </div>
+
+      {/* 着手日はここ（基本情報）にも置く。編集ダイアログでは基本情報の一部で、
+          新規のときだけ3段目にしか無いのは、同じ値の置き場所が2通りあるのと同じ。
+          3段目の欄と同じ state を触るので、どちらで直しても同じ値になる */}
+      <div>
+        <Label htmlFor="gpm-started">着手日</Label>
+        <Input
+          id="gpm-started"
+          type="date"
+          className="w-full sm:w-52"
+          value={startedOn}
+          onChange={(e) => onStartedOn(e.target.value)}
+        />
+        <p className="text-sub-sm mt-1 text-muted-foreground">
+          入れなくても作れます。入れると「着手日と工程の確認」の段で日付の並びを見られます。
+        </p>
       </div>
 
       <div>

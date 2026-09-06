@@ -83,10 +83,12 @@ export function EditProjectDialog({
       onOpenChange={(o) => { if (!o) onClose(); }}
       title="プロジェクトを編集"
       size="lg"
+      // Enter で保存する（繰り返し入力を持たないフォーム）。送信は `type="submit"` の1本だけ
+      onSubmit={(e) => { e.preventDefault(); if (name.trim() && !save.isPending) save.mutate(); }}
       footer={
         <FormDialogFooter>
-          <Button variant="outline" onClick={onClose}>キャンセル</Button>
-          <Button onClick={() => save.mutate()} disabled={!name.trim() || save.isPending}>
+          <Button type="button" variant="outline" onClick={onClose}>キャンセル</Button>
+          <Button type="submit" disabled={!name.trim() || save.isPending}>
             {save.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
             編集
           </Button>
@@ -98,26 +100,20 @@ export function EditProjectDialog({
         <Label htmlFor="ep-name">プロジェクト名</Label>
         <Input id="ep-name" value={name} onChange={(e) => setName(e.target.value)} />
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="ep-kind">区分</Label>
-          <Select value={kind} onValueChange={(v) => setKind(v as GpmKind)}>
-            <SelectTrigger id="ep-kind"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {KINDS.map((k) => <SelectItem key={k} value={k}>{KIND_LABEL[k]}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor="ep-pm">自社担当（PM）</Label>
-          <Select value={pmUserId || '_none_'} onValueChange={(v) => setPmUserId(v === '_none_' ? '' : v)}>
-            <SelectTrigger id="ep-pm"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_none_">未定</SelectItem>
-              {(users.data ?? []).map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
+      {/*
+        並びは 名前 → 区分 → 会社（依頼元・PM会社）→ 自社担当 → 期間 → メモ。
+        **新規作成の `BasicStep` と同じ並び**にしてある（同じ項目が新規と編集で
+        違う場所にあると、直しに来た人が毎回探し直す。`docs/design/v4/_form-order.md`）。
+        読み取り専用の依頼元を入力欄の間に挟まないよう、会社の情報をひとまとまりにした。
+      */}
+      <div>
+        <Label htmlFor="ep-kind">区分</Label>
+        <Select value={kind} onValueChange={(v) => setKind(v as GpmKind)}>
+          <SelectTrigger id="ep-kind"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {KINDS.map((k) => <SelectItem key={k} value={k}>{KIND_LABEL[k]}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
@@ -139,6 +135,17 @@ export function EditProjectDialog({
             placeholder="自社PM のときは空のまま"
           />
         </div>
+      </div>
+      {/* 「誰が」→「いつから」の順にするため、自社担当は着手日の直前に置く */}
+      <div>
+        <Label htmlFor="ep-pm">自社担当（PM）</Label>
+        <Select value={pmUserId || '_none_'} onValueChange={(v) => setPmUserId(v === '_none_' ? '' : v)}>
+          <SelectTrigger id="ep-pm"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_none_">未定</SelectItem>
+            {(users.data ?? []).map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div>

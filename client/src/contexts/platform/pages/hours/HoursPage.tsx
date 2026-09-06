@@ -180,6 +180,22 @@ export default function HoursPage() {
                       {WEEKDAYS[wd]}
                     </span>
 
+                    {/* **「開ける／休みにする」は時刻より先。** 実際の手順が
+                        「この曜日は開けるのか」→「では何時から何時か」の順で、
+                        時刻の後ろにあると、時刻を選んでから休みにする（＝選んだ
+                        時刻が消える）操作になっていた */}
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => setDay(wd, closedDay
+                          ? { open_time: '10:00', close_time: '18:00' }
+                          : { open_time: null, close_time: null })}
+                        className="text-note min-h-tap rounded-note shrink-0 border border-border bg-card px-2.5 font-bold text-muted-foreground lg:min-h-[32px]"
+                      >
+                        {closedDay ? '開ける' : '休みにする'}
+                      </button>
+                    )}
+
                     {closedDay ? (
                       <span className="text-sub w-[160px] shrink-0 text-muted-foreground">休み</span>
                     ) : (
@@ -202,18 +218,6 @@ export default function HoursPage() {
                           {TIME_CHOICES.map((t) => <option key={t} value={t}>{t}</option>)}
                         </select>
                       </span>
-                    )}
-
-                    {canEdit && (
-                      <button
-                        type="button"
-                        onClick={() => setDay(wd, closedDay
-                          ? { open_time: '10:00', close_time: '18:00' }
-                          : { open_time: null, close_time: null })}
-                        className="text-note min-h-tap rounded-note shrink-0 border border-border bg-card px-2.5 font-bold text-muted-foreground lg:min-h-[32px]"
-                      >
-                        {closedDay ? '開ける' : '休みにする'}
-                      </button>
                     )}
 
                     <span className="flex shrink-0 gap-1">
