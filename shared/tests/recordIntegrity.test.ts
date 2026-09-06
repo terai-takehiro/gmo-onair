@@ -53,9 +53,13 @@ describe('確定した記録を守る', () => {
     expect(OPS).toMatch(/status = 'draft', reviewed_at = NULL, reviewed_by = NULL/);
     expect(read('server', 'src', 'contexts', 'dailyops', 'routes', 'reports.routes.ts'))
       .toMatch(/router\.post\('\/reports\/:id\/reopen'/);
-    // 押す前に止める（ニュース側は送り先の週報の状態を見る）
-    expect(read('client-daily', 'src', 'pages', 'DailyNewsPage.tsx'))
-      .toMatch(/weeklyLocked = weekly\.data\?\.status === 'published'/);
+    // 押す前に止める（ニュース側は送り先の週報の状態を見る）。
+    // v4.5.26 で日別ページ→月表示に作り替えた際、月をまたぐと行ごとに送り先の週が
+    // 違うため、判定はページ単位（旧 `DailyNewsPage.tsx` の `weekly.data?.status`）
+    // から**行ごと**（サーバーが計算する `weekly_locked`）に移した。
+    expect(OPS).toMatch(/kind = 'weekly_activity' AND status = 'published'/);
+    expect(read('client-daily', 'src', 'pages', 'news', 'NewsRows.tsx'))
+      .toMatch(/weeklyLocked = !!item\.weekly_locked/);
   });
 
   it('週報の記録者に UUID を入れない', () => {

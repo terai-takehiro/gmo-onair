@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from './api';
-import type { OpsReport, OpsReportKind } from './types';
+import type { OpsReport, OpsReportDayGroup, OpsReportKind } from './types';
 
 // dailyops API の react-query フック集
 
@@ -33,12 +33,27 @@ export function useReportByPeriod(kind: OpsReportKind, periodKey: string) {
   });
 }
 
+/**
+ * 月表示 (デイリーニュース報告)。日ごとにまとめた行を1回で取る
+ * (`GET /dailyops/reports/items-by-month`)。
+ */
+export function useReportItemsByMonth(kind: OpsReportKind, month: string) {
+  return useQuery({
+    queryKey: ['ops-report-items-by-month', kind, month],
+    queryFn: () =>
+      api.get('/dailyops/reports/items-by-month', { params: { kind, month } })
+        .then((r) => r.data.data as OpsReportDayGroup[]),
+    refetchOnMount: 'always',
+  });
+}
+
 function useInvalidateReports() {
   const qc = useQueryClient();
   return () => {
     qc.invalidateQueries({ queryKey: ['ops-reports'] });
     qc.invalidateQueries({ queryKey: ['ops-report'] });
     qc.invalidateQueries({ queryKey: ['ops-report-period'] });
+    qc.invalidateQueries({ queryKey: ['ops-report-items-by-month'] });
   };
 }
 

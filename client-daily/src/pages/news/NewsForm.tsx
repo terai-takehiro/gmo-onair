@@ -30,12 +30,22 @@ export interface NewsFields {
 }
 
 export function NewsForm({
-  initial, onCancel, onSubmit, submitting,
+  initial, onCancel, onSubmit, submitting, dateValue, onDateChange, dateMax,
 }: {
   initial?: Partial<NewsFields>;
   onCancel: () => void;
   onSubmit: (fields: NewsFields) => void;
   submitting: boolean;
+  /**
+   * 追加する日。月表示（`DailyNewsPage.tsx`）になり「いま開いている日」が
+   * 決まらなくなったため、**追加のときだけ**日付を選べるようにする
+   * （`onDateChange` を渡したときだけ欄が出る）。編集では出さない —
+   * 行の所属日をあとから動かす操作は無い（別の日へ移すのではなく、
+   * 消して入れ直す）。
+   */
+  dateValue?: string;
+  onDateChange?: (v: string) => void;
+  dateMax?: string;
 }) {
   const [category, setCategory] = useState(initial?.category ?? '');
   const [content, setContent] = useState(initial?.content ?? '');
@@ -79,6 +89,18 @@ export function NewsForm({
       }
     >
       <div className="flex flex-col gap-3">
+        {onDateChange && (
+          <div>
+            <label className="text-th text-muted-foreground" htmlFor="news-date">日付 *</label>
+            <Input
+              id="news-date"
+              type="date"
+              value={dateValue ?? ''}
+              max={dateMax}
+              onChange={(e) => e.target.value && onDateChange(e.target.value)}
+            />
+          </div>
+        )}
         {/*
           **唯一の必須である「1行の要約」を先頭に置く**（一覧に並ぶのはこの文字）。
           以前は任意の分類・URL のあとで、報告したい中身を書く前に

@@ -3,40 +3,60 @@
  *
  * AI が業界のニュースを毎日集め、人が「注目度 (1〜5)」を付けたり足したりする画面。
  *
- * ── v4 で変えたところ ────────────────────────────────────────
+ * ── v4.5.26 で「日ごとのページ」から「月ごとの1ページ」に集約した ───
  *
- * ・**表と カード の二重実装をやめた** (`news/NewsRows.tsx` の1本に)。
- *   列幅も 52px / 64px / 90px / 180px の直書きから7段に寄せた
- * ・**絞り込みチップを足した。** 20件を超える日があり、
- *   「注目度が付いているものだけ見たい」「AI の話題だけ見たい」が
- *   目で拾う作業になっていた。**押す前に件数が見える**形にする
- * ・`window.confirm` を `confirmAction` に置き換えた (削除は元に戻せない)
+ * 以前は日付ナビで1日ぶんだけを表示しており、前の日を見るには1日ずつ戻る
+ * しかなかった（過去分を見比べる用途に向いていなかった）。月単位で1ページに
+ * 集約し、日付は表の中の見出し行（`NewsDayHeader`）として並べる、
+ * ひと続きの「モダンな表」の形にした（`GET /dailyops/reports/items-by-month`）。
  *
- * ── 「週報に送る」(モックのボタン・migration 167) ────────────
+ *   ・**機能はそのまま。** 絞り込みチップ・注目度・週報へ送る・編集・削除・
+ *     「確認した」はすべて残す。絞り込みは月内の全行を対象に数える
+ *   ・**「確認した」はレポート単位（＝日ごと）のまま。** 月をまたいでも
+ *     「その日の記録に目を通したか」の意味は変わらないため、日付の見出し行に残した
+ *   ・**「週報へ送る」の可否（送り先の週が確定済みか）は行ごとに判定する。**
+ *     月をまたぐと行によって送り先の週が違うので、ページ単位の1つの値では表せない
+ *     （サーバー側で行ごとに `weekly_locked` を計算して返す）
+ *   ・**ニュースを追加する画面には日付欄を足した。** 「いま開いている日」が
+ *     無くなったため、どの日の記録として登録するかを選べるようにした
+ *     （既定値は今月を見ているときは今日、それ以外はその月の末日）
  *
- * 行の右にあります。押すと**その日が属する週の週報へ写します**
- * （移すのではなく写す — ニュースはその日の記録として残り続けるため）。
- * 週は**ニュースの日付**で決まるので、金曜のぶんを月曜に送っても
- * 先週の週報に入ります。2回押しても増えません。
+ * ── AI からの投稿は変えていない ─────────────────────────────────
+ *
+ * `add_ops_report_items(kind='daily_news', period_key=<日付>)`（MCP）が既存の投稿経路
+ * （`docs/mcp-server.md`）。月表示になっても行の追加先は「その日のレポート」のまま。
+ *
+ * ── UI崩れの調査で見つけた不具合の修正 ─────────────────────────
+ *
+ * `news/NewsRows.tsx` の `NewsRow` は `isMobile`（`lg`=1023px 境界）が false の
+ * ときしか描画されないのに、内部に `sm`(640px) 境界のレスポンシブ指定
+ * （`hideOnMobile` / `stackOnMobile`）が残っており、常にデスクトップ扱いで
+ * 到達しないデッドコードになっていた。今回削除した（機能・見た目は変えていない —
+ * 元々 1024px 以上でしか見えていなかった状態のまま）。
+ * また、この画面の主アクション（「ニュースを追加」）は `PageHeader` 側の
+ * `sm`(640px) 境界で PC/スマホの置き場所が切り替わるのに、日付ナビの帯は
+ * `isMobile`（`lg`=1023px 境界）で `w-full` にしていたため、640〜1023px 幅で
+ * ボタンが孤立して折り返されていた。ナビの帯も `sm` に揃えて直した。
  */
 import { useMemo, useState } from 'react';
-import { CheckCircle2, ChevronLeft, ChevronRight, Plus, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Sparkles } from 'lucide-react';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
-import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Delayed, EmptyState, ErrorPanel, NoSearchResults, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { PullToRefresh } from '@gmo-onair/shared/src/client-v4/pullToRefresh';
-import { cn } from '@gmo-onair/shared/src/client/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useAddItem, useEnsureReport, useReportByPeriod, useReviewReport } from '@/lib/reportsApi';
+import { useAddItem, useEnsureReport, useReportItemsByMonth, useReviewReport } from '@/lib/reportsApi';
 import { usePermissions } from '@/hooks/usePermissions';
-import { addDays, formatDateJa, toDateStr, weekStartOf, type OpsReportItem } from '@/lib/types';
+import {
+  addMonths, formatMonthJa, lastDayOfMonth, toDateStr, toMonthStr,
+  type OpsReportDayGroup, type OpsReportItem,
+} from '@/lib/types';
 import { NewsForm, type NewsFields } from './news/NewsForm';
 import { NewsCards } from './news/NewsCards';
-import { NewsRow, NewsRowsHeader } from './news/NewsRows';
+import { NewsDayHeader, NewsRow, NewsRowsHeader } from './news/NewsRows';
 
 type Chip = 'all' | 'picked' | 'ai' | 'human';
 
@@ -59,35 +79,44 @@ function matchesChip(item: OpsReportItem, chip: Chip): boolean {
 
 export default function DailyNewsPage() {
   const isMobile = useIsMobile();
-  const [date, setDate] = useState(() => toDateStr(new Date()));
+  const today = toDateStr(new Date());
+  const currentMonth = toMonthStr(new Date());
+  const [month, setMonth] = useState(currentMonth);
   const [chip, setChip] = useState<Chip>('all');
   const [adding, setAdding] = useState(false);
-  const report = useReportByPeriod('daily_news', date);
-  /*
-   * 送り先の週報が**確定済みかどうか**。確定した週報には足せません
-   * （サーバーが断ります）。引かずにボタンだけ出すと、押した人には
-   * 「壊れた」ようにしか見えないので、**押す前に理由を出します**。
-   */
-  const weekly = useReportByPeriod('weekly_activity', weekStartOf(date));
-  const weeklyLocked = weekly.data?.status === 'published';
+  const [newDate, setNewDate] = useState(today);
+  const monthData = useReportItemsByMonth('daily_news', month);
   const { canEdit } = usePermissions();
   const ensure = useEnsureReport();
   const review = useReviewReport();
   const addItem = useAddItem();
-  const today = toDateStr(new Date());
 
-  const items = useMemo(() => report.data?.items ?? [], [report.data]);
+  const days = useMemo<OpsReportDayGroup[]>(() => monthData.data ?? [], [monthData.data]);
+  const allItems = useMemo(() => days.flatMap((d) => d.items), [days]);
   const counts = useMemo(() => ({
-    all: items.length,
-    picked: items.filter((i) => matchesChip(i, 'picked')).length,
-    ai: items.filter((i) => matchesChip(i, 'ai')).length,
-    human: items.filter((i) => matchesChip(i, 'human')).length,
-  }), [items]);
-  const visible = useMemo(() => items.filter((i) => matchesChip(i, chip)), [items, chip]);
+    all: allItems.length,
+    picked: allItems.filter((i) => matchesChip(i, 'picked')).length,
+    ai: allItems.filter((i) => matchesChip(i, 'ai')).length,
+    human: allItems.filter((i) => matchesChip(i, 'human')).length,
+  }), [allItems]);
+  const visibleDays = useMemo(
+    () => days
+      .map((d) => ({ ...d, items: d.items.filter((i) => matchesChip(i, chip)) }))
+      .filter((d) => d.items.length > 0),
+    [days, chip],
+  );
+
+  const startAdding = () => {
+    // 見ている月に今日が無ければ、その月の末日を既定にする
+    setNewDate(month === currentMonth ? today : lastDayOfMonth(month));
+    setAdding(true);
+  };
 
   const submitNew = async (fields: NewsFields) => {
     try {
-      const reportId = report.data?.id ?? (await ensure.mutateAsync({ kind: 'daily_news', period_key: date })).id;
+      const existing = days.find((d) => d.period_key === newDate);
+      const reportId = existing?.report_id
+        ?? (await ensure.mutateAsync({ kind: 'daily_news', period_key: newDate })).id;
       await addItem.mutateAsync({ reportId, item: fields });
       setAdding(false);
       notifySuccess('ニュースを追加しました');
@@ -96,9 +125,8 @@ export default function DailyNewsPage() {
     }
   };
 
-  const onReview = () => {
-    if (!report.data) return;
-    review.mutate(report.data.id, {
+  const onReview = (reportId: string) => {
+    review.mutate(reportId, {
       onSuccess: () => notifySuccess('確認しました'),
       onError: (e) => notifyApiError('確認できませんでした', e),
     });
@@ -110,62 +138,53 @@ export default function DailyNewsPage() {
         title="デイリーニュース報告"
         sub="AI が業界のニュースを毎日集めます。人が注目度（1〜5）を付けたり、足したりします"
         primaryAction={canEdit && !adding ? (
-          <Button onClick={() => setAdding(true)}>
+          <Button onClick={startAdding}>
             <Plus className="mr-1 h-4 w-4" aria-hidden="true" />ニュースを追加
           </Button>
         ) : undefined}
       >
         {/*
-          日付を選ぶ。**先の日付は選べない** (まだ起きていないニュースは無い)。
+          月を選ぶ。**先の月は選べない** (まだ起きていないニュースは無い)。
           **端末のカレンダーに任せる**（自作の日付ホイールは作らない・
           `client-v4/mobile.ts` の `duePresets()` と同じ決めごと）。
-          スマホは PC と同じ幅固定の小さな欄のままだった（v4ネイティブUI監査
-          2026-08-20 指摘）ので、**帯いっぱいに広げ、今日へ戻る近道を足した**。
+          `PageHeader` の主アクションは `sm`(640px) で PC/スマホの置き場所が
+          切り替わるので、ここの帯も同じ `sm` に揃える（`isMobile`＝`lg`(1023px)
+          に揃えると 640〜1023px 幅でボタンが孤立して折り返される）。
         */}
-        <div className={cn('flex items-center gap-1.5', isMobile && 'w-full')}>
-          <Button variant="outline" size="icon" className="shrink-0" onClick={() => setDate(addDays(date, -1))} aria-label="前の日">
+        <div className="flex w-full items-center gap-1.5 sm:w-auto">
+          <Button variant="outline" size="icon" className="shrink-0" onClick={() => setMonth(addMonths(month, -1))} aria-label="前の月">
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </Button>
           <Input
-            type="date"
-            value={date}
-            max={today}
-            onChange={(e) => e.target.value && setDate(e.target.value)}
-            aria-label="日付"
-            className={isMobile ? 'min-w-0 flex-1' : 'w-[9.5rem]'}
+            type="month"
+            value={month}
+            max={currentMonth}
+            onChange={(e) => e.target.value && setMonth(e.target.value)}
+            aria-label="月"
+            className="min-w-0 flex-1 sm:w-[9.5rem] sm:flex-none"
           />
           <Button
             variant="outline"
             size="icon"
             className="shrink-0"
-            onClick={() => setDate(addDays(date, 1))}
-            disabled={date >= today}
-            aria-label="次の日"
+            onClick={() => setMonth(addMonths(month, 1))}
+            disabled={month >= currentMonth}
+            aria-label="次の月"
           >
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Button>
-          {isMobile && date !== today && (
-            <Button variant="outline" size="sm" className="shrink-0" onClick={() => setDate(today)}>今日</Button>
+          {month !== currentMonth && (
+            <Button variant="outline" size="sm" className="shrink-0" onClick={() => setMonth(currentMonth)}>今月</Button>
           )}
         </div>
       </PageHeader>
 
-      {/* その日の状態 */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-cardtitle">{formatDateJa(date)}</span>
-        {report.data && (
-          report.data.reviewed_at
-            ? <TableBadge label="確認済み" w={null} className="border-success-border bg-success-surface text-success" />
-            : <TableBadge label="未確認" w={null} className="border-ai-border bg-ai-surface text-ai" />
-        )}
-        {report.data && canEdit && !report.data.reviewed_at && (
-          <Button variant="outline" onClick={onReview} disabled={review.isPending}>
-            <CheckCircle2 className="mr-1 h-4 w-4" aria-hidden="true" /> 確認した
-          </Button>
-        )}
+        <span className="text-cardtitle">{formatMonthJa(month)}</span>
+        <span className="text-sub text-muted-foreground">{allItems.length}件 ・ {days.length}日</span>
       </div>
 
-      {items.length > 0 && (
+      {allItems.length > 0 && (
         <FilterChips
           label="ニュースを絞り込む"
           items={(Object.keys(CHIP_LABELS) as Chip[]).map((k) => ({
@@ -176,42 +195,55 @@ export default function DailyNewsPage() {
         />
       )}
 
-      {report.isError ? (
-        <ErrorPanel title="この日のニュースを読み込めませんでした" error={report.error} onRetry={() => report.refetch()} />
-      ) : report.isLoading ? (
+      {monthData.isError ? (
+        <ErrorPanel title="この月のニュースを読み込めませんでした" error={monthData.error} onRetry={() => monthData.refetch()} />
+      ) : monthData.isLoading ? (
         <Delayed><SkeletonRows rows={5} /></Delayed>
       ) : (
         <div className={isMobile ? undefined : 'rounded-card border border-border bg-card'}>
-          {items.length === 0 ? (
+          {days.length === 0 ? (
             <EmptyState
               className={isMobile ? undefined : 'border-0 bg-transparent'}
               icon={<Sparkles />}
-              title={`${formatDateJa(date)} のニュースはまだありません`}
-              description={date === today
+              title={`${formatMonthJa(month)} のニュースはまだありません`}
+              description={month === currentMonth
                 ? 'AI が毎日集めます。待てないときは「ニュースを追加」から自分で入れられます。'
-                : 'この日は AI が集めた記録も、人が足した記録もありません。'}
+                : 'この月は AI が集めた記録も、人が足した記録もありません。'}
             />
-          ) : visible.length === 0 ? (
+          ) : visibleDays.length === 0 ? (
             <NoSearchResults
               className={isMobile ? undefined : 'border-0 bg-transparent'}
               activeFilters={[`絞り込み: ${CHIP_LABELS[chip]}`]}
               onClearFilters={() => setChip('all')}
             />
-          ) : isMobile ? (
-            <PullToRefresh onRefresh={report.refetch}>
-              <NewsCards items={visible} canEdit={canEdit} weeklyLocked={weeklyLocked} />
-            </PullToRefresh>
           ) : (
-            <div className="flex flex-col">
-              <NewsRowsHeader canEdit={canEdit} />
-              {visible.map((item) => (
-                <NewsRow key={item.id} item={item} canEdit={canEdit} weeklyLocked={weeklyLocked} />
+            <PullToRefresh onRefresh={monthData.refetch}>
+              {!isMobile && <NewsRowsHeader canEdit={canEdit} />}
+              {visibleDays.map((day) => (
+                <div key={day.period_key}>
+                  <NewsDayHeader
+                    day={day}
+                    canEdit={canEdit}
+                    onReview={() => onReview(day.report_id)}
+                    reviewing={review.isPending}
+                  />
+                  {isMobile ? (
+                    <NewsCards items={day.items} canEdit={canEdit} />
+                  ) : (
+                    day.items.map((item) => (
+                      <NewsRow key={item.id} item={item} canEdit={canEdit} />
+                    ))
+                  )}
+                </div>
               ))}
-            </div>
+            </PullToRefresh>
           )}
 
           {canEdit && adding && (
             <NewsForm
+              dateValue={newDate}
+              onDateChange={setNewDate}
+              dateMax={today}
               onCancel={() => setAdding(false)}
               onSubmit={submitNew}
               submitting={addItem.isPending || ensure.isPending}
@@ -225,10 +257,8 @@ export default function DailyNewsPage() {
         各行の<strong className="font-bold">送るボタン</strong>を押すと、
         その日が入る週のウィークリー活動報告へ写せます（報告側に「ニュース由来」と出ます）。
         <strong className="font-bold">自動では送られません</strong> — 選ぶのは人です。
-        {weeklyLocked && (
-          <> この日が入る週のウィークリー活動報告は<strong className="font-bold">確定済み</strong>なので、
-          いまは送れません（ウィークリー活動報告の画面で「確定を取り消す」を押すと送れるようになります）。</>
-        )}
+        送り先の週のウィークリー活動報告が確定済みのときは、その行だけ送れません
+        （確定済みの週報の画面で「確定を取り消す」を押すと送れるようになります）。
       </p>
     </div>
   );

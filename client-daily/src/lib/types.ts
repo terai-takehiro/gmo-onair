@@ -21,6 +21,12 @@ export interface OpsReportItem {
   source_item_id?: string | null;
   /** この行はもう週報へ送ったか (ニュース側だけが持つ・migration 167) */
   sent_to_weekly?: boolean;
+  /**
+   * 送り先（この行の日付が属する週）の週報が確定済みか。
+   * 月表示（`GET /dailyops/reports/items-by-month`）だけが計算して持たせる —
+   * 月をまたぐと行ごとに送り先の週が違うため、ページ単位の1つの値では表せない。
+   */
+  weekly_locked?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -42,6 +48,20 @@ export interface OpsReport {
   updated_at: string;
   items?: OpsReportItem[];
   item_count?: number;
+}
+
+/**
+ * デイリーニュース報告の月表示 — 1日ぶんのまとまり
+ * (`GET /dailyops/reports/items-by-month`)。
+ * その日のレポート自体が無い日（1件も書かれていない日）は含まれない。
+ */
+export interface OpsReportDayGroup {
+  report_id: string;
+  period_key: string;
+  status: OpsReportStatus;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  items: OpsReportItem[];
 }
 
 // ── 内覧会 来場予約 ──────────────────────────────────
@@ -273,6 +293,31 @@ export function addDays(dateStr: string, days: number): string {
   const d = new Date(`${dateStr}T00:00:00`);
   d.setDate(d.getDate() + days);
   return toDateStr(d);
+}
+
+export function toMonthStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
+/** 'YYYY-MM' を月単位でずらす（負数で過去へ） */
+export function addMonths(month: string, delta: number): string {
+  const [y, m] = month.split('-').map(Number);
+  return toMonthStr(new Date(y, (m - 1) + delta, 1));
+}
+
+/** その月の最後の日 ('YYYY-MM-DD') */
+export function lastDayOfMonth(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  return toDateStr(new Date(y, m, 0)); // 翌月の0日目 = 当月末日
+}
+
+/** 'YYYY-MM' → 'YYYY年M月' */
+export function formatMonthJa(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  if (!y || !m) return month;
+  return `${y}年${m}月`;
 }
 
 /**

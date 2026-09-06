@@ -35,6 +35,7 @@ export interface OpsReportItemInput {
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MONTH_RE = /^\d{4}-\d{2}$/;
 
 function assertDateStr(value: string, label: string): void {
   if (!DATE_RE.test(value) || Number.isNaN(new Date(`${value}T00:00:00Z`).getTime())) {
@@ -345,6 +346,70 @@ export const opsReportService = {
     );
     if (!report) return undefined;
     return { ...report, items: await this.getReportItems(report.id as string) };
+  },
+
+  /**
+   * 月ぶんの行を日付ごとにまとめて返す (デイリーニュース報告の月表示・migration 不要)。
+   *
+   * **1件も無い日は含まない** — その日のレポート自体が作られていないので、
+   * 空の見出しを出しても意味が無い（一覧の0件は「その月に無い」で表す）。
+   *
+   * ── 週報の確定状態は行ごとに計算する ─────────────────────────
+   *
+   * `sendItemToWeekly` と同じ規則（週はニュースの日付で決まる）で、月をまたぐと
+   * 行によって送り先の週が違う。ページ単位の1つの真偽値では表せないため、
+   * 月内で使う週ぶんだけまとめて1回引き、行ごとに `weekly_locked` を付ける。
+   */
+  async getReportItemsByMonth(kind: string, month: string): Promise<Record<string, unknown>[]> {
+    assertKind(kind);
+    if (!MONTH_RE.test(month)) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'month は YYYY-MM 形式で指定してください');
+    }
+    const rows = await queryAll(
+      `SELECT r.id AS report_id, r.period_key, r.status, r.reviewed_at, r.reviewed_by,
+              i.*,
+              EXISTS (SELECT 1 FROM ops_report_items w
+                       WHERE w.source_item_id = i.id AND w.deleted_at IS NULL) AS sent_to_weekly
+         FROM ops_reports r
+         JOIN ops_report_items i ON i.report_id = r.id AND i.deleted_at IS NULL
+        WHERE r.kind = ? AND r.deleted_at IS NULL AND r.period_key LIKE ?
+        ORDER BY r.period_key DESC, i.sort_order ASC, i.created_at ASC`,
+      [kind, `${month}-%`],
+    );
+    if (!rows.length) return [];
+
+    const weekStarts = [...new Set(rows.map((r) => normalizeWeekStart(String(r.period_key))))];
+    const lockedWeeks = new Set<string>();
+    if (weekStarts.length) {
+      const weeklyRows = await queryAll(
+        `SELECT period_key FROM ops_reports
+          WHERE kind = 'weekly_activity' AND status = 'published' AND deleted_at IS NULL
+            AND period_key IN (${weekStarts.map(() => '?').join(',')})`,
+        weekStarts,
+      );
+      for (const w of weeklyRows) lockedWeeks.add(String(w.period_key));
+    }
+
+    const days = new Map<string, Record<string, unknown>>();
+    for (const row of rows) {
+      const periodKey = String(row.period_key);
+      if (!days.has(periodKey)) {
+        days.set(periodKey, {
+          report_id: row.report_id,
+          period_key: periodKey,
+          status: row.status,
+          reviewed_at: row.reviewed_at,
+          reviewed_by: row.reviewed_by,
+          items: [] as Record<string, unknown>[],
+        });
+      }
+      const { report_id: _reportId, period_key: _periodKey, status: _status, reviewed_at: _reviewedAt, reviewed_by: _reviewedBy, ...item } = row;
+      (days.get(periodKey)!.items as Record<string, unknown>[]).push({
+        ...item,
+        weekly_locked: lockedWeeks.has(normalizeWeekStart(periodKey)),
+      });
+    }
+    return [...days.values()];
   },
 
   /**

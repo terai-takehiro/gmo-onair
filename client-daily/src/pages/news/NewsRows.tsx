@@ -41,14 +41,14 @@
  * （`FormDialog` は Portal で描くのでどこに置いても画面には正しく重なる）。
  */
 import { useState } from 'react';
-import { Bot, CheckCheck, ExternalLink, Pencil, Send, Trash2 } from 'lucide-react';
-import { Row, RowHeader, RowMain, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
+import { Bot, CheckCheck, CheckCircle2, ExternalLink, Pencil, Send, Trash2 } from 'lucide-react';
+import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { Button } from '@/components/ui/button';
 import { useDeleteItem, useSendToWeekly, useUpdateItem } from '@/lib/reportsApi';
-import type { OpsReportItem } from '@/lib/types';
+import { formatDateJa, type OpsReportDayGroup, type OpsReportItem } from '@/lib/types';
 import { NewsForm, type NewsFields } from './NewsForm';
 
 /**
@@ -108,9 +108,35 @@ export function useNewsRowActions(item: OpsReportItem) {
   };
 }
 
+/**
+ * 月表示の日付見出し行 (`DailyNewsPage.tsx`)。**確認した／確認済みはレポート単位
+ * （＝日ごと）のまま** — 月をまたいでも「その日の記録に目を通したか」の意味は変わらない。
+ */
+export function NewsDayHeader({ day, canEdit, onReview, reviewing }: {
+  day: OpsReportDayGroup;
+  canEdit: boolean;
+  onReview: () => void;
+  reviewing: boolean;
+}) {
+  return (
+    <div className="bg-surface-subtle flex flex-wrap items-center gap-2 border-b border-border-subtle px-4 py-2">
+      <span className="text-cardtitle">{formatDateJa(day.period_key)}</span>
+      {day.reviewed_at
+        ? <TableBadge label="確認済み" w={null} className="border-success-border bg-success-surface text-success" />
+        : <TableBadge label="未確認" w={null} className="border-ai-border bg-ai-surface text-ai" />}
+      {canEdit && !day.reviewed_at && (
+        <Button variant="outline" size="sm" onClick={onReview} disabled={reviewing}>
+          <CheckCircle2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> 確認した
+        </Button>
+      )}
+      <span className="text-sub ml-auto text-muted-foreground">{day.items.length}件</span>
+    </div>
+  );
+}
+
 export function NewsRowsHeader({ canEdit }: { canEdit: boolean }) {
   return (
-    <RowHeader className="hidden sm:flex">
+    <RowHeader>
       <RowSlot w={56} align="center">注目度</RowSlot>
       <RowSlot w={72} align="center">AIの話題</RowSlot>
       <RowSlot w={96}>分類</RowSlot>
@@ -124,21 +150,25 @@ export function NewsRowsHeader({ canEdit }: { canEdit: boolean }) {
 
 /**
  * PC 専用の1行。**スマホは `./NewsCards.tsx` の `NewsCard` に差し替え済み**
- * （v4ネイティブUI監査 2026-08-20）。出し分けは `DailyNewsPage.tsx` の `isMobile`。
+ * （v4ネイティブUI監査 2026-08-20）。出し分けは `DailyNewsPage.tsx` の `isMobile`
+ * （`lg`=1023px 境界）。**この行自体が 1024px 未満では描画されない**ので、
+ * 内側に `sm`(640px) 系のレスポンシブ指定を書かないこと — 前は
+ * `hideOnMobile`/`stackOnMobile`（どちらも 640px 境界）が残っていて、
+ * 常にデスクトップ扱いのまま到達しないデッドコードになっていた
+ * （UI崩れの調査で判明・修正）。
  */
-export function NewsRow({ item, canEdit, weeklyLocked = false }: {
+export function NewsRow({ item, canEdit }: {
   item: OpsReportItem;
   canEdit: boolean;
-  /** 送り先の週報が確定済み。**押す前に止める**（サーバーも断る） */
-  weeklyLocked?: boolean;
 }) {
   const {
     editing, setEditing, toWeekly, sendPending, setPick, remove, saveEdit, updatePending,
   } = useNewsRowActions(item);
+  const weeklyLocked = !!item.weekly_locked;
 
   return (
     <>
-      <Row divider align="start" stackOnMobile>
+      <Row divider align="start">
         <RowSlot w={56} align="center" placeholder="">
           {canEdit ? (
             <select
@@ -185,17 +215,13 @@ export function NewsRow({ item, canEdit, weeklyLocked = false }: {
               </a>
             )}
           </p>
-          {/* スマホでは右の列が畳まれるので、メモと記入者をここに出す */}
-          <RowSub className="sm:hidden">
-            {[item.note, item.recorded_by].filter(Boolean).join(' ・ ') || '—'}
-          </RowSub>
         </RowMain>
 
-        <RowSlot w={160} hideOnMobile>
+        <RowSlot w={160}>
           <span className="text-sub-sm truncate text-muted-foreground">{item.note ?? '—'}</span>
         </RowSlot>
 
-        <RowSlot w={96} hideOnMobile>
+        <RowSlot w={96}>
           <span className="text-sub-sm inline-flex min-w-0 items-center gap-1 text-muted-foreground">
             {item.source === 'ai' && <Bot className="h-3 w-3 shrink-0 text-ai" aria-label="AI作成" />}
             <span className="truncate">{item.recorded_by ?? '—'}</span>
