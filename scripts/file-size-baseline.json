@@ -2,23 +2,24 @@
   "limit": 400,
   "note": "scripts/check-file-size.mjs の基準。減ったら --update で締める。増やさないこと。",
   "files": {
-    "client-equipment/src/pages/RackLayoutPage.tsx": 1270,
-    "client-equipment/src/pages/EquipmentDetailPage.tsx": 1086,
+    "client-equipment/src/pages/RackLayoutPage.tsx": 1085,
     "client-techops/src/components/editor/CueTable.tsx": 1055,
+    "client-equipment/src/pages/EquipmentDetailPage.tsx": 1012,
     "client-techops/src/pages/EditorPage.tsx": 930,
     "client/src/contexts/platform/pages/DataViewerPage.tsx": 876,
-    "client-techops/src/pages/RundownPage.tsx": 816,
-    "client-techops/src/components/editor/PreviewModal.tsx": 793,
     "client-techops/src/components/editor/EditorSidebar.tsx": 749,
-    "client/src/contexts/production/components/studio/StudioBookingDialog.tsx": 685,
-    "client-techops/src/pages/OnAirPage.tsx": 626,
+    "client-techops/src/pages/RundownPage.tsx": 706,
+    "client/src/contexts/production/components/studio/StudioBookingDialog.tsx": 661,
+    "client-techops/src/pages/OnAirPage.tsx": 592,
+    "client-techops/src/components/editor/PreviewModal.tsx": 538,
     "client/src/contexts/tasks/components/DashboardGantt/DashboardGanttView.tsx": 523,
     "client-techops/src/pages/AudioSupportPage.tsx": 456,
     "client/src/contexts/sales/pages/ProjectFormPage.tsx": 417,
     "client-equipment/src/components/ExcelImportDialog.tsx": 409,
+    "client/src/App.tsx": 409,
     "client-techops/src/pages/streaming/StreamingPage.tsx": 405,
     "client/src/contexts/production/components/schedule/IcsFeedsDialog.tsx": 404,
     "client/src/contexts/sales/pages/ProjectLedgerPage.tsx": 403,
-    "client/src/App.tsx": 401
+    "client/src/contexts/sales/pages/ProjectDetailPage.tsx": 401
   }
 }

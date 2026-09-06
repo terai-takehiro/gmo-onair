@@ -343,6 +343,18 @@ resolveEntity(project, cutover):
 - **予算**＝その案件の受理済み（`accepted`）の最新版の見積合計（GPM の「個別見積」を予算案として流用・表は増やさない）。
   **実績**＝確定した仕入の合計。**残**＝予算−実績。月次は仕入の `recognition_date` で切る
 
+> **実装済み（P3・2026-09-06）**: `isProjectCostCenter()`（`legal-entity.service.ts`）で
+> 案件の実際の`entity_code`が`kind='cost_center'`に解決しているかを見て（`gls_category='B'`
+> では判定しない——理由は上の注記と同じ）、`POST`/`PUT /revenues`を409`NO_REVENUE_ENTITY`で
+> 止めた。新設`gpm-budget.service.ts`が予算（受理済みの最新版の見積合計。**束の最新版を
+> 先に決めてから`accepted`かどうかを見る**——先に絞ると最新版が非accepted のときに古い
+> accepted版を誤って拾う）・実績（確定した仕入合計）・残・月次コスト推移を集計し、
+> `GET /gpm/cost-dashboard`（全件）・`GET /gpm/projects/:id/budget`（単体）で返す。
+> 営業見通し（パイプライン）はコストセンター案件を`entityCode`指定の有無に関わらず
+> 常に除外する（社内取引の除外条件——全社合算のときだけ除外——とは異なる扱い）。
+> GPM 詳細は「請求」タブをコストセンター案件だけ「予算と実績」タブに差し替えた。
+> 詳細と検証は§6のP3実装結果を参照。
+
 ### 4.8 改番の手順（通知 → 手動）と移行センター
 
 設定 ＞ **「10月の切替（計上会社と案件番号）」**（`system_admin`・PC 専用）:
@@ -549,7 +561,7 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
 | **P0 土台** | `legal_entities` / `org_transition` / `project_numbers` / 各表の `entity_code`（DEFAULT 'GSS' で埋め戻し）・会社マスター画面・切替状態・PDF とメールの発行者差し替え・取引先の名寄せと自社行 | **要る（9月中旬）** | 3〜4 PR |
 | **P1 番号** ⚠️ **一部実装済み（2026-09-06）** | prefix 採番・`resolveEntity`・先取り（`preparing` で導出規則どおりに採る）・受注時の第1回自動作成（売上は必ず回に）・改番 API＋MCP・追随（回コード／Qシート／BOX／未請求の請求キー）・旧番号での検索と `:ownerKey`・取込の正規表現・通知ジョブ・移行センターの対象一覧 | **要る（9月下旬・`preparing` へ）** | 5〜6 PR |
 | **P2 財務の2社＋社内取引** **✅ 実装済み（2026-09-06・Round 1+2）** | 8画面のセグメント（URL）・集計／締め／Excel／MCP の `entity_code`・月次予算と `money_rules` の会社化・請求書番号の系列・**社内取引**（`intercompany_links`・仕入タブの入口・案件の粗利2通り） | 10月中旬まで（最初の GJV 案件の請求が10月下旬） | 5 PR |
-| **P3 GMO コスト（最小案）** | `kind='cost_center'` の閉じ方・「予算と実績」タブ・コスト側ダッシュボード | 10月中 | 2〜3 PR |
+| **P3 GMO コスト（最小案）** **✅ 実装済み（2026-09-06）** | `kind='cost_center'` の閉じ方・「予算と実績」タブ・コスト側ダッシュボード | 10月中 | 2〜3 PR |
 | **P4 仕上げ** | `done` 状態・旧経路の削除・`entity_scope` 権限・連結（要るなら）・文書と用語の更新（`CLAUDE.md` の公理・`wording.md`・`guide/words.md`・`mcp-server.md`） | 後 | 2〜3 PR |
 
 - P0 と P1 は直列（P1 は P0 の表に依存）。P2 と P3 は P1 のあと**並行できる**
@@ -633,6 +645,36 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
 > 相殺の反映」は、実装して確かめた結果**不要**と判明した（§4.12 参照）。
 > ついでに `purchases.routes.ts` の `REVENUE_IN_ALLOCATION_GROUP` 相当のガード
 > （`PURCHASE_IN_ALLOCATION_GROUP`）が無かった穴も塞いだ。
+
+> **P3 実装結果（マルチエージェント・2026-09-06）**: GMO コストセンター（旧 GLS-B）を
+> 実装した。詳細は §4.7 の実装結果を参照。核（`isProjectCostCenter`・`gpm-budget.service.ts`・
+> `POST/PUT /revenues` の409ガード・パイプライン予測の除外・`GET /gpm/cost-dashboard`・
+> `GET /gpm/projects/:id/budget`）は直接実装し、残る2本（GPM詳細の「予算と実績」タブ・
+> コスト側ダッシュボード画面）を並列worktreeで実装、マージして検証した。
+>
+> ⚠️ **見積の受理（`accepted`にする）操作が既存のGPM見積タブに無い**ため、予算は
+> 当面0のまま——別途フォローアップが要る（案件管理側の`EstimateActions.tsx`相当が
+> GPM見積には無い）。
+>
+> ⚠️ **検証中に見つけて直した既存バグ（本タスクのスコープ外・同日の別コミット
+> `8800222d`「全INSERTにentity_codeを明示し、282でNOT NULL化した」が原因）**:
+> `gpm.service.ts`の`POST /gpm/projects`のINSERT文で列16個に対しVALUESの式が15個しか
+> なく、GPMプロジェクトの新規作成が常に500で失敗していた（プレースホルダの追加漏れ）。
+> 実サーバーでの検証中に発見し直したうえで、**同じコミットが変更した残り33箇所
+> （13ファイル）を全数手作業で列数とプレースホルダ数を突き合わせて棚卸しし、
+> 他に見落としが無いことを確認した**（内訳: `finance/routes/{excel,purchases,revenues,
+> sga,xpoint}.routes.ts`・`finance/services/doc-handoff.service.ts`・
+> `platform/services/kessan-import.service.ts`・`sales/routes/{excel,project-groups}.routes.ts`・
+> `sales/services/{estimate,project}.service.ts`・`shared/db/seed.ts`。いずれも列数と
+> 値の個数・位置とも一致）。
+>
+> 検証: `server`/`client`の型チェック、`shared`のVitest 2004件、検証DBの作り直し
+> （migration 1〜285通し適用＋seed。migration新規追加は無し）、`npm run lint`一式
+> （`App.tsx`はコストダッシュボードのルート追加で401→409行になったため
+> `check-file-size.mjs --update`で基準を更新——ルート定義を1ファイルに集約する設計
+> （`client/CLAUDE.md`）のため新画面のたびに増える性質の行数増と判断し、
+> `ProjectDetailPage.tsx`と合わせて分割は別課題として残した）、ESLint（0 errors）、
+> 実サーバー起動してのHTTPレベル確認、実ブラウザ（Playwright・PC/スマホ）確認。
 
 ---
 
@@ -810,4 +852,15 @@ PDF の発行者ブロックの文字列が今と同一（切替日前なので�
   `getSummaryByEntity`は、実装して確かめた結果**無変更のままで正しい**と判明した
   （entity_codeのGROUP BYだけで自動的に会社別の式になるため）。副産物として
   `purchases.routes.ts`の配分グループ編集ガード未実装（既知の穴）も塞いだ。
+- 2026-09-06（同日・9回目）: **P3（GMOコストセンター・旧GLS-B。§4.7）をマルチエージェントで
+  実装した。** 核（`isProjectCostCenter`・`gpm-budget.service.ts`の予算対実績集計・
+  `POST/PUT /revenues`の409ガード・パイプライン予測の除外・コスト側ダッシュボードAPI）は
+  直接実装し、残る2本（GPM詳細の「予算と実績」タブ・コスト側ダッシュボード画面）を
+  並列worktreeで実装、マージして検証（型チェック・Vitest・検証DB作り直し・`npm run lint`・
+  実サーバー起動してのHTTPレベル確認・実ブラウザ確認）まで実施。見積の受理操作が
+  GPM見積タブに無いため予算は当面0のままという穴を発見し記録した。副産物として、
+  同日の別コミット（`8800222d`・entity_code配線）が触れた34箇所のINSERT文のうち
+  `gpm.service.ts`の1箇所（列とVALUESの数が食い違い、GPMプロジェクト作成が常に
+  失敗していた）を発見・修正し、残り33箇所も全数棚卸しして他に見落としが無いことを
+  確認した。詳細と計画からの差分は§4.7・§6の実装結果を参照。
   詳細と計画からの差分は§6・§4.12の実装結果を参照。
