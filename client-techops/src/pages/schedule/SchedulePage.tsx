@@ -9,7 +9,7 @@ import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { Badge } from "@gmo-onair/shared/src/client/ui/badge";
 import EventPlanDialog from "@/components/ai/EventPlanDialog";
 import { Button } from "@/components/ui/button";
-import { notifyError } from "@/lib/notify";
+import { notifyError, notifySuccess } from "@/lib/notify";
 import api from "@/lib/api";
 import * as scheduleApi from "@/lib/scheduleApi";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
