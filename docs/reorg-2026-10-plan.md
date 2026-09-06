@@ -51,8 +51,11 @@
 GMO のコスト管理は最小案（稟議・固定資産は本体の別システム）、**コンテンツスタジオは 2026-01 設立の既存法人で
 切替前に GJV 名義の見積を出してよい**、請求書番号は発行者ごとに分ける。
 
-⚠️ まだ決まっていないこと: 社内取引の値決めと請求書の要否（§9-M）、「統一」のやり方（§9-N）、
-グループ本体の事業担当が ONAiR を使うか（§9-I）、連結（2社合算）の見方（§9-F）。
+同日の2回目で決まったこと: **社内取引の金額は手入力（見積の原価行の合計を初期値）で、GSS → GJV の請求書 PDF も
+ONAiR から発行する**（§9-M）。**売上・仕入は必ず回に紐づける**（§9-N）。
+
+⚠️ まだ決まっていないこと（提案どおりで進める前提）: 旧社名の併記（§9-E）、連結（§9-F）、名前とドメイン（§9-H）、
+グループ本体の事業担当のアカウント（§9-I）、完了済み GLS-B（§9-L）。
 
 ---
 
@@ -229,12 +232,16 @@ GMO のコスト管理は最小案（稟議・固定資産は本体の別シス�
 - 4桁: 旧番号は5か月で A が 024 まで進み、旧形式の通し（GLS161）を合わせると3桁は10年持たない
 - 採番は既存の `generateSequenceNumber` の `ON CONFLICT` 経路をそのまま使う。`seq_name` を会社ごとに分ける
 - 回コード `{番号}-NNN`・請求キー `{回コード}-{税枝番}` の**規則は変えない**（[design/v4/regular-series.md](design/v4/regular-series.md) §8）
-- **統一の中身（ご指示「管理上統一した方がいい場合は、エピソードコード付きに合わせる」への提案・§9-N）**:
-  **売上・仕入は必ず回に紐づける**。単発の案件も受注時に第1回を1件だけ自動で作り（レギュラーの §5 と同じ）、
-  見積→売上の登録は回を通す。理由: いまは回を持たない売上だけ別経路で `{番号}-{通し3桁}-{税枝番}` を
-  作っており（`project.service.ts:2637-2653`）、回コードと**同じ形で別の数え方**をしている。回 `001` の売上
-  `GLS-A001-001-1` と、回なしで採った2件目 `GLS-A001-002-1` は、次に作る回 `002` の請求キーと衝突しうる。
-  1本にすれば請求キーは常に回コードから導け、帳票・取込・照合の規則が1つになる
+- **統一の中身（決定・§9-N）: 売上・仕入は必ず回に紐づける。** 理由: いまは回を持たない売上だけ別経路で
+  `{番号}-{通し3桁}-{税枝番}` を作っており（`project.service.ts:2637-2653`）、回コードと**同じ形で別の数え方**をしている。
+  回 `001` の売上 `GLS-A001-001-1` と、回なしで採った2件目 `GLS-A001-002-1` は、次に作る回 `002` の請求キーと衝突しうる。
+  1本にすれば請求キーは常に回コードから導け、帳票・取込・照合の規則が1つになる。運用の決めごと:
+  - **A（GJV／GSS）**: 受注（`a_won`）で回が無ければ**第1回を1件だけ自動で作る**（レギュラー・単発とも。
+    [design/v4/regular-series.md](design/v4/regular-series.md) §5 を全 A に広げる）。売上・仕入の登録は回を選ぶ
+    （1つしか無ければ自動で選ぶ・聞かない）。見積→売上は `estimate_episodes` の回に付く（未指定なら第1回）
+  - **GMO**: 回＝月次ユニット（`GMO-0001-2610`）。仕入の登録時に計上月のユニットが無ければ自動で作る
+  - **例外**: 疑似案件 `FIXED-COGS` と販管費は回を持たない（今までどおり日付ベースの請求キー）
+  - **過去は書き換えない**: 回を持たない既存の売上・仕入行はそのまま。新しい登録から規則を効かせる
 
 **列の扱い（DB の改名はしない・前例どおり）**:
 
@@ -435,8 +442,8 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
   削除も両側同時。**売り手側が請求書を発行済みなら両方とも直せない**（既存の請求後ガードに乗る）
 - **入口は買い手の案件の仕入タブ**「サムライスタジオへ社内発注」1つ。金額を入れると GSS 側の売上行が同時にできる
   （回を選べば両側が同じ回に付く。回は必ずある・§4.3）
-- **GSS 側の請求・検収・入金は通常の流れ**（締め画面に「社内」の印を付けて分けて見せる）。請求書 PDF も発行する前提
-  （別法人なので適格請求書が要る。要否と値決めは §9-M）
+- **GSS 側の請求・検収・入金は通常の流れ**（決定・§9-M）。締め画面に「社内」の印を付けて分けて見せ、
+  **請求書 PDF も ONAiR から発行する**（別法人なので適格請求書。発行者は GSS・宛先は GJV の自社行）
 - **案件の粗利は2通り**: 「案件全体（社内取引を除く）」＝外部売上−外部仕入 が営業の見る数字（いまの粗利と同じ意味）。
   「会社別」＝ GJV: 外部売上−外部仕入−社内仕入 ／ GSS: 社内売上−GSS の仕入。案件詳細の収支サマリーは前者を既定にし、
   切替で後者を出す（数字は同じ API から・2か所で数えない）
@@ -444,8 +451,8 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
   `intercompany_links` に結ばれた両側を除けば相殺になる（§9-F・第1段では作らない）
 - 営業見通し（パイプライン）は外部の売上・仕入だけを数える（社内行は除外。GJV と GSS の合計が二重にならない）
 - MCP: `create_intercompany_purchase`（confirm 2段階）を1本。`list_revenues` / `list_purchases` の出力に `intercompany: true` を足す
-- ⚠️ **値決め**（GSS が GJV にいくらで売るか）は業務の決めごと。最小案は**手入力**（見積の原価行の合計を初期値に出す）。
-  料金表のグループ内価格を既定にするかは §9-M
+- **値決め**（決定・§9-M）: **金額は手入力**。初期値に、その案件の最新の見積の原価行（`estimate_items.cost`）の合計を出す。
+  料金表のグループ内価格は使わない（社内取引は原価の付け替えであって販売ではない）
 
 ---
 
@@ -536,10 +543,8 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
 - **J. 2社間の社内取引** ✅ 発生する → ONAiR に載せる（§4.12）
 - **K. コンテンツスタジオ** ✅ 2026-01 設立の既存法人。**切替前に GJV 名義の見積を出してよい** → 先取り（§4.4・§5）
 - **L. GLS-B の完了済み4件**: 移管しない（GSS の履歴のまま `GLS-B` で残す）でよいか **[提案: 残す]**
-- **M. 社内取引の値決めと請求**（新）: 金額は (a) 手入力・見積の原価行の合計を初期値に **[提案・最小]** ／ (b) 料金表のグループ内価格を既定 ／
-  (c) 原価×固定率。**GSS → GJV の請求書 PDF を ONAiR から発行するか**（別法人なので適格請求書が要る想定・**[提案: 発行する・同じ締めの流れ]**）
-- **N. 「統一」のやり方**（新・ご指示の括弧書きへの提案）: (a) 売上・仕入を必ず回に紐づけ、単発の案件も受注時に第1回を自動で作る
-  **[提案]**（§4.3 の衝突をなくす） ／ (b) いまのまま（回なしの売上は案件内の通し番号で `-NNN` を採る）
+- **M. 社内取引の値決めと請求** ✅ 金額は手入力（見積の原価行の合計を初期値）。GSS → GJV の請求書 PDF は ONAiR から発行し、同じ締めの流れに乗せる
+- **N. 「統一」のやり方** ✅ 売上・仕入を必ず回に紐づける。単発の案件も受注時に第1回を自動で作る（§4.3）
 
 ---
 
@@ -565,8 +570,38 @@ GJV が受けたグループ外の案件を GSS のスタジオ・人員・機�
 
 ---
 
+## 13. P0 の実装計画（土台・9月中旬）— 決めごとに依存しない部分
+
+**目標: 会社という次元と発行者情報を入れ、状態 `off` のあいだは既存の振る舞いを1ミリも変えない。**
+マイグレーションは **280 番から**（2026-09-06 時点の最新は 279）。すべて追加のみ。
+
+| PR | 中身 | マイグレーション | 主に触る場所 |
+|---|---|---|---|
+| **0a** `feat(server): 計上会社マスターと切替状態の表を足した` | `legal_entities` に GJV／GSS／GMO の3行（GSS は `former_name`＝GMOグローバルスタジオ株式会社・`renamed_on`＝切替日）、`org_transition` を `off` の1行、`companies.legal_entity_code`（`comp-self-gms` → GSS、GJV の自社行 `comp-self-gjv` を追加。名前の書き換えは切替時）。`GET/PUT /legal-entities`・`GET/PUT /org-transition`（変更は `system_admin`。`cutover` は `cutover_date` 以降だけ・`done` は残件 0 だけ）。`migrate.ts` の起動時チェックに「3行と1行がある」を足す | 280 | `server/src/contexts/platform/{services,routes}/legal-entity.*`・`shared/db/migrate.ts` |
+| **0b** `feat(server): 帳簿の行と案件に計上会社の列を足した` | `projects.entity_code/entity_source/entity_note`・`project_numbers`（既存の `gls_number` を `scheme='gls'`・`GSS` で流し込む）・`revenues/purchases/sga_expenses/estimates.entity_code`（`NOT NULL DEFAULT 'GSS'` で埋め戻し）・`finance_docs.entity_code`（NULL 可）・`monthly_budgets/monthly_actual_overrides/money_rules.entity_code`（**列だけ**。PK の付け替えと複数行化は P2）。サーバーの **INSERT を全部 `entity_code` 明示**にして（案件の `entity_code ?? 'GSS'`）、`shared/tests/entityCodeInserts.test.ts`（`droppedColumns.test.ts` と同じ走査で `INSERT INTO revenues|purchases|sga_expenses|estimates` に列があるか）が通ったら **同じ PR で `DROP DEFAULT`** | 281 | `sales/services/{project,estimate}.service.ts`・`finance/routes/*`・`platform/services/{kessan,xpoint}-import*`・`mcp/tools/{finance,budget}.tools.ts`・`gpm/*` |
+| **0c** `feat(server,client): 帳票とメールの発行者を計上会社マスターから読むようにした` | `pdf.service.ts` の `COMPANY` 定数を `PdfRevenueData.issuer` に置き換え、呼び出し側（`revenues.routes.ts:68`・`estimate-pdf.service.ts`）が行の `entity_code` から引く。名前は `nameAsOf(entity, 発行日)`（`renamed_on` より前なら旧社名・以後は新社名＋「（旧 …）」の併記＝§9-E の提案どおり）。`notification_templates` の初期4行の件名を `【{発行会社}】` に（手で直した行＝`updated_at` が初期値でない行は触らない）・送信時に変数を解決。機材レンタルの文面・GPM の「自社（…）」・マニュアル・案件作成のメール下書きをマスター読みに | 282 | `shared/services/pdf.service.ts`・`sales/services/estimate-pdf.service.ts`・`platform/services/notification*`・`qsheet/services/rental.service.ts`・`client/src/contexts/gpm/pages/projectForm/BasicStep.tsx` ほか |
+| **0d** `feat(client): 設定に「会社と切替」の画面を足した` | 設定トップ「ルール」に新カード（`/settings/reorg`・PC 専用・`CLIENT_PC_ONLY` に登録）。会社3行の発行者情報（住所・登録番号・振込先）、切替日、状態ボタン（P0 で押せるのは `off → preparing` だけ。`cutover` は P1 で活性化）。`system_admin` 以外は読むだけ | — | `client/src/contexts/platform/pages/reorg/`・`pages/settings/hubCards.ts`・`App.tsx`・`pcOnlyScreens.ts` |
+
+**受け入れ条件（`off` のまま）**: 全画面の見た目と API の応答が変わらない（`entity_code` が増えるだけ）／
+PDF の発行者ブロックの文字列が今と同一（切替日前なので旧社名）／`npm run typecheck`・`npm run test`・`npm run lint`／
+検証 DB（`npm run verify:up`）に 280〜282 を適用して起動時チェックが通る／`entityCodeInserts` が green。
+
+**コードの外でやる作業（P0 と並行）**:
+- 取引先「GMOサムライコンテンツスタジオ」**2行の名寄せ**（案件 `GLS-A023`・`GLS-B006` の `customer_id` をどちらかに寄せる。
+  本番の実データを見て手で決める。名前一致の UPDATE をマイグレーションに書かない）
+- **GJV の発行者情報**（住所・適格請求書発行事業者登録番号・振込先・ロゴの有無）を用意して 0d の画面から入れる。
+  GMO は請求書を出さないので発行者情報は不要
+
+**P1 の先出し（`preparing` に入るために要るもの・9月下旬）**: prefix 採番（`generateProjectNumber(entity)`・
+`sequences.seq_name = project_{code}`）／`resolveEntity`／受注時の第1回自動作成／改番 API＋MCP と追随／
+`project_numbers` 経由の旧番号検索／通知ジョブ／移行センターの対象一覧／案件一覧・詳細の「計上会社」表示。
+詳細は §6。
+
+---
+
 ## 12. 更新履歴
 
 - 2026-09-06: 初版（設計下書き）。実測は 5 本の並列調査＋本番データの MCP 読み取り（書き込みなし）。
 - 2026-09-06（同日・2回目）: 分岐点 A/B/C/G/J/K の回答を決定に反映。社内取引（§4.12）・番号3段の統一（§4.3）・
   先取りの状態設計（§5 `preparing`）・GMO の最小案（§4.7）を追記。新しい分岐点 M/N を追加。
+- 2026-09-06（同日・3回目）: M/N を決定に反映。P0 の実装計画（§13）を追加。
