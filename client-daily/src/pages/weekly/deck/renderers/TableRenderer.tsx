@@ -189,10 +189,8 @@ export function MoneyTable({ revenue, gross, margin, box }: { revenue: number | 
   );
 }
 
-/** 人が上書きした表（タブ区切り・1行1レコード。1行目は見出し） */
-export function parseTsv(text: string): { head: string[]; rows: string[][] } {
-  const lines = text.split('\n').map((l) => l.replace(/\r$/, '')).filter((l) => l.trim() !== '');
-  const split = (l: string) => (l.includes('\t') ? l.split('\t') : l.split(/[,、|｜]/)).map((c) => c.trim());
-  if (!lines.length) return { head: [], rows: [] };
-  return { head: split(lines[0]), rows: lines.slice(1).map(split) };
-}
+/**
+ * 人が上書きした表（タブ区切り・1行1レコード。1行目は見出し）の読み方は shared にある —
+ * pptx の出力（server の写し `keep-tsv.ts`）と**同じ読み方**で表にするため（プレビューと資料で形が違わない）
+ */
+export { parseTsv } from '@gmo-onair/shared/src/keepReport/tsv';

@@ -127,6 +127,20 @@ export function CompanyFormFields({ form, editing, open, canEditVendor }: {
             社名に GMO が入っているので自動で付けました（違うときは外してください）
           </p>
         )}
+        {/*
+          「サムライ関連」の印（migration 291）。隔週キープのヨミ表で別表に出すお客様。
+          **社名からは見立てない**（サーバーも同じ）— 人がここで付ける。この欄が無いと、
+          backfill に当たらなかったお客様は外部のヨミ表に固定されたまま誰も直せない（PR #607 レビュー）
+        */}
+        <label className="mt-2 flex min-h-tap items-center gap-2.5 border-t border-border-faint pt-2">
+          <input type="checkbox" {...form.register("samurai_group")} className="v4-tap h-5 w-5 shrink-0 accent-primary" />
+          <span>
+            <span className="block">サムライ関連のお客様（サムライパートナーズ／GMOサムライコンテンツスタジオ）</span>
+            <span className="text-note block text-muted-foreground">
+              隔週キープのヨミ表で「サムライ関連案件」の別表に出ます。社名からは自動で付けません
+            </span>
+          </span>
+        </label>
       </div>
 
       <div className="space-y-2">

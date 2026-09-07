@@ -20,6 +20,8 @@ import { diffDecks as sharedDiff } from '../src/keepReport/deckDiff';
 import { diffDecks as serverDiff } from '../../server/src/contexts/dailyops/services/keep-deck-diff';
 import { resolveBinding as sharedResolve, deckAgenda as sharedAgenda } from '../src/keepReport/binding';
 import { resolveBinding as serverResolve, deckAgenda as serverAgenda } from '../../server/src/contexts/dailyops/services/keep-binding';
+import { parseTsv as sharedParseTsv } from '../src/keepReport/tsv';
+import { parseTsv as serverParseTsv } from '../../server/src/contexts/dailyops/services/keep-tsv';
 import type { KeepReportPack, SlidePage } from '../src/keepReport/types';
 import sample from '../../server/src/contexts/dailyops/services/__fixtures__/keep-pack.sample.json';
 
@@ -72,5 +74,21 @@ describe('shared と server の写しの一致（隔週キープの資料ビル�
       }
     }
     expect(count).toBeGreaterThan(50);
+  });
+
+  it('上書きの表（タブ区切り）の読み方が同じ — タブ・読点・CRLF・空行・升の不足を同じに扱う', () => {
+    const samples = [
+      '項目\t4月\t5月\r\n売上\t1,200\t1,350\r\n\r\n粗利\t400\n',
+      '項目,4月,5月\n売上、1200、1350\n粗利|400|—',
+      '見出しだけ',
+      '',
+      '  \n\t\n',
+    ];
+    for (const s of samples) expect(serverParseTsv(s)).toEqual(sharedParseTsv(s));
+    // タブがある行は読点を切らない（1,200 は 1 つの升）。タブが無い行は , 、 | ｜ で切る
+    expect(sharedParseTsv(samples[0])).toEqual({ head: ['項目', '4月', '5月'], rows: [['売上', '1,200', '1,350'], ['粗利', '400']] });
+    expect(sharedParseTsv(samples[1])).toEqual({ head: ['項目', '4月', '5月'], rows: [['売上', '1200', '1350'], ['粗利', '400', '—']] });
+    expect(sharedParseTsv('見出しだけ')).toEqual({ head: ['見出しだけ'], rows: [] });
+    expect(sharedParseTsv('  \n\t\n')).toEqual({ head: [], rows: [] });
   });
 });

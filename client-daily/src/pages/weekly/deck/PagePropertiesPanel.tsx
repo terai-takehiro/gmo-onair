@@ -131,9 +131,12 @@ export function PagePropertiesPanel() {
                 </select>
               </Field>
             )}
-            <Field label="文字の大きさ（px・空欄で自動）">
-              <Input className={INPUT} type="number" min={8} max={72} value={(partOptions.font_size as number | undefined) ?? ''} onChange={(e) => setPartOption('font_size', e.target.value ? Number(e.target.value) : undefined)} />
-            </Field>
+            {/* 文と箇条書きだけ（プレビューも pptx もこの2種類にだけ効く。効かない部品に欄を出すと「変えたのに変わらない」になる） */}
+            {(part.type === 'text' || part.type === 'bullets') && (
+              <Field label="文字の大きさ（px・空欄で自動）" hint="プレビューと pptx の両方に効きます（pptx では 0.75 倍の pt）">
+                <Input className={INPUT} type="number" min={8} max={72} value={(partOptions.font_size as number | undefined) ?? ''} onChange={(e) => setPartOption('font_size', e.target.value ? Number(e.target.value) : undefined)} />
+              </Field>
+            )}
             <Field label="位置と大きさ（%）">
               <div className="grid grid-cols-4 gap-1.5">
                 {(['x', 'y', 'w', 'h'] as const).map((k) => (

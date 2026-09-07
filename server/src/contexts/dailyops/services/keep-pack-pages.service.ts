@@ -187,10 +187,13 @@ export async function buildProjectPages(
     let revenue: number | null = null;
     let grossProfit: number | null = null;
     let grossMargin: number | null = null;
-    if (summary && summary.total_revenue > 0) {
+    // **確定売上の行があるか**で実績と見る（合計 > 0 で見ると、値引き調整で合計が 0 や負になった実績が
+    // 「無い」扱いになって最新見積に戻り、資料と Slack に見込の額が実績として出る・レビュー 5 回目 P2）。
+    // 合計が 0 以下なら粗利率は出さない（割れない・意味も無い）
+    if (summary && summary.revenue_count > 0) {
       revenue = summary.total_revenue;
       grossProfit = summary.gross_profit;
-      grossMargin = summary.gross_margin;
+      grossMargin = summary.total_revenue > 0 ? summary.gross_margin : null;
     } else if (estimateAmount != null) {
       revenue = estimateAmount;
       grossProfit = estimateAmount - (estimateCost ?? 0);

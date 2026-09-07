@@ -24,7 +24,7 @@ import { FORMAT_COLORS } from './keep-templates';
 import { changedPlKeys, changedUtilization, changeNoteLabel, previousCalendar, previousPlTable } from './keep-pack-diff';
 import { resolveBinding, deckAgenda, dateLabel, type BindingContext, type TrendRevenuePoint, type TrendUtilizationPoint } from './keep-binding';
 import {
-  toBox, addText, addBullets, addPlaceholder, addHeader, addFooter, addChangeNote, checkTitleFormat, type Box,
+  toBox, addText, addBullets, addTable, addPlaceholder, addHeader, addFooter, addChangeNote, checkTitleFormat, type Box, type Cell,
 } from './keep-pptx-chrome.service';
 import {
   isPlTable, isPlByEntity, isPipelineRows, isCalendar, renderPlTable, renderPlByEntity, plNotes, renderPipeline,
@@ -32,6 +32,7 @@ import {
   renderCategoryTable, minutesLines, renderGenericTable,
 } from './keep-pptx-parts.service';
 import { renderRevenueChart, renderUtilizationChart, fetchPhotos, renderPhotos, photosFromOverride } from './keep-pptx-charts.service';
+import { parseTsv } from './keep-tsv';
 
 const C = FORMAT_COLORS;
 const CT = { bar: 'bar' as PptxGenJS.CHART_NAME, line: 'line' as PptxGenJS.CHART_NAME };
@@ -108,6 +109,35 @@ function textStyle(page: SlidePage, part: SlidePart): { size: number; bold?: boo
   return { size: 18 };
 }
 
+/**
+ * 部品の `options.font_size`（右の「このページ」の「文字の大きさ」。プレビューの 1280×720 キャンバスでの px）→ pt。
+ * スライドは 13.333in ＝ 960pt 幅なので 1px ＝ 0.75pt — プレビューと同じ大きさで出す。
+ * 無い・数でないときは undefined（部品ごとの既定）。プレビュー（`PartRenderer`）が読むのは文と箇条書きだけなので、
+ * ここも同じ2種類にだけ効かせる（片方だけに効くと「画面では大きいのに資料では小さい」になる）
+ */
+function fontPt(part: SlidePart): number | undefined {
+  const px = part.options?.font_size;
+  return typeof px === 'number' && Number.isFinite(px) && px > 0 ? px * 0.75 : undefined;
+}
+
+/**
+ * タブ区切りの表（人の上書き `text_override`・人が置いた表の `options.rows`）を**表として**出す。
+ * 読み方はプレビュー（`PartRenderer` → `parseTsv` → `SlideTable`）と同じ（shared の写し `keep-tsv.ts`）。
+ * 文（`addText`）で出すと pptx に生の TSV が並び、「表は表で出す・PowerPoint で直せる」の約束が崩れる（レビュー 5 回目 P1）。
+ * 1行目は見出し・足りない升は空で埋める。人の上書きなら本文は赤（「変更点は赤字」）
+ */
+function renderTsvTable(slide: PptxGenJS.Slide, text: string, box: Box, o: { size?: number; red?: string; label: string }): void {
+  const t = parseTsv(text);
+  if (t.head.length === 0) { addPlaceholder(slide, box, o.label); return; }
+  const cols = Math.max(t.head.length, ...t.rows.map((r) => r.length));
+  const pad = (r: string[]): string[] => Array.from({ length: cols }, (_, i) => r[i] ?? '');
+  const rows: Cell[][] = [
+    pad(t.head).map((cell) => ({ text: cell })),
+    ...t.rows.map((r) => pad(r).map((cell) => ({ text: cell, color: o.red }))),
+  ];
+  addTable(slide, rows, box, Array<number>(cols).fill(1), { size: o.size ?? 12 });
+}
+
 interface Ctx {
   pack: KeepReportPack | null; bind: BindingContext; photos: Map<string, string>; warnings: string[];
   /** パックが知っている写真の id（上書きの検査に使う） */
@@ -158,8 +188,10 @@ function renderPart(slide: PptxGenJS.Slide, page: SlidePage, part: SlidePart, c:
   if (!r.ok) {
     if (page.template === 'pl_table' && part.type === 'text' && part.binding == null) {
       const lines = plNotes(plTableOf(c.pack, page, c.bind));
-      if (lines.length) { addText(slide, lines.join('\n'), box, { size: 11, color: C.muted }); return; }
+      if (lines.length) { addText(slide, lines.join('\n'), box, { size: fontPt(part) ?? 11, color: C.muted }); return; }
     }
+    // 人が置いた表（binding 無し）は中身を `options.rows` に持つ（プレビューと同じ読み方で表にする）
+    if (part.type === 'table' && typeof part.options?.rows === 'string') { renderTsvTable(slide, part.options.rows, box, { size: fontPt(part), label }); return; }
     addPlaceholder(slide, box, r.reason === 'no_pack' ? `${label}（数字がまだありません）` : label);
     return;
   }
@@ -167,7 +199,7 @@ function renderPart(slide: PptxGenJS.Slide, page: SlidePage, part: SlidePart, c:
   const red = r.overridden ? C.negative : undefined; // 人が上書きした文は赤
   switch (part.type) {
     case 'table':
-      if (typeof v === 'string') { addText(slide, v, box, { size: 12, color: red }); return; }
+      if (typeof v === 'string') { renderTsvTable(slide, v, box, { size: fontPt(part), red, label }); return; }
       if (isPlTable(v)) { renderPlTable(slide, v, box, { changed: plChanges(c, part.binding, v) }); return; }
       if (isPlByEntity(v)) { renderPlByEntity(slide, v, box, plChangesByEntity(c, v)); return; }
       // 進行表はヨミ表より先に見る — 空の配列は `isPipelineRows` を通り、空のヨミ表として描かれてしまう（灰色の枠にならない）
@@ -186,14 +218,14 @@ function renderPart(slide: PptxGenJS.Slide, page: SlidePage, part: SlidePart, c:
       if (isCalendar(v)) { renderCalendar(slide, v, box, utilizationChanged(c, v)); return; }
       addPlaceholder(slide, box, label); return;
     case 'bullets': {
-      if (typeof v === 'string') { addBullets(slide, v.split(/\r?\n/).filter(Boolean), box, { size: 18, color: red, label }); return; }
+      if (typeof v === 'string') { addBullets(slide, v.split(/\r?\n/).filter(Boolean), box, { size: fontPt(part) ?? 18, color: red, label }); return; }
       if (part.binding?.endsWith('.highlights')) {
         // 実施報告の箇条書きは総括（headline）と下書きの印も一緒に出したいので、親（event_reports[i]）を読む
         const parent = resolveBinding(c.pack, page, { ...part, binding: part.binding.replace(/\.highlights$/, ''), text_override: null }, c.bind);
         if (parent.ok && isObj(parent.value) && Array.isArray(parent.value.highlights)) { renderReportBullets(slide, parent.value as unknown as ProjectPageData, box); return; }
       }
-      if (isStrings(v)) { addBullets(slide, v, box, { size: page.template === 'agenda' ? 22 : 16, label }); return; }
-      if (isObj(v) && Array.isArray(v.decisions)) { addBullets(slide, minutesLines(v as { decisions: string[]; topics: Array<{ area: string; text: string }> }), box, { size: 18, label }); return; }
+      if (isStrings(v)) { addBullets(slide, v, box, { size: fontPt(part) ?? (page.template === 'agenda' ? 22 : 16), label }); return; }
+      if (isObj(v) && Array.isArray(v.decisions)) { addBullets(slide, minutesLines(v as { decisions: string[]; topics: Array<{ area: string; text: string }> }), box, { size: fontPt(part) ?? 18, label }); return; }
       if (isObj(v) && Array.isArray(v.highlights)) { renderReportBullets(slide, v as unknown as ProjectPageData, box); return; }
       addPlaceholder(slide, box, label); return;
     }
@@ -207,7 +239,7 @@ function renderPart(slide: PptxGenJS.Slide, page: SlidePage, part: SlidePart, c:
       else if (typeof v === 'number') text = String(v);
       else if (isStrings(v)) text = v.join('\n');
       else { addPlaceholder(slide, box, label); return; }
-      addText(slide, `${st.prefix ?? ''}${text}`, box, { ...st, color: red ?? st.color, size: part.type === 'kpi' ? 44 : st.size });
+      addText(slide, `${st.prefix ?? ''}${text}`, box, { ...st, color: red ?? st.color, size: part.type === 'kpi' ? 44 : fontPt(part) ?? st.size });
       return;
     }
     default:

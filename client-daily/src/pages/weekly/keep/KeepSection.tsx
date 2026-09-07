@@ -57,6 +57,9 @@ export function KeepSection({ report, isMobile }: { report: OpsReport; isMobile:
   const entity = parseEntity(params.get('entity_code'));
   const segment = parseSegment(params.get('segment'));
   const live = params.get('live') === '1';
+  // 「資料をつくる」へは見ている会議日を持って渡る（`WeeklyTabs` と同じ）。落とすと行き先が週から会議日を
+  // 導き直し、凍結した過去の数字を見ていたのに別の会議日の構成を開く／作る（レビュー 5 回目 P2）
+  const meetingQuery = meeting && /^\d{4}-\d{2}-\d{2}$/.test(meeting) ? `?meeting=${meeting}` : '';
 
   const q = useKeepPack(meeting, entity, segment, live);
   const base = useKeepPack(meeting, 'all', 'all', live);   // チップの件数用（絞る前）
@@ -119,7 +122,7 @@ export function KeepSection({ report, isMobile }: { report: OpsReport; isMobile:
             <SlackDraftButton meeting={meeting} entity={entity} segment={segment} live={live} />
             {q.data && <JsonDialog pack={q.data.pack} packId={q.data.pack_id} />}
             <Button type="button" size="sm" asChild>
-              <Link to={`/weekly/${report.id}/deck`}>
+              <Link to={`/weekly/${report.id}/deck${meetingQuery}`}>
                 <FileOutput className="mr-1.5 h-4 w-4" aria-hidden="true" />資料をつくる
               </Link>
             </Button>
