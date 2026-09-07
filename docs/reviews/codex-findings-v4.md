@@ -3291,6 +3291,23 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 | 11 | （追記）マイグレーションの番号 | **⭕️ #516 で修正**。#511 と #512 が同じ 250 番を使い `main` の CI が赤くなった。番号を「枝を切った時刻」で取る限り再発する | 番号をマージ順で決める形（`changelog.d` と同じ考え方）にしたとき。**適用済みの記録がファイル名に紐づく**ので移行の設計が要る |
 | 9 | `client/src/contexts/production/components/episodes/BusinessProjectView.tsx` | **⭕️ #526（前半8段）＋ #527（後半7段）で修正**。**2,032 → 227 行**（上限 400 行）。中身は `episodes/businessProject/` の hook 4本・部品6枚・型／帳票2本に分けた。⚠️ **v4 で作り直すのを待たずにやった** — 「作り直すときに分割する」と書いたまま、その間ずっと1か所直すのに 2,000 行を読む状態が続くため。**振る舞いは変えず、移した JSX は1文字も変えていない**（各段で実ブラウザの全文・ボタン・ダイアログの入力欄・`datalist`・Esc の挙動・JS エラー0件を基準と突き合わせた） | — |
 
+- **#618**（`chore: v4.6.0 リリース`・2026-09-07）—
+  `docs/changelog.d/` に溜まっていた62件を `release:notes` で集約した版だけの PR（コード変更なし）。
+  ⚠️ **最初に出した #617 は枝名が `release/` で始まっておらず `check-changelog.mjs`
+  （作業PRが版を取っていないかの門）に引っかかり CI 赤・クローズ**（ユーザーに `AskUserQuestion`
+  で確認のうえ `release/4.6.0` 枝で #618 に出し直した）。#618 では以下2件を対応:
+  1. `check-md-links.mjs` が赤 — 集約で消えた `docs/changelog.d/*.md` 6本を
+     `docs/reviews/codex-findings-v4.md` 自身がリンクしていたため（#169 と同じ壊れ方）。
+     決めごと（`docs/version-history.md` はリンクにせず素のパスで書く）に倣い、
+     該当6件を markdown リンクから素のパス表記＋統合先の注記に直した
+  2. **⭕️ 同PR内で修正**（P2・Codex）: `generate-version-history.mjs` は12KB超の版で
+     `CLAUDE.md` の要約より `docs/version-history.md` の全文アーカイブの方が長ければ
+     全文を採用するが、`VersionHistoryModal` は「現在のバージョン」を常に
+     `defaultExpanded` で開いていたため、v4.6.0（62件・81,536文字）を開くと
+     画面が全文で埋まってしまう不具合。本文が4,000文字を超える場合は他の版と同じく
+     畳んだ状態から始めるよう `VersionHistoryModal.tsx` を直した
+  - **表に移す指摘なし**（1件のみで、マージ前に修正・返信・スレッド解決まで完了）
+
 ## この文書の使い方
 
 **これは決めごとです**（[docs/branching.md](../branching.md#マージしたらその-pr-のレビューを棚卸しに移す必須)）。
