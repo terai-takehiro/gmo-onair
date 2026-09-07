@@ -66,7 +66,12 @@ export function WeekPickerSheet({
 
       <Sheet open={open} onOpenChange={setOpen} title="週を選ぶ" sub={`全 ${reports.length} 週`}>
         {onAddNextWeek && (
-          <Button variant="outline" className="w-full" onClick={onAddNextWeek} disabled={addingNextWeek}>
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => { setOpen(false); onAddNextWeek(); }}
+            disabled={addingNextWeek}
+          >
             {addingNextWeek
               ? <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />
               : <Plus className="mr-1 h-4 w-4" aria-hidden="true" />}
