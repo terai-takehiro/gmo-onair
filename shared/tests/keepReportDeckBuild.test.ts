@@ -96,15 +96,30 @@ describe('前回の構成から組み直す（composeDeckPages）', () => {
     expect(find(next, 'project_page:prj-27h').parts[0].binding).toBe('project_pages[1].band');
   });
 
-  it('部品の位置と大きさの直しは組み直しても残る（テンプレの鍵と文の上書きと同じ扱い）', () => {
+  it('人が直した位置と大きさ（options.moved）は組み直しても残る。直していない部品はテンプレの今の位置に揃う', () => {
     const moved = clone(reordered);
-    const part = find(moved, 'pl_table:landing:all').parts[3];
-    Object.assign(part, { x: 5, y: 60, w: 90, h: 30 });
+    const page = find(moved, 'pl_table:landing:all');
+    // 右の「このページ」で位置を直した部品（画面が options.moved を付ける）
+    Object.assign(page.parts[3], { x: 5, y: 60, w: 90, h: 30, options: { ...(page.parts[3].options ?? {}), moved: true } });
+    // 前の版のテンプレの位置が残っているだけの部品（印が無い）— テンプレを直したら今の位置に揃わないといけない
+    Object.assign(page.parts[0], { x: 6, y: 23, w: 40, h: 6 });
     const next = composeDeckPages(moved, pack);
-    expect(find(next, 'pl_table:landing:all').parts[3]).toMatchObject({ x: 5, y: 60, w: 90, h: 30 });
-    // 触っていない部品はテンプレの位置のまま
-    const tpl = find(prev, 'pl_table:landing:all').parts[2];
-    expect(find(next, 'pl_table:landing:all').parts[2]).toMatchObject({ x: tpl.x, y: tpl.y, w: tpl.w, h: tpl.h });
+    expect(find(next, 'pl_table:landing:all').parts[3]).toMatchObject({ x: 5, y: 60, w: 90, h: 30, options: expect.objectContaining({ moved: true }) });
+    const tpl = find(prev, 'pl_table:landing:all');
+    expect(find(next, 'pl_table:landing:all').parts[0]).toMatchObject({ x: tpl.parts[0].x, y: tpl.parts[0].y, w: tpl.parts[0].w, h: tpl.parts[0].h });
+    expect(find(next, 'pl_table:landing:all').parts[2]).toMatchObject({ x: tpl.parts[2].x, y: tpl.parts[2].y, w: tpl.parts[2].w, h: tpl.parts[2].h });
+  });
+
+  it('固定ページ（auto: false）でも、テンプレの部品の位置は今のテンプレに揃う。人が足した部品と中身はそのまま', () => {
+    const stale = clone(reordered);
+    const appendix = find(stale, 'appendix');
+    expect(appendix.auto).toBe(false);
+    Object.assign(appendix.parts[0], { x: 4, y: 40, w: 60, h: 20, text_override: '付録' }); // 前のテンプレの位置が残っているだけ
+    appendix.parts.push({ id: 'human-part', type: 'text', binding: null, x: 10, y: 70, w: 50, h: 10, text_override: '人の文' });
+    const next = composeDeckPages(stale, pack);
+    const tpl = find(prev, 'appendix').parts[0];
+    expect(find(next, 'appendix').parts[0]).toMatchObject({ x: tpl.x, y: tpl.y, w: tpl.w, h: tpl.h, text_override: '付録' });
+    expect(find(next, 'appendix').parts[1]).toMatchObject({ id: 'human-part', x: 10, y: 70, w: 50, h: 10, text_override: '人の文' });
   });
 
   it('同じ構成で組み直しても何も変わらない（冪等）', () => {

@@ -6,7 +6,8 @@
  */
 import { useState, type CSSProperties } from 'react';
 import { ImageOff } from 'lucide-react';
-import { C, bandTitle, emptyBox, overrideColor } from './slideStyle';
+import { FORMAT_FONT } from '@gmo-onair/shared/src/keepReport/templates';
+import { C, bandTitle, emptyBox, fitPx, overrideColor, pt, toInch, type TextTone } from './slideStyle';
 
 interface Box { w: number; h: number }
 
@@ -20,9 +21,15 @@ export function fitFont(lines: string[], box: Box, max: number, min = 12, lineHe
   return min;
 }
 
+/** 枠いっぱいに置いて上下左右の中央に寄せる（表紙の会議名・部署名と日付・青い箱） */
+const centered: CSSProperties = {
+  width: '100%', height: '100%', boxSizing: 'border-box', padding: '0 5px', display: 'flex', alignItems: 'center',
+  justifyContent: 'center', textAlign: 'center', whiteSpace: 'pre-wrap', overflow: 'hidden',
+};
+
 export function TextPart({ text, tone, box, override, fontSize }: {
   text: string;
-  tone: 'plain' | 'band' | 'confidence' | 'cover' | 'heading';
+  tone: TextTone;
   box: Box;
   override?: boolean;
   fontSize?: number;
@@ -41,9 +48,26 @@ export function TextPart({ text, tone, box, override, fontSize }: {
     );
   }
   const lines = text.split('\n');
+  // 実物の表紙: 会議名 72pt 太字・黒・中央（長い名前は幅に収まるまで小さく）／部署名と日付 40pt 中央／
+  // 青い箱 24pt 白／注意書き 20pt 左。Appendix は 54pt の青。pptx（keep-pptx.service.ts の textStyle）と同じ値
   if (tone === 'cover') {
-    const fs = fontSize ?? fitFont(lines, box, 48, 20, 1.3);
-    return <div style={{ fontSize: fs, fontWeight: 700, color: color ?? C.title, lineHeight: 1.3, whiteSpace: 'pre-wrap' }}>{text}</div>;
+    const fs = fontSize ?? fitPx(text, FORMAT_FONT.coverTitle, toInch(box.w));
+    return <div style={{ ...centered, fontSize: fs, fontWeight: 700, color: color ?? C.text, lineHeight: 1.1 }}>{text}</div>;
+  }
+  if (tone === 'cover-sub') {
+    const fs = fontSize ?? fitFont(lines, box, pt(FORMAT_FONT.coverSub), 16, 1.2);
+    return <div style={{ ...centered, fontSize: fs, color: color ?? C.text, lineHeight: 1.2 }}>{text}</div>;
+  }
+  if (tone === 'cover-note') {
+    const fs = fontSize ?? fitFont(lines, box, pt(FORMAT_FONT.coverNote), 12, 1.35);
+    return <div style={{ ...centered, fontSize: fs, color: color ?? '#fff', background: C.title, lineHeight: 1.35 }}>{text}</div>;
+  }
+  if (tone === 'cover-guide') {
+    const fs = fontSize ?? fitFont(lines, box, pt(FORMAT_FONT.coverGuide), 12, 1.2);
+    return <div style={{ ...centered, justifyContent: 'flex-start', textAlign: 'left', fontSize: fs, color: color ?? C.text, lineHeight: 1.2 }}>{text}</div>;
+  }
+  if (tone === 'appendix') {
+    return <div style={{ fontSize: fontSize ?? pt(FORMAT_FONT.appendix), color: color ?? C.positive, lineHeight: 1.2, whiteSpace: 'pre-wrap', overflow: 'hidden', padding: 5 }}>{text}</div>;
   }
   if (tone === 'heading') {
     const fs = fontSize ?? fitFont(lines, box, 28, 14, 1.3);

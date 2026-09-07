@@ -249,7 +249,16 @@ export const useDeckStore = create<DeckState>((set, get) => {
       if (get().selectedPartId === partId) set({ selectedPartId: null, replaceTargetPartId: null });
     },
     updatePart: (pageId, partId, patch) =>
-      mapPage(pageId, (p) => ({ ...p, parts: p.parts.map((x) => (x.id === partId ? { ...x, ...patch } : x)) })),
+      mapPage(pageId, (p) => ({
+        ...p,
+        parts: p.parts.map((x) => {
+          if (x.id !== partId) return x;
+          // 位置・大きさを人が直したら印（options.moved）を付ける。組み直し（shared の carryOver）は印のある部品だけ
+          // 前の版の位置を残し、ほかはテンプレの今の位置に揃える（印が無いと、テンプレを直しても古い位置が残り続ける）
+          const moved = (['x', 'y', 'w', 'h'] as const).some((k) => k in patch);
+          return { ...x, ...patch, ...(moved ? { options: { ...(x.options ?? {}), ...(patch.options ?? {}), moved: true } } : {}) };
+        }),
+      })),
 
     setSaveStatus: (status) => set({ saveStatus: status }),
     markSaved: (snapshot, result) => {

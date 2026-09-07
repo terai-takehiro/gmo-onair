@@ -10,10 +10,13 @@ import {
 } from '@gmo-onair/shared/src/keepReport/binding';
 import type {
   BudgetLine, KeepDeck, KeepReportPack, MonthlyPlTable, MonthlyTrendPoint, PipelineRow, PlByEntity, ProjectPageData,
-  SlidePage, SlidePart, UtilizationCalendar,
+  SlidePage, SlidePart, SlideTemplateKey, UtilizationCalendar,
 } from '@gmo-onair/shared/src/keepReport/types';
 import { BUSINESS_ENTITY_LABELS } from '@gmo-onair/shared/src/keepReport/types';
+import { COVER_TEXT, TAGLINE_BINDING } from '@gmo-onair/shared/src/keepReport/templates';
+import type { FormatAssetKey } from '@gmo-onair/shared/src/keepReport/formatAssets';
 import { circled } from '../deckLabels';
+import type { TextTone } from './slideStyle';
 
 export type Resolved =
   | { kind: 'pl'; table: MonthlyPlTable; mode: 'landing' | 'forecast'; caption: string | null }
@@ -21,13 +24,15 @@ export type Resolved =
   | { kind: 'pipeline'; list: 'external' | 'samurai'; rows: PipelineRow[] }
   | { kind: 'trend'; metric: 'revenue' | 'utilization'; points: MonthlyTrendPoint[] }
   | { kind: 'calendar'; calendar: UtilizationCalendar }
-  | { kind: 'text'; text: string; tone: 'plain' | 'band' | 'confidence' | 'cover' | 'heading' }
+  | { kind: 'text'; text: string; tone: TextTone }
   | { kind: 'bullets'; items: string[] }
   | { kind: 'table'; head: string[]; rows: string[][]; align?: Array<'left' | 'right' | 'center'> }
   | { kind: 'money'; revenue: number | null; gross: number | null; margin: number | null }
   | { kind: 'key_dates'; items: Array<{ label: string; text: string }> }
   | { kind: 'photos'; projectId: string | null; photos: Array<{ box_file_id: string; caption: string | null }> }
   | { kind: 'kpi'; items: Array<{ label: string; value: string; sub?: string }> }
+  /** フォーマットの絵（締めの「すべての人にインターネット」）。pptx も同じ SVG を置く */
+  | { kind: 'asset'; asset: FormatAssetKey }
   | { kind: 'manual' }
   | { kind: 'empty'; reason: string };
 
@@ -133,9 +138,16 @@ function projectValue(binding: string, part: SlidePart, value: unknown, pack: Ke
   }
 }
 
-function classify(binding: string, part: SlidePart, value: unknown, pack: KeepReportPack | null): Resolved {
+function classify(binding: string, part: SlidePart, value: unknown, pack: KeepReportPack | null, template: SlideTemplateKey): Resolved {
   if (binding === '$meeting_title') return { kind: 'text', tone: 'cover', text: String(value || DEFAULT_MEETING_TITLE) };
-  if (binding === '$meeting_date') return { kind: 'text', tone: 'heading', text: dateLabel(String(value)) || '会議日 未定' };
+  if (binding === '$meeting_date') return { kind: 'text', tone: template === 'cover' ? 'cover-sub' : 'heading', text: dateLabel(String(value)) || '会議日 未定' };
+  // 実物の表紙の固定文（pptx の textStyle と同じ振り分け）: 青い箱（フォーマットの版）／注意書き／それ以外は部署名と同じ 40pt
+  if (template === 'cover' && typeof value === 'string') {
+    if (binding === COVER_TEXT.versionNote) return { kind: 'text', tone: 'cover-note', text: value };
+    if (binding === COVER_TEXT.guide) return { kind: 'text', tone: 'cover-guide', text: value };
+    return { kind: 'text', tone: 'cover-sub', text: value };
+  }
+  if (template === 'appendix' && typeof value === 'string') return { kind: 'text', tone: 'appendix', text: value };
   if (binding === '$pl_heading') return { kind: 'text', tone: 'heading', text: String(value) };
   if (binding === '$agenda') {
     const items = isStrings(value) ? value : [];
@@ -200,6 +212,7 @@ function classify(binding: string, part: SlidePart, value: unknown, pack: KeepRe
 export function resolveBinding(pack: KeepReportPack | null, page: SlidePage, part: SlidePart, ctx: ResolveContext = {}): Resolved {
   const binding = part.binding;
   if (binding === null || binding === undefined || binding === '') return { kind: 'manual' };
+  if (binding === TAGLINE_BINDING) return { kind: 'asset', asset: 'tagline' };
   const bctx: BindingContext = {
     meeting_date: ctx.meeting ?? pack?.meeting_date ?? '',
     meeting_title: null,
@@ -213,5 +226,5 @@ export function resolveBinding(pack: KeepReportPack | null, page: SlidePage, par
     if (binding === 'minutes.next_meeting_date') return { kind: 'text', tone: 'heading', text: '次回開催日：未定' };
     return empty(notFoundReason(binding));
   }
-  return classify(binding, part, r.value, pack);
+  return classify(binding, part, r.value, pack, page.template);
 }

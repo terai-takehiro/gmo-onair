@@ -4,15 +4,20 @@
  * ── なぜ inline style で、なぜトークンではないのか ────────────────
  *
  * キャンバスは **PowerPoint の絵をそのまま写す**もので、画面の部品ではない。
- * 題の青（#0B62C8）・表の紺・帯の水色は資料の決まり（`shared/src/keepReport/templates.ts` の
+ * 題の青（#005BAC）・表の紺・帯の水色は資料の決まり（`shared/src/keepReport/templates.ts` の
  * `FORMAT_COLORS`。pptx 出力と同じ値）なので、画面のトークン（`--primary` など）に
  * 寄せると**画面で見た色と出力した資料の色が違う**ことになる。
- * 位置は 1280×720 の仮想キャンバスに対する % で、これも pptx と共通。
+ *
+ * ── 寸法の出どころ ────────────────────────────────────────
+ * ヘッダー・フッターの位置は**実物の pptx から読んだインチ**（`FORMAT_CHROME`）を `px()` で px にする
+ * （13.333in × 7.5in を 1280×720 に置くと 1in = 96px・1pt = 1.333px）。pptx 出力（server の
+ * `keep-pptx-chrome.service.ts`）は同じインチをそのまま使うので、画面と資料で枠の位置が一致する。
+ * 部品の位置は 1280×720 の仮想キャンバスに対する % で、これも pptx と共通。
  *
  * 資料の色・書体・寸法を書くのはこのファイルと、ここから style を受け取る
  * `renderers/` だけにする。画面側（一覧・パネル・ボタン）はいつもどおりトークンで書く。
  */
-import { FORMAT_COLORS, FORMAT_FONT } from '@gmo-onair/shared/src/keepReport/templates';
+import { FORMAT_CHROME, FORMAT_COLORS, FORMAT_FONT, SLIDE_IN, type InchBox } from '@gmo-onair/shared/src/keepReport/templates';
 import type { CSSProperties } from 'react';
 
 export const SLIDE_W = 1280;
@@ -27,6 +32,7 @@ export const C = {
   band: hex(FORMAT_COLORS.band),
   positive: hex(FORMAT_COLORS.positive),
   negative: hex(FORMAT_COLORS.negative),
+  confidential: hex(FORMAT_COLORS.confidential),
   marker: hex(FORMAT_COLORS.marker),
   kgi: hex(FORMAT_COLORS.kgi),
   kpi: hex(FORMAT_COLORS.kpi),
@@ -34,6 +40,7 @@ export const C = {
   talkGreen: hex(FORMAT_COLORS.talkGreen),
   text: hex(FORMAT_COLORS.text),
   muted: hex(FORMAT_COLORS.muted),
+  pageNo: hex(FORMAT_COLORS.pageNo),
   line: hex(FORMAT_COLORS.line),
   /** 資料の中の淡い面（写真の枠・空の部品）。フォーマットに決まりは無い */
   paper: '#ffffff',
@@ -55,8 +62,36 @@ export const C = {
 
 export const FONT_FAMILY = `'${FORMAT_FONT.family}', 'BIZ UDPGothic', 'Meiryo', 'Hiragino Sans', sans-serif`;
 
+/**
+ * 文の見た目の種類（`binding.ts` が binding から決め、`TextRenderer` が描く）。
+ * 表紙（会議名／部署名と日付／青い箱／注意書き）と Appendix は実物の書式そのまま
+ */
+export type TextTone = 'plain' | 'band' | 'confidence' | 'cover' | 'cover-sub' | 'cover-note' | 'cover-guide' | 'appendix' | 'heading';
+
 /** pt → px（PowerPoint の 13.333in × 7.5in を 1280×720 に置くと 1pt = 1.333px） */
 export const pt = (v: number) => Math.round(v * 1.333);
+/** インチ → px（同じ置き方で 1in = 96px） */
+export const px = (inch: number) => Math.round((inch / SLIDE_IN.w) * SLIDE_W);
+/** px → インチ（部品の幅から文字の大きさを見積もるとき） */
+export const toInch = (v: number) => (v / SLIDE_W) * SLIDE_IN.w;
+
+/** インチの箱（`FORMAT_CHROME`）→ 絶対配置の px */
+export function boxPx(b: InchBox): CSSProperties {
+  return { position: 'absolute', left: px(b.x), top: px(b.y), width: px(b.w), height: px(b.h), boxSizing: 'border-box' };
+}
+
+/**
+ * 文字数から「箱の幅に収まる大きさ」を px で決める。server の `fitPt`（keep-pptx.service.ts）と**同じ見積もり**
+ * — 全角 1em・半角 0.65em・4% の余裕・左右の余白 0.2in。題（PowerPoint では normAutofit）と表紙の会議名に使う
+ */
+export function fitPx(text: string, maxPt: number, widthIn: number, minPt = 20): number {
+  const longest = text.split(/\r?\n/).reduce((m, l) => Math.max(m, [...l].reduce((w, ch) => w + ((ch.codePointAt(0) ?? 0) > 0x2e7f ? 1 : 0.65), 0)), 0);
+  if (longest === 0) return pt(maxPt);
+  return pt(Math.max(minPt, Math.min(maxPt, Math.floor(((widthIn - 0.2) * 72) / (longest * 1.04)))));
+}
+
+/** pptxgenjs の文字箱の既定の余白（margin 4pt ≒ 0.056in ≒ 5px） */
+const INSET = 5;
 
 export const frameStyle: CSSProperties = {
   width: SLIDE_W, height: SLIDE_H, position: 'relative', overflow: 'hidden',
@@ -64,28 +99,57 @@ export const frameStyle: CSSProperties = {
   fontFeatureSettings: '"palt" 1',
 };
 
+/** 題（レイアウトの title placeholder・36pt・太字・青・上詰め）。長い題は `fitPx` で 1 行に収める */
 export const titleStyle: CSSProperties = {
-  position: 'absolute', left: 34, top: 18, right: 120, fontSize: pt(FORMAT_FONT.title) * 0.8,
-  lineHeight: 1.2, fontWeight: 700, color: C.title, letterSpacing: '.01em', whiteSpace: 'nowrap', overflow: 'hidden',
+  ...boxPx(FORMAT_CHROME.title), padding: INSET, fontSize: pt(FORMAT_FONT.title), lineHeight: 1.2, fontWeight: 700,
+  color: C.title, whiteSpace: 'nowrap', overflow: 'hidden',
 };
 
-export function bandStyle(tone: 'blue' | 'green', top: number): CSSProperties {
+/**
+ * トークスクリプトの帯（角丸の長方形・18pt）。`index` は上から何本目か（実物は 0.86in と 1.422in）。
+ * 文の前はアイコンの分を空ける — pptx は全角空白 3 つ（18pt × 3 ＝ 0.75in）＋箱の余白 0.1in
+ */
+export function bandStyle(tone: 'blue' | 'green', index: number): CSSProperties {
+  const B = FORMAT_CHROME.band;
+  const top = B.top[index] ?? B.top[0] + index * (B.top[1] - B.top[0]);
   return {
-    position: 'absolute', left: 26, right: 26, top, height: 34, borderRadius: 17,
-    background: tone === 'blue' ? C.talkBlue : C.talkGreen,
-    display: 'flex', alignItems: 'center', gap: 14, padding: '0 18px', fontSize: 16, fontWeight: 700,
-    boxSizing: 'border-box',
+    position: 'absolute', left: px(B.x), top: px(top), width: px(B.w), height: px(B.h), borderRadius: px(B.radius),
+    background: tone === 'blue' ? C.talkBlue : C.talkGreen, boxSizing: 'border-box',
+    display: 'flex', alignItems: 'center', padding: `0 ${px(0.1)}px 0 ${px(0.85)}px`,
+    fontSize: pt(FORMAT_FONT.band), lineHeight: 1.2, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden',
   };
 }
 
+/** 帯の左端のスピーカー（`formatAssets` の talkIcon・帯の中で縦中央） */
+export function bandIconStyle(index: number): CSSProperties {
+  const B = FORMAT_CHROME.band;
+  const I = FORMAT_CHROME.bandIcon;
+  const top = (B.top[index] ?? B.top[0]) + (B.h - I.size) / 2;
+  return { position: 'absolute', left: px(I.x), top: px(top), width: px(I.size), height: px(I.size), display: 'block' };
+}
+
+/** 帯の注記（赤・右寄せ） */
+export const bandNoteStyle: CSSProperties = { marginLeft: 'auto', color: C.negative, fontSize: pt(FORMAT_FONT.band) };
+
+const F = FORMAT_CHROME.footer;
+/**
+ * フッター（実物のスライドマスターと同じ位置）: ワードマークは <img>（`formatAssets` の wordmark）／
+ * タグは青地に白 10pt／Strictly confidential は赤 12pt 右寄せ／ページ番号は太字の灰 24pt。罫線は無い。表紙にも出る
+ */
 export const footer = {
-  logo: { position: 'absolute', left: 26, bottom: 12, fontSize: 19, fontWeight: 800, letterSpacing: '.02em', color: '#1a1d24' } as CSSProperties,
+  logo: { ...boxPx(F.logo), display: 'block' } as CSSProperties,
   tag: {
-    position: 'absolute', left: 270, bottom: 14, height: 22, display: 'inline-flex', alignItems: 'center',
-    padding: '0 9px', background: C.title, color: '#fff', fontSize: 12, whiteSpace: 'nowrap',
+    ...boxPx(F.tag), display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: C.positive, color: '#fff', fontSize: pt(FORMAT_FONT.footerTag), lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden',
   } as CSSProperties,
-  confidential: { position: 'absolute', right: 62, bottom: 14, fontSize: 14, color: C.negative, whiteSpace: 'nowrap' } as CSSProperties,
-  pageNo: { position: 'absolute', right: 22, bottom: 6, fontSize: 26, color: '#8a8f98', fontWeight: 700, fontVariantNumeric: 'tabular-nums' } as CSSProperties,
+  confidential: {
+    ...boxPx(F.confidential), display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: `0 ${INSET}px`,
+    fontSize: pt(FORMAT_FONT.confidential), lineHeight: 1, color: C.confidential, whiteSpace: 'nowrap',
+  } as CSSProperties,
+  pageNo: {
+    ...boxPx(F.pageNo), display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+    fontSize: pt(FORMAT_FONT.pageNo), lineHeight: 1, fontWeight: 700, color: C.pageNo, fontVariantNumeric: 'tabular-nums',
+  } as CSSProperties,
 };
 
 /** 数字は等幅で右にそろえる（千円の表・ヨミ表） */

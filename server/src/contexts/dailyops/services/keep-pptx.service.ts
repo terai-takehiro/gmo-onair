@@ -20,12 +20,13 @@ import {
   type KeepDeck, type KeepReportPack, type SlidePage, type SlidePart, type ProjectPageData, type MonthlyPlTable, type PlByEntity,
   type UtilizationCalendar, type BusinessEntity,
 } from './keep-deck.types';
-import { FORMAT_COLORS } from './keep-templates';
+import { COVER_TEXT, FORMAT_COLORS, FORMAT_FONT, TAGLINE_BINDING } from './keep-templates';
 import { changedPlKeys, changedUtilization, changeNoteLabel, previousCalendar, previousPlTable } from './keep-pack-diff';
 import { resolveBinding, deckAgenda, dateLabel, type BindingContext, type TrendRevenuePoint, type TrendUtilizationPoint } from './keep-binding';
 import {
-  toBox, addText, addBullets, addTable, addPlaceholder, addHeader, addFooter, addChangeNote, checkTitleFormat, type Box, type Cell,
+  toBox, addText, addBullets, addTable, addPlaceholder, addHeader, addFooter, addChangeNote, addFormatImage, checkTitleFormat, type Box, type Cell,
 } from './keep-pptx-chrome.service';
+import { attachFormatSvgs } from './keep-pptx-svg.service';
 import {
   isPlTable, isPlByEntity, isPipelineRows, isCalendar, renderPlTable, renderPlByEntity, plNotes, renderPipeline,
   renderBand, renderConfidence, renderSchedule, renderKeyDates, renderMoney, renderReportBullets, renderCalendar,
@@ -95,15 +96,38 @@ function plTableOf(pack: KeepReportPack | null, page: SlidePage, ctx: BindingCon
 }
 
 /** 文の部品の大きさと置き方（binding とテンプレで決める） */
-function textStyle(page: SlidePage, part: SlidePart): { size: number; bold?: boolean; color?: string; align?: 'left' | 'center' | 'right'; valign?: 'top' | 'middle' | 'bottom'; prefix?: string } {
+interface TextStyle {
+  size: number; bold?: boolean; color?: string; fill?: string; align?: 'left' | 'center' | 'right'; valign?: 'top' | 'middle' | 'bottom'; prefix?: string;
+  /** 長い文は箱の幅に収まるまで小さくする（表紙の会議名） */
+  fit?: boolean;
+}
+
+/**
+ * 文字数から「箱の幅に収まる大きさ」を決める（全角 1em・半角 0.65em で見積もり、4% の余裕を取る。左右の余白 0.2in を引く）。
+ * 太字の欧文大文字（GMO）は 0.6em より広く、余裕が無いと実測で折り返した。client の `fitPx`（slideStyle.ts）と同じ式にしておく
+ * PowerPoint の自動調整（normAutofit）は開いた後に計算されるので、出力時点で収まる大きさにしておく
+ */
+export function fitPt(text: string, maxPt: number, widthIn: number, minPt = 20): number {
+  const longest = text.split(/\r?\n/).reduce((m, l) => Math.max(m, [...l].reduce((w, ch) => w + (ch.codePointAt(0)! > 0x2e7f ? 1 : 0.65), 0)), 0);
+  if (longest === 0) return maxPt;
+  return Math.max(minPt, Math.min(maxPt, Math.floor(((widthIn - 0.2) * 72) / (longest * 1.04))));
+}
+
+function textStyle(page: SlidePage, part: SlidePart): TextStyle {
   const b = part.binding ?? '';
-  if (page.template === 'cover') return b === '$meeting_title' ? { size: 40, bold: true, color: C.title, align: 'center', valign: 'middle' } : { size: 24, align: 'center', valign: 'middle' };
+  if (page.template === 'cover') {
+    // 実物の表紙: 会議名 72pt 太字・黒・中央／部署名と日付 40pt 中央／青い箱 24pt 白／注意書き 20pt
+    if (b === '$meeting_title') return { size: FORMAT_FONT.coverTitle, bold: true, color: C.text, align: 'center', valign: 'middle', fit: true };
+    if (b === COVER_TEXT.versionNote) return { size: FORMAT_FONT.coverNote, color: 'FFFFFF', fill: C.title, align: 'center', valign: 'middle' };
+    if (b === COVER_TEXT.guide) return { size: FORMAT_FONT.coverGuide, color: C.text, valign: 'middle' };
+    return { size: FORMAT_FONT.coverSub, color: C.text, align: 'center', valign: 'middle' };
+  }
+  if (page.template === 'appendix') return { size: FORMAT_FONT.appendix, color: C.positive, valign: 'top' };
   if (b === '$pl_heading') return { size: 20, bold: true, color: C.title, valign: 'middle' };
   if (b === '単位：千円') return { size: 12, align: 'right', valign: 'middle', color: C.muted };
   if (page.template === 'pipeline_table') return { size: 16, bold: true, valign: 'middle' };
   if (b.endsWith('.intake_channel')) return { size: 12, color: C.muted, valign: 'middle', prefix: '経路: ' };
   if (b === 'minutes.next_meeting_date') return { size: 24, bold: true, valign: 'middle', prefix: '次回開催日：' };
-  if (page.template === 'appendix') return { size: 36, bold: true, color: C.title, valign: 'middle' };
   if (page.template === 'slogan') return { size: 28, bold: true, align: 'center', valign: 'middle' };
   if (page.template === 'pl_table') return { size: 11 }; // 注記
   return { size: 18 };
@@ -192,6 +216,8 @@ function renderPart(slide: PptxGenJS.Slide, page: SlidePage, part: SlidePart, c:
     }
     // 人が置いた表（binding 無し）は中身を `options.rows` に持つ（プレビューと同じ読み方で表にする）
     if (part.type === 'table' && typeof part.options?.rows === 'string') { renderTsvTable(slide, part.options.rows, box, { size: fontPt(part), label }); return; }
+    // 締めのページの絵（フォーマットの「すべての人にインターネット」）
+    if (part.type === 'image' && part.binding === TAGLINE_BINDING) { addFormatImage(slide, 'tagline', box); return; }
     addPlaceholder(slide, box, r.reason === 'no_pack' ? `${label}（数字がまだありません）` : label);
     return;
   }
@@ -239,7 +265,8 @@ function renderPart(slide: PptxGenJS.Slide, page: SlidePage, part: SlidePart, c:
       else if (typeof v === 'number') text = String(v);
       else if (isStrings(v)) text = v.join('\n');
       else { addPlaceholder(slide, box, label); return; }
-      addText(slide, `${st.prefix ?? ''}${text}`, box, { ...st, color: red ?? st.color, size: part.type === 'kpi' ? 44 : fontPt(part) ?? st.size });
+      const size = part.type === 'kpi' ? 44 : fontPt(part) ?? (st.fit ? fitPt(text, st.size, box.w) : st.size);
+      addText(slide, `${st.prefix ?? ''}${text}`, box, { ...st, color: red ?? st.color, size });
       return;
     }
     default:
@@ -281,14 +308,16 @@ export async function renderDeckPptx(deck: KeepDeck, pack: KeepReportPack | null
     }
     // 「変更点は赤字」の脚注: 赤字の対象を描いたページだけ。文の M/D は前回の資料の会議日
     if (c.marked && c.prev) addChangeNote(slide, changeNoteLabel(c.prev.meeting_date));
-    addFooter(slide, i + 1);
+    addFooter(slide);
     if (page.notes) slide.addNotes(page.notes);
     const w = checkTitleFormat(page, i + 1);
     if (w) warnings.push(w);
   });
   if (pages.length && !c.prev) warnings.push('前回の資料（凍結したパック）が無いので「変更点は赤字」は付けていません');
 
-  const buffer = (await pptx.write({ outputType: 'nodebuffer' })) as Buffer;
+  const raw = (await pptx.write({ outputType: 'nodebuffer' })) as Buffer;
+  // フォーマットの絵に元の SVG を結びつける（PNG は残る。読めない環境は PNG を見る）
+  const { buffer } = await attachFormatSvgs(raw);
   return { buffer, pages: pages.length, warnings };
 }
 

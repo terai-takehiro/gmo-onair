@@ -8,6 +8,7 @@
 import { useDeckStore } from './deckState';
 import { useMemo } from 'react';
 import type { KeepDeck, KeepReportPack, SlidePage, SlidePart } from '@gmo-onair/shared/src/keepReport/types';
+import { FORMAT_ASSETS, formatAssetDataUri } from '@gmo-onair/shared/src/keepReport/formatAssets';
 import { hasOverride } from './deckLabels';
 import { resolveBinding } from './renderers/binding';
 import { SLIDE_H, SLIDE_W } from './renderers/slideStyle';
@@ -81,6 +82,9 @@ export function PartRenderer({ pack, page, part, deck, meeting, thumb }: PartRen
       return <PhotosPart projectId={resolved.projectId} photos={resolved.photos} box={box} thumb={thumb} />;
     case 'kpi':
       return <KpiPart items={resolved.items} box={box} />;
+    case 'asset':
+      // フォーマットの絵（締めの「すべての人にインターネット」）。実物の SVG そのまま・pptx も同じ絵
+      return <img src={formatAssetDataUri(resolved.asset)} alt={FORMAT_ASSETS[resolved.asset].label} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />;
     case 'empty':
       return <EmptyPart reason={resolved.reason} box={box} thumb={thumb} />;
     case 'manual':

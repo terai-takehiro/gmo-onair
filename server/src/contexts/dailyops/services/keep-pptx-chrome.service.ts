@@ -3,20 +3,28 @@
  * 部品を置くための共通の道具（文字箱・表・灰色の枠・数字の書式）。
  *
  * ── 守るもの（docs/design/v4/keep-report.md §6.3）────────────────────
- * - 題: 左上・青（FORMAT_COLORS.title）・36pt・太字
- * - 帯: 題の下に2段（青＝進行担当／発表者、緑＝会議オーナー／全員）。右端に赤い注記
- * - フッター: 「GMO INTERNET GROUP」／フォーマット名の青いタグ／Strictly confidential（赤）／ページ番号（灰・大きめ）
+ * ヘッダー・フッターの位置・大きさ・色・書体は**実物の `GMO流会議フォーマット_Ver_2_5.pptx` から読んだ値**
+ * （`keep-templates.ts` の `FORMAT_CHROME` / `FORMAT_COLORS` / `FORMAT_FONT`。インチ・pt そのまま）:
+ * - 題: レイアウトの title placeholder（0.234in/0.124in・9.817×0.707in）・36pt・太字・#005BAC・左
+ * - 帯: 角丸の長方形 2 本（0.86in と 1.422in・13.003×0.449in）。青＝accent1 の淡色 #BFD7FF（進行担当／発表者）、
+ *   緑＝#D2ECD8（会議オーナー／全員）。左端にスピーカーのアイコン（`formatAssets` の talkIcon）、文は 18pt・
+ *   全角空白 3 つでアイコンの分を空ける（実物と同じ）。注記は赤 #D62825 で右寄せ
+ * - フッター（スライドマスター）: ワードマーク「GMO INTERNET GROUP」（画像・0.256in/7.166in）／
+ *   青いタグ #005AAC・10pt 白（2.988in/7.149in）／Strictly confidential 12pt #C00000 右寄せ／ページ番号 24pt 太字 #808080
+ *   （スライド番号のフィールド）。**罫線は無い。表紙にも出る**
  * - 書体は Noto Sans JP（FORMAT_FONT.family）。開く PC に無いと置き換わる（§6.2）
  *
  * 位置は 13.333in × 7.5in（16:9・LAYOUT_WIDE）。部品の位置はテンプレの %（1280×720 の仮想キャンバス）から換算する。
+ * 絵（ワードマーク・アイコン・締めのロゴ）は PNG で置き、`keep-pptx-svg.service.ts` が出力後に元の SVG を結びつける
+ * （pptxgenjs は Node で SVG の代替 PNG を作れないため）。印は altText の `gmo-format:<key>`。
  *
- * ── templates.ts に無い寸法（ここで決めている。共通化したいものは報告に書く）────
- * 題の箱 0.4in/0.2in/12.5in/0.7in、帯 0.32in × 2（0.95in〜）、フッターの y 7.1in、ページ番号 20pt、
- * 「赤字＝前回から変わった所」の脚注 0.4in/6.74in/7.5in/0.28in（フッターの罫線 7.05in のすぐ上・10pt・灰）。
+ * ── templates.ts に無い寸法（ここで決めている）────
+ * 「赤字＝前回から変わった所」の脚注 0.4in/6.74in/7.5in/0.28in（フッターの上・10pt・灰）。
  */
 import type PptxGenJS from 'pptxgenjs';
 import type { SlidePage, SlidePart } from './keep-deck.types';
-import { FORMAT_COLORS, FORMAT_FONT, FORMAT_FOOTER, TALK_BANDS, SLIDE_TEMPLATES } from './keep-templates';
+import { FORMAT_CHROME, FORMAT_COLORS, FORMAT_FONT, FORMAT_FOOTER, TALK_BANDS, SLIDE_TEMPLATES } from './keep-templates';
+import { formatAssetPngData, type FormatAssetKey } from './keep-format-assets';
 
 export const SLIDE_W = 13.333;
 export const SLIDE_H = 7.5;
@@ -104,20 +112,41 @@ export function addTable(
   slide.addTable(tableRows, { x: box.x, y: box.y, w: box.w, colW, ...(o.rowH ? { rowH: o.rowH } : {}), autoPage: false });
 }
 
+// ── フォーマットの絵 ────────────────────────────────────────────
+/** altText の印。`keep-pptx-svg.service.ts` がこれを見て元の SVG を結びつける */
+export const FORMAT_IMAGE_MARK = 'gmo-format:';
+
+/** フォーマットの絵（ワードマーク・帯のアイコン・締めのロゴ）を PNG で置く。印を altText に入れる */
+export function addFormatImage(slide: PptxGenJS.Slide, key: FormatAssetKey, box: Box): void {
+  slide.addImage({ data: formatAssetPngData(key), x: box.x, y: box.y, w: box.w, h: box.h, altText: `${FORMAT_IMAGE_MARK}${key}` });
+}
+
 // ── ヘッダー・フッター ─────────────────────────────────────────
 export function addHeader(slide: PptxGenJS.Slide, page: SlidePage): void {
   const header = SLIDE_TEMPLATES[page.template]?.header ?? 'title';
   if (header === 'none') return;
-  addText(slide, page.title, { x: 0.4, y: 0.2, w: 12.5, h: 0.7 }, { size: FORMAT_FONT.title, bold: true, color: C.title, valign: 'middle', shrink: true, wrap: false });
+  // 題: レイアウトの title placeholder（36pt・太字・青・左上）。長い題は縮めて 1 行に収める
+  addText(slide, page.title, { ...FORMAT_CHROME.title }, { size: FORMAT_FONT.title, bold: true, color: C.title, valign: 'top', shrink: true, wrap: false });
   if (header === 'title') return;
   const bands = header === 'bands-report' ? TALK_BANDS.report : TALK_BANDS.owner;
+  const B = FORMAT_CHROME.band;
+  const icon = FORMAT_CHROME.bandIcon;
   bands.forEach((b, i) => {
-    const y = 0.95 + i * 0.36;
+    const y = B.top[i] ?? B.top[0] + i * (B.top[1] - B.top[0]);
     const fill = b.tone === 'blue' ? C.talkBlue : C.talkGreen;
-    slide.addShape('roundRect' as PptxGenJS.SHAPE_NAME, { x: 0.4, y, w: 12.5, h: 0.32, fill: { color: fill }, line: { color: fill, width: 0 }, rectRadius: 0.08 });
-    addText(slide, b.text, { x: 0.5, y, w: 7.5, h: 0.32 }, { size: 14, bold: true, valign: 'middle', margin: 2 });
+    // 帯は「文の入った角丸の長方形」1 つ（実物と同じ形・PowerPoint で 1 つの図形として直せる）。
+    // 文の前の全角空白 3 つも実物どおり — アイコンの分を空けている
+    slide.addText(`　　　${b.text}`, {
+      shape: 'roundRect' as PptxGenJS.SHAPE_NAME, rectRadius: B.radius, x: B.x, y, w: B.w, h: B.h,
+      fill: { color: fill }, line: { color: fill, width: 0 },
+      fontFace: FONT, fontSize: FORMAT_FONT.band, color: C.text, valign: 'middle', align: 'left', isTextBox: true,
+    });
+    addFormatImage(slide, 'talkIcon', { x: icon.x, y: y + (B.h - icon.size) / 2, w: icon.size, h: icon.size });
     const note = 'note' in b ? b.note : null;
-    if (note) addText(slide, note, { x: 7.9, y, w: 5.0, h: 0.32 }, { size: 11, color: C.negative, align: 'right', valign: 'middle', margin: 2 });
+    if (note) {
+      addText(slide, note, { x: FORMAT_CHROME.bandNoteX, y, w: B.x + B.w - FORMAT_CHROME.bandNoteX, h: B.h },
+        { size: FORMAT_FONT.band, color: C.negative, align: 'right', valign: 'middle' });
+    }
   });
 }
 
@@ -129,12 +158,20 @@ export function addChangeNote(slide: PptxGenJS.Slide, label: string): void {
   addText(slide, label, { x: 0.4, y: 6.74, w: 7.5, h: 0.28 }, { size: 10, color: C.muted, valign: 'bottom', margin: 2 });
 }
 
-export function addFooter(slide: PptxGenJS.Slide, pageNo: number): void {
-  slide.addShape('line' as PptxGenJS.SHAPE_NAME, { x: 0.4, y: 7.05, w: 12.5, h: 0, line: { color: C.line, width: 0.75 } });
-  addText(slide, FORMAT_FOOTER.logo, { x: 0.4, y: 7.1, w: 3.0, h: 0.3 }, { size: 11, bold: true, valign: 'middle', margin: 2 });
-  addText(slide, FORMAT_FOOTER.tag, { x: 3.5, y: 7.13, w: 4.7, h: 0.26 }, { size: FORMAT_FONT.footer, color: 'FFFFFF', fill: C.title, align: 'center', valign: 'middle', margin: 2 });
-  addText(slide, FORMAT_FOOTER.confidential, { x: 8.3, y: 7.1, w: 3.8, h: 0.3 }, { size: FORMAT_FONT.footer, color: C.negative, align: 'right', valign: 'middle', margin: 2 });
-  addText(slide, String(pageNo), { x: 12.15, y: 6.95, w: 0.9, h: 0.45 }, { size: 20, color: C.muted, align: 'right', valign: 'middle', margin: 2 });
+/**
+ * フッター（実物のスライドマスター＋各ページのタグと同じ）: ワードマーク（画像）／青いタグ／
+ * Strictly confidential（赤）／ページ番号（スライド番号のフィールド。PowerPoint で並べ替えても振り直される）。
+ * 罫線は無い。表紙にも出る（実物のレイアウト「タイトルページ」もマスターの絵を隠していない）
+ */
+export function addFooter(slide: PptxGenJS.Slide): void {
+  const F = FORMAT_CHROME.footer;
+  addFormatImage(slide, 'wordmark', F.logo);
+  addText(slide, FORMAT_FOOTER.tag, { ...F.tag }, { size: FORMAT_FONT.footerTag, color: 'FFFFFF', fill: C.positive, align: 'center', valign: 'middle', margin: 0, wrap: false });
+  addText(slide, FORMAT_FOOTER.confidential, { ...F.confidential }, { size: FORMAT_FONT.confidential, color: C.confidential, align: 'right', valign: 'middle', wrap: false });
+  slide.slideNumber = {
+    x: F.pageNo.x, y: F.pageNo.y, w: F.pageNo.w, h: F.pageNo.h,
+    fontFace: FONT, fontSize: FORMAT_FONT.pageNo, bold: true, color: C.pageNo, align: 'right', margin: 0,
+  };
 }
 
 // ── 出力時の検査（止めない・警告だけ。§6.3）────────────────────────
