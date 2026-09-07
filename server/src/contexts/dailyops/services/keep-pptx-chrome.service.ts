@@ -218,7 +218,9 @@ export function renderHeadlineAndChecklist(slide: PptxGenJS.Slide, box: Box, o: 
   // 件数が多いと箱の下端をはみ出して下のお金の行に重なる恐れがある。収まる件数だけ出し、
   // 残りは表の「ほかN行（省略）」と同じ考え方で1行にまとめる
   const listSize = 14;
-  const maxItems = maxRowsForBox(listBox.h, listSize, 1, 0);
+  const maxRows = maxRowsForBox(listBox.h, listSize, 1, 0);
+  // 切り詰めるときは「ほかN件」の行ぶんも1行として箱の高さに数える（切り詰めないなら丸ごと出せる）
+  const maxItems = o.items.length > maxRows ? Math.max(0, maxRows - 1) : maxRows;
   const shown = o.items.slice(0, maxItems);
   const hiddenCount = o.items.length - shown.length;
   const runs: PptxGenJS.TextProps[] = shown.map((t) => ({

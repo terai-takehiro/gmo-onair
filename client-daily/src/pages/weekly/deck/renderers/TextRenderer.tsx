@@ -124,29 +124,45 @@ export function InfoBand({ main, sub, pill, box }: { main: string; sub: string; 
  * 四角く囲む罫線は引かない。pptx 側の `renderStatRow` に対応する部品を、売上／粗利／粗利率
  * （`MoneyTable`）と内覧会サマリ（`InviewSummaryPart`）で共有する
  */
+/**
+ * 数字が列の幅に収まる大きさまで縮める（全角1em・半角0.65em・4%の余裕という見積もりは、
+ * 表題の縮小 `fitPx` と pptx 側 `renderStatRow` の shrink+wrap無効と同じ考え方）。
+ * 金額（例「4,457,680円」）は3列に割ると1列あたりの幅が狭く、既定の大きさのままだと
+ * 省略記号で切れて肝心の金額が読めなくなる
+ */
+function fitValueSize(text: string, maxSize: number, colW: number, minSize = 11): number {
+  const em = [...text].reduce((w, ch) => w + ((ch.codePointAt(0) ?? 0) > 0x2e7f ? 1 : 0.65), 0);
+  if (em === 0) return maxSize;
+  return Math.max(minSize, Math.min(maxSize, Math.floor((colW - 32) / (em * 1.04))));
+}
+
 export function StatRow({ items, box }: { items: Array<{ label: string; value: string; accent?: boolean }>; box: Box }) {
   if (items.length === 0) return null;
-  const valueSize = Math.max(14, Math.min(26, box.h * 0.4, (box.w / items.length) / 4));
+  const colW = box.w / items.length;
+  const maxValueSize = Math.max(14, Math.min(26, box.h * 0.4, colW / 4));
   return (
     <div style={{ width: '100%', height: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'stretch' }}>
-      {items.map((it, i) => (
-        <div
-          key={it.label}
-          style={{
-            flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4,
-            padding: '0 16px', borderLeft: i > 0 ? `1px solid ${C.softLine}` : undefined,
-          }}
-        >
-          <div style={{ fontSize: Math.max(11, valueSize * 0.42), color: C.muted, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.label}</div>
-          <div style={{
-            fontSize: valueSize, fontWeight: 700, color: it.accent ? C.positive : C.title, lineHeight: 1.1,
-            fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}
+      {items.map((it, i) => {
+        const valueSize = fitValueSize(it.value, maxValueSize, colW);
+        return (
+          <div
+            key={it.label}
+            style={{
+              flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4,
+              padding: '0 16px', borderLeft: i > 0 ? `1px solid ${C.softLine}` : undefined,
+            }}
           >
-            {it.value}
+            <div style={{ fontSize: Math.max(11, maxValueSize * 0.42), color: C.muted, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.label}</div>
+            <div style={{
+              fontSize: valueSize, fontWeight: 700, color: it.accent ? C.positive : C.title, lineHeight: 1.1,
+              fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}
+            >
+              {it.value}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
