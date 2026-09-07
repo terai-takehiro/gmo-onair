@@ -11,7 +11,7 @@ import { EmptyState } from '@gmo-onair/shared/src/client/states';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { hasOverride, pageHumanEdits, partLabel, plOptions, stripAgenda, templateLabel } from './deckLabels';
+import { hasOverride, pageHumanEdits, partLabel, plBinding, plOptions, stripAgenda, templateLabel, type PlEntity, type PlMode } from './deckLabels';
 import { composeTitle, useDeckStore } from './deckState';
 
 const SELECT = 'text-sub h-9 w-full rounded-control border border-border bg-background px-2';
@@ -82,13 +82,13 @@ export function PagePropertiesPanel() {
       {page.template === 'pl_table' && table && (
         <>
           <Field label="表" hint={`対象月は数字の側で決まります（${pack ? pack[plOptions(table).mode].all.year_month : '—'}）`}>
-            <select className={SELECT} value={plOptions(table).mode} onChange={(e) => updatePart(page.id, table.id, { binding: `${e.target.value}.${plOptions(table).entity === 'by_entity' ? 'all' : plOptions(table).entity}`, options: { ...(table.options ?? {}), mode: e.target.value } })}>
+            <select className={SELECT} value={plOptions(table).mode} onChange={(e) => { const mode = e.target.value as PlMode; updatePart(page.id, table.id, { binding: plBinding(mode, plOptions(table).entity), options: { ...(table.options ?? {}), mode } }); }}>
               <option value="landing">当月 着地</option>
               <option value="forecast">翌月 着地見込</option>
             </select>
           </Field>
           <Field label="計上会社">
-            <select className={SELECT} value={plOptions(table).entity} onChange={(e) => updatePart(page.id, table.id, { options: { ...(table.options ?? {}), entity: e.target.value } })}>
+            <select className={SELECT} value={plOptions(table).entity} onChange={(e) => { const entity = e.target.value as PlEntity; updatePart(page.id, table.id, { binding: plBinding(plOptions(table).mode, entity), options: { ...(table.options ?? {}), entity } }); }}>
               <option value="all">全社（統合）</option>
               <option value="GSS">{BUSINESS_ENTITY_LABELS.GSS}</option>
               <option value="GJV">{BUSINESS_ENTITY_LABELS.GJV}</option>

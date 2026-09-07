@@ -103,8 +103,12 @@ function carryOver(fresh: SlidePage, prev: SlidePage): SlidePage {
   const parts = fresh.parts.map((fp) => {
     const pp = prev.parts.find((x) => x.id === fp.id);
     if (!pp) return fp;
-    // 人が付けた options（写真の選び方など）は残し、テンプレ由来の鍵（label / mode / entity / list）は今の値にする
-    return { ...fp, text_override: pp.text_override, options: { ...(pp.options ?? {}), ...(fp.options ?? {}) } };
+    // 人が付けた options（写真の選び方など）は残し、テンプレ由来の鍵（label / mode / entity / list）は今の値にする。
+    // 位置と大きさ（x / y / w / h）は人の直しとして差分に残る値なので、組み直しても前の版のものを使う
+    return {
+      ...fp, x: pp.x, y: pp.y, w: pp.w, h: pp.h,
+      text_override: pp.text_override, options: { ...(pp.options ?? {}), ...(fp.options ?? {}) },
+    };
   });
   for (const pp of prev.parts) if (!fresh.parts.some((x) => x.id === pp.id)) parts.push({ ...pp }); // 人が足した部品
   return {

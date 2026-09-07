@@ -141,18 +141,20 @@ async function listUnconfirmed(ym: string): Promise<PlNotes> {
   const [from, to] = monthRange(ym);
   const [estimateRows, eventRows] = await Promise.all([
     queryAll(
-      // 注記は案件単位なので会社は案件の entity_code（案件の今の会社）で見る
-      `SELECT p.id, p.name, p.entity_code, COALESCE(SUM(r.amount), 0)::bigint AS amount
+      // 会社は**売上の行の entity_code**（weightedAdditions が見込に足すのと同じ列）。案件の今の会社で見ると、
+      // 会社を移した案件や行が2社に分かれた案件で「この会社の表に含めた」と書いた注記が別の会社の表の金額を指す
+      `SELECT p.id, p.name, r.entity_code, COALESCE(SUM(r.amount), 0)::bigint AS amount
          FROM revenues r
          JOIN projects p ON p.id = r.project_id AND p.deleted_at IS NULL
         WHERE r.deleted_at IS NULL AND r.status = 'estimate'
           AND r.recognition_date >= ? AND r.recognition_date <= ?
           AND p.stage <> 'e_lost' AND COALESCE(p.code, '') <> ?
-        GROUP BY p.id, p.name, p.entity_code
+        GROUP BY p.id, p.name, r.entity_code
         ORDER BY amount DESC, p.name`,
       [from, to, FIXED_COGS_CODE],
     ) as Promise<{ id: string; name: string; entity_code: string; amount: unknown }[]>,
     // その月に本番があるのに確定売上が1件も無い案件。金額は 最新の見積 → 想定金額 → 0
+    // （売上の行が無いので会社は案件の entity_code で見るしかない）
     queryAll(
       `SELECT p.id, p.name, p.entity_code, COALESCE(est.amount, p.expected_amount, 0)::bigint AS amount
          FROM projects p
@@ -175,6 +177,17 @@ async function listUnconfirmed(ym: string): Promise<PlNotes> {
   const inForecast = new Set(unconfirmed.map((u) => u.project_id));
   const unregistered = eventRows.filter((r) => !inForecast.has(r.id)).map(toNote);
   return { unconfirmed, unregistered };
+}
+
+/** 同じ案件の行（会社違い）を1行に足す。並びは最初に出た順のまま */
+function mergeByProject(rows: Unconfirmed[]): Unconfirmed[] {
+  const out = new Map<string, Unconfirmed>();
+  for (const r of rows) {
+    const cur = out.get(r.project_id);
+    if (cur) cur.amount += r.amount;
+    else out.set(r.project_id, { ...r });
+  }
+  return [...out.values()];
 }
 
 // ── 表を組む ────────────────────────────────────────────────
@@ -219,7 +232,8 @@ export async function buildPlByEntity(ym: string, mode: MonthlyPlTable['mode']):
   ]);
   const tables = new Map<EntityScope, MonthlyPlTable>();
   SCOPES.forEach((scope, i) => {
-    const pick = (rows: Unconfirmed[]) => (scope === 'all' ? rows : rows.filter((u) => u.entity_code === scope));
+    // 全体（統合）は案件ごとに1行（2社に分かれた見積の売上は足す）。会社の表はその会社の行だけ
+    const pick = (rows: Unconfirmed[]) => (scope === 'all' ? mergeByProject(rows) : rows.filter((u) => u.entity_code === scope));
     const forScope: PlNotes = { unconfirmed: pick(notes.unconfirmed), unregistered: pick(notes.unregistered) };
     tables.set(scope, toTable(ym, mode, pls[i], additions ? additions[scope] : null, forScope));
   });

@@ -90,6 +90,16 @@ export function plOptions(part: Pick<SlidePart, 'binding' | 'options'> | null | 
   return { mode, entity };
 }
 
+/**
+ * 数値報告の表の binding。`options.mode` / `options.entity` と**必ず一緒に**変える —
+ * 描画（画面のプレビューも pptx も）は binding で表を引くので、options だけ変えると
+ * セレクタは新しい会社を指しているのに表は前のままになる。
+ * 計上会社別（by_entity）は `landing` / `forecast` そのもの（PlByEntity のまとまり）、1社は `landing.GSS` のように点で繋ぐ
+ */
+export function plBinding(mode: PlMode, entity: PlEntity): string {
+  return entity === 'by_entity' ? mode : `${mode}.${entity}`;
+}
+
 export function entityShort(entity: PlEntity): string {
   if (entity === 'all') return '全社';
   if (entity === 'by_entity') return '計上会社別';

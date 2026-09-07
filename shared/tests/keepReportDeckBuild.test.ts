@@ -96,6 +96,17 @@ describe('前回の構成から組み直す（composeDeckPages）', () => {
     expect(find(next, 'project_page:prj-27h').parts[0].binding).toBe('project_pages[1].band');
   });
 
+  it('部品の位置と大きさの直しは組み直しても残る（テンプレの鍵と文の上書きと同じ扱い）', () => {
+    const moved = clone(reordered);
+    const part = find(moved, 'pl_table:landing:all').parts[3];
+    Object.assign(part, { x: 5, y: 60, w: 90, h: 30 });
+    const next = composeDeckPages(moved, pack);
+    expect(find(next, 'pl_table:landing:all').parts[3]).toMatchObject({ x: 5, y: 60, w: 90, h: 30 });
+    // 触っていない部品はテンプレの位置のまま
+    const tpl = find(prev, 'pl_table:landing:all').parts[2];
+    expect(find(next, 'pl_table:landing:all').parts[2]).toMatchObject({ x: tpl.x, y: tpl.y, w: tpl.w, h: tpl.h });
+  });
+
   it('同じ構成で組み直しても何も変わらない（冪等）', () => {
     const once = composeDeckPages(reordered, pack);
     expect(composeDeckPages(once, pack)).toEqual(once);
