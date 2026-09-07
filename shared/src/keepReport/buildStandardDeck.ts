@@ -107,15 +107,28 @@ function boxOf(pp: SlidePart, fp: SlidePart): Pick<SlidePart, 'x' | 'y' | 'w' | 
   return pp.options?.moved === true ? { x: pp.x, y: pp.y, w: pp.w, h: pp.h } : { x: fp.x, y: fp.y, w: fp.w, h: fp.h };
 }
 
-/** 自動ページを組み直したうえで、前の版の人の直しを乗せる */
+/**
+ * 前の版の部品を今回のどの部品に対応させるか。
+ * ⚠️ id（`pageId:p<region index>`）だけで揃えると、テンプレの regions の**並びや数を変えた回**に
+ * 別の部品の中身が引き継がれる — 2026-09 のデザイン刷新（確度の枠を廃止・内覧会の並び替え）で
+ * 実際に「写真の選び方が総括カードに乗る」「総括の上書きが進行表に乗る」「消したはずの確度の枠が
+ * 余分な部品として残る」が起きた（Codex 指摘）。**binding（何の値を映す部品か）は region の並びを
+ * 変えても同じ**なので、まず binding で揃え、binding が無い部品（自由記入など）だけ id で揃える。
+ */
 function carryOver(fresh: SlidePage, prev: SlidePage): SlidePage {
+  const used = new Set<SlidePart>();
+  const findPrev = (fp: SlidePart): SlidePart | undefined => {
+    const byBinding = fp.binding ? prev.parts.find((x) => x.binding === fp.binding && !used.has(x)) : undefined;
+    return byBinding ?? prev.parts.find((x) => x.id === fp.id && !used.has(x));
+  };
   const parts = fresh.parts.map((fp) => {
-    const pp = prev.parts.find((x) => x.id === fp.id);
+    const pp = findPrev(fp);
     if (!pp) return fp;
+    used.add(pp);
     // 人が付けた options（写真の選び方・文字の大きさなど）と上書きの文は残し、テンプレ由来の鍵（label / mode / entity / list）は今の値にする
     return { ...fp, ...boxOf(pp, fp), text_override: pp.text_override, options: { ...(pp.options ?? {}), ...(fp.options ?? {}) } };
   });
-  for (const pp of prev.parts) if (!fresh.parts.some((x) => x.id === pp.id)) parts.push({ ...pp }); // 人が足した部品
+  for (const pp of prev.parts) if (!used.has(pp)) parts.push({ ...pp }); // 人が足した部品（テンプレから region が消えた部品もここに残る）
   return {
     ...fresh, parts, title: prev.title, notes: prev.notes, removed: prev.removed,
     agenda: prev.agenda === undefined ? fresh.agenda : prev.agenda,

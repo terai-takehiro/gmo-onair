@@ -126,6 +126,37 @@ describe('前回の構成から組み直す（composeDeckPages）', () => {
     const once = composeDeckPages(reordered, pack);
     expect(composeDeckPages(once, pack)).toEqual(once);
   });
+
+  it('前回の版でテンプレの region の並び・数が変わっていても、id ではなく binding で部品を揃える（テンプレ改修の回帰）', () => {
+    // 2026-09 のデザイン刷新前（確度の枠が band の次の p1 にあった・現行の並びとは1つずれる）を模す。
+    // 昔の carryOver は id（`pageId:p<region index>`）だけで揃えていたため、このパックを開き直すと
+    // 「写真の選び方が総括カードに乗る」「総括の上書きが進行表に乗る」等、別の部品の中身が誤って引き継がれていた。
+    const page = find(clone(prev), 'project_page:prj-docl');
+    const [band, photos, summary, schedule, keyDates, intake, money] = page.parts;
+    const stalePrev = clone(prev);
+    const stalePage = find(stalePrev, 'project_page:prj-docl');
+    stalePage.parts = [
+      { ...band, id: `${page.id}:p0` },
+      { id: `${page.id}:p1`, type: 'text', binding: 'project_pages[0].confidence', x: 90, y: 1, w: 9, h: 9, text_override: null, options: { label: '確度' } },
+      { ...photos, id: `${page.id}:p2`, options: { ...photos.options, selected: ['old-photo'] } },
+      { ...summary, id: `${page.id}:p3`, text_override: '旧概要' },
+      { ...schedule, id: `${page.id}:p4` },
+      { ...keyDates, id: `${page.id}:p5` },
+      { ...intake, id: `${page.id}:p6` },
+      { ...money, id: `${page.id}:p7`, options: { ...money.options, noted: true } },
+    ];
+    const next = composeDeckPages(stalePrev, pack);
+    const np = find(next, 'project_page:prj-docl');
+    const byBinding = (b: string) => np.parts.find((x) => x.binding === `project_pages[0].${b}`);
+    expect(byBinding('photos')).toMatchObject({ type: 'photos', options: expect.objectContaining({ selected: ['old-photo'] }) });
+    expect(byBinding('summary_lines')).toMatchObject({ type: 'bullets', text_override: '旧概要' });
+    expect(byBinding('schedule')).toMatchObject({ type: 'table', text_override: null }); // 総括の上書きに巻き込まれていない
+    expect(byBinding('money')).toMatchObject({ type: 'table', options: expect.objectContaining({ noted: true }) });
+    // money はちょうど1つ（旧テンプレの p7 が別の余分な部品として二重に残っていない）
+    expect(np.parts.filter((x) => x.binding === 'project_pages[0].money').length).toBe(1);
+    // 廃止済みの確度の枠は、今回のどの部品にも化けずそのまま（人が足した部品と同じ扱いで）残る
+    expect(np.parts.filter((x) => x.binding === 'project_pages[0].confidence').length).toBe(1);
+  });
 });
 
 describe('binding の解決（resolveBinding）', () => {
