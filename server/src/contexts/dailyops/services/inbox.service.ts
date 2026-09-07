@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { queryAll, queryOne, execute } from '../../../shared/db/connection';
+import { queryAll, queryOne, execute, withTransaction } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { normalizeRichContent } from '../../../shared/services/rich-content';
 import { recordFinanceDocCorrections, recordInquiryCorrections } from './inbox-ai-feedback.service';
@@ -937,6 +937,24 @@ export const inquiryService = {
    *   部屋は現場（`client` の予約カレンダー）で決める**運用を想定し、
    *   場所は自由記述（`location_note`）に留める
    * - **2回押しても増えない。** 既に予約があればそれを返す（`makeTicket` と同型）
+   *
+   * ── 「確認してから作る」を1本のトランザクションで囲む（Codex 指摘・P1）───
+   *
+   * 素の `queryOne` → `createBooking` → `execute` の3段だと、**同じ問い合わせに
+   * 「カレンダーに登録する」が2回同時に届いたとき**（二重クリック・タブ2枚）、
+   * どちらも `booking_id` が空のまま読んでしまい、**予約が2本できます**
+   * （2回押しても増えない、という約束が壊れる）。ここだけ `SELECT ... FOR UPDATE`
+   * で行ロックを取り、確認から書き戻しまでを1つのトランザクションにする —
+   * 後から来たリクエストはロックが外れるまで待たされ、外れたときには
+   * 既に `booking_id` が入っているので「既に登録済み」を返すだけになる。
+   *
+   * ⚠️ `studioBookingService.createBooking()` 自体は**このトランザクションの外**
+   * （別コネクション）で動く。予約を作った直後の `UPDATE misc_inquiries` だけが
+   * 失敗する（DB切断等のごく稀なケース）と、結びつけられない予約が孤児として残る —
+   * これは `makeTicket()` の `project_tasks` 直接 INSERT と同じ形の残存リスクで、
+   * `createBooking()` 自体をトランザクション対応にする大きな変更（他の呼び手にも
+   * 影響する）をしない限り消えない。ここで閉じたのは「同時に2つ来て2本できる」
+   * という報告されたレースの方
    */
   async makeBooking(
     id: string,
@@ -947,39 +965,46 @@ export const inquiryService = {
     actorId: string,
     userName?: string | null,
   ): Promise<{ row: Record<string, unknown>; booking_id: string; already: boolean }> {
-    const existing = await queryOne(
-      `SELECT id, summary, subject, notes, booking_id FROM misc_inquiries WHERE id = ? AND deleted_at IS NULL`, [id]);
-    if (!existing) throw new AppError(404, 'NOT_FOUND', '問い合わせが見つかりません');
+    const result = await withTransaction(async (tx) => {
+      const existing = await tx.queryOne(
+        `SELECT id, summary, subject, booking_id FROM misc_inquiries WHERE id = ? AND deleted_at IS NULL FOR UPDATE`, [id]);
+      if (!existing) throw new AppError(404, 'NOT_FOUND', '問い合わせが見つかりません');
 
-    if (existing.booking_id) {
-      const alive = await queryOne(`SELECT id FROM studio_bookings WHERE id = ? AND deleted_at IS NULL`, [existing.booking_id]);
-      if (alive) return { row: (await this.getById(id))!, booking_id: String(existing.booking_id), already: true };
-      // 予約が消されていたら作り直せるようにする（結びつきだけ残っている状態）
-    }
+      if (existing.booking_id) {
+        const alive = await tx.queryOne(`SELECT id FROM studio_bookings WHERE id = ? AND deleted_at IS NULL`, [existing.booking_id]);
+        if (alive) return { bookingId: String(existing.booking_id), already: true };
+        // 予約が消されていたら作り直せるようにする（結びつきだけ残っている状態）
+      }
 
-    const title = (input.title ?? '').trim() || String(existing.subject ?? '').trim() || String(existing.summary ?? '').trim();
-    if (!title) throw new AppError(400, 'VALIDATION_ERROR', '予定の件名を入れてください');
-    if (!input.start_time || !input.end_time) throw new AppError(400, 'VALIDATION_ERROR', '開始・終了の日時を入れてください');
+      const title = (input.title ?? '').trim() || String(existing.subject ?? '').trim() || String(existing.summary ?? '').trim();
+      if (!title) throw new AppError(400, 'VALIDATION_ERROR', '予定の件名を入れてください');
+      if (!input.start_time || !input.end_time) throw new AppError(400, 'VALIDATION_ERROR', '開始・終了の日時を入れてください');
 
-    const booking = await studioBookingService.createBooking(
-      {
-        title,
-        booking_type: 'other',
-        all_day: input.all_day ?? false,
-        start_time: input.start_time,
-        end_time: input.end_time,
-        location_note: input.location_note ?? null,
-        notes: input.notes ?? (existing.summary ? String(existing.summary) : null),
-      },
-      actorId,
-    );
+      const booking = await studioBookingService.createBooking(
+        {
+          title,
+          booking_type: 'other',
+          all_day: input.all_day ?? false,
+          start_time: input.start_time,
+          end_time: input.end_time,
+          location_note: input.location_note ?? null,
+          notes: input.notes ?? (existing.summary ? String(existing.summary) : null),
+        },
+        actorId,
+      );
 
-    await execute(
-      // 247 と同じ理由: カレンダーに登録したら見直しの日は消す
-      `UPDATE misc_inquiries SET state = 'booked', booking_id = ?, handled_at = NOW(), handled_by = ?,
-              stock_review_on = NULL, updated_at = NOW()
-        WHERE id = ?`, [booking.id, userName ?? null, id]);
-    return { row: (await this.getById(id))!, booking_id: String(booking.id), already: false };
+      await tx.execute(
+        // 247 と同じ理由: カレンダーに登録したら見直しの日は消す
+        `UPDATE misc_inquiries SET state = 'booked', booking_id = ?, handled_at = NOW(), handled_by = ?,
+                stock_review_on = NULL, updated_at = NOW()
+          WHERE id = ?`, [booking.id, userName ?? null, id]);
+      return { bookingId: String(booking.id), already: false };
+    });
+
+    // **行ロックが外れた（＝コミット済み）あとに読み直す。** `getById` は
+    // トランザクション用と別のコネクションを使うので、コミット前に読むと
+    // 直したはずの内容がまだ見えない（更新前の行が返る）
+    return { row: (await this.getById(id))!, booking_id: result.bookingId, already: result.already };
   },
 
   /**

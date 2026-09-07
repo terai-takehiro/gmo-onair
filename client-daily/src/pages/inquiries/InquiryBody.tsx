@@ -54,9 +54,9 @@ export function Destination({ q }: { q: MiscInquiry }) {
     return (
       <p className={cn('rounded-note text-note mt-1 flex items-start gap-1.5 px-2 py-1', STATE_TONE.booked)}>
         <CalendarPlus className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        {q.booking_id ? (
+        {q.booking_title ? (
           <span className="min-w-0">
-            <a href="/schedule" className="font-bold underline">{q.booking_title}</a>
+            <a href="/calendar" className="font-bold underline">{q.booking_title}</a>
             {q.booking_start_time && (
               <span className="ml-1">{formatBookingTime(q.booking_start_time, q.booking_end_time, q.booking_all_day)}</span>
             )}
