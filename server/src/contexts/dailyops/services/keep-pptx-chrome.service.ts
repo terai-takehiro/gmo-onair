@@ -214,24 +214,27 @@ export function renderHeadlineAndChecklist(slide: PptxGenJS.Slide, box: Box, o: 
   if (o.items.length === 0) return;
   const listTop = box.y + (o.headline ? headlineH + gap : 0);
   const listBox = { x: box.x, y: listTop, w: box.w, h: box.y + box.h - listTop };
-  // 成果は MCP/画面から最大10件まで入る。総括カードがある回はこの箱が縮む（約32%を総括が使う）ため、
-  // 件数が多いと箱の下端をはみ出して下のお金の行に重なる恐れがある。収まる件数だけ出し、
-  // 残りは表の「ほかN行（省略）」と同じ考え方で1行にまとめる
+  // 成果は MCP/画面から最大10件・1件200字まで入る。総括カードがある回はこの箱が縮む（約32%を総括が使う）ため、
+  // 件数・文字数が多いと箱の下端をはみ出して下のお金の行に重なる恐れがある。
+  // 「1件＝1行」を保つため、まず1行に収まる長さへ切ってから、収まる件数だけ出す
+  // （切っていないと、行数の見積もりが「実際に折り返した行数」とずれる — 表の升と同じ理由）
   const listSize = 14;
+  const prefixEm = 2; // 「✓  」の見積もり（半角空白2つ分）
+  const itemEm = colMaxEm(listBox.w, 1, listSize, 0.1) - prefixEm;
   const maxRows = maxRowsForBox(listBox.h, listSize, 1, 0);
   // 切り詰めるときは「ほかN件」の行ぶんも1行として箱の高さに数える（切り詰めないなら丸ごと出せる）
   const maxItems = o.items.length > maxRows ? Math.max(0, maxRows - 1) : maxRows;
-  const shown = o.items.slice(0, maxItems);
-  const hiddenCount = o.items.length - shown.length;
-  const runs: PptxGenJS.TextProps[] = shown.map((t) => ({
-    text: `✓  ${t}`, options: { breakLine: true, fontSize: listSize, color: o.color ?? C.text, bold: false, paraSpaceAfter: 6 },
+  const shownRaw = o.items.slice(0, maxItems);
+  const hiddenCount = o.items.length - shownRaw.length;
+  const runs: PptxGenJS.TextProps[] = shownRaw.map((t) => ({
+    text: `✓  ${truncateEm(t, itemEm)}`, options: { breakLine: true, fontSize: listSize, color: o.color ?? C.text, bold: false, paraSpaceAfter: 6 },
   }));
   if (hiddenCount > 0) {
     runs.push({ text: `ほか ${hiddenCount} 件（省略）`, options: { breakLine: false, fontSize: listSize, color: C.muted, bold: false } });
   } else if (runs.length > 0) {
     runs[runs.length - 1].options = { ...runs[runs.length - 1].options, breakLine: false };
   }
-  slide.addText(runs, { x: listBox.x, y: listBox.y, w: listBox.w, h: listBox.h, fontFace: FONT, valign: 'middle', margin: 4 });
+  slide.addText(runs, { x: listBox.x, y: listBox.y, w: listBox.w, h: listBox.h, fontFace: FONT, valign: 'middle', margin: 4, wrap: false });
 }
 
 /** 数字カード（売上／粗利／粗利率など）。表ではなく、薄い塗りの帯の中に大きい数字＋小さいラベルを横に並べる */

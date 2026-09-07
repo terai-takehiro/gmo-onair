@@ -210,7 +210,16 @@ export function HighlightsPart({ headline, items, box, override }: { headline: s
           >
             総括
           </span>
-          <div style={{ fontSize: Math.min(16, headlineH * 0.24), fontWeight: 700, color: C.title, lineHeight: 1.3, overflow: 'hidden' }}>{headline}</div>
+          <div style={{
+            fontSize: Math.min(16, headlineH * 0.24), fontWeight: 700, color: C.title, lineHeight: 1.3,
+            // 総括は MCP/画面から最大120字まで入る自由文。この箱は1〜2行ぶんの高さしか無いため、
+            // pptx 側（`renderHeadlineAndChecklist` の切り詰め）と同じく、はみ出す分は省略記号で見せる
+            // （黙って切れると export とプレビューで見え方が食い違う）
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}
+          >
+            {headline}
+          </div>
         </div>
       )}
       {items.length > 0 && (
