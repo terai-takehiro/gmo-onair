@@ -27,4 +27,7 @@ binding を変え、帯＋数字カード3枚で組み直した（`renderInviewS
 検証: 上記と同じ実データのパックで25ページを出力し、XML で①帯が1行に収まり確度バッジが1回だけ
 出ること②総括カード・チェック箇条書き・数字カードが期待どおりの文言で出ること③内覧会が新しい
 帯＋数字カードで出ること、を確認。`shared`/`server`の型チェック・Vitest（`keepReportDeckBuild.test.ts`
-のindexずれを修正）は全通過。画面側（資料ビルダーのプレビュー）は同じ方針で別途対応。
+のindexずれを修正）は全通過。画面側（資料ビルダーのプレビュー、`client-daily/src/pages/weekly/deck/`）も
+同じ方針で実装した。帯・数字カード・内覧会サマリを`renderInfoBand`/`renderStatRow`と対になる
+`InfoBand`/`StatRow`コンポーネントで組み、`PartRenderer`に`band`/`highlights`/`inview_summary`の
+描画分岐を追加。`client-daily`の型チェック・lint・`shared`のVitestで確認。
