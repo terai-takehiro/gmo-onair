@@ -3218,6 +3218,55 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   `npm run build`・実ブラウザでのPC/スマホ目視確認・実DBでの保存→読み直し・権限別403の
   画面確認はいずれも未実施。
 
+- **#621**（`feat(daily): 「入ってきた情報」に「カレンダーに登録する」を追加`・2026-09-07）—
+  ユーザーからの指摘「これはタスクよりカレンダー登録なのでは」を受け、日常業務「入ってきた
+  情報」にタスク・案件と並ぶ4つ目の行き先「カレンダーに登録する」を追加した回（`misc_inquiries`
+  に `booked` state・`booking_id` を新設。`makeTicket()`/`toProject` と同じ「実体を作ったときだけ
+  状態が動く」設計を踏襲し、`POST /dailyops/inquiries/:id/book` が `dailyops:editor` のみで
+  `studioBookingService.createBooking()` をサービス層で直接呼ぶ）。**Codexのコードレビュー・
+  セキュリティレビューが計4件（P1×2・P2×2）を指摘し、全件この場で対応・返信・スレッド解決
+  まで完了**させてから棚卸しに移している（未対応で残った指摘は無い）:
+  1. **P1**: `makeBooking()` が素の `queryOne`→`createBooking()`→`execute` の3段だったため、
+     同じ問い合わせに「カレンダーに登録する」が同時に複数届くと両方とも `booking_id` が
+     空のまま読んでしまい、予約が2本以上できる（「2回押しても増えない」という設計が
+     壊れる）→ `SELECT ... FOR UPDATE` + トランザクションで囲み、後続リクエストはロックが
+     外れるまで待ち、外れたときには既に `booking_id` が入っているので `already:true` を
+     返すだけにした。検証DBで同一問い合わせに5並行リクエストを送り、実際に作られる予約が
+     1本だけになることを確認。⚠️ **完全には閉じていない** — `createBooking()` 自体は
+     このトランザクションの外（別コネクション）で動くため、「予約作成成功後の
+     `misc_inquiries` 更新だけが失敗する」稀なケースでは孤児の予約が残り得る。これは
+     `makeTicket()` の `project_tasks` 直接 INSERT と同じ形の既存の残存リスクで、完全に
+     閉じるには `studioBookingService` 自体をトランザクション対応にする必要があり
+     （他の呼び手にも影響する大きめの変更）今回は見送った。閉じたのは実際に報告された
+     「同時に2つ来て2本できる」レースの方
+  2. **P2**: `InquiryBody.tsx` の予約リンク表示が `q.booking_id` の有無で分岐していたため、
+     予約が studio 側で論理削除（`deleted_at` セット）されると `booking_id` は残ったまま
+     `LEFT JOIN` の `booking_title` 等だけ null になり、「existing」分岐に入って空リンクが
+     出ていた → `task_title` と同じ判定方式（`q.booking_title` の有無）に変更。検証DBで
+     予約を論理削除しAPIレスポンスで `booking_id` 残存・`booking_title` null を確認
+  3. **P2**: 登録済み予定へのリンク先が存在しない `/schedule` になっていた（実在するのは
+     `/calendar`。`App.tsx` で確認）→ 修正
+  4. **P1（セキュリティ・High）**: 「`dailyops:editor` だけで `sales:editor` 相当の
+     スタジオ予約作成ができてしまうのは権限的に強すぎるのでは」という指摘。**修正はせず、
+     意図した設計として説明・ユーザーに確認の上で受け入れた**（`AskUserQuestion` で確認・
+     「既存パターンとして許容する」を選択）。既存の「タスクにする」（`makeTicket()`）も
+     同型で、`project_tasks` へ直接 INSERT しており削除には `sales` 権限が要る
+     （`server/src/contexts/tasks/routes/project-tasks.routes.ts:9` の
+     `router.use(requireAuth, requirePermission('sales'))` が `DELETE /tasks/:id` も含めて
+     縛っている）。`sales:editor` を必須にすると「日常業務担当者がカレンダーに直接登録
+     したい」という今回の依頼そのものが成立しなくなる。Codexが独自に指摘した「予約は
+     ICS配信・共有カレンダーに乗るぶんタスクより影響範囲が広く、しかも作った本人が
+     消せない」点は認識した上で、実害は tentative・部屋なしの予定が1件残る程度（GLS番号等
+     の実データには影響しない）として今回はタスクと同じ許容リスクの範囲とした。
+     ❌ **直さないと決めたもの** — 「dailyopsが自分で作った予約だけ取り消せる」導線が
+     将来要ると判断すれば、別PRで追加する
+  検証: `server`/`client-daily`の型チェック、`npm run lint`（0 errors・warning数は着手前と
+  同じ57件）、`shared`のVitest 2240件、`npm run build`（server/client-daily を個別実行）、
+  検証DBでのAPI実地確認（登録→冪等性→未処理に戻す→予約は残る→レース5並行→論理削除後の
+  レスポンス）。CIは`checks`/`build`とも green・mergeable clean、Claude Approvals運用なし。
+  **意図して残した未検証事項**（PR本文に明記済み）: 実ブラウザでのPC/スマホ目視確認・
+  `npm run verify:ui`・権限のない利用者での403確認・サイトツリーの貼付。
+
 - **#599**（`feat(reorg): 2026年10月の事業再編（計上会社の2社化・案件番号の改番）の基盤を実装`・
   2026-09-06）— P0〜P1残作業（`docs/reorg-2026-10-plan.md`）を1本のPRにまとめて出した回
   （ユーザーからの明示的な依頼で、複数ラウンドをマルチエージェントで並行実装したうえで
