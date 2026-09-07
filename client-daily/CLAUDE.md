@@ -28,7 +28,13 @@
 
 ## このアプリ固有の決めごと
 
-- **ウィークリー活動報告**: 自動集計 → AI本文 → 人が書くトピック の3層。**確定後は追記不可**
+- **ウィークリー活動報告**: 自動集計 → AI本文 → 人が書くトピック の3層。**確定後は追記不可**。
+  AI本文は画面の「AI下書きを作る」ボタン（`POST /dailyops/reports/:id/draft-ai`・
+  `weekly-report-ai.service.ts`／`weekly-report-draft.service.ts`）で**その場で**作れる
+  （2026-09。以前は MCP を AI エージェントが自発的に叩く想定だったが、実際にそれを
+  週明けに起動するトリガーがどこにも無かった）。確定前だけ本文を直せる
+  （`PUT /dailyops/reports/:id`）— 確定時にサーバーが AI 下書きと確定本文を自動比較して
+  `ai_corrections` に記録する（会社方針「AIを使い捨てにしない」条件2）
 - **隔週キープ（業績報告）はこの画面のタブ**（設計の正は [docs/design/v4/keep-report.md](../docs/design/v4/keep-report.md)）。
   - **数字は1本の「定例報告パック」**（`GET /dailyops/keep/pack?meeting=&entity_code=&segment=`・
     型は `shared/src/keepReport/types.ts`）。画面・資料・MCP はこれを読むだけで、

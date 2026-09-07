@@ -20,6 +20,7 @@ ONAiR で AI 機能を設計するとき、この調査をやり直さずに済�
 | **「次にやること」を1行に (migration 190)** | `next_action_short` | ○ (材料の全文 + 出力) | ○ (人が直すと自動比較 = fix / 「違う」= reject) | ○ (無修正採用率 ＋ 期限内完了) | ○ (advice を次のプロンプトに載せる) |
 | **プロジェクトの起票 (`create_gpm_project`・2026-08)** | `gpm_project_draft` | ○ (全文 payload + prompt_version) | ○ (gpm.service の update 時・7日窓・AI 自身は除外) | ○ (stage×確定売上。案件と同じ導出) | ○ (digest + 月次営業 AI レビュー) |
 | **プロジェクトタスクの起票 (`create_gpm_task`・2026-08)** | `gpm_task_draft` | ○ (全文 payload + prompt_version) | ○ (gpm.service **と** project-tasks.service の update 時 — GLS-B はガント/`update_task` も通るため両方に入れてある) | ○ (期限内完了率 `gpm_tasks`) | ○ (同上) |
+| **ウィークリー活動報告の下書き（「AI下書きを作る」ボタン・2026-09）** | `weekly_report_draft` | ○ (全文 payload + prompt_version。画面のボタン経由 `weekly-report-draft.service` と MCP `submit_ops_report` の両方が同じ kind に記録) | ○ (`ops-report.service.publishReport` が**確定時**に自動比較。編集入口 `PUT /dailyops/reports/:id` を新設 — 無いと差分が永久に「無修正」になる) | △ (`get_ai_feedback_digest` の汎用集計（無修正確定率）は効くが、週報固有の成果指標は未定義) | ○ (advice を次の下書きに載せる) |
 | Slack の返信案・概算見積 | — | ✕ | ✕ | ✕ | ✕ |
 
 ⚠️ **プロジェクト管理の残穴**: MCP の `create_task` / `bulk_create_tasks` は GLS-B の

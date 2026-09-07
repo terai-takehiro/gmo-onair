@@ -339,7 +339,7 @@ GSS 側の社内売上 (`revenues`) と GJV 側の社内仕入 (`purchases`) を
 | `get_ops_report` | read | レポート全文 + 行 (人間の追記行も含む — それを踏まえて本文を更新できる) |
 
 kind と運用契約:
-- `weekly_activity` (ウィークリー活動報告) — 全社で週 1 本。period_key = 週開始日の月曜。`get_weekly_activity_stats` の結果を文章化して body に、結果そのものを payload の `{stats: ...}` に入れて **status='draft'** で `submit_ops_report`。人間がアプリでトピック行を追記し「確認・確定」で published にする。
+- `weekly_activity` (ウィークリー活動報告) — 全社で週 1 本。period_key = 週開始日の月曜。`get_weekly_activity_stats` の結果を文章化して body に、結果そのものを payload の `{stats: ...}` に入れて **status='draft'** で `submit_ops_report`。人間がアプリでトピック行を追記し「確認・確定」で published にする。**画面にも同じことをする「AI下書きを作る」ボタンがある**（`POST /dailyops/reports/:id/draft-ai`・2026-09）— こちらが本来の起動口で、MCP 経由はそれを AI エージェントが代行したいときの経路（`model` 引数を渡すと `ai_outputs` の記録にモデル名が残る）。どちらの経路で作った下書きも「確定」時にサーバーが自動で差分を記録する（会社方針「AIを使い捨てにしない」）。
 - `daily_news` (デイリーニュース報告) — 日 1 本。period_key = 日付。Web の業界ニュースを `add_ops_report_items` で行として投稿 (**published** で直接公開・確定操作なし)。行のフィールド: category (LED/照明/映像/音声/配信/コンテンツ/スタジオ/AR/XR/その他)、content (1行要約)、url、ai_related (AI 関連か)、note。採用フラグ (pick 1〜5) は人間がアプリで設定する。
 - `mail_intake` (メール取込ログ・v4.5.26) — 日 1 本。period_key = 日付。**メールの仕分けが「何を取り込み、何を落としたか」**を `add_ops_report_items` で行として投稿 (**published** で直接公開)。行のフィールド: category (種別 `kairos3_contact` / `kairos3_download` / `kairos3_inview` / `finance_doc` / `sales_thread` / `inquiry` / `dropped`)、content (「走査N通 / 取込N件 / 落としN件」)、note (落としたものの代表の件名・10本まで)。
   **取り込んだものは各テーブルに残りますが、落とした判断はどこにも残りません。** これが無いと**取りこぼしを後から数えられません** — 実測で Kairos3 の資料ダウンロード通知 21件のうち 17件が未処理のまま1か月誰にも気づかれませんでした ([docs/reviews/2026-09-06-mail-intake-taxonomy.md](reviews/2026-09-06-mail-intake-taxonomy.md))。**中身の全文は入れません**（原文は取り込んだ側の `body_text` にあります）。
@@ -619,7 +619,7 @@ SELECT tool_name, requested_by, result_summary, created_at FROM mcp_audit_log OR
 - **GLS 発番**: 「この案件 GLS 発番して」→ AI がプレビュー提示 → 「OK」→ confirm:true で実行
 - **朝のダイジェスト**: `get_sales_funnel` + `list_activity_logs(upcoming:true)` + `list_tasks` で本日のサマリーを生成
 - **デイリーニュース報告 (毎朝の定期実行)**: Web 検索で業界ニュース (映像制作/配信/スタジオ/LED/照明/AR-XR 等) を収集 → 各記事を 1 行要約 → `add_ops_report_items(kind=daily_news, period_key=今日)` で投稿。再実行しても URL 重複はスキップされる
-- **ウィークリー活動報告 (週明けの定期実行)**: `get_weekly_activity_stats` で先週の集計を取得 → 文章化 → `submit_ops_report(kind=weekly_activity, status=draft, payload={stats})` で投稿 → 人間がアプリ (`/daily/weekly`) でトピック追記・確認・確定
+- **ウィークリー活動報告**: 通常はアプリの「AI下書きを作る」ボタン（`/daily/weekly`）が起動する。AI エージェントが代行するときだけ: `get_weekly_activity_stats` で先週の集計を取得 → 文章化 → `submit_ops_report(kind=weekly_activity, status=draft, payload={stats})` で投稿 → 人間がアプリでトピック追記・確認・確定
 
 ## 動作確認 (curl)
 

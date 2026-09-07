@@ -6,6 +6,7 @@ import { ok, runTool, clampLimit, audit, REQUESTED_BY, currentActorId } from '..
 import { queryAll } from '../../../shared/db/connection';
 import { recordAiOutput } from '../../../shared/services/ai-output.service';
 import { OPS_NEWS_ITEM_KIND } from '../../../shared/services/ai-feedback.service';
+import { WEEKLY_REPORT_DRAFT_KIND } from '../../dailyops/services/weekly-report-ai.service';
 
 // 日常業務アプリ (dailyops) の MCP ツール — 汎用レポート基盤 (ops_reports / ops_report_items)。
 // AI エージェントが定期実行 (毎朝のニュース収集 / 週明けの週次レポート生成) で使う想定。
@@ -60,6 +61,10 @@ export function registerOpsReportTools(server: McpServer): void {
         body: z.string().optional().describe('AI 生成本文 (markdown)。weekly のナラティブ'),
         payload: z.record(z.string(), z.unknown()).optional().describe('構造化データ。weekly は {stats: get_weekly_activity_stats の結果}'),
         status: z.enum(['draft', 'published']).optional().describe('既定: draft。daily_news は published を指定'),
+        model: z.string().max(100).optional().describe(
+          '呼び出し元 AI のモデル名 (例: claude-opus-5)。weekly_activity で body を渡すときに任意で添える。' +
+          '記録すると「AI 下書きの効果測定」（無修正確定率）に使われる — 渡さなくても投稿は成功する',
+        ),
         ...REQUESTED_BY,
       },
     },
@@ -74,6 +79,27 @@ export function registerOpsReportTools(server: McpServer): void {
         requested_by: args.requested_by ?? null,
         created_by: currentActorId(),
       });
+      /*
+       * 会社方針「AIを使い捨てにしない」条件1。**このツールが週報の本文を送るのに
+       * 記録していなかった穴**（ボタン経由の下書きと同じ `kind` で合流させ、
+       * 確定時の差分・`get_ai_feedback_digest` を両方の経路で共有する）。
+       * `model` 未指定でも記録する — 渡し忘れた呼び出しを分母から消さない
+       * （`by_model` に「(不明)」として出るだけ）。
+       */
+      if (args.kind === 'weekly_activity' && args.body && args.body.trim()) {
+        try {
+          await recordAiOutput({
+            kind: WEEKLY_REPORT_DRAFT_KIND,
+            targetTable: 'ops_reports', targetId: String(report.id),
+            payload: { body: args.body },
+            toolName: 'submit_ops_report',
+            model: args.model ? `mcp:${args.model}` : null,
+            actorId: currentActorId(), requestedBy: args.requested_by ?? null,
+          });
+        } catch (e) {
+          console.warn('[mcp] weekly_report_draft の記録に失敗しました（続行）:', (e as Error).message);
+        }
+      }
       audit('submit_ops_report', { ...args, body: args.body ? `${args.body.slice(0, 200)}…` : undefined },
         { report_id: report.id, kind: args.kind, period_key: report.period_key, action }, args.requested_by);
       return ok({ [action]: true, id: report.id, kind: report.kind, period_key: report.period_key, status: report.status, action });

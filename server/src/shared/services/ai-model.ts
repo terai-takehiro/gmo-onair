@@ -60,7 +60,8 @@ export type AiTier = 'light' | 'heavy';
  */
 export type AiJob =
   | 'intake' | 'activity' | 'minutes' | 'kpt'
-  | 'event_plan' | 'script_outline' | 'script_line' | 'production_chat';
+  | 'event_plan' | 'script_outline' | 'script_line' | 'production_chat'
+  | 'weekly_report';
 
 /**
  * 段ごとの既定のモデル。**ここだけが「いま何を使っているか」の正**。
@@ -140,6 +141,9 @@ const JOB_ENV: Record<AiJob, EnvName[]> = {
   script_outline: [],
   script_line: [],
   production_chat: [],
+  // ウィークリー活動報告のAI下書き（2026-09）。機能ごとの環境変数は新設しない
+  // （段8の4機能と同じ判断 — 増やすほど「なぜこのモデルか」を追う場所が増える）
+  weekly_report: [],
 };
 
 /**
@@ -233,6 +237,11 @@ const POLICY: Record<AiJob, { base: AiTier; lightMaxChars?: number }> = {
   script_outline: { base: 'heavy' },
   script_line: { base: 'light', lightMaxChars: 4_000 },
   production_chat: { base: 'light' },
+  // ウィークリー活動報告の AI 下書き: **常時 heavy**。材料（新規案件・活動・パイプライン・
+  // 売上・イベント・次回アクション）を束ねて全社が読む文章にまとめる仕事で、KPT と同じ
+  // 「長い材料から要点を抜くのは軽いモデルが最も苦手」な性質を持つ。しかも読む人は
+  // 自動集計の表と数字を1つずつ突き合わせないので、数字の取り違えに気づけない。
+  weekly_report: { base: 'heavy' },
 };
 
 /**
