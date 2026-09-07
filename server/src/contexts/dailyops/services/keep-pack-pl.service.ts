@@ -4,7 +4,8 @@
  * 正は docs/design/v4/keep-report.md §5.2（出どころ）・§5.3（計算列）。
  * 「主体」＝ main の**計上会社 `entity_code`**（GJV／GSS／GMO・docs/reorg-2026-10-plan.md §4.5）。
  * 財務と同じく**案件ではなく行（revenues / purchases / sga_expenses）の `entity_code`** で切る
- * — 案件を改番・移管しても過去の行は書いた時の会社に残る（`pipeline-forecast.service.ts` と同じ判断）。
+ * — 案件を改番・移管しても過去の行は書いた時の会社に残る（`monthly-summary.service.ts` の
+ *   確度加味（`mode='weighted'`）と同じ判断）。
  *
  * ── 着地（landing）────────────────────────────────────────────
  * `keepReportService.getMonthlyPl(ym, 会社)` そのもの（確定売上 `status='confirmed'`・仕入・販管費・

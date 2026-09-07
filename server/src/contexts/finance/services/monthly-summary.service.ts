@@ -1,11 +1,15 @@
-import { queryOne } from '../../../shared/db/connection';
+import { queryOne, queryAll } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { getStageProbabilityMap } from '../../sales/services/stage-probability.service';
+import type { ProjectStage } from '../../../shared/constants/statuses';
 
 // 月次損益サマリーの集計ロジック。finance/index.ts のインラインハンドラ本体を抽出したもので、
 // HTTP ルート (財務ダッシュボード) と MCP サーバーの両方から同じコードパスで呼ばれる。
 
 // 固定原価プロジェクトのコード (決算インポートが GLS 無しの売上原価を集約する Pj。kessan-import.service の FIXED_CODE と一致)
 const FIXED_COGS_CODE = 'FIXED-COGS';
+
+export type SummaryMode = 'total' | 'weighted';
 
 export interface MonthlySummaryParams {
   month?: string;     // YYYY-MM (単月)
@@ -26,6 +30,20 @@ export interface MonthlySummaryParams {
    * **省略時は絞らない**＝今までどおり全社合算（後方互換）。
    */
   entityCode?: string;
+  /**
+   * 集計方法（2026-09 依頼「営業見通しの確度加味を画面全体に広げる」）。
+   *
+   * 'weighted' のときは、売上・仕入（変動原価）を、その行が計上されている
+   * **案件のいまのフェーズの受注確度（%）**で重みづけて合算する。
+   * ⚠️ **あくまでシミュレーション** — 実額（`revenues`/`purchases` の値そのもの）は
+   * 変えない。固定原価・販管費は案件のフェーズを持たない（＝重みづけようがない）ので、
+   * どちらのモードでも実額のまま。省略時は 'total'（従来どおり実額を100%で合算）。
+   *
+   * 旧 `pipeline-forecast.service.ts`（営業見通しカード専用の別集計）が持っていた
+   * 「stage 別に SUM してから確度を掛ける」考え方をここへ合流させた
+   * （カード自体は廃止・確度%の正本体は引き続き `stage-probability.service.ts`）。
+   */
+  mode?: SummaryMode;
 }
 
 export interface MonthlySummaryResult {
@@ -42,8 +60,27 @@ export interface MonthlySummaryResult {
   operating_profit: number;
 }
 
+/**
+ * `[{stage, total}]` を確度で重みづけて合算する。**stage が無い/知らない行は
+ * 確度100%として数える**（案件に紐づかない・按分グループ経由などで案件個別の
+ * フェーズが引けない行を、確度不明を理由に一律ゼロにしないため）。
+ */
+function weightedSum(
+  rows: { stage: string | null; total: string | number }[],
+  probabilityMap: Map<ProjectStage, number>,
+): number {
+  let sum = 0;
+  for (const r of rows) {
+    const prob = r.stage && probabilityMap.has(r.stage as ProjectStage)
+      ? probabilityMap.get(r.stage as ProjectStage)!
+      : 100;
+    sum += Number(r.total) * (prob / 100);
+  }
+  return Math.round(sum);
+}
+
 export async function getMonthlySummary(params: MonthlySummaryParams): Promise<MonthlySummaryResult> {
-  const { month, from: qFrom, to: qTo, projectId, allPeriods, entityCode } = params;
+  const { month, from: qFrom, to: qTo, projectId, allPeriods, entityCode, mode = 'total' } = params;
 
   // 期間を [from, to] (YYYY-MM-DD) に正規化。全期間 > from/to > month の単月の順に見る。
   let from = '', to = '';
@@ -78,7 +115,7 @@ export async function getMonthlySummary(params: MonthlySummaryParams): Promise<M
   // 案件絞り込み時: 直接売上/仕入 + group_id による按分配分両方を集計
   // 販管費は案件紐付かないので project_id 指定時は除外 (0)
   if (projectId) {
-    const [revDirectRow, revAllocRow, purDirectRow, purAllocRow, fixedRow] = await Promise.all([
+    const [revDirectRow, revAllocRow, purDirectRow, purAllocRow, fixedRow, projectRow] = await Promise.all([
       queryOne(
         `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues
          WHERE deleted_at IS NULL AND status = 'confirmed' AND group_id IS NULL
@@ -111,11 +148,24 @@ export async function getMonthlySummary(params: MonthlySummaryParams): Promise<M
          AND pu.project_id = ? AND p.code = ?${dateWhere('pu.recognition_date')}${entityWhere('pu.entity_code')}`,
         [projectId, FIXED_COGS_CODE, ...dateArgs, ...entityArgs]
       ) as Promise<any>,
+      // 確度加味のときだけ要る（この案件いまのフェーズ）
+      mode === 'weighted'
+        ? (queryOne(`SELECT stage FROM projects WHERE id = ?`, [projectId]) as Promise<any>)
+        : Promise.resolve(null),
     ]);
-    const revenue_total = Number(revDirectRow?.total ?? 0) + Number(revAllocRow?.total ?? 0);
-    const purchase_total = Number(purDirectRow?.total ?? 0) + Number(purAllocRow?.total ?? 0);
+    let revenue_total = Number(revDirectRow?.total ?? 0) + Number(revAllocRow?.total ?? 0);
     const fixed_cost_total = Number(fixedRow?.total ?? 0);
-    const variable_cost_total = purchase_total - fixed_cost_total;
+    let variable_cost_total = (Number(purDirectRow?.total ?? 0) + Number(purAllocRow?.total ?? 0)) - fixed_cost_total;
+    let purchase_total = variable_cost_total + fixed_cost_total;
+    if (mode === 'weighted') {
+      // **この案件1つぶんの確度**を売上・仕入（変動原価）に一律で掛ける。固定原価は対象外
+      const probabilityMap = await getStageProbabilityMap();
+      const stage = projectRow?.stage as ProjectStage | undefined;
+      const prob = stage && probabilityMap.has(stage) ? probabilityMap.get(stage)! : 100;
+      revenue_total = Math.round(revenue_total * (prob / 100));
+      variable_cost_total = Math.round(variable_cost_total * (prob / 100));
+      purchase_total = variable_cost_total + fixed_cost_total;
+    }
     const sga_total = 0; // 販管費は案件紐付けないため案件絞り込み時はゼロ
     const marginal_profit = revenue_total - variable_cost_total; // 限界利益 = 売上 − 変動原価
     const gross_profit = marginal_profit - fixed_cost_total;      // 売上総利益 = 限界利益 − 固定原価
@@ -128,6 +178,54 @@ export async function getMonthlySummary(params: MonthlySummaryParams): Promise<M
   // 子行はなく、内訳は別表（revenue_allocations / purchase_allocations）にある（migration 006・
   // billing.routes.ts 冒頭と同じ理由）。絞ると全社集計からグループ請求の金額が丸ごと消える。
   // 上の案件別ブランチは按分を allocation 側から足すので、あちらは `group_id IS NULL` のまま。
+
+  if (mode === 'weighted') {
+    /*
+     * 確度加味: 売上・仕入（変動原価。固定原価Pjは除く）を**案件のフェーズ別に SUM**
+     * してから確度を掛けて合算する（1行ずつ掛けるのと数学的に同じだが、行数分の
+     * 掛け算をせずに済む）。固定原価・販管費は案件のフェーズを持たないため、
+     * 総額モードと同じ実額のまま合流させる（旧 `pipeline-forecast.service.ts` と同じ判断）。
+     */
+    const [revRows, purRows, sgaRow, fixedRow, probabilityMap] = await Promise.all([
+      queryAll(
+        `SELECT p.stage AS stage, COALESCE(SUM(r.amount), 0) AS total
+           FROM revenues r LEFT JOIN projects p ON p.id = r.project_id
+          WHERE r.deleted_at IS NULL AND r.status = 'confirmed'${dateWhere('r.recognition_date')}${entityWhere('r.entity_code')}
+          GROUP BY p.stage`,
+        [...dateArgs, ...entityArgs],
+      ) as Promise<{ stage: string | null; total: string | number }[]>,
+      queryAll(
+        `SELECT p.stage AS stage, COALESCE(SUM(pu.amount), 0) AS total
+           FROM purchases pu LEFT JOIN projects p ON p.id = pu.project_id
+          WHERE pu.deleted_at IS NULL AND (p.code IS DISTINCT FROM ? OR p.code IS NULL)
+            ${dateWhere('pu.recognition_date')}${entityWhere('pu.entity_code')}
+          GROUP BY p.stage`,
+        [FIXED_COGS_CODE, ...dateArgs, ...entityArgs],
+      ) as Promise<{ stage: string | null; total: string | number }[]>,
+      queryOne(
+        `SELECT COALESCE(SUM(amount), 0) AS total FROM sga_expenses WHERE deleted_at IS NULL${dateWhere('recognition_date')}${entityWhere('entity_code')}`,
+        [...dateArgs, ...entityArgs]
+      ) as Promise<any>,
+      // 固定原価 = 固定原価Pj (code=FIXED-COGS) に計上された仕入。確度は掛けない
+      queryOne(
+        `SELECT COALESCE(SUM(pu.amount), 0) AS total FROM purchases pu
+         JOIN projects p ON p.id = pu.project_id
+         WHERE pu.deleted_at IS NULL AND pu.group_id IS NULL AND p.code = ?${dateWhere('pu.recognition_date')}${entityWhere('pu.entity_code')}`,
+        [FIXED_COGS_CODE, ...dateArgs, ...entityArgs]
+      ) as Promise<any>,
+      getStageProbabilityMap(),
+    ]);
+    const revenue_total = weightedSum(revRows, probabilityMap);
+    const variable_cost_total = weightedSum(purRows, probabilityMap);
+    const sga_total = Number((sgaRow as any)?.total ?? 0);
+    const fixed_cost_total = Number((fixedRow as any)?.total ?? 0);
+    const purchase_total = variable_cost_total + fixed_cost_total;
+    const marginal_profit = revenue_total - variable_cost_total;
+    const gross_profit = marginal_profit - fixed_cost_total;
+    const operating_profit = gross_profit - sga_total;
+    return { month: periodLabel, entity_code: entityCode, revenue_total, purchase_total, fixed_cost_total, variable_cost_total, marginal_profit, gross_profit, sga_total, operating_profit };
+  }
+
   const [revRow, purRow, sgaRow, fixedRow] = await Promise.all([
     queryOne(
       `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues WHERE deleted_at IS NULL AND status = 'confirmed'${dateWhere('recognition_date')}${entityWhere('entity_code')}`,

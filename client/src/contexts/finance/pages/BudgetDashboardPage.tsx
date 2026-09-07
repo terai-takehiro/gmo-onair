@@ -55,6 +55,19 @@
  * 販管費は `useInfiniteQuery` に変え、`BreakdownColumn` の「もっと見る」で
  * サーバーの実ページ（100件区切り）を追加取得できるようにしています
  * （固定原価は案件のように増えないため従来どおり単発取得のまま）。
+ *
+ * ── 「総額」/「確度加味」は画面全体の見方の切り替え（2026-09 → さらに拡張） ──
+ *
+ * もとは営業見通し（パイプライン）カード専用のトグルだった。「絞り込んでいる
+ * 状態なども含め画面全体を確度加味の対象に」「個別の売上・仕入（案件）にも
+ * パーセンテージを」というご依頼で画面全体の切り替えに作り直し、**営業見通し
+ * カードは廃止**（トグルだけ残す・別カードで二重に持つ意味が無くなったため）。
+ * `weighted` のとき、サーバー（`monthly-summary.service.ts`。`mode=weighted`）が
+ * 売上・仕入（変動原価）を計上先の案件のいまのフェーズの受注確度（%）で
+ * 重みづけて合算し直し（固定原価・販管費は対象外＝実額のまま）、内訳
+ * （`breakdownItems.ts`）も行ごとに同じ確度を掛けて表示する
+ * （**あくまでシミュレーション** — `revenues`/`purchases` の実額は変えない。
+ * 確度のマスターは `GET /stage-probabilities`＝設定「お金のルール」と同じ）。
  */
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -68,11 +81,12 @@ import type { PurchaseRow } from './ledger/types';
 import { PurchaseDialog } from './ledger/PurchaseDialog';
 import SgaDialog, { initialFormData as initialSgaForm, type SgaFormData } from '../components/SgaDialog';
 import { formFromSga } from '../components/sgaPrefill';
-import { ProfitFlow, type FlowStep } from './financeDashboard/ProfitFlow';
-import { PipelineForecast } from './financeDashboard/PipelineForecast';
+import { ProfitFlow } from './financeDashboard/ProfitFlow';
+import { buildFlowSteps } from './financeDashboard/flowSteps';
 import { ForecastModeToggle, type ForecastMode } from './financeDashboard/ForecastModeToggle';
 import { BreakdownColumn } from './financeDashboard/Breakdown';
 import { useProjectFilter, initialPeriodMode } from './financeDashboard/useProjectFilter';
+import { useStageProbabilityMap } from './financeDashboard/useStageProbabilities';
 import {
   buildRevenueItems, buildPurchaseItems, buildSgaItems, type RevenueBreakdownRow,
 } from './financeDashboard/breakdownItems';
@@ -92,13 +106,10 @@ export default function BudgetDashboardPage() {
   const [rangeFrom, setRangeFrom] = useState(`${now.getFullYear()}-01`);
   const [rangeTo, setRangeTo] = useState(curYm);
 
-  /*
-   * 「全部を100%で」/「確度をかけて」の切り替え（営業見通しカードが使う）。**画面レベルの state**
-   * にして `PeriodBar` と同じ並びに置く（旧 `PipelineForecast.tsx` のローカル state を
-   * 引き上げたもの・ファイル冒頭コメント参照）。初期値は旧実装を踏襲し「確度をかけて」。
-   * ⚠️ 集計対象はこれまでどおり `PipelineForecast` だけ（損益フロー・内訳・サマリーには適用しない）
-   */
+  // 「全部を100%で」/「確度をかけて」の切り替え。**画面全体**に効く（ファイル冒頭コメント参照）
   const [forecastMode, setForecastMode] = useState<ForecastMode>('weighted');
+  const weighted = forecastMode === 'weighted';
+  const { probabilityMap } = useStageProbabilityMap();
 
   // 案件の絞り込み（URL の `?project_id=` が正）は `financeDashboard/useProjectFilter.ts`。
   // この画面で案件を絞る道はプルダウン1本（内訳の行のうち売上だけ台帳へ移動する）
@@ -118,7 +129,7 @@ export default function BudgetDashboardPage() {
     [mode, month, year, quarter, rangeFrom, rangeTo],
   );
   const { projects, summaryQuery, revenues, purchases, fixed, sga, periodReady } =
-    useDashboardData(period, projectId, entity);
+    useDashboardData(period, projectId, entity, forecastMode);
   const s: MonthlySummary = (summaryQuery.data?.data as MonthlySummary) ?? EMPTY_SUMMARY;
 
   // 読み込み済みページを1本の配列に展開。**件数の badge には使わない**（読み込み済み分でしかない）
@@ -133,8 +144,6 @@ export default function BudgetDashboardPage() {
   const purchaseTotalCount = purchases.data?.pages[0]?.pagination?.total ?? purchaseRows.length;
   const fixedTotalCount = fixed.data?.pagination?.total ?? fixed.data?.data.length ?? 0;
   const sgaTotalCount = sga.data?.pages[0]?.pagination?.total ?? sgaRows.length;
-
-  const pct = (n: number) => (s.revenue_total > 0 ? (n / s.revenue_total) * 100 : null);
 
   /*
    * 絞り込み中の案件名。**プルダウンの候補に無くても出せるようにする** —
@@ -196,37 +205,28 @@ export default function BudgetDashboardPage() {
     params: { status: 'confirmed', project_id: projectId || undefined },
   });
 
-  /*
-   * **案件で絞り込み中は3枚だけ。** 販管費は案件に紐づかない（＝どの案件で絞っても
-   * 同じ全社の販管費が出るだけで、その案件の損益とは無関係）ので、絞り込み中は
-   * 「売上 − 仕入（変動原価） = 限界利益」までしか出さない。固定原価・売上総利益・
-   * 営業利益も同じ理由でここでは意味を持たないため出さない（ご要望）。
-   */
-  const steps: FlowStep[] = projectId
-    ? [
-        { label: '売上', value: s.revenue_total, sub: `確定売上 ${revenueTotalCount}件`, to: '/budget/revenues' + ledgerQuery },
-        { label: '仕入（変動原価）', value: s.variable_cost_total, sub: `この案件の ${purchaseTotalCount}件`, to: '/budget/purchases' + ledgerQuery },
-        { label: '限界利益', value: s.marginal_profit, result: true, pct: pct(s.marginal_profit) },
-      ]
-    : [
-        { label: '売上', value: s.revenue_total, sub: `確定売上 ${revenueTotalCount}件`, to: '/budget/revenues' + ledgerQuery },
-        { label: '仕入（変動原価）', value: s.variable_cost_total, sub: `案件に紐づく ${purchaseTotalCount}件`, to: '/budget/purchases' + ledgerQuery },
-        { label: '限界利益', value: s.marginal_profit, result: true, pct: pct(s.marginal_profit) },
-        { label: '固定原価', value: s.fixed_cost_total, sub: `償却負担額など ${fixedTotalCount}件`, to: '/budget/purchases' + ledgerQuery },
-        { label: '売上総利益', value: s.gross_profit, result: true, pct: pct(s.gross_profit) },
-        { label: '販管費', value: s.sga_total, sub: `案件に紐づかない ${sgaTotalCount}件`, to: '/budget/sga' + ledgerQuery },
-        { label: '営業利益', value: s.operating_profit, result: true, pct: pct(s.operating_profit) },
-      ];
+  // 段の組み立ては `financeDashboard/flowSteps.ts`（案件で絞り込み中は3枚だけ、の理由もそちら）
+  const steps = buildFlowSteps({
+    projectId, s, ledgerQuery, revenueTotalCount, purchaseTotalCount, fixedTotalCount, sgaTotalCount,
+  });
 
   // 行の組み立ては `financeDashboard/breakdownItems.ts`（申請ステータスは台帳と共通の
   // `settlementState` から作る）。ここは**押したときに何が起きるか**だけを決める
+  const weighting = { weighted, probabilityMap };
   const revItems = buildRevenueItems(revenueRows, {
     openLedger: (id, name) => openLedger('/budget/revenues', id, name),
     openGroup: (groupId) => navigate(`/sales/project-groups/${groupId}`),
-  });
+  }, weighting);
   const purItems = buildPurchaseItems(
-    [...purchaseRows, ...((fixed.data?.data ?? []) as PurchaseRow[])],
+    [
+      ...purchaseRows,
+      // 固定原価Pjは案件のフェーズを持たない（重みづけ対象外）ので、
+      // ここで `project_stage` を落として「常に実額100%」にする
+      // （`monthly-summary.service.ts` が固定原価を確度加味の対象から外すのと同じ判断）
+      ...((fixed.data?.data ?? []) as PurchaseRow[]).map((r) => ({ ...r, project_stage: null })),
+    ],
     (row) => setViewingPurchase(row),
+    weighting,
   );
   const sgaItems = buildSgaItems(sgaRows, (row) => { setViewingSga(row); setViewingSgaForm(formFromSga(row)); });
 
@@ -237,7 +237,7 @@ export default function BudgetDashboardPage() {
         /* ⚠️ **どの案件で絞っているのかを名前で出す。** 絞り込み帯のプルダウンは
             画面を作り直さずクエリだけ変えるので、ここに出ないと効いたことが分からない */
         sub={periodReady
-          ? `${period.label} ・ 確定売上ベース ・ ${projectId
+          ? `${period.label} ・ ${weighted ? '確度加味のシミュレーション' : '確定売上ベース'} ・ ${projectId
               ? `${selectedProjectName ?? '選んだ案件'} で絞り込み中（販管費は対象外）`
               : '全案件（販管費を含む）'}`
           : '期間を選んでください'}
@@ -256,21 +256,18 @@ export default function BudgetDashboardPage() {
 
       {/*
         * 「全部を100%で」/「確度をかけて」の切り替え。**期間・案件の絞り込み（`PeriodBar`）と
-        * 同じ並びの画面レベルの設定として、常に見える・操作できる場所に置く**
-        * （旧実装は営業見通しカードの中に閉じていた・ファイル冒頭コメント参照）。
-        * 効くのは直下の営業見通しカードだけ（損益フロー・内訳・サマリーには適用しない）。
+        * 同じ並びの画面レベルの設定として、常に見える・操作できる場所に置く**。
+        * **この画面全体**（下の損益の流れ・内訳・サマリー）に効く（ファイル冒頭コメント参照）。
         */}
       <div className="rounded-card flex flex-wrap items-center gap-2 border border-border bg-card p-3 lg:px-4">
         <span className="text-sub shrink-0 text-muted-foreground">見込みの数え方</span>
         <ForecastModeToggle mode={forecastMode} onChange={setForecastMode} />
-        <span className="text-note text-muted-foreground">営業見通しにだけ効きます</span>
+        <span className="text-note text-muted-foreground">
+          {weighted
+            ? '案件ごとの受注確度（%）を掛けたシミュレーションです（実績の記録は変わりません）'
+            : 'すべての金額をそのまま（100%で）合算しています'}
+        </span>
       </div>
-
-      {/*
-        * 営業見通しは期間の絞り込みと無関係（ファイル冒頭コメント参照）
-        * なので、`periodReady` を待たずに常に出す。案件の絞り込みだけ引き継ぐ。
-        */}
-      <PipelineForecast projectId={projectId} forecastMode={forecastMode} entityCode={entity} />
 
       {/*
         * 期間が入っていないときは読み込みに行かない。**何を待っているのか書かないと固まって見える**。

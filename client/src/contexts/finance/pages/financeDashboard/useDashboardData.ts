@@ -19,11 +19,19 @@
  * `/monthly-summary`・内訳4本（`/revenues`/`/purchases`（変動・固定原価の2回）/`/sga`）
  * とも、サーバー側の絞り込みビルダー（`list-query.ts`）が対応済み（省略時は
  * 全社合算のまま）。合計と内訳の行が同じ会社で揃う。
+ *
+ * ── 「総額」/「確度加味」（`forecastMode`）は `/monthly-summary` だけに渡す ─────
+ *
+ * サーバー（`monthly-summary.service.ts`）が合計を確度加味で計算し直す。
+ * 内訳4本には渡さない — 行ごとの重みづけは `p.stage`（このクエリが返す行に
+ * 既に乗っている）を使って `breakdownItems.ts` が表示直前に掛けるだけなので、
+ * 取得するデータ自体は `forecastMode` によって変わらない。
  */
 import { useMemo } from 'react';
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import type { ProjectOption } from './PeriodBar';
+import type { ForecastMode } from './ForecastModeToggle';
 import { summaryPeriodParams, ledgerPeriodParams as ledgerPeriodParamsOf, type Period } from './period';
 import type { PurchaseRow } from '../ledger/types';
 
@@ -52,7 +60,7 @@ export interface PagedResponse<T> {
 /** サーバー共通の上限（`shared/services/pagination.ts` の `Math.min(100, …)`）に合わせたページサイズ */
 const PAGE_SIZE = 100;
 
-export function useDashboardData(period: Period, projectId: string, entityCode: string) {
+export function useDashboardData(period: Period, projectId: string, entityCode: string, forecastMode: ForecastMode) {
   const periodParams = useMemo(() => summaryPeriodParams(period), [period]);
   const ledgerPeriodParams = useMemo(() => ledgerPeriodParamsOf(period), [period]);
   /** 期間が決まっているか。**壊れた日付で読みに行かないための唯一のゲート** */
@@ -104,9 +112,9 @@ export function useDashboardData(period: Period, projectId: string, entityCode: 
   }, [projectsData, activeProjectsData]);
 
   const summaryQuery = useQuery({
-    queryKey: ['budget-monthly-summary', period.from, period.to, period.all, projectId, entityCode],
+    queryKey: ['budget-monthly-summary', period.from, period.to, period.all, projectId, entityCode, forecastMode],
     queryFn: async ({ signal }) => {
-      const params: Record<string, string> = { ...periodParams };
+      const params: Record<string, string> = { ...periodParams, mode: forecastMode };
       if (projectId) params.project_id = projectId;
       if (entityCode) params.entity_code = entityCode;
       return (await api.get('/monthly-summary', { params, timeout: 20_000, signal })).data;

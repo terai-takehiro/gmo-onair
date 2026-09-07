@@ -175,6 +175,12 @@ export interface PurchaseRow {
   project_id: string | null;
   project_name: string | null;
   gls_number: string | null;
+  /**
+   * 案件のいまのフェーズ（`projects.stage`）。財務ダッシュボードの「確度加味」
+   * シミュレーション（`financeDashboard/breakdownItems.ts`）が使う。固定原価Pjなど
+   * 案件に紐づかない/重みづけ対象外の行は呼び出し側が `null` に落として渡す。
+   */
+  project_stage?: string | null;
   vendor_id: string | null;
   vendor_name: string | null;
   description: string | null;
