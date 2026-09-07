@@ -214,9 +214,21 @@ export function renderHeadlineAndChecklist(slide: PptxGenJS.Slide, box: Box, o: 
   if (o.items.length === 0) return;
   const listTop = box.y + (o.headline ? headlineH + gap : 0);
   const listBox = { x: box.x, y: listTop, w: box.w, h: box.y + box.h - listTop };
-  const runs: PptxGenJS.TextProps[] = o.items.map((t, i) => ({
-    text: `✓  ${t}`, options: { breakLine: i < o.items.length - 1, fontSize: 14, color: o.color ?? C.text, bold: false, paraSpaceAfter: 6 },
+  // 成果は MCP/画面から最大10件まで入る。総括カードがある回はこの箱が縮む（約32%を総括が使う）ため、
+  // 件数が多いと箱の下端をはみ出して下のお金の行に重なる恐れがある。収まる件数だけ出し、
+  // 残りは表の「ほかN行（省略）」と同じ考え方で1行にまとめる
+  const listSize = 14;
+  const maxItems = maxRowsForBox(listBox.h, listSize, 1, 0);
+  const shown = o.items.slice(0, maxItems);
+  const hiddenCount = o.items.length - shown.length;
+  const runs: PptxGenJS.TextProps[] = shown.map((t) => ({
+    text: `✓  ${t}`, options: { breakLine: true, fontSize: listSize, color: o.color ?? C.text, bold: false, paraSpaceAfter: 6 },
   }));
+  if (hiddenCount > 0) {
+    runs.push({ text: `ほか ${hiddenCount} 件（省略）`, options: { breakLine: false, fontSize: listSize, color: C.muted, bold: false } });
+  } else if (runs.length > 0) {
+    runs[runs.length - 1].options = { ...runs[runs.length - 1].options, breakLine: false };
+  }
   slide.addText(runs, { x: listBox.x, y: listBox.y, w: listBox.w, h: listBox.h, fontFace: FONT, valign: 'middle', margin: 4 });
 }
 

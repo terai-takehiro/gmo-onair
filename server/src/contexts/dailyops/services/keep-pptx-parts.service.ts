@@ -273,6 +273,19 @@ export function renderCalendar(slide: PptxGenJS.Slide, cal: UtilizationCalendar,
 }
 
 // ── 内覧会・議事録・参加者 ─────────────────────────────────────
+/**
+ * 「凍結パック」（週報確定時にその回のパックをJSONのまま保存したもの。`docs/design/v4/keep-report.md`）は
+ * `category_count` を足す前（2026-09刷新より前）に凍ったものが読み直され続けるため、この項目が無いことがある。
+ * そのときは表示用に畳んだ `by_category` から復元する（末尾が「その他（N分類）」ならその数を足す）
+ */
+function inviewCategoryCount(s: InviewSummary): number {
+  if (typeof s.category_count === 'number') return s.category_count;
+  const rows = s.by_category;
+  const last = rows[rows.length - 1];
+  const m = last ? /^その他（(\d+)分類）$/.exec(last.category) : null;
+  return m ? rows.length - 1 + Number(m[1]) : rows.length;
+}
+
 /** 内覧会の帯（定期内覧会／開催日）＋来場組数・来場人数・分類数の数字カード。`inview.summary` 1本で組む */
 export function renderInviewSummary(slide: PptxGenJS.Slide, s: InviewSummary, box: Box): void {
   const bandH = Math.min(box.h * 0.3, 1.1);
@@ -284,7 +297,7 @@ export function renderInviewSummary(slide: PptxGenJS.Slide, s: InviewSummary, bo
   renderStatRow(slide, { x: box.x, y: box.y + bandH + gap, w: box.w, h: box.y + box.h - (box.y + bandH + gap) }, [
     { label: '来場組数', value: `${s.groups}組` },
     { label: '来場人数', value: `${s.people}名` },
-    { label: '分類数', value: `${s.category_count}`, accent: true },
+    { label: '分類数', value: `${inviewCategoryCount(s)}`, accent: true },
   ]);
 }
 

@@ -58,6 +58,19 @@ const isPlTable = (v: unknown): v is MonthlyPlTable => isObj(v) && Array.isArray
 const isPlByEntity = (v: unknown): v is PlByEntity => isObj(v) && isPlTable(v.all);
 const isStrings = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string');
 
+/**
+ * 「凍結パック」（週報確定時にその回のパックをJSONのまま保存したもの）は `category_count` を
+ * 足す前（2026-09刷新より前）に凍ったものが読み直され続けるため、この項目が無いことがある。
+ * そのときは表示用に畳んだ `by_category` から復元する（末尾が「その他（N分類）」ならその数を足す）
+ */
+function inviewCategoryCount(s: InviewSummary): number {
+  if (typeof s.category_count === 'number') return s.category_count;
+  const rows = s.by_category;
+  const last = rows[rows.length - 1];
+  const m = last ? /^その他（(\d+)分類）$/.exec(last.category) : null;
+  return m ? rows.length - 1 + Number(m[1]) : rows.length;
+}
+
 /** `project_pages[i].…` / `event_reports[i].…` の親（案件）。帯の①や写真の持ち主に要る */
 function parentProject(pack: KeepReportPack, binding: string): { data: ProjectPageData; role: 'project' | 'report' } | null {
   const m = binding.match(/^(project_pages|event_reports)\[(\d+)\]/);
@@ -208,7 +221,7 @@ function classify(binding: string, part: SlidePart, value: unknown, pack: KeepRe
       sessionDate: dateLabel(s.session_date),
       groups: s.groups,
       people: s.people,
-      categoryCount: s.category_count,
+      categoryCount: inviewCategoryCount(s),
       nextSessionDate: s.next_session ? dateLabel(s.next_session.date) : null,
     };
   }
