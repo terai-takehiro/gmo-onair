@@ -12,7 +12,7 @@
  */
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { PullToRefresh } from '@gmo-onair/shared/src/client-v4/pullToRefresh';
-import { LedgerRows } from './LedgerRows';
+import { LedgerRows, type LedgerSortKeys } from './LedgerRows';
 import { LedgerCards } from './LedgerCards';
 import type { LedgerRow } from './types';
 
@@ -45,6 +45,15 @@ export interface LedgerListProps {
    * 更新の手段が `ErrorPanel` の再読み込みしか無いのは足りない
    */
   onRefresh: () => Promise<unknown> | unknown;
+  /**
+   * 表頭クリックの並べ替え（2026-09 依頼「列見出しで昇順・降順」）。**PC の表
+   * （`LedgerRows`）にだけ渡す**——スマホはカードで、そもそも列見出しという
+   * 概念が無い（`ProjectRowsHeader` を「スマホでは出しません」としているのと
+   * 同じ扱い）。渡さなければ `LedgerRows` は今までどおり押せない見出しのまま
+   */
+  sort?: string;
+  onSort?: (key: string) => void;
+  sortKeys?: LedgerSortKeys;
 }
 
 export function LedgerList(p: LedgerListProps) {
@@ -71,6 +80,9 @@ export function LedgerList(p: LedgerListProps) {
       partyLabel={p.partyLabel}
       stateLabel={p.stateLabel}
       onOpen={p.onOpen}
+      sort={p.sort}
+      onSort={p.onSort}
+      sortKeys={p.sortKeys}
     />
   );
 }

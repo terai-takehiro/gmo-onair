@@ -53,6 +53,14 @@ interface PdfRevenueData {
    * 入っていれば請求書にはこちらを出す（`billing_key` は社内の請求KEY）。
    */
   invoice_no?:      string | null;
+  /**
+   * 元見積のコード（`GLS-A018-v3` 形式・`estimate-pdf.service.ts` と同じ組み立て）。
+   * **検収書の「見積書コード」はこちらを優先して出す**（依頼: 見積書コードと
+   * 検収書内の見積書コードを一致させる）。元見積が無い（見積を経ずに直接登録した
+   * 売上）ときは `null`——そのときは `billing_key`（社内の請求KEY）へ従来どおり
+   * フォールバックする。
+   */
+  estimate_code?:   string | null;
   items:            PdfRevenueItem[];
 }
 
@@ -208,8 +216,19 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
       // `billing_key`（社内の請求KEY）を出していたので、相手に渡す請求書に
       // 「見積コード：GLS001-001-1」と印字されていた。番号は発行時にだけ採るので
       // (migration 163)、まだ無いものは今までどおり請求KEYを出す。
+      //
+      // **検収書の「見積書コード」は元見積のコード（`estimate_code`）を優先する。**
+      // 以前は検収書もここで `billing_key`（案件の売上連番＋税区分から作る
+      // 社内の請求KEY。例 `GLS-A018-003-1`）を出していたため、見積書 PDF に
+      // 印字されるコード（`estimate-pdf.service.ts` の `GLS-A018-v3` 形式）と
+      // 値が食い違っていた（依頼: 「見積書コードと検収書内の見積書コードを一致させる」）。
+      // `estimate_code` は呼び出し側（`revenues.routes.ts`）が同じ組み立てで
+      // 作って渡す。見積を経ずに直接登録した売上には元見積が無いので、
+      // そのときだけ従来どおり請求KEYへフォールバックする。
       const codeLabel = isInspection ? '見積書コード' : isEstimate ? '見積コード' : '請求書番号';
-      const codeValue = (!isEstimate && !isInspection && data.invoice_no) || data.billing_key || '';
+      const codeValue = isInspection
+        ? (data.estimate_code || data.billing_key || '')
+        : (!isEstimate && data.invoice_no) || data.billing_key || '';
       txt(`${codeLabel}　：　${codeValue}`, ML, y, { sz: 8 }); y += 14;
       if (isEstimate) {
         // 有効期限を決めてあるなら**その日付**を書く。決めていなければ従来の一文

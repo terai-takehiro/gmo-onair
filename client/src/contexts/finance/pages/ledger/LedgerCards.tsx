@@ -33,7 +33,6 @@ import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { IntercompanyTag } from '@/contexts/shared/components/IntercompanyTag';
 import { monthOf } from './format';
-import { compactSettlementLabel } from './settlementState';
 import { LedgerDetailSheet } from './LedgerDetailSheet';
 import { STATE_TONE, type LedgerRow } from './types';
 
@@ -92,10 +91,8 @@ export function LedgerCards({
                 )}
                 {stateLabel && r.state && (
                   <span className="shrink-0">
-                    {/* 「金額確定・精算まだ」はこの幅では相手先が消える。
-                        短くする規則は `settlementState.ts` に1つだけ置いてある */}
                     <TableBadge
-                      label={compactSettlementLabel(r.state.label)}
+                      label={r.state.label}
                       w={null}
                       className={STATE_TONE[r.state.tone]}
                     />

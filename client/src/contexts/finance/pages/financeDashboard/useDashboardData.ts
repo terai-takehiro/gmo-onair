@@ -45,11 +45,22 @@ export interface MonthlySummary {
   gross_profit: number;
   sga_total: number;
   operating_profit: number;
+  /**
+   * グループ内案件／グループ外案件の売上・仕入（変動原価まで。固定原価は
+   * 対象外）。サーバー（`monthly-summary.service.ts`）が案件の `customer_type`
+   * から振り分ける。内訳の合計は `revenue_total`/`purchase_total` そのものとは
+   * 一致しない（後者は固定原価込みのため）——詳しくはサーバー側の型コメント。
+   */
+  revenue_internal: number;
+  revenue_external: number;
+  purchase_internal: number;
+  purchase_external: number;
 }
 
 export const EMPTY_SUMMARY: MonthlySummary = {
   month: '', revenue_total: 0, purchase_total: 0, fixed_cost_total: 0,
   variable_cost_total: 0, marginal_profit: 0, gross_profit: 0, sga_total: 0, operating_profit: 0,
+  revenue_internal: 0, revenue_external: 0, purchase_internal: 0, purchase_external: 0,
 };
 
 export interface PagedResponse<T> {
