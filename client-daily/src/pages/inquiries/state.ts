@@ -60,6 +60,18 @@ export function actionsFor(state: InquiryState): InquiryAction[] {
   return ['ticket', 'toProject', 'book', 'stock', 'drop'];
 }
 
+/**
+ * 一覧のボタンでどれを目立たせるか（`variant='default'`）。**既定は「タスクにする」**。
+ *
+ * `予定候補` タグ（decision-table.md「日程が明確なものには `予定候補` タグも足す」・
+ * フェーズ1・ai-feedback-loop 監査 2026-09）が付いているものだけ
+ * 「カレンダーに登録する」を目立たせる。**AI は予約を作らない** — 付くのは
+ * タグだけで、行き先を決めるのは今までどおり人（このボタンを押す操作）
+ */
+export function primaryActionFor(tags: string[]): InquiryAction {
+  return tags.includes('予定候補') ? 'book' : 'ticket';
+}
+
 export const ACTION_LABEL: Record<InquiryAction, string> = {
   ticket: 'タスクにする',
   toProject: '案件の受付へ送る',

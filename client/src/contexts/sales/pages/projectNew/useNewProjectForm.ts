@@ -43,7 +43,7 @@ export interface NewProjectForm extends ProjectFieldsState {
 }
 
 export function useNewProjectForm(): NewProjectForm {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
 
   const [v, setV] = useState<NewProjectValues>(() => ({
     ...EMPTY_NEW_PROJECT,
@@ -105,6 +105,22 @@ export function useNewProjectForm(): NewProjectForm {
 
   const missing = useMemo(() => missingOf(v), [v]);
   const inquiryId = params.get('inquiry');
+
+  /**
+   * 見送ったあとに呼ぶ（`useProjectDecisions` へ渡す）。**画面は移動しない** —
+   * カードを選び直したときと同じ「選択をやめる」（`useIntakeSeed` が空に戻す）を
+   * するだけで、レールに並んだ次の1件をそのまま選べる。`?inquiry=` で来ていたら
+   * URL からも外す（残すと再読込のたびに同じ引き合いへ誘導される）
+   */
+  const resetSelection = useCallback(() => {
+    setSelected(null);
+    if (params.get('inquiry')) {
+      const next = new URLSearchParams(params);
+      next.delete('inquiry');
+      setParams(next, { replace: true });
+    }
+  }, [params, setParams]);
+
   const decisions = useProjectDecisions(
     // グループ会社のときは経路とグループ区分を上書きして送る。画面が固定表示に
     // している以上、保存される値も固定でなければ、あとから数えたときに食い違う。
@@ -114,6 +130,7 @@ export function useNewProjectForm(): NewProjectForm {
     isGroup ? { ...v, intake_channel: 'group', customer_type: 'internal' as const } : v,
     selection,
     inquiryId,
+    resetSelection,
   );
 
   return { v, set, items, itemsTotal, selected, setSelected, selection, customers, users, customer, isGroup, missing, decisions };
