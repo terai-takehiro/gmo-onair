@@ -54,6 +54,48 @@ export function fmtMd(start: string | null | undefined, end?: string | null): st
   return end && end !== start ? `${md(start)}〜${md(end)}` : md(start);
 }
 
+// ── 表の升の高さを崩さない ────────────────────────────────────────
+/**
+ * 文字数から幅を見積もり（全角 1em・半角 0.65em。`keep-pptx.service.ts` の `fitPt` と同じ数え方）、
+ * `maxEm` を超えたら「…」で切る。**升の中身は1行に収まる長さに切って、行数を人が決めた設計どおりに保つ**
+ * ためのもの — PowerPoint の表は升の高さを「その升が実際に折り返した行数」から自動で決め直すので
+ * （XML の `<a:tr h="0">` はヒントに過ぎない）、長い自由文（案件名・お客様名・分類名など）を切らずに置くと
+ * 1升が2〜3行に膨らみ、表の下端がテンプレの箱をはみ出してフッターに重なる・スライドの外に出る
+ */
+export function truncateEm(text: string | null | undefined, maxEm: number): string {
+  if (!text) return '';
+  let w = 0;
+  const chars = [...text];
+  for (let i = 0; i < chars.length; i++) {
+    const cw = chars[i].codePointAt(0)! > 0x2e7f ? 1 : 0.65;
+    if (w + cw > maxEm) return `${chars.slice(0, i).join('')}…`;
+    w += cw;
+  }
+  return text;
+}
+
+/**
+ * 表の1列の中身が1行に収まる文字数の目安（em）。列の幅（in）× 列の比率 − セルの余白 を、
+ * フォントの大きさ（pt）で割る（全角1文字 ≈ フォントの大きさそのものの幅、という近似）。
+ */
+export function colMaxEm(boxW: number, weightFrac: number, sizePt: number, marginIn = 0.11): number {
+  const colWIn = Math.max(0, boxW * weightFrac - marginIn);
+  return (colWIn * 72) / sizePt;
+}
+
+/**
+ * 箱の高さに収まる行数の上限（見出し1行 ＋ 中身が `linesPerRow` 行の升 × N）。
+ * 行の高さは「フォントの大きさ×行数×1.2（行間の目安）＋ 升の上下余白」で見積もる。
+ * 表の行数を人が決めた定数（例: 16件まで）にせず箱の高さから逆算することで、
+ * テンプレの高さを直しても表の上限が自動で追随する（食い違って箱をはみ出さない）
+ */
+export function maxRowsForBox(boxH: number, sizePt: number, linesPerRow: number, headerLines = 1, marginIn = 0.06): number {
+  const lineIn = (sizePt * 1.2) / 72;
+  const headerH = headerLines * lineIn + marginIn;
+  const rowH = linesPerRow * lineIn + marginIn;
+  return Math.max(1, Math.floor((boxH - headerH) / rowH));
+}
+
 // ── 文字・表・枠 ───────────────────────────────────────────────
 export interface TextOpts {
   size?: number; bold?: boolean; color?: string; align?: 'left' | 'center' | 'right'; valign?: 'top' | 'middle' | 'bottom';
@@ -88,9 +130,11 @@ export function addPlaceholder(slide: PptxGenJS.Slide, box: Box, label: string):
 
 export interface Cell { text: string; bold?: boolean; color?: string; fill?: string; align?: 'left' | 'center' | 'right'; size?: number; colspan?: number }
 
-/** 表。`weights` は列幅の比。1行目を見出し（紺・白）にする */
+/** 表。`weights` は列幅の比。1行目を見出し（紺・白）にする。`rowH` は行ごとの高さ（配列なら行数ぶん・
+ * 足りない分は最後の値を使う）。**渡さないと PowerPoint が升の中身から高さを決め直す**ので、
+ * 行数が多い・自由文が長い表（ヨミ表など）は呼ぶ側が箱の高さから逆算して渡すこと（`maxRowsForBox`） */
 export function addTable(
-  slide: PptxGenJS.Slide, rows: Cell[][], box: Box, weights: number[], o: { size?: number; header?: boolean; rowH?: number } = {},
+  slide: PptxGenJS.Slide, rows: Cell[][], box: Box, weights: number[], o: { size?: number; header?: boolean; rowH?: number | number[] } = {},
 ): void {
   if (rows.length === 0) { addPlaceholder(slide, box, '表（空）'); return; }
   const sum = weights.reduce((a, b) => a + b, 0);
