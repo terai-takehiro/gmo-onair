@@ -43,6 +43,8 @@ export interface OpsReport {
   created_by: string | null;
   reviewed_at: string | null;
   reviewed_by: string | null;
+  /** 確定した人の名前。総括カードの署名に出す（`GET /reports/:id` と by-period だけが埋める） */
+  reviewed_by_name?: string | null;
   published_at: string | null;
   created_at: string;
   updated_at: string;
@@ -276,6 +278,21 @@ export function formatWeekJa(weekStart: string): string {
   const end = new Date(d);
   end.setDate(end.getDate() + 6);
   return `${d.getMonth() + 1}/${d.getDate()} 〜 ${end.getMonth() + 1}/${end.getDate()} の週`;
+}
+
+/**
+ * 週の見出し用ラベル: '8月31日 〜 9月6日'
+ *
+ * 一覧の行は `formatWeekJa`（'8/31 〜 9/6 の週'）のまま。**画面見出しだけ長い形**にする
+ * のは、2026-09 の再設計で見出しが「ウィークリー活動報告」から対象週そのものに
+ * 変わったため（一覧の中では短く、見出しでは読み上げられる形で出す）。
+ */
+export function formatWeekRangeJa(weekStart: string): string {
+  const d = new Date(`${weekStart}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return weekStart;
+  const end = new Date(d);
+  end.setDate(end.getDate() + 6);
+  return `${d.getMonth() + 1}月${d.getDate()}日 〜 ${end.getMonth() + 1}月${end.getDate()}日`;
 }
 
 export function toDateStr(d: Date): string {

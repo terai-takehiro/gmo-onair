@@ -75,16 +75,31 @@ export function TopicsSection({
       {items.length === 0 && (
         <EmptyState
           className="border-0 bg-transparent"
-          title="この週のトピックはまだありません"
+          title="まだトピックスがありません"
           description={editable
-            ? '自動集計に出ない出来事（お客様の反応・現場で備考）をここに書きます。'
-            : 'この週は確定済みなので、これ以上は追加できません。'}
+            ? '指標に表れない事象（お客様の反応・現場の備考）を追加してください。デイリーニュース報告で採用した行も送信できます。'
+            : 'この週は確定済みのため、追加できません。'}
         />
       )}
 
       {items.length > 0 && (
         <div className="flex flex-col">
-          {items.map((item) => <TopicRow key={item.id} item={item} editable={editable} />)}
+          {groupByCategory(items).map((g) => (
+            <div key={g.key} className="flex flex-col">
+              <div className="flex items-center gap-2 border-b border-border-subtle bg-surface-subtle px-4 py-2">
+                {/*
+                  ⚠️ **`TableBadge` は使わない。** 分類は「セールス・マーケティング」のように
+                  長く、`TableBadge` は折り返しも省略もしないので枠からはみ出す
+                  （client-daily/CLAUDE.md の決めごと）。同じ見た目で `truncate` できる形にする。
+                */}
+                {g.label
+                  ? <span className="text-badge min-w-0 truncate rounded-badge-xs bg-primary-surface px-2 py-0.5 text-primary">{g.label}</span>
+                  : <span className="text-th text-muted-foreground">分類なし</span>}
+                <span className="text-sub-sm font-number shrink-0 text-muted-foreground">{g.rows.length}件</span>
+              </div>
+              {g.rows.map((item) => <TopicRow key={item.id} item={item} editable={editable} />)}
+            </div>
+          ))}
         </div>
       )}
 
@@ -197,15 +212,7 @@ function TopicRow({ item, editable }: { item: OpsReportItem; editable: boolean }
   return (
     <>
       <Row divider align="start" stackOnMobile>
-        {/*
-          分類は「セールス・マーケティング」のように長い (WEEKLY_CATEGORIES)。
-          `TableBadge` は折り返さないので列をはみ出す。ここは省略する文字で出す。
-        */}
-        <RowSlot w={128} hideOnMobile>
-          <span className="text-sub-sm truncate text-muted-foreground" title={item.category ?? undefined}>
-            {item.category || '—'}
-          </span>
-        </RowSlot>
+        {/* 分類の列は無い。**分類ごとの見出し**が持っている（2026-09 の再設計） */}
         <RowMain>
           <p className="text-list whitespace-pre-wrap">
             {item.content}
@@ -293,4 +300,22 @@ function TopicRow({ item, editable }: { item: OpsReportItem; editable: boolean }
       )}
     </>
   );
+}
+
+/**
+ * 分類ごとにまとめる（2026-09 の再設計）。行ごとに分類の列を出すと、同じ分類が
+ * 何行も縦に並んで読みにくく、長い分類名は列に収まらなかった。
+ * **並びは元の順**（`sort_order`）のまま、最初に出てきた分類から並べる。
+ * 分類なしは最後にまとめる。
+ */
+function groupByCategory(items: OpsReportItem[]): Array<{ key: string; label: string | null; rows: OpsReportItem[] }> {
+  const map = new Map<string, OpsReportItem[]>();
+  for (const it of items) {
+    const key = it.category?.trim() || '';
+    const rows = map.get(key);
+    if (rows) rows.push(it); else map.set(key, [it]);
+  }
+  return [...map.entries()]
+    .sort((a, b) => (a[0] === '' ? 1 : 0) - (b[0] === '' ? 1 : 0))
+    .map(([key, rows]) => ({ key: key || '__none', label: key || null, rows }));
 }
