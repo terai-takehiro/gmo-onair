@@ -57,7 +57,7 @@ const PATH_RE = /^[a-z_][a-z0-9_]*(\[\d+\])?(\.[a-z_][a-z0-9_]*(\[\d+\])?)*$/;
 /** 固定ページ（アジェンダに載せない）。報告ページ（①〜⑦・自由）だけがアジェンダになる */
 export const FIXED_TEMPLATES: ReadonlySet<string> = new Set([
   'cover', 'checklist', 'slogan', 'summary', 'org', 'attendance', 'prev_minutes', 'todo',
-  'schedule', 'kpi_tree', 'progress_charts', 'agenda', 'next_meeting', 'appendix',
+  'schedule', 'kpi_tree', 'progress_charts', 'agenda', 'next_meeting', 'appendix', 'closing',
 ]);
 
 /** アジェンダの材料: 消していない報告ページの題を、重複を除いて並び順に */

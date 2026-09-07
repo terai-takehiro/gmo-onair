@@ -22,6 +22,8 @@ import { resolveBinding as sharedResolve, deckAgenda as sharedAgenda } from '../
 import { resolveBinding as serverResolve, deckAgenda as serverAgenda } from '../../server/src/contexts/dailyops/services/keep-binding';
 import { parseTsv as sharedParseTsv } from '../src/keepReport/tsv';
 import { parseTsv as serverParseTsv } from '../../server/src/contexts/dailyops/services/keep-tsv';
+import { FORMAT_ASSETS as sharedAssets } from '../src/keepReport/formatAssets';
+import { FORMAT_ASSETS as serverAssets, FORMAT_ASSET_PNG } from '../../server/src/contexts/dailyops/services/keep-format-assets';
 import type { KeepReportPack, SlidePage } from '../src/keepReport/types';
 import sample from '../../server/src/contexts/dailyops/services/__fixtures__/keep-pack.sample.json';
 
@@ -37,6 +39,24 @@ describe('shared と server の写しの一致（隔週キープの資料ビル�
     expect(serverTemplates.FORMAT_FOOTER).toEqual(sharedTemplates.FORMAT_FOOTER);
     expect(serverTemplates.TALK_BANDS).toEqual(sharedTemplates.TALK_BANDS);
     expect(serverTemplates.BODY_TOP).toEqual(sharedTemplates.BODY_TOP);
+    // 実物の pptx から読んだ枠の寸法・表紙の固定文・締めの絵の binding・インチ⇄% の換算
+    expect(serverTemplates.FORMAT_CHROME).toEqual(sharedTemplates.FORMAT_CHROME);
+    expect(serverTemplates.COVER_TEXT).toEqual(sharedTemplates.COVER_TEXT);
+    expect(serverTemplates.TAGLINE_BINDING).toBe(sharedTemplates.TAGLINE_BINDING);
+    expect(serverTemplates.SLIDE_IN).toEqual(sharedTemplates.SLIDE_IN);
+    for (const box of [sharedTemplates.FORMAT_CHROME.title, sharedTemplates.FORMAT_CHROME.appendix, sharedTemplates.FORMAT_CHROME.cover.guide]) {
+      expect(serverTemplates.pctBox(box)).toEqual(sharedTemplates.pctBox(box));
+    }
+  });
+
+  it('フォーマットの絵（ワードマーク・タグライン・帯のアイコン）の SVG が同じ。server の代替 PNG は同じ縦横比', () => {
+    expect(serverAssets).toEqual(sharedAssets);
+    for (const key of Object.keys(sharedAssets) as Array<keyof typeof sharedAssets>) {
+      const [vw, vh] = sharedAssets[key].viewBox;
+      const png = FORMAT_ASSET_PNG[key];
+      expect(png.base64.length, key).toBeGreaterThan(100);
+      expect(Math.abs(png.w / png.h - vw / vh), key).toBeLessThan(0.02);
+    }
   });
 
   const prev: SlidePage[] = sharedBuild(pack);

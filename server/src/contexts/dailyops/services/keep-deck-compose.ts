@@ -98,17 +98,22 @@ export function buildStandardPages(pack: KeepReportPack | null): SlidePage[] {
   return pages;
 }
 
+/**
+ * テンプレの部品の位置と大きさ。人が右の「このページ」で直したもの（`options.moved`）だけ前の版の値を残し、
+ * それ以外は**テンプレの今の値**にする — 前は無条件に前の版の値を引き継いでいたため、テンプレを直しても
+ * （帯を実物の高さにしても）次の会議の資料が古い位置のまま組まれ、題と見出しが帯の下に潜った（2026-09-07 の実測）
+ */
+function boxOf(pp: SlidePart, fp: SlidePart): Pick<SlidePart, 'x' | 'y' | 'w' | 'h'> {
+  return pp.options?.moved === true ? { x: pp.x, y: pp.y, w: pp.w, h: pp.h } : { x: fp.x, y: fp.y, w: fp.w, h: fp.h };
+}
+
 /** 自動ページを組み直したうえで、前の版の人の直しを乗せる */
 function carryOver(fresh: SlidePage, prev: SlidePage): SlidePage {
   const parts = fresh.parts.map((fp) => {
     const pp = prev.parts.find((x) => x.id === fp.id);
     if (!pp) return fp;
-    // 人が付けた options（写真の選び方など）は残し、テンプレ由来の鍵（label / mode / entity / list）は今の値にする。
-    // 位置と大きさ（x / y / w / h）は人の直しとして差分に残る値なので、組み直しても前の版のものを使う
-    return {
-      ...fp, x: pp.x, y: pp.y, w: pp.w, h: pp.h,
-      text_override: pp.text_override, options: { ...(pp.options ?? {}), ...(fp.options ?? {}) },
-    };
+    // 人が付けた options（写真の選び方・文字の大きさなど）と上書きの文は残し、テンプレ由来の鍵（label / mode / entity / list）は今の値にする
+    return { ...fp, ...boxOf(pp, fp), text_override: pp.text_override, options: { ...(pp.options ?? {}), ...(fp.options ?? {}) } };
   });
   for (const pp of prev.parts) if (!fresh.parts.some((x) => x.id === pp.id)) parts.push({ ...pp }); // 人が足した部品
   return {
@@ -131,12 +136,13 @@ export function composeDeckPages(prevPages: SlidePage[] | null, pack: KeepReport
   const seen = new Set<string>();
   for (const p of prevPages) {
     if (seen.has(p.id)) continue;
+    const f = freshById.get(p.id);
     if (p.auto) {
-      const f = freshById.get(p.id);
       if (!f) continue;
       merged.push(carryOver(f, p));
     } else {
-      merged.push({ ...p, parts: p.parts.map((x) => ({ ...x })) });
+      // 固定ページ（人が中身を書く）は中身をそのまま写す。テンプレの部品の位置だけは今のテンプレに揃える（人が足した部品はそのまま）
+      merged.push({ ...p, parts: p.parts.map((x) => { const fp = f?.parts.find((y) => y.id === x.id); return fp ? { ...x, ...boxOf(x, fp) } : { ...x }; }) });
     }
     seen.add(p.id);
   }

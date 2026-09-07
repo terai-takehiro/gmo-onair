@@ -234,7 +234,7 @@ export type SlideTemplateKey =
   | 'cover' | 'checklist' | 'slogan' | 'summary' | 'org' | 'attendance' | 'prev_minutes' | 'todo'
   | 'schedule' | 'kpi_tree' | 'progress_charts' | 'agenda'
   | 'pl_table' | 'pipeline_table' | 'project_page' | 'utilization_calendar' | 'event_report' | 'inview'
-  | 'free' | 'next_meeting' | 'appendix' | 'copied';
+  | 'free' | 'next_meeting' | 'appendix' | 'closing' | 'copied';
 
 /** ページに置く部品。`binding` はパックのどこを読むか。 */
 export interface SlidePart {
@@ -246,7 +246,7 @@ export interface SlidePart {
   x: number; y: number; w: number; h: number;
   /** 人が上書きした文（binding があっても優先）。写真は Box の file id の並び */
   text_override: string | null;
-  /** 部品ごとの小さな設定（例: 表の対象月 'YYYY-MM'、計上会社（`entity`: all / GJV / GSS / GMO / by_entity）、写真の id 一覧） */
+  /** 部品ごとの小さな設定（例: 表の対象月 'YYYY-MM'、計上会社（`entity`: all / GJV / GSS / GMO / by_entity）、写真の id 一覧、人が位置を直した印 `moved`） */
   options?: Record<string, unknown>;
 }
 

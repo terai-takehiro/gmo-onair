@@ -3,14 +3,20 @@
  *
  * キャンバス・一覧のサムネイル・通しで見る・前回との見比べ、**すべて同じこの部品**を
  * 縮尺だけ変えて描く（別々に描くと「一覧では出ているのにキャンバスに無い」が起きる）。
- * 枠の位置と色は `shared/src/keepReport/templates.ts`（pptx 出力と共通）と `renderers/slideStyle.ts`。
+ * 枠の位置と色は `shared/src/keepReport/templates.ts`（pptx 出力と共通・**実物の pptx から読んだインチ**）と
+ * `renderers/slideStyle.ts`。ワードマーク・帯のスピーカーは実物から取り出した SVG（`shared/src/keepReport/formatAssets.ts`）。
  */
 import { memo, useEffect, useLayoutEffect, useState, type CSSProperties, type RefObject } from 'react';
-import { FORMAT_FOOTER, SLIDE_TEMPLATES, TALK_BANDS } from '@gmo-onair/shared/src/keepReport/templates';
+import { FORMAT_CHROME, FORMAT_FONT, FORMAT_FOOTER, SLIDE_TEMPLATES, TALK_BANDS } from '@gmo-onair/shared/src/keepReport/templates';
+import { formatAssetDataUri } from '@gmo-onair/shared/src/keepReport/formatAssets';
 import type { KeepDeck, KeepReportPack, SlidePage } from '@gmo-onair/shared/src/keepReport/types';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { PartRenderer } from './PartRenderer';
-import { C, SLIDE_H, SLIDE_W, bandStyle, footer, frameStyle, titleStyle } from './renderers/slideStyle';
+import { SLIDE_H, SLIDE_W, bandIconStyle, bandNoteStyle, bandStyle, fitPx, footer, frameStyle, titleStyle } from './renderers/slideStyle';
+
+/** 実物から取り出した絵（data URI）。読み込み時に 1 度だけ組む */
+const TALK_ICON = formatAssetDataUri('talkIcon');
+const WORDMARK = formatAssetDataUri('wordmark');
 
 export interface SlideFrameProps {
   page: SlidePage;
@@ -24,40 +30,28 @@ export interface SlideFrameProps {
   thumb?: boolean;
 }
 
-function SpeakerIcon() {
-  return (
-    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={C.text} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
-      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-    </svg>
-  );
-}
-
 function Chrome({ page, pageNo }: { page: SlidePage; pageNo: number }) {
   const tpl = SLIDE_TEMPLATES[page.template];
   const header = tpl?.header ?? 'title';
   const bands = header === 'bands-report' ? TALK_BANDS.report : header === 'bands-owner' ? TALK_BANDS.owner : null;
   return (
     <>
-      {header !== 'none' && <div style={titleStyle}>{page.title}</div>}
+      {header !== 'none' && (
+        // 題は 1 行。長い題は pptx の自動調整（normAutofit）と同じ見積もりで小さくする
+        <div style={{ ...titleStyle, fontSize: fitPx(page.title, FORMAT_FONT.title, FORMAT_CHROME.title.w) }}>{page.title}</div>
+      )}
       {bands?.map((b, i) => (
-        <div key={i} style={bandStyle(b.tone, 82 + i * 44)}>
-          <SpeakerIcon />
+        <div key={i} style={bandStyle(b.tone, i)}>
           <span>{b.text}</span>
-          {'note' in b && b.note && (
-            <span style={{ marginLeft: 'auto', color: C.negative, fontSize: 14 }}>{b.note}</span>
-          )}
+          {'note' in b && b.note && <span style={bandNoteStyle}>{b.note}</span>}
         </div>
       ))}
-      {page.template !== 'cover' && (
-        <>
-          <div style={footer.logo}>{FORMAT_FOOTER.logo}</div>
-          <div style={footer.tag}>{FORMAT_FOOTER.tag}</div>
-          <div style={footer.confidential}>{FORMAT_FOOTER.confidential}</div>
-          <div style={footer.pageNo}>{pageNo}</div>
-        </>
-      )}
+      {bands?.map((_, i) => <img key={`icon-${i}`} src={TALK_ICON} alt="" style={bandIconStyle(i)} />)}
+      {/* フッターはスライドマスターの絵なので表紙にも出る（実物と同じ）。罫線は無い */}
+      <img src={WORDMARK} alt={FORMAT_FOOTER.logo} style={footer.logo} />
+      <div style={footer.tag}>{FORMAT_FOOTER.tag}</div>
+      <div style={footer.confidential}>{FORMAT_FOOTER.confidential}</div>
+      <div style={footer.pageNo}>{pageNo}</div>
     </>
   );
 }
