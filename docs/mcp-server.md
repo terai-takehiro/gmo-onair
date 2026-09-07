@@ -163,7 +163,7 @@ docker compose -f /root/gmo-onair/docker-compose.yml up -d app_dev
   `BOX_MAIL_INTAKE_FOLDER_ID` (本番と同じフォルダ) に落ちるので、
   **検証で取り込んだ試験用の請求書 PDF が本番のフォルダに混ざる** (DB は分かれていても BOX は分かれない)
 
-## ツール一覧 (164 種 / 23 カテゴリ / v4)
+## ツール一覧 (167 種 / 25 カテゴリ / v4)
 
 > **この一覧は手で書いています。** 実際に登録されているツールは
 > `node scripts/generate-mcp-tools.mjs` が `server/src/contexts/mcp/tools/*.ts` から
@@ -187,7 +187,9 @@ docker compose -f /root/gmo-onair/docker-compose.yml up -d app_dev
 > （2026-08 追加新設。表の新規作成 `create_schedule`/更新 `update_schedule` と、列の
 > 追加/更新/削除/並べ替え）。**このカテゴリだけ OAuth actor 専用**。下記参照）/
 > equipment 7（読み取り5・書き込み2。2026-08 新設。下記参照）/
-> intercompany 1（**2026年10月の事業再編で新設**。社内取引 GJV⇄GSS。下記参照）
+> intercompany 1（**2026年10月の事業再編で新設**。社内取引 GJV⇄GSS。下記参照）/
+> feedback-tickets 2（**2026-09 新設**。GMO ONAiR 自体への要望・不具合報告。
+> `create_feedback_ticket` は OAuth actor 専用。下記参照）
 >
 > **live（計時・視聴者）向けの MCP ツールはまだ無い。** 廃止決定ではなく、着手対象になった
 > ことがない（未検討）。equipment は 2026-08 に新設した。
@@ -468,6 +470,14 @@ GMOサムライスタジオ用賀のセキュリティカード 24 枚。カー�
 | `lend_security_card` | write | 貸出。card_no + 貸出先担当者 (borrower_person) 必須。会社/連絡先/目的/貸出日/返却予定日/対応者を記録。貸出中はエラー |
 | `return_security_card` | write | 返却。card_no で指定。返却日は既定で今日 |
 | `list_security_card_lendings` | read | 貸出履歴 (status=active/returned・card_id・from/to で絞り込み) |
+
+### フィードバックチケット (dailyops — feedback tickets・2026-09 新設)
+GMO ONAiR 自体（どれかのブロックアプリ）への要望・不具合報告。起票は `dailyops` を開ける人なら誰でも、対応状況の更新は `dailyops:editor`（画面のみ）。
+⚠️ **`create_feedback_ticket` は OAuth actor 専用**（静的APIキーでは 403）。`reporter_id` が `users` への FK のため共用 actor 名義では起票できず、そもそも「誰が報告したか」がそのまま画面に出る記録なので代理起票を避けている。
+| ツール | 種別 | 概要 |
+|---|---|---|
+| `create_feedback_ticket` | write | 起票。title/description/target_app/target_page 必須（category は既定 other）。起票者は今チャットしている ONAiR アカウント本人 |
+| `list_feedback_tickets` | read | 一覧。status/target_app/category/search で絞り込み。新しい起票順・上限つき（既定20・最大100） |
 
 ### 隔週キープ資料 (v2.9.200+ — イベント報告 / 月次予算・損益 / 議事録)
 | ツール | 種別 | 概要 |
