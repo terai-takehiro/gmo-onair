@@ -2372,6 +2372,11 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   `get_reviews`・`get_review_comments` とも 0 件（GitHub MCP で直接確認。`npm run reviews:debt` は
   この環境のトークンでは 401）。changelog は
   [docs/changelog.d/claude-weekly-report-ai-trigger-mgyztc.md](../changelog.d/claude-weekly-report-ai-trigger-mgyztc.md)。
+  ⚠️ **この棚卸し自身（PR #614）にも Codex が P2 の指摘を返している** — 追加した
+  `docs/changelog.d/claude-pr-613-review-debt.md` の先頭が太字で始まっておらず、
+  リリース時に `titleOf()` が本文途中で切り詰めて見出しにする形になっていた
+  （`docs/changelog.d/README.md` の決めごと違反）。マージ前に太字見出しへ直して
+  スレッド解決済み。
 
 - **#611**（`feat(daily): 隔週キープの資料のヘッダー・フッター・ロゴを GMO流会議フォーマット Ver.2.5 の実物から取り込んだ`・2026-09-07）—
   ご依頼「パワポの添付ファイルから展開し、ヘッダー・フッター等はここから抽出（ロゴデータもちゃんと取る）」を受け、
