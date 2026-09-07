@@ -229,8 +229,10 @@ export function renderStatRow(slide: PptxGenJS.Slide, box: Box, stats: Array<{ l
     const cx = box.x + colW * i;
     if (i > 0) slide.addShape('line' as PptxGenJS.SHAPE_NAME, { x: cx, y: box.y + box.h * 0.16, w: 0, h: box.h * 0.68, line: { color: 'E1E9F4', width: 0.75 } });
     addText(slide, s.label, { x: cx + 0.18, y: box.y + box.h * 0.14, w: colW - 0.3, h: box.h * 0.3 }, { size: 10.5, color: C.muted, valign: 'bottom' });
+    // 金額（例「4,457,680円」）は列の幅（案件ページは3列で1列あたり1.2in程度）に収まらないことがある。
+    // 折り返すと升の下端をはみ出すので、1行のまま縮めて収める（総括カードの長文対策と同じ考え方）
     addText(slide, s.value, { x: cx + 0.18, y: box.y + box.h * 0.42, w: colW - 0.3, h: box.h * 0.5 },
-      { size: 19, bold: true, color: s.accent ? C.positive : '0B2A4A', valign: 'top' });
+      { size: 19, bold: true, color: s.accent ? C.positive : '0B2A4A', valign: 'top', shrink: true, wrap: false });
   });
 }
 

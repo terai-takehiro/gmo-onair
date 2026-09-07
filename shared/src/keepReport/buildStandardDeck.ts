@@ -140,9 +140,15 @@ function isGeneratedPartId(pageId: string, id: string): boolean {
 function carryOver(fresh: SlidePage, prev: SlidePage): SlidePage {
   const used = new Set<SlidePart>();
   const findPrev = (fp: SlidePart): SlidePart | undefined => {
-    const fk = bindingKey(fp.binding);
-    const byBinding = fk ? prev.parts.find((x) => bindingKey(x.binding) === fk && !used.has(x)) : undefined;
-    return byBinding ?? prev.parts.find((x) => x.id === fp.id && !used.has(x));
+    // binding がある部品は binding だけで揃える。前の版に同じ binding が無ければ
+    // 「対応する部品は無い」が正しい答え — ここで id にフォールバックすると、たまたま同じ
+    // region 番号にいた別の binding の部品を拾ってしまう（Codex 指摘・fresh evidence）。
+    // id フォールバックは、そもそも binding で見分けようが無い部品（自由記入など）専用
+    if (fp.binding) {
+      const fk = bindingKey(fp.binding);
+      return prev.parts.find((x) => bindingKey(x.binding) === fk && !used.has(x));
+    }
+    return prev.parts.find((x) => x.id === fp.id && !used.has(x));
   };
   const parts = fresh.parts.map((fp) => {
     const pp = findPrev(fp);

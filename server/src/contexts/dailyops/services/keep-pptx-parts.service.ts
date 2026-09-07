@@ -284,7 +284,7 @@ export function renderInviewSummary(slide: PptxGenJS.Slide, s: InviewSummary, bo
   renderStatRow(slide, { x: box.x, y: box.y + bandH + gap, w: box.w, h: box.y + box.h - (box.y + bandH + gap) }, [
     { label: '来場組数', value: `${s.groups}組` },
     { label: '来場人数', value: `${s.people}名` },
-    { label: '分類数', value: `${s.by_category.length}`, accent: true },
+    { label: '分類数', value: `${s.category_count}`, accent: true },
   ]);
 }
 

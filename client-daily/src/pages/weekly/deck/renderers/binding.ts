@@ -208,7 +208,7 @@ function classify(binding: string, part: SlidePart, value: unknown, pack: KeepRe
       sessionDate: dateLabel(s.session_date),
       groups: s.groups,
       people: s.people,
-      categoryCount: s.by_category.length,
+      categoryCount: s.category_count,
       nextSessionDate: s.next_session ? dateLabel(s.next_session.date) : null,
     };
   }
