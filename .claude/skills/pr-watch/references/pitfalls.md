@@ -200,3 +200,14 @@ SQL の列一覧（バッククオートのテンプレート文字列）の中�
 
 **次はこうする**: `pull_request_read`（`get`）で現行の本文を取り、それに足して送る。
 下書きは写しにすぎないと決め、送ったあとに下書きのほうを同期する。
+
+## 2026-09-07 / PR #607→#610 — マージ後に同じ枝名で棚卸しの PR を出すとき、`--force-with-lease` は「stale info」で弾かれる
+
+マージ済みの枝を `git checkout -B <同じ枝名> origin/main` で作り直して push したら、
+`git push --force-with-lease` が `[rejected] (stale info)` で失敗した。GitHub がマージ後に
+head の枝を自動で消しており、手元の追跡参照（前回 push の SHA）と実物（無い）が合わないため。
+しかも `git push ... | tail` と繋いでいたので exit code が隠れ、「push ok」と読み違えた。
+
+**次はこうする**: 先に `git ls-remote --heads origin <枝名>` で実物を見る。無ければ**素の
+`git push -u origin <枝名>`**（force は要らない）。push の成否は `${PIPESTATUS[0]}` か
+パイプ無しで読む。
