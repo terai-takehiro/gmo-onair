@@ -1034,6 +1034,15 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   `jszip` の依存追加を含むコードの変更が、誰にも読まれずに入っている。**表に移す指摘は無い**が、
   意図して残した判断・未検証のまま入れたものは下の一覧の #611 に書き出した
 
+- **#613**（`feat(daily): ウィークリー活動報告に「AI下書きを作る」ボタンを追加`・2026-09-07）—
+  作成 03:28:02Z の 4 秒後（03:28:06Z）に Codex が「You have reached your Codex usage limits for
+  code reviews」を返し、📝 Code Review は1巡も走っていない（🔒 Security Review は 03:37:37Z に完了・
+  findings なし）。CI（`checks`/`build`）は 03:31:43Z までに両方 success・mergeable は clean。
+  `get_reviews`・`get_review_comments` とも 0 件（GitHub MCP で直接確認。`npm run reviews:debt` は
+  この環境のトークンでは 401）。16 ファイル・+601/−32・1 コミット（5bac395）。AI 出力の記録・確定時の
+  自動差分記録・MCP `submit_ops_report` 側の記録漏れ修正を含むコードの変更が、誰にも読まれずに入っている。
+  **表に移す指摘は無い**が、意図して残した判断・未検証のまま入れたものは下の一覧の #613 に書き出した
+
 ### #320 で意図して残した判断（レビュー0件のため自分で書き出したもの）
 
 ⚠️ **どれも「気づかなかった」ではなく「今回は直さないと決めた」もの**です。
@@ -2326,6 +2335,48 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 ---
 
 ## 一覧（PR の新しい順）
+
+- **#613**（`feat(daily): ウィークリー活動報告に「AI下書きを作る」ボタンを追加`・2026-09-07）—
+  ユーザーからの指摘「ウィークリー活動報告のAI自動集計について、そもそもAIに自動集計させる
+  トリガーが存在しないと思う」を受け、`docs/mcp-server.md` の「週明けの定期実行」が実際には
+  どこにも起動する仕組みが無かった（AI エージェントが自発的に MCP を叩く前提で、`.claude/skills/`
+  に週報用のスキルが無い）ことを確認した回。画面の「AI下書きを作る」ボタン（`POST
+  /dailyops/reports/:id/draft-ai`）を新設し、GMO ONAiR 上の週次集計を OpenAI/Anthropic
+  （`weekly_report` ジョブ・常時 heavy）が文章化して保存する経路にした。会社方針「AIを使い捨てにしない」
+  の5条件を意識した設計: ① `ai_outputs`(kind=`weekly_report_draft`) に全文記録 ② 本文の編集入口
+  （`PUT /dailyops/reports/:id`。これが無いと確定時の差分が永久に「無修正」にしかならないため新設）を
+  足し、確定時にサーバーが AI 下書きと確定本文を自動比較して `ai_corrections` に記録 ③ 既存の
+  `get_ai_feedback_digest`（汎用集計）をそのまま流用・週報固有の成果指標は未定義のまま ④ advice を
+  次の下書きに載せる ⑤ 既存の月1回運用に相乗り。あわせて MCP `submit_ops_report`（AI エージェント
+  経由の投稿）にも同じ `ai_outputs` 記録を足し、ボタン経由・MCP 経由の両方を同じ集計対象に統合した。
+  **Code Review は1巡も走っていない**（作成4秒後に usage limits）ため、この回で意図して残した
+  判断・未検証のまま入れたものを自分で書き出す:
+  ① **成果指標（条件3）が汎用集計止まり** — 無修正確定率・よく直されるフィールドは
+     `get_ai_feedback_digest` でそのまま読めるが、週報固有の指標（例: 確定までの所要時間・
+     隔週キープ資料への反映率）は設計していない。次に AI 修正の傾向を見るときに検討する
+  ② **本文の編集は body だけ**（title は対象外）。既存の `report.title` は元々ほぼ未使用
+     （画面は `report.title || 'ウィークリー活動報告'` で表示）なので、AI にも生成させていない
+  ③ **二重生成の防止をしていない** — KPT（`generateKptDraft`）は「未確認の下書きが残っている間は
+     再生成しない」を持つが、週報の本文は単一フィールドで確定前は何度でも上書き可能な設計にした
+     （フロントは上書き確認ダイアログのみ）。誤操作で連打された場合、古い `ai_outputs` 行が
+     宙に浮く（`ai_corrections` は publish 時に最新の1件としか比較しないため実害は無いはずだが、
+     未検証）
+  ④ **実ブラウザでのPC/スマホ目視確認・`npm run verify:ui`・権限別403の画面確認は未実施**
+     （PR本文にも明記）。`npm run typecheck`（server/client/client-daily）・`npm run lint`
+     （0 errors・warning数は着手前と同じ57件）・`shared` の Vitest 2,225件・`npm run build`
+     （server/client/client-daily 個別）は実施・全通過
+  ⑤ **MCP `submit_ops_report` への `model` 引数追加は後方互換**（optional）だが、既存の
+     AI エージェント側のスキル・プロンプトがこの引数を渡すよう更新されない限り、MCP経由の
+     下書きは `ai_outputs.model` が空（`(不明)`）のまま記録される — 実害は無いが `by_model`
+     の内訳が薄まる
+  `get_reviews`・`get_review_comments` とも 0 件（GitHub MCP で直接確認。`npm run reviews:debt` は
+  この環境のトークンでは 401）。changelog は
+  [docs/changelog.d/claude-weekly-report-ai-trigger-mgyztc.md](../changelog.d/claude-weekly-report-ai-trigger-mgyztc.md)。
+  ⚠️ **この棚卸し自身（PR #614）にも Codex が P2 の指摘を返している** — 追加した
+  `docs/changelog.d/claude-pr-613-review-debt.md` の先頭が太字で始まっておらず、
+  リリース時に `titleOf()` が本文途中で切り詰めて見出しにする形になっていた
+  （`docs/changelog.d/README.md` の決めごと違反）。マージ前に太字見出しへ直して
+  スレッド解決済み。
 
 - **#611**（`feat(daily): 隔週キープの資料のヘッダー・フッター・ロゴを GMO流会議フォーマット Ver.2.5 の実物から取り込んだ`・2026-09-07）—
   ご依頼「パワポの添付ファイルから展開し、ヘッダー・フッター等はここから抽出（ロゴデータもちゃんと取る）」を受け、
