@@ -585,6 +585,21 @@ export const opsReportService = {
     return (await queryOne(`SELECT * FROM ops_reports WHERE id = ?`, [id]))!;
   },
 
+  /**
+   * 週の箱を削除する（論理削除）。
+   *
+   * ⚠️ **確定済み（`weekly_activity` の `published`）は断る**（`assertReportOpen` を再利用）。
+   * 確定済みをそのまま消せると、確認した内容が画面から黙って消える。直すときと同じく
+   * 「確定を解く」を押してから消してもらう。行 (`ops_report_items`) は物理削除しない
+   * （`report_id` の FK はそのまま・`deleted_at` が付いた親を辿らないだけで整合は壊れない）。
+   */
+  async deleteReport(id: string): Promise<void> {
+    const existing = await queryOne(`SELECT * FROM ops_reports WHERE id = ? AND deleted_at IS NULL`, [id]);
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'レポートが見つかりません');
+    assertReportOpen(existing);
+    await execute(`UPDATE ops_reports SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?`, [id]);
+  },
+
   /** 確認のみ (日次ニュースの既読相当): reviewed_at/by だけ記録 */
   async reviewReport(id: string, userId: string): Promise<Record<string, unknown>> {
     const existing = await queryOne(`SELECT * FROM ops_reports WHERE id = ? AND deleted_at IS NULL`, [id]);

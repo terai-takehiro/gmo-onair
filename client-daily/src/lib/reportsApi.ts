@@ -56,6 +56,18 @@ export function useEnsureReport() {
   });
 }
 
+/**
+ * 週の箱を削除する（論理削除）。確定済みはサーバーが 400 で断る
+ * （メッセージに「確定を解いてください」と出るので、そのまま `notifyApiError` に渡せばよい）。
+ */
+export function useDeleteReport() {
+  const invalidate = useInvalidateReports();
+  return useMutation({
+    mutationFn: (reportId: string) => api.delete(`/dailyops/reports/${reportId}`),
+    onSuccess: invalidate,
+  });
+}
+
 export interface ItemInput {
   category?: string | null;
   content?: string;

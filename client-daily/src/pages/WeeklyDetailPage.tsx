@@ -25,16 +25,19 @@
  * ・**「AI作成」の印に「指示した人」を出さない** — `requested_by` は AI が名簿と
  *   突き合わせずに自由記述で書く値で、実在しない人名が入っていたことがある
  *
- * ── 「次の週を作る」ボタン ──────────────────────────────
+ * ── 「週を追加」= 任意の開始日・削除もできる ─────────────────────
  *
  * 週の箱は AI の自動生成トリガーが未実装のままで増えず、手動で作る入口も
- * 無かった。週のリスト（`WeekRail`/`WeekPickerSheet`）の上に手動ボタンを足す
+ * 無かった。最初は「次の週を作る」（最新週の翌週固定）だけを足したが、
+ * それだと**最初の1週をいつ・どんな日付で作ったかに以後ずっと引きずられる**
+ * （実際、検証環境は最初に手動で作った週が偶然 7/6 スタートで、以後7日刻みの
+ * ままだった）。週のリスト（`WeekRail`/`WeekPickerSheet`）の上に日付入力を足し、
+ * 任意の開始日で週を作れるようにした（サーバー側が週内のどの日でも月曜に丸める）。
+ * 作りすぎ・日付を間違えた箱を消せるよう、削除（論理削除・確定済みは断られる）も足した
  */
-import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
 import {
-  BarChart3, Bot, CheckCircle2, ListChecks, Loader2, Pencil, Sparkles, Undo2,
+  BarChart3, Bot, CheckCircle2, ListChecks, Loader2, Sparkles, Undo2,
 } from 'lucide-react';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
@@ -44,15 +47,14 @@ import {
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { usePermissions } from '@/hooks/usePermissions';
 import {
-  useDraftWeeklyReport, useEnsureReport, usePublishReport, useReopenReport, useReport, useReports,
+  useDeleteReport, useDraftWeeklyReport, useEnsureReport, usePublishReport, useReopenReport, useReport, useReports,
   useReviewReport, useUpdateReportContent,
 } from '@/lib/reportsApi';
 import { formatWeekJa, toDateStr, type OpsReport } from '@/lib/types';
+import { AiSummaryCard } from './weekly/AiSummaryCard';
 import { StatsSection, type StatsShape } from './weekly/StatsSection';
 import { TopicsSection } from './weekly/TopicsSection';
 import { WeekPickerSheet } from './weekly/WeekPickerSheet';
@@ -65,7 +67,8 @@ export default function WeeklyDetailPage({ tab = 'report' }: { tab?: WeeklyTab }
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const list = useReports('weekly_activity', 50);
-  const ensureNextWeek = useEnsureReport();
+  const ensureWeek = useEnsureReport();
+  const deleteReport = useDeleteReport();
   const detail = useReport(id);
   const { canEdit } = usePermissions();
   const publish = usePublishReport();
@@ -158,17 +161,35 @@ export default function WeeklyDetailPage({ tab = 'report' }: { tab?: WeeklyTab }
     });
   };
 
-  /** 「次の週を作る」。最新週（一覧の先頭）の翌週の箱を作って開く */
-  const onAddNextWeek = () => {
-    const latest = list.data?.[0]; // サーバーが period_key の新しい順で返す。先頭が最新
-    if (!latest) return;
-    ensureNextWeek.mutate(
-      { kind: 'weekly_activity', period_key: nextWeekStart(latest.period_key) },
+  /** 「週を追加」。渡された開始日（任意の週）で箱を作って開く。既定値は最新週の翌週の月曜 */
+  const onAddWeek = (startDate: string) => {
+    ensureWeek.mutate(
+      { kind: 'weekly_activity', period_key: startDate },
       {
         onSuccess: (report) => navigate(`/weekly/${report.id}`),
         onError: (e) => notifyApiError('週を作成できませんでした', e),
       },
     );
+  };
+  // サーバーが period_key の新しい順で返すので先頭が最新。無ければ日付入力は空欄になる
+  const latestWeek = list.data?.[0];
+  const defaultAddStart = latestWeek ? nextWeekStart(latestWeek.period_key) : undefined;
+
+  /** 週の箱を削除する。確定済みはサーバーが断る（メッセージをそのまま出す） */
+  const onDeleteReport = async (target: OpsReport) => {
+    const ok = await confirmAction({
+      title: `${formatWeekJa(target.period_key)}を削除しますか`,
+      description: 'このページと週次トピックスが削除されます。元に戻せません。',
+      confirmLabel: '削除する',
+    });
+    if (!ok) return;
+    deleteReport.mutate(target.id, {
+      onSuccess: () => {
+        notifySuccess('削除しました');
+        if (target.id === id) navigate('/weekly');
+      },
+      onError: (e) => notifyApiError('削除できませんでした', e),
+    });
   };
 
   return (
@@ -180,16 +201,22 @@ export default function WeeklyDetailPage({ tab = 'report' }: { tab?: WeeklyTab }
             <WeekPickerSheet
               reports={list.data}
               activeId={id}
-              onAddNextWeek={canEdit ? onAddNextWeek : undefined}
-              addingNextWeek={ensureNextWeek.isPending}
+              defaultAddStart={defaultAddStart}
+              onAddWeek={canEdit ? onAddWeek : undefined}
+              addingWeek={ensureWeek.isPending}
+              onDeleteReport={canEdit ? onDeleteReport : undefined}
+              deletingId={deleteReport.isPending ? deleteReport.variables : undefined}
             />
           )
           : tab === 'report' && (
             <WeekRail
               reports={list.data}
               activeId={id}
-              onAddNextWeek={canEdit ? onAddNextWeek : undefined}
-              addingNextWeek={ensureNextWeek.isPending}
+              defaultAddStart={defaultAddStart}
+              onAddWeek={canEdit ? onAddWeek : undefined}
+              addingWeek={ensureWeek.isPending}
+              onDeleteReport={canEdit ? onDeleteReport : undefined}
+              deletingId={deleteReport.isPending ? deleteReport.variables : undefined}
             />
           )
       )}
@@ -308,74 +335,7 @@ function ReportBody({
   );
 }
 
-/**
- * AI の要約カード。**確定前だけ直せる**（編集トグル）。
- *
- * 直せる手段が無いと、AI下書きの確定時の差分記録
- * （会社方針「AIを使い捨てにしない」条件2）が常に「無修正」にしかならない —
- * この編集入口はその条件を実質的に満たすための必須の器（見た目の親切さだけではない）。
- */
-function AiSummaryCard({ report, editable, onSave, savePending }: {
-  report: OpsReport; editable: boolean; onSave: (body: string) => void; savePending: boolean;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(report.body);
-
-  if (editing) {
-    return (
-      <Card>
-        <CardContent className="flex flex-col gap-2 p-4 sm:p-5">
-          <Textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            rows={10}
-            className="text-sub"
-          />
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={() => { setDraft(report.body); setEditing(false); }}>
-              キャンセル
-            </Button>
-            <Button
-              size="sm"
-              disabled={savePending}
-              onClick={() => { onSave(draft); setEditing(false); }}
-            >
-              保存
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <CardContent className="p-4 sm:p-5">
-        {report.body ? (
-          <>
-            <div className="md-body text-sub leading-relaxed">
-              <ReactMarkdown>{report.body}</ReactMarkdown>
-            </div>
-            {editable && (
-              <Button variant="outline" size="sm" className="mt-3" onClick={() => { setDraft(report.body); setEditing(true); }}>
-                <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />直す
-              </Button>
-            )}
-          </>
-        ) : (
-          <EmptyState
-            className="border-0 bg-transparent"
-            icon={<Sparkles />}
-            title="AI の要約はまだありません"
-            description="上の「AI下書きを作る」を押すか、急ぐときは下のトピックに人の言葉で書いてください。"
-          />
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-/** 週の開始日 (YYYY-MM-DD) を1週間進める。「次の週を作る」ボタン専用 */
+/** 週の開始日 (YYYY-MM-DD) を1週間進める。「週を追加」欄の既定値の計算に使う */
 function nextWeekStart(periodKey: string): string {
   const d = new Date(`${periodKey}T00:00:00`);
   d.setDate(d.getDate() + 7);
