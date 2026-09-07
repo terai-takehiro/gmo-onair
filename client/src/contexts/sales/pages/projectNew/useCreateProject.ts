@@ -97,6 +97,14 @@ export function useProjectDecisions(
   selection: IntakeSelection | null,
   /** 日常業務の「入ってきた情報」から `?inquiry=` で来たとき */
   urlInquiryId: string | null,
+  /**
+   * 見送ったあとに呼ぶ。**画面は移動せず、選択を外すだけ**（レビューでの指摘）。
+   * 以前は `navigate('/sales/dashboard')` していたが、レールに並んだ引き合いを
+   * 上から順に見送っていく作業（1件見送る→次を見送る…）のたびに画面が飛び、
+   * 都度レールへ戻る手間になっていた。呼び出し元（`useNewProjectForm`）が
+   * 選択を外す（`setSelected(null)`）ことで、この画面のままレールの続きを選べる
+   */
+  onDropped: () => void,
 ): ProjectDecisions {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -246,15 +254,14 @@ export function useProjectDecisions(
       }
     },
     onSuccess: () => {
-      // 見送りは**もうある行のステージを動かす**だけなので、行き先（ダッシュボード）に
-      // 出ていなくても `['project', id]` の古い姿は残る（戻ると失注前の段が出る）。
-      // **受信箱の鍵も落とす**（`invalidate` の中）— レールとダッシュボードの
-      // バッジはこれで消える。⚠️ 消えるのは**サーバー側が失注を受付から外している**
-      // からで（`AI_INBOX_SQL` の stage 条件と `ai_reviewed_at` の印）、
-      // 落とすだけでは消えなかった（v4.1.2 まで「見送りにしても何も起きない」状態）
+      // 見送りは**もうある行のステージを動かす**だけ。**受信箱の鍵を落とす**
+      // （`invalidate` の中）とレールから消える — これは**サーバー側が失注を
+      // 受付から外している**からで（`AI_INBOX_SQL` の stage 条件と `ai_reviewed_at`
+      // の印）、落とすだけでは消えなかった（v4.1.2 まで「見送りにしても何も起きない」状態）。
+      // **画面は移動しない。** 選択だけ外し、レールの続きを次々見送れるようにする
       invalidate(existingId);
       notifySuccess('失注にしました');
-      navigate('/sales/dashboard');
+      onDropped();
     },
     onError: (e) => notifyApiError('失注にできませんでした', e, '時間をおいて、もう一度お試しください。'),
   });
