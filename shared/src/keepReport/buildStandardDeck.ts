@@ -108,17 +108,31 @@ function boxOf(pp: SlidePart, fp: SlidePart): Pick<SlidePart, 'x' | 'y' | 'w' | 
 }
 
 /**
+ * binding から「何番目の案件・実施報告か」の接頭辞（`project_pages[2].` 等）を外したもの。
+ * 案件ページ・実施報告ページの binding は `newPage` が案件の**配列内の位置**から絶対パスに
+ * 書き換える（`project.photos` → `project_pages[2].photos`）ため、前の回とくらべて手前の案件が
+ * 1件消えるだけで後続の全案件の binding 文字列が変わる（`project_pages[2]` → `project_pages[1]`）。
+ * ページ自体の id は案件IDで固定なので同じページと分かるのに、中の binding は完全一致しなくなる
+ * （Codex 指摘・fresh evidence）。**部品が何を映すか**を見るには接頭辞を外した形で比べればよい。
+ */
+function bindingKey(binding: string | null): string | null {
+  return binding ? binding.replace(/^(?:project_pages|event_reports)\[\d+\]\./, '') : null;
+}
+
+/**
  * 前の版の部品を今回のどの部品に対応させるか。
  * ⚠️ id（`pageId:p<region index>`）だけで揃えると、テンプレの regions の**並びや数を変えた回**に
  * 別の部品の中身が引き継がれる — 2026-09 のデザイン刷新（確度の枠を廃止・内覧会の並び替え）で
  * 実際に「写真の選び方が総括カードに乗る」「総括の上書きが進行表に乗る」「消したはずの確度の枠が
  * 余分な部品として残る」が起きた（Codex 指摘）。**binding（何の値を映す部品か）は region の並びを
- * 変えても同じ**なので、まず binding で揃え、binding が無い部品（自由記入など）だけ id で揃える。
+ * 変えても同じ**なので、まず binding（案件の配列内の位置を外した形。上記 `bindingKey`）で揃え、
+ * binding が無い部品（自由記入など）だけ id で揃える。
  */
 function carryOver(fresh: SlidePage, prev: SlidePage): SlidePage {
   const used = new Set<SlidePart>();
   const findPrev = (fp: SlidePart): SlidePart | undefined => {
-    const byBinding = fp.binding ? prev.parts.find((x) => x.binding === fp.binding && !used.has(x)) : undefined;
+    const fk = bindingKey(fp.binding);
+    const byBinding = fk ? prev.parts.find((x) => bindingKey(x.binding) === fk && !used.has(x)) : undefined;
     return byBinding ?? prev.parts.find((x) => x.id === fp.id && !used.has(x));
   };
   const parts = fresh.parts.map((fp) => {

@@ -157,6 +157,36 @@ describe('前回の構成から組み直す（composeDeckPages）', () => {
     // 廃止済みの確度の枠は、今回のどの部品にも化けずそのまま（人が足した部品と同じ扱いで）残る
     expect(np.parts.filter((x) => x.binding === 'project_pages[0].confidence').length).toBe(1);
   });
+
+  it('手前の案件が消えて配列の位置がずれ、binding の絶対パスの番号が変わっても、同じ案件ページの部品は正しく対応する（Codex 指摘の追加ケース）', () => {
+    // prj-27h は今は project_pages[2]（3件目）。手前の prj-emb を消すと project_pages[1] になり、
+    // 中身は同じでも binding の絶対パスの文字列が変わる — 完全一致の binding 比較だけでは
+    // また id（region 順）にフォールバックしてしまい、テンプレ改修と重なると取り違えが起きる。
+    const page = find(clone(prev), 'project_page:prj-27h');
+    const [band, photos, summary, schedule, keyDates, intake, money] = page.parts;
+    const stalePrev = clone(prev);
+    const stalePage = find(stalePrev, 'project_page:prj-27h');
+    stalePage.parts = [
+      { ...band, id: `${page.id}:p0` },
+      { id: `${page.id}:p1`, type: 'text', binding: 'project_pages[2].confidence', x: 90, y: 1, w: 9, h: 9, text_override: null, options: { label: '確度' } },
+      { ...photos, id: `${page.id}:p2`, options: { ...photos.options, selected: ['old-photo-27h'] } },
+      { ...summary, id: `${page.id}:p3`, text_override: '旧概要27h' },
+      { ...schedule, id: `${page.id}:p4` },
+      { ...keyDates, id: `${page.id}:p5` },
+      { ...intake, id: `${page.id}:p6` },
+      { ...money, id: `${page.id}:p7`, options: { ...money.options, noted: true } },
+    ];
+    const smaller = clone(pack);
+    smaller.project_pages = smaller.project_pages.filter((p) => p.project_id !== 'prj-emb'); // prj-27h が 2 → 1 番目に詰まる
+    const next = composeDeckPages(stalePrev, smaller);
+    const np = find(next, 'project_page:prj-27h');
+    const byBinding = (b: string) => np.parts.find((x) => x.binding === `project_pages[1].${b}`); // 詰まった後の絶対パス
+    expect(byBinding('photos')).toMatchObject({ type: 'photos', options: expect.objectContaining({ selected: ['old-photo-27h'] }) });
+    expect(byBinding('summary_lines')).toMatchObject({ type: 'bullets', text_override: '旧概要27h' });
+    expect(byBinding('schedule')).toMatchObject({ type: 'table', text_override: null });
+    expect(byBinding('money')).toMatchObject({ type: 'table', options: expect.objectContaining({ noted: true }) });
+    expect(np.parts.filter((x) => x.binding === 'project_pages[1].money').length).toBe(1);
+  });
 });
 
 describe('binding の解決（resolveBinding）', () => {
