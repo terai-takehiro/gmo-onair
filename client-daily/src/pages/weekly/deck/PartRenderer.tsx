@@ -15,7 +15,7 @@ import { SLIDE_H, SLIDE_W } from './renderers/slideStyle';
 import { MoneyTable, PipelineTable, PlByEntity, PlTable, SlideTable, parseTsv } from './renderers/TableRenderer';
 import { TrendChart } from './renderers/ChartRenderer';
 import { CalendarPart } from './renderers/CalendarRenderer';
-import { BulletsPart, EmptyPart, KeyDatesPart, KpiPart, PhotosPart, TextPart } from './renderers/TextRenderer';
+import { BandPart, BulletsPart, EmptyPart, HighlightsPart, InviewSummaryPart, KeyDatesPart, KpiPart, PhotosPart, TextPart } from './renderers/TextRenderer';
 
 export interface PartRendererProps {
   pack: KeepReportPack | null;
@@ -72,6 +72,30 @@ export function PartRenderer({ pack, page, part, deck, meeting, thumb }: PartRen
       return <TextPart text={resolved.text} tone={resolved.tone} box={box} fontSize={fontSize} />;
     case 'bullets':
       return <BulletsPart items={resolved.items} box={box} fontSize={fontSize} />;
+    case 'band':
+      return (
+        <BandPart
+          event={resolved.event}
+          customer={resolved.customer}
+          date={resolved.date}
+          confidenceLetter={resolved.confidenceLetter}
+          confidenceLabel={resolved.confidenceLabel}
+          box={box}
+        />
+      );
+    case 'highlights':
+      return <HighlightsPart headline={resolved.headline} items={resolved.items} box={box} />;
+    case 'inview_summary':
+      return (
+        <InviewSummaryPart
+          sessionDate={resolved.sessionDate}
+          groups={resolved.groups}
+          people={resolved.people}
+          categoryCount={resolved.categoryCount}
+          nextSessionDate={resolved.nextSessionDate}
+          box={box}
+        />
+      );
     case 'table':
       return <SlideTable head={resolved.head} rows={resolved.rows} align={resolved.align} box={box} />;
     case 'money':

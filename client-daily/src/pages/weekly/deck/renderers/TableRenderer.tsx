@@ -8,6 +8,7 @@ import type { CSSProperties } from 'react';
 import type { MonthlyPlTable, PipelineRow } from '@gmo-onair/shared/src/keepReport/types';
 import { C, cellBase, headCell, num, tableBase } from './slideStyle';
 import { thousands, yen } from './binding';
+import { StatRow } from './TextRenderer';
 
 export interface Box { w: number; h: number }
 export type Align = 'left' | 'right' | 'center';
@@ -163,30 +164,18 @@ export function PipelineTable({ rows, box }: { rows: PipelineRow[]; box: Box }) 
   );
 }
 
-/** 売上／粗利（案件ページ・実施報告の右下） */
+/**
+ * 売上／粗利／粗利率（案件ページ・実施報告の右下）。2026-09 刷新: 2行の表ではなく、横に並んだ
+ * 数字カード3枚（`margin` が無ければ2枚）で見せる。カードの部品は `InfoBand` と対になる
+ * `StatRow`（`TextRenderer.tsx`）— pptx 側の `renderStatRow` と対応する
+ */
 export function MoneyTable({ revenue, gross, margin, box }: { revenue: number | null; gross: number | null; margin: number | null; box: Box }) {
-  const fontSize = Math.max(12, Math.min(22, Math.floor(box.h / 4)));
-  const cell: CSSProperties = { ...cellBase, ...num, fontSize: fontSize * 1.1, padding: '0.3em 0.6em' };
-  return (
-    <table style={{ ...tableBase, fontSize }}>
-      <thead>
-        <tr><th style={headCell}>売上</th><th style={headCell}>粗利</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td style={cell}>{yen(revenue)}</td>
-          <td style={cell}>
-            {yen(gross)}
-            {margin !== null && (
-              <span style={{ display: 'block', fontSize: fontSize * 0.8, fontWeight: 700, background: C.marker, padding: '0 4px', width: 'fit-content', marginLeft: 'auto' }}>
-                ({margin.toFixed(1)}%)
-              </span>
-            )}
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  );
+  const items: Array<{ label: string; value: string; accent?: boolean }> = [
+    { label: '売上', value: yen(revenue) },
+    { label: '粗利', value: yen(gross) },
+  ];
+  if (margin !== null) items.push({ label: '粗利率', value: `${margin.toFixed(1)}%`, accent: true });
+  return <StatRow items={items} box={box} />;
 }
 
 /**

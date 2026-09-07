@@ -90,6 +90,162 @@ export function BulletsPart({ items, box, override, fontSize }: { items: string[
   );
 }
 
+/**
+ * 帯（1行。太字＋大きめの本文 ＋ 細め＋小さめの副文 ／ 右端に丸バッジ）。
+ * pptx 側の `renderInfoBand` と同じ部品を、案件ページの帯（`BandPart`）と
+ * 内覧会サマリの帯（`InviewSummaryPart`）で共有する。収まらない文字は省略記号で切る
+ */
+export function InfoBand({ main, sub, pill, box }: { main: string; sub: string; pill?: string | null; box: Box }) {
+  return (
+    <div style={{
+      width: '100%', height: '100%', boxSizing: 'border-box', borderRadius: 3, background: C.band,
+      display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px', overflow: 'hidden',
+    }}
+    >
+      <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+        <span style={{ fontSize: Math.min(20, box.h * 0.42), fontWeight: 700, color: '#fff' }}>{main}</span>
+        <span style={{ fontSize: Math.min(14, box.h * 0.3), color: C.talkBlue, marginLeft: 10 }}>{sub}</span>
+      </div>
+      {pill && (
+        <span style={{
+          flexShrink: 0, borderRadius: 999, border: '1px solid rgba(255,255,255,.65)', background: 'rgba(255,255,255,.18)',
+          color: '#fff', fontWeight: 700, fontSize: Math.min(13, box.h * 0.28), padding: '4px 12px', whiteSpace: 'nowrap',
+        }}
+        >
+          {pill}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 数字カード（横並び。ラベル小さく上・太字の大きい数字が下）。カード間は薄い縦線1本で仕切り、
+ * 四角く囲む罫線は引かない。pptx 側の `renderStatRow` に対応する部品を、売上／粗利／粗利率
+ * （`MoneyTable`）と内覧会サマリ（`InviewSummaryPart`）で共有する
+ */
+export function StatRow({ items, box }: { items: Array<{ label: string; value: string; accent?: boolean }>; box: Box }) {
+  if (items.length === 0) return null;
+  const valueSize = Math.max(14, Math.min(26, box.h * 0.4, (box.w / items.length) / 4));
+  return (
+    <div style={{ width: '100%', height: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'stretch' }}>
+      {items.map((it, i) => (
+        <div
+          key={it.label}
+          style={{
+            flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4,
+            padding: '0 16px', borderLeft: i > 0 ? `1px solid ${C.softLine}` : undefined,
+          }}
+        >
+          <div style={{ fontSize: Math.max(11, valueSize * 0.42), color: C.muted, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.label}</div>
+          <div style={{
+            fontSize: valueSize, fontWeight: 700, color: it.accent ? C.positive : C.title, lineHeight: 1.1,
+            fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}
+          >
+            {it.value}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** 帯（案件ページ・実施報告）。`Resolved.kind === 'band'` を描く。①などの通し番号は pptx 側と同じく出さない */
+export function BandPart({ event, customer, date, confidenceLetter, confidenceLabel, box }: {
+  event: string;
+  customer: string;
+  date: string;
+  confidenceLetter: string | null;
+  confidenceLabel: string | null;
+  box: Box;
+}) {
+  return (
+    <InfoBand
+      main={event}
+      sub={`${customer} ／ ${date}`}
+      pill={confidenceLetter ? `${confidenceLetter}・${confidenceLabel ?? ''}` : null}
+      box={box}
+    />
+  );
+}
+
+/**
+ * 総括（薄い水色地＋「総括」バッジ＋太字）＋ 成果のチェック箇条書き。`Resolved.kind === 'highlights'` を描く。
+ * `headline` があれば箱の上30%程度をカードに、無ければチェック箇条書きが箱いっぱいを使う
+ */
+export function HighlightsPart({ headline, items, box, override }: { headline: string | null; items: string[]; box: Box; override?: boolean }) {
+  const gap = 10;
+  const headlineH = headline ? Math.min(box.h * 0.32, 90) : 0;
+  const listH = Math.max(0, box.h - (headline ? headlineH + gap : 0));
+  const fs = items.length ? fitFont(items, { w: box.w, h: listH }, 22, 13, 1.55, 26) : 13;
+  return (
+    <div style={{ width: '100%', height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap }}>
+      {headline && (
+        <div style={{
+          height: headlineH, boxSizing: 'border-box', borderRadius: 3, background: C.positiveLight,
+          padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 6, overflow: 'hidden',
+        }}
+        >
+          <span style={{
+            alignSelf: 'flex-start', borderRadius: 999, background: C.band, color: '#fff', fontWeight: 700,
+            fontSize: 11, lineHeight: 1.4, padding: '2px 10px',
+          }}
+          >
+            総括
+          </span>
+          <div style={{ fontSize: Math.min(16, headlineH * 0.24), fontWeight: 700, color: C.title, lineHeight: 1.3, overflow: 'hidden' }}>{headline}</div>
+        </div>
+      )}
+      {items.length > 0 && (
+        <ul style={{ margin: 0, padding: 0, listStyle: 'none', flex: 1, minHeight: 0, overflow: 'hidden', fontSize: fs, lineHeight: 1.55, fontWeight: 700, color: override ? overrideColor : C.text }}>
+          {items.map((it, i) => (
+            <li key={i} style={{ display: 'flex', gap: 8 }}>
+              <span style={{ color: C.positive, flexShrink: 0 }}>✓</span>
+              <span style={{ whiteSpace: 'pre-wrap' }}>{it}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 内覧会サマリ（`inview.summary`）。帯（「定期内覧会」＋開催日。次回開催日があれば右にバッジ）＋
+ * 数字カード3枚（来場組数／来場人数／分類数）を縦に並べる。帯・数字カードは `BandPart` /
+ * `MoneyTable` と同じ `InfoBand` / `StatRow` を再利用する（3種類バラバラのデザインにしない）
+ */
+export function InviewSummaryPart({ sessionDate, groups, people, categoryCount, nextSessionDate, box }: {
+  sessionDate: string;
+  groups: number;
+  people: number;
+  categoryCount: number;
+  nextSessionDate: string | null;
+  box: Box;
+}) {
+  const gap = 10;
+  const bandH = Math.min(box.h * 0.34, 76);
+  const statBox = { w: box.w, h: Math.max(0, box.h - bandH - gap) };
+  return (
+    <div style={{ width: '100%', height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap }}>
+      <div style={{ height: bandH }}>
+        <InfoBand main="定期内覧会" sub={`${sessionDate}開催`} pill={nextSessionDate ? `次回 ${nextSessionDate}` : null} box={{ w: box.w, h: bandH }} />
+      </div>
+      <div style={{ height: statBox.h }}>
+        <StatRow
+          items={[
+            { label: '来場組数', value: `${groups}組` },
+            { label: '来場人数', value: `${people}名` },
+            { label: '分類数', value: `${categoryCount}`, accent: true },
+          ]}
+          box={statBox}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function KpiPart({ items, box, override }: { items: Array<{ label: string; value: string; sub?: string }>; box: Box; override?: boolean }) {
   const valueSize = Math.min(44, box.h * 0.42, (box.w / Math.max(1, items.length)) / 5.5);
   return (
