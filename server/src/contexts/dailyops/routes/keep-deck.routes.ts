@@ -126,7 +126,7 @@ router.post('/keep/decks/:meeting/export', ...canEdit, async (req, res) => {
       if (!sub) reason = 'NO_SUBFOLDER';
       else {
         const item = await uploadToFolder(sub.id, filename, buffer);
-        await keepDeckService.markExported(meeting, item.id, req.user!.id);
+        await keepDeckService.markExported(meeting, item.id, req.user!.id, deck.version);
         stored = true;
         res.setHeader('X-Box-File-Id', item.id);
         res.setHeader('X-Box-File-Url', item.url);

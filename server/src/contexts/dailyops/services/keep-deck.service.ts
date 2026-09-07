@@ -52,7 +52,7 @@ async function loadInputs(meetingDate: string): Promise<Record<string, unknown>>
 
 export interface DeckListItem {
   id: string; meeting_date: string; version: number; pack_id: string | null;
-  page_count: number; exported_box_file_id: string | null; exported_at: string | null;
+  page_count: number; exported_box_file_id: string | null; exported_at: string | null; exported_version: number | null;
   updated_at: string; updated_by: string | null;
 }
 
@@ -72,7 +72,10 @@ function rowToDeck(row: Row): KeepDeck {
     version: Number(row.version),
     pages: Array.isArray(stored.pages) ? stored.pages : [],
     exported: row.exported_box_file_id
-      ? { box_file_id: String(row.exported_box_file_id), exported_at: iso(row.exported_at), by: String(row.exported_by ?? '') }
+      ? {
+        box_file_id: String(row.exported_box_file_id), exported_at: iso(row.exported_at), by: String(row.exported_by ?? ''),
+        version: row.exported_version == null ? null : Number(row.exported_version),
+      }
       : null,
     updated_at: iso(row.updated_at),
     updated_by: String(row.updated_by ?? ''),
@@ -140,7 +143,7 @@ async function previousMeetingDate(meetingDate: string): Promise<{ date: string;
 export const keepDeckService = {
   async listDecks(): Promise<DeckListItem[]> {
     const rows = await queryAll(
-      `SELECT id, meeting_date, version, pack_id, exported_box_file_id, exported_at, updated_at, updated_by,
+      `SELECT id, meeting_date, version, pack_id, exported_box_file_id, exported_at, exported_version, updated_at, updated_by,
               COALESCE(jsonb_array_length(deck->'pages'), 0) AS page_count
          FROM keep_decks ORDER BY meeting_date DESC`,
     );
@@ -149,6 +152,7 @@ export const keepDeckService = {
       pack_id: r.pack_id == null ? null : String(r.pack_id), page_count: Number(r.page_count),
       exported_box_file_id: r.exported_box_file_id == null ? null : String(r.exported_box_file_id),
       exported_at: r.exported_at == null ? null : iso(r.exported_at),
+      exported_version: r.exported_version == null ? null : Number(r.exported_version),
       updated_at: iso(r.updated_at), updated_by: r.updated_by == null ? null : String(r.updated_by),
     }));
   },
@@ -259,11 +263,17 @@ export const keepDeckService = {
     return { deck, pack, pack_frozen: frozen, previous_meeting_date: prev?.date ?? null, inputs };
   },
 
-  /** 出力した pptx の置き場（Box の file id）を最新に記録する（条件3） */
-  async markExported(meetingDate: string, boxFileId: string, userId: string): Promise<void> {
+  /**
+   * 出力した pptx の置き場（Box の file id）と**その pptx を作った版**を記録する（条件3）。
+   * 版を持たないと、出力のあとに自動保存で版が進んだとき「どの構成からこのファイルができたか」が追えなくなる
+   * （`keep_deck_versions` にその版の全文があるので、版番号があれば戻れる）
+   */
+  async markExported(meetingDate: string, boxFileId: string, userId: string, version: number): Promise<void> {
     assertMeetingDate(meetingDate);
-    await execute('UPDATE keep_decks SET exported_box_file_id = ?, exported_at = NOW(), exported_by = ? WHERE meeting_date = ?',
-      [boxFileId, userId, meetingDate]);
+    await execute(
+      'UPDATE keep_decks SET exported_box_file_id = ?, exported_at = NOW(), exported_by = ?, exported_version = ? WHERE meeting_date = ?',
+      [boxFileId, userId, version, meetingDate],
+    );
   },
 
   /** 版ごとの人の直し（集計・画面の「前回との違い」用） */

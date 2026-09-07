@@ -69,6 +69,8 @@ export interface DeckListItem {
   page_count: number;
   exported_box_file_id: string | null;
   exported_at: string | null;
+  /** 出力した pptx を作った版。`version` より小さければ出力後に直している */
+  exported_version: number | null;
   updated_at: string;
   updated_by: string | null;
 }

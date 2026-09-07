@@ -205,6 +205,8 @@ export default function DeckPage() {
         onExport={() => { void onExport(); }}
         exporting={exportDeck.isPending}
         ready={ready}
+        version={ready && deck ? deck.version : null}
+        exported={ready && deck ? deck.exported : null}
       />
       {id && <WeeklyTabs reportId={id} tab="deck" isMobile={isMobile} />}
 

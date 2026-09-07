@@ -29,6 +29,23 @@ export interface DeckHeaderProps {
   onExport: () => void;
   exporting: boolean;
   ready: boolean;
+  /** いまの版と、出力した pptx を作った版（出力していなければ null）。出力後に直していれば注意を出す */
+  version: number | null;
+  exported: { version: number | null; exported_at: string } | null;
+}
+
+/** 「版3 を出力済み」／「出力後に直しあり（出力は版3・いまは版5）」。出力していなければ何も出さない */
+function ExportState({ version, exported }: Pick<DeckHeaderProps, 'version' | 'exported'>) {
+  if (!exported || version == null) return null;
+  const time = new Date(exported.exported_at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  if (exported.version != null && exported.version < version) {
+    return (
+      <span className="text-sub-sm text-warning" title={`${time} に版${exported.version} を出力`}>
+        出力後に直しあり（出力は版{exported.version}・いまは版{version}）
+      </span>
+    );
+  }
+  return <span className="text-sub-sm text-muted-foreground" title={time}>版{exported.version ?? version} を Box に出力済み</span>;
 }
 
 function SaveState({ status, savedAt, dirty, onSaveNow }: Pick<DeckHeaderProps, 'savedAt' | 'dirty' | 'onSaveNow'> & { status: SaveStatus }) {
@@ -73,6 +90,7 @@ export function DeckHeader(p: DeckHeaderProps) {
           />
         </label>
         <SaveState status={p.saveStatus} savedAt={p.savedAt} dirty={p.dirty} onSaveNow={p.onSaveNow} />
+        <ExportState version={p.version} exported={p.exported} />
         <span className="hidden w-px self-stretch bg-border lg:block" aria-hidden="true" />
         <Button type="button" variant="outline" size="sm" onClick={p.onCompare} disabled={!p.ready}>
           <Columns2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />前回の資料と見比べる

@@ -75,7 +75,7 @@ export interface KeepDeck {
   version: number;
   pages: SlidePage[];
   /** 出力した pptx の置き場（Box）。出力していなければ null */
-  exported: { box_file_id: string; exported_at: string; by: string } | null;
+  exported: { box_file_id: string; exported_at: string; by: string; version: number | null } | null;
   updated_at: string;
   updated_by: string;
 }

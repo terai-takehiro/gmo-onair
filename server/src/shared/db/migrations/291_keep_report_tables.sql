@@ -101,6 +101,7 @@ CREATE TABLE IF NOT EXISTS keep_decks (
   exported_box_file_id TEXT,
   exported_at          TIMESTAMPTZ,
   exported_by          TEXT,
+  exported_version     INTEGER,                                -- 出力した pptx を作った版（keep_deck_versions.version）。出力後に版が進んだら画面で分かるように
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_by           TEXT

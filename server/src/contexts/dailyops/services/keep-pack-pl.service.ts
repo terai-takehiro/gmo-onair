@@ -88,29 +88,51 @@ const emptyAdditions = (): Record<EntityScope, Addition> => ({
   GMO: { revenue: 0, cogs_variable: 0 },
 });
 
+/**
+ * 帳簿の行を**案件ごと**に割った形にする SQL（売上／仕入で同じ形）。
+ *
+ * グループ請求（`group_id`）の行は `project_id` が先頭の案件しか指さず、内訳は
+ * `revenue_allocations` / `purchase_allocations` にある（migration 005/006・`monthly-summary.service.ts` と同じ読み方）。
+ * 確度加味は**案件のステージ**で掛けるので、按分のある行は allocation の額を各案件へ、
+ * 按分の無い行はそのまま。代表案件のステージを行全体に掛けると按分先の確度が無視される。
+ * 列: entity_code（行の会社）, project_id, amount。占位子は (from, to, from, to) の順。
+ */
+function perProjectRowsSql(table: 'revenues' | 'purchases', statusWhere: string): string {
+  const alloc = table === 'revenues' ? 'revenue_allocations' : 'purchase_allocations';
+  const fk = table === 'revenues' ? 'revenue_id' : 'purchase_id';
+  return `
+    SELECT t.entity_code, t.project_id, t.amount
+      FROM ${table} t
+     WHERE t.deleted_at IS NULL ${statusWhere}
+       AND t.recognition_date >= ? AND t.recognition_date <= ?
+       AND NOT EXISTS (SELECT 1 FROM ${alloc} a0 WHERE a0.${fk} = t.id)
+    UNION ALL
+    SELECT t.entity_code, a.project_id, a.allocated_amount
+      FROM ${table} t JOIN ${alloc} a ON a.${fk} = t.id
+     WHERE t.deleted_at IS NULL ${statusWhere}
+       AND t.recognition_date >= ? AND t.recognition_date <= ?`;
+}
+
 async function weightedAdditions(ym: string): Promise<Record<EntityScope, Addition>> {
   const [from, to] = monthRange(ym);
   const [revRows, purRows, probability] = await Promise.all([
     queryAll(
-      // 会社は行の entity_code（書いた時の会社。`getMonthlySummary` が着地を切るのと同じ列）
-      `SELECT r.entity_code, p.stage, COALESCE(SUM(r.amount), 0)::bigint AS amount
-         FROM revenues r
-         JOIN projects p ON p.id = r.project_id AND p.deleted_at IS NULL
-        WHERE r.deleted_at IS NULL AND r.status = 'estimate'
-          AND r.recognition_date >= ? AND r.recognition_date <= ?
-          AND p.stage <> 'e_lost' AND COALESCE(p.code, '') <> ?
-        GROUP BY r.entity_code, p.stage`,
-      [from, to, FIXED_COGS_CODE],
+      // 会社は行の entity_code（書いた時の会社。`getMonthlySummary` が着地を切るのと同じ列）。
+      // ステージは**按分先の案件**のもの（perProjectRowsSql）
+      `SELECT x.entity_code, p.stage, COALESCE(SUM(x.amount), 0)::bigint AS amount
+         FROM (${perProjectRowsSql('revenues', "AND t.status = 'estimate'")}) x
+         JOIN projects p ON p.id = x.project_id AND p.deleted_at IS NULL
+        WHERE p.stage <> 'e_lost' AND COALESCE(p.code, '') <> ?
+        GROUP BY x.entity_code, p.stage`,
+      [from, to, from, to, FIXED_COGS_CODE],
     ) as Promise<{ entity_code: string; stage: string; amount: unknown }[]>,
     queryAll(
-      `SELECT pu.entity_code, p.stage, COALESCE(SUM(pu.amount), 0)::bigint AS amount
-         FROM purchases pu
-         JOIN projects p ON p.id = pu.project_id AND p.deleted_at IS NULL
-        WHERE pu.deleted_at IS NULL
-          AND pu.recognition_date >= ? AND pu.recognition_date <= ?
-          AND p.stage = ANY(?) AND COALESCE(p.code, '') <> ?
-        GROUP BY pu.entity_code, p.stage`,
-      [from, to, PRE_WON_STAGES, FIXED_COGS_CODE],
+      `SELECT x.entity_code, p.stage, COALESCE(SUM(x.amount), 0)::bigint AS amount
+         FROM (${perProjectRowsSql('purchases', '')}) x
+         JOIN projects p ON p.id = x.project_id AND p.deleted_at IS NULL
+        WHERE p.stage = ANY(?) AND COALESCE(p.code, '') <> ?
+        GROUP BY x.entity_code, p.stage`,
+      [from, to, from, to, PRE_WON_STAGES, FIXED_COGS_CODE],
     ) as Promise<{ entity_code: string; stage: string; amount: unknown }[]>,
     getStageProbabilityMap(),
   ]);
@@ -142,19 +164,19 @@ async function listUnconfirmed(ym: string): Promise<PlNotes> {
   const [estimateRows, eventRows] = await Promise.all([
     queryAll(
       // 会社は**売上の行の entity_code**（weightedAdditions が見込に足すのと同じ列）。案件の今の会社で見ると、
-      // 会社を移した案件や行が2社に分かれた案件で「この会社の表に含めた」と書いた注記が別の会社の表の金額を指す
-      `SELECT p.id, p.name, r.entity_code, COALESCE(SUM(r.amount), 0)::bigint AS amount
-         FROM revenues r
-         JOIN projects p ON p.id = r.project_id AND p.deleted_at IS NULL
-        WHERE r.deleted_at IS NULL AND r.status = 'estimate'
-          AND r.recognition_date >= ? AND r.recognition_date <= ?
-          AND p.stage <> 'e_lost' AND COALESCE(p.code, '') <> ?
-        GROUP BY p.id, p.name, r.entity_code
+      // 会社を移した案件や行が2社に分かれた案件で「この会社の表に含めた」と書いた注記が別の会社の表の金額を指す。
+      // 按分（グループ請求）は allocation の額を各案件へ（weightedAdditions と同じ perProjectRowsSql）
+      `SELECT p.id, p.name, x.entity_code, COALESCE(SUM(x.amount), 0)::bigint AS amount
+         FROM (${perProjectRowsSql('revenues', "AND t.status = 'estimate'")}) x
+         JOIN projects p ON p.id = x.project_id AND p.deleted_at IS NULL
+        WHERE p.stage <> 'e_lost' AND COALESCE(p.code, '') <> ?
+        GROUP BY p.id, p.name, x.entity_code
         ORDER BY amount DESC, p.name`,
-      [from, to, FIXED_COGS_CODE],
+      [from, to, from, to, FIXED_COGS_CODE],
     ) as Promise<{ id: string; name: string; entity_code: string; amount: unknown }[]>,
-    // その月に本番があるのに確定売上が1件も無い案件。金額は 最新の見積 → 想定金額 → 0
-    // （売上の行が無いので会社は案件の entity_code で見るしかない）
+    // その月に本番があるのに、**その月の**確定売上が1件も無い案件（直接の行も按分先としても）。
+    // 金額は 最新の見積 → 想定金額 → 0（売上の行が無いので会社は案件の entity_code で見るしかない）。
+    // 月で絞らないと、前の月に確定売上のある案件の「この月の売上が無い」を見落とす
     queryAll(
       `SELECT p.id, p.name, p.entity_code, COALESCE(est.amount, p.expected_amount, 0)::bigint AS amount
          FROM projects p
@@ -164,10 +186,13 @@ async function listUnconfirmed(ym: string): Promise<PlNotes> {
           AND p.event_start <= ? AND COALESCE(NULLIF(p.event_end, ''), p.event_start) >= ?
           AND NOT EXISTS (
             SELECT 1 FROM revenues r
-             WHERE r.project_id = p.id AND r.deleted_at IS NULL AND r.status = 'confirmed'
+             WHERE r.deleted_at IS NULL AND r.status = 'confirmed'
+               AND r.recognition_date >= ? AND r.recognition_date <= ?
+               AND (r.project_id = p.id
+                    OR EXISTS (SELECT 1 FROM revenue_allocations ra WHERE ra.revenue_id = r.id AND ra.project_id = p.id))
           )
         ORDER BY p.event_start, p.name`,
-      [FIXED_COGS_CODE, to, from],
+      [FIXED_COGS_CODE, to, from, from, to],
     ) as Promise<{ id: string; name: string; entity_code: string; amount: unknown }[]>,
   ]);
   const toNote = (r: { id: string; name: string; entity_code: string; amount: unknown }): Unconfirmed =>
