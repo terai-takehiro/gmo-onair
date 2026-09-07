@@ -24,6 +24,11 @@
  *   (`TopicsSection.tsx` に理由を書いてある)
  * ・**「AI作成」の印に「指示した人」を出さない** — `requested_by` は AI が名簿と
  *   突き合わせずに自由記述で書く値で、実在しない人名が入っていたことがある
+ *
+ * ── 「次の週を作る」ボタン ──────────────────────────────
+ *
+ * 週の箱は AI の自動生成トリガーが未実装のままで増えず、手動で作る入口も
+ * 無かった。週のリスト（`WeekRail`/`WeekPickerSheet`）の上に手動ボタンを足す
  */
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -44,10 +49,10 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { usePermissions } from '@/hooks/usePermissions';
 import {
-  useDraftWeeklyReport, usePublishReport, useReopenReport, useReport, useReports,
+  useDraftWeeklyReport, useEnsureReport, usePublishReport, useReopenReport, useReport, useReports,
   useReviewReport, useUpdateReportContent,
 } from '@/lib/reportsApi';
-import { formatWeekJa, type OpsReport } from '@/lib/types';
+import { formatWeekJa, toDateStr, type OpsReport } from '@/lib/types';
 import { StatsSection, type StatsShape } from './weekly/StatsSection';
 import { TopicsSection } from './weekly/TopicsSection';
 import { WeekPickerSheet } from './weekly/WeekPickerSheet';
@@ -60,6 +65,7 @@ export default function WeeklyDetailPage({ tab = 'report' }: { tab?: WeeklyTab }
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const list = useReports('weekly_activity', 50);
+  const ensureNextWeek = useEnsureReport();
   const detail = useReport(id);
   const { canEdit } = usePermissions();
   const publish = usePublishReport();
@@ -152,13 +158,40 @@ export default function WeeklyDetailPage({ tab = 'report' }: { tab?: WeeklyTab }
     });
   };
 
+  /** 「次の週を作る」。最新週（一覧の先頭）の翌週の箱を作って開く */
+  const onAddNextWeek = () => {
+    const latest = list.data?.[0]; // サーバーが period_key の新しい順で返す。先頭が最新
+    if (!latest) return;
+    ensureNextWeek.mutate(
+      { kind: 'weekly_activity', period_key: nextWeekStart(latest.period_key) },
+      {
+        onSuccess: (report) => navigate(`/weekly/${report.id}`),
+        onError: (e) => notifyApiError('週を作成できませんでした', e),
+      },
+    );
+  };
+
   return (
     <div className="flex flex-col gap-4 p-3 lg:flex-row lg:gap-5 lg:p-6">
       {/* 週のリスト。PC は左のレール、スマホは上端のボタン + シート（専用の週ピッカー） */}
       {list.data && list.data.length > 0 && (
         isMobile
-          ? <WeekPickerSheet reports={list.data} activeId={id} />
-          : tab === 'report' && <WeekRail reports={list.data} activeId={id} />
+          ? (
+            <WeekPickerSheet
+              reports={list.data}
+              activeId={id}
+              onAddNextWeek={canEdit ? onAddNextWeek : undefined}
+              addingNextWeek={ensureNextWeek.isPending}
+            />
+          )
+          : tab === 'report' && (
+            <WeekRail
+              reports={list.data}
+              activeId={id}
+              onAddNextWeek={canEdit ? onAddNextWeek : undefined}
+              addingNextWeek={ensureNextWeek.isPending}
+            />
+          )
       )}
 
       <div className="flex min-w-0 flex-1 flex-col gap-4 lg:gap-5">
@@ -340,6 +373,13 @@ function AiSummaryCard({ report, editable, onSave, savePending }: {
       </CardContent>
     </Card>
   );
+}
+
+/** 週の開始日 (YYYY-MM-DD) を1週間進める。「次の週を作る」ボタン専用 */
+function nextWeekStart(periodKey: string): string {
+  const d = new Date(`${periodKey}T00:00:00`);
+  d.setDate(d.getDate() + 7);
+  return toDateStr(d);
 }
 
 function Section({ icon: Icon, title, sub, action }: {

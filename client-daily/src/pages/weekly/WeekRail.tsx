@@ -17,17 +17,41 @@
  * スマホは `./WeekPickerSheet.tsx`（ボタン + シート）に差し替え済み
  * （出し分けは `WeeklyDetailPage.tsx` の `useIsMobile()`）。この部品は
  * 1024px 以上でだけ描かれるので、横スクロールの畳みは不要。
+ *
+ * ── 「次の週を作る」ボタン ──────────────────────────────────
+ *
+ * 週の箱は自動生成のはずが、その定期実行トリガーが未実装なので検証環境が
+ * 止まっていた。閲覧権限しかない人には出さないため、`onAddNextWeek` を
+ * 渡すかどうかは呼び出し側（`WeeklyDetailPage.tsx`）の責務にしてある。
  */
 import { NavLink } from 'react-router-dom';
-import { CheckCircle2, CircleDashed } from 'lucide-react';
+import { CheckCircle2, CircleDashed, Loader2, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { formatWeekJa, type OpsReport } from '@/lib/types';
 
-export function WeekRail({ reports, activeId }: { reports: OpsReport[]; activeId?: string }) {
+export function WeekRail({
+  reports, activeId, onAddNextWeek, addingNextWeek,
+}: {
+  reports: OpsReport[];
+  activeId?: string;
+  /** 未指定なら「次の週を作る」ボタンは出さない（閲覧権限のみのユーザー向け） */
+  onAddNextWeek?: () => void;
+  /** true の間はボタンを disabled にし、スピナーを出す（ensure API 実行中） */
+  addingNextWeek?: boolean;
+}) {
   return (
     <nav
       aria-label="週を選ぶ"
       className="flex w-[240px] shrink-0 flex-col gap-2 overflow-y-auto rounded-card border border-border bg-card p-2"
     >
+      {onAddNextWeek && (
+        <Button variant="outline" size="sm" className="w-full" onClick={onAddNextWeek} disabled={addingNextWeek}>
+          {addingNextWeek
+            ? <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />
+            : <Plus className="mr-1 h-4 w-4" aria-hidden="true" />}
+          次の週を作る
+        </Button>
+      )}
       {reports.map((r) => {
         const published = r.status === 'published';
         const active = r.id === activeId;

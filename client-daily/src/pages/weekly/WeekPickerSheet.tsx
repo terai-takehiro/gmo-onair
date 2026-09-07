@@ -11,14 +11,32 @@
  * **いま開いている週を表すボタン**（PageHeader の下・本文の直前）を置き、
  * 押すと`client-v4/sheet.tsx` の `<Sheet>` で全週の一覧を開く。週を1つ選ぶと
  * シートは閉じて中身が差し替わる。
+ *
+ * ── 「次の週を作る」ボタン ──────────────────────────────────
+ *
+ * 週の箱は自動生成のはずが、その定期実行トリガーが未実装なので検証環境が
+ * 止まっていた。閲覧権限しかない人には出さないため、`onAddNextWeek` を
+ * 渡すかどうかは呼び出し側（`WeeklyDetailPage.tsx`）の責務にしてある。
  */
 import { useState } from 'react';
-import { CheckCircle2, ChevronDown, CircleDashed } from 'lucide-react';
+import {
+  CheckCircle2, ChevronDown, CircleDashed, Loader2, Plus,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Sheet } from '@gmo-onair/shared/src/client-v4/sheet';
+import { Button } from '@/components/ui/button';
 import { formatWeekJa, type OpsReport } from '@/lib/types';
 
-export function WeekPickerSheet({ reports, activeId }: { reports: OpsReport[]; activeId?: string }) {
+export function WeekPickerSheet({
+  reports, activeId, onAddNextWeek, addingNextWeek,
+}: {
+  reports: OpsReport[];
+  activeId?: string;
+  /** 未指定なら「次の週を作る」ボタンは出さない（閲覧権限のみのユーザー向け） */
+  onAddNextWeek?: () => void;
+  /** true の間はボタンを disabled にし、スピナーを出す（ensure API 実行中） */
+  addingNextWeek?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const active = reports.find((r) => r.id === activeId);
@@ -47,6 +65,19 @@ export function WeekPickerSheet({ reports, activeId }: { reports: OpsReport[]; a
       </button>
 
       <Sheet open={open} onOpenChange={setOpen} title="週を選ぶ" sub={`全 ${reports.length} 週`}>
+        {onAddNextWeek && (
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => { setOpen(false); onAddNextWeek(); }}
+            disabled={addingNextWeek}
+          >
+            {addingNextWeek
+              ? <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />
+              : <Plus className="mr-1 h-4 w-4" aria-hidden="true" />}
+            次の週を作る
+          </Button>
+        )}
         <div className="-mx-4 flex flex-col divide-y divide-border-faint">
           {reports.map((r) => {
             const published = r.status === 'published';
