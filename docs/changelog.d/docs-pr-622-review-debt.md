@@ -1,2 +1,0 @@
-**PR #622（検収書PDFの日付・財務ダッシュボード確度加味拡張・フィードバックチケットMCP追加）のレビュー棚卸しを記録した**（決めごと: [docs/branching.md](docs/branching.md) 「マージしたら、その PR のレビューを棚卸しに移す」）。
-⚠️ **作成からCI greenまで約4分、その直後にマージされ、`get_reviews`・`get_review_comments` とも0件**。Codexのレビュー要約コメントはマージ時点で「Running」のまま（Code Review・Security Review とも完走しなかった）——**レビューが実質0件のままマージされた**。表に移す指摘はなし（レビュー自体が届いていないため）。詳細は[docs/reviews/codex-findings-v4.md](docs/reviews/codex-findings-v4.md)。
