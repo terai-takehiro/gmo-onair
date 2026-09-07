@@ -2371,7 +2371,7 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
      の内訳が薄まる
   `get_reviews`・`get_review_comments` とも 0 件（GitHub MCP で直接確認。`npm run reviews:debt` は
   この環境のトークンでは 401）。changelog は
-  [docs/changelog.d/claude-weekly-report-ai-trigger-mgyztc.md](../changelog.d/claude-weekly-report-ai-trigger-mgyztc.md)。
+  docs/changelog.d/claude-weekly-report-ai-trigger-mgyztc.md（v4.6.0 リリースで docs/version-history.md へ統合済み）。
   ⚠️ **この棚卸し自身（PR #614）にも Codex が P2 の指摘を返している** — 追加した
   `docs/changelog.d/claude-pr-613-review-debt.md` の先頭が太字で始まっておらず、
   リリース時に `titleOf()` が本文途中で切り詰めて見出しにする形になっていた
@@ -2404,7 +2404,7 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
      いないため未実施／スマホは PC 専用画面のため対象外
   ⑦ `jszip@3.10.1` を server の依存に足した（pptx の zip を開いて slide XML と .rels を文字列で直すため。DOM で往復させると
      名前空間の接頭辞が変わって PowerPoint が開けなくなることがある）
-  changelog は [docs/changelog.d/claude-weekly-report-bi-powerpoint-kh02s2-format-chrome.md](../changelog.d/claude-weekly-report-bi-powerpoint-kh02s2-format-chrome.md)、
+  changelog は docs/changelog.d/claude-weekly-report-bi-powerpoint-kh02s2-format-chrome.md（v4.6.0 リリースで docs/version-history.md へ統合済み）、
   読んだ寸法の一覧は [docs/design/v4/keep-report.md §6.3](../design/v4/keep-report.md)。
 
 - **#607**（`feat(daily): ウィークリー活動報告に「隔週キープの数字」（BI）と「資料をつくる」（pptx の半自動生成）を足した`・2026-09-07）—
@@ -2429,7 +2429,7 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
      Vitest・サンプルのパックからの pptx 出力の XML・シード済みDBでの API の挙動で確かめた）
   `npm run reviews:debt` はこの環境のトークンでは 401 のため、GitHub MCP の `get_reviews` /
   `get_review_comments` で直接確認した（23 スレッドすべて `is_resolved: true`）。
-  changelog は [docs/changelog.d/claude-weekly-report-bi-powerpoint-kh02s2.md](../changelog.d/claude-weekly-report-bi-powerpoint-kh02s2.md)。
+  changelog は docs/changelog.d/claude-weekly-report-bi-powerpoint-kh02s2.md（v4.6.0 リリースで docs/version-history.md へ統合済み）。
   **未検証で残したもの**: `npm run build:all` → `check:frozen` は 1 巡目の段で通し、以後は `build:changed` と
   CI の `build` ジョブのみ／実ブラウザでの PC・スマホ確認は 1 巡目の段まで（上の④）／権限別 403 は
   API で確認し画面では見ていない。
@@ -2459,7 +2459,7 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   step-summary出力そのものなので`verify:up`では検証できず、行の削除を目視確認したのみ。
   ③（検索インデックス）は`npx tsc -b client`・`npm run lint`のみで、⌘K検索の実ブラウザ確認は
   していない。3件とも返信・スレッド解決はマージ前に完了させた。
-  changelog は [docs/changelog.d/claude-telop-cg-stage-f-retire-awards.md](../changelog.d/claude-telop-cg-stage-f-retire-awards.md)。
+  changelog は docs/changelog.d/claude-telop-cg-stage-f-retire-awards.md（v4.6.0 リリースで docs/version-history.md へ統合済み）。
   **未検証で残したもの**: `npm run build`（テロップCG以外の全クライアントのフルビルド）、
   実ブラウザでのPC/スマホ確認、権限別403の画面確認（本PRはUI変更なし・サーバー配線と
   ドキュメントのみのため相対的に優先度は低いと判断）。
@@ -2476,7 +2476,7 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   1本のPRにまとめて実装した回（段B〜Eはマルチエージェントのワークフローで実装・検証。
   詳細は [docs/design/v4/graphics-redesign.md](../design/v4/graphics-redesign.md) §11
   「段A 実装メモ」〜「段E 実装メモ」・changelog は
-  [docs/changelog.d/claude-telop-cg-redesign-e4bwep.md](../changelog.d/claude-telop-cg-redesign-e4bwep.md)）。
+  docs/changelog.d/claude-telop-cg-redesign-e4bwep.md（v4.6.0 リリースで docs/version-history.md へ統合済み））。
   作成14:42:45Z → CI green 15:04:41〜15:05:04Z（作成から約22分。作成直後に本物の
   マージコンフリクトを検出・解消し、途中でCIが1周走っている）→ terai-takehiro 本人が
   マージ15:06:29Z（CI greenから約1分半）。**`get_reviews` 0件**（API で直接確認。
@@ -2621,7 +2621,7 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   制作技術支援＞スケジュール表を「MCP くらいしかできる機能がなく、根本的な機能性が皆無」という
   ご指摘から、段A〜C相当（7本のPR分）を1つのブランチにまとめて作り直した回
   （詳細は [docs/design/v4/qsheet-v4-coding/14-schedule-v2-plan.md](../design/v4/qsheet-v4-coding/14-schedule-v2-plan.md)、
-  changelog は [docs/changelog.d/claude-schedule-table-features-uiux-kskvms.md](../changelog.d/claude-schedule-table-features-uiux-kskvms.md)）。
+  changelog は docs/changelog.d/claude-schedule-table-features-uiux-kskvms.md（v4.6.0 リリースで docs/version-history.md へ統合済み））。
   作成から約5分でCI green・その5秒後にユーザー自身がマージ。⚠️ **`chatgpt-codex-connector` の
   Code Review は usage limits で一度も実行されなかった**（PRコメントで明示: "You have reached
   your Codex usage limits for code reviews"）。**Security Review は実行され、マージの約35秒後に
