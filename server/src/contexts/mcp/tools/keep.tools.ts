@@ -27,6 +27,8 @@ export function registerKeepTools(server: McpServer): void {
         'calendars (会議の月と翌月の稼働カレンダー) / inview (直近の定期内覧会。満足度は手入力) / minutes (前回議事録)。' +
         '金額は円の整数・比率は % (小数1桁)・判定と比率はサーバーが計算済み (手計算しない)。' +
         '凍結した版 (週報の確定時点の数字) があればそれを返し (frozen=true)、無ければいまの数字 (frozen=false・pack.frozen_at=null)。' +
+        '週報の確定は計上会社 4 × お客様区分 3 の 12 通りを全部凍結する。meeting_frozen はその会議日に全体 (all/all) の凍結版があるか — ' +
+        'frozen=false なのに true なら、その絞り込みの版だけが無く「いまの数字」を返している (確定した週報の数字とは限らない)。' +
         'live=true でいまの数字を強制。meeting_date 省略時は次回の開催日 (議事録の next_meeting_date。無ければ次の水曜)。',
       inputSchema: {
         meeting_date: z.string().regex(DATE_RE).optional().describe('会議の開催日 YYYY-MM-DD (省略時=次回の開催日)'),
@@ -71,11 +73,16 @@ export function registerKeepTools(server: McpServer): void {
       title: '凍結した定例報告パックの一覧',
       description:
         '凍結した定例報告パックの一覧 (id / 会議日 / 絞り込み / 凍結した時刻と人 / 結んだ週報の id)。中身は含まない。' +
-        '同じ会議日に複数の版があるのは凍結し直したもの (新しい版が先。前の版は消さない)。',
+        '同じ会議日に複数の版があるのは凍結し直したもの (新しい版が先。前の版は消さない)。' +
+        '週報の確定は絞り込み 12 通り (計上会社 4 × お客様区分 3) を全部凍結するので、会議日ごとに 1 行ずつ見たいときは entity_code=all, segment=all で絞る。',
       inputSchema: {
         limit: z.number().int().min(1).max(100).default(20),
+        entity_code: z.enum(['all', 'GJV', 'GSS', 'GMO']).optional().describe('計上会社の絞り込みで絞る (省略時=全部の絞り込みの版を並べる)'),
+        segment: z.enum(['all', 'internal', 'external']).optional().describe('お客様の区分の絞り込みで絞る (省略時=全部)'),
       },
     },
-    async (args) => runTool(async () => ok({ packs: await listPacks(clampLimit(args.limit, 20)) })),
+    async (args) => runTool(async () => ok({
+      packs: await listPacks({ limit: clampLimit(args.limit, 20), entity: args.entity_code ?? null, segment: args.segment ?? null }),
+    })),
   );
 }

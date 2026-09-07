@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth, requireAnyPermission, requirePermission } from '../../../shared/middleware/auth';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import {
-  getPackForMeeting, freezePack, listPacks, parseScope, getInputs, upsertInput, assertMeetingDate,
+  getPackForMeeting, freezeMeeting, listPacks, parseScope, getInputs, upsertInput, assertMeetingDate,
 } from '../services/keep-pack-store.service';
 import { resolveMeetings } from '../services/keep-pack.service';
 import { getSlackDraftForMeeting } from '../services/keep-slack-draft.service';
@@ -22,7 +22,8 @@ const canEdit = [requireAuth, requirePermission('dailyops', 'editor')] as const;
  * パック。凍結した版があればそれ、無ければ（または `live=1`）いまの数字。
  *   ?meeting=YYYY-MM-DD（省略時は次回の開催日）&entity_code=all|GJV|GSS|GMO&segment=all|internal|external&live=1
  * `entity_code` は計上会社（2026年10月の事業再編・`legal_entities.code`）。知らない値は 400
- * → { pack, frozen, pack_id }
+ * → { pack, frozen, pack_id, meeting_frozen }（`meeting_frozen` = この会議日に全体／全区分の凍結版があるか。
+ *    `frozen: false` なのに true なら、その絞り込みの版だけが無く「いまの数字」を返している）
  */
 router.get('/keep/pack', ...canRead, async (req, res) => {
   const meeting = req.query.meeting ? String(req.query.meeting) : null;
@@ -44,24 +45,34 @@ router.get('/keep/slack-draft', ...canRead, async (req, res) => {
 });
 
 /**
- * 凍結（週報の確定から呼ぶのが本線。単独でも可）。body { meeting_date, entity_code?, segment?, ops_report_id? }
- * → { pack_id, frozen_at, meeting_date }。同じ会議日・同じ絞り込みを 60 秒以内に凍結し直しても
- * 版は増えず、直前の版の id が返る（`freezePack`）
+ * 凍結（週報の確定から呼ぶのが本線。単独でも可）。body { meeting_date, ops_report_id? }
+ * **会議日の絞り込み 12 通りを全部**凍結し（`freezeMeeting`）、全体／全区分の版を返す
+ * → { pack_id, frozen_at, meeting_date, scopes_frozen }。同じ会議日を 60 秒以内に凍結し直しても中身が同じなら
+ * 版は増えず、直前の版の id が返る（`freezePack`）。絞り込み単体の凍結は受け付けない（全体だけ凍って
+ * 絞り込みが「いまの数字」に落ちる状態を作らない） — body の entity_code / segment は無視する
  */
 router.post('/keep/pack/freeze', ...canEdit, async (req, res) => {
-  const { meeting_date, entity_code, segment, ops_report_id } = req.body ?? {};
+  const { meeting_date, ops_report_id } = req.body ?? {};
   if (!meeting_date) throw new AppError(400, 'VALIDATION_ERROR', 'meeting_date は必須です');
-  const scope = parseScope(entity_code, segment);
-  const frozen = await freezePack({
-    meetingDate: String(meeting_date), entity: scope.entity, segment: scope.segment,
-    opsReportId: ops_report_id ? String(ops_report_id) : null, userId: req.user!.id,
+  const frozen = await freezeMeeting({
+    meetingDate: String(meeting_date), opsReportId: ops_report_id ? String(ops_report_id) : null, userId: req.user!.id,
   });
-  res.status(201).json({ success: true, data: { pack_id: frozen.id, frozen_at: frozen.frozen_at, meeting_date: frozen.pack.meeting_date } });
+  res.status(201).json({
+    success: true,
+    data: { pack_id: frozen.id, frozen_at: frozen.frozen_at, meeting_date: frozen.pack.meeting_date, scopes_frozen: frozen.scopes_frozen },
+  });
 });
 
-/** 凍結した版の一覧（中身は運ばない） */
-router.get('/keep/packs', ...canRead, async (_req, res) => {
-  res.json({ success: true, data: await listPacks() });
+/**
+ * 凍結した版の一覧（中身は運ばない）。?limit=1..500（既定 100）&entity_code=&segment= で絞れる —
+ * 週報の確定は 12 通りの絞り込みを全部凍結するので、会議日ごとに 1 行ずつ見たいときは entity_code=all&segment=all
+ */
+router.get('/keep/packs', ...canRead, async (req, res) => {
+  const limit = req.query.limit != null ? Number(req.query.limit) : undefined;
+  if (limit != null && !Number.isInteger(limit)) throw new AppError(400, 'VALIDATION_ERROR', 'limit は整数で指定してください');
+  const entity = req.query.entity_code != null ? parseScope(req.query.entity_code, 'all').entity : null;
+  const segment = req.query.segment != null ? parseScope('all', req.query.segment).segment : null;
+  res.json({ success: true, data: await listPacks({ limit, entity, segment }) });
 });
 
 /** 次回・前回の開催日（議事録から。無ければ次の水曜と 14 日前） */

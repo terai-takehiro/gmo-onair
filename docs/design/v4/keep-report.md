@@ -228,7 +228,11 @@ judge = higher_better: actual ≧ budget → ○ / lower_better: actual ≦ budg
 - `keep_report_packs`（`id, meeting_date, scope, pack JSONB, generated_at, frozen_at, frozen_by`）。
   「いまの数字」は保存しない（毎回計算）。週報の確定で `frozen_at` を入れ、`ops_reports.payload.keep = { pack_id }` で結ぶ
 - 凍結した版は書き換えない。数字を直したいときは元データ（売上・予算）を直して **凍結し直す**（新しい版を作り、前の版は残す）
-- MCP `get_keep_report_pack({ meeting_date?, entity_code? })`: 凍結版があればそれ、無ければいまの数字（`frozen_at: null` で分かる）
+- **凍結は絞り込み 12 通り（計上会社 4 × お客様区分 3）を全部**（`freezeMeeting`。週報の確定と `POST /keep/pack/freeze` の両方）。
+  全体／全区分だけ凍結すると、画面のチップ・Slack・MCP の絞り込み付きの読みが凍結版を外れて「いまの数字」に落ち、
+  確定した週報と違う数字が出る。`GET /keep/pack` の `meeting_frozen` は「この会議日に全体の凍結版があるか」 —
+  `frozen: false` なのに true なら、その絞り込みの版だけが無い（12 通りを凍結する前の古い凍結）ので、画面はそう書く
+- MCP `get_keep_report_pack({ meeting_date?, entity_code?, segment? })`: 凍結版があればそれ、無ければいまの数字（`frozen_at: null` で分かる）
 
 ---
 
@@ -345,9 +349,10 @@ judge = higher_better: actual ≧ budget → ○ / lower_better: actual ≦ budg
 
 | 種類 | 口 | 権限 |
 |---|---|---|
-| GET | `/dailyops/keep/pack?meeting=YYYY-MM-DD&entity_code=all&segment=all` — いまの数字（凍結版があればそれ）。`entity_code` は GJV／GSS／GMO か `all`（main の帳簿の列と同じ名前。旧 `entity` は廃止） | `dailyops` or `sales` reader |
+| GET | `/dailyops/keep/pack?meeting=YYYY-MM-DD&entity_code=all&segment=all` — いまの数字（凍結版があればそれ）→ `{ pack, frozen, pack_id, meeting_frozen }`。`entity_code` は GJV／GSS／GMO か `all`（main の帳簿の列と同じ名前。旧 `entity` は廃止） | `dailyops` or `sales` reader |
 | GET | `/dailyops/keep/slack-draft?meeting=&entity_code=&segment=` — Slack の定例投稿の文（パックから決定的に組む） | `dailyops` or `sales` reader |
-| POST | `/dailyops/keep/pack/freeze`（週報の確定から呼ぶ。単独でも可） | `dailyops` editor |
+| POST | `/dailyops/keep/pack/freeze`（週報の確定から呼ぶ。単独でも可。**12 通りの絞り込みを全部**凍結し、全体／全区分の `pack_id` と `scopes_frozen` を返す） | `dailyops` editor |
+| GET | `/dailyops/keep/packs?limit=100&entity_code=&segment=` — 凍結した版の一覧（中身は運ばない。会議日ごとに 1 行なら `entity_code=all&segment=all`） | `dailyops` or `sales` reader |
 | GET/PUT | `/dailyops/keep/decks/:meeting` — 構成。PUT は差分を記録（§10） | `dailyops` editor |
 | POST | `/dailyops/keep/decks/:meeting/export` — pptx を作り Box へ置く。返り値は Box の file id とダウンロード | `dailyops` editor |
 | PUT | `/dailyops/keep/inputs/:meeting` — 手入力の数字 | `dailyops` editor |

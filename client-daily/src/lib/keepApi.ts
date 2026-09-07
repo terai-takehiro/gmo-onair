@@ -26,6 +26,11 @@ export interface KeepPackResponse {
   /** 凍結した版を返したか（`false` なら「いまの数字」） */
   frozen: boolean;
   pack_id: string | null;
+  /**
+   * この会議日に全体／全区分の凍結版があるか。`frozen: false` なのに true なら、いま選んでいる絞り込みの版だけが無く
+   * 「いまの数字」を見ている（週報の確定は 12 通りの絞り込みを全部凍結するので、古い凍結のときだけ起きる）
+   */
+  meeting_frozen: boolean;
 }
 
 export interface KeepMeetings {
@@ -36,6 +41,9 @@ export interface KeepMeetings {
 export interface KeepPackSummary {
   id: string;
   meeting_date: string;
+  /** 絞り込み（計上会社 all/GJV/GSS/GMO・お客様区分 all/internal/external）。1 回の確定で 12 行できる */
+  scope_entity: EntityScope;
+  scope_segment: SegmentScope;
   frozen_at: string | null;
 }
 
@@ -89,11 +97,14 @@ export function useKeepMeetings() {
   });
 }
 
-/** 凍結したパックの一覧（会議日の選択肢に使う） */
+/**
+ * 凍結したパックの一覧（会議日の選択肢と「この絞り込みの凍結版があるか」に使う）。
+ * 1 回の確定で 12 行（絞り込みの全組み合わせ）できるので、上限いっぱい（500 行 ≒ 40 回の確定）まで取る
+ */
 export function useKeepPacks() {
   return useQuery({
     queryKey: ['keep-packs'],
-    queryFn: () => api.get('/dailyops/keep/packs').then((r) => r.data.data as KeepPackSummary[]),
+    queryFn: () => api.get('/dailyops/keep/packs', { params: { limit: 500 } }).then((r) => r.data.data as KeepPackSummary[]),
     staleTime: 60_000,
   });
 }

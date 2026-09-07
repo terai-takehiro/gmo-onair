@@ -2739,8 +2739,11 @@ export class ProjectService {
    * 除外しないと、社内売上と社内仕入が同額で両方に乗り、粗利の円グラフは
    * 変わらないが `total_revenue`/`total_purchase`（＝粗利率の分母）が水増しされる。
    *
-   * `revenue_count` は数えた確定売上の**行数**（直接＋按分）。「実績があるか」は合計ではなくこれで見る —
+   * `revenue_count` は**確定**（`status = 'confirmed'`）売上の行数（直接＋按分）。「実績があるか」は合計ではなくこれで見る —
    * 合計 > 0 で見ると、値引き調整で合計が 0 や負になった実績が「無い」扱いになり見積に戻る（PR #607 レビュー）。
+   * 按分の**合計**は台帳（`TOTAL_REVENUE_SQL`）と同じく status を見ない（数え方を 2 つにしない）が、**行数だけは
+   * confirmed に絞る** — グループ請求は概算（`status = 'estimate'`）でも作れるので、その按分を「実績がある」と
+   * 数えると、案件ページ・実施報告が概算の按分額を実績として出す（PR #607 レビュー 6 回目）。
    */
   async getSummaries(ids: string[]): Promise<Map<string, { total_revenue: number; total_purchase: number; gross_profit: number; gross_margin: number; revenue_count: number }>> {
     const map = new Map<string, { total_revenue: number; total_purchase: number; gross_profit: number; gross_margin: number; revenue_count: number }>();
@@ -2770,7 +2773,7 @@ export class ProjectService {
       [ids]
     ) as { project_id: string; total: unknown; cnt: unknown }[];
     const allocatedRev = await queryAll(
-      `SELECT ra.project_id, COUNT(*) as cnt, SUM(ra.allocated_amount) as total
+      `SELECT ra.project_id, COUNT(*) FILTER (WHERE r.status = 'confirmed') as cnt, SUM(ra.allocated_amount) as total
        FROM revenue_allocations ra
        JOIN revenues r ON r.id = ra.revenue_id AND r.deleted_at IS NULL
        WHERE ra.project_id = ANY(?)

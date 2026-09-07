@@ -12,6 +12,8 @@
  * - 週報との結びは両側で持つ: `keep_report_packs.ops_report_id` と `ops_reports.payload.keep`。
  *   `ops_report_id` は存在する週報だけ（知らない id は 400。FK の 500 にしない）
  * - `scope_entity` は計上会社 `entity_code`（all / GJV / GSS / GMO・2026年10月の事業再編）
+ * - **凍結は絞り込み 12 通り（計上会社 4 × お客様区分 3）を全部**（`freezeMeeting`）。全体／全区分だけ凍結すると、
+ *   画面のチップ・Slack・MCP の絞り込み付きの読みが凍結版を外れて「いまの数字」に落ち、確定した週報と違う数字が出る
  *
  * HTTP（`keep.routes.ts`）と MCP（`keep.tools.ts`）は **`getPackForMeeting` の1本**を通る
  * （画面と AI が同じ答えを読む）。
@@ -21,12 +23,16 @@ import { queryAll, queryOne, execute, withTransaction } from '../../../shared/db
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { buildPack, resolveMeetingDateForWeek, resolveMeetings } from './keep-pack.service';
 import { assertMeetingDate } from './keep-pack-inputs.service';
-import { isEntityScope, type EntityScope, type KeepReportPack, type SegmentScope } from './keep-pack.types';
+import { BUSINESS_ENTITIES, isEntityScope, type EntityScope, type KeepReportPack, type SegmentScope } from './keep-pack.types';
 import { samePackContent } from './keep-pack-identity';
 
 export { getInputs, upsertInput, assertMeetingDate } from './keep-pack-inputs.service';
 
 export interface PackScope { entity: EntityScope; segment: SegmentScope }
+
+/** 絞り込みの全組み合わせ（計上会社 4 × お客様区分 3 ＝ 12）。画面・Slack・MCP が選べる値と同じ。先頭は全体／全区分 */
+export const ALL_PACK_SCOPES: readonly PackScope[] = (['all', ...BUSINESS_ENTITIES] as EntityScope[])
+  .flatMap((entity) => (['all', 'internal', 'external'] as SegmentScope[]).map((segment) => ({ entity, segment })));
 
 /** クエリ／引数の計上会社（`entity_code`）・区分を読む。無ければ `all`、知らない値は 400 */
 export function parseScope(entityRaw: unknown, segmentRaw: unknown): PackScope {
@@ -100,6 +106,39 @@ export async function freezePack(opts: {
   });
 }
 
+/**
+ * 会議日の**全部の絞り込み**（`ALL_PACK_SCOPES`・12 通り）を凍結する。週報の確定と `POST /keep/pack/freeze` の両方がここを通る。
+ * 全体／全区分を先に凍結して返し（週報が結ぶのはこの版）、残りは 1 つ失敗しても他を続ける（全体の凍結を失敗にしない・
+ * 失敗は warn に残す）。12 通り × 数十本の SELECT でも合計 0.3 秒ほど（検証DBの実測）。
+ * `scopes_frozen` は凍結できた絞り込みの数（12 なら全部）。
+ */
+export async function freezeMeeting(opts: {
+  meetingDate: string; opsReportId?: string | null; userId?: string | null;
+}): Promise<FrozenPack & { scopes_frozen: number }> {
+  const primary = await freezePack({ ...opts, entity: 'all', segment: 'all' });
+  let scopesFrozen = 1;
+  for (const scope of ALL_PACK_SCOPES) {
+    if (scope.entity === 'all' && scope.segment === 'all') continue;
+    try {
+      await freezePack({ ...opts, entity: scope.entity, segment: scope.segment });
+      scopesFrozen++;
+    } catch (err) {
+      console.warn(`[keep-pack] 絞り込み ${scope.entity}/${scope.segment} の凍結に失敗（全体／全区分は凍結済み）:`, opts.meetingDate, (err as Error).message);
+    }
+  }
+  return { ...primary, scopes_frozen: scopesFrozen };
+}
+
+/** その会議日・その絞り込みの凍結済みの版があるか（中身は読まない） */
+async function hasFrozenPack(meetingDate: string, entity: EntityScope, segment: SegmentScope): Promise<boolean> {
+  const row = await queryOne(
+    `SELECT 1 AS one FROM keep_report_packs
+      WHERE meeting_date = ? AND scope_entity = ? AND scope_segment = ? AND frozen_at IS NOT NULL LIMIT 1`,
+    [meetingDate, entity, segment],
+  );
+  return !!row;
+}
+
 /** その会議日・その絞り込みの凍結済みの最新の版。無ければ null */
 export async function getFrozenPack(meetingDate: string, entity: EntityScope, segment: SegmentScope): Promise<FrozenPack | null> {
   const row = await queryOne(
@@ -123,14 +162,24 @@ export interface PackListRow {
   ops_report_id: string | null;
 }
 
-/** 凍結した版の一覧（新しい会議日・新しい凍結が先）。中身（pack）は運ばない */
-export async function listPacks(limit = 100): Promise<PackListRow[]> {
+/**
+ * 凍結した版の一覧（新しい会議日・新しい凍結が先）。中身（pack）は運ばない。
+ * 週報の確定は 12 通りの絞り込みを全部凍結する（`freezeMeeting`）ので、会議日ごとに 1 行ずつ見たいときは
+ * `entity: 'all', segment: 'all'` で絞る。`limit` は 1〜500（既定 100）
+ */
+export async function listPacks(opts: { limit?: number; entity?: EntityScope | null; segment?: SegmentScope | null } = {}): Promise<PackListRow[]> {
+  const where: string[] = [];
+  const params: unknown[] = [];
+  if (opts.entity) { where.push('scope_entity = ?'); params.push(opts.entity); }
+  if (opts.segment) { where.push('scope_segment = ?'); params.push(opts.segment); }
+  params.push(Math.min(500, Math.max(1, opts.limit ?? 100)));
   const rows = await queryAll(
     `SELECT id, meeting_date, scope_entity, scope_segment, generated_at, frozen_at, frozen_by, ops_report_id
        FROM keep_report_packs
+      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
       ORDER BY meeting_date DESC, frozen_at DESC NULLS LAST, created_at DESC
       LIMIT ?`,
-    [Math.min(500, Math.max(1, limit))],
+    params,
   );
   return rows.map((r) => ({
     id: String(r.id),
@@ -149,6 +198,12 @@ export interface PackResponse {
   /** 凍結した版を返したか。false は「いまの数字」（`pack.frozen_at` も null） */
   frozen: boolean;
   pack_id: string | null;
+  /**
+   * この会議日に**全体／全区分**の凍結版があるか。`frozen: false` なのに true なら、その絞り込みの版だけが無い
+   * （`freezeMeeting` より前に凍結した会議日か、その絞り込みの凍結だけ失敗した）＝ いまの数字を返している。
+   * 画面はこれを見て「凍結済みだがこの絞り込みの版は無い」と書く（黙って凍結版のふりをしない）
+   */
+  meeting_frozen: boolean;
 }
 
 /**
@@ -162,17 +217,19 @@ export async function getPackForMeeting(opts: {
   const meetingDate = opts.meetingDate
     ? assertMeetingDate(opts.meetingDate, 'meeting')
     : (await resolveMeetings()).next_meeting_date;
+  const meetingFrozen = await hasFrozenPack(meetingDate, 'all', 'all');
   if (!opts.live) {
     const frozen = await getFrozenPack(meetingDate, entity, segment);
-    if (frozen) return { pack: frozen.pack, frozen: true, pack_id: frozen.id };
+    if (frozen) return { pack: frozen.pack, frozen: true, pack_id: frozen.id, meeting_frozen: meetingFrozen };
   }
   const pack = await buildPack({ meetingDate, entity, segment });
-  return { pack, frozen: false, pack_id: null };
+  return { pack, frozen: false, pack_id: null, meeting_frozen: meetingFrozen };
 }
 
 /**
  * 週報（`weekly_activity`）を確定したときに呼ぶ。その週にある会議日（無ければ次の開催日）の
- * パックを 全体／全区分 で凍結し、`ops_reports.payload.keep = { pack_id, meeting_date }` を
+ * パックを **12 通りの絞り込み全部**で凍結し（`freezeMeeting`。週報が結ぶのは全体／全区分の版）、
+ * `ops_reports.payload.keep = { pack_id, meeting_date }` を
  * **他の鍵を残したまま**足す（`||` は上の階層の鍵だけ差し替える。`stats` は消えない）。
  *
  * ⚠️ **ここで失敗しても週報の確定は成功させる**（記録の失敗で業務を止めない）。
@@ -181,7 +238,7 @@ export async function getPackForMeeting(opts: {
 export async function freezeKeepPackForWeeklyReport(reportId: string, periodKey: string, userId: string | null): Promise<void> {
   try {
     const meetingDate = await resolveMeetingDateForWeek(periodKey);
-    const { id } = await freezePack({ meetingDate, entity: 'all', segment: 'all', opsReportId: reportId, userId });
+    const { id } = await freezeMeeting({ meetingDate, opsReportId: reportId, userId });
     await execute(
       `UPDATE ops_reports
           SET payload = COALESCE(payload, '{}'::jsonb) || ?::jsonb, updated_at = NOW()

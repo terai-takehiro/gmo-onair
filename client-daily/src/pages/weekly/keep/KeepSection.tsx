@@ -74,7 +74,9 @@ export function KeepSection({ report, isMobile }: { report: OpsReport; isMobile:
 
   const counts = countsOf(base.data?.pack ?? q.data?.pack ?? null);
   const options = meetingOptions(meeting, meetings.data, packs.data);
-  const frozenExists = !!packs.data?.some((p) => p.meeting_date === meeting);
+  // 「凍結版がある」は**いま選んでいる絞り込み**で見る（会議日だけで見ると、全体は凍っていても
+  // この絞り込みは「いまの数字」なのに「凍結した数字に戻す」が出る）
+  const frozenExists = !!packs.data?.some((p) => p.meeting_date === meeting && p.scope_entity === entity && p.scope_segment === segment);
 
   return (
     <div className="flex flex-col gap-4">
@@ -140,6 +142,7 @@ export function KeepSection({ report, isMobile }: { report: OpsReport; isMobile:
           frozen={q.data.frozen}
           live={live}
           frozenExists={frozenExists}
+          meetingFrozen={q.data.meeting_frozen}
           previous={meetings.data?.previous_meeting_date ?? null}
           next={meetings.data?.next_meeting_date ?? null}
           meeting={meeting}
@@ -168,8 +171,10 @@ export function KeepSection({ report, isMobile }: { report: OpsReport; isMobile:
 }
 
 /** 「いまの数字か、凍った数字か」を言う帯。右端に前回／今回の切り替え */
-function InfoBar({ pack, frozen, live, frozenExists, previous, next, meeting, onSet }: {
+function InfoBar({ pack, frozen, live, frozenExists, meetingFrozen, previous, next, meeting, onSet }: {
   pack: KeepReportPack; frozen: boolean; live: boolean; frozenExists: boolean;
+  /** この会議日に全体／全区分の凍結版があるか（`frozen` が false でこれが true なら、この絞り込みの版だけが無い） */
+  meetingFrozen: boolean;
   previous: string | null; next: string | null; meeting: string | null;
   onSet: (patch: Record<string, string | null>) => void;
 }) {
@@ -188,6 +193,12 @@ function InfoBar({ pack, frozen, live, frozenExists, previous, next, meeting, on
           <>
             <span className="font-number">{timeLabel(pack.frozen_at)}</span> に凍結した数字です。
             <span className="hidden lg:inline">資料と Slack の投稿はこの版を読みます。数字を直したいときは元のデータを直してから、もう一度確定してください</span>
+          </>
+        ) : !live && meetingFrozen ? (
+          <>
+            この会議日は凍結済みですが、いま選んでいる絞り込みの凍結版が無いので、
+            いま ONAiR にある数字（<span className="font-number">{timeLabel(pack.generated_at)}</span> 時点）を出しています。
+            <span className="hidden lg:inline">確定した週報の数字とは限りません。この週の報告をもう一度<strong className="font-bold">確定</strong>すると、絞り込みも一緒に凍ります</span>
           </>
         ) : (
           <>
