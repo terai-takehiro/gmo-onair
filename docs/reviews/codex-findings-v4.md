@@ -1025,6 +1025,15 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   変更で、コードには触っていない。マージ時点で指摘が付いていなければ「レビュー0件のままマージ」に当たる —
   記録のための PR を連ねないため、この行で先に書いておく（指摘が付いたら別の PR で表に移す）
 
+- **#611**（`feat(daily): 隔週キープの資料のヘッダー・フッター・ロゴを GMO流会議フォーマット Ver.2.5 の実物から取り込んだ`・2026-09-07）—
+  作成 02:55:59Z → CI green 03:00:43Z（`checks` 02:59:43Z・`build` 03:00:43Z）→ terai-takehiro 本人がマージ 03:01:56Z
+  （**CI green から約 73 秒後**）。作成の 4 秒後（02:56:03Z）に Codex が「You have reached your Codex usage limits for
+  code reviews」を返し、📝 Code Review は走っていない（🔒 Security Review は 03:00:57Z に完了・findings なし）。
+  `get_reviews`・`get_review_comments` とも 0 件（GitHub MCP で直接確認。`npm run reviews:debt` はこの環境のトークンでは 401）。
+  26 ファイル・+996/−206・1 コミット（a432dc0）。pptx 出力・プレビュー・資料の組み直し（`carryOver`）の挙動と
+  `jszip` の依存追加を含むコードの変更が、誰にも読まれずに入っている。**表に移す指摘は無い**が、
+  意図して残した判断・未検証のまま入れたものは下の一覧の #611 に書き出した
+
 ### #320 で意図して残した判断（レビュー0件のため自分で書き出したもの）
 
 ⚠️ **どれも「気づかなかった」ではなく「今回は直さないと決めた」もの**です。
@@ -2317,6 +2326,35 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 ---
 
 ## 一覧（PR の新しい順）
+
+- **#611**（`feat(daily): 隔週キープの資料のヘッダー・フッター・ロゴを GMO流会議フォーマット Ver.2.5 の実物から取り込んだ`・2026-09-07）—
+  ご依頼「パワポの添付ファイルから展開し、ヘッダー・フッター等はここから抽出（ロゴデータもちゃんと取る）」を受け、
+  実物の `GMO流会議フォーマット_Ver_2_5.pptx` を unzip して XML の EMU から題・帯 2 本・フッター・表紙・Appendix・締めの
+  位置をインチで読み、`FORMAT_CHROME`（shared）を正に pptx とプレビューを同じ位置で描くようにした回
+  （26 ファイル・+996/−206）。ロゴ 3 種は実物の SVG（`formatAssets.ts`）、pptx は PNG を置いて後処理で SVG を結びつける
+  （`keep-pptx-svg.service.ts`・`jszip@3.10.1` 追加）。締めのページ `closing` を標準の構成に足し、資料の組み直しで
+  部品の位置を無条件に前の版から引き継いでいた `carryOver` を「人が直したもの（`options.moved`）だけ残す」に変えた。
+  **レビュー0件でマージ（Codex が利用上限で Code Review を走らせていない。Security Review は findings なし）** —
+  上の「レビューが0件のままマージされた PR」を参照。**表に移す指摘なし**。
+  ⚠️ **意図して残した判断・未検証のまま入れたもの**（レビュー0件のため自分で書き出す）:
+  ① **PowerPoint で開いた見た目は未確認**（この環境に LibreOffice Impress が無く pptx を絵にできない）。XML の位置・色・
+     `asvg:svgBlip`・pptx skill の `validate.py`・Playwright でのプレビューで確かめた。特に SVG の表示（Keynote・Google
+     スライド・古い版は PNG に落ちる）、帯の文の前の全角空白 3 つ、表紙の会議名の折り返しは実機で見る必要がある
+  ② 題と表紙の会議名の「幅に収まる大きさ」（server `fitPt`・client `fitPx`）は文字数からの見積もり（全角 1em・半角 0.65em・
+     4% の余裕）。太字の欧文で折り返した実測から余裕を足したが、書体が置き換わる PC では外れうる（PowerPoint 側は
+     題に normAutofit も掛けている）
+  ③ 既にある資料（構成 JSON）は開き直しても位置は変わらず、**「数字を更新」か次の会議日の資料で**テンプレの位置に揃う。
+     この PR より前に人が x/y/w/h を直した部品は `options.moved` の印を持たないので、次の組み直しでテンプレの位置に
+     戻る（本番にはまだ資料が無く、検証環境のデータだけが対象）
+  ④ 締めのページ `closing`（`auto: false`）は既にある資料には自動で入らない — 一覧の「追加…」から足す
+  ⑤ 編集画面のキャンバスは下端に「ここに置くと…」の落とし口を常に重ねる（前からの挙動）ため、表紙の注意書き（79〜93%）が
+     編集中は隠れる。「通しで見る」と pptx には影響しない
+  ⑥ `npm run build` は手元では未実行（CI の `build` ジョブは成功）／`verify:ui` 未実行／権限別 403 の確認は権限を触って
+     いないため未実施／スマホは PC 専用画面のため対象外
+  ⑦ `jszip@3.10.1` を server の依存に足した（pptx の zip を開いて slide XML と .rels を文字列で直すため。DOM で往復させると
+     名前空間の接頭辞が変わって PowerPoint が開けなくなることがある）
+  changelog は [docs/changelog.d/claude-weekly-report-bi-powerpoint-kh02s2-format-chrome.md](../changelog.d/claude-weekly-report-bi-powerpoint-kh02s2-format-chrome.md)、
+  読んだ寸法の一覧は [docs/design/v4/keep-report.md §6.3](../design/v4/keep-report.md)。
 
 - **#607**（`feat(daily): ウィークリー活動報告に「隔週キープの数字」（BI）と「資料をつくる」（pptx の半自動生成）を足した`・2026-09-07）—
   隔週キープ資料の数値部分を「定例報告パック」に集約し、週報の確定で凍結、BI タブ・資料ビルダー（pptx）・
