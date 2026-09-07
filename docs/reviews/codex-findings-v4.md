@@ -3308,6 +3308,24 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
      畳んだ状態から始めるよう `VersionHistoryModal.tsx` を直した
   - **表に移す指摘なし**（1件のみで、マージ前に修正・返信・スレッド解決まで完了）
 
+- **#620**（ウィークリー活動報告に「次の週を作る」ボタンを追加・2026-09-07）—
+  ユーザーから「週報が7月の週で止まっているが、どうやって追加するのか」と指摘を受けて実装。
+  週報はAIの定期実行で自動生成する設計だったが、そのトリガーが未実装のままで、手動で
+  週の箱を作る入口も画面のどこにも無かったための対応。2体の並列エージェントで
+  `WeekRail`/`WeekPickerSheet`（UI）と `WeeklyDetailPage`（配線・ロジック）を分担実装した。
+  ⚠️ **`npm run reviews:debt` はこの環境のトークンでは401**（過去の棚卸しと同じ）。
+  `get_review_comments` で直接確認、届いた指摘は**この場で修正・返信・スレッド解決まで
+  完了**させてから棚卸しに移している（未対応で残った指摘は無し）:
+  - **⭕️ P2×1**（スマホの週ピッカー `WeekPickerSheet` の「次の週を作る」ボタンが
+    `setOpen(false)` を呼ばずに `navigate` していたため、React Router が同じ
+    `WeeklyDetailPage`/`WeekPickerSheet` インスタンスを再利用し、シートが開いたまま
+    新しくできた週の中身を隠していた）→ 既存の週の行のクリックハンドラと同じく、
+    押した時点で先にシートを閉じるよう修正（e3677c8）
+  - **意図して残した未検証事項**: 実ブラウザでのPC/スマホ目視確認・`npm run verify:ui`・
+    実DB（Postgres）での保存→読み直し確認・権限のない利用者での403確認はいずれも未実施
+    （`npm run typecheck`/`npm run lint`/`client-daily`の`npm run build`/`shared`のVitest
+    2240件は実施・全通過）
+
 ## この文書の使い方
 
 **これは決めごとです**（[docs/branching.md](../branching.md#マージしたらその-pr-のレビューを棚卸しに移す必須)）。
