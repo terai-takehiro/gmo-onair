@@ -98,7 +98,38 @@ router.get('/inbox', requireAuth, requireAnyPermission(['sales', 'dailyops']), a
    * migration 247 で「ストックは見直す日が来たら机に戻る」ようになったので、
    * 写したままだと**戻ってきたストックが受信箱にだけ出ない**（気づけない）。
    */
-  const INQUIRY_BASE = `FROM misc_inquiries i WHERE i.deleted_at IS NULL AND ${DESK_COND}`;
+  /**
+   * **案件になりえないタグは受信箱に出さない**（実測・ご指摘で発覚）。
+   *
+   * `record_inquiry`（`misc_inquiries`）は
+   * `.claude/skills/mail-intake/references/decision-table.md` の設計上、
+   * 社内周知・設備連絡・取材・協業打診なども意図的に拾う（「迷ったら拾う」原則 —
+   * 案件にしないものでも、捨てるより record_inquiry に残すほうが安全という判断）。
+   *
+   * だが**この受信箱は案件作成のレール（`projectNew/IntakeRail.tsx`）と共用**で、
+   * 並んだカードは「ネタのまま残す／失注にする／案件にする」の3択を毎回迫る —
+   * これは decision-table.md 自身が「案件にしない」と明言しているタグにまで
+   * 判断を強いていた（実測: 本番の misc_inquiries 全16件のうち16件が、
+   * 案件化せず見送りで終わっていた）。
+   *
+   * ここで外すのは decision-table.md #4・#8・#9・#10 が「案件にしない」と
+   * 書いているタグ（`category` は決定表が付ける先頭タグ1つを畳んだもの）だけ。
+   * **外したものは消えない** — 「入ってきた情報」一覧（`/daily/inquiries`。
+   * `GET /dailyops/inquiries*` という別の口を読んでおり、ここでは絞らない）には
+   * 今までどおり残り、見送り・ストック・チケット化ができる。**この受信箱だけ**、
+   * 案件化の芽があるものに絞る。
+   *
+   * ⚠️ **決定表にタグを足したら、ここも見直すこと。** 2つが食い違うと、
+   * 「案件にしない」はずのタグがまた受信箱に混ざる
+   */
+  const NON_PROJECT_CATEGORIES = [
+    '社内周知', '設備', '工事', '協業', '協業・提携', '取材', 'メディア掲載',
+    'セキュリティ', '採用', '先の話', '他スタジオ',
+  ];
+  const NON_PROJECT_CATEGORY_LIST = NON_PROJECT_CATEGORIES.map((c) => `'${c}'`).join(',');
+  const INQUIRY_BASE =
+    `FROM misc_inquiries i WHERE i.deleted_at IS NULL AND ${DESK_COND}
+     AND (i.category IS NULL OR i.category NOT IN (${NON_PROJECT_CATEGORY_LIST}))`;
   /*
     ⚠️ **見積書（quote）を外すのはやめました**（migration 281・2026-09 のご指示）。
 
