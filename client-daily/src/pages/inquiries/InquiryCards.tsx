@@ -29,7 +29,7 @@ import {
   IMPORTANCE_LABELS, INQUIRY_SOURCE_LABELS, formatDateJa, type MiscInquiry, type Importance,
 } from '@/lib/types';
 import { Destination, InquiryBody } from './InquiryBody';
-import { actionsFor, ACTION_LABEL, type InquiryAction } from './state';
+import { actionsFor, primaryActionFor, ACTION_LABEL, type InquiryAction } from './state';
 
 /** 重要度の色。**PC の行と同じ表**（画面ごとに変えない） */
 const IMP_TONE: Record<Importance, string> = {
@@ -114,8 +114,14 @@ export function InquiryCards({
                     key={t}
                     type="button"
                     onClick={() => onPickTag(t)}
-                    // 見た目は 20px の札のまま、**当たり判定だけ 44px**（PC の行と同じ考え方）
-                    className="v4-tap rounded-note text-badge border border-border bg-surface-subtle px-1.5 py-0.5 text-secondary-foreground"
+                    // 見た目は 20px の札のまま、**当たり判定だけ 44px**（PC の行と同じ考え方）。
+                    // **`予定候補` だけ目立たせる**（PC の行と同じ判定・decision-table.md）
+                    className={cn(
+                      'v4-tap rounded-note text-badge border px-1.5 py-0.5',
+                      t === '予定候補'
+                        ? 'border-primary-border bg-primary-surface text-primary'
+                        : 'border-border bg-surface-subtle text-secondary-foreground',
+                    )}
                   >
                     {t}
                   </button>
@@ -131,7 +137,7 @@ export function InquiryCards({
                 {actionsFor(q.state).map((a) => (
                   <Button
                     key={a}
-                    variant={a === 'ticket' ? 'default' : 'outline'}
+                    variant={a === primaryActionFor(q.tags) ? 'default' : 'outline'}
                     className="w-full justify-center"
                     disabled={pending}
                     onClick={() => onAction(q, a)}

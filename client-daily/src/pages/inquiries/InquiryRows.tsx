@@ -24,7 +24,7 @@ import {
   type MiscInquiry, type Importance,
 } from '@/lib/types';
 import { Destination, InquiryBody } from './InquiryBody';
-import { actionsFor, ACTION_LABEL, type InquiryAction } from './state';
+import { actionsFor, primaryActionFor, ACTION_LABEL, type InquiryAction } from './state';
 
 /** 重要度の色。**カードと同じ表**（画面ごとに変えない） */
 const IMP_TONE: Record<Importance, string> = {
@@ -113,7 +113,14 @@ export function InquiryRows({
                     key={t}
                     type="button"
                     onClick={() => onPickTag(t)}
-                    className="rounded-note text-badge border border-border bg-surface-subtle px-1.5 py-0.5 text-secondary-foreground"
+                    className={cn(
+                      'rounded-note text-badge border px-1.5 py-0.5',
+                      // **`予定候補` だけ目立たせる。** 日程が明確でカレンダー登録の
+                      // 候補と読めるものを、他のタグに埋もれさせない（decision-table.md）
+                      t === '予定候補'
+                        ? 'border-primary-border bg-primary-surface text-primary'
+                        : 'border-border bg-surface-subtle text-secondary-foreground',
+                    )}
                   >
                     {t}
                   </button>
@@ -146,7 +153,7 @@ export function InquiryRows({
                   return (
                     <Button
                       key={a}
-                      variant={a === 'ticket' ? 'default' : 'outline'}
+                      variant={a === primaryActionFor(q.tags) ? 'default' : 'outline'}
                       className="w-full justify-start"
                       disabled={pending}
                       onClick={() => onAction(q, a)}
