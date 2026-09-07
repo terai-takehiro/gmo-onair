@@ -1,1 +1,0 @@
-**PR #575・#578 のレビュー棚卸しを記録した**（決めごと: [docs/branching.md](docs/branching.md) 「マージしたら、その PR のレビューを棚卸しに移す」）。PR #578（同種のフォーム初期化レースの他画面調査・修正）は `chatgpt-codex-connector` の Code Review が usage limits で一度も実行されず（Security Review のみ実行され0件）、コード品質観点のレビューが届いていない状態でマージされたため記録した。あわせて、記載が漏れていた PR #575（案件編集画面のSPA遷移バグ修正。Code Review・Security Review とも実行され指摘0件）も棚卸しに追記した。

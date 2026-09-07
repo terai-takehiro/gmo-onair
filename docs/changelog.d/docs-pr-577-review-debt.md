@@ -1,1 +1,0 @@
-**PR #577（機材検索プルダウンで型名・Noも検索対象にした）のレビュー棚卸しを記録した**（決めごと: [docs/branching.md](docs/branching.md) 「マージしたら、その PR のレビューを棚卸しに移す」）。CI green（作成から約3分半）でマージ。Codex のセキュリティレビューは実際に完了し、指摘は0件だった（`get_reviews`・`get_review_comments` とも空。直前に「利用上限に達した」という別コメントが挟まったが、レビュー自体はその後正常に完了している）。表に移す指摘なし。[docs/reviews/codex-findings-v4.md](docs/reviews/codex-findings-v4.md) に記録した。
