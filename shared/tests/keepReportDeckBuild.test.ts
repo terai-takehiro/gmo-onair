@@ -32,7 +32,7 @@ describe('標準の構成（buildStandardPages）', () => {
   it('案件ページの相対パスは絶対パスに書き換わる', () => {
     const p = find(pages, 'project_page:prj-emb'); // 2件目
     expect(p.parts.map((x) => x.binding)).toEqual([
-      'project_pages[1].band', 'project_pages[1].confidence', 'project_pages[1].photos', 'project_pages[1].summary_lines',
+      'project_pages[1].band', 'project_pages[1].photos', 'project_pages[1].summary_lines',
       'project_pages[1].schedule', 'project_pages[1].key_dates', 'project_pages[1].intake_channel', 'project_pages[1].money',
     ]);
     expect(p.auto).toBe(true);
@@ -136,18 +136,22 @@ describe('binding の解決（resolveBinding）', () => {
   it('パスと配列の添字', () => {
     expect(value('pl_table:landing:all', 2)).toBe(pack.landing.all);
     expect(value('pipeline_table:samurai', 1)).toBe(pack.pipeline.samurai);
-    expect(value('project_page:prj-docl', 3)).toEqual(pack.project_pages[0].summary_lines);
+    expect(value('project_page:prj-docl', 2)).toEqual(pack.project_pages[0].summary_lines);
     expect(value('utilization_calendar', 1)).toBe(pack.calendars[1]);
   });
 
   it('仮想の葉: money / confidence / trend.* / inview.summary', () => {
-    expect(value('project_page:prj-docl', 7)).toEqual({ revenue: 4_457_680, gross_profit: 1_890_000, gross_margin: 42.4 });
-    expect(value('project_page:prj-docl', 1)).toEqual({ letter: 'B', label: '正式申込待' });
+    // money は band から confidence の枠（2026-09 刷新で廃止）が抜けた分、添字が7→6にずれる
+    expect(value('project_page:prj-docl', 6)).toEqual({ revenue: 4_457_680, gross_profit: 1_890_000, gross_margin: 42.4 });
+    // confidence は帯の右のバッジに統合され単独の部品では無くなったが、仮想の葉そのもの（`step()`）は生きている
+    const bandPart: SlidePart = { id: 'x', type: 'text', binding: 'project_pages[0].confidence', x: 0, y: 0, w: 1, h: 1, text_override: null };
+    expect(resolveBinding(pack, find(pages, 'project_page:prj-docl'), bandPart, ctx)).toMatchObject({ ok: true, value: { letter: 'B', label: '正式申込待' } });
     const rev = value('progress_charts', 0) as Array<{ year_month: string; internal: number; external: number; count: number }>;
     expect(rev[rev.length - 1]).toEqual({ year_month: '2026-08', internal: 1_289_293, external: 473_000, count: 2 });
     const util = value('progress_charts', 1) as Array<{ utilization: number | null }>;
     expect(util[util.length - 1].utilization).toBe(45);
-    expect(value('inview', 0)).toEqual(['開催日: 2026/8/26（水）', '参加: 50組 65名', '満足度: 3.9 / 4.0', 'ヨミ化: 2件', '次回: 2026/9/17（木）・申込 38組']);
+    // inview.summary は 2026-09 刷新で InviewSummary そのもの（帯＋数字カードで組む。文字列の並びはやめた）
+    expect(value('inview', 1)).toMatchObject({ session_date: '2026-08-26', groups: 50, people: 65, satisfaction: 3.9, promoted_projects: 2 });
   });
 
   it('資料の設定（$）と固定文', () => {
@@ -158,11 +162,11 @@ describe('binding の解決（resolveBinding）', () => {
     expect(value('pl_table:landing:all', 1)).toBe('単位：千円');
     expect(value('appendix', 0)).toBe('Appendix');
     const [p, x] = partOf('agenda', 0);
-    expect(resolveBinding(pack, p, x, { ...ctx, agenda: deckAgenda(pages) })).toMatchObject({ ok: true, value: ['①数値報告・営業進捗【報告｜3×3｜5分】', '②案件実施報告【報告｜3×3｜5分】', '③新規案件獲得【報告｜3×3｜2分】'] });
+    expect(resolveBinding(pack, p, x, { ...ctx, agenda: deckAgenda(pages) })).toMatchObject({ ok: true, value: ['①数値報告・営業進捗【報告｜3×3｜5分】', '②案件実施報告【報告｜3×3｜5分】', '③内覧会報告【報告｜3×3｜2分】'] });
   });
 
   it('無いものは投げずに ok:false（理由とラベル付き）', () => {
-    expect(value('inview', 2)).toEqual({ ok: false, reason: 'not_found', label: '写真' });          // inview.photos はパックに無い
+    expect(value('inview', 0)).toEqual({ ok: false, reason: 'not_found', label: '写真' });          // inview.photos はパックに無い
     expect(value('next_meeting', 0)).toEqual({ ok: false, reason: 'not_found', label: '今日決まった ToDo' });
     expect(value('checklist', 0)).toEqual({ ok: false, reason: 'no_binding', label: 'チェック項目' });
     const [p, x] = partOf('pl_table:landing:all', 2);

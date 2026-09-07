@@ -13,7 +13,7 @@
  *   `project_pages[i].money` / `event_reports[i].money` → `{ revenue, gross_profit, gross_margin }`
  *   `project_pages[i].confidence` → `{ letter, label }`（実体の文字ではなく、`confidence` と `confidence_label` を束ねたもの）
  *   `trend.revenue` → `TrendRevenuePoint[]`、`trend.utilization` → `TrendUtilizationPoint[]`
- *   `inview.summary` → 箇条書きの文字列の並び（開催日・参加・満足度・ヨミ化・次回）
+ *   `inview.summary` → `InviewSummary` そのもの（帯＋数字カードで組む。2026-09 刷新で箇条書きの文字列から変更）
  * - `$meeting_date` / `$meeting_title` / `$agenda` / `$pl_heading` … 資料の設定（`BindingContext`）。
  *   `$pl_heading` だけはページの部品の `options.mode` / `options.entity`（all / GJV / GSS / GMO / by_entity）とパックの対象月から組む
  * - `inputs.attendance` … ONAiR に無い手入力（`BindingContext.inputs`）
@@ -115,19 +115,6 @@ function trendUtilization(trend: MonthlyTrendPoint[]): TrendUtilizationPoint[] {
   }));
 }
 
-function inviewSummary(pack: KeepReportPack): string[] {
-  const v = pack.inview;
-  if (!v) return [];
-  const lines = [
-    `開催日: ${dateLabel(v.session_date)}`,
-    `参加: ${v.groups}組 ${v.people}名`,
-    v.satisfaction != null ? `満足度: ${v.satisfaction} / 4.0` : '満足度: （未入力）',
-    `ヨミ化: ${v.promoted_projects}件`,
-  ];
-  if (v.next_session) lines.push(`次回: ${dateLabel(v.next_session.date)}・申込 ${v.next_session.applied_groups}組`);
-  return lines;
-}
-
 /** パス1段ぶんを読む。仮想の葉はここで作る */
 function step(cur: unknown, key: string, pack: KeepReportPack): unknown {
   if (cur == null || typeof cur !== 'object') return undefined;
@@ -140,7 +127,7 @@ function step(cur: unknown, key: string, pack: KeepReportPack): unknown {
     if (key === 'revenue') return trendRevenue(pack.trend);
     if (key === 'utilization') return trendUtilization(pack.trend);
   }
-  if (cur === pack.inview && key === 'summary') return inviewSummary(pack);
+  if (cur === pack.inview && key === 'summary') return cur;
   return undefined;
 }
 

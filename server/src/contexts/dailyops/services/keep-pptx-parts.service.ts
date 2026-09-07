@@ -17,13 +17,14 @@
  */
 import type PptxGenJS from 'pptxgenjs';
 import type {
-  MonthlyPlTable, PlByEntity, PipelineRow, ProjectPageData, UtilizationCalendar, BusinessEntity,
+  MonthlyPlTable, PlByEntity, PipelineRow, ProjectPageData, UtilizationCalendar, BusinessEntity, InviewSummary,
 } from './keep-deck.types';
 import { BUSINESS_ENTITY_LABELS, BUSINESS_ENTITIES } from './keep-deck.types';
 import { FORMAT_COLORS, FORMAT_FONT } from './keep-templates';
 import { plCellKey, type PlCellColumn } from './keep-pack-diff';
 import {
-  addTable, addText, addBullets, addPlaceholder, fmtSen, fmtYen, fmtPct, fmtMd, truncateEm, colMaxEm, maxRowsForBox,
+  addTable, addText, addPlaceholder, fmtSen, fmtYen, fmtPct, fmtMd, truncateEm, colMaxEm, maxRowsForBox,
+  renderInfoBand, renderHeadlineAndChecklist, renderStatRow,
   type Box, type Cell, FONT, SLIDE_H,
 } from './keep-pptx-chrome.service';
 
@@ -167,9 +168,13 @@ export function renderPipeline(slide: PptxGenJS.Slide, rowsIn: PipelineRow[], bo
 }
 
 // ── 案件ページ・実施報告 ──────────────────────────────────────
-export function renderBand(slide: PptxGenJS.Slide, band: ProjectPageData['band'], box: Box): void {
-  addText(slide, `${band.customer_short} ／ ${band.event_name} ／ ${band.date_label}`, box,
-    { size: 18, bold: true, color: 'FFFFFF', fill: C.band, valign: 'middle', margin: 6, shrink: true });
+/** 帯（お客様／イベント名／日付＋確度）。2026-09 刷新: 罫線ではなく面（塗り）と確度バッジで見せる（`renderInfoBand`） */
+export function renderBand(slide: PptxGenJS.Slide, band: ProjectPageData['band'], box: Box, confidence?: { letter: string; label: string } | null): void {
+  renderInfoBand(slide, box, {
+    main: band.event_name,
+    sub: `${band.customer_short} ／ ${band.date_label}`,
+    pill: confidence ? `${confidence.letter}・${confidence.label}` : null,
+  });
 }
 
 export function renderConfidence(slide: PptxGenJS.Slide, c: { letter: string; label: string }, box: Box): void {
@@ -200,18 +205,21 @@ export function renderKeyDates(slide: PptxGenJS.Slide, d: ProjectPageData['key_d
   slide.addText(runs, { x: box.x, y: box.y, w: box.w, h: box.h, fontFace: FONT, valign: 'top', margin: 4 });
 }
 
+/** 売上／粗利／粗利率。2026-09 刷新: 2行の表ではなく数字カード（`renderStatRow`）で見せる */
 export function renderMoney(slide: PptxGenJS.Slide, m: { revenue: number | null; gross_profit: number | null; gross_margin: number | null }, box: Box): void {
-  const rows: Cell[][] = [
-    [{ text: '売上', bold: true, fill: 'EEF3FA' }, { text: fmtYen(m.revenue), align: 'right', bold: true }],
-    [{ text: '粗利', bold: true, fill: 'EEF3FA' }, { text: `${fmtYen(m.gross_profit)}${m.gross_margin != null ? `（${fmtPct(m.gross_margin)}）` : ''}`, align: 'right', bold: true }],
+  const stats: Array<{ label: string; value: string; accent?: boolean }> = [
+    { label: '売上', value: fmtYen(m.revenue) },
+    { label: '粗利', value: fmtYen(m.gross_profit) },
   ];
-  addTable(slide, rows, box, [30, 70], { size: 13, header: false });
+  if (m.gross_margin != null) stats.push({ label: '粗利率', value: fmtPct(m.gross_margin), accent: true });
+  renderStatRow(slide, box, stats);
 }
 
+/** 総括＋成果の箇条書き。2026-09 刷新: 総括を専用カードに分け、箇条書きはチェック印にする（`renderHeadlineAndChecklist`） */
 export function renderReportBullets(slide: PptxGenJS.Slide, r: ProjectPageData, box: Box): void {
-  const lines = [...(r.headline ? [`【総括】${r.headline}`] : []), ...r.highlights];
-  if (r.report_status === 'draft') lines.push('※ ふりかえりは下書き（未確定）');
-  addBullets(slide, lines, box, { size: 16, label: '成果の箇条書き（ふりかえり未記入）' });
+  const items = [...r.highlights, ...(r.report_status === 'draft' ? ['※ ふりかえりは下書き（未確定）'] : [])];
+  if (!r.headline && items.length === 0) { addPlaceholder(slide, box, '成果の箇条書き（ふりかえり未記入）'); return; }
+  renderHeadlineAndChecklist(slide, box, { headline: r.headline, items });
 }
 
 // ── 稼働カレンダー ───────────────────────────────────────────
@@ -265,6 +273,21 @@ export function renderCalendar(slide: PptxGenJS.Slide, cal: UtilizationCalendar,
 }
 
 // ── 内覧会・議事録・参加者 ─────────────────────────────────────
+/** 内覧会の帯（定期内覧会／開催日）＋来場組数・来場人数・分類数の数字カード。`inview.summary` 1本で組む */
+export function renderInviewSummary(slide: PptxGenJS.Slide, s: InviewSummary, box: Box): void {
+  const bandH = Math.min(box.h * 0.3, 1.1);
+  renderInfoBand(slide, { x: box.x, y: box.y, w: box.w, h: bandH }, {
+    main: '定期内覧会', sub: `${fmtMd(s.session_date)}開催`,
+    pill: s.next_session ? `次回 ${fmtMd(s.next_session.date)}` : null,
+  });
+  const gap = 0.14;
+  renderStatRow(slide, { x: box.x, y: box.y + bandH + gap, w: box.w, h: box.y + box.h - (box.y + bandH + gap) }, [
+    { label: '来場組数', value: `${s.groups}組` },
+    { label: '来場人数', value: `${s.people}名` },
+    { label: '分類数', value: `${s.by_category.length}`, accent: true },
+  ]);
+}
+
 const CATEGORY_WEIGHTS = [60, 20, 20] as const;
 /** 分類名（内覧会の来場者名簿の会社名・肩書）は実データで50字を超えることがあり、切らずに置くと
  * 1升が2〜3行に折り返して表の下端が箱をはみ出す（`renderPipeline` と同じ理由）。1行に収まる長さへ切る */

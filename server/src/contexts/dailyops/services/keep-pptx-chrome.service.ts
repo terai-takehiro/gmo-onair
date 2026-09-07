@@ -156,6 +156,78 @@ export function addTable(
   slide.addTable(tableRows, { x: box.x, y: box.y, w: box.w, colW, ...(o.rowH ? { rowH: o.rowH } : {}), autoPage: false });
 }
 
+// ── 2026-09 刷新の共通パーツ（帯・総括カード・数字カード）─────────────
+// 罫線・色線で区切らず、面（塗り）とバッジだけで区切る方針（docs/design/v4/keep-report.md §6.3）。
+// 角丸は「縁取りだけの箱」に見えないごく小さい値（0.03in ≒ 2px 相当）に統一する。
+const CARD_RADIUS = 0.03;
+
+/** 案件ページ・実施報告の帯。1行（本文＋副文）＋右寄せの確度バッジ。長い文字列は自動で省略記号 */
+export function renderInfoBand(
+  slide: PptxGenJS.Slide, box: Box, o: { main: string; sub: string; pill?: string | null },
+): void {
+  const pillW = o.pill ? Math.min(1.5, box.w * 0.18) : 0;
+  const mainEm = colMaxEm(box.w - pillW, 0.6, 15, 0.3);
+  const subEm = colMaxEm(box.w - pillW, 0.4, 11, 0.3);
+  slide.addText([
+    { text: truncateEm(o.main, mainEm), options: { fontSize: 15, bold: true, color: 'FFFFFF' } },
+    { text: `　${truncateEm(o.sub, subEm)}`, options: { fontSize: 11, color: C.talkBlue } },
+  ], {
+    shape: 'roundRect' as PptxGenJS.SHAPE_NAME, rectRadius: CARD_RADIUS, x: box.x, y: box.y, w: box.w, h: box.h,
+    fill: { color: C.band }, line: { color: C.band, width: 0 }, fontFace: FONT,
+    valign: 'middle', align: 'left', margin: [0, 4, 0, 14], wrap: false, isTextBox: true,
+  });
+  if (o.pill) {
+    const p = { x: box.x + box.w - pillW - 0.15, y: box.y + box.h * 0.24, w: pillW, h: box.h * 0.52 };
+    slide.addText(o.pill, {
+      shape: 'roundRect' as PptxGenJS.SHAPE_NAME, rectRadius: p.h / 2, x: p.x, y: p.y, w: p.w, h: p.h,
+      fill: { color: 'FFFFFF', transparency: 82 }, line: { color: 'FFFFFF', width: 0.75 },
+      fontFace: FONT, fontSize: 10.5, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle', margin: 0, wrap: false, isTextBox: true,
+    });
+  }
+}
+
+/**
+ * 総括＋成果の箇条書き。1つの箱の中に「総括カード（上）」と「チェックリスト（下）」を重ねずに縦積みする。
+ * 総括が無ければチェックリストだけを箱いっぱいに使う
+ */
+export function renderHeadlineAndChecklist(slide: PptxGenJS.Slide, box: Box, o: { headline: string | null; items: string[]; color?: string }): void {
+  const gap = 0.12;
+  const headlineH = o.headline ? Math.min(1.35, box.h * 0.32) : 0;
+  if (o.headline) {
+    const hb = { x: box.x, y: box.y, w: box.w, h: headlineH };
+    slide.addShape('roundRect' as PptxGenJS.SHAPE_NAME, { x: hb.x, y: hb.y, w: hb.w, h: hb.h, rectRadius: CARD_RADIUS, fill: { color: C.positiveLight }, line: { color: C.positiveLight, width: 0 } });
+    const kickerW = 0.9; const kickerH = Math.min(0.32, hb.h * 0.32);
+    slide.addText('総括', {
+      shape: 'roundRect' as PptxGenJS.SHAPE_NAME, rectRadius: kickerH / 2, x: hb.x + 0.22, y: hb.y + 0.16, w: kickerW, h: kickerH,
+      fill: { color: C.band }, line: { color: C.band, width: 0 }, fontFace: FONT, fontSize: 10, bold: true, color: 'FFFFFF',
+      align: 'center', valign: 'middle', margin: 0, wrap: false, isTextBox: true,
+    });
+    addText(slide, o.headline, { x: hb.x + 0.22, y: hb.y + 0.16 + kickerH + 0.06, w: hb.w - 0.44, h: hb.h - 0.16 - kickerH - 0.16 },
+      { size: 15, bold: true, color: '0B2A4A', valign: 'top', margin: 0 });
+  }
+  if (o.items.length === 0) return;
+  const listTop = box.y + (o.headline ? headlineH + gap : 0);
+  const listBox = { x: box.x, y: listTop, w: box.w, h: box.y + box.h - listTop };
+  const runs: PptxGenJS.TextProps[] = o.items.map((t, i) => ({
+    text: `✓  ${t}`, options: { breakLine: i < o.items.length - 1, fontSize: 14, color: o.color ?? C.text, bold: false, paraSpaceAfter: 6 },
+  }));
+  slide.addText(runs, { x: listBox.x, y: listBox.y, w: listBox.w, h: listBox.h, fontFace: FONT, valign: 'middle', margin: 4 });
+}
+
+/** 数字カード（売上／粗利／粗利率など）。表ではなく、薄い塗りの帯の中に大きい数字＋小さいラベルを横に並べる */
+export function renderStatRow(slide: PptxGenJS.Slide, box: Box, stats: Array<{ label: string; value: string; accent?: boolean }>): void {
+  if (stats.length === 0) { addPlaceholder(slide, box, '数字'); return; }
+  slide.addShape('roundRect' as PptxGenJS.SHAPE_NAME, { x: box.x, y: box.y, w: box.w, h: box.h, rectRadius: CARD_RADIUS, fill: { color: 'F5F8FC' }, line: { color: 'E1E9F4', width: 0.75 } });
+  const colW = box.w / stats.length;
+  stats.forEach((s, i) => {
+    const cx = box.x + colW * i;
+    if (i > 0) slide.addShape('line' as PptxGenJS.SHAPE_NAME, { x: cx, y: box.y + box.h * 0.16, w: 0, h: box.h * 0.68, line: { color: 'E1E9F4', width: 0.75 } });
+    addText(slide, s.label, { x: cx + 0.18, y: box.y + box.h * 0.14, w: colW - 0.3, h: box.h * 0.3 }, { size: 10.5, color: C.muted, valign: 'bottom' });
+    addText(slide, s.value, { x: cx + 0.18, y: box.y + box.h * 0.42, w: colW - 0.3, h: box.h * 0.5 },
+      { size: 19, bold: true, color: s.accent ? C.positive : '0B2A4A', valign: 'top' });
+  });
+}
+
 // ── フォーマットの絵 ────────────────────────────────────────────
 /** altText の印。`keep-pptx-svg.service.ts` がこれを見て元の SVG を結びつける */
 export const FORMAT_IMAGE_MARK = 'gmo-format:';
