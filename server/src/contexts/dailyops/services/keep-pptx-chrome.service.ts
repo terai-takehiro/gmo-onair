@@ -202,8 +202,14 @@ export function renderHeadlineAndChecklist(slide: PptxGenJS.Slide, box: Box, o: 
       fill: { color: C.band }, line: { color: C.band, width: 0 }, fontFace: FONT, fontSize: 10, bold: true, color: 'FFFFFF',
       align: 'center', valign: 'middle', margin: 0, wrap: false, isTextBox: true,
     });
-    addText(slide, o.headline, { x: hb.x + 0.22, y: hb.y + 0.16 + kickerH + 0.06, w: hb.w - 0.44, h: hb.h - 0.16 - kickerH - 0.16 },
-      { size: 15, bold: true, color: '0B2A4A', valign: 'top', margin: 0 });
+    // 総括は MCP/画面から最大120字まで入る自由文。この箱は1〜2行ぶんの高さしか無いため、
+    // 折り返しても入りきる行数から文字数の上限を逆算して切る（表の升のはみ出し対策と同じ考え方。上の truncateEm 参照）
+    const headlineBox = { x: hb.x + 0.22, y: hb.y + 0.16 + kickerH + 0.06, w: hb.w - 0.44, h: hb.h - 0.16 - kickerH - 0.16 };
+    const headlineSize = 15;
+    const headlineRows = maxRowsForBox(headlineBox.h, headlineSize, 1, 0, 0);
+    const headlineEm = colMaxEm(headlineBox.w, 1, headlineSize, 0.1) * headlineRows;
+    addText(slide, truncateEm(o.headline, headlineEm), headlineBox,
+      { size: headlineSize, bold: true, color: '0B2A4A', valign: 'top', margin: 0 });
   }
   if (o.items.length === 0) return;
   const listTop = box.y + (o.headline ? headlineH + gap : 0);

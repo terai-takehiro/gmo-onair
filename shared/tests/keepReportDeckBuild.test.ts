@@ -154,8 +154,11 @@ describe('前回の構成から組み直す（composeDeckPages）', () => {
     expect(byBinding('money')).toMatchObject({ type: 'table', options: expect.objectContaining({ noted: true }) });
     // money はちょうど1つ（旧テンプレの p7 が別の余分な部品として二重に残っていない）
     expect(np.parts.filter((x) => x.binding === 'project_pages[0].money').length).toBe(1);
-    // 廃止済みの確度の枠は、今回のどの部品にも化けずそのまま（人が足した部品と同じ扱いで）残る
-    expect(np.parts.filter((x) => x.binding === 'project_pages[0].confidence').length).toBe(1);
+    // 廃止済みの確度の枠（テンプレの region から作られた id `…:p1`）は、対応先が無いのでそのまま捨てられる
+    // （id を残したまま「人が足した部品」として復活させると、テンプレの並びから新しく振られる部品と
+    // id が衝突する。下の id 一意性の検査が本体）
+    expect(np.parts.filter((x) => x.binding === 'project_pages[0].confidence').length).toBe(0);
+    expect(new Set(np.parts.map((x) => x.id)).size).toBe(np.parts.length); // id はちょうど1つずつ
   });
 
   it('手前の案件が消えて配列の位置がずれ、binding の絶対パスの番号が変わっても、同じ案件ページの部品は正しく対応する（Codex 指摘の追加ケース）', () => {
@@ -186,6 +189,17 @@ describe('前回の構成から組み直す（composeDeckPages）', () => {
     expect(byBinding('schedule')).toMatchObject({ type: 'table', text_override: null });
     expect(byBinding('money')).toMatchObject({ type: 'table', options: expect.objectContaining({ noted: true }) });
     expect(np.parts.filter((x) => x.binding === 'project_pages[1].money').length).toBe(1);
+    expect(np.parts.filter((x) => x.binding === 'project_pages[1].confidence').length).toBe(0); // 廃止済みの枠は捨てる
+    expect(new Set(np.parts.map((x) => x.id)).size).toBe(np.parts.length); // id はちょうど1つずつ
+  });
+
+  it('人が足した部品（id が region 由来の形をしていない）は、対応先が見つからなくてもそのまま残る', () => {
+    const stalePrev = clone(prev);
+    const page = find(stalePrev, 'project_page:prj-docl');
+    page.parts.push({ id: 'part_userAdded1', type: 'text', binding: null, x: 4, y: 90, w: 40, h: 6, text_override: '人が足したメモ' });
+    const next = composeDeckPages(stalePrev, pack);
+    const np = find(next, 'project_page:prj-docl');
+    expect(np.parts.find((x) => x.id === 'part_userAdded1')).toMatchObject({ text_override: '人が足したメモ' });
   });
 });
 

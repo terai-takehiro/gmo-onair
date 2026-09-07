@@ -120,6 +120,15 @@ function bindingKey(binding: string | null): string | null {
 }
 
 /**
+ * テンプレの region から機械的に作られた部品の id か（`<pageId>:p<region index>`。`partFromRegion` 参照）。
+ * 人が右の「このページ」から足した部品は `newId('part')`（`client-daily/.../deckState.ts`）で
+ * `part_xxxxxxxx` の形になり、この形にはならない。
+ */
+function isGeneratedPartId(pageId: string, id: string): boolean {
+  return new RegExp(`^${pageId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:p\\d+$`).test(id);
+}
+
+/**
  * 前の版の部品を今回のどの部品に対応させるか。
  * ⚠️ id（`pageId:p<region index>`）だけで揃えると、テンプレの regions の**並びや数を変えた回**に
  * 別の部品の中身が引き継がれる — 2026-09 のデザイン刷新（確度の枠を廃止・内覧会の並び替え）で
@@ -142,7 +151,12 @@ function carryOver(fresh: SlidePage, prev: SlidePage): SlidePage {
     // 人が付けた options（写真の選び方・文字の大きさなど）と上書きの文は残し、テンプレ由来の鍵（label / mode / entity / list）は今の値にする
     return { ...fp, ...boxOf(pp, fp), text_override: pp.text_override, options: { ...(pp.options ?? {}), ...(fp.options ?? {}) } };
   });
-  for (const pp of prev.parts) if (!used.has(pp)) parts.push({ ...pp }); // 人が足した部品（テンプレから region が消えた部品もここに残る）
+  // 残った前の版の部品: 人が足した部品（id が `newId('part')` の形）だけ残す。
+  // テンプレの region から作られた部品（id が `<pageId>:p<N>` の形）で対応先が見つからなかったものは、
+  // 「今のテンプレにはもう無い region」＝廃止された枠なので捨てる。捨てずに残すと、id がテンプレの
+  // 並びから再び振られる新しい部品と衝突し（同じ id の部品が2つになる）、画面の選択・削除や pptx の
+  // 出力が両方の部品を区別できなくなる（Codex 指摘・fresh evidence）
+  for (const pp of prev.parts) if (!used.has(pp) && !isGeneratedPartId(fresh.id, pp.id)) parts.push({ ...pp });
   return {
     ...fresh, parts, title: prev.title, notes: prev.notes, removed: prev.removed,
     agenda: prev.agenda === undefined ? fresh.agenda : prev.agenda,
