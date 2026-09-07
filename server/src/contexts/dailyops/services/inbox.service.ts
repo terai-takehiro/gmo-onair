@@ -4,6 +4,7 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { normalizeRichContent } from '../../../shared/services/rich-content';
 import { recordFinanceDocCorrections, recordInquiryCorrections } from './inbox-ai-feedback.service';
 import { ensureGroup, guessProject, type ExpenseKind } from './finance-doc-chain.service';
+import { studioBookingService } from '../../production/services/studio-booking.service';
 import {
   storeAttachment, safeFilename, MAX_ATTACHMENTS_PER_DOC, type IncomingAttachment,
 } from '../../../shared/services/mail-attachment-box.service';
@@ -469,7 +470,7 @@ export const INQUIRY_IMPORTANCE = ['high', 'medium', 'low'] as const;
  * `handled_at` は「誰がいつ触ったか」の記録として残っていますが、
  * 両方で絞れるようにすると片方だけ動いた行が一覧から消えます。
  */
-export const INQUIRY_STATES = ['unsorted', 'stock', 'ticket', 'project', 'dropped'] as const;
+export const INQUIRY_STATES = ['unsorted', 'stock', 'ticket', 'project', 'dropped', 'booked'] as const;
 export type InquiryState = (typeof INQUIRY_STATES)[number];
 
 /** 出どころ。`manual` は**出どころが分からない既存行**で、新規では入りません */
@@ -519,17 +520,22 @@ const IQ_COLS = `i.id, i.sender, i.subject, i.summary, i.category, i.importance,
   i.details, i.body_text,
   -- 171: 行き先・タグ・チケット（タスク）・案件
   i.state, i.tags, i.task_id, i.project_id,
+  -- 292: カレンダーに登録して出来たスタジオ予約
+  i.booking_id,
   -- 247: ストックを机に戻す日。**これが無いとストックは見送りと同じ**（migration 247）
   i.stock_review_on,
   t.title AS task_title, t.due_at AS task_due_at, t.is_completed AS task_done,
   p.name  AS project_name, p.stage AS project_stage,
+  b.title AS booking_title, b.start_time AS booking_start_time, b.end_time AS booking_end_time,
+  b.all_day AS booking_all_day, b.location_note AS booking_location_note,
   EXISTS (SELECT 1 FROM ai_outputs o
            WHERE o.target_table = 'misc_inquiries' AND o.target_id = i.id
              AND o.kind = 'inquiry_intake') AS is_ai`;
 
 const IQ_FROM = `FROM misc_inquiries i
-  LEFT JOIN project_tasks t ON t.id = i.task_id    AND t.deleted_at IS NULL
-  LEFT JOIN projects      p ON p.id = i.project_id AND p.deleted_at IS NULL`;
+  LEFT JOIN project_tasks   t ON t.id = i.task_id    AND t.deleted_at IS NULL
+  LEFT JOIN projects        p ON p.id = i.project_id AND p.deleted_at IS NULL
+  LEFT JOIN studio_bookings b ON b.id = i.booking_id AND b.deleted_at IS NULL`;
 
 /** 出どころを揃える。**知らない値は入れない** — CHECK に弾かれて取込ごと 500 になる */
 export function normalizeInquirySource(v: unknown, fallback: string): string {
@@ -656,10 +662,11 @@ export const inquiryService = {
          COUNT(*) FILTER (WHERE i.state = 'unsorted')                       AS unsorted,
          COUNT(*) FILTER (WHERE i.state = 'stock')                          AS stock,
          COUNT(*) FILTER (WHERE ${STOCK_DUE_COND})                          AS stock_due,
-         COUNT(*) FILTER (WHERE i.state IN ('ticket','project','dropped'))  AS sorted,
+         COUNT(*) FILTER (WHERE i.state IN ('ticket','project','dropped','booked')) AS sorted,
          COUNT(*) FILTER (WHERE i.state = 'ticket')                         AS ticket,
          COUNT(*) FILTER (WHERE i.state = 'project')                        AS project,
          COUNT(*) FILTER (WHERE i.state = 'dropped')                        AS dropped,
+         COUNT(*) FILTER (WHERE i.state = 'booked')                         AS booked,
          COUNT(*) FILTER (WHERE ${DESK_COND})                               AS desk
        FROM misc_inquiries i WHERE i.deleted_at IS NULL`,
     );
@@ -682,6 +689,7 @@ export const inquiryService = {
       states: {
         unsorted: n('unsorted'), stock: n('stock'), stock_due: n('stock_due'),
         sorted: n('sorted'), ticket: n('ticket'), project: n('project'), dropped: n('dropped'),
+        booked: n('booked'),
         desk: n('desk'),
       },
       sources: sources.map((s) => ({ source: String(s.source), total: Number(s.total), ticket: Number(s.ticket) })),
@@ -819,20 +827,20 @@ export const inquiryService = {
       ? `(${TODAY_JST} + INTERVAL '1 month')::date`
       : '?::date';
 
-    // チケット・案件から戻すのは許す（間違えて作ることはある）。
+    // チケット・案件・カレンダー登録から戻すのは許す（間違えて作ることはある）。
     // ただし**作った実体は消しません** — 勝手に消すほうが危険なので、
-    // 結びつきだけ外して「タスクは残っている」と画面に出す
-    const unlink = existing.state === 'ticket' || existing.state === 'project';
+    // 結びつきだけ外して「タスク（予約）は残っている」と画面に出す
+    const unlink = existing.state === 'ticket' || existing.state === 'project' || existing.state === 'booked';
     if (state === 'unsorted') {
       await execute(
         `UPDATE misc_inquiries SET state = 'unsorted', handled_at = NULL, handled_by = NULL,
            stock_review_on = NULL,
-           ${unlink ? 'task_id = NULL, project_id = NULL,' : ''} updated_at = NOW() WHERE id = ?`, [id]);
+           ${unlink ? 'task_id = NULL, project_id = NULL, booking_id = NULL,' : ''} updated_at = NOW() WHERE id = ?`, [id]);
     } else {
       await execute(
         `UPDATE misc_inquiries SET state = ?, handled_at = NOW(), handled_by = ?,
            stock_review_on = ${reviewSql},
-           ${unlink ? 'task_id = NULL, project_id = NULL,' : ''} updated_at = NOW() WHERE id = ?`,
+           ${unlink ? 'task_id = NULL, project_id = NULL, booking_id = NULL,' : ''} updated_at = NOW() WHERE id = ?`,
         useDefaultReview ? [state, userName ?? null, id] : [state, userName ?? null, reviewOn, id]);
     }
     return (await this.getById(id))!;
@@ -914,6 +922,64 @@ export const inquiryService = {
               stock_review_on = NULL, updated_at = NOW()
         WHERE id = ?`, [projectId, userName ?? null, id]);
     return { row: (await this.getById(id))!, already: false };
+  },
+
+  /**
+   * カレンダーに登録する = **スタジオ予約（`studio_bookings`）を1本作る**。
+   *
+   * - `ticket`（`makeTicket`）と同じ骨格 — 実体を作ったときだけ `state` を動かし、
+   *   案件登録モーダルの全項目は再現しない（`toProject` と同じ理由）。ここでは
+   *   `studioBookingService.createBooking()` を**サービス層で直接呼ぶ**
+   *   （`/studios/bookings` は `sales` 権限固定なので、HTTP 越しに叩くと
+   *   `dailyops` だけの人が 403 になる。`project_tasks` を直接 INSERT する
+   *   `makeTicket()` と同じ考え方で、境界の外へは出ない）
+   * - 部屋（`room_ids`）は選ばせない。**受信箱からは「いつ・何の用で」だけ決め、
+   *   部屋は現場（`client` の予約カレンダー）で決める**運用を想定し、
+   *   場所は自由記述（`location_note`）に留める
+   * - **2回押しても増えない。** 既に予約があればそれを返す（`makeTicket` と同型）
+   */
+  async makeBooking(
+    id: string,
+    input: {
+      title?: string | null; start_time?: string | null; end_time?: string | null;
+      all_day?: boolean; location_note?: string | null; notes?: string | null;
+    },
+    actorId: string,
+    userName?: string | null,
+  ): Promise<{ row: Record<string, unknown>; booking_id: string; already: boolean }> {
+    const existing = await queryOne(
+      `SELECT id, summary, subject, notes, booking_id FROM misc_inquiries WHERE id = ? AND deleted_at IS NULL`, [id]);
+    if (!existing) throw new AppError(404, 'NOT_FOUND', '問い合わせが見つかりません');
+
+    if (existing.booking_id) {
+      const alive = await queryOne(`SELECT id FROM studio_bookings WHERE id = ? AND deleted_at IS NULL`, [existing.booking_id]);
+      if (alive) return { row: (await this.getById(id))!, booking_id: String(existing.booking_id), already: true };
+      // 予約が消されていたら作り直せるようにする（結びつきだけ残っている状態）
+    }
+
+    const title = (input.title ?? '').trim() || String(existing.subject ?? '').trim() || String(existing.summary ?? '').trim();
+    if (!title) throw new AppError(400, 'VALIDATION_ERROR', '予定の件名を入れてください');
+    if (!input.start_time || !input.end_time) throw new AppError(400, 'VALIDATION_ERROR', '開始・終了の日時を入れてください');
+
+    const booking = await studioBookingService.createBooking(
+      {
+        title,
+        booking_type: 'other',
+        all_day: input.all_day ?? false,
+        start_time: input.start_time,
+        end_time: input.end_time,
+        location_note: input.location_note ?? null,
+        notes: input.notes ?? (existing.summary ? String(existing.summary) : null),
+      },
+      actorId,
+    );
+
+    await execute(
+      // 247 と同じ理由: カレンダーに登録したら見直しの日は消す
+      `UPDATE misc_inquiries SET state = 'booked', booking_id = ?, handled_at = NOW(), handled_by = ?,
+              stock_review_on = NULL, updated_at = NOW()
+        WHERE id = ?`, [booking.id, userName ?? null, id]);
+    return { row: (await this.getById(id))!, booking_id: String(booking.id), already: false };
   },
 
   /**

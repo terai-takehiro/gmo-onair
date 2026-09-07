@@ -324,6 +324,26 @@ router.post('/inquiries/:id/ticket', ...canEdit, async (req, res) => {
 });
 
 /**
+ * カレンダーに登録する = スタジオ予約を1本作る。
+ *
+ * `dailyops:editor` だけで通す（`ticket` と同じ）。予約作成は
+ * `inquiryService.makeBooking()` がサービス層で直接 `studioBookingService` を
+ * 呼ぶので、`sales` 権限が要る `/studios/bookings` を HTTP 越しに叩かない。
+ */
+router.post('/inquiries/:id/book', ...canEdit, async (req, res) => {
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  const result = await inquiryService.makeBooking(String(req.params.id), {
+    title: typeof b.title === 'string' ? b.title : null,
+    start_time: typeof b.start_time === 'string' ? b.start_time : null,
+    end_time: typeof b.end_time === 'string' ? b.end_time : null,
+    all_day: b.all_day === true,
+    location_note: typeof b.location_note === 'string' ? b.location_note : null,
+    notes: typeof b.notes === 'string' ? b.notes : null,
+  }, req.user!.id, req.user!.name);
+  res.status(result.already ? 200 : 201).json({ success: true, data: result.row, already: result.already, booking_id: result.booking_id });
+});
+
+/**
  * 案件の受付へ送った結果を書き留める。**書くのは案件管理の画面から**なので
  * `sales` でも通す（`dailyops` を持たない営業が案件を作った直後に呼ぶ）。
  */

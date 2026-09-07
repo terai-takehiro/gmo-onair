@@ -81,6 +81,7 @@ export interface InquiryStateCounts {
   ticket: number;
   project: number;
   dropped: number;
+  booked: number;
   /** 未仕分け ＋ `stock_due`。**`stock` と重なる**ので足しても全件にならない */
   desk: number;
 }
@@ -165,6 +166,26 @@ export function useMakeTicket() {
     onSuccess: inv,
   });
 }
+export interface BookingInput {
+  title: string;
+  /** ISO 日時。全日なら `YYYY-MM-DDT00:00:00` を渡す（`studio_bookings` は TEXT 列） */
+  start_time: string;
+  end_time: string;
+  all_day?: boolean;
+  location_note?: string | null;
+  notes?: string | null;
+}
+
+/** カレンダーに登録する = スタジオ予約を1本作る。**2回押しても増えない** */
+export function useMakeBooking() {
+  const inv = useInvalidateInq();
+  return useMutation({
+    mutationFn: ({ id, fields }: { id: string; fields: BookingInput }) =>
+      api.post(`/dailyops/inquiries/${id}/book`, fields).then((r) => r.data as { data: MiscInquiry; already: boolean }),
+    onSuccess: inv,
+  });
+}
+
 export function useDeleteInquiry() {
   const inv = useInvalidateInq();
   return useMutation({ mutationFn: (id: string) => api.delete(`/dailyops/inquiries/${id}`), onSuccess: inv });

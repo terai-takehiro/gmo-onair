@@ -173,6 +173,13 @@ export interface MiscInquiry {
   project_id: string | null;
   project_name: string | null;
   project_stage: string | null;
+  /** カレンダーに登録して出来たスタジオ予約 */
+  booking_id: string | null;
+  booking_title: string | null;
+  booking_start_time: string | null;
+  booking_end_time: string | null;
+  booking_all_day: boolean | null;
+  booking_location_note: string | null;
   /**
    * AI が取り込んだ行か。**`source` では判定しない** —
    * あれは出どころ（メール／Slack）であって、誰が入れたかではない
@@ -184,10 +191,10 @@ export interface MiscInquiry {
 export const IMPORTANCE_LABELS: Record<Importance, string> = { high: '高', medium: '中', low: '低' };
 
 /** 行き先（モックの4タブ ＋「案件」）。並びはそのままタブの並び。**表示名だけ・キーは変えない** */
-export const INQUIRY_STATES = ['unsorted', 'stock', 'ticket', 'project', 'dropped'] as const;
+export const INQUIRY_STATES = ['unsorted', 'stock', 'ticket', 'project', 'dropped', 'booked'] as const;
 export type InquiryState = (typeof INQUIRY_STATES)[number];
 export const INQUIRY_STATE_LABELS: Record<InquiryState, string> = {
-  unsorted: '未処理', stock: '保留', ticket: 'タスク', project: '案件', dropped: '見送り',
+  unsorted: '未処理', stock: '保留', ticket: 'タスク', project: '案件', dropped: '見送り', booked: '予定登録',
 };
 
 /** 出どころ。`manual` は**出どころが分からない既存行**（新規では入らない） */

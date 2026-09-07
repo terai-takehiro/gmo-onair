@@ -32,6 +32,7 @@ export const STATE_TONE: Record<InquiryState, string> = {
   ticket: 'border-transparent bg-success-surface text-success',
   project: 'border-transparent bg-info-surface text-info',
   dropped: 'border-transparent bg-muted text-muted-foreground',
+  booked: 'border-transparent bg-info-surface text-info',
 };
 
 /** 出どころのアイコン名（lucide）。モックの `SRC` と同じ */
@@ -47,21 +48,22 @@ export const SOURCE_ICON: Record<string, 'mail' | 'message-square' | 'phone' | '
  *   誰にも気づかれずに消えます
  * - 見送りからは未処理に戻せる（間違えて押すことはある）
  */
-export type InquiryAction = 'ticket' | 'toProject' | 'stock' | 'restock' | 'drop' | 'unsort';
+export type InquiryAction = 'ticket' | 'toProject' | 'book' | 'stock' | 'restock' | 'drop' | 'unsort';
 
 export function actionsFor(state: InquiryState): InquiryAction[] {
-  if (state === 'ticket' || state === 'project') return ['unsort'];
+  if (state === 'ticket' || state === 'project' || state === 'booked') return ['unsort'];
   if (state === 'dropped') return ['unsort'];
   // 「保留」からは**見直す日を決め直せる**（migration 247）。
   // 「今日見たけれどまだ動けない」を受け止める先が無いと、
   // 机に出た「保留」は毎日出続けるか、見送りにされるかのどちらかになる
-  if (state === 'stock') return ['ticket', 'toProject', 'restock', 'drop'];
-  return ['ticket', 'toProject', 'stock', 'drop'];
+  if (state === 'stock') return ['ticket', 'toProject', 'book', 'restock', 'drop'];
+  return ['ticket', 'toProject', 'book', 'stock', 'drop'];
 }
 
 export const ACTION_LABEL: Record<InquiryAction, string> = {
   ticket: 'タスクにする',
   toProject: '案件の受付へ送る',
+  book: 'カレンダーに登録する',
   stock: '保留',
   restock: '見直す日を決め直す',
   drop: '見送りにする',
@@ -91,7 +93,7 @@ export const TAB_LABEL: Record<InquiryTab, string> = {
 };
 
 /** 「仕分け済み」タブの中で行き先を絞る（受領証のタブを並べない） */
-export const SORTED_STATES = ['ticket', 'project', 'dropped'] as const;
+export const SORTED_STATES = ['ticket', 'project', 'booked', 'dropped'] as const;
 
 /** 「仕分け済み」タブの中の絞り込み。`all` は3つぜんぶ */
 export type SortedFilter = 'all' | (typeof SORTED_STATES)[number];
