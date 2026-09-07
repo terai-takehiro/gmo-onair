@@ -125,6 +125,12 @@ interface AppSideMenuProps extends ShellAccess {
   open: boolean;
   onClose: () => void;
   /**
+   * PC で隠されているか（ヘッダーの「サイドバーを隠す」ボタン）。
+   * **スマホの `open`/`onClose`（引き出し開閉）とは別の状態** — CSS 側が
+   * `min-width: 1024px` でだけこれを見るので、スマホの動きには影響しない。
+   */
+  collapsed?: boolean;
+  /**
    * **スマホのときだけメニューから落とすルート**（ご判断）。
    *
    * データを入れる道具（決算の取込・DB バックアップ・データビューア）は
@@ -179,6 +185,7 @@ export function AppSideMenu({
   note,
   open,
   onClose,
+  collapsed,
   mobileHiddenPaths,
   topSlotRef,
   role,
@@ -220,6 +227,13 @@ export function AppSideMenu({
          * **属性だけ足して規則は v4 側に置きます**（`data-ui="button"` と同じやり方）。
          */
         data-drawer={open ? 'open' : 'closed'}
+        /*
+         * **PC で隠すのも同じやり方**（`data-drawer` の3行上のコメント参照）。
+         * ここに幅0のクラスを直書きすると凍結アプリ時代と同じ理由でCSSが
+         * 増えるだけでなく、`w-[248px]` と詳細度で衝突する。属性だけ足して
+         * 規則は `tokens-v4.css` 側（`:root [data-side-collapsed]`）に置く。
+         */
+        data-side-collapsed={collapsed ? 'true' : 'false'}
         className={cn(
           'z-50 flex w-[248px] shrink-0 flex-col overflow-y-auto border-r border-border bg-card px-3 pb-5 pt-3.5',
           // PC は常に居座る。スマホは引き出し

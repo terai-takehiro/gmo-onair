@@ -76,6 +76,26 @@ interface AppShellProps extends ShellChrome, ShellAccess {
   children: ReactNode;
 }
 
+/**
+ * PC で左メニューを完全に隠す機能の永続化キー。
+ *
+ * ⚠️ 旧ヘッダー用ストア (`uiStore.ts` の `gmo_onair_sidebar_open`) とは
+ * **意図的に別のキー**にしてある。旧ストアは廃止済み `client-awards` 専用で、
+ * v4 のこのシェルとは無関係 — 同じキーを使うと片方の変更がもう片方の
+ * 初期値に紛れ込む（実運用アプリは0だが混同を避ける）。
+ */
+const SIDE_COLLAPSE_KEY = 'gmo_onair_v4_sidebar_collapsed';
+
+function getInitialSideCollapsed(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(SIDE_COLLAPSE_KEY) === 'true';
+  } catch {
+    // Safari のプライベートモード等で例外が飛ぶことがある。既定は「隠さない」
+    return false;
+  }
+}
+
 export function AppShell({
   appKey,
   appLabel,
@@ -96,6 +116,20 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  // **PC 専用。** スマホの引き出し開閉 (`menuOpen`) とは別物 — スマホは
+  // 常にこの state を無視する (CSS 側が `min-width: 1024px` でしか見ない)。
+  const [sideCollapsed, setSideCollapsed] = useState(getInitialSideCollapsed);
+  const toggleSideCollapsed = () => {
+    setSideCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(SIDE_COLLAPSE_KEY, String(next));
+      } catch {
+        // 保存できなくても表示の切り替え自体は続ける
+      }
+      return next;
+    });
+  };
   const { pathname, search } = useLocation();
   const isMobile = useIsMobile();
   const [manualOpen, setManualOpen] = useState(false);
@@ -158,6 +192,8 @@ export function AppShell({
         onLogout={onLogout}
         onSwitchUser={onSwitchUser}
         onToggleMenu={hasMenu ? () => setMenuOpen(true) : undefined}
+        sideCollapsed={sideCollapsed}
+        onToggleSideCollapse={hasMenu ? toggleSideCollapsed : undefined}
         onOpenManual={manualContent ? () => setManualOpen(true) : undefined}
         onOpenVersionHistory={() => setVersionOpen(true)}
         onOpenMcpInfo={() => setMcpOpen(true)}
@@ -174,6 +210,7 @@ export function AppShell({
             topSlotRef={setSideMenuTopSlot}
             open={menuOpen}
             onClose={() => setMenuOpen(false)}
+            collapsed={sideCollapsed}
             role={role}
             permissions={permissions}
             can={can}
