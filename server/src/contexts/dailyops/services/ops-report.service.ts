@@ -112,7 +112,7 @@ function assertReportOpen(report: { kind?: unknown; status?: unknown }): void {
     throw new AppError(
       400,
       'VALIDATION_ERROR',
-      'この週報は確定済みです。直すには週報の画面で「確定を解く」を押してください',
+      'この週の報告は確定済みです。編集するには、週報の画面で「確定を取り消す」を押してください',
     );
   }
 }
@@ -337,7 +337,18 @@ export const opsReportService = {
   },
 
   async getReportById(id: string): Promise<Record<string, unknown> | undefined> {
-    const report = await queryOne(`SELECT * FROM ops_reports WHERE id = ? AND deleted_at IS NULL`, [id]);
+    /*
+     * `reviewed_by` は利用者 ID なので、そのままでは画面に出せない
+     * （2026-09 の再設計で、総括カードの署名に「誰が確定したか」を出すため名前を引く）。
+     * 退職などで `users` から消えていても、レポート自体は読めなければならないので LEFT JOIN。
+     */
+    const report = await queryOne(
+      `SELECT r.*, u.name AS reviewed_by_name
+         FROM ops_reports r
+         LEFT JOIN users u ON u.id = r.reviewed_by
+        WHERE r.id = ? AND r.deleted_at IS NULL`,
+      [id],
+    );
     if (!report) return undefined;
     return { ...report, items: await this.getReportItems(id) };
   },
@@ -346,7 +357,10 @@ export const opsReportService = {
     assertKind(kind);
     const normalized = normalizePeriodKey(kind, periodKey);
     const report = await queryOne(
-      `SELECT * FROM ops_reports WHERE kind = ? AND period_key = ? AND deleted_at IS NULL`,
+      `SELECT r.*, u.name AS reviewed_by_name
+         FROM ops_reports r
+         LEFT JOIN users u ON u.id = r.reviewed_by
+        WHERE r.kind = ? AND r.period_key = ? AND r.deleted_at IS NULL`,
       [kind, normalized],
     );
     if (!report) return undefined;
@@ -583,6 +597,21 @@ export const opsReportService = {
       [id],
     );
     return (await queryOne(`SELECT * FROM ops_reports WHERE id = ?`, [id]))!;
+  },
+
+  /**
+   * 週の箱を削除する（論理削除）。
+   *
+   * ⚠️ **確定済み（`weekly_activity` の `published`）は断る**（`assertReportOpen` を再利用）。
+   * 確定済みをそのまま消せると、確認した内容が画面から黙って消える。直すときと同じく
+   * 「確定を取り消す」を押してから削除してもらう。行 (`ops_report_items`) は物理削除しない
+   * （`report_id` の FK はそのまま・`deleted_at` が付いた親を辿らないだけで整合は壊れない）。
+   */
+  async deleteReport(id: string): Promise<void> {
+    const existing = await queryOne(`SELECT * FROM ops_reports WHERE id = ? AND deleted_at IS NULL`, [id]);
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'レポートが見つかりません');
+    assertReportOpen(existing);
+    await execute(`UPDATE ops_reports SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?`, [id]);
   },
 
   /** 確認のみ (日次ニュースの既読相当): reviewed_at/by だけ記録 */

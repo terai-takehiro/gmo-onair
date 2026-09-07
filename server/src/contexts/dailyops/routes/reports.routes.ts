@@ -161,6 +161,15 @@ router.post('/reports/:id/reopen', ...canEdit, async (req, res) => {
   res.json({ success: true, data: report });
 });
 
+/**
+ * 週の箱を削除する (論理削除)。「任意の週を追加していく」運用にした以上、
+ * 作りすぎ・日付を間違えた箱を消す口も要る（確定済みはサービス層が断る）。
+ */
+router.delete('/reports/:id', ...canEdit, async (req, res) => {
+  await opsReportService.deleteReport(String(req.params.id));
+  res.json({ success: true, data: { deleted: true } });
+});
+
 // 確認のみ (日次ニュースの既読)
 router.post('/reports/:id/review', ...canEdit, async (req, res) => {
   const report = await opsReportService.reviewReport(String(req.params.id), req.user!.id);

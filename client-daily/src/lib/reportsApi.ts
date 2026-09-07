@@ -56,6 +56,34 @@ export function useEnsureReport() {
   });
 }
 
+/**
+ * その週の集計を**いま引き直す**（`GET /dailyops/weekly-stats`）。
+ *
+ * 画面が出す数字は原則 `payload.stats`（確定時点のスナップショット）だが、
+ * **AI下書きを一度も作っていない週にはスナップショットが無い**。以前はそこが
+ * 「集計はまだありません」の空欄になり、総括を書こうとする人が材料を見られなかった。
+ * 下書きのあいだだけこちらを使い、確定後はスナップショットに固定する。
+ */
+export function useWeeklyStats(week?: string, enabled = true) {
+  return useQuery({
+    queryKey: ['weekly-stats', week],
+    queryFn: () => api.get('/dailyops/weekly-stats', { params: { week } }).then((r) => r.data.data),
+    enabled: enabled && !!week,
+  });
+}
+
+/**
+ * 週の箱を削除する（論理削除）。確定済みはサーバーが 400 で断る
+ * （メッセージに「確定を解いてください」と出るので、そのまま `notifyApiError` に渡せばよい）。
+ */
+export function useDeleteReport() {
+  const invalidate = useInvalidateReports();
+  return useMutation({
+    mutationFn: (reportId: string) => api.delete(`/dailyops/reports/${reportId}`),
+    onSuccess: invalidate,
+  });
+}
+
 export interface ItemInput {
   category?: string | null;
   content?: string;

@@ -1,0 +1,195 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&family=Noto+Sans+JP:wght@400;700;900&display=swap">
+  <style>
+    body { margin:0; background:#f7f8fa; color:#1a1d24;
+      font-family:'LINE Seed JP','Noto Sans JP',-apple-system,'Hiragino Sans','BIZ UDPGothic','Meiryo',sans-serif;
+      font-feature-settings:'palt' 1,'kern' 1; -webkit-font-smoothing:antialiased; }
+    a { color:#005bac; text-decoration:none; } a:hover { color:#00427c; }
+    .num { font-variant-numeric:tabular-nums; }
+    svg { flex-shrink:0; }
+  </style>
+</helmet>
+
+<div style="width:1440px; box-sizing:border-box; background:#f7f8fa; display:flex; flex-direction:column">
+
+  <div style="height:64px; box-sizing:border-box; display:flex; align-items:center; gap:14px; padding:0 24px; background:#ffffff; border-bottom:1px solid #e6e9ed">
+    <img src="logo-onair.svg" alt="GMO ONAiR" style="height:18px; width:auto">
+    <span style="width:1px; height:22px; background:#e6e9ed"></span>
+    <span style="display:flex; align-items:center; gap:10px; height:40px; box-sizing:border-box; padding:0 12px; border:1px solid #cfe4f4; border-radius:10px; background:#f4faff; font-size:13.5px; font-weight:700; color:#005bac">
+      <span style="width:22px; height:22px; border-radius:7px; background:#eaf4fb; display:inline-flex; align-items:center; justify-content:center">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4M12 16h4M8 11h.01M8 16h.01"/></svg>
+      </span>日常業務
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+    </span>
+    <span style="font-size:12.5px; color:#5d6470">／ ウィークリー活動報告</span>
+    <span style="flex:1; min-width:0"></span>
+    <span style="display:flex; align-items:center; gap:8px; width:280px; height:40px; box-sizing:border-box; padding:0 11px; border:1px solid #e6e9ed; border-radius:7px; background:#ffffff; font-size:12.5px; color:#9aa1ab">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>案件・お客様・機材を探す
+    </span>
+    <span style="width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; border-radius:7px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+    </span>
+    <span style="display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:999px; background:#eaf4fb; color:#005bac; font-size:12px; font-weight:800">寺井</span>
+  </div>
+
+  <div style="display:flex; align-items:stretch">
+
+    <div style="width:248px; box-sizing:border-box; flex-shrink:0; display:flex; flex-direction:column; background:#ffffff; border-right:1px solid #e6e9ed; padding:14px 12px 20px">
+      <span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; color:#3c424c"><span style="width:6px; height:6px; border-radius:999px; background:#cbd2da"></span>ホーム</span>
+      <span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; color:#3c424c"><span style="width:6px; height:6px; border-radius:999px; background:#cbd2da"></span>タスク・依頼</span>
+      <p style="margin:14px 0 4px; padding:0 10px; font-size:11.5px; font-weight:800; color:#5d6470">定期報告</p>
+      <span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; font-weight:700; color:#005bac; background:#f4faff"><span style="width:6px; height:6px; border-radius:999px; background:#005bac"></span>ウィークリー活動報告</span>
+      <span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; color:#3c424c"><span style="width:6px; height:6px; border-radius:999px; background:#cbd2da"></span>デイリーニュース報告</span>
+      <p style="margin:14px 0 4px; padding:0 10px; font-size:11.5px; font-weight:800; color:#5d6470">届いたもの</p>
+      <span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; color:#3c424c"><span style="width:6px; height:6px; border-radius:999px; background:#cbd2da"></span>問い合わせ</span>
+      <span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; color:#3c424c"><span style="width:6px; height:6px; border-radius:999px; background:#cbd2da"></span>フィードバックチケット</span>
+      <span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; color:#3c424c"><span style="width:6px; height:6px; border-radius:999px; background:#cbd2da"></span>受領書類</span>
+      <p style="margin:14px 0 4px; padding:0 10px; font-size:11.5px; font-weight:800; color:#5d6470">現場の受付</p>
+      <span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; color:#3c424c"><span style="width:6px; height:6px; border-radius:999px; background:#cbd2da"></span>内覧会 来場予約</span>
+      <span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; color:#3c424c"><span style="width:6px; height:6px; border-radius:999px; background:#cbd2da"></span>セキュリティカード</span>
+    </div>
+
+    <div style="flex:1; min-width:0; box-sizing:border-box; padding:24px; display:flex; align-items:flex-start; gap:20px">
+
+      <div style="width:260px; flex-shrink:0; box-sizing:border-box; display:flex; flex-direction:column; gap:8px; background:#ffffff; border:1px solid #e6e9ed; border-radius:16px; padding:8px">
+        <div style="display:flex; flex-direction:column; gap:4px; border:1px dashed #e6e9ed; border-radius:7px; padding:8px">
+          <span style="font-size:11.5px; color:#5d6470">週を追加（開始日）</span>
+          <div style="display:flex; gap:6px">
+            <span class="num" style="flex:1; min-width:0; box-sizing:border-box; height:28px; display:inline-flex; align-items:center; padding:0 8px; border:1px solid #e6e9ed; border-radius:7px; background:#ffffff; font-size:12.5px; color:#3c424c">2026/09/07</span>
+            <span style="width:34px; height:28px; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; border:1px solid #e6e9ed; border-radius:9px; background:#ffffff">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg>
+            </span>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:4px">
+          <span style="flex:1; min-width:0; min-height:46px; box-sizing:border-box; display:flex; flex-direction:column; justify-content:center; gap:2px; padding:8px 12px; border-radius:7px; background:#eaf4fb">
+            <span class="num" style="font-size:13.5px; font-weight:700; color:#005bac; white-space:nowrap">8/31 〜 9/6 の週</span>
+            <span style="display:flex; align-items:center; gap:4px; font-size:11.5px; color:#5d6470"><span style="width:9px; height:9px; border-radius:999px; border:2px solid #c2410e; box-sizing:border-box"></span>下書き<span class="num">・トピック 0</span></span>
+          </span>
+          <span style="width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; border-radius:7px; flex-shrink:0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c7243a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+          </span>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:4px">
+          <span style="flex:1; min-width:0; min-height:46px; box-sizing:border-box; display:flex; flex-direction:column; justify-content:center; gap:2px; padding:8px 12px; border-radius:7px">
+            <span class="num" style="font-size:13.5px; font-weight:700; white-space:nowrap">8/24 〜 8/30 の週</span>
+            <span style="display:flex; align-items:center; gap:4px; font-size:11.5px; color:#5d6470"><span style="width:9px; height:9px; border-radius:999px; background:#197a4b"></span>確定済み<span class="num">・トピック 3</span></span>
+          </span>
+          <span style="width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; border-radius:7px; flex-shrink:0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c7243a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+          </span>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:4px">
+          <span style="flex:1; min-width:0; min-height:46px; box-sizing:border-box; display:flex; flex-direction:column; justify-content:center; gap:2px; padding:8px 12px; border-radius:7px">
+            <span class="num" style="font-size:13.5px; font-weight:700; white-space:nowrap">8/17 〜 8/23 の週</span>
+            <span style="display:flex; align-items:center; gap:4px; font-size:11.5px; color:#5d6470"><span style="width:9px; height:9px; border-radius:999px; background:#197a4b"></span>確定済み<span class="num">・トピック 5</span></span>
+          </span>
+          <span style="width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; border-radius:7px; flex-shrink:0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c7243a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+          </span>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:4px">
+          <span style="flex:1; min-width:0; min-height:46px; box-sizing:border-box; display:flex; flex-direction:column; justify-content:center; gap:2px; padding:8px 12px; border-radius:7px">
+            <span class="num" style="font-size:13.5px; font-weight:700; white-space:nowrap">8/10 〜 8/16 の週</span>
+            <span style="display:flex; align-items:center; gap:4px; font-size:11.5px; color:#5d6470"><span style="width:9px; height:9px; border-radius:999px; background:#197a4b"></span>確定済み<span class="num">・トピック 4</span></span>
+          </span>
+          <span style="width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; border-radius:7px; flex-shrink:0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c7243a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+          </span>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:4px">
+          <span style="flex:1; min-width:0; min-height:46px; box-sizing:border-box; display:flex; flex-direction:column; justify-content:center; gap:2px; padding:8px 12px; border-radius:7px">
+            <span class="num" style="font-size:13.5px; font-weight:700; white-space:nowrap">8/3 〜 8/9 の週</span>
+            <span style="display:flex; align-items:center; gap:4px; font-size:11.5px; color:#5d6470"><span style="width:9px; height:9px; border-radius:999px; background:#197a4b"></span>確定済み<span class="num">・トピック 6</span></span>
+          </span>
+          <span style="width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; border-radius:7px; flex-shrink:0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c7243a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+          </span>
+        </div>
+      </div>
+
+      <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:16px">
+
+        <div style="display:flex; align-items:flex-end; gap:14px">
+          <div style="min-width:0; display:flex; flex-direction:column; gap:4px">
+            <h1 style="margin:0; font-size:23px; font-weight:800">ウィークリー活動報告</h1>
+            <span class="num" style="font-size:12.5px; color:#5d6470">8/31 〜 9/6 の週</span>
+            <div style="display:flex; align-items:center; gap:6px; padding-top:4px">
+              <span style="display:inline-flex; align-items:center; justify-content:center; height:22px; box-sizing:border-box; padding:0 8px; border:1px solid #fed7aa; border-radius:6px; background:#fff7ed; color:#c2410e; font-size:11px; font-weight:800">下書き</span>
+              <span style="display:inline-flex; align-items:center; justify-content:center; height:22px; box-sizing:border-box; padding:0 8px; border:1px solid #ddd6fe; border-radius:6px; background:#f5f3ff; color:#6d28d9; font-size:11px; font-weight:800">未確認</span>
+              <span style="display:inline-flex; align-items:center; gap:5px; height:30px; box-sizing:border-box; padding:0 12px; border:1px solid #e6e9ed; border-radius:9px; background:#ffffff; font-size:12px; font-weight:700; color:#3c424c">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>確認した
+              </span>
+            </div>
+          </div>
+          <div style="flex:1; min-width:0"></div>
+          <span style="display:inline-flex; align-items:center; gap:7px; height:38px; box-sizing:border-box; padding:0 16px; border-radius:10px; background:#005bac; color:#ffffff; font-size:12.5px; font-weight:700; flex-shrink:0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>確定する
+          </span>
+        </div>
+
+        <div style="display:flex; align-items:stretch; height:44px; border-bottom:1px solid #e6e9ed">
+          <span style="display:inline-flex; align-items:center; gap:7px; padding:0 16px; border-bottom:2px solid #005bac; color:#005bac; font-size:13.5px; font-weight:700">この週の報告</span>
+          <span style="display:inline-flex; align-items:center; gap:7px; padding:0 16px; color:#5d6470; font-size:13.5px">隔週キープの数字</span>
+          <span style="display:inline-flex; align-items:center; gap:7px; padding:0 16px; color:#5d6470; font-size:13.5px">資料をつくる</span>
+        </div>
+
+        <div style="display:flex; align-items:baseline; gap:9px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="align-self:center"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/></svg>
+          <h2 style="margin:0; font-size:19px; font-weight:800">自動集計</h2>
+          <span style="font-size:12px; color:#5d6470">— 投稿した時点の ONAiR のデータの写しです（ここでは直せません）</span>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; border:1px dashed #e6e9ed; border-radius:9px; background:#fafbfc; padding:40px 16px; text-align:center">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+          <span style="font-size:13.5px; font-weight:700">集計はまだありません</span>
+          <span style="max-width:420px; font-size:12px; line-height:1.7; color:#5d6470">AI がウィークリー活動報告を作成すると、その時点の案件・活動・売上がここに出ます。</span>
+        </div>
+
+        <div style="display:flex; align-items:baseline; gap:9px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="align-self:center"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 4v4M8 14h.01M16 14h.01"/></svg>
+          <h2 style="margin:0; font-size:19px; font-weight:800">AI の要約</h2>
+          <span style="font-size:12px; color:#5d6470">— AI が集計を文章にしたもの</span>
+          <span style="flex:1; min-width:0"></span>
+          <span style="display:inline-flex; align-items:center; gap:7px; height:30px; box-sizing:border-box; padding:0 12px; border:1px solid #e6e9ed; border-radius:9px; background:#ffffff; font-size:12px; font-weight:700; color:#3c424c">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.6 14 9l6.4 2-6.4 2-2 6.4-2-6.4L3.6 11 10 9z"/></svg>AI下書きを作る
+          </span>
+        </div>
+        <div style="background:#ffffff; border:1px solid #e6e9ed; border-radius:16px; padding:20px">
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; padding:24px 16px; text-align:center">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.6 14 9l6.4 2-6.4 2-2 6.4-2-6.4L3.6 11 10 9z"/></svg>
+            <span style="font-size:13.5px; font-weight:700">AI の要約はまだありません</span>
+            <span style="max-width:460px; font-size:12px; line-height:1.7; color:#5d6470">上の「AI下書きを作る」を押すか、急ぐときは下のトピックに人の言葉で書いてください。</span>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:baseline; gap:9px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="align-self:center"><path d="M3 5h.01M3 12h.01M3 19h.01M8 5h13M8 12h13M8 19h13"/></svg>
+          <h2 style="margin:0; font-size:19px; font-weight:800">週次トピックス</h2>
+          <span style="font-size:12px; color:#5d6470">— 自動集計に出ない出来事を人が追加するところ</span>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; border:1px dashed #e6e9ed; border-radius:9px; background:#fafbfc; padding:40px 16px; text-align:center">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+          <span style="font-size:13.5px; font-weight:700">トピックはまだありません</span>
+          <span style="max-width:420px; font-size:12px; line-height:1.7; color:#5d6470">この週にあった出来事を足してください。</span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

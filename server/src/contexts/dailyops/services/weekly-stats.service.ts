@@ -31,6 +31,16 @@ export interface WeeklyStats {
     events: Record<string, unknown>[];
     next_actions: Record<string, unknown>[];
   };
+  /**
+   * 前週の同じ数値（主要指標の増減表示用・2026-09 の再設計）。
+   *
+   * 画面が読むのは `ops_reports.payload.stats` の**スナップショット**なので、
+   * 比較する側の数値も同じスナップショットに入れておく必要がある
+   * （画面から前週ぶんを引き直すと、確定後に前週の実績が動いたときに
+   * 「確定時点の数字」という約束が崩れる）。
+   * ⚠️ **確定済みの過去のレポートにはこの鍵が無い。** 画面は未定義を前提に描くこと。
+   */
+  prev_week: { week_start: string; new_projects: number; activities: number; revenue: number };
 }
 
 export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklyStats> {
@@ -119,6 +129,26 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
     [month],
   );
 
+  // 前週の同じ数値 (主要指標の増減表示用)。出すのは件数と金額だけなので3本で足りる
+  const prevWeekStart = addDays(weekStart, -7);
+  const prevWeekEnd = addDays(weekStart, -1);
+  const prevNewProjects = await queryOne(
+    `SELECT COUNT(*) AS c FROM projects
+      WHERE deleted_at IS NULL
+        AND created_at >= ?::date AND created_at < (?::date + INTERVAL '1 day')`,
+    [prevWeekStart, prevWeekEnd],
+  );
+  const prevActivities = await queryOne(
+    `SELECT COUNT(*) AS c FROM activity_logs
+      WHERE deleted_at IS NULL AND activity_date BETWEEN ? AND ?`,
+    [prevWeekStart, prevWeekEnd],
+  );
+  const prevRevenue = await queryOne(
+    `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues
+      WHERE deleted_at IS NULL AND recognition_date BETWEEN ? AND ?`,
+    [prevWeekStart, prevWeekEnd],
+  );
+
   // 今週 / 来週のイベント (GLS 発番済案件のイベント期間が週に重なるもの)
   const eventsInRange = (from: string, to: string) => queryAll(
     `SELECT p.id, p.gls_number, p.name, p.stage, p.event_start, p.event_end,
@@ -170,6 +200,12 @@ export async function getWeeklyStats(weekStartInput?: string): Promise<WeeklySta
       week_total: Number(weekRevenue?.total ?? 0),
       month_total: Number(monthRevenue?.total ?? 0),
       month,
+    },
+    prev_week: {
+      week_start: prevWeekStart,
+      new_projects: Number(prevNewProjects?.c ?? 0),
+      activities: Number(prevActivities?.c ?? 0),
+      revenue: Number(prevRevenue?.total ?? 0),
     },
     events_this_week: eventsThisWeek,
     next_week: {

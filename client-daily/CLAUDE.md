@@ -6,7 +6,7 @@
 
 | v4 画面 | いまの実装 |
 | --- | --- |
-| ウィークリー活動報告 | `pages/WeeklyDetailPage`（**1画面 master-detail**）＋ `pages/weekly/{WeekRail,StatsSection,TopicsSection,WeeklyTabs}.tsx`。`pages/WeeklyListPage` は `/weekly` → 最新週への転送だけ。**タブが3つ**: この週の報告（`/weekly/:id`）／隔週キープの数字（`/weekly/:id/keep`・`pages/weekly/keep/`）／資料をつくる（`/weekly/:id/deck`・`pages/weekly/deck/`・**PC 専用**） |
+| ウィークリー活動報告 | `pages/WeeklyDetailPage` ＋ `pages/weekly/{WeekSwitcher,WeekAddCalendar,SummarySection,StatsSection,DetailsSection,TopicsSection,WeeklyTabs}.tsx`。`pages/WeeklyListPage` は `/weekly` → 最新週への転送だけ。**タブが3つ**: この週の報告（`/weekly/:id`）／隔週キープの数字（`/weekly/:id/keep`・`pages/weekly/keep/`）／資料をつくる（`/weekly/:id/deck`・`pages/weekly/deck/`・**PC 専用**） |
 | デイリーニュース報告 | `pages/DailyNewsPage` ＋ `pages/news/{NewsRows,NewsForm}.tsx` |
 | 内覧会 開催日の一覧 | `pages/InviewPage` |
 | 内覧会 その日の受付 | `pages/InviewDayPage` ＋ `pages/inview/{AttendeeCard,InviewDialog,CompanySummary}.tsx` ＋ `pages/inview/logic.ts` |
@@ -28,13 +28,25 @@
 
 ## このアプリ固有の決めごと
 
-- **ウィークリー活動報告**: 自動集計 → AI本文 → 人が書くトピック の3層。**確定後は追記不可**。
-  AI本文は画面の「AI下書きを作る」ボタン（`POST /dailyops/reports/:id/draft-ai`・
-  `weekly-report-ai.service.ts`／`weekly-report-draft.service.ts`）で**その場で**作れる
-  （2026-09。以前は MCP を AI エージェントが自発的に叩く想定だったが、実際にそれを
-  週明けに起動するトリガーがどこにも無かった）。確定前だけ本文を直せる
-  （`PUT /dailyops/reports/:id`）— 確定時にサーバーが AI 下書きと確定本文を自動比較して
-  `ai_corrections` に記録する（会社方針「AIを使い捨てにしない」条件2）
+- **ウィークリー活動報告**（2026-09 に**モックから再設計**した。設計の正は
+  [docs/design/v4/mockups/weekly-redesign/](../docs/design/v4/mockups/weekly-redesign/)）:
+  - **並びは 総括 → 主要指標 → トピックス → 詳細内訳**。以前の「自動集計 → AI の要約 →
+    週次トピックス」は**生成工程の順**で、読み手の順ではなかった。⚠️ **この順を戻さないこと。**
+  - **見出しは対象週そのもの**（`WeekSwitcher`。◀ ▶ ＋ 今週／先週 ＋ シートで一覧）。
+    左の週レールは廃止した。**週の追加は月次カレンダーから週行を選ぶ**（`WeekAddCalendar`。
+    日付を打たせない・作成済みの週がその場で分かる）。**削除は下書きの週だけ**に出す
+    （`DELETE /dailyops/reports/:id`＝論理削除。確定済みはサーバーが断る）
+  - **状態のバッジは1つ**（下書き／確定済み）。個人の既読は「確認した」の操作、
+    AI 由来は総括カード下部の**署名**で表す。⚠️ **バッジを3つ（下書き／未確認／AI作成）に
+    戻さないこと** — 同じ見た目で3軸並ぶと区分が読めない
+  - **確定後は追記不可**。AI本文は「AI下書きを作成」（`POST /dailyops/reports/:id/draft-ai`・
+    `weekly-report-ai.service.ts`／`weekly-report-draft.service.ts`）で**その場で**作れる。
+    確定前だけ本文を編集でき（`PUT /dailyops/reports/:id`）、確定時にサーバーが AI 下書きと
+    確定本文を自動比較して `ai_corrections` に記録する（会社方針「AIを使い捨てにしない」条件2）。
+    ⚠️ **編集の入口を消すと条件2が形だけになる**（差分が常に「無修正」になる）
+  - **数字の出どころは2つ**。確定済みは `payload.stats`（確定時点のスナップショット・
+    `prev_week` に前週比の元数値を同梱）、下書きでスナップショットが無い週だけ
+    `GET /dailyops/weekly-stats` を引き直す（以前は空欄で、総括を書く人が材料を見られなかった）
 - **隔週キープ（業績報告）はこの画面のタブ**（設計の正は [docs/design/v4/keep-report.md](../docs/design/v4/keep-report.md)）。
   - **数字は1本の「定例報告パック」**（`GET /dailyops/keep/pack?meeting=&entity_code=&segment=`・
     型は `shared/src/keepReport/types.ts`）。画面・資料・MCP はこれを読むだけで、
