@@ -190,7 +190,8 @@ router.get('/', async (req, res) => {
   const allocCol = projectId ? ', ra.allocated_amount, pg.name as group_name' : '';
 
   const rows = await queryAll(
-    `SELECT r.*, p.name as project_name, p.gls_number, p.project_type, p.event_end, c.name as customer_name, e.episode_code,
+    `SELECT r.*, p.name as project_name, p.gls_number, p.project_type, p.event_end, p.stage as project_stage,
+            c.name as customer_name, e.episode_code,
             (il.id IS NOT NULL) AS is_intercompany${allocCol}
      FROM revenues r
      LEFT JOIN projects p ON p.id = r.project_id

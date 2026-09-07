@@ -22,12 +22,45 @@
  * `is_provisional ? '仮' : null` という2値だけが内訳に書き写されており、
  * 台帳が3値になったあとも内訳だけ「金額確定・精算まだ」と「金額確定・精算申請済」が
  * 同じ見た目（バッジ無し）のまま取り残されていた。
+ *
+ * ── 「確度加味」は行ごとにも掛ける（2026-09 依頼の拡張） ──────────
+ *
+ * 財務ダッシュボードの「総額／確度加味」は、以前は営業見通し（パイプライン）カード
+ * だけに効いていた。ご依頼で画面全体（この内訳の各行を含む）に広げたため、
+ * `weighted: true` のときは行の金額に**その案件のいまのフェーズの受注確度（%）**を
+ * 掛けて表示する。**あくまでシミュレーション表示**——`amount` そのものを書き換えて
+ * 返すのではなく、確度が100%未満のときだけ `sub` に「確度NN%」を添えて、
+ * 実額をそのまま出していないことが分かるようにする。
+ *
+ * 合計（`BreakdownColumn` の見出し金額＝`monthly-summary` の値）も同じ確度で
+ * サーバー側が重みづけ済みなので、ここで行ごとに掛けても合計とはズレない
+ * （サーバー側 `monthly-summary.service.ts` の `weightedSum` と同じ丸め方＝
+ * 行ごとに四捨五入ではなく、**行の見た目だけ**をここで丸める。1円単位のズレは
+ * 「内訳は上位だけ」の性質上そもそも合計と一致しない設計なので許容する）。
+ *
+ * 案件に紐づかない行（`project_stage` が無い・固定原価Pjなど重みづけ対象外として
+ * 呼び出し側が `null` にした行）は確度100%＝実額のまま。
  */
 import type { SgaExpense } from '@/types';
 import type { PurchaseRow } from '../ledger/types';
 import { settlementState } from '../ledger/settlementState';
 import { billingState } from '../ledger/billingState';
+import { probabilityOf } from './useStageProbabilities';
 import type { BreakdownItem } from './Breakdown';
+
+/** 行ごとの確度加味オプション。渡さない（`undefined`）ときは総額のまま（従来どおり） */
+export interface WeightingOptions {
+  weighted: boolean;
+  probabilityMap: Map<string, number>;
+}
+
+/** 確度を掛けた表示額と、添える注記（100%のときは注記なし）を返す */
+function weightedDisplay(rawAmount: number, stage: string | null | undefined, weighting?: WeightingOptions) {
+  if (!weighting?.weighted) return { amount: rawAmount, note: null as string | null };
+  const prob = probabilityOf(weighting.probabilityMap, stage);
+  if (prob >= 100) return { amount: rawAmount, note: null as string | null };
+  return { amount: Math.round(rawAmount * (prob / 100)), note: `確度${prob}%として計算` };
+}
 
 /**
  * 売上の内訳が使う列だけ。`GET /revenues` の行は列が多く、
@@ -42,6 +75,8 @@ export interface RevenueBreakdownRow {
   amount: number;
   project_id?: string | null;
   group_id?: string | null;
+  /** 案件のいまのフェーズ（`GET /revenues` が `p.stage as project_stage` で返す）。確度加味用 */
+  project_stage?: string | null;
   /* 請求の進み具合を出すために読む2列（`billingState`）。`GET /revenues` は
      `SELECT r.*` なので、どちらも既にクライアントへ届いている */
   paid_date?: string | null;
@@ -59,6 +94,7 @@ export function buildRevenueItems(
     /** 按分グループの行だけの行き先（案件が1つに決まらないため） */
     openGroup: (groupId: string) => void;
   },
+  weighting?: WeightingOptions,
 ): BreakdownItem[] {
   return rows.map((r) => {
     // ⚠️ 三項の中で絞っても、コールバックの中では TS の絞り込みが効かない
@@ -66,12 +102,13 @@ export function buildRevenueItems(
     const groupId = r.group_id;
     const projectId = r.project_id;
     const projectName = r.project_name;
+    const { amount, note } = weightedDisplay(Number(r.amount) || 0, r.project_stage, weighting);
     return {
       id: r.id,
       code: r.episode_code || r.gls_number,
       title: r.project_name || '（案件名なし）',
-      sub: r.customer_name,
-      amount: Number(r.amount) || 0,
+      sub: [r.customer_name, note].filter(Boolean).join(' ・ ') || null,
+      amount,
       /*
        * 請求の進み具合（未請求／発行済／入金済）。**台帳とまったく同じ
        * `billingState` を呼ぶ**ので、文言も色も自動でそろう（写して2本にしない）。
@@ -116,20 +153,26 @@ export function buildPurchaseItems(
    * （`PurchaseDialog readOnly`）を重ねるだけにする。
    */
   onView: (row: PurchaseRow) => void,
+  weighting?: WeightingOptions,
 ): BreakdownItem[] {
-  return rows.map((p) => ({
-    id: p.id,
-    code: p.episode_code || p.gls_number,
-    title: p.description || p.project_name || '（説明なし）',
-    sub: [p.vendor_name, p.project_name].filter(Boolean).join(' ／ ') || null,
-    amount: Number(p.amount) || 0,
-    // 台帳（④ 仕入）とまったく同じ3値。**ここで判定を書き写さない**
-    badge: settlementState(p.is_provisional, p.settlement_number),
-    // 精算ページ。**申請URLが入っている行にだけ**出す（台帳と同じ流儀）
-    settlementUrl: p.settlement_url,
-    // 押す＝この画面のまま詳細モーダルを開くだけ（台帳へは移動しない）
-    onClick: () => onView(p),
-  }));
+  return rows.map((p) => {
+    // 固定原価（`code=FIXED-COGS`）は呼び出し側（`BudgetDashboardPage`）が
+    // `project_stage: null` に落として渡す＝ここでは常に実額 100% のまま
+    const { amount, note } = weightedDisplay(Number(p.amount) || 0, p.project_stage, weighting);
+    return {
+      id: p.id,
+      code: p.episode_code || p.gls_number,
+      title: p.description || p.project_name || '（説明なし）',
+      sub: [p.vendor_name, p.project_name, note].filter(Boolean).join(' ／ ') || null,
+      amount,
+      // 台帳（④ 仕入）とまったく同じ3値。**ここで判定を書き写さない**
+      badge: settlementState(p.is_provisional, p.settlement_number),
+      // 精算ページ。**申請URLが入っている行にだけ**出す（台帳と同じ流儀）
+      settlementUrl: p.settlement_url,
+      // 押す＝この画面のまま詳細モーダルを開くだけ（台帳へは移動しない）
+      onClick: () => onView(p),
+    };
+  });
 }
 
 export function buildSgaItems(

@@ -109,6 +109,12 @@ const WRITE_TOOL_PERMISSIONS: Record<string, ToolPermission> = {
   // HTTP 側 security-card.routes.ts の canEdit = requirePermission('dailyops','editor') と一致させる)
   lend_security_card: { module: 'dailyops', level: 'editor' },
   return_security_card: { module: 'dailyops', level: 'editor' },
+  // フィードバックチケットの起票 (2026-09 追加)。HTTP 側 (`feedback-ticket.routes.ts`)
+  // の `POST /feedback-tickets` は `dailyops:reader`（このアプリを開ける人＝全員）で
+  // 通すので、他の書き込みツールと違い level は editor ではなく reader に揃える。
+  // ⚠️ このツール自体は OAuth actor 専用（静的キーは `feedback-tickets.tools.ts` の
+  // `requireReporter()` が 403 で止める。ここは「dailyops を開けるか」の権限判定のみ）
+  create_feedback_ticket: { module: 'dailyops', level: 'reader' },
   // 個人タスク・依頼・投入 (v2.9.245 / 改革 Phase 2a)。
   // 受け皿は日常業務アプリの「タスク・依頼」メニューなので module は dailyops に揃える
   // (HTTP 側 dailyops/tasks.routes.ts の requirePermission と一致させる)。
@@ -226,6 +232,7 @@ const READ_TOOL_PERMISSIONS: Record<string, ToolPermission> = {
   list_security_cards: { module: 'dailyops', level: 'reader' },
   get_security_card: { module: 'dailyops', level: 'reader' },
   list_security_card_lendings: { module: 'dailyops', level: 'reader' },
+  list_feedback_tickets: { module: 'dailyops', level: 'reader' },
   // 受領書類。HTTP 側 (`inbox.routes.ts`) の docsRead =
   // requireAnyPermission(['dailyops','sales'],'reader') と一致 (record_finance_doc と同じ判断)
   list_finance_docs: { module: ['dailyops', 'sales'], level: 'reader' },

@@ -78,7 +78,9 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
       const isEstimate   = data.status === 'estimate';
       const isInspection = data.status === 'inspection'; // 検収書 (金額を伏せ 数量・単位のみ)
       const showMoney    = !isInspection;
-      const docDate    = data.billing_date || data.recognition_date || jstDate();
+      // 検収書は「発行した日」を表す書類なので、常に発行時点の日付を出す
+      // （請求日・計上日にフォールバックすると、後日発行したときに過去の日付が出てしまう）
+      const docDate    = isInspection ? jstDate() : (data.billing_date || data.recognition_date || jstDate());
       const items      = Array.isArray(data.items) ? data.items : [];
 
       const listPrice     = items.reduce((s, it) => s + Math.max(0, it.amount || 0), 0);

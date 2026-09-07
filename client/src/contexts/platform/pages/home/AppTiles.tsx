@@ -39,7 +39,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowUpRight, ChevronDown,
-  CalendarCheck, DoorOpen, FileText, Inbox, KeyRound, Newspaper,
+  CalendarCheck, DoorOpen, FileText, Inbox, KeyRound, ListChecks, MessageSquareWarning, Newspaper,
   type LucideIcon,
 } from 'lucide-react';
 import { APPS, type AppDef } from '@gmo-onair/shared/src/client/apps';
@@ -88,9 +88,11 @@ const EVENT_KEYS: string[] = [];
  */
 const MINI_APPS: Record<string, Array<{ label: string; to: string; icon: LucideIcon }>> = {
   dailyops: [
+    { label: 'タスク・依頼', to: '/daily/tasks', icon: ListChecks },
     { label: 'ウィークリー活動報告', to: '/daily/weekly', icon: CalendarCheck },
     { label: 'デイリーニュース報告', to: '/daily/news', icon: Newspaper },
     { label: '問い合わせ', to: '/daily/inquiries', icon: Inbox },
+    { label: 'フィードバックチケット', to: '/daily/feedback-tickets', icon: MessageSquareWarning },
     { label: '受領書類', to: '/daily/finance', icon: FileText },
     { label: '内覧会 来場予約', to: '/daily/inview', icon: DoorOpen },
     { label: 'セキュリティカード', to: '/daily/security-cards', icon: KeyRound },

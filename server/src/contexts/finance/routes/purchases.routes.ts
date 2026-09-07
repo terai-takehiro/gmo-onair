@@ -57,7 +57,8 @@ router.get('/', async (req, res) => {
   // （行を引くクエリだけ join があり、COUNT/SUM/件数には無かったのが 500 の原因）。
   const total = ((await queryOne(`SELECT COUNT(*) as c FROM purchases pu LEFT JOIN projects p ON p.id = pu.project_id LEFT JOIN companies vco ON vco.id = pu.vendor_id ${allocJoin} ${where}`, [...allocParams, ...params])) as any).c;
   const rows = await queryAll(
-    `SELECT pu.*, p.name as project_name, p.gls_number, p.code as project_code, vco.name as vendor_name, pg.name as group_name, e.episode_code, au.name as assigned_to_name,
+    `SELECT pu.*, p.name as project_name, p.gls_number, p.code as project_code, p.stage as project_stage,
+            vco.name as vendor_name, pg.name as group_name, e.episode_code, au.name as assigned_to_name,
             (il.id IS NOT NULL) AS is_intercompany${allocCol}
      FROM purchases pu
      LEFT JOIN projects p ON p.id = pu.project_id

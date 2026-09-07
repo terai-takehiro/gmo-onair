@@ -10,7 +10,6 @@ import moneyRulesRoutes from './routes/money-rules.routes';
 import intercompanyRoutes from './routes/intercompany.routes';
 import { createFinanceExcelRouter } from './routes/excel.routes';
 import { getMonthlySummary } from './services/monthly-summary.service';
-import { getPipelineForecast } from './services/pipeline-forecast.service';
 import { requireAuth, requirePermission } from '../../shared/middleware/auth';
 import { AppError } from '../../shared/middleware/errorHandler';
 // 2026年10月の事業再編（P2 Round 1）: 会社（entity_code）で絞れるようにした。
@@ -36,23 +35,11 @@ export function createFinanceRoutes(): Router {
       // 期間を絞らない集計。画面の「全期間」ボタンだけが `all=1` を付ける
       allPeriods: req.query.all === '1' || req.query.all === 'true',
       entityCode,
+      // 「総額」/「確度加味」の切り替え（2026-09 依頼を画面全体に拡張）。
+      // 省略時は 'total'（従来どおり実額）。旧「営業見通し（パイプライン）」カード
+      // 専用だった確度加味を、財務ダッシュボード全体（このサマリー含む）へ合流させた
+      mode: req.query.mode === 'weighted' ? 'weighted' : 'total',
     });
-    res.json({ success: true, data });
-  });
-
-  /**
-   * 財務ダッシュボードの「営業見通し（パイプライン）」— 総額 / 確度加味の切り替え用
-   * （2026-09 依頼）。集計ロジックは `pipeline-forecast.service.ts` に集約
-   * （`getMonthlySummary` の「確定売上だけ」とは別軸——詳しくはそちらのコメント参照）。
-   */
-  router.get('/pipeline-forecast', requireAuth, requirePermission('sales'), async (req, res) => {
-    // 2026年10月の事業再編（P2 Round 1）: 会社（entity_code）で絞れるようにした。
-    // **省略時は絞らない＝今までどおり全社合算**（`/monthly-summary` と同じ判断）
-    const entityCode = req.query.entity_code as string | undefined;
-    if (entityCode && !(await getLegalEntity(entityCode))) {
-      throw new AppError(400, 'VALIDATION_ERROR', '不正な計上会社です');
-    }
-    const data = await getPipelineForecast(req.query.project_id as string | undefined, entityCode);
     res.json({ success: true, data });
   });
 
