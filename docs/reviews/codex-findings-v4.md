@@ -3275,7 +3275,7 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 | PR | 重み | どこ | 何が起きるか | 状態 |
 | --- | --- | --- | --- | --- |
-| #621 | P1（セキュリティ） | `server/src/contexts/dailyops/routes/inbox.routes.ts` の `POST /inquiries/:id/book` | **`dailyops:editor` だけで `sales:editor` 相当のスタジオ予約（カレンダー登録）が作れる** — `studioBookingService.createBooking()` をサービス層で直接呼んでおり、`/studios/bookings` が要求する `sales:editor` を経由しない。作られる予約は tentative・部屋なしだが ICS配信・共有カレンダーに乗り、作った本人（dailyops）はそれを消す手段を持たない | ❌ **直さないと決めた**（ユーザーに確認済み・`AskUserQuestion`で「既存パターンとして許容する」を選択）。既存の「タスクにする」（`makeTicket()`が`project_tasks`へ直接INSERT・削除には`sales`権限が要る）と同型の意図した設計で、`sales:editor`必須にすると「dailyopsがカレンダーに直接登録したい」という依頼自体が成立しなくなる。**何が変われば直すか**: 「dailyopsが自分で作った予約だけ取り消せる」導線が要ると判断されたとき、別PRでスコープ限定の削除APIを追加する |
+| #624 | P1（セキュリティ・元は #621 のレビュー指摘） | `server/src/contexts/dailyops/routes/inbox.routes.ts` の `POST /inquiries/:id/book` | **`dailyops:editor` だけで `sales:editor` 相当のスタジオ予約（カレンダー登録）が作れる** — `studioBookingService.createBooking()` をサービス層で直接呼んでおり、`/studios/bookings` が要求する `sales:editor` を経由しない。作られる予約は tentative・部屋なしだが ICS配信・共有カレンダーに乗り、作った本人（dailyops）はそれを消す手段を持たない | ❌ **直さないと決めた**（ユーザーに確認済み・`AskUserQuestion`で「既存パターンとして許容する」を選択）。既存の「タスクにする」（`makeTicket()`が`project_tasks`へ直接INSERT・削除には`sales`権限が要る）と同型の意図した設計で、`sales:editor`必須にすると「dailyopsがカレンダーに直接登録したい」という依頼自体が成立しなくなる。**何が変われば直すか**: 「dailyopsが自分で作った予約だけ取り消せる」導線が要ると判断されたとき、別PRでスコープ限定の削除APIを追加する |
 
 - **#599**（`feat(reorg): 2026年10月の事業再編（計上会社の2社化・案件番号の改番）の基盤を実装`・
   2026-09-06）— P0〜P1残作業（`docs/reorg-2026-10-plan.md`）を1本のPRにまとめて出した回
