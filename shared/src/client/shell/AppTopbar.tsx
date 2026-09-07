@@ -32,6 +32,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ChevronDown, Menu, LogOut, ArrowLeftRight, HelpCircle, History, Plug, Home,
+  PanelLeftClose, PanelLeftOpen,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '../utils';
@@ -56,6 +57,13 @@ interface AppTopbarProps extends ShellAccess {
   onSwitchUser?: () => void;
   /** スマホのハンバーガー。渡さないと出ない (左メニューが無い画面) */
   onToggleMenu?: () => void;
+  /** いま PC の左メニューが隠れているか (ボタンの見た目・ラベルの切り替えに使う) */
+  sideCollapsed?: boolean;
+  /**
+   * PC で左メニューを隠す／戻すボタン。渡さないと出ない (左メニューが無い画面)。
+   * スマホの `onToggleMenu` (引き出し開閉) とは別物 — こちらは `lg:` 以上でだけ出る。
+   */
+  onToggleSideCollapse?: () => void;
   onOpenManual?: () => void;
   onOpenVersionHistory?: () => void;
   onOpenMcpInfo?: () => void;
@@ -94,6 +102,8 @@ export function AppTopbar({
   onLogout,
   onSwitchUser,
   onToggleMenu,
+  sideCollapsed,
+  onToggleSideCollapse,
   onOpenManual,
   onOpenVersionHistory,
   onOpenMcpInfo,
@@ -130,6 +140,26 @@ export function AppTopbar({
           aria-label="メニューを開く"
         >
           <Menu className="h-5 w-5" />
+        </button>
+      )}
+
+      {/*
+        ── PC で左メニューを隠す／戻す ────────────────────────────
+        上のハンバーガーは `lg:hidden`（スマホ専用）。こちらは真逆に
+        `hidden lg:inline-flex` で PC でだけ出す（EditorPage の右パネル用
+        トグルと同じ考え方）。隠した／出したは `AppShell.tsx` が
+        `localStorage` に覚える（スマホの引き出し開閉とは別の状態）。
+      */}
+      {onToggleSideCollapse && (
+        <button
+          type="button"
+          onClick={onToggleSideCollapse}
+          aria-pressed={sideCollapsed}
+          aria-label={sideCollapsed ? 'サイドバーを表示する' : 'サイドバーを隠す'}
+          title={sideCollapsed ? 'サイドバーを表示する' : 'サイドバーを隠す'}
+          className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-control text-muted-foreground hover:bg-muted lg:inline-flex"
+        >
+          {sideCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
         </button>
       )}
 
