@@ -12,7 +12,7 @@
  */
 import {
   Sparkles, Pencil, Trash2, AlertTriangle, Clock, Mail, MessageSquare, Phone, Users,
-  ListChecks, FolderPlus, Archive, CalendarClock, CircleSlash, RotateCcw,
+  ListChecks, FolderPlus, CalendarPlus, Archive, CalendarClock, CircleSlash, RotateCcw,
 } from 'lucide-react';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
@@ -45,7 +45,7 @@ const SRC_ICON = { mail: Mail, slack: MessageSquare, phone: Phone, talk: Users, 
 
 /** 次にできることのアイコン。**スマホのカードは文字だけ**（幅が足りない） */
 const ACTION_ICON: Record<InquiryAction, typeof ListChecks> = {
-  ticket: ListChecks, toProject: FolderPlus, stock: Archive, restock: CalendarClock,
+  ticket: ListChecks, toProject: FolderPlus, book: CalendarPlus, stock: Archive, restock: CalendarClock,
   drop: CircleSlash, unsort: RotateCcw,
 };
 

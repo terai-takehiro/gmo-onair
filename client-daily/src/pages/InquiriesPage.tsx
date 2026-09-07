@@ -45,6 +45,7 @@ import {
 } from '@/lib/inboxApi';
 import { InquiryDialog } from './inquiries/InquiryDialog';
 import { TicketDialog } from './inquiries/TicketDialog';
+import { BookingDialog } from './inquiries/BookingDialog';
 import { StockDialog } from './inquiries/StockDialog';
 import { SidePanels } from './inquiries/SidePanels';
 import { InquiryCards } from './inquiries/InquiryCards';
@@ -71,6 +72,7 @@ export default function InquiriesPage() {
   const [page, setPage] = useState(0);
   const [editing, setEditing] = useState<MiscInquiry | null>(null);
   const [ticketing, setTicketing] = useState<MiscInquiry | null>(null);
+  const [booking, setBooking] = useState<MiscInquiry | null>(null);
   const [stocking, setStocking] = useState<MiscInquiry | null>(null);
   const [adding, setAdding] = useState(false);
   const [opened, setOpened] = useState<string | null>(null);
@@ -113,6 +115,7 @@ export default function InquiriesPage() {
 
   const onAction = async (q: MiscInquiry, a: InquiryAction) => {
     if (a === 'ticket') { setTicketing(q); return; }
+    if (a === 'book') { setBooking(q); return; }
     if (a === 'toProject') {
       // 案件は**案件管理の登録モーダル**で作る（16項目・顧客の選択・権限を持っている）。
       // 別バンドルなので `navigate` では飛べない
@@ -123,12 +126,14 @@ export default function InquiriesPage() {
     // それは「見送り」と同じで、戻ってくる仕掛けが無い
     if (a === 'stock' || a === 'restock') { setStocking(q); return; }
     if (a === 'unsort') {
-      if (q.state === 'ticket' || q.state === 'project') {
+      if (q.state === 'ticket' || q.state === 'project' || q.state === 'booked') {
         const ok = await confirmAction({
           title: '未処理に戻しますか',
           description: q.state === 'ticket'
             ? '**作ったタスクは消しません。**結びつきだけ外すので、いらなければ案件管理のタスク一覧で消してください。'
-            : '**作った案件は消しません。**結びつきだけ外すので、いらなければ案件一覧で消してください。',
+            : q.state === 'project'
+              ? '**作った案件は消しません。**結びつきだけ外すので、いらなければ案件一覧で消してください。'
+              : '**登録した予定は消しません。**結びつきだけ外すので、いらなければ予定表アプリで消してください。',
           confirmLabel: '戻す',
         });
         if (!ok) return;
@@ -274,6 +279,7 @@ export default function InquiriesPage() {
         <InquiryDialog initial={editing} onClose={() => { setAdding(false); setEditing(null); }} />
       )}
       {ticketing && <TicketDialog inquiry={ticketing} onClose={() => setTicketing(null)} />}
+      {booking && <BookingDialog inquiry={booking} today={today} onClose={() => setBooking(null)} />}
       {stocking && (
         <StockDialog
           inquiry={stocking}
@@ -317,7 +323,7 @@ function emptyDescription(tab: InquiryTab, filtered: boolean): string {
   if (tab === 'stock') {
     return 'あとで効く話は「保留」で置いておけます。見直す日を決めると、その日にここへ戻ってきます。';
   }
-  return 'タスク・案件・見送りにしたものがここに残ります。間違えたときは「未処理に戻す」で戻せます。';
+  return 'タスク・案件・カレンダー登録・見送りにしたものがここに残ります。間違えたときは「未処理に戻す」で戻せます。';
 }
 
 /**

@@ -3,7 +3,7 @@
  *
  * 一覧のファイルから出してあるのは大きさの都合だけで、どちらもこの画面専用です。
  */
-import { Sparkles, ExternalLink, FileText, ListChecks, FolderPlus, Clock } from 'lucide-react';
+import { Sparkles, ExternalLink, FileText, ListChecks, FolderPlus, CalendarPlus, Clock } from 'lucide-react';
 import { RichContent } from '@gmo-onair/shared/src/client-v4/richContent';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { formatDateJa, type MiscInquiry } from '@/lib/types';
@@ -50,7 +50,38 @@ export function Destination({ q }: { q: MiscInquiry }) {
       </p>
     );
   }
+  if (q.state === 'booked') {
+    return (
+      <p className={cn('rounded-note text-note mt-1 flex items-start gap-1.5 px-2 py-1', STATE_TONE.booked)}>
+        <CalendarPlus className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        {q.booking_title ? (
+          <span className="min-w-0">
+            <a href="/calendar" className="font-bold underline">{q.booking_title}</a>
+            {q.booking_start_time && (
+              <span className="ml-1">{formatBookingTime(q.booking_start_time, q.booking_end_time, q.booking_all_day)}</span>
+            )}
+          </span>
+        ) : (
+          <span>カレンダーに登録しましたが、<strong className="font-bold">その予定は消されています</strong>。必要なら未仕分けに戻して作り直してください。</span>
+        )}
+      </p>
+    );
+  }
   return null;
+}
+
+/** 「8/27 (木) 13:00〜15:00」のように出す。全日は時刻を出さない */
+function formatBookingTime(start: string, end: string | null, allDay: boolean | null): string {
+  const s = new Date(start);
+  if (Number.isNaN(s.getTime())) return '';
+  const dow = ['日', '月', '火', '水', '木', '金', '土'][s.getDay()];
+  const date = `${s.getMonth() + 1}/${s.getDate()} (${dow})`;
+  if (allDay) return date;
+  const hm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const e = end ? new Date(end) : null;
+  // `DateRange` は日付どうしの期間用（時刻は持てない）なので、ここは手書きが必要
+  return e && !Number.isNaN(e.getTime()) ? `${date} ${hm(s)}〜${hm(e)}` : `${date} ${hm(s)}〜`; // ui-tokens-ok
+
 }
 
 /** AI が読み取った中身とメール原文。**開いたときだけ**出す（行の高さをそろえるため） */
