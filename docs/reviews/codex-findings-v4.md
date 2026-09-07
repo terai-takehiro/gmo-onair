@@ -453,6 +453,30 @@ usage limits コメントも付いていない。CI は一度 `checks` が `chec
 
 | PR | 重み | どこ | 何が起きるか | 状態 |
 | --- | --- | --- | --- | --- |
+| #607 | **P1** | `keep-pack-pl.service.ts` の `listUnconfirmed` | 数値報告の注記に**見込へ足していない金額**が混ざっていた — 本番があるのに売上の行が無い案件の最新見積を `unconfirmed` に入れていたため、pptx・Slack の注記が「見込に含めた」と書き、表の数字と合わなかった | ⭕️ 同PR内（e3dce2c。`unconfirmed`＝見込に確度加味で入れた概算の売上／`unregistered`＝売上の行が無い案件（表には入れていない）に分けて書き分け） |
+| #607 | P2 | `client-daily` `deckState.ts` の `saveNow` | 自動保存が飛んでいる間に出力・会議日切替・次の debounce が来ると、古い version の写しを取ってから前の保存を待ち、409 で止まっていた | ⭕️ 同PR内（e3dce2c。保存を直列にし、先行の保存を待った**あと**に写しを取る） |
+| #607 | P2 | `keep-pack-store.service.ts` の `freezePack` | 60 秒以内の凍結し直しを時刻だけで束ねていたため、数字を直してすぐ確定し直した版が捨てられ、読む人・出力・Slack が古い数字のまま残った | ⭕️ 同PR内（e3dce2c。中身が同じときだけ束ねる `samePackContent`（`keep-pack-identity.ts`）・テスト 6 件） |
+| #607 | **P1** | `client-daily` `PagePropertiesPanel.tsx` | 数値報告ページの計上会社セレクタが `options.entity` しか変えず、プレビューと pptx は `binding` で表を引くので**前の表（全体）のまま**出ていた | ⭕️ 同PR内（dc75b02。`plBinding(mode, entity)` で binding と options を必ず一緒に更新） |
+| #607 | P2 | 同 | 計上会社別ページで着地↔見込を切り替えると binding が `forecast.all`（1社の表）に化けた | ⭕️ 同PR内（dc75b02。計上会社別は `forecast` / `landing` そのもの） |
+| #607 | P2 | `keep-deck-compose.ts` / shared `buildStandardDeck.ts` の `carryOver` | 部品の x/y/w/h を直しても「数字を更新」や次回への引き継ぎでテンプレの位置に戻っていた（人の直しとして記録されるのに消える） | ⭕️ 同PR内（dc75b02。同じ id の部品の位置と大きさを写す。parity テスト＋テスト追加） |
+| #607 | P2 | `client-daily` `WeeklyTabs.tsx` | 週報のタブ切替で `?meeting=` が落ち、凍結した過去の数字を見ていたのに別の会議日の構成を開く／作っていた | ⭕️ 同PR内（dc75b02。数字・資料のタブは会議日を持ち回る） |
+| #607 | **P1** | `keep-pack-pl.service.ts` の `listUnconfirmed` | 注記の会社を案件の**今の** `entity_code` で束ねていたため、会社をまたいで移した案件や会社の違う概算売上があると、その会社の表に足していない金額を「含めた」と書いた | ⭕️ 同PR内（dc75b02。見込に足す行と同じ**売上行の** `entity_code` で束ね、全体は案件ごとに足す） |
+| #607 | **P1** | `keep-pack-pl.service.ts` の `weightedAdditions` | グループ請求（按分）の確度加味が代表案件（`allocations[0]`）のステージを行全体に掛けていた — 按分先のステージが違うと見込の売上・変動費が大きくずれる | ⭕️ 同PR内（a3103be。`keep-pack-sql.ts` の `perProjectRowsSql` で按分の額を各案件へ割り、それぞれのステージで掛ける。シードの 4 月で手計算と一致） |
+| #607 | P2 | 同 `listUnconfirmed` | 「売上が未登録」の判定が月を見ておらず、前の月に確定売上がある案件はその月の分が無くても `unregistered` から漏れた（按分先も見ていなかった） | ⭕️ 同PR内（a3103be。その月の確定売上（直接・按分先）だけで判定） |
+| #607 | P2 | `keep-deck.service.ts` の `markExported` | 出力した pptx が**どの版から出たか**追えなかった（出力後に自動保存が走ると version だけ進み、Box のファイルが出ていない版のものに見える） | ⭕️ 同PR内（a3103be。`keep_decks.exported_version` に出力した版を記録・ビルダーに「版N を出力済み／出力後に直しあり」） |
+| #607 | **P1** | `keep-pack-calendar.service.ts` の `buildTrend` | 推移（売上の積み上げ）がグループ請求の行を代表案件のお客様区分に丸ごと付けていた（見込側は按分していたのに推移だけ按分していない） | ⭕️ 同PR内（1b8b584。推移も `perProjectRowsSql` を通す。検証DBで 2026-03 の外部売上が SQL の直接集計と一致） |
+| #607 | P2 | `client-daily` `CompareDialog.tsx` | 「前回の資料と見比べる」が普通の読み口を使い、editor が開くと議事録から導いただけの前回の会議日に**版1を作ってしまっていた** | ⭕️ 同PR内（1b8b584。`?create=0` の読むだけの口 `useDeckReadOnly`・無ければ「まだ作られていません」） |
+| #607 | P2 | `keep-deck.routes.ts` の export | 出力に使った凍結パックを記録しておらず、構成を作った後に凍結し直すと `deck.pack_id` とずれ、Box のファイルの数字を再現できなかった | ⭕️ 同PR内（1b8b584。`keep_decks.exported_pack_id` に描画に使ったパックの id を記録） |
+| #607 | P2 | `client-daily` `InviewCard.tsx` / `keep-pack-inputs.service.ts` | 満足度が 4.0 満点の表示なのに画面も API も 5 まで受け、「5.0 / 4.0」が資料に出せた | ⭕️ 同PR内（1b8b584。API は 0〜4 以外を 400・画面も `max=4`） |
+| #607 | P2 | `keep-pack-reports.service.ts` の内覧会の分類 | 分類を `LIMIT 12` で切り捨て、pptx の「合計」が参加者の合計と合わなかった | ⭕️ 同PR内（1b8b584。全分類を取り、はみ出た分は「その他（N分類）」1 行に足す） |
+| #607 | **P1** | `keep-pptx.service.ts` の `renderPart` | 表の部品をタブ区切りで上書きすると、プレビューは表なのに pptx は `addText` で**生の TSV を文として**出していた（「表は表で出す・PowerPoint で直せる」の約束が崩れる） | ⭕️ 同PR内（2aa5781。読み方を `shared/src/keepReport/tsv.ts` に置き（server は `keep-tsv.ts` の写し・parity テスト）、出力も表として出す。人が置いた表の `options.rows` も同じ） |
+| #607 | P2 | `client-daily` `PagePropertiesPanel.tsx` / `keep-pptx.service.ts` | 部品の「文字の大きさ」がプレビューにしか効かず、pptx は既定の大きさのままだった | ⭕️ 同PR内（2aa5781。文・箇条書きの出力に渡す（キャンバスの px × 0.75 = pt）。効かない部品では欄を出さない） |
+| #607 | P2 | `keep-pack-pages.service.ts` の `buildProjectPages` | 確定売上の**合計 > 0** で実績と見ていたため、値引き調整で合計が 0 や負になった実績が最新見積に戻り、資料と Slack に見込の額が実績として出た | ⭕️ 同PR内（2aa5781。`getSummaries` の `revenue_count`（行数）で判定・合計 0 以下は粗利率を出さない） |
+| #607 | P2 | `client-daily` `KeepSection.tsx` | 「資料をつくる」ボタンが `?meeting=` を落とし、過去の会議日を見ていても別の会議日の構成を開く／作った（タブ側の直しはこのボタンには効いていなかった） | ⭕️ 同PR内（2aa5781。タブと同じく会議日を持って渡る） |
+| #607 | P2 | `client` 取引先マスター（`company/types.ts`・`CompanyFormFields.tsx`） | `companies.samurai_group`（サムライ関連の印）を画面から付ける手段が無く、backfill に当たらなかったお客様は外部のヨミ表に固定されていた | ⭕️ 同PR内（2aa5781。登録・編集フォームに「サムライ関連のお客様」のチェック。POST/PUT の payload に載る） |
+| #607 | **P1** | `project.service.ts` の `getSummaries` | 新設の `revenue_count` が按分の側で status を見ず、**概算（`status='estimate'`）のグループ請求の按分まで「実績がある」と数えた** → 案件ページ・実施報告が概算の按分額を実績として出す | ⭕️ 同PR内（2cf31d5。行数だけ `COUNT(*) FILTER (WHERE status = 'confirmed')`。按分の**合計**は台帳と同じく変えていない → 次の ❓ 行） |
+| #607 | **P1** | `keep-pack-store.service.ts` の `getPackForMeeting` | 週報の確定が全体／全区分しか凍結せず、計上会社・お客様で絞ると凍結版を外れて**「いまの数字」に落ち**、確定した週報と違う数字が出た（Slack／MCP の絞り込み付きの読みも同じ） | ⭕️ 同PR内（2cf31d5。`freezeMeeting` で 12 通り（計上会社 4 × お客様区分 3）を全部凍結・`meeting_frozen` を返し、古い凍結で版が無い絞り込みは画面が「いまの数字」と書く） |
+| #607 | — | `project.service.ts` の `TOTAL_REVENUE_SQL` / `getSummaries` の按分の**合計** | **自分で見つけた（Codex の指摘ではない・6 巡目の対応中）**: 台帳の「確定売上」の合計が、按分（`revenue_allocations`）の側では status を見ていない。グループ請求は概算（`status='estimate'`）でも作れる（`project-groups.routes.ts`）ので、**概算のグループ請求の按分額が案件の確定売上・粗利に混ざる**余地がある。#607 では行数（`revenue_count`）だけを confirmed に絞り、合計は「数え方を 2 つにしない」ため台帳のままにした | ❓ 未確認（実データに概算のグループ請求があるか・按分の合計に status を掛けると台帳・案件詳細・キープ資料の数字がどう動くかを見てから決める。直すなら `TOTAL_REVENUE_SQL` と `getSummaries` を同じ回で） |
 | #605 | **P1** | `server/src/routes/index.ts`（`createAwardsRoutes()`の撤去） | 旧`awards_entries.photo_url`が`/api/v1/internal/awards/images/...`という絶対パスを値としてそのまま持ち、テロップCGの過去実績移行ツールがこの文字列を書き換えずに`RankingEntry.photoUrl`へコピーするため、`createAwardsRoutes()`をまるごと外すと既に移行済み・今後移行するランキングの顔写真が全て欠ける | ⭕️ 同PR内（`ff47636`。`images.routes.ts`を読み取り専用の`imageServingRouter`と書き込み系に分離し前者だけ`createAwardsImageRoutes()`経由で残した。`verify:up`の実サーバーで実在ファイルが実際のバイト列で返ることを確認） |
 | #605 | P2 | `.github/workflows/preview.yml:158` | `client-awards`の配信撤去後もプレビューデプロイのたびに廃止済みの`/awards/`をリンクとして出し続け、押すとホームへ戻るだけの死んだ検証先を提示していた | ⭕️ 同PR内（`ff47636`。該当行を削除） |
 | #605 | P2 | `client/src/components/layout/searchFeatures.ts` | APPS走査が`hidden`は見るが`frozen`を見ておらず、⌘K検索に廃止済みの`awards`が死んだリンクとして残っていた | ⭕️ 同PR内（`875f082`。`visibleApps()`の既定と同じく`frozen`も除外する1行を追加。`npx tsc -b client`・`npm run lint`で確認——⌘K検索の実ブラウザ確認はしていない） |
@@ -988,6 +1012,18 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   （`npm run reviews:debt` は今回も 401 で使えず、GitHub MCP で直接確認した）。
   表に移す指摘はないが、**この PR で意図して残した判断が6件ある**ので下記に書き出す
   （レビューが付いていれば指摘されうる箇所であり、書かなければ存在ごと消えるため）。
+
+- **#607**（`feat(daily): ウィークリー活動報告に「隔週キープの数字」（BI）と「資料をつくる」（pptx の半自動生成）を足した`・2026-09-07）—
+  **PR 全体はレビュー0件ではない**（Codex が 6 巡・23 件を返し、すべてマージ前に解消）が、
+  **最後のコミット 2cf31d5 だけがレビューされていない** — 6 巡目の 2 件を直して push した直後に
+  Codex が usage limits を返し、そのまま 01:35Z にマージされた。この回で意図して残した判断は
+  下の一覧の #607 に書き出した（#600 と同じ「Code Review が届かない」型。ただしこちらは最終コミットのみ）
+
+- **#610**（`docs(reviews): PR #607（隔週キープ）のレビュー棚卸しを記録した`・2026-09-07）— **この記録の PR 自身**。
+  作成 01:45:54Z の直後（01:45:59Z）に Codex が「usage limits に達した」を返し、📝 Code Review は走っていない
+  （🔒 Security Review のみ）。文書 3 本（この棚卸し・changelog の下書き・pr-watch の落とし穴メモ）だけの
+  変更で、コードには触っていない。マージ時点で指摘が付いていなければ「レビュー0件のままマージ」に当たる —
+  記録のための PR を連ねないため、この行で先に書いておく（指摘が付いたら別の PR で表に移す）
 
 ### #320 で意図して残した判断（レビュー0件のため自分で書き出したもの）
 
@@ -2281,6 +2317,33 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 ---
 
 ## 一覧（PR の新しい順）
+
+- **#607**（`feat(daily): ウィークリー活動報告に「隔週キープの数字」（BI）と「資料をつくる」（pptx の半自動生成）を足した`・2026-09-07）—
+  隔週キープ資料の数値部分を「定例報告パック」に集約し、週報の確定で凍結、BI タブ・資料ビルダー（pptx）・
+  Slack 下書き・MCP 3 ツールを足した回（148 ファイル・+17,939/−149・25 コミット・migration 291）。
+  作成 23:23:23Z（9/6）→ terai-takehiro 本人がマージ 01:35:10Z（9/7）。**Codex の Code Review は
+  6 巡走り、23 スレッドの指摘を返した** — bde91b3→e3dce2c／e3dce2c→dc75b02／dc75b02→a3103be／
+  a3103be→1b8b584／1b8b584→2aa5781／2aa5781→2cf31d5（左がレビューされたコミット・右が直したコミット）。
+  **すべてマージ前に修正・返信・スレッド解決済み**（内容は上の表の #607 の行。各回の対応は PR 本文
+  「レビュー対応」にも残した）。🔒 Security Review は 1 巡目（bde91b3）のみで findings なし。
+  ⚠️ **最後のコミット 2cf31d5（6 巡目の 2 件への対応）は Codex がレビューしていない** — 01:10Z に
+  「You have reached your Codex usage limits for code reviews」が返り、再レビューが走らないまま
+  01:35Z にマージされた。レビュー0件は「指摘なし」ではないので、この回で意図して残した判断を自分で書き出す:
+  ① `getSummaries` の**按分の合計**は status を見ない台帳（`TOTAL_REVENUE_SQL`）の数え方のままにし、
+     行数（`revenue_count`）だけを confirmed に絞った（数え方を 2 つにしない）。概算のグループ請求の
+     按分が確定売上の合計に混ざる余地は上の表に ❓ で残した
+  ② `freezeMeeting` は 12 通りの凍結を週報の確定の中で**同期に**回す（検証DBで約 0.3 秒・190KB。
+     本番の件数では伸びるが、1 つ失敗しても他は続け warn に残す形。遅くなったら非同期化を検討）
+  ③ 画面は凍結の一覧を 500 行（≒ 40 回の確定）まで取る。それを超える古い会議日は選択肢から消える
+  ④ 5〜6 巡目の画面の直し（取引先マスターの「サムライ関連」チェック・文字の大きさの欄の出し分け・
+     「凍結済みだがこの絞り込みは いまの数字」の帯）は**実ブラウザで見ていない**（typecheck・lint・
+     Vitest・サンプルのパックからの pptx 出力の XML・シード済みDBでの API の挙動で確かめた）
+  `npm run reviews:debt` はこの環境のトークンでは 401 のため、GitHub MCP の `get_reviews` /
+  `get_review_comments` で直接確認した（23 スレッドすべて `is_resolved: true`）。
+  changelog は [docs/changelog.d/claude-weekly-report-bi-powerpoint-kh02s2.md](../changelog.d/claude-weekly-report-bi-powerpoint-kh02s2.md)。
+  **未検証で残したもの**: `npm run build:all` → `check:frozen` は 1 巡目の段で通し、以後は `build:changed` と
+  CI の `build` ジョブのみ／実ブラウザでの PC・スマホ確認は 1 巡目の段まで（上の④）／権限別 403 は
+  API で確認し画面では見ていない。
 
 - **#605**（`feat(techops): テロップCG 段F（旧リアルタイムCGの畳み込み）を実行した`・2026-09-06）—
   テロップCG再設計の最終段（旧`client-awards`の「移行中」→「廃止」）。サーバーの配信・API・
