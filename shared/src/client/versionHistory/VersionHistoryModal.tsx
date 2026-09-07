@@ -12,6 +12,11 @@ import { renderInline, RichDescription } from "./richDescription";
 
 const PAGE_SIZE = 20;
 const LOAD_MORE_STEP = 30;
+// PRが多い版はCLAUDE.mdの要約より`docs/version-history.md`の全文アーカイブの方が長いため、
+// generate-version-history.mjsは全文の方を採用する。「現在のバージョン」は既定で開いて見せたいが、
+// 全文はPR数十本ぶんの本文（数万字）になり得るため、開いた瞬間に画面が埋まってしまう。
+// この長さを超える場合は他の版と同じく畳んだ状態で始める。
+const AUTO_EXPAND_MAX_CHARS = 4000;
 
 function matches(entry: VersionHistoryEntry, q: string) {
   if (!q) return true;
@@ -166,7 +171,10 @@ export default function VersionHistoryModal({
                       )}
                       <span className="text-sm font-bold leading-snug text-foreground">{renderInline(v.title)}</span>
                     </div>
-                    <RichDescription text={v.description} defaultExpanded={v.isCurrent} />
+                    <RichDescription
+                      text={v.description}
+                      defaultExpanded={v.isCurrent && v.description.length <= AUTO_EXPAND_MAX_CHARS}
+                    />
                   </li>
                 ))}
               </ol>
