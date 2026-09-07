@@ -41,7 +41,6 @@ import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { useCrudPage } from '@/hooks/useCrudPage';
-import ExcelToolbar from '@/components/ExcelToolbar';
 import type { Vendor } from '@/types';
 import SgaDialog, { type SgaFormData, initialFormData } from '../components/SgaDialog';
 import { formFromSga } from '../components/sgaPrefill';
@@ -49,6 +48,7 @@ import { LedgerList } from './ledger/LedgerList';
 import { LedgerFilterBar } from './ledger/LedgerFilterBar';
 import { LedgerTotalBar } from './ledger/LedgerTotalBar';
 import { LedgerFooter, LedgerPeriodNotice } from './ledger/LedgerParts';
+import { SgaToolbar } from './ledger/SgaToolbar';
 import { useLedgerUrlPeriod } from './ledger/useLedgerUrlPeriod';
 import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth';
 /*
@@ -59,6 +59,7 @@ import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth'
 import {
   sgaChipOf, sgaFilterGroups, sgaLedgerRows,
 } from './ledger/sgaLedgerRows';
+import { nextLedgerSort } from './ledger/sort';
 import type { SgaLedgerItem } from './ledger/types';
 import { useEntityFilter, entityFilterGroup } from './shared/entityFilter';
 
@@ -78,6 +79,11 @@ export default function SgaListPage() {
   const period = useLedgerUrlPeriod(searchParams);
   const { month, range, setMonth } = period;
   const { entity, setEntity, options: entityOptions } = useEntityFilter(); // `?entity=` が正。省略=全社合算
+  /*
+   * 表頭クリックの並べ替え（2026-09 依頼）。サーバーのキー（`{列}_asc`/`{列}_desc`）
+   * をそのまま state に持つ（`ledger/sort.ts` 冒頭コメント参照）。空 = サーバー既定順
+   */
+  const [sort, setSort] = useState('');
 
   const cur = sgaChipOf(chip);
 
@@ -104,6 +110,7 @@ export default function SgaListPage() {
       recognition_from: range?.from,
       recognition_to: range?.to,
       entity_code: entity || undefined, // `buildSgaBaseWhere` が絞り込む（P2 Round 1・並行実装済み）
+      sort: sort || undefined,
     },
   });
 
@@ -225,31 +232,18 @@ export default function SgaListPage() {
           ) : undefined
         }
       >
-        {/*
-          **Excel の取込・書き出しはスマホに出さない。** 取り込みは台帳に行を
-          入れる操作で、途中で止まると二重に入る（取り消せない）。ファイル選択
-          そのものもスマホでは実用にならない（`/budget/vendors` で落とした前例）
-        */}
-        {!isMobile && (
-          <div className="flex shrink-0 flex-wrap gap-2">
-            <ExcelToolbar
-              resource="/sga-expenses"
-              name="販管費"
-              queryKey={['sga-list']}
-              hasDuplicateKey={false}
-              exportParams={{
-                search: crud.appliedSearch || undefined,  // 画面の結果と書き出しの中身を揃える
-                source: cur.source || undefined,
-                expense_type: cur.expense_type || undefined,
-                account_title_id: titleKey || undefined,  // 科目で絞ったまま書き出す
-                recognition_month: month || undefined,
-                recognition_from: range?.from,
-                recognition_to: range?.to,
-                entity_code: entity || undefined,
-              }}
-            />
-          </div>
-        )}
+        <SgaToolbar
+          isMobile={isMobile}
+          appliedSearch={crud.appliedSearch}
+          source={cur.source || undefined}
+          expenseType={cur.expense_type || undefined}
+          accountTitleId={titleKey}
+          month={month}
+          rangeFrom={range?.from}
+          rangeTo={range?.to}
+          entity={entity}
+          sort={sort}
+        />
       </PageHeader>
 
       {/* 財務ダッシュボードの期間で絞り込んで来たときの案内（仕様変更 #4） */}
@@ -344,6 +338,9 @@ export default function SgaListPage() {
                 const full = items.find((i) => i.id === row.id);
                 if (full && canEdit) openFor(full);
               }}
+              sort={sort}
+              onSort={(key) => { setSort(nextLedgerSort(sort, key)); crud.setPage(1); }}
+              sortKeys={{ code: 'settlement', title: 'desc', party: 'vendor', amount: 'amount', tax: 'tax', recognition: 'recognition' }}
             />
           </div>
 

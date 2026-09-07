@@ -78,13 +78,14 @@ import { PeriodBar, type PeriodMode } from './financeDashboard/PeriodBar';
 import { resolvePeriod, ledgerOpenQuery } from './financeDashboard/period';
 import { useDashboardData, EMPTY_SUMMARY, type MonthlySummary } from './financeDashboard/useDashboardData';
 import type { PurchaseRow } from './ledger/types';
-import { PurchaseDialog } from './ledger/PurchaseDialog';
-import SgaDialog, { initialFormData as initialSgaForm, type SgaFormData } from '../components/SgaDialog';
+import { initialFormData as initialSgaForm, type SgaFormData } from '../components/SgaDialog';
 import { formFromSga } from '../components/sgaPrefill';
 import { ProfitFlow } from './financeDashboard/ProfitFlow';
 import { buildFlowSteps } from './financeDashboard/flowSteps';
 import { ForecastModeToggle, type ForecastMode } from './financeDashboard/ForecastModeToggle';
+import { BreakdownViewDialogs } from './financeDashboard/BreakdownViewDialogs';
 import { BreakdownColumn } from './financeDashboard/Breakdown';
+import { GroupSplit } from './financeDashboard/GroupSplit';
 import { useProjectFilter, initialPeriodMode } from './financeDashboard/useProjectFilter';
 import { useStageProbabilityMap } from './financeDashboard/useStageProbabilities';
 import {
@@ -305,6 +306,13 @@ export default function BudgetDashboardPage() {
 
           <ProfitFlow steps={steps} />
 
+          <GroupSplit
+            revenueInternal={s.revenue_internal}
+            revenueExternal={s.revenue_external}
+            purchaseInternal={s.purchase_internal}
+            purchaseExternal={s.purchase_external}
+          />
+
           <div className={`grid grid-cols-1 gap-3.5 ${projectId ? 'lg:grid-cols-2' : 'lg:grid-cols-3'}`}>
             <BreakdownColumn
               title="売上の内訳"
@@ -365,32 +373,14 @@ export default function BudgetDashboardPage() {
         </>
       )}
 
-      {/* 仕入の内訳を押したときの閲覧専用の詳細。この画面のまま開き、台帳へは遷移しない */}
-      {viewingPurchase && (
-        <PurchaseDialog
-          readOnly
-          editing={viewingPurchase}
-          defaultProjectId={viewingPurchase.project_id ?? ''}
-          onClose={() => setViewingPurchase(null)}
-        />
-      )}
-
-      {/* 販管費の内訳を押したときの閲覧専用の詳細。同上 */}
-      {viewingSga && (
-        <SgaDialog
-          readOnly
-          open
-          onOpenChange={(v) => { if (!v) setViewingSga(null); }}
-          form={viewingSgaForm}
-          setForm={setViewingSgaForm}
-          vendors={[]}
-          users={[]}
-          editingId={viewingSga.id}
-          isSaving={false}
-          onSubmit={() => {}}
-          onClose={() => setViewingSga(null)}
-        />
-      )}
+      <BreakdownViewDialogs
+        viewingPurchase={viewingPurchase}
+        onClosePurchase={() => setViewingPurchase(null)}
+        viewingSga={viewingSga}
+        viewingSgaForm={viewingSgaForm}
+        setViewingSgaForm={setViewingSgaForm}
+        onCloseSga={() => setViewingSga(null)}
+      />
     </div>
   );
 }

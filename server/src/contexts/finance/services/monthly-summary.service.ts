@@ -58,6 +58,26 @@ export interface MonthlySummaryResult {
   gross_profit: number;
   sga_total: number;
   operating_profit: number;
+  /**
+   * グループ内案件／グループ外案件の内訳（2026-09 依頼「絞り込んでいる状態でも
+   * グループ内外の売上・仕入が分かるようにしてほしい」）。
+   *
+   * ⚠️ **正は案件の `customer_type`**（`internal`/`external`。決め方は
+   * `project.service.ts` の `resolveCustomerType` のコメント参照 — 人は選ばず
+   * 取引先マスターの `is_gmo_group` から保存時に導く「当時の姿」のスナップショット）。
+   * `customer_type` を引けない行（案件が無い・削除済み）は `external` に数える
+   * （`resolveCustomerType` の既定と同じ「分からないものをグループにしない」判断）。
+   *
+   * ⚠️ **固定原価は対象外。** `revenue_internal + revenue_external === revenue_total` だが、
+   * `purchase_internal + purchase_external` は `variable_cost_total` までの合計で、
+   * `purchase_total`（固定原価込み）とは一致しない。固定原価Pj（`FIXED-COGS`）は
+   * 特定のお客様に紐づかない全社共通費用のため、グループ内外どちらにも割り振れない
+   * （`marginal_profit`/`gross_profit` の考え方と同じ）。
+   */
+  revenue_internal: number;
+  revenue_external: number;
+  purchase_internal: number;
+  purchase_external: number;
 }
 
 /**
@@ -77,6 +97,32 @@ function weightedSum(
     sum += Number(r.total) * (prob / 100);
   }
   return Math.round(sum);
+}
+
+/**
+ * `[{customer_type, stage, total}]` をグループ内／グループ外に振り分けて合算する。
+ * `weightedSum` と同じ確度の掛け方（`mode='weighted'` のときだけ）を、
+ * `customer_type` の軸でも同時に行う。
+ */
+function splitByGroup(
+  rows: { customer_type: string | null; stage: string | null; total: string | number }[],
+  mode: SummaryMode,
+  probabilityMap: Map<ProjectStage, number> | null,
+): { internal: number; external: number } {
+  let internal = 0;
+  let external = 0;
+  for (const r of rows) {
+    let amount = Number(r.total);
+    if (mode === 'weighted' && probabilityMap) {
+      const prob = r.stage && probabilityMap.has(r.stage as ProjectStage)
+        ? probabilityMap.get(r.stage as ProjectStage)!
+        : 100;
+      amount *= prob / 100;
+    }
+    if (r.customer_type === 'internal') internal += amount;
+    else external += amount;
+  }
+  return { internal: Math.round(internal), external: Math.round(external) };
 }
 
 export async function getMonthlySummary(params: MonthlySummaryParams): Promise<MonthlySummaryResult> {
@@ -148,10 +194,10 @@ export async function getMonthlySummary(params: MonthlySummaryParams): Promise<M
          AND pu.project_id = ? AND p.code = ?${dateWhere('pu.recognition_date')}${entityWhere('pu.entity_code')}`,
         [projectId, FIXED_COGS_CODE, ...dateArgs, ...entityArgs]
       ) as Promise<any>,
-      // 確度加味のときだけ要る（この案件いまのフェーズ）
-      mode === 'weighted'
-        ? (queryOne(`SELECT stage FROM projects WHERE id = ?`, [projectId]) as Promise<any>)
-        : Promise.resolve(null),
+      // **常に要る**（この案件が「グループ内/グループ外」どちらか。確度加味のときは
+      // 合わせてフェーズも使う）。案件が1つに決まっているので `customer_type` も
+      // 一律にどちらか片方へ振り分ければよく、按分・確度のような行ごとの計算は要らない
+      queryOne(`SELECT stage, customer_type FROM projects WHERE id = ?`, [projectId]) as Promise<any>,
     ]);
     let revenue_total = Number(revDirectRow?.total ?? 0) + Number(revAllocRow?.total ?? 0);
     const fixed_cost_total = Number(fixedRow?.total ?? 0);
@@ -170,7 +216,17 @@ export async function getMonthlySummary(params: MonthlySummaryParams): Promise<M
     const marginal_profit = revenue_total - variable_cost_total; // 限界利益 = 売上 − 変動原価
     const gross_profit = marginal_profit - fixed_cost_total;      // 売上総利益 = 限界利益 − 固定原価
     const operating_profit = gross_profit - sga_total;            // 営業利益 = 売上総利益 − 販管費
-    return { month: periodLabel, project_id: projectId, entity_code: entityCode, revenue_total, purchase_total, fixed_cost_total, variable_cost_total, marginal_profit, gross_profit, sga_total, operating_profit };
+    // 案件は1つに決まっているので、確度加味後の実額をまるごとどちらか片方へ寄せるだけでよい
+    const isInternal = projectRow?.customer_type === 'internal';
+    const revenue_internal = isInternal ? revenue_total : 0;
+    const revenue_external = isInternal ? 0 : revenue_total;
+    const purchase_internal = isInternal ? variable_cost_total : 0;
+    const purchase_external = isInternal ? 0 : variable_cost_total;
+    return {
+      month: periodLabel, project_id: projectId, entity_code: entityCode, revenue_total, purchase_total,
+      fixed_cost_total, variable_cost_total, marginal_profit, gross_profit, sga_total, operating_profit,
+      revenue_internal, revenue_external, purchase_internal, purchase_external,
+    };
   }
 
   // 案件絞り込みなし: 全体集計
@@ -186,22 +242,27 @@ export async function getMonthlySummary(params: MonthlySummaryParams): Promise<M
      * 掛け算をせずに済む）。固定原価・販管費は案件のフェーズを持たないため、
      * 総額モードと同じ実額のまま合流させる（旧 `pipeline-forecast.service.ts` と同じ判断）。
      */
+    // ⚠️ `customer_type` も**同じ行**（`p.stage` と同時に GROUP BY）で持たせる。
+    // 別クエリに分けると2本ぶんスキャンし直しになるうえ、確度の掛け方
+    // （`weightedSum`/`splitByGroup` とも同じ丸め方）を2か所に書くことになる。
     const [revRows, purRows, sgaRow, fixedRow, probabilityMap] = await Promise.all([
       queryAll(
-        `SELECT p.stage AS stage, COALESCE(SUM(r.amount), 0) AS total
+        `SELECT p.stage AS stage, COALESCE(p.customer_type, 'external') AS customer_type,
+                COALESCE(SUM(r.amount), 0) AS total
            FROM revenues r LEFT JOIN projects p ON p.id = r.project_id
           WHERE r.deleted_at IS NULL AND r.status = 'confirmed'${dateWhere('r.recognition_date')}${entityWhere('r.entity_code')}
-          GROUP BY p.stage`,
+          GROUP BY p.stage, COALESCE(p.customer_type, 'external')`,
         [...dateArgs, ...entityArgs],
-      ) as Promise<{ stage: string | null; total: string | number }[]>,
+      ) as Promise<{ stage: string | null; customer_type: string | null; total: string | number }[]>,
       queryAll(
-        `SELECT p.stage AS stage, COALESCE(SUM(pu.amount), 0) AS total
+        `SELECT p.stage AS stage, COALESCE(p.customer_type, 'external') AS customer_type,
+                COALESCE(SUM(pu.amount), 0) AS total
            FROM purchases pu LEFT JOIN projects p ON p.id = pu.project_id
           WHERE pu.deleted_at IS NULL AND (p.code IS DISTINCT FROM ? OR p.code IS NULL)
             ${dateWhere('pu.recognition_date')}${entityWhere('pu.entity_code')}
-          GROUP BY p.stage`,
+          GROUP BY p.stage, COALESCE(p.customer_type, 'external')`,
         [FIXED_COGS_CODE, ...dateArgs, ...entityArgs],
-      ) as Promise<{ stage: string | null; total: string | number }[]>,
+      ) as Promise<{ stage: string | null; customer_type: string | null; total: string | number }[]>,
       queryOne(
         `SELECT COALESCE(SUM(amount), 0) AS total FROM sga_expenses WHERE deleted_at IS NULL${dateWhere('recognition_date')}${entityWhere('entity_code')}`,
         [...dateArgs, ...entityArgs]
@@ -223,10 +284,17 @@ export async function getMonthlySummary(params: MonthlySummaryParams): Promise<M
     const marginal_profit = revenue_total - variable_cost_total;
     const gross_profit = marginal_profit - fixed_cost_total;
     const operating_profit = gross_profit - sga_total;
-    return { month: periodLabel, entity_code: entityCode, revenue_total, purchase_total, fixed_cost_total, variable_cost_total, marginal_profit, gross_profit, sga_total, operating_profit };
+    const revSplit = splitByGroup(revRows, mode, probabilityMap);
+    const purSplit = splitByGroup(purRows, mode, probabilityMap);
+    return {
+      month: periodLabel, entity_code: entityCode, revenue_total, purchase_total, fixed_cost_total,
+      variable_cost_total, marginal_profit, gross_profit, sga_total, operating_profit,
+      revenue_internal: revSplit.internal, revenue_external: revSplit.external,
+      purchase_internal: purSplit.internal, purchase_external: purSplit.external,
+    };
   }
 
-  const [revRow, purRow, sgaRow, fixedRow] = await Promise.all([
+  const [revRow, purRow, sgaRow, fixedRow, revGroupRows, purGroupRows] = await Promise.all([
     queryOne(
       `SELECT COALESCE(SUM(amount), 0) AS total FROM revenues WHERE deleted_at IS NULL AND status = 'confirmed'${dateWhere('recognition_date')}${entityWhere('entity_code')}`,
       [...dateArgs, ...entityArgs]
@@ -246,6 +314,22 @@ export async function getMonthlySummary(params: MonthlySummaryParams): Promise<M
        WHERE pu.deleted_at IS NULL AND pu.group_id IS NULL AND p.code = ?${dateWhere('pu.recognition_date')}${entityWhere('pu.entity_code')}`,
       [FIXED_COGS_CODE, ...dateArgs, ...entityArgs]
     ) as Promise<any>,
+    // グループ内/グループ外の内訳（`customer_type` 別。確度加味はしないモードなので `stage` は要らない）
+    queryAll(
+      `SELECT COALESCE(p.customer_type, 'external') AS customer_type, COALESCE(SUM(r.amount), 0) AS total
+         FROM revenues r LEFT JOIN projects p ON p.id = r.project_id
+        WHERE r.deleted_at IS NULL AND r.status = 'confirmed'${dateWhere('r.recognition_date')}${entityWhere('r.entity_code')}
+        GROUP BY COALESCE(p.customer_type, 'external')`,
+      [...dateArgs, ...entityArgs],
+    ) as Promise<{ customer_type: string | null; total: string | number }[]>,
+    queryAll(
+      `SELECT COALESCE(p.customer_type, 'external') AS customer_type, COALESCE(SUM(pu.amount), 0) AS total
+         FROM purchases pu LEFT JOIN projects p ON p.id = pu.project_id
+        WHERE pu.deleted_at IS NULL AND (p.code IS DISTINCT FROM ? OR p.code IS NULL)
+          ${dateWhere('pu.recognition_date')}${entityWhere('pu.entity_code')}
+        GROUP BY COALESCE(p.customer_type, 'external')`,
+      [FIXED_COGS_CODE, ...dateArgs, ...entityArgs],
+    ) as Promise<{ customer_type: string | null; total: string | number }[]>,
   ]);
   const revenue_total = Number((revRow as any)?.total ?? 0);
   const purchase_total = Number((purRow as any)?.total ?? 0);
@@ -255,5 +339,12 @@ export async function getMonthlySummary(params: MonthlySummaryParams): Promise<M
   const marginal_profit = revenue_total - variable_cost_total; // 限界利益 = 売上 − 変動原価
   const gross_profit = marginal_profit - fixed_cost_total;      // 売上総利益 = 限界利益 − 固定原価
   const operating_profit = gross_profit - sga_total;            // 営業利益 = 売上総利益 − 販管費
-  return { month: periodLabel, entity_code: entityCode, revenue_total, purchase_total, fixed_cost_total, variable_cost_total, marginal_profit, gross_profit, sga_total, operating_profit };
+  const revSplit = splitByGroup(revGroupRows.map((r) => ({ ...r, stage: null })), 'total', null);
+  const purSplit = splitByGroup(purGroupRows.map((r) => ({ ...r, stage: null })), 'total', null);
+  return {
+    month: periodLabel, entity_code: entityCode, revenue_total, purchase_total, fixed_cost_total,
+    variable_cost_total, marginal_profit, gross_profit, sga_total, operating_profit,
+    revenue_internal: revSplit.internal, revenue_external: revSplit.external,
+    purchase_internal: purSplit.internal, purchase_external: purSplit.external,
+  };
 }

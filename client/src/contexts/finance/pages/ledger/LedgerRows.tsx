@@ -33,9 +33,17 @@
  * その境目を将来動かしたときに崩れないための保険として残してあります
  * （いまは通りません）。**新しい分岐をここに足さないこと** —
  * 幅で変わることは `LedgerList.tsx` の1か所だけに置く決めごとです。
+ *
+ * ── 表頭はクリックで並べ替えられる（2026-09 依頼） ──────────────
+ *
+ * `sort`/`onSort`/`sortKeys` を渡した列だけ押せるボタンになる（案件一覧
+ * `projectList/ProjectRows.tsx` の `HeaderLabel` と同じ作法: 印は指を乗せたときだけ
+ * 薄く出す・同じ列を押すと 昇順→降順→既定 の3段で回る＝`./sort.ts`）。
+ * `sortKeys` に無い列（例: 状態）は今までどおり押せないただの文字のまま——
+ * サーバー側に対応する並べ替えキーが無い列を押せる見た目にしない。
  */
 import { useNavigate } from 'react-router-dom';
-import { ExternalLink } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronsUpDown, ExternalLink } from 'lucide-react';
 import { Row, RowHeader, RowMain, RowTitle, RowSub, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
@@ -44,10 +52,69 @@ import { IntercompanyTag } from '@/contexts/shared/components/IntercompanyTag';
 // （スマホのカード `LedgerCards.tsx` と詳細シートが同じ関数を読む。
 //  写すと必ず片方だけ直されて食い違う）
 import { monthOf, taxShort } from './format';
+import { ledgerSortMark } from './sort';
 import { STATE_TONE, type LedgerRow } from './types';
+
+/** この台帳が持つ並べ替えキー（サーバーの `{列}_asc`/`{列}_desc` の頭）。列ごとに任意 */
+export interface LedgerSortKeys {
+  code?: string;
+  title?: string;
+  party?: string;
+  amount?: string;
+  tax?: string;
+  recognition?: string;
+}
+
+/**
+ * 表頭1マスの中身。`sortKey` が無ければ押せないただの文字（`ProjectRows.tsx` の
+ * `HeaderLabel` と同じ理由でボタンの `aria-label` に並び状態を含める——
+ * `RowMain`/`RowSlot` は素の `<div>` で `columnheader` の役割を持たない）。
+ */
+function HeaderLabel({
+  label, sortKey, sort, onSort, align,
+}: {
+  label: string;
+  sortKey?: string;
+  sort: string;
+  onSort?: (key: string) => void;
+  align?: 'right';
+}) {
+  if (!sortKey || !onSort) return <span className="truncate">{label}</span>;
+  const mark = ledgerSortMark(sort, sortKey);
+  const stateText = mark === 'asc' ? '・昇順で並べ替え中' : mark === 'desc' ? '・降順で並べ替え中' : '';
+  return (
+    <button
+      type="button"
+      onClick={() => onSort(sortKey)}
+      title={`${label}で並べ替える`}
+      aria-label={`${label}で並べ替える${stateText}`}
+      className={`group -mx-1 flex w-full items-center gap-1 rounded-control px-1 py-0.5 hover:bg-border-faint ${
+        align === 'right' ? 'justify-end' : ''
+      } ${mark ? 'font-bold text-primary' : ''}`}
+    >
+      <span className="truncate">{label}</span>
+      {/* ⚠️ **並べ替えていないときの印は、指を乗せたときだけ出す**
+          （狭い列が常時の印で切れないようにする。`ProjectRows.tsx` と同じ理由） */}
+      {mark === 'asc' ? <ArrowUp className="h-3 w-3 shrink-0" aria-hidden="true" />
+        : mark === 'desc' ? <ArrowDown className="h-3 w-3 shrink-0" aria-hidden="true" />
+          : (
+            <ChevronsUpDown
+              className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-40"
+              aria-hidden="true"
+            />
+          )}
+    </button>
+  );
+}
+
+/** `mark` を `aria-sort` の値に変換する */
+function ariaSort(mark: 'asc' | 'desc' | null): 'ascending' | 'descending' | 'none' {
+  return mark === 'asc' ? 'ascending' : mark === 'desc' ? 'descending' : 'none';
+}
 
 export function LedgerRows({
   rows, codeLabel, titleLabel, partyLabel, stateLabel, onOpen,
+  sort = '', onSort, sortKeys,
 }: {
   rows: LedgerRow[];
   codeLabel: string;
@@ -56,17 +123,36 @@ export function LedgerRows({
   /** 状態の列名。`null` ならこの台帳に状態は無い */
   stateLabel: string | null;
   onOpen: (row: LedgerRow) => void;
+  /** いまの並び順（サーバーのキー。空 = 既定順） */
+  sort?: string;
+  /** 渡さなければ表頭はどの列も押せない（今までどおりの表示専用の見出し） */
+  onSort?: (key: string) => void;
+  sortKeys?: LedgerSortKeys;
 }) {
   const navigate = useNavigate();
   return (
     <>
       <RowHeader className="hidden sm:flex">
-        <RowSlot w={128}>{codeLabel}</RowSlot>
-        <RowMain>{titleLabel}</RowMain>
-        <RowSlot w={160}>{partyLabel}</RowSlot>
-        <RowSlot w={128} align="right">金額（税抜）</RowSlot>
-        <RowSlot w={56}>税</RowSlot>
-        <RowSlot w={72}>計上月</RowSlot>
+        <RowSlot w={128} aria-sort={ariaSort(ledgerSortMark(sort, sortKeys?.code ?? ''))}>
+          <HeaderLabel label={codeLabel} sortKey={sortKeys?.code} sort={sort} onSort={onSort} />
+        </RowSlot>
+        <RowMain aria-sort={ariaSort(ledgerSortMark(sort, sortKeys?.title ?? ''))}>
+          <HeaderLabel label={titleLabel} sortKey={sortKeys?.title} sort={sort} onSort={onSort} />
+        </RowMain>
+        <RowSlot w={160} aria-sort={ariaSort(ledgerSortMark(sort, sortKeys?.party ?? ''))}>
+          <HeaderLabel label={partyLabel} sortKey={sortKeys?.party} sort={sort} onSort={onSort} />
+        </RowSlot>
+        <RowSlot w={128} align="right" aria-sort={ariaSort(ledgerSortMark(sort, sortKeys?.amount ?? ''))}>
+          <HeaderLabel label="金額（税抜）" sortKey={sortKeys?.amount} sort={sort} onSort={onSort} align="right" />
+        </RowSlot>
+        <RowSlot w={56} aria-sort={ariaSort(ledgerSortMark(sort, sortKeys?.tax ?? ''))}>
+          <HeaderLabel label="税" sortKey={sortKeys?.tax} sort={sort} onSort={onSort} />
+        </RowSlot>
+        <RowSlot w={72} aria-sort={ariaSort(ledgerSortMark(sort, sortKeys?.recognition ?? ''))}>
+          <HeaderLabel label="計上月" sortKey={sortKeys?.recognition} sort={sort} onSort={onSort} />
+        </RowSlot>
+        {/* 状態は申請ステータス等をクライアント側で計算しており、サーバー側に
+            対応する並べ替えキーが無い列——`sortKeys` に含めず、押せない見出しのまま */}
         {stateLabel && <RowSlot w={96}>{stateLabel}</RowSlot>}
       </RowHeader>
 

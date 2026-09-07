@@ -46,12 +46,25 @@ router.get('/:id/pdf',
   requireAuth, requirePermission('sales'),
   async (req, res, next) => {
   try {
+    /*
+     * 検収書の「見積書コード」に使う、元見積の版番号を下のクエリで一緒に引く
+     * (estimates.revenue_id = r.id で受注承認され、この売上に変換された見積)。
+     *
+     * 同じ売上を指す見積行が複数になりうる点に注意 — 見積を書き直して再変換すると、
+     * 前の版も revenue_id を持ったまま残る (estimate.service.ts の
+     * convertToRevenue 冒頭コメント参照)。そのため一番新しい版 (version DESC) だけを
+     * 取る。見積書 PDF (estimate-pdf.service.ts) と同じ組み立て (GLS番号 + v + 版) に
+     * するため、ここでは番号だけを引き、コード文字列自体は下 (estimateCode) で組み立てる。
+     */
     const row = await queryOne(
       `SELECT r.*, r.entity_code, p.name as project_name, p.gls_number, e.episode_code,
               p.event_start as project_start, p.event_end as project_end,
               c.name as customer_name,
               c.address as customer_address,
-              c.contact_name as customer_contact
+              c.contact_name as customer_contact,
+              (SELECT est.version FROM estimates est
+                WHERE est.revenue_id = r.id AND est.deleted_at IS NULL
+                ORDER BY est.version DESC LIMIT 1) AS estimate_version
        FROM revenues r
        LEFT JOIN projects p ON p.id = r.project_id
        LEFT JOIN companies c ON c.id = r.customer_id
@@ -75,8 +88,21 @@ router.get('/:id/pdf',
     // （見積・検収では入っていないことがあるので、無ければ今日で代用）
     const issuer = await resolveIssuer(row.entity_code, row.recognition_date ?? todayISO());
 
+    /*
+     * 検収書の「見積書コード」＝**元見積の見積書 PDF に印字されているのと
+     * 同じコード**（依頼: 見積書コードと検収書内の見積書コードを一致させる）。
+     * `estimate-pdf.service.ts` の見積コードと**同じ組み立て**（GLS番号 + 版）に
+     * すること — 別ロジックで組み立て直すと、GLS 番号の改番などで再びずれる。
+     * 元見積が無い（見積を経ずに直接登録した売上）ときは `null`
+     * （`generateEstimatePdf` 側が請求KEYへフォールバックする）。
+     */
+    const estimateCode = row.estimate_version != null
+      ? (row.gls_number ? `${row.gls_number}-v${row.estimate_version}` : `v${row.estimate_version}`)
+      : null;
+
     const pdfBuffer = await generateEstimatePdf({
       billing_key: row.billing_key,
+      estimate_code: estimateCode,
       issuer,
       subtitle: row.subtitle,
       customer_name: row.customer_name || '',

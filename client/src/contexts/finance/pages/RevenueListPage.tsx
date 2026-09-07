@@ -41,6 +41,7 @@ import { revenueDetailFields } from './ledger/ledgerDetail';
 import { useLedgerUrlPeriod } from './ledger/useLedgerUrlPeriod';
 import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth';
 import { RevenueDialog } from './ledger/RevenueDialog';
+import { nextLedgerSort } from './ledger/sort';
 import type { LedgerRow, RevenueRow } from './ledger/types';
 import { useEntityFilter, entityFilterGroup } from './shared/entityFilter';
 
@@ -96,6 +97,11 @@ export default function RevenueListPage() {
   const { month, range, setMonth } = period;
   // 会社（計上会社）の絞り込み（URL の `?entity=` が正）。省略時は全社合算のまま（`shared/entityFilter.tsx`）
   const { entity, setEntity, options: entityOptions } = useEntityFilter();
+  /*
+   * 表頭クリックの並べ替え（2026-09 依頼）。サーバーのキー（`{列}_asc`/`{列}_desc`）
+   * をそのまま state に持つ（`ledger/sort.ts` 冒頭コメント参照）。空 = サーバー既定順
+   */
+  const [sort, setSort] = useState('');
 
   /** 開いているダイアログ。`'new'` は新規、行なら編集 */
   const [editing, setEditing] = useState<RevenueRow | 'new' | null>(null);
@@ -103,7 +109,7 @@ export default function RevenueListPage() {
   const cur = CHIPS.find((c) => c.key === chip) ?? CHIPS[0];
 
   const query = useQuery<RevenueListResponse>({
-    queryKey: ['revenues-all', page, appliedSearch, filterProjectId, month, cur.status, cur.state, range?.from ?? '', range?.to ?? '', entity],
+    queryKey: ['revenues-all', page, appliedSearch, filterProjectId, month, cur.status, cur.state, range?.from ?? '', range?.to ?? '', entity, sort],
     // ⚠️ `signal` を渡す（渡さないと、絞り込みを変えても前の重い通信が走り続ける）
     // `entity_code` は `GET /revenues` の `buildRevenueWhere` が絞り込む（P2 Round 1・並行実装済み）
     queryFn: async ({ signal }) => {
@@ -116,6 +122,7 @@ export default function RevenueListPage() {
       if (range) { params.recognition_from = range.from; params.recognition_to = range.to; }
       if (cur.state) params.state = cur.state;
       if (entity) params.entity_code = entity;
+      if (sort) params.sort = sort;
       return (await api.get('/revenues', { params, signal })).data;
     },
     // 打鍵のたびに一覧が骨組みへ戻らないように、前の内容を残す
@@ -210,6 +217,8 @@ export default function RevenueListPage() {
                 status: cur.status,
                 state: cur.state || undefined,
                 entity_code: entity || undefined,
+                // 画面の並び順のまま書き出す（渡さないと並べ替えたのに Excel だけ元の順で出る）
+                sort: sort || undefined,
               }}
             />
           </div>
@@ -321,6 +330,9 @@ export default function RevenueListPage() {
                 if (full) setEditing(canEdit ? full : null);
                 if (!canEdit && row.project_id) navigate(`/sales/projects/${row.project_id}`);
               }}
+              sort={sort}
+              onSort={(key) => { setSort(nextLedgerSort(sort, key)); setPage(1); }}
+              sortKeys={{ code: 'gls', title: 'project', party: 'customer', amount: 'amount', tax: 'tax', recognition: 'recognition' }}
             />
           </div>
 

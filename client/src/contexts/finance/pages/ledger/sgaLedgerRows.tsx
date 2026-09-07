@@ -54,7 +54,7 @@ export function sgaLedgerRows(items: SgaLedgerItem[]): LedgerRow[] {
     tax_category: item.tax_category,
     recognition_date: item.recognition_date,
     /*
-     * 申請ステータス（金額はまだ仮 / 金額確定・精算まだ / 金額確定・精算申請済）。**仕入と共通のロジック**
+     * 申請ステータス（仮 / 確定：未申請 / 確定：申請済）。**仕入と共通のロジック**
      * （`settlementState.ts`）。以前はここで「分け方・固定／都度」を出していたが、
      * 行1つに出せるバッジは1つなので申請ステータスへ統一した（仕様変更 #4・#6・#7）。
      * 種別は絞り込みの帯（`SGA_CHIPS`）と詳細シートで確認できる

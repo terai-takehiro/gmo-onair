@@ -33,7 +33,7 @@
  * ── 申請ステータスと精算ページへのリンクも出す ──────────────
  *
  * 仕入・販管費の行には、台帳とまったく同じ**3値の申請ステータス**
- * （金額はまだ仮／金額確定・精算まだ／金額確定・精算申請済）と、申請URLが入っている行だけに
+ * （仮／確定：未申請／確定：申請済）と、申請URLが入っている行だけに
  * **精算ページを開くリンク**を出します（ご指摘「一覧でもステータスが分かり、
  * 精算ページを開くリンクボタンも欲しい」）。判定は台帳と共通の
  * `ledger/settlementState.ts` を呼ぶだけで、ここには書き写しません
@@ -51,7 +51,6 @@ import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { humanizeError } from '@gmo-onair/shared/src/client/states';
 import { STATE_TONE, type LedgerState } from '../ledger/types';
-import { compactSettlementLabel } from '../ledger/settlementState';
 
 /** 折りたたみ時に出す件数。**多くすると内訳ではなく一覧になる** */
 const COLLAPSED = 6;
@@ -64,11 +63,11 @@ export interface BreakdownItem {
   sub?: string | null;
   amount: number;
   /**
-   * 申請ステータス（金額はまだ仮／金額確定・精算まだ／金額確定・精算申請済）。**台帳とまったく同じ
+   * 申請ステータス（仮／確定：未申請／確定：申請済）。**台帳とまったく同じ
    * `LedgerState` を受ける**ので、色（tone）も文言も台帳と自動でそろう。
    *
    * ⚠️ **旧 `tag?: string`（「仮」の2値だけの文字列）の置き換え。** 文字列1つでは
-   * tone を持てず、「金額確定・精算まだ」と「金額確定・精算申請済」を出し分けられなかった
+   * tone を持てず、「確定：未申請」と「確定：申請済」を出し分けられなかった
    * （ご指摘「一覧でもステータスが分かるようにしてほしい」）。
    */
   badge?: Pick<LedgerState, 'label' | 'tone' | 'title'> | null;
@@ -112,7 +111,7 @@ function BreakdownRow({ it }: { it: BreakdownItem }) {
           {it.badge && (
             <span className="shrink-0">
               <TableBadge
-                label={compactSettlementLabel(it.badge.label)}
+                label={it.badge.label}
                 w={null}
                 className={STATE_TONE[it.badge.tone]}
                 title={it.badge.title}

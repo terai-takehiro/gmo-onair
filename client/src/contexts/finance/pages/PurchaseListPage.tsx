@@ -36,18 +36,19 @@ import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { useCrudPage } from '@/hooks/useCrudPage';
-import ExcelToolbar from '@/components/ExcelToolbar';
 import ProjectQuickLinks from '@/contexts/shared/components/ProjectQuickLinks';
 import { LedgerList } from './ledger/LedgerList';
 import { LedgerFilterBar } from './ledger/LedgerFilterBar';
 import { LedgerTotalBar } from './ledger/LedgerTotalBar';
 import { LedgerFooter, LedgerPeriodNotice } from './ledger/LedgerParts';
+import { PurchaseToolbar } from './ledger/PurchaseToolbar';
 import { purchaseDetailFields } from './ledger/ledgerDetail';
 import { useLedgerUrlPeriod } from './ledger/useLedgerUrlPeriod';
 import { useLatestDataMonth, LatestMonthAction } from './ledger/LatestDataMonth';
 import { LedgerTabs } from './ledger/LedgerTabs';
 import { PurchaseDialog } from './ledger/PurchaseDialog';
 import { settlementState } from './ledger/settlementState';
+import { nextLedgerSort } from './ledger/sort';
 import { usePurchaseDialogData } from './ledger/usePurchaseDialogData';
 import type { LedgerRow, PurchaseRow } from './ledger/types';
 import { useEntityFilter, entityFilterGroup } from './shared/entityFilter';
@@ -60,7 +61,7 @@ const CHIPS = [
 ];
 
 /**
- * 申請ステータス（金額はまだ仮 / 金額確定・精算まだ / 金額確定・精算申請済）。**販管費と共通のロジック**
+ * 申請ステータス（仮 / 確定：未申請 / 確定：申請済）。**販管費と共通のロジック**
  * （`ledger/settlementState.ts`）。申請URLへの遷移はこのバッジではなく
  * 台帳の行・ダイアログの別ボタン（外部リンクアイコン）で行う（仕様変更 #4・#6・#7）
  */
@@ -94,6 +95,11 @@ export default function PurchaseListPage() {
   const period = useLedgerUrlPeriod(searchParams);
   const { month, range, setMonth } = period;
   const { entity, setEntity, options: entityOptions } = useEntityFilter(); // `?entity=` が正。省略=全社合算
+  /*
+   * 表頭クリックの並べ替え（2026-09 依頼）。サーバーのキー（`{列}_asc`/`{列}_desc`）
+   * をそのまま state に持つ（`ledger/sort.ts` 冒頭コメント参照）。空 = サーバー既定順
+   */
+  const [sort, setSort] = useState('');
 
   const cur = CHIPS.find((c) => c.key === chip) ?? CHIPS[0];
 
@@ -110,6 +116,7 @@ export default function PurchaseListPage() {
       fixed_cost: tab === 'fix' ? '1' : '0',
       state: cur.state || undefined,
       entity_code: entity || undefined, // `buildPurchaseWhere` が絞り込む（P2 Round 1・並行実装済み）
+      sort: sort || undefined,
     },
   });
 
@@ -179,40 +186,19 @@ export default function PurchaseListPage() {
           ) : undefined
         }
       >
-        <div className="flex shrink-0 flex-wrap gap-2">
-          {/*
-            **Excel の取込・書き出しはスマホに出さない。** 取り込みは台帳に行を
-            入れる操作で、途中で止まると二重に入る（取り消せない）。ファイル選択
-            そのものもスマホでは実用にならない（`/budget/vendors` で落とした前例）
-          */}
-          {!isMobile && (
-            <ExcelToolbar
-              resource="/purchases"
-              name="仕入"
-              queryKey={['purchases-all']}
-              hasDuplicateKey={false}
-              exportParams={{
-                search: crud.appliedSearch || undefined,  // 画面の結果と書き出しの中身を揃える
-                project_id: filterProjectId || undefined,
-                recognition_month: month || undefined,
-                recognition_from: range?.from,
-                recognition_to: range?.to,
-                fixed_cost: tab === 'fix' ? '1' : '0',
-                state: cur.state || undefined,
-                entity_code: entity || undefined,
-              }}
-            />
-          )}
-          {/*
-            **「按分グループ」はスマホにも残す。** 行き先の一覧
-            （`/sales/project-groups`）はスマホで開ける画面なので行き止まりにならない
-            （`/budget/vendors` の「仕入先集計」を落とした理由は行き先が PC 専用だから）。
-            ⚠️ **`/project-groups` ではありません。** 案件管理の下（`/sales/…`）です。
-            接頭辞の無い旧 URL はルート表に無く、`<Route path="*">` が拾って
-            **黙ってホームに戻ります**（押しても何も起きないように見える）。
-          */}
-          <Button variant="outline" onClick={() => navigate('/sales/project-groups')}>按分グループ</Button>
-        </div>
+        <PurchaseToolbar
+          isMobile={isMobile}
+          appliedSearch={crud.appliedSearch}
+          filterProjectId={filterProjectId}
+          month={month}
+          rangeFrom={range?.from}
+          rangeTo={range?.to}
+          fixedCost={tab === 'fix' ? '1' : '0'}
+          state={cur.state || undefined}
+          entity={entity}
+          sort={sort}
+          onOpenProjectGroups={() => navigate('/sales/project-groups')}
+        />
       </PageHeader>
 
       {filterProjectId && (
@@ -342,6 +328,9 @@ export default function PurchaseListPage() {
                 // 売上台帳と同じく、案件へ移す行き先をここで持つ
                 if (!canEdit && row.project_id) navigate(`/sales/projects/${row.project_id}`);
               }}
+              sort={sort}
+              onSort={(key) => { setSort(nextLedgerSort(sort, key)); crud.setPage(1); }}
+              sortKeys={{ code: 'gls', title: 'project', party: 'vendor', amount: 'amount', tax: 'tax', recognition: 'recognition' }}
             />
           </div>
 
