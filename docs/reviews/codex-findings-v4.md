@@ -3326,6 +3326,23 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
     （`npm run typecheck`/`npm run lint`/`client-daily`の`npm run build`/`shared`のVitest
     2240件は実施・全通過）
 
+---
+
+- **#622**（`fix(client,server): 検収書PDFの日付・財務ダッシュボード確度加味拡張・フィードバックチケットMCP追加`・
+  2026-09-07）— 検収書PDFの発行日表記・トップページ日常業務メニューの漏れ・財務ダッシュボードの
+  確度加味の画面全体への拡張（営業見通しカード廃止）・フィードバックチケットMCPツール新設の
+  4件をまとめた回。作成 10:17:37 → CI（`checks`/`build`）両方緑 10:21:14 → 直後にマージ
+  （**CI green から数十秒**）。`get_reviews`/`get_review_comments`とも0件、Codexの
+  レビュー要約コメントは**マージ時点で「Running」のまま**（Code Review・Security Review
+  両方とも完走せず）——**レビューが実質0件のままマージされた**。表に移す指摘なし
+  （レビュー自体が届いていないため）。
+  ⚠️ **AIを使い捨てにしないの5条件は、新設したMCPツール（`create_feedback_ticket`）について
+  条件2（人間の修正差分）・条件5（レビュー運用）が未対応であることをPR本文・コード冒頭
+  コメントで明示済み**（詳細は `server/src/contexts/mcp/tools/feedback-tickets.tools.ts`）。
+  **意図して残した未検証事項**（PR本文に明記済み）: 実ブラウザでのPC/スマホ目視確認・
+  権限別403の画面確認は未実施（財務ダッシュボードの確度加味の計算ロジックのみ、検証用DBに
+  実データを投入し期待値と一致することを確認済み）。
+
 ## この文書の使い方
 
 **これは決めごとです**（[docs/branching.md](../branching.md#マージしたらその-pr-のレビューを棚卸しに移す必須)）。
