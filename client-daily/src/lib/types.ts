@@ -48,6 +48,8 @@ export interface OpsReport {
   updated_at: string;
   items?: OpsReportItem[];
   item_count?: number;
+  /** この環境で AI 下書き（ウィークリー活動報告）が使えるか。`GET /reports/:id` だけが埋める */
+  ai_available?: boolean;
 }
 
 /**

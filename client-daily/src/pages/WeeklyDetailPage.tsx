@@ -25,9 +25,12 @@
  * ・**「AI作成」の印に「指示した人」を出さない** — `requested_by` は AI が名簿と
  *   突き合わせずに自由記述で書く値で、実在しない人名が入っていたことがある
  */
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import { BarChart3, Bot, CheckCircle2, ListChecks, Sparkles, Undo2 } from 'lucide-react';
+import {
+  BarChart3, Bot, CheckCircle2, ListChecks, Loader2, Pencil, Sparkles, Undo2,
+} from 'lucide-react';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import {
@@ -38,9 +41,11 @@ import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/noti
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { usePermissions } from '@/hooks/usePermissions';
 import {
-  usePublishReport, useReopenReport, useReport, useReports, useReviewReport,
+  useDraftWeeklyReport, usePublishReport, useReopenReport, useReport, useReports,
+  useReviewReport, useUpdateReportContent,
 } from '@/lib/reportsApi';
 import { formatWeekJa, type OpsReport } from '@/lib/types';
 import { StatsSection, type StatsShape } from './weekly/StatsSection';
@@ -60,6 +65,8 @@ export default function WeeklyDetailPage({ tab = 'report' }: { tab?: WeeklyTab }
   const publish = usePublishReport();
   const reopen = useReopenReport();
   const review = useReviewReport();
+  const draftAi = useDraftWeeklyReport();
+  const updateContent = useUpdateReportContent();
 
   const report = detail.data;
   const stats = (report?.payload as { stats?: StatsShape } | null)?.stats;
@@ -113,6 +120,35 @@ export default function WeeklyDetailPage({ tab = 'report' }: { tab?: WeeklyTab }
     review.mutate(report.id, {
       onSuccess: () => notifySuccess('確認済みにしました'),
       onError: (e) => notifyApiError('確認済みにできませんでした', e),
+    });
+  };
+
+  /**
+   * AI に本文を書かせる（下書きボタン）。**すでに本文があれば上書きの確認を挟む** —
+   * 直した文章・別のAI下書きが黙って消えるのを避ける（差分そのものは確定時に
+   * サーバーが自動で記録するので、ここでは「消える」ことだけ伝えればよい）。
+   */
+  const onDraftAi = async () => {
+    if (!report) return;
+    if (report.body) {
+      const ok = await confirmAction({
+        title: 'AI の要約を作り直しますか',
+        description: 'いまの本文は上書きされます。',
+        confirmLabel: '作り直す',
+      });
+      if (!ok) return;
+    }
+    draftAi.mutate(report.id, {
+      onSuccess: () => notifySuccess('AI が週報の下書きを作成しました'),
+      onError: (e) => notifyApiError('AI下書きを作成できませんでした', e),
+    });
+  };
+
+  const onSaveBody = (body: string) => {
+    if (!report) return;
+    updateContent.mutate({ reportId: report.id, fields: { body } }, {
+      onSuccess: () => notifySuccess('本文を保存しました'),
+      onError: (e) => notifyApiError('保存できませんでした', e),
     });
   };
 
@@ -175,7 +211,11 @@ export default function WeeklyDetailPage({ tab = 'report' }: { tab?: WeeklyTab }
             {tab === 'keep' ? (
               <KeepSection report={report} isMobile={isMobile} />
             ) : (
-              <ReportBody report={report} stats={stats} isMobile={isMobile} editable={editable} isPublished={isPublished} />
+              <ReportBody
+                report={report} stats={stats} isMobile={isMobile} editable={editable} isPublished={isPublished}
+                onDraftAi={onDraftAi} draftAiPending={draftAi.isPending}
+                onSaveBody={onSaveBody} saveBodyPending={updateContent.isPending}
+              />
             )}
           </>
         )}
@@ -184,9 +224,13 @@ export default function WeeklyDetailPage({ tab = 'report' }: { tab?: WeeklyTab }
   );
 }
 
-/** 「この週の報告」タブの中身（自動集計 → AI の要約 → 週次トピックス）。今までのまま */
-function ReportBody({ report, stats, isMobile, editable, isPublished }: {
+/** 「この週の報告」タブの中身（自動集計 → AI の要約 → 週次トピックス） */
+function ReportBody({
+  report, stats, isMobile, editable, isPublished, onDraftAi, draftAiPending, onSaveBody, saveBodyPending,
+}: {
   report: OpsReport; stats: StatsShape | undefined; isMobile: boolean; editable: boolean; isPublished: boolean;
+  onDraftAi: () => void; draftAiPending: boolean;
+  onSaveBody: (body: string) => void; saveBodyPending: boolean;
 }) {
   return (
     <>
@@ -206,23 +250,20 @@ function ReportBody({ report, stats, isMobile, editable, isPublished }: {
               />
             )}
 
-            <Section icon={Bot} title="AI の要約" sub="AI が集計を文章にしたもの" />
-            <Card>
-              <CardContent className="p-4 sm:p-5">
-                {report.body ? (
-                  <div className="md-body text-sub leading-relaxed">
-                    <ReactMarkdown>{report.body}</ReactMarkdown>
-                  </div>
-                ) : (
-                  <EmptyState
-                    className="border-0 bg-transparent"
-                    icon={<Sparkles />}
-                    title="AI の要約はまだありません"
-                    description="AI が投稿するとここに出ます。急ぐときは下のトピックに人の言葉で書いてください。"
-                  />
-                )}
-              </CardContent>
-            </Card>
+            <Section
+              icon={Bot}
+              title="AI の要約"
+              sub="AI が集計を文章にしたもの"
+              action={editable && report.ai_available && (
+                <Button variant="outline" size="sm" onClick={onDraftAi} disabled={draftAiPending}>
+                  {draftAiPending
+                    ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                    : <Sparkles className="mr-1.5 h-3.5 w-3.5 text-ai" aria-hidden="true" />}
+                  {report.body ? 'AI下書きを作り直す' : 'AI下書きを作る'}
+                </Button>
+              )}
+            />
+            <AiSummaryCard report={report} editable={editable} onSave={onSaveBody} savePending={saveBodyPending} />
 
             <Section
               icon={ListChecks}
@@ -234,12 +275,84 @@ function ReportBody({ report, stats, isMobile, editable, isPublished }: {
   );
 }
 
-function Section({ icon: Icon, title, sub }: { icon: React.ElementType; title: string; sub?: string }) {
+/**
+ * AI の要約カード。**確定前だけ直せる**（編集トグル）。
+ *
+ * 直せる手段が無いと、AI下書きの確定時の差分記録
+ * （会社方針「AIを使い捨てにしない」条件2）が常に「無修正」にしかならない —
+ * この編集入口はその条件を実質的に満たすための必須の器（見た目の親切さだけではない）。
+ */
+function AiSummaryCard({ report, editable, onSave, savePending }: {
+  report: OpsReport; editable: boolean; onSave: (body: string) => void; savePending: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(report.body);
+
+  if (editing) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col gap-2 p-4 sm:p-5">
+          <Textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={10}
+            className="text-sub"
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => { setDraft(report.body); setEditing(false); }}>
+              キャンセル
+            </Button>
+            <Button
+              size="sm"
+              disabled={savePending}
+              onClick={() => { onSave(draft); setEditing(false); }}
+            >
+              保存
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <div className="flex items-baseline gap-2 pt-1">
-      <Icon className="h-4 w-4 shrink-0 self-center text-primary" aria-hidden="true" />
-      <h2 className="text-h2">{title}</h2>
-      {sub && <span className="text-note hidden text-muted-foreground sm:inline">— {sub}</span>}
+    <Card>
+      <CardContent className="p-4 sm:p-5">
+        {report.body ? (
+          <>
+            <div className="md-body text-sub leading-relaxed">
+              <ReactMarkdown>{report.body}</ReactMarkdown>
+            </div>
+            {editable && (
+              <Button variant="outline" size="sm" className="mt-3" onClick={() => { setDraft(report.body); setEditing(true); }}>
+                <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />直す
+              </Button>
+            )}
+          </>
+        ) : (
+          <EmptyState
+            className="border-0 bg-transparent"
+            icon={<Sparkles />}
+            title="AI の要約はまだありません"
+            description="上の「AI下書きを作る」を押すか、急ぐときは下のトピックに人の言葉で書いてください。"
+          />
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function Section({ icon: Icon, title, sub, action }: {
+  icon: React.ElementType; title: string; sub?: string; action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+      <div className="flex items-baseline gap-2">
+        <Icon className="h-4 w-4 shrink-0 self-center text-primary" aria-hidden="true" />
+        <h2 className="text-h2">{title}</h2>
+        {sub && <span className="text-note hidden text-muted-foreground sm:inline">— {sub}</span>}
+      </div>
+      {action}
     </div>
   );
 }

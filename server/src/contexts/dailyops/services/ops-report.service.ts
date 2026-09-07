@@ -2,6 +2,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { freezeKeepPackForWeeklyReport } from './keep-pack-store.service';
+import {
+  findLatestAiOutput, hasCorrections, recordCorrections, type CorrectionType,
+} from '../../../shared/services/ai-output.service';
+import { WEEKLY_REPORT_DRAFT_KIND } from './weekly-report-ai.service';
 
 // 日常業務アプリ (dailyops) — 汎用レポート基盤の service 層。
 // API (reports.routes) と MCP (opsreports.tools) の両方から使う。
@@ -477,6 +481,26 @@ export const opsReportService = {
     return { added, skipped };
   },
 
+  /**
+   * レポート本体（題名・本文）を人が直す。**ウィークリー活動報告に画面から編集する
+   * 手段が無かった**ため新設（AI下書きボタンとセット）。`items` とは別の入口
+   * （行の編集は `updateItem`）。確定済みは `assertReportOpen` が断る。
+   */
+  async updateReportContent(id: string, fields: { title?: string; body?: string }): Promise<Record<string, unknown>> {
+    const existing = await queryOne(`SELECT * FROM ops_reports WHERE id = ? AND deleted_at IS NULL`, [id]);
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'レポートが見つかりません');
+    assertReportOpen(existing);
+    const sets: string[] = [];
+    const params: unknown[] = [];
+    if (fields.title !== undefined) { sets.push('title = ?'); params.push(fields.title); }
+    if (fields.body !== undefined) { sets.push('body = ?'); params.push(fields.body); }
+    if (!sets.length) return existing;
+    sets.push('updated_at = NOW()');
+    params.push(id);
+    await execute(`UPDATE ops_reports SET ${sets.join(', ')} WHERE id = ?`, params);
+    return (await queryOne(`SELECT * FROM ops_reports WHERE id = ?`, [id]))!;
+  },
+
   async updateItem(itemId: string, fields: Partial<OpsReportItemInput>): Promise<Record<string, unknown>> {
     const existing = await queryOne(`SELECT * FROM ops_report_items WHERE id = ? AND deleted_at IS NULL`, [itemId]);
     if (!existing) throw new AppError(404, 'NOT_FOUND', '行が見つかりません');
@@ -527,6 +551,11 @@ export const opsReportService = {
      */
     if (existing.kind === 'weekly_activity') {
       await freezeKeepPackForWeeklyReport(id, String(existing.period_key), userId);
+      // 会社方針「AIを使い捨てにしない」条件2: 確定 = 人が「これでよい」と
+      // 認めた瞬間なので、ここで AI の下書きと確定した本文を比べて差分を残す。
+      // **before は `ai_outputs.payload_snapshot`**（直前の DB 行ではない）— 途中で
+      // 何度も保存し直していても、比べる相手は常に「AI が最後に出したもの」にする。
+      await recordWeeklyReportPublishCorrection(id, String(existing.body ?? ''), userId);
     }
     return (await queryOne(`SELECT * FROM ops_reports WHERE id = ?`, [id]))!;
   },
@@ -567,6 +596,28 @@ export const opsReportService = {
     return (await queryOne(`SELECT * FROM ops_reports WHERE id = ?`, [id]))!;
   },
 };
+
+/**
+ * 週報の確定時に AI 下書きとの差分を記録する（best-effort・記録の失敗で確定は止めない）。
+ *
+ * **その出力にもう差分が付いていれば何もしない**（`hasCorrections`）— 確定を取り消して
+ * 本文を直さずにもう一度確定した場合など、同じ AI 出力に二度積むと「よく開かれる週報ほど
+ * 精度が高く見える」ことになる。AI 下書きを一度も作っていない週報（`findLatestAiOutput` が
+ * null）は何もしない — 人が最初から書いた週報を分母に混ぜない。
+ */
+async function recordWeeklyReportPublishCorrection(reportId: string, publishedBody: string, userId: string): Promise<void> {
+  try {
+    const latest = await findLatestAiOutput('ops_reports', reportId, WEEKLY_REPORT_DRAFT_KIND);
+    if (!latest) return;
+    if (await hasCorrections(latest.id)) return;
+    const before = String((latest.payload as { body?: unknown } | null)?.body ?? '');
+    const same = before === publishedBody;
+    const type: CorrectionType = same ? 'none' : (before === '' ? 'enrich' : 'fix');
+    await recordCorrections(latest.id, [{ fieldPath: 'body', before, after: publishedBody, type }], userId);
+  } catch (e) {
+    console.warn('[ops-report] weekly report correction 記録に失敗しました（続行）:', (e as Error).message);
+  }
+}
 
 function clampPick(pick: number | null | undefined): number | null {
   if (pick === null || pick === undefined) return null;

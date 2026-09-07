@@ -3,6 +3,8 @@ import { requireAuth, requirePermission } from '../../../shared/middleware/auth'
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { opsReportService } from '../services/ops-report.service';
 import { getWeeklyStats } from '../services/weekly-stats.service';
+import { isWeeklyReportAiConfigured } from '../services/weekly-report-ai.service';
+import { generateWeeklyReportDraft } from '../services/weekly-report-draft.service';
 
 // 日常業務アプリ (dailyops) — レポート API。
 // 一覧/詳細は reader、行の追記・確認・確定は editor。
@@ -54,6 +56,33 @@ router.get('/weekly-stats', ...canRead, async (req, res) => {
 router.get('/reports/:id', ...canRead, async (req, res) => {
   const report = await opsReportService.getReportById(String(req.params.id));
   if (!report) throw new AppError(404, 'NOT_FOUND', 'レポートが見つかりません');
+  // **AI未設定環境ではボタン自体を出さない**（minutes/KPT と同じ思想）。
+  // 対象はウィークリー活動報告だけだが、判定自体は軽い環境変数チェックなので
+  // kind を問わず埋める（他 kind の画面はこの値を見ない）
+  res.json({ success: true, data: { ...report, ai_available: isWeeklyReportAiConfigured() } });
+});
+
+/**
+ * レポート本体（題名・本文）を人が直す。**ウィークリー活動報告に画面から編集する
+ * 手段が無かった**ため新設 — AI下書きを人が直せないと、確定時の差分記録
+ * （会社方針「AIを使い捨てにしない」条件2）が常に「無修正」にしかならない。
+ */
+router.put('/reports/:id', ...canEdit, async (req, res) => {
+  const { title, body } = req.body ?? {};
+  const report = await opsReportService.updateReportContent(String(req.params.id), {
+    ...(title !== undefined ? { title } : {}),
+    ...(body !== undefined ? { body } : {}),
+  });
+  res.json({ success: true, data: report });
+});
+
+/**
+ * AI にウィークリー活動報告の本文を書かせる（「AI下書きを作る」ボタン）。
+ * 集計は `getWeeklyStats`・保存は `opsReportService.upsertReport` を内部で使うので、
+ * ここは薄いだけ。確定済みの週報・AI未設定環境は 400 / 503 で断る。
+ */
+router.post('/reports/:id/draft-ai', ...canEdit, async (req, res) => {
+  const { report } = await generateWeeklyReportDraft(String(req.params.id), req.user!.id, req.user!.name);
   res.json({ success: true, data: report });
 });
 

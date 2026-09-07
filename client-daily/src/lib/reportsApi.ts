@@ -137,3 +137,29 @@ export function useReviewReport() {
     onSuccess: invalidate,
   });
 }
+
+/**
+ * レポート本体（題名・本文）を人が直す。ウィークリー活動報告の「AI の要約」を
+ * 確定前に直せる唯一の入口（行の編集は `useUpdateItem`）。
+ */
+export function useUpdateReportContent() {
+  const invalidate = useInvalidateReports();
+  return useMutation({
+    mutationFn: ({ reportId, fields }: { reportId: string; fields: { title?: string; body?: string } }) =>
+      api.put(`/dailyops/reports/${reportId}`, fields).then((r) => r.data.data as OpsReport),
+    onSuccess: invalidate,
+  });
+}
+
+/**
+ * AI にウィークリー活動報告の本文を書かせる（「AI下書きを作る」ボタン）。
+ * 確定済みの週報・AI未設定環境はサーバーが 400 / 503 を返す。
+ */
+export function useDraftWeeklyReport() {
+  const invalidate = useInvalidateReports();
+  return useMutation({
+    mutationFn: (reportId: string) =>
+      api.post(`/dailyops/reports/${reportId}/draft-ai`).then((r) => r.data.data as OpsReport),
+    onSuccess: invalidate,
+  });
+}
