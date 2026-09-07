@@ -274,7 +274,7 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
   const {
     name, short_name, contact_name, email, phone, address,
     is_customer, is_vendor, is_sga_payee, vendor_type, invoice_registration_number, notes,
-    is_gmo_group,
+    is_gmo_group, samurai_group,
   } = req.body;
   if (!name) throw new AppError(400, 'VALIDATION_ERROR', '取引先名は必須です');
   // **検査を通した正規化済みの値を使う**（生の req.body の値は使わない・レビュー指摘 PR #190 P2）
@@ -296,19 +296,22 @@ router.post('/', requirePermission('sales', 'owner'), async (req, res) => {
    * **渡してきたらそちらが正** — 画面のチェックボックスで外せます。
    */
   const groupFlag = is_gmo_group === undefined ? looksLikeGmoGroup(name) : is_gmo_group === true;
+  // **「サムライ関連」の印**（migration 291）。隔週キープのヨミ表で別表に出すお客様
+  // （サムライパートナーズ／GMOサムライコンテンツスタジオ）。社名から見立てない — 人が付ける
+  const samuraiFlag = samurai_group === true;
 
   const id = uuidv4();
   await execute(
     `INSERT INTO companies (id, name, short_name, contact_name, email, phone, address,
        is_customer, is_vendor, is_sga_payee, vendor_type, invoice_registration_number, notes,
-       is_gmo_group, customer_closing_day, customer_payment_months, customer_payment_day,
+       is_gmo_group, samurai_group, customer_closing_day, customer_payment_months, customer_payment_day,
        vendor_payment_months, vendor_payment_day, credit_limit_amount, credit_check_date, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, name, short_name || null, contact_name || null, email || null, phone || null,
      address || null, is_customer ? true : false, is_vendor ? true : false,
      is_sga_payee ? true : false,
      vendor_type || null, invoice_registration_number || null, notes || null,
-     groupFlag,
+     groupFlag, samuraiFlag,
      // **お金のルール ⑤ と同じ決めごと**（migration 175/196）: NULL = 会社のルールに従う。
      // 0 を既定値として入れないこと（「決めていない」と「0か月後」を区別できなくなる）
      customer_closing_day ?? null, customer_payment_months ?? null, customer_payment_day ?? null,
@@ -352,7 +355,7 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
   const {
     name, short_name, contact_name, email, phone, address,
     is_customer, is_vendor, is_sga_payee, vendor_type, invoice_registration_number, notes,
-    is_gmo_group,
+    is_gmo_group, samurai_group,
   } = req.body;
   const canEditBudget = await hasPermission(req, 'sales', 'editor');
   /**
@@ -382,6 +385,10 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
   const groupFlag = is_gmo_group === undefined
     ? existing.is_gmo_group === true
     : is_gmo_group === true;
+  // 「サムライ関連」の印も同じ守り方（欄を持たない呼び出しから黙って外れない）
+  const samuraiFlag = samurai_group === undefined
+    ? existing.samurai_group === true
+    : samurai_group === true;
   const keep = (v: unknown, existingVal: unknown) => (v === undefined ? existingVal : (v ?? null));
 
   // **`keep()` した後の値を companies と customers/vendors の両方に書く**
@@ -400,14 +407,14 @@ router.put('/:id', requirePermission('sales', 'owner'), async (req, res) => {
   await execute(
     `UPDATE companies SET name=?, short_name=?, contact_name=?, email=?, phone=?, address=?,
        is_customer=?, is_vendor=?, is_sga_payee=?, vendor_type=?, invoice_registration_number=?, notes=?,
-       is_gmo_group=?, customer_closing_day=?, customer_payment_months=?, customer_payment_day=?,
+       is_gmo_group=?, samurai_group=?, customer_closing_day=?, customer_payment_months=?, customer_payment_day=?,
        vendor_payment_months=?, vendor_payment_day=?, credit_limit_amount=?, credit_check_date=?,
        updated_at=NOW(), updated_by=? WHERE id=?`,
     [name, short_name || null, contact_name || null, email || null, phone || null,
      address || null, is_customer ? true : false, is_vendor ? true : false,
      is_sga_payee ? true : false,
      vendor_type || null, invoice_registration_number || null, notes || null,
-     groupFlag,
+     groupFlag, samuraiFlag,
      resolvedCustomerClosingDay, resolvedCustomerPaymentMonths, resolvedCustomerPaymentDay,
      resolvedVendorPaymentMonths, resolvedVendorPaymentDay,
      resolvedCreditLimitAmount, resolvedCreditCheckDate,

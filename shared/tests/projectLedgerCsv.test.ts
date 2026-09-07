@@ -149,8 +149,9 @@ describe('絞り込み全体を書き出す（画面の行だけにしない）'
   });
 
   it('絞り込みは表が使っているものをそのまま渡す（組み直さない）', () => {
-    const page = readSrc('client/src/contexts/sales/pages/ProjectLedgerPage.tsx');
-    expect(page).toMatch(/csv\.download\(\s*s\.params,/);
+    // 絞り込みの帯（CSV のボタンを含む）は `LedgerFilterBar.tsx` に切り出してある（1ファイル 400 行の決めごと）
+    const bar = readSrc(`${LEDGER}/LedgerFilterBar.tsx`);
+    expect(bar).toMatch(/csv\.download\(\s*s\.params,/);
     expect(readSrc(`${LEDGER}/useLedgerState.ts`)).toMatch(/\n\s{4}params,\n/);
   });
 

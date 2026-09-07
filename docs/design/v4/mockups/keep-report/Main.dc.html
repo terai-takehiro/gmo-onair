@@ -1,0 +1,740 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>ウィークリー活動報告 ▸ 隔週キープの数字</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&family=BIZ+UDPGothic:wght@400;700&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+
+<style>
+  body { margin:0; background:#f7f8fa; color:#1a1d24; font-family:'LINE Seed JP','Noto Sans JP',-apple-system,'Hiragino Sans','BIZ UDPGothic','Meiryo',sans-serif; -webkit-font-smoothing:antialiased; font-feature-settings:'palt' 1,'kern' 1; }
+  a { color:#005bac; text-decoration:none; } a:hover { color:#0068b8; text-decoration:underline; }
+  .t-h1 { font-size:23px; line-height:1.3; font-weight:800; }
+  .t-h2 { font-size:19px; line-height:1.35; font-weight:800; }
+  .t-ct { font-size:14.5px; line-height:1.4; font-weight:800; }
+  .t-list { font-size:13.5px; line-height:1.5; font-weight:700; }
+  .t-body { font-size:13.5px; line-height:1.6; font-weight:400; }
+  .t-sub { font-size:12.5px; line-height:1.55; font-weight:400; }
+  .t-ssm { font-size:11.5px; line-height:1.6; font-weight:400; }
+  .t-th { font-size:11.5px; line-height:1.4; font-weight:700; color:#5d6470; }
+  .t-bdg { font-size:11px; line-height:1.4; font-weight:700; }
+  .t-note { font-size:12px; line-height:1.6; font-weight:400; }
+  .num { font-variant-numeric:tabular-nums; font-feature-settings:'palt' 0,'tnum' 1; }
+  button { font-family:inherit; }
+</style>
+</helmet>
+<div style="width:1440px; min-height:2560px; box-sizing:border-box; display:flex; flex-direction:column; background:#f7f8fa">
+  <div style="height:64px; box-sizing:border-box; display:flex; align-items:center; gap:14px; padding:0 24px; background:#fff; border-bottom:1px solid #e6e9ed; flex-shrink:0">
+  <img src="logo-onair.svg" alt="GMO ONAiR" style="height:20px; width:auto; flex-shrink:0">
+  <span style="width:1px; height:22px; background:#e6e9ed; flex-shrink:0"></span>
+  <span style="display:flex; align-items:center; gap:10px; height:40px; padding:0 12px; border:1px solid #cfe4f4; border-radius:10px; background:#f4faff; font-size:13.5px; font-weight:700; line-height:1.5; color:#005bac; white-space:nowrap; flex-shrink:0">
+    <span style="width:22px; height:22px; border-radius:7px; background:#eaf4fb; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg></span>
+    日常業務
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m6 9 6 6 6-6"/></svg>
+  </span>
+  <span style="font-size:12.5px; line-height:1.6; color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">／ ウィークリー活動報告</span>
+  <span style="flex:1; min-width:0"></span>
+  <span style="position:relative; width:280px; flex-shrink:0; display:flex; align-items:center; box-sizing:border-box; height:40px; padding:0 11px 0 11px; gap:8px; border:1px solid #e6e9ed; border-radius:7px; background:#fff; font-size:12.5px; color:#9aa1ab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>案件・お客様・機材を探す<span style="flex:1"></span><span class="num" style="font-size:11px; font-weight:700; color:#5d6470; border:1px solid #e6e9ed; border-radius:6px; padding:1px 5px">⌘K</span></span>
+  <span style="position:relative; width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="num" style="position:absolute; top:6px; right:5px; min-width:16px; height:16px; box-sizing:border-box; padding:0 4px; border-radius:999px; background:#c7243a; color:#fff; font-size:10px; font-weight:800; display:inline-flex; align-items:center; justify-content:center">3</span></span>
+  <span style="display:flex; align-items:center; gap:2px; flex-shrink:0"><span style="width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; border-radius:7px; cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></span><span style="width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; border-radius:7px; cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg></span><span style="width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; border-radius:7px; cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></svg></span></span>
+  <span style="width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0"><span style="width:32px; height:32px; border-radius:999px; background:#eaf4fb; color:#005bac; display:inline-flex; align-items:center; justify-content:center; font-size:13.5px; font-weight:700">寺</span></span>
+</div>
+  <div style="display:flex; align-items:stretch; flex:1">
+    <div style="width:248px; box-sizing:border-box; flex-shrink:0; display:flex; flex-direction:column; background:#fff; border-right:1px solid #e6e9ed; padding:14px 12px 20px"><div style="display:flex; flex-direction:column; gap:2px"><span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; font-weight:400; line-height:1.5; color:#3c424c; background:transparent; cursor:pointer">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+        <span style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">ホーム</span>
+        
+      </span>
+<span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; font-weight:400; line-height:1.5; color:#3c424c; background:transparent; cursor:pointer">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>
+        <span style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">タスク・依頼</span>
+        
+      </span></div>
+<div style="display:flex; flex-direction:column; gap:2px"><p style="margin:14px 0 4px; padding:0 10px; font-size:11.5px; font-weight:800; line-height:1.4; color:#5d6470">定期報告</p><span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; font-weight:700; line-height:1.5; color:#005bac; background:#eaf4fb; cursor:pointer">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>
+        <span style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">ウィークリー活動報告</span>
+        
+      </span>
+<span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; font-weight:400; line-height:1.5; color:#3c424c; background:transparent; cursor:pointer">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9a2 2 0 0 1 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>
+        <span style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">デイリーニュース報告</span>
+        
+      </span></div>
+<div style="display:flex; flex-direction:column; gap:2px"><p style="margin:14px 0 4px; padding:0 10px; font-size:11.5px; font-weight:800; line-height:1.4; color:#5d6470">届いたもの</p><span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; font-weight:400; line-height:1.5; color:#3c424c; background:transparent; cursor:pointer">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+        <span style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">問い合わせ</span>
+        
+      </span>
+<span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; font-weight:400; line-height:1.5; color:#3c424c; background:transparent; cursor:pointer">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M12 7v2"/><path d="M12 13h.01"/></svg>
+        <span style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">フィードバックチケット</span>
+        
+      </span>
+<span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; font-weight:400; line-height:1.5; color:#3c424c; background:transparent; cursor:pointer">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+        <span style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">受領書類</span>
+        <span style="height:19px; box-sizing:border-box; display:inline-flex; align-items:center; padding:0 6px; border-radius:6px; background:#f2f4f7; color:#5d6470; font-size:11.5px; font-weight:700; flex-shrink:0">財務管理</span>
+      </span></div>
+<div style="display:flex; flex-direction:column; gap:2px"><p style="margin:14px 0 4px; padding:0 10px; font-size:11.5px; font-weight:800; line-height:1.4; color:#5d6470">現場の受付</p><span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; font-weight:400; line-height:1.5; color:#3c424c; background:transparent; cursor:pointer">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M13 4h3a2 2 0 0 1 2 2v14"/><path d="M2 20h3"/><path d="M13 20h9"/><path d="M10 12v.01"/><path d="M13 4.562v16.157a1 1 0 0 1-1.242.97L5 20V5.562a2 2 0 0 1 1.515-1.94l4-1A2 2 0 0 1 13 4.561Z"/></svg>
+        <span style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">内覧会 来場予約</span>
+        
+      </span>
+<span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; font-weight:400; line-height:1.5; color:#3c424c; background:transparent; cursor:pointer">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
+        <span style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">セキュリティカード</span>
+        
+      </span></div></div>
+    <div style="flex:1; min-width:0; padding:22px 26px 32px; display:flex; flex-direction:column; gap:14px">
+<div style="display:flex; align-items:flex-end; gap:14px">
+  <div style="min-width:0">
+    <h1 class="t-h1" style="margin:0">ウィークリー活動報告</h1>
+    <p class="t-sub" style="margin:3px 0 0; color:#5d6470"><span class="num">8/31 〜 9/6</span> の週 ・ 下書き ・ 隔週キープ 次回 <span class="num">9/16（水）13:00</span></p>
+  </div>
+  <div style="flex:1"></div>
+  <button style="display:inline-flex; align-items:center; gap:7px; height:38px; padding:0 15px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; color:#3c424c; font-size:12.5px; font-weight:700; white-space:nowrap; cursor:pointer; opacity:1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>週の一覧</button>
+  <button style="display:inline-flex; align-items:center; gap:7px; height:38px; padding:0 15px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; color:#3c424c; font-size:12.5px; font-weight:700; white-space:nowrap; cursor:pointer; opacity:1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/></svg>JSON を見る</button>
+  <button style="display:inline-flex; align-items:center; gap:7px; height:38px; padding:0 15px; border:1px solid #005bac; border-radius:10px; background:#005bac; color:#fff; font-size:12.5px; font-weight:700; white-space:nowrap; cursor:pointer; opacity:1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/></svg>資料をつくる</button>
+</div>
+<div style="display:flex; align-items:flex-end; gap:4px; border-bottom:1px solid #e6e9ed">
+  <span style="display:inline-flex; align-items:center; gap:8px; height:44px; padding:0 14px; border-bottom:2px solid transparent; font-size:13.5px; font-weight:400; color:#3c424c; margin-bottom:-1px; cursor:pointer">この週の報告</span><span style="display:inline-flex; align-items:center; gap:8px; height:44px; padding:0 14px; border-bottom:2px solid #005bac; font-size:13.5px; font-weight:700; color:#005bac; margin-bottom:-1px; cursor:pointer">隔週キープの数字</span><span style="display:inline-flex; align-items:center; gap:8px; height:44px; padding:0 14px; border-bottom:2px solid transparent; font-size:13.5px; font-weight:400; color:#3c424c; margin-bottom:-1px; cursor:pointer">資料をつくる<span class="t-bdg" style="height:19px; display:inline-flex; align-items:center; padding:0 6px; border-radius:6px; background:#fdf1ea; color:#c2410e">9/16 用 下書き</span></span>
+</div>
+<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
+  <span class="t-ssm" style="color:#5d6470; font-weight:700">対象月</span>
+  <span style="display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 12px; border:1px solid #e6e9ed; border-radius:10px; background:#fff; font-size:13px; font-weight:700"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg><span class="num">2026年8月</span> 着地 ・ <span class="num">9月</span> 見込<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m6 9 6 6 6-6"/></svg></span>
+  <span style="width:1px; height:22px; background:#e6e9ed"></span>
+  <span class="t-ssm" style="color:#5d6470; font-weight:700">事業主体</span>
+  <span style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border:1px solid #005bac; border-radius:999px; background:#eaf4fb; color:#005bac; font-size:12.5px; font-weight:700; white-space:nowrap; cursor:pointer">全体（統合）</span><span style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border:1px solid #e6e9ed; border-radius:999px; background:#fff; color:#3c424c; font-size:12.5px; font-weight:700; white-space:nowrap; cursor:pointer">GMOサムライスタジオ ＝ グループ内<span class="num" style="font-size:11px; font-weight:700; color:#9aa1ab">6</span></span><span style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border:1px solid #e6e9ed; border-radius:999px; background:#fff; color:#3c424c; font-size:12.5px; font-weight:700; white-space:nowrap; cursor:pointer">GMOサムライコンテンツスタジオ ＝ 外部<span class="num" style="font-size:11px; font-weight:700; color:#9aa1ab">8</span></span><span style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border:1px solid #e6e9ed; border-radius:999px; background:#fff; color:#3c424c; font-size:12.5px; font-weight:700; white-space:nowrap; cursor:pointer">GMOインターネットグループ人格<span class="num" style="font-size:11px; font-weight:700; color:#9aa1ab">0</span></span>
+  <span style="width:1px; height:22px; background:#e6e9ed"></span>
+  <span class="t-ssm" style="color:#5d6470; font-weight:700">お客様</span>
+  <span style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border:1px solid #005bac; border-radius:999px; background:#eaf4fb; color:#005bac; font-size:12.5px; font-weight:700; white-space:nowrap; cursor:pointer">すべて</span><span style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border:1px solid #e6e9ed; border-radius:999px; background:#fff; color:#3c424c; font-size:12.5px; font-weight:700; white-space:nowrap; cursor:pointer">グループ内<span class="num" style="font-size:11px; font-weight:700; color:#9aa1ab">6</span></span><span style="display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border:1px solid #e6e9ed; border-radius:999px; background:#fff; color:#3c424c; font-size:12.5px; font-weight:700; white-space:nowrap; cursor:pointer">外部<span class="num" style="font-size:11px; font-weight:700; color:#9aa1ab">8</span></span>
+  <span style="flex:1"></span>
+  <span class="t-ssm" style="display:inline-flex; align-items:center; gap:6px; color:#5d6470"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>主体はお客様の区分から自動で決まります（グループ内 → GMOサムライスタジオ／外部 → GMOサムライコンテンツスタジオ）。人格で行う案件だけ手で付けます</span>
+</div>
+
+<div style="display:flex; align-items:center; gap:8px; padding:10px 14px; border:1px solid #cfe4f4; border-radius:12px; background:#f4faff">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+  <span class="t-sub" style="color:#3c424c">いま ONAiR にある数字です（<span class="num">9/6 13:20</span> 時点）。この週の報告を<strong>確定</strong>すると、この画面の数字も一緒に凍り、資料と Slack の元データになります。</span>
+  <span style="flex:1"></span>
+  <span class="t-ssm" style="color:#5d6470">前回 9/4 の資料に載せた数字と比べる</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m9 18 6-6-6-6"/></svg>
+</div>
+
+<div style="display:flex; align-items:center; gap:9px; min-height:24px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><h3 style="margin:0; font-size:14px; font-weight:800">数値報告</h3><span class="t-ssm" style="color:#9aa1ab">— 目標は「お金のルール」の月次予算、着地は確定売上・仕入・販管費・償却相当額。判定と比率は毎回ここで計算します。全体（統合）と主体別の両方を出します</span><span style="flex:1"></span></div>
+<div style="display:flex; align-items:stretch; gap:14px"><div style="flex:1; min-width:0; background:#fff; border:1px solid #e6e9ed; border-radius:14px; overflow:hidden">
+    <div style="display:flex; align-items:center; gap:10px; padding:12px 16px 10px">
+      <h4 style="margin:0; font-size:14.5px; font-weight:800">8月 着地 ・ 全体（統合）</h4>
+      <span class="t-ssm" style="color:#9aa1ab">単位: 千円</span>
+      <span style="flex:1"></span>
+      <span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:62px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">自動集計</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:0; padding:9px 14px; border-bottom:1px solid #eef0f3; background:#f7f8fa">
+    <span class="t-th" style="flex:1; min-width:0">項目</span>
+    <span class="t-th" style="width:84px; text-align:right">目標</span>
+    <span class="t-th" style="width:84px; text-align:right">着地</span>
+    <span class="t-th" style="width:44px; text-align:center">判定</span>
+    <span class="t-th" style="width:72px; text-align:right">対目標比</span>
+    <span class="t-th" style="width:84px; text-align:right">対目標</span>
+  </div><div style="display:flex; align-items:center; padding:9px 14px; border-bottom:1px solid #f2f4f7; background:#fff">
+      <span class="t-list" style="flex:1; min-width:0; font-weight:700">売上高</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#3c424c">21,000</span>
+      <span class="num" style="width:84px; text-align:right; font-size:14px; font-weight:800">1,762</span>
+      <span style="width:44px; text-align:center; font-size:13.5px; font-weight:800; color:#c7243a">×</span>
+      <span class="num" style="width:72px; text-align:right; font-size:13.5px; font-weight:700; color:#c7243a">8.4%</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#c7243a">−19,238</span>
+    </div><div style="display:flex; align-items:center; padding:9px 14px; border-bottom:1px solid #f2f4f7; background:#fff">
+      <span class="t-list" style="flex:1; min-width:0; font-weight:700">原価（案件仕入）</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#3c424c">3,300</span>
+      <span class="num" style="width:84px; text-align:right; font-size:14px; font-weight:800">1,223</span>
+      <span style="width:44px; text-align:center; font-size:13.5px; font-weight:800; color:#197a4b">○</span>
+      <span class="num" style="width:72px; text-align:right; font-size:13.5px; font-weight:700; color:#005bac">37.1%</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#c7243a">−2,077</span>
+    </div><div style="display:flex; align-items:center; padding:9px 14px; border-bottom:1px solid #f2f4f7; background:#fff">
+      <span class="t-list" style="flex:1; min-width:0; font-weight:700">粗利</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#3c424c">17,700</span>
+      <span class="num" style="width:84px; text-align:right; font-size:14px; font-weight:800">539</span>
+      <span style="width:44px; text-align:center; font-size:13.5px; font-weight:800; color:#c7243a">×</span>
+      <span class="num" style="width:72px; text-align:right; font-size:13.5px; font-weight:700; color:#c7243a">3.0%</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#c7243a">−17,161</span>
+    </div><div style="display:flex; align-items:center; padding:9px 14px; border-bottom:1px solid #f2f4f7; background:#fff">
+      <span class="t-list" style="flex:1; min-width:0; font-weight:700">販管費</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#3c424c">26,427</span>
+      <span class="num" style="width:84px; text-align:right; font-size:14px; font-weight:800">21,834</span>
+      <span style="width:44px; text-align:center; font-size:13.5px; font-weight:800; color:#197a4b">○</span>
+      <span class="num" style="width:72px; text-align:right; font-size:13.5px; font-weight:700; color:#005bac">82.6%</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#c7243a">−4,593</span>
+    </div><div style="display:flex; align-items:center; padding:9px 14px; border-bottom:1px solid #f2f4f7; background:#fff">
+      <span class="t-list" style="flex:1; min-width:0; font-weight:700">償却相当額</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#3c424c">19,727</span>
+      <span class="num" style="width:84px; text-align:right; font-size:14px; font-weight:800">18,539</span>
+      <span style="width:44px; text-align:center; font-size:13.5px; font-weight:800; color:#197a4b">○</span>
+      <span class="num" style="width:72px; text-align:right; font-size:13.5px; font-weight:700; color:#9aa1ab">—</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#9aa1ab">—</span>
+    </div><div style="display:flex; align-items:center; padding:10px 14px; border-bottom:1px solid #f2f4f7; background:#f4faff">
+      <span class="t-list" style="flex:1; min-width:0; font-weight:800">営業利益</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#3c424c">−28,454</span>
+      <span class="num" style="width:84px; text-align:right; font-size:14px; font-weight:800">−39,834</span>
+      <span style="width:44px; text-align:center; font-size:13.5px; font-weight:800; color:#c7243a">×</span>
+      <span class="num" style="width:72px; text-align:right; font-size:13.5px; font-weight:700; color:#c7243a">60.0%</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#c7243a">−11,380</span>
+    </div><div style="display:flex; align-items:center; gap:8px; padding:9px 14px; background:#fdf1ea; border-top:1px solid #f2f4f7"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c2410e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><span class="t-ssm" style="color:#c2410e; font-weight:700; white-space:nowrap">未確定 1件</span><span class="t-ssm" style="color:#3c424c; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">8/28 サムライ20周年感謝の会 未確定 — 売上（グループ内原価 2,729,703円）がまだ確定売上になっていません</span><span class="t-ssm" style="color:#005bac; font-weight:700; cursor:pointer; white-space:nowrap">案件を開く</span></div>
+  </div><div style="flex:1; min-width:0; background:#fff; border:1px solid #e6e9ed; border-radius:14px; overflow:hidden">
+    <div style="display:flex; align-items:center; gap:10px; padding:12px 16px 10px">
+      <h4 style="margin:0; font-size:14.5px; font-weight:800">9月 着地見込 ・ 全体（統合）</h4>
+      <span class="t-ssm" style="color:#9aa1ab">単位: 千円</span>
+      <span style="flex:1"></span>
+      <span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:62px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">自動集計</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:0; padding:9px 14px; border-bottom:1px solid #eef0f3; background:#f7f8fa">
+    <span class="t-th" style="flex:1; min-width:0">項目</span>
+    <span class="t-th" style="width:84px; text-align:right">目標</span>
+    <span class="t-th" style="width:84px; text-align:right">見通し</span>
+    <span class="t-th" style="width:44px; text-align:center">判定</span>
+    <span class="t-th" style="width:72px; text-align:right">対目標比</span>
+    <span class="t-th" style="width:84px; text-align:right">対目標</span>
+  </div><div style="display:flex; align-items:center; padding:9px 14px; border-bottom:1px solid #f2f4f7; background:#fff">
+      <span class="t-list" style="flex:1; min-width:0; font-weight:700">売上高</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#3c424c">21,000</span>
+      <span class="num" style="width:84px; text-align:right; font-size:14px; font-weight:800">8,078</span>
+      <span style="width:44px; text-align:center; font-size:13.5px; font-weight:800; color:#c7243a">×</span>
+      <span class="num" style="width:72px; text-align:right; font-size:13.5px; font-weight:700; color:#c7243a">38.5%</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#c7243a">−12,922</span>
+    </div><div style="display:flex; align-items:center; padding:9px 14px; border-bottom:1px solid #f2f4f7; background:#fff">
+      <span class="t-list" style="flex:1; min-width:0; font-weight:700">原価（案件仕入）</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#3c424c">3,300</span>
+      <span class="num" style="width:84px; text-align:right; font-size:14px; font-weight:800">2,406</span>
+      <span style="width:44px; text-align:center; font-size:13.5px; font-weight:800; color:#197a4b">○</span>
+      <span class="num" style="width:72px; text-align:right; font-size:13.5px; font-weight:700; color:#005bac">72.9%</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#c7243a">−894</span>
+    </div><div style="display:flex; align-items:center; padding:9px 14px; border-bottom:1px solid #f2f4f7; background:#fff">
+      <span class="t-list" style="flex:1; min-width:0; font-weight:700">粗利</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#3c424c">17,700</span>
+      <span class="num" style="width:84px; text-align:right; font-size:14px; font-weight:800">5,672</span>
+      <span style="width:44px; text-align:center; font-size:13.5px; font-weight:800; color:#c7243a">×</span>
+      <span class="num" style="width:72px; text-align:right; font-size:13.5px; font-weight:700; color:#c7243a">32.0%</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#c7243a">−12,028</span>
+    </div><div style="display:flex; align-items:center; padding:9px 14px; border-bottom:1px solid #f2f4f7; background:#fff">
+      <span class="t-list" style="flex:1; min-width:0; font-weight:700">販管費</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#3c424c">26,436</span>
+      <span class="num" style="width:84px; text-align:right; font-size:14px; font-weight:800">21,842</span>
+      <span style="width:44px; text-align:center; font-size:13.5px; font-weight:800; color:#197a4b">○</span>
+      <span class="num" style="width:72px; text-align:right; font-size:13.5px; font-weight:700; color:#005bac">82.6%</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#c7243a">−4,593</span>
+    </div><div style="display:flex; align-items:center; padding:9px 14px; border-bottom:1px solid #f2f4f7; background:#fff">
+      <span class="t-list" style="flex:1; min-width:0; font-weight:700">償却相当額</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#3c424c">19,727</span>
+      <span class="num" style="width:84px; text-align:right; font-size:14px; font-weight:800">18,539</span>
+      <span style="width:44px; text-align:center; font-size:13.5px; font-weight:800; color:#197a4b">○</span>
+      <span class="num" style="width:72px; text-align:right; font-size:13.5px; font-weight:700; color:#9aa1ab">—</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#9aa1ab">—</span>
+    </div><div style="display:flex; align-items:center; padding:10px 14px; border-bottom:1px solid #f2f4f7; background:#f4faff">
+      <span class="t-list" style="flex:1; min-width:0; font-weight:800">営業利益</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#3c424c">−28,462</span>
+      <span class="num" style="width:84px; text-align:right; font-size:14px; font-weight:800">−34,710</span>
+      <span style="width:44px; text-align:center; font-size:13.5px; font-weight:800; color:#c7243a">×</span>
+      <span class="num" style="width:72px; text-align:right; font-size:13.5px; font-weight:700; color:#c7243a">78.1%</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13.5px; color:#c7243a">−6,247</span>
+    </div>
+  </div></div>
+<div style="background:#fff; border:1px solid #e6e9ed; border-radius:14px; overflow:hidden">
+    <div style="display:flex; align-items:center; gap:10px; padding:12px 16px 10px">
+      <h4 style="margin:0; font-size:14.5px; font-weight:800">8月 着地 ・ 主体別</h4>
+      <span class="t-ssm" style="color:#9aa1ab">売上・原価は案件の主体で、販管費・償却相当額は台帳の主体で分けます ・ 全体 ＝ 主体の合計</span>
+      <span style="flex:1"></span>
+      <span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:62px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">自動集計</span>
+    </div>
+    <div style="display:flex; align-items:flex-end; gap:0; padding:9px 14px; border-bottom:1px solid #eef0f3; background:#f7f8fa">
+    <span class="t-th" style="flex:1; min-width:0">項目（千円）</span>
+    <span style="width:236px; display:flex; flex-direction:column; align-items:flex-end"><span class="t-th" style="color:#3c424c">GMOサムライスタジオ</span><span class="t-ssm" style="color:#9aa1ab">グループ内 ・ 目標／着地／判定</span></span>
+    <span style="width:22px"></span>
+    <span style="width:236px; display:flex; flex-direction:column; align-items:flex-end"><span class="t-th" style="color:#3c424c">GMOサムライコンテンツスタジオ</span><span class="t-ssm" style="color:#9aa1ab">外部 ・ 目標／着地／判定</span></span>
+    <span style="width:22px"></span>
+    <span style="width:168px; display:flex; flex-direction:column; align-items:flex-end"><span class="t-th" style="color:#3c424c">全体（統合）</span><span class="t-ssm" style="color:#9aa1ab">目標／着地</span></span>
+  </div><div style="display:flex; align-items:center; padding:9px 14px; border-bottom:1px solid #f2f4f7; background:#fff">
+      <span class="t-list" style="flex:1; min-width:0; font-weight:700">売上高</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13px; color:#3c424c">15,000</span><span class="num" style="width:96px; text-align:right; font-size:13.5px; font-weight:800">1,289</span><span style="width:56px; text-align:center; font-size:13px; font-weight:800; color:#c7243a">×</span><span style="width:22px; text-align:center; color:#e6e9ed">|</span><span class="num" style="width:84px; text-align:right; font-size:13px; color:#3c424c">6,000</span><span class="num" style="width:96px; text-align:right; font-size:13.5px; font-weight:800">473</span><span style="width:56px; text-align:center; font-size:13px; font-weight:800; color:#c7243a">×</span><span style="width:22px; text-align:center; color:#e6e9ed">|</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13px; color:#3c424c">21,000</span><span class="num" style="width:84px; text-align:right; font-size:13.5px; font-weight:800">1,762</span>
+    </div><div style="display:flex; align-items:center; padding:9px 14px; border-bottom:1px solid #f2f4f7; background:#fff">
+      <span class="t-list" style="flex:1; min-width:0; font-weight:700">原価（案件仕入）</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13px; color:#3c424c">2,500</span><span class="num" style="width:96px; text-align:right; font-size:13.5px; font-weight:800">1,180</span><span style="width:56px; text-align:center; font-size:13px; font-weight:800; color:#197a4b">○</span><span style="width:22px; text-align:center; color:#e6e9ed">|</span><span class="num" style="width:84px; text-align:right; font-size:13px; color:#3c424c">800</span><span class="num" style="width:96px; text-align:right; font-size:13.5px; font-weight:800">43</span><span style="width:56px; text-align:center; font-size:13px; font-weight:800; color:#197a4b">○</span><span style="width:22px; text-align:center; color:#e6e9ed">|</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13px; color:#3c424c">3,300</span><span class="num" style="width:84px; text-align:right; font-size:13.5px; font-weight:800">1,223</span>
+    </div><div style="display:flex; align-items:center; padding:9px 14px; border-bottom:1px solid #f2f4f7; background:#fff">
+      <span class="t-list" style="flex:1; min-width:0; font-weight:700">粗利</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13px; color:#3c424c">12,500</span><span class="num" style="width:96px; text-align:right; font-size:13.5px; font-weight:800">109</span><span style="width:56px; text-align:center; font-size:13px; font-weight:800; color:#c7243a">×</span><span style="width:22px; text-align:center; color:#e6e9ed">|</span><span class="num" style="width:84px; text-align:right; font-size:13px; color:#3c424c">5,200</span><span class="num" style="width:96px; text-align:right; font-size:13.5px; font-weight:800">430</span><span style="width:56px; text-align:center; font-size:13px; font-weight:800; color:#c7243a">×</span><span style="width:22px; text-align:center; color:#e6e9ed">|</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13px; color:#3c424c">17,700</span><span class="num" style="width:84px; text-align:right; font-size:13.5px; font-weight:800">539</span>
+    </div><div style="display:flex; align-items:center; padding:9px 14px; border-bottom:1px solid #f2f4f7; background:#fff">
+      <span class="t-list" style="flex:1; min-width:0; font-weight:700">販管費</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13px; color:#3c424c">22,000</span><span class="num" style="width:96px; text-align:right; font-size:13.5px; font-weight:800">18,500</span><span style="width:56px; text-align:center; font-size:13px; font-weight:800; color:#197a4b">○</span><span style="width:22px; text-align:center; color:#e6e9ed">|</span><span class="num" style="width:84px; text-align:right; font-size:13px; color:#3c424c">4,427</span><span class="num" style="width:96px; text-align:right; font-size:13.5px; font-weight:800">3,334</span><span style="width:56px; text-align:center; font-size:13px; font-weight:800; color:#197a4b">○</span><span style="width:22px; text-align:center; color:#e6e9ed">|</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13px; color:#3c424c">26,427</span><span class="num" style="width:84px; text-align:right; font-size:13.5px; font-weight:800">21,834</span>
+    </div><div style="display:flex; align-items:center; padding:9px 14px; border-bottom:1px solid #f2f4f7; background:#fff">
+      <span class="t-list" style="flex:1; min-width:0; font-weight:700">償却相当額</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13px; color:#3c424c">19,727</span><span class="num" style="width:96px; text-align:right; font-size:13.5px; font-weight:800">18,539</span><span style="width:56px; text-align:center; font-size:13px; font-weight:800; color:#197a4b">○</span><span style="width:22px; text-align:center; color:#e6e9ed">|</span><span class="num" style="width:84px; text-align:right; font-size:13px; color:#3c424c">0</span><span class="num" style="width:96px; text-align:right; font-size:13.5px; font-weight:800">0</span><span style="width:56px; text-align:center; font-size:13px; font-weight:800; color:#9aa1ab">—</span><span style="width:22px; text-align:center; color:#e6e9ed">|</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13px; color:#3c424c">19,727</span><span class="num" style="width:84px; text-align:right; font-size:13.5px; font-weight:800">18,539</span>
+    </div><div style="display:flex; align-items:center; padding:9px 14px; border-bottom:1px solid #f2f4f7; background:#f4faff">
+      <span class="t-list" style="flex:1; min-width:0; font-weight:800">営業利益</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13px; color:#3c424c">−29,227</span><span class="num" style="width:96px; text-align:right; font-size:13.5px; font-weight:800">−36,930</span><span style="width:56px; text-align:center; font-size:13px; font-weight:800; color:#c7243a">×</span><span style="width:22px; text-align:center; color:#e6e9ed">|</span><span class="num" style="width:84px; text-align:right; font-size:13px; color:#3c424c">773</span><span class="num" style="width:96px; text-align:right; font-size:13.5px; font-weight:800">−2,904</span><span style="width:56px; text-align:center; font-size:13px; font-weight:800; color:#c7243a">×</span><span style="width:22px; text-align:center; color:#e6e9ed">|</span>
+      <span class="num" style="width:84px; text-align:right; font-size:13px; color:#3c424c">−28,454</span><span class="num" style="width:84px; text-align:right; font-size:13.5px; font-weight:800">−39,834</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px; padding:9px 14px; background:#f7f8fa" class="t-ssm"><span style="color:#5d6470">主体ごとの分け方はモック用の仮値。GMOインターネットグループ人格は数字があるときだけ列を足します。9月 見込も同じ形で出ます</span><span style="flex:1"></span><span style="color:#005bac; font-weight:700">主体ごとの予算を入れる（お金のルール）</span></div>
+  </div>
+
+<div style="display:flex; align-items:stretch; gap:14px">
+  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:14px; padding:14px 16px 16px; box-sizing:border-box; flex:1; min-width:0">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px"><h4 class="t-ct" style="margin:0; white-space:nowrap">売上高と稼働件数</h4><span class="t-ssm" style="color:#9aa1ab; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0"><span class="num">2024/1〜</span> ・ 月次 ・ 確定売上を計上日で集計</span><span style="flex:1"></span><div style="display:flex; align-items:center; gap:14px; flex-shrink:0"><span class="t-ssm" style="display:inline-flex; align-items:center; gap:6px; color:#3c424c; white-space:nowrap"><span style="width:10px; height:10px; border-radius:2px; background:#005bac"></span>グループ内イベント</span><span class="t-ssm" style="display:inline-flex; align-items:center; gap:6px; color:#3c424c; white-space:nowrap"><span style="width:10px; height:10px; border-radius:2px; background:#c7243a"></span>外部顧客イベント</span></div></div>
+    <svg viewBox="0 0 700 300" width="700" height="300" style="display:block; max-width:100%"><line x1="44" x2="692" y1="184" y2="184" stroke="#eef0f3" stroke-width="1"/><text x="38" y="188" font-size="10" fill="#9aa1ab" text-anchor="end" font-family="inherit">0</text><line x1="44" x2="692" y1="136.77777777777777" y2="136.77777777777777" stroke="#eef0f3" stroke-width="1"/><text x="38" y="140.77777777777777" font-size="10" fill="#9aa1ab" text-anchor="end" font-family="inherit">10,000</text><line x1="44" x2="692" y1="89.55555555555556" y2="89.55555555555556" stroke="#eef0f3" stroke-width="1"/><text x="38" y="93.55555555555556" font-size="10" fill="#9aa1ab" text-anchor="end" font-family="inherit">20,000</text><line x1="44" x2="692" y1="42.333333333333314" y2="42.333333333333314" stroke="#eef0f3" stroke-width="1"/><text x="38" y="46.333333333333314" font-size="10" fill="#9aa1ab" text-anchor="end" font-family="inherit">30,000</text><text x="38" y="10" font-size="10" fill="#9aa1ab" text-anchor="end">千円</text><rect x="46" y="174.55555555555554" width="15.636363636363637" height="9.444444444444445" fill="#005bac" rx="1"/><rect x="46" y="246" width="15.636363636363637" height="20" fill="#005bac" opacity="1" rx="1"/><text x="53.81818181818182" y="298" font-size="9" fill="#9aa1ab" text-anchor="middle">2024/01</text><rect x="65.63636363636364" y="136.77777777777777" width="15.636363636363637" height="47.22222222222222" fill="#005bac" rx="1"/><rect x="65.63636363636364" y="246" width="15.636363636363637" height="20" fill="#005bac" opacity="1" rx="1"/><rect x="85.27272727272728" y="18.72222222222223" width="15.636363636363637" height="165.27777777777777" fill="#005bac" rx="1"/><rect x="85.27272727272728" y="236" width="15.636363636363637" height="30" fill="#005bac" opacity="1" rx="1"/><rect x="104.9090909090909" y="181.63888888888889" width="15.636363636363637" height="2.361111111111111" fill="#005bac" rx="1"/><rect x="104.9090909090909" y="256" width="15.636363636363637" height="10" fill="#005bac" opacity="1" rx="1"/><text x="112.72727272727272" y="298" font-size="9" fill="#9aa1ab" text-anchor="middle">2024/04</text><rect x="124.54545454545455" y="183.05555555555554" width="15.636363636363637" height="0.9444444444444445" fill="#005bac" rx="1"/><rect x="144.1818181818182" y="117.88888888888889" width="15.636363636363637" height="66.11111111111111" fill="#005bac" rx="1"/><rect x="144.1818181818182" y="246" width="15.636363636363637" height="20" fill="#005bac" opacity="1" rx="1"/><rect x="163.8181818181818" y="146.22222222222223" width="15.636363636363637" height="37.77777777777778" fill="#005bac" rx="1"/><rect x="163.8181818181818" y="256" width="15.636363636363637" height="10" fill="#005bac" opacity="1" rx="1"/><text x="171.63636363636363" y="298" font-size="9" fill="#9aa1ab" text-anchor="middle">2024/07</text><rect x="183.45454545454547" y="174.55555555555554" width="15.636363636363637" height="9.444444444444445" fill="#005bac" rx="1"/><rect x="183.45454545454547" y="246" width="15.636363636363637" height="20" fill="#005bac" opacity="1" rx="1"/><rect x="203.0909090909091" y="158.02777777777777" width="15.636363636363637" height="25.972222222222225" fill="#005bac" rx="1"/><rect x="203.0909090909091" y="153.69444444444443" width="15.636363636363637" height="2.8333333333333335" fill="#c7243a" rx="1"/><rect x="203.0909090909091" y="246" width="15.636363636363637" height="20" fill="#005bac" opacity="1" rx="1"/><rect x="222.72727272727272" y="141.5" width="15.636363636363637" height="42.5" fill="#005bac" rx="1"/><rect x="222.72727272727272" y="97.5" width="15.636363636363637" height="42.5" fill="#c7243a" rx="1"/><rect x="222.72727272727272" y="236" width="15.636363636363637" height="30" fill="#005bac" opacity="1" rx="1"/><text x="230.54545454545453" y="298" font-size="9" fill="#9aa1ab" text-anchor="middle">2024/10</text><rect x="242.36363636363637" y="141.5" width="15.636363636363637" height="42.5" fill="#005bac" rx="1"/><rect x="242.36363636363637" y="83.33333333333334" width="15.636363636363637" height="56.666666666666664" fill="#c7243a" rx="1"/><rect x="242.36363636363637" y="226" width="15.636363636363637" height="40" fill="#005bac" opacity="1" rx="1"/><rect x="262" y="113.16666666666666" width="15.636363636363637" height="70.83333333333334" fill="#005bac" rx="1"/><rect x="262" y="246" width="15.636363636363637" height="20" fill="#005bac" opacity="1" rx="1"/><rect x="281.6363636363636" y="179.27777777777777" width="15.636363636363637" height="4.722222222222222" fill="#005bac" rx="1"/><rect x="281.6363636363636" y="256" width="15.636363636363637" height="10" fill="#005bac" opacity="1" rx="1"/><text x="289.45454545454544" y="298" font-size="9" fill="#9aa1ab" text-anchor="middle">2025/01</text><rect x="301.27272727272725" y="150.94444444444446" width="15.636363636363637" height="33.05555555555556" fill="#005bac" rx="1"/><rect x="301.27272727272725" y="142.36111111111111" width="15.636363636363637" height="7.083333333333333" fill="#c7243a" rx="1"/><rect x="301.27272727272725" y="246" width="15.636363636363637" height="20" fill="#005bac" opacity="1" rx="1"/><rect x="320.90909090909093" y="89.55555555555556" width="15.636363636363637" height="94.44444444444444" fill="#005bac" rx="1"/><rect x="320.90909090909093" y="31.388888888888893" width="15.636363636363637" height="56.666666666666664" fill="#c7243a" rx="1"/><rect x="320.90909090909093" y="216" width="15.636363636363637" height="50" fill="#005bac" opacity="1" rx="1"/><rect x="340.54545454545456" y="136.77777777777777" width="15.636363636363637" height="47.22222222222222" fill="#005bac" rx="1"/><rect x="340.54545454545456" y="92.77777777777777" width="15.636363636363637" height="42.5" fill="#c7243a" rx="1"/><rect x="340.54545454545456" y="226" width="15.636363636363637" height="40" fill="#005bac" opacity="1" rx="1"/><text x="348.3636363636364" y="298" font-size="9" fill="#9aa1ab" text-anchor="middle">2025/04</text><rect x="360.1818181818182" y="179.27777777777777" width="15.636363636363637" height="4.722222222222222" fill="#005bac" rx="1"/><rect x="360.1818181818182" y="151.80555555555554" width="15.636363636363637" height="25.972222222222225" fill="#c7243a" rx="1"/><rect x="360.1818181818182" y="236" width="15.636363636363637" height="30" fill="#005bac" opacity="1" rx="1"/><rect x="379.8181818181818" y="176.91666666666666" width="15.636363636363637" height="7.083333333333333" fill="#005bac" rx="1"/><rect x="379.8181818181818" y="156.52777777777777" width="15.636363636363637" height="18.88888888888889" fill="#c7243a" rx="1"/><rect x="379.8181818181818" y="246" width="15.636363636363637" height="20" fill="#005bac" opacity="1" rx="1"/><rect x="399.45454545454544" y="134.41666666666666" width="15.636363636363637" height="49.583333333333336" fill="#005bac" rx="1"/><rect x="399.45454545454544" y="236" width="15.636363636363637" height="30" fill="#005bac" opacity="1" rx="1"/><text x="407.27272727272725" y="298" font-size="9" fill="#9aa1ab" text-anchor="middle">2025/07</text><rect x="419.0909090909091" y="176.91666666666666" width="15.636363636363637" height="7.083333333333333" fill="#005bac" rx="1"/><rect x="419.0909090909091" y="165.9722222222222" width="15.636363636363637" height="9.444444444444445" fill="#c7243a" rx="1"/><rect x="419.0909090909091" y="246" width="15.636363636363637" height="20" fill="#005bac" opacity="1" rx="1"/><rect x="438.72727272727275" y="158.02777777777777" width="15.636363636363637" height="25.972222222222225" fill="#005bac" rx="1"/><rect x="438.72727272727275" y="149.44444444444443" width="15.636363636363637" height="7.083333333333333" fill="#c7243a" rx="1"/><rect x="438.72727272727275" y="246" width="15.636363636363637" height="20" fill="#005bac" opacity="1" rx="1"/><rect x="458.3636363636364" y="167.47222222222223" width="15.636363636363637" height="16.52777777777778" fill="#005bac" rx="1"/><rect x="458.3636363636364" y="236" width="15.636363636363637" height="30" fill="#005bac" opacity="1" rx="1"/><text x="466.1818181818182" y="298" font-size="9" fill="#9aa1ab" text-anchor="middle">2025/10</text><rect x="478" y="174.55555555555554" width="15.636363636363637" height="9.444444444444445" fill="#005bac" rx="1"/><rect x="478" y="154.16666666666666" width="15.636363636363637" height="18.88888888888889" fill="#c7243a" rx="1"/><rect x="478" y="246" width="15.636363636363637" height="20" fill="#005bac" opacity="1" rx="1"/><rect x="497.6363636363636" y="150.94444444444446" width="15.636363636363637" height="33.05555555555556" fill="#005bac" rx="1"/><rect x="497.6363636363636" y="125.83333333333334" width="15.636363636363637" height="23.61111111111111" fill="#c7243a" rx="1"/><rect x="497.6363636363636" y="236" width="15.636363636363637" height="30" fill="#005bac" opacity="1" rx="1"/><rect x="517.2727272727273" y="176.91666666666666" width="15.636363636363637" height="7.083333333333333" fill="#005bac" rx="1"/><rect x="517.2727272727273" y="256" width="15.636363636363637" height="10" fill="#005bac" opacity="1" rx="1"/><text x="525.0909090909091" y="298" font-size="9" fill="#9aa1ab" text-anchor="middle">2026/01</text><rect x="536.909090909091" y="127.33333333333334" width="15.636363636363637" height="56.666666666666664" fill="#005bac" rx="1"/><rect x="536.909090909091" y="236" width="15.636363636363637" height="30" fill="#005bac" opacity="1" rx="1"/><rect x="556.5454545454545" y="65.94444444444444" width="15.636363636363637" height="118.05555555555556" fill="#005bac" rx="1"/><rect x="556.5454545454545" y="216" width="15.636363636363637" height="50" fill="#005bac" opacity="1" rx="1"/><rect x="576.1818181818182" y="134.41666666666666" width="15.636363636363637" height="49.583333333333336" fill="#005bac" rx="1"/><rect x="576.1818181818182" y="130.55555555555554" width="15.636363636363637" height="2.361111111111111" fill="#c7243a" rx="1"/><rect x="576.1818181818182" y="246" width="15.636363636363637" height="20" fill="#005bac" opacity="1" rx="1"/><text x="584.0000000000001" y="298" font-size="9" fill="#9aa1ab" text-anchor="middle">2026/04</text><rect x="595.8181818181819" y="174.55555555555554" width="15.636363636363637" height="9.444444444444445" fill="#005bac" rx="1"/><rect x="595.8181818181819" y="168.33333333333331" width="15.636363636363637" height="4.722222222222222" fill="#c7243a" rx="1"/><rect x="595.8181818181819" y="246" width="15.636363636363637" height="20" fill="#005bac" opacity="1" rx="1"/><rect x="615.4545454545455" y="160.38888888888889" width="15.636363636363637" height="23.61111111111111" fill="#005bac" rx="1"/><rect x="615.4545454545455" y="149.44444444444443" width="15.636363636363637" height="9.444444444444445" fill="#c7243a" rx="1"/><rect x="615.4545454545455" y="236" width="15.636363636363637" height="30" fill="#005bac" opacity="1" rx="1"/><rect x="635.0909090909091" y="124.97222222222223" width="15.636363636363637" height="59.02777777777778" fill="#005bac" rx="1"/><rect x="635.0909090909091" y="118.75" width="15.636363636363637" height="4.722222222222222" fill="#c7243a" rx="1"/><rect x="635.0909090909091" y="246" width="15.636363636363637" height="20" fill="#005bac" opacity="1" rx="1"/><text x="642.909090909091" y="298" font-size="9" fill="#9aa1ab" text-anchor="middle">2026/07</text><rect x="654.7272727272727" y="176.91666666666666" width="15.636363636363637" height="7.083333333333333" fill="#005bac" rx="1"/><rect x="654.7272727272727" y="174.17944444444444" width="15.636363636363637" height="1.2372222222222222" fill="#c7243a" rx="1"/><rect x="654.7272727272727" y="246" width="15.636363636363637" height="20" fill="#005bac" opacity="1" rx="1"/><rect x="674.3636363636364" y="169.83333333333334" width="15.636363636363637" height="14.166666666666666" fill="#005bac" rx="1"/><rect x="674.3636363636364" y="144.3538888888889" width="15.636363636363637" height="23.979444444444443" fill="#c7243a" rx="1"/><rect x="674.3636363636364" y="236" width="15.636363636363637" height="30" fill="#005bac" opacity="0.55" rx="1"/><line x1="44" x2="692" y1="266" y2="266" stroke="#eef0f3"/><text x="38" y="270" font-size="10" fill="#9aa1ab" text-anchor="end">0</text><line x1="44" x2="692" y1="236" y2="236" stroke="#eef0f3"/><text x="38" y="240" font-size="10" fill="#9aa1ab" text-anchor="end">3</text><line x1="44" x2="692" y1="206" y2="206" stroke="#eef0f3"/><text x="38" y="210" font-size="10" fill="#9aa1ab" text-anchor="end">6</text><text x="38" y="200" font-size="10" fill="#9aa1ab" text-anchor="end">件</text><line x1="662.5454545454546" x2="662.5454545454546" y1="14" y2="266" stroke="#c7243a" stroke-dasharray="3 3"/><rect x="512.5454545454546" y="16" width="118" height="34" rx="6" fill="#fff" stroke="#e6e9ed"/><text x="571.5454545454546" y="30" font-size="10.5" fill="#5d6470" text-anchor="middle" font-weight="700">8月 売上高</text><text x="571.5454545454546" y="44" font-size="12.5" fill="#1a1d24" text-anchor="middle" font-weight="800">￥1,762,293</text><text x="670.5454545454546" y="216" font-size="10.5" fill="#5d6470" font-weight="700">8月 2件</text><text x="682.1818181818182" y="24" font-size="9.5" fill="#9aa1ab" text-anchor="middle">見込</text></svg>
+    <p class="t-ssm" style="margin:8px 0 0; color:#9aa1ab">※ モックの棒の高さは仮値。実装では revenues（確定）を customer_type で分けて積み上げます</p>
+  </div>
+  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:14px; padding:14px 16px 16px; box-sizing:border-box; width:470px; flex-shrink:0">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px"><h4 class="t-ct" style="margin:0; white-space:nowrap">スタジオ稼働率の推移</h4><span class="t-ssm" style="color:#9aa1ab"><span class="num">2025/1〜</span></span><span style="flex:1"></span><div style="display:flex; align-items:center; gap:14px; flex-shrink:0"><span class="t-ssm" style="display:inline-flex; align-items:center; gap:6px; color:#3c424c; white-space:nowrap"><span style="width:10px; height:10px; border-radius:2px; background:#005bac"></span>稼働日数</span><span class="t-ssm" style="display:inline-flex; align-items:center; gap:6px; color:#3c424c; white-space:nowrap"><span style="width:10px; height:10px; border-radius:2px; background:#c7243a"></span>稼働率</span></div></div>
+    <svg viewBox="0 0 420 300" width="420" height="300" style="display:block; max-width:100%"><line x1="34" x2="410" y1="124" y2="124" stroke="#eef0f3"/><text x="28" y="128" font-size="10" fill="#9aa1ab" text-anchor="end">0</text><line x1="34" x2="410" y1="69" y2="69" stroke="#eef0f3"/><text x="28" y="73" font-size="10" fill="#9aa1ab" text-anchor="end">10</text><line x1="34" x2="410" y1="14" y2="14" stroke="#eef0f3"/><text x="28" y="18" font-size="10" fill="#9aa1ab" text-anchor="end">20</text><text x="28" y="10" font-size="10" fill="#9aa1ab" text-anchor="end">日</text><rect x="37" y="102" width="11.904761904761905" height="22" fill="#005bac" opacity="1" rx="1"/><text x="42.95238095238095" y="298" font-size="9" fill="#9aa1ab" text-anchor="middle">2025/01</text><rect x="54.904761904761905" y="80" width="11.904761904761905" height="44" fill="#005bac" opacity="1" rx="1"/><rect x="72.80952380952381" y="19.5" width="11.904761904761905" height="104.5" fill="#005bac" opacity="1" rx="1"/><rect x="90.71428571428572" y="69" width="11.904761904761905" height="55" fill="#005bac" opacity="1" rx="1"/><text x="96.66666666666667" y="298" font-size="9" fill="#9aa1ab" text-anchor="middle">2025/04</text><rect x="108.61904761904762" y="69" width="11.904761904761905" height="55" fill="#005bac" opacity="1" rx="1"/><rect x="126.52380952380952" y="58" width="11.904761904761905" height="66" fill="#005bac" opacity="1" rx="1"/><rect x="144.42857142857144" y="58" width="11.904761904761905" height="66" fill="#005bac" opacity="1" rx="1"/><text x="150.3809523809524" y="298" font-size="9" fill="#9aa1ab" text-anchor="middle">2025/07</text><rect x="162.33333333333334" y="63.49999999999999" width="11.904761904761905" height="60.50000000000001" fill="#005bac" opacity="1" rx="1"/><rect x="180.23809523809524" y="85.5" width="11.904761904761905" height="38.5" fill="#005bac" opacity="1" rx="1"/><rect x="198.14285714285714" y="80" width="11.904761904761905" height="44" fill="#005bac" opacity="1" rx="1"/><text x="204.0952380952381" y="298" font-size="9" fill="#9aa1ab" text-anchor="middle">2025/10</text><rect x="216.04761904761904" y="91" width="11.904761904761905" height="33" fill="#005bac" opacity="1" rx="1"/><rect x="233.95238095238096" y="58" width="11.904761904761905" height="66" fill="#005bac" opacity="1" rx="1"/><rect x="251.85714285714286" y="74.5" width="11.904761904761905" height="49.5" fill="#005bac" opacity="1" rx="1"/><text x="257.8095238095238" y="298" font-size="9" fill="#9aa1ab" text-anchor="middle">2026/01</text><rect x="269.76190476190476" y="58" width="11.904761904761905" height="66" fill="#005bac" opacity="1" rx="1"/><rect x="287.6666666666667" y="41.5" width="11.904761904761905" height="82.5" fill="#005bac" opacity="1" rx="1"/><rect x="305.57142857142856" y="107.5" width="11.904761904761905" height="16.5" fill="#005bac" opacity="1" rx="1"/><text x="311.5238095238095" y="298" font-size="9" fill="#9aa1ab" text-anchor="middle">2026/04</text><rect x="341.3809523809524" y="69" width="11.904761904761905" height="55" fill="#005bac" opacity="1" rx="1"/><rect x="359.2857142857143" y="74.5" width="11.904761904761905" height="49.5" fill="#005bac" opacity="1" rx="1"/><text x="365.23809523809524" y="298" font-size="9" fill="#9aa1ab" text-anchor="middle">2026/07</text><rect x="377.1904761904762" y="85.5" width="11.904761904761905" height="38.5" fill="#005bac" opacity="1" rx="1"/><rect x="395.0952380952381" y="80" width="11.904761904761905" height="44" fill="#005bac" opacity="0.55" rx="1"/><line x1="34" x2="410" y1="266" y2="266" stroke="#eef0f3"/><text x="28" y="270" font-size="10" fill="#9aa1ab" text-anchor="end">0%</text><line x1="34" x2="410" y1="206" y2="206" stroke="#eef0f3"/><text x="28" y="210" font-size="10" fill="#9aa1ab" text-anchor="end">50%</text><line x1="34" x2="410" y1="146" y2="146" stroke="#eef0f3"/><text x="28" y="150" font-size="10" fill="#9aa1ab" text-anchor="end">100%</text><polyline points="42.95238095238095,220.4 60.85714285714286,218 78.76190476190476,152 96.66666666666667,206 114.57142857142857,206 132.47619047619048,194 150.3809523809524,200 168.2857142857143,182 186.1904761904762,224 204.0952380952381,220.4 222,230 239.90476190476193,194 257.8095238095238,212 275.7142857142857,194 293.61904761904765,176 311.5238095238095,248 329.42857142857144,266 347.33333333333337,206 365.23809523809524,214.4 383.14285714285717,209.95999999999998 401.04761904761904,215.48" fill="none" stroke="#c7243a" stroke-width="2" stroke-linejoin="round"/><circle cx="42.95238095238095" cy="220.4" r="2.5" fill="#c7243a" stroke="#fff" stroke-width="1.5"/><circle cx="60.85714285714286" cy="218" r="2.5" fill="#c7243a" stroke="#fff" stroke-width="1.5"/><circle cx="78.76190476190476" cy="152" r="2.5" fill="#c7243a" stroke="#fff" stroke-width="1.5"/><circle cx="96.66666666666667" cy="206" r="2.5" fill="#c7243a" stroke="#fff" stroke-width="1.5"/><circle cx="114.57142857142857" cy="206" r="2.5" fill="#c7243a" stroke="#fff" stroke-width="1.5"/><circle cx="132.47619047619048" cy="194" r="2.5" fill="#c7243a" stroke="#fff" stroke-width="1.5"/><circle cx="150.3809523809524" cy="200" r="2.5" fill="#c7243a" stroke="#fff" stroke-width="1.5"/><circle cx="168.2857142857143" cy="182" r="2.5" fill="#c7243a" stroke="#fff" stroke-width="1.5"/><circle cx="186.1904761904762" cy="224" r="2.5" fill="#c7243a" stroke="#fff" stroke-width="1.5"/><circle cx="204.0952380952381" cy="220.4" r="2.5" fill="#c7243a" stroke="#fff" stroke-width="1.5"/><circle cx="222" cy="230" r="2.5" fill="#c7243a" stroke="#fff" stroke-width="1.5"/><circle cx="239.90476190476193" cy="194" r="2.5" fill="#c7243a" stroke="#fff" stroke-width="1.5"/><circle cx="257.8095238095238" cy="212" r="2.5" fill="#c7243a" stroke="#fff" stroke-width="1.5"/><circle cx="275.7142857142857" cy="194" r="2.5" fill="#c7243a" stroke="#fff" stroke-width="1.5"/><circle cx="293.61904761904765" cy="176" r="2.5" fill="#c7243a" stroke="#fff" stroke-width="1.5"/><circle cx="311.5238095238095" cy="248" r="2.5" fill="#c7243a" stroke="#fff" stroke-width="1.5"/><circle cx="329.42857142857144" cy="266" r="2.5" fill="#c7243a" stroke="#fff" stroke-width="1.5"/><circle cx="347.33333333333337" cy="206" r="2.5" fill="#c7243a" stroke="#fff" stroke-width="1.5"/><circle cx="365.23809523809524" cy="214.4" r="2.5" fill="#c7243a" stroke="#fff" stroke-width="1.5"/><circle cx="383.14285714285717" cy="209.95999999999998" r="4" fill="#c7243a" stroke="#fff" stroke-width="1.5"/><circle cx="401.04761904761904" cy="215.48" r="4" fill="#c7243a" stroke="#fff" stroke-width="1.5"/><rect x="265.14285714285717" y="169.95999999999998" width="92" height="30" rx="6" fill="#fff" stroke="#e6e9ed"/><text x="311.14285714285717" y="182.95999999999998" font-size="10" fill="#5d6470" text-anchor="middle" font-weight="700">8月 稼働率</text><text x="311.14285714285717" y="195.95999999999998" font-size="12.5" fill="#1a1d24" text-anchor="middle" font-weight="800">46.7%</text></svg>
+    <p class="t-ssm" style="margin:8px 0 0; color:#9aa1ab">稼働率 ＝ 何かしらのスタジオ利用があった日 ÷ 営業日。内覧も数え、メンテナンスと仮押さえは数えません（設定で変えられます）</p>
+  </div>
+</div>
+
+<div style="display:flex; align-items:center; gap:9px; min-height:24px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/><path d="M8 10v4"/><path d="M12 10v2"/><path d="M16 10v6"/></svg><h3 style="margin:0; font-size:14px; font-weight:800">提案進行 案件 ヨミ表</h3><span class="t-ssm" style="color:#9aa1ab">— 受注前の案件を確度順に。資料では外部案件とサムライ関連を分けて出します。「資料」に印を付けた案件だけ案件ページになります</span><span style="flex:1"></span><span class="t-ssm" style="display:inline-flex; align-items:center; gap:6px; color:#5d6470"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>前回（9/4）から 新規 2 ・ 更新 5</span></div>
+<div style="background:#fff; border:1px solid #e6e9ed; border-radius:14px; overflow:hidden"><div style="display:flex; align-items:center; gap:12px; padding:9px 16px; border-bottom:1px solid #eef0f3; background:#f7f8fa">
+    <span class="t-th" style="width:28px"></span>
+    <span class="t-th" style="flex:1; min-width:0">案件 ／ お客様</span>
+    <span class="t-th" style="width:96px">確度</span>
+    <span class="t-th" style="width:96px">実施日</span>
+    <span class="t-th" style="width:96px; text-align:right">見積金額</span>
+    <span class="t-th" style="width:200px">次のタスク</span>
+    <span class="t-th" style="width:72px; text-align:right">最後の動き</span>
+    <span class="t-th" style="width:56px; text-align:center">資料</span>
+  </div><div style="display:flex; align-items:center; gap:12px; min-height:52px; padding:9px 16px; border-bottom:1px solid #f2f4f7">
+      <span class="num" style="width:28px; font-size:13.5px; font-weight:800; color:#1a1d24">①</span>
+      <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+        <span class="t-list" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">第20期 事業計画発表会</span>
+        <span class="t-ssm" style="color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">株式会社DoCLASSE ・ <span class="num">GLS-A015</span></span>
+      </span>
+      <span style="width:96px; display:flex; align-items:center; gap:6px"><span class="num" style="font-size:14px; font-weight:800; color:#005bac; width:14px">B</span><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:62px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">口頭決定</span></span>
+      <span class="num t-sub" style="width:96px; color:#3c424c">09/16</span>
+      <span style="display:inline-flex; align-items:baseline; width:96px; flex-shrink:0"><span style="width:12px; font-size:11.5px; color:#9aa1ab">￥</span><span class="num" style="flex:1; text-align:right; font-size:13.5px; color:#1a1d24">4,457,680</span></span>
+      <span style="width:200px; display:flex; flex-direction:column; gap:1px; min-width:0">
+        <span class="t-sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#3c424c">【フォロー】DoCLASSE 見積…</span>
+        <span class="t-ssm" style="color:#5d6470"><span style="font-weight:700">掛田</span> 09/04</span>
+      </span>
+      <span class="num t-ssm" style="width:72px; text-align:right; color:#5d6470">13時間前</span>
+      <span style="width:56px; display:flex; justify-content:center"><span style="width:20px; height:20px; border-radius:5px; border:1px solid #005bac; background:#005bac; display:inline-flex; align-items:center; justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M20 6 9 17l-5-5"/></svg></span></span>
+    </div><div style="display:flex; align-items:center; gap:12px; min-height:52px; padding:9px 16px; border-bottom:1px solid #f2f4f7">
+      <span class="num" style="width:28px; font-size:13.5px; font-weight:800; color:#1a1d24">②</span>
+      <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+        <span class="t-list" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">ZOZO 社内イベント用撮影(仮称)</span>
+        <span class="t-ssm" style="color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">株式会社CROSS-ZERO ・ <span class="num">GLS-A008</span></span>
+      </span>
+      <span style="width:96px; display:flex; align-items:center; gap:6px"><span class="num" style="font-size:14px; font-weight:800; color:#005bac; width:14px">B</span><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:62px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">口頭決定</span></span>
+      <span class="num t-sub" style="width:96px; color:#3c424c">10/08</span>
+      <span style="display:inline-flex; align-items:baseline; width:96px; flex-shrink:0"><span style="width:12px; font-size:11.5px; color:#9aa1ab">￥</span><span class="num" style="flex:1; text-align:right; font-size:13.5px; color:#1a1d24">3,155,000</span></span>
+      <span style="width:200px; display:flex; flex-direction:column; gap:1px; min-width:0">
+        <span class="t-sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#3c424c">CROSS-ZERO 外村様 XRアセ…</span>
+        <span class="t-ssm" style="color:#5d6470"><span style="font-weight:700">掛田</span> </span>
+      </span>
+      <span class="num t-ssm" style="width:72px; text-align:right; color:#5d6470">08/25</span>
+      <span style="width:56px; display:flex; justify-content:center"><span style="width:20px; height:20px; border-radius:5px; border:1px solid #005bac; background:#005bac; display:inline-flex; align-items:center; justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M20 6 9 17l-5-5"/></svg></span></span>
+    </div><div style="display:flex; align-items:center; gap:12px; min-height:52px; padding:9px 16px; border-bottom:1px solid #f2f4f7">
+      <span class="num" style="width:28px; font-size:13.5px; font-weight:800; color:#1a1d24">③</span>
+      <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+        <span class="t-list" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">第4部 開幕直前生放送【プリンセスコネクト】</span>
+        <span class="t-ssm" style="color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">株式会社エンブレム ・ <span class="num">GLS-A020</span></span>
+      </span>
+      <span style="width:96px; display:flex; align-items:center; gap:6px"><span class="num" style="font-size:14px; font-weight:800; color:#4338ca; width:14px">C</span><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:62px; height:22px; border-radius:6px; background:#eceafc; color:#4338ca; white-space:nowrap; overflow:hidden; flex-shrink:0">見積提案</span></span>
+      <span class="num t-sub" style="width:96px; color:#3c424c">09/26</span>
+      <span style="display:inline-flex; align-items:baseline; width:96px; flex-shrink:0"><span style="width:12px; font-size:11.5px; color:#9aa1ab">￥</span><span class="num" style="flex:1; text-align:right; font-size:13.5px; color:#1a1d24">3,312,000</span></span>
+      <span style="width:200px; display:flex; flex-direction:column; gap:1px; min-width:0">
+        <span class="t-sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#3c424c">【フォロー】エンブレム クリカ…</span>
+        <span class="t-ssm" style="color:#5d6470"><span style="font-weight:700">寺井</span> 09/04</span>
+      </span>
+      <span class="num t-ssm" style="width:72px; text-align:right; color:#5d6470">13時間前</span>
+      <span style="width:56px; display:flex; justify-content:center"><span style="width:20px; height:20px; border-radius:5px; border:1px solid #005bac; background:#005bac; display:inline-flex; align-items:center; justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M20 6 9 17l-5-5"/></svg></span></span>
+    </div><div style="display:flex; align-items:center; gap:12px; min-height:52px; padding:9px 16px; border-bottom:1px solid #f2f4f7">
+      <span class="num" style="width:28px; font-size:13.5px; font-weight:800; color:#1a1d24">④</span>
+      <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+        <span class="t-list" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">BLVCKOUT</span>
+        <span class="t-ssm" style="color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">株式会社Livetoon ・ <span class="num">GLS-A024</span></span>
+      </span>
+      <span style="width:96px; display:flex; align-items:center; gap:6px"><span class="num" style="font-size:14px; font-weight:800; color:#4338ca; width:14px">C</span><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:62px; height:22px; border-radius:6px; background:#eceafc; color:#4338ca; white-space:nowrap; overflow:hidden; flex-shrink:0">見積提案</span></span>
+      <span class="num t-sub" style="width:96px; color:#3c424c">11/20〜11/23</span>
+      <span style="display:inline-flex; align-items:baseline; width:96px; flex-shrink:0"><span style="width:12px; font-size:11.5px; color:#9aa1ab">￥</span><span class="num" style="flex:1; text-align:right; font-size:13.5px; color:#1a1d24">2,705,000</span></span>
+      <span style="width:200px; display:flex; flex-direction:column; gap:1px; min-width:0">
+        <span class="t-sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#3c424c">BLVCKOUT 概算見積書作成…</span>
+        <span class="t-ssm" style="color:#c7243a"><span style="font-weight:700">掛田</span> 09/02 超過</span>
+      </span>
+      <span class="num t-ssm" style="width:72px; text-align:right; color:#5d6470">13時間前</span>
+      <span style="width:56px; display:flex; justify-content:center"><span style="width:20px; height:20px; border-radius:5px; border:1px solid #005bac; background:#005bac; display:inline-flex; align-items:center; justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M20 6 9 17l-5-5"/></svg></span></span>
+    </div><div style="display:flex; align-items:center; gap:12px; min-height:52px; padding:9px 16px; border-bottom:1px solid #f2f4f7">
+      <span class="num" style="width:28px; font-size:13.5px; font-weight:800; color:#1a1d24">⑤</span>
+      <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+        <span class="t-list" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">アニメ上映会・配信イベント</span>
+        <span class="t-ssm" style="color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">株式会社ブシロードムーブ ・ <span class="num">OPP-202609-0006</span></span>
+      </span>
+      <span style="width:96px; display:flex; align-items:center; gap:6px"><span class="num" style="font-size:14px; font-weight:800; color:#5d6470; width:14px">E</span><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:62px; height:22px; border-radius:6px; background:#f2f4f7; color:#5d6470; white-space:nowrap; overflow:hidden; flex-shrink:0">問い合わせ</span></span>
+      <span class="num t-sub" style="width:96px; color:#3c424c">11/06〜11/08</span>
+      <span class="t-sub" style="width:96px; text-align:right; color:#9aa1ab">提案前</span>
+      <span style="width:200px; display:flex; flex-direction:column; gap:1px; min-width:0">
+        <span class="t-sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#3c424c">【要返信】株式会社ブシロード…</span>
+        <span class="t-ssm" style="color:#5d6470"><span style="font-weight:700">掛田</span> 09/07</span>
+      </span>
+      <span class="num t-ssm" style="width:72px; text-align:right; color:#5d6470">19時間前</span>
+      <span style="width:56px; display:flex; justify-content:center"><span style="width:20px; height:20px; border-radius:5px; border:1px solid #005bac; background:#005bac; display:inline-flex; align-items:center; justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M20 6 9 17l-5-5"/></svg></span></span>
+    </div><div style="display:flex; align-items:center; gap:12px; min-height:52px; padding:9px 16px; border-bottom:1px solid #f2f4f7">
+      <span class="num" style="width:28px; font-size:13.5px; font-weight:800; color:#1a1d24">⑥</span>
+      <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+        <span class="t-list" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">KULOG BOOK 第三弾ものまねフリースタイルバトル</span>
+        <span class="t-ssm" style="color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">株式会社KULOG ・ <span class="num">OPP-202609-0011</span></span>
+      </span>
+      <span style="width:96px; display:flex; align-items:center; gap:6px"><span class="num" style="font-size:14px; font-weight:800; color:#5d6470; width:14px">E</span><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:62px; height:22px; border-radius:6px; background:#f2f4f7; color:#5d6470; white-space:nowrap; overflow:hidden; flex-shrink:0">問い合わせ</span></span>
+      <span class="num t-sub" style="width:96px; color:#3c424c">2027/01/11</span>
+      <span class="t-sub" style="width:96px; text-align:right; color:#9aa1ab">提案前</span>
+      <span style="width:200px; display:flex; flex-direction:column; gap:1px; min-width:0">
+        <span class="t-sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#3c424c">仮スケジュール確認</span>
+        <span class="t-ssm" style="color:#5d6470"><span style="font-weight:700">長野</span> 09/10</span>
+      </span>
+      <span class="num t-ssm" style="width:72px; text-align:right; color:#5d6470">2日前</span>
+      <span style="width:56px; display:flex; justify-content:center"><span style="width:20px; height:20px; border-radius:5px; border:1px solid #005bac; background:#005bac; display:inline-flex; align-items:center; justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M20 6 9 17l-5-5"/></svg></span></span>
+    </div><div style="display:flex; align-items:center; gap:12px; min-height:52px; padding:9px 16px; border-bottom:1px solid #f2f4f7">
+      <span class="num" style="width:28px; font-size:13.5px; font-weight:800; color:#1a1d24">⑦</span>
+      <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+        <span class="t-list" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">27.5時間テレビ <span class="t-bdg" style="display:inline-flex; align-items:center; height:18px; padding:0 6px; border-radius:5px; background:#fdf1ea; color:#c2410e; vertical-align:middle">サムライ関連</span></span>
+        <span class="t-ssm" style="color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">株式会社サムライパートナーズ ・ <span class="num">GLS-A021</span></span>
+      </span>
+      <span style="width:96px; display:flex; align-items:center; gap:6px"><span class="num" style="font-size:14px; font-weight:800; color:#005bac; width:14px">B</span><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:62px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">口頭決定</span></span>
+      <span class="num t-sub" style="width:96px; color:#3c424c">10/22〜10/24</span>
+      <span class="t-sub" style="width:96px; text-align:right; color:#9aa1ab">提案前</span>
+      <span style="width:200px; display:flex; flex-direction:column; gap:1px; min-width:0">
+        <span class="t-sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#9aa1ab">—</span>
+        
+      </span>
+      <span class="num t-ssm" style="width:72px; text-align:right; color:#5d6470">3日前</span>
+      <span style="width:56px; display:flex; justify-content:center"><span style="width:20px; height:20px; border-radius:5px; border:1px solid #005bac; background:#005bac; display:inline-flex; align-items:center; justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M20 6 9 17l-5-5"/></svg></span></span>
+    </div><div style="display:flex; align-items:center; gap:12px; min-height:52px; padding:9px 16px; border-bottom:1px solid #f2f4f7">
+      <span class="num" style="width:28px; font-size:13.5px; font-weight:800; color:#1a1d24">⑧</span>
+      <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+        <span class="t-list" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">Nontitle <span class="t-bdg" style="display:inline-flex; align-items:center; height:18px; padding:0 6px; border-radius:5px; background:#fdf1ea; color:#c2410e; vertical-align:middle">サムライ関連</span></span>
+        <span class="t-ssm" style="color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">株式会社サムライパートナーズ ・ <span class="num">OPP-202609-0012</span></span>
+      </span>
+      <span style="width:96px; display:flex; align-items:center; gap:6px"><span class="num" style="font-size:14px; font-weight:800; color:#5d6470; width:14px">E</span><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:62px; height:22px; border-radius:6px; background:#f2f4f7; color:#5d6470; white-space:nowrap; overflow:hidden; flex-shrink:0">問い合わせ</span></span>
+      <span class="num t-sub" style="width:96px; color:#9aa1ab">—</span>
+      <span class="t-sub" style="width:96px; text-align:right; color:#9aa1ab">提案前</span>
+      <span style="width:200px; display:flex; flex-direction:column; gap:1px; min-width:0">
+        <span class="t-sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#3c424c">値下げ許容範囲の確認</span>
+        <span class="t-ssm" style="color:#5d6470"><span style="font-weight:700">掛田</span> 09/08</span>
+      </span>
+      <span class="num t-ssm" style="width:72px; text-align:right; color:#5d6470">1日前</span>
+      <span style="width:56px; display:flex; justify-content:center"><span style="width:20px; height:20px; border-radius:5px; border:1px solid #005bac; background:#005bac; display:inline-flex; align-items:center; justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M20 6 9 17l-5-5"/></svg></span></span>
+    </div><div style="display:flex; align-items:center; gap:12px; min-height:52px; padding:9px 16px; border-bottom:1px solid #f2f4f7">
+      <span class="num" style="width:28px; font-size:13.5px; font-weight:800; color:#9aa1ab">—</span>
+      <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+        <span class="t-list" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">インテリジェンス <span class="t-bdg" style="display:inline-flex; align-items:center; height:18px; padding:0 6px; border-radius:5px; background:#fdf1ea; color:#c2410e; vertical-align:middle">サムライ関連</span></span>
+        <span class="t-ssm" style="color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">GMOサムライコンテンツスタジオ株式会社 ・ <span class="num">GLS-A023</span></span>
+      </span>
+      <span style="width:96px; display:flex; align-items:center; gap:6px"><span class="num" style="font-size:14px; font-weight:800; color:#005bac; width:14px">B</span><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:62px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">口頭決定</span></span>
+      <span class="num t-sub" style="width:96px; color:#3c424c">09/07</span>
+      <span style="display:inline-flex; align-items:baseline; width:96px; flex-shrink:0"><span style="width:12px; font-size:11.5px; color:#9aa1ab">￥</span><span class="num" style="flex:1; text-align:right; font-size:13.5px; color:#1a1d24">896,000</span></span>
+      <span style="width:200px; display:flex; flex-direction:column; gap:1px; min-width:0">
+        <span class="t-sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#3c424c">収録準備</span>
+        <span class="t-ssm" style="color:#5d6470"><span style="font-weight:700">長野</span> 未定</span>
+      </span>
+      <span class="num t-ssm" style="width:72px; text-align:right; color:#5d6470">2時間前</span>
+      <span style="width:56px; display:flex; justify-content:center"><span style="width:20px; height:20px; border-radius:5px; border:1px solid #e6e9ed; background:#fff; display:inline-flex; align-items:center; justify-content:center"></span></span>
+    </div><div style="display:flex; align-items:center; gap:12px; min-height:52px; padding:9px 16px; border-bottom:1px solid #f2f4f7">
+      <span class="num" style="width:28px; font-size:13.5px; font-weight:800; color:#9aa1ab">—</span>
+      <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+        <span class="t-list" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">V face Lab. GALA 2026</span>
+        <span class="t-ssm" style="color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">合同会社Klis ・ <span class="num">GLS-A019</span></span>
+      </span>
+      <span style="width:96px; display:flex; align-items:center; gap:6px"><span class="num" style="font-size:14px; font-weight:800; color:#197a4b; width:14px">A</span><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:62px; height:22px; border-radius:6px; background:#e7f4ec; color:#197a4b; white-space:nowrap; overflow:hidden; flex-shrink:0">受注済</span></span>
+      <span class="num t-sub" style="width:96px; color:#3c424c">11/28</span>
+      <span style="display:inline-flex; align-items:baseline; width:96px; flex-shrink:0"><span style="width:12px; font-size:11.5px; color:#9aa1ab">￥</span><span class="num" style="flex:1; text-align:right; font-size:13.5px; color:#1a1d24">2,981,252</span></span>
+      <span style="width:200px; display:flex; flex-direction:column; gap:1px; min-width:0">
+        <span class="t-sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#9aa1ab">—</span>
+        
+      </span>
+      <span class="num t-ssm" style="width:72px; text-align:right; color:#5d6470">2日前</span>
+      <span style="width:56px; display:flex; justify-content:center"><span style="width:20px; height:20px; border-radius:5px; border:1px solid #e6e9ed; background:#fff; display:inline-flex; align-items:center; justify-content:center"></span></span>
+    </div><div style="display:flex; align-items:center; gap:12px; min-height:52px; padding:9px 16px; border-bottom:1px solid #f2f4f7">
+      <span class="num" style="width:28px; font-size:13.5px; font-weight:800; color:#9aa1ab">—</span>
+      <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+        <span class="t-list" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">社内向け謝恩イベント</span>
+        <span class="t-ssm" style="color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">株式会社レイ ・ <span class="num">OPP-202607-0013</span></span>
+      </span>
+      <span style="width:96px; display:flex; align-items:center; gap:6px"><span class="num" style="font-size:14px; font-weight:800; color:#4338ca; width:14px">C</span><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:62px; height:22px; border-radius:6px; background:#eceafc; color:#4338ca; white-space:nowrap; overflow:hidden; flex-shrink:0">見積提案</span></span>
+      <span class="num t-sub" style="width:96px; color:#9aa1ab">—</span>
+      <span style="display:inline-flex; align-items:baseline; width:96px; flex-shrink:0"><span style="width:12px; font-size:11.5px; color:#9aa1ab">￥</span><span class="num" style="flex:1; text-align:right; font-size:13.5px; color:#1a1d24">2,910,000</span></span>
+      <span style="width:200px; display:flex; flex-direction:column; gap:1px; min-width:0">
+        <span class="t-sub" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#9aa1ab">—</span>
+        
+      </span>
+      <span class="num t-ssm" style="width:72px; text-align:right; color:#5d6470">08/27</span>
+      <span style="width:56px; display:flex; justify-content:center"><span style="width:20px; height:20px; border-radius:5px; border:1px solid #e6e9ed; background:#fff; display:inline-flex; align-items:center; justify-content:center"></span></span>
+    </div>
+  <div style="display:flex; align-items:center; gap:10px; padding:10px 16px; background:#f7f8fa"><span class="t-ssm" style="color:#5d6470">確度加味の売上見込み</span><span style="display:inline-flex; align-items:baseline"><span class="t-ssm" style="color:#9aa1ab; width:12px">￥</span><span class="num" style="font-size:15px; font-weight:800">14,251,696</span></span><span class="t-ssm" style="color:#9aa1ab">（総額 ￥20,416,932 ・ 財務ダッシュボードの「営業見通し」と同じ計算）</span><span style="flex:1"></span><span class="t-ssm" style="color:#005bac; font-weight:700">案件一覧で開く</span></div>
+</div>
+
+<div style="display:flex; align-items:center; gap:9px; min-height:24px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg><h3 style="margin:0; font-size:14px; font-weight:800">スタジオ稼働カレンダー</h3><span class="t-ssm" style="color:#9aa1ab">— カレンダーアプリの予定をそのまま。赤枠は本番日（モックは予定を一部だけ描いています）</span><span style="flex:1"></span><div style="display:flex; align-items:center; gap:14px; flex-shrink:0"><span class="t-ssm" style="display:inline-flex; align-items:center; gap:6px; color:#3c424c; white-space:nowrap"><span style="width:10px; height:10px; border-radius:2px; background:#c7243a"></span>本番</span><span class="t-ssm" style="display:inline-flex; align-items:center; gap:6px; color:#3c424c; white-space:nowrap"><span style="width:10px; height:10px; border-radius:2px; background:#c2410e"></span>リハ</span><span class="t-ssm" style="display:inline-flex; align-items:center; gap:6px; color:#3c424c; white-space:nowrap"><span style="width:10px; height:10px; border-radius:2px; background:#eaf4fb"></span>仮</span><span class="t-ssm" style="display:inline-flex; align-items:center; gap:6px; color:#3c424c; white-space:nowrap"><span style="width:10px; height:10px; border-radius:2px; background:#f2f4f7"></span>メンテ</span><span class="t-ssm" style="display:inline-flex; align-items:center; gap:6px; color:#3c424c; white-space:nowrap"><span style="width:10px; height:10px; border-radius:2px; background:#ede9fe"></span>内覧</span></div></div>
+<div style="display:flex; gap:14px; align-items:flex-start"><div style="background:#fff; border:1px solid #e6e9ed; border-radius:14px; padding:14px 16px 16px; box-sizing:border-box; flex:1; min-width:0"><div style="flex:1; min-width:0">
+    <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:8px"><span class="t-ct">9月</span><span class="t-sub" style="color:#5d6470">稼働率</span><span class="num" style="font-size:18px; font-weight:800">42.1%</span></div>
+    <div style="display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:2px; border:1px solid #e6e9ed; border-radius:10px; padding:6px; background:#fff">
+      <div class="t-ssm" style="text-align:center; color:#c7243a; font-weight:700">日</div><div class="t-ssm" style="text-align:center; color:#5d6470; font-weight:700">月</div><div class="t-ssm" style="text-align:center; color:#5d6470; font-weight:700">火</div><div class="t-ssm" style="text-align:center; color:#5d6470; font-weight:700">水</div><div class="t-ssm" style="text-align:center; color:#5d6470; font-weight:700">木</div><div class="t-ssm" style="text-align:center; color:#5d6470; font-weight:700">金</div><div class="t-ssm" style="text-align:center; color:#005bac; font-weight:700">土</div>
+      <div style="min-height:52px; background:#f7f8fa"></div><div style="min-height:52px; background:#f7f8fa"></div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">1</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#eaf4fb; color:#005bac; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">下見</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid #c7243a; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">2</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#c7243a; color:#fff; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">エイチ…</span><span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#c7243a; color:#fff; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">もの…</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">3</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#c2410e; color:#fff; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">DoCL…</span><span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#eaf4fb; color:#005bac; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">BLVC…</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">4</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#c2410e; color:#fff; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">DoCL…</span><span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#eaf4fb; color:#005bac; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">制作向…</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#f2f6fb; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#005bac; line-height:1.2">5</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fdf4f5; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#c7243a; line-height:1.2">6</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid #c7243a; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">7</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#c7243a; color:#fff; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">ヒューマ…</span><span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#c7243a; color:#fff; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">インテリ…</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid #c7243a; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">8</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#c2410e; color:#fff; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">ヒューマ…</span><span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#c7243a; color:#fff; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">GMO-AI…</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid #c7243a; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">9</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#c7243a; color:#fff; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">GMO-AI…</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">10</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">11</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#f2f4f7; color:#5d6470; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">消防設…</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#f2f6fb; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#005bac; line-height:1.2">12</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fdf4f5; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#c7243a; line-height:1.2">13</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">14</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">15</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#c2410e; color:#fff; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">GMO大…</span><span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#f2f4f7; color:#5d6470; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">消防設…</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid #c7243a; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">16</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#c7243a; color:#fff; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">社員向け…</span><span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#f2f4f7; color:#5d6470; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">消防設…</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">17</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#ede9fe; color:#6d28d9; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">制作向…</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">18</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#eaf4fb; color:#005bac; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">児玉塾…</span><span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#eaf4fb; color:#005bac; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">ケース展</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#f2f6fb; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#005bac; line-height:1.2">19</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fdf4f5; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#c7243a; line-height:1.2">20</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">21</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">22</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">23</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">24</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">25</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#c2410e; color:#fff; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">匿匿バト…</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid #c7243a; border-radius:4px; background:#f2f6fb; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#005bac; line-height:1.2">26</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#c7243a; color:#fff; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">第4部 開…</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fdf4f5; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#c7243a; line-height:1.2">27</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">28</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid #c7243a; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">29</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#c7243a; color:#fff; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">インテリ…</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">30</span>
+      
+    </div>
+    </div>
+  </div></div><div style="background:#fff; border:1px solid #e6e9ed; border-radius:14px; padding:14px 16px 16px; box-sizing:border-box; flex:1; min-width:0"><div style="flex:1; min-width:0">
+    <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:8px"><span class="t-ct">10月</span><span class="t-sub" style="color:#5d6470">稼働率</span><span class="num" style="font-size:18px; font-weight:800">36.1%</span></div>
+    <div style="display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:2px; border:1px solid #e6e9ed; border-radius:10px; padding:6px; background:#fff">
+      <div class="t-ssm" style="text-align:center; color:#c7243a; font-weight:700">日</div><div class="t-ssm" style="text-align:center; color:#5d6470; font-weight:700">月</div><div class="t-ssm" style="text-align:center; color:#5d6470; font-weight:700">火</div><div class="t-ssm" style="text-align:center; color:#5d6470; font-weight:700">水</div><div class="t-ssm" style="text-align:center; color:#5d6470; font-weight:700">木</div><div class="t-ssm" style="text-align:center; color:#5d6470; font-weight:700">金</div><div class="t-ssm" style="text-align:center; color:#005bac; font-weight:700">土</div>
+      <div style="min-height:52px; background:#f7f8fa"></div><div style="min-height:52px; background:#f7f8fa"></div><div style="min-height:52px; background:#f7f8fa"></div><div style="min-height:52px; background:#f7f8fa"></div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">1</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">2</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#eaf4fb; color:#005bac; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">SNS撮…</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#f2f6fb; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#005bac; line-height:1.2">3</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fdf4f5; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#c7243a; line-height:1.2">4</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">5</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">6</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#c2410e; color:#fff; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">GMOバ…</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid #c7243a; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">7</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#c7243a; color:#fff; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">GMOバ…</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid #c7243a; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">8</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#c7243a; color:#fff; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">ZOZO …</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">9</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#f2f6fb; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#005bac; line-height:1.2">10</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fdf4f5; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#c7243a; line-height:1.2">11</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">12</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">13</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">14</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">15</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">16</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#eaf4fb; color:#005bac; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">P-MAC…</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#f2f6fb; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#005bac; line-height:1.2">17</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fdf4f5; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#c7243a; line-height:1.2">18</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">19</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">20</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">21</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">22</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#c2410e; color:#fff; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">ヒカルC…</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid #c7243a; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">23</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#c7243a; color:#fff; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">ヒカルC…</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid #c7243a; border-radius:4px; background:#f2f6fb; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#005bac; line-height:1.2">24</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#c7243a; color:#fff; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">ヒカルC…</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fdf4f5; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#c7243a; line-height:1.2">25</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">26</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">27</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">28</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid #c7243a; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">29</span>
+      <span style="display:block; height:13px; line-height:13px; padding:0 3px; border-radius:3px; background:#c7243a; color:#fff; font-size:9px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">インテリ…</span>
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#fff; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#5d6470; line-height:1.2">30</span>
+      
+    </div><div style="min-height:52px; box-sizing:border-box; padding:3px 4px; border:1px solid transparent; border-radius:4px; background:#f2f6fb; display:flex; flex-direction:column; gap:2px">
+      <span class="num" style="font-size:10px; color:#005bac; line-height:1.2">31</span>
+      
+    </div>
+    </div>
+  </div></div></div>
+
+<div style="display:flex; align-items:center; gap:9px; min-height:24px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg><h3 style="margin:0; font-size:14px; font-weight:800">案件実施報告</h3><span class="t-ssm" style="color:#9aa1ab">— 本番を終えた案件（8/13 の会議より後）。写真と一言は案件管理の「ふりかえり」から</span><span style="flex:1"></span><span class="t-ssm" style="color:#005bac; font-weight:700; cursor:pointer">ふりかえりが未記入の案件 2件</span></div>
+<div style="display:flex; gap:14px; align-items:stretch"><div style="flex:1; min-width:0; background:#fff; border:1px solid #e6e9ed; border-radius:14px; overflow:hidden; display:flex; flex-direction:column">
+    <div style="display:flex; gap:4px; height:96px; background:#f2f4f7">
+      <div style="flex:1; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg, #e3e7ec, #cfd5dc)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div><div style="flex:1; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg, #e3e7ec, #cfd5dc)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div><div style="flex:1; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg, #e3e7ec, #cfd5dc)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>
+    </div>
+    <div style="padding:12px 14px 14px; display:flex; flex-direction:column; gap:8px">
+      <div style="display:flex; align-items:center; gap:8px"><span class="num t-ssm" style="color:#5d6470; font-weight:700">8/10（月）</span><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:50px; height:22px; border-radius:6px; background:#e7f4ec; color:#197a4b; white-space:nowrap; overflow:hidden; flex-shrink:0">確定</span></div>
+      <span class="t-list" style="line-height:1.45">TBSドラマ「君の好きは無敵」撮影</span>
+      <span class="t-ssm" style="color:#5d6470">TBSテレビ</span>
+      <p class="t-sub" style="margin:0; color:#3c424c; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden">7話 8/25 放送。ロゴ露出 7分26秒、クレジット約2秒。世帯4.5%／個人2.5%、広告換算 約850万〜1,070万円（AI算出）</p>
+      <div style="display:flex; align-items:center; gap:14px; padding-top:8px; border-top:1px solid #f2f4f7">
+        <span style="display:flex; flex-direction:column; gap:1px"><span class="t-ssm" style="color:#9aa1ab">売上</span><span style="display:inline-flex; align-items:baseline; width:96px; flex-shrink:0"><span style="width:12px; font-size:12px; color:#9aa1ab">￥</span><span class="num" style="flex:1; text-align:right; font-size:14px; color:#1a1d24">472,600</span></span></span>
+        <span style="display:flex; flex-direction:column; gap:1px"><span class="t-ssm" style="color:#9aa1ab">粗利</span><span style="display:flex; align-items:baseline; gap:4px"><span style="display:inline-flex; align-items:baseline; width:96px; flex-shrink:0"><span style="width:12px; font-size:12px; color:#9aa1ab">￥</span><span class="num" style="flex:1; text-align:right; font-size:14px; color:#1a1d24">429,171</span></span><span class="num t-ssm" style="color:#197a4b; font-weight:700">90.8%</span></span></span>
+      </div>
+    </div>
+  </div><div style="flex:1; min-width:0; background:#fff; border:1px solid #e6e9ed; border-radius:14px; overflow:hidden; display:flex; flex-direction:column">
+    <div style="display:flex; gap:4px; height:96px; background:#f2f4f7">
+      <div style="flex:1; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg, #e3e7ec, #cfd5dc)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div><div style="flex:1; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg, #e3e7ec, #cfd5dc)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>
+    </div>
+    <div style="padding:12px 14px 14px; display:flex; flex-direction:column; gap:8px">
+      <div style="display:flex; align-items:center; gap:8px"><span class="num t-ssm" style="color:#5d6470; font-weight:700">8/28（金）</span><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:50px; height:22px; border-radius:6px; background:#fdf1ea; color:#c2410e; white-space:nowrap; overflow:hidden; flex-shrink:0">下書き</span><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:70px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">グループ内</span></div>
+      <span class="t-list" style="line-height:1.45">サムライパートナーズ 20周年感謝の会</span>
+      <span class="t-ssm" style="color:#5d6470">株式会社サムライパートナーズ</span>
+      <p class="t-sub" style="margin:0; color:#3c424c; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden">売上は未確定（グループ内原価 2,729,703円）。請求対象の発生コスト 657,000円＋鏡開き 176,800円。「グループ内原価での請求は不適では」とのご意見あり</p>
+      <div style="display:flex; align-items:center; gap:14px; padding-top:8px; border-top:1px solid #f2f4f7">
+        <span style="display:flex; flex-direction:column; gap:1px"><span class="t-ssm" style="color:#9aa1ab">売上</span><span class="t-sub" style="color:#9aa1ab">未登録</span></span>
+        <span style="display:flex; flex-direction:column; gap:1px"><span class="t-ssm" style="color:#9aa1ab">粗利</span><span class="t-sub" style="color:#9aa1ab">未登録</span></span>
+      </div>
+    </div>
+  </div><div style="flex:1; min-width:0; background:#fff; border:1px solid #e6e9ed; border-radius:14px; overflow:hidden; display:flex; flex-direction:column">
+    <div style="display:flex; gap:4px; height:96px; background:#f2f4f7">
+      <div style="flex:1; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg, #e3e7ec, #cfd5dc)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div><div style="flex:1; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg, #e3e7ec, #cfd5dc)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>
+    </div>
+    <div style="padding:12px 14px 14px; display:flex; flex-direction:column; gap:8px">
+      <div style="display:flex; align-items:center; gap:8px"><span class="num t-ssm" style="color:#5d6470; font-weight:700">9/2（水）</span><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:50px; height:22px; border-radius:6px; background:#fdf1ea; color:#c2410e; white-space:nowrap; overflow:hidden; flex-shrink:0">下書き</span><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:70px; height:22px; border-radius:6px; background:#eaf4fb; color:#005bac; white-space:nowrap; overflow:hidden; flex-shrink:0">グループ内</span></div>
+      <span class="t-list" style="line-height:1.45">GMO-AIR ものづくり太郎さん YouTube対談撮影</span>
+      <span class="t-ssm" style="color:#5d6470">GMOインターネットグループ</span>
+      <p class="t-sub" style="margin:0; color:#3c424c; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden">GMOヒューマノイド・ラボ 渋谷ショールームで対談番組を撮影。9/8 記者会見の撮影も対応</p>
+      <div style="display:flex; align-items:center; gap:14px; padding-top:8px; border-top:1px solid #f2f4f7">
+        <span style="display:flex; flex-direction:column; gap:1px"><span class="t-ssm" style="color:#9aa1ab">売上</span><span class="t-sub" style="color:#9aa1ab">未登録</span></span>
+        <span style="display:flex; flex-direction:column; gap:1px"><span class="t-ssm" style="color:#9aa1ab">粗利</span><span class="t-sub" style="color:#9aa1ab">未登録</span></span>
+      </div>
+    </div>
+  </div></div>
+
+<div style="display:flex; align-items:center; gap:9px; min-height:24px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M13 4h3a2 2 0 0 1 2 2v14"/><path d="M2 20h3"/><path d="M13 20h9"/><path d="M10 12v.01"/><path d="M13 4.562v16.157a1 1 0 0 1-1.242.97L5 20V5.562a2 2 0 0 1 1.515-1.94l4-1A2 2 0 0 1 13 4.561Z"/></svg><h3 style="margin:0; font-size:14px; font-weight:800">定期内覧会</h3><span class="t-ssm" style="color:#9aa1ab">— 内覧会アプリの受付実績。ヨミ化した件数は、来場者から起票した案件を数えます</span><span style="flex:1"></span></div>
+<div style="display:flex; gap:14px; align-items:stretch">
+  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:14px; padding:14px 16px 16px; box-sizing:border-box; width:420px; flex-shrink:0">
+    <div style="display:flex; align-items:center; gap:8px"><span class="t-ct"><span class="num">8/26</span> 開催</span><span class="t-bdg" style="display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:62px; height:22px; border-radius:6px; background:#f2f4f7; color:#5d6470; white-space:nowrap; overflow:hidden; flex-shrink:0">受付終了</span></div>
+    <div style="display:flex; gap:22px; margin-top:12px">
+      <span style="display:flex; flex-direction:column; gap:4px"><span class="t-ssm" style="color:#9aa1ab">参加</span><span class="num" style="font-size:22px; font-weight:800; line-height:1">50<span style="font-size:12px; font-weight:400; color:#5d6470"> 組 ・ </span>65<span style="font-size:12px; font-weight:400; color:#5d6470"> 名</span></span></span><span style="display:flex; flex-direction:column; gap:4px"><span class="t-ssm" style="color:#9aa1ab">満足度</span><span class="num" style="font-size:22px; font-weight:800; line-height:1">3.9<span style="font-size:12px; font-weight:400; color:#5d6470"> / 4.0</span></span></span><span style="display:flex; flex-direction:column; gap:4px"><span class="t-ssm" style="color:#9aa1ab">ヨミ化</span><span class="num" style="font-size:22px; font-weight:800; line-height:1">3<span style="font-size:12px; font-weight:400; color:#5d6470"> 案件</span></span></span><span style="display:flex; flex-direction:column; gap:4px"><span class="t-ssm" style="color:#9aa1ab">次回</span><span class="num" style="font-size:22px; font-weight:800; line-height:1">9/17<span style="font-size:12px; font-weight:400; color:#5d6470"> ・ 申込 38組</span></span></span>
+    </div>
+    <p class="t-ssm" style="margin:12px 0 0; color:#5d6470">満足度はアンケート（Kairos3）の値を手で入れます。ONAiR には無い数字です</p>
+  </div>
+  <div style="background:#fff; border:1px solid #e6e9ed; border-radius:14px; padding:12px 16px 10px; box-sizing:border-box; flex:1; min-width:0">
+    <div style="display:flex; align-items:center; padding-bottom:6px; border-bottom:1px solid #eef0f3"><span class="t-th" style="flex:1">来場者の分類</span><span class="t-th" style="width:56px; text-align:right">組数</span><span class="t-th" style="width:72px; text-align:right">来場人数</span></div>
+    <div style="display:flex; align-items:center; min-height:28px; border-bottom:1px solid #f2f4f7"><span class="t-sub" style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">放送機材メーカー・商社</span><span class="num" style="display:inline-block; width:56px; text-align:right; font-size:12.5px; color:#1a1d24; font-weight:400; flex-shrink:0">18</span><span class="num" style="display:inline-block; width:72px; text-align:right; font-size:12.5px; color:#1a1d24; font-weight:400; flex-shrink:0">26</span></div><div style="display:flex; align-items:center; min-height:28px; border-bottom:1px solid #f2f4f7"><span class="t-sub" style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">映像制作・配信サービス</span><span class="num" style="display:inline-block; width:56px; text-align:right; font-size:12.5px; color:#1a1d24; font-weight:400; flex-shrink:0">14</span><span class="num" style="display:inline-block; width:72px; text-align:right; font-size:12.5px; color:#1a1d24; font-weight:400; flex-shrink:0">19</span></div><div style="display:flex; align-items:center; min-height:28px; border-bottom:1px solid #f2f4f7"><span class="t-sub" style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">その他企業（総務・不動産・商社等）</span><span class="num" style="display:inline-block; width:56px; text-align:right; font-size:12.5px; color:#1a1d24; font-weight:400; flex-shrink:0">7</span><span class="num" style="display:inline-block; width:72px; text-align:right; font-size:12.5px; color:#1a1d24; font-weight:400; flex-shrink:0">8</span></div><div style="display:flex; align-items:center; min-height:28px; border-bottom:1px solid #f2f4f7"><span class="t-sub" style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">官公庁・研究機関</span><span class="num" style="display:inline-block; width:56px; text-align:right; font-size:12.5px; color:#1a1d24; font-weight:400; flex-shrink:0">3</span><span class="num" style="display:inline-block; width:72px; text-align:right; font-size:12.5px; color:#1a1d24; font-weight:400; flex-shrink:0">4</span></div><div style="display:flex; align-items:center; min-height:28px; border-bottom:1px solid #f2f4f7"><span class="t-sub" style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">メディア・報道</span><span class="num" style="display:inline-block; width:56px; text-align:right; font-size:12.5px; color:#1a1d24; font-weight:400; flex-shrink:0">2</span><span class="num" style="display:inline-block; width:72px; text-align:right; font-size:12.5px; color:#1a1d24; font-weight:400; flex-shrink:0">2</span></div><div style="display:flex; align-items:center; min-height:28px; border-bottom:1px solid #f2f4f7"><span class="t-sub" style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">スタジオ・バーチャルプロダクション関連</span><span class="num" style="display:inline-block; width:56px; text-align:right; font-size:12.5px; color:#1a1d24; font-weight:400; flex-shrink:0">2</span><span class="num" style="display:inline-block; width:72px; text-align:right; font-size:12.5px; color:#1a1d24; font-weight:400; flex-shrink:0">2</span></div><div style="display:flex; align-items:center; min-height:28px; border-bottom:1px solid #f2f4f7"><span class="t-sub" style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">個人事業主・フリーランス</span><span class="num" style="display:inline-block; width:56px; text-align:right; font-size:12.5px; color:#1a1d24; font-weight:400; flex-shrink:0">3</span><span class="num" style="display:inline-block; width:72px; text-align:right; font-size:12.5px; color:#1a1d24; font-weight:400; flex-shrink:0">3</span></div><div style="display:flex; align-items:center; min-height:28px; border-bottom:1px solid #f2f4f7"><span class="t-sub" style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">教育機関（学生）</span><span class="num" style="display:inline-block; width:56px; text-align:right; font-size:12.5px; color:#1a1d24; font-weight:400; flex-shrink:0">1</span><span class="num" style="display:inline-block; width:72px; text-align:right; font-size:12.5px; color:#1a1d24; font-weight:400; flex-shrink:0">1</span></div>
+  </div>
+</div>
+</div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

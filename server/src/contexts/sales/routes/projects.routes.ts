@@ -26,6 +26,15 @@ import { countJunkProjects, purgeJunkProjects } from '../services/project-purge.
 import { previewRenumber, renumberProject } from '../services/entity-resolution.service';
 import { getLegalEntity, type LegalEntityCode } from '../../platform/services/legal-entity.service';
 
+/** 一覧の `entity_code` を検査する。空なら絞らない（undefined）。知らない会社は 400 */
+async function readEntityCodeFilter(raw: unknown): Promise<LegalEntityCode | undefined> {
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  if (typeof raw !== 'string' || !(await getLegalEntity(raw))) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'entity_code は GJV / GSS / GMO のいずれかを指定してください');
+  }
+  return raw as LegalEntityCode;
+}
+
 const router = Router();
 
 // Apply auth + permission middleware to all routes
@@ -54,6 +63,8 @@ router.get('/', async (req, res) => {
     issue: req.query.issue as string,
     sortBy: req.query.sort_by as string,
     sortDir: (req.query.sort_dir as 'asc' | 'desc') || 'desc',
+    // 計上会社 (GJV / GSS / GMO・隔週キープの主体別)。知らない値は素通しせず 400 — 素通しすると絞ったつもりで全件が返り、気づけない
+    entityCode: await readEntityCodeFilter(req.query.entity_code),
   };
   const { rows, total, stageCounts } = await projectService.list(filter, page, limit, offset);
   // stage_counts は v4 の案件一覧のチップに出す件数 (ステージ以外の絞り込みだけを掛けたもの)。
@@ -177,6 +188,18 @@ router.get('/:id/summary', async (req, res) => {
 
 // サマリーの会社別内訳（2026年10月の事業再編・粗利の2通り表示・P2 Round 1・§4.12）。
 // 全体の値（上の /summary）は変えず、別入口として内訳の配列を返す。
+/**
+ * 隔週キープの資料に載せる印（docs/design/v4/keep-report.md §3）。
+ * 本文は `{ keep_pick: true | false }` だけ。ヨミ表の「資料」チェックと
+ * 案件詳細のふりかえりタブの「隔週キープに載せる」が同じ口を叩く。
+ */
+router.put('/:id/keep-pick', requirePermission('sales', 'editor'), async (req, res) => {
+  const { keep_pick } = req.body || {};
+  if (typeof keep_pick !== 'boolean') throw new AppError(400, 'VALIDATION_ERROR', 'keep_pick は true / false');
+  const result = await projectService.setKeepPick(req.params.id as string, keep_pick, req.user!.id);
+  res.json({ success: true, data: result });
+});
+
 router.get('/:id/summary-by-entity', async (req, res) => {
   res.json({ success: true, data: await projectService.getSummaryByEntity(req.params.id as string) });
 });

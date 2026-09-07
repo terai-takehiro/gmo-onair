@@ -88,6 +88,35 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに5つの「入�
 削除した画面（報告資料・AI活動履歴・旧GLS決算取込・営業レビュー単独ページ等）と
 その判断の根拠も経緯ログにある。**旧 URL は原則転送で生かす**（削除時の例外も経緯ログ参照）。
 
+## 計上会社（`entity_code`・2026年10月の事業再編）
+
+- **案件は計上会社（`projects.entity_code`）を1つ持つ**: `GJV`（コンテンツスタジオ）／`GSS`
+  （サムライスタジオ）／`GMO`（グループ本体）。マスターは `legal_entities`（`GET /legal-entities`・
+  設定「会社と切替」＝ `contexts/platform/pages/reorg/`）。設計の正は
+  [docs/reorg-2026-10-plan.md](../docs/reorg-2026-10-plan.md) §4.2〜§4.4
+- **値はサーバーが規則で導く**（`server/src/contexts/sales/services/entity-resolution.service.ts`。
+  実施日・切替日・お客様の `is_gmo_group` を見る。`org_transition.state` が `off` のあいだは
+  効かず、既存の行はすべて `GSS`）。**案件作成・案件を直す画面に入力欄は無く、`entity_code` を
+  送らない。** 人が変えるのは `manager` だけの改番（`POST /projects/:id/renumber`・移行センター）
+  経由のみ。画面はサーバーが保存した値を読むだけで、お客様の区分から自分で導かない
+  （写しを持つと切替日の前後で必ず食い違う）
+- 呼び名は `contexts/sales/pages/projectList/stages.ts` の `ENTITY_BADGE_LABEL`
+  （`legal_entities.short_name` と同じ文字列）。案件一覧のバッジは英字3文字・案件詳細の
+  「計上会社」欄／案件台帳の列／ふりかえりは短い和名。型は `reorg/types.ts` の `LegalEntityCode`
+  ＝ shared の `BusinessEntity`（`shared/src/keepReport/types.ts`。同じ3文字を
+  `shared/tests/keepReportEntity.test.ts` が固定）
+- 案件台帳の絞り込みは **サーバーで**（`GET /projects?entity_code=`・`projectLedger/filters.ts` の
+  `entityCode`・`LedgerFilterBar.tsx`）。画面で絞るとそのページの 100 件の中だけになる
+- 隔週キープの目標（月次予算・経理の補正値。`monthly_budgets`／`monthly_actual_overrides` は
+  `(entity_code, year_month)` が主キー・migration 288）は**設定「お金のルール」の会社タブごと**
+  （`contexts/platform/pages/money/{MonthlyBudgets,MonthlyBudgetEditor}.tsx`・`budgetMath.ts`・
+  `lib/keepApi.ts`）。**保存は必ず `entity_code` を付ける**（省くとサーバーが GSS に倒す）。
+  全体（統合）は3社の合計で**読むだけ**（入力しない・按分しない）。稼働率の数え方
+  （`UtilizationRule.tsx`・`GET/PUT /keep/utilization-settings`）は全社共通
+- ふりかえりタブの「隔週キープに載せる」（`projects.keep_pick`・`review/KeepPickCard.tsx`・
+  `PUT /projects/:id/keep-pick`）は日常業務のヨミ表のチェックと同じ値。数字を見る先は
+  別バンドル `/daily/weekly`（素の `<a href>`）
+
 ## v4 の設計判断（モックが明示しているもの）
 
 - **案件は主担当（`assigned_to`）を1人持つ**（実装の実態に合わせて 2026-08-27 に書き直し。

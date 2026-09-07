@@ -19,6 +19,7 @@ CI のログを読む前に手元で再現したほうが速く、当てずっ�
 | 共通コードの乖離 | `node scripts/check-collab-parity.mjs` | `shared/src/collab/` と `server/src/shared/collab/` は**意図的な2コピー**。片方だけ直した |
 | バージョン表記の整合 | `npm run check:version` | `package.json` / `CLAUDE.md` / `README.md` の3か所がずれた。⚠️ **作業 PR では版を上げない**のが決めごとなので、ここが落ちたら「上げてしまった」ほうを戻す |
 | UI トークン検査 | `npm run check:ui-tokens` | 記録（BASELINE）を**超えたときだけ**落ちる。既存の分は通る |
+| 本番依存の npm audit（High 以上） | `npm audit --omit=dev --audit-level=high` | **新しく足した依存（推移的依存を含む）**に High の勧告がある／時間が経って新しい勧告が出た（v4.5.21）。`--omit=dev` なので devDependencies は見ない。修正版が無いときの逃げ方は [pitfalls.md](pitfalls.md)（2026-09-07） |
 
 ## `build`（Docker イメージ）
 

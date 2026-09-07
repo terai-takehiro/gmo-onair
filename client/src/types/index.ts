@@ -222,6 +222,8 @@ export interface Project extends BaseEntity {
   lost_reason_note: string | null;
   application_form: boolean;
   notes: string | null;
+  /** 隔週キープの資料に案件ページとして載せる印（`projects.keep_pick`・ヨミ表の「資料」チェックと同じ値） */
+  keep_pick?: boolean;
   // joined fields
   customer_name?: string;
   assigned_to_name?: string;

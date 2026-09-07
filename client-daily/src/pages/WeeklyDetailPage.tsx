@@ -10,6 +10,14 @@
  *   ② AI の要約   … AI が集計を文章にしたもの
  *   ③ 週次トピックス … 人が足す行 (確定すると足せなくなる)
  *
+ * ── タブ（隔週キープ・keep-report.md §3）────────────────────
+ *
+ * `/weekly/:id` にタブを2つ足した（「隔週キープの数字」`/keep`・「資料をつくる」`/deck`）。
+ * 左メニューは増やさない。この画面は `tab` を受けて **この週の報告 ／ 隔週キープの数字**
+ * を描き分ける（「資料をつくる」は別のルート `weekly/deck/DeckPage.tsx`）。
+ * **隔週キープの数字のタブでは PC の週のレールを出さない** — 数値報告の表を2枚
+ * 並べるのに幅が要る（モックも同じ）。週の切り替えはそのタブでは「この週の報告」に戻ってから。
+ *
  * ── モックにあるが実装しないもの ────────────────────────────
  *
  * ・**「ニュース由来」のバッジ** — DB に由来を記録する列が無い
@@ -34,13 +42,15 @@ import { usePermissions } from '@/hooks/usePermissions';
 import {
   usePublishReport, useReopenReport, useReport, useReports, useReviewReport,
 } from '@/lib/reportsApi';
-import { formatWeekJa } from '@/lib/types';
+import { formatWeekJa, type OpsReport } from '@/lib/types';
 import { StatsSection, type StatsShape } from './weekly/StatsSection';
 import { TopicsSection } from './weekly/TopicsSection';
 import { WeekPickerSheet } from './weekly/WeekPickerSheet';
 import { WeekRail } from './weekly/WeekRail';
+import { WeeklyTabs, type WeeklyTab } from './weekly/WeeklyTabs';
+import { KeepSection } from './weekly/keep/KeepSection';
 
-export default function WeeklyDetailPage() {
+export default function WeeklyDetailPage({ tab = 'report' }: { tab?: WeeklyTab }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -112,7 +122,7 @@ export default function WeeklyDetailPage() {
       {list.data && list.data.length > 0 && (
         isMobile
           ? <WeekPickerSheet reports={list.data} activeId={id} />
-          : <WeekRail reports={list.data} activeId={id} />
+          : tab === 'report' && <WeekRail reports={list.data} activeId={id} />
       )}
 
       <div className="flex min-w-0 flex-1 flex-col gap-4 lg:gap-5">
@@ -160,6 +170,26 @@ export default function WeeklyDetailPage() {
               </div>
             </PageHeader>
 
+            <WeeklyTabs reportId={report.id} tab={tab} isMobile={isMobile} />
+
+            {tab === 'keep' ? (
+              <KeepSection report={report} isMobile={isMobile} />
+            ) : (
+              <ReportBody report={report} stats={stats} isMobile={isMobile} editable={editable} isPublished={isPublished} />
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** 「この週の報告」タブの中身（自動集計 → AI の要約 → 週次トピックス）。今までのまま */
+function ReportBody({ report, stats, isMobile, editable, isPublished }: {
+  report: OpsReport; stats: StatsShape | undefined; isMobile: boolean; editable: boolean; isPublished: boolean;
+}) {
+  return (
+    <>
             {isPublished && report.published_at && (
               <p className="text-note text-muted-foreground">
                 {new Date(report.published_at).toLocaleString('ja-JP')} に確定しました。
@@ -200,10 +230,7 @@ export default function WeeklyDetailPage() {
               sub={isPublished ? '確定済みなので追加できません' : '自動集計に出ない出来事を人が追加するところ'}
             />
             <TopicsSection items={report.items ?? []} reportId={report.id} editable={editable} />
-          </>
-        )}
-      </div>
-    </div>
+    </>
   );
 }
 

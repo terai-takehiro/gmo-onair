@@ -23,6 +23,7 @@ import { registerProductionTools } from './tools/production.tools';
 import { registerEquipmentTools } from './tools/equipment.tools';
 import { registerGpmTools } from './tools/gpm.tools';
 import { registerIntercompanyTools } from './tools/intercompany.tools';
+import { registerKeepTools } from './tools/keep.tools';
 
 // GMO ONAiR MCP サーバー本体。
 // stateless HTTP モードのためリクエストごとに生成される (ツール登録のみで I/O は無いので軽量)。
@@ -89,6 +90,7 @@ export function buildMcpServer(): McpServer {
   registerEquipmentTools(server);  // 機材管理 (台帳検索・詳細・貸出履歴・棚卸し状況 read + 貸出/返却)
   registerGpmTools(server);        // プロジェクト管理 (GPM: プロジェクト・工程・タスク・未確認事項・体制・標準工程)
   registerIntercompanyTools(server); // 社内取引 (GJV⇄GSS。read + 社内発注の作成)
+  registerKeepTools(server);       // 隔週キープの定例報告パック (会議1回ぶんの数字を1本の JSON で読む・read)
 
   return server;
 }

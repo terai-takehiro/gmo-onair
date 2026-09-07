@@ -27,6 +27,19 @@ async function resolveEntityCode(raw: unknown): Promise<LegalEntityCode> {
   return raw as LegalEntityCode;
 }
 
+/**
+ * 金額欄: 未指定は「渡さなかった＝今の値を保つ」（undefined）、null / 空文字は「消す」（null）、
+ * それ以外は整数（円）だけ。小数・文字列をそのまま通すと BIGINT 列で Postgres が例外を返し、
+ * 意図した 400 でなく素の 500 になる。「消す」と「保つ」の区別は `keepReportService.upsertBudget` が守る
+ */
+function readAmount(v: unknown, label: string): number | null | undefined {
+  if (v === undefined) return undefined;
+  if (v === null || v === '') return null;
+  const n = typeof v === 'number' ? v : (typeof v === 'string' ? Number(v) : NaN);
+  if (!Number.isInteger(n)) throw new AppError(400, 'VALIDATION_ERROR', `${label}は整数（円）で送ってください`);
+  return n;
+}
+
 // ============ イベント実施報告 ============
 
 // 一覧 (レポート + 未作成の報告候補)
@@ -112,32 +125,73 @@ router.delete('/event-photos/:photoId', requirePermission('sales', 'editor'), as
 
 // ============ 月次予算・損益 ============
 
+// `entity_code=all` は隔週キープの「全体（統合）」＝3社の合計（予算も合計）。省略時は今の会社1社ぶん
 router.get('/monthly-pl/:ym', async (req, res) => {
   if (!YM_RE.test(req.params.ym as string)) throw new AppError(400, 'VALIDATION_ERROR', '年月は YYYY-MM');
+  const scope = req.query.entity_code === 'all' ? 'all' as const : await resolveEntityCode(req.query.entity_code);
+  res.json({ success: true, data: await keepReportService.getMonthlyPl(req.params.ym as string, scope) });
+});
+
+/** 期間内の全会社の予算と補正値（「お金のルール」の入力表・隔週キープの推移） */
+router.get('/monthly-budgets', async (req, res) => {
+  const from = req.query.from as string | undefined;
+  const to = req.query.to as string | undefined;
+  if (!from || !to || !YM_RE.test(from) || !YM_RE.test(to)) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'from / to は YYYY-MM で両方必要です');
+  }
+  const [budgets, overrides] = await Promise.all([
+    keepReportService.listBudgets({ from, to }),
+    keepReportService.listOverrides({ from, to }),
+  ]);
+  res.json({ success: true, data: { from, to, budgets, overrides } });
+});
+
+router.get('/monthly-budget/:ym', async (req, res) => {
+  const ym = req.params.ym as string;
+  if (!YM_RE.test(ym)) throw new AppError(400, 'VALIDATION_ERROR', '年月は YYYY-MM');
   const entityCode = await resolveEntityCode(req.query.entity_code);
-  res.json({ success: true, data: await keepReportService.getMonthlyPl(req.params.ym as string, entityCode) });
+  const budget = await keepReportService.getBudget(ym, entityCode);
+  res.json({ success: true, data: { year_month: ym, entity_code: entityCode, found: !!budget, budget } });
 });
 
 router.put('/monthly-budget/:ym', requirePermission('sales', 'editor'), async (req, res) => {
   if (!YM_RE.test(req.params.ym as string)) throw new AppError(400, 'VALIDATION_ERROR', '年月は YYYY-MM');
-  const { revenue, cogs_fixed, cogs_variable, sga, operating_profit, entity_code } = req.body;
-  const entityCode = await resolveEntityCode(entity_code);
-  res.json({
-    success: true,
-    data: await keepReportService.upsertBudget(
-      req.params.ym as string, { revenue, cogs_fixed, cogs_variable, sga, operating_profit }, entityCode,
-    ),
-  });
+  const body = req.body ?? {};
+  const entityCode = await resolveEntityCode(body.entity_code);
+  const fields = {
+    revenue: readAmount(body.revenue, '売上目標'),
+    cogs_fixed: readAmount(body.cogs_fixed, '固定原価目標'),
+    cogs_variable: readAmount(body.cogs_variable, '変動原価目標'),
+    sga: readAmount(body.sga, '販管費目標'),
+    operating_profit: readAmount(body.operating_profit, '営業利益目標'),
+  };
+  res.json({ success: true, data: await keepReportService.upsertBudget(req.params.ym as string, fields, entityCode) });
 });
 
 router.put('/monthly-override/:ym', requirePermission('sales', 'editor'), async (req, res) => {
   if (!YM_RE.test(req.params.ym as string)) throw new AppError(400, 'VALIDATION_ERROR', '年月は YYYY-MM');
-  const { cogs_fixed_actual, sga_actual, note, entity_code } = req.body;
-  const entityCode = await resolveEntityCode(entity_code);
-  res.json({
-    success: true,
-    data: await keepReportService.upsertOverride(req.params.ym as string, { cogs_fixed_actual, sga_actual, note }, entityCode),
-  });
+  const body = req.body ?? {};
+  const entityCode = await resolveEntityCode(body.entity_code);
+  if (body.note !== undefined && body.note !== null && typeof body.note !== 'string') {
+    throw new AppError(400, 'VALIDATION_ERROR', 'note は文字列');
+  }
+  const fields = {
+    cogs_fixed_actual: readAmount(body.cogs_fixed_actual, '償却費の経理確定値'),
+    sga_actual: readAmount(body.sga_actual, '販管費の経理確定値'),
+    note: body.note as string | null | undefined,
+  };
+  res.json({ success: true, data: await keepReportService.upsertOverride(req.params.ym as string, fields, entityCode) });
+});
+
+// ============ 稼働率の数え方（keep_settings・docs/design/v4/keep-report.md §5.4）============
+
+router.get('/utilization-settings', async (_req, res) => {
+  res.json({ success: true, data: await keepReportService.getUtilizationSettings() });
+});
+
+/** 数え方を変えると過去の稼働率も変わるので、営業マネージャーだけ */
+router.put('/utilization-settings', requirePermission('sales', 'manager'), async (req, res) => {
+  res.json({ success: true, data: await keepReportService.setUtilizationSettings(req.body, req.user!.id) });
 });
 
 // ============ 議事録サマリ ============

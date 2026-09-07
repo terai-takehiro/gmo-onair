@@ -1,0 +1,101 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>仕組み ▸ データの流れ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&family=BIZ+UDPGothic:wght@400;700&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+
+<style>
+  body { margin:0; background:#f7f8fa; color:#1a1d24; font-family:'LINE Seed JP','Noto Sans JP',-apple-system,'Hiragino Sans','BIZ UDPGothic','Meiryo',sans-serif; -webkit-font-smoothing:antialiased; font-feature-settings:'palt' 1,'kern' 1; }
+  a { color:#005bac; text-decoration:none; } a:hover { color:#0068b8; text-decoration:underline; }
+  .t-h1 { font-size:23px; line-height:1.3; font-weight:800; }
+  .t-h2 { font-size:19px; line-height:1.35; font-weight:800; }
+  .t-ct { font-size:14.5px; line-height:1.4; font-weight:800; }
+  .t-list { font-size:13.5px; line-height:1.5; font-weight:700; }
+  .t-body { font-size:13.5px; line-height:1.6; font-weight:400; }
+  .t-sub { font-size:12.5px; line-height:1.55; font-weight:400; }
+  .t-ssm { font-size:11.5px; line-height:1.6; font-weight:400; }
+  .t-th { font-size:11.5px; line-height:1.4; font-weight:700; color:#5d6470; }
+  .t-bdg { font-size:11px; line-height:1.4; font-weight:700; }
+  .t-note { font-size:12px; line-height:1.6; font-weight:400; }
+  .num { font-variant-numeric:tabular-nums; font-feature-settings:'palt' 0,'tnum' 1; }
+  button { font-family:inherit; }
+</style>
+</helmet>
+<div style="width:1320px; box-sizing:border-box; padding:24px 26px 28px; background:#f7f8fa; display:flex; flex-direction:column; gap:16px">
+  <div><h1 class="t-h1" style="margin:0">仕組み — データの流れと、人の直しが次回に効く輪</h1><p class="t-sub" style="margin:4px 0 0; color:#5d6470">数字はすべて「定例報告パック」1本に集め、画面・資料・Slack はそれを読むだけにする。人が直した所は差分として残し、次回の資料の初期値に戻す。</p></div>
+
+  <div style="display:flex; align-items:stretch; gap:0">
+    <div style="display:flex; flex-direction:column; gap:8px; width:230px">
+      <div style="width:230px; box-sizing:border-box; background:#fff; border:1px solid #e6e9ed; border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:6px">
+  <div style="display:flex; align-items:center; gap:8px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg><span class="t-ct">ONAiR にあるもの</span></div>
+  <span class="t-sub" style="color:#3c424c; line-height:1.5">案件・見積・ステージ・確度</span><span class="t-sub" style="color:#3c424c; line-height:1.5">確定売上・仕入・販管費</span><span class="t-sub" style="color:#3c424c; line-height:1.5">月次予算・経理の補正値</span><span class="t-sub" style="color:#3c424c; line-height:1.5">カレンダー（本番・リハ・内覧…）</span><span class="t-sub" style="color:#3c424c; line-height:1.5">ふりかえり（写真・総括・KPT）</span><span class="t-sub" style="color:#3c424c; line-height:1.5">内覧会の受付</span><span class="t-sub" style="color:#3c424c; line-height:1.5">議事録・タスク</span>
+</div>
+      <div style="width:230px; box-sizing:border-box; background:#fffaf6; border:1px solid #e6e9ed; border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:6px">
+  <div style="display:flex; align-items:center; gap:8px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#c2410e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg><span class="t-ct">手で入れる数字</span></div>
+  <span class="t-sub" style="color:#3c424c; line-height:1.5">内覧会の満足度</span><span class="t-sub" style="color:#3c424c; line-height:1.5">Web の KPI</span><span class="t-sub" style="color:#3c424c; line-height:1.5">参加者・欠席者</span>
+</div>
+    </div>
+    <div style="width:54px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; align-self:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg><span class="t-ssm" style="color:#5d6470; text-align:center; white-space:nowrap">集計</span></div>
+    <div style="width:300px; box-sizing:border-box; background:#f4faff; border:1px solid #e6e9ed; border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:6px">
+  <div style="display:flex; align-items:center; gap:8px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/></svg><span class="t-ct">定例報告パック（JSON）</span></div>
+  <span class="t-sub" style="color:#3c424c; line-height:1.5">会議日ごとに1つ。月・事業主体・お客様区分で集計</span><span class="t-sub" style="color:#3c424c; line-height:1.5">着地表／見込表／推移／ヨミ表／カレンダー／実施報告／内覧会</span><span class="t-sub" style="color:#3c424c; line-height:1.5">判定・比率・差は計算列（手計算しない）</span><span class="t-sub" style="color:#3c424c; line-height:1.5">週報を確定した時点で凍結（あとから動かない）</span><span class="t-sub" style="color:#3c424c; line-height:1.5">MCP: get_keep_report_pack</span><span class="t-sub" style="color:#3c424c; line-height:1.5">⇒ Slack の定例投稿・bot の元データ</span>
+</div>
+    <div style="width:54px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; align-self:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg><span class="t-ssm" style="color:#5d6470; text-align:center; white-space:nowrap">読む</span></div>
+    <div style="display:flex; flex-direction:column; gap:8px; width:250px">
+      <div style="width:230px; box-sizing:border-box; background:#fff; border:1px solid #e6e9ed; border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:6px">
+  <div style="display:flex; align-items:center; gap:8px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span class="t-ct">BI 画面（日常業務）</span></div>
+  <span class="t-sub" style="color:#3c424c; line-height:1.5">ウィークリー活動報告 ▸ 隔週キープの数字</span><span class="t-sub" style="color:#3c424c; line-height:1.5">前回の資料の数字と見比べる</span><span class="t-sub" style="color:#3c424c; line-height:1.5">スマホは数字の確認だけ</span>
+</div>
+      <div style="width:230px; box-sizing:border-box; background:#fff; border:1px solid #e6e9ed; border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:6px">
+  <div style="display:flex; align-items:center; gap:8px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/></svg><span class="t-ct">資料ビルダー</span></div>
+  <span class="t-sub" style="color:#3c424c; line-height:1.5">構成 JSON（ページ × テンプレ × 差し込み）</span><span class="t-sub" style="color:#3c424c; line-height:1.5">前回の構成から自動で組む</span><span class="t-sub" style="color:#3c424c; line-height:1.5">部品をドラッグ／クリックで置く</span><span class="t-sub" style="color:#3c424c; line-height:1.5">人が直した所を差分で記録</span>
+</div>
+    </div>
+    <div style="width:54px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; align-self:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg><span class="t-ssm" style="color:#5d6470; text-align:center; white-space:nowrap">出す</span></div>
+    <div style="display:flex; flex-direction:column; gap:8px; width:240px">
+      <div style="width:230px; box-sizing:border-box; background:#fff; border:1px solid #e6e9ed; border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:6px">
+  <div style="display:flex; align-items:center; gap:8px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#197a4b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg><span class="t-ct">PowerPoint（.pptx）</span></div>
+  <span class="t-sub" style="color:#3c424c; line-height:1.5">GMO流会議フォーマット Ver.2.5 の決まりを守る（内側は変えてよい）</span><span class="t-sub" style="color:#3c424c; line-height:1.5">表・グラフ・文は PowerPoint のオブジェクト（あとから直せる）</span><span class="t-sub" style="color:#3c424c; line-height:1.5">書体は Noto Sans JP</span><span class="t-sub" style="color:#3c424c; line-height:1.5">Box「02_隔週 橋口社長キープ／日付」に置く</span>
+</div>
+      <div style="width:230px; box-sizing:border-box; background:#f7f8fa; border:1px solid #e6e9ed; border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:6px">
+  <div style="display:flex; align-items:center; gap:8px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="3" height="8" x="13" y="2" rx="1.5"/><path d="M19 8.5V10h1.5A1.5 1.5 0 1 0 19 8.5"/><rect width="3" height="8" x="8" y="14" rx="1.5"/><path d="M5 15.5V14H3.5A1.5 1.5 0 1 0 5 15.5"/><rect width="8" height="3" x="14" y="13" rx="1.5"/><path d="M15.5 19H14v1.5a1.5 1.5 0 1 0 1.5-1.5"/><rect width="8" height="3" x="2" y="8" rx="1.5"/><path d="M8.5 5H10V3.5A1.5 1.5 0 1 0 8.5 5"/></svg><span class="t-ct">Slack 定例投稿（後日）</span></div>
+  <span class="t-sub" style="color:#3c424c; line-height:1.5">同じパックから文面を作る</span><span class="t-sub" style="color:#3c424c; line-height:1.5">投稿 ID を残し、反応を回収</span>
+</div>
+    </div>
+  </div>
+
+  <div style="display:flex; align-items:center; gap:0; margin-left:284px">
+    <div style="flex:1; display:flex; align-items:center; gap:12px; padding:12px 16px; border:1px dashed #6d28d9; border-radius:12px; background:#f5f3ff">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+      <div style="display:flex; flex-direction:column; gap:3px" class="t-sub">
+        <span style="font-weight:700; color:#6d28d9">直しが資産になる輪（社の原則「AIを使い捨てにしない」）</span>
+        <span style="color:#3c424c">① 自動で組んだ構成と文を全文保存 → ② 人が直した所（消したページ・書き換えた注記・並べ替え）を差分で記録 → ③ 会議後に「載せたページ／反応」を成果として紐づけ → ④ 次回の初期値・テンプレの既定に反映 → ⑤ 月1回、営業マネージャーが「よく直される所」を見る</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex; gap:12px">
+    <div style="flex:1; padding:12px 14px; border:1px solid #e6e9ed; border-radius:12px; background:#fff">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg><span class="t-ct">事業主体（10月〜）</span></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap">
+        <div style="flex:1; min-width:200px; padding:10px 12px; border:1px solid #cfe4f4; border-radius:10px; background:#f4faff"><div class="t-list">GMOサムライスタジオ</div><div class="t-ssm" style="color:#5d6470; margin-top:2px">グループ内イベント（お客様がグループ内）。旧 GMOグローバルスタジオ</div></div><div style="flex:1; min-width:200px; padding:10px 12px; border:1px solid #cfe4f4; border-radius:10px; background:#f4faff"><div class="t-list">GMOサムライコンテンツスタジオ</div><div class="t-ssm" style="color:#5d6470; margin-top:2px">グループ外イベント（お客様が外部）。合弁</div></div><div style="flex:1; min-width:200px; padding:10px 12px; border:1px solid #cfe4f4; border-radius:10px; background:#f4faff"><div class="t-list">GMOインターネットグループ人格</div><div class="t-ssm" style="color:#5d6470; margin-top:2px">グループとして行うもの。自動では付かず、案件で手で付ける</div></div>
+      </div>
+      <p class="t-ssm" style="margin:8px 0 0; color:#5d6470">お客様の区分（customer_type）から自動で決まり（内→スタジオ・外→コンテンツスタジオ）、例外だけ案件で上書きする。収支は主体別 ＋ 全体（統合）。予算・販管費・償却も主体ごと（monthly_budgets / sga_expenses に entity）。</p>
+    </div>
+    <div style="width:420px; padding:12px 14px; border:1px solid #e6e9ed; border-radius:12px; background:#fff">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span class="t-ct">凍結と履歴</span></div>
+      <p class="t-sub" style="margin:0; color:#3c424c">パックは会議日ごとの版（keep_report_packs）。週報を確定した時点の数字を凍結し、資料・Slack は必ず凍結した版を読む。構成（keep_decks）は保存のたびに版を残し、前回の版から次回の初期構成を作る。出力した pptx の置き場（Box の file id）も版に記録する。</p>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

@@ -8,6 +8,20 @@ import { listKpt, listKptForProjects } from './kpt.service';
 // 月次予算・実績補正は会社（entity_code）ごとに持つ（migration 288・PK が (entity_code, year_month) に）
 import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 import type { LegalEntityCode } from '../../platform/services/legal-entity.service';
+// 隔週キープの計算列・稼働率の設定（純粋関数は keep-report-rules.ts。テストが直接固定する）
+import {
+  varianceOf, sumBudgetFields, normalizeUtilizationSettings, mergeUtilizationSettings, type UtilizationSettings,
+} from './keep-report-rules';
+
+/** 計上会社の並び（legal_entities の sort_order と同じ。'all' の合計はこの3社） */
+const ENTITY_CODES: readonly LegalEntityCode[] = ['GJV', 'GSS', 'GMO'];
+const UTILIZATION_KEY = 'utilization';
+const YM_RANGE_RE = /^\d{4}-\d{2}$/;
+function assertYmRange(range: { from: string; to: string }): void {
+  if (!YM_RANGE_RE.test(range.from) || !YM_RANGE_RE.test(range.to) || range.from > range.to) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'from / to は YYYY-MM で from ≦ to');
+  }
+}
 
 // 隔週キープ資料 (報告資料) の基礎データ service。
 // UI (案件管理アプリの報告資料ページ) と MCP ツール (eventreports/budget/minutes.tools) の
@@ -234,20 +248,49 @@ export const keepReportService = {
     };
   },
 
+  /** 期間内の全会社の予算（YYYY-MM の範囲・両端を含む）。「お金のルール」の入力表と隔週キープの推移用 */
+  async listBudgets(range: { from: string; to: string }) {
+    assertYmRange(range);
+    const rows = await queryAll(
+      'SELECT * FROM monthly_budgets WHERE year_month >= ? AND year_month <= ? ORDER BY year_month, entity_code',
+      [range.from, range.to],
+    ) as Record<string, unknown>[];
+    return rows.map((r) => ({
+      year_month: String(r.year_month),
+      entity_code: r.entity_code as LegalEntityCode,
+      revenue: num(r.revenue),
+      cogs_fixed: num(r.cogs_fixed),
+      cogs_variable: num(r.cogs_variable),
+      sga: num(r.sga),
+      operating_profit: num(r.operating_profit),
+      updated_at: r.updated_at,
+    }));
+  },
+
+  /**
+   * 渡したフィールドだけ更新する。**`undefined` は「渡さなかった＝今の値を保つ」、明示の `null` は
+   * 「消す」**（`upsertOverride`・`saveMoneyRules` と同じ契約）。`??` で畳むと null が「保つ」に化け、
+   * 「お金のルール」で目標の升を空にしても消えない（実測して直した）。MCP は省略を undefined で渡す。
+   */
   async upsertBudget(
     ym: string,
-    fields: { revenue?: number; cogs_fixed?: number; cogs_variable?: number; sga?: number; operating_profit?: number },
+    fields: {
+      revenue?: number | null; cogs_fixed?: number | null; cogs_variable?: number | null;
+      sga?: number | null; operating_profit?: number | null;
+    },
     entityCode: LegalEntityCode = CURRENT_ENTITY_CODE,
   ) {
     const existing = await this.getBudget(ym, entityCode);
+    const pick = (next: number | null | undefined, current: number | null | undefined): number | null =>
+      (next !== undefined ? next : current ?? null);
     const merged = {
-      revenue: fields.revenue ?? existing?.revenue ?? null,
-      cogs_fixed: fields.cogs_fixed ?? existing?.cogs_fixed ?? null,
-      cogs_variable: fields.cogs_variable ?? existing?.cogs_variable ?? null,
-      sga: fields.sga ?? existing?.sga ?? null,
-      operating_profit: fields.operating_profit ?? existing?.operating_profit ?? null,
+      revenue: pick(fields.revenue, existing?.revenue),
+      cogs_fixed: pick(fields.cogs_fixed, existing?.cogs_fixed),
+      cogs_variable: pick(fields.cogs_variable, existing?.cogs_variable),
+      sga: pick(fields.sga, existing?.sga),
+      operating_profit: pick(fields.operating_profit, existing?.operating_profit),
     };
-    // 営業利益: 明示指定が無く構成要素が揃っていれば自動計算
+    // 営業利益: 明示指定が無く構成要素が揃っていれば自動計算（明示の null は「消す」なので計算しない）
     if (fields.operating_profit === undefined
         && merged.revenue != null && merged.cogs_fixed != null && merged.cogs_variable != null && merged.sga != null) {
       merged.operating_profit = merged.revenue - merged.cogs_fixed - merged.cogs_variable - merged.sga;
@@ -278,6 +321,23 @@ export const keepReportService = {
     };
   },
 
+  /** 期間内の全会社の補正値（YYYY-MM の範囲・両端を含む） */
+  async listOverrides(range: { from: string; to: string }) {
+    assertYmRange(range);
+    const rows = await queryAll(
+      'SELECT * FROM monthly_actual_overrides WHERE year_month >= ? AND year_month <= ? ORDER BY year_month, entity_code',
+      [range.from, range.to],
+    ) as Record<string, unknown>[];
+    return rows.map((r) => ({
+      year_month: String(r.year_month),
+      entity_code: r.entity_code as LegalEntityCode,
+      cogs_fixed_actual: num(r.cogs_fixed_actual),
+      sga_actual: num(r.sga_actual),
+      note: (r.note as string | null) ?? null,
+      updated_at: r.updated_at,
+    }));
+  },
+
   async upsertOverride(
     ym: string,
     fields: { cogs_fixed_actual?: number | null; sga_actual?: number | null; note?: string | null },
@@ -302,31 +362,66 @@ export const keepReportService = {
 
   /**
    * 損益ページの単一入口: 予算 / 補正込み実績 / 対目標差・比・判定。
-   * 判定 (要件書 §2.5): 売上・利益系 実績≧目標→○ / 費用系 実績≦目標→○ / 目標未登録→"-"
+   *
+   * `scope` は会社1つ（既定は今の会社 = GSS。既存の呼び出し・MCP はそのまま）か `'all'`（隔週キープの
+   * 「全体（統合）」）。`'all'` の予算は**3社の合計**（1つも無ければ null・按分しない）、実績は会社ごとに
+   * 「補正があればそれ、無ければ集計」を足す（片方の会社だけ経理確定した月に、もう片方の集計値が
+   * 落ちないように）。
+   * 判定 (要件書 §2.5): 売上・利益系 実績≧目標→○ / 費用系 実績≦目標→○ / 目標未登録→"-"。
+   * 対目標比は `keep-report-rules.ts` の `varianceOf`（目標が赤字の行は 9/4 の資料の式）。
    */
-  async getMonthlyPl(ym: string, entityCode: LegalEntityCode = CURRENT_ENTITY_CODE) {
-    const [budget, override, summary] = await Promise.all([
-      this.getBudget(ym, entityCode),
-      this.getOverride(ym, entityCode),
-      getMonthlySummary({ month: ym, entityCode }),
+  async getMonthlyPl(ym: string, scope: LegalEntityCode | 'all' = CURRENT_ENTITY_CODE) {
+    const entityCode: LegalEntityCode | null = scope === 'all' ? null : scope;
+    const [allBudgets, allOverrides] = await Promise.all([
+      this.listBudgets({ from: ym, to: ym }),
+      this.listOverrides({ from: ym, to: ym }),
     ]);
-    const revenue = Number(summary.revenue_total);
-    const cogsVariable = Number(summary.variable_cost_total);
-    const cogsFixed = override?.cogs_fixed_actual ?? Number(summary.fixed_cost_total);
-    const sga = override?.sga_actual ?? Number(summary.sga_total);
+    const budgets = entityCode ? allBudgets.filter((b) => b.entity_code === entityCode) : allBudgets;
+    const overrides = entityCode ? allOverrides.filter((o) => o.entity_code === entityCode) : allOverrides;
+
+    let revenue = 0;
+    let cogsVariable = 0;
+    let cogsFixed = 0;
+    let sga = 0;
+    if (entityCode) {
+      const summary = await getMonthlySummary({ month: ym, entityCode });
+      const ov = overrides[0] ?? null;
+      revenue = Number(summary.revenue_total);
+      cogsVariable = Number(summary.variable_cost_total);
+      cogsFixed = ov?.cogs_fixed_actual ?? Number(summary.fixed_cost_total);
+      sga = ov?.sga_actual ?? Number(summary.sga_total);
+    } else if (overrides.length === 0) {
+      // 補正が1つも無ければ全社集計そのまま（クエリ4本）
+      const summary = await getMonthlySummary({ month: ym });
+      revenue = Number(summary.revenue_total);
+      cogsVariable = Number(summary.variable_cost_total);
+      cogsFixed = Number(summary.fixed_cost_total);
+      sga = Number(summary.sga_total);
+    } else {
+      const summaries = await Promise.all(ENTITY_CODES.map((code) => getMonthlySummary({ month: ym, entityCode: code })));
+      ENTITY_CODES.forEach((code, i) => {
+        const sm = summaries[i];
+        const ov = overrides.find((o) => o.entity_code === code) ?? null;
+        revenue += Number(sm.revenue_total);
+        cogsVariable += Number(sm.variable_cost_total);
+        cogsFixed += ov?.cogs_fixed_actual ?? Number(sm.fixed_cost_total);
+        sga += ov?.sga_actual ?? Number(sm.sga_total);
+      });
+    }
+
+    const budgetFields = sumBudgetFields(budgets);
+    const latest = budgets.map((b) => b.updated_at).filter((v): v is NonNullable<typeof v> => v != null).sort().at(-1) ?? null;
+    const budget = budgetFields ? { year_month: ym, entity_code: scope, ...budgetFields, updated_at: latest } : null;
     const marginalProfit = revenue - cogsVariable;
     const grossProfit = marginalProfit - cogsFixed;
     const operatingProfit = grossProfit - sga;
-    const varianceOf = (actual: number, b: number | null, kind: 'higher_better' | 'lower_better') => {
-      if (b == null) return { actual, budget: null, diff: null, ratio: null, judge: '-' };
-      const diff = actual - b;
-      const ratio = b !== 0 ? Math.round((actual / b) * 1000) / 10 : null;
-      const judge = kind === 'higher_better' ? (actual >= b ? '○' : '✕') : (actual <= b ? '○' : '✕');
-      return { actual, budget: b, diff, ratio, judge };
-    };
+    const notes = overrides.filter((o) => o.note);
+    const overrideNote = notes.length === 0 ? null
+      : notes.length === 1 && entityCode ? notes[0].note
+      : notes.map((o) => `${o.entity_code}: ${o.note}`).join(' ／ ');
     return {
       year_month: ym,
-      entity_code: entityCode,
+      entity_code: scope,
       budget,
       actual: {
         revenue,
@@ -344,10 +439,44 @@ export const keepReportService = {
         sga: varianceOf(sga, budget?.sga ?? null, 'lower_better'),
         operating_profit: varianceOf(operatingProfit, budget?.operating_profit ?? null, 'higher_better'),
       },
-      has_override: !!override,
-      override_note: (override?.note as string | null) ?? null,
-      override,
+      has_override: overrides.length > 0,
+      override_note: overrideNote,
+      /** 会社を指定したときのその会社の補正（'all' は null。内訳は overrides） */
+      override: entityCode ? (overrides[0] ?? null) : null,
+      /** この月に効いた補正の行（0〜3件） */
+      overrides,
     };
+  },
+
+  // ============================================================
+  // 稼働率の数え方 (keep_settings.key = 'utilization'・keep-report.md §5.4)
+  // ============================================================
+
+  /** 無ければ既定（メンテナンス以外を全部数える・土曜は営業日にしない）。壊れた値は整えて返す */
+  async getUtilizationSettings(): Promise<UtilizationSettings & { updated_at: unknown; updated_by: string | null }> {
+    const r = await queryOne(
+      'SELECT value, updated_at, updated_by FROM keep_settings WHERE key = ?', [UTILIZATION_KEY],
+    ) as Record<string, unknown> | null;
+    return {
+      ...normalizeUtilizationSettings(r?.value),
+      updated_at: r?.updated_at ?? null,
+      updated_by: (r?.updated_by as string | null) ?? null,
+    };
+  },
+
+  /** 渡した鍵だけ更新。知らない種別・真偽値でない土曜の指定は 400 */
+  async setUtilizationSettings(patch: unknown, userId: string) {
+    const current = await this.getUtilizationSettings();
+    const merged = mergeUtilizationSettings(
+      { counted_types: current.counted_types, count_saturday: current.count_saturday }, patch,
+    );
+    if (!merged.ok) throw new AppError(400, 'VALIDATION_ERROR', merged.reason);
+    await execute(
+      `INSERT INTO keep_settings (key, value, updated_by) VALUES (?, ?::jsonb, ?)
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW(), updated_by = EXCLUDED.updated_by`,
+      [UTILIZATION_KEY, JSON.stringify(merged.value), userId],
+    );
+    return await this.getUtilizationSettings();
   },
 
   // ============================================================

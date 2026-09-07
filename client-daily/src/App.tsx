@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage';
 import HomePage from './pages/HomePage';
 import WeeklyListPage from './pages/WeeklyListPage';
 import WeeklyDetailPage from './pages/WeeklyDetailPage';
+import DeckPage from './pages/weekly/deck/DeckPage';
 import DailyNewsPage from './pages/DailyNewsPage';
 import InviewPage from './pages/InviewPage';
 import InviewDayPage from './pages/InviewDayPage';
@@ -45,7 +46,14 @@ export default function App() {
             <Route index element={<HomePage />} />
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/weekly" element={<WeeklyListPage />} />
-            <Route path="/weekly/:id" element={<WeeklyDetailPage />} />
+            <Route path="/weekly/:id" element={<WeeklyDetailPage tab="report" />} />
+            {/*
+              隔週キープ（docs/design/v4/keep-report.md §3）。左メニューは増やさず、週報のタブで切り替える。
+              「隔週キープの数字」はスマホでも読む（要約だけ）。「資料をつくる」は PC 専用
+              （`pcOnlyScreens.ts` の `DAILY_PC_ONLY` に理由つきで宣言）
+            */}
+            <Route path="/weekly/:id/keep" element={<WeeklyDetailPage tab="keep" />} />
+            <Route path="/weekly/:id/deck" element={<DeckPage />} />
             <Route path="/news" element={<DailyNewsPage />} />
             <Route path="/inview" element={<InviewPage />} />
             <Route path="/inview/:date" element={<InviewDayPage />} />

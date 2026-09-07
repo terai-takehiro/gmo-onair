@@ -34,11 +34,18 @@ export interface LedgerFilters {
    * （`server/.../project-integrity.ts`）。
    */
   issue: string;
+  /**
+   * 計上会社（`projects.entity_code`・`''` は絞らない／`GJV` `GSS` `GMO`）。
+   * 2026年10月の事業再編（`docs/reorg-2026-10-plan.md` §4.4）。値はサーバーが規則で導き、
+   * 人が変えるのは管理者だけの改番経由（`client/CLAUDE.md` の「計上会社」）。
+   * **サーバーで絞る**（`GET /projects?entity_code=`）— 画面で絞るとそのページの 100 件の中だけになる。
+   */
+  entityCode: string;
 }
 
 /** ⚠️ **既定は GLS-A**。この既定が下の `nextFiltersForIssue` の理由そのものです */
 export const EMPTY_FILTERS: LedgerFilters = {
-  search: '', stage: '', glsCategory: 'A', source: '', issue: '',
+  search: '', stage: '', glsCategory: 'A', source: '', issue: '', entityCode: '',
 };
 
 /**

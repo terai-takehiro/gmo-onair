@@ -7,9 +7,9 @@
 import type { PcOnlyEntry } from '@gmo-onair/shared/src/client-v4/pcOnly';
 
 /**
- * ⚠️ **いまは 0 件です**（247）。
+ * ⚠️ **「資料をつくる」の1件だけです**（隔週キープ・keep-report.md §3）。それまでは 0 件でした（247）。
  *
- * 唯一残っていた「入ってきた情報」を外しました。日常業務は**現場で開くアプリ**
+ * 247 で唯一残っていた「入ってきた情報」を外しました。日常業務は**現場で開くアプリ**
  * なのに、仕分けの机だけスマホから開けず、探す画面から押しても案内に着いて
  * 行き止まりになっていました（`SearchPage.tsx` にその但し書きが残っていたほど）。
  * 表の列を折り返すのではなく**スマホ専用の2行カード**（`inquiries/InquiryCards.tsx`）
@@ -18,7 +18,15 @@ import type { PcOnlyEntry } from '@gmo-onair/shared/src/client-v4/pcOnly';
  * 空でも**この表は消さないこと** — `scripts/check-mobile-declared.mjs` が
  * この2つの表と `App.tsx` のルートを突き合わせています。
  */
-export const DAILY_PC_ONLY: PcOnlyEntry[] = [];
+export const DAILY_PC_ONLY: PcOnlyEntry[] = [
+  {
+    path: '/weekly/:id/deck',
+    what: '資料をつくる（隔週キープ）',
+    why: 'スライドの升目に表・グラフ・写真を置いて並べ替える画面で、1ページが 1280×720 の比率です。この幅では升目が読めず、指では部品を狙って置けません。',
+    // 数字そのものはスマホでも読める（`/weekly/:id/keep` の要約）。行き先は週報の最新週
+    instead: { label: '隔週キープの数字を確かめる', to: '/weekly' },
+  },
+];
 
 /**
  * **スマホの左メニューから落とすルート**（`hidden: true` の分）。
@@ -35,6 +43,7 @@ export const DAILY_MOBILE_OK: string[] = [
   '/tasks',            // やること
   '/weekly',           // 週報（読む）
   '/weekly/:id',
+  '/weekly/:id/keep', // 隔週キープの数字 — スマホは要約だけ（4つの数字・未確定の注意・ヨミ表のカード）
   '/news',             // デイリーニュース（読む）
   '/inview',           // 内覧会（開催日を選ぶ）
   '/inview/:date',     // 当日の受付 — **現場でいちばん使う**

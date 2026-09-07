@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>資料 ▸ 案件ページ（提案中）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&family=BIZ+UDPGothic:wght@400;700&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+
+<style>
+  body { margin:0; background:#f7f8fa; color:#1a1d24; font-family:'LINE Seed JP','Noto Sans JP',-apple-system,'Hiragino Sans','BIZ UDPGothic','Meiryo',sans-serif; -webkit-font-smoothing:antialiased; font-feature-settings:'palt' 1,'kern' 1; }
+  a { color:#005bac; text-decoration:none; } a:hover { color:#0068b8; text-decoration:underline; }
+  .t-h1 { font-size:23px; line-height:1.3; font-weight:800; }
+  .t-h2 { font-size:19px; line-height:1.35; font-weight:800; }
+  .t-ct { font-size:14.5px; line-height:1.4; font-weight:800; }
+  .t-list { font-size:13.5px; line-height:1.5; font-weight:700; }
+  .t-body { font-size:13.5px; line-height:1.6; font-weight:400; }
+  .t-sub { font-size:12.5px; line-height:1.55; font-weight:400; }
+  .t-ssm { font-size:11.5px; line-height:1.6; font-weight:400; }
+  .t-th { font-size:11.5px; line-height:1.4; font-weight:700; color:#5d6470; }
+  .t-bdg { font-size:11px; line-height:1.4; font-weight:700; }
+  .t-note { font-size:12px; line-height:1.6; font-weight:400; }
+  .num { font-variant-numeric:tabular-nums; font-feature-settings:'palt' 0,'tnum' 1; }
+  button { font-family:inherit; }
+
+  .slide { width:1280px; height:720px; background:#fff; position:relative; overflow:hidden; box-sizing:border-box; font-family:'BIZ UDPGothic','Meiryo','Noto Sans JP',sans-serif; color:#111; }
+  .title { position:absolute; left:34px; top:18px; font-size:38px; font-weight:700; color:#0b62c8; letter-spacing:.01em; }
+  .talk { position:absolute; left:26px; right:26px; height:34px; border-radius:17px; display:flex; align-items:center; gap:14px; padding:0 18px; font-size:16px; font-weight:700; }
+  .foot-logo { position:absolute; left:26px; bottom:12px; font-size:19px; font-weight:800; letter-spacing:.02em; color:#1a1d24; }
+  .foot-tag { position:absolute; left:270px; bottom:14px; height:22px; display:inline-flex; align-items:center; padding:0 9px; background:#0b62c8; color:#fff; font-size:12px; }
+  .foot-conf { position:absolute; right:62px; bottom:14px; font-size:14px; color:#d1202a; }
+  .foot-no { position:absolute; right:22px; bottom:6px; font-size:26px; color:#8a8f98; font-weight:700; }
+  .src { position:absolute; display:inline-flex; align-items:center; gap:5px; height:20px; padding:0 7px; border-radius:5px; background:#6d28d9; color:#fff; font-family:'LINE Seed JP','Noto Sans JP',sans-serif; font-size:10.5px; font-weight:700; white-space:nowrap; box-shadow:0 2px 6px rgba(109,40,217,.3); }
+  .src.hand { background:#c2410e; }
+  table.gmo { border-collapse:collapse; font-size:20px; }
+  table.gmo td { border:1px solid #9fb3d6; padding:9px 16px; font-weight:700; }
+  table.gmo tr.head td { background:#2b5aa8; color:#fff; text-align:center; }
+</style>
+</helmet>
+<div class="slide">
+    <div class="title">①数値報告・営業進捗【報告｜3×3｜5分】</div>
+    <div style="position:absolute; right:22px; top:10px; text-align:center; color:#d1202a; font-weight:700"><div style="font-size:30px; line-height:1">B</div><div style="font-size:15px">正式申込待</div></div>
+    <div style="position:absolute; left:34px; right:34px; top:82px; height:38px; background:#1f4e9c; color:#fff; font-size:24px; font-weight:700; display:flex; align-items:center; justify-content:center">①　DoCLASSE／第20期 事業計画発表会　9/16(水)</div>
+    <div style="position:absolute; left:34px; top:134px; width:440px; height:240px; background:linear-gradient(135deg,#e3e7ec,#cfd5dc); display:flex; align-items:center; justify-content:center; flex-direction:column; gap:8px; color:#5d6470; font-family:'LINE Seed JP','Noto Sans JP',sans-serif; font-size:13px"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>案件の Box「08_写真」から選ぶ</div>
+    <ul style="position:absolute; left:500px; top:130px; margin:0; padding-left:30px; font-size:30px; font-weight:700; line-height:1.55"><li>GMOインターネットTOWER 18F<br>入居企業</li><li>社内向けイベント（来場180名予定）</li><li>ケータリング2社（鮨＋ピンチョス＋ドリンク）</li></ul>
+    <div style="position:absolute; left:34px; top:400px"><table class="gmo" style="font-size:17px; width:660px"><tr class="head"><td style="width:110px">時間</td><td>内容</td><td style="width:200px">メイン会場</td></tr><tr style=""><td class="num" style="padding:4px 12px">9:00-11:30</td><td style="padding:4px 12px; font-weight:400">リハーサル</td><td style="padding:4px 12px; font-weight:400"></td></tr><tr style=""><td class="num" style="padding:4px 12px">11:30-12:00</td><td style="padding:4px 12px; font-weight:400">受付入場</td><td style="padding:4px 12px; font-weight:400">27F LOUNGE STUDIO</td></tr><tr style=""><td class="num" style="padding:4px 12px">12:00-14:00</td><td style="padding:4px 12px; font-weight:400">事業説明</td><td style="padding:4px 12px; font-weight:400">26F WORLD STUDIO</td></tr><tr style="background:#fff200"><td class="num" style="padding:4px 12px">14:00-15:00</td><td style="padding:4px 12px; font-weight:400">会場転換・休憩</td><td style="padding:4px 12px; font-weight:400">全体</td></tr><tr style=""><td class="num" style="padding:4px 12px">15:00-16:00</td><td style="padding:4px 12px; font-weight:400">アワード</td><td style="padding:4px 12px; font-weight:400">26F WORLD STUDIO</td></tr><tr style=""><td class="num" style="padding:4px 12px">16:00-17:00</td><td style="padding:4px 12px; font-weight:400">ゲーム(ビンゴ大会)</td><td style="padding:4px 12px; font-weight:400">26F WORLD STUDIO</td></tr><tr style="background:#fff200"><td class="num" style="padding:4px 12px">17:00-18:00</td><td style="padding:4px 12px; font-weight:400">懇親会(乾杯)</td><td style="padding:4px 12px; font-weight:400">全体</td></tr></table></div>
+    <div style="position:absolute; left:730px; top:412px; font-size:22px; font-weight:700; line-height:1.5">ﾁｪｯｸ：9/03(木)13:00-15:00<br>リハ：9/15(火)14:00-18:00 予定<br>本番：9/16(水)15:00-16:30</div>
+    <div style="position:absolute; left:1000px; top:540px; font-size:22px; font-weight:700">経路：Web問合せ</div>
+    <div style="position:absolute; left:840px; top:580px"><table class="gmo" style="font-size:19px"><tr class="head"><td style="width:200px">売上</td><td style="width:200px">粗利</td></tr><tr><td class="num" style="text-align:right; padding:8px 14px">4,280,079円</td><td class="num" style="text-align:right; padding:4px 14px">2,204,915円<br><span style="font-size:14px">(51.5%)</span></td></tr></table></div>
+    <span class="src" style="left:34px; top:60px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>案件名・お客様・実施日 → 帯</span><span class="src" style="left:1080px; top:66px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>案件のステージ → 確度</span><span class="src hand" style="left:500px; top:104px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>概要（案件の目的欄・人が直せる）</span><span class="src hand" style="left:34px; top:376px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>進行表（Qシート or 手入力）</span><span class="src" style="left:730px; top:386px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>予定（カレンダーの本番・リハ）</span><span class="src" style="left:1000px; top:516px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>受付経路</span><span class="src" style="left:840px; top:556px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>確定売上・仕入 → 売上／粗利</span>
+    <div class="foot-logo">GMO INTERNET GROUP</div><div class="foot-tag">GMO流会議フォーマットVer.2.5（適用開始：2025/10/24）</div><div class="foot-conf">Strictly confidential for internal use only</div><div class="foot-no num">16</div>
+  </div>
+</x-dc>
+</body>
+</html>

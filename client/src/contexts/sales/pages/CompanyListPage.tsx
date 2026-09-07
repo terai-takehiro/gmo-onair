@@ -140,6 +140,7 @@ export default function CompanyListPage() {
       is_vendor: !!c.is_vendor,
       is_sga_payee: !!c.is_sga_payee,
       is_gmo_group: !!c.is_gmo_group,
+      samurai_group: !!c.samurai_group,
       vendor_type: c.vendor_type || "",
       invoice_registration_number: c.invoice_registration_number || "",
       notes: c.notes || "",

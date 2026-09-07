@@ -50,6 +50,8 @@ import { DiscountLimits } from './DiscountLimits';
 import { StageProbabilities } from './StageProbabilities';
 import { MoneyRulesEntityTabs } from './EntityTabs';
 import { RulesBody } from './RulesBody';
+import { MonthlyBudgets } from './MonthlyBudgets';
+import { UtilizationRule } from './UtilizationRule';
 import type { LegalEntity, LegalEntityCode } from '../reorg/types';
 import {
   DEFAULT_ENTITY_CODE,
@@ -58,7 +60,15 @@ import {
 
 export default function MoneyRulesPage() {
   const qc = useQueryClient();
-  const { currentUser, permissions } = useAuth();
+  const { currentUser, permissions, hasPermission } = useAuth();
+  /**
+   * 隔週キープの目標と数え方は**サーバーの縛りと同じ**にする（押せるのに 403 にしない）:
+   * 月次予算・経理の補正値は `sales: editor`（`PUT /keep/monthly-budget/:ym`）、
+   * 稼働率の数え方は `sales: manager`（`PUT /keep/utilization-settings`）。
+   * お金のルール本体（財務の管理者）とは別の縛りなので、別の変数で持つ
+   */
+  const canEditKeepBudgets = hasPermission('sales', 'editor');
+  const canManageUtilization = hasPermission('sales', 'manager');
   const [entityCode, setEntityCode] = useState<LegalEntityCode>(DEFAULT_ENTITY_CODE);
   const [draft, setDraft] = useState<MoneyRules | null>(null);
   // **日付と説明文を一緒に持つ。** 日付だけ下見にして説明文を保存済みの値から
@@ -220,18 +230,6 @@ export default function MoneyRulesPage() {
             <Delayed><SkeletonRows rows={4} /></Delayed>
           )}
 
-          {/* 値引きの上限は会社では分かれない（全社共通ポリシー）。
-              会社タブ（entityCode）とは無関係な limitsQ から描く */}
-          {limitsQ.isError ? (
-            <p className="rounded-card text-note border border-border bg-card px-4 py-3 text-muted-foreground">
-              値引きの上限を読み込めませんでした。
-            </p>
-          ) : limitsQ.data ? (
-            <DiscountLimits limits={limitsQ.data} canEdit={canEdit} />
-          ) : (
-            <Delayed><SkeletonRows rows={4} /></Delayed>
-          )}
-
           {stageQ.isError ? (
             <p className="rounded-card text-note border border-border bg-card px-4 py-3 text-muted-foreground">
               受注確度を読み込めませんでした。
@@ -239,6 +237,15 @@ export default function MoneyRulesPage() {
           ) : stageQ.data ? (
             <StageProbabilities rows={stageQ.data} canEdit={canEdit} />
           ) : null}
+
+          {/*
+            隔週キープ（業績報告）の材料。**目標はここでしか入れられない**
+            （v4 で `/sales/keep-report` を削除したあと入力画面が無くなっていた。
+            `docs/design/v4/keep-report.md` §8）。月次予算は会社タブの会社ぶん
+            （`entity_code`・migration 288）を出し、稼働率の数え方は全社共通
+          */}
+          <MonthlyBudgets entityCode={entityCode} canEdit={canEditKeepBudgets} />
+          <UtilizationRule canManage={canManageUtilization} />
         </div>
 
         {draft && q.data && (
@@ -260,6 +267,7 @@ export default function MoneyRulesPage() {
             {[
               { t: '見積の作成', d: '税率・端数・値引き上限がそのまま効きます', on: true },
               { t: '売上の登録', d: '締め日と支払サイトから期日が入ります', on: true },
+              { t: '隔週キープの数字', d: '月次予算が着地表・見込表の「目標」になります', on: true },
               { t: '取り込み（精算PDF）', d: '税抜への直しが同じ端数になります', on: true },
               { t: '入金の消し込み', d: '期日から遅れを判定します', on: true },
               { t: '請求書の下書き', d: '自動では作りません（手で出します）', on: false },

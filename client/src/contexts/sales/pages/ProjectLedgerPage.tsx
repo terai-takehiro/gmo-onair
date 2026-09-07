@@ -21,17 +21,15 @@
  * （サーバーの `PATCH /projects/bulk` がそう止めています）。権限が無い人にはチェックボックスごと出しません。
  */
 import { useState } from 'react';
-import { Columns3, Copy, Download, Eye, Loader2, Pencil, PencilLine } from 'lucide-react';
+import { Copy, Eye, Loader2, Pencil, PencilLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { ErrorPanel } from '@gmo-onair/shared/src/client/states/ErrorPanel';
 import { EmptyState } from '@gmo-onair/shared/src/client/states';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
 import { useAuth } from '@/contexts/platform/AuthContext';
-import { ProjectStageLabels, type ProjectStage } from '@/types';
 import { useLedgerState, PAGE_SIZE } from './projectLedger/useLedgerState';
+import { LedgerFilterBar } from './projectLedger/LedgerFilterBar';
 import { useColumnPrefs } from './projectLedger/useColumnPrefs';
 import { LedgerTable } from './projectLedger/LedgerTable';
 import { MobileLedgerCards } from './projectLedger/MobileLedgerCards';
@@ -45,10 +43,6 @@ import { useLedgerGrid } from './projectLedger/useLedgerGrid';
 import { PastePlanDialog } from './projectLedger/PastePlanDialog';
 import { useLedgerLookups } from './projectLedger/useLedgerLookups';
 import { LookupNotices } from './projectLedger/LookupNotices';
-
-const STAGE_OPTIONS: ProjectStage[] = [
-  'neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 'r_delivered', 's_completed', 'e_lost',
-];
 
 export default function ProjectLedgerPage() {
   const { hasPermission } = useAuth();
@@ -126,53 +120,8 @@ export default function ProjectLedgerPage() {
         onPick={s.pickIssue}
       />
 
-      {/* ── 絞り込み（1段目）──────────────────────────────── */}
-      <div className="rounded-card flex flex-wrap items-center gap-2.5 border border-border bg-card px-3.5 py-3">
-        <Input
-          className="h-10 w-[260px]"
-          value={s.filters.search}
-          onChange={(e) => s.setFilter('search', e.target.value)}
-          placeholder="案件名・GLS番号・お客様で検索"
-          aria-label="案件を検索"
-        />
-        <Select value={s.filters.stage || 'all'} onValueChange={(v) => s.setFilter('stage', v === 'all' ? '' : v)}>
-          <SelectTrigger className="h-10 w-[160px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">ステージ：すべて</SelectItem>
-            {STAGE_OPTIONS.map((st) => (
-              <SelectItem key={st} value={st}>{ProjectStageLabels[st]}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={s.filters.source === 'kessan' ? 'kessan' : (s.filters.glsCategory || 'all')} onValueChange={(v) => s.pickCategory(v as 'A' | 'B' | 'kessan' | 'all')}>
-          <SelectTrigger className="h-10 w-[200px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="A">GLS-A</SelectItem>
-            <SelectItem value="B">GLS-B</SelectItem>
-            <SelectItem value="kessan">旧GLS（決算取込）</SelectItem>
-            <SelectItem value="all">どちらも</SelectItem>
-          </SelectContent>
-        </Select>
-        <span className="flex-1" />
-        {/* **スマホでは出さない。** カードは既定表示9列の決め打ちで `prefs.shown` を見ないので、開いても効かない */}
-        {!isMobile && (
-          <Button variant="outline" onClick={() => setColsOpen(true)}>
-            <Columns3 className="mr-2 h-4 w-4" aria-hidden="true" />出す列（{prefs.shown.length}）
-          </Button>
-        )}
-        {/* **書き出すのは絞り込み全体**（並んでいる行だけだと101件目から黙って落ちる・`ledgerCsv.ts`）。
-            3つ目に渡すのはファイル名に入れる絞り込みで、**日本語ではなく鍵**（`csv.ts`） */}
-        <Button
-          variant="outline"
-          disabled={csv.busy || s.total === 0}
-          onClick={() => csv.download(s.params, prefs.shown, s.filters.issue || null)}
-        >
-          {csv.busy
-            ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-            : <Download className="mr-2 h-4 w-4" aria-hidden="true" />}
-          CSV で書き出す
-        </Button>
-      </div>
+      {/* ── 絞り込み（1段目）── 中身は `projectLedger/LedgerFilterBar.tsx`（検索・ステージ・分類・計上会社・出す列・CSV） */}
+      <LedgerFilterBar s={s} prefs={prefs} csv={csv} isMobile={isMobile} onOpenColumns={() => setColsOpen(true)} />
 
       {/* ── 件数と、選んだときの操作（2段目）────────────────── */}
       <div className="flex flex-wrap items-center gap-3">

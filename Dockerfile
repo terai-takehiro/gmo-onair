@@ -51,6 +51,9 @@ COPY client-awards/package.json client-awards/
 COPY client-daily/package.json client-daily/
 COPY server/package.json server/
 COPY shared/package.json shared/
+# 同梱した tarball の依存 (vendor/。pptxgenjs を image-size 抜きで固めたもの・vendor/README.md)。
+# server/package.json が file:../vendor/… を指すので、npm ci の前に無いと解決できずに落ちる。
+COPY vendor/ vendor/
 RUN node -e "const f=require('fs'),W=['package.json','client/package.json','client-equipment/package.json','client-techops/package.json','client-live/package.json','client-awards/package.json','client-daily/package.json','server/package.json','shared/package.json'],V='0.0.0-build';for(const p of W){const j=JSON.parse(f.readFileSync(p,'utf8'));j.version=V;f.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}const l=JSON.parse(f.readFileSync('package-lock.json','utf8'));l.version=V;for(const[k,v]of Object.entries(l.packages||{}))if(v&&v.version&&(k===''||W.includes(k+'/package.json')))v.version=V;f.writeFileSync('package-lock.json',JSON.stringify(l,null,2)+'\n')"
 
 # ── Stage: deps (依存インストール) ─────────────
@@ -155,6 +158,8 @@ RUN apk add --no-cache postgresql16-client
 # サーバーは自身の package.json の version を読まない (/health が version:"unknown" を
 # 返すのと一致) ため、正規化しても実害はない。
 COPY --from=manifests /app/server/package.json server/
+# file:../vendor/… の依存 (pptxgenjs の同梱版) をここでも解決できるように vendor/ を置く
+COPY --from=manifests /app/vendor/ vendor/
 RUN cd server && npm install --omit=dev
 
 # Server build output + migrations

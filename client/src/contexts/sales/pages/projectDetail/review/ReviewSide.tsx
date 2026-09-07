@@ -31,6 +31,7 @@ import { Wallet, ListChecks } from 'lucide-react';
 import api from '@/lib/api';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { cn } from '@gmo-onair/shared/src/client/utils';
+import { KeepPickCard } from './KeepPickCard';
 // **会社名は既存の `ENTITY_BADGE_LABEL` を再利用する**（新たに `/legal-entities` を
 // 読まない）。同じ定数が `OverviewTab.tsx`（この案件の「計上会社」欄）でも
 // 使われており、その docstring 自体が「案件詳細など枠の広い場所で使う」ことを
@@ -71,9 +72,12 @@ function entityLabel(code: string | null): string {
 }
 
 export function ReviewSide({
-  projectId, expectedAmount, quoted, sentVersion, summary, taskTotal, taskDone, taskLate, eventStart,
+  projectId, expectedAmount, quoted, sentVersion, summary, taskTotal, taskDone, taskLate, eventStart, keepPick, canEdit,
 }: {
   projectId: string;
+  /** 隔週キープの印（`KeepPickCard`）に渡すもの */
+  keepPick: boolean;
+  canEdit: boolean;
   expectedAmount: number | string | null;
   quoted: number | null;
   sentVersion: number | null;
@@ -170,6 +174,8 @@ export function ReviewSide({
           </div>
         )}
       </section>
+      {/* 3枚目: 隔週キープの資料に載せるか。お金・進み方（事実）のあとに置く（決めごと） */}
+      <KeepPickCard projectId={projectId} keepPick={keepPick} canEdit={canEdit} />
     </div>
   );
 }

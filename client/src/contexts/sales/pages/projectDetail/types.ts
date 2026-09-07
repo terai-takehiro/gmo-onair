@@ -18,6 +18,8 @@ export interface ProjectDetail {
   entity_code: LegalEntityCode | null;
   entity_source?: 'rule' | 'manual' | null;
   entity_note?: string | null;
+  /** 隔週キープの資料に案件ページとして載せる印（ヨミ表の「資料」チェックと同じ値） */
+  keep_pick?: boolean | null;
   project_type: string | null;
   /**
    * 案件分類の2段（migration 182）。**旧 `project_type` と併存**しており、

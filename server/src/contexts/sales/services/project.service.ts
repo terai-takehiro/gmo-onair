@@ -5,6 +5,7 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import { normalizeJaText } from '../../../shared/utils/text';
 import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 import { resolveEntity, generateProjectNumber, peekNextProjectNumber, recordFirstIssue } from './entity-resolution.service';
+import type { LegalEntityCode } from '../../platform/services/legal-entity.service';
 import { getOrgTransition } from '../../platform/services/org-transition.service';
 import {
   createProjectFolderTree,
@@ -237,6 +238,8 @@ export interface ProjectFilter {
    * **発番済かどうかは含まない**（それは `issued`）。
    */
   glsCategory?: 'A' | 'B';
+  /** 計上会社（GJV / GSS / GMO・`projects.entity_code`）。案件台帳の絞り込み。値の検査はルート側 */
+  entityCode?: LegalEntityCode;
   /** GLS 発番済みのものだけ（確定案件の一覧が使う） */
   issued?: boolean;
   /** 'kessan' = 決算インポートで取り込んだ案件 (notes が [kessan:...] で始まる) のみ */
@@ -907,6 +910,10 @@ export class ProjectService {
     }
     if (filter.issued) {
       where += ` AND p.gls_number IS NOT NULL`;
+    }
+    if (filter.entityCode) {
+      where += ` AND p.entity_code = ?`;
+      params.push(filter.entityCode);
     }
     // 開催月 (YYYY-MM): イベント期間 [event_start, event_end] が対象月に重なる案件
     // event_start/event_end は TEXT (YYYY-MM-DD) なので文字列比較でレンジ判定する
@@ -2699,6 +2706,21 @@ export class ProjectService {
    * 案件サマリー（売上/仕入/粗利）。数え方の実体は `getSummaries` 1本
    * （2か所に持つと台帳・詳細・キープ資料で同じ案件が違う金額になる）。
    */
+  /**
+   * 隔週キープの資料に載せる印（`PUT /projects/:id/keep-pick`）。
+   * ヨミ表の「資料」チェックとふりかえりタブの「隔週キープに載せる」が同じ値を書く。
+   * 消した案件には付けない（`deleted_at IS NULL` で絞り、当たらなければ 404）。
+   */
+  async setKeepPick(id: string, keepPick: boolean, userId: string) {
+    const row = await queryOne(
+      `UPDATE projects SET keep_pick = ?, updated_at = NOW(), updated_by = ?
+        WHERE id = ? AND deleted_at IS NULL RETURNING id, keep_pick`,
+      [keepPick, userId, id],
+    ) as { id: string; keep_pick: boolean } | null;
+    if (!row) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
+    return { id: row.id, keep_pick: row.keep_pick === true };
+  }
+
   async getSummary(id: string) {
     const project = await queryOne('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL', [id]);
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
@@ -2716,9 +2738,15 @@ export class ProjectService {
    * （設計どおり・GJV/GSS それぞれの取り分は `getSummaryByEntity` が別に出す）。
    * 除外しないと、社内売上と社内仕入が同額で両方に乗り、粗利の円グラフは
    * 変わらないが `total_revenue`/`total_purchase`（＝粗利率の分母）が水増しされる。
+   *
+   * `revenue_count` は**確定**（`status = 'confirmed'`）売上の行数（直接＋按分）。「実績があるか」は合計ではなくこれで見る —
+   * 合計 > 0 で見ると、値引き調整で合計が 0 や負になった実績が「無い」扱いになり見積に戻る（PR #607 レビュー）。
+   * 按分の**合計**は台帳（`TOTAL_REVENUE_SQL`）と同じく status を見ない（数え方を 2 つにしない）が、**行数だけは
+   * confirmed に絞る** — グループ請求は概算（`status = 'estimate'`）でも作れるので、その按分を「実績がある」と
+   * 数えると、案件ページ・実施報告が概算の按分額を実績として出す（PR #607 レビュー 6 回目）。
    */
-  async getSummaries(ids: string[]): Promise<Map<string, { total_revenue: number; total_purchase: number; gross_profit: number; gross_margin: number }>> {
-    const map = new Map<string, { total_revenue: number; total_purchase: number; gross_profit: number; gross_margin: number }>();
+  async getSummaries(ids: string[]): Promise<Map<string, { total_revenue: number; total_purchase: number; gross_profit: number; gross_margin: number; revenue_count: number }>> {
+    const map = new Map<string, { total_revenue: number; total_purchase: number; gross_profit: number; gross_margin: number; revenue_count: number }>();
     if (ids.length === 0) return map;
 
     // 直接売上（group_id なし）+ グループ按分された売上
@@ -2729,7 +2757,7 @@ export class ProjectService {
     // 概算（status='estimate'）を粗利に足さない（既知バグクラス「revenues を
     // status を見ずに読む」）。按分の側に status が無いのも TOTAL_REVENUE_SQL と同じ。
     const directRev = await queryAll(
-      `SELECT r.project_id, SUM(
+      `SELECT r.project_id, COUNT(*) as cnt, SUM(
          CASE WHEN ri.items_sum IS NOT NULL THEN ri.items_sum ELSE r.amount END
        ) as total
        FROM revenues r
@@ -2743,16 +2771,16 @@ export class ProjectService {
          AND NOT EXISTS (SELECT 1 FROM intercompany_links il WHERE il.revenue_id = r.id)
        GROUP BY r.project_id`,
       [ids]
-    ) as { project_id: string; total: unknown }[];
+    ) as { project_id: string; total: unknown; cnt: unknown }[];
     const allocatedRev = await queryAll(
-      `SELECT ra.project_id, SUM(ra.allocated_amount) as total
+      `SELECT ra.project_id, COUNT(*) FILTER (WHERE r.status = 'confirmed') as cnt, SUM(ra.allocated_amount) as total
        FROM revenue_allocations ra
        JOIN revenues r ON r.id = ra.revenue_id AND r.deleted_at IS NULL
        WHERE ra.project_id = ANY(?)
          AND NOT EXISTS (SELECT 1 FROM intercompany_links il WHERE il.revenue_id = r.id)
        GROUP BY ra.project_id`,
       [ids]
-    ) as { project_id: string; total: unknown }[];
+    ) as { project_id: string; total: unknown; cnt: unknown }[];
     // 直接仕入（group_id なし）+ グループ按分された金額
     const directPur = await queryAll(
       `SELECT pu.project_id, SUM(pu.amount) as total FROM purchases pu
@@ -2776,14 +2804,21 @@ export class ProjectService {
       for (const row of rows) m.set(row.project_id, (m.get(row.project_id) ?? 0) + (Number(row.total) || 0));
       return m;
     };
+    const countBy = (rows: { project_id: string; cnt: unknown }[]) => {
+      const m = new Map<string, number>();
+      for (const row of rows) m.set(row.project_id, (m.get(row.project_id) ?? 0) + (Number(row.cnt) || 0));
+      return m;
+    };
     const rev1 = sumBy(directRev); const rev2 = sumBy(allocatedRev);
+    const cnt1 = countBy(directRev); const cnt2 = countBy(allocatedRev);
     const pur1 = sumBy(directPur); const pur2 = sumBy(allocatedPur);
     for (const id of ids) {
       const totalRevenue = (rev1.get(id) ?? 0) + (rev2.get(id) ?? 0);
       const totalPurchase = (pur1.get(id) ?? 0) + (pur2.get(id) ?? 0);
       const grossProfit = totalRevenue - totalPurchase;
       const grossMargin = totalRevenue > 0 ? Math.round((grossProfit / totalRevenue) * 1000) / 10 : 0;
-      map.set(id, { total_revenue: totalRevenue, total_purchase: totalPurchase, gross_profit: grossProfit, gross_margin: grossMargin });
+      const revenueCount = (cnt1.get(id) ?? 0) + (cnt2.get(id) ?? 0);
+      map.set(id, { total_revenue: totalRevenue, total_purchase: totalPurchase, gross_profit: grossProfit, gross_margin: grossMargin, revenue_count: revenueCount });
     }
     return map;
   }

@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { freezeKeepPackForWeeklyReport } from './keep-pack-store.service';
 
 // 日常業務アプリ (dailyops) — 汎用レポート基盤の service 層。
 // API (reports.routes) と MCP (opsreports.tools) の両方から使う。
@@ -516,6 +517,17 @@ export const opsReportService = {
        WHERE id = ?`,
       [userId, id],
     );
+    /*
+     * 週報を確定した時点で、隔週キープの**定例報告パックを凍結**する
+     * （docs/design/v4/keep-report.md §5.5。「自動集計は投稿時点の数字」と同じ約束）。
+     * その週の会議日（無ければ次の開催日）ぶんを 全体／全区分 で凍結し、
+     * `payload.keep = { pack_id, meeting_date }` を**他の鍵（stats）を残したまま**足す。
+     * ⚠️ **凍結に失敗しても確定は成功させる**（中で握る。記録の失敗で業務を止めない）。
+     * 確定し直すたびに新しい版ができ、前の版は残る。
+     */
+    if (existing.kind === 'weekly_activity') {
+      await freezeKeepPackForWeeklyReport(id, String(existing.period_key), userId);
+    }
     return (await queryOne(`SELECT * FROM ops_reports WHERE id = ?`, [id]))!;
   },
 
