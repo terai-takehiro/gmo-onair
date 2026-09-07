@@ -25,6 +25,7 @@ import {
   addDays, addMonths, businessDaysInMonth, holidayPredicate, listMonthDays, utilizationRate, weekdayOf,
 } from './keep-pack-calc';
 import type { MonthlyTrendPoint, UtilizationCalendar } from './keep-pack.types';
+import { perProjectRowsSql } from './keep-pack-sql';
 
 /** 推移の始まり（資料の「売上高と稼働件数（2024/1〜）」） */
 export const TREND_FROM = '2024-01';
@@ -112,15 +113,15 @@ export async function buildTrend(meetingMonth: string, settings: UtilizationSett
   const to = `${meetingMonth}-31`;
   const [revRows, countRows, bookings] = await Promise.all([
     queryAll(
-      `SELECT substr(r.recognition_date, 1, 7) AS ym,
+      // グループ内／外部はお客様の区分（案件の customer_type）で切るので、按分（グループ請求）は
+      // allocation の額を各案件へ割ってから見る（perProjectRowsSql）。行の代表案件で切ると按分先が片方に寄る
+      `SELECT substr(x.recognition_date, 1, 7) AS ym,
               CASE WHEN p.customer_type = 'internal' THEN 'internal' ELSE 'external' END AS seg,
-              COALESCE(SUM(r.amount), 0)::bigint AS total
-         FROM revenues r
-         LEFT JOIN projects p ON p.id = r.project_id
-        WHERE r.deleted_at IS NULL AND r.status = 'confirmed'
-          AND r.recognition_date >= ? AND r.recognition_date <= ?
+              COALESCE(SUM(x.amount), 0)::bigint AS total
+         FROM (${perProjectRowsSql('revenues', "AND t.status = 'confirmed'")}) x
+         LEFT JOIN projects p ON p.id = x.project_id
         GROUP BY 1, 2`,
-      [from, to],
+      [from, to, from, to],
     ) as Promise<{ ym: string; seg: string; total: unknown }[]>,
     queryAll(
       `SELECT substr(p.event_start, 1, 7) AS ym,

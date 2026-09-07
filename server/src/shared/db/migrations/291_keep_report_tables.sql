@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS keep_decks (
   exported_at          TIMESTAMPTZ,
   exported_by          TEXT,
   exported_version     INTEGER,                                -- 出力した pptx を作った版（keep_deck_versions.version）。出力後に版が進んだら画面で分かるように
+  exported_pack_id     TEXT REFERENCES keep_report_packs(id),  -- 出力した pptx が読んだ凍結パック（凍結前の「いまの数字」で出したときは NULL）
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_by           TEXT

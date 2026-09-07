@@ -33,6 +33,7 @@ import { keepReportService } from '../../sales/services/keep-report.service';
 import { getStageProbabilityMap } from '../../sales/services/stage-probability.service';
 import { ESTIMATE_AMOUNT_LATERAL } from '../../sales/services/project.service';
 import { varianceOf } from '../../sales/services/keep-report-rules';
+import { perProjectRowsSql } from './keep-pack-sql';
 import {
   BUSINESS_ENTITIES, isBusinessEntity, type BudgetLine, type BusinessEntity, type EntityScope, type MonthlyPlTable, type PlByEntity,
 } from './keep-pack.types';
@@ -87,31 +88,6 @@ const emptyAdditions = (): Record<EntityScope, Addition> => ({
   GSS: { revenue: 0, cogs_variable: 0 },
   GMO: { revenue: 0, cogs_variable: 0 },
 });
-
-/**
- * 帳簿の行を**案件ごと**に割った形にする SQL（売上／仕入で同じ形）。
- *
- * グループ請求（`group_id`）の行は `project_id` が先頭の案件しか指さず、内訳は
- * `revenue_allocations` / `purchase_allocations` にある（migration 005/006・`monthly-summary.service.ts` と同じ読み方）。
- * 確度加味は**案件のステージ**で掛けるので、按分のある行は allocation の額を各案件へ、
- * 按分の無い行はそのまま。代表案件のステージを行全体に掛けると按分先の確度が無視される。
- * 列: entity_code（行の会社）, project_id, amount。占位子は (from, to, from, to) の順。
- */
-function perProjectRowsSql(table: 'revenues' | 'purchases', statusWhere: string): string {
-  const alloc = table === 'revenues' ? 'revenue_allocations' : 'purchase_allocations';
-  const fk = table === 'revenues' ? 'revenue_id' : 'purchase_id';
-  return `
-    SELECT t.entity_code, t.project_id, t.amount
-      FROM ${table} t
-     WHERE t.deleted_at IS NULL ${statusWhere}
-       AND t.recognition_date >= ? AND t.recognition_date <= ?
-       AND NOT EXISTS (SELECT 1 FROM ${alloc} a0 WHERE a0.${fk} = t.id)
-    UNION ALL
-    SELECT t.entity_code, a.project_id, a.allocated_amount
-      FROM ${table} t JOIN ${alloc} a ON a.${fk} = t.id
-     WHERE t.deleted_at IS NULL ${statusWhere}
-       AND t.recognition_date >= ? AND t.recognition_date <= ?`;
-}
 
 async function weightedAdditions(ym: string): Promise<Record<EntityScope, Addition>> {
   const [from, to] = monthRange(ym);

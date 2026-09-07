@@ -105,7 +105,7 @@ router.post('/keep/decks/:meeting/rebuild', ...canEdit, async (req, res) => {
  */
 router.post('/keep/decks/:meeting/export', ...canEdit, async (req, res) => {
   const meeting = String(req.params.meeting);
-  const { deck, pack, inputs: storedInputs } = await keepDeckService.getOrCreateDeck(meeting, req.user!.id);
+  const { deck, pack, pack_id: renderedPackId, inputs: storedInputs } = await keepDeckService.getOrCreateDeck(meeting, req.user!.id);
   const meetingTitle = typeof req.body?.meeting_title === 'string' ? req.body.meeting_title : null;
   // 手入力は保存済みのもの（keep_report_inputs）を土台に、body で渡された分を上書き
   const bodyInputs = req.body?.inputs && typeof req.body.inputs === 'object' ? (req.body.inputs as Record<string, unknown>) : {};
@@ -126,7 +126,8 @@ router.post('/keep/decks/:meeting/export', ...canEdit, async (req, res) => {
       if (!sub) reason = 'NO_SUBFOLDER';
       else {
         const item = await uploadToFolder(sub.id, filename, buffer);
-        await keepDeckService.markExported(meeting, item.id, req.user!.id, deck.version);
+        // 出力した版と、その版が読んだ凍結パック（deck.pack_id は作った時の値なので、凍結し直したあとはこちらが正）
+        await keepDeckService.markExported(meeting, item.id, req.user!.id, deck.version, renderedPackId);
         stored = true;
         res.setHeader('X-Box-File-Id', item.id);
         res.setHeader('X-Box-File-Url', item.url);

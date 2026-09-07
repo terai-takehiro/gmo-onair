@@ -9,7 +9,7 @@ import { Sheet } from '@gmo-onair/shared/src/client-v4/sheet';
 import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import type { KeepDeck, KeepReportPack, SlidePage } from '@gmo-onair/shared/src/keepReport/types';
-import { useDeck } from '@/lib/deckApi';
+import { useDeckReadOnly } from '@/lib/deckApi';
 import { KIND_CLASS, formatMeetingDate, pageKind, pageListTitle, shortMd } from './deckLabels';
 import { useDeckStore } from './deckState';
 import { ScaledSlide, SlideThumb, pageNumbers, useFitScale } from './SlideFrame';
@@ -63,7 +63,7 @@ export function CompareDialog({ open, onOpenChange }: { open: boolean; onOpenCha
   const pack = useDeckStore((s) => s.pack);
   const meeting = useDeckStore((s) => s.meeting);
   const previous = useDeckStore((s) => s.previousMeetingDate);
-  const prev = useDeck(previous, open);
+  const prev = useDeckReadOnly(previous, open);
   const [picked, setPicked] = useState<Picked | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const scale = useFitScale(ref, 8);
@@ -92,6 +92,11 @@ export function CompareDialog({ open, onOpenChange }: { open: boolean; onOpenCha
         />
       ) : prev.isError ? (
         <ErrorPanel title="前回の資料を読み込めませんでした" error={prev.error} onRetry={() => prev.refetch()} />
+      ) : prev.data === null ? (
+        <EmptyState
+          title={`前回（${shortMd(previous)}）の資料はまだ作られていません`}
+          description="前回の会議日に「資料をつくる」を開いた人がいないので、見比べる相手がありません（ここからは作りません）。"
+        />
       ) : !prev.data ? (
         <Delayed><SkeletonRows rows={6} /></Delayed>
       ) : (

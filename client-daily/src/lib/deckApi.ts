@@ -27,6 +27,8 @@ export interface DeckBundle {
   deck: KeepDeck;
   /** 数字が組めなかったときは null（構成だけ出す） */
   pack: KeepReportPack | null;
+  /** いま返した pack の id（凍結版のとき。「いまの数字」なら null） */
+  pack_id?: string | null;
   /** 週報の確定で凍結したパックを読んでいるか（true なら「数字を更新」は効かない） */
   pack_frozen: boolean;
   previous_meeting_date: string | null;
@@ -71,6 +73,8 @@ export interface DeckListItem {
   exported_at: string | null;
   /** 出力した pptx を作った版。`version` より小さければ出力後に直している */
   exported_version: number | null;
+  /** 出力した pptx が読んだ凍結パック（凍結前の数字で出したときは null） */
+  exported_pack_id: string | null;
   updated_at: string;
   updated_by: string | null;
 }
@@ -104,6 +108,29 @@ export function useDeckList(enabled = true) {
     enabled,
     queryFn: () => api.get('/dailyops/keep/decks').then((r) => unwrap<DeckListItem[]>(r.data)),
     staleTime: 60_000,
+  });
+}
+
+/**
+ * 会議日の構成を**読むだけ**（`?create=0`）。無ければ `null`。
+ * 「前回の資料と見比べる」が使う — 普通の `useDeck` は編集者が開くと無い会議日に版1を作ってしまい、
+ * 議事録から導いただけの前回の会議日にも構成が生まれて履歴が汚れる
+ */
+export function useDeckReadOnly(meeting: string | null, enabled = true) {
+  return useQuery({
+    queryKey: [...deckKeys.deck(meeting ?? ''), 'readonly'] as const,
+    enabled: enabled && !!meeting,
+    queryFn: async (): Promise<DeckBundle | null> => {
+      try {
+        const r = await api.get(`/dailyops/keep/decks/${meeting}`, { params: { create: 0 } });
+        return unwrap<DeckBundle>(r.data);
+      } catch (e) {
+        if ((e as { response?: { status?: number } }).response?.status === 404) return null;
+        throw e;
+      }
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 

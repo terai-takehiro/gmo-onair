@@ -36,7 +36,7 @@ function Satisfaction({ value, meeting, canEdit }: { value: number | null; meeti
 
   const submit = () => {
     const score = Number(draft);
-    if (draft === '' || !Number.isFinite(score) || score < 0 || score > 5) return;
+    if (draft === '' || !Number.isFinite(score) || score < 0 || score > 4) return; // 4.0 満点（Kairos3 のアンケート）
     save.mutate({ key: 'inview_satisfaction', value: { score } }, {
       onSuccess: () => { setEditing(false); notifySuccess('満足度を保存しました'); },
       onError: (e) => notifyApiError('満足度を保存できませんでした', e),
@@ -50,7 +50,7 @@ function Satisfaction({ value, meeting, canEdit }: { value: number | null; meeti
           type="number"
           step="0.1"
           min="0"
-          max="5"
+          max="4"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') setEditing(false); }}

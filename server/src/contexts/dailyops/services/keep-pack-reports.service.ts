@@ -28,6 +28,21 @@ const WON_STAGES = ['a_won', 'r_delivered', 's_completed'];
 /** 分類の表に出す行数の上限（資料は上位いくつか。全部出すと表が収まらない） */
 const MAX_CATEGORIES = 12;
 
+/**
+ * 会社分類の表は MAX_CATEGORIES 行まで。**はみ出た分は捨てずに「その他」に足す** —
+ * 落とすと表の合計が参加者の合計と合わなくなる（pptx の「合計」行はこの配列を足して出す）
+ */
+function foldCategories(rows: Array<{ category: string; groups: number; people: number }>): Array<{ category: string; groups: number; people: number }> {
+  if (rows.length <= MAX_CATEGORIES) return rows;
+  const head = rows.slice(0, MAX_CATEGORIES - 1);
+  const rest = rows.slice(MAX_CATEGORIES - 1);
+  return [...head, {
+    category: `その他（${rest.length}分類）`,
+    groups: rest.reduce((a, r) => a + r.groups, 0),
+    people: rest.reduce((a, r) => a + r.people, 0),
+  }];
+}
+
 /** 前回の会議日より後・今回の会議日以前に本番を終えた案件（ふりかえりの有無を問わない） */
 export async function listEventReportSources(opts: {
   previousMeetingDate: string | null; meetingDate: string; entity: EntityScope; segment: SegmentScope;
@@ -94,9 +109,8 @@ export async function buildInview(meetingDate: string, inputs: KeepInput[]): Pro
          FROM inview_registrations
         WHERE deleted_at IS NULL AND session_date = ?${checkedWhere}
         GROUP BY 1
-        ORDER BY people DESC, groups DESC, category
-        LIMIT ?`,
-      [latest.session_date, MAX_CATEGORIES],
+        ORDER BY people DESC, groups DESC, category`,
+      [latest.session_date],
     ) as Promise<{ category: string; groups: number; people: number }[]>,
     queryOne(
       `SELECT session_date, COUNT(*)::int AS applied_groups
@@ -115,7 +129,7 @@ export async function buildInview(meetingDate: string, inputs: KeepInput[]): Pro
     people: Number(useCheckedIn ? latest.checked_people : latest.applied_people),
     satisfaction: satisfactionOf(inputs),
     promoted_projects: Number(latest.promoted),
-    by_category: categories.map((c) => ({ category: c.category, groups: Number(c.groups), people: Number(c.people) })),
+    by_category: foldCategories(categories.map((c) => ({ category: c.category, groups: Number(c.groups), people: Number(c.people) }))),
     next_session: next ? { date: next.session_date, applied_groups: Number(next.applied_groups) } : null,
   };
 }

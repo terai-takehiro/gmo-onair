@@ -286,8 +286,8 @@ export interface KeepDeck {
   pack_id: string | null;              // 読んだパック（凍結版）。凍結前は null（いまの数字で組む）
   version: number;
   pages: SlidePage[];
-  /** 出力した pptx の置き場（Box）と、その pptx を作った版。出力していなければ null。`version` が今の版より小さければ出力後に直している */
-  exported: { box_file_id: string; exported_at: string; by: string; version: number | null } | null;
+  /** 出力した pptx の置き場（Box）と、その pptx を作った版・読んだ凍結パック（凍結前の数字なら null）。出力していなければ null。`version` が今の版より小さければ出力後に直している */
+  exported: { box_file_id: string; exported_at: string; by: string; version: number | null; pack_id: string | null } | null;
   updated_at: string;
   updated_by: string;
 }

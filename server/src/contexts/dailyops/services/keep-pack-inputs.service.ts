@@ -48,6 +48,19 @@ export async function getInputs(meetingDate: string): Promise<KeepInput[]> {
   return rows.map(toInput);
 }
 
+/** 満足度は Kairos3 のアンケートの 4.0 満点。資料・Slack・画面はすべて「／4.0」で出すので 4 を超える値は受けない */
+export const SATISFACTION_MAX = 4;
+
+/** key ごとの値の検査（画面の入力欄と同じ上限。API から直接入る値も同じ門を通す） */
+function assertInputShape(key: KeepInputKey, value: Record<string, unknown>): void {
+  if (key === 'inview_satisfaction') {
+    const score = value.score;
+    if (typeof score !== 'number' || !Number.isFinite(score) || score < 0 || score > SATISFACTION_MAX) {
+      throw new AppError(400, 'VALIDATION_ERROR', `inview_satisfaction.score は 0〜${SATISFACTION_MAX} の数（4.0 満点）で指定してください`);
+    }
+  }
+}
+
 /** 1つの key を丸ごと置き換える（部分更新はしない — 値の形は key ごとに違う） */
 export async function upsertInput(
   meetingDate: string, key: unknown, value: unknown, userId: string | null,
@@ -59,6 +72,7 @@ export async function upsertInput(
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new AppError(400, 'VALIDATION_ERROR', 'value はオブジェクト（例: {"score": 3.9}）で指定してください');
   }
+  assertInputShape(key, value as Record<string, unknown>);
   await execute(
     `INSERT INTO keep_report_inputs (meeting_date, key, value, updated_at, updated_by)
      VALUES (?, ?, ?::jsonb, NOW(), ?)

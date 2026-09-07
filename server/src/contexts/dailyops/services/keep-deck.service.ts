@@ -34,6 +34,8 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 export interface DeckEnvelope {
   deck: KeepDeck;
   pack: KeepReportPack | null;
+  /** いま返した `pack` の id（凍結版のとき。「いまの数字」なら null）。deck.pack_id は作った時の値で、凍結し直すとずれる */
+  pack_id: string | null;
   /** 読んだパックが凍結版か（false は「いまの数字」） */
   pack_frozen: boolean;
   /** 構成の写し元になった（なる）前回の会議日。無ければ null */
@@ -52,7 +54,7 @@ async function loadInputs(meetingDate: string): Promise<Record<string, unknown>>
 
 export interface DeckListItem {
   id: string; meeting_date: string; version: number; pack_id: string | null;
-  page_count: number; exported_box_file_id: string | null; exported_at: string | null; exported_version: number | null;
+  page_count: number; exported_box_file_id: string | null; exported_at: string | null; exported_version: number | null; exported_pack_id: string | null;
   updated_at: string; updated_by: string | null;
 }
 
@@ -75,6 +77,7 @@ function rowToDeck(row: Row): KeepDeck {
       ? {
         box_file_id: String(row.exported_box_file_id), exported_at: iso(row.exported_at), by: String(row.exported_by ?? ''),
         version: row.exported_version == null ? null : Number(row.exported_version),
+        pack_id: row.exported_pack_id == null ? null : String(row.exported_pack_id),
       }
       : null,
     updated_at: iso(row.updated_at),
@@ -143,7 +146,7 @@ async function previousMeetingDate(meetingDate: string): Promise<{ date: string;
 export const keepDeckService = {
   async listDecks(): Promise<DeckListItem[]> {
     const rows = await queryAll(
-      `SELECT id, meeting_date, version, pack_id, exported_box_file_id, exported_at, exported_version, updated_at, updated_by,
+      `SELECT id, meeting_date, version, pack_id, exported_box_file_id, exported_at, exported_version, exported_pack_id, updated_at, updated_by,
               COALESCE(jsonb_array_length(deck->'pages'), 0) AS page_count
          FROM keep_decks ORDER BY meeting_date DESC`,
     );
@@ -153,6 +156,7 @@ export const keepDeckService = {
       exported_box_file_id: r.exported_box_file_id == null ? null : String(r.exported_box_file_id),
       exported_at: r.exported_at == null ? null : iso(r.exported_at),
       exported_version: r.exported_version == null ? null : Number(r.exported_version),
+      exported_pack_id: r.exported_pack_id == null ? null : String(r.exported_pack_id),
       updated_at: iso(r.updated_at), updated_by: r.updated_by == null ? null : String(r.updated_by),
     }));
   },
@@ -165,8 +169,8 @@ export const keepDeckService = {
     assertMeetingDate(meetingDate);
     const existing = await findRow(meetingDate);
     if (!existing) return null;
-    const [{ pack, frozen }, prev, inputs] = await Promise.all([loadPackForMeeting(meetingDate), previousMeetingDate(meetingDate), loadInputs(meetingDate)]);
-    return { deck: rowToDeck(existing), pack, pack_frozen: frozen, previous_meeting_date: prev?.date ?? null, inputs };
+    const [{ pack, pack_id, frozen }, prev, inputs] = await Promise.all([loadPackForMeeting(meetingDate), previousMeetingDate(meetingDate), loadInputs(meetingDate)]);
+    return { deck: rowToDeck(existing), pack, pack_id, pack_frozen: frozen, previous_meeting_date: prev?.date ?? null, inputs };
   },
 
   /** 会議日の構成を読む。無ければ前回の構成（無ければ標準）から組んで版1（auto）として保存する */
@@ -176,7 +180,7 @@ export const keepDeckService = {
     const prev = await previousMeetingDate(meetingDate);
     const inputs = await loadInputs(meetingDate);
     const existing = await findRow(meetingDate);
-    if (existing) return { deck: rowToDeck(existing), pack, pack_frozen: frozen, previous_meeting_date: prev?.date ?? null, inputs };
+    if (existing) return { deck: rowToDeck(existing), pack, pack_id, pack_frozen: frozen, previous_meeting_date: prev?.date ?? null, inputs };
 
     const id = uuidv4();
     const now = new Date().toISOString();
@@ -201,9 +205,9 @@ export const keepDeckService = {
     if (!created) {
       const theirs = await findRow(meetingDate);
       if (!theirs) throw new AppError(409, 'CONFLICT', '同じ会議日の構成が同時に作られました。開き直してください');
-      return { deck: rowToDeck(theirs), pack, pack_frozen: frozen, previous_meeting_date: prev?.date ?? null, inputs };
+      return { deck: rowToDeck(theirs), pack, pack_id, pack_frozen: frozen, previous_meeting_date: prev?.date ?? null, inputs };
     }
-    return { deck, pack, pack_frozen: frozen, previous_meeting_date: prev?.date ?? null, inputs };
+    return { deck, pack, pack_id, pack_frozen: frozen, previous_meeting_date: prev?.date ?? null, inputs };
   },
 
   /**
@@ -260,7 +264,7 @@ export const keepDeckService = {
       await tx.execute('INSERT INTO keep_deck_versions (id, deck_id, version, deck, source, created_by) VALUES (?, ?, ?, ?::jsonb, ?, ?)',
         [uuidv4(), current.id, version, JSON.stringify(deck), 'auto', userId]);
     });
-    return { deck, pack, pack_frozen: frozen, previous_meeting_date: prev?.date ?? null, inputs };
+    return { deck, pack, pack_id, pack_frozen: frozen, previous_meeting_date: prev?.date ?? null, inputs };
   },
 
   /**
@@ -268,11 +272,12 @@ export const keepDeckService = {
    * 版を持たないと、出力のあとに自動保存で版が進んだとき「どの構成からこのファイルができたか」が追えなくなる
    * （`keep_deck_versions` にその版の全文があるので、版番号があれば戻れる）
    */
-  async markExported(meetingDate: string, boxFileId: string, userId: string, version: number): Promise<void> {
+  async markExported(meetingDate: string, boxFileId: string, userId: string, version: number, packId: string | null): Promise<void> {
     assertMeetingDate(meetingDate);
     await execute(
-      'UPDATE keep_decks SET exported_box_file_id = ?, exported_at = NOW(), exported_by = ?, exported_version = ? WHERE meeting_date = ?',
-      [boxFileId, userId, version, meetingDate],
+      `UPDATE keep_decks SET exported_box_file_id = ?, exported_at = NOW(), exported_by = ?, exported_version = ?, exported_pack_id = ?
+        WHERE meeting_date = ?`,
+      [boxFileId, userId, version, packId, meetingDate],
     );
   },
 
