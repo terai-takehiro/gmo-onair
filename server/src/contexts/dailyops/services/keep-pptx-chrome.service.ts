@@ -54,6 +54,48 @@ export function fmtMd(start: string | null | undefined, end?: string | null): st
   return end && end !== start ? `${md(start)}〜${md(end)}` : md(start);
 }
 
+// ── 表の升の高さを崩さない ────────────────────────────────────────
+/**
+ * 文字数から幅を見積もり（全角 1em・半角 0.65em。`keep-pptx.service.ts` の `fitPt` と同じ数え方）、
+ * `maxEm` を超えたら「…」で切る。**升の中身は1行に収まる長さに切って、行数を人が決めた設計どおりに保つ**
+ * ためのもの — PowerPoint の表は升の高さを「その升が実際に折り返した行数」から自動で決め直すので
+ * （XML の `<a:tr h="0">` はヒントに過ぎない）、長い自由文（案件名・お客様名・分類名など）を切らずに置くと
+ * 1升が2〜3行に膨らみ、表の下端がテンプレの箱をはみ出してフッターに重なる・スライドの外に出る
+ */
+export function truncateEm(text: string | null | undefined, maxEm: number): string {
+  if (!text) return '';
+  let w = 0;
+  const chars = [...text];
+  for (let i = 0; i < chars.length; i++) {
+    const cw = chars[i].codePointAt(0)! > 0x2e7f ? 1 : 0.65;
+    if (w + cw > maxEm) return `${chars.slice(0, i).join('')}…`;
+    w += cw;
+  }
+  return text;
+}
+
+/**
+ * 表の1列の中身が1行に収まる文字数の目安（em）。列の幅（in）× 列の比率 − セルの余白 を、
+ * フォントの大きさ（pt）で割る（全角1文字 ≈ フォントの大きさそのものの幅、という近似）。
+ */
+export function colMaxEm(boxW: number, weightFrac: number, sizePt: number, marginIn = 0.11): number {
+  const colWIn = Math.max(0, boxW * weightFrac - marginIn);
+  return (colWIn * 72) / sizePt;
+}
+
+/**
+ * 箱の高さに収まる行数の上限（見出し1行 ＋ 中身が `linesPerRow` 行の升 × N）。
+ * 行の高さは「フォントの大きさ×行数×1.2（行間の目安）＋ 升の上下余白」で見積もる。
+ * 表の行数を人が決めた定数（例: 16件まで）にせず箱の高さから逆算することで、
+ * テンプレの高さを直しても表の上限が自動で追随する（食い違って箱をはみ出さない）
+ */
+export function maxRowsForBox(boxH: number, sizePt: number, linesPerRow: number, headerLines = 1, marginIn = 0.06): number {
+  const lineIn = (sizePt * 1.2) / 72;
+  const headerH = headerLines * lineIn + marginIn;
+  const rowH = linesPerRow * lineIn + marginIn;
+  return Math.max(1, Math.floor((boxH - headerH) / rowH));
+}
+
 // ── 文字・表・枠 ───────────────────────────────────────────────
 export interface TextOpts {
   size?: number; bold?: boolean; color?: string; align?: 'left' | 'center' | 'right'; valign?: 'top' | 'middle' | 'bottom';
@@ -88,9 +130,11 @@ export function addPlaceholder(slide: PptxGenJS.Slide, box: Box, label: string):
 
 export interface Cell { text: string; bold?: boolean; color?: string; fill?: string; align?: 'left' | 'center' | 'right'; size?: number; colspan?: number }
 
-/** 表。`weights` は列幅の比。1行目を見出し（紺・白）にする */
+/** 表。`weights` は列幅の比。1行目を見出し（紺・白）にする。`rowH` は行ごとの高さ（配列なら行数ぶん・
+ * 足りない分は最後の値を使う）。**渡さないと PowerPoint が升の中身から高さを決め直す**ので、
+ * 行数が多い・自由文が長い表（ヨミ表など）は呼ぶ側が箱の高さから逆算して渡すこと（`maxRowsForBox`） */
 export function addTable(
-  slide: PptxGenJS.Slide, rows: Cell[][], box: Box, weights: number[], o: { size?: number; header?: boolean; rowH?: number } = {},
+  slide: PptxGenJS.Slide, rows: Cell[][], box: Box, weights: number[], o: { size?: number; header?: boolean; rowH?: number | number[] } = {},
 ): void {
   if (rows.length === 0) { addPlaceholder(slide, box, '表（空）'); return; }
   const sum = weights.reduce((a, b) => a + b, 0);
@@ -110,6 +154,103 @@ export function addTable(
     } as PptxGenJS.TableCell;
   }));
   slide.addTable(tableRows, { x: box.x, y: box.y, w: box.w, colW, ...(o.rowH ? { rowH: o.rowH } : {}), autoPage: false });
+}
+
+// ── 2026-09 刷新の共通パーツ（帯・総括カード・数字カード）─────────────
+// 罫線・色線で区切らず、面（塗り）とバッジだけで区切る方針（docs/design/v4/keep-report.md §6.3）。
+// 角丸は「縁取りだけの箱」に見えないごく小さい値（0.03in ≒ 2px 相当）に統一する。
+const CARD_RADIUS = 0.03;
+
+/** 案件ページ・実施報告の帯。1行（本文＋副文）＋右寄せの確度バッジ。長い文字列は自動で省略記号 */
+export function renderInfoBand(
+  slide: PptxGenJS.Slide, box: Box, o: { main: string; sub: string; pill?: string | null },
+): void {
+  const pillW = o.pill ? Math.min(1.5, box.w * 0.18) : 0;
+  const mainEm = colMaxEm(box.w - pillW, 0.6, 15, 0.3);
+  const subEm = colMaxEm(box.w - pillW, 0.4, 11, 0.3);
+  slide.addText([
+    { text: truncateEm(o.main, mainEm), options: { fontSize: 15, bold: true, color: 'FFFFFF' } },
+    { text: `　${truncateEm(o.sub, subEm)}`, options: { fontSize: 11, color: C.talkBlue } },
+  ], {
+    shape: 'roundRect' as PptxGenJS.SHAPE_NAME, rectRadius: CARD_RADIUS, x: box.x, y: box.y, w: box.w, h: box.h,
+    fill: { color: C.band }, line: { color: C.band, width: 0 }, fontFace: FONT,
+    valign: 'middle', align: 'left', margin: [0, 4, 0, 14], wrap: false, isTextBox: true,
+  });
+  if (o.pill) {
+    const p = { x: box.x + box.w - pillW - 0.15, y: box.y + box.h * 0.24, w: pillW, h: box.h * 0.52 };
+    slide.addText(o.pill, {
+      shape: 'roundRect' as PptxGenJS.SHAPE_NAME, rectRadius: p.h / 2, x: p.x, y: p.y, w: p.w, h: p.h,
+      fill: { color: 'FFFFFF', transparency: 82 }, line: { color: 'FFFFFF', width: 0.75 },
+      fontFace: FONT, fontSize: 10.5, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle', margin: 0, wrap: false, isTextBox: true,
+    });
+  }
+}
+
+/**
+ * 総括＋成果の箇条書き。1つの箱の中に「総括カード（上）」と「チェックリスト（下）」を重ねずに縦積みする。
+ * 総括が無ければチェックリストだけを箱いっぱいに使う
+ */
+export function renderHeadlineAndChecklist(slide: PptxGenJS.Slide, box: Box, o: { headline: string | null; items: string[]; color?: string }): void {
+  const gap = 0.12;
+  const headlineH = o.headline ? Math.min(1.35, box.h * 0.32) : 0;
+  if (o.headline) {
+    const hb = { x: box.x, y: box.y, w: box.w, h: headlineH };
+    slide.addShape('roundRect' as PptxGenJS.SHAPE_NAME, { x: hb.x, y: hb.y, w: hb.w, h: hb.h, rectRadius: CARD_RADIUS, fill: { color: C.positiveLight }, line: { color: C.positiveLight, width: 0 } });
+    const kickerW = 0.9; const kickerH = Math.min(0.32, hb.h * 0.32);
+    slide.addText('総括', {
+      shape: 'roundRect' as PptxGenJS.SHAPE_NAME, rectRadius: kickerH / 2, x: hb.x + 0.22, y: hb.y + 0.16, w: kickerW, h: kickerH,
+      fill: { color: C.band }, line: { color: C.band, width: 0 }, fontFace: FONT, fontSize: 10, bold: true, color: 'FFFFFF',
+      align: 'center', valign: 'middle', margin: 0, wrap: false, isTextBox: true,
+    });
+    // 総括は MCP/画面から最大120字まで入る自由文。この箱は1〜2行ぶんの高さしか無いため、
+    // 折り返しても入りきる行数から文字数の上限を逆算して切る（表の升のはみ出し対策と同じ考え方。上の truncateEm 参照）
+    const headlineBox = { x: hb.x + 0.22, y: hb.y + 0.16 + kickerH + 0.06, w: hb.w - 0.44, h: hb.h - 0.16 - kickerH - 0.16 };
+    const headlineSize = 15;
+    const headlineRows = maxRowsForBox(headlineBox.h, headlineSize, 1, 0, 0);
+    const headlineEm = colMaxEm(headlineBox.w, 1, headlineSize, 0.1) * headlineRows;
+    addText(slide, truncateEm(o.headline, headlineEm), headlineBox,
+      { size: headlineSize, bold: true, color: '0B2A4A', valign: 'top', margin: 0 });
+  }
+  if (o.items.length === 0) return;
+  const listTop = box.y + (o.headline ? headlineH + gap : 0);
+  const listBox = { x: box.x, y: listTop, w: box.w, h: box.y + box.h - listTop };
+  // 成果は MCP/画面から最大10件・1件200字まで入る。総括カードがある回はこの箱が縮む（約32%を総括が使う）ため、
+  // 件数・文字数が多いと箱の下端をはみ出して下のお金の行に重なる恐れがある。
+  // 「1件＝1行」を保つため、まず1行に収まる長さへ切ってから、収まる件数だけ出す
+  // （切っていないと、行数の見積もりが「実際に折り返した行数」とずれる — 表の升と同じ理由）
+  const listSize = 14;
+  const prefixEm = 2; // 「✓  」の見積もり（半角空白2つ分）
+  const itemEm = colMaxEm(listBox.w, 1, listSize, 0.1) - prefixEm;
+  const maxRows = maxRowsForBox(listBox.h, listSize, 1, 0);
+  // 切り詰めるときは「ほかN件」の行ぶんも1行として箱の高さに数える（切り詰めないなら丸ごと出せる）
+  const maxItems = o.items.length > maxRows ? Math.max(0, maxRows - 1) : maxRows;
+  const shownRaw = o.items.slice(0, maxItems);
+  const hiddenCount = o.items.length - shownRaw.length;
+  const runs: PptxGenJS.TextProps[] = shownRaw.map((t) => ({
+    text: `✓  ${truncateEm(t, itemEm)}`, options: { breakLine: true, fontSize: listSize, color: o.color ?? C.text, bold: false, paraSpaceAfter: 6 },
+  }));
+  if (hiddenCount > 0) {
+    runs.push({ text: `ほか ${hiddenCount} 件（省略）`, options: { breakLine: false, fontSize: listSize, color: C.muted, bold: false } });
+  } else if (runs.length > 0) {
+    runs[runs.length - 1].options = { ...runs[runs.length - 1].options, breakLine: false };
+  }
+  slide.addText(runs, { x: listBox.x, y: listBox.y, w: listBox.w, h: listBox.h, fontFace: FONT, valign: 'middle', margin: 4, wrap: false });
+}
+
+/** 数字カード（売上／粗利／粗利率など）。表ではなく、薄い塗りの帯の中に大きい数字＋小さいラベルを横に並べる */
+export function renderStatRow(slide: PptxGenJS.Slide, box: Box, stats: Array<{ label: string; value: string; accent?: boolean }>): void {
+  if (stats.length === 0) { addPlaceholder(slide, box, '数字'); return; }
+  slide.addShape('roundRect' as PptxGenJS.SHAPE_NAME, { x: box.x, y: box.y, w: box.w, h: box.h, rectRadius: CARD_RADIUS, fill: { color: 'F5F8FC' }, line: { color: 'E1E9F4', width: 0.75 } });
+  const colW = box.w / stats.length;
+  stats.forEach((s, i) => {
+    const cx = box.x + colW * i;
+    if (i > 0) slide.addShape('line' as PptxGenJS.SHAPE_NAME, { x: cx, y: box.y + box.h * 0.16, w: 0, h: box.h * 0.68, line: { color: 'E1E9F4', width: 0.75 } });
+    addText(slide, s.label, { x: cx + 0.18, y: box.y + box.h * 0.14, w: colW - 0.3, h: box.h * 0.3 }, { size: 10.5, color: C.muted, valign: 'bottom' });
+    // 金額（例「4,457,680円」）は列の幅（案件ページは3列で1列あたり1.2in程度）に収まらないことがある。
+    // 折り返すと升の下端をはみ出すので、1行のまま縮めて収める（総括カードの長文対策と同じ考え方）
+    addText(slide, s.value, { x: cx + 0.18, y: box.y + box.h * 0.42, w: colW - 0.3, h: box.h * 0.5 },
+      { size: 19, bold: true, color: s.accent ? C.positive : '0B2A4A', valign: 'top', shrink: true, wrap: false });
+  });
 }
 
 // ── フォーマットの絵 ────────────────────────────────────────────

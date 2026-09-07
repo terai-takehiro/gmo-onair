@@ -17,13 +17,15 @@
  */
 import type PptxGenJS from 'pptxgenjs';
 import type {
-  MonthlyPlTable, PlByEntity, PipelineRow, ProjectPageData, UtilizationCalendar, BusinessEntity,
+  MonthlyPlTable, PlByEntity, PipelineRow, ProjectPageData, UtilizationCalendar, BusinessEntity, InviewSummary,
 } from './keep-deck.types';
 import { BUSINESS_ENTITY_LABELS, BUSINESS_ENTITIES } from './keep-deck.types';
 import { FORMAT_COLORS, FORMAT_FONT } from './keep-templates';
 import { plCellKey, type PlCellColumn } from './keep-pack-diff';
 import {
-  addTable, addText, addBullets, addPlaceholder, fmtSen, fmtYen, fmtPct, fmtMd, type Box, type Cell, FONT, SLIDE_H,
+  addTable, addText, addPlaceholder, fmtSen, fmtYen, fmtPct, fmtMd, truncateEm, colMaxEm, maxRowsForBox,
+  renderInfoBand, renderHeadlineAndChecklist, renderStatRow,
+  type Box, type Cell, FONT, SLIDE_H,
 } from './keep-pptx-chrome.service';
 
 const C = FORMAT_COLORS;
@@ -120,33 +122,59 @@ export function plNotes(t: MonthlyPlTable | null): string[] {
 }
 
 // ── ①ヨミ表 ──────────────────────────────────────────────────
-const MAX_PIPELINE_ROWS = 16;
-/** `markChanges`（前回の資料があるとき）: 新規の案件は行ごと赤、動いた案件は案件名だけ赤 */
+/** 列の比率（`addTable` の weights と同じ並び。名前・お客様の列の折り返し幅の見積もりに使う） */
+const PIPELINE_WEIGHTS = [34, 9, 11, 12, 26, 8] as const;
+/**
+ * `markChanges`（前回の資料があるとき）: 新規の案件は行ごと赤、動いた案件は案件名だけ赤
+ *
+ * ⚠️ **案件名・お客様名は2行（案件名／お客様名・コード）に収まる長さへ切る。** PowerPoint の表は
+ * 升の高さを実際に折り返した行数から決め直す（`<a:tr h="0">` はヒントに過ぎない）ため、切らずに
+ * 置くと長い案件名（実データで30〜40字は普通にある）が3〜4行に折り返し、表の下端がテンプレの箱
+ * （`utilization_calendar` の上に来る `pipeline_table` の箱は下端がフッターの直前）をはみ出す。
+ * 件数の上限も**箱の高さから逆算**する（固定 16 件のままテンプレの高さだけ変えると食い違うため）
+ */
 export function renderPipeline(slide: PptxGenJS.Slide, rowsIn: PipelineRow[], box: Box, markChanges = false): void {
   const rows: Cell[][] = [[{ text: '案件／お客様' }, { text: '確度' }, { text: '実施日' }, { text: '見積金額' }, { text: '次のタスク' }, { text: '担当' }]];
-  const shown = rowsIn.slice(0, MAX_PIPELINE_ROWS);
-  const size = shown.length > 10 ? 9 : FORMAT_FONT.tableDense;
+  const size = rowsIn.length > 10 ? 9 : FORMAT_FONT.tableDense;
+  const maxRows = maxRowsForBox(box.h, size, 2);
+  const shown = rowsIn.slice(0, maxRows);
+  const nameEm = colMaxEm(box.w, PIPELINE_WEIGHTS[0] / 100, size);
+  const actionEm = colMaxEm(box.w, PIPELINE_WEIGHTS[4] / 100, size);
   shown.forEach((r) => {
     const mark = r.since_last === 'new' ? '【新規】' : r.since_last === 'updated' ? '【更新】' : '';
     const rowRed = markChanges && r.since_last === 'new' ? { color: C.negative } : {};
     const nameRed = markChanges && (r.since_last === 'new' || r.since_last === 'updated') ? { color: C.negative } : {};
+    const nameLine = truncateEm(`${mark}${r.name}`, nameEm);
+    const customerLine = truncateEm(`${r.customer_name}・${r.code}`, nameEm);
+    const actionText = `${r.next_action ?? '—'}${r.next_action_date ? `（${fmtMd(r.next_action_date)}）` : ''}`;
     rows.push([
-      { text: `${mark}${r.name}\n${r.customer_name}・${r.code}`, size, ...nameRed },
+      { text: `${nameLine}\n${customerLine}`, size, ...nameRed },
       { text: `${r.confidence}（${r.probability}%）`, align: 'center', size, bold: true, color: r.confidence === 'A' || r.confidence === 'B' ? C.positive : C.text, ...rowRed },
       { text: fmtMd(r.event_start, r.event_end), align: 'center', size, ...rowRed },
       { text: r.estimate_amount == null ? '—' : fmtYen(r.estimate_amount), align: 'right', size, ...rowRed },
-      { text: `${r.next_action ?? '—'}${r.next_action_date ? `（${fmtMd(r.next_action_date)}）` : ''}`, size, ...rowRed },
+      { text: truncateEm(actionText, actionEm), size, ...rowRed },
       { text: r.next_action_owner ?? '—', align: 'center', size, ...rowRed },
     ]);
   });
   if (rowsIn.length > shown.length) rows.push([{ text: `ほか ${rowsIn.length - shown.length} 件（案件一覧を参照）`, colspan: 6, color: C.muted, size }]);
-  addTable(slide, rows, box, [34, 9, 11, 12, 26, 8], { size });
+  // 見出し行は1行・案件の行は2行の比で箱の高さを配る（案件の行だけ2行ぶんの高さが要る）
+  const dataRows = rows.length - 1;
+  const rowH = dataRows === 0 ? undefined : (() => {
+    const headerH = Math.max(0.22, box.h / (dataRows * 2 + 1));
+    const dataH = Math.max(0.05, (box.h - headerH) / dataRows);
+    return [headerH, ...Array<number>(dataRows).fill(dataH)];
+  })();
+  addTable(slide, rows, box, [...PIPELINE_WEIGHTS], { size, rowH });
 }
 
 // ── 案件ページ・実施報告 ──────────────────────────────────────
-export function renderBand(slide: PptxGenJS.Slide, band: ProjectPageData['band'], box: Box): void {
-  addText(slide, `${band.customer_short} ／ ${band.event_name} ／ ${band.date_label}`, box,
-    { size: 18, bold: true, color: 'FFFFFF', fill: C.band, valign: 'middle', margin: 6, shrink: true });
+/** 帯（お客様／イベント名／日付＋確度）。2026-09 刷新: 罫線ではなく面（塗り）と確度バッジで見せる（`renderInfoBand`） */
+export function renderBand(slide: PptxGenJS.Slide, band: ProjectPageData['band'], box: Box, confidence?: { letter: string; label: string } | null): void {
+  renderInfoBand(slide, box, {
+    main: band.event_name,
+    sub: `${band.customer_short} ／ ${band.date_label}`,
+    pill: confidence ? `${confidence.letter}・${confidence.label}` : null,
+  });
 }
 
 export function renderConfidence(slide: PptxGenJS.Slide, c: { letter: string; label: string }, box: Box): void {
@@ -156,11 +184,16 @@ export function renderConfidence(slide: PptxGenJS.Slide, c: { letter: string; la
   ], { x: box.x, y: box.y, w: box.w, h: box.h, fontFace: FONT, align: 'center', valign: 'middle', margin: 0 });
 }
 
+const SCHEDULE_WEIGHTS = [15, 60, 25] as const;
 export function renderSchedule(slide: PptxGenJS.Slide, s: ProjectPageData['schedule'], box: Box): void {
   if (!s.length) { addPlaceholder(slide, box, '進行表（Qシートの香盤が無いので空）'); return; }
+  const size = 11;
+  const contentEm = colMaxEm(box.w, SCHEDULE_WEIGHTS[1] / 100, size);
+  const venueEm = colMaxEm(box.w, SCHEDULE_WEIGHTS[2] / 100, size);
+  const shown = s.slice(0, maxRowsForBox(box.h, size, 1));
   const rows: Cell[][] = [[{ text: '時間' }, { text: '内容' }, { text: '会場' }]];
-  for (const r of s.slice(0, 10)) rows.push([{ text: r.time, align: 'center' }, { text: r.content }, { text: r.venue }]);
-  addTable(slide, rows, box, [15, 60, 25], { size: 11 });
+  for (const r of shown) rows.push([{ text: r.time, align: 'center' }, { text: truncateEm(r.content, contentEm) }, { text: truncateEm(r.venue, venueEm) }]);
+  addTable(slide, rows, box, [...SCHEDULE_WEIGHTS], { size, rowH: box.h / rows.length });
 }
 
 export function renderKeyDates(slide: PptxGenJS.Slide, d: ProjectPageData['key_dates'], box: Box): void {
@@ -172,18 +205,21 @@ export function renderKeyDates(slide: PptxGenJS.Slide, d: ProjectPageData['key_d
   slide.addText(runs, { x: box.x, y: box.y, w: box.w, h: box.h, fontFace: FONT, valign: 'top', margin: 4 });
 }
 
+/** 売上／粗利／粗利率。2026-09 刷新: 2行の表ではなく数字カード（`renderStatRow`）で見せる */
 export function renderMoney(slide: PptxGenJS.Slide, m: { revenue: number | null; gross_profit: number | null; gross_margin: number | null }, box: Box): void {
-  const rows: Cell[][] = [
-    [{ text: '売上', bold: true, fill: 'EEF3FA' }, { text: fmtYen(m.revenue), align: 'right', bold: true }],
-    [{ text: '粗利', bold: true, fill: 'EEF3FA' }, { text: `${fmtYen(m.gross_profit)}${m.gross_margin != null ? `（${fmtPct(m.gross_margin)}）` : ''}`, align: 'right', bold: true }],
+  const stats: Array<{ label: string; value: string; accent?: boolean }> = [
+    { label: '売上', value: fmtYen(m.revenue) },
+    { label: '粗利', value: fmtYen(m.gross_profit) },
   ];
-  addTable(slide, rows, box, [30, 70], { size: 13, header: false });
+  if (m.gross_margin != null) stats.push({ label: '粗利率', value: fmtPct(m.gross_margin), accent: true });
+  renderStatRow(slide, box, stats);
 }
 
+/** 総括＋成果の箇条書き。2026-09 刷新: 総括を専用カードに分け、箇条書きはチェック印にする（`renderHeadlineAndChecklist`） */
 export function renderReportBullets(slide: PptxGenJS.Slide, r: ProjectPageData, box: Box): void {
-  const lines = [...(r.headline ? [`【総括】${r.headline}`] : []), ...r.highlights];
-  if (r.report_status === 'draft') lines.push('※ ふりかえりは下書き（未確定）');
-  addBullets(slide, lines, box, { size: 16, label: '成果の箇条書き（ふりかえり未記入）' });
+  const items = [...r.highlights, ...(r.report_status === 'draft' ? ['※ ふりかえりは下書き（未確定）'] : [])];
+  if (!r.headline && items.length === 0) { addPlaceholder(slide, box, '成果の箇条書き（ふりかえり未記入）'); return; }
+  renderHeadlineAndChecklist(slide, box, { headline: r.headline, items });
 }
 
 // ── 稼働カレンダー ───────────────────────────────────────────
@@ -237,26 +273,73 @@ export function renderCalendar(slide: PptxGenJS.Slide, cal: UtilizationCalendar,
 }
 
 // ── 内覧会・議事録・参加者 ─────────────────────────────────────
+/**
+ * 「凍結パック」（週報確定時にその回のパックをJSONのまま保存したもの。`docs/design/v4/keep-report.md`）は
+ * `category_count` を足す前（2026-09刷新より前）に凍ったものが読み直され続けるため、この項目が無いことがある。
+ * そのときは表示用に畳んだ `by_category` から復元する（末尾が「その他（N分類）」ならその数を足す）
+ */
+function inviewCategoryCount(s: InviewSummary): number {
+  if (typeof s.category_count === 'number') return s.category_count;
+  const rows = s.by_category;
+  const last = rows[rows.length - 1];
+  const m = last ? /^その他（(\d+)分類）$/.exec(last.category) : null;
+  return m ? rows.length - 1 + Number(m[1]) : rows.length;
+}
+
+/** 内覧会の帯（定期内覧会／開催日）＋来場組数・来場人数・分類数の数字カード。`inview.summary` 1本で組む */
+export function renderInviewSummary(slide: PptxGenJS.Slide, s: InviewSummary, box: Box): void {
+  const bandH = Math.min(box.h * 0.3, 1.1);
+  renderInfoBand(slide, { x: box.x, y: box.y, w: box.w, h: bandH }, {
+    main: '定期内覧会', sub: `${fmtMd(s.session_date)}開催`,
+    pill: s.next_session ? `次回 ${fmtMd(s.next_session.date)}` : null,
+  });
+  const gap = 0.14;
+  renderStatRow(slide, { x: box.x, y: box.y + bandH + gap, w: box.w, h: box.y + box.h - (box.y + bandH + gap) }, [
+    { label: '来場組数', value: `${s.groups}組` },
+    { label: '来場人数', value: `${s.people}名` },
+    { label: '分類数', value: `${inviewCategoryCount(s)}`, accent: true },
+  ]);
+}
+
+const CATEGORY_WEIGHTS = [60, 20, 20] as const;
+/** 分類名（内覧会の来場者名簿の会社名・肩書）は実データで50字を超えることがあり、切らずに置くと
+ * 1升が2〜3行に折り返して表の下端が箱をはみ出す（`renderPipeline` と同じ理由）。1行に収まる長さへ切る */
 export function renderCategoryTable(slide: PptxGenJS.Slide, rowsIn: Array<{ category: string; groups: number; people: number }>, box: Box): void {
+  const size = 11;
+  const nameEm = colMaxEm(box.w, CATEGORY_WEIGHTS[0] / 100, size);
   const rows: Cell[][] = [[{ text: '来場者の分類' }, { text: '組数' }, { text: '来場人数' }]];
-  for (const r of rowsIn) rows.push([{ text: r.category }, { text: String(r.groups), align: 'right' }, { text: String(r.people), align: 'right' }]);
+  for (const r of rowsIn) rows.push([{ text: truncateEm(r.category, nameEm) }, { text: String(r.groups), align: 'right' }, { text: String(r.people), align: 'right' }]);
   const g = rowsIn.reduce((s, r) => s + r.groups, 0); const p = rowsIn.reduce((s, r) => s + r.people, 0);
   rows.push([{ text: '合計', bold: true, fill: 'EEF3FA' }, { text: String(g), align: 'right', bold: true, fill: 'EEF3FA' }, { text: String(p), align: 'right', bold: true, fill: 'EEF3FA' }]);
-  addTable(slide, rows, box, [60, 20, 20], { size: 11 });
+  addTable(slide, rows, box, [...CATEGORY_WEIGHTS], { size, rowH: box.h / rows.length });
 }
 
 export function minutesLines(m: { decisions: string[]; topics: Array<{ area: string; text: string }> }): string[] {
   return [...m.decisions.map((d) => `【決定】${d}`), ...m.topics.map((t) => `【${t.area}】${t.text}`)];
 }
 
-/** 手入力（配列の配列／オブジェクトの配列）を表に。形が読めなければ文として出す */
+/**
+ * 手入力（配列の配列／オブジェクトの配列）を表に。形が読めなければ文として出す。
+ * **人の手入力は行数も1升の長さも決めごとが無い**ので、他の表と同じく箱の高さから
+ * 行数の上限を決め、升の中身は1行に収まる長さへ切る（切らないと長い自由文で升が膨らみ、
+ * 箱の下端をはみ出す）
+ */
 export function renderGenericTable(slide: PptxGenJS.Slide, v: unknown, box: Box, label: string): void {
   if (!Array.isArray(v) || v.length === 0) { addPlaceholder(slide, box, label); return; }
+  const hasHeader = !Array.isArray(v[0]);
   let rows: Cell[][];
   if (Array.isArray(v[0])) rows = (v as unknown[][]).map((r) => r.map((c) => ({ text: String(c ?? '') })));
   else if (v[0] && typeof v[0] === 'object') {
     const keys = Object.keys(v[0] as object);
     rows = [keys.map((k) => ({ text: k })), ...(v as Record<string, unknown>[]).map((r) => keys.map((k) => ({ text: String(r[k] ?? '') })))];
   } else rows = (v as unknown[]).map((c) => [{ text: String(c ?? '') }]);
-  addTable(slide, rows, box, rows[0].map(() => 1), { size: 12, header: !Array.isArray(v[0]) });
+  const size = 12;
+  const cols = rows[0].length;
+  const maxRows = maxRowsForBox(box.h, size, 1, hasHeader ? 1 : 0);
+  const headRows = hasHeader ? 1 : 0;
+  const shown = rows.length - headRows > maxRows ? [...rows.slice(0, headRows + maxRows)] : rows;
+  const cellEm = colMaxEm(box.w, 1 / cols, size);
+  const truncated = shown.map((r) => r.map((c) => ({ ...c, text: truncateEm(c.text, cellEm) })));
+  if (rows.length > shown.length) truncated.push([{ text: `ほか ${rows.length - shown.length} 行（省略）`, colspan: cols, color: C.muted, size }]);
+  addTable(slide, truncated, box, rows[0].map(() => 1), { size, header: hasHeader, rowH: box.h / truncated.length });
 }

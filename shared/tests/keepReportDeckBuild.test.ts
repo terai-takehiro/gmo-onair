@@ -32,7 +32,7 @@ describe('標準の構成（buildStandardPages）', () => {
   it('案件ページの相対パスは絶対パスに書き換わる', () => {
     const p = find(pages, 'project_page:prj-emb'); // 2件目
     expect(p.parts.map((x) => x.binding)).toEqual([
-      'project_pages[1].band', 'project_pages[1].confidence', 'project_pages[1].photos', 'project_pages[1].summary_lines',
+      'project_pages[1].band', 'project_pages[1].photos', 'project_pages[1].summary_lines',
       'project_pages[1].schedule', 'project_pages[1].key_dates', 'project_pages[1].intake_channel', 'project_pages[1].money',
     ]);
     expect(p.auto).toBe(true);
@@ -126,6 +126,81 @@ describe('前回の構成から組み直す（composeDeckPages）', () => {
     const once = composeDeckPages(reordered, pack);
     expect(composeDeckPages(once, pack)).toEqual(once);
   });
+
+  it('前回の版でテンプレの region の並び・数が変わっていても、id ではなく binding で部品を揃える（テンプレ改修の回帰）', () => {
+    // 2026-09 のデザイン刷新前（確度の枠が band の次の p1 にあった・現行の並びとは1つずれる）を模す。
+    // 昔の carryOver は id（`pageId:p<region index>`）だけで揃えていたため、このパックを開き直すと
+    // 「写真の選び方が総括カードに乗る」「総括の上書きが進行表に乗る」等、別の部品の中身が誤って引き継がれていた。
+    const page = find(clone(prev), 'project_page:prj-docl');
+    const [band, photos, summary, schedule, keyDates, intake, money] = page.parts;
+    const stalePrev = clone(prev);
+    const stalePage = find(stalePrev, 'project_page:prj-docl');
+    stalePage.parts = [
+      { ...band, id: `${page.id}:p0` },
+      { id: `${page.id}:p1`, type: 'text', binding: 'project_pages[0].confidence', x: 90, y: 1, w: 9, h: 9, text_override: null, options: { label: '確度' } },
+      { ...photos, id: `${page.id}:p2`, options: { ...photos.options, selected: ['old-photo'] } },
+      { ...summary, id: `${page.id}:p3`, text_override: '旧概要' },
+      { ...schedule, id: `${page.id}:p4` },
+      { ...keyDates, id: `${page.id}:p5` },
+      { ...intake, id: `${page.id}:p6` },
+      { ...money, id: `${page.id}:p7`, options: { ...money.options, noted: true } },
+    ];
+    const next = composeDeckPages(stalePrev, pack);
+    const np = find(next, 'project_page:prj-docl');
+    const byBinding = (b: string) => np.parts.find((x) => x.binding === `project_pages[0].${b}`);
+    expect(byBinding('photos')).toMatchObject({ type: 'photos', options: expect.objectContaining({ selected: ['old-photo'] }) });
+    expect(byBinding('summary_lines')).toMatchObject({ type: 'bullets', text_override: '旧概要' });
+    expect(byBinding('schedule')).toMatchObject({ type: 'table', text_override: null }); // 総括の上書きに巻き込まれていない
+    expect(byBinding('money')).toMatchObject({ type: 'table', options: expect.objectContaining({ noted: true }) });
+    // money はちょうど1つ（旧テンプレの p7 が別の余分な部品として二重に残っていない）
+    expect(np.parts.filter((x) => x.binding === 'project_pages[0].money').length).toBe(1);
+    // 廃止済みの確度の枠（テンプレの region から作られた id `…:p1`）は、対応先が無いのでそのまま捨てられる
+    // （id を残したまま「人が足した部品」として復活させると、テンプレの並びから新しく振られる部品と
+    // id が衝突する。下の id 一意性の検査が本体）
+    expect(np.parts.filter((x) => x.binding === 'project_pages[0].confidence').length).toBe(0);
+    expect(new Set(np.parts.map((x) => x.id)).size).toBe(np.parts.length); // id はちょうど1つずつ
+  });
+
+  it('手前の案件が消えて配列の位置がずれ、binding の絶対パスの番号が変わっても、同じ案件ページの部品は正しく対応する（Codex 指摘の追加ケース）', () => {
+    // prj-27h は今は project_pages[2]（3件目）。手前の prj-emb を消すと project_pages[1] になり、
+    // 中身は同じでも binding の絶対パスの文字列が変わる — 完全一致の binding 比較だけでは
+    // また id（region 順）にフォールバックしてしまい、テンプレ改修と重なると取り違えが起きる。
+    const page = find(clone(prev), 'project_page:prj-27h');
+    const [band, photos, summary, schedule, keyDates, intake, money] = page.parts;
+    const stalePrev = clone(prev);
+    const stalePage = find(stalePrev, 'project_page:prj-27h');
+    stalePage.parts = [
+      { ...band, id: `${page.id}:p0` },
+      { id: `${page.id}:p1`, type: 'text', binding: 'project_pages[2].confidence', x: 90, y: 1, w: 9, h: 9, text_override: null, options: { label: '確度' } },
+      { ...photos, id: `${page.id}:p2`, options: { ...photos.options, selected: ['old-photo-27h'] } },
+      { ...summary, id: `${page.id}:p3`, text_override: '旧概要27h' },
+      { ...schedule, id: `${page.id}:p4` },
+      { ...keyDates, id: `${page.id}:p5` },
+      { ...intake, id: `${page.id}:p6` },
+      { ...money, id: `${page.id}:p7`, options: { ...money.options, noted: true } },
+    ];
+    const smaller = clone(pack);
+    smaller.project_pages = smaller.project_pages.filter((p) => p.project_id !== 'prj-emb'); // prj-27h が 2 → 1 番目に詰まる
+    const next = composeDeckPages(stalePrev, smaller);
+    const np = find(next, 'project_page:prj-27h');
+    const byBinding = (b: string) => np.parts.find((x) => x.binding === `project_pages[1].${b}`); // 詰まった後の絶対パス
+    expect(byBinding('photos')).toMatchObject({ type: 'photos', options: expect.objectContaining({ selected: ['old-photo-27h'] }) });
+    expect(byBinding('summary_lines')).toMatchObject({ type: 'bullets', text_override: '旧概要27h' });
+    expect(byBinding('schedule')).toMatchObject({ type: 'table', text_override: null });
+    expect(byBinding('money')).toMatchObject({ type: 'table', options: expect.objectContaining({ noted: true }) });
+    expect(np.parts.filter((x) => x.binding === 'project_pages[1].money').length).toBe(1);
+    expect(np.parts.filter((x) => x.binding === 'project_pages[1].confidence').length).toBe(0); // 廃止済みの枠は捨てる
+    expect(new Set(np.parts.map((x) => x.id)).size).toBe(np.parts.length); // id はちょうど1つずつ
+  });
+
+  it('人が足した部品（id が region 由来の形をしていない）は、対応先が見つからなくてもそのまま残る', () => {
+    const stalePrev = clone(prev);
+    const page = find(stalePrev, 'project_page:prj-docl');
+    page.parts.push({ id: 'part_userAdded1', type: 'text', binding: null, x: 4, y: 90, w: 40, h: 6, text_override: '人が足したメモ' });
+    const next = composeDeckPages(stalePrev, pack);
+    const np = find(next, 'project_page:prj-docl');
+    expect(np.parts.find((x) => x.id === 'part_userAdded1')).toMatchObject({ text_override: '人が足したメモ' });
+  });
 });
 
 describe('binding の解決（resolveBinding）', () => {
@@ -136,18 +211,22 @@ describe('binding の解決（resolveBinding）', () => {
   it('パスと配列の添字', () => {
     expect(value('pl_table:landing:all', 2)).toBe(pack.landing.all);
     expect(value('pipeline_table:samurai', 1)).toBe(pack.pipeline.samurai);
-    expect(value('project_page:prj-docl', 3)).toEqual(pack.project_pages[0].summary_lines);
+    expect(value('project_page:prj-docl', 2)).toEqual(pack.project_pages[0].summary_lines);
     expect(value('utilization_calendar', 1)).toBe(pack.calendars[1]);
   });
 
   it('仮想の葉: money / confidence / trend.* / inview.summary', () => {
-    expect(value('project_page:prj-docl', 7)).toEqual({ revenue: 4_457_680, gross_profit: 1_890_000, gross_margin: 42.4 });
-    expect(value('project_page:prj-docl', 1)).toEqual({ letter: 'B', label: '正式申込待' });
+    // money は band から confidence の枠（2026-09 刷新で廃止）が抜けた分、添字が7→6にずれる
+    expect(value('project_page:prj-docl', 6)).toEqual({ revenue: 4_457_680, gross_profit: 1_890_000, gross_margin: 42.4 });
+    // confidence は帯の右のバッジに統合され単独の部品では無くなったが、仮想の葉そのもの（`step()`）は生きている
+    const bandPart: SlidePart = { id: 'x', type: 'text', binding: 'project_pages[0].confidence', x: 0, y: 0, w: 1, h: 1, text_override: null };
+    expect(resolveBinding(pack, find(pages, 'project_page:prj-docl'), bandPart, ctx)).toMatchObject({ ok: true, value: { letter: 'B', label: '正式申込待' } });
     const rev = value('progress_charts', 0) as Array<{ year_month: string; internal: number; external: number; count: number }>;
     expect(rev[rev.length - 1]).toEqual({ year_month: '2026-08', internal: 1_289_293, external: 473_000, count: 2 });
     const util = value('progress_charts', 1) as Array<{ utilization: number | null }>;
     expect(util[util.length - 1].utilization).toBe(45);
-    expect(value('inview', 0)).toEqual(['開催日: 2026/8/26（水）', '参加: 50組 65名', '満足度: 3.9 / 4.0', 'ヨミ化: 2件', '次回: 2026/9/17（木）・申込 38組']);
+    // inview.summary は 2026-09 刷新で InviewSummary そのもの（帯＋数字カードで組む。文字列の並びはやめた）
+    expect(value('inview', 1)).toMatchObject({ session_date: '2026-08-26', groups: 50, people: 65, satisfaction: 3.9, promoted_projects: 2 });
   });
 
   it('資料の設定（$）と固定文', () => {
@@ -158,11 +237,11 @@ describe('binding の解決（resolveBinding）', () => {
     expect(value('pl_table:landing:all', 1)).toBe('単位：千円');
     expect(value('appendix', 0)).toBe('Appendix');
     const [p, x] = partOf('agenda', 0);
-    expect(resolveBinding(pack, p, x, { ...ctx, agenda: deckAgenda(pages) })).toMatchObject({ ok: true, value: ['①数値報告・営業進捗【報告｜3×3｜5分】', '②案件実施報告【報告｜3×3｜5分】', '③新規案件獲得【報告｜3×3｜2分】'] });
+    expect(resolveBinding(pack, p, x, { ...ctx, agenda: deckAgenda(pages) })).toMatchObject({ ok: true, value: ['①数値報告・営業進捗【報告｜3×3｜5分】', '②案件実施報告【報告｜3×3｜5分】', '③内覧会報告【報告｜3×3｜2分】'] });
   });
 
   it('無いものは投げずに ok:false（理由とラベル付き）', () => {
-    expect(value('inview', 2)).toEqual({ ok: false, reason: 'not_found', label: '写真' });          // inview.photos はパックに無い
+    expect(value('inview', 0)).toEqual({ ok: false, reason: 'not_found', label: '写真' });          // inview.photos はパックに無い
     expect(value('next_meeting', 0)).toEqual({ ok: false, reason: 'not_found', label: '今日決まった ToDo' });
     expect(value('checklist', 0)).toEqual({ ok: false, reason: 'no_binding', label: 'チェック項目' });
     const [p, x] = partOf('pl_table:landing:all', 2);

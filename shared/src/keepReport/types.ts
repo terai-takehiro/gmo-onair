@@ -155,6 +155,9 @@ export interface InviewSummary {
   /** ONAiR に無い数字。手入力（keep_report_inputs） */
   satisfaction: number | null;
   promoted_projects: number;    // 来場者から起票した案件の数
+  /** 折り込む前の実際の分類数。`by_category` は表示用に MAX_CATEGORIES 件まで畳んであるため、
+   * その `.length` を「分類数」として出すと畳んだ日から実数より少なく出る（Codex 指摘） */
+  category_count: number;
   by_category: Array<{ category: string; groups: number; people: number }>;
   next_session: { date: string; applied_groups: number } | null;
 }

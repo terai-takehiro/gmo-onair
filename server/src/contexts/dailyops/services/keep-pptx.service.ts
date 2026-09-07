@@ -18,7 +18,7 @@ import PptxGenJS from 'pptxgenjs';
 import {
   BUSINESS_ENTITIES,
   type KeepDeck, type KeepReportPack, type SlidePage, type SlidePart, type ProjectPageData, type MonthlyPlTable, type PlByEntity,
-  type UtilizationCalendar, type BusinessEntity,
+  type UtilizationCalendar, type BusinessEntity, type InviewSummary,
 } from './keep-deck.types';
 import { COVER_TEXT, FORMAT_COLORS, FORMAT_FONT, TAGLINE_BINDING } from './keep-templates';
 import { changedPlKeys, changedUtilization, changeNoteLabel, previousCalendar, previousPlTable } from './keep-pack-diff';
@@ -30,7 +30,7 @@ import { attachFormatSvgs } from './keep-pptx-svg.service';
 import {
   isPlTable, isPlByEntity, isPipelineRows, isCalendar, renderPlTable, renderPlByEntity, plNotes, renderPipeline,
   renderBand, renderConfidence, renderSchedule, renderKeyDates, renderMoney, renderReportBullets, renderCalendar,
-  renderCategoryTable, minutesLines, renderGenericTable,
+  renderCategoryTable, minutesLines, renderGenericTable, renderInviewSummary,
 } from './keep-pptx-parts.service';
 import { renderRevenueChart, renderUtilizationChart, fetchPhotos, renderPhotos, photosFromOverride } from './keep-pptx-charts.service';
 import { parseTsv } from './keep-tsv';
@@ -250,13 +250,25 @@ function renderPart(slide: PptxGenJS.Slide, page: SlidePage, part: SlidePart, c:
         const parent = resolveBinding(c.pack, page, { ...part, binding: part.binding.replace(/\.highlights$/, ''), text_override: null }, c.bind);
         if (parent.ok && isObj(parent.value) && Array.isArray(parent.value.highlights)) { renderReportBullets(slide, parent.value as unknown as ProjectPageData, box); return; }
       }
+      if (part.binding === 'inview.summary' && isObj(v) && typeof v.groups === 'number' && typeof v.people === 'number') { renderInviewSummary(slide, v as unknown as InviewSummary, box); return; }
       if (isStrings(v)) { addBullets(slide, v, box, { size: fontPt(part) ?? (page.template === 'agenda' ? 22 : 16), label }); return; }
       if (isObj(v) && Array.isArray(v.decisions)) { addBullets(slide, minutesLines(v as { decisions: string[]; topics: Array<{ area: string; text: string }> }), box, { size: fontPt(part) ?? 18, label }); return; }
       if (isObj(v) && Array.isArray(v.highlights)) { renderReportBullets(slide, v as unknown as ProjectPageData, box); return; }
       addPlaceholder(slide, box, label); return;
     }
     case 'text': case 'kpi': {
-      if (isObj(v) && 'event_name' in v) { renderBand(slide, v as ProjectPageData['band'], box); return; }
+      if (isObj(v) && 'event_name' in v) {
+        // 帯には確度バッジも出したいので、親（project_pages[i] / event_reports[i]）を読んで confidence を添える
+        let confidence: { letter: string; label: string } | null = null;
+        if (part.binding?.endsWith('.band')) {
+          const parent = resolveBinding(c.pack, page, { ...part, binding: part.binding.replace(/\.band$/, ''), text_override: null }, c.bind);
+          if (parent.ok && isObj(parent.value) && typeof parent.value.confidence === 'string') {
+            confidence = { letter: String(parent.value.confidence), label: String(parent.value.confidence_label ?? '') };
+          }
+        }
+        renderBand(slide, v as ProjectPageData['band'], box, confidence);
+        return;
+      }
       if (isObj(v) && 'letter' in v) { renderConfidence(slide, v as { letter: string; label: string }, box); return; }
       if (Array.isArray(v) && v.length && isObj(v[0]) && 'label' in v[0] && 'text' in v[0]) { renderKeyDates(slide, v as ProjectPageData['key_dates'], box); return; }
       const st = textStyle(page, part);

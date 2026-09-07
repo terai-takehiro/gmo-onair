@@ -226,9 +226,9 @@ export const SLIDE_TEMPLATES: Record<SlideTemplateKey, SlideTemplate> = {
     R('text', '提案進行外部案件 ヨミ表', 2, 12, 60, 6, true, '小見出し'),
     R('table', 'pipeline.external', 2, 19, 96, 74, false, 'ヨミ表'),
   ] },
+  // 2026-09 デザイン刷新: 確度は帯の右のバッジに統合したので、単独の確度の枠（右上）は廃止した
   project_page: { key: 'project_page', label: '案件ページ', header: 'title', defaultTitle: '①数値報告・営業進捗【報告｜3×3｜5分】', auto: true, regions: [
-    R('text', 'project.band', 2, 12, 96, 6, false, '帯（お客様／イベント名／日付）'),
-    R('text', 'project.confidence', 90, 1, 9, 9, false, '確度'),
+    R('text', 'project.band', 2, 12, 96, 6, false, '帯（お客様／イベント名／日付／確度）'),
     R('photos', 'project.photos', 2, 20, 36, 34, true, '写真'),
     R('bullets', 'project.summary_lines', 40, 19, 58, 34, true, '概要'),
     R('table', 'project.schedule', 2, 56, 52, 37, true, '進行表'),
@@ -240,16 +240,18 @@ export const SLIDE_TEMPLATES: Record<SlideTemplateKey, SlideTemplate> = {
     R('calendar', 'calendars[0]', 2, 13, 47, 80, false, '当月'),
     R('calendar', 'calendars[1]', 51, 13, 47, 80, false, '翌月'),
   ] },
+  // 2026-09 デザイン刷新（帯は1行＋確度バッジ・総括は専用カード・売上/粗利/粗利率は数字カード。
+  // 詳細は docs/design/v4/keep-report.md §6.3 の「2026-09 刷新」節）
   event_report: { key: 'event_report', label: '②案件実施報告', header: 'bands-report', defaultTitle: '②案件実施報告【報告｜3×3｜5分】', auto: true, regions: [
-    R('text', 'report.band', 2, 27, 96, 6, false, '帯（日付・案件名）'),
-    R('photos', 'report.photos', 2, 35, 30, 58, true, '写真'),
-    R('bullets', 'report.highlights', 34, 35, 62, 38, true, '成果の箇条書き'),
-    R('table', 'report.money', 64, 80, 34, 13, false, '売上／粗利'),
+    R('text', 'report.band', 2, 27, 96, 7, false, '帯（日付・案件名・確度）'),
+    R('photos', 'report.photos', 2, 36, 34, 57, true, '写真'),
+    R('bullets', 'report.highlights', 38, 36, 60, 38, true, '総括＋成果の箇条書き'),
+    R('table', 'report.money', 38, 75, 60, 18, false, '売上／粗利／粗利率'),
   ] },
-  inview: { key: 'inview', label: '③新規案件獲得（内覧会）', header: 'title', defaultTitle: '③新規案件獲得【報告｜3×3｜2分】', auto: true, regions: [
-    R('bullets', 'inview.summary', 2, 14, 62, 30, true, '開催日・参加・満足度・所感'),
-    R('table', 'inview.by_category', 12, 46, 46, 47, false, '来場者の分類'),
-    R('photos', 'inview.photos', 66, 14, 32, 79, true, '写真'),
+  inview: { key: 'inview', label: '③内覧会報告', header: 'title', defaultTitle: '③内覧会報告【報告｜3×3｜2分】', auto: true, regions: [
+    R('photos', 'inview.photos', 2, 12, 34, 81, true, '写真'),
+    R('bullets', 'inview.summary', 38, 12, 60, 30, true, '開催日・来場組数／人数・分類数'),
+    R('table', 'inview.by_category', 38, 44, 60, 49, false, '来場者の分類'),
   ] },
   free: { key: 'free', label: '自由（文と写真）', header: 'title', defaultTitle: '【報告｜2×2｜1分】', auto: false, regions: [
     R('text', null, 2, 14, 96, 79, true, '本文'),

@@ -107,15 +107,62 @@ function boxOf(pp: SlidePart, fp: SlidePart): Pick<SlidePart, 'x' | 'y' | 'w' | 
   return pp.options?.moved === true ? { x: pp.x, y: pp.y, w: pp.w, h: pp.h } : { x: fp.x, y: fp.y, w: fp.w, h: fp.h };
 }
 
-/** 自動ページを組み直したうえで、前の版の人の直しを乗せる */
+/**
+ * binding から「何番目の案件・実施報告か」の接頭辞（`project_pages[2].` 等）を外したもの。
+ * 案件ページ・実施報告ページの binding は `newPage` が案件の**配列内の位置**から絶対パスに
+ * 書き換える（`project.photos` → `project_pages[2].photos`）ため、前の回とくらべて手前の案件が
+ * 1件消えるだけで後続の全案件の binding 文字列が変わる（`project_pages[2]` → `project_pages[1]`）。
+ * ページ自体の id は案件IDで固定なので同じページと分かるのに、中の binding は完全一致しなくなる
+ * （Codex 指摘・fresh evidence）。**部品が何を映すか**を見るには接頭辞を外した形で比べればよい。
+ */
+function bindingKey(binding: string | null): string | null {
+  return binding ? binding.replace(/^(?:project_pages|event_reports)\[\d+\]\./, '') : null;
+}
+
+/**
+ * テンプレの region から機械的に作られた部品の id か（`<pageId>:p<region index>`。`partFromRegion` 参照）。
+ * 人が右の「このページ」から足した部品は `newId('part')`（`client-daily/.../deckState.ts`）で
+ * `part_xxxxxxxx` の形になり、この形にはならない。
+ */
+function isGeneratedPartId(pageId: string, id: string): boolean {
+  return new RegExp(`^${pageId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:p\\d+$`).test(id);
+}
+
+/**
+ * 前の版の部品を今回のどの部品に対応させるか。
+ * ⚠️ id（`pageId:p<region index>`）だけで揃えると、テンプレの regions の**並びや数を変えた回**に
+ * 別の部品の中身が引き継がれる — 2026-09 のデザイン刷新（確度の枠を廃止・内覧会の並び替え）で
+ * 実際に「写真の選び方が総括カードに乗る」「総括の上書きが進行表に乗る」「消したはずの確度の枠が
+ * 余分な部品として残る」が起きた（Codex 指摘）。**binding（何の値を映す部品か）は region の並びを
+ * 変えても同じ**なので、まず binding（案件の配列内の位置を外した形。上記 `bindingKey`）で揃え、
+ * binding が無い部品（自由記入など）だけ id で揃える。
+ */
 function carryOver(fresh: SlidePage, prev: SlidePage): SlidePage {
+  const used = new Set<SlidePart>();
+  const findPrev = (fp: SlidePart): SlidePart | undefined => {
+    // binding がある部品は binding だけで揃える。前の版に同じ binding が無ければ
+    // 「対応する部品は無い」が正しい答え — ここで id にフォールバックすると、たまたま同じ
+    // region 番号にいた別の binding の部品を拾ってしまう（Codex 指摘・fresh evidence）。
+    // id フォールバックは、そもそも binding で見分けようが無い部品（自由記入など）専用
+    if (fp.binding) {
+      const fk = bindingKey(fp.binding);
+      return prev.parts.find((x) => bindingKey(x.binding) === fk && !used.has(x));
+    }
+    return prev.parts.find((x) => x.id === fp.id && !used.has(x));
+  };
   const parts = fresh.parts.map((fp) => {
-    const pp = prev.parts.find((x) => x.id === fp.id);
+    const pp = findPrev(fp);
     if (!pp) return fp;
+    used.add(pp);
     // 人が付けた options（写真の選び方・文字の大きさなど）と上書きの文は残し、テンプレ由来の鍵（label / mode / entity / list）は今の値にする
     return { ...fp, ...boxOf(pp, fp), text_override: pp.text_override, options: { ...(pp.options ?? {}), ...(fp.options ?? {}) } };
   });
-  for (const pp of prev.parts) if (!fresh.parts.some((x) => x.id === pp.id)) parts.push({ ...pp }); // 人が足した部品
+  // 残った前の版の部品: 人が足した部品（id が `newId('part')` の形）だけ残す。
+  // テンプレの region から作られた部品（id が `<pageId>:p<N>` の形）で対応先が見つからなかったものは、
+  // 「今のテンプレにはもう無い region」＝廃止された枠なので捨てる。捨てずに残すと、id がテンプレの
+  // 並びから再び振られる新しい部品と衝突し（同じ id の部品が2つになる）、画面の選択・削除や pptx の
+  // 出力が両方の部品を区別できなくなる（Codex 指摘・fresh evidence）
+  for (const pp of prev.parts) if (!used.has(pp) && !isGeneratedPartId(fresh.id, pp.id)) parts.push({ ...pp });
   return {
     ...fresh, parts, title: prev.title, notes: prev.notes, removed: prev.removed,
     agenda: prev.agenda === undefined ? fresh.agenda : prev.agenda,

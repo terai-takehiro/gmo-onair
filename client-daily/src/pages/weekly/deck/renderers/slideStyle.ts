@@ -31,6 +31,8 @@ export const C = {
   tableHead: hex(FORMAT_COLORS.tableHead),
   band: hex(FORMAT_COLORS.band),
   positive: hex(FORMAT_COLORS.positive),
+  /** 総括カードの地（2026-09 刷新の「総括＋成果」）。`FORMAT_COLORS.positiveLight` そのまま */
+  positiveLight: hex(FORMAT_COLORS.positiveLight),
   negative: hex(FORMAT_COLORS.negative),
   confidential: hex(FORMAT_COLORS.confidential),
   marker: hex(FORMAT_COLORS.marker),

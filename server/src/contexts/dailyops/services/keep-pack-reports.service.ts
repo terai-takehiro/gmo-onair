@@ -129,6 +129,7 @@ export async function buildInview(meetingDate: string, inputs: KeepInput[]): Pro
     people: Number(useCheckedIn ? latest.checked_people : latest.applied_people),
     satisfaction: satisfactionOf(inputs),
     promoted_projects: Number(latest.promoted),
+    category_count: categories.length, // 畳む前の実数（`by_category` は表示用に MAX_CATEGORIES 件まで畳む）
     by_category: foldCategories(categories.map((c) => ({ category: c.category, groups: Number(c.groups), people: Number(c.people) }))),
     next_session: next ? { date: next.session_date, applied_groups: Number(next.applied_groups) } : null,
   };

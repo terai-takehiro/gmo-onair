@@ -332,6 +332,29 @@ judge = higher_better: actual ≧ budget → ○ / lower_better: actual ≦ budg
 部品の上端を帯の下（27%）に下げた／表紙を実物の 5 つの箱（会議名・部署名・日付・青い箱・注意書き）にした／
 締めのページ（`closing`）を標準の構成の最後に足した。枠と部品が重ならないことは `shared/tests/keepReportFormatChrome.test.ts` が固定する。
 
+#### 2026-09 デザイン刷新（②案件実施報告・案件ページ・③内覧会報告）
+
+「守るもの」（ヘッダー・進行トーク帯・フッター・表紙・Appendix・締め）はそのまま、ONAiR が組む中身だけを
+罫線・色線ではなく**面（塗り）とバッジ**で区切る形に作り直した（対象は ONAiR 独自の報告ページだけ。
+表紙〜10．アジェンダの標準ページと Appendix・締めは対象外）。
+
+- **帯**（`report.band` / `project.band`）: 客先・イベント名・日付を並べた1行だったのを、イベント名（太字）＋
+  客先/日付（小さめ）の1行＋右端の確度バッジに変更（`renderInfoBand`）。長い文字列は自動で省略記号。
+  **案件ページの単独の確度の枠（右上）は廃止**（バッジに統合したため二重表示になっていた）
+- **総括＋成果**（`report.highlights` / `project.highlights`）: 総括を箇条書きの1行目に混ぜていたのをやめ、
+  専用のカード（「総括」バッジ＋太字）に分離。成果はチェック印の箇条書きに（`renderHeadlineAndChecklist`）
+- **売上／粗利**（`report.money` / `project.money`）: 2行の表だったのを、売上・粗利・粗利率の3枚の数字カード
+  （薄い縦線で仕切るだけ・枠で囲まない）に変更（`renderStatRow`）
+- **内覧会サマリ**（`inview.summary`）: 「開催日: …／参加: …」の箇条書きの文字列だったのを、`InviewSummary`
+  そのものを渡すように変更し、帯（定期内覧会／開催日）＋数字カード3枚（来場組数・来場人数・分類数）で組む
+  （`renderInviewSummary`）。**`resolveBinding('inview.summary')` の返り値の形が変わった**（`shared/src/keepReport/binding.ts`）
+- 角丸は「縁取りだけの四角枠」に見えない最小限（2〜4px相当）に統一。表・カレンダーを囲んでいた枠線は外し、
+  白地に直接置く（稼働カレンダーの日付の升だけは判読性のため罫線を残す）
+
+きっかけと検討過程（Before/After のモックアップでの確認）は変更したセッションの記録を参照。
+実装は `server/src/contexts/dailyops/services/keep-pptx-chrome.service.ts` の
+`renderInfoBand` / `renderHeadlineAndChecklist` / `renderStatRow` と、画面側の対応するコンポーネント（`client-daily/src/pages/weekly/deck/renderers/`）。
+
 ### 6.4 部品の一覧（初版）
 
 | 部品 | binding | 出し方 |
