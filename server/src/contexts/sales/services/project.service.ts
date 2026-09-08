@@ -240,6 +240,15 @@ export interface ProjectFilter {
   glsCategory?: 'A' | 'B';
   /** 計上会社（SCS / GSS / GMO・`projects.entity_code`）。案件台帳の絞り込み。値の検査はルート側 */
   entityCode?: LegalEntityCode;
+  /**
+   * 案件番号の系列で絞る接頭辞（`['SCS-']` / 新番号すべてなら3つ）。案件台帳の絞り込み。
+   * 値を接頭辞へ直すのはルート側（`legal_entities.number_prefix` が正）。
+   *
+   * ⚠️ **`entityCode` とは別の軸**（`gls_number` の頭 ⇄ `entity_code` の列）。
+   * 既存行の `entity_code` は migration 284 で全部 `GSS` に埋まっているので、
+   * 「GSS の帳簿の案件」には旧 `GLS-A###` が含まれ、「`GSS-` で始まる番号の案件」とは一致しない。
+   */
+  numberPrefixes?: string[];
   /** GLS 発番済みのものだけ（確定案件の一覧が使う） */
   issued?: boolean;
   /** 'kessan' = 決算インポートで取り込んだ案件 (notes が [kessan:...] で始まる) のみ */
@@ -914,6 +923,14 @@ export class ProjectService {
     if (filter.entityCode) {
       where += ` AND p.entity_code = ?`;
       params.push(filter.entityCode);
+    }
+    // 案件番号の系列 (新番号 SCS-/GSS-/GMO-)。接頭辞はルート側が legal_entities から取る。
+    // 空配列は「絞らない」ではなく「当たらない」に落とす — 素通しすると全件が返って気づけない
+    if (filter.numberPrefixes) {
+      where += filter.numberPrefixes.length === 0
+        ? ' AND FALSE'
+        : ` AND (${filter.numberPrefixes.map(() => 'p.gls_number LIKE ?').join(' OR ')})`;
+      params.push(...filter.numberPrefixes.map((prefix) => `${prefix}%`));
     }
     // 開催月 (YYYY-MM): イベント期間 [event_start, event_end] が対象月に重なる案件
     // event_start/event_end は TEXT (YYYY-MM-DD) なので文字列比較でレンジ判定する

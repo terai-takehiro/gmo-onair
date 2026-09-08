@@ -20,8 +20,8 @@ export interface LedgerFilters {
    * **`glsCategory` とは別の軸。** 決算取込の行にも GLS-A / GLS-B は付く
    * （migration 203 でバックフィル済）ので、2つを同時に AND で掛けると
    * 「旧GLS かつ GLS-B」のような意図しない絞り込みになる。1つの見た目上の
-   * プルダウンで4択に見せているが、選ぶたびに `nextFiltersForCategorySelect`
-   * が両方をまとめて書き換え、片方だけ残らないようにしている。
+   * プルダウンにまとめて見せているが、選ぶたびに `nextFiltersForCategorySelect`
+   * が `numberSeries` も含めてまとめて書き換え、片方だけ残らないようにしている。
    */
   source: string;
   /**
@@ -41,28 +41,62 @@ export interface LedgerFilters {
    * **サーバーで絞る**（`GET /projects?entity_code=`）— 画面で絞るとそのページの 100 件の中だけになる。
    */
   entityCode: string;
+  /**
+   * 案件番号の系列（`''` は絞らない／`'new'` は新番号すべて／`'SCS'` `'GSS'` `'GMO'`）。
+   * 2026年10月の事業再編で `GLS-A###` / `GLS-B###` から `SCS-0001` / `GSS-0001` /
+   * `GMO-0001` へ改番した（`docs/reorg-2026-10-plan.md` §4.4）。**A/B の1字は無くなり、
+   * 会社の接頭辞そのものが分類を兼ねる**（旧A は SCS か GSS、旧B は GMO）ので、
+   * 分類のプルダウンにこの系列を先に並べる。
+   *
+   * ⚠️ **計上会社（`entityCode`）とは別の軸。** `entity_code` は既存行がすべて `GSS` に
+   * 埋まっている（migration 284）ので、「GSS の帳簿の案件」と「`GSS-` で始まる番号の案件」は
+   * 一致しない — 前者は旧 `GLS-A###` を含む。ここは**番号そのもの**で絞る
+   * （サーバーは `legal_entities.number_prefix` を正として `gls_number LIKE 'GSS-%'`）。
+   */
+  numberSeries: string;
 }
+
+/** 分類プルダウンの値。新番号の系列（先頭）→ 旧 GLS → 決算取込 → すべて */
+export type CategorySelectValue = 'new' | 'SCS' | 'GSS' | 'GMO' | 'A' | 'B' | 'kessan' | 'all';
 
 /** ⚠️ **既定は GLS-A**。この既定が下の `nextFiltersForIssue` の理由そのものです */
 export const EMPTY_FILTERS: LedgerFilters = {
-  search: '', stage: '', glsCategory: 'A', source: '', issue: '', entityCode: '',
+  search: '', stage: '', glsCategory: 'A', source: '', issue: '', entityCode: '', numberSeries: '',
 };
 
 /**
- * 分類プルダウン（GLS-A / GLS-B / 旧GLS / どちらも）を選んだときの絞り込み。
+ * 分類プルダウン（新番号 SCS / GSS / GMO ／ GLS-A / GLS-B / 旧GLS / すべて）を
+ * 選んだときの絞り込み。
  *
- * 見た目は1つのプルダウンだが、中身は `glsCategory` と `source` という
- * 別々の2つの鍵。ここで両方をまとめて書き換えることで、
+ * 見た目は1つのプルダウンだが、中身は `numberSeries`・`glsCategory`・`source` という
+ * 別々の3つの鍵。ここで3つまとめて書き換えることで、
  * 「旧GLS を選んだのに前の GLS-B が残っていて 0 件になる」ような
  * 取り違えを防ぐ（`nextFiltersForIssue` が issue と glsCategory の
  * 組み合わせでやっているのと同じ考え方）。
+ *
+ * **新番号の系列（`SCS-` / `GSS-` / `GMO-`）を先頭に置く**（2026年10月の事業再編で
+ * 発番が始まったため）。系列を選んだときは GLS-A/B の分類を必ず外す —
+ * 新番号には A/B の1字が無く、AND で掛けると意図しない絞り込みになるため。
  */
 export function nextFiltersForCategorySelect(
-  cur: LedgerFilters, value: 'A' | 'B' | 'kessan' | 'all',
+  cur: LedgerFilters, value: CategorySelectValue,
 ): LedgerFilters {
-  if (value === 'kessan') return { ...cur, glsCategory: '', source: 'kessan' };
-  if (value === 'all') return { ...cur, glsCategory: '', source: '' };
-  return { ...cur, glsCategory: value, source: '' };
+  if (value === 'kessan') return { ...cur, numberSeries: '', glsCategory: '', source: 'kessan' };
+  if (value === 'all') return { ...cur, numberSeries: '', glsCategory: '', source: '' };
+  if (value === 'A' || value === 'B') return { ...cur, numberSeries: '', glsCategory: value, source: '' };
+  return { ...cur, numberSeries: value, glsCategory: '', source: '' };
+}
+
+/**
+ * いま選ばれているプルダウンの値。**画面で組み立てない** —
+ * 3つの鍵から1つの見た目の値へ戻す決め方は、書き換える側
+ * （`nextFiltersForCategorySelect`）と必ず対で読めるところに置く。
+ */
+export function categorySelectValue(f: LedgerFilters): CategorySelectValue {
+  if (f.numberSeries) return f.numberSeries as CategorySelectValue;
+  if (f.source === 'kessan') return 'kessan';
+  if (f.glsCategory === 'A' || f.glsCategory === 'B') return f.glsCategory;
+  return 'all';
 }
 
 /**
@@ -87,5 +121,12 @@ export function nextFiltersForCategorySelect(
  * 自分で選んだ絞り込みが勝手に戻ります。
  */
 export function nextFiltersForIssue(cur: LedgerFilters, key: string): LedgerFilters {
-  return { ...cur, issue: key, glsCategory: key ? '' : cur.glsCategory };
+  return {
+    ...cur,
+    issue: key,
+    glsCategory: key ? '' : cur.glsCategory,
+    // 番号の系列も同じ理由で外す（チェックの件数は全案件を数えているので、
+    // 系列と AND で掛けると「3 件」と出ているのに開くと空、が起きる）
+    numberSeries: key ? '' : cur.numberSeries,
+  };
 }

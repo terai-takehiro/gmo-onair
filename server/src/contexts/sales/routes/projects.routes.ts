@@ -24,7 +24,7 @@ import { createPhotoAccess } from '../services/project-photo-access.service';
 import { countJunkProjects, purgeJunkProjects } from '../services/project-purge.service';
 // 2026年10月の事業再編（docs/reorg-2026-10-plan.md §4.4・§4.8）: 改番（SCS/GSS/GMO の番号系列への付け替え）
 import { previewRenumber, renumberProject } from '../services/entity-resolution.service';
-import { getLegalEntity, type LegalEntityCode } from '../../platform/services/legal-entity.service';
+import { getLegalEntity, listLegalEntities, type LegalEntityCode } from '../../platform/services/legal-entity.service';
 
 /** 一覧の `entity_code` を検査する。空なら絞らない（undefined）。知らない会社は 400 */
 async function readEntityCodeFilter(raw: unknown): Promise<LegalEntityCode | undefined> {
@@ -33,6 +33,28 @@ async function readEntityCodeFilter(raw: unknown): Promise<LegalEntityCode | und
     throw new AppError(400, 'VALIDATION_ERROR', 'entity_code は SCS / GSS / GMO のいずれかを指定してください');
   }
   return raw as LegalEntityCode;
+}
+
+/**
+ * 案件番号の系列（案件台帳の絞り込み・`number_series`）を接頭辞の一覧に直す。
+ *
+ * `new` = 新番号すべて（`SCS-` `GSS-` `GMO-`）／`SCS` `GSS` `GMO` = その1系列。
+ * **接頭辞は `legal_entities.number_prefix` を正とする**（`'SCS-'` のように
+ * ハイフンまで含む・migration 284）— 画面やここで文字を組み立てると、
+ * 会社を1つ足した日に片方だけが古くなる。
+ *
+ * 知らない値は素通しせず 400（`entity_code` と同じ守り方 — 素通しすると
+ * 絞ったつもりで全件が返り、気づけない）。
+ */
+async function readNumberSeriesFilter(raw: unknown): Promise<string[] | undefined> {
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  const entities = await listLegalEntities();
+  if (raw === 'new') return entities.map((e) => e.numberPrefix);
+  const hit = typeof raw === 'string' ? entities.find((e) => e.code === raw) : undefined;
+  if (!hit) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'number_series は new / SCS / GSS / GMO のいずれかを指定してください');
+  }
+  return [hit.numberPrefix];
 }
 
 const router = Router();
@@ -65,6 +87,9 @@ router.get('/', async (req, res) => {
     sortDir: (req.query.sort_dir as 'asc' | 'desc') || 'desc',
     // 計上会社 (SCS / GSS / GMO・隔週キープの主体別)。知らない値は素通しせず 400 — 素通しすると絞ったつもりで全件が返り、気づけない
     entityCode: await readEntityCodeFilter(req.query.entity_code),
+    // 案件番号の系列 (新番号 SCS-/GSS-/GMO-)。計上会社 (entity_code) とは別の軸 —
+    // 既存行の entity_code は全部 GSS なので、GSS の帳簿の案件と GSS- で始まる番号の案件は一致しない
+    numberPrefixes: await readNumberSeriesFilter(req.query.number_series),
   };
   const { rows, total, stageCounts } = await projectService.list(filter, page, limit, offset);
   // stage_counts は v4 の案件一覧のチップに出す件数 (ステージ以外の絞り込みだけを掛けたもの)。

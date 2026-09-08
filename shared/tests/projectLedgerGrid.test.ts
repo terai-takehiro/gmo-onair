@@ -25,7 +25,7 @@ import {
   outOfBoundsOf, parseCell, toIsoDate, type ParseCtx,
 } from '../../client/src/contexts/sales/pages/projectLedger/editable';
 import {
-  nextFiltersForIssue, nextFiltersForCategorySelect, type LedgerFilters,
+  nextFiltersForIssue, nextFiltersForCategorySelect, categorySelectValue, type LedgerFilters,
 } from '../../client/src/contexts/sales/pages/projectLedger/filters';
 
 const ROOT = join(__dirname, '../..');
@@ -114,11 +114,13 @@ describe('② 整合性チェックを押したら GLS の絞り込みを外す'
 });
 
 // ───────────────────────────────────────────────────────
-// ⑥ 分類プルダウン（GLS-A / GLS-B / 旧GLS / どちらも）
+// ⑥ 案件番号・分類のプルダウン（新番号 SCS/GSS/GMO ／ GLS-A / GLS-B / 旧GLS / すべて）
 // ───────────────────────────────────────────────────────
 
-describe('⑥ 分類プルダウンは glsCategory と source を1つの4択として書き換える', () => {
-  const BASE: LedgerFilters = { search: '', stage: '', glsCategory: 'A', source: '', issue: '' };
+describe('⑥ 案件番号・分類のプルダウンは3つの鍵を1つの選択として書き換える', () => {
+  const BASE: LedgerFilters = {
+    search: '', stage: '', glsCategory: 'A', source: '', issue: '', entityCode: '', numberSeries: '',
+  };
 
   it('「旧GLS」を選ぶと source=kessan になり、glsCategory は外れる', () => {
     const next = nextFiltersForCategorySelect(BASE, 'kessan');
@@ -140,6 +142,53 @@ describe('⑥ 分類プルダウンは glsCategory と source を1つの4択と�
     const next = nextFiltersForCategorySelect(kessan, 'all');
     expect(next.glsCategory).toBe('');
     expect(next.source).toBe('');
+  });
+
+  it('新番号の系列（SCS）を選ぶと numberSeries が入り、GLS の分類は外れる', () => {
+    // 新番号には A/B の1字が無い（旧A → SCS/GSS・旧B → GMO・§4.4）。
+    // 既定の GLS-A が残ったままだと AND で掛かり、SCS の案件が0件に見える
+    const next = nextFiltersForCategorySelect(BASE, 'SCS');
+    expect(next.numberSeries).toBe('SCS');
+    expect(next.glsCategory).toBe('');
+    expect(next.source).toBe('');
+  });
+
+  it('新番号すべて（new）も同じ扱い。GLS-A に戻すと系列が残らない', () => {
+    const news = nextFiltersForCategorySelect(BASE, 'new');
+    expect(news.numberSeries).toBe('new');
+    const back = nextFiltersForCategorySelect(news, 'A');
+    expect(back.numberSeries).toBe('');
+    expect(back.glsCategory).toBe('A');
+  });
+
+  it('「すべて」を選ぶと3つとも外れる', () => {
+    const scs = nextFiltersForCategorySelect(BASE, 'SCS');
+    const next = nextFiltersForCategorySelect(scs, 'all');
+    expect(next.numberSeries).toBe('');
+    expect(next.glsCategory).toBe('');
+    expect(next.source).toBe('');
+  });
+
+  it('いま選ばれている値は3つの鍵から戻せる（画面で組み立てない）', () => {
+    expect(categorySelectValue(BASE)).toBe('A');
+    expect(categorySelectValue(nextFiltersForCategorySelect(BASE, 'GMO'))).toBe('GMO');
+    expect(categorySelectValue(nextFiltersForCategorySelect(BASE, 'kessan'))).toBe('kessan');
+    expect(categorySelectValue(nextFiltersForCategorySelect(BASE, 'all'))).toBe('all');
+  });
+
+  it('整合性チェックを選ぶと系列も外れる（件数は全案件を数えているため）', () => {
+    const scs = nextFiltersForCategorySelect(BASE, 'SCS');
+    expect(nextFiltersForIssue(scs, 'no_classification').numberSeries).toBe('');
+    // 外すときは触らない（自分で選んだ絞り込みが勝手に戻らない）
+    expect(nextFiltersForIssue(scs, '').numberSeries).toBe('SCS');
+  });
+
+  it('プルダウンは新番号を先頭に並べる（これから増えるのはこちら）', () => {
+    const bar = readSrc('client/src/contexts/sales/pages/projectLedger/LedgerFilterBar.tsx');
+    const newAt = bar.indexOf('<SelectItem value="new">');
+    const glsAt = bar.indexOf('<SelectItem value="A">');
+    expect(newAt).toBeGreaterThan(-1);
+    expect(glsAt).toBeGreaterThan(newAt);
   });
 
   it('画面は `pickCategory` を呼ぶ（`setFilter(\'glsCategory\'…)` を直接呼ばない）', () => {
