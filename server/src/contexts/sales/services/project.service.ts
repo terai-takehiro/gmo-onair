@@ -700,7 +700,19 @@ export async function createCore(
 
   // 入口と確信 (migration 165)。**知らない値は入れない** — DB の CHECK が弾くので、
   // 弾かれると案件の登録そのものが 500 になる。ここで NULL に落とす
-  const channel = INTAKE_CHANNELS.includes(intake_channel as string) ? intake_channel : null;
+  //
+  // ⚠️ **グループ会社なら `group` に固定する（レビューでの指摘）。** `intake.ts` の
+  // コメントは「案件作成が固定でこの値を入れます」と書いているが、実際に固定していた
+  // のは画面（`useNewProjectForm.ts`）だけだった。MCP の `create_project` はそもそも
+  // `group` を選択肢に持たず（人が選ぶ値ではないため）、Excel・決算取込もこの列を
+  // 送らない — つまり**画面の新規登録フォーム以外の経路では一度も固定されていなかった**。
+  // 結果、グループ会社向けの案件でもリード経路が空のまま残り、案件台帳の整合性チェック
+  // 「リード経路が入っていない」に引っかかり続ける（GLS-B006「紹介動画撮影」・
+  // GLS-B009「ようが夏まつり」など、いずれもグループ会社の案件）。
+  // `customer_type` と同じく**サーバー側で確定させる**（`cType` は必ずこの前で解決済み）。
+  const channel = cType === 'internal'
+    ? 'group'
+    : (INTAKE_CHANNELS.includes(intake_channel as string) ? intake_channel : null);
   const confidence = INTAKE_CONFIDENCES.includes(intake_confidence as string) ? intake_confidence : null;
 
   /**
@@ -1527,20 +1539,6 @@ export class ProjectService {
     const attendeeFinal = cls.audience === 'no_audience' ? null : attendeeCount;
 
     /**
-     * **リード経路も「渡さなければ今の値を保つ」** (migration 165 の列)。
-     *
-     * これまで `update()` はこの列を1度も書いていませんでした。作るときだけ入り、
-     * **あとから直す道がどこにも無かった**（直す画面に欄が無かったので気づけない）。
-     * `project-ai-feedback.service` の突き合わせ項目には最初から入っているので、
-     * 人が経路を直しても差分は必ず「無修正」になっていました。
-     *
-     * **知らない値は NULL に落とす** — DB の CHECK が弾くと保存ごと 500 になります
-     * （`create` と同じ守り方）。空文字は「分からない」＝ NULL です。
-     */
-    const channelValue = intake_channel === undefined
-      ? existing.intake_channel
-      : (INTAKE_CHANNELS.includes(intake_channel as string) ? intake_channel : null);
-    /**
      * **確信バッジも「渡さなければ今の値を保つ」**（`intake_channel` と同型）。
      *
      * MCP `update_project` は `intake_confidence` を UPDATE_FIELDS に載せて
@@ -1573,6 +1571,29 @@ export class ProjectService {
       await assertCustomerCompanyId(customer_id);
     }
     const cType = await resolveCustomerType(targetCustomer, existing.customer_type);
+
+    /**
+     * **リード経路も「渡さなければ今の値を保つ」** (migration 165 の列)。
+     *
+     * これまで `update()` はこの列を1度も書いていませんでした。作るときだけ入り、
+     * **あとから直す道がどこにも無かった**（直す画面に欄が無かったので気づけない）。
+     * `project-ai-feedback.service` の突き合わせ項目には最初から入っているので、
+     * 人が経路を直しても差分は必ず「無修正」になっていました。
+     *
+     * **知らない値は NULL に落とす** — DB の CHECK が弾くと保存ごと 500 になります
+     * （`create` と同じ守り方）。空文字は「分からない」＝ NULL です。
+     *
+     * ⚠️ **グループ会社になったら `group` に固定する（レビューでの指摘）。**
+     * `customer_type` と同じ理由（migration 192）— お客様が変わって内外の区分が
+     * 変わったのに、渡されなかったからと古いリード経路を保つと、
+     * 「グループ会社なのにリード経路が空 / 社外の経路のまま」の行が残る。
+     * `cType` が解決したあと（このすぐ上）で判定する。
+     */
+    const channelValue = cType === 'internal'
+      ? 'group'
+      : (intake_channel === undefined
+        ? existing.intake_channel
+        : (INTAKE_CHANNELS.includes(intake_channel as string) ? intake_channel : null));
 
     // dates 配列が来ている場合は project_dates を全削除→再INSERT。
     // 同時に event_start = MIN(date), event_end = MAX(date) を自動同期
