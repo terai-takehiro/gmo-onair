@@ -146,12 +146,20 @@ export default function MaintenancePage() {
   };
   const saveDateEdit = () => {
     if (!dateEditTarget) return;
-    update.mutate({
-      ...dateEditTarget,
-      repair_sent_at: dateDraft.repair_sent_at || null,
-      repair_returned_at: dateDraft.repair_returned_at || null,
-    });
-    setDateEditTarget(null);
+    // ⚠️ **成功するまでダイアログを閉じない**（Codexレビュー指摘）。
+    // 保存前に閉じると背面の行（状態の `<Select>` を含む）が触れる状態に戻り、
+    // PUT が終わる前に状態を変えられると、あとから完了した方が
+    // 相手の変更（日付／状態）を古い値で上書きして消してしまう
+    // （どちらも「いまの行全体」を書き直す1本の `update` mutation を共有するため）。
+    // ダイアログを開いたままにして背面を触れなくすれば、この競合は起きない
+    update.mutate(
+      {
+        ...dateEditTarget,
+        repair_sent_at: dateDraft.repair_sent_at || null,
+        repair_returned_at: dateDraft.repair_returned_at || null,
+      },
+      { onSuccess: () => setDateEditTarget(null) },
+    );
   };
 
   return (
@@ -288,39 +296,47 @@ export default function MaintenancePage() {
       {/* 修理引取／発送日・修理受取／返送日の編集。PC・スマホ共通の1つのダイアログ
           （`FormDialog` がスマホでは自動で下シートになる）。列を専有しないので
           どの画面幅でも常に開ける */}
-      {dateEditTarget && (
-        <FormDialog
-          open
-          onOpenChange={(o) => { if (!o) setDateEditTarget(null); }}
-          title="修理日を編集"
-          sub={dateEditTarget.title}
-          footer={
-            <FormDialogFooter>
-              <Button variant="outline" onClick={() => setDateEditTarget(null)}>キャンセル</Button>
-              <Button onClick={saveDateEdit} disabled={update.isPending}>保存</Button>
-            </FormDialogFooter>
-          }
-        >
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label>修理引取／発送日</Label>
-              <Input
-                type="date"
-                value={dateDraft.repair_sent_at}
-                onChange={(e) => setDateDraft((d) => ({ ...d, repair_sent_at: e.target.value }))}
-              />
+      {dateEditTarget && (() => {
+        // ⚠️ **保存中は閉じられなくする**（Codexレビュー指摘）。Esc・外側クリック・
+        // 「キャンセル」で保存前に閉じてしまうと、背面の行の状態 `<Select>` が
+        // また触れるようになり、`saveDateEdit` と同じ理由の競合が起きる
+        const savingThis = update.isPending && update.variables?.id === dateEditTarget.id;
+        return (
+          <FormDialog
+            open
+            onOpenChange={(o) => { if (!o && !savingThis) setDateEditTarget(null); }}
+            title="修理日を編集"
+            sub={dateEditTarget.title}
+            footer={
+              <FormDialogFooter>
+                <Button variant="outline" onClick={() => setDateEditTarget(null)} disabled={savingThis}>キャンセル</Button>
+                <Button onClick={saveDateEdit} disabled={savingThis}>保存</Button>
+              </FormDialogFooter>
+            }
+          >
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label>修理引取／発送日</Label>
+                <Input
+                  type="date"
+                  value={dateDraft.repair_sent_at}
+                  disabled={savingThis}
+                  onChange={(e) => setDateDraft((d) => ({ ...d, repair_sent_at: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>修理受取／返送日</Label>
+                <Input
+                  type="date"
+                  value={dateDraft.repair_returned_at}
+                  disabled={savingThis}
+                  onChange={(e) => setDateDraft((d) => ({ ...d, repair_returned_at: e.target.value }))}
+                />
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label>修理受取／返送日</Label>
-              <Input
-                type="date"
-                value={dateDraft.repair_returned_at}
-                onChange={(e) => setDateDraft((d) => ({ ...d, repair_returned_at: e.target.value }))}
-              />
-            </div>
-          </div>
-        </FormDialog>
-      )}
+          </FormDialog>
+        );
+      })()}
     </div>
   );
 }
