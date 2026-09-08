@@ -326,6 +326,7 @@ export default function BudgetDashboardPage() {
               onRetry={() => revenues.refetch()}
               to={'/budget/revenues' + ledgerQuery}
               empty="この期間の確定売上はありません。"
+              onOpenProject={(id) => navigate(`/sales/projects/${id}`)}
             />
             <BreakdownColumn
               title="仕入の内訳"
@@ -344,6 +345,7 @@ export default function BudgetDashboardPage() {
               onRetry={() => { purchases.refetch(); fixed.refetch(); }}
               to={'/budget/purchases' + ledgerQuery}
               empty="この期間の仕入はありません。"
+              onOpenProject={(id) => navigate(`/sales/projects/${id}`)}
             />
             {/* 販管費は案件に紐づかないので、案件で絞り込み中は内訳ごと出さない（ご要望） */}
             {!projectId && (

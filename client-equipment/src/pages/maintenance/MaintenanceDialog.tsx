@@ -22,11 +22,16 @@ export interface MaintenanceForm {
   assigned_to: string;
   vendor_name: string;
   repair_cost: string;
+  /** 修理引取／発送日（機材を修理業者に渡した／送った日） */
+  repair_sent_at: string;
+  /** 修理受取／返送日（機材が戻ってきた日） */
+  repair_returned_at: string;
 }
 
 const EMPTY: MaintenanceForm = {
   equipment_id: '', record_type: 'breakdown', title: '',
   description: '', assigned_to: '', vendor_name: '', repair_cost: '',
+  repair_sent_at: '', repair_returned_at: '',
 };
 
 export function MaintenanceDialog({ open, items, saving, error, onClose, onSubmit }: {
@@ -144,6 +149,22 @@ export function MaintenanceDialog({ open, items, saving, error, onClose, onSubmi
                 type="number" min="0"
                 value={form.repair_cost}
                 onChange={(e) => setForm((f) => ({ ...f, repair_cost: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>修理引取／発送日</Label>
+              <Input
+                type="date"
+                value={form.repair_sent_at}
+                onChange={(e) => setForm((f) => ({ ...f, repair_sent_at: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>修理受取／返送日</Label>
+              <Input
+                type="date"
+                value={form.repair_returned_at}
+                onChange={(e) => setForm((f) => ({ ...f, repair_returned_at: e.target.value }))}
               />
             </div>
           </div>

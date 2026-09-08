@@ -14,12 +14,12 @@
  * `GLS_BLOCKED_STAGES` の2か所だけ**を直すこと。値が2つに分かれているのは、
  * server が rootDir の都合で `shared/` を import できないためです。
  *
- * ── いまの境界: C 見積提案から採れる（2026-09-02 変更）─────────────
+ * ── いまの境界: D 仮押さえから採れる（2026-09-08 変更）─────────────
  *
- * 見積を出す段階で番号が実務上必要（見積書・BOX フォルダ名に載る）ので、
- * `c_proposal` から採れるようにしました。止めるのは `neta`（ネタ・未見積）と
- * `d_hold`（仮押さえ）だけ — そこまで開けると、見積すら出していない案件に
- * 番号を焼くことになり、欠番だけが増えます。
+ * D 仮押さえの段階でも新しい番組として GLS 番号が必要な実務があるため、
+ * `d_hold` から採れるようにしました（2026-09-02 に一度 `c_proposal` からに
+ * 前倒ししたが、D で発番できず編集不能に見えるという指摘を受けさらに前倒し）。
+ * 止めるのは `neta`（ネタ・未見積、引き合いにすら至っていない）だけです。
  *
  * ⚠️ **発番してもステージは上げません。** 以前は手前のステージから発番すると
  * 勝手に「B 口頭決定」へ昇格していましたが、受注していない案件が口頭決定として
@@ -28,7 +28,7 @@
 import { ProjectStageLabels, type ProjectStage } from '@/types';
 
 /** ここに入るステージからは新しい GLS 番号を採れない */
-export const GLS_BLOCKED_STAGES: readonly ProjectStage[] = ['neta', 'd_hold'];
+export const GLS_BLOCKED_STAGES: readonly ProjectStage[] = ['neta'];
 
 /** この案件のステージで「新しい番組」として発番できるか */
 export function canIssueNewGlsAt(stage: ProjectStage): boolean {
@@ -40,4 +40,4 @@ export function canIssueNewGlsAt(stage: ProjectStage): boolean {
  * 何をすれば採れるか**まで言う（黙って disabled にしていたのが元の不具合）。
  */
 export const GLS_ISSUE_BLOCKED_HINT =
-  `${ProjectStageLabels.c_proposal}まで進めると、新しい番号を採れます。`;
+  `${ProjectStageLabels.d_hold}まで進めると、新しい番号を採れます。`;

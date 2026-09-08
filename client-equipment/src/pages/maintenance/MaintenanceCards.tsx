@@ -19,7 +19,7 @@
  * シートなら4つの状態が最初から並んで見える。
  */
 import { useState } from 'react';
-import { Check, ChevronDown, Loader2 } from 'lucide-react';
+import { CalendarClock, Check, ChevronDown, Loader2 } from 'lucide-react';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Sheet } from '@gmo-onair/shared/src/client-v4/sheet';
@@ -53,10 +53,12 @@ function Fact({ label, value }: { label: string; value: string }) {
 }
 
 export function MaintenanceCards({
-  records, onChangeStatus, savingId,
+  records, onChangeStatus, onEditDates, savingId,
 }: {
   records: MaintenanceRecord[];
   onChangeStatus: (record: MaintenanceRecord, status: string) => void;
+  /** 修理引取／発送日・修理受取／返送日の編集ダイアログを開く（`MaintenancePage.tsx` が持つ） */
+  onEditDates: (record: MaintenanceRecord) => void;
   /** いま状態変更を送っている記録の id。押した札だけ回す */
   savingId: string | null;
 }) {
@@ -96,6 +98,30 @@ export function MaintenanceCards({
                 label="報告日"
                 value={r.reported_at ? r.reported_at.slice(5, 10).replace('-', '/') : '未登録'}
               />
+              {/* 修理引取／発送日・修理受取／返送日。**常に押せる1行**にして
+                  ダイアログ（下シート）で編集する（`MaintenancePage.tsx` の
+                  PC 表側と同じ導線・同じ状態を共有 — 写すと片方だけ直る形を避ける） */}
+              <div className="flex gap-2">
+                <dt className="w-12 shrink-0 text-muted-foreground">修理日</dt>
+                <dd className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => onEditDates(r)}
+                    aria-label={`${r.title} の修理引取／発送日・修理受取／返送日を編集`}
+                    className="v4-tap inline-flex min-w-0 items-center gap-1 truncate text-primary"
+                  >
+                    <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    <span className="truncate">
+                      {r.repair_sent_at || r.repair_returned_at
+                        ? [
+                          r.repair_sent_at && `発送${r.repair_sent_at.slice(5, 10).replace('-', '/')}`,
+                          r.repair_returned_at && `返送${r.repair_returned_at.slice(5, 10).replace('-', '/')}`,
+                        ].filter(Boolean).join(' ・ ')
+                        : '未登録（タップで入力）'}
+                    </span>
+                  </button>
+                </dd>
+              </div>
             </dl>
 
             <div>

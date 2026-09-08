@@ -85,6 +85,9 @@ export const MAINTENANCE_TYPE = {
   repair:      { label: '修理',       variant: 'warning' },
   maintenance: { label: 'メンテナンス', variant: 'info' },
   inspection:  { label: '点検',       variant: 'secondary' },
+  // リセット・再起動など運用上クリティカルな問題は起きていないが、
+  // 再現・頻発する際はメンテナンス対応が必要になる機材の履歴を残す種別
+  log:         { label: '記録',       variant: 'outline' },
 } as const satisfies StatusDomain;
 
 // ══════════════════════════════════════════════════════════════════
