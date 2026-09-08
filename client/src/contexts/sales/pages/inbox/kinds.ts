@@ -48,7 +48,13 @@ export const KINDS: Record<InboxKind, KindDef> = {
     tone: 'border-transparent bg-ai-surface text-ai',
   },
   overdue_action: {
-    label: '期限超過', icon: AlertTriangle,
+    // 旧「期限超過」は将棋の比喩「期限が来た次の一手」から続く言い回しで、
+    // ビジネス文書に書けない語彙だったため `docs/wording.md` ルール9の
+    // 置き換え先に直した（2026-09-08 ご指摘）。行1件ごとの中身
+    // （`subtitleOf` の `next_action`）はもともと短縮していない本文を
+    // そのまま出しており、見出しだけの変更で足りる
+    label: '期限超過の次アクション',
+    icon: AlertTriangle,
     tone: 'border-transparent bg-destructive-surface text-destructive',
   },
   inquiry: {
