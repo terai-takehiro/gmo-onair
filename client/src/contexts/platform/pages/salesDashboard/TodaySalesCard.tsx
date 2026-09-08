@@ -12,16 +12,20 @@
  * 0件の節は出しません。**3つとも0なら「今日片づける営業はありません」の1行だけ** —
  * 空の枠を3つ並べると、毎朝この画面を開く理由が薄まります。
  *
- * ── 見出しの語彙とガイド文（2026-09-08 ご指摘）──────────────
+ * ── 見出しの語彙と行の中身（2026-09-08 ご指摘）──────────────
  *
  * 旧見出し「期限が来た次の一手」は将棋の比喩で、ビジネス文書に書けない語彙
- * だった上、見出し1つだけでは「結局何をすればよいか」が読めなかった。
- * 見出しは `docs/wording.md` ルール9で決めていた置き換え先
- * **「期限超過の次アクション」**に直し、見出しの下に「対応期限が過ぎている、
- * または本日が期限の営業アクションです。至急お客様へご連絡ください。」の
- * 1行を足した（行ごとの案件名・お客様名は既に `RowSub` にあるので、ここは
- * 節全体としてすべきことだけを書く）。同じご指摘は受信箱の「期限超過」
- * バッジにも当たるため、`inbox/kinds.ts` の `overdue_action` も同様に直した。
+ * だったため、`docs/wording.md` ルール9で決めていた置き換え先
+ * **「期限超過の次アクション」**に直した。
+ *
+ * 続けて「見出しを直しても、**行1件ごとの中身**（AI が縮めた `action_short`。
+ * 一覧向けの短い言い換え）が概略すぎて、結局どういうアクションなのか読めない」
+ * というご指摘を受けた。**行の見出しは常に本文そのまま（`m.action`）を出す**
+ * ように直し、`action_short` は `action` が無いときだけのフォールバックへ
+ * 落とした。1行に収まらない分は省略記号になるが、`title` 属性で全文を
+ * ホバー表示できる。同じご指摘は受信箱の「期限超過」にも当たるが、
+ * あちらはもともと短縮していない `next_action` をそのまま出しており対象外
+ * だった（`inbox/kinds.ts` の `subtitleOf`）。
  *
  * ── 旧「期限が過ぎたやること」（`OverduePanel`）を吸収した ──────
  *
@@ -151,9 +155,6 @@ export function TodaySalesCard() {
           {moves.length > 0 && (
             <>
               <SectionHead label="期限超過の次アクション" count={moves.length} />
-              <p className="text-note mb-1.5 text-muted-foreground">
-                対応期限が過ぎている、または本日が期限の営業アクションです。至急お客様へご連絡ください。
-              </p>
               {moves.slice(0, PER_SECTION).map((m) => {
                 const late = m.due_date ? daysLate(m.due_date, today) : 0;
                 const overdue = late > 0;
@@ -176,7 +177,14 @@ export function TodaySalesCard() {
                       )}
                     </RowSlot>
                     <RowMain>
-                      <RowTitle>{m.action_short || m.action || '（やることが書かれていません）'}</RowTitle>
+                      {/* **本文（`action`）を優先して出す。** AI が縮めた `action_short`
+                          （一覧向けの短い言い換え）だけでは何をすべきか読めないという
+                          ご指摘（2026-09-08）を受け、短縮版は本文が無いときだけの
+                          フォールバックにした。1行を超える分は省略記号だが、`title`
+                          属性でホバーすれば全文を読める */}
+                      <RowTitle title={m.action || m.action_short || undefined}>
+                        {m.action || m.action_short || '（やることが書かれていません）'}
+                      </RowTitle>
                       <RowSub>{[m.project_name, m.customer_name].filter(Boolean).join(' ・ ')}</RowSub>
                     </RowMain>
                     {canEdit && (

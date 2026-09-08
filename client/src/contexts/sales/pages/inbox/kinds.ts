@@ -37,12 +37,6 @@ export type InboxKind = 'overdue_action' | 'ai_project' | 'inquiry' | 'finance_d
 
 export interface KindDef {
   label: string;
-  /**
-   * 節見出しの下に出す1行の補足。**見出し1語だけでは何をすべきか読めない**
-   * というご指摘（2026-09-08）を受けて追加した。無ければ出さない
-   * （`TodaySalesCard.tsx` の「期限超過の次アクション」節にも同じ考えで足した）。
-   */
-  description?: string;
   icon: typeof Sparkles;
   /** バッジの色。**生のパレットを使わない** (状態の色トークンから選ぶ) */
   tone: string;
@@ -54,10 +48,12 @@ export const KINDS: Record<InboxKind, KindDef> = {
     tone: 'border-transparent bg-ai-surface text-ai',
   },
   overdue_action: {
-    // 旧「期限超過」は見出しだけでは次にすべきことが読めなかったため、
-    // 見出しを `docs/wording.md` ルール9の置き換え先に、下に一手ガイド文を追加
+    // 旧「期限超過」は将棋の比喩「期限が来た次の一手」から続く言い回しで、
+    // ビジネス文書に書けない語彙だったため `docs/wording.md` ルール9の
+    // 置き換え先に直した（2026-09-08 ご指摘）。行1件ごとの中身
+    // （`subtitleOf` の `next_action`）はもともと短縮していない本文を
+    // そのまま出しており、見出しだけの変更で足りる
     label: '期限超過の次アクション',
-    description: '対応期限を過ぎた営業アクションです。至急お客様へご連絡ください。',
     icon: AlertTriangle,
     tone: 'border-transparent bg-destructive-surface text-destructive',
   },

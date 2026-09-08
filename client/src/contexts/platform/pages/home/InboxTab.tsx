@@ -99,10 +99,6 @@ export function InboxTab({ data, can }: { data: InboxData | undefined; can: Inbo
                   {def.label}
                   <span className="font-number">{counts?.[kind] ?? rows.length}</span>
                 </p>
-                {/* 見出しだけでは何をすべきか読めないというご指摘（2026-09-08）— 補足がある節にだけ出す */}
-                {def.description && (
-                  <p className="text-note mb-1 text-muted-foreground">{def.description}</p>
-                )}
                 {rows.slice(0, PER_KIND).map((it) => (
                   <InboxRow
                     key={it.key}
@@ -167,7 +163,9 @@ function InboxRow({
   const body = (
     <span className="min-w-0 flex-1">
       <span className="text-list block [overflow-wrap:anywhere]">{titleOf(item)}</span>
-      <span className="text-note block truncate text-muted-foreground">
+      {/* 1行に収まらない分は省略記号だが、`title` 属性でホバーすれば全文を読める
+          （次回アクションの本文が長いと切れる。TodaySalesCard.tsx と同じ考え） */}
+      <span className="text-note block truncate text-muted-foreground" title={subtitleOf(item)}>
         {subtitleOf(item)}
         {item.received_at && ` ・ ${formatRelativeTime(item.received_at)}`}
       </span>
