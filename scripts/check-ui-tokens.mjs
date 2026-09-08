@@ -539,7 +539,13 @@ const RULES = [
      *
      * シェル側は `calc(0.75rem + env(...))` と足し算で書いているので当たらない。
      */
-    re: /paddingBottom:\s*(["'`])env\(safe-area-inset-bottom\)\1/,
+    /*
+     * Tailwind の任意値で書いた `pb-[env(safe-area-inset-bottom)]` も同じ壊れ方をする
+     * （`p-3` の下余白を上書きして 0px になる）。いま使っている箇所は無いが、
+     * **別の綴りで書けば通る**状態を残さない（自己監査で見つけた・#647）。
+     * `calc(… + env(…))` の足し算はシェル側の正しい書き方なので当てない。
+     */
+    re: /paddingBottom:\s*(["'`])env\(safe-area-inset-bottom\)\1|pb-\[env\(safe-area-inset-bottom\)\]/,
     why: 'ホームバーの逃げは共通シェルが持っています'
        + '（画面側で書くと `p-*` の下余白にインライン指定が勝って **0px** になり、'
        + 'ノッチの無い端末では下の余白がただ消えます）。'
@@ -811,7 +817,7 @@ for (const file of files) {
    * 行末で終わる `<PageShell` も拾う（属性を次の行に書く形。`page-h1-by-hand` と同じ）。
    */
   const usesPageShell = /<PageShell(?=[\s>/]|$)/m.test(blanked ?? text);
-  if (/^client-techops\/src\//.test(rel) && /Page\.tsx$/.test(rel) && !usesPageShell) {
+  if (/^client-techops\/src\/pages\//.test(rel) && /Page\.tsx$/.test(rel) && !usesPageShell) {
     findings.push({
       rel,
       line: 1,
