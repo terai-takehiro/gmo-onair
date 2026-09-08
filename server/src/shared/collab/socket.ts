@@ -8,7 +8,7 @@
 // 共有しているので認証だけ食い違うことはない。
 //
 // アクセス制御の考え方 (Qシートと同じ):
-//   - 未認証 / 権限なしでも room への join = リッスンは許す
+//   - 認証済み・編集権限ありの参加者だけを room に入れる
 //   - **書き込み (yjs:update) と awareness の発火はアクセス権のあるユーザーだけ**
 //     → docId を知っただけで他人の案件に書き込める、という穴を作らない
 
@@ -26,7 +26,7 @@ export interface CollabNamespaceConfig {
   /** ログの接頭辞 */
   label: string;
   rooms: YjsRoomManager;
-  /** この docId を編集してよいか。**false ならリッスンのみ** */
+  /** この docId の共同編集に参加してよいか。false なら情報を配信しない。 */
   canEdit(user: SocketUser, docId: string): Promise<boolean>;
 }
 
@@ -58,7 +58,6 @@ export function initCollabNamespace(io: Server, cfg: CollabNamespaceConfig): voi
       return;
     }
     const room = `${cfg.roomPrefix}:${docId}`;
-    socket.join(room);
 
     // 認証とアクセス判定は非同期で進め、ハンドラはこれを await する
     const ready: Promise<void> = (async () => {
@@ -74,7 +73,9 @@ export function initCollabNamespace(io: Server, cfg: CollabNamespaceConfig): voi
       socket.data.user = user;
       socket.data.canEdit = canEdit;
 
+      if (!socket.connected) return;
       if (user && canEdit) {
+        await socket.join(room);
         let m = presence.get(docId);
         if (!m) {
           m = new Map();
@@ -83,8 +84,8 @@ export function initCollabNamespace(io: Server, cfg: CollabNamespaceConfig): voi
         m.set(socket.id, user);
         ns.to(room).emit('presence:sync', { users: presenceList(docId) });
       } else {
-        // リッスン専用でも現在の在席一覧は渡す
-        socket.emit('presence:sync', { users: presenceList(docId) });
+        // 未認可の接続に氏名や案件の編集差分を渡さない。
+        socket.emit('presence:sync', { users: [] });
       }
     })();
     // 失敗しても接続自体は維持する (編集不可のまま)
@@ -92,7 +93,7 @@ export function initCollabNamespace(io: Server, cfg: CollabNamespaceConfig): voi
 
     socket.on('presence:query', async () => {
       await ready;
-      socket.emit('presence:sync', { users: presenceList(docId) });
+      socket.emit('presence:sync', { users: socket.data.canEdit ? presenceList(docId) : [] });
     });
 
     // ── Yjs 同期 ──────────────────────────────────

@@ -88,7 +88,7 @@ function isLocked(revenue: Record<string, unknown>): boolean {
 
 async function assertEditable(link: IntercompanyLink, tx: TxClient): Promise<Record<string, unknown>> {
   const revenue = await tx.queryOne(
-    'SELECT id, invoice_issued, inspection_date, paid_date FROM revenues WHERE id = ?',
+    'SELECT id, invoice_issued, inspection_date, paid_date FROM revenues WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
     [link.revenue_id],
   ) as Record<string, unknown> | undefined;
   if (!revenue) throw new AppError(404, 'NOT_FOUND', '社内取引の売上行が見つかりません');
@@ -119,7 +119,7 @@ export interface CreateIntercompanyParams {
 export async function createIntercompanyPurchase(params: CreateIntercompanyParams): Promise<IntercompanyDetail> {
   const { projectId, episodeId, recognitionDate, notes, userId } = params;
   const amount = Number(params.amount);
-  if (!(amount > 0)) throw new AppError(400, 'VALIDATION_ERROR', '金額（1円以上）を入れてください');
+  if (!Number.isFinite(amount) || amount < 1) throw new AppError(400, 'VALIDATION_ERROR', '金額（1円以上）を入れてください');
   const taxCategory = normalizeTaxCategory(params.taxCategory);
 
   const sellerCustomerId = SELF_COMPANY_ID_BY_ENTITY[BUYER_ENTITY];   // 売上の相手先＝買い手の自社行
@@ -130,10 +130,13 @@ export async function createIntercompanyPurchase(params: CreateIntercompanyParam
 
   return withTransaction(async (tx) => {
     const project = await tx.queryOne(
-      'SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
+      'SELECT id, entity_code FROM projects WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
       [projectId],
-    ) as { id: string } | undefined;
+    ) as { id: string; entity_code: string | null } | undefined;
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
+    if (project.entity_code && project.entity_code !== BUYER_ENTITY) {
+      throw new AppError(400, 'VALIDATION_ERROR', '社内発注はGJVの案件から登録してください');
+    }
 
     const episode = await tx.queryOne(
       'SELECT id, episode_code FROM episodes WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
@@ -179,7 +182,7 @@ export async function createIntercompanyPurchase(params: CreateIntercompanyParam
 
     const revenue = await tx.queryOne('SELECT * FROM revenues WHERE id = ?', [revenueId]) as Record<string, unknown>;
     const purchase = await tx.queryOne('SELECT * FROM purchases WHERE id = ?', [purchaseId]) as Record<string, unknown>;
-    const link = await tx.queryOne('SELECT * FROM intercompany_links WHERE id = ?', [linkId]) as unknown as IntercompanyLink;
+    const link = await tx.queryOne('SELECT * FROM intercompany_links WHERE id = ? FOR UPDATE', [linkId]) as unknown as IntercompanyLink;
     return { link, revenue, purchase };
   });
 }
@@ -196,7 +199,7 @@ export async function updateIntercompanyLink(
   linkId: string, patch: UpdateIntercompanyParams, _userId: string,
 ): Promise<IntercompanyDetail> {
   return withTransaction(async (tx) => {
-    const link = await tx.queryOne('SELECT * FROM intercompany_links WHERE id = ?', [linkId]) as unknown as IntercompanyLink | undefined;
+    const link = await tx.queryOne('SELECT * FROM intercompany_links WHERE id = ? FOR UPDATE', [linkId]) as unknown as IntercompanyLink | undefined;
     if (!link) throw new AppError(404, 'NOT_FOUND', '社内取引が見つかりません');
     await assertEditable(link, tx);
 
@@ -211,14 +214,21 @@ export async function updateIntercompanyLink(
       billingKey = generateBillingKey(episode.episode_code, revForTax.tax_category);
     }
 
-    if (patch.amount !== undefined && !(patch.amount > 0)) {
+    if (patch.amount !== undefined && (!Number.isFinite(patch.amount) || patch.amount < 1)) {
       throw new AppError(400, 'VALIDATION_ERROR', '金額（1円以上）を入れてください');
     }
+
+    const dateChanged = patch.recognitionDate !== undefined;
+    const revenueDueDate = dateChanged
+      ? await computeDueDate(patch.recognitionDate ?? null, SELF_COMPANY_ID_BY_ENTITY[BUYER_ENTITY], SELLER_ENTITY) : null;
+    const purchaseDueDate = dateChanged
+      ? await computeVendorDueDate(patch.recognitionDate ?? null, SELF_COMPANY_ID_BY_ENTITY[SELLER_ENTITY], BUYER_ENTITY) : null;
 
     await tx.execute(
       `UPDATE revenues SET
          amount = COALESCE(?, amount),
          recognition_date = CASE WHEN ? THEN ? ELSE recognition_date END,
+         payment_due_date = CASE WHEN ? THEN ? ELSE payment_due_date END,
          episode_id = COALESCE(?, episode_id),
          billing_key = COALESCE(?, billing_key),
          notes = CASE WHEN ? THEN ? ELSE notes END,
@@ -226,6 +236,7 @@ export async function updateIntercompanyLink(
        WHERE id = ?`,
       [patch.amount ?? null,
        patch.recognitionDate !== undefined, patch.recognitionDate ?? null,
+       dateChanged, revenueDueDate,
        patch.episodeId ?? null, billingKey ?? null,
        patch.notes !== undefined, patch.notes ?? null,
        link.revenue_id],
@@ -234,6 +245,7 @@ export async function updateIntercompanyLink(
       `UPDATE purchases SET
          amount = COALESCE(?, amount),
          recognition_date = CASE WHEN ? THEN ? ELSE recognition_date END,
+         payment_due_date = CASE WHEN ? THEN ? ELSE payment_due_date END,
          episode_id = COALESCE(?, episode_id),
          billing_key = COALESCE(?, billing_key),
          notes = CASE WHEN ? THEN ? ELSE notes END,
@@ -241,6 +253,7 @@ export async function updateIntercompanyLink(
        WHERE id = ?`,
       [patch.amount ?? null,
        patch.recognitionDate !== undefined, patch.recognitionDate ?? null,
+       dateChanged, purchaseDueDate,
        patch.episodeId ?? null, billingKey ?? null,
        patch.notes !== undefined, patch.notes ?? null,
        link.purchase_id],
@@ -255,7 +268,7 @@ export async function updateIntercompanyLink(
 /** 両側を同時に削除する（ソフトデリート）。売り手側が済んでいれば消せない */
 export async function deleteIntercompanyLink(linkId: string, userId: string): Promise<void> {
   await withTransaction(async (tx) => {
-    const link = await tx.queryOne('SELECT * FROM intercompany_links WHERE id = ?', [linkId]) as unknown as IntercompanyLink | undefined;
+    const link = await tx.queryOne('SELECT * FROM intercompany_links WHERE id = ? FOR UPDATE', [linkId]) as unknown as IntercompanyLink | undefined;
     if (!link) throw new AppError(404, 'NOT_FOUND', '社内取引が見つかりません');
     await assertEditable(link, tx);
 

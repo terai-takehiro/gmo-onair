@@ -174,19 +174,26 @@ export const securityCardService = {
     if (!person) throw new AppError(400, 'VALIDATION_ERROR', '貸出先の担当者 (borrower_person) は必須です');
 
     const id = uuidv4();
-    await execute(
-      `INSERT INTO security_card_lendings
-         (id, card_id, borrower_company, borrower_person, borrower_contact, purpose,
-          lent_on, due_on, lent_by_user_id, lent_by_name, notes, status, requested_by, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`,
-      [
-        id, cardId,
-        input.borrower_company ?? null, person, input.borrower_contact ?? null, input.purpose ?? null,
-        normDate(input.lent_on, today()), normDate(input.due_on),
-        input.lent_by_user_id ?? null, input.lent_by_name ?? null,
-        input.notes ?? null, input.requested_by ?? null, input.created_by ?? null,
-      ],
-    );
+    try {
+      await execute(
+        `INSERT INTO security_card_lendings
+           (id, card_id, borrower_company, borrower_person, borrower_contact, purpose,
+            lent_on, due_on, lent_by_user_id, lent_by_name, notes, status, requested_by, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`,
+        [
+          id, cardId,
+          input.borrower_company ?? null, person, input.borrower_contact ?? null, input.purpose ?? null,
+          normDate(input.lent_on, today()), normDate(input.due_on),
+          input.lent_by_user_id ?? null, input.lent_by_name ?? null,
+          input.notes ?? null, input.requested_by ?? null, input.created_by ?? null,
+        ],
+      );
+    } catch (error) {
+      if ((error as { code?: string }).code === '23505') {
+        throw new AppError(409, 'ALREADY_LENT', 'このカードは既に貸出中です。先に返却してください');
+      }
+      throw error;
+    }
     return (await this.getCard(cardId))!;
   },
 
@@ -205,17 +212,18 @@ export const securityCardService = {
       ? [active.notes, `【返却時】${input.notes}`].filter(Boolean).join('\n')
       : (active.notes ?? null);
 
-    await execute(
+    const returned = await queryOne(
       `UPDATE security_card_lendings
          SET status = 'returned', returned_on = ?, returned_by_user_id = ?, returned_by_name = ?,
              notes = ?, updated_at = NOW()
-       WHERE id = ?`,
+       WHERE id = ? AND status = 'active' AND deleted_at IS NULL RETURNING id`,
       [
         normDate(input.returned_on, today()),
         input.returned_by_user_id ?? null, input.returned_by_name ?? null,
         combinedNotes, active.id,
       ],
     );
+    if (!returned) throw new AppError(409, 'NOT_LENT', 'この貸出は既に返却されています');
     return (await this.getCard(cardId))!;
   },
 

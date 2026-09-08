@@ -9,6 +9,8 @@ import { sendSms, generateOtp } from '../../../shared/auth/sms';
 import { sendMail } from '../../../shared/auth/email';
 import { config } from '../../../config';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import otpRoutes from './auth-otp.routes';
+import { createOtpChallenge, OTP_CHALLENGE_COOKIE, OTP_CHALLENGE_TTL_MS, otpCookieOptions } from '../../../shared/auth/otpChallenge';
 
 const router = Router();
 const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) =>
@@ -21,16 +23,11 @@ const authLimiter = rateLimit({
   skipSuccessfulRequests: true,
 });
 
-const otpLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000,
-  max: 5,
-  message: { success: false, error: { code: 'RATE_LIMIT', message: '認証コードの入力回数が上限に達しました。' } },
-});
-
 const OTP_EXPIRES_MINUTES = 5;
 
 // パスワード強度チェック
-function validatePassword(pw: string): string | null {
+function validatePassword(pw: unknown): string | null {
+  if (typeof pw !== 'string') return 'パスワードは文字列で入力してください';
   if (pw.length < 8) return 'パスワードは8文字以上です';
   if (!/[a-zA-Z]/.test(pw)) return 'パスワードに英字を含めてください';
   if (!/[0-9]/.test(pw)) return 'パスワードに数字を含めてください';
@@ -142,10 +139,12 @@ router.post('/accept-invitation', authLimiter, wrap(async (req, res) => {
   if (new Date(user.invitation_expires_at) < new Date()) throw new AppError(410, 'EXPIRED', '招待リンクの有効期限が切れています');
 
   const hash = await hashPassword(password);
-  await execute(
-    `UPDATE users SET password_hash=?, status='active', invitation_token=NULL, invitation_accepted_at=NOW(), updated_at=NOW() WHERE id=?`,
-    [hash, user.id],
+  const accepted = await queryOne(
+    `UPDATE users SET password_hash=?, status='active', invitation_token=NULL, invitation_accepted_at=NOW(), updated_at=NOW()
+     WHERE id=? AND invitation_token=? AND status='invited' AND deleted_at IS NULL AND invitation_expires_at > NOW() RETURNING id`,
+    [hash, user.id, token],
   );
+  if (!accepted) throw new AppError(400, 'INVALID_INVITATION', '招待リンクが使用済みか、有効期限が切れています');
 
   res.json({ success: true, message: 'アカウントが有効化されました。ログインしてください。' });
 }));
@@ -155,7 +154,7 @@ router.post('/accept-invitation', authLimiter, wrap(async (req, res) => {
 // ============================================================
 router.post('/login', authLimiter, wrap(async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) throw new AppError(400, 'VALIDATION_ERROR', 'メールアドレスとパスワードは必須です');
+  if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) throw new AppError(400, 'VALIDATION_ERROR', 'メールアドレスとパスワードは必須です');
 
   // ログイン試行記録
   const ip = req.ip || req.socket.remoteAddress || '';
@@ -193,6 +192,9 @@ router.post('/login', authLimiter, wrap(async (req, res) => {
 
     await sendSms(user.phone, `GMO ONAiR 認証コード: ${code}\n${OTP_EXPIRES_MINUTES}分以内に入力してください。`);
 
+    res.cookie(OTP_CHALLENGE_COOKIE, createOtpChallenge(user.id, config.jwtSecret), {
+      ...otpCookieOptions(config.isProduction), maxAge: OTP_CHALLENGE_TTL_MS,
+    });
     res.json({
       success: true,
       data: {
@@ -226,65 +228,8 @@ router.post('/login', authLimiter, wrap(async (req, res) => {
   });
 }));
 
-// ============================================================
-// ログイン Step 2: SMS OTP検証 → JWT発行
-// ============================================================
-router.post('/verify-2fa', otpLimiter, wrap(async (req, res) => {
-  const { user_id, code } = req.body;
-  if (!user_id || !code) throw new AppError(400, 'VALIDATION_ERROR', 'ユーザーIDと認証コードは必須です');
-
-  const vc = await queryOne(
-    `SELECT id, code, expires_at FROM verification_codes
-     WHERE user_id = ? AND type = 'sms' AND used_at IS NULL
-     ORDER BY created_at DESC LIMIT 1`,
-    [user_id],
-  ) as any;
-  if (!vc) throw new AppError(401, 'INVALID_CODE', '認証コードが見つかりません。再度ログインしてください。');
-  if (new Date(vc.expires_at) < new Date()) throw new AppError(401, 'EXPIRED', '認証コードの有効期限が切れています。再度ログインしてください。');
-  if (vc.code !== String(code).trim()) throw new AppError(401, 'INVALID_CODE', '認証コードが正しくありません');
-
-  // コードを使用済みに
-  await execute('UPDATE verification_codes SET used_at=NOW() WHERE id=?', [vc.id]);
-
-  const user = await queryOne('SELECT id, name, email, role FROM users WHERE id = ? AND deleted_at IS NULL', [user_id]) as any;
-  if (!user) throw new AppError(404, 'NOT_FOUND', 'ユーザーが見つかりません');
-
-  const ip = req.ip || req.socket.remoteAddress || '';
-  await execute('INSERT INTO login_attempts (email, ip_address, success) VALUES (?, ?, true)', [user.email, ip]);
-  await execute('UPDATE users SET last_login_at=NOW() WHERE id=?', [user.id]);
-
-  const jwtToken = signToken({ userId: user.id, email: user.email, role: user.role, name: user.name });
-  res.cookie('gmo_onair_token', jwtToken, {
-    domain: process.env.COOKIE_DOMAIN || undefined,
-    httpOnly: true,
-    secure: config.nodeEnv === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
-  const isProduction = process.env.NODE_ENV === 'production';
-  res.json({
-    success: true,
-    data: isProduction ? {} : { token: jwtToken },
-  });
-}));
-
-// ============================================================
-// OTP再送信
-// ============================================================
-router.post('/resend-otp', authLimiter, wrap(async (req, res) => {
-  const { user_id } = req.body;
-  if (!user_id) throw new AppError(400, 'VALIDATION_ERROR', 'user_idは必須です');
-  const user = await queryOne('SELECT id, phone FROM users WHERE id = ? AND deleted_at IS NULL', [user_id]) as any;
-  if (!user?.phone) throw new AppError(400, 'NO_PHONE', '電話番号が登録されていません');
-
-  const code = generateOtp();
-  const expiresAt = new Date(Date.now() + OTP_EXPIRES_MINUTES * 60 * 1000);
-  await execute(`UPDATE verification_codes SET used_at=NOW() WHERE user_id=? AND type='sms' AND used_at IS NULL`, [user_id]);
-  await execute(`INSERT INTO verification_codes (user_id, code, type, expires_at) VALUES (?, ?, 'sms', ?)`, [user_id, code, expiresAt.toISOString()]);
-  await sendSms(user.phone, `GMO ONAiR 認証コード: ${code}\n${OTP_EXPIRES_MINUTES}分以内に入力してください。`);
-  res.json({ success: true, message: '認証コードを再送信しました' });
-}));
+// OTP検証・再送はパスワード確認済みの短期Cookieを要求する。
+router.use(otpRoutes);
 
 // ============================================================
 // Mock Login (開発用 — authMode === 'mock' 時のみ)
@@ -293,14 +238,14 @@ router.post('/mock-login', wrap(async (req, res) => {
   if (config.authMode === 'password') throw new AppError(400, 'NOT_AVAILABLE', '開発用ログインは本番環境で無効です');
   const { userId } = req.body;
   if (!userId) throw new AppError(400, 'VALIDATION_ERROR', 'userId is required');
-  const user = await queryOne('SELECT id, name, email, role FROM users WHERE id = ? AND deleted_at IS NULL', [userId]);
+  const user = await queryOne("SELECT id, name, email, role FROM users WHERE id = ? AND deleted_at IS NULL AND status = 'active'", [userId]);
   if (!user) throw new AppError(404, 'NOT_FOUND', 'User not found');
   res.json({ success: true, data: user });
 }));
 
 router.get('/users', wrap(async (_req, res) => {
   if (config.authMode === 'password') throw new AppError(400, 'NOT_AVAILABLE', '開発用ユーザー一覧は本番環境で無効です');
-  const users = await queryAll('SELECT id, name, email, role FROM users WHERE deleted_at IS NULL ORDER BY name');
+  const users = await queryAll("SELECT id, name, email, role FROM users WHERE deleted_at IS NULL AND status = 'active' ORDER BY name");
   res.json({ success: true, data: users });
 }));
 
@@ -366,6 +311,7 @@ router.post('/reset-password', requireAuth, requireRole('system_admin'), wrap(as
 // 共通
 // ============================================================
 router.post('/logout', (_req, res) => {
+  res.clearCookie(OTP_CHALLENGE_COOKIE, otpCookieOptions(config.isProduction));
   res.clearCookie('gmo_onair_token', {
     domain: process.env.COOKIE_DOMAIN || undefined,
     httpOnly: true,

@@ -1,5 +1,6 @@
-import { Server, Socket } from 'socket.io';
+import type { Server, Socket } from 'socket.io';
 import { queryOne } from '../../shared/db/connection';
+import { meetsPermissionLevel } from '../../shared/middleware/auth';
 import { canAccessDoc } from './access';
 import { qsheetRooms } from './collab';
 import { resolveSocketUser, type SocketUser } from '../../shared/collab/socketAuth';
@@ -106,19 +107,30 @@ export function initQsheetSocketIO(io: Server): void {
     const ready: Promise<void> = (async () => {
       const user = await resolveSocketUser(socket);
       let canAccess = false;
+      let canEdit = false;
       if (user) {
         try {
           const doc = (await queryOne(
             'SELECT created_by FROM qsheet_documents WHERE id = $1 AND deleted_at IS NULL',
             [docId]
           )) as { created_by: string | null } | undefined;
-          if (doc) canAccess = await canAccessDoc(user, docId, doc.created_by ?? null);
+          if (doc) {
+            const permission = await queryOne(
+              "SELECT access_level FROM user_permissions WHERE user_id = ? AND module = 'qsheet'", [user.id],
+            );
+            const level = permission?.access_level as string | undefined;
+            canAccess = meetsPermissionLevel(user.role, level, 'reader') &&
+              await canAccessDoc(user, docId, doc.created_by ?? null);
+            canEdit = canAccess && meetsPermissionLevel(user.role, level, 'editor');
+          }
         } catch {
           /* DB not ready — アクセス不可扱い */
         }
       }
       socket.data.user = user;
       socket.data.canAccess = canAccess;
+      socket.data.canEdit = canEdit;
+      if (!socket.connected) return;
 
       // 在席登録: 認証済み & アクセス権のあるユーザーのみ
       if (user && canAccess) {
@@ -166,7 +178,7 @@ export function initQsheetSocketIO(io: Server): void {
 
     socket.on('yjs:update', async (update: ArrayBuffer | Buffer | Uint8Array) => {
       await ready;
-      if (!socket.data.canAccess || !collabAcquired) return;
+      if (!socket.data.canEdit || !collabAcquired) return;
       const u = update instanceof Uint8Array ? update : new Uint8Array(update as ArrayBuffer);
       qsheetRooms.applyUpdate(docId, u);
       // 他の参加者 (members のみ) へ増分を中継。台本の編集差分なので room 全体には出さない。
