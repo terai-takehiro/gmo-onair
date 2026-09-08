@@ -112,7 +112,7 @@ export default function AiKnowledgePage() {
                 key={s}
                 type="button"
                 onClick={() => setTab(s)}
-                className={`min-h-tap flex-1 rounded-control px-3 py-1.5 text-list transition-colors sm:min-h-[38px] ${
+                className={`min-h-tap flex-1 rounded-control px-3 py-1.5 text-list transition-colors sm:min-h-9 ${
                   // 選択中はウェイト 800（`_rules.md`「選択状態」）。型スケールの 700 を上書きする
                   tab === s
                     ? 'bg-primary/15 font-extrabold text-primary'
