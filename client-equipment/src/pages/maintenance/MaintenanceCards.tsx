@@ -96,6 +96,14 @@ export function MaintenanceCards({
                 label="報告日"
                 value={r.reported_at ? r.reported_at.slice(5, 10).replace('-', '/') : '未登録'}
               />
+              {/* 修理引取／発送日・修理受取／返送日は入っているときだけ出す
+                  （未登録の行が大半なので、常時 2 行分空欄を出さない） */}
+              {r.repair_sent_at && (
+                <Fact label="発送日" value={r.repair_sent_at.slice(5, 10).replace('-', '/')} />
+              )}
+              {r.repair_returned_at && (
+                <Fact label="返送日" value={r.repair_returned_at.slice(5, 10).replace('-', '/')} />
+              )}
             </dl>
 
             <div>

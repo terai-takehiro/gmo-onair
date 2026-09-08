@@ -177,7 +177,25 @@ export function LedgerRows({
         return (
           <Row key={r.id} stackOnMobile interactive onClick={() => onOpen(r)}>
             <RowSlot w={128}>
-              <span className="font-number text-sub-sm text-primary">{r.code || '—'}</span>
+              {/* コード（GLS番号等）は案件に紐づく行（売上・仕入）だけ、押すと
+                  案件管理＞案件概要へ飛ぶ（要望・2026-09-08）。**行クリック
+                  （onOpen）とは別のリンク**なのでここで止める（申請URLと同じ作法）。
+                  ⚠️ 上の「案件へのリンクは復活させない」注記は**見出し横の矢印
+                  アイコン**の話——ここは既存のコード文字そのものを押せるようにする
+                  だけで、行に押せるものを新しく増やすわけではない */}
+              {r.project_id ? (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); navigate(`/sales/projects/${r.project_id}`); }}
+                  title="案件概要をひらく"
+                  aria-label={`案件概要をひらく（${r.code || 'コードなし'}）`}
+                  className="v4-tap truncate text-left font-number text-sub-sm text-primary underline decoration-dotted underline-offset-2 hover:decoration-solid"
+                >
+                  {r.code || '—'}
+                </button>
+              ) : (
+                <span className="font-number text-sub-sm text-primary">{r.code || '—'}</span>
+              )}
             </RowSlot>
 
             <RowMain>

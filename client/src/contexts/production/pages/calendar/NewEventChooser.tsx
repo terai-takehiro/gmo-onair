@@ -26,8 +26,10 @@ export type NewKind = 'room' | 'mine' | 'partner';
 
 const KINDS: Array<{ k: NewKind; label: string; hint: string; icon: typeof DoorOpen; color: string }> = [
   { k: 'room', label: 'スタジオを予約する', hint: '本番・リハ・設営・内覧など', icon: DoorOpen, color: '#dc2626' },
-  { k: 'mine', label: '自分の予定', hint: '打合せ・移動・作業。共有すると他の人にも出ます', icon: User, color: '#2563eb' },
-  { k: 'partner', label: 'パートナーの予定', hint: '代休・有給・出張・社外活動。人の空きを見るために入れます', icon: Users, color: '#8b5cf6' },
+  // ⚠️ 「自分の予定」「パートナーの予定」はまだ利用できない機能（要望を受け一旦
+  // ラベルに明示。使えるようにする作業自体は別途）
+  { k: 'mine', label: '自分の予定（未使用）', hint: '打合せ・移動・作業。共有すると他の人にも出ます', icon: User, color: '#2563eb' },
+  { k: 'partner', label: 'パートナーの予定（未使用）', hint: '代休・有給・出張・社外活動。人の空きを見るために入れます', icon: Users, color: '#8b5cf6' },
 ];
 
 export function NewEventChooser({

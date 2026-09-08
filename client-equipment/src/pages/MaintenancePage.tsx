@@ -21,6 +21,7 @@ import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { MAINTENANCE_STATUS, MAINTENANCE_TYPE, statusOf } from '@gmo-onair/shared/src/constants/statuses';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { HIDE_UNTIL_WIDE } from '@/lib/rowVisibility';
 import { MaintenanceDialog, type MaintenanceForm } from './maintenance/MaintenanceDialog';
 import { MaintenanceCards, STATUS_TONE } from './maintenance/MaintenanceCards';
 import type { MaintenanceRecord } from './maintenance/types';
@@ -88,6 +89,8 @@ export default function MaintenancePage() {
     mutationFn: (form: MaintenanceForm) => api.post('/equipment/maintenance', {
       ...form,
       repair_cost: form.repair_cost ? Number(form.repair_cost) : null,
+      repair_sent_at: form.repair_sent_at || null,
+      repair_returned_at: form.repair_returned_at || null,
     }),
     onSuccess: () => {
       invalidate();
@@ -107,6 +110,9 @@ export default function MaintenancePage() {
       vendor_name: r.vendor_name, repair_cost: r.repair_cost, status: r.status, result: r.result,
       started_at: r.started_at,
       completed_at: r.status === 'completed' ? new Date().toISOString() : r.completed_at,
+      // ⚠️ UPDATE は全列を書き直すので、渡さないと消える（PUT は部分更新ではない）
+      repair_sent_at: r.repair_sent_at,
+      repair_returned_at: r.repair_returned_at,
     }),
     onSuccess: () => { invalidate(); notifySuccess('状態を変えました'); },
     onError: (e) => notifyApiError('状態を変えられませんでした', e),
@@ -163,6 +169,12 @@ export default function MaintenancePage() {
             <RowSlot w={96}>業者</RowSlot>
             <RowSlot w={128} align="right">費用</RowSlot>
             <RowSlot w={72}>報告日</RowSlot>
+            {/* ⚠️ **640px から出す（hideOnMobile のみ）と商品名が消える**
+                （`shared/tests/rowNameWidth.test.ts` で実測・固定）。この2列は
+                `catalog/CatalogRows.tsx` 等と同じく `HIDE_UNTIL_WIDE` で
+                1024px 以上まで出さない — 出る幅をずらすだけで、PC で見える情報は同じ */}
+            <RowSlot w={72} className={HIDE_UNTIL_WIDE}>引取／発送</RowSlot>
+            <RowSlot w={72} className={HIDE_UNTIL_WIDE}>受取／返送</RowSlot>
             <RowSlot w={160}>状態</RowSlot>
           </RowHeader>
           {records.map((r) => (
@@ -189,6 +201,16 @@ export default function MaintenancePage() {
               <RowSlot w={72} hideOnMobile>
                 <span className="font-number text-sub-sm text-muted-foreground">
                   {r.reported_at?.slice(5, 10).replace('-', '/') ?? ''}
+                </span>
+              </RowSlot>
+              <RowSlot w={72} hideOnMobile className={HIDE_UNTIL_WIDE}>
+                <span className="font-number text-sub-sm text-muted-foreground">
+                  {r.repair_sent_at?.slice(5, 10).replace('-', '/') ?? ''}
+                </span>
+              </RowSlot>
+              <RowSlot w={72} hideOnMobile className={HIDE_UNTIL_WIDE}>
+                <span className="font-number text-sub-sm text-muted-foreground">
+                  {r.repair_returned_at?.slice(5, 10).replace('-', '/') ?? ''}
                 </span>
               </RowSlot>
               <RowSlot w={160} placeholder="">

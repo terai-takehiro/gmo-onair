@@ -24,6 +24,10 @@ export interface CreateInput {
   assigned_to?: string | null;
   vendor_name?: string | null;
   repair_cost?: number | null;
+  /** 修理引取／発送日（機材を修理業者に渡した／送った日） */
+  repair_sent_at?: string | null;
+  /** 修理受取／返送日（機材が戻ってきた日） */
+  repair_returned_at?: string | null;
 }
 
 export interface UpdateInput {
@@ -36,6 +40,10 @@ export interface UpdateInput {
   result?: string | null;
   started_at?: string | null;
   completed_at?: string | null;
+  /** 修理引取／発送日（機材を修理業者に渡した／送った日） */
+  repair_sent_at?: string | null;
+  /** 修理受取／返送日（機材が戻ってきた日） */
+  repair_returned_at?: string | null;
 }
 
 export const maintenanceService = {
@@ -69,13 +77,15 @@ export const maintenanceService = {
   async create(input: CreateInput, userId: string | null): Promise<{ id: string }> {
     const id = uuid();
     await execute(
-      `INSERT INTO maintenance_records (id, equipment_id, record_type, title, description, reported_by, assigned_to, vendor_name, repair_cost, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      `INSERT INTO maintenance_records
+         (id, equipment_id, record_type, title, description, reported_by, assigned_to, vendor_name, repair_cost, status, repair_sent_at, repair_returned_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
       [
         id, input.equipment_id, input.record_type, input.title,
         input.description ?? null, userId, input.assigned_to ?? null,
         input.vendor_name ?? null, input.repair_cost ?? null,
         MAINTENANCE_STATUS.REPORTED,
+        input.repair_sent_at ?? null, input.repair_returned_at ?? null,
       ],
     );
 
@@ -93,13 +103,15 @@ export const maintenanceService = {
     await execute(
       `UPDATE maintenance_records SET
          title=$1, description=$2, assigned_to=$3, vendor_name=$4, repair_cost=$5,
-         status=$6, result=$7, started_at=$8, completed_at=$9, updated_at=NOW()
-       WHERE id=$10`,
+         status=$6, result=$7, started_at=$8, completed_at=$9,
+         repair_sent_at=$10, repair_returned_at=$11, updated_at=NOW()
+       WHERE id=$12`,
       [
         input.title, input.description ?? null, input.assigned_to ?? null,
         input.vendor_name ?? null, input.repair_cost ?? null,
         input.status, input.result ?? null,
         input.started_at ?? null, input.completed_at ?? null,
+        input.repair_sent_at ?? null, input.repair_returned_at ?? null,
         id,
       ],
     );
