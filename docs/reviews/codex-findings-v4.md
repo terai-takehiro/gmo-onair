@@ -3521,6 +3521,7 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 | --- | --- | --- | --- | --- |
 | #624 | P1（セキュリティ・元は #621 のレビュー指摘） | `server/src/contexts/dailyops/routes/inbox.routes.ts` の `POST /inquiries/:id/book` | **`dailyops:editor` だけで `sales:editor` 相当のスタジオ予約（カレンダー登録）が作れる** — `studioBookingService.createBooking()` をサービス層で直接呼んでおり、`/studios/bookings` が要求する `sales:editor` を経由しない。作られる予約は tentative・部屋なしだが ICS配信・共有カレンダーに乗り、作った本人（dailyops）はそれを消す手段を持たない | ❌ **直さないと決めた**（ユーザーに確認済み・`AskUserQuestion`で「既存パターンとして許容する」を選択）。既存の「タスクにする」（`makeTicket()`が`project_tasks`へ直接INSERT・削除には`sales`権限が要る）と同型の意図した設計で、`sales:editor`必須にすると「dailyopsがカレンダーに直接登録したい」という依頼自体が成立しなくなる。**何が変われば直すか**: 「dailyopsが自分で作った予約だけ取り消せる」導線が要ると判断されたとき、別PRでスコープ限定の削除APIを追加する |
 | #644 | P2（権限・#644 の作業中に自分で見つけたもの） | `server/src/contexts/dailyops/routes/tasks.routes.ts:690`（`POST /tasks/:id/respond` が `canEdit`）と `client-daily/src/pages/tasks/DelegationDetail.tsx`（操作を `canEdit` で出し分け） | **`dailyops:reader` の人にも依頼は届くのに、承諾・辞退・相談ができない** — 一覧（`GET /tasks/delegations`）は `canRead` なので受け手として読めるが、返答は `canEdit`（editor 以上）が要る。画面もボタンを出さないので**「届いているのに返せない」行き止まり**になり、依頼者側からは「3日間返事がありません」と滞留して見える | ❌ **未対応**（#644 の範囲外・権限設計の判断が要る）。**何が変われば直すか**: 「依頼への返答は閲覧権限でもできる」と決まったとき。⚠️ `canRead` に丸ごと緩めると `dailyops:reader` が `project_tasks` を更新できてしまうので、**その依頼の受け手本人・その1行だけ**に絞ること（`respondToDelegation` は既に `assigned_to !== userId` を 403 で弾いているので、絞り込み自体はサービス層にある） |
+| #660 | **P1**（Codex・`createInitialBookings.ts`） | `server/src/contexts/production/services/studio-booking.service.ts`（予約作成） | **異なる2人が同じ（まだ予約の無い）案件をほぼ同時に保存すると、サーバー側に原子性が無いため重複予約が作られうる** — クライアント側の有無確認（`hasFreshEventBooking`）と作成（`createInitialBookings`）が別リクエストのままで、サーバーは重複を弾かず作らせたうえで事後に「重複疑い一覧」で人に確認させる設計のまま | ❌ **直さないと決めた**（ユーザーに確認済み・`AskUserQuestion`で「対応しない」を選択）。既存の予約作成経路（カレンダー・`StudioBookingDialog`・パートナースケジュール等）すべてが同じ「弾かず事後に重複疑い一覧で人が確認する」設計であり、ここだけトランザクション内ロック等で厳密拒否に変えると他経路と矛盾する。発生条件も「まだ予約0件の同一案件を複数人がネットワーク往復1回分程度の間に保存する」という極めて狭いレース。**何が変われば直すか**: 予約作成全体をDBスキーマ・トランザクション設計を伴う原子的/冪等な仕組みに作り直すと決まったとき、別PRでスコープを切って着手する |
 
 - **#599**（`feat(reorg): 2026年10月の事業再編（計上会社の2社化・案件番号の改番）の基盤を実装`・
   2026-09-06）— P0〜P1残作業（`docs/reorg-2026-10-plan.md`）を1本のPRにまとめて出した回
@@ -3646,6 +3647,36 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   **意図して残した未検証事項**（PR本文に明記済み）: 実ブラウザでのPC/スマホ目視確認・
   権限別403の画面確認は未実施（財務ダッシュボードの確度加味の計算ロジックのみ、検証用DBに
   実データを投入し期待値と一致することを確認済み）。
+
+- **#660**（`fix(sales): 案件編集画面のスタジオ日程が保存されない不具合を直した`・2026-09-08）—
+  利用者から「使う部屋・空間でスタジオを選択して保存しても、更新リクエストにスタジオ選択が
+  含まれず、保存後リロードすると選択が消え、予約も1件も作られない」というご指摘を受けて調査・
+  修正した回。「使う部屋・空間」（`ScheduleSection.tsx`）は**予約が1件も無い案件だけ**編集画面
+  にも表示され続けるのに、`useProjectForm.ts` の保存処理は `if (isEdit || ...) return;` で
+  **編集時は常に予約作成をスキップ**していたのが原因。表示条件と同じ判定
+  （`!hasEventBooking`）を保存側にも使い、条件を満たすときだけ新規作成時と同じ
+  `createInitialBookings` を呼ぶよう修正した。
+  ⚠️ `npm run reviews:debt` はこの環境のトークンでは401（過去の棚卸しと同じ）。
+  `get_review_comments` で直接確認、Codexから届いた指摘5件（P1×4・P2×1）は
+  **この場で修正・返信・スレッド解決までを4件（P1×3・P2×1）完了**させ、残り1件
+  （下の表の #660 の行）は**理由を返信のうえ対応しないと決めて棚卸しに記録**してから
+  マージしている:
+  - **⭕️ P1**: `actions.bookings`（読み込み中・失敗時に`[]`）を予約有無の判定にそのまま
+    使っていたため、「まだ読めていないだけ」を「予約なし」と誤認し二重作成しうる →
+    保存直後に`staleTime: 0`で取り直す`hasFreshEventBooking`を新設して判定
+  - **⭕️ P1**: その取り直し自体が失敗（ネットワーク断・4xx/5xx）すると、`mutate()`の
+    個別コールバックはreact-queryが拾わないため黙って落ちる →
+    保存後の一式を`runPostSaveBookingFlow`に一本化しtry/catchで包んで`notifyApiError`
+  - **⭕️ P1**: 予約作成中も`saveMutation.isPending`がfalseに戻り保存ボタンを押し直せた
+    （二重送信で同じ予約が2件できうる）→ 予約の後始末を`mutationFn`自体の中でawaitし、
+    完了までisPendingがtrueのまま保たれるよう修正
+  - **⭕️ P2**: 場所メモの履歴保存（`localStorage`）が容量不足等で例外を投げると、
+    後続の予約作成まで止まっていた → 履歴保存だけを個別のtry/catchで囲み無視するよう修正
+  - **❌ P1**（下の表に記録）: 複数人が同一の未予約案件をほぼ同時に保存した場合の
+    サーバー側の原子性は対応しないと決定
+  検証: `npx tsc -b client`／`npm run lint`（0 errors, warning 54件で着手前と同数）。
+  **意図して残した未検証事項**（PR本文に明記済み）: `npm run build`・実ブラウザでの
+  PC/スマホ目視確認・実DB（Postgres）での保存確認・権限のない利用者での403確認は未実施。
 
 ## この文書の使い方
 
