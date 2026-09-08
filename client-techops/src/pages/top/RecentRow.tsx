@@ -1,5 +1,6 @@
 // 制作技術支援トップ — 「続きから」（端末の閲覧履歴。横スクロールのカード列）。
-// `search`/`segment` は無関係、常にそのまま出す（`listRecentTop()` の先頭4件）。
+// `search`/`segment`・アーカイブとは無関係に出すが、**この一覧に出ない項目は出さない**
+// （工事・構築のプロジェクト・失注が履歴にだけ残るため。絞るのは `eligibleRecents`）。
 import { Building2, Sparkles } from 'lucide-react';
 import { recentEntryHref } from './topHelpers';
 import type { RecentTopEntry } from '@/lib/recentTop';

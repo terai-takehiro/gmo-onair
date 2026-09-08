@@ -17,4 +17,8 @@ export interface MaintenanceRecord {
   started_at: string | null;
   completed_at: string | null;
   assigned_to: string | null;
+  /** 修理引取／発送日（機材を修理業者に渡した／送った日） */
+  repair_sent_at: string | null;
+  /** 修理受取／返送日（機材が戻ってきた日） */
+  repair_returned_at: string | null;
 }

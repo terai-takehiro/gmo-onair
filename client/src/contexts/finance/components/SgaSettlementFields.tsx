@@ -60,7 +60,7 @@ export function SgaSettlementFields({
               settlement_number: e.target.value,
             }))
           }
-          placeholder={form.is_provisional ? '仮の間は入力できません' : '申請後に番号を入力（任意）'}
+          placeholder={form.is_provisional ? '仮の間は入力できません' : '申請後に番号を入力'}
           disabled={form.is_provisional}
         />
         {form.settlement_number && (
@@ -80,7 +80,7 @@ export function SgaSettlementFields({
         onChange={(e) =>
           setForm((f) => ({ ...f, settlement_url: e.target.value }))
         }
-        placeholder="精算申請ページのURL（任意）"
+        placeholder="精算申請ページのURL"
       />
       {form.settlement_url && (
         <a

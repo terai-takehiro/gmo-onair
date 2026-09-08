@@ -106,6 +106,8 @@ export function buildRevenueItems(
     return {
       id: r.id,
       code: r.episode_code || r.gls_number,
+      // 按分グループの行は案件が1つに決まらないので、コードから案件へは飛ばさない
+      project_id: groupId ? null : projectId ?? null,
       title: r.project_name || '（案件名なし）',
       sub: [r.customer_name, note].filter(Boolean).join(' ・ ') || null,
       amount,
@@ -162,6 +164,7 @@ export function buildPurchaseItems(
     return {
       id: p.id,
       code: p.episode_code || p.gls_number,
+      project_id: p.project_id ?? null,
       title: p.description || p.project_name || '（説明なし）',
       sub: [p.vendor_name, p.project_name, note].filter(Boolean).join(' ／ ') || null,
       amount,

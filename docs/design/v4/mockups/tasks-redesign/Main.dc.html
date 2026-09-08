@@ -1,0 +1,235 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&family=Noto+Sans+JP:wght@400;700;900&display=swap">
+  <style>
+    body { margin:0; background:#f7f8fa; color:#1a1d24;
+      font-family:'LINE Seed JP','Noto Sans JP',-apple-system,'Hiragino Sans','BIZ UDPGothic','Meiryo',sans-serif;
+      font-feature-settings:'palt' 1,'kern' 1; -webkit-font-smoothing:antialiased; }
+    a { color:#005bac; text-decoration:none; }
+    .num { font-variant-numeric:tabular-nums; }
+    svg { flex-shrink:0; }
+  </style>
+</helmet>
+
+<div style="width:1440px; box-sizing:border-box; background:#f7f8fa; display:flex; flex-direction:column">
+
+  <!-- 上辺バー -->
+  <div style="height:64px; box-sizing:border-box; display:flex; align-items:center; gap:14px; padding:0 24px; background:#ffffff; border-bottom:1px solid #e6e9ed">
+    <img src="logo-onair.svg" alt="GMO ONAiR" style="height:18px; width:auto">
+    <span style="width:1px; height:22px; background:#e6e9ed"></span>
+    <span style="display:flex; align-items:center; gap:10px; height:40px; box-sizing:border-box; padding:0 12px; border:1px solid #cfe4f4; border-radius:10px; background:#f4faff; font-size:13.5px; font-weight:700; color:#005bac">日常業務</span>
+    <span style="font-size:12.5px; color:#5d6470">／ タスク・依頼</span>
+    <span style="flex:1; min-width:0"></span>
+    <span style="display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:999px; background:#eaf4fb; color:#005bac; font-size:12px; font-weight:800">寺井</span>
+  </div>
+
+  <div style="display:flex; align-items:stretch">
+
+    <!-- 左メニュー -->
+    <div style="width:248px; box-sizing:border-box; flex-shrink:0; display:flex; flex-direction:column; background:#ffffff; border-right:1px solid #e6e9ed; padding:14px 12px 20px">
+      <span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; color:#3c424c"><span style="width:6px; height:6px; border-radius:999px; background:#cbd2da"></span>ホーム</span>
+      <span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; font-weight:700; color:#005bac; background:#f4faff"><span style="width:6px; height:6px; border-radius:999px; background:#005bac"></span>タスク・依頼<span style="margin-left:auto; height:19px; box-sizing:border-box; display:inline-flex; align-items:center; padding:0 6px; border-radius:6px; background:#fef6f7; color:#c7243a; font-size:11.5px; font-weight:800" class="num">4</span></span>
+      <p style="margin:14px 0 4px; padding:0 10px; font-size:11.5px; font-weight:800; color:#5d6470">定期報告</p>
+      <span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; color:#3c424c"><span style="width:6px; height:6px; border-radius:999px; background:#cbd2da"></span>ウィークリー活動報告</span>
+      <span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; color:#3c424c"><span style="width:6px; height:6px; border-radius:999px; background:#cbd2da"></span>デイリーニュース報告</span>
+      <p style="margin:14px 0 4px; padding:0 10px; font-size:11.5px; font-weight:800; color:#5d6470">届いたもの</p>
+      <span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; color:#3c424c"><span style="width:6px; height:6px; border-radius:999px; background:#cbd2da"></span>入ってきた情報</span>
+      <p style="margin:14px 0 4px; padding:0 10px; font-size:11.5px; font-weight:800; color:#5d6470">現場の受付</p>
+      <span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; color:#3c424c"><span style="width:6px; height:6px; border-radius:999px; background:#cbd2da"></span>内覧会 来場予約</span>
+      <span style="display:flex; align-items:center; gap:10px; min-height:38px; box-sizing:border-box; padding:6px 10px; border-radius:10px; font-size:13.5px; color:#3c424c"><span style="width:6px; height:6px; border-radius:999px; background:#cbd2da"></span>セキュリティカード</span>
+    </div>
+
+    <!-- 本文 -->
+    <div style="flex:1; min-width:0; box-sizing:border-box; padding:22px 26px 26px; display:flex; flex-direction:column; gap:16px">
+
+      <!-- 画面見出し（主操作はタブごとに変わる。依頼タブ＝依頼する） -->
+      <div style="display:flex; align-items:flex-end; gap:14px">
+        <div style="min-width:0; display:flex; flex-direction:column; gap:3px">
+          <h1 style="margin:0; font-size:23px; font-weight:800">タスク・依頼</h1>
+          <span style="font-size:12.5px; color:#5d6470">人に頼んだ仕事と、人から頼まれた仕事。期限は何月何日何時何分まで入れてください。</span>
+        </div>
+        <span style="flex:1; min-width:0"></span>
+        <span style="display:inline-flex; align-items:center; gap:7px; height:40px; box-sizing:border-box; padding:0 16px; border-radius:9px; background:#005bac; color:#ffffff; font-size:13.5px; font-weight:700">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg>依頼する
+        </span>
+      </div>
+
+      <!-- タブ（件数つき。押す前に 0 件だと分かる） -->
+      <div style="display:flex; align-items:flex-end; gap:2px; border-bottom:1px solid #e6e9ed">
+        <span style="display:inline-flex; align-items:center; gap:6px; height:38px; box-sizing:border-box; padding:0 14px; border-bottom:2px solid transparent; font-size:13.5px; color:#5d6470">マイタスク<span class="num" style="font-weight:800; color:#9aa1ab">12</span></span>
+        <span style="display:inline-flex; align-items:center; gap:6px; height:38px; box-sizing:border-box; padding:0 14px; border-bottom:2px solid #005bac; background:#f4faff; border-radius:7px 7px 0 0; font-size:13.5px; font-weight:700; color:#005bac">依頼<span class="num" style="font-weight:800">7</span></span>
+        <span style="display:inline-flex; align-items:center; gap:6px; height:38px; box-sizing:border-box; padding:0 14px; border-bottom:2px solid transparent; font-size:13.5px; color:#5d6470">メモ履歴</span>
+        <span style="display:inline-flex; align-items:center; gap:6px; height:38px; box-sizing:border-box; padding:0 14px; border-bottom:2px solid transparent; font-size:13.5px; color:#5d6470">チーム</span>
+      </div>
+
+      <!-- あなたの番（0 件のときは帯ごと出さない） -->
+      <div style="display:flex; align-items:center; gap:12px; box-sizing:border-box; padding:11px 14px; border:1px solid #f6cdd2; border-radius:12px; background:#fef6f7">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c7243a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="10"/></svg>
+        <span style="font-size:13.5px; font-weight:700; color:#c7243a">あなたの番が 4 件あります</span>
+        <span style="font-size:12.5px; color:#5d6470">返事をしていない依頼 3 件 ／ 差し戻されて決めていない依頼 1 件</span>
+        <span style="flex:1; min-width:0"></span>
+        <span style="display:inline-flex; align-items:center; height:32px; box-sizing:border-box; padding:0 12px; border:1px solid #f6cdd2; border-radius:8px; background:#ffffff; font-size:12.5px; font-weight:700; color:#c7243a">4 件だけ表示</span>
+      </div>
+
+      <!-- 方向（受けた／出した）＋ 状態の絞り込み -->
+      <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap">
+        <span style="display:inline-flex; overflow:hidden; border:1px solid #e6e9ed; border-radius:9px; background:#ffffff">
+          <span style="display:inline-flex; align-items:center; justify-content:center; gap:6px; min-width:132px; height:36px; box-sizing:border-box; padding:0 14px; background:#005bac; color:#ffffff; font-size:13px; font-weight:700">受けた依頼<span class="num">4</span></span>
+          <span style="display:inline-flex; align-items:center; justify-content:center; gap:6px; min-width:132px; height:36px; box-sizing:border-box; padding:0 14px; border-left:1px solid #e6e9ed; color:#5d6470; font-size:13px">出した依頼<span class="num">3</span></span>
+        </span>
+        <span style="display:inline-flex; overflow:hidden; border:1px solid #e6e9ed; border-radius:9px; background:#ffffff">
+          <span style="display:inline-flex; align-items:center; gap:5px; height:36px; box-sizing:border-box; padding:0 13px; background:#f4faff; color:#005bac; font-size:12.5px; font-weight:700">すべて<span class="num">4</span></span>
+          <span style="display:inline-flex; align-items:center; gap:5px; height:36px; box-sizing:border-box; padding:0 13px; border-left:1px solid #e6e9ed; color:#5d6470; font-size:12.5px">未返答<span class="num">3</span></span>
+          <span style="display:inline-flex; align-items:center; gap:5px; height:36px; box-sizing:border-box; padding:0 13px; border-left:1px solid #e6e9ed; color:#5d6470; font-size:12.5px">承諾<span class="num">1</span></span>
+          <span style="display:inline-flex; align-items:center; gap:5px; height:36px; box-sizing:border-box; padding:0 13px; border-left:1px solid #e6e9ed; color:#5d6470; font-size:12.5px">差し戻し<span class="num">0</span></span>
+          <span style="display:inline-flex; align-items:center; gap:5px; height:36px; box-sizing:border-box; padding:0 13px; border-left:1px solid #e6e9ed; color:#5d6470; font-size:12.5px">完了<span class="num">6</span></span>
+        </span>
+      </div>
+
+      <!-- 一覧（左）＋ 選んだ1件（右） -->
+      <div style="display:flex; align-items:flex-start; gap:20px">
+
+        <!-- 一覧。バッジ 96px・期限 128px の固定列で右端がそろう -->
+        <div style="flex:1; min-width:0; box-sizing:border-box; border:1px solid #e6e9ed; border-radius:12px; background:#ffffff; overflow:hidden">
+
+          <div style="display:flex; align-items:center; gap:12px; box-sizing:border-box; padding:9px 16px; background:#fbfcfd; border-bottom:1px solid #eef0f3; font-size:11.5px; font-weight:700; color:#5d6470">
+            <span style="width:96px; flex-shrink:0">状態</span>
+            <span style="flex:1; min-width:0">依頼の内容</span>
+            <span style="width:128px; flex-shrink:0; text-align:right">期限</span>
+            <span style="width:56px; flex-shrink:0"></span>
+          </div>
+
+          <!-- 選択中の行 -->
+          <div style="display:flex; align-items:center; gap:12px; box-sizing:border-box; padding:11px 16px; border-bottom:1px solid #f2f4f7; background:#f4faff; border-left:3px solid #005bac">
+            <span style="width:93px; flex-shrink:0; display:flex"><span style="display:inline-flex; align-items:center; justify-content:center; width:62px; height:22px; box-sizing:border-box; border:1px solid #fed7aa; border-radius:6px; background:#fff7ed; color:#c2410e; font-size:11px; font-weight:700">未返答</span></span>
+            <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+              <span style="font-size:13.5px; font-weight:700; color:#1a1d24; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">10月内覧会の配信構成図をつくる</span>
+              <span style="display:flex; align-items:center; gap:8px; font-size:12px; color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">
+                <span>山田 さんから</span>
+                <span style="display:inline-flex; align-items:center; height:19px; box-sizing:border-box; padding:0 6px; border-radius:6px; background:#f2f4f7; font-size:11.5px; font-weight:700" class="num">GLS-A-2609-0042</span>
+                <span style="display:inline-flex; align-items:center; gap:3px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="num">2</span></span>
+              </span>
+            </span>
+            <span class="num" style="width:128px; flex-shrink:0; text-align:right; font-size:13px; font-weight:800; color:#c7243a">9/8 18:00<br><span style="font-size:11.5px; font-weight:700">期限超過</span></span>
+            <span style="width:56px; flex-shrink:0; display:flex; justify-content:flex-end"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:12px; box-sizing:border-box; padding:11px 16px; border-bottom:1px solid #f2f4f7">
+            <span style="width:96px; flex-shrink:0; display:flex"><span style="display:inline-flex; align-items:center; justify-content:center; width:62px; height:22px; box-sizing:border-box; border:1px solid #fed7aa; border-radius:6px; background:#fff7ed; color:#c2410e; font-size:11px; font-weight:700">未返答</span></span>
+            <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+              <span style="font-size:13.5px; color:#1a1d24; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">スタジオAの回線工事の見積を3社に依頼する</span>
+              <span style="display:flex; align-items:center; gap:8px; font-size:12px; color:#5d6470">
+                <span>寺井 さんから</span>
+                <span style="display:inline-flex; align-items:center; gap:4px; height:19px; box-sizing:border-box; padding:0 6px; border-radius:6px; background:#fff7ed; color:#c2410e; font-size:11.5px; font-weight:700"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#c2410e" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>4 日 返事なし</span>
+              </span>
+            </span>
+            <span class="num" style="width:128px; flex-shrink:0; text-align:right; font-size:13px; color:#1a1d24">9/12 18:00</span>
+            <span style="width:56px; flex-shrink:0; display:flex; justify-content:flex-end"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cbd2da" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:12px; box-sizing:border-box; padding:11px 16px; border-bottom:1px solid #f2f4f7">
+            <span style="width:96px; flex-shrink:0; display:flex"><span style="display:inline-flex; align-items:center; justify-content:center; width:62px; height:22px; box-sizing:border-box; border:1px solid #fed7aa; border-radius:6px; background:#fff7ed; color:#c2410e; font-size:11px; font-weight:700">未返答</span></span>
+            <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+              <span style="font-size:13.5px; color:#1a1d24; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">機材の棚卸し結果を台帳に反映する</span>
+              <span style="font-size:12px; color:#5d6470">佐藤 さんから</span>
+            </span>
+            <span class="num" style="width:128px; flex-shrink:0; text-align:right; font-size:13px; color:#1a1d24">9/16 12:00</span>
+            <span style="width:56px; flex-shrink:0; display:flex; justify-content:flex-end"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cbd2da" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:12px; box-sizing:border-box; padding:11px 16px">
+            <span style="width:96px; flex-shrink:0; display:flex"><span style="display:inline-flex; align-items:center; justify-content:center; width:62px; height:22px; box-sizing:border-box; border:1px solid #cfe4f4; border-radius:6px; background:#f4faff; color:#005bac; font-size:11px; font-weight:700">承諾</span></span>
+            <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+              <span style="font-size:13.5px; color:#1a1d24; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">週報に載せるイベント写真を選ぶ</span>
+              <span style="font-size:12px; color:#5d6470">山田 さんから ・ 9/6 に承諾</span>
+            </span>
+            <span class="num" style="width:128px; flex-shrink:0; text-align:right; font-size:13px; color:#1a1d24">9/19 18:00</span>
+            <span style="width:56px; flex-shrink:0; display:flex; justify-content:flex-end"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cbd2da" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+          </div>
+
+        </div>
+
+        <!-- 選んだ1件。本文・やり取り・操作はここだけに出る -->
+        <div style="width:400px; flex-shrink:0; box-sizing:border-box; border:1px solid #e6e9ed; border-radius:12px; background:#ffffff; overflow:hidden">
+
+          <div style="box-sizing:border-box; padding:16px 16px 14px; border-bottom:1px solid #eef0f3">
+            <span style="display:flex; align-items:center; gap:8px">
+              <span style="display:inline-flex; align-items:center; justify-content:center; width:62px; height:22px; box-sizing:border-box; border:1px solid #fed7aa; border-radius:6px; background:#fff7ed; color:#c2410e; font-size:11px; font-weight:700">未返答</span>
+              <span style="display:inline-flex; align-items:center; height:22px; box-sizing:border-box; padding:0 8px; border-radius:6px; background:#fef6f7; color:#c7243a; font-size:11px; font-weight:800">期限超過</span>
+            </span>
+            <p style="margin:9px 0 0; font-size:16px; font-weight:800; line-height:1.5">10月内覧会の配信構成図をつくる</p>
+          </div>
+
+          <div style="box-sizing:border-box; padding:14px 16px; border-bottom:1px solid #eef0f3; display:flex; flex-direction:column; gap:9px">
+            <span style="display:flex; align-items:center; gap:10px; font-size:12.5px">
+              <span style="width:72px; flex-shrink:0; color:#5d6470">依頼した人</span><span style="color:#1a1d24; font-weight:700">山田 さん</span>
+              <span style="color:#5d6470">（9/4 10:12）</span>
+            </span>
+            <span style="display:flex; align-items:center; gap:10px; font-size:12.5px">
+              <span style="width:72px; flex-shrink:0; color:#5d6470">期限</span><span class="num" style="color:#c7243a; font-weight:800">9月8日 18:00</span>
+            </span>
+            <span style="display:flex; align-items:center; gap:10px; font-size:12.5px">
+              <span style="width:72px; flex-shrink:0; color:#5d6470">優先度</span>
+              <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:22px; box-sizing:border-box; border:1px solid #f6cdd2; border-radius:6px; background:#fef6f7; color:#c7243a; font-size:11px; font-weight:800" class="num">9</span>
+              <span style="color:#1a1d24">重要 高 × 緊急 高 ・ 今すぐやる</span>
+            </span>
+            <span style="display:flex; align-items:center; gap:10px; font-size:12.5px">
+              <span style="width:72px; flex-shrink:0; color:#5d6470">案件</span>
+              <a href="#" class="num" style="font-weight:700">GLS-A-2609-0042</a><span style="color:#5d6470; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">10月度 定期内覧会</span>
+            </span>
+          </div>
+
+          <div style="box-sizing:border-box; padding:14px 16px; border-bottom:1px solid #eef0f3">
+            <p style="margin:0 0 6px; font-size:11.5px; font-weight:700; color:#5d6470">依頼の本文</p>
+            <p style="margin:0; box-sizing:border-box; padding:10px 12px; border-radius:9px; background:#fbfcfd; font-size:12.5px; line-height:1.85; color:#3c424c">前回の8月分をベースに、スイッチャーとカメラ3台の系統を足してください。配信先はYouTubeとZoomの2系統です。</p>
+          </div>
+
+          <!-- 操作。**受け手が未返答のときだけ 3 つ出る** -->
+          <div style="box-sizing:border-box; padding:14px 16px; border-bottom:1px solid #eef0f3; display:flex; flex-direction:column; gap:8px">
+            <p style="margin:0; font-size:11.5px; font-weight:700; color:#5d6470">この依頼にどう返しますか</p>
+            <span style="display:flex; gap:8px">
+              <span style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px; height:40px; border-radius:9px; background:#005bac; color:#ffffff; font-size:13px; font-weight:700">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>承諾する
+              </span>
+              <span style="display:inline-flex; align-items:center; justify-content:center; gap:6px; height:40px; box-sizing:border-box; padding:0 14px; border:1px solid #e6e9ed; border-radius:9px; background:#ffffff; color:#3c424c; font-size:13px">相談する</span>
+              <span style="display:inline-flex; align-items:center; justify-content:center; gap:6px; height:40px; box-sizing:border-box; padding:0 14px; border:1px solid #e6e9ed; border-radius:9px; background:#ffffff; color:#3c424c; font-size:13px">辞退する</span>
+            </span>
+            <p style="margin:0; font-size:11.5px; color:#5d6470">相談・辞退を選ぶと理由を書く欄が出ます。依頼は消えず、山田 さんの「出した依頼」に差し戻されます。</p>
+          </div>
+
+          <!-- やり取り。折りたたまず、選んだ1件のぶんだけ常に出す -->
+          <div style="box-sizing:border-box; padding:14px 16px">
+            <p style="margin:0 0 9px; font-size:11.5px; font-weight:700; color:#5d6470">やり取り <span class="num" style="color:#9aa1ab">2</span></p>
+            <div style="display:flex; flex-direction:column; gap:7px">
+              <span style="max-width:85%; box-sizing:border-box; padding:7px 11px; border-radius:10px; background:#f2f4f7">
+                <span style="display:block; font-size:11.5px; color:#5d6470">山田 ・ 9/4 10:12</span>
+                <span style="display:block; font-size:12.5px; line-height:1.75; color:#1a1d24">8月分のファイルはBOXの「内覧会/2608」に置いてあります。</span>
+              </span>
+              <span style="max-width:85%; margin-left:auto; box-sizing:border-box; padding:7px 11px; border-radius:10px; background:#eaf4fb">
+                <span style="display:block; font-size:11.5px; color:#5d6470">自分 ・ 9/5 09:40</span>
+                <span style="display:block; font-size:12.5px; line-height:1.75; color:#1a1d24">確認しました。Zoom側の回線だけ確認させてください。</span>
+              </span>
+            </div>
+            <span style="display:block; box-sizing:border-box; margin-top:10px; padding:9px 12px; min-height:64px; border:1px solid #e6e9ed; border-radius:9px; background:#ffffff; font-size:12.5px; color:#9aa1ab">例: 期限を1日ずらせますか</span>
+            <span style="display:flex; align-items:center; gap:10px; margin-top:8px">
+              <span style="display:inline-flex; align-items:center; gap:6px; height:36px; box-sizing:border-box; padding:0 14px; border-radius:8px; background:#005bac; color:#ffffff; font-size:12.5px; font-weight:700">送る</span>
+              <span style="font-size:11.5px; color:#5d6470">送ると相手に通知が届きます</span>
+            </span>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

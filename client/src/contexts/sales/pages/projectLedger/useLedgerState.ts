@@ -24,7 +24,10 @@ import { invalidateProjectQueries } from '../../projectQueries';
 import type { LedgerResponse, LedgerRow } from './types';
 import type { IntegrityCheck } from './IntegrityPanel';
 import { DEFAULT_SORT, nextSort, type SortState } from './display';
-import { EMPTY_FILTERS, nextFiltersForIssue, nextFiltersForCategorySelect, type LedgerFilters } from './filters';
+import {
+  EMPTY_FILTERS, nextFiltersForIssue, nextFiltersForCategorySelect,
+  type CategorySelectValue, type LedgerFilters,
+} from './filters';
 
 interface IntegrityResponse { total: number; checks: IntegrityCheck[] }
 
@@ -57,8 +60,11 @@ export function useLedgerState() {
     setSelected(new Set());
   }, []);
 
-  /** 分類プルダウン（GLS-A / GLS-B / 旧GLS / どちらも）を選ぶ。決め方は `nextFiltersForCategorySelect` */
-  const pickCategory = useCallback((value: 'A' | 'B' | 'kessan' | 'all') => {
+  /**
+   * 分類プルダウン（新番号 SCS / GSS / GMO ／ GLS-A / GLS-B / 旧GLS / すべて）を選ぶ。
+   * 決め方は `nextFiltersForCategorySelect`
+   */
+  const pickCategory = useCallback((value: CategorySelectValue) => {
     setFilters((f) => nextFiltersForCategorySelect(f, value));
     setPage(1);
     setSelected(new Set());
@@ -94,6 +100,9 @@ export function useLedgerState() {
     source: filters.source || undefined,
     issue: filters.issue || undefined,
     entity_code: filters.entityCode || undefined,
+    // 案件番号の系列（新番号 SCS-/GSS-/GMO-）。**サーバーで絞る** — 画面で絞ると
+    // そのページの 100 件の中だけになる（計上会社・整合性チェックと同じ理由）
+    number_series: filters.numberSeries || undefined,
     sort_by: sort.by || undefined,
     sort_dir: sort.by ? sort.dir : undefined,
   }), [page, filters, sort]);

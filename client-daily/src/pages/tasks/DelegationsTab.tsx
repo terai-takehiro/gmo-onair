@@ -1,233 +1,230 @@
-// ══════════════════════════════════════════════════
-// 依頼
-// ══════════════════════════════════════════════════
-import { useState } from 'react';
-import {
-  AlertTriangle, Check, Clock, Loader2, MessageCircle, Trash2, Undo2, UserPlus, X,
-} from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
+/**
+ * 依頼 — 人に頼んだ仕事と、人から頼まれた仕事
+ *
+ * 設計の正は [docs/design/v4/mockups/tasks-redesign/](../../../../docs/design/v4/mockups/tasks-redesign/)。
+ * 要件は D3（依頼）／ D8（画面）。
+ *
+ * ── 作り直しで変えたこと ────────────────────────────────────
+ *
+ * ① **「あなたの番」を先頭に出す。** 受けたのに返していない依頼と、
+ *    出したが差し戻されて決めていない依頼の合計。ここが 0 なら止まっている
+ *    ものは無い。0 件のときは帯そのものを出さない。
+ * ② **受けた／出したを段で切り替える。** 以前は2つの節を縦に積んでいたので、
+ *    出した依頼を見るのに受けた依頼を全部スクロールして越える必要があった。
+ * ③ **状態で絞り込めるようにした**（すべて／未返答／承諾／差し戻し／完了）。
+ *    以前は「対応済の依頼も表示」のトグル1つだけで、未返答だけを見られなかった。
+ * ④ **一覧と詳細を分けた。** 本文・やり取り・操作は選んだ1件のパネルにだけ出す
+ *    （`DelegationList` の冒頭に理由）。
+ *
+ * ⚠️ **一覧は常に完了ぶんまで取る**（`useMyDelegations(dir, true)`）。
+ * チップの件数は「押す前に 0 件だと分かる」ためのものなので、
+ * 取っていないものを数えるとその段だけ嘘になる。
+ */
+import { useMemo, useState } from 'react';
+import { AlertTriangle } from 'lucide-react';
+import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
+import { Delayed, EmptyState, NoSearchResults, SkeletonRows } from '@gmo-onair/shared/src/client/states';
+import { Sheet } from '@gmo-onair/shared/src/client-v4/sheet';
+import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/usePermissions';
-import { useAuth } from '@/hooks/useAuth';
 import {
-  DELEGATION_LABELS, daysSinceRequested, formatDue,
-  useAssignees, useMyDelegations, useRespondDelegation, useResolveDelegation,
-  type MyTask,
+  BUCKET_LABELS, DELEGATION_FILTERS, delegationBucket, isMyTurn, useMyDelegations,
+  type DelegationFilter, type MyTask,
 } from '@/lib/tasksApi';
-import { CellScoreBadge } from './CellScoreBadge';
-import { TaskCommentsThread } from './TaskComments';
+import { DelegationCards, DelegationRows } from './DelegationList';
+import { DelegationDetail } from './DelegationDetail';
 
-function ReceivedRow({ t, canEdit }: { t: MyTask; canEdit: boolean }) {
-  const respond = useRespondDelegation();
-  const [noteFor, setNoteFor] = useState<'declined' | 'consulting' | null>(null);
-  const [note, setNote] = useState('');
-  const unanswered = t.delegation_status === 'requested';
+type Direction = 'received' | 'sent';
 
-  return (
-    <Card className={cn(unanswered && 'border-violet-200 bg-violet-50/40', t.is_overdue && 'border-red-200')}>
-      <CardContent className="p-3">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <CellScoreBadge score={t.priority_score} />
-          {t.delegation_status && (
-            <Badge variant="outline" className={cn('text-badge', unanswered && 'border-violet-300 text-violet-700')}>
-              {DELEGATION_LABELS[t.delegation_status]}
-            </Badge>
-          )}
-          {t.gls_number && <span className="text-badge rounded bg-muted px-1.5 py-0.5 text-muted-foreground">{t.gls_number}</span>}
-        </div>
-        <p className="text-list mt-1">{t.title}</p>
-        <p className="mt-0.5 flex flex-wrap items-center gap-x-3 text-sub-sm text-muted-foreground">
-          {t.requester_name && <span>{t.requester_name} さんから</span>}
-          <span className={cn('flex items-center gap-0.5', t.is_overdue && 'font-bold text-red-700')}>
-            <Clock className="h-3 w-3" />{formatDue(t.due_at)}{t.is_overdue ? '（期限超過）' : ''}
-          </span>
-        </p>
-        {t.description && (
-          <p className="mt-1.5 whitespace-pre-wrap rounded bg-muted/50 p-2 text-note text-muted-foreground">{t.description}</p>
-        )}
+const DIRECTIONS: { key: Direction; label: string }[] = [
+  { key: 'received', label: '受けた依頼' },
+  { key: 'sent', label: '出した依頼' },
+];
 
-        {canEdit && unanswered && (
-          <>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <Button size="sm" className="h-8 gap-1 text-xs" disabled={respond.isPending}
-                onClick={() => respond.mutate({ id: t.id, decision: 'accepted' })}>
-                <Check className="h-3.5 w-3.5" />承諾する
-              </Button>
-              <Button size="sm" variant="outline" className="h-8 gap-1 text-xs"
-                onClick={() => { setNoteFor('consulting'); setNote(''); }}
-                title="依頼者に差し戻して相談します（消えません）">
-                <MessageCircle className="h-3.5 w-3.5" />相談
-              </Button>
-              <Button size="sm" variant="outline" className="h-8 gap-1 text-xs"
-                onClick={() => { setNoteFor('declined'); setNote(''); }}
-                title="依頼者に差し戻します（消えません）">
-                <X className="h-3.5 w-3.5" />辞退
-              </Button>
-            </div>
-            {noteFor && (
-              <div className="mt-2 space-y-1.5 rounded-lg border border-border bg-muted/30 p-2">
-                <Label className="text-th text-muted-foreground">
-                  {noteFor === 'declined' ? '辞退の理由' : '相談したいこと'}（依頼者に差し戻されます）
-                </Label>
-                <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)}
-                  placeholder={noteFor === 'declined' ? '例: 同じ期限で別の本番が入っています' : '例: 期限を1日ずらせますか'} />
-                <div className="flex gap-1.5">
-                  <Button size="sm" className="h-8 text-xs" disabled={respond.isPending}
-                    onClick={() => respond.mutate({ id: t.id, decision: noteFor, note }, { onSuccess: () => setNoteFor(null) })}>
-                    差し戻す
-                  </Button>
-                  <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setNoteFor(null)}>キャンセル</Button>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* やり取りは description に混ぜず、コメントスレッドで残す (Phase 2 ⑤) */}
-        <TaskCommentsThread taskId={t.id} canWrite={canEdit} />
-      </CardContent>
-    </Card>
-  );
-}
-
-function SentRow({ t, canEdit }: { t: MyTask; canEdit: boolean }) {
-  const resolve = useResolveDelegation();
-  const { data: users } = useAssignees();
-  const { currentUser } = useAuth();
-  const [reassignTo, setReassignTo] = useState('');
-  const bounced = t.delegation_status === 'declined' || t.delegation_status === 'consulting';
-  const stale = t.delegation_status === 'requested' ? (daysSinceRequested(t.requested_at) ?? 0) : 0;
-
-  return (
-    <Card className={cn(bounced && 'border-amber-300 bg-amber-50/40', t.is_overdue && 'border-red-200')}>
-      <CardContent className="p-3">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <CellScoreBadge score={t.priority_score} />
-          {t.delegation_status && (
-            <Badge variant="outline" className={cn('text-badge', bounced && 'border-amber-400 text-amber-800')}>
-              {bounced ? `差し戻し（${DELEGATION_LABELS[t.delegation_status]}）` : DELEGATION_LABELS[t.delegation_status]}
-            </Badge>
-          )}
-          {t.gls_number && <span className="text-badge rounded bg-muted px-1.5 py-0.5 text-muted-foreground">{t.gls_number}</span>}
-        </div>
-        <p className="text-list mt-1">{t.title}</p>
-        <p className="mt-0.5 flex flex-wrap items-center gap-x-3 text-sub-sm text-muted-foreground">
-          <span>{t.assigned_to_name ?? '担当者不明'} さんへ</span>
-          <span className={cn('flex items-center gap-0.5', t.is_overdue && 'font-bold text-red-700')}>
-            <Clock className="h-3 w-3" />{formatDue(t.due_at)}{t.is_overdue ? '（期限超過）' : ''}
-          </span>
-        </p>
-
-        {/* 滞留: 見たけれど答えない状態は依頼者側に見せて催促の判断をさせる (要件 D3) */}
-        {stale >= 3 && (
-          <p className="mt-1.5 flex items-center gap-1 rounded bg-amber-100 px-2 py-1 text-sub-sm text-amber-900">
-            <AlertTriangle className="h-3 w-3 shrink-0" />
-            {stale} 日間反応がありません。声をかけてください。
-          </p>
-        )}
-
-        {t.description && (
-          <p className="mt-1.5 whitespace-pre-wrap rounded bg-muted/50 p-2 text-note text-muted-foreground">{t.description}</p>
-        )}
-
-        {/* 差し戻しは依頼者が決着をつけるまで残る (消さない) */}
-        {canEdit && bounced && (
-          <div className="mt-2 space-y-1.5 rounded-lg border border-amber-200 bg-background p-2">
-            <p className="text-th text-foreground">この依頼をどうしますか</p>
-            <div className="flex flex-wrap gap-1.5">
-              <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={resolve.isPending}
-                onClick={() => resolve.mutate({ id: t.id, action: 'take_over' })}>
-                <Undo2 className="h-3.5 w-3.5" />自分が担当する
-              </Button>
-              {/* **相手を選ぶ select は「担当者を変更」より前。** 選ぶまでボタンは
-                  押せない（`disabled={!reassignTo}`）ので、ボタンが先にあると
-                  押せないものを先に触ってから戻ることになる
-                  （`_form-order.md` 2-1「依存する欄は依存される欄より下」） */}
-              <select
-                value={reassignTo}
-                onChange={(e) => setReassignTo(e.target.value)}
-                className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-              >
-                <option value="">相手を選ぶ…</option>
-                {(users ?? []).filter((u) => u.id !== currentUser?.id).map((u) => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
-              </select>
-              <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={resolve.isPending || !reassignTo}
-                onClick={() => resolve.mutate({ id: t.id, action: 'reassign', assigned_to: reassignTo })}>
-                <UserPlus className="h-3.5 w-3.5" />担当者を変更
-              </Button>
-              <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs text-destructive" disabled={resolve.isPending}
-                onClick={async () => {
-                  const ok = await confirmAction({
-                    title: 'この依頼を取り下げますか',
-                    description: t.title,
-                    confirmLabel: '取り下げる',
-                    tone: 'danger',
-                  });
-                  if (ok) resolve.mutate({ id: t.id, action: 'withdraw' });
-                }}>
-                <Trash2 className="h-3.5 w-3.5" />取り下げる
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* 出した側からも同じスレッドが見える (受け手の返答メモもここに入る) */}
-        <TaskCommentsThread taskId={t.id} canWrite={canEdit} />
-      </CardContent>
-    </Card>
-  );
+/** 未完了だけを数える（完了は「完了」チップの件数として別に出す） */
+function openOf(rows: MyTask[]): MyTask[] {
+  return rows.filter((t) => delegationBucket(t) !== 'done');
 }
 
 export function DelegationsTab() {
   const { canEdit } = usePermissions();
-  const [includeDone, setIncludeDone] = useState(false);
-  const { data: received, isLoading: l1 } = useMyDelegations('received', includeDone);
-  const { data: sent, isLoading: l2 } = useMyDelegations('sent', includeDone);
+  const isMobile = useIsMobile();
+  const received = useMyDelegations('received', true);
+  const sent = useMyDelegations('sent', true);
 
-  if (l1 || l2) {
-    return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+  const [direction, setDirection] = useState<Direction>('received');
+  const [filter, setFilter] = useState<DelegationFilter>('all');
+  /** 「あなたの番」だけに絞る。状態の絞り込みとは別軸（両方掛かる） */
+  const [turnOnly, setTurnOnly] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const all = useMemo(
+    () => (direction === 'received' ? received.data : sent.data) ?? [],
+    [direction, received.data, sent.data],
+  );
+
+  const myTurnCount = (received.data ?? []).filter((t) => isMyTurn(t, 'received')).length
+    + (sent.data ?? []).filter((t) => isMyTurn(t, 'sent')).length;
+  const receivedTurn = (received.data ?? []).filter((t) => isMyTurn(t, 'received')).length;
+  const sentTurn = (sent.data ?? []).filter((t) => isMyTurn(t, 'sent')).length;
+
+  const scoped = useMemo(
+    () => (turnOnly ? all.filter((t) => isMyTurn(t, direction)) : all),
+    [all, turnOnly, direction],
+  );
+
+  /**
+   * 出す行。**完了は最後に沈める。**
+   * サーバーの並びは「未返答が先 → 優先度 → 期限」で、完了かどうかを見ていないので、
+   * 「すべて」で見ると片づいた依頼が優先度の高さだけで上に居座る。
+   * （`Array.prototype.sort` は安定なので、同じ段の中の並びはサーバーのままになる）
+   */
+  const rows = useMemo(() => {
+    const list = filter === 'all' ? scoped : scoped.filter((t) => delegationBucket(t) === filter);
+    return [...list].sort((a, b) => Number(delegationBucket(a) === 'done') - Number(delegationBucket(b) === 'done'));
+  }, [scoped, filter]);
+
+  // 絞り込みで消えた行を右に出したままにしない（左に無いものを操作させない）
+  const selected = rows.find((t) => t.id === selectedId) ?? null;
+
+  const chips = DELEGATION_FILTERS.map((f) => ({
+    key: f.key,
+    label: f.label,
+    count: received.isLoading || sent.isLoading
+      ? null
+      : f.key === 'all' ? scoped.length : scoped.filter((t) => delegationBucket(t) === f.key).length,
+  }));
+
+  const activeFilters = [
+    turnOnly ? 'あなたの番だけ' : null,
+    filter === 'all' ? null : `状態: ${BUCKET_LABELS[filter]}`,
+  ].filter((f): f is string => f !== null);
+
+  const switchDirection = (d: Direction) => {
+    setDirection(d);
+    // 別の向きの行を右に残さない（id は向きをまたいで一致しない）
+    setSelectedId(null);
+  };
+
+  if (received.isLoading || sent.isLoading) {
+    return <Delayed><SkeletonRows rows={5} /></Delayed>;
   }
 
   return (
-    <div className="space-y-5">
-      <button
-        onClick={() => setIncludeDone((v) => !v)}
-        className={cn('min-h-tap lg:h-9 lg:min-h-0 rounded-md px-3 py-1.5 text-sub', includeDone ? 'bg-primary/15 font-bold text-primary' : 'text-muted-foreground hover:bg-accent')}
-      >
-        対応済の依頼も表示
-      </button>
+    <div className="flex flex-col gap-4">
+      {/* ① あなたの番。**0 件のときは帯ごと出さない**（空の帯は場所だけ取る） */}
+      {myTurnCount > 0 && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card border border-destructive-border bg-destructive-surface px-3.5 py-2.5">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
+          <span className="text-sub font-bold text-destructive">
+            あなたの番が <span className="font-number">{myTurnCount}</span> 件あります
+          </span>
+          <span className="text-sub text-muted-foreground">
+            返事をしていない依頼 <span className="font-number">{receivedTurn}</span> 件 ／
+            差し戻されて決めていない依頼 <span className="font-number">{sentTurn}</span> 件
+          </span>
+          <button
+            type="button"
+            onClick={() => { setTurnOnly((v) => !v); setFilter('all'); }}
+            aria-pressed={turnOnly}
+            className={cn(
+              'min-h-tap text-sub ml-auto shrink-0 rounded-control border border-destructive-border px-3 font-bold lg:min-h-[32px]',
+              turnOnly ? 'bg-destructive text-destructive-foreground' : 'bg-card text-destructive',
+            )}
+          >
+            {turnOnly ? 'すべて表示' : `${myTurnCount} 件だけ表示`}
+          </button>
+        </div>
+      )}
 
-      <section>
-        <h2 className="text-h2 mb-2">受けた依頼 <span className="text-muted-foreground">{(received ?? []).length}</span></h2>
-        {(received ?? []).length === 0 ? (
-          <Card><CardContent className="p-6 text-center text-sub text-muted-foreground">受けた依頼はありません。</CardContent></Card>
-        ) : (
-          <div className="space-y-2">
-            {(received ?? []).map((t) => <ReceivedRow key={t.id} t={t} canEdit={canEdit} />)}
-          </div>
-        )}
-      </section>
+      {/* ② 受けた／出した ＋ ③ 状態 */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="依頼の向きを切り替える">
+          {DIRECTIONS.map((d, i) => {
+            const list = (d.key === 'received' ? received.data : sent.data) ?? [];
+            const active = direction === d.key;
+            return (
+              <button
+                key={d.key}
+                type="button"
+                onClick={() => switchDirection(d.key)}
+                aria-pressed={active}
+                className={cn(
+                  'min-h-tap text-sub inline-flex min-w-[128px] items-center justify-center gap-1.5 px-3.5 lg:min-h-[36px]',
+                  i > 0 && 'border-l border-border',
+                  active ? 'bg-primary font-bold text-primary-foreground' : 'text-muted-foreground hover:bg-muted',
+                )}
+              >
+                {d.label}
+                <span className="font-number text-sub-sm">{openOf(list).length}</span>
+              </button>
+            );
+          })}
+        </div>
 
-      <section>
-        <h2 className="text-h2 mb-2">出した依頼 <span className="text-muted-foreground">{(sent ?? []).length}</span></h2>
-        <p className="mb-2 text-note text-muted-foreground">
-          指示をしたら対応済にするまでが依頼者の仕事です。反応が無いものと差し戻されたものを上に出しています。
-        </p>
-        {(sent ?? []).length === 0 ? (
-          <Card><CardContent className="p-6 text-center text-sub text-muted-foreground">出した依頼はありません。</CardContent></Card>
+        <FilterChips label="依頼の状態で絞り込む" items={chips} value={filter} onChange={setFilter} />
+      </div>
+
+      {/* **数字の意味が2つあるので書く。** 段の名前（受けた依頼／出した依頼）に
+          添えた数は未完了だけ、チップの「すべて」は完了も含む。
+          セキュリティカードの「返却遅延は貸出中の一部」と同じ断り書き */}
+      <p className="text-note text-muted-foreground">
+        「受けた依頼」「出した依頼」に添えた数は<strong className="font-bold">未完了だけ</strong>です
+        （チップの「すべて」には完了した依頼も入ります）。
+      </p>
+
+      {rows.length === 0 ? (
+        all.length === 0 ? (
+          <EmptyState
+            title={direction === 'received' ? 'まだ受けた依頼がありません' : 'まだ出した依頼がありません'}
+            description={
+              direction === 'received'
+                ? '誰かがあなたに依頼すると、ここに出ます。'
+                : '右上の「依頼する」から、相手・内容・期限を決めて送れます。'
+            }
+          />
         ) : (
-          <div className="space-y-2">
-            {(sent ?? []).map((t) => <SentRow key={t.id} t={t} canEdit={canEdit} />)}
+          <NoSearchResults
+            activeFilters={activeFilters}
+            onClearFilters={() => { setFilter('all'); setTurnOnly(false); }}
+          />
+        )
+      ) : isMobile ? (
+        <DelegationCards rows={rows} direction={direction} onSelect={setSelectedId} />
+      ) : (
+        <div className="flex items-start gap-5">
+          <div className="min-w-0 flex-1">
+            <DelegationRows rows={rows} direction={direction} selectedId={selected?.id ?? null} onSelect={setSelectedId} />
           </div>
-        )}
-      </section>
+          <div className="w-[400px] shrink-0">
+            <DelegationDetail key={selected?.id ?? 'none'} task={selected} direction={direction} canEdit={canEdit} />
+          </div>
+        </div>
+      )}
+
+      {/* スマホは選んだ1件をシートで開く（一覧を隠さないと本文とやり取りが読めない） */}
+      {isMobile && selected && (
+        <Sheet
+          open
+          onOpenChange={(v) => { if (!v) setSelectedId(null); }}
+          title={selected.title}
+          sub={direction === 'received'
+            ? `${selected.requester_name ?? '依頼者不明'} さんから`
+            : `${selected.assigned_to_name ?? '担当者不明'} さんへ`}
+        >
+          <div className="flex flex-col gap-3">
+            <span className="flex flex-wrap items-center gap-2">
+              <TableBadge label={BUCKET_LABELS[delegationBucket(selected)]} w={null} />
+              {selected.is_overdue && (
+                <TableBadge label="期限超過" w={null} className="bg-destructive-surface text-destructive" />
+              )}
+            </span>
+            <DelegationDetail task={selected} direction={direction} canEdit={canEdit} embedded />
+          </div>
+        </Sheet>
+      )}
     </div>
   );
 }

@@ -61,6 +61,13 @@ export interface MyTask {
   source_ref: string | null;
   visibility: 'team' | 'private';
   is_overdue: boolean;
+  /**
+   * その依頼に付いているやり取り（`task_comments`）の件数。
+   *
+   * 一覧の行に出すためのもの。**開かないと会話があるか分からない**状態だと、
+   * 差し戻しの理由（`respondToDelegation` がコメントとして残す）に気づけない。
+   */
+  comment_count: number;
   created_at: string;
 }
 
@@ -85,6 +92,10 @@ const SELECT_MY_TASK = `
     t.delegation_status, t.requested_at, t.accepted_at,
     t.source, t.source_ref, t.visibility,
     (${DUE_EXPR} IS NOT NULL AND ${DUE_EXPR} < NOW() AND t.is_completed = FALSE) AS is_overdue,
+    -- やり取りの件数。migration 240 の idx_task_comments_task(task_id, created_at)
+    -- が効くので、200 行の一覧でも索引だけで数えられる
+    -- （テンプレート文字列の中なので、この注記に逆引用符を書かないこと）
+    (SELECT COUNT(*) FROM task_comments tc WHERE tc.task_id = t.id)::int AS comment_count,
     t.created_at
   FROM project_tasks t
   LEFT JOIN projects p ON p.id = t.project_id AND p.deleted_at IS NULL
@@ -95,8 +106,15 @@ const SELECT_MY_TASK = `
 // 同点の崩し方: ① 期限が近い順 → ② 重要度が高い順。
 // ②で緊急度ではなく重要度を優先するのは、緊急に流されて重要が後回しになるのを防ぐため
 // (これが 3 段階にした意味)。要件 D2。
+//
+// ⚠️ **未完了を必ず先に並べる**（レビューでの指摘・Codex P1）。
+// この並びには `LIMIT`（既定 200・最大 500）が付くので、完了ぶんも取る呼び方
+// (`include_completed`) と組み合わせると、**優先度の高い「完了済み」が
+// 優先度の低い「未完了」を上限から押し出します**。画面から実際に動いている仕事が
+// 黙って消えるので、完了かどうかを最初の鍵にして、切られるのは必ず完了ぶんからにします。
 const ORDER_BY_PRIORITY = `
-  ORDER BY ${SCORE_EXPR} DESC,
+  ORDER BY t.is_completed ASC,
+           ${SCORE_EXPR} DESC,
            ${DUE_EXPR} ASC NULLS LAST,
            t.importance DESC,
            t.created_at DESC
@@ -215,6 +233,7 @@ function decorate(row: Record<string, unknown>): MyTask {
     urgency,
     priority_score: Number(row.priority_score ?? importance * effectiveUrgency),
     priority_cell: `${importance}x${effectiveUrgency}`,
+    comment_count: Number(row.comment_count ?? 0),
   };
 }
 
@@ -310,9 +329,16 @@ export const myTasksService = {
     // Number(...) || で NaN も既定値に落とす (`?limit=abc` の NaN が SQL の LIMIT に届くと 500)
     const limit = Math.min(Math.max(Number(opts.limit) || 200, 1), 500);
     const rows = await queryAll(
-      // 未承諾を先に出す (待たせているものから片づけるため)
+      // ⚠️ **未完了を必ず先に並べる**（レビューでの指摘・Codex P1・2巡目）。
+      // `ORDER_BY_PRIORITY` に入れた同じ直しが**この問い合わせには届いていませんでした**
+      // （ここは独自の ORDER BY を持っているため）。`include_done` で完了ぶんまで取ると、
+      // 優先度の高い「完了済み」が「承諾済み」「差し戻し」を上限から押し出し、
+      // 一覧・チップの件数・「あなたの番」から**動いている依頼が消えます**。
+      //
+      // そのうえで未承諾を先に出す (待たせているものから片づけるため)。
       `${SELECT_MY_TASK} ${where}
-       ORDER BY (t.delegation_status = 'requested') DESC,
+       ORDER BY t.is_completed ASC,
+                (t.delegation_status = 'requested') DESC,
                 ${SCORE_EXPR} DESC,
                 ${DUE_EXPR} ASC NULLS LAST
        LIMIT ?`,
@@ -538,8 +564,28 @@ export const myTasksService = {
     if (patch.is_completed !== undefined) {
       set('is_completed', patch.is_completed);
       sets.push(`completed_at = ${patch.is_completed ? 'NOW()' : 'NULL'}`);
-      // 依頼を完了させたら依頼者側の一覧でも「done」と分かるようにする (要件 D3)
-      if (row.requester_id && patch.is_completed) set('delegation_status', 'done');
+      // 依頼を完了させたら依頼者側の一覧でも「done」と分かるようにする (要件 D3)。
+      //
+      // ⚠️ **戻すときも状態を戻す**（レビューでの指摘・Codex P2・2巡目）。
+      // 以前は完了のときだけ `done` を書き、「未対応に戻す」では `is_completed` しか
+      // 戻していませんでした。`delegation_status='done'` が残るので、依頼タブでは
+      // **完了の段に居座ったまま**になり、受け手に「対応済にする」も出せません
+      // （＝一度戻すと二度と片づけられない）。
+      //
+      // 戻す先を `accepted` にしているのは、**完了できるのは担当者だけ**で、
+      // 完了させた時点でその人が引き受けていたと言えるためです
+      // （直前の状態は持っていないので、承諾済みとして扱うのがいちばん近い）。
+      //
+      // ⚠️ **戻すのは「完了だったものを戻すとき」だけ**（レビューでの指摘・Codex P2・#648）。
+      // 直前の版は `is_completed` が渡ってきたら常に書き換えていたので、
+      // **未返答・辞退・相談の依頼に `is_completed:false` を投げるだけで `accepted` に
+      // 変わって**しまいました（この画面は送りませんが、API は MCP からも叩けます）。
+      // 受け手の 承諾／相談／辞退 を飛ばせるうえ、差し戻しが依頼者の「あなたの番」から
+      // 消えます。**完了だった行以外は今の状態をそのまま残します。**
+      if (row.requester_id) {
+        if (patch.is_completed) set('delegation_status', 'done');
+        else if (row.delegation_status === 'done') set('delegation_status', 'accepted');
+      }
     }
     if (sets.length === 0) return this.get(taskId);
 

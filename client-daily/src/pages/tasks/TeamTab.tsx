@@ -1,67 +1,103 @@
-// ══════════════════════════════════════════════════
-// チーム — 件数だけ。中身は出さない (要件 D8)
-// ══════════════════════════════════════════════════
-import { Eye, Loader2 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+/**
+ * チーム — 件数だけ。中身は出さない（要件 D8）
+ *
+ * ── 作り直しで変えたこと ────────────────────────────────────
+ *
+ * ① **見て終わりにしない。** 誰が空いているかが分かっても、そこから配り直す道が
+ *    無かった（別のタブへ移って相手を選び直す必要があった）。行の右に
+ *    **「依頼する」**を置き、相手を決めた状態で依頼のダイアログを開く。
+ * ② **色を状態のトークンに戻した。** `text-red-700` / `text-rose-700` /
+ *    `text-violet-700` / `text-amber-700` の直書きをやめ、
+ *    期限超過・最優先は `--destructive`、未返答は `--warning` にそろえる
+ *    （4色を段の意味なしに使い分けていたので、どれが重いのか読めなかった）。
+ */
+import { Eye, Send } from 'lucide-react';
+import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
+import { Delayed, EmptyState, SkeletonRows } from '@gmo-onair/shared/src/client/states';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
 import { useTeamLoad } from '@/lib/tasksApi';
 
-function Num({ v, tone }: { v: number; tone?: string }) {
+/** 件数の1マス。**0 は薄く**（読ませる数字ではない・端はそろえたままにする） */
+function Count({ v, tone }: { v: number; tone?: string }) {
   return (
-    <td className={cn('px-2 py-2 text-right font-number tabular-nums', v === 0 ? 'text-muted-foreground/50' : tone)}>
+    <span className={cn('font-number text-sub', v === 0 ? 'text-fg-disabled' : tone ?? 'text-foreground')}>
       {v}
-    </td>
+    </span>
   );
 }
 
-export function TeamTab() {
+const COLUMNS: { key: string; label: string; title?: string }[] = [
+  { key: 'open_count', label: '未対応' },
+  { key: 'overdue_count', label: '期限超過' },
+  { key: 'top_priority_count', label: '最優先', title: '重要度 高 × 緊急度 高（最優先）の未対応タスク数' },
+  { key: 'unanswered_count', label: '未返答' },
+  { key: 'no_due_count', label: '期限なし' },
+  { key: 'private_count', label: '自分だけ' },
+];
+
+export function TeamTab({ onRequest, canEdit }: {
+  /** その人を相手にして依頼のダイアログを開く */
+  onRequest: (userId: string) => void;
+  canEdit: boolean;
+}) {
+  const { currentUser } = useAuth();
   const { data, isLoading } = useTeamLoad();
-  if (isLoading) {
-    return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
-  }
+  if (isLoading) return <Delayed><SkeletonRows rows={5} /></Delayed>;
   const rows = data ?? [];
 
+  if (rows.length === 0) {
+    return (
+      <EmptyState
+        title="メンバーがいません"
+        description="日常業務の権限を持つ人がいると、ここに件数が出ます。"
+      />
+    );
+  }
+
   return (
-    <div className="space-y-3">
-      <p
-        className="flex items-start gap-1.5 text-note text-muted-foreground"
-        title="「自分だけ」に設定されたタスクも件数には入りますが、中身は出ません。"
-      >
-        <Eye className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        誰に仕事が偏っているかを見て配り直す画面です。件数だけを出し、タスクの内容は出しません。
+    <div className="flex flex-col gap-3">
+      {/* **見出しの副題と同じ文を繰り返さない。** ここに書くのは、
+          見出しでは言っていない「自分だけ」の扱いだけ */}
+      <p className="text-note flex items-start gap-1.5 text-muted-foreground">
+        <Eye className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        「自分だけ」に設定されたタスクも件数には入りますが、中身は出ません。
       </p>
-      {rows.length === 0 ? (
-        <Card><CardContent className="p-8 text-center text-sub text-muted-foreground">メンバーがいません。</CardContent></Card>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] text-sub">
-            <thead>
-              <tr className="border-b border-border text-left text-th text-muted-foreground">
-                <th className="py-2 pr-2">メンバー</th>
-                <th className="px-2 py-2 text-right">未対応</th>
-                <th className="px-2 py-2 text-right">期限超過</th>
-                <th className="px-2 py-2 text-right" title="重要度 高 × 緊急度 高（最優先）の未対応タスク数">最優先</th>
-                <th className="px-2 py-2 text-right">未返答の依頼</th>
-                <th className="px-2 py-2 text-right">期限なし</th>
-                <th className="px-2 py-2 text-right">自分だけ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.user_id} className="border-b border-border/60">
-                  <td className="text-list py-2 pr-2">{r.user_name}</td>
-                  <Num v={r.open_count} />
-                  <Num v={r.overdue_count} tone={r.overdue_count > 0 ? 'text-red-700' : undefined} />
-                  <Num v={r.top_priority_count} tone={r.top_priority_count > 0 ? 'text-rose-700' : undefined} />
-                  <Num v={r.unanswered_count} tone={r.unanswered_count > 0 ? 'text-violet-700' : undefined} />
-                  <Num v={r.no_due_count} tone={r.no_due_count > 0 ? 'text-amber-700' : undefined} />
-                  <Num v={r.private_count} />
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+      <div className="overflow-x-auto">
+        <div className="flex min-w-[720px] flex-col overflow-hidden rounded-card border border-border bg-card">
+          <RowHeader>
+            <RowMain>メンバー</RowMain>
+            {COLUMNS.map((c) => (
+              <RowSlot key={c.key} w={72} align="right"><span title={c.title}>{c.label}</span></RowSlot>
+            ))}
+            <RowSlot w={128} placeholder="" />
+          </RowHeader>
+
+          {rows.map((r) => (
+            <Row key={r.user_id} divider density="table">
+              <RowMain><span className="text-list truncate">{r.user_name}</span></RowMain>
+              <RowSlot w={72} align="right"><Count v={r.open_count} /></RowSlot>
+              <RowSlot w={72} align="right"><Count v={r.overdue_count} tone="font-bold text-destructive" /></RowSlot>
+              <RowSlot w={72} align="right"><Count v={r.top_priority_count} tone="font-bold text-destructive" /></RowSlot>
+              <RowSlot w={72} align="right"><Count v={r.unanswered_count} tone="font-bold text-warning" /></RowSlot>
+              <RowSlot w={72} align="right"><Count v={r.no_due_count} tone="text-warning" /></RowSlot>
+              <RowSlot w={72} align="right"><Count v={r.private_count} /></RowSlot>
+              {/* **自分の行には出さない**（レビューでの指摘・Codex P2）。
+                  自分あては依頼ではないので、押せても送れる先がない
+                  （送ると自分あての個人タスクが黙って1件できていた） */}
+              <RowSlot w={128} align="right" placeholder="">
+                {canEdit && r.user_id !== currentUser?.id && (
+                  <Button variant="outline" size="sm" onClick={() => onRequest(r.user_id)}>
+                    <Send className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />依頼する
+                  </Button>
+                )}
+              </RowSlot>
+            </Row>
+          ))}
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -9,7 +9,7 @@
  * ── 画面を閉じてもよい、と書く ──────────────────────────────
  *
  * これを書かないと、終わるまでこのタブを開いたままにする人が出ます。
- * 実際には裏で進み、あとから「タスク・依頼」の投入ログに出ます。
+ * 実際には裏で進み、あとから「タスク・依頼」のメモ履歴に出ます。
  *
  * ── 経過時間を出す ──────────────────────────────────────────
  *
@@ -43,7 +43,7 @@ export function Transcribing() {
       <p className="text-note mt-1.5 text-secondary-foreground">
         1時間の録音で数分かかります。
         <strong className="font-bold">この画面を閉じても進みます</strong> —
-        出来上がると「タスク・依頼」の投入ログに出るので、あとから確認できます。
+        出来上がると「タスク・依頼」のメモ履歴に出るので、あとから確認できます。
       </p>
       <div className="mt-2.5 flex flex-col gap-2" aria-hidden="true">
         {[0, 1, 2].map((i) => <span key={i} className="v4-skeleton h-12 w-full rounded-card" />)}

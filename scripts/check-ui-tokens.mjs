@@ -892,8 +892,7 @@ const BASELINE = {
       "shared": 1
     },
     "missing-font-weight": {
-      "client": 124,
-      "client-daily": 6
+      "client": 124
     },
     "money-by-hand": {
       "client": 3,
@@ -912,13 +911,12 @@ const BASELINE = {
     },
     "page-width-by-hand": {
       "client": 3,
-      "client-daily": 1,
       "client-equipment": 1,
       "client-techops": 1
     },
     "raw-palette": {
       "client": 89,
-      "client-daily": 32,
+      "client-daily": 3,
       "client-equipment": 48,
       "client-techops": 146,
       "shared": 6
@@ -928,7 +926,7 @@ const BASELINE = {
     },
     "translucent-text": {
       "client": 13,
-      "client-daily": 2,
+      "client-daily": 1,
       "client-equipment": 5,
       "client-techops": 20,
       "shared": 5

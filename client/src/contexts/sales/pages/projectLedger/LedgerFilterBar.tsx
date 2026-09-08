@@ -1,8 +1,13 @@
 /**
- * 案件台帳の絞り込みの帯（検索・ステージ・分類・計上会社・出す列・CSV）
+ * 案件台帳の絞り込みの帯（検索・ステージ・案件番号/分類・計上会社・出す列・CSV）
  *
  * `ProjectLedgerPage` から切り出した（1ファイル 400 行の決めごと）。**状態は持たない** —
  * 絞り込みの値と決め方は `useLedgerState` / `filters.ts` にあり、ここは並べて押すだけ。
+ *
+ * 2つ目のプルダウン（案件番号・分類）は**新番号の系列（`SCS-` / `GSS-` / `GMO-`）が先頭**で、
+ * 旧 `GLS-A` / `GLS-B` / 旧GLS（決算取込）が続く。**計上会社（下）とは別の軸** — 既存行の
+ * `entity_code` は全部 `GSS` に埋まっているので、「GSS の帳簿の案件」と「`GSS-` で始まる
+ * 番号の案件」は一致しない（`filters.ts` の `numberSeries` の注記）。
  *
  * 計上会社（`entity_code`・SCS / GSS / GMO）は案件の持ち物（`projects.entity_code`・
  * 2026年10月の事業再編。サーバーが規則で導き、人が変えるのは管理者だけの改番経由）。
@@ -17,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { BUSINESS_ENTITIES } from '@gmo-onair/shared/src/keepReport/entity';
 import { ProjectStageLabels, type ProjectStage } from '@/types';
 import { ENTITY_BADGE_LABEL } from '../projectList/stages';
+import { categorySelectValue, type CategorySelectValue } from './filters';
 import type { LedgerState } from './useLedgerState';
 import type { ColumnPrefs } from './useColumnPrefs';
 import type { useLedgerCsv } from './useLedgerCsv';
@@ -50,13 +56,20 @@ export function LedgerFilterBar({ s, prefs, csv, isMobile, onOpenColumns }: {
           ))}
         </SelectContent>
       </Select>
-      <Select value={s.filters.source === 'kessan' ? 'kessan' : (s.filters.glsCategory || 'all')} onValueChange={(v) => s.pickCategory(v as 'A' | 'B' | 'kessan' | 'all')}>
-        <SelectTrigger className="h-10 w-[200px]" aria-label="分類で絞り込む"><SelectValue /></SelectTrigger>
+      {/* 案件番号の系列と分類。**新番号（SCS / GSS / GMO）を先頭に置く** — 2026年10月の
+          事業再編で発番が始まり、これから増えるのはこちらのため（旧 GLS は下に残す）。
+          いま何が選ばれているかを3つの鍵から戻すのは `categorySelectValue`（`filters.ts`） */}
+      <Select value={categorySelectValue(s.filters)} onValueChange={(v) => s.pickCategory(v as CategorySelectValue)}>
+        <SelectTrigger className="h-10 w-[240px]" aria-label="案件番号・分類で絞り込む"><SelectValue /></SelectTrigger>
         <SelectContent>
+          <SelectItem value="new">新番号（SCS・GSS・GMO）</SelectItem>
+          {BUSINESS_ENTITIES.map((e) => (
+            <SelectItem key={`series-${e}`} value={e}>{e}-（{ENTITY_BADGE_LABEL[e]}）</SelectItem>
+          ))}
           <SelectItem value="A">GLS-A</SelectItem>
           <SelectItem value="B">GLS-B</SelectItem>
           <SelectItem value="kessan">旧GLS（決算取込）</SelectItem>
-          <SelectItem value="all">どちらも</SelectItem>
+          <SelectItem value="all">すべて</SelectItem>
         </SelectContent>
       </Select>
       {/* 計上会社。並びは `legal_entities.sort_order` と同じ（shared の `BUSINESS_ENTITIES`）・呼び名は表の列と同じ */}

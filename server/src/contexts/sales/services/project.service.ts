@@ -240,6 +240,15 @@ export interface ProjectFilter {
   glsCategory?: 'A' | 'B';
   /** 計上会社（SCS / GSS / GMO・`projects.entity_code`）。案件台帳の絞り込み。値の検査はルート側 */
   entityCode?: LegalEntityCode;
+  /**
+   * 案件番号の系列で絞る接頭辞（`['SCS-']` / 新番号すべてなら3つ）。案件台帳の絞り込み。
+   * 値を接頭辞へ直すのはルート側（`legal_entities.number_prefix` が正）。
+   *
+   * ⚠️ **`entityCode` とは別の軸**（`gls_number` の頭 ⇄ `entity_code` の列）。
+   * 既存行の `entity_code` は migration 284 で全部 `GSS` に埋まっているので、
+   * 「GSS の帳簿の案件」には旧 `GLS-A###` が含まれ、「`GSS-` で始まる番号の案件」とは一致しない。
+   */
+  numberPrefixes?: string[];
   /** GLS 発番済みのものだけ（確定案件の一覧が使う） */
   issued?: boolean;
   /** 'kessan' = 決算インポートで取り込んだ案件 (notes が [kessan:...] で始まる) のみ */
@@ -277,18 +286,18 @@ export interface ProjectFilter {
 const STAGES = ['neta', 'd_hold', 'c_proposal', 'b_verbal', 'a_won', 'r_delivered', 's_completed', 'e_lost'];
 
 /**
- * **新しい GLS 番号を焼けない手前のステージ**（2026-09-02 に1段前倒し）。
+ * **新しい GLS 番号を焼けない手前のステージ**（2026-09-08 にさらに1段前倒し）。
  *
- * 見積を出す段階で番号が実務上必要（見積書・BOX フォルダ名に載る）ので、
- * `c_proposal`（C 見積提案）からは採れます。止めるのは見積すら出していない
- * `neta`（ネタ）と `d_hold`（仮押さえ）だけ — そこまで開けると、
- * 消える案件にまで番号を焼いて欠番だけが増えます。
+ * D 仮押さえの段階でも新しい番組として番号が実務上必要なため、
+ * `d_hold`（D 仮押さえ）からは採れます。止めるのは引き合いにすら至っていない
+ * `neta`（ネタ）だけ — そこまで開けると、消える案件にまで番号を焼いて
+ * 欠番だけが増えます。
  *
  * ⚠️ 画面側の同じ境界は `client/src/contexts/sales/glsIssue.ts`。
  * **どちらか片方だけ直すと「押せるのに 400」または「採れるのに押せない」**に戻ります
  * （server は rootDir の都合で `shared/` を import できないため2か所に分かれている）。
  */
-const GLS_BLOCKED_STAGES: readonly string[] = ['neta', 'd_hold'];
+const GLS_BLOCKED_STAGES: readonly string[] = ['neta'];
 
 /**
  * **受注が確定しているステージ**（お金を確定として数えてよい段）。
@@ -914,6 +923,14 @@ export class ProjectService {
     if (filter.entityCode) {
       where += ` AND p.entity_code = ?`;
       params.push(filter.entityCode);
+    }
+    // 案件番号の系列 (新番号 SCS-/GSS-/GMO-)。接頭辞はルート側が legal_entities から取る。
+    // 空配列は「絞らない」ではなく「当たらない」に落とす — 素通しすると全件が返って気づけない
+    if (filter.numberPrefixes) {
+      where += filter.numberPrefixes.length === 0
+        ? ' AND FALSE'
+        : ` AND (${filter.numberPrefixes.map(() => 'p.gls_number LIKE ?').join(' OR ')})`;
+      params.push(...filter.numberPrefixes.map((prefix) => `${prefix}%`));
     }
     // 開催月 (YYYY-MM): イベント期間 [event_start, event_end] が対象月に重なる案件
     // event_start/event_end は TEXT (YYYY-MM-DD) なので文字列比較でレンジ判定する
@@ -2018,8 +2035,8 @@ export class ProjectService {
    *
    * 以前は手動の入口にステージの縛りが無く、**問合せ（`neta`）の案件からでも
    * 番号を焼けた**。v4 は欠番を増やさないために手前を弾くが、境界は
-   * `GLS_BLOCKED_STAGES`（ネタ・仮押さえのみ）— 2026-09-02 に
-   * 「C 見積提案から採れない」という実務との食い違いを直した。
+   * `GLS_BLOCKED_STAGES`（ネタのみ）— 2026-09-02 に「C 見積提案から採れない」を
+   * 直し、2026-09-08 に「D 仮押さえから採れない」もさらに直した。
    *
    * ⚠️ **発番してもステージは上げない**（2026-09-02）。以前は手前のステージから
    * 発番すると `b_verbal`（口頭決定）へ自動で昇格させていたが、受注の合意が
@@ -2032,7 +2049,7 @@ export class ProjectService {
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
     if (project.gls_number) throw new AppError(400, 'VALIDATION_ERROR', '既に管理番号が発番済みです');
     if (GLS_BLOCKED_STAGES.includes(project.stage as string)) {
-      throw new AppError(400, 'VALIDATION_ERROR', '見積提案（C）以降の案件だけ、先に管理番号を発番できます。');
+      throw new AppError(400, 'VALIDATION_ERROR', '仮押さえ（D）以降の案件だけ、先に管理番号を発番できます。');
     }
 
     // v2.8.113+: project.gls_category を見る (登録時に必須化済)

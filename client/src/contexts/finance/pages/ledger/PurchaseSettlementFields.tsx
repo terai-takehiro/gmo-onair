@@ -64,7 +64,7 @@ export function PurchaseSettlementFields({
           <Input
             value={settlementNumber}
             onChange={(e) => setSettlementNumber(e.target.value)}
-            placeholder={isProvisional ? '仮の間は入力できません' : '任意'}
+            placeholder={isProvisional ? '仮の間は入力できません' : undefined}
             disabled={readOnly || isProvisional}
           />
         </div>
@@ -76,7 +76,7 @@ export function PurchaseSettlementFields({
           type="url"
           value={settlementUrl}
           onChange={(e) => setSettlementUrl(e.target.value)}
-          placeholder="精算申請ページのURL（任意）"
+          placeholder="精算申請ページのURL"
           disabled={readOnly}
         />
         {settlementUrl && (

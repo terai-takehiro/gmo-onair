@@ -59,6 +59,12 @@ export interface BreakdownItem {
   id: string;
   /** 左の小さいコード（GLS番号・話数コードなど） */
   code?: string | null;
+  /**
+   * この行が紐づく案件。**売上・仕入だけが持つ**（販管費は案件に紐づかない）。
+   * 入っていれば `code` を押すと案件管理＞案件概要（`/sales/projects/:id`）へ飛ぶ
+   * （要望・2026-09-08）。
+   */
+  project_id?: string | null;
   title: string;
   sub?: string | null;
   amount: number;
@@ -93,12 +99,19 @@ export interface BreakdownItem {
  * ある）。押せるのは件名の部分だけにし、リンクと金額はその外に並べる。
  * 行全体の hover は `has-[button:hover]` で外枠に付け直しているので、
  * 見た目は今までどおり「行ごと反応する」ままにしてある。
+ *
+ * ⚠️ **コード（案件へのリンク）も同じ理由で件名の `<button>` の外に置く**
+ * （要望・2026-09-08）。件名の `<button>`（行を押す＝台帳／詳細モーダルへ）の
+ * **中に**コードの `<button>` を入れると button-in-button になり、精算ページの
+ * `<a>` と同じ不正ネストが起きる。押せるコードは件名ボタンの左に並ぶ兄弟にする。
  */
-function BreakdownRow({ it }: { it: BreakdownItem }) {
+function BreakdownRow({ it, onOpenProject }: { it: BreakdownItem; onOpenProject?: (projectId: string) => void }) {
+  const codeClickable = !!(it.code && it.project_id && onOpenProject);
   const body = (
     <>
       <span className="text-sub block truncate">
-        {it.code && <span className="font-number mr-1.5 text-primary">{it.code}</span>}
+        {/* コードを押せる行では、件名側に重複して出さない（下の兄弟ボタンが担う） */}
+        {it.code && !codeClickable && <span className="font-number mr-1.5 text-primary">{it.code}</span>}
         {it.title}
       </span>
       {(it.badge || it.sub) && (
@@ -130,6 +143,22 @@ function BreakdownRow({ it }: { it: BreakdownItem }) {
         it.onClick ? 'has-[button:hover]:bg-surface-subtle' : ''
       }`}
     >
+      {codeClickable && (
+        // ⚠️ **幅を上限で止める**（Codexレビュー指摘）。内訳のカードは lg で
+        // 左メニュー248pxが出ると3枚並びで1枚 約217px まで狭くなり、`shrink-0` の
+        // まま無制限だと長いコード＋精算リンク＋金額だけで幅を使い切り、
+        // 件名・金額側が潰れる。台帳のコード列（`LedgerRows.tsx`）と同じ96pxで
+        // 切って `truncate` する（超える分は省略記号、押せる範囲は変わらない）
+        <button
+          type="button"
+          onClick={() => onOpenProject!(it.project_id!)}
+          title="案件概要をひらく"
+          aria-label={`案件概要をひらく（${it.code}）`}
+          className="v4-tap max-w-24 shrink-0 self-start truncate font-number text-sub text-primary underline decoration-dotted underline-offset-2 hover:decoration-solid"
+        >
+          {it.code}
+        </button>
+      )}
       {/* ⚠️ **`onClick` が無い行は `<div>` のまま。** 押せない行を `<button>` にすると、
           押せる見た目（hover・タップ領域）だけが付いて「押しても何も起きない」になる */}
       {it.onClick ? (
@@ -158,7 +187,7 @@ function BreakdownRow({ it }: { it: BreakdownItem }) {
 
 export function BreakdownColumn({
   title, total, items, totalCount, hasMore, isLoadingMore, onLoadMore, to, empty,
-  error, partialLabel, onRetry,
+  error, partialLabel, onRetry, onOpenProject,
 }: {
   title: string;
   total: number;
@@ -190,6 +219,11 @@ export function BreakdownColumn({
   partialLabel?: string;
   /** この列だけ読み直す */
   onRetry?: () => void;
+  /**
+   * 行の `code` を押したときの行き先（案件管理＞案件概要）。渡さない、または
+   * その行が `project_id` を持たないとき（販管費など）はコードは押せないまま
+   */
+  onOpenProject?: (projectId: string) => void;
 }) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
@@ -262,7 +296,7 @@ export function BreakdownColumn({
               )}
             </div>
           )}
-          {shown.map((it) => <BreakdownRow key={it.id} it={it} />)}
+          {shown.map((it) => <BreakdownRow key={it.id} it={it} onOpenProject={onOpenProject} />)}
         </div>
       )}
 
