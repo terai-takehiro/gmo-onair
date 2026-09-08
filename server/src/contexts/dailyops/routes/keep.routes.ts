@@ -20,7 +20,7 @@ const canEdit = [requireAuth, requirePermission('dailyops', 'editor')] as const;
 
 /**
  * パック。凍結した版があればそれ、無ければ（または `live=1`）いまの数字。
- *   ?meeting=YYYY-MM-DD（省略時は次回の開催日）&entity_code=all|GJV|GSS|GMO&segment=all|internal|external&live=1
+ *   ?meeting=YYYY-MM-DD（省略時は次回の開催日）&entity_code=all|SCS|GSS|GMO&segment=all|internal|external&live=1
  * `entity_code` は計上会社（2026年10月の事業再編・`legal_entities.code`）。知らない値は 400
  * → { pack, frozen, pack_id, meeting_frozen }（`meeting_frozen` = この会議日に全体／全区分の凍結版があるか。
  *    `frozen: false` なのに true なら、その絞り込みの版だけが無く「いまの数字」を返している）

@@ -16,12 +16,17 @@ export const CURRENT_ENTITY_CODE: LegalEntityCode = 'GSS';
 
 /**
  * 会社ごとの「自社行」（`companies.legal_entity_code` が立っている行）の ID。
- * 社内取引（§4.12）で相手先として使う——GSS が GJV に社内売上を立てるとき、
- * 売上の `customer_id` はここでいう GJV の自社行（`comp-self-gjv`）を指す。
+ * 社内取引（§4.12）で相手先として使う——GSS が SCS に社内売上を立てるとき、
+ * 売上の `customer_id` はここでいう SCS の自社行（`comp-self-gjv`）を指す。
  * GMO はまだ社内取引の当事者になる設計が無いため `null`（migration 284 参照）。
+ *
+ * ⚠️ **値 `'comp-self-gjv'` は `companies.id`（DB の主キー）と一致させる文字列。**
+ * 2026-09-08 の GJV→SCS 改名でもこの ID 自体は変えていない（migration
+ * `293_rename_gjv_to_scs.sql` 参照）。ここを書き換えるときは DB 側のマイグレーションと
+ * 必ずセットで直すこと。
  */
 export const SELF_COMPANY_ID_BY_ENTITY: Record<LegalEntityCode, string | null> = {
-  GJV: 'comp-self-gjv',
+  SCS: 'comp-self-gjv',
   GSS: 'comp-self-gms',
   GMO: null,
 };

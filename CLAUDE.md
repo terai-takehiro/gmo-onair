@@ -61,7 +61,7 @@ npm run test           # shared の Vitest (**CI が回す。手元の gate に�
 | 知りたいこと | 読む場所 |
 | --- | --- |
 | v4 の開発計画・スコープ・段取り | [docs/v4-plan.md](docs/v4-plan.md) |
-| **2026年10月の事業再編（社名変更・計上会社の2社化・GLS→GJV/GSS/GMO の改番）の移行設計** | [docs/reorg-2026-10-plan.md](docs/reorg-2026-10-plan.md) — 設計下書き。分岐点（§9）が決まるまで実装しない |
+| **2026年10月の事業再編（社名変更・計上会社の2社化・GLS→SCS/GSS/GMO の改番）の移行設計** | [docs/reorg-2026-10-plan.md](docs/reorg-2026-10-plan.md) — 設計下書き。分岐点（§9）が決まるまで実装しない |
 | **v4 でどこまで出来たか (サイトツリー)** | [docs/v4-progress.md](docs/v4-progress.md) — `node scripts/v4-progress.mjs --write` で**画面のファイルを読んで作る生成物**。手で書くとずれるので、v4 の PR では毎回作り直して本文に貼る |
 | **全画面を macOS/iOS ネイティブ級にする計画（2026-08〜）** | [docs/v4-native-ui-plan.md](docs/v4-native-ui-plan.md) — PC専用を原則廃止し全画面をマルチデバイス対応にする追加の取り組み。対象範囲の決定・監査結果・バックログ |
 | ブランチ・PR・リリース手順 | [docs/branching.md](docs/branching.md) |

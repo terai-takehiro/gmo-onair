@@ -175,7 +175,7 @@ interface Ctx {
 // ── 「変更点は赤字」: どの升・行・数字を赤にするか（前回の資料が無ければ何も返さない）────
 /** binding（`landing.GSS` など）から計上会社を読む。読めなければ all */
 function entityOfBinding(binding: string | null): keyof PlByEntity {
-  const m = /^(?:landing|forecast)\.(all|GJV|GSS|GMO)$/.exec(binding ?? '');
+  const m = /^(?:landing|forecast)\.(all|SCS|GSS|GMO)$/.exec(binding ?? '');
   return (m?.[1] as keyof PlByEntity | undefined) ?? 'all';
 }
 function plChanges(c: Ctx, binding: string | null, t: MonthlyPlTable): ReadonlySet<string> | undefined {

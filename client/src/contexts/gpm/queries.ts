@@ -115,7 +115,7 @@ export function useGpmProject(id: string) {
 }
 
 /**
- * 計上会社マスター（GJV/GSS/GMO の3行）。プロジェクト詳細が
+ * 計上会社マスター（SCS/GSS/GMO の3行）。プロジェクト詳細が
  * 「予算と実績」タブに切り替えるかどうか（`isCostCenterProject()`）の判定に使う
  * （2026年10月の事業再編・P3）。
  *

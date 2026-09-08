@@ -125,7 +125,7 @@ export function buildSlackDraft(pack: KeepReportPack, opts: SlackDraftOptions = 
     const l = landing.lines.find((x) => x.key === k);
     if (l) push(`・${lineLabel(l, changedOf(landing, 'all'))}`);
   }
-  // 計上会社別（GJV・GSS・数字があるときだけ GMO。並びは legal_entities.sort_order）
+  // 計上会社別（SCS・GSS・数字があるときだけ GMO。並びは legal_entities.sort_order）
   push('計上会社別');
   for (const e of BUSINESS_ENTITIES) {
     const t = pack.landing[e];

@@ -7,7 +7,7 @@
  * `LocationTabs.tsx`（料金表の場所タブ）のトーン・実装（`aria-pressed` のボタン列。
  * タブの ARIA は名乗らず `role="group"` にする理由も同じ — 矢印キー移動・
  * tabpanel を実装していない）を参考にしているが、**このページ専用に組んである**:
- * 「空の会社」という概念が無い（GJV/GSS/GMO の3社ぶんとも migration 288 で
+ * 「空の会社」という概念が無い（SCS/GSS/GMO の3社ぶんとも migration 288 で
  * 必ず設定が存在する）ため、コピー導線・空表示は持たない。
  *
  * 並び順は `GET /legal-entities` が返した順（`sort_order`）のまま描く

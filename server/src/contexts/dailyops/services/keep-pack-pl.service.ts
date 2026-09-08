@@ -2,7 +2,7 @@
  * 定例報告パック — ①数値報告の表（当月 着地／翌月 着地見込）を計上会社別＋全体で組む
  *
  * 正は docs/design/v4/keep-report.md §5.2（出どころ）・§5.3（計算列）。
- * 「主体」＝ main の**計上会社 `entity_code`**（GJV／GSS／GMO・docs/reorg-2026-10-plan.md §4.5）。
+ * 「主体」＝ main の**計上会社 `entity_code`**（SCS／GSS／GMO・docs/reorg-2026-10-plan.md §4.5）。
  * 財務と同じく**案件ではなく行（revenues / purchases / sga_expenses）の `entity_code`** で切る
  * — 案件を改番・移管しても過去の行は書いた時の会社に残る（`monthly-summary.service.ts` の
  *   確度加味（`mode='weighted'`）と同じ判断）。
@@ -85,7 +85,7 @@ interface Addition { revenue: number; cogs_variable: number }
 
 const emptyAdditions = (): Record<EntityScope, Addition> => ({
   all: { revenue: 0, cogs_variable: 0 },
-  GJV: { revenue: 0, cogs_variable: 0 },
+  SCS: { revenue: 0, cogs_variable: 0 },
   GSS: { revenue: 0, cogs_variable: 0 },
   GMO: { revenue: 0, cogs_variable: 0 },
 });
@@ -239,7 +239,7 @@ export async function buildPlByEntity(ym: string, mode: MonthlyPlTable['mode']):
     const forScope: PlNotes = { unconfirmed: pick(notes.unconfirmed), unregistered: pick(notes.unregistered) };
     tables.set(scope, toTable(ym, mode, pls[i], additions ? additions[scope] : null, forScope));
   });
-  const out: PlByEntity = { all: tables.get('all')!, GJV: tables.get('GJV')!, GSS: tables.get('GSS')! };
+  const out: PlByEntity = { all: tables.get('all')!, SCS: tables.get('SCS')!, GSS: tables.get('GSS')! };
   const gmo = tables.get('GMO')!;
   if (hasAnyNumber(gmo)) out.GMO = gmo;
   return out;

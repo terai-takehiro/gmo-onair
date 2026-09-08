@@ -20,7 +20,7 @@
  * 案件の粗利は2通りある——「全体」は今までどおり社内取引を除いた
  * `summary`（`getSummary` そのもの・**このトグルを足しても数字も見た目も
  * 変えない**）、「会社別」は `GET /projects/:id/summary-by-entity` を
- * 呼んで GJV/GSS それぞれの実績（社内取引を含む・その会社の帳簿としては
+ * 呼んで SCS/GSS それぞれの実績（社内取引を含む・その会社の帳簿としては
  * 本物の売上・仕入）を並べる。**社内取引の無い案件は内訳が1件以下しか
  * 返らない**ので、そのときはトグルごと出さない（切り替えても同じ数字が
  * 1行出るだけで、切替として意味を持たないため）。
@@ -67,7 +67,7 @@ const MONEY_W = 'w-[124px]';  // ui-tokens-ok: ふりかえりのサブ列に入
 const num = (v: unknown): number => Number(v) || 0;
 
 function entityLabel(code: string | null): string {
-  if (code === 'GJV' || code === 'GSS' || code === 'GMO') return ENTITY_BADGE_LABEL[code];
+  if (code === 'SCS' || code === 'GSS' || code === 'GMO') return ENTITY_BADGE_LABEL[code];
   return '未分類'; // P1 の配線が全箇所揃うまでの過渡期（entity_code が未設定の行）向け
 }
 
@@ -153,7 +153,7 @@ export function ReviewSide({
             ))}
             <p className="text-note border-t border-border-faint bg-surface-subtle px-4 py-2.5 text-muted-foreground">
               会社ごとの実績です。<strong className="font-bold">2社間の社内取引を含みます</strong>
-              （GJV⇄GSS の請求・仕入も、それぞれの会社の実績として数えます）。
+              （SCS⇄GSS の請求・仕入も、それぞれの会社の実績として数えます）。
             </p>
           </>
         )}

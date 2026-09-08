@@ -15,7 +15,7 @@
  *
  * 2026年10月の事業再編（`docs/reorg-2026-10-plan.md` §4.5・§6 P2 Round 1）で
  * `monthly_budgets` / `monthly_actual_overrides` は `(entity_code, year_month)` が主キーになった
- * （migration 288）。値は `legal_entities.code`（GJV / GSS / GMO）で、型は shared の
+ * （migration 288）。値は `legal_entities.code`（SCS / GSS / GMO）で、型は shared の
  * `BusinessEntity`（サーバーの `LegalEntityCode`・`reorg/types.ts` の同名の型と同じ3文字。
  * `shared/tests/keepReportEntity.test.ts` が揃っていることを固定している）。
  * **どの会社の分かは呼び出し側（お金のルールの会社タブ）が決めて必ず渡す。** ここでは既定を

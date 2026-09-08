@@ -1,7 +1,7 @@
 /**
- * 計上会社マスター — `legal_entities`（GJV／GSS／GMO の3行だけ）の読み書き
+ * 計上会社マスター — `legal_entities`（SCS／GSS／GMO の3行だけ）の読み書き
  *
- * 2026年10月の事業再編（社名変更・計上会社の2社化・GLS→GJV/GSS/GMO の改番）で新設。
+ * 2026年10月の事業再編（社名変更・計上会社の2社化・GLS→SCS/GSS/GMO の改番）で新設。
  * 設計の全文: docs/reorg-2026-10-plan.md（§4.2・§4.9・§13）。マイグレーションは
  * `282_legal_entities.sql`（表そのもの）・`283_entity_code_columns.sql`（他表への列追加）。
  *
@@ -14,7 +14,7 @@
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 
-export type LegalEntityCode = 'GJV' | 'GSS' | 'GMO';
+export type LegalEntityCode = 'SCS' | 'GSS' | 'GMO';
 
 export interface LegalEntity {
   code: LegalEntityCode;

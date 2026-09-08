@@ -21,17 +21,17 @@
  * 売上・費用をどの会社の帳簿に載せるかの区分で、案件・帳簿の行の `entity_code` 列の値。
  *
  * `server/src/contexts/platform/services/legal-entity.service.ts` の `LegalEntityCode` と
- * **同じ3文字**（`legal_entities.code`・案件番号の prefix `GJV-0001` と同じ文字列）。
- *   GJV … GMOサムライコンテンツスタジオ（グループ外のお客様の案件）
+ * **同じ3文字**（`legal_entities.code`・案件番号の prefix `SCS-0001` と同じ文字列）。
+ *   SCS … GMOサムライコンテンツスタジオ（グループ外のお客様の案件）
  *   GSS … GMOサムライスタジオ（旧 GMOグローバルスタジオ。グループ内のお客様の案件）
  *   GMO … GMOインターネットグループ本体（旧 GLS-B のプロジェクト。コストセンター）
- * 決め方「グループ外→GJV／グループ内→GSS／プロジェクト→GMO」は server の
+ * 決め方「グループ外→SCS／グループ内→GSS／プロジェクト→GMO」は server の
  * `sales/services/entity-resolution.service.ts` が持つ（shared には写しを置かない）。
  * `org_transition.state = 'off'` のあいだはこの規則は効かず、既存の行はすべて GSS。
  */
-export type BusinessEntity = 'GJV' | 'GSS' | 'GMO';
+export type BusinessEntity = 'SCS' | 'GSS' | 'GMO';
 export const BUSINESS_ENTITY_LABELS: Record<BusinessEntity, string> = {
-  GJV: 'GMOサムライコンテンツスタジオ',
+  SCS: 'GMOサムライコンテンツスタジオ',
   GSS: 'GMOサムライスタジオ',
   GMO: 'GMOインターネットグループ',
 };
@@ -164,11 +164,11 @@ export interface InviewSummary {
 
 /**
  * 計上会社ごとの表と、統合した全体の表。鍵は `entity_code` そのもの。
- * GSS ＝ グループ内のお客様の案件、GJV ＝ グループ外。`GMO`（グループ本体のコストセンター）は数字があるときだけ。
+ * GSS ＝ グループ内のお客様の案件、SCS ＝ グループ外。`GMO`（グループ本体のコストセンター）は数字があるときだけ。
  */
 export interface PlByEntity {
   all: MonthlyPlTable;
-  GJV: MonthlyPlTable;
+  SCS: MonthlyPlTable;
   GSS: MonthlyPlTable;
   GMO?: MonthlyPlTable;
 }
@@ -180,7 +180,7 @@ export interface KeepReportPack {
   previous_meeting_date: string | null;
   generated_at: string;                // ISO
   frozen_at: string | null;            // 凍結した時刻。null なら「いまの数字」
-  /** 絞り込み。`entity` の値は計上会社の `entity_code`（GJV / GSS / GMO）か `all` */
+  /** 絞り込み。`entity` の値は計上会社の `entity_code`（SCS / GSS / GMO）か `all` */
   scope: { entity: EntityScope; customer_segment: CustomerSegment | 'all' };
   landing: PlByEntity;                 // 当月 着地（計上会社別 ＋ 全体）
   forecast: PlByEntity;                // 翌月 着地見込（計上会社別 ＋ 全体）
@@ -249,7 +249,7 @@ export interface SlidePart {
   x: number; y: number; w: number; h: number;
   /** 人が上書きした文（binding があっても優先）。写真は Box の file id の並び */
   text_override: string | null;
-  /** 部品ごとの小さな設定（例: 表の対象月 'YYYY-MM'、計上会社（`entity`: all / GJV / GSS / GMO / by_entity）、写真の id 一覧、人が位置を直した印 `moved`） */
+  /** 部品ごとの小さな設定（例: 表の対象月 'YYYY-MM'、計上会社（`entity`: all / SCS / GSS / GMO / by_entity）、写真の id 一覧、人が位置を直した印 `moved`） */
   options?: Record<string, unknown>;
 }
 

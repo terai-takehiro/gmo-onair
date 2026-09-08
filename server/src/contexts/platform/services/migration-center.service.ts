@@ -7,7 +7,7 @@
  *
  * 「発番済みで、現行番号がまだ旧方式（GLS）のまま」の案件を全部取り、1件ずつ
  * `resolveEntity()`（P1・entity-resolution.service.ts）に**そのまま**掛ける。
- * 対象かどうか・GJV/GSS/GMOのどれになるかの判定はここでは持たず、既存の
+ * 対象かどうか・SCS/GSS/GMOのどれになるかの判定はここでは持たず、既存の
  * 導出ロジックを再利用する（判定を2か所に持たない）。`entityCode: null` が
  * 返るもの（`org_transition.state==='off'`・実施日未定・切替日前 など）は
  * 対象外として静かに落とす——**これにより、state='off'のあいだはこの一覧は

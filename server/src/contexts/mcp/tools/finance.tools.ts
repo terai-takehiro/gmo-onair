@@ -37,7 +37,7 @@ const PAGING = {
 // budget.tools.ts の ENTITY_CODE は逆に「省略時は今の会社」なので混同しないこと —
 // あちらは月次予算/お金のルールという「1行に決まる」設定、こちらは加算できる一覧なので
 // 「省略＝全社」に倒す）
-const ENTITY_CODE_FILTER = z.enum(['GJV', 'GSS', 'GMO']).optional()
+const ENTITY_CODE_FILTER = z.enum(['SCS', 'GSS', 'GMO']).optional()
   .describe('計上会社で絞り込み (省略時は全社合算)');
 
 export function registerFinanceTools(server: McpServer): void {
@@ -54,7 +54,7 @@ export function registerFinanceTools(server: McpServer): void {
         from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('期間開始 (YYYY-MM-DD)。to とセットで指定 (month より優先)'),
         to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         project_id: z.string().optional().describe('案件 ID で絞り込み (任意)'),
-        entity_code: z.enum(['GJV', 'GSS', 'GMO']).optional().describe('計上会社で絞り込み (省略時は全社合算)'),
+        entity_code: z.enum(['SCS', 'GSS', 'GMO']).optional().describe('計上会社で絞り込み (省略時は全社合算)'),
         mode: z.enum(['total', 'weighted']).optional()
           .describe('total=実額そのまま (既定) / weighted=売上・仕入(変動原価)を計上先の案件のいまのフェーズの受注確度(%)で重みづけたシミュレーション。固定原価・販管費は対象外'),
       },

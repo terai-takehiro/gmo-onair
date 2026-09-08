@@ -4,7 +4,7 @@
  * `ProjectLedgerPage` から切り出した（1ファイル 400 行の決めごと）。**状態は持たない** —
  * 絞り込みの値と決め方は `useLedgerState` / `filters.ts` にあり、ここは並べて押すだけ。
  *
- * 計上会社（`entity_code`・GJV / GSS / GMO）は案件の持ち物（`projects.entity_code`・
+ * 計上会社（`entity_code`・SCS / GSS / GMO）は案件の持ち物（`projects.entity_code`・
  * 2026年10月の事業再編。サーバーが規則で導き、人が変えるのは管理者だけの改番経由）。
  * **サーバーの `GET /projects?entity_code=` で絞る** — 画面で絞るとそのページの 100 件の
  * 中だけになり、全体で何件かが分からない（整合性チェックと同じ理由）。

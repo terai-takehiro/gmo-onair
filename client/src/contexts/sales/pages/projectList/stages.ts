@@ -69,13 +69,13 @@ export const STAGE_BADGE_TONE: Record<ProjectStage, string> = {
  * 同じ概念を画面によって違う文字列で出すと `docs/reorg-2026-10-plan.md` 自身が
  * 戒めている「2か所に持つと必ずずれる」を踏むので、**既に配線済みの実データ**を正にした。
  *
- * `GJV`/`GSS`/`GMO` はここでは**バッジに出さない**（3社とも和文の短縮名は
+ * `SCS`/`GSS`/`GMO` はここでは**バッジに出さない**（3社とも和文の短縮名は
  * 5字以上あり `TableBadge` の 62px 均等割り付け（4字まで）に入らない——
  * `ProjectRows.tsx` は英字3文字の記号そのものをバッジに出し、ここの短い名前は
  * `title` 属性・案件詳細・案件台帳など**枠の広い場所でだけ**使う）。
  */
 export const ENTITY_BADGE_LABEL: Record<LegalEntityCode, string> = {
-  GJV: 'コンテンツスタジオ',
+  SCS: 'コンテンツスタジオ',
   GSS: 'サムライスタジオ',
   GMO: 'グループ本体',
 };
@@ -84,14 +84,14 @@ export const ENTITY_BADGE_LABEL: Record<LegalEntityCode, string> = {
  * 計上会社バッジの色。**ステージのバッジと同じトークンの使い回し**
  * （このファイルで既に使っている3色から選ぶ・新しい色は作らない）。
  *
- * 進行を表す並びではない（GJV/GSS/GMO に優劣・順序は無い）ので、
+ * 進行を表す並びではない（SCS/GSS/GMO に優劣・順序は無い）ので、
  * ステージのような「淡い→濃い」の意味は持たせず、**見分けるためだけ**に3色を割る:
  * GSS＝いまの唯一の計上先（`success`。§4.6「既定は GSS」）／
- * GJV＝2026年10月に増える売上系の会社（`primary`）／
+ * SCS＝2026年10月に増える売上系の会社（`primary`）／
  * GMO＝コストセンター（売上を持たない特殊枠なので、`neta`/`e_lost` と同じ `muted`）。
  */
 export const ENTITY_BADGE_TONE: Record<LegalEntityCode, string> = {
-  GJV: 'border-transparent bg-primary-surface text-primary',
+  SCS: 'border-transparent bg-primary-surface text-primary',
   GSS: 'border-transparent bg-success-surface text-success',
   GMO: 'border-transparent bg-muted text-muted-foreground',
 };

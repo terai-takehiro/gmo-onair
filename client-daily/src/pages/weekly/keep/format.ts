@@ -37,12 +37,12 @@ export const CONFIDENCE_TONE: Record<ConfidenceLetter, { letter: string; badge: 
  * 計上会社の絞り込みチップの並びと表示名（資料の言い方 ＝ 会社 と お客様の区分の対応を1行で見せる）。
  * 鍵は main の `entity_code`（`legal_entities.code`）そのもの。GSS を先に置く — 切替前（`org_transition.state='off'`）は
  * 全行 GSS なので、いちばん左に数字のある会社が来る（`shared/src/keepReport/entity.ts` の `BUSINESS_ENTITIES` は
- * main の sort_order どおり GJV が先）。
+ * main の sort_order どおり SCS が先）。
  */
 export const ENTITY_CHIPS: Array<{ key: EntityScope; label: string }> = [
   { key: 'all', label: '全体（統合）' },
   { key: 'GSS', label: 'GMOサムライスタジオ ＝ グループ内' },
-  { key: 'GJV', label: 'GMOサムライコンテンツスタジオ ＝ 外部' },
+  { key: 'SCS', label: 'GMOサムライコンテンツスタジオ ＝ 外部' },
   { key: 'GMO', label: 'GMOインターネットグループ' },
 ];
 

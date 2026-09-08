@@ -24,7 +24,7 @@ interface PdfRevenueData {
   /**
    * 発行者ブロック（右上の「発行元」欄）。**2026年10月の事業再編**で会社ごとの
    * 発行者情報を出すようになった（`legal-entity.service.ts` の `resolveIssuer`）。
-   * 住所・登録番号は会社によって未設定のことがある（GJV は設定画面から入力するまで
+   * 住所・登録番号は会社によって未設定のことがある（SCS は設定画面から入力するまで
    * 空欄・GMO はそもそも請求書を出さない）ので、どちらも `null` 可。
    */
   issuer: { name: string; address1: string | null; address2: string | null; regNo: string | null };
@@ -161,7 +161,7 @@ export function generateEstimatePdf(data: PdfRevenueData): Promise<Buffer> {
 
       let yR = yBlock;
       txt(data.issuer.name, xR, yR, { sz: 10, f: B, c: '#000000', w: colR, align: 'right' }); yR += 14;
-      // 住所・登録番号は会社によって未設定のことがある（GJV は設定画面から入力するまで
+      // 住所・登録番号は会社によって未設定のことがある（SCS は設定画面から入力するまで
       // 空欄）。無い行は出さない — 空文字や "null" を印字すると帳票として破綻する
       if (data.issuer.address1) { txt(data.issuer.address1, xR, yR, { sz: 8, c: '#333333', w: colR, align: 'right' }); yR += 12; }
       if (data.issuer.address2) { txt(data.issuer.address2, xR, yR, { sz: 8, c: '#333333', w: colR, align: 'right' }); yR += 12; }

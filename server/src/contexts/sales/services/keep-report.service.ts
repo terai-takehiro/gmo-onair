@@ -14,7 +14,7 @@ import {
 } from './keep-report-rules';
 
 /** 計上会社の並び（legal_entities の sort_order と同じ。'all' の合計はこの3社） */
-const ENTITY_CODES: readonly LegalEntityCode[] = ['GJV', 'GSS', 'GMO'];
+const ENTITY_CODES: readonly LegalEntityCode[] = ['SCS', 'GSS', 'GMO'];
 const UTILIZATION_KEY = 'utilization';
 const YM_RANGE_RE = /^\d{4}-\d{2}$/;
 function assertYmRange(range: { from: string; to: string }): void {

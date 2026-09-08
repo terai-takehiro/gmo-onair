@@ -176,10 +176,10 @@ const ALL_W = 72 + 72 + 12;
 
 function ByEntityCard({ by, title, actualHead }: { by: PlByEntity; title: string; actualHead: string }) {
   // GSS を先に（チップと同じ並び。切替前は全行 GSS）
-  const entities: BusinessEntity[] = ['GSS', 'GJV', ...(by.GMO ? (['GMO'] as BusinessEntity[]) : [])];
+  const entities: BusinessEntity[] = ['GSS', 'SCS', ...(by.GMO ? (['GMO'] as BusinessEntity[]) : [])];
   const tables = entities.map((e) => by[e]!).filter(Boolean);
   const lines = by.all.lines;
-  const sub: Record<BusinessEntity, string> = { GSS: 'グループ内', GJV: '外部', GMO: 'グループ本体' };
+  const sub: Record<BusinessEntity, string> = { GSS: 'グループ内', SCS: '外部', GMO: 'グループ本体' };
   return (
     <div className="overflow-hidden rounded-card border border-border bg-card">
       <CardHead

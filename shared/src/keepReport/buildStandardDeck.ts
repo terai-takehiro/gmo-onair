@@ -9,7 +9,7 @@
  *
  * ── id の決め方（組み直しても同じページが同じ id になるように）──────────
  *   固定ページ … テンプレの名前（`cover` / `agenda` …）
- *   数値報告   … `pl_table:<mode>:<entity>`（`pl_table:landing:all` …。entity は all / GJV / GSS / GMO / by_entity）
+ *   数値報告   … `pl_table:<mode>:<entity>`（`pl_table:landing:all` …。entity は all / SCS / GSS / GMO / by_entity）
  *   ヨミ表     … `pipeline_table:<list>`
  *   案件ページ … `project_page:<project_id>`、実施報告 … `event_report:<project_id>`
  *   部品       … `<page id>:p<番号>`（テンプレの regions の順）

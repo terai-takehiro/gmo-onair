@@ -1,5 +1,5 @@
 /**
- * 社内取引（GJV⇄GSS）の API — 2026年10月の事業再編・P2 Round 2
+ * 社内取引（SCS⇄GSS）の API — 2026年10月の事業再編・P2 Round 2
  *
  * 「サムライスタジオへ社内発注」の入口。作成・編集・削除は必ずこの経路を通す
  * （`revenues.routes.ts`/`purchases.routes.ts` の通常の PUT/DELETE は

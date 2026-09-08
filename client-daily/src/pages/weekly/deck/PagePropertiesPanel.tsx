@@ -91,7 +91,7 @@ export function PagePropertiesPanel() {
             <select className={SELECT} value={plOptions(table).entity} onChange={(e) => { const entity = e.target.value as PlEntity; updatePart(page.id, table.id, { binding: plBinding(plOptions(table).mode, entity), options: { ...(table.options ?? {}), entity } }); }}>
               <option value="all">全社（統合）</option>
               <option value="GSS">{BUSINESS_ENTITY_LABELS.GSS}</option>
-              <option value="GJV">{BUSINESS_ENTITY_LABELS.GJV}</option>
+              <option value="SCS">{BUSINESS_ENTITY_LABELS.SCS}</option>
               <option value="GMO">{BUSINESS_ENTITY_LABELS.GMO}</option>
               <option value="by_entity">計上会社別（並べる）</option>
             </select>

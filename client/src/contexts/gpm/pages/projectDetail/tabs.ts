@@ -34,7 +34,7 @@ export const DETAIL_TABS = [
   { key: 'estimates', label: '見積', icon: Receipt },
   /*
    * migration 179 で案件詳細から移した「月次請求（月締め）」。
-   * ここの `label` は**普通の会社（GJV/GSS）向けの既定値**。
+   * ここの `label` は**普通の会社（SCS/GSS）向けの既定値**。
    * コストセンター（GMO）の案件では「予算と実績」に出し分ける
    * （2026年10月の事業再編・P3・§4.7）——**`key`（URL の一部）は変えない**。
    * 変えると「請求」で開いていたブックマーク・共有 URL が壊れるため、

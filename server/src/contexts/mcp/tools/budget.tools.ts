@@ -10,7 +10,7 @@ import { ok, runTool, audit, REQUESTED_BY } from '../helpers';
 
 const YM_RE = /^\d{4}-\d{2}$/;
 // 2026年10月の事業再編（P2 Round 1）: 省略時は今の会社（CURRENT_ENTITY_CODE）のぶん
-const ENTITY_CODE = z.enum(['GJV', 'GSS', 'GMO']).optional()
+const ENTITY_CODE = z.enum(['SCS', 'GSS', 'GMO']).optional()
   .describe('対象の計上会社 (省略時は今の会社)');
 
 export function registerBudgetTools(server: McpServer): void {

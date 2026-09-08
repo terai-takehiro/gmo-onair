@@ -1,6 +1,6 @@
 /**
  * 「サムライスタジオへ社内発注」フォーム（作成・編集共通）
- * （2026年10月の事業再編・GJV⇄GSS・P2 Round 2・`IntercompanySection.tsx` から分離）
+ * （2026年10月の事業再編・SCS⇄GSS・P2 Round 2・`IntercompanySection.tsx` から分離）
  *
  * ── 金額の初期値は「下見」───────────────────────────────────
  *
@@ -109,7 +109,7 @@ export function IntercompanyDialog({
       open
       onOpenChange={(v) => { if (!v) onClose(); }}
       title={isEdit ? '社内取引を編集' : 'サムライスタジオへ社内発注'}
-      sub="GJV が受けた案件を GSS のスタジオ・人員・機材で作るときの、GSS→GJV の社内売上・仕入を1組登録します。"
+      sub="SCS が受けた案件を GSS のスタジオ・人員・機材で作るときの、GSS→SCS の社内売上・仕入を1組登録します。"
       onSubmit={(e) => { e.preventDefault(); if (isEdit) update.mutate(); else create.mutate(); }}
       footer={(
         <FormDialogFooter>

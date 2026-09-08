@@ -149,7 +149,7 @@
       "has_override": false,
       "override_note": null
     },
-    "GJV": {
+    "SCS": {
       "year_month": "2026-08",
       "mode": "landing",
       "lines": [
@@ -367,7 +367,7 @@
       "has_override": false,
       "override_note": null
     },
-    "GJV": {
+    "SCS": {
       "year_month": "2026-09",
       "mode": "forecast",
       "lines": [
@@ -774,7 +774,7 @@
         "name": "第20期 事業計画発表会",
         "customer_name": "株式会社DoCLASSE",
         "customer_segment": "external",
-        "entity_code": "GJV",
+        "entity_code": "SCS",
         "samurai_related": false,
         "stage": "b_verbal",
         "confidence": "B",
@@ -795,7 +795,7 @@
         "name": "ZOZO 社内イベント用撮影(仮称)",
         "customer_name": "株式会社CROSS-ZERO",
         "customer_segment": "external",
-        "entity_code": "GJV",
+        "entity_code": "SCS",
         "samurai_related": false,
         "stage": "b_verbal",
         "confidence": "B",
@@ -816,7 +816,7 @@
         "name": "第4部 開幕直前生放送【プリンセスコネクト】",
         "customer_name": "株式会社エンブレム",
         "customer_segment": "external",
-        "entity_code": "GJV",
+        "entity_code": "SCS",
         "samurai_related": false,
         "stage": "c_proposal",
         "confidence": "C",
@@ -837,7 +837,7 @@
         "name": "BLVCKOUT",
         "customer_name": "株式会社Livetoon",
         "customer_segment": "external",
-        "entity_code": "GJV",
+        "entity_code": "SCS",
         "samurai_related": false,
         "stage": "c_proposal",
         "confidence": "C",
@@ -858,7 +858,7 @@
         "name": "アニメ上映会・配信イベント",
         "customer_name": "株式会社ブシロードムーブ",
         "customer_segment": "external",
-        "entity_code": "GJV",
+        "entity_code": "SCS",
         "samurai_related": false,
         "stage": "d_hold",
         "confidence": "D",
@@ -879,7 +879,7 @@
         "name": "KULOG BOOK 第三弾ものまねフリースタイルバトル",
         "customer_name": "株式会社KULOG",
         "customer_segment": "external",
-        "entity_code": "GJV",
+        "entity_code": "SCS",
         "samurai_related": false,
         "stage": "d_hold",
         "confidence": "D",
@@ -902,7 +902,7 @@
         "name": "27.5時間テレビ",
         "customer_name": "株式会社サムライパートナーズ",
         "customer_segment": "external",
-        "entity_code": "GJV",
+        "entity_code": "SCS",
         "samurai_related": true,
         "stage": "b_verbal",
         "confidence": "B",
@@ -923,7 +923,7 @@
         "name": "Nontitle",
         "customer_name": "株式会社サムライパートナーズ",
         "customer_segment": "external",
-        "entity_code": "GJV",
+        "entity_code": "SCS",
         "samurai_related": true,
         "stage": "c_proposal",
         "confidence": "C",
@@ -944,7 +944,7 @@
         "name": "インテリジェンス",
         "customer_name": "GMOサムライコンテンツスタジオ株式会社",
         "customer_segment": "external",
-        "entity_code": "GJV",
+        "entity_code": "SCS",
         "samurai_related": true,
         "stage": "a_won",
         "confidence": "A",

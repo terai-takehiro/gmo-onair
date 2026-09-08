@@ -1,6 +1,6 @@
 /**
  * 案件詳細・見積タブ「売上・請求」ペインの「社内取引」区画
- * （2026年10月の事業再編・GJV⇄GSS・P2 Round 2）
+ * （2026年10月の事業再編・SCS⇄GSS・P2 Round 2）
  *
  * ── なぜここに置いたか ──────────────────────────────────────
  *
@@ -11,11 +11,11 @@
  * （`EstimateTab.tsx` の `pane === 'revenue'`。中身は `RevenueBillingPane`
  * の3カード＋`InvoiceGroupsSection`）なので、そこに並べる3つ目の区画として
  * 追加した。`InvoiceGroupsSection.tsx` と同じ「このペインに足す専用区画」という
- * 立て付け（レギュラー案件だけの請求まとめ ↔ GJV の案件だけの社内取引）。
+ * 立て付け（レギュラー案件だけの請求まとめ ↔ SCS の案件だけの社内取引）。
  *
- * ── GJV の案件にだけ出す ────────────────────────────────────
+ * ── SCS の案件にだけ出す ────────────────────────────────────
  *
- * 買い手は常に GJV・売り手は常に GSS の1方向のみ（サーバー
+ * 買い手は常に SCS・売り手は常に GSS の1方向のみ（サーバー
  * `intercompany.service.ts` の `SELLER_ENTITY`/`BUYER_ENTITY` 固定値と同じ
  * スコープ）。GSS/GMO の案件では入口ごと出さない。
  *
@@ -91,7 +91,7 @@ function episodeLabel(episodes: Episode[], episodeId: string): string {
 type DialogState = { mode: 'create' } | { mode: 'edit'; detail: IntercompanyDetail };
 
 export function IntercompanySection({ project, mobile }: { project: ProjectDetail; mobile?: boolean }) {
-  const isGjv = project.entity_code === 'GJV';
+  const isScs = project.entity_code === 'SCS';
   const { hasPermission } = useAuth();
   // サーバー側 `intercompany.routes.ts` は GET を含む全ルートに `sales:editor` を
   // 要求する（ファイル冒頭コメント参照）。**閲覧もこの権限が要る**ので、
@@ -103,7 +103,7 @@ export function IntercompanySection({ project, mobile }: { project: ProjectDetai
   const [dialog, setDialog] = useState<DialogState | null>(null);
 
   const queryKey = ['intercompany', project.id];
-  const enabled = isGjv && canView;
+  const enabled = isScs && canView;
   const list = useQuery<IntercompanyDetail[]>({
     queryKey,
     queryFn: async () => (await api.get('/intercompany', { params: { project_id: project.id } })).data.data,
@@ -134,7 +134,7 @@ export function IntercompanySection({ project, mobile }: { project: ProjectDetai
 
   // **フックはここまで必ず呼び終える**（`useIsMobile()` と同じ「早期returnしない」原則。
   // `enabled` で問い合わせを止めるだけにし、描画の分岐はこのあとでまとめて行う）
-  if (!isGjv || !canView) return null;
+  if (!isScs || !canView) return null;
 
   const rows = list.data ?? [];
   const episodeList = episodes.data ?? [];
@@ -147,7 +147,7 @@ export function IntercompanySection({ project, mobile }: { project: ProjectDetai
             <Building2 className="h-4 w-4 text-muted-foreground" aria-hidden="true" />社内取引
           </p>
           <p className="text-sub text-muted-foreground">
-            サムライスタジオ（GSS）のスタジオ・人員・機材で作るぶんの、社内売上（GSS）・社内仕入（GJV）を1組で記録します。
+            サムライスタジオ（GSS）のスタジオ・人員・機材で作るぶんの、社内売上（GSS）・社内仕入（SCS）を1組で記録します。
           </p>
         </div>
         <Button size="sm" onClick={() => setDialog({ mode: 'create' })} disabled={episodes.isLoading}>
@@ -245,7 +245,7 @@ export function IntercompanySection({ project, mobile }: { project: ProjectDetai
 async function confirmDelete(linkId: string, mutate: (id: string) => void): Promise<void> {
   const ok = await confirmAction({
     title: '社内取引を削除しますか？',
-    description: 'この社内取引に結び付いている社内売上（GSS）・社内仕入（GJV）を両方とも削除します。',
+    description: 'この社内取引に結び付いている社内売上（GSS）・社内仕入（SCS）を両方とも削除します。',
     confirmLabel: '削除する',
     tone: 'danger',
   });

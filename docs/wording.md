@@ -260,10 +260,10 @@ UI/UX 刷新 (v2.9.251〜) で決めた文言ルール。**PR レビューのチ
 
 | 語 | 説明文の例 | 設計 | 今日時点 |
 | --- | --- | --- | --- |
-| 計上会社 | 売上・費用をどの会社の帳簿に載せるか。 | §4.2 | `legal_entities` に GJV（コンテンツスタジオ）／GSS（サムライスタジオ）／GMO（グループ本体）の3行が実装済み。既存の案件は全部 GSS のまま |
+| 計上会社 | 売上・費用をどの会社の帳簿に載せるか。 | §4.2 | `legal_entities` に SCS（コンテンツスタジオ）／GSS（サムライスタジオ）／GMO（グループ本体）の3行が実装済み。既存の案件は全部 GSS のまま |
 | コストセンター | 売上を持たない会社（GMO のみ）。仕入・予算対実績だけを扱う。 | §4.7 | `legal_entities.kind='cost_center'` の判定と、売上の登録口を止めるガードは実装済み（`isProjectCostCenter()`）。`state` が `off` のあいだ該当する案件は無い |
-| 改番 | 案件番号を古い形式（GLS）から新しい形式（GJV／GSS／GMO）へ切り替える操作。旧番号は消えず、履歴として引き続き検索できる。 | §4.3・§4.8 | `renumberProject`（`entity-resolution.service.ts`）・MCP `renumber_project`（confirm 2段階）は実装済み。`state` が `preparing` 以降に進むまで対象は無い |
-| 社内取引 | GJV⇄GSS 間で1つの案件のために発生する、社内向けの売上と仕入のペア。 | §4.12 | `intercompany_links`・MCP `create_intercompany_purchase`（confirm 2段階）は実装済み。実際の取引は切替後にしか発生しない |
+| 改番 | 案件番号を古い形式（GLS）から新しい形式（SCS／GSS／GMO）へ切り替える操作。旧番号は消えず、履歴として引き続き検索できる。 | §4.3・§4.8 | `renumberProject`（`entity-resolution.service.ts`）・MCP `renumber_project`（confirm 2段階）は実装済み。`state` が `preparing` 以降に進むまで対象は無い |
+| 社内取引 | SCS⇄GSS 間で1つの案件のために発生する、社内向けの売上と仕入のペア。 | §4.12 | `intercompany_links`・MCP `create_intercompany_purchase`（confirm 2段階）は実装済み。実際の取引は切替後にしか発生しない |
 
 ⚠️ **「移行センター」は今日時点で画面の名前ではない**（設計の中の呼び名）。実際に
 実装済みの画面名は**「会社と切替」**（設定 ＞ 会社と切替。ルール7どおり短い名前＋副題

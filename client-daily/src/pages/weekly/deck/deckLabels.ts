@@ -78,7 +78,7 @@ export function monthOf(ym: string | null | undefined): string {
 
 export type PlMode = 'landing' | 'forecast';
 /** 数値報告の表の計上会社（`options.entity`）。`by_entity` は会社ごとの表を並べる */
-export type PlEntity = 'all' | 'GJV' | 'GSS' | 'GMO' | 'by_entity';
+export type PlEntity = 'all' | 'SCS' | 'GSS' | 'GMO' | 'by_entity';
 
 export function plOptions(part: Pick<SlidePart, 'binding' | 'options'> | null | undefined): { mode: PlMode; entity: PlEntity } {
   const o = (part?.options ?? {}) as { mode?: string; entity?: string };
@@ -86,7 +86,7 @@ export function plOptions(part: Pick<SlidePart, 'binding' | 'options'> | null | 
   const mode: PlMode = o.mode === 'forecast' || b.startsWith('forecast') ? 'forecast' : 'landing';
   const fromBinding = b.split('.')[1];
   const raw = o.entity ?? fromBinding ?? 'all';
-  const entity: PlEntity = (['all', 'GJV', 'GSS', 'GMO', 'by_entity'] as const).includes(raw as PlEntity) ? (raw as PlEntity) : 'all';
+  const entity: PlEntity = (['all', 'SCS', 'GSS', 'GMO', 'by_entity'] as const).includes(raw as PlEntity) ? (raw as PlEntity) : 'all';
   return { mode, entity };
 }
 

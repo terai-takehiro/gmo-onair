@@ -149,7 +149,7 @@ export default function PurchaseListPage() {
       state: purchaseState(p),
       project_id: p.project_id,
       settlement_url: p.settlement_url,
-      // 2社間の社内取引（GJV⇄GSS・2026年10月の事業再編 P2 Round 2）。サーバーは対応済み
+      // 2社間の社内取引（SCS⇄GSS・2026年10月の事業再編 P2 Round 2）。サーバーは対応済み
       is_intercompany: p.is_intercompany,
       // スマホの詳細シートに出す項目（PC は読まない）。**`useMemo` の外に出さない** —
       // 出すと20行ぶんを毎レンダリング作り直すことになる（`ledger/types.ts` の `detail`）

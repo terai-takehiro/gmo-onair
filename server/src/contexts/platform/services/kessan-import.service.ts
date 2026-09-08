@@ -102,9 +102,9 @@ const acct = (s: unknown): { code: number; name: string } => {
 };
 const firstNonEmpty = (...xs: unknown[]): string => xs.map((x) => String(x ?? '').trim()).find((x) => x.length > 0) || '';
 const stripCode = (s: unknown): string => String(s ?? '').trim().replace(/^\d+\s+/, '').trim();
-// 案件番号トークン: 新形式 GLS-A004 / GLS-B005・2026-10改番後の GJV-0001 / GSS-0001 / GMO-0001 と
+// 案件番号トークン: 新形式 GLS-A004 / GLS-B005・2026-10改番後の SCS-0001 / GSS-0001 / GMO-0001 と
 // 旧形式 GLS137 / GLS149,150 の全対応（抽出後の照合は `project_numbers` 経由で旧番号でも引ける。§4.10）
-const GLS_TOKEN_RE = /GLS-[A-Z]\d+|GLS\d+(?:,\d+)*|(?:GJV|GSS|GMO)-\d+(?:,\d+)*/g;
+const GLS_TOKEN_RE = /GLS-[A-Z]\d+|GLS\d+(?:,\d+)*|(?:SCS|GSS|GMO)-\d+(?:,\d+)*/g;
 function parseGls(memo: unknown): string[] {
   const out: string[] = [];
   const re = new RegExp(GLS_TOKEN_RE.source, 'g');
@@ -112,22 +112,22 @@ function parseGls(memo: unknown): string[] {
   while ((m = re.exec(String(memo ?? '')))) {
     const tok = m[0];
     if (tok.includes(',')) {
-      // コンマ列挙 (GLS149,150,151 → GLS149/GLS150/GLS151・GJV-0001,0002 → GJV-0001/GJV-0002) を
-      // 展開する。prefix は先頭が新形式 (GJV-/GSS-/GMO-、ダッシュ込み) か旧形式 (GLS、ダッシュ無し) かで
+      // コンマ列挙 (GLS149,150,151 → GLS149/GLS150/GLS151・SCS-0001,0002 → SCS-0001/SCS-0002) を
+      // 展開する。prefix は先頭が新形式 (SCS-/GSS-/GMO-、ダッシュ込み) か旧形式 (GLS、ダッシュ無し) かで
       // 長さが違うため固定の3文字決め打ちにはできない
-      const prefixMatch = tok.match(/^(GJV-|GSS-|GMO-|GLS)/);
+      const prefixMatch = tok.match(/^(SCS-|GSS-|GMO-|GLS)/);
       const prefix = prefixMatch ? prefixMatch[1] : 'GLS';
       for (const n of tok.slice(prefix.length).split(',')) out.push(prefix + n.trim());
     } else {
-      out.push(tok); // GLS-A004 / GLS137 / GJV-0001
+      out.push(tok); // GLS-A004 / GLS137 / SCS-0001
     }
   }
   return [...new Set(out)];
 }
 function stripGlsName(memo: unknown): string {
   const nm = String(memo ?? '')
-    .replace(/(仕入|売上)?(?:GLS-[A-Z]\d+|(?:GJV|GSS|GMO)-\d+(?:,\d+)*)/g, '')
-    .replace(/(仕入|売上)?(?:GLS\d+(?:,\d+)*|(?:GJV|GSS|GMO)-\d+(?:,\d+)*)/g, '')
+    .replace(/(仕入|売上)?(?:GLS-[A-Z]\d+|(?:SCS|GSS|GMO)-\d+(?:,\d+)*)/g, '')
+    .replace(/(仕入|売上)?(?:GLS\d+(?:,\d+)*|(?:SCS|GSS|GMO)-\d+(?:,\d+)*)/g, '')
     .replace(/XP\d+/g, '')
     .replace(/^[\s/、,･・]+/, '')
     .replace(/[\s/、,･・]+$/, '')
@@ -242,8 +242,8 @@ const parseFlexDate = (s: unknown): string => {
 /** 摘要から案件 GLS 番号 (1件) を抽出: 「GLS137｢…｣」のように鍵括弧直前を優先、無ければ最初の GLS 番号。新旧両形式対応 */
 function parseGlsPrimary(memo: unknown): string | null {
   const s = String(memo ?? '');
-  // 鍵括弧直前を優先（旧形式 GLS137｢…｣ / 新形式 GJV-0001｢…｣ の両対応）
-  const m = s.match(/(?:GLS\d+|(?:GJV|GSS|GMO)-\d+)(?=\s*[｢「])/);
+  // 鍵括弧直前を優先（旧形式 GLS137｢…｣ / 新形式 SCS-0001｢…｣ の両対応）
+  const m = s.match(/(?:GLS\d+|(?:SCS|GSS|GMO)-\d+)(?=\s*[｢「])/);
   if (m) return m[0];
   return parseGls(s)[0] ?? null;
 }
