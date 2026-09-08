@@ -45,7 +45,14 @@ export default function MaintenancePage() {
   // （`FormDialog` がスマホでは自動で下シートになる）。列で出し分けると
   // Codexレビュー指摘のとおり 1024〜1535px（lg 未満 2xl）で編集手段が消えるため、
   // 列ではなく行の中の小さいボタンから開く形にした
-  const [dateEditTarget, setDateEditTarget] = useState<MaintenanceRecord | null>(null);
+  //
+  // ⚠️ **id だけを持つ（記録そのものは持たない）**（Codexレビュー指摘・P1）。
+  // 開いた瞬間の記録を丸ごと持つと、ダイアログを開いたまま裏で別の更新
+  // （例: 状態を変える）が成功して `records` が新しくなっても、この状態は
+  // 古いまま取り残される。保存すると、その**古い状態がまた書き戻ってしまう**
+  // （`update` の PUT は行全体を書き直すため）。id から `records` を引き直せば、
+  // 他の更新が invalidate → 再取得したぶんが自動でここにも届く
+  const [dateEditId, setDateEditId] = useState<string | null>(null);
   const [dateDraft, setDateDraft] = useState({ repair_sent_at: '', repair_returned_at: '' });
 
   // 件数をチップに出すので**絞り込み無しで1回引き**、絞り込みは画面で掛ける
@@ -55,6 +62,9 @@ export default function MaintenancePage() {
   });
   const all = useMemo(() => list.data ?? [], [list.data]);
   const records = useMemo(() => (status ? all.filter((r) => r.status === status) : all), [all, status]);
+  // ダイアログの中身は常にここから引く（`all` から — 状態の絞り込みで
+  // 対象が絞り込み外に出ても編集を続けられるように `records` ではなく `all` を見る）
+  const dateEditTarget = dateEditId ? all.find((r) => r.id === dateEditId) ?? null : null;
 
   /**
    * 記録を付ける機材の候補。
@@ -141,7 +151,7 @@ export default function MaintenancePage() {
   });
 
   const openDateEdit = (r: MaintenanceRecord) => {
-    setDateEditTarget(r);
+    setDateEditId(r.id);
     setDateDraft({ repair_sent_at: r.repair_sent_at ?? '', repair_returned_at: r.repair_returned_at ?? '' });
   };
   const saveDateEdit = () => {
@@ -158,7 +168,7 @@ export default function MaintenancePage() {
         repair_sent_at: dateDraft.repair_sent_at || null,
         repair_returned_at: dateDraft.repair_returned_at || null,
       },
-      { onSuccess: () => setDateEditTarget(null) },
+      { onSuccess: () => setDateEditId(null) },
     );
   };
 
@@ -304,12 +314,12 @@ export default function MaintenancePage() {
         return (
           <FormDialog
             open
-            onOpenChange={(o) => { if (!o && !savingThis) setDateEditTarget(null); }}
+            onOpenChange={(o) => { if (!o && !savingThis) setDateEditId(null); }}
             title="修理日を編集"
             sub={dateEditTarget.title}
             footer={
               <FormDialogFooter>
-                <Button variant="outline" onClick={() => setDateEditTarget(null)} disabled={savingThis}>キャンセル</Button>
+                <Button variant="outline" onClick={() => setDateEditId(null)} disabled={savingThis}>キャンセル</Button>
                 <Button onClick={saveDateEdit} disabled={savingThis}>保存</Button>
               </FormDialogFooter>
             }
