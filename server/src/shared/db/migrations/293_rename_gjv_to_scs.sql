@@ -71,26 +71,22 @@ UPDATE keep_report_packs SET scope_entity = 'SCS' WHERE scope_entity = 'GJV';
 -- 問い合わせは付け替え後の行を見つけるが、`pack`（JSONB・KeepReportPack の全文）
 -- の中身は古い `GJV` のままになる。`landing.GJV`/`forecast.GJV`/`scope.entity` を
 -- 読むコードは既に `SCS` を探しに行くため、凍結済みの過去パックが「会社別の表が
--- 無い」ものとして壊れて見える。実データ確認（2026-09-08・本番/検証とも
--- `keep_report_packs` 0 件）では実害は無いが、このマイグレーションの適用が
--- 遅れて先に凍結パックができた場合に備えて埋め込み JSON も書き換えておく。
+-- 無い」ものとして壊れて見える。
+--
+-- ⚠️ 当初 `jsonb_set` でトップレベルのキー（`scope.entity`/`landing.GJV`/
+-- `forecast.GJV`）だけを書き換える案にしていたが、レビュー指摘（PR #637）で
+-- `pipeline.external[].entity_code`/`pipeline.samurai[].entity_code`
+-- （`PipelineRow.entity_code`。配列要素の中の値）も同じパックに含まれており、
+-- `jsonb_set` のパス指定では配列の奥まで拾いきれないと判明。**`keep_decks` と
+-- 同じテキストとしての完全一致置換に統一**する（キー・値どちらの `"GJV"` も
+-- 一括で拾える）。GJV という4文字が業務データの自由記述（notes・headline 等）に
+-- 偶然一致する可能性はほぼ無い（実データ確認済み・`keep_report_packs`/
+-- `keep_decks`/`keep_deck_versions` とも本番/検証で 0 件）。このマイグレーションの
+-- 適用が遅れて先に凍結パックができた場合に備えて埋め込み JSON も書き換えておく。
 UPDATE keep_report_packs
-   SET pack = jsonb_set(pack, '{scope,entity}', '"SCS"'::jsonb)
- WHERE pack #>> '{scope,entity}' = 'GJV';
+   SET pack = REPLACE(pack::text, 'GJV', 'SCS')::jsonb
+ WHERE pack::text LIKE '%GJV%';
 
-UPDATE keep_report_packs
-   SET pack = jsonb_set(pack #- '{landing,GJV}', '{landing,SCS}', pack #> '{landing,GJV}')
- WHERE pack #> '{landing,GJV}' IS NOT NULL;
-
-UPDATE keep_report_packs
-   SET pack = jsonb_set(pack #- '{forecast,GJV}', '{forecast,SCS}', pack #> '{forecast,GJV}')
- WHERE pack #> '{forecast,GJV}' IS NOT NULL;
-
--- 資料の構成（keep_decks/keep_deck_versions.deck）は `pages[].parts[].binding`
--- （例 'landing.GJV'）・`options.entity`（'GJV'）がページ・部品の配列の奥にあり、
--- `jsonb_set` のパス指定では拾いきれない。GJV という4文字が業務データの自由記述
--- （notes・headline 等）に偶然一致する可能性はほぼ無い（実データ確認済み・0件）ため、
--- テキストとしての完全一致置換で対応する。
 UPDATE keep_decks
    SET deck = REPLACE(deck::text, 'GJV', 'SCS')::jsonb
  WHERE deck::text LIKE '%GJV%';
