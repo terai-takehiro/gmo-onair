@@ -2409,11 +2409,11 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   「どこが出来てどこが手つかずか」に穴が空いていた。この PR で足した（58/61 → 59/62）。
   **未検証で残したもの**: シードの投入（`npm run db:seed`）・`npm run check:frozen` は未実施
   （`shared/` を触っていないため）。
-  **❌ 直していない既存の穴（この PR の範囲外・忘れないためにここに残す）**:
-  `dailyops` が**閲覧**の人にも依頼は届くが、承諾・辞退の操作は権限で出ない
-  （サーバーも editor を要求）。**受け取れるのに返せない**状態で、権限設計の側の話。
-  → 何が変われば直すか: 「依頼への返答は閲覧権限でもできる」と決まったとき
-  （`respondToDelegation` を `canRead` に緩めるか、依頼の受け手には行単位で書きを許す）。
+  **❌ 直していない既存の穴** — `dailyops:reader` の人は依頼を受け取れるのに返せない。
+  ⚠️ **これは上の表に正式な行として書いてある**（`#644` の行）。**段落に書くと
+  `grep -c '^| .* | ❌'` が拾わず、次の棚卸しで残数から消えます** — #624 で同じ形を
+  一度直しているのに、この回でまた段落に書いて Codex に指摘された（2巡目・P1）。
+  **「直さないと決めた」「まだ直していない」は、文章ではなく表の行で残すこと。**
 
 - **#637**（`refactor(reorg): 計上会社の接頭辞コードをGJVからSCSに変更`・2026-09-08）—
   ユーザーからの指示「接頭辞をGJV→SCSに変更したい」を受け、2026年10月の事業再編で先に
@@ -3397,6 +3397,7 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 | PR | 重み | どこ | 何が起きるか | 状態 |
 | --- | --- | --- | --- | --- |
 | #624 | P1（セキュリティ・元は #621 のレビュー指摘） | `server/src/contexts/dailyops/routes/inbox.routes.ts` の `POST /inquiries/:id/book` | **`dailyops:editor` だけで `sales:editor` 相当のスタジオ予約（カレンダー登録）が作れる** — `studioBookingService.createBooking()` をサービス層で直接呼んでおり、`/studios/bookings` が要求する `sales:editor` を経由しない。作られる予約は tentative・部屋なしだが ICS配信・共有カレンダーに乗り、作った本人（dailyops）はそれを消す手段を持たない | ❌ **直さないと決めた**（ユーザーに確認済み・`AskUserQuestion`で「既存パターンとして許容する」を選択）。既存の「タスクにする」（`makeTicket()`が`project_tasks`へ直接INSERT・削除には`sales`権限が要る）と同型の意図した設計で、`sales:editor`必須にすると「dailyopsがカレンダーに直接登録したい」という依頼自体が成立しなくなる。**何が変われば直すか**: 「dailyopsが自分で作った予約だけ取り消せる」導線が要ると判断されたとき、別PRでスコープ限定の削除APIを追加する |
+| #644 | P2（権限・#644 の作業中に自分で見つけたもの） | `server/src/contexts/dailyops/routes/tasks.routes.ts:690`（`POST /tasks/:id/respond` が `canEdit`）と `client-daily/src/pages/tasks/DelegationDetail.tsx`（操作を `canEdit` で出し分け） | **`dailyops:reader` の人にも依頼は届くのに、承諾・辞退・相談ができない** — 一覧（`GET /tasks/delegations`）は `canRead` なので受け手として読めるが、返答は `canEdit`（editor 以上）が要る。画面もボタンを出さないので**「届いているのに返せない」行き止まり**になり、依頼者側からは「3日間返事がありません」と滞留して見える | ❌ **未対応**（#644 の範囲外・権限設計の判断が要る）。**何が変われば直すか**: 「依頼への返答は閲覧権限でもできる」と決まったとき。⚠️ `canRead` に丸ごと緩めると `dailyops:reader` が `project_tasks` を更新できてしまうので、**その依頼の受け手本人・その1行だけ**に絞ること（`respondToDelegation` は既に `assigned_to !== userId` を 403 で弾いているので、絞り込み自体はサービス層にある） |
 
 - **#599**（`feat(reorg): 2026年10月の事業再編（計上会社の2社化・案件番号の改番）の基盤を実装`・
   2026-09-06）— P0〜P1残作業（`docs/reorg-2026-10-plan.md`）を1本のPRにまとめて出した回
