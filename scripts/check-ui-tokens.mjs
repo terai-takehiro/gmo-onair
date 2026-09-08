@@ -757,21 +757,17 @@ const BASELINE = {
     },
     "page-h1-by-hand": {
       "client": 4,
-      "client-techops": 18
-    },
-    "page-safe-area-by-hand": {
-      "client-techops": 6
+      "client-techops": 5
     },
     "page-title-by-hand": {
       "client": 4,
-      "client-techops": 1,
       "shared": 1
     },
     "page-width-by-hand": {
       "client": 3,
       "client-daily": 1,
       "client-equipment": 1,
-      "client-techops": 15
+      "client-techops": 1
     },
     "raw-palette": {
       "client": 89,

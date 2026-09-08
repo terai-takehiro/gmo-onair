@@ -48,6 +48,54 @@ v4 化済みの画面同士でも割れていた。
 
 ---
 
+## 結果（2026-09-08・段0＋A〜G 実施後）
+
+| 観点 | 統一前 | 統一後 |
+| --- | --- | --- |
+| ページ直下の枠 | **8通り** | `<PageShell>` の**2段**（`full` / `narrow`）。30ファイルが使用 |
+| 見出し `<h1>` | **11通り・14px〜24px** | `<PageHeader>`（`text-h1` = 23px/800）。31ファイルが使用（統一前 7） |
+| 生 Tailwind の文字サイズ | 535 | **229**（対象外の範囲が 211・対象内の残りは 18） |
+| v4 の型スケール | 430 | **719** |
+| `font-medium` / `font-semibold` | 161 | **89**（対象外の範囲が 88・対象内の残りは 1） |
+| 自前の上辺バー | 4画面 | **0** |
+| `env(safe-area-inset-bottom)` の誤用 | 5画面 | **0** |
+
+`check-ui-tokens.mjs` の記録も締めた（`page-safe-area-by-hand` は 6→**0** で記録ごと消滅、
+`page-h1-by-hand` は 18→**5**、`page-width-by-hand` は 15→**1**）。
+残る 6 件はすべて**触らないと決めた範囲**（本番4画面と廃止済みの `DeviceSettingsHome`）。
+
+### 対象内であえて残したもの（理由つき）
+
+| 箇所 | 件数 | 理由 |
+| --- | --- | --- |
+| `components/live/TimerDisplay.tsx` の `text-4xl` | 1 | タイマーの数字そのもの。表示ロジック・等幅指定は変えない決め |
+| `components/schedule/*` の素の `<select>` / `<textarea>` / 読み取り専用欄の `text-sm` | 14 | `shared/src/client/ui/input.tsx` が `sm:text-sm`（14px）のままなので、ここだけ 12.5px にすると**同じフォームの中で新しい不揃い**ができる。shared の入力部品を直す段で一緒に揃える |
+| `pages/rental` / `settings-export` の `text-base` | 3 | 価格の強調と全幅CTAのラベル。型スケールに対応する役割の行が無い |
+
+### まだ残っている作業（次の段）
+
+| # | 範囲 | 生 `text-*` | `font-medium`/`semibold` | なぜ今回やらないか |
+| --- | --- | --- | --- | --- |
+| H | `components/editor/*` | 84 | 64 | 表本体・`EditorSidebar` は `client-techops/CLAUDE.md` で禁止（並行 PR が触る） |
+| I | 本番4画面（`OnAir` / `Rundown` / `Prompter` / `AudioSupport`） | 76 | 10 | 同上。放送中に使うため作り直しは別建て |
+| J | `components/ai/*` | 18 | 4 | 今回のブロック分担から漏れていた（編集画面から呼ばれるダイアログ群） |
+| K | `components/excel/*` | 16 | 7 | 同上 |
+| L | `pages/EditorPage.tsx` | 9 | 3 | 編集画面の外枠。H と同じ段で |
+| M | `shared/src/client/ui/input.tsx` の `sm:text-sm` | — | — | **全アプリに効く**ので単独で判断が要る（上表の「残した 14 件」の前提） |
+
+**あわせて見つけた既存の不具合**（統一とは別に直したもの・残したもの）:
+
+- ✅ 直した: `MiniAppSwitcher` の根が `shrink-0` と `overflow-x-auto` を同時に持ち、
+  「狭い画面では横スクロールできる帯」が効かず 375px で右端の項目に届かなかった。
+  計時ダッシュボードにだけあった回避（`w-full min-w-0 sm:w-auto` で包む）を
+  収録設定・配信設定にも入れた。**部品側の `shrink-0` は据え置き**（他の呼び出し元への影響が読めない）
+- ✅ 直した: スマホのテロップ一覧で外側と内側の `px-4` が二重に効き、左余白が 32px になっていた
+- ⏳ 残した: `pages/sheets/DocCard.tsx` の ONAIR ボタンがスマホで 26px 前後（44px 未満）。
+  高さを上げるとカード1行目の高さが変わるため、カードを作り直す段で
+- ⏳ 残した: `settings-export/CopyFromDialog` の `h-[52px]`（隣の `ExportDialog` は `h-11`）
+
+---
+
 ## ブロック分担（ファイルが重ならないように切る）
 
 | # | ブロック | 対象 |

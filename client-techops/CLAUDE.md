@@ -62,7 +62,7 @@
   ＝進行・ランダウン・プロンプターは `<html class="dark">` で暗い配色のまま動いている。
   切り替えた PR で実ブラウザ／ビルド後 CSS で暗いままであることを確認すること）
 
-## UI の統一（2026-09-08〜・進行中）
+## UI の統一（2026-09-08〜）
 
 「各ページのデザイン思想が統一されていない」というご指摘を受けた棚卸しと段取りは
 **[docs/reviews/techops-ui-unification-plan.md](../docs/reviews/techops-ui-unification-plan.md)**。
@@ -73,6 +73,14 @@
   `full` / `narrow` の2段だけ）、**画面の名前は `<PageHeader>`**。
   正は [docs/design/v4/_rules.md](../docs/design/v4/_rules.md) の「5. ページの外枠」
 - 画面を1つでも触るときは、その画面を**この形に寄せてから**直す（旧い書き方を増やさない）
+- **段0〜F は済んだ**（トップ・ハブ・進行台本一覧・スケジュール・収録・配信・計時・
+  テロップCG・レンタル・設定書き出し・AIナレッジ）。ページ幅は8通り→2段、
+  `<h1>` は11通り→`<PageHeader>` 1つ、生 `text-*` 535→229、`font-medium`/`semibold` 161→89
+- **まだなのは `components/editor/*`・本番4画面・`components/ai/*`・`components/excel/*`・
+  `EditorPage.tsx`**（いずれも表本体／本番系の禁止事項に触れるか、分担から漏れた分）。
+  内訳と理由は上記の計画文書の「まだ残っている作業（次の段）」
+- `npm run lint`（`check-ui-tokens.mjs`）が `page-width-by-hand` /
+  `page-h1-by-hand` / `page-safe-area-by-hand` で**増えたら止める**
 
 ## やってはいけないこと（見た目の作り直しが終わるまで）
 
