@@ -76,7 +76,7 @@ export default function AssigneeAutocomplete({ id, value, onCommit, placeholder,
         aria-autocomplete="list"
       />
       {showDropdown && (
-        <ul className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-border bg-popover shadow-md">
+        <ul className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-card border border-border bg-popover shadow-md">
           {suggestions.map((u) => (
             <li key={u.id}>
               <button
@@ -85,10 +85,10 @@ export default function AssigneeAutocomplete({ id, value, onCommit, placeholder,
                 // （先に閉じるとクリックがドロップダウンごと消えて選べなくなる、定番の事故）
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => select(u.name)}
-                className="flex min-h-[44px] w-full flex-col items-start justify-center px-3 text-left hover:bg-accent"
+                className="flex min-h-tap w-full flex-col items-start justify-center px-3 text-left hover:bg-accent"
               >
-                <span className="text-sm text-foreground">{u.name}</span>
-                <span className="text-xs text-muted-foreground">{u.email}</span>
+                <span className="text-sub text-foreground">{u.name}</span>
+                <span className="text-sub-sm text-muted-foreground">{u.email}</span>
               </button>
             </li>
           ))}

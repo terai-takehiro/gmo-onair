@@ -112,8 +112,8 @@ export default function CreateScheduleDialog({ open, onOpenChange, lockedOwner, 
       onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }}
       footer={
         <FormDialogFooter>
-          <Button type="button" variant="outline" className="min-h-[44px]" onClick={() => onOpenChange(false)} disabled={createMutation.isPending}>閉じる</Button>
-          <Button type="submit" className="min-h-[44px]" disabled={createMutation.isPending}>作る</Button>
+          <Button type="button" variant="outline" className="min-h-tap" onClick={() => onOpenChange(false)} disabled={createMutation.isPending}>閉じる</Button>
+          <Button type="submit" className="min-h-tap" disabled={createMutation.isPending}>作る</Button>
         </FormDialogFooter>
       }
     >
@@ -124,7 +124,7 @@ export default function CreateScheduleDialog({ open, onOpenChange, lockedOwner, 
             id="new-schedule-title"
             value={title}
             onCommit={(v) => { setTitle(v); setTitleTouched(true); }}
-            className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            className="mt-1 flex h-10 w-full rounded-control-lg border border-input bg-background px-3 py-2 text-sm"
             placeholder="例: 本番当日"
           />
         </div>
@@ -135,13 +135,13 @@ export default function CreateScheduleDialog({ open, onOpenChange, lockedOwner, 
             <Input
               id="new-schedule-date" type="date" value={serviceDate}
               onChange={(e) => { setServiceDate(e.target.value); setDateTouched(true); }}
-              className="mt-1 min-h-[44px]"
+              className="mt-1 min-h-tap"
             />
           </div>
           <div>
             <Label>拠点</Label>
             <Select value={locationId ?? ""} onValueChange={(v) => setLocationId(v || null)}>
-              <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue placeholder="決めていない" /></SelectTrigger>
+              <SelectTrigger className="mt-1 min-h-tap"><SelectValue placeholder="決めていない" /></SelectTrigger>
               <SelectContent>
                 {locations.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
               </SelectContent>
@@ -160,7 +160,7 @@ export default function CreateScheduleDialog({ open, onOpenChange, lockedOwner, 
           <div>
             <Label>工程テンプレート（任意）</Label>
             <Select value={templateId ?? NO_TEMPLATE} onValueChange={(v) => setTemplateId(v === NO_TEMPLATE ? null : v)}>
-              <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="mt-1 min-h-tap"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value={NO_TEMPLATE}>使わない（あとで列を追加）</SelectItem>
                 {(templatesQuery.data ?? []).map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
@@ -174,7 +174,7 @@ export default function CreateScheduleDialog({ open, onOpenChange, lockedOwner, 
                 id="new-schedule-onair"
                 value={onairStartMin != null ? fmtHmPad(onairStartMin) : ""}
                 onCommit={(v) => setOnairStartMin(parseHm(v))}
-                className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="mt-1 flex h-10 w-full rounded-control-lg border border-input bg-background px-3 py-2 text-sm"
                 inputMode="numeric"
                 placeholder="19:00"
               />

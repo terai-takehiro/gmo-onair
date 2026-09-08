@@ -52,14 +52,14 @@ export default function ScheduleShareSection({ projectMemberCount, glsAndProject
     <div className="space-y-2 border-t border-border pt-4">
       <Label>共有</Label>
       {projectMemberCount != null && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-note text-muted-foreground">
           {glsAndProjectName ? `案件${glsAndProjectName}の` : "この案件の"}メンバー {projectMemberCount} 人には自動で見えます。
         </p>
       )}
-      <p className="text-xs text-muted-foreground">ほかに見せる人{creatorName ? `（作成者: ${creatorName}）` : ""}</p>
+      <p className="text-note text-muted-foreground">ほかに見せる人{creatorName ? `（作成者: ${creatorName}）` : ""}</p>
       <div className="flex flex-wrap items-center gap-1.5">
         {shares.map((s) => (
-          <span key={s.user_id} className="inline-flex min-h-[32px] items-center gap-1 rounded-full border border-border bg-muted/50 pl-2.5 pr-1 text-xs text-foreground">
+          <span key={s.user_id} className="inline-flex min-h-[32px] items-center gap-1 rounded-chip border border-border bg-muted/50 pl-2.5 pr-1 text-sub-sm text-foreground">
             {s.name || s.email || s.user_id}
             {!readOnly && (
               <button
@@ -74,14 +74,14 @@ export default function ScheduleShareSection({ projectMemberCount, glsAndProject
           </span>
         ))}
         {!readOnly && (
-          <Button type="button" variant="outline" size="sm" className="min-h-[44px]" onClick={() => setPickerOpen((v) => !v)}>
+          <Button type="button" variant="outline" size="sm" className="min-h-tap" onClick={() => setPickerOpen((v) => !v)}>
             ＋ 人を追加
           </Button>
         )}
       </div>
 
       {pickerOpen && (
-        <div className="rounded-md border border-border bg-card p-2">
+        <div className="rounded-card border border-border bg-card p-2">
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
@@ -94,19 +94,19 @@ export default function ScheduleShareSection({ projectMemberCount, glsAndProject
             />
           </div>
           <div className="mt-2 max-h-48 overflow-y-auto">
-            {candidatesQuery.isLoading && <p className="px-2 py-3 text-xs text-muted-foreground">読み込み中…</p>}
+            {candidatesQuery.isLoading && <p className="px-2 py-3 text-sub-sm text-muted-foreground">読み込み中…</p>}
             {!candidatesQuery.isLoading && filtered.length === 0 && (
-              <p className="px-2 py-3 text-xs text-muted-foreground">見つかりません</p>
+              <p className="px-2 py-3 text-sub-sm text-muted-foreground">見つかりません</p>
             )}
             {filtered.slice(0, 30).map((u) => (
               <button
                 key={u.id}
                 type="button"
                 onClick={() => add(u)}
-                className="flex min-h-[44px] w-full flex-col items-start justify-center rounded-md px-2 text-left hover:bg-accent"
+                className="flex min-h-tap w-full flex-col items-start justify-center rounded-control-lg px-2 text-left hover:bg-accent"
               >
-                <span className="text-sm text-foreground">{u.name}</span>
-                <span className="text-xs text-muted-foreground">{u.email}</span>
+                <span className="text-sub text-foreground">{u.name}</span>
+                <span className="text-sub-sm text-muted-foreground">{u.email}</span>
               </button>
             ))}
           </div>
