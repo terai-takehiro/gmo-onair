@@ -40,9 +40,16 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
 
+  // 「いま選ばれているファイル」と「いま投げているリクエストが対象にしたファイル」を
+  // ref で持つ。読み取り中に別のファイルへ選び直された場合、あとから届く古いレスポンスを
+  // 見分けて捨てるため（state のクロージャだと古い値を掴んだままになりうるので使わない）。
+  const currentFileRef = useRef<File | null>(null);
+  const requestFileRef = useRef<File | null>(null);
+
   const run = useMutation<KessanReport, Error, boolean>({
     mutationFn: async (commit) => {
       if (!file) throw new Error('総勘定元帳ファイルを選択してください');
+      requestFileRef.current = file;
       const fd = new FormData();
       fd.append('file', file);
       fd.append('scope', scope);
@@ -56,6 +63,9 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
       })).data.data as KessanReport;
     },
     onSuccess: (d) => {
+      // 読み取り中にファイルが選び直されていたら、この結果は古い（別の）ファイルの
+      // ものなので反映しない（選び直した時点で selectFile が report/step を消している）。
+      if (requestFileRef.current !== currentFileRef.current) return;
       setReport(d);
       onStep(d.dryRun ? 2 : 3);
       if (!d.dryRun) notifySuccess('取り込みました');
@@ -66,6 +76,7 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
   // ファイルの選び直し・取り消しは、それまでの下書き結果（report）を必ず捨てる。
   // 捨てないと「別のファイルを選んだのに前のファイルの下書きのまま投入」ができてしまう。
   const selectFile = (f: File | null) => {
+    currentFileRef.current = f;
     setFile(f);
     setReport(null);
     onStep(1);
@@ -144,7 +155,13 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
               e.preventDefault();
               setDragOver(false);
               const f = e.dataTransfer.files?.[0];
-              if (f) selectFile(f);
+              if (f) {
+                selectFile(f);
+                // ネイティブ input 側の選択も消しておく。消さないと、ドロップで
+                // 別ファイルに替えたあと「ドロップ前に選んでいたファイル」を
+                // ピッカーで選び直しても change イベントが発火しないことがある。
+                if (fileInputRef.current) fileInputRef.current.value = '';
+              }
             }}
           >
             {file ? (
