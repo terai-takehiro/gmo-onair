@@ -26,14 +26,14 @@ import {
 } from './streamPresets';
 
 const fieldCls =
-  'h-11 w-full min-w-0 rounded-control-lg border border-input bg-background px-3 text-sm ' +
+  'h-11 w-full min-w-0 rounded-control-lg border border-input bg-background px-3 text-sub ' +
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 const badFieldCls = 'border-destructive-border bg-destructive-surface';
 
 /** 欄の下の注記（理由があれば赤字で出す） */
 function Note({ children, bad }: { children: React.ReactNode; bad?: boolean }) {
   return (
-    <p className={cn('mt-1 text-xs leading-relaxed', bad ? 'text-destructive' : 'text-muted-foreground')}>
+    <p className={cn('mt-1 text-note', bad ? 'text-destructive' : 'text-muted-foreground')}>
       {children}
     </p>
   );
@@ -65,8 +65,8 @@ export default function DestinationInspector({
     <div className="w-full space-y-3">
       <div className="flex items-center gap-2 border-b pb-2">
         {/* ⚠️ 以前は「ENC1 の設定」だけで、どの配信先を直しているのか分からなかった */}
-        <span className="shrink-0 text-xs font-extrabold tabular-nums text-primary">{dest.encoderId}</span>
-        <span className="min-w-0 flex-1 truncate text-sm font-extrabold">
+        <span className="shrink-0 text-th tabular-nums text-primary">{dest.encoderId}</span>
+        <span className="min-w-0 flex-1 truncate text-cardtitle">
           {dest.name || '（名前がありません）'}
         </span>
         <Button size="sm" variant="ghost" className="h-11 shrink-0 text-destructive" onClick={onDelete}>
@@ -78,7 +78,7 @@ export default function DestinationInspector({
         <div className="flex items-baseline justify-between gap-2">
           <Label htmlFor="dest-name">セッション名</Label>
           {/* 32文字の上限は現地の機器の都合。打ちながら残りが分かるようにする */}
-          <span className={cn('text-xs tabular-nums', (dest.name?.length ?? 0) > 32 ? 'text-destructive' : 'text-muted-foreground')}>
+          <span className={cn('text-sub-sm tabular-nums', (dest.name?.length ?? 0) > 32 ? 'text-destructive' : 'text-muted-foreground')}>
             {dest.name?.length ?? 0}/32
           </span>
         </div>
@@ -110,8 +110,9 @@ export default function DestinationInspector({
                 aria-checked={on}
                 onClick={() => set('protocol', p)}
                 className={cn(
-                  'min-h-tap flex-1 whitespace-nowrap rounded-control-lg border text-xs transition-colors',
-                  on ? 'border-primary bg-primary-surface font-extrabold text-primary' : 'font-bold text-muted-foreground hover:bg-muted',
+                  'min-h-tap flex-1 whitespace-nowrap rounded-control-lg border text-badge transition-colors',
+                  // 選択中はウェイト 800（_rules.md「選択状態」）。型スケールの 700 を上書きする
+                  on ? 'border-primary bg-primary-surface font-extrabold text-primary' : 'text-muted-foreground hover:bg-muted',
                 )}
               >
                 {p}
@@ -163,8 +164,8 @@ export default function DestinationInspector({
            欄にはしない — 機器から変えられない設定を欄として置くと
            「打てるのに反映されない欄」になる（#279 の判断） */
         <details className="rounded-note bg-muted px-3 py-2">
-          <summary className="cursor-pointer text-xs font-bold">YouTube 配信の決めごと（推奨設定と Studio 側の項目）</summary>
-          <div className="mt-2 space-y-2 text-xs leading-relaxed text-muted-foreground">
+          <summary className="cursor-pointer text-list">YouTube 配信の決めごと（推奨設定と Studio 側の項目）</summary>
+          <div className="mt-2 space-y-2 text-note text-muted-foreground">
             <div>
               <p className="font-bold text-foreground">エンコーダの推奨設定（公式の推奨値）</p>
               <ul className="ml-4 list-disc">
@@ -219,7 +220,7 @@ export default function DestinationInspector({
         <div>
           <div className="flex items-baseline justify-between gap-2">
             <Label htmlFor="dest-key">ストリームキー</Label>
-            <span className={cn('text-xs font-bold', keyToneClass(ks.tone))}>{ks.label}</span>
+            <span className={cn('text-badge', keyToneClass(ks.tone))}>{ks.label}</span>
           </div>
           <input
             id="dest-key"
@@ -241,7 +242,7 @@ export default function DestinationInspector({
           {dest.hasStreamKey && (
             clearing ? (
               <div className="mt-1 flex items-center gap-2">
-                <span className="text-xs font-bold text-destructive">保存すると、いまの鍵を消します。</span>
+                <span className="text-list text-destructive">保存すると、いまの鍵を消します。</span>
                 {/* 消す指定を戻す（undefined ＝ いまの鍵をそのまま残す） */}
                 <Button size="sm" variant="outline" className="h-11" onClick={() => set('streamKey', undefined)}>
                   取り消す
@@ -299,18 +300,18 @@ export default function DestinationInspector({
                 <Label htmlFor="dest-mtu">MTU</Label>
                 <input id="dest-mtu" type="number" inputMode="numeric" className={fieldCls} value={dest.mtu ?? ''} onChange={(e) => set('mtu', num(e.target.value))} />
               </div>
-              <p className="col-span-2 text-xs text-muted-foreground">範囲は機器が答えます。ONAiR 側では縛りません。</p>
+              <p className="col-span-2 text-note text-muted-foreground">範囲は機器が答えます。ONAiR 側では縛りません。</p>
             </div>
           )}
         </>
       ) : (
-        <p className="rounded-note bg-muted px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+        <p className="rounded-note bg-muted px-3 py-2 text-note text-muted-foreground">
           プロトコルを SRT に変えると、ポート・パスフレーズ・Latency・Bandwidth・MTU・暗号化が出てきます。
         </p>
       )}
 
       {protocol === 'SRT Listener' && (
-        <p className="rounded-note bg-muted px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+        <p className="rounded-note bg-muted px-3 py-2 text-note text-muted-foreground">
           SRT Listener は待ち受け側なので、宛先 URL は要りません。
         </p>
       )}

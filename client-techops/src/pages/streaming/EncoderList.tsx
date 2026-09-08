@@ -46,23 +46,23 @@ function DestinationRow({ dest, selected, warn, blocked, onSelect }: RowProps) {
         <div className="flex min-w-0 items-center gap-2 sm:w-[15rem] sm:shrink-0">
           <span
             className={cn(
-              'inline-flex h-6 w-24 shrink-0 items-center justify-center whitespace-nowrap rounded-badge text-xs font-extrabold',
+              'inline-flex h-6 w-24 shrink-0 items-center justify-center whitespace-nowrap rounded-badge text-badge',
               protocolBadgeClass(dest.protocol),
             )}
           >
             {dest.protocol ?? 'RTMP'}
           </span>
-          <span className="min-w-0 flex-1 truncate text-sm font-bold">
+          <span className="min-w-0 flex-1 truncate text-list">
             {dest.name || '（名前がありません）'}
           </span>
         </div>
         <div className="flex min-w-0 flex-1 items-center gap-2">
           {/* 値は折り返さない（#279 §3-4）。プリセットに当たる URL は短い呼び名で出す
               （`rtmp://a.rtmp.youtube.com/live2` の a と b の1字違いは一覧では読めない） */}
-          <span className="min-w-0 flex-1 truncate whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+          <span className="min-w-0 flex-1 truncate whitespace-nowrap text-sub-sm tabular-nums text-muted-foreground">
             {presetLabelOf(dest.url) ?? destTarget(dest)}
           </span>
-          <span className={cn('shrink-0 whitespace-nowrap text-xs font-bold sm:w-24 sm:text-right', keyToneClass(ks.tone))}>
+          <span className={cn('shrink-0 whitespace-nowrap text-badge sm:w-24 sm:text-right', keyToneClass(ks.tone))}>
             {ks.label}
           </span>
           {warn ? (
@@ -91,8 +91,8 @@ function EncoderCard({
   return (
     <div className="overflow-hidden rounded-card border bg-card">
       <div className="flex items-center gap-2 border-b bg-muted/40 px-3 py-2">
-        <span className="text-sm font-extrabold tabular-nums">{encoderId}</span>
-        <span className="whitespace-nowrap text-xs text-muted-foreground">
+        <span className="text-cardtitle tabular-nums">{encoderId}</span>
+        <span className="whitespace-nowrap text-sub-sm text-muted-foreground">
           {dests.length > 0 ? `${dests.length} 件の配信先` : '配信先なし'}
         </span>
         <span className="flex-1" />
@@ -101,7 +101,7 @@ function EncoderCard({
           <button
             type="button"
             onClick={() => onAdd(encoderId)}
-            className="flex min-h-tap items-center gap-1 rounded-control-md px-2 text-xs font-bold text-primary hover:bg-primary-surface"
+            className="flex min-h-tap items-center gap-1 rounded-control-md px-2 text-badge text-primary hover:bg-primary-surface"
           >
             <Plus className="h-3.5 w-3.5" /> 配信先
           </button>
@@ -109,7 +109,7 @@ function EncoderCard({
       </div>
 
       {dests.length === 0 ? (
-        <p className="flex items-start gap-2 px-3 py-3 text-xs text-muted-foreground">
+        <p className="flex items-start gap-2 px-3 py-3 text-note text-muted-foreground">
           <Info className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
             配信先がまだありません。<strong className="whitespace-nowrap font-bold">この台は Excel に出ません。</strong>
@@ -171,7 +171,7 @@ export default function EncoderList({
   return (
     <div className="space-y-3">
       {usedIds.length === 0 && (
-        <p className="rounded-card border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
+        <p className="rounded-card border border-dashed px-3 py-6 text-center text-sub text-muted-foreground">
           配信先がまだ1件もありません。下の「使っていない台」から追加してください。
         </p>
       )}
@@ -183,7 +183,7 @@ export default function EncoderList({
             type="button"
             onClick={() => setShowUnused((v) => !v)}
             aria-expanded={showUnused}
-            className="flex min-h-tap w-full items-center gap-1.5 rounded-card border border-dashed px-3 text-sm font-semibold text-muted-foreground hover:bg-muted/50"
+            className="flex min-h-tap w-full items-center gap-1.5 rounded-card border border-dashed px-3 text-list text-muted-foreground hover:bg-muted/50"
           >
             {showUnused ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
             <span className="truncate">

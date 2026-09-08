@@ -35,7 +35,7 @@ import {
 
 // 高さ 44px（min-h-tap 相当）・角丸は v4 の役割名。⚠️ `rounded-lg` は書かない
 const fieldCls =
-  'h-11 w-full min-w-0 rounded-control-lg border border-input bg-background px-3 text-sm ' +
+  'h-11 w-full min-w-0 rounded-control-lg border border-input bg-background px-3 text-sub ' +
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ' +
   'disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground';
 const badFieldCls = 'border-destructive-border bg-destructive-surface';
@@ -52,7 +52,7 @@ async function copyText(text: string, label: string) {
 /** 欄の下の注記（理由があれば赤字で出す。`DestinationInspector` と同じ） */
 function Note({ children, bad }: { children: React.ReactNode; bad?: boolean }) {
   return (
-    <p className={cn('mt-1 text-xs leading-relaxed', bad ? 'text-destructive' : 'text-muted-foreground')}>
+    <p className={cn('mt-1 text-note', bad ? 'text-destructive' : 'text-muted-foreground')}>
       {children}
     </p>
   );
@@ -88,16 +88,16 @@ export default function MeetingInspector({
       <button
         type="button"
         onClick={onBack}
-        className="flex min-h-tap items-center gap-1 rounded-control-md pr-2 text-sm font-semibold text-primary hover:bg-primary-surface sm:hidden"
+        className="flex min-h-tap items-center gap-1 rounded-control-md pr-2 text-list text-primary hover:bg-primary-surface sm:hidden"
       >
         <ChevronLeft className="h-5 w-5 shrink-0" /> 会議の一覧へ
       </button>
 
       <div className="flex items-center gap-2 border-b pb-2">
-        <span className={cn('shrink-0 whitespace-nowrap rounded-badge px-2 py-1 text-xs font-extrabold', toolBadgeClass(meeting.tool))}>
+        <span className={cn('shrink-0 whitespace-nowrap rounded-badge px-2 py-1 text-badge', toolBadgeClass(meeting.tool))}>
           {toolLabel(meeting)}
         </span>
-        <span className="min-w-0 flex-1 truncate text-sm font-extrabold">
+        <span className="min-w-0 flex-1 truncate text-cardtitle">
           {meeting.label || '（表示名なし）'}
         </span>
         {/* ⚠️ 編集できない人には削除を**出さない**（押せてから断られるのが最悪） */}
@@ -233,7 +233,7 @@ export default function MeetingInspector({
           </div>
         </>
       ) : (
-        <p className="rounded-note bg-muted px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+        <p className="rounded-note bg-muted px-3 py-2 text-note text-muted-foreground">
           {meeting.tool} は会議ID・パスコードが URL に含まれるので、ここには出しません
           （電話会議IDなど別の番号は「備考」へ）。Zoom・Webex・その他に変えると出てきます。
         </p>

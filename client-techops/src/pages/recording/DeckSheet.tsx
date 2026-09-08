@@ -35,7 +35,7 @@ export default function DeckSheet({
             <DialogHeader>
               <DialogTitle>
                 <span className="tabular-nums">{deck.deckId}</span>
-                {deck.label && <span className="ml-2 text-sub font-normal text-muted-foreground">{deck.label}</span>}
+                {deck.label && <span className="ml-2 text-sub text-muted-foreground">{deck.label}</span>}
               </DialogTitle>
             </DialogHeader>
             {/* ⚠️ シートは portal で本文の外に出るので、呼び出し側の <fieldset disabled> が
@@ -48,7 +48,7 @@ export default function DeckSheet({
                 現在は閲覧のみです。編集するには制作技術支援の「編集」が必要です。
               </p>
             )}
-            <Button className="mt-6 h-[52px] w-full text-base" onClick={onClose}>
+            <Button className="mt-6 h-[52px] w-full text-cardtitle" onClick={onClose}>
               閉じる
             </Button>
             {/* PC には一括変更があるので、この案内はそのまま残す（モック Mobile.dc.html:131） */}

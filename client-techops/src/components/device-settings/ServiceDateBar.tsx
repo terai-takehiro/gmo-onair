@@ -53,14 +53,14 @@ export default function ServiceDateBar({
   };
 
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border bg-card px-3 py-2">
-      <label className="flex items-center gap-2 text-sm">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card border bg-card px-3 py-2">
+      <label className="flex items-center gap-2 text-sub">
         <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <span className="shrink-0 font-semibold">実施日</span>
+        <span className="shrink-0 text-list">実施日</span>
         {freeInput ? (
           <input
             type="date"
-            className="h-11 rounded-lg border border-input bg-background px-2 text-sm"
+            className="h-11 rounded-control-lg border border-input bg-background px-2 text-sub"
             value={serviceDate}
             autoFocus
             onChange={(e) => e.target.value && onChange(e.target.value)}
@@ -68,7 +68,7 @@ export default function ServiceDateBar({
           />
         ) : (
           <select
-            className="h-11 min-w-[13rem] rounded-lg border border-input bg-background px-2 text-sm"
+            className="h-11 min-w-[13rem] rounded-control-lg border border-input bg-background px-2 text-sub"
             value={serviceDate}
             onChange={(e) => {
               if (e.target.value === NEW_DATE) setFreeInput(true);
@@ -88,12 +88,12 @@ export default function ServiceDateBar({
       <span className="flex-1" />
 
       {dirty ? (
-        <span className="flex items-center gap-1.5 text-sm font-semibold text-warning">
+        <span className="flex items-center gap-1.5 text-list text-warning">
           <CircleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
           保存していない変更があります
         </span>
       ) : savedAt ? (
-        <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <span className="flex items-center gap-1.5 text-sub text-muted-foreground">
           <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
           保存済み ・ {savedAt.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
         </span>
