@@ -134,7 +134,7 @@ export function DelegationsTab() {
               turnOnly ? 'bg-destructive text-destructive-foreground' : 'bg-card text-destructive',
             )}
           >
-            {turnOnly ? 'すべて表示' : 'この分だけ表示'}
+            {turnOnly ? 'すべて表示' : `${myTurnCount} 件だけ表示`}
           </button>
         </div>
       )}

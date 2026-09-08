@@ -32,6 +32,7 @@ import {
   BUCKET_LABELS, CELL_ACTION, LEVEL_LABELS, daysSinceRequested, delegationBucket, formatDueLong,
   useAssignees, useResolveDelegation, useRespondDelegation, useUpdateTask, type MyTask,
 } from '@/lib/tasksApi';
+import { CellScoreBadge } from './CellScoreBadge';
 import { TaskCommentsThread } from './TaskComments';
 
 /** 反応が無いまま何日で催促の案内を出すか（要件 D3。一覧の印と同じ日数） */
@@ -258,8 +259,13 @@ export function DelegationDetail({ task, direction, canEdit, embedded = false }:
           </span>
         </Field>
         <Field label="優先度">
-          重要 {LEVEL_LABELS[task.importance]} × 緊急 {LEVEL_LABELS[task.due_at ? task.urgency : 1]}
-          <span className="text-muted-foreground"> ・ {CELL_ACTION[cell] ?? ''}</span>
+          {/* 点数だけでは何をすべきか読めないので、**点数 ＋ マス ＋ 打ち手**を並べる
+              （点数は一覧・9マスボードと同じ `CellScoreBadge`。段の色もそこで揃う） */}
+          <span className="flex flex-wrap items-center gap-2">
+            <CellScoreBadge score={task.priority_score} />
+            <span>重要 {LEVEL_LABELS[task.importance]} × 緊急 {LEVEL_LABELS[task.due_at ? task.urgency : 1]}</span>
+            <span className="text-muted-foreground">・ {CELL_ACTION[cell] ?? ''}</span>
+          </span>
         </Field>
         {task.gls_number && (
           <Field label="案件">

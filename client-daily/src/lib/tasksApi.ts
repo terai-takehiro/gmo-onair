@@ -46,6 +46,8 @@ export interface MyTask {
   source_ref: string | null;
   visibility: 'team' | 'private';
   is_overdue: boolean;
+  /** その依頼に付いているやり取りの件数。**開かなくても会話があると分かる**ため */
+  comment_count: number;
   created_at: string;
 }
 

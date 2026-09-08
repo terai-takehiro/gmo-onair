@@ -16,7 +16,7 @@
  * `Row` / `RowSlot` に乗せているので、行ごとにバッジの端がずれません
  * （`docs/design/v4/_rules.md` 1「縦の整列」）。
  */
-import { ChevronRight, Clock } from 'lucide-react';
+import { ChevronRight, Clock, MessageSquare } from 'lucide-react';
 import { Row, RowHeader, RowMain, RowSlot, RowSub, RowTitle } from '@gmo-onair/shared/src/client/ui/row';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { cn } from '@/lib/utils';
@@ -79,6 +79,15 @@ function Meta({ t, direction }: { t: MyTask; direction: 'received' | 'sent' }) {
       {direction === 'sent' && stale > 0 && (
         <span className="text-badge inline-flex shrink-0 items-center gap-1 rounded-badge bg-warning-surface px-1.5 py-0.5 font-bold text-warning">
           <Clock className="h-3 w-3" aria-hidden="true" />{stale} 日 返事なし
+        </span>
+      )}
+      {/* **やり取りがあることは開かなくても分かるようにする。**
+          差し戻しの理由はコメントとして残る（サーバーの `respondToDelegation`）ので、
+          印が無いと「なぜ返ってきたのか」に気づく手がかりが行に1つも無い */}
+      {t.comment_count > 0 && (
+        <span className="text-badge inline-flex shrink-0 items-center gap-0.5" title={`やり取り ${t.comment_count} 件`}>
+          <MessageSquare className="h-3 w-3" aria-hidden="true" />
+          <span className="font-number">{t.comment_count}</span>
         </span>
       )}
     </span>

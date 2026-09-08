@@ -61,6 +61,13 @@ export interface MyTask {
   source_ref: string | null;
   visibility: 'team' | 'private';
   is_overdue: boolean;
+  /**
+   * その依頼に付いているやり取り（`task_comments`）の件数。
+   *
+   * 一覧の行に出すためのもの。**開かないと会話があるか分からない**状態だと、
+   * 差し戻しの理由（`respondToDelegation` がコメントとして残す）に気づけない。
+   */
+  comment_count: number;
   created_at: string;
 }
 
@@ -85,6 +92,10 @@ const SELECT_MY_TASK = `
     t.delegation_status, t.requested_at, t.accepted_at,
     t.source, t.source_ref, t.visibility,
     (${DUE_EXPR} IS NOT NULL AND ${DUE_EXPR} < NOW() AND t.is_completed = FALSE) AS is_overdue,
+    -- やり取りの件数。migration 240 の idx_task_comments_task(task_id, created_at)
+    -- が効くので、200 行の一覧でも索引だけで数えられる
+    -- （テンプレート文字列の中なので、この注記に逆引用符を書かないこと）
+    (SELECT COUNT(*) FROM task_comments tc WHERE tc.task_id = t.id)::int AS comment_count,
     t.created_at
   FROM project_tasks t
   LEFT JOIN projects p ON p.id = t.project_id AND p.deleted_at IS NULL
@@ -215,6 +226,7 @@ function decorate(row: Record<string, unknown>): MyTask {
     urgency,
     priority_score: Number(row.priority_score ?? importance * effectiveUrgency),
     priority_cell: `${importance}x${effectiveUrgency}`,
+    comment_count: Number(row.comment_count ?? 0),
   };
 }
 
