@@ -55,7 +55,7 @@ export function prefillNote(field: PrefilledField, source: PrefillSource | undef
 
 export function PrefillNote({ field, source }: { field: PrefilledField; source: PrefillSource | undefined }) {
   const text = prefillNote(field, source);
-  return text ? <p className="mt-1 text-xs text-info">{text}</p> : null;
+  return text ? <p className="mt-1 text-note text-info">{text}</p> : null;
 }
 
 /**

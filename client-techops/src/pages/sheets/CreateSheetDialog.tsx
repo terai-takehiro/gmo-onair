@@ -215,7 +215,7 @@ export function CreateSheetDialog({
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Link2 className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">GLS案件に紐付ける</span>
+                <span className="text-cardtitle">GLS案件に紐付ける</span>
               </div>
               <Switch
                 checked={linkToProject}
@@ -232,7 +232,7 @@ export function CreateSheetDialog({
             {linkToProject && (
               <div className="mt-3 space-y-3 pl-6">
                 <div>
-                  <Label className="text-xs text-muted-foreground">GLS案件</Label>
+                  <Label className="text-sub-sm text-muted-foreground">GLS案件</Label>
                   <Select value={selectedProjectId} onValueChange={handleProjectChange}>
                     <SelectTrigger className="mt-1">
                       <SelectValue placeholder="案件を選ぶ…" />
@@ -249,7 +249,7 @@ export function CreateSheetDialog({
 
                 {selectedProjectId && episodes && episodes.length > 0 && (
                   <div>
-                    <Label className="text-xs text-muted-foreground">エピソード（任意）</Label>
+                    <Label className="text-sub-sm text-muted-foreground">エピソード（任意）</Label>
                     <Select value={selectedEpisodeId} onValueChange={handleEpisodeChange}>
                       <SelectTrigger className="mt-1">
                         <SelectValue placeholder="エピソードを選ぶ…" />
@@ -270,7 +270,7 @@ export function CreateSheetDialog({
           </div>
 
           <div>
-            <Label className="text-xs text-muted-foreground">番組名 <span className="text-destructive">*</span></Label>
+            <Label className="text-sub-sm text-muted-foreground">番組名 <span className="text-destructive">*</span></Label>
             <Input
               className="mt-1"
               placeholder="例：サンプル情報バラエティ"
@@ -283,7 +283,7 @@ export function CreateSheetDialog({
             <PrefillNote field="title" source={prefilled.title} />
           </div>
           <div>
-            <Label className="text-xs text-muted-foreground">撮影場所 <span className="text-destructive">*</span></Label>
+            <Label className="text-sub-sm text-muted-foreground">撮影場所 <span className="text-destructive">*</span></Label>
             <Input
               className="mt-1"
               placeholder="例：GMOサムライスタジオ用賀"
@@ -294,7 +294,7 @@ export function CreateSheetDialog({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs text-muted-foreground">放送日 <span className="text-destructive">*</span></Label>
+              <Label className="text-sub-sm text-muted-foreground">放送日 <span className="text-destructive">*</span></Label>
               <Input
                 className="mt-1"
                 type="date"
@@ -304,18 +304,18 @@ export function CreateSheetDialog({
               <PrefillNote field="broadcastDate" source={prefilled.broadcastDate} />
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground">放送開始時刻</Label>
+              <Label className="text-sub-sm text-muted-foreground">放送開始時刻</Label>
               <Input className="mt-1" type="time" value={newBroadcastStartTime} onChange={(e) => setNewBroadcastStartTime(e.target.value)} />
             </div>
           </div>
           <div>
             <div className="flex items-center justify-between gap-2 mb-1">
-              <span className="text-xs font-medium text-muted-foreground">収録日を設定（生放送の場合はOFF）</span>
+              <span className="text-sub-sm text-muted-foreground">収録日を設定（生放送の場合はOFF）</span>
               <Switch checked={hasRecording} onCheckedChange={(v) => setHasRecording(!!v)} />
             </div>
             {hasRecording && (
               <>
-                <Label className="text-xs text-muted-foreground">収録日</Label>
+                <Label className="text-sub-sm text-muted-foreground">収録日</Label>
                 <Input
                   className="mt-1"
                   type="date"
@@ -328,12 +328,12 @@ export function CreateSheetDialog({
           </div>
           <div>
             <div className="flex items-center justify-between gap-2 mb-1">
-              <span className="text-xs font-medium text-muted-foreground">リハーサル日を設定</span>
+              <span className="text-sub-sm text-muted-foreground">リハーサル日を設定</span>
               <Switch checked={hasRehearsal} onCheckedChange={(v) => setHasRehearsal(!!v)} />
             </div>
             {hasRehearsal && (
               <>
-                <Label className="text-xs text-muted-foreground">リハーサル日</Label>
+                <Label className="text-sub-sm text-muted-foreground">リハーサル日</Label>
                 <Input
                   className="mt-1"
                   type="date"
@@ -350,7 +350,7 @@ export function CreateSheetDialog({
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Link2 className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">GLS案件に紐付ける</span>
+                <span className="text-cardtitle">GLS案件に紐付ける</span>
               </div>
               <Switch
                 checked={linkToProject}
@@ -367,7 +367,7 @@ export function CreateSheetDialog({
             {linkToProject && (
               <div className="mt-3 space-y-3 pl-6">
                 <div>
-                  <Label className="text-xs text-muted-foreground">GLS案件</Label>
+                  <Label className="text-sub-sm text-muted-foreground">GLS案件</Label>
                   <Select value={selectedProjectId} onValueChange={handleProjectChange}>
                     <SelectTrigger className="mt-1">
                       <SelectValue placeholder="案件を選ぶ…" />
@@ -391,7 +391,7 @@ export function CreateSheetDialog({
 
                 {selectedProjectId && episodes && episodes.length > 0 && (
                   <div>
-                    <Label className="text-xs text-muted-foreground">エピソード（任意）</Label>
+                    <Label className="text-sub-sm text-muted-foreground">エピソード（任意）</Label>
                     <Select value={selectedEpisodeId} onValueChange={handleEpisodeChange}>
                       <SelectTrigger className="mt-1">
                         <SelectValue placeholder="エピソードを選ぶ…" />
@@ -412,7 +412,7 @@ export function CreateSheetDialog({
           </div>
 
           {missingRequired.length > 0 && (
-            <p className="text-xs text-destructive" role="alert">
+            <p className="text-note text-destructive" role="alert">
               未入力：{missingRequired.join("・")}
             </p>
           )}
@@ -420,7 +420,7 @@ export function CreateSheetDialog({
           <Button
             type="submit"
             disabled={missingRequired.length > 0 || createMutation.isPending}
-            className="w-full py-2.5 text-sm font-semibold min-h-[44px]"
+            className="w-full py-2.5 min-h-tap"
           >
             {createMutation.isPending ? "作成中…" : "進行台本を作成"}
           </Button>

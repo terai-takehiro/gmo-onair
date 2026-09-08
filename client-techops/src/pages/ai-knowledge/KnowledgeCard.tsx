@@ -52,19 +52,19 @@ export default function KnowledgeCard({ row, canManage, busy, onChangeStatus }: 
   const summary = evidenceSummary(row);
 
   return (
-    <div className="rounded-lg border border-border bg-card p-3 sm:p-4">
+    <div className="rounded-card border border-border bg-card p-3 sm:p-4">
       {/* 見出し行: 対象機能・状態・由来 */}
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
         <Badge variant="outline">{kindLabel(row.kind)}</Badge>
         {row.segment_key && <Badge variant="outline">型: {row.segment_key}</Badge>}
         <Badge variant={STATUS_BADGE_VARIANT[row.status]}>{STATUS_LABELS[row.status]}</Badge>
         {row.origin === 'auto' ? (
-          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1 text-sub-sm text-muted-foreground">
             <Bot className="h-3.5 w-3.5" />
             自動起草（月次AIレビュー）
           </span>
         ) : (
-          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1 text-sub-sm text-muted-foreground">
             <UserRound className="h-3.5 w-3.5" />
             人が作成
           </span>
@@ -72,19 +72,19 @@ export default function KnowledgeCard({ row, canManage, busy, onChangeStatus }: 
       </div>
 
       {/* ルール文そのもの（プロンプトに載る本文） */}
-      <p className="whitespace-pre-wrap text-sm leading-relaxed">{row.body}</p>
+      <p className="whitespace-pre-wrap text-sub">{row.body}</p>
 
       {/* 由来: 自動起草は「なぜこの案が出たか」（rationale）と元になった修正傾向（evidence）を見せる。
           承認判断に必要な情報はこの2つで全部（04-ai.md §6-3 育て方1） */}
       {(row.rationale || summary) && (
-        <div className="mt-2 space-y-0.5 rounded-md bg-muted/50 px-2.5 py-2 text-xs text-muted-foreground">
+        <div className="mt-2 space-y-0.5 rounded-note bg-muted/50 px-2.5 py-2 text-note text-muted-foreground">
           {row.rationale && <p>{row.rationale}</p>}
           {summary && <p>元になった修正傾向: {summary}</p>}
         </div>
       )}
 
       {/* 履歴情報 */}
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sub-sm text-muted-foreground">
         <span>作成 {formatDateTime(row.created_at)}</span>
         {row.status === 'active' && row.approved_at && <span>承認 {formatDateTime(row.approved_at)}</span>}
         {row.rev > 0 && <span>rev {row.rev}</span>}

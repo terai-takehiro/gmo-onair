@@ -31,7 +31,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DashboardHeader, EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+import { PageShell } from "@gmo-onair/shared/src/client/ui/pageShell";
+import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { useDebounced } from "@gmo-onair/shared/src/client/hooks/useDebounced";
 import { useAuth } from "@/hooks/useAuth";
 import { notifySuccess, notifyError } from "@/lib/notify";
@@ -117,32 +119,38 @@ export default function SheetListPage() {
     setSearchParams(next);
   };
 
+  // 見出しの右に出す「最終更新」。件数と絞り込みの説明は `sub` に入るので、
+  // ここは鮮度だけを持つ（`aria-live` は移す前と同じ）
+  const lastUpdated =
+    documents && documents.length > 0
+      ? `最終更新 ${new Date(Math.max(...documents.map((d) => new Date(d.updated_at).getTime())))
+          .toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`
+      : undefined;
+
   return (
-    <div className="min-h-full bg-background text-foreground">
-      <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-5 sm:py-8 space-y-5">
-        <DashboardHeader
+    <>
+      <PageShell>
+        <PageHeader
           title="進行台本"
-          description={`${documents?.length || 0} 件の進行台本。日付・自分が作った／共有された、で絞り込めます。`}
-          lastUpdated={
-            documents && documents.length > 0
-              ? `最終更新 ${new Date(Math.max(...documents.map((d) => new Date(d.updated_at).getTime())))
-                  .toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`
-              : undefined
-          }
-          controls={
-            <Button className="min-h-[44px]" onClick={() => setShowCreate(true)} data-create-btn>
+          sub={`${documents?.length || 0} 件の進行台本。日付・自分が作った／共有された、で絞り込めます。`}
+          primaryAction={
+            <Button className="min-h-tap" onClick={() => setShowCreate(true)} data-create-btn>
               <Plus className="h-4 w-4 mr-1" aria-hidden="true" />
               新規作成
             </Button>
           }
-        />
+        >
+          {lastUpdated && (
+            <span className="text-sub-sm text-muted-foreground" aria-live="polite">{lastUpdated}</span>
+          )}
+        </PageHeader>
 
         {/* Project filter banner */}
         {projectFilter && documents && documents.length > 0 && documents[0].project_name && (
-          <div className="flex items-center gap-2 rounded-md border border-border bg-primary/5 px-4 py-2.5" role="status">
+          <div className="flex items-center gap-2 rounded-note border border-border bg-primary/5 px-4 py-2.5" role="status">
             <FolderKanban className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
-            <span className="text-sm">
-              <span className="font-medium">{documents[0].gls_number}</span>
+            <span className="text-sub">
+              <span className="text-list">{documents[0].gls_number}</span>
               <span className="text-muted-foreground ml-1">{documents[0].project_name}</span>
               の進行台本
             </span>
@@ -160,10 +168,10 @@ export default function SheetListPage() {
 
         {/* Program (manual) filter banner */}
         {programFilter && documents && documents.length > 0 && documents[0].program_name && (
-          <div className="flex items-center gap-2 rounded-md border border-border bg-primary/5 px-4 py-2.5" role="status">
+          <div className="flex items-center gap-2 rounded-note border border-border bg-primary/5 px-4 py-2.5" role="status">
             <FolderKanban className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
-            <span className="text-sm">
-              <span className="font-medium">{documents[0].program_name}</span>
+            <span className="text-sub">
+              <span className="text-list">{documents[0].program_name}</span>
               の進行台本
             </span>
             <Button
@@ -186,7 +194,7 @@ export default function SheetListPage() {
               placeholder="タイトルで検索…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 min-h-[44px]"
+              className="pl-10 min-h-tap"
               aria-label="進行台本検索"
             />
           </div>
@@ -195,7 +203,7 @@ export default function SheetListPage() {
               type="date"
               value={dateFilter}
               onChange={(e) => setQueryParam("date", e.target.value)}
-              className="min-h-[44px] sm:w-44"
+              className="min-h-tap sm:w-44"
               aria-label="放送日で絞り込み"
             />
             {dateFilter && (
@@ -210,7 +218,7 @@ export default function SheetListPage() {
             )}
           </div>
           <Select value={scopeFilter} onValueChange={(v) => setQueryParam("scope", v === "all" ? "" : v)}>
-            <SelectTrigger className="min-h-[44px] sm:w-44" aria-label="作成者で絞り込み">
+            <SelectTrigger className="min-h-tap sm:w-44" aria-label="作成者で絞り込み">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -258,7 +266,7 @@ export default function SheetListPage() {
             }
           />
         )}
-      </main>
+      </PageShell>
 
       <CreateSheetDialog
         open={showCreate}
@@ -301,6 +309,6 @@ export default function SheetListPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
