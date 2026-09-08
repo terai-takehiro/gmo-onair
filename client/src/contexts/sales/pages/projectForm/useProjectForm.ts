@@ -20,8 +20,7 @@
  *     **拾えなかった日程が消えます**（`useProjectSchedule.ts` に経緯）
  *  2. **主担当が空なら送らない。** `projects.assigned_to` は NOT NULL の外部キーで、
  *     空文字を渡すと 500 になります（サーバーは未指定なら今の値を保つ）
- *  3. スタジオ予約を新しく作るのは、**まだ実施日を決める予約が1件も無い**ときだけ
- *     （`ScheduleSection.tsx` と同じ判定 `!hasEventBooking`。1件でもあれば「登録済みの予約」から）
+ *  3. スタジオ予約を作るのは実施日を決める予約が1件も無いときだけ（`ScheduleSection.tsx` と同じ判定）
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -29,7 +28,7 @@ import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { createInitialBookings } from './createInitialBookings';
-import { hasEventBooking } from './eventBookings';
+import { hasFreshEventBooking } from './eventBookings';
 import { buildSavePayload } from './buildSavePayload';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import type { ProjectStage } from '@/types';
@@ -351,11 +350,12 @@ export function useProjectForm(id: string | undefined) {
     saveMutation.mutate(values, {
       onSuccess: async (res) => {
         const savedProjectId = (res as { id?: string })?.id || id;
-        // 予約を一度だけ作成する（編集時も、まだ無ければ作る。`ScheduleSection` の表示条件と揃える）
+        // 予約を一度だけ作成する（編集時も、まだ無ければ作る。`ScheduleSection` の表示条件と揃える。
+        // 編集時は取り直して確かめる — 理由は `hasFreshEventBooking` の注記）
         const wantsBooking = schedule.roomIds.length > 0 || schedule.locationNote.trim();
-        if (hasEventBooking(actions.bookings) || !wantsBooking || !schedule.productionStart) return;
+        if (!wantsBooking || !schedule.productionStart) return;
+        if (isEdit && (await hasFreshEventBooking(qc, savedProjectId as string))) return;
         if (schedule.locationNote.trim()) saveLocationNote(schedule.locationNote.trim());
-        // 作ったあと**案件側も読み直す**（実施日が予約から引き直されるため）
         await createInitialBookings(qc, values.name, savedProjectId as string, {
           ...schedule, productionLastDay: prodEnd || schedule.productionStart,
         });
