@@ -1806,7 +1806,7 @@ export class ProjectService {
       try {
         issuedProject = await this.issueGls(id, {}, userId);
       } catch (err) {
-        glsError = err instanceof AppError ? err.message : 'GLS番号を採れませんでした';
+        glsError = err instanceof AppError ? err.message : '管理番号を採れませんでした';
         console.warn('[changeStage] GLS auto-issue failed:', id, glsError);
       }
     }
@@ -2030,9 +2030,9 @@ export class ProjectService {
   async issueGls(id: string, data: Record<string, unknown>, userId: string) {
     const project = await queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [id]) as any;
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
-    if (project.gls_number) throw new AppError(400, 'VALIDATION_ERROR', '既にGLS番号が発番済みです');
+    if (project.gls_number) throw new AppError(400, 'VALIDATION_ERROR', '既に管理番号が発番済みです');
     if (GLS_BLOCKED_STAGES.includes(project.stage as string)) {
-      throw new AppError(400, 'VALIDATION_ERROR', '見積提案（C）以降の案件だけ、先にGLS番号を発番できます。');
+      throw new AppError(400, 'VALIDATION_ERROR', '見積提案（C）以降の案件だけ、先に管理番号を発番できます。');
     }
 
     // v2.8.113+: project.gls_category を見る (登録時に必須化済)
@@ -2493,10 +2493,10 @@ export class ProjectService {
   async linkToExistingGls(id: string, targetProjectId: string, userId: string) {
     const project = await queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [id]) as any;
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
-    if (project.gls_number) throw new AppError(400, 'VALIDATION_ERROR', '既にGLS番号が発番済みです');
+    if (project.gls_number) throw new AppError(400, 'VALIDATION_ERROR', '既に管理番号が発番済みです');
 
     const target = await queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [targetProjectId]) as any;
-    if (!target || !target.gls_number) throw new AppError(400, 'VALIDATION_ERROR', 'リンク先にGLS番号がありません');
+    if (!target || !target.gls_number) throw new AppError(400, 'VALIDATION_ERROR', 'リンク先に管理番号がありません');
 
     await execute(
       `UPDATE projects SET gls_number=?, gls_category=?, broadcast_type=?, media_platform=?,
@@ -2524,7 +2524,7 @@ export class ProjectService {
     if (id === targetProjectId) throw new AppError(400, 'VALIDATION_ERROR', '自分自身には紐づけできません');
 
     const target = await queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [targetProjectId]) as any;
-    if (!target || !target.gls_number) throw new AppError(400, 'VALIDATION_ERROR', 'リンク先にGLS番号がありません');
+    if (!target || !target.gls_number) throw new AppError(400, 'VALIDATION_ERROR', 'リンク先に管理番号がありません');
 
     // GLS 未発番ならヨミ段階のリンクと同じ
     if (!project.gls_number) {
@@ -2533,7 +2533,7 @@ export class ProjectService {
 
     const oldGls = project.gls_number as string;
     const newGls = target.gls_number as string;
-    if (oldGls === newGls) throw new AppError(400, 'VALIDATION_ERROR', '既に同じGLS番号に紐づいています');
+    if (oldGls === newGls) throw new AppError(400, 'VALIDATION_ERROR', '既に同じ管理番号に紐づいています');
 
     // 1. projects: gls_number 差し替え + 分類/番組種別/媒体を継承 + ステージ昇格
     // （旧番号の履歴は `previous_gls_numbers` に push していたが、読み手ゼロのため

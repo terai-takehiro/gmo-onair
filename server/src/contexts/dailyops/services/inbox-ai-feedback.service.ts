@@ -55,7 +55,7 @@ const FD_FIELDS: { path: string; label: string }[] = [
   { path: 'amount', label: '金額' },
   { path: 'closing_month', label: '締月' },
   { path: 'payment_due', label: '支払期日' },
-  { path: 'gls_number', label: 'GLS番号' },
+  { path: 'gls_number', label: '管理番号' },
   { path: 'details', label: '読める形の中身' },
   /*
     281: **当て先も AI が埋める**（`project_hint` から探して仮で置く）。
