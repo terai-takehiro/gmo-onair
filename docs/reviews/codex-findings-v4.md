@@ -2336,6 +2336,48 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#637**（`refactor(reorg): 計上会社の接頭辞コードをGJVからSCSに変更`・2026-09-08）—
+  ユーザーからの指示「接頭辞をGJV→SCSに変更したい」を受け、2026年10月の事業再編で先に
+  決めていたコンテンツスタジオ（グループ外案件の計上会社）の接頭辞コード「GJV」を「SCS」に
+  変更した回（88ファイル・GSS/GMOは変更なし）。設計文書・既にmainにマージ済みだった実装
+  （型定義・MCPツールのentity_code enum・案件番号採番・隔週キープ・社内取引・案件詳細/
+  財務のUI・関連テスト・ドキュメント）を全面置換し、既存マイグレーション（284〜291）は
+  書き換えず新規マイグレーション `293_rename_gjv_to_scs.sql` で `legal_entities`／
+  `money_rules`／各帳簿の`entity_code`／`companies.legal_entity_code`／`sequences.seq_name`
+  を安全に改名した（実データ確認: GJVとしての発番実績は本番・検証とも0件）。
+  **Codex Code Review は4巡走り、4スレッドの指摘を返した**
+  （1329ab8→c117ef9f／c117ef9f→e86dcd00／e86dcd00→adc32d7／adc32d7〔最終・指摘なし〕）。
+  **すべてマージ前に修正・返信・スレッド解決済み**（表に移す指摘なし）:
+  ① `293_rename_gjv_to_scs.sql` が`keep_report_packs.scope_entity`列だけ改名し、同じ行の
+     `pack`（JSONB全文）内の`landing.GJV`/`forecast.GJV`/`scope.entity`を書き換えていなかった
+     穴 → JSONB本文の書き換えUPDATE文を追加
+  ② 同ファイルの`pipeline.external[]`/`pipeline.samurai[]`（配列要素内の`entity_code`）が
+     `jsonb_set`のパス指定では拾えていなかった穴 → `keep_decks`と同じ「テキストとしての
+     完全一致置換」に統一
+  ③ `kessan-import.service.ts`の取込正規表現に`GJV`をレガシー形式として残すべきという指摘は、
+     GJVが実際に発番された実績が一度も無い（本番`list_projects`検索で0件・時系列的に
+     `GJV-...`という番号は存在し得ない）ため**対応しないと判断**（理由をPRコメントに記載。
+     将来GJVを含むデータが実在すると分かれば見直す）
+  ④ `migrate.ts`の起動時チェックが案内する復旧手順「migration 284を再実行」が、293番適用後
+     （CHECK制約がSCS/GSS/GMOのみ許可）では失敗する食い違い → 案内を293番の存在を踏まえた
+     ものに修正
+  🔒 Security Review は1巡目（1329ab8）のみでfindingsなし。
+  ⚠️ **マージ直前にmain側の別PR（#636 `fix(security): 認証・Socket・同時更新の整合性を修正`）
+  が先にマージされ、`intercompany.service.ts`の金額検証ロジックが同じ問題を独自に修正していた
+  ためマージコンフリクトが発生** — 両者の意図（`Number.isFinite`/`amount<1`と
+  `Number.isInteger`）を統合して解消。さらに**マージのテキスト差分では検出されない意味的な
+  不整合**も発見: #636が追加した`server/tests/data-review.test.mjs`が
+  `entity-default.ts`のモックに旧キー`GJV`を使っており、このPRのGJV→SCS改名と組み合わさると
+  レビューテストが1件落ちる状態になっていた（`SELF_COMPANY_ID_BY_ENTITY['SCS']`が
+  モックに存在せずINTERNAL_ERRORになる）→ モックのキーをSCSに修正して解消。
+  **未検証で残したもの**: 実際に画面で動かしたPC/スマホ確認・`npm run build`（`npm run
+  build:all`→`check:frozen`含む）・権限のない利用者での403確認は未実施（見た目の変更が
+  文言中の3文字置換のみのため。PR本文にも明記）。`npm run reviews:debt`はこの環境のトークンで
+  401のため、GitHub MCPの`get_review_comments`/`get_reviews`で直接確認した（4スレッドすべて
+  `is_resolved: true`・最終コミットadc32d7へのCode Reviewは指摘なしで完了）。
+  changelogは`docs/changelog.d/claude-prefix-discussion-hot6j9.md`（次回リリースで
+  docs/version-history.mdへ統合予定）。
+
 - **#613**（`feat(daily): ウィークリー活動報告に「AI下書きを作る」ボタンを追加`・2026-09-07）—
   ユーザーからの指摘「ウィークリー活動報告のAI自動集計について、そもそもAIに自動集計させる
   トリガーが存在しないと思う」を受け、`docs/mcp-server.md` の「週明けの定期実行」が実際には
