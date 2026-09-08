@@ -15,6 +15,7 @@
  * ずれると上の「直せない案件」が起きるので、
  * `shared/tests/projectEventDates.test.ts` が両方を読んで突き合わせています。
  */
+import api from '@/lib/api';
 
 /** 実施日として数える予約の種別。**サーバー側の同名の表と揃えること** */
 export const EVENT_BOOKING_TYPES = ['performance', 'rehearsal', 'hold'] as const;
@@ -24,4 +25,25 @@ export function hasEventBooking(bookings: Array<{ booking_type: string }>): bool
   return bookings.some(
     (b) => (EVENT_BOOKING_TYPES as readonly string[]).includes(b.booking_type),
   );
+}
+
+/**
+ * 保存の直後に、**キャッシュを信じず取り直して**実施日を決める予約の有無を確かめる。
+ *
+ * `useProjectActions.ts` の `bookings` は読み込み中・失敗時に `[]` になる。
+ * それをそのまま保存の分岐に使うと「まだ読めていないだけ」を「予約なし」と誤認し、
+ * 実は予約済みの案件に二重で予約を作ってしまう（Codex 指摘 #660 P1）。
+ */
+export async function hasFreshEventBooking(
+  qc: { fetchQuery: (opts: {
+    queryKey: readonly unknown[]; queryFn: () => Promise<unknown>; staleTime?: number;
+  }) => Promise<unknown> },
+  projectId: string,
+): Promise<boolean> {
+  const fresh = await qc.fetchQuery({
+    queryKey: ['project-studio-bookings', projectId],
+    queryFn: async () => (await api.get('/studios/bookings', { params: { project_id: projectId } })).data.data,
+    staleTime: 0,
+  });
+  return hasEventBooking((fresh as Array<{ booking_type: string }>) ?? []);
 }

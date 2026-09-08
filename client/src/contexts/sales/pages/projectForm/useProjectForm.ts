@@ -20,15 +20,14 @@
  *     **拾えなかった日程が消えます**（`useProjectSchedule.ts` に経緯）
  *  2. **主担当が空なら送らない。** `projects.assigned_to` は NOT NULL の外部キーで、
  *     空文字を渡すと 500 になります（サーバーは未指定なら今の値を保つ）
- *  3. 新規登録のときだけスタジオ予約を作る。編集では作りません
- *     （編集は「登録済みの予約」から足す・直すのが唯一の道）
+ *  3. スタジオ予約を作るのは実施日を決める予約が1件も無いときだけ（`ScheduleSection.tsx` と同じ判定）
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { createInitialBookings } from './createInitialBookings';
+import { runPostSaveBookingFlow } from './createInitialBookings';
 import { buildSavePayload } from './buildSavePayload';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import type { ProjectStage } from '@/types';
@@ -40,7 +39,7 @@ import { canIssueNewGlsAt } from '../../glsIssue';
 import { invalidateProjectQueries } from '../../projectQueries';
 import { projectToFormValues, mergeSavedFormValues } from './toFormValues';
 import { EMPTY_FORM, addOneDayStr, type FormValues, type StudioLocation } from './types';
-import { useProjectSchedule, saveLocationNote } from './useProjectSchedule';
+import { useProjectSchedule } from './useProjectSchedule';
 import { useProjectSimulation } from './useProjectSimulation';
 import { useProjectActions } from './useProjectActions';
 import { useSelectedCustomer } from './useSelectedCustomer';
@@ -282,8 +281,17 @@ export function useProjectForm(id: string | undefined) {
     mutationFn: async (values: FormValues) => {
       // 送ってはいけない項目を落とす変換は `buildSavePayload.ts`（理由のコメントもそちら）
       const body = buildSavePayload(values, { isGroup, isEdit });
-      if (isEdit) return (await api.put(`/projects/${id}`, body)).data.data;
-      return (await api.post('/projects', body)).data.data;
+      const result = isEdit
+        ? (await api.put(`/projects/${id}`, body)).data.data
+        : (await api.post('/projects', body)).data.data;
+      // ⚠️ **予約の後始末もここで待つ。** `mutate()` の個別コールバックだと react-query が
+      // 待たないため、保存ボタンが予約作成の完了を待たずに押せる状態へ戻ってしまい、
+      // 二重送信で同じ予約が2件できてしまう（Codex 指摘 #660 P1）
+      const savedProjectId = (result as { id?: string })?.id || id;
+      await runPostSaveBookingFlow(qc, isEdit, savedProjectId as string, values.name, {
+        ...schedule, productionLastDay: schedule.productionLastDay || schedule.productionStart,
+      });
+      return result;
     },
     onError: (err) => notifyApiError('案件を保存できませんでした', err),
     onSuccess: (result) => {
@@ -347,20 +355,8 @@ export function useProjectForm(id: string | undefined) {
     // 「保存を待っている間に人が触った欄」だけを見分けて残すために使う
     submittedRef.current = { ...getValues() };
 
-    saveMutation.mutate(values, {
-      onSuccess: async (res) => {
-        const savedProjectId = (res as { id?: string })?.id || id;
-        // 新規案件作成時のみ、入力されたスケジュールから予約を一度だけ作成する。
-        // 編集時はこのフォームから作成しない（登録済みの予約 ＋ StudioBookingDialog で CRUD）
-        const wantsBooking = schedule.roomIds.length > 0 || schedule.locationNote.trim();
-        if (isEdit || !wantsBooking || !schedule.productionStart) return;
-        if (schedule.locationNote.trim()) saveLocationNote(schedule.locationNote.trim());
-        // 作ったあと**案件側も読み直す**（実施日が予約から引き直されるため）
-        await createInitialBookings(qc, values.name, savedProjectId as string, {
-          ...schedule, productionLastDay: prodEnd || schedule.productionStart,
-        });
-      },
-    });
+    // 予約の後始末（編集時も、まだ無ければ作る）は `mutationFn` の中で待つ
+    saveMutation.mutate(values);
   };
 
   /**
