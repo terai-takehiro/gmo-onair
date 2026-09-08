@@ -149,6 +149,36 @@ const NOT_A_SCREEN = [
   'client-equipment/src/pages/rackLayout/RackDisplay',
 ];
 
+/**
+ * **コメントの中は検査しない** — 「なぜそう書かないか」を残せるようにするため。
+ *
+ * 行頭の `//` `*` `/*` `{/*` を落とすだけでは足りない。**ブロックコメントの
+ * 2行目以降は行頭が記号ではない**ので素通りする。実際 v4.7 で
+ * 「自前の上辺バーは持たない（もとは … ＋ 14px の `<h1>`）」という**説明文**が
+ * `page-h1-by-hand` に当たった（この製品が4回踏んだ「説明文の中に実物を書く」）。
+ *
+ * 直前3行 + この行 (`block`) の中で `/*` が閉じられていなければ、
+ * この行はコメントの内側とみなす。
+ */
+function outsideComment(line, block) {
+  if (/^\s*(\/\/|\*|\/\*|\{\s*\/\*)/.test(line)) return false;
+  if (!block) return true;
+  const before = block.slice(0, block.length - line.length);
+  const opened = (before.match(/\/\*/g) || []).length;
+  const closed = (before.match(/\*\//g) || []).length;
+  return opened <= closed;
+}
+
+/**
+ * **画面のファイルだけ**（`src/pages/…` と `src/contexts/…/pages/…`）。
+ * ダイアログやカードなど「画面ではない部品」に本文幅の決まりを当てると、
+ * 例えばダイアログを `sm:max-w-4xl` で広げただけで
+ * 「`<PageShell>` を使え」という**見当違いの案内**で lint が止まる
+ * （Codex レビュー #647 の指摘）。
+ */
+const isPageFile = (rel) =>
+  /^client(-daily|-equipment|-techops)?\/src\//.test(rel) && rel.includes('/pages/');
+
 const RULES = [
   {
     id: 'money-by-hand',
@@ -399,9 +429,10 @@ const RULES = [
     why: '本文の幅は `<PageShell>` の2段 (`full` / `narrow`) から選びます'
        + '（`shared/src/client/ui/pageShell.tsx`。中間の段を1つ許すと'
        + '次の画面が別の中間を選び、画面を移るたびに本文の左端が動きます）',
-    // 部品の実装本体とモーダル (画面ではない) は対象外
-    only: (rel) => /^client(-daily|-equipment|-techops)?\/src\//.test(rel),
-    extra: (line) => !/^\s*(\/\/|\*|\/\*|\{\s*\/\*)/.test(line),
+    // **画面のファイルだけ**。ダイアログ・カードなど画面でない部品は対象外
+    // (そこに当てると「ダイアログを広げた」だけで見当違いの案内で止まる)
+    only: isPageFile,
+    extra: outsideComment,
   },
   {
     id: 'page-h1-by-hand',
@@ -413,15 +444,32 @@ const RULES = [
      * 自前の上辺バーを持つ画面では 14px まで小さくなっていた。
      * 画面の名前は `<PageHeader>` (`text-h1` = 23px/800) 1つに寄せる。
      */
-    re: /<h1\b[^>]*className=("|'|`)[^"'`]*\btext-(xs|sm|base|lg|xl|2xl|3xl)\b/,
+    /**
+     * ⚠️ **大きさを並べて当ててはいけない。** 最初はこう書いていた:
+     *   `<h1 … className="… text-(xs|sm|base|lg|xl|2xl|3xl) …">`
+     * これだと **(a) 素直に `text-h1` と手書きした見出し**も、
+     * **(b) `className` が次の行にある書き方**も素通りする
+     * (この検査は1行ずつ当てるため)。**この決まりが禁じたはずのものを、
+     * この決まりが許す**状態だった (Codex レビュー #647 の指摘)。
+     *
+     * 大きさではなく**タグそのもの**を見る。画面の名前は `<PageHeader>` が出すので、
+     * 画面側に `<h1>` が現れること自体が違反。
+     */
+    // **行末で終わる `<h1` も拾う**（`$`）。`[\s>/]` だけだと
+    // 属性を次の行に書いた `<h1⏎  className=…>` に当たらず、
+    // 指摘②の (b) がそのまま残っていた（再現して確認した）
+    re: /<h1(?=[\s>/]|$)/,
     why: '画面の名前は `<PageHeader title=… />` を使います'
        + '（`shared/src/client/ui/pageHeader.tsx`。制作技術支援では h1 の書き方が'
-       + '11通り・14px〜24px に割れていました）',
-    // 見出し部品の実装本体はここが本体なので対象外
+       + '11通り・14px〜24px に割れていました）。'
+       + '`text-h1` を手で当てるのも同じ — 大きさが合っていても、'
+       + '副題の位置・スマホでの折り返し・主アクションの差し込み口が画面ごとにずれます',
+    // 見出し部品の実装本体 (`ui/pageHeader` `ui/numbers` `dashboard/DashboardHeader`) は
+    // そこが本体なので対象外
     only: (rel) =>
       v4Only(rel)
       && !/^shared\/src\/client\/(ui|dashboard|shell)\//.test(rel),
-    extra: (line) => !/^\s*(\/\/|\*|\/\*|\{\s*\/\*)/.test(line),
+    extra: outsideComment,
   },
   {
     id: 'page-safe-area-by-hand',
@@ -756,7 +804,7 @@ const BASELINE = {
       "client-equipment": 1
     },
     "page-h1-by-hand": {
-      "client": 4,
+      "client": 13,
       "client-techops": 5
     },
     "page-title-by-hand": {
