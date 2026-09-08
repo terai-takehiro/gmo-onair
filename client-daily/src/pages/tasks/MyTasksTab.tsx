@@ -208,6 +208,16 @@ export function MyTasksTab() {
           `rows` は既に選んだ絞り込みそのものなので、そのまま渡します。
         */
         <NineCellBoard
+          /*
+            **絞り込みを変えたらマスの選択を作り直す**（レビューでの指摘・Codex P2・2巡目）。
+            `NineCellBoard` は「中身のあるいちばん上のマス」を `useState` の初期値でだけ
+            決めており、あとから `tasks` が変わっても選び直しません。スマホは選んだマスの
+            中身だけを出すので、絞り込みを変えると**チップは「完了 24」なのに
+            「このマスにタスクはありません」**が出たままになります。
+            `key` で作り直すと初期値の計算が走り直します（マスを自分で選び直したときは
+            そのまま残るので、空のマスをわざと開いて確かめる操作は壊れません）。
+          */
+          key={filter}
           tasks={rows}
           canEdit={canEdit}
           canOpenProject={canOpenProject}

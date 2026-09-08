@@ -329,9 +329,16 @@ export const myTasksService = {
     // Number(...) || で NaN も既定値に落とす (`?limit=abc` の NaN が SQL の LIMIT に届くと 500)
     const limit = Math.min(Math.max(Number(opts.limit) || 200, 1), 500);
     const rows = await queryAll(
-      // 未承諾を先に出す (待たせているものから片づけるため)
+      // ⚠️ **未完了を必ず先に並べる**（レビューでの指摘・Codex P1・2巡目）。
+      // `ORDER_BY_PRIORITY` に入れた同じ直しが**この問い合わせには届いていませんでした**
+      // （ここは独自の ORDER BY を持っているため）。`include_done` で完了ぶんまで取ると、
+      // 優先度の高い「完了済み」が「承諾済み」「差し戻し」を上限から押し出し、
+      // 一覧・チップの件数・「あなたの番」から**動いている依頼が消えます**。
+      //
+      // そのうえで未承諾を先に出す (待たせているものから片づけるため)。
       `${SELECT_MY_TASK} ${where}
-       ORDER BY (t.delegation_status = 'requested') DESC,
+       ORDER BY t.is_completed ASC,
+                (t.delegation_status = 'requested') DESC,
                 ${SCORE_EXPR} DESC,
                 ${DUE_EXPR} ASC NULLS LAST
        LIMIT ?`,
@@ -557,8 +564,18 @@ export const myTasksService = {
     if (patch.is_completed !== undefined) {
       set('is_completed', patch.is_completed);
       sets.push(`completed_at = ${patch.is_completed ? 'NOW()' : 'NULL'}`);
-      // 依頼を完了させたら依頼者側の一覧でも「done」と分かるようにする (要件 D3)
-      if (row.requester_id && patch.is_completed) set('delegation_status', 'done');
+      // 依頼を完了させたら依頼者側の一覧でも「done」と分かるようにする (要件 D3)。
+      //
+      // ⚠️ **戻すときも状態を戻す**（レビューでの指摘・Codex P2・2巡目）。
+      // 以前は完了のときだけ `done` を書き、「未対応に戻す」では `is_completed` しか
+      // 戻していませんでした。`delegation_status='done'` が残るので、依頼タブでは
+      // **完了の段に居座ったまま**になり、受け手に「対応済にする」も出せません
+      // （＝一度戻すと二度と片づけられない）。
+      //
+      // 戻す先を `accepted` にしているのは、**完了できるのは担当者だけ**で、
+      // 完了させた時点でその人が引き受けていたと言えるためです
+      // （直前の状態は持っていないので、承諾済みとして扱うのがいちばん近い）。
+      if (row.requester_id) set('delegation_status', patch.is_completed ? 'done' : 'accepted');
     }
     if (sets.length === 0) return this.get(taskId);
 
