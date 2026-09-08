@@ -200,7 +200,7 @@ export function EstimateTab({ project }: { project: ProjectDetail }) {
         <>
           <InvoiceGroupsSection project={project} mobile={isMobile} />
           <RevenueBillingPane projectId={project.id} projectName={project.name} mobile={isMobile} />
-          {/* GJV の案件だけに出す社内取引（GJV⇄GSS）区画。詳細は `IntercompanySection.tsx` 冒頭コメント */}
+          {/* SCS の案件だけに出す社内取引（SCS⇄GSS）区画。詳細は `IntercompanySection.tsx` 冒頭コメント */}
           <IntercompanySection project={project} mobile={isMobile} />
         </>
       ) : list.isLoading ? (

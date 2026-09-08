@@ -163,7 +163,7 @@ export function registerStudioTools(server: McpServer): void {
         all_day: z.boolean().default(false),
         project_id: z.string().optional().describe('紐づける案件 ID (任意)'),
         gls_number: z.string().optional()
-          .describe('案件番号（現行 GJV-0001 系。旧番号 GLS-A012 等・改番前の番号でも解決される）。project_id の代わりに使える（project_id を渡した場合はそちらが優先）'),
+          .describe('案件番号（現行 SCS-0001 系。旧番号 GLS-A012 等・改番前の番号でも解決される）。project_id の代わりに使える（project_id を渡した場合はそちらが優先）'),
         episode_id: z.string().optional(),
         room_ids: z.array(z.string()).optional().describe('使用する部屋 ID の配列'),
         room_details: z.array(z.object({

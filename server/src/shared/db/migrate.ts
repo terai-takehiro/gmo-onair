@@ -102,21 +102,24 @@ export async function runMigrations(): Promise<void> {
   }
 
   /*
-   * legal_entities（GJV/GSS/GMO の3行）と org_transition（'default' の1行）は
+   * legal_entities（SCS/GSS/GMO の3行）と org_transition（'default' の1行）は
    * migration 284 が必ず作る土台。無いと計上会社まわりの API が全部落ちるが、
    * 既存パターン（episodes の一意索引チェック）に揃え、**throw はしない**
    * （デプロイを止めない。詳細: docs/reorg-2026-10-plan.md）。
    */
   const legalEntitiesCount = await pool.query(
-    `SELECT count(*)::int AS n FROM legal_entities WHERE code IN ('GJV', 'GSS', 'GMO')`
+    `SELECT count(*)::int AS n FROM legal_entities WHERE code IN ('SCS', 'GSS', 'GMO')`
   );
   if ((legalEntitiesCount.rows[0]?.n ?? 0) !== 3) {
     console.error(
       [
-        '⚠️ [legal_entities] GJV/GSS/GMO の3行がありません',
+        '⚠️ [legal_entities] SCS/GSS/GMO の3行がありません',
         '  （migration 284 が未適用、または誰かが削除した環境）。',
         '  計上会社まわりの API・画面が動きません。',
-        '  直したら手動で: migration 284_legal_entities.sql の内容を再実行してください。',
+        '  直したら手動で: 284_legal_entities.sql の INSERT 文を code=\'GJV\'→\'SCS\'・',
+        '  number_prefix=\'GJV-\'→\'SCS-\' に読み替えて実行してください',
+        '  （293_rename_gjv_to_scs.sql 適用後は CHECK 制約が SCS/GSS/GMO のみを許すため、',
+        '  284 をそのまま再実行すると GJV の INSERT が弾かれます）。',
       ].join('\n')
     );
   }

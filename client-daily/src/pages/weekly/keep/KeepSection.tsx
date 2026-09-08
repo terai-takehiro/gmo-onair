@@ -11,7 +11,7 @@
  * 帯で「いまの数字か・凍った数字か」を必ず言う。
  *
  * ── 絞り込みは URL に持つ ───────────────────────────────────
- * `?meeting=&entity_code=&segment=&live=1`（`entity_code` は main の帳簿の列と同じ名前・値は GJV / GSS / GMO）。
+ * `?meeting=&entity_code=&segment=&live=1`（`entity_code` は main の帳簿の列と同じ名前・値は SCS / GSS / GMO）。
  * 共有した URL で同じ数字が開くようにする。
  * 計上会社・お客様のチップの件数は**絞り込まない全体のパック**から数える
  * （絞ったパックから数えると、押していないチップが 0 件に見える）。
@@ -234,7 +234,7 @@ function countsOf(pack: KeepReportPack | null) {
   if (!pack) return { entity, segment };
   const rows = [...pack.pipeline.external, ...pack.pipeline.samurai];
   entity.all = rows.length; segment.all = rows.length;
-  for (const k of ['GJV', 'GSS', 'GMO']) entity[k] = rows.filter((r) => r.entity_code === k).length;
+  for (const k of ['SCS', 'GSS', 'GMO']) entity[k] = rows.filter((r) => r.entity_code === k).length;
   for (const k of ['internal', 'external']) segment[k] = rows.filter((r) => r.customer_segment === k).length;
   return { entity, segment };
 }

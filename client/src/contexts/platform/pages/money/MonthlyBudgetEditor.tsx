@@ -11,7 +11,7 @@
  * ── 空欄は「未登録」・0 は「0 円と決めた」 ──────────────────
  *
  * 部品の `CurrencyInput` は空欄を 0 として返すので、ここでは使わない。
- * 販管費を会社ごとに分け始めるまではコンテンツスタジオ（GJV）の販管費は
+ * 販管費を会社ごとに分け始めるまではコンテンツスタジオ（SCS）の販管費は
  * **未登録のまま**にする決め（`keep-report.md` §12-4）で、0 と区別が要る。
  *
  * ── 経理の補正値は畳んでおく ────────────────────────────────
@@ -24,7 +24,7 @@
  * 予算と補正値は別の口（`PUT /keep/monthly-budget/:ym`・`PUT /keep/monthly-override/:ym`）。
  * 触っていない側まで送ると、補正値を入れていない月に空の補正の行ができる。
  * どちらも**会社（`entity_code`）を必ず付けて送る** — 省くとサーバーが今の会社（GSS）に
- * 倒すので、GJV のタブで直した値が GSS の予算に書かれる（`lib/keepApi.ts` 冒頭）。
+ * 倒すので、SCS のタブで直した値が GSS の予算に書かれる（`lib/keepApi.ts` 冒頭）。
  */
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
@@ -77,7 +77,7 @@ function YenInput({ id, value, onChange, disabled }: {
 
 export function MonthlyBudgetEditor({ ym, entityCode, budget, override, onClose }: {
   ym: string;
-  /** 計上会社（GJV / GSS / GMO）。呼び名はタブと同じ `ENTITY_BADGE_LABEL` で出す */
+  /** 計上会社（SCS / GSS / GMO）。呼び名はタブと同じ `ENTITY_BADGE_LABEL` で出す */
   entityCode: BusinessEntity;
   budget: MonthlyBudget | undefined;
   override: MonthlyOverride | undefined;

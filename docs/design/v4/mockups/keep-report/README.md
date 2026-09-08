@@ -22,7 +22,7 @@
 グラフの月次系列だけは画像から読んだ近似値（画面にも「仮値」と書いてある）。
 
 ⚠️ **絵の中の「事業主体」（gss／gscs／gig）は描いた時点の語。** 実装は main の 2026年10月の事業再編に合流して
-**「計上会社」`entity_code`（GJV／GSS／GMO）** になった（[keep-report.md](../../keep-report.md) §4）。絵は描き直していない。
+**「計上会社」`entity_code`（SCS／GSS／GMO）** になった（[keep-report.md](../../keep-report.md) §4）。絵は描き直していない。
 
 ## 色・寸法の出どころ
 

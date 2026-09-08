@@ -107,12 +107,12 @@ export async function resolveEntity(
     : undefined;
   return company?.is_gmo_group === true
     ? { entityCode: 'GSS', reason: '客先がグループ内（コンテンツスタジオ以外）' }
-    : { entityCode: 'GJV', reason: '客先がグループ外' };
+    : { entityCode: 'SCS', reason: '客先がグループ外' };
 }
 
 // ───────────────────────────────────────────────────────────
 // 新方式の採番 — generateGlsNumber と同型（sequences の ON CONFLICT で原子的に進める）。
-// prefix は legal_entities.number_prefix（例 'GJV-'）、4桁通し、年なし・リセットなし（§4.3）
+// prefix は legal_entities.number_prefix（例 'SCS-'）、4桁通し、年なし・リセットなし（§4.3）
 // ───────────────────────────────────────────────────────────
 export async function generateProjectNumber(entityCode: LegalEntityCode): Promise<string> {
   const entity = await getLegalEntity(entityCode);

@@ -65,7 +65,7 @@ export interface PageSource {
   code: string | null;
   stage: string;
   customer_type: string | null;
-  /** 計上会社（`projects.entity_code`・GJV／GSS／GMO） */
+  /** 計上会社（`projects.entity_code`・SCS／GSS／GMO） */
   entity_code: string | null;
   event_start: string | null;
   event_end: string | null;

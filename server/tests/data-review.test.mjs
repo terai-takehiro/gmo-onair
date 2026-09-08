@@ -55,7 +55,7 @@ test('intercompany rejects non-finite/sub-yen amounts and locks linked records b
     '../../../shared/services/billing-key.service': { generateBillingKey: () => 'key' },
     '../../../shared/services/tax-category.service': { normalizeTaxCategory: () => 'taxable' },
     './money-rules.service': { computeDueDate: async (date) => { dueCalls.push(date); return date ? '2026-10-31' : null; }, computeVendorDueDate: async (date) => { dueCalls.push(date); return date ? '2026-11-30' : null; } },
-    '../../../shared/constants/entity-default': { SELF_COMPANY_ID_BY_ENTITY: { GSS: 'gss', GJV: 'gjv' } },
+    '../../../shared/constants/entity-default': { SELF_COMPANY_ID_BY_ENTITY: { GSS: 'gss', SCS: 'scs' } },
   });
   for (const amount of [Infinity, -Infinity, NaN, 0, -1, 0.5]) {
     await assert.rejects(service.createIntercompanyPurchase({ amount }), { code: 'VALIDATION_ERROR' });

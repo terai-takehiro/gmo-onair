@@ -119,7 +119,7 @@ export function RenumberDialog({
             rows={3}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="例: 10月以降実施のため、コンテンツスタジオ（GJV）の番号に変更"
+            placeholder="例: 10月以降実施のため、コンテンツスタジオ（SCS）の番号に変更"
           />
         </label>
       </div>

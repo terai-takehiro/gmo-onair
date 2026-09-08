@@ -46,7 +46,7 @@ function nextPack(): KeepReportPack {
 describe('前回の表を探す（同じ計上会社・同じ年月）', () => {
   it('同じ月は着地／見込のどちらからでも見つかる', () => {
     expect(shared.previousPlTable(prev, 'all', '2026-08')?.mode).toBe('landing');
-    expect(shared.previousPlTable(prev, 'GJV', '2026-09')?.mode).toBe('forecast');
+    expect(shared.previousPlTable(prev, 'SCS', '2026-09')?.mode).toBe('forecast');
   });
   it('前回に無い月・無い計上会社・前回そのものが無いときは null', () => {
     expect(shared.previousPlTable(prev, 'all', '2026-10')).toBeNull();
@@ -67,7 +67,7 @@ describe('変わった升', () => {
     expect([...changed]).toEqual(['sga.budget']);
   });
   it('何も動いていない表は空', () => {
-    expect(shared.changedPlKeys(shared.previousPlTable(prev, 'GJV', '2026-08'), next.landing.GJV).size).toBe(0);
+    expect(shared.changedPlKeys(shared.previousPlTable(prev, 'SCS', '2026-08'), next.landing.SCS).size).toBe(0);
   });
   it('前回に無い月（初めて載る月）は何も赤くしない', () => {
     const oct = clone(next.forecast.all);
@@ -122,7 +122,7 @@ describe('脚注の文', () => {
 
 describe('サーバーの写しは同じ答えを出す', () => {
   const next = nextPack();
-  const entities = ['all', 'GJV', 'GSS', 'GMO'] as const;
+  const entities = ['all', 'SCS', 'GSS', 'GMO'] as const;
   const months = ['2026-08', '2026-09', '2026-10'];
 
   it('列の並び・鍵の作り方', () => {

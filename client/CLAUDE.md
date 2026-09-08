@@ -90,7 +90,7 @@ ONAiR で一番大きいアプリ。**1つの Vite バンドルに5つの「入�
 
 ## 計上会社（`entity_code`・2026年10月の事業再編）
 
-- **案件は計上会社（`projects.entity_code`）を1つ持つ**: `GJV`（コンテンツスタジオ）／`GSS`
+- **案件は計上会社（`projects.entity_code`）を1つ持つ**: `SCS`（コンテンツスタジオ）／`GSS`
   （サムライスタジオ）／`GMO`（グループ本体）。マスターは `legal_entities`（`GET /legal-entities`・
   設定「会社と切替」＝ `contexts/platform/pages/reorg/`）。設計の正は
   [docs/reorg-2026-10-plan.md](../docs/reorg-2026-10-plan.md) §4.2〜§4.4

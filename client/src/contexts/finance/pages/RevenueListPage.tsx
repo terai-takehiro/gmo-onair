@@ -149,7 +149,7 @@ export default function RevenueListPage() {
       secondaryBadge: r.inspection_date
         ? { label: '検収済', tone: 'ok', title: `${r.inspection_date} に検収` }
         : null,
-      // 2社間の社内取引（GJV⇄GSS・2026年10月の事業再編 P2 Round 2）。サーバーは対応済み
+      // 2社間の社内取引（SCS⇄GSS・2026年10月の事業再編 P2 Round 2）。サーバーは対応済み
       is_intercompany: r.is_intercompany,
       // スマホの詳細シートに出す項目（PC は読まない）。**`useMemo` の外に出さない** —
       // 出すと20行ぶんを毎レンダリング作り直すことになる（`types.ts` の `detail`）

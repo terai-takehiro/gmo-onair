@@ -7,7 +7,7 @@
  * （呼び出しが数本しかないので、専用の `api.ts` を作るほどではない）。
  */
 
-export type LegalEntityCode = 'GJV' | 'GSS' | 'GMO';
+export type LegalEntityCode = 'SCS' | 'GSS' | 'GMO';
 export type LegalEntityKind = 'revenue' | 'cost_center';
 
 /** `GET /legal-entities` の1行 */

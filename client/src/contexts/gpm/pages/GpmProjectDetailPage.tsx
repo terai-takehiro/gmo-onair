@@ -134,7 +134,7 @@ export default function GpmProjectDetailPage() {
   /*
    * コストセンター（GMO）の案件か（2026年10月の事業再編・P3・§4.7）。
    * `true` のときだけ「請求」タブを「予算と実績」（`BudgetTab`）に差し替える——
-   * **普通の会社（GJV/GSS）の案件はこれまでどおり `BillingTab`**。
+   * **普通の会社（SCS/GSS）の案件はこれまでどおり `BillingTab`**。
    * 判定は書き写さず必ず `isCostCenterProject()` を通す（`entity_code` と
    * `GET /legal-entities` の `kind` を見る。`gls_category==='B'` では判定しない）。
    */
@@ -229,7 +229,7 @@ export default function GpmProjectDetailPage() {
 
       {/*
         コストセンター（GMO）の案件は「予算と実績」（`BudgetTab`・2026年10月の事業再編・
-        P3）に差し替える。**普通の会社（GJV/GSS）の案件はこれまでどおり**——
+        P3）に差し替える。**普通の会社（SCS/GSS）の案件はこれまでどおり**——
         月次請求（月締め）。**案件詳細から移したもの** (migration 179)。
         **どの段階でもスマホには出さない**（`BillingTab` 冒頭のコメント参照）。
         `BudgetTab` は最初からレスポンシブなので、こちらは PC 専用の案内を経由しない

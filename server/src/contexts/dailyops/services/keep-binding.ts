@@ -15,7 +15,7 @@
  *   `trend.revenue` → `TrendRevenuePoint[]`、`trend.utilization` → `TrendUtilizationPoint[]`
  *   `inview.summary` → `InviewSummary` そのもの（帯＋数字カードで組む。2026-09 刷新で箇条書きの文字列から変更）
  * - `$meeting_date` / `$meeting_title` / `$agenda` / `$pl_heading` … 資料の設定（`BindingContext`）。
- *   `$pl_heading` だけはページの部品の `options.mode` / `options.entity`（all / GJV / GSS / GMO / by_entity）とパックの対象月から組む
+ *   `$pl_heading` だけはページの部品の `options.mode` / `options.entity`（all / SCS / GSS / GMO / by_entity）とパックの対象月から組む
  * - `inputs.attendance` … ONAiR に無い手入力（`BindingContext.inputs`）
  * - **パスの形をしていない文字列は、そのまま文として使う**（`単位：千円` / `Appendix` など。テンプレの固定文）
  * - `project.*` / `report.*`（テンプレの相対パス）は、`buildStandardDeck` が組むときに
@@ -93,7 +93,7 @@ function plHeading(pack: KeepReportPack | null, page: SlidePage): string {
   const ym = pack ? pack[mode].all.year_month : null;
   const month = monthLabel(ym);
   const what = mode === 'forecast' ? '着地見込' : '着地';
-  // by_entity は「計上会社別」（画面の一覧・チップと同じ語）。1社なら entity_code をそのまま（GSS / GJV / GMO）
+  // by_entity は「計上会社別」（画面の一覧・チップと同じ語）。1社なら entity_code をそのまま（GSS / SCS / GMO）
   const suffix = entity === 'by_entity' ? '（計上会社別）' : entity === 'all' ? '' : `（${entity}）`;
   return `${month} ${what}${suffix}`.trim();
 }

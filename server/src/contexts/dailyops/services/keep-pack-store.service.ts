@@ -11,7 +11,7 @@
  *   同時に走った2本は `pg_advisory_xact_lock` で直列にする（片方が INSERT を終えてからもう片方が読む）
  * - 週報との結びは両側で持つ: `keep_report_packs.ops_report_id` と `ops_reports.payload.keep`。
  *   `ops_report_id` は存在する週報だけ（知らない id は 400。FK の 500 にしない）
- * - `scope_entity` は計上会社 `entity_code`（all / GJV / GSS / GMO・2026年10月の事業再編）
+ * - `scope_entity` は計上会社 `entity_code`（all / SCS / GSS / GMO・2026年10月の事業再編）
  * - **凍結は絞り込み 12 通り（計上会社 4 × お客様区分 3）を全部**（`freezeMeeting`）。全体／全区分だけ凍結すると、
  *   画面のチップ・Slack・MCP の絞り込み付きの読みが凍結版を外れて「いまの数字」に落ち、確定した週報と違う数字が出る
  *
@@ -38,7 +38,7 @@ export const ALL_PACK_SCOPES: readonly PackScope[] = (['all', ...BUSINESS_ENTITI
 export function parseScope(entityRaw: unknown, segmentRaw: unknown): PackScope {
   const entity = entityRaw == null || entityRaw === '' ? 'all' : entityRaw;
   if (!isEntityScope(entity)) {
-    throw new AppError(400, 'VALIDATION_ERROR', 'entity_code は all / GJV / GSS / GMO のいずれかを指定してください');
+    throw new AppError(400, 'VALIDATION_ERROR', 'entity_code は all / SCS / GSS / GMO のいずれかを指定してください');
   }
   const segment = segmentRaw == null || segmentRaw === '' ? 'all' : segmentRaw;
   if (segment !== 'all' && segment !== 'internal' && segment !== 'external') {

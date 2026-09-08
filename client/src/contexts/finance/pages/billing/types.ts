@@ -26,7 +26,7 @@ export interface ClosingRow {
   /** 申込書が揃っていない。**選べない**（請求書を出すときだけ効く） */
   blocked: boolean;
   /**
-   * 2社間の社内取引（GJV⇄GSS・2026年10月の事業再編 P2 Round 2）。
+   * 2社間の社内取引（SCS⇄GSS・2026年10月の事業再編 P2 Round 2）。
    * サーバーは対応済み（`GET /billing/closing` の各行に入っている）。
    * `IntercompanyTag` の表示にだけ使う — 集計・絞り込みは変えない
    */

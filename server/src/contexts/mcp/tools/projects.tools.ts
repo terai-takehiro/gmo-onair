@@ -5,7 +5,7 @@ import { queryOne, execute } from '../../../shared/db/connection';
 import { ok, runTool, clampLimit, pagination, preview, audit, REQUESTED_BY, currentActorId } from '../helpers';
 import { recordAiOutput } from '../../../shared/services/ai-output.service';
 import { PROJECT_DRAFT_KIND } from '../../sales/services/project-ai-feedback.service';
-// 2026年10月の事業再編（docs/reorg-2026-10-plan.md §4.4・§4.8・§4.10）: 改番（GJV/GSS/GMO の番号系列への付け替え）
+// 2026年10月の事業再編（docs/reorg-2026-10-plan.md §4.4・§4.8・§4.10）: 改番（SCS/GSS/GMO の番号系列への付け替え）
 import { previewRenumber, renumberProject } from '../../sales/services/entity-resolution.service';
 
 // 案件管理 (sales) の MCP ツール — 既存の projectService を再利用。
@@ -558,7 +558,7 @@ export function registerProjectTools(server: McpServer): void {
     {
       title: '案件の改番 (計上会社の付け替え)',
       description:
-        '発番済みの案件を、別の計上会社 (GJV/GSS/GMO) の番号系列へ改番する (重要操作・取り消し不可)。' +
+        '発番済みの案件を、別の計上会社 (SCS/GSS/GMO) の番号系列へ改番する (重要操作・取り消し不可)。' +
         '必ず confirm なしで一度実行してプレビューを取得し、ユーザーの明示的な了承を得てから ' +
         'confirm: true で再実行すること (承認なしの confirm: true は禁止)。' +
         '副作用: 回 (episodes) と Qシートの写し (qsheet_documents) の episode_code を新番号へ書き換え、' +
@@ -568,7 +568,7 @@ export function registerProjectTools(server: McpServer): void {
         'プレビュー (confirm 省略/false) は何も書き換えず old_number/new_number だけを返す。',
       inputSchema: {
         id: z.string().min(1).describe('案件 ID'),
-        target_entity_code: z.enum(['GJV', 'GSS', 'GMO']).describe('改番先の計上会社'),
+        target_entity_code: z.enum(['SCS', 'GSS', 'GMO']).describe('改番先の計上会社'),
         reason: z.string().min(1).max(500).describe('改番の理由（必須）'),
         confirm: z.boolean().default(false).describe('プレビューをユーザーに確認してもらってから true'),
         ...REQUESTED_BY,

@@ -187,7 +187,7 @@ docker compose -f /root/gmo-onair/docker-compose.yml up -d app_dev
 > （2026-08 追加新設。表の新規作成 `create_schedule`/更新 `update_schedule` と、列の
 > 追加/更新/削除/並べ替え）。**このカテゴリだけ OAuth actor 専用**。下記参照）/
 > equipment 7（読み取り5・書き込み2。2026-08 新設。下記参照）/
-> intercompany 1（**2026年10月の事業再編で新設**。社内取引 GJV⇄GSS。下記参照）/
+> intercompany 1（**2026年10月の事業再編で新設**。社内取引 SCS⇄GSS。下記参照）/
 > feedback-tickets 2（**2026-09 新設**。GMO ONAiR 自体への要望・不具合報告。
 > `create_feedback_ticket` は OAuth actor 専用。下記参照）
 >
@@ -203,13 +203,13 @@ docker compose -f /root/gmo-onair/docker-compose.yml up -d app_dev
 | `update_project` | write | 部分更新 (サーバー側で既存値とマージ — 渡したフィールドだけ変わる) |
 | `change_project_stage` | write | ステージ変更。**e_lost (失注) は confirm 2段階**。d_hold で仮押さえ予約を自動作成 |
 | `issue_gls` | write | **GLS 発番 (confirm 2段階・取消不可)**。プレビューで昇格ステージ / 見積変換件数 / BOXリネームを提示 |
-| `renumber_project` | write | **改番 (confirm 2段階・取消不可・sales の manager 権限)**。発番済み案件を別の計上会社 (GJV/GSS/GMO) の番号系列へ付け替える。回・Qシートの写し・BOXフォルダ名・未請求 (未発行・未入金) の請求キーが追随し、発行済み・入金済みの請求キーは変えない。旧番号は `project_numbers` に履歴として残り、引き続き解決できる。2026年10月の事業再編（[docs/reorg-2026-10-plan.md](reorg-2026-10-plan.md) §4.4/§4.8）で新設 |
+| `renumber_project` | write | **改番 (confirm 2段階・取消不可・sales の manager 権限)**。発番済み案件を別の計上会社 (SCS/GSS/GMO) の番号系列へ付け替える。回・Qシートの写し・BOXフォルダ名・未請求 (未発行・未入金) の請求キーが追随し、発行済み・入金済みの請求キーは変えない。旧番号は `project_numbers` に履歴として残り、引き続き解決できる。2026年10月の事業再編（[docs/reorg-2026-10-plan.md](reorg-2026-10-plan.md) §4.4/§4.8）で新設 |
 
 > **2026年10月の事業再編**（[docs/reorg-2026-10-plan.md](reorg-2026-10-plan.md)）: `list_projects` / `get_project` の
-> 出力に **計上会社** (`entity_code`＝`GJV`/`GSS`/`GMO`。列は常に存在し導出結果を返す) /
+> 出力に **計上会社** (`entity_code`＝`SCS`/`GSS`/`GMO`。列は常に存在し導出結果を返す) /
 > `entity_source`（`rule`=導出のまま／`manual`=人が上書き）/ `entity_note` を追加した。
 > **`gls_number` フィールド名はそのまま**（改名していない）——ただし値は改番されると
-> 新方式の番号（`GJV-0001` 等）になり得る（§4.3）。**`org_transition.state` は今日時点 `off`**（§5）
+> 新方式の番号（`SCS-0001` 等）になり得る（§4.3）。**`org_transition.state` は今日時点 `off`**（§5）
 > なので、既存案件はすべて `entity_code='GSS'`・`gls_number` も旧方式（`GLS-A024` 等）のまま —
 > 今日の時点では列が増えるだけで値は変わらない（休眠中の仕組み）。
 
@@ -303,23 +303,23 @@ HTTP 側 (`/api/v1/internal/gpm/*`) と同じサービス層を呼ぶので、�
 
 > **2026年10月の事業再編**（[docs/reorg-2026-10-plan.md](reorg-2026-10-plan.md) §4.5/§4.6/§4.12）:
 > `get_monthly_summary` / `list_revenues` / `list_purchases` / `list_sga` に **`entity_code`**
-> (`GJV`/`GSS`/`GMO`) の絞り込みを追加した。**省略時は絞らない＝全社合算**（後方互換。
+> (`SCS`/`GSS`/`GMO`) の絞り込みを追加した。**省略時は絞らない＝全社合算**（後方互換。
 > 加算できる一覧・集計なので「省略＝1社」ではなく「省略＝全社」に倒した）。
 > `list_revenues` / `list_purchases` の出力行には社内取引の印 **`intercompany`**（true/false）も付く
-> （GSS⇄GJV の社内売上・社内仕入のペア。次の「社内取引」節を参照）。**`org_transition.state` は
+> （GSS⇄SCS の社内売上・社内仕入のペア。次の「社内取引」節を参照）。**`org_transition.state` は
 > 今日時点 `off`**（§5）のため、絞り込んでも全件が `GSS`・`intercompany` は常に false（休眠中）。
 
-### 社内取引 (intercompany — GJV⇄GSS・2026年10月の事業再編で新設)
+### 社内取引 (intercompany — SCS⇄GSS・2026年10月の事業再編で新設)
 
-GSS のスタジオ・人員・機材を使って GJV の案件を行うときに発生する、計上会社間の
+GSS のスタジオ・人員・機材を使って SCS の案件を行うときに発生する、計上会社間の
 社内売上・社内仕入のペアを扱う（[docs/reorg-2026-10-plan.md](reorg-2026-10-plan.md) §4.12）。
-GSS 側の社内売上 (`revenues`) と GJV 側の社内仕入 (`purchases`) を同じ回に1本ずつ作り
+GSS 側の社内売上 (`revenues`) と SCS 側の社内仕入 (`purchases`) を同じ回に1本ずつ作り
 `intercompany_links` で1対1に結ぶ（写しの案件は作らない）。作成後は片方だけを直せない・
 消せない（専用の経路以外は 409）。
 
 | ツール | 種別 | 概要 |
 |---|---|---|
-| `create_intercompany_purchase` | write | **社内取引の作成 (confirm 2段階・取消不可・sales の editor 権限)**。買い手 (GJV) の案件・回・金額を指定すると、GSS 側の社内売上と GJV 側の社内仕入が同時に作られる。プレビューはその案件の直近の見積の原価行の合計を参考金額として提示する |
+| `create_intercompany_purchase` | write | **社内取引の作成 (confirm 2段階・取消不可・sales の editor 権限)**。買い手 (SCS) の案件・回・金額を指定すると、GSS 側の社内売上と SCS 側の社内仕入が同時に作られる。プレビューはその案件の直近の見積の原価行の合計を参考金額として提示する |
 
 ⚠️ **`org_transition.state` は今日時点 `off`**（§5）のため、社内取引はまだ実運用では発生しない
 （休眠中の仕組み）。
@@ -487,17 +487,17 @@ GMO ONAiR 自体（どれかのブロックアプリ）への要望・不具合�
 | `upsert_event_report` | write | 実施報告の作成/更新 (**渡したフィールドのみマージ更新**)。headline / highlights / 来場者数 / report_status (draft→confirmed で資料掲載) |
 | `attach_event_photo` | write | 写真の追加 (実体は Box・box_file_id 参照のみ保持。レポート未作成なら draft を自動作成) |
 | `detach_event_photo` | write | 写真の削除 (Box 上の実体は削除しない) |
-| `get_monthly_budget` | read | 月次予算 (売上/固定原価/変動原価/販管費/営業利益の目標) を**計上会社別**に取得。`entity_code` (GJV / GSS / GMO・省略時 GSS) |
+| `get_monthly_budget` | read | 月次予算 (売上/固定原価/変動原価/販管費/営業利益の目標) を**計上会社別**に取得。`entity_code` (SCS / GSS / GMO・省略時 GSS) |
 | `upsert_monthly_budget` | write | 月次予算の登録/更新 (マージ更新。operating_profit 未指定は構成要素から自動計算)。`entity_code` (省略時 GSS)。全体の目標は会社の合計なので全体の値は入れない |
 | `upsert_monthly_actual_override` | write | 実績補正 (経理確定値) の登録 — FIXED-COGS 償却の未計上補完・販管費確定値。`entity_code` (省略時 GSS) |
-| `get_monthly_pl` | read | **損益ページの単一入口**: 予算 / 補正込み実績 / 対目標差・比・判定 (売上・利益系: 実績≧目標→○、費用系: 実績≦目標→○、目標未登録→"-")。`entity_code` は GJV / GSS / GMO (省略時 GSS) か `all` (会社の合計)。対目標比は目標が赤字の行だけ 100 − (目標 − 実績) ÷ \|目標\| × 100 (9/4 の資料の式) |
+| `get_monthly_pl` | read | **損益ページの単一入口**: 予算 / 補正込み実績 / 対目標差・比・判定 (売上・利益系: 実績≧目標→○、費用系: 実績≦目標→○、目標未登録→"-")。`entity_code` は SCS / GSS / GMO (省略時 GSS) か `all` (会社の合計)。対目標比は目標が赤字の行だけ 100 − (目標 − 実績) ÷ \|目標\| × 100 (9/4 の資料の式) |
 | `get_meeting_minutes` | read | 議事録サマリ (決定事項 / 領域別トピック / 次回開催日) |
 | `upsert_meeting_minutes` | write | 議事録サマリの登録/更新 (マージ更新) |
 | `list_meeting_minutes` | read | 議事録サマリの一覧 (開催日範囲・新しい順) — 前回会議分の取得に使用 |
 
 > **2026年10月の事業再編**（[docs/reorg-2026-10-plan.md](reorg-2026-10-plan.md) §4.5）:
 > `get_monthly_budget` / `upsert_monthly_budget` / `upsert_monthly_actual_override` / `get_monthly_pl` に
-> **`entity_code`**（`GJV`/`GSS`/`GMO`）を追加した。**こちらは省略時は「今の会社」1社ぶん**
+> **`entity_code`**（`SCS`/`GSS`/`GMO`）を追加した。**こちらは省略時は「今の会社」1社ぶん**
 > （`money_rules` と同じ「1行に決まる」設定のため — 上の一覧・集計系ツールの「省略＝全社合算」とは
 > 逆の既定なので混同しないこと）。**`org_transition.state` は今日時点 `off`**（§5）のため、
 > 「今の会社」は常に `GSS`（休眠中の仕組み）。
@@ -505,15 +505,15 @@ GMO ONAiR 自体（どれかのブロックアプリ）への要望・不具合�
 ### 隔週キープの定例報告パック (dailyops — keep・2026-09 新設)
 | ツール | 種別 | 概要 |
 |---|---|---|
-| `get_keep_report_pack` | read | 会議1回ぶんの数字を1本の JSON (`KeepReportPack`・`shared/src/keepReport/types.ts`) で取得。`meeting_date` (省略時=次回の開催日) / `entity_code` (計上会社の絞り込み: `all`〔省略時〕/ `GJV` / `GSS` / `GMO`。ヨミ表・案件ページ・実施報告に効く。数値報告の表は常に全体＋会社別を持つ) / `segment` (all / internal / external) / `live` (true でいまの数字)。**凍結した版 (週報の確定時点) があればそれ**、無ければいまの数字 (`frozen=false`・`pack.frozen_at=null`)。`meeting_frozen` はその会議日に全体 (all/all) の凍結版があるか (`frozen=false` なのに true なら、その絞り込みの版だけが無く「いまの数字」)。HTTP の `GET /dailyops/keep/pack` と同じ `getPackForMeeting` を通る |
+| `get_keep_report_pack` | read | 会議1回ぶんの数字を1本の JSON (`KeepReportPack`・`shared/src/keepReport/types.ts`) で取得。`meeting_date` (省略時=次回の開催日) / `entity_code` (計上会社の絞り込み: `all`〔省略時〕/ `SCS` / `GSS` / `GMO`。ヨミ表・案件ページ・実施報告に効く。数値報告の表は常に全体＋会社別を持つ) / `segment` (all / internal / external) / `live` (true でいまの数字)。**凍結した版 (週報の確定時点) があればそれ**、無ければいまの数字 (`frozen=false`・`pack.frozen_at=null`)。`meeting_frozen` はその会議日に全体 (all/all) の凍結版があるか (`frozen=false` なのに true なら、その絞り込みの版だけが無く「いまの数字」)。HTTP の `GET /dailyops/keep/pack` と同じ `getPackForMeeting` を通る |
 | `list_keep_report_packs` | read | 凍結した版の一覧 (id / 会議日 / 絞り込み / 凍結した時刻と人 / 結んだ週報の id)。中身は含まない。同じ会議日の複数の版は凍結し直したもの (新しい版が先・前の版は消さない)。`limit` / `entity_code` / `segment` で絞れる — 週報の確定は絞り込み 12 通り (計上会社 4 × お客様区分 3) を全部凍結するので、会議日ごとに 1 行ずつ見たいときは `entity_code=all, segment=all` |
 | `get_keep_slack_draft` | read | **Slack の定例投稿の下書き** (`text` = 日本語の mrkdwn 文字列)。引数は `get_keep_report_pack` と同じ (`meeting_date` / `entity_code` / `segment` / `live`)。中身: 見出し (会議日) → 前月 着地の 売上高／粗利／営業利益 (目標比と○✕・全体と計上会社別) → 当月 見込 (1行) → ヨミ表の上位8件 (確度順) → 実施報告 (日付・案件名・売上/粗利率) → 内覧会 (組・名・満足度) → 見込に含めた未確定の売上 → 数字の元 (凍結した時刻か「いまの数字」)。金額は千円 (3桁区切り)・絵文字なし。前回の資料 (凍結した版) があれば動いた数字に ＊。HTTP は `GET /dailyops/keep/slack-draft`、画面は「隔週キープの数字」タブの「Slack の文面をコピー」と同じ `getSlackDraftForMeeting` |
 
-パックの中身 (`docs/design/v4/keep-report.md` §5)。**会社の区分は 2026年10月の事業再編の計上会社 `entity_code`** ([reorg-2026-10-plan.md](reorg-2026-10-plan.md) §4.5・`legal_entities.code`): `GJV` = GMOサムライコンテンツスタジオ (グループ外のお客様) / `GSS` = GMOサムライスタジオ (グループ内のお客様・旧 GMOグローバルスタジオ) / `GMO` = GMOインターネットグループ本体 (コストセンター)。着地・見込は財務と同じく**案件ではなく行 (revenues / purchases / sga_expenses) の `entity_code`** で切り、ヨミ表・案件ページの絞り込みは案件の `entity_code` で行う:
-- `landing` … **会議の前の月**の着地 (9/4 の会議なら 8月)。`all` / `GJV` / `GSS` (/ `GMO` は数字があるときだけ) の 6行 (売上高・原価〔案件仕入〕・粗利・販管費・償却相当額・営業利益) × 目標/実績/差/比/判定。確定売上 (`status='confirmed'`) だけを数える。`all` の目標は3社の合計 (`get_monthly_pl` の `entity_code=all` と同じ)
+パックの中身 (`docs/design/v4/keep-report.md` §5)。**会社の区分は 2026年10月の事業再編の計上会社 `entity_code`** ([reorg-2026-10-plan.md](reorg-2026-10-plan.md) §4.5・`legal_entities.code`): `SCS` = GMOサムライコンテンツスタジオ (グループ外のお客様) / `GSS` = GMOサムライスタジオ (グループ内のお客様・旧 GMOグローバルスタジオ) / `GMO` = GMOインターネットグループ本体 (コストセンター)。着地・見込は財務と同じく**案件ではなく行 (revenues / purchases / sga_expenses) の `entity_code`** で切り、ヨミ表・案件ページの絞り込みは案件の `entity_code` で行う:
+- `landing` … **会議の前の月**の着地 (9/4 の会議なら 8月)。`all` / `SCS` / `GSS` (/ `GMO` は数字があるときだけ) の 6行 (売上高・原価〔案件仕入〕・粗利・販管費・償却相当額・営業利益) × 目標/実績/差/比/判定。確定売上 (`status='confirmed'`) だけを数える。`all` の目標は3社の合計 (`get_monthly_pl` の `entity_code=all` と同じ)
 - `forecast` … **会議の月**の着地見込 ＝ 着地 ＋ 受注前案件 (失注除く) の `status='estimate'` の売上 × ステージの受注確度。受注前案件の仕入は 100% → 確度に置き換える (二重に数えない)。`unconfirmed[]` はその月の `status='estimate'` の売上 (案件ごとの合計・**見込に確度加味で入っている**・注記の材料)。`unregistered[]` はその月に本番があるのに売上 (確定・見積) が 1 件も無い案件 (金額は最新の見積 → 想定金額。**表の数字には入っていない**・登録し忘れの注意)
 - `trend` … 2024-01〜会議の月 (最後の点は進行中)。売上 (グループ内/外部は案件の `customer_type` の当時の値)・案件数 (本番開始日がその月の受注済み以降)・営業日数・稼働日数・稼働率
-- `pipeline` … 終わっていない案件 (ネタを含む) のヨミ表。行の `entity_code` は案件の計上会社 (`projects.entity_code`: `GJV` / `GSS` / `GMO`)。`samurai` は `companies.samurai_group` のお客様、`external` はそれ以外の全部 (グループ内も。`segment` で絞る)。見積金額・粗利は最新の見積、次のやることは未対応の次回アクションのうち期限が近いもの、`since_last` は前回の会議日以降の new / updated
+- `pipeline` … 終わっていない案件 (ネタを含む) のヨミ表。行の `entity_code` は案件の計上会社 (`projects.entity_code`: `SCS` / `GSS` / `GMO`)。`samurai` は `companies.samurai_group` のお客様、`external` はそれ以外の全部 (グループ内も。`segment` で絞る)。見積金額・粗利は最新の見積、次のやることは未対応の次回アクションのうち期限が近いもの、`since_last` は前回の会議日以降の new / updated
 - `project_pages` … ヨミ表で「資料」に印 (`projects.keep_pick`) を付けた案件のページ材料。写真は案件 Box の社外フォルダ `08_写真` (BOX につないでいなければ空)、チェック/リハ/本番は `studio_bookings` (setup / rehearsal / performance)、進行表 (Qシート) は段3以降で空
 - `event_reports` … 前回の会議日より後・今回の会議日以前に本番を終えた受注済み以降の案件。総括は `event_reports.headline`、箇条書きは KPT の keep (**人が確かめた行だけ**)
 - `calendars` … 会議の月と翌月。`days` の鍵は `YYYY-MM-DD`。稼働率 = 利用があった日数 ÷ 営業日数 (`keep_settings` の種別・土曜の設定。既定はメンテナンス以外を数える)
@@ -699,7 +699,7 @@ server/src/contexts/mcp/
     │                        BOX フォルダ (gpm-box-folder.service) を再利用。
     │                        create 系は ai_outputs に記録し、人の修正差分は
     │                        gpm-ai-feedback.service が update の中で自動記録する
-    ├── intercompany.tools.ts 社内取引 (GJV⇄GSS) 1 種 (2026年10月の事業再編で新設)。
+    ├── intercompany.tools.ts 社内取引 (SCS⇄GSS) 1 種 (2026年10月の事業再編で新設)。
     │                        finance/services/intercompany.service を再利用
     ├── keep.tools.ts        隔週キープの定例報告パック 3 種 (read。2026-09 新設)。
     │                        dailyops/services/keep-pack-store.service の getPackForMeeting

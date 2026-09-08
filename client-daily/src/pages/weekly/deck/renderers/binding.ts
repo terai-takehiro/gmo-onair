@@ -188,7 +188,7 @@ function classify(binding: string, part: SlidePart, value: unknown, pack: KeepRe
         tables: [
           // GSS を先に（画面のチップ・計上会社別の表と同じ並び）
           { label: BUSINESS_ENTITY_LABELS.GSS, table: value.GSS },
-          { label: BUSINESS_ENTITY_LABELS.GJV, table: value.GJV },
+          { label: BUSINESS_ENTITY_LABELS.SCS, table: value.SCS },
           ...(value.GMO ? [{ label: BUSINESS_ENTITY_LABELS.GMO, table: value.GMO }] : []),
         ],
       };

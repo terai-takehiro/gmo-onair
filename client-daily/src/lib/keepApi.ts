@@ -6,7 +6,7 @@
  * 千円への丸めは画面側 `pages/weekly/keep/format.ts` の `toThousandYen`）。
  *
  * ── 鍵の決めごと ────────────────────────────────────────────
- * パックは **会議日 × 計上会社（`entity_code`: GJV / GSS / GMO / all）× お客様区分 × いまの数字か** で1本。凍結した版があれば
+ * パックは **会議日 × 計上会社（`entity_code`: SCS / GSS / GMO / all）× お客様区分 × いまの数字か** で1本。凍結した版があれば
  * サーバーがそれを返し、`live=1` を付けたときだけ「いまの数字」を計算し直す。
  * 「資料」の印（`keep_pick`）と手入力（満足度）を保存したら `KEEP_PACK_KEY` ごと
  * 捨てる — 計上会社・区分の組み合わせぶんの鍵を1つずつ追いかけない。
@@ -41,7 +41,7 @@ export interface KeepMeetings {
 export interface KeepPackSummary {
   id: string;
   meeting_date: string;
-  /** 絞り込み（計上会社 all/GJV/GSS/GMO・お客様区分 all/internal/external）。1 回の確定で 12 行できる */
+  /** 絞り込み（計上会社 all/SCS/GSS/GMO・お客様区分 all/internal/external）。1 回の確定で 12 行できる */
   scope_entity: EntityScope;
   scope_segment: SegmentScope;
   frozen_at: string | null;

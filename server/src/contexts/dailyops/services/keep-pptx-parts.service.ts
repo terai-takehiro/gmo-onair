@@ -73,7 +73,7 @@ export function renderPlTable(
   addTable(slide, rows, box, [30, 15, 15, 10, 15, 15], { size: o.size ?? FORMAT_FONT.table });
 }
 
-/** 計上会社別: GJV・GSS の2つの表を横に並べる（GMO は数字があるときだけ3つ目）。`changed` は会社ごとの動いた升 */
+/** 計上会社別: SCS・GSS の2つの表を横に並べる（GMO は数字があるときだけ3つ目）。`changed` は会社ごとの動いた升 */
 export function renderPlByEntity(
   slide: PptxGenJS.Slide, p: PlByEntity, box: Box, changed?: Partial<Record<BusinessEntity, ChangedCells>>,
 ): void {

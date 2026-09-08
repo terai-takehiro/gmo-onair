@@ -102,7 +102,7 @@
       "y": 520,
       "w": 320,
       "page": "screens",
-      "text": "② 計上会社（10月〜）— 決まり（9/6）。main の 2026-10 事業再編の entity_code をそのまま読む。\n\nグループ内のお客様 → GMOサムライスタジオ（GSS）\nグループ外のお客様 → GMOサムライコンテンツスタジオ（GJV）\nプロジェクト → GMOインターネットグループ本体（GMO・コストセンター）\n（決め方は main の entity-resolution.service.ts。切替前は全行 GSS）\n\n収支は計上会社別 ＋ 全体（統合）の両方を出す。月次予算・販管費・償却も帳簿の行の entity_code で分ける。"
+      "text": "② 計上会社（10月〜）— 決まり（9/6）。main の 2026-10 事業再編の entity_code をそのまま読む。\n\nグループ内のお客様 → GMOサムライスタジオ（GSS）\nグループ外のお客様 → GMOサムライコンテンツスタジオ（SCS）\nプロジェクト → GMOインターネットグループ本体（GMO・コストセンター）\n（決め方は main の entity-resolution.service.ts。切替前は全行 GSS）\n\n収支は計上会社別 ＋ 全体（統合）の両方を出す。月次予算・販管費・償却も帳簿の行の entity_code で分ける。"
     },
     {
       "id": "q-judge",

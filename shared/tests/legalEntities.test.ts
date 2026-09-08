@@ -22,7 +22,7 @@ function gss(overrides: Partial<LegalEntity> = {}): LegalEntity {
     formerName: 'GMOグローバルスタジオ株式会社',
     renamedOn: '2026-10-01',
     kind: 'revenue',
-    parentCode: 'GJV',
+    parentCode: 'SCS',
     numberPrefix: 'GSS-',
     issuerAddress1: '東京都世田谷区用賀四丁目10番1号',
     issuerAddress2: 'GMOインターネットTOWER 27F',
@@ -35,17 +35,17 @@ function gss(overrides: Partial<LegalEntity> = {}): LegalEntity {
   };
 }
 
-/** GJV 相当（社名変更なし＝ former_name/renamed_on とも null）の最小フィクスチャ */
-function gjv(overrides: Partial<LegalEntity> = {}): LegalEntity {
+/** SCS 相当（社名変更なし＝ former_name/renamed_on とも null）の最小フィクスチャ */
+function scs(overrides: Partial<LegalEntity> = {}): LegalEntity {
   return {
-    code: 'GJV',
+    code: 'SCS',
     name: 'GMOサムライコンテンツスタジオ株式会社',
     shortName: 'コンテンツスタジオ',
     formerName: null,
     renamedOn: null,
     kind: 'revenue',
     parentCode: null,
-    numberPrefix: 'GJV-',
+    numberPrefix: 'SCS-',
     issuerAddress1: null,
     issuerAddress2: null,
     invoiceRegistrationNumber: null,
@@ -74,16 +74,16 @@ describe('issuerNameAsOf（§9-E: 社名変更前後の帳票の表記）', () =
     );
   });
 
-  it('formerName が無いエンティティ（GJV）→ renamedOn も無いので、日付によらず name だけ', () => {
-    expect(issuerNameAsOf(gjv(), '2020-01-01')).toBe('GMOサムライコンテンツスタジオ株式会社');
-    expect(issuerNameAsOf(gjv(), '2026-10-01')).toBe('GMOサムライコンテンツスタジオ株式会社');
-    expect(issuerNameAsOf(gjv(), '2099-12-31')).toBe('GMOサムライコンテンツスタジオ株式会社');
+  it('formerName が無いエンティティ（SCS）→ renamedOn も無いので、日付によらず name だけ', () => {
+    expect(issuerNameAsOf(scs(), '2020-01-01')).toBe('GMOサムライコンテンツスタジオ株式会社');
+    expect(issuerNameAsOf(scs(), '2026-10-01')).toBe('GMOサムライコンテンツスタジオ株式会社');
+    expect(issuerNameAsOf(scs(), '2099-12-31')).toBe('GMOサムライコンテンツスタジオ株式会社');
   });
 
   it('formerName が無い（renamedOn だけ何かの理由で入っている想定の異常値）場合も name だけ', () => {
     // 実運用では起きない組み合わせ（former_name は renamedOn とセットで入る・migration 284）だが、
     // 関数の契約として「formerName が無ければ日付によらず name」を単独でも固定しておく。
-    const weird = gjv({ renamedOn: '2026-10-01' });
+    const weird = scs({ renamedOn: '2026-10-01' });
     expect(issuerNameAsOf(weird, '2026-09-01')).toBe('GMOサムライコンテンツスタジオ株式会社');
     expect(issuerNameAsOf(weird, '2026-10-01')).toBe('GMOサムライコンテンツスタジオ株式会社');
   });

@@ -1,10 +1,10 @@
 /**
- * 社内取引（GJV⇄GSS）の印 — 2026年10月の事業再編 P2 Round 2
+ * 社内取引（SCS⇄GSS）の印 — 2026年10月の事業再編 P2 Round 2
  *
  * ── なぜ要るのか ────────────────────────────────────────────
  *
  * `is_intercompany: true` の行は、サムライスタジオ（GSS）とコンテンツスタジオ
- * （GJV）の**2社間のやり取り**です（`docs/reorg-2026-10-plan.md` §4.12）。
+ * （SCS）の**2社間のやり取り**です（`docs/reorg-2026-10-plan.md` §4.12）。
  * 見た目は普通の売上・仕入の行と同じで、相手先も自社の別行（「GMOサムライ
  * コンテンツスタジオ」等の自社行）になっているだけなので、印が無いと**外部の
  * お客様・仕入先との取引と見分けが付きません**。締めや台帳で請求書を出す・
@@ -26,7 +26,7 @@ export function IntercompanyTag({ show }: { show?: boolean | null }) {
   return (
     <span
       className="rounded-badge-xs ml-1.5 inline-flex h-[18px] shrink-0 items-center border border-border bg-card px-1.5 text-note font-bold text-secondary-foreground align-middle"
-      title="GJV⇄GSS の社内取引です。金額はこちらの会社の帳簿上の計上額で、相手先は自社の別行です"
+      title="SCS⇄GSS の社内取引です。金額はこちらの会社の帳簿上の計上額で、相手先は自社の別行です"
     >
       社内
     </span>

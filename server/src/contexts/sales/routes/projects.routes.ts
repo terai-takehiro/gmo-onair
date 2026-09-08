@@ -22,7 +22,7 @@ import {
 } from '../services/project-box-files.service';
 import { createPhotoAccess } from '../services/project-photo-access.service';
 import { countJunkProjects, purgeJunkProjects } from '../services/project-purge.service';
-// 2026年10月の事業再編（docs/reorg-2026-10-plan.md §4.4・§4.8）: 改番（GJV/GSS/GMO の番号系列への付け替え）
+// 2026年10月の事業再編（docs/reorg-2026-10-plan.md §4.4・§4.8）: 改番（SCS/GSS/GMO の番号系列への付け替え）
 import { previewRenumber, renumberProject } from '../services/entity-resolution.service';
 import { getLegalEntity, type LegalEntityCode } from '../../platform/services/legal-entity.service';
 
@@ -30,7 +30,7 @@ import { getLegalEntity, type LegalEntityCode } from '../../platform/services/le
 async function readEntityCodeFilter(raw: unknown): Promise<LegalEntityCode | undefined> {
   if (raw === undefined || raw === null || raw === '') return undefined;
   if (typeof raw !== 'string' || !(await getLegalEntity(raw))) {
-    throw new AppError(400, 'VALIDATION_ERROR', 'entity_code は GJV / GSS / GMO のいずれかを指定してください');
+    throw new AppError(400, 'VALIDATION_ERROR', 'entity_code は SCS / GSS / GMO のいずれかを指定してください');
   }
   return raw as LegalEntityCode;
 }
@@ -63,7 +63,7 @@ router.get('/', async (req, res) => {
     issue: req.query.issue as string,
     sortBy: req.query.sort_by as string,
     sortDir: (req.query.sort_dir as 'asc' | 'desc') || 'desc',
-    // 計上会社 (GJV / GSS / GMO・隔週キープの主体別)。知らない値は素通しせず 400 — 素通しすると絞ったつもりで全件が返り、気づけない
+    // 計上会社 (SCS / GSS / GMO・隔週キープの主体別)。知らない値は素通しせず 400 — 素通しすると絞ったつもりで全件が返り、気づけない
     entityCode: await readEntityCodeFilter(req.query.entity_code),
   };
   const { rows, total, stageCounts } = await projectService.list(filter, page, limit, offset);
@@ -263,7 +263,7 @@ router.patch('/:id/gls-category', requirePermission('sales', 'manager'), async (
 /**
  * 改番の確認ダイアログ用の新旧番号（**採らない**）— 2026年10月の事業再編
  * （docs/reorg-2026-10-plan.md §4.4・§4.8）。発番済みの案件を、別の計上会社
- * (GJV/GSS/GMO) の番号系列へ改番したらどうなるかを見るだけ。
+ * (SCS/GSS/GMO) の番号系列へ改番したらどうなるかを見るだけ。
  *
  * `next-gls`（§206〜）と同じ注意点を持つ — 先に別の人が改番すると1つ後ろになる。
  */

@@ -16,8 +16,8 @@ import type { LegalEntityCode } from '../../platform/services/legal-entity.servi
 
 // ── 計上会社（2026年10月の事業再編・docs/reorg-2026-10-plan.md §4.2）────────
 //
-// 隔週キープの「主体別の収支」は main の**計上会社 `entity_code`**（GJV／GSS／GMO）そのもの。
-// 語彙: GJV = GMOサムライコンテンツスタジオ（グループ外のお客様）／GSS = GMOサムライスタジオ
+// 隔週キープの「主体別の収支」は main の**計上会社 `entity_code`**（SCS／GSS／GMO）そのもの。
+// 語彙: SCS = GMOサムライコンテンツスタジオ（グループ外のお客様）／GSS = GMOサムライスタジオ
 // （グループ内のお客様・旧 GMOグローバルスタジオ）／GMO = GMOインターネットグループ本体（コストセンター）。
 // 案件・行にどの会社を付けるかは `sales/services/entity-resolution.service.ts`（§4.4）だけが決める。
 // ⚠️ このファイルは**型と純粋な定数・判定だけ**（DB も HTTP も触らない）。
@@ -29,17 +29,17 @@ export type BusinessEntity = LegalEntityCode;
 export type EntityScope = BusinessEntity | 'all';
 
 /** 計上会社の並び（`legal_entities.sort_order`・`keep-report.service.ts` の ENTITY_CODES と同じ） */
-export const BUSINESS_ENTITIES: readonly BusinessEntity[] = ['GJV', 'GSS', 'GMO'];
+export const BUSINESS_ENTITIES: readonly BusinessEntity[] = ['SCS', 'GSS', 'GMO'];
 
 /** 資料・Slack に出す短い表示名（`legal_entities.name` から「株式会社」を除いたもの） */
 export const BUSINESS_ENTITY_LABELS: Record<BusinessEntity, string> = {
-  GJV: 'GMOサムライコンテンツスタジオ',
+  SCS: 'GMOサムライコンテンツスタジオ',
   GSS: 'GMOサムライスタジオ',
   GMO: 'GMOインターネットグループ',
 };
 
 export function isBusinessEntity(x: unknown): x is BusinessEntity {
-  return x === 'GJV' || x === 'GSS' || x === 'GMO';
+  return x === 'SCS' || x === 'GSS' || x === 'GMO';
 }
 
 export function isEntityScope(x: unknown): x is EntityScope {
@@ -155,7 +155,7 @@ export interface InviewSummary {
 /** 計上会社ごとの表と、統合した全体の表。`GMO`（コストセンター）は数字があるときだけ。 */
 export interface PlByEntity {
   all: MonthlyPlTable;
-  GJV: MonthlyPlTable;
+  SCS: MonthlyPlTable;
   GSS: MonthlyPlTable;
   GMO?: MonthlyPlTable;
 }

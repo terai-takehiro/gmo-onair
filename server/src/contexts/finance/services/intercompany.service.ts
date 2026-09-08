@@ -1,18 +1,18 @@
 /**
- * 社内取引（GJV⇄GSS） — 2026年10月の事業再編・P2 Round 2
+ * 社内取引（SCS⇄GSS） — 2026年10月の事業再編・P2 Round 2
  *
  * 設計の全文: docs/reorg-2026-10-plan.md §4.12（決定: 発生する → ONAiR に載せる）。
  *
  * ── 「同じ案件に付く、会社の違う2行」。写しの案件は作らない ──────────
  *
- * GJV が受けたグループ外の案件を GSS のスタジオ・人員・機材で作るとき、
- * **GSS → GJV の社内売上（revenues）と GJV の社内仕入（purchases）**を
- * 同じ案件（買い手＝GJV の案件）に対して1本ずつ作り、`intercompany_links`
+ * SCS が受けたグループ外の案件を GSS のスタジオ・人員・機材で作るとき、
+ * **GSS → SCS の社内売上（revenues）と SCS の社内仕入（purchases）**を
+ * 同じ案件（買い手＝SCS の案件）に対して1本ずつ作り、`intercompany_links`
  * （migration 289）で1対1に結ぶ。
  *
  * ── 今回のスコープ（決定） ──────────────────────────────────
  *
- * 売り手は常に GSS・買い手は常に GJV の1方向のみ。GMO はコストセンターで
+ * 売り手は常に GSS・買い手は常に SCS の1方向のみ。GMO はコストセンターで
  * 売上を持たないため対象外（§4.7）。将来 GMO も関わる社内取引が要るように
  * なったら、`SELLER_ENTITY`/`BUYER_ENTITY` の固定値を引数化する。
  *
@@ -37,9 +37,9 @@ import { computeDueDate, computeVendorDueDate } from './money-rules.service';
 import { SELF_COMPANY_ID_BY_ENTITY } from '../../../shared/constants/entity-default';
 import type { LegalEntityCode } from '../../platform/services/legal-entity.service';
 
-/** 今回のスコープ（決定・§4.12）。売り手は常に GSS・買い手は常に GJV */
+/** 今回のスコープ（決定・§4.12）。売り手は常に GSS・買い手は常に SCS */
 const SELLER_ENTITY: LegalEntityCode = 'GSS';
-const BUYER_ENTITY: LegalEntityCode = 'GJV';
+const BUYER_ENTITY: LegalEntityCode = 'SCS';
 
 export interface IntercompanyLink {
   id: string;
@@ -112,14 +112,18 @@ export interface CreateIntercompanyParams {
 /**
  * 社内取引を作る。「サムライスタジオへ社内発注」の実体。
  *
- * 買い手（GJV）の案件に、売り手（GSS）の社内売上と買い手の社内仕入を
+ * 買い手（SCS）の案件に、売り手（GSS）の社内売上と買い手の社内仕入を
  * 1本ずつ、**同じ回に**作り、`intercompany_links` で結ぶ。
  * 案件そのものは1つのまま（写しの案件は作らない・§4.12）。
  */
 export async function createIntercompanyPurchase(params: CreateIntercompanyParams): Promise<IntercompanyDetail> {
   const { projectId, episodeId, recognitionDate, notes, userId } = params;
   const amount = Number(params.amount);
-  if (!Number.isFinite(amount) || amount < 1) throw new AppError(400, 'VALIDATION_ERROR', '金額（1円以上）を入れてください');
+  // `amount > 0` だけでは Infinity（非有限）や 0.5 円（1円未満の端数）を弾けない
+  // （`Infinity > 0` / `0.5 > 0` はどちらも true）。整数・有限の1円以上だけ通す
+  if (!Number.isFinite(amount) || !Number.isInteger(amount) || amount < 1) {
+    throw new AppError(400, 'VALIDATION_ERROR', '金額（1円以上の整数）を入れてください');
+  }
   const taxCategory = normalizeTaxCategory(params.taxCategory);
 
   const sellerCustomerId = SELF_COMPANY_ID_BY_ENTITY[BUYER_ENTITY];   // 売上の相手先＝買い手の自社行

@@ -33,7 +33,7 @@ const CATEGORY_LABELS = {
   minutes: "議事録",
   studio: "スタジオ予約カレンダー",
   finance: "財務",
-  intercompany: "社内取引（GJV⇄GSS）",
+  intercompany: "社内取引（SCS⇄GSS）",
   budget: "月次予算・損益",
   pricing: "料金表・見積",
   analytics: "営業分析",

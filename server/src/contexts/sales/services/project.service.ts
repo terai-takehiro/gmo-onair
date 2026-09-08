@@ -238,7 +238,7 @@ export interface ProjectFilter {
    * **発番済かどうかは含まない**（それは `issued`）。
    */
   glsCategory?: 'A' | 'B';
-  /** 計上会社（GJV / GSS / GMO・`projects.entity_code`）。案件台帳の絞り込み。値の検査はルート側 */
+  /** 計上会社（SCS / GSS / GMO・`projects.entity_code`）。案件台帳の絞り込み。値の検査はルート側 */
   entityCode?: LegalEntityCode;
   /** GLS 発番済みのものだけ（確定案件の一覧が使う） */
   issued?: boolean;
@@ -2046,7 +2046,7 @@ export class ProjectService {
      * が 'off' のあいだ `resolveEntity` は必ず `entityCode: null` を返すので、
      * 下は今までどおり `generateGlsNumber` を使う（挙動は1ミリも変わらない）。
      * 'preparing' 以降で条件（B はグループ本体／実施日が切替日以降）を満たすと
-     * 新方式（GJV-/GSS-/GMO-）の番号を採る。
+     * 新方式（SCS-/GSS-/GMO-）の番号を採る。
      */
     const resolved = await resolveEntity(id, category, project.customer_id as string | null);
     const glsNumber = resolved.entityCode
@@ -2096,7 +2096,7 @@ export class ProjectService {
       [...params, userId, id]
     );
 
-    // 案件番号の履歴（§4.3）。旧番号（GLS）も新番号（GJV/GSS/GMO）も、発番の瞬間に必ず1行残す
+    // 案件番号の履歴（§4.3）。旧番号（GLS）も新番号（SCS/GSS/GMO）も、発番の瞬間に必ず1行残す
     await recordFirstIssue(id, glsNumber, resolved.entityCode, userId);
 
     /*
@@ -2735,7 +2735,7 @@ export class ProjectService {
    *
    * ⚠️ **社内取引（`intercompany_links`・§4.12・P2 Round 2）は除外する。**
    * ここが返す「案件全体」は「社内取引を除く」＝外部売上−外部仕入という意味
-   * （設計どおり・GJV/GSS それぞれの取り分は `getSummaryByEntity` が別に出す）。
+   * （設計どおり・SCS/GSS それぞれの取り分は `getSummaryByEntity` が別に出す）。
    * 除外しないと、社内売上と社内仕入が同額で両方に乗り、粗利の円グラフは
    * 変わらないが `total_revenue`/`total_purchase`（＝粗利率の分母）が水増しされる。
    *
@@ -2839,9 +2839,9 @@ export class ProjectService {
    *
    * ⚠️ **社内取引（`intercompany_links`・§4.12・P2 Round 2）はここでは除外しない
    * （`getSummaries` と違う）。** 社内売上は売り手（GSS）の entity_code・
-   * 社内仕入は買い手（GJV）の entity_code で別々に計上されるため、
+   * 社内仕入は買い手（SCS）の entity_code で別々に計上されるため、
    * entity_code の GROUP BY だけで自動的に「会社別」の意味になる——
-   * GJV: 外部売上−外部仕入−社内仕入（社内仕入も GJV の entity_code）／
+   * SCS: 外部売上−外部仕入−社内仕入（社内仕入も SCS の entity_code）／
    * GSS: 社内売上−GSSの仕入（両方 GSS の entity_code）と、設計（§4.12）の
    * 式にそのまま一致する。除外ロジックの追加は不要（当初の設計メモは
    * 「Round 2 で除外が要る」としていたが、実装して確認した結果、要らないと分かった）。
