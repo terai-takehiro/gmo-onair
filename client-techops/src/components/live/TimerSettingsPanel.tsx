@@ -142,7 +142,7 @@ export default function TimerSettingsPanel({ programId, timers, mainTimerId }: T
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-note text-muted-foreground">
                 表示画面（<span className="font-mono">/live/display/:timerId</span>）のURLは変わりません。
                 ここではダッシュボードに出す1本を選ぶだけです。
               </p>
@@ -164,13 +164,13 @@ export default function TimerSettingsPanel({ programId, timers, mainTimerId }: T
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-note text-muted-foreground">
                 残り時間がこの秒数以下になると、タイマーが黄色に変わります（0で赤）。
               </p>
             </div>
 
             {(mainTimerMutation.isError || thresholdMutation.isError) && (
-              <p className="text-xs text-destructive">保存できませんでした。少し待ってから、もう一度お試しください。</p>
+              <p className="text-sub-sm text-destructive">保存できませんでした。少し待ってから、もう一度お試しください。</p>
             )}
           </div>
 

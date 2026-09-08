@@ -21,18 +21,18 @@ export default function TeamsSettingsSection({
   const [showSecret, setShowSecret] = useState(false);
 
   return (
-    <section className="rounded-xl border bg-card p-4 space-y-4">
+    <section className="rounded-card border bg-card p-4 space-y-4">
       <div>
-        <h2 className="text-sm font-semibold">Microsoft Teams API 設定</h2>
-        <p className="text-xs text-muted-foreground mt-1">
+        <h2 className="text-cardtitle">Microsoft Teams API 設定</h2>
+        <p className="text-note text-muted-foreground mt-1">
           Azure AD でアプリ登録し、OnlineMeetings.Read.All アプリケーション権限が必要です。
         </p>
       </div>
       {hasOwnCredentials && (
-        <p className="text-xs text-green-600">設定済み</p>
+        <p className="text-sub-sm text-green-600">設定済み</p>
       )}
       {!hasOwnCredentials && hasCredentials && (
-        <p className="text-xs text-amber-600">他ユーザーの資格情報で接続テストを共有利用中（計測には使われません）</p>
+        <p className="text-note text-amber-600">他ユーザーの資格情報で接続テストを共有利用中（計測には使われません）</p>
       )}
       <div className="space-y-1.5">
         <Label>Tenant ID</Label>
@@ -72,7 +72,7 @@ export default function TeamsSettingsSection({
         steps={[
           <>Azure Portal →「アプリの登録」で新規アプリを登録 (Tenant ID / Client ID が発行される)</>,
           <>「証明書とシークレット」でクライアントシークレットを作成</>,
-          <>「APIのアクセス許可」で Microsoft Graph の <code className="rounded bg-muted px-1">OnlineMeetings.Read.All</code> (アプリケーション) を追加し管理者の同意を付与</>,
+          <>「APIのアクセス許可」で Microsoft Graph の <code className="rounded-badge-xs bg-muted px-1">OnlineMeetings.Read.All</code> (アプリケーション) を追加し管理者の同意を付与</>,
         ]}
       />
       <ApiTestRow platform="teams" note="Microsoft Graph の認証を実際に行い資格情報を検証します" />

@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formGrid2 } from "@gmo-onair/shared/src/client-v4/formDialog";
+import { PageShell } from "@gmo-onair/shared/src/client/ui/pageShell";
+import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { notifyError, notifySuccess } from "@/lib/notify";
 import api from "@/lib/api";
 import * as scheduleApi from "@/lib/scheduleApi";
@@ -21,13 +23,13 @@ import TemplateItemsSection from "./TemplateItemsSection";
 
 function PcOnlyNotice() {
   return (
-    <div className="mx-auto max-w-md px-4 py-16 text-center">
-      <h1 className="text-lg font-semibold text-foreground">工程テンプレートの編集は PC で行ってください</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
+    <PageShell width="narrow">
+      <PageHeader title="工程テンプレートの編集は PC で行ってください" />
+      <p className="text-sub text-muted-foreground">
         列・項目の組み合わせを一度に見ながら組む画面のため、幅の狭い端末には対応していません。
       </p>
-      <p className="mt-4 text-sm text-muted-foreground">スマホでは「スケジュール表」の一覧・適用は利用できます。</p>
-    </div>
+      <p className="text-sub text-muted-foreground">スマホでは「スケジュール表」の一覧・適用は利用できます。</p>
+    </PageShell>
   );
 }
 
@@ -76,27 +78,29 @@ export default function ScheduleTemplateSettingsPage() {
   const selected = templates.find((t) => t.id === selectedId) ?? null;
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-8">
-      <h1 className="text-xl font-semibold text-foreground">スケジュール表の工程テンプレート</h1>
-      <p className="mt-1 text-sm text-muted-foreground">拠点ごとの標準の列・項目を作っておくと、当日の表に一括で流し込めます。</p>
+    <PageShell width="narrow">
+      <PageHeader title="スケジュール表の工程テンプレート" />
+      <p className="text-note text-muted-foreground">
+        拠点ごとの標準の列・項目を作っておくと、当日の表に一括で流し込めます。
+      </p>
 
-      <div className="mt-6 grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-3 gap-6">
         <div className="space-y-2">
           <div className="flex gap-2">
-            <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="新しい工程テンプレートの名前" className="min-h-[44px]" />
-            <Button className="min-h-[44px]" disabled={!newName.trim() || createMutation.isPending} onClick={() => createMutation.mutate()}>
+            <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="新しい工程テンプレートの名前" className="min-h-tap" />
+            <Button className="min-h-tap" disabled={!newName.trim() || createMutation.isPending} onClick={() => createMutation.mutate()}>
               <Plus className="h-4 w-4" />
             </Button>
           </div>
-          <ul className="divide-y divide-border rounded-md border border-border">
+          <ul className="divide-y divide-border overflow-hidden rounded-card border border-border">
             {templates.map((t) => (
               <li key={t.id}>
                 <button
                   type="button"
                   onClick={() => setSelectedId(t.id)}
-                  className={`flex w-full min-h-[44px] items-center justify-between px-3 text-left text-sm ${selectedId === t.id ? "bg-accent" : ""}`}
+                  className={`flex w-full min-h-tap items-center justify-between px-3 text-left text-sub ${selectedId === t.id ? "bg-accent" : ""}`}
                 >
-                  <span>{t.name}{t.is_system && <span className="ml-2 text-xs text-muted-foreground">（標準）</span>}</span>
+                  <span>{t.name}{t.is_system && <span className="ml-2 text-sub-sm text-muted-foreground">（標準）</span>}</span>
                 </button>
               </li>
             ))}
@@ -115,11 +119,11 @@ export default function ScheduleTemplateSettingsPage() {
               duplicating={duplicateMutation.isPending}
             />
           ) : (
-            <p className="text-sm text-muted-foreground">左から工程テンプレートを選んでください。</p>
+            <p className="text-sub text-muted-foreground">左から工程テンプレートを選んでください。</p>
           )}
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }
 
@@ -144,16 +148,16 @@ function TemplateMetaForm({ template }: { template: ScheduleTemplate }) {
   const dirty = name !== template.name || description !== (template.description ?? "") || locationId !== template.location_id;
 
   return (
-    <div className="space-y-3 rounded-md border border-border p-3">
+    <div className="space-y-3 rounded-card border border-border p-3">
       <div className={formGrid2}>
         <div>
-          <label className="text-xs text-muted-foreground">名前</label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} className="mt-1 min-h-[44px]" />
+          <label className="text-sub-sm text-muted-foreground">名前</label>
+          <Input value={name} onChange={(e) => setName(e.target.value)} className="mt-1 min-h-tap" />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">拠点（絞り込み用。空なら全拠点で出る）</label>
+          <label className="text-sub-sm text-muted-foreground">拠点（絞り込み用。空なら全拠点で出る）</label>
           <Select value={locationId ?? ""} onValueChange={(v) => setLocationId(v || null)}>
-            <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue placeholder="全拠点" /></SelectTrigger>
+            <SelectTrigger className="mt-1 min-h-tap"><SelectValue placeholder="全拠点" /></SelectTrigger>
             <SelectContent>
               {locations.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
             </SelectContent>
@@ -161,10 +165,10 @@ function TemplateMetaForm({ template }: { template: ScheduleTemplate }) {
         </div>
       </div>
       <div>
-        <label className="text-xs text-muted-foreground">説明（任意）</label>
-        <Input value={description} onChange={(e) => setDescription(e.target.value)} className="mt-1 min-h-[44px]" placeholder="例: 授賞式の標準進行" />
+        <label className="text-sub-sm text-muted-foreground">説明（任意）</label>
+        <Input value={description} onChange={(e) => setDescription(e.target.value)} className="mt-1 min-h-tap" placeholder="例: 授賞式の標準進行" />
       </div>
-      <Button size="sm" className="min-h-[44px]" disabled={!dirty || saveMutation.isPending} onClick={() => saveMutation.mutate()}>保存</Button>
+      <Button size="sm" className="min-h-tap" disabled={!dirty || saveMutation.isPending} onClick={() => saveMutation.mutate()}>保存</Button>
     </div>
   );
 }
@@ -189,13 +193,13 @@ function TemplateDetail({ template, onDelete, onDuplicate, duplicating }: { temp
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-base font-semibold text-foreground">{template.name}</h2>
+        <h2 className="text-cardtitle text-foreground">{template.name}</h2>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="min-h-[44px]" disabled={duplicating} onClick={onDuplicate}>
+          <Button variant="outline" size="sm" className="min-h-tap" disabled={duplicating} onClick={onDuplicate}>
             <Copy className="mr-1 h-4 w-4" />複製する
           </Button>
           {!template.is_system && (
-            <Button variant="destructive" size="sm" className="min-h-[44px]" onClick={onDelete}>
+            <Button variant="destructive" size="sm" className="min-h-tap" onClick={onDelete}>
               <Trash2 className="mr-1 h-4 w-4" />この工程テンプレートを削除
             </Button>
           )}
@@ -205,11 +209,11 @@ function TemplateDetail({ template, onDelete, onDuplicate, duplicating }: { temp
       <TemplateMetaForm template={template} />
 
       <section>
-        <h3 className="text-sm font-medium text-foreground">列</h3>
-        <p className="mt-1 text-xs text-muted-foreground">名前・部屋・色の変更はできません（削除して作成し直してください）。</p>
-        <ul className="mt-2 divide-y divide-border rounded-md border border-border">
+        <h3 className="text-list text-foreground">列</h3>
+        <p className="mt-1 text-note text-muted-foreground">名前・部屋・色の変更はできません（削除して作成し直してください）。</p>
+        <ul className="mt-2 divide-y divide-border rounded-card border border-border">
           {template.columns.map((c) => (
-            <li key={c.id} className="flex min-h-[44px] items-center justify-between px-3 text-sm">
+            <li key={c.id} className="flex min-h-tap items-center justify-between px-3 text-sub">
               <span>{COL_GROUP_LABEL[c.col_group]} ・ {c.label}</span>
               <button type="button" onClick={() => removeColumn.mutate(c.id)} className="text-muted-foreground hover:text-destructive">
                 <Trash2 className="h-4 w-4" />
@@ -219,13 +223,13 @@ function TemplateDetail({ template, onDelete, onDuplicate, duplicating }: { temp
         </ul>
         <div className="mt-2 flex gap-2">
           <Select value={colGroup} onValueChange={(v) => setColGroup(v as ColGroup)}>
-            <SelectTrigger className="min-h-[44px] w-32"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="min-h-tap w-32"><SelectValue /></SelectTrigger>
             <SelectContent>
               {(["venue", "prep", "ops"] as ColGroup[]).map((g) => <SelectItem key={g} value={g}>{COL_GROUP_LABEL[g]}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Input value={colLabel} onChange={(e) => setColLabel(e.target.value)} placeholder="列名" className="min-h-[44px]" />
-          <Button className="min-h-[44px]" disabled={!colLabel.trim()} onClick={() => addColumn.mutate()}>追加</Button>
+          <Input value={colLabel} onChange={(e) => setColLabel(e.target.value)} placeholder="列名" className="min-h-tap" />
+          <Button className="min-h-tap" disabled={!colLabel.trim()} onClick={() => addColumn.mutate()}>追加</Button>
         </div>
       </section>
 

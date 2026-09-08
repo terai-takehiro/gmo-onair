@@ -175,18 +175,18 @@ export default function ColumnDialog({ open, onOpenChange, scheduleId, columns, 
         <FormDialogFooter className="sm:justify-between">
           {isEdit ? (
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" size="sm" className="min-h-[44px]" disabled={busy || position <= 0} onClick={() => void move(-1)} aria-label="左へ">
+              <Button type="button" variant="outline" size="sm" className="min-h-tap" disabled={busy || position <= 0} onClick={() => void move(-1)} aria-label="左へ">
                 <ChevronLeft className="h-4 w-4" aria-hidden="true" />左へ
               </Button>
-              <Button type="button" variant="outline" size="sm" className="min-h-[44px]" disabled={busy || position < 0 || position >= siblings.length - 1} onClick={() => void move(1)} aria-label="右へ">
+              <Button type="button" variant="outline" size="sm" className="min-h-tap" disabled={busy || position < 0 || position >= siblings.length - 1} onClick={() => void move(1)} aria-label="右へ">
                 右へ<ChevronRight className="h-4 w-4" aria-hidden="true" />
               </Button>
-              <Button type="button" variant="ghost" size="sm" className="min-h-[44px] text-destructive" disabled={busy} onClick={() => void remove()}>
+              <Button type="button" variant="ghost" size="sm" className="min-h-tap text-destructive" disabled={busy} onClick={() => void remove()}>
                 <Trash2 className="mr-1 h-4 w-4" aria-hidden="true" />削除する
               </Button>
             </div>
           ) : <span />}
-          <Button type="submit" className="min-h-[44px]" disabled={busy}>{isEdit ? "保存" : "列を追加"}</Button>
+          <Button type="submit" className="min-h-tap" disabled={busy}>{isEdit ? "保存" : "列を追加"}</Button>
         </FormDialogFooter>
       }
     >
@@ -212,7 +212,7 @@ export default function ColumnDialog({ open, onOpenChange, scheduleId, columns, 
           <div>
             <Label>部屋</Label>
             <Select value={draft.roomId ?? NO_ROOM} onValueChange={(v) => (v === NO_ROOM ? set("roomId", null) : pickRoom(v))}>
-              <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue placeholder="部屋を選ぶ" /></SelectTrigger>
+              <SelectTrigger className="mt-1 min-h-tap"><SelectValue placeholder="部屋を選ぶ" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value={NO_ROOM}>結ばない（会場名だけ）</SelectItem>
                 {rooms.map((r) => <SelectItem key={r.id} value={r.id}>{r.locationName} ／ {r.name}</SelectItem>)}
@@ -228,7 +228,7 @@ export default function ColumnDialog({ open, onOpenChange, scheduleId, columns, 
               id="column-label"
               value={draft.label}
               onCommit={(v) => set("label", v)}
-              className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              className="mt-1 flex h-10 w-full rounded-control-lg border border-input bg-background px-3 py-2 text-sm"
               placeholder={draft.group === "venue" ? "例: LOUNGE" : draft.group === "prep" ? "例: MC" : "例: 受付"}
             />
           </div>
@@ -243,7 +243,7 @@ export default function ColumnDialog({ open, onOpenChange, scheduleId, columns, 
               aria-checked={draft.color === null}
               aria-label="色なし"
               onClick={() => set("color", null)}
-              className={cn("min-h-[44px] min-w-[44px] rounded-md border-2 bg-background text-xs text-muted-foreground", draft.color === null ? "border-primary" : "border-input")}
+              className={cn("min-h-tap min-w-tap rounded-control-lg border-2 bg-background text-sub-sm text-muted-foreground", draft.color === null ? "border-primary" : "border-input")}
             >
               なし
             </button>
@@ -255,7 +255,7 @@ export default function ColumnDialog({ open, onOpenChange, scheduleId, columns, 
                 aria-checked={draft.color === c.value}
                 aria-label={c.label}
                 onClick={() => set("color", c.value)}
-                className={cn("min-h-[44px] min-w-[44px] rounded-md border-2", draft.color === c.value ? "border-foreground" : "border-transparent")}
+                className={cn("min-h-tap min-w-tap rounded-control-lg border-2", draft.color === c.value ? "border-foreground" : "border-transparent")}
                 style={{ backgroundColor: cssColor(c.value) ?? undefined }}
               />
             ))}

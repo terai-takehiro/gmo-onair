@@ -142,6 +142,25 @@ const PAGES = [
   ['Qシート ランダウン', '/techops/rundown/verify-onair', { dark: true }],
   ['Qシート プロンプター', '/techops/prompter/verify-onair', { dark: true }],
   ['Qシート 公開音声', '/techops/audio/verify-onair'],
+  /*
+   * ⚠️ **ここまでの6本は「まだ v4 化していない画面」しか測っていなかった。**
+   * 2026-09-08 の UI 統一（`docs/reviews/techops-ui-unification-plan.md`）で
+   * <PageShell>/<PageHeader> に寄せたのは下の画面群なので、そこを測らないと
+   * 「ページ幅・見出し・タップ領域が揃ったか」を機械で確かめられない。
+   * **案件・番組の id を取る画面（収録設定・配信設定・計時・テロップCG・レンタル・
+   * スケジュール表の中身）はまだ並べていない** — verify:up の固定シードに
+   * 案件が無く、動的な id を前提にしているため（計時LIVE 側と同じ理由）。
+   */
+  ['制作技術支援 トップ', '/techops/top'],
+  ['制作技術支援 案件選択', '/techops/home'],
+  ['制作技術支援 進行台本一覧', '/techops/sheets'],
+  ['制作技術支援 スケジュール一覧', '/techops/schedules'],
+  ['制作技術支援 スケジュール定型設定', '/techops/settings/schedule-templates'],
+  ['制作技術支援 AIナレッジ', '/techops/ai-knowledge'],
+  ['制作技術支援 計時 組織の鍵設定', '/techops/live-org-settings'],
+  ['制作技術支援 計時 既存セッション', '/techops/live-legacy'],
+  ['制作技術支援 計時 表示テンプレート', '/techops/live-display-templates'],
+  ['制作技術支援 過去実績の移行', '/techops/graphics/awards-migration'],
 
   // ── 計時LIVE (v4 対象・共通シェルへ載せ替え済み) ──────────────
   // 番組配下の画面 (ダッシュボード・タイマー管理・番組設定) は種のデータが要る

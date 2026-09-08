@@ -20,6 +20,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@gmo-onair/shared/src/client/ui/switch';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifyError, notifySuccess } from '@/lib/notify';
 import {
@@ -48,16 +50,16 @@ export default function InteractiveLinkSettingsPanel() {
   }
   if (state.status === 'not-found') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         <EmptyState icon={<Link2 />} title="見つかりませんでした" description="管理番号が合っているか確かめてください。" />
-      </div>
+      </PageShell>
     );
   }
   if (state.status === 'error') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         <EmptyState icon={<AlertCircle />} title="開けませんでした" description={state.message} />
-      </div>
+      </PageShell>
     );
   }
 
@@ -167,15 +169,17 @@ export function InteractiveLinkContent({ ownerKey, owner, projectId, embedded = 
   const body = (
     <>
       {!embedded && (
-        <div className="min-w-0">
-          <h1 className="text-h1">外部インタラクティブ連携 ／ {owner.name}</h1>
-          <p className="mt-1 text-sub text-muted-foreground">
-            別VPS（<code className="rounded bg-surface-subtle px-1">interactive.gmo-onair.jp</code>）の
-            投票・クイズと連動させるための接続先です。プロジェクト単位の設定で、投票（
-            <strong className="font-bold text-foreground">vote</strong> パーツ）のページ編集フォームから
-            個別に「外部インタラクティブと同期」できるようになります。
-          </p>
-        </div>
+        <PageHeader
+          title={`外部インタラクティブ連携 ／ ${owner.name}`}
+          sub={(
+            <>
+              別VPS（<code className="rounded bg-surface-subtle px-1">interactive.gmo-onair.jp</code>）の
+              投票・クイズと連動させるための接続先です。プロジェクト単位の設定で、投票（
+              <strong className="font-bold text-foreground">vote</strong> パーツ）のページ編集フォームから
+              個別に「外部インタラクティブと同期」できるようになります。
+            </>
+          )}
+        />
       )}
       {embedded && (
         <p className="text-sub text-muted-foreground">
@@ -294,15 +298,15 @@ export function InteractiveLinkContent({ ownerKey, owner, projectId, embedded = 
 
   if (embedded) return body;
   return (
-    <div className="px-4 py-6 sm:px-6 sm:py-8">
+    <PageShell>
       <Link
         to={templatesPath(ownerKey)}
-        className="mb-2 inline-flex min-h-tap items-center gap-1 rounded-control-md px-1.5 text-sub font-bold text-muted-foreground hover:text-foreground"
+        className="inline-flex min-h-tap w-fit items-center gap-1 rounded-control-md px-1.5 text-sub font-bold text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         テンプレート管理へ戻る
       </Link>
       {body}
-    </div>
+    </PageShell>
   );
 }

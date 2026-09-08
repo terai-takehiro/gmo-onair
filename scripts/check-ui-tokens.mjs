@@ -149,6 +149,103 @@ const NOT_A_SCREEN = [
   'client-equipment/src/pages/rackLayout/RackDisplay',
 ];
 
+/**
+ * **コメントの中は検査しない** — 「なぜそう書かないか」を残せるようにするため。
+ *
+ * 行頭の `//` `*` `/*` `{/*` を落とすだけでは足りない。**ブロックコメントの
+ * 2行目以降は行頭が記号ではない**ので素通りする。実際 v4.7 で
+ * 「自前の上辺バーは持たない（もとは … ＋ 14px の h1）」という**説明文**が
+ * `page-h1-by-hand` に当たった（この製品が4回踏んだ「説明文の中に実物を書く」）。
+ *
+ * ⚠️ **直前3行だけ見る形にしてはいけない**（最初そう書いて Codex に指摘された）。
+ * コメントが4行以上あって5行目で実物に触れると、窓の中に `/*` が入らないので
+ * **コードとして扱われ、説明文が違反になる** — この関数が防ぎたかったものそのもの。
+ *
+ * そこで**ファイルを1度なめてコメントを空白で塗り潰した写し**を作り、
+ * 検査はその写しに当てる（報告に出す文字列は元の行のまま）。
+ * 文字列・テンプレートリテラルの中は塗らない（`'/*'` という**値**で
+ * ファイルの残り全部がコメント扱いになると、逆に違反を丸ごと見逃す）。
+ *
+ * **塗り潰しに失敗したら（閉じていないブロックが残ったら）写しを使わない。**
+ * 正規表現リテラルなど、この単純な走査で読み違える書き方が将来入ったとき、
+ * 静かに検査が効かなくなるより、元の行で当てて多めに報告するほうが安全。
+ */
+function blankComments(text, { strings = false } = {}) {
+  const out = text.split('');
+  let i = 0;
+  let inBlock = false;
+  while (i < text.length) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (inBlock) {
+      if (ch === '*' && next === '/') { out[i] = ' '; out[i + 1] = ' '; i += 2; inBlock = false; continue; }
+      if (ch !== '\n') out[i] = ' ';
+      i += 1;
+      continue;
+    }
+    if (ch === "'" || ch === '"' || ch === '`') {
+      const quote = ch;
+      i += 1;
+      let depth = 0;   // テンプレートの `${…}` の中は**コード**なので塗らない
+      while (i < text.length) {
+        if (text[i] === '\\') { i += 2; continue; }
+        if (quote === '`' && depth === 0 && text[i] === '$' && text[i + 1] === '{') {
+          depth = 1; i += 2;
+          // 波括弧の対応を数えて `${…}` を素通りさせる（中の JSX を消さない）
+          while (i < text.length && depth > 0) {
+            if (text[i] === '{') depth += 1;
+            else if (text[i] === '}') depth -= 1;
+            i += 1;
+          }
+          continue;
+        }
+        if (text[i] === quote) { i += 1; break; }
+        // `strings` を頼まれたときだけ**値の中身**を消す。
+        // 文字列の中に書いた `'<PageShell>'` を「部品を置いた」と読ませないため
+        if (strings && text[i] !== '\n') out[i] = ' ';
+        i += 1;
+      }
+      continue;
+    }
+    /*
+     * **エスケープの次の文字は読み飛ばす。** 正規表現リテラルの中の `\/` を
+     * 素で読むと、`/a\/*b/` の `/*` を**ブロックコメントの始まり**と取り違え、
+     * そこから次の `*​/` までのコードを塗り潰して**違反を静かに見逃す**。
+     * (いま走査対象の 1300 ファイルにこの書き方は無いが、入った日に気づけない)
+     */
+    if (ch === '\\') { i += 2; continue; }
+    if (ch === '/' && next === '/') {
+      while (i < text.length && text[i] !== '\n') { out[i] = ' '; i += 1; }
+      continue;
+    }
+    if (ch === '/' && next === '*') { out[i] = ' '; out[i + 1] = ' '; i += 2; inBlock = true; continue; }
+    i += 1;
+  }
+  // 閉じ忘れ = 読み違えたということ。写しは使わない (呼ぶ側が元の行に戻す)
+  return inBlock ? null : out.join('');
+}
+
+/**
+ * **画面（ルートに割り当てた部品）のファイルだけ。**
+ *
+ * ダイアログやカードなど「画面ではない部品」に本文幅の決まりを当てると、
+ * 例えばダイアログを `sm:max-w-4xl` で広げただけで
+ * 「`<PageShell>` を使え」という**見当違いの案内**で lint が止まる。
+ *
+ * ⚠️ **`/pages/` を含むかで見てはいけない**（最初そう書いて Codex に指摘された）。
+ * この製品は `src/pages/` の下に画面でない部品も置く — 実測で **521 個**あり、
+ * `pages/sheets/CreateSheetDialog.tsx` や `pages/graphics/TemplateFormDialog.tsx`
+ * のようなダイアログがそこに含まれる。
+ *
+ * **ファイル名が `…Page.tsx` かで見る。** ルーターの `element={<…/>}` を数えると
+ * 68 個のうち画面はすべて `Page` で終わり、残りは `ProtectedRoute` や
+ * `RedirectOnce` など**絵を持たない包み**だけだった（実測）。
+ * 画面を `…Page.tsx` 以外の名前で作った日は見逃すが、**見逃しは静かに増えるだけ**で、
+ * 誤検知のように他の人の lint を止めはしない。
+ */
+const isPageFile = (rel) =>
+  /^client(-daily|-equipment|-techops)?\/src\//.test(rel) && /Page\.tsx$/.test(rel);
+
 const RULES = [
   {
     id: 'money-by-hand',
@@ -380,6 +477,97 @@ const RULES = [
        + '（38か所で重複し、`lg:` `sm:` `heading-page` の3種類が混ざっていました）',
     only: v4Only,   // 凍結アプリは見た目を変えないので当てない
   },
+  /* ── 画面の外枠 (v4.7・`_rules.md`「5. ページの外枠」) ────────── */
+  {
+    id: 'page-width-by-hand',
+    /**
+     * **本文の幅を画面ごとに書いている。**
+     *
+     * 制作技術支援を数えたら、ページ直下の枠が **8通り**に割れていた
+     * (幅なし / `screen-2xl` / `6xl` が2種の余白で / `5xl` が2種 / `4xl` / `3xl` が2種)。
+     * 同じサイドバーの中で隣り合う画面の本文幅と左右余白が違うと、
+     * **画面を移るたびに文章の左端が動く**。文字の大きさより先に気づく差。
+     *
+     * `<PageShell>` が持つ段は `full`(制限なし) と `narrow`(`max-w-3xl`) の2つだけ。
+     * **中間の段を1つ許すと、次の画面が別の中間を選んで元に戻る**ので、
+     * 中間 (`4xl` `5xl` `6xl` `7xl` `screen-*`) をここで止める。
+     */
+    re: /\bmax-w-(?:4xl|5xl|6xl|7xl|screen-[a-z0-9]+)\b/,
+    why: '本文の幅は `<PageShell>` の2段 (`full` / `narrow`) から選びます'
+       + '（`shared/src/client/ui/pageShell.tsx`。中間の段を1つ許すと'
+       + '次の画面が別の中間を選び、画面を移るたびに本文の左端が動きます）',
+    // **画面のファイルだけ**。ダイアログ・カードなど画面でない部品は対象外
+    // (そこに当てると「ダイアログを広げた」だけで見当違いの案内で止まる)
+    only: isPageFile,
+    // コメントの中は見ない (塗り潰した写しに当てる)
+    codeOnly: true,
+  },
+  {
+    id: 'page-h1-by-hand',
+    /**
+     * **画面の名前を `<h1>` で手書きしている。**
+     *
+     * 制作技術支援では h1 の書き方が **11通り・14px〜24px** に割れていた
+     * (`text-h1` 7 / `truncate text-lg font-bold` 6 / `text-sm font-bold` 3 ほか)。
+     * 自前の上辺バーを持つ画面では 14px まで小さくなっていた。
+     * 画面の名前は `<PageHeader>` (`text-h1` = 23px/800) 1つに寄せる。
+     */
+    /**
+     * ⚠️ **大きさを並べて当ててはいけない。** 最初はこう書いていた:
+     *   `<h1 … className="… text-(xs|sm|base|lg|xl|2xl|3xl) …">`
+     * これだと **(a) 素直に `text-h1` と手書きした見出し**も、
+     * **(b) `className` が次の行にある書き方**も素通りする
+     * (この検査は1行ずつ当てるため)。**この決まりが禁じたはずのものを、
+     * この決まりが許す**状態だった (Codex レビュー #647 の指摘)。
+     *
+     * 大きさではなく**タグそのもの**を見る。画面の名前は `<PageHeader>` が出すので、
+     * 画面側に `<h1>` が現れること自体が違反。
+     */
+    // **行末で終わる `<h1` も拾う**（`$`）。`[\s>/]` だけだと
+    // 属性を次の行に書いた `<h1⏎  className=…>` に当たらず、
+    // 指摘②の (b) がそのまま残っていた（再現して確認した）
+    re: /<h1(?=[\s>/]|$)/,
+    why: '画面の名前は `<PageHeader title=… />` を使います'
+       + '（`shared/src/client/ui/pageHeader.tsx`。制作技術支援では h1 の書き方が'
+       + '11通り・14px〜24px に割れていました）。'
+       + '`text-h1` を手で当てるのも同じ — 大きさが合っていても、'
+       + '副題の位置・スマホでの折り返し・主アクションの差し込み口が画面ごとにずれます',
+    // 見出し部品の実装本体 (`ui/pageHeader` `ui/numbers` `dashboard/DashboardHeader`) は
+    // そこが本体なので対象外
+    only: (rel) =>
+      v4Only(rel)
+      && !/^shared\/src\/client\/(ui|dashboard|shell)\//.test(rel),
+    // コメントの中は見ない (塗り潰した写しに当てる)
+    codeOnly: true,
+  },
+  {
+    id: 'page-safe-area-by-hand',
+    /**
+     * **画面が自分でホームバーの逃げを書いている。**
+     *
+     * ホームバーの逃げを持っているのは共通シェル (`shell/AppShell.tsx` の
+     * 主アクションの差し込み口と `MobileTabs`)。画面側で
+     * `style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}` と書くと、
+     * **インラインの指定が `p-3` の下余白に勝って 0px になり**、
+     * ノッチの無い端末では単に本文の下の余白が消える
+     * (制作技術支援の計時・収録・配信の5画面で実際にそうなっていた)。
+     *
+     * シェル側は `calc(0.75rem + env(...))` と足し算で書いているので当たらない。
+     */
+    /*
+     * Tailwind の任意値で書いた `pb-[env(safe-area-inset-bottom)]` も同じ壊れ方をする
+     * （`p-3` の下余白を上書きして 0px になる）。いま使っている箇所は無いが、
+     * **別の綴りで書けば通る**状態を残さない（自己監査で見つけた・#647）。
+     * `calc(… + env(…))` の足し算はシェル側の正しい書き方なので当てない。
+     */
+    re: /paddingBottom:\s*(["'`])env\(safe-area-inset-bottom\)\1|pb-\[env\(safe-area-inset-bottom\)\]/,
+    why: 'ホームバーの逃げは共通シェルが持っています'
+       + '（画面側で書くと `p-*` の下余白にインライン指定が勝って **0px** になり、'
+       + 'ノッチの無い端末では下の余白がただ消えます）。'
+       + '外枠は `<PageShell>` を使ってください',
+    // 画面 (pages / contexts) だけに当てる。シェル・下タブはここが本体
+    only: (rel) => /^client(-daily|-equipment|-techops)?\/src\/(pages|contexts)\//.test(rel),
+  },
   {
     id: 'ai-person-name',
     // AI (MCP 経由) がやったことに人名を出す書き方。
@@ -585,6 +773,13 @@ for (const file of files) {
   const notAScreen = NOT_A_SCREEN.some((s) => rel.startsWith(s));
   const text = readFileSync(file, 'utf8');
   const lines = text.split('\n');
+  /*
+   * コメントを空白で塗り潰した写し。`codeOnly` の規則だけがこちらを見る
+   * (既存の規則の当たり方は変えない — 記録がずれるとレビューが読めなくなる)。
+   * 読み違えて `null` が返ったときは元の行に戻す = 多めに報告する側に倒す。
+   */
+  const blanked = blankComments(text);
+  const codeLines = blanked ? blanked.split('\n') : lines;
   lines.forEach((line, i) => {
     // 「ここは意図してこう書いている」と書いた行は見逃す (逃げ道を1つだけ用意する)
     if (line.includes('ui-tokens-ok')) return;
@@ -601,11 +796,63 @@ for (const file of files) {
         'raw-palette', 'translucent-text', 'control-height', 'tap-target', 'col-width-by-hand',
       ].includes(rule.id)) continue;
       if (rule.only && !rule.only(rel)) continue;
-      if (!rule.re.test(line)) continue;
-      if (rule.extra && !rule.extra(line, block)) continue;
+      // `codeOnly` の規則は「コメントを塗り潰した写し」に当てる。
+      // 報告に出す文字列は元の行のまま (読む人には元の行が見えないと直せない)
+      const target = rule.codeOnly ? codeLines[i] : line;
+      if (!rule.re.test(target)) continue;
+      if (rule.extra && !rule.extra(target, block)) continue;
       findings.push({ rel, line: i + 1, id: rule.id, why: rule.why, text: line.trim().slice(0, 120) });
     }
   });
+
+  /*
+   * ── 画面が `<PageShell>` を使っているか（行ではなくファイル単位）────
+   *
+   * 幅トークンの列挙（`page-width-by-hand`）だけでは
+   * 「本文の幅と余白は `<PageShell>` から来る」という決まりを守らせられない。
+   * `max-w-2xl` でも `max-w-[900px]` でも `px-8` でも、幅を書かなくても
+   * 素通りする — **どれも今回直した「画面ごとに左端が動く」を作り直せる書き方**
+   * （Codex レビュー #647 の指摘）。
+   *
+   * ⚠️ **当てるのは制作技術支援だけ。** 33 画面のうち 26 画面が
+   * すでに `<PageShell>` に載っており、残り 7 つ（ログイン・編集・本番3画面・
+   * 公開音声・テロップCG の出力）は**共通シェルの外にある画面**として
+   * 意図的に対象外にしたもの。ここは記録に入れて「増えたら止める」。
+   *
+   * 案件管理・日常業務・機材管理（79 画面）は 1 つも載っていない。
+   * ここへ広げるかは**アプリを跨ぐ決めごと**なので、当てない
+   * （`missing-font-weight` を凍結アプリに当てないのと同じ考え方 —
+   * 直せない違反を並べると検査ごと無視される）。
+   */
+  /*
+   * ⚠️ **文字列として `PageShell` が出てくるかで見てはいけない**
+   * （最初そう書いて Codex に指摘された）。`// TODO: PageShell に移す` と
+   * 書いただけの画面が通ってしまい、**この決まりが防ぎたかった手書きの外枠**が
+   * そのまま残る。**コメントを塗り潰した写しの中に、部品として置かれているか**を見る。
+   * 行末で終わる `<PageShell` も拾う（属性を次の行に書く形。`page-h1-by-hand` と同じ）。
+   */
+  /*
+   * ⚠️ **文字列の中身も消した写しで見る。** `blankComments()` は既定で
+   * 文字列を残す（`'/*'` という値でファイルの残りがコメント扱いになるのを避けるため）
+   * が、そのままだと `const example = '<PageShell>';` と書いた画面が
+   * 「部品を置いた」と読まれて通ってしまう（Codex が実際に再現して指摘・#647）。
+   * ここは**置いてあるか**を見たいので、文字列も潰した写しを別に作る。
+   * テンプレートの `${…}` はコードなので潰さない。
+   */
+  const code = blankComments(text, { strings: true });
+  const usesPageShell = /<PageShell(?=[\s>/]|$)/m.test(code ?? text);
+  if (/^client-techops\/src\/pages\//.test(rel) && /Page\.tsx$/.test(rel) && !usesPageShell) {
+    findings.push({
+      rel,
+      line: 1,
+      id: 'page-shell-missing',
+      why: '画面の外枠は `<PageShell>` から出します'
+         + '（`shared/src/client/ui/pageShell.tsx`。幅と余白を画面ごとに書くと'
+         + '画面を移るたび本文の左端が動きます。共通シェルの外に出す画面は'
+         + '記録に入れてください）',
+      text: rel.split('/').pop(),
+    });
+  }
 }
 
 const serverFiles = SERVER_DIRS.flatMap((d) => walk(join(ROOT, d)));
@@ -673,7 +920,6 @@ const BASELINE = {
     },
     "empty-by-hand": {
       "client": 4,
-      "client-equipment": 1,
       "client-techops": 1,
       "shared": 2
     },
@@ -684,24 +930,32 @@ const BASELINE = {
       "shared": 1
     },
     "missing-font-weight": {
-      "client": 124,
-      "client-daily": 6,
-      "client-equipment": 46
+      "client": 124
     },
     "money-by-hand": {
       "client": 3,
       "client-equipment": 1
     },
+    "page-h1-by-hand": {
+      "client": 13,
+      "client-techops": 5
+    },
+    "page-shell-missing": {
+      "client-techops": 7
+    },
     "page-title-by-hand": {
       "client": 4,
-      "client-equipment": 1,
-      "client-techops": 1,
       "shared": 1
+    },
+    "page-width-by-hand": {
+      "client": 3,
+      "client-equipment": 1,
+      "client-techops": 1
     },
     "raw-palette": {
       "client": 89,
-      "client-daily": 33,
-      "client-equipment": 65,
+      "client-daily": 3,
+      "client-equipment": 48,
       "client-techops": 146,
       "shared": 6
     },
@@ -710,7 +964,7 @@ const BASELINE = {
     },
     "translucent-text": {
       "client": 13,
-      "client-daily": 2,
+      "client-daily": 1,
       "client-equipment": 5,
       "client-techops": 20,
       "shared": 5

@@ -34,7 +34,7 @@ export default function ScheduleSiblingDays({ projectId, programId, currentId }:
   if (days.length <= 1) return null;
 
   return (
-    <div className="mb-2 flex flex-wrap items-center gap-1.5" role="group" aria-label="同じイベントの他の日">
+    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="同じイベントの他の日">
       {days.map((d) => {
         const current = d.id === currentId;
         return (
@@ -44,8 +44,8 @@ export default function ScheduleSiblingDays({ projectId, programId, currentId }:
             disabled={current}
             onClick={() => navigate(`/techops/schedules/${d.id}`)}
             className={cn(
-              "min-h-[44px] rounded-full border px-2.5 text-xs",
-              current ? "border-primary bg-primary/10 font-semibold text-primary" : "border-border text-muted-foreground hover:bg-accent",
+              "min-h-tap rounded-chip border px-2.5",
+              current ? "border-primary bg-primary/10 text-badge text-primary" : "border-border text-sub-sm text-muted-foreground hover:bg-accent",
             )}
           >
             {formatDateJp(d.service_date)}

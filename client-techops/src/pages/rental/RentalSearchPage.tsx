@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tansta
 import { ChevronLeft, ListChecks, RefreshCw, Search as SearchIcon, Video } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { FilterChips, type FilterChipItem } from '@gmo-onair/shared/src/client/ui/filterChips';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
@@ -162,7 +163,7 @@ export default function RentalSearchPage() {
   };
 
   return (
-    <div className="mx-auto flex h-full max-w-6xl flex-col gap-3 px-3 py-4 sm:px-6 sm:py-6">
+    <PageShell className="h-full">
       <button
         type="button"
         onClick={() => navigate(-1)}
@@ -174,7 +175,6 @@ export default function RentalSearchPage() {
 
       <PageHeader
         title="レンタル機材検索"
-        sub="TOC・レスターの機材を横断検索して、この番組の予約リストに入れられます"
         primaryAction={
           <Button
             variant="outline"
@@ -191,6 +191,9 @@ export default function RentalSearchPage() {
           </Button>
         }
       />
+      <p className="text-note text-muted-foreground">
+        TOC・レスターの機材を横断検索して、この番組の予約リストに入れられます。
+      </p>
 
       <div className="flex flex-wrap items-center gap-2.5 rounded-card border border-border bg-card p-2.5">
         <div className="relative w-full sm:w-60">
@@ -289,7 +292,7 @@ export default function RentalSearchPage() {
         ownerKey={ownerKey} target={detailTarget} defaultDate={defaultDate}
         onOpenChange={(open) => !open && setDetailTarget(null)}
       />
-    </div>
+    </PageShell>
   );
 }
 

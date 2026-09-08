@@ -57,7 +57,7 @@ function VoteCountdownBadge({ votePage }: { votePage: GraphicsPageRow | null }) 
       <Timer className="h-4 w-4 shrink-0" aria-hidden="true" />
       <span className="font-number">締切まで残り {remaining} 秒</span>
       {linked && (
-        <span className="inline-flex h-5 shrink-0 items-center gap-0.5 rounded-control bg-info px-1.5 text-[10px] font-bold text-info-foreground">
+        <span className="inline-flex h-5 shrink-0 items-center gap-0.5 rounded-control bg-info px-1.5 text-badge text-info-foreground">
           <Link2 className="h-2.5 w-2.5" aria-hidden="true" />外部連携
         </span>
       )}

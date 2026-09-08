@@ -23,6 +23,8 @@ import api from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, CheckCircle, ShieldOff } from 'lucide-react';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import OrgKeysSection from './OrgKeysSection';
 import PersonalTestKeysSection from './PersonalTestKeysSection';
 import ZoomSettingsSection from './ZoomSettingsSection';
@@ -81,75 +83,73 @@ export default function LiveOrgSettingsPage() {
     },
   });
 
-  const Header = (
-    <div className="flex items-center gap-3 border-b border-border bg-card px-4 py-2">
-      <button
-        type="button"
-        onClick={() => navigate(-1)}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg hover:bg-muted"
-        aria-label="戻る"
-      >
-        <ChevronLeft className="h-5 w-5" />
-      </button>
-      <h1 className="text-sm font-bold">計時・視聴者 — 組織の鍵設定</h1>
-    </div>
+  /* ⚠️ **自前の上辺バーは持たない**（もとは `border-b bg-card px-4 py-2` ＋ 14px の
+     `<h1>`）。共通シェルのヘッダーと二重になり、この画面だけ見出しが小さくなっていた。
+     戻るボタンは `<PageShell>` の中の見出しの上へ移した */
+  const backButton = (
+    <button
+      type="button"
+      onClick={() => navigate(-1)}
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-control-lg hover:bg-muted"
+      aria-label="戻る"
+    >
+      <ChevronLeft className="h-5 w-5" />
+    </button>
   );
 
   if (!canManage) {
     return (
-      <div className="flex h-full flex-col">
-        {Header}
-        <div className="flex flex-1 items-center justify-center text-muted-foreground gap-2">
+      <PageShell width="narrow">
+        {backButton}
+        <PageHeader title="計時・視聴者 — 組織の鍵設定" />
+        <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
           <ShieldOff className="h-5 w-5" />
-          <span className="text-sm">設定を変えるには 制作技術支援の「管理」が必要です。</span>
+          <span className="text-sub">設定を変えるには 制作技術支援の「管理」が必要です。</span>
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   return (
-    <div className="flex h-full flex-col">
-      {Header}
+    <PageShell width="narrow">
+      {backButton}
+      <PageHeader title="計時・視聴者 — 組織の鍵設定" />
 
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="mx-auto max-w-3xl space-y-6">
-          {/* 組織共通の鍵（サーバー側の計測が使う） */}
-          <OrgKeysSection />
+      {/* 組織共通の鍵（サーバー側の計測が使う） */}
+      <OrgKeysSection />
 
-          {/* API Keys（接続テスト専用。計測はここではなく上の組織共通の鍵を使う） */}
-          <PersonalTestKeysSection
-            settings={settings}
-            youtubeApiKey={youtubeApiKey} setYoutubeApiKey={setYoutubeApiKey}
-            jstreamToken={jstreamToken} setJstreamToken={setJstreamToken}
-          />
+      {/* API Keys（接続テスト専用。計測はここではなく上の組織共通の鍵を使う） */}
+      <PersonalTestKeysSection
+        settings={settings}
+        youtubeApiKey={youtubeApiKey} setYoutubeApiKey={setYoutubeApiKey}
+        jstreamToken={jstreamToken} setJstreamToken={setJstreamToken}
+      />
 
-          <ZoomSettingsSection
-            hasCredentials={settings?.hasZoomCredentials}
-            hasOwnCredentials={settings?.hasOwnZoomCredentials}
-            accountId={zoomAccountId} setAccountId={setZoomAccountId}
-            clientId={zoomClientId} setClientId={setZoomClientId}
-            clientSecret={zoomClientSecret} setClientSecret={setZoomClientSecret}
-          />
+      <ZoomSettingsSection
+        hasCredentials={settings?.hasZoomCredentials}
+        hasOwnCredentials={settings?.hasOwnZoomCredentials}
+        accountId={zoomAccountId} setAccountId={setZoomAccountId}
+        clientId={zoomClientId} setClientId={setZoomClientId}
+        clientSecret={zoomClientSecret} setClientSecret={setZoomClientSecret}
+      />
 
-          <TeamsSettingsSection
-            hasCredentials={settings?.hasTeamsCredentials}
-            hasOwnCredentials={settings?.hasOwnTeamsCredentials}
-            tenantId={teamsTenantId} setTenantId={setTeamsTenantId}
-            clientId={teamsClientId} setClientId={setTeamsClientId}
-            clientSecret={teamsClientSecret} setClientSecret={setTeamsClientSecret}
-          />
+      <TeamsSettingsSection
+        hasCredentials={settings?.hasTeamsCredentials}
+        hasOwnCredentials={settings?.hasOwnTeamsCredentials}
+        tenantId={teamsTenantId} setTenantId={setTeamsTenantId}
+        clientId={teamsClientId} setClientId={setTeamsClientId}
+        clientSecret={teamsClientSecret} setClientSecret={setTeamsClientSecret}
+      />
 
-          <Button
-            className="w-full"
-            onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending}
-          >
-            {saved ? <><CheckCircle className="h-4 w-4 mr-2" />保存しました</> : '設定を保存'}
-          </Button>
+      <Button
+        className="w-full"
+        onClick={() => saveMutation.mutate()}
+        disabled={saveMutation.isPending}
+      >
+        {saved ? <><CheckCircle className="h-4 w-4 mr-2" />保存しました</> : '設定を保存'}
+      </Button>
 
-          <ExportImportSection />
-        </div>
-      </div>
-    </div>
+      <ExportImportSection />
+    </PageShell>
   );
 }

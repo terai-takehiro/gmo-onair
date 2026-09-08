@@ -62,7 +62,7 @@ export default function ScheduleOwnerFields({ value, onChange, locked, lockedLab
     return (
       <div>
         <Label>案件／番組</Label>
-        <p className="mt-1 min-h-[44px] rounded-md border border-input bg-muted/40 px-3 py-2.5 text-sm text-foreground">
+        <p className="mt-1 min-h-tap rounded-control-lg border border-input bg-muted/40 px-3 py-2.5 text-sm text-foreground">
           {lockedLabel ?? "（この一覧の絞り込みに従います）"}
         </p>
       </div>
@@ -91,7 +91,7 @@ export default function ScheduleOwnerFields({ value, onChange, locked, lockedLab
           <div>
             <Label>案件（GLS）</Label>
             <Select value={value.projectId ?? ""} onValueChange={(v) => onChange({ ...value, projectId: v || null, episodeId: null })}>
-              <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue placeholder="案件を選ぶ" /></SelectTrigger>
+              <SelectTrigger className="mt-1 min-h-tap"><SelectValue placeholder="案件を選ぶ" /></SelectTrigger>
               <SelectContent>
                 {(projectsQuery.data ?? []).map((p) => (
                   <SelectItem key={p.id} value={p.id}>{p.gls_number ? `${p.gls_number} — ` : ""}{p.name}</SelectItem>
@@ -103,7 +103,7 @@ export default function ScheduleOwnerFields({ value, onChange, locked, lockedLab
             <div>
               <Label>回（任意）</Label>
               <Select value={value.episodeId ?? ""} onValueChange={(v) => onChange({ ...value, episodeId: v || null })}>
-                <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue placeholder="決めていない" /></SelectTrigger>
+                <SelectTrigger className="mt-1 min-h-tap"><SelectValue placeholder="決めていない" /></SelectTrigger>
                 <SelectContent>
                   {(episodesQuery.data ?? []).map((ep) => (
                     <SelectItem key={ep.id} value={ep.id}>{ep.episode_code}{ep.broadcast_date ? ` — ${ep.broadcast_date}` : ""}</SelectItem>
@@ -119,7 +119,7 @@ export default function ScheduleOwnerFields({ value, onChange, locked, lockedLab
         <div>
           <Label>番組</Label>
           <Select value={value.programId ?? ""} onValueChange={(v) => onChange({ ...value, programId: v || null })}>
-            <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue placeholder="番組を選ぶ" /></SelectTrigger>
+            <SelectTrigger className="mt-1 min-h-tap"><SelectValue placeholder="番組を選ぶ" /></SelectTrigger>
             <SelectContent>
               {(programsQuery.data ?? []).map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
             </SelectContent>

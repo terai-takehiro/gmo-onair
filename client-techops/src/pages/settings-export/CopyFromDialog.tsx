@@ -83,7 +83,7 @@ export default function CopyFromDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>前回の設定を複製</DialogTitle></DialogHeader>
 
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sub text-muted-foreground">
           選んだ日の{whatLabel(what)}を、この画面（<strong>{date}</strong>）に上書きコピーします。
         </p>
 
@@ -92,12 +92,12 @@ export default function CopyFromDialog({
             <div>
               <Label>この案件の別の日から</Label>
               {candidates.length === 0 ? (
-                <p className="mt-1 rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                <p className="mt-1 rounded-note border bg-muted/40 px-3 py-2 text-sub text-muted-foreground">
                   この案件に、写せる{whatLabel(what)}のある日がまだありません。
                 </p>
               ) : (
                 <select
-                  className="mt-1 h-11 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                  className="mt-1 h-11 w-full rounded-control-lg border border-input bg-background px-3 text-sub"
                   value={pickedDate}
                   onChange={(e) => setPickedDate(e.target.value)}
                 >
@@ -106,7 +106,7 @@ export default function CopyFromDialog({
               )}
               <button
                 type="button"
-                className="mt-2 min-h-[44px] text-sm text-primary underline underline-offset-2"
+                className="mt-2 min-h-tap text-sub text-primary underline underline-offset-2"
                 onClick={() => setOtherOwner(true)}
               >
                 別の案件から複製
@@ -124,7 +124,7 @@ export default function CopyFromDialog({
               </div>
               <button
                 type="button"
-                className="min-h-[44px] text-sm text-primary underline underline-offset-2"
+                className="min-h-tap text-sub text-primary underline underline-offset-2"
                 onClick={() => setOtherOwner(false)}
               >
                 この案件の別の日に戻す
@@ -132,7 +132,7 @@ export default function CopyFromDialog({
             </>
           )}
 
-          <p className="rounded-lg border border-warning-border bg-warning-surface px-3 py-2 text-xs text-muted-foreground">
+          <p className="rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-note text-muted-foreground">
             <strong className="text-warning">ストリームキーと WEB会議は複製しません。</strong>
             鍵は「前回の設定を複製」で付いてくると意図しない配信につながるため、
             会議の URL・パスコードは日ごとに別物のためです。

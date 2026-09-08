@@ -88,14 +88,14 @@ export default function ApplyTemplateDialog({ open, onOpenChange, scheduleId, lo
               {isSystemAdmin && (
                 <Link
                   to={templateId ? `/techops/settings/schedule-templates?template=${templateId}` : "/techops/settings/schedule-templates"}
-                  className="inline-flex min-h-[44px] items-center gap-1 text-sm text-primary hover:underline"
+                  className="inline-flex min-h-tap items-center gap-1 text-sub text-primary hover:underline"
                 >
                   <Pencil className="h-3.5 w-3.5" aria-hidden="true" />工程テンプレートを編集
                 </Link>
               )}
             </div>
             <Select value={templateId} onValueChange={setTemplateId}>
-              <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue placeholder="選んでください" /></SelectTrigger>
+              <SelectTrigger className="mt-1 min-h-tap"><SelectValue placeholder="選んでください" /></SelectTrigger>
               <SelectContent>
                 {(templatesQuery.data ?? []).map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
               </SelectContent>
@@ -109,36 +109,36 @@ export default function ApplyTemplateDialog({ open, onOpenChange, scheduleId, lo
                 id="onair-start"
                 value={onairStartMin != null ? fmtHmPad(onairStartMin) : ""}
                 onCommit={(v) => setOnairStartMin(parseHm(v))}
-                className="mt-1 flex h-10 w-full max-w-[160px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="mt-1 flex h-10 w-full max-w-[160px] rounded-control-lg border border-input bg-background px-3 py-2 text-sm"
                 placeholder="19:00"
               />
             </div>
           )}
 
           {previewQuery.data && (
-            <div className="max-h-[40vh] space-y-3 overflow-y-auto rounded-md border border-border p-3">
+            <div className="max-h-[40vh] space-y-3 overflow-y-auto rounded-card border border-border p-3">
               <div>
-                <div className="mb-1 text-xs font-semibold text-muted-foreground">列</div>
+                <div className="mb-1 text-th text-muted-foreground">列</div>
                 {previewQuery.data.columns.map(({ col, already_present }) => (
-                  <label key={col.id} className="flex min-h-[44px] items-center gap-2 text-sm">
+                  <label key={col.id} className="flex min-h-tap items-center gap-2 text-sub">
                     <input type="checkbox" className="h-5 w-5" checked={checkedCols.has(col.id)}
                       onChange={() => toggle(checkedCols, col.id, setCheckedCols)} />
                     <span>{col.label}</span>
-                    {already_present && <span className="text-xs text-muted-foreground">（すでに入っています）</span>}
+                    {already_present && <span className="text-sub-sm text-muted-foreground">（すでに入っています）</span>}
                   </label>
                 ))}
               </div>
               <div>
-                <div className="mb-1 text-xs font-semibold text-muted-foreground">項目</div>
+                <div className="mb-1 text-th text-muted-foreground">項目</div>
                 {previewQuery.data.items.map(({ item, start_min, end_min, already_applied }) => (
-                  <label key={item.id} className="flex min-h-[44px] items-center gap-2 text-sm">
+                  <label key={item.id} className="flex min-h-tap items-center gap-2 text-sub">
                     <input type="checkbox" className="h-5 w-5" checked={checkedItems.has(item.id)}
                       onChange={() => toggle(checkedItems, item.id, setCheckedItems)} />
                     {/* 日付の期間ではなく時刻の範囲なので <DateRange> の対象外 */}
                     <span className={start_min == null ? "text-destructive" : ""}>
                       {start_min != null ? `${fmtHmPad(start_min)}〜${fmtHmPad(end_min!)}` : "時刻が決まりません"} ・ {item.title} {/* ui-tokens-ok */}
                     </span>
-                    {already_applied && <span className="text-xs text-muted-foreground">（すでに入っています）</span>}
+                    {already_applied && <span className="text-sub-sm text-muted-foreground">（すでに入っています）</span>}
                   </label>
                 ))}
               </div>
@@ -147,7 +147,7 @@ export default function ApplyTemplateDialog({ open, onOpenChange, scheduleId, lo
         </div>
 
         <DialogFooter>
-          <Button className="min-h-[44px]" disabled={!canApply || applyMutation.isPending} onClick={() => applyMutation.mutate()}>
+          <Button className="min-h-tap" disabled={!canApply || applyMutation.isPending} onClick={() => applyMutation.mutate()}>
             適用する
           </Button>
         </DialogFooter>

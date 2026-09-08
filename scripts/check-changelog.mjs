@@ -59,10 +59,23 @@ function branchName() {
   return process.env.GITHUB_REF_NAME ?? '';
 }
 
-/** リリースの1本か */
+/**
+ * リリースの1本か。
+ *
+ * ⚠️ **CI には `RELEASE=1` を渡す仕組みが無い**（`ci.yml` は素の `npm run lint`
+ * を呼ぶだけ）。手元の `RELEASE=1 npm run lint` は人が打つ前提で、CI が
+ * 自動で立てることはない。つまり CI 上でリリース PR を通す道は**枝の名前だけ**。
+ *
+ * 前は `/^release\//`（先頭が `release/`）だけを見ていたが、Claude Code の
+ * Web セッションが作る枝は `claude/<内容>-<乱数>` の形固定で、`release/` に
+ * 付け替えられないことがある（リリース専用の作業でも `claude/release-…` に
+ * しかならない）。**セグメントの先頭が `release`** であれば通す
+ * （`claude/release-version-update-xxxxx` も拾う。`feature/pre-release-notes`
+ * のように単語の途中に `release` があるだけの枝は拾わない）。
+ */
 function isRelease() {
   if (process.env.RELEASE === '1') return true;
-  return /^release\//.test(branchName());
+  return /(^|\/)release(?:[-/]|$)/.test(branchName());
 }
 
 /*

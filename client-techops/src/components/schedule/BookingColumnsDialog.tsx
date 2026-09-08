@@ -112,21 +112,21 @@ export default function BookingColumnsDialog({
       size="md"
       footer={
         <FormDialogFooter>
-          <Button type="button" variant="outline" className="min-h-[44px]" onClick={() => onOpenChange(false)} disabled={busy}>閉じる</Button>
-          <Button type="button" className="min-h-[44px]" onClick={() => void create()} disabled={busy || selected.length === 0}>
+          <Button type="button" variant="outline" className="min-h-tap" onClick={() => onOpenChange(false)} disabled={busy}>閉じる</Button>
+          <Button type="button" className="min-h-tap" onClick={() => void create()} disabled={busy || selected.length === 0}>
             {selected.length > 0 ? `列を作成（${selected.length}）` : "列を作成"}
           </Button>
         </FormDialogFooter>
       }
     >
-      {suggestionsQuery.isLoading && <p className="text-sm text-muted-foreground">読み込み中…</p>}
+      {suggestionsQuery.isLoading && <p className="text-sub text-muted-foreground">読み込み中…</p>}
       {!suggestionsQuery.isLoading && bookings.every((b) => b.rooms.length === 0) && (
         <EmptyState title="この日に部屋の予約がありません" description="部屋を選んで列を作成するには「会場を選んで列を作成」を使ってください。" />
       )}
       <div className="space-y-4">
         {bookings.filter((b) => b.rooms.length > 0).map((b) => (
           <div key={b.id}>
-            <p className="mb-1 text-sm font-bold text-foreground">{bookingHeading(b, scheduleProjectId)}</p>
+            <p className="mb-1 text-list text-foreground">{bookingHeading(b, scheduleProjectId)}</p>
             <ToggleButtonGroup
               options={b.rooms.map((r) => ({
                 value: r.room_id,

@@ -162,13 +162,13 @@ export default function ScheduleSettingsDialog({ open, onOpenChange, schedule, c
       footer={
         <FormDialogFooter className="sm:justify-between">
           {canManage ? (
-            <Button type="button" variant="ghost" size="sm" className="min-h-[44px] text-destructive" disabled={busy} onClick={() => void remove()}>
+            <Button type="button" variant="ghost" size="sm" className="min-h-tap text-destructive" disabled={busy} onClick={() => void remove()}>
               <Trash2 className="mr-1 h-4 w-4" aria-hidden="true" />この表を削除する
             </Button>
           ) : <span />}
           <div className="flex gap-2">
-            <Button type="button" variant="outline" className="min-h-[44px]" onClick={() => onOpenChange(false)} disabled={busy}>閉じる</Button>
-            {canManage && <Button type="submit" className="min-h-[44px]" disabled={busy}>保存</Button>}
+            <Button type="button" variant="outline" className="min-h-tap" onClick={() => onOpenChange(false)} disabled={busy}>閉じる</Button>
+            {canManage && <Button type="submit" className="min-h-tap" disabled={busy}>保存</Button>}
           </div>
         </FormDialogFooter>
       }
@@ -180,19 +180,19 @@ export default function ScheduleSettingsDialog({ open, onOpenChange, schedule, c
             id="sch-title"
             value={draft.title}
             onCommit={(v) => set("title", v)}
-            className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-60"
+            className="mt-1 flex h-10 w-full rounded-control-lg border border-input bg-background px-3 py-2 text-sm disabled:opacity-60"
           />
         </div>
 
         <div className={formGrid2}>
           <div>
             <Label htmlFor="sch-date">日付</Label>
-            <Input id="sch-date" type="date" value={draft.serviceDate} onChange={(e) => set("serviceDate", e.target.value)} className="mt-1 min-h-[44px]" />
+            <Input id="sch-date" type="date" value={draft.serviceDate} onChange={(e) => set("serviceDate", e.target.value)} className="mt-1 min-h-tap" />
           </div>
           <div>
             <Label>拠点</Label>
             <Select value={draft.locationId ?? ""} onValueChange={(v) => set("locationId", v || null)}>
-              <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue placeholder="決めていない" /></SelectTrigger>
+              <SelectTrigger className="mt-1 min-h-tap"><SelectValue placeholder="決めていない" /></SelectTrigger>
               <SelectContent>
                 {locations.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
               </SelectContent>
@@ -209,7 +209,7 @@ export default function ScheduleSettingsDialog({ open, onOpenChange, schedule, c
               id="sch-view-start"
               value={fmtHmPad(draft.viewStartMin)}
               onCommit={(v) => { const m = parseHm(v); if (m != null) set("viewStartMin", m); }}
-              className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-60"
+              className="mt-1 flex h-10 w-full rounded-control-lg border border-input bg-background px-3 py-2 text-sm disabled:opacity-60"
               inputMode="numeric"
             />
           </div>
@@ -219,7 +219,7 @@ export default function ScheduleSettingsDialog({ open, onOpenChange, schedule, c
               id="sch-view-end"
               value={fmtHmPad(draft.viewEndMin)}
               onCommit={(v) => { const m = parseHm(v); if (m != null) set("viewEndMin", m); }}
-              className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-60"
+              className="mt-1 flex h-10 w-full rounded-control-lg border border-input bg-background px-3 py-2 text-sm disabled:opacity-60"
               inputMode="numeric"
             />
           </div>
@@ -247,7 +247,7 @@ export default function ScheduleSettingsDialog({ open, onOpenChange, schedule, c
             value={draft.notes}
             onCommit={(v) => set("notes", v)}
             rows={2}
-            className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-60"
+            className="mt-1 flex w-full rounded-control-lg border border-input bg-background px-3 py-2 text-sm disabled:opacity-60"
           />
         </div>
 

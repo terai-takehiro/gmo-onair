@@ -25,6 +25,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2, FolderKanban, Lightbulb, FileText, Clock } from "lucide-react";
 import api from "@/lib/api";
 import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+import { PageShell } from "@gmo-onair/shared/src/client/ui/pageShell";
+import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 
 type ScopeGroup = "in_progress" | "pre_project" | "neta" | "standalone";
 interface ScopeCard {
@@ -60,37 +62,34 @@ export default function TopPage() {
   const countOf = (group: ScopeGroup): number => data?.find((c) => c.group === group)?.count ?? 0;
 
   return (
-    <div className="px-4 py-6 sm:px-6 sm:py-8">
-      <h1 className="text-xl font-semibold text-foreground sm:text-2xl">進行台本</h1>
-      <p className="mt-1 text-sm text-muted-foreground">案件を選ぶと、その案件の台本制作の状態がわかります。</p>
+    <PageShell>
+      <PageHeader title="進行台本" sub="案件を選ぶと、その案件の台本制作の状態がわかります。" />
 
       {isLoading && (
-        <div className="mt-8 flex items-center justify-center gap-2 text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />
-          <span className="text-sm">読み込み中…</span>
+          <span className="text-sub">読み込み中…</span>
         </div>
       )}
 
       {isError && (
-        <div className="mt-8">
-          <EmptyState title="読み込めませんでした" description="時間を置いてもう一度お試しください。" />
-        </div>
+        <EmptyState title="読み込めませんでした" description="時間を置いてもう一度お試しください。" />
       )}
 
       {!isLoading && !isError && (
-        <div className="mt-6 grid grid-cols-1 gap-3 sm:mt-8 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {SCOPE_ORDER.map((group) => {
             const Icon = SCOPE_GROUP_ICON[group];
             const count = countOf(group);
             return (
               <div
                 key={group}
-                className="flex min-h-[44px] items-center gap-3 rounded-lg border border-border bg-card p-4"
+                className="flex min-h-tap items-center gap-3 rounded-card border border-border bg-card p-4"
               >
                 <Icon className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm text-muted-foreground">{SCOPE_GROUP_LABEL[group]}</div>
-                  <div className="text-lg font-semibold text-foreground">{count} 件</div>
+                  <div className="text-sub text-muted-foreground">{SCOPE_GROUP_LABEL[group]}</div>
+                  <div className="text-h2 text-foreground">{count} 件</div>
                 </div>
               </div>
             );
@@ -98,14 +97,14 @@ export default function TopPage() {
         </div>
       )}
 
-      <div className="mt-8 border-t border-border pt-6">
+      <div className="border-t border-border pt-6">
         <a
           href="/techops/sheets"
-          className="inline-flex min-h-[44px] items-center rounded-md border border-border px-4 text-sm text-foreground hover:bg-accent"
+          className="inline-flex min-h-tap items-center rounded-control-lg border border-border px-4 text-list text-foreground hover:bg-accent"
         >
           進行台本の一覧を見る →
         </a>
       </div>
-    </div>
+    </PageShell>
   );
 }

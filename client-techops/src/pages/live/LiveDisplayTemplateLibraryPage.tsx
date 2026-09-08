@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { useDebounced } from '@gmo-onair/shared/src/client/hooks/useDebounced';
 import type { DisplayLayout } from '@gmo-onair/shared/src/client/live/displayLayout';
 import { DisplayLayoutMiniPreview } from './DisplayLayoutMiniPreview';
@@ -38,8 +40,8 @@ function TemplateCard({ template, canManage, onApply, onDelete }: {
         <DisplayLayoutMiniPreview layout={template.layout} />
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{template.name}</p>
-            <p className="text-xs text-muted-foreground">使用中 {usageCount}件</p>
+            <p className="truncate text-cardtitle">{template.name}</p>
+            <p className="text-sub-sm text-muted-foreground">使用中 {usageCount}件</p>
           </div>
           {canManage && (
             <div className="flex shrink-0 gap-1">
@@ -63,7 +65,7 @@ function SaveCurrentTemplateTile({ disabled, onOpen }: { disabled: boolean; onOp
       <CardContent className="p-3">
         <button
           type="button" disabled={disabled} onClick={onOpen}
-          className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-border text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border disabled:hover:text-muted-foreground"
+          className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-control-md border-2 border-dashed border-border text-sub text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border disabled:hover:text-muted-foreground"
         >
           <Plus className="h-6 w-6" aria-hidden="true" />
           <span className="px-4 text-center">{disabled ? 'このタイマーのレイアウトは未設定です' : '現在のレイアウトを保存'}</span>
@@ -113,15 +115,15 @@ export default function LiveDisplayTemplateLibraryPage() {
   const invalidateTemplates = () => qc.invalidateQueries({ queryKey: ['display-templates'] });
 
   return (
-    <div className="mx-auto max-w-5xl px-3 py-4 sm:px-6 sm:py-6" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      <div className="mb-4">
-        <h1 className="text-lg font-bold">表示レイアウト テンプレート</h1>
-        <p className="mt-1 text-xs text-muted-foreground">
-          全案件横断で使える、表示画面レイアウトの工程テンプレートです。適用すると選んだタイマーへコピーされ、以後テンプレート側を変えても適用済みのタイマーの表示には影響しません。
-        </p>
-      </div>
+    <PageShell>
+      <PageHeader title="表示レイアウト テンプレート" />
+      {/* 説明は `sub` に入れない — スマホでは `[data-page-sub]` が1行に切り詰めるため、
+          この長さの本文だと後半が読めなくなる */}
+      <p className="text-note text-muted-foreground">
+        全案件横断で使える、表示画面レイアウトの工程テンプレートです。適用すると選んだタイマーへコピーされ、以後テンプレート側を変えても適用済みのタイマーの表示には影響しません。
+      </p>
 
-      <div className="relative mb-4">
+      <div className="relative">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
         <Input className="pl-8" placeholder="名前で検索" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
@@ -176,6 +178,6 @@ export default function LiveDisplayTemplateLibraryPage() {
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
         pending={deleteMutation.isPending}
       />
-    </div>
+    </PageShell>
   );
 }

@@ -49,7 +49,7 @@ export default function MoreMenu({ items, label = "その他の操作", classNam
         type="button"
         variant="outline"
         size="sm"
-        className="min-h-[44px]"
+        className="min-h-tap"
         aria-label={label}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -62,7 +62,7 @@ export default function MoreMenu({ items, label = "その他の操作", classNam
         <div
           id={menuId}
           role="menu"
-          className="absolute right-0 z-40 mt-1 min-w-[200px] rounded-md border border-border bg-card p-1 shadow-md"
+          className="absolute right-0 z-40 mt-1 min-w-[200px] rounded-card border border-border bg-card p-1 shadow-md"
         >
           {items.map((item) => (
             <button
@@ -71,7 +71,7 @@ export default function MoreMenu({ items, label = "その他の操作", classNam
               role="menuitem"
               disabled={item.disabled}
               onClick={() => { setOpen(false); item.onSelect(); }}
-              className="flex w-full min-h-[44px] items-center gap-2 rounded-md px-3 text-left text-sm text-foreground hover:bg-accent disabled:opacity-50 disabled:hover:bg-transparent"
+              className="flex w-full min-h-tap items-center gap-2 rounded-control-lg px-3 text-left text-sub text-foreground hover:bg-accent disabled:opacity-50 disabled:hover:bg-transparent"
             >
               {item.icon && <span className="shrink-0 text-muted-foreground [&>svg]:h-4 [&>svg]:w-4" aria-hidden="true">{item.icon}</span>}
               {item.label}

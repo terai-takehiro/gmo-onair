@@ -85,16 +85,16 @@ export default function TemplateItemsSection({ template }: { template: ScheduleT
 
   return (
     <section>
-      <h3 className="text-sm font-medium text-foreground">項目</h3>
-      <ul className="mt-2 divide-y divide-border rounded-md border border-border">
+      <h3 className="text-list text-foreground">項目</h3>
+      <ul className="mt-2 divide-y divide-border overflow-hidden rounded-card border border-border">
         {template.items.map((i) => {
           const col = template.columns.find((c) => c.id === i.column_id);
           const anchorLabel = ANCHOR_OPTIONS.find((a) => a.value === i.anchor)?.label ?? i.anchor;
           return (
-            <li key={i.id} className={`flex min-h-[44px] items-center justify-between gap-2 px-3 text-sm ${editingId === i.id ? "bg-accent" : ""}`}>
+            <li key={i.id} className={`flex min-h-tap items-center justify-between gap-2 px-3 text-sub ${editingId === i.id ? "bg-accent" : ""}`}>
               <span className="min-w-0 truncate">
                 {col?.label ?? "?"} ・ {i.title}（{ITEM_KIND_DEFS.find((k) => k.kind === i.kind)?.label ?? i.kind}）
-                <span className="text-xs text-muted-foreground"> ・ {anchorLabel} {i.offset_min >= 0 ? "+" : ""}{i.offset_min}分 ・ {i.duration_min}分{i.is_required ? "" : " ・ 任意"}</span>
+                <span className="text-sub-sm text-muted-foreground"> ・ {anchorLabel} {i.offset_min >= 0 ? "+" : ""}{i.offset_min}分 ・ {i.duration_min}分{i.is_required ? "" : " ・ 任意"}</span>
               </span>
               <span className="flex shrink-0 gap-1">
                 <button type="button" onClick={() => startEdit(i)} aria-label={`項目「${i.title}」を編集`} className="text-muted-foreground hover:text-foreground">
@@ -109,9 +109,9 @@ export default function TemplateItemsSection({ template }: { template: ScheduleT
         })}
       </ul>
 
-      <div className="mt-3 space-y-2 rounded-md border border-border p-3">
+      <div className="mt-3 space-y-2 rounded-card border border-border p-3">
         {editingId && (
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <div className="flex items-center justify-between text-sub-sm text-muted-foreground">
             <span>項目を直しています</span>
             <button type="button" onClick={cancelEdit} className="inline-flex items-center gap-0.5 hover:text-foreground">
               <X className="h-3.5 w-3.5" />やめる
@@ -120,33 +120,33 @@ export default function TemplateItemsSection({ template }: { template: ScheduleT
         )}
         <div className={formGrid2}>
           <div>
-            <Label className="text-xs text-muted-foreground">列</Label>
+            <Label className="text-sub-sm text-muted-foreground">列</Label>
             <Select value={draft.columnId} onValueChange={(v) => set("columnId", v)}>
-              <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue placeholder="列" /></SelectTrigger>
+              <SelectTrigger className="mt-1 min-h-tap"><SelectValue placeholder="列" /></SelectTrigger>
               <SelectContent>
                 {template.columns.map((c) => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div>
-            <Label className="text-xs text-muted-foreground">項目名</Label>
-            <Input value={draft.title} onChange={(e) => set("title", e.target.value)} className="mt-1 min-h-[44px]" placeholder="例: リハーサル" />
+            <Label className="text-sub-sm text-muted-foreground">項目名</Label>
+            <Input value={draft.title} onChange={(e) => set("title", e.target.value)} className="mt-1 min-h-tap" placeholder="例: リハーサル" />
           </div>
         </div>
         <div className={formGrid2}>
           <div>
-            <Label className="text-xs text-muted-foreground">区分</Label>
+            <Label className="text-sub-sm text-muted-foreground">区分</Label>
             <Select value={draft.kind} onValueChange={(v) => set("kind", v)}>
-              <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="mt-1 min-h-tap"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {ITEM_KIND_DEFS.map((k) => <SelectItem key={k.kind} value={k.kind}>{k.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div>
-            <Label className="text-xs text-muted-foreground">基準</Label>
+            <Label className="text-sub-sm text-muted-foreground">基準</Label>
             <Select value={draft.anchor} onValueChange={(v) => set("anchor", v as TemplateAnchor)}>
-              <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="mt-1 min-h-tap"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {ANCHOR_OPTIONS.map((a) => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
               </SelectContent>
@@ -155,20 +155,20 @@ export default function TemplateItemsSection({ template }: { template: ScheduleT
         </div>
         <div className={formGrid2}>
           <div>
-            <Label className="text-xs text-muted-foreground">オフセット（分。基準からの位置。マイナス可）</Label>
-            <Input type="number" value={draft.offsetMin} onChange={(e) => set("offsetMin", Number(e.target.value) || 0)} className="mt-1 min-h-[44px]" />
+            <Label className="text-sub-sm text-muted-foreground">オフセット（分。基準からの位置。マイナス可）</Label>
+            <Input type="number" value={draft.offsetMin} onChange={(e) => set("offsetMin", Number(e.target.value) || 0)} className="mt-1 min-h-tap" />
           </div>
           <div>
-            <Label className="text-xs text-muted-foreground">尺（分）</Label>
-            <Input type="number" min={1} value={draft.durationMin} onChange={(e) => set("durationMin", Math.max(1, Number(e.target.value) || 1))} className="mt-1 min-h-[44px]" />
+            <Label className="text-sub-sm text-muted-foreground">尺（分）</Label>
+            <Input type="number" min={1} value={draft.durationMin} onChange={(e) => set("durationMin", Math.max(1, Number(e.target.value) || 1))} className="mt-1 min-h-tap" />
           </div>
         </div>
-        <label className="flex min-h-[44px] items-center gap-2 text-sm text-foreground">
+        <label className="flex min-h-tap items-center gap-2 text-sub text-foreground">
           <input type="checkbox" className="h-5 w-5" checked={draft.isRequired} onChange={(e) => set("isRequired", e.target.checked)} />
           必須（適用時に既定でチェックが入る）
         </label>
         <Button
-          className="min-h-[44px] w-full"
+          className="min-h-tap w-full"
           disabled={!canSubmit || addItem.isPending || updateItem.isPending}
           onClick={() => (editingId ? updateItem.mutate() : addItem.mutate())}
         >

@@ -20,6 +20,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@gmo-onair/shared/src/client/ui/switch';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { useLiveProgram } from './useLiveProgram';
 import BackToOwner, { type BackToOwnerTarget } from './BackToOwner';
 import { useTimer } from '@gmo-onair/shared/src/client/live/useTimer';
@@ -59,40 +61,40 @@ export default function LiveDisplayLayoutEditorPage() {
 
   if (live.status === 'not-found') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         <EmptyState icon={<Timer />} title="見つかりませんでした" description="管理番号または案件IDを確認してください。" />
-      </div>
+      </PageShell>
     );
   }
 
   if (live.status === 'unsupported-scope') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         <BackToOwner owner={live.owner} />
         <EmptyState
           icon={<Timer />}
           title="案件からのみ開けます"
           description="計時・視聴者は案件からだけ開けます。案件のハブ画面から開いてください。"
         />
-      </div>
+      </PageShell>
     );
   }
 
   if (live.status === 'error') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         {live.owner && <BackToOwner owner={live.owner} />}
         <EmptyState icon={<AlertCircle />} title="開けませんでした" description={live.message} />
-      </div>
+      </PageShell>
     );
   }
 
   if (!timerId) {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         <BackToOwner owner={live.owner} />
         <EmptyState icon={<Timer />} title="タイマーが指定されていません" description="タイマー管理からレイアウト編集を開いてください。" />
-      </div>
+      </PageShell>
     );
   }
 
@@ -239,21 +241,22 @@ function LayoutEditorContent({ owner, timerId }: {
 
   if (timerQuery.isError || !timerQuery.data) {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         <BackToOwner owner={owner} />
         <EmptyState icon={<AlertCircle />} title="タイマーが見つかりません" description="削除された可能性があります。タイマー管理からやり直してください。" />
-      </div>
+      </PageShell>
     );
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex flex-wrap items-center gap-3 border-b border-border px-3 py-3 sm:px-6">
-        <BackToOwner owner={owner} />
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-lg font-bold">表示レイアウト編集</h1>
-          <p className="truncate text-xs text-muted-foreground">{timerQuery.data.name} ／ {owner.glsNumber ?? owner.name}</p>
-        </div>
+    /* 編集キャンバスと右のパネルがそれぞれ独立して縦にスクロールする画面なので、
+       外枠の高さだけ `h-full overflow-hidden` を足す（幅・余白は `<PageShell>` のまま） */
+    <PageShell className="h-full overflow-hidden">
+      <BackToOwner owner={owner} />
+      <PageHeader
+        title="表示レイアウト編集"
+        sub={`${timerQuery.data.name} ／ ${owner.glsNumber ?? owner.name}`}
+      >
         <Link to={`/techops/live-display-templates?fromTimer=${timerId}`}>
           <Button variant="outline" size="sm" className="min-h-tap">
             <LayoutTemplate className="mr-1.5 h-4 w-4" />テンプレート
@@ -272,12 +275,12 @@ function LayoutEditorContent({ owner, timerId }: {
             </Button>
           </>
         )}
-      </div>
+      </PageHeader>
 
-      <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-card border border-border lg:flex-row">
         <div className="flex-1 space-y-6 overflow-y-auto p-4">
           <div>
-            <p className="mb-2 text-xs font-semibold text-muted-foreground">
+            <p className="mb-2 text-th text-muted-foreground">
               編集キャンバス（{canManage ? 'ドラッグで移動・右下の丸で拡大縮小' : '閲覧のみ'}）
             </p>
             <DisplayLayoutEditCanvas
@@ -289,15 +292,15 @@ function LayoutEditorContent({ owner, timerId }: {
             />
           </div>
           <div>
-            <p className="mb-2 text-xs font-semibold text-muted-foreground">プレビュー（直近保存した状態。ドラッグ中の変更は反映されません）</p>
+            <p className="mb-2 text-th text-muted-foreground">プレビュー（直近保存した状態。ドラッグ中の変更は反映されません）</p>
             {savedLayout ? (
-              <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-border">
+              <div className="relative aspect-video w-full overflow-hidden rounded-card border border-border">
                 <DisplayCanvasBoundary fallback={<PreviewFallback />}>
                   <DisplayCanvas layout={savedLayout} timerDisplay={timerDisplay} timerPhase={phase} progress={progress} counts={counts} />
                 </DisplayCanvasBoundary>
               </div>
             ) : (
-              <div className="flex aspect-video w-full items-center justify-center rounded-lg border border-dashed border-border px-4 text-center text-sm text-muted-foreground">
+              <div className="flex aspect-video w-full items-center justify-center rounded-card border border-dashed border-border px-4 text-center text-sub text-muted-foreground">
                 まだ保存されていません。保存すると、直近保存した状態がここに表示されます。
               </div>
             )}
@@ -306,14 +309,14 @@ function LayoutEditorContent({ owner, timerId }: {
 
         <aside className="w-full shrink-0 space-y-6 overflow-y-auto border-t border-border p-4 lg:w-72 lg:border-l lg:border-t-0">
           <div>
-            <h2 className="mb-2 text-sm font-bold">要素の表示ON/OFF</h2>
+            <h2 className="mb-2 text-cardtitle">要素の表示ON/OFF</h2>
             <div className="space-y-1">
               {DISPLAY_ELEMENT_KEYS.map((key) => {
                 const el = draft.elements.find((e) => e.key === key)!;
                 return (
                   <div
                     key={key}
-                    className={`flex items-center justify-between gap-2 rounded-md px-2 py-1 text-sm ${selectedKey === key ? 'bg-primary/10' : 'hover:bg-muted'}`}
+                    className={`flex items-center justify-between gap-2 rounded-control-md px-2 py-1 text-sub ${selectedKey === key ? 'bg-primary/10' : 'hover:bg-muted'}`}
                   >
                     <button type="button" className="min-h-tap min-w-0 flex-1 truncate text-left" onClick={() => setSelectedKey(key)}>
                       {ELEMENT_LABELS[key]}
@@ -327,7 +330,7 @@ function LayoutEditorContent({ owner, timerId }: {
 
           {selectedEl && (
             <div className="space-y-3">
-              <h2 className="text-sm font-bold">{ELEMENT_LABELS[selectedEl.key]}のサイズ</h2>
+              <h2 className="text-cardtitle">{ELEMENT_LABELS[selectedEl.key]}のサイズ</h2>
               <div className="space-y-1.5">
                 <Label htmlFor="display-layout-el-w">幅（%）</Label>
                 <Input
@@ -352,7 +355,7 @@ function LayoutEditorContent({ owner, timerId }: {
           )}
 
           <div className="space-y-2">
-            <h2 className="text-sm font-bold">背景</h2>
+            <h2 className="text-cardtitle">背景</h2>
             <div className="flex gap-2">
               <Button
                 type="button" size="sm" variant={draft.background === 'dark' ? 'default' : 'outline'}
@@ -372,17 +375,17 @@ function LayoutEditorContent({ owner, timerId }: {
           </div>
 
           {!canManage && (
-            <p className="text-xs text-muted-foreground">現在は閲覧のみです。編集して保存するには 制作技術支援の「管理」が必要です。</p>
+            <p className="text-note text-muted-foreground">現在は閲覧のみです。編集して保存するには 制作技術支援の「管理」が必要です。</p>
           )}
         </aside>
       </div>
-    </div>
+    </PageShell>
   );
 }
 
 function PreviewFallback() {
   return (
-    <div className="flex h-full items-center justify-center bg-muted px-4 text-center text-xs text-muted-foreground">
+    <div className="flex h-full items-center justify-center bg-muted px-4 text-center text-sub-sm text-muted-foreground">
       プレビューを表示できませんでした（レイアウトの形が不正です）
     </div>
   );

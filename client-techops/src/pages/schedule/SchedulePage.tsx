@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, ArrowLeft, LayoutTemplate, Download, Plus, Sparkles, Columns3, Settings, Copy, Printer, CalendarClock } from "lucide-react";
+import { PageShell } from "@gmo-onair/shared/src/client/ui/pageShell";
 import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { Badge } from "@gmo-onair/shared/src/client/ui/badge";
 import EventPlanDialog from "@/components/ai/EventPlanDialog";
@@ -140,10 +141,10 @@ export default function SchedulePage() {
   const handlePrint = () => window.print();
 
   if (detailQuery.isLoading) {
-    return <div className="flex h-64 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+    return <PageShell><div className="flex h-64 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div></PageShell>;
   }
   if (detailQuery.isError || !detailQuery.data) {
-    return <div className="p-6 text-sm text-muted-foreground">スケジュール表が見つかりません。</div>;
+    return <PageShell><p className="text-sub text-muted-foreground">スケジュール表が見つかりません。</p></PageShell>;
   }
   const schedule = detailQuery.data;
   const hasColumns = schedule.columns.length > 0;
@@ -155,14 +156,16 @@ export default function SchedulePage() {
   ].filter(Boolean);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-      <Button variant="ghost" size="sm" className="mb-2 min-h-[44px] -ml-2 print:hidden" onClick={() => navigate("/techops/schedules")}>
+    <PageShell>
+      <Button variant="ghost" size="sm" className="min-h-tap -ml-2 self-start print:hidden" onClick={() => navigate("/techops/schedules")}>
         <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />一覧へ
       </Button>
 
       {/* 「同じイベントの他の日」（§3-3）。1 日しか無いイベントでは何も描かない。
           印刷は「1 日 1 枚」なので他の日への導線は要らない（B7） */}
-      <div className="print:hidden">
+      {/* 表 1 日だけのイベントでは `ScheduleSiblingDays` が null を返す。
+          `PageShell` は `gap` で子を離すので、空の枠が残ると隙間だけが空く（`empty:hidden`） */}
+      <div className="print:hidden empty:hidden">
         <ScheduleSiblingDays projectId={schedule.project_id} programId={schedule.program_id} currentId={schedule.id} />
       </div>
 
@@ -180,7 +183,7 @@ export default function SchedulePage() {
         sub={subParts.length > 0 ? subParts.join(" ・ ") : undefined}
         primaryAction={
           <Button
-            className="min-h-[44px] print:hidden"
+            className="min-h-tap print:hidden"
             onClick={() => openCreate(mobileFilterColumnId ?? schedule.columns[0]?.id ?? "", schedule.view_start_min)}
             disabled={!hasColumns}
           >
@@ -188,7 +191,7 @@ export default function SchedulePage() {
           </Button>
         }
       >
-        <Button variant="outline" size="sm" className="min-h-[44px] print:hidden" onClick={() => setSettingsOpen(true)}>
+        <Button variant="outline" size="sm" className="min-h-tap print:hidden" onClick={() => setSettingsOpen(true)}>
           <Settings className="mr-1 h-4 w-4" aria-hidden="true" />表の設定
         </Button>
         <MoreMenu
@@ -206,13 +209,13 @@ export default function SchedulePage() {
       </PageHeader>
 
       {breakdownQuery.data && breakdownQuery.data.length > 0 && (
-        <p className="mt-2 text-xs text-muted-foreground print:hidden">
+        <p className="text-note text-muted-foreground print:hidden">
           {breakdownQuery.data.map((b) => `${b.title || "（無題）"}: ロール ${b.section_count} ／ 行 ${b.row_count} ／ 枠 ${b.frame_min}分`
             + (b.doc_total_sec != null ? `・台本 ${Math.ceil(b.doc_total_sec / 60)}分` : "")).join(" ｜ ")}
         </p>
       )}
 
-      <div className="mt-4">
+      <div>
         {!hasColumns ? (
           <ScheduleEmptyState
             locationSet={!!schedule.location_id}
@@ -325,6 +328,6 @@ export default function SchedulePage() {
         existingColumnIds={schedule.columns.map((c) => c.id)}
         onApplied={refetchAfterColumns}
       />
-    </div>
+    </PageShell>
   );
 }

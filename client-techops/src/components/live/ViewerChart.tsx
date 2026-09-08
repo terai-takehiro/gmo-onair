@@ -32,7 +32,7 @@ interface Props {
 export default function ViewerChart({ snapshots, visible }: Props) {
   if (snapshots.length === 0) {
     return (
-      <div className="flex h-36 items-center justify-center text-sm text-muted-foreground">
+      <div className="flex h-36 items-center justify-center text-sub text-muted-foreground">
         視聴者数の記録がまだありません（計測を開始すると溜まります）
       </div>
     );

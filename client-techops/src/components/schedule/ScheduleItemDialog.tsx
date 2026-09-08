@@ -22,7 +22,7 @@ import type { ScheduleColumn, ScheduleItem } from "@gmo-onair/shared/src/schedul
 // ボトムシート風: 375px では下端に固定し、角丸は上だけ。PC は中央ダイアログのまま。
 const SHEET_CLASS =
   "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:left-0 max-sm:translate-x-0 " +
-  "max-sm:translate-y-0 max-sm:w-full max-sm:max-w-full max-sm:rounded-b-none max-sm:rounded-t-2xl " +
+  "max-sm:translate-y-0 max-sm:w-full max-sm:max-w-full max-sm:rounded-b-none max-sm:rounded-t-card " +
   "max-sm:pb-[calc(1rem+env(safe-area-inset-bottom))]";
 
 export interface ItemDraft {
@@ -127,7 +127,7 @@ export default function ScheduleItemDialog({
         </DialogHeader>
 
         {conflicted ? (
-          <Button variant="outline" className="min-h-[44px]" onClick={onReloadLatest}>最新を読み込む</Button>
+          <Button variant="outline" className="min-h-tap" onClick={onReloadLatest}>最新を読み込む</Button>
         ) : (
           <div className="grid grid-cols-1 gap-4">
             <div>
@@ -136,7 +136,7 @@ export default function ScheduleItemDialog({
                 id="item-title"
                 value={draft.title}
                 onCommit={(v) => set("title", v)}
-                className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="mt-1 flex h-10 w-full rounded-control-lg border border-input bg-background px-3 py-2 text-sm"
                 placeholder="例: リハーサル"
               />
             </div>
@@ -145,7 +145,7 @@ export default function ScheduleItemDialog({
               <div>
                 <Label>区分</Label>
                 <Select value={draft.kind} onValueChange={(v) => set("kind", v)}>
-                  <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="mt-1 min-h-tap"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {ITEM_KIND_DEFS.map((k) => <SelectItem key={k.kind} value={k.kind}>{k.label}</SelectItem>)}
                   </SelectContent>
@@ -154,7 +154,7 @@ export default function ScheduleItemDialog({
               <div>
                 <Label>列</Label>
                 <Select value={draft.columnId} onValueChange={(v) => set("columnId", v)}>
-                  <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="mt-1 min-h-tap"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {columns.map((c) => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}
                   </SelectContent>
@@ -167,14 +167,14 @@ export default function ScheduleItemDialog({
             <div>
               <Label>横串（列をまたぐ）</Label>
               <Select value={String(draft.spanCols)} onValueChange={(v) => set("spanCols", Number(v))}>
-                <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-1 min-h-tap"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1">この列だけ</SelectItem>
                   {spanChoices.map((n) => <SelectItem key={n} value={String(n)}>{`この列から ${n} 列ぶん`}</SelectItem>)}
                   <SelectItem value={String(SPAN_ALL)}>全列（表の端から端まで）</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-note text-muted-foreground">
                 全体朝礼・昼食のように、複数の列にまたがって1本で引きたい項目に使います。
               </p>
             </div>
@@ -186,7 +186,7 @@ export default function ScheduleItemDialog({
                   id="item-start"
                   value={fmtHmPad(draft.startMin)}
                   onCommit={(v) => { const m = parseHm(v); if (m != null) set("startMin", m); }}
-                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="mt-1 flex h-10 w-full rounded-control-lg border border-input bg-background px-3 py-2 text-sm"
                   inputMode="numeric"
                   placeholder="9:30"
                 />
@@ -197,14 +197,14 @@ export default function ScheduleItemDialog({
                   id="item-end"
                   value={fmtHmPad(draft.endMin)}
                   onCommit={(v) => { const m = parseHm(v); if (m != null) set("endMin", m); }}
-                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="mt-1 flex h-10 w-full rounded-control-lg border border-input bg-background px-3 py-2 text-sm"
                   inputMode="numeric"
                   placeholder="10:00"
                 />
               </div>
             </div>
 
-            <p className="-mt-2 text-xs text-muted-foreground">
+            <p className="-mt-2 text-note text-muted-foreground">
               所要 {draft.endMin > draft.startMin ? fmtSpan(draft.endMin - draft.startMin) : "―（終了は開始より後にしてください）"}
             </p>
 
@@ -215,7 +215,7 @@ export default function ScheduleItemDialog({
                   id="item-assignee"
                   value={draft.assignee}
                   onCommit={(v) => set("assignee", v)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex h-10 w-full rounded-control-lg border border-input bg-background px-3 py-2 text-sm"
                   placeholder="例: MC / 社長 / 出演者受賞者"
                 />
               </div>
@@ -228,12 +228,12 @@ export default function ScheduleItemDialog({
                 value={draft.note}
                 onCommit={(v) => set("note", v)}
                 rows={2}
-                className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="mt-1 flex w-full rounded-control-lg border border-input bg-background px-3 py-2 text-sm"
               />
             </div>
 
             {canLink && item && (
-              <div className="rounded-md border border-border bg-muted/40 p-3">
+              <div className="rounded-card border border-border bg-muted/40 p-3">
                 <ScheduleItemDocLink
                   scheduleId={scheduleId}
                   item={item}
@@ -249,13 +249,13 @@ export default function ScheduleItemDialog({
         {!conflicted && (
           <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
             {scheduleFixed && (
-              <p className="text-xs text-muted-foreground sm:mr-auto">確定後の変更として保存します</p>
+              <p className="text-note text-muted-foreground sm:mr-auto">確定後の変更として保存します</p>
             )}
             <div className="flex gap-2">
               {isEdit && onDelete && (
-                <Button type="button" variant="destructive" className="min-h-[44px]" onClick={onDelete}>削除</Button>
+                <Button type="button" variant="destructive" className="min-h-tap" onClick={onDelete}>削除</Button>
               )}
-              <Button type="button" className="min-h-[44px]" disabled={savingDisabled} onClick={() => onSave(draft)}>
+              <Button type="button" className="min-h-tap" disabled={savingDisabled} onClick={() => onSave(draft)}>
                 保存
               </Button>
             </div>

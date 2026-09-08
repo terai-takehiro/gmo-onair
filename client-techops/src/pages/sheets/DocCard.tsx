@@ -42,7 +42,7 @@ function ScheduleLinkBadge({ docId }: { docId: string }) {
     <Link
       to={`/techops/schedules/${ref.scheduleId}`}
       onClick={(e) => e.stopPropagation()}
-      className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-primary hover:bg-primary/20"
+      className="inline-flex items-center gap-1 rounded-chip bg-primary/10 px-2 py-0.5 text-primary hover:bg-primary/20"
       title="この進行台本が結ばれているスケジュール表の枠を開く"
     >
       <CalendarClock size={9} aria-hidden />
@@ -84,27 +84,27 @@ export function DocCard({
           onNavigate(doc.id);
         }
       }}
-      className="group p-3 sm:p-5 bg-card text-card-foreground rounded-2xl border border-border transition-all hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      className="group p-3 sm:p-5 bg-card text-card-foreground rounded-card border border-border transition-all hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
     >
       {/* Top row: title + badge + actions */}
       <div className="flex items-start justify-between mb-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 sm:gap-2.5 mb-1 flex-wrap">
-            <h3 className="text-sm sm:text-base font-bold truncate max-w-[60vw] sm:max-w-none">{meta?.title || doc.title || "無題"}</h3>
-            <span className={`flex-shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full ${getDraftColor(meta)}`}>
+            <h3 className="text-cardtitle truncate max-w-[60vw] sm:max-w-none">{meta?.title || doc.title || "無題"}</h3>
+            <span className={`flex-shrink-0 text-badge px-2 py-0.5 rounded-chip ${getDraftColor(meta)}`}>
               {getDraftLabel(meta)}
             </span>
           </div>
           {/* GLS/Episode info */}
           {(doc.gls_number || doc.episode_code) && (
-            <p className="text-xs text-muted-foreground mt-0.5 truncate">
-              {doc.gls_number && <span className="font-medium">{doc.gls_number}</span>}
+            <p className="text-sub-sm text-muted-foreground mt-0.5 truncate">
+              {doc.gls_number && <span>{doc.gls_number}</span>}
               {doc.gls_number && doc.project_name && <span> {doc.project_name}</span>}
               {doc.episode_code && <span>{doc.gls_number ? " / " : ""}{doc.episode_code}</span>}
             </p>
           )}
           {meta?.location && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+            <div className="flex items-center gap-1 text-sub-sm text-muted-foreground mt-0.5">
               <MapPin size={11} aria-hidden />
               <span>{meta.location}</span>
             </div>
@@ -114,7 +114,7 @@ export function DocCard({
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onNavigate(doc.id); }}
-            className="p-1.5 sm:p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+            className="p-1.5 sm:p-2 rounded-control-md hover:bg-accent text-muted-foreground hover:text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
             aria-label="編集"
           >
             <Pencil size={14} aria-hidden />
@@ -122,7 +122,7 @@ export function DocCard({
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onOnAir(doc.id); }}
-            className="inline-flex items-center gap-0.5 px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-[11px] font-bold rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+            className="inline-flex items-center gap-0.5 px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-badge rounded-control-md bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
             aria-label="ONAIRを開始"
           >
             <Radio size={10} aria-hidden />
@@ -132,7 +132,7 @@ export function DocCard({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onShare(doc); }}
-              className="p-1.5 sm:p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              className="p-1.5 sm:p-2 rounded-control-md hover:bg-accent text-muted-foreground hover:text-primary transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               aria-label="共有"
             >
               <Share2 size={14} aria-hidden />
@@ -142,7 +142,7 @@ export function DocCard({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onDelete(doc.id); }}
-              className="p-1.5 sm:p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              className="p-1.5 sm:p-2 rounded-control-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               aria-label="削除"
             >
               <Trash2 size={14} aria-hidden />
@@ -152,40 +152,40 @@ export function DocCard({
       </div>
 
       {/* Info grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1.5 text-[11px]">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1.5 text-sub-sm">
         {(meta?.broadcastDate || doc.broadcast_date) && (
           <div className="flex items-center gap-1.5">
             <Calendar size={10} className="text-muted-foreground flex-shrink-0" aria-hidden />
             <span className="text-muted-foreground">放送日</span>
-            <span className="font-medium text-foreground">{fmtDate(meta?.broadcastDate || doc.broadcast_date)}</span>
+            <span className="text-foreground">{fmtDate(meta?.broadcastDate || doc.broadcast_date)}</span>
           </div>
         )}
         {meta?.broadcastStartTime && (
           <div className="flex items-center gap-1.5">
             <Play size={10} className="text-muted-foreground flex-shrink-0" aria-hidden />
             <span className="text-muted-foreground">放送</span>
-            <span className="font-medium text-foreground">{meta.broadcastStartTime}</span>
+            <span className="text-foreground">{meta.broadcastStartTime}</span>
           </div>
         )}
         {meta?.recordingDate && (
           <div className="flex items-center gap-1.5">
             <Calendar size={10} className="text-muted-foreground flex-shrink-0" aria-hidden />
             <span className="text-muted-foreground">収録日</span>
-            <span className="font-medium text-foreground">{fmtDate(meta.recordingDate)}</span>
+            <span className="text-foreground">{fmtDate(meta.recordingDate)}</span>
           </div>
         )}
         {meta?.rehearsalDate && (
           <div className="flex items-center gap-1.5">
             <Calendar size={10} className="text-muted-foreground flex-shrink-0" aria-hidden />
             <span className="text-muted-foreground">リハ</span>
-            <span className="font-medium text-foreground">{fmtDate(meta.rehearsalDate)}</span>
+            <span className="text-foreground">{fmtDate(meta.rehearsalDate)}</span>
           </div>
         )}
       </div>
 
       {/* Footer */}
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="flex items-center gap-3 text-sub-sm text-muted-foreground">
           <span>{doc.creator_name || "不明"}</span>
           <span className="inline-flex items-center gap-0.5">
             <Clock size={9} aria-hidden />
@@ -209,7 +209,7 @@ export function DocCard({
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1 text-xs text-primary font-medium sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-1 text-sub-sm text-primary sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
           台本を開く <ChevronRight size={14} aria-hidden />
         </div>
       </div>

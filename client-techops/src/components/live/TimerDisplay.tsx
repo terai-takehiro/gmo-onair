@@ -30,14 +30,14 @@ export default function TimerDisplay({ state, compact = false }: Props) {
   const progress = timerProgress(state);
 
   return (
-    <div className={`phase-${phase} relative flex flex-col items-center justify-center overflow-hidden transition-colors duration-500 ${compact ? 'rounded-xl p-4' : 'w-full h-full pb-3'}`}>
+    <div className={`phase-${phase} relative flex flex-col items-center justify-center overflow-hidden transition-colors duration-500 ${compact ? 'rounded-card p-4' : 'w-full h-full pb-3'}`}>
       <div className={`${compact ? 'text-4xl font-bold tabular-nums' : 'timer-panel-font'} ${phase === 'red' ? 'timer-glow-red' : ''}`}>
         {display}
       </div>
       {totalSeconds > 0 && phase !== 'idle' && (
         <div className="flex items-center gap-2 mt-1.5">
           {state?.running && <span className="live-dot" aria-hidden="true" style={{ background: phaseBarColors[phase] }} />}
-          <span className={`${compact ? 'text-sm' : 'text-xs sm:text-sm'} font-semibold opacity-50 tabular-nums`}>
+          <span className={`${compact ? 'text-list' : 'text-badge sm:text-list'} opacity-50 tabular-nums`}>
             設定 {formatTimer(totalSeconds * 1000)}
           </span>
         </div>

@@ -10,12 +10,12 @@ import type { DisplayLayout } from '@gmo-onair/shared/src/client/live/displayLay
 export function DisplayLayoutMiniPreview({ layout }: { layout: DisplayLayout }) {
   const light = layout.background === 'light';
   return (
-    <div className={`relative aspect-video w-full overflow-hidden rounded-md border border-border ${light ? 'bg-[#fafafa]' : 'bg-black'}`}>
+    <div className={`relative aspect-video w-full overflow-hidden rounded-control-md border border-border ${light ? 'bg-[#fafafa]' : 'bg-black'}`}>
       {layout.elements.filter((el) => el.visible).map((el) => (
         <div
           key={el.key}
           style={{ position: 'absolute', left: `${el.x}%`, top: `${el.y}%`, width: `${el.w}%`, height: `${el.h}%` }}
-          className={`flex items-center justify-center overflow-hidden rounded-badge-xs border text-[7px] font-semibold leading-none ${
+          className={`flex items-center justify-center overflow-hidden rounded-badge-xs border text-[7px] font-bold leading-none ${
             light ? 'border-black/20 bg-black/5 text-black/70' : 'border-white/25 bg-white/10 text-white/80'
           }`}
         >

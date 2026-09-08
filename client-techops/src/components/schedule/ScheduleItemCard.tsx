@@ -58,7 +58,7 @@ export default function ScheduleItemCard({
     <>
       {dragging && (
         <div
-          className="pointer-events-none absolute z-30 whitespace-nowrap rounded-badge bg-foreground px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-background shadow-md"
+          className="pointer-events-none absolute z-30 whitespace-nowrap rounded-badge bg-foreground px-1.5 py-0.5 text-badge tabular-nums text-background shadow-md"
           style={{ top: readoutTop, left }}
         >
           {dragKind === "resize"
@@ -73,7 +73,7 @@ export default function ScheduleItemCard({
         onPointerDown={onPointerDownMove}
         onClick={(e) => { e.stopPropagation(); onSelect(); }}
         className={cn(
-          "absolute overflow-hidden rounded border px-1.5 py-0.5 text-left leading-tight shadow-sm",
+          "absolute overflow-hidden rounded-badge-xs border px-1.5 py-0.5 text-left leading-tight shadow-sm",
           conflicted ? "border-destructive ring-1 ring-destructive" : "border-black/10",
           onPointerDownMove && "cursor-grab touch-none",
           dragging && "z-20 cursor-grabbing opacity-90 shadow-md",
@@ -88,7 +88,7 @@ export default function ScheduleItemCard({
               {spanLabel && (
                 <span className="shrink-0 rounded-badge-xs border border-border px-1 text-[9px] text-muted-foreground">{spanLabel}</span>
               )}
-              <span className="truncate text-[11px] font-medium">{item.title || "（無題）"}</span>
+              <span className="truncate text-[11px]">{item.title || "（無題）"}</span>
               {!twoLine && (
                 <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">{fmtSpan(durationMin)}</span>
               )}

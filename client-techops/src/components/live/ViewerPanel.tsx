@@ -121,24 +121,24 @@ export default function ViewerPanel({ programId, program, canManage }: Props) {
 
   return (
     <>
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
+      <div className="rounded-card border border-border bg-card overflow-hidden">
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Viewers</span>
+            <span className="text-th text-muted-foreground uppercase tracking-wider">Viewers</span>
             {latest && (
-              <span className="text-xs text-muted-foreground hidden sm:inline">
+              <span className="text-sub-sm text-muted-foreground hidden sm:inline">
                 {new Date(latest.captured_at).toLocaleTimeString('ja-JP')}
               </span>
             )}
             {running && (
-              <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-semibold text-success">計測中（サーバー）</span>
+              <span className="rounded-chip bg-success/15 px-2 py-0.5 text-badge text-success">計測中（サーバー）</span>
             )}
           </div>
           {canManage && (
             <Button
               variant={running ? 'destructive' : 'default'}
               size="sm"
-              className="h-7 text-xs"
+              className="h-7 text-sub-sm"
               disabled={startMutation.isPending || stopMutation.isPending}
               onClick={() => (running ? stopMutation.mutate() : startMutation.mutate())}
             >
@@ -150,14 +150,14 @@ export default function ViewerPanel({ programId, program, canManage }: Props) {
         </div>
 
         {startError && (
-          <div className="mx-4 mt-3 flex items-center gap-2 rounded-md bg-destructive/10 border border-destructive/30 p-2.5 text-xs text-destructive" role="alert">
+          <div className="mx-4 mt-3 flex items-center gap-2 rounded-note bg-destructive/10 border border-destructive/30 p-2.5 text-sub-sm text-destructive" role="alert">
             <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             {startError}
           </div>
         )}
 
         {(measure?.measure_fail_count ?? 0) >= 3 && running && (
-          <div className="mx-4 mt-3 flex items-center gap-2 rounded-md bg-destructive/10 border border-destructive/30 p-2.5 text-xs text-destructive" role="alert">
+          <div className="mx-4 mt-3 flex items-center gap-2 rounded-note bg-destructive/10 border border-destructive/30 p-2.5 text-sub-sm text-destructive" role="alert">
             <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             取得が続けて失敗しています（{measure?.measure_fail_count}回）。鍵の設定を確認してください
           </div>
@@ -165,7 +165,7 @@ export default function ViewerPanel({ programId, program, canManage }: Props) {
 
         {/* プラットフォーム別 表示トグル（計測開始前だけ、取得対象も変えられる） */}
         <div className="flex flex-wrap items-center gap-1.5 px-3 sm:px-4 pt-3">
-          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mr-1">
+          <span className="text-badge text-muted-foreground uppercase tracking-wider mr-1">
             {running ? '取得中' : '取得対象'}
           </span>
           {PLATFORM_META.map(({ key, label, color }) => {
@@ -179,7 +179,7 @@ export default function ViewerPanel({ programId, program, canManage }: Props) {
                 onClick={() => setToggle(key, !platformToggles[key])}
                 aria-pressed={conf && on}
                 title={!conf ? `${label} は番組設定で未設定です` : running ? '計測中は変更できません' : on ? `${label} を取得対象から外す` : `${label} を取得対象にする`}
-                className={`flex min-h-tap items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors lg:min-h-[28px] lg:min-w-0 ${
+                className={`flex min-h-tap items-center gap-1.5 rounded-chip border px-2.5 py-1 text-sub-sm transition-colors lg:min-h-[28px] lg:min-w-0 ${
                   !conf || running
                     ? 'opacity-60 cursor-not-allowed border-border text-muted-foreground'
                     : on
@@ -193,7 +193,7 @@ export default function ViewerPanel({ programId, program, canManage }: Props) {
                   style={{ backgroundColor: conf && on ? 'rgba(255,255,255,0.9)' : color }}
                 />
                 {label}
-                {!conf && <span className="text-[10px] font-normal">未設定</span>}
+                {!conf && <span className="text-badge font-normal">未設定</span>}
               </button>
             );
           })}
@@ -208,12 +208,12 @@ export default function ViewerPanel({ programId, program, canManage }: Props) {
             <ViewerCard label="合計" count={displayTotal} color="#a855f7" />
           </div>
           {PLATFORM_META.every(({ key }) => !isActive(key)) && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-note text-muted-foreground">
               取得対象のプラットフォームがありません。上のトグルを ON にするか、番組設定で URL / ID を登録してください。
             </p>
           )}
           {!running && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-note text-muted-foreground">
               「計測を開始」を押すとサーバーが取得を続けます。運用画面を閉じても数字は止まりません。
             </p>
           )}
@@ -222,8 +222,8 @@ export default function ViewerPanel({ programId, program, canManage }: Props) {
 
       {/* Chart */}
       {snapshots.length > 0 && (
-        <div className="rounded-lg border border-border bg-card p-4">
-          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">視聴者数推移</h2>
+        <div className="rounded-card border border-border bg-card p-4">
+          <h2 className="text-th text-muted-foreground uppercase tracking-wider mb-3">視聴者数推移</h2>
           <ViewerChart snapshots={snapshots} visible={platformToggles} />
         </div>
       )}

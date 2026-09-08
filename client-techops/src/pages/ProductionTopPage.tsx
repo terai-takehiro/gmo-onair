@@ -41,6 +41,7 @@ import { Label } from '@/components/ui/label';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
 import { Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
@@ -108,20 +109,24 @@ export default function ProductionTopPage() {
   const goTo = (href: string) => navigate(href);
 
   return (
-    <div className="px-4 py-6 sm:px-6 sm:py-8">
+    <PageShell>
       <PageHeader
         title="制作技術支援"
-        sub="番組・イベントを選ぶと、台本制作・スケジュール表・収録配信の設定が開けます"
         primaryAction={(
           <Button type="button" onClick={() => setCreateOpen(true)}>
             <Plus className="mr-1 h-4 w-4" />番組を作成
           </Button>
         )}
       />
+      {/* 説明文は `sub` に入れない — `[data-page-sub]` が 1023px までで1行に
+          切り詰めるため、375px で後半が読めなくなる（実測 488px → 351px） */}
+      <p className="text-note text-muted-foreground">
+        番組・イベントを選ぶと、台本制作・スケジュール表・収録配信の設定が開けます。
+      </p>
 
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Input
-          className="min-h-[44px] sm:max-w-sm"
+          className="min-h-tap sm:max-w-sm"
           placeholder="案件名・管理番号・番組名で検索"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -129,9 +134,7 @@ export default function ProductionTopPage() {
         <SegmentControl value={segment} onChange={setSegment} />
       </div>
 
-      {loading && (
-        <div className="mt-6"><Delayed><SkeletonRows rows={4} /></Delayed></div>
-      )}
+      {loading && <Delayed><SkeletonRows rows={4} /></Delayed>}
 
       {!loading && view === 'archive' && (
         <ArchiveView
@@ -155,7 +158,7 @@ export default function ProductionTopPage() {
       )}
 
       <CreateProgramDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={(p) => navigate(`/techops/programs/${p.id}`)} />
-    </div>
+    </PageShell>
   );
 }
 
@@ -172,7 +175,7 @@ function ActiveView({
   onOpenArchive: () => void;
 }) {
   return (
-    <div className="mt-6 flex flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <UpNextSection items={upNext} onNavigate={onNavigate} />
       <RecentSection entries={recentEntries} onNavigate={onNavigate} />
 
@@ -212,7 +215,7 @@ function ArchiveView({
   onBack: () => void;
 }) {
   return (
-    <div className="mt-6 flex flex-col gap-3">
+    <div className="flex flex-col gap-3">
       <div className="flex items-center gap-1.5">
         <button
           type="button"
@@ -276,14 +279,14 @@ function CreateProgramDialog({
         <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (name.trim()) createMutation.mutate(); }}>
           <div>
             <Label htmlFor="new-program-name">番組名 <span className="text-destructive">*</span></Label>
-            <Input id="new-program-name" className="mt-1 min-h-[44px]" value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="例：サンプル情報バラエティ" />
+            <Input id="new-program-name" className="mt-1 min-h-tap" value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="例：サンプル情報バラエティ" />
           </div>
           <div>
             <Label htmlFor="new-program-date">実施日（任意）</Label>
-            <Input id="new-program-date" type="date" className="mt-1 min-h-[44px]" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+            <Input id="new-program-date" type="date" className="mt-1 min-h-tap" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
           </div>
           <DialogFooter>
-            <Button type="submit" className="min-h-[44px]" disabled={!name.trim() || createMutation.isPending}>
+            <Button type="submit" className="min-h-tap" disabled={!name.trim() || createMutation.isPending}>
               {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : '作る'}
             </Button>
           </DialogFooter>
