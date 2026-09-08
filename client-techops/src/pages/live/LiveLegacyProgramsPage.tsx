@@ -20,6 +20,8 @@ import { ChevronLeft, ChevronRight, ShieldOff, Timer, Youtube, Globe, Video, Ext
 import api from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { useTimer } from '@gmo-onair/shared/src/client/live/useTimer';
 import TimerDisplay from '@/components/live/TimerDisplay';
 import TimerControls from '@/components/live/TimerControls';
@@ -46,44 +48,46 @@ export default function LiveLegacyProgramsPage() {
   const [searchParams] = useSearchParams();
   const [selectedId, setSelectedId] = useState<string | null>(searchParams.get('program'));
 
+  /* ⚠️ **自前の上辺バーは持たない**（もとは `border-b bg-card px-4 py-2` ＋ 14px の
+     `<h1>`）。共通シェルのヘッダーと二重になり、この画面だけ見出しが小さくなっていた。
+     戻るボタン・組織の鍵設定への導線は `<PageHeader>` の周りへ移した */
   const Header = (
-    <div className="flex items-center gap-3 border-b border-border bg-card px-4 py-2">
+    <>
       <button
         type="button"
         onClick={() => navigate('/techops/top')}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg hover:bg-muted"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-control-lg hover:bg-muted"
         aria-label="戻る"
       >
         <ChevronLeft className="h-5 w-5" />
       </button>
-      <div className="min-w-0 flex-1">
-        <h1 className="truncate text-sm font-bold">計時・視聴者 — 案件未紐付けの番組</h1>
-        <p className="truncate text-xs text-muted-foreground">
-          案件に結びつけずに作られた古い番組の一覧です。ここで新しく作ることはできません。
-        </p>
-      </div>
-      {/* レビュー指摘（②組織の鍵設定への導線が実質1本しかない）対応: 従来はダッシュボードの
-          歯車アイコン（プロジェクトを1回開かないと辿り着けない）だけが入口だった。
-          この管理者向け画面からも開けるようにする（新規作成ではなく既存導線の追加なので
-          §致命的2のスコープの範囲内） */}
-      <a
-        href="/techops/live-org-settings"
-        className="flex min-h-tap shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+      <PageHeader
+        title="計時・視聴者 — 案件未紐付けの番組"
+        sub="案件に結びつけずに作られた古い番組の一覧です。ここで新しく作ることはできません。"
       >
-        組織の鍵設定
-      </a>
-    </div>
+        {/* レビュー指摘（②組織の鍵設定への導線が実質1本しかない）対応: 従来はダッシュボードの
+            歯車アイコン（プロジェクトを1回開かないと辿り着けない）だけが入口だった。
+            この管理者向け画面からも開けるようにする（新規作成ではなく既存導線の追加なので
+            §致命的2のスコープの範囲内） */}
+        <a
+          href="/techops/live-org-settings"
+          className="flex min-h-tap shrink-0 items-center gap-1.5 rounded-control-md px-2.5 text-sub-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          組織の鍵設定
+        </a>
+      </PageHeader>
+    </>
   );
 
   if (!canManage) {
     return (
-      <div className="flex h-full flex-col">
+      <PageShell>
         {Header}
-        <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
           <ShieldOff className="h-5 w-5" />
-          <span className="text-sm">この一覧を見るには 制作技術支援の「管理」が必要です。</span>
+          <span className="text-sub">この一覧を見るには 制作技術支援の「管理」が必要です。</span>
         </div>
-      </div>
+      </PageShell>
     );
   }
 
@@ -109,9 +113,11 @@ function LegacyProgramsContent({ Header, selectedId, onSelect }: {
   const selected = programs.find((p) => p.id === selectedId) ?? null;
 
   return (
-    <div className="flex h-full flex-col">
+    /* 左右2枚がそれぞれ独立して縦にスクロールする画面なので、外枠の高さだけ
+       `h-full overflow-hidden` を足す（幅・余白は `<PageShell>` のまま） */
+    <PageShell className="h-full overflow-hidden">
       {Header}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden sm:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-card border border-border sm:flex-row">
         {/* Program list */}
         <div className="border-b border-border sm:w-72 sm:shrink-0 sm:border-b-0 sm:border-r sm:overflow-y-auto">
           {isLoading ? (
@@ -133,9 +139,9 @@ function LegacyProgramsContent({ Header, selectedId, onSelect }: {
                   key={p.id}
                   type="button"
                   onClick={() => onSelect(p.id)}
-                  className={`flex min-h-tap w-full items-center justify-between gap-2 rounded-md px-3 py-2.5 text-left text-sm transition-colors ${
+                  className={`flex min-h-tap w-full items-center justify-between gap-2 rounded-control-md px-3 py-2.5 text-left text-list transition-colors ${
                     selectedId === p.id
-                      ? 'bg-primary/15 font-medium text-primary'
+                      ? 'bg-primary/15 text-primary'
                       : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
                 >
@@ -150,7 +156,7 @@ function LegacyProgramsContent({ Header, selectedId, onSelect }: {
         {/* Detail */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-4">
           {!selected ? (
-            <div className="flex h-full items-center justify-center py-16 text-sm text-muted-foreground">
+            <div className="flex h-full items-center justify-center py-16 text-sub text-muted-foreground">
               左の一覧から番組を選んでください
             </div>
           ) : (
@@ -161,7 +167,7 @@ function LegacyProgramsContent({ Header, selectedId, onSelect }: {
           )}
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }
 
@@ -177,11 +183,11 @@ function LegacyProgramDetail({ program }: { program: LiveProgram }) {
   const timer = useTimer(activeTimerId);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-3 sm:space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {/* 読み取り専用の紐づけ情報。編集はこの画面の対象外（GROUND_RULES §致命的2） */}
-      <div className="rounded-lg border border-border bg-card p-3 sm:p-4">
-        <h2 className="mb-2 text-sm font-bold">{program.name}</h2>
-        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+      <div className="rounded-card border border-border bg-card p-3 sm:p-4">
+        <h2 className="mb-2 text-cardtitle">{program.name}</h2>
+        <div className="flex flex-wrap items-center gap-3 text-sub-sm text-muted-foreground">
           {program.youtube_urls.length > 0 && (
             <span className="flex items-center gap-1"><Youtube className="h-3.5 w-3.5" />{program.youtube_urls.length} 件</span>
           )}
@@ -200,15 +206,15 @@ function LegacyProgramDetail({ program }: { program: LiveProgram }) {
       {timers.length === 0 ? (
         <EmptyState icon={<Timer />} title="まだタイマーがありません" description="この番組にはタイマーが1つも登録されていません。" />
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <div className="overflow-hidden rounded-card border border-border bg-card">
           <div className="flex flex-wrap items-center gap-1 border-b border-border px-3 py-2">
             {timers.map((t) => (
               <button
                 key={t.id}
                 type="button"
                 onClick={() => setSelectedTimerId(t.id)}
-                className={`rounded-md px-2.5 py-1.5 text-xs transition-colors ${
-                  t.id === activeTimerId ? 'bg-primary/15 font-medium text-primary' : 'text-muted-foreground hover:bg-accent'
+                className={`min-h-tap rounded-control-md px-2.5 py-1.5 text-sub-sm transition-colors lg:min-h-0 ${
+                  t.id === activeTimerId ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-accent'
                 }`}
               >
                 {t.name}
@@ -219,7 +225,7 @@ function LegacyProgramDetail({ program }: { program: LiveProgram }) {
                 href={`/live/display/${activeTimerId}`}
                 target="_blank"
                 rel="noreferrer"
-                className="ml-auto flex min-h-tap items-center gap-1 rounded-md px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="ml-auto flex min-h-tap items-center gap-1 rounded-control-md px-2 text-sub-sm text-muted-foreground hover:bg-accent hover:text-foreground"
               >
                 <ExternalLink className="h-3.5 w-3.5" />表示画面
               </a>

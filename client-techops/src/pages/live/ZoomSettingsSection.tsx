@@ -21,18 +21,18 @@ export default function ZoomSettingsSection({
   const [showSecret, setShowSecret] = useState(false);
 
   return (
-    <section className="rounded-xl border bg-card p-4 space-y-4">
+    <section className="rounded-card border bg-card p-4 space-y-4">
       <div>
-        <h2 className="text-sm font-semibold">Zoom API 設定</h2>
-        <p className="text-xs text-muted-foreground mt-1">
+        <h2 className="text-cardtitle">Zoom API 設定</h2>
+        <p className="text-note text-muted-foreground mt-1">
           Server-to-Server OAuth アプリの認証情報を入力してください。Zoom Business+ プランが必要です（Metrics API 利用条件）。
         </p>
       </div>
       {hasOwnCredentials && (
-        <p className="text-xs text-green-600">設定済み</p>
+        <p className="text-sub-sm text-green-600">設定済み</p>
       )}
       {!hasOwnCredentials && hasCredentials && (
-        <p className="text-xs text-amber-600">他ユーザーの資格情報で接続テストを共有利用中（計測には使われません）</p>
+        <p className="text-note text-amber-600">他ユーザーの資格情報で接続テストを共有利用中（計測には使われません）</p>
       )}
       <div className="space-y-1.5">
         <Label>Account ID</Label>
@@ -71,7 +71,7 @@ export default function ZoomSettingsSection({
         title="Zoom 資格情報の取得方法"
         steps={[
           <>Zoom App Marketplace →「Develop」→「Build App」→「Server-to-Server OAuth」でアプリを作成</>,
-          <>Scopes に <code className="rounded bg-muted px-1">dashboard_meetings:read:admin</code> / <code className="rounded bg-muted px-1">dashboard_webinars:read:admin</code> を追加</>,
+          <>Scopes に <code className="rounded-badge-xs bg-muted px-1">dashboard_meetings:read:admin</code> / <code className="rounded-badge-xs bg-muted px-1">dashboard_webinars:read:admin</code> を追加</>,
           <>App Credentials の Account ID / Client ID / Client Secret を上の欄に入力して保存</>,
         ]}
       />

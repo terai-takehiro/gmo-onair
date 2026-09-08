@@ -20,6 +20,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import MiniAppSwitcher from '@/components/journey/MiniAppSwitcher';
 import { useLiveProgram } from './useLiveProgram';
 import BackToOwner, { type BackToOwnerTarget } from './BackToOwner';
@@ -63,31 +65,31 @@ export default function LiveProgramSettingsPage() {
 
   if (live.status === 'not-found') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell width="narrow">
         <EmptyState icon={<Timer />} title="見つかりませんでした" description="GLS番号または案件IDを確認してください。" />
-      </div>
+      </PageShell>
     );
   }
 
   if (live.status === 'unsupported-scope') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell width="narrow">
         <BackToOwner owner={live.owner} />
         <EmptyState
           icon={<Timer />}
           title="案件からのみ開けます"
           description="計時・視聴者は案件からだけ開けます。案件のハブ画面から開いてください。"
         />
-      </div>
+      </PageShell>
     );
   }
 
   if (live.status === 'error') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell width="narrow">
         {live.owner && <BackToOwner owner={live.owner} />}
         <EmptyState icon={<AlertCircle />} title="開けませんでした" description={live.message} />
-      </div>
+      </PageShell>
     );
   }
 
@@ -183,25 +185,24 @@ function ProgramSettingsContent({ owner, programId }: {
     setYoutubeUrls(prev => prev.map((u, idx) => idx === i ? { ...u, [key]: v } : u));
 
   return (
-    <div className="mx-auto max-w-3xl px-3 py-4 sm:px-6 sm:py-6" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      <div className="mb-4 flex items-center gap-3">
-        <BackToOwner owner={owner} />
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-lg font-bold">番組設定</h1>
-          <p className="truncate text-xs text-muted-foreground">{owner.glsNumber ?? owner.name}</p>
-        </div>
+    <PageShell width="narrow">
+      <BackToOwner owner={owner} />
+      {/* 見出しの右の保存は `children` に置く（`primaryAction` にしない）。
+          スマホでは共通シェルの下端の差し込み口へ移るので、フォーム末尾の
+          「設定を保存」と同じ場所に2つ並ぶ */}
+      <PageHeader title="番組設定" sub={owner.glsNumber ?? owner.name}>
         <MiniAppSwitcher owner={owner} current="liveops" />
         {canManage && (
           <Button
             size="sm"
-            className="h-9 text-xs"
+            className="h-9 text-sub-sm"
             onClick={() => saveMutation.mutate()}
             disabled={!name.trim() || saveMutation.isPending}
           >
             {saved ? '保存済み ✓' : <><Save className="h-3.5 w-3.5 mr-1" />保存</>}
           </Button>
         )}
-      </div>
+      </PageHeader>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
@@ -211,19 +212,19 @@ function ProgramSettingsContent({ owner, programId }: {
         <div className="space-y-5">
           {/* GLS link info (read-only) */}
           {program?.project_name && (
-            <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
-              <span className="text-muted-foreground text-xs">紐づき案件: </span>
+            <div className="rounded-note border border-border bg-muted/30 px-4 py-3 text-sub">
+              <span className="text-sub-sm text-muted-foreground">紐づき案件: </span>
               {program.gls_number && (
-                <span className=" text-primary text-xs mr-2">{program.gls_number}</span>
+                <span className="text-sub-sm text-primary mr-2">{program.gls_number}</span>
               )}
-              <span className="font-medium">{program.project_name}</span>
+              <span className="text-list">{program.project_name}</span>
             </div>
           )}
           {/* 独自作成の番組（マニュアル）に紐づく場合の表示（migration 237） */}
           {program?.qsheet_program_name && (
-            <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
-              <span className="text-muted-foreground text-xs">紐づき番組: </span>
-              <span className="font-medium">{program.qsheet_program_name}</span>
+            <div className="rounded-note border border-border bg-muted/30 px-4 py-3 text-sub">
+              <span className="text-sub-sm text-muted-foreground">紐づき番組: </span>
+              <span className="text-list">{program.qsheet_program_name}</span>
             </div>
           )}
 
@@ -249,7 +250,7 @@ function ProgramSettingsContent({ owner, programId }: {
                   aria-pressed={sources.has(s.key)}
                   onClick={() => toggleSource(s.key)}
                   disabled={!canManage}
-                  className={`min-h-tap rounded-chip border px-3 text-sm lg:min-h-[36px] ${
+                  className={`min-h-tap rounded-chip border px-3 text-sub lg:min-h-[36px] ${
                     sources.has(s.key)
                       ? 'border-primary bg-primary-surface text-primary'
                       : 'border-border text-muted-foreground hover:bg-muted'
@@ -259,7 +260,7 @@ function ProgramSettingsContent({ owner, programId }: {
                 </button>
               ))}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-note text-muted-foreground">
               選んだ先の欄だけを出します。外しても、入れた値は消えません。
             </p>
           </div>
@@ -271,7 +272,7 @@ function ProgramSettingsContent({ owner, programId }: {
               {canManage && (
                 <Button
                   type="button" variant="ghost" size="sm"
-                  className="h-6 text-xs" // ui-tokens-ok: client-live 原実装のまま移植（このステージは移植のみ）
+                  className="h-6 text-sub-sm" // ui-tokens-ok: client-live 原実装のまま移植（このステージは移植のみ）
                   onClick={addYtUrl}
                 >
                   <Plus className="h-3 w-3 mr-1" />追加
@@ -337,7 +338,7 @@ function ProgramSettingsContent({ owner, programId }: {
               disabled={!canManage}
             />
             {(zoomMeetingId || zoomWebinarId) && (
-              <p className="text-xs text-muted-foreground">両方設定すると参加者数を合算します</p>
+              <p className="text-note text-muted-foreground">両方設定すると参加者数を合算します</p>
             )}
           </div>
           </>
@@ -352,7 +353,7 @@ function ProgramSettingsContent({ owner, programId }: {
               placeholder="https://teams.microsoft.com/l/meetup-join/..."
               disabled={!canManage}
             />
-            <p className="text-xs text-muted-foreground">「会議リンクをコピー」で取得したURLを貼り付け。ミーティング・ウェビナー共通。</p>
+            <p className="text-note text-muted-foreground">「会議リンクをコピー」で取得したURLを貼り付け。ミーティング・ウェビナー共通。</p>
           </div>
           )}
 
@@ -367,6 +368,6 @@ function ProgramSettingsContent({ owner, programId }: {
           )}
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

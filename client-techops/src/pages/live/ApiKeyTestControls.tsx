@@ -43,17 +43,17 @@ export function ApiTestRow({ platform, note }: { platform: TestPlatform; note?: 
             ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />テスト中…</>
             : <><PlugZap className="h-3.5 w-3.5 mr-1.5" />接続テスト</>}
         </Button>
-        {note && <span className="text-xs text-muted-foreground">{note}</span>}
+        {note && <span className="text-sub-sm text-muted-foreground">{note}</span>}
       </div>
       {result && (
-        <div className={`flex items-start gap-1.5 rounded-md border p-2 text-xs ${
+        <div className={`flex items-start gap-1.5 rounded-note border p-2 text-sub-sm ${
           result.status === 'ok' ? 'border-green-600/30 bg-green-600/5'
           : result.status === 'error' ? 'border-destructive/30 bg-destructive/5'
           : 'border-amber-500/30 bg-amber-500/5'
         }`} role="status">
           {icon}
           <div className="min-w-0">
-            <p className={`font-medium ${textColor}`}>
+            <p className={`text-list ${textColor}`}>
               {result.message}
               {result.status === 'ok' && result.latencyMs > 0 && (
                 <span className="font-normal text-muted-foreground"> ({result.latencyMs}ms)</span>
@@ -70,8 +70,8 @@ export function ApiTestRow({ platform, note }: { platform: TestPlatform; note?: 
 /** 取得方法などの簡易ガイド (折りたたみ) */
 export function ApiGuide({ title, steps }: { title: string; steps: React.ReactNode[] }) {
   return (
-    <details className="rounded-md border bg-muted/30 px-3 py-2 text-xs">
-      <summary className="flex cursor-pointer items-center gap-1.5 font-medium text-muted-foreground select-none">
+    <details className="rounded-note border bg-muted/30 px-3 py-2 text-sub-sm">
+      <summary className="flex min-h-tap cursor-pointer items-center gap-1.5 text-list text-muted-foreground select-none lg:min-h-0">
         <HelpCircle className="h-3.5 w-3.5 shrink-0" />{title}
       </summary>
       <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted-foreground">

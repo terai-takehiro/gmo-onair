@@ -41,9 +41,9 @@ function handleImport() {
 
 export default function ExportImportSection() {
   return (
-    <section className="rounded-xl border bg-card p-4 space-y-3">
-      <h2 className="text-sm font-semibold">設定の書き出し・読み込み</h2>
-      <p className="text-xs text-muted-foreground">
+    <section className="rounded-card border bg-card p-4 space-y-3">
+      <h2 className="text-cardtitle">設定の書き出し・読み込み</h2>
+      <p className="text-note text-muted-foreground">
         番組の設定をファイルに保存して、あとから戻せます。（APIキーは含まれません）
       </p>
       <div className="flex gap-2">

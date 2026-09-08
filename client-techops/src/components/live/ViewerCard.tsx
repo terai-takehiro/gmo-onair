@@ -11,16 +11,16 @@ interface Props {
 
 export default function ViewerCard({ label, count, color, sublabel }: Props) {
   return (
-    <div className="rounded-xl border bg-card p-4 space-y-2">
+    <div className="rounded-card border bg-card p-4 space-y-2">
       <div className="flex items-center gap-2">
         <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: color }} />
-        <span className="text-sm font-medium text-muted-foreground">{label}</span>
+        <span className="text-list text-muted-foreground">{label}</span>
       </div>
       <div className="text-5xl font-bold tabular-nums" style={{ color }}>
         {formatCount(count)}
       </div>
       {sublabel && (
-        <p className="text-xs text-muted-foreground">{sublabel}</p>
+        <p className="text-note text-muted-foreground">{sublabel}</p>
       )}
     </div>
   );

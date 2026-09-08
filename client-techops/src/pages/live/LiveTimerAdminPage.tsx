@@ -20,6 +20,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import MiniAppSwitcher from '@/components/journey/MiniAppSwitcher';
 import { useLiveProgram } from './useLiveProgram';
 import BackToOwner, { type BackToOwnerTarget } from './BackToOwner';
@@ -43,31 +45,31 @@ export default function LiveTimerAdminPage() {
 
   if (live.status === 'not-found') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         <EmptyState icon={<Timer />} title="見つかりませんでした" description="GLS番号または案件IDを確認してください。" />
-      </div>
+      </PageShell>
     );
   }
 
   if (live.status === 'unsupported-scope') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         <BackToOwner owner={live.owner} />
         <EmptyState
           icon={<Timer />}
           title="案件からのみ開けます"
           description="計時・視聴者は案件からだけ開けます。案件のハブ画面から開いてください。"
         />
-      </div>
+      </PageShell>
     );
   }
 
   if (live.status === 'error') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         {live.owner && <BackToOwner owner={live.owner} />}
         <EmptyState icon={<AlertCircle />} title="開けませんでした" description={live.message} />
-      </div>
+      </PageShell>
     );
   }
 
@@ -125,26 +127,25 @@ function TimerAdminContent({ owner, programId }: {
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-3 py-4 sm:px-6 sm:py-6" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      <div className="mb-4 flex items-center gap-3">
-        <BackToOwner owner={owner} />
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-lg font-bold">タイマー管理</h1>
-          <p className="truncate text-xs text-muted-foreground">{owner.glsNumber ?? owner.name}</p>
-        </div>
-        <MiniAppSwitcher owner={owner} current="liveops" />
-        {canManage && (
-          <Button size="sm" className="h-9 text-xs" onClick={() => setCreateOpen(true)}>
+    <PageShell>
+      <BackToOwner owner={owner} />
+      <PageHeader
+        title="タイマー管理"
+        sub={owner.glsNumber ?? owner.name}
+        primaryAction={canManage ? (
+          <Button size="sm" className="h-9 text-sub-sm" onClick={() => setCreateOpen(true)}>
             <Plus className="h-3.5 w-3.5 mr-1" />新規
           </Button>
-        )}
-      </div>
+        ) : undefined}
+      >
+        <MiniAppSwitcher owner={owner} current="liveops" />
+      </PageHeader>
 
-      <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border sm:flex-row">
+      <div className="flex min-h-0 flex-col overflow-hidden rounded-card border border-border sm:flex-row">
         {/* Timer list */}
         <div className="sm:w-52 border-b sm:border-b-0 sm:border-r border-border overflow-y-auto">
           {timers.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-8 text-muted-foreground text-sm text-center">
+            <div className="flex flex-col items-center justify-center p-8 text-sub text-muted-foreground text-center">
               <p>まだタイマーがありません</p>
               {canManage && (
                 <Button className="mt-3" size="sm" onClick={() => setCreateOpen(true)}>
@@ -158,9 +159,9 @@ function TimerAdminContent({ owner, programId }: {
                 <button
                   key={t.id}
                   onClick={() => setSelectedId(t.id)}
-                  className={`w-full flex items-center justify-between rounded-md px-3 py-2.5 text-left text-sm transition-colors min-h-tap ${
+                  className={`w-full flex items-center justify-between rounded-control-md px-3 py-2.5 text-left text-list transition-colors min-h-tap ${
                     selectedId === t.id
-                      ? 'bg-primary/15 text-primary font-medium'
+                      ? 'bg-primary/15 text-primary'
                       : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
                 >
@@ -216,7 +217,7 @@ function TimerAdminContent({ owner, programId }: {
               </div>
             </>
           ) : (
-            <div className="flex items-center justify-center h-full text-muted-foreground text-sm py-16">
+            <div className="flex items-center justify-center h-full text-sub text-muted-foreground py-16">
               タイマーを選択
             </div>
           )}
@@ -251,13 +252,13 @@ function TimerAdminContent({ owner, programId }: {
         <DialogContent className="sm:max-w-xs">
           <DialogHeader><DialogTitle>表示画面URL</DialogTitle></DialogHeader>
           <div className="space-y-3 text-center">
-            <p className="text-xs text-muted-foreground break-all">{qrUrl}</p>
+            <p className="text-sub-sm text-muted-foreground break-all">{qrUrl}</p>
             <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(qrUrl)}>
               URLをコピー
             </Button>
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageShell>
   );
 }
