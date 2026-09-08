@@ -154,19 +154,53 @@ const NOT_A_SCREEN = [
  *
  * 行頭の `//` `*` `/*` `{/*` を落とすだけでは足りない。**ブロックコメントの
  * 2行目以降は行頭が記号ではない**ので素通りする。実際 v4.7 で
- * 「自前の上辺バーは持たない（もとは … ＋ 14px の `<h1>`）」という**説明文**が
+ * 「自前の上辺バーは持たない（もとは … ＋ 14px の h1）」という**説明文**が
  * `page-h1-by-hand` に当たった（この製品が4回踏んだ「説明文の中に実物を書く」）。
  *
- * 直前3行 + この行 (`block`) の中で `/*` が閉じられていなければ、
- * この行はコメントの内側とみなす。
+ * ⚠️ **直前3行だけ見る形にしてはいけない**（最初そう書いて Codex に指摘された）。
+ * コメントが4行以上あって5行目で実物に触れると、窓の中に `/*` が入らないので
+ * **コードとして扱われ、説明文が違反になる** — この関数が防ぎたかったものそのもの。
+ *
+ * そこで**ファイルを1度なめてコメントを空白で塗り潰した写し**を作り、
+ * 検査はその写しに当てる（報告に出す文字列は元の行のまま）。
+ * 文字列・テンプレートリテラルの中は塗らない（`'/*'` という**値**で
+ * ファイルの残り全部がコメント扱いになると、逆に違反を丸ごと見逃す）。
+ *
+ * **塗り潰しに失敗したら（閉じていないブロックが残ったら）写しを使わない。**
+ * 正規表現リテラルなど、この単純な走査で読み違える書き方が将来入ったとき、
+ * 静かに検査が効かなくなるより、元の行で当てて多めに報告するほうが安全。
  */
-function outsideComment(line, block) {
-  if (/^\s*(\/\/|\*|\/\*|\{\s*\/\*)/.test(line)) return false;
-  if (!block) return true;
-  const before = block.slice(0, block.length - line.length);
-  const opened = (before.match(/\/\*/g) || []).length;
-  const closed = (before.match(/\*\//g) || []).length;
-  return opened <= closed;
+function blankComments(text) {
+  const out = text.split('');
+  let i = 0;
+  let inBlock = false;
+  while (i < text.length) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (inBlock) {
+      if (ch === '*' && next === '/') { out[i] = ' '; out[i + 1] = ' '; i += 2; inBlock = false; continue; }
+      if (ch !== '\n') out[i] = ' ';
+      i += 1;
+      continue;
+    }
+    if (ch === "'" || ch === '"' || ch === '`') {
+      i += 1;
+      while (i < text.length) {
+        if (text[i] === '\\') { i += 2; continue; }
+        if (text[i] === ch) { i += 1; break; }
+        i += 1;
+      }
+      continue;
+    }
+    if (ch === '/' && next === '/') {
+      while (i < text.length && text[i] !== '\n') { out[i] = ' '; i += 1; }
+      continue;
+    }
+    if (ch === '/' && next === '*') { out[i] = ' '; out[i + 1] = ' '; i += 2; inBlock = true; continue; }
+    i += 1;
+  }
+  // 閉じ忘れ = 読み違えたということ。写しは使わない (呼ぶ側が元の行に戻す)
+  return inBlock ? null : out.join('');
 }
 
 /**
@@ -432,7 +466,8 @@ const RULES = [
     // **画面のファイルだけ**。ダイアログ・カードなど画面でない部品は対象外
     // (そこに当てると「ダイアログを広げた」だけで見当違いの案内で止まる)
     only: isPageFile,
-    extra: outsideComment,
+    // コメントの中は見ない (塗り潰した写しに当てる)
+    codeOnly: true,
   },
   {
     id: 'page-h1-by-hand',
@@ -469,7 +504,8 @@ const RULES = [
     only: (rel) =>
       v4Only(rel)
       && !/^shared\/src\/client\/(ui|dashboard|shell)\//.test(rel),
-    extra: outsideComment,
+    // コメントの中は見ない (塗り潰した写しに当てる)
+    codeOnly: true,
   },
   {
     id: 'page-safe-area-by-hand',
@@ -698,6 +734,13 @@ for (const file of files) {
   const notAScreen = NOT_A_SCREEN.some((s) => rel.startsWith(s));
   const text = readFileSync(file, 'utf8');
   const lines = text.split('\n');
+  /*
+   * コメントを空白で塗り潰した写し。`codeOnly` の規則だけがこちらを見る
+   * (既存の規則の当たり方は変えない — 記録がずれるとレビューが読めなくなる)。
+   * 読み違えて `null` が返ったときは元の行に戻す = 多めに報告する側に倒す。
+   */
+  const blanked = blankComments(text);
+  const codeLines = blanked ? blanked.split('\n') : lines;
   lines.forEach((line, i) => {
     // 「ここは意図してこう書いている」と書いた行は見逃す (逃げ道を1つだけ用意する)
     if (line.includes('ui-tokens-ok')) return;
@@ -714,8 +757,11 @@ for (const file of files) {
         'raw-palette', 'translucent-text', 'control-height', 'tap-target', 'col-width-by-hand',
       ].includes(rule.id)) continue;
       if (rule.only && !rule.only(rel)) continue;
-      if (!rule.re.test(line)) continue;
-      if (rule.extra && !rule.extra(line, block)) continue;
+      // `codeOnly` の規則は「コメントを塗り潰した写し」に当てる。
+      // 報告に出す文字列は元の行のまま (読む人には元の行が見えないと直せない)
+      const target = rule.codeOnly ? codeLines[i] : line;
+      if (!rule.re.test(target)) continue;
+      if (rule.extra && !rule.extra(target, block)) continue;
       findings.push({ rel, line: i + 1, id: rule.id, why: rule.why, text: line.trim().slice(0, 120) });
     }
   });
