@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { notifyError, notifyInfo } from '@/lib/notify';
 import {
   fetchGraphicsRequests, updateGraphicsPage, updateGraphicsRequest,
@@ -54,21 +56,17 @@ export default function GraphicsHubPage() {
 
   if (state.status === 'not-found') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
-        <EmptyState
-          icon={<Type />}
-          title="見つかりませんでした"
-          description="GLS番号が合っているか確かめてください。"
-        />
-      </div>
+      <PageShell>
+        <EmptyState icon={<Type />} title="見つかりませんでした" description="GLS番号が合っているか確かめてください。" />
+      </PageShell>
     );
   }
 
   if (state.status === 'error') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         <EmptyState icon={<AlertCircle />} title="開けませんでした" description={state.message} />
-      </div>
+      </PageShell>
     );
   }
 
@@ -266,23 +264,24 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
 
   return (
     <><div className="hidden sm:block">
-    <div className="px-4 py-6 sm:px-6 sm:py-8">
+    <PageShell>
       <Link
         to={hubPath(owner)}
-        className="mb-2 inline-flex min-h-tap items-center gap-1 rounded-control-md px-1.5 text-sub font-bold text-muted-foreground hover:text-foreground"
+        className="inline-flex min-h-tap w-fit items-center gap-1 rounded-control-md px-1.5 text-sub font-bold text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         {owner.kind === 'project' ? '案件ホーム' : '番組ホーム'}
       </Link>
 
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-h1">テロップCG</h1>
-          <p className="mt-1 flex flex-wrap items-center gap-2 text-sub text-muted-foreground">
+      <PageHeader
+        title="テロップCG"
+        sub={(
+          <span className="flex flex-wrap items-center gap-2">
             <span className="font-bold text-foreground">{owner.name}</span>
             {owner.glsNumber && <span className="font-number rounded-badge-xs bg-primary-surface px-1.5 py-0.5 text-badge font-bold text-primary">{owner.glsNumber}</span>}
-          </p>
-        </div>
+          </span>
+        )}
+      >
         <div className="relative flex shrink-0 items-center gap-2">
           <Button variant="outline" asChild>
             <Link to={`/techops/graphics/${encodeURIComponent(ownerKey)}/settings`}>
@@ -303,9 +302,9 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
             </Link>
           </Button>
         </div>
-      </div>
+      </PageHeader>
 
-      <div className="mt-4 flex flex-col items-start gap-4 lg:flex-row">
+      <div className="flex flex-col items-start gap-4 lg:flex-row">
         <div className="min-w-0 flex-1">
           <div ref={requestSectionRef}>
             <RequestQueueSection
@@ -390,8 +389,8 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
           void queryClient.invalidateQueries({ queryKey: qsheetLiveTextQueryKey(bundle.project.id) });
         }}
       />
-    </div>
-    </div><div className="block px-4 py-6 sm:hidden">{/* ⑥一覧（スマホ・閲覧＋緊急CLEAR。段D）。中身は `MobileTelopList` 側 */}
+    </PageShell>
+    </div><div className="block sm:hidden">{/* ⑥一覧（スマホ・閲覧＋緊急CLEAR。段D）。中身は `MobileTelopList` 側 */}
       <MobileTelopList projectName={bundle.project.name} projectId={bundle.project.id} pages={pages} cues={bundle.cues} reload={reload} />
     </div>
     </>

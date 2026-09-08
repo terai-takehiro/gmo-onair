@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
@@ -47,12 +48,12 @@ export default function RequestFormPage() {
   }
   if (state.status === 'not-found' || state.status === 'error') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         <EmptyState
           title="開けませんでした"
           description={state.status === 'error' ? state.message : 'GLS番号が合っているか確かめてください。'}
         />
-      </div>
+      </PageShell>
     );
   }
 
@@ -130,10 +131,10 @@ function FormContent({ ownerKey, ownerName, owner, projectId }: {
   };
 
   return (
-    <div className="px-4 py-6 sm:px-6 sm:py-8">
+    <PageShell>
       <Link
         to={`/techops/graphics/${encodeURIComponent(ownerKey)}`}
-        className="mb-2 inline-flex min-h-tap items-center gap-1 rounded-control-md px-1.5 text-sub font-bold text-muted-foreground hover:text-foreground"
+        className="inline-flex min-h-tap w-fit items-center gap-1 rounded-control-md px-1.5 text-sub font-bold text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         テロップCGへ戻る
@@ -144,7 +145,7 @@ function FormContent({ ownerKey, ownerName, owner, projectId }: {
         sub={`${ownerName} ／ 文言・出すタイミング・種類だけ書けば大丈夫です`}
       />
 
-      <form onSubmit={submit} className="mt-4 space-y-4 rounded-card border border-border bg-card p-4">
+      <form onSubmit={submit} className="space-y-4 rounded-card border border-border bg-card p-4">
         <div>
           <Label htmlFor="request-title">出したい文言・要旨 <span className="text-destructive">*</span></Label>
           <Input
@@ -202,7 +203,7 @@ function FormContent({ ownerKey, ownerName, owner, projectId }: {
         </Button>
       </form>
 
-      <section className="mt-6">
+      <section>
         <h2 className="text-th font-bold text-muted-foreground">自分が出した発注</h2>
         <div className="mt-2 overflow-hidden rounded-card border border-border bg-card">
           {listQuery.isLoading ? (
@@ -248,6 +249,6 @@ function FormContent({ ownerKey, ownerName, owner, projectId }: {
         onOpenChange={setPickerOpen}
         onPick={(label) => setDesiredTiming(label)}
       />
-    </div>
+    </PageShell>
   );
 }

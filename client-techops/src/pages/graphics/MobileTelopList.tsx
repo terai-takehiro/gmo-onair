@@ -14,6 +14,8 @@ import { Fragment, useEffect, useState } from 'react';
 import { CheckCircle2, Circle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { notifyError } from '@/lib/notify';
 import {
   PART_LABELS, setGraphicsCue,
@@ -61,11 +63,13 @@ export default function MobileTelopList({ projectName, projectId, pages, cues, r
     .filter((row): row is { cue: GraphicsCueRow & { pageId: string }; page: GraphicsPageRow } => !!row.page);
 
   return (
-    <div className="px-4 py-6">
-      <h1 className="text-h1">{projectName}</h1>
-      <p className="mt-1 text-sub text-muted-foreground">編集・並べ替えはPCのテロップ一覧で行ってください。「いま出ているもの」だけ、緊急時はここから消せます。</p>
+    <PageShell>
+      <PageHeader
+        title={projectName}
+        sub="編集・並べ替えはPCのテロップ一覧で行ってください。「いま出ているもの」だけ、緊急時はここから消せます。"
+      />
 
-      <div className="mt-4 space-y-4">
+      <div className="space-y-4">
         {/* 0件なら帯ごと出さない（①の RequestQueueSection と同じ「0件なら null」の作法） */}
         {onAirRows.length > 0 && (
           <section className="overflow-hidden rounded-card border border-destructive-border bg-destructive-surface">
@@ -122,7 +126,7 @@ export default function MobileTelopList({ projectName, projectId, pages, cues, r
           </div>
         </section>
       </div>
-    </div>
+    </PageShell>
   );
 }
 

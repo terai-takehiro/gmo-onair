@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ChevronLeft, Mail, Minus, Plus, Trash2, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
 import { Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
@@ -52,7 +53,7 @@ export default function RentalReservationsPage() {
   }, [reservationsQuery.data]);
 
   return (
-    <div className="mx-auto flex h-full max-w-6xl flex-col gap-3 px-3 py-4 sm:px-6 sm:py-6">
+    <PageShell className="h-full">
       <button
         type="button"
         onClick={() => navigate(`/techops/rental/${encodeURIComponent(ownerKey)}`)}
@@ -97,7 +98,7 @@ export default function RentalReservationsPage() {
         <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         予約リストは社内のメモです。各社の在庫を押さえるものではなく、確定は依頼メールへの各社の返信をもって行ってください
       </p>
-    </div>
+    </PageShell>
   );
 }
 

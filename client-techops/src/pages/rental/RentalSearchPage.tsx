@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tansta
 import { ChevronLeft, ListChecks, RefreshCw, Search as SearchIcon, Video } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { FilterChips, type FilterChipItem } from '@gmo-onair/shared/src/client/ui/filterChips';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
@@ -162,7 +163,7 @@ export default function RentalSearchPage() {
   };
 
   return (
-    <div className="mx-auto flex h-full max-w-6xl flex-col gap-3 px-3 py-4 sm:px-6 sm:py-6">
+    <PageShell className="h-full">
       <button
         type="button"
         onClick={() => navigate(-1)}
@@ -289,7 +290,7 @@ export default function RentalSearchPage() {
         ownerKey={ownerKey} target={detailTarget} defaultDate={defaultDate}
         onOpenChange={(open) => !open && setDetailTarget(null)}
       />
-    </div>
+    </PageShell>
   );
 }
 

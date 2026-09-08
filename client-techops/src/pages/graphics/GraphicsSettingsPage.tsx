@@ -10,6 +10,8 @@ import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { AlertCircle, ArrowRightLeft, ChevronLeft, Copy, Loader2, Type } from 'lucide-react';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import {
   Tabs, TabsList, TabsTrigger, TabsContent,
 } from '@gmo-onair/shared/src/client/ui/tabs';
@@ -44,16 +46,16 @@ export default function GraphicsSettingsPage() {
   }
   if (state.status === 'not-found') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         <EmptyState icon={<Type />} title="見つかりませんでした" description="GLS番号が合っているか確かめてください。" />
-      </div>
+      </PageShell>
     );
   }
   if (state.status === 'error') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         <EmptyState icon={<AlertCircle />} title="開けませんでした" description={state.message} />
-      </div>
+      </PageShell>
     );
   }
 
@@ -90,23 +92,25 @@ function SettingsContent({ ownerKey, owner, bundle, reload }: {
   };
 
   return (
-    <div className="px-4 py-6 sm:px-6 sm:py-8">
+    <PageShell>
       <Link
         to={`/techops/graphics/${encodeURIComponent(ownerKey)}`}
-        className="mb-2 inline-flex min-h-tap items-center gap-1 rounded-control-md px-1.5 text-sub font-bold text-muted-foreground hover:text-foreground"
+        className="inline-flex min-h-tap w-fit items-center gap-1 rounded-control-md px-1.5 text-sub font-bold text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         テロップ一覧
       </Link>
 
-      <div className="min-w-0">
-        <h1 className="text-h1">設定</h1>
-        <p className="mt-1 text-sub text-muted-foreground">
-          <span className="font-bold text-foreground">{owner.name}</span> ・ この番組のテロップCGの決めごと。テロップの中身はここでは触りません。
-        </p>
-      </div>
+      <PageHeader
+        title="設定"
+        sub={(
+          <>
+            <span className="font-bold text-foreground">{owner.name}</span> ・ この番組のテロップCGの決めごと。テロップの中身はここでは触りません。
+          </>
+        )}
+      />
 
-      <Tabs value={tab} onValueChange={changeTab} className="mt-4">
+      <Tabs value={tab} onValueChange={changeTab}>
         <TabsList>
           <TabsTrigger value="output">出力URL</TabsTrigger>
           <TabsTrigger value="look">見た目</TabsTrigger>
@@ -189,6 +193,6 @@ function SettingsContent({ ownerKey, owner, bundle, reload }: {
         onOpenChange={setCopyOpen}
         onCopied={reload}
       />
-    </div>
+    </PageShell>
   );
 }

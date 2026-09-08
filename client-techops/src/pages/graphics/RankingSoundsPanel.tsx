@@ -18,6 +18,8 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@gmo-onair/shared/src/client/ui/switch';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifyError, notifySuccess } from '@/lib/notify';
 import {
@@ -64,16 +66,16 @@ export default function RankingSoundsPanel() {
   }
   if (state.status === 'not-found') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         <EmptyState icon={<Music />} title="見つかりませんでした" description="GLS番号が合っているか確かめてください。" />
-      </div>
+      </PageShell>
     );
   }
   if (state.status === 'error') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         <EmptyState icon={<AlertCircle />} title="開けませんでした" description={state.message} />
-      </div>
+      </PageShell>
     );
   }
 
@@ -163,12 +165,14 @@ export function RankingSoundsContent({ ownerKey, owner, projectId, embedded = fa
   const body = (
     <>
       {!embedded && (
-        <div className="min-w-0">
-          <h1 className="text-h1">演出SE ／ {owner.name}</h1>
-          <p className="mt-1 text-sub text-muted-foreground">
-            ランキング発表（<strong className="font-bold text-foreground">ranking</strong> パーツ）のステップ切替時に鳴らす効果音。旧リアルタイムCGの演出SEの移植です — 出力URLに <code className="rounded bg-surface-subtle px-1">?audio=1</code> を付けたときだけ鳴ります。
-          </p>
-        </div>
+        <PageHeader
+          title={`演出SE ／ ${owner.name}`}
+          sub={(
+            <>
+              ランキング発表（<strong className="font-bold text-foreground">ranking</strong> パーツ）のステップ切替時に鳴らす効果音。旧リアルタイムCGの演出SEの移植です — 出力URLに <code className="rounded bg-surface-subtle px-1">?audio=1</code> を付けたときだけ鳴ります。
+            </>
+          )}
+        />
       )}
       {embedded && (
         <p className="text-sub text-muted-foreground">
@@ -248,7 +252,7 @@ export function RankingSoundsContent({ ownerKey, owner, projectId, embedded = fa
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="text-list font-bold">{STEP_LABEL.get(s.step as RankingStep) ?? s.step}</span>
                   {s.rankStart != null && (
-                    <span className="inline-flex h-5 items-center whitespace-nowrap rounded-control bg-info-surface px-1.5 text-[10px] font-bold text-info">
+                    <span className="inline-flex h-5 items-center whitespace-nowrap rounded-control bg-info-surface px-1.5 text-badge text-info">
                       {s.rankStart}位から
                     </span>
                   )}
@@ -291,16 +295,16 @@ export function RankingSoundsContent({ ownerKey, owner, projectId, embedded = fa
 
   if (embedded) return body;
   return (
-    <div className="px-4 py-6 sm:px-6 sm:py-8">
+    <PageShell>
       <Link
         to={templatesPath(ownerKey)}
-        className="mb-2 inline-flex min-h-tap items-center gap-1 rounded-control-md px-1.5 text-sub font-bold text-muted-foreground hover:text-foreground"
+        className="inline-flex min-h-tap w-fit items-center gap-1 rounded-control-md px-1.5 text-sub font-bold text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         テンプレート管理へ戻る
       </Link>
       {body}
-    </div>
+    </PageShell>
   );
 }
 
