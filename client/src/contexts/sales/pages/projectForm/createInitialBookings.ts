@@ -134,7 +134,12 @@ export async function runPostSaveBookingFlow(
   if (!wantsBooking || !schedule.productionStart) return;
   try {
     if (isEdit && (await hasFreshEventBooking(qc, projectId))) return;
-    if (schedule.locationNote.trim()) saveLocationNote(schedule.locationNote.trim());
+    // ⚠️ **場所メモの候補履歴（`localStorage`）が書けなくても予約は作る。**
+    // ここで投げると下の `createInitialBookings` まで届かず、任意の下書き機能の
+    // 失敗（容量不足等）のせいで本命の予約が作られない（Codex 指摘 #660 P2）
+    if (schedule.locationNote.trim()) {
+      try { saveLocationNote(schedule.locationNote.trim()); } catch { /* 履歴は無くても困らない */ }
+    }
     await createInitialBookings(qc, projectName, projectId, schedule);
   } catch (e) {
     notifyApiError(

@@ -281,8 +281,17 @@ export function useProjectForm(id: string | undefined) {
     mutationFn: async (values: FormValues) => {
       // 送ってはいけない項目を落とす変換は `buildSavePayload.ts`（理由のコメントもそちら）
       const body = buildSavePayload(values, { isGroup, isEdit });
-      if (isEdit) return (await api.put(`/projects/${id}`, body)).data.data;
-      return (await api.post('/projects', body)).data.data;
+      const result = isEdit
+        ? (await api.put(`/projects/${id}`, body)).data.data
+        : (await api.post('/projects', body)).data.data;
+      // ⚠️ **予約の後始末もここで待つ。** `mutate()` の個別コールバックだと react-query が
+      // 待たないため、保存ボタンが予約作成の完了を待たずに押せる状態へ戻ってしまい、
+      // 二重送信で同じ予約が2件できてしまう（Codex 指摘 #660 P1）
+      const savedProjectId = (result as { id?: string })?.id || id;
+      await runPostSaveBookingFlow(qc, isEdit, savedProjectId as string, values.name, {
+        ...schedule, productionLastDay: schedule.productionLastDay || schedule.productionStart,
+      });
+      return result;
     },
     onError: (err) => notifyApiError('案件を保存できませんでした', err),
     onSuccess: (result) => {
@@ -346,15 +355,8 @@ export function useProjectForm(id: string | undefined) {
     // 「保存を待っている間に人が触った欄」だけを見分けて残すために使う
     submittedRef.current = { ...getValues() };
 
-    saveMutation.mutate(values, {
-      // 予約の後始末（編集時も、まだ無ければ作る）は `runPostSaveBookingFlow` に一本化
-      onSuccess: async (res) => {
-        const savedProjectId = (res as { id?: string })?.id || id;
-        await runPostSaveBookingFlow(qc, isEdit, savedProjectId as string, values.name, {
-          ...schedule, productionLastDay: prodEnd || schedule.productionStart,
-        });
-      },
-    });
+    // 予約の後始末（編集時も、まだ無ければ作る）は `mutationFn` の中で待つ
+    saveMutation.mutate(values);
   };
 
   /**
