@@ -230,11 +230,8 @@ export default function RecordingPage() {
     <PageShell>
       <DeckDatalists />
 
-      {/* **戻る導線は見出しと別の行にする。** 見出し・戻る・ミニアプリ切替を1行に
-          押し込むと、375px では `MiniAppSwitcher`（`shrink-0` の帯）が幅を取り切って
-          見出しの取り分がほぼ 0 になり、`<PageHeader>` の `[overflow-wrap:anywhere]`
-          で画面の名前が縦に折り返る（`ui/pageHeader.tsx` が v4.5.0 直後に踏んだのと
-          同じ壊れ方）。案件管理の詳細画面と同じ「戻る → 見出し」の縦並びに揃える */}
+      {/* **戻る導線は見出しと別の行にする**（1行に押し込むと 375px で見出しが縦に
+          折り返る。理由は `_rules.md`「5. ページの外枠」） */}
       {owner ? (
         <Link
           to={owner.kind === 'project' ? `/techops/projects/${owner.id}` : `/techops/programs/${owner.id}`}
@@ -248,10 +245,7 @@ export default function RecordingPage() {
           <ChevronLeft className="h-5 w-5" />
         </button>
       )}
-      <PageHeader
-        title="収録設定"
-        sub={`${owner?.glsNumber ?? owner?.name ?? ownerKey} ・ HyperDeck 12台`}
-      >
+      <PageHeader title="収録設定" sub={`${owner?.glsNumber ?? owner?.name ?? ownerKey} ・ HyperDeck 12台`}>
         {owner && <MiniAppSwitcher owner={owner} current="recording" />}
       </PageHeader>
 
