@@ -14,12 +14,22 @@
  * 「どの番組の？」が定まらないため（旧実装の誤り。当時の記録は git 履歴参照）。
  *
  * データは `listTopItems()`（`/techops/top-items`）が GLS案件＋ここだけの番組を
- * 1本で返す。**「最後の回の翌日」を過ぎた項目はアーカイブ扱い**にし、既定では
- * 隠す（`view: 'archive'` で切り替えて見る）。`last_date` が無い項目（GLS-B系・
- * 実施日未定の番組）は終了しない扱い。
+ * 1本で返す。
  *
- * 一覧の組み立て（絞り込み・並び替え・アーカイブ判定）は `pages/top/topHelpers.ts`
- * に切り出した純粋関数を使う。
+ * ── 何を・どの順で出すか（2026-09-08 のご指示で整理し直した）──────────
+ *
+ *   ① **制作物にならない案件は出さない。** 工事・構築のプロジェクト（旧 `GLS-B###`・
+ *      改番後の `GMO-####`）と失注は**サーバー側**で外す（`top.routes.ts`）。
+ *      「番組・イベントを選ぶ入口」に第3本社プロジェクトのような案件が混ざっていた
+ *   ② **並びは放送順**（本番日の昇順）。日程が未定のものだけ最後にまとめる
+ *   ③ **行には必ず本番日を出す**（未定なら「日程未定」と書く）。以前は日付を
+ *      1つも出していなかったため、なぜその順なのかが画面から読めなかった
+ *   ④ **終わったものはアーカイブへ畳む**（`view: 'archive'` で見る）。最後の回の
+ *      翌日から。**日付を1つも持たない案件はステージで判断する**（実施済・完了は
+ *      畳む）— 以前は日付が無いだけで永久に本体へ残っていた
+ *
+ * ①以外の組み立て（絞り込み・並び替え・アーカイブ判定・「いつ」の決め方）は
+ * `pages/top/topHelpers.ts` に切り出した純粋関数を使う。
  */
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -152,6 +162,11 @@ function ActiveView({
       <RecentSection entries={recentEntries} onNavigate={onNavigate} />
 
       <section className="flex flex-col gap-2">
+        {mainList.length > 0 && (
+          <h2 className="text-sub-sm font-bold tracking-wide text-muted-foreground">
+            本番・放送の予定（日付順）
+          </h2>
+        )}
         {mainList.length > 0 ? (
           <div className="flex flex-col overflow-hidden rounded-card border border-border">
             {mainList.map((it) => (
@@ -202,12 +217,15 @@ function ArchiveView({
       ) : (
         <div className="flex flex-col overflow-hidden rounded-card border border-border">
           {items.map((it) => (
-            <TopItemRow key={`${it.kind}-${it.id}`} item={it} onNavigate={onNavigate} showLastDate />
+            <TopItemRow key={`${it.kind}-${it.id}`} item={it} onNavigate={onNavigate} />
           ))}
         </div>
       )}
 
-      <p className="text-note text-muted-foreground">本番日（実施日）の翌日から、自動でここに入ります。</p>
+      <p className="text-note text-muted-foreground">
+        本番日（実施日）の翌日から、自動でここに入ります。日付が入っていないものは、
+        案件が「実施済」「完了」になった時点でここへ移ります。
+      </p>
     </div>
   );
 }

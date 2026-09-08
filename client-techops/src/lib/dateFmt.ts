@@ -33,6 +33,19 @@ export function relativeDayLabel(dateStr: string, today: string = todayStr()): s
   return WEEKDAYS_JA[d.getDay()];
 }
 
+/**
+ * 本番日までの残り（トップの一覧の行に添える）。`今日` / `明日` / `あと3日` /
+ * 3週間より先は空文字（日付そのものを出しているので、遠い先の日数は読まれない）。
+ * 過ぎた日は空文字（「終了」などの言葉は呼ぶ側が決める）。
+ */
+export function countdownLabel(dateStr: string, today: string = todayStr()): string {
+  const diff = daysBetween(today, dateStr);
+  if (diff < 0) return "";
+  if (diff === 0) return "今日";
+  if (diff === 1) return "明日";
+  return diff <= 21 ? `あと${diff}日` : "";
+}
+
 /** 'YYYY-MM-DD' → { month: '8月', day: '23' } */
 export function monthDay(dateStr: string): { month: string; day: string } {
   const d = new Date(`${dateStr}T00:00:00`);

@@ -10,9 +10,28 @@
  *   （2026-08-22 ご指示）。判定そのものはクライアント側で行う（きょうの日付は
  *   クライアントの壁時計を使う方が「開いた瞬間」と一致するため）
  *
+ * ── 何を出すか（2026-09-08 のご指示で絞り直した）────────────────────────
+ *
+ * ここは**番組・イベントを選ぶ入口**なので、**制作物にならない案件は出さない**。
+ * 以前は「GLS 番号が付いていれば全部」だったため、工事・構築のプロジェクト
+ * （`GLS-B###`・改番後の `GMO-####`。第3本社プロジェクト・スタジオ構築など）が
+ * 日付を持たないまま一覧の末尾に残り続けていた。
+ *
+ *   - **案件分類が `B`（プロジェクト）のものは出さない。** 2026年10月の事業再編で
+ *     A/B の1字は番号から消えたが（旧A → `SCS-`/`GSS-`、旧B → `GMO-`）、
+ *     `projects.gls_category` は残るのでそちらで判定する
+ *     （`docs/reorg-2026-10-plan.md` §4.4）。**分類が未設定の古い案件は A 扱い**
+ *     ——「案件を編集」・`missingOf` と同じ基準（v4.6.6）
+ *   - **失注（`e_lost`）は出さない。** 本番が来ないため
+ *
+ * `stage` も返す。**日付を1つも持たない案件**（実施日未定のまま完了・実施済みに
+ * なったもの）を終わったものとして畳むのに使う（判定はクライアント側）。
+ *
  * GLS 案件は `episodes.broadcast_date`（無ければ `recording_date`）を見る。
  * **episodes が1件も無い案件は `projects.event_start`/`event_end` にフォールバック**
- * する（GLS-B・単発イベントなど episodes を持たない案件があるため）。
+ * する（回を作っていない単発イベントがあるため）。**`NULLIF(…, '')` を通す** —
+ * この2列は TEXT で、空文字が入っている行があると `''` がそのまま日付として
+ * クライアントへ渡り、`nextDayStr('')` が Invalid Date で落ちる。
  * ここだけの番組（`qsheet_programs`）は `event_date` 1つだけを next/last 両方に使う
  * （日付が無い番組は `next_date`/`last_date` とも `null` ＝ 終了しない扱いになる）。
  *
@@ -37,6 +56,12 @@ export interface TopItemRow {
   next_date: string | null;
   last_date: string | null;
   /**
+   * 案件のステージ（`a_won` など）。ここだけの番組（`kind==='own'`）は `null`。
+   * **日付を1つも持たない案件をアーカイブへ畳むため**にだけ使う
+   * （`r_delivered`＝実施済・`s_completed`＝完了。判定は `topHelpers.ts`）
+   */
+  stage: string | null;
+  /**
    * 改番で退役した旧番号（`project_numbers.number` where `retired_at IS NOT NULL`）。
    * 2026年10月の事業再編・P1（docs/reorg-2026-10-plan.md §4.10）— 旧番号でもこの一覧の
    * 検索から引けるようにするため。`kind==='own'`（案件管理に無い番組）は常に空配列
@@ -51,6 +76,7 @@ router.get('/top-items', async (_req: Request, res: Response) => {
         p.id,
         p.name,
         p.gls_number,
+        p.stage,
         c.name AS customer_name,
         COALESCE(
           (SELECT MIN(COALESCE(e.broadcast_date, e.recording_date))
@@ -58,18 +84,23 @@ router.get('/top-items', async (_req: Request, res: Response) => {
            WHERE e.project_id = p.id AND e.deleted_at IS NULL
              AND COALESCE(e.broadcast_date, e.recording_date)
                  >= to_char(NOW() AT TIME ZONE 'Asia/Tokyo', 'YYYY-MM-DD')),
-          CASE WHEN p.event_start >= to_char(NOW() AT TIME ZONE 'Asia/Tokyo', 'YYYY-MM-DD')
-               THEN p.event_start END
+          CASE WHEN NULLIF(p.event_start, '') >= to_char(NOW() AT TIME ZONE 'Asia/Tokyo', 'YYYY-MM-DD')
+               THEN NULLIF(p.event_start, '') END
         ) AS next_date,
         COALESCE(
           (SELECT MAX(COALESCE(e.broadcast_date, e.recording_date))
            FROM episodes e
            WHERE e.project_id = p.id AND e.deleted_at IS NULL),
-          p.event_end, p.event_start
+          NULLIF(p.event_end, ''), NULLIF(p.event_start, '')
         ) AS last_date
       FROM projects p
       LEFT JOIN companies c ON c.id = p.customer_id
       WHERE p.gls_number IS NOT NULL AND p.deleted_at IS NULL
+        -- 工事・構築のプロジェクト（GLS-B###・改番後の GMO-####）は制作物ではないので出さない。
+        -- 分類が未設定の古い案件は A 扱い（「案件を編集」・missingOf と同じ基準・v4.6.6）
+        AND COALESCE(p.gls_category, 'A') <> 'B'
+        -- 失注は本番が来ない
+        AND p.stage <> 'e_lost'
       ORDER BY p.gls_number DESC
     `);
 
@@ -115,6 +146,7 @@ router.get('/top-items', async (_req: Request, res: Response) => {
         customer_name: r.customer_name as string | null,
         next_date: r.next_date as string | null,
         last_date: r.last_date as string | null,
+        stage: r.stage as string | null,
         retired_numbers: retiredByProject.get(r.id as string) ?? [],
       })),
       ...ownRows.map((r) => ({
@@ -125,6 +157,8 @@ router.get('/top-items', async (_req: Request, res: Response) => {
         customer_name: null,
         next_date: r.next_date as string | null,
         last_date: r.event_date as string | null,
+        // ここだけの番組にステージは無い（実施日だけで終わりを判断する）
+        stage: null,
         retired_numbers: [] as string[],
       })),
     ];
