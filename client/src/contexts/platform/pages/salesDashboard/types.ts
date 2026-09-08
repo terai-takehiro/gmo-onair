@@ -39,7 +39,7 @@ export interface SalesOverview {
  * 超過してから知るのではなく、今日やるべきものを朝のうちに見せるのがこのカード）。
  */
 export interface TodaySales {
-  /** 期限が来た次の一手（超過＋今日期限・古い順・最大50件） */
+  /** 期限超過の次アクション（超過＋今日期限・古い順・最大50件） */
   next_moves: {
     project_id: string;
     project_name: string | null;

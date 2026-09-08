@@ -99,6 +99,10 @@ export function InboxTab({ data, can }: { data: InboxData | undefined; can: Inbo
                   {def.label}
                   <span className="font-number">{counts?.[kind] ?? rows.length}</span>
                 </p>
+                {/* 見出しだけでは何をすべきか読めないというご指摘（2026-09-08）— 補足がある節にだけ出す */}
+                {def.description && (
+                  <p className="text-note mb-1 text-muted-foreground">{def.description}</p>
+                )}
                 {rows.slice(0, PER_KIND).map((it) => (
                   <InboxRow
                     key={it.key}
