@@ -2346,6 +2346,26 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#652**（`release: v4.6.7`・2026-09-08）— `docs/changelog.d/` に溜まっていた
+  マージ済み7PRぶんの下書きを `npm run release:notes -- 4.6.7` でまとめ、
+  `CLAUDE.md`／`README.md`／`package.json` の版を上げただけのリリース専用PR
+  （コード変更なし）。**CI の `checks` が一度落ちた** — `check-changelog.mjs` の
+  `isRelease()` が「枝の名前が `release/` で始まる」ときしかリリース扱いにしておらず、
+  Claude Code の Web セッションが作る `claude/release-version-update-nank8n`
+  （`release/` に付け替えられない固定形）では版の3か所を触った通常の作業PRと
+  誤判定されていた。判定を「いずれかのセグメントの先頭が `release`」に緩めて
+  `scripts/check-changelog.mjs` を直し、push し直して green にした
+  （このPRに含めた唯一のコード変更。CIワークフロー自体は変えていない）。
+  ⚠️ **📝 Code Review は Codex の usage limits で一度も実行されず**
+  （「You have reached your Codex usage limits for code reviews」と明示的に返答）、
+  🔒 Security Review は最初のコミット（`35fbccf`）でだけ完了し **findings なし**。
+  **CI修正の2つ目のコミット（`5df6f9b`）にはどちらのレビューも再実行されていない**
+  （#648 と同じ形。ただし今回の追加分は権限・入力の受け取りに関わらない
+  CI 検査スクリプトの正規表現変更のみで、リスクは低いと判断した）。
+  **表に移す指摘はない**（レビュー自体が届いていないため）。
+  CI green（`build`/`checks` とも success、`mergeable_state: clean`）を確認し、
+  terai-takehiro の指示によりそのまま squash マージした。
+
 - **#648**（`fix(daily): マージ後に届いた Codex 指摘3件を直し、#644 の指摘を棚卸しに移した`・
   2026-09-08）— #644 のマージ3分後に2巡目のレビューが完了して P1×1・P2×2 を返したため、
   その3件を直しつつ #644 の棚卸しを載せた回（内容は上の #644 に書いてある）。
