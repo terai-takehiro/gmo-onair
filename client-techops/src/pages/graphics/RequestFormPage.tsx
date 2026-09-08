@@ -140,10 +140,8 @@ function FormContent({ ownerKey, ownerName, owner, projectId }: {
         テロップCGへ戻る
       </Link>
 
-      <PageHeader
-        title="テロップの発注（テロ原）"
-        sub={`${ownerName} ／ 文言・出すタイミング・種類だけ書けば大丈夫です`}
-      />
+      <PageHeader title="テロップの発注（テロ原）" sub={ownerName} />
+      <p className="text-note text-muted-foreground">文言・出すタイミング・種類だけ書けば大丈夫です。</p>
 
       <form onSubmit={submit} className="space-y-4 rounded-card border border-border bg-card p-4">
         <div>

@@ -175,7 +175,6 @@ export default function RentalSearchPage() {
 
       <PageHeader
         title="レンタル機材検索"
-        sub="TOC・レスターの機材を横断検索して、この番組の予約リストに入れられます"
         primaryAction={
           <Button
             variant="outline"
@@ -192,6 +191,9 @@ export default function RentalSearchPage() {
           </Button>
         }
       />
+      <p className="text-note text-muted-foreground">
+        TOC・レスターの機材を横断検索して、この番組の予約リストに入れられます。
+      </p>
 
       <div className="flex flex-wrap items-center gap-2.5 rounded-card border border-border bg-card p-2.5">
         <div className="relative w-full sm:w-60">

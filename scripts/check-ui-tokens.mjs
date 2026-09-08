@@ -211,14 +211,25 @@ function blankComments(text) {
 }
 
 /**
- * **画面のファイルだけ**（`src/pages/…` と `src/contexts/…/pages/…`）。
+ * **画面（ルートに割り当てた部品）のファイルだけ。**
+ *
  * ダイアログやカードなど「画面ではない部品」に本文幅の決まりを当てると、
  * 例えばダイアログを `sm:max-w-4xl` で広げただけで
- * 「`<PageShell>` を使え」という**見当違いの案内**で lint が止まる
- * （Codex レビュー #647 の指摘）。
+ * 「`<PageShell>` を使え」という**見当違いの案内**で lint が止まる。
+ *
+ * ⚠️ **`/pages/` を含むかで見てはいけない**（最初そう書いて Codex に指摘された）。
+ * この製品は `src/pages/` の下に画面でない部品も置く — 実測で **521 個**あり、
+ * `pages/sheets/CreateSheetDialog.tsx` や `pages/graphics/TemplateFormDialog.tsx`
+ * のようなダイアログがそこに含まれる。
+ *
+ * **ファイル名が `…Page.tsx` かで見る。** ルーターの `element={<…/>}` を数えると
+ * 68 個のうち画面はすべて `Page` で終わり、残りは `ProtectedRoute` や
+ * `RedirectOnce` など**絵を持たない包み**だけだった（実測）。
+ * 画面を `…Page.tsx` 以外の名前で作った日は見逃すが、**見逃しは静かに増えるだけ**で、
+ * 誤検知のように他の人の lint を止めはしない。
  */
 const isPageFile = (rel) =>
-  /^client(-daily|-equipment|-techops)?\/src\//.test(rel) && rel.includes('/pages/');
+  /^client(-daily|-equipment|-techops)?\/src\//.test(rel) && /Page\.tsx$/.test(rel);
 
 const RULES = [
   {
@@ -772,6 +783,38 @@ for (const file of files) {
       findings.push({ rel, line: i + 1, id: rule.id, why: rule.why, text: line.trim().slice(0, 120) });
     }
   });
+
+  /*
+   * ── 画面が `<PageShell>` を使っているか（行ではなくファイル単位）────
+   *
+   * 幅トークンの列挙（`page-width-by-hand`）だけでは
+   * 「本文の幅と余白は `<PageShell>` から来る」という決まりを守らせられない。
+   * `max-w-2xl` でも `max-w-[900px]` でも `px-8` でも、幅を書かなくても
+   * 素通りする — **どれも今回直した「画面ごとに左端が動く」を作り直せる書き方**
+   * （Codex レビュー #647 の指摘）。
+   *
+   * ⚠️ **当てるのは制作技術支援だけ。** 33 画面のうち 26 画面が
+   * すでに `<PageShell>` に載っており、残り 7 つ（ログイン・編集・本番3画面・
+   * 公開音声・テロップCG の出力）は**共通シェルの外にある画面**として
+   * 意図的に対象外にしたもの。ここは記録に入れて「増えたら止める」。
+   *
+   * 案件管理・日常業務・機材管理（79 画面）は 1 つも載っていない。
+   * ここへ広げるかは**アプリを跨ぐ決めごと**なので、当てない
+   * （`missing-font-weight` を凍結アプリに当てないのと同じ考え方 —
+   * 直せない違反を並べると検査ごと無視される）。
+   */
+  if (/^client-techops\/src\//.test(rel) && /Page\.tsx$/.test(rel) && !text.includes('PageShell')) {
+    findings.push({
+      rel,
+      line: 1,
+      id: 'page-shell-missing',
+      why: '画面の外枠は `<PageShell>` から出します'
+         + '（`shared/src/client/ui/pageShell.tsx`。幅と余白を画面ごとに書くと'
+         + '画面を移るたび本文の左端が動きます。共通シェルの外に出す画面は'
+         + '記録に入れてください）',
+      text: rel.split('/').pop(),
+    });
+  }
 }
 
 const serverFiles = SERVER_DIRS.flatMap((d) => walk(join(ROOT, d)));
@@ -859,6 +902,9 @@ const BASELINE = {
     "page-h1-by-hand": {
       "client": 13,
       "client-techops": 5
+    },
+    "page-shell-missing": {
+      "client-techops": 7
     },
     "page-title-by-hand": {
       "client": 4,

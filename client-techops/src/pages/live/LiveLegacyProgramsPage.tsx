@@ -63,7 +63,6 @@ export default function LiveLegacyProgramsPage() {
       </button>
       <PageHeader
         title="計時・視聴者 — 案件未紐付けの番組"
-        sub="案件に結びつけずに作られた古い番組の一覧です。ここで新しく作ることはできません。"
       >
         {/* レビュー指摘（②組織の鍵設定への導線が実質1本しかない）対応: 従来はダッシュボードの
             歯車アイコン（プロジェクトを1回開かないと辿り着けない）だけが入口だった。
@@ -76,6 +75,9 @@ export default function LiveLegacyProgramsPage() {
           組織の鍵設定
         </a>
       </PageHeader>
+      <p className="text-note text-muted-foreground">
+        案件に結びつけずに作られた古い番組の一覧です。ここで新しく作ることはできません。
+      </p>
     </>
   );
 

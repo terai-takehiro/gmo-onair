@@ -79,10 +79,10 @@ export default function ScheduleTemplateSettingsPage() {
 
   return (
     <PageShell width="narrow">
-      <PageHeader
-        title="スケジュール表の工程テンプレート"
-        sub="拠点ごとの標準の列・項目を作っておくと、当日の表に一括で流し込めます。"
-      />
+      <PageHeader title="スケジュール表の工程テンプレート" />
+      <p className="text-note text-muted-foreground">
+        拠点ごとの標準の列・項目を作っておくと、当日の表に一括で流し込めます。
+      </p>
 
       <div className="grid grid-cols-3 gap-6">
         <div className="space-y-2">

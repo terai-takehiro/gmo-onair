@@ -64,10 +64,10 @@ export default function MobileTelopList({ projectName, projectId, pages, cues, r
 
   return (
     <PageShell>
-      <PageHeader
-        title={projectName}
-        sub="編集・並べ替えはPCのテロップ一覧で行ってください。「いま出ているもの」だけ、緊急時はここから消せます。"
-      />
+      <PageHeader title={projectName} />
+      <p className="text-note text-muted-foreground">
+        編集・並べ替えはPCのテロップ一覧で行ってください。「いま出ているもの」だけ、緊急時はここから消せます。
+      </p>
 
       <div className="space-y-4">
         {/* 0件なら帯ごと出さない（①の RequestQueueSection と同じ「0件なら null」の作法） */}

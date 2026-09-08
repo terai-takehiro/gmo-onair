@@ -87,13 +87,17 @@ export default function ProductionTopPage() {
     <PageShell>
       <PageHeader
         title="制作技術支援"
-        sub="番組・イベントを選ぶと、台本制作・スケジュール表・収録配信の設定が開けます"
         primaryAction={(
           <Button type="button" onClick={() => setCreateOpen(true)}>
             <Plus className="mr-1 h-4 w-4" />番組を作成
           </Button>
         )}
       />
+      {/* 説明文は `sub` に入れない — `[data-page-sub]` が 1023px までで1行に
+          切り詰めるため、375px で後半が読めなくなる（実測 488px → 351px） */}
+      <p className="text-note text-muted-foreground">
+        番組・イベントを選ぶと、台本制作・スケジュール表・収録配信の設定が開けます。
+      </p>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Input

@@ -65,7 +65,6 @@ export default function RentalReservationsPage() {
 
       <PageHeader
         title="予約リスト"
-        sub="この番組で借りたい機材のメモです。会社ごとにまとめて依頼メールを作れます"
         primaryAction={
           period && (
             <span className="inline-flex h-10 items-center gap-2 rounded-control border border-border bg-card px-3.5 text-sub-sm font-bold text-foreground">
@@ -74,6 +73,9 @@ export default function RentalReservationsPage() {
           )
         }
       />
+      <p className="text-note text-muted-foreground">
+        この番組で借りたい機材のメモです。会社ごとにまとめて依頼メールを作れます。
+      </p>
 
       {reservationsQuery.isLoading ? (
         <Delayed>

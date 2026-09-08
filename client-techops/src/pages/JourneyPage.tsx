@@ -163,16 +163,20 @@ export default function JourneyPage({ scope }: JourneyPageProps) {
         {backLabel}
       </Link>
 
-      <PageHeader
-        title={title}
-        sub={
-          scope === "document"
-            ? "この資料の状態を、当日スケジュール・番組進行・進行台本の内容の3段で確認できます。"
-            : project?.glsNumber
-              ? `GLS: ${project.glsNumber} ・ 当日スケジュール → 番組進行 → 進行台本の内容の3段で、いまの状態を確認できます。`
-              : "当日スケジュール → 番組進行 → 進行台本の内容の3段で、いまの状態を確認できます。"
-        }
-      />
+      {/*
+        ⚠️ **この画面の説明文を `sub` に入れないこと。** `[data-page-sub]` は
+        1023px までで1行に切り詰める（`tokens-v4.css`）。件数のように
+        「頭だけ読めれば足りる」文のための規則なので、**画面の目的そのもの**を
+        入れると 375px で後半が読めなくなる（作り直しの過程で一度そうしてしまい、
+        Codex レビュー #647 で指摘された）。`sub` には短い番号だけを置き、
+        説明は折り返る段落として見出しの下に出す（AIナレッジと同じ形）。
+      */}
+      <PageHeader title={title} sub={project?.glsNumber ? `GLS: ${project.glsNumber}` : undefined} />
+      <p className="text-note text-muted-foreground">
+        {scope === "document"
+          ? "この資料の状態を、当日スケジュール・番組進行・進行台本の内容の3段で確認できます。"
+          : "当日スケジュール → 番組進行 → 進行台本の内容の3段で、いまの状態を確認できます。"}
+      </p>
 
       {(scope === "project" || scope === "program") && id && <MiniAppTiles scope={scope} id={id} days={days} />}
 

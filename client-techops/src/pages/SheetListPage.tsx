@@ -132,7 +132,7 @@ export default function SheetListPage() {
       <PageShell>
         <PageHeader
           title="進行台本"
-          sub={`${documents?.length || 0} 件の進行台本。日付・自分が作った／共有された、で絞り込めます。`}
+          sub={`${documents?.length || 0} 件`}
           primaryAction={
             <Button className="min-h-tap" onClick={() => setShowCreate(true)} data-create-btn>
               <Plus className="h-4 w-4 mr-1" aria-hidden="true" />
