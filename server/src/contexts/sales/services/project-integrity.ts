@@ -97,10 +97,15 @@ export const INTEGRITY_CHECKS: IntegrityCheck[] = [
     key: 'won_no_event_date',
     label: '受注しているのに実施日が無い',
     why: '標準工程の期限は実施日からの逆算で出すので、空だと逆算の工程が'
-       + '全部 期限なしで入ります。案件一覧の「実施日が近い順」からも外れます。',
+       + '全部 期限なしで入ります。案件一覧の「実施日が近い順」からも外れます。'
+       + 'GLS-B（工事・構築のプロジェクト）にはこの決めごとがありません — '
+       + 'そもそも「実施日」という概念を持たず、代わりに開始日・終了日を持ちます。'
+       + 'この2つを実施日の代わりに数えると、GLS-B の案件（GMO-0001「GMO第3本社'
+       + 'プロジェクト」等）が実施日の欄を持ったことが一度も無いのに'
+       + '毎回「無い」と数えられ続けます。',
     how: '選んで「まとめて直す → 実施日」。'
        + '⚠️ ここで入るのは案件の期間だけで、スタジオの予約は動きません。',
-    sql: `${WON_STAGES} AND (p.event_start IS NULL OR p.event_start = '')`,
+    sql: `p.gls_category = 'A' AND ${WON_STAGES} AND (p.event_start IS NULL OR p.event_start = '')`,
   },
   {
     key: 'no_intake_channel',
