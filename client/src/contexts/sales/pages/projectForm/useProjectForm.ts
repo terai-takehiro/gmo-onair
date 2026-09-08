@@ -31,7 +31,7 @@ import api from '@/lib/api';
 import { createInitialBookings } from './createInitialBookings';
 import { buildSavePayload } from './buildSavePayload';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
-import { getProjectCategory, type ProjectStage } from '@/types';
+import type { ProjectStage } from '@/types';
 import {
   missingOf,
   type CustomerOption, type NewProjectValues, type ProjectFieldsState, type UserOption,
@@ -253,17 +253,21 @@ export function useProjectForm(id: string | undefined) {
    * 「いまある案件に足す」（既存 GLS の回として付ける）はこの制限を受けない
    */
   const canIssueNewGls = canIssueNewGlsAt(currentStage);
-  // 分類はユーザー選択値を優先。未選択時のフォールバックとして project_type からの推奨値を使う
-  const isCategoryA = glsCategory ? glsCategory === 'A' : getProjectCategory(projectType) === 'A';
+  /**
+   * 分類は **DB の実値（`gls_category`）だけを正とする**。空＝未設定は GLS-A 扱い
+   * （`missingOf` の `asksClassification = v.gls_category !== 'B'` と揃える）。
+   *
+   * ⚠️ かつては空のとき `project_type`（既定値 `'other'`＝`PROJECT_CATEGORY_B`）
+   * から推測して補っていたが、それだと未設定のまま残る古い案件（AI起票・決算取込等）
+   * を開くたびに GLS-B と誤判定し、`RequiredFields.tsx` の `isGlsB` が「案件分類」欄
+   * を隠す一方でサーバーの `issueGls` は DB の生値（NULL）で「分類が未設定」と
+   * 拒否する矛盾を生んでいた。しかも `buildSavePayload` は `gls_category` を送信
+   * 対象から外していないので、他の項目だけ直して保存すると未発番の案件は実際に
+   * `'B'` へ書き換わってしまう実害もあった。推測はやめ、常に DB の生値だけを見る。
+   */
+  const isCategoryA = glsCategory !== 'B';
   const isCategoryARef = useRef(isCategoryA);
   isCategoryARef.current = isCategoryA;
-
-  // project_type を変更したら gls_category をまだ未選択のときだけデフォルト推奨を当てる
-  useEffect(() => {
-    if (!projectType) return;
-    if (glsCategory) return; // 既に選択済みなら触らない
-    setValue('gls_category', getProjectCategory(projectType));
-  }, [projectType, glsCategory, setValue]);
 
   const actions = useProjectActions({
     id, isEdit, isCategoryA,
