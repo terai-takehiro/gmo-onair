@@ -158,6 +158,15 @@ const invQualified = (...xs: unknown[]): number => {
 };
 const yen = (n: number): string => '¥' + Number(n).toLocaleString();
 
+/**
+ * 取引先・顧客名の名寄せ／重複検出に使う突き合わせキー。
+ * 元帳側の表記が登録済みマスタと完全一致しないと「別会社」を新規作成してしまう
+ * （全角/半角スペース・㈱ と (株) ・連続する空白 など）ため、NFKC 正規化＋空白の
+ * 圧縮で吸収する。**表示・保存する名前は正規化しない**（元の表記のまま使う）。
+ * GLS 番号（案件コード）はこの対象外（コード値なので完全一致のまま — §分析参照）。
+ */
+export const normalizeForMatch = (s: unknown): string => String(s ?? '').normalize('NFKC').replace(/\s+/g, ' ').trim();
+
 /** freee CSV は UTF-8 または Shift_JIS。ヘッダー文字が読める方を採用する。 */
 function decodeCsv(buf: Buffer): string {
   const utf8 = buf.toString('utf8');
@@ -508,15 +517,24 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
     // 更新していなかったため）。`DELETE` が `companies.is_customer` も更新する
     // ようになった（PR #226）ので、`is_customer = TRUE AND deleted_at IS NULL`
     // だけで足りる（`customers.routes.ts`/`search.routes.ts` と同じ判定・同じ理由）。
+    //
+    // 名寄せは SQL の完全一致ではなく `normalizeForMatch` した名前で行う。
+    // 完全一致だと、元帳側の表記が1文字でも違う（全角/半角・㈱の位置・連続空白等）
+    // だけで既存の取引先・顧客と紐付かず、同じ会社が2つに分裂して作られてしまう。
+    const customerByKey = new Map<string, string>();
+    for (const row of (await client.query(
+      `SELECT id, name FROM companies WHERE is_customer = TRUE AND deleted_at IS NULL`,
+    )).rows as { id: string; name: string }[]) customerByKey.set(normalizeForMatch(row.name), row.id);
+    const vendorByKey = new Map<string, string>();
+    for (const row of (await client.query(
+      `SELECT id, name FROM companies WHERE is_vendor = TRUE AND deleted_at IS NULL`,
+    )).rows as { id: string; name: string }[]) vendorByKey.set(normalizeForMatch(row.name), row.id);
+
     async function findCustomer(name: string) {
-      if (cache.customers.has(name)) return cache.customers.get(name)!;
-      const r = await client.query(
-        `SELECT co.id FROM companies co
-         WHERE co.is_customer = TRUE AND co.name=$1 AND co.deleted_at IS NULL
-         LIMIT 1`,
-        [name],
-      );
-      const id = r.rows[0]?.id || null; cache.customers.set(name, id); return id;
+      const key = normalizeForMatch(name);
+      if (cache.customers.has(key)) return cache.customers.get(key)!;
+      const id = customerByKey.get(key) || null;
+      cache.customers.set(key, id); return id;
     }
     async function findProjectByGls(gls: string) {
       if (cache.projects.has(gls)) return cache.projects.get(gls)!;
@@ -560,10 +578,12 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
           [dateFrom, dateTo, selfMarker]
         );
         existSga = new Map();
-        for (const r of ex.rows) incKey(existSga, `${toInt(r.amount)}|${String(r.vendor_name || '').trim()}|${ym(r.recognition_date)}`);
+        // 取引先名は完全一致ではなく normalizeForMatch で突き合わせる（全角/半角・
+        // 連続空白等の表記ゆれで「重複ではない」と誤判定し、二重計上を見逃さないため）。
+        for (const r of ex.rows) incKey(existSga, `${toInt(r.amount)}|${normalizeForMatch(r.vendor_name)}|${ym(r.recognition_date)}`);
         const budget = new Map(existSga); // 検出は複製で消費 (投入スキップと二重消費しない)
         for (const x of sga) {
-          const k = `${x.amount}|${x.vendor_name}|${ym(x.date)}`;
+          const k = `${x.amount}|${normalizeForMatch(x.vendor_name)}|${ym(x.date)}`;
           if ((budget.get(k) || 0) > 0) {
             budget.set(k, budget.get(k)! - 1); report.duplicates.sga++;
             if (dupSamples.length < 8) dupSamples.push(`[販管費] ${x.date} ${yen(x.amount)} ${x.vendor_name}`);
@@ -628,36 +648,34 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
 
     const exec = execFromPgClient(client);
     async function ensureCustomer(name: string): Promise<string | null> {
+      const key = normalizeForMatch(name);
       const id = await findCustomer(name);
       if (id) return id;
       if (!createMasters) return null;
       // `companies` に行を作る（company-directory.service.ts）。
       // グループの印は社名から見立てる（migration 192）。決算取込は印を持たないので、
       // ここで入れないとこの会社の案件だけグループ外のまま残る。
-      // `createCustomerRecord` は companies.id を返す。
+      // `createCustomerRecord` は companies.id を返す。名前は正規化せず元の表記のまま保存する。
       const nid = await createCustomerRecord(
         { name, notes: MARKER, is_gmo_group: looksLikeGmoGroup(name) }, fallbackUser, exec,
       );
-      cache.customers.set(name, nid); report.masters.created.customers++; return nid;
+      cache.customers.set(key, nid); customerByKey.set(key, nid); // 同じ取込内の同名の別行が二重作成しないよう反映
+      report.masters.created.customers++; return nid;
     }
     async function ensureVendor(name: string): Promise<string | null> {
-      if (cache.vendors.has(name)) { const c = cache.vendors.get(name)!; if (c) return c; }
-      // Phase 3-3-9（`vendors` テーブル削除）以降、名前の一致も companies から
-      // 直接行う（`vendors.routes.ts` 自身も companies を直接読み書きするように
-      // なったので、companies から読んでも保存直後の値と食い違わなくなった）。
-      const r = await client.query(
-        `SELECT id FROM companies
-         WHERE is_vendor = TRUE AND deleted_at IS NULL AND name=$1
-         LIMIT 1`,
-        [name],
-      );
-      let id: string | null = r.rows[0]?.id || null;
+      const key = normalizeForMatch(name);
+      if (cache.vendors.has(key)) { const c = cache.vendors.get(key)!; if (c) return c; }
+      // 名寄せは事前読み込み済み `vendorByKey`（normalizeForMatch 済み）から引く。
+      // 完全一致の都度 SQL に戻すと、表記が1文字違うだけの既存取引先を見逃し
+      // 二重に作ってしまう（findCustomer と同じ理由）。
+      let id: string | null = vendorByKey.get(key) || null;
       if (!id && createMasters) {
-        // `companies` に行を作る（company-directory.service.ts）
+        // `companies` に行を作る（company-directory.service.ts）。名前は元の表記のまま保存する。
         id = await createVendorRecord({ name, notes: MARKER }, fallbackUser, exec);
         report.masters.created.vendors++;
+        vendorByKey.set(key, id);
       }
-      cache.vendors.set(name, id); return id;
+      cache.vendors.set(key, id); return id;
     }
     async function ensureProject(key: string, name: string, customerId: string | null, isFixed = false): Promise<{ id: string; customer_id: string | null } | null> {
       const cacheKey = isFixed ? `__fixed__${key}` : key;
@@ -708,7 +726,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       if (scopes.includes('sga')) {
         await client.query('DELETE FROM sga_expenses WHERE notes LIKE $1', [`${MARKER}%`]);
         for (const x of sga) {
-          if (skipDuplicates && existSga) { const k = `${x.amount}|${x.vendor_name}|${ym(x.date)}`; if ((existSga.get(k) || 0) > 0) { existSga.set(k, existSga.get(k)! - 1); counts.dupSkipped++; continue; } }
+          if (skipDuplicates && existSga) { const k = `${x.amount}|${normalizeForMatch(x.vendor_name)}|${ym(x.date)}`; if ((existSga.get(k) || 0) > 0) { existSga.set(k, existSga.get(k)! - 1); counts.dupSkipped++; continue; } }
           await client.query(
             `INSERT INTO sga_expenses (id, entity_code, billing_key, vendor_name, description, amount, tax_category,
                invoice_qualified, expense_type, source, recognition_date, notes, created_by)
