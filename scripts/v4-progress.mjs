@@ -240,6 +240,15 @@ const TREE = [
       '**枠まで一緒に捨てられました**。今回は画面ができた入口から順に変えています'],
   ]],
   ['日常業務', [
+    // 左メニューでは3つの塊の上に単独で置かれている（`client-daily/src/components/layout/nav.ts`）。
+    // ⚠️ **この画面はこの表に載っていなかった**（2026-09 の作り直しで気づいた）。
+    // `/daily/tasks` は転送先ではなく**行き先そのもの**で（`client-daily/CLAUDE.md`）、
+    // 載っていないと「どこが出来てどこが手つかずか」に穴が空く
+    ['タスク・依頼', '/daily/tasks', 'client-daily/src/pages/TasksPage.tsx', undefined,
+      '**2026-09 にモックから作り直しました**（設計の正は [docs/design/v4/mockups/tasks-redesign/](design/v4/mockups/tasks-redesign/)）。' +
+      '依頼タブに**依頼を作る操作が1つも無かった**のを直し（主操作をタブごとに変えて「依頼する」を置いた）、' +
+      '一覧と詳細を分け（本文・やり取り・操作は選んだ1件のパネルだけに出す）、' +
+      '「あなたの番」と状態の絞り込み（件数つき）を足しました。ページ幅も他の画面と同じ全幅にそろえました。'],
     ['ウィークリー活動報告', '/daily/weekly', 'client-daily/src/pages/WeeklyListPage.tsx'],
     ['デイリーニュース', '/daily/news', 'client-daily/src/pages/DailyNewsPage.tsx'],
     ['内覧会 開催日', '/daily/inview', 'client-daily/src/pages/InviewPage.tsx'],
