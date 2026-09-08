@@ -118,11 +118,17 @@ export const maintenanceService = {
 
     // 完了時は機材を修理中 → 稼働中に戻す。
     //
-    // ⚠️ **他に未完了の記録が残っていれば戻さない**（Codexレビュー指摘）。
+    // ⚠️ **他に未完了の「故障」が残っていれば戻さない**（Codexレビュー指摘・2巡目）。
     // 「記録」種別を足したことで、同じ機材に故障（未完了・修理中）と軽微な記録
     // （リセット等）が同時に立ち、後者だけ先に完了する組み合わせが起きうる。
     // 無条件に戻すと、故障がまだ直っていないのに機材が「稼働中」に見え、
     // 貸出候補（`status: 'active'` で引く `LendingDialog`）にも出てしまう。
+    //
+    // ⚠️ **見る記録の種類は「故障」だけに絞る**（1巡目の直しへのさらなる指摘）。
+    // 機材を `in_repair` にするのは `create()` の `record_type === 'breakdown'` の
+    // ときだけ。ここを種類を問わず「未完了なら何でもブロック」にすると、
+    // 逆に**故障を完了させても、無関係な「記録」が残っているだけで稼働中に
+    // 戻せなくなる**（その記録が中止・完了されるまで永久に修理中のまま）。
     if (input.status === MAINTENANCE_STATUS.COMPLETED) {
       const record = (await queryOne(
         'SELECT equipment_id FROM maintenance_records WHERE id=$1',
@@ -131,7 +137,7 @@ export const maintenanceService = {
       if (record) {
         const stillOpen = await queryOne(
           `SELECT id FROM maintenance_records
-             WHERE equipment_id=$1 AND id<>$2
+             WHERE equipment_id=$1 AND id<>$2 AND record_type='breakdown'
                AND status NOT IN ('${MAINTENANCE_STATUS.COMPLETED}', '${MAINTENANCE_STATUS.CANCELLED}')
              LIMIT 1`,
           [record.equipment_id, id],

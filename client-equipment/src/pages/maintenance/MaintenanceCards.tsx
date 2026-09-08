@@ -19,7 +19,7 @@
  * シートなら4つの状態が最初から並んで見える。
  */
 import { useState } from 'react';
-import { Check, ChevronDown, Loader2 } from 'lucide-react';
+import { CalendarClock, Check, ChevronDown, Loader2 } from 'lucide-react';
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Sheet } from '@gmo-onair/shared/src/client-v4/sheet';
@@ -52,44 +52,13 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-/**
- * 修理引取／発送日・修理受取／返送日の1行。**常に編集できる**（Codexレビュー指摘）。
- * 報告時点では未定なことが多く、これがあとから入れられる唯一の口なので、
- * `Fact` のような読み取り専用にせず `<input type="date">` にする。
- */
-function DateFact({
-  label, value, onChange, disabled, ariaLabel,
-}: {
-  label: string;
-  value: string | null;
-  onChange: (value: string | null) => void;
-  disabled: boolean;
-  ariaLabel: string;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <dt className="w-12 shrink-0 text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 flex-1">
-        <input
-          type="date"
-          value={value ?? ''}
-          disabled={disabled}
-          onChange={(e) => onChange(e.target.value || null)}
-          aria-label={ariaLabel}
-          className="w-full rounded-control border border-border bg-transparent px-1.5 py-1 text-sub text-secondary-foreground disabled:opacity-60"
-        />
-      </dd>
-    </div>
-  );
-}
-
 export function MaintenanceCards({
-  records, onChangeStatus, onChangeDate, savingId,
+  records, onChangeStatus, onEditDates, savingId,
 }: {
   records: MaintenanceRecord[];
   onChangeStatus: (record: MaintenanceRecord, status: string) => void;
-  /** 修理引取／発送日・修理受取／返送日のどちらかを変える（`update` mutation を呼ぶ） */
-  onChangeDate: (record: MaintenanceRecord, field: 'repair_sent_at' | 'repair_returned_at', value: string | null) => void;
+  /** 修理引取／発送日・修理受取／返送日の編集ダイアログを開く（`MaintenancePage.tsx` が持つ） */
+  onEditDates: (record: MaintenanceRecord) => void;
   /** いま状態変更を送っている記録の id。押した札だけ回す */
   savingId: string | null;
 }) {
@@ -129,23 +98,30 @@ export function MaintenanceCards({
                 label="報告日"
                 value={r.reported_at ? r.reported_at.slice(5, 10).replace('-', '/') : '未登録'}
               />
-              {/* 修理引取／発送日・修理受取／返送日。**常に編集できる欄**にする
-                  （未登録なら空欄の入力欄。入っているときだけ出す表示専用だと、
-                  あとから入れる手段が無くなる — Codexレビュー指摘） */}
-              <DateFact
-                label="発送日"
-                value={r.repair_sent_at}
-                disabled={saving}
-                onChange={(v) => onChangeDate(r, 'repair_sent_at', v)}
-                ariaLabel={`${r.title} の修理引取／発送日`}
-              />
-              <DateFact
-                label="返送日"
-                value={r.repair_returned_at}
-                disabled={saving}
-                onChange={(v) => onChangeDate(r, 'repair_returned_at', v)}
-                ariaLabel={`${r.title} の修理受取／返送日`}
-              />
+              {/* 修理引取／発送日・修理受取／返送日。**常に押せる1行**にして
+                  ダイアログ（下シート）で編集する（`MaintenancePage.tsx` の
+                  PC 表側と同じ導線・同じ状態を共有 — 写すと片方だけ直る形を避ける） */}
+              <div className="flex gap-2">
+                <dt className="w-12 shrink-0 text-muted-foreground">修理日</dt>
+                <dd className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => onEditDates(r)}
+                    aria-label={`${r.title} の修理引取／発送日・修理受取／返送日を編集`}
+                    className="v4-tap inline-flex min-w-0 items-center gap-1 truncate text-primary"
+                  >
+                    <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    <span className="truncate">
+                      {r.repair_sent_at || r.repair_returned_at
+                        ? [
+                          r.repair_sent_at && `発送${r.repair_sent_at.slice(5, 10).replace('-', '/')}`,
+                          r.repair_returned_at && `返送${r.repair_returned_at.slice(5, 10).replace('-', '/')}`,
+                        ].filter(Boolean).join(' ・ ')
+                        : '未登録（タップで入力）'}
+                    </span>
+                  </button>
+                </dd>
+              </div>
             </dl>
 
             <div>
