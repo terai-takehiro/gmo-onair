@@ -63,9 +63,12 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
       })).data.data as KessanReport;
     },
     onSuccess: (d) => {
-      // 読み取り中にファイルが選び直されていたら、この結果は古い（別の）ファイルの
+      // 読み取り（下書き）中にファイルが選び直されていたら、その結果は別のファイルの
       // ものなので反映しない（選び直した時点で selectFile が report/step を消している）。
-      if (requestFileRef.current !== currentFileRef.current) return;
+      // ただし「投入（commit）」はサーバーに実際に書き込み済みなので、ファイルが
+      // 選び直されていても結果を握りつぶさない — 黙って消すと「実は投入されていた」
+      // ことに気づけなくなる。
+      if (d.dryRun && requestFileRef.current !== currentFileRef.current) return;
       setReport(d);
       onStep(d.dryRun ? 2 : 3);
       if (!d.dryRun) notifySuccess('取り込みました');
@@ -148,7 +151,13 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
               dragOver ? 'border-primary bg-primary-surface-weak' : 'border-border hover:border-primary'
             }`}
             onClick={() => fileInputRef.current?.click()}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
+            onKeyDown={(e) => {
+              // 内側の「取り消す」ボタンにフォーカスがあるときの Enter/Space はここまで
+              // バブリングしてくる。e.currentTarget（この div 自身）でのキー操作だけを拾う
+              // ——でないと、ファイルを消すつもりの Enter でピッカーまで開いてしまう。
+              if (e.target !== e.currentTarget) return;
+              if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click();
+            }}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={(e) => {
