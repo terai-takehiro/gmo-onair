@@ -27,8 +27,7 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { createInitialBookings } from './createInitialBookings';
-import { hasFreshEventBooking } from './eventBookings';
+import { runPostSaveBookingFlow } from './createInitialBookings';
 import { buildSavePayload } from './buildSavePayload';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import type { ProjectStage } from '@/types';
@@ -40,7 +39,7 @@ import { canIssueNewGlsAt } from '../../glsIssue';
 import { invalidateProjectQueries } from '../../projectQueries';
 import { projectToFormValues, mergeSavedFormValues } from './toFormValues';
 import { EMPTY_FORM, addOneDayStr, type FormValues, type StudioLocation } from './types';
-import { useProjectSchedule, saveLocationNote } from './useProjectSchedule';
+import { useProjectSchedule } from './useProjectSchedule';
 import { useProjectSimulation } from './useProjectSimulation';
 import { useProjectActions } from './useProjectActions';
 import { useSelectedCustomer } from './useSelectedCustomer';
@@ -348,15 +347,10 @@ export function useProjectForm(id: string | undefined) {
     submittedRef.current = { ...getValues() };
 
     saveMutation.mutate(values, {
+      // 予約の後始末（編集時も、まだ無ければ作る）は `runPostSaveBookingFlow` に一本化
       onSuccess: async (res) => {
         const savedProjectId = (res as { id?: string })?.id || id;
-        // 予約を一度だけ作成する（編集時も、まだ無ければ作る。`ScheduleSection` の表示条件と揃える。
-        // 編集時は取り直して確かめる — 理由は `hasFreshEventBooking` の注記）
-        const wantsBooking = schedule.roomIds.length > 0 || schedule.locationNote.trim();
-        if (!wantsBooking || !schedule.productionStart) return;
-        if (isEdit && (await hasFreshEventBooking(qc, savedProjectId as string))) return;
-        if (schedule.locationNote.trim()) saveLocationNote(schedule.locationNote.trim());
-        await createInitialBookings(qc, values.name, savedProjectId as string, {
+        await runPostSaveBookingFlow(qc, isEdit, savedProjectId as string, values.name, {
           ...schedule, productionLastDay: prodEnd || schedule.productionStart,
         });
       },

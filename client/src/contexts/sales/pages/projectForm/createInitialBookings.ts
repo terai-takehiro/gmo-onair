@@ -27,10 +27,13 @@
  * `notifyApiError` で必ず出す。案件そのものは保存できているので、保存を失敗扱いには
  * しない — 案件詳細の「登録済みの予約」から入れ直せることを伝える。
  */
+import type { QueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { invalidateBookingQueries, type Invalidator } from '@/lib/bookingQueries';
 import { formatShortDate } from '@/lib/format';
 import { notifyApiError } from '@gmo-onair/shared/src/client/notify';
+import { hasFreshEventBooking } from './eventBookings';
+import { saveLocationNote } from './useProjectSchedule';
 
 /** 予約を作るのに要る日程だけ（`useProjectSchedule` の戻り値の一部） */
 export interface BookingSchedule {
@@ -106,6 +109,36 @@ export async function createInitialBookings(
     notifyApiError(
       '会場・スタジオの予約を登録できませんでした',
       lastError,
+      '案件は保存されています。案件詳細の「登録済みの予約」から入れ直してください。',
+    );
+  }
+}
+
+/**
+ * 保存が成功したあとの「予約の後始末」をまとめて呼ぶ（`useProjectForm.ts` の `onSubmit` から）。
+ *
+ * ⚠️ **ここは `mutate` の個別コールバックなので、失敗しても react-query は拾わない**
+ * （呼び出し側の `onSuccess` はすでに「保存しました」を出したあと）。
+ * `hasFreshEventBooking` の取り直し自体が失敗（ネットワーク断・4xx/5xx）したときに
+ * 黙って落ちると、予約が押さえられていないことに誰も気づけない（Codex 指摘 #660 P1）。
+ * **必ずここで捕まえて知らせる。**
+ */
+export async function runPostSaveBookingFlow(
+  qc: QueryClient,
+  isEdit: boolean,
+  projectId: string,
+  projectName: string,
+  schedule: BookingSchedule,
+): Promise<void> {
+  const wantsBooking = schedule.roomIds.length > 0 || schedule.locationNote.trim();
+  if (!wantsBooking || !schedule.productionStart) return;
+  try {
+    if (isEdit && (await hasFreshEventBooking(qc, projectId))) return;
+    if (schedule.locationNote.trim()) saveLocationNote(schedule.locationNote.trim());
+    await createInitialBookings(qc, projectName, projectId, schedule);
+  } catch (e) {
+    notifyApiError(
+      '会場・スタジオの予約を確認できませんでした', e,
       '案件は保存されています。案件詳細の「登録済みの予約」から入れ直してください。',
     );
   }
