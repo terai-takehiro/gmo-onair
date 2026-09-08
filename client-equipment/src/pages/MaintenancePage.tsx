@@ -21,7 +21,7 @@ import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { MAINTENANCE_STATUS, MAINTENANCE_TYPE, statusOf } from '@gmo-onair/shared/src/constants/statuses';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
-import { HIDE_UNTIL_WIDE } from '@/lib/rowVisibility';
+import { HIDE_UNTIL_EXTRA_WIDE } from '@/lib/rowVisibility';
 import { MaintenanceDialog, type MaintenanceForm } from './maintenance/MaintenanceDialog';
 import { MaintenanceCards, STATUS_TONE } from './maintenance/MaintenanceCards';
 import type { MaintenanceRecord } from './maintenance/types';
@@ -170,11 +170,15 @@ export default function MaintenancePage() {
             <RowSlot w={128} align="right">費用</RowSlot>
             <RowSlot w={72}>報告日</RowSlot>
             {/* ⚠️ **640px から出す（hideOnMobile のみ）と商品名が消える**
-                （`shared/tests/rowNameWidth.test.ts` で実測・固定）。この2列は
-                `catalog/CatalogRows.tsx` 等と同じく `HIDE_UNTIL_WIDE` で
-                1024px 以上まで出さない — 出る幅をずらすだけで、PC で見える情報は同じ */}
-            <RowSlot w={72} className={HIDE_UNTIL_WIDE}>引取／発送</RowSlot>
-            <RowSlot w={72} className={HIDE_UNTIL_WIDE}>受取／返送</RowSlot>
+                （`shared/tests/rowNameWidth.test.ts` で実測・固定）。
+                ⚠️ **`HIDE_UNTIL_WIDE`（1024px〜）でも足りない**（Codexレビュー指摘）——
+                lg で左メニュー248pxが現れるため、1024px の本文は実質728pxしかなく、
+                既存6列だけで728pxに迫っているところへこの2列を足すと
+                1024〜1212px あたりで商品名が潰れる。`catalog/CatalogRows.tsx` /
+                `settings/RentalRulesTab.tsx` と同じ理由で `HIDE_UNTIL_EXTRA_WIDE`
+                （2xl=1536px〜）まで出さない */}
+            <RowSlot w={72} className={HIDE_UNTIL_EXTRA_WIDE}>引取／発送</RowSlot>
+            <RowSlot w={72} className={HIDE_UNTIL_EXTRA_WIDE}>受取／返送</RowSlot>
             <RowSlot w={160}>状態</RowSlot>
           </RowHeader>
           {records.map((r) => (
@@ -203,12 +207,12 @@ export default function MaintenancePage() {
                   {r.reported_at?.slice(5, 10).replace('-', '/') ?? ''}
                 </span>
               </RowSlot>
-              <RowSlot w={72} hideOnMobile className={HIDE_UNTIL_WIDE}>
+              <RowSlot w={72} hideOnMobile className={HIDE_UNTIL_EXTRA_WIDE}>
                 <span className="font-number text-sub-sm text-muted-foreground">
                   {r.repair_sent_at?.slice(5, 10).replace('-', '/') ?? ''}
                 </span>
               </RowSlot>
-              <RowSlot w={72} hideOnMobile className={HIDE_UNTIL_WIDE}>
+              <RowSlot w={72} hideOnMobile className={HIDE_UNTIL_EXTRA_WIDE}>
                 <span className="font-number text-sub-sm text-muted-foreground">
                   {r.repair_returned_at?.slice(5, 10).replace('-', '/') ?? ''}
                 </span>

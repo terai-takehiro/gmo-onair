@@ -144,12 +144,17 @@ function BreakdownRow({ it, onOpenProject }: { it: BreakdownItem; onOpenProject?
       }`}
     >
       {codeClickable && (
+        // ⚠️ **幅を上限で止める**（Codexレビュー指摘）。内訳のカードは lg で
+        // 左メニュー248pxが出ると3枚並びで1枚 約217px まで狭くなり、`shrink-0` の
+        // まま無制限だと長いコード＋精算リンク＋金額だけで幅を使い切り、
+        // 件名・金額側が潰れる。台帳のコード列（`LedgerRows.tsx`）と同じ96pxで
+        // 切って `truncate` する（超える分は省略記号、押せる範囲は変わらない）
         <button
           type="button"
           onClick={() => onOpenProject!(it.project_id!)}
           title="案件概要をひらく"
           aria-label={`案件概要をひらく（${it.code}）`}
-          className="v4-tap shrink-0 self-start font-number text-sub text-primary underline decoration-dotted underline-offset-2 hover:decoration-solid"
+          className="v4-tap max-w-24 shrink-0 self-start truncate font-number text-sub text-primary underline decoration-dotted underline-offset-2 hover:decoration-solid"
         >
           {it.code}
         </button>
