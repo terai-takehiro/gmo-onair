@@ -33,14 +33,21 @@ interface TaskComment {
   created_at: string;
 }
 
-export function TaskCommentsThread({ taskId, canWrite }: {
+export function TaskCommentsThread({ taskId, canWrite, alwaysOpen = false }: {
   taskId: string;
   /** 書けるか（dailyops editor 以上）。reader には一覧だけ出す */
   canWrite: boolean;
+  /**
+   * **たたまずに出す。** 詳細パネル（`DelegationDetail`）は
+   * 「選んだ1件だけ」を出す場所なので、そこでは会話が最初から見えている必要がある。
+   * 一覧の行に並べるとき（先読みが何本も走る）だけ、たたんで開いてから取りに行く。
+   */
+  alwaysOpen?: boolean;
 }) {
   const qc = useQueryClient();
   const { currentUser } = useAuth();
-  const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const open = alwaysOpen || expanded;
   const [body, setBody] = useState('');
 
   // **開いてから取りに行く。** 依頼一覧の行ぜんぶで先読みすると、
@@ -68,19 +75,27 @@ export function TaskCommentsThread({ taskId, canWrite }: {
   const rows = [...(list.data ?? [])].reverse();
 
   return (
-    <div className="mt-2 border-t border-border pt-2">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="min-h-tap lg:min-h-0 flex items-center gap-1 text-xs font-bold text-primary hover:underline"
-      >
-        {open ? <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-          : <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />}
-        <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
-        コメント
-        {list.data && <span className="text-muted-foreground">{list.data.length}</span>}
-      </button>
+    <div className={alwaysOpen ? '' : 'mt-2 border-t border-border pt-2'}>
+      {alwaysOpen ? (
+        <p className="text-th flex items-center gap-1.5 text-muted-foreground">
+          <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
+          やり取り
+          {list.data && <span className="font-number">{list.data.length}</span>}
+        </p>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={open}
+          className="min-h-tap lg:min-h-0 flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+        >
+          {open ? <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+            : <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />}
+          <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
+          コメント
+          {list.data && <span className="text-muted-foreground">{list.data.length}</span>}
+        </button>
+      )}
 
       {open && (
         <div className="mt-2 space-y-2">

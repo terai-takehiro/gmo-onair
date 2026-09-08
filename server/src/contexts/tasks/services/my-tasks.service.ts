@@ -61,6 +61,13 @@ export interface MyTask {
   source_ref: string | null;
   visibility: 'team' | 'private';
   is_overdue: boolean;
+  /**
+   * その依頼に付いているやり取り（`task_comments`）の件数。
+   *
+   * 一覧の行に出すためのもの。**開かないと会話があるか分からない**状態だと、
+   * 差し戻しの理由（`respondToDelegation` がコメントとして残す）に気づけない。
+   */
+  comment_count: number;
   created_at: string;
 }
 
@@ -85,6 +92,10 @@ const SELECT_MY_TASK = `
     t.delegation_status, t.requested_at, t.accepted_at,
     t.source, t.source_ref, t.visibility,
     (${DUE_EXPR} IS NOT NULL AND ${DUE_EXPR} < NOW() AND t.is_completed = FALSE) AS is_overdue,
+    -- やり取りの件数。migration 240 の idx_task_comments_task(task_id, created_at)
+    -- が効くので、200 行の一覧でも索引だけで数えられる
+    -- （テンプレート文字列の中なので、この注記に逆引用符を書かないこと）
+    (SELECT COUNT(*) FROM task_comments tc WHERE tc.task_id = t.id)::int AS comment_count,
     t.created_at
   FROM project_tasks t
   LEFT JOIN projects p ON p.id = t.project_id AND p.deleted_at IS NULL
@@ -95,8 +106,15 @@ const SELECT_MY_TASK = `
 // 同点の崩し方: ① 期限が近い順 → ② 重要度が高い順。
 // ②で緊急度ではなく重要度を優先するのは、緊急に流されて重要が後回しになるのを防ぐため
 // (これが 3 段階にした意味)。要件 D2。
+//
+// ⚠️ **未完了を必ず先に並べる**（レビューでの指摘・Codex P1）。
+// この並びには `LIMIT`（既定 200・最大 500）が付くので、完了ぶんも取る呼び方
+// (`include_completed`) と組み合わせると、**優先度の高い「完了済み」が
+// 優先度の低い「未完了」を上限から押し出します**。画面から実際に動いている仕事が
+// 黙って消えるので、完了かどうかを最初の鍵にして、切られるのは必ず完了ぶんからにします。
 const ORDER_BY_PRIORITY = `
-  ORDER BY ${SCORE_EXPR} DESC,
+  ORDER BY t.is_completed ASC,
+           ${SCORE_EXPR} DESC,
            ${DUE_EXPR} ASC NULLS LAST,
            t.importance DESC,
            t.created_at DESC
@@ -215,6 +233,7 @@ function decorate(row: Record<string, unknown>): MyTask {
     urgency,
     priority_score: Number(row.priority_score ?? importance * effectiveUrgency),
     priority_cell: `${importance}x${effectiveUrgency}`,
+    comment_count: Number(row.comment_count ?? 0),
   };
 }
 

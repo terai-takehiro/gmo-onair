@@ -46,6 +46,8 @@ export interface MyTask {
   source_ref: string | null;
   visibility: 'team' | 'private';
   is_overdue: boolean;
+  /** その依頼に付いているやり取りの件数。**開かなくても会話があると分かる**ため */
+  comment_count: number;
   created_at: string;
 }
 
@@ -111,6 +113,53 @@ export const DELEGATION_LABELS: Record<DelegationStatus, string> = {
   consulting: '相談',
   done: '対応済',
 };
+
+// ── 依頼の段（受けた／出したで同じ5つ）─────────────────────
+//
+// **状態の絞り込みは方向で変えない。** `delegation_status` は5つあるが、
+// 受け手から見ても依頼者から見ても「返事待ち／承諾済／差し戻し／完了」の4段で
+// 読める。方向ごとに違うチップを出すと、切り替えるたびに選んだ段が消える。
+//
+// 辞退（`declined`）と相談（`consulting`）は**どちらも依頼者に差し戻す**もので、
+// 決着（自分が担当する／担当者を変更／取り下げる）が同じなので1段に畳む。
+// 何で差し戻されたかは詳細パネルに理由つきで出す。
+
+export type DelegationBucket = 'requested' | 'accepted' | 'bounced' | 'done';
+export type DelegationFilter = 'all' | DelegationBucket;
+
+export const DELEGATION_FILTERS: { key: DelegationFilter; label: string }[] = [
+  { key: 'all', label: 'すべて' },
+  { key: 'requested', label: '未返答' },
+  { key: 'accepted', label: '承諾' },
+  { key: 'bounced', label: '差し戻し' },
+  { key: 'done', label: '完了' },
+];
+
+export const BUCKET_LABELS: Record<DelegationBucket, string> = {
+  requested: '未返答', accepted: '承諾', bounced: '差し戻し', done: '完了',
+};
+
+/** その依頼はいまどの段にいるか。**画面の絞り込み・バッジ・件数がこれ1本を読む** */
+export function delegationBucket(t: MyTask): DelegationBucket {
+  if (t.is_completed || t.delegation_status === 'done') return 'done';
+  if (t.delegation_status === 'declined' || t.delegation_status === 'consulting') return 'bounced';
+  if (t.delegation_status === 'accepted') return 'accepted';
+  return 'requested';
+}
+
+/**
+ * **いま自分が動かないと止まる依頼か**（画面の「あなたの番」）。
+ *
+ * 受けた依頼は「返事をしていない」もの、出した依頼は「差し戻されて決めていない」もの。
+ * 承諾済のものは相手が動いている最中なので、ここには入れない
+ * （入れると「あなたの番」が未完了の件数と同じになり、意味が消える）。
+ */
+export function isMyTurn(t: MyTask, direction: 'received' | 'sent'): boolean {
+  if (t.is_completed) return false;
+  return direction === 'received'
+    ? delegationBucket(t) === 'requested'
+    : delegationBucket(t) === 'bounced';
+}
 
 // ── 取得 ────────────────────────────────────────────
 
@@ -286,6 +335,15 @@ export function formatDue(v: string | null): string {
   return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/** 期限を「9月8日 18:00」形式で。詳細パネルなど**1件だけ出す場所**で使う */
+export function formatDueLong(v: string | null): string {
+  if (!v) return '期限なし';
+  const d = new Date(v.replace(' ', 'T'));
+  if (Number.isNaN(d.getTime())) return v;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getMonth() + 1}月${d.getDate()}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 /** `<input type="datetime-local">` に渡す 'YYYY-MM-DDTHH:mm' */
 export function toLocalInput(v: string | null): string {
   if (!v) return '';
@@ -309,11 +367,18 @@ export function daysSinceRequested(v: string | null): number | null {
   return Math.floor((Date.now() - d.getTime()) / 86400000);
 }
 
-/** スコアの帯色。9 が最優先、1 がやらない候補 */
+/**
+ * スコアの帯色。9 が最優先、1 がやらない候補。
+ *
+ * ⚠️ **状態のトークンで書く**（`--destructive` / `--warning` / `--primary` / `--muted`）。
+ * 以前は `rose` / `amber` / `sky` / `slate` の直書きで、v4 の4系統
+ * （完了・進行中・超過・情報）とどの段が対応するのか読めなかった。
+ * 段は4つで足りる（スコアは 9 / 6 / 4 / 3・2 / 1 の5種類しか出ない）。
+ */
 export function scoreTone(score: number): string {
-  if (score >= 9) return 'bg-rose-100 text-rose-800 border-rose-300';
-  if (score >= 6) return 'bg-amber-100 text-amber-800 border-amber-300';
-  if (score >= 4) return 'bg-sky-100 text-sky-800 border-sky-300';
-  if (score >= 2) return 'bg-slate-100 text-slate-700 border-slate-300';
-  return 'bg-slate-50 text-slate-500 border-slate-200';
+  if (score >= 9) return 'border-destructive-border bg-destructive-surface text-destructive';
+  if (score >= 6) return 'border-warning-border bg-warning-surface text-warning';
+  if (score >= 4) return 'border-primary-border bg-primary-surface text-primary';
+  if (score >= 2) return 'border-border bg-muted text-muted-foreground';
+  return 'border-border-subtle bg-surface-subtle text-muted-foreground';
 }
