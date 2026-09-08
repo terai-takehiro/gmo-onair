@@ -22,10 +22,18 @@
  * 一覧向けの短い言い換え）が概略すぎて、結局どういうアクションなのか読めない」
  * というご指摘を受けた。**行の見出しは常に本文そのまま（`m.action`）を出す**
  * ように直し、`action_short` は `action` が無いときだけのフォールバックへ
- * 落とした。1行に収まらない分は省略記号になるが、`title` 属性で全文を
- * ホバー表示できる。同じご指摘は受信箱の「期限超過」にも当たるが、
- * あちらはもともと短縮していない `next_action` をそのまま出しており対象外
- * だった（`inbox/kinds.ts` の `subtitleOf`）。
+ * 落とした。同じご指摘は受信箱の「期限超過」にも当たるが、あちらはもともと
+ * 短縮していない `next_action` をそのまま出しており対象外だった
+ * （`inbox/kinds.ts` の `subtitleOf`）。
+ *
+ * ── 全文を読む手段は `title` ホバーだけにしない（同 ご指摘 その2）───
+ *
+ * 「1行を超える分は `title` 属性のホバーで読める」という最初の直しは、
+ * **このカードをそのまま描く `MobileSalesDashboard`（タッチ操作）と
+ * キーボード操作の両方から全文を読む手段が無い**という指摘を受けた
+ * （ホバーはマウスだけの操作）。`ActionText`（下）が、実際に1行で
+ * 切れているときだけ「続きを読む」の `<button>` を出す。タップでも
+ * キーボード（Tab→Enter/Space）でも開閉でき、開くと折り返して全文を表示する。
  *
  * ── 旧「期限が過ぎたやること」（`OverduePanel`）を吸収した ──────
  *
@@ -44,7 +52,7 @@
  * 同じ次の一手が受信箱にも並ぶので、片方だけだと「済んだのに残っている」に
  * 見えます（`home/InboxTab.tsx` と同じ形）。
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { AlarmClock, Sunrise } from 'lucide-react';
@@ -83,6 +91,57 @@ function daysLate(due: string, today: string): number {
 /** 「9/10」の形（年は出さない — 直近1週間の日付しか入らない） */
 function shortDate(ymd: string): string {
   return ymd.slice(5).replace(/^0/, '').replace('-', '/').replace('/0', '/');
+}
+
+/**
+ * 次回アクションの本文。**実際に1行で切れているときだけ「続きを読む」を出す**
+ * （`title` 属性のホバーはマウスだけの操作 — このカードをそのまま描く
+ * `MobileSalesDashboard` のタッチ操作からも、キーボード操作からも全文が
+ * 読めなかったというご指摘 2026-09-08）。
+ *
+ * `ResizeObserver` で `scrollWidth`（中身の実幅）と `clientWidth`（見えている幅）
+ * を比べ、切れているときだけ `<button>` を出す。ネイティブ `<button>` なので
+ * タップでも Tab→Enter/Space でも開閉できる。**測るのは畳んでいる間だけ**
+ * （開いた状態で測ると折り返しぶん `scrollWidth` が伸びて誤判定する）。
+ */
+function ActionText({ text }: { text: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [truncated, setTruncated] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || expanded) return;
+    const measure = () => setTruncated(el.scrollWidth > el.clientWidth + 1);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [text, expanded]);
+
+  return (
+    <span className="block">
+      <span
+        ref={ref}
+        title={expanded ? undefined : text}
+        className={`text-list block text-foreground ${expanded ? 'whitespace-normal break-words' : 'truncate'}`}
+      >
+        {text}
+      </span>
+      {(truncated || expanded) && (
+        <button
+          type="button"
+          // 行全体がクリックでやり取りタブへ飛ぶ（`Row interactive`）。
+          // 開閉はその場で完結させたいので、行の onClick に伝えない
+          onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
+          aria-expanded={expanded}
+          className="min-h-tap text-note -ml-0.5 mt-0.5 px-0.5 font-bold text-primary hover:underline lg:min-h-0"
+        >
+          {expanded ? '閉じる' : '続きを読む'}
+        </button>
+      )}
+    </span>
+  );
 }
 
 /** 節の見出し。件数は**節の全件**（下に出すのは PER_SECTION 件まで） */
@@ -163,6 +222,9 @@ export function TodaySalesCard() {
                     key={m.activity_log_id}
                     divider
                     interactive
+                    // **`align="start"`。** 「続きを読む」で行の高さが伸びることがあるので、
+                    // 中央寄せのままだと日数バッジだけ縦の真ん中に浮く（`row.tsx` の決めごと）
+                    align="start"
                     onClick={() => navigate(`/sales/projects/${m.project_id}/thread`)}
                   >
                     {/* 日数を行の頭に。**どれから電話するかで読む節**（旧 OverduePanel と同じ） */}
@@ -180,11 +242,8 @@ export function TodaySalesCard() {
                       {/* **本文（`action`）を優先して出す。** AI が縮めた `action_short`
                           （一覧向けの短い言い換え）だけでは何をすべきか読めないという
                           ご指摘（2026-09-08）を受け、短縮版は本文が無いときだけの
-                          フォールバックにした。1行を超える分は省略記号だが、`title`
-                          属性でホバーすれば全文を読める */}
-                      <RowTitle title={m.action || m.action_short || undefined}>
-                        {m.action || m.action_short || '（やることが書かれていません）'}
-                      </RowTitle>
+                          フォールバックにした */}
+                      <ActionText text={m.action || m.action_short || '（やることが書かれていません）'} />
                       <RowSub>{[m.project_name, m.customer_name].filter(Boolean).join(' ・ ')}</RowSub>
                     </RowMain>
                     {canEdit && (
