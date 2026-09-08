@@ -20,9 +20,8 @@
  *     **拾えなかった日程が消えます**（`useProjectSchedule.ts` に経緯）
  *  2. **主担当が空なら送らない。** `projects.assigned_to` は NOT NULL の外部キーで、
  *     空文字を渡すと 500 になります（サーバーは未指定なら今の値を保つ）
- *  3. スタジオ予約を新しく作るのは、**まだ実施日を決める予約が1件も無い**とき
- *     だけ（新規登録時、または編集中でも予約ゼロの案件）。1件でもあれば
- *     「登録済みの予約」から足す・直すのが唯一の道（`ScheduleSection.tsx` と同じ判定）
+ *  3. スタジオ予約を新しく作るのは、**まだ実施日を決める予約が1件も無い**ときだけ
+ *     （`ScheduleSection.tsx` と同じ判定 `!hasEventBooking`。1件でもあれば「登録済みの予約」から）
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -352,13 +351,7 @@ export function useProjectForm(id: string | undefined) {
     saveMutation.mutate(values, {
       onSuccess: async (res) => {
         const savedProjectId = (res as { id?: string })?.id || id;
-        // 入力されたスケジュールから予約を一度だけ作成する。
-        // ⚠️ **編集時でも、まだ実施日を決める予約が1件も無ければ作る。**
-        // `ScheduleSection.tsx` の「使う部屋・空間」は同じ条件（`!hasEventBooking`）の
-        // ときだけ表示される — 表示されているのに保存しても何も起きないのは
-        // 利用者から見て素直にバグ（チェックしたのに保存されない）。
-        // 予約が1件でもあれば `ScheduleSection` 自体が非表示になり
-        // この分岐に来ないので、二重作成にはならない
+        // 予約を一度だけ作成する（編集時も、まだ無ければ作る。`ScheduleSection` の表示条件と揃える）
         const wantsBooking = schedule.roomIds.length > 0 || schedule.locationNote.trim();
         if (hasEventBooking(actions.bookings) || !wantsBooking || !schedule.productionStart) return;
         if (schedule.locationNote.trim()) saveLocationNote(schedule.locationNote.trim());
