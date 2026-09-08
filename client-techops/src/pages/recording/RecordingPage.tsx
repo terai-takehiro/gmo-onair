@@ -246,7 +246,14 @@ export default function RecordingPage() {
         </button>
       )}
       <PageHeader title="収録設定" sub={`${owner?.glsNumber ?? owner?.name ?? ownerKey} ・ HyperDeck 12台`}>
-        {owner && <MiniAppSwitcher owner={owner} current="recording" />}
+        {/* 狭い画面では帯を次の行へ回し、幅いっぱいにする。`w-full` にしないと
+            `MiniAppSwitcher` の根が `shrink-0` のまま親より縮まず、`overflow-x-auto`
+            が発火しないので右端の項目が画面外に出たまま押せない（計時と同じ回避） */}
+        {owner && (
+          <div className="w-full min-w-0 sm:w-auto">
+            <MiniAppSwitcher owner={owner} current="recording" />
+          </div>
+        )}
       </PageHeader>
 
       {/* 書き出し・写しは上のツールバーへ（スマホの下端は主アクション1つだけにする）。
