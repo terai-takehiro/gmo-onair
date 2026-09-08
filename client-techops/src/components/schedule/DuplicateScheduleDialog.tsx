@@ -56,7 +56,7 @@ export default function DuplicateScheduleDialog({ open, onOpenChange, scheduleId
       onSubmit={(e) => { e.preventDefault(); void save(); }}
       footer={
         <FormDialogFooter>
-          <Button type="submit" className="min-h-[44px]" disabled={busy}>複製する</Button>
+          <Button type="submit" className="min-h-tap" disabled={busy}>複製する</Button>
         </FormDialogFooter>
       }
     >
@@ -67,7 +67,7 @@ export default function DuplicateScheduleDialog({ open, onOpenChange, scheduleId
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="mt-1 min-h-[44px]"
+          className="mt-1 min-h-tap"
         />
       </div>
     </FormDialog>

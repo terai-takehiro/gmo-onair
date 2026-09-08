@@ -6,6 +6,8 @@ import { ChevronLeft, Save, FileDown, Copy, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { notifySuccess, notifyError } from '@/lib/notify';
 import { FilterChips, type FilterChipItem } from '@gmo-onair/shared/src/client/ui/filterChips';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { apiErrorMessage, jstToday } from '@/lib/deviceSettingsShared';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
@@ -225,36 +227,39 @@ export default function RecordingPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-6" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+    <PageShell>
       <DeckDatalists />
 
-      <div className="mb-3 flex items-center gap-3">
-        {owner ? (
-          <Link
-            to={owner.kind === 'project' ? `/techops/projects/${owner.id}` : `/techops/programs/${owner.id}`}
-            className="flex h-11 min-w-0 shrink items-center gap-1 rounded-lg px-2 text-sm font-semibold hover:bg-muted"
-          >
-            <ChevronLeft className="h-5 w-5 shrink-0" />
-            <span className="truncate">{owner.name}</span>
-          </Link>
-        ) : (
-          <button onClick={() => navigate(-1)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted" aria-label="戻る">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
+      {/* **戻る導線は見出しと別の行にする**（1行に押し込むと 375px で見出しが縦に
+          折り返る。理由は `_rules.md`「5. ページの外枠」） */}
+      {owner ? (
+        <Link
+          to={owner.kind === 'project' ? `/techops/projects/${owner.id}` : `/techops/programs/${owner.id}`}
+          className="-ml-2 flex h-11 w-fit min-w-0 items-center gap-1 rounded-control-lg px-2 text-list text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <ChevronLeft className="h-5 w-5 shrink-0" />
+          <span className="truncate">{owner.name}</span>
+        </Link>
+      ) : (
+        <button onClick={() => navigate(-1)} className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-control-lg hover:bg-muted" aria-label="戻る">
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+      )}
+      <PageHeader title="収録設定" sub={`${owner?.glsNumber ?? owner?.name ?? ownerKey} ・ HyperDeck 12台`}>
+        {/* 狭い画面では帯を次の行へ回し、幅いっぱいにする。`w-full` にしないと
+            `MiniAppSwitcher` の根が `shrink-0` のまま親より縮まず、`overflow-x-auto`
+            が発火しないので右端の項目が画面外に出たまま押せない（計時と同じ回避） */}
+        {owner && (
+          <div className="w-full min-w-0 sm:w-auto">
+            <MiniAppSwitcher owner={owner} current="recording" />
+          </div>
         )}
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-lg font-bold">収録設定</h1>
-          <p className="truncate text-xs text-muted-foreground">
-            {owner?.glsNumber ?? owner?.name ?? ownerKey} ・ HyperDeck 12台
-          </p>
-        </div>
-        {owner && <MiniAppSwitcher owner={owner} current="recording" />}
-      </div>
+      </PageHeader>
 
       {/* 書き出し・写しは上のツールバーへ（スマホの下端は主アクション1つだけにする）。
           並びは配信設定と同じ「ツールバー → 権限の断り → 実施日 → 状態の帯」
           （同じ3点セットの縦順が画面ごとに違うと、往復する人が毎回探し直す） */}
-      <div className="mb-3 flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2">
         {canEdit && (
           <Button variant="outline" className="h-11" onClick={() => setCopyFromOpen(true)}>
             <Copy className="mr-2 h-4 w-4" /> 前回の設定を複製
@@ -267,7 +272,7 @@ export default function RecordingPage() {
 
       {/* 打ち終わってから捨てられるのがいちばん困るので、**打つ前に**言う */}
       {!canEdit && (
-        <p className="mb-3 rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-note text-foreground">
+        <p className="rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-note text-foreground">
           <strong>現在は閲覧のみです。</strong>内容を見ることと Excel の書き出し（キーは空欄）は
           できますが、保存と「キーを入れて出す」はできません。
           編集するには制作技術支援の「編集」が必要です。
@@ -288,12 +293,12 @@ export default function RecordingPage() {
       <DeckStatusBand decks={decks} lastExportName={lastExportName} lastExportedAt={lastExportedAt} />
 
       {/* 絞り込みと一括変更は PC の表にだけ効く（スマホは1台ずつ・モックどおり） */}
-      <div className="mb-3 hidden flex-wrap items-center gap-3 sm:flex">
+      <div className="hidden flex-wrap items-center gap-3 sm:flex">
         <FilterChips items={filterItems} value={filter} onChange={setFilter} label="デッキで絞り込む" />
         <span className="flex-1" />
         {canEdit && selected.size > 0 && (
           <>
-            <span className="text-sub font-bold text-primary">{selected.size} 台を選択中</span>
+            <span className="text-list text-primary">{selected.size} 台を選択中</span>
             <Button className="h-11" onClick={() => setBulkOpen(true)}>
               <Wand2 className="mr-2 h-4 w-4" /> 選んだ台にまとめて変える
             </Button>
@@ -303,7 +308,7 @@ export default function RecordingPage() {
       </div>
 
       {loading ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">読み込み中…</p>
+        <p className="py-10 text-center text-sub text-muted-foreground">読み込み中…</p>
       ) : (
         <>
           {/* 閲覧のみの人は中の入力欄がまとめて disabled になる（`contents` なので見た目は同じ） */}
@@ -327,7 +332,7 @@ export default function RecordingPage() {
         </>
       )}
 
-      <p className="mt-4 rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-note text-foreground">
+      <p className="rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-note text-foreground">
         <strong>橙のセルは「まだ決めていない」</strong>という意味で、間違いではありません。
         空欄のまま書き出すと<strong>現地の設定をそのまま残します</strong>。
         TCソース・IP・機種などの設置情報はここでは扱いません。
@@ -335,7 +340,7 @@ export default function RecordingPage() {
 
       {/* 下端は主アクション1つだけ（以前は3段積みで、スマホの表示領域を大きく食っていた） */}
       {canEdit && (
-        <div className="sticky bottom-0 mt-4 border-t bg-background/95 py-3 backdrop-blur sm:static sm:flex sm:justify-end sm:border-0 sm:bg-transparent">
+        <div className="sticky bottom-0 border-t bg-background/95 py-3 backdrop-blur sm:static sm:flex sm:justify-end sm:border-0 sm:bg-transparent">
           <Button className="h-[52px] w-full sm:h-11 sm:w-auto" onClick={save} disabled={saving}>
             <Save className="mr-2 h-4 w-4" /> {saving ? '保存中…' : '保存する'}
           </Button>
@@ -364,6 +369,6 @@ export default function RecordingPage() {
         what={['recording']}
         onCopied={loadRecording}
       />
-    </div>
+    </PageShell>
   );
 }

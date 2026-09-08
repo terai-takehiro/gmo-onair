@@ -50,13 +50,13 @@ function MeetingRow({
         <div className="flex min-w-0 items-center gap-2 sm:w-[15rem] sm:shrink-0">
           <span
             className={cn(
-              'inline-flex h-6 max-w-[7.5rem] shrink-0 items-center truncate whitespace-nowrap rounded-badge px-2 text-xs font-extrabold',
+              'inline-flex h-6 max-w-[7.5rem] shrink-0 items-center truncate whitespace-nowrap rounded-badge px-2 text-badge',
               toolBadgeClass(meeting.tool),
             )}
           >
             {toolLabel(meeting)}
           </span>
-          <span className="min-w-0 flex-1 truncate text-sm font-bold">
+          <span className="min-w-0 flex-1 truncate text-list">
             {meeting.label || '（表示名なし）'}
           </span>
         </div>
@@ -64,7 +64,7 @@ function MeetingRow({
           {/* URL が空なのは「これから貼る」状態。赤ではなく橙で促す（モック urlFg と同じ） */}
           <span
             className={cn(
-              'min-w-0 flex-1 truncate whitespace-nowrap text-xs tabular-nums',
+              'min-w-0 flex-1 truncate whitespace-nowrap text-sub-sm tabular-nums',
               meeting.url ? 'text-muted-foreground' : 'font-bold text-warning',
             )}
           >
@@ -72,7 +72,7 @@ function MeetingRow({
           </span>
           {/* 「不足あり」は色だけで伝えない。件数を文字で出す */}
           {issueCount > 0 ? (
-            <span className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs font-bold text-destructive">
+            <span className="flex shrink-0 items-center gap-1 whitespace-nowrap text-badge text-destructive">
               <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
               不足 {issueCount}件
             </span>
@@ -119,13 +119,13 @@ export default function MeetingList({
           <div className="flex items-center gap-2 border-b bg-muted/40 px-3 py-2">
             <Video className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
             {/* 数え方はモックと同じ「N本」（MeetingMobile.dc.html の count） */}
-            <span className="whitespace-nowrap text-sm font-extrabold tabular-nums">{meetings.length}本</span>
+            <span className="whitespace-nowrap text-cardtitle tabular-nums">{meetings.length}本</span>
             <span className="flex-1" />
             {canEdit && (
               <button
                 type="button"
                 onClick={add}
-                className="flex min-h-tap items-center gap-1 rounded-control-md px-2 text-xs font-bold text-primary hover:bg-primary-surface"
+                className="flex min-h-tap items-center gap-1 rounded-control-md px-2 text-badge text-primary hover:bg-primary-surface"
               >
                 <Plus className="h-3.5 w-3.5" /> 会議を追加
               </button>
@@ -133,7 +133,7 @@ export default function MeetingList({
           </div>
 
           {meetings.length === 0 ? (
-            <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+            <p className="px-3 py-6 text-center text-sub text-muted-foreground">
               {canEdit
                 ? 'WEB会議はまだ1本もありません。「会議を追加」から追加してください。'
                 : 'WEB会議はまだ1本もありません。'}

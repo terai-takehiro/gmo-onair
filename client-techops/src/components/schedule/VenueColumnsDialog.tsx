@@ -76,21 +76,21 @@ export default function VenueColumnsDialog({ open, onOpenChange, scheduleId, sch
       size="md"
       footer={
         <FormDialogFooter>
-          <Button type="button" variant="outline" className="min-h-[44px]" onClick={() => onOpenChange(false)} disabled={busy}>閉じる</Button>
-          <Button type="button" className="min-h-[44px]" onClick={() => void create()} disabled={busy || selected.length === 0}>
+          <Button type="button" variant="outline" className="min-h-tap" onClick={() => onOpenChange(false)} disabled={busy}>閉じる</Button>
+          <Button type="button" className="min-h-tap" onClick={() => void create()} disabled={busy || selected.length === 0}>
             {selected.length > 0 ? `列を作成（${selected.length}）` : "列を作成"}
           </Button>
         </FormDialogFooter>
       }
     >
-      {roomsQuery.isLoading && <p className="text-sm text-muted-foreground">読み込み中…</p>}
+      {roomsQuery.isLoading && <p className="text-sub text-muted-foreground">読み込み中…</p>}
       {!roomsQuery.isLoading && locations.every((l) => l.rooms.length === 0) && (
         <EmptyState title="選べる部屋がありません" description="部屋はカレンダーのスタジオ設定で登録します。列の名前を手で付けるには「列を追加」を使ってください。" />
       )}
       <div className="space-y-4">
         {locations.filter((l) => l.rooms.length > 0).map((loc) => (
           <div key={loc.id}>
-            <p className="mb-1 text-sm font-bold text-foreground">{loc.name}</p>
+            <p className="mb-1 text-list text-foreground">{loc.name}</p>
             <ToggleButtonGroup
               options={loc.rooms.map((r) => ({
                 value: r.id,

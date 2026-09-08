@@ -28,19 +28,19 @@ interface Props {
 
 export default function ScheduleListFilters({ locations, locationId, onLocationChange, status, onStatusChange, search, onSearchChange }: Props) {
   return (
-    <div className="mt-4 flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <div className="relative w-full sm:w-56">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
         <Input
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="題・案件で探す"
-          className="min-h-[44px] pl-8"
+          className="min-h-tap pl-8"
           aria-label="題・案件で探す"
         />
       </div>
       <Select value={locationId || ALL_LOCATIONS} onValueChange={(v) => onLocationChange(v === ALL_LOCATIONS ? "" : v)}>
-        <SelectTrigger className="min-h-[44px] w-full sm:w-40"><SelectValue placeholder="拠点: すべて" /></SelectTrigger>
+        <SelectTrigger className="min-h-tap w-full sm:w-40"><SelectValue placeholder="拠点: すべて" /></SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL_LOCATIONS}>拠点: すべて</SelectItem>
           {locations.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}

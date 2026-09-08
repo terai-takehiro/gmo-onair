@@ -19,6 +19,8 @@ import api from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import MiniAppSwitcher from '@/components/journey/MiniAppSwitcher';
 import { useLiveProgram } from './useLiveProgram';
 import BackToOwner, { type BackToOwnerTarget } from './BackToOwner';
@@ -52,39 +54,39 @@ export default function LiveDashboardPage() {
 
   if (live.status === 'not-found') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         <EmptyState
           icon={<Timer />}
           title="見つかりませんでした"
           description="管理番号または案件IDを確認してください。"
         />
-      </div>
+      </PageShell>
     );
   }
 
   if (live.status === 'unsupported-scope') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         <BackToOwner owner={live.owner} />
         <EmptyState
           icon={<Timer />}
           title="案件からのみ開けます"
           description="計時・視聴者は案件からだけ開けます。案件のハブ画面から開いてください。"
         />
-      </div>
+      </PageShell>
     );
   }
 
   if (live.status === 'error') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         {live.owner && <BackToOwner owner={live.owner} />}
         <EmptyState
           icon={<AlertCircle />}
           title="開けませんでした"
           description={live.message}
         />
-      </div>
+      </PageShell>
     );
   }
 
@@ -123,33 +125,29 @@ function DashboardContent({ ownerKey, owner, programId }: {
   const timer = useTimer(activeTimerId);
 
   return (
-    <div className="mx-auto max-w-4xl px-3 py-4 sm:px-6 sm:py-6" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+    <PageShell>
+      <BackToOwner owner={owner} />
       {/* 狭い画面ではミニアプリの帯を次の行へ回す。同じ行に押し込むと案件名に
           押されて画面外へ出て、右端の項目が押せないまま素で切れる
           （`w-full` にするのが要点 — `flex-1` は折り返しの計算で幅0と数えられ、
            いつまでも同じ行に残る） */}
-      <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <BackToOwner owner={owner} />
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-lg font-bold">計時・視聴者</h1>
-          <p className="truncate text-xs text-muted-foreground">{owner.glsNumber ?? owner.name}</p>
-        </div>
+      <PageHeader title="計時・視聴者" sub={owner.glsNumber ?? owner.name}>
         <div className="w-full min-w-0 sm:w-auto">
           <MiniAppSwitcher owner={owner} current="liveops" />
         </div>
-      </div>
+      </PageHeader>
 
-      <div className="mb-3 flex flex-wrap items-center justify-end gap-1.5">
+      <div className="flex flex-wrap items-center justify-end gap-1.5">
         <a
           href={`/techops/live/${ownerKey}/settings`}
-          className="flex min-h-tap items-center gap-1.5 rounded-md px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          className="flex min-h-tap items-center gap-1.5 rounded-control-md px-2.5 text-sub-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
         >
           <Settings2 className="h-3.5 w-3.5" />番組設定
         </a>
         {canManage && (
           <a
             href="/techops/live-org-settings"
-            className="flex min-h-tap items-center gap-1.5 rounded-md px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            className="flex min-h-tap items-center gap-1.5 rounded-control-md px-2.5 text-sub-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
             title="計時・視聴者の組織の鍵設定"
           >
             <KeyRound className="h-3.5 w-3.5" />組織の鍵設定
@@ -160,7 +158,7 @@ function DashboardContent({ ownerKey, owner, programId }: {
             href={`/live/display/${activeTimerId}`}
             target="_blank"
             rel="noreferrer"
-            className="flex min-h-tap items-center gap-1.5 rounded-md px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            className="flex min-h-tap items-center gap-1.5 rounded-control-md px-2.5 text-sub-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
           >
             <ExternalLink className="h-3.5 w-3.5" />表示画面
           </a>
@@ -184,12 +182,12 @@ function DashboardContent({ ownerKey, owner, programId }: {
             }
           />
         ) : (
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="rounded-card border border-border bg-card overflow-hidden">
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Timer</span>
+                <span className="text-th text-muted-foreground uppercase tracking-wider">Timer</span>
                 {timers.length > 1 && (
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-sub-sm text-muted-foreground">
                     — {timers.find(t => t.id === activeTimerId)?.name ?? timers[0].name}
                   </span>
                 )}
@@ -202,7 +200,7 @@ function DashboardContent({ ownerKey, owner, programId }: {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 text-xs text-muted-foreground hover:text-foreground" // ui-tokens-ok: client-live 原実装のまま移植
+                    className="h-7 text-sub-sm text-muted-foreground hover:text-foreground" // ui-tokens-ok: client-live 原実装のまま移植
                   >
                     管理
                   </Button>
@@ -228,6 +226,6 @@ function DashboardContent({ ownerKey, owner, programId }: {
         {/* key で番組ごとに作り直す — プラットフォーム選択 (useState 初期値) を番組切替時に再読込するため */}
         <ViewerPanel key={programId} programId={programId} program={program} canManage={canManage} />
       </div>
-    </div>
+    </PageShell>
   );
 }

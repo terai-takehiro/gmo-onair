@@ -84,7 +84,7 @@ function EditableElement({ el, light, selected, canManage, onSelect, onChange }:
   return (
     <div
       style={style}
-      className={`flex items-center justify-center rounded-md border-2 text-center text-[11px] font-semibold sm:text-xs ${
+      className={`flex items-center justify-center rounded-control-md border-2 text-center text-badge ${
         selected ? 'border-primary' : 'border-white/30'
       } ${el.visible ? '' : 'border-dashed opacity-35'} ${light ? 'bg-black/5 text-black' : 'bg-white/10 text-white'} ${
         canManage ? 'cursor-move touch-none' : 'cursor-default'
@@ -123,7 +123,7 @@ export function DisplayLayoutEditCanvas({ layout, canManage, selectedKey, onSele
   return (
     <div
       data-display-edit-canvas
-      className={`relative aspect-video w-full select-none overflow-hidden rounded-lg border border-border ${light ? 'bg-[#fafafa]' : 'bg-black'}`}
+      className={`relative aspect-video w-full select-none overflow-hidden rounded-card border border-border ${light ? 'bg-[#fafafa]' : 'bg-black'}`}
       onPointerDown={() => onSelect(null)}
     >
       {layout.elements.map((el) => (

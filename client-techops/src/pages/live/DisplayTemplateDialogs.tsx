@@ -93,7 +93,7 @@ export function ApplyTemplateDialog({ template, defaultTimerId, onOpenChange, on
       <DialogContent className="sm:max-w-sm">
         <DialogHeader><DialogTitle>「{template?.name}」を適用</DialogTitle></DialogHeader>
         <div className="space-y-4">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-note text-muted-foreground">
             選んだタイマーの表示レイアウトへコピーされます。以後このテンプレート側を変えても、適用したタイマーの表示には影響しません。
           </p>
           <div className="space-y-1.5">
@@ -133,7 +133,7 @@ export function DeleteTemplateDialog({ template, onOpenChange, onConfirm, pendin
       <DialogContent className="sm:max-w-sm">
         <DialogHeader><DialogTitle>「{template?.name}」を削除しますか？</DialogTitle></DialogHeader>
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sub text-muted-foreground">
             {usageCount > 0
               ? `適用済みのタイマー${usageCount}件の表示は変わりません（ラベルが消えるだけです）。`
               : 'このテンプレートを適用したタイマーはいまのところありません。'}

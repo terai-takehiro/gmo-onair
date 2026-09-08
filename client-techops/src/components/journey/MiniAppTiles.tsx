@@ -127,7 +127,7 @@ export default function MiniAppTiles({ scope, id, days }: MiniAppTilesProps) {
   ];
 
   return (
-    <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
       {tiles.map((t) => (
         <Link
           key={t.key}

@@ -88,21 +88,21 @@ export default function ScheduleItemDocLink({ scheduleId, item, onOpenScript, on
     <div className="space-y-2">
       {item.qsheet_document_id ? (
         item.link_broken ? (
-          <p className="text-sm text-destructive">結んでいた進行台本が見つかりません（削除されています）。</p>
+          <p className="text-sub text-destructive">結んでいた進行台本が見つかりません（削除されています）。</p>
         ) : (
-          <Button type="button" variant="outline" className="min-h-[44px] w-full" onClick={onOpenScript}>
+          <Button type="button" variant="outline" className="min-h-tap w-full" onClick={onOpenScript}>
             進行台本を開く
           </Button>
         )
       ) : (
-        <Button type="button" variant="outline" className="min-h-[44px] w-full" onClick={onCreateScript}>
+        <Button type="button" variant="outline" className="min-h-tap w-full" onClick={onCreateScript}>
           この枠から進行台本を作成
         </Button>
       )}
 
       {!pickerOpen ? (
         <div className="flex gap-2">
-          <Button type="button" variant="ghost" size="sm" className="min-h-[44px] flex-1" onClick={openPicker}>
+          <Button type="button" variant="ghost" size="sm" className="min-h-tap flex-1" onClick={openPicker}>
             {item.qsheet_document_id || item.link_broken ? "別の進行台本に結び直す" : "既存の進行台本に結ぶ"}
           </Button>
           {(item.qsheet_document_id || item.link_broken) && (
@@ -110,7 +110,7 @@ export default function ScheduleItemDocLink({ scheduleId, item, onOpenScript, on
               type="button"
               variant="ghost"
               size="sm"
-              className="min-h-[44px] flex-1 text-destructive"
+              className="min-h-tap flex-1 text-destructive"
               onClick={() => relink(null)}
               disabled={busy}
             >
@@ -119,7 +119,7 @@ export default function ScheduleItemDocLink({ scheduleId, item, onOpenScript, on
           )}
         </div>
       ) : (
-        <div className="rounded-md border border-border bg-card p-2">
+        <div className="rounded-card border border-border bg-card p-2">
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
@@ -132,9 +132,9 @@ export default function ScheduleItemDocLink({ scheduleId, item, onOpenScript, on
             />
           </div>
           <div className="mt-2 max-h-48 overflow-y-auto">
-            {docsQuery.isLoading && <p className="px-2 py-3 text-xs text-muted-foreground">読み込み中…</p>}
+            {docsQuery.isLoading && <p className="px-2 py-3 text-sub-sm text-muted-foreground">読み込み中…</p>}
             {!docsQuery.isLoading && candidates.length === 0 && (
-              <p className="px-2 py-3 text-xs text-muted-foreground">見つかりません</p>
+              <p className="px-2 py-3 text-sub-sm text-muted-foreground">見つかりません</p>
             )}
             {candidates.slice(0, 30).map((d) => (
               <button
@@ -142,16 +142,16 @@ export default function ScheduleItemDocLink({ scheduleId, item, onOpenScript, on
                 type="button"
                 disabled={busy}
                 onClick={() => relink(d.id)}
-                className="flex min-h-[44px] w-full flex-col items-start justify-center rounded-md px-2 text-left hover:bg-accent disabled:opacity-50"
+                className="flex min-h-tap w-full flex-col items-start justify-center rounded-control-lg px-2 text-left hover:bg-accent disabled:opacity-50"
               >
-                <span className="text-sm text-foreground">{d.data?.meta?.title || d.title || "無題"}</span>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-sub text-foreground">{d.data?.meta?.title || d.title || "無題"}</span>
+                <span className="text-sub-sm text-muted-foreground">
                   {[d.gls_number, d.project_name, d.program_name].filter(Boolean).join(" ") || "案件・番組なし"}
                 </span>
               </button>
             ))}
           </div>
-          <Button type="button" variant="ghost" size="sm" className="mt-1 min-h-[44px] w-full" onClick={closePicker}>
+          <Button type="button" variant="ghost" size="sm" className="mt-1 min-h-tap w-full" onClick={closePicker}>
             閉じる
           </Button>
         </div>

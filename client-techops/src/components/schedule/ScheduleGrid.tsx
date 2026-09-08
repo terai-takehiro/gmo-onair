@@ -161,7 +161,7 @@ export default function ScheduleGrid({
     // `schedule-grid-scroll` は印刷 CSS（14-schedule-v2-plan.md §3 B7・index.css）が
     // maxHeight（インラインスタイル）と overflow-auto を上書きする先。クラス名だけでは
     // インラインスタイルに勝てないため、印刷側は `!important` で明示的に上書きする
-    <div className="schedule-grid-scroll overflow-auto rounded-lg border border-border" style={{ maxHeight: "calc(100vh - 260px)" }}>
+    <div className="schedule-grid-scroll overflow-auto rounded-card border border-border" style={{ maxHeight: "calc(100vh - 260px)" }}>
       <div className="relative flex" style={{ width: TIME_COL_WIDTH + sorted.reduce((n, c) => n + c.width_px, 0) + (onAddColumn ? ADD_COL_WIDTH : 0) }}>
         {/* 時刻の列 */}
         <div className="sticky left-0 z-20 shrink-0 bg-background" style={{ width: TIME_COL_WIDTH }}>
@@ -193,7 +193,7 @@ export default function ScheduleGrid({
                     <div className="group sticky top-0 z-10 border-b border-border bg-muted/60 px-2 py-1" style={{ height: HEADER_H }}>
                       {/* 1 行目: グループ名＋鉛筆（名前の行を狭めないよう、余白のあるこの行に置く） */}
                       <div className="flex items-center justify-between gap-1">
-                        <span className="truncate text-[11px] font-medium text-muted-foreground">{COL_GROUP_LABEL[group]}</span>
+                        <span className="truncate text-[11px] text-muted-foreground">{COL_GROUP_LABEL[group]}</span>
                         {onEditColumn && (
                           // PC のグリッドだけに出る（375px は縦積みカードで、列は表の設定から直す）。
                           // hover/focus で見せるが、キーボードでも辿れるよう DOM には常に置く
@@ -201,7 +201,7 @@ export default function ScheduleGrid({
                             type="button"
                             onClick={() => onEditColumn(col)}
                             aria-label={`列「${col.room_name || col.label}」を編集`}
-                            className="-mr-1 -mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+                            className="-mr-1 -mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-control text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
                           >
                             <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                           </button>
@@ -210,7 +210,7 @@ export default function ScheduleGrid({
                       {/* 名前は 2 行まで折り返す（160px の列に「LOUNGE STUDIO」が入り切らず「LOUNGE STU…」になっていた） */}
                       <div className="flex min-w-0 items-start gap-1.5">
                         {colColor && <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: colColor }} aria-hidden="true" />}
-                        <span className="line-clamp-2 min-w-0 flex-1 text-[13px] font-semibold leading-tight text-foreground" title={col.room_name || col.label}>{col.room_name || col.label}</span>
+                        <span className="line-clamp-2 min-w-0 flex-1 text-[13px] font-bold leading-tight text-foreground" title={col.room_name || col.label}>{col.room_name || col.label}</span>
                         {overlapCount > 0 && (
                           <span className="shrink-0 text-[11px] text-destructive">重なり {overlapCount}件</span>
                         )}
@@ -264,7 +264,7 @@ export default function ScheduleGrid({
                 onClick={() => onAddColumn(sorted[sorted.length - 1]?.col_group ?? "venue")}
                 aria-label="列を追加"
                 title="列を追加"
-                className="flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-10 w-10 items-center justify-center rounded-control-lg text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Plus className="h-4 w-4" aria-hidden="true" />
               </button>

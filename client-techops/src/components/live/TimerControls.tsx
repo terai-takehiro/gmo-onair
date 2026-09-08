@@ -34,7 +34,7 @@ export default function TimerControls({ state, onSet, onStart, onStop, onReset, 
 
   if (readOnly) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+      <div className="flex h-full items-center justify-center text-sub text-muted-foreground">
         タイマーを動かすには 制作技術支援の「管理」が必要です。
       </div>
     );
@@ -44,7 +44,7 @@ export default function TimerControls({ state, onSet, onStart, onStop, onReset, 
     <div className="space-y-4">
       {/* Presets */}
       <div>
-        <Label className="text-xs text-muted-foreground mb-1.5 block">プリセット</Label>
+        <Label className="text-th text-muted-foreground mb-1.5 block">プリセット</Label>
         <div className="flex flex-wrap gap-1.5">
           {PRESETS.map(m => (
             <Button key={m} variant="outline" size="sm" disabled={running} onClick={() => onSet(m * 60)}>
@@ -56,7 +56,7 @@ export default function TimerControls({ state, onSet, onStart, onStop, onReset, 
 
       {/* Custom */}
       <div>
-        <Label className="text-xs text-muted-foreground mb-1.5 block">カスタム</Label>
+        <Label className="text-th text-muted-foreground mb-1.5 block">カスタム</Label>
         <div className="flex items-center gap-2">
           <Input
             type="number" min={0} max={99} placeholder="00" disabled={running}
@@ -101,7 +101,7 @@ export default function TimerControls({ state, onSet, onStart, onStop, onReset, 
 
       {/* Adjust */}
       <div>
-        <Label className="text-xs text-muted-foreground mb-1.5 block">時間調整</Label>
+        <Label className="text-th text-muted-foreground mb-1.5 block">時間調整</Label>
         <div className="grid grid-cols-3 gap-1.5">
           {[[-60, '-1分'], [-30, '-30秒'], [-10, '-10秒'], [10, '+10秒'], [30, '+30秒'], [60, '+1分']].map(([d, label]) => (
             <Button key={d} variant="outline" size="sm" onClick={() => onAdjust(d as number)}>

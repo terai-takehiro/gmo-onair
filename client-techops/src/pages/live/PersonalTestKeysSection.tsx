@@ -30,9 +30,9 @@ export default function PersonalTestKeysSection({ settings, youtubeApiKey, setYo
   const showJs = useToggle();
 
   return (
-    <section className="rounded-xl border bg-card p-4 space-y-4">
-      <h2 className="text-sm font-semibold">接続テスト用の鍵（個人）</h2>
-      <p className="text-xs text-muted-foreground">
+    <section className="rounded-card border bg-card p-4 space-y-4">
+      <h2 className="text-cardtitle">接続テスト用の鍵（個人）</h2>
+      <p className="text-note text-muted-foreground">
         ここに入れた鍵は<strong>接続テストにだけ</strong>使われます（サーバー側の計測には使われません）。
         APIキーはサーバーでAES-256-GCM暗号化して保存されます。入力した値は画面を離れると消去されます。
       </p>
@@ -52,10 +52,10 @@ export default function PersonalTestKeysSection({ settings, youtubeApiKey, setYo
           </Button>
         </div>
         {settings?.hasOwnYoutubeKey && (
-          <p className="text-xs text-green-600">設定済み ({settings.youtubeApiKeyMasked})</p>
+          <p className="text-sub-sm text-green-600">設定済み ({settings.youtubeApiKeyMasked})</p>
         )}
         {!settings?.hasOwnYoutubeKey && settings?.hasYoutubeKey && (
-          <p className="text-xs text-amber-600">他ユーザーのキーで接続テストを共有利用中 (自分のキーを設定すると優先されます。計測には使われません)</p>
+          <p className="text-note text-amber-600">他ユーザーのキーで接続テストを共有利用中 (自分のキーを設定すると優先されます。計測には使われません)</p>
         )}
         <ApiGuide
           title="YouTube APIキーの取得方法"
@@ -83,10 +83,10 @@ export default function PersonalTestKeysSection({ settings, youtubeApiKey, setYo
           </Button>
         </div>
         {settings?.hasOwnJstreamToken && (
-          <p className="text-xs text-green-600">設定済み ({settings.jstreamTokenMasked})</p>
+          <p className="text-sub-sm text-green-600">設定済み ({settings.jstreamTokenMasked})</p>
         )}
         {!settings?.hasOwnJstreamToken && settings?.hasJstreamToken && (
-          <p className="text-xs text-amber-600">他ユーザーのトークンで接続テストを共有利用中 (自分のトークンを設定すると優先されます。計測には使われません)</p>
+          <p className="text-note text-amber-600">他ユーザーのトークンで接続テストを共有利用中 (自分のトークンを設定すると優先されます。計測には使われません)</p>
         )}
         <ApiGuide
           title="Jstream トークンの取得方法"

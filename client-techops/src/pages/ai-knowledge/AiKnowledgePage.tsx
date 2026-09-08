@@ -11,7 +11,9 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, BookOpenCheck } from 'lucide-react';
-import { DashboardHeader, EmptyState } from '@gmo-onair/shared/src/client/dashboard';
+import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { notifyError, notifySuccess } from '@/lib/notify';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -82,11 +84,14 @@ export default function AiKnowledgePage() {
   const rows = byStatus[tab];
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-3 sm:p-4">
-      <DashboardHeader
-        title="AIナレッジの承認"
-        description="制作技術支援のAI（当日スケジュール・構成・セリフ・AI に相談）に効かせる明示的なルールの管理です。承認して有効にしたルールだけが、次の生成からプロンプトに載ります（下書きのままでは載りません）。"
-      />
+    <PageShell width="narrow">
+      <PageHeader title="AIナレッジの承認" />
+      {/* この説明は `PageHeader` の `sub` に入れない。`sub` はスマホで1行に切られる
+          （`tokens-v4.css` の `[data-page-sub]`）ので、画面の目的そのものを言うこの
+          文は読めなくなる。件数のように「頭だけ読めば足りる」文ではない */}
+      <p className="text-note text-muted-foreground">
+        制作技術支援のAI（当日スケジュール・構成・セリフ・AI に相談）に効かせる明示的なルールの管理です。承認して有効にしたルールだけが、次の生成からプロンプトに載ります（下書きのままでは載りません）。
+      </p>
 
       {listQuery.isLoading ? (
         <div className="flex items-center justify-center py-16">
@@ -101,15 +106,16 @@ export default function AiKnowledgePage() {
       ) : (
         <>
           {/* 状態タブ。件数を添えて「承認待ちがいくつ溜まっているか」を一目で分かるようにする */}
-          <div className="flex flex-wrap items-center gap-1 rounded-lg border border-border bg-card p-1">
+          <div className="flex flex-wrap items-center gap-1 rounded-control-lg border border-border bg-card p-1">
             {TABS.map((s) => (
               <button
                 key={s}
                 type="button"
                 onClick={() => setTab(s)}
-                className={`min-h-tap flex-1 rounded-md px-3 py-1.5 text-sm transition-colors sm:min-h-[38px] ${
+                className={`min-h-tap flex-1 rounded-control px-3 py-1.5 text-list transition-colors sm:min-h-9 ${
+                  // 選択中はウェイト 800（`_rules.md`「選択状態」）。型スケールの 700 を上書きする
                   tab === s
-                    ? 'bg-primary/15 font-medium text-primary'
+                    ? 'bg-primary/15 font-extrabold text-primary'
                     : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                 }`}
               >
@@ -145,6 +151,6 @@ export default function AiKnowledgePage() {
           )}
         </>
       )}
-    </div>
+    </PageShell>
   );
 }

@@ -40,7 +40,7 @@ export default function MobileTimeline({ columns, items, conflictedIds, onSelect
           type="button"
           onClick={() => onFilterChange(null)}
           className={cn(
-            "shrink-0 min-h-[44px] rounded-full border px-3 text-sm",
+            "shrink-0 min-h-tap rounded-chip border px-3 text-sub",
             !filterColumnId ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground",
           )}
         >
@@ -52,7 +52,7 @@ export default function MobileTimeline({ columns, items, conflictedIds, onSelect
             type="button"
             onClick={() => onFilterChange(c.id)}
             className={cn(
-              "shrink-0 min-h-[44px] rounded-full border px-3 text-sm",
+              "shrink-0 min-h-tap rounded-chip border px-3 text-sub",
               filterColumnId === c.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground",
             )}
           >
@@ -80,27 +80,27 @@ export default function MobileTimeline({ columns, items, conflictedIds, onSelect
                 type="button"
                 onClick={() => onSelect(item)}
                 className={cn(
-                  "flex w-full min-h-[44px] items-stretch gap-3 rounded-lg border bg-card p-3 text-left",
+                  "flex w-full min-h-tap items-stretch gap-3 rounded-card border bg-card p-3 text-left",
                   conflicted ? "border-destructive" : "border-border",
                 )}
               >
                 <div className="flex w-14 shrink-0 flex-col items-start justify-center">
-                  <span className="text-base font-semibold tabular-nums text-foreground">{fmtHmPad(item.start_min)}</span>
-                  <span className="text-xs text-muted-foreground">{fmtSpan(item.end_min - item.start_min)}</span>
+                  <span className="text-cardtitle tabular-nums text-foreground">{fmtHmPad(item.start_min)}</span>
+                  <span className="text-sub-sm text-muted-foreground">{fmtSpan(item.end_min - item.start_min)}</span>
                 </div>
                 <div
-                  className="w-1 shrink-0 rounded-full"
+                  className="w-1 shrink-0 rounded-chip"
                   style={{ backgroundColor: `#${itemKindColor(item.kind)}` }}
                   aria-hidden="true"
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="truncate text-sm font-medium text-foreground">{item.title || "（無題）"}</span>
+                    <span className="truncate text-list text-foreground">{item.title || "（無題）"}</span>
                     {item.link_broken && (
-                      <span className="shrink-0 rounded bg-destructive/10 px-1.5 py-0.5 text-[11px] text-destructive">台本が見つかりません</span>
+                      <span className="shrink-0 rounded-badge bg-destructive/10 px-1.5 py-0.5 text-badge text-destructive">台本が見つかりません</span>
                     )}
                   </div>
-                  <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                  <div className="mt-0.5 truncate text-sub-sm text-muted-foreground">
                     {itemKindLabel(item.kind)} ・ {/* 横串（列をまたぐ項目）は列名の代わりにまたぐ範囲を出す */}
                     {isSpanItem(item.span_cols)
                       ? `横串（${spanLabel(item.span_cols)}）`

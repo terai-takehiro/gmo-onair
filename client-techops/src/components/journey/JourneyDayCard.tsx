@@ -104,7 +104,7 @@ export default function JourneyDayCard({ day, marksByKey, onTogglePin, onDismiss
           aria-hidden="true"
         />
         <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground sm:text-base">
+        <h2 className="min-w-0 flex-1 truncate text-cardtitle text-foreground">
           {formatDayHeading(day.date, day.label)}
         </h2>
         {/* 3値の濃さだけを見せる要約（塗りつぶしの割合にしない） */}
@@ -126,9 +126,9 @@ export default function JourneyDayCard({ day, marksByKey, onTogglePin, onDismiss
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className={`h-2 w-2 shrink-0 rounded-full ${TONE_DOT_CLASS[stageHint.tone]}`} aria-hidden="true" />
-                      <span className="text-sm font-medium text-foreground">{STAGE_LABEL[stageHint.stage]}</span>
+                      <span className="text-list text-foreground">{STAGE_LABEL[stageHint.stage]}</span>
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="text-note mt-1 text-muted-foreground">
                       {stageHint.facts.length > 0
                         ? stageHint.facts.map((f, i) => (
                             <span key={f.key}>
@@ -176,27 +176,27 @@ export default function JourneyDayCard({ day, marksByKey, onTogglePin, onDismiss
 
           {day.frames.length > 0 && (
             <div className="border-t border-border px-4 py-3 sm:px-6">
-              <h3 className="text-xs font-semibold text-muted-foreground">当日スケジュール</h3>
+              <h3 className="text-th text-muted-foreground">当日スケジュール</h3>
               <ul className="mt-2 space-y-1.5">
                 {day.frames.map((f) => (
-                  <li key={f.itemId} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                    <span className="font-number shrink-0 tabular-nums text-xs text-muted-foreground">
+                  <li key={f.itemId} className="text-sub flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="font-number text-sub-sm shrink-0 tabular-nums text-muted-foreground">
                       {formatMinutes(f.startMin)}–{formatMinutes(f.endMin)}
                     </span>
                     <Badge variant="outline" className="shrink-0">{f.columnLabel}</Badge>
                     <Badge variant="outline" className="shrink-0">{itemKindLabel(f.kind)}</Badge>
                     <span className="min-w-0 flex-1 truncate text-foreground">{f.title}</span>
                     {f.documentId && !f.linkBroken && (
-                      <Link to={docPathOf("sheet", f.documentId)} className="shrink-0 text-xs text-primary hover:underline">
+                      <Link to={docPathOf("sheet", f.documentId)} className="text-sub-sm shrink-0 text-primary hover:underline">
                         台本を開く
                       </Link>
                     )}
                     {f.documentId && f.linkBroken && (
-                      <span className="flex shrink-0 items-center gap-1 text-xs text-destructive">
+                      <span className="text-sub-sm flex shrink-0 items-center gap-1 text-destructive">
                         <AlertTriangle className="h-3.5 w-3.5" />台本が見つかりません
                       </span>
                     )}
-                    {!f.documentId && <span className="shrink-0 text-xs text-muted-foreground">台本なし</span>}
+                    {!f.documentId && <span className="text-sub-sm shrink-0 text-muted-foreground">台本なし</span>}
                   </li>
                 ))}
               </ul>
@@ -205,16 +205,16 @@ export default function JourneyDayCard({ day, marksByKey, onTogglePin, onDismiss
 
           {sheetDocs.length > 0 && (
             <div className="border-t border-border px-4 py-3 sm:px-6">
-              <h3 className="text-xs font-semibold text-muted-foreground">進行台本</h3>
+              <h3 className="text-th text-muted-foreground">進行台本</h3>
               <ul className="mt-2 space-y-1.5">
                 {sheetDocs.map((doc) => (
-                  <li key={doc.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                  <li key={doc.id} className="text-sub flex flex-wrap items-center gap-x-2 gap-y-1">
                     <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                     <Link to={docPathOf(doc.app, doc.id)} className="min-w-0 flex-1 truncate text-primary hover:underline">
                       {doc.title || "（無題）"}
                     </Link>
-                    {doc.docNo && <span className="shrink-0 text-xs text-muted-foreground">{formatDocNo(doc.docNo)}</span>}
-                    <span className="shrink-0 text-xs text-muted-foreground">{formatAt(doc.updatedAt)} 更新</span>
+                    {doc.docNo && <span className="text-sub-sm shrink-0 text-muted-foreground">{formatDocNo(doc.docNo)}</span>}
+                    <span className="text-sub-sm shrink-0 text-muted-foreground">{formatAt(doc.updatedAt)} 更新</span>
                   </li>
                 ))}
               </ul>
@@ -223,23 +223,23 @@ export default function JourneyDayCard({ day, marksByKey, onTogglePin, onDismiss
 
           {visibleSuggestions.length > 0 && (
             <div className="border-t border-border bg-muted/30 px-4 py-3 sm:px-6">
-              <h3 className="flex items-center gap-1 text-xs font-semibold text-muted-foreground">
+              <h3 className="text-th flex items-center gap-1 text-muted-foreground">
                 <Lightbulb className="h-3.5 w-3.5" aria-hidden="true" />次に決めること
               </h3>
               <ul className="mt-2 space-y-2">
                 {visibleSuggestions.map((s) => (
-                  <li key={s.key} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <li key={s.key} className="text-sub flex flex-wrap items-center justify-between gap-2">
                     <span className="min-w-0 flex-1 text-foreground">{s.label}</span>
                     <div className="flex shrink-0 items-center gap-2">
                       {s.to && (
                         <Link to={s.to}>
-                          <Button size="sm" variant="outline" className="min-h-[44px]">見る</Button>
+                          <Button size="sm" variant="outline" className="min-h-tap">見る</Button>
                         </Link>
                       )}
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="min-h-[44px] text-muted-foreground"
+                        className="min-h-tap text-muted-foreground"
                         disabled={pending}
                         onClick={() => onDismiss(day.date, s, SUGGESTION_STAGE[s.key])}
                       >

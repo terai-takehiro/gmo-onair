@@ -32,6 +32,8 @@ import { AlertCircle, CheckCircle2, ChevronLeft, Circle, Eraser, Loader2, Type }
 import type { Socket } from 'socket.io-client';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifyError } from '@/lib/notify';
 import {
@@ -68,17 +70,17 @@ export default function GraphicsConsolePage() {
 
   if (state.status === 'not-found') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         <EmptyState icon={<Type />} title="見つかりませんでした" description="管理番号が合っているか確かめてください。" />
-      </div>
+      </PageShell>
     );
   }
 
   if (state.status === 'error') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         <EmptyState icon={<AlertCircle />} title="開けませんでした" description={state.message} />
-      </div>
+      </PageShell>
     );
   }
 
@@ -298,24 +300,22 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
   ) ?? null;
 
   return (
-    <div className="px-4 py-6 sm:px-6 sm:py-8">
+    <PageShell>
       <Link
         to={`/techops/graphics/${encodeURIComponent(ownerKey)}`}
-        className="mb-2 inline-flex min-h-tap items-center gap-1 rounded-control-md px-1.5 text-sub font-bold text-muted-foreground hover:text-foreground"
+        className="inline-flex min-h-tap w-fit items-center gap-1 rounded-control-md px-1.5 text-sub font-bold text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />ページと送出リスト
       </Link>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="min-w-0">
-          <h1 className="text-h1">送出コンソール ／ {bundle.project.name}</h1>
-          <p className="mt-1 text-sub text-muted-foreground">
-            行を押す（またはテンキー→Enter）で <strong>NEXT</strong> に立ち、TAKE で <strong>OA</strong> に出します。
-            TAKE すると NEXT は出す順の次の行へ自動で進みます。スロットは<strong>1枠1枚</strong>で、
-            同じスロットに TAKE すると前のページは自動で下ります。
-          </p>
-        </div>
-        <div className="flex-1" />
+      <PageHeader
+        title={`送出コンソール ／ ${bundle.project.name}`}
+        sub={(<>
+          行を押す（またはテンキー→Enter）で <strong>NEXT</strong> に立ち、TAKE で <strong>OA</strong> に出します。
+          TAKE すると NEXT は出す順の次の行へ自動で進みます。スロットは<strong>1枠1枚</strong>で、
+          同じスロットに TAKE すると前のページは自動で下ります。
+        </>)}
+      >
         <span className={`inline-flex items-center gap-2 rounded-control-md border px-3 py-1.5 text-sub font-bold ${
           connected
             ? 'border-success-border bg-success-surface text-foreground'
@@ -328,10 +328,10 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
         <Button type="button" variant="outline" onClick={allClear}>
           <Eraser className="mr-1 h-4 w-4 text-destructive" aria-hidden="true" />全部消す
         </Button>
-      </div>
+      </PageHeader>
 
       {/* OA ／ NEXT の本物のプレビュー ＋ 操作卓（番号呼出・TAKE／CLEARの2動詞） */}
-      <div className="mt-4 flex flex-col items-stretch gap-3 lg:flex-row">
+      <div className="flex flex-col items-stretch gap-3 lg:flex-row">
         <ConsolePreview
           tone="pgm"
           title="いま出ている絵（合成後）"
@@ -393,6 +393,6 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
         onSelectPvw={setPvwPageId}
         sendContinue={sendContinue}
       />
-    </div>
+    </PageShell>
   );
 }

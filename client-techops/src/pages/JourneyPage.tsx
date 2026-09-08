@@ -20,7 +20,9 @@ import { useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, ArrowLeft } from "lucide-react";
-import { DashboardHeader, EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+import { PageShell } from "@gmo-onair/shared/src/client/ui/pageShell";
+import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { notifyError } from "@/lib/notify";
 import * as journeyApi from "@/lib/journeyApi";
 import type { JourneyMarkRow } from "@/lib/journeyApi";
@@ -127,18 +129,20 @@ export default function JourneyPage({ scope }: JourneyPageProps) {
 
   if (journeyQuery.isLoading) {
     return (
-      <div className="flex items-center justify-center gap-2 px-4 py-16 text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin" />
-        <span className="text-sm">読み込み中…</span>
-      </div>
+      <PageShell>
+        <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span className="text-sub">読み込み中…</span>
+        </div>
+      </PageShell>
     );
   }
 
   if (journeyQuery.isError || !journeyQuery.data) {
     return (
-      <div className="px-4 py-6 sm:px-6 sm:py-8">
+      <PageShell>
         <EmptyState title="読み込めませんでした" description="時間を置いてもう一度お試しください。" />
-      </div>
+      </PageShell>
     );
   }
 
@@ -148,34 +152,39 @@ export default function JourneyPage({ scope }: JourneyPageProps) {
   const title = scope === "document" ? days[0]?.docs[0]?.title || "資料" : project?.name ?? (scope === "program" ? "番組" : "案件");
 
   return (
-    <div className="px-4 py-6 sm:px-6 sm:py-8">
+    <PageShell>
+      {/* **戻る導線は見出しと別の行にする**（1行に押し込むと 375px で見出しが縦に
+          折り返る。理由は `_rules.md`「5. ページの外枠」） */}
       <Link
         to={backTo}
-        className="mb-3 inline-flex min-h-[44px] items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        className="inline-flex min-h-tap w-fit items-center gap-1 text-list text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         {backLabel}
       </Link>
 
-      <DashboardHeader
-        title={title}
-        description={
-          scope === "document"
-            ? "この資料の状態を、当日スケジュール・番組進行・進行台本の内容の3段で確認できます。"
-            : "当日スケジュール → 番組進行 → 進行台本の内容の3段で、いまの状態を確認できます。"
-        }
-        period={project?.glsNumber ? `GLS: ${project.glsNumber}` : undefined}
-      />
+      {/*
+        ⚠️ **この画面の説明文を `sub` に入れないこと。** `[data-page-sub]` は
+        1023px までで1行に切り詰める（`tokens-v4.css`）。件数のように
+        「頭だけ読めれば足りる」文のための規則なので、**画面の目的そのもの**を
+        入れると 375px で後半が読めなくなる（作り直しの過程で一度そうしてしまい、
+        Codex レビュー #647 で指摘された）。`sub` には短い番号だけを置き、
+        説明は折り返る段落として見出しの下に出す（AIナレッジと同じ形）。
+      */}
+      <PageHeader title={title} sub={project?.glsNumber ? `GLS: ${project.glsNumber}` : undefined} />
+      <p className="text-note text-muted-foreground">
+        {scope === "document"
+          ? "この資料の状態を、当日スケジュール・番組進行・進行台本の内容の3段で確認できます。"
+          : "当日スケジュール → 番組進行 → 進行台本の内容の3段で、いまの状態を確認できます。"}
+      </p>
 
       {(scope === "project" || scope === "program") && id && <MiniAppTiles scope={scope} id={id} days={days} />}
 
       {days.length === 0 && (
-        <div className="mt-8">
-          <EmptyState title="まだ何もありません" description="当日スケジュールや進行台本ができると、ここに表示されます。" />
-        </div>
+        <EmptyState title="まだ何もありません" description="当日スケジュールや進行台本ができると、ここに表示されます。" />
       )}
 
-      <div className="mt-6 space-y-4">
+      <div className="flex flex-col gap-4">
         {days.map((day) => (
           <JourneyDayCard
             key={day.date ?? "undated"}
@@ -187,6 +196,6 @@ export default function JourneyPage({ scope }: JourneyPageProps) {
           />
         ))}
       </div>
-    </div>
+    </PageShell>
   );
 }

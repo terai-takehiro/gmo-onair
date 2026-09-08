@@ -39,7 +39,7 @@ function TestButton({ platform }: { platform: Platform }) {
         {testing ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />テスト中…</> : <><PlugZap className="h-3.5 w-3.5 mr-1.5" />接続テスト</>}
       </Button>
       {result && (
-        <div className="flex items-start gap-1.5 rounded-md border p-2 text-xs">
+        <div className="flex items-start gap-1.5 rounded-note border p-2 text-sub-sm">
           {icon}
           <div className="min-w-0">
             <p>{result.message}</p>
@@ -97,16 +97,16 @@ export default function OrgKeysSection() {
   });
 
   return (
-    <section className="rounded-xl border bg-card p-4 space-y-4">
+    <section className="rounded-card border bg-card p-4 space-y-4">
       <div>
-        <h2 className="text-sm font-semibold">組織共通の鍵（計測用）</h2>
-        <p className="text-xs text-muted-foreground mt-1">
+        <h2 className="text-cardtitle">組織共通の鍵（計測用）</h2>
+        <p className="text-note text-muted-foreground mt-1">
           サーバー側の「計測」はここに登録した鍵だけを使います。個人ごとの鍵にはフォールバックしません。
         </p>
       </div>
 
       {quota && (
-        <p className={`text-xs ${quota.warn ? 'text-amber-600' : 'text-muted-foreground'}`}>
+        <p className={`text-note ${quota.warn ? 'text-amber-600' : 'text-muted-foreground'}`}>
           今日の YouTube 消費: {quota.used.toLocaleString()} / {quota.limit.toLocaleString()}
         </p>
       )}
@@ -129,7 +129,7 @@ export default function OrgKeysSection() {
           <Input value={zoomAccountId} onChange={e => setZoomAccountId(e.target.value)} placeholder="Account ID" />
           <Input value={zoomClientId} onChange={e => setZoomClientId(e.target.value)} placeholder="Client ID" />
           <Input type="password" value={zoomClientSecret} onChange={e => setZoomClientSecret(e.target.value)} placeholder="Client Secret" />
-          {data?.hasZoomCredentials && <p className="text-xs text-green-600">設定済み</p>}
+          {data?.hasZoomCredentials && <p className="text-sub-sm text-green-600">設定済み</p>}
           <TestButton platform="zoom" />
         </div>
         <div className="space-y-1.5">
@@ -137,7 +137,7 @@ export default function OrgKeysSection() {
           <Input value={teamsTenantId} onChange={e => setTeamsTenantId(e.target.value)} placeholder="Tenant ID" />
           <Input value={teamsClientId} onChange={e => setTeamsClientId(e.target.value)} placeholder="Client ID" />
           <Input type="password" value={teamsClientSecret} onChange={e => setTeamsClientSecret(e.target.value)} placeholder="Client Secret" />
-          {data?.hasTeamsCredentials && <p className="text-xs text-green-600">設定済み</p>}
+          {data?.hasTeamsCredentials && <p className="text-sub-sm text-green-600">設定済み</p>}
           <TestButton platform="teams" />
         </div>
       </div>

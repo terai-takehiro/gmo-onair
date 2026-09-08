@@ -13,6 +13,8 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, Loader2, ShieldOff, AlertCircle, ArrowRightLeft } from 'lucide-react';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { useAuth } from '@/hooks/useAuth';
 import { notifyError, notifySuccess } from '@/lib/notify';
 import {
@@ -28,46 +30,45 @@ export default function AwardsMigrationPage() {
   const { currentUser } = useAuth();
   const isSystemAdmin = currentUser?.role === 'system_admin';
 
-  const Header = (
-    <div className="flex items-center gap-3 border-b border-border bg-card px-4 py-2">
+  // 画面の名前は `<PageHeader>` に寄せた（`_rules.md`「5. ページの外枠」）。
+  // 以前はこの画面だけ自前の上辺バー（`border-b bg-card` ＋ 14px の `<h1>`）を持っており、
+  // 共通シェルのヘッダーと二重になっていた
+  const header = (
+    <div className="flex items-center gap-2">
       <button
         type="button"
         onClick={() => navigate(-1)}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg hover:bg-muted"
+        className="flex h-9 w-9 min-h-tap shrink-0 items-center justify-center rounded-control-md hover:bg-muted"
         aria-label="戻る"
       >
         <ChevronLeft className="h-5 w-5" />
       </button>
-      <h1 className="text-sm font-bold">テロップCG — 過去実績の移行ツール（旧リアルタイムCG）</h1>
+      <PageHeader className="min-w-0 flex-1" title="テロップCG — 過去実績の移行ツール（旧リアルタイムCG）" />
     </div>
   );
 
   if (!isSystemAdmin) {
     return (
-      <div className="flex h-full flex-col">
-        {Header}
-        <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground">
+      <PageShell width="narrow">
+        {header}
+        <div className="flex items-center gap-2 text-muted-foreground">
           <ShieldOff className="h-5 w-5" />
-          <span className="text-sm">この画面はシステム管理者だけが開けます</span>
+          <span className="text-sub">この画面はシステム管理者だけが開けます</span>
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   return (
-    <div className="flex h-full flex-col">
-      {Header}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="mx-auto max-w-4xl">
-          <p className="mb-4 text-sub text-muted-foreground">
-            旧リアルタイムCG（<code className="rounded bg-surface-subtle px-1">client-awards</code>）の
-            イベント・カテゴリ・エントリーを、新しいテロップCG（ランキング発表部品）へコピーします。
-            元データは変更しません——複製して新規作成するだけです。
-          </p>
-          <MigrationBody />
-        </div>
-      </div>
-    </div>
+    <PageShell width="narrow">
+      {header}
+      <p className="text-sub text-muted-foreground">
+        旧リアルタイムCG（<code className="rounded bg-surface-subtle px-1">client-awards</code>）の
+        イベント・カテゴリ・エントリーを、新しいテロップCG（ランキング発表部品）へコピーします。
+        元データは変更しません——複製して新規作成するだけです。
+      </p>
+      <MigrationBody />
+    </PageShell>
   );
 }
 

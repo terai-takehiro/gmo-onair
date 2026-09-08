@@ -115,9 +115,9 @@ export function ShareDialog({
               aria-label="共有ユーザー検索"
             />
           </div>
-          <div className="max-h-72 overflow-y-auto rounded-lg border border-border divide-y divide-border">
+          <div className="max-h-72 overflow-y-auto rounded-card border border-border divide-y divide-border">
             {filtered.length === 0 ? (
-              <p className="p-4 text-sm text-muted-foreground text-center">ユーザーが見つかりません</p>
+              <p className="p-4 text-sub text-muted-foreground text-center">ユーザーが見つかりません</p>
             ) : (
               filtered.map((u) => {
                 const on = selected.has(u.id);
@@ -130,19 +130,19 @@ export function ShareDialog({
                     role="checkbox"
                     aria-checked={on}
                   >
-                    <span className={`size-5 rounded-md flex items-center justify-center border flex-shrink-0 ${on ? "bg-primary border-primary text-primary-foreground" : "border-border"}`}>
+                    <span className={`size-5 rounded-control flex items-center justify-center border flex-shrink-0 ${on ? "bg-primary border-primary text-primary-foreground" : "border-border"}`}>
                       {on && <Check size={13} aria-hidden />}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium truncate">{u.name}</span>
-                      <span className="block text-xs text-muted-foreground truncate">{u.email}</span>
+                      <span className="block text-list truncate">{u.name}</span>
+                      <span className="block text-sub-sm text-muted-foreground truncate">{u.email}</span>
                     </span>
                   </button>
                 );
               })
             )}
           </div>
-          <p className="text-xs text-muted-foreground">{selected.size} 名を選択中</p>
+          <p className="text-note text-muted-foreground">{selected.size} 名を選択中</p>
         </div>
         <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="outline" onClick={onClose}>キャンセル</Button>

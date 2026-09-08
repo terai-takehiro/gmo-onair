@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@gmo-onair/shared/src/client/dashboard';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifyError, notifySuccess } from '@/lib/notify';
 import {
@@ -44,17 +46,17 @@ export default function TemplateManagerPage() {
 
   if (state.status === 'not-found') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         <EmptyState icon={<Blocks />} title="見つかりませんでした" description="管理番号が合っているか確かめてください。" />
-      </div>
+      </PageShell>
     );
   }
 
   if (state.status === 'error') {
     return (
-      <div className="mx-auto max-w-lg px-4 py-10">
+      <PageShell>
         <EmptyState icon={<AlertCircle />} title="開けませんでした" description={state.message} />
-      </div>
+      </PageShell>
     );
   }
 
@@ -115,23 +117,23 @@ function TemplateManagerContent({ ownerKey, owner, projectId }: {
   const handleSaved = () => { void queryClient.invalidateQueries({ queryKey }); };
 
   return (
-    <div className="px-4 py-6 sm:px-6 sm:py-8">
+    <PageShell>
       <Link
         to={partsPath(ownerKey)}
-        className="mb-2 inline-flex min-h-tap items-center gap-1 rounded-control-md px-1.5 text-sub font-bold text-muted-foreground hover:text-foreground"
+        className="inline-flex min-h-tap w-fit items-center gap-1 rounded-control-md px-1.5 text-sub font-bold text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         部品ライブラリへ戻る
       </Link>
 
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="min-w-0">
-          <h1 className="text-h1">テンプレート ／ {owner.name}</h1>
-          <p className="mt-1 text-sub text-muted-foreground">
+      <PageHeader
+        title={`テンプレート ／ ${owner.name}`}
+        sub={(
+          <>
             部品を選んで初期値を入れ、<strong className="font-bold text-foreground">オペレーターが編集できる欄だけ</strong>を絞り込みます。ゼロから描く場所ではありません。
-          </p>
-        </div>
-        <div className="flex-1" />
+          </>
+        )}
+      >
         <Button variant="outline" asChild>
           <Link to={soundsPath(ownerKey)}>
             <Music className="mr-1 h-4 w-4" aria-hidden="true" />演出SE（ranking）
@@ -145,14 +147,14 @@ function TemplateManagerContent({ ownerKey, owner, projectId }: {
         <Button onClick={openCreate}>
           <Plus className="mr-1 h-4 w-4" aria-hidden="true" />テンプレートを作成
         </Button>
-      </div>
+      </PageHeader>
 
       {listQuery.isLoading ? (
-        <div className="mt-8 flex justify-center">
+        <div className="flex justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label="読み込み中" />
         </div>
       ) : templates.length === 0 ? (
-        <div className="mt-4 rounded-card border border-border bg-card">
+        <div className="rounded-card border border-border bg-card">
           <EmptyState
             icon={<Blocks />}
             title="テンプレートがまだありません"
@@ -160,7 +162,7 @@ function TemplateManagerContent({ ownerKey, owner, projectId }: {
           />
         </div>
       ) : (
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {templates.map((t) => (
             <TemplateCard
               key={t.id}
@@ -179,7 +181,7 @@ function TemplateManagerContent({ ownerKey, owner, projectId }: {
         onOpenChange={setFormOpen}
         onSaved={handleSaved}
       />
-    </div>
+    </PageShell>
   );
 }
 
@@ -197,7 +199,7 @@ function TemplateCard({ template, onEdit, onDelete }: {
       </div>
       {template.layers && template.layers.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="inline-flex h-5 items-center whitespace-nowrap rounded-control bg-info-surface px-1.5 text-[10px] font-bold text-info">
+          <span className="inline-flex h-5 items-center whitespace-nowrap rounded-control bg-info-surface px-1.5 text-badge text-info">
             複数部品（{template.layers.length}個）
           </span>
           <span className="min-w-0 truncate text-note text-muted-foreground">
@@ -207,10 +209,10 @@ function TemplateCard({ template, onEdit, onDelete }: {
       ) : (
         <div className="flex flex-wrap items-center gap-1.5">
           <SlotBadge slot={template.slot} />
-          <span className="inline-flex h-5 items-center whitespace-nowrap rounded-control bg-surface-subtle px-1.5 text-[10px] font-bold text-muted-foreground">
+          <span className="inline-flex h-5 items-center whitespace-nowrap rounded-control bg-surface-subtle px-1.5 text-badge text-muted-foreground">
             {PART_LABELS[template.partKey]}
           </span>
-          <span className="inline-flex h-5 items-center whitespace-nowrap rounded-control bg-info-surface px-1.5 text-[10px] font-bold text-info">
+          <span className="inline-flex h-5 items-center whitespace-nowrap rounded-control bg-info-surface px-1.5 text-badge text-info">
             公開 {template.publicFields.length}件
           </span>
         </div>

@@ -17,6 +17,8 @@ import { notifySuccess, notifyError } from '@/lib/notify';
 import { formatRelativeTime } from '@gmo-onair/shared/src/client/format';
 import { apiErrorMessage, destIssues, jstToday, type DestIssue } from '@/lib/deviceSettingsShared';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
+import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import ServiceDateBar from '@/components/device-settings/ServiceDateBar';
 import {
@@ -68,8 +70,8 @@ function Stat({ label, value, tone }: { label: string; value: string; tone: 'pri
   return (
     <span className="flex items-center gap-1.5 whitespace-nowrap">
       <span className={`h-2 w-2 shrink-0 rounded-chip ${dot}`} aria-hidden="true" />
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className={`text-sm font-extrabold tabular-nums ${fg}`}>{value}</span>
+      <span className="text-sub-sm text-muted-foreground">{label}</span>
+      <span className={`text-list tabular-nums ${fg}`}>{value}</span>
     </span>
   );
 }
@@ -231,32 +233,29 @@ export default function StreamingPage() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-6" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      <div className="mb-3 flex items-center gap-3">
-        {owner ? (
-          <Link
-            to={owner.kind === 'project' ? `/techops/projects/${owner.id}` : `/techops/programs/${owner.id}`}
-            className="flex h-11 min-w-0 shrink items-center gap-1 rounded-lg px-2 text-sm font-semibold hover:bg-muted"
-          >
-            <ChevronLeft className="h-5 w-5 shrink-0" />
-            <span className="truncate">{owner.name}</span>
-          </Link>
-        ) : (
-          <button onClick={() => navigate(-1)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted" aria-label="戻る">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        )}
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-lg font-bold">配信設定</h1>
-          <p className="truncate text-xs text-muted-foreground">
-            {owner?.glsNumber ?? owner?.name ?? ownerKey} ・ {serviceDate}
-          </p>
-        </div>
-        {owner && <MiniAppSwitcher owner={owner} current="streaming" />}
-      </div>
+    <PageShell>
+      {/* **戻る導線は見出しと別の行にする**（1行に押し込むと 375px で見出しが縦に
+          折り返る。理由は `_rules.md`「5. ページの外枠」） */}
+      {owner ? (
+        <Link
+          to={owner.kind === 'project' ? `/techops/projects/${owner.id}` : `/techops/programs/${owner.id}`}
+          className="-ml-2 flex h-11 w-fit min-w-0 items-center gap-1 rounded-control-lg px-2 text-list text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <ChevronLeft className="h-5 w-5 shrink-0" />
+          <span className="truncate">{owner.name}</span>
+        </Link>
+      ) : (
+        <button onClick={() => navigate(-1)} className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-control-lg hover:bg-muted" aria-label="戻る">
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+      )}
+      <PageHeader title="配信設定" sub={`${owner?.glsNumber ?? owner?.name ?? ownerKey} ・ ${serviceDate}`}>
+        {/* 帯は狭い画面で幅いっぱいにする（理由は収録設定の同じ箇所のコメント） */}
+        {owner && <div className="w-full min-w-0 sm:w-auto"><MiniAppSwitcher owner={owner} current="streaming" /></div>}
+      </PageHeader>
 
       {/* ⚠️ 下の固定バーは「保存する」1つだけにし、他はここへ出す（スマホで指が届く高さを保存に使う） */}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {canEdit && (
           <Button variant="outline" className="h-11" onClick={() => setCopyFromOpen(true)}>
             <Copy className="mr-2 h-4 w-4" /> 前回の設定を複製
@@ -275,7 +274,7 @@ export default function StreamingPage() {
 
       {/* 打ち終わってから捨てられるのがいちばん困るので、**打つ前に**言う */}
       {!canEdit && (
-        <p className="mb-3 rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-note text-foreground">
+        <p className="rounded-note border border-warning-border bg-warning-surface px-3 py-2 text-note text-foreground">
           <strong>現在は閲覧のみです。</strong>内容を見ることと Excel の書き出し（キーは空欄）は
           できますが、保存と「キーを入れて出す」はできません。
           編集するには制作技術支援の「編集」が必要です。
@@ -292,18 +291,18 @@ export default function StreamingPage() {
       />
 
       {/* 状態の帯（配信先 / 直したほうがよい / 出ない台） */}
-      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-card border bg-card px-3 py-2">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-card border bg-card px-3 py-2">
         <Stat label="配信先" value={`${destinations.length}件`} tone="primary" />
         <Stat label="要修正" value={`${warnIds.size}件`} tone="bad" />
         <Stat label="出ない台" value={`${emptyEncoders}台`} tone="mute" />
         <span className="flex-1" />
-        <span className="truncate text-xs text-muted-foreground">
+        <span className="truncate text-sub-sm text-muted-foreground">
           {lastExportName ? `${lastExportName}（${formatRelativeTime(lastExportedAt)}）` : 'まだ書き出していません'}
         </span>
       </div>
 
       {loading ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">読み込み中…</p>
+        <p className="py-10 text-center text-sub text-muted-foreground">読み込み中…</p>
       ) : (
         <>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
@@ -358,9 +357,9 @@ export default function StreamingPage() {
           <div className="mt-8 border-t pt-6">
             <div className="mb-1 flex items-center gap-2">
               <Video className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-semibold">WEB会議</h2>
+              <h2 className="text-cardtitle">WEB会議</h2>
             </div>
-            <p className="mb-3 text-xs font-medium text-warning">ここから下は Excel に出ません。共有は画面のコピーで行ってください。</p>
+            <p className="mb-3 text-note text-warning">ここから下は Excel に出ません。共有は画面のコピーで行ってください。</p>
             {/* ⚠️ 一覧＋詳細（配信先と同じ作り）。会議は本番用・リハ用…と3〜4本になるので
                 カードの縦積みでは目的の1件に辿り着けなかった。スマホは 1画面ずつ（MeetingList 参照）。
                 ⚠️ ここで <Dialog> は使わない（PC 幅で画面全体が暗転した実害・useIsNarrow のコメント） */}
@@ -376,7 +375,7 @@ export default function StreamingPage() {
       )}
 
       {canEdit && (
-        <div className="sticky bottom-0 mt-6 border-t bg-background/95 py-3 backdrop-blur sm:hidden">
+        <div className="sticky bottom-0 border-t bg-background/95 py-3 backdrop-blur sm:hidden">
           <Button className="h-[52px] w-full" onClick={save} disabled={saving}>
             <Save className="mr-2 h-4 w-4" /> {saving ? '保存中…' : '保存する'}
           </Button>
@@ -399,6 +398,6 @@ export default function StreamingPage() {
         what={['streaming']}
         onCopied={() => { void load(); }}
       />
-    </div>
+    </PageShell>
   );
 }

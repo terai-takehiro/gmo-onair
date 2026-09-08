@@ -13,7 +13,9 @@ import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-quer
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DashboardHeader, EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+import { EmptyState } from "@gmo-onair/shared/src/client/dashboard";
+import { PageShell } from "@gmo-onair/shared/src/client/ui/pageShell";
+import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { useDebounced } from "@gmo-onair/shared/src/client/hooks/useDebounced";
 import * as scheduleApi from "@/lib/scheduleApi";
 import CreateScheduleDialog from "@/components/schedule/CreateScheduleDialog";
@@ -82,21 +84,21 @@ export default function ScheduleListPage() {
     : undefined;
 
   return (
-    <div className="px-4 py-6 sm:px-6 sm:py-8">
-      <DashboardHeader
+    <PageShell>
+      <PageHeader
         title="スケジュール表"
-        description="会場×時間軸で当日の動きを1日1枚に置きます。"
-        controls={
-          <Button className="min-h-[44px]" onClick={() => setCreateOpen(true)}>
+        sub="会場×時間軸で当日の動きを1日1枚に置きます。"
+        primaryAction={
+          <Button className="min-h-tap" onClick={() => setCreateOpen(true)}>
             <Plus className="mr-1 h-4 w-4" />新しく作る
           </Button>
         }
       />
 
       {(projectFilter || programFilter) && filterLabel && (
-        <div className="mt-3 flex items-center gap-2 rounded-md border border-border bg-primary/5 px-4 py-2.5" role="status">
-          <span className="text-sm">
-            <span className="font-medium">{filterLabel.project_name ?? filterLabel.program_name}</span>
+        <div className="flex items-center gap-2 rounded-note border border-border bg-primary/5 px-4 py-2.5" role="status">
+          <span className="text-sub">
+            <span>{filterLabel.project_name ?? filterLabel.program_name}</span>
             のスケジュール表
           </span>
           <Button variant="ghost" size="icon-sm" className="ml-auto shrink-0" onClick={clearFilter} aria-label="絞り込み解除">
@@ -116,21 +118,19 @@ export default function ScheduleListPage() {
       />
 
       {listQuery.isLoading && (
-        <div className="mt-8 flex items-center justify-center gap-2 text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin" /><span className="text-sm">読み込み中…</span>
+        <div className="flex items-center justify-center gap-2 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" /><span className="text-sub">読み込み中…</span>
         </div>
       )}
 
       {!listQuery.isLoading && bundles.length === 0 && (
-        <div className="mt-8">
-          <EmptyState
-            title="この条件に合う表はありません"
-            description={debouncedSearch || locationFilter || statusFilter !== "all" ? "絞り込みを変えるか、「新しく作る」から最初の1枚を作れます。" : "「新しく作る」から最初の1枚を作れます。"}
-          />
-        </div>
+        <EmptyState
+          title="この条件に合う表はありません"
+          description={debouncedSearch || locationFilter || statusFilter !== "all" ? "絞り込みを変えるか、「新しく作る」から最初の1枚を作れます。" : "「新しく作る」から最初の1枚を作れます。"}
+        />
       )}
 
-      <div className="mt-6 space-y-6">
+      <div className="space-y-6">
         {bundles.map((b) => <ScheduleBundleGroup key={b.key} bundle={b} />)}
       </div>
 
@@ -143,6 +143,6 @@ export default function ScheduleListPage() {
           navigate(`/techops/schedules/${row.id}`);
         }}
       />
-    </div>
+    </PageShell>
   );
 }

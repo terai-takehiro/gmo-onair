@@ -19,19 +19,19 @@ function Choice({ icon, title, description, onClick }: { icon: ReactNode; title:
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-[44px] flex-col items-start gap-2 rounded-lg border border-border bg-card p-4 text-left hover:border-primary/40 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="flex min-h-tap flex-col items-start gap-2 rounded-card border border-border bg-card p-4 text-left hover:border-primary/40 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span className="text-primary [&>svg]:h-6 [&>svg]:w-6" aria-hidden="true">{icon}</span>
-      <span className="text-base font-bold text-foreground">{title}</span>
-      <span className="text-sm text-muted-foreground">{description}</span>
+      <span className="text-cardtitle text-foreground">{title}</span>
+      <span className="text-sub text-muted-foreground">{description}</span>
     </button>
   );
 }
 
 export default function ScheduleEmptyState({ onTemplate, onVenue, onAi, locationSet }: Props) {
   return (
-    <section className="rounded-lg border border-dashed border-border bg-muted/30 p-4 sm:p-6" role="status" aria-label="まだ列がありません">
-      <p className="text-sm font-bold text-foreground">まだ列がありません。最初の列を決めると項目を置けます。</p>
+    <section className="rounded-card border border-dashed border-border bg-muted/30 p-4 sm:p-6" role="status" aria-label="まだ列がありません">
+      <p className="text-cardtitle text-foreground">まだ列がありません。最初の列を決めると項目を置けます。</p>
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Choice
           icon={<LayoutTemplate />}

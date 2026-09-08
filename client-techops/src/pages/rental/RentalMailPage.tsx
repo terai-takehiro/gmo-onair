@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Check, ChevronLeft, Clipboard, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { Delayed, SkeletonRows, EmptyState } from '@gmo-onair/shared/src/client/states';
 import { notifyError, notifySuccess } from '@/lib/notify';
@@ -66,26 +67,26 @@ export default function RentalMailPage() {
 
   if (draftQuery.isLoading) {
     return (
-      <div className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
+      <PageShell>
         <Delayed>
           <SkeletonRows rows={6} />
         </Delayed>
-      </div>
+      </PageShell>
     );
   }
 
   if (draftQuery.isError || !draftQuery.data) {
     return (
-      <div className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
+      <PageShell>
         <EmptyState title="依頼メールを作れませんでした" description="この会社の予約リストが空か、時間を置いてもう一度お試しください。" />
-      </div>
+      </PageShell>
     );
   }
 
   const { itemCount, quantityTotal, subtotal } = draftQuery.data;
 
   return (
-    <div className="mx-auto flex h-full max-w-6xl flex-col gap-3 px-3 py-4 sm:px-6 sm:py-6">
+    <PageShell className="h-full">
       <button
         type="button"
         onClick={() => navigate(`/techops/rental/${encodeURIComponent(ownerKey)}/list`)}
@@ -167,6 +168,6 @@ export default function RentalMailPage() {
           </div>
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }

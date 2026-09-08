@@ -32,7 +32,7 @@ export default function DeckStatusBand({
   if (c.skip > 0) items.push({ label: '使わない', value: c.skip, dot: 'bg-muted-foreground', fg: 'text-muted-foreground' });
 
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-border bg-card px-4 py-3">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-border bg-card px-4 py-3">
       {items.map((it) => (
         <span key={it.label} className="flex items-center gap-2 whitespace-nowrap">
           <span className={`h-2 w-2 shrink-0 rounded-full ${it.dot}`} aria-hidden="true" />
