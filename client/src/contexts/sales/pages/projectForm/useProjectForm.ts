@@ -31,7 +31,7 @@ import api from '@/lib/api';
 import { createInitialBookings } from './createInitialBookings';
 import { buildSavePayload } from './buildSavePayload';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
-import { getProjectCategory, type ProjectStage } from '@/types';
+import type { ProjectStage } from '@/types';
 import {
   missingOf,
   type CustomerOption, type NewProjectValues, type ProjectFieldsState, type UserOption,
@@ -253,17 +253,27 @@ export function useProjectForm(id: string | undefined) {
    * 「いまある案件に足す」（既存 GLS の回として付ける）はこの制限を受けない
    */
   const canIssueNewGls = canIssueNewGlsAt(currentStage);
-  // 分類はユーザー選択値を優先。未選択時のフォールバックとして project_type からの推奨値を使う
-  const isCategoryA = glsCategory ? glsCategory === 'A' : getProjectCategory(projectType) === 'A';
+  /**
+   * 分類は **DB の実値（`gls_category`）だけを正とする**。空＝未設定は GLS-A 扱い
+   * （`missingOf` の `asksClassification = v.gls_category !== 'B'` と揃える）。
+   *
+   * ⚠️ かつてはここが空のとき `project_type` から `getProjectCategory()` で
+   * 推奨値を補っていたが、`project_type` の既定値は `'other'` で
+   * `PROJECT_CATEGORY_B` に属するため、AI起票・決算取込・Excel/GLS取込などで
+   * `gls_category` が未設定のまま残っている古い案件を開くたびに GLS-B と
+   * 誤判定していた。`RequiredFields.tsx` の `isGlsB` はこの値を見て「案件分類」欄
+   * 自体を隠すため、画面は「GLS-Bだから分類は不要」と案内するのに、
+   * サーバーの GLS 発番（`issueGls`）は DB の生値（NULL）を見て「分類が未設定」
+   * と拒否する——という矛盾したエラーになっていた。しかも `buildSavePayload` は
+   * `gls_category` を送信対象から外していないため、この誤判定のまま他の項目
+   * だけ直して保存すると、**GLS未発番の案件は実際に DB の `gls_category` が
+   * 'B' へ書き換わってしまう**（`project.service.ts` の `allowCategoryUpdate`
+   * は `gls_number` が無い間は送られた値をそのまま受け入れる）。
+   * `project_type` からの推測は行わず、常に DB の生値だけを見る。
+   */
+  const isCategoryA = glsCategory !== 'B';
   const isCategoryARef = useRef(isCategoryA);
   isCategoryARef.current = isCategoryA;
-
-  // project_type を変更したら gls_category をまだ未選択のときだけデフォルト推奨を当てる
-  useEffect(() => {
-    if (!projectType) return;
-    if (glsCategory) return; // 既に選択済みなら触らない
-    setValue('gls_category', getProjectCategory(projectType));
-  }, [projectType, glsCategory, setValue]);
 
   const actions = useProjectActions({
     id, isEdit, isCategoryA,
