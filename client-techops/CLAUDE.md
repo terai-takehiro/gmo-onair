@@ -62,6 +62,18 @@
   ＝進行・ランダウン・プロンプターは `<html class="dark">` で暗い配色のまま動いている。
   切り替えた PR で実ブラウザ／ビルド後 CSS で暗いままであることを確認すること）
 
+## UI の統一（2026-09-08〜・進行中）
+
+「各ページのデザイン思想が統一されていない」というご指摘を受けた棚卸しと段取りは
+**[docs/reviews/techops-ui-unification-plan.md](../docs/reviews/techops-ui-unification-plan.md)**。
+ページ幅8通り・`<h1>` 11通り（14〜24px）・生 `text-*` 535 か所・
+黙って落ちる `font-medium`/`font-semibold` 161 か所の実測値と、A〜G のブロック分担がある。
+
+- **ページの外枠は `<PageShell>`**（`shared/src/client/ui/pageShell.tsx`。幅は
+  `full` / `narrow` の2段だけ）、**画面の名前は `<PageHeader>`**。
+  正は [docs/design/v4/_rules.md](../docs/design/v4/_rules.md) の「5. ページの外枠」
+- 画面を1つでも触るときは、その画面を**この形に寄せてから**直す（旧い書き方を増やさない）
+
 ## やってはいけないこと（見た目の作り直しが終わるまで）
 
 - v4 の共通部品（`Row` / `Money` / `DateRange` など）で**既存画面を書き換えない**
