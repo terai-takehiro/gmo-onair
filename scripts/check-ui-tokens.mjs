@@ -170,7 +170,7 @@ const NOT_A_SCREEN = [
  * 正規表現リテラルなど、この単純な走査で読み違える書き方が将来入ったとき、
  * 静かに検査が効かなくなるより、元の行で当てて多めに報告するほうが安全。
  */
-function blankComments(text) {
+function blankComments(text, { strings = false } = {}) {
   const out = text.split('');
   let i = 0;
   let inBlock = false;
@@ -184,10 +184,25 @@ function blankComments(text) {
       continue;
     }
     if (ch === "'" || ch === '"' || ch === '`') {
+      const quote = ch;
       i += 1;
+      let depth = 0;   // テンプレートの `${…}` の中は**コード**なので塗らない
       while (i < text.length) {
         if (text[i] === '\\') { i += 2; continue; }
-        if (text[i] === ch) { i += 1; break; }
+        if (quote === '`' && depth === 0 && text[i] === '$' && text[i + 1] === '{') {
+          depth = 1; i += 2;
+          // 波括弧の対応を数えて `${…}` を素通りさせる（中の JSX を消さない）
+          while (i < text.length && depth > 0) {
+            if (text[i] === '{') depth += 1;
+            else if (text[i] === '}') depth -= 1;
+            i += 1;
+          }
+          continue;
+        }
+        if (text[i] === quote) { i += 1; break; }
+        // `strings` を頼まれたときだけ**値の中身**を消す。
+        // 文字列の中に書いた `'<PageShell>'` を「部品を置いた」と読ませないため
+        if (strings && text[i] !== '\n') out[i] = ' ';
         i += 1;
       }
       continue;
@@ -816,7 +831,16 @@ for (const file of files) {
    * そのまま残る。**コメントを塗り潰した写しの中に、部品として置かれているか**を見る。
    * 行末で終わる `<PageShell` も拾う（属性を次の行に書く形。`page-h1-by-hand` と同じ）。
    */
-  const usesPageShell = /<PageShell(?=[\s>/]|$)/m.test(blanked ?? text);
+  /*
+   * ⚠️ **文字列の中身も消した写しで見る。** `blankComments()` は既定で
+   * 文字列を残す（`'/*'` という値でファイルの残りがコメント扱いになるのを避けるため）
+   * が、そのままだと `const example = '<PageShell>';` と書いた画面が
+   * 「部品を置いた」と読まれて通ってしまう（Codex が実際に再現して指摘・#647）。
+   * ここは**置いてあるか**を見たいので、文字列も潰した写しを別に作る。
+   * テンプレートの `${…}` はコードなので潰さない。
+   */
+  const code = blankComments(text, { strings: true });
+  const usesPageShell = /<PageShell(?=[\s>/]|$)/m.test(code ?? text);
   if (/^client-techops\/src\/pages\//.test(rel) && /Page\.tsx$/.test(rel) && !usesPageShell) {
     findings.push({
       rel,
