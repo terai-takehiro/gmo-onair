@@ -557,7 +557,7 @@ export const projectService = {
         try {
           await salesProjectService.issueGls(id, {}, userId);
         } catch (err) {
-          glsError = err instanceof AppError ? err.message : 'GLS番号を採れませんでした';
+          glsError = err instanceof AppError ? err.message : '管理番号を採れませんでした';
           console.warn('[gpm.update] GLS auto-issue failed:', id, glsError);
         }
       }

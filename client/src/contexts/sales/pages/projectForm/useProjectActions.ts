@@ -66,7 +66,7 @@ export function useProjectActions({
       setGlsDialog((s) => ({ ...s, open: false }));
       setGlsResult({ open: true, glsNumber: data.data.gls_number });
     },
-    onError: (err) => notifyApiError('GLS 番号を発番できませんでした', err),
+    onError: (err) => notifyApiError('管理番号を発番できませんでした', err),
   });
 
   const linkGlsMutation = useMutation({
@@ -77,7 +77,7 @@ export function useProjectActions({
       setGlsDialog((s) => ({ ...s, open: false }));
       setGlsResult({ open: true, glsNumber: data.data.gls_number });
     },
-    onError: (err) => notifyApiError('GLS 番号を割り当てられませんでした', err),
+    onError: (err) => notifyApiError('管理番号を割り当てられませんでした', err),
   });
 
   const relinkMutation = useMutation({
@@ -87,7 +87,7 @@ export function useProjectActions({
       invalidateProject();
       setRelinkDialog({ open: false, target_project_id: '' });
       notifySuccess(`${data.data.gls_number} の回に付け替えました`, {
-        description: '前の GLS 番号は履歴に残っています。',
+        description: '前の管理番号は履歴に残っています。',
       });
     },
     onError: (err) => notifyApiError('付け替えられませんでした', err),
@@ -99,7 +99,7 @@ export function useProjectActions({
     onSuccess: () => {
       invalidateProject();
       setCategorySwitchDialog({ open: false, target: 'A' });
-      notifySuccess('案件分類を変えました', { description: 'GLS 番号を採り直しました。' });
+      notifySuccess('案件分類を変えました', { description: '管理番号を採り直しました。' });
     },
     onError: (err) => notifyApiError('案件分類を変更できませんでした', err),
   });
@@ -155,7 +155,7 @@ export function useProjectActions({
   const handleRelinkConfirm = async () => {
     const ok = await confirmAction({
       title: 'この案件を選んだ GLS の回に付け替えますか？',
-      description: 'GLS 番号・回のコード・BOX フォルダ名がまとめて変わります。',
+      description: '管理番号・回のコード・BOX フォルダ名がまとめて変わります。',
       confirmLabel: '付け替える',
       tone: 'danger',
     });

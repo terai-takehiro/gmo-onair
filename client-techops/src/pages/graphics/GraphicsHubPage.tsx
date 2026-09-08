@@ -58,7 +58,7 @@ export default function GraphicsHubPage() {
         <EmptyState
           icon={<Type />}
           title="見つかりませんでした"
-          description="GLS番号が合っているか確かめてください。"
+          description="管理番号が合っているか確かめてください。"
         />
       </div>
     );

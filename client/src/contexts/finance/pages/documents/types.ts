@@ -169,7 +169,7 @@ export const STAGE_TONE: Record<ChainStage, string> = {
 
 /** 当て先の確からしさ。**AI が当てたものは「確かめてください」と言い切る** */
 export const CONFIDENCE_NOTE: Record<'high' | 'medium' | 'low', string> = {
-  high: 'GLS 番号が一致しました',
+  high: '管理番号が一致しました',
   medium: '名前が1件だけ当たりました（確かめてください）',
   low: '決めきれませんでした',
 };

@@ -14,12 +14,22 @@
  * 「どの番組の？」が定まらないため（旧実装の誤り。当時の記録は git 履歴参照）。
  *
  * データは `listTopItems()`（`/techops/top-items`）が GLS案件＋ここだけの番組を
- * 1本で返す。**「最後の回の翌日」を過ぎた項目はアーカイブ扱い**にし、既定では
- * 隠す（`view: 'archive'` で切り替えて見る）。`last_date` が無い項目（GLS-B系・
- * 実施日未定の番組）は終了しない扱い。
+ * 1本で返す。
  *
- * 一覧の組み立て（絞り込み・並び替え・アーカイブ判定）は `pages/top/topHelpers.ts`
- * に切り出した純粋関数を使う。
+ * ── 何を・どの順で出すか（2026-09-08 のご指示で整理し直した）──────────
+ *
+ *   ① **制作物にならない案件は出さない。** 工事・構築のプロジェクト（旧 `GLS-B###`・
+ *      改番後の `GMO-####`）と失注は**サーバー側**で外す（`top.routes.ts`）。
+ *      「番組・イベントを選ぶ入口」に第3本社プロジェクトのような案件が混ざっていた
+ *   ② **並びは放送順**（本番日の昇順）。日程が未定のものだけ最後にまとめる
+ *   ③ **行には必ず本番日を出す**（未定なら「日程未定」と書く）。以前は日付を
+ *      1つも出していなかったため、なぜその順なのかが画面から読めなかった
+ *   ④ **終わったものはアーカイブへ畳む**（`view: 'archive'` で見る）。最後の回の
+ *      翌日から。**日付を1つも持たない案件はステージで判断する**（実施済・完了は
+ *      畳む）— 以前は日付が無いだけで永久に本体へ残っていた
+ *
+ * ①以外の組み立て（絞り込み・並び替え・アーカイブ判定・「いつ」の決め方）は
+ * `pages/top/topHelpers.ts` に切り出した純粋関数を使う。
  */
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -45,6 +55,7 @@ import { TopItemRow, ArchiveFooterRow, ArchiveSearchHintRow } from './top/TopLis
 import {
   type Segment, type TopView,
   isArchived, matchesSegment, matchesSearch, sortMainList, upcomingItems, sortArchive,
+  eligibleRecents,
 } from './top/topHelpers';
 
 export default function ProductionTopPage() {
@@ -55,7 +66,12 @@ export default function ProductionTopPage() {
   const [createOpen, setCreateOpen] = useState(false);
 
   const itemsQuery = useQuery({ queryKey: ['qsheet-top-items'], queryFn: listTopItems });
-  const items = itemsQuery.data ?? [];
+  /**
+   * ⚠️ **`?? []` をそのまま置かないこと。** 読み込み中は毎回**別の空配列**になり、
+   * これを見ている `useMemo`（絞り込み・並び・履歴の突き合わせ）が描き直しのたびに
+   * 走り直します（履歴は `localStorage` を読むので特に無駄）。
+   */
+  const items = useMemo(() => itemsQuery.data ?? [], [itemsQuery.data]);
   const loading = itemsQuery.isLoading;
 
   const bySegment = useMemo(() => items.filter((it) => matchesSegment(it, segment)), [items, segment]);
@@ -63,7 +79,16 @@ export default function ProductionTopPage() {
   const archived = useMemo(() => bySegment.filter((it) => isArchived(it)), [bySegment]);
 
   const upNext = useMemo(() => upcomingItems(active), [active]);
-  const recentEntries = useMemo(() => listRecentTop().slice(0, 4), []);
+  /**
+   * 「最近開いた項目」は端末の履歴（`localStorage`）だが、**この一覧に出ないものは出さない**
+   * （サーバーで外した工事・構築のプロジェクト・失注が履歴にだけ残るため・Codex P2）。
+   * 絞り込み（`segment`）やアーカイブとは無関係に、`items` 全体と突き合わせる —
+   * 終わった番組でも「さっき開いたもの」には出てよい。
+   */
+  const recentEntries = useMemo(
+    () => eligibleRecents(listRecentTop(), items).slice(0, 4),
+    [items],
+  );
 
   const mainList = useMemo(() => {
     const sorted = sortMainList(active);
@@ -97,7 +122,7 @@ export default function ProductionTopPage() {
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Input
           className="min-h-[44px] sm:max-w-sm"
-          placeholder="案件名・GLS番号・番組名で検索"
+          placeholder="案件名・管理番号・番組名で検索"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -152,6 +177,11 @@ function ActiveView({
       <RecentSection entries={recentEntries} onNavigate={onNavigate} />
 
       <section className="flex flex-col gap-2">
+        {mainList.length > 0 && (
+          <h2 className="text-sub-sm font-bold tracking-wide text-muted-foreground">
+            本番・放送の予定（日付順）
+          </h2>
+        )}
         {mainList.length > 0 ? (
           <div className="flex flex-col overflow-hidden rounded-card border border-border">
             {mainList.map((it) => (
@@ -202,12 +232,15 @@ function ArchiveView({
       ) : (
         <div className="flex flex-col overflow-hidden rounded-card border border-border">
           {items.map((it) => (
-            <TopItemRow key={`${it.kind}-${it.id}`} item={it} onNavigate={onNavigate} showLastDate />
+            <TopItemRow key={`${it.kind}-${it.id}`} item={it} onNavigate={onNavigate} />
           ))}
         </div>
       )}
 
-      <p className="text-note text-muted-foreground">本番日（実施日）の翌日から、自動でここに入ります。</p>
+      <p className="text-note text-muted-foreground">
+        本番日（実施日）の翌日から、自動でここに入ります。日付が入っていないものは、
+        案件が「実施済」「完了」になった時点でここへ移ります。
+      </p>
     </div>
   );
 }

@@ -240,6 +240,15 @@ export interface ProjectFilter {
   glsCategory?: 'A' | 'B';
   /** 計上会社（SCS / GSS / GMO・`projects.entity_code`）。案件台帳の絞り込み。値の検査はルート側 */
   entityCode?: LegalEntityCode;
+  /**
+   * 案件番号の系列で絞る接頭辞（`['SCS-']` / 新番号すべてなら3つ）。案件台帳の絞り込み。
+   * 値を接頭辞へ直すのはルート側（`legal_entities.number_prefix` が正）。
+   *
+   * ⚠️ **`entityCode` とは別の軸**（`gls_number` の頭 ⇄ `entity_code` の列）。
+   * 既存行の `entity_code` は migration 284 で全部 `GSS` に埋まっているので、
+   * 「GSS の帳簿の案件」には旧 `GLS-A###` が含まれ、「`GSS-` で始まる番号の案件」とは一致しない。
+   */
+  numberPrefixes?: string[];
   /** GLS 発番済みのものだけ（確定案件の一覧が使う） */
   issued?: boolean;
   /** 'kessan' = 決算インポートで取り込んだ案件 (notes が [kessan:...] で始まる) のみ */
@@ -914,6 +923,14 @@ export class ProjectService {
     if (filter.entityCode) {
       where += ` AND p.entity_code = ?`;
       params.push(filter.entityCode);
+    }
+    // 案件番号の系列 (新番号 SCS-/GSS-/GMO-)。接頭辞はルート側が legal_entities から取る。
+    // 空配列は「絞らない」ではなく「当たらない」に落とす — 素通しすると全件が返って気づけない
+    if (filter.numberPrefixes) {
+      where += filter.numberPrefixes.length === 0
+        ? ' AND FALSE'
+        : ` AND (${filter.numberPrefixes.map(() => 'p.gls_number LIKE ?').join(' OR ')})`;
+      params.push(...filter.numberPrefixes.map((prefix) => `${prefix}%`));
     }
     // 開催月 (YYYY-MM): イベント期間 [event_start, event_end] が対象月に重なる案件
     // event_start/event_end は TEXT (YYYY-MM-DD) なので文字列比較でレンジ判定する
@@ -1806,7 +1823,7 @@ export class ProjectService {
       try {
         issuedProject = await this.issueGls(id, {}, userId);
       } catch (err) {
-        glsError = err instanceof AppError ? err.message : 'GLS番号を採れませんでした';
+        glsError = err instanceof AppError ? err.message : '管理番号を採れませんでした';
         console.warn('[changeStage] GLS auto-issue failed:', id, glsError);
       }
     }
@@ -2030,9 +2047,9 @@ export class ProjectService {
   async issueGls(id: string, data: Record<string, unknown>, userId: string) {
     const project = await queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [id]) as any;
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
-    if (project.gls_number) throw new AppError(400, 'VALIDATION_ERROR', '既にGLS番号が発番済みです');
+    if (project.gls_number) throw new AppError(400, 'VALIDATION_ERROR', '既に管理番号が発番済みです');
     if (GLS_BLOCKED_STAGES.includes(project.stage as string)) {
-      throw new AppError(400, 'VALIDATION_ERROR', '仮押さえ（D）以降の案件だけ、先にGLS番号を発番できます。');
+      throw new AppError(400, 'VALIDATION_ERROR', '仮押さえ（D）以降の案件だけ、先に管理番号を発番できます。');
     }
 
     // v2.8.113+: project.gls_category を見る (登録時に必須化済)
@@ -2493,10 +2510,10 @@ export class ProjectService {
   async linkToExistingGls(id: string, targetProjectId: string, userId: string) {
     const project = await queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [id]) as any;
     if (!project) throw new AppError(404, 'NOT_FOUND', '案件が見つかりません');
-    if (project.gls_number) throw new AppError(400, 'VALIDATION_ERROR', '既にGLS番号が発番済みです');
+    if (project.gls_number) throw new AppError(400, 'VALIDATION_ERROR', '既に管理番号が発番済みです');
 
     const target = await queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [targetProjectId]) as any;
-    if (!target || !target.gls_number) throw new AppError(400, 'VALIDATION_ERROR', 'リンク先にGLS番号がありません');
+    if (!target || !target.gls_number) throw new AppError(400, 'VALIDATION_ERROR', 'リンク先に管理番号がありません');
 
     await execute(
       `UPDATE projects SET gls_number=?, gls_category=?, broadcast_type=?, media_platform=?,
@@ -2524,7 +2541,7 @@ export class ProjectService {
     if (id === targetProjectId) throw new AppError(400, 'VALIDATION_ERROR', '自分自身には紐づけできません');
 
     const target = await queryOne('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL', [targetProjectId]) as any;
-    if (!target || !target.gls_number) throw new AppError(400, 'VALIDATION_ERROR', 'リンク先にGLS番号がありません');
+    if (!target || !target.gls_number) throw new AppError(400, 'VALIDATION_ERROR', 'リンク先に管理番号がありません');
 
     // GLS 未発番ならヨミ段階のリンクと同じ
     if (!project.gls_number) {
@@ -2533,7 +2550,7 @@ export class ProjectService {
 
     const oldGls = project.gls_number as string;
     const newGls = target.gls_number as string;
-    if (oldGls === newGls) throw new AppError(400, 'VALIDATION_ERROR', '既に同じGLS番号に紐づいています');
+    if (oldGls === newGls) throw new AppError(400, 'VALIDATION_ERROR', '既に同じ管理番号に紐づいています');
 
     // 1. projects: gls_number 差し替え + 分類/番組種別/媒体を継承 + ステージ昇格
     // （旧番号の履歴は `previous_gls_numbers` に push していたが、読み手ゼロのため

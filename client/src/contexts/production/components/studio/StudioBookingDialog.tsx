@@ -442,7 +442,7 @@ export default function StudioBookingDialog({
                       value={projectId}
                       onChange={(v) => { setProjectId(v); setEpisodeId(""); }}
                       onSearchChange={setProjectSearchQuery}
-                      placeholder="GLS番号・案件名・顧客名で検索â¦"
+                      placeholder="管理番号・案件名・顧客名で検索â¦"
                     />
                   </div>
                   {projectId && episodes.length > 0 && (

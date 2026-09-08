@@ -239,7 +239,7 @@ export function PurchaseDialog({
                   options={projects.map((p) => ({ value: p.id, label: `${p.gls_number || 'GLS未発番'} ${p.name}` }))}
                   value={selectedProjectId}
                   onChange={setSelectedProjectId}
-                  placeholder="GLS番号・案件名で検索â¦"
+                  placeholder="管理番号・案件名で検索â¦"
                 />
                 <p className="text-note mt-1 text-muted-foreground">
                   受注（A 受注済）以降の案件だけが選べます。
