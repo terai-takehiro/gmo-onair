@@ -119,7 +119,11 @@ export interface CreateIntercompanyParams {
 export async function createIntercompanyPurchase(params: CreateIntercompanyParams): Promise<IntercompanyDetail> {
   const { projectId, episodeId, recognitionDate, notes, userId } = params;
   const amount = Number(params.amount);
-  if (!(amount > 0)) throw new AppError(400, 'VALIDATION_ERROR', '金額（1円以上）を入れてください');
+  // `amount > 0` だけでは Infinity（非有限）や 0.5 円（1円未満の端数）を弾けない
+  // （`Infinity > 0` / `0.5 > 0` はどちらも true）。整数・有限の1円以上だけ通す
+  if (!Number.isFinite(amount) || !Number.isInteger(amount) || amount <= 0) {
+    throw new AppError(400, 'VALIDATION_ERROR', '金額（1円以上の整数）を入れてください');
+  }
   const taxCategory = normalizeTaxCategory(params.taxCategory);
 
   const sellerCustomerId = SELF_COMPANY_ID_BY_ENTITY[BUYER_ENTITY];   // 売上の相手先＝買い手の自社行
