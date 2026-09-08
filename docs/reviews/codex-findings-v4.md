@@ -2372,6 +2372,49 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#655**（`fix(sales): GLS-B006/B009/B010の3件を番号はそのまま案件(GLS-A)扱いに直した`・
+  2026-09-08）— 利用者から「GLS-B006/B009/B010の3件は工事・構築のプロジェクト管理案件
+  ではなく通常の撮影・収録・イベント業務。番号は見積発行済みで変えられないので、特例で
+  案件（GLS-A）扱いにしたい」という依頼を受けて対応。通常のA↔B切替（`changeGlsCategory`）
+  は発番済みの案件では必ず新番号を採り直す作りで使えないため、3件のIDを名指しした
+  一度きりのDBマイグレーション（`295_glsb_special_case_reclassify.sql`）で
+  `gls_category` だけを直した。調査でB006・B010は**すでに矛盾した状態**
+  （`gls_category='B'`なのに2段分類が正しく入っている）で案件台帳の整合性チェック
+  「GLS-Bなのに2段分類が入っている」に該当していたこと、B009は`gpm_kind='self_build'`
+  を持ち`CHECK`制約上これを外さないと`gls_category='A'`に更新できないことが分かった。
+  実Postgres（検証用インスタンス）で空DBから294件の既存マイグレーションを適用したのち
+  テスト行で実行前後の値・整合性チェック・CHECK制約を確認する過程で、
+  `event_start`(text)と`started_on`(date)の型不一致（`COALESCE`のキャスト漏れ）を
+  実装中に自分で見つけて修正した。
+  ⚠️ **📝 Code Review は Codex の usage limits で一度も実行されず**、🔒 Security Review は
+  **マージ時点で「Running」のまま完走しなかった**（`get_reviews`/`get_review_comments`
+  ともに0件。#652・#648と同じ、CI green確認後まもなくのマージでレビューが追い付かなかった
+  形）。**表に移す指摘はない**（レビュー自体が届いていないため）。
+  ⚠️ この実行環境には `node_modules` が無く、アプリのマイグレーションランナー
+  （`tsx`依存）は動かせなかった（上記の通り実Postgresで代替検証済み）。CI（`checks`/
+  `build`）は push 後に green・`mergeable_state: clean` を確認済み。terai-takehiro に
+  よりマージされた。
+
+- **#654**（`fix(sales): 案件作成でスタジオ予約の登録が失敗しても黙って握りつぶしていたのを直した`・
+  2026-09-08）— 利用者から「青山の会場登録をしても『会場・スタジオを押さえていません』のまま
+  （そもそも登録できていない？）」というご指摘を受けて調査。案件を新規作成したとき
+  「スタジオの日程」から予約を作る `createInitialBookings.ts` が、`POST /studios/bookings`
+  の失敗を `catch { /* 予約に失敗しても案件の保存は成功している */ }` で何も出さず
+  握りつぶしていた（案件自体は先に保存が成功して即座に案件詳細へ遷移するため、利用者は
+  「登録した」つもりのまま予約0件の案件詳細を見ることになり、原因を追う手がかりも無かった）。
+  本番・リハーサルそれぞれの予約作成を個別に捕捉し、失敗したら `notifyApiError` で理由と
+  対処（「登録済みの予約」から入れ直せる旨）を知らせるよう修正。同種の「サーバー書き込みを
+  黙って握りつぶす」空 `catch` が他に無いか `client/` 全体を確認したが、他はいずれも
+  `localStorage`（実害なし）でこの1箇所だけだった。
+  ⚠️ **📝 Code Review は Codex の usage limits で一度も実行されず**（初回コミットに
+  「You have reached your Codex usage limits for code reviews」と明示的に返答）、
+  🔒 Security Review は完走し **findings なし**（`get_reviews`/`get_review_comments`
+  ともに0件）。**表に移す指摘はない**。
+  ⚠️ **この実行環境には `node_modules` が無く、`npm run typecheck`/`npm run lint`/
+  `npm run build`/実ブラウザでの確認ができなかった**（PR本文に明記済み）。CI（`checks`/
+  `build`）は push 後に green になったことを確認済み。実DBでの保存確認・PC/スマホの
+  実機確認・権限別の403確認は未実施のまま、terai-takehiro によりマージされた。
+
 - **#652**（`release: v4.6.7`・2026-09-08）— `docs/changelog.d/` に溜まっていた
   マージ済み7PRぶんの下書きを `npm run release:notes -- 4.6.7` でまとめ、
   `CLAUDE.md`／`README.md`／`package.json` の版を上げただけのリリース専用PR
