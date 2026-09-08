@@ -116,17 +116,32 @@ export const maintenanceService = {
       ],
     );
 
-    // 完了時は機材を修理中 → 稼働中に戻す
+    // 完了時は機材を修理中 → 稼働中に戻す。
+    //
+    // ⚠️ **他に未完了の記録が残っていれば戻さない**（Codexレビュー指摘）。
+    // 「記録」種別を足したことで、同じ機材に故障（未完了・修理中）と軽微な記録
+    // （リセット等）が同時に立ち、後者だけ先に完了する組み合わせが起きうる。
+    // 無条件に戻すと、故障がまだ直っていないのに機材が「稼働中」に見え、
+    // 貸出候補（`status: 'active'` で引く `LendingDialog`）にも出てしまう。
     if (input.status === MAINTENANCE_STATUS.COMPLETED) {
       const record = (await queryOne(
         'SELECT equipment_id FROM maintenance_records WHERE id=$1',
         [id],
       )) as { equipment_id: string } | null;
       if (record) {
-        await execute(
-          `UPDATE equipment_items SET status='${EQUIPMENT_STATUS.ACTIVE}', updated_at=NOW() WHERE id=$1 AND status='${EQUIPMENT_STATUS.IN_REPAIR}'`,
-          [record.equipment_id],
+        const stillOpen = await queryOne(
+          `SELECT id FROM maintenance_records
+             WHERE equipment_id=$1 AND id<>$2
+               AND status NOT IN ('${MAINTENANCE_STATUS.COMPLETED}', '${MAINTENANCE_STATUS.CANCELLED}')
+             LIMIT 1`,
+          [record.equipment_id, id],
         );
+        if (!stillOpen) {
+          await execute(
+            `UPDATE equipment_items SET status='${EQUIPMENT_STATUS.ACTIVE}', updated_at=NOW() WHERE id=$1 AND status='${EQUIPMENT_STATUS.IN_REPAIR}'`,
+            [record.equipment_id],
+          );
+        }
       }
     }
   },

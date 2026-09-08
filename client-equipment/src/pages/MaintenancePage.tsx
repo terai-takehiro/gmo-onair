@@ -160,6 +160,7 @@ export default function MaintenancePage() {
           records={records}
           savingId={savingId}
           onChangeStatus={(r, v) => update.mutate({ ...r, status: v })}
+          onChangeDate={(r, field, v) => update.mutate({ ...r, [field]: v })}
         />
       ) : (
         <div className="flex flex-col rounded-card border border-border bg-card">
@@ -176,9 +177,10 @@ export default function MaintenancePage() {
                 既存6列だけで728pxに迫っているところへこの2列を足すと
                 1024〜1212px あたりで商品名が潰れる。`catalog/CatalogRows.tsx` /
                 `settings/RentalRulesTab.tsx` と同じ理由で `HIDE_UNTIL_EXTRA_WIDE`
-                （2xl=1536px〜）まで出さない */}
-            <RowSlot w={72} className={HIDE_UNTIL_EXTRA_WIDE}>引取／発送</RowSlot>
-            <RowSlot w={72} className={HIDE_UNTIL_EXTRA_WIDE}>受取／返送</RowSlot>
+                （2xl=1536px〜）まで出さない。**96px にしたのは日付入力欄が
+                72px だと窮屈なため**（下の入力欄を参照） */}
+            <RowSlot w={96} className={HIDE_UNTIL_EXTRA_WIDE}>引取／発送</RowSlot>
+            <RowSlot w={96} className={HIDE_UNTIL_EXTRA_WIDE}>受取／返送</RowSlot>
             <RowSlot w={160}>状態</RowSlot>
           </RowHeader>
           {records.map((r) => (
@@ -207,15 +209,30 @@ export default function MaintenancePage() {
                   {r.reported_at?.slice(5, 10).replace('-', '/') ?? ''}
                 </span>
               </RowSlot>
-              <RowSlot w={72} hideOnMobile className={HIDE_UNTIL_EXTRA_WIDE}>
-                <span className="font-number text-sub-sm text-muted-foreground">
-                  {r.repair_sent_at?.slice(5, 10).replace('-', '/') ?? ''}
-                </span>
+              {/* ⚠️ **作成時だけでなく、あとからでも入れられる**（Codexレビュー指摘）。
+                  修理引取／発送日は報告時点では未定なことが多く、修理受取／返送日は
+                  なおのこと後日にしか分からない。ここが唯一の入力口なので、
+                  常に編集できる `<input type="date">` にする（`status` の Select と
+                  同じ「一覧の中でその場で直す」作法・同じ `update` mutation を使う） */}
+              <RowSlot w={96} hideOnMobile className={HIDE_UNTIL_EXTRA_WIDE}>
+                <input
+                  type="date"
+                  value={r.repair_sent_at ?? ''}
+                  disabled={savingId === r.id}
+                  onChange={(e) => update.mutate({ ...r, repair_sent_at: e.target.value || null })}
+                  aria-label={`${r.title} の修理引取／発送日`}
+                  className="w-full rounded-control border border-border bg-transparent px-1 py-0.5 text-sub-sm text-muted-foreground disabled:opacity-60"
+                />
               </RowSlot>
-              <RowSlot w={72} hideOnMobile className={HIDE_UNTIL_EXTRA_WIDE}>
-                <span className="font-number text-sub-sm text-muted-foreground">
-                  {r.repair_returned_at?.slice(5, 10).replace('-', '/') ?? ''}
-                </span>
+              <RowSlot w={96} hideOnMobile className={HIDE_UNTIL_EXTRA_WIDE}>
+                <input
+                  type="date"
+                  value={r.repair_returned_at ?? ''}
+                  disabled={savingId === r.id}
+                  onChange={(e) => update.mutate({ ...r, repair_returned_at: e.target.value || null })}
+                  aria-label={`${r.title} の修理受取／返送日`}
+                  className="w-full rounded-control border border-border bg-transparent px-1 py-0.5 text-sub-sm text-muted-foreground disabled:opacity-60"
+                />
               </RowSlot>
               <RowSlot w={160} placeholder="">
                 {r.status === 'completed' || r.status === 'cancelled' ? (
