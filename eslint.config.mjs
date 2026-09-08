@@ -26,6 +26,10 @@ export default tseslint.config(
     ],
   },
   js.configs.recommended,
+  {
+    files: ['server/tests/**/*.mjs'],
+    languageOptions: { globals: globals.node },
+  },
   ...tseslint.configs.recommended,
   {
     files: ['**/*.{ts,tsx}'],

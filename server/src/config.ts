@@ -16,13 +16,11 @@ if (isProduction) {
   }
 }
 
-// Auth mode: env override > NODE_ENV-based default
+// 本番は必ずpassword。開発環境だけAUTH_MODEで切替可能。
 // v2.5.0: dev でも本番同様の email/password 認証を使えるよう AUTH_MODE 環境変数で上書き可能に。
 const explicitAuthMode = (process.env.AUTH_MODE || '').toLowerCase();
 const authMode: 'password' | 'mock' =
-  explicitAuthMode === 'password' ? 'password'
-  : explicitAuthMode === 'mock' ? 'mock'
-  : isProduction ? 'password'
+  isProduction || explicitAuthMode === 'password' ? 'password'
   : 'mock';
 
 // JWT secret resolution
@@ -87,7 +85,7 @@ export function getAllowedOrigins(): string[] {
   const devOrigins = isProduction ? [] : [
     'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175',
     'http://localhost:5176', 'http://localhost:5177', 'http://localhost:5178',
-    'http://localhost:5179', 'http://localhost:3000',
+    'http://localhost:5179', 'http://localhost:5180', 'http://localhost:3000',
   ];
   const envOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)

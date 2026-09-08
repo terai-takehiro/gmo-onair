@@ -50,7 +50,7 @@ export async function resolveSocketUser(socket: Socket): Promise<SocketUser | nu
   if (!userId) return null;
   try {
     const u = (await queryOne(
-      'SELECT id, name, role FROM users WHERE id = $1 AND deleted_at IS NULL',
+      "SELECT id, name, role FROM users WHERE id = $1 AND deleted_at IS NULL AND status = 'active'",
       [userId]
     )) as { id: string; name: string; role: string } | undefined;
     return u ? { id: u.id, name: u.name, role: u.role } : null;

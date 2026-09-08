@@ -1,7 +1,6 @@
 import type { Response } from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import { v4 as uuidv4 } from 'uuid';
 import type { OAuthServerProvider, AuthorizationParams } from '@modelcontextprotocol/sdk/server/auth/provider.js';
 import type { OAuthClientInformationFull, OAuthTokens } from '@modelcontextprotocol/sdk/shared/auth.js';
 import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
@@ -28,6 +27,13 @@ async function issueRefreshToken(userId: string, clientId: string, scope: string
     [token, clientId, userId, scope, expiresAt],
   );
   return token;
+}
+
+async function assertActiveUser(userId: string): Promise<void> {
+  const user = await queryOne(
+    "SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND status = 'active'", [userId],
+  );
+  if (!user) throw new Error('invalid_grant: account unavailable');
 }
 
 export const mcpOAuthProvider: OAuthServerProvider = {
@@ -83,15 +89,16 @@ export const mcpOAuthProvider: OAuthServerProvider = {
     redirectUri?: string,
   ): Promise<OAuthTokens> {
     const row = await queryOne(
-      `SELECT * FROM mcp_oauth_codes WHERE code = ? AND client_id = ?`,
-      [authorizationCode, client.client_id],
+      `DELETE FROM mcp_oauth_codes WHERE code = ? AND client_id = ?
+       AND expires_at > NOW() AND (?::text IS NULL OR redirect_uri = ?) RETURNING *`,
+      [authorizationCode, client.client_id, redirectUri ?? null, redirectUri ?? null],
     ) as any;
     if (!row) throw new Error('invalid_grant: code not found');
-    // 単回使用: 取得したら即削除
-    await execute('DELETE FROM mcp_oauth_codes WHERE code = ?', [authorizationCode]);
+    // DELETE RETURNING により並行交換でも認可コードを1回だけ消費する。
     if (new Date(row.expires_at).getTime() < Date.now()) throw new Error('invalid_grant: code expired');
     if (redirectUri && redirectUri !== row.redirect_uri) throw new Error('invalid_grant: redirect_uri mismatch');
 
+    await assertActiveUser(row.user_id);
     const scope = row.scope || DEFAULT_SCOPE;
     const { token, expiresIn } = issueAccessToken(row.user_id, client.client_id, scope);
     const refresh = await issueRefreshToken(row.user_id, client.client_id, scope);
@@ -110,6 +117,9 @@ export const mcpOAuthProvider: OAuthServerProvider = {
     ) as any;
     if (!row || row.revoked_at) throw new Error('invalid_grant: refresh token invalid');
     if (new Date(row.expires_at).getTime() < Date.now()) throw new Error('invalid_grant: refresh token expired');
+    await assertActiveUser(row.user_id);
+    const granted = (row.scope || DEFAULT_SCOPE).split(' ').filter(Boolean);
+    if (scopes?.some((scope) => !granted.includes(scope))) throw new Error('invalid_scope');
     const scope = (scopes && scopes.length ? scopes.join(' ') : (row.scope || DEFAULT_SCOPE));
     const { token, expiresIn } = issueAccessToken(row.user_id, client.client_id, scope);
     return { access_token: token, token_type: 'Bearer', expires_in: expiresIn, refresh_token: refreshToken, scope };
@@ -123,7 +133,8 @@ export const mcpOAuthProvider: OAuthServerProvider = {
     } catch {
       throw new Error('invalid_token');
     }
-    if (claims.typ !== 'mcp_access') throw new Error('invalid_token');
+    if (claims.typ !== 'mcp_access' || typeof claims.sub !== 'string' || !claims.sub) throw new Error('invalid_token');
+    await assertActiveUser(claims.sub);
     const decoded = jwt.decode(token) as { exp?: number } | null;
     return {
       token,
