@@ -4,7 +4,7 @@
 > このセッションで66コミット・224ファイルを変更し、すべてpush済み。
 > **2026-08-21・下記の`main`重複を検知した後、ユーザー判断で`main`を取り込み、
 > 競合はこのブランチの版で解決済み**（コミット`fa19eb9`）。
-> 作業ログの正は [docs/v4-native-ui-plan.md](v4-native-ui-plan.md) — この文書は
+> 作業ログの正は [docs/v4-native-ui-plan.md](../../v4-native-ui-plan.md) — この文書は
 > **次に着手する人が最初に読む要約**として書いた。
 
 ## ✅ 解決済み — `main` との重複作業（2026-08-21・ユーザー判断で解決）
@@ -123,11 +123,11 @@ check-mobile-declared/check-links/`build:all`（7アプリ＋server）/`check:fr
 
 ## 参照ドキュメント
 
-- [docs/v4-native-ui-plan.md](v4-native-ui-plan.md) — 決定事項・監査結果・バックログの進捗（時系列の正）
-- [docs/v4-native-ui-audit-2026-08-20.md](v4-native-ui-audit-2026-08-20.md) — 63画面の監査詳細
-- [docs/v4-native-ui-audit-2026-08-20.json](v4-native-ui-audit-2026-08-20.json) — 監査の生データ
-- [docs/v4-progress.md](v4-progress.md) — v4化の進捗表（生成物・`node scripts/v4-progress.mjs --write`で作り直す）
-- [shared/CLAUDE.md](../shared/CLAUDE.md) — `FormDialog`/`Sheet`の新設propの説明を追記済み
+- [docs/v4-native-ui-plan.md](../../v4-native-ui-plan.md) — 決定事項・監査結果・バックログの進捗（時系列の正）
+- [docs/v4-native-ui-audit-2026-08-20.md](../../v4-native-ui-audit-2026-08-20.md) — 63画面の監査詳細
+- [docs/v4-native-ui-audit-2026-08-20.json](../../v4-native-ui-audit-2026-08-20.json) — 監査の生データ
+- [docs/v4-progress.md](../../v4-progress.md) — v4化の進捗表（生成物・`node scripts/v4-progress.mjs --write`で作り直す）
+- [shared/CLAUDE.md](../../../shared/CLAUDE.md) — `FormDialog`/`Sheet`の新設propの説明を追記済み
 
 ## セッション中に踏んだ運用上の注意点（再発防止）
 

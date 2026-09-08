@@ -1,360 +1,191 @@
-# client — 案件管理・財務管理・カレンダー・設定（v4 対象）
+# client — 案件管理・財務管理・カレンダー・設定・プロジェクト管理（v4 対象）
 
-ONAiR で一番大きいアプリ。**1つの Vite バンドルに5つの「入口」が入っている**。
-ベースパス `/`・ポート 5173。
+1つの Vite バンドルに5つの入口。ベースパス `/`・ポート 5173。**いま効くルールだけ**を書く。経緯・実測・判断の理由は [docs/reviews/client-v4-build-log.md](../docs/reviews/client-v4-build-log.md)。
+パスは client `src/contexts/`・server `server/src/contexts/` からの相対、それ以外はルートから。
 
-> **この文書は「いま効くルール」だけ。** 画面ごとの作り直しの経緯・当時の判断の理由・
-> 実測・レビューで見つけた穴は
-> [docs/reviews/client-v4-build-log.md](../docs/reviews/client-v4-build-log.md) に
-> 全文そのまま移してある（2026-08-22）。「なぜこうなっているのか」を知りたいときはそちら。
+## 役割と入口
 
-## 入口とルート接頭辞
+| 入口 | `AppKey`（`shared/src/client/apps.ts`） | ルート | client `contexts/` | server `contexts/` |
+| --- | --- | --- | --- | --- |
+| 案件管理 | `sales` | `/sales/*` | `sales`・`tasks` | `sales`・`tasks` |
+| プロジェクト管理（GLS-B） | `gpm` | `/gpm/*` | `gpm` | `gpm` |
+| 財務管理 | `budget` | `/budget/*` | `finance` | `finance` |
+| カレンダー | `calendar` | `/calendar/*`（旧 `/studio/*` は転送） | `production` | `production`・`schedule`（外部カレンダー） |
+| 設定 | `admin` | `/settings/*`（旧 `/admin/*` は転送） | `platform` | `platform` |
 
-| 入口（利用者から見た名前） | ルート | 権限モジュール | contexts |
-| --- | --- | --- | --- |
-| 案件管理 | `/sales/*` | `sales` | `contexts/sales`, `contexts/tasks` |
-| 財務管理 | `/budget/*` | `sales`（旧 `budget`） | `contexts/finance` |
-| カレンダー | `/calendar/*`（**2026-08-22 に `/studio/*` から改名**・旧 URL は転送） | `sales`（旧 `studio` / `partner_schedule`） | `contexts/production` |
-| 設定 | `/settings/*`（**v4 で `/admin/*` から改名**・旧 URL は転送） | `sales`（権限とメンバーの管理は `system_admin` だけ。旧 `admin` 区画は廃止） | `contexts/platform` |
-| **プロジェクト管理（v4 で新規）** | `/gpm/*` | `sales`（旧 `gpm`） | `contexts/gpm`（新設） |
+- **権限区画は `sales` 1つ**（5入口とも `permissionModule: 'sales'`・migration 210・[permission-model-simplification-plan.md](../docs/reviews/permission-model-simplification-plan.md)）。`PermissionRoute module="admin"`（人と権限・知らせと文面・データビューア・DBバックアップ）は区画が無いので**実質 `system_admin` だけ**（サーバーも `requireRole('system_admin')`）
+- **ルートと旧 URL の転送表は `src/App.tsx` 1ファイル。** `/sales` `/budget` `/gpm` は**ダッシュボードへ送る**（アプリ切替・トップのタイルが来る）
+- 左メニューは `src/components/layout/nav.ts`（`CLIENT_NAV`・`CLIENT_MOBILE_TABS`）。シェルは共通（`shared/src/client/shell/`）で、client 側は `src/components/layout/` の `AppShell.tsx`（`appOfPath()`・`PcOnlyGate`）・`PermissionRoute.tsx`（`module`/`anyOf`/`minLevel`）・`GlobalSearch.tsx`＋`SearchPalette.tsx`＋`searchFeatures.ts`（⌘K）だけ
+- ページは `contexts/<領域>/pages/`、領域をまたぐ部品は `contexts/shared/components/`、画面内マニュアルは `src/manual/content.tsx`
 
-> ⚠️ 「権限モジュール」列は権限モデル単純化（`docs/reviews/permission-model-simplification-plan.md`）
-> で `sales` に統合済み。5つの入口は URL・見た目としては今までどおり別々だが、
-> 開けるかどうかの判定は1つの `sales` 区画にまとまっている。
+## 画面一覧（URL → ファイル）
 
-- ルート定義は `src/App.tsx` の1ファイル。**旧URLからの転送表もここ**（`<Navigate>` / `RedirectKeepQuery` — 数は増え続けるので数えない。v4.2.0 時点で36本）
-- **入口の URL（`/sales` など）はその入口のダッシュボードへ送る。** アプリ切替と
-  トップページのタイルがここに来るので、案件一覧に送ってはいけない
-- 左メニューの定義は `src/components/layout/nav.ts` の `CLIENT_NAV`（入口ごとの塊）
-- ページは `contexts/<領域>/pages/` に置く。`contexts/shared/components/` は領域をまたぐ部品
+v4 化の状態は [docs/v4-progress.md](../docs/v4-progress.md)（生成物）。ファイル列は各領域の `pages/` から、`＋ x/` は部品置き場。ログイン不要は `/login`・`/auth/*`（`platform`）・`/signage/:roomId`（`production/SignagePage.tsx`）。
 
-## 案件のライフサイクル（旧「統合プロジェクトライフサイクル」）
-
-- 旧 `opportunities` テーブルは廃止し、**単一 `projects` テーブル**に統合済み
-- `stage`: `neta` → `d_hold` → `c_proposal` → `b_verbal` → `a_won` → `s_completed` / `e_lost`
-- **GLS発番は `a_won`（受注済）に上げた瞬間に自動**（`changeStage`）。手動の
-  `POST /projects/:id/issue-gls` は「口頭決定（`b_verbal`）のうちに先に番号が要る」
-  ときのために残してあるだけで、**それより手前のステージからは呼べない**
-  （v4.1.8・サーバー側でガード。以前は無条件に呼べ、問合せ段階でも番号を焼けた）
-- **受注確定した案件の絞り込みは `stage`（`a_won`/`s_completed`）が正で、
-  `gls_number` の有無ではない。** 受注は原則 GLS 番号が自動で付くが、案件分類
-  （`gls_category`）が未設定の古いデータでは例外的に番号だけ付かないことがある
-  （そのときは受注そのものは通し `gls_error` を返す）。**この2つを混同しない**:
-  - 仕入・売上・精算PDF取込レビュー・予算詳細・書類引き渡しの案件プルダウンは
-    `GET /projects/won-projects`（`stage IN ('a_won','s_completed')`）を使う。
-    ここを `gls_number IS NOT NULL` で絞ると、受注済みなのに番号がまだ無いだけの
-    案件に実務を記録できない詰みが起きる（v4.1.8 で修正済み）
-  - 「GLS番号そのものへ紐づける」操作（回の追加・付け替え・費用を分け合う
-    グループ）は `GET /projects/gls-projects`（`gls_number IS NOT NULL`）のまま
-    でよい — 番号が無いと成立しない操作なので
-- 案件分類は `gls_category`（`A`=スタジオ / `B`=ビジネス）。発番後の A↔B 切替は
-  `PATCH /projects/:id/gls-category`（採番し直し＋エピソードコード＋BOX フォルダを追随）
-- 費用按分は `project_groups` テーブル
-
-## v4 で作り直した画面（済み）
-
-置き場所の対応表。**それぞれで決めたこと・経緯は
-[docs/reviews/client-v4-build-log.md](../docs/reviews/client-v4-build-log.md)。**
-
-| 画面 | 置き場所 |
+| URL | ファイル |
 | --- | --- |
-| トップページ（共通） | `contexts/platform/pages/HomePage.tsx` ＋ `pages/home/` |
-| 投入口（AIに任せる） | `contexts/tasks/components/intake/` |
-| ① ダッシュボード | `contexts/platform/pages/DashboardPage.tsx` ＋ `pages/salesDashboard/` |
-| ② 案件作成（**受付を統合**） | `contexts/sales/pages/projectNew/` |
-| ③ 案件一覧 | `contexts/sales/pages/ProjectListPage.tsx` ＋ `pages/projectList/` |
-| ④ タスク一覧 | `contexts/tasks/pages/TaskDashboardPage.tsx` ＋ `pages/taskList/` |
-| ⑤ 見積・請求（全案件） | `contexts/sales/pages/BillingListPage.tsx` ＋ `pages/billing/` |
-| ⑥ 案件詳細（7タブ） | `contexts/sales/pages/ProjectDetailPage.tsx` ＋ `pages/projectDetail/` |
-| 案件を直す（新規・編集） | `contexts/sales/pages/ProjectFormPage.tsx`（欄は `projectNew/` の部品を共用） |
-| 案件台帳（旧GLSを吸収） | `contexts/sales/pages/ProjectLedgerPage.tsx` ＋ `pages/projectLedger/` |
-| ⑦ 標準工程テンプレート | `contexts/sales/pages/flow/` |
-| ⑧ 料金表 | `contexts/sales/pages/PricingListPage.tsx` ＋ `pages/pricing/` |
-| 営業活動記録（記録＋分析4タブ） | `contexts/sales/pages/ActivityLogPage.tsx` ＋ `pages/activityLog/`（分析は `pages/salesReview/`） |
-| 費用を分け合うグループ | `contexts/sales/pages/ProjectGroup{List,Detail}Page.tsx` ＋ `pages/projectGroup/` |
-| カレンダー ①〜④ | `contexts/production/pages/{UnifiedCalendarPage,RoomAvailabilityPage,HoldListPage,CalendarSettingsPage}.tsx` ＋ `pages/{calendar,holds,rooms,calendarSettings}/` |
-| 設定 ①② ＋ システムの情報 | `contexts/platform/pages/{SettingsHubPage,SitesPage,SystemInfoPage}.tsx` ＋ `pages/settings/` |
-| 設定 ⑤⑥⑦（お金・休日・通知） | `contexts/platform/pages/{money,hours,notify}/` |
-| 権限とメンバー | `contexts/platform/pages/members/` |
-| 探す（スマホ下タブ） | `contexts/platform/pages/SearchPage.tsx` ＋ `pages/search/` |
-| 財務 ① ダッシュボード | `contexts/finance/pages/BudgetDashboardPage.tsx` ＋ `pages/financeDashboard/` |
-| 財務 ② 請求・入金（締め） | `contexts/finance/pages/ClosingPage.tsx` ＋ `pages/closing/` |
-| 財務 ③④⑤ 売上・仕入・販管費 | `contexts/finance/pages/{Revenue,Purchase,Sga}ListPage.tsx` ＋ `pages/ledger/` |
-| 財務 ⑥ 受領書類（**ひとつづり表示**） | `contexts/finance/pages/DocumentsPage.tsx` ＋ `pages/documents/`（`GroupCard` / `GroupEditDialog`） |
-| 財務 ⑦ 取り込み | `contexts/finance/pages/ImportPage.tsx` ＋ `pages/import/` |
-| 財務 ⑧ 取引先（仕入先・パートナー） | `contexts/finance/pages/CounterpartyPage.tsx` ＋ `pages/counterparty/` |
-| プロジェクト管理（GPM）一式 | `contexts/gpm/` |
+| `/`・`/search`（権限なし。`GET /search` が種類ごとに見る） | `platform/HomePage.tsx` ＋ `home/`・`SearchPage.tsx` ＋ `search/` |
+| `/sales/dashboard` | `platform/DashboardPage.tsx` ＋ `salesDashboard/` |
+| `/sales/projects`（`?view=board`） | `sales/ProjectListPage.tsx` ＋ `projectList/` |
+| `/sales/projects/new`（受付を統合・`?inquiry=`） | `sales/projectNew/NewProjectDialog.tsx` ほか |
+| `/sales/projects/ledger` | `sales/ProjectLedgerPage.tsx` ＋ `projectLedger/` |
+| `/sales/projects/:id(/:tab)`（`projectDetail/tabs.ts`） | `sales/ProjectDetailRoute.tsx` → `ProjectDetailPage.tsx` ＋ `projectDetail/` |
+| `/sales/projects/:id/edit` | `sales/ProjectFormRoute.tsx` → `ProjectFormPage.tsx` ＋ `projectForm/`（欄は `projectNew/` と共用） |
+| `/sales/tasks/:view`（kanban/list/gantt） | `tasks/TaskDashboardPage.tsx` ＋ `taskList/`・`tasks/components/` |
+| `/sales/billing`・`/sales/activity-logs`（`?tab=`） | `sales/BillingListPage.tsx` ＋ `billing/`・`ActivityLogPage.tsx` ＋ `activityLog/`・`salesReview/` |
+| `/sales/project-groups(/:id)` | `sales/ProjectGroup{List,Detail}Page.tsx` ＋ `projectGroup/` |
+| `/sales/companies`（`?role=`・顧客も）・`/sales/customers/:id` | `sales/CompanyListPage.tsx` ＋ `company/`・`CustomerDetailPage.tsx` ＋ `customerDetail/` |
+| `/sales/pricing`・`/sales/flow-templates` | `sales/PricingListPage.tsx` ＋ `pricing/`・`flow/FlowTemplatePage.tsx` |
+| `/sales/inbox/new`・`/sales/record`（スマホ） | `sales/InquiryQuickPage.tsx`・`MeetingRecordPage.tsx` |
+| 投入口（AI） | `tasks/components/intake/` |
+| `/gpm/{dashboard,projects,projects/new,tasks,templates,cost-dashboard}` | `gpm/Gpm{Dashboard,ProjectList,ProjectForm,TaskList,TemplateList}Page.tsx`・`CostDashboardPage.tsx` ＋ 同名の小文字ディレクトリ |
+| `/gpm/projects/:id(/:tab)`（`projectDetail/tabs.ts`） | `gpm/GpmProjectDetailPage.tsx` ＋ `projectDetail/` |
+| `/budget/dashboard`・`/budget/billing`（締め） | `finance/BudgetDashboardPage.tsx` ＋ `financeDashboard/`・`ClosingPage.tsx` ＋ `closing/`・`billing/` |
+| `/budget/{revenues,purchases,sga}`・`/budget/documents` | `finance/{Revenue,Purchase,Sga}ListPage.tsx` ＋ `ledger/`・`DocumentsPage.tsx` ＋ `documents/` |
+| `/budget/import`（`?src=pdf\|gl\|dedup`）・`/budget/vendors`（`?tab=partner`） | `finance/ImportPage.tsx` ＋ `import/`・`CounterpartyPage.tsx` ＋ `counterparty/` |
+| `/budget/reports/vendors`（旧実装） | `production/VendorReportPage.tsx` |
+| `/calendar`・`/calendar/{rooms,holds,duplicates,settings}` | `production/{UnifiedCalendar,RoomAvailability,HoldList,DuplicateList,CalendarSettings}Page.tsx` ＋ `calendar/`・`rooms/`・`holds/`・`duplicates/`・`calendarSettings/` |
+| `/settings`（案内板・権限なし・カードは `settings/hubCards.ts`） | `platform/SettingsHubPage.tsx` ＋ `settings/` |
+| `/settings/{sites,system,ai-activity,data-viewer,db-backups}` | `platform/{Sites,SystemInfo,AiActivity,DataViewer,DbBackups}Page.tsx`（`system` は権限なし・`ai-activity` の URL は通知の link と対） |
+| `/settings/{users,money,hours,notify,reorg}` | `platform/{members,money,hours,notify,reorg}/` |
 
-削除した画面（報告資料・AI活動履歴・旧GLS決算取込・営業レビュー単独ページ等）と
-その判断の根拠も経緯ログにある。**旧 URL は原則転送で生かす**（削除時の例外も経緯ログ参照）。
+**旧 URL は原則転送で生かす**（`RedirectKeepQuery`／`RedirectAdminToSettings`／`RedirectToDetailTab`）。削除した画面と理由は `App.tsx` のコメントと経緯ログ。
+
+## 案件のライフサイクル
+
+- **`projects` 1テーブル**（旧 `opportunities` は廃止）。`stage`: `neta`→`d_hold`→`c_proposal`→`b_verbal`→`a_won`→`r_delivered`（実施済・財務処理中）→`s_completed`／`e_lost`（`server/src/shared/constants/statuses.ts`）。`r_delivered` は client の `ACTIVE_STAGES`／`TERMINAL_STAGES`（`projectList/stages.ts`）に入れず専用チップ
+- **受注確定は `stage` が正**（`WON_STAGES`＝`a_won`/`r_delivered`/`s_completed`・`sales/services/project.service.ts`）、`gls_number` の有無ではない。案件プルダウン: `GET /projects/won-projects`（受注済み。予算・PDF取込・書類引き渡し）／`registerable-projects`（失注以外。売上・仕入の登録）／`gls-projects`（番号が無いと成立しない操作だけ）。落とす鍵は `sales/projectQueries.ts` の `invalidateProjectQueries` 1本
+- **GLS 発番は `a_won` に上げた瞬間に自動**（`changeStage`）。手動 `POST /projects/:id/issue-gls`（editor）は `neta` 以外から通り、**ステージは上げない**。境界は server `GLS_BLOCKED_STAGES`（`project.service.ts`）と client `sales/glsIssue.ts` の2か所を同時に直す。`gls_category` 未設定なら受注は通し `gls_error` を返す
+- **`gls_category`**: `A`＝スタジオ（案件管理）／`B`＝工事・構築（プロジェクト管理＝`gls_category='B'` の `projects` 行・migration 179・`gpm_kind` は B のみ）。発番後の A↔B は `PATCH /projects/:id/gls-category`（manager。採番し直し＋回コード＋BOX フォルダを追随）
+- **案件分類は2段**（`audience`×`project_category`）だけ送り、`project_type` は `sales/services/project-classification.ts` が導く（GLS-B は NULL）
+- **回**: レギュラー（`recurrence='regular'`）は受注時に第1回を自動作成し標準工程3列を当てる（`ensureFirstEpisode`）。単発 A への拡大は `org_transition.state !== 'off'` のときだけ。回コードは `{案件番号}-NNN`（`docs/design/v4/regular-series.md`）。「回」タブはレギュラーにだけ出る
+- **主担当 `assigned_to` は1人（NOT NULL）**＝責任・通知・集計の軸。実務の割り当てはタスク単位。概要タブに出さないのは表示上の判断（[project-ledger-simplification-plan.md](../docs/project-ledger-simplification-plan.md) §5）
+- 費用按分は `project_groups`。グループ請求は `revenues.group_id` の**1行**＋`revenue_allocations`（`group_id IS NULL` で絞ると締めから消える）
+- 整合性チェック（`sales/services/project-integrity.ts` → 台帳 `IntegrityPanel`）は**数えるのも絞るのも同じ SQL**・`why`/`how` 必須・実施日／2段分類／リード経路は `gls_category='A'` だけ
 
 ## 計上会社（`entity_code`・2026年10月の事業再編）
 
-- **案件は計上会社（`projects.entity_code`）を1つ持つ**: `SCS`（コンテンツスタジオ）／`GSS`
-  （サムライスタジオ）／`GMO`（グループ本体）。マスターは `legal_entities`（`GET /legal-entities`・
-  設定「会社と切替」＝ `contexts/platform/pages/reorg/`）。設計の正は
-  [docs/reorg-2026-10-plan.md](../docs/reorg-2026-10-plan.md) §4.2〜§4.4
-- **値はサーバーが規則で導く**（`server/src/contexts/sales/services/entity-resolution.service.ts`。
-  実施日・切替日・お客様の `is_gmo_group` を見る。`org_transition.state` が `off` のあいだは
-  効かず、既存の行はすべて `GSS`）。**案件作成・案件を直す画面に入力欄は無く、`entity_code` を
-  送らない。** 人が変えるのは `manager` だけの改番（`POST /projects/:id/renumber`・移行センター）
-  経由のみ。画面はサーバーが保存した値を読むだけで、お客様の区分から自分で導かない
-  （写しを持つと切替日の前後で必ず食い違う）
-- 呼び名は `contexts/sales/pages/projectList/stages.ts` の `ENTITY_BADGE_LABEL`
-  （`legal_entities.short_name` と同じ文字列）。案件一覧のバッジは英字3文字・案件詳細の
-  「計上会社」欄／案件台帳の列／ふりかえりは短い和名。型は `reorg/types.ts` の `LegalEntityCode`
-  ＝ shared の `BusinessEntity`（`shared/src/keepReport/types.ts`。同じ3文字を
-  `shared/tests/keepReportEntity.test.ts` が固定）
-- 案件台帳の絞り込みは **サーバーで**（`GET /projects?entity_code=`・`projectLedger/filters.ts` の
-  `entityCode`・`LedgerFilterBar.tsx`）。画面で絞るとそのページの 100 件の中だけになる
-- 隔週キープの目標（月次予算・経理の補正値。`monthly_budgets`／`monthly_actual_overrides` は
-  `(entity_code, year_month)` が主キー・migration 288）は**設定「お金のルール」の会社タブごと**
-  （`contexts/platform/pages/money/{MonthlyBudgets,MonthlyBudgetEditor}.tsx`・`budgetMath.ts`・
-  `lib/keepApi.ts`）。**保存は必ず `entity_code` を付ける**（省くとサーバーが GSS に倒す）。
-  全体（統合）は3社の合計で**読むだけ**（入力しない・按分しない）。稼働率の数え方
-  （`UtilizationRule.tsx`・`GET/PUT /keep/utilization-settings`）は全社共通
-- ふりかえりタブの「隔週キープに載せる」（`projects.keep_pick`・`review/KeepPickCard.tsx`・
-  `PUT /projects/:id/keep-pick`）は日常業務のヨミ表のチェックと同じ値。数字を見る先は
-  別バンドル `/daily/weekly`（素の `<a href>`）
+正は [docs/reorg-2026-10-plan.md](../docs/reorg-2026-10-plan.md)。**P0〜P3 は実装済み**、P4（`done`・旧経路の削除・`entity_scope`・文書更新）は未着手。
 
-## v4 の設計判断（モックが明示しているもの）
+- **ある物**: `legal_entities`（`SCS` コンテンツスタジオ／`GSS` サムライスタジオ／`GMO` グループ本体＝コストセンター。migration 284・`GJV`→`SCS` は 293）、`org_transition.state`（`off`→`preparing`→`cutover`→`done`。戻せるのは `cutover`→`preparing` だけ・人の操作でしか変えない）、`projects.entity_code`/`entity_source`（`rule`|`manual`）/`entity_note`、`project_numbers`（旧番号は永久に引ける）、帳簿4表と `estimates` の `entity_code`（NOT NULL・既存は `GSS`）、`finance_docs.entity_code`（NULL 可）
+- **値はサーバーが導く**（`sales/services/entity-resolution.service.ts` `resolveEntity()`: `off` なら旧 GLS 採番／B→`GMO`／実施日が切替日より前→旧のまま／客先 `is_gmo_group`→`GSS`・外→`SCS`）。新番号は `generateProjectNumber()`（`number_prefix`＋4桁。`SCS-0001`、回は `-001`）。**画面に入力欄は無く `entity_code` を送らない。** 変えるのは改番だけ（`GET /projects/:id/renumber-preview`・`POST /projects/:id/renumber`＝manager・MCP `renumber_project`）。画面は保存値を読むだけで自分で導かない
+- 設定「会社と切替」`/settings/reorg`（`platform/pages/reorg/`）: `GET /legal-entities`（`sales` reader）・`PUT /legal-entities/:code`・`PUT /org-transition`・`GET /org-transition/renumber-candidates`（移行センター。書く側は `system_admin`）。残り件数は候補配列の `.length` 1本。督促は `platform/services/scheduler.service.ts` の `renumber_needed`
+- 呼び名は `projectList/stages.ts` の `ENTITY_BADGE_LABEL`（＝`legal_entities.short_name`。一覧のバッジだけ英字3文字）。型は `reorg/types.ts` `LegalEntityCode`＝shared `BusinessEntity`（`shared/src/keepReport/types.ts`・`shared/tests/keepReportEntity.test.ts` が固定）
+- 台帳の絞り込みは**サーバーで**（`GET /projects?entity_code=`・`projectLedger/filters.ts`）。画面で絞るとそのページの 100 件だけ
+- 財務5画面の会社タブは **URL `?entity=` が正**（`finance/pages/shared/entityFilter.tsx`。省略時は全社合算）。`money_rules`／`monthly_budgets`／`monthly_actual_overrides` は会社ごと（migration 288・PK `(entity_code, year_month)`）→ 設定「お金のルール」の会社タブ（`money/EntityTabs.tsx`・`MonthlyBudgets.tsx`・`src/lib/keepApi.ts`）。**保存は必ず `entity_code` を付ける**（省くと `CURRENT_ENTITY_CODE`＝`GSS`）。全体は `entity_code=all` で3社合計を**読むだけ**。稼働率（`UtilizationRule.tsx`・`/keep/utilization-settings`）は全社共通
+- 請求書番号は発行者ごと `INV-SCS-2026-0001`／`INV-GSS-…`（`finance/services/invoice-number.service.ts`。旧 `INV-2026-` は凍結）。社内取引は `intercompany_links`（`finance/services/intercompany.service.ts`・案件詳細 `IntercompanySection`・`shared/components/IntercompanyTag.tsx`）。コストセンターは `kind='cost_center'`・`isProjectCostCenter()` で GPM「請求」タブのラベルだけ「予算と実績」に（`key` は変えない）
+- 隔週キープ「載せる」＝`projects.keep_pick`（`PUT /projects/:id/keep-pick`・`projectDetail/review/KeepPickCard.tsx`）。数字は別バンドル `/daily/weekly`（素の `<a href>`）
 
-- **案件は主担当（`assigned_to`）を1人持つ**（実装の実態に合わせて 2026-08-27 に書き直し。
-  旧文言「案件担当者という概念を持たない」は方針と実装が食い違っていた——`projects.assigned_to`
-  は NOT NULL の外部キーで、案件作成画面でも必須、案件台帳の既定列、GPM・ダッシュボード・
-  週報・スケジューラー・MCP `create_project` も必須項目として扱う実装だった）。
-  主担当は**責任の所在・通知の宛先・集計の軸**であり、実務の作業者を限定するものではない
-  — **「誰が何をするか」の実務の割り当てはタスク単位**で表す（主担当と実務の担当者は
-  一致しないことが普通にある）。案件詳細の概要タブは主担当を表示しない
-  （お客様側の窓口＝`contact_name` だけを出す）が、これは「持たない」のではなく
-  「この画面では出さない」という表示上の判断（詳細は
-  [docs/project-ledger-simplification-plan.md](../docs/project-ledger-simplification-plan.md)
-  §5 の `assigned_to`）
-- 見積は明細をスタジオ／技術・人員／制作・その他の3グループで表示。行ごとに仕入（見込み）を持ち、
-  **粗利率が30%を切ると赤くなるが保存は止めない**。値引きは単価を下げず別建て
-- 値引き上限の超過は**保存を止めず「承認待ち」**にする（送付だけ止まる）
-- **金額の同時編集は 409 で止める**（他の項目は同時編集可）
+**判断待ち**（§9 の [提案]）: D 切替日をまたぐグループ外案件／E 旧社名帳票の再発行／F 連結／H 名前とドメイン／I グループ本体のアカウント（`entity_scope`）／L GLS-B 完了済み4件。⚠️ 要確認: 本番の `org_transition.state` は `off`（2026-09-08・migration 293 の注記）。`preparing` へ進める時期は人が決める。
 
-仕様は `docs/design/v4/` に画面ごとに切り出してある（モック HTML を直接 grep しない）。
-
-## 現役の落とし穴（経緯から抽出した現行ルール）
-
-経緯ログの中に埋まっていた「いまも効く」決めごと。詳しい理由は経緯ログの各節。
+## 決めごと（現役ルール）
 
 ### URL・ルーティング
 
-- **タブは URL で持つ。** 案件詳細は区間（`/sales/projects/:id/:tab`・
-  `projectDetail/tabs.ts`）、取引先・取り込み・営業活動記録はクエリ（`?tab=` / `?src=`）。
-  ローカル state にすると転送で「開いたら○○タブ」ができない。区間持ちの画面で
-  `to="?tab=…"` と書いても**画面は変わらない**（実際に壊れていた）
-- **詳細タブの URL 鍵は単数**（`task`）。`tasks` にすると既存の
-  `/sales/projects/:projectId/tasks` と衝突して枠ごと消える（React Router は静的区切り優先）
-- **行き先の無いリンクは 404 にならない。** `App.tsx` 最後の `<Route path="*">` が拾って
-  黙ってホームに戻るので「押しても遷移しない」としか見えない。`scripts/check-links.mjs`
-  （`npm run lint` 内）がルート表と `to=`/`href=`/`navigate()` を突き合わせる。
-  わざと置く行き先は `ALLOW` に**理由付きで**足す
-- **旧 URL の転送はクエリを引き継ぐ**（`App.tsx` の `RedirectKeepQuery`）。落とすと
-  `?inquiry=` が消えて書き戻せず、**同じ引き合いから案件が2件**できる
-- **別バンドル（`/daily/` など）へは素の遷移**（`window.location`）。ルーターでは飛べない
+- **タブは URL で持つ。** 案件詳細は区間（`/:id/:tab`・`projectDetail/tabs.ts`）、取引先・取り込み・営業活動記録はクエリ（`?tab=`/`?src=`）。ローカル state だと転送で「開いたら○○タブ」ができない。区間持ちの画面に `to="?tab=…"` と書いても変わらない
+- **詳細タブの URL 鍵は単数**（`task`）。`tasks` は旧ルート `/sales/projects/:projectId/tasks` と衝突して枠ごと消える
+- **行き先の無いリンクは 404 にならない**（`path="*"` がホームへ戻す）。`scripts/check-links.mjs`（`npm run lint`）が突き合わせる。わざと置く物は `ALLOW` に理由付きで
+- **旧 URL の転送はクエリを引き継ぐ**（`RedirectKeepQuery`。行き先のクエリが勝つ）。落とすと `?inquiry=` が消え、同じ引き合いから案件が2件できる
+- **別バンドル（`/daily/` など）へは素の遷移**（`window.location`/`<a href>`）
+- 案件が変わったら画面ごと作り直す（`ProjectDetailRoute`/`ProjectFormRoute` の `key={id}`。使い回すと前の案件の dirty な欄が残る）
 
 ### react-query の鍵（invalidate の対）
 
-同じデータを別の鍵で持つ画面があり、**片方だけ落とすと「直したのに古いまま」になる**。
-どれも実際に踏んだ:
-
-- タスク: `invalidateTasks` は案件内の鍵に加えて **`task-dashboard`（全案件一覧）も落とす**
-- 標準工程を案件に入れたら **4つ**: `task-columns` / `project-tasks` / `task-dashboard` / `project`
-- GPM: `useInvalidateGpm`（`['gpm','tasks']` と `['gpm-project-tasks']` を含む）
-- 拠点の略称を保存したら `project-studio-bookings` も落とす（案件詳細の会場が読む）
+片方だけ落とすと「直したのに古いまま」になる。案件本体は `invalidateProjectQueries`（`sales/projectQueries.ts`）に鍵を足す／タスクは `invalidateTasks`（`tasks/hooks/useProjectTasks.ts`。`project-tasks`＋**`task-dashboard`**＋`episodes`）／標準工程を入れたら `task-columns`・`project-tasks`・`task-dashboard`・`project` の4つ（`sales/pages/flow/ApplyFlowDialog.tsx`）／GPM は `useInvalidateGpm`（`gpm/queries.ts`）／拠点・部屋を保存したら `project-studio-bookings` も（`production/components/studio/StudioRoomsManagerDialog.tsx`）
 
 ### データの正・導出（2か所に持たない）
 
-- **タスクの完了は `is_completed` が正**・`work_state` は未完了時の止まり方。画面は必ず
-  `taskState()`（`contexts/tasks/pages/taskList/state.ts`）を通す
-- **案件分類の `project_type` は画面から送らない。** 2段（客入れ×配信/収録/イベント）だけ
-  送り、サーバー1か所（`server/.../project-classification.ts`）が導く。GLS-B は 2段とも NULL
-- **グループ会社の判定の正は取引先マスター**（`companies.is_gmo_group`）。案件の
-  `customer_type` は人が選ばず、保存のたびにお客様から導く（`project.service` の
-  `resolveCustomerType`）。列は残す — 「当時の姿」で数えるため
-- **見積は `estimates` 別テーブル。`revenues` に相乗りさせない**（`revenues` を読む多数の
-  箇所が `status` を見ておらず、混ぜると売上に足される）。版は `group_id` で束ね、
-  `sent`/`superseded` は直せない（次の版を作る）。**合計はサーバーが出す**
-- **`estimates` は GLS-A・GLS-B(GPM) とも `project_id` 1本だけを使う**（旧 `gpm_project_id`
-  列と `project_id`/`gpm_project_id` の CHECK 排他は migration 179「プロジェクト管理を
-  GLS-B に一本化」で廃止済み。GPM 案件も `projects.gls_category='B'` の行になった）。
-  GLS-A の見積は `customer_id` を持ち、GPM の見積は代わりに `submit_to`（`self`/`client`/`pm`）を
-  持つ——見分けは `gls_category` と、版を作るときは行き先（`project_id`）と提出先
-  （`customer_id`/`submit_to`）を写す。請求の一覧は `status='confirmed'` かつ
-  `group_id IS NULL`（按分の親行を二重に数えない）
-- **受領書類は「1通」ではなく「1つの取引」が単位**（migration 281）。段（見積書のみ/発注済み/
-  請求書あり）・払う金額・台帳へ渡せるかは `shared/src/utils/financeDocChain.ts` が決める。
-  **サーバーにも同じ計算がある**（`server/src/shared/services/finance-chain.ts`。サーバーは
-  `shared` を import できない）ので、**片方だけ直すと画面が出す支払期日と台帳に入る期日が
-  別の日になる** — `shared/tests/financeDocChainParity.test.ts` が両方を突き合わせている
-- **受領書類の当て先（どの案件か）は人が決める。** AI は `project_hint` を渡すだけで、
-  サーバーが探して確からしさを付ける（**候補が複数なら付けない**）。人が直したら
-  `project_source='human'` に変える — 変えないと、直した行が「AI が当てた」まま残り
-  無修正採用率が実際より良く見える
+- **タスクの完了は `is_completed` が正**、`work_state` は未完了時の止まり方。画面は `taskState()`（`tasks/pages/taskList/state.ts`）を通す
+- **グループ会社の判定は `companies.is_gmo_group`。** `customer_type` とリード経路 `intake_channel='group'` は人が選ばず保存のたびにサーバーが導く（`project.service.ts` `resolveCustomerType`）。列は残す（当時の姿で数える）
+- **見積は `estimates`。`revenues` に相乗りさせない**（`revenues` を読む箇所は `status` を見ない）。版は `group_id` で束ね、直せるのは `draft` だけ（`sent` から次の版を作ると `superseded`）。**合計はサーバーが出す。** A・B とも `project_id` 1本（旧 `gpm_project_id` は廃止）。A は `customer_id`、GPM は `submit_to`（`self`/`client`/`pm`）
+- 明細は3グループ（スタジオ／技術・人員／制作・その他）。**粗利率 30% 未満は赤くするが保存は止めない**（`projectDetail/EstimateItems.tsx`）。値引きは別建て。**上限超過は「承認待ち」にし送付だけ止める**（`sales/services/estimate.service.ts`）
+- **受領書類は「1通」でなく「1つの取引（束）」が単位**（migration 281）。段・払う金額・台帳へ渡せるかは `shared/src/utils/financeDocChain.ts` が決め、サーバーにも同じ計算がある（`server/src/shared/services/finance-chain.ts`。server は shared を import できない）。`shared/tests/financeDocChainParity.test.ts` が突き合わせる
+- **受領書類の当て先は人が決める。** AI は `project_hint` を渡すだけ、サーバーが確からしさを付ける（候補が複数なら付けない）。人が直したら `project_source='human'`（無修正採用率を嘘にしない）
 - **万円へ丸めるのは `toMan` 1本**（`shared/src/client/ui/numbers.tsx`）。単位は数字と別に描く
-- **同じ数字を2か所で数えない。** トップのタイル件数・ダッシュボードの帯は既存 API の
-  数字を使い回す（数え直すと必ず食い違う）
-- **「NULL＝決めていない」と 0 を混ぜない。** 値引き上限・料金の単価・来場人数などで
-  区別が要る（0 を既定値に入れると「0と決めた」と見分けられない）
+- **同じ数字を2か所で数えない。** トップのタイル件数・ダッシュボードの帯は既存 API を使い回す。GPM 一覧の「見積」も案件一覧と同じ式（`ESTIMATE_AMOUNT_LATERAL`）
+- **「NULL＝決めていない」と 0 を混ぜない**（値引き上限・単価・来場人数）
+- 会場の書き方は `projectDetail/venue.ts` 1本（部屋は `rooms[]`・外現場は `location_note`・拠点は略称だけ前置き）
 
-### サーバーの部分更新の原則
+### サーバーの部分更新
 
-- **「渡さなければ今の値を保つ」。** `customer_type`・リード経路・`is_gmo_group`・拠点の
-  略称などで実際に踏んだ壊れ方: 欄を持たない画面・MCP から保存されるだけで値が黙って
-  消える/戻る。**知らない値は 400 にせず NULL に落とす**（古い呼び出しを止めない）
-- **消す操作だけは明示の空値で受ける**（空文字→NULL、期限は鍵があれば `null` でも書く）
+- **「渡さなければ今の値を保つ」**（欄を持たない画面・MCP からの保存で値が消える／戻るのを防ぐ）。**知らない値は 400 にせず NULL に落とす**（古い呼び出しを止めない）。**消す操作だけは明示の空値**（空文字→NULL）。金額欄は「未指定＝保つ・null/空文字＝消す・整数（円）だけ」（`keep-report.routes.ts` `readAmount`）
 
-### SQL（型検査も lint も SQL の中身を見ない）
+### SQL（型検査も lint も中身を見ない）
 
-- **jsonb の存在演算子（疑問符）を書かない。** DB 層がプレースホルダと数えて落ちる。
-  `->>` で書く（`shared/tests/sqlPlaceholder.test.ts` が再発を止める）
-- **列を DROP したらサーバーの SQL 文字列を全部追う**（`shared/tests/droppedColumns.test.ts`
-  が検査。`projects.notes` の DROP で GPM 全画面と投入口が 500 になった実績）
-- **列名・型は実 DB で確かめてから書く**（`project_tasks.status` は存在しない・
-  `due_date` だけ `date` 型、などで実際に踏んだ）
-- `GROUP BY` に選択列を全部入れる（`u.name` 漏れで営業評価タブが必ず 500 だった）
+- **jsonb の存在演算子（疑問符）を書かない** — DB 層がプレースホルダと数えて落ちる。`->>` で書く（`shared/tests/sqlPlaceholder.test.ts`）
+- **列を DROP したらサーバーの SQL 文字列を全部追う**（`shared/tests/droppedColumns.test.ts`）。`entity_code` を持つ表への INSERT は列を明示（`shared/tests/entityCodeInserts.test.ts`）
+- 列名・型は実 DB で確かめてから書く（`project_tasks.status` は無い・`due_date` だけ `date` 型）。`GROUP BY` に選択列を全部入れる
 
 ### 二重登録・押し直しへの守り
 
-- **「二度は作れない」はサーバーで守る**（画面のボタンを隠すだけだと、同時に開いた別の
-  画面が古いままボタンを出す）。実例: 標準工程は `projects.flow_applied_at`・
-  書類の台帳渡しは 409 `ALREADY_LINKED`・議事録の持ち帰り→タスク/未確認事項は
-  **取引の中で `FOR UPDATE` してから `task_id`/`ask_id` を書き戻す**（外で確認すると
-  同時押しで2件でき、参照の無い行が消せなくなる — 実測済み）
-- **投入口の押し直しは `idempotency_key` を DB が拒否する**（`intake:<投入id>:<draft_key>`）
-- **定時実行（`scheduler.service.ts`）は2段で守る**: `scheduled_job_runs(job_key, run_date)`
-  の主キー＋`notifications` の一意索引。片方だけだと記録前に落ちた回・複数プロセスで二重になる
+- **「二度は作れない」はサーバーで守る**（ボタンを隠すだけだと古い画面が押せる）: 標準工程は `projects.flow_applied_at`・書類の台帳渡しは 409 `ALREADY_LINKED`・議事録の持ち帰り→タスク/未確認事項は**取引の中で `FOR UPDATE` してから `task_id`/`ask_id` を書き戻す**
+- **投入口の押し直しは `idempotency_key` を DB が拒否**（`intake:<投入id>:<draft_key>`）。**定時実行（`platform/services/scheduler.service.ts`）は2段**: `scheduled_job_runs(job_key, run_date)` の主キー＋`notifications` の一意索引 `uq_notifications_dedup`
+- 共同編集中の案件への全置換は 409 `COLLAB_IN_PROGRESS`（`sales/services/project-collab.service.ts`）。⚠️ 要確認: モックの「金額の同時編集は 409 で止める」は金額欄単位では未実装
 
 ### 外部サービス（BOX）
 
-- **読む口は BOX が落ちていても 200 ＋ `reason`**（`NO_FOLDER`/`NOT_CONFIGURED`/
-  `UNAVAILABLE`）。500 にすると BOX 障害の日に案件詳細が全部開けなくなる。
-  **置く（書く）口は失敗を理由付きで返す** — 上がっていないのに上がったように見えるのが一番困る
-- 同じ名前は新しい版として上げる（409 → `uploadFileVersion`）。複数は1つずつ上げ、
-  上がった分だけ返す。multer はファイル名を latin1 で読むので
-  `Buffer.from(name, 'latin1').toString('utf8')` に通す（化けたまま BOX に載ると探せない）
-- サーバー側の実体は `project-box-files.service` 1本（案件と GPM が共用）
+- **読む口は BOX が落ちていても 200 ＋ `reason`**（`NO_FOLDER`/`NOT_CONFIGURED`/`UNAVAILABLE`。500 だと障害の日に案件詳細が全部開けない）。**置く口は失敗を理由付きで返す**
+- 同じ名前は新しい版として上げる（409 → `uploadFileVersion`）。複数は1つずつ上げ、上がった分だけ返す。multer のファイル名は `Buffer.from(name, 'latin1').toString('utf8')` に通す
+- 実体は `sales/services/project-box-files.service.ts` 1本（案件と GPM が共用）。フォルダは押したときだけ作る（BOX に作った物は ONAiR から消せない）
 
 ### トップページ・アプリタイル
 
-- **`DAILY_KEYS`（`pages/HomePage.tsx`）と `EVENT_KEYS`（`pages/home/AppTiles.tsx`）は対。**
-  片方だけ直すとタイルが二重に出るかどこにも出なくなる（v4.2.1 で実際に起きた）
-- **スクロール演出の既定は「見える」。** 隠すのは JS が `data-reveal="hidden"` を付けた
-  ときだけ — CSS で先に隠すと JS が落ちた日にトップページが白紙になる
-- `/dashboard/app-badges` は `sales` の権限ゲートの**外**（トップは全員が最初に開く画面）
+- **`DAILY_KEYS`（`platform/pages/HomePage.tsx`）と `EVENT_KEYS`（`home/AppTiles.tsx`）は対。** 出す・出さないだけを決め、並び順は `apps.ts` の `APPS`
+- **スクロール演出の既定は「見える」。** 隠すのは JS が `data-reveal="hidden"` を付けたときだけ（`home/Reveal.tsx`・`shared/src/client/tokens-v4.css`）
+- `/dashboard/app-badges` は `requireAuth` だけ（トップは全員が最初に開く）。「最近見たもの」は `platform/RecentTracker.tsx` 1か所で**読めてから積む**（URL だけだと 404 の行が残る）
 
 ### 権限
 
-- **ボタンは権限で出し分ける。** サーバー側だけで止めると「押せるのに 403」になる
-  （削除は `manager`、目標設定は `editor` など、実際に多数踏んだ）
-- 経理と営業の両方が使う口は `requireAnyPermission`（`sales` か `budget` のどちらかで通す）
-- ⌘K・左メニューで `module` 未指定の項目は**入口の権限を要求する**側に倒れる
-  （`layout/searchFeatures.ts`。開けてある入口は設定だけ＝`OPEN_ENTRANCES`）
-- **祝日の口（`GET /business-hours/holidays`）だけは権限を掛けていない**（公開情報。
-  掛けるとカレンダーの日付が権限によって黒いままになる）。**サイネージの URL は
-  ログインなしで開ける**ので、トークンの作り直しは `system_admin` だけ（配った URL が全部無効になる）
+- **ボタンは権限で出し分ける**（サーバーだけで止めると「押せるのに 403」）。削除は `manager`・目標設定は `editor` など
+- 経理・営業・日常業務が共に使う口は `requireAnyPermission(['sales','dailyops'])`（受領書類・受付）。画面側は `PermissionRoute anyOf`
+- ⌘K・左メニューで `module` 未指定の項目は入口の権限を要求する（`searchFeatures.ts`。開けてある入口は設定だけ＝`OPEN_ENTRANCES`）
+- 祝日 `GET /business-hours/holidays` は認証だけで権限を掛けない（掛けるとカレンダーの日付が黒いまま）。サイネージ URL はログインなしで開けるので、トークンの作り直し（`production/routes/studio.routes.ts` の `/rooms/feeds/regenerate-token`）は `system_admin` だけ（配った URL が全部無効になる）
 
-### AI・録音（このアプリで AI を触るときは会社方針の5条件も必須）
+### AI・録音（会社方針の5条件も必須・`.claude/skills/ai-feedback-loop/`）
 
-- **録音は 32kbps**（既定の 128kbps だと 25 分で Whisper の 25MB 上限に当たる）
-- **文字起こし・整形はリクエストの中で待たない**（nginx の `/api/` は既定 60 秒で切れる）。
-  行を先に作って 202 を返し、画面がポーリングする。ジョブの表は作らない（行に状態を持つ）
-- **AI に HTML を書かせるのはやり取りの整形だけ**（`html-sanitize.ts`・許可タグ9・属性0）。
-  メール取込は「意味の単位」で受けて `RichContent`（`shared/src/client-v4/richContent.tsx`）が描く
-- **差分の before は `ai_outputs.payload_snapshot`**（AI が出したもの）。直前の行と比べると
-  書きかけ保存後の修正が全部「無修正」に数えられる
-- 解析の主経路が落ちたら規則ベースに縮退し、**縮退したことを画面に書く**（黙って倒さない）
+- **録音は 32kbps**（`audioBitsPerSecond: 32000`・`projectDetail/thread/RecordDialog.tsx`・`tasks/components/intake/Recorder.tsx`。128kbps だと 25 分で Whisper の 25MB 上限）
+- **文字起こし・整形はリクエストの中で待たない**（nginx の `/api/` は 60 秒）。行を先に作って 202 を返し画面がポーリング（`sales/routes/minutes.routes.ts`）。ジョブ表は作らず行に状態を持つ
+- **AI に HTML を書かせるのはやり取りの整形だけ**（`server/src/shared/services/html-sanitize.ts`・許可タグ9・属性0）。メール取込は「意味の単位」で受けて `RichContent`（`shared/src/client-v4/richContent.tsx`）が描く
+- **差分の before は `ai_outputs.payload_snapshot`**（直前の行と比べると書きかけ保存後の修正が全部「無修正」になる）
+- 主経路（`tasks/services/intake-ai.service.ts`）が落ちたら規則ベース（`intake-parser.service.ts`）に縮退し、**縮退したことを画面に書く**
 
 ### 置き場所・部品
 
-- **v4 専用の共通部品は `shared/src/client-v4/` に置く。** `shared/src/client/` に置くと
-  凍結アプリの CSS が増える。新しい共通部品を `client/src/components/ui/` に実装しない
-  （他アプリから使えない — `shared` へ）
-- **欄・送信ロジックは写さず共用する。** 案件作成と案件を直すは `projectNew/` の同じ部品
-  （`RequiredFields`/`MoreFields`・`mode: 'create' | 'edit'`）、PC とスマホの送信は同じ hook
-  （`useCreateProject` 等）。写すと片方だけ直った画面が必ずできる
-- 引き合いの種類の見せ方は `pages/inbox/kinds.ts` 1本（案件作成のレールとホームの
-  「お待たせ中」の2か所が使う。書き写すと同じ引き合いが画面によって違う名前で出る）
+- **v4 専用の共通部品は `shared/src/client-v4/`**（`shared/src/client/` は凍結アプリの CSS に入る）。`src/components/ui/` は `motion`/`animated-number` 以外1行の再エクスポート。**新しい共通部品はここに実装しない**（他アプリから使えない）
+- **欄・送信ロジックは写さず共用する。** 案件作成と案件を直すは `projectNew/RequiredFields`・`MoreFields`（`mode: 'create' | 'edit'`）、PC とスマホの送信は同じ hook（`useCreateProject` 等）
+- 引き合いの種類の見せ方は `sales/pages/inbox/kinds.ts` 1本、GLS 発番の境界は `sales/glsIssue.ts` 1本（発番ボタン・ダイアログ・案内文が共用）
 
 ### スマホ
 
-- **幅の分岐は「薄い親」で行う。** 部品の中で `if (mobile) return …` と書くと幅が変わった
-  瞬間にフックの数が変わって React が落ちる。判定は `useIsMobile()` 1本
-  （`shared/src/client-v4/mobile.ts`・`lg`=1023px）
-- **案件詳細のスマホタブは段階で入れ替える**（`projectDetail/tabs.ts` の
-  `MOBILE_TABS_BY_PHASE`）。開けないタブを黙って概要にすり替えない（URL を共有された人が
-  「見積を見せたのに概要が出た」ことになる）
+- **幅の分岐は「薄い親」で。** 部品の中で `if (mobile) return …` と書くと幅が変わった瞬間にフックの数が変わって落ちる。判定は `useIsMobile()`（`shared/src/client-v4/mobile.ts`・`MOBILE_MAX`＝1023）1本
+- **画面を足したら `src/pcOnlyScreens.ts` のどちらかに入れる**: `CLIENT_PC_ONLY`（`what`/`why`/`instead` を具体的に）か `CLIENT_MOBILE_OK`。無いと `scripts/check-mobile-declared.mjs` で `npm run lint` が止まる。基準は「読む／1タップで進める物は開ける・入力欄が並ぶ物・設定・データを入れる道具は PC」。スマホでは `AppShell` の `<PcOnlyGate>`（`shared/src/client-v4/pcOnly.tsx`）が案内に差し替える — 画面ごとに `useIsMobile()` を書かない
+  - **並び順が効く**（先に一致した物が勝つ）: `/gpm/projects/new`・`/sales/projects/ledger` は `/:id` より前
+  - `hidden: true` はスマホの左メニューと設定トップからも消す（`CLIENT_MOBILE_HIDDEN`＝取り込み・仕入先集計・データビューア・DBバックアップ・会社と切替）。ルートは消さない
+  - **`/budget/billing` は PC 側に入れない**（⑫ 入金の確認 `closing/MobileCollect.tsx`。置かないのは台帳の表で、片づく1つの仕事は置く）
+- **案件詳細のスマホタブは段階で入れ替える**（`projectDetail/tabs.ts` `MOBILE_TABS_BY_PHASE`・`projectPhase()` は実施日の両端も見る）。開けないタブを黙って概要にすり替えず `PcOnlyPanel` で案内する。GPM 詳細も同型（`gpm/pages/projectDetail/DetailHeader.tsx`）
+- **スマホの絞り込みは1行に畳んでシートで開く**（`shared/src/client-v4/mobileFilterBar.tsx`）。`props` は PC 版と同じ（`FilterBarProps`）・効いている数をボタンに出す（0 は出さない）・検索だけは畳まない。画面固有は `activeFilterCount` とシートの中身だけ（`projectList/MobileFilterBar.tsx`）
+- 台帳の表はスマホでカード（`finance/pages/ledger/LedgerList` が幅の分岐を1か所で持つ・金額は `MoneyCell width={128}` で右端固定）。取り消しは PC から
 
 ## 触るときの注意
 
-- **シェルは共通** (`shared/src/client/shell/`)。残っているのは
-  `components/layout/AppShell.tsx`・`nav.ts`（4つの入口ぶんのメニュー）・
-  `GlobalSearch.tsx`（上辺バーに差し込む検索）だけ。**旧 `Header.tsx` / `Sidebar.tsx` は削除済み**。
-  どの入口にいるかは `appOfPath()` が URL から判定する（`BLOCK_APPS` の前方一致は廃止）
+- 検査: `npx tsc -b client`・`npm run lint`・`npm run test`（shared の Vitest）・`npm run verify:ui`（実ブラウザ）。v4 の PR は `node scripts/v4-progress.mjs --write` で [docs/v4-progress.md](../docs/v4-progress.md) を作り直す
+- `npm run lint` で client に効く検査: `check-links`・`check-mobile-declared`・`check-form-submit`（`onSubmit` を持つ `FormDialog`/`Sheet` の中のボタンに `type` を書く。書かないと「キャンセル」で保存が走る）・`check-file-size`（**1ファイル 400 行のラチェット**・`scripts/file-size-baseline.json`。超えるなら `ProjectDetailRoute.tsx` のように薄い入口へ分ける）・`check-ui-tokens`/`check-tokens`/`check-contrast-tokens`（部品と色をトークン外で書かない）・`check-shared-wiring`・`check-changelog`
+- `predev`/`prebuild` が `scripts/generate-version-history.mjs`・`generate-mcp-tools.mjs` を回す（`client/package.json`）
+- `framer-motion` は client にしか入っておらず、v4 の画面では使わない（動きは `shared/src/client/tokens-v4.css` の末尾・`docs/design/v4/_tokens.md`）。`src/index.css` はサイネージの直書き CSS だけ（土台は `shared/src/client/base.css`）
+- 仕様は `docs/design/v4/`（[projects.md](../docs/design/v4/projects.md)・[finance.md](../docs/design/v4/finance.md)・[schedule.md](../docs/design/v4/schedule.md)・[settings.md](../docs/design/v4/settings.md)・[gpm.md](../docs/design/v4/gpm.md)・[mobile.md](../docs/design/v4/mobile.md)・[_rules.md](../docs/design/v4/_rules.md)）。案件管理のダッシュボード・案件作成・一覧・詳細は `mockups/v4-live-sales.dc.html` が正（[README](../docs/design/v4/README.md)）
+- 旧実装のまま残る大物: `tasks/components/DashboardGantt/DashboardGanttView.tsx`（522行）・`production/components/episodes/BusinessProjectView.tsx`（GPM の請求タブが呼ぶ・スマホ非対応）
 
-- **スマホの絞り込みは1行に畳んでシートで開く**（M6 → M8 で共通部品
-  `shared/src/client-v4/mobileFilterBar.tsx` に移した。`projectList/MobileFilterBar.tsx` は
-  **この画面固有の2つ**＝「何を既定と見なすか」（`activeFilterCount`）と
-  シートの中身だけを持つ）。
-  PC の帯をそのまま縦に積むと約 450px になり、**最初の案件に着くまで 470px**
-  ＝ 1画面の7割が枠でした（実測）。畳んだあとは **284px**。
-  - **props は PC 版と同じ**（`FilterBarProps` を共有）。写しを作ると片方だけ
-    絞り込みが増えて、PC とスマホで違う結果が出る
-  - **効いている数をボタンに出す。** 畳むと絞り込んでいること自体を忘れる
-    （「12件しかないのはなぜ？」）。0 のときは出さない
-  - **検索だけは畳まない。** 探すのは絞り込みではなく目的そのもの
-- **`hidden: true` を付けた画面はスマホの左メニューと設定トップから消える**（M6・ご判断）。
-  データを入れる道具（決算の取込・DB バックアップ・データビューア）と、
-  案件の仕事に出てこない設定です。**ルートは消していない**ので、
-  共有された URL を開けば今までどおり案内が出ます。
-  - 落とす一覧は**左メニューと設定トップで同じ表**（`CLIENT_MOBILE_HIDDEN`）。
-    2つに分けると片方だけ直したときに食い違う
-  - 実測: 財務の左メニュー 8 → 7 項目（「取り込み」の節ごと消える）、
-    設定トップ 10 → 7 枚
-- **「外で判断するもの」は PC 専用から外した**（M10・ご判断）。実データを入れた検証環境で
-  44 画面を 390px から開き直して測ったところ、**横にはみ出す画面は3枚だけ**で、
-  多くはスマホでも普通に開けました（`/sales/customers` は表ですらなくカードだった）。
-  基準は「**読む／1タップで進める**ものは開ける・**入力欄が並ぶもの・設定・
-  データを入れる道具は PC のまま**」。第1波で開けたのは **v4 で作り直し済みの5枚**:
-  `/studio/holds`（`production/pages/holds/HoldCards.tsx` でスマホ用に縦積み。
-  PC の行だと「決める」160px に押されて予定名が 150px しか残らず、
-  **何の予約か分からないまま「確定にする」を押させる**形だった → 283px）／
-  `/budget/vendors`（Excel と「仕入先集計」をスマホから落とす。
-  **後者は行き先が PC 専用で、押すと行き止まりになる**）／
-  `/gpm/dashboard` `/gpm/projects` `/gpm/tasks`（そのままで崩れない）。
-  - **旧のまま（v4 で作り直していない）4枚は据え置き**: 顧客・取引先マスター・
-    お客様の詳細・営業活動記録。**理由文は書き直した** —
-    元は「この幅では1社ぶんも並びません」だったが実測で嘘だと分かったため
-    （本当の理由は「まだ作り直していないので指で押しにくい」）
-- **画面を足したら `src/pcOnlyScreens.ts` のどちらかの表に入れること**（M2）。
-  `CLIENT_PC_ONLY`（スマホでは開かない）か `CLIENT_MOBILE_OK`（スマホで触る／読む）で、
-  **どちらにも入っていないと `npm run lint` が止まります**。
-  - スマホでは `AppShell` の `<PcOnlyGate>` が表を見て**案内に差し替えます**
-    （`shared/src/client-v4/pcOnly.tsx`）。画面ごとに `useIsMobile()` を書かないこと —
-    書き忘れても「出ないだけ」なので誰も報告せず、**数えられなくなります**
-  - **並び順が効く**（先に一致したものが勝つ）。`/gpm/projects/new` は
-    `/gpm/projects/:id` より前に置く
-  - **`/budget/billing` は PC 側に入れない** — ⑫ 入金の確認がスマホ用にある。
-    モックの「お金は置かない」が指すのは**台帳の表**で、**片づく1つの仕事**は置く
-  - 案件詳細のタブだけは画面の中で判定する（`MOBILE_TAB_KEYS`）。
-    URL は同じで中身が変わるので表では書き分けられないため。
-    案内は同じ `PcOnlyPanel` を使う
+## 残作業・判断待ち
 
-- **1ファイル400行を上限にする。** `BusinessProjectView.tsx`（GPM の請求・見積タブが
-  呼ぶ旧実装）は **2,030行 → 200行** に分けた（中身は `episodes/businessProject/`。
-  hook 4本・部品6枚。**JSX を1文字も変えずに移し、各段で実ブラウザの全文が
-  一致することを確かめている**）。わずかに超える `ProjectFormPage.tsx`（416行）・
-  `DashboardGantt/DashboardGanttView.tsx`（522行・旧実装のまま）は v4 で作り直すときに分割する
-- `src/components/ui/` は **`motion` / `animated-number` の2本以外すべて1行の再エクスポート**。
-  実体は `shared/src/client/ui/`（F3 で `table` / `searchable-select` / `currency-input` /
-  `scroll-area` を移した。`dropdown-menu` は参照0件だったので削除）。
-  **新しい共通部品は `shared` に置くこと** — ここに実装を足すと他アプリから使えない
-- **`motion` / `animated-number` だけ残してある**。`framer-motion` が案件管理にしか入っておらず、
-  v4 は hover を色・罫線だけに絞り画面遷移も CSS で行う（`docs/design/v4/_tokens.md`）ため。
-  **v4 の画面を作るときは使わない**（Phase 2 で整理する）
-- `src/index.css` にアプリ固有 CSS が約200行（FullCalendar の上書き・サイネージ）。
-  サイネージの色はトークン外の直書き
+| 何が | どこ |
+| --- | --- |
+| v4 化の状態（サイトツリー・生成物） | [docs/v4-progress.md](../docs/v4-progress.md) |
+| 全画面ネイティブ級化のバックログ | [docs/v4-native-ui-plan.md](../docs/v4-native-ui-plan.md) |
+| 案件・タスク・AI・共有の根源整理 | [docs/core-redesign-plan.md](../docs/core-redesign-plan.md) |
+| 案件台帳（`projects` 57列）の整理・Phase C の 🔲 判断待ち | [project-ledger-simplification-plan.md](../docs/project-ledger-simplification-plan.md)・[project-ledger-phase-c-design.md](../docs/project-ledger-phase-c-design.md) |
+| 事業再編の未決分岐（§9）・P4 | [docs/reorg-2026-10-plan.md](../docs/reorg-2026-10-plan.md) |
+| レビュー指摘の棚卸し | [docs/reviews/codex-findings-v4.md](../docs/reviews/codex-findings-v4.md) |
+
+## 経緯の記録
+
+[docs/reviews/client-v4-build-log.md](../docs/reviews/client-v4-build-log.md)（2026-08-22 に移動。2026-09-08 にこの文書から外した圧縮前の本文を末尾に追加）。

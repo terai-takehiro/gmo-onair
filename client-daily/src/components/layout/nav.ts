@@ -14,9 +14,10 @@
  *
  * ・**受領書類 (`/finance`)** — 画面は財務管理へ移した (`/budget/documents`)
  *   が、`dailyops` だけの人はアプリ切替に財務管理が出ないので、**ここを消すと
- *   辿り着く道が無くなる**。行き先の権限は `budget` か `dailyops` のどちらか
- * ・**タスク・依頼 (`/tasks`)** — 案件管理の「わたしのタスク」から
- *   ここへ来る導線がある (`client/src/contexts/tasks/.../MyTasksSummarySection.tsx`)。
+ *   辿り着く道が無くなる**。行き先の権限は `sales` か `dailyops` のどちらか
+ *   （`budget` 区画は権限モデル単純化で `sales` に統合済み）
+ * ・**タスク・依頼 (`/tasks`)** — トップページのタイルとタスクのカードから
+ *   ここへ来る導線がある (`client/src/contexts/platform/pages/home/{AppTiles,TaskHubCard}.tsx`)。
  *   案件管理へ寄せるかどうかは別の作業
  */
 import {

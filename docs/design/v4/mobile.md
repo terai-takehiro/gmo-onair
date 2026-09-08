@@ -1,5 +1,9 @@
 # スマホ（Phase 6）— モックから切り出した仕様
 
+> **状態**: 実装済み（記録）
+> **最終確認**: 2026-09-08（v4.6.10）
+> **位置づけ**: Phase 6 のスマホ 13 画面の仕様と決めごと。13 枚すべて実装済み。§0「これから」の下タブ「探す」も日常業務（`/search`）・機材管理（`/equipment/search`）とも済み（各アプリの `src/components/layout/nav.ts`）
+
 **出どころ**: `mockups/v4-mockup-main.dc.html` の**端末枠 13 本**（340×700px）と
 `mockups/onair-data.js` の `sp*` 31 キー、`mockups/DESIGN_POLICY.md`。
 

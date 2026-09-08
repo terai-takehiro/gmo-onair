@@ -1,5 +1,9 @@
 # v4 の設計トークン（確定値）
 
+> **状態**: 現役の決めごと
+> **最終確認**: 2026-09-08（v4.6.10）
+> **位置づけ**: 色・書体・角丸・寸法の確定値。実装は `shared/src/client/tokens-v4.css`。実際の使用回数は [`_tokens-observed.md`](_tokens-observed.md)（生成物）
+
 これが**設計としての正**です。実際にモックで何回使われているかは
 [`_tokens-observed.md`](_tokens-observed.md)（生成物）にあります。
 

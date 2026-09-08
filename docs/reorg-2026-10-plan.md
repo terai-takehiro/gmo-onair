@@ -1,5 +1,9 @@
 # 2026年10月 事業再編のシステム移行設計 — 社名変更・計上会社の2社化・案件番号の改番（2026-09-06 設計下書き）
 
+> **状態**: 現役の計画（進行中）／判断待ち（§9 の D・E・F・H・I・L と、それに依存する P4）— P0〜P3 は実装済みで `main` にマージ済み。切替状態 `org_transition.state` は `off`（§0 の「実装の現状」）
+> **最終確認**: 2026-09-08（v4.6.10）
+> **位置づけ**: 事業再編（社名変更・計上会社の2社化・GLS→SCS/GSS/GMO の改番）の設計と実装記録の正。`server/src/contexts/sales/services/entity-resolution.service.ts`・`server/src/contexts/platform/services/org-transition.service.ts`・migration 284〜290・293 のコメントから参照される。ルート `CLAUDE.md`・`docs/README.md` の「設計下書き。§9 の分岐点が決まるまで実装しない」は古い。
+
 > ユーザーのご指示（2026-09-06・原文の要旨）:
 > - 2026年10月、GMOグローバルスタジオ株式会社は **GMOサムライスタジオ株式会社** に社名変更する
 > - 同時に売上を計上する会社が **2社** になる。**GMOサムライコンテンツスタジオ**＝グループ外の案件の売上、
@@ -14,8 +18,8 @@
 > - 10月以降に切り替えるため、**いまのものを生かしつつ新バージョンに切り替えられる設計**にする
 
 この文書は (1) 現状の実測 (2) 設計の骨格と決めごと候補 (3) 旧→新の共存と切替の段取り
-(4) ユーザー判断が要る分岐点 をまとめた**設計の正（下書き）**。
-各節の「決めごと候補」は §9 の分岐点が決まるまで**候補**であり、**判断待ちのまま実装しない**
+(4) ユーザー判断が要る分岐点 をまとめた**設計の正**（2026-09-06 に下書きとして書き、同日中に P0〜P3 を実装して §6・§12・§13 に実装結果を追記した）。
+§9 のうち A・B・C・G・J・K・M・N は 2026-09-06 に決定済み。未決の D・E・F・H・I・L に依存する部分（P4 を含む）は**判断待ちのまま実装しない**
 （[project-ledger-phase-c-design.md](project-ledger-phase-c-design.md) と同じ運用）。
 
 ---
@@ -32,6 +36,21 @@
 4. **9月中に P0＋P1**（会社マスター・発行者情報・新採番・改番ツール・通知）を入れて `preparing` にする。
    コンテンツスタジオは既存法人で見積を出してよいので、**10月以降の受注は最初から新番号・SCS 名義で出す**（先取り・§5）。
    財務の2社タブと社内取引（P2）・GMO のコスト画面（P3）は行ごとに会社を持つ設計のおかげで**10月中の後追い投入が安全**
+
+**実装の現状（2026-09-08・v4.6.10 時点。コードで確認）**
+
+- **実装済み・`main` にマージ済み**（P0〜P3。詳細は §6・§13・§12）
+  - P0 土台: migration 284〜287（`legal_entities`・`org_transition`・各表の `entity_code`・通知テンプレートの発行者変数）と、
+    設定＞会社と切替（`/settings/reorg`・`client/src/contexts/platform/pages/reorg/`）
+  - P1 番号: 導出・採番・改番（`server/src/contexts/sales/services/entity-resolution.service.ts`）、
+    改番 API（`GET /projects/:id/renumber-preview`・`POST /projects/:id/renumber`）と MCP `renumber_project`、
+    移行センターと改番の通知（migration 290）
+  - P2 財務の2社＋社内取引: migration 288（`money_rules` の会社化）・289（`intercompany_links`）、MCP `create_intercompany_purchase`
+  - P3 GMO コスト（最小案）: `isProjectCostCenter()`（`legal-entity.service.ts`）・GPM の「予算と実績」タブ・コスト側ダッシュボード
+  - 接頭辞の改名 GJV → SCS: migration 293（2026-09-08）
+- **未実装**: P4（`done` 状態の残り・旧経路の削除・`entity_scope` 権限・連結）。§9 の F・I の判断待ち
+- **切替状態**: `org_transition.state` は `off`（2026-09-08 時点。migration 293 の注記）。`preparing`／`cutover` へ進めるのは人の操作だけ（§5・§10）
+- ⚠️ 要確認: §0-4「9月中に `preparing` にする」と §5「検証環境は9月中に `cutover` で動かす」の実施時期。本番・検証それぞれの `org_transition.state` の実値は環境の DB でしか分からない
 
 ---
 

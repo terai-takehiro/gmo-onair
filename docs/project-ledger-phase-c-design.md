@@ -1,5 +1,9 @@
 # Phase C 詳細設計 — 金額・受注/失注日時・実施日・書く口の一本化（2026-08-27）
 
+> **状態**: 現役の計画（進行中）／判断待ち（各テーマの「ユーザー判断が要る分岐点」）— ✅ の段階は実装済み。🔲 は本番データの監査かユーザー判断を待って着手する
+> **最終確認**: 2026-09-08（v4.6.10） — 各表の ✅/🔲 を `project.service.ts`（`createCore`・`recordStageTransition`）・migration・`excel.routes.ts`・`kessan-import.service.ts` で突き合わせ、C-1a の表示だけ訂正した
+> **位置づけ**: [project-ledger-simplification-plan.md](project-ledger-simplification-plan.md) Phase C の詳細設計。`event_start`/`event_end` は今も TEXT 列（DATE 化は未実施）。Excel 取込・決算取込は今も `INSERT INTO projects` を直接書く（集約は未実施）。
+
 [docs/project-ledger-simplification-plan.md](project-ledger-simplification-plan.md) の
 Phase C（「設計変更・別計画で詳細化」）の詳細版。マルチエージェントで4テーマを並列調査し、
 各テーマごとに (1) 現状の書き手・読み手の全リスト (2) 実測で確認した実害
@@ -49,7 +53,7 @@ Phase C（「設計変更・別計画で詳細化」）の詳細版。マルチ�
 | 段階 | 内容 | リスク | 実装状況 |
 |---|---|---|---|
 | C-1a | 表示バグ是正: ダッシュボード（`dashboard.routes.ts:431/555`）・週報
-  （`weekly-stats.service.ts:34`）を他の一覧と同じ「見積優先」表示に揃える | 低 | 🔲 未着手 |
+  （`weekly-stats.service.ts:34`）を他の一覧と同じ「見積優先」表示に揃える | 低 | ✅ 実装済み（2026-08-27。`dashboard.routes.ts`・`weekly-stats.service.ts` に `estimate_amount` 列を追加。この欄だけ「🔲 未着手」のまま残っていたのを、下の「まとめ」と検証の記述に合わせて 2026-09-08 に訂正） |
 | C-1b | 集計統一: `EFFECTIVE_AMOUNT_SQL`共有定数を追加し、営業分析7箇所・ダッシュボード
   パイプライン集計・「今月の受注」KPI・週報のSUM/AVGを置き換え | 中（経営指標の数字が変わる） | 🔲 **本番データでの乖離幅を確認してから**（分岐点C） |
 | C-1c | 双方向上書きの停止＋通知追加 | 高（業務フロー変更・財務直結） | 🔲 **要ユーザー判断**（分岐点A・B） |

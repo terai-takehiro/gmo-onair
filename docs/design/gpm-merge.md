@@ -1,5 +1,9 @@
 # プロジェクト管理を GLS-B に一本化する — データの持ち方の決め
 
+> **状態**: 実装済み（記録）
+> **最終確認**: 2026-09-08（v4.6.10）
+> **位置づけ**: プロジェクト管理を GLS-B（`projects.gls_category='B'`）に一本化する決め。migration A（179）とサーバー側（`server/src/contexts/gpm/services/gpm.service.ts`）は実装済み。migration B（`gpm_projects` を落とす）は 2026-09-08 時点で未（migrations に DROP 無し・末尾「まだやっていないこと」）。⚠️ 要確認: migration B を入れる時期
+
 > **この文書は [`gpm-model.md`](gpm-model.md) の決め①を差し替えます。**
 > あちらは「プロジェクト管理は案件ではない」を前提に `gpm_projects` を新設しましたが、
 > **その前提が業務側の定義と違っていました**（下記）。決め②〜⑤は生きています。

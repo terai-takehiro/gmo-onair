@@ -1,4 +1,4 @@
-# 制作資料 (Qシート) — v4 の画面仕様
+# 制作技術支援 (Qシート) — v4 の画面仕様
 
 > **この文書は生成物です。** `node scripts/extract-v4-design.mjs` で作られます。
 > 元データ: [`mockups/v4-mockup-production.dc.html`](mockups/v4-mockup-production.dc.html) (47KB)
@@ -7,7 +7,7 @@
 > ここには「grep すると高い情報」＝画面が扱うデータの項目名だけを置いています。
 > 共通の寸法・色は [`_tokens.md`](_tokens.md)、守る規律は [`_rules.md`](_rules.md)。
 
-**v4.0.0 のスコープ**: 凍結 — v4.1 以降
+**v4.0.0 のスコープ**: 凍結解除中 — 作り直し進行中
 
 ## 画面一覧 (3)
 

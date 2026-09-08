@@ -1,9 +1,14 @@
 # カレンダー二重登録の解消 — 残りの段取り（現役の計画）
 
+> **状態**: 現役の計画（段4以降は未着手）
+> **最終確認**: 2026-09-08（v4.6.10）
+> **位置づけ**: v3.1.1〜v3.1.2 で止血した「同じ予定が2行になる」問題の残り（列の追加・掃除・一意索引）の段取り。着手時は migration 番号を採番し直す
+> **2026-09-08 の再確認**: `dedupe_key` / `ical_uid` / `url_sha256` / `auto_source` は `server/src/shared/db/migrations/` にも `server/src`・`shared/src`・各 `client*/src` にも存在しない（grep 0件。段4は未着手のまま）
+
 > 元は `docs/roadmap.md`（2026-07 時点の刷新計画・現在は [docs/archive/2026/roadmap.md](../archive/2026/roadmap.md)）の末尾にあった節。
 > 段4以降（列の追加・掃除・一意索引）が **2026-08-22 時点で未着手**のためここへ切り出した
 > （`dedupe_key` / `ical_uid` / `url_sha256` / `auto_source` は migration にもコードにも存在しないことを確認済み）。
-> ⚠️ 本文の「migration 156 / 157」は執筆当時の次番号。**現在の最新は 233** なので、着手時は採番し直すこと。
+> ⚠️ 本文の「migration 156 / 157」は執筆当時の次番号。**現在の最新は 296**（`296_backfill_group_intake_channel.sql`・2026-09-08 時点）なので、着手時は採番し直すこと。
 > 掃除SQLの手順書は [cleanup-duplicate-calendar-entries.sql](cleanup-duplicate-calendar-entries.sql)（同じディレクトリ）。
 
 ## カレンダーの二重登録 (v3.1.1 で止血、以降の段取り)

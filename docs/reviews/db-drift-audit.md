@@ -1,5 +1,9 @@
 # DBスキーマのドリフト監査（2026-08-19 着手）
 
+> **種類**: 実施済みの記録
+> **状態**: 完了。テーブル23件＋列2つは migration 206、`customers`/`vendors` 本体は 208、列単位の22列は 209（2026-08-20・`npm run db:drift-sql`）で後始末済み。未判断: `interactive_*` 9テーブル（[2026-09-01 のレビュー](2026-09-01-multiagent-app-review.md)で「記録のみ」）
+> **最終確認**: 2026-09-08（v4.6.10）
+
 **経緯**: Phase 3-3-7〜9（`customers`/`vendors` テーブル削除）の migration 205 が、
 `joint_events`/`joint_event_companies`（`customers` 参照）と `revenue_items.cost_vendor_id`
 （`vendors` 参照）という**このリポジトリのどの migration ファイルにも存在しない**FK/列に
@@ -360,5 +364,9 @@ v4 リニューアルでこれらの旧機能（Slack連携・隔週キープ・
 7. **列単位の全数diff（未実施）**: `information_schema.columns` 約1650件の突き合わせが
    まだ。FKを持たない未追跡列が他にもある可能性があるため、上記6のPRがマージ・
    デプロイされたあとで着手する
+   → ✅ **2026-08-20 完了**: `scripts/gen-db-drift-sql.mjs`（`npm run db:drift-sql`）で
+   テーブル・列・FK の3段を生成し、見つかった22列を migration 209 で後始末した
+   （経緯は [phase3-2-plan.md](phase3-2-plan.md) 冒頭の追記）
 8. `docs/reviews/phase3-2-plan.md` の「未完了: DBの技術的負債の全体監査」節はこのファイルへの
    リンクに置き換えること（重複管理を避けるため）
+   → ✅ 済み（同節はこの文書へのリンクと要約だけになっている）

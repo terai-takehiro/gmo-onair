@@ -403,15 +403,16 @@ for (const [section, screens] of TREE) {
   }
 }
 
-lines.push('## 凍結（v4.0.0 では作り直さない）', '',
-  '見た目は今までのまま、**URL は生きています**。アプリの一覧からは外れます。', '',
-  '⬜ 制作資料（Qシート） ／ ⬜ 技術資料 ／ ⬜ 計時LIVE ／ ⬜ リアルタイムCG', '');
+lines.push('## この表の対象外', '',
+  '**制作技術支援（Qシート）** — 凍結解除中。作り直しは進行中で、残作業（表本体・`EditorSidebar`・本番系画面）は `client-techops/CLAUDE.md`。',
+  '**計時・視聴者** — v4 対象だが、表示画面 `/live/display/` だけは見た目を変えない例外（`client-live/CLAUDE.md`）。',
+  '**リアルタイムCG** — 2026-09-06 に廃止。後継は制作技術支援＞テロップCG。', '');
 
 lines.push('## まだ入っていない機能', '',
   '');
 
 lines.unshift('');
-lines.unshift(`**${done} / ${total} 画面**が v4 になりました（凍結4アプリと新規画面を除く）。`);
+lines.unshift(`**${done} / ${total} 画面**が v4 になりました（対象外のアプリと新規画面を除く）。`);
 
 const out = lines.join('\n');
 if (process.argv.includes('--write')) {

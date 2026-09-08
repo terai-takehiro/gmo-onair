@@ -1,190 +1,116 @@
 # GitHub リポジトリの設定
 
-ファイルとして置ける設定（CI・PR/Issue テンプレート・CODEOWNERS・Dependabot）は
-リポジトリの中に入っています。**ここに書くのは GitHub 側にしか置けない設定**です。
+**最終確認: 2026-09-08（v4.6.10）。** 一次情報は `scripts/github/apply-repo-settings.sh`・`.github/workflows/ci.yml`・`.github/workflows/deploy.yml`。
 
-適用は1コマンド（冪等・何度でも流せる）:
+ファイルとして置ける設定（CI・PR/Issue テンプレート・CODEOWNERS・Dependabot）はリポジトリの `.github/` に入っている。
+**ここに書くのは GitHub 側にしか置けない設定**で、`apply-repo-settings.sh` が1コマンドで適用する（冪等・何度でも流せる）:
 
 ```bash
-gh auth login                                  # 一度だけ (admin 権限のあるアカウント)
+gh auth login                                          # 一度だけ (admin 権限のあるアカウント)
 bash scripts/github/apply-repo-settings.sh --dry-run   # 何をするか見る
 bash scripts/github/apply-repo-settings.sh             # 適用
 ```
 
----
-
-## 移行手順（2026-07-31 の切り替え / 一度だけ）
-
-**順番を守ってください。** 3 → 4 を先にやると検証環境へのデプロイ経路が無くなります。
-
-| # | やること | コマンド / 場所 |
-| --- | --- | --- |
-| 0 | **デフォルトブランチを `main` にする** | [Settings → General → Default branch](https://github.com/terai-takehiro/gmo-onair/settings) |
-| 1 | この変更（新しい CI・デプロイ・ドキュメント）を `main` にマージする | PR をマージ |
-| 2 | 検証環境が新しい経路で出ることを確かめる | Actions の `Deploy` → `curl -s https://dev.gmo-onair.jp/health` |
-| 3 | 旧ブランチを整理する（`archive/*` タグ + `v3.1.5` タグ + `claude/*` 40本 + `dev` の削除） | **Actions → Cleanup branches**（`mode = dry-run` → `execute` + `confirm = cleanup`）／手元からなら `bash scripts/github/cleanup-legacy-branches.sh --dry-run` → 本実行 |
-| 4 | 分岐保護・環境・ラベルを入れる | `bash scripts/github/apply-repo-settings.sh` |
-| 5 | `production` 環境の承認者を設定する | [Settings → Environments](https://github.com/terai-takehiro/gmo-onair/settings/environments) |
-| 6 | VPS の worktree を確認する | 下記「VPS 側の確認」 |
-
-`cleanup-legacy-branches.sh` は**`main` に `ci.yml` が入っているかを見てから** `dev` を消すので、
-1 を飛ばして 3 を流しても `dev` は残ります（`claude/*` の整理とタグ付けだけ進みます）。
-`dev` と `main` がずれている場合も `dev` は消しません。
-
-> **タグを Releases 画面から作らないでください。** GitHub の画面でタグを作る入口は Releases だけで、
-> Release を**公開**すると `deploy.yml` の `release: types: [published]` が発火し、
-> **そのタグの中身が本番に出ます**。`v3.1.5`（本番未投入）や `archive/*`（古い作業ブランチ）を
-> 本番に出すことになるので使えません。`Cleanup branches` ワークフローはタグを push するだけで
-> Release を作らないため、本番は動きません。
-
-### なぜ 0 が最初なのか
-
-**このリポジトリのデフォルトブランチは長らく `dev` でした。** `main` に切り替えないと、
-気づきにくい形で3つ壊れます。
-
-| 壊れるもの | どう壊れるか |
-| --- | --- |
-| **分岐保護** | ruleset の `~DEFAULT_BRANCH` が `main` ではなく **`dev` を保護**する。しかも「作成しました」と成功したように見える |
-| **手動実行** | `workflow_dispatch` は**デフォルトブランチにあるワークフローしか呼べない**。`main` にしか無い Preview / 新 Deploy を Actions の画面から実行できない（実際に 404 になりました） |
-| **ブランチ削除** | デフォルトブランチは削除できないので、`dev` を消せない |
-
-このほか、PR を作るときの base の既定値も `dev` のままになります。
-
-`apply-repo-settings.sh` は最初にデフォルトブランチを `main` に変えるので、
-スクリプトを流せばここも一緒に直ります。ruleset の対象は `~DEFAULT_BRANCH` ではなく
-**`refs/heads/main` と明示**してあるので、万一デフォルトが違っていても `main` が保護されます。
-
-### VPS 側の確認
-
-新しい `deploy.yml` は worktree を**ブランチではなくコミットで detached checkout** します
-（タグからでもブランチからでも同じ手順で出せるようにするため）。初回のデプロイ後に:
-
-```bash
-ssh <VPS>
-cd /root/gmo-onair-dev && git log --oneline -1 && git status | head -2   # detached HEAD になっているはず
-cd /root/gmo-onair     && git log --oneline -1
-docker compose -p gmo-onair ps
-```
-
-`dev` ブランチを消しても worktree は壊れません（ローカルの `dev` ブランチが残るだけで、
-デプロイはそれを参照しなくなります）。
+> 2026-07-31 の切り替え（デフォルトブランチ `dev` → `main`・旧ブランチ 41 本の整理・`Cleanup branches` ワークフロー）は実施済み。
+> 当時の手順は [../archive/2026/github-repo-settings-migration-2026-07-31.md](../archive/2026/github-repo-settings-migration-2026-07-31.md)。
 
 ---
 
-## 何を設定しているか
+## 何を設定しているか（`apply-repo-settings.sh` の順）
+
+### 0. デフォルトブランチ
+
+`main`。スクリプトが最初に確かめて、違えば変える。ここが違うと `workflow_dispatch`（Deploy / Preview の手動実行）が
+そのブランチのワークフローしか呼べず、PR の base の既定値も変わる。
 
 ### 1. マージ方法
 
 | 設定 | 値 | 理由 |
 | --- | --- | --- |
 | Squash merge | **許可** | 1つの PR = `main` の1コミット。途中の「typo 修正」が履歴に残らない |
-| Merge commit | **禁止** | 3つ選べる状態だと人によって履歴の形が変わる |
-| Rebase merge | **禁止** | 同上 |
-| Squash 時のタイトル | PR のタイトル | コミットメッセージを別に考えなくてよい |
-| マージ後にブランチを削除 | **ON** | **これが無かったので `claude/*` が 41 本溜まった** |
-| Auto-merge | 許可 | CI が緑になった瞬間にマージできる（待たなくてよい） |
+| Merge commit / Rebase merge | **禁止** | 3つ選べる状態だと人によって履歴の形が変わる |
+| Squash 時のタイトル・本文 | PR のタイトル・本文（`PR_TITLE` / `PR_BODY`） | コミットメッセージを別に考えなくてよい |
+| マージ後にブランチを削除 | **ON** | これが無くて `claude/*` が 41 本溜まった |
+| Auto-merge | 許可 | CI が緑になった瞬間にマージできる |
+| Issues / Projects | ON | — |
 
 ### 2. 分岐保護（ruleset）
 
-旧来の branch protection ではなく **ruleset** を使っています（タグも同じ仕組みで守れるため）。
+旧来の branch protection ではなく **ruleset**（タグも同じ仕組みで守れるため）。
 
 | ruleset | 対象 | 効果 |
 | --- | --- | --- |
-| `main` | デフォルトブランチ | 削除禁止 / force push 禁止 / **PR 必須** / **CI 必須**（`checks` `build`）/ Squash のみ / 未解決コメントがあるとマージ不可 / 最新の main に追いついていないとマージ不可 |
-| `release-branches` | `release/*` | 削除禁止 / force push 禁止 / PR 必須 |
-| `release-tags` | `v*` タグ | 削除・打ち直し禁止 |
-| `archive-tags` | `archive/*` タグ | 削除・打ち直し禁止 |
+| `main` | `refs/heads/main`（`~DEFAULT_BRANCH` ではなく**明示**。既定ブランチがずれていても `main` が守られる） | 削除禁止 / force push 禁止 / **PR 必須** / **必須チェック `checks` `build`**（strict: 最新の `main` に追いついていないとマージ不可） / Squash のみ / 未解決のレビュースレッドがあるとマージ不可 / 新しい push で古い承認を無効化 |
+| `release-branches` | `refs/heads/release/*` | 削除禁止 / force push 禁止 / PR 必須（Squash のみ）。`release/v3` は畳んだが ruleset は残している |
+| `release-tags` | `refs/tags/v*` | 削除・更新・打ち直し禁止（「本番に何が出たか」の記録そのもの） |
+| `archive-tags` | `refs/tags/archive/*` | 同上（消したブランチの退避先） |
 
-**承認レビュー数は 0** にしています。いまは実質1人体制で、自分の PR には自分で承認を
-付けられないため、1 以上にすると自分の PR がマージできなくなります。
-**人が増えたら 1 に上げてください**（`apply-repo-settings.sh` の
-`required_approving_review_count` を `1` にして流し直すだけ）。
+**承認レビュー数は 0。** 実質1人体制で、自分の PR に自分で承認を付けられないため。人が増えたら
+`apply-repo-settings.sh` の `required_approving_review_count` を `1` にして流し直す。
 
-> **緊急時**: リポジトリ管理者は ruleset をバイパスできます（PR 画面に
-> 「管理者としてマージ」が出ます）。使ったら PR に理由を残してください。
+緊急時はリポジトリ管理者が ruleset をバイパスできる（PR 画面の「管理者としてマージ」）。使ったら PR に理由を残す。
 
-#### 必須チェックの名前について
+#### 必須チェックの名前
 
-必須チェックの `context` は `.github/workflows/ci.yml` の**ジョブ ID そのまま**です。
+必須チェックの `context` は `.github/workflows/ci.yml` の**ジョブ ID そのまま**:
 
-```
-checks   → 型チェック / Lint / 整合性検査 / バージョン表記の整合
-build    → Docker イメージのビルド (本番と同じ経路)
-```
+| context | 中身 |
+| --- | --- |
+| `checks` | 型チェック / Lint / テスト / 共通コードの乖離 / バージョン表記 / UI トークン / npm audit / スクレイパーの Python 検査 |
+| `build` | Docker イメージのビルド（本番と同じ経路） |
 
-**ci.yml のジョブ ID を変えたら、このスクリプトも同時に変えてください。**
-名前が食い違うと ruleset は「そのチェックがまだ来ていない」ではなく
-**「そんなチェックは無い」として静かに通してしまいます**。
-ジョブに日本語の `name:` を付けていないのはこのためです。
+名前が食い違うと ruleset は「まだ来ていない」ではなく**「そんなチェックは無い」として静かに通す**。
+ジョブに日本語の `name:` を付けていないのはこのため。
 
 ### 3. 環境（Environments）
 
 | 環境 | URL | 承認 |
 | --- | --- | --- |
 | `staging` | https://dev.gmo-onair.jp | なし（`main` にマージされたら自動で出る） |
-| `production` | https://gmo-onair.jp | **必須**（Release を公開しても一度止まる） |
-
-`production` の承認者（Required reviewers）は **API から設定できないので画面で**指定します:
-
-<https://github.com/terai-takehiro/gmo-onair/settings/environments> → `production` →
-**Required reviewers** に自分を追加。
-
-これで「誰がいつ本番に出したか」が GitHub の Deployments に残ります。
-CLAUDE.md の「利用者の明示的な指示なしに本番へ出さない」を、口約束ではなく
-**仕組みで**担保するのがこの設定の目的です。
+| `production` | https://gmo-onair.jp | **Required reviewers を画面で設定する**（API からは入れられない）。設定してあれば Release を公開しても一度止まり、誰が本番に出したかが Deployments に残る |
 
 ### 4. ラベル
 
-`type:*`（何の作業か）と `area:*`（どのブロックアプリか）の2軸。
-`area:` があると「Qシートの残作業」を一覧で出せます。
+`type:*`（何の作業か）と `area:*`（どのブロックアプリか）の2軸に、`priority:*` と `ai-feedback-loop`。
+`area:shared` だけ色を変えている（`shared/` は全アプリに効くため）。
 
-`area:shared` だけ色を変えています（`shared/` は**全アプリに効く**ため）。
+| 種類 | ラベル |
+| --- | --- |
+| `type:` | `bug` `feature` `user-request` `chore` `docs` |
+| `area:` | `projects` `qsheet` `equipment` `live` `awards` `daily` `server` `shared` `ci` `deps` |
+| その他 | `priority:urgent` `priority:high` `ai-feedback-loop` |
+
+> ⚠️ 要確認: スクリプトの説明文が `area:qsheet` = `client-qsheet/`（現 `client-techops/`）、`area:awards` = リアルタイムCG（廃止済み）のまま。ラベル名を変えるか説明だけ直すかは人の判断。
 
 ---
 
 ## 手で設定するもの（API から入れられない / 入れるべきでないもの）
 
-### Actions の権限
-
-<https://github.com/terai-takehiro/gmo-onair/settings/actions>
-
-- **Workflow permissions**: `Read repository contents and packages permissions`
-  （書き込みは必要なジョブが `permissions:` で個別に宣言しています）
-- **Allow GitHub Actions to create and approve pull requests**: **OFF**
-  （ON だと CI 自身が PR を承認できてしまい、必須レビューの意味が消えます）
-
-### Secrets
-
-デプロイに必要な secret（既に設定済み）:
-
-| 名前 | 用途 |
+| 場所 | 設定 |
 | --- | --- |
-| `VPS_HOST` | CoNoHa VPS のホスト |
-| `VPS_USER` | SSH ユーザー |
-| `VPS_SSH_KEY` | デプロイ用の秘密鍵 |
-
-`GITHUB_TOKEN` はワークフロー実行中だけ有効な一時トークンで、GHCR の認証に使っています
-（追加の secret は不要）。
-
-### Secret scanning / Push protection
-
-<https://github.com/terai-takehiro/gmo-onair/settings/security_analysis>
-
-- **Secret scanning**: ON
-- **Push protection**: ON — API キーを含むコミットを push した時点で止めます
-
-`.env` は `.gitignore` 済みですが、これは「うっかり別のファイルに書いた」を止めるためです。
+| [Settings → Environments](https://github.com/terai-takehiro/gmo-onair/settings/environments) → `production` | **Required reviewers** に承認者を追加 |
+| [Settings → Actions → General](https://github.com/terai-takehiro/gmo-onair/settings/actions) | Workflow permissions: `Read repository contents and packages permissions`（書き込みは必要なジョブが `permissions:` で個別に宣言する。`ci.yml` の `build` = `packages: write`、`cleanup-branches.yml` = `contents: write`）。**Allow GitHub Actions to create and approve pull requests: OFF**（ON だと CI 自身が PR を承認できる） |
+| Settings → Secrets and variables → Actions | `VPS_HOST`（CoNoHa VPS のホスト）/ `VPS_USER`（SSH ユーザー）/ `VPS_SSH_KEY`（デプロイ用の秘密鍵）。`GITHUB_TOKEN` は実行中だけ有効な一時トークンで GHCR の認証に使う（追加の secret は不要） |
+| [Settings → Code security](https://github.com/terai-takehiro/gmo-onair/settings/security_analysis) | Secret scanning: ON / Push protection: ON（API キーを含むコミットを push した時点で止める。`.env` は `.gitignore` 済みだが「うっかり別のファイルに書いた」を止める） |
 
 ---
 
 ## 変えたときの注意
 
-このリポジトリの設定は**リポジトリの中のファイルと連動**しています。
-片方だけ変えると静かに壊れます。
+設定は**リポジトリの中のファイルと連動**している。片方だけ変えると静かに壊れる。
 
 | 変えたもの | 一緒に変えるもの |
 | --- | --- |
 | `ci.yml` のジョブ ID | `apply-repo-settings.sh` の `required_status_checks` |
-| デプロイの引き金（`deploy.yml` の `on:`） | `docs/branching.md`、`CONTRIBUTING.md` |
-| 環境名（`staging` / `production`） | `deploy.yml` の `environment:` |
-| ブランチの命名規則 | `docs/branching.md`、`ISSUE_TEMPLATE/config.yml` のリンク |
+| デプロイの引き金（`deploy.yml` の `on:`） | [../branching.md](../branching.md)・[../../CONTRIBUTING.md](../../CONTRIBUTING.md)・[../deploy-pipeline.md](../deploy-pipeline.md) |
+| 環境名（`staging` / `production`） | `deploy.yml` と `preview.yml` の `environment:` |
+| ブランチの命名規則 | [../branching.md](../branching.md)・`.github/ISSUE_TEMPLATE/config.yml` のリンク |
+| secrets の名前（`VPS_*`） | `deploy.yml`・`preview.yml` の両方 |
+
+## 関連ファイル
+
+| ファイル | 役割 |
+| --- | --- |
+| `scripts/github/apply-repo-settings.sh` | 上記の適用（冪等） |
+| `scripts/github/cleanup-legacy-branches.sh`・`.github/workflows/cleanup-branches.yml` | 2026-07-31 の旧ブランチ整理（実施済み。何を消したかが SHA まで読める） |
+| `.github/CODEOWNERS`・`.github/dependabot.yml`・`.github/pull_request_template.md`・`.github/ISSUE_TEMPLATE/` | ファイルとして置ける設定 |

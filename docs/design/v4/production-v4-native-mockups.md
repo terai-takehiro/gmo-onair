@@ -1,5 +1,9 @@
 # 制作資料 v4化 — 第1段階モックアップ（Claude Design canvas）
 
+> **状態**: 参考（当時の記録）
+> **最終確認**: 2026-09-08（v4.6.10）
+> **位置づけ**: 制作技術支援（旧・制作資料）v4 化の第1段階モック（Claude Design のキャンバス）。第2段階のコーディングは [qsheet-v4-coding/](qsheet-v4-coding/README.md) の設計で実装済み。①′ トップ（`/techops/top`）は実装済み、作業ファイルは `mockups/native/qsheet-top/`
+
 **このメモ自体はコード変更ではありません。** `/design`（Claude Design のキャンバス）で
 作った、実装前の探索用モックアップへのリンク集です。実際の画面ではありません。
 書式・位置づけは [`ios-native-mobile-mockups.md`](ios-native-mobile-mockups.md) に倣っています

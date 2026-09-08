@@ -1,5 +1,9 @@
 # 収録設定 / 配信設定 — モックアップの元ファイル
 
+> **状態**: 参考（当時の記録）
+> **最終確認**: 2026-09-08（v4.6.10）
+> **位置づけ**: [../../qsheet-recording-streaming.md](../../qsheet-recording-streaming.md)（初版設計）のモックの元ファイル。実装後の正は [../../v4/qsheet-v4-coding/08-recording-streaming.md](../../v4/qsheet-v4-coding/08-recording-streaming.md) とそのモック（`../../v4/qsheet-v4-coding/mockups/tech-settings/`）
+
 **見るときは [Claude Design のキャンバス](https://claude.ai/code/artifact/82ae03a9-e3ac-4027-a922-1f46c628514d)を開いてください。**
 ここにあるのは、そのキャンバスを組み立て直すための元ファイルです。
 

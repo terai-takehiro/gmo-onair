@@ -1,5 +1,9 @@
 # GMO ONAiR MCP サーバー (案件管理・カレンダー・財務管理)
 
+> **状態**: 現役の決めごと（**手書き**。生成物ではない）
+> **最終確認**: 2026-09-08（v4.6.10） — `server/src/contexts/mcp/tools/*.tools.ts` の `registerTool` を数えて 167 種・25 カテゴリ。「ツール一覧」の見出しの件数と一致
+> **位置づけ**: MCP の接続方法・認証・ツール一覧の正（人が読む側）。画面の「MCP コネクタ」が読む `client/public/mcp-tools.json` は `node scripts/generate-mcp-tools.mjs` が同じソースから生成する（この文書は生成しない。ツールを足したら両方直す）。⚠️ 要確認: `mytasks`（個人タスク・依頼・投入。10 種）の表がこの文書に無い — 読み取り5種は「権限ゲート」の節に名前だけ、書き込み5種（`create_task_intake`・`commit_task_intake`・`discard_task_intake`・`create_delegation`・`respond_to_delegation`）はどこにも載っていない。件数 167 には含まれている。
+
 Claude Code などの MCP (Model Context Protocol) クライアントから、ONAiR のデータを直接参照・操作するためのコネクタ。v2.9.171 で追加。
 
 ## エンドポイント
@@ -599,9 +603,9 @@ Slack の定例投稿 (bot 化の下準備・`docs/design/v4/keep-report.md` §6
 | `lend_equipment` | write | 機材を貸し出す。既に貸出中の機材はエラー。planned_out_date を渡すと出庫予定の行になる |
 | `return_equipment` | write | 貸出中の機材を返却する（eq_code/equipment_id で指定。貸出記録 id ではない） |
 
-⚠️ 貸出/返却の権限は HTTP 側 (`equipment.routes.ts`) が `/lendings` 系ルートに個別の
-`requirePermission` を持たず router 既定の reader のまま書き込めるが、MCP 側は他カテゴリの
-書き込みツールと揃えて意図的に `equipment` の editor 以上を要求する（`gate.ts` 参照）。
+貸出/返却の権限は HTTP 側 (`equipment.routes.ts`) と同じ: `/lendings` 系の登録・出庫・返却は
+`equipment` の editor 以上、削除は manager（`requirePermission`）。MCP 側も他カテゴリの
+書き込みツールと揃えて `equipment` の editor 以上を要求する（`gate.ts` 参照）。
 
 ## confirm 2段階フロー (重要操作)
 

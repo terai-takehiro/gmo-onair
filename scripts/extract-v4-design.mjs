@@ -31,7 +31,7 @@ const APPS = {
   'v4-mockup-settings': { label: '設定', out: 'settings.md', scope: 'v4.0.0 対象' },
   'v4-mockup-equipment': { label: '機材管理', out: 'equipment.md', scope: 'v4.0.0 対象' },
   'v4-mockup-dailyops': { label: '日常業務', out: 'daily.md', scope: 'v4.0.0 対象' },
-  'v4-mockup-production': { label: '制作資料 (Qシート)', out: 'production.md', scope: '凍結 — v4.1 以降' },
+  'v4-mockup-production': { label: '制作技術支援 (Qシート)', out: 'production.md', scope: '凍結解除中 — 作り直し進行中' },
 };
 
 // ── 括弧の対応を取って literal を切り出す ─────────────────────────

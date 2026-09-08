@@ -4,8 +4,8 @@
 
   タイトルは `種類(アプリ): 何をしたか` の形にしてください。
   例: feat(equipment): 機材台帳を v4 の見た目にした
-  種類 = feat / fix / chore / docs / refactor
-  → CONTRIBUTING.md「PR タイトルは…」
+  種類 = feat / fix / chore / docs / refactor  → docs/branching.md「PR を出す」
+  版の番号は触らず、docs/changelog.d/<枝の名前>.md を1つ置く → docs/changelog.d/README.md
 -->
 
 ## 何を変えたか
@@ -22,21 +22,19 @@ Closes #
 
 <!-- やったものにチェック。やっていないものは外したままにする (嘘を書かない) -->
 
-- [ ] `npm run typecheck` が通る
+- [ ] `npm run typecheck` が通る (`shared/` を触ったら `npm run typecheck:all`)
 - [ ] `npm run lint` が通る (warning 数が着手前と同じ)
-- [ ] `npm run build` が通る
+- [ ] `npm run test` が通る
+- [ ] `npm run build` が通る (`npm run build:changed` でもよい)
+- [ ] `docs/changelog.d/<枝の名前>.md` を置いた
 - [ ] 実際に画面で動かした — PC (1440px)
 - [ ] 実際に画面で動かした — スマホ (375px、横はみ出し 0px / JS エラー 0件)
 - [ ] 実 DB (Postgres) で保存 → 読み直しまで確認した (`npm run verify:up`)
 - [ ] DB マイグレーションを足した場合: **番号が既存とぶつかっていない**ことを確認した
 - [ ] 権限のない利用者で開いて 403 / 非表示になることを確認した
 
-<!--
-  ⚠️ マージしたあとにやること (docs/branching.md「マージしたら、その PR のレビューを棚卸しに移す」)。
-  マージすると指摘は GitHub の画面から消えるので、書かなければ存在ごと消えます。
-  実測: 143 件が埋もれ、それを潰す作業にも 26 件付き、24 件が記録されていませんでした
-  (うち1件はリリースが出せなくなる P1)。
--->
+<!-- マージしたあとにやること (docs/branching.md「マージしたら、その PR のレビューを棚卸しに移す」)。
+     マージすると指摘は GitHub の画面から消えるので、書かなければ存在ごと消えます。 -->
 - [ ] **マージしたあと** `npm run reviews:debt` を走らせ、残った指摘を
       [docs/reviews/codex-findings-v4.md](../docs/reviews/codex-findings-v4.md) の表に移した
 
@@ -59,20 +57,6 @@ Closes #
 
 </details>
 
-### 移行中のアプリを触った場合
-
-<!--
-  ⚠️ 2026-09-06 現在、「移行中」のアプリは0個 (リアルタイムCGは段A〜Eの実装を
-  検証環境で確認したのち、段Fで「移行中」から「廃止」へ進んだ。詳細は
-  CLAUDE.md「ブロックアプリ一覧」・docs/v4-plan.md「用語」の節・client-awards/CLAUDE.md)。
-  この節は「後継アプリへ機能を移している途中」のアプリが今後また現れたときのための
-  雛形として残してある。該当するアプリが無ければこの節ごと消してよい。
--->
-
-- [ ] **見た目を変えていない** (トークン・書体・シェルを差し替えていない)
-- [ ] **新しい機能を足していない** (足したい機能はテロップCG `client-techops/src/pages/graphics/` 側に作った)
-- [ ] 出力用URL・役割別URL・公開URL が今まで通り開けることを確認した
-
 <details>
 <summary>検証の詳細 (項目数・気づいたこと)</summary>
 
@@ -82,22 +66,12 @@ Closes #
 
 <!-- 触ったブロックアプリにチェック -->
 
-**v4.0.0 の対象**
-
 - [ ] 案件管理・財務管理・カレンダー・設定 (`client/`)
 - [ ] 日常業務 (`client-daily/`)
 - [ ] 機材管理 (`client-equipment/`)
-- [ ] 制作技術支援 (`client-techops/`) — 表本体・`EditorSidebar`・本番系画面はまだ v4 化前
-      (残作業は `client-techops/CLAUDE.md`)
-- [ ] 計時・視聴者 (`client-live/`) — **表示画面 (`/live/display/`) だけ見た目を変えない例外**
-      (`client-live/CLAUDE.md` 参照)
-
-**廃止** — コードは参照用に残るだけ。触る理由があること自体まれ
-
-- [ ] リアルタイムCG (`client-awards/`) → 後継は制作技術支援＞テロップCG
-
-**その他**
-
+- [ ] 制作技術支援 (`client-techops/`) — 凍結解除中。表本体・`EditorSidebar`・本番系画面の残作業は `client-techops/CLAUDE.md`
+- [ ] 計時・視聴者 (`client-live/`) — **表示画面 (`/live/display/`) だけ見た目を変えない例外** (`client-live/CLAUDE.md`)
+- [ ] リアルタイムCG (`client-awards/`) — **廃止**。コードは参照用に残るだけ (後継は制作技術支援＞テロップCG)
 - [ ] サーバー (`server/`)
 - [ ] 共通ライブラリ (`shared/`) — **他のアプリ全部に効きます**
 - [ ] インフラ・CI・デプロイ
