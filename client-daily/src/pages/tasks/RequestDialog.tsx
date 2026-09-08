@@ -37,7 +37,7 @@ export function RequestDialog({ assignee: initialAssignee, onClose }: {
   const create = useCreateTask();
   const { currentUser } = useAuth();
   const { data: users } = useAssignees();
-  const [assignee, setAssignee] = useState(initialAssignee ?? '');
+  const [picked, setPicked] = useState(initialAssignee ?? '');
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
   const [due, setDue] = useState('');
@@ -46,6 +46,20 @@ export function RequestDialog({ assignee: initialAssignee, onClose }: {
   const [err, setErr] = useState<string | null>(null);
 
   const others = (users ?? []).filter((u) => u.id !== currentUser?.id);
+  /**
+   * **一覧に無い相手は「選んでいない」扱いにする**（レビューでの指摘・Codex P2）。
+   *
+   * チームタブの「依頼する」は自分の行からも押せたため、`assignee` に**自分の id**が
+   * 入ったまま開くことがありました。`others` は自分を外すので**選択欄は空に見える**のに
+   * `assignee` は真のままで、そのまま送信できてしまいます。サーバーは
+   * 「自分以外を担当にしたら依頼」と判定するので（`tasks.routes.ts`）、
+   * **依頼ではなく自分あての個人タスクが黙って1件できる**という結果でした。
+   *
+   * 選択欄の値も送信も、この**導出した値**だけを見ます（一覧が届く前は空に落ち、
+   * 届いたら自動でつじつまが合う）。呼び出し側でも自分の行には出さないようにしましたが、
+   * 「選択欄に出ていないものは選ばれていない」はこの部品自身が守るべき決めごとです。
+   */
+  const assignee = others.some((u) => u.id === picked) ? picked : '';
   const assigneeName = others.find((u) => u.id === assignee)?.name;
   /**
    * **相手がいないことを黙って出さない。** 日常業務の権限を持つ人が自分だけだと
@@ -104,7 +118,7 @@ export function RequestDialog({ assignee: initialAssignee, onClose }: {
           <Label className="text-th">誰に <span className="text-destructive">*</span></Label>
           <select
             value={assignee}
-            onChange={(e) => setAssignee(e.target.value)}
+            onChange={(e) => setPicked(e.target.value)}
             className="min-h-tap text-sub mt-1 w-full rounded-control border border-input bg-background px-2 lg:min-h-[40px]"
           >
             <option value="">選んでください</option>

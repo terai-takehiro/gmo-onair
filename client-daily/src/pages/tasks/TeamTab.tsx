@@ -16,6 +16,7 @@ import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/u
 import { Delayed, EmptyState, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
 import { useTeamLoad } from '@/lib/tasksApi';
 
 /** 件数の1マス。**0 は薄く**（読ませる数字ではない・端はそろえたままにする） */
@@ -41,6 +42,7 @@ export function TeamTab({ onRequest, canEdit }: {
   onRequest: (userId: string) => void;
   canEdit: boolean;
 }) {
+  const { currentUser } = useAuth();
   const { data, isLoading } = useTeamLoad();
   if (isLoading) return <Delayed><SkeletonRows rows={5} /></Delayed>;
   const rows = data ?? [];
@@ -82,8 +84,11 @@ export function TeamTab({ onRequest, canEdit }: {
               <RowSlot w={72} align="right"><Count v={r.unanswered_count} tone="font-bold text-warning" /></RowSlot>
               <RowSlot w={72} align="right"><Count v={r.no_due_count} tone="text-warning" /></RowSlot>
               <RowSlot w={72} align="right"><Count v={r.private_count} /></RowSlot>
+              {/* **自分の行には出さない**（レビューでの指摘・Codex P2）。
+                  自分あては依頼ではないので、押せても送れる先がない
+                  （送ると自分あての個人タスクが黙って1件できていた） */}
               <RowSlot w={128} align="right" placeholder="">
-                {canEdit && (
+                {canEdit && r.user_id !== currentUser?.id && (
                   <Button variant="outline" size="sm" onClick={() => onRequest(r.user_id)}>
                     <Send className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />依頼する
                   </Button>

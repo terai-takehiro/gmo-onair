@@ -106,8 +106,15 @@ const SELECT_MY_TASK = `
 // 同点の崩し方: ① 期限が近い順 → ② 重要度が高い順。
 // ②で緊急度ではなく重要度を優先するのは、緊急に流されて重要が後回しになるのを防ぐため
 // (これが 3 段階にした意味)。要件 D2。
+//
+// ⚠️ **未完了を必ず先に並べる**（レビューでの指摘・Codex P1）。
+// この並びには `LIMIT`（既定 200・最大 500）が付くので、完了ぶんも取る呼び方
+// (`include_completed`) と組み合わせると、**優先度の高い「完了済み」が
+// 優先度の低い「未完了」を上限から押し出します**。画面から実際に動いている仕事が
+// 黙って消えるので、完了かどうかを最初の鍵にして、切られるのは必ず完了ぶんからにします。
 const ORDER_BY_PRIORITY = `
-  ORDER BY ${SCORE_EXPR} DESC,
+  ORDER BY t.is_completed ASC,
+           ${SCORE_EXPR} DESC,
            ${DUE_EXPR} ASC NULLS LAST,
            t.importance DESC,
            t.created_at DESC

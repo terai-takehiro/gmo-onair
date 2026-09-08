@@ -67,7 +67,15 @@ export function MyTasksTab() {
   const [view, setView] = useState<'list' | 'board'>('list');
   const [filter, setFilter] = useState<Filter>('all');
   const [editing, setEditing] = useState<MyTask | null>(null);
-  // **完了ぶんまで常に取る。** チップの件数は取っていないものを数えると嘘になる
+  /*
+   * **完了ぶんまで常に取る。** チップの件数は取っていないものを数えると嘘になる。
+   *
+   * ⚠️ これが成り立つのは、**サーバーが未完了を先に並べている**からです
+   * （`my-tasks.service.ts` の `ORDER_BY_PRIORITY`）。この並びが無いと
+   * 上限（200件）で切られるときに、優先度の高い完了済みが未完了を押し出し、
+   * **動いている仕事が画面から黙って消えます**（レビューでの指摘・Codex P1）。
+   * 上限に当たったときに欠けるのは必ず完了ぶんの側です。
+   */
   const { data, isLoading } = useMyTasks({ include_completed: true });
   const tasks = useMemo(() => data?.tasks ?? [], [data]);
   const canOpenProject = data?.canOpenProject ?? false;
@@ -191,8 +199,16 @@ export function MyTasksTab() {
           ))}
         </div>
       ) : (
+        /*
+          ⚠️ **ここで絞り直さないこと**（レビューでの指摘・Codex P2）。
+          以前は `rows.filter((t) => !t.is_completed)` を渡していたので、
+          「完了」を選んだままボードに切り替えると**9マスすべてが 0 件**になり、
+          チップは「完了 24」と出ているのに1件も開けませんでした
+          （上の「0件」の分岐は `rows` を見ているので素通りします）。
+          `rows` は既に選んだ絞り込みそのものなので、そのまま渡します。
+        */
         <NineCellBoard
-          tasks={rows.filter((t) => !t.is_completed)}
+          tasks={rows}
           canEdit={canEdit}
           canOpenProject={canOpenProject}
           onEdit={setEditing}
