@@ -5,7 +5,9 @@
  * 同じ形（`TopItemRow`）で返す。**日付をここにコピーしない** — 案件管理・
  * `qsheet_programs` 自身が持つ日付をそのつど引く（唯一の情報源はそちら）。
  *
- * - `next_date` … 直近の本番・収録（きょう以降でいちばん近い日）。無ければ `null`
+ * - `next_date` … 直近の本番・収録（きょう以降でいちばん近い日）。無ければ `null`。
+ *   **開始日が無く終了日だけ未来にある案件はその終了日を入れる** — 入れないと
+ *   「`last_date` だけ未来」になり、画面が「開催中」と誤って読む（Codex P2・PR #646）
  * - `last_date` … 最後の回・実施日。**「最後の回の翌日」からアーカイブ扱い**にする
  *   （2026-08-22 ご指示）。判定そのものはクライアント側で行う（きょうの日付は
  *   クライアントの壁時計を使う方が「開いた瞬間」と一致するため）
@@ -85,7 +87,14 @@ router.get('/top-items', async (_req: Request, res: Response) => {
              AND COALESCE(e.broadcast_date, e.recording_date)
                  >= to_char(NOW() AT TIME ZONE 'Asia/Tokyo', 'YYYY-MM-DD')),
           CASE WHEN NULLIF(p.event_start, '') >= to_char(NOW() AT TIME ZONE 'Asia/Tokyo', 'YYYY-MM-DD')
-               THEN NULLIF(p.event_start, '') END
+               THEN NULLIF(p.event_start, '') END,
+          -- **開始日が無く終了日だけ未来にある案件**（台帳・一括編集では片方だけ入れられる）は、
+          -- その終了日が「いちばん近い本番日」。ここを落とすと next_date が null のまま
+          -- last_date だけ未来になり、画面が**始まってもいないのに「開催中」**と読む
+          -- （Codex レビュー P2・PR #646）
+          CASE WHEN NULLIF(p.event_start, '') IS NULL
+                AND NULLIF(p.event_end, '') >= to_char(NOW() AT TIME ZONE 'Asia/Tokyo', 'YYYY-MM-DD')
+               THEN NULLIF(p.event_end, '') END
         ) AS next_date,
         COALESCE(
           (SELECT MAX(COALESCE(e.broadcast_date, e.recording_date))

@@ -17,6 +17,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   isArchived, topItemSchedule, sortMainList, upcomingItems, sortArchive, matchesSearch,
+  eligibleRecents,
 } from '../../client-techops/src/pages/top/topHelpers';
 import { countdownLabel } from '../../client-techops/src/lib/dateFmt';
 import type { TopItem } from '../../client-techops/src/lib/topApi';
@@ -54,6 +55,34 @@ describe('topItemSchedule — その項目の「いつ」を1つに決める', (
 
   it('日付を1つも持たなければ none', () => {
     expect(topItemSchedule(item({ name: 'D' }), TODAY)).toEqual({ kind: 'none' });
+  });
+});
+
+describe('「最近開いた項目」は一覧に出ないものを出さない（Codex P2・PR #646）', () => {
+  // 履歴は端末の localStorage で一覧とは別の入れ物なので、サーバーで外した案件が
+  // 前に開かれていれば履歴にだけ残り続ける（直接URLで開いても足される）
+  const recents = [
+    { kind: 'project' as const, id: 'p-gmo', name: 'GMO第3本社プロジェクト', at: '2026-09-08T00:00:00Z' },
+    { kind: 'project' as const, id: 'p-ok', name: '第20期 事業計画発表会', at: '2026-09-07T00:00:00Z' },
+    { kind: 'program' as const, id: 'prog-1', name: 'ここだけの番組', at: '2026-09-06T00:00:00Z' },
+  ];
+
+  it('一覧に居る案件・番組だけ通す', () => {
+    const items = [
+      item({ name: '第20期 事業計画発表会', id: 'p-ok' }),
+      item({ name: 'ここだけの番組', id: 'prog-1', kind: 'own' }),
+    ];
+    expect(eligibleRecents(recents, items).map((e) => e.id)).toEqual(['p-ok', 'prog-1']);
+  });
+
+  it('履歴の project/program と一覧の gls/own を取り違えない', () => {
+    // 同じ id の「案件」と「番組」が居ても、種類が違えば別物
+    const items = [item({ name: 'まぎらわしい', id: 'prog-1', kind: 'gls' })];
+    expect(eligibleRecents(recents, items)).toEqual([]);
+  });
+
+  it('一覧がまだ空（読み込み中・失敗）なら何も出さない', () => {
+    expect(eligibleRecents(recents, [])).toEqual([]);
   });
 });
 
@@ -169,5 +198,10 @@ describe('サーバー（top.routes.ts）が制作物にならない案件を外
   it('日付の列は空文字を通さない（`nextDayStr("")` で落ちないように）', () => {
     expect(sql).toMatch(/NULLIF\(p\.event_start, ''\)/);
     expect(sql).toMatch(/NULLIF\(p\.event_end, ''\)/);
+  });
+
+  it('開始日が無く終了日だけ未来なら、その終了日を next_date に入れる（Codex P2）', () => {
+    // 入れないと `last_date` だけ未来になり、画面が「開催中」と誤って読む
+    expect(sql).toMatch(/NULLIF\(p\.event_start, ''\) IS NULL\s*\n?\s*AND NULLIF\(p\.event_end, ''\) >=/);
   });
 });

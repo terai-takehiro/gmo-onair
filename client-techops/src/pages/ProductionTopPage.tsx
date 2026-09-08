@@ -55,6 +55,7 @@ import { TopItemRow, ArchiveFooterRow, ArchiveSearchHintRow } from './top/TopLis
 import {
   type Segment, type TopView,
   isArchived, matchesSegment, matchesSearch, sortMainList, upcomingItems, sortArchive,
+  eligibleRecents,
 } from './top/topHelpers';
 
 export default function ProductionTopPage() {
@@ -65,7 +66,12 @@ export default function ProductionTopPage() {
   const [createOpen, setCreateOpen] = useState(false);
 
   const itemsQuery = useQuery({ queryKey: ['qsheet-top-items'], queryFn: listTopItems });
-  const items = itemsQuery.data ?? [];
+  /**
+   * ⚠️ **`?? []` をそのまま置かないこと。** 読み込み中は毎回**別の空配列**になり、
+   * これを見ている `useMemo`（絞り込み・並び・履歴の突き合わせ）が描き直しのたびに
+   * 走り直します（履歴は `localStorage` を読むので特に無駄）。
+   */
+  const items = useMemo(() => itemsQuery.data ?? [], [itemsQuery.data]);
   const loading = itemsQuery.isLoading;
 
   const bySegment = useMemo(() => items.filter((it) => matchesSegment(it, segment)), [items, segment]);
@@ -73,7 +79,16 @@ export default function ProductionTopPage() {
   const archived = useMemo(() => bySegment.filter((it) => isArchived(it)), [bySegment]);
 
   const upNext = useMemo(() => upcomingItems(active), [active]);
-  const recentEntries = useMemo(() => listRecentTop().slice(0, 4), []);
+  /**
+   * 「最近開いた項目」は端末の履歴（`localStorage`）だが、**この一覧に出ないものは出さない**
+   * （サーバーで外した工事・構築のプロジェクト・失注が履歴にだけ残るため・Codex P2）。
+   * 絞り込み（`segment`）やアーカイブとは無関係に、`items` 全体と突き合わせる —
+   * 終わった番組でも「さっき開いたもの」には出てよい。
+   */
+  const recentEntries = useMemo(
+    () => eligibleRecents(listRecentTop(), items).slice(0, 4),
+    [items],
+  );
 
   const mainList = useMemo(() => {
     const sorted = sortMainList(active);

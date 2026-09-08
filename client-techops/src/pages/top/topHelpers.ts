@@ -29,7 +29,9 @@ const FINISHED_STAGES = ['r_delivered', 's_completed'];
  *
  *   - `next`  … これから（きょう以降でいちばん近い本番・収録の日）
  *   - `ongoing` … 始まっているが最終日がまだ先（複数日のイベント。`event_start` は
- *                 過ぎたが `event_end` が残っている形）
+ *                 過ぎたが `event_end` が残っている形）。**「開始日が無く終了日だけ未来」は
+ *                 ここに入らない** — サーバーがその終了日を `next_date` に入れる
+ *                 （始まった証拠が無いものを「開催中」と呼ばないため・Codex P2・PR #646）
  *   - `done`  … 最後の回が過ぎた
  *   - `none`  … 日付を1つも持たない（実施日未定）
  */
@@ -126,4 +128,22 @@ export function upcomingItems(active: TopItem[], limit = 3): TopItem[] {
 /** アーカイブは「最後の回」が新しい順。日付を持たないもの（未定のまま完了）は最後 */
 export function sortArchive(items: TopItem[]): TopItem[] {
   return [...items].sort((a, b) => (b.last_date ?? '').localeCompare(a.last_date ?? ''));
+}
+
+/**
+ * 「最近開いた項目」に出してよい履歴だけを残す。
+ *
+ * ⚠️ **履歴は端末の `localStorage`（`recentTop.ts`）で、この一覧とは別の入れ物**なので、
+ * サーバー側で外した案件（工事・構築のプロジェクト＝旧 GLS-B・`GMO-` 系列、失注）が
+ * **前に開かれていれば、ここにだけ残り続けます**（直接URLで開いても足されます）。
+ * それでは一覧から外した意味が無いので、**この一覧に居るものだけ**を通します
+ * （Codex レビュー P2・PR #646）。
+ *
+ * **`localStorage` からは消しません** — 分類の付け間違いが直れば、また出てよい項目です
+ * （消すと直したあとも戻りません）。出す・出さないは毎回ここで決めます。
+ */
+export function eligibleRecents(entries: RecentTopEntry[], items: TopItem[]): RecentTopEntry[] {
+  // 履歴の `project`/`program` と一覧の `gls`/`own` は同じものの別名
+  const alive = new Set(items.map((i) => `${i.kind === 'gls' ? 'project' : 'program'}-${i.id}`));
+  return entries.filter((e) => alive.has(`${e.kind}-${e.id}`));
 }

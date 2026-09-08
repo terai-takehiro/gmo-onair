@@ -25,7 +25,20 @@
   番号の案件」は一致しない）。番号の接頭辞は `legal_entities.number_prefix` を正とし、
   サーバー（`GET /projects?number_series=`）で絞る
 
+## Codexレビュー指摘（PR #646・P2 2件）の反映
+
+- **開始日が無く終了日だけ未来にある案件を「開催中」と読んでいた**のを直した。台帳・一括編集では
+  `event_start` / `event_end` を片方だけ入れられるため、`next_date` が空で `last_date` だけ未来という
+  形が作れる。サーバーがその終了日を `next_date` に入れるようにし、**始まった証拠が無いものを
+  「開催中」と呼ばない**ようにした（本当に開始日が過ぎているものだけ「開催中」）
+- **「最近開いた項目」に、一覧から外した案件が残り続けていた**のを直した。閲覧履歴は端末の
+  `localStorage` で一覧とは別の入れ物なので、工事・構築のプロジェクトや失注を前に開いていれば
+  ここにだけ残る（直接URLで開いても足される）。一覧に居るものだけを通すようにした
+  （`localStorage` からは消さない — 分類の付け間違いが直れば、また出てよい項目のため）
+
 ## 検証
 
 - `npx tsc -b client client-techops server`・`npm run lint`
-- `npm run test`（`shared/tests/techopsTopList.test.ts` を新設・19件／`projectLedgerGrid.test.ts` に6件追加）
+- `npm run test`（`shared/tests/techopsTopList.test.ts` を新設・23件／`projectLedgerGrid.test.ts` に6件追加）
+- 実 Postgres・実 Express で「開始日なし・終了日だけ未来」「開始日は過去・終了日は未来」
+  「終了日だけ過去」の3通りを実際に返させ、それぞれ これから／開催中／アーカイブ になることを確認
