@@ -63,6 +63,14 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
     onError: (err) => notifyApiError('総勘定元帳を取り込めませんでした', err, 'ファイルの形式（freee CSV / MoneyForward xlsx）を確かめてください。'),
   });
 
+  // ファイルの選び直し・取り消しは、それまでの下書き結果（report）を必ず捨てる。
+  // 捨てないと「別のファイルを選んだのに前のファイルの下書きのまま投入」ができてしまう。
+  const selectFile = (f: File | null) => {
+    setFile(f);
+    setReport(null);
+    onStep(1);
+  };
+
   const commit = async () => {
     const prod = report?.isProd;
     const ok = await confirmAction({
@@ -136,7 +144,7 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
               e.preventDefault();
               setDragOver(false);
               const f = e.dataTransfer.files?.[0];
-              if (f) setFile(f);
+              if (f) selectFile(f);
             }}
           >
             {file ? (
@@ -149,7 +157,14 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
                   size="icon"
                   aria-label="ファイルを取り消す"
                   className="min-h-tap min-w-tap"
-                  onClick={(e) => { e.stopPropagation(); setFile(null); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    selectFile(null);
+                    // 同じファイルを選び直したときも change イベントが発火するよう、
+                    // ネイティブ input 側の選択も一緒に消す（消さないとブラウザが
+                    // 「選択が変わっていない」と見なし、同じファイルの再選択を無視する）。
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                  }}
                 >
                   <X className="h-4 w-4" aria-hidden="true" />
                 </Button>
@@ -168,7 +183,7 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
               type="file"
               accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               className="hidden"
-              onChange={(e) => { setFile(e.target.files?.[0] ?? null); }}
+              onChange={(e) => { selectFile(e.target.files?.[0] ?? null); }}
             />
           </div>
         </div>
