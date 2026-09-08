@@ -250,14 +250,8 @@ export default function StreamingPage() {
         </button>
       )}
       <PageHeader title="配信設定" sub={`${owner?.glsNumber ?? owner?.name ?? ownerKey} ・ ${serviceDate}`}>
-        {/* 狭い画面では帯を次の行へ回し、幅いっぱいにする。`w-full` にしないと
-            `MiniAppSwitcher` の根が `shrink-0` のまま親より縮まず、`overflow-x-auto`
-            が発火しないので右端の項目が画面外に出たまま押せない（計時と同じ回避） */}
-        {owner && (
-          <div className="w-full min-w-0 sm:w-auto">
-            <MiniAppSwitcher owner={owner} current="streaming" />
-          </div>
-        )}
+        {/* 帯は狭い画面で幅いっぱいにする（理由は収録設定の同じ箇所のコメント） */}
+        {owner && <div className="w-full min-w-0 sm:w-auto"><MiniAppSwitcher owner={owner} current="streaming" /></div>}
       </PageHeader>
 
       {/* ⚠️ 下の固定バーは「保存する」1つだけにし、他はここへ出す（スマホで指が届く高さを保存に使う） */}
