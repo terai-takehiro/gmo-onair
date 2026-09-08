@@ -83,7 +83,7 @@ export function PdfExtracted({ result }: { result: XpointParseResult }) {
             <Field label="支払予定日">{p.paymentDueDate || '—'}</Field>
             <Field label="計上日（経理欄）">{p.recognitionDate || '—'}</Field>
             <Field label="適格事業者番号">{p.invoiceNumber || '—'}</Field>
-            <Field label="GLS 番号">{p.glsNumber || '—'}</Field>
+            <Field label="管理番号">{p.glsNumber || '—'}</Field>
           </div>
         </div>
       )}

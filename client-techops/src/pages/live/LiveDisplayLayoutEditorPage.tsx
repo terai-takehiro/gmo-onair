@@ -60,7 +60,7 @@ export default function LiveDisplayLayoutEditorPage() {
   if (live.status === 'not-found') {
     return (
       <div className="mx-auto max-w-lg px-4 py-10">
-        <EmptyState icon={<Timer />} title="見つかりませんでした" description="GLS番号または案件IDを確認してください。" />
+        <EmptyState icon={<Timer />} title="見つかりませんでした" description="管理番号または案件IDを確認してください。" />
       </div>
     );
   }

@@ -50,14 +50,14 @@ export function RelinkDialog({
               .map((p) => ({ value: p.id, label: `${p.gls_number}　${p.name}`, subLabel: p.customer_name }))}
             value={state.target_project_id}
             onChange={(v) => setState((s) => ({ ...s, target_project_id: v }))}
-            placeholder="GLS 番号で検索…"
+            placeholder="管理番号で検索…"
           />
         </div>
         <div className="text-note space-y-1 rounded-note border border-warning-border bg-warning-surface p-3 text-secondary-foreground">
           <p>押すと、次のことが起きます:</p>
           <ul className="list-disc space-y-0.5 pl-4">
-            <li>GLS 番号が付け替え先のものになり、回のコードは新しい番号で採り直します</li>
-            <li>いまの GLS 番号（{currentGls}）は履歴に残ります</li>
+            <li>管理番号が付け替え先のものになり、回のコードは新しい番号で採り直します</li>
+            <li>いまの管理番号（{currentGls}）は履歴に残ります</li>
             <li>BOX フォルダ名・Qシートの回のコードも新しい番号に変わります</li>
             <li>想定金額が残っていれば確定売上に変わります（売上・仕入の実績はそのまま）</li>
           </ul>

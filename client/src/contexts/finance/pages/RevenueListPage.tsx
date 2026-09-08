@@ -246,7 +246,7 @@ export default function RevenueListPage() {
           // 入力欄の値は即時。**遅らせるのは問い合わせに渡す値だけ**（`appliedSearch`）
           value: search,
           onChange: (v) => { setSearch(v); reset(); },
-          placeholder: 'GLS番号・案件名・請求先で検索',
+          placeholder: '管理番号・案件名・請求先で検索',
         }}
         month={month}
         onMonth={(v) => { setMonth(v); reset(); }}
@@ -311,7 +311,7 @@ export default function RevenueListPage() {
           <div className="flex flex-col">
             <LedgerList
               rows={ledgerRows}
-              codeLabel="GLS番号 ／ 話数"
+              codeLabel="管理番号 ／ 話数"
               titleLabel="案件"
               itemLabel="売上"
               partyLabel="請求先"

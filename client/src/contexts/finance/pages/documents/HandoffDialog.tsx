@@ -214,11 +214,11 @@ export function HandoffDialog({
                   options={projects.map((p) => ({ value: p.id, label: `${p.gls_number || 'GLS未発番'} ${p.name}` }))}
                   value={effectiveProject}
                   onChange={setProjectId}
-                  placeholder="GLS番号で検索â¦"
+                  placeholder="管理番号で検索â¦"
                 />
                 {guessedProject && !projectId && (
                   <p className="text-note mt-1 text-info">
-                    書類の GLS番号（{doc.gls_number}）から選びました。違うときは選び直してください
+                    書類の管理番号（{doc.gls_number}）から選びました。違うときは選び直してください
                   </p>
                 )}
                 <p className="text-note mt-1 text-muted-foreground">受注（A 受注済）以降の案件だけが選べます</p>

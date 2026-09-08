@@ -73,7 +73,7 @@ export function GlsDialog({
             <Button variant="outline" onClick={() => setState((s) => ({ ...s, open: false }))}>キャンセル</Button>
             <Button onClick={onConfirm} disabled={blocked}>
               {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-              {state.mode === 'link' ? 'GLS 番号を付ける' : 'GLS 番号を採る'}
+              {state.mode === 'link' ? '管理番号を付ける' : '管理番号を採る'}
             </Button>
           </FormDialogFooter>
         </>
@@ -85,7 +85,7 @@ export function GlsDialog({
             {
               mode: 'new' as const,
               title: '新しい番組',
-              sub: canIssueNew ? '新しい GLS 番号を採る' : GLS_ISSUE_BLOCKED_HINT,
+              sub: canIssueNew ? '新しい管理番号を採る' : GLS_ISSUE_BLOCKED_HINT,
               disabled: !canIssueNew,
             },
             { mode: 'link' as const, title: 'いまある案件に追加', sub: 'その番組の回として追加します', disabled: false },
@@ -163,10 +163,10 @@ export function GlsDialog({
               }))}
               value={state.target_project_id}
               onChange={(v) => setState((s) => ({ ...s, target_project_id: v }))}
-              placeholder="GLS 番号で検索…"
+              placeholder="管理番号で検索…"
             />
             <p className="text-note mt-1 text-muted-foreground">
-              選んだ案件の GLS 番号が付き、想定金額は確定売上に変わります。
+              選んだ案件の管理番号が付き、想定金額は確定売上に変わります。
             </p>
           </div>
         )}
@@ -188,7 +188,7 @@ export function GlsResultDialog({
     <FormDialog
       open
       onOpenChange={(open) => { if (!open) onClose(); }}
-      title="GLS 番号を採りました"
+      title="管理番号を採りました"
       footer={(
         <FormDialogFooter>
           <Button variant="outline" onClick={onClose}>閉じる</Button>

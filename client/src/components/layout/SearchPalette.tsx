@@ -275,12 +275,12 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
           {hits.length === 0 ? (
             <p className="text-sub px-3 py-6 text-center text-muted-foreground">
               {!query.trim()
-                ? '案件名・GLS番号・お客様名・仕入先名・画面の名前で検索できます'
+                ? '案件名・管理番号・お客様名・仕入先名・画面の名前で検索できます'
                 : searching
                   ? '検索中…'
                   : failed
                     ? '打ち直すともう一度試します'
-                    : '見つかりませんでした。案件名の一部・GLS番号・お客様名・仕入先名でも検索できます'}
+                    : '見つかりませんでした。案件名の一部・管理番号・お客様名・仕入先名でも検索できます'}
             </p>
           ) : (
             hits.map((hit, i) => {

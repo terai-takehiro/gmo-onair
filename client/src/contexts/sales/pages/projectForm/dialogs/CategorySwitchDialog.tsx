@@ -49,7 +49,7 @@ export function CategorySwitchDialog({
             <p className="text-list text-warning">この案件は GLS 発番済みです（{currentGls}）</p>
             <p className="text-sub">切り替えると、次のものが自動で変わります:</p>
             <ul className="text-note list-inside list-disc space-y-0.5">
-              <li>GLS 番号を新しい分類で<strong>採り直します</strong></li>
+              <li>管理番号を新しい分類で<strong>採り直します</strong></li>
               <li>回のコード（例: <code>{currentGls}-001</code>）も新しい番号に書き換わります</li>
               <li>BOX フォルダ名（社内限り / 社外共有可）も新しい番号になります</li>
               <li>すでに出した見積書・請求書の PDF は<strong>変わりません</strong></li>

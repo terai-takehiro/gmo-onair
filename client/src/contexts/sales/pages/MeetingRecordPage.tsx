@@ -177,7 +177,7 @@ export default function MeetingRecordPage() {
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="案件名・GLS番号で絞る"
+            placeholder="案件名・管理番号で絞る"
             aria-label="案件を絞る"
             className="min-h-tap h-11 pl-10 lg:h-10"
           />
@@ -202,7 +202,7 @@ export default function MeetingRecordPage() {
           <li className="text-note text-muted-foreground">
             {debounced
               ? <>「{debounced}」に当たる案件（最大 50 件）</>
-              : <>最終更新 <span className="font-number">50</span> 件です。無ければ案件名・GLS番号で絞ってください</>}
+              : <>最終更新 <span className="font-number">50</span> 件です。無ければ案件名・管理番号で絞ってください</>}
           </li>
           {rows.map((r) => (
             <li key={r.id}>

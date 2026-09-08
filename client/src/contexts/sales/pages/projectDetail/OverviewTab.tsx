@@ -247,7 +247,7 @@ export function OverviewTab({
           )}
           <Field label="案件内容">{project.goal}</Field>
           <Field label="どこから来た話か">{channelLabel(project.intake_channel) === '—' ? null : channelLabel(project.intake_channel)}</Field>
-          <Field label="GLS 番号">
+          <Field label="管理番号">
             <GlsNumberField glsNumber={project.gls_number} stage={project.stage} />
           </Field>
           {/* 計上会社（2026年10月の事業再編）。未導出（null）は `Field` 既定の「—」に任せる */}

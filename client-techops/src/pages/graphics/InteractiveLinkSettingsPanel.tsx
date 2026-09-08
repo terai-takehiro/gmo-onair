@@ -49,7 +49,7 @@ export default function InteractiveLinkSettingsPanel() {
   if (state.status === 'not-found') {
     return (
       <div className="mx-auto max-w-lg px-4 py-10">
-        <EmptyState icon={<Link2 />} title="見つかりませんでした" description="GLS番号が合っているか確かめてください。" />
+        <EmptyState icon={<Link2 />} title="見つかりませんでした" description="管理番号が合っているか確かめてください。" />
       </div>
     );
   }

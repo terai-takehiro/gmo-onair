@@ -267,7 +267,7 @@ function NetaFields({ r, onChange }: { r: Row; onChange: (p: Partial<Row>) => vo
             </button>
           ))}
         </div>
-        {needsCat && r.checked && <p className={needNote}>どちらか選んでください（GLS番号の採り方が変わります）</p>}
+        {needsCat && r.checked && <p className={needNote}>どちらか選んでください（管理番号の採り方が変わります）</p>}
       </div>
       <div className="sm:col-span-2">
         <Label className="text-[11px] text-muted-foreground">要望・背景</Label>
