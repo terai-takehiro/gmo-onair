@@ -139,11 +139,20 @@ export const BUCKET_LABELS: Record<DelegationBucket, string> = {
   requested: '未返答', accepted: '承諾', bounced: '差し戻し', done: '完了',
 };
 
-/** その依頼はいまどの段にいるか。**画面の絞り込み・バッジ・件数がこれ1本を読む** */
+/**
+ * その依頼はいまどの段にいるか。**画面の絞り込み・バッジ・件数がこれ1本を読む**
+ *
+ * ⚠️ **「完了」は `is_completed` だけで決める**（レビューでの指摘・Codex P2・2巡目）。
+ * 以前は `delegation_status === 'done'` も完了として扱っていましたが、
+ * 「未対応に戻す」を押した依頼は `is_completed` だけ戻って `delegation_status` は
+ * `done` のまま残ることがあり（サーバー側も直しましたが、既にその状態の行が残ります）、
+ * **戻したのに完了の段に居座って二度と片づけられない**状態になっていました。
+ * 未完了なのに `done` が残っている行は「承諾済み（作業中）」として扱います。
+ */
 export function delegationBucket(t: MyTask): DelegationBucket {
-  if (t.is_completed || t.delegation_status === 'done') return 'done';
+  if (t.is_completed) return 'done';
   if (t.delegation_status === 'declined' || t.delegation_status === 'consulting') return 'bounced';
-  if (t.delegation_status === 'accepted') return 'accepted';
+  if (t.delegation_status === 'accepted' || t.delegation_status === 'done') return 'accepted';
   return 'requested';
 }
 
