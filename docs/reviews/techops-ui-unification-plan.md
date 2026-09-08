@@ -79,3 +79,26 @@ v4 化済みの画面同士でも割れていた。
 
 **型スケールはウェイトを内包している**ので、当てたら `font-*` は消すこと
 （`text-list font-bold` のように重ねない）。
+
+## 対応表（角丸 → 役割名）
+
+| 元 | 置き換え先 | 実寸 |
+| --- | --- | --- |
+| `rounded-sm` / `rounded`（バッジ・チップの中） | `rounded-badge-xs` / `rounded-badge` | 6px / 7px |
+| `rounded-md`（入力・小さいボタン・小バッジ） | `rounded-control` / `rounded-control-md` | 7px / 9px |
+| `rounded-lg`（高さ 40〜44px のボタン・入力） | `rounded-control-lg` | 10px |
+| `rounded-lg` / `rounded-xl`（注記の帯・お知らせ） | `rounded-note` | 14px |
+| `rounded-lg` / `rounded-xl` / `rounded-2xl`（カード・パネル） | `rounded-card` | 16px |
+| `rounded-full`（ピル・アバター） | `rounded-chip`（ピル）／`rounded-full` のまま（円） | — |
+
+**`rounded-[...]`（任意の値）は `check-ui-tokens.mjs` の `hand-radius` が止める。**
+迷ったら「それは何か」で選ぶ（大きさで選ばない）。
+
+## 作業の進め方（各ブロック共通）
+
+1. `docs/design/v4/_rules.md` の「5. ページの外枠」と、この文書の対応表2つを読む
+2. **担当ブロックのファイルだけ**を触る。他のブロックのファイルは開いてよいが編集しない
+3. **見た目の統一以外は変えない** — 文言・条件分岐・API 呼び出し・状態管理・アクセシビリティ属性はそのまま
+4. 検証: `npx tsc -p client-techops/tsconfig.json` と、触ったファイルへの `npx eslint`
+5. **git 操作をしない**（commit / add / checkout / stash すべて）。並行して別ブロックが
+   同じ作業ツリーで動いているため、まとめてコミットするのは親セッションの仕事

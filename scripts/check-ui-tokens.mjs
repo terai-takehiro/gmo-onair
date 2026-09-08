@@ -380,6 +380,71 @@ const RULES = [
        + '（38か所で重複し、`lg:` `sm:` `heading-page` の3種類が混ざっていました）',
     only: v4Only,   // 凍結アプリは見た目を変えないので当てない
   },
+  /* ── 画面の外枠 (v4.7・`_rules.md`「5. ページの外枠」) ────────── */
+  {
+    id: 'page-width-by-hand',
+    /**
+     * **本文の幅を画面ごとに書いている。**
+     *
+     * 制作技術支援を数えたら、ページ直下の枠が **8通り**に割れていた
+     * (幅なし / `screen-2xl` / `6xl` が2種の余白で / `5xl` が2種 / `4xl` / `3xl` が2種)。
+     * 同じサイドバーの中で隣り合う画面の本文幅と左右余白が違うと、
+     * **画面を移るたびに文章の左端が動く**。文字の大きさより先に気づく差。
+     *
+     * `<PageShell>` が持つ段は `full`(制限なし) と `narrow`(`max-w-3xl`) の2つだけ。
+     * **中間の段を1つ許すと、次の画面が別の中間を選んで元に戻る**ので、
+     * 中間 (`4xl` `5xl` `6xl` `7xl` `screen-*`) をここで止める。
+     */
+    re: /\bmax-w-(?:4xl|5xl|6xl|7xl|screen-[a-z0-9]+)\b/,
+    why: '本文の幅は `<PageShell>` の2段 (`full` / `narrow`) から選びます'
+       + '（`shared/src/client/ui/pageShell.tsx`。中間の段を1つ許すと'
+       + '次の画面が別の中間を選び、画面を移るたびに本文の左端が動きます）',
+    // 部品の実装本体とモーダル (画面ではない) は対象外
+    only: (rel) => /^client(-daily|-equipment|-techops)?\/src\//.test(rel),
+    extra: (line) => !/^\s*(\/\/|\*|\/\*|\{\s*\/\*)/.test(line),
+  },
+  {
+    id: 'page-h1-by-hand',
+    /**
+     * **画面の名前を `<h1>` で手書きしている。**
+     *
+     * 制作技術支援では h1 の書き方が **11通り・14px〜24px** に割れていた
+     * (`text-h1` 7 / `truncate text-lg font-bold` 6 / `text-sm font-bold` 3 ほか)。
+     * 自前の上辺バーを持つ画面では 14px まで小さくなっていた。
+     * 画面の名前は `<PageHeader>` (`text-h1` = 23px/800) 1つに寄せる。
+     */
+    re: /<h1\b[^>]*className=("|'|`)[^"'`]*\btext-(xs|sm|base|lg|xl|2xl|3xl)\b/,
+    why: '画面の名前は `<PageHeader title=… />` を使います'
+       + '（`shared/src/client/ui/pageHeader.tsx`。制作技術支援では h1 の書き方が'
+       + '11通り・14px〜24px に割れていました）',
+    // 見出し部品の実装本体はここが本体なので対象外
+    only: (rel) =>
+      v4Only(rel)
+      && !/^shared\/src\/client\/(ui|dashboard|shell)\//.test(rel),
+    extra: (line) => !/^\s*(\/\/|\*|\/\*|\{\s*\/\*)/.test(line),
+  },
+  {
+    id: 'page-safe-area-by-hand',
+    /**
+     * **画面が自分でホームバーの逃げを書いている。**
+     *
+     * ホームバーの逃げを持っているのは共通シェル (`shell/AppShell.tsx` の
+     * 主アクションの差し込み口と `MobileTabs`)。画面側で
+     * `style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}` と書くと、
+     * **インラインの指定が `p-3` の下余白に勝って 0px になり**、
+     * ノッチの無い端末では単に本文の下の余白が消える
+     * (制作技術支援の計時・収録・配信の5画面で実際にそうなっていた)。
+     *
+     * シェル側は `calc(0.75rem + env(...))` と足し算で書いているので当たらない。
+     */
+    re: /paddingBottom:\s*(["'`])env\(safe-area-inset-bottom\)\1/,
+    why: 'ホームバーの逃げは共通シェルが持っています'
+       + '（画面側で書くと `p-*` の下余白にインライン指定が勝って **0px** になり、'
+       + 'ノッチの無い端末では下の余白がただ消えます）。'
+       + '外枠は `<PageShell>` を使ってください',
+    // 画面 (pages / contexts) だけに当てる。シェル・下タブはここが本体
+    only: (rel) => /^client(-daily|-equipment|-techops)?\/src\/(pages|contexts)\//.test(rel),
+  },
   {
     id: 'ai-person-name',
     // AI (MCP 経由) がやったことに人名を出す書き方。
@@ -673,7 +738,6 @@ const BASELINE = {
     },
     "empty-by-hand": {
       "client": 4,
-      "client-equipment": 1,
       "client-techops": 1,
       "shared": 2
     },
@@ -685,23 +749,34 @@ const BASELINE = {
     },
     "missing-font-weight": {
       "client": 124,
-      "client-daily": 6,
-      "client-equipment": 46
+      "client-daily": 6
     },
     "money-by-hand": {
       "client": 3,
       "client-equipment": 1
     },
+    "page-h1-by-hand": {
+      "client": 4,
+      "client-techops": 18
+    },
+    "page-safe-area-by-hand": {
+      "client-techops": 6
+    },
     "page-title-by-hand": {
       "client": 4,
-      "client-equipment": 1,
       "client-techops": 1,
       "shared": 1
     },
+    "page-width-by-hand": {
+      "client": 3,
+      "client-daily": 1,
+      "client-equipment": 1,
+      "client-techops": 15
+    },
     "raw-palette": {
       "client": 89,
-      "client-daily": 33,
-      "client-equipment": 65,
+      "client-daily": 32,
+      "client-equipment": 48,
       "client-techops": 146,
       "shared": 6
     },
