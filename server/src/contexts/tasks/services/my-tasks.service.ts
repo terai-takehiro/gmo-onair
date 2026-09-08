@@ -575,7 +575,17 @@ export const myTasksService = {
       // 戻す先を `accepted` にしているのは、**完了できるのは担当者だけ**で、
       // 完了させた時点でその人が引き受けていたと言えるためです
       // （直前の状態は持っていないので、承諾済みとして扱うのがいちばん近い）。
-      if (row.requester_id) set('delegation_status', patch.is_completed ? 'done' : 'accepted');
+      //
+      // ⚠️ **戻すのは「完了だったものを戻すとき」だけ**（レビューでの指摘・Codex P2・#648）。
+      // 直前の版は `is_completed` が渡ってきたら常に書き換えていたので、
+      // **未返答・辞退・相談の依頼に `is_completed:false` を投げるだけで `accepted` に
+      // 変わって**しまいました（この画面は送りませんが、API は MCP からも叩けます）。
+      // 受け手の 承諾／相談／辞退 を飛ばせるうえ、差し戻しが依頼者の「あなたの番」から
+      // 消えます。**完了だった行以外は今の状態をそのまま残します。**
+      if (row.requester_id) {
+        if (patch.is_completed) set('delegation_status', 'done');
+        else if (row.delegation_status === 'done') set('delegation_status', 'accepted');
+      }
     }
     if (sets.length === 0) return this.get(taskId);
 
