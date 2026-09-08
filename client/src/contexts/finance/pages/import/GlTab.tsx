@@ -12,12 +12,11 @@
  * **対象や取り込み元を変えて投入すると、意図しない範囲が入れ直されます**。
  * 4つのトグルの既定値は旧実装から変えていません。
  */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { Loader2, AlertTriangle, Database } from 'lucide-react';
+import { Loader2, AlertTriangle, Database, CloudUpload, FileSpreadsheet, X } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
 import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
@@ -36,22 +35,32 @@ const TOGGLES = [
 export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
   const [scope, setScope] = useState<ImportScope>('all');
   const [flags, setFlags] = useState({ createMasters: true, excludeFixed: false, skipDuplicates: true });
-  const [boxFolder, setBoxFolder] = useState('');
-  const [boxFile, setBoxFile] = useState('');
+  const [file, setFile] = useState<File | null>(null);
   const [report, setReport] = useState<KessanReport | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
 
   const run = useMutation<KessanReport, Error, boolean>({
-    mutationFn: async (commit) => (await api.post('/admin/kessan/run', {
-      scope, commit, ...flags,
-      boxFolderId: boxFolder.trim() || undefined,
-      glFileId: boxFile.trim() || undefined,
-    }, { timeout: 180_000 })).data.data as KessanReport,
+    mutationFn: async (commit) => {
+      if (!file) throw new Error('総勘定元帳ファイルを選択してください');
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('scope', scope);
+      fd.append('commit', String(commit));
+      fd.append('createMasters', String(flags.createMasters));
+      fd.append('excludeFixed', String(flags.excludeFixed));
+      fd.append('skipDuplicates', String(flags.skipDuplicates));
+      return (await api.post('/admin/kessan/run', fd, {
+        timeout: 180_000,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })).data.data as KessanReport;
+    },
     onSuccess: (d) => {
       setReport(d);
       onStep(d.dryRun ? 2 : 3);
       if (!d.dryRun) notifySuccess('取り込みました');
     },
-    onError: (err) => notifyApiError('総勘定元帳を取り込めませんでした', err, '指定したフォルダ・ファイルが読めるか確かめてください。'),
+    onError: (err) => notifyApiError('総勘定元帳を取り込めませんでした', err, 'ファイルの形式（freee CSV / MoneyForward xlsx）を確かめてください。'),
   });
 
   const commit = async () => {
@@ -71,7 +80,7 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
       <div className="rounded-control-lg flex items-start gap-2 border border-warning-border bg-warning-surface p-3">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
         <p className="text-sub text-secondary-foreground">
-          freee の総勘定元帳（Box）を財務管理・案件管理へ取り込みます。
+          アップロードした総勘定元帳ファイルを財務管理・案件管理へ取り込みます。
           まず<strong className="font-bold">「読み取る（下書き）」</strong>で中身を確かめ、問題なければ入れてください。
           対象月ぶんを入れ直す形なので<strong className="font-bold">何度でもやり直せます</strong>。
           本番・検証のどちらでも動きます（取り込み先は結果に出ます）。
@@ -111,28 +120,67 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
         </div>
 
         <div>
-          <Label>取り込み元 Box フォルダ（任意・ID または共有 URL）</Label>
-          <Input value={boxFolder} onChange={(e) => setBoxFolder(e.target.value)} placeholder="例: 390226334203" />
-          <p className="text-note mt-1 text-muted-foreground">
-            そのフォルダの「総勘定元帳／元帳」CSV（freee）のうち<strong className="font-bold">最新</strong>を選びます。空欄なら既定の取り込み元です。
-          </p>
-        </div>
-        <div>
-          <Label>取り込み元ファイルを直接指定（任意・Box ファイル ID または共有 URL）</Label>
-          <Input value={boxFile} onChange={(e) => setBoxFile(e.target.value)} placeholder="例: 2285787526887" />
-          <p className="text-note mt-1 text-muted-foreground">
-            freee の CSV も MoneyForward の xlsx も指定できます（形式は自動で見分けます・フォルダ指定より優先）。
-          </p>
+          <Label>総勘定元帳ファイル（freee の CSV または MoneyForward の xlsx）</Label>
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="総勘定元帳ファイルをドラッグ＆ドロップ、またはクリックして選択"
+            className={`rounded-control-lg min-h-tap cursor-pointer border-2 border-dashed p-5 text-center transition-colors ${
+              dragOver ? 'border-primary bg-primary-surface-weak' : 'border-border hover:border-primary'
+            }`}
+            onClick={() => fileInputRef.current?.click()}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              const f = e.dataTransfer.files?.[0];
+              if (f) setFile(f);
+            }}
+          >
+            {file ? (
+              <div className="flex items-center justify-center gap-2">
+                <FileSpreadsheet className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+                <span className="text-sub truncate font-bold">{file.name}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="ファイルを取り消す"
+                  className="min-h-tap min-w-tap"
+                  onClick={(e) => { e.stopPropagation(); setFile(null); }}
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </div>
+            ) : (
+              <>
+                <CloudUpload className="mx-auto h-6 w-6 text-muted-foreground" aria-hidden="true" />
+                <p className="text-sub mt-1.5 font-bold">
+                  freee の総勘定元帳CSV または MoneyForward の xlsx をドラッグ＆ドロップ
+                </p>
+                <p className="text-note mt-0.5 text-muted-foreground">またはクリックして選択</p>
+              </>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              className="hidden"
+              onChange={(e) => { setFile(e.target.files?.[0] ?? null); }}
+            />
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" disabled={run.isPending} onClick={() => run.mutate(false)}>
+          <Button variant="outline" disabled={run.isPending || !file} onClick={() => run.mutate(false)}>
             {run.isPending && !run.variables
               ? <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />
               : <Database className="mr-1 h-4 w-4" aria-hidden="true" />}
             読み取る（下書き）
           </Button>
-          <Button disabled={run.isPending || !report} onClick={commit}>
+          <Button disabled={run.isPending || !report || !file} onClick={commit}>
             {run.isPending && run.variables && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
             台帳に入れる
           </Button>

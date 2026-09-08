@@ -1,7 +1,7 @@
 /**
  * kessan-import.service.ts — 決算データ取込 (検証DB専用)
  *
- * freee の総勘定元帳 CSV (Box 格納) を ONAiR の予算管理/案件管理テーブルへ取り込む。
+ * freee の総勘定元帳 CSV (PCからアップロード) を ONAiR の予算管理/案件管理テーブルへ取り込む。
  * 管理画面の「決算インポート」ボタン (dev 限定) から呼ばれる。CLI 版
  * (server/scripts/import-kessan-dev.mjs) と同一ロジック。
  *
@@ -18,13 +18,11 @@ import { randomUUID } from 'node:crypto';
 import { TextDecoder } from 'node:util';
 import { loadExcelWorkbook, sheetToAoa } from '../../../shared/utils/excel';
 import { getDb } from '../../../shared/db/connection';
-import { getBoxClient } from '../../../shared/services/box';
 import { normalizeTaxCategory } from '../../../shared/services/tax-category.service';
 import { looksLikeGmoGroup } from '../../../shared/services/gmo-group';
 import { createCustomerRecord, createVendorRecord, execFromPgClient } from '../../../shared/services/company-directory.service';
 import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 
-export const DEFAULT_GL_FILE_ID = '2285559397453'; // 総勘定元帳_20260507_1652.csv
 const FIXED_CODE = 'FIXED-COGS';
 const FIXED_NAME = '固定原価（スタジオ償却負担額等）';
 const FIXED_CUSTOMER = '（固定費・社内）';
@@ -36,8 +34,8 @@ export interface KessanOptions {
   excludeFixed?: boolean;
   /** 重複候補 (既存データと同一 金額+内容+日付) の行を投入しない */
   skipDuplicates?: boolean;
-  glFileId?: string;
-  boxFolderId?: string; // 指定フォルダ内の最新CSVを自動選択 (未指定なら env KESSAN_BOX_FOLDER_ID)
+  /** アップロードされた GL ファイル (freee CSV または MoneyForward xlsx) */
+  file: { buffer: Buffer; name: string };
   period?: string; // YYYY-MM
 }
 
@@ -159,50 +157,6 @@ const invQualified = (...xs: unknown[]): number => {
   return (s.includes('80%') || s.includes('非適格') || s.includes('50%')) ? 0 : 1;
 };
 const yen = (n: number): string => '¥' + Number(n).toLocaleString();
-
-/** 取込対象の GL ファイルを解決: 明示ID → 指定フォルダの最新CSV → 既定ID */
-async function resolveGlFile(opts: KessanOptions): Promise<{ id: string; name: string }> {
-  if (opts.glFileId) {
-    // 指定ファイルの実ファイル名を取得 (エラーメッセージ/レポートで役立つ)。取得失敗は無視。
-    let name = '(指定ファイル)';
-    try {
-      const client = getBoxClient();
-      if (client) {
-        const info = await client.files.get(opts.glFileId, { fields: 'name' });
-        if (info?.name) name = info.name;
-      }
-    } catch { /* best-effort */ }
-    return { id: opts.glFileId, name };
-  }
-  const folderId = opts.boxFolderId || process.env.KESSAN_BOX_FOLDER_ID;
-  if (folderId) {
-    const client = getBoxClient();
-    if (!client) throw new Error('BOX が未設定です (BOX_CONFIG_JSON)');
-    const items = await client.folders.getItems(folderId, { fields: 'id,name,type,created_at', limit: 1000 });
-    const csvs = items.entries.filter((e) => e.type === 'file' && /\.csv$/i.test(e.name));
-    if (!csvs.length) throw new Error(`Box フォルダ (${folderId}) に CSV ファイルがありません`);
-    // 取引明細 (仕訳帳/総勘定元帳) を優先。損益計算書/残高試算表 (集計表) は取込不可のため後回し。
-    // 最新 (created_at 降順、同点はファイル名降順) を採用。
-    const preferred = csvs.filter((e) => /仕訳|元帳|総勘定/.test(e.name));
-    const pool = preferred.length ? preferred : csvs;
-    pool.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')) || String(b.name).localeCompare(String(a.name)));
-    return { id: pool[0].id, name: pool[0].name };
-  }
-  return { id: DEFAULT_GL_FILE_ID, name: '(既定の総勘定元帳)' };
-}
-
-async function boxDownloadBuf(fileId: string): Promise<Buffer> {
-  const client = getBoxClient();
-  if (!client) throw new Error('BOX が未設定です (BOX_CONFIG_JSON)');
-  const stream = await client.files.getReadStream(fileId);
-  const chunks: Buffer[] = [];
-  await new Promise<void>((resolve, reject) => {
-    stream.on('data', (c: Buffer) => chunks.push(Buffer.from(c)));
-    stream.on('end', () => resolve());
-    stream.on('error', reject);
-  });
-  return Buffer.concat(chunks);
-}
 
 /** freee CSV は UTF-8 または Shift_JIS。ヘッダー文字が読める方を採用する。 */
 function decodeCsv(buf: Buffer): string {
@@ -479,14 +433,14 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
   const skipDuplicates = !!opts.skipDuplicates;
   const warnings: string[] = [];
 
-  // --- Box から GL 取得 → 形式判定 (xlsx=MoneyForward / CSV=freee) → 抽出 ---
-  const glFile = await resolveGlFile(opts);
-  const buf = await boxDownloadBuf(glFile.id);
+  // --- アップロードされた GL ファイル → 形式判定 (xlsx=MoneyForward / CSV=freee) → 抽出 ---
+  const buf = opts.file.buffer;
+  const glFileName = opts.file.name;
   const isXlsx = buf.length > 3 && buf[0] === 0x50 && buf[1] === 0x4b; // 'PK' (zip) = xlsx
   const sourceFmt = isXlsx ? 'MoneyForward (xlsx)' : 'freee (CSV)';
   const { sga, rev, pur, fixed } = isXlsx
     ? await extractMoneyForwardXlsx(buf, warnings)
-    : extractFreeeCsv(decodeCsv(buf), glFile.name, warnings);
+    : extractFreeeCsv(decodeCsv(buf), glFileName, warnings);
 
   // period 判定 + 対象期間 (抽出行の日付の最小〜最大 + 含まれる年月)
   const counts: Record<string, number> = {};
@@ -514,7 +468,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
   const isProd = targetDb.includes('prod') || targetDb.includes('production');
 
   const report: KessanReport = {
-    dryRun: !commit, period, dateRange, targetDb: process.env.DB_NAME || (isProd ? 'prod' : 'dev'), isProd, scopes, sourceFile: `${glFile.name}（${sourceFmt}）`,
+    dryRun: !commit, period, dateRange, targetDb: process.env.DB_NAME || (isProd ? 'prod' : 'dev'), isProd, scopes, sourceFile: `${glFileName}（${sourceFmt}）`,
     summary: {
       sga: { count: sga.length, amount: sum(sga) },
       revenues: { count: rev.length, amount: sum(rev) },

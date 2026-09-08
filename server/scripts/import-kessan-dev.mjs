@@ -2,7 +2,7 @@
 /**
  * import-kessan-dev.mjs
  *
- * 決算データ (freee 総勘定元帳 CSV / Box 格納) を ONAiR の予算管理・案件管理
+ * 決算データ (freee 総勘定元帳 CSV / ローカルファイル) を ONAiR の予算管理・案件管理
  * テーブルへ取り込む【検証(dev)専用】ワンオフ インポータ。
  *
  *   - 販管費 (sga_expenses)  : 7xxx 勘定科目 → そのまま (project 不要)
@@ -23,26 +23,22 @@
  *
  * Usage (VPS / app_dev コンテナ内):
  *   # まず dry-run で内容確認 (既定 scope=sga)
- *   docker exec -it gmo-onair-app_dev-1 node /app/server/scripts/import-kessan-dev.mjs
+ *   docker exec -it gmo-onair-app_dev-1 node /app/server/scripts/import-kessan-dev.mjs --file=/path/to/gl.csv
  *   # 販管費を投入
- *   docker exec -it gmo-onair-app_dev-1 node /app/server/scripts/import-kessan-dev.mjs --scope=sga --commit
+ *   docker exec -it gmo-onair-app_dev-1 node /app/server/scripts/import-kessan-dev.mjs --file=/path/to/gl.csv --scope=sga --commit
  *   # 全部 (案件/顧客/取引先も新規作成しつつ) 投入
- *   docker exec -it gmo-onair-app_dev-1 node /app/server/scripts/import-kessan-dev.mjs --scope=all --create-masters --commit
+ *   docker exec -it gmo-onair-app_dev-1 node /app/server/scripts/import-kessan-dev.mjs --file=/path/to/gl.csv --scope=all --create-masters --commit
  *
- * 必須 env: BOX_CONFIG_JSON, (DATABASE_URL | DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME)
- * 任意 env/flag: --gl-file-id=<Box file id> (既定 2285559397453)
- *               --period=YYYY-MM (既定: GL の最頻取引月)
+ * 必須 env: (DATABASE_URL | DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME)
+ * 必須 flag: --file=<path> (freee 総勘定元帳 CSV)
+ * 任意 flag: --period=YYYY-MM (既定: GL の最頻取引月)
  */
 
 import pg from 'pg';
-import BoxSDK from 'box-node-sdk';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 const { Client } = pg;
-
-// ---- 既定の Box ファイル ID (このフォルダの決算資料) ----
-const DEFAULT_GL_FILE_ID = '2285559397453'; // 総勘定元帳_20260507_1652.csv
 
 // ============================================================
 // 引数
@@ -60,8 +56,11 @@ const FIXED_CODE = 'FIXED-COGS';
 const FIXED_NAME = '固定原価（スタジオ償却負担額等）';
 const FIXED_CUSTOMER = '（固定費・社内）';
 const SCOPE = getOpt('--scope', 'sga'); // sga | revenues | purchases | all
-const GL_FILE_ID = getOpt('--gl-file-id', DEFAULT_GL_FILE_ID);
-const LOCAL_FILE = getOpt('--local-file', ''); // Box の代わりにローカルCSVを読む (テスト/オフライン用)
+const FILE_PATH = getOpt('--file', '');
+if (!FILE_PATH) {
+  console.error('[kessan] --file=<path> でCSVファイルを指定してください。');
+  process.exit(2);
+}
 const NO_DB = hasFlag('--no-db'); // DB に接続せず抽出サマリのみ表示 (パース検証用)
 let PERIOD = getOpt('--period', ''); // YYYY-MM (空なら自動判定)
 const SCOPES = SCOPE === 'all' ? ['sga', 'revenues', 'purchases'] : [SCOPE];
@@ -152,34 +151,14 @@ const invQualified = (...xs) => {
 const yen = (n) => '¥' + Number(n).toLocaleString();
 
 // ============================================================
-// Box から CSV 取得
-// ============================================================
-async function boxDownload(fileId) {
-  const cfgJson = process.env.BOX_CONFIG_JSON;
-  if (!cfgJson) throw new Error('BOX_CONFIG_JSON not set');
-  const sdk = BoxSDK.getPreconfiguredInstance(JSON.parse(cfgJson));
-  const client = sdk.getAppAuthClient('enterprise');
-  const stream = await client.files.getReadStream(fileId);
-  const chunks = [];
-  for await (const ch of stream) chunks.push(ch);
-  return Buffer.concat(chunks).toString('utf8');
-}
-
-// ============================================================
 // メイン
 // ============================================================
 async function main() {
   console.log(`[kessan] mode=${COMMIT ? 'COMMIT' : 'DRY-RUN'} scope=${SCOPES.join(',')} createMasters=${CREATE_MASTERS} db=${dbLabel}`);
 
   // --- GL 取得 + パース ---
-  let csv;
-  if (LOCAL_FILE) {
-    console.log(`[kessan] ローカルCSV ${LOCAL_FILE} を読み込み中...`);
-    csv = readFileSync(LOCAL_FILE, 'utf8');
-  } else {
-    console.log(`[kessan] Box から総勘定元帳 (file ${GL_FILE_ID}) を取得中...`);
-    csv = await boxDownload(GL_FILE_ID);
-  }
+  console.log(`[kessan] ${FILE_PATH} を読み込み中...`);
+  const csv = readFileSync(FILE_PATH, 'utf8');
   const rows = parseCsv(csv);
   const header = rows[0];
   const idx = (name) => header.indexOf(name);

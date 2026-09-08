@@ -150,6 +150,17 @@ export function settlementPrefix(format: string): string {
 
 export type ImportScope = 'sga' | 'revenues' | 'purchases' | 'all';
 
+/** POST /admin/kessan/run — multipart/form-data で送る */
+export interface KessanRunRequest {
+  file: File;
+  scope: ImportScope;
+  commit: boolean;
+  createMasters: boolean;
+  excludeFixed: boolean;
+  skipDuplicates: boolean;
+  period?: string; // YYYY-MM（任意・現状UIからは送らない）
+}
+
 export interface KessanReport {
   dryRun: boolean;
   period: string;
