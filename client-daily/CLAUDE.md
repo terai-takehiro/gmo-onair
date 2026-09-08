@@ -13,6 +13,32 @@
 | 入ってきた情報（その他問い合わせ） | `pages/InquiriesPage` ＋ `pages/inquiries/{state.ts,InquiryRows,InquiryCards,SidePanels,TicketDialog,StockDialog,InquiryDialog,InquiryBody}.tsx` |
 | セキュリティカード | `pages/SecurityCardsPage`（**master-detail**）＋ `pages/securityCards/{CardGrid,CardDetailPanel,LendDialog,types}.tsx` |
 
+- **タスク・依頼**（2026-09 に**モックから再設計**した。設計の正は
+  [docs/design/v4/mockups/tasks-redesign/](../docs/design/v4/mockups/tasks-redesign/)。
+  要件の正は [docs/archive/2026/2026-07-25-collaboration-and-personal-agent.md](../docs/archive/2026/2026-07-25-collaboration-and-personal-agent.md)
+  の D2 / D3 / D8 / D9 で、**4タブ・9マス・今日やること3件・期限必須は変えていない**):
+  - **主操作はタブごとに変わる**（マイタスク＝タスクを追加／依頼＝**依頼する**）。
+    ⚠️ **依頼タブから依頼を出せる状態を壊さないこと** — 作り直す前、この画面には
+    依頼を作る操作が1つも無く、手で1件出す唯一の道はマイタスクの「追加」で
+    担当者を自分以外に変えること（選ぶまでそれが依頼になると分からない）だった。
+    投入口を AI（案件管理トップ・要件 D4）に寄せた結果、手で出す動線が消えていた
+  - **依頼タブは master-detail**（`DelegationList` ＋ `DelegationDetail`）。
+    **本文・やり取り・操作は選んだ1件のパネルにだけ出す。** ⚠️ **一覧の行ぜんぶに
+    コメント欄を戻さないこと** — 5件並ぶと画面が操作ボタンで埋まり、どれが自分の番か
+    読めなくなる。スマホは一覧をカードにして選んだ1件をシートで開く
+  - **「あなたの番」＝ 受けたのに返していない ＋ 出したが差し戻されて決めていない**
+    （`isMyTurn()`）。タブの見出しの数字も帯の数字もこれ1本を読む。
+    ⚠️ **未完了の総数を出さないこと** — 相手が動いている最中のものまで自分の宿題に見える
+  - **段は受けた／出したで同じ4つ**（未返答／承諾／差し戻し／完了・`delegationBucket()`）。
+    辞退と相談は決着のしかたが同じなので「差し戻し」に畳んである（理由は詳細のやり取りに出る）
+  - **一覧は常に完了ぶんまで取る**（`useMyDelegations(dir, true)` / `useMyTasks({include_completed:true})`）。
+    チップの件数は「押す前に 0 件だと分かる」ためのものなので、取っていないものを数えると嘘になる。
+    **段の名前に添えた数は未完了だけ・チップの「すべて」は完了も含む**（画面に断り書きを出している）
+  - **「タスクを追加」は自分のタスク専用**。人に頼むのは `RequestDialog` に分けた
+    （欄の並びは 相手 → 内容 → 補足 → 期限 → 重要度・緊急度。相手が先なのは
+    この欄で期限が必須に変わるため＝`_form-order.md` 2-1）
+  - **ページ幅は他の画面と同じ全幅**（`flex flex-col gap-4 p-3 lg:gap-5 lg:p-6`）。
+    ⚠️ `mx-auto max-w-5xl` に戻さないこと（このアプリでこの画面だけ狭かった）
 - `pages/TasksPage` は当初「案件管理へ寄せる」方針だったが、**この方針は撤回した**
   （案件管理側のトップページ節を参照）。⚠️ **この段落は当時の記録。**
   ここが根拠にしていた `MyTasksSummarySection.tsx` は「案件管理のリンクを全部当たり直し、

@@ -1,0 +1,149 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&family=Noto+Sans+JP:wght@400;700;900&display=swap">
+  <style>
+    body { margin:0; background:#f7f8fa; color:#1a1d24;
+      font-family:'LINE Seed JP','Noto Sans JP',-apple-system,'Hiragino Sans','BIZ UDPGothic','Meiryo',sans-serif;
+      font-feature-settings:'palt' 1,'kern' 1; -webkit-font-smoothing:antialiased; }
+    .num { font-variant-numeric:tabular-nums; }
+    svg { flex-shrink:0; }
+    .lb { display:block; margin:0 0 5px; font-size:11.5px; font-weight:700; color:#5d6470; }
+    .fld { display:flex; align-items:center; box-sizing:border-box; height:40px; padding:0 12px; border:1px solid #e6e9ed; border-radius:9px; background:#ffffff; font-size:13px; }
+    .ph { color:#9aa1ab; }
+    .qp { display:inline-flex; align-items:center; height:28px; box-sizing:border-box; padding:0 10px; border:1px solid #e6e9ed; border-radius:999px; background:#ffffff; font-size:11.5px; color:#5d6470; }
+    .seg { flex:1; display:inline-flex; align-items:center; justify-content:center; height:36px; box-sizing:border-box; border:1px solid #e6e9ed; border-radius:8px; background:#ffffff; font-size:12.5px; color:#3c424c; }
+    .segOn { border-color:#005bac; background:#f4faff; color:#005bac; font-weight:700; }
+  </style>
+</helmet>
+
+<div style="width:620px; box-sizing:border-box; display:flex; flex-direction:column; gap:26px; padding:22px; background:#f7f8fa">
+
+  <!-- ① 依頼する（依頼タブの主操作） -->
+  <div style="box-sizing:border-box; border:1px solid #e6e9ed; border-radius:14px; background:#ffffff; overflow:hidden; box-shadow:0 8px 28px rgba(26,29,36,.10)">
+
+    <div style="box-sizing:border-box; padding:16px 18px 13px; border-bottom:1px solid #eef0f3">
+      <p style="margin:0; font-size:17px; font-weight:800">依頼する</p>
+      <p style="margin:4px 0 0; font-size:12px; color:#5d6470">相手・内容・期限を決めて送ります。相手は 承諾 ／ 相談 ／ 辞退 を選べます。</p>
+    </div>
+
+    <div style="box-sizing:border-box; padding:16px 18px; display:flex; flex-direction:column; gap:14px">
+
+      <!-- 段1: 誰に。**いちばん上**（この欄で期限が必須になるため） -->
+      <div>
+        <span class="lb">誰に <span style="color:#c7243a">*</span></span>
+        <span class="fld" style="justify-content:space-between">
+          <span>山田 太郎</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </span>
+      </div>
+
+      <!-- 段2: 依頼の内容 -->
+      <div>
+        <span class="lb">依頼の内容 <span style="color:#c7243a">*</span></span>
+        <span class="fld"><span class="ph">例: 10月内覧会の配信構成図をつくる</span></span>
+      </div>
+
+      <!-- 段3: 補足 -->
+      <div>
+        <span class="lb">補足</span>
+        <span style="display:block; box-sizing:border-box; min-height:66px; padding:10px 12px; border:1px solid #e6e9ed; border-radius:9px; background:#ffffff; font-size:12.5px; line-height:1.8;" class="ph">前回のファイルの場所、決まっている条件、判断してほしい点</span>
+      </div>
+
+      <!-- 段4: 期限（必須）。クイック選択は短い順 -->
+      <div>
+        <span class="lb">何月何日何時何分まで <span style="color:#c7243a">*</span></span>
+        <span class="fld" style="justify-content:space-between">
+          <span class="num">2026/09/12 18:00</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        </span>
+        <span style="display:flex; flex-wrap:wrap; gap:6px; margin-top:7px">
+          <span class="qp">今日 18:00</span><span class="qp">明日 10:00</span><span class="qp">明日 18:00</span>
+          <span class="qp" style="border-color:#a6ceeb; background:#f4faff; color:#005bac; font-weight:700">金曜 18:00</span><span class="qp">来週月曜 10:00</span>
+        </span>
+      </div>
+
+      <!-- 段5: 重要度・緊急度。**依頼のときは依頼者が示す**（要件 D2） -->
+      <div style="display:flex; gap:14px">
+        <div style="flex:1; min-width:0">
+          <span class="lb">重要度</span>
+          <span style="display:flex; gap:6px"><span class="seg segOn">高</span><span class="seg">中</span><span class="seg">低</span></span>
+        </div>
+        <div style="flex:1; min-width:0">
+          <span class="lb">緊急度</span>
+          <span style="display:flex; gap:6px"><span class="seg">高</span><span class="seg segOn">中</span><span class="seg">低</span></span>
+        </div>
+      </div>
+
+      <!-- 段6: 判定（入れた値がどう効くかをその場で見せる） -->
+      <span style="display:flex; align-items:center; gap:9px; box-sizing:border-box; padding:9px 12px; border:1px solid #e6e9ed; border-radius:9px; background:#fbfcfd">
+        <span class="num" style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:22px; box-sizing:border-box; border:1px solid #fed7aa; border-radius:6px; background:#fff7ed; color:#c2410e; font-size:11px; font-weight:800">6</span>
+        <span style="font-size:12px; color:#5d6470">重要 高 × 緊急 中 ＝ 今日中に着手。山田 さんの一覧では上から 2 番目に出ます。</span>
+      </span>
+
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:8px; box-sizing:border-box; padding:13px 18px; border-top:1px solid #eef0f3; background:#fbfcfd">
+      <span style="display:inline-flex; align-items:center; height:40px; box-sizing:border-box; padding:0 16px; border:1px solid #e6e9ed; border-radius:9px; background:#ffffff; font-size:13px; color:#3c424c">キャンセル</span>
+      <span style="display:inline-flex; align-items:center; gap:7px; height:40px; box-sizing:border-box; padding:0 18px; border-radius:9px; background:#005bac; color:#ffffff; font-size:13px; font-weight:700">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>依頼する
+      </span>
+    </div>
+  </div>
+
+  <!-- ② 受け手が「相談」「辞退」を選んだとき（詳細パネルの中で開く） -->
+  <div style="box-sizing:border-box; border:1px solid #e6e9ed; border-radius:12px; background:#ffffff; overflow:hidden">
+    <div style="box-sizing:border-box; padding:13px 16px; border-bottom:1px solid #eef0f3; background:#fbfcfd">
+      <p style="margin:0; font-size:12.5px; font-weight:700; color:#3c424c">受け手が「相談する」を選んだとき（詳細パネルの操作欄が入れ替わる）</p>
+    </div>
+    <div style="box-sizing:border-box; padding:14px 16px; display:flex; flex-direction:column; gap:9px">
+      <span class="lb" style="margin:0">相談したいこと <span style="color:#c7243a">*</span>（山田 さんに差し戻されます）</span>
+      <span style="display:block; box-sizing:border-box; min-height:60px; padding:10px 12px; border:1px solid #e6e9ed; border-radius:9px; font-size:12.5px;" class="ph">例: 期限を1日ずらせますか</span>
+      <span style="display:flex; gap:8px">
+        <span style="display:inline-flex; align-items:center; height:40px; box-sizing:border-box; padding:0 16px; border-radius:9px; background:#005bac; color:#ffffff; font-size:13px; font-weight:700">差し戻す</span>
+        <span style="display:inline-flex; align-items:center; height:40px; box-sizing:border-box; padding:0 16px; border:1px solid #e6e9ed; border-radius:9px; font-size:13px; color:#3c424c">キャンセル</span>
+      </span>
+      <p style="margin:0; font-size:11.5px; color:#5d6470">依頼は消えません。山田 さんが「自分が担当する ／ 担当者を変更 ／ 取り下げる」を決めるまで残ります。</p>
+    </div>
+  </div>
+
+  <!-- ③ 依頼者が差し戻しを決着させる（出した依頼を選んだとき） -->
+  <div style="box-sizing:border-box; border:1px solid #fed7aa; border-radius:12px; background:#ffffff; overflow:hidden">
+    <div style="box-sizing:border-box; padding:13px 16px; border-bottom:1px solid #fed7aa; background:#fff7ed">
+      <p style="margin:0; font-size:12.5px; font-weight:700; color:#c2410e">出した依頼が差し戻されたとき（決めるまで一覧から消えない）</p>
+    </div>
+    <div style="box-sizing:border-box; padding:14px 16px; display:flex; flex-direction:column; gap:11px">
+      <span style="display:block; box-sizing:border-box; padding:10px 12px; border-radius:9px; background:#fff7ed; font-size:12.5px; line-height:1.8; color:#3c424c">
+        <span style="display:block; font-size:11.5px; font-weight:700; color:#c2410e">辞退の理由（佐藤 さん ・ 9/6 14:20）</span>
+        同じ期限で別の本番が入っています。
+      </span>
+      <span class="lb" style="margin:0">この依頼をどうしますか</span>
+      <span style="display:flex; flex-direction:column; gap:7px">
+        <span style="display:inline-flex; align-items:center; gap:7px; height:40px; box-sizing:border-box; padding:0 14px; border:1px solid #e6e9ed; border-radius:9px; font-size:13px; color:#3c424c">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>自分が担当する
+        </span>
+        <!-- 相手を選ぶ欄はボタンより上。選ぶまでボタンは押せない（_form-order.md 2-1） -->
+        <span style="display:flex; gap:7px">
+          <span class="fld" style="flex:1; min-width:0; justify-content:space-between; height:40px">
+            <span class="ph">担当を変える相手を選ぶ</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </span>
+          <span style="display:inline-flex; align-items:center; gap:6px; height:40px; box-sizing:border-box; padding:0 14px; border:1px solid #e6e9ed; border-radius:9px; background:#f2f4f7; font-size:13px; color:#9aa1ab">担当者を変更</span>
+        </span>
+        <span style="display:inline-flex; align-items:center; gap:7px; height:40px; box-sizing:border-box; padding:0 14px; border-radius:9px; font-size:13px; color:#c7243a">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#c7243a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>取り下げる
+        </span>
+      </span>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
