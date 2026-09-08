@@ -115,7 +115,7 @@ export default function CopyFromDialog({
           ) : (
             <>
               <div>
-                <Label htmlFor="cf-key">コピー元の案件（GLS番号 または 案件ID）</Label>
+                <Label htmlFor="cf-key">コピー元の案件（管理番号 または 案件ID）</Label>
                 <Input id="cf-key" className="h-11" value={fromKey} onChange={(e) => setFromKey(e.target.value)} placeholder="GLS-A012" />
               </div>
               <div>

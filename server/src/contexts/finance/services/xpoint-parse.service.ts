@@ -128,7 +128,7 @@ export function scoreXpoint(p: XpointParsed): ParseScore {
     { label: '計上日', ok: !!p.recognitionDate },
     { label: '支払予定日', ok: !!p.paymentDueDate },
   ];
-  if (p.kind === 'purchase') required.push({ label: 'GLS番号', ok: !!p.glsNumber });
+  if (p.kind === 'purchase') required.push({ label: '管理番号', ok: !!p.glsNumber });
 
   const filled = required.filter((r) => r.ok).length;
   const base = Math.round((filled / required.length) * 100);
@@ -354,10 +354,10 @@ export function parseXpointText(text: string): XpointParsed {
 
   // --- 追加の妥当性チェック ---
   if (kind === 'purchase' && !glsNumber) {
-    warnings.push('仕入ですが件名に GLS 番号が見つかりません。案件を手動で選択してください。');
+    warnings.push('仕入ですが件名に管理番号が見つかりません。案件を手動で選択してください。');
   }
   if (kind === 'sga' && glsNumber) {
-    warnings.push(`販管費ですが GLS 番号 (${glsNumber}) が件名に含まれています。仕入の可能性がないか確認してください。`);
+    warnings.push(`販管費ですが管理番号 (${glsNumber}) が件名に含まれています。仕入の可能性がないか確認してください。`);
   }
   // X-Point の支払金額は必ず税込表記。税率だけはテキストから確実に特定できないため、常に確認を促す
   warnings.push('X-Point の支払金額は税込表記です。税率 10% を仮定して税抜換算しているため、8%・非課税の場合は税区分を変更してください。');

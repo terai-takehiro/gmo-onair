@@ -48,7 +48,7 @@ export default function DeviceSettingsHome() {
     try {
       const ctx = await getOwnerContext(key);
       if (!ctx) {
-        notifyError('見つかりませんでした。GLS番号または案件IDを確認してください');
+        notifyError('見つかりませんでした。管理番号または案件IDを確認してください');
         return;
       }
       navigate(ctx.kind === 'project' ? `/techops/projects/${ctx.id}` : `/techops/programs/${ctx.id}`);
@@ -61,13 +61,13 @@ export default function DeviceSettingsHome() {
     <div className="mx-auto max-w-md px-4 py-8">
       <h1 className="mb-1 text-lg font-bold">収録・配信設定</h1>
       <p className="mb-6 text-sm text-muted-foreground">
-        案件（GLS番号 または 案件ID）を入れると、ミニアプリのタイルから収録設定・配信設定を選べる
+        案件（管理番号 または 案件ID）を入れると、ミニアプリのタイルから収録設定・配信設定を選べる
         ハブ画面を開きます。
       </p>
 
       <div className="space-y-4">
         <div>
-          <Label htmlFor="owner-key">案件（GLS番号 または 案件ID）</Label>
+          <Label htmlFor="owner-key">案件（管理番号 または 案件ID）</Label>
           <Input
             id="owner-key"
             className="h-11"

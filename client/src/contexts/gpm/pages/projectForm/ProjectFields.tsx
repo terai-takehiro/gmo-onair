@@ -184,7 +184,7 @@ export function StageField({ mode, value, onChange }: {
     <Field
       label="いまの段"
       hint={mode === 'create'
-        ? '案件と同じ段です。GLS 番号は受注してから採ります。'
+        ? '案件と同じ段です。管理番号は受注してから採ります。'
         : '変えるのはこの画面の外（見出しのステージ帯）からです。'}
     >
       {mode === 'create' ? (

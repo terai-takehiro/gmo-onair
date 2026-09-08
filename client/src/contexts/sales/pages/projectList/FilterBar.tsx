@@ -179,7 +179,7 @@ export function FilterBar(p: FilterBarProps) {
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <Input
-            placeholder="案件名・GLS番号・お客様名で検索"
+            placeholder="案件名・管理番号・お客様名で検索"
             value={p.search}
             onChange={(e) => p.onSearch(e.target.value)}
             className="h-10 pl-9"
@@ -352,7 +352,7 @@ export function TermHint({ onClose }: { onClose: () => void }) {
     <div className="rounded-note border border-primary-border bg-primary-surface-weak px-3.5 py-3 text-note text-muted-foreground">
       <p><span className="font-bold text-foreground">ネタ</span> … まだ提案していない案件のタネ。表示形式「ネタ」で見ます。</p>
       <p><span className="font-bold text-foreground">ヨミ</span> … GLS 発番前の見込み案件すべて。受注の確度を読む段階です。</p>
-      <p><span className="font-bold text-foreground">GLS 番号</span> … 受注が固まった案件に振る正式な番号です。</p>
+      <p><span className="font-bold text-foreground">管理番号</span> … 受注が固まった案件に振る正式な番号です。</p>
       <p><span className="font-bold text-foreground">おすすめ順</span> … 停滞している案件が先。その中は期限が近い順です。</p>
       <p><span className="font-bold text-foreground">期限超過</span> … 次のアクションの期日が過ぎているもの。最優先で浮上します。</p>
       <p><span className="font-bold text-foreground">停滞</span> … 次のアクションが無いまま、ステージごとの日数を超えて動いていないもの。</p>

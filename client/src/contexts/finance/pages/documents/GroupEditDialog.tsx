@@ -158,7 +158,7 @@ export function GroupEditDialog({
               value={projectId}
               onChange={setProjectId}
               options={projectOptions}
-              placeholder={projects.isLoading ? '案件を読み込み中…' : 'GLS番号・案件名で探す'}
+              placeholder={projects.isLoading ? '案件を読み込み中…' : '管理番号・案件名で探す'}
             />
             <p className="text-note text-muted-foreground">
               決まっていなければ空のままでかまいません。

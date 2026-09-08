@@ -133,14 +133,14 @@ export default function ProjectDetailPage() {
       // 請求のときに気づいて手戻りになる
       if (data.gls_error) {
         notifyApiError(
-          `ステージは「${ProjectStageLabels[v.stage]}」にしましたが、GLS番号を採れませんでした`,
+          `ステージは「${ProjectStageLabels[v.stage]}」にしましたが、管理番号を採れませんでした`,
           { message: data.gls_error },
         );
         return;
       }
       notifySuccess(
         v.stage === 'a_won' && data.gls_number
-          ? `受注済にして GLS番号 ${data.gls_number} を採りました`
+          ? `受注済にして管理番号 ${data.gls_number} を採りました`
           : `ステージを「${ProjectStageLabels[v.stage]}」にしました`,
       );
     },
@@ -195,13 +195,13 @@ export default function ProjectDetailPage() {
           { next: string | null; category: string | null };
         glsLines = peek.next
           ? [
-              `GLS番号 ${peek.next} を採ります（取り消しても番号は戻せません）。`,
+              `管理番号 ${peek.next} を採ります（取り消しても番号は戻せません）。`,
               '先に別の人が発番すると1つ後ろの番号になります。',
             ]
-          : ['案件分類（スタジオ / ビジネス）が未設定なので、GLS番号は採れません。先に案件を直してください。'];
+          : ['案件分類（スタジオ / ビジネス）が未設定なので、管理番号は採れません。先に案件を直してください。'];
       } catch {
         // 見えなくても受注そのものは止めない（採番はサーバー側で行う）
-        glsLines = ['GLS番号を自動で採ります（何番になるかはいま確かめられませんでした）。'];
+        glsLines = ['管理番号を自動で採ります（何番になるかはいま確かめられませんでした）。'];
       }
     }
 

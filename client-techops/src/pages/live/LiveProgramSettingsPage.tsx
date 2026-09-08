@@ -66,7 +66,7 @@ export default function LiveProgramSettingsPage() {
   if (live.status === 'not-found') {
     return (
       <PageShell width="narrow">
-        <EmptyState icon={<Timer />} title="見つかりませんでした" description="GLS番号または案件IDを確認してください。" />
+        <EmptyState icon={<Timer />} title="見つかりませんでした" description="管理番号または案件IDを確認してください。" />
       </PageShell>
     );
   }

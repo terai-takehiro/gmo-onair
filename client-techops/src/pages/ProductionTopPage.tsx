@@ -98,7 +98,7 @@ export default function ProductionTopPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Input
           className="min-h-tap sm:max-w-sm"
-          placeholder="案件名・GLS番号・番組名で検索"
+          placeholder="案件名・管理番号・番組名で検索"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />

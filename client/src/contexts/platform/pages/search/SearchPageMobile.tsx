@@ -57,7 +57,7 @@ export function SearchPageMobile({
             onChange={(e) => onType(e.target.value)}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
-            placeholder="案件名・GLS番号・お客様名・仕入先名"
+            placeholder="案件名・管理番号・お客様名・仕入先名"
             aria-label="検索語"
             className="min-h-tap h-11 pl-10 pr-10"
           />
@@ -104,7 +104,7 @@ export function SearchPageMobile({
           />
 
           <p className="text-note text-muted-foreground">
-            案件名の一部・GLS番号・お客様名・仕入先名で検索できます。
+            案件名の一部・管理番号・お客様名・仕入先名で検索できます。
             <strong className="font-bold">見る権限が無いものはここに出ません。</strong>
             {recent.length > 0 && '「最近見たもの」はこの端末で開いたものだけです（別の端末では出ません）。'}
           </p>

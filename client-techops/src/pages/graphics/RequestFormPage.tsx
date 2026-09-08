@@ -51,7 +51,7 @@ export default function RequestFormPage() {
       <PageShell>
         <EmptyState
           title="開けませんでした"
-          description={state.status === 'error' ? state.message : 'GLS番号が合っているか確かめてください。'}
+          description={state.status === 'error' ? state.message : '管理番号が合っているか確かめてください。'}
         />
       </PageShell>
     );

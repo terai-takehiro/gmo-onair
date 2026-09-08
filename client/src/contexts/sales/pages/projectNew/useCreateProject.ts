@@ -213,7 +213,7 @@ export function useProjectDecisions(
     onSuccess: (id) => {
       invalidate(id);
       notifySuccess('案件にしました', {
-        description: 'GLS 番号は受注が固まってから発番します。',
+        description: '管理番号は受注が固まってから発番します。',
       });
       navigate(`/sales/projects/${id}`);
     },

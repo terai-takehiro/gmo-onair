@@ -47,7 +47,7 @@ export default function TemplateManagerPage() {
   if (state.status === 'not-found') {
     return (
       <PageShell>
-        <EmptyState icon={<Blocks />} title="見つかりませんでした" description="GLS番号が合っているか確かめてください。" />
+        <EmptyState icon={<Blocks />} title="見つかりませんでした" description="管理番号が合っているか確かめてください。" />
       </PageShell>
     );
   }

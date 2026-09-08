@@ -38,7 +38,7 @@ export function LedgerFilterBar({ s, prefs, csv, isMobile, onOpenColumns }: {
         className="h-10 w-[260px]"
         value={s.filters.search}
         onChange={(e) => s.setFilter('search', e.target.value)}
-        placeholder="案件名・GLS番号・お客様で検索"
+        placeholder="案件名・管理番号・お客様で検索"
         aria-label="案件を検索"
       />
       <Select value={s.filters.stage || 'all'} onValueChange={(v) => s.setFilter('stage', v === 'all' ? '' : v)}>

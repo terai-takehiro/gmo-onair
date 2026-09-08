@@ -23,7 +23,7 @@ export const DEST_INFO: Record<Dest, { label: string; into: string; tone: string
   },
   neta: {
     label: '案件（ネタ）',
-    into: 'GLS番号を採る前の引き合い',
+    into: '管理番号を採る前の引き合い',
     tone: 'border-ai-border bg-ai-surface text-ai',
   },
   log: {

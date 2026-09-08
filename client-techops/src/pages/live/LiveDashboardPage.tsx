@@ -58,7 +58,7 @@ export default function LiveDashboardPage() {
         <EmptyState
           icon={<Timer />}
           title="見つかりませんでした"
-          description="GLS番号または案件IDを確認してください。"
+          description="管理番号または案件IDを確認してください。"
         />
       </PageShell>
     );

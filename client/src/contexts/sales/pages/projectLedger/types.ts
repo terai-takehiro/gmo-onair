@@ -74,7 +74,7 @@ export const COL_DEFS = [
    * 減り、「GLS番号」「最後の動き」が **「GLS…」「最後の…」に切れて**いました。
    * 表頭が読めないと、その列が何なのか分かりません。
    */
-  { key: 'gls_number', label: 'GLS番号', default: true, width: 128, sort: 'code' },
+  { key: 'gls_number', label: '管理番号', default: true, width: 128, sort: 'code' },
   { key: 'code', label: '社内コード', default: false, width: 128 },
   /**
    * ⚠️ **案件名にも幅を持たせています**（伸びる列を作っていません）。

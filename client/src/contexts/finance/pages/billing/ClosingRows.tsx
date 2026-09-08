@@ -75,7 +75,7 @@ export function ClosingRows({
     <>
       <RowHeader className="hidden sm:flex">
         <RowSlot w={56}>選ぶ</RowSlot>
-        <RowSlot w={128}>GLS番号</RowSlot>
+        <RowSlot w={128}>管理番号</RowSlot>
         <RowMain>案件 ／ 請求先</RowMain>
         {/* **出したものだけ番号を持つ。** 出す前の一覧では列ごと出さない
             （空の列が並ぶと「採番に失敗した」ように見える） */}

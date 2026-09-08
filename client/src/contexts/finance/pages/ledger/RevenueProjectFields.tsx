@@ -38,7 +38,7 @@ export function RevenueProjectFields({
       <div className="space-y-1">
         <Label>案件</Label>
         <Input
-          placeholder="案件名・GLS番号で検索â¦"
+          placeholder="案件名・管理番号で検索â¦"
           value={projectSearch}
           onChange={(e) => setProjectSearch(e.target.value)}
         />
