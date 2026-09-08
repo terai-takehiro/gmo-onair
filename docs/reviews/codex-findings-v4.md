@@ -2374,7 +2374,8 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   ⚠️ **この回も、手動依頼のレビュー（`96cd151`）が走っている最中にマージされた**
   （08:12:35 開始 → **08:15:41 マージ** → 08:15:46 完了）。**今回は指摘が無かったので
   取りこぼしは起きなかった**が、#644 と同じ形である。教訓は
-  `.claude/skills/pr-watch/references/pitfalls.md` に記録済み
+  [`.claude/skills/pr-watch/references/pitfalls.md`](../../.claude/skills/pr-watch/references/pitfalls.md)
+  に記録済み
   （「Codex が走っている間にマージすると、指摘がマージ済みコードに向く」）。
   **未検証で残したもの**: この回は `verify:ui` を回していない（画面の変更は
   `MyTasksTab` の `key` 追加のみで、描画結果は #648 の作業中に 375px / 1280px で実測済み）。
