@@ -32,6 +32,22 @@ export function buildSavePayload(
   if (!values.project_category) delete body.project_category;
 
   /**
+   * ⚠️ **`gls_category` が未設定のまま2段（客入れの有無／案件分類）を新しく
+   * 入力したら、`'A'` を明示的に送る。**
+   *
+   * `gls_category` は「渡されなければ今の値を保つ」（サーバー側 `PUT /projects/:id`）。
+   * 空文字を送っても `normalizeGlsCategory('')` は `null` になり「今の値を保つ」扱いに
+   * しかならないため、分類未設定（NULL）の古い案件で新しく表示された「客入れの有無」
+   * 「案件分類」欄を埋めて保存しても、`gls_category` は NULL のまま残り、
+   * GLS発番（`issueGls`）が引き続き「分類が未設定です」で失敗し続けてしまう
+   * （Codexレビュー指摘）。2段を入力した時点でこの案件はGLS-A（放送系）だと
+   * 決まっているので、ここで確定させる。
+   */
+  if (!values.gls_category && (values.audience || values.project_category)) {
+    body.gls_category = 'A';
+  }
+
+  /**
    * グループ会社のときはリード経路を固定で送る（案件作成と同じ）。
    * 画面が「グループ案件」と出している以上、保存される値も同じでなければ
    * あとから数えたときに食い違います。
