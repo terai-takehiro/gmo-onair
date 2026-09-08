@@ -803,7 +803,15 @@ for (const file of files) {
    * （`missing-font-weight` を凍結アプリに当てないのと同じ考え方 —
    * 直せない違反を並べると検査ごと無視される）。
    */
-  if (/^client-techops\/src\//.test(rel) && /Page\.tsx$/.test(rel) && !text.includes('PageShell')) {
+  /*
+   * ⚠️ **文字列として `PageShell` が出てくるかで見てはいけない**
+   * （最初そう書いて Codex に指摘された）。`// TODO: PageShell に移す` と
+   * 書いただけの画面が通ってしまい、**この決まりが防ぎたかった手書きの外枠**が
+   * そのまま残る。**コメントを塗り潰した写しの中に、部品として置かれているか**を見る。
+   * 行末で終わる `<PageShell` も拾う（属性を次の行に書く形。`page-h1-by-hand` と同じ）。
+   */
+  const usesPageShell = /<PageShell(?=[\s>/]|$)/m.test(blanked ?? text);
+  if (/^client-techops\/src\//.test(rel) && /Page\.tsx$/.test(rel) && !usesPageShell) {
     findings.push({
       rel,
       line: 1,
