@@ -170,7 +170,7 @@ export const lendingService = {
       `SELECT el.equipment_id, ei.status AS item_status
          FROM equipment_lendings el
          JOIN equipment_items ei ON ei.id = el.equipment_id
-        WHERE el.id = $1 AND el.status = 'planned'`, [id],
+        WHERE el.id = $1 AND el.status = 'planned' AND ei.deleted_at IS NULL`, [id],
     ) as { equipment_id: string; item_status: string } | null;
     if (!row) throw new AppError(404, 'NOT_FOUND', '出庫予定が見つかりません');
 

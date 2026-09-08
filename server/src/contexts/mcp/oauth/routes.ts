@@ -59,7 +59,7 @@ function onairLoginGate(authHandler: RequestHandler): RequestHandler {
   return (req: Request, res: Response, next: NextFunction) => {
     const cookieToken = (req as any).cookies?.gmo_onair_token as string | undefined;
     const payload = cookieToken ? verifyToken(cookieToken) : null;
-    if (!payload?.userId) {
+    if (!payload?.userId || req.user?.id !== payload.userId) {
       const returnUrl = req.originalUrl; // /api/v1/mcp/oauth/authorize?...(client_id 等)
       res.redirect(302, `/login?redirect=${encodeURIComponent(returnUrl)}`);
       return;

@@ -2,6 +2,7 @@ import { Server, Socket } from 'socket.io';
 import { queryOne } from '../../shared/db/connection';
 import { parseCookie, resolveSocketUser } from '../../shared/collab/socketAuth';
 import { config } from '../../config';
+import { canControlProduction } from '../../shared/collab/controlPermission';
 import { applyCueTake, bumpRevealPhase, fetchCues, SLOTS, Slot } from './store';
 
 // テロップCG の Socket.IO ネームスペース。liveops/socket.ts と同じ2段構え —
@@ -62,7 +63,7 @@ export function initGraphicsSocketIO(io: Server): void {
     // 操作画面 → 出力画面: スロット cue の更新（pageId null = クリア）
     socket.on('cg:set', async (data: { slot?: string; pageId?: number | null }) => {
       // 操作系は handshake 認証済みのユーザー限定（匿名接続はリッスン専用）
-      if (!(socket as any).userId) return;
+      if (!await canControlProduction((socket as any).userId)) return;
       try {
         const slot = data?.slot as Slot;
         if (!SLOTS.includes(slot)) return;
@@ -88,7 +89,7 @@ export function initGraphicsSocketIO(io: Server): void {
     // 操作画面 → 出力画面: 「続き」（段6-1・汎用機構）。対象スロットの reveal_phase を +1
     socket.on('cg:continue', async (data: { slot?: string }) => {
       // 操作系は handshake 認証済みのユーザー限定（匿名接続はリッスン専用）
-      if (!(socket as any).userId) return;
+      if (!await canControlProduction((socket as any).userId)) return;
       try {
         const slot = data?.slot as Slot;
         if (!SLOTS.includes(slot)) return;

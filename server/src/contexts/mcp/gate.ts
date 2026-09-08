@@ -278,7 +278,7 @@ async function actorHasPermission(
   module: string | string[],
   minLevel: ToolPermission['level'],
 ): Promise<boolean> {
-  const user = (await queryOne('SELECT role FROM users WHERE id = ?', [userId])) as { role?: string } | null;
+  const user = (await queryOne("SELECT role FROM users WHERE id = ? AND deleted_at IS NULL AND status = 'active'", [userId])) as { role?: string } | null;
   if (!user) return false;
   if (user.role === 'system_admin') return true;
   const modules = Array.isArray(module) ? module : [module];

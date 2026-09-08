@@ -104,11 +104,14 @@ export function createAuthHook(config: AuthHookConfig) {
       const init = async () => {
         try {
           // /auth/me が成功するまで permissions の確定はしない。permissions API が失敗した場合は
-          // キャッシュ値を温存して silent fallback (= ボタンが消える事故を防ぐ)。
+          // /auth/me が返した本人の権限を使う。
           const meRes = await config.api.get('/auth/me');
           const user = meRes.data.data;
           setCurrentUser(user);
           setCurrentUserId(user.id);
+          const verifiedPermissions = user.permissions ?? {};
+          setPermissions(verifiedPermissions);
+          writeStoredPermissions(verifiedPermissions);
           localStorage.setItem(config.storageKey, JSON.stringify(user));
 
           try {
@@ -117,12 +120,18 @@ export function createAuthHook(config: AuthHookConfig) {
             setPermissions(perms);
             writeStoredPermissions(perms);
           } catch (permErr) {
-            // permissions 取得失敗時はキャッシュ値を保持 (clobber しない)。
+            // permissions 取得失敗時は/auth/me が返した本人の権限を保持する。
             console.warn('[useAuth] permissions fetch failed, keeping cached values', permErr);
           }
-        } catch {
-          // /auth/me 失敗 = セッション無効。ユーザーと権限の両方をクリア。
+        } catch (error) {
+          // 通信失敗や503はセッション失効ではない。再読込で復旧できるよう保持する。
+          if ((error as { response?: { status?: number } }).response?.status !== 401) {
+            console.warn('[useAuth] session check temporarily unavailable', error);
+            return;
+          }
+          // 401 の場合だけユーザーと権限をクリアする。
           setCurrentUser(null);
+          setCurrentUserId(null);
           setPermissions({});
           localStorage.removeItem('gmo_onair_token');
           localStorage.removeItem(config.storageKey);
@@ -141,6 +150,8 @@ export function createAuthHook(config: AuthHookConfig) {
         const user = loginRes.data.data;
         setCurrentUser(user);
         setCurrentUserId(user.id);
+        setPermissions(user.permissions ?? {});
+        writeStoredPermissions(user.permissions ?? {});
         localStorage.setItem(config.storageKey, JSON.stringify(user));
         // Fetch permissions now that we're logged in
         try {
@@ -162,6 +173,8 @@ export function createAuthHook(config: AuthHookConfig) {
         const user = meRes.data.data;
         setCurrentUser(user);
         setCurrentUserId(user.id);
+        setPermissions(user.permissions ?? {});
+        writeStoredPermissions(user.permissions ?? {});
         localStorage.setItem(config.storageKey, JSON.stringify(user));
         try {
           const permRes = await config.api.get('/users/me/permissions');

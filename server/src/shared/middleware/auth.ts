@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { queryOne, queryAll } from '../db/connection';
 import { verifyToken } from '../auth/jwt';
 import { config } from '../../config';
@@ -26,7 +26,7 @@ declare global {
  */
 async function loadUserWithPermissions(userId: string): Promise<AuthUser | undefined> {
   const user = await queryOne(
-    'SELECT id, name, email, role FROM users WHERE id = ? AND deleted_at IS NULL',
+    "SELECT id, name, email, role FROM users WHERE id = ? AND deleted_at IS NULL AND status = 'active'",
     [userId]
   ) as AuthUser | undefined;
 
@@ -94,7 +94,7 @@ export async function jwtAuth(req: Request, res: Response, next: NextFunction): 
 }
 
 /**
- * 認証ミドルウェア自動選択: GOOGLE_CLIENT_ID が設定されていれば JWT、なければ mockAuth
+ * 認証ミドルウェア自動選択: AUTH_MODE に従い JWT / mockAuth を選ぶ
  */
 export function createAuthMiddleware() {
   if (config.authMode === 'password') {
