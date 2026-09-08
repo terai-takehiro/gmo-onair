@@ -257,19 +257,13 @@ export function useProjectForm(id: string | undefined) {
    * 分類は **DB の実値（`gls_category`）だけを正とする**。空＝未設定は GLS-A 扱い
    * （`missingOf` の `asksClassification = v.gls_category !== 'B'` と揃える）。
    *
-   * ⚠️ かつてはここが空のとき `project_type` から `getProjectCategory()` で
-   * 推奨値を補っていたが、`project_type` の既定値は `'other'` で
-   * `PROJECT_CATEGORY_B` に属するため、AI起票・決算取込・Excel/GLS取込などで
-   * `gls_category` が未設定のまま残っている古い案件を開くたびに GLS-B と
-   * 誤判定していた。`RequiredFields.tsx` の `isGlsB` はこの値を見て「案件分類」欄
-   * 自体を隠すため、画面は「GLS-Bだから分類は不要」と案内するのに、
-   * サーバーの GLS 発番（`issueGls`）は DB の生値（NULL）を見て「分類が未設定」
-   * と拒否する——という矛盾したエラーになっていた。しかも `buildSavePayload` は
-   * `gls_category` を送信対象から外していないため、この誤判定のまま他の項目
-   * だけ直して保存すると、**GLS未発番の案件は実際に DB の `gls_category` が
-   * 'B' へ書き換わってしまう**（`project.service.ts` の `allowCategoryUpdate`
-   * は `gls_number` が無い間は送られた値をそのまま受け入れる）。
-   * `project_type` からの推測は行わず、常に DB の生値だけを見る。
+   * ⚠️ かつては空のとき `project_type`（既定値 `'other'`＝`PROJECT_CATEGORY_B`）
+   * から推測して補っていたが、それだと未設定のまま残る古い案件（AI起票・決算取込等）
+   * を開くたびに GLS-B と誤判定し、`RequiredFields.tsx` の `isGlsB` が「案件分類」欄
+   * を隠す一方でサーバーの `issueGls` は DB の生値（NULL）で「分類が未設定」と
+   * 拒否する矛盾を生んでいた。しかも `buildSavePayload` は `gls_category` を送信
+   * 対象から外していないので、他の項目だけ直して保存すると未発番の案件は実際に
+   * `'B'` へ書き換わってしまう実害もあった。推測はやめ、常に DB の生値だけを見る。
    */
   const isCategoryA = glsCategory !== 'B';
   const isCategoryARef = useRef(isCategoryA);
