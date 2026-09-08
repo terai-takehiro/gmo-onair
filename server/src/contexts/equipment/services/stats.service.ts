@@ -52,8 +52,15 @@ export const statsService = {
     const overdue = (await queryOne(
       `SELECT COUNT(*)::int as c FROM equipment_lendings WHERE status='${EQUIPMENT_LENDING_STATUS.LENT}' AND due_date IS NOT NULL AND due_date < CURRENT_DATE::text`,
     )) as CountRow | null;
+    // ⚠️ **「記録」種別（`log`）は除く**（Codexレビュー指摘）。リセット・再起動など
+    // 運用上クリティカルな問題は起きていない機材の履歴なので、機材は稼働中のまま
+    // （`maintenance.service.ts` の `create()` も `record_type==='breakdown'` の
+    // ときしか機材を `in_repair` にしない）。含めると、実際は使える機材が
+    // 「稼働停止中」「直していないもの」として出てしまう
     const openMaintenance = (await queryOne(
-      `SELECT COUNT(*)::int as c FROM maintenance_records WHERE status IN ('${MAINTENANCE_STATUS.REPORTED}', '${MAINTENANCE_STATUS.IN_PROGRESS}')`,
+      `SELECT COUNT(*)::int as c FROM maintenance_records
+         WHERE status IN ('${MAINTENANCE_STATUS.REPORTED}', '${MAINTENANCE_STATUS.IN_PROGRESS}')
+           AND record_type <> 'log'`,
     )) as CountRow | null;
     const pendingInventory = (await queryOne(
       `SELECT COUNT(*)::int as c FROM inventory_checks WHERE status IN ('${INVENTORY_STATUS.DRAFT}', '${INVENTORY_STATUS.IN_PROGRESS}')`,
@@ -87,12 +94,14 @@ export const statsService = {
 
     let recentMaintenance: unknown[] = [];
     try {
+      // ⚠️ ここも「記録」（`log`）は除く（`openMaintenance` と同じ理由）
       recentMaintenance = await queryAll(
         `SELECT mr.id, mr.title, mr.record_type, mr.status, mr.created_at,
                 ei.name as equipment_name
          FROM maintenance_records mr
          JOIN equipment_items ei ON ei.id = mr.equipment_id
          WHERE mr.status IN ('${MAINTENANCE_STATUS.REPORTED}', '${MAINTENANCE_STATUS.IN_PROGRESS}')
+           AND mr.record_type <> 'log'
          ORDER BY mr.created_at DESC LIMIT 5`,
       );
     } catch {
