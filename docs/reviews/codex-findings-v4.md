@@ -2421,6 +2421,20 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#671**（`release: v4.6.12`・2026-09-09）— `npm run release:notes -- 4.6.12` で
+  #665・#667・#669 の3件の下書きをまとめた版上げ専用PR（コード変更なし）。
+  ⚠️ **📝 Code Review は Codex の usage limits で一度も実行されず**（作成4秒後に
+  明示的に返答）、🔒 **Security Review は「Running」のままマージされた**——作成
+  04:05:38Z → `checks`/`build` green 04:09:27Z → **マージ 04:10:28Z**（CI green から
+  約1分後・terai-takehiro 本人）→ **Security Review 完了は04:11:02Z（マージの約34秒後）**。
+  #667（同じく `release:` PR）と全く同じ「走り切る前にマージされた」型。完了後に
+  `get_reviews` を確認したが findings は無かった。**表に移す指摘はない**
+  （レビュー自体が届く前にマージされたため）。
+- **#670**（`docs(reviews): PR #669のレビュー指摘を棚卸しに移した`・2026-09-09）—
+  #669のレビュー状況（下記参照）を記録しただけのdocsのみのPR。
+  ⚠️ **📝 Code Review は Codex の usage limits で一度も実行されず**、🔒 Security Review は
+  **マージ前（04:05:29Z）に完走し findings なし**（作成 04:01:58Z → マージ 04:06:20Z・
+  terai-takehiro 本人）。**表に移す指摘はない**。
 - **#669**（`feat(finance): 財務ダッシュボードの損益の流れとグループ内外カードを見直し`・
   2026-09-09）— 2件のご要望に対応。①損益の流れ（`/budget/dashboard`）の見出しカードを
   「限界利益／売上総利益／営業利益」から「売上／仕入（変動原価）／粗利／営業利益」の4枚に
