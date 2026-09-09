@@ -12,7 +12,7 @@
  * **対象や取り込み元を変えて投入すると、意図しない範囲が入れ直されます**。
  * 4つのトグルの既定値は旧実装から変えていません。
  */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Loader2, AlertTriangle, Database, CloudUpload, FileSpreadsheet, X } from 'lucide-react';
 import api from '@/lib/api';
@@ -40,16 +40,32 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
 
-  // 「いま選ばれているファイル」と「いま投げているリクエストが対象にしたファイル」を
-  // ref で持つ。読み取り中に別のファイルへ選び直された場合、あとから届く古いレスポンスを
-  // 見分けて捨てるため（state のクロージャだと古い値を掴んだままになりうるので使わない）。
-  const currentFileRef = useRef<File | null>(null);
-  const requestFileRef = useRef<File | null>(null);
+  // ファイル・対象（scope）・3トグルをまとめて「設定一式」として扱う。どれか1つでも
+  // 変わったら、それまでの下書き結果（report）は別の設定に対するものになるので必ず
+  // 捨てる（対象を「販管費」→「すべて」に変えた・トグルを変えた、だけでも投入内容が
+  // 変わるため。実際に「対象を切り替えたのに前のプレビューのまま投入できてしまう」
+  // 指摘が Codex レビューで出た）。
+  // 「いま選ばれている設定一式」と「いま投げているリクエストが対象にした設定一式」を
+  // ref で持ち、読み取り中に何かが変わった場合、あとから届く古いレスポンスを見分けて
+  // 捨てる（state のクロージャだと古い値を掴んだままになりうるので使わない）。
+  type Settings = { file: File | null; scope: ImportScope; createMasters: boolean; excludeFixed: boolean; skipDuplicates: boolean };
+  const currentSettingsRef = useRef<Settings>({ file, scope, ...flags });
+  const requestSettingsRef = useRef<Settings | null>(null);
+  const settingsEqual = (a: Settings, b: Settings) =>
+    a.file === b.file && a.scope === b.scope && a.createMasters === b.createMasters
+    && a.excludeFixed === b.excludeFixed && a.skipDuplicates === b.skipDuplicates;
+
+  useEffect(() => {
+    currentSettingsRef.current = { file, scope, ...flags };
+    setReport(null);
+    onStep(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file, scope, flags.createMasters, flags.excludeFixed, flags.skipDuplicates]);
 
   const run = useMutation<KessanReport, Error, boolean>({
     mutationFn: async (commit) => {
       if (!file) throw new Error('総勘定元帳ファイルを選択してください');
-      requestFileRef.current = file;
+      requestSettingsRef.current = { file, scope, ...flags };
       const fd = new FormData();
       fd.append('file', file);
       fd.append('scope', scope);
@@ -63,21 +79,22 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
       })).data.data as KessanReport;
     },
     onSuccess: (d) => {
-      const stale = requestFileRef.current !== currentFileRef.current;
+      const stale = !requestSettingsRef.current || !settingsEqual(requestSettingsRef.current, currentSettingsRef.current);
       if (d.dryRun) {
-        // 読み取り（下書き）中にファイルが選び直されていたら、その結果は別のファイルの
-        // ものなので反映しない（選び直した時点で selectFile が report/step を消している）。
+        // 読み取り（下書き）中に設定（ファイル・対象・トグル）が変わっていたら、その
+        // 結果は別の設定のものなので反映しない（変わった時点で上の effect が report/step
+        // を消している）。
         if (stale) return;
         setReport(d);
         onStep(2);
         return;
       }
-      // 「投入（commit）」はサーバーに実際に書き込み済みなので、ファイルが選び直されて
-      // いても成功したこと自体は必ず知らせる — 黙って消すと「実は投入されていた」ことに
-      // 気づけなくなる。ただし report をそのまま「いま選択中のファイルの結果」として
-      // 残すと、選び直した別ファイルに対して「台帳に入れる」ボタンが再び押せる状態に
-      // なり、そのファイルを一度もプレビューせずに投入できてしまう。選び直されていた
-      // 場合は通知だけ行い、画面は最初からやり直す状態に戻す。
+      // 「投入（commit）」はサーバーに実際に書き込み済みなので、設定が変わっていても
+      // 成功したこと自体は必ず知らせる — 黙って消すと「実は投入されていた」ことに
+      // 気づけなくなる。ただし report をそのまま「いま選択中の設定の結果」として
+      // 残すと、変えた後の設定に対して「台帳に入れる」ボタンが再び押せる状態になり、
+      // その設定を一度もプレビューせずに投入できてしまう。変わっていた場合は通知だけ
+      // 行い、画面は最初からやり直す状態に戻す。
       notifySuccess('取り込みました');
       if (stale) { setReport(null); onStep(1); return; }
       setReport(d);
@@ -86,13 +103,9 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
     onError: (err) => notifyApiError('総勘定元帳を取り込めませんでした', err, 'ファイルの形式（freee CSV / MoneyForward xlsx）を確かめてください。'),
   });
 
-  // ファイルの選び直し・取り消しは、それまでの下書き結果（report）を必ず捨てる。
-  // 捨てないと「別のファイルを選んだのに前のファイルの下書きのまま投入」ができてしまう。
+  // ファイルの選び直し・取り消し。report/step のリセットは上の effect が行う。
   const selectFile = (f: File | null) => {
-    currentFileRef.current = f;
     setFile(f);
-    setReport(null);
-    onStep(1);
   };
 
   const commit = async () => {
