@@ -2421,6 +2421,23 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#669**（`feat(finance): 財務ダッシュボードの損益の流れとグループ内外カードを見直し`・
+  2026-09-09）— 2件のご要望に対応。①損益の流れ（`/budget/dashboard`）の見出しカードを
+  「限界利益／売上総利益／営業利益」から「売上／仕入（変動原価）／粗利／営業利益」の4枚に
+  組み替え、材料を「固定原価／販管費」の2行にした（限界利益は途中の値のためどちらにも
+  出さない。案件で絞り込み中の3枚だけの表示は変更なし）。見出し/材料の振り分けを
+  配列の位置ではなく `result` フラグで決める形に変えた。②「グループ内／グループ外」
+  カードに粗利（売上－仕入。固定原価は特定のお客様に紐づかないため対象外＝限界利益と
+  同じ式）を追加、値はサーバー（`monthly-summary.service.ts`）が算出する。
+  ⚠️ **📝 Code Review は Codex の usage limits で一度も実行されず**（「You have reached
+  your Codex usage limits for code reviews」と明示的に返答）、🔒 Security Review は完走し
+  **findings なし**（`get_reviews`/`get_review_comments` ともに0件）。**表に移す指摘はない**
+  （レビュー自体が届いていないため）。
+  `npx tsc -b client`／`npx tsc -b server`／`npm run lint`／`npm test` は確認済み。
+  実DBでの保存確認・PC/スマホの実機確認・権限別の403確認は未実施のまま、CI
+  （`build`/`checks` とも success、`mergeable_state: clean`）を確認したうえで
+  terai-takehiro によりマージされた。
+
 - **#655**（`fix(sales): GLS-B006/B009/B010の3件を番号はそのまま案件(GLS-A)扱いに直した`・
   2026-09-08）— 利用者から「GLS-B006/B009/B010の3件は工事・構築のプロジェクト管理案件
   ではなく通常の撮影・収録・イベント業務。番号は見積発行済みで変えられないので、特例で
