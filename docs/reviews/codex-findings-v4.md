@@ -2382,6 +2382,27 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   今回はその旨のコメントが一度も付かなかった（#585は5秒後に明示のusage limits通知が
   付いたのと対照的）。
 
+- **#665（docs: ドキュメント全体を現時点の事実に合わせて体系的に書き直した・2026-09-09）** —
+  **Code Review・Security Review とも読まれないままマージされた**。作成 02:47:52Z の**10秒後**
+  （02:48:02Z）に Codex が「You have reached your Codex usage limits for code reviews.」を返し、
+  📝 Code Review は1巡も走っていない。🔒 Security Review は 02:48:08Z から「Running」の要約
+  コメントが1回出たきりで、**マージ（02:52:33Z・terai-takehiro 本人）まで完了しなかった**
+  （最後まで状態は `running` のまま。#663 の「Failed のまま動かない」型ではなく「走り切る前に
+  マージされた」型）。`checks`/`build` は 02:52:00Z までに両方 success（**CI green から33秒後・
+  作成から4分41秒後**にマージ）。`get_reviews`・`get_review_comments` とも0件を GitHub MCP で
+  直接確認済み。表に移す指摘はない（レビュー自体が届いていないため）。
+  ⚠️ この PR 自体は 107 ファイル・+5101/−3504 の大半が文書（`docs/`・各 `CLAUDE.md`）で、
+  コードの実質変更は文書に付随する軽微な修正のみ（`scripts/collect-changelog.mjs` の
+  README 書き込み形式の変更・`scripts/check-changelog.mjs` のコメント訂正・`v4-progress.mjs`/
+  `extract-v4-design.mjs` の生成文言・`shared/src/client/apps.ts` の awards コメント・
+  `client-live`/`client-daily` の各1コメント・Issue テンプレート2本のアプリ選択肢）で、
+  画面の見た目・API・DB は変更していない。**Security Review が意図した「新しい入力口・
+  権限まわりの変更」は無い**ため実害の見込みは低いが、`collect-changelog.mjs` の README 書き込み
+  ロジック変更は次回リリース（`npm run release:notes`）で初めて実地に通る未検証コードなので、
+  ⚠️ **次のリリース PR で `README.md` の版差し替えが1行（番号＋見出しだけ）になっているかを
+  必ず目視確認すること**（`--dry` 実行と手動確認は本 PR で実施済みだが、実リリースでの実行は
+  まだ無い）。
+
 ---
 
 ## 一覧（PR の新しい順）
