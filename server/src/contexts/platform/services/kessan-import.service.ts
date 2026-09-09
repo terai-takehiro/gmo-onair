@@ -1,7 +1,7 @@
 /**
  * kessan-import.service.ts — 決算データ取込 (検証DB専用)
  *
- * freee の総勘定元帳 CSV (Box 格納) を ONAiR の予算管理/案件管理テーブルへ取り込む。
+ * freee の総勘定元帳 CSV (PCからアップロード) を ONAiR の予算管理/案件管理テーブルへ取り込む。
  * 管理画面の「決算インポート」ボタン (dev 限定) から呼ばれる。CLI 版
  * (server/scripts/import-kessan-dev.mjs) と同一ロジック。
  *
@@ -18,16 +18,21 @@ import { randomUUID } from 'node:crypto';
 import { TextDecoder } from 'node:util';
 import { loadExcelWorkbook, sheetToAoa } from '../../../shared/utils/excel';
 import { getDb } from '../../../shared/db/connection';
-import { getBoxClient } from '../../../shared/services/box';
 import { normalizeTaxCategory } from '../../../shared/services/tax-category.service';
 import { looksLikeGmoGroup } from '../../../shared/services/gmo-group';
 import { createCustomerRecord, createVendorRecord, execFromPgClient } from '../../../shared/services/company-directory.service';
 import { CURRENT_ENTITY_CODE } from '../../../shared/constants/entity-default';
 
-export const DEFAULT_GL_FILE_ID = '2285559397453'; // 総勘定元帳_20260507_1652.csv
 const FIXED_CODE = 'FIXED-COGS';
 const FIXED_NAME = '固定原価（スタジオ償却負担額等）';
 const FIXED_CUSTOMER = '（固定費・社内）';
+
+// 総勘定元帳CSV/xlsxの行数上限。system_admin限定のツールとはいえ、桁違いに大きい
+// ファイル（誤って複数年ぶんを一括エクスポートした・悪意のあるファイル）を無制限に
+// 処理すると、1行ごとにDB問い合わせを伴う後段の突き合わせ処理（ensureCustomer等）が
+// 単一トランザクション内で長時間コネクションを占有し、他リクエストへ波及しうる。
+// 一年分の元帳でも数千〜1万行程度に収まる想定のため、十分な余裕を持たせた上限とする。
+const MAX_GL_ROWS = 50_000;
 
 export interface KessanOptions {
   scope?: 'sga' | 'revenues' | 'purchases' | 'all';
@@ -36,8 +41,8 @@ export interface KessanOptions {
   excludeFixed?: boolean;
   /** 重複候補 (既存データと同一 金額+内容+日付) の行を投入しない */
   skipDuplicates?: boolean;
-  glFileId?: string;
-  boxFolderId?: string; // 指定フォルダ内の最新CSVを自動選択 (未指定なら env KESSAN_BOX_FOLDER_ID)
+  /** アップロードされた GL ファイル (freee CSV または MoneyForward xlsx) */
+  file: { buffer: Buffer; name: string };
   period?: string; // YYYY-MM
 }
 
@@ -60,6 +65,8 @@ export interface KessanReport {
   masters: {
     missingProjects: string[];
     missingCustomers: string[];
+    /** 仕入・固定原価の取引先で、既存マスタと紐付けられなかったもの（未登録／表記の衝突で一意に決められない） */
+    missingVendors: string[];
     created: { projects: number; customers: number; vendors: number };
   };
   /** 既存データ (非決算インポート行) に同一金額+内容が見つかった重複候補 */
@@ -160,49 +167,14 @@ const invQualified = (...xs: unknown[]): number => {
 };
 const yen = (n: number): string => '¥' + Number(n).toLocaleString();
 
-/** 取込対象の GL ファイルを解決: 明示ID → 指定フォルダの最新CSV → 既定ID */
-async function resolveGlFile(opts: KessanOptions): Promise<{ id: string; name: string }> {
-  if (opts.glFileId) {
-    // 指定ファイルの実ファイル名を取得 (エラーメッセージ/レポートで役立つ)。取得失敗は無視。
-    let name = '(指定ファイル)';
-    try {
-      const client = getBoxClient();
-      if (client) {
-        const info = await client.files.get(opts.glFileId, { fields: 'name' });
-        if (info?.name) name = info.name;
-      }
-    } catch { /* best-effort */ }
-    return { id: opts.glFileId, name };
-  }
-  const folderId = opts.boxFolderId || process.env.KESSAN_BOX_FOLDER_ID;
-  if (folderId) {
-    const client = getBoxClient();
-    if (!client) throw new Error('BOX が未設定です (BOX_CONFIG_JSON)');
-    const items = await client.folders.getItems(folderId, { fields: 'id,name,type,created_at', limit: 1000 });
-    const csvs = items.entries.filter((e) => e.type === 'file' && /\.csv$/i.test(e.name));
-    if (!csvs.length) throw new Error(`Box フォルダ (${folderId}) に CSV ファイルがありません`);
-    // 取引明細 (仕訳帳/総勘定元帳) を優先。損益計算書/残高試算表 (集計表) は取込不可のため後回し。
-    // 最新 (created_at 降順、同点はファイル名降順) を採用。
-    const preferred = csvs.filter((e) => /仕訳|元帳|総勘定/.test(e.name));
-    const pool = preferred.length ? preferred : csvs;
-    pool.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')) || String(b.name).localeCompare(String(a.name)));
-    return { id: pool[0].id, name: pool[0].name };
-  }
-  return { id: DEFAULT_GL_FILE_ID, name: '(既定の総勘定元帳)' };
-}
-
-async function boxDownloadBuf(fileId: string): Promise<Buffer> {
-  const client = getBoxClient();
-  if (!client) throw new Error('BOX が未設定です (BOX_CONFIG_JSON)');
-  const stream = await client.files.getReadStream(fileId);
-  const chunks: Buffer[] = [];
-  await new Promise<void>((resolve, reject) => {
-    stream.on('data', (c: Buffer) => chunks.push(Buffer.from(c)));
-    stream.on('end', () => resolve());
-    stream.on('error', reject);
-  });
-  return Buffer.concat(chunks);
-}
+/**
+ * 取引先・顧客名の名寄せ／重複検出に使う突き合わせキー。
+ * 元帳側の表記が登録済みマスタと完全一致しないと「別会社」を新規作成してしまう
+ * （全角/半角スペース・㈱ と (株) ・連続する空白 など）ため、NFKC 正規化＋空白の
+ * 圧縮で吸収する。**表示・保存する名前は正規化しない**（元の表記のまま使う）。
+ * GLS 番号（案件コード）はこの対象外（コード値なので完全一致のまま — §分析参照）。
+ */
+export const normalizeForMatch = (s: unknown): string => String(s ?? '').normalize('NFKC').replace(/\s+/g, ' ').trim();
 
 /** freee CSV は UTF-8 または Shift_JIS。ヘッダー文字が読める方を採用する。 */
 function decodeCsv(buf: Buffer): string {
@@ -256,6 +228,9 @@ function parseGlsPrimary(memo: unknown): string | null {
  */
 function extractFreeeCsv(csv: string, glFileName: string, warnings: string[]): Extracted {
   const rows = parseCsv(csv);
+  if (rows.length > MAX_GL_ROWS) {
+    throw new Error(`「${glFileName}」の行数が多すぎます（${rows.length.toLocaleString()}行 / 上限${MAX_GL_ROWS.toLocaleString()}行）。期間を絞ってエクスポートし直してください。`);
+  }
   const header = rows[0] || [];
   const has = (n: string) => header.includes(n);
   // 損益計算書／残高試算表 (集計表): 期間借方/貸方金額・構成比があり取引No が無い
@@ -433,6 +408,9 @@ async function extractMoneyForwardXlsx(buf: Buffer, warnings: string[]): Promise
   if (!H) {
     throw new Error('MoneyForward GL シートが見つかりません (列「機能通貨発生金額 / 勘定科目コード / 文字摘要1」を含むヘッダー行が必要)');
   }
+  if (body.length > MAX_GL_ROWS) {
+    throw new Error(`Excel の行数が多すぎます（${body.length.toLocaleString()}行 / 上限${MAX_GL_ROWS.toLocaleString()}行）。期間を絞ってエクスポートし直してください。`);
+  }
 
   const sga: SgaRow[] = [], rev: RevRow[] = [], pur: PurRow[] = [], fixed: PurRow[] = [];
   let skippedOther = 0;
@@ -479,14 +457,14 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
   const skipDuplicates = !!opts.skipDuplicates;
   const warnings: string[] = [];
 
-  // --- Box から GL 取得 → 形式判定 (xlsx=MoneyForward / CSV=freee) → 抽出 ---
-  const glFile = await resolveGlFile(opts);
-  const buf = await boxDownloadBuf(glFile.id);
+  // --- アップロードされた GL ファイル → 形式判定 (xlsx=MoneyForward / CSV=freee) → 抽出 ---
+  const buf = opts.file.buffer;
+  const glFileName = opts.file.name;
   const isXlsx = buf.length > 3 && buf[0] === 0x50 && buf[1] === 0x4b; // 'PK' (zip) = xlsx
   const sourceFmt = isXlsx ? 'MoneyForward (xlsx)' : 'freee (CSV)';
   const { sga, rev, pur, fixed } = isXlsx
     ? await extractMoneyForwardXlsx(buf, warnings)
-    : extractFreeeCsv(decodeCsv(buf), glFile.name, warnings);
+    : extractFreeeCsv(decodeCsv(buf), glFileName, warnings);
 
   // period 判定 + 対象期間 (抽出行の日付の最小〜最大 + 含まれる年月)
   const counts: Record<string, number> = {};
@@ -514,14 +492,14 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
   const isProd = targetDb.includes('prod') || targetDb.includes('production');
 
   const report: KessanReport = {
-    dryRun: !commit, period, dateRange, targetDb: process.env.DB_NAME || (isProd ? 'prod' : 'dev'), isProd, scopes, sourceFile: `${glFile.name}（${sourceFmt}）`,
+    dryRun: !commit, period, dateRange, targetDb: process.env.DB_NAME || (isProd ? 'prod' : 'dev'), isProd, scopes, sourceFile: `${glFileName}（${sourceFmt}）`,
     summary: {
       sga: { count: sga.length, amount: sum(sga) },
       revenues: { count: rev.length, amount: sum(rev) },
       purchases: { count: pur.length, amount: sum(pur) },
       fixedCogs: { count: fixed.length, amount: sum(fixed), routed: excludeFixed ? '除外' : `${FIXED_NAME} (${FIXED_CODE})` },
     },
-    masters: { missingProjects: [], missingCustomers: [], created: { projects: 0, customers: 0, vendors: 0 } },
+    masters: { missingProjects: [], missingCustomers: [], missingVendors: [], created: { projects: 0, customers: 0, vendors: 0 } },
     duplicates: { sga: 0, revenues: 0, purchases: 0, samples: [] },
     samples: {
       sga: sga.slice(0, 6).map((x) => `${x.date} ${yen(x.amount)} ${x.tax_category} ${x.vendor_name} | ${x.description.slice(0, 60)}`),
@@ -538,7 +516,14 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
     const u = await client.query('SELECT id FROM users WHERE deleted_at IS NULL ORDER BY created_at LIMIT 1');
     const fallbackUser = userId || u.rows[0]?.id || null;
 
-    const cache = { customers: new Map<string, string | null>(), vendors: new Map<string, string | null>(), projects: new Map<string, { id: string; customer_id: string | null } | null>() };
+    const cache = {
+      customers: new Map<string, { id: string | null; ambiguous: boolean }>(),
+      vendors: new Map<string, { id: string | null; ambiguous: boolean }>(),
+      projects: new Map<string, { id: string; customer_id: string | null } | null>(),
+    };
+    // 正規化キーが複数社に衝突していて、かつ人（利用者）にまだ知らせていない名前。
+    // 同じ名前が何十行も出てきても警告を1回にまとめるための重複防止。
+    const ambiguousWarned = new Set<string>();
     const counts = { sga: 0, rev: 0, pur: 0, skipped: 0, dupSkipped: 0 };
     // 既存の手入力行の「キー→件数」マップ (skipDuplicates 時に投入をスキップ)。
     // 件数ベース (min(手入力,取込)) で消費するため、同一キーの正当な複数明細を消しすぎない。
@@ -554,15 +539,63 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
     // 更新していなかったため）。`DELETE` が `companies.is_customer` も更新する
     // ようになった（PR #226）ので、`is_customer = TRUE AND deleted_at IS NULL`
     // だけで足りる（`customers.routes.ts`/`search.routes.ts` と同じ判定・同じ理由）。
-    async function findCustomer(name: string) {
-      if (cache.customers.has(name)) return cache.customers.get(name)!;
-      const r = await client.query(
-        `SELECT co.id FROM companies co
-         WHERE co.is_customer = TRUE AND co.name=$1 AND co.deleted_at IS NULL
-         LIMIT 1`,
-        [name],
-      );
-      const id = r.rows[0]?.id || null; cache.customers.set(name, id); return id;
+    //
+    // 名寄せは SQL の完全一致ではなく `normalizeForMatch` した名前で行う。
+    // 完全一致だと、元帳側の表記が1文字でも違う（全角/半角・㈱の位置・連続空白等）
+    // だけで既存の取引先・顧客と紐付かず、同じ会社が2つに分裂して作られてしまう。
+    // 正規化キーごとに候補を「配列」で持つ（Map<string,id> で上書きすると、同じ正規化
+    // キーに複数社が衝突したとき SQL の返却順に依存して無作為にどちらかを選んでしまう —
+    // 例えば正規化前に別会社として登録済みの「㈱ABC」と「(株)ABC」が両方存在する場合、
+    // 元帳の行を誤って別の会社に紐付けかねない）。
+    type Candidate = { id: string; name: string };
+    const pushCandidate = (m: Map<string, Candidate[]>, key: string, c: Candidate) => {
+      const arr = m.get(key); if (arr) arr.push(c); else m.set(key, [c]);
+    };
+    // 衝突時は「元の表記と完全一致するもの」を優先する。それも無ければ一意に決められない
+    // ということなので、誤って別会社に紐付けるより安全な「未登録」扱いにする
+    // （既存の missingCustomers/missingProjects と同じ経路で人の確認に回る）。
+    // `ambiguous: true` は「未登録」と見た目は同じ（id: null）だが、原因が違う
+    // （単に無い／複数の候補があって決め切れない）。呼び出し側（ensureCustomer/
+    // ensureVendor）はこれを見て、自動作成に倒さず必ず人の確認に回す。
+    type Resolution = { id: string | null; ambiguous: boolean };
+    const resolveCandidate = (rawName: string, candidates: Candidate[] | undefined): Resolution => {
+      if (!candidates || candidates.length === 0) return { id: null, ambiguous: false };
+      if (candidates.length === 1) return { id: candidates[0].id, ambiguous: false };
+      // companies.name は一意制約が無いため、完全一致が複数件ありうる
+      // （同じ名前の会社が2件登録済み等）。1件に絞れたときだけ確定させる。
+      const exact = candidates.filter((c) => c.name === rawName);
+      return exact.length === 1 ? { id: exact[0].id, ambiguous: false } : { id: null, ambiguous: true };
+    };
+    const customerByKey = new Map<string, Candidate[]>();
+    for (const row of (await client.query(
+      `SELECT id, name FROM companies WHERE is_customer = TRUE AND deleted_at IS NULL`,
+    )).rows as Candidate[]) pushCandidate(customerByKey, normalizeForMatch(row.name), row);
+    const vendorByKey = new Map<string, Candidate[]>();
+    for (const row of (await client.query(
+      `SELECT id, name FROM companies WHERE is_vendor = TRUE AND deleted_at IS NULL`,
+    )).rows as Candidate[]) pushCandidate(vendorByKey, normalizeForMatch(row.name), row);
+
+    // cache は「元の表記そのもの」をキーにする（正規化キーだと、同じ正規化キーに
+    // 衝突する複数社のうち別々の完全一致名で呼ばれたとき、最初に解決した会社の結果を
+    // 別の会社の名前に対しても返してしまう）。
+    // ⚠️ キャッシュは「確定した一致（id あり）」だけを信じる。未一致・曖昧は
+    // キャッシュしても再計算する — 同じ取込の中で別の表記（同じ正規化キー）から
+    // 先に新規作成されると、customerByKey/vendorByKey の候補が増えて「未一致」
+    // だった判定が「一致」や「曖昧」に変わりうるため（例: 元帳に「㈱ABC」と
+    // 「(株)ABC」の両方があり、どちらも未登録だった場合。先に「㈱ABC」を作成すると
+    // 「(株)ABC」は候補1件＝一致になるはずだが、未一致をキャッシュしたままだと
+    // 見逃して2社目を重複作成してしまう）。
+    function resolveCustomer(name: string): Resolution {
+      const cached = cache.customers.get(name);
+      if (cached?.id) return cached;
+      const r = resolveCandidate(name, customerByKey.get(normalizeForMatch(name)));
+      cache.customers.set(name, r); return r;
+    }
+    function resolveVendor(name: string): Resolution {
+      const cached = cache.vendors.get(name);
+      if (cached?.id) return cached;
+      const r = resolveCandidate(name, vendorByKey.get(normalizeForMatch(name)));
+      cache.vendors.set(name, r); return r;
     }
     async function findProjectByGls(gls: string) {
       if (cache.projects.has(gls)) return cache.projects.get(gls)!;
@@ -579,15 +612,40 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
     }
 
     // マスタ照合レポート
+    // ⚠️ ここで missingCustomers/missingVendors に載る名前は「未登録」と「表記の衝突で
+    // 一意に決められない（曖昧）」の両方を含む。曖昧な方は createMasters を ON にしても
+    // 自動作成されず、該当する売上・仕入は commit 時に必ずスキップされる
+    // （ensureCustomer/ensureVendor 参照）。dry-run でこの区別まで見せておかないと、
+    // 「投入したのに件数が減っていた（＝マーカー行を消したのに入れ直されなかった）」に
+    // 気づけない。
     if (scopes.includes('revenues') || scopes.includes('purchases')) {
       const glsNeeded = new Set<string>([...rev.filter((x) => x.gls).map((x) => x.gls as string), ...pur.map((x) => x.gls as string)]);
       for (const g of glsNeeded) if (!(await findProjectByGls(g))) report.masters.missingProjects.push(g);
+
+      const ambiguousNames: string[] = [];
       const custNeeded = new Set(rev.map((x) => x.customer_name));
-      for (const c of custNeeded) if (!(await findCustomer(c))) report.masters.missingCustomers.push(c);
+      for (const c of custNeeded) {
+        const r = resolveCustomer(c);
+        if (!r.id) { report.masters.missingCustomers.push(c); if (r.ambiguous) ambiguousNames.push(c); }
+      }
+      if (scopes.includes('purchases')) {
+        const vendorNeeded = new Set<string>([
+          ...pur.map((x) => x.vendor_name),
+          ...(excludeFixed ? [] : fixed.map((x) => x.vendor_name)),
+        ]);
+        for (const v of vendorNeeded) {
+          const r = resolveVendor(v);
+          if (!r.id) { report.masters.missingVendors.push(v); if (r.ambiguous) ambiguousNames.push(v); }
+        }
+      }
+
       const noGls = rev.filter((x) => !x.gls).length;
       if (noGls) warnings.push(`売上で GLS 未抽出 ${noGls} 件 (案件紐付け不可)`);
-      if ((report.masters.missingProjects.length || report.masters.missingCustomers.length) && !createMasters) {
+      if ((report.masters.missingProjects.length || report.masters.missingCustomers.length || report.masters.missingVendors.length) && !createMasters) {
         warnings.push('未登録マスタがあります。createMasters=true で自動作成します (dev)。');
+      }
+      if (ambiguousNames.length) {
+        warnings.push(`表記の似た取引先・顧客が複数登録されていて一意に決められないものが ${ambiguousNames.length} 件あります（${ambiguousNames.slice(0, 10).join('、')}）。これらは「案件・顧客・取引先を自動で作る」をONにしても自動作成されず、該当する売上・仕入は投入時にスキップされます。取引先マスターを確認してから投入してください。`);
       }
     }
 
@@ -606,10 +664,12 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
           [dateFrom, dateTo, selfMarker]
         );
         existSga = new Map();
-        for (const r of ex.rows) incKey(existSga, `${toInt(r.amount)}|${String(r.vendor_name || '').trim()}|${ym(r.recognition_date)}`);
+        // 取引先名は完全一致ではなく normalizeForMatch で突き合わせる（全角/半角・
+        // 連続空白等の表記ゆれで「重複ではない」と誤判定し、二重計上を見逃さないため）。
+        for (const r of ex.rows) incKey(existSga, `${toInt(r.amount)}|${normalizeForMatch(r.vendor_name)}|${ym(r.recognition_date)}`);
         const budget = new Map(existSga); // 検出は複製で消費 (投入スキップと二重消費しない)
         for (const x of sga) {
-          const k = `${x.amount}|${x.vendor_name}|${ym(x.date)}`;
+          const k = `${x.amount}|${normalizeForMatch(x.vendor_name)}|${ym(x.date)}`;
           if ((budget.get(k) || 0) > 0) {
             budget.set(k, budget.get(k)! - 1); report.duplicates.sga++;
             if (dupSamples.length < 8) dupSamples.push(`[販管費] ${x.date} ${yen(x.amount)} ${x.vendor_name}`);
@@ -673,37 +733,55 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
     }
 
     const exec = execFromPgClient(client);
+    // 同じ正規化キーに複数社が衝突していて完全一致でも決め切れない名前を、1回だけ
+    // warnings に積む（同じ名前が何十行も出てきても知らせは1回にまとめるため）。
+    function warnAmbiguousOnce(name: string) {
+      if (ambiguousWarned.has(name)) return;
+      ambiguousWarned.add(name);
+      warnings.push(`「${name}」は表記の似た取引先・顧客が複数登録されており、一意に決められないため未登録として扱いました（新規作成もしていません）。取引先マスターをご確認ください。`);
+    }
     async function ensureCustomer(name: string): Promise<string | null> {
-      const id = await findCustomer(name);
-      if (id) return id;
+      const r = resolveCustomer(name);
+      if (r.id) return r.id;
+      if (r.ambiguous) {
+        warnAmbiguousOnce(name);
+        if (!report.masters.missingCustomers.includes(name)) report.masters.missingCustomers.push(name);
+        return null;
+      }
       if (!createMasters) return null;
       // `companies` に行を作る（company-directory.service.ts）。
       // グループの印は社名から見立てる（migration 192）。決算取込は印を持たないので、
       // ここで入れないとこの会社の案件だけグループ外のまま残る。
-      // `createCustomerRecord` は companies.id を返す。
+      // `createCustomerRecord` は companies.id を返す。名前は正規化せず元の表記のまま保存する。
       const nid = await createCustomerRecord(
         { name, notes: MARKER, is_gmo_group: looksLikeGmoGroup(name) }, fallbackUser, exec,
       );
-      cache.customers.set(name, nid); report.masters.created.customers++; return nid;
+      // 同じ取込内の同名の別行が二重作成しないよう、cache（元の表記キー）と
+      // customerByKey（正規化キー・候補配列）の両方に反映する。
+      cache.customers.set(name, { id: nid, ambiguous: false });
+      pushCandidate(customerByKey, normalizeForMatch(name), { id: nid, name });
+      report.masters.created.customers++; return nid;
     }
     async function ensureVendor(name: string): Promise<string | null> {
-      if (cache.vendors.has(name)) { const c = cache.vendors.get(name)!; if (c) return c; }
-      // Phase 3-3-9（`vendors` テーブル削除）以降、名前の一致も companies から
-      // 直接行う（`vendors.routes.ts` 自身も companies を直接読み書きするように
-      // なったので、companies から読んでも保存直後の値と食い違わなくなった）。
-      const r = await client.query(
-        `SELECT id FROM companies
-         WHERE is_vendor = TRUE AND deleted_at IS NULL AND name=$1
-         LIMIT 1`,
-        [name],
-      );
-      let id: string | null = r.rows[0]?.id || null;
-      if (!id && createMasters) {
-        // `companies` に行を作る（company-directory.service.ts）
-        id = await createVendorRecord({ name, notes: MARKER }, fallbackUser, exec);
-        report.masters.created.vendors++;
+      // resolveVendor はマスタ照合レポートの段階で既に呼ばれ結果がキャッシュ済みのはず
+      // だが（cache は「元の表記そのもの」がキー）、念のためここでも解決する。
+      const resolved = resolveVendor(name);
+      if (resolved.id) return resolved.id;
+      if (resolved.ambiguous) {
+        // 同じ正規化キーに複数社が衝突していて決め切れない。誤って別会社に紐付けたり
+        // 3社目を新規作成したりするより、この行をスキップする方が安全
+        // （呼び出し元は id が null なら投入をスキップする）。
+        warnAmbiguousOnce(name);
+        return null;
       }
-      cache.vendors.set(name, id); return id;
+      if (!createMasters) return null;
+      // `companies` に行を作る（company-directory.service.ts）。名前は元の表記のまま保存する。
+      const key = normalizeForMatch(name);
+      const id = await createVendorRecord({ name, notes: MARKER }, fallbackUser, exec);
+      report.masters.created.vendors++;
+      pushCandidate(vendorByKey, key, { id, name });
+      cache.vendors.set(name, { id, ambiguous: false });
+      return id;
     }
     async function ensureProject(key: string, name: string, customerId: string | null, isFixed = false): Promise<{ id: string; customer_id: string | null } | null> {
       const cacheKey = isFixed ? `__fixed__${key}` : key;
@@ -754,7 +832,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       if (scopes.includes('sga')) {
         await client.query('DELETE FROM sga_expenses WHERE notes LIKE $1', [`${MARKER}%`]);
         for (const x of sga) {
-          if (skipDuplicates && existSga) { const k = `${x.amount}|${x.vendor_name}|${ym(x.date)}`; if ((existSga.get(k) || 0) > 0) { existSga.set(k, existSga.get(k)! - 1); counts.dupSkipped++; continue; } }
+          if (skipDuplicates && existSga) { const k = `${x.amount}|${normalizeForMatch(x.vendor_name)}|${ym(x.date)}`; if ((existSga.get(k) || 0) > 0) { existSga.set(k, existSga.get(k)! - 1); counts.dupSkipped++; continue; } }
           await client.query(
             `INSERT INTO sga_expenses (id, entity_code, billing_key, vendor_name, description, amount, tax_category,
                invoice_qualified, expense_type, source, recognition_date, notes, created_by)
@@ -785,10 +863,12 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
         await client.query('DELETE FROM purchases WHERE notes LIKE $1', [`${MARKER}%`]);
         for (const x of pur) {
           if (skipDuplicates && x.gls && existPur) { const k = `${x.amount}|${x.gls}|${ym(x.date)}`; if ((existPur.get(k) || 0) > 0) { existPur.set(k, existPur.get(k)! - 1); counts.dupSkipped++; continue; } }
-          const proj = await ensureProject(x.gls as string, x.gls as string, null);
-          if (!proj) { counts.skipped++; continue; }
+          // 取引先を先に解決する。案件を先に作ってしまうと、取引先が曖昧で
+          // この行がスキップされたときに「使われない空の案件」だけが残ってしまう。
           const vendorId = await ensureVendor(x.vendor_name);
           if (!vendorId) { counts.skipped++; continue; }
+          const proj = await ensureProject(x.gls as string, x.gls as string, null);
+          if (!proj) { counts.skipped++; continue; }
           await client.query(
             `INSERT INTO purchases (id, project_id, entity_code, vendor_id, tax_category, invoice_qualified, amount, description, recognition_date, notes, created_by)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
@@ -797,19 +877,32 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
           counts.pur++;
         }
         if (!excludeFixed && fixed.length) {
-          const fixedCust = await ensureCustomer(FIXED_CUSTOMER);
-          const fixedProj = fixedCust ? await ensureProject(FIXED_CODE, FIXED_NAME, fixedCust, true) : null;
-          if (!fixedProj) { warnings.push(`固定原価プロジェクトを作成できません (createMasters 未指定?) → ${fixed.length} 件スキップ`); counts.skipped += fixed.length; }
-          else {
-            for (const x of fixed) {
-              const vendorId = await ensureVendor(x.vendor_name);
-              if (!vendorId) { counts.skipped++; continue; }
-              await client.query(
-                `INSERT INTO purchases (id, project_id, entity_code, vendor_id, tax_category, invoice_qualified, amount, description, recognition_date, notes, created_by)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-                [randomUUID(), fixedProj.id, CURRENT_ENTITY_CODE, vendorId, x.tax_category, x.invoice_qualified, x.amount, x.description, x.date, `${MARKER} ${x.no} [固定原価]`.slice(0, 240), fallbackUser]
-              );
-              counts.pur++;
+          // 取引先を先にすべて解決しておく。1件も解決できないのに固定原価
+          // プロジェクト・顧客だけ作ってしまう（誰にも使われない空のマスタが残る）
+          // のを避けるため。
+          const fixedVendorIds = new Map<string, string | null>();
+          for (const x of fixed) {
+            if (!fixedVendorIds.has(x.vendor_name)) fixedVendorIds.set(x.vendor_name, await ensureVendor(x.vendor_name));
+          }
+          const anyVendorResolved = [...fixedVendorIds.values()].some((v) => v != null);
+          if (!anyVendorResolved) {
+            warnings.push(`固定原価の取引先が1件も解決できないため、${fixed.length} 件スキップしました。`);
+            counts.skipped += fixed.length;
+          } else {
+            const fixedCust = await ensureCustomer(FIXED_CUSTOMER);
+            const fixedProj = fixedCust ? await ensureProject(FIXED_CODE, FIXED_NAME, fixedCust, true) : null;
+            if (!fixedProj) { warnings.push(`固定原価プロジェクトを作成できません (createMasters 未指定?) → ${fixed.length} 件スキップ`); counts.skipped += fixed.length; }
+            else {
+              for (const x of fixed) {
+                const vendorId = fixedVendorIds.get(x.vendor_name) ?? null;
+                if (!vendorId) { counts.skipped++; continue; }
+                await client.query(
+                  `INSERT INTO purchases (id, project_id, entity_code, vendor_id, tax_category, invoice_qualified, amount, description, recognition_date, notes, created_by)
+                   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+                  [randomUUID(), fixedProj.id, CURRENT_ENTITY_CODE, vendorId, x.tax_category, x.invoice_qualified, x.amount, x.description, x.date, `${MARKER} ${x.no} [固定原価]`.slice(0, 240), fallbackUser]
+                );
+                counts.pur++;
+              }
             }
           }
         }

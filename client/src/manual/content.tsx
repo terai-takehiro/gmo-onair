@@ -1028,7 +1028,7 @@ export const SALES_MANUAL: ManualContent = {
           type: "callout",
           tone: "muted",
           title: "システム管理者のみ（財務管理メニュー内）",
-          text: "会計システム（freee／MoneyForward）の取引明細データ（Box格納）を、財務管理・案件管理へ一括で取り込む機能です。freee は仕訳帳（借方/貸方形式）と総勘定元帳の両CSVに対応。損益計算書／残高試算表は集計表のため取込対象外です（指定すると理由を表示します）。",
+          text: "会計システム（freee／MoneyForward）の取引明細データを、PCからアップロードして財務管理・案件管理へ一括で取り込む機能です。freee は仕訳帳（借方/貸方形式）と総勘定元帳の両CSVに対応。損益計算書／残高試算表は集計表のため取込対象外です（指定すると理由を表示します）。",
         },
         {
           type: "steps",

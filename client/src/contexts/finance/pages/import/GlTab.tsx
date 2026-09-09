@@ -12,19 +12,16 @@
  * **対象や取り込み元を変えて投入すると、意図しない範囲が入れ直されます**。
  * 4つのトグルの既定値は旧実装から変えていません。
  */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { Loader2, AlertTriangle, Database } from 'lucide-react';
+import { Loader2, AlertTriangle, Database, CloudUpload, FileSpreadsheet, X } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Row, RowHeader, RowMain, RowSlot } from '@gmo-onair/shared/src/client/ui/row';
-import { MoneyCell } from '@gmo-onair/shared/src/client/ui/money';
-import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
+import { GlReport } from './GlReport';
 import type { ImportScope, KessanReport } from './types';
 
 const TOGGLES = [
@@ -36,22 +33,88 @@ const TOGGLES = [
 export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
   const [scope, setScope] = useState<ImportScope>('all');
   const [flags, setFlags] = useState({ createMasters: true, excludeFixed: false, skipDuplicates: true });
-  const [boxFolder, setBoxFolder] = useState('');
-  const [boxFile, setBoxFile] = useState('');
+  const [file, setFile] = useState<File | null>(null);
   const [report, setReport] = useState<KessanReport | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  // ファイル・対象（scope）・3トグルをまとめて「設定一式」として扱う。どれか1つでも
+  // 変わったら、それまでの下書き結果（report）は別の設定に対するものになるので必ず
+  // 捨てる（対象を「販管費」→「すべて」に変えた・トグルを変えた、だけでも投入内容が
+  // 変わるため。実際に「対象を切り替えたのに前のプレビューのまま投入できてしまう」
+  // 指摘が Codex レビューで出た）。
+  // 「いま選ばれている設定一式」と「いま投げているリクエストが対象にした設定一式」を
+  // ref で持ち、読み取り中に何かが変わった場合、あとから届く古いレスポンスを見分けて
+  // 捨てる（state のクロージャだと古い値を掴んだままになりうるので使わない）。
+  type Settings = { file: File | null; scope: ImportScope; createMasters: boolean; excludeFixed: boolean; skipDuplicates: boolean };
+  const currentSettingsRef = useRef<Settings>({ file, scope, ...flags });
+  const requestSettingsRef = useRef<Settings | null>(null);
+  const settingsEqual = (a: Settings, b: Settings) =>
+    a.file === b.file && a.scope === b.scope && a.createMasters === b.createMasters
+    && a.excludeFixed === b.excludeFixed && a.skipDuplicates === b.skipDuplicates;
+
+  // ⚠️ currentSettingsRef の更新は必ずここ（各変更ハンドラ）で同期的に行う。
+  // useEffect に任せると、下書きのレスポンスが届くタイミングと effect の実行
+  // （レンダー後・非同期）がずれ、「設定を変えた直後に古いレスポンスが届く」瞬間だけ
+  // ref がまだ更新されておらず stale 判定をすり抜けてしまう（Codex レビュー指摘）。
+  const selectFile = (f: File | null) => {
+    currentSettingsRef.current = { ...currentSettingsRef.current, file: f };
+    setFile(f);
+    setReport(null);
+    onStep(1);
+  };
+  const changeScope = (v: ImportScope) => {
+    currentSettingsRef.current = { ...currentSettingsRef.current, scope: v };
+    setScope(v);
+    setReport(null);
+    onStep(1);
+  };
+  const toggleFlag = (key: keyof typeof flags, checked: boolean) => {
+    currentSettingsRef.current = { ...currentSettingsRef.current, [key]: checked };
+    setFlags((p) => ({ ...p, [key]: checked }));
+    setReport(null);
+    onStep(1);
+  };
 
   const run = useMutation<KessanReport, Error, boolean>({
-    mutationFn: async (commit) => (await api.post('/admin/kessan/run', {
-      scope, commit, ...flags,
-      boxFolderId: boxFolder.trim() || undefined,
-      glFileId: boxFile.trim() || undefined,
-    }, { timeout: 180_000 })).data.data as KessanReport,
-    onSuccess: (d) => {
-      setReport(d);
-      onStep(d.dryRun ? 2 : 3);
-      if (!d.dryRun) notifySuccess('取り込みました');
+    mutationFn: async (commit) => {
+      if (!file) throw new Error('総勘定元帳ファイルを選択してください');
+      requestSettingsRef.current = { file, scope, ...flags };
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('scope', scope);
+      fd.append('commit', String(commit));
+      fd.append('createMasters', String(flags.createMasters));
+      fd.append('excludeFixed', String(flags.excludeFixed));
+      fd.append('skipDuplicates', String(flags.skipDuplicates));
+      return (await api.post('/admin/kessan/run', fd, {
+        timeout: 180_000,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })).data.data as KessanReport;
     },
-    onError: (err) => notifyApiError('総勘定元帳を取り込めませんでした', err, '指定したフォルダ・ファイルが読めるか確かめてください。'),
+    onSuccess: (d) => {
+      const stale = !requestSettingsRef.current || !settingsEqual(requestSettingsRef.current, currentSettingsRef.current);
+      if (d.dryRun) {
+        // 読み取り（下書き）中に設定（ファイル・対象・トグル）が変わっていたら、その
+        // 結果は別の設定のものなので反映しない（変わった時点で上の effect が report/step
+        // を消している）。
+        if (stale) return;
+        setReport(d);
+        onStep(2);
+        return;
+      }
+      // 「投入（commit）」はサーバーに実際に書き込み済みなので、設定が変わっていても
+      // 成功したこと自体は必ず知らせる — 黙って消すと「実は投入されていた」ことに
+      // 気づけなくなる。ただし report をそのまま「いま選択中の設定の結果」として
+      // 残すと、変えた後の設定に対して「台帳に入れる」ボタンが再び押せる状態になり、
+      // その設定を一度もプレビューせずに投入できてしまう。変わっていた場合は通知だけ
+      // 行い、画面は最初からやり直す状態に戻す。
+      notifySuccess('取り込みました');
+      if (stale) { setReport(null); onStep(1); return; }
+      setReport(d);
+      onStep(3);
+    },
+    onError: (err) => notifyApiError('総勘定元帳を取り込めませんでした', err, 'ファイルの形式（freee CSV / MoneyForward xlsx）を確かめてください。'),
   });
 
   const commit = async () => {
@@ -71,7 +134,7 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
       <div className="rounded-control-lg flex items-start gap-2 border border-warning-border bg-warning-surface p-3">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
         <p className="text-sub text-secondary-foreground">
-          freee の総勘定元帳（Box）を財務管理・案件管理へ取り込みます。
+          アップロードした総勘定元帳ファイルを財務管理・案件管理へ取り込みます。
           まず<strong className="font-bold">「読み取る（下書き）」</strong>で中身を確かめ、問題なければ入れてください。
           対象月ぶんを入れ直す形なので<strong className="font-bold">何度でもやり直せます</strong>。
           本番・検証のどちらでも動きます（取り込み先は結果に出ます）。
@@ -82,7 +145,7 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <Label>対象</Label>
-            <Select value={scope} onValueChange={(v) => setScope(v as ImportScope)}>
+            <Select value={scope} onValueChange={(v) => changeScope(v as ImportScope)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">すべて（販管費・売上・仕入）</SelectItem>
@@ -99,7 +162,7 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
                   type="checkbox"
                   className="mt-1"
                   checked={flags[t.key]}
-                  onChange={(e) => setFlags((p) => ({ ...p, [t.key]: e.target.checked }))}
+                  onChange={(e) => toggleFlag(t.key, e.target.checked)}
                 />
                 <span>
                   {t.label}
@@ -111,28 +174,86 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
         </div>
 
         <div>
-          <Label>取り込み元 Box フォルダ（任意・ID または共有 URL）</Label>
-          <Input value={boxFolder} onChange={(e) => setBoxFolder(e.target.value)} placeholder="例: 390226334203" />
-          <p className="text-note mt-1 text-muted-foreground">
-            そのフォルダの「総勘定元帳／元帳」CSV（freee）のうち<strong className="font-bold">最新</strong>を選びます。空欄なら既定の取り込み元です。
-          </p>
-        </div>
-        <div>
-          <Label>取り込み元ファイルを直接指定（任意・Box ファイル ID または共有 URL）</Label>
-          <Input value={boxFile} onChange={(e) => setBoxFile(e.target.value)} placeholder="例: 2285787526887" />
-          <p className="text-note mt-1 text-muted-foreground">
-            freee の CSV も MoneyForward の xlsx も指定できます（形式は自動で見分けます・フォルダ指定より優先）。
-          </p>
+          <Label>総勘定元帳ファイル（freee の CSV または MoneyForward の xlsx）</Label>
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="総勘定元帳ファイルをドラッグ＆ドロップ、またはクリックして選択"
+            className={`rounded-control-lg min-h-tap cursor-pointer border-2 border-dashed p-5 text-center transition-colors ${
+              dragOver ? 'border-primary bg-primary-surface-weak' : 'border-border hover:border-primary'
+            }`}
+            onClick={() => fileInputRef.current?.click()}
+            onKeyDown={(e) => {
+              // 内側の「取り消す」ボタンにフォーカスがあるときの Enter/Space はここまで
+              // バブリングしてくる。e.currentTarget（この div 自身）でのキー操作だけを拾う
+              // ——でないと、ファイルを消すつもりの Enter でピッカーまで開いてしまう。
+              if (e.target !== e.currentTarget) return;
+              if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click();
+            }}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              const f = e.dataTransfer.files?.[0];
+              if (f) {
+                selectFile(f);
+                // ネイティブ input 側の選択も消しておく。消さないと、ドロップで
+                // 別ファイルに替えたあと「ドロップ前に選んでいたファイル」を
+                // ピッカーで選び直しても change イベントが発火しないことがある。
+                if (fileInputRef.current) fileInputRef.current.value = '';
+              }
+            }}
+          >
+            {file ? (
+              <div className="flex items-center justify-center gap-2">
+                <FileSpreadsheet className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+                <span className="text-sub truncate font-bold">{file.name}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="ファイルを取り消す"
+                  className="min-h-tap min-w-tap"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    selectFile(null);
+                    // 同じファイルを選び直したときも change イベントが発火するよう、
+                    // ネイティブ input 側の選択も一緒に消す（消さないとブラウザが
+                    // 「選択が変わっていない」と見なし、同じファイルの再選択を無視する）。
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                  }}
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </div>
+            ) : (
+              <>
+                <CloudUpload className="mx-auto h-6 w-6 text-muted-foreground" aria-hidden="true" />
+                <p className="text-sub mt-1.5 font-bold">
+                  freee の総勘定元帳CSV または MoneyForward の xlsx をドラッグ＆ドロップ
+                </p>
+                <p className="text-note mt-0.5 text-muted-foreground">またはクリックして選択</p>
+              </>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              className="hidden"
+              onChange={(e) => { selectFile(e.target.files?.[0] ?? null); }}
+            />
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" disabled={run.isPending} onClick={() => run.mutate(false)}>
+          <Button variant="outline" disabled={run.isPending || !file} onClick={() => run.mutate(false)}>
             {run.isPending && !run.variables
               ? <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />
               : <Database className="mr-1 h-4 w-4" aria-hidden="true" />}
             読み取る（下書き）
           </Button>
-          <Button disabled={run.isPending || !report} onClick={commit}>
+          <Button disabled={run.isPending || !report || !file} onClick={commit}>
             {run.isPending && run.variables && <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />}
             台帳に入れる
           </Button>
@@ -145,135 +266,6 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
       </div>
 
       {report && <GlReport report={report} />}
-    </div>
-  );
-}
-
-function GlReport({ report }: { report: KessanReport }) {
-  const dupTotal = report.duplicates
-    ? report.duplicates.sga + report.duplicates.revenues + report.duplicates.purchases : 0;
-  const ROWS = [
-    ['販管費', report.summary.sga],
-    ['売上', report.summary.revenues],
-    ['仕入', report.summary.purchases],
-    [`固定原価（→ ${report.summary.fixedCogs.routed}）`, report.summary.fixedCogs],
-  ] as const;
-
-  return (
-    <div className="rounded-card flex flex-col gap-4 border border-border bg-card p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <TableBadge
-          label={report.dryRun ? '下書き（未投入）' : '取り込み済み'}
-          w={null}
-          className={report.dryRun
-            ? 'border-transparent bg-info-surface text-info'
-            : 'border-transparent bg-success-surface text-success'}
-        />
-        <TableBadge
-          label={`取り込み先: ${report.isProd ? '本番' : '検証'}（${report.targetDb}）`}
-          w={null}
-          className={report.isProd
-            ? 'border-transparent bg-destructive-surface text-destructive'
-            : 'border-transparent bg-muted text-muted-foreground'}
-        />
-      </div>
-
-      <p className="text-sub text-secondary-foreground">
-        対象期間:{' '}
-        <strong className="font-bold text-foreground">
-          {report.dateRange?.from && report.dateRange?.to
-            ? `${report.dateRange.from} 〜 ${report.dateRange.to}` : report.period}
-        </strong>
-        {report.dateRange?.months?.length ? `（${report.dateRange.months.join('、')}）` : ''}
-        <span className="text-note mt-0.5 block text-muted-foreground">
-          マーカー月 {report.period} ／ 区分 {report.scopes.join('、')}
-          {report.sourceFile ? ` ／ 取り込み元 ${report.sourceFile}` : ''}
-        </span>
-      </p>
-
-      <div className="flex flex-col">
-        <RowHeader className="hidden sm:flex">
-          <RowMain>区分</RowMain>
-          <RowSlot w={72} align="right">件数</RowSlot>
-          <RowSlot w={160} align="right">金額</RowSlot>
-        </RowHeader>
-        {ROWS.map(([label, s]) => (
-          <Row key={label}>
-            <RowMain>{label}</RowMain>
-            <RowSlot w={72} align="right"><span className="font-number">{s.count}</span></RowSlot>
-            <MoneyCell value={s.amount} width={160} />
-          </Row>
-        ))}
-      </div>
-
-      {report.committed && (
-        <p className="text-sub text-secondary-foreground">
-          入った件数：販管費 <strong className="font-bold">{report.committed.sga}</strong>
-          {' / '}売上 <strong className="font-bold">{report.committed.revenues}</strong>
-          {' / '}仕入 <strong className="font-bold">{report.committed.purchases}</strong>
-          {report.committed.dupSkipped ? ` / 重複で飛ばした ${report.committed.dupSkipped}` : ''}
-          {report.committed.skipped ? ` / その他で飛ばした ${report.committed.skipped}` : ''}
-          {' ｜ '}新しく作った：案件 {report.masters.created.projects}
-          {' / '}顧客 {report.masters.created.customers} / 取引先 {report.masters.created.vendors}
-        </p>
-      )}
-
-      {(report.masters.missingProjects.length > 0 || report.masters.missingCustomers.length > 0) && (
-        <div className="rounded-control-lg border border-warning-border bg-warning-surface p-3">
-          {report.masters.missingProjects.length > 0 && (
-            <p className="text-note text-warning">
-              登録の無い案件（GLS）{report.masters.missingProjects.length}件: {report.masters.missingProjects.join('、')}
-            </p>
-          )}
-          {report.masters.missingCustomers.length > 0 && (
-            <p className="text-note mt-1 text-warning">
-              登録の無い顧客 {report.masters.missingCustomers.length}件: {report.masters.missingCustomers.slice(0, 20).join('、')}
-            </p>
-          )}
-          {report.dryRun && (
-            <p className="text-note mt-1 text-muted-foreground">
-              「案件・顧客・取引先を自動で作る」を入れて取り込むと作られます。
-            </p>
-          )}
-        </div>
-      )}
-
-      {dupTotal > 0 && (
-        <div className="rounded-control-lg border border-destructive-border bg-destructive-surface p-3">
-          <p className="text-note font-bold text-destructive">
-            既にあるデータと同じ金額＋内容の重複候補が {dupTotal} 件あります
-            （販管費 {report.duplicates.sga} / 売上 {report.duplicates.revenues} / 仕入 {report.duplicates.purchases}）
-          </p>
-          <p className="text-note mt-1 text-destructive">
-            手で入れた分とこの取り込みが二重計上にならないか確かめてください（決算の取り込みどうしの入れ直しは対象外です）。
-          </p>
-          {report.duplicates.samples.length > 0 && (
-            <ul className="font-number mt-1">
-              {report.duplicates.samples.map((s) => <li key={s} className="text-note truncate">{s}</li>)}
-            </ul>
-          )}
-        </div>
-      )}
-
-      {report.warnings.length > 0 && (
-        <div className="rounded-control-lg border border-warning-border bg-warning-surface p-3">
-          {report.warnings.map((w) => <p key={w} className="text-note text-warning">{w}</p>)}
-        </div>
-      )}
-
-      <details className="text-note">
-        <summary className="min-h-tap flex cursor-pointer items-center text-muted-foreground">明細のサンプルを出す</summary>
-        <div className="mt-2 flex flex-col gap-3">
-          {(['sga', 'revenues', 'purchases'] as const).map((k) => (report.samples[k].length ? (
-            <div key={k}>
-              <p className="font-bold">{k === 'sga' ? '販管費' : k === 'revenues' ? '売上' : '仕入'}</p>
-              <ul className="font-number mt-1">
-                {report.samples[k].map((s) => <li key={s} className="truncate">{s}</li>)}
-              </ul>
-            </div>
-          ) : null))}
-        </div>
-      </details>
     </div>
   );
 }
