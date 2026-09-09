@@ -1,5 +1,9 @@
 # 隔週キープの数字・資料ビルダーの画面モックアップ
 
+> **状態**: 実装済み（記録）
+> **最終確認**: 2026-09-08（v4.6.10）
+> **位置づけ**: [`../../keep-report.md`](../../keep-report.md) の絵。画面は `client-daily/src/pages/weekly/{keep,deck}/` に実装済み。絵の「事業主体」は描いた時点の語（実装は「計上会社」`entity_code`）
+
 **ロジックの正は [`docs/design/v4/keep-report.md`](../../keep-report.md)。** ここはその絵。
 
 公開先: https://claude.ai/code/artifact/26a5d2e5-87c9-4bb9-a597-9c1631438651

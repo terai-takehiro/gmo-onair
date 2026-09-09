@@ -1,5 +1,9 @@
 # レギュラー案件（回が蓄積するパターン）のロジック
 
+> **状態**: 現役の決めごと（実装済み）
+> **最終確認**: 2026-09-08（v4.6.10）
+> **位置づけ**: レギュラー案件（回が蓄積する案件）のロジックの正。§10 の 1〜7 は実装済み（v4.5.16「レギュラー案件を動くようにした」以降。`project-health.ts` の `recurrence` 除外・migration 260／262〜264・`client/src/contexts/tasks/components/{EpisodesPanel,AddEpisodesDialog,GenerateEpisodesForm}.tsx`・`invoice-groups.routes.ts`）。§0 の「現状」は 2026-09-01 の実測記録。⚠️ 要確認: §10-8（レギュラー用の標準工程テンプレート3ブロック）が入っているか
+
 案件管理で「レギュラー番組」を扱うための決めごと。**この文書がレギュラーの正**。
 
 > なぜ独立した文書にしたか: レギュラーの仕様は旧モック `mockups/v4-mockup-main.dc.html:3121-3240`

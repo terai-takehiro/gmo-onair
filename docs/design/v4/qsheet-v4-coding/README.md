@@ -1,5 +1,9 @@
 # 制作資料 v4（Qシート作り直し）— コーディング設計書の索引
 
+> **状態**: 実装済み（記録）
+> **最終確認**: 2026-09-08（v4.6.10）
+> **位置づけ**: 制作技術支援（旧・制作資料。本文の `client-qsheet/`・`/qsheet/` は旧名で、いまは `client-techops/`・`/techops/`）を v4.1 で作り直す設計書 00〜14 の索引。段ごとの実装状況は §2 の表の「状態」列（2026-09-08 にコードで確認）。残る作業は表本体・`EditorSidebar`・モバイル編集の作り直しで、正は [`client-techops/CLAUDE.md`](../../../../client-techops/CLAUDE.md)
+
 > **これが入口です。** 10本の設計書があり、**この文書だけ読めば方針が分かる**ようにしてあります。
 > **執筆時点（2026-08-21）ではコードは1行も書いていませんでした。**
 >
@@ -32,23 +36,23 @@ GMO ONAiR の「制作資料」アプリ（`client-qsheet/`・ベースパス `/
 
 ## 2. 読む順
 
-| # | 文書 | 何が書いてあるか | いつ読むか |
-| --- | --- | --- | --- |
-| **00** | [`00-datamodel-fixes.md`](00-datamodel-fixes.md) | `templateIndex`→`templateId`・モバイルのセル形・`docTotalSec`・`blockRef`・`genId` | **最初。v4.1 の最初の PR** |
-| **01** | [`01-app-structure.md`](01-app-structure.md) | ルーティング／トップ（案件を選ぶ）／ミニアプリのレジストリ／制作のジャーニー | 全体像を掴むとき |
-| **02** | [`02-schedule.md`](02-schedule.md) | スケジュール表（当日の枠）。専用テーブル5本＋共有1本 | 枠を作るとき |
-| **03** | [`03-excel.md`](03-excel.md) | Excel 互換（書き出し・取込・テンプレファイル） | Excel をやるとき |
-| **04** | [`04-ai.md`](04-ai.md) | AI 機能4つ（枠／骨格／セリフ／壁打ち）＋実尺＋フィードバックループ | AI をやるとき |
-| **05** | [`05-mcp.md`](05-mcp.md) | 外部の Claude から制作資料を読む／提案を置く（8ツール） | MCP をやるとき |
-| **06** | [`06-editor.md`](06-editor.md) | **編集画面。今ある機能を落とさないための棚卸し表** | 編集画面を触る前に**必ず** |
-| **07** | [`07-onair-roles.md`](07-onair-roles.md) | 本番4役割（進行／ランダウン／プロンプター／公開音声）＋実尺の書き手 | 本番画面を触る前に**必ず** |
-| **08** | [`08-recording-streaming.md`](08-recording-streaming.md) | 収録設定・配信設定（PR #279 をミニアプリに合わせ直したもの）。**Excel が2本ある問題**／**WEB会議の情報**（§5・Excel には出さない） | 機器設定をやるとき |
-| **09** | [`09-live-timer.md`](09-live-timer.md) | 計時・視聴者（計時LIVE の統合）。**公開URLの表示画面は変えない**／**視聴者の取得をサーバー側へ**（§5） | 計時を触る前に**必ず**。PR1〜6は実装済み。積み残し（導線・改称）は下記10〜12 |
-| 10 | [`10-live-lite-integration.md`](10-live-lite-integration.md) | 計時・視聴者の軽量統合案（バンドル分離のまま導線・命名だけ揃える）。3案のうちの1つ・一次情報 | 12 の設計の詳細を読むとき |
-| 11 | [`11-live-phased-integration.md`](11-live-phased-integration.md) | 計時・視聴者の段階案（フェーズ1=10・フェーズ2=バンドル統合）。3案のうちの1つ | 同上 |
-| **12** | [`12-live-timer-decision.md`](12-live-timer-decision.md) | **計時・視聴者のミニアプリ統合・確定版。** 09のPR7積み残し（導線・改称）を、3案（09完全統合／10軽量統合／11段階案）の判定を踏まえて再設計したもの。**採用方針・PR分割・着手条件はここを読む** | 計時・視聴者のミニアプリ化に着手する前に**必ず** |
-| **13** | [`13-live-display-layout-editor.md`](13-live-display-layout-editor.md) | **表示画面（`/live/display/:timerId`）の自由配置レイアウト＋全案件横断テンプレート・確定版。** 2案（シンプルさ優先／運用のしやすさ優先）と2名の判定を踏まえた折衷案。**`TimerDisplayPage.tsx`「触らない」の明示的な上書き・独立コピー方式のデータモデル・Socket配信をしない反応性ポリシーはここを読む** | 表示画面のレイアウト機能に着手する前に**必ず** |
-| **14** | [`14-schedule-v2-plan.md`](14-schedule-v2-plan.md) | **スケジュール表・第2版計画（機能と UI/UX）。** 「MCP くらいしかできない」の正体は**サーバーにある機能が画面に配線されていないこと**（列 0 本の袋小路・表の設定／共有／削除が画面に無い）。段A（配線のみ・サーバー変更なし）→段B→段C の順、画面は 2 枚のまま、ワイヤー6枚・部品対応表・利用者への質問7件 | スケジュール表を触る前に**必ず**（02 と impl/04 の次に） |
+| # | 文書 | 何が書いてあるか | いつ読むか | 状態（2026-09-08） |
+| --- | --- | --- | --- | --- |
+| **00** | [`00-datamodel-fixes.md`](00-datamodel-fixes.md) | `templateIndex`→`templateId`・モバイルのセル形・`docTotalSec`・`blockRef`・`genId` | **最初。v4.1 の最初の PR** | ✅ 実装済み（[`impl/00`](impl/00-datamodel-fixes-impl.md)） |
+| **01** | [`01-app-structure.md`](01-app-structure.md) | ルーティング／トップ（案件を選ぶ）／ミニアプリのレジストリ／制作のジャーニー | 全体像を掴むとき | ✅ 実装済み（[`impl/03`](impl/03-app-structure-impl.md)。トップは `/techops/top`・ベースパスは `/techops/`） |
+| **02** | [`02-schedule.md`](02-schedule.md) | スケジュール表（当日の枠）。専用テーブル5本＋共有1本 | 枠を作るとき | ✅ 実装済み（[`impl/04`](impl/04-schedule-impl.md)）。第2版は 14 |
+| **03** | [`03-excel.md`](03-excel.md) | Excel 互換（書き出し・取込・テンプレファイル） | Excel をやるとき | ✅ 実装済み（`server/src/contexts/qsheet/excel/`・`ExcelImportDialog.tsx`・migration 224） |
+| **04** | [`04-ai.md`](04-ai.md) | AI 機能4つ（枠／骨格／セリフ／壁打ち）＋実尺＋フィードバックループ | AI をやるとき | ✅ 実装済み（04-a は [`impl/07`](impl/07-ai-proposals-impl.md)。04-b の生成と 04-c のナレッジ・月次レビューも `server/src/contexts/qsheet/ai/`・migration 222〜226） |
+| **05** | [`05-mcp.md`](05-mcp.md) | 外部の Claude から制作資料を読む／提案を置く（8ツール） | MCP をやるとき | ✅ 実装済み（`server/src/contexts/mcp/tools/production.tools.ts`・migration 223。ツール名は `get_sheet` 等へ改名し旧名も併存） |
+| **06** | [`06-editor.md`](06-editor.md) | **編集画面。今ある機能を落とさないための棚卸し表** | 編集画面を触る前に**必ず** | 🔶 一部（機能の棚卸し分は [`impl/05`](impl/05-editor-impl.md) で実装済み。表本体・`EditorSidebar`・モバイル編集の作り直しは未 — `client-techops/CLAUDE.md`「残作業」） |
+| **07** | [`07-onair-roles.md`](07-onair-roles.md) | 本番4役割（進行／ランダウン／プロンプター／公開音声）＋実尺の書き手 | 本番画面を触る前に**必ず** | ✅ 実装済み（[`impl/01`](impl/01-cue-actuals-impl.md)・[`impl/02`](impl/02-audio-share-token-impl.md)・migration 212〜213） |
+| **08** | [`08-recording-streaming.md`](08-recording-streaming.md) | 収録設定・配信設定（PR #279 をミニアプリに合わせ直したもの）。**Excel が2本ある問題**／**WEB会議の情報**（§5・Excel には出さない） | 機器設定をやるとき | ✅ 実装済み（[`impl/08`](impl/08-recording-streaming-impl.md)・migration 220・`pages/{recording,streaming}/`） |
+| **09** | [`09-live-timer.md`](09-live-timer.md) | 計時・視聴者（計時LIVE の統合）。**公開URLの表示画面は変えない**／**視聴者の取得をサーバー側へ**（§5） | 計時を触る前に**必ず**。PR1〜6は実装済み。積み残し（導線・改称）は下記10〜12 | ✅ 実装済み（[`impl/09`](impl/09-live-timer-impl.md)・migration 221。PR7 の積み残しは 12 で実施） |
+| 10 | [`10-live-lite-integration.md`](10-live-lite-integration.md) | 計時・視聴者の軽量統合案（バンドル分離のまま導線・命名だけ揃える）。3案のうちの1つ・一次情報 | 12 の設計の詳細を読むとき | 参考（3案の1つ。12 に統合） |
+| 11 | [`11-live-phased-integration.md`](11-live-phased-integration.md) | 計時・視聴者の段階案（フェーズ1=10・フェーズ2=バンドル統合）。3案のうちの1つ | 同上 | 参考（3案の1つ。12 に統合） |
+| **12** | [`12-live-timer-decision.md`](12-live-timer-decision.md) | **計時・視聴者のミニアプリ統合・確定版。** 09のPR7積み残し（導線・改称）を、3案（09完全統合／10軽量統合／11段階案）の判定を踏まえて再設計したもの。**採用方針・PR分割・着手条件はここを読む** | 計時・視聴者のミニアプリ化に着手する前に**必ず** | ✅ 実装済み（フェーズ1・2。`client-techops/src/pages/live/`・migration 232・237。旧 `client-live` の運用画面は削除済み） |
+| **13** | [`13-live-display-layout-editor.md`](13-live-display-layout-editor.md) | **表示画面（`/live/display/:timerId`）の自由配置レイアウト＋全案件横断テンプレート・確定版。** 2案（シンプルさ優先／運用のしやすさ優先）と2名の判定を踏まえた折衷案。**`TimerDisplayPage.tsx`「触らない」の明示的な上書き・独立コピー方式のデータモデル・Socket配信をしない反応性ポリシーはここを読む** | 表示画面のレイアウト機能に着手する前に**必ず** | ✅ 実装済み（`pages/live/LiveDisplayLayoutEditorPage.tsx`・`server/src/contexts/liveops/routes/display-templates.routes.ts`・migration 233） |
+| **14** | [`14-schedule-v2-plan.md`](14-schedule-v2-plan.md) | **スケジュール表・第2版計画（機能と UI/UX）。** 「MCP くらいしかできない」の正体は**サーバーにある機能が画面に配線されていないこと**（列 0 本の袋小路・表の設定／共有／削除が画面に無い）。段A（配線のみ・サーバー変更なし）→段B→段C の順、画面は 2 枚のまま、ワイヤー6枚・部品対応表・利用者への質問7件 | スケジュール表を触る前に**必ず**（02 と impl/04 の次に） | ✅ 段A・B 実装済み（2026-09-06・PR1〜7b）。段C は「実装しない」で決着 |
 
 ### 2026-09-06 に決まったこと（利用者の判断・スケジュール表）
 

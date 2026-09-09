@@ -1,5 +1,9 @@
 # 根源整理計画 — 案件・タスク・AI・共有の全面再設計（2026-08-26〜）
 
+> **状態**: 現役の計画（進行中）— Phase 1・2 は実装済み。Phase 3 は構想（うち (1) 案件台帳の棚卸しは [project-ledger-simplification-plan.md](project-ledger-simplification-plan.md) で Phase A・B 実装済み・C 一部）
+> **最終確認**: 2026-09-08（v4.6.10） — Phase 1 の成果物（migration 238 `project_health_tidy`・`server/src/contexts/sales/services/project-health.ts`・`scheduler.service.ts` の `project_tidy`・`PATCH /projects/:id/snooze`）と Phase 2 の成果物（`GET /dashboard/today-sales`・`/settings/ai-activity`・migration 240 `task_comments_ics`・241 `sales_ai_review`）の実在を確認した
+> **位置づけ**: 案件の状態・自動整理・受信箱・タスク・カレンダー・AI 連携の「あるべき姿」と段階の正。`project-health.ts`・`scheduler.service.ts` のコメントから §3 が参照される。
+
 ユーザーのご指摘（原文の要旨）:
 
 > 「お待たせ中」という構造を含め、この辺りのロジック・システムが意味不明。
@@ -205,7 +209,7 @@ Google/Outlook/ICS 同期・書き戻しまで完備しているのに、**タ�
 
 ## 5. 段階
 
-### Phase 1（本ブランチで実装）
+### Phase 1（実装済み。migration 238 `project_health_tidy`・`project-health.ts`・`project_tidy` ジョブで確認）
 
 | # | 変更 | 主な場所 |
 |---|---|---|

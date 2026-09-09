@@ -26,7 +26,7 @@
  *    — ⚠️ **全文が 12KB を超えたら、要約を `CLAUDE.md` に・全文をアーカイブに分ける**
  *      （下記。要約は `docs/changelog.d/_summary.md` に書いておけばそれを使う）
  * 3. **4件目を `docs/version-history.md` へ移す**（この節は毎ターン文脈に載るため）
- * 4. `README.md` の「現在のバージョン」を差し替え、前の版を「旧 …」に落とす
+ * 4. `README.md` の「現在のバージョン」を差し替える（**番号と見出しだけ**。本文は置かない）
  * 5. `package.json` の `version` を上げる
  * 6. 集めた `changelog.d/*.md` を消す
  */
@@ -139,7 +139,7 @@ const split = fullSize > MAX_ENTRY_BYTES;
  *
  * いまは**この道具が両方書きます**:
  *   ・全文  → `docs/version-history.md`「## 過去のバージョン」直下（`(…)` で包んだ1行）
- *   ・要約  → `CLAUDE.md` と `README.md`（同じ版番号で始める）
+ *   ・要約  → `CLAUDE.md`（`README.md` には番号と見出しだけ）
  * 画面の「バージョン履歴」は両方を読み、**同じ版なら長いほう（＝全文）**を出します。
  *
  * ⚠️ **要約の中身までは作れません。** `_summary.md` があればそれを使い、
@@ -191,7 +191,7 @@ if (split) {
   console.log(`[release:notes] 全文が ${(fullSize / 1024).toFixed(0)}KB`
     + `（目安 ${Math.round(MAX_ENTRY_BYTES / 1024)}KB）なので分けます:`);
   console.log('  ・全文  → docs/version-history.md の「## 過去のバージョン」直下');
-  console.log('  ・要約  → CLAUDE.md と README.md');
+  console.log('  ・要約  → CLAUDE.md（README.md は番号と見出しだけ）');
   if (handWritten) {
     console.log(`  要約は docs/changelog.d/${SUMMARY_FILE} の中身を使いました`);
   } else {
@@ -244,26 +244,26 @@ if (toArchive.length) {
 }
 
 // ── README.md ────────────────────────────────────────────────
+/*
+ * README は入口の文書なので、置くのは**版の番号と見出しだけ**。
+ * 本文は `CLAUDE.md`（最新3件）と `docs/version-history.md`（全件）にあり、
+ * 画面の「バージョン履歴」もその2つから作る（README は読まない）。
+ * 前は本文の全文と「旧 vX.Y.Z — …」を3件まで README に積んでいたが、1件が数KB
+ * あるので README の半分以上が履歴になり、入口として読めなくなっていた。
+ * `check-version-consistency.mjs` は `**現在のバージョン**: vX.Y.Z` の形だけを見る。
+ */
 const rp = join(ROOT, 'README.md');
 const readme = readFileSync(rp, 'utf8').split('\n');
 const ri = readme.findIndex((l) => l.startsWith('**現在のバージョン**:'));
 if (ri < 0) throw new Error('README.md に「**現在のバージョン**:」がありません');
-const prev = readme[ri].replace('**現在のバージョン**: v', '旧 v');
-readme[ri] = `**現在のバージョン**: ${line}`;
-readme.splice(ri + 2, 0, prev, '');
-// 「旧 vX.Y.Z — …」は直近3件だけ残す。全件は docs/version-history.md にあり
-// （README は入口の文書なので履歴を貯めない。実測: 42件で 55KB になっていた）。
-// 旧行は「1行＋空行」の対で並ぶので、4件目以降はその2行を落とす。
-let oldSeen = 0;
-for (let i = ri + 2; i < readme.length; i++) {
-  if (readme[i] === '') continue; // 旧の行の間の空行
-  if (!readme[i].startsWith('旧 v')) break; // 旧の並びが終わった
-  oldSeen += 1;
-  if (oldSeen > 3) {
-    const gap = readme[i + 1] === '' ? 2 : 1;
-    readme.splice(i, gap);
-    i -= 1;
-  }
+const lineTitle = titleOf(line.slice(`v${version} — `.length));
+readme[ri] = `**現在のバージョン**: v${version} — **${lineTitle}**`;
+// 古い形（本文つき・「旧 v…」の並び）が残っていれば落とす
+while (ri + 1 < readme.length) {
+  const next = readme[ri + 1];
+  if (next === '' && readme[ri + 2]?.startsWith('旧 v')) { readme.splice(ri + 1, 2); continue; }
+  if (next.startsWith('旧 v')) { readme.splice(ri + 1, 1); continue; }
+  break;
 }
 if (!dry) writeFileSync(rp, readme.join('\n'));
 

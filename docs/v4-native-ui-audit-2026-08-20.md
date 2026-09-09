@@ -1,7 +1,8 @@
 # v4 ネイティブUI監査 詳細（2026-08-20・並列7エージェント）
 
-> [docs/v4-native-ui-plan.md](v4-native-ui-plan.md) の監査結果の元データ。生JSONは
-> [v4-native-ui-audit-2026-08-20.json](v4-native-ui-audit-2026-08-20.json)。
+> **状態**: 参考（当時の記録）— 2026-08-20 の監査結果。以後の直しは [v4-native-ui-plan.md](v4-native-ui-plan.md) のバックログと各画面のコードが正
+> **最終確認**: 2026-09-08（v4.6.10）
+> **位置づけ**: [docs/v4-native-ui-plan.md](v4-native-ui-plan.md) の監査結果の元データ。生JSONは [v4-native-ui-audit-2026-08-20.json](v4-native-ui-audit-2026-08-20.json)。**このパスはコードのコメントから参照されている**（`client/src/pcOnlyScreens.ts`・`CustomerDetailPage.tsx` ほか）ので動かさない。
 
 ## 案件管理・タスク（client/src/contexts/sales/, client/src/contexts/tasks/）
 

@@ -1,212 +1,123 @@
 # client-daily — 日常業務（v4 対象）
 
-ベースパス `/daily/`・ポート 5180。12画面・約5,800行。サーバー側は `server/src/contexts/dailyops`。
+いま効くルールだけを置く。経緯・当時の実測・撤回した方針は
+[docs/reviews/daily-equipment-build-log.md](../docs/reviews/daily-equipment-build-log.md)。
 
-## 画面（v4 で6画面に整理）
+## 役割と入口
 
-| v4 画面 | いまの実装 |
-| --- | --- |
-| ウィークリー活動報告 | `pages/WeeklyDetailPage` ＋ `pages/weekly/{WeekSwitcher,WeekAddCalendar,SummarySection,StatsSection,DetailsSection,TopicsSection,WeeklyTabs}.tsx`。`pages/WeeklyListPage` は `/weekly` → 最新週への転送だけ。**タブが3つ**: この週の報告（`/weekly/:id`）／隔週キープの数字（`/weekly/:id/keep`・`pages/weekly/keep/`）／資料をつくる（`/weekly/:id/deck`・`pages/weekly/deck/`・**PC 専用**） |
-| デイリーニュース報告 | `pages/DailyNewsPage` ＋ `pages/news/{NewsRows,NewsForm}.tsx` |
-| 内覧会 開催日の一覧 | `pages/InviewPage` |
-| 内覧会 その日の受付 | `pages/InviewDayPage` ＋ `pages/inview/{AttendeeCard,InviewDialog,CompanySummary}.tsx` ＋ `pages/inview/logic.ts` |
-| 入ってきた情報（その他問い合わせ） | `pages/InquiriesPage` ＋ `pages/inquiries/{state.ts,InquiryRows,InquiryCards,SidePanels,TicketDialog,StockDialog,InquiryDialog,InquiryBody}.tsx` |
-| セキュリティカード | `pages/SecurityCardsPage`（**master-detail**）＋ `pages/securityCards/{CardGrid,CardDetailPanel,LendDialog,types}.tsx` |
+- `/daily/`・ポート 5180。`BrowserRouter basename="/daily"`（`App.tsx`）なので **`nav.ts` の `to` は `/tasks` のように接頭辞なし**
+- `shared/src/client/apps.ts`: `key: 'dailyops'`・`permissionModule: 'dailyops'`
+- サーバー `server/src/contexts/dailyops`（routes `reports`／`inview`／`inbox`／`security-card`／`tasks`／`feedback-ticket`／`keep`／`keep-deck`。全部 `/dailyops/*`）。タスクの本体は `server/src/contexts/tasks/services/{my-tasks,task-intake,intake-ai,task-comments}.service.ts` を `tasks.routes.ts` が呼ぶ
+- 権限: 読む `dailyops:reader`・書く `dailyops:editor`。問い合わせの詳細・作成・状態変更と受領書類は **`dailyops` か `sales`**（旧 `budget` は `sales` に統合済み・`inbox.routes.ts` の `requireAnyPermission`）。仕入・販管費へ行を作る `handoff` だけ `sales:editor`
+- シェルは共通。ここにあるのは `components/layout/` の `AppShell.tsx`（設定を渡す）・`nav.ts`（メニュー＋下タブ）・`DailySearchButton.tsx`（上辺の検索＝`/search` を開く・⌘K）と `manual/content.tsx`（画面内マニュアル）。左メニューは ホーム・タスク ＋ 定期報告／届いたもの／現場の受付、下タブは **ホーム／やること／探す**（`DAILY_MOBILE_TABS`）
+- MCP は [docs/mcp-server.md](../docs/mcp-server.md)（日常業務・内覧会・inbox・セキュリティカード・フィードバックチケット・隔週キープの節）。メール取込は [mail-intake スキル](../.claude/skills/mail-intake/SKILL.md)・[棚卸し 2026-09-06](../docs/reviews/2026-09-06-mail-intake-taxonomy.md)
+- 設計の正: [daily.md](../docs/design/v4/daily.md)・[keep-report.md](../docs/design/v4/keep-report.md)・mockups の [tasks-redesign](../docs/design/v4/mockups/tasks-redesign/)／[weekly-redesign](../docs/design/v4/mockups/weekly-redesign/)／[keep-report](../docs/design/v4/mockups/keep-report/)。タスクの要件は [2026-07-25 の要件書](../docs/archive/2026/2026-07-25-collaboration-and-personal-agent.md)（D0〜D9）
 
-- **タスク・依頼**（2026-09 に**モックから再設計**した。設計の正は
-  [docs/design/v4/mockups/tasks-redesign/](../docs/design/v4/mockups/tasks-redesign/)。
-  要件の正は [docs/archive/2026/2026-07-25-collaboration-and-personal-agent.md](../docs/archive/2026/2026-07-25-collaboration-and-personal-agent.md)
-  の D2 / D3 / D8 / D9 で、**4タブ・9マス・今日やること3件・期限必須は変えていない**):
-  - **主操作はタブごとに変わる**（マイタスク＝タスクを追加／依頼＝**依頼する**）。
-    ⚠️ **依頼タブから依頼を出せる状態を壊さないこと** — 作り直す前、この画面には
-    依頼を作る操作が1つも無く、手で1件出す唯一の道はマイタスクの「追加」で
-    担当者を自分以外に変えること（選ぶまでそれが依頼になると分からない）だった。
-    投入口を AI（案件管理トップ・要件 D4）に寄せた結果、手で出す動線が消えていた
-  - **依頼タブは master-detail**（`DelegationList` ＋ `DelegationDetail`）。
-    **本文・やり取り・操作は選んだ1件のパネルにだけ出す。** ⚠️ **一覧の行ぜんぶに
-    コメント欄を戻さないこと** — 5件並ぶと画面が操作ボタンで埋まり、どれが自分の番か
-    読めなくなる。スマホは一覧をカードにして選んだ1件をシートで開く
-  - **「あなたの番」＝ 受けたのに返していない ＋ 出したが差し戻されて決めていない**
-    （`isMyTurn()`）。タブの見出しの数字も帯の数字もこれ1本を読む。
-    ⚠️ **未完了の総数を出さないこと** — 相手が動いている最中のものまで自分の宿題に見える
-  - **段は受けた／出したで同じ4つ**（未返答／承諾／差し戻し／完了・`delegationBucket()`）。
-    辞退と相談は決着のしかたが同じなので「差し戻し」に畳んである（理由は詳細のやり取りに出る）
-  - **一覧は常に完了ぶんまで取る**（`useMyDelegations(dir, true)` / `useMyTasks({include_completed:true})`）。
-    チップの件数は「押す前に 0 件だと分かる」ためのものなので、取っていないものを数えると嘘になる。
-    **段の名前に添えた数は未完了だけ・チップの「すべて」は完了も含む**（画面に断り書きを出している）
-  - **「タスクを追加」は自分のタスク専用**。人に頼むのは `RequestDialog` に分けた
-    （欄の並びは 相手 → 内容 → 補足 → 期限 → 重要度・緊急度。相手が先なのは
-    この欄で期限が必須に変わるため＝`_form-order.md` 2-1）
-  - **ページ幅は他の画面と同じ全幅**（`flex flex-col gap-4 p-3 lg:gap-5 lg:p-6`）。
-    ⚠️ `mx-auto max-w-5xl` に戻さないこと（このアプリでこの画面だけ狭かった）
-- `pages/TasksPage` は当初「案件管理へ寄せる」方針だったが、**この方針は撤回した**
-  （案件管理側のトップページ節を参照）。⚠️ **この段落は当時の記録。**
-  ここが根拠にしていた `MyTasksSummarySection.tsx` は「案件管理のリンクを全部当たり直し、
-  v3 の置き土産を落とした回」で**参照 0 件のまま既に削除済み**だった（旧トップページの
-  1,273 行を 177 行に作り直したときに呼び手が消えていた）。その後の回で、
-  トップページの「わたしのタスク」の「全部ひらく」が案件管理の GLS-A タスク一覧
-  （個人タスク・プロジェクト管理のタスクを含まない）に誤って固定リンクしている
-  バグが見つかり、**このアプリの `TasksPage`（`GET /dailyops/tasks/mine` を
-  そのまま出す唯一の画面）へ向け直した**。つまり `/daily/tasks` は転送先ではなく
-  **行き先そのもの**になっており、この画面を消してはいけない
-- 左メニューの中身は `src/components/layout/nav.ts`（枠は共通シェル）。
-  **3つの塊**（定期報告 / 届いたもの / 現場の受付）＋ ホームとタスク
+## 画面一覧（URL → `src/pages/`）
 
-## このアプリ固有の決めごと
+| URL | 画面 | 入口 |
+| --- | --- | --- |
+| `/` | ホーム | `HomePage.tsx`（件数は `GET /dailyops/alerts`・`/tasks/summary`・`/security-cards/stats`。数え直さない） |
+| `/tasks` | タスク・依頼（マイタスク／依頼／メモ履歴／チーム） | `TasksPage.tsx` ＋ `tasks/`・`lib/tasksApi.ts` |
+| `/weekly` | 最新週へ転送（週が無いときだけ画面） | `WeeklyListPage.tsx` |
+| `/weekly/:id`・`/keep`・`/deck` | ウィークリー活動報告（この週の報告／隔週キープの数字／資料をつくる） | `WeeklyDetailPage.tsx` ＋ `weekly/`（`keep/KeepSection.tsx`・`keep/mobile/KeepMobile.tsx`・`deck/DeckPage.tsx`＝PC専用） |
+| `/news` | デイリーニュース報告（月ごと1ページ） | `DailyNewsPage.tsx` ＋ `news/` |
+| `/inview`・`/inview/:date` | 内覧会 開催日の一覧／その日の受付 | `InviewPage.tsx`・`InviewDayPage.tsx` ＋ `inview/`（`logic.ts`＝正規化・人数） |
+| `/inquiries` | 問い合わせ（＝入ってきた情報） | `InquiriesPage.tsx` ＋ `inquiries/`（`state.ts`＝行き先・タブ） |
+| `/feedback-tickets` | フィードバックチケット（ONAiR への要望・不具合） | `FeedbackTicketsPage.tsx` ＋ `feedbackTickets/` |
+| `/security-cards` | セキュリティカード（master-detail） | `SecurityCardsPage.tsx` ＋ `securityCards/`（`types.ts`＝レベル） |
+| `/search` | 探す（下タブ3つ目） | `SearchPage.tsx` ＋ `search/matchers.ts` |
+| `/finance` | 転送だけ（受領書類は `/budget/documents`。別バンドルなので `window.location`） | `App.tsx` の `RedirectToFinanceDocs` |
 
-- **ウィークリー活動報告**（2026-09 に**モックから再設計**した。設計の正は
-  [docs/design/v4/mockups/weekly-redesign/](../docs/design/v4/mockups/weekly-redesign/)）:
-  - **並びは 総括 → 主要指標 → トピックス → 詳細内訳**。以前の「自動集計 → AI の要約 →
-    週次トピックス」は**生成工程の順**で、読み手の順ではなかった。⚠️ **この順を戻さないこと。**
-  - **見出しは対象週そのもの**（`WeekSwitcher`。◀ ▶ ＋ 今週／先週 ＋ シートで一覧）。
-    左の週レールは廃止した。**週の追加は月次カレンダーから週行を選ぶ**（`WeekAddCalendar`。
-    日付を打たせない・作成済みの週がその場で分かる）。**削除は下書きの週だけ**に出す
-    （`DELETE /dailyops/reports/:id`＝論理削除。確定済みはサーバーが断る）
-  - **状態のバッジは1つ**（下書き／確定済み）。個人の既読は「確認した」の操作、
-    AI 由来は総括カード下部の**署名**で表す。⚠️ **バッジを3つ（下書き／未確認／AI作成）に
-    戻さないこと** — 同じ見た目で3軸並ぶと区分が読めない
-  - **確定後は追記不可**。AI本文は「AI下書きを作成」（`POST /dailyops/reports/:id/draft-ai`・
-    `weekly-report-ai.service.ts`／`weekly-report-draft.service.ts`）で**その場で**作れる。
-    確定前だけ本文を編集でき（`PUT /dailyops/reports/:id`）、確定時にサーバーが AI 下書きと
-    確定本文を自動比較して `ai_corrections` に記録する（会社方針「AIを使い捨てにしない」条件2）。
-    ⚠️ **編集の入口を消すと条件2が形だけになる**（差分が常に「無修正」になる）
-  - **数字の出どころは2つ**。確定済みは `payload.stats`（確定時点のスナップショット・
-    `prev_week` に前週比の元数値を同梱）、下書きでスナップショットが無い週だけ
-    `GET /dailyops/weekly-stats` を引き直す（以前は空欄で、総括を書く人が材料を見られなかった）
-- **隔週キープ（業績報告）はこの画面のタブ**（設計の正は [docs/design/v4/keep-report.md](../docs/design/v4/keep-report.md)）。
-  - **数字は1本の「定例報告パック」**（`GET /dailyops/keep/pack?meeting=&entity_code=&segment=`・
-    型は `shared/src/keepReport/types.ts`）。画面・資料・MCP はこれを読むだけで、
-    **判定・比率・差はサーバーが計算する**（画面で足し引きしない）
-  - **週報を確定すると、その週の会議日のパックも凍る**（`ops_reports.payload.keep = { pack_id, meeting_date }`・
-    `keep_report_packs`）。画面は凍結版があればそれを出し、`?live=1` でいまの数字に切り替える
-  - **フィルタは URL**（`?meeting=&entity_code=&segment=`。`entity_code` は main の計上会社
-    SCS／GSS／GMO か `all`）。計上会社・お客様区分はヨミ表・案件ページ・実施報告だけに効き、
-    数値報告の表は常に 全体／計上会社別 を持つ
-  - **稼働率**: 内覧・仮押さえを含め利用があった営業日 ÷ 営業日。メンテナンスは除く。数え方は
-    案件管理の設定「お金のルール」（`keep_settings.utilization`）
-  - **「資料」の印**（ヨミ表のチェック＝`projects.keep_pick`）を付けた案件だけ資料の案件ページになる。
-    案件管理のふりかえりタブと同じ値
-  - **ONAiR に無い数字**（内覧会の満足度など）は `keep_report_inputs` に手入力（画面の欄から `PUT /dailyops/keep/inputs/:meeting`）
-  - **「Slack の文面をコピー」**はパックから決定的に作った文（`GET /dailyops/keep/slack-draft`・MCP `get_keep_slack_draft`）。
-    bot が投稿するときは Slack の `ts` と `pack_id` を残す（反応の回収 ＝ 原則の条件3）
-  - **資料をつくる**は PC 専用（`DAILY_PC_ONLY`）。構成 JSON（`keep_decks`）は保存のたびに版を残し、
-    人の直しは `keep_deck_edits` に差分で残る（原則「AIを使い捨てにしない」の器）。
-    スライドの骨組みは `shared/src/keepReport/templates.ts` が正で、画面のプレビューと pptx 出力が同じ位置で描く
-- **デイリーニュース**: **v4.5.26 で日別ページ→月ごとの1ページ集約に作り替えた**（日付は表の中の
-  見出し行）。列は分類・AIの話題・注目度(1〜5)・記入者。「確認した」はレポート単位（＝日ごと）の
-  まま見出し行に残した。**採用した行を週報へ送る仕組みがある**（migration 167・
-  `POST /items/:itemId/to-weekly`）——移すのではなく写す（ニュースはその日の記録として残る）。
-  送り先の週が確定済みかは月をまたぐと行ごとに違うため、`GET /dailyops/reports/items-by-month`
-  がサーバー側で行ごとに `weekly_locked` を計算して返す（ページ単位の1つの値では表せない）
-  ⚠️ 旧文言「採用した行を週報へ送る仕組みは無い」は migration 167 で実装済みになっていた
-  ままの古い記述だった（レビュー指摘で判明・削除）
-- **内覧会**: 検索は**回をまたぐ**（申し込んだ回を覚えていない人が普通にいる）。
-  正規化は NFKC → 小文字 → カタカナをひらがなへ → 区切り記号を落とす（`pages/inview/logic.ts`）。
-  **同行者は1人ずつ受付**する（代表だけ先に来るのが普通）。受付人数は**組数ではなく人数**で数える
-- **入ってきた情報**は「**未仕分けを空にする机**」（migration 171 / 247）。
-  - **タブは3つ**（今日さばくもの / ストック / 仕分け済み）。**`state` は5つのまま**で、
-    変えたのは見せ方だけ。以前は5タブで**うち4つが「受領証」**（チケット・案件にした・
-    見送りは「未仕分けに戻す」しかできない）で、片づいたものの棚が3つに割れていた
-  - **「今日さばくもの」= 未仕分け ＋ 見直しの日が来たストック。**
-    ⚠️ **「ストック」タブと重なる**ので、タブの件数を足しても全件にならない
-    （セキュリティカードの「返却遅延は貸出中の一部」と同じ）
-  - **ストックには見直す日（`stock_review_on`・migration 247）が要る。**
-    これが無いとストックは見送りと同じ（どちらも未仕分けから消えて二度と出てこない）。
-    **日を決めていないストックも机に出す** — 「決めていない」を「永久に出さない」と
-    読むと元の行き止まりに戻る。判定は `shared/src/utils/inboxDesk.ts` の
-    `isStockReviewDue()` が正で、サーバーは同じ条件を SQL で書いている（**片方だけ直さない**）
-  - **一覧は上限つき**（既定50・最大200）。**件数は `GET /dailyops/inquiries/counts` が
-    COUNT で数える** — 運んだ行を数えると上限で切れた分だけ嘘になる
-  - **出どころ別・よく使うタグは、中身があるときだけ枠を出す。**
-    本番のメール取込は `source`/`tags` をまだ渡していない（docs/mcp-server.md）ので、
-    枠を出すと「メールだけ・他は0」と「まだタグが付いていません」で右半分が埋まる
-  - **PC 専用ではない**（247 で外した）。スマホは表を折り返さず
-    `inquiries/InquiryCards.tsx` の2行カード（PC の行は `InquiryRows.tsx`・**props は共通**）
+## 決めごと（現役ルール）
 
-  - **正は `state` の1本**（未仕分け / ストック / チケット / 案件にした / 見送り）。
-    `handled_at` は「誰がいつ触ったか」の記録として残っているが、**絞り込みには使わない**
-    （両方で絞れるようにすると片方だけ動いた行が一覧から消える）
-  - **チケット = 案件管理のタスク。** `project_tasks` を1本作り（`project_id` は空・
-    `source='inquiry'` / `source_ref=<情報の id>`）、`misc_inquiries.task_id` で結ぶ。
-    **2回押しても増えない**（既にあればそれを返す）
-  - **案件はこの画面では作らない。** `/sales/projects/new?inquiry=<id>` へ送り、
-    案件管理の登録モーダルが作ってから `POST /dailyops/inquiries/:id/link-project` で
-    書き戻す。写しの登録画面を作ると必須項目が片方だけ増えて食い違う
-  - **モックのタブは4つだが5つにしてある。** 「案件の受付へ送る」の置き場が無く、
-    そのままだと送ったものが未仕分けに残り続け、**翌日また送って案件が2件できる**。
-    理由は `pages/inquiries/state.ts` の冒頭
-  - **チケット・案件から戻しても、作ったタスク・案件は消さない。** 結びつきだけ外す
-  - **AI の印は `source` では判定しない。** `ai_outputs`(kind=`inquiry_intake`) に
-    記録があるかで決める（`source` は出どころで、誰が入れたかではない）
-  - **タグの件数はサーバーが数える**（`GET /dailyops/inquiries/tags`）。
-    画面で数えるとタブを切り替えるたびに同じタグの件数が変わる
-- **セキュリティカード**は機材の貸出とは**別台帳**（エリア解錠権限で分かれる。24枚・10エリア）。
-  **レベルは DB（migration 133 の6つ: master / room_a / room_b / room_c / meeting / vip）が正**。
-  v4 のモックはレベルを3つに畳んでいるが**実データと一致しないので採らない**
-  （畳むと ROOM A と ROOM B のカードが同じに見え、違う部屋のカードを渡す）。
-  絞り込みの「返却遅延」は**「貸出中」の一部**（足しても「すべて」にならない）
-- **受領書類は財務管理へ移した**（v4 ⑥・`/budget/documents`）。`dailyops` 権限だけを
-  要求していたので**経理が開けなかった**（実測で 403）。中身は 金額・締月・支払期日・GLS番号 で
-  経理の道具なので財務に置き、**`budget` か `dailyops` のどちらか**で通す。
-  `/daily/finance` は転送だけ残した（`App.tsx` の `RedirectToFinanceDocs`）。
-  **左メニューとホームのタイルは消していない** — `dailyops` だけの人はアプリ切替に
-  財務管理が出ないので、消すと辿り着く道が無くなる
+### タスク・依頼
+- 4タブ・9マス・今日やること3件・期限必須は要件 D2/D3/D8/D9。書き留める入口は案件管理トップ、ここは格納先と見直し
+- **`/daily/tasks` は行き先そのもの**（案件管理ホーム `home/{AppTiles,TaskHubCard}.tsx` が向く。`GET /dailyops/tasks/mine` を出す唯一の画面）。消さない
+- 主操作はタブごと: マイタスク＝タスクを追加（`TaskCreateDialog`・自分専用）／依頼＝**依頼する**（`RequestDialog`）。依頼タブから依頼を出せる状態を壊さない。欄は 相手→内容→補足→期限→重要度（相手で期限が必須に変わる＝`docs/design/v4/_form-order.md` 2-1）
+- 依頼タブは master-detail（`DelegationList`＋`DelegationDetail`）。本文・やり取り・操作は選んだ1件だけに出す。行にコメント欄を戻さない。スマホはカード＋シート
+- 「あなたの番」＝`isMyTurn()`（受けて未返答＋出して差し戻し）。タブの数字も帯もこれ1本。未完了の総数は出さない
+- 段は `delegationBucket()` の4つ（辞退・相談は差し戻しに畳む）。完了は `is_completed` だけで決める
+- 一覧は完了ぶんまで取る（`useMyDelegations(dir, true)`／`useMyTasks({include_completed:true})`）。段の数は未完了だけ・「すべて」は完了含む
+- ページ幅は他と同じ全幅 `p-3 lg:p-6`（`mx-auto max-w-5xl` に戻さない）
+- `sales` 権限が無い人にも自分のタスクは見せる（D0。金額は返さない・案件リンクは `can_open_project` で出し分け）
+- メモ履歴（`IntakeLogTab`・`POST /dailyops/tasks/intake`）は AI 取込の全文と生まれたタスクの記録＝原則の条件1・2の器。消さない
+
+### ウィークリー活動報告
+- 並びは 総括→主要指標→トピックス→詳細内訳（読み手の順）。生成工程の順に戻さない
+- 見出しは対象週（`WeekSwitcher`。週レールは持たない）。週の追加は月次カレンダーから週行を選ぶ（`WeekAddCalendar`）。削除は下書きだけ（`DELETE /reports/:id`＝論理削除・確定済みはサービス層が断る）
+- 状態バッジは 下書き／確定済み だけ。既読は「確認した」（`POST /reports/:id/review`）、AI 由来は総括の署名（`SummarySection`）。3バッジに戻さない
+- AI下書き `POST /reports/:id/draft-ai`（`weekly-report-ai`／`weekly-report-draft.service.ts`）→ 確定前だけ `PUT /reports/:id` → 確定時に `ai_corrections` へ差分を自動記録。**編集の入口を消すと条件2が形だけになる。** 確定を解くのは `POST /reports/:id/reopen`
+- 数字は 確定済み＝`payload.stats`（`prev_week` 同梱）、スナップショットが無い下書きだけ `GET /weekly-stats`
+
+### 隔週キープ（正は keep-report.md）
+- 数字は定例報告パック1本（`GET /keep/pack?meeting=&entity_code=&segment=`・型 `shared/src/keepReport/types.ts`）。判定・比率・差はサーバーが計算する
+- 週報を確定するとその会議日のパックが凍る（`payload.keep = {pack_id, meeting_date}`・`keep_report_packs`）。`?live=1` でいまの数字
+- 絞り込みは URL（`entity_code` は SCS／GSS／GMO／`all`）。**タブ・ボタン間で `?meeting=` を持ち回る**（落とすと別の会議日の構成を開く／作る）。チップの件数は絞らない全体のパックから
+- 稼働率＝利用があった営業日÷営業日（内覧・仮押さえ含む、メンテナンス除く）。数え方は `keep_settings`
+- 資料に載せる案件の印は `projects.keep_pick`。ONAiR に無い数字は `keep_report_inputs`（`PUT /keep/inputs/:meeting`・満足度は 0〜4）
+- Slack の文面はパックから決定的に作る（`GET /keep/slack-draft`・MCP `get_keep_slack_draft`）。bot が投稿したら `ts` と `pack_id` を残す（条件3）
+- 資料をつくる（`DeckPage`）は PC 専用。構成 `keep_decks`（保存ごとに版）・人の直し `keep_deck_edits`（`deckState.ts` が 1.5 秒静止で自動保存・直列）。会議日は `?meeting=` が正で、決まるまで構成を読まない（`GET /keep/decks/:meeting` は無ければ版1を作る。読むだけは `?create=0`）。骨組みは `shared/src/keepReport/templates.ts` が正（画面と pptx が同じ位置で描く）
+
+### デイリーニュース報告
+- 月ごと1ページ（`GET /reports/items-by-month`）。列は 分類・AIの話題・注目度(1〜5)・記入者。「確認した」は日ごと
+- 週報へは移すのではなく写す（`POST /items/:itemId/to-weekly`・2回押しても増えない）。送り先が確定済みかは行ごとの `weekly_locked`
+- AI の投稿口は MCP `add_ops_report_items(kind='daily_news')` のまま。スマホ `NewsCards` は `NewsRows` の `useNewsRowActions` を共有
+
+### 内覧会
+- 検索は回をまたぐ。正規化は `inview/logic.ts` の `normalizeForSearch`（NFKC→小文字→かな→区切りを落とす）1本
+- 同行者は1人ずつ受付（`POST /inview/:id/companions/:companionId/check-in`）。人数は組数ではなく `headOf()`
+- スマホは検索欄だけ残し、説明・並び替え・会社別のまとめは `MobileFilterBar` のシートへ。CSV はスマホに出さない。PC は変えない。並び替えは `FilterChips` にしない（件数が出せない）
+- `?scope=upcoming` を初期値で読む（ホームのバッジと揃える）。案件化は `POST /inview/:id/promote`、取込は MCP `register_inview_attendee`
+
+### 問い合わせ（migration 171 / 247 / 292）
+- `state` は6つ（`unsorted`／`stock`／`ticket`／`project`／`dropped`／`booked`）で正はこれ1本（`handled_at` で絞らない）。タブは3つ 本日対応／保留／仕分け済み（`state.ts`）
+- 本日対応＝未処理＋見直しの日が来た保留。保留タブと重なるので足しても全件にならない
+- 保留には見直す日 `stock_review_on` が要る。日を決めていない保留も机に出す。判定は `shared/src/utils/inboxDesk.ts` の `isStockReviewDue()` が正、サーバーは同じ条件を SQL で持つ（片方だけ直さない）
+- 一覧は上限つき（既定50・最大200）。件数は `GET /inquiries/counts`・`/inquiries/tags`（サーバーが COUNT。運んだ行を数えない）
+- 出どころ別・タグの枠は中身があるときだけ出す（`hasSourceBreakdown()`＝2経路以上）
+- チケット＝`project_tasks` 1本（`source='inquiry'`・`source_ref=<id>`）を `misc_inquiries.task_id` で結ぶ。2回押しても増えない
+- カレンダーに登録＝`studio_bookings` 1本（`BookingDialog`・`POST /inquiries/:id/book`・state `booked`）。項目はタイトル・日時・場所メモだけ。`予定候補` タグの行だけ主ボタン（`primaryActionFor()`）。AI は予約を作らない
+- 案件はここで作らない（`/sales/projects/new?inquiry=<id>` → `POST /inquiries/:id/link-project` で書き戻し）。送ったものは `project` へ（未処理に残すと翌日また送って案件が2件できる）
+- 戻しても実体（タスク・案件・予定）は消さない。そこから直接見送りにはできない（`actionsFor()`）
+- AI の印は `ai_outputs`（kind=`inquiry_intake`）の有無（`is_ai`）。`source` は出どころ（mail／slack／phone／talk／manual）
+- PC 専用ではない（スマホ `InquiryCards`・PC `InquiryRows`・props 共通）
+
+### フィードバックチケット（migration 277）
+- 送るのは `dailyops:reader` 全員、対応状況の更新は `editor`（editor でなくても `TicketDetailDialog` で読める）
+- 絞り込みはサーバー・件数は `GET /feedback-tickets/counts`（軸ごとの総数・クロス集計しない）。既定50件＋「さらに読み込む」。0件は返ってきた行を優先して判定
+
+### セキュリティカード
+- 機材の貸出とは別台帳（用賀の24枚・migration 133）。レベルは DB の6つ（master／room_a／room_b／room_c／meeting／vip）が正。モックの3分類はまとめ方だけ採り、1枚の名前は6レベルのまま（畳むと ROOM A/B を渡し間違える）
+- 「返却遅延」は「貸出中」の一部（足しても「すべて」にならない）。`?filter=`・`?card=<id>` を初期値で読む。スマホは `CardTiles`＋`Sheet`
+
+### 受領書類
+- 画面は財務管理（`client/src/contexts/finance/pages/DocumentsPage.tsx`）。API は `inbox.routes.ts`（`finance-docs`／`finance-doc-groups`／`handoff`）のまま。このアプリの `lib/inboxApi.ts` にフックを置かない（呼び手ゼロの写しになる）
+- 左メニューとホームのタイルは消さない（`dailyops` だけの人はアプリ切替に財務管理が出ない）。メニューは `tag: '財務管理'` で行き先を出す（`external` は使わない）
+
+### 探す
+- 受付の道具（来場予約／セキュリティカード／問い合わせ）。正規化は `normalizeForSearch` を使う（写さない）。3本とも小さい表なので開いた時点で引く
+- 打つ前に左メニューの写しを出さない。出すのは今日の回・貸出中のカード・未処理の情報だけ（0 は出さない）
+- カードは `?card=<id>` で選んだ状態で開く。問い合わせの行はスマホでも押せる
 
 ## 触るときの注意
 
-- **シェルは共通** (`shared/src/client/shell/`)。このアプリに残っているのは
-  `components/layout/AppShell.tsx`（設定を渡すだけ）と `components/layout/nav.ts`（メニューの中身）。
-  **旧 `Header.tsx` / `Sidebar.tsx` は削除済み**
+- 検査: `npx tsc -b client-daily`・`npx eslint client-daily`・`npm run lint`・`npm run test`（`shared/tests/keepReport*.test.ts` が隔週キープの数字を守る）
+- 画面を足したら `src/pcOnlyScreens.ts` の `DAILY_PC_ONLY` か `DAILY_MOBILE_OK` へ（M2。無いと `npm run lint` が止まる）。PC 専用は「資料をつくる」の1枚。表は空でも消さない（`scripts/check-mobile-declared.mjs` が `App.tsx` と突き合わせる）。M2／M8／M9 は [mobile.md](../docs/design/v4/mobile.md)
+- 1ファイル400行が上限（`docs/v4-plan.md` B-4・`scripts/check-file-size.mjs`）。いま超過なし（最大 `InquiriesPage.tsx` 367）。超えたら役割で分ける（`inview/{DayRow,SearchHits}.tsx` の切り出し方）
+- `html`／`body`／`#root` は触らない（`shared/src/client/base.css`・F2）。`index.css` はそれを import してアプリ固有だけ
+- 一覧の行は `inview/DayRow.tsx` を写す: `<Row divider interactive>`＋`<RowMain>`（唯一伸びる）＋`<RowSlot w>`（`SLOT_WIDTHS` 56/72/96/128/160/200/240）。空は `Delayed`＋`SkeletonRows`／`EmptyState`／`NoSearchResults`、確認は `confirmAction`、結果は `notifySuccess`／`notifyApiError`（`window.confirm`／`alert` 禁止）
+- 行ぜんぶをリンクにするなら `stackOnMobile` を使わない（`Row` 直下の `RowMain` を狙うので `<Link>` が挟まると効かない）。畳む列は `hideOnMobile`、落とした数字は `RowSub`。スマホは列を消さずカードに組み直す（`DayCards`／`NewsCards`／`CardTiles`／`InquiryCards`）
+- `TableBadge` は折り返さない（長い文字は `truncate`）。`useIsMobile()` は薄い親で1回・境界 1023px（`shared/CLAUDE.md`）
 
-- **画面を足したら `src/pcOnlyScreens.ts` のどちらかの表に入れること**（M2）。
-  `DAILY_PC_ONLY` か `DAILY_MOBILE_OK` で、**どちらにも入っていないと
-  `npm run lint` が止まります**。決め方は `client/src/pcOnlyScreens.ts` の冒頭。
-  - **このアプリは現場で開くものが多い**ので、**PC 専用は 0 枚になった**（247）。
-    最後に残っていた「入ってきた情報」も外した（表を折り返すのではなく
-    スマホ専用の2行カードに組み直した）。内覧会の当日受付・セキュリティカードの貸出・
-    やること は**スマホが主戦場**
-  - **下タブは ホーム / やること / 探す**（M9・`nav.ts` の `DAILY_MOBILE_TABS`）。
-    3つ目は長らく「メニュー」でしたが、**上辺バーの ☰ と二重の入口**でした
+## 残作業
 
-- **1ファイル400行を上限にする。** いま `pages/TasksPage.tsx` が 1,005行
-- `src/index.css` にタイマー・視聴者数のクラスが残っている（計時LIVE から流用された跡）。
-  `switcher-in` の keyframes は `shared` のトークンと**重複定義**
-- **`html`/`body`/`#root` はこのアプリで触らない。** 高さ・書体・印刷は
-  `shared/src/client/base.css`（F2 で集約済み）。本文が 16px だったのもこれで揃った
-- **「探す」は受付の道具**（M9・`pages/SearchPage.tsx` ＋ `pages/search/matchers.ts`）。
-  案件管理の探す（案件・お客様・仕入先）とは中身が違い、**その場で人と
-  向き合っているときに引くもの**を集めてある: 来場予約（「田中さん」「GMO」で名簿を引く）／
-  セキュリティカード（「あの制作会社に何番を渡したか」）／入ってきた情報
-  （「その話、前に来ていませんでしたか」）。
-  - **正規化は内覧会と同じ1本**（`inview/logic.ts` の `normalizeForSearch`）。
-    写すと「内覧会では当たるのに探すでは当たらない」が起きる
-  - **入ってきた情報だけスマホで押せる行にしない。** あの画面は PC 専用に
-    宣言してあるので、押すと案内に着いて**行き止まり**になる。要約まで出せば
-    「来ていたかどうか」の答えにはなっている
-  - **打つ前に左メニューと同じ並びを出さない。** また二重の入口になる。
-    出すのは**いま入っているデータから出したもの**（今日の回・貸出中のカード・
-    まだ仕分けていない情報）だけで、0 のものは出さない
-  - セキュリティカードは `?card=<id>` で1枚を選んだ状態で開く
-    （24枚の中から目でもう一度探させない）
-- **内覧会の当日の受付もスマホで畳む**（M9）。当日いちばん開く画面なのに、
-  390px では**最初の「受付する」に着くまで 491px**（実測）でした。検索欄だけ残して
-  説明・並び替え・会社別のまとめをシートに移し **319px**。CSV はスマホに出さない。
-  **PC は1文字も変えていない**（説明の全文・CSV・会社別のまとめが出ることを実測済み）
-- **内覧会の検索カードはスマホで畳む**（M8）。390px ではカード枠 ＋ 4行の説明で
-  **約 250px** を使い、名簿に着く前に1画面の6割が説明だった。探し方の但し書き
-  （かな・全角半角・ハイフンを区別しない）は**打ち込んでから効くもの**なので1行に縮め、
-  時期と並び順は `shared/src/client-v4/mobileFilterBar.tsx` のシートに入れた。
-  **CSV 出力もスマホでは出さない** — 書き出したファイルを開く相手が端末に無く、
-  受付で使うのは検索（ご判断の「データを出し入れする道具はスマホに出さない」）。
-  **PC 側は1文字も変えていない**（実ブラウザで説明の全文と CSV が出ることを確認済み）
-- **一覧の行を書くときは `pages/InviewPage.tsx` の `DayRow` を写す。**
-  `<Row divider interactive>` ＋ `<RowMain>`（唯一伸びる列）＋ `<RowSlot w={…}>`。
-  **幅は7段（56/72/96/128/160/200/240）から選ぶ**。中身が無いときは
-  `Delayed`+`SkeletonRows` / `EmptyState` / `NoSearchResults`、削除の確認は
-  `confirmAction`（`window.confirm` は使わない）、結果は `notifySuccess` /
-  `notifyApiError`（`alert` は使わない）
-- **行ぜんぶをリンクにするときは `stackOnMobile` を使わない。**
-  あれは `Row` の**直接の子**の `RowMain` を狙うので、間に `<Link>` が挟まると効かない。
-  畳む列は `hideOnMobile`、落とした数字は `RowSub` に出す
-- **`TableBadge` は折り返さない。** 長くなりうる文字（回の対象・週次トピックスの分類）は
-  バッジにせず、`truncate` した文字で出す（バッジにすると列をはみ出して隣に重なる）
+- `src/index.css` の計時LIVE由来の未使用クラス（`.timer-*`／`.viewer-*`／`.phase-*`）を消す
+- `nav.ts` のコメントが根拠にする `MyTasksSummarySection.tsx` は無い（導線は `client/src/contexts/platform/pages/home/{AppTiles,TaskHubCard}.tsx`）
+- AI の器の現状は `.claude/skills/ai-feedback-loop/references/onair-current-state.md`
+- ⚠️ 要確認: `inquiries/SidePanels.tsx` の但し書き「取込側が `source`／`tags` を渡していない」は古い可能性（MCP `record_inquiry` は両方を受け、mail-intake は `source` を渡す）。枠を出す条件自体は現役
+- ⚠️ 要確認: 呼び名が「問い合わせ」（`nav.ts`・`InquiriesPage` の見出し）と「入ってきた情報」（`pcOnlyScreens.ts`・`state.ts`・設計文書）で割れている
+
+## 経緯の記録
+
+[docs/reviews/daily-equipment-build-log.md](../docs/reviews/daily-equipment-build-log.md)

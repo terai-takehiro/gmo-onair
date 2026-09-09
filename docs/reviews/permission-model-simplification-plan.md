@@ -1,5 +1,9 @@
 # 権限モデルの単純化 — 計画メモ
 
+> **種類**: 実施済みの記録
+> **状態**: 実装済み（migration 210・`shared/src/client/apps.ts` の `permissionModule` は gpm/budget/calendar とも `sales`）。その後 `liveops` は `qsheet` へ統合（migration 232）・`techsheet` は廃止（211）で、現在の区画は `sales`/`equipment`/`dailyops`/`qsheet`/`awards` の5つ
+> **最終確認**: 2026-09-08（v4.6.10）
+
 > 2026-08-20 起票。ユーザーから「管理権限がアプリ単位で、かつ訳が分からない。なるべく
 > シンプルにしたい」との指示を受け、`AskUserQuestion` で方向性を確認した上での計画。
 > ユーザー登録の仕組み自体は変更対象外（現状の招待制のままでよい、との確認済み）。

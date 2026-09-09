@@ -1,5 +1,9 @@
 # 制作資料 — 収録設定 / 配信設定（設計）
 
+> **状態**: 実装済み（記録）
+> **最終確認**: 2026-09-08（v4.6.10）
+> **位置づけ**: 収録設定・配信設定の初版設計（PR #279・文書のみ）。ミニアプリとして実装したときの正は [v4/qsheet-v4-coding/08-recording-streaming.md](v4/qsheet-v4-coding/08-recording-streaming.md) と [impl/08](v4/qsheet-v4-coding/impl/08-recording-streaming-impl.md)。実装は `client-techops/src/pages/{recording,streaming}/`・migration 220。文中の「制作資料」は旧名（いまは制作技術支援）
+
 GMO ONAiR の**制作資料**アプリに「収録設定」「配信設定」を足し、打ち込んだ内容を
 **Excel で書き出す**。書き出した xlsx は、現場の **GMO ONAiR Assistant**
 （`terai-takehiro/gmo-onair-assistant`）がそのまま取り込む。

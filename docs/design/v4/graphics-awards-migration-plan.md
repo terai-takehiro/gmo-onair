@@ -1,4 +1,8 @@
-# テロップCG 段6 — アワード・クイズ移行設計（2026-08-31 起こし・**設計のみ・コード未着手**）
+# テロップCG 段6 — アワード・クイズ移行設計（2026-08-31 起こし）
+
+> **状態**: 実装済み（記録）
+> **最終確認**: 2026-09-08（v4.6.10）
+> **位置づけ**: 段6（6-1〜6-9）の設計。起こした時点は「設計のみ・コード未着手」だったが、本文の進捗メモのとおり 6-1〜6-7・6-9 は実装済み、6-8 も列自動判定・dry-run・多言語まで実装済み（migration 252〜258・`server/src/contexts/graphics/services/awards-migration.service.ts`）。旧 `/awards` は 2026-09-06 の段F（[graphics-redesign.md](graphics-redesign.md) §13）で廃止。過去実績データの本番での実移行（`client-techops/src/pages/graphics/AwardsMigrationPage.tsx`・system_admin 限定）は運用作業として残る
 
 **この文書の位置づけ**: [graphics.md](graphics.md) §9 の「段6: アワード・クイズのテンプレートパック移植 →
 旧 `/awards` 画面の畳み込み」を実行に移す前の設計書。現行 `client-awards`（移行中・URLは生きている。2026-09-06 に「凍結」から「移行中」へ整理）

@@ -1,5 +1,9 @@
 # レギュラー案件の画面モックアップ
 
+> **状態**: 実装済み（記録）
+> **最終確認**: 2026-09-08（v4.6.10）
+> **位置づけ**: [`../../regular-series.md`](../../regular-series.md) の絵。回の一括作成・回の絞り込み・請求のまとめは実装済み（`client/src/contexts/tasks/components/{EpisodesPanel,AddEpisodesDialog,GenerateEpisodesForm}.tsx`・`client/src/contexts/sales/pages/projectDetail/InvoiceGroupsSection.tsx`）
+
 **ロジックの正は [`docs/design/v4/regular-series.md`](../../regular-series.md)。** ここはその絵。
 
 公開先: https://claude.ai/code/artifact/4a446d54-0e91-4f90-bbf3-ded76e3d3e2e

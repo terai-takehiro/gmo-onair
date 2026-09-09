@@ -1,217 +1,168 @@
-# デプロイパイプライン (v2.9.230+)
+# デプロイパイプライン — いまの仕組み
 
-## 背景 / 課題
+**最終確認: 2026-09-08（v4.6.10）。** 一次情報は `.github/workflows/{ci,deploy,preview}.yml`・`Dockerfile`・
+`.dockerignore`・`docker-compose.yml`。手順（PR・リリースの出し方）は [branching.md](branching.md)、
+VPS 側の構成と日常運用は [ops/vps-setup.md](ops/vps-setup.md)。
 
-v2.9.229 まで、デプロイは GitHub Actions から VPS へ SSH し、**2GB RAM の CoNoHa VPS 上で
-`docker compose build --no-cache`** を実行していた。これには 3 つの問題があった:
+## 1. 入口は3つ＋プレビュー
 
-1. **`--no-cache` による毎回フルビルド** — 9 ワークスペース分の `npm install`(最重量工程) と
-   7 クライアント + サーバーのビルドを、1 行の変更でも毎回ゼロから実行
-2. **ビルドが VPS 上** — 稼働中の prod/dev/nginx/db コンテナと CPU・メモリを奪い合い、
-   ビルドが遅いだけでなくデプロイ中は本番のレスポンスも劣化
-3. **7 クライアントの逐次ビルド** — 並列化されず、変更のないアプリも常に再ビルド
+ビルドは GitHub Actions が行い、イメージを GHCR（`ghcr.io/terai-takehiro/gmo-onair`）に push する。
+VPS は pull してコンテナを差し替えるだけで、**VPS 上ではビルドしない**。
 
-結果としてデプロイに時間がかかり、トライ&エラーのサイクルが遅かった。
-
-## 新しい仕組み
-
-```
-main へのマージ (→ 検証)  /  Release の公開 (→ 本番)
-   │
-   ├─ [meta ジョブ]  どこへ・どのコミットを出すのかを決める
-   │
-   ├─ [ci ジョブ]  .github/workflows/ci.yml を呼ぶ (PR で走るものと同一)
-   │     ・checks: 型チェック / Lint / 共通コードの乖離 / バージョン表記の整合
-   │     ・build : GitHub Actions ランナー上で docker buildx ビルド
-   │         - Dockerfile はワークスペース別の並列ステージ構成
-   │         - GHA レイヤーキャッシュ (type=gha, mode=max):
-   │             · package*.json が変わらない限り npm install をスキップ
-   │             · 変更のないワークスペースの build ステージを丸ごとスキップ
-   │         - ghcr.io/terai-takehiro/gmo-onair:{dev|prod} と :sha-<commit> に push
-   │           (Release 経由のときは :vX.Y.Z も付く)
-   │     ★ ここが落ちるとデプロイジョブは動かない
-   │
-   └─ [staging / production ジョブ]  VPS へ SSH
-         ・git worktree を対象コミットに detached checkout (タグでもブランチでも同じ手順)
-         ・docker login ghcr.io (ジョブの一時 GITHUB_TOKEN、追加 secret 不要)
-         ・docker compose pull → up -d --force-recreate  (1〜2 分)
-         ・pull 失敗時のみ従来どおり VPS 上ビルドにフォールバック
-         ・nginx は設定ファイルが変わったときだけ作り直す (検証側のみ)
-         ・docker image prune -f で旧 dangling イメージを掃除
-```
-
-> **`:dev` / `:prod` は配信チャネル名で、ブランチ名ではありません。**
-> `dev` ブランチは v4 で廃止しました (`docker-compose.yml` の `image:` 既定値が
-> この名前なのでタグ名は変えていない)。運用の全体像は [`branching.md`](branching.md)。
-
-### 変更ファイル
-
-| ファイル | 変更内容 |
-|---|---|
-| `Dockerfile` | 単一 builder ステージ → `manifests` + `deps` + ワークスペース別 `build-*` ステージ (BuildKit が並列実行・独立キャッシュ) |
-| `.github/workflows/deploy.yml` | `build` ジョブ新設 (buildx + GHA cache + GHCR push)。deploy ジョブは pull のみに |
-| `docker-compose.yml` | `app_prod` / `app_dev` に `image:` を追加 (`APP_IMAGE_PROD` / `APP_IMAGE_DEV` で上書き可能)。`build:` はフォールバック用に残置 |
-
-### 効果 (期待値)
-
-| 工程 | 旧 | 新 |
-|---|---|---|
-| npm install | 毎回フル実行 (VPS 上) | 依存変更時のみ (キャッシュヒットで 0 秒) |
-| クライアントビルド | 7 本逐次 + 常に全再ビルド | 並列 + 変更のあったアプリのみ |
-| VPS 上の処理 | フルビルド + 再作成 | pull + 再作成 (1〜2 分) |
-| デプロイ中の本番負荷 | ビルドで CPU/RAM を圧迫 | ほぼゼロ (pull の I/O のみ) |
-
-## バージョン更新でキャッシュが飛ぶ問題 (v2.9.235 で対処)
-
-このプロジェクトはプッシュのたびに 10 個の `package.json` のバージョンを上げる運用のため、
-素直に COPY すると **依存が 1 つも変わっていなくても `npm install` のキャッシュが毎回破棄**され、
-「変更のないワークスペースはスキップ」という利点がほぼ打ち消されていた
-(v2.9.232 の本番ビルド実測 4 分 7 秒。うち root install 約 40 秒 + server install 約 29 秒)。
-
-**注意すべき性質**: Docker のレイヤーキャッシュは逐次的なので、
-**正規化を COPY の「後」に置いても効果がない** (COPY の時点で既に無効化される)。
-
-そこで正規化専用の `manifests` ステージを置き、`deps` と `production` は
-`COPY --from=manifests` で受け取る。`COPY --from` のキャッシュキーは
-**コピー元の内容**で決まるため、バージョンだけの変更では正規化後の内容が同一になり、
-後続の install レイヤーが無効化されない。
+| 入口 | 何が起きるか | 出る先 | イメージのタグ |
+| --- | --- | --- | --- |
+| `main` に push（＝PR のマージ） | `Deploy` が自動で走る | 検証 `https://dev.gmo-onair.jp` | `:dev` `:sha-<sha>` |
+| GitHub で Release を**公開**（タグ `vX.Y.Z`） | `Deploy` が自動で走る | 本番 `https://gmo-onair.jp` | `:prod` `:vX.Y.Z` `:sha-<sha>` |
+| Actions → Deploy → Run workflow（`target` = `staging` / `production`） | 手動。**実行時に選んだブランチ／タグのコミット**が出る | 選んだ先 | 上と同じ（`:vX.Y.Z` は付かない） |
+| Actions → Preview → Run workflow（`ref` を入力） | 検証環境だけに任意のコミットを出す。**検査を通さない・worktree を動かさない** | 検証のみ（本番には出せない） | `:dev` `:sha-<sha>` |
 
 ```
-manifests (毎回走るが数秒: 10ファイルをコピーして version を 0.0.0-build に潰すだけ)
-   ↓ COPY --from=manifests  ← ここのキャッシュキーが内容ベースになる
-deps (npm install — 依存が変わらない限りキャッシュヒット)
+main へのマージ ──┐                       ┌─ staging    → VPS: /root/gmo-onair-dev → app_dev
+Release の公開 ───┼─ meta ─ ci(checks/build) ─┤
+Run workflow ────┘         ↑ ここで止まれば   └─ production → VPS: /root/gmo-onair     → app_prod
+                              デプロイは走らない
+Preview ─────────── ビルドして :dev を上書き ──── VPS: app_dev だけ作り直す（検査なし）
+```
+
+- 本番に出るのは Release を公開したときだけ。**Claude が自分の判断で公開しない**（[CLAUDE.md](../CLAUDE.md) の環境分離ポリシー）。
+- タグを push しただけでは動かない（`release: types: [published]` でしか発火しない）。
+- `production` 環境に Required reviewers を設定してあれば、Release を公開しても承認待ちで一度止まる（[ops/github-repo-settings.md](ops/github-repo-settings.md)）。
+- Preview で出した検証環境は、次に `main` へマージがあれば自然に現行へ戻る（`:dev` が上書きされるため）。戻し方の詳細は [branching.md の「昔の版を検証環境で見る」](branching.md#昔の版を検証環境で見る)。
+
+## 2. ジョブの流れ（deploy.yml）
+
+| ジョブ | 役割 |
+| --- | --- |
+| `meta` | どこへ（`staging` / `production`）・どのタグを付けて（`dev` / `prod`・Release のときだけ `vX.Y.Z`）・どのコミットを出すかを1か所で決める |
+| `ci` | `ci.yml` を `workflow_call` で呼ぶ。**PR で走る検査と完全に同じもの**。`push_image: true` でイメージを GHCR へ push する |
+| `staging` / `production` | `needs: [meta, ci]`。VPS へ SSH して pull → 再作成。`ci` が落ちると動かない |
+
+### ci.yml の中身
+
+| ジョブ | やること |
+| --- | --- |
+| `checks` | `npm ci` → `npm run typecheck:all` → `npm run lint` → `npm test` → `check-collab-parity.mjs` → `npm run check:version` → `npm run check:ui-tokens` → `npm audit --omit=dev --audit-level=high` → `rental-scraper/` の Python 単体テストと `import scheduler` |
+| `build` | `docker/build-push-action` で Dockerfile をビルド。PR では `push: false`（本番と同じ経路が通るかだけ見る）。キャッシュは `type=gha`、**書き戻し（`cache-to`）は push するときだけ**（PR のビルドで書き戻すと `main` のキャッシュを押し出す） |
+
+ジョブ名 `checks` / `build` は分岐保護の必須チェック名そのもの。変えるときは
+[ops/github-repo-settings.md](ops/github-repo-settings.md) の「変えたときの注意」。
+
+### 排他
+
+- ワークフロー全体: `deploy-<ref>-<target>` で `cancel-in-progress: true`。同じブランチから検証と本番を続けて出しても、一方が他方を止めない（先に本番が検証を打ち切った事故の再発防止）。
+- 環境ごと: `deploy-staging` / `deploy-production` で `cancel-in-progress: false`。走っているデプロイは完走する。Preview も `deploy-staging` を使うので、プレビュー中に `main` のデプロイが割り込まず順番待ちになる。
+
+### VPS 上で実行される手順
+
+`staging` と `production` は同じ形で、対象の worktree・サービス名・nginx の扱いだけが違う。
+
+| 手順 | staging（`/root/gmo-onair-dev`） | production（`/root/gmo-onair`） |
+| --- | --- | --- |
+| 1. checkout | `git fetch origin --prune --tags --force` → `git checkout --force --detach <sha>`。**ブランチではなくコミットを直接指す**（タグからでもブランチからでも同じ1行） | 同じ |
+| 2. compose の指定 | `docker compose -p gmo-onair --env-file /root/gmo-onair/.env -f /root/gmo-onair-dev/docker-compose.yml` | `docker compose -p gmo-onair -f /root/gmo-onair/docker-compose.yml` |
+| 3. pull | `docker login ghcr.io`（ジョブの一時 `GITHUB_TOKEN`）→ `pull app_dev`。**失敗したときだけ** `build --no-cache app_dev`（VPS 上ビルドにフォールバック） | 同じ（`app_prod`） |
+| 4. 再作成 | `up -d --no-deps --force-recreate app_dev` | 同じ（`app_prod`） |
+| 5. nginx | checkout の前後で `nginx/*.conf` の md5 を比べ、**変わったときだけ** `up -d --no-deps --force-recreate nginx` | **触らない**。nginx は検証デプロイ側で最新化する（本番側で古いタグの設定を強制すると `main` にしかない変更が消える） |
+| 6. スクレイパー | `build rental_scraper_dev` → `up -d --no-deps rental_scraper_dev`。GHCR には積まず VPS 上でビルド。失敗しても `::warning` を出すだけでジョブは落とさない | 同じ（`rental_scraper_prod`） |
+| 7. 後片付け | `docker logout ghcr.io` → `docker image prune -f` | 同じ |
+| 8. 診断 | `compose ps`・各コンテナのログ・ネットワークと名前解決・`/health`（コンテナ内→nginx 経由→外から `https://dev.gmo-onair.jp/health`）。スクレイパーは `docker inspect` で `running` かつ再起動 0 回かまで見る | ログ・`curl -sf http://localhost:3000/health`・`compose ps`・スクレイパーの生存確認 |
+
+nginx の設定変更を本番に効かせたいときは、`main` にマージして検証デプロイを回す（そこで nginx が作り直される。nginx コンテナは本番・検証の両方を1つで捌いている）。
+
+## 3. イメージとタグ
+
+| タグ | いつ付くか | 用途 |
+| --- | --- | --- |
+| `:sha-<full commit hash>` | GHCR へ push するビルド全部 | ロールバック時の差し替え元 |
+| `:dev` / `:prod` | `meta` が決めた配信チャネル | `docker-compose.yml` の `image:` 既定値 |
+| `:vX.Y.Z` | Release 経由のときだけ | 「本番に何が出たか」の記録 |
+
+**`:dev` / `:prod` は配信チャネル名で、ブランチ名ではない。** `dev` ブランチは v4 で廃止した（[branching.md](branching.md)）。
+`docker-compose.yml` は `image: ${APP_IMAGE_PROD:-…:prod}` / `${APP_IMAGE_DEV:-…:dev}` で受け、`build:` はローカル開発と GHCR 障害時のフォールバック用に残してある。
+
+`sha-*` タグは GHCR に溜まり続ける。掃除の仕組み（retention ポリシー・定期削除のワークフロー）は**無い**。
+
+## 4. VPS 上の配置
+
+| 場所 | 中身 |
+| --- | --- |
+| `/root/gmo-onair` | 本番用 worktree。本番デプロイだけが触る。**`.env` はここだけ**（検証の compose も `--env-file` でここを読む） |
+| `/root/gmo-onair-dev` | 検証用 worktree。検証デプロイだけが触る |
+| compose プロジェクト `gmo-onair` | 両方の worktree が同じプロジェクト名を使い、`db` / `nginx` / ネットワーク / ボリュームを1セットで共有する |
+
+| サービス | イメージ | ポート（ホスト→コンテナ） | 役割 |
+| --- | --- | --- | --- |
+| `db` | `postgres:16-alpine` | `127.0.0.1:5432` | 1つのインスタンスを DB 名（`onair_prod` / `onair_dev`）で分ける |
+| `app_prod` | GHCR `:prod` | `127.0.0.1:3000→3000` | 本番。`NODE_ENV=production`・`SKIP_SEED=true` |
+| `app_dev` | GHCR `:dev` | `127.0.0.1:3001→3000` | 検証。`NODE_ENV=development`・`AUTH_MODE=password`・`SKIP_RENTAL_SEED=true` |
+| `rental_scraper_dev` / `rental_scraper_prod` | VPS 上で `rental-scraper/` をビルド | なし | レンタル機材のクロール（[rental-scraper/README.md](../rental-scraper/README.md)） |
+| `nginx` | `nginx:alpine` | `80` `443` | `nginx/gmo-onair.conf` 1枚で本番・検証両方の `server_name` を捌く |
+
+コンテナ名は `gmo-onair-<サービス>-1`（例: `gmo-onair-app_prod-1`）。詳細は [ops/vps-setup.md](ops/vps-setup.md)。
+
+## 5. ビルドキャッシュの設計（Dockerfile）
+
+```
+manifests  package.json ×9 + package-lock.json + vendor/ を COPY し、version を 0.0.0-build に潰す
+   ↓ COPY --from=manifests（キャッシュキーはコピー元の内容）
+deps       npm ci --workspaces --include-workspace-root（依存が変わらない限りキャッシュヒット）
    ↓
-build-* / production
+build-client / build-client-equipment / build-client-techops / build-client-live / build-client-daily / build-server
+           （BuildKit が並列実行。変更のないワークスペースはステージごとスキップ）
+   ↓
+production node:20-alpine + postgresql16-client。server の dist・migrations・scripts・fonts と各 client の dist だけを集約
 ```
 
-**安全性の根拠**:
-- ワークスペース間の参照は npm workspaces の symlink (`node_modules/@gmo-onair/shared → ../shared`) で、
-  どの `package.json` も相手のバージョンを固定参照していない → 依存解決に影響しない
-- version を実際に読むのは **client の 2 箇所だけ**
-  (`vite.config.ts` → `__APP_VERSION__` → HomePage / `SettingsPage.tsx` → `client/package.json`)。
-  どちらも `build-client` ステージで実ファイルを COPY し直すので表示は正しいままになる
-- サーバーは自身の version を読まない (`/health` が `version:"unknown"` を返すのと一致)
+| 決めごと | 理由（1〜2文） |
+| --- | --- |
+| `manifests` ステージで `version` を固定値に正規化してから `deps` に渡す | ルート `package.json` の版はリリースごとに上がる。素直に COPY すると依存が1つも変わらなくても `npm ci` のレイヤーが毎回捨てられる。`COPY --from` のキャッシュキーは**コピー元の内容**で決まるので、正規化後が同じなら `deps` 以降が生きる |
+| **版を上げるのはルート `package.json` だけ**（`npm run check:version` もルートしか見ない） | `vite.config.ts` がルートの版を `__APP_VERSION__` に埋めるので `build-client` だけが作り直される（表示が変わるので正しい）。`shared/package.json` を触ると `COPY shared/` を持つ**全 build ステージ**が、各クライアントのものを触るとそのステージがキャッシュから外れる。server は自身の版を読まない（`/health` の `version` は `npm_package_version` 由来で、`node server/dist/index.js` 起動では `unknown`） |
+| `deps` は `npm install` ではなく `npm ci` | lockfile の解決結果をそのまま入れる。lockfile と `package.json` が食い違っていたらその場で落ちる（`install` は黙って lockfile を書き換えて進むため、イメージの中身が lockfile と違う状態でデプロイされ得た） |
+| 型チェックは CI の `checks`（`typecheck:all`）で `build` と**並走**させ、さらに各クライアントの `build`（`tsc -b && vite build`）にも残している | クライアントの tsconfig は `noEmit` なので `tsc -b` はイメージの中身を変えず時間だけ伸ばす（約50秒）。それでもイメージ側にも残すのは、CI の配線がずれても型エラーのまま焼き上がらないようにするため（Dockerfile 冒頭に理由）。`server` の `tsc` は `dist` を出す本体なのでビルドの中に要る |
+| `.dockerignore` は `docs` `scripts` `*.md` を除外し、ビルド中に読むものだけ再包含する | `client` の prebuild が `CLAUDE.md`・`docs/version-history.md`・`scripts/generate-*.mjs`・`server/src/contexts/mcp/{tools/,gate.ts}` を、`server` の prebuild が `scripts/check-collab-parity.mjs` を読む。**再包含だけでは足りず、Dockerfile の該当ステージにも `COPY` が要る**（無いと `MODULE_NOT_FOUND` / `ENOENT` で落ちる） |
 
-**v2.9.238 で仕上げ**: バージョン更新を**ルート `package.json` だけ**に限定した
-(CLAUDE.md のバージョン更新ルールも変更済み)。各ワークスペースの `version` は
-どこからも読まれていなかったため実害ゼロで、`SettingsPage` が唯一 `client/package.json` を
-import していた箇所を `__APP_VERSION__` (ルート由来・HomePage と同じソース) に統一した。
+GHA のキャッシュはリポジトリあたり 10GB（LRU）。押し出されたときはフルビルドになるだけで動作には影響しない。
+`client-awards` は廃止（2026-09-06）のためビルドステージが無い。`package.json` はワークスペースとして残っているので `manifests` には入っている。
 
-これにより**バージョン更新のみのプッシュでは `build-client` だけが再ビルドされ**
-(表示バージョンが変わるので正しい)、他 6 クライアント + server + 両 install は
-キャッシュに載る。
+## 6. 戻し方（ロールバック）
 
-⚠️ **ワークスペースの `package.json` の version を更新すると、この利点が消える**
-(全ビルドステージが無効化される)。バージョンはルートだけを上げること。
+### コードだけ戻す（DB を触らないリリースのとき）
 
-## 型チェックをビルドから出した (v2.9.289)
+| 方法 | 手順 | 向き |
+| --- | --- | --- |
+| タグの Deploy を再実行（推奨） | Actions → Deploy → Run workflow → Branch/tag に **1つ前の `vX.Y.Z`** を選び `target: production`。または Releases の該当タグの Deploy 実行を Re-run | git 履歴・イメージ・VPS の checkout が全部そのタグで揃う |
+| イメージだけ差し替える（急ぎ） | VPS で `APP_IMAGE_PROD=ghcr.io/terai-takehiro/gmo-onair:sha-<旧コミット> docker compose -p gmo-onair -f /root/gmo-onair/docker-compose.yml up -d --no-deps --force-recreate app_prod`（`/root/gmo-onair` で実行。検証は `APP_IMAGE_DEV` と `--env-file /root/gmo-onair/.env -f /root/gmo-onair-dev/docker-compose.yml`） | イメージだけが古くなり、VPS の checkout とはずれる。恒久的に戻すなら上を使う |
 
-クライアント 7 本の `build` は `tsc -b && vite build` だったが、**クライアントの tsconfig は
-`noEmit: true`** なので tsc は 1 バイトも出力しない (vite は esbuild で型を捨ててバンドルする)。
-つまり**中身は変わらず、時間だけがイメージのビルドの一直線上に乗っていた**。
+### ⚠️ DB を伴う変更は、コードだけ戻しても動かない
 
-実測 (このリポジトリ):
+`deploy.yml` は**マイグレーションの逆再生も DB のリストアもしない**。マイグレーションは
+`_migrations` テーブルに実行済みとして記録され前方向にしか進まない（`server/src/shared/db/migrate.ts`）。
+そのため上の2つの方法はどちらも**コード（イメージ・checkout）しか戻さない**。
 
-| 工程 | 時間 |
-|---|---|
-| `client` の `tsc -b` | 20.6 秒 |
-| `client` の `vite build` | (tsc とほぼ同じ規模) |
-| `client-live` の `tsc -b` / `vite build` | 4.6 秒 / 4.5 秒 |
-| 7 クライアント合計の tsc | **約 50 秒** |
+| 境目 | 何が起きるか |
+| --- | --- |
+| v4.1.5（migration `200_customer_fk_to_companies.sql`）以降 → それより前のタグへ | `customer_id` の値そのものが `companies.id` に書き換わっている。古いコードは `customers.id` を期待するので、顧客名が消える・案件作成が壊れる |
+| Phase 3-3（migration 206〜208。`208_drop_customers_vendors_tables.sql`）以降 → それより前のタグへ | `customers` / `vendors` テーブル自体が無く、`206_drop_untracked_drift_tables.sql` で消した23の未追跡テーブルも無い（[reviews/db-drift-audit.md](reviews/db-drift-audit.md)）。古いコードがクエリした瞬間に `relation "customers" does not exist` で落ちる |
 
-GitHub のランナーは 2 コアなので、この 50 秒はほぼそのまま待ち時間になる。
+**これらの境目をまたいで戻すときは、コードを戻すのと同時に DB もその時点のバックアップまで復元する**
+（[ops/db-backup-restore.md](ops/db-backup-restore.md)。3時間ごとの自動バックアップ）。コードだけ・DB だけのどちらも単独では正しい状態にならない。
+境目より新しいタグ同士の行き来なら、コードだけ戻してよい。一般に、戻したい先の版より後に migration が入っているかを `server/src/shared/db/migrations/` で見てから決める。
+古いコードを新しいスキーマの上で動かすと、起動は通っても**古いコードで保存した行は新しい列の値が落ちる**（検証で Preview を使うときも同じ）。
 
-そこで:
+## 7. 認証・フォールバック・ローカル・追加時
 
-- 各クライアントの `build` は `vite build` だけにし、`typecheck` (`tsc -b`) を別スクリプトにした
-- 型チェックのジョブを足して Docker ビルドと**並走**させた
-  (v4 で `ci.yml` の `checks` / `build` に整理。**PR で走るものと完全に同じ**)
-- `staging` / `production` は `needs: [meta, ci]`
-  → **型エラーがあればデプロイは止まる** (イメージは GHCR に上がるが配られない)
-- ルートの `npm run build` は `npm run typecheck && …` にしたので、**手元の `npm run build` は
-  今までどおり型を見る** (型チェックを飛ばしたいときだけ `npm run build:nocheck`)
+| 項目 | 内容 |
+| --- | --- |
+| GHCR への push | `ci.yml` の `build` ジョブが `GITHUB_TOKEN`（`packages: write`）で行う。追加の secret は不要 |
+| GHCR からの pull | deploy ジョブが SSH の環境変数で一時 `GITHUB_TOKEN`（`packages: read`）を渡して `docker login`、終わったら `docker logout`。**VPS に永続的な認証情報は置かない** |
+| SSH | secrets `VPS_HOST` / `VPS_USER` / `VPS_SSH_KEY`（[ops/github-repo-settings.md](ops/github-repo-settings.md)） |
+| GHCR 障害時 | `compose pull` が失敗すると同じジョブの中で `compose build --no-cache app_xxx`（VPS 上ビルド）に落ちる。`app_dev` の `build.context` は `/root/gmo-onair-dev` 固定 |
+| ローカルの compose | `image:` と `build:` を併記しているので `docker compose build` / `up --build` はそのまま動く（ビルド結果がその image 名でタグ付けされる）。`JWT_SECRET_DEV` は `:?` で必須なので `.env` に無いと compose の読み込み自体が止まる |
+| ワークスペース（`client-xxx`）を足すとき | `Dockerfile` の3か所を触る: ① `manifests` の `COPY client-xxx/package.json` と正規化リスト `W` ② `build-client-xxx` ステージ ③ `production` の `COPY --from=build-client-xxx`。あわせてルート `package.json` の `workspaces` と `typecheck:all` / `build:all` |
+| prebuild にスクリプトを足すとき | `.dockerignore` の `!scripts/…` 再包含と、該当 build ステージの `COPY` の両方 |
 
-`server` の `tsc` は `dist` を出力する本体なので、これは今までどおりイメージのビルドの中に残す。
+## 8. 経緯
 
-### `npm install` → `npm ci` (v2.9.289)
-
-`deps` ステージを `npm ci` にした。lockfile の解決結果をそのまま入れるので依存ツリーの
-再計算をせず、**lockfile と `package.json` が食い違っていたらその場で落ちる**。
-`npm install` は黙って lockfile を書き換えて進むため、**イメージの中身が lockfile と違う**
-状態でデプロイされ得た (コード健全性ポリシーの「宣言と解決を一致させる」に反する)。
-
-
-## 運用メモ
-
-### ロールバック
-
-**本番を戻す (推奨)**: Releases に過去のタグが並んでいるので、**1つ前のタグの Deploy
-ワークフローを再実行**する。git 履歴・イメージ・VPS の checkout が全部そのタグで揃うので、
-「いま本番に何が出ているか」がずれない。
-
-**その場でイメージだけ差し替える (急ぎ)**: GHCR にはコミットごとの `sha-<full commit hash>`
-タグと、リリースごとの `vX.Y.Z` タグが残る。VPS 上で:
-
-```bash
-# 例: 検証環境を特定コミットのイメージに戻す
-cd /root/gmo-onair-dev
-APP_IMAGE_DEV=ghcr.io/terai-takehiro/gmo-onair:sha-<旧コミットhash> \
-  docker compose -p gmo-onair --env-file /root/gmo-onair/.env \
-  -f /root/gmo-onair-dev/docker-compose.yml up -d --no-deps --force-recreate app_dev
-```
-
-(こちらは**イメージだけ**が古い状態になり、VPS の checkout や git 履歴とは食い違う。
-恒久的に戻すなら上のタグ再実行を使うこと。)
-
-⚠️ **v4.1.5（Phase 3-2a・顧客系FKを companies へ張り替えた版）以降、
-上の2つのロールバック手順のどちらも使えない**（レビュー指摘・PR #199 P1で表現を訂正）。
-DB マイグレーション（`200_customer_fk_to_companies.sql`）が `customer_id` の値そのものを
-書き換えており、`_migrations` テーブルに実行済みとして記録される（同じファイルは
-再実行されない・後述）。**「Releases のタグで Deploy ワークフローを再実行」は
-コード（イメージ・checkout）だけを戻し、DB には触らない**（`deploy.yml` はマイグレーションの
-逆再生もリストアも行わない）。そのため、イメージだけ・タグ再実行のどちらで戻しても、
-DB は新しい値（`companies.id`）のままで、古いコードが期待する `customers.id` とは
-食い違う（顧客名が消える・案件作成が壊れる）。
-
-⚠️ **Phase 3-3（migration 206〜208。会社リスト一本化の最終段階）以降はさらに厳しい**。
-`customers`/`vendors` の**テーブル自体が削除されている**ため、それ以前のタグへ
-コードだけ戻すと、古いコードが `SELECT ... FROM customers` のような SQL を投げた瞬間に
-`relation "customers" does not exist` の生 DB エラーで即落ちる（「値が食い違う」ではなく
-「クエリした瞬間に例外」なので、`customers.id` を経由するどの画面・API も動かない）。
-Phase 3-3 以降のタグへ戻すのは問題ないが、**それより前のタグへは、コードを戻すのと
-同時に DB も Phase 3-3 適用前の状態まで復元しないと動かせない**（下記の手順のとおり）。
-migration 206 で削除した23個の未追跡テーブル（`docs/reviews/db-drift-audit.md` 参照）も
-同様に戻せない。
-
-**このリリース以降、本番の DB に影響する変更を戻すには、コードを戻すことに加えて
-DB も同時点まで復元する必要がある。** 手順は
-[docs/ops/db-backup-restore.md](ops/db-backup-restore.md)（3時間ごとの自動バックアップ
-からの復元）を使うこと。コードだけ戻す・DBだけ戻すのどちらも単独では正しい状態にならない。
-
-### GHCR イメージの認証
-
-- push: build ジョブの `GITHUB_TOKEN` (`packages: write`)
-- pull: deploy ジョブが SSH 経由で VPS に一時 `GITHUB_TOKEN` を渡して `docker login`
-  (デプロイ完了後に `docker logout`)。**VPS に永続的な認証情報は置かない**。
-- パッケージは初回 push 時に自動でリポジトリに紐づき、リポジトリと同じ可視性 (private) になる。
-
-### フォールバック (GHCR 障害時)
-
-deploy スクリプトは `compose pull` が失敗すると自動で従来の
-`compose build --no-cache` (VPS 上ビルド) に切り替わる。挙動は v2.9.229 以前と同一。
-
-### ローカル開発
-
-`docker compose build` / `docker compose up --build` は従来どおり動作する
-(`image:` と `build:` を併記しているため、ローカルビルドはその image 名でタグ付けされる)。
-
-### 注意点
-
-- **`sha-*` タグは GHCR に蓄積される**。当面は問題ないが、増えてきたら GitHub の
-  パッケージ設定で untagged/old バージョンの retention ポリシーを設定するか、
-  定期削除の workflow を追加する。
-- GHA キャッシュはリポジトリあたり 10GB (LRU で自動削除)。キャッシュが追い出されると
-  そのビルドはフルビルドになるが、動作には影響しない。
-- 新しいワークスペース (client-xxx) を追加したら、`Dockerfile` に
-  `deps` ステージの package.json COPY + `build-client-xxx` ステージ + production の
-  `COPY --from=` の 3 箇所を追加すること。
+- **v2.9.229 以前**は GitHub Actions から VPS へ SSH し、2GB RAM の VPS 上で `docker compose build --no-cache` していた（稼働中のコンテナと CPU・メモリを奪い合い、1行の変更でも毎回フルビルド）。
+- **v2.9.230** で GitHub Actions ビルド＋GHCR pull に移行。**v2.9.235** で `manifests` ステージ、**v2.9.238** で版の更新をルートだけに限定、**v2.9.289** で `npm ci` と型チェックの並走化。**v4** で `ci.yml` に検査を一本化し、`dev` ブランチと「dev = 検証 / main = 本番」の運用を廃止した。
+- 当時の全文（実測値・変更ファイル・効果の表）は [archive/2026/deploy-pipeline-v2.9-history.md](archive/2026/deploy-pipeline-v2.9-history.md)。

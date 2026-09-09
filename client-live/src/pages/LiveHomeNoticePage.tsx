@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
  * 計時・視聴者 v4.1 段2 — 旧セッション一覧（`SessionHomePage.tsx`）の廃止に伴う
  * 案内画面。`/live/`（このバンドルの index ルート）に置く。
  *
- * `docs/design/v4/techops-v4-coding/12-live-timer-decision.md` §3-5 は「抜け道として
+ * `docs/design/v4/qsheet-v4-coding/12-live-timer-decision.md` §3-5 は「抜け道として
  * 残す」としていたが、このステージでユーザーが明示的に上書き決定した
  * （セッション一覧・案件に紐づかないスタンドアロン作成は廃止）。
  *

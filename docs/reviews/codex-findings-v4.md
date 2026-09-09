@@ -680,7 +680,7 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   付いていない（原因不明のまま0件だった #165・#167・#244 に近い形）。PRが開いていたのは約13分と
   短く、レビューが付く前に人自身がマージした可能性が高い。表に移す指摘はない（レビュー自体が
   届いていないため）。⚠️ **この記録は当時の作業ブランチに置き去りになっており、残骸ブランチの
-  棚卸し（PR #351・`docs/release-prep/stale-branches.md`）で発見して回収した**。
+  棚卸し（PR #351・`docs/archive/2026/release-prep-stale-branches-2026-08-23.md`）で発見して回収した**。
 - **#259**（`fix(client): アプリをまたぐリンクの検査漏れとタスク一覧の注記を直した`）—
   作成から約5分でCI green・マージ。レビュー0件のままマージされた
 - **#263**（`refactor(shared,client,server): 権限モデルを単純化した`）— 作成から
@@ -725,14 +725,14 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   `check:frozen`はすべて確認済みだが、**実ブラウザでのPC/スマホ確認は一部の画面のみ**
   （PR本文の「検証したこと」チェックリストに未確認箇所を明記）。**`main`に並行マージ
   されていたPR #272との重複を解消する`git merge`を含む**（ユーザー判断で#274側の実装を
-  採用・詳細は [docs/handoff-2026-08-20-v4-native-ui.md](../handoff-2026-08-20-v4-native-ui.md)）。
+  採用・詳細は [docs/archive/2026/handoff-2026-08-20-v4-native-ui.md](../archive/2026/handoff-2026-08-20-v4-native-ui.md)）。
   **レビューが付く前にマージされたため、実ブラウザ未確認の画面（PC専用画面を除く大半の
   スマホ表示）は今後のセッションで別途確認することを推奨**
 - **#276**（`feat(client,client-daily,client-equipment,server,shared): v4ネイティブUI化の残り4項目に着手し、機材台帳の日付バグを直した`）—
   作成 2026-08-21 03:03:31 / マージ 03:11:45（terai-takehiro 本人が手動マージ、約8分14秒後）。
   `npm run reviews:debt` は今回も 401 で使えなかったため GitHub MCP で直接確認した
   （`get_reviews` 0件・`get_review_comments` 0件）。表に移す指摘はない（レビュー自体が
-  届いていないため）。8コミット・29ファイル・+1,247/-334 行。`docs/handoff-2026-08-20-v4-native-ui.md`
+  届いていないため）。8コミット・29ファイル・+1,247/-334 行。`docs/archive/2026/handoff-2026-08-20-v4-native-ui.md`
   （#274の引き継ぎ書）の「残っている作業」4項目（操作感の演出・案件詳細⑥残り5タブ・
   機材台帳の親子入れ子・凍結アプリCSSズレの原因調査）＋機材台帳の日付バグ修正
   （`purchased_at`を空文字で保存すると500になる不具合）を1本にまとめたPR。

@@ -1,5 +1,9 @@
 # `client-qsheet` / `/qsheet/` / 内部識別子 `qsheet` → `techops` 移行計画
 
+> **種類**: 現役の計画
+> **状態**: Phase 1〜4 実施済み（2026-08-22）。残りは §6 の 4・6: 旧 `/qsheet` の二重マウント（`server/src/app.ts`・`routes/index.ts`）、Socket.IO `/qsheet` ブリッジ（`socket.ts` の `NAMESPACES`）、MCP 旧ツール名の二重登録（`gate.ts`）の撤去時期が未決。`permissionModule`・DB は `qsheet` のまま（意図的）。§6 の 8（client-live の空洞化）は v4.3.0 で旧運用画面を削除済み
+> **最終確認**: 2026-09-08（v4.6.10）
+
 > 2026-08-22 起票。表示名「制作資料」→「制作技術支援」への改名（同日）に伴い、
 > `client-qsheet/CLAUDE.md` に記録されていた「将来のディレクトリ/内部識別子リネーム候補メモ
 > （2026-08-22・未着手）」を、実コードベース監査（7観点）に基づいて具体的な移行計画に

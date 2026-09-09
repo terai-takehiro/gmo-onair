@@ -33,12 +33,12 @@ body:
       label: どのアプリか
       multiple: true
       options:
-        - 案件管理 (/)
-        - Qシート (/qsheet/)
+        - 案件管理・財務管理・カレンダー・設定 (/)
+        - プロジェクト管理 (/gpm)
+        - 日常業務 (/daily/)
         - 機材管理 (/equipment/)
-        - ライブ運用 (/live/)
-        - リアルタイムCG (/awards/)
-        - デイリー (/daily/)
+        - 制作技術支援・Qシート (/techops/)
+        - 計時・視聴者 (/live/)
         - サーバー・API
         - 共通ライブラリ (全アプリに影響)
     validations:

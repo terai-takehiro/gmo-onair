@@ -1,5 +1,9 @@
 # ウィークリー活動報告 — 再設計モック（2026-09）
 
+> **状態**: 実装済み（記録）
+> **最終確認**: 2026-09-08（v4.6.10）
+> **位置づけ**: ウィークリー活動報告の再設計モック。2026-09-07 に実装済み（`client-daily/src/pages/weekly/`。所在は `client-daily/CLAUDE.md`「ウィークリー活動報告」）
+
 `/daily/weekly` をモックから設計し直したもの。5枚のアートボード（`.dc.html`）と配置
 （`canvas.json`）で、[`../v4-mockup-dailyops.dc.html`](../v4-mockup-dailyops.dc.html) の
 ウィークリー活動報告の節を置き換える。

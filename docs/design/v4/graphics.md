@@ -1,13 +1,15 @@
 # テロップ・CG（リアルタイムCG の後継）— ゼロベース再設計
 
-**状態: 初版設計（2026-08-30）。段1〜6 を実装したあと、2026-09-06 に利用者に見せる語・画面の数・本番の操作モデルを
-[graphics-redesign.md](graphics-redesign.md) で作り直した（**UI はそちらが正**。出力の契約・部品の思想・組版の数値はこの文書のまま）。**
-初版のモックは [mockups/v4-mockup-graphics.dc.html](mockups/v4-mockup-graphics.dc.html)（経緯として残す。再設計のモックは
-[mockups/native/telop-cg/](mockups/native/telop-cg/)）。
+> **状態**: 実装済み（記録）
+> **最終確認**: 2026-09-08（v4.6.10）
+> **位置づけ**: テロップCG の初版設計（2026-08-30）。段1〜6 は実装済み。利用者に見せる語・画面の数・本番の操作モデルは [graphics-redesign.md](graphics-redesign.md) が正（2026-09-06 に作り直し、段A〜F も実装済み）。出力の契約（§7）・部品の思想（§2）・組版の数値（[graphics-design-specs.md](graphics-design-specs.md)）はこの文書のまま生きる
+
+初版のモックは [mockups/v4-mockup-graphics.dc.html](mockups/v4-mockup-graphics.dc.html)（経緯として残す）。再設計のモックは
+[mockups/native/telop-cg/](mockups/native/telop-cg/)。実装は `client-techops/src/pages/graphics/`・`server/src/contexts/graphics/`。
 
 ## 0. これは何か
 
-移行中（2026-09-06 に「凍結」から整理）の「リアルタイムCG」（`client-awards/`・アワード授賞式専用の CG 送出）を、
+廃止済み（2026-09-06 の段F。経緯は [../../v4-plan.md](../../v4-plan.md) の「用語」）の「リアルタイムCG」（`client-awards/`・アワード授賞式専用の CG 送出）を、
 **番組を問わず使える汎用テロップ・CG システム**として作り直し、
 **制作技術支援（techops）のミニアプリ**に組み込む計画。
 

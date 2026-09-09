@@ -1,132 +1,94 @@
 # client-equipment — 機材管理（v4 対象）
 
-ベースパス `/equipment/`・ポート 5175。17画面・約11,900行。サーバー側は `server/src/contexts/equipment`。
+いま効くルールだけを置く。経緯・当時の実測・撤回した方針は
+[docs/reviews/daily-equipment-build-log.md](../docs/reviews/daily-equipment-build-log.md)。
 
-## 画面（v4 で8画面・設定は1画面4タブに統合）
+## 役割と入口
 
-| v4 画面 | いまの実装 |
-| --- | --- |
-| ダッシュボード | `pages/DashboardPage` |
-| 機材台帳（機材・貸出機材・ケーブル・コネクタのタブ） | `pages/EquipmentListPage` / `ModelGroupPage` / `CablePage` / `ConnectorPage` |
-| ラック図 | `pages/RackLayoutPage` ＋ `pages/rack/{RackList,RackUnitTable,cellContent,printConstants,PrintRackArea}` |
-| メンテナンス | `pages/MaintenancePage` |
-| 棚卸し | `pages/InventoryPage` |
-| QRスキャン | `pages/ScanPage` |
-| 貸出・返却 | `pages/LendingListPage` |
-| 設定（保管場所／メーカー・色／貸出カテゴリ／貸出の決めごと） | `pages/LocationPage` / `ManufacturerPage` / `ColorPage` / `RentalCategoryPage` / `RentalSettingsPage` |
+- `/equipment/`・ポート 5175。**ルーターに `basename` は無い**（Vite の `base` だけ）ので `App.tsx` も `nav.ts` の `to` も `/equipment/...` から書く
+- `shared/src/client/apps.ts`: `key: 'equipment'`・`permissionModule: 'equipment'`
+- サーバー `server/src/contexts/equipment`（routes `equipment`／`excel`／`manufacturers`／`colors`／`cables`／`connectors`／`rental-catalog`、services `item`／`lending`／`maintenance`／`inventory`／`stats`。全部 `/equipment/*`）
+- 権限はサーバーの route ごと `requirePermission('equipment', reader｜editor｜manager｜owner｜exporter)`（既定 reader・貸出/返却の書き込み editor・削除 manager）。**フロントの閲覧ゲートは無い**（`AppShell.tsx`）— 新設すると権限の無い既存の利用者が突然入れなくなる。入れるなら本番の `user_permissions` を数えてから別の作業で
+- シェルは共通。ここにあるのは `components/layout/` の `AppShell.tsx`・`nav.ts`・`EquipmentSearchButton.tsx`（上辺の検索＝`/equipment/search` を開く・⌘K）と `manual/content.tsx`。左メニューは 現場／貸出／設定 の3塊（ダッシュボードは `end: true` 必須）、下タブは **ホーム／やること（＝貸出・返却）／探す**（`EQUIPMENT_MOBILE_TABS`）
+- MCP は [docs/mcp-server.md](../docs/mcp-server.md) 機材管理の節（台帳の登録・編集は画面だけ）。設計の正は [equipment.md](../docs/design/v4/equipment.md)、レンタル機材検索の絵は [rental-search/](../docs/design/v4/rental-search/README.md)
 
-- ルートは `src/App.tsx`（`/equipment` 以外は接頭辞なしの絶対パスで書かれている点に注意）
-- `/equipment/rental-categories` は**ルートはあるがメニューに出ていない**（v4 で設定タブに入れる）
+## 画面一覧（URL → `src/pages/`）
 
-## このアプリ固有の決めごと
+| URL | 画面 | 入口 |
+| --- | --- | --- |
+| `/equipment` | ダッシュボード（押せば片づくものだけ） | `DashboardPage.tsx` ＋ `dashboard/` |
+| `/equipment/items?view=items｜lend｜supply` | 機材台帳（機材／貸出機材／ケーブル・コネクタ。タブは URL） | `EquipmentLedgerPage.tsx` ＋ `equipmentList/`（`ItemsPanel.tsx`・`RentalPanel.tsx`）・`catalog/CatalogPanel.tsx` |
+| `/equipment/items/:id` | 機材の詳細 | `EquipmentDetailPage.tsx` ＋ `detail/` |
+| `/equipment/racks` | ラック図（PC 専用） | `RackLayoutPage.tsx` ＋ `rack/` |
+| `/equipment/maintenance` | メンテナンス | `MaintenancePage.tsx` ＋ `maintenance/` |
+| `/equipment/inventory` | 棚卸し（スマホは現場のスキャン） | `InventoryPage.tsx` ＋ `inventory/`（`MobileScanSession.tsx`・`useScanQueue.ts`） |
+| `/equipment/scan` | QRスキャン（読み取り履歴つき） | `ScanPage.tsx` ＋ `scan/`（`useScanner.ts`） |
+| `/equipment/search` | 探す（下タブ3つ目） | `SearchPage.tsx` ＋ `search/`（`standby.ts`） |
+| `/equipment/rental-search` | レンタル機材検索（TOC・レスター。読むだけ） | `RentalSearchPage.tsx` ＋ `rental/`・`lib/rentalCatalogApi.ts` |
+| `/equipment/lendings` | 貸出・返却 | `LendingListPage.tsx` ＋ `lending/` |
+| `/equipment/settings?tab=loc｜maker｜cat｜rule` | 設定（保管場所／メーカー・色／貸出カテゴリ／貸出のルール。PC 専用・スマホのメニューに出さない） | `SettingsPage.tsx` ＋ `settings/` |
+| 旧 URL 8本 | 転送だけ（`<Navigate replace>`・対応表は `App.tsx` 冒頭） | — |
 
-- **機材IDは「拠点-種別-連番5桁」**（例 `Y-C-00001`）。拠点コードは `lib/constants.ts` の `LOC_CODES`
-- **機材は「常設が基本」。** 貸出は機材台帳で「貸出可」にチェックした機材だけが対象
-- **資産管理は日常では畳む。** 台帳・詳細のヘッダーの「資産管理を表示」トグルで、
-  列・資産情報カード・固定資産／リースの絞り込みがまとめて出入りする（既定は非表示）
-- **ラック図**は1U単位。前面／背面を切替え、反対面に機材がある U を橙で示す。
-  セル色は色マスタ（`ColorPage`）由来。高さで文字組みが変わる（1U=型名＋No. / 2U=型名／機材名 / 3U以上=機材名／型名）
-- **v4 大④: 12本を横に並べるのをやめ、左に一覧・右に1本にした。** 横並びだと
-  1本が画面に収まらず、どのラックを見ているかも分からなかった。一覧には
-  実装U／総U の帯を出す（**実装Uは面をまたいで数える** — 前面だけで数えると
-  背面に詰まっているラックが空いて見える）
-- **図の下に実装一覧の表を出す**（U位置・ID・機材・種別・割付）。1U のセルには
-  型番と管理番号が入らないので、図で位置・表で中身、の2枚組にする。
-  **空きは連続した区間でまとめる**（「3,4,5,6」ではなく「3-6」）。
-  左右に割り付けた U は空きに数える（半分だけ埋まっているため）
-- **印刷は今までどおり絞り込んだラックを全部出す。** 画面で1本ずつ見るのと
-  紙に全部並べるのは別の用途。**印刷の寸法（`rack/printConstants.ts` の
-  `PRINT_U_H` / `PRINT_RACK_BODY_BUDGET_PX`）は実機で合わせた値で、上げると
-  1ページ目で切れる**。大④ では位置だけ動かし、計算には手を入れていない
-- **画面の中身は `print:hidden` で印刷から外す。** `body * { visibility: hidden }`
-  だけだと**場所は取ったまま**なので、刷り終わったあとに白紙が1枚増える
-  （実測: 2ページ → 3ページ。`print:hidden` を足して 2ページに戻した）
-- **棚卸し**は保管場所ごとに ✓／× を押す形（`found=1/2`）。下書き→実施中→完了
-- **スマホで棚卸しを開くと ⑨ 現場のスキャンになる**（`pages/inventory/MobileScanSession.tsx`）。
-  確認できた / 見つからない / のこり の3つを出し、QR を読むと「あった」が付く。
-  **押した印は端末に溜めてから送る**（`shared/src/client-v4/offlineQueue.ts`）
-  — 機材庫・搬入口は電波が届かず、1件ごとに通信して失敗で止まると作業が終わる
-- **⑨ に貸出を載せてはいけない。** 溜めて送る列は**鍵で上書き**なので、
-  載せてよいのは**何回やっても結果が同じ操作**だけ（棚卸しの印・返却）。
-  貸出は2回押すと2本できる。**画面にもその理由が書いてある**
-- **手打ちの機材IDは形で弾かない。** カメラはゴミを拾うので `lib/qrCode.ts` の
-  形に合わないものを捨てるが、**手打ちは人が打った文字**。形だけで弾くと
-  **台帳にある ID を打っても「読み取れない形」と言われる**（検証データの
-  `EQ-0001` で実際に起きた）。手打ちは一覧に当ててから「ありません」と言う
-- **QR の読み方は `src/lib/qrCode.ts` の1本。** ⑥ QRスキャンと ⑨ の両方が使う
-  （写すと、片方だけシールの形を足したときに読めない端末ができる）
-- 種別コード・状態・コンディション・種別色（`TYPE_BG`）はすべて `src/lib/constants.ts`
+## 決めごと（現役ルール）
+
+### 台帳
+- 機材IDは 拠点-種別-連番5桁（`Y-C-00001`）。拠点 `LOC_CODES`（Y 用賀／S 渋谷）・種別・状態・コンディション・`TYPE_BG` は `lib/constants.ts`
+- 機材は常設が基本。貸出できるのは「貸出可」`equipment_items.is_rental_listed` だけ（台帳の `RentalCell` と設定「貸出のルール」の一覧が同じ1列に書く）
+- 資産管理は日常では畳む（`equipmentList/EquipmentAssetFields.tsx`・既定は非表示）
+- タブは URL `?view=` に出す。変えたら機材の絞り込み（`tab/sect/locs/q/sort/dir/children`）は持ち越さない
+- ケーブル・コネクタは1枚の表（`catalog/CatalogPanel.tsx`。コネクタの m・色は `—`）。保存先は行の `source` が決める。列の出し入れ・表編集は外し Excel 取込に寄せた
+- 貸出カテゴリの管理は設定の1か所（`settings/RentalCategoriesTab.tsx`・並びは ↑↓ の入れ替え）
+- 行は `Row`（`equipmentList/EquipmentTable.tsx`＋`EquipmentCells.tsx`）: 列幅は `types.ts` の `COL_W` 7段・段差は `LEAD_W` の中だけ・伸びるのは商品名（`RowMain`）だけ。列の出し入れ・その場編集・親子の入れ子の3つは残す
+- 既定8列で 1,300px を超えるので枠ごと横に流す（列は潰さない）。「操作」は右に `sticky`、行に必ず背景色を持たせ枠は `bg-inherit`、隠れた列があるあいだだけ影（`useSticksOverContent`）
+- 描くのは見えている行だけ（`useRowWindow.ts`＋`rowWindowMath.ts`。流れる親は共通シェルの `<main>`・`window.scrollY` は常に 0）。行は平らな配列にし、`onSelectOne` の番号は `items` のまま
+- 同じ機材を3回描かない: スマホのカード・印刷用の表は CSS で隠さず描くほうを止める（`ItemsPanel.tsx`。`PrintArea.tsx` は刷るときだけ）。`PrintTable.tsx` は本物の `<table>` のまま（`index.css` の `#eq-print-area table`）
+
+### スマホ（768px 未満）
+- 台帳は `md:`=768px でカード（`equipmentList/EquipmentCards.tsx`）。判定は `hooks/useMediaQuery.ts` の `MD_UP`（共通 `useIsMobile()` は 1023px なので使わない）。表とカードの両方を直す
+- 道具帯（`ItemsToolbar.tsx`）は「機材を追加」だけ（Excel 取込／出力・印刷・出す列・表で編集 は表に効くもの）。編集はカードの鉛筆から `FormDialog`
+- 絞り込みは `MobileFilters.tsx`（枠は `shared/src/client-v4/mobileFilterBar.tsx`）。送る値は PC と同じで `ItemsPanel` の `applyFilterPatch` 1か所。保管場所はドロップダウンを重ねず並べる
+- カードは PC の行を縮めない（`EquipmentCards`／`LendingCards`／`MaintenanceCards`／`ScanHistoryCards`／`SearchCards`／`InventoryCards`／`KpiRail`）。値・並び・行き先は PC と同じ関数（`dashboard/kpiCells.ts`・`search/standby.ts`）。`useIsMobile()` は薄い親で1回
+
+### ラック図
+- 左に一覧・右に1本（`rack/RackList.tsx`）。一覧の帯は 実装U／総U で、実装Uは前面・背面をまたいで数える
+- 1U 単位・前面／背面を切替。反対の面に機材がある U は右の番号を amber で示す（表示中の1本だけで判定）。セル色は色マスタ由来。文字組みは高さで変わる（`rack/cellContent.tsx`: 1U 型名＋No.／2U 型名／機材名／3U以上 機材名／型名）
+- 図の下に実装一覧（`rack/RackUnitTable.tsx`）。空きは連続区間で「3-6」、左右に割り付けた U は空きに数える、「空き 0U」も出す
+- 印刷は絞り込んだラックを全部出す（`rack/PrintRackArea.tsx`）。`printConstants.ts` の `PRINT_U_H`／`PRINT_RACK_BODY_BUDGET_PX` は実機で合わせた値。上げると1ページ目で切れる
+- 画面の中身は `print:hidden` で印刷から外す（`visibility: hidden` だけだと白紙が1枚増える）
+
+### 棚卸し・QR・探す
+- 棚卸しは保管場所ごとに ✓／×（`inventory_check_items.found` は INTEGER 0/1/2。ブール化して送ると型エラー）。下書き→実施中→完了。増えた機材は `POST /inventory-checks/:id/sync`
+- スマホの棚卸しは現場のスキャン（`inventory/MobileScanSession.tsx`）。押した印は端末に溜めて後で送る（`useScanQueue.ts`→`shared/src/client-v4/offlineQueue.ts`）。溜まった件数は常に画面に出す。終わった棚卸しに積まない・断られたものは列から外して理由を出す
+- 溜めて送る列に貸出を載せない（列は鍵で上書き＝何回やっても同じ結果の操作だけ。貸出は2回押すと2本できる）
+- QR の読み方は `lib/qrCode.ts` の `extractCode` 1本（QRスキャンと現場のスキャンが共用）。カメラ制御 `scan/useScanner.ts` は `ScanPage` で1回だけ呼ぶ
+- 手打ちの機材IDは形で弾かない（カメラは形で捨てるが、手打ちは一覧に当ててから「ありません」）
+- 読み取り履歴は見つからなかったものも残す（`equipment_scans`・migration 168）
+- 探すは台帳の写しではない（打つ欄と当たったものだけ。ケーブル・コネクタも一緒に探す。QR の入口がいちばん上）。機材はサーバー `GET /equipment/items?search=`（台帳と同じ口）、ケーブル・コネクタは画面側。鍵は `['equipment-search', …]` で台帳と別
+- `GET /equipment/items?search=` はハイフン・空白・`_` を無視（`item.service.ts` が ID・型名・製造番号を両側から `REPLACE`。台帳の検索にも効く）。`lending/LendingSelectStep.tsx` も同じ緩め方
+
+### 貸出・メンテナンス・設定
+- 貸出の登録は2段階（`lending/LendingDialog.tsx`: 機材を選ぶ→貸出先と日付）。「返却遅延」は画面が返却予定日から導く（サーバーは知らない。送ると全件が出る）
+- ダッシュボードの本日・明日の持ち出しは予定（`equipment_lendings.status='planned'`＋`planned_out_date`・migration 168）、入庫は返却予定日。予定が無ければ 0 で正しい。ケーブル・コネクタの合計はここで数えない
+- メンテナンスはスマホに残す（現場で「壊れている」を登録する）。状態 報告済→対応中→完了（完了で `completed_at`）。`record_type` は 故障／修理／メンテナンス／点検／記録（`log`・migration 294）、修理引取／返送日は `repair_sent_at`／`repair_returned_at`
+- 設定はタブを URL `?tab=` に出す。保管場所は 拠点・種別（ラック／オペ卓／AV盤）・建物・フロア・エリアを持ち、種別がラックの場所だけ U を持ちラック図に並ぶ。貸出のルールの6スイッチは `equipment_settings`（キー×値・migration 168）に押した瞬間保存、書けるのは `owner`（値は見せて押せなくする）
+- レンタル機材検索は読むだけ（`rental-catalog.routes.ts` → `qsheet/services/rental.service` を再利用・データは `qsheet_rental_items`）。予約リスト・今すぐ取得は制作技術支援 `/techops/rental/:ownerKey` にだけ置く
 
 ## 触るときの注意
 
-- **シェルは共通** (`shared/src/client/shell/`)。残っているのは
-  `components/layout/AppShell.tsx` と `components/layout/nav.ts` だけ。
-  `nav.ts` の `to` は **`/equipment/...` から書く** — このアプリはルーターの `basename` を
-  持たず Vite の `base` だけで動くため（日常業務は `basename="/daily"` なので `/tasks`）。
-  **閲覧のフロント側ゲートは足していない** — 無いのが現状で、新設すると
-  権限を持たない既存の利用者が突然入れなくなる
+- 検査: `npx tsc -b client-equipment`・`npx eslint client-equipment`・`npm run lint`・`npm run test`
+- 画面を足したら `src/pcOnlyScreens.ts` の `EQUIPMENT_PC_ONLY` か `EQUIPMENT_MOBILE_OK` へ（M2。無いと `npm run lint` が止まる）。PC 専用は ラック図・設定（`hidden: true`）の2枚。旧 URL 8本は表に書かない（転送は画面ではない）。M2／M8／M9 は [mobile.md](../docs/design/v4/mobile.md)
+- 1ファイル400行が上限（`docs/v4-plan.md` B-4・`scripts/check-file-size.mjs`）。いま超過: `pages/RackLayoutPage.tsx` 1,090／`pages/EquipmentDetailPage.tsx` 1,031／`manual/content.tsx` 442／`components/ExcelImportDialog.tsx` 408
+- `html`／`body`／`#root` は触らない（`shared/src/client/base.css`・F2）。`index.css` の `@media print` は2ブロック（機材台帳・ラック図）。`base.css` が印刷時に高さの固定を外す前提なので `overflow` を書かない
+- `RowSlot hideOnMobile` は 640px で列を出し始める（`Row stackOnMobile` の折り返し終了と同時）。列が多い表は `lib/rowVisibility.ts` の `HIDE_UNTIL_WIDE`（`sm:hidden lg:flex`）で1段うしろへ
+- Excel の取込・出力は3か所（`components/ExcelImportDialog.tsx`＋`excel.routes.ts`／`components/ConsumableExcelImportDialog.tsx`＋`cables.routes.ts`・`connectors.routes.ts`）。列定義は散在
+- 設定タブの CRUD は `hooks/useCrudPage.ts`（shared の `createUseCrudPage`）
 
-- **機材台帳の行は `Row` に載せ替えた**（`equipmentList/EquipmentTable.tsx` ＋ `EquipmentCells.tsx`）。
-  `<table>` の列幅は**中身が決める**ので、絞り込みを変えるたびに列が動き、
-  同じ「種別」の列が画面によって違う幅になっていた。7段の固定幅
-  （`types.ts` の `COL_W`）に寄せると、**出す列を変えても残った列は同じ位置**のまま。
-  - **この一覧が持っている3つはそのまま**（列の出し入れ・その場編集・親子の入れ子）。
-    実ブラウザで **11 列 × 34 行の左端が 1px 以内で揃っている**ことを測ってある
-    （列を増やしても・子を開いても・その場編集の間も揃ったまま）
-  - **段差は行の頭（`LEAD_W`）の中だけ**に出す。列側に入れると子の行だけずれる
-  - **伸びるのは商品名だけ**（`RowMain`）。行に1つだけ、が `Row` の決まり
-  - 既定の8列でも 1,300px を超えるので**枠ごと横に流す**（列は潰さない）。
-    そのぶん**「操作」は右に貼り付ける** — 流れる形にすると直す・消すが既定で
-    画面の外に出て、毎日使う画面で横に送らないと押せなくなる。
-    **貼り付ける枠は下が透けてはいけない**ので、行に必ず背景の色を持たせ
-    （`bg-card` / `bg-primary-surface-weak` / `bg-muted`）、操作の枠は `bg-inherit` で受け取る
-  - **印刷は触っていない。** `PrintTable.tsx` は本物の `<table>` のままで、
-    `index.css` の `#eq-print-area table` もそのまま効く（紙は表のほうが正しい）
-- **画面を足したら `src/pcOnlyScreens.ts` のどちらかの表に入れること**（M2）。
-  `EQUIPMENT_PC_ONLY` か `EQUIPMENT_MOBILE_OK` で、**どちらにも入っていないと
-  `npm run lint` が止まります**。決め方は `client/src/pcOnlyScreens.ts` の冒頭。
-  - PC 向きは**ラック図と設定の2枚だけ**。棚卸し・QRスキャン・貸出・返却・
-    機材を探す は現場で使うのでスマホに残す
-  - **メンテナンスはスマホに残す**（ご判断）。現場で「これ壊れている」を
-    その場で登録したい、が実際に起きるため
-  - `/equipment/locations` など8本の旧 URL は**表に書かない** — どれも
-    `/equipment/settings?tab=…` や台帳のタブへの転送で、画面ではない
-- **機材台帳は 768px 未満でカードに切り替わる**（`equipmentList/EquipmentCards.tsx`）。
-  PC 用の行（`EquipmentTable.tsx`）は `hidden md:block` の中なので、
-  **スマホに 1,300px の表は出ていない**。ここを触るときは両方を直すこと
-- **「探す」は現場で1点を当てる画面**（M9・`pages/SearchPage.tsx`）。下タブの3つ目が
-  長らく「メニュー」で、**上辺バーの ☰ と二重の入口**だったのを差し替えた。
-  - **機材台帳の写しではない。** 台帳はタブ3つ・絞り込み4軸・道具帯を先に通る
-    「棚を眺める画面」で、ここは打つ欄と当たったものだけ
-  - **ケーブル・コネクタも一緒に探す**（台帳では別のタブ）。現場で「HDMI 5m はどこ」と
-    訊かれたとき、どちらの台帳に入っているかを先に思い出さずに済む
-  - **QR を読む入口をいちばん上に置く。** 目の前に物があるなら打つより読むほうが速い
-  - 機材はサーバーに投げる（台帳と同じ口。写すと当たり方が2つになる）。
-    ケーブル・コネクタは表が小さいので画面側で当てる。
-    **鍵は `['equipment-search', …]` で台帳とは別**にしてある — 同じ鍵にすると
-    片方の問い合わせ方を変えた日から「どちらが先に走ったかで結果が変わる」
-  - **`GET /equipment/items?search=` がハイフンを無視するようにした**（server）。
-    `EQ-0001` を `eq0001` と打つと当たらず、**見えているのに出てこない**状態だった。
-    ID・型名・製造番号だけ、両側から `- _ 空白` を落とした形でも比べる（OR で足すだけ
-    なので今まで当たっていたものは全部当たる）。**台帳の検索にも同じように効く**
-- **スマホでは道具帯のボタンを5つ落とす**（M8・`equipmentList/ItemsToolbar.tsx`）。
-  Excel 取込・Excel 出力・印刷・出す列・表で直す は**どれも表に効くもの**で、
-  上のとおり 768px 未満では**表そのものが出ていません**。押しても何も起きない
-  ボタンが5つ並ぶと画面が壊れて見えます。残すのは「機材を足す」だけ
-  （現場で「これ増えた」を入れるのは実際に起きる）
-- **スマホの絞り込みは `equipmentList/MobileFilters.tsx`**（M8）。枠は共通の
-  `shared/src/client-v4/mobileFilterBar.tsx`。**送る値は PC と同じ**で、
-  `ItemsPanel` の `applyFilterPatch` 1か所に集めてある（写すと片方だけ軸が増える）。
-  設置場所だけ形が違う — PC は押すと開くドロップダウンだが、シートの中に
-  さらにドロップダウンを重ねないため**そのまま並べる**。
-  実測: 最初のカードに着くまで **約 1,100px → 約 285px**
-- **1ファイル400行を上限にする。** いま超過しているもの:
-  `pages/RackLayoutPage.tsx` 1,269行 / `pages/EquipmentDetailPage.tsx` 1,090行 /
-  `manual/content.tsx` 443行 / `components/ExcelImportDialog.tsx` 414行
-  （`EquipmentListPage.tsx` 2,017行 と `CablePage.tsx` 839行は分割済み。
-  台帳は `pages/EquipmentLedgerPage.tsx` 67行 ＋ `pages/equipmentList/` に分かれている）
-- Excel の取込・出力が複数ページにある（機材・ケーブル・コネクタ）。列定義は各ページに散っている
-- **`html`/`body`/`#root` はこのアプリで触らない。** 高さ・書体・印刷は
-  `shared/src/client/base.css`（F2 で集約済み）。`.heading-*` / `.font-number` の複製も削除済み
-- **ラック図・機材台帳の印刷**は `index.css` の `@media print` 2ブロック。`base.css` が
-  印刷時に高さの固定を外す前提なので、`html`/`body` の `overflow` をここで書かないこと
+## 残作業
+
+- 400行超の4ファイルの分割・Excel の列定義の一本化
+- QRスキャンからその場で貸出・返却はまだ無い（相手・用途・期日が要るので入力の設計から）
+- ⚠️ 要確認: `docs/mcp-server.md` 機材管理の注記「HTTP の `/lendings` 系は reader のまま書き込める」は、いまの `equipment.routes.ts`（書き込み editor・削除 manager）と食い違う
+
+## 経緯の記録
+
+[docs/reviews/daily-equipment-build-log.md](../docs/reviews/daily-equipment-build-log.md)

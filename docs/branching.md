@@ -1,16 +1,20 @@
 # ブランチ運用とリリース
 
-このリポジトリは **GitHub Flow**（GitHub が公開している最も一般的なブランチ運用）に、
-リリースタグによる本番デプロイを足した形で回しています。
-特別な流派も社内独自ルールもありません。**他のプロジェクトから来た人がそのまま働ける形**が目的です。
+GitHub Flow に、リリースタグによる本番デプロイを足した形。社内独自のルールは無く、
+**他のプロジェクトから来た人がそのまま働ける形**が目的。
+
+- 経緯（2026-07-31 の整理・以前の運用との対応・実測の背景）は
+  [archive/2026/branching-migration-2026-07-31.md](archive/2026/branching-migration-2026-07-31.md)
+- エンジニアでない人向けの説明は [guide/how-changes-ship.md](guide/how-changes-ship.md)
 
 ---
 
 ## 覚えることは3つだけ
 
 1. **長く残るブランチは `main` だけ。** ここが唯一の正。
-2. **作業は必ず `main` から短いブランチを切って、PR で `main` に戻す。** 直接 push はできません。
-3. **本番に出るのは、GitHub で Release を公開したときだけ。** `main` にマージしても本番には出ません（検証環境に出ます）。
+2. **作業は `main` から短い枝を切り、PR で `main` に戻す。** 直接 push はできない。
+3. **本番に出るのは、GitHub で Release を公開したときだけ。** `main` へのマージは検証環境
+   （dev.gmo-onair.jp）に出る。
 
 ---
 
@@ -18,39 +22,32 @@
 
 | ブランチ | 役割 | 寿命 |
 | --- | --- | --- |
-| **`main`** | 唯一の正。常に「次に出せる状態」。**直接 push 禁止**（PR のみ） | ずっと |
-| **`feature/<名前>`** | 機能の追加・作り替え | 数日。マージしたら自動で消える |
-| **`fix/<名前>`** | 不具合の修正 | 同上 |
-| **`chore/<名前>`** | 設定・依存更新・CI などの雑務 | 同上 |
-| **`docs/<名前>`** | ドキュメントだけの変更 | 同上 |
-| **`release/<版>`** | リリースの版上げ PR 専用（`release:notes` を通す枝。マージしたら消える） | 数時間 |
+| `main` | 唯一の正。常に「次に出せる状態」。**直接 push 禁止**（PR のみ・ruleset で止まる） | ずっと |
+| `feature/<Issue番号>-<短い名前>` | 機能の追加・作り替え | 数日。マージで自動削除 |
+| `fix/<Issue番号>-<短い名前>` | 不具合の修正 | 同上 |
+| `chore/<短い名前>` | 設定・依存更新・CI などの雑務 | 同上 |
+| `docs/<短い名前>` | 文書だけの変更 | 同上 |
+| `release/<版>`（例 `release/4.6.10`） | リリースの版上げ PR 専用。`check-changelog.mjs` が版の変更を許す枝 | 数時間 |
+| `claude/<内容>-<乱数>` | Claude Code の Web セッションが自動で付ける名前。そのまま PR にしてよい。リリース作業なら `claude/release-…` にする | 数日。放置しない |
 
-ブランチ名は **Issue 番号を頭に付ける**と、何のための作業か一覧で分かります。
-
-```
-feature/128-quote-line-reorder
-fix/141-calendar-duplicate
-chore/155-dependabot
-```
-
-> **`claude/*` について**: Claude Code の Web セッションが自動で作るブランチ名です。
-> そのまま PR を出して構いません（マージ時に消えます）。
-> **大事なのは名前より寿命** — 数日以内に PR にして、放置しないこと。
-> 放置されたブランチが 41 本溜まって、どれが生きているか誰にも分からなくなったのが
-> この運用を作り直した直接の理由です。
+- 名前より寿命。**数日以内に PR にして消す。**
+- 命名例: `feature/128-quote-line-reorder`・`fix/141-calendar-duplicate`・`chore/155-dependabot`
+- ⚠️ 要確認: `release/*` は ruleset `release-branches`（削除禁止・v3 保守枝のために作ったもの）の
+  対象でもあり、マージ後の自動削除と衝突する。2026-09-08 時点でリモートに `release/4.4.9`・
+  `release/4.6.5` が残っている。手で消すか ruleset の対象を見直すか、人の判断が要る。
 
 ---
 
 ## 全体の流れ
 
 ```
-                                       ┌── PR (検査が通らないとマージできない)
+                                       ┌── PR (必須チェックが通らないとマージできない)
                                        │
   feature/128-xxx  ●───●───●───────────┤
                   ╱                    ▼
 main ────────────●─────────────────────●──────────●───────────────●────────►
                                        │          │               │
-                                       │          │             ● tag v4.0.1
+                                       │          │             ● tag vX.Y.Z
                                        ▼          ▼               │
                               ┌─────────────────────────┐        ▼
                               │ 検証環境                │   ┌──────────────┐
@@ -58,12 +55,11 @@ main ────────────●────────────
                               │ (main にマージ = 自動)  │   │ gmo-onair.jp │
                               └─────────────────────────┘   │ (Release 公開)│
                                                             └──────────────┘
-
 ```
 
-**ポイント**: 「検証環境に出す」と「本番に出す」が**別の操作**になりました。
-以前は本番に出すために `dev` ブランチを `main` にマージしていましたが、
-その結果 `main` と `dev` の中身が常に同じになり、ブランチを2本持つ意味が無くなっていました。
+「検証環境に出す」（`main` にマージ）と「本番に出す」（Release 公開）は別の操作。
+どちらも `.github/workflows/deploy.yml` が `ci.yml` を `needs` で通してから出すので、検査に落ちた
+コードはデプロイされない。仕組みの中身は [deploy-pipeline.md](deploy-pipeline.md)。
 
 ---
 
@@ -71,293 +67,210 @@ main ────────────●────────────
 
 ### 1. Issue を立てる
 
-作業の前に Issue を立てます。**1 Issue = 1 ブランチ = 1 PR**。
-大きい話は親 Issue を立てて、中を子 Issue（"Create sub-issue"）に割ってください。
+**1 Issue = 1 ブランチ = 1 PR。** 大きい話は親 Issue を立てて子 Issue（"Create sub-issue"）に割る。
+テンプレートは `.github/ISSUE_TEMPLATE/`（不具合の報告・機能の追加・変更・利用者からの依頼）。
 
-### 2. ブランチを切る
+### 2. 枝を切る
 
 ```bash
-git switch main
-git pull origin main            # 必ず最新から切る
+git switch main && git pull origin main      # 必ず最新から切る
 git switch -c feature/128-quote-line-reorder
 ```
 
-### 3. 作る・確かめる
+### 3. 作る・手元で検査する
 
-```bash
-npm run typecheck               # 7クライアント + server の型
-npm run lint                    # UIトークン検査 + eslint
-npm run build                   # 本番と同じビルド経路
-npm run verify:up               # 検証用の Postgres を立てる (scripts/dev-verify/)
-```
+| コマンド | 何を見るか |
+| --- | --- |
+| `npm run typecheck` | 既定3アプリ + server の型。`shared/` を触ったら `npm run typecheck:all`（CI と同じ範囲） |
+| `npm run lint` | eslint ＋ 検査（changelog の下書き・トークン・リンク・migration 番号ほか） |
+| `npm run test` | shared の Vitest とサーバーの review テスト（CI も回す） |
+| `npm run build:changed` | 変更したワークスペースだけビルド。本番と同じ経路を全部通すなら `npm run build` |
+| `npm run verify:up` | 検証用 Postgres（ポート 5433）。DB を触ったら保存 → 読み直しまで確かめる |
+| `npm run verify:ui` | 画面を触ったら。実ブラウザで書体・桁揃い・横はみ出しを実測 |
 
-### 4. PR を出す
+CI（`.github/workflows/ci.yml`）の `checks` はこれに加えて `node scripts/check-collab-parity.mjs`・
+`npm run check:version`・`npm run check:ui-tokens`・`npm audit --omit=dev --audit-level=high`・
+Python のスクレイパー検査を回し、`build` が Docker イメージを本番と同じ経路で組む。落ち方ごとの読み方は
+[pr-watch の ci-jobs.md](../.claude/skills/pr-watch/references/ci-jobs.md)。
+
+### 4. 下書きを1つ置く
+
+`docs/changelog.d/<枝の名前>.md`（`/` は `-`）に、版の履歴に載せる文を書く。
+版の番号は触らない（下の「版の番号は、作業 PR では取らない」）。
+
+### 5. PR を出す
 
 ```bash
 git push -u origin feature/128-quote-line-reorder
 ```
 
-PR のテンプレートが自動で出ます。**検証したことのチェックは、実際にやったものだけ**付けてください。
+- テンプレート（`.github/pull_request_template.md`）が出る。「検証したこと」は**実際にやったものだけ**チェックする。
+- **タイトルは `種類(アプリ): 何をしたか`**。種類は `feat` / `fix` / `chore` / `docs` / `refactor`、
+  括弧はアプリのディレクトリ名か領域名（`sales` `finance` `calendar` `settings` `gpm` `equipment`
+  `daily` `techops` `live` `shell` `shared`）。全体にかかるものは括弧を省いてよい。
+  例: `feat(equipment): 機材台帳を v4 の見た目にした`。
+- 本文に `Closes #128` を書くと、マージで Issue が閉じる。
+- ⚠️ **Claude が PR を出したら、その場で `pr-watch` スキル
+  （[.claude/skills/pr-watch/SKILL.md](../.claude/skills/pr-watch/SKILL.md)）で見張りを始める。訊かない。**
+  「見張りますか」と返事を待つ間は、CI 失敗もレビューも誰も見ない。
+  見張りを外す（`unsubscribe_pr_activity`）のはマージかクローズのときだけ。
 
-⚠️ **Claude が PR を出したら、その場で `pr-watch` スキルを使って見張りを始めます（マスト・訊かない）。**
-「見張りますか」とユーザーに確認を挟まない — 出した PR は最後まで自分の仕事という前提に、
-承認を待つ手順を挟むと**その返事が来るまで CI 失敗もレビューも誰も見ない時間**ができる。
-中身は下の「見張りの手順」を参照。
+### 6. マージ
 
-### 5. マージ
+- 必須チェック `checks` / `build` が緑で、未解決のレビュースレッドが無く、`main` に追いついていれば
+  マージできる（ruleset `main`。設定の正は [ops/github-repo-settings.md](ops/github-repo-settings.md)）。
+- **マージ方法は Squash 固定**（1 PR = `main` の1コミット。途中の「typo 修正」が履歴に残らない）。
+  ⚠️ 要確認: 直近の PR（#655〜#662）は2親のマージコミットで `main` に入っており、
+  `scripts/github/apply-repo-settings.sh`（Squash のみ許可）と食い違う。設定を流し直すか、決めごとを変えるか。
+- マージすると枝は自動で消える。
+- マージした瞬間に検証環境へ自動デプロイされる（`deploy.yml` の `push: branches: [main]`）。
+- ⚠️ Codex のレビューが「Running」のままならマージを待つ。**レビュー0件は「指摘なし」ではない**
+  （判定は見た目ではなく `get_reviews` と要約表。[pr-watch](../.claude/skills/pr-watch/SKILL.md)）。
 
-CI（型チェック・Lint・バージョン整合・Docker ビルド）が緑になったらマージできます。
-
-- **マージ方法は Squash 固定**。1つの PR が `main` の1コミットになります
-  （途中の「typo 修正」「lint 直し」が履歴に残らない）。
-- マージすると**ブランチは自動で消えます**。手で消す必要はありません。
-- マージした瞬間に**検証環境（dev.gmo-onair.jp）へ自動デプロイ**されます。
-
-### 6. 検証環境で確かめる
+### 7. 検証環境で確かめる
 
 ```bash
 curl -s https://dev.gmo-onair.jp/health
 ```
 
----
+### 8. レビュー指摘を棚卸しに移す
 
-## 昔の版を検証環境で見る
-
-「あの頃の画面を実物で見たい」ときは **Actions → Preview → Run workflow**。
-コミット / タグ / ブランチを1つ入れると、そのコードが検証環境
-（dev.gmo-onair.jp）に出ます。
-
-- **本番には出ません。** 出せる先は検証環境だけで、入力自体がありません
-- **検査は通しません。** 古いコードには今の検査スクリプト（`typecheck` /
-  `check:version` など）が存在せず、通しようがないためです。出るのは既に一度
-  リリースされたコードなので、ここでは検査しません
-- **VPS の worktree を動かしません。** イメージを差し替えて `app_dev` を作り直す
-  だけなので、nginx やリバースプロキシに影響しません
-
-**元に戻す**: Actions → Deploy → Run workflow → Branch `main` / target `staging`
-（`main` にマージがあれば自動的にも戻ります）
-
-### 覚えておくと便利な位置
-
-| ref | 何の版か |
-| --- | --- |
-| `c3607a94` | **v2.9.250** — UI/UX 刷新が始まる直前。いわゆる「旧UI」の最後 |
-| `0a9d86f0` | v2.9.248 — 改革 Phase 3（AI改善ループが閉じた） |
-| `v3.1.5` | v3 の凍結時点（本番で動いていたコード） |
-
-> 旧UI を検証環境で動かすと、検証 DB は**現行のスキーマのまま**（マイグレーションは
-> 前方向にしか進まないため）。旧コードは知らない列を無視するだけなので起動は通りますが、
-> **旧コードで保存すると新しい列の値は落ちます**。検証環境なので問題ありませんが、
-> 本番で同じことをする場合の注意点でもあります。
+下の「マージしたら、その PR のレビューを棚卸しに移す（必須）」。
 
 ---
 
-## 版の番号は、作業 PR では取らない（衝突の作り方をやめる）
+## 昔の版を検証環境で見る（Preview）
 
-**PR が2本並ぶと必ずぶつかっていました。** ぶつかる場所はいつも同じ3か所
-（`package.json` の `version` ／ `CLAUDE.md`「現在のバージョン」の先頭 ／ `README.md` の版）で、
-**コードは1度も競合していません**。
+Actions → **Preview** → Run workflow → `ref` にコミット / タグ / ブランチを1つ。
+そのコードが検証環境（dev.gmo-onair.jp）に出る。
 
-実測（2026-08 の2週間）:
+- **本番には出ない。** 出せる先は検証環境だけで、入力自体が無い
+- **検査は通さない。** 古いコードには今の検査スクリプトが無い。出すのは一度リリースされたコードだけ
+- **VPS の worktree は動かさない。** イメージを差し替えて `app_dev` を作り直すだけ
+- **戻す**: Actions → **Deploy** → Run workflow → Branch `main` / target `staging`
+  （`main` にマージがあれば自動でも戻る）
 
-| ファイル | 動いたコミット数 |
-| --- | --- |
-| `CLAUDE.md` | 55 |
-| `package.json` | 45 |
-| `README.md` | 42 |
+旧UI の最後（`c3607a94` = v2.9.250）など昔の版の位置は
+[archive/2026/branching-migration-2026-07-31.md](archive/2026/branching-migration-2026-07-31.md)。
 
-原因は**番号を取る時刻**です。版の番号は「枝を切った時刻」ではなく**マージされた順**で
-決まるのに、着手した時点で番号を書いていたので、**先に入った PR と取り合い**になります
-（#123 が先に入って v4.0.27 を使い、並行していた2本が同じ番号を取っていました）。
-しかも書き足す場所が**履歴のいちばん上**なので、2本が同じ行に触ります。
+---
 
-### 決めごと
+## 版の番号は、作業 PR では取らない
 
-| | 作業 PR（`feature/` `fix/` `chore/` `docs/`） | リリース（`release/` か `RELEASE=1`） |
+版の番号は**マージされた順**で決まる。着手時に取ると、先に入った PR と必ずぶつかる
+（ぶつかるのは毎回 `package.json`・`CLAUDE.md`・`README.md` の3か所だけで、コードは競合しない）。
+
+| | 作業 PR（`feature/` `fix/` `chore/` `docs/` `claude/`） | リリース（`release/<版>`、または `RELEASE=1`） |
 | --- | --- | --- |
 | `package.json` の `version` | **触らない** | 上げる |
-| `CLAUDE.md`「現在のバージョン」 | **触らない** | 先頭に積む・4件目をアーカイブへ |
-| `README.md` の版 | **触らない** | 差し替え・前の版を「旧 …」に落とす |
+| `CLAUDE.md`「現在のバージョン」 | **触らない** | 先頭に積む・4件目を `docs/version-history.md` へ |
+| `README.md` の `**現在のバージョン**: vX.Y.Z — **タイトル**` | **触らない** | この1行だけ差し替える（本文・旧版の行は README に置かない） |
 | 載せたい文 | **`docs/changelog.d/<枝の名前>.md` に1ファイル** | 集めて消す |
 
 ```bash
 # 作業 PR
-vi docs/changelog.d/fix-codex-mobile-p2.md     # 版に載せたい文（`vX.Y.Z —` は書かない）
+vi docs/changelog.d/fix-141-calendar-duplicate.md   # 先頭は **太字の見出し**。`vX.Y.Z —` は書かない
 
 # リリース
-npm run release:notes -- 4.0.30                # 集めて3か所を全部やる
-npm run check:version                          # 3か所の一致を確かめる
+npm run release:notes -- 4.6.11     # 集めて3か所を書き、4件目をアーカイブへ、下書きを消す
+npm run check:version               # 3か所の一致
+RELEASE=1 npm run lint              # 版の変更を許した状態で lint
 ```
 
-- **新しいファイルなので衝突しません。** 同じ行を2人が書かないことが要点です
-- **順番は git の履歴順**（マージされた順）で並べます — ファイルの更新時刻で並べると、
-  あとから直した PR が先頭に来て、実際の順番とずれます
-- ⚠️ **PR が多い版は自動で2つに分かれます**（版1件で 12,000 バイトを超えたとき）。
-  **全文はアーカイブ**（`docs/version-history.md`）**・要約は `CLAUDE.md` と `README.md`**。
-  画面の履歴は両方を読んで**長いほう**を本文に出すので、**中身は1文字も失われません**。
-  **要約は `docs/changelog.d/_summary.md` に書いておいてください** — 無いと
-  「収録した見出しを並べただけ」のものが入ります（そのときは `release:notes` が警告します）。
-  詳しくは [docs/changelog.d/README.md](changelog.d/README.md)
-- **機械で止めます。** `npm run lint` の `check-changelog.mjs` が、作業 PR で版の3か所を
-  触っていたら落とします（`origin/main` が見えない CI では**黙って飛ばします** —
-  検査のために CI を落とすのは本末転倒です）
-- `docs/version-history.md` は追記しかしないので `.gitattributes` の `merge=union` に任せます。
-  ⚠️ **`CLAUDE.md` には使わないこと** — 文章なので、両方残すと段落が混ざって読めなくなります
+- **機械で止める。** `npm run lint` の先頭で `scripts/check-changelog.mjs` が走る。
+  ①作業 PR が版の3か所の番号を動かしていたら落ちる ②差分があるのに下書きを1つも足していなければ落ちる
+  ③下書きが2つ以上は警告だけ（枝を作り直した回に増えることがある）
+- **リリースの判定**は `RELEASE=1`、または枝の名前の**いずれかのセグメントの先頭が `release`**
+  （`release/4.6.11`・`claude/release-version-update-xxxx` は通る。`feature/pre-release-notes` は通らない）。
+  CI では枝の名前を `GITHUB_HEAD_REF` から取る（`git` に訊くと `HEAD` としか返らない）
+- **比べる相手**は PR の base（`GITHUB_BASE_REF`）→ `origin/main` の順。CI で相手が作れなければ落とす
+  （`ci.yml` の `checkout` の `fetch-depth: 0` を外さない）。手元で相手が無いときは飛ばす
+- **並び順は git の履歴順**（下書きが追加されたコミットの時刻＝マージされた順）。ファイルの更新時刻ではない
+- **版1件が 12,000 バイトを超えたら自動で分ける**（全文 → `docs/version-history.md`、要約 → `CLAUDE.md`）。
+  要約は `docs/changelog.d/_summary.md` に人が書く。書き方の全部は [changelog.d/README.md](changelog.d/README.md)
+- `docs/version-history.md` は追記しかしないので `.gitattributes` で `merge=union`。
+  **`CLAUDE.md` には使わない**（文章なので両方残すと段落が混ざる）
+- 画面の「バージョン履歴」は `scripts/generate-version-history.mjs`（client の `predev` / `prebuild` が呼ぶ）が
+  `CLAUDE.md` の最新3件 ＋ `docs/version-history.md` の全件から作る。書式は
+  `vX.Y.Z — **タイトル**。本文` の1行（アーカイブ側は `(…)` で包む）。崩すとパースに失敗する
 
 ---
 
 ## 本番に出す（リリース）
 
-本番デプロイは**リリースを公開したときだけ**走ります。
+本番デプロイは**リリースを公開したときだけ**走る（`deploy.yml` の `release: types: [published]`）。
 
 1. `main` が検証環境で問題ないことを確認する
-2. バージョンを上げる PR を出す（`npm run release:notes -- X.Y.Z` が上の3か所をやります）
-3. その PR をマージする
-4. GitHub の **Releases → Draft a new release**
-   - タグ: `v4.0.1`（`package.json` の version と同じ番号に `v` を付ける）
+2. `release/<版>` の枝で `npm run release:notes -- X.Y.Z` → `npm run check:version` →
+   `RELEASE=1 npm run lint` → PR（タイトル `release: vX.Y.Z`）→ マージ
+3. GitHub の **Releases → Draft a new release**
+   - タグ: `vX.Y.Z`（`package.json` の `version` に `v` を付ける）
    - ターゲット: `main`
-   - タイトル・本文: そのバージョンの変更点
-5. **Publish release** を押す → 本番デプロイが始まる
-   - `production` 環境に承認を設定していれば、ここで一度止まって承認待ちになります
+   - タイトル・本文: その版の変更点
+4. **Publish release** → 本番デプロイが始まる。`production` 環境の承認で一度止まる
+   （承認者は画面で設定する。[ops/github-repo-settings.md](ops/github-repo-settings.md)）
+5. 出たことをチャットで報告する（版番号とデプロイ先）
+
+- 番号はパッチ（`4.6.10` → `4.6.11`）を1つずつ上げる。メジャー・マイナーは依頼があったときだけ
+- 各ワークスペースの `package.json` は触らない（Docker のビルドスキップが無効になる。[deploy-pipeline.md](deploy-pipeline.md)）
+- ⚠️ **Release の公開はユーザーの明示的な指示があるときだけ。** Claude は自分の判断で公開しない
+- `v*` タグは打ち直し・削除できない（ruleset `release-tags`）。本番に何が出たかの記録そのもの
 
 ### 戻したいとき
 
-Releases に過去のタグが全部並んでいるので、**1つ前のタグの Deploy を再実行**すれば戻ります。
-コンテナイメージも `ghcr.io/terai-takehiro/gmo-onair:v4.0.0` のように
-タグごとに残っているので、VPS 側で直接差し替えることもできます
-（[docs/deploy-pipeline.md](deploy-pipeline.md) 参照）。
-
----
-
-## v3 の緊急修正（畳んだ）
-
-`release/v3` ブランチは v3 系の保守専用として置いていたが、**v4 が本番に出た
-（v4.0.x〜、2026-08 時点の本番は v4.2 系）ため役目を終え、畳んだ**。
-v3 のコードは `v3.1.5` タグでいつでも参照できる。
+Releases に過去のタグが全部並んでいるので、**1つ前のタグの Deploy を再実行**すれば戻る。
+イメージだけ差し替える急ぎの手順（`ghcr.io/terai-takehiro/gmo-onair:vX.Y.Z` / `:sha-<commit>`）は
+[deploy-pipeline.md](deploy-pipeline.md) の「ロールバック」。
 
 ---
 
 ## マージしたら、その PR のレビューを棚卸しに移す（必須）
 
-⚠️ **マージすると、レビューの指摘は GitHub の画面から消えます。**
-直っていなくても消えるので、**誰も見なくなります**。
-
-### なぜ決めごとにしたか（実測）
-
-| 起きたこと | 件数 |
-| --- | --- |
-| v4 の PR 68 本に、指摘が付いたまま埋もれていた | **143 件** |
-| その 143 件を**潰す作業そのもの**にも指摘が付いた | **26 件** |
-| そのうち、棚卸しに記録されていなかった | **24 件** |
-| そのうち、リリースが出せなくなる回帰（P1） | **1 件** |
-
-最後の1件は、**版の門を直した PR がリリースを塞いだ**というものでした。
-**「潰す作業にも指摘は付く」ことを誰も勘定に入れていなかった**のが原因です。
-
-**レビューを見るのを人の記憶に任せると、必ず抜けます。**
-
-### 手順
+マージすると、レビューの指摘は GitHub の画面から消える。**書かなければ存在ごと消える**
+（実測: 143 件が埋もれ、それを潰す作業に付いた 26 件のうち 24 件も記録されていなかった）。
 
 ```bash
-GITHUB_TOKEN=<token> npm run reviews:debt      # 直近 20 本のマージ済み PR
+GITHUB_TOKEN=<token> npm run reviews:debt          # 直近 20 本のマージ済み PR
+GITHUB_TOKEN=<token> npm run reviews:debt -- 50    # 本数を変える
 ```
 
-1. **マージしたら走らせる**（自分の PR だけでなく、その回にマージされたぶん）
-2. 返していない指摘が出たら、**[docs/reviews/codex-findings-v4.md](reviews/codex-findings-v4.md)
-   の表に足す**。⚠️ **直すのが先ではありません — まず書く**。
-   書いてあれば、直すのは別の日でもよい
-3. 直したら状態を ⭕️ にして、**直した PR 番号を書く**
-
-### 決めごと
-
-- ⚠️ **「直さない」と決めたものも表から消さない。** ❌ のまま残し、
-  **理由と、何が変われば直すか**を書く。消すと**次に読んだ人には無かったことになり**、
-  同じところをもう一度掘るか、知らないまま間違ったことを書きます
-- ⚠️ **件数を文章に書かない。** 表を数えてください（実際に1度、
-  文章の数と表が食い違いました）。数え方は棚卸しの「数え方」にあります
-- ⚠️ **束に分けたら、合計が元の数と合うか数え直す**（1件どの束にも入っていないことがありました）
-- ⚠️ **並行開発中は棚卸し文書への「行追加」だけにする。** 表の並べ替え・節の再構成は
-  全セッションが追記する最大の衝突源（2026-08 だけで百回以上変更）とぶつかるので、
-  他セッションが止まっている静穏時に単独PRで行う
-- ⚠️ **棚卸しの記録は必ず main へマージする。** 作業ブランチに記録のコミットを置いたまま
-  次のPRを出さないと、そのブランチが消えた時点で記録ごと消える（実測: #258・#325 の記録が
-  ブランチに置き去りになり、残骸ブランチの棚卸しで発見・回収した）
-- **`npm run lint` の門にはしていません。** 外の API に依存するものを門にすると、
-  **GitHub が重い日にビルドが止まります**。これは**人がマージのあとに見る**ものです
-
-### 見張りの手順（PR を出したあと）— 必須
-
-⚠️ **PR を出したら、その場で見張りを付ける。あとで気が向いたらではない。**
-Claude が PR を作った直後は、必ず `subscribe_pr_activity`（Claude Code では
-`/pr-watch` でも同じ）を呼んでから手を止める。CI 失敗・レビュー指摘は
-**マージかクローズまで片づけ続ける**のが決めごとで、手順は
-**[.claude/skills/pr-watch](../.claude/skills/pr-watch/SKILL.md)** にまとめてあります。
-この棚卸しはその手順の最後の1歩です。
-落ち方ごとの読み方は同 `references/ci-jobs.md`、
-⚠️ **CI が見ていない3つ**（凍結アプリの CSS・シード・実ブラウザ）もそこにあります。
-
-**見張りを外す（`unsubscribe_pr_activity`）のはマージかクローズのときだけ。**
-「指摘が付かなかったから終わり」ではない — #167 / #172 / #173 は Codex のレビューが
-1件も付かずにマージされ、あとから見返せる記録は
-[docs/reviews/codex-findings-v4.md](reviews/codex-findings-v4.md) にしか残っていません。
+- **マージしたら走らせる**（自分の PR だけでなく、その回にマージされたぶん）。返していない指摘を
+  [reviews/codex-findings-v4.md](reviews/codex-findings-v4.md) の表に足す。**直すのが先ではない — まず書く**
+- 直したら状態を ⭕️ にして、**直した PR 番号を書く**
+- **「直さない」と決めたものも表から消さない。** ❌ のまま、理由と「何が変われば直すか」を書く
+- ❌ / ❓ は段落ではなく**表の行**で残す（残数は `grep -c '^| .* | ❌'` で数える。段落に書くと数から消える）
+- **件数を文章に書かない。** 表を数える（数え方は同文書の「数え方」）
+- 束に分けたら、合計が元の数と合うか数え直す
+- 並行開発中は棚卸し文書への**行追加だけ**。並べ替え・節の再構成は静穏時に単独 PR で
+- 棚卸しの記録は**必ず `main` へマージする**（作業枝に置いたままだと、枝の削除で記録ごと消える）
+- **レビューが0件のままマージした PR** も同文書の「レビューが0件のままマージされた PR」に記録する。
+  判定は見た目ではなく `get_reviews` と Codex の要約表（`Commit` 列が頭のコミットか）
+- `npm run lint` の門にはしない。外の API に依存するものを門にすると GitHub が重い日にビルドが止まる。
+  **人がマージのあとに見る**
 
 ---
 
 ## やってはいけないこと
 
-- **`main` への直接 push**（ruleset で止まります）
-- **`main` への force push**（履歴が消えます。ruleset で止まります）
-- **`v*` タグの打ち直し・削除**（本番に何が出たかの記録そのもの。ruleset で止まります）
-- **ユーザーの明示的な指示なしに本番リリースを公開すること**
-- **PR を出さずに検査を飛ばすこと**（型エラーが検証環境に出てから気づく形に戻ります）
-- **マージしたレビューの指摘を、棚卸しに移さずに放置すること**（上記。
-  マージすると画面から消えるので、書かなければ**存在ごと消えます**）
-- ⚠️ **Claude が PR を出したのに、見張り（`pr-watch`）を始めないこと。** 「見張りますか」と
-  訊いて返事を待つのも同じ — その間 CI 失敗もレビューも誰も見ない。**PR を出したら即・自動で**始める
-
----
-
-## 以前の運用との対応
-
-| 以前 | いま |
-| --- | --- |
-| `dev` ブランチに push → 検証環境 | `main` に PR がマージされる → 検証環境 |
-| `dev` を `main` にマージ → 本番 | GitHub で Release を公開（タグ `vX.Y.Z`）→ 本番 |
-| `main` = 本番のコード | `main` = 次に出せるコード。**本番はタグが指す** |
-| `master`（ミラー） | 廃止（v2.5.3 で実体は消えていたがドキュメントに残っていた） |
-| `claude/*` を消さずに溜める | マージ時に自動削除 |
-| タグ・リリースなし | リリースごとに `vX.Y.Z` タグ + GitHub Release |
-| 検査は push した後 | 検査は PR のマージ前（必須チェック） |
-
-### 2026-07-31 に整理したブランチ
-
-`claude/*` 40 本と `dev` を削除しました。うち **`main` に入っていない作業を持つ 7 本は
-`archive/2026-07-31/*` タグに退避**してあるので、いつでもブランチに戻せます。
-
-```bash
-git fetch origin --tags
-git tag -n99 -l 'archive/*'                              # 何が退避されているか読む
-git switch -c feature/accounting-import \
-  archive/2026-07-31/accounting-import-phase1            # 戻す
-```
-
-| タグ | 中身 | `main` に入っているか |
-| --- | --- | --- |
-| `accounting-import-phase1` | 経理データ取込 Phase 0/1（旧 PR #28） | **入っていない**。migration 087 が現在の `main` と番号衝突するので付け替えが必要 |
-| `presentation-deck` | 社長プレゼン資料（pptx 25枚 + 画面画像） | **入っていない** |
-| `vps-bootstrap-scripts` | VPS 構築スクリプト3本 + DEPLOY_CONOHA.md 全面版（現 [docs/ops/vps-setup.md](ops/vps-setup.md)） | **入っていない** |
-| `interactive-awards-link` | インタラクティブ ↔ 表彰CG 連携 API | 別 VPS に切り出したため当時のコードは無い |
-| `interactive-split-out` | 切り出し当時の `client-interactive` | 切り出し自体は反映済み |
-| `qsheet-csv-import-v2.9.166` | Qシート CSV インポート | `main` がより新しい形で含む |
-| `calendar-relink-hotfix` | カレンダー再連携の修正 | `main` が同内容を含む |
-
-整理そのものは `scripts/github/cleanup-legacy-branches.sh` に残してあります（何を消したかが
-SHA まで読める形になっています）。
+- **`main` への直接 push・force push**（ruleset で止まる）
+- **`v*`・`archive/*` タグの打ち直し・削除**（ruleset で止まる）
+- **ユーザーの明示的な指示なしに Release を公開すること**
+- **作業 PR で版の3か所を触ること**（`check-changelog.mjs` が止める）
+- **PR を出さずに検査を飛ばすこと**（型エラーが検証環境に出てから気づく形に戻る）
+- **マージしたレビューの指摘を、棚卸しに移さずに放置すること**
+- **Claude が PR を出したのに `pr-watch` を始めないこと**（「見張りますか」と訊いて待つのも同じ）
+- **Codex が Running のままマージすること／レビュー0件を「指摘なし」と読むこと**
 
 ---
 
 ## 関連
 
-- [CONTRIBUTING.md](../CONTRIBUTING.md) — 環境構築から PR までの手順、リリースの出し方
-- [docs/deploy-pipeline.md](deploy-pipeline.md) — デプロイの中身（GHCR・キャッシュ・ロールバック）
-- [docs/ops/github-repo-settings.md](ops/github-repo-settings.md) — GitHub 側の設定（分岐保護・環境・ラベル）
+- [CONTRIBUTING.md](../CONTRIBUTING.md) — 環境構築から PR まで
+- [changelog.d/README.md](changelog.d/README.md) — 版の下書きの書き方
+- [deploy-pipeline.md](deploy-pipeline.md) — デプロイの中身（GHCR・キャッシュ・ロールバック）
+- [ops/github-repo-settings.md](ops/github-repo-settings.md) — GitHub 側の設定（ruleset・環境・ラベル）。
+  適用は `scripts/github/apply-repo-settings.sh`
+- [.claude/skills/pr-watch/SKILL.md](../.claude/skills/pr-watch/SKILL.md) — PR を出したあとの見張り
+- [reviews/codex-findings-v4.md](reviews/codex-findings-v4.md) — レビュー指摘の棚卸し
+- [guide/how-changes-ship.md](guide/how-changes-ship.md) — エンジニアでない人向けの説明
+- [archive/2026/branching-migration-2026-07-31.md](archive/2026/branching-migration-2026-07-31.md) — 経緯

@@ -1,5 +1,9 @@
 # 制作資料 v4 — 実装設計の索引と、利用者が決めたこと
 
+> **状態**: 実装済み（記録）
+> **最終確認**: 2026-09-08（v4.6.10）
+> **位置づけ**: 設計書 00〜09 を実装するときに実装と突き合わせた記録。§2 の表は全段 ✅ のまま（2026-09-08 にコードで再確認。impl 文書の無い段は表の下の補足）。§3 の migration 番号は着手前の予定で、実番号も同じ補足にある
+
 > **これは設計書（`../`）の隣に置く「実装のための設計」です。**
 > 設計書10本は**実装を読まずに書かれた部分が残っていた**ため、着手前に段ごとに
 > **実装と1件ずつ突き合わせ**、その結果をここに置いています。
@@ -43,6 +47,15 @@ v4 の3アプリは `dark` を一度も付けないため、今は露見して�
 | — | [`08-recording-streaming-impl.md`](08-recording-streaming-impl.md) | 08 | ✅（並行・段依存なし） |
 | — | [`09-live-timer-impl.md`](09-live-timer-impl.md) | 09 | ✅（並行・段依存なし） |
 | 7 | [`07-ai-proposals-impl.md`](07-ai-proposals-impl.md) | 04（04-a のみ） | ✅ |
+
+> **2026-09-08 の補足（コードで確認）**: impl 文書の無い段も実装済み —
+> 段6（Excel）は `server/src/contexts/qsheet/excel/`・migration 224、
+> 段8（04-b 生成）は `server/src/contexts/qsheet/ai/{event-plan-ai,script-outline-ai,script-line-ai,chat}.service.ts`、
+> 段9（04-c）は同 `monthly-review.service.ts`・`knowledge.ts`・migration 226、
+> 段10（MCP）は `server/src/contexts/mcp/tools/production.tools.ts`・migration 223。
+> migration の実番号は 212 実尺／213 公開音声／214 `doc_no`／215 ジャーニーのピン／216 スケジュール表／
+> 220 収録・配信／221 計時／222 AI／223 MCP／224 Excel 取込／225 壁打ち／226 ナレッジ
+> （§3 の予定番号とは 217〜219 の分がずれた）。
 
 ---
 

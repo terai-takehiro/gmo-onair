@@ -1,5 +1,9 @@
 # セキュリティレビュー（2026-08-18）
 
+> **種類**: 実施済みの記録
+> **状態**: SEC-01 修正済み。残課題あり（SEC-02 CSRF/Origin 検証・SEC-04 non-root コンテナ・SEC-05 OTP/招待トークンの digest 保存・SEC-06 MCP `?key=`）。SEC-03 は 2026-09-06 のリアルタイムCG廃止で公開 API 自体が消えた（`/awards/images/*` の読み取りだけ残る）。SEC-07 は CI の `npm audit --audit-level=high` が入った（Dockerfile の `npm install --omit=dev` は残る）
+> **最終確認**: 2026-09-08（v4.6.10）
+
 ## 結論
 
 認証・権限、HTTP/Socket.IO の Origin 制限、JWT 秘密鍵の本番必須化、Helmet、SQL の

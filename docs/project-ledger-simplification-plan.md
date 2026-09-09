@@ -1,5 +1,9 @@
 # 案件台帳の項目整理計画 — `projects` 全57列の棚卸しと導線の単純化（2026-08-27）
 
+> **状態**: 現役の計画（進行中）— Phase A・B は実装済み（migration 242・243 で計10列を DROP）。Phase C は [project-ledger-phase-c-design.md](project-ledger-phase-c-design.md) で一部実装・残りは判断待ち
+> **最終確認**: 2026-09-08（v4.6.10）
+> **位置づけ**: [core-redesign-plan.md](core-redesign-plan.md) Phase 3 (1) の具体化。§5 の判定表は 2026-08-27 の実測で、Phase A・B で落とした10列（`message_id`・`ai_reviewed_by`・`source_channel`・`previous_gls_numbers`・`project_type_other`・`reply_due`・`wants`・`logo_permission`・`tags`・`lessons_learned`）は今のスキーマに無い。
+
 ユーザーのご指摘（原文の要旨）:
 
 > 会場・スタジオの表記が揺らいでいる。そもそもどこで入力した情報が反映されているのか。

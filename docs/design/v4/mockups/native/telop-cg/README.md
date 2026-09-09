@@ -1,5 +1,9 @@
 # テロップCG 再設計の画面モックアップ
 
+> **状態**: 実装済み（記録）
+> **最終確認**: 2026-09-08（v4.6.10）
+> **位置づけ**: [`../../../graphics-redesign.md`](../../../graphics-redesign.md) の絵。段A〜F を 2026-09-06 に実装済み（`client-techops/src/pages/graphics/`）
+
 **設計の正は [`docs/design/v4/graphics-redesign.md`](../../../graphics-redesign.md)。** ここはその絵。
 
 公開先: https://claude.ai/code/artifact/bf5e785b-0075-459b-ad21-86410c419fde

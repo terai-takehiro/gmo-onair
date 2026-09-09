@@ -1,5 +1,9 @@
 # タスク・依頼 — 再設計モック（2026-09）
 
+> **状態**: 実装済み（記録）
+> **最終確認**: 2026-09-08（v4.6.10）
+> **位置づけ**: タスク・依頼の再設計モック。2026-09-08 に実装済み（`client-daily/src/pages/tasks/`。所在は `client-daily/CLAUDE.md`「タスク・依頼」）
+
 `/daily/tasks`（日常業務アプリの「タスク・依頼」）をモックから設計し直したもの。
 4枚のアートボード（`.dc.html`）と配置（`canvas.json`）で、
 [`../v4-mockup-dailyops.dc.html`](../v4-mockup-dailyops.dc.html) にこの画面の節が無かった穴を埋める。
