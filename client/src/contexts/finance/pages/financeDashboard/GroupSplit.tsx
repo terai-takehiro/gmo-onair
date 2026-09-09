@@ -1,5 +1,5 @@
 /**
- * グループ内／グループ外の売上・仕入（① 財務ダッシュボード） (2026-09 依頼)
+ * グループ内／グループ外の売上・仕入・粗利（① 財務ダッシュボード） (2026-09 依頼)
  *
  * 「絞り込みをしている状態でも、グループ内案件とグループ外案件の売上・仕入が
  * 分かるようにしてほしい」というご要望に応えて追加したカード。損益の流れ
@@ -15,16 +15,28 @@
  * ⚠️ **案件で絞り込み中は、選んだ案件の `customer_type` によって
  * 片方が必ず¥0になる。** 1案件はグループ内/外のどちらか一方にしか属さないため
  * （サーバー側コメント参照）。これは壊れているのではなく仕様どおり。
+ *
+ * ── 粗利をグループ内／外でも出す（2026-09 追加ご要望）───────────────
+ *
+ * 「絞り込み状態における粗利もグループ内／グループ外で出してほしい」に応え、
+ * 各カードに粗利（売上－仕入）を足した。**固定原価が対象外なのは売上・仕入と同じ
+ * 理由**（特定のお客様に紐づかない）なので、ここで出す粗利は損益の流れの
+ * 「限界利益」と同じ式——固定原価まで引いた「売上総利益」相当はグループ内外に
+ * 按分できない。値はサーバー（`monthly-summary.service.ts`）が
+ * `revenue_* − purchase_*` として出したものをそのまま表示するだけ。
  */
 import { Money } from '@gmo-onair/shared/src/client/ui/money';
 
 export function GroupSplit({
   revenueInternal, revenueExternal, purchaseInternal, purchaseExternal,
+  profitInternal, profitExternal,
 }: {
   revenueInternal: number;
   revenueExternal: number;
   purchaseInternal: number;
   purchaseExternal: number;
+  profitInternal: number;
+  profitExternal: number;
 }) {
   return (
     <section className="rounded-card border border-border bg-card p-3 lg:p-4">
@@ -41,6 +53,15 @@ export function GroupSplit({
               <dt className="text-sub text-muted-foreground">仕入</dt>
               <dd><Money value={purchaseInternal} className="text-list font-bold" /></dd>
             </div>
+            <div className="flex items-center justify-between gap-2 border-t border-border-faint pt-1">
+              <dt className="text-sub text-muted-foreground">粗利</dt>
+              <dd>
+                <Money
+                  value={profitInternal}
+                  className={`text-list font-bold ${profitInternal < 0 ? 'text-destructive' : ''}`}
+                />
+              </dd>
+            </div>
           </dl>
         </div>
         <div className="rounded-control border border-border-subtle p-3">
@@ -54,11 +75,20 @@ export function GroupSplit({
               <dt className="text-sub text-muted-foreground">仕入</dt>
               <dd><Money value={purchaseExternal} className="text-list font-bold" /></dd>
             </div>
+            <div className="flex items-center justify-between gap-2 border-t border-border-faint pt-1">
+              <dt className="text-sub text-muted-foreground">粗利</dt>
+              <dd>
+                <Money
+                  value={profitExternal}
+                  className={`text-list font-bold ${profitExternal < 0 ? 'text-destructive' : ''}`}
+                />
+              </dd>
+            </div>
           </dl>
         </div>
       </div>
       <p className="text-note mt-2 text-muted-foreground">
-        仕入は変動原価まで（固定原価は特定のお客様に紐づかないため対象外）。
+        仕入・粗利は変動原価まで（固定原価は特定のお客様に紐づかないため対象外）。
       </p>
     </section>
   );
