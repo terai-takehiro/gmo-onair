@@ -514,7 +514,14 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
     const u = await client.query('SELECT id FROM users WHERE deleted_at IS NULL ORDER BY created_at LIMIT 1');
     const fallbackUser = userId || u.rows[0]?.id || null;
 
-    const cache = { customers: new Map<string, string | null>(), vendors: new Map<string, string | null>(), projects: new Map<string, { id: string; customer_id: string | null } | null>() };
+    const cache = {
+      customers: new Map<string, { id: string | null; ambiguous: boolean }>(),
+      vendors: new Map<string, { id: string | null; ambiguous: boolean }>(),
+      projects: new Map<string, { id: string; customer_id: string | null } | null>(),
+    };
+    // 正規化キーが複数社に衝突していて、かつ人（利用者）にまだ知らせていない名前。
+    // 同じ名前が何十行も出てきても警告を1回にまとめるための重複防止。
+    const ambiguousWarned = new Set<string>();
     const counts = { sga: 0, rev: 0, pur: 0, skipped: 0, dupSkipped: 0 };
     // 既存の手入力行の「キー→件数」マップ (skipDuplicates 時に投入をスキップ)。
     // 件数ベース (min(手入力,取込)) で消費するため、同一キーの正当な複数明細を消しすぎない。
@@ -545,10 +552,15 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
     // 衝突時は「元の表記と完全一致するもの」を優先する。それも無ければ一意に決められない
     // ということなので、誤って別会社に紐付けるより安全な「未登録」扱いにする
     // （既存の missingCustomers/missingProjects と同じ経路で人の確認に回る）。
-    const resolveCandidate = (rawName: string, candidates: Candidate[] | undefined): string | null => {
-      if (!candidates || candidates.length === 0) return null;
-      if (candidates.length === 1) return candidates[0].id;
-      return candidates.find((c) => c.name === rawName)?.id ?? null;
+    // `ambiguous: true` は「未登録」と見た目は同じ（id: null）だが、原因が違う
+    // （単に無い／複数の候補があって決め切れない）。呼び出し側（ensureCustomer/
+    // ensureVendor）はこれを見て、自動作成に倒さず必ず人の確認に回す。
+    type Resolution = { id: string | null; ambiguous: boolean };
+    const resolveCandidate = (rawName: string, candidates: Candidate[] | undefined): Resolution => {
+      if (!candidates || candidates.length === 0) return { id: null, ambiguous: false };
+      if (candidates.length === 1) return { id: candidates[0].id, ambiguous: false };
+      const exact = candidates.find((c) => c.name === rawName);
+      return exact ? { id: exact.id, ambiguous: false } : { id: null, ambiguous: true };
     };
     const customerByKey = new Map<string, Candidate[]>();
     for (const row of (await client.query(
@@ -559,13 +571,16 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       `SELECT id, name FROM companies WHERE is_vendor = TRUE AND deleted_at IS NULL`,
     )).rows as Candidate[]) pushCandidate(vendorByKey, normalizeForMatch(row.name), row);
 
-    async function findCustomer(name: string) {
-      // cache は「元の表記そのもの」をキーにする（正規化キーだと、同じ正規化キーに
-      // 衝突する複数社のうち別々の完全一致名で呼ばれたとき、最初に解決した会社の id を
-      // 別の会社の名前に対しても返してしまう）。
+    // cache は「元の表記そのもの」をキーにする（正規化キーだと、同じ正規化キーに
+    // 衝突する複数社のうち別々の完全一致名で呼ばれたとき、最初に解決した会社の結果を
+    // 別の会社の名前に対しても返してしまう）。
+    function resolveCustomer(name: string): Resolution {
       if (cache.customers.has(name)) return cache.customers.get(name)!;
-      const id = resolveCandidate(name, customerByKey.get(normalizeForMatch(name)));
-      cache.customers.set(name, id); return id;
+      const r = resolveCandidate(name, customerByKey.get(normalizeForMatch(name)));
+      cache.customers.set(name, r); return r;
+    }
+    async function findCustomer(name: string) {
+      return resolveCustomer(name).id;
     }
     async function findProjectByGls(gls: string) {
       if (cache.projects.has(gls)) return cache.projects.get(gls)!;
@@ -678,9 +693,21 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
     }
 
     const exec = execFromPgClient(client);
+    // 同じ正規化キーに複数社が衝突していて完全一致でも決め切れない名前を、1回だけ
+    // warnings に積む（同じ名前が何十行も出てきても知らせは1回にまとめるため）。
+    function warnAmbiguousOnce(name: string) {
+      if (ambiguousWarned.has(name)) return;
+      ambiguousWarned.add(name);
+      warnings.push(`「${name}」は表記の似た取引先・顧客が複数登録されており、一意に決められないため未登録として扱いました（新規作成もしていません）。取引先マスターをご確認ください。`);
+    }
     async function ensureCustomer(name: string): Promise<string | null> {
-      const id = await findCustomer(name);
-      if (id) return id;
+      const r = resolveCustomer(name);
+      if (r.id) return r.id;
+      if (r.ambiguous) {
+        warnAmbiguousOnce(name);
+        if (!report.masters.missingCustomers.includes(name)) report.masters.missingCustomers.push(name);
+        return null;
+      }
       if (!createMasters) return null;
       // `companies` に行を作る（company-directory.service.ts）。
       // グループの印は社名から見立てる（migration 192）。決算取込は印を持たないので、
@@ -691,25 +718,34 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       );
       // 同じ取込内の同名の別行が二重作成しないよう、cache（元の表記キー）と
       // customerByKey（正規化キー・候補配列）の両方に反映する。
-      cache.customers.set(name, nid); pushCandidate(customerByKey, normalizeForMatch(name), { id: nid, name });
+      cache.customers.set(name, { id: nid, ambiguous: false });
+      pushCandidate(customerByKey, normalizeForMatch(name), { id: nid, name });
       report.masters.created.customers++; return nid;
     }
     async function ensureVendor(name: string): Promise<string | null> {
       // cache は findCustomer と同じ理由で「元の表記そのもの」をキーにする。
-      if (cache.vendors.has(name)) { const c = cache.vendors.get(name)!; if (c) return c; }
+      if (cache.vendors.has(name)) { const c = cache.vendors.get(name)!; if (c.id) return c.id; if (c.ambiguous) return null; }
       // 名寄せは事前読み込み済み `vendorByKey`（normalizeForMatch 済み）から引く。
       // 完全一致の都度 SQL に戻すと、表記が1文字違うだけの既存取引先を見逃し
-      // 二重に作ってしまう（findCustomer と同じ理由）。同じ正規化キーに複数社が
-      // 衝突している場合は resolveCandidate が「未登録」扱いにする（findCustomer と同じ理由）。
+      // 二重に作ってしまう（findCustomer と同じ理由）。
       const key = normalizeForMatch(name);
-      let id: string | null = resolveCandidate(name, vendorByKey.get(key));
+      const resolved = resolveCandidate(name, vendorByKey.get(key));
+      if (resolved.ambiguous) {
+        // 同じ正規化キーに複数社が衝突していて決め切れない。誤って別会社に紐付けたり
+        // 3社目を新規作成したりするより、この行をスキップする方が安全
+        // （呼び出し元は id が null なら投入をスキップする）。
+        warnAmbiguousOnce(name);
+        cache.vendors.set(name, { id: null, ambiguous: true });
+        return null;
+      }
+      let id = resolved.id;
       if (!id && createMasters) {
         // `companies` に行を作る（company-directory.service.ts）。名前は元の表記のまま保存する。
         id = await createVendorRecord({ name, notes: MARKER }, fallbackUser, exec);
         report.masters.created.vendors++;
         pushCandidate(vendorByKey, key, { id, name });
       }
-      cache.vendors.set(name, id); return id;
+      cache.vendors.set(name, { id, ambiguous: false }); return id;
     }
     async function ensureProject(key: string, name: string, customerId: string | null, isFixed = false): Promise<{ id: string; customer_id: string | null } | null> {
       const cacheKey = isFixed ? `__fixed__${key}` : key;
