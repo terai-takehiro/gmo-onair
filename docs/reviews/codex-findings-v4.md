@@ -2403,6 +2403,20 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   必ず目視確認すること**（`--dry` 実行と手動確認は本 PR で実施済みだが、実リリースでの実行は
   まだ無い）。
 
+- **#667（`release: v4.6.11`・2026-09-09）** —
+  **Code Review・Security Review とも読まれないままマージされた**。作成 02:55:48Z の**約6秒後**
+  （02:55:54Z）に Codex が「You have reached your Codex usage limits for code reviews.」を返し、
+  📝 Code Review は1巡も走っていない。🔒 Security Review は 02:55:59Z から「Running」の要約
+  コメントが1回出たきりで、**マージ（03:00:26Z・terai-takehiro 本人）まで完了しなかった**
+  （#665 と同じ「走り切る前にマージされた」型）。`checks`/`build` は 02:59:02Z までに両方
+  success（**CI green から約1分24秒後**にマージ）。`get_review_comments`・`get_comments` とも
+  GitHub MCP で直接確認し、レビュースレッド0件・要約コメントが `running` のまま更新されて
+  いないことを確認済み。表に移す指摘はない（レビュー自体が届いていないため）。
+  ⚠️ この PR は #665 が注意喚起していた「次のリリース PR での `npm run release:notes` 実地初
+  実行」そのもの——`README.md` の版差し替えは意図通り1行（`**現在のバージョン**: vX.Y.Z — 見出し`）
+  だけになっていることを diff で目視確認済み。**#665 の懸念は解消**（`collect-changelog.mjs` の
+  README 書き込みロジックは実地でも壊れていなかった）。
+
 ---
 
 ## 一覧（PR の新しい順）
