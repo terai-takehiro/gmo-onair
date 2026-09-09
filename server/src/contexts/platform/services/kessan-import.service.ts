@@ -27,6 +27,13 @@ const FIXED_CODE = 'FIXED-COGS';
 const FIXED_NAME = '固定原価（スタジオ償却負担額等）';
 const FIXED_CUSTOMER = '（固定費・社内）';
 
+// 総勘定元帳CSV/xlsxの行数上限。system_admin限定のツールとはいえ、桁違いに大きい
+// ファイル（誤って複数年ぶんを一括エクスポートした・悪意のあるファイル）を無制限に
+// 処理すると、1行ごとにDB問い合わせを伴う後段の突き合わせ処理（ensureCustomer等）が
+// 単一トランザクション内で長時間コネクションを占有し、他リクエストへ波及しうる。
+// 一年分の元帳でも数千〜1万行程度に収まる想定のため、十分な余裕を持たせた上限とする。
+const MAX_GL_ROWS = 50_000;
+
 export interface KessanOptions {
   scope?: 'sga' | 'revenues' | 'purchases' | 'all';
   commit?: boolean;
@@ -219,6 +226,9 @@ function parseGlsPrimary(memo: unknown): string | null {
  */
 function extractFreeeCsv(csv: string, glFileName: string, warnings: string[]): Extracted {
   const rows = parseCsv(csv);
+  if (rows.length > MAX_GL_ROWS) {
+    throw new Error(`「${glFileName}」の行数が多すぎます（${rows.length.toLocaleString()}行 / 上限${MAX_GL_ROWS.toLocaleString()}行）。期間を絞ってエクスポートし直してください。`);
+  }
   const header = rows[0] || [];
   const has = (n: string) => header.includes(n);
   // 損益計算書／残高試算表 (集計表): 期間借方/貸方金額・構成比があり取引No が無い
@@ -396,6 +406,9 @@ async function extractMoneyForwardXlsx(buf: Buffer, warnings: string[]): Promise
   if (!H) {
     throw new Error('MoneyForward GL シートが見つかりません (列「機能通貨発生金額 / 勘定科目コード / 文字摘要1」を含むヘッダー行が必要)');
   }
+  if (body.length > MAX_GL_ROWS) {
+    throw new Error(`Excel の行数が多すぎます（${body.length.toLocaleString()}行 / 上限${MAX_GL_ROWS.toLocaleString()}行）。期間を絞ってエクスポートし直してください。`);
+  }
 
   const sga: SgaRow[] = [], rev: RevRow[] = [], pur: PurRow[] = [], fixed: PurRow[] = [];
   let skippedOther = 0;
@@ -521,19 +534,35 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
     // 名寄せは SQL の完全一致ではなく `normalizeForMatch` した名前で行う。
     // 完全一致だと、元帳側の表記が1文字でも違う（全角/半角・㈱の位置・連続空白等）
     // だけで既存の取引先・顧客と紐付かず、同じ会社が2つに分裂して作られてしまう。
-    const customerByKey = new Map<string, string>();
+    // 正規化キーごとに候補を「配列」で持つ（Map<string,id> で上書きすると、同じ正規化
+    // キーに複数社が衝突したとき SQL の返却順に依存して無作為にどちらかを選んでしまう —
+    // 例えば正規化前に別会社として登録済みの「㈱ABC」と「(株)ABC」が両方存在する場合、
+    // 元帳の行を誤って別の会社に紐付けかねない）。
+    type Candidate = { id: string; name: string };
+    const pushCandidate = (m: Map<string, Candidate[]>, key: string, c: Candidate) => {
+      const arr = m.get(key); if (arr) arr.push(c); else m.set(key, [c]);
+    };
+    // 衝突時は「元の表記と完全一致するもの」を優先する。それも無ければ一意に決められない
+    // ということなので、誤って別会社に紐付けるより安全な「未登録」扱いにする
+    // （既存の missingCustomers/missingProjects と同じ経路で人の確認に回る）。
+    const resolveCandidate = (rawName: string, candidates: Candidate[] | undefined): string | null => {
+      if (!candidates || candidates.length === 0) return null;
+      if (candidates.length === 1) return candidates[0].id;
+      return candidates.find((c) => c.name === rawName)?.id ?? null;
+    };
+    const customerByKey = new Map<string, Candidate[]>();
     for (const row of (await client.query(
       `SELECT id, name FROM companies WHERE is_customer = TRUE AND deleted_at IS NULL`,
-    )).rows as { id: string; name: string }[]) customerByKey.set(normalizeForMatch(row.name), row.id);
-    const vendorByKey = new Map<string, string>();
+    )).rows as Candidate[]) pushCandidate(customerByKey, normalizeForMatch(row.name), row);
+    const vendorByKey = new Map<string, Candidate[]>();
     for (const row of (await client.query(
       `SELECT id, name FROM companies WHERE is_vendor = TRUE AND deleted_at IS NULL`,
-    )).rows as { id: string; name: string }[]) vendorByKey.set(normalizeForMatch(row.name), row.id);
+    )).rows as Candidate[]) pushCandidate(vendorByKey, normalizeForMatch(row.name), row);
 
     async function findCustomer(name: string) {
       const key = normalizeForMatch(name);
       if (cache.customers.has(key)) return cache.customers.get(key)!;
-      const id = customerByKey.get(key) || null;
+      const id = resolveCandidate(name, customerByKey.get(key));
       cache.customers.set(key, id); return id;
     }
     async function findProjectByGls(gls: string) {
@@ -659,7 +688,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       const nid = await createCustomerRecord(
         { name, notes: MARKER, is_gmo_group: looksLikeGmoGroup(name) }, fallbackUser, exec,
       );
-      cache.customers.set(key, nid); customerByKey.set(key, nid); // 同じ取込内の同名の別行が二重作成しないよう反映
+      cache.customers.set(key, nid); pushCandidate(customerByKey, key, { id: nid, name }); // 同じ取込内の同名の別行が二重作成しないよう反映
       report.masters.created.customers++; return nid;
     }
     async function ensureVendor(name: string): Promise<string | null> {
@@ -667,13 +696,14 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       if (cache.vendors.has(key)) { const c = cache.vendors.get(key)!; if (c) return c; }
       // 名寄せは事前読み込み済み `vendorByKey`（normalizeForMatch 済み）から引く。
       // 完全一致の都度 SQL に戻すと、表記が1文字違うだけの既存取引先を見逃し
-      // 二重に作ってしまう（findCustomer と同じ理由）。
-      let id: string | null = vendorByKey.get(key) || null;
+      // 二重に作ってしまう（findCustomer と同じ理由）。同じ正規化キーに複数社が
+      // 衝突している場合は resolveCandidate が「未登録」扱いにする（findCustomer と同じ理由）。
+      let id: string | null = resolveCandidate(name, vendorByKey.get(key));
       if (!id && createMasters) {
         // `companies` に行を作る（company-directory.service.ts）。名前は元の表記のまま保存する。
         id = await createVendorRecord({ name, notes: MARKER }, fallbackUser, exec);
         report.masters.created.vendors++;
-        vendorByKey.set(key, id);
+        pushCandidate(vendorByKey, key, { id, name });
       }
       cache.vendors.set(key, id); return id;
     }
