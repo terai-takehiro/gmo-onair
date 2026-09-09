@@ -63,15 +63,25 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
       })).data.data as KessanReport;
     },
     onSuccess: (d) => {
-      // 読み取り（下書き）中にファイルが選び直されていたら、その結果は別のファイルの
-      // ものなので反映しない（選び直した時点で selectFile が report/step を消している）。
-      // ただし「投入（commit）」はサーバーに実際に書き込み済みなので、ファイルが
-      // 選び直されていても結果を握りつぶさない — 黙って消すと「実は投入されていた」
-      // ことに気づけなくなる。
-      if (d.dryRun && requestFileRef.current !== currentFileRef.current) return;
+      const stale = requestFileRef.current !== currentFileRef.current;
+      if (d.dryRun) {
+        // 読み取り（下書き）中にファイルが選び直されていたら、その結果は別のファイルの
+        // ものなので反映しない（選び直した時点で selectFile が report/step を消している）。
+        if (stale) return;
+        setReport(d);
+        onStep(2);
+        return;
+      }
+      // 「投入（commit）」はサーバーに実際に書き込み済みなので、ファイルが選び直されて
+      // いても成功したこと自体は必ず知らせる — 黙って消すと「実は投入されていた」ことに
+      // 気づけなくなる。ただし report をそのまま「いま選択中のファイルの結果」として
+      // 残すと、選び直した別ファイルに対して「台帳に入れる」ボタンが再び押せる状態に
+      // なり、そのファイルを一度もプレビューせずに投入できてしまう。選び直されていた
+      // 場合は通知だけ行い、画面は最初からやり直す状態に戻す。
+      notifySuccess('取り込みました');
+      if (stale) { setReport(null); onStep(1); return; }
       setReport(d);
-      onStep(d.dryRun ? 2 : 3);
-      if (!d.dryRun) notifySuccess('取り込みました');
+      onStep(3);
     },
     onError: (err) => notifyApiError('総勘定元帳を取り込めませんでした', err, 'ファイルの形式（freee CSV / MoneyForward xlsx）を確かめてください。'),
   });

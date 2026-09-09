@@ -560,10 +560,12 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
     )).rows as Candidate[]) pushCandidate(vendorByKey, normalizeForMatch(row.name), row);
 
     async function findCustomer(name: string) {
-      const key = normalizeForMatch(name);
-      if (cache.customers.has(key)) return cache.customers.get(key)!;
-      const id = resolveCandidate(name, customerByKey.get(key));
-      cache.customers.set(key, id); return id;
+      // cache は「元の表記そのもの」をキーにする（正規化キーだと、同じ正規化キーに
+      // 衝突する複数社のうち別々の完全一致名で呼ばれたとき、最初に解決した会社の id を
+      // 別の会社の名前に対しても返してしまう）。
+      if (cache.customers.has(name)) return cache.customers.get(name)!;
+      const id = resolveCandidate(name, customerByKey.get(normalizeForMatch(name)));
+      cache.customers.set(name, id); return id;
     }
     async function findProjectByGls(gls: string) {
       if (cache.projects.has(gls)) return cache.projects.get(gls)!;
@@ -677,7 +679,6 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
 
     const exec = execFromPgClient(client);
     async function ensureCustomer(name: string): Promise<string | null> {
-      const key = normalizeForMatch(name);
       const id = await findCustomer(name);
       if (id) return id;
       if (!createMasters) return null;
@@ -688,16 +689,19 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       const nid = await createCustomerRecord(
         { name, notes: MARKER, is_gmo_group: looksLikeGmoGroup(name) }, fallbackUser, exec,
       );
-      cache.customers.set(key, nid); pushCandidate(customerByKey, key, { id: nid, name }); // 同じ取込内の同名の別行が二重作成しないよう反映
+      // 同じ取込内の同名の別行が二重作成しないよう、cache（元の表記キー）と
+      // customerByKey（正規化キー・候補配列）の両方に反映する。
+      cache.customers.set(name, nid); pushCandidate(customerByKey, normalizeForMatch(name), { id: nid, name });
       report.masters.created.customers++; return nid;
     }
     async function ensureVendor(name: string): Promise<string | null> {
-      const key = normalizeForMatch(name);
-      if (cache.vendors.has(key)) { const c = cache.vendors.get(key)!; if (c) return c; }
+      // cache は findCustomer と同じ理由で「元の表記そのもの」をキーにする。
+      if (cache.vendors.has(name)) { const c = cache.vendors.get(name)!; if (c) return c; }
       // 名寄せは事前読み込み済み `vendorByKey`（normalizeForMatch 済み）から引く。
       // 完全一致の都度 SQL に戻すと、表記が1文字違うだけの既存取引先を見逃し
       // 二重に作ってしまう（findCustomer と同じ理由）。同じ正規化キーに複数社が
       // 衝突している場合は resolveCandidate が「未登録」扱いにする（findCustomer と同じ理由）。
+      const key = normalizeForMatch(name);
       let id: string | null = resolveCandidate(name, vendorByKey.get(key));
       if (!id && createMasters) {
         // `companies` に行を作る（company-directory.service.ts）。名前は元の表記のまま保存する。
@@ -705,7 +709,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
         report.masters.created.vendors++;
         pushCandidate(vendorByKey, key, { id, name });
       }
-      cache.vendors.set(key, id); return id;
+      cache.vendors.set(name, id); return id;
     }
     async function ensureProject(key: string, name: string, customerId: string | null, isFixed = false): Promise<{ id: string; customer_id: string | null } | null> {
       const cacheKey = isFixed ? `__fixed__${key}` : key;
