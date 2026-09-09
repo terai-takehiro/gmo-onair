@@ -561,8 +561,10 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
     const resolveCandidate = (rawName: string, candidates: Candidate[] | undefined): Resolution => {
       if (!candidates || candidates.length === 0) return { id: null, ambiguous: false };
       if (candidates.length === 1) return { id: candidates[0].id, ambiguous: false };
-      const exact = candidates.find((c) => c.name === rawName);
-      return exact ? { id: exact.id, ambiguous: false } : { id: null, ambiguous: true };
+      // companies.name は一意制約が無いため、完全一致が複数件ありうる
+      // （同じ名前の会社が2件登録済み等）。1件に絞れたときだけ確定させる。
+      const exact = candidates.filter((c) => c.name === rawName);
+      return exact.length === 1 ? { id: exact[0].id, ambiguous: false } : { id: null, ambiguous: true };
     };
     const customerByKey = new Map<string, Candidate[]>();
     for (const row of (await client.query(
