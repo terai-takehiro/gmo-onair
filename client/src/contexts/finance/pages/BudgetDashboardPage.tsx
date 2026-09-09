@@ -311,6 +311,8 @@ export default function BudgetDashboardPage() {
             revenueExternal={s.revenue_external}
             purchaseInternal={s.purchase_internal}
             purchaseExternal={s.purchase_external}
+            profitInternal={s.marginal_profit_internal}
+            profitExternal={s.marginal_profit_external}
           />
 
           <div className={`grid grid-cols-1 gap-3.5 ${projectId ? 'lg:grid-cols-2' : 'lg:grid-cols-3'}`}>

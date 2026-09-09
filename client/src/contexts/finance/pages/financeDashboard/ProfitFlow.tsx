@@ -11,18 +11,26 @@
  *
  * ── 利益は色を変える ────────────────────────────────────────
  *
- * 引き算の結果（限界利益・売上総利益・営業利益）だけ枠を変え、
- * **赤字は赤**にします。並べただけだとマイナスに気づきません。
+ * 見出しカード（下記）だけ枠を変え、**赤字は赤**にします。並べただけだと
+ * マイナスに気づきません。
  *
  * ── サマリーの枚数を減らした回（ご指摘: 上部の数値が多すぎる） ────
  *
  * 3段×3枚＝実質7枚（売上・仕入・限界利益・固定原価・売上総利益・販管費・営業利益）を
  * 同じ大きさで並べていたので、**まず見たい「結果」の3つが「材料」の4つに埋もれていました**。
- * → **結果（限界利益・売上総利益・営業利益）だけを見出しカードにし、材料の4つは
- * その下に小さい1行ずつで並べます。** 中身（内訳・元の値）は1つも削っていません
- * — 大きさと並び順だけを変え、「先に結果を見て、要れば材料を見る」順にしました。
+ * → **結果だけを見出しカードにし、材料はその下に小さい1行ずつで並べます。**
  *
- * **案件で絞り込み中は3枚だけ**（売上・仕入・限界利益）。固定原価・売上総利益・
+ * ── 見出しを「売上／仕入（変動原価）／粗利／営業利益」に組み替えた（2026-09 ご要望）──
+ *
+ * 上の回では見出し＝限界利益・売上総利益・営業利益、材料＝売上・仕入・固定原価・
+ * 販管費だった。**「見出しに売上・仕入も出し、粗利（＝旧・売上総利益）と営業利益に
+ * 絞ってほしい」**というご要望で、見出し＝売上・仕入（変動原価）・粗利・営業利益、
+ * 材料＝固定原価・販管費に組み替えた（`限界利益` は途中の値のため見出し・材料の
+ * どちらにも出さない）。**どちらに入れるかは `flowSteps.ts` が付ける `result: true`
+ * フラグで決まる**（`results`/`inputs` は配列の位置ではなくこのフラグで振り分ける
+ * ので、材料の枚数が変わってもここは直さなくてよい）。
+ *
+ * **案件で絞り込み中は3枚だけ**（売上・仕入・限界利益）。固定原価・粗利・
  * 販管費・営業利益は案件に紐づかない/意味を持たないため、カードごと出しません
  * （旧実装は薄い注記だけで枠は出したままだった）。
  */
@@ -34,9 +42,9 @@ export interface FlowStep {
   value: number;
   /** 下に出す一行（「確定売上 12件」など） */
   sub?: string;
-  /** 引き算の結果か。枠と色が変わる */
+  /** 見出しカード（大きい枠・色つき）にするか。false/未指定は下段の小さい行 */
   result?: boolean;
-  /** 売上に対する率。結果のときだけ出す */
+  /** 売上に対する率。見出しカードのうち率を出したいものだけ */
   pct?: number | null;
   /** 押したときの行き先。無ければ押せない */
   to?: string;
@@ -128,7 +136,7 @@ function InputRow({ step }: { step: FlowStep }) {
 
 /**
  * `steps` が3件（案件で絞り込み中）なら 売上−仕入=限界利益 の1段だけ。
- * 7件（全案件）なら、結果3枚を見出しにして材料4つを下の小さい行に並べる。
+ * それ以外（全案件）は、`result: true` の段を見出しにして、残りを下の小さい行に並べる。
  *
  * ── 結果カードの横並びが、スマホで金額を隣のカードの下に隠していた ──────
  *
@@ -139,6 +147,9 @@ function InputRow({ step }: { step: FlowStep }) {
  * 要素の**下**に回り込むだけで、ページの横スクロールとしては現れないので、
  * 横はみ出しの自動検査にも引っかからなかった）。
  * **`sm:`（640px）未満は縦積みにし**、金額に必要な横幅を確保した。
+ * **見出しが4枚に増えた分（2026-09 ご要望）は横並びの起点を `lg:`（1024px）に
+ * 遅らせる**（3枚のときの `sm:` のままだと、1枚あたりの幅がさらに狭まり
+ * 同じ症状がぶり返すため）。
  */
 export function ProfitFlow({ steps }: { steps: FlowStep[] }) {
   if (steps.length === 3) {
@@ -154,18 +165,18 @@ export function ProfitFlow({ steps }: { steps: FlowStep[] }) {
     );
   }
 
-  const [rev, varc, marg, fix, gross, sga, op] = steps;
-  const inputs = [rev, varc, fix, sga];
-  const results = [marg, gross, op];
+  const results = steps.filter((step) => step.result);
+  const inputs = steps.filter((step) => !step.result);
+  const resultsRowClass = results.length > 3 ? 'lg:flex-row' : 'sm:flex-row';
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col items-stretch gap-2 sm:flex-row">
+      <div className={`flex flex-col items-stretch gap-2 ${resultsRowClass}`}>
         {results.map((r, i) => (
           <ResultCard key={i} step={r} />
         ))}
       </div>
-      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
         {inputs.map((step, i) => <InputRow key={i} step={step} />)}
       </div>
     </div>

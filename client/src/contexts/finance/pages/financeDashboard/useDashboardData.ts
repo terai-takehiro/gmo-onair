@@ -55,12 +55,19 @@ export interface MonthlySummary {
   revenue_external: number;
   purchase_internal: number;
   purchase_external: number;
+  /**
+   * グループ内／グループ外それぞれの粗利（`revenue_*` − `purchase_*`。固定原価は
+   * 特定のお客様に紐づかないため対象外＝限界利益と同じ式。サーバー側の型コメント参照）。
+   */
+  marginal_profit_internal: number;
+  marginal_profit_external: number;
 }
 
 export const EMPTY_SUMMARY: MonthlySummary = {
   month: '', revenue_total: 0, purchase_total: 0, fixed_cost_total: 0,
   variable_cost_total: 0, marginal_profit: 0, gross_profit: 0, sga_total: 0, operating_profit: 0,
   revenue_internal: 0, revenue_external: 0, purchase_internal: 0, purchase_external: 0,
+  marginal_profit_internal: 0, marginal_profit_external: 0,
 };
 
 export interface PagedResponse<T> {

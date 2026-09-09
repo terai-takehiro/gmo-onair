@@ -78,6 +78,16 @@ export interface MonthlySummaryResult {
   revenue_external: number;
   purchase_internal: number;
   purchase_external: number;
+  /**
+   * グループ内／グループ外それぞれの粗利（2026-09 依頼「絞り込み状態における粗利も
+   * グループ内外で出してほしい」）。**限界利益と同じ式**（`revenue_*` − `purchase_*`。
+   * 固定原価は特定のお客様に紐づかないため、ここでも対象外）— 固定原価まで引いた
+   * 売上総利益はグループ内外に按分しようがないので、粗利＝限界利益の相当額として出す。
+   * `marginal_profit_internal + marginal_profit_external === marginal_profit` になる
+   * （両方とも `revenue_internal`/`purchase_internal` 等の内訳をそのまま引くだけのため）。
+   */
+  marginal_profit_internal: number;
+  marginal_profit_external: number;
 }
 
 /**
@@ -226,6 +236,8 @@ export async function getMonthlySummary(params: MonthlySummaryParams): Promise<M
       month: periodLabel, project_id: projectId, entity_code: entityCode, revenue_total, purchase_total,
       fixed_cost_total, variable_cost_total, marginal_profit, gross_profit, sga_total, operating_profit,
       revenue_internal, revenue_external, purchase_internal, purchase_external,
+      marginal_profit_internal: revenue_internal - purchase_internal,
+      marginal_profit_external: revenue_external - purchase_external,
     };
   }
 
@@ -291,6 +303,8 @@ export async function getMonthlySummary(params: MonthlySummaryParams): Promise<M
       variable_cost_total, marginal_profit, gross_profit, sga_total, operating_profit,
       revenue_internal: revSplit.internal, revenue_external: revSplit.external,
       purchase_internal: purSplit.internal, purchase_external: purSplit.external,
+      marginal_profit_internal: revSplit.internal - purSplit.internal,
+      marginal_profit_external: revSplit.external - purSplit.external,
     };
   }
 
@@ -346,5 +360,7 @@ export async function getMonthlySummary(params: MonthlySummaryParams): Promise<M
     variable_cost_total, marginal_profit, gross_profit, sga_total, operating_profit,
     revenue_internal: revSplit.internal, revenue_external: revSplit.external,
     purchase_internal: purSplit.internal, purchase_external: purSplit.external,
+    marginal_profit_internal: revSplit.internal - purSplit.internal,
+    marginal_profit_external: revSplit.external - purSplit.external,
   };
 }
