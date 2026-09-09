@@ -852,10 +852,12 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
         await client.query('DELETE FROM purchases WHERE notes LIKE $1', [`${MARKER}%`]);
         for (const x of pur) {
           if (skipDuplicates && x.gls && existPur) { const k = `${x.amount}|${x.gls}|${ym(x.date)}`; if ((existPur.get(k) || 0) > 0) { existPur.set(k, existPur.get(k)! - 1); counts.dupSkipped++; continue; } }
-          const proj = await ensureProject(x.gls as string, x.gls as string, null);
-          if (!proj) { counts.skipped++; continue; }
+          // 取引先を先に解決する。案件を先に作ってしまうと、取引先が曖昧で
+          // この行がスキップされたときに「使われない空の案件」だけが残ってしまう。
           const vendorId = await ensureVendor(x.vendor_name);
           if (!vendorId) { counts.skipped++; continue; }
+          const proj = await ensureProject(x.gls as string, x.gls as string, null);
+          if (!proj) { counts.skipped++; continue; }
           await client.query(
             `INSERT INTO purchases (id, project_id, entity_code, vendor_id, tax_category, invoice_qualified, amount, description, recognition_date, notes, created_by)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
@@ -864,19 +866,32 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
           counts.pur++;
         }
         if (!excludeFixed && fixed.length) {
-          const fixedCust = await ensureCustomer(FIXED_CUSTOMER);
-          const fixedProj = fixedCust ? await ensureProject(FIXED_CODE, FIXED_NAME, fixedCust, true) : null;
-          if (!fixedProj) { warnings.push(`固定原価プロジェクトを作成できません (createMasters 未指定?) → ${fixed.length} 件スキップ`); counts.skipped += fixed.length; }
-          else {
-            for (const x of fixed) {
-              const vendorId = await ensureVendor(x.vendor_name);
-              if (!vendorId) { counts.skipped++; continue; }
-              await client.query(
-                `INSERT INTO purchases (id, project_id, entity_code, vendor_id, tax_category, invoice_qualified, amount, description, recognition_date, notes, created_by)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-                [randomUUID(), fixedProj.id, CURRENT_ENTITY_CODE, vendorId, x.tax_category, x.invoice_qualified, x.amount, x.description, x.date, `${MARKER} ${x.no} [固定原価]`.slice(0, 240), fallbackUser]
-              );
-              counts.pur++;
+          // 取引先を先にすべて解決しておく。1件も解決できないのに固定原価
+          // プロジェクト・顧客だけ作ってしまう（誰にも使われない空のマスタが残る）
+          // のを避けるため。
+          const fixedVendorIds = new Map<string, string | null>();
+          for (const x of fixed) {
+            if (!fixedVendorIds.has(x.vendor_name)) fixedVendorIds.set(x.vendor_name, await ensureVendor(x.vendor_name));
+          }
+          const anyVendorResolved = [...fixedVendorIds.values()].some((v) => v != null);
+          if (!anyVendorResolved) {
+            warnings.push(`固定原価の取引先が1件も解決できないため、${fixed.length} 件スキップしました。`);
+            counts.skipped += fixed.length;
+          } else {
+            const fixedCust = await ensureCustomer(FIXED_CUSTOMER);
+            const fixedProj = fixedCust ? await ensureProject(FIXED_CODE, FIXED_NAME, fixedCust, true) : null;
+            if (!fixedProj) { warnings.push(`固定原価プロジェクトを作成できません (createMasters 未指定?) → ${fixed.length} 件スキップ`); counts.skipped += fixed.length; }
+            else {
+              for (const x of fixed) {
+                const vendorId = fixedVendorIds.get(x.vendor_name) ?? null;
+                if (!vendorId) { counts.skipped++; continue; }
+                await client.query(
+                  `INSERT INTO purchases (id, project_id, entity_code, vendor_id, tax_category, invoice_qualified, amount, description, recognition_date, notes, created_by)
+                   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+                  [randomUUID(), fixedProj.id, CURRENT_ENTITY_CODE, vendorId, x.tax_category, x.invoice_qualified, x.amount, x.description, x.date, `${MARKER} ${x.no} [固定原価]`.slice(0, 240), fallbackUser]
+                );
+                counts.pur++;
+              }
             }
           }
         }

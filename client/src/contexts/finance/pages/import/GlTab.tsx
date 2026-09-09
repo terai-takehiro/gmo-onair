@@ -12,7 +12,7 @@
  * **対象や取り込み元を変えて投入すると、意図しない範囲が入れ直されます**。
  * 4つのトグルの既定値は旧実装から変えていません。
  */
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Loader2, AlertTriangle, Database, CloudUpload, FileSpreadsheet, X } from 'lucide-react';
 import api from '@/lib/api';
@@ -55,12 +55,28 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
     a.file === b.file && a.scope === b.scope && a.createMasters === b.createMasters
     && a.excludeFixed === b.excludeFixed && a.skipDuplicates === b.skipDuplicates;
 
-  useEffect(() => {
-    currentSettingsRef.current = { file, scope, ...flags };
+  // ⚠️ currentSettingsRef の更新は必ずここ（各変更ハンドラ）で同期的に行う。
+  // useEffect に任せると、下書きのレスポンスが届くタイミングと effect の実行
+  // （レンダー後・非同期）がずれ、「設定を変えた直後に古いレスポンスが届く」瞬間だけ
+  // ref がまだ更新されておらず stale 判定をすり抜けてしまう（Codex レビュー指摘）。
+  const selectFile = (f: File | null) => {
+    currentSettingsRef.current = { ...currentSettingsRef.current, file: f };
+    setFile(f);
     setReport(null);
     onStep(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [file, scope, flags.createMasters, flags.excludeFixed, flags.skipDuplicates]);
+  };
+  const changeScope = (v: ImportScope) => {
+    currentSettingsRef.current = { ...currentSettingsRef.current, scope: v };
+    setScope(v);
+    setReport(null);
+    onStep(1);
+  };
+  const toggleFlag = (key: keyof typeof flags, checked: boolean) => {
+    currentSettingsRef.current = { ...currentSettingsRef.current, [key]: checked };
+    setFlags((p) => ({ ...p, [key]: checked }));
+    setReport(null);
+    onStep(1);
+  };
 
   const run = useMutation<KessanReport, Error, boolean>({
     mutationFn: async (commit) => {
@@ -103,11 +119,6 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
     onError: (err) => notifyApiError('総勘定元帳を取り込めませんでした', err, 'ファイルの形式（freee CSV / MoneyForward xlsx）を確かめてください。'),
   });
 
-  // ファイルの選び直し・取り消し。report/step のリセットは上の effect が行う。
-  const selectFile = (f: File | null) => {
-    setFile(f);
-  };
-
   const commit = async () => {
     const prod = report?.isProd;
     const ok = await confirmAction({
@@ -136,7 +147,7 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <Label>対象</Label>
-            <Select value={scope} onValueChange={(v) => setScope(v as ImportScope)}>
+            <Select value={scope} onValueChange={(v) => changeScope(v as ImportScope)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">すべて（販管費・売上・仕入）</SelectItem>
@@ -153,7 +164,7 @@ export function GlTab({ onStep }: { onStep: (n: 1 | 2 | 3) => void }) {
                   type="checkbox"
                   className="mt-1"
                   checked={flags[t.key]}
-                  onChange={(e) => setFlags((p) => ({ ...p, [t.key]: e.target.checked }))}
+                  onChange={(e) => toggleFlag(t.key, e.target.checked)}
                 />
                 <span>
                   {t.label}
