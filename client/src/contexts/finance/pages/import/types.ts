@@ -150,6 +150,17 @@ export function settlementPrefix(format: string): string {
 
 export type ImportScope = 'sga' | 'revenues' | 'purchases' | 'all';
 
+/** POST /admin/kessan/run — multipart/form-data で送る */
+export interface KessanRunRequest {
+  file: File;
+  scope: ImportScope;
+  commit: boolean;
+  createMasters: boolean;
+  excludeFixed: boolean;
+  skipDuplicates: boolean;
+  period?: string; // YYYY-MM（任意・現状UIからは送らない）
+}
+
 export interface KessanReport {
   dryRun: boolean;
   period: string;
@@ -167,6 +178,8 @@ export interface KessanReport {
   masters: {
     missingProjects: string[];
     missingCustomers: string[];
+    /** 仕入・固定原価の取引先で、既存マスタと紐付けられなかったもの（未登録／表記の衝突で一意に決められない） */
+    missingVendors: string[];
     created: { projects: number; customers: number; vendors: number };
   };
   duplicates: { sga: number; revenues: number; purchases: number; samples: string[] };

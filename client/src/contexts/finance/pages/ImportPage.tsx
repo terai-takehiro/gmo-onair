@@ -50,7 +50,7 @@ const STEPS: Record<Src, ImportStep[]> = {
     { title: '登録する', desc: '仕入・販管費に登録する（自動では入りません）' },
   ],
   gl: [
-    { title: '取り込む', desc: 'freee の総勘定元帳（Box）を指定する' },
+    { title: '取り込む', desc: 'freee の総勘定元帳CSV または MoneyForward の xlsx をPCからアップロードする' },
     { title: '確認する', desc: '件数・金額・重複候補を下書きで確かめる' },
     { title: '登録する', desc: '対象月ぶんを登録し直します（何度でも実行できます）' },
   ],
