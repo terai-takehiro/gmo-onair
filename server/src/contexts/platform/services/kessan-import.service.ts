@@ -576,13 +576,22 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
     // cache は「元の表記そのもの」をキーにする（正規化キーだと、同じ正規化キーに
     // 衝突する複数社のうち別々の完全一致名で呼ばれたとき、最初に解決した会社の結果を
     // 別の会社の名前に対しても返してしまう）。
+    // ⚠️ キャッシュは「確定した一致（id あり）」だけを信じる。未一致・曖昧は
+    // キャッシュしても再計算する — 同じ取込の中で別の表記（同じ正規化キー）から
+    // 先に新規作成されると、customerByKey/vendorByKey の候補が増えて「未一致」
+    // だった判定が「一致」や「曖昧」に変わりうるため（例: 元帳に「㈱ABC」と
+    // 「(株)ABC」の両方があり、どちらも未登録だった場合。先に「㈱ABC」を作成すると
+    // 「(株)ABC」は候補1件＝一致になるはずだが、未一致をキャッシュしたままだと
+    // 見逃して2社目を重複作成してしまう）。
     function resolveCustomer(name: string): Resolution {
-      if (cache.customers.has(name)) return cache.customers.get(name)!;
+      const cached = cache.customers.get(name);
+      if (cached?.id) return cached;
       const r = resolveCandidate(name, customerByKey.get(normalizeForMatch(name)));
       cache.customers.set(name, r); return r;
     }
     function resolveVendor(name: string): Resolution {
-      if (cache.vendors.has(name)) return cache.vendors.get(name)!;
+      const cached = cache.vendors.get(name);
+      if (cached?.id) return cached;
       const r = resolveCandidate(name, vendorByKey.get(normalizeForMatch(name)));
       cache.vendors.set(name, r); return r;
     }
