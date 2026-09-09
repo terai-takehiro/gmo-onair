@@ -178,6 +178,8 @@ export interface KessanReport {
   masters: {
     missingProjects: string[];
     missingCustomers: string[];
+    /** 仕入・固定原価の取引先で、既存マスタと紐付けられなかったもの（未登録／表記の衝突で一意に決められない） */
+    missingVendors: string[];
     created: { projects: number; customers: number; vendors: number };
   };
   duplicates: { sga: number; revenues: number; purchases: number; samples: string[] };

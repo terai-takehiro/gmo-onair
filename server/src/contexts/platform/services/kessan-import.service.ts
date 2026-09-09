@@ -65,6 +65,8 @@ export interface KessanReport {
   masters: {
     missingProjects: string[];
     missingCustomers: string[];
+    /** 仕入・固定原価の取引先で、既存マスタと紐付けられなかったもの（未登録／表記の衝突で一意に決められない） */
+    missingVendors: string[];
     created: { projects: number; customers: number; vendors: number };
   };
   /** 既存データ (非決算インポート行) に同一金額+内容が見つかった重複候補 */
@@ -497,7 +499,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       purchases: { count: pur.length, amount: sum(pur) },
       fixedCogs: { count: fixed.length, amount: sum(fixed), routed: excludeFixed ? '除外' : `${FIXED_NAME} (${FIXED_CODE})` },
     },
-    masters: { missingProjects: [], missingCustomers: [], created: { projects: 0, customers: 0, vendors: 0 } },
+    masters: { missingProjects: [], missingCustomers: [], missingVendors: [], created: { projects: 0, customers: 0, vendors: 0 } },
     duplicates: { sga: 0, revenues: 0, purchases: 0, samples: [] },
     samples: {
       sga: sga.slice(0, 6).map((x) => `${x.date} ${yen(x.amount)} ${x.tax_category} ${x.vendor_name} | ${x.description.slice(0, 60)}`),
@@ -579,8 +581,10 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       const r = resolveCandidate(name, customerByKey.get(normalizeForMatch(name)));
       cache.customers.set(name, r); return r;
     }
-    async function findCustomer(name: string) {
-      return resolveCustomer(name).id;
+    function resolveVendor(name: string): Resolution {
+      if (cache.vendors.has(name)) return cache.vendors.get(name)!;
+      const r = resolveCandidate(name, vendorByKey.get(normalizeForMatch(name)));
+      cache.vendors.set(name, r); return r;
     }
     async function findProjectByGls(gls: string) {
       if (cache.projects.has(gls)) return cache.projects.get(gls)!;
@@ -597,15 +601,40 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
     }
 
     // マスタ照合レポート
+    // ⚠️ ここで missingCustomers/missingVendors に載る名前は「未登録」と「表記の衝突で
+    // 一意に決められない（曖昧）」の両方を含む。曖昧な方は createMasters を ON にしても
+    // 自動作成されず、該当する売上・仕入は commit 時に必ずスキップされる
+    // （ensureCustomer/ensureVendor 参照）。dry-run でこの区別まで見せておかないと、
+    // 「投入したのに件数が減っていた（＝マーカー行を消したのに入れ直されなかった）」に
+    // 気づけない。
     if (scopes.includes('revenues') || scopes.includes('purchases')) {
       const glsNeeded = new Set<string>([...rev.filter((x) => x.gls).map((x) => x.gls as string), ...pur.map((x) => x.gls as string)]);
       for (const g of glsNeeded) if (!(await findProjectByGls(g))) report.masters.missingProjects.push(g);
+
+      const ambiguousNames: string[] = [];
       const custNeeded = new Set(rev.map((x) => x.customer_name));
-      for (const c of custNeeded) if (!(await findCustomer(c))) report.masters.missingCustomers.push(c);
+      for (const c of custNeeded) {
+        const r = resolveCustomer(c);
+        if (!r.id) { report.masters.missingCustomers.push(c); if (r.ambiguous) ambiguousNames.push(c); }
+      }
+      if (scopes.includes('purchases')) {
+        const vendorNeeded = new Set<string>([
+          ...pur.map((x) => x.vendor_name),
+          ...(excludeFixed ? [] : fixed.map((x) => x.vendor_name)),
+        ]);
+        for (const v of vendorNeeded) {
+          const r = resolveVendor(v);
+          if (!r.id) { report.masters.missingVendors.push(v); if (r.ambiguous) ambiguousNames.push(v); }
+        }
+      }
+
       const noGls = rev.filter((x) => !x.gls).length;
       if (noGls) warnings.push(`売上で GLS 未抽出 ${noGls} 件 (案件紐付け不可)`);
-      if ((report.masters.missingProjects.length || report.masters.missingCustomers.length) && !createMasters) {
+      if ((report.masters.missingProjects.length || report.masters.missingCustomers.length || report.masters.missingVendors.length) && !createMasters) {
         warnings.push('未登録マスタがあります。createMasters=true で自動作成します (dev)。');
+      }
+      if (ambiguousNames.length) {
+        warnings.push(`表記の似た取引先・顧客が複数登録されていて一意に決められないものが ${ambiguousNames.length} 件あります（${ambiguousNames.slice(0, 10).join('、')}）。これらは「案件・顧客・取引先を自動で作る」をONにしても自動作成されず、該当する売上・仕入は投入時にスキップされます。取引先マスターを確認してから投入してください。`);
       }
     }
 
@@ -723,29 +752,25 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       report.masters.created.customers++; return nid;
     }
     async function ensureVendor(name: string): Promise<string | null> {
-      // cache は findCustomer と同じ理由で「元の表記そのもの」をキーにする。
-      if (cache.vendors.has(name)) { const c = cache.vendors.get(name)!; if (c.id) return c.id; if (c.ambiguous) return null; }
-      // 名寄せは事前読み込み済み `vendorByKey`（normalizeForMatch 済み）から引く。
-      // 完全一致の都度 SQL に戻すと、表記が1文字違うだけの既存取引先を見逃し
-      // 二重に作ってしまう（findCustomer と同じ理由）。
-      const key = normalizeForMatch(name);
-      const resolved = resolveCandidate(name, vendorByKey.get(key));
+      // resolveVendor はマスタ照合レポートの段階で既に呼ばれ結果がキャッシュ済みのはず
+      // だが（cache は「元の表記そのもの」がキー）、念のためここでも解決する。
+      const resolved = resolveVendor(name);
+      if (resolved.id) return resolved.id;
       if (resolved.ambiguous) {
         // 同じ正規化キーに複数社が衝突していて決め切れない。誤って別会社に紐付けたり
         // 3社目を新規作成したりするより、この行をスキップする方が安全
         // （呼び出し元は id が null なら投入をスキップする）。
         warnAmbiguousOnce(name);
-        cache.vendors.set(name, { id: null, ambiguous: true });
         return null;
       }
-      let id = resolved.id;
-      if (!id && createMasters) {
-        // `companies` に行を作る（company-directory.service.ts）。名前は元の表記のまま保存する。
-        id = await createVendorRecord({ name, notes: MARKER }, fallbackUser, exec);
-        report.masters.created.vendors++;
-        pushCandidate(vendorByKey, key, { id, name });
-      }
-      cache.vendors.set(name, { id, ambiguous: false }); return id;
+      if (!createMasters) return null;
+      // `companies` に行を作る（company-directory.service.ts）。名前は元の表記のまま保存する。
+      const key = normalizeForMatch(name);
+      const id = await createVendorRecord({ name, notes: MARKER }, fallbackUser, exec);
+      report.masters.created.vendors++;
+      pushCandidate(vendorByKey, key, { id, name });
+      cache.vendors.set(name, { id, ambiguous: false });
+      return id;
     }
     async function ensureProject(key: string, name: string, customerId: string | null, isFixed = false): Promise<{ id: string; customer_id: string | null } | null> {
       const cacheKey = isFixed ? `__fixed__${key}` : key;

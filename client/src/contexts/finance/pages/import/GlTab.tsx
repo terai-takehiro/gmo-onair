@@ -317,7 +317,7 @@ function GlReport({ report }: { report: KessanReport }) {
         </p>
       )}
 
-      {(report.masters.missingProjects.length > 0 || report.masters.missingCustomers.length > 0) && (
+      {(report.masters.missingProjects.length > 0 || report.masters.missingCustomers.length > 0 || report.masters.missingVendors.length > 0) && (
         <div className="rounded-control-lg border border-warning-border bg-warning-surface p-3">
           {report.masters.missingProjects.length > 0 && (
             <p className="text-note text-warning">
@@ -327,6 +327,11 @@ function GlReport({ report }: { report: KessanReport }) {
           {report.masters.missingCustomers.length > 0 && (
             <p className="text-note mt-1 text-warning">
               登録の無い顧客 {report.masters.missingCustomers.length}件: {report.masters.missingCustomers.slice(0, 20).join('、')}
+            </p>
+          )}
+          {report.masters.missingVendors.length > 0 && (
+            <p className="text-note mt-1 text-warning">
+              登録の無い取引先 {report.masters.missingVendors.length}件: {report.masters.missingVendors.slice(0, 20).join('、')}
             </p>
           )}
           {report.dryRun && (
