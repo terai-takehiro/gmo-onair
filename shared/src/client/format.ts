@@ -45,6 +45,29 @@ export function localDateStr(date: Date): string {
 }
 
 /**
+ * `YYYY-MM-DD` を n 日進める（マイナスも可）。**`Date` の日をまたぐ計算だけに使い、
+ * `toISOString` は使わない**（UTC に寄って1日ずれる。`localDateStr` と同じ理由）。
+ * 予定・予約フォームの「複数日は開始日の翌日をデフォルトに」で使う（v4.6.13）。
+ */
+export function addDaysToDateStr(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return localDateStr(new Date(y, (m || 1) - 1, (d || 1) + days));
+}
+
+/**
+ * `HH:MM` を n 分進める。**日をまたがせない**（23:50 に1時間足しても 23:59 で止める）。
+ * 予定・予約フォームの「終了時刻は開始時刻の1時間後をデフォルトに」で使う（v4.6.13）。
+ * 日をまたぐ予定は「終了日」欄を別に持つ画面の仕事で、この関数は時刻欄1つの中で完結させる。
+ */
+export function addMinutesToTimeStr(timeStr: string, minutes: number): string {
+  const [h, m] = timeStr.split(":").map(Number);
+  const total = Math.min(23 * 60 + 59, Math.max(0, (h || 0) * 60 + (m || 0) + minutes));
+  const hh = String(Math.floor(total / 60)).padStart(2, "0");
+  const mm = String(total % 60).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+/**
  * 「最後の動き」を相対で書く (v4 モック「案件一覧」の最終列)。
  *
  * ── なぜ絶対時刻ではなく相対にするか ────────────────────────

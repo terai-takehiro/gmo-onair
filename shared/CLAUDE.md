@@ -58,7 +58,7 @@ PR テンプレートの影響範囲「共通ライブラリ (`shared/`)」に�
 | `ui/confirm.tsx` | `confirmAction({ title, description, confirmLabel, tone })` `<ConfirmHost />` | `window.confirm()` の置き換え。器が無いと **`false` を返して実行しない** |
 | `ui/{toast,toaster,use-toast}` | `toast` `<Toaster />` | 旧トースト。**`client-techops` だけ**（`src/lib/notify.ts` 経由・`<Toaster />` 1つ。他は 0 を検査）。新しい画面では使わない |
 | `dashboard/` | `DashboardHeader` `KpiCard` `SectionCard` `EmptyState` | ダッシュボードの定型 |
-| `format.ts` | `formatCurrency` `formatDate` `formatMonth` `formatShortDate` `localDateStr` `formatRelativeTime` | 表示整形（相対時刻は未来を「たった今」に丸める） |
+| `format.ts` | `formatCurrency` `formatDate` `formatMonth` `formatShortDate` `localDateStr` `formatRelativeTime` `addDaysToDateStr` `addMinutesToTimeStr` | 表示整形（相対時刻は未来を「たった今」に丸める）。後の2つは日付・時刻欄のデフォルト値計算用（`toISOString` を使わず日をまたがせない） |
 | `hooks/` | `queryKeys` `useDebounced` | react-query の鍵の factory／入力が止まってから返す |
 | `manual/` `mcpInfo/` `versionHistory/` | `ManualModal` `McpInfoModal` `VersionHistoryModal` | 本人メニューから開く3つのモーダル |
 | `live/` | `socket`（`/liveops`）`useTimer` `DisplayCanvas` `displayLayout` | 計時・視聴者の運用画面（`client-techops`）用。表示画面 `client-live` は `socket`/`useTimer` の**意図的な複製**を持つ（`/live/display/` の見た目を変えない決まり） |
