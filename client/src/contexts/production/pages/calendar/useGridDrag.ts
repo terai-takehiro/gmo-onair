@@ -154,7 +154,18 @@ export function useGridDrag({
     };
     const up = () => {
       const d = ref.current;
-      wasDraggedRef.current = !!d?.moved;
+      if (d?.moved) {
+        wasDraggedRef.current = true;
+        // **移動した札は `drag.movingKey` により即座にアンマウントされるため**
+        // （元の位置には描かず overlay だけを動く先に見せる設計）、その要素経由での
+        // 合成 click（`onClickCapture`）は発火しようがなく、消費するロジックに
+        // 出番が来ない。マクロタスクの頭で自動的にリセットすれば、この mouseup と
+        // 同期的に起きうる click（他の要素上の場合を含め）だけを覆い、ユーザーの
+        // 次の実際のクリックには影響しない（Codex レビュー指摘・P2の再指摘）
+        setTimeout(() => { wasDraggedRef.current = false; }, 0);
+      } else {
+        wasDraggedRef.current = false;
+      }
       setDrag(null);
       if (!d) return;
       if (d.kind === 'create') {
@@ -220,16 +231,11 @@ export function useGridDrag({
   return {
     startCreate, startResize, startMove, overlayFor,
     movingKey: drag?.kind === 'move' ? drag.ev?.key ?? null : null,
-    // **読んだら消費する。** `onClickCapture` は動かせない札（パートナー予定・タスク・
-    // 外部同期の個人予定など）にも付いているが、そちらは `startMove` を呼ばないため
-    // このフラグをリセットする機会が無い。消費せずに残すと、ドラッグで動かした
-    // 直後に無関係の札を押しても「動かした後のクリック」と誤認され続け、
-    // その札の詳細が開けなくなる（Codex レビュー指摘・P2）
-    wasDragged: () => {
-      const v = wasDraggedRef.current;
-      wasDraggedRef.current = false;
-      return v;
-    },
+    // リセットは `up()` 側の `setTimeout` 1本に寄せてある（このフラグの寿命は
+    // 「その mouseup と同期的に起きうる click」の間だけで十分 — 動かした札自身は
+    // 即座にアンマウントされ合成 click 自体が発火しないため、消費ロジックに
+    // 出番が来なかった。Codex レビュー指摘・P2の再指摘）
+    wasDragged: () => wasDraggedRef.current,
     dragging: !!drag,
   };
 }
