@@ -12,10 +12,11 @@
  * 時刻だけ見えて題名が消える）。45分未満は**時刻と題名を1行に畳み**、
  * 全部の札に**ホバーで全文が読めるツールチップ**（title 属性）を付けます。
  *
- * ── ドラッグ操作（v4.5.2）──────────────────────────────────
+ * ── ドラッグ操作（v4.5.2〜v4.6.13）──────────────────────────
  *
  * 空きマスを押す/なぞる → その時間で「予定を入れる」が開く。
- * 札の下端のつまみを引く → 終了時刻を延ばす/縮める（`useGridDrag.ts`）。
+ * 札の上下端のつまみを引く → 開始/終了時刻を延ばす/縮める。
+ * 札の本体を掴んで動かす → 長さを保ったまま時間・曜日を動かす（`useGridDrag.ts`）。
  */
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import {
@@ -38,7 +39,7 @@ const hmToMin = (iso: string) => {
 };
 
 export function TimeGrid({
-  days, today, now, events, holidays, onOpen, onPickDay, onCreateRange, onResizeEnd, resizable,
+  days, today, now, events, holidays, onOpen, onPickDay, onCreateRange, onResize, onMove, resizable,
 }: {
   /** 出す日。週表は7日、日表は1日 */
   days: string[];
@@ -50,15 +51,17 @@ export function TimeGrid({
   onPickDay: (day: string) => void;
   /** 空きマスの選択で新規作成する（無ければ読むだけの表になる） */
   onCreateRange?: (day: string, start: string, end: string) => void;
-  /** 札の下端ドラッグで終了時刻を変える */
-  onResizeEnd?: (e: CalEvent, end: string) => void;
-  /** その札を延ばせるか（権限と取得元で決まる。無ければ全部不可） */
+  /** 札の上/下端ドラッグで開始/終了時刻を変える */
+  onResize?: (e: CalEvent, edge: 'start' | 'end', time: string) => void;
+  /** 札本体を掴んで動かす（長さは変えず、時間・曜日をまとめてずらす） */
+  onMove?: (e: CalEvent, day: string, start: string, end: string) => void;
+  /** その札を延ばす/動かせるか（権限と取得元で決まる。無ければ全部不可） */
   resizable?: (e: CalEvent) => boolean;
 }) {
   const wide = days.length === 1;
   const marks = hourMarks();
   const line = nowTop(now);
-  const drag = useGridDrag({ onCreateRange, onResizeEnd });
+  const drag = useGridDrag({ onCreateRange, onResize, onMove });
 
   return (
     <div className={cn('rounded-card overflow-hidden border border-border bg-card', drag.dragging && 'select-none')}>
@@ -145,6 +148,7 @@ export function TimeGrid({
             <div
               key={day}
               data-cal-col
+              data-day={day}
               className={cn('relative min-w-0 flex-1 border-l border-border-faint', onCreateRange && 'cursor-crosshair')}
               onMouseDown={(e) => drag.startCreate(day, e)}
             >
@@ -156,18 +160,32 @@ export function TimeGrid({
                 // 2行（時刻＋題名）には約55分ぶんの高さが要る（週表・実測）。
                 // それ未満は1行に畳む（時刻は始まりだけ・全文はツールチップ）
                 const compact = p.minutes < 55;
-                const canResize = !!onResizeEnd && !!resizable?.(p.ev) && !p.cutBottom
-                  && !p.ev.allDay && (p.ev.end || p.ev.start).slice(0, 10) === p.ev.start.slice(0, 10);
+                // 同日内の時刻付きの札だけが対象。複数日にまたがる札は上下端も
+                // 動かせない（`p.ev.start`側の日しか分からず、動かした先が
+                // どちらの日の何時になるのか一意に決まらないため）
+                const sameDay = !p.ev.allDay && (p.ev.end || p.ev.start).slice(0, 10) === p.ev.start.slice(0, 10);
+                const canEditEvent = !!resizable?.(p.ev) && sameDay;
+                const canResizeEnd = !!onResize && canEditEvent && !p.cutBottom;
+                const canResizeStart = !!onResize && canEditEvent && !p.cutTop;
+                const canMove = !!onMove && canEditEvent;
+                const startMin = hmToMin(p.ev.start);
+                const endMin = hmToMin(p.ev.end || p.ev.start);
+                // ドラッグで動かしている最中の札は、元の位置には描かない
+                // （帯（overlay）だけを動く先に見せる。両方出ると2枚に見える）
+                if (drag.movingKey === p.ev.key) return null;
                 return (
                   <button
                     key={p.ev.key}
                     type="button"
+                    onMouseDown={canMove ? (e) => drag.startMove(day, p.ev, startMin, endMin, e) : undefined}
+                    onClickCapture={(e) => { if (drag.wasDragged()) { e.preventDefault(); e.stopPropagation(); } }}
                     onClick={() => onOpen(p.ev)}
                     title={tip(p.ev)}
                     className={cn(
                       'v4-card group absolute flex flex-col overflow-hidden rounded-note border-l-[3px] text-left',
                       compact ? 'justify-center px-1.5 py-0' : 'gap-px px-1.5 py-1',
                       p.ev.tentative && 'border-y border-r border-dashed',
+                      canMove && 'cursor-grab active:cursor-grabbing',
                     )}
                     style={{
                       top: `${p.top}%`,
@@ -209,11 +227,27 @@ export function TimeGrid({
                         )}
                       </>
                     )}
-                    {canResize && (
-                      /* 下端のつまみ。押して引くと終了時刻が動く（札のクリックには化けない） */
+                    {canResizeStart && (
+                      /* 上端のつまみ。押して引くと開始時刻が動く（札のクリック・移動には化けない） */
                       <span
                         role="presentation"
-                        onMouseDown={(e) => drag.startResize(day, p.ev, hmToMin(p.ev.start), hmToMin(p.ev.end || p.ev.start), e)}
+                        data-resize-handle
+                        onMouseDown={(e) => drag.startResize(day, p.ev, startMin, endMin, 'start', e)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute inset-x-0 top-0 h-[7px] cursor-ns-resize"
+                      >
+                        <span
+                          className="absolute top-[2px] left-1/2 h-[3px] w-6 -translate-x-1/2 rounded-badge-xs opacity-0 group-hover:opacity-60"
+                          style={{ backgroundColor: p.ev.color }}
+                        />
+                      </span>
+                    )}
+                    {canResizeEnd && (
+                      /* 下端のつまみ。押して引くと終了時刻が動く（札のクリック・移動には化けない） */
+                      <span
+                        role="presentation"
+                        data-resize-handle
+                        onMouseDown={(e) => drag.startResize(day, p.ev, startMin, endMin, 'end', e)}
                         onClick={(e) => e.stopPropagation()}
                         className="absolute inset-x-0 bottom-0 h-[7px] cursor-ns-resize"
                       >
@@ -272,7 +306,8 @@ export function TimeGrid({
         出しているのは <span className="font-number">{DAY_START_H}:00 – {DAY_END_H}:00</span> です。
         この外から続く予定は<strong className="font-bold">端で切って ↑↓ を付けて</strong>出します（消しません）。
         {onCreateRange && <>空いている所を<strong className="font-bold">なぞると</strong>その時間で予定を入れられます。</>}
-        {onResizeEnd && <>札の<strong className="font-bold">下端を引く</strong>と終了時刻を変えられます。</>}
+        {onResize && <>札の<strong className="font-bold">上下端を引く</strong>と開始/終了時刻を変えられます。</>}
+        {onMove && <>札の<strong className="font-bold">本体を掴んで動かす</strong>と時間・曜日をまとめてずらせます。</>}
       </p>
     </div>
   );

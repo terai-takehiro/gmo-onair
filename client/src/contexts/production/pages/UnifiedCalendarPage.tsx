@@ -317,10 +317,10 @@ function DesktopCalendar() {
               <TimeGrid
                 days={weekDays(anchor)}
                 today={today} now={now} events={cal.events} holidays={cal.holidays}
-                onOpen={(e) => open(e.key)}
-                onPickDay={pickDay}
+                onOpen={(e) => open(e.key)} onPickDay={pickDay}
                 onCreateRange={canStudioEdit || canPartnerEdit ? edit.createFromRange : undefined}
-                onResizeEnd={(ev, end) => edit.resize.mutate({ ev, end })}
+                onResize={(ev, edge, time) => edit.resize.mutate({ ev, edge, time })}
+                onMove={(ev, day, start, end) => edit.move.mutate({ ev, day, start, end })}
                 resizable={edit.canResizeEvent}
               />
             )}
