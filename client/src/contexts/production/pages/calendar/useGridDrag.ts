@@ -206,7 +206,10 @@ export function useGridDrag({
     if (!drag) return null;
     const span = WIN_TO - WIN_FROM;
     if (drag.kind === 'move') {
-      if (drag.curDay !== day) return null; // 移動先の列にだけ帯を出す（元の列は札を隠すだけ）
+      // **まだ動いていなければ帯も出さない。** `movingKey` と同じ理由 — ただの
+      // クリック（mousedown 直後、moved はまだ false）で元の札の上に帯が
+      // 重なって一瞬ちらつくのを防ぐ
+      if (!drag.moved || drag.curDay !== day) return null; // 移動先の列にだけ帯を出す（元の列は札を隠すだけ）
       const dur = drag.durationMin ?? 60;
       const start = Math.max(WIN_FROM, Math.min(WIN_TO - dur, drag.curMin - drag.anchorMin));
       const end = start + dur;
