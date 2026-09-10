@@ -217,7 +217,16 @@ export function useGridDrag({
   return {
     startCreate, startResize, startMove, overlayFor,
     movingKey: drag?.kind === 'move' ? drag.ev?.key ?? null : null,
-    wasDragged: () => wasDraggedRef.current,
+    // **読んだら消費する。** `onClickCapture` は動かせない札（パートナー予定・タスク・
+    // 外部同期の個人予定など）にも付いているが、そちらは `startMove` を呼ばないため
+    // このフラグをリセットする機会が無い。消費せずに残すと、ドラッグで動かした
+    // 直後に無関係の札を押しても「動かした後のクリック」と誤認され続け、
+    // その札の詳細が開けなくなる（Codex レビュー指摘・P2）
+    wasDragged: () => {
+      const v = wasDraggedRef.current;
+      wasDraggedRef.current = false;
+      return v;
+    },
     dragging: !!drag,
   };
 }

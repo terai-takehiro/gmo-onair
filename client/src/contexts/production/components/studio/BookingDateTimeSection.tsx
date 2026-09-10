@@ -81,10 +81,17 @@ export function BookingDateTimeSection({
               onChange={(e) => {
                 const v = e.target.value;
                 setStartDate(v);
-                if (isSingleDateType && !multiDay) setEndDate(v);
-                // 終了日が新しい開始日以前になったら翌日へ押し出す
-                // （同日以前を許すと「終了が開始より前」の壊れた予約になる）
-                else if (endDate <= v) setEndDate(addDaysToDateStr(v, 1));
+                if (isSingleDateType && !multiDay) {
+                  setEndDate(v);
+                } else if (isSingleDateType && multiDay) {
+                  // 複数日: 終了日は開始日より後を維持する（同日以下なら翌日へ押し出す）
+                  if (endDate <= v) setEndDate(addDaysToDateStr(v, 1));
+                } else {
+                  // **非単日タイプ（相談・下見・設営・保守・社内利用など）は同日の
+                  // 終了日を許す**（同日の時刻指定予約が普通にある）。開始日より
+                  // 前になったときだけ開始日に揃える（Codex レビュー指摘・P1）
+                  if (endDate < v) setEndDate(v);
+                }
               }}
               className={inputCls}
               style={{ fontSize: "16px", colorScheme: "light" }}
@@ -123,10 +130,17 @@ export function BookingDateTimeSection({
                     const v = e.target.value;
                     // **`min` はカレンダー UI の選択しか止めない。** 日付欄を
                     // キーボードで直接打ち直すと `min` 未満でも `onChange` は
-                    // 普通に発火するため、ここでも開始日以前を弾く
-                    setEndDate(v <= startDate ? addDaysToDateStr(startDate, 1) : v);
+                    // 普通に発火するため、ここでも弾く。
+                    // 複数日モードは同日以下を翌日へ押し出す（デフォルト値の趣旨）が、
+                    // **非単日タイプは同日の終了日を許す**（同日の時刻指定予約がある。
+                    // Codex レビュー指摘・P1）— 弾くのは開始日より前だけ
+                    setEndDate(
+                      isSingleDateType && multiDay
+                        ? (v <= startDate ? addDaysToDateStr(startDate, 1) : v)
+                        : (v < startDate ? startDate : v)
+                    );
                   }}
-                  min={addDaysToDateStr(startDate, 1)}
+                  min={isSingleDateType && multiDay ? addDaysToDateStr(startDate, 1) : startDate}
                   className={inputCls}
                   style={{ fontSize: "16px", colorScheme: "light" }}
                 />
