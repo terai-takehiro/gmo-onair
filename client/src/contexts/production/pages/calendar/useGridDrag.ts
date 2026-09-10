@@ -153,10 +153,15 @@ export function useGridDrag({
     const move = (e: MouseEvent) => {
       setDrag((d) => {
         if (!d) return d;
-        const raw = fracToMin((e.clientY - d.rect.top) / d.rect.height);
-        // resize は掴んだ位置と論理時刻のずれ（`grabOffsetMin`）を引いてから丸める
-        // （先に丸めると誤差が乗る。P2 の再指摘・上端つまみの視覚位置ずれ対策）
-        const min = snapMin(d.kind === 'resize' ? raw - (d.grabOffsetMin ?? 0) : raw);
+        // **クランプする前に補正する。** `fracToMin` は結果を 8:00〜22:00 に丸め込む
+        // ため、先にそれを適用してから `grabOffsetMin` を引くと、境界（22:00 や
+        // 8:00）にオフセット分だけ届かなくなる（例: 22:00 まで引いたつもりが
+        // 21:45 で頭打ちになる。Codex レビュー指摘・P2）。窓の外にも出られる
+        // 生の値で補正してから、改めて窓の内側にクランプする
+        const span = WIN_TO - WIN_FROM;
+        const rawMin = WIN_FROM + ((e.clientY - d.rect.top) / d.rect.height) * span;
+        const corrected = d.kind === 'resize' ? rawMin - (d.grabOffsetMin ?? 0) : rawMin;
+        const min = snapMin(Math.max(WIN_FROM, Math.min(WIN_TO, corrected)));
         let curDay = d.curDay;
         if (d.kind === 'move') {
           // 今マウスの下にある列を探す。ドラッグ中はマウスの下に札やオーバーレイが
