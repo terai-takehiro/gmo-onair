@@ -230,7 +230,11 @@ export function useGridDrag({
 
   return {
     startCreate, startResize, startMove, overlayFor,
-    movingKey: drag?.kind === 'move' ? drag.ev?.key ?? null : null,
+    // **実際に動いてから隠す。** `mousedown` の時点では `moved` がまだ false —
+    // ここを見ずに `kind === 'move'` だけで判定すると、動かすつもりのない
+    // ただのクリックでも押した瞬間に札が消え、離しても合成 click が発火せず
+    // 詳細を開けなくなる（Codex レビュー指摘・P1）
+    movingKey: drag?.kind === 'move' && drag.moved ? drag.ev?.key ?? null : null,
     // リセットは `up()` 側の `setTimeout` 1本に寄せてある（このフラグの寿命は
     // 「その mouseup と同期的に起きうる click」の間だけで十分 — 動かした札自身は
     // 即座にアンマウントされ合成 click 自体が発火しないため、消費ロジックに
