@@ -237,6 +237,12 @@ export default function StudioBookingDialog({
           setStartDate(sd); setEndDate(ed); setMultiDay(sd !== ed);
           setStartTime(presetDate.start.split("T")[1]?.slice(0, 5) || "09:00");
           setEndTime(presetDate.end.split("T")[1]?.slice(0, 5) || "18:00");
+          // **`allDay: false` でも時刻を含まない日付だけのプリセットがある**
+          // （デスクトップツールバー・モバイルカレンダー経由。`useCalendarEdit.ts` の
+          // `studioPreset`）。その場合は実質デフォルト値（09:00/18:00）のフォールバック
+          // でしかないので、時刻付き（週表の空きマスなぞり）扱いにしない —
+          // でないと開始時刻を動かしても追従が発火しない（Codex レビュー指摘・P2）
+          endTimeTouchedRef.current = presetDate.start.includes("T");
         }
       } else {
         setAllDay(true);
