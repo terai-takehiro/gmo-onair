@@ -67,26 +67,47 @@ export function useCalendarEdit({
   };
 
   /**
-   * 札の下端ドラッグで終了時刻だけ変える。更新 API は3系統とも
-   * **渡さなかった項目は今の値を保つ**部分更新なので、`end_time` だけ送る
+   * 札の上/下端ドラッグで開始/終了時刻だけ変える。更新 API は3系統とも
+   * **渡さなかった項目は今の値を保つ**部分更新なので、動かした側の1項目だけ送る
    * （全項目を写して送り直すと、この画面が持っていない項目を壊しかねない）
    */
   const resize = useMutation({
-    mutationFn: ({ ev, end }: { ev: CalEvent; end: string }) => {
-      const endIso = `${ev.start.slice(0, 10)}T${end}`;
+    mutationFn: ({ ev, edge, time }: { ev: CalEvent; edge: 'start' | 'end'; time: string }) => {
+      const iso = `${ev.start.slice(0, 10)}T${time}`;
+      const field = edge === 'end' ? 'end_time' : 'start_time';
       return ev.layer === 'studio'
-        ? api.put(`/studios/bookings/${ev.id}`, { end_time: endIso })
-        : api.put(`/schedule/personal/${ev.id}`, { end_time: endIso });
+        ? api.put(`/studios/bookings/${ev.id}`, { [field]: iso })
+        : api.put(`/schedule/personal/${ev.id}`, { [field]: iso });
     },
-    onSuccess: (_r, { ev, end }) => {
+    onSuccess: (_r, { ev, edge, time }) => {
       if (ev.layer === 'studio') invalidateBookingQueries(qc);
       else qc.invalidateQueries({ queryKey: ['personal-events'] });
-      notifySuccess(`終了を ${end} にしました`);
+      notifySuccess(`${edge === 'end' ? '終了' : '開始'}を ${time} にしました`);
     },
-    onError: (e) => notifyApiError('終了時刻を変えられませんでした', e),
+    onError: (e) => notifyApiError('時刻を変えられませんでした', e),
   });
 
-  /** その札を下端ドラッグで延ばせるか。外部同期（Google 等）の予定は API が編集を拒む */
+  /**
+   * 札を掴んで動かす（長さは変えず、開始・終了・曜日をまとめてずらす）。
+   * `start_time`/`end_time` の両方を送るのは resize と同じ理由での部分更新の延長
+   * （渡した項目だけ書き換わる。他の欄はサーバー側で今の値のまま保たれる）
+   */
+  const move = useMutation({
+    mutationFn: ({ ev, day, start, end }: { ev: CalEvent; day: string; start: string; end: string }) => {
+      const payload = { start_time: `${day}T${start}`, end_time: `${day}T${end}` };
+      return ev.layer === 'studio'
+        ? api.put(`/studios/bookings/${ev.id}`, payload)
+        : api.put(`/schedule/personal/${ev.id}`, payload);
+    },
+    onSuccess: (_r, { ev }) => {
+      if (ev.layer === 'studio') invalidateBookingQueries(qc);
+      else qc.invalidateQueries({ queryKey: ['personal-events'] });
+      notifySuccess('予定を動かしました');
+    },
+    onError: (e) => notifyApiError('動かせませんでした', e),
+  });
+
+  /** その札を上下端ドラッグ・本体ドラッグで動かせるか。外部同期（Google 等）の予定は API が編集を拒む */
   const canResizeEvent = (e: CalEvent) => {
     if (e.layer === 'studio') return canStudioEdit;
     if (e.layer === 'my') return canPartnerEdit && mine.find((x) => x.id === e.id)?.source === 'manual';
@@ -107,7 +128,7 @@ export function useCalendarEdit({
 
   return {
     studioPreset, personalPreset, partnerPreset,
-    createFromRange, resize, canResizeEvent, del,
+    createFromRange, resize, move, canResizeEvent, del,
     clearTimePreset: () => setTimePreset(null),
   };
 }

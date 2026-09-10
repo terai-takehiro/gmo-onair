@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import { localDateStr } from "@/lib/format";
+import { localDateStr, addMinutesToTimeStr } from "@/lib/format";
 import { FormDialog, FormDialogFooter } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +49,10 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
   const [shareSearch, setShareSearch] = useState("");
   const [showShare, setShowShare] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // **終了時刻を手で直したか。** 真っさらな新規作成（時刻指定の無いプリセット含む）
+  // だけ false から始め、開始時刻を動かすと終了時刻が「開始の1時間後」に追従する。
+  // 編集時・時刻付きプリセット（週表の空きマスなぞり）は指定/既存の値を保つ
+  const endTimeTouchedRef = useRef(true);
 
   // 共有先候補 = パートナースケジュール権限保持者
   const { data: partnerUsers = [] } = useQuery<Array<{ id: string; name: string }>>({
@@ -77,6 +81,7 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
     if (!open) return;
     setError(null);
     setShareSearch("");
+    endTimeTouchedRef.current = true; // 既定は「触られていない」= true。新規作成の分岐だけ下で false に落とす
     if (editing) {
       setTitle(editing.title);
       setAllDay(!!editing.all_day);
@@ -100,6 +105,9 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
       setStartTime(presetRange?.start?.split("T")[1]?.slice(0, 5) || "10:00");
       setEndTime(presetRange?.end?.split("T")[1]?.slice(0, 5) || "11:00");
       setLocation(""); setNotes(""); setShareIds([]); setShowShare(false);
+      // 時刻付きのプリセット（週表の空きマスなぞり）はその時刻を保つ。
+      // 日付だけ・真っさらな新規作成は、開始時刻を動かすと終了時刻が追従する
+      endTimeTouchedRef.current = !!presetRange?.start?.includes("T");
     }
   }, [open, editing, presetRange]);
 
@@ -134,7 +142,11 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
     onError: (err: any) => setError(err?.response?.data?.error?.message || "予定を削除できませんでした。少し時間をおいてもう一度お試しください。"),
   });
 
-  const canSubmit = !!title.trim() && !!startDate;
+  // **UI 側（下の日付欄 onChange）で前後関係を補正しているが、念のためここでも見る。**
+  // `min` 属性はカレンダー UI の選択しか止めず、キーボードで日付欄を直接打ち直すと
+  // すり抜けるため（HTML5 の制約検証はブラウザの標準吹き出しで止まり、この画面の
+  // エラー表示には出てこない）
+  const canSubmit = !!title.trim() && !!startDate && (!endDate || endDate >= startDate);
 
   const filteredUsers = useMemo(() => {
     const q = shareSearch.trim().toLowerCase();
@@ -243,20 +255,37 @@ export default function PersonalEventDialog({ open, onOpenChange, editing, prese
               <Label>開始</Label>
               <div className="flex gap-2">
                 <Input type="date" className="min-w-0 flex-1" value={startDate} disabled={isExternalSynced} onChange={(e) => {
-                  setStartDate(e.target.value);
-                  if (!endDate || endDate < e.target.value) setEndDate(e.target.value);
+                  const v = e.target.value;
+                  setStartDate(v);
+                  if (!endDate || endDate < v) setEndDate(v);
                 }} />
                 {!allDay && (
-                  <Input type="time" className="w-28 shrink-0" value={startTime} disabled={isExternalSynced} onChange={(e) => setStartTime(e.target.value)} />
+                  <Input type="time" className="w-28 shrink-0" value={startTime} disabled={isExternalSynced} onChange={(e) => {
+                    const v = e.target.value;
+                    setStartTime(v);
+                    // **終了時刻を手で直していなければ「開始の1時間後」に追従**
+                    if (!endTimeTouchedRef.current) setEndTime(addMinutesToTimeStr(v, 60));
+                  }} />
                 )}
               </div>
             </div>
             <div className="space-y-1.5">
               <Label>終了</Label>
               <div className="flex gap-2">
-                <Input type="date" className="min-w-0 flex-1" value={endDate} min={startDate} disabled={isExternalSynced} onChange={(e) => setEndDate(e.target.value)} />
+                <Input
+                  type="date" className="min-w-0 flex-1" value={endDate} min={startDate} disabled={isExternalSynced}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    // **`min` はカレンダー UI の選択しか止めない。** キーボードで
+                    // 開始日より前の日付を直接打ち込んでもすり抜けるため、ここでも弾く
+                    setEndDate(v < startDate ? startDate : v);
+                  }}
+                />
                 {!allDay && (
-                  <Input type="time" className="w-28 shrink-0" value={endTime} disabled={isExternalSynced} onChange={(e) => setEndTime(e.target.value)} />
+                  <Input
+                    type="time" className="w-28 shrink-0" value={endTime} disabled={isExternalSynced}
+                    onChange={(e) => { endTimeTouchedRef.current = true; setEndTime(e.target.value); }}
+                  />
                 )}
               </div>
             </div>

@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import { localDateStr } from "@/lib/format";
+import { localDateStr, addMinutesToTimeStr } from "@/lib/format";
 import { FormDialog, FormDialogFooter } from "@gmo-onair/shared/src/client-v4/formDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +46,9 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
   // 担当者（複数・任意）。登録ユーザーから選ぶので user_id の配列で持つ
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // **終了時刻を手で直したか。** 真っさらな新規作成（時刻指定の無いプリセット含む）
+  // だけ false から始め、開始時刻を動かすと終了時刻が「開始の1時間後」に追従する
+  const endTimeTouchedRef = useRef(true);
 
   // 対象者プルダウン（manager のみ）に使う。パートナー権限（sales）保持者一覧。
   // 担当者チップは `AssigneePicker`（`../AssigneePicker`）が同じ一覧を内部で引く
@@ -54,6 +57,7 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
   useEffect(() => {
     if (!open) return;
     setError(null);
+    endTimeTouchedRef.current = true; // 既定は「触られていない」= true。新規作成の分岐だけ下で false に落とす
     if (editing) {
       setUserId(editing.user_id);
       setScheduleType(editing.schedule_type);
@@ -89,6 +93,9 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
       setNotes("");
       setTentative(false);
       setAssigneeIds([]);
+      // 時刻付きのプリセット（週表の空きマスなぞり）はその時刻を保つ。
+      // 日付だけ・真っさらな新規作成は、開始時刻を動かすと終了時刻が追従する
+      endTimeTouchedRef.current = !!psTime;
     }
   }, [open, editing, presetRange, currentUser?.id]);
 
@@ -127,7 +134,10 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
     onError: (err: any) => setError(err?.response?.data?.error?.message || "予定を削除できませんでした。少し時間をおいてもう一度お試しください。"),
   });
 
-  const canSubmit = !!startDate && (allDay || (!!startTime && !!endTime));
+  // **UI 側（下の日付欄 onChange）で前後関係を補正しているが、念のためここでも見る。**
+  // `min` 属性はカレンダー UI の選択しか止めず、キーボードで日付欄を直接打ち直すと
+  // すり抜けるため（ブラウザ標準の吹き出しで止まり、この画面のエラー表示には出てこない）
+  const canSubmit = !!startDate && (allDay || (!!startTime && !!endTime)) && (!endDate || endDate >= startDate);
   const ownRow = !editing || editing.user_id === currentUser?.id;
   const canModify = ownRow || isManager;
 
@@ -248,20 +258,37 @@ export default function PartnerScheduleDialog({ open, onOpenChange, editing, pre
               <Label>開始</Label>
               <div className="flex gap-2">
                 <Input type="date" className="min-w-0 flex-1" value={startDate} onChange={(e) => {
-                  setStartDate(e.target.value);
-                  if (!endDate || endDate < e.target.value) setEndDate(e.target.value);
+                  const v = e.target.value;
+                  setStartDate(v);
+                  if (!endDate || endDate < v) setEndDate(v);
                 }} />
                 {!allDay && (
-                  <Input type="time" className="w-28 shrink-0" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                  <Input type="time" className="w-28 shrink-0" value={startTime} onChange={(e) => {
+                    const v = e.target.value;
+                    setStartTime(v);
+                    // **終了時刻を手で直していなければ「開始の1時間後」に追従**
+                    if (!endTimeTouchedRef.current) setEndTime(addMinutesToTimeStr(v, 60));
+                  }} />
                 )}
               </div>
             </div>
             <div className="space-y-1.5">
               <Label>終了</Label>
               <div className="flex gap-2">
-                <Input type="date" className="min-w-0 flex-1" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} />
+                <Input
+                  type="date" className="min-w-0 flex-1" value={endDate} min={startDate}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    // **`min` はカレンダー UI の選択しか止めない。** キーボードで
+                    // 開始日より前の日付を直接打ち込んでもすり抜けるため、ここでも弾く
+                    setEndDate(v < startDate ? startDate : v);
+                  }}
+                />
                 {!allDay && (
-                  <Input type="time" className="w-28 shrink-0" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                  <Input
+                    type="time" className="w-28 shrink-0" value={endTime}
+                    onChange={(e) => { endTimeTouchedRef.current = true; setEndTime(e.target.value); }}
+                  />
                 )}
               </div>
             </div>

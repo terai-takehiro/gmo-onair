@@ -11,6 +11,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Loader2 } from "lucide-react";
 import { BookingRoomPicker } from "./bookingRoomPicker";
+import { BookingDateTimeSection } from "./BookingDateTimeSection";
 import { GreenroomOccupants } from "./GreenroomOccupants";
 import { AssigneePicker, type AssigneeRef } from "../AssigneePicker";
 import { formatShortDate, localDateStr } from "@/lib/format";
@@ -124,6 +125,11 @@ export default function StudioBookingDialog({
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
   const locationInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  // **終了時刻を手で直したか。** 真っさらな新規作成だけ false から始め、開始時刻を
+  // 動かすと終了時刻が「開始の1時間後」に自動で追従する。編集時・プリセット
+  // （香盤マスや週表の空きマスなぞりで渡された時刻）は既存/指定の値を保つため
+  // true から始める — 何もしていないのに終了時刻が動くと「消えた」ように見える
+  const endTimeTouchedRef = useRef(true);
 
   const isSingleDateType = SINGLE_DATE_TYPES.has(bookingType);
 
@@ -170,6 +176,9 @@ export default function StudioBookingDialog({
 
   useEffect(() => {
     if (!open) return;
+    // 既定は「触られていない」= true（編集・プリセットは指定値を保つ）。
+    // 真っさらな新規作成（下の else の else）だけ false に落とす
+    endTimeTouchedRef.current = true;
     if (editingBooking) {
       const b = editingBooking;
       setTitle(b.title);
@@ -228,12 +237,21 @@ export default function StudioBookingDialog({
           setStartDate(sd); setEndDate(ed); setMultiDay(sd !== ed);
           setStartTime(presetDate.start.split("T")[1]?.slice(0, 5) || "09:00");
           setEndTime(presetDate.end.split("T")[1]?.slice(0, 5) || "18:00");
+          // **`allDay: false` でも時刻を含まない日付だけのプリセットがある**
+          // （デスクトップツールバー・モバイルカレンダー経由。`useCalendarEdit.ts` の
+          // `studioPreset`）。その場合は実質デフォルト値（09:00/18:00）のフォールバック
+          // でしかないので、時刻付き（週表の空きマスなぞり）扱いにしない —
+          // でないと開始時刻を動かしても追従が発火しない（Codex レビュー指摘・P2）
+          endTimeTouchedRef.current = presetDate.start.includes("T");
         }
       } else {
         setAllDay(true);
         const today = localDateStr(new Date()); // 深夜のJSTで `toISOString` を使うと前日になる
         setStartDate(today); setEndDate(today);
         setStartTime("09:00"); setEndTime("18:00");
+        // 何も指定されていない真っさらな新規作成だけ、開始時刻を動かすと
+        // 終了時刻が追従するようにする（下の時刻欄の onChange）
+        endTimeTouchedRef.current = false;
       }
       lastAutoTitleRef.current = null; // 前回の自動題名と混同しない
     }
@@ -336,6 +354,10 @@ export default function StudioBookingDialog({
     if (!startDate) { setSaveError("開始日を入れてください"); return; }
     const effectiveEndDate = (isSingleDateType && !multiDay) ? startDate : endDate;
     if (!effectiveEndDate) { setSaveError("終了日を入れてください"); return; }
+    // **HTML5 の `min` 属性は選択を制限するだけで、日付欄をキーボードで直接
+    // 打ち直した値は素通りする。** 送信の直前でも前後関係を確かめる
+    // （終了日入力の onChange 側の補正と合わせた二重の守り）
+    if (effectiveEndDate < startDate) { setSaveError("終了日は開始日以降にしてください"); return; }
     if (locationNote.trim()) saveLocationHistory(locationNote.trim());
     const parsedHoldRank = holdRank.trim() ? Number(holdRank) : null;
     createMutation.mutate({
@@ -359,8 +381,6 @@ export default function StudioBookingDialog({
       assignee_user_ids: assigneeIds,
     });
   };
-
-  const inputCls = "text-[15px] text-primary bg-transparent border-none outline-none cursor-pointer";
 
   return (
     <FormDialog
@@ -497,90 +517,17 @@ export default function StudioBookingDialog({
                 setRoomDetails={setRoomDetails}
               />
 
-              {/* ⑤ 日時 */}
-              <div>
-                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">日時</p>
-                <div className="rounded-xl border bg-muted/30 divide-y overflow-hidden">
-                  {/* 終日 toggle */}
-                  <div className="flex items-center justify-between px-4 py-3.5">
-                    <span className="text-[15px]">終日</span>
-                    <Switch checked={allDay} onCheckedChange={setAllDay} />
-                  </div>
-
-                  {/* 複数日 toggle (本番/リハーサルのみ)。
-                      **開始・終了より前に置く**（`docs/design/v4/_form-order.md` 2-1）。
-                      このトグルが終了「日」欄の有無を決める（下の `!isSingleDateType || multiDay`）ので、
-                      下に置くと「終了に日付が入れられない」と詰まってから戻ることになる。
-                      同じ性質の「終日」と並べれば、日付の欄が出る条件がひと目で分かる */}
-                  {isSingleDateType && (
-                    <div className="flex items-center justify-between px-4 py-3.5">
-                      <span className="text-[15px]">複数日</span>
-                      <Switch
-                        checked={multiDay}
-                        onCheckedChange={(c) => { setMultiDay(c); if (!c) setEndDate(startDate); }}
-                      />
-                    </div>
-                  )}
-
-                  {/* 開始 */}
-                  <div className="flex items-center px-4 py-3.5 gap-2">
-                    <span className="text-[15px] w-8 shrink-0">開始</span>
-                    <div className="flex flex-1 justify-end items-center gap-3">
-                      <input
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => {
-                          setStartDate(e.target.value);
-                          if (isSingleDateType && !multiDay) setEndDate(e.target.value);
-                          else if (endDate < e.target.value) setEndDate(e.target.value);
-                        }}
-                        className={inputCls}
-                        style={{ fontSize: "16px", colorScheme: "light" }}
-                      />
-                      {!allDay && (
-                        <input
-                          type="time"
-                          value={startTime}
-                          onChange={(e) => setStartTime(e.target.value)}
-                          className={inputCls}
-                          style={{ fontSize: "16px" }}
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 終了
-                      単日タイプ (本番/リハ) でも時刻指定 (!allDay) なら「同日の終了時刻」を
-                      入力できるよう終了行を表示する。終了「日」は複数日/非単日タイプのみ、
-                      終了「時刻」は時刻指定時は常に表示 (= 8:00〜20:00 のような同日枠に対応)。 */}
-                  {(!isSingleDateType || multiDay || !allDay) && (
-                    <div className="flex items-center px-4 py-3.5 gap-2">
-                      <span className="text-[15px] w-8 shrink-0">終了</span>
-                      <div className="flex flex-1 justify-end items-center gap-3">
-                        {(!isSingleDateType || multiDay) && (
-                          <input
-                            type="date"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            min={startDate}
-                            className={inputCls}
-                            style={{ fontSize: "16px", colorScheme: "light" }}
-                          />
-                        )}
-                        {!allDay && (
-                          <input
-                            type="time"
-                            value={endTime}
-                            onChange={(e) => setEndTime(e.target.value)}
-                            className={inputCls}
-                            style={{ fontSize: "16px" }}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+              {/* ⑤ 日時（`BookingDateTimeSection.tsx` に切り出し — 1ファイル400行のラチェット） */}
+              <BookingDateTimeSection
+                isSingleDateType={isSingleDateType}
+                allDay={allDay} setAllDay={setAllDay}
+                multiDay={multiDay} setMultiDay={setMultiDay}
+                startDate={startDate} setStartDate={setStartDate}
+                endDate={endDate} setEndDate={setEndDate}
+                startTime={startTime} setStartTime={setStartTime}
+                endTime={endTime} setEndTime={setEndTime}
+                endTimeTouchedRef={endTimeTouchedRef}
+              />
 
               {/* ⑥ 予約状態。
                   **①予約種別のすぐ後ろではなく、日時・部屋が決まった直後に置く**
