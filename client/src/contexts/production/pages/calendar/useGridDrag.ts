@@ -126,7 +126,10 @@ export function useGridDrag({
       anchorMin: grabMin - startMin, // 掴んだ位置と開始時刻のずれ（動かしてもこの関係を保つ）
       curMin: grabMin,
       rect: { top: r.top, height: r.height },
-      ev, durationMin: Math.max(15, endMin - startMin), moved: false,
+      // **実際の長さをそのまま保つ。** `15` は resize の最低保証値であって move には無関係
+      // — 10分の短い予定（本製品が明示的にサポートする最短枠）を動かすと 15分に
+      // 伸びてしまっていた（Codex レビュー指摘・P1）。0分以下にだけ保険を掛ける
+      ev, durationMin: Math.max(1, endMin - startMin), moved: false,
     });
   };
 

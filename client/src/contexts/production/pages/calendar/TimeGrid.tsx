@@ -167,7 +167,11 @@ export function TimeGrid({
                 const canEditEvent = !!resizable?.(p.ev) && sameDay;
                 const canResizeEnd = !!onResize && canEditEvent && !p.cutBottom;
                 const canResizeStart = !!onResize && canEditEvent && !p.cutTop;
-                const canMove = !!onMove && canEditEvent;
+                // **表示窓（8:00〜22:00）からはみ出た予定は動かせない。** 掴んだ位置・
+                // 新しい開始時刻の計算（`useGridDrag.ts`）は窓の内側にクランプされるため、
+                // 窓の外から続く予定を動かすと開始/終了が窓の端に丸められ、
+                // 意図しない時刻に変わってしまう（Codex レビュー指摘・P1）
+                const canMove = !!onMove && canEditEvent && !p.cutTop && !p.cutBottom;
                 const startMin = hmToMin(p.ev.start);
                 const endMin = hmToMin(p.ev.end || p.ev.start);
                 // ドラッグで動かしている最中の札は、元の位置には描かない
