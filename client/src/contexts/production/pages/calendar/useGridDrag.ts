@@ -44,6 +44,14 @@ interface DragState {
   ev?: CalEvent;
   /** 移動中の予定の長さ（分）。新しい開始が決まればこれを足すだけで終了になる（move のみ） */
   durationMin?: number;
+  /**
+   * つまみを掴んだ位置と、その端の論理時刻とのずれ（resize のみ）。
+   * `placeDay`（calendarLayout.ts）は最小可視高さのため短い予定を上へ押し戻して
+   * 描画するので、上端つまみの画面位置が実際の開始時刻より遅い時刻に見えることが
+   * ある（22:00 際の10分予定など）。掴んだ瞬間の位置が示す時刻と実際の値との
+   * 差を控え、以降の移動量からこのずれを引いて実際の時刻に戻す
+   */
+  grabOffsetMin?: number;
   /** 一度でも動いたか（動いていない resize/move は保存しない） */
   moved: boolean;
 }
@@ -109,7 +117,14 @@ export function useGridDrag({
     // 動かさない方の端を anchor に置く（end を伸ばすなら start が anchor・逆も同様）
     const anchorMin = edge === 'end' ? startMin : endMin;
     const curMin = edge === 'end' ? endMin : startMin;
-    setDrag({ kind: 'resize', edge, day, curDay: day, anchorMin, curMin, rect: { top: r.top, height: r.height }, ev, moved: false });
+    // **つまみの画面位置と論理時刻のずれを控える。** 短い予定は上へ押し戻して
+    // 描画されることがあり、掴んだ瞬間の位置がそのまま `curMin` と一致するとは
+    // 限らない（丸めない生の値どうしで差を取る — 丸めてから引くと誤差が乗る）
+    const grabOffsetMin = fracToMin((e.clientY - r.top) / r.height) - curMin;
+    setDrag({
+      kind: 'resize', edge, day, curDay: day, anchorMin, curMin, grabOffsetMin,
+      rect: { top: r.top, height: r.height }, ev, moved: false,
+    });
   };
 
   const startMove = (day: string, ev: CalEvent, startMin: number, endMin: number, e: React.MouseEvent<HTMLElement>) => {
@@ -138,7 +153,10 @@ export function useGridDrag({
     const move = (e: MouseEvent) => {
       setDrag((d) => {
         if (!d) return d;
-        const min = snapMin(fracToMin((e.clientY - d.rect.top) / d.rect.height));
+        const raw = fracToMin((e.clientY - d.rect.top) / d.rect.height);
+        // resize は掴んだ位置と論理時刻のずれ（`grabOffsetMin`）を引いてから丸める
+        // （先に丸めると誤差が乗る。P2 の再指摘・上端つまみの視覚位置ずれ対策）
+        const min = snapMin(d.kind === 'resize' ? raw - (d.grabOffsetMin ?? 0) : raw);
         let curDay = d.curDay;
         if (d.kind === 'move') {
           // 今マウスの下にある列を探す。ドラッグ中はマウスの下に札やオーバーレイが
