@@ -1,4 +1,5 @@
-// 冊子1件の画面 — ページの一覧・追加・削除・並べ替え・章名/題の編集（段A）。
+// 冊子1件の画面 — ページの一覧・追加・削除・並べ替え・章名/題の編集（段A）＋
+// どのページを紙面（ManualCanvas）に表示するかの選択（段B）。
 // ドラッグ&ドロップは実装しない（段Bの紙面キャンバスで本格的なDnDを作るため、
 // 段Aは上下ボタンで十分）。章名・題は BufferedInput（client-techops/CLAUDE.md
 // 「入力欄は素の <input value onChange> で書かない」）。IME 変換中の保護に加え、
@@ -25,18 +26,26 @@ interface RowProps {
   page: ManualPage;
   index: number;
   total: number;
+  selected: boolean;
+  onSelect: () => void;
   onMove: (direction: -1 | 1) => void;
   onUpdate: (patch: { title?: string; chapter?: string | null }) => void;
   onDelete: () => void;
   deleting: boolean;
 }
 
-function PageRow({ page, index, total, onMove, onUpdate, onDelete, deleting }: RowProps) {
+function PageRow({ page, index, total, selected, onSelect, onMove, onUpdate, onDelete, deleting }: RowProps) {
   return (
-    <div className="rounded-card border border-border bg-card p-3">
+    <div
+      className={cn(
+        "cursor-pointer rounded-card border p-3 transition-colors",
+        selected ? "border-primary bg-primary-surface/40" : "border-border bg-card hover:bg-accent/40"
+      )}
+      onClick={onSelect}
+    >
       <div className="flex items-center gap-1">
         <span className="font-number text-sub-sm text-muted-foreground">{index + 1}枚目</span>
-        <div className="ml-auto flex items-center gap-0.5">
+        <div className="ml-auto flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
           <Button variant="ghost" size="icon-sm" disabled={index === 0} onClick={() => onMove(-1)} aria-label="1つ上へ動かす">
             <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
           </Button>
@@ -75,6 +84,8 @@ function PageRow({ page, index, total, onMove, onUpdate, onDelete, deleting }: R
 
 interface Props {
   pages: ManualPage[];
+  selectedId: string | null;
+  onSelect: (pageId: string) => void;
   onAdd: () => void;
   onMove: (page: ManualPage, direction: -1 | 1) => void;
   onUpdate: (pageId: string, patch: { title?: string; chapter?: string | null }) => void;
@@ -84,7 +95,7 @@ interface Props {
   className?: string;
 }
 
-export default function PageRail({ pages, onAdd, onMove, onUpdate, onDelete, adding, deletingId, className }: Props) {
+export default function PageRail({ pages, selectedId, onSelect, onAdd, onMove, onUpdate, onDelete, adding, deletingId, className }: Props) {
   const sorted = pagesSorted(pages);
   return (
     <div className={cn("flex flex-col gap-2", className)}>
@@ -98,6 +109,8 @@ export default function PageRail({ pages, onAdd, onMove, onUpdate, onDelete, add
             page={page}
             index={i}
             total={sorted.length}
+            selected={page.id === selectedId}
+            onSelect={() => onSelect(page.id)}
             onMove={(direction) => onMove(page, direction)}
             onUpdate={(patch) => onUpdate(page.id, patch)}
             onDelete={() => onDelete(page.id)}

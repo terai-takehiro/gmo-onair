@@ -1,7 +1,7 @@
 // 運営マニュアル — API 呼び出しの薄いラッパー。`scheduleApi.ts` と同じ形
 // （契約: docs/design/v4/production-manual.md §5・段A）。
 import api from "@/lib/api";
-import type { ManualListItem, ManualDetail, ManualPage } from "@gmo-onair/shared/src/opsmanual/types";
+import type { ManualListItem, ManualDetail, ManualPage, ManualBlock } from "@gmo-onair/shared/src/opsmanual/types";
 
 interface Envelope<T> { success: boolean; data: T }
 interface ApiConflict {
@@ -53,7 +53,15 @@ export async function deleteManual(id: string): Promise<void> {
 }
 
 // ── ページ ──────────────────────────────────────────────────
-export interface PagePayload { title?: string; chapter?: string | null }
+// `blocks`・`expected_updated_at` は段B（紙面の自動保存・楽観ロック）。
+// サーバーは `expected_updated_at` が省略されたときは検査をせず素通しする
+// （`checkOptimisticLock`）ので、渡さなくても壊れない。
+export interface PagePayload {
+  title?: string;
+  chapter?: string | null;
+  blocks?: ManualBlock[];
+  expected_updated_at?: string;
+}
 
 export async function addPage(manualId: string, payload: PagePayload): Promise<ManualPage> {
   const res = await api.post<Envelope<ManualPage>>(`/techops/manuals/${manualId}/pages`, payload);

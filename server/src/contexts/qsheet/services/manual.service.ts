@@ -1,7 +1,8 @@
 /**
- * 運営マニュアル（`qsheet_manuals` / `qsheet_manual_pages`）— 段A：一覧・詳細・CRUD・ページ管理。
- * 設計: docs/design/v4/production-manual.md §5〜§6（段Aの範囲のみ。確定/rev・編集ロック・
- * 秘密の伏せ字解除・ブロック編集・ひな形・AI は段B以降・今回は実装しない）。
+ * 運営マニュアル（`qsheet_manuals` / `qsheet_manual_pages`）— 段A：一覧・詳細・CRUD・ページ管理
+ * ＋段B：紙面（`blocks`）の保存・楽観ロック。
+ * 設計: docs/design/v4/production-manual.md §5〜§6（確定/rev・編集ロック・秘密の伏せ字解除・
+ * 差し込み・ひな形・AI は段C以降・今回は実装しない）。
  * 実装パターンは schedule.service.ts / schedule-column.service.ts をそのまま踏襲する。
  */
 import { v4 as uuid } from 'uuid';
@@ -168,10 +169,15 @@ export async function deleteManual(id: string): Promise<void> {
 export interface PageInput {
   title?: string;
   chapter?: string | null;
+  /** 紙面の中身（ManualBlock[]）。段B。配列でなければ更新しない（型はここでは検証しない — クライアントの契約を信じる） */
+  blocks?: unknown[];
+  expectedUpdatedAt?: unknown;
 }
 
 const MAX_PAGE_TITLE = 200;
 const MAX_CHAPTER = 200;
+/** 紙面の中身（JSON化した文字列長）の上限。段B（1ページに詰め込みすぎた自由ブロックを弾く） */
+const MAX_BLOCKS_JSON_LENGTH = 300_000;
 
 export async function addPage(manualId: string, input: PageInput): Promise<Row> {
   const max = await queryOne(
@@ -191,17 +197,38 @@ export async function addPage(manualId: string, input: PageInput): Promise<Row> 
   return row;
 }
 
-export async function updatePage(manualId: string, pageId: string, input: PageInput): Promise<Row> {
+/**
+ * ページを更新する。段Bで楽観ロック（`updateManual()` と同じ形）と紙面（`blocks`）の
+ * 保存を足した。`blocks` はページ単位（冊子まるごとではない）— 紙面は1ページずつ独立して
+ * 自動保存するため（ManualDetailPage.tsx）。
+ */
+export async function updatePage(manualId: string, pageId: string, userId: string, input: PageInput): Promise<Row> {
   const existing = await queryOne(
-    'SELECT id FROM qsheet_manual_pages WHERE id = $1 AND manual_id = $2',
+    `SELECT p.id, p.updated_at, p.updated_by, u.name AS updater_name
+     FROM qsheet_manual_pages p LEFT JOIN users u ON p.updated_by = u.id
+     WHERE p.id = $1 AND p.manual_id = $2`,
     [pageId, manualId],
   );
   if (!existing) throw new NotFoundError('ページが見つかりません');
+  checkOptimisticLock(
+    input.expectedUpdatedAt,
+    { updated_at: existing.updated_at, updated_by: existing.updated_by, updater_name: existing.updater_name },
+    userId,
+    'このページ',
+  );
 
-  const sets: string[] = ['updated_at = NOW()'];
-  const params: unknown[] = [];
+  const sets: string[] = ['updated_at = NOW()', 'updated_by = ?'];
+  const params: unknown[] = [userId];
   if (typeof input.title === 'string') { sets.push('title = ?'); params.push(input.title.slice(0, MAX_PAGE_TITLE)); }
   if ('chapter' in input) { sets.push('chapter = ?'); params.push(input.chapter?.slice(0, MAX_CHAPTER) || null); }
+  if (Array.isArray(input.blocks)) {
+    const serialized = JSON.stringify(input.blocks);
+    if (serialized.length > MAX_BLOCKS_JSON_LENGTH) {
+      throw new ValidationError('紙面の中身が大きすぎます');
+    }
+    sets.push('blocks = ?');
+    params.push(serialized);
+  }
 
   await execute(`UPDATE qsheet_manual_pages SET ${sets.join(', ')} WHERE id = ?`, [...params, pageId]);
   const row = await queryOne('SELECT id, manual_id, sort_order, chapter, title, blocks, created_at, updated_at FROM qsheet_manual_pages WHERE id = $1', [pageId]);

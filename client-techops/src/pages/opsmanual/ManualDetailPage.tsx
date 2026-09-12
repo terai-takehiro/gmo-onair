@@ -1,7 +1,7 @@
-// 冊子1件の画面（`/techops/manuals/:id`・段A）。ページの一覧・追加・削除・並べ替え・
-// 章名/題の編集だけを持つ。紙面のブロック編集（キャンバス）はまだ無い（段Bで追加）。
-// 確定・編集ロック・秘密の伏せ字解除・PDF書き出し・ひな形・AIは実装しない。
-import { useState } from "react";
+// 冊子1件の画面（`/techops/manuals/:id`・段A＋段B）。ページの一覧・追加・削除・並べ替え・
+// 章名/題の編集（段A）に加え、選択中ページの紙面（自由ブロック5種）の編集・自動保存を持つ（段B）。
+// 確定・編集ロック・秘密の伏せ字解除・PDF書き出し・差し込み・ひな形・AIは実装しない（段C以降）。
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { ChevronLeft, Trash2 } from "lucide-react";
@@ -13,13 +13,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { PageShell } from "@gmo-onair/shared/src/client/ui/pageShell";
 import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { Delayed, SkeletonRows, ErrorPanel } from "@gmo-onair/shared/src/client/states";
-import type { ManualPage } from "@gmo-onair/shared/src/opsmanual/types";
+import type { ManualBlock, ManualDetail, ManualPage } from "@gmo-onair/shared/src/opsmanual/types";
 import * as manualApi from "@/lib/manualApi";
 import { isConflict } from "@/lib/manualApi";
 import { notifyError } from "@/lib/notify";
 import { MANUAL_STATUS_LABEL, MANUAL_STATUS_BADGE_VARIANT } from "@/components/opsmanual/manualStatus";
-import { movePage } from "@/components/opsmanual/pageOrder";
+import { movePage, pagesSorted } from "@/components/opsmanual/pageOrder";
 import PageRail from "./PageRail";
+import BlockToolbar from "./BlockToolbar";
+import BlockInspector from "./BlockInspector";
+import ManualCanvas, { type ManualCanvasHandle } from "./ManualCanvas";
+import renderManualBlockContent from "./ManualBlockContent";
+import { useManualPageAutosave } from "./useManualPageAutosave";
 
 export default function ManualDetailPage() {
   const { id = "" } = useParams();
@@ -27,6 +32,13 @@ export default function ManualDetailPage() {
   const queryClient = useQueryClient();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletingPageId, setDeletingPageId] = useState<string | null>(null);
+  // どのページを紙面（ManualCanvas）に表示するか（段B）。既定は先頭ページ
+  const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  // ManualCanvas の undo 履歴（ページ単位）に、右パネル・追加ツールバーからの変更も
+  // 1手として積むための入口（`ManualCanvas` に `key={ページID}` を渡して切替のたびに
+  // 再マウントしているので、ページを切り替えると ref も新しいインスタンスに差し替わる）
+  const canvasRef = useRef<ManualCanvasHandle>(null);
 
   const detailQuery = useQuery({
     queryKey: ["manuals", "detail", id],
@@ -35,7 +47,60 @@ export default function ManualDetailPage() {
   });
   const manual = detailQuery.data;
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["manuals", "detail", id] });
+  const invalidate = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: ["manuals", "detail", id] }),
+    [queryClient, id],
+  );
+
+  // 選択中ページが無い・削除された・冊子を開いた直後は先頭ページを選ぶ
+  useEffect(() => {
+    if (!manual) return;
+    const sorted = pagesSorted(manual.pages);
+    if (sorted.length === 0) return;
+    if (!selectedPageId || !sorted.some((p) => p.id === selectedPageId)) {
+      setSelectedPageId(sorted[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manual?.id, manual?.pages]);
+
+  const currentPage = manual?.pages.find((p) => p.id === selectedPageId);
+
+  // 紙面の自動保存が成功したら、キャッシュ側の該当ページも差し替える
+  // （invalidate はしない — 再取得すると自分がいま持っているローカルの編集途中を
+  // 巻き戻してしまう。次にこのページへ戻ってきたときのため updated_at/blocks だけ進める）。
+  const handleBlocksSaved = useCallback((row: ManualPage) => {
+    queryClient.setQueryData<ManualDetail | undefined>(["manuals", "detail", id], (prev) => {
+      if (!prev) return prev;
+      return { ...prev, pages: prev.pages.map((p) => (p.id === row.id ? { ...p, ...row } : p)) };
+    });
+  }, [queryClient, id]);
+
+  const handleBlocksConflict = useCallback(() => { invalidate(); }, [invalidate]);
+
+  const { blocks, commitBlocks, saving: blocksSaving, flush: flushBlocks } = useManualPageAutosave(
+    currentPage,
+    handleBlocksSaved,
+    handleBlocksConflict,
+  );
+
+  const handleSelectPage = (pageId: string) => {
+    if (pageId === selectedPageId) return;
+    flushBlocks(); // 切替前の未保存分を即座に送る
+    setSelectedPageId(pageId);
+    setSelectedBlockId(null);
+  };
+
+  // 紙面の undo 履歴（ManualCanvas 側の useManualHistory）にも1手として積む。
+  // 未マウント（ページ未選択）のときだけ commitBlocks に直接フォールバックする
+  const commitViaHistory = useCallback(
+    (next: ManualBlock[]) => {
+      if (canvasRef.current) canvasRef.current.commit(next);
+      else commitBlocks(next);
+    },
+    [commitBlocks],
+  );
+
+  const handleAddBlock = (block: ManualBlock) => commitViaHistory([...blocks, block]);
 
   const titleMutation = useMutation({
     mutationFn: (value: string) => manualApi.updateManual(id, { title: value, expected_updated_at: manual?.updated_at }),
@@ -152,9 +217,11 @@ export default function ManualDetailPage() {
             }
           />
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[320px_1fr]">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_1fr_260px]">
             <PageRail
               pages={manual.pages}
+              selectedId={selectedPageId}
+              onSelect={handleSelectPage}
               onAdd={() => addPageMutation.mutate()}
               onMove={handleMove}
               onUpdate={(pageId, patch) => updatePageMutation.mutate({ pageId, patch })}
@@ -163,12 +230,30 @@ export default function ManualDetailPage() {
               deletingId={deletingPageId}
             />
 
-            <div className="flex min-h-[400px] flex-col items-center justify-center rounded-card border border-dashed border-border bg-muted/20 p-8 text-center">
-              <p className="text-cardtitle text-foreground">紙面はまだありません</p>
-              <p className="mt-1 max-w-sm text-sub text-muted-foreground">
-                ページの中身（ブロック）を組む画面は、この先の作業で追加します。いまはページの構成（章・題・並び）だけを整えられます。
-              </p>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <BlockToolbar blocks={blocks} onAdd={handleAddBlock} />
+                {blocksSaving && <span className="shrink-0 text-sub-sm text-muted-foreground">保存中…</span>}
+              </div>
+              {currentPage ? (
+                <ManualCanvas
+                  // ページ切替のたびに再マウントし、前のページの undo 履歴（pastRef/futureRef）
+                  // を持ち越さない（段Bのバグ修正: 切替後の Ctrl+Z が別ページを上書きしていた）
+                  key={currentPage.id}
+                  ref={canvasRef}
+                  blocks={blocks}
+                  onCommit={commitBlocks}
+                  onSelectionChange={setSelectedBlockId}
+                  renderBlockContent={renderManualBlockContent}
+                />
+              ) : (
+                <div className="flex min-h-[400px] items-center justify-center rounded-card border border-dashed border-border bg-muted/20 p-8 text-center text-sub text-muted-foreground">
+                  ページを選んでください。
+                </div>
+              )}
             </div>
+
+            <BlockInspector blocks={blocks} selectedBlockId={selectedBlockId} onCommit={commitViaHistory} />
           </div>
         </>
       )}
