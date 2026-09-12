@@ -15,6 +15,8 @@ import rentalRoutes from './routes/rental.routes';
 import manualsRoutes from './routes/manuals.routes';
 import manualPagesRoutes from './routes/manual-pages.routes';
 import manualResolveRoutes from './routes/manual-resolve.routes';
+import manualLockRoutes from './routes/manual-lock.routes';
+import manualTemplatesRoutes from './routes/manual-templates.routes';
 import schedulesRoutes from './routes/schedules.routes';
 import scheduleColumnsRoutes from './routes/schedule-columns.routes';
 import scheduleItemsRoutes from './routes/schedule-items.routes';
@@ -55,10 +57,13 @@ export function createQsheetRoutes(prefix: string): Router {
   // レンタル機材検索。カタログはowner不要の共通マスタ、予約リストは案件/番組単位（:ownerKey）
   router.use(`${prefix}/rental`, rentalRoutes);
 
-  // 運営マニュアル（段A・production-manual.md）。差し込みブロックの resolve は段C
+  // 運営マニュアル（段A・production-manual.md）。差し込みブロックの resolve は段C・
+  // 編集ロック／確定・版／ひな形・前回の冊子から複製は段E
   router.use(prefix, manualsRoutes);
   router.use(prefix, manualPagesRoutes);
   router.use(prefix, manualResolveRoutes);
+  router.use(prefix, manualLockRoutes);
+  router.use(prefix, manualTemplatesRoutes);
 
   // スケジュール表（段4・04-schedule-impl.md §4）
   router.use(prefix, schedulesRoutes);

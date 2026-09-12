@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { BookOpenText, Plus, Search, X } from "lucide-react";
+import { BookmarkPlus, BookOpenText, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@gmo-onair/shared/src/client/ui/badge";
@@ -15,45 +15,76 @@ import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { useDebounced } from "@gmo-onair/shared/src/client/hooks/useDebounced";
 import type { ManualListItem } from "@gmo-onair/shared/src/opsmanual/types";
 import * as manualApi from "@/lib/manualApi";
+import { useAuth } from "@/hooks/useAuth";
 import { MANUAL_STATUS_LABEL, MANUAL_STATUS_BADGE_VARIANT } from "@/components/opsmanual/manualStatus";
 import CreateManualDialog from "./CreateManualDialog";
+import RegisterManualTemplateDialog from "./RegisterManualTemplateDialog";
 
 function formatUpdatedAt(iso: string): string {
   return new Date(iso).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-function ManualRow({ manual, onOpen }: { manual: ManualListItem; onOpen: (id: string) => void }) {
+function ManualRow({
+  manual,
+  canManage,
+  onOpen,
+  onRegisterTemplate,
+}: {
+  manual: ManualListItem;
+  canManage: boolean;
+  onOpen: (id: string) => void;
+  onRegisterTemplate: (manual: ManualListItem) => void;
+}) {
   const ownerLabel = manual.project_name
     ? `${manual.gls_number ? `${manual.gls_number} ・ ` : ""}${manual.project_name}`
     : manual.program_name ?? "";
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(manual.id)}
-      className="flex min-h-tap w-full flex-col items-start gap-1 rounded-card border border-border bg-card p-4 text-left hover:bg-accent"
-    >
-      <div className="flex w-full flex-wrap items-center gap-2">
-        <BookOpenText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <span className="text-cardtitle text-foreground">{manual.title || "（無題）"}</span>
-        {manual.doc_no && <span className="font-number text-sub-sm text-muted-foreground">{manual.doc_no}</span>}
-        <Badge variant={MANUAL_STATUS_BADGE_VARIANT[manual.status]} className="ml-auto">
-          {MANUAL_STATUS_LABEL[manual.status]}
-        </Badge>
-      </div>
-      {ownerLabel && <div className="text-sub text-muted-foreground">{ownerLabel}</div>}
-      <div className="flex flex-wrap gap-x-3 text-sub-sm text-muted-foreground">
-        <span>ページ {manual.page_count} 枚</span>
-        <span>更新 {formatUpdatedAt(manual.updated_at)}</span>
-      </div>
-    </button>
+    <div className="flex w-full items-start gap-1 rounded-card border border-border bg-card p-4 hover:bg-accent">
+      <button
+        type="button"
+        onClick={() => onOpen(manual.id)}
+        className="flex min-h-tap min-w-0 flex-1 flex-col items-start gap-1 text-left"
+      >
+        <div className="flex w-full flex-wrap items-center gap-2">
+          <BookOpenText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className="text-cardtitle text-foreground">{manual.title || "（無題）"}</span>
+          {manual.doc_no && <span className="font-number text-sub-sm text-muted-foreground">{manual.doc_no}</span>}
+          <Badge variant={MANUAL_STATUS_BADGE_VARIANT[manual.status]} className="ml-auto">
+            {MANUAL_STATUS_LABEL[manual.status]}
+          </Badge>
+        </div>
+        {ownerLabel && <div className="text-sub text-muted-foreground">{ownerLabel}</div>}
+        <div className="flex flex-wrap gap-x-3 text-sub-sm text-muted-foreground">
+          <span>ページ {manual.page_count} 枚</span>
+          <span>更新 {formatUpdatedAt(manual.updated_at)}</span>
+        </div>
+      </button>
+      {/* ひな形として登録（段E・§10-5「組織共通」）。manager だけに出す */}
+      {canManage && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="min-h-tap min-w-tap shrink-0"
+          onClick={() => onRegisterTemplate(manual)}
+          title="ひな形として登録"
+          aria-label="ひな形として登録"
+        >
+          <BookmarkPlus className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      )}
+    </div>
   );
 }
 
 export default function ManualListPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { hasPermission } = useAuth();
+  const canManage = hasPermission("qsheet", "manager");
   const [searchParams, setSearchParams] = useSearchParams();
   const [createOpen, setCreateOpen] = useState(false);
+  const [templateSource, setTemplateSource] = useState<ManualListItem | null>(null);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounced(search, 300);
 
@@ -133,7 +164,15 @@ export default function ManualListPage() {
       )}
 
       <div className="space-y-2">
-        {rows.map((m) => <ManualRow key={m.id} manual={m} onOpen={(id) => navigate(`/techops/manuals/${id}`)} />)}
+        {rows.map((m) => (
+          <ManualRow
+            key={m.id}
+            manual={m}
+            canManage={canManage}
+            onOpen={(id) => navigate(`/techops/manuals/${id}`)}
+            onRegisterTemplate={setTemplateSource}
+          />
+        ))}
       </div>
 
       <CreateManualDialog
@@ -144,6 +183,14 @@ export default function ManualListPage() {
           queryClient.invalidateQueries({ queryKey: ["manuals", "list"] });
           navigate(`/techops/manuals/${row.id}`);
         }}
+      />
+
+      <RegisterManualTemplateDialog
+        open={!!templateSource}
+        onOpenChange={(open) => { if (!open) setTemplateSource(null); }}
+        sourceManualId={templateSource?.id ?? ""}
+        defaultName={templateSource?.title || "無題の運営マニュアル"}
+        onRegistered={() => queryClient.invalidateQueries({ queryKey: ["manual-templates"] })}
       />
     </PageShell>
   );

@@ -11,20 +11,22 @@
 // `selectPagesInRange` の1つに寄せてあり、ここ（検査・インクの目安）と実際に刷る本体が
 // 同じページの並びを見る。
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, Download, Minus, Plus } from "lucide-react";
+import { ChevronLeft, Download, Lock, LockOpen, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Badge } from "@gmo-onair/shared/src/client/ui/badge";
 import { PageShell } from "@gmo-onair/shared/src/client/ui/pageShell";
 import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { Delayed, SkeletonRows, ErrorPanel } from "@gmo-onair/shared/src/client/states";
+import { confirmAction } from "@gmo-onair/shared/src/client/ui/confirm";
 import { PAGE_HEIGHT_MM, PAGE_WIDTH_MM } from "@gmo-onair/shared/src/opsmanual/types";
 import { estimatePageInkCoverage } from "@gmo-onair/shared/src/opsmanual/inkEstimate";
 import * as manualApi from "@/lib/manualApi";
 import { getManualResolve, type ManualResolveEntry } from "@/lib/manualResolveApi";
-import { notifyError } from "@/lib/notify";
+import { useAuth } from "@/hooks/useAuth";
+import { notifyError, notifySuccess } from "@/lib/notify";
 import { MANUAL_STATUS_LABEL, MANUAL_STATUS_BADGE_VARIANT } from "@/components/opsmanual/manualStatus";
 import { pagesSorted } from "@/components/opsmanual/pageOrder";
 import { runManualPreExportChecks } from "./manualPreExportChecks";
@@ -47,6 +49,9 @@ const INK_WARN_THRESHOLD = 0.4; // 40%（§6-6・§8-3）
 export default function ManualPreviewPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { hasPermission } = useAuth();
+  const canManageManual = hasPermission("qsheet", "manager");
 
   const detailQuery = useQuery({
     queryKey: ["manuals", "detail", id],
@@ -54,6 +59,48 @@ export default function ManualPreviewPage() {
     enabled: !!id,
   });
   const manual = detailQuery.data;
+
+  // 確定・確定を解く（段E・§6⑤「確定と版」）。どちらも応答の中身は使わず、
+  // 冊子（status/rev）・一覧（バッジ）を引き直して画面へ反映する
+  const afterFixChange = () => {
+    detailQuery.refetch();
+    queryClient.invalidateQueries({ queryKey: ["manuals", "list"] });
+  };
+  const fixMutation = useMutation({
+    mutationFn: () => manualApi.fixManual(id),
+    onSuccess: () => {
+      notifySuccess("確定しました。");
+      afterFixChange();
+    },
+    onError: () => notifyError("確定できませんでした。", { description: "少し待ってから、もう一度お試しください。" }),
+  });
+  const unfixMutation = useMutation({
+    mutationFn: () => manualApi.unfixManual(id),
+    onSuccess: () => {
+      notifySuccess("確定を解きました。");
+      afterFixChange();
+    },
+    onError: () => notifyError("確定を解けませんでした。", { description: "少し待ってから、もう一度お試しください。" }),
+  });
+
+  const handleFix = async () => {
+    const ok = await confirmAction({
+      tone: "danger",
+      title: "確定しますか",
+      description: "すべてのページの差し込み内容が、いまの時点の値で固定されます。あとで「確定を解く」を押せば直せます。",
+      confirmLabel: "確定する",
+    });
+    if (ok) fixMutation.mutate();
+  };
+  const handleUnfix = async () => {
+    const nextRev = (manual?.rev ?? 0) + 1;
+    const ok = await confirmAction({
+      title: "確定を解きますか",
+      description: `冊子が下書きに戻り、また直せるようになります。次に確定すると版が上がります（rev.${nextRev}）。`,
+      confirmLabel: "確定を解く",
+    });
+    if (ok) unfixMutation.mutate();
+  };
 
   const resolveQuery = useQuery({
     queryKey: ["manuals", "resolve", id],
@@ -174,10 +221,24 @@ export default function ManualPreviewPage() {
               </span>
             }
             primaryAction={
-              <Button onClick={handleExport} disabled={!canExport}>
-                <Download className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                PDFで書き出す
-              </Button>
+              <div className="flex items-center gap-2">
+                {canManageManual && manual.status === "draft" && (
+                  <Button variant="outline" className="min-h-tap" onClick={handleFix} disabled={fixMutation.isPending}>
+                    <Lock className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                    {fixMutation.isPending ? "確定中…" : "確定する"}
+                  </Button>
+                )}
+                {canManageManual && manual.status === "fixed" && (
+                  <Button variant="outline" className="min-h-tap" onClick={handleUnfix} disabled={unfixMutation.isPending}>
+                    <LockOpen className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                    {unfixMutation.isPending ? "解除中…" : "確定を解く"}
+                  </Button>
+                )}
+                <Button onClick={handleExport} disabled={!canExport}>
+                  <Download className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  PDFで書き出す
+                </Button>
+              </div>
             }
           />
 

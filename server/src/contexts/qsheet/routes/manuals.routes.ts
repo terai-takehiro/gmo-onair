@@ -37,6 +37,9 @@ router.post('/manuals', requirePermission('qsheet', 'editor'), wrap(async (req, 
     projectId: typeof b.project_id === 'string' ? b.project_id : null,
     programId: typeof b.program_id === 'string' ? b.program_id : null,
     createdBy: req.user!.id,
+    // ひな形／前回の冊子からの複製（段E）。どちらも省略可（今までどおり空ページ1枚）
+    templateId: typeof b.template_id === 'string' ? b.template_id : null,
+    copyFromManualId: typeof b.copy_from_manual_id === 'string' ? b.copy_from_manual_id : null,
   });
   res.status(201).json({ success: true, data: row });
 }));
@@ -61,7 +64,7 @@ router.patch('/manuals/:id', requirePermission('qsheet', 'editor'), wrap(async (
 
 router.delete('/manuals/:id', requirePermission('qsheet', 'editor'), wrap(async (req: Request, res: Response) => {
   await requireAccessible(req);
-  await deleteManual(p1(req.params.id));
+  await deleteManual(p1(req.params.id), req.user!.id);
   res.json({ success: true, data: { id: p1(req.params.id) } });
 }));
 

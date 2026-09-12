@@ -16,11 +16,9 @@
 // **そのまま** 呼ぶ（selected:false を渡すので中身コンポーネントは自動的に読み取り専用の
 // 見た目になる——中身コンポーネントを作り直さない。設計判断1）。
 //
-// ⚠️ 確定（fix）・版（rev）は段E。`manual.status` は今回まだ常に 'draft' のまま届くため
-// `manualPrintStatusLabel` の 'fixed'/'archived' 側の分岐はいま到達しない——ただし、
-// 到達したときに柱の表示が自動で rev.N 側へ切り替わるよう、分岐だけは書いておく
-// （SHARED_CONTEXT「確定の仕組みが無い今は常に『いま』でよい。ただし…将来の段Eを
-// 見越した分岐にしておくこと」）。
+// 確定（fix）・版（rev）は段Eで実装済み。`fixManual()`（`manual.service.ts`）が
+// `status='fixed'`・`rev=rev+1` を実際に書き込むので、`manualPrintStatusLabel` の
+// 'fixed'/'archived' 側の分岐にもここから到達する。
 import type { CSSProperties, ReactNode } from "react";
 import { PAGE_HEIGHT_MM, PAGE_WIDTH_MM, type ManualBlock, type ManualDetail, type ManualPage } from "@gmo-onair/shared/src/opsmanual/types";
 import type { ManualResolveEntry } from "@/lib/manualResolveApi";
@@ -78,11 +76,10 @@ export function manualHasRevealedSecret(pages: ManualPage[]): boolean {
 }
 
 /** 柱の状態表示。§10-3「確定したあと直すときは版を上げる」。
- *  段E前のいまは status が常に 'draft' なので「下書き」側にしか到達しないが、
- *  'fixed'/'archived' になった瞬間 rev.N 表示へ切り替わるよう分岐で書いておく */
+ *  'draft' は「下書き」、'fixed'/'archived'（段E・`fixManual()`）は rev.N 表示に切り替わる */
 export function manualPrintStatusLabel(manual: Pick<ManualDetail, "status" | "rev">): string {
   if (manual.status === "draft") return "下書き";
-  return `rev.${manual.rev}`; // 到達するのは段E以降（確定 or 過去の版）
+  return `rev.${manual.rev}`;
 }
 
 /** 柱の「時点」表示。§6⑤の例「2026/08/22 14:00 時点」・`formatDate()`（YYYY/MM/DD）と

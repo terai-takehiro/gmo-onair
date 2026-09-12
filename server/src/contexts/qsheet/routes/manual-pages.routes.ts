@@ -42,7 +42,7 @@ function enforceRevealAuthorship(blocks: unknown[], userId: string): unknown[] {
 router.post('/manuals/:id/pages', requirePermission('qsheet', 'editor'), wrap(async (req: Request, res: Response) => {
   await requireAccessible(req);
   const b = req.body as Record<string, unknown>;
-  const row = await addPage(p1(req.params.id), {
+  const row = await addPage(p1(req.params.id), req.user!.id, {
     title: typeof b.title === 'string' ? b.title : undefined,
     chapter: typeof b.chapter === 'string' ? b.chapter : undefined,
   });
@@ -63,14 +63,14 @@ router.put('/manuals/:id/pages/:pageId', requirePermission('qsheet', 'editor'), 
 
 router.delete('/manuals/:id/pages/:pageId', requirePermission('qsheet', 'editor'), wrap(async (req: Request, res: Response) => {
   await requireAccessible(req);
-  await deletePage(p1(req.params.id), p1(req.params.pageId));
+  await deletePage(p1(req.params.id), p1(req.params.pageId), req.user!.id);
   res.json({ success: true, data: { id: p1(req.params.pageId) } });
 }));
 
 router.post('/manuals/:id/pages/reorder', requirePermission('qsheet', 'editor'), wrap(async (req: Request, res: Response) => {
   await requireAccessible(req);
   const order = (req.body as Record<string, unknown>).order;
-  const rows = await reorderPages(p1(req.params.id), Array.isArray(order) ? order as { id: string; sort_order: number }[] : []);
+  const rows = await reorderPages(p1(req.params.id), req.user!.id, Array.isArray(order) ? order as { id: string; sort_order: number }[] : []);
   res.json({ success: true, data: rows });
 }));
 

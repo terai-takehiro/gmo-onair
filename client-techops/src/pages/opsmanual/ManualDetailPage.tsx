@@ -1,10 +1,11 @@
-// 冊子1件の画面（`/techops/manuals/:id`・段A＋段B＋段C）。ページの一覧・追加・削除・並べ替え・
-// 章名/題の編集（段A）、選択中ページの紙面（自由ブロック5種）の編集・自動保存（段B）に加え、
-// 他ミニアプリの情報を置く「差し込みブロック」の追加（`insertTab`/`InsertPanel`）・解決結果の
-// 表示（`getManualResolve`/`renderBlockContent`）・秘密の伏せ字解除（`LinkedBlockInspector`
-// 経由）を持つ（段C）。確定・編集ロック・ひな形は段E で今回は実装しない。PDF書き出し・
-// 仕上がり画面は段D（`/techops/manuals/:id/preview`・`ManualPreviewPage.tsx`）で、
-// ここからは見出し脇の「仕上がり」で遷移するだけ。
+// 冊子1件の画面（`/techops/manuals/:id`・段A＋段B＋段C＋段E）。ページの一覧・追加・削除・
+// 並べ替え・章名/題の編集（段A）、選択中ページの紙面（自由ブロック5種）の編集・自動保存
+// （段B）に加え、他ミニアプリの情報を置く「差し込みブロック」の追加（`insertTab`/`InsertPanel`）・
+// 解決結果の表示（`getManualResolve`/`renderBlockContent`）・秘密の伏せ字解除
+// （`LinkedBlockInspector` 経由）を持つ（段C）。冊子まるごとの編集ロック（`useManualEditLock`・
+// §6-2-1）と確定済み（status==='fixed'）のときの読み取り専用化を段Eで追加。ひな形は今回も
+// 実装しない。PDF書き出し・仕上がり画面は段D（`/techops/manuals/:id/preview`・
+// `ManualPreviewPage.tsx`）で、ここからは見出し脇の「仕上がり」で遷移するだけ。
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
@@ -19,8 +20,9 @@ import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { Delayed, SkeletonRows, ErrorPanel } from "@gmo-onair/shared/src/client/states";
 import type { ManualBlock, ManualDetail, ManualPage } from "@gmo-onair/shared/src/opsmanual/types";
 import * as manualApi from "@/lib/manualApi";
-import { isConflict } from "@/lib/manualApi";
+import { isConflict, isLockError } from "@/lib/manualApi";
 import { notifyError } from "@/lib/notify";
+import { useAuth } from "@/hooks/useAuth";
 import { MANUAL_STATUS_LABEL, MANUAL_STATUS_BADGE_VARIANT } from "@/components/opsmanual/manualStatus";
 import { movePage, pagesSorted } from "@/components/opsmanual/pageOrder";
 import PageRail from "./PageRail";
@@ -30,6 +32,8 @@ import InsertPanel from "./InsertPanel";
 import ManualCanvas, { type ManualCanvasHandle } from "./ManualCanvas";
 import renderManualBlockContent from "./ManualBlockContent";
 import { useManualPageAutosave } from "./useManualPageAutosave";
+import { useManualEditLock } from "./useManualEditLock";
+import ManualLockBanner from "./ManualLockBanner";
 import { getManualResolve } from "@/lib/manualResolveApi";
 
 export default function ManualDetailPage() {
@@ -54,6 +58,21 @@ export default function ManualDetailPage() {
     enabled: !!id,
   });
   const manual = detailQuery.data;
+
+  // 冊子まるごとの編集ロック（段E・§6-2-1）。qsheet editor 権限が無い（reader）・
+  // 確定済み（status==='fixed'）のときはそもそも取りに行かない——読み取り専用の理由が
+  // 別にあるので、ロックの取り合いに参加させる必要が無い。`manual` を読み込むまでは
+  // status が分からないので `!!manual` も条件に入れる。
+  const { currentUser, hasPermission } = useAuth();
+  const canEdit = hasPermission("qsheet", "editor");
+  const canManage = hasPermission("qsheet", "manager");
+  const isFixed = manual?.status === "fixed";
+  const lockEnabled = !!manual && canEdit && !isFixed;
+  const lock = useManualEditLock(id, currentUser?.id, lockEnabled);
+  // 実際に書き込んでよいか。この1つの値だけを見て、紙面・ページ操作・題の編集を
+  // まとめて読み取り専用に切り替える（`guardedCommitBlocks`・`<fieldset disabled>`・
+  // 題の `disabled` の3か所がこれを参照する）。
+  const editable = lockEnabled && lock.held;
 
   // 差し込みブロック（段C）の解決結果。差し込み元は他の利用者の操作でも変わりうるが、
   // 開くたびに毎回引き直すほどではないため staleTime を持たせる（常識的な設定でよい・§5-4）
@@ -101,6 +120,22 @@ export default function ManualDetailPage() {
     handleBlocksConflict,
   );
 
+  // 保存系の操作（onCommit系）の唯一の関所。`ManualCanvas` へは直接これを渡し、
+  // `commitViaHistory`（右パネル・追加ツールバー）もページ未選択時のフォールバックで
+  // これへ落ちる——`canvasRef.current.commit()` 経由の分は `useManualHistory` の
+  // `onCommit` がこの関数そのものなので、紙面のドラッグ・伸縮・回転・削除・複製・
+  // 矢印キー移動・整列・等間隔・重なり・右パネルの書式変更・差し込みの秘密解除の
+  // どれもここを通る。読み取り専用の間は黙って何もしない（`blocks` state が動かないので、
+  // 紙面上でドラッグを試みても離した瞬間に元の位置へ戻る——完全に触れなくする必要は
+  // 無いが、保存されないことだけは保証する）。
+  const guardedCommitBlocks = useCallback(
+    (next: ManualBlock[]) => {
+      if (!editable) return;
+      commitBlocks(next);
+    },
+    [editable, commitBlocks],
+  );
+
   const handleSelectPage = (pageId: string) => {
     if (pageId === selectedPageId) return;
     flushBlocks(); // 切替前の未保存分を即座に送る
@@ -113,9 +148,9 @@ export default function ManualDetailPage() {
   const commitViaHistory = useCallback(
     (next: ManualBlock[]) => {
       if (canvasRef.current) canvasRef.current.commit(next);
-      else commitBlocks(next);
+      else guardedCommitBlocks(next);
     },
-    [commitBlocks],
+    [guardedCommitBlocks],
   );
 
   const handleAddBlock = (block: ManualBlock) => commitViaHistory([...blocks, block]);
@@ -132,6 +167,11 @@ export default function ManualDetailPage() {
     mutationFn: (value: string) => manualApi.updateManual(id, { title: value, expected_updated_at: manual?.updated_at }),
     onSuccess: invalidate,
     onError: (err: unknown) => {
+      if (isLockError(err)) {
+        notifyError("編集ロックが他の人に移っているか、確定されました。", { description: "画面を読み込み直します。" });
+        invalidate();
+        return;
+      }
       if (isConflict(err)) {
         notifyError("ほかの人が先に保存していました。", { description: "最新の内容を読み込み直します。" });
         invalidate();
@@ -216,6 +256,7 @@ export default function ManualDetailPage() {
               <BufferedInput
                 value={manual.title}
                 onCommit={(v) => titleMutation.mutate(v)}
+                disabled={!editable}
                 className={cn(
                   "flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-base sm:text-sm",
                   "placeholder:text-muted-foreground",
@@ -241,78 +282,92 @@ export default function ManualDetailPage() {
                 <Button variant="outline" className="min-h-tap" onClick={() => navigate(`/techops/manuals/${id}/preview`)}>
                   <Printer className="mr-1 h-4 w-4" aria-hidden="true" />仕上がり
                 </Button>
-                <Button variant="outline" className="min-h-tap text-destructive hover:text-destructive" onClick={() => setDeleteOpen(true)}>
+                <Button
+                  variant="outline"
+                  className="min-h-tap text-destructive hover:text-destructive"
+                  onClick={() => setDeleteOpen(true)}
+                  disabled={!editable}
+                  title={!editable ? "編集ロックを持っている間だけ削除できます" : undefined}
+                >
                   <Trash2 className="mr-1 h-4 w-4" aria-hidden="true" />冊子を削除
                 </Button>
               </div>
             }
           />
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_1fr_260px]">
-            <PageRail
-              pages={manual.pages}
-              selectedId={selectedPageId}
-              onSelect={handleSelectPage}
-              onAdd={() => addPageMutation.mutate()}
-              onMove={handleMove}
-              onUpdate={(pageId, patch) => updatePageMutation.mutate({ pageId, patch })}
-              onDelete={(pageId) => deletePageMutation.mutate(pageId)}
-              adding={addPageMutation.isPending}
-              deletingId={deletingPageId}
-            />
+          <ManualLockBanner isFixed={isFixed} canEdit={canEdit} canManage={canManage} lock={lock} />
 
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1 rounded-control border border-border bg-muted/30 p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setInsertTab("add")}
-                    className={cn(
-                      "min-h-tap rounded-control px-3 py-1 text-sub-sm font-medium transition-colors",
-                      insertTab === "add" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    追加
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setInsertTab("link")}
-                    className={cn(
-                      "min-h-tap rounded-control px-3 py-1 text-sub-sm font-medium transition-colors",
-                      insertTab === "link" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    差し込む
-                  </button>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_1fr_260px]">
+            {/* 読み取り専用の間は中の入力欄・ボタンがまとめて disabled になる
+                （`className="contents"` なのでグリッドの列組みは変わらない。
+                `client-techops` 既存の `RecordingPage.tsx` 等と同じ手当て）。
+                紙面のドラッグ等（フォーム部品を経由しない操作）は `guardedCommitBlocks` 側で止める */}
+            <fieldset disabled={!editable} className="contents">
+              <PageRail
+                pages={manual.pages}
+                selectedId={selectedPageId}
+                onSelect={handleSelectPage}
+                onAdd={() => addPageMutation.mutate()}
+                onMove={handleMove}
+                onUpdate={(pageId, patch) => updatePageMutation.mutate({ pageId, patch })}
+                onDelete={(pageId) => deletePageMutation.mutate(pageId)}
+                adding={addPageMutation.isPending}
+                deletingId={deletingPageId}
+              />
+
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1 rounded-control border border-border bg-muted/30 p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setInsertTab("add")}
+                      className={cn(
+                        "min-h-tap rounded-control px-3 py-1 text-sub-sm font-medium transition-colors",
+                        insertTab === "add" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      追加
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInsertTab("link")}
+                      className={cn(
+                        "min-h-tap rounded-control px-3 py-1 text-sub-sm font-medium transition-colors",
+                        insertTab === "link" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      差し込む
+                    </button>
+                  </div>
+                  {blocksSaving && <span className="shrink-0 text-sub-sm text-muted-foreground">保存中…</span>}
                 </div>
-                {blocksSaving && <span className="shrink-0 text-sub-sm text-muted-foreground">保存中…</span>}
+
+                {insertTab === "add" ? (
+                  <BlockToolbar blocks={blocks} onAdd={handleAddBlock} />
+                ) : (
+                  <InsertPanel manualId={id} blocks={blocks} onAdd={handleAddBlock} isProgram={!!manual.program_id} />
+                )}
+
+                {currentPage ? (
+                  <ManualCanvas
+                    // ページ切替のたびに再マウントし、前のページの undo 履歴（pastRef/futureRef）
+                    // を持ち越さない（段Bのバグ修正: 切替後の Ctrl+Z が別ページを上書きしていた）
+                    key={currentPage.id}
+                    ref={canvasRef}
+                    blocks={blocks}
+                    onCommit={guardedCommitBlocks}
+                    onSelectionChange={setSelectedBlockId}
+                    renderBlockContent={renderBlockContent}
+                  />
+                ) : (
+                  <div className="flex min-h-[400px] items-center justify-center rounded-card border border-dashed border-border bg-muted/20 p-8 text-center text-sub text-muted-foreground">
+                    ページを選んでください。
+                  </div>
+                )}
               </div>
 
-              {insertTab === "add" ? (
-                <BlockToolbar blocks={blocks} onAdd={handleAddBlock} />
-              ) : (
-                <InsertPanel manualId={id} blocks={blocks} onAdd={handleAddBlock} isProgram={!!manual.program_id} />
-              )}
-
-              {currentPage ? (
-                <ManualCanvas
-                  // ページ切替のたびに再マウントし、前のページの undo 履歴（pastRef/futureRef）
-                  // を持ち越さない（段Bのバグ修正: 切替後の Ctrl+Z が別ページを上書きしていた）
-                  key={currentPage.id}
-                  ref={canvasRef}
-                  blocks={blocks}
-                  onCommit={commitBlocks}
-                  onSelectionChange={setSelectedBlockId}
-                  renderBlockContent={renderBlockContent}
-                />
-              ) : (
-                <div className="flex min-h-[400px] items-center justify-center rounded-card border border-dashed border-border bg-muted/20 p-8 text-center text-sub text-muted-foreground">
-                  ページを選んでください。
-                </div>
-              )}
-            </div>
-
-            <BlockInspector blocks={blocks} selectedBlockId={selectedBlockId} onCommit={commitViaHistory} />
+              <BlockInspector blocks={blocks} selectedBlockId={selectedBlockId} onCommit={commitViaHistory} />
+            </fieldset>
           </div>
         </>
       )}

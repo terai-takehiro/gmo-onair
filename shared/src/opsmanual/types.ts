@@ -11,8 +11,28 @@
 
 export type ManualStatus = "draft" | "fixed" | "archived";
 
+/**
+ * 編集ロックの状態（段E・production-manual.md §6-2-1）。冊子まるごとの1本のロックで、
+ * `GET /manuals`・`GET /manuals/:id`（どちらも同じ SELECT）にも、ロック操作4本
+ * （`POST/DELETE …/lock`・`…/lock/takeover`・`…/lock/request`）の応答にも同じ形で乗る。
+ */
+export interface ManualLockFields {
+  locked_by: string | null;
+  locked_by_name: string | null;
+  locked_at: string | null;
+  lock_requested_by: string | null;
+  lock_requested_by_name: string | null;
+  lock_requested_at: string | null;
+}
+
+/** ロック操作4本が返す最小限の行（`GET /manuals/:id` ほど情報を持たない） */
+export interface ManualLockState extends ManualLockFields {
+  id: string;
+  status: ManualStatus;
+}
+
 /** 一覧の1行・冊子1件（ページを含まない形） */
-export interface ManualListItem {
+export interface ManualListItem extends ManualLockFields {
   id: string;
   doc_no: string | null;
   title: string;
@@ -164,4 +184,23 @@ export interface ConflictError {
   message: string;
   current_updated_at: string;
   updated_by_name: string | null;
+}
+
+/**
+ * ひな形の一覧の1件（段E・production-manual.md §5-1・§10-5）。
+ *
+ * v1 で作るのは `scope: "org"`（組織共通）だけ——「この案件の前回の冊子から」は
+ * このテーブルを経由せず `qsheet_manuals` を直接複製する別経路（`CreateManualPayload.copyFromManualId`）
+ * なので、`scope: "project"` はクライアントからは到達しない（GET は常に scope=org を返す）。
+ * ページの中身（`pages`）は一覧に持たない——選ぶ画面（`CreateManualDialog`）が必要とするのは
+ * 名前と作成者だけで、複製そのものはサーバー（`POST /manuals` に `templateId` を渡す）が行う。
+ */
+export interface ManualTemplateListItem {
+  id: string;
+  name: string;
+  scope: "org";
+  page_count?: number;
+  created_by: string | null;
+  creator_name?: string | null;
+  created_at: string;
 }

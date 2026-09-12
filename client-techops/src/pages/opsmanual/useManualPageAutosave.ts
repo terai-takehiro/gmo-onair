@@ -4,7 +4,7 @@
 // `flush()` を先に呼んで、切替前の未保存分を即座に送ってから離れる。
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as manualApi from "@/lib/manualApi";
-import { isConflict } from "@/lib/manualApi";
+import { isConflict, isLockError } from "@/lib/manualApi";
 import { notifyError } from "@/lib/notify";
 import type { ManualBlock, ManualPage } from "@gmo-onair/shared/src/opsmanual/types";
 
@@ -70,6 +70,11 @@ export function useManualPageAutosave(
         if (mountedRef.current) onSavedRef.current(row);
       })
       .catch((err: unknown) => {
+        if (isLockError(err)) {
+          notifyError("編集ロックが他の人に移っているか、確定されました。", { description: "最新の内容を読み込み直します。" });
+          if (mountedRef.current) onConflictRef.current();
+          return;
+        }
         if (isConflict(err)) {
           notifyError("ほかの人が先に保存していました。", { description: "最新の内容を読み込み直します。" });
           if (mountedRef.current) onConflictRef.current();

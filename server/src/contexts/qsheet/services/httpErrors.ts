@@ -46,6 +46,18 @@ export class ConflictError extends HttpError {
 }
 
 /**
+ * 運営マニュアルの編集ロック（段E・production-manual.md §6-2-1）。
+ * 他人が新しく（＝stale でなく）持っているロックに書き込もうとしたときの 409。
+ * `ConflictError` と同じ「取り合いの事故」の系統だが、コードを分けて画面が
+ * 「他の人が編集中」と「保存の衝突」を出し分けられるようにする。
+ */
+export class LockError extends HttpError {
+  constructor(message: string, lockedBy: string | null, lockedByName: string | null) {
+    super(409, 'LOCKED', message, { locked_by: lockedBy, locked_by_name: lockedByName });
+  }
+}
+
+/**
  * AI 生成（段8）が投げる例外。**`500` にしない** — 画面が
  * 「AI が失敗しました。手で作れます」と出し分けられるようにするため（04-ai.md §10-1）。
  */
