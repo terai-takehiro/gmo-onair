@@ -7,7 +7,7 @@
 <body>
 <x-dc>
 <helmet>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;800&family=Noto+Serif+JP:wght@700;900&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@100;400;700;800&family=Noto+Sans+JP:wght@100;200;300;400;500;600;700;800;900&family=Noto+Serif+JP:wght@400;700;900&display=swap">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
@@ -84,23 +84,23 @@
 
       <div style="flex: 1; overflow: hidden; padding: 11px 12px 14px;">
         <sc-for list="{{groups}}" as="g" hint-placeholder-count="6">
-          <div style="margin-bottom: 12px;">
-            <div style="display: flex; align-items: center; gap: 7px; padding: 0 2px 6px;">
-              <span style="width: 5px; height: 14px; border-radius: 2px; background: {{g.color}};"></span>
+          <div style="margin-bottom: 9px;">
+            <div style="display: flex; align-items: center; gap: 7px; padding: 0 2px 4px;">
+              <span style="width: 5px; height: 13px; border-radius: 2px; background: {{g.color}};"></span>
               <span style="font-size: 12px; font-weight: 800;">{{g.app}}</span>
               <span class="num clip1" style="font-size: 11px; color: #9aa1ab; min-width: 0;">{{g.doc}}</span>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 5px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
               <sc-for list="{{g.items}}" as="i" hint-placeholder-count="3">
-                <button class="tap card-tap" onClick="{{i.pick}}" style="display: flex; align-items: center; gap: 9px; border-radius: 10px; border: 1px solid {{i.border}}; background: {{i.bg}}; padding: 8px 10px;">
+                <button class="tap card-tap" onClick="{{i.pick}}" style="display: flex; align-items: center; gap: 9px; border-radius: 9px; border: 1px solid {{i.border}}; background: {{i.bg}}; padding: 5px 9px;">
                   <span style="width: 30px; height: 22px; flex-shrink: 0; border-radius: 3px; border: 1px solid #cbd2da; background: #ffffff; padding: 3px; display: flex; flex-direction: column; gap: 1.5px;">
                     <sc-for list="{{i.pict}}" as="l" hint-placeholder-count="3">
                       <span style="height: 2px; width: {{l.w}}; border-radius: 1px; background: {{l.c}};"></span>
                     </sc-for>
                   </span>
                   <span style="flex: 1; min-width: 0;">
-                    <span class="clip1" style="display: block; font-size: 12.5px; font-weight: 800;">{{i.label}}</span>
-                    <span class="clip1" style="display: block; margin-top: 1px; font-size: 11px; color: #5d6470;">{{i.desc}}</span>
+                    <span class="clip1" style="display: block; font-size: 12px; font-weight: 800; line-height: 1.45;">{{i.label}}</span>
+                    <span class="clip1" style="display: block; font-size: 10.5px; line-height: 1.4; color: #5d6470;">{{i.desc}}</span>
                   </span>
                   <sc-if value="{{i.used}}" hint-placeholder-val="{{ true }}">
                     <span style="flex-shrink: 0; display: inline-flex; align-items: center; height: 19px; border-radius: 5px; background: #f2f4f7; color: #5d6470; font-size: 10px; font-weight: 700; padding: 0 6px;">使用中</span>
@@ -224,10 +224,9 @@ class Component extends DCLogic {
         ],
       },
       {
-        app: 'スケジュール表', doc: 'SD-0031 ・ 8/22（土）', color: '#197a4b',
+        app: 'スケジュール表', doc: 'SD-0031 8/22 ・ SD-0032 8/23', color: '#197a4b',
         items: [
           { key: 'sched', label: '当日の流れ', desc: '時系列／列×時間／抜粋を選べます', pict: [L('100%', '#197a4b'), L('100%', '#cbd2da'), L('100%', '#cbd2da')], used: true },
-          { key: 'move', label: '搬入出', desc: '搬入・搬出の枠だけ抜き出す', pict: [L('60%', '#cbd2da'), L('90%', '#cbd2da')], used: false },
         ],
       },
       {
@@ -263,6 +262,64 @@ class Component extends DCLogic {
     ];
   }
 
+  metaTable() {
+  // ⚠️ カタログの全項目にプレビューと「出す項目」を持たせる。
+  //    1件でも欠けると、押したカードと右パネルの中身がずれる（見た目では気づけない）。
+  return {
+    head: { label: '見出し', source: '案件管理 ・ GLS-A002 第7回', previewTitle: '見出し',
+      preview: [{ a: '案件', b: 'サイエンス・フロンティア', c: 'GLS-A002' }, { a: '回', b: '第7回', c: '' }, { a: '日付', b: '2026/08/22（土）', c: 'リハ' }, { a: '会場', b: '第2スタジオ', c: '入り 09:00' }],
+      fields: [{ key: 'name', label: '案件名' }, { key: 'gls', label: '管理番号' }, { key: 'ep', label: '回' }, { key: 'date', label: '日付' }, { key: 'place', label: '会場' }] },
+    crew: { label: '体制・連絡先', source: '案件のメンバー ・ 8人', previewTitle: '体制・連絡先',
+      preview: [{ a: 'プロデューサー', b: '寺井 岳宏', c: '090-0000-0001' }, { a: '演出', b: '川口 早苗', c: '090-0000-0002' }, { a: '技術', b: '大野 健', c: '090-0000-0003' }, { a: '音声', b: '藤原 直', c: '090-0000-0004' }],
+      fields: [{ key: 'role', label: '役割' }, { key: 'name', label: '氏名' }, { key: 'tel', label: '電話' }, { key: 'mail', label: 'メール' }, { key: 'co', label: '所属' }] },
+    room: { label: 'スタジオ予約', source: 'カレンダー ・ 2件', previewTitle: '部屋と時間',
+      preview: [{ a: '8/22（土）', b: '第2スタジオ', c: '09:00−21:00' }, { a: '8/23（日）', b: '第2スタジオ', c: '10:00−18:00' }, { a: '8/23（日）', b: '控室A', c: '12:00−15:00' }],
+      fields: [{ key: 'date', label: '日付' }, { key: 'room', label: '部屋' }, { key: 'time', label: '時間' }, { key: 'who', label: '予約者' }] },
+    sched: { label: '当日の流れ', source: 'スケジュール表 SD-0031 ・ 8/22（土）', previewTitle: '当日の流れ',
+      preview: [{ a: '09:00', b: 'スタジオ入り・機材搬入', c: '技術' }, { a: '10:30', b: '配信チェック', c: '藤原' }, { a: '12:30', b: '通しリハーサル', c: '全員' }, { a: '16:00', b: '解散', c: '—' }],
+      fields: [{ key: 'time', label: '時刻' }, { key: 'title', label: '内容' }, { key: 'who', label: '担当' }, { key: 'place', label: '場所' }, { key: 'note', label: '備考' }] },
+    flow: { label: '進行表', source: '進行台本 SB-0042 ・ 決定稿', previewTitle: '進行表',
+      preview: [{ a: '1', b: 'オープニング', c: "2'30\"" }, { a: '2', b: 'ゲスト紹介', c: "3'00\"" }, { a: '3', b: 'コーナー1 実験', c: "35'00\"" }, { a: '4', b: 'CM ／ 転換', c: "10'00\"" }],
+      fields: [{ key: 'no', label: '番号' }, { key: 'title', label: '項目' }, { key: 'dur', label: '尺' }, { key: 'who', label: '担当' }, { key: 'telop', label: 'テロップ' }] },
+    part: { label: '台本の抜粋', source: '進行台本 SB-0042 ・ セクションを選ぶ', previewTitle: 'コーナー2 視聴者クイズ',
+      preview: [{ a: '14:05', b: '出題（第1問）', c: 'CG' }, { a: '14:12', b: '締切・開票', c: 'CG' }, { a: '14:20', b: '正解発表', c: '演出' }, { a: '14:30', b: 'ランキング', c: 'CG' }],
+      fields: [{ key: 'time', label: '時刻' }, { key: 'title', label: '項目' }, { key: 'line', label: 'セリフ' }, { key: 'note', label: '備考' }] },
+    mic: { label: 'マイク割り', source: '進行台本 SB-0042 ・ 8本', previewTitle: 'マイク割り',
+      preview: [{ a: 'Ch1', b: '司会 ・ 宮下 涼', c: 'ピン' }, { a: 'Ch2', b: 'ゲスト ・ 岡田 実', c: 'ピン' }, { a: 'Ch3', b: 'ゲスト ・ 早瀬 千夏', c: 'ピン' }, { a: 'Ch4', b: '実験台 ・ 環境音', c: 'ガン' }],
+      fields: [{ key: 'ch', label: 'Ch' }, { key: 'who', label: '出演者' }, { key: 'type', label: 'マイク' }, { key: 'note', label: '備考' }] },
+    deck: { label: '収録の一覧', source: '収録設定 ・ デッキ 2台', previewTitle: '収録',
+      preview: [{ a: 'DECK1', b: 'HyperDeck Studio 4K Pro', c: 'ProRes422' }, { a: 'DECK2', b: 'HyperDeck Shuttle HD', c: 'ProRes422' }, { a: '保存先', b: 'SSD-A ／ SSD-B', c: '二重' }],
+      fields: [{ key: 'deck', label: 'デッキ' }, { key: 'model', label: '機種' }, { key: 'codec', label: '形式' }, { key: 'slot', label: '保存先' }] },
+    dest: { label: '配信先の一覧', source: '配信設定 ・ 3件', previewTitle: '配信先',
+      preview: [{ a: 'ENC1', b: 'SF7 Main', c: 'YouTube' }, { a: 'ENC1', b: 'SF7 Backup', c: 'YouTube' }, { a: 'ENC2', b: 'SF7 Client', c: '社内' }, { a: '鍵', b: '●●●●●●●●', c: '出しません' }],
+      fields: [{ key: 'enc', label: 'ENC' }, { key: 'name', label: 'セッション名' }, { key: 'proto', label: '方式' }, { key: 'url', label: '行き先' }, { key: 'key', label: '鍵' }],
+      secret: true },
+    meet: { label: 'WEB会議', source: '配信設定 ・ 1件', previewTitle: 'WEB会議',
+      preview: [{ a: 'Zoom', b: 'クライアント確認用', c: 'OA1' }, { a: 'URL', b: 'zoom.us/j/000-0000', c: '' }, { a: '合言葉', b: '●●●●●●', c: '出しません' }],
+      fields: [{ key: 'tool', label: 'ツール' }, { key: 'label', label: '用途' }, { key: 'url', label: 'URL' }, { key: 'id', label: '会議ID' }, { key: 'key', label: '合言葉' }],
+      secret: true },
+    rent: { label: '借りる機材', source: 'レンタル機材検索 ・ 12点', previewTitle: '借りる機材',
+      preview: [{ a: '2', b: 'URSA Broadcast G2', c: 'A社' }, { a: '1', b: 'ATEM 4 M/E', c: 'A社' }, { a: '4', b: 'ワイヤレスピン', c: 'B社' }, { a: '1', b: 'LED パネル 2×4', c: 'B社' }],
+      fields: [{ key: 'qty', label: '数量' }, { key: 'item', label: '品目' }, { key: 'co', label: '会社' }, { key: 'date', label: '受渡し' }, { key: 'price', label: '金額' }] },
+    out: { label: '持ち出す機材', source: '機材管理 ・ 34点', previewTitle: '持ち出す機材',
+      preview: [{ a: 'CAM-012', b: 'Sony FX9', c: '大野' }, { a: 'MIX-003', b: 'Rubix42', c: '藤原' }, { a: 'MON-021', b: '17型 モニター ×2', c: '大野' }, { a: 'CBL-…', b: 'SDI ケーブル 一式', c: '技術' }],
+      fields: [{ key: 'code', label: '管理番号' }, { key: 'item', label: '品目' }, { key: 'who', label: '持ち出す人' }, { key: 'back', label: '返却' }] },
+    timer: { label: '目標尺', source: '計時・視聴者 ・ 1件', previewTitle: '目標尺',
+      preview: [{ a: '本編', b: 'サイエンス・フロンティア #7', c: "110'00\"" }, { a: 'コーナー1', b: '実験パート', c: "35'00\"" }, { a: 'コーナー2', b: '視聴者クイズ', c: "35'00\"" }],
+      fields: [{ key: 'name', label: '名前' }, { key: 'target', label: '持ち時間' }, { key: 'start', label: '開始' }] },
+    telop: { label: 'テロップ一覧', source: 'テロップCG ・ 24枚', previewTitle: 'テロップ（出す順）',
+      preview: [{ a: '1', b: 'オープニング', c: '題字' }, { a: '2', b: 'ゲスト紹介 ・ 岡田 実', c: 'ネーム' }, { a: '3', b: 'クイズ 第1問', c: '投票' }, { a: '4', b: '結果発表', c: 'ランキング' }],
+      fields: [{ key: 'no', label: '番号' }, { key: 'text', label: '文言' }, { key: 'kind', label: '種類' }, { key: 'timing', label: '出す位置' }] },
+  };
+  }
+
+  /** その項目の「出す項目」の既定。鍵・合言葉は既定で外す（紙に出さない） */
+  defaultFields(key) {
+    const m = this.metaTable()[key];
+    if (!m) return [];
+    return m.fields.filter((x) => x.key !== 'key').slice(0, 4).map((x) => x.key);
+  }
+
   renderVals() {
     const self = this;
     const st = this.state;
@@ -273,35 +330,11 @@ class Component extends DCLogic {
         label: i.label, desc: i.desc, pict: i.pict, used: i.used,
         border: st.sel === i.key ? '#005bac' : '#e6e9ed',
         bg: st.sel === i.key ? '#f4faff' : '#ffffff',
-        pick: () => self.setState({ sel: i.key }),
+        pick: () => self.setState({ sel: i.key, fields: self.defaultFields(i.key) }),
       })),
     }));
 
-    const meta = {
-      crew: {
-        label: '体制・連絡先', source: '案件のメンバー ・ 8人',
-        previewTitle: '体制・連絡先',
-        preview: [
-          { a: 'プロデューサー', b: '寺井 岳宏', c: '090-0000-0001' },
-          { a: '演出', b: '川口 早苗', c: '090-0000-0002' },
-          { a: '技術', b: '大野 健', c: '090-0000-0003' },
-          { a: '音声', b: '藤原 直', c: '090-0000-0004' },
-        ],
-        fields: [{ key: 'role', label: '役割' }, { key: 'name', label: '氏名' }, { key: 'tel', label: '電話' }, { key: 'mail', label: 'メール' }, { key: 'co', label: '所属' }],
-        secret: false,
-      },
-      dest: {
-        label: '配信先の一覧', source: '配信設定 ・ 3件',
-        previewTitle: '配信先',
-        preview: [
-          { a: 'ENC1', b: 'SF7 Main', c: 'YouTube' },
-          { a: 'ENC1', b: 'SF7 Backup', c: 'YouTube' },
-          { a: 'ENC2', b: 'SF7 Client', c: '社内' },
-        ],
-        fields: [{ key: 'enc', label: 'ENC' }, { key: 'name', label: 'セッション名' }, { key: 'proto', label: '方式' }, { key: 'url', label: '行き先' }, { key: 'key', label: '鍵' }],
-        secret: true,
-      },
-    };
+    const meta = this.metaTable();
     const m = meta[st.sel] || meta.crew;
 
     const viewDefs = [{ key: 'list', label: '一覧' }, { key: 'card', label: 'カード' }, { key: 'part', label: '抜粋' }];
@@ -332,7 +365,7 @@ class Component extends DCLogic {
 
     return {
       groups: groups, views: views, fields: fields,
-      sel: { label: m.label, source: m.source, previewTitle: m.previewTitle, preview: m.preview, hasSecret: m.secret },
+      sel: { label: m.label, source: m.source, previewTitle: m.previewTitle, preview: m.preview, hasSecret: !!m.secret },
     };
   }
 }

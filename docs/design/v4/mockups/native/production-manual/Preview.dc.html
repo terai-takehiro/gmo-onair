@@ -7,7 +7,7 @@
 <body>
 <x-dc>
 <helmet>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;800&family=Noto+Serif+JP:wght@700;900&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@100;400;700;800&family=Noto+Sans+JP:wght@100;200;300;400;500;600;700;800;900&family=Noto+Serif+JP:wght@400;700;900&display=swap">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
@@ -45,6 +45,7 @@
     <span class="num" style="font-size: 11.5px; font-weight: 700; color: #9aa1ab;">OM-0007</span>
     <span style="font-size: 15px; font-weight: 800;">本番運営マニュアル 第7回</span>
     <span class="num" style="font-size: 12px; color: #5d6470;">A4横 ・ 12ページ ・ 3章</span>
+    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 56px; height: 21px; border-radius: 6px; background: #e7f6ee; color: #197a4b; font-size: 11px; font-weight: 800;">確定</span>
     <span style="flex: 1;"></span>
     <span style="font-size: 11.5px; color: #9aa1ab;">見え方は紙と同じです</span>
   </div>
@@ -197,7 +198,7 @@
 
         <div style="margin-top: 12px; padding-top: 11px; border-top: 1px dashed #e6e9ed; display: flex; gap: 7px;">
           <button class="tap" style="flex: 1; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; font-size: 12px; font-weight: 700;">ひな形にする</button>
-          <button class="tap" style="flex: 1; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid #cfe4f4; background: #f4faff; color: #005bac; font-size: 12px; font-weight: 800;">確定する</button>
+          <button class="tap" style="flex: 1; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid #cfe4f4; background: #f4faff; color: #005bac; font-size: 12px; font-weight: 800;">確定を解く</button>
         </div>
       </div>
     </aside>
@@ -216,11 +217,12 @@ class Component extends DCLogic {
     const tocDefs = [
       { label: '第1章 ／ この冊子について', page: '1', lv: 1 },
       { label: '表紙', page: '1', lv: 2 },
-      { label: '体制と連絡網', page: '2', lv: 2 },
-      { label: '第2章 ／ 当日', page: '3', lv: 1 },
-      { label: '8/22（土）リハーサル', page: '3', lv: 2, on: true },
-      { label: '8/23（日）本番', page: '5', lv: 2 },
-      { label: '進行表（決定稿）', page: '7', lv: 2 },
+      { label: 'この冊子について', page: '2', lv: 2 },
+      { label: '体制と連絡網', page: '3', lv: 2 },
+      { label: '第2章 ／ 当日', page: '4', lv: 1 },
+      { label: '8/22（土）リハーサル', page: '4', lv: 2 },
+      { label: '8/23（日）本番', page: '5', lv: 2, on: true },
+      { label: '進行表（決定稿）', page: '6', lv: 2 },
       { label: '第3章 ／ 技術', page: '9', lv: 1 },
       { label: '収録・配信のしくみ', page: '9', lv: 2 },
       { label: '機材と搬入出', page: '11', lv: 2 },
@@ -246,28 +248,20 @@ class Component extends DCLogic {
       { a: '16:00', b: '解散', c: '—', weight: 400, fg: '#5d6470' },
     ];
     const rowsB = [
+      { a: '10:00', b: 'スタジオ入り・前日セット確認', c: '技術 全員', weight: 400, fg: '#5d6470' },
+      { a: '11:00', b: '配信チェック（本線・予備）', c: '藤原', weight: 400, fg: '#5d6470' },
+      { a: '12:00', b: 'キャスト入り・メイク', c: '制作', weight: 400, fg: '#5d6470' },
       { a: '13:00', b: '本番 開始（配信 ON）', c: '全員', weight: 700, fg: '#c2410e' },
-      { a: '13:05', b: 'オープニング', c: '演出', weight: 400, fg: '#5d6470' },
       { a: '13:20', b: 'コーナー1 実験パート', c: '演出', weight: 400, fg: '#5d6470' },
-      { a: '13:55', b: 'CM / 転換', c: '技術', weight: 400, fg: '#5d6470' },
-      { a: '14:05', b: 'コーナー2 視聴者クイズ', c: '演出 / CG', weight: 400, fg: '#5d6470' },
-      { a: '14:40', b: 'エンディング', c: '演出', weight: 400, fg: '#5d6470' },
+      { a: '14:05', b: 'コーナー2 視聴者クイズ', c: '演出 / 小島', weight: 400, fg: '#5d6470' },
       { a: '14:50', b: '本番 終了（配信 OFF）', c: '藤原', weight: 700, fg: '#1a1d24' },
-      { a: '15:00', b: '撤収・搬出', c: '全員', weight: 400, fg: '#5d6470' },
-    ];
-    const rowsC = [
-      { a: 'DECK1', b: 'HyperDeck Studio 4K Pro', c: 'ProRes422', weight: 700, fg: '#1a1d24' },
-      { a: 'DECK2', b: 'HyperDeck Shuttle HD（予備）', c: 'ProRes422', weight: 400, fg: '#5d6470' },
-      { a: 'ENC1', b: 'SF7 Main → YouTube', c: 'RTMP', weight: 700, fg: '#1a1d24' },
-      { a: 'ENC1', b: 'SF7 Backup → YouTube', c: 'RTMP', weight: 400, fg: '#5d6470' },
-      { a: 'ENC2', b: 'SF7 Client → 社内', c: 'SRT', weight: 400, fg: '#5d6470' },
-      { a: '鍵', b: '●●●●●●●●（紙には出しません）', c: '—', weight: 400, fg: '#c2410e' },
+      { a: '15:40', b: '撤収・搬出', c: '全員', weight: 400, fg: '#5d6470' },
     ];
 
     const sheetDefs = [
       { no: 1, title: '表紙', isCover: true, overflow: false },
-      { no: 2, title: '体制と連絡網', isList: true, rows: rowsA.slice(0, 6), sideTitle: '連絡先', side: [{ a: 'P', b: '寺井 岳宏' }, { a: '演出', b: '川口 早苗' }, { a: '技術', b: '大野 健' }, { a: '音声', b: '藤原 直' }], noteTitle: '緊急時', note: 'スタジオ直通 03-0000-0000 ／ 警備室 内線 500', overflow: false },
-      { no: 3, title: '8/22（土）リハーサル', isList: true, rows: rowsA, sideTitle: '当日の連絡', side: [{ a: '入り', b: '09:00 技術' }, { a: 'キャスト', b: '11:00' }, { a: '通し', b: '12:30' }, { a: '解散', b: '16:00' }], noteTitle: 'リハ中の約束ごと', note: '通しは止めずに最後まで。気づきは終了後にまとめて', overflow: true },
+      { no: 3, title: '体制と連絡網', isList: true, rows: rowsA.slice(0, 6), sideTitle: '連絡先', side: [{ a: 'P', b: '寺井 岳宏' }, { a: '演出', b: '川口 早苗' }, { a: '技術', b: '大野 健' }, { a: '音声', b: '藤原 直' }], noteTitle: '緊急時', note: 'スタジオ直通 03-0000-0000 ／ 警備室 内線 500', overflow: false },
+      { no: 4, title: '8/22（土）リハーサル', isList: true, rows: rowsA, sideTitle: '当日の連絡', side: [{ a: '入り', b: '09:00 技術' }, { a: 'キャスト', b: '11:00' }, { a: '通し', b: '12:30' }, { a: '解散', b: '16:00' }], noteTitle: 'リハ中の約束ごと', note: '通しは止めずに最後まで。気づきは終了後にまとめて', overflow: true },
       { no: 5, title: '8/23（日）本番', isList: true, rows: rowsB, sideTitle: 'テロップCG', side: [{ a: '1', b: 'オープニング' }, { a: '2', b: 'ゲスト紹介' }, { a: '3', b: 'クイズ出題' }, { a: '4', b: '結果発表' }], noteTitle: '本番の約束ごと', note: '配信の切り替えは藤原のみ。CLEAR は誰が押してもよい', overflow: false },
     ];
     const sheets = sheetDefs.map((s) => ({
@@ -275,7 +269,6 @@ class Component extends DCLogic {
       rows: s.rows || [], sideTitle: s.sideTitle || '', side: s.side || [],
       noteTitle: s.noteTitle || '', note: s.note || '', overflow: !!s.overflow,
     }));
-    void rowsC;
 
     const rangeDefs = [{ key: 'all', label: '全部' }, { key: 'chapter', label: '章' }, { key: 'page', label: 'ページ' }];
     const ranges = rangeDefs.map((r) => ({
@@ -307,7 +300,7 @@ class Component extends DCLogic {
 
     const checks = [
       { label: '紙からはみ出すブロック', n: 1, dot: '#c7243a', dotBg: '#fdecee', fg: '#c7243a' },
-      { label: '差し込み元が変わったまま', n: 2, dot: '#c2410e', dotBg: '#fff7ed', fg: '#c2410e' },
+      { label: '差し込み元が変わったまま', n: 0, dot: '#197a4b', dotBg: '#e7f6ee', fg: '#197a4b' },
       { label: '中身が空のブロック', n: 0, dot: '#197a4b', dotBg: '#e7f6ee', fg: '#197a4b' },
       { label: '元の資料が消えたブロック', n: 0, dot: '#197a4b', dotBg: '#e7f6ee', fg: '#197a4b' },
     ];

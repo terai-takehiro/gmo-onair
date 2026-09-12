@@ -1,13 +1,70 @@
 {
   "artboards": [
-    { "file": "Map.dc.html", "x": 0, "y": 0, "w": 1200, "h": 880, "title": "考え方の地図 ── 差し込む／置く／書き出す・4つの語・画面5枚" },
-    { "file": "Main.dc.html", "x": 0, "y": 1560, "w": 1440, "h": 1000, "title": "PC ① 冊子一覧 /techops/manuals" },
-    { "file": "Editor.dc.html", "x": 1560, "y": 1560, "w": 1440, "h": 1040, "title": "PC ② 編集（A4横のキャンバス）/techops/manuals/:id" },
-    { "file": "Insert.dc.html", "x": 3120, "y": 1560, "w": 1440, "h": 1040, "title": "PC ③ 差し込む（②の左パネル）── レゴのカタログ" },
-    { "file": "Text.dc.html", "x": 0, "y": 3200, "w": 1440, "h": 1040, "title": "PC ② 編集／書式（文字の意匠）── ②の右パネル" },
-    { "file": "Preview.dc.html", "x": 1560, "y": 3200, "w": 1440, "h": 1000, "title": "PC ④ 仕上がりと PDF /techops/manuals/:id/preview" },
-    { "file": "Sheet.dc.html", "x": 3120, "y": 3200, "w": 1123, "h": 794, "print": "fixed", "title": "出来上がりの1枚（A4横・実寸 297×210mm）＝ PDF の1ページ" },
-    { "file": "Mobile.dc.html", "x": 4400, "y": 3200, "w": 390, "h": 844, "title": "スマホ ⑤ 閲覧（見るだけ＋PDF）" }
+    {
+      "file": "Map.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1200,
+      "h": 880,
+      "title": "考え方の地図 ── 差し込む／置く／書き出す・4つの語・画面5枚"
+    },
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 1560,
+      "w": 1440,
+      "h": 1000,
+      "title": "PC ① 冊子一覧 /techops/manuals"
+    },
+    {
+      "file": "Editor.dc.html",
+      "x": 1560,
+      "y": 1560,
+      "w": 1440,
+      "h": 1040,
+      "title": "PC ② 編集（A4横のキャンバス）/techops/manuals/:id"
+    },
+    {
+      "file": "Insert.dc.html",
+      "x": 3120,
+      "y": 1560,
+      "w": 1440,
+      "h": 1040,
+      "title": "PC ③ 差し込む（②の左パネル）── レゴのカタログ"
+    },
+    {
+      "file": "Text.dc.html",
+      "x": 0,
+      "y": 3200,
+      "w": 1440,
+      "h": 1040,
+      "title": "PC ② 編集／書式（文字の意匠）── ②の右パネル"
+    },
+    {
+      "file": "Preview.dc.html",
+      "x": 1560,
+      "y": 3200,
+      "w": 1440,
+      "h": 1000,
+      "title": "PC ④ 仕上がりと PDF /techops/manuals/:id/preview"
+    },
+    {
+      "file": "Sheet.dc.html",
+      "x": 3120,
+      "y": 3200,
+      "w": 1123,
+      "h": 794,
+      "print": "fixed",
+      "title": "出来上がりの1枚（A4横・実寸 297×210mm）＝ PDF の1ページ"
+    },
+    {
+      "file": "Mobile.dc.html",
+      "x": 4400,
+      "y": 3200,
+      "w": 390,
+      "h": 844,
+      "title": "スマホ ⑤ 閲覧（見るだけ＋PDF）"
+    }
   ],
   "annotations": [
     {
@@ -22,7 +79,7 @@
       "x": 1320,
       "y": 540,
       "w": 660,
-      "text": "言葉の決めごと（docs/wording.md ルール6〜8 に沿う）\n\n冊子 … 運営マニュアル1件。案件か番組に紐づく。資料番号 OM-0001\nページ … A4横1枚。章で区切れる\nブロック … ページに置く箱。差し込み／自由（文字・図形・画像・表・QR）／ひな形の3つ\nひな形 … 冊子まるごと・1ページの型。前の案件の冊子からも作れる\n\n⚠️ 「ブロック」は進行台本の「列（ブロック）」と同じ語。台本側はすでに画面では「列」が主で\n「ブロック」は併記（ColumnHeaderCell.tsx）。運営マニュアル側で「ブロック」を採り、台本側は\n「列」に寄せる方向で衝突を解く。§10 の「決めていただきたいこと」1件目。\n\n出さない語: レイヤー・オブジェクト・キャンバス・テンプレート・バインド・スナップ・マスター\n（それぞれ 重なり・ブロック・紙面・ひな形・差し込む・すいつき・ひな形のブロック）"
+      "text": "言葉の決めごと（docs/wording.md ルール6〜8 に沿う）\n\n冊子 … 運営マニュアル1件。案件か番組に紐づく。資料番号 OM-0001\nページ … A4横1枚。章で区切れる\nブロック … ページに置く箱。差し込み／自由（文字・図形・画像・表・QR）／ひな形（柱など全ページ共通）の3つ\nひな形 … 冊子まるごと・1ページの型。前の案件の冊子からも作れる\n\n⚠️ 「ブロック」は進行台本の「列（ブロック）」と同じ語。台本側はすでに画面では「列」が主で\n「ブロック」は併記（ColumnHeaderCell.tsx）。運営マニュアル側で「ブロック」を採り、台本側は\n「列」に寄せる方向で衝突を解く。§10 の「決めていただきたいこと」1件目。\n\n出さない語: レイヤー・オブジェクト・キャンバス・テンプレート・バインド・スナップ・マスター\n（それぞれ 重なり・ブロック・紙面・ひな形・差し込む・すいつき・ひな形のブロック）"
     },
     {
       "id": "main",
@@ -36,7 +93,7 @@
       "x": 1560,
       "y": 1180,
       "w": 700,
-      "text": "② 編集 ── パワーポイントの操作をそのまま持ち込む\n\n左=ページ（並べ替え・複製・章）／中央=A4横の紙面／右=選んだブロックの設定。\n共通シェルの左メニューは畳んだ状態で開く（AppShell は width:0 まで畳める仕組みを既に持つ）。\n\nブロックを押すと選べます（動きます）。選ぶと右パネルが差し込み／書式に切り替わる。\nつまみは8方向＋回転。矢印キーで 1mm（Shift で 0.2mm）。Alt ドラッグで複製。\nすいつきは「他のブロックの端・紙面の中心・版面の余白」の3つだけ。\n\n差し込みブロックは既定で「追従する」。確定すると全ブロックが自動で凍る（§6-3）。\n右下の「位置と大きさ」は mm で出す（画面の px ではなく紙の寸法で考える）。"
+      "text": "② 編集 ── パワーポイントの操作をそのまま持ち込む\n\n左=ページ（並べ替え・複製・章）／中央=A4横の紙面／右=選んだブロックの設定。\n共通シェルの左メニューは畳んだ状態で開く（AppShell は width:0 まで畳める仕組みを既に持つ）。\n\nブロックを押すと選べます（動きます）。選ぶと右パネルが差し込み／書式に切り替わる。\nつまみは8方向＋回すつまみ1つ。矢印キーで 1mm（Shift で 0.2mm）。Alt ドラッグで複製。\nすいつきは「他のブロックの端・紙面の中心・版面の余白」の3つだけ。\n\n差し込みブロックは既定で「追従する」。確定すると全ブロックが自動で凍る（§6-3）。\n右下の「位置と大きさ」は mm で出す（画面の px ではなく紙の寸法で考える）。"
     },
     {
       "id": "insert",
@@ -50,7 +107,7 @@
       "x": 0,
       "y": 2820,
       "w": 700,
-      "text": "② の右パネル「書式」── 文字の意匠は Web の自由度をそのまま使う\n\n書体・大きさ・太さ・行間・字間・長体・色・そろえ（動きます）。\n効果は 袋文字（-webkit-text-stroke）・影（text-shadow）・グラデーション文字\n（background-clip:text）・縦書き（writing-mode）。PowerPoint に無いものが素の CSS で出せる。\n\n選んだ文字だけに効く（ブロック全体ではない）。浮かぶ小さな道具は Canva と同じ位置。\n「よく使う見た目」は押すだけで当たり、「この見た目をひな形に登録」で冊子・組織に残せる。\n\n⚠️ PDF に出るのは画面と同じ描画なので、書体は同梱の LINE Seed JP と Noto Sans JP /\nNoto Serif JP に限る（index.html の Google Fonts。同梱化は techops の残作業）。"
+      "text": "② の右パネル「書式」── 文字の意匠は Web の自由度をそのまま使う\n\n書体・ウェイト・大きさ・行間・字間・長体・色・送り・そろえ（動きます）。\n効果は 袋文字（-webkit-text-stroke）・影（text-shadow）・グラデーション文字\n（background-clip:text）・縦書き（writing-mode）。PowerPoint に無いものが素の CSS で出せる。\n\n選んだ文字だけに効く（ブロック全体ではない）。浮かぶ小さな道具は Canva と同じ位置。\n「よく使う見た目」は押すだけで当たり、「この見た目をひな形に登録」で冊子・組織に残せる。\n\n書体は LINE Seed JP と Noto Sans JP が基本（3つ目の明朝は題字・引用のとき）。\nウェイトは**その書体が持っている段を全部**出す ── LINE Seed JP は 100/400/700/800 の4段、\nNoto Sans JP は 100〜900 の9段。持っていない段は押せるようにしない（合成された偽の太字を作らない）。\n送りはプロポーショナル（palt）が基本で、時刻・番号・金額など数字が縦に並ぶところだけ等幅（tnum）。\n\n⚠️ PDF は画面と同じ描画なので、選べる書体は同梱しているものに限る\n（LINE Seed JP は同梱済み・Noto は index.html の Google Fonts。同梱化は techops の残作業）。"
     },
     {
       "id": "preview",
@@ -85,15 +142,17 @@
       "x": 1000,
       "y": 4380,
       "w": 900,
-      "text": "データの持ち方（設計書 §5）\n\nqsheet_manuals … 冊子（doc_no OM-xxxx・project_id / program_id / doc_no のどれか1つ・\n　service_date・status draft|fixed|archived・theme・updated_at / updated_by）\nqsheet_manual_pages … ページ1枚＝1行（sort_order・chapter・blocks JSONB・updated_at）\nqsheet_manual_templates … ひな形（組織共通・案件の冊子から作る）\n画像は既存の /qsheet/upload-image（uploads/qsheet・Docker の永続ボリューム）を使う\n\nなぜページ1枚＝1行か: 打つたびに冊子まるごとを送らずに済み、並べ替えは sort_order だけ、\n取り合いもページ単位で見つかる。ブロックは JSONB（1ページ 20個・300バイト程度）。\n\n⚠️ 進行台本の qsheet_documents.data とは別物。あちらは Yjs の持ち物でサーバーは書かない。\n運営マニュアルはサーバーが書く（updated_at の突き合わせで取り合いを見つける）。"
+      "text": "データの持ち方（設計書 §5）\n\nqsheet_manuals … 冊子（doc_no OM-xxxx・project_id / program_id のどちらか1つ・\n　service_date・status draft|fixed|archived・theme・updated_at / updated_by）\nqsheet_manual_pages … ページ1枚＝1行（sort_order・chapter・blocks JSONB・updated_at）\nqsheet_manual_templates … ひな形（組織共通・案件の冊子から作る）\n画像は既存の /qsheet/upload-image（uploads/qsheet・Docker の永続ボリューム）を使う\n\nなぜページ1枚＝1行か: 打つたびに冊子まるごとを送らずに済み、並べ替えは sort_order だけ、\n取り合いもページ単位で見つかる。ブロックは JSONB（1ページ 20個・300バイト程度）。\n\n⚠️ 進行台本の qsheet_documents.data とは別物。あちらは Yjs の持ち物でサーバーは書かない。\n運営マニュアルはサーバーが書く（updated_at の突き合わせで取り合いを見つける）。"
     },
     {
       "id": "open",
       "x": 2000,
       "y": 4380,
       "w": 900,
-      "text": "作る順（設計書 §9）\n\n段A 器 … レジストリ登録（MINI_APPS に manual）・表3本・一覧・空の冊子・ページの追加と並べ替え\n段B 置く … 自由ブロック（文字・図形・画像・表・QR）と紙面の操作（つかむ・伸ばす・整列・すいつき・Ctrl+Z）\n段C 差し込む … ブロックのレジストリと読み手を5つ（案件／スケジュール表／進行台本／収録・配信／機材）\n段D 出す … 仕上がり画面・出す前の検査・PDF（ブラウザ印刷）・柱と目次\n段E ひな形と確定 … ひな形の保存と適用・確定で凍らせる・前の案件からコピー・スマホの閲覧\n\n段A だけでも「冊子を作って PDF にする」は成立しない。段D まで通して初めて使える。\n段C の差し込み元は5つから始め、計時・テロップCG・カレンダーは後から足す（1つずつ）。\n\n検査: npx tsc -b client-techops ／ npm run lint ／ npm run test ／ npm run verify:ui techops ／ npm run verify:ime"
+      "text": "作る順（設計書 §9）\n\n段A 器 … レジストリ登録（MINI_APPS に manual）・表3本・一覧・空の冊子・ページの追加と並べ替え\n段B 置く … 自由ブロック（文字・図形・画像・表・QR）と紙面の操作（つかむ・伸ばす・整列・すいつき・Ctrl+Z）\n段C 差し込む … ブロックのレジストリと読み手を5つ（案件／スケジュール表／進行台本／収録・配信／機材）\n段D 出す … 仕上がり画面・出す前の検査・PDF（ブラウザ印刷）・柱と目次\n段E ひな形と確定 … ひな形の保存と適用・確定で凍らせる・前の案件からコピー・スマホの閲覧\n\n段A だけでは「冊子を作って PDF にする」は成立しない。段D まで通して初めて使える。\n段C の差し込み元は5つから始め、計時・テロップCG・カレンダーは後から足す（1つずつ）。\n\n検査: npx tsc -b client-techops ／ npm run lint ／ npm run test ／ npm run verify:ui techops ／ npm run verify:ime"
     }
   ],
-  "launch": { "view": "canvas" }
+  "launch": {
+    "view": "canvas"
+  }
 }

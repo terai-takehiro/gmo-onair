@@ -7,7 +7,7 @@
 <body>
 <x-dc>
 <helmet>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;800&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@100;400;700;800&family=Noto+Sans+JP:wght@100;200;300;400;500;600;700;800;900&family=Noto+Serif+JP:wght@400;700;900&display=swap">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
@@ -116,13 +116,21 @@
 class Component extends DCLogic {
   constructor(props) { super(props); this.state = { ch: 'day', no: 5 }; }
 
+  /** 12ページぶんを全部持つ。欠けると、めくった先に別のページの題が出る */
   pages() {
     return {
       1: { chapter: '第1章', title: '表紙', sub: '' },
       2: { chapter: '第1章', title: 'この冊子について', sub: '' },
       3: { chapter: '第1章', title: '体制と連絡網', sub: '8人' },
+      4: { chapter: '第2章 ／ 当日', title: '8月22日（土）リハーサル', sub: '入り 09:00' },
       5: { chapter: '第2章 ／ 当日', title: '8月23日（日）本番', sub: '入り 10:00 ／ 本番 13:00' },
+      6: { chapter: '第2章 ／ 当日', title: '進行表（決定稿）', sub: "本編 110'00\"" },
+      7: { chapter: '第2章 ／ 当日', title: 'テロップと音声', sub: 'テロップ 24枚' },
+      8: { chapter: '第2章 ／ 当日', title: '会場図と導線', sub: '第2スタジオ' },
       9: { chapter: '第3章 ／ 技術', title: '収録・配信のしくみ', sub: 'DECK 2 ／ ENC 2' },
+      10: { chapter: '第3章 ／ 技術', title: '配信先と切り替え', sub: '3件' },
+      11: { chapter: '第3章 ／ 技術', title: '機材と搬入出', sub: '借りる 12点' },
+      12: { chapter: '第3章 ／ 技術', title: '連絡先と緊急時', sub: '' },
     };
   }
 
@@ -132,19 +140,20 @@ class Component extends DCLogic {
 
     const chapterDefs = [
       { key: 'about', label: 'この冊子', first: 1, items: [{ label: '表紙', page: '1', accent: '#005bac' }, { label: 'この冊子について', page: '2', accent: '#005bac' }, { label: '体制と連絡網', page: '3', accent: '#005bac' }] },
-      { key: 'day', label: '当日', first: 5, items: [{ label: '8/22（土）リハーサル', page: '4', accent: '#c2410e' }, { label: '8/23（日）本番', page: '5', accent: '#c2410e' }, { label: '進行表（決定稿）', page: '7', accent: '#c2410e' }] },
+      { key: 'day', label: '当日', first: 4, items: [{ label: '8/22（土）リハーサル', page: '4', accent: '#c2410e' }, { label: '8/23（日）本番', page: '5', accent: '#c2410e' }, { label: '進行表（決定稿）', page: '6', accent: '#c2410e' }] },
       { key: 'tech', label: '技術', first: 9, items: [{ label: '収録・配信のしくみ', page: '9', accent: '#197a4b' }, { label: '機材と搬入出', page: '11', accent: '#197a4b' }] },
     ];
 
+    const activeKey = st.no <= 3 ? 'about' : (st.no <= 8 ? 'day' : 'tech');
     const chapters = chapterDefs.map((c) => ({
       label: c.label,
-      bg: st.ch === c.key ? '#eaf4fb' : 'transparent',
-      fg: st.ch === c.key ? '#005bac' : '#5d6470',
-      weight: st.ch === c.key ? 800 : 700,
+      bg: activeKey === c.key ? '#eaf4fb' : 'transparent',
+      fg: activeKey === c.key ? '#005bac' : '#5d6470',
+      weight: activeKey === c.key ? 800 : 700,
       pick: () => self.setState({ ch: c.key, no: c.first }),
     }));
 
-    const cur = chapterDefs.find((c) => c.key === st.ch) || chapterDefs[1];
+    const cur = chapterDefs.find((c) => c.key === activeKey) || chapterDefs[1];
     const toc = cur.items.map((i) => ({
       label: i.label, page: i.page, accent: i.accent,
       bg: String(st.no) === i.page ? '#f4faff' : '#ffffff',

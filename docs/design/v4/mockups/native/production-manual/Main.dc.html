@@ -7,7 +7,7 @@
 <body>
 <x-dc>
 <helmet>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;800&family=Noto+Serif+JP:wght@700;900&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@100;400;700;800&family=Noto+Sans+JP:wght@100;200;300;400;500;600;700;800;900&family=Noto+Serif+JP:wght@400;700;900&display=swap">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
@@ -49,7 +49,7 @@
 
     <!-- ── 左メニュー（共通シェル・幅248） ────────────────────────── -->
     <aside style="width: 248px; flex-shrink: 0; border-right: 1px solid #e6e9ed; background: #ffffff; padding: 14px 12px 20px; display: flex; flex-direction: column; gap: 2px;">
-      <sc-for list="{{nav}}" as="n" hint-placeholder-count="9">
+      <sc-for list="{{nav}}" as="n" hint-placeholder-count="10">
         <div style="display: flex; align-items: center; gap: 10px; height: 38px; border-radius: 10px; padding: 0 10px; background: {{n.bg}}; color: {{n.fg}};">
           <span style="width: 18px; height: 18px; border-radius: 5px; background: {{n.dot}}; flex-shrink: 0;"></span>
           <span style="font-size: 13.5px; font-weight: {{n.weight}};">{{n.label}}</span>
@@ -80,7 +80,7 @@
           </div>
           <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px;">
             <button class="tap" style="display: flex; align-items: center; gap: 6px; height: 38px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 13px; font-size: 13px; font-weight: 700;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.2"></rect><path d="M3 9h18"></path><path d="M9 9v11"></path></svg>ひな形から作る</button>
-            <button class="tap btn-primary" style="display: flex; align-items: center; gap: 7px; height: 38px; border-radius: 10px; background: #005bac; color: #ffffff; padding: 0 16px; font-size: 13px; font-weight: 800;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>冊子</button>
+            <button class="tap btn-primary" style="display: flex; align-items: center; gap: 7px; height: 38px; border-radius: 10px; background: #005bac; color: #ffffff; padding: 0 16px; font-size: 13px; font-weight: 800;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>冊子を作る</button>
           </div>
         </div>
 
@@ -98,8 +98,8 @@
         <!-- 元が変わりました の帯 -->
         <div style="margin-top: 10px; display: flex; align-items: center; gap: 10px; height: 42px; border-radius: 12px; border: 1px solid #fed7aa; background: #fff7ed; padding: 0 12px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c2410e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 3.9L2.6 17.4A2 2 0 0 0 4.3 20.4h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg>
-          <span style="font-size: 12.5px; font-weight: 700; color: #7c2d12;">差し込み元が変わった冊子が 2件あります</span>
-          <span style="font-size: 12px; color: #9a5228;">スケジュール表（8/23）・進行台本 SB-0042 が更新されました</span>
+          <span style="font-size: 12.5px; font-weight: 700; color: #7c2d12;">差し込み元が変わった冊子が 1件あります</span>
+          <span style="font-size: 12px; color: #9a5228;">スケジュール表 SD-0031（8/22）が更新されました</span>
           <span style="flex: 1;"></span>
           <button class="tap" style="display: flex; align-items: center; height: 30px; border-radius: 8px; border: 1px solid #fdba74; background: #ffffff; padding: 0 11px; font-size: 12px; font-weight: 700; color: #c2410e;">違いを見る</button>
         </div>
@@ -110,7 +110,7 @@
             <section class="card-tap" style="border-radius: 14px; border: 1px solid {{b.border}}; background: #ffffff; overflow: hidden;">
               <!-- 表紙のサムネ（A4横） -->
               <div style="height: 176px; background: #f2f4f7; border-bottom: 1px solid #e6e9ed; padding: 14px 18px; display: flex; align-items: center; justify-content: center;">
-                <div style="width: 100%; aspect-ratio: 297 / 210; background: #ffffff; border: 1px solid #cbd2da; border-radius: 3px; box-shadow: 0 4px 12px rgba(26,29,36,.09); padding: 10px 12px; display: flex; flex-direction: column;">
+                <div style="height: 100%; width: auto; aspect-ratio: 297 / 210; background: #ffffff; border: 1px solid #cbd2da; border-radius: 3px; box-shadow: 0 4px 12px rgba(26,29,36,.09); padding: 10px 12px; display: flex; flex-direction: column;">
                   <div style="height: 4px; width: 42px; border-radius: 2px; background: {{b.accent}};"></div>
                   <div style="margin-top: 8px; font-size: 10.5px; font-weight: 800; line-height: 1.35; color: #1a1d24;">{{b.coverTitle}}</div>
                   <div class="num" style="margin-top: 3px; font-size: 8px; color: #5d6470;">{{b.coverSub}}</div>
@@ -161,10 +161,10 @@
           <div style="margin-top: 11px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;">
             <sc-for list="{{templates}}" as="t" hint-placeholder-count="4">
               <button class="tap card-tap" style="display: flex; flex-direction: column; gap: 5px; border-radius: 11px; border: 1px solid #e6e9ed; background: #ffffff; padding: 11px 12px 12px;">
-                <div style="display: flex; align-items: center; gap: 7px;">
+                <span style="display: flex; align-items: center; gap: 7px;">
                   <span style="width: 24px; height: 18px; border-radius: 3px; border: 1px solid #cbd2da; background: #ffffff; flex-shrink: 0;"></span>
                   <span class="clip1" style="font-size: 13px; font-weight: 800; min-width: 0;">{{t.name}}</span>
-                </div>
+                </span>
                 <span class="num" style="font-size: 11.5px; color: #5d6470;">{{t.meta}}</span>
               </button>
             </sc-for>
@@ -210,7 +210,7 @@ class Component extends DCLogic {
         coverTitle: 'リハーサル進行マニュアル', coverSub: '第7回 ・ 2026/08/22（土） ・ 第2スタジオ',
         accent: '#c2410e', pages: '6ページ', meta: '今日 11:02 更新 ・ 川口 早苗',
         badge: '下書き', badgeBg: '#fff7ed', badgeFg: '#c2410e', border: '#fed7aa',
-        stale: '差し込み元が変わりました 2件', primaryLabel: '編集',
+        stale: '差し込み元が変わりました 1件', primaryLabel: '編集',
       },
       {
         id: 'om3', state: 'past', docNo: 'OM-0003', title: '本番運営マニュアル 第6回',

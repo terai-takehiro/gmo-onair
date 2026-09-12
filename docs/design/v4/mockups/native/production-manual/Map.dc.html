@@ -7,7 +7,7 @@
 <body>
 <x-dc>
 <helmet>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;800&family=Noto+Serif+JP:wght@700;900&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@100;400;700;800&family=Noto+Sans+JP:wght@100;200;300;400;500;600;700;800;900&family=Noto+Serif+JP:wght@400;700;900&display=swap">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
@@ -32,7 +32,7 @@
   </div>
 
   <!-- ── レゴの図: 集める → 組む → 配る ───────────────────────── -->
-  <div style="margin-top: 18px; display: grid; grid-template-columns: 330px 1fr 250px; gap: 18px; align-items: stretch;">
+  <div style="margin-top: 16px; display: grid; grid-template-columns: 330px 1fr 250px; gap: 18px; align-items: stretch; height: 386px;">
 
     <!-- ① 集める -->
     <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; padding: 14px 14px 12px;">
@@ -60,8 +60,8 @@
       </div>
 
       <!-- A4横の台紙 -->
-      <div style="margin-top: 12px; flex: 1; border-radius: 10px; border: 1px solid #e6e9ed; background: #f2f4f7; padding: 14px; display: flex; align-items: center; justify-content: center;">
-        <div style="width: 100%; aspect-ratio: 297 / 210; background: #ffffff; border: 1px solid #cbd2da; border-radius: 4px; box-shadow: 0 6px 18px rgba(26,29,36,.08); padding: 12px; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 26px 1fr 1fr; gap: 8px;">
+      <div style="margin-top: 12px; flex: 1; min-height: 0; border-radius: 10px; border: 1px solid #e6e9ed; background: #f2f4f7; padding: 12px; display: flex; align-items: center; justify-content: center;">
+        <div style="height: 258px; width: auto; aspect-ratio: 297 / 210; background: #ffffff; border: 1px solid #cbd2da; border-radius: 4px; box-shadow: 0 6px 18px rgba(26,29,36,.08); padding: 12px; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 26px 1fr 1fr; gap: 8px;">
           <div style="grid-column: 1 / -1; border-radius: 4px; border: 1.5px dashed #005bac; background: #f4faff; display: flex; align-items: center; padding: 0 8px; gap: 6px;">
             <span style="font-size: 10px; font-weight: 800; color: #005bac;">差し込み</span><span style="font-size: 10px; color: #5d6470;">見出し（案件名・回・日付・会場）</span>
           </div>
@@ -106,7 +106,7 @@
         <tbody>
           <tr><td style="width: 74px; padding: 5px 0; font-size: 12.5px; font-weight: 800; vertical-align: top;">冊子</td><td style="padding: 5px 0; font-size: 12px; line-height: 1.55; color: #3c424c;">運営マニュアル1件。案件か番組に紐づく（資料番号 OM-0001）</td></tr>
           <tr><td style="padding: 5px 0; font-size: 12.5px; font-weight: 800; vertical-align: top;">ページ</td><td style="padding: 5px 0; font-size: 12px; line-height: 1.55; color: #3c424c;">A4横 1枚。並べ替え・複製・章で区切る</td></tr>
-          <tr><td style="padding: 5px 0; font-size: 12.5px; font-weight: 800; vertical-align: top;">ブロック</td><td style="padding: 5px 0; font-size: 12px; line-height: 1.55; color: #3c424c;">ページに置く箱。<strong>差し込み</strong>（他のミニアプリから）と<strong>自由</strong>（文字・図形・画像・表・QR）の2種類</td></tr>
+          <tr><td style="padding: 5px 0; font-size: 12.5px; font-weight: 800; vertical-align: top;">ブロック</td><td style="padding: 5px 0; font-size: 12px; line-height: 1.55; color: #3c424c;">ページに置く箱。<strong>差し込み</strong>（他のミニアプリから）・<strong>自由</strong>（文字・図形・画像・表・QR）・<strong>ひな形</strong>（柱など全ページ共通）の3つ</td></tr>
           <tr><td style="padding: 5px 0; font-size: 12.5px; font-weight: 800; vertical-align: top;">ひな形</td><td style="padding: 5px 0; font-size: 12px; line-height: 1.55; color: #3c424c;">冊子まるごと／1ページの型。前の案件の冊子からも作れる</td></tr>
         </tbody>
       </table>
