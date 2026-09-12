@@ -5,6 +5,7 @@
 import { useState, type CSSProperties, type KeyboardEvent } from "react";
 import BufferedTextarea from "@/components/editor/cells/BufferedTextarea";
 import type { ManualTextContent } from "@gmo-onair/shared/src/opsmanual/types";
+import { manualBlockCssStyle } from "../manualBlockStyle";
 
 interface Props {
   content: ManualTextContent;
@@ -16,7 +17,9 @@ interface Props {
 export default function TextBlockContent({ content, style, selected, onCommit }: Props) {
   const [editing, setEditing] = useState(false);
   const textStyle: CSSProperties = {
-    ...(style as CSSProperties),
+    // `style` はケバブケースの CSS プロパティ名（BlockInspector.tsx の patchStyle）。
+    // 素通しすると font-size/font-weight が効かないため変換する（manualBlockStyle.ts）
+    ...manualBlockCssStyle(style),
     textAlign: content.align ?? "left",
   };
 

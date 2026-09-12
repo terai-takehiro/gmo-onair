@@ -2,12 +2,13 @@
 // 章名/題の編集（段A）、選択中ページの紙面（自由ブロック5種）の編集・自動保存（段B）に加え、
 // 他ミニアプリの情報を置く「差し込みブロック」の追加（`insertTab`/`InsertPanel`）・解決結果の
 // 表示（`getManualResolve`/`renderBlockContent`）・秘密の伏せ字解除（`LinkedBlockInspector`
-// 経由）を持つ（段C）。確定・編集ロック・ひな形は段E、PDF書き出し・仕上がり画面は段Dで、
-// いずれも今回は実装しない。
+// 経由）を持つ（段C）。確定・編集ロック・ひな形は段E で今回は実装しない。PDF書き出し・
+// 仕上がり画面は段D（`/techops/manuals/:id/preview`・`ManualPreviewPage.tsx`）で、
+// ここからは見出し脇の「仕上がり」で遷移するだけ。
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, Trash2 } from "lucide-react";
+import { ChevronLeft, Printer, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BufferedInput from "@/components/editor/BufferedInput";
 import { cn } from "@/lib/utils";
@@ -236,9 +237,14 @@ export default function ManualDetailPage() {
               </span>
             }
             primaryAction={
-              <Button variant="outline" className="min-h-tap text-destructive hover:text-destructive" onClick={() => setDeleteOpen(true)}>
-                <Trash2 className="mr-1 h-4 w-4" aria-hidden="true" />冊子を削除
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" className="min-h-tap" onClick={() => navigate(`/techops/manuals/${id}/preview`)}>
+                  <Printer className="mr-1 h-4 w-4" aria-hidden="true" />仕上がり
+                </Button>
+                <Button variant="outline" className="min-h-tap text-destructive hover:text-destructive" onClick={() => setDeleteOpen(true)}>
+                  <Trash2 className="mr-1 h-4 w-4" aria-hidden="true" />冊子を削除
+                </Button>
+              </div>
             }
           />
 

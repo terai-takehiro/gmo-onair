@@ -19,6 +19,7 @@ import {
   type ResizeHandle,
   type ResizeStartInfo,
 } from "./manualCanvasGeometry";
+import { manualBlockCssStyle } from "./manualBlockStyle";
 
 export type BlockGeometryPatch = Partial<{ x: number; y: number; w: number; h: number; rotation: number }>;
 
@@ -187,7 +188,10 @@ export default function ManualBlockView({
   }
 
   const style: CSSProperties = {
-    ...(block.style as CSSProperties),
+    // `block.style` はケバブケースの CSS プロパティ名で保存されている（BlockInspector.tsx）。
+    // React の style prop に素通しすると font-size/font-weight 等が効かないため、
+    // 認識するキーだけをキャメルケースへ変換する（manualBlockStyle.ts）
+    ...manualBlockCssStyle(block.style),
     position: "absolute",
     left: `${rect.x}mm`,
     top: `${rect.y}mm`,
