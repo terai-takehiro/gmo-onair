@@ -1,0 +1,132 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;800&family=Noto+Serif+JP:wght@700;900&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  </style>
+</helmet>
+
+<div style="width: 1200px; height: 880px; position: relative; overflow: hidden; background: #f7f8fa; color: #1a1d24; padding: 26px 30px 24px;">
+
+  <!-- 見出し -->
+  <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 24px;">
+    <div style="min-width: 0;">
+      <h1 style="margin: 0; font-size: 23px; line-height: 1.3; font-weight: 800; letter-spacing: -.01em;">運営マニュアル ── 考え方の地図</h1>
+      <p style="margin: 7px 0 0; font-size: 13.5px; line-height: 1.65; color: #3c424c;">制作技術支援のミニアプリに<strong>もう入っている情報</strong>を、A4横のページに差し込んで1冊にする道具。<br>紙を作るために同じことを2回打たない。元を直せば冊子も直る。</p>
+    </div>
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
+      <span style="display: inline-flex; align-items: center; height: 24px; border-radius: 8px; background: #eaf4fb; color: #005bac; font-size: 11.5px; font-weight: 800; padding: 0 10px;">制作技術支援 ／ 新しいミニアプリ</span>
+      <span class="num" style="font-size: 11.5px; color: #9aa1ab;">/techops/manuals ・ 資料番号 OM-0001</span>
+    </div>
+  </div>
+
+  <!-- ── レゴの図: 集める → 組む → 配る ───────────────────────── -->
+  <div style="margin-top: 18px; display: grid; grid-template-columns: 330px 1fr 250px; gap: 18px; align-items: stretch;">
+
+    <!-- ① 集める -->
+    <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; padding: 14px 14px 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="width: 22px; height: 22px; border-radius: 7px; background: #eaf4fb; color: #005bac; font-size: 11.5px; font-weight: 800; display: flex; align-items: center; justify-content: center;">1</span>
+        <span style="font-size: 15px; font-weight: 800;">差し込む</span>
+        <span style="font-size: 11.5px; color: #9aa1ab;">すでにある情報</span>
+      </div>
+      <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 5px;">
+        <div style="display: flex; align-items: center; gap: 8px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 10px;"><span style="width: 6px; height: 18px; border-radius: 3px; background: #005bac; flex-shrink: 0;"></span><span style="font-size: 12.5px; font-weight: 700; flex: 1; min-width: 0;">進行台本</span><span class="num" style="font-size: 11.5px; color: #5d6470;">進行表・尺・マイク割り</span></div>
+        <div style="display: flex; align-items: center; gap: 8px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 10px;"><span style="width: 6px; height: 18px; border-radius: 3px; background: #197a4b; flex-shrink: 0;"></span><span style="font-size: 12.5px; font-weight: 700; flex: 1; min-width: 0;">スケジュール表</span><span class="num" style="font-size: 11.5px; color: #5d6470;">当日の香盤</span></div>
+        <div style="display: flex; align-items: center; gap: 8px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 10px;"><span style="width: 6px; height: 18px; border-radius: 3px; background: #c2410e; flex-shrink: 0;"></span><span style="font-size: 12.5px; font-weight: 700; flex: 1; min-width: 0;">収録設定・配信設定</span><span class="num" style="font-size: 11.5px; color: #5d6470;">デッキ・配信先</span></div>
+        <div style="display: flex; align-items: center; gap: 8px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 10px;"><span style="width: 6px; height: 18px; border-radius: 3px; background: #4338ca; flex-shrink: 0;"></span><span style="font-size: 12.5px; font-weight: 700; flex: 1; min-width: 0;">レンタル機材・機材管理</span><span class="num" style="font-size: 11.5px; color: #5d6470;">持ち出す機材</span></div>
+        <div style="display: flex; align-items: center; gap: 8px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 10px;"><span style="width: 6px; height: 18px; border-radius: 3px; background: #8b5cf6; flex-shrink: 0;"></span><span style="font-size: 12.5px; font-weight: 700; flex: 1; min-width: 0;">計時・テロップCG</span><span class="num" style="font-size: 11.5px; color: #5d6470;">目標尺・テロップ</span></div>
+        <div style="display: flex; align-items: center; gap: 8px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 10px;"><span style="width: 6px; height: 18px; border-radius: 3px; background: #5d6470; flex-shrink: 0;"></span><span style="font-size: 12.5px; font-weight: 700; flex: 1; min-width: 0;">案件・カレンダー</span><span class="num" style="font-size: 11.5px; color: #5d6470;">体制・連絡先・部屋</span></div>
+      </div>
+      <p style="margin: 10px 0 0; font-size: 11.5px; line-height: 1.6; color: #5d6470;">差し込んだブロックは<strong>生きている</strong>。元が変わると冊子にも出る（<span style="color: #c2410e; font-weight: 700;">元が変わりました</span> の帯で知らせる）。</p>
+    </section>
+
+    <!-- ② 組む -->
+    <section style="border-radius: 14px; border: 1px solid #cfe4f4; background: #ffffff; padding: 14px; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="width: 22px; height: 22px; border-radius: 7px; background: #005bac; color: #ffffff; font-size: 11.5px; font-weight: 800; display: flex; align-items: center; justify-content: center;">2</span>
+        <span style="font-size: 15px; font-weight: 800;">置く（A4横のページに組む）</span>
+      </div>
+
+      <!-- A4横の台紙 -->
+      <div style="margin-top: 12px; flex: 1; border-radius: 10px; border: 1px solid #e6e9ed; background: #f2f4f7; padding: 14px; display: flex; align-items: center; justify-content: center;">
+        <div style="width: 100%; aspect-ratio: 297 / 210; background: #ffffff; border: 1px solid #cbd2da; border-radius: 4px; box-shadow: 0 6px 18px rgba(26,29,36,.08); padding: 12px; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 26px 1fr 1fr; gap: 8px;">
+          <div style="grid-column: 1 / -1; border-radius: 4px; border: 1.5px dashed #005bac; background: #f4faff; display: flex; align-items: center; padding: 0 8px; gap: 6px;">
+            <span style="font-size: 10px; font-weight: 800; color: #005bac;">差し込み</span><span style="font-size: 10px; color: #5d6470;">見出し（案件名・回・日付・会場）</span>
+          </div>
+          <div style="border-radius: 4px; border: 1.5px dashed #197a4b; background: #f1faf5; display: flex; align-items: center; justify-content: center;"><span style="font-size: 10px; font-weight: 800; color: #197a4b;">差し込み ／ 当日の香盤</span></div>
+          <div style="border-radius: 4px; border: 1.5px solid #e6e9ed; background: #ffffff; display: flex; align-items: center; justify-content: center;"><span style="font-size: 10px; font-weight: 700; color: #5d6470;">自由 ／ 会場図（画像）</span></div>
+          <div style="border-radius: 4px; border: 1.5px dashed #c2410e; background: #fff7ed; display: flex; align-items: center; justify-content: center;"><span style="font-size: 10px; font-weight: 800; color: #c2410e;">差し込み ／ 配信先</span></div>
+          <div style="border-radius: 4px; border: 1.5px solid #e6e9ed; background: #ffffff; display: flex; align-items: center; justify-content: center;"><span style="font-size: 10px; font-weight: 700; color: #5d6470;">自由 ／ 注意書き（文字）</span></div>
+        </div>
+      </div>
+
+      <p style="margin: 10px 0 0; font-size: 11.5px; line-height: 1.6; color: #5d6470;">置き方はパワーポイントと同じ操作（つかんで動かす・角を引いて伸ばす・整列・複製・戻す）。<strong>自由ブロック</strong>は文字・図形・画像・表・QR。書体・大きさ・色・字間・縁取り・背景は1つずつ変えられる。</p>
+    </section>
+
+    <!-- ③ 配る -->
+    <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; padding: 14px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="width: 22px; height: 22px; border-radius: 7px; background: #eaf4fb; color: #005bac; font-size: 11.5px; font-weight: 800; display: flex; align-items: center; justify-content: center;">3</span>
+        <span style="font-size: 15px; font-weight: 800;">書き出す</span>
+      </div>
+      <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 10px 11px;">
+          <div style="font-size: 12.5px; font-weight: 800;">PDF（A4横）</div>
+          <div style="margin-top: 3px; font-size: 11.5px; line-height: 1.6; color: #5d6470;">ブラウザの印刷から「PDFに保存」。紙面はそのまま、ページ番号と差し込み日は自動で入る。</div>
+        </div>
+        <div style="border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 10px 11px;">
+          <div style="font-size: 12.5px; font-weight: 800;">冊子を確定する</div>
+          <div style="margin-top: 3px; font-size: 11.5px; line-height: 1.6; color: #5d6470;">確定すると全ブロックが<strong>その時の中身のまま凍る</strong>。配った紙と画面が食い違わない。直すときは版を上げる。</div>
+        </div>
+        <div style="border-radius: 10px; border: 1px solid #fed7aa; background: #fff7ed; padding: 10px 11px;">
+          <div style="font-size: 12.5px; font-weight: 800; color: #c2410e;">紙に出さないもの</div>
+          <div style="margin-top: 3px; font-size: 11.5px; line-height: 1.6; color: #7c2d12;">配信の鍵・合言葉・会議のパスコードは、差し込んでも<strong>伏せ字のまま</strong>。冊子は配られる前提なので既定では出さない。</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ── 4つの語 ─────────────────────────────────────────── -->
+  <div style="margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; padding: 13px 14px;">
+      <div style="font-size: 15px; font-weight: 800;">利用者に見せる語は4つ</div>
+      <table style="margin-top: 9px; width: 100%; border-collapse: collapse;">
+        <tbody>
+          <tr><td style="width: 74px; padding: 5px 0; font-size: 12.5px; font-weight: 800; vertical-align: top;">冊子</td><td style="padding: 5px 0; font-size: 12px; line-height: 1.55; color: #3c424c;">運営マニュアル1件。案件か番組に紐づく（資料番号 OM-0001）</td></tr>
+          <tr><td style="padding: 5px 0; font-size: 12.5px; font-weight: 800; vertical-align: top;">ページ</td><td style="padding: 5px 0; font-size: 12px; line-height: 1.55; color: #3c424c;">A4横 1枚。並べ替え・複製・章で区切る</td></tr>
+          <tr><td style="padding: 5px 0; font-size: 12.5px; font-weight: 800; vertical-align: top;">ブロック</td><td style="padding: 5px 0; font-size: 12px; line-height: 1.55; color: #3c424c;">ページに置く箱。<strong>差し込み</strong>（他のミニアプリから）と<strong>自由</strong>（文字・図形・画像・表・QR）の2種類</td></tr>
+          <tr><td style="padding: 5px 0; font-size: 12.5px; font-weight: 800; vertical-align: top;">ひな形</td><td style="padding: 5px 0; font-size: 12px; line-height: 1.55; color: #3c424c;">冊子まるごと／1ページの型。前の案件の冊子からも作れる</td></tr>
+        </tbody>
+      </table>
+      <p style="margin: 9px 0 0; padding-top: 9px; border-top: 1px dashed #e6e9ed; font-size: 11.5px; line-height: 1.6; color: #5d6470;">動詞は3つ ── <strong>差し込む</strong>／<strong>置く</strong>／<strong>書き出す</strong>。編集の動詞は共通ルールどおり 追加・編集・削除・保存。</p>
+    </section>
+
+    <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; padding: 13px 14px;">
+      <div style="font-size: 15px; font-weight: 800;">画面は5枚（PC 4・スマホ 1）</div>
+      <div style="margin-top: 9px; display: flex; flex-direction: column; gap: 5px;">
+        <div style="display: flex; align-items: center; gap: 9px; height: 30px;"><span class="num" style="width: 18px; font-size: 11.5px; font-weight: 800; color: #005bac;">①</span><span style="font-size: 12.5px; font-weight: 700; width: 96px; flex-shrink: 0;">冊子一覧</span><span class="num clip1" style="font-size: 11.5px; color: #5d6470; flex: 1; min-width: 0;">/techops/manuals</span></div>
+        <div style="display: flex; align-items: center; gap: 9px; height: 30px;"><span class="num" style="width: 18px; font-size: 11.5px; font-weight: 800; color: #005bac;">②</span><span style="font-size: 12.5px; font-weight: 700; width: 96px; flex-shrink: 0;">編集</span><span class="num clip1" style="font-size: 11.5px; color: #5d6470; flex: 1; min-width: 0;">/techops/manuals/:id　PC専用</span></div>
+        <div style="display: flex; align-items: center; gap: 9px; height: 30px;"><span class="num" style="width: 18px; font-size: 11.5px; font-weight: 800; color: #005bac;">③</span><span style="font-size: 12.5px; font-weight: 700; width: 96px; flex-shrink: 0;">差し込む</span><span class="num clip1" style="font-size: 11.5px; color: #5d6470; flex: 1; min-width: 0;">②の左パネル（別画面にしない）</span></div>
+        <div style="display: flex; align-items: center; gap: 9px; height: 30px;"><span class="num" style="width: 18px; font-size: 11.5px; font-weight: 800; color: #005bac;">④</span><span style="font-size: 12.5px; font-weight: 700; width: 96px; flex-shrink: 0;">仕上がり</span><span class="num clip1" style="font-size: 11.5px; color: #5d6470; flex: 1; min-width: 0;">/techops/manuals/:id/preview　PDF はここから</span></div>
+        <div style="display: flex; align-items: center; gap: 9px; height: 30px;"><span class="num" style="width: 18px; font-size: 11.5px; font-weight: 800; color: #005bac;">⑤</span><span style="font-size: 12.5px; font-weight: 700; width: 96px; flex-shrink: 0;">閲覧（スマホ）</span><span class="num clip1" style="font-size: 11.5px; color: #5d6470; flex: 1; min-width: 0;">/techops/manuals/:id　同じURL・見るだけ</span></div>
+      </div>
+      <p style="margin: 9px 0 0; padding-top: 9px; border-top: 1px dashed #e6e9ed; font-size: 11.5px; line-height: 1.6; color: #5d6470;">入口はハブ（案件ホーム）のタイルだけ。左メニューには案件を開いている間だけ「運営マニュアル」が出る。</p>
+    </section>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

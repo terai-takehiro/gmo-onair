@@ -1,0 +1,503 @@
+# 運営マニュアル — 制作技術支援の新しいミニアプリ（設計・2026-09-12）
+
+> **状態**: 設計（未実装）
+> **最終確認**: 2026-09-12
+> **位置づけ**: 制作技術支援に足す7つ目のミニアプリ「運営マニュアル」の正（何をする道具か・利用者に見せる語・画面・データの持ち方・作る順）。**実装はまだ1行も書いていない。** §10 の「決めていただきたいこと」7件の回答を待ってから段Aに着手する
+
+モックは Claude Design のキャンバス（押せる試作・PC 4枚＋スマホ 1枚＋A4横の実寸 1枚＋考え方の地図 1枚）:
+
+- **https://claude.ai/code/artifact/55c1ef9e-29ad-45ec-909d-97282eb00341**
+  （作業ファイルは [`mockups/native/production-manual/`](mockups/native/production-manual/README.md)。
+  書式は [`graphics-redesign.md`](graphics-redesign.md) と同じ `.dc.html` ＋ `canvas.json`）
+
+---
+
+## 0. 経緯
+
+制作技術支援（`client-techops/`）には、当日の本番を回すための情報が**もう全部入っている**。
+スケジュール表に当日の香盤があり、進行台本に尺と担当があり、収録設定にデッキ、配信設定に配信先、
+レンタル機材検索に借りる機材、案件管理に体制と連絡先がある。
+
+それでも、現場に配る「運営マニュアル」（A4横の冊子）は、**毎回 PowerPoint で一から作り直している**。
+ONAiR に入っている数字を目で読んで、別のソフトに打ち直す作業が案件ごとに発生している。
+
+この文書は、その打ち直しをやめるためのミニアプリの設計である。
+
+---
+
+## 1. 結論（先に答え）
+
+**運営マニュアルは「制作技術支援の各ミニアプリにある情報を、A4横のページに差し込んで1冊にし、PDF で配る」道具。**
+
+利用者に見せる語は **4つ**だけにする。
+
+| 語 | 意味 |
+| --- | --- |
+| **冊子** | 運営マニュアル1件。案件か番組に紐づく（資料番号 `OM-0001`） |
+| **ページ** | A4横 1枚。並べ替え・複製ができ、章で区切れる |
+| **ブロック** | ページに置く箱。**差し込み**（他のミニアプリから）と**自由**（文字・図形・画像・表・QR）の2種類 |
+| **ひな形** | 冊子まるごと／1ページの型。前の案件の冊子からも作れる |
+
+動詞は **3つ**（**差し込む** ／ **置く** ／ **書き出す**）。
+編集そのものの動詞は共通ルールどおり 追加・編集・削除・保存（[wording.md](../../wording.md) ルール8）。
+
+画面は **PC 4枚・スマホ 1枚**。
+
+```
+ハブ（JourneyPage）の「運営マニュアル」タイル
+ └ ① 冊子一覧          /techops/manuals?project=…         ← 一覧。進行台本・スケジュール表と同じ形
+     └ ② 編集           /techops/manuals/:id               ← PC専用。左=ページ／中央=A4横／右=設定
+         ├ ③ 差し込む    ②の左パネル（別画面にしない）
+         └ ④ 書式        ②の右パネル（文字の意匠）
+     └ ⑤ 仕上がり・PDF  /techops/manuals/:id/preview       ← PC専用。目次・検査・書き出し
+     └ ⑥ 閲覧（スマホ） /techops/manuals/:id               ← 同じURL。見るだけ＋PDF を開く
+```
+
+**「レゴブロックのように組む」を実装に落とすと、こうなる:**
+供給元（ミニアプリ）ごとに**差し込みブロック**を用意し、利用者はカタログから選んで紙面に置く。
+ブロックは**生きている** — 元の資料が変わると冊子にも出る。配る直前に**確定**すると全ブロックが凍り、
+配った紙と画面が食い違わなくなる。
+
+---
+
+## 2. いまの何が問題か
+
+| # | 症状 | 何が起きているか |
+| --- | --- | --- |
+| 1 | 同じ数字を2回打つ | 当日の香盤はスケジュール表にあるのに、冊子には PowerPoint で打ち直す。案件ごとに毎回 |
+| 2 | 直しても冊子は直らない | リハの終わりが 14:00 → 14:20 に動いても、配った PDF は 14:00 のまま。当日、手元の紙と画面が食い違う |
+| 3 | 見た目が人ごとに違う | 表紙・柱（ページ番号・社外秘）・章立てに決まった形が無い。前の案件から持ってくる手段も無い |
+| 4 | 秘密が紙に載る | 配信のストリームキーや会議のパスコードを、気づかずに冊子へ写してしまう経路がある（冊子は配られる） |
+| 5 | 過去の冊子が案件に残らない | 冊子は個人の PC か BOX にあり、案件（管理番号）から辿れない |
+
+根っこは1つ: **「ONAiR で管理している情報」と「現場に配る紙」がつながっていない**こと。
+つなぎ方は「PDF を吐くボタン」ではなく、**紙面を自由に組める編集画面**でなければならない
+（運営マニュアルは案件ごとに載せるものが違い、決め打ちの帳票では足りないため）。
+
+---
+
+## 3. 使う人と3つの場面
+
+| 場面 | 誰が | どこで | やること |
+| --- | --- | --- | --- |
+| **組む**（本番の1〜2週間前） | 制作（P・AD） | PC | ひな形から冊子を起こし、当日の香盤・体制・機材を差し込む。注意書きを自分で書く |
+| **直す**（直前まで） | 制作・技術 | PC | 元の資料が動いたら取り込む。出す前の検査を通す。確定して PDF を配る |
+| **見る**（当日） | 現場の全員 | スマホ・紙 | 配られた PDF、または ONAiR のスマホ画面で「いまのページ」を見る |
+
+GMO の現場は**専任のデザイナーがいない**。だから編集画面は「デザインツールを覚える」ではなく
+「**PowerPoint と同じ手つきで動く**」ことを最優先にする。覚え直しをゼロにする。
+
+---
+
+## 4. 概念モデル
+
+### 4-1. 見せる4語（§1）と、隠す語
+
+| 隠す語 | どうするか |
+| --- | --- |
+| レイヤー／z-index | **「重なり」**（前面へ・背面へ）。数字は出さない |
+| オブジェクト／エレメント | **「ブロック」** |
+| キャンバス／アートボード | **「紙面」**。寸法は px ではなく **mm** で出す |
+| テンプレート | **「ひな形」** |
+| バインド／データソース | **「差し込む」「差し込み元」** |
+| スナップ／ガイド | **「すいつき」** |
+| マスターページ | **「ひな形のブロック（全ページ共通）」**。柱がこれにあたる |
+| エクスポート | **「書き出す」**。出るものは PDF だけ（用紙は A4横に固定） |
+
+### 4-2. ⚠️「ブロック」は進行台本の語と重なる
+
+進行台本では**列**のことを「ブロック」とも呼ぶ（`shared/src/qsheet/blockTypes.ts` の11型、
+`components/editor/cells/ColumnHeaderCell.tsx` は画面で「列（ブロック）」と併記）。
+同じアプリの中で同じ語が2つの意味を持つことになる。
+
+**判断**: 運営マニュアル側で「ブロック」を採る。理由は2つ。
+①台本側はすでに画面では「列」が主で、「ブロック」は括弧の中の併記に後退している（作り直しでも「列」に寄せる方向）。
+②「レゴのように組む」という利用者自身の言葉と一致し、代わりの語（部品・パーツ・要素）はいずれも
+テロップCG の内部語（`partKey`）や React の部品と重なる。
+
+**§10 の1件目**としてご判断を仰ぐ。台本側を「列」に統一する作業は別 PR とする。
+
+### 4-3. 差し込みブロックの一覧（レゴのカタログ）
+
+**v1 で作るのは太字の5群。** 残りは段Cのあとに1つずつ足す。
+
+| 差し込み元 | ブロック | 中身 | v1 |
+| --- | --- | --- | --- |
+| **案件管理** | 見出し | 案件名・管理番号・回・日付・会場 | ✅ |
+| **案件管理** | 体制・連絡先 | メンバーの役割・氏名・電話（出す項目を選ぶ） | ✅ |
+| **スケジュール表** | 当日の流れ | 時系列リスト／列×時間の表／抜粋。列と時間帯を選ぶ | ✅ |
+| **スケジュール表** | 搬入出 | 搬入・搬出の枠だけ抜き出す | ✅ |
+| **進行台本** | 進行表 | 項目・尺・担当。出す列を選ぶ | ✅ |
+| **進行台本** | 台本の抜粋 | セクションを選んでそのまま載せる | ✅ |
+| **進行台本** | マイク割り | 出演者 × マイク Ch | ✅ |
+| **収録設定** | 収録の一覧 | デッキ・形式・保存先 | ✅ |
+| **配信設定** | 配信先の一覧 | ENC・セッション名・方式・行き先（**鍵は伏せ字**） | ✅ |
+| **配信設定** | WEB会議 | ツール・URL・入り方（**パスコードは伏せ字**） | ✅ |
+| **レンタル機材検索** | 借りる機材 | 品目・数量・会社・受渡し | ✅ |
+| **機材管理** | 持ち出す機材 | 社内の貸出リスト | ✅ |
+| カレンダー | スタジオ予約 | 部屋と時間 | — |
+| 計時・視聴者 | 目標尺 | タイマー名と持ち時間 | — |
+| テロップCG | テロップ一覧 | 番号・種類・文言（出す順） | — |
+
+自由ブロックは **文字 / 図形（矩形・角丸・円・線・矢印・吹き出し）/ 画像 / 表 / QR** の5つ。
+
+---
+
+## 5. データの持ち方
+
+### 5-1. 表3本（migration は着手時に空いている番号を取る。いまの最新は 296）
+
+```sql
+-- 冊子
+CREATE TABLE qsheet_manuals (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  doc_no       TEXT UNIQUE,                       -- OM-0001（sequences.prod_doc_om）
+  title        TEXT NOT NULL,
+  project_id   UUID REFERENCES projects(id),      -- 案件（案件管理の案件）
+  program_id   UUID REFERENCES qsheet_programs(id), -- 番組（ここだけの番組）
+  service_date DATE,
+  status       TEXT NOT NULL DEFAULT 'draft',     -- draft | fixed | archived
+  theme        JSONB NOT NULL DEFAULT '{}',       -- 配色・書体・柱の文言
+  fixed_at     TIMESTAMPTZ, fixed_by UUID,
+  created_by   UUID, updated_by UUID,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (num_nonnulls(project_id, program_id) = 1)  -- 収録/配信設定と同じ形
+);
+
+-- ページ（1枚 = 1行）
+CREATE TABLE qsheet_manual_pages (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  manual_id  UUID NOT NULL REFERENCES qsheet_manuals(id) ON DELETE CASCADE,
+  sort_order INT  NOT NULL,
+  chapter    TEXT,                                 -- 章の名前。入っている行が章の先頭
+  title      TEXT NOT NULL DEFAULT '',
+  blocks     JSONB NOT NULL DEFAULT '[]',          -- ブロックの配列（下記）
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_by UUID
+);
+
+-- ひな形（冊子まるごと／1ページ）
+CREATE TABLE qsheet_manual_templates (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       TEXT NOT NULL,
+  scope      TEXT NOT NULL,                        -- org | project
+  project_id UUID REFERENCES projects(id),         -- scope=project のときだけ
+  pages      JSONB NOT NULL DEFAULT '[]',
+  theme      JSONB NOT NULL DEFAULT '{}',
+  created_by UUID, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+**なぜ「ページ1枚 = 1行」か**（丸ごと1行の JSONB でも、ブロック1個 = 1行でもなく）:
+
+- 打つたびに冊子まるごとを送らずに済む（30ページの冊子でも、送るのは編集中の1ページ）
+- 並べ替えは `sort_order` の更新だけ。ページの複製・ひな形化がそのまま1行のコピーになる
+- 取り合い（同時編集）が**ページ単位**で見つかる。別のページを触っている人とはぶつからない
+- ブロックは1ページ 20個・1個 300 バイト程度。JSONB の粒度として妥当
+
+**⚠️ 進行台本の `qsheet_documents.data` とは別物。** あちらは Yjs の所有物でサーバーは書かない
+（[client-techops/CLAUDE.md](../../../client-techops/CLAUDE.md)「壊してはいけない契約」）。
+運営マニュアルは**サーバーが書く**。取り合いは `updated_at` の突き合わせで見つけ、
+スケジュール表と同じ `ConflictError`（`shared/src/schedule/types.ts`）の形で返す。
+
+### 5-2. ブロックの形
+
+```ts
+interface ManualBlock {
+  id: string;                    // genId('blk')
+  kind: 'linked' | 'free';
+  /** 紙の寸法（mm）。A4横 = 297 × 210 */
+  x: number; y: number; w: number; h: number;
+  z: number;
+  rotation?: number;
+  locked?: boolean;
+  /** 見た目（書体・大きさ・色・縁取り・影・枠・余白…）。CSS に落ちる値だけを持つ */
+  style: Record<string, string | number>;
+
+  /** kind: 'free' のとき */
+  free?: { type: 'text' | 'shape' | 'image' | 'table' | 'qr'; content: unknown };
+
+  /** kind: 'linked' のとき */
+  link?: {
+    block: ManualBlockKey;       // 'schedule.day' など（レジストリのキー）
+    sourceId: string | null;     // 差し込み元の資料 id（案件全体のときは null）
+    options: Record<string, unknown>;  // 出す列・時間帯・見せ方
+    frozen: { at: string; data: unknown } | null;  // 凍らせた中身（確定したら必ず入る）
+  };
+}
+```
+
+**差し込みブロックのレジストリは `shared/src/production/manualBlocks.ts` の1か所**にする
+（[`miniapps.ts`](../../../shared/src/production/miniapps.ts) と同じ作法。
+サーバー側は `server/src/shared/production/manualBlocks.ts` へ意図的に複製し、
+`scripts/check-collab-parity.mjs` の `PAIRS` に足す）。
+
+ブロックを1つ足す＝レジストリに1件足し、読み手（サーバーの1関数）と描き手（クライアントの1部品）を書く。
+**ミニアプリを増やすときは、差し込みブロックも同時に足す**のが既定の流れになる。
+
+### 5-3. ミニアプリのレジストリへの登録
+
+```ts
+// shared/src/production/miniapps.ts の MINI_APPS に1件足す
+{
+  kind: 'document',
+  key: 'manual',
+  label: '運営マニュアル',
+  docPrefix: 'OM',
+  docNoSeq: 'prod_doc_om',
+  table: 'qsheet_manuals',
+  listPath: '/techops/manuals',
+  docPath: '/techops/manuals/:id',
+  stages: ['day'],
+  enabled: true,
+}
+```
+
+`MiniAppKey` に `'manual'` を足す。**`permissionModule` は `qsheet`**（ハブと同じ区画）。
+
+⚠️ `shared/src/client/manual/`（`ManualModal.tsx`）は**別物** — 全アプリ共通の「使い方の説明」モーダルで、
+運営マニュアルとは無関係。改名しない。混同を避けるため、この新機能のクライアント側は
+`client-techops/src/pages/opsmanual/` に置く。
+
+### 5-4. API
+
+| メソッド | 道 | 権限 |
+| --- | --- | --- |
+| GET | `/techops/manuals?project=…&program=…` | qsheet reader |
+| POST | `/techops/manuals`（ひな形 id を渡せる） | qsheet editor |
+| GET | `/techops/manuals/:id`（冊子＋全ページ） | qsheet reader |
+| PATCH | `/techops/manuals/:id`（題・見た目・状態） | qsheet editor |
+| PUT | `/techops/manuals/:id/pages/:pageId`（`updated_at` を添える） | qsheet editor |
+| POST | `/techops/manuals/:id/pages` ／ DELETE ／ `…/reorder` | qsheet editor |
+| POST | `/techops/manuals/:id/fix`（確定＝全ブロックを凍らせる） | qsheet **manager** |
+| GET | `/techops/manuals/:id/resolve`（差し込み元の**いまの中身**をまとめて返す） | qsheet reader |
+| GET/POST | `/techops/manual-templates` | 読み reader・書き manager |
+
+`resolve` が差し込みの心臓部。ページに載っているブロックのキーと `sourceId` を受け取り、
+**その利用者が見てよい範囲で**各ミニアプリから読んで返す（`canAccessDoc` を通す）。
+画面はこの結果と `frozen` を突き合わせて「元が変わりました」を出す。
+
+---
+
+## 6. 画面ごとの決めごと
+
+### ① 冊子一覧 `/techops/manuals`
+
+- 進行台本・スケジュール表と同じ「資料が複数ある道具」。`?project=` / `?program=` で絞る
+- 状態は **下書き／確定／過去の版**の3つだけ。表紙のサムネは**本物の1ページ目**を縮めて描く
+- 「元が変わりました」の帯は、差し込み元が冊子の `frozen.at` より新しいときだけ出す
+- ひな形は「組織共通」と「この案件の前の冊子から」の2系統。
+  レギュラー案件では**前回の冊子を複製して日付だけ差し替える**のが普通の使い方になる
+  （[regular-series.md](regular-series.md) の回の作り方と同じ考え方）
+
+### ② 編集 `/techops/manuals/:id`（PC専用）
+
+- 左＝ページ（並べ替え・複製・章）／中央＝A4横の紙面／右＝選んだブロックの設定（差し込み／書式／ページ）
+- **共通シェルの左メニューは畳んだ状態で開く。** `AppShell` はすでに `data-side-collapsed` で
+  幅 0 まで畳める（`shared/src/client/shell/AppShell.tsx`・`tokens-v4.css`）。新しい仕組みは要らない
+- 操作は PowerPoint に合わせる:
+
+| 操作 | 効き方 |
+| --- | --- |
+| つかんで動かす | ブロックを移動。**すいつき**は「他のブロックの端・紙面の中心・版面の余白」の3つだけ |
+| 角・辺のつまみ | 8方向のリサイズ。Shift で縦横比を保つ |
+| 回すつまみ | 上に1つ。15° 刻み（Shift で自由） |
+| 矢印キー | 1mm（Shift で 0.2mm） |
+| Alt ＋ ドラッグ | 複製。Ctrl+D も同じ |
+| Ctrl+Z / Ctrl+Shift+Z | 戻す・やり直す（ページ単位で 50 手） |
+| スペース ＋ ドラッグ | 紙面をつかんで動かす。Ctrl＋ホイールで拡大縮小 |
+| 複数選択 | ドラッグで囲む・Shift で足す。整列・等間隔・重なり |
+
+- **位置と大きさは mm で出す**（紙の道具なので px を見せない）
+- 保存は**打つのを止めて 1.5 秒**で自動。`updated_at` が合わなければ
+  「◯◯さんがこのページを直しました。読み直します」と出して**上書きさせない**
+- ⚠️ 文字を打つ欄は **`BufferedInput` / `BufferedTextarea`**（`client-techops/CLAUDE.md` の決めごと）。
+  素の controlled input だと IME 変換中の文字が二重に入る。紙面の中の直接編集も同じ扱いにする
+
+### ③ 差し込む（②の左パネル・別画面にしない）
+
+- ミニアプリごとに束ね、**その案件に実在する資料だけ**を出す（押すと空になる項目を作らない）
+- カードを選ぶ → 右で「出す項目・見せ方」を決める → 「このページに置く」。紙面へドラッグしても置ける
+- 置いたあとも右パネルから同じ設定を直せる（置き直さない）
+
+### ④ 書式（②の右パネル）
+
+文字の意匠は **Web の自由度をそのまま使う**。PowerPoint に無いものが素の CSS で出せる。
+
+| 欄 | CSS |
+| --- | --- |
+| 書体 | 同梱の LINE Seed JP ／ Noto Sans JP ／ Noto Serif JP ／ Roboto Condensed（欧文） |
+| 大きさ・太さ・行間・字間 | `font-size` `font-weight` `line-height` `letter-spacing` |
+| 長体・平体 | `transform: scaleX()`（日本語の組版で実際に要る） |
+| 袋文字 | `-webkit-text-stroke` |
+| 影 | `text-shadow` |
+| グラデーション文字 | `background-clip: text` |
+| 縦書き | `writing-mode: vertical-rl` |
+| 枠・角丸・余白・背景・不透明度・回転 | `border` `border-radius` `padding` `background` `opacity` `transform` |
+
+- **選んだ文字だけに効く**（ブロック全体ではない）。浮かぶ小さな道具を選択範囲の下に出す
+- 「よく使う見た目」を押すだけで当てられ、「この見た目をひな形に登録」で冊子・組織に残せる
+- ⚠️ **書体は同梱しているものに限る。** PDF は画面と同じ描画なので、
+  読めない書体を選べるようにすると紙で化ける（`index.html` の Google Fonts。同梱化は techops の残作業）
+
+### ⑤ 仕上がりと PDF `/techops/manuals/:id/preview`（PC専用）
+
+- 目次は**章から自動で作る**（人が打ち直さない）
+- 書き出しの設定は 範囲／表紙／目次／ページ番号／「◯月◯日時点」の5つ
+- **出す前の検査**（4つ数える。これが事故を止める）:
+
+| 検査 | なぜ |
+| --- | --- |
+| 紙からはみ出すブロック | PowerPoint で最も多い事故。紙面の外にはみ出た分は赤い斜線で出す |
+| 差し込み元が変わったまま | 古い数字のまま配るのを止める |
+| 中身が空のブロック | 「あとで書く」が空欄のまま配られる |
+| 元の資料が消えたブロック | 台本やスケジュール表を消したときに気づく |
+
+### ⑥ 閲覧（スマホ・同じ URL）
+
+- 1画面1目的で「いまのページを見る」に絞る。章の帯 → ページ → 前後。下端に「PDF を開く」を固定
+- 編集はできない。PC へ誘導するが、**逃げ先を `/techops/top` にしない**（冊子の文脈を失わせない）
+- `src/pcOnlyScreens.ts`: 編集・仕上がりを `TECHOPS_PC_ONLY`、一覧・閲覧を `TECHOPS_MOBILE_OK`
+
+---
+
+## 7. 守ること
+
+### 7-1. 権限
+
+`permissionModule` は `qsheet`（ハブと同じ区画）。
+
+| できること | 要る権限 |
+| --- | --- |
+| 冊子を見る・PDF を書き出す | reader |
+| 冊子を作る・直す | editor |
+| 確定する・確定を解く・ひな形を組織に登録する | manager |
+| 伏せ字を解除して秘密を紙に出す | system_admin |
+
+冊子は**案件メンバー全員に見える**（スケジュール表 第2版と同じ。[14-schedule-v2-plan.md](qsheet-v4-coding/14-schedule-v2-plan.md) §3-2）。
+
+### 7-2. ⚠️ 紙に出さないもの
+
+**冊子は配られる前提の紙**である。次の値は差し込んでも**既定で伏せ字（`●●●●`）のまま出る**:
+
+- 配信のストリームキー・パスフレーズ（`qsheet_device_settings` の暗号化された列）
+- WEB会議のパスコード
+- 音声サポートの `?token=`（QR は資料 ID のパスだけを載せる）
+
+サーバー側で伏せる（`resolve` が平文を返さない）。画面の設定で「出す」に切り替えられるようにはせず、
+**system_admin が1件ずつ明示的に解除**したものだけを返す。
+`streamKeyMasked` / `hasStreamKey` の既存の作法（`device-settings-types.ts`）をそのまま使う。
+
+### 7-3. AI は v1 に入れない
+
+「台本からリード文を作る」「注意書きを提案する」は自然な発想だが、**v1 では作らない**。
+入れるときはルート [`CLAUDE.md`](../../../CLAUDE.md) の「AIを使い捨てにしない」5条件
+（`.claude/skills/ai-feedback-loop/`）を満たす設計を先に出す — 出力の記録・人の修正差分・
+成果指標・改善への戻し・レビュー頻度。**その経路を作らずに AI を足さない。**
+
+---
+
+## 8. PDF の出し方
+
+### 8-1. ブラウザの印刷で出す（サーバーに Chromium を入れない）
+
+```
+「PDF で書き出す」→ 新しいウィンドウに紙面だけを書き出す
+  → @page { size: 297mm 210mm; margin: 0 }
+  → window.print() → 利用者は送信先を「PDF に保存」にする
+```
+
+**なぜサーバー生成にしないか:**
+
+- サーバーの PDF は `pdfkit`（`server/src/shared/services/pdf.service.ts`）。請求書のような
+  決まった帳票は書けるが、**自由に組んだ紙面は再現できない**（同じレイアウトを2回実装することになる）
+- Puppeteer / Playwright を入れると Docker イメージが数百 MB 増え、
+  1つのイメージで5アプリを配信している構成（ルート `CLAUDE.md`）に重い負担がかかる
+- 進行台本の印刷（`client-techops/src/components/editor/previewExport.ts`）が
+  **すでにこの手口で動いている**。同じ道を通す
+
+### 8-2. 実測で分かっている注意（`previewExport.ts` のコメントより）
+
+- **Chrome は `@page` のマージンボックス（`counter(page)`）を印刷しない。**
+  ページ番号は DOM のフッターとして自分で描く
+- 本番は CSP（`script-src 'self'`）で、印刷ウィンドウ内の inline script が動かない。
+  **親ウィンドウ側で HTML を完成させてから書き込む**
+- 改ページは `page-break-after: always` をスタイルシート側で指定する（inline style だと
+  `:last-child` の打ち消しが効かない）
+- ポップアップが止められているときの案内文を出す
+
+### 8-3. 紙の寸法
+
+A4横 = **297 × 210 mm**。96 px/inch で **1123 × 794 px**。
+
+| 役 | 大きさ |
+| --- | --- |
+| 大見出し（表紙） | 25〜34 pt |
+| 見出し | 13 pt |
+| 本文 | 9.5 pt |
+| 表の行 | 9.5 pt ／ 行の高さ 7 mm（A4横で16行） |
+| 柱 | 8 pt |
+
+版面（印刷される内側）は上下 12 mm・左右 15 mm。
+
+---
+
+## 9. 作る順
+
+| 段 | 何を | 終わったときに何ができるか |
+| --- | --- | --- |
+| **A 器** | レジストリ登録・表3本・一覧・空の冊子・ページの追加と並べ替え | 冊子が作れて案件から辿れる（紙面はまだ空） |
+| **B 置く** | 自由ブロック5種と紙面の操作（つかむ・伸ばす・整列・すいつき・Ctrl+Z） | 自分で書く紙面が組める |
+| **C 差し込む** | ブロックのレジストリと読み手（`resolve`）・v1 の5群 | ONAiR の情報が紙面に載る |
+| **D 出す** | 仕上がり画面・出す前の検査・PDF・柱と目次 | **配れる。ここで初めて使える** |
+| **E ひな形と確定** | ひな形の保存と適用・確定で凍らせる・前の案件からコピー・スマホの閲覧 | 2件目からが速くなる |
+
+**段D まで通して初めて道具になる。** 段Aだけで止めると「空の冊子が作れるだけ」の画面が増える。
+段Cの差し込み元は5群から始め、カレンダー・計時・テロップCG は後から1つずつ足す。
+
+**検査**（`client-techops/CLAUDE.md`「触るときの注意」）:
+`npx tsc -b client-techops` ／ `npm run lint` ／ `npm run test` ／
+`npm run verify:ui techops` ／ `npm run verify:ime`。
+1ファイル 400 行（`check-file-size.mjs`）は紙面の編集画面で必ず当たるので、
+**最初から部品に割って書く**（`ManualCanvas` / `ManualBlockView` / `ManualPageRail` / `ManualInspector` …）。
+
+---
+
+## 10. 決めていただきたいこと
+
+| # | 問い | いまの案 |
+| --- | --- | --- |
+| 1 | ミニアプリ名「運営マニュアル」・紙面に置くものの呼び名「ブロック」でよいか | §4-2 のとおり「ブロック」を採り、進行台本側は「列」に寄せる（別 PR） |
+| 2 | 資料番号の接頭辞は `OM` でよいか | `SB`（進行台本）・`SD`（スケジュール表）と並ぶ2文字 |
+| 3 | 確定したら全ブロックを凍らせる、で合っているか | 直すときは確定を解く（manager）か、複製して版を上げる |
+| 4 | 配信の鍵・合言葉・会議のパスコードは既定で紙に出さない。解除は system_admin だけ、でよいか | §7-2 |
+| 5 | 同時編集は要るか | v1 は「後から保存した人に知らせて上書きさせない」（スケジュール表と同じ）。進行台本と同じリアルタイム同時編集にすると作りが一段重くなる |
+| 6 | 冊子は案件メンバー全員に見せる、でよいか | スケジュール表 第2版と同じ |
+| 7 | v1 に AI を入れないことでよいか | §7-3 |
+
+---
+
+## 11. v1 でやらないこと
+
+- **AI による下書き**（§7-3）
+- **PowerPoint / Excel への書き出し**。出るのは PDF だけ（往復させると、どちらが正か分からなくなる）
+- **BOX への自動保存**。まず手元に落とす形で始め、要否を見てから足す
+- **社外の人への直リンク公開**。冊子は社外秘の前提で、公開 URL は作らない
+- **紙の大きさを選ばせる**。A4横に固定する（A3・縦は要望が出てから）
+- **冊子どうしの差分表示**。過去の版は複製として残るだけにする
+
+---
+
+## 12. 関連する文書
+
+- 制作技術支援そのもの: [`client-techops/CLAUDE.md`](../../../client-techops/CLAUDE.md)（現役ルール）・
+  [`qsheet-v4-coding/README.md`](qsheet-v4-coding/README.md)（設計書 00〜14 の索引）
+- ミニアプリの足し方: [`qsheet-v4-coding/01-app-structure.md`](qsheet-v4-coding/01-app-structure.md) §3-2 ／
+  [`qsheet-v4-coding/08-recording-streaming.md`](qsheet-v4-coding/08-recording-streaming.md)（`kind: 'panel'` を足した回）
+- 差し込み元: [`qsheet-v4-coding/02-schedule.md`](qsheet-v4-coding/02-schedule.md)・
+  [`qsheet-v4-coding/14-schedule-v2-plan.md`](qsheet-v4-coding/14-schedule-v2-plan.md)（スケジュール表）／
+  [`qsheet-v4-coding/06-editor.md`](qsheet-v4-coding/06-editor.md)（進行台本）
+- 見た目の規律: [`_rules.md`](_rules.md)・[`_tokens.md`](_tokens.md)・[`mockups/DESIGN_POLICY.md`](mockups/DESIGN_POLICY.md)
+- 言葉: [`../../wording.md`](../../wording.md)
+- 同じ形の設計書の先例: [`graphics-redesign.md`](graphics-redesign.md)（テロップCG の作り直し）

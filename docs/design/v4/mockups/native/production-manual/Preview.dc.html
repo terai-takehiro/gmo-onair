@@ -1,0 +1,320 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;800&family=Noto+Serif+JP:wght@700;900&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    button { font-family: inherit; }
+    .tap { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .ghost:hover { background: #f2f4f7; }
+    .btn-primary { transition: background-color .12s ease; } .btn-primary:hover { background: #004d91; }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 1000px; position: relative; overflow: hidden; background: #f7f8fa; display: flex; flex-direction: column; color: #1a1d24;">
+
+  <!-- 上辺バー -->
+  <header style="display: flex; height: 64px; flex-shrink: 0; align-items: center; gap: 14px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 24px;">
+    <div style="display: flex; align-items: center; gap: 9px;">
+      <div style="width: 28px; height: 28px; border-radius: 9px; background: #005bac; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M7.8 7.8a6 6 0 0 0 0 8.4"></path><path d="M16.2 16.2a6 6 0 0 0 0-8.4"></path><path d="M4.9 4.9a10 10 0 0 0 0 14.2"></path><path d="M19.1 19.1a10 10 0 0 0 0-14.2"></path></svg></div>
+      <span style="font-size: 15px; font-weight: 800;">ONAiR</span>
+    </div>
+    <span style="height: 22px; width: 1px; background: #e6e9ed;"></span>
+    <span class="clip1" style="font-size: 12.5px; color: #5d6470;">制作技術支援 ／ サイエンス・フロンティア ／ 運営マニュアル ／ 仕上がり</span>
+    <span style="flex: 1;"></span>
+    <button class="tap" style="display: flex; align-items: center; gap: 10px; height: 44px;">
+      <span style="width: 32px; height: 32px; border-radius: 9999px; background: #eaf4fb; color: #005bac; font-size: 13.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;">寺</span>
+      <span style="font-size: 12.5px; white-space: nowrap;">寺井 岳宏</span>
+    </button>
+  </header>
+
+  <!-- 冊子の帯 -->
+  <div style="display: flex; height: 52px; flex-shrink: 0; align-items: center; gap: 12px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 16px 0 12px;">
+    <button class="tap ghost" style="display: flex; align-items: center; gap: 3px; height: 32px; border-radius: 8px; padding: 0 9px 0 5px; color: #005bac;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg><span style="font-size: 12.5px; font-weight: 700;">編集に戻る</span></button>
+    <span style="height: 20px; width: 1px; background: #e6e9ed;"></span>
+    <span class="num" style="font-size: 11.5px; font-weight: 700; color: #9aa1ab;">OM-0007</span>
+    <span style="font-size: 15px; font-weight: 800;">本番運営マニュアル 第7回</span>
+    <span class="num" style="font-size: 12px; color: #5d6470;">A4横 ・ 12ページ ・ 3章</span>
+    <span style="flex: 1;"></span>
+    <span style="font-size: 11.5px; color: #9aa1ab;">見え方は紙と同じです</span>
+  </div>
+
+  <div style="display: flex; flex: 1; min-height: 0;">
+
+    <!-- 左: 目次 -->
+    <aside style="width: 248px; flex-shrink: 0; border-right: 1px solid #e6e9ed; background: #ffffff; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 7px; height: 40px; flex-shrink: 0; padding: 0 14px; border-bottom: 1px solid #e6e9ed;">
+        <span style="font-size: 12.5px; font-weight: 800;">目次</span>
+        <span style="font-size: 11px; color: #9aa1ab;">章から作られます</span>
+      </div>
+      <div style="flex: 1; overflow: hidden; padding: 10px 10px 14px;">
+        <sc-for list="{{toc}}" as="t" hint-placeholder-count="10">
+          <div style="display: flex; align-items: center; gap: 8px; height: {{t.h}}; border-radius: 8px; padding: 0 8px 0 {{t.indent}}; background: {{t.bg}};">
+            <span class="clip1" style="flex: 1; min-width: 0; font-size: {{t.size}}; font-weight: {{t.weight}}; color: {{t.fg}};">{{t.label}}</span>
+            <span class="num" style="flex-shrink: 0; font-size: 11px; color: #9aa1ab;">{{t.page}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </aside>
+
+    <!-- 中央: 紙面 -->
+    <main style="flex: 1; min-width: 0; background: #eef0f3; overflow: hidden; padding: 18px 22px;">
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
+        <sc-for list="{{sheets}}" as="s" hint-placeholder-count="4">
+          <div>
+            <div style="aspect-ratio: 297 / 210; position: relative; background: #ffffff; border: 1px solid #cbd2da; box-shadow: 0 5px 16px rgba(26,29,36,.1); overflow: hidden; padding: 5%;">
+              <sc-if value="{{s.isCover}}" hint-placeholder-val="{{ true }}">
+                <div style="position: absolute; left: 0; top: 0; width: 100%; height: 44%; background: linear-gradient(135deg, #002a52 0%, #005bac 62%, #1179cf 100%);"></div>
+                <div style="position: absolute; left: 0; top: 44%; width: 100%; height: 2px; background: #c9a227;"></div>
+                <div style="position: relative; padding-top: 6%;">
+                  <div style="font-size: 8px; font-weight: 700; color: #cfe4f4; letter-spacing: .16em;">OPERATION MANUAL</div>
+                  <div style="margin-top: 4px; font-size: 25px; font-weight: 800; color: #ffffff; text-shadow: 0 3px 10px rgba(0,0,0,.34);">本番運営マニュアル</div>
+                  <div style="margin-top: 5px; font-size: 10px; font-weight: 700; color: #ffffff;">東都TV 特番収録「サイエンス・フロンティア」第7回</div>
+                  <div class="num" style="margin-top: 22%; font-size: 12px; font-weight: 800;">2026/08/23（日）13:00 ／ 第2スタジオ</div>
+                  <div class="num" style="margin-top: 3px; font-size: 9px; color: #5d6470;">GLS-A002 ・ GMO グローバルスタジオ</div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{s.isList}}" hint-placeholder-val="{{ true }}">
+                <div style="font-size: 11px; font-weight: 800; padding-bottom: 4px; border-bottom: 1.4px solid #1a1d24;">{{s.title}}</div>
+                <div style="margin-top: 6px; display: flex; gap: 10px;">
+                  <div style="flex: 1; min-width: 0;">
+                    <sc-for list="{{s.rows}}" as="r" hint-placeholder-count="8">
+                      <div style="display: flex; align-items: center; gap: 5px; height: 15px; border-bottom: 1px solid #e6e9ed; font-size: 7px;">
+                        <span class="num" style="width: 40px; flex-shrink: 0; font-weight: 700; color: {{r.fg}};">{{r.a}}</span>
+                        <span style="flex: 1; min-width: 0; font-weight: {{r.weight}};">{{r.b}}</span>
+                        <span style="width: 44px; flex-shrink: 0; color: #5d6470;">{{r.c}}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="width: 33%; flex-shrink: 0;">
+                    <div style="border-radius: 2px; border: 1px solid #e6e9ed; padding: 5px 6px;">
+                      <div style="font-size: 7.5px; font-weight: 800;">{{s.sideTitle}}</div>
+                      <sc-for list="{{s.side}}" as="x" hint-placeholder-count="4">
+                        <div style="display: flex; align-items: center; gap: 4px; height: 12px; font-size: 6.5px; color: #3c424c;">
+                          <span style="width: 30px; flex-shrink: 0; color: #9aa1ab;">{{x.a}}</span><span class="clip1" style="flex: 1; min-width: 0;">{{x.b}}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <div style="margin-top: 6px; border-left: 2px solid #c2410e; padding-left: 5px;">
+                      <div style="font-size: 7.5px; font-weight: 800; color: #c2410e;">{{s.noteTitle}}</div>
+                      <div style="margin-top: 2px; font-size: 6.5px; line-height: 1.5; color: #3c424c;">{{s.note}}</div>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- 柱 -->
+              <div style="position: absolute; left: 5%; right: 5%; bottom: 4%; display: flex; align-items: center; border-top: 1px solid #e6e9ed; padding-top: 3px;">
+                <span class="num" style="font-size: 6px; color: #9aa1ab;">GMO グローバルスタジオ ／ 社外秘</span>
+                <span style="flex: 1;"></span>
+                <span class="num" style="font-size: 6px; color: #9aa1ab;">2026/08/21 時点 ・ {{s.no}} / 12</span>
+              </div>
+
+              <sc-if value="{{s.overflow}}" hint-placeholder-val="{{ true }}">
+                <div style="position: absolute; right: 0; top: 0; bottom: 0; width: 5%; background: repeating-linear-gradient(45deg, rgba(199,36,58,.14) 0 5px, transparent 5px 10px); border-left: 1.5px solid #c7243a;"></div>
+              </sc-if>
+            </div>
+            <div style="margin-top: 6px; display: flex; align-items: center; gap: 7px;">
+              <span class="num" style="font-size: 11.5px; font-weight: 700; color: #5d6470;">{{s.no}}</span>
+              <span class="clip1" style="font-size: 12px; font-weight: 700; min-width: 0;">{{s.title}}</span>
+              <sc-if value="{{s.overflow}}" hint-placeholder-val="{{ true }}">
+                <span style="flex-shrink: 0; display: inline-flex; align-items: center; height: 19px; border-radius: 5px; background: #fdecee; color: #c7243a; font-size: 10.5px; font-weight: 800; padding: 0 7px;">はみ出し</span>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </main>
+
+    <!-- 右: 書き出し -->
+    <aside style="width: 308px; flex-shrink: 0; border-left: 1px solid #e6e9ed; background: #ffffff; display: flex; flex-direction: column;">
+      <div style="flex: 1; overflow: hidden; padding: 15px 16px 16px;">
+
+        <div style="font-size: 15px; font-weight: 800;">書き出す</div>
+
+        <div style="margin-top: 11px; display: flex; align-items: center; gap: 8px;">
+          <span style="width: 62px; flex-shrink: 0; font-size: 11px; font-weight: 800; color: #5d6470;">用紙</span>
+          <span class="num" style="flex: 1; height: 32px; display: flex; align-items: center; border-radius: 9px; border: 1px solid #e6e9ed; padding: 0 10px; font-size: 12.5px; font-weight: 700;">A4 横（297 × 210 mm）</span>
+        </div>
+
+        <div style="margin-top: 8px; display: flex; align-items: center; gap: 8px;">
+          <span style="width: 62px; flex-shrink: 0; font-size: 11px; font-weight: 800; color: #5d6470;">範囲</span>
+          <div style="flex: 1; display: flex; gap: 4px;">
+            <sc-for list="{{ranges}}" as="r" hint-placeholder-count="3">
+              <button class="tap" onClick="{{r.pick}}" style="flex: 1; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid {{r.border}}; background: {{r.bg}}; color: {{r.fg}}; font-size: 11.5px; font-weight: 700;">{{r.label}}</button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="margin-top: 12px; font-size: 11px; font-weight: 800; color: #5d6470;">つけるもの</div>
+        <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px;">
+          <sc-for list="{{opts}}" as="o" hint-placeholder-count="4">
+            <button class="tap" onClick="{{o.toggle}}" style="display: flex; align-items: center; gap: 8px; height: 32px; border-radius: 9px; border: 1px solid {{o.border}}; background: {{o.bg}}; padding: 0 10px; font-size: 12px; font-weight: 700; color: {{o.fg}};">
+              <span style="width: 13px; height: 13px; border-radius: 3px; border: 1.5px solid {{o.box}}; background: {{o.boxBg}}; flex-shrink: 0;"></span>{{o.label}}
+            </button>
+          </sc-for>
+        </div>
+
+        <!-- 伏せ字 -->
+        <div style="margin-top: 12px; border-radius: 10px; border: 1px solid #fed7aa; background: #fff7ed; padding: 10px 11px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c2410e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>
+            <span style="font-size: 11.5px; font-weight: 800; color: #c2410e;">紙に出さないもの</span>
+          </div>
+          <div style="margin-top: 4px; font-size: 11px; line-height: 1.55; color: #7c2d12;">配信の鍵 3件・会議のパスコード 1件は伏せ字（●●●●）で出ます。出したいときは管理者が1件ずつ解除します。</div>
+        </div>
+
+        <!-- 出す前の検査 -->
+        <div style="margin-top: 12px; border-radius: 10px; border: 1px solid #e6e9ed; padding: 11px;">
+          <div style="font-size: 12px; font-weight: 800;">出す前の検査</div>
+          <div style="margin-top: 7px; display: flex; flex-direction: column; gap: 5px;">
+            <sc-for list="{{checks}}" as="c" hint-placeholder-count="4">
+              <div style="display: flex; align-items: center; gap: 7px;">
+                <span style="width: 15px; height: 15px; border-radius: 9999px; background: {{c.dotBg}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><span style="width: 5px; height: 5px; border-radius: 9999px; background: {{c.dot}};"></span></span>
+                <span style="flex: 1; min-width: 0; font-size: 11.5px; font-weight: 700; color: {{c.fg}};">{{c.label}}</span>
+                <span class="num" style="flex-shrink: 0; font-size: 11.5px; font-weight: 800; color: {{c.fg}};">{{c.n}}</span>
+              </div>
+            </sc-for>
+          </div>
+          <button class="tap" style="margin-top: 9px; width: 100%; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #e6e9ed; background: #ffffff; font-size: 11.5px; font-weight: 700;">直すところへ行く</button>
+        </div>
+
+        <button class="tap btn-primary" style="margin-top: 13px; width: 100%; height: 42px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 10px; background: #005bac; color: #ffffff; font-size: 13.5px; font-weight: 800;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"></path><path d="M8 11l4 4 4-4"></path><path d="M4 19h16"></path></svg>PDF で書き出す
+        </button>
+        <p style="margin: 8px 0 0; font-size: 11px; line-height: 1.6; color: #5d6470;">印刷の画面が開きます。送信先を<strong>「PDF に保存」</strong>にして保存してください（用紙・余白はこちらで合わせてあります）。</p>
+
+        <div style="margin-top: 12px; padding-top: 11px; border-top: 1px dashed #e6e9ed; display: flex; gap: 7px;">
+          <button class="tap" style="flex: 1; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; font-size: 12px; font-weight: 700;">ひな形にする</button>
+          <button class="tap" style="flex: 1; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid #cfe4f4; background: #f4faff; color: #005bac; font-size: 12px; font-weight: 800;">確定する</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { range: 'all', opts: ['cover', 'toc', 'pageno', 'date'] }; }
+
+  renderVals() {
+    const self = this;
+    const st = this.state;
+
+    const tocDefs = [
+      { label: '第1章 ／ この冊子について', page: '1', lv: 1 },
+      { label: '表紙', page: '1', lv: 2 },
+      { label: '体制と連絡網', page: '2', lv: 2 },
+      { label: '第2章 ／ 当日', page: '3', lv: 1 },
+      { label: '8/22（土）リハーサル', page: '3', lv: 2, on: true },
+      { label: '8/23（日）本番', page: '5', lv: 2 },
+      { label: '進行表（決定稿）', page: '7', lv: 2 },
+      { label: '第3章 ／ 技術', page: '9', lv: 1 },
+      { label: '収録・配信のしくみ', page: '9', lv: 2 },
+      { label: '機材と搬入出', page: '11', lv: 2 },
+    ];
+    const toc = tocDefs.map((t) => ({
+      label: t.label, page: t.page,
+      h: t.lv === 1 ? '32px' : '28px',
+      indent: t.lv === 1 ? '8px' : '20px',
+      size: t.lv === 1 ? '12px' : '12px',
+      weight: t.lv === 1 ? 800 : 700,
+      fg: t.lv === 1 ? '#005bac' : (t.on ? '#005bac' : '#3c424c'),
+      bg: t.on ? '#f4faff' : 'transparent',
+    }));
+
+    const rowsA = [
+      { a: '09:00', b: 'スタジオ入り・機材搬入', c: '技術 全員', weight: 700, fg: '#1a1d24' },
+      { a: '09:30', b: 'セットアップ（カメラ・音声）', c: '大野 / 藤原', weight: 400, fg: '#5d6470' },
+      { a: '10:30', b: '配信チェック（本線・予備）', c: '藤原', weight: 400, fg: '#5d6470' },
+      { a: '11:00', b: 'キャスト入り・衣装合わせ', c: '制作', weight: 400, fg: '#5d6470' },
+      { a: '11:30', b: '照明・カメラリハ', c: '全員', weight: 400, fg: '#5d6470' },
+      { a: '12:30', b: '通しリハーサル', c: '全員', weight: 700, fg: '#c2410e' },
+      { a: '14:20', b: '返し・直し', c: '演出', weight: 400, fg: '#5d6470' },
+      { a: '16:00', b: '解散', c: '—', weight: 400, fg: '#5d6470' },
+    ];
+    const rowsB = [
+      { a: '13:00', b: '本番 開始（配信 ON）', c: '全員', weight: 700, fg: '#c2410e' },
+      { a: '13:05', b: 'オープニング', c: '演出', weight: 400, fg: '#5d6470' },
+      { a: '13:20', b: 'コーナー1 実験パート', c: '演出', weight: 400, fg: '#5d6470' },
+      { a: '13:55', b: 'CM / 転換', c: '技術', weight: 400, fg: '#5d6470' },
+      { a: '14:05', b: 'コーナー2 視聴者クイズ', c: '演出 / CG', weight: 400, fg: '#5d6470' },
+      { a: '14:40', b: 'エンディング', c: '演出', weight: 400, fg: '#5d6470' },
+      { a: '14:50', b: '本番 終了（配信 OFF）', c: '藤原', weight: 700, fg: '#1a1d24' },
+      { a: '15:00', b: '撤収・搬出', c: '全員', weight: 400, fg: '#5d6470' },
+    ];
+    const rowsC = [
+      { a: 'DECK1', b: 'HyperDeck Studio 4K Pro', c: 'ProRes422', weight: 700, fg: '#1a1d24' },
+      { a: 'DECK2', b: 'HyperDeck Shuttle HD（予備）', c: 'ProRes422', weight: 400, fg: '#5d6470' },
+      { a: 'ENC1', b: 'SF7 Main → YouTube', c: 'RTMP', weight: 700, fg: '#1a1d24' },
+      { a: 'ENC1', b: 'SF7 Backup → YouTube', c: 'RTMP', weight: 400, fg: '#5d6470' },
+      { a: 'ENC2', b: 'SF7 Client → 社内', c: 'SRT', weight: 400, fg: '#5d6470' },
+      { a: '鍵', b: '●●●●●●●●（紙には出しません）', c: '—', weight: 400, fg: '#c2410e' },
+    ];
+
+    const sheetDefs = [
+      { no: 1, title: '表紙', isCover: true, overflow: false },
+      { no: 2, title: '体制と連絡網', isList: true, rows: rowsA.slice(0, 6), sideTitle: '連絡先', side: [{ a: 'P', b: '寺井 岳宏' }, { a: '演出', b: '川口 早苗' }, { a: '技術', b: '大野 健' }, { a: '音声', b: '藤原 直' }], noteTitle: '緊急時', note: 'スタジオ直通 03-0000-0000 ／ 警備室 内線 500', overflow: false },
+      { no: 3, title: '8/22（土）リハーサル', isList: true, rows: rowsA, sideTitle: '当日の連絡', side: [{ a: '入り', b: '09:00 技術' }, { a: 'キャスト', b: '11:00' }, { a: '通し', b: '12:30' }, { a: '解散', b: '16:00' }], noteTitle: 'リハ中の約束ごと', note: '通しは止めずに最後まで。気づきは終了後にまとめて', overflow: true },
+      { no: 5, title: '8/23（日）本番', isList: true, rows: rowsB, sideTitle: 'テロップCG', side: [{ a: '1', b: 'オープニング' }, { a: '2', b: 'ゲスト紹介' }, { a: '3', b: 'クイズ出題' }, { a: '4', b: '結果発表' }], noteTitle: '本番の約束ごと', note: '配信の切り替えは藤原のみ。CLEAR は誰が押してもよい', overflow: false },
+    ];
+    const sheets = sheetDefs.map((s) => ({
+      no: s.no, title: s.title, isCover: !!s.isCover, isList: !!s.isList,
+      rows: s.rows || [], sideTitle: s.sideTitle || '', side: s.side || [],
+      noteTitle: s.noteTitle || '', note: s.note || '', overflow: !!s.overflow,
+    }));
+    void rowsC;
+
+    const rangeDefs = [{ key: 'all', label: '全部' }, { key: 'chapter', label: '章' }, { key: 'page', label: 'ページ' }];
+    const ranges = rangeDefs.map((r) => ({
+      label: r.label,
+      border: st.range === r.key ? '#005bac' : '#e6e9ed',
+      bg: st.range === r.key ? '#f4faff' : '#ffffff',
+      fg: st.range === r.key ? '#005bac' : '#3c424c',
+      pick: () => self.setState({ range: r.key }),
+    }));
+
+    const optDefs = [
+      { key: 'cover', label: '表紙をつける' },
+      { key: 'toc', label: '目次をつける' },
+      { key: 'pageno', label: 'ページ番号を入れる' },
+      { key: 'date', label: '「◯月◯日時点」を入れる' },
+    ];
+    const opts = optDefs.map((o) => {
+      const on = st.opts.indexOf(o.key) >= 0;
+      return {
+        label: o.label,
+        border: on ? '#005bac' : '#e6e9ed',
+        bg: on ? '#f4faff' : '#ffffff',
+        fg: on ? '#005bac' : '#3c424c',
+        box: on ? '#005bac' : '#cbd2da',
+        boxBg: on ? '#005bac' : '#ffffff',
+        toggle: () => self.setState({ opts: on ? st.opts.filter((k) => k !== o.key) : st.opts.concat([o.key]) }),
+      };
+    });
+
+    const checks = [
+      { label: '紙からはみ出すブロック', n: 1, dot: '#c7243a', dotBg: '#fdecee', fg: '#c7243a' },
+      { label: '差し込み元が変わったまま', n: 2, dot: '#c2410e', dotBg: '#fff7ed', fg: '#c2410e' },
+      { label: '中身が空のブロック', n: 0, dot: '#197a4b', dotBg: '#e7f6ee', fg: '#197a4b' },
+      { label: '元の資料が消えたブロック', n: 0, dot: '#197a4b', dotBg: '#e7f6ee', fg: '#197a4b' },
+    ];
+
+    return { toc: toc, sheets: sheets, ranges: ranges, opts: opts, checks: checks };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,183 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;800&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    button { font-family: inherit; }
+    .tap { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #f7f8fa; color: #1a1d24; display: flex; flex-direction: column;">
+
+  <!-- 見出し -->
+  <header style="flex-shrink: 0; background: #ffffff; border-bottom: 1px solid #e6e9ed; padding: 10px 14px 12px;">
+    <div style="display: flex; align-items: center; gap: 8px; height: 44px;">
+      <button class="tap" style="width: 32px; height: 44px; display: flex; align-items: center; color: #005bac;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg></button>
+      <span class="clip1" style="flex: 1; min-width: 0; font-size: 16px; font-weight: 800;">本番運営マニュアル</span>
+      <span style="flex-shrink: 0; display: inline-flex; align-items: center; height: 22px; border-radius: 6px; background: #e7f6ee; color: #197a4b; font-size: 11.5px; font-weight: 800; padding: 0 8px;">確定</span>
+    </div>
+    <div class="num" style="margin-top: 2px; padding-left: 40px; font-size: 12.5px; color: #5d6470;">第7回 ・ 8/23（日）13:00 ・ 第2スタジオ</div>
+  </header>
+
+  <!-- 章の帯 -->
+  <div style="flex-shrink: 0; background: #ffffff; border-bottom: 1px solid #e6e9ed; padding: 0 10px;">
+    <div style="display: flex; gap: 4px; height: 46px; align-items: center;">
+      <sc-for list="{{chapters}}" as="c" hint-placeholder-count="3">
+        <button class="tap" onClick="{{c.pick}}" style="flex: 1; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 9px; background: {{c.bg}}; color: {{c.fg}}; font-size: 13px; font-weight: {{c.weight}};">{{c.label}}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- 本文 -->
+  <div style="flex: 1; min-height: 0; overflow: hidden; padding: 12px 14px 0;">
+
+    <!-- いま開いているページ -->
+    <div style="border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; padding: 10px;">
+      <div style="aspect-ratio: 297 / 210; background: #ffffff; border: 1px solid #cbd2da; border-radius: 3px; overflow: hidden; padding: 12px 14px; position: relative;">
+        <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; padding-bottom: 5px; border-bottom: 2px solid #005bac;">
+          <div style="min-width: 0;">
+            <span style="display: inline-flex; align-items: center; height: 13px; border-radius: 2px; background: #005bac; color: #ffffff; font-size: 7px; font-weight: 800; padding: 0 5px;">{{page.chapter}}</span>
+            <div style="margin-top: 3px; font-size: 15px; font-weight: 800; line-height: 1.15;">{{page.title}}</div>
+          </div>
+          <span class="num" style="flex-shrink: 0; font-size: 7.5px; color: #5d6470;">{{page.sub}}</span>
+        </div>
+        <div style="margin-top: 6px; display: flex; gap: 7px;">
+          <div style="flex: 1; min-width: 0;">
+            <sc-for list="{{page.rows}}" as="r" hint-placeholder-count="8">
+              <div style="display: flex; align-items: center; gap: 4px; height: 11px; border-bottom: 1px solid #e6e9ed; font-size: 6px;">
+                <span class="num" style="width: 24px; flex-shrink: 0; font-weight: 700; color: {{r.fg}};">{{r.a}}</span>
+                <span class="clip1" style="flex: 1; min-width: 0; font-weight: {{r.weight}};">{{r.b}}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="width: 34%; flex-shrink: 0; border: 1px solid #e6e9ed; border-radius: 2px; padding: 4px 5px;">
+            <div style="font-size: 6.5px; font-weight: 800;">きょうの担当</div>
+            <sc-for list="{{page.crew}}" as="c" hint-placeholder-count="4">
+              <div style="display: flex; align-items: center; gap: 3px; height: 9px; font-size: 5.5px; color: #3c424c;">
+                <span style="width: 20px; flex-shrink: 0; color: #9aa1ab;">{{c.a}}</span><span class="clip1" style="flex: 1; min-width: 0;">{{c.b}}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top: 9px; display: flex; align-items: center; gap: 8px;">
+        <button class="tap" onClick="{{prev}}" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg></button>
+        <span class="num" style="flex: 1; text-align: center; font-size: 13px; font-weight: 700; color: #5d6470;">{{page.no}} / 12 ページ</span>
+        <button class="tap" onClick="{{next}}" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
+      </div>
+      <p style="margin: 7px 0 0; text-align: center; font-size: 11.5px; color: #9aa1ab;">左右にはらってもめくれます</p>
+    </div>
+
+    <!-- 目次 -->
+    <div style="margin-top: 12px; border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; overflow: hidden;">
+      <div style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 13px; border-bottom: 1px solid #e6e9ed;">
+        <span style="font-size: 13px; font-weight: 800;">{{tocTitle}}</span>
+        <span style="flex: 1;"></span>
+        <span class="num" style="font-size: 12px; color: #9aa1ab;">{{tocCount}}</span>
+      </div>
+      <sc-for list="{{toc}}" as="t" hint-placeholder-count="4">
+        <button class="tap" onClick="{{t.pick}}" style="display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; border-bottom: 1px solid #e6e9ed; padding: 0 13px; background: {{t.bg}};">
+          <span style="width: 30px; height: 22px; flex-shrink: 0; border-radius: 2px; border: 1px solid #cbd2da; background: #ffffff; padding: 2px; display: flex; flex-direction: column; gap: 1.5px;">
+            <span style="height: 2px; width: 70%; border-radius: 1px; background: {{t.accent}};"></span>
+            <span style="height: 2px; width: 100%; border-radius: 1px; background: #e6e9ed;"></span>
+            <span style="height: 2px; width: 100%; border-radius: 1px; background: #e6e9ed;"></span>
+          </span>
+          <span class="clip1" style="flex: 1; min-width: 0; font-size: 14px; font-weight: 700;">{{t.label}}</span>
+          <span class="num" style="flex-shrink: 0; font-size: 12.5px; color: #9aa1ab;">{{t.page}}</span>
+        </button>
+      </sc-for>
+    </div>
+
+    <p style="margin: 12px 2px 0; font-size: 12px; line-height: 1.65; color: #5d6470;">編集は PC で行います。数字が違うと思ったら、元の資料（スケジュール表・進行台本）を直してください。</p>
+  </div>
+
+  <!-- 下端固定 -->
+  <div style="flex-shrink: 0; border-top: 1px solid #e6e9ed; background: #ffffff; padding: 10px 14px 22px;">
+    <button class="tap" style="width: 100%; height: 52px; display: flex; align-items: center; justify-content: center; gap: 9px; border-radius: 12px; background: #005bac; color: #ffffff; font-size: 15px; font-weight: 800;">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"></path><path d="M8 11l4 4 4-4"></path><path d="M4 19h16"></path></svg>PDF を開く
+    </button>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { ch: 'day', no: 5 }; }
+
+  pages() {
+    return {
+      1: { chapter: '第1章', title: '表紙', sub: '' },
+      2: { chapter: '第1章', title: 'この冊子について', sub: '' },
+      3: { chapter: '第1章', title: '体制と連絡網', sub: '8人' },
+      5: { chapter: '第2章 ／ 当日', title: '8月23日（日）本番', sub: '入り 10:00 ／ 本番 13:00' },
+      9: { chapter: '第3章 ／ 技術', title: '収録・配信のしくみ', sub: 'DECK 2 ／ ENC 2' },
+    };
+  }
+
+  renderVals() {
+    const self = this;
+    const st = this.state;
+
+    const chapterDefs = [
+      { key: 'about', label: 'この冊子', first: 1, items: [{ label: '表紙', page: '1', accent: '#005bac' }, { label: 'この冊子について', page: '2', accent: '#005bac' }, { label: '体制と連絡網', page: '3', accent: '#005bac' }] },
+      { key: 'day', label: '当日', first: 5, items: [{ label: '8/22（土）リハーサル', page: '4', accent: '#c2410e' }, { label: '8/23（日）本番', page: '5', accent: '#c2410e' }, { label: '進行表（決定稿）', page: '7', accent: '#c2410e' }] },
+      { key: 'tech', label: '技術', first: 9, items: [{ label: '収録・配信のしくみ', page: '9', accent: '#197a4b' }, { label: '機材と搬入出', page: '11', accent: '#197a4b' }] },
+    ];
+
+    const chapters = chapterDefs.map((c) => ({
+      label: c.label,
+      bg: st.ch === c.key ? '#eaf4fb' : 'transparent',
+      fg: st.ch === c.key ? '#005bac' : '#5d6470',
+      weight: st.ch === c.key ? 800 : 700,
+      pick: () => self.setState({ ch: c.key, no: c.first }),
+    }));
+
+    const cur = chapterDefs.find((c) => c.key === st.ch) || chapterDefs[1];
+    const toc = cur.items.map((i) => ({
+      label: i.label, page: i.page, accent: i.accent,
+      bg: String(st.no) === i.page ? '#f4faff' : '#ffffff',
+      pick: () => self.setState({ no: Number(i.page) }),
+    }));
+
+    const pg = this.pages()[st.no] || { chapter: cur.label, title: cur.items[0].label, sub: '' };
+
+    const rows = [
+      { a: '10:00', b: 'スタジオ入り', weight: 400, fg: '#5d6470' },
+      { a: '11:00', b: '配信チェック', weight: 400, fg: '#5d6470' },
+      { a: '12:00', b: 'キャスト入り', weight: 400, fg: '#5d6470' },
+      { a: '13:00', b: '本番 開始（配信 ON）', weight: 800, fg: '#c2410e' },
+      { a: '13:20', b: 'コーナー1 実験パート', weight: 400, fg: '#5d6470' },
+      { a: '14:05', b: 'コーナー2 視聴者クイズ', weight: 400, fg: '#5d6470' },
+      { a: '14:50', b: '本番 終了（配信 OFF）', weight: 800, fg: '#1a1d24' },
+      { a: '15:40', b: '撤収・搬出', weight: 400, fg: '#5d6470' },
+    ];
+
+    return {
+      chapters: chapters, toc: toc,
+      tocTitle: cur.label + 'のページ',
+      tocCount: cur.items.length + '件',
+      page: {
+        no: st.no, chapter: pg.chapter, title: pg.title, sub: pg.sub,
+        rows: rows,
+        crew: [{ a: 'P', b: '寺井 岳宏' }, { a: '演出', b: '川口 早苗' }, { a: '技術', b: '大野 健' }, { a: '音声', b: '藤原 直' }],
+      },
+      prev: () => self.setState({ no: Math.max(1, st.no - 1) }),
+      next: () => self.setState({ no: Math.min(12, st.no + 1) }),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;800&family=Noto+Serif+JP:wght@700;900&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  </style>
+</helmet>
+
+<!-- A4 横 ＝ 297 × 210 mm ＝ 1123 × 794 px（96 px/inch）。PDF の1ページと同じ寸法 -->
+<div style="width: 1123px; height: 794px; position: relative; background: #ffffff; color: #1a1d24; overflow: hidden; padding: 48px 56px 40px;">
+
+  <!-- ── 見出し（差し込み: 案件・回・日付・会場） ─────────────── -->
+  <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding-bottom: 12px; border-bottom: 3px solid #005bac;">
+    <div style="min-width: 0;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="display: inline-flex; align-items: center; height: 24px; border-radius: 4px; background: #005bac; color: #ffffff; font-size: 13px; font-weight: 800; padding: 0 10px;">第2章 ／ 当日</span>
+        <span class="num" style="font-size: 13px; font-weight: 700; color: #5d6470;">GLS-A002 ・ 第7回</span>
+      </div>
+      <div style="margin-top: 7px; font-size: 34px; font-weight: 800; line-height: 1.15; letter-spacing: -.01em;">8月23日（日）本番</div>
+    </div>
+    <div class="num" style="flex-shrink: 0; text-align: right;">
+      <div style="font-size: 15px; font-weight: 800;">東都TV 特番収録「サイエンス・フロンティア」</div>
+      <div style="margin-top: 4px; font-size: 14px; color: #3c424c;">GMO グローバルスタジオ 第2スタジオ ／ 入り 10:00 ／ 本番 13:00</div>
+    </div>
+  </div>
+
+  <!-- ── 本文 2段 ────────────────────────────────────────── -->
+  <div style="margin-top: 16px; display: flex; gap: 20px; height: 588px;">
+
+    <!-- 左: 当日の流れ（差し込み: スケジュール表） -->
+    <section style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: baseline; gap: 10px;">
+        <span style="font-size: 17px; font-weight: 800;">当日の流れ</span>
+        <span class="num" style="font-size: 12px; color: #5d6470;">スケジュール表 SD-0032 から ／ 2026-08-21 時点</span>
+      </div>
+      <div style="margin-top: 7px; display: flex; align-items: center; gap: 8px; height: 22px; background: #f2f4f7; padding: 0 8px; font-size: 11px; font-weight: 800; color: #5d6470;">
+        <span class="num" style="width: 84px; flex-shrink: 0;">時刻</span>
+        <span style="flex: 1;">内容</span>
+        <span style="width: 96px; flex-shrink: 0;">担当</span>
+        <span style="width: 62px; flex-shrink: 0;">場所</span>
+      </div>
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="16">
+        <div style="display: flex; align-items: center; gap: 8px; height: 27px; border-bottom: 1px solid #e6e9ed; padding: 0 8px; background: {{r.bg}}; font-size: 13px;">
+          <span class="num" style="width: 84px; flex-shrink: 0; font-weight: 700; color: {{r.timeFg}};">{{r.time}}</span>
+          <span class="clip1" style="flex: 1; min-width: 0; font-weight: {{r.weight}};">{{r.title}}</span>
+          <span class="clip1" style="width: 96px; flex-shrink: 0; color: #3c424c;">{{r.who}}</span>
+          <span class="num" style="width: 62px; flex-shrink: 0; color: #5d6470;">{{r.where}}</span>
+        </div>
+      </sc-for>
+    </section>
+
+    <!-- 右 -->
+    <aside style="width: 350px; flex-shrink: 0; display: flex; flex-direction: column; gap: 14px;">
+
+      <!-- 体制（差し込み: 案件のメンバー） -->
+      <section>
+        <div style="font-size: 17px; font-weight: 800;">きょうの担当</div>
+        <div style="margin-top: 7px; border: 1px solid #e6e9ed;">
+          <sc-for list="{{crew}}" as="c" hint-placeholder-count="6">
+            <div style="display: flex; align-items: center; gap: 8px; height: 26px; border-bottom: 1px solid #e6e9ed; padding: 0 9px; font-size: 12.5px;">
+              <span style="width: 78px; flex-shrink: 0; color: #5d6470;">{{c.role}}</span>
+              <span class="clip1" style="flex: 1; min-width: 0; font-weight: 700;">{{c.name}}</span>
+              <span class="num" style="flex-shrink: 0; color: #3c424c;">{{c.tel}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <!-- 技術（差し込み: 収録設定・配信設定） -->
+      <section>
+        <div style="font-size: 17px; font-weight: 800;">収録と配信</div>
+        <div style="margin-top: 7px; border: 1px solid #e6e9ed;">
+          <sc-for list="{{tech}}" as="t" hint-placeholder-count="5">
+            <div style="display: flex; align-items: center; gap: 8px; height: 26px; border-bottom: 1px solid #e6e9ed; padding: 0 9px; font-size: 12.5px;">
+              <span class="num" style="width: 54px; flex-shrink: 0; font-weight: 700; color: #005bac;">{{t.tag}}</span>
+              <span class="clip1" style="flex: 1; min-width: 0;">{{t.name}}</span>
+              <span class="num" style="flex-shrink: 0; color: {{t.fg}};">{{t.meta}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <!-- 約束ごと（自由: 文字） -->
+      <section style="border-left: 4px solid #c2410e; padding-left: 11px;">
+        <div style="font-size: 14px; font-weight: 800; color: #c2410e;">本番の約束ごと</div>
+        <div style="margin-top: 5px; font-size: 12.5px; line-height: 1.7; color: #1a1d24;">
+          ・ 配信の切り替えは<strong>藤原</strong>のみ。CLEAR は誰が押してもよい<br>
+          ・ 13:00 の配信 ON は<strong>計時の合図</strong>で。時計は副調の表示に合わせる<br>
+          ・ 押したら <strong>14:40 のエンディングを詰めない</strong>。終わりの時刻を優先する
+        </div>
+      </section>
+
+      <!-- QR（自由） -->
+      <section style="display: flex; align-items: center; gap: 11px; border: 1px solid #e6e9ed; padding: 9px 11px;">
+        <div style="width: 58px; height: 58px; flex-shrink: 0; background: #1a1d24; padding: 5px;">
+          <div style="width: 100%; height: 100%; background: #ffffff; display: grid; grid-template-columns: repeat(6, 1fr); grid-template-rows: repeat(6, 1fr);">
+            <sc-for list="{{qr}}" as="q" hint-placeholder-count="36">
+              <span style="background: {{q.c}};"></span>
+            </sc-for>
+          </div>
+        </div>
+        <div style="min-width: 0;">
+          <div style="font-size: 13px; font-weight: 800;">音声サポート（スマホ）</div>
+          <div style="margin-top: 3px; font-size: 11.5px; line-height: 1.55; color: #5d6470;">マイクの割り当てをその場で見る画面。<br>読み取ると当日の台本が開きます。</div>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <!-- ── 柱（ひな形・全ページ共通） ────────────────────────── -->
+  <div style="position: absolute; left: 56px; right: 56px; bottom: 24px; display: flex; align-items: center; border-top: 1px solid #e6e9ed; padding-top: 7px;">
+    <span class="num" style="font-size: 11px; color: #9aa1ab;">GMO グローバルスタジオ ／ 社外秘 ・ 配布先以外への転送を禁じます</span>
+    <span style="flex: 1;"></span>
+    <span class="num" style="font-size: 11px; color: #9aa1ab;">OM-0007 ・ 2026/08/21 時点 ・ 5 / 12</span>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const rows = [
+      { time: '10:00', title: 'スタジオ入り・前日セット確認', who: '技術 全員', where: 'St.2', key: false },
+      { time: '10:30', title: 'カメラ・音声 立ち上げ', who: '大野 / 藤原', where: 'St.2', key: false },
+      { time: '11:00', title: '配信チェック（本線・予備・クライアント）', who: '藤原', where: '副調', key: false },
+      { time: '11:30', title: 'テロップCG 確認（出す順・見た目）', who: '小島', where: '副調', key: false },
+      { time: '12:00', title: 'キャスト入り・メイク', who: '制作', where: '控室A', key: false },
+      { time: '12:30', title: '最終確認（尺・きっかけ）', who: '全員', where: 'St.2', key: false },
+      { time: '13:00', title: '本番 開始（配信 ON）', who: '全員', where: 'St.2', key: true },
+      { time: '13:05', title: 'オープニング', who: '演出', where: 'St.2', key: false },
+      { time: '13:20', title: 'コーナー1 実験パート', who: '演出', where: 'St.2', key: false },
+      { time: '13:55', title: 'CM ／ 転換', who: '技術 / 美術', where: 'St.2', key: false },
+      { time: '14:05', title: 'コーナー2 視聴者クイズ', who: '演出 / 小島', where: 'St.2', key: false },
+      { time: '14:40', title: 'エンディング', who: '演出', where: 'St.2', key: false },
+      { time: '14:50', title: '本番 終了（配信 OFF）', who: '藤原', where: '副調', key: true },
+      { time: '15:00', title: '収録データの吸い出し・確認', who: '大野', where: '副調', key: false },
+      { time: '15:40', title: '撤収・搬出', who: '全員', where: 'St.2', key: false },
+      { time: '17:00', title: '解散', who: '—', where: '—', key: false },
+    ];
+
+    const qrPattern = [
+      1,0,1,1,0,1, 0,1,0,0,1,0, 1,0,1,1,0,1, 1,1,0,0,1,1, 0,1,1,0,1,0, 1,0,0,1,0,1,
+    ];
+
+    return {
+      rows: rows.map((r) => ({
+        time: r.time, title: r.title, who: r.who, where: r.where,
+        weight: r.key ? 800 : 400,
+        timeFg: r.key ? '#c2410e' : '#1a1d24',
+        bg: r.key ? '#fff7ed' : 'transparent',
+      })),
+      crew: [
+        { role: 'プロデューサー', name: '寺井 岳宏', tel: '090-0000-0001' },
+        { role: '演出', name: '川口 早苗', tel: '090-0000-0002' },
+        { role: '技術', name: '大野 健', tel: '090-0000-0003' },
+        { role: '音声', name: '藤原 直', tel: '090-0000-0004' },
+        { role: 'テロップCG', name: '小島 亮', tel: '090-0000-0005' },
+        { role: '美術', name: '林 美和', tel: '090-0000-0006' },
+      ],
+      tech: [
+        { tag: 'DECK1', name: 'HyperDeck Studio 4K Pro', meta: 'ProRes422', fg: '#3c424c' },
+        { tag: 'DECK2', name: 'HyperDeck Shuttle HD（予備）', meta: 'ProRes422', fg: '#3c424c' },
+        { tag: 'ENC1', name: 'SF7 Main → YouTube', meta: 'RTMP', fg: '#3c424c' },
+        { tag: 'ENC1', name: 'SF7 Backup → YouTube', meta: 'RTMP', fg: '#3c424c' },
+        { tag: '鍵', name: '配信の鍵・合言葉', meta: '紙には出しません', fg: '#c2410e' },
+      ],
+      qr: qrPattern.map((v) => ({ c: v ? '#1a1d24' : '#ffffff' })),
+    };
+  }
+}
+</script>
+</body>
+</html>

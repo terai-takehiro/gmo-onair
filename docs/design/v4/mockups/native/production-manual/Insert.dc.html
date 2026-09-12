@@ -1,0 +1,341 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;800&family=Noto+Serif+JP:wght@700;900&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    button { font-family: inherit; }
+    .tap { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .ghost:hover { background: #f2f4f7; }
+    .btn-primary { transition: background-color .12s ease; } .btn-primary:hover { background: #004d91; }
+    .card-tap { transition: border-color .14s ease, box-shadow .14s ease; } .card-tap:hover { border-color: #a6ceeb; box-shadow: 0 3px 10px rgba(26,29,36,.06); }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 1040px; position: relative; overflow: hidden; background: #f7f8fa; display: flex; flex-direction: column; color: #1a1d24;">
+
+  <!-- 上辺バー -->
+  <header style="display: flex; height: 64px; flex-shrink: 0; align-items: center; gap: 14px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 24px;">
+    <button class="tap ghost" style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #e6e9ed;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg></button>
+    <div style="display: flex; align-items: center; gap: 9px;">
+      <div style="width: 28px; height: 28px; border-radius: 9px; background: #005bac; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M7.8 7.8a6 6 0 0 0 0 8.4"></path><path d="M16.2 16.2a6 6 0 0 0 0-8.4"></path><path d="M4.9 4.9a10 10 0 0 0 0 14.2"></path><path d="M19.1 19.1a10 10 0 0 0 0-14.2"></path></svg></div>
+      <span style="font-size: 15px; font-weight: 800;">ONAiR</span>
+    </div>
+    <span style="height: 22px; width: 1px; background: #e6e9ed;"></span>
+    <span class="clip1" style="font-size: 12.5px; color: #5d6470; max-width: 420px;">制作技術支援 ／ サイエンス・フロンティア ／ 運営マニュアル</span>
+    <span style="flex: 1;"></span>
+    <button class="tap" style="display: flex; align-items: center; gap: 10px; height: 44px;">
+      <span style="width: 32px; height: 32px; border-radius: 9999px; background: #eaf4fb; color: #005bac; font-size: 13.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;">川</span>
+      <span style="font-size: 12.5px; white-space: nowrap;">川口 早苗</span>
+    </button>
+  </header>
+
+  <!-- 冊子の帯 -->
+  <div style="display: flex; height: 52px; flex-shrink: 0; align-items: center; gap: 12px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 16px 0 12px;">
+    <button class="tap ghost" style="display: flex; align-items: center; gap: 3px; height: 32px; border-radius: 8px; padding: 0 9px 0 5px; color: #005bac;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg><span style="font-size: 12.5px; font-weight: 700;">冊子一覧</span></button>
+    <span style="height: 20px; width: 1px; background: #e6e9ed;"></span>
+    <span class="num" style="font-size: 11.5px; font-weight: 700; color: #9aa1ab;">OM-0006</span>
+    <span style="font-size: 15px; font-weight: 800;">リハーサル進行マニュアル</span>
+    <span class="num" style="font-size: 11.5px; color: #9aa1ab;">3ページ目に置きます</span>
+    <span style="flex: 1;"></span>
+    <button class="tap" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12.5px; font-weight: 700;">仕上がりを見る</button>
+    <button class="tap btn-primary" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; background: #005bac; color: #ffffff; padding: 0 14px; font-size: 12.5px; font-weight: 800;">確定する</button>
+  </div>
+
+  <!-- 道具の帯 -->
+  <div style="display: flex; height: 44px; flex-shrink: 0; align-items: center; gap: 5px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px;">
+    <button class="tap" style="display: flex; align-items: center; gap: 6px; height: 32px; border-radius: 9px; border: 1px solid #005bac; background: #005bac; padding: 0 12px; font-size: 12.5px; font-weight: 800; color: #ffffff;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>差し込む</button>
+    <span style="height: 20px; width: 1px; background: #e6e9ed; margin: 0 4px;"></span>
+    <span style="font-size: 12.5px; font-weight: 700; color: #9aa1ab;">文字</span>
+    <span style="font-size: 12.5px; font-weight: 700; color: #9aa1ab; padding: 0 8px;">図形</span>
+    <span style="font-size: 12.5px; font-weight: 700; color: #9aa1ab;">画像</span>
+    <span style="font-size: 12.5px; font-weight: 700; color: #9aa1ab; padding: 0 8px;">表</span>
+    <span style="font-size: 12.5px; font-weight: 700; color: #9aa1ab;">QR</span>
+    <span style="flex: 1;"></span>
+    <span class="num" style="font-size: 12px; font-weight: 700; color: #3c424c;">100%</span>
+  </div>
+
+  <div style="display: flex; flex: 1; min-height: 0;">
+
+    <!-- ── 左: 差し込みカタログ ────────────────────────────── -->
+    <aside style="width: 380px; flex-shrink: 0; border-right: 1px solid #e6e9ed; background: #ffffff; display: flex; flex-direction: column; box-shadow: 6px 0 18px rgba(26,29,36,.05);">
+      <div style="flex-shrink: 0; padding: 13px 14px 11px; border-bottom: 1px solid #e6e9ed;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 15px; font-weight: 800;">差し込む</span>
+          <span style="font-size: 11.5px; color: #9aa1ab;">この案件にもう入っている情報</span>
+          <span style="flex: 1;"></span>
+          <button class="tap ghost" style="width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: 7px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button>
+        </div>
+        <div style="margin-top: 10px; display: flex; align-items: center; gap: 7px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 10px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.6-3.6"></path></svg>
+          <span style="font-size: 12.5px; color: #5d6470;">探す（香盤・マイク・配信先…）</span>
+        </div>
+      </div>
+
+      <div style="flex: 1; overflow: hidden; padding: 11px 12px 14px;">
+        <sc-for list="{{groups}}" as="g" hint-placeholder-count="6">
+          <div style="margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 7px; padding: 0 2px 6px;">
+              <span style="width: 5px; height: 14px; border-radius: 2px; background: {{g.color}};"></span>
+              <span style="font-size: 12px; font-weight: 800;">{{g.app}}</span>
+              <span class="num clip1" style="font-size: 11px; color: #9aa1ab; min-width: 0;">{{g.doc}}</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 5px;">
+              <sc-for list="{{g.items}}" as="i" hint-placeholder-count="3">
+                <button class="tap card-tap" onClick="{{i.pick}}" style="display: flex; align-items: center; gap: 9px; border-radius: 10px; border: 1px solid {{i.border}}; background: {{i.bg}}; padding: 8px 10px;">
+                  <span style="width: 30px; height: 22px; flex-shrink: 0; border-radius: 3px; border: 1px solid #cbd2da; background: #ffffff; padding: 3px; display: flex; flex-direction: column; gap: 1.5px;">
+                    <sc-for list="{{i.pict}}" as="l" hint-placeholder-count="3">
+                      <span style="height: 2px; width: {{l.w}}; border-radius: 1px; background: {{l.c}};"></span>
+                    </sc-for>
+                  </span>
+                  <span style="flex: 1; min-width: 0;">
+                    <span class="clip1" style="display: block; font-size: 12.5px; font-weight: 800;">{{i.label}}</span>
+                    <span class="clip1" style="display: block; margin-top: 1px; font-size: 11px; color: #5d6470;">{{i.desc}}</span>
+                  </span>
+                  <sc-if value="{{i.used}}" hint-placeholder-val="{{ true }}">
+                    <span style="flex-shrink: 0; display: inline-flex; align-items: center; height: 19px; border-radius: 5px; background: #f2f4f7; color: #5d6470; font-size: 10px; font-weight: 700; padding: 0 6px;">使用中</span>
+                  </sc-if>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </aside>
+
+    <!-- ── 中央: キャンバス（置き場所が光る） ───────────────── -->
+    <main style="flex: 1; min-width: 0; background: #eef0f3; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 20px;">
+      <div style="width: 700px; aspect-ratio: 297 / 210; position: relative; background: #ffffff; box-shadow: 0 8px 28px rgba(26,29,36,.14); border: 1px solid #cbd2da;">
+        <div style="position: absolute; inset: 3.4%; border: 1px dashed #e6e9ed;"></div>
+
+        <!-- 既にあるブロック（薄く） -->
+        <div style="position: absolute; left: 5%; top: 5%; width: 90%; height: 10%; border-radius: 2px; background: #f7f8fa; display: flex; align-items: center; padding: 0 10px;">
+          <span style="font-size: 11px; font-weight: 800; color: #9aa1ab;">見出し（案件・回・日付・会場）</span>
+        </div>
+        <div style="position: absolute; left: 5%; top: 18%; width: 55%; height: 62%; border-radius: 2px; background: #f7f8fa; display: flex; align-items: center; justify-content: center;">
+          <span style="font-size: 11px; font-weight: 800; color: #9aa1ab;">当日の流れ（香盤）</span>
+        </div>
+        <div style="position: absolute; left: 5%; top: 88%; width: 90%; height: 6%; border-radius: 2px; background: #f7f8fa;"></div>
+
+        <!-- 置き場所の候補 -->
+        <div style="position: absolute; left: 63%; top: 18%; width: 32%; height: 30%; border-radius: 3px; border: 2px dashed #005bac; background: #f4faff; display: flex; align-items: center; justify-content: center;">
+          <span style="font-size: 11.5px; font-weight: 800; color: #005bac;">ここに置く</span>
+        </div>
+        <div style="position: absolute; left: 63%; top: 51%; width: 32%; height: 29%; border-radius: 3px; border: 1px dashed #cbd2da; display: flex; align-items: center; justify-content: center;">
+          <span style="font-size: 11px; font-weight: 700; color: #9aa1ab;">空き</span>
+        </div>
+
+        <div style="position: absolute; left: 0; right: 0; bottom: -30px; text-align: center; font-size: 11.5px; color: #5d6470;">カードをつかんで紙の上に落としても置けます</div>
+      </div>
+    </main>
+
+    <!-- ── 右: 選んだブロックの下ごしらえ ─────────────────── -->
+    <aside style="width: 296px; flex-shrink: 0; border-left: 1px solid #e6e9ed; background: #ffffff; display: flex; flex-direction: column;">
+      <div style="flex-shrink: 0; padding: 13px 14px 12px; border-bottom: 1px solid #e6e9ed;">
+        <div style="font-size: 11px; font-weight: 800; color: #5d6470;">置く前に決めること</div>
+        <div style="margin-top: 5px; font-size: 15px; font-weight: 800;">{{sel.label}}</div>
+        <div class="num" style="margin-top: 3px; font-size: 11.5px; color: #5d6470;">{{sel.source}}</div>
+      </div>
+
+      <div style="flex: 1; overflow: hidden; padding: 13px 14px 14px;">
+        <!-- 小さなプレビュー -->
+        <div style="border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 9px 10px;">
+          <div style="font-size: 10px; font-weight: 800; color: #9aa1ab;">できあがり</div>
+          <div style="margin-top: 6px; border-radius: 4px; border: 1px solid #e6e9ed; padding: 7px 8px;">
+            <div style="font-size: 9.5px; font-weight: 800; padding-bottom: 4px; border-bottom: 1.2px solid #1a1d24;">{{sel.previewTitle}}</div>
+            <sc-for list="{{sel.preview}}" as="p" hint-placeholder-count="4">
+              <div style="display: flex; align-items: center; gap: 6px; height: 15px; border-bottom: 1px solid #e6e9ed; font-size: 8px;">
+                <span class="num" style="width: 46px; flex-shrink: 0; color: #5d6470;">{{p.a}}</span>
+                <span style="flex: 1; min-width: 0; font-weight: 700;">{{p.b}}</span>
+                <span class="num" style="flex-shrink: 0; color: #5d6470;">{{p.c}}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="margin-top: 13px; font-size: 11px; font-weight: 800; color: #5d6470;">見せ方</div>
+        <div style="margin-top: 6px; display: flex; gap: 5px;">
+          <sc-for list="{{views}}" as="v" hint-placeholder-count="3">
+            <button class="tap" onClick="{{v.pick}}" style="flex: 1; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid {{v.border}}; background: {{v.bg}}; color: {{v.fg}}; font-size: 11.5px; font-weight: 700;">{{v.label}}</button>
+          </sc-for>
+        </div>
+
+        <div style="margin-top: 13px; font-size: 11px; font-weight: 800; color: #5d6470;">出す項目</div>
+        <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 5px;">
+          <sc-for list="{{fields}}" as="f" hint-placeholder-count="5">
+            <button class="tap" onClick="{{f.toggle}}" style="display: flex; align-items: center; gap: 5px; height: 27px; border-radius: 8px; border: 1px solid {{f.border}}; background: {{f.bg}}; padding: 0 9px; font-size: 11.5px; font-weight: 700; color: {{f.fg}};">
+              <span style="width: 12px; height: 12px; border-radius: 3px; border: 1.5px solid {{f.box}}; background: {{f.boxBg}};"></span>{{f.label}}
+            </button>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{sel.hasSecret}}" hint-placeholder-val="{{ true }}">
+          <div style="margin-top: 13px; border-radius: 10px; border: 1px solid #fed7aa; background: #fff7ed; padding: 10px 11px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c2410e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>
+              <span style="font-size: 11.5px; font-weight: 800; color: #c2410e;">紙に出さない項目があります</span>
+            </div>
+            <div style="margin-top: 4px; font-size: 11px; line-height: 1.55; color: #7c2d12;">配信の鍵・合言葉は伏せ字（●●●●）のまま出ます。冊子は配られる前提のため、既定では出しません。</div>
+          </div>
+        </sc-if>
+
+        <div style="margin-top: 13px; border-radius: 10px; border: 1px solid #e6e9ed; padding: 10px 11px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 12px; font-weight: 800;">元が変わったら追従する</span>
+            <span style="flex: 1;"></span>
+            <span style="width: 36px; height: 20px; border-radius: 9999px; background: #005bac; position: relative; flex-shrink: 0;">
+              <span style="position: absolute; top: 2px; left: 18px; width: 16px; height: 16px; border-radius: 9999px; background: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,.25);"></span>
+            </span>
+          </div>
+          <div style="margin-top: 4px; font-size: 11px; line-height: 1.55; color: #5d6470;">確定すると、すべてのブロックが自動でその時の中身のまま凍ります。</div>
+        </div>
+
+        <button class="tap btn-primary" style="margin-top: 14px; width: 100%; height: 40px; display: flex; align-items: center; justify-content: center; gap: 7px; border-radius: 10px; background: #005bac; color: #ffffff; font-size: 13px; font-weight: 800;">このページに置く</button>
+        <p style="margin: 9px 0 0; font-size: 11px; line-height: 1.6; color: #9aa1ab; text-align: center;">置いたあとは、つかんで動かす・角を引いて伸ばす。</p>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { sel: 'crew', view: 'list', fields: ['role', 'name', 'tel'] }; }
+
+  catalog() {
+    const L = (w, c) => ({ w: w, c: c });
+    return [
+      {
+        app: '案件・カレンダー', doc: 'GLS-A002 ・ 第7回', color: '#005bac',
+        items: [
+          { key: 'head', label: '見出し', desc: '案件名・回・日付・会場・管理番号', pict: [L('70%', '#1a1d24'), L('40%', '#cbd2da')], used: true },
+          { key: 'crew', label: '体制・連絡先', desc: '案件のメンバーと役割・電話', pict: [L('100%', '#cbd2da'), L('100%', '#cbd2da'), L('60%', '#cbd2da')], used: false },
+          { key: 'room', label: 'スタジオ予約', desc: '部屋と時間（カレンダー）', pict: [L('50%', '#cbd2da'), L('80%', '#cbd2da')], used: false },
+        ],
+      },
+      {
+        app: 'スケジュール表', doc: 'SD-0031 ・ 8/22（土）', color: '#197a4b',
+        items: [
+          { key: 'sched', label: '当日の流れ', desc: '時系列／列×時間／抜粋を選べます', pict: [L('100%', '#197a4b'), L('100%', '#cbd2da'), L('100%', '#cbd2da')], used: true },
+          { key: 'move', label: '搬入出', desc: '搬入・搬出の枠だけ抜き出す', pict: [L('60%', '#cbd2da'), L('90%', '#cbd2da')], used: false },
+        ],
+      },
+      {
+        app: '進行台本', doc: 'SB-0042 ・ 第7回 決定稿', color: '#005bac',
+        items: [
+          { key: 'flow', label: '進行表', desc: '項目・尺・担当。列は選べます', pict: [L('100%', '#005bac'), L('100%', '#cbd2da'), L('80%', '#cbd2da')], used: false },
+          { key: 'part', label: '台本の抜粋', desc: 'セクションを選んでそのまま載せる', pict: [L('90%', '#cbd2da'), L('100%', '#cbd2da')], used: false },
+          { key: 'mic', label: 'マイク割り', desc: '出演者 × マイク Ch', pict: [L('40%', '#cbd2da'), L('100%', '#cbd2da')], used: false },
+        ],
+      },
+      {
+        app: '収録設定・配信設定', doc: 'この案件に1セット', color: '#c2410e',
+        items: [
+          { key: 'deck', label: '収録の一覧', desc: 'デッキ・形式・保存先', pict: [L('80%', '#c2410e'), L('100%', '#cbd2da')], used: false },
+          { key: 'dest', label: '配信先の一覧', desc: 'ENC・セッション名・行き先', pict: [L('100%', '#c2410e'), L('70%', '#cbd2da')], used: false, secret: true },
+          { key: 'meet', label: 'WEB会議', desc: 'ツール・URL・入り方', pict: [L('60%', '#cbd2da'), L('90%', '#cbd2da')], used: false, secret: true },
+        ],
+      },
+      {
+        app: 'レンタル機材・機材管理', doc: '借りる 12点 ／ 持ち出す 34点', color: '#4338ca',
+        items: [
+          { key: 'rent', label: '借りる機材', desc: '品目・数量・会社・受渡し', pict: [L('100%', '#4338ca'), L('80%', '#cbd2da')], used: false },
+          { key: 'out', label: '持ち出す機材', desc: '社内の貸出リスト（台帳から）', pict: [L('90%', '#cbd2da'), L('100%', '#cbd2da')], used: false },
+        ],
+      },
+      {
+        app: '計時・テロップCG', doc: 'この案件に1セット', color: '#8b5cf6',
+        items: [
+          { key: 'timer', label: '目標尺', desc: 'タイマー名と持ち時間', pict: [L('50%', '#8b5cf6'), L('70%', '#cbd2da')], used: false },
+          { key: 'telop', label: 'テロップ一覧', desc: '番号・種類・文言（出す順）', pict: [L('100%', '#8b5cf6'), L('100%', '#cbd2da')], used: false },
+        ],
+      },
+    ];
+  }
+
+  renderVals() {
+    const self = this;
+    const st = this.state;
+
+    const groups = this.catalog().map((g) => ({
+      app: g.app, doc: g.doc, color: g.color,
+      items: g.items.map((i) => ({
+        label: i.label, desc: i.desc, pict: i.pict, used: i.used,
+        border: st.sel === i.key ? '#005bac' : '#e6e9ed',
+        bg: st.sel === i.key ? '#f4faff' : '#ffffff',
+        pick: () => self.setState({ sel: i.key }),
+      })),
+    }));
+
+    const meta = {
+      crew: {
+        label: '体制・連絡先', source: '案件のメンバー ・ 8人',
+        previewTitle: '体制・連絡先',
+        preview: [
+          { a: 'プロデューサー', b: '寺井 岳宏', c: '090-0000-0001' },
+          { a: '演出', b: '川口 早苗', c: '090-0000-0002' },
+          { a: '技術', b: '大野 健', c: '090-0000-0003' },
+          { a: '音声', b: '藤原 直', c: '090-0000-0004' },
+        ],
+        fields: [{ key: 'role', label: '役割' }, { key: 'name', label: '氏名' }, { key: 'tel', label: '電話' }, { key: 'mail', label: 'メール' }, { key: 'co', label: '所属' }],
+        secret: false,
+      },
+      dest: {
+        label: '配信先の一覧', source: '配信設定 ・ 3件',
+        previewTitle: '配信先',
+        preview: [
+          { a: 'ENC1', b: 'SF7 Main', c: 'YouTube' },
+          { a: 'ENC1', b: 'SF7 Backup', c: 'YouTube' },
+          { a: 'ENC2', b: 'SF7 Client', c: '社内' },
+        ],
+        fields: [{ key: 'enc', label: 'ENC' }, { key: 'name', label: 'セッション名' }, { key: 'proto', label: '方式' }, { key: 'url', label: '行き先' }, { key: 'key', label: '鍵' }],
+        secret: true,
+      },
+    };
+    const m = meta[st.sel] || meta.crew;
+
+    const viewDefs = [{ key: 'list', label: '一覧' }, { key: 'card', label: 'カード' }, { key: 'part', label: '抜粋' }];
+    const views = viewDefs.map((v) => ({
+      label: v.label,
+      border: st.view === v.key ? '#005bac' : '#e6e9ed',
+      bg: st.view === v.key ? '#f4faff' : '#ffffff',
+      fg: st.view === v.key ? '#005bac' : '#3c424c',
+      pick: () => self.setState({ view: v.key }),
+    }));
+
+    const fields = m.fields.map((f) => {
+      const on = st.fields.indexOf(f.key) >= 0;
+      const locked = f.key === 'key';
+      return {
+        label: f.label,
+        border: on ? '#005bac' : '#e6e9ed',
+        bg: on ? '#f4faff' : '#ffffff',
+        fg: locked ? '#9aa1ab' : (on ? '#005bac' : '#3c424c'),
+        box: on ? '#005bac' : '#cbd2da',
+        boxBg: on ? '#005bac' : '#ffffff',
+        toggle: () => {
+          if (locked) return;
+          self.setState({ fields: on ? st.fields.filter((k) => k !== f.key) : st.fields.concat([f.key]) });
+        },
+      };
+    });
+
+    return {
+      groups: groups, views: views, fields: fields,
+      sel: { label: m.label, source: m.source, previewTitle: m.previewTitle, preview: m.preview, hasSecret: m.secret },
+    };
+  }
+}
+</script>
+</body>
+</html>
