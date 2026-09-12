@@ -5,8 +5,9 @@
 // 型を共有しても検査が増えない。
 //
 // 段A（器だけ）: 冊子の一覧・作成・削除、ページの一覧・追加・削除・並べ替え・
-// タイトル/章名の編集。段B: 紙面の自由ブロック（`ManualBlock`。下の定義）。
-// 差し込み（`kind: 'linked'`）・ひな形（`kind: 'master'`）は段C・段E以降。
+// タイトル/章名の編集。段B: 紙面の自由ブロック（`ManualFreeBlock`）。
+// 段C: 差し込みブロック（`ManualLinkedBlock`。レジストリは
+// `shared/src/production/manualBlocks.ts`）。ひな形ブロック（`kind: 'master'`）は段E以降。
 
 export type ManualStatus = "draft" | "fixed" | "archived";
 
@@ -74,9 +75,20 @@ export interface ManualQrContent {
   label?: string;
 }
 
+/**
+ * 自由ブロックの中身の union（段C: `kind: 'linked'` には `content` が無いため、
+ * `ManualBlock["free"]["content"]` という書き方はもう成立しない。中身編集の
+ * コールバック（`ManualBlockView`/`ManualCanvas` の `onContentCommit`）はこの型を使う）。
+ */
+export type ManualFreeBlockContent =
+  | ManualTextContent
+  | ManualShapeContent
+  | ManualImageContent
+  | ManualTableContent
+  | ManualQrContent;
+
 interface ManualBlockBase {
   id: string;
-  kind: "free";
   /** 紙の寸法（mm）。左上原点。A4横 = 297 × 210（PAGE_WIDTH_MM/PAGE_HEIGHT_MM） */
   x: number;
   y: number;
@@ -90,12 +102,39 @@ interface ManualBlockBase {
   style: Record<string, string | number>;
 }
 
-export type ManualBlock =
-  | (ManualBlockBase & { free: { type: "text"; content: ManualTextContent } })
-  | (ManualBlockBase & { free: { type: "shape"; content: ManualShapeContent } })
-  | (ManualBlockBase & { free: { type: "image"; content: ManualImageContent } })
-  | (ManualBlockBase & { free: { type: "table"; content: ManualTableContent } })
-  | (ManualBlockBase & { free: { type: "qr"; content: ManualQrContent } });
+export type ManualFreeBlock =
+  | (ManualBlockBase & { kind: "free"; free: { type: "text"; content: ManualTextContent } })
+  | (ManualBlockBase & { kind: "free"; free: { type: "shape"; content: ManualShapeContent } })
+  | (ManualBlockBase & { kind: "free"; free: { type: "image"; content: ManualImageContent } })
+  | (ManualBlockBase & { kind: "free"; free: { type: "table"; content: ManualTableContent } })
+  | (ManualBlockBase & { kind: "free"; free: { type: "qr"; content: ManualQrContent } });
+
+/**
+ * 差し込みブロック（段C・production-manual.md §4-3・§5-2）。`block` はレジストリのキー
+ * （`shared/src/production/manualBlocks.ts` の `ManualLinkedBlockKey`。循環 import を避けるため
+ * ここでは string のまま持つ）。
+ *
+ * - `sourceId`: 差し込み元の資料 id（案件全体を指すときは null）
+ * - `options`: 出す列・時間帯・見せ方など、ブロックごとに形が違う自由な設定
+ * - `frozen`: 確定（段E）したときに書き込まれる「そのときの中身」。下書きの間は null
+ * - `reveal`: 伏せ字を解除して紙に出した項目（配信の鍵・パスコード等）と、誰がいつ出したか（§7-2）。
+ *   無ければサーバー（`resolve`）は伏せ字のまま返す
+ */
+export interface ManualLinkedBlockLink {
+  block: string;
+  sourceId: string | null;
+  options: Record<string, unknown>;
+  frozen: { at: string; data: unknown } | null;
+  reveal?: { by: string; at: string; fields: string[] };
+}
+
+export type ManualLinkedBlock = ManualBlockBase & { kind: "linked"; link: ManualLinkedBlockLink };
+
+/**
+ * 段E で `kind: 'master'`（ひな形のブロック・全ページ共通）を足すときは、この union に
+ * 1行足すだけでよい（既存の free/linked ブロックの JSON との互換は保たれる）。
+ */
+export type ManualBlock = ManualFreeBlock | ManualLinkedBlock;
 
 /** A4横の実寸（mm）。§8-3 */
 export const PAGE_WIDTH_MM = 297;

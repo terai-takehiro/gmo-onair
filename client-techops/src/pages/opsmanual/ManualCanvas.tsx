@@ -6,7 +6,10 @@
 // 整列・等間隔・重なり・スペース+ドラッグのパン・Ctrl+ホイールのズーム」という紙面の
 // 操作だけ（production-manual.md §6 ②の操作表・段Bのスコープ）。
 //
-// 差し込みブロック（linked）・ひな形（master）・確定/rev・PDF書き出しは実装しない（段C以降）。
+// 差し込みブロック（linked・段C）の位置・大きさ・選択・ドラッグ等の紙面操作はここが
+// 他のブロックと同じに面倒を見る（中身の描画だけ `renderBlockContent` に委譲。onContentCommit
+// は呼ばない設計 — kind:'linked' は中身編集を持たないため）。
+// ひな形（master）・確定/rev・PDF書き出しは実装しない（段D/E以降）。
 //
 // ⚠️ **undo履歴（`useManualHistory`）はページ単位。** 呼び出し側（`ManualDetailPage`）は
 // ページを切り替えるたびに `key={ページID}` でこのコンポーネントごと再マウントすること
@@ -22,7 +25,7 @@ import {
   type ReactNode,
   type WheelEvent as ReactWheelEvent,
 } from "react";
-import { PAGE_HEIGHT_MM, PAGE_MARGIN_MM, PAGE_WIDTH_MM, type ManualBlock } from "@gmo-onair/shared/src/opsmanual/types";
+import { PAGE_HEIGHT_MM, PAGE_MARGIN_MM, PAGE_WIDTH_MM, type ManualBlock, type ManualFreeBlockContent } from "@gmo-onair/shared/src/opsmanual/types";
 import ManualBlockView from "./ManualBlockView";
 import ManualSelectionToolbar from "./ManualSelectionToolbar";
 import { useManualHistory } from "./useManualHistory";
@@ -53,10 +56,12 @@ export interface ManualCanvasProps {
   /** 選択が変わるたびに親へ通知（右パネルの表示用。複数選択のときは null） */
   onSelectionChange?: (blockId: string | null) => void;
   /** ブロックの「中身」の描画は呼び出し側に委ねる。ctx.onContentCommit(newContent) を
-   *  呼ぶと、そのブロックの free.content を差し替えて onCommit を呼ぶ（＝中身の編集も undo に乗る） */
+   *  呼ぶと、そのブロックの free.content を差し替えて onCommit を呼ぶ（＝中身の編集も undo に乗る）。
+   *  kind:'linked'（段C）のブロックは onContentCommit を呼ばない設計 — 呼び出し側が
+   *  差し込みの解決結果（resolve）を渡したいときは、この関数をクロージャで包んで対応する */
   renderBlockContent: (
     block: ManualBlock,
-    ctx: { selected: boolean; onContentCommit: (content: ManualBlock["free"]["content"]) => void }
+    ctx: { selected: boolean; onContentCommit: (content: ManualFreeBlockContent) => void }
   ) => ReactNode;
   /** 既定 1（100%）。あとは Ctrl+ホイールで内部的に変わる（このコンポーネントの初期値としてだけ使う） */
   zoom?: number;
@@ -197,8 +202,12 @@ const ManualCanvas = forwardRef<ManualCanvasHandle, ManualCanvasProps>(function 
     history.commit(next);
   }
 
-  function handleBlockContentCommit(id: string, content: ManualBlock["free"]["content"]) {
-    const next = blocks.map((b) => (b.id === id ? ({ ...b, free: { ...b.free, content } } as unknown as ManualBlock) : b));
+  function handleBlockContentCommit(id: string, content: ManualFreeBlockContent) {
+    // kind:'linked'（段C）のブロックは中身編集を持たないため onContentCommit を呼ばない設計だが、
+    // 型として安全にするため、ここでも free ブロック以外は書き込まない
+    const next = blocks.map((b) =>
+      b.id === id && b.kind === "free" ? ({ ...b, free: { ...b.free, content } } as unknown as ManualBlock) : b
+    );
     history.commit(next);
   }
 

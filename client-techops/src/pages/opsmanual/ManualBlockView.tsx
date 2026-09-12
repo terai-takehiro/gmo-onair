@@ -5,7 +5,7 @@
 // ライブドラッグ中は見た目だけを更新し（`dragRef` に持つ値＋`liveRect` state）、
 // pointerup/pointercancel で初めて `onPatchCommit`（＝親の undo 履歴の1手）を呼ぶ。
 import { useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
-import { PAGE_HEIGHT_MM, PAGE_WIDTH_MM, type ManualBlock } from "@gmo-onair/shared/src/opsmanual/types";
+import { PAGE_HEIGHT_MM, PAGE_WIDTH_MM, type ManualBlock, type ManualFreeBlockContent } from "@gmo-onair/shared/src/opsmanual/types";
 import {
   RESIZE_HANDLES,
   ROTATE_STEP_DEG,
@@ -66,9 +66,9 @@ export interface ManualBlockViewProps {
   onSelect: (shiftKey: boolean) => void;
   /** ドラッグ・リサイズ・回転が確定した瞬間に1回だけ呼ぶ（親が undo 履歴に積む） */
   onPatchCommit: (patch: BlockGeometryPatch) => void;
-  onContentCommit: (content: ManualBlock["free"]["content"]) => void;
+  onContentCommit: (content: ManualFreeBlockContent) => void;
   onSnapGuides: (guides: { x: number[]; y: number[] } | null) => void;
-  renderContent: (ctx: { selected: boolean; onContentCommit: (content: ManualBlock["free"]["content"]) => void }) => ReactNode;
+  renderContent: (ctx: { selected: boolean; onContentCommit: (content: ManualFreeBlockContent) => void }) => ReactNode;
 }
 
 export default function ManualBlockView({

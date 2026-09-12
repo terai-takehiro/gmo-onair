@@ -1,6 +1,9 @@
-// 冊子1件の画面（`/techops/manuals/:id`・段A＋段B）。ページの一覧・追加・削除・並べ替え・
-// 章名/題の編集（段A）に加え、選択中ページの紙面（自由ブロック5種）の編集・自動保存を持つ（段B）。
-// 確定・編集ロック・秘密の伏せ字解除・PDF書き出し・差し込み・ひな形・AIは実装しない（段C以降）。
+// 冊子1件の画面（`/techops/manuals/:id`・段A＋段B＋段C）。ページの一覧・追加・削除・並べ替え・
+// 章名/題の編集（段A）、選択中ページの紙面（自由ブロック5種）の編集・自動保存（段B）に加え、
+// 他ミニアプリの情報を置く「差し込みブロック」の追加（`insertTab`/`InsertPanel`）・解決結果の
+// 表示（`getManualResolve`/`renderBlockContent`）・秘密の伏せ字解除（`LinkedBlockInspector`
+// 経由）を持つ（段C）。確定・編集ロック・ひな形は段E、PDF書き出し・仕上がり画面は段Dで、
+// いずれも今回は実装しない。
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
@@ -22,9 +25,11 @@ import { movePage, pagesSorted } from "@/components/opsmanual/pageOrder";
 import PageRail from "./PageRail";
 import BlockToolbar from "./BlockToolbar";
 import BlockInspector from "./BlockInspector";
+import InsertPanel from "./InsertPanel";
 import ManualCanvas, { type ManualCanvasHandle } from "./ManualCanvas";
 import renderManualBlockContent from "./ManualBlockContent";
 import { useManualPageAutosave } from "./useManualPageAutosave";
+import { getManualResolve } from "@/lib/manualResolveApi";
 
 export default function ManualDetailPage() {
   const { id = "" } = useParams();
@@ -39,6 +44,8 @@ export default function ManualDetailPage() {
   // 1手として積むための入口（`ManualCanvas` に `key={ページID}` を渡して切替のたびに
   // 再マウントしているので、ページを切り替えると ref も新しいインスタンスに差し替わる）
   const canvasRef = useRef<ManualCanvasHandle>(null);
+  // 左上の「追加」「差し込む」の2つの入口をタブで切り替える（段C・§6③「別画面にしない」）
+  const [insertTab, setInsertTab] = useState<"add" | "link">("add");
 
   const detailQuery = useQuery({
     queryKey: ["manuals", "detail", id],
@@ -46,6 +53,16 @@ export default function ManualDetailPage() {
     enabled: !!id,
   });
   const manual = detailQuery.data;
+
+  // 差し込みブロック（段C）の解決結果。差し込み元は他の利用者の操作でも変わりうるが、
+  // 開くたびに毎回引き直すほどではないため staleTime を持たせる（常識的な設定でよい・§5-4）
+  const resolveQuery = useQuery({
+    queryKey: ["manuals", "resolve", id],
+    queryFn: () => getManualResolve(id),
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+  const resolveResults = resolveQuery.data;
 
   const invalidate = useCallback(
     () => queryClient.invalidateQueries({ queryKey: ["manuals", "detail", id] }),
@@ -101,6 +118,14 @@ export default function ManualDetailPage() {
   );
 
   const handleAddBlock = (block: ManualBlock) => commitViaHistory([...blocks, block]);
+
+  // `ManualCanvas` は `resolve` の結果を知らない（段Bのスコープのまま）ので、
+  // ここで renderManualBlockContent をクロージャで包んで、いま引いている resolve 結果を渡す
+  const renderBlockContent = useCallback(
+    (block: ManualBlock, ctx: Parameters<typeof renderManualBlockContent>[1]) =>
+      renderManualBlockContent(block, ctx, resolveResults?.[block.id]),
+    [resolveResults],
+  );
 
   const titleMutation = useMutation({
     mutationFn: (value: string) => manualApi.updateManual(id, { title: value, expected_updated_at: manual?.updated_at }),
@@ -232,9 +257,37 @@ export default function ManualDetailPage() {
 
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-2">
-                <BlockToolbar blocks={blocks} onAdd={handleAddBlock} />
+                <div className="flex items-center gap-1 rounded-control border border-border bg-muted/30 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setInsertTab("add")}
+                    className={cn(
+                      "min-h-tap rounded-control px-3 py-1 text-sub-sm font-medium transition-colors",
+                      insertTab === "add" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    追加
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInsertTab("link")}
+                    className={cn(
+                      "min-h-tap rounded-control px-3 py-1 text-sub-sm font-medium transition-colors",
+                      insertTab === "link" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    差し込む
+                  </button>
+                </div>
                 {blocksSaving && <span className="shrink-0 text-sub-sm text-muted-foreground">保存中…</span>}
               </div>
+
+              {insertTab === "add" ? (
+                <BlockToolbar blocks={blocks} onAdd={handleAddBlock} />
+              ) : (
+                <InsertPanel manualId={id} blocks={blocks} onAdd={handleAddBlock} isProgram={!!manual.program_id} />
+              )}
+
               {currentPage ? (
                 <ManualCanvas
                   // ページ切替のたびに再マウントし、前のページの undo 履歴（pastRef/futureRef）
@@ -244,7 +297,7 @@ export default function ManualDetailPage() {
                   blocks={blocks}
                   onCommit={commitBlocks}
                   onSelectionChange={setSelectedBlockId}
-                  renderBlockContent={renderManualBlockContent}
+                  renderBlockContent={renderBlockContent}
                 />
               ) : (
                 <div className="flex min-h-[400px] items-center justify-center rounded-card border border-dashed border-border bg-muted/20 p-8 text-center text-sub text-muted-foreground">

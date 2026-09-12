@@ -10,8 +10,17 @@
 // （Ctrl+Z で取り消せる）。
 import { AlignCenter, AlignLeft, AlignRight, Copy, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PAGE_HEIGHT_MM, PAGE_WIDTH_MM, type ManualBlock, type ManualShapeKind } from "@gmo-onair/shared/src/opsmanual/types";
+import {
+  PAGE_HEIGHT_MM,
+  PAGE_WIDTH_MM,
+  type ManualBlock,
+  type ManualFreeBlockContent,
+  type ManualLinkedBlockLink,
+  type ManualShapeKind,
+} from "@gmo-onair/shared/src/opsmanual/types";
+import { manualLinkedBlockDef } from "@gmo-onair/shared/src/production/manualBlocks";
 import { genBlockId } from "./manualCanvasGeometry";
+import LinkedBlockInspector from "./LinkedBlockInspector";
 
 const SHAPE_LABEL: Record<ManualShapeKind, string> = {
   rect: "矩形",
@@ -53,8 +62,15 @@ export default function BlockInspector({ blocks, selectedBlockId, onCommit }: Pr
   const patchStyle = (patch: Record<string, string | number>) => {
     onCommit(blocks.map((b) => (b.id === block.id ? { ...b, style: { ...b.style, ...patch } } : b)));
   };
-  const patchContent = (content: ManualBlock["free"]["content"]) => {
-    onCommit(blocks.map((b) => (b.id === block.id ? ({ ...b, free: { ...b.free, content } } as ManualBlock) : b)));
+  const patchContent = (content: ManualFreeBlockContent) => {
+    onCommit(
+      blocks.map((b) => (b.id === block.id && b.kind === "free" ? ({ ...b, free: { ...b.free, content } } as unknown as ManualBlock) : b)),
+    );
+  };
+  const patchLink = (patch: Partial<ManualLinkedBlockLink>) => {
+    onCommit(
+      blocks.map((b) => (b.id === block.id && b.kind === "linked" ? { ...b, link: { ...b.link, ...patch } } : b)),
+    );
   };
   const remove = () => onCommit(blocks.filter((b) => b.id !== block.id));
   const duplicate = () => {
@@ -69,18 +85,43 @@ export default function BlockInspector({ blocks, selectedBlockId, onCommit }: Pr
     onCommit([...blocks, dup]);
   };
 
+  const headerButtons = (
+    <div className="flex items-center gap-1">
+      <Button type="button" variant="ghost" size="icon-sm" onClick={duplicate} aria-label="複製" title="複製（Ctrl+D）">
+        <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+      </Button>
+      <Button type="button" variant="ghost" size="icon-sm" onClick={remove} aria-label="削除" title="削除（Delete）">
+        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+      </Button>
+    </div>
+  );
+
+  // kind:'linked'（段C・差し込みブロック）は自由ブロックの書式（大きさ・色・そろえ等）を
+  // 持たないため、専用の `LinkedBlockInspector`（出す項目・秘密の解除）に委ねる
+  if (block.kind === "linked") {
+    const def = manualLinkedBlockDef(block.link.block);
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between rounded-card border border-border bg-card p-3">
+          <span className="text-sub-sm font-medium text-foreground">選択中のブロック（差し込み）</span>
+          {headerButtons}
+        </div>
+        {def ? (
+          <LinkedBlockInspector block={block} def={def} onCommit={patchLink} />
+        ) : (
+          <div className="rounded-card border border-dashed border-border bg-muted/20 p-3 text-sub-sm text-muted-foreground">
+            このブロックには対応していません。
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-3 rounded-card border border-border bg-card p-3">
       <div className="flex items-center justify-between">
         <span className="text-sub-sm font-medium text-foreground">選択中のブロック</span>
-        <div className="flex items-center gap-1">
-          <Button type="button" variant="ghost" size="icon-sm" onClick={duplicate} aria-label="複製" title="複製（Ctrl+D）">
-            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-          </Button>
-          <Button type="button" variant="ghost" size="icon-sm" onClick={remove} aria-label="削除" title="削除（Delete）">
-            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-          </Button>
-        </div>
+        {headerButtons}
       </div>
 
       {block.free.type === "text" && (

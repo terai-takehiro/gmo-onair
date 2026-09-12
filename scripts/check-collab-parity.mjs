@@ -24,6 +24,8 @@ const PAIRS = [
   // 制作資料 v4 段3: ミニアプリのレジストリとジャーニーの型。
   // サーバーは server/src/ の外を import できないための複製（miniapps.ts §4-1）
   ['server/src/shared/production/miniapps.ts', 'shared/src/production/miniapps.ts'],
+  // 運営マニュアル 段C: 差し込みブロックのレジストリ（production-manual.md §5-2）
+  ['server/src/shared/production/manualBlocks.ts', 'shared/src/production/manualBlocks.ts'],
   ['server/src/shared/production/journey.ts', 'shared/src/production/journey.ts'],
   ['server/src/shared/schedule/time.ts', 'shared/src/schedule/time.ts'],
   // 制作資料 v4 段4: スケジュール表の区分（色・日本語名）。画面と Excel の凡例が同じ物を読む
