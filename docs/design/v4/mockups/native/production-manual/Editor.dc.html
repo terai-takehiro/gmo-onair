@@ -23,7 +23,7 @@
   </style>
 </helmet>
 
-<div style="width: 1440px; height: 1040px; position: relative; overflow: hidden; background: #f7f8fa; display: flex; flex-direction: column; color: #1a1d24;">
+<div style="width: 1440px; height: 1076px; position: relative; overflow: hidden; background: #f7f8fa; display: flex; flex-direction: column; color: #1a1d24;">
 
   <!-- ── 上辺バー（共通シェル。左メニューは畳んだ状態が既定） ────────── -->
   <header style="display: flex; height: 64px; flex-shrink: 0; align-items: center; gap: 14px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 24px;">
@@ -49,11 +49,21 @@
     <span style="font-size: 15px; font-weight: 800;">リハーサル進行マニュアル</span>
     <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 56px; height: 21px; border-radius: 6px; background: #fff7ed; color: #c2410e; font-size: 11px; font-weight: 800;">下書き</span>
     <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: #197a4b;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#197a4b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>保存しました</span>
+    <span style="display: inline-flex; align-items: center; gap: 5px; height: 21px; border-radius: 6px; border: 1px solid #cfe4f4; background: #f4faff; color: #005bac; font-size: 11px; font-weight: 700; padding: 0 8px;" title="編集中は他の人からは読むだけになります。10分手が止まると自動で解けます"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>あなたが編集中</span>
     <span style="flex: 1;"></span>
     <button class="tap" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; border: 1px solid #fdba74; background: #fff7ed; padding: 0 11px; font-size: 12.5px; font-weight: 800; color: #c2410e;"><span style="width: 6px; height: 6px; border-radius: 9999px; background: #c2410e;"></span>元が変わりました <span class="num">1</span></button>
     <button class="tap" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12.5px; font-weight: 700;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="2.6"></circle></svg>仕上がりを見る</button>
     <button class="tap" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12.5px; font-weight: 700;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"></path><path d="M8 11l4 4 4-4"></path><path d="M4 19h16"></path></svg>PDF</button>
     <button class="tap btn-primary" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; background: #005bac; color: #ffffff; padding: 0 14px; font-size: 12.5px; font-weight: 800;">確定する</button>
+  </div>
+
+  <!-- ── 交代の申し出（読むだけの人が押すと、持っている人にこれが出る） ── -->
+  <div style="display: flex; height: 36px; flex-shrink: 0; align-items: center; gap: 9px; border-bottom: 1px solid #cfe4f4; background: #f4faff; padding: 0 16px;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"></path><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><path d="M7 22l-4-4 4-4"></path><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+    <span style="font-size: 12.5px; font-weight: 700; color: #005bac;">大野 健 さんが「編集を代わってほしい」と申し出ています</span>
+    <span style="flex: 1;"></span>
+    <button class="tap" style="display: flex; align-items: center; height: 28px; border-radius: 8px; background: #005bac; color: #ffffff; padding: 0 12px; font-size: 12px; font-weight: 800;">渡す</button>
+    <button class="tap" style="display: flex; align-items: center; height: 28px; border-radius: 8px; border: 1px solid #cfe4f4; background: #ffffff; color: #005bac; padding: 0 11px; font-size: 12px; font-weight: 700;">あとで</button>
   </div>
 
   <!-- ── 道具の帯 ──────────────────────────────────────────── -->
