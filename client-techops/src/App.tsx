@@ -15,6 +15,9 @@ import JourneyPage from "@/pages/JourneyPage";
 import ScheduleListPage from "@/pages/schedule/ScheduleListPage";
 import SchedulePage from "@/pages/schedule/SchedulePage";
 import ScheduleTemplateSettingsPage from "@/pages/schedule/ScheduleTemplateSettingsPage";
+// 運営マニュアル（段A・docs/design/v4/production-manual.md）
+import ManualListPage from "@/pages/opsmanual/ManualListPage";
+import ManualDetailPage from "@/pages/opsmanual/ManualDetailPage";
 import { TECHOPS_ROOT_PATH } from "@/routeSwitch";
 import RecordingPage from "@/pages/recording/RecordingPage";
 import StreamingPage from "@/pages/streaming/StreamingPage";
@@ -185,6 +188,10 @@ export default function App() {
         <Route path="/techops/schedules" element={<ScheduleListPage />} />
         <Route path="/techops/schedules/:id" element={<SchedulePage />} />
         <Route path="/techops/settings/schedule-templates" element={<ScheduleTemplateSettingsPage />} />
+
+        {/* 運営マニュアル（段A・docs/design/v4/production-manual.md §9） */}
+        <Route path="/techops/manuals" element={<ManualListPage />} />
+        <Route path="/techops/manuals/:id" element={<ManualDetailPage />} />
 
         {/* 制作のジャーニー（段3・03-app-structure-impl.md §3-2・§8 PR F）。案件の入口／資料単体の入口 */}
         <Route path="/techops/projects/:id" element={<JourneyPage scope="project" />} />

@@ -63,6 +63,32 @@ export async function canAccessSchedule(
 }
 
 /**
+ * 運営マニュアル（`qsheet_manuals`）に対して user がアクセス可能か（作成者 / **案件メンバー** / 管理者）を判定。
+ * `canAccessSchedule` と同じ形（production-manual.md §7-1）。
+ *
+ * ⚠️ **明示共有は無い**（`qsheet_schedule_shares` のような `qsheet_manual_shares` テーブルは作らない —
+ * §7-1 の決定「案件メンバー全員に自動で見える」だけで個別共有は持たない）。
+ * ⚠️ 番組（`program_id` が入っている冊子）は project_id を持たないため案件メンバー判定の対象外 —
+ * 作成者本人 または `system_admin` にしか見えない（`canAccessSchedule` の番組と同じ制約）。
+ */
+export async function canAccessManual(
+  user: AccessUser,
+  manualId: string,
+  createdBy: string | null
+): Promise<boolean> {
+  if (isQsheetAdmin(user)) return true;
+  if (createdBy && createdBy === user.id) return true;
+  const member = await queryOne(
+    `SELECT 1 FROM qsheet_manuals m WHERE m.id = $1 AND m.project_id IS NOT NULL AND (
+       EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = m.project_id AND pm.user_id = $2 AND pm.deleted_at IS NULL)
+       OR EXISTS (SELECT 1 FROM projects p WHERE p.id = m.project_id AND p.assigned_to = $2)
+     )`,
+    [manualId, user.id],
+  );
+  return !!member;
+}
+
+/**
  * AI 提案（`qsheet_ai_proposals`）に対して user がアクセス可能か。
  * 提案そのものは共有先を持たないので、**対象の台本 / スケジュール表のアクセス権限**に委ねる
  * （段7・07-ai-proposals-impl.md §1）。どちらも見つからない・アクセス不可なら false

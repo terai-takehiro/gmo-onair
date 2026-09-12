@@ -113,6 +113,15 @@ export const TECHOPS_PC_ONLY: PcOnlyEntry[] = [
     instead: { label: 'アプリのトップを開く', to: '/techops/top' },
   },
   {
+    // 運営マニュアル・冊子1件の画面（段A・production-manual.md）。ページの追加・
+    // 並べ替え（上下ボタン）・章名/題の編集をまとめて行う画面で、
+    // 進行台本の編集（`/techops/editor/:id`）と同じくPC操作前提のため
+    path: '/techops/manuals/:id',
+    what: '運営マニュアル（冊子）の編集',
+    why: 'ページの構成（章・題・並び）をまとめて組む画面で、狭い幅では組めません。',
+    instead: { label: '運営マニュアルの一覧を開く', to: '/techops/manuals' },
+  },
+  {
     // 表示レイアウトエディタ（13-live-display-layout-editor.md §6-3）。要素カードの
     // ドラッグ・リサイズ操作が前提のため、375px幅での対応は本設計のスコープ外にした
     // （§9-3で利用者に確認済み）。テンプレートライブラリ（閲覧・適用）はスマホ対応の対象
@@ -150,6 +159,7 @@ export const TECHOPS_MOBILE_OK: string[] = [
   '/techops/graphics/:ownerKey', // テロップCG（①一覧＝PC・⑥閲覧＋緊急CLEAR＝スマホ。同じURLの中でTailwindのブレークポイントにより出し分ける。段D）
   '/techops/schedules',      // スケジュール表の一覧
   '/techops/schedules/:id',  // スケジュール表の詳細（375px は縦積みカードに畳む）
+  '/techops/manuals',        // 運営マニュアルの一覧（閲覧のみなのでスマホでも開ける・段A）
   // 収録設定・配信設定の簡易入口（旧 `/techops/device-settings`）は2026-08-22 に廃止（`App.tsx` にルート無し）
   '/techops/recording/:ownerKey', // 収録設定（PC表＋スマホは下シートに畳む）
   '/techops/streaming/:ownerKey', // 配信設定（同上）
