@@ -75,12 +75,13 @@
           <div>
             <div style="aspect-ratio: 297 / 210; position: relative; background: #ffffff; border: 1px solid #cbd2da; box-shadow: 0 5px 16px rgba(26,29,36,.1); overflow: hidden; padding: 5%;">
               <sc-if value="{{s.isCover}}" hint-placeholder-val="{{ true }}">
-                <div style="position: absolute; left: 0; top: 0; width: 100%; height: 44%; background: linear-gradient(135deg, #002a52 0%, #005bac 62%, #1179cf 100%);"></div>
-                <div style="position: absolute; left: 0; top: 44%; width: 100%; height: 2px; background: #c9a227;"></div>
-                <div style="position: relative; padding-top: 6%;">
-                  <div style="font-size: 8px; font-weight: 700; color: #cfe4f4; letter-spacing: .16em;">OPERATION MANUAL</div>
-                  <div style="margin-top: 4px; font-size: 25px; font-weight: 800; color: #ffffff; text-shadow: 0 3px 10px rgba(0,0,0,.34);">本番運営マニュアル</div>
-                  <div style="margin-top: 5px; font-size: 10px; font-weight: 700; color: #ffffff;">東都TV 特番収録「サイエンス・フロンティア」第7回</div>
+                <div style="position: absolute; left: 5%; right: 5%; top: 9%; height: 1.5px; background: #005bac;"></div>
+                <div style="position: absolute; left: 5%; right: 5%; top: 10.4%; height: 1px; background: #c9a227;"></div>
+                <div style="position: absolute; left: 5%; right: 5%; top: 46%; height: 1px; background: #e6e9ed;"></div>
+                <div style="position: relative; padding-top: 8%;">
+                  <div style="font-size: 8px; font-weight: 700; color: #9aa1ab; letter-spacing: .16em;">OPERATION MANUAL</div>
+                  <div style="margin-top: 4px; font-size: 25px; font-weight: 800; color: #1a1d24;">本番運営マニュアル</div>
+                  <div style="margin-top: 5px; font-size: 10px; font-weight: 700; color: #3c424c;">東都TV 特番収録「サイエンス・フロンティア」第7回</div>
                   <div class="num" style="margin-top: 22%; font-size: 12px; font-weight: 800;">2026/08/23（日）13:00 ／ 第2スタジオ</div>
                   <div class="num" style="margin-top: 3px; font-size: 9px; color: #5d6470;">GLS-A002 ・ GMO グローバルスタジオ</div>
                 </div>
@@ -160,11 +161,25 @@
 
         <div style="margin-top: 12px; font-size: 11px; font-weight: 800; color: #5d6470;">つけるもの</div>
         <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px;">
-          <sc-for list="{{opts}}" as="o" hint-placeholder-count="4">
+          <sc-for list="{{opts}}" as="o" hint-placeholder-count="5">
             <button class="tap" onClick="{{o.toggle}}" style="display: flex; align-items: center; gap: 8px; height: 32px; border-radius: 9px; border: 1px solid {{o.border}}; background: {{o.bg}}; padding: 0 10px; font-size: 12px; font-weight: 700; color: {{o.fg}};">
               <span style="width: 13px; height: 13px; border-radius: 3px; border: 1.5px solid {{o.box}}; background: {{o.boxBg}}; flex-shrink: 0;"></span>{{o.label}}
             </button>
           </sc-for>
+        </div>
+
+        <!-- インクの目安 -->
+        <div style="margin-top: 12px; border-radius: 10px; border: 1px solid #e6e9ed; padding: 10px 11px;">
+          <div style="display: flex; align-items: center; gap: 7px;">
+            <span style="font-size: 12px; font-weight: 800;">インクの目安</span>
+            <span style="flex: 1;"></span>
+            <span class="num" style="font-size: 12px; font-weight: 800; color: #197a4b;">{{ink.pct}}</span>
+          </div>
+          <div style="margin-top: 7px; height: 6px; border-radius: 3px; background: #f2f4f7; position: relative; overflow: hidden;">
+            <span style="position: absolute; left: 0; top: 0; height: 6px; width: {{ink.bar}}; border-radius: 3px; background: #197a4b;"></span>
+            <span style="position: absolute; left: 40%; top: -2px; width: 1px; height: 10px; background: #cbd2da;"></span>
+          </div>
+          <div style="margin-top: 5px; font-size: 11px; line-height: 1.55; color: #5d6470;">{{ink.note}}</div>
         </div>
 
         <!-- 伏せ字 -->
@@ -284,6 +299,7 @@ class Component extends DCLogic {
       { key: 'toc', label: '目次をつける' },
       { key: 'pageno', label: 'ページ番号を入れる' },
       { key: 'date', label: '「◯月◯日時点」を入れる' },
+      { key: 'mono', label: '色を使わない（白黒で刷る）' },
     ];
     const opts = optDefs.map((o) => {
       const on = st.opts.indexOf(o.key) >= 0;
@@ -305,7 +321,18 @@ class Component extends DCLogic {
       { label: '元の資料が消えたブロック', n: 0, dot: '#197a4b', dotBg: '#e7f6ee', fg: '#197a4b' },
     ];
 
-    return { toc: toc, sheets: sheets, ranges: ranges, opts: opts, checks: checks };
+    // 紙に刷る前提の道具なので、出す前にインクの目安を出す（40% を超えたら知らせる）
+    const mono = st.opts.indexOf('mono') >= 0;
+    const pct = mono ? 6 : 11;
+    const ink = {
+      pct: pct + '%',
+      bar: Math.min(100, Math.round((pct / 40) * 100)) + '%',
+      note: mono
+        ? '白黒で刷ります。地はすべて白・罫は 0.25mm 以上。写真は載っていません。'
+        : '地はすべて白で、色は罫とバッジだけに使っています。ベタ塗りの面はありません。',
+    };
+
+    return { toc: toc, sheets: sheets, ranges: ranges, opts: opts, checks: checks, ink: ink };
   }
 }
 </script>

@@ -90,17 +90,18 @@
     <main style="flex: 1; min-width: 0; background: #eef0f3; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 20px;">
       <div style="width: 860px; aspect-ratio: 297 / 210; position: relative; background: #ffffff; box-shadow: 0 8px 28px rgba(26,29,36,.14); border: 1px solid #cbd2da; overflow: hidden;">
 
-        <!-- 背景の面（図形ブロック） -->
-        <div style="position: absolute; left: 0; top: 0; width: 100%; height: 44%; background: linear-gradient(135deg, #002a52 0%, #005bac 62%, #1179cf 100%);"></div>
-        <div style="position: absolute; left: 0; top: 44%; width: 100%; height: 3px; background: #c9a227;"></div>
+        <!-- 地は白のまま。ベタ面もグラデーションも置かない（紙に刷るとインクを食う） -->
+        <div style="position: absolute; left: 7%; right: 7%; top: 9%; height: 2px; background: #005bac;"></div>
+        <div style="position: absolute; left: 7%; right: 7%; top: 10.1%; height: 1px; background: #c9a227;"></div>
+        <div style="position: absolute; left: 7%; right: 7%; top: 46%; height: 1px; background: #e6e9ed;"></div>
 
         <!-- 選択中の文字ブロック -->
         <div style="position: absolute; left: 7%; top: 12%; width: 62%; box-shadow: 0 0 0 1.5px #005bac;">
           <div style="padding: 8px 10px;">
-            <div style="font-size: 13px; font-weight: 700; color: #cfe4f4; letter-spacing: .16em;">OPERATION MANUAL</div>
+            <div style="font-size: 13px; font-weight: 700; color: #9aa1ab; letter-spacing: .16em;">OPERATION MANUAL</div>
             <div style="margin-top: 6px; font-family: {{t.family}}; font-size: {{t.size}}; font-weight: {{t.weight}}; line-height: {{t.leading}}; letter-spacing: {{t.tracking}}; color: {{t.color}}; -webkit-text-stroke: {{t.stroke}}; text-shadow: {{t.shadow}}; background: {{t.bg}}; -webkit-background-clip: {{t.clip}}; background-clip: {{t.clip}}; transform: scaleX({{t.scaleX}}); transform-origin: left center; writing-mode: {{t.writing}}; font-feature-settings: {{t.feature}}; font-variant-numeric: {{t.numeric}};">リハーサル進行マニュアル</div>
-            <div style="margin-top: 8px; font-family: {{t.family}}; font-size: 15px; font-weight: 700; color: #ffffff; font-feature-settings: {{t.feature}}; font-variant-numeric: {{t.numeric}};">東都TV 特番収録「サイエンス・フロンティア」第7回</div>
-            <div style="margin-top: 4px; font-family: {{t.family}}; font-size: 15px; font-weight: 400; color: #cfe4f4; font-feature-settings: {{t.feature}}; font-variant-numeric: {{t.numeric}};">2026/08/22（土）09:00 ／ 第2スタジオ ／ 11 名</div>
+            <div style="margin-top: 8px; font-family: {{t.family}}; font-size: 15px; font-weight: 700; color: #3c424c; font-feature-settings: {{t.feature}}; font-variant-numeric: {{t.numeric}};">東都TV 特番収録「サイエンス・フロンティア」第7回</div>
+            <div style="margin-top: 4px; font-family: {{t.family}}; font-size: 15px; font-weight: 400; color: #5d6470; font-feature-settings: {{t.feature}}; font-variant-numeric: {{t.numeric}};">2026/08/22（土）09:00 ／ 第2スタジオ ／ 11 名</div>
           </div>
           <!-- つまみ -->
           <span style="position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
@@ -227,6 +228,18 @@
           </sc-for>
         </div>
 
+        <!-- 1行に収める（長体を自動で決める。欄からあふれた分だけ詰める） -->
+        <div style="margin-top: 10px; display: flex; align-items: center; gap: 8px; border-radius: 9px; border: 1px solid {{fit.border}}; background: {{fit.bg}}; padding: 8px 10px;">
+          <span style="min-width: 0;">
+            <span style="display: block; font-size: 12px; font-weight: 800; color: {{fit.fg}};">1行に収める</span>
+            <span style="display: block; margin-top: 2px; font-size: 11px; line-height: 1.5; color: #5d6470;">{{fit.desc}}</span>
+          </span>
+          <span style="flex: 1;"></span>
+          <button class="tap" onClick="{{fit.toggle}}" style="width: 36px; height: 20px; border-radius: 9999px; background: {{fit.sw}}; position: relative; flex-shrink: 0;">
+            <span style="position: absolute; top: 2px; left: {{fit.knob}}; width: 16px; height: 16px; border-radius: 9999px; background: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: left .15s ease;"></span>
+          </button>
+        </div>
+
         <!-- 色 -->
         <div style="margin-top: 12px; font-size: 11px; font-weight: 800; color: #5d6470;">色</div>
         <div style="margin-top: 6px; display: flex; gap: 5px;">
@@ -237,7 +250,10 @@
         </div>
 
         <!-- 見た目の効果 -->
-        <div style="margin-top: 12px; font-size: 11px; font-weight: 800; color: #5d6470;">効果</div>
+        <div style="margin-top: 12px; display: flex; align-items: center; gap: 7px;">
+          <span style="font-size: 11px; font-weight: 800; color: #5d6470;">効果</span>
+          <span class="clip1" style="flex: 1; min-width: 0; font-size: 10.5px; color: #9aa1ab;">グラデーションは文字だけ。面には使いません（§6-6）</span>
+        </div>
         <div style="margin-top: 6px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px;">
           <sc-for list="{{effects}}" as="e" hint-placeholder-count="4">
             <button class="tap" onClick="{{e.toggle}}" style="display: flex; align-items: center; gap: 7px; height: 32px; border-radius: 9px; border: 1px solid {{e.border}}; background: {{e.bg}}; padding: 0 9px; font-size: 11.5px; font-weight: 700; color: {{e.fg}};">
@@ -282,7 +298,7 @@
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.state = { font: 'seed', size: 40, weight: 800, color: '#ffffff', lead: 1.2, track: 0, scaleX: 1, outline: false, shadow: true, gradient: false, vertical: false, align: 'left', spacing: 'palt' };
+    this.state = { font: 'seed', size: 40, weight: 800, color: '#1a1d24', lead: 1.2, track: 0, scaleX: 1, fit: false, outline: false, shadow: false, gradient: false, vertical: false, align: 'left', spacing: 'palt' };
   }
 
   /**
@@ -346,13 +362,17 @@ class Component extends DCLogic {
       pick: () => self.setState({ spacing: s.key }),
     }));
 
+    // 「1行に収める」が入っているときの長体。実装では欄の幅と文字の幅から1回だけ計算して
+    // ブロックに書き込む（描くたびに測らない — mockups/DESIGN_POLICY.md「測って書き戻す処理を入れない」）
+    const AUTO_SCALE = 0.88;
+    const effScale = st.fit ? AUTO_SCALE : st.scaleX;
     const leadPct = Math.round(((st.lead - 1) / 1.2) * 100);
     const trackPct = Math.round(((st.track + 0.05) / 0.25) * 100);
-    const scalePct = Math.round(((st.scaleX - 0.7) / 0.6) * 100);
+    const scalePct = Math.round(((effScale - 0.7) / 0.6) * 100);
     const sliders = [
       { label: '行間', value: st.lead.toFixed(2), pct: leadPct + '%', step: () => self.setState({ lead: st.lead >= 2.1 ? 1.0 : Math.round((st.lead + 0.2) * 100) / 100 }) },
       { label: '字間', value: (st.track * 100).toFixed(0) + '%', pct: trackPct + '%', step: () => self.setState({ track: st.track >= 0.19 ? -0.05 : Math.round((st.track + 0.04) * 100) / 100 }) },
-      { label: '長体', value: (st.scaleX * 100).toFixed(0) + '%', pct: scalePct + '%', step: () => self.setState({ scaleX: st.scaleX >= 1.29 ? 0.7 : Math.round((st.scaleX + 0.1) * 100) / 100 }) },
+      { label: st.fit ? '長体（自動）' : '長体', value: (effScale * 100).toFixed(0) + '%', pct: scalePct + '%', step: () => self.setState({ fit: false, scaleX: effScale >= 1.29 ? 0.7 : Math.round((effScale + 0.1) * 100) / 100 }) },
     ];
 
     const colorDefs = [
@@ -407,7 +427,7 @@ class Component extends DCLogic {
     }));
 
     const pages = [
-      { no: 1, title: '表紙', accent: '#c9a227', border: '#005bac', bg: '#0b3f75', fg: '#ffffff', fill: 'rgba(255,255,255,.18)', noFg: '#005bac' },
+      { no: 1, title: '表紙', accent: '#005bac', border: '#005bac', bg: '#ffffff', fg: '#1a1d24', fill: '#f7f8fa', noFg: '#005bac' },
       { no: 2, title: '体制と連絡網', accent: '#005bac', border: '#e6e9ed', bg: '#ffffff', fg: '#1a1d24', fill: '#f2f4f7', noFg: '#9aa1ab' },
       { no: 3, title: '8/22（土）リハーサル', accent: '#c2410e', border: '#e6e9ed', bg: '#ffffff', fg: '#1a1d24', fill: '#f2f4f7', noFg: '#9aa1ab' },
       { no: 4, title: 'リハの進行表', accent: '#c2410e', border: '#e6e9ed', bg: '#ffffff', fg: '#1a1d24', fill: '#f2f4f7', noFg: '#9aa1ab' },
@@ -429,12 +449,21 @@ class Component extends DCLogic {
         clip: st.gradient ? 'text' : 'border-box',
         stroke: st.outline ? '1.4px #c9a227' : '0',
         shadow: st.shadow ? '0 3px 10px rgba(0,0,0,.38)' : 'none',
-        scaleX: st.scaleX,
+        scaleX: effScale,
         writing: st.vertical ? 'vertical-rl' : 'horizontal-tb',
         // プロポーショナルが基本（palt）。等幅にしたところだけ tnum ＋ palt を切る
         feature: st.spacing === 'tnum' ? '"tnum" 1, "palt" 0, "kern" 1' : '"palt" 1, "kern" 1',
         numeric: st.spacing === 'tnum' ? 'tabular-nums' : 'proportional-nums',
         spacingLabel: st.spacing === 'tnum' ? '等幅' : 'プロポーショナル',
+      },
+      fit: {
+        desc: st.fit ? '欄の幅に合わせて ' + Math.round(AUTO_SCALE * 100) + '% に詰めています' : '折り返さずに1行へ。足りない分だけ長体にします',
+        border: st.fit ? '#005bac' : '#e6e9ed',
+        bg: st.fit ? '#f4faff' : '#ffffff',
+        fg: st.fit ? '#005bac' : '#1a1d24',
+        sw: st.fit ? '#005bac' : '#cbd2da',
+        knob: st.fit ? '18px' : '2px',
+        toggle: () => self.setState({ fit: !st.fit }),
       },
       sizeUp: () => self.setState({ size: Math.min(96, st.size + 4) }),
       sizeDown: () => self.setState({ size: Math.max(8, st.size - 4) }),

@@ -21,10 +21,10 @@
 <div style="width: 1123px; height: 794px; position: relative; background: #ffffff; color: #1a1d24; overflow: hidden; padding: 48px 56px 40px;">
 
   <!-- ── 見出し（差し込み: 案件・回・日付・会場） ─────────────── -->
-  <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding-bottom: 12px; border-bottom: 3px solid #005bac;">
+  <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding-bottom: 12px; border-bottom: 2px solid #005bac;">
     <div style="min-width: 0;">
       <div style="display: flex; align-items: center; gap: 10px;">
-        <span style="display: inline-flex; align-items: center; height: 24px; border-radius: 4px; background: #005bac; color: #ffffff; font-size: 13px; font-weight: 800; padding: 0 10px;">第2章 ／ 当日</span>
+        <span style="display: inline-flex; align-items: center; height: 24px; border-radius: 3px; border: 1.2px solid #005bac; color: #005bac; font-size: 13px; font-weight: 800; padding: 0 9px;">第2章 ／ 当日</span>
         <span class="num" style="font-size: 13px; font-weight: 700; color: #5d6470;">GLS-A002 ・ 第7回</span>
       </div>
       <div style="margin-top: 7px; font-size: 34px; font-weight: 800; line-height: 1.15; letter-spacing: -.01em;">8月23日（日）本番</div>
@@ -44,14 +44,14 @@
         <span style="font-size: 17px; font-weight: 800;">当日の流れ</span>
         <span class="num" style="font-size: 12px; color: #5d6470;">スケジュール表 SD-0032 から ／ 2026-08-21 時点</span>
       </div>
-      <div style="margin-top: 7px; display: flex; align-items: center; gap: 8px; height: 22px; background: #f2f4f7; padding: 0 8px; font-size: 11px; font-weight: 800; color: #5d6470;">
+      <div style="margin-top: 7px; display: flex; align-items: center; gap: 8px; height: 22px; border-top: 1px solid #1a1d24; border-bottom: 1px solid #1a1d24; padding: 0 8px; font-size: 11px; font-weight: 800; color: #5d6470;">
         <span class="num" style="width: 84px; flex-shrink: 0;">時刻</span>
         <span style="flex: 1;">内容</span>
         <span style="width: 96px; flex-shrink: 0;">担当</span>
         <span style="width: 62px; flex-shrink: 0;">場所</span>
       </div>
       <sc-for list="{{rows}}" as="r" hint-placeholder-count="16">
-        <div style="display: flex; align-items: center; gap: 8px; height: 27px; border-bottom: 1px solid #e6e9ed; padding: 0 8px; background: {{r.bg}}; font-size: 13px;">
+        <div style="display: flex; align-items: center; gap: 8px; height: 27px; border-bottom: 1px solid #e6e9ed; padding: 0 8px 0 {{r.pad}}; border-left: {{r.mark}}; font-size: 13px;">
           <span class="num" style="width: 84px; flex-shrink: 0; font-weight: 700; color: {{r.timeFg}};">{{r.time}}</span>
           <span class="clip1" style="flex: 1; min-width: 0; font-weight: {{r.weight}};">{{r.title}}</span>
           <span class="clip1" style="width: 96px; flex-shrink: 0; color: #3c424c;">{{r.who}}</span>
@@ -103,7 +103,7 @@
 
       <!-- QR（自由） -->
       <section style="display: flex; align-items: center; gap: 11px; border: 1px solid #e6e9ed; padding: 9px 11px;">
-        <div style="width: 58px; height: 58px; flex-shrink: 0; background: #1a1d24; padding: 5px;">
+        <div style="width: 58px; height: 58px; flex-shrink: 0; background: #ffffff; border: 1px solid #1a1d24; padding: 5px;">
           <div style="width: 100%; height: 100%; background: #ffffff; display: grid; grid-template-columns: repeat(6, 1fr); grid-template-rows: repeat(6, 1fr);">
             <sc-for list="{{qr}}" as="q" hint-placeholder-count="36">
               <span style="background: {{q.c}};"></span>
@@ -158,7 +158,8 @@ class Component extends DCLogic {
         time: r.time, title: r.title, who: r.who, where: r.where,
         weight: r.key ? 800 : 400,
         timeFg: r.key ? '#c2410e' : '#1a1d24',
-        bg: r.key ? '#fff7ed' : 'transparent',
+        mark: r.key ? '3px solid #c2410e' : '3px solid transparent',
+        pad: r.key ? '5px' : '8px',
       })),
       crew: [
         { role: 'プロデューサー', name: '寺井 岳宏', tel: '090-0000-0001' },
