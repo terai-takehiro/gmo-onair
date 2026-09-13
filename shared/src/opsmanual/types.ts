@@ -56,6 +56,8 @@ export interface ManualListItem extends ManualLockFields {
  * キャンバスの中身（ManualBlock）。段B（production-manual.md §4-3・§5-2）で確定。
  *
  * 段Bで作るのは `kind: 'free'` だけ（文字・図形・画像・表・QR の5種）。
+ * 体制図（`orgchart`）はそのあとに足した6つ目の自由ブロック
+ * （docs/design/v4/production-manual-orgchart.md）。
  * `kind: 'linked'`（差し込み・段C）・`kind: 'master'`（テンプレートのブロック・段E）は
  * まだ無い — 型を足すときは判別可能な union を広げるだけで、段Bが保存した
  * JSON との互換は保たれる（既存の free ブロックは変わらず読める）。
@@ -64,7 +66,7 @@ export interface ManualListItem extends ManualLockFields {
  * `style`（CSS に落ちる値のプレーンな連想配列）に置く。`free.content` には
  * 中身のデータだけを持ち、見た目を重複して持たない（§6-4・§6-5-1）。
  */
-export type ManualFreeBlockType = "text" | "shape" | "image" | "table" | "qr";
+export type ManualFreeBlockType = "text" | "shape" | "image" | "table" | "qr" | "orgchart";
 
 export interface ManualTextContent {
   text: string;
@@ -96,6 +98,57 @@ export interface ManualQrContent {
 }
 
 /**
+ * 体制図（自由ブロック・production-manual-orgchart.md §3）。階層 → チーム → 人の入れ子を
+ * マニュアル自身が持つ（案件・プロジェクト管理から取り込んだあとも元は追わない・§5-4）。
+ *
+ * **立場（`side`）の区分は持たない**（§10-2）。GPM は `side IN ('internal','client','pm','vendor')`
+ * で枠の色を決めている（migration 161）が、制作現場に当てはまらない区分が混ざるため、
+ * 所属は自由入力の文字（`ManualOrgBox.org`・`ManualOrgPerson.org`）だけにする。
+ * 既定のテンプレート（階層の名前の候補）も持たない（§10-1・置いた直後は名前の無い階層が1つ）。
+ *
+ * `id` は画面側が `genId('tier'|'box'|'psn')`（`client-techops/src/lib/stableIds.ts`）で振る。
+ */
+export interface ManualOrgChartContent {
+  tiers: ManualOrgTier[];
+  /** 階層のあいだに縦罫を引くか（既定 true） */
+  connectors?: boolean;
+  /** キャンバスに出す項目。密度を下げるため既定は役割だけ */
+  show?: { role?: boolean; org?: boolean; phone?: boolean; email?: boolean };
+}
+
+/** 階層。3階層固定にしない — 案件ごとに切り方が違うので増減・改名・並べ替えできる（§3-2） */
+export interface ManualOrgTier {
+  id: string;
+  /** 階層の名前（自由入力。置いた直後は空） */
+  label: string;
+  boxes: ManualOrgBox[];
+}
+
+/**
+ * チーム（「技術」「中継」など）。GPM（migration 169）と違ってマニュアルは入れ子で持てるので、
+ * 人が決まっていない空のチーム（「音声 ── 調整中」）も紙に出せる（§3-1）。
+ */
+export interface ManualOrgBox {
+  id: string;
+  label: string;
+  /** 所属（自由入力・任意。チームの見出しに小さく出る） */
+  org?: string;
+  /** 空でよい（人が決まっていないチームを紙に出せる） */
+  people: ManualOrgPerson[];
+}
+
+export interface ManualOrgPerson {
+  id: string;
+  name: string;
+  role?: string;
+  org?: string;
+  phone?: string;
+  email?: string;
+  /** 決裁 / 進行 / 議事録 など（枠線の小さな角丸で出す。塗らない・§4） */
+  badge?: string;
+}
+
+/**
  * 自由ブロックの中身の union（段C: `kind: 'linked'` には `content` が無いため、
  * `ManualBlock["free"]["content"]` という書き方はもう成立しない。中身編集の
  * コールバック（`ManualBlockView`/`ManualCanvas` の `onContentCommit`）はこの型を使う）。
@@ -105,7 +158,8 @@ export type ManualFreeBlockContent =
   | ManualShapeContent
   | ManualImageContent
   | ManualTableContent
-  | ManualQrContent;
+  | ManualQrContent
+  | ManualOrgChartContent;
 
 interface ManualBlockBase {
   id: string;
@@ -127,7 +181,8 @@ export type ManualFreeBlock =
   | (ManualBlockBase & { kind: "free"; free: { type: "shape"; content: ManualShapeContent } })
   | (ManualBlockBase & { kind: "free"; free: { type: "image"; content: ManualImageContent } })
   | (ManualBlockBase & { kind: "free"; free: { type: "table"; content: ManualTableContent } })
-  | (ManualBlockBase & { kind: "free"; free: { type: "qr"; content: ManualQrContent } });
+  | (ManualBlockBase & { kind: "free"; free: { type: "qr"; content: ManualQrContent } })
+  | (ManualBlockBase & { kind: "free"; free: { type: "orgchart"; content: ManualOrgChartContent } });
 
 /**
  * 差し込みブロック（段C・production-manual.md §4-3・§5-2）。`block` はレジストリのキー

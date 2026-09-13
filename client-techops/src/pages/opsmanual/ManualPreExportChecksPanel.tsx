@@ -1,4 +1,5 @@
-// 運営マニュアル — 出す前の検査（4種）の表示（段D・production-manual.md §6⑤）。
+// 運営マニュアル — 出す前の検査（5種）の表示（段D・production-manual.md §6⑤ の4種＋
+// 体制図の「名前の無い階層・人」・production-manual-orgchart.md §7）。
 // 計算そのものは `manualPreExportChecks.ts`（DOMを測らない純粋関数）に切り出してあり、
 // ここは結果を並べるだけ。**止めない**——この一覧が何件あっても「このまま書き出す」は
 // 常に押せる（呼び出し側 `ManualPreviewPage.tsx` はボタンを disabled にしない）。
@@ -16,6 +17,7 @@ const FREE_BLOCK_LABEL: Record<string, string> = {
   image: "画像ブロック",
   table: "表ブロック",
   qr: "QRブロック",
+  orgchart: "体制図ブロック",
 };
 
 function findBlock(pages: ManualPage[], issue: ManualPreExportIssue): ManualBlock | undefined {
@@ -78,7 +80,9 @@ interface Props {
 }
 
 export default function ManualPreExportChecksPanel({ pages, checks }: Props) {
-  const total = checks.overflowing.length + checks.missingSource.length + checks.staleSource.length + checks.emptyBlocks.length;
+  const total =
+    checks.overflowing.length + checks.missingSource.length + checks.staleSource.length +
+    checks.emptyBlocks.length + checks.unnamedOrgEntries.length;
 
   if (total === 0) {
     return (
@@ -106,6 +110,11 @@ export default function ManualPreExportChecksPanel({ pages, checks }: Props) {
 
       <Row tone="warn" title="中身が空のブロック" meaning="空のまま配ることになります" count={checks.emptyBlocks.length}>
         {checks.emptyBlocks.length > 0 && <IssueList pages={pages} issues={checks.emptyBlocks} />}
+      </Row>
+
+      {/* 体制図だけの検査（§7）。人が決まっていない空のチームは**意図して置ける**ので対象外 */}
+      <Row tone="warn" title="名前の無い階層・人が残っている体制図" meaning="名前のないまま紙に出ます" count={checks.unnamedOrgEntries.length}>
+        {checks.unnamedOrgEntries.length > 0 && <IssueList pages={pages} issues={checks.unnamedOrgEntries} />}
       </Row>
     </div>
   );

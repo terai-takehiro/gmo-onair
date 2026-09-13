@@ -44,6 +44,23 @@ function qrBlock(w: number, h: number): ManualBlock {
   return { id: nextId(), kind: 'free', x: 0, y: 0, w, h, z: 0, style: {}, free: { type: 'qr', content: { value: 'https://example.com' } } };
 }
 
+function orgChartBlock(w: number, h: number, style: Record<string, string | number> = {}): ManualBlock {
+  return {
+    id: nextId(),
+    kind: 'free',
+    x: 0,
+    y: 0,
+    w,
+    h,
+    z: 0,
+    style,
+    free: {
+      type: 'orgchart',
+      content: { tiers: [{ id: 'tier-1', label: '統括', boxes: [{ id: 'box-1', label: '技術', people: [] }] }] },
+    },
+  };
+}
+
 function linkedBlock(w: number, h: number, style: Record<string, string | number> = {}): ManualBlock {
   return {
     id: nextId(),
@@ -117,6 +134,16 @@ describe('estimatePageInkCoverage', () => {
     const bare = estimatePageInkCoverage([linkedBlock(PAGE_WIDTH_MM, PAGE_HEIGHT_MM)]);
     expect(filled).toBeCloseTo(1);
     expect(bare).toBe(0);
+  });
+
+  it('体制図は枠線と文字だけ＝背景がなければ0（塗らない決まり・orgchart §4）', () => {
+    const blocks = [orgChartBlock(PAGE_WIDTH_MM, PAGE_HEIGHT_MM)];
+    expect(estimatePageInkCoverage(blocks)).toBe(0);
+  });
+
+  it('体制図に背景を敷けば表・差し込みと同じ罫ベースで係数1', () => {
+    const blocks = [orgChartBlock(PAGE_WIDTH_MM, PAGE_HEIGHT_MM, { 'background-color': '#eeeeee' })];
+    expect(estimatePageInkCoverage(blocks)).toBeCloseTo(1);
   });
 
   it('QRは係数0.3', () => {

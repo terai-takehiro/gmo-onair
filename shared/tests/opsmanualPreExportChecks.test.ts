@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { runManualPreExportChecks } from '../../client-techops/src/pages/opsmanual/manualPreExportChecks';
 import type { ManualResolveEntry } from '../../client-techops/src/lib/manualResolveApi';
 import { PAGE_HEIGHT_MM, PAGE_WIDTH_MM } from '../src/opsmanual/types';
-import type { ManualBlock, ManualPage } from '../src/opsmanual/types';
+import type { ManualBlock, ManualOrgChartContent, ManualPage } from '../src/opsmanual/types';
 
 let seq = 0;
 function nextId(prefix: string): string {
@@ -97,6 +97,20 @@ function shapeBlock(): ManualBlock {
     z: 0,
     style: {},
     free: { type: 'shape', content: { shape: 'rect' } },
+  };
+}
+
+function orgChartBlock(content: ManualOrgChartContent): ManualBlock {
+  return {
+    id: nextId('blk'),
+    kind: 'free',
+    x: 0,
+    y: 0,
+    w: 180,
+    h: 90,
+    z: 0,
+    style: {},
+    free: { type: 'orgchart', content },
   };
 }
 
@@ -194,6 +208,41 @@ describe('runManualPreExportChecks — 中身が空のブロック（自由ブ�
 
   it('QR: value が空なら空', () => {
     const b = qrBlock('');
+    const result = runManualPreExportChecks([page([b])], {});
+    expect(result.emptyBlocks.map((i) => i.blockId)).toEqual([b.id]);
+  });
+
+  it('体制図: 置いた直後（名前の無い階層が1つ・チーム0）は空', () => {
+    const b = orgChartBlock({ tiers: [{ id: 'tier-1', label: '', boxes: [] }] });
+    const result = runManualPreExportChecks([page([b])], {});
+    expect(result.emptyBlocks.map((i) => i.blockId)).toEqual([b.id]);
+  });
+
+  it('体制図: 階層の名前だけでも打ってあれば空でない', () => {
+    const b = orgChartBlock({ tiers: [{ id: 'tier-1', label: '統括', boxes: [] }] });
+    const result = runManualPreExportChecks([page([b])], {});
+    expect(result.emptyBlocks).toEqual([]);
+  });
+
+  it('体制図: チーム名・所属・人のどれか1つでも文字があれば空でない', () => {
+    const box = orgChartBlock({ tiers: [{ id: 't1', label: '', boxes: [{ id: 'b1', label: '技術', people: [] }] }] });
+    const org = orgChartBlock({
+      tiers: [{ id: 't2', label: '', boxes: [{ id: 'b2', label: '', org: '東都TV', people: [] }] }],
+    });
+    const person = orgChartBlock({
+      tiers: [{ id: 't3', label: '', boxes: [{ id: 'b3', label: '', people: [{ id: 'p1', name: '山田' }] }] }],
+    });
+    const role = orgChartBlock({
+      tiers: [{ id: 't4', label: '', boxes: [{ id: 'b4', label: '', people: [{ id: 'p2', name: '', role: '音声' }] }] }],
+    });
+    const result = runManualPreExportChecks([page([box, org, person, role])], {});
+    expect(result.emptyBlocks).toEqual([]);
+  });
+
+  it('体制図: 空白だけの階層・チーム・人は空扱い', () => {
+    const b = orgChartBlock({
+      tiers: [{ id: 't1', label: '  ', boxes: [{ id: 'b1', label: ' ', org: ' ', people: [{ id: 'p1', name: '  ' }] }] }],
+    });
     const result = runManualPreExportChecks([page([b])], {});
     expect(result.emptyBlocks.map((i) => i.blockId)).toEqual([b.id]);
   });
@@ -386,6 +435,87 @@ describe('runManualPreExportChecks — 差し込みブロックの種類ごと�
   });
 });
 
+describe('runManualPreExportChecks — 名前の無い階層・名前の無い人（体制図）', () => {
+  it('階層の名前が空なら検出する', () => {
+    const b = orgChartBlock({
+      tiers: [{ id: 't1', label: '', boxes: [{ id: 'b1', label: '技術', people: [{ id: 'p1', name: '山田' }] }] }],
+    });
+    const result = runManualPreExportChecks([page([b])], {});
+    expect(result.unnamedOrgEntries.map((i) => i.blockId)).toEqual([b.id]);
+  });
+
+  it('人の名前が空なら検出する（役割だけ打って氏名が空のまま、など）', () => {
+    const b = orgChartBlock({
+      tiers: [
+        {
+          id: 't1',
+          label: '統括',
+          boxes: [{ id: 'b1', label: '技術', people: [{ id: 'p1', name: '', role: '音声' }] }],
+        },
+      ],
+    });
+    const result = runManualPreExportChecks([page([b])], {});
+    expect(result.unnamedOrgEntries.map((i) => i.blockId)).toEqual([b.id]);
+  });
+
+  it('空白だけの名前も「名前の無い」として検出する', () => {
+    const b = orgChartBlock({
+      tiers: [{ id: 't1', label: ' ', boxes: [{ id: 'b1', label: '技術', people: [{ id: 'p1', name: '山田' }] }] }],
+    });
+    const result = runManualPreExportChecks([page([b])], {});
+    expect(result.unnamedOrgEntries.map((i) => i.blockId)).toEqual([b.id]);
+  });
+
+  it('⚠️ 人が0人のチームは検出しない（人が決まっていないチームを意図して紙に出せる）', () => {
+    const b = orgChartBlock({ tiers: [{ id: 't1', label: '統括', boxes: [{ id: 'b1', label: '音声', people: [] }] }] });
+    const result = runManualPreExportChecks([page([b])], {});
+    expect(result.unnamedOrgEntries).toEqual([]);
+  });
+
+  it('チーム名が空なだけでは検出しない（検査の対象は階層と人の2つ）', () => {
+    const b = orgChartBlock({
+      tiers: [{ id: 't1', label: '統括', boxes: [{ id: 'b1', label: '', people: [{ id: 'p1', name: '山田' }] }] }],
+    });
+    const result = runManualPreExportChecks([page([b])], {});
+    expect(result.unnamedOrgEntries).toEqual([]);
+  });
+
+  it('階層も人も名前が埋まっていれば0件', () => {
+    const b = orgChartBlock({
+      tiers: [
+        { id: 't1', label: '統括', boxes: [{ id: 'b1', label: '進行', people: [{ id: 'p1', name: '寺井' }] }] },
+        { id: 't2', label: '各パート', boxes: [{ id: 'b2', label: '技術', org: '東都TV', people: [] }] },
+      ],
+    });
+    const result = runManualPreExportChecks([page([b])], {});
+    expect(result.unnamedOrgEntries).toEqual([]);
+  });
+
+  it('1ブロックに不備がいくつあっても1件だけ数える（ブロック単位）', () => {
+    const b = orgChartBlock({
+      tiers: [
+        { id: 't1', label: '', boxes: [{ id: 'b1', label: '技術', people: [{ id: 'p1', name: '' }] }] },
+        { id: 't2', label: '', boxes: [] },
+      ],
+    });
+    const p = page([b], { title: '体制' });
+    const result = runManualPreExportChecks([p], {});
+    expect(result.unnamedOrgEntries).toEqual([{ pageId: p.id, pageTitle: '体制', blockId: b.id }]);
+  });
+
+  it('体制図以外のブロックは対象外', () => {
+    const result = runManualPreExportChecks([page([textBlock({ text: '' }), tableBlock([['']]), linkedBlock()])], {});
+    expect(result.unnamedOrgEntries).toEqual([]);
+  });
+
+  it('置いた直後の体制図は「空」と「名前の無い階層」の両方に独立して入る', () => {
+    const b = orgChartBlock({ tiers: [{ id: 't1', label: '', boxes: [] }] });
+    const result = runManualPreExportChecks([page([b])], {});
+    expect(result.emptyBlocks.map((i) => i.blockId)).toEqual([b.id]);
+    expect(result.unnamedOrgEntries.map((i) => i.blockId)).toEqual([b.id]);
+  });
+});
+
 describe('runManualPreExportChecks — 複数ページ・複合', () => {
   it('複数ページのブロックをまとめて数え、pageId/pageTitle/blockId を正しく持つ', () => {
     const b1 = textBlock({ text: '' });
@@ -409,6 +539,12 @@ describe('runManualPreExportChecks — 複数ページ・複合', () => {
 
   it('ページが無ければ全部0件', () => {
     const result = runManualPreExportChecks([], {});
-    expect(result).toEqual({ overflowing: [], emptyBlocks: [], missingSource: [], staleSource: [] });
+    expect(result).toEqual({
+      overflowing: [],
+      emptyBlocks: [],
+      missingSource: [],
+      staleSource: [],
+      unnamedOrgEntries: [],
+    });
   });
 });

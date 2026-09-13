@@ -85,6 +85,15 @@ function inkCoefficient(block: ManualBlock): number {
     case "qr":
       // QRは黒が多いが小さく置かれることが多い、という目安
       return 0.3;
+    case "orgchart": {
+      // 体制図は枠線と文字だけ ＝ ほぼ0（production-manual-orgchart.md §4「チームは枠線だけ。
+      // 塗らない」・§7）。表・差し込みと同じ罫ベースの扱いにし、背景を敷いたときだけ
+      // 塗り面として数える。
+      // ⚠️ `default: return 0` に任せず明示の case を置く ——
+      // 「意図して0」と「書き忘れて0」がコード上で区別できなくなるため。
+      const bg = readStyleString(block.style, BACKGROUND_KEYS);
+      return isFilledColor(bg) ? 1 : 0;
+    }
     default:
       return 0;
   }

@@ -10,6 +10,7 @@ import { NotFoundError } from '../services/httpErrors';
 import {
   listManuals, createManual, getManualRaw, getManualWithMeta, getManualPages, updateManual, deleteManual,
 } from '../services/manual.service';
+import { getManualOrgSeed } from '../services/manual-org-seed.service';
 
 const router = Router();
 router.use(requireAuth, requirePermission('qsheet'));
@@ -73,6 +74,22 @@ router.patch('/manuals/:id', requirePermission('qsheet', 'editor'), wrap(async (
     expectedUpdatedAt: b.expected_updated_at,
   });
   res.json({ success: true, data: row });
+}));
+
+/**
+ * 体制図ブロック（自由ブロック）の「取り込み」元（production-manual-orgchart.md §5-5）。
+ * 読むだけなので reader のまま（router 全体の `requirePermission('qsheet')` の既定）。
+ * 行単位のゲートは `requireAccessible`（= `canAccessManual`・存在秘匿の 404）だけで、
+ * 案件側の権限は改めて見ない（`manual-resolvers/` の共通ポリシーと同じ設計判断）。
+ *
+ * ⚠️ 案件 id は**クエリ・ボディから受け取らない**。マニュアル自身の `project_id` だけを読む
+ * （受け取ると `POST /manuals` のレビュー指摘（P1）と同型の穴になる）。
+ * `program_id` のマニュアル（project_id が null）は両方とも空で返す＝画面は取り込みボタンを出さない。
+ */
+router.get('/manuals/:id/org-seed', wrap(async (req: Request, res: Response) => {
+  const raw = await requireAccessible(req);
+  const data = await getManualOrgSeed((raw.project_id as string | null) ?? null);
+  res.json({ success: true, data });
 }));
 
 router.delete('/manuals/:id', requirePermission('qsheet', 'editor'), wrap(async (req: Request, res: Response) => {

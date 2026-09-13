@@ -1,9 +1,15 @@
 // 運営マニュアル — 出す前の検査（段D・production-manual.md §6⑤「出す前の検査」）。
 //
-// 書き出しボタンを押す前に4種の検査結果を画面に出す。**止めない**——
+// 書き出しボタンを押す前に5種の検査結果を画面に出す（4種＝§6⑤の表。5種目は
+// 体制図ブロック向けに足した「名前の無い階層・人」・production-manual-orgchart.md §7）。**止めない**——
 // 呼び出し側はこの結果を見せた上で「このまま書き出す」を必ず押せるようにする
 // （§6⑤「止めはしない」）。DOM を一切測定しない純粋関数。
-import type { ManualBlock, ManualFreeBlock, ManualPage } from "@gmo-onair/shared/src/opsmanual/types";
+import type {
+  ManualBlock,
+  ManualFreeBlock,
+  ManualOrgChartContent,
+  ManualPage,
+} from "@gmo-onair/shared/src/opsmanual/types";
 import { PAGE_HEIGHT_MM, PAGE_WIDTH_MM } from "@gmo-onair/shared/src/opsmanual/types";
 import type { ManualResolveEntry } from "@/lib/manualResolveApi";
 
@@ -24,6 +30,9 @@ export interface ManualPreExportChecks {
    *  段Dでは `frozen` が常に null のためこの配列は常に空になる ——
    *  それが正しい挙動。段Eで `frozen` が入るようになった瞬間に効き始める） */
   staleSource: ManualPreExportIssue[];
+  /** 名前の無い階層・名前の無い人が残っている体制図ブロック
+   *  （production-manual-orgchart.md §7。**人が0人のチームは対象外**） */
+  unnamedOrgEntries: ManualPreExportIssue[];
 }
 
 /**
@@ -55,9 +64,55 @@ function isFreeBlockEmpty(block: ManualFreeBlock): boolean {
       return block.free.content.value.trim() === "";
     case "shape":
       return false;
+    case "orgchart":
+      return isOrgChartEmpty(block.free.content);
     default:
       return false;
   }
+}
+
+/** 前後の空白を除いて中身が無いか（体制図は任意の欄が多いので `undefined` も空として扱う） */
+function isBlankText(value: string | undefined): boolean {
+  return (value ?? "").trim() === "";
+}
+
+/**
+ * 体制図の「空」判定（production-manual-orgchart.md §3）。表ブロックの「全セルが空文字なら空」と
+ * 同じ考え方で、**紙に出る文字が1つも無ければ空**とする（階層の名前・チーム名・チームの所属・
+ * 人のどの欄も空）。置いた直後の「名前の無い階層が1つだけ」（§5-1）はこれに当たる。
+ */
+function isOrgChartEmpty(content: ManualOrgChartContent): boolean {
+  return content.tiers.every(
+    (tier) =>
+      isBlankText(tier.label) &&
+      tier.boxes.every(
+        (box) =>
+          isBlankText(box.label) &&
+          isBlankText(box.org) &&
+          box.people.every(
+            (person) =>
+              isBlankText(person.name) &&
+              isBlankText(person.role) &&
+              isBlankText(person.org) &&
+              isBlankText(person.phone) &&
+              isBlankText(person.email) &&
+              isBlankText(person.badge),
+          ),
+      ),
+  );
+}
+
+/**
+ * 体制図に「名前の無い階層」「名前の無い人」が残っているか（production-manual-orgchart.md §7）。
+ *
+ * ⚠️ **人が0人のチームは対象外**。「音声 ── 調整中」のように人が決まっていないチームを
+ * 意図して紙に出せる、というのが体制図の設計（§3-1）なので、空のチームを不備として数えない。
+ * チーム名が空なだけのチームも数えない（§7 が挙げているのは階層と人の2つだけ）。
+ */
+function hasUnnamedOrgEntry(content: ManualOrgChartContent): boolean {
+  return content.tiers.some(
+    (tier) => isBlankText(tier.label) || tier.boxes.some((box) => box.people.some((person) => isBlankText(person.name))),
+  );
 }
 
 /**
@@ -132,8 +187,12 @@ function isResolvedDataEmpty(blockKey: string, data: unknown): boolean {
 }
 
 /**
- * 出す前の検査（4種・production-manual.md §6⑤）。呼び出し側はこの結果を
+ * 出す前の検査（5種・production-manual.md §6⑤ の4種 ＋ 体制図の
+ * production-manual-orgchart.md §7）。呼び出し側はこの結果を
  * 見せるだけで、書き出しボタン自体は常に押せる状態のままにする。
+ *
+ * 検査どうしは独立していて、1つのブロックが複数の配列に入ってよい
+ * （はみ出しかつ空、置いた直後の体制図なら空かつ名前の無い階層あり、など）。
  */
 export function runManualPreExportChecks(
   pages: ManualPage[],
@@ -143,6 +202,7 @@ export function runManualPreExportChecks(
   const emptyBlocks: ManualPreExportIssue[] = [];
   const missingSource: ManualPreExportIssue[] = [];
   const staleSource: ManualPreExportIssue[] = [];
+  const unnamedOrgEntries: ManualPreExportIssue[] = [];
 
   for (const page of pages) {
     for (const block of page.blocks) {
@@ -152,6 +212,7 @@ export function runManualPreExportChecks(
 
       if (block.kind === "free") {
         if (isFreeBlockEmpty(block)) emptyBlocks.push(issue);
+        if (block.free.type === "orgchart" && hasUnnamedOrgEntry(block.free.content)) unnamedOrgEntries.push(issue);
         continue;
       }
 
@@ -177,5 +238,5 @@ export function runManualPreExportChecks(
     }
   }
 
-  return { overflowing, emptyBlocks, missingSource, staleSource };
+  return { overflowing, emptyBlocks, missingSource, staleSource, unnamedOrgEntries };
 }

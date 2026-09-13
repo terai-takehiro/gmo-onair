@@ -1,9 +1,9 @@
 // キャンバスに自由ブロックを置く「＋」ツールバー（段B・production-manual.md §4-3）。
-// 文字・図形・画像・表・QR の5つを押すと、キャンバスの中央付近に既定サイズ・既定中身の
+// 文字・図形・画像・表・QR・体制図 の6つを押すと、キャンバスの中央付近に既定サイズ・既定中身の
 // ブロックを1つ追加する（id・z の決定はここで行う。並べ方・伸縮・回転は
 // ManualCanvas 側の仕事）。
 import { useRef, useState } from "react";
-import { Image as ImageIcon, Loader2, QrCode, Square, Table as TableIcon, Type } from "lucide-react";
+import { Image as ImageIcon, Loader2, Network, QrCode, Square, Table as TableIcon, Type } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import api from "@/lib/api";
 import { notifyError } from "@/lib/notify";
@@ -15,6 +15,8 @@ import {
 } from "@gmo-onair/shared/src/opsmanual/types";
 // id の発番はキャンバスの複製（Ctrl+D）と同じ関数を使う（`manualCanvasGeometry.ts` が唯一の正）。
 import { genBlockId } from "./manualCanvasGeometry";
+// 階層・チーム・人の id はブロックの id とは別物（`genBlockId` と混ぜない）
+import { genId } from "@/lib/stableIds";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
@@ -34,6 +36,8 @@ const DEFAULT_SIZE: Record<ManualFreeBlockType, DefaultSize> = {
   image: { w: 60, h: 40 },
   table: { w: 80, h: 30 },
   qr: { w: 30, h: 30 },
+  // A4横の左2/3ほど（production-manual-orgchart.md §4）
+  orgchart: { w: 180, h: 90 },
 };
 
 function buildBlock(type: Exclude<ManualFreeBlockType, "image">, z: number): ManualBlock {
@@ -48,6 +52,10 @@ function buildBlock(type: Exclude<ManualFreeBlockType, "image">, z: number): Man
       return { ...base, free: { type: "table", content: { rows: [["", ""], ["", ""]] } } };
     case "qr":
       return { ...base, free: { type: "qr", content: { value: "", label: "" } } };
+    // 置いた直後は**空**（名前の無い階層が1つだけ）。既定の階層名のテンプレートは持たない
+    // （production-manual-orgchart.md §10-1・2026-09-13 の利用者の判断）
+    case "orgchart":
+      return { ...base, free: { type: "orgchart", content: { tiers: [{ id: genId("tier"), label: "", boxes: [] }] } } };
   }
 }
 
@@ -115,6 +123,9 @@ export default function BlockToolbar({ blocks, onAdd }: Props) {
       </Button>
       <Button type="button" variant="outline" size="sm" onClick={() => addSimple("qr")}>
         <QrCode className="mr-1 h-3.5 w-3.5" aria-hidden="true" />QR
+      </Button>
+      <Button type="button" variant="outline" size="sm" onClick={() => addSimple("orgchart")}>
+        <Network className="mr-1 h-3.5 w-3.5" aria-hidden="true" />体制図
       </Button>
       <input
         ref={fileInputRef}

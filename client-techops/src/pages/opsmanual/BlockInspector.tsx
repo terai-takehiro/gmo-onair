@@ -2,7 +2,9 @@
 // 文字（大きさ・太さ・色・そろえ）と図形（種類・線の色/太さ）だけを持つ
 // （長体の自動フィット・袋文字・影・グラデーション・縦書きは段Bのスコープ外）。
 // 画像・表・QR の中身編集はキャンバス上のブロック自体（`blocks/*.tsx`）で完結するので、
-// ここでは案内文だけを出す。
+// ここでは案内文だけを出す。体制図だけは階層の組み替え・紙に出す項目・取り込みを持つので、
+// 別ファイル（`OrgChartInspectorSection` → `OrgChartInspector`）に委ねる
+// （差し込みブロックを `LinkedBlockInspector` に委ねているのと同じ形）。
 //
 // `onCommit` は呼び出し側（`ManualDetailPage`）が `ManualCanvas` の
 // `useManualHistory.commit`（ref 経由）に配線している。ここで直接 `ManualCanvas` を
@@ -21,6 +23,7 @@ import {
 import { manualLinkedBlockDef } from "@gmo-onair/shared/src/production/manualBlocks";
 import { genBlockId } from "./manualCanvasGeometry";
 import LinkedBlockInspector from "./LinkedBlockInspector";
+import OrgChartInspectorSection from "./OrgChartInspectorSection";
 
 const SHAPE_LABEL: Record<ManualShapeKind, string> = {
   rect: "矩形",
@@ -46,9 +49,11 @@ interface Props {
   blocks: ManualBlock[];
   selectedBlockId: string | null;
   onCommit: (nextBlocks: ManualBlock[]) => void;
+  /** 体制図の取り込み（`GET /techops/manuals/:id/org-seed`）に要る。ほかの種類では使わない */
+  manualId: string;
 }
 
-export default function BlockInspector({ blocks, selectedBlockId, onCommit }: Props) {
+export default function BlockInspector({ blocks, selectedBlockId, onCommit, manualId }: Props) {
   const block = blocks.find((b) => b.id === selectedBlockId);
 
   if (!block) {
@@ -214,6 +219,9 @@ export default function BlockInspector({ blocks, selectedBlockId, onCommit }: Pr
       {block.free.type === "image" && <p className="text-sub-sm text-muted-foreground">差し替えはキャンバス上の画像ブロックから行えます。</p>}
       {block.free.type === "table" && <p className="text-sub-sm text-muted-foreground">セル・行列の編集はキャンバス上の表ブロックから行えます。</p>}
       {block.free.type === "qr" && <p className="text-sub-sm text-muted-foreground">宛先・ラベルの編集はキャンバス上のQRブロックから行えます。</p>}
+      {block.free.type === "orgchart" && (
+        <OrgChartInspectorSection manualId={manualId} content={block.free.content} onCommit={patchContent} />
+      )}
     </div>
   );
 }

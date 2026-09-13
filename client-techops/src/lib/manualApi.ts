@@ -193,3 +193,41 @@ export async function createManualTemplate(payload: CreateManualTemplatePayload)
   const res = await api.post<Envelope<ManualTemplateListItem>>("/techops/manual-templates", payload);
   return res.data.data;
 }
+
+// ── 体制図ブロックの取り込み（production-manual-orgchart.md §5-4・§5-5）───────────
+// **1回かぎりの流し込み**で、差し込み（`kind:'linked'`・`manualResolveApi.ts`）ではない。
+// 取り込んだあとはマニュアル側の独立したデータになり、元（案件のメンバー・プロジェクト管理の
+// 体制）を直しても追わない。だからサーバーも `updatedAt` を返さない（「元が変わりました」は出ない）。
+// 階層・チーム・人の id もサーバーは返さない——画面側が `genId('tier'|'box'|'psn')` で振る。
+
+export interface ManualOrgSeedPerson {
+  name: string;
+  role?: string;
+  org?: string;
+  /** 社内ユーザーだけ（`project_members` 由来のみ。`gpm_members` 由来には付かない） */
+  phone?: string;
+  email?: string;
+  badge?: string;
+}
+export interface ManualOrgSeedBox {
+  label: string;
+  /** チームの所属（`gpm_members.side` を日本語に落とした文字。`label` と同じときは省かれる） */
+  org?: string;
+  people: ManualOrgSeedPerson[];
+}
+export interface ManualOrgSeedTier {
+  label: string;
+  boxes: ManualOrgSeedBox[];
+}
+export interface ManualOrgSeed {
+  /** 「案件のメンバーから」。階層を持たない平らな配列（いま選んでいる階層に流し込む） */
+  projectMembers: ManualOrgSeedPerson[];
+  /** 「プロジェクト管理の体制から」。階層 → チーム に組み上げ済み */
+  gpmTiers: ManualOrgSeedTier[];
+}
+
+/** 番組のマニュアル（`project_id` が無い）は両方とも空で返る ＝ 取り込みボタンを出さない（§5-5） */
+export async function getManualOrgSeed(manualId: string): Promise<ManualOrgSeed> {
+  const res = await api.get<Envelope<ManualOrgSeed>>(`/techops/manuals/${manualId}/org-seed`);
+  return res.data.data;
+}

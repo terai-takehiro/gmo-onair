@@ -10,6 +10,7 @@ import ShapeBlockContent from "./blocks/ShapeBlockContent";
 import ImageBlockContent from "./blocks/ImageBlockContent";
 import TableBlockContent from "./blocks/TableBlockContent";
 import QrBlockContent from "./blocks/QrBlockContent";
+import OrgChartBlockContent from "./blocks/OrgChartBlockContent";
 import LinkedBlockContent from "./LinkedBlockContent";
 
 interface RenderCtx {
@@ -39,6 +40,10 @@ export default function renderManualBlockContent(block: ManualBlock, ctx: Render
       return <TableBlockContent content={block.free.content} selected={selected} onCommit={onContentCommit} />;
     case "qr":
       return <QrBlockContent content={block.free.content} selected={selected} onCommit={onContentCommit} />;
+    // 体制図（production-manual-orgchart.md）。`style` は受け取らない——枠線はどのチームも
+    // 同じと決まっている（§10-2）ので、表・画像・QR と同じく中身だけで描く
+    case "orgchart":
+      return <OrgChartBlockContent content={block.free.content} selected={selected} onCommit={onContentCommit} />;
     default:
       return null;
   }
