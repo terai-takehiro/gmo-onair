@@ -1,5 +1,5 @@
 // 冊子1件の画面（`/techops/manuals/:id`・段A＋段B＋段C＋段E）。ページの一覧・追加・削除・
-// 並べ替え・章名/題の編集（段A）、選択中ページの紙面（自由ブロック5種）の編集・自動保存
+// 並べ替え・章名/タイトルの編集（段A）、選択中ページの紙面（自由ブロック5種）の編集・自動保存
 // （段B）に加え、他ミニアプリの情報を置く「差し込みブロック」の追加（`insertTab`/`InsertPanel`）・
 // 解決結果の表示（`getManualResolve`/`renderBlockContent`）・秘密の伏せ字解除
 // （`LinkedBlockInspector` 経由）を持つ（段C）。冊子まるごとの編集ロック（`useManualEditLock`・
@@ -77,9 +77,9 @@ export default function ManualDetailPage() {
   // P1）に呼ぶ——冊子の詳細を引き直してstatus='fixed'を画面に反映する
   // （`lockEnabled`/`isFixed`は次のレンダーで自動的に読み取り専用側へ倒れる）。
   const lock = useManualEditLock(id, currentUser?.id, lockEnabled, invalidate);
-  // 実際に書き込んでよいか。この1つの値だけを見て、紙面・ページ操作・題の編集を
+  // 実際に書き込んでよいか。この1つの値だけを見て、紙面・ページ操作・タイトルの編集を
   // まとめて読み取り専用に切り替える（`guardedCommitBlocks`・`<fieldset disabled>`・
-  // 題の `disabled` の3か所がこれを参照する）。
+  // タイトルの `disabled` の3か所がこれを参照する）。
   const editable = lockEnabled && lock.held;
 
   // 差し込みブロック（段C）の解決結果。差し込み元は他の利用者の操作でも変わりうるが、
@@ -179,7 +179,7 @@ export default function ManualDetailPage() {
         invalidate();
         return;
       }
-      notifyError("題を保存できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
+      notifyError("タイトルを保存できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
     },
   });
 
@@ -274,7 +274,7 @@ export default function ManualDetailPage() {
                   "aria-[invalid=true]:border-destructive aria-[invalid=true]:focus-visible:ring-destructive",
                   "h-11 max-w-xl border-transparent bg-transparent px-0 text-h1 shadow-none focus-visible:border-input focus-visible:bg-background focus-visible:px-3"
                 )}
-                aria-label="冊子の題"
+                aria-label="冊子のタイトル"
               />
             }
             sub={

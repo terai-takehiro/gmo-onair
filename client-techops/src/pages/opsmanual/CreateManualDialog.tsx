@@ -111,7 +111,7 @@ export default function CreateManualDialog({ open, onOpenChange, lockedOwner, on
     >
       <div className="space-y-4">
         <div>
-          <Label htmlFor="new-manual-title">題</Label>
+          <Label htmlFor="new-manual-title">タイトル</Label>
           <BufferedInput
             id="new-manual-title"
             value={title}

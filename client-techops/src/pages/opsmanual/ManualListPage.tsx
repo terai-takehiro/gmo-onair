@@ -141,7 +141,7 @@ export default function ManualListPage() {
       <div className="relative max-w-sm sm:max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
         <Input
-          placeholder="題で検索…"
+          placeholder="タイトルで検索…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="min-h-tap pl-10"

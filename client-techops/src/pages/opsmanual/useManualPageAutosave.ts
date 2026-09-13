@@ -31,7 +31,7 @@ export interface UseManualPageAutosaveResult {
    */
   syncPageRevision: (pageId: string, updatedAt: string) => void;
   /**
-   * ページの題・章名を保存する（`PageRail` の行内編集）。対象が「いま紙面に開いている
+   * ページのタイトル・章名を保存する（`PageRail` の行内編集）。対象が「いま紙面に開いている
    * ページ」と同じときは、紙面の自動保存（保留中/進行中）が終わるのを待ってから送る
    * ——別経路の独立した PUT のまま同時に送ると、どちらかが偽の衝突として弾かれ、
    * 紙面側の未保存分を失いうる（外部レビュー再指摘・P1）。別のページが対象のときは

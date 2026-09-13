@@ -1,7 +1,7 @@
-// 冊子1件の画面 — ページの一覧・追加・削除・並べ替え・章名/題の編集（段A）＋
+// 冊子1件の画面 — ページの一覧・追加・削除・並べ替え・章名/タイトルの編集（段A）＋
 // どのページを紙面（ManualCanvas）に表示するかの選択（段B）。
 // ドラッグ&ドロップは実装しない（段Bの紙面キャンバスで本格的なDnDを作るため、
-// 段Aは上下ボタンで十分）。章名・題は BufferedInput（client-techops/CLAUDE.md
+// 段Aは上下ボタンで十分）。章名・タイトルは BufferedInput（client-techops/CLAUDE.md
 // 「入力欄は素の <input value onChange> で書かない」）。IME 変換中の保護に加え、
 // 値が変わっていないときは onBlur でも PUT を送らない（useBufferedValue の commit）。
 import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
@@ -74,9 +74,9 @@ function PageRow({ page, index, total, selected, onSelect, onMove, onUpdate, onD
       <BufferedInput
         value={page.title}
         onCommit={(v) => onUpdate({ title: v })}
-        placeholder="ページの題"
+        placeholder="ページのタイトル"
         className={cn(INPUT_BASE, "mt-1.5 h-9")}
-        aria-label="ページの題"
+        aria-label="ページのタイトル"
       />
     </div>
   );

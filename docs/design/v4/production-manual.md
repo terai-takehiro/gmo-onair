@@ -274,7 +274,7 @@ interface ManualBlock {
 | GET | `/techops/manuals?project=…&program=…` | qsheet reader |
 | POST | `/techops/manuals`（ひな形 id を渡せる） | qsheet editor |
 | GET | `/techops/manuals/:id`（冊子＋全ページ） | qsheet reader |
-| PATCH | `/techops/manuals/:id`（題・見た目・状態） | qsheet editor |
+| PATCH | `/techops/manuals/:id`（タイトル・見た目・状態） | qsheet editor |
 | PUT | `/techops/manuals/:id/pages/:pageId`（`updated_at` を添える） | qsheet editor |
 | POST | `/techops/manuals/:id/pages` ／ DELETE ／ `…/reorder` | qsheet editor |
 | POST | `/techops/manuals/:id/fix`（確定＝全ブロックを凍らせて `rev` を +1） | qsheet **manager** |

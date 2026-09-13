@@ -850,7 +850,7 @@ export async function fixManual(manualId: string, user: AccessUser): Promise<Row
       }
     }
     // ⚠️⚠️ 外部レビュー再指摘（P1）: ページ側のガードはページの updated_at しか見ないため、
-    // ロック保持者が①のあいだに「ページに触れない」変更（service_date・題）を保存すると
+    // ロック保持者が①のあいだに「ページに触れない」変更（service_date・タイトル）を保存すると
     // すり抜ける——古い service_date で解決した中身のまま確定してしまい、表紙の日付と
     // 中身が食い違う。冊子行そのものにも同じ CAS ガードを掛ける。
     const manualUpdated = await tx.queryOne(
@@ -864,7 +864,7 @@ export async function fixManual(manualId: string, user: AccessUser): Promise<Row
     if (!manualUpdated) {
       const fresh = await tx.queryOne('SELECT updated_at FROM qsheet_manuals WHERE id = ?', [manualId]);
       throw new ConflictError(
-        'この冊子は確定の処理中に更新されました（題・予定日など）。もう一度確定をやり直してください。',
+        'この冊子は確定の処理中に更新されました（タイトル・予定日など）。もう一度確定をやり直してください。',
         (fresh?.updated_at as string) ?? fixedAtIso,
         null,
       );
