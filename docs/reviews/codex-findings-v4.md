@@ -2436,6 +2436,18 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   された時点のコードを読んだことにはならない**（#651 の教訓と同型——要約表の
   「Commit」列が頭のコミットと一致しているかを必ず見ること）。
 
+- **#678（`docs(reviews): PR #676・#677のレビュー指摘を棚卸しに移した`・2026-09-13）** —
+  **📝 Code Review は1巡も走らなかった。** 作成 07:39:03Z の**約6秒後**（07:39:09Z）に Codex が
+  「You have reached your Codex usage limits for code reviews.」を返し、以後最後まで走っていない。
+  🔒 Security Review は 2026-09-13T07:42:51Z に完了し、**要約表の Commit 列は実際にマージされた
+  コミット `91d0340` と一致**（#677 のような「最初のコミットに固定されたまま」ではない）。findings は無し
+  （`get_review_comments` で review_threads 0件・`totalCount: 0` を確認）。
+  マージは 10:05Z 前後・terai-takehiro 本人。表に移す指摘はない。
+  ⚠️ この PR 自体が #676・#677 の棚卸し記録（`docs/reviews/` と `docs/changelog.d/` の2ファイル・
+  +47行のドキュメントのみ）で、コード・画面・DB は一切触っていない。Code Review が走らなかった
+  影響は小さいが、**usage limits による Code Review の不発は #663 以降これで7本目**（#665・#667・
+  #669・#670・#671・#677・#678）——「指摘なし」と区別できるよう記録しておく。
+
 ---
 
 ## 一覧（PR の新しい順）
