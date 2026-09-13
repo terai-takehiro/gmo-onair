@@ -15,7 +15,7 @@
 // 同じ理由で `ManualPrintHeader.tsx` の罫も `0.25mm solid #1f2937`）。モックも全チーム
 // `1px solid #1a1d24`（`docs/design/v4/mockups/native/production-manual/OrgChart.dc.html`）。
 // **見出しの下の区切りは別** — あちらはモックが `#e6e9ed` なので `border-border` のまま。
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Minus, Plus, User } from "lucide-react";
 import BufferedInput from "@/components/editor/BufferedInput";
 import { cn } from "@/lib/utils";
@@ -43,9 +43,13 @@ interface Props {
   parentId?: string | null;
   /** 「親」欄で選び直したとき（`null` = 親を外して独立させる） */
   onChangeParent?: (parentId: string | null) => void;
+  /** 顔写真アップロードが終わった時点で呼ぶ（id を頼りに最新の中身へ差し込む・レビュー指摘） */
+  onPersonPhotoUploaded: (personId: string, photoUrl: string) => void;
 }
 
-export default function OrgChartTeamBox({ box, show, selected, onChange, onRemove, parentOptions, parentId, onChangeParent }: Props) {
+export default function OrgChartTeamBox({
+  box, show, selected, onChange, onRemove, parentOptions, parentId, onChangeParent, onPersonPhotoUploaded,
+}: Props) {
   const people = box.people ?? [];
   const patchPerson = (id: string, patch: Partial<ManualOrgPerson>) =>
     onChange({ ...box, people: people.map((p) => (p.id === id ? { ...p, ...patch } : p)) });
@@ -108,6 +112,7 @@ export default function OrgChartTeamBox({ box, show, selected, onChange, onRemov
             selected={selected}
             onPatch={(patch) => patchPerson(p.id, patch)}
             onRemove={() => onChange({ ...box, people: people.filter((x) => x.id !== p.id) })}
+            onPhotoUploaded={onPersonPhotoUploaded}
           />
         ))}
         {people.length === 0 && (
@@ -137,13 +142,14 @@ export default function OrgChartTeamBox({ box, show, selected, onChange, onRemov
  * 階層の名前・チーム名・所属・氏名・役割の5つで、バッジは取り込みで入ってくる印。
  */
 function PersonRow({
-  person, show, selected, onPatch, onRemove,
+  person, show, selected, onPatch, onRemove, onPhotoUploaded,
 }: {
   person: ManualOrgPerson;
   show: OrgChartShow;
   selected: boolean;
   onPatch: (patch: Partial<ManualOrgPerson>) => void;
   onRemove: () => void;
+  onPhotoUploaded: (personId: string, photoUrl: string) => void;
 }) {
   const badge = person.badge && (
     <span className="shrink-0 rounded-badge-xs border border-warning px-1 text-[8px] font-extrabold text-warning">
@@ -167,7 +173,7 @@ function PersonRow({
 
   return (
     <div className="flex flex-wrap items-baseline gap-x-1 py-px">
-      {show.photo && <PersonPhotoButton url={person.photoUrl} onChange={(url) => onPatch({ photoUrl: url })} />}
+      {show.photo && <PersonPhotoButton personId={person.id} url={person.photoUrl} onUploaded={onPhotoUploaded} />}
       <BufferedInput
         value={person.name}
         onCommit={(v) => onPatch({ name: v })}
@@ -196,36 +202,35 @@ function PersonPhoto({ url }: { url?: string }) {
  * 顔写真の表示＋差し替え（編集側）。`ImageBlockContent.tsx` の「差し替え」と同じ
  * アップロード処理（`manualImageUpload.ts`）を使う。写真が無いときはアイコンだけの
  * 丸いボタンにする（押せる場所だと分かるように）。
+ *
+ * ⚠️ レビュー指摘（P1→P2 で再指摘）: アップロードは通信を伴う。**結果の反映は
+ * `personId` を頼りに「通信が終わった時点の最新の中身」へ差し込む**
+ * （`onPersonPhotoUploaded` の実体は `OrgChartBlockContent.tsx` の `commitPersonPhoto`）。
+ * このボタン自身がアンマウントされたかどうかは判断に使わない——「顔写真を出す」設定を
+ * 切る・チームを組み替える等でも人自体は消えていないことがあり、アンマウント＝削除
+ * ではないため（アンマウントを理由に結果を捨てると、届いていた写真を黙って失う）。
+ * 本当にその人が消えていたときだけ何もしないのは呼び出し先の役目。
  */
-function PersonPhotoButton({ url, onChange }: { url?: string; onChange: (url: string) => void }) {
+function PersonPhotoButton({
+  personId, url, onUploaded,
+}: {
+  personId: string;
+  url?: string;
+  onUploaded: (personId: string, photoUrl: string) => void;
+}) {
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  // ⚠️ レビュー指摘（P1）: `onChange` は毎レンダー作り直される（`patchPerson` が
-  // その時点の `box`/`people` を丸ごと閉じ込めるため）。通信中に他の欄が編集されても、
-  // 待っている間の古い `onChange` をそのまま呼ぶと、通信が終わった時点で古い中身へ
-  // 丸ごと巻き戻ってしまう。ref に最新の `onChange` を持たせ、**通信が終わった時点の
-  // 最新**を呼ぶ（`OrgChartInspectorSection.tsx` の取り込みと同じ考え方）。
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
-  // 通信中にこの人・チームごと削除された（＝アンマウントされた）場合の受け皿。
-  // 上の ref だけでは防げない——アンマウント後は ref も更新が止まり、削除される
-  // **直前**の（まだこの人がいた頃の）`onChange` を呼んでしまい、削除した人・チームを
-  // 復活させることになる（レビュー指摘・P1）。setup 側で true に戻す
-  // （React.StrictMode の setup→cleanup→setup を生き延びる・#679 と同じ理由）。
-  const aliveRef = useRef(true);
-  useEffect(() => { aliveRef.current = true; return () => { aliveRef.current = false; }; }, []);
 
   const upload = async (file: File) => {
     const error = manualImageUploadError(file);
     if (error) { notifyError(error); return; }
     setUploading(true);
     try {
-      const uploadedUrl = await uploadManualImage(file);
-      if (aliveRef.current) onChangeRef.current(uploadedUrl);
+      onUploaded(personId, await uploadManualImage(file));
     } catch {
       notifyError("写真を取り込めませんでした。", { description: "少し待ってから、もう一度選び直してください。" });
     } finally {
-      if (aliveRef.current) setUploading(false);
+      setUploading(false);
     }
   };
 

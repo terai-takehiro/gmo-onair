@@ -11,6 +11,7 @@
 // ⚠️ **立場（自社／発注者／PM会社／業者）の区分は持たない**（§10-2）。枠線はどのチームも
 // 同じ細い実線で、塗らない（§4・インクを使わない）。どこの会社かはチームの見出しの
 // 所属の文字で読む。プロジェクト管理の立場ごとの色分けはここへ持ち込まない。
+import { useRef } from "react";
 import { Minus, Plus } from "lucide-react";
 import BufferedInput from "@/components/editor/BufferedInput";
 import { cn } from "@/lib/utils";
@@ -21,7 +22,7 @@ import type {
 } from "@gmo-onair/shared/src/opsmanual/types";
 import OrgChartBoxTree from "./orgchart/OrgChartBoxTree";
 import type { ParentOption } from "./orgchart/OrgChartTeamBox";
-import { ORG_INPUT, ORG_MINUS, ORG_PLUS, resolveOrgChartShow } from "./orgchart/orgChartUi";
+import { descendantBoxIds, ORG_INPUT, ORG_MINUS, ORG_PLUS, resolveOrgChartShow } from "./orgchart/orgChartUi";
 
 interface Props {
   content: ManualOrgChartContent;
@@ -58,11 +59,22 @@ export default function OrgChartBlockContent({ content, selected, onCommit }: Pr
   tiers.forEach((t, i) => (t.boxes ?? []).forEach((b) => tierIndexOfBox.set(b.id, i)));
   /** 親を持たない（未設定・削除済みの親を指す）箱か = その箱が属する階層の行に独立して並ぶ */
   const isRootBox = (b: ManualOrgBox) => !b.parentId || !boxIds.has(b.parentId);
-  /** 選べる親の候補 = 自分より**手前の階層**の箱だけ（この前後関係だけで循環を防ぐ） */
+  /**
+   * 選べる親の候補 = 自分より**手前の階層**の箱から、**自分の子孫**を除いたもの。
+   *
+   * ⚠️ レビュー指摘（P1）: 階層の並べ替え（`OrgChartInspector.tsx`）は `parentId` を
+   * 書き換えないため、子の階層を親より手前へ動かすと「元は子だった箱」が
+   * 「手前の階層の箱」として候補に出てしまう。手前の階層というだけで許すと、
+   * 選んだ瞬間に A↔B の循環ができ、両方が `isRootBox` から外れてキャンバスごと
+   * 消える（自動保存されるので気づきにくい）。子孫は階層の並びに関係なく必ず除く。
+   */
   const parentOptionsOf = (boxId: string): ParentOption[] => {
     const ti = tierIndexOfBox.get(boxId);
     if (ti == null || ti === 0) return [];
-    return tiers.slice(0, ti).flatMap((t) => (t.boxes ?? []).map((b): ParentOption => ({ id: b.id, label: b.label })));
+    const excluded = descendantBoxIds(boxId, allBoxes);
+    return tiers.slice(0, ti).flatMap((t) =>
+      (t.boxes ?? []).filter((b) => !excluded.has(b.id)).map((b): ParentOption => ({ id: b.id, label: b.label }))
+    );
   };
   const updateBox = (boxId: string, next: ManualOrgBox) => {
     const ti = tierIndexOfBox.get(boxId);
@@ -77,6 +89,29 @@ export default function OrgChartBlockContent({ content, selected, onCommit }: Pr
     if (ti == null) return;
     const t = tiers[ti];
     setBoxes(t.id, (t.boxes ?? []).filter((b) => b.id !== boxId));
+  };
+
+  // ⚠️ レビュー指摘（P2）: 顔写真のアップロードは通信を伴う。待っている間に「顔写真を
+  // 出す」設定を切る・チームを別の親へ組み替える等でこのボタン自身がアンマウントされて
+  // も、**人そのものが消えたとは限らない**（アンマウント＝削除ではない）。アンマウントを
+  // 理由にアップロード結果を捨てると、届いていた写真を黙って失う。id を頼りに
+  // **通信が終わった時点の最新の中身**へ差し込み、本当にその人が消えていたときだけ
+  // 何もしない（コンポーネントの生死ではなくデータの実在で判断する）。
+  const contentRef = useRef(content);
+  contentRef.current = content;
+  const commitPersonPhoto = (personId: string, photoUrl: string) => {
+    const latest = contentRef.current;
+    let found = false;
+    const nextTiers = (latest.tiers ?? []).map((t) => ({
+      ...t,
+      boxes: (t.boxes ?? []).map((b) => {
+        const people = b.people ?? [];
+        if (!people.some((p) => p.id === personId)) return b;
+        found = true;
+        return { ...b, people: people.map((p) => (p.id === personId ? { ...p, photoUrl } : p)) };
+      }),
+    }));
+    if (found) onCommit({ ...latest, tiers: nextTiers });
   };
 
   return (
@@ -189,6 +224,7 @@ export default function OrgChartBlockContent({ content, selected, onCommit }: Pr
                       onChange={updateBox}
                       onRemove={removeBox}
                       parentOptionsOf={parentOptionsOf}
+                      onPersonPhotoUploaded={commitPersonPhoto}
                     />
                   ))}
                 </div>

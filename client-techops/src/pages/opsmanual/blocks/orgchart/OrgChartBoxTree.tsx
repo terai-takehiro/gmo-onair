@@ -17,14 +17,16 @@ interface Props {
   selected: boolean;
   onChange: (boxId: string, next: ManualOrgBox) => void;
   onRemove: (boxId: string) => void;
-  /** この箱が選べる「親」の候補（自分より手前の階層の箱だけ。§本文の循環防止） */
+  /** この箱が選べる「親」の候補（自分より手前の階層の箱から自分の子孫を除いたもの） */
   parentOptionsOf: (boxId: string) => ParentOption[];
+  /** 顔写真アップロードが終わった時点で呼ぶ（id を頼りに最新の中身へ差し込む・レビュー指摘） */
+  onPersonPhotoUploaded: (personId: string, photoUrl: string) => void;
   /** 循環データが紛れ込んだときの無限ループ避け（通常は tier の前後関係だけで循環しない） */
   ancestorIds?: ReadonlySet<string>;
 }
 
 export default function OrgChartBoxTree({
-  box, allBoxes, show, connectors, selected, onChange, onRemove, parentOptionsOf, ancestorIds,
+  box, allBoxes, show, connectors, selected, onChange, onRemove, parentOptionsOf, onPersonPhotoUploaded, ancestorIds,
 }: Props) {
   if (ancestorIds?.has(box.id)) return null; // 防御的（実際には起こらない想定）
   const nextAncestors = ancestorIds ? new Set(ancestorIds).add(box.id) : new Set([box.id]);
@@ -41,6 +43,7 @@ export default function OrgChartBoxTree({
         parentOptions={parentOptionsOf(box.id)}
         parentId={box.parentId ?? null}
         onChangeParent={(parentId) => onChange(box.id, { ...box, parentId })}
+        onPersonPhotoUploaded={onPersonPhotoUploaded}
       />
       {children.length > 0 && (
         <div className="flex flex-col items-center gap-1.5">
@@ -57,6 +60,7 @@ export default function OrgChartBoxTree({
                 onChange={onChange}
                 onRemove={onRemove}
                 parentOptionsOf={parentOptionsOf}
+                onPersonPhotoUploaded={onPersonPhotoUploaded}
                 ancestorIds={nextAncestors}
               />
             ))}
