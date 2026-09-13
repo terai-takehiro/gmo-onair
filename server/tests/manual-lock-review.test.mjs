@@ -174,10 +174,15 @@ function makeLockDb(initial) {
       if (sql.includes('SET locked_by') && sql.includes('RETURNING')) {
         // acquireManualLock の CAS。WHERE 句と同じ条件をここでも評価し、
         // 「取れる」ときだけ実際に書き換えてから RETURNING id 相当を返す。
+        // ⚠️ 外部レビュー再指摘（P1）: `status != 'fixed'` が抜けていると、確定後の
+        // ハートビートもずっと `acquired:true` を返し続けてしまう——ここでSQLが
+        // 実際に `status != 'fixed'` を含んでいるかを確認したうえで評価する
+        // （含んでいなければ実装からガードが消えたとみなし退行として扱う）。
+        assert.ok(sql.includes("status != 'fixed'"), "acquireManualLockのSQLはstatus != 'fixed'を含むこと");
         const [userId] = params;
         const staleMs = 10 * 60 * 1000;
         const isStale = !row.locked_at || Date.now() - new Date(row.locked_at).getTime() > staleMs;
-        const canAcquire = !row.locked_by || row.locked_by === userId || isStale;
+        const canAcquire = row.status !== 'fixed' && (!row.locked_by || row.locked_by === userId || isStale);
         if (!canAcquire) return undefined;
         row.locked_by = userId;
         row.locked_at = new Date().toISOString();
@@ -233,6 +238,19 @@ test('acquireManualLock: stale なロックは他人でも取れる', async () =
 
   const result = await acquireManualLock('m1', 'user-B');
   assert.equal(result.acquired, true);
+});
+
+test('acquireManualLock: 確定済みになった冊子は、保持者本人のハートビートでも取れない（外部レビュー再指摘・P1）', async () => {
+  // fixManual() は locked_by を変えないため、保持者が編集画面を開いたままだと
+  // 以前はこのハートビートがずっと acquired:true を返し続け、確定に気づけなかった。
+  const lockedAt = new Date(Date.now() - 30_000).toISOString();
+  const db = makeLockDb({ id: 'm1', status: 'fixed', locked_by: 'user-A', locked_at: lockedAt, lock_requested_by: null, lock_requested_at: null });
+  const { acquireManualLock } = await loadForLock(db);
+
+  const result = await acquireManualLock('m1', 'user-A');
+
+  assert.equal(result.acquired, false, '確定済みならロックの保持者本人でも取れない/延ばせない');
+  assert.equal(result.manual.status, 'fixed', '呼び出し側が status を見て「確定された」と分かるようにする');
 });
 
 // ============================================================

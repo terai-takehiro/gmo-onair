@@ -30,7 +30,7 @@ import ManualPrintDocument, { MANUAL_PRINT_SHEET_CLASS, type ManualExportSetting
 const PRINT_FONTS_HREF = new URL(lineSeedFontsCssUrl, window.location.origin).toString();
 const PRINT_FONT_STACK = "'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif";
 
-// 印刷ウィンドウへ document.write する HTML に埋めるユーザー入力（冊子の題）用。
+// 印刷ウィンドウへ document.write する HTML に埋めるユーザー入力（冊子のタイトル）用。
 // 素通しすると </title> でタグを閉じてマークアップを注入できてしまう（previewExport.ts と同じ関数）
 const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
 

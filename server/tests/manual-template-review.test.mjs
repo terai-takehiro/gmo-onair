@@ -44,7 +44,7 @@ function freeBlock(id) {
 
 const DEFAULT_USER = { id: 'user-1', role: 'user' };
 
-async function loadService({ manuals = {}, templates = {}, pagesByManual = {}, documents = {}, onExecute, canAccessManualImpl } = {}) {
+async function loadService({ manuals = {}, templates = {}, pagesByManual = {}, documents = {}, onExecute, canAccessManualImpl, canAccessDocImpl } = {}) {
   let nextId = 0;
   return loadTs('server/src/contexts/qsheet/services/manual-template.service.ts', {
     uuid: { v4: () => `new-id-${++nextId}` },
@@ -61,14 +61,15 @@ async function loadService({ manuals = {}, templates = {}, pagesByManual = {}, d
         if (sql.includes('SELECT id FROM qsheet_manuals')) {
           return manuals[params[0]] ? { id: params[0] } : undefined;
         }
-        if (sql.includes('SELECT 1 FROM qsheet_documents')) {
+        if (sql.includes('FROM qsheet_documents')) {
           // reissueBlock: sheet.* ブロックの sourceId が複製先の案件/番組にまだ属しているか
           const doc = documents[params[0]];
           if (!doc) return undefined;
           const ownerId = params[1];
-          if (sql.includes('project_id = $2')) return doc.projectId === ownerId ? { '?column?': 1 } : undefined;
-          if (sql.includes('program_id = $2')) return doc.programId === ownerId ? { '?column?': 1 } : undefined;
-          return undefined; // `AND FALSE`（複製先に案件も番組も無い）
+          if (sql.includes('project_id = $2') && doc.projectId !== ownerId) return undefined;
+          if (sql.includes('program_id = $2') && doc.programId !== ownerId) return undefined;
+          if (!sql.includes('project_id = $2') && !sql.includes('program_id = $2')) return undefined; // `AND FALSE`
+          return { created_by: doc.createdBy ?? null };
         }
         if (sql.includes('SELECT t.id')) {
           // createTemplateFromManual の INSERT 直後の SELECT
@@ -82,7 +83,11 @@ async function loadService({ manuals = {}, templates = {}, pagesByManual = {}, d
       },
       async execute(sql, params = []) { if (onExecute) onExecute(sql, params); },
     },
-    '../access': { canAccessManual: canAccessManualImpl ?? (async () => true), isQsheetAdmin: () => false },
+    '../access': {
+      canAccessManual: canAccessManualImpl ?? (async () => true),
+      canAccessDoc: canAccessDocImpl ?? (async () => true),
+      isQsheetAdmin: () => false,
+    },
     './httpErrors': { NotFoundError, ValidationError },
   });
 }
@@ -171,6 +176,36 @@ test('buildPagesForNewManual keeps a sheet.* block\'s sourceId when the copy tar
   const pages = await buildPagesForNewManual({ copyFromManualId: 'manual-1', projectId: 'proj-1', programId: null, user: DEFAULT_USER });
 
   assert.equal(pages[0].blocks[0].link.sourceId, 'doc-1', '複製先の案件にまだ属している資料は sourceId を持ち越す');
+});
+
+test('buildPagesForNewManual nulls out a sheet.* block\'s sourceId when the applying user cannot access the document, even though it belongs to the target project (外部レビュー再指摘・2回目・P2)', async () => {
+  const { buildPagesForNewManual } = await loadService({
+    manuals: { 'manual-1': { projectId: 'proj-1', createdBy: 'user-1' } },
+    pagesByManual: {
+      'manual-1': [{ chapter: null, title: 'ページ1', blocks: [sheetBlock('blk-1', 'doc-1')] }],
+    },
+    documents: { 'doc-1': { projectId: 'proj-1', createdBy: 'other-user' } },
+    canAccessDocImpl: async () => false, // 適用する本人はこの資料の作成者でも共有先でもない
+  });
+
+  const pages = await buildPagesForNewManual({ copyFromManualId: 'manual-1', projectId: 'proj-1', programId: null, user: DEFAULT_USER });
+
+  assert.equal(pages[0].blocks[0].link.sourceId, null, '資料が複製先の案件に属していても、適用する本人が読めなければ落とす');
+});
+
+test('buildPagesForNewManual keeps a sheet.* block\'s sourceId when the document belongs to the target project AND the applying user can access it', async () => {
+  const { buildPagesForNewManual } = await loadService({
+    manuals: { 'manual-1': { projectId: 'proj-1', createdBy: 'user-1' } },
+    pagesByManual: {
+      'manual-1': [{ chapter: null, title: 'ページ1', blocks: [sheetBlock('blk-1', 'doc-1')] }],
+    },
+    documents: { 'doc-1': { projectId: 'proj-1', createdBy: 'user-1' } },
+    canAccessDocImpl: async (user, docId, createdBy) => createdBy === user.id,
+  });
+
+  const pages = await buildPagesForNewManual({ copyFromManualId: 'manual-1', projectId: 'proj-1', programId: null, user: DEFAULT_USER });
+
+  assert.equal(pages[0].blocks[0].link.sourceId, 'doc-1');
 });
 
 test('buildPagesForNewManual nulls out a sheet.* block\'s sourceId when applying an org template to a project the source document does not belong to', async () => {

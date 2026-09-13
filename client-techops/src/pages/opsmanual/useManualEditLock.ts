@@ -21,6 +21,15 @@ import { notifyError, notifyWarning } from "@/lib/notify";
 
 const HEARTBEAT_MS = 60_000;
 const RETRY_MS = 15_000;
+// `manual.service.ts` の `LOCK_STALE_MS` と同じ値（サーバーが stale とみなす境）。
+// ⚠️⚠️ 外部レビュー再指摘（P2）: 以前はタブを開いたまま操作しなくても60秒ごとの
+// ハートビートが無条件で`locked_at`を延ばし続けており、サーバー側が謳う
+// 「10分操作が無ければ空き」が実質一度も成立しなかった（タブを閉じるか manager が
+// 強制解除するまで、他の編集者はずっと待たされる）。実際に操作（マウス/キー/タッチ）
+// した時刻を追い、これより長く操作が無ければハートビートを送らない
+// （＝`locked_at`を更新しない）ようにし、サーバー側の stale 判定が働けるようにする。
+const IDLE_THRESHOLD_MS = 10 * 60 * 1000;
+const ACTIVITY_EVENTS = ["mousedown", "mousemove", "keydown", "touchstart", "wheel"] as const;
 
 export interface ManualEditLockState {
   /** 最初の応答がまだ来ていない間 true（読み取り専用の帯が一瞬だけ出るのを防ぐのに使う） */
@@ -53,6 +62,12 @@ export function useManualEditLock(
   manualId: string | undefined,
   currentUserId: string | null | undefined,
   enabled: boolean,
+  /**
+   * 自分が保持者のまま、他の誰か（manager とは限らない——確定に編集ロックの保持は
+   * 不要）が冊子を確定したとハートビートで気づいたときに呼ぶ（外部レビュー再指摘・
+   * P1）。呼び出し側は冊子の詳細を引き直す（`isFixed`/`lockEnabled` を最新化する）。
+   */
+  onFixed?: () => void,
 ): ManualEditLockState {
   const [checking, setChecking] = useState(true);
   const [held, setHeld] = useState(false);
@@ -65,9 +80,13 @@ export function useManualEditLock(
   const mountedRef = useRef(true);
   const heldRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onFixedRef = useRef(onFixed);
+  onFixedRef.current = onFixed;
   // 次に呼ぶべき1周期分の処理。effect の外（`release`）からも同じ経路で即座に1周させたい
   // ため ref に置く（`useCallback` にすると enabled/manualId が変わるたびに作り直しが要る）
   const tickRef = useRef<() => void>(() => {});
+  // 直近の操作時刻（マウント時点を初期値にする——開いた直後にいきなり stale 扱いにしない）
+  const lastActivityRef = useRef(Date.now());
 
   useEffect(() => {
     mountedRef.current = true;
@@ -109,15 +128,36 @@ export function useManualEditLock(
         setHeldByName(manual.locked_by_name);
         setHandoffRequested(manual.lock_requested_by === currentUserId);
         if (wasHeld) {
-          notifyWarning(`${manual.locked_by_name || "他のユーザー"}さんが編集を引き継ぎました`, {
-            description: "保存していない変更は下書きとして手元に残っています。",
-          });
+          // ⚠️⚠️ 外部レビュー再指摘（P1）: `acquireManualLock()`に`status != 'fixed'`
+          // ガードを足したことで、確定後のハートビートはここに来るようになった
+          // （以前はロックだけ見て`acquired:true`を返し続け、次の保存が汎用の400で
+          // 失敗するまで気づけなかった）。「引き継がれた」と紛らわしいため、確定は
+          // 別文言にし、呼び出し側に詳細の再取得を促す。
+          if (manual.status === "fixed") {
+            notifyWarning("この冊子は確定されました。", {
+              description: "保存していない変更は下書きとして手元に残っています。",
+            });
+            onFixedRef.current?.();
+          } else {
+            notifyWarning(`${manual.locked_by_name || "他のユーザー"}さんが編集を引き継ぎました`, {
+              description: "保存していない変更は下書きとして手元に残っています。",
+            });
+          }
         }
         schedule(RETRY_MS);
       }
     };
 
     const tick = () => {
+      // ⚠️⚠️ 外部レビュー再指摘（P2）: 自分が保持者のまま一定時間操作が無ければ、
+      // ハートビートそのものを送らない——`locked_at` を更新させないことで、
+      // サーバー側の stale 判定（10分）が働けるようにする。`held`/`heldRef` は
+      // そのままなので、この画面は編集可能な見た目のまま。操作が戻れば次の周期で
+      // 通常どおり延ばしに行く（読み込み直しは不要）。
+      if (heldRef.current && Date.now() - lastActivityRef.current > IDLE_THRESHOLD_MS) {
+        schedule(HEARTBEAT_MS);
+        return;
+      }
       manualApi
         .lockManual(manualId)
         .then(applyResult)
@@ -139,6 +179,18 @@ export function useManualEditLock(
       manualApi.unlockManual(manualId).catch(() => {});
     };
   }, [manualId, enabled, currentUserId]);
+
+  // 実際の操作（マウス/キー/タッチ）の時刻を追う（`tick()` の idle 判定用）。
+  // `enabled` の間だけ——`window` 直付けなので、無効時に外しておく。
+  useEffect(() => {
+    if (!enabled) return;
+    lastActivityRef.current = Date.now();
+    const onActivity = () => { lastActivityRef.current = Date.now(); };
+    for (const ev of ACTIVITY_EVENTS) window.addEventListener(ev, onActivity, { passive: true });
+    return () => {
+      for (const ev of ACTIVITY_EVENTS) window.removeEventListener(ev, onActivity);
+    };
+  }, [enabled]);
 
   const requestHandoff = useCallback(() => {
     if (!manualId || requesting) return;

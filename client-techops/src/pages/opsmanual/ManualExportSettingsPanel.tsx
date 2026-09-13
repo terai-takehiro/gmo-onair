@@ -106,7 +106,7 @@ export default function ManualExportSettingsPanel({ settings, onChange, pageCoun
       <div className="flex flex-col gap-3 border-t border-border pt-3">
         <ToggleRow
           label="表紙"
-          description="題・資料番号・案件名（または番組名）・対象日を1枚目に付けます。"
+          description="タイトル・資料番号・案件名（または番組名）・対象日を1枚目に付けます。"
           checked={settings.cover}
           onChange={(v) => patch({ cover: v })}
         />

@@ -41,7 +41,7 @@ test('resolveProjectHeading: SQL は to_char() を使わない（TEXT列にto_ch
   let seenSql = '';
   const { resolveProjectHeading } = await loadProjectResolver({
     projectRow: {
-      name: '本番案件', gls_number: 'GLS-0001',
+      name: '本番案件', gls_number: 'PJ-0001',
       event_start: '2026-09-01', event_end: '2026-09-01',
       updated_at: '2026-09-01T00:00:00.000Z',
     },
@@ -57,7 +57,7 @@ test('resolveProjectHeading: SQL は to_char() を使わない（TEXT列にto_ch
 test('resolveProjectHeading: TEXT列の値（YYYY-MM-DD）をそのままeventStart/eventEndへ渡す', async () => {
   const { resolveProjectHeading } = await loadProjectResolver({
     projectRow: {
-      name: '本番案件', gls_number: 'GLS-0001',
+      name: '本番案件', gls_number: 'PJ-0001',
       event_start: '2026-09-01', event_end: '2026-09-03',
       updated_at: '2026-09-01T00:00:00.000Z',
     },
@@ -72,7 +72,7 @@ test('resolveProjectHeading: TEXT列の値（YYYY-MM-DD）をそのままeventSt
 test('resolveProjectHeading: event_start と event_end が同じ（単日開催）ならeventEndは省く', async () => {
   const { resolveProjectHeading } = await loadProjectResolver({
     projectRow: {
-      name: '本番案件', gls_number: 'GLS-0001',
+      name: '本番案件', gls_number: 'PJ-0001',
       event_start: '2026-09-01', event_end: '2026-09-01',
       updated_at: '2026-09-01T00:00:00.000Z',
     },
