@@ -144,7 +144,7 @@ function VenueLayoutContent({ data, options }: { data: unknown; options: Record<
         <div className="flex shrink-0 flex-wrap gap-x-2 text-[7px] text-muted-foreground">
           {usedKinds.map((k) => (
             <span key={k} className="inline-flex items-center gap-0.5">
-              <span className="inline-block h-1.5 w-1.5 rounded-[1px]" style={{ background: KIND_COLOR[k] ?? "#5d6470" }} />
+              <span className="inline-block h-1.5 w-1.5" style={{ background: KIND_COLOR[k] ?? "#5d6470" }} />
               {k}
             </span>
           ))}

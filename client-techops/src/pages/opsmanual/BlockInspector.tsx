@@ -114,7 +114,7 @@ export default function BlockInspector({ blocks, selectedBlockId, onCommit, manu
           {headerButtons}
         </div>
         {def ? (
-          <LinkedBlockInspector block={block} def={def} onCommit={patchLink} />
+          <LinkedBlockInspector block={block} def={def} onCommit={patchLink} manualId={manualId} isManualFixed={isManualFixed} />
         ) : (
           <div className="rounded-card border border-dashed border-border bg-muted/20 p-3 text-sub-sm text-muted-foreground">
             このブロックには対応していません。

@@ -53,7 +53,7 @@
  * 実装（3本前提の決め打ちレイアウトは無い）ので、1本・3本のどちらでも崩れない
  * ことを確認した上でこの形にしている。
  */
-import { LayoutDashboard, LayoutGrid, CalendarDays, Settings2, Package, Timer, Type, Radio, BookOpenCheck, BookOpenText } from 'lucide-react';
+import { LayoutDashboard, LayoutGrid, CalendarDays, Settings2, Package, Timer, Type, Radio, BookOpenCheck, BookOpenText, MapPin } from 'lucide-react';
 import type { ShellMobileTab, ShellNavSection } from '@gmo-onair/shared/src/client/shell';
 import { MINI_APP_BY_KEY, panelPathOf } from '@gmo-onair/shared/src/production/miniapps';
 import type { ProductionNavContext } from '@/lib/productionNavContext';
@@ -78,6 +78,9 @@ const EDITOR_RE = /^\/techops\/editor\/[^/?#]+\/?$/;
 const SCHEDULE_DETAIL_RE = /^\/techops\/schedules\/[^/?#]+\/?$/;
 const MANUAL_DETAIL_RE = /^\/techops\/manuals\/[^/?#]+\/?$/;
 const DOCS_RE = /^\/techops\/docs\/[^/?#]+\/?$/;
+// 会場図面1件（②編集・スマホは閲覧）。仕上がり（`/preview`）はここに含めない
+// （運営マニュアルの仕上がりも案件文脈の解決対象に入れていない前例と同じ）
+const VENUE_DETAIL_RE = /^\/techops\/venue-layouts\/[^/?#]+\/?$/;
 
 function safeDecode(v: string): string {
   try {
@@ -128,7 +131,7 @@ function resolveContext(
     return { scope: 'program', id, label: storeCtx?.id === id ? storeCtx.label : null };
   }
 
-  if (pathname === '/techops/sheets' || pathname === '/techops/schedules' || pathname === '/techops/manuals') {
+  if (pathname === '/techops/sheets' || pathname === '/techops/schedules' || pathname === '/techops/manuals' || pathname === '/techops/venue-layouts') {
     const projectId = searchParams.get('project');
     if (projectId) return { scope: 'project', id: projectId, label: storeCtx?.id === projectId ? storeCtx.label : null };
     const programId = searchParams.get('program');
@@ -141,7 +144,7 @@ function resolveContext(
     return storeCtx && storeCtx.id === panelOwnerKey ? storeCtx : null;
   }
 
-  if (EDITOR_RE.test(pathname) || SCHEDULE_DETAIL_RE.test(pathname) || MANUAL_DETAIL_RE.test(pathname) || DOCS_RE.test(pathname)) {
+  if (EDITOR_RE.test(pathname) || SCHEDULE_DETAIL_RE.test(pathname) || MANUAL_DETAIL_RE.test(pathname) || DOCS_RE.test(pathname) || VENUE_DETAIL_RE.test(pathname)) {
     return storeCtx ?? null;
   }
 
@@ -153,8 +156,11 @@ function hubPathOf(ctx: ProductionNavContext): string {
   return ctx.scope === 'project' ? `/techops/projects/${id}` : `/techops/programs/${id}`;
 }
 
-function listPathOf(app: 'sheet' | 'schedule' | 'manual', ctx: ProductionNavContext): string {
-  const listPath = app === 'sheet' ? '/techops/sheets' : app === 'schedule' ? '/techops/schedules' : '/techops/manuals';
+function listPathOf(app: 'sheet' | 'schedule' | 'manual' | 'venue', ctx: ProductionNavContext): string {
+  const listPath = app === 'sheet' ? '/techops/sheets'
+    : app === 'schedule' ? '/techops/schedules'
+    : app === 'manual' ? '/techops/manuals'
+    : '/techops/venue-layouts';
   return `${listPath}?${ctx.scope}=${encodeURIComponent(ctx.id)}`;
 }
 
@@ -243,6 +249,7 @@ function buildResolvedSections(ctx: ProductionNavContext, inGraphics: boolean): 
     { label: MINI_APP_BY_KEY.sheet.label, to: listPathOf('sheet', ctx), icon: LayoutDashboard },
     { label: MINI_APP_BY_KEY.schedule.label, to: listPathOf('schedule', ctx), icon: CalendarDays },
     { label: MINI_APP_BY_KEY.manual.label, to: listPathOf('manual', ctx), icon: BookOpenText },
+    { label: MINI_APP_BY_KEY.venue.label, to: listPathOf('venue', ctx), icon: MapPin },
     { label: MINI_APP_BY_KEY.recording.label, to: panelPathOf('recording', ctx.id), icon: Settings2 },
     { label: MINI_APP_BY_KEY.streaming.label, to: panelPathOf('streaming', ctx.id), icon: Settings2 },
     { label: MINI_APP_BY_KEY.rental.label, to: panelPathOf('rental', ctx.id), icon: Package },

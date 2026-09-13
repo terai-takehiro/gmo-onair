@@ -15,13 +15,14 @@
 import { Link } from "react-router-dom";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { FileText, CalendarDays, BookOpenText, Settings2, Package, Timer, Type, ChevronRight } from "lucide-react";
+import { FileText, CalendarDays, BookOpenText, Settings2, Package, Timer, Type, MapPin, ChevronRight } from "lucide-react";
 import type { ElementType } from "react";
 import { cn } from "@/lib/utils";
 import { MINI_APP_BY_KEY, panelPathOf } from "@gmo-onair/shared/src/production/miniapps";
 import type { JourneyDay } from "@gmo-onair/shared/src/production/journey";
 import { getRentalReservations } from "@/lib/rentalApi";
 import * as manualApi from "@/lib/manualApi";
+import * as venueApi from "@/lib/venueApi";
 
 interface MiniAppTilesProps {
   scope: "project" | "program";
@@ -67,6 +68,12 @@ export default function MiniAppTiles({ scope, id, days }: MiniAppTilesProps) {
   });
   const manualCount = manualsQuery.isSuccess ? manualsQuery.data.length : null;
 
+  const venueLayoutsQuery = useQuery({
+    queryKey: ["venue-layouts", "list", scope, id],
+    queryFn: () => venueApi.listVenueLayouts(scope === "project" ? { project: id } : { program: id }),
+  });
+  const venueCount = venueLayoutsQuery.isSuccess ? venueLayoutsQuery.data.length : null;
+
   const tiles: { key: string; label: string; description: string; icon: ElementType; to: string; count: number | null }[] = [
     {
       key: "sheet",
@@ -91,6 +98,14 @@ export default function MiniAppTiles({ scope, id, days }: MiniAppTilesProps) {
       icon: BookOpenText,
       to: `/techops/manuals?${filterKey}=${encodeURIComponent(id)}`,
       count: manualCount,
+    },
+    {
+      key: "venue",
+      label: MINI_APP_BY_KEY.venue.label,
+      description: "会場に品目を実寸で置いて配置図にする",
+      icon: MapPin,
+      to: `/techops/venue-layouts?${filterKey}=${encodeURIComponent(id)}`,
+      count: venueCount,
     },
     {
       key: "recording",

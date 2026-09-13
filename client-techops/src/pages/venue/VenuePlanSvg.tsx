@@ -7,7 +7,7 @@
 // ここでは「線で示す」という規律だけ守った簡易な図形（矩形・円・折れ線）で描く。
 import { useId, useMemo } from "react";
 import type { VenueFixture, VenueItem } from "@gmo-onair/shared/src/venue/types";
-import { itemFootprintSize, toTopLeftRect } from "@gmo-onair/shared/src/venue/geometry";
+import { itemFootprintSize } from "@gmo-onair/shared/src/venue/geometry";
 
 const KIND_COLOR: Record<string, string> = {
   catalog: "#005bac",

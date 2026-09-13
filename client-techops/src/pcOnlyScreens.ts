@@ -122,6 +122,15 @@ export const TECHOPS_PC_ONLY: PcOnlyEntry[] = [
     instead: { label: '運営マニュアルの一覧を開く', to: '/techops/manuals' },
   },
   {
+    // 会場図面・仕上がりと書き出し（venue-layout.md §6③）。用紙・縮尺・凡例・数量表・
+    // 通り芯の有無をキャンバスの縮小プレビューと見比べながら組む画面で、運営マニュアルの
+    // 仕上がり画面（`/techops/manuals/:id/preview`）と同じ理由でPC専用
+    path: '/techops/venue-layouts/:id/preview',
+    what: '会場図面の仕上がりと書き出し',
+    why: '用紙・縮尺・凡例・数量表の設定をキャンバスの縮小プレビューと見比べながら組む画面で、狭い幅では組めません。',
+    instead: { label: '会場図面の一覧を開く', to: '/techops/venue-layouts' },
+  },
+  {
     // 表示レイアウトエディタ（13-live-display-layout-editor.md §6-3）。要素カードの
     // ドラッグ・リサイズ操作が前提のため、375px幅での対応は本設計のスコープ外にした
     // （§9-3で利用者に確認済み）。テンプレートライブラリ（閲覧・適用）はスマホ対応の対象
@@ -161,6 +170,8 @@ export const TECHOPS_MOBILE_OK: string[] = [
   '/techops/schedules/:id',  // スケジュール表の詳細（375px は縦積みカードに畳む）
   '/techops/manuals',        // 運営マニュアルの一覧（閲覧のみなのでスマホでも開ける・段A）
   '/techops/manuals/:id',    // 運営マニュアル・マニュアル1件。スマホは閲覧専用画面に丸ごと入れ替わる（PCは引き続き編集・段E・§6⑥）
+  '/techops/venue-layouts',      // 会場図面の一覧（venue-layout.md §1「①一覧は両端末」）
+  '/techops/venue-layouts/:id',  // 会場図面1件。スマホは閲覧専用に丸ごと入れ替わる（PCは編集・§1「②編集（スマホは閲覧）」）
 
   // 収録設定・配信設定の簡易入口（旧 `/techops/device-settings`）は2026-08-22 に廃止（`App.tsx` にルート無し）
   '/techops/recording/:ownerKey', // 収録設定（PC表＋スマホは下シートに畳む）
