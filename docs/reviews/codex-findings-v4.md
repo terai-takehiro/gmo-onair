@@ -2487,9 +2487,11 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   今回は最も規模が大きい変更に対して起きた）。
   検証: `npx tsc -b client-techops`・`npx tsc -b server`・`npm run lint`（0 errors）・
   `npm run test`（shared 2457件・server 94件）・`npm run build:changed`・
-  `npm run verify:up`（実Postgres保存確認）・`node scripts/check-migration-numbers.mjs`。
-  実ブラウザでの画面確認・`npm run verify:ui`・権限のない利用者での403確認は
-  この環境（Docker/PostgreSQL不可）では未実施のままマージ（PR本文に明記）。
+  `npm run verify:up`＋実サーバーでの保存・読み直し・IDOR修正確認
+  （`v-sales`が`v-admin`の番組紐づき図面を`copy_from`できず404になることを含む）・
+  `node scripts/check-migration-numbers.mjs`。**実ブラウザでの画面確認・
+  `npm run verify:ui`だけ**はこの環境（実ブラウザ不可）では未実施のままマージ
+  （PR本文に明記）——PostgreSQL自体は起動でき、DB・サーバーを使う検証は実施済み。
 
 - **#685**（`docs(reviews): PR #683のレビュー状況を棚卸しに記録した`・2026-09-13）——
   #683 の棚卸しを本文書に記録したドキュメントのみの変更（2ファイル・+32・2コミット）。
