@@ -507,8 +507,15 @@ interface LinkedBlockLike {
  * `resolveLinkedBlock` でいま解決し、その結果を `link.frozen = { at, data }` として書き込む
  * （`free`・`options`・`reveal` など他の項目は変えない）。全ページ保存後、
  * `status='fixed'`・`rev=rev+1`・`fixed_at`・`fixed_by` を1トランザクションで書く。
+ *
+ * ⚠️ `userId` ではなく `user`（`role` を含む）を取る——`sheet.*` の3種を解決するとき
+ * `resolveLinkedBlock` が `canAccessDoc` の判定に呼び出し本人の権限を必要とするため
+ * （レビュー指摘・`sheet.resolver.ts` 冒頭のコメント参照）。確定を行う manager 自身が
+ * その台本にアクセスできなければ、その `sheet.excerpt` 等は `access_denied` のまま凍る
+ * （他人の非共有台本を確定操作で覗き見できてはいけないため、意図した挙動）。
  */
-export async function fixManual(manualId: string, userId: string): Promise<Row> {
+export async function fixManual(manualId: string, user: AccessUser): Promise<Row> {
+  const userId = user.id;
   const manual = await queryOne(
     'SELECT id, status, project_id, program_id, service_date FROM qsheet_manuals WHERE id = $1 AND deleted_at IS NULL',
     [manualId],
@@ -546,6 +553,7 @@ export async function fixManual(manualId: string, userId: string): Promise<Row> 
           sourceId: typeof link.sourceId === 'string' ? link.sourceId : null,
           revealFields,
           manualServiceDate,
+          user,
         });
       } catch {
         // 個々の差し込みの解決失敗で確定全体を止めない（resolve API と同じ割り切り・§5-4）

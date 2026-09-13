@@ -9,12 +9,19 @@
  * `fetchDocForRead`/`getQsheetOutline`/`getQsheetRows`（MCP の `get_sheet` が使っているのと同じ関数）
  * をそのまま呼ぶ。
  *
- * ⚠️ **アクセス制御は `canAccessDoc` を使わない**（作成者／個別共有／`system_admin` だけで、
- * 案件メンバー自動可視が無いため）。代わりに、`sourceId` で引いた `qsheet_documents` の
- * `project_id`/`program_id` が、呼び出し元（冊子）の `project_id`/`program_id` と一致することだけを
- * 検査する（`resolveAccessibleDoc`）。冊子自体のアクセス確認（`canAccessManual`）はルート側の責務
- * ——ここでは「同じ案件/番組の台本か」だけを見る。一致しなければ他案件のデータを一切返さない
- * （`{ data: null, updatedAt: null, error: 'access_denied' }`）。
+ * ⚠️⚠️ 外部レビュー再指摘（P1・Security Review）: 以前はここで `canAccessDoc` を意図的に
+ * 使わず、`sourceId` で引いた `qsheet_documents` の `project_id`/`program_id` が呼び出し元
+ * （冊子）のものと一致することだけを検査していた（`resolveAccessibleDoc`）。しかし
+ * `canAccessManual`（冊子）は**案件メンバー全員に自動で見える**設計（§7-1）なのに対し、
+ * `qsheet_documents`（進行台本）は**案件メンバー自動可視を持たない**（作成者／個別共有／
+ * `system_admin` だけ・`documents.routes.ts`）——資料の方があえて狭い。プロジェクト一致
+ * だけをゲートにすると、案件メンバーなら誰でも「差し込みブロックの `sourceId` に他人の
+ * 非共有の台本 id を指定する」だけでその台本の全文（`sheet.excerpt`）を読めてしまう
+ * （`link-sources` の一覧を通さずに直接 `sourceId` を打っても resolve は同じ結果を返す
+ * ため、一覧を絞るだけでは防げない——resolver 自身がゲートを持つ必要がある）。
+ * 「同じ案件/番組の台本か」（`ownerMatchesCtx`）に加えて `canAccessDoc`（呼び出し本人の
+ * 作成者／個別共有／管理者）も必ず通す（`resolveAccessibleDoc`）。一致しなければ他人の
+ * データを一切返さない（`{ data: null, updatedAt: null, error: 'access_denied' }`）。
  *
  * ディスパッチャ（`GET /techops/manuals/:id/resolve`）との契約は `ManualLinkResolveResult`
  * （`{ data, updatedAt, error? }`）に統一する。データが無い/権限が無いときは例外を投げず
@@ -22,6 +29,7 @@
  */
 import { queryAll, queryOne } from '../../../../shared/db/connection';
 import type { BlockLike } from '../../../../shared/qsheet/blockRef';
+import { canAccessDoc, isQsheetAdmin, type AccessUser } from '../../access';
 import {
   fetchDocForRead,
   getQsheetOutline,
@@ -44,6 +52,8 @@ export interface ManualLinkResolveScope {
 /** sheet.* の3種は `sourceId`（`qsheet_documents.id`）が必須 */
 export interface ManualLinkResolveCtx extends ManualLinkResolveScope {
   sourceId: string | null;
+  /** 呼び出し本人。`canAccessDoc` の判定に使う（レビュー指摘・上記コメント参照） */
+  user: AccessUser;
 }
 
 /** resolver 全員の統一シグネチャ（共通ポリシー3）。例外は投げてよい——ディスパッチャがまとめて捕捉する */
@@ -56,18 +66,20 @@ export interface ManualLinkResolveResult {
 interface DocOwner {
   projectId: string | null;
   programId: string | null;
+  createdBy: string | null;
   updatedAt: string;
 }
 
 async function fetchDocOwner(sourceId: string): Promise<DocOwner | null> {
   const row = await queryOne(
-    'SELECT project_id, program_id, updated_at FROM qsheet_documents WHERE id = ? AND deleted_at IS NULL',
+    'SELECT project_id, program_id, created_by, updated_at FROM qsheet_documents WHERE id = ? AND deleted_at IS NULL',
     [sourceId],
   );
   if (!row) return null;
   return {
     projectId: (row.project_id as string) ?? null,
     programId: (row.program_id as string) ?? null,
+    createdBy: (row.created_by as string) ?? null,
     updatedAt: new Date(row.updated_at as string).toISOString(),
   };
 }
@@ -97,6 +109,11 @@ async function resolveAccessibleDoc(ctx: ManualLinkResolveCtx): Promise<Accessib
     return { ok: false, result: { data: null, updatedAt: null, error: 'source_missing' } };
   }
   if (!ownerMatchesCtx(ctx, owner)) {
+    return { ok: false, result: { data: null, updatedAt: null, error: 'access_denied' } };
+  }
+  // ⚠️ レビュー指摘（P1）: 案件一致だけでは不十分——資料自体の権限（作成者/個別共有/管理者）
+  // も通す。冊子の案件メンバーというだけでは他人の非共有台本は読めない。
+  if (!(await canAccessDoc(ctx.user, ctx.sourceId, owner.createdBy))) {
     return { ok: false, result: { data: null, updatedAt: null, error: 'access_denied' } };
   }
   const doc = await fetchDocForRead(ctx.sourceId);
@@ -250,11 +267,13 @@ export interface SheetSourceOption {
 }
 
 /**
- * `doc-list.service.ts` の `fetchSheets` に近いクエリ（見える範囲の絞り込みでは
- * なく、冊子と同じ project_id/program_id を持つ資料だけを返す——resolve と同じ
- * ポリシーに合わせるため、あえて別クエリにしてある）。
+ * `doc-list.service.ts` の `fetchSheets` に近いクエリ（冊子と同じ project_id/program_id を
+ * 持つ資料に絞る点は resolve と同じポリシーだが、レビュー指摘を受けて**資料自体の権限
+ * （`canAccessDoc` と同じ条件: 作成者／個別共有／管理者）も追加で絞る**——ここを絞らないと
+ * 「差し込む」の候補一覧が本人の読めない台本のタイトルを見せてしまう（resolve 本体は
+ * `access_denied` で弾いても、一覧に出ること自体が存在の手掛かりになる）。
  */
-export async function listSheetSources(scope: ManualLinkResolveScope): Promise<SheetSourceOption[]> {
+export async function listSheetSources(scope: ManualLinkResolveScope, user: AccessUser): Promise<SheetSourceOption[]> {
   let sql = 'SELECT id, title, doc_no FROM qsheet_documents WHERE deleted_at IS NULL';
   const params: unknown[] = [];
   if (scope.projectId) {
@@ -265,6 +284,10 @@ export async function listSheetSources(scope: ManualLinkResolveScope): Promise<S
     params.push(scope.programId);
   } else {
     return [];
+  }
+  if (!isQsheetAdmin(user)) {
+    sql += ' AND (created_by = ? OR EXISTS (SELECT 1 FROM qsheet_document_shares s WHERE s.document_id = qsheet_documents.id AND s.user_id = ?))';
+    params.push(user.id, user.id);
   }
   sql += ' ORDER BY updated_at DESC LIMIT 200';
 

@@ -14,6 +14,7 @@
 import { queryOne } from '../../../shared/db/connection';
 import { EQUIPMENT_LENDING_STATUS } from '../../../shared/constants/statuses';
 import type { ManualLinkedBlockKey } from '../../../shared/production/manualBlocks';
+import type { AccessUser } from '../access';
 
 import { resolveProjectHeading, resolveProjectTeam, type ManualResolverCtx } from './manual-resolvers/project.resolver';
 import { resolveScheduleDay, resolveScheduleLoadInOut } from './manual-resolvers/schedule.resolver';
@@ -39,6 +40,8 @@ export interface ResolveCtx {
   revealFields: string[];
   /** 冊子自身の `service_date`（YYYY-MM-DD） */
   manualServiceDate: string | null;
+  /** 呼び出し本人。sheet.* の3種だけが使う（`canAccessDoc` の判定・レビュー指摘 P1） */
+  user: AccessUser;
 }
 
 /** resolve の1ブロックぶんの結果（統一シグネチャ。§5-4「共通ポリシー3」） */
@@ -61,6 +64,7 @@ export async function resolveLinkedBlock(key: string, ctx: ResolveCtx): Promise<
     projectId: ctx.projectId,
     programId: ctx.programId,
     sourceId: ctx.sourceId,
+    user: ctx.user,
   };
 
   switch (key as ManualLinkedBlockKey) {
@@ -176,9 +180,10 @@ export async function listAvailableLinkedBlocks(ctx: AvailabilityCtx): Promise<M
 export async function listLinkSourcesFor(
   key: string,
   ctx: { projectId: string | null; programId: string | null },
+  user: AccessUser,
 ): Promise<{ id: string; label: string }[]> {
   if (key === 'sheet.rundown' || key === 'sheet.excerpt' || key === 'sheet.micAssignment') {
-    return listSheetSources({ projectId: ctx.projectId, programId: ctx.programId });
+    return listSheetSources({ projectId: ctx.projectId, programId: ctx.programId }, user);
   }
   return [];
 }

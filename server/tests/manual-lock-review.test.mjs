@@ -282,7 +282,7 @@ test('fixManual: 解決の待ち時間中に着地した編集は消さず、確
   });
   const { fixManual } = await loadTs('server/src/contexts/qsheet/services/manual.service.ts', deps);
 
-  await assert.rejects(() => fixManual('m1', 'manager-1'), (err) => err.code === 'CONFLICT');
+  await assert.rejects(() => fixManual('m1', { id: 'manager-1', role: 'manager' }), (err) => err.code === 'CONFLICT');
 
   assert.equal(db.state.manual.status, 'draft', '確定処理全体がロールバックされ、fixed になっていてはいけない');
   assert.equal(
@@ -304,7 +304,7 @@ test('fixManual: 何も競合しなければ差し込みブロックを凍らせ
   });
   const { fixManual } = await loadTs('server/src/contexts/qsheet/services/manual.service.ts', deps);
 
-  await fixManual('m1', 'manager-1');
+  await fixManual('m1', { id: 'manager-1', role: 'manager' });
 
   assert.equal(db.state.manual.status, 'fixed');
   assert.equal(db.state.page.blocks[0].link.frozen.data.some, 'resolved');

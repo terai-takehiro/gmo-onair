@@ -64,7 +64,7 @@ router.post('/manuals/:id/lock/request', requirePermission('qsheet', 'editor'), 
 /** 確定する。全ページの全 kind:'linked' ブロックを凍らせ rev を +1 する */
 router.post('/manuals/:id/fix', requirePermission('qsheet', 'manager'), wrap(async (req: Request, res: Response) => {
   await requireAccessible(req);
-  const manual = await fixManual(p1(req.params.id), req.user!.id);
+  const manual = await fixManual(p1(req.params.id), req.user!);
   res.json({ success: true, data: manual });
 }));
 

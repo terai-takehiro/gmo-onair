@@ -106,6 +106,7 @@ router.get('/manuals/:id/resolve', wrap(async (req: Request, res: Response) => {
           sourceId: ref.sourceId,
           revealFields: ref.revealFields,
           manualServiceDate,
+          user: req.user!,
         });
       } catch {
         // 個々の差し込みの解決失敗で resolve 全体を落とさない（§5-4「共通ポリシー3」）
@@ -138,7 +139,7 @@ router.get('/manuals/:id/link-sources', wrap(async (req: Request, res: Response)
   const sources = await listLinkSourcesFor(block, {
     projectId: (raw.project_id as string | null) ?? null,
     programId: (raw.program_id as string | null) ?? null,
-  });
+  }, req.user!);
   res.json({ success: true, data: { sources } });
 }));
 
