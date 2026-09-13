@@ -298,8 +298,27 @@ export async function updateManual(id: string, userId: string, input: UpdateManu
 export async function deleteManual(id: string, userId: string): Promise<void> {
   const existing = await getManualLockRow(id);
   if (!existing) throw new NotFoundError('冊子が見つかりません');
-  assertEditable(existing, userId);
-  await execute('UPDATE qsheet_manuals SET deleted_at = NOW() WHERE id = $1', [id]);
+  assertEditable(existing, userId); // 事前の検査（速い失敗・分かりやすいメッセージ）
+  // ⚠️ レビュー指摘（P1）: 事前チェックの直後に、別の manager が takeover でロックを
+  // 奪う／確定するかもしれない——その直後にこの無条件 UPDATE（従来は WHERE id のみ）が
+  // 走ると、新しい保持者の作業中や確定直後の冊子でも構わず消えてしまう。
+  // `assertEditable` と同じ条件（未削除・確定していない・ロックが未取得/自分/stale）を
+  // UPDATE 自身の WHERE 句に畳み込む（`acquireManualLock` と同じ考え方）。
+  const deleted = await queryOne(
+    `UPDATE qsheet_manuals
+     SET deleted_at = NOW()
+     WHERE id = $1 AND deleted_at IS NULL AND status != 'fixed'
+       AND (locked_by IS NULL OR locked_by = $2 OR locked_at < NOW() - INTERVAL '10 minutes')
+     RETURNING id`,
+    [id, userId],
+  );
+  if (!deleted) {
+    // 実際の食い違い（ロック／確定状態）を報告する
+    const fresh = await getManualLockRow(id);
+    if (!fresh) throw new NotFoundError('冊子が見つかりません');
+    assertEditable(fresh, userId);
+    throw new Error('deleteManual: assertEditable を通ったのに UPDATE が0件でした（想定外）');
+  }
 }
 
 export interface PageInput {
@@ -672,6 +691,26 @@ export async function fixManual(manualId: string, user: AccessUser): Promise<Row
   // ロールバックする（`withTransaction` は throw で ROLLBACK する）。呼び出し元
   // （manager）は「もう一度確定をやり直してください」を見てやり直すだけでよい。
   await withTransaction(async (tx) => {
+    // ⚠️⚠️ 外部レビュー再指摘（P1）: ①（resolve ループ）のあいだにロック保持者が
+    // 新しいページを追加すると、`addPage()` は `qsheet_manuals.updated_at` を進めない
+    // ため、ページ側・冊子側どちらの CAS ガードもこの追加を検出できない——追加された
+    // ページは①のスナップショット（`pages`）に含まれず素通りし、確定は成功してしまう
+    // （その新しいページに差し込みブロックがあっても凍結されないまま「確定済み」になる）。
+    // 確定の直前にもう一度ページ集合を数え、①で読んだ集合と完全に一致することを確認する
+    // （追加だけでなく、この間の削除も同じ形でここが拾う——ページ側ループの
+    // 「消えていたら 0 件 RETURNING」より前に、まとめて検出できる）。
+    const currentPageRows = await tx.queryAll('SELECT id FROM qsheet_manual_pages WHERE manual_id = ?', [manualId]);
+    const currentIds = new Set(currentPageRows.map((r) => r.id as string));
+    const snapshotIds = new Set(pages.map((p) => p.id as string));
+    const pageSetChanged = currentIds.size !== snapshotIds.size || [...snapshotIds].some((id) => !currentIds.has(id));
+    if (pageSetChanged) {
+      throw new ConflictError(
+        'この冊子は確定の処理中にページが追加/削除されました。もう一度確定をやり直してください。',
+        fixedAtIso,
+        null,
+      );
+    }
+
     for (const page of pages) {
       const blocks = frozenBlocksByPage.get(page.id as string);
       if (!blocks) continue; // 起こり得ないが念のため

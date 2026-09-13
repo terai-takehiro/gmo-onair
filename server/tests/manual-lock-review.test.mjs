@@ -72,8 +72,24 @@ async function loadForDelete(manual) {
   const mod = await loadTs('server/src/contexts/qsheet/services/manual.service.ts', baseDeps({
     '../../../shared/db/connection': {
       queryAll: async () => [],
-      queryOne: async (sql) => (sql.includes('lock_requested_by') ? manual : undefined),
-      execute: async (sql, params) => { executed.push({ sql, params }); },
+      queryOne: async (sql, params = []) => {
+        if (sql.includes('lock_requested_by')) return manual;
+        if (sql.includes('UPDATE qsheet_manuals') && sql.includes('SET deleted_at') && sql.includes('RETURNING')) {
+          // deleteManual の CAS。WHERE 句と同じ条件（assertEditable と同じ判定）を
+          // ここでも評価する——退行（無条件 UPDATE に戻る）したらこの判定を素通りして
+          // 常に成功してしまうので、このテストは「条件を実際に見ているか」も兼ねて固定する。
+          const [manualId, userId] = params;
+          if (manualId !== manual.id || manual.status === 'fixed') return undefined;
+          const staleMs = 10 * 60 * 1000;
+          const isStale = !manual.locked_at || Date.now() - new Date(manual.locked_at).getTime() > staleMs;
+          const canDelete = !manual.locked_by || manual.locked_by === userId || isStale;
+          if (!canDelete) return undefined;
+          executed.push({ sql, params });
+          return { id: manualId };
+        }
+        return undefined;
+      },
+      execute: async () => {},
       withTransaction: async (fn) => fn({ execute: async () => {}, queryOne: async () => undefined, queryAll: async () => [] }),
     },
   }));
@@ -101,7 +117,7 @@ test('deleteManual: 保持者本人・下書きなら削除できる', async () 
 
   await deleteManual('m1', 'me');
   assert.equal(executed.length, 1);
-  assert.match(executed[0].sql, /UPDATE qsheet_manuals SET deleted_at/);
+  assert.match(executed[0].sql, /UPDATE qsheet_manuals[\s\S]*SET deleted_at/);
 });
 
 test('deleteManual: ロックが10分より古い（stale）なら他人でも削除できる', async () => {
@@ -110,6 +126,39 @@ test('deleteManual: ロックが10分より古い（stale）なら他人でも�
 
   await deleteManual('m1', 'me');
   assert.equal(executed.length, 1);
+});
+
+test('deleteManual: 事前チェックの直後に別の manager が takeover していたら、その冊子は消えない（外部レビュー再指摘）', async () => {
+  // 呼び出し時点（assertEditable の事前チェック）では自分がまだ保持者だが、その直後に
+  // takeover が割り込んで保持者が変わった、というレースを再現する。事前チェック用の
+  // 1回目の読み取りだけ「自分が保持者」を返し、以後（＝実際の DB の状態）は
+  // 「manager-1 が保持者」を返す——無条件 UPDATE（WHERE id のみ）に戻っていたら、
+  // この新しい保持者のロックを無視して消えてしまう。
+  let lockReads = 0;
+  const trueState = { locked_by: 'manager-1', locked_at: new Date().toISOString() };
+  const mod = await loadTs('server/src/contexts/qsheet/services/manual.service.ts', baseDeps({
+    '../../../shared/db/connection': {
+      queryAll: async () => [],
+      queryOne: async (sql, params = []) => {
+        if (sql.includes('lock_requested_by')) {
+          lockReads += 1;
+          if (lockReads === 1) return lockRow({ locked_by: 'me', locked_at: new Date().toISOString() }); // 事前チェック時点
+          return lockRow(trueState); // 以後（フォールバックの再取得）は実際の状態
+        }
+        if (sql.includes('UPDATE qsheet_manuals') && sql.includes('SET deleted_at') && sql.includes('RETURNING')) {
+          const [, userId] = params;
+          // 実際の WHERE 句と同じ判定——事前チェックの古い認識ではなく「いまの」保持者と比較する
+          if (trueState.locked_by && trueState.locked_by !== userId) return undefined;
+          return { id: 'm1' };
+        }
+        return undefined;
+      },
+      execute: async () => {},
+      withTransaction: async (fn) => fn({ execute: async () => {}, queryOne: async () => undefined, queryAll: async () => [] }),
+    },
+  }));
+
+  await assert.rejects(() => mod.deleteManual('m1', 'me'), (err) => err.code === 'LOCKED');
 });
 
 // ============================================================
@@ -311,7 +360,13 @@ function makeFixDb({ manual, page }) {
           return undefined;
         },
         execute: async () => {},
-        queryAll: async () => [],
+        // fixManual() が①のあいだにページが追加/削除されていないかを確認する
+        // `SELECT id FROM qsheet_manual_pages WHERE manual_id = ?`（外部レビュー再指摘）。
+        // このテスト群ではページの増減は起きないので、現在の1ページをそのまま返す。
+        queryAll: async (sql) => {
+          if (sql.includes('SELECT id FROM qsheet_manual_pages')) return [{ id: state.page.id }];
+          return [];
+        },
       };
       // fn(tx) が throw したら、ここから下（pending の反映）を実行せずそのまま
       // 呼び出し元へ伝播する ＝ ROLLBACK 相当（pendingPages / pendingManualFixed は state に
@@ -374,4 +429,43 @@ test('fixManual: 何も競合しなければ差し込みブロックを凍らせ
 
   assert.equal(db.state.manual.status, 'fixed');
   assert.equal(db.state.page.blocks[0].link.frozen.data.some, 'resolved');
+});
+
+test('fixManual: ①（resolveループ）の間に新しいページが追加されると、確定処理をロールバックする（外部レビュー再指摘）', async () => {
+  // addPage() は qsheet_manuals.updated_at を進めないため、ページ側・冊子側どちらの
+  // CAS ガードも新しいページの出現を検出できない——確定の直前にもう一度ページ集合を
+  // 数え、①で読んだ集合と完全に一致することを別途確認する仕組みを固定する。
+  let pageAppeared = false;
+  const deps = baseDeps({
+    '../../../shared/db/connection': {
+      queryAll: async (sql) => (sql.includes('FROM qsheet_manual_pages')
+        ? [{ id: 'page-1', manual_id: 'm1', sort_order: 0, chapter: null, title: '', blocks: [linkedBlock('blk-1')], created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z' }]
+        : []),
+      queryOne: async (sql) => (sql.includes('FROM qsheet_manuals WHERE id')
+        ? { id: 'm1', status: 'draft', project_id: 'p1', program_id: null, service_date: null, updated_at: '2026-09-01T09:00:00.000Z' }
+        : undefined),
+      execute: async () => {},
+      withTransaction: async (fn) => fn({
+        execute: async () => {},
+        queryOne: async () => undefined, // 到達しないはず（ページ集合の不一致で先にロールバックする）
+        queryAll: async (sql) => {
+          if (!sql.includes('SELECT id FROM qsheet_manual_pages')) return [];
+          // resolve ループの最中に addPage() が起きた、といういまの姿
+          return pageAppeared ? [{ id: 'page-1' }, { id: 'page-2' }] : [{ id: 'page-1' }];
+        },
+      }),
+    },
+    './manual-resolve.service': {
+      resolveLinkedBlock: async () => {
+        pageAppeared = true; // ①のあいだにロック保持者が新しいページを追加したことにする
+        return { data: { some: 'resolved' }, updatedAt: null };
+      },
+    },
+  });
+  const { fixManual } = await loadTs('server/src/contexts/qsheet/services/manual.service.ts', deps);
+
+  await assert.rejects(
+    () => fixManual('m1', { id: 'manager-1', role: 'manager' }),
+    (err) => err.code === 'CONFLICT' && /追加\/削除/.test(err.message),
+  );
 });

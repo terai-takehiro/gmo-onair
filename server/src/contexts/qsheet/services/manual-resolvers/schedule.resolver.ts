@@ -6,10 +6,20 @@
  *
  * ── 共通ポリシー（resolver 全員が守る決めごと。呼び出し元＝ `GET /techops/manuals/:id/resolve` 側の実装） ──
  * resolve はサーバーの実行権限で読む。呼び出しユーザーが `qsheet` モジュール権限を個別に
- * 持っているかはここでは再チェックせず、`canAccessSchedule` も呼ばない——**冊子自体が
- * `canAccessManual` を通っていること**だけをゲートにする（一度差し込んだ情報は、冊子を
- * 見られる人になら見える、という設計判断）。この resolver は `resolve` 経由専用で、
- * 単体で外部公開しない。
+ * 持っているかはここでは再チェックしない——**冊子自体が `canAccessManual` を通っていること**
+ * だけをゲートにする（一度差し込んだ情報は、冊子を見られる人になら見える、という設計判断）。
+ * この resolver は `resolve` 経由専用で、単体で外部公開しない。
+ *
+ * ⚠️⚠️ 外部レビュー再指摘（P1）: ただし例外が1つある——`canAccessSchedule` だけは
+ * 呼ぶ（`sheet.resolver.ts` の `canAccessDoc` と同じ理由）。project 紐づけの表は
+ * `canAccessSchedule` も案件メンバー全員に自動で見えるため冊子側の可視性と一致するが、
+ * **program 紐づけの表は `canAccessSchedule` が作成者本人／個別共有／管理者にしか
+ * 許さない**（`qsheet_programs` 自体は「行単位の権限を持たない」ため誰でも新しい番組
+ * マニュアルを作れてしまう——`programs.routes.ts` 冒頭のコメント参照）。案件メンバー
+ * 自動可視ではなく創作者限定という**より狭い**表を、冊子の可視性（program 紐づけの
+ * 冊子も本来は作成者/管理者限定だが、program_id 自体は誰でも詐称できるため無力）
+ * だけをゲートにして読めてしまうと、他人の番組の表（項目・担当・メモ）を丸ごと
+ * 覗ける経路になる。
  *
  * ── どの `qsheet_schedules` 行を選ぶか（v1 の割り切り） ────────────────────────
  * 冊子は project_id/program_id は持つが「どの日のスケジュール表か」は持たない。
@@ -19,7 +29,9 @@
  * そこで、同じ project/program に複数のスケジュール表があるときは
  *   ① 冊子自身の予定日（`ctx.manualServiceDate`）と `service_date` が一致する表を優先
  *   ② 一致が無ければ、いちばん日付が早い表（`service_date ASC`。無ければ作成が早い順）
- * を1つ選ぶ。**表そのものが1つも無ければ `{ data: null, updatedAt: null }`**（存在チェックは
+ * の順で並べ、**`canAccessSchedule` を通る最初の1件**を選ぶ（呼び出し本人が読めない
+ * 表は候補から外れるだけで、他の候補があればそちらを試す）。**表そのものが1つも
+ * 無い/どれも読めなければ `{ data: null, updatedAt: null }`**（存在チェックは
  * `link-catalog` 側の役目でここではしない）。
  *
  * ── `schedule.loadInOut` の絞り込み（v1 の割り切り） ────────────────────────────
@@ -47,8 +59,9 @@
  *     }[];
  *   }
  */
-import { queryOne, type Row } from '../../../../shared/db/connection';
+import { queryAll, type Row } from '../../../../shared/db/connection';
 import { fmtHm } from '../../../../shared/schedule/time';
+import { canAccessSchedule } from '../../access';
 import { getScheduleWithMeta, getScheduleColumns, getScheduleItems } from '../schedule.service';
 import type { ManualResolverCtx, ManualResolverResult } from './project.resolver';
 
@@ -92,17 +105,25 @@ async function pickScheduleId(ctx: ManualResolverCtx): Promise<string | null> {
   const ownerId = ctx.projectId ?? ctx.programId;
   if (!ownerId) return null;
 
-  const row = (await queryOne(
-    `SELECT id FROM qsheet_schedules
+  // LIMIT 1 にはしない——先頭候補が canAccessSchedule を通らなければ次点を試す
+  // （レビュー指摘）。件数は「同じ案件/番組のスケジュール表」に限られ、実運用では
+  // 数件程度のため全件取得して JS 側で順に判定する。
+  const rows = (await queryAll(
+    `SELECT id, created_by FROM qsheet_schedules
       WHERE (project_id = $1 OR program_id = $1) AND deleted_at IS NULL
       ORDER BY
         (CASE WHEN $2::date IS NOT NULL AND service_date = $2::date THEN 0 ELSE 1 END) ASC,
         service_date ASC NULLS LAST,
-        created_at ASC
-      LIMIT 1`,
+        created_at ASC`,
     [ownerId, ctx.manualServiceDate],
-  )) as Row | undefined;
-  return row ? (row.id as string) : null;
+  )) as Row[];
+
+  for (const row of rows) {
+    const id = row.id as string;
+    const createdBy = (row.created_by as string | null) ?? null;
+    if (await canAccessSchedule(ctx.user, id, createdBy)) return id;
+  }
+  return null;
 }
 
 /** 選んだスケジュール表を `ScheduleDayData` の形に組み立てる（meta/columns/items は schedule.service.ts の組み合わせ。

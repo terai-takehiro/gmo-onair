@@ -30,6 +30,7 @@
  *     外部の方は `project_members` に電話の列が無いため出さない（キーごと省く）
  */
 import { queryOne, queryAll, type Row } from '../../../../shared/db/connection';
+import type { AccessUser } from '../../access';
 
 /** resolver 全員が受け取る引数の形（各 resolver ファイルが自己完結するようここに複製する。
  *  `schedule.service.ts` / `manual.service.ts` が `AccessUser` をそれぞれ複製しているのと同じ作法） */
@@ -45,6 +46,9 @@ export interface ManualResolverCtx {
   revealFields: string[];
   /** 冊子自身の予定日（`qsheet_manuals.service_date`、YYYY-MM-DD）。project 由来ではない */
   manualServiceDate: string | null;
+  /** 呼び出し本人。`schedule.resolver.ts` が `canAccessSchedule` の判定に使う（レビュー指摘）。
+   *  この2つの resolver では使わない */
+  user: AccessUser;
 }
 
 /** すべての resolver の戻り値。統一シグネチャ（production-manual.md §5-4） */
