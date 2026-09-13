@@ -7,7 +7,8 @@ import { requireAuth, requirePermission } from '../../../shared/middleware/auth'
 import { canAccessManual } from '../access';
 import { wrap, p1 } from './wrap';
 import { NotFoundError } from '../services/httpErrors';
-import { getManualRaw, addPage, updatePage, deletePage, reorderPages } from '../services/manual.service';
+import { getManualRaw, getManualPage, addPage, updatePage, deletePage, reorderPages } from '../services/manual.service';
+import { enforceRevealAuthorship } from '../services/manual-reveal-authorship.service';
 
 const router = Router();
 router.use(requireAuth, requirePermission('qsheet'));
@@ -18,25 +19,6 @@ async function requireAccessible(req: Request) {
   if (!(await canAccessManual(req.user!, raw.id as string, (raw.created_by as string) ?? null))) {
     throw new NotFoundError('冊子が見つかりません');
   }
-}
-
-/**
- * `link.reveal.by`（秘密（配信の鍵・WEB会議のパスコード）を紙に出したユーザー）は
- * §7-2 の安全策の1つ＝あとから誰でも辿れる監査証跡。`manual.service.ts` の `blocks` は
- * 「型はここでは検証しない — クライアントの契約を信じる」設計だが、`reveal.by` だけは
- * この契約の例外にする——ここで強制しないと、devtools でリクエストボディを書き換えて
- * 任意の他ユーザーIDを詐称でき、監査証跡が意味を持たなくなる（レビュー指摘）。
- * ブロックの残りの中身（形・座標・自由ブロックの content 等）は従来どおり検証しない。
- */
-function enforceRevealAuthorship(blocks: unknown[], userId: string): unknown[] {
-  return blocks.map((block) => {
-    if (!block || typeof block !== 'object') return block;
-    const b = block as Record<string, unknown>;
-    if (b.kind !== 'linked' || !b.link || typeof b.link !== 'object') return block;
-    const link = b.link as Record<string, unknown>;
-    if (!link.reveal || typeof link.reveal !== 'object') return block;
-    return { ...b, link: { ...link, reveal: { ...(link.reveal as Record<string, unknown>), by: userId } } };
-  });
 }
 
 router.post('/manuals/:id/pages', requirePermission('qsheet', 'editor'), wrap(async (req: Request, res: Response) => {
@@ -52,10 +34,18 @@ router.post('/manuals/:id/pages', requirePermission('qsheet', 'editor'), wrap(as
 router.put('/manuals/:id/pages/:pageId', requirePermission('qsheet', 'editor'), wrap(async (req: Request, res: Response) => {
   await requireAccessible(req);
   const b = req.body as Record<string, unknown>;
+  let blocksPatch: unknown[] | undefined;
+  if (Array.isArray(b.blocks)) {
+    // enforceRevealAuthorship（manual-reveal-authorship.service.ts）が「reveal の中身が
+    // 前回と同じか」を突き合わせるための保存直前の状態（レビュー指摘）
+    const existingPage = await getManualPage(p1(req.params.id), p1(req.params.pageId));
+    const existingBlocks = Array.isArray(existingPage?.blocks) ? (existingPage.blocks as unknown[]) : [];
+    blocksPatch = enforceRevealAuthorship(b.blocks, existingBlocks, req.user!.id);
+  }
   const row = await updatePage(p1(req.params.id), p1(req.params.pageId), req.user!.id, {
     title: typeof b.title === 'string' ? b.title : undefined,
     ...('chapter' in b ? { chapter: b.chapter as string | null } : {}),
-    blocks: Array.isArray(b.blocks) ? enforceRevealAuthorship(b.blocks, req.user!.id) : undefined,
+    blocks: blocksPatch,
     expectedUpdatedAt: b.expected_updated_at,
   });
   res.json({ success: true, data: row });

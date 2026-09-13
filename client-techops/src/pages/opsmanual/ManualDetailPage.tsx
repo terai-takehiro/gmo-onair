@@ -103,14 +103,18 @@ export default function ManualDetailPage() {
 
   const currentPage = manual?.pages.find((p) => p.id === selectedPageId);
 
-  // 紙面の自動保存が成功したら、キャッシュ側の該当ページも差し替える
-  // （invalidate はしない — 再取得すると自分がいま持っているローカルの編集途中を
-  // 巻き戻してしまう。次にこのページへ戻ってきたときのため updated_at/blocks だけ進める）。
+  // 紙面の自動保存が成功したら、キャッシュ側の該当ページも差し替える（"detail" は
+  // invalidate せず setQueryData で差し替える — 再取得するとローカルの編集途中を
+  // 巻き戻してしまうため）。⚠️ レビュー指摘: 差し込みブロックの追加・秘密の解除も
+  // ここを通るが "resolve"（別クエリ・staleTime 30秒）は触れておらず、新しいブロックが
+  // 「読み込み中…」のまま進まなかった。"resolve" は再取得してもローカル編集を
+  // 巻き戻さないので invalidate してよい。
   const handleBlocksSaved = useCallback((row: ManualPage) => {
     queryClient.setQueryData<ManualDetail | undefined>(["manuals", "detail", id], (prev) => {
       if (!prev) return prev;
       return { ...prev, pages: prev.pages.map((p) => (p.id === row.id ? { ...p, ...row } : p)) };
     });
+    queryClient.invalidateQueries({ queryKey: ["manuals", "resolve", id] });
   }, [queryClient, id]);
 
   const handleBlocksConflict = useCallback(() => { invalidate(); }, [invalidate]);

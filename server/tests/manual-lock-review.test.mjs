@@ -187,6 +187,59 @@ test('acquireManualLock: stale なロックは他人でも取れる', async () =
 });
 
 // ============================================================
+// 2b) releaseManualLock() の非アトミックな「JSで比較→UPDATE」
+//     （外部レビュー再指摘 P2）
+// ============================================================
+
+/** `execute()` の WHERE 句をそのまま評価する疑似 DB（`locked_by` の一致まで見る） */
+function makeReleaseDb(initial) {
+  const row = { ...initial };
+  return {
+    row,
+    queryAll: async () => [],
+    queryOne: async (sql) => (sql.includes('lock_requested_by') ? { ...row, locked_by_name: null } : undefined),
+    execute: async (sql, params = []) => {
+      if (sql.includes('SET locked_by = NULL')) {
+        // ⚠️ レビュー指摘: 以前は `WHERE id = ?` だけで `locked_by` を条件に含めて
+        // いなかった——ここでその条件を実際に評価することで、含めていない実装に
+        // 戻ったら（=常にロックを消してしまったら）テストが検出する。
+        assert.equal(sql.includes('locked_by = ?'), true, 'release の UPDATE 自体に locked_by の一致条件が無い（退行）');
+        const [manualId, userId] = params;
+        if (manualId === row.id && row.locked_by === userId) {
+          row.locked_by = null;
+          row.locked_at = null;
+        }
+      }
+    },
+    withTransaction: async (fn) => fn({ execute: async () => {}, queryOne: async () => undefined, queryAll: async () => [] }),
+  };
+}
+
+test('releaseManualLock: 直前に他人（manager の takeover）へ移っていたら、その新しいロックを消さない', async () => {
+  // 「JSで比較→UPDATE」の2段だったころの再現: 呼び出し時点では自分が保持者だったが、
+  // takeover が先に割り込んで保持者が変わった状態を渡す（=いま現在の DB の状態）。
+  const db = makeReleaseDb({ id: 'm1', locked_by: 'manager-1', locked_at: new Date().toISOString() });
+  const { releaseManualLock } = await loadTs('server/src/contexts/qsheet/services/manual.service.ts', baseDeps({
+    '../../../shared/db/connection': db,
+  }));
+
+  const result = await releaseManualLock('m1', 'me'); // 自分（me）はもう保持者ではない
+
+  assert.equal(result.locked_by, 'manager-1', 'takeover 後の新しいロックが残る');
+});
+
+test('releaseManualLock: 自分が保持者のときは放せる', async () => {
+  const db = makeReleaseDb({ id: 'm1', locked_by: 'me', locked_at: new Date().toISOString() });
+  const { releaseManualLock } = await loadTs('server/src/contexts/qsheet/services/manual.service.ts', baseDeps({
+    '../../../shared/db/connection': db,
+  }));
+
+  const result = await releaseManualLock('m1', 'me');
+
+  assert.equal(result.locked_by, null);
+});
+
+// ============================================================
 // 3) fixManual() が解決待ちの間に着地した編集を無音で上書きする
 // ============================================================
 
@@ -209,7 +262,10 @@ function makeFixDb({ manual, page }) {
     },
     queryOne: async (sql) => {
       if (sql.includes('FROM qsheet_manuals WHERE id')) {
-        return { id: state.manual.id, status: state.manual.status, project_id: state.manual.project_id, program_id: state.manual.program_id, service_date: null };
+        return {
+          id: state.manual.id, status: state.manual.status, project_id: state.manual.project_id,
+          program_id: state.manual.program_id, service_date: null, updated_at: state.manual.updated_at,
+        };
       }
       if (sql.includes('FROM qsheet_manuals m')) {
         // fixManual() 最後の getManualWithMeta()（SELECT_BASE）。中身はこのテストでは見ない
@@ -220,13 +276,15 @@ function makeFixDb({ manual, page }) {
     execute: async () => {},
     withTransaction: async (fn) => {
       const pendingPages = new Map();
-      let pendingStatus = false;
+      let pendingManualFixed = false;
       const tx = {
         // fixManual() は「SELECT→JS比較→UPDATE」の2段ではなく、比較を WHERE 句に畳み込んだ
         // 1文の条件付き UPDATE（RETURNING id）を1回だけ投げる（acquireManualLock と同じ CAS）。
         // ここでその WHERE 句と同じ判定を行い、一致するときだけ実際に反映して行を返す。
         // 不一致（＝競合）のときは undefined を返し、fixManual 側の後続 SELECT（フォールバック）
         // が「いまの updated_at」を返せるよう state.page.updated_at をそのまま見せる。
+        // ページ側だけでなく冊子行そのもの（外部レビュー再指摘: service_date 等の
+        // メタデータ変更もfixの巻き添え検出対象）も同じ CAS 形で判定する。
         queryOne: async (sql, params = []) => {
           if (sql.includes('UPDATE qsheet_manual_pages') && sql.includes('SET blocks') && sql.includes('RETURNING')) {
             const [blocksJson, pageId, expectedUpdatedAt] = params;
@@ -236,20 +294,28 @@ function makeFixDb({ manual, page }) {
             pendingPages.set(pageId, blocksJson);
             return { id: pageId };
           }
+          if (sql.includes("UPDATE qsheet_manuals") && sql.includes("SET status = 'fixed'") && sql.includes('RETURNING')) {
+            const [, , , manualId, expectedUpdatedAt] = params;
+            const matches = manualId === state.manual.id
+              && new Date(expectedUpdatedAt).getTime() === new Date(state.manual.updated_at).getTime();
+            if (!matches) return undefined;
+            pendingManualFixed = true;
+            return { id: manualId };
+          }
           if (sql.startsWith('SELECT updated_at FROM qsheet_manual_pages')) {
             return { updated_at: state.page.updated_at };
           }
+          if (sql.startsWith('SELECT updated_at FROM qsheet_manuals')) {
+            return { updated_at: state.manual.updated_at };
+          }
           return undefined;
         },
-        execute: async (sql) => {
-          if (sql.includes("SET status = 'fixed'")) {
-            pendingStatus = true;
-          }
-        },
+        execute: async () => {},
         queryAll: async () => [],
       };
       // fn(tx) が throw したら、ここから下（pending の反映）を実行せずそのまま
-      // 呼び出し元へ伝播する ＝ ROLLBACK 相当（pendingPages / pendingStatus は state に反映しない）。
+      // 呼び出し元へ伝播する ＝ ROLLBACK 相当（pendingPages / pendingManualFixed は state に
+      // 反映しない）。
       const result = await fn(tx);
       for (const [pageId, blocksJson] of pendingPages) {
         if (pageId === state.page.id) {
@@ -257,7 +323,7 @@ function makeFixDb({ manual, page }) {
           state.page.updated_at = '2026-09-01T10:00:10.000Z';
         }
       }
-      if (pendingStatus) state.manual.status = 'fixed';
+      if (pendingManualFixed) state.manual.status = 'fixed';
       return result;
     },
   };
@@ -265,7 +331,7 @@ function makeFixDb({ manual, page }) {
 
 test('fixManual: 解決の待ち時間中に着地した編集は消さず、確定処理をロールバックする', async () => {
   const db = makeFixDb({
-    manual: { id: 'm1', status: 'draft', project_id: 'p1', program_id: null },
+    manual: { id: 'm1', status: 'draft', project_id: 'p1', program_id: null, updated_at: '2026-09-01T09:00:00.000Z' },
     page: { id: 'page-1', blocks: [linkedBlock('blk-1')], updated_at: '2026-09-01T10:00:00.000Z' },
   });
 
@@ -294,7 +360,7 @@ test('fixManual: 解決の待ち時間中に着地した編集は消さず、確
 
 test('fixManual: 何も競合しなければ差し込みブロックを凍らせて fixed にする', async () => {
   const db = makeFixDb({
-    manual: { id: 'm1', status: 'draft', project_id: 'p1', program_id: null },
+    manual: { id: 'm1', status: 'draft', project_id: 'p1', program_id: null, updated_at: '2026-09-01T09:00:00.000Z' },
     page: { id: 'page-1', blocks: [linkedBlock('blk-1')], updated_at: '2026-09-01T10:00:00.000Z' },
   });
 

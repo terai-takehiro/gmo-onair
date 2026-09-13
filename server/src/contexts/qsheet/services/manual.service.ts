@@ -93,6 +93,16 @@ export async function getManualPages(manualId: string): Promise<Row[]> {
   );
 }
 
+/** ページ1件だけ（`manual-pages.routes.ts` の `enforceRevealAuthorship` が保存前の
+ *  既存 blocks と突き合わせるために使う） */
+export async function getManualPage(manualId: string, pageId: string): Promise<Row | undefined> {
+  return queryOne(
+    `SELECT id, manual_id, sort_order, chapter, title, blocks, created_at, updated_at
+     FROM qsheet_manual_pages WHERE id = $1 AND manual_id = $2`,
+    [pageId, manualId],
+  );
+}
+
 /** 編集ロック・確定状態の判定に要る列だけを持つ行（名前も一緒に引く） */
 async function getManualLockRow(manualId: string): Promise<Row | undefined> {
   return queryOne(
@@ -237,6 +247,8 @@ export async function updateManual(id: string, userId: string, input: UpdateManu
   );
   if (!existing) throw new NotFoundError('冊子が見つかりません');
   assertEditable(existing, userId);
+  // ⚠️ 事前の検査だけでは TOCTOU を防げない（`updatePage` と同じ理由）——下の UPDATE
+  // 自体にも同じ比較を畳み込む。
   checkOptimisticLock(
     input.expectedUpdatedAt,
     { updated_at: existing.updated_at, updated_by: existing.updated_by, updater_name: existing.updater_name },
@@ -249,7 +261,30 @@ export async function updateManual(id: string, userId: string, input: UpdateManu
   if (typeof input.title === 'string') { sets.push('title = ?'); params.push(input.title.slice(0, MAX_TITLE)); }
   if ('serviceDate' in input) { sets.push('service_date = ?'); params.push(sanitizeServiceDate(input.serviceDate)); }
 
-  await execute(`UPDATE qsheet_manuals SET ${sets.join(', ')} WHERE id = ?`, [...params, id]);
+  const hasExpected = typeof input.expectedUpdatedAt === 'string' && !!input.expectedUpdatedAt;
+  let updateSql = `UPDATE qsheet_manuals SET ${sets.join(', ')} WHERE id = ?`;
+  const updateParams: unknown[] = [...params, id];
+  if (hasExpected) {
+    updateSql += ` AND date_trunc('milliseconds', updated_at) = date_trunc('milliseconds', ?::timestamptz)`;
+    updateParams.push(input.expectedUpdatedAt);
+  }
+  const updated = await queryOne(`${updateSql} RETURNING id`, updateParams);
+  if (!updated) {
+    const fresh = await queryOne(
+      `SELECT m.updated_at, m.updated_by, u.name AS updater_name
+       FROM qsheet_manuals m LEFT JOIN users u ON m.updated_by = u.id
+       WHERE m.id = $1 AND m.deleted_at IS NULL`,
+      [id],
+    );
+    if (!fresh) throw new NotFoundError('冊子が見つかりません');
+    checkOptimisticLock(
+      input.expectedUpdatedAt,
+      { updated_at: fresh.updated_at, updated_by: fresh.updated_by, updater_name: fresh.updater_name },
+      userId,
+      'この冊子',
+    );
+    throw new ConflictError('この冊子はほかの人が先に更新しました。', fresh.updated_at as string, (fresh.updater_name as string) ?? null);
+  }
   const row = await getManualWithMeta(id);
   if (!row) throw new Error('updateManual: UPDATE 直後の SELECT が空でした');
   return row;
@@ -319,6 +354,8 @@ export async function updatePage(manualId: string, pageId: string, userId: strin
     [pageId, manualId],
   );
   if (!existing) throw new NotFoundError('ページが見つかりません');
+  // 事前の検査（速い失敗・分かりやすいメッセージ）。⚠️ これだけでは TOCTOU を防げない——
+  // 下の UPDATE 自体にも同じ比較を畳み込む必要がある（次のコメント参照・レビュー指摘）。
   checkOptimisticLock(
     input.expectedUpdatedAt,
     { updated_at: existing.updated_at, updated_by: existing.updated_by, updater_name: existing.updater_name },
@@ -339,7 +376,38 @@ export async function updatePage(manualId: string, pageId: string, userId: strin
     params.push(serialized);
   }
 
-  await execute(`UPDATE qsheet_manual_pages SET ${sets.join(', ')} WHERE id = ?`, [...params, pageId]);
+  // ⚠️ レビュー指摘（P1）: 上の checkOptimisticLock は「読む→JSで比較」だけで、その直後の
+  // UPDATE には条件が無かった——ロックは利用者単位（同じ人の2つのタブは両方
+  // assertEditable を通る）なので、同じ人の2つのタブがほぼ同時に保存すると両方が同じ
+  // updated_at を読んで両方チェックを通過し、後着の無条件 UPDATE が先着を無音上書き
+  // できてしまう。比較を UPDATE 自身の WHERE 句にも畳み込む（`fixManual`/
+  // `acquireManualLock` と同じ考え方。`date_trunc('milliseconds', ...)` は pg の
+  // マイクロ秒切り捨てによる誤検出を避けるため）。expected が無効/省略なら従来どおり
+  // 検査なし（`checkOptimisticLock` と同じ契約）。
+  const hasExpected = typeof input.expectedUpdatedAt === 'string' && !!input.expectedUpdatedAt;
+  let updateSql = `UPDATE qsheet_manual_pages SET ${sets.join(', ')} WHERE id = ?`;
+  const updateParams: unknown[] = [...params, pageId];
+  if (hasExpected) {
+    updateSql += ` AND date_trunc('milliseconds', updated_at) = date_trunc('milliseconds', ?::timestamptz)`;
+    updateParams.push(input.expectedUpdatedAt);
+  }
+  const updated = await queryOne(`${updateSql} RETURNING id`, updateParams);
+  if (!updated) {
+    const fresh = await queryOne(
+      `SELECT p.updated_at, p.updated_by, u.name AS updater_name
+       FROM qsheet_manual_pages p LEFT JOIN users u ON p.updated_by = u.id
+       WHERE p.id = $1`,
+      [pageId],
+    );
+    if (!fresh) throw new NotFoundError('ページが見つかりません');
+    checkOptimisticLock(
+      input.expectedUpdatedAt,
+      { updated_at: fresh.updated_at, updated_by: fresh.updated_by, updater_name: fresh.updater_name },
+      userId,
+      'このページ',
+    ); // 実際の食い違いを報告する
+    throw new ConflictError('このページはほかの人が先に更新しました。', fresh.updated_at as string, (fresh.updater_name as string) ?? null);
+  }
   const row = await queryOne('SELECT id, manual_id, sort_order, chapter, title, blocks, created_at, updated_at FROM qsheet_manual_pages WHERE id = $1', [pageId]);
   if (!row) throw new Error('updatePage: UPDATE 直後の SELECT が空でした');
   return row;
@@ -455,9 +523,12 @@ export async function releaseManualLock(manualId: string, userId: string): Promi
   const existing = await getManualLockRow(manualId);
   if (!existing) throw new NotFoundError('冊子が見つかりません');
 
-  if (existing.locked_by === userId) {
-    await execute('UPDATE qsheet_manuals SET locked_by = NULL, locked_at = NULL WHERE id = ?', [manualId]);
-  }
+  // ⚠️ レビュー指摘（P2）: 「JSで比較→UPDATE」の2段だと、比較の直後に manager が
+  // takeover でロックを奪うと、この UPDATE（従来は WHERE id のみ）がその新しいロックまで
+  // 消してしまい、引き継いだはずが即座に誰でも編集できる状態に戻ってしまう。
+  // 条件を UPDATE 自身の WHERE 句（`locked_by = ?`）に畳み込み、「いま自分が保持者の
+  // ときだけ」を1文で保証する（`acquireManualLock` と同じ考え方）。
+  await execute('UPDATE qsheet_manuals SET locked_by = NULL, locked_at = NULL WHERE id = ? AND locked_by = ?', [manualId, userId]);
   const manual = await getManualLockRow(manualId);
   if (!manual) throw new Error('releaseManualLock: UPDATE 直後の SELECT が空でした');
   return manual;
@@ -528,7 +599,7 @@ interface LinkedBlockLike {
 export async function fixManual(manualId: string, user: AccessUser): Promise<Row> {
   const userId = user.id;
   const manual = await queryOne(
-    'SELECT id, status, project_id, program_id, service_date FROM qsheet_manuals WHERE id = $1 AND deleted_at IS NULL',
+    'SELECT id, status, project_id, program_id, service_date, updated_at FROM qsheet_manuals WHERE id = $1 AND deleted_at IS NULL',
     [manualId],
   );
   if (!manual) throw new NotFoundError('冊子が見つかりません');
@@ -539,6 +610,12 @@ export async function fixManual(manualId: string, user: AccessUser): Promise<Row
   const projectId = (manual.project_id as string | null) ?? null;
   const programId = (manual.program_id as string | null) ?? null;
   const manualServiceDate = (manual.service_date as string | null) ?? null;
+  // 手順①（下の resolve ループ）の開始時点のスナップショット。ページと同じ理由
+  // （レビュー指摘）で、確定直前にもう一度これと比較する——ロック保持者が service_date
+  // 等を編集してから確定が終わると、古い service_date で解決した中身と新しい表紙の
+  // 日付が食い違ったまま確定してしまうため（ページはどれも触っていないので、
+  // ページ単位のガードだけでは検出できない）。
+  const manualUpdatedAtSnapshot = manual.updated_at;
   const fixedAtIso = new Date().toISOString();
 
   const pages = await getManualPages(manualId);
@@ -615,12 +692,26 @@ export async function fixManual(manualId: string, user: AccessUser): Promise<Row
         );
       }
     }
-    await tx.execute(
+    // ⚠️⚠️ 外部レビュー再指摘（P1）: ページ側のガードはページの updated_at しか見ないため、
+    // ロック保持者が①のあいだに「ページに触れない」変更（service_date・題）を保存すると
+    // すり抜ける——古い service_date で解決した中身のまま確定してしまい、表紙の日付と
+    // 中身が食い違う。冊子行そのものにも同じ CAS ガードを掛ける。
+    const manualUpdated = await tx.queryOne(
       `UPDATE qsheet_manuals
        SET status = 'fixed', rev = rev + 1, fixed_at = ?, fixed_by = ?, updated_by = ?, updated_at = NOW()
-       WHERE id = ?`,
-      [fixedAtIso, userId, userId, manualId],
+       WHERE id = ?
+         AND date_trunc('milliseconds', updated_at) = date_trunc('milliseconds', ?::timestamptz)
+       RETURNING id`,
+      [fixedAtIso, userId, userId, manualId, manualUpdatedAtSnapshot],
     );
+    if (!manualUpdated) {
+      const fresh = await tx.queryOne('SELECT updated_at FROM qsheet_manuals WHERE id = ?', [manualId]);
+      throw new ConflictError(
+        'この冊子は確定の処理中に更新されました（題・予定日など）。もう一度確定をやり直してください。',
+        (fresh?.updated_at as string) ?? fixedAtIso,
+        null,
+      );
+    }
   });
 
   const row = await getManualWithMeta(manualId);
