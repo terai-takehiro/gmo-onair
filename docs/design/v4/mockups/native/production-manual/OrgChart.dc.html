@@ -70,7 +70,22 @@
           </button>
         </sc-for>
       </div>
-      <div style="margin: 2px 12px 0; border-radius: 10px; border: 1px solid #cfe4f4; background: #f4faff; padding: 10px 11px;">
+      <div style="margin: 2px 12px 0; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 10px 11px;">
+        <div style="font-size: 11.5px; font-weight: 800; margin-bottom: 6px;">置いた直後はこれだけ</div>
+        <div style="border: 1px solid #dfe3e8; border-radius: 4px; background: #ffffff; padding: 7px 8px;">
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px;">
+            <span style="font-size: 10px; color: #bcc2c9;">（段の名前を入れる）</span>
+            <span style="flex: 1; height: 1px; background: #eef0f3;"></span>
+            <span style="font-size: 9.5px; font-weight: 700; color: #005bac;">＋ 箱</span>
+          </div>
+          <div style="border: 1px dashed #dfe3e8; border-radius: 3px; padding: 6px; font-size: 9.5px; color: #bcc2c9;">まだ箱がありません</div>
+        </div>
+        <p style="margin: 6px 0 0; font-size: 10.5px; line-height: 1.5; color: #9aa1ab;">
+          既定の段（「統括」「決裁層」など）は<strong style="font-weight: 800;">持ちません</strong>。案件ごとに呼び方が違うため、名前は毎回その場で打ちます。
+        </p>
+      </div>
+
+      <div style="margin: 10px 12px 0; border-radius: 10px; border: 1px solid #cfe4f4; background: #f4faff; padding: 10px 11px;">
         <div style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 800; color: #005bac;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 16v-5"></path><path d="M12 8h.01"></path></svg>
           体制図は「差し込み」ではありません
@@ -130,7 +145,9 @@
                   <div style="flex: {{b.grow}}; min-width: 0; border: {{b.border}}; border-radius: 3px; background: #ffffff;">
                     <div style="display: flex; align-items: center; gap: 5px; border-bottom: 1px solid #e6e9ed; padding: 3px 6px;">
                       <span class="clip1" style="flex: 1; min-width: 0; font-size: 10px; font-weight: 800;">{{b.label}}</span>
-                      <span style="flex-shrink: 0; display: inline-flex; align-items: center; height: 13px; border-radius: 2px; border: {{b.tagBorder}}; color: {{b.tagFg}}; font-size: 8.5px; font-weight: 700; padding: 0 4px;">{{b.sideLabel}}</span>
+                      <sc-if value="{{b.hasOrg}}" hint-placeholder-val="{{ true }}">
+                        <span class="clip1" style="flex-shrink: 0; max-width: 62px; font-size: 8.5px; color: #9aa1ab;">{{b.org}}</span>
+                      </sc-if>
                     </div>
                     <div style="padding: 3px 6px 4px;">
                       <sc-for list="{{b.people}}" as="p" hint-placeholder-count="2">
@@ -225,18 +242,14 @@
           <p style="margin: 5px 0 0; font-size: 10.5px; line-height: 1.5; color: #9aa1ab;">上下のつながりだけを細い縦罫で示します（横の並びは「同じ段にある」ことで表す）。</p>
         </section>
 
-        <!-- 立場の見分け方 -->
+        <!-- 箱の所属 -->
         <section>
-          <div style="font-size: 11.5px; font-weight: 800; margin-bottom: 6px;">立場（枠の線で見分ける）</div>
-          <sc-for list="{{legend}}" as="l" hint-placeholder-count="4">
-            <div style="display: flex; align-items: center; gap: 8px; padding: 3px 0;">
-              <span style="width: 34px; height: 15px; flex-shrink: 0; border: {{l.border}}; border-radius: 2px;"></span>
-              <span style="font-size: 11.5px; font-weight: 700;">{{l.label}}</span>
-              <span style="flex: 1;"></span>
-              <span style="font-size: 10.5px; color: #9aa1ab;">{{l.note}}</span>
-            </div>
-          </sc-for>
-          <p style="margin: 5px 0 0; font-size: 10.5px; line-height: 1.5; color: #9aa1ab;">白黒で刷っても読めるよう、色ではなく<strong style="font-weight: 800;">線種</strong>で分けます。</p>
+          <div style="font-size: 11.5px; font-weight: 800; margin-bottom: 6px;">箱の所属</div>
+          <p style="margin: 0; font-size: 10.5px; line-height: 1.55; color: #9aa1ab;">
+            箱の見出しに小さく出る<strong style="font-weight: 800;">自由入力の文字</strong>です（「自社」「東都TV」など）。
+            立場の区分（自社・発注者・PM会社・業者）は持たず、<strong style="font-weight: 800;">枠線はどの箱も同じ</strong>。
+            社内／社外を見せたいときは、この文字か箱の名前で書き分けます。
+          </p>
         </section>
 
         <!-- 取り込み -->
@@ -260,10 +273,11 @@
   </div>
 
   <!-- ── 決めごとの帯 ──────────────────────────────────────── -->
-  <div style="display: flex; height: 38px; flex-shrink: 0; align-items: center; gap: 18px; border-top: 1px solid #e6e9ed; background: #ffffff; padding: 0 20px; font-size: 11px; color: #5d6470;">
-    <span><strong style="font-weight: 800; color: #1a1d24;">箱は枠線だけ</strong>（塗らない・紙のインク規律 §6-6）</span>
+  <div style="display: flex; height: 38px; flex-shrink: 0; align-items: center; gap: 16px; border-top: 1px solid #e6e9ed; background: #ffffff; padding: 0 20px; font-size: 11px; color: #5d6470;">
+    <span><strong style="font-weight: 800; color: #1a1d24;">置いた直後は空</strong>（既定の段を持たない・2026-09-13 の判断）</span>
+    <span><strong style="font-weight: 800; color: #1a1d24;">枠線はどの箱も同じ</strong>（立場の区分は持たず、所属は自由入力）</span>
     <span><strong style="font-weight: 800; color: #1a1d24;">空の箱を置ける</strong>（「照明 ── まだ決まっていません」）</span>
-    <span><strong style="font-weight: 800; color: #1a1d24;">線は CSS の縦罫</strong>（SVG で座標を計算しない ── 箱の高さは人数で変わる）</span>
+    <span><strong style="font-weight: 800; color: #1a1d24;">線は CSS の縦罫</strong>（SVG で座標を計算しない）</span>
     <span style="flex: 1;"></span>
     <span class="num" style="color: #9aa1ab;">production-manual-orgchart.md</span>
   </div>
@@ -279,68 +293,57 @@ class Component extends DCLogic {
   }
 
   tierDefs() {
+    // 段の名前も箱の所属も自由入力（既定のひな形は持たない・設計 §10-1/§10-2）
     return [
       { label: '統括', boxes: [
-        { label: '制作統括', side: 'internal', grow: 1, people: [
+        { label: '制作統括', org: '自社', grow: 1, people: [
           { name: '寺井 岳宏', role: 'プロデューサー', org: '自社', phone: '090-0000-0001', email: 'terai@example.jp', badge: '決裁' },
           { name: '川口 早苗', role: '演出', org: '自社', phone: '090-0000-0002', email: 'kawaguchi@example.jp', badge: '進行' },
         ] },
       ] },
       { label: '各パート', boxes: [
-        { label: '技術', side: 'internal', grow: 1, people: [
+        { label: '技術', org: '自社', grow: 1, people: [
           { name: '大野 健', role: 'TD', org: '自社', phone: '090-0000-0003', email: 'ono@example.jp' },
           { name: '佐藤 亮', role: 'カメラ', org: '自社', phone: '', email: '' },
         ] },
-        { label: '音声', side: 'internal', grow: 1, people: [
+        { label: '音声', org: '自社', grow: 1, people: [
           { name: '藤原 直', role: 'ミキサー', org: '自社', phone: '090-0000-0004', email: 'fujiwara@example.jp' },
         ] },
-        { label: 'テロップCG', side: 'internal', grow: 1, people: [
+        { label: 'テロップCG', org: '', grow: 1, people: [
           { name: '小島 亮', role: 'オペレーター', org: '自社', phone: '', email: '' },
         ] },
-        { label: '美術', side: 'vendor', grow: 1, people: [
+        { label: '美術', org: 'スタジオ美創', grow: 1, people: [
           { name: '林 美和', role: '装飾', org: 'スタジオ美創', phone: '090-0000-0006', email: '' },
         ] },
       ] },
       { label: '外部・応援', boxes: [
-        { label: '中継', side: 'vendor', grow: 1, people: [
+        { label: '中継', org: '東洋中継サービス', grow: 1, people: [
           { name: '三田 亘', role: '中継車', org: '東洋中継サービス', phone: '090-0000-0007', email: '' },
         ] },
-        { label: '照明', side: 'vendor', grow: 1, people: [] },
-        { label: '東都TV 編成', side: 'client', grow: 1.4, people: [
+        { label: '照明', org: '', grow: 1, people: [] },
+        { label: '編成', org: '東都TV', grow: 1.4, people: [
           { name: '宮下 圭', role: 'プロデューサー', org: '東都TV', phone: '090-0000-0008', email: 'miyashita@example.jp' },
         ] },
       ] },
     ];
   }
 
-  // 立場ごとの枠。**色ではなく線種**で分ける（白黒で刷っても読める）
-  sideStyle() {
-    return {
-      internal: { label: '自社',   border: '1px solid #005bac',  tagFg: '#005bac', note: '実線・細' },
-      client:   { label: '発注者', border: '2px solid #1a1d24',  tagFg: '#1a1d24', note: '実線・太' },
-      pm:       { label: 'PM会社', border: '1px dashed #5d6470', tagFg: '#5d6470', note: '破線' },
-      vendor:   { label: '業者',   border: '1px dotted #9aa1ab', tagFg: '#5d6470', note: '点線' },
-    };
-  }
-
   renderVals() {
     const self = this;
     const st = this.state;
-    const sides = this.sideStyle();
 
     const tiers = this.tierDefs().map((t, i) => ({
       label: t.label,
       count: t.boxes.reduce((n, b) => n + b.people.length, 0),
       showLine: i > 0 && st.line,
       boxes: t.boxes.map((b) => {
-        const s = sides[b.side];
         return {
           label: b.label,
           grow: b.grow,
-          border: s.border,
-          sideLabel: s.label,
-          tagBorder: '1px solid ' + s.tagFg,
-          tagFg: s.tagFg,
+          // 枠線はどの箱も同じ（立場による描き分けはしない・設計 §10-2）
+          border: '1px solid #1a1d24',
+          org: b.org,
+          hasOrg: !!b.org,
           isEmpty: b.people.length === 0,
           people: b.people.map((p) => {
             const sub = [st.role ? p.role : '', st.org ? p.org : '', st.email ? p.email : '']
@@ -396,12 +399,8 @@ class Component extends DCLogic {
       };
     });
 
-    const legend = ['internal', 'client', 'pm', 'vendor'].map((k) => ({
-      label: sides[k].label, border: sides[k].border, note: sides[k].note,
-    }));
-
     return {
-      tiers, tools, tierRows, fields, legend,
+      tiers, tools, tierRows, fields,
       line: {
         bg: st.line ? '#005bac' : '#cfd4da',
         knob: st.line ? '18px' : '2px',
