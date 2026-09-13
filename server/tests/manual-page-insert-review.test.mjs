@@ -109,3 +109,63 @@ test('addPage: 冊子が見つからなければ NotFoundError（削除済み等
   await assert.rejects(() => addPage('m1', 'me', { title: 'x' }), (err) => err.code === 'NOT_FOUND');
   assert.equal(inserted.length, 0);
 });
+
+// ============================================================
+// reorderPages() も同じ形のTOCTOU: 冒頭のassertEditableは事前チェックに過ぎず、
+// その直後・トランザクション実行前にfixManual()が確定を終えても、並べ替えの
+// UPDATE群は無条件のまま確定済みの冊子に対して実行されていた（外部レビュー再指摘・P1）。
+// ============================================================
+
+/** `preCheckManual` は冒頭の（トランザクション外の）事前チェック用、`lockedManual` は
+ *  トランザクション内でFOR UPDATE取得後に読み直したときの状態。 */
+function loadForReorder({ preCheckManual = lockRow(), lockedManual = lockRow(), existingIds = ['page-1', 'page-2'] } = {}) {
+  const forUpdateCalls = [];
+  const updated = [];
+  return loadTs('server/src/contexts/qsheet/services/manual.service.ts', baseDeps({
+    '../../../shared/db/connection': {
+      queryAll: async (sql) => (sql.includes('SELECT id FROM qsheet_manual_pages')
+        ? existingIds.map((id) => ({ id }))
+        : []),
+      queryOne: async (sql) => (sql.includes('lock_requested_by') ? preCheckManual : undefined),
+      execute: async () => {},
+      withTransaction: async (fn) => fn({
+        queryOne: async (sql, params = []) => {
+          if (sql.includes('lock_requested_by')) {
+            forUpdateCalls.push(params);
+            return lockedManual;
+          }
+          return undefined;
+        },
+        queryAll: async () => [],
+        execute: async (sql, params = []) => {
+          if (sql.startsWith('UPDATE qsheet_manual_pages')) {
+            assert.equal(forUpdateCalls.length, 1, 'ページのUPDATEの前に冊子行をFOR UPDATEでロックし、editableを判定すること');
+            updated.push(params);
+          }
+        },
+      }),
+    },
+  })).then((mod) => ({ ...mod, forUpdateCalls, updated }));
+}
+
+test('reorderPages: 冊子行をFOR UPDATEでロックしてから編集可否を判定し、並べ替える', async () => {
+  const { reorderPages, forUpdateCalls, updated } = await loadForReorder();
+
+  await reorderPages('m1', 'me', [{ id: 'page-1', sort_order: 1 }, { id: 'page-2', sort_order: 0 }]);
+
+  assert.deepEqual(forUpdateCalls[0], ['m1']);
+  assert.equal(updated.length, 2);
+});
+
+test('reorderPages: 事前チェックの直後にfixManual()が確定を終えていたら、並べ替えを実行しない（外部レビュー再指摘・P1）', async () => {
+  const { reorderPages, updated } = await loadForReorder({
+    preCheckManual: lockRow({ status: 'draft' }), // 事前チェックの時点ではまだ下書き
+    lockedManual: lockRow({ status: 'fixed' }), // FOR UPDATE取得後に読み直すと、もう確定済み
+  });
+
+  await assert.rejects(
+    () => reorderPages('m1', 'me', [{ id: 'page-1', sort_order: 1 }, { id: 'page-2', sort_order: 0 }]),
+    (err) => err.code === 'BAD_REQUEST',
+  );
+  assert.equal(updated.length, 0, '確定済みになっていたらUPDATEを実行しない');
+});

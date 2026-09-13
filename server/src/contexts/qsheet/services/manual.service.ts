@@ -570,7 +570,17 @@ export async function reorderPages(manualId: string, userId: string, order: Reor
   );
   const existingIds = new Set(existing.map((r) => r.id as string));
 
+  // ⚠️⚠️ 外部レビュー再指摘（P1）: 冒頭の assertEditable は事前チェックに過ぎず、
+  // その直後・このトランザクション実行前に管理者が確定を終えると、ここの
+  // UPDATE群は無条件のまま確定済みの冊子に対して実行されてしまう——印刷は
+  // 生の sort_order で並べるため、すでに配布済みの rev.N の並びが無音で変わりうる。
+  // `addPage()`/`fixManual()` と同じ冊子行ロック（`FOR UPDATE OF m`）を取り合って
+  // から改めて editable を判定する。
   await withTransaction(async (tx) => {
+    const locked = await getManualLockRowForUpdate(tx, manualId);
+    if (!locked) throw new NotFoundError('冊子が見つかりません');
+    assertEditable(locked, userId);
+
     for (const e of order) {
       if (!existingIds.has(e.id)) continue; // 他人が消したページは静かに無視
       await tx.execute('UPDATE qsheet_manual_pages SET sort_order = ?, updated_at = NOW() WHERE id = ?', [e.sort_order, e.id]);
@@ -604,10 +614,18 @@ export async function acquireManualLock(manualId: string, userId: string): Promi
   // 返す事故になる・レビュー指摘）。条件を WHERE 句に入れた1文の UPDATE にし、
   // 行ロックそのものに排他を保証させる（`security-card.service.ts` の
   // `returnCard()` と同じ形）。'10 minutes' は `LOCK_STALE_MS` と必ず一致させる。
+  //
+  // ⚠️⚠️ 外部レビュー再指摘（P1）: `status != 'fixed'` が抜けていた——`fixManual()`は
+  // `locked_by`を変えないため、編集画面を開いたままの保持者の60秒ハートビート
+  // （このUPDATE自身）が確定後もずっと`acquired:true`を返し続け、クライアントは
+  // 読み取り専用に切り替わらないまま、次の保存が汎用の400で失敗するだけだった
+  // （画面を再読込するまで「確定された」と気づけない）。ここで`status != 'fixed'`
+  // を弾けば、次のハートビートで`acquired:false`が返り、`held`がfalseになって
+  // `editable`（`lockEnabled && held`）が自動でfalseに落ちる。
   const acquired = await queryOne(
     `UPDATE qsheet_manuals
      SET locked_by = ?, locked_at = NOW(), lock_requested_by = NULL, lock_requested_at = NULL
-     WHERE id = ? AND deleted_at IS NULL
+     WHERE id = ? AND deleted_at IS NULL AND status != 'fixed'
        AND (locked_by IS NULL OR locked_by = ? OR locked_at < NOW() - INTERVAL '10 minutes')
      RETURNING id`,
     [userId, manualId, userId],

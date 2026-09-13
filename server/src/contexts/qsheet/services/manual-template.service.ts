@@ -14,7 +14,7 @@
 import { v4 as uuid } from 'uuid';
 import { queryAll, queryOne, execute, type Row } from '../../../shared/db/connection';
 import { NotFoundError, ValidationError } from './httpErrors';
-import { canAccessManual, type AccessUser } from '../access';
+import { canAccessManual, canAccessDoc, type AccessUser } from '../access';
 
 const MAX_NAME = 200;
 const MAX_PAGE_TITLE = 200;
@@ -73,8 +73,15 @@ interface ReissueOwner {
  * 紙面に残ってしまう。複製先の案件/番組にまだ属している資料かを確認し、属していなければ
  * `sourceId: null` に戻す（`link-catalog`/`InsertPanel` から選び直せる状態にする——
  * §4-3「押すと空になる項目を作らない」と同じ考え方で、壊れたままより「未設定」の方がよい）。
+ *
+ * ⚠️⚠️ 外部レビュー再指摘（2回目・P2）: 上の確認は「資料が複製先の案件/番組に属して
+ * いるか」だけで、`sheet.resolver.ts`が課している**資料自体のアクセス制御**
+ * （`canAccessDoc`: 作成者本人/個別共有/管理者）を素通りしていた。同じ案件/番組であっても、
+ * ひな形を適用する本人がその資料の作成者でも共有先でもなければ`resolveAccessibleDoc`は
+ * `access_denied`を返す——所有者が一致するというだけでは、適用した本人が読めるとは
+ * 限らない。`canAccessDoc`も合わせて判定し、通らなければ同じく`sourceId: null`に戻す。
  */
-async function reissueBlock(raw: unknown, owner: ReissueOwner): Promise<unknown> {
+async function reissueBlock(raw: unknown, owner: ReissueOwner, user: AccessUser): Promise<unknown> {
   if (!raw || typeof raw !== 'object') return raw;
   const block = raw as Record<string, unknown>;
   const next: Record<string, unknown> = { ...block, id: uuid() };
@@ -83,23 +90,24 @@ async function reissueBlock(raw: unknown, owner: ReissueOwner): Promise<unknown>
     link.frozen = null;
     delete link.reveal;
     if (typeof link.block === 'string' && link.block.startsWith('sheet.') && typeof link.sourceId === 'string') {
-      let sql = 'SELECT 1 FROM qsheet_documents WHERE id = $1 AND deleted_at IS NULL';
+      let sql = 'SELECT created_by FROM qsheet_documents WHERE id = $1 AND deleted_at IS NULL';
       const params: unknown[] = [link.sourceId];
       if (owner.projectId) { sql += ' AND project_id = $2'; params.push(owner.projectId); }
       else if (owner.programId) { sql += ' AND program_id = $2'; params.push(owner.programId); }
       else { sql += ' AND FALSE'; }
-      const stillValid = await queryOne(sql, params);
-      if (!stillValid) link.sourceId = null;
+      const doc = await queryOne(sql, params);
+      const accessible = doc ? await canAccessDoc(user, link.sourceId, (doc.created_by as string) ?? null) : false;
+      if (!accessible) link.sourceId = null;
     }
     next.link = link;
   }
   return next;
 }
 
-async function reissuePages(seeds: NewManualPageSeed[], owner: ReissueOwner): Promise<NewManualPageSeed[]> {
+async function reissuePages(seeds: NewManualPageSeed[], owner: ReissueOwner, user: AccessUser): Promise<NewManualPageSeed[]> {
   if (seeds.length === 0) return [{ chapter: null, title: '', blocks: [] }];
   return Promise.all(seeds.map(async (p) => {
-    const blocks = await Promise.all(p.blocks.map((b) => reissueBlock(b, owner)));
+    const blocks = await Promise.all(p.blocks.map((b) => reissueBlock(b, owner, user)));
     if (JSON.stringify(blocks).length > MAX_BLOCKS_JSON_LENGTH) {
       throw new ValidationError('紙面の中身が大きすぎます');
     }
@@ -141,7 +149,7 @@ export async function buildPagesForNewManual(input: BuildPagesInput): Promise<Ne
     );
     if (!tpl) throw new NotFoundError('ひな形が見つかりません');
     const pages = Array.isArray(tpl.pages) ? (tpl.pages as Row[]) : [];
-    return reissuePages(pages.map(toSeed), owner);
+    return reissuePages(pages.map(toSeed), owner, input.user);
   }
 
   if (input.copyFromManualId) {
@@ -163,7 +171,7 @@ export async function buildPagesForNewManual(input: BuildPagesInput): Promise<Ne
       'SELECT chapter, title, blocks FROM qsheet_manual_pages WHERE manual_id = $1 ORDER BY sort_order',
       [input.copyFromManualId],
     );
-    return reissuePages(pages.map(toSeed), owner);
+    return reissuePages(pages.map(toSeed), owner, input.user);
   }
 
   return [{ chapter: null, title: '', blocks: [] }];

@@ -69,7 +69,14 @@ export default function ManualDetailPage() {
   const canManage = hasPermission("qsheet", "manager");
   const isFixed = manual?.status === "fixed";
   const lockEnabled = !!manual && canEdit && !isFixed;
-  const lock = useManualEditLock(id, currentUser?.id, lockEnabled);
+  const invalidate = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: ["manuals", "detail", id] }),
+    [queryClient, id],
+  );
+  // `onFixed`: 保持者がハートビートで初めて確定に気づいたとき（外部レビュー再指摘・
+  // P1）に呼ぶ——冊子の詳細を引き直してstatus='fixed'を画面に反映する
+  // （`lockEnabled`/`isFixed`は次のレンダーで自動的に読み取り専用側へ倒れる）。
+  const lock = useManualEditLock(id, currentUser?.id, lockEnabled, invalidate);
   // 実際に書き込んでよいか。この1つの値だけを見て、紙面・ページ操作・題の編集を
   // まとめて読み取り専用に切り替える（`guardedCommitBlocks`・`<fieldset disabled>`・
   // 題の `disabled` の3か所がこれを参照する）。
@@ -84,11 +91,6 @@ export default function ManualDetailPage() {
     staleTime: 30_000,
   });
   const resolveResults = resolveQuery.data;
-
-  const invalidate = useCallback(
-    () => queryClient.invalidateQueries({ queryKey: ["manuals", "detail", id] }),
-    [queryClient, id],
-  );
 
   // 選択中ページが無い・削除された・冊子を開いた直後は先頭ページを選ぶ
   useEffect(() => {
