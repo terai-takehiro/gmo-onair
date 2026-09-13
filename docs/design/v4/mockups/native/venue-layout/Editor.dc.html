@@ -25,8 +25,6 @@
     .ln { fill: none; stroke: currentColor; stroke-width: 26; stroke-linecap: round; stroke-linejoin: round; }
     .dash { fill: none; stroke: currentColor; stroke-width: 15; stroke-dasharray: 120 80; }
     .soft { fill: currentColor; fill-opacity: .04; stroke: currentColor; stroke-width: 10; stroke-opacity: .5; }
-    .itm { cursor: pointer; color: #1a1d24; }
-    .itm:hover { color: #005bac; }
       .band > * { white-space: nowrap; flex-shrink: 0; }
   </style>
 </helmet>
@@ -141,13 +139,11 @@
               <button class="tap" onClick="{{pg.pick}}" style="height: 27px; border-radius: 8px; border: 1px solid {{pg.border}}; background: {{pg.bg}}; color: {{pg.fg}}; padding: 0 9px; font-size: 11.5px; font-weight: 700;">{{pg.label}}</button>
             </sc-for>
           </div>
-          <div style="margin-top: 10px; flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 4px;">
+          <div style="margin-top: 10px; flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; padding-right: 2px;">
             <sc-for list="{{place.items}}" as="p" hint-placeholder-count="19">
-              <button class="tap card" onClick="{{p.pick}}" style="display: flex; align-items: center; gap: 6px; height: 34px; flex-shrink: 0; border-radius: 8px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 8px;" title="{{p.hint}}">
-                <span class="clip1" style="flex: 1; min-width: 0; font-size: 11.5px; font-weight: 700;">{{p.name}}</span>
-                <span class="num" style="font-size: 10.5px; color: #5d6470; white-space: nowrap;">{{p.size}}</span>
-                <sc-if value="{{p.est}}" hint-placeholder-val="{{ false }}"><span style="font-size: 9px; font-weight: 800; color: #c2410e; border: 1px solid #f0c9b4; border-radius: 4px; padding: 0 3px; line-height: 13px; white-space: nowrap;" title="寸法は推定（メーカー寸法図で確定）">推定</span></sc-if>
-                <span class="num" style="width: 42px; text-align: right; font-size: 10.5px; font-weight: 700; color: {{p.countFg}}; white-space: nowrap;">{{p.count}}</span>
+              <button class="tap card" onClick="{{p.pick}}" style="display: flex; flex-direction: column; justify-content: center; gap: 2px; height: 42px; flex-shrink: 0; border-radius: 8px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 9px;" title="{{p.hint}}">
+                <span style="display: flex; align-items: center; gap: 6px; width: 100%;"><span class="clip1" style="flex: 1; min-width: 0; font-size: 12px; font-weight: 700;">{{p.name}}</span><span class="num" style="font-size: 10.5px; font-weight: 700; color: {{p.countFg}}; white-space: nowrap;">{{p.count}}</span></span>
+                <span style="display: flex; align-items: center; gap: 6px; width: 100%;"><span class="num" style="font-size: 10.5px; color: #5d6470; white-space: nowrap;">{{p.size}}</span><sc-if value="{{p.est}}" hint-placeholder-val="{{ false }}"><span style="font-size: 9px; font-weight: 800; color: #c2410e; border: 1px solid #f0c9b4; border-radius: 4px; padding: 0 3px; line-height: 13px; white-space: nowrap;" title="寸法は推定（メーカー寸法図で確定）">寸法は推定</span></sc-if></span>
               </button>
             </sc-for>
           </div>
@@ -167,10 +163,9 @@
           <div style="margin-top: 10px; font-size: 11px; font-weight: 800; color: #5d6470;">品目</div>
           <div style="margin-top: 5px; display: flex; align-items: center; gap: 7px; height: 32px; border-radius: 8px; border: 1px solid #e6e9ed; padding: 0 8px;">
             <span style="width: 16px; height: 14px; border-radius: 4px; border: 1.6px solid #5d6470; flex-shrink: 0;"></span>
-            <span style="font-size: 12.5px; font-weight: 700;">ルベックチェア</span>
-            <span class="num" style="font-size: 11px; color: #5d6470;">535 × 490</span>
-            <span style="flex: 1;"></span>
-            <span class="num" style="font-size: 10.5px; color: #9aa1ab;">保有 80</span>
+            <span class="clip1" style="flex: 1; min-width: 0; font-size: 12.5px; font-weight: 700;">ルベックチェア</span>
+            <span class="num" style="font-size: 11px; color: #5d6470; white-space: nowrap;">535 × 490</span>
+            <span class="num" style="font-size: 10.5px; color: #9aa1ab; white-space: nowrap;">保有 80</span>
           </div>
           <sc-for list="{{arrange.fields}}" as="g" hint-placeholder-count="4">
             <div style="margin-top: 9px;">
@@ -722,7 +717,7 @@ class Component extends DCLogic {
     // ── 帯（道具）
     const modes = [{ key: 'place', label: '置く', icon: 'M12 5v14M5 12h14' }, { key: 'arrange', label: '並べる', icon: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z' }].map((m) => { const on = st.tab === m.key; return { label: m.label, icon: m.icon, border: on ? blue : '#cfe4f4', bg: on ? blue : '#ffffff', fg: on ? '#ffffff' : blue, pick: () => self.setState({ tab: m.key }) }; });
     const shapes = [{ hint: '四角（既定 1,000×1,000）', icon: 'M4 5h16v14H4z', key: 'rect' }, { hint: '丸（既定 Ø1,000）', icon: 'M12 4a8 8 0 1 0 0 16a8 8 0 1 0 0-16', key: 'circle' }, { hint: '線（実線／点線）', icon: 'M4 19L20 5', key: 'line' }, { hint: '文字（高さは mm）', icon: 'M5 6h14M12 6v13', key: 'text' }, { hint: '寸法線（2点間の mm を出す）', icon: 'M4 12h16M4 8v8M20 8v8', key: 'dim' }].map((s) => ({ hint: s.hint, icon: s.icon, pick: () => self.place(s.key) }));
-    const toggles = [{ key: 'snap', label: 'すいつき', hint: '壁・通り芯・ほかの品目の端と中心に吸い付く（閾値 8px）' }, { key: 'grid', label: '方眼', hint: '1m の方眼を出す／消す（通り芯は常に出ます）' }, { key: 'ruler', label: 'ものさし', hint: '上と左のものさし（1m／5m 目盛）' }].map((t) => { const on = !!st[t.key]; return { label: t.label + (on ? '' : '（切）'), hint: t.hint, fg: on ? blue : '#3c424c', dot: on ? blue : '#cbd2da', pick: () => self.setState({ [t.key]: !on }) }; });
+    const toggles = [{ key: 'snap', label: 'すいつき', hint: '壁・通り芯・ほかの品目の端と中心に吸い付く（閾値 8px）' }, { key: 'grid', label: '方眼', hint: '1m の方眼を出す／消す（通り芯は常に出ます）' }, { key: 'ruler', label: 'ものさし', hint: '上と左のものさし（1m／5m 目盛）' }].map((t) => { const on = !!st[t.key]; return { label: t.label, hint: t.hint + (on ? '（いま: 入）' : '（いま: 切）'), fg: on ? blue : '#3c424c', dot: on ? blue : '#cbd2da', pick: () => self.setState({ [t.key]: !on }) }; });
     const needSel = () => self.flash('先に品目を選んでください');
     const reorder = (toFront) => { if (!selItem) return needSel(); const others = st.items.filter((x) => x !== selItem); self.setState({ items: toFront ? others.concat([selItem]) : [selItem].concat(others) }); };
 
