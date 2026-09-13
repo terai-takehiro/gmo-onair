@@ -13,7 +13,7 @@
 // ⚠️ **いまの「出す項目」（`resolveOrgChartShow`）を流し込みへ渡す。** 切れている項目は
 // キャンバスに出ず入力欄も出ないので、そのまま保存すると押した人に見えない
 // （電話・メールは個人の連絡先なので特に）。判断は `orgChartSeed.ts` の `toPerson`。
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ManualOrgChartContent } from "@gmo-onair/shared/src/opsmanual/types";
 import { getManualOrgSeed } from "@/lib/manualApi";
@@ -24,12 +24,23 @@ import { countSeedPeople, mergeGpmTiers, mergeProjectMembers } from "./orgChartS
 
 interface Props {
   manualId: string;
+  /** 選んでいるブロックの id。取り込みの通信中にページを送られたかを見るために要る（下記） */
+  blockId: string;
   content: ManualOrgChartContent;
   onCommit: (content: ManualOrgChartContent) => void;
 }
 
-export default function OrgChartInspectorSection({ manualId, content, onCommit }: Props) {
+export default function OrgChartInspectorSection({ manualId, blockId, content, onCommit }: Props) {
   const [seeding, setSeeding] = useState<ManualOrgSeedKind | null>(null);
+
+  // ⚠️ **通信の途中でページを送られたら、結果を捨てる**（レビュー指摘・P1）。
+  // `onCommit` は押した時点のページの中身を丸ごと持っているので、待っている間に別のページへ
+  // 移られたあとで commit すると、**移った先のページが押した時点のページの中身で上書きされ**、
+  // そのまま自動保存される。押したときの id を控えておき、戻ってきたときに一致しなければ捨てる。
+  const aliveRef = useRef(true);
+  const blockIdRef = useRef(blockId);
+  blockIdRef.current = blockId;
+  useEffect(() => () => { aliveRef.current = false; }, []);
 
   // 取り込み元の件数をボタンの脇に出すため、体制図を選んだ時点で引いておく
   // （どちらも 0 なら区画ごと畳む ＝ 番組のマニュアル・§5-5）。
@@ -43,10 +54,13 @@ export default function OrgChartInspectorSection({ manualId, content, onCommit }
 
   const seed = seedQuery.data;
   const handleSeed = async (kind: ManualOrgSeedKind, targetTierId: string | null) => {
+    const blockIdAtClick = blockId;
     setSeeding(kind);
     try {
       // 押した時点でまだ引けていない（初回・失敗後）ときはここで引き直す
       const data = seed ?? (await seedQuery.refetch()).data;
+      // 待っている間に外された・別のブロック（ページ）に移ったなら、ここで捨てる
+      if (!aliveRef.current || blockIdRef.current !== blockIdAtClick) return;
       if (!data) {
         notifyError("取り込み元を読み込めませんでした。", { description: "少し待ってから、もう一度お試しください。" });
         return;

@@ -220,7 +220,7 @@ export default function BlockInspector({ blocks, selectedBlockId, onCommit, manu
       {block.free.type === "table" && <p className="text-sub-sm text-muted-foreground">セル・行列の編集はキャンバス上の表ブロックから行えます。</p>}
       {block.free.type === "qr" && <p className="text-sub-sm text-muted-foreground">宛先・ラベルの編集はキャンバス上のQRブロックから行えます。</p>}
       {block.free.type === "orgchart" && (
-        <OrgChartInspectorSection manualId={manualId} content={block.free.content} onCommit={patchContent} />
+        <OrgChartInspectorSection manualId={manualId} blockId={block.id} content={block.free.content} onCommit={patchContent} />
       )}
     </div>
   );
