@@ -60,7 +60,7 @@
     <button class="tap ghost" style="display: flex; align-items: center; gap: 3px; height: 32px; border-radius: 8px; padding: 0 9px 0 5px; color: #005bac;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg><span style="font-size: 12.5px; font-weight: 700;">図面一覧</span></button>
     <span style="height: 20px; width: 1px; background: #e6e9ed;"></span>
     <span class="num" style="font-size: 11.5px; font-weight: 700; color: #9aa1ab;">{{docNo}}</span>
-    <span style="font-size: 15px; font-weight: 800;">{{title}}</span>
+    <span class="clip1" style="font-size: 15px; font-weight: 800; max-width: 260px;">{{title}}</span>
     <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 56px; height: 21px; border-radius: 6px; background: #fff7ed; color: #c2410e; font-size: 11px; font-weight: 800;">下書き</span>
     <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: #197a4b;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#197a4b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>保存しました <span class="num">{{savedAt}}</span></span>
     <span style="display: inline-flex; align-items: center; gap: 5px; height: 21px; border-radius: 6px; border: 1px solid #cfe4f4; background: #f4faff; color: #005bac; font-size: 11px; font-weight: 700; padding: 0 8px;" title="編集中は他の人からは読むだけになります。10分手が止まると自動で解けます"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>あなたが編集中</span>
@@ -141,12 +141,13 @@
               <button class="tap" onClick="{{pg.pick}}" style="height: 27px; border-radius: 8px; border: 1px solid {{pg.border}}; background: {{pg.bg}}; color: {{pg.fg}}; padding: 0 9px; font-size: 11.5px; font-weight: 700;">{{pg.label}}</button>
             </sc-for>
           </div>
-          <div style="margin-top: 10px; flex: 1; min-height: 0; overflow: hidden; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; align-content: start;">
+          <div style="margin-top: 10px; flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 4px;">
             <sc-for list="{{place.items}}" as="p" hint-placeholder-count="19">
-              <button class="tap card" onClick="{{p.pick}}" style="display: flex; flex-direction: column; gap: 2px; height: 62px; border-radius: 9px; border: 1px solid {{p.border}}; background: #ffffff; padding: 8px 9px;" title="{{p.hint}}">
-                <span class="clip1" style="font-size: 12px; font-weight: 700; width: 100%;">{{p.name}}</span>
-                <span class="num clip1" style="font-size: 10.5px; color: #5d6470; width: 100%;">{{p.size}}</span>
-                <span class="num" style="font-size: 10.5px; color: {{p.countFg}};">{{p.count}}</span>
+              <button class="tap card" onClick="{{p.pick}}" style="display: flex; align-items: center; gap: 6px; height: 34px; flex-shrink: 0; border-radius: 8px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 8px;" title="{{p.hint}}">
+                <span class="clip1" style="flex: 1; min-width: 0; font-size: 11.5px; font-weight: 700;">{{p.name}}</span>
+                <span class="num" style="font-size: 10.5px; color: #5d6470; white-space: nowrap;">{{p.size}}</span>
+                <sc-if value="{{p.est}}" hint-placeholder-val="{{ false }}"><span style="font-size: 9px; font-weight: 800; color: #c2410e; border: 1px solid #f0c9b4; border-radius: 4px; padding: 0 3px; line-height: 13px; white-space: nowrap;" title="寸法は推定（メーカー寸法図で確定）">推定</span></sc-if>
+                <span class="num" style="width: 42px; text-align: right; font-size: 10.5px; font-weight: 700; color: {{p.countFg}}; white-space: nowrap;">{{p.count}}</span>
               </button>
             </sc-for>
           </div>
@@ -476,7 +477,7 @@ const CAT = {
   sign: { l: '立て看板', g: 'f', w: 600, d: 450, q: 1, u: '台', s: '倉庫', est: true },
   easel: { l: 'イーゼル', g: 'f', w: 600, d: 600, q: 4, u: '台', s: '倉庫', est: true },
   lstand: { l: 'L字 フロアスタンド', g: 'f', w: 300, d: 300, q: 9, u: '台', s: '倉庫', est: true },
-  belt: { l: 'ベルトパーテーション', g: 'f', w: 2350, d: 350, q: 10, u: '台', s: 'SKY STUDIO', sym: 'belt', est: true, size: '線 2,000（支柱 2 本）' },
+  belt: { l: 'ベルトパーテーション', g: 'f', w: 2350, d: 350, q: 10, u: '台', s: 'SKY STUDIO', sym: 'belt', est: true, size: '線 2,000' },
   partition: { l: 'パーテーション', g: 'f', w: 1200, d: 400, q: 6, u: '台', s: 'SKY STUDIO', sym: 'partition', est: true },
   umbrella: { l: '傘立て', g: 'f', w: 500, d: 350, q: 3, u: '台', s: 'RECEPTION' },
   hanger: { l: '可動式ハンガーラック', g: 'f', w: 1230, d: 500, q: 3, u: '台', s: '倉庫', est: true },
@@ -627,7 +628,7 @@ class Component extends DCLogic {
     const q = st.q.trim();
     const placeItems = Object.keys(CAT).filter((k) => q ? CAT[k].l.indexOf(q) >= 0 : CAT[k].g === st.pg).map((k) => {
       const c = CAT[k], n = count(k), over = c.q != null && n > c.q;
-      return { name: c.l, size: self.sizeText(c, { w: c.w || c.dia, d: c.d }) + (c.est ? ' ・ 推定' : ''), count: c.q != null ? n + ' / ' + c.q : n + ' / —', countFg: over ? red : gray, border: '#e6e9ed', hint: c.todo ? 'これから作ります' : '押すと表示範囲の中央に実寸で置きます', pick: () => self.place(k) };
+      return { name: c.l, size: self.sizeText(c, { w: c.w || c.dia, d: c.d }), est: !!c.est, count: c.q != null ? n + ' / ' + c.q : n + ' / —', countFg: over ? red : gray, hint: c.todo ? 'これから作ります' : '押すと表示範囲の中央に実寸で置きます', pick: () => self.place(k) };
     });
     const place = {
       on: st.tab === 'place', search: (e) => self.setState({ q: (e && e.target && e.target.value) || '' }),
@@ -711,7 +712,7 @@ class Component extends DCLogic {
       const vx = vis(AXES_X, (v) => { const s = sX(v); return s > 0 && s < VW; }), vy = vis(AXES_Y, (v) => { const s = sY(v); return s > 0 && s < VH; });
       const span = (l) => l.length ? l[0][0] + '〜' + l[l.length - 1][0] : '—';
       panel = {
-        title: '図面の情報', badge: F.floor + ' ' + F.area, badgeBg: '#f2f4f7', badgeFg: gray, iconBg: '#f2f4f7', iconFg: gray, icon: 'M4 4h16v16H4zM4 12h16M12 4v16',
+        title: '図面の情報', badge: F.floor, badgeBg: '#f2f4f7', badgeFg: gray, iconBg: '#f2f4f7', iconFg: gray, icon: 'M4 4h16v16H4zM4 12h16M12 4v16',
         rows: [{ label: '会場', value: 'GMOサムライスタジオ 用賀', fg: ink }, { label: '階', value: F.floor, fg: ink }, { label: 'エリア', value: F.area, fg: ink }, { label: '内法', value: fmt(A.w) + ' × ' + fmt(A.h) + ' mm ・ ' + F.m2, fg: ink }, { label: '下敷き', value: U.note, fg: ink }, { label: '縮尺', value: '確認済み 2026/09/13 寺井', fg: '#197a4b' }, { label: '通り芯', value: span(vx) + ' ・ ' + span(vy), fg: ink }, { label: '品目', value: items.length + ' 点 ・ はみ出し ' + overCount + ' 件', fg: overCount ? red : ink }],
         chipGroups: [], steppers: [], hasSteppers: false, buttons: [], hasButtons: false, warnOn: false, warnTitle: '', warnBody: '',
         noteTitle: '品目を押すと選べます', noteBody: '備品・人・カメラは実寸固定（伸ばせません）。伸ばしたいものは「四角」で置きます。ズームは −／＋、階とエリアは帯の右で切り替えます。',
