@@ -9,7 +9,7 @@ GMOグローバルスタジオの制作管理プラットフォーム（会社OS
 | 本番 | https://gmo-onair.jp | GitHub で Release（タグ `vX.Y.Z`）を公開したとき |
 | 検証 | https://dev.gmo-onair.jp | `main` に PR をマージしたとき（自動） |
 
-**現在のバージョン**: v4.6.13 — **PR #669のレビュー状況を棚卸しに記録した**
+**現在のバージョン**: v4.6.14 — **制作技術支援に「運営マニュアル」「会場図面」の2つのミニアプリを新設した**
 
 変更の履歴は [docs/version-history.md](docs/version-history.md)（全件・全文）と、画面ヘッダーの「バージョン履歴」で読めます。
 直近3件の要約は [CLAUDE.md](CLAUDE.md) の「現在のバージョン」にあります。
