@@ -11,9 +11,14 @@
  *
  * ── なぜ `projectService.getById()` をそのまま使わないか ──────────────────────
  * `getById()` は一覧・詳細画面向けに売上・仕入・見積金額まで JOIN する重い問い合わせで、
- * かつ `event_start`/`event_end`（DATE 型）を `to_char()` せず生の pg Date のまま返す
- * （`schedule.service.ts` 冒頭の注記どおり、DATE 型は `toISOString()` すると UTC に寄って
- * 1日ずれる）。ここでは見出しに要る列だけを `to_char()` 付きで直接引く。
+ * ここでは見出しに要る列だけを直接引く。
+ *
+ * ⚠️⚠️ 外部レビュー再指摘（P1）: `projects.event_start`/`event_end` は DATE ではなく
+ * **TEXT**（`YYYY-MM-DD`・migration 001b）——`device-settings.routes.ts` の同じ注意書きの
+ * とおり、`to_char(text, ...)` は Postgres の型エラー（`function to_char(text, unknown)
+ * does not exist`）になる。以前はこの2列に `to_char()` を掛けて引いていたため、案件紐づけの
+ * `project.heading` ブロックが**必ず** `resolve_failed` になり一度も表示できていなかった。
+ * TEXT 列をそのまま select するだけでよい（すでに `YYYY-MM-DD` 形式）。
  *
  * ── data の形（client-linked-ui 担当向け。無い項目はキーごと省く。空文字/null のラベルを出さない） ──
  *
@@ -84,10 +89,7 @@ export async function resolveProjectHeading(ctx: ManualResolverCtx): Promise<Man
   if (!ctx.projectId) return { data: null, updatedAt: null };
 
   const row = (await queryOne(
-    `SELECT name, gls_number,
-            to_char(event_start, 'YYYY-MM-DD') AS event_start,
-            to_char(event_end, 'YYYY-MM-DD') AS event_end,
-            updated_at
+    `SELECT name, gls_number, event_start, event_end, updated_at
      FROM projects
      WHERE id = $1 AND deleted_at IS NULL`,
     [ctx.projectId],

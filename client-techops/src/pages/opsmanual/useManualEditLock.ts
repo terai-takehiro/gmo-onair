@@ -158,16 +158,26 @@ export function useManualEditLock(
     if (!manualId) return;
     manualApi
       .unlockManual(manualId)
-      .then(() => {
+      .then((manual) => {
         if (!mountedRef.current) return;
+        // ⚠️⚠️ 外部レビュー再指摘（P1）: 以前はここで`tickRef.current()`
+        // （＝取る/延ばすPOST）を即座に呼んでいた。放した直後にもう一度同じ関数を
+        // 呼べば、サーバー側ではもうロックが空いているため**放した本人がその場で
+        // 取り返してしまい**、相手の15秒ごとの再試行が追いつく前に「渡す」が実質
+        // 無効化されていた。DELETEの応答（放した直後の最新状態）をそのままUIへ
+        // 反映するだけにし（`applyResult`の「取れなかった」分岐と同じ扱い）、
+        // 次の周期は通常の再試行間隔（RETRY_MS）を空けてから回す——取得は試みない。
         heldRef.current = false;
+        setChecking(false);
         setHeld(false);
         setRequestedByName(null);
-        setChecking(true);
-        tickRef.current(); // すぐ次の周期を回し、「いま誰が持っているか」を取りに行く
+        setHeldByName(manual.locked_by_name);
+        setHandoffRequested(manual.lock_requested_by === currentUserId);
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => tickRef.current(), RETRY_MS);
       })
       .catch(() => notifyError("編集を渡せませんでした。", { description: "少し待ってから、もう一度お試しください。" }));
-  }, [manualId]);
+  }, [manualId, currentUserId]);
 
   // 強制的に引き継ぐ（manager 限定・§6-2-1「強制解除」）。`POST …/lock/takeover` で
   // サーバー側の保持者を自分にしたあと、通常の周期（`tickRef`）を1回前倒しで回すだけで

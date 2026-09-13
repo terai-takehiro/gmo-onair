@@ -36,8 +36,11 @@ function lockRow(overrides = {}) {
 }
 
 /** `pageIds`（現存するページ id の配列。テスト中に消えたら呼び出し側で splice する）を
- *  そのまま「いまの件数」として数える——SELECT COUNT を毎回叩き直すのと同じ形。 */
-function loadForDeletePage(manual, pageIds) {
+ *  そのまま「いまの件数」として数える——SELECT COUNT を毎回叩き直すのと同じ形。
+ *  `lockedManual`（省略時は `manual` と同じ）は、トランザクション内で FOR UPDATE
+ *  取得後にもう一度読み直したときの状態——`manual` と別の値を渡せば「事前チェックの
+ *  直後に確定された」ケースを模擬できる（自分の検証で見つけた別件）。 */
+function loadForDeletePage(manual, pageIds, lockedManual = manual) {
   const forUpdateCalls = [];
   const deleted = [];
   return loadTs('server/src/contexts/qsheet/services/manual.service.ts', baseDeps({
@@ -53,15 +56,19 @@ function loadForDeletePage(manual, pageIds) {
       execute: async () => {},
       withTransaction: async (fn) => fn({
         execute: async (sql, params = []) => {
-          if (sql.includes('FOR UPDATE')) forUpdateCalls.push(params);
-          else if (sql.startsWith('DELETE FROM qsheet_manual_pages')) {
+          if (sql.startsWith('DELETE FROM qsheet_manual_pages')) {
             deleted.push(params[0]);
             const i = pageIds.indexOf(params[0]);
             if (i >= 0) pageIds.splice(i, 1);
           }
         },
-        // ⚠️ FOR UPDATE より前に呼ばれたら、まだロックを取らずに数えている＝退行
-        queryOne: async (sql) => {
+        // ⚠️ FOR UPDATE（getManualLockRowForUpdate）より前に COUNT が呼ばれたら、
+        // まだロックを取らずに数えている＝退行
+        queryOne: async (sql, params = []) => {
+          if (sql.includes('lock_requested_by')) {
+            forUpdateCalls.push(params);
+            return lockedManual;
+          }
           if (sql.includes('COUNT(*)')) {
             assert.equal(forUpdateCalls.length, 1, 'COUNT の前に冊子行を FOR UPDATE でロックすること');
             return { c: pageIds.length };
@@ -99,4 +106,15 @@ test('deletePage: 他人が新しく持っているロック中は削除でき�
 
   await assert.rejects(() => deletePage('m1', 'page-1', 'me'), (err) => err.code === 'LOCKED');
   assert.equal(forUpdateCalls.length, 0, 'ロックを検査する前にトランザクションへ入ってはいけない');
+});
+
+test('deletePage: 事前チェックの直後に fixManual() が確定を終えていたら、ページは消えない（自分の検証で見つけた別件——addPage()と同じ形）', async () => {
+  const { deletePage, deleted } = await loadForDeletePage(
+    lockRow({ status: 'draft' }), // 事前チェックの時点ではまだ下書き
+    ['page-1', 'page-2'],
+    lockRow({ status: 'fixed' }), // FOR UPDATE 取得後に読み直すと、もう確定済み
+  );
+
+  await assert.rejects(() => deletePage('m1', 'page-1', 'me'), (err) => err.code === 'BAD_REQUEST');
+  assert.equal(deleted.length, 0, '確定済みになっていたらDELETEを実行しない');
 });

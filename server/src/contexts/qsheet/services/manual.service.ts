@@ -6,7 +6,7 @@
  * 実装パターンは schedule.service.ts / schedule-column.service.ts をそのまま踏襲する。
  */
 import { v4 as uuid } from 'uuid';
-import { queryAll, queryOne, execute, withTransaction, type Row } from '../../../shared/db/connection';
+import { queryAll, queryOne, execute, withTransaction, type Row, type TxClient } from '../../../shared/db/connection';
 import { isQsheetAdmin } from '../access';
 import { issueDocNo } from './docNo.service';
 import { NotFoundError, ValidationError, ConflictError, LockError, checkOptimisticLock } from './httpErrors';
@@ -112,6 +112,36 @@ async function getManualLockRow(manualId: string): Promise<Row | undefined> {
      LEFT JOIN users lu ON m.locked_by = lu.id
      LEFT JOIN users ru ON m.lock_requested_by = ru.id
      WHERE m.id = $1 AND m.deleted_at IS NULL`,
+    [manualId],
+  );
+}
+
+/**
+ * `getManualLockRow` のトランザクション版。**`FOR UPDATE OF m` で冊子行そのものを
+ * 行ロック**してから読む（LEFT JOIN の null 側は `FOR UPDATE` の対象にできないため
+ * `OF m` で本体だけに絞る）。
+ *
+ * ⚠️⚠️ 外部レビュー再指摘（P1）: `fixManual()` の手順①（resolve ループ）のあいだに
+ * `addPage()` がページを追加する競合は、確定直前のページ集合の再チェック（下記）を
+ * 足しただけでは閉じない——その再チェック自体がロックを取らない `SELECT` のままだと、
+ * `addPage()` 側の「編集可能か」チェックとこの `SELECT` のどちらが先に走るかは
+ * 保証されず、両者の間に挟まって INSERT されたページを見逃しうる（TOCTOU）。
+ * `addPage()` にもこの関数を使わせ、**同じ冊子行のロックを両者が取り合う**ことで
+ * 直列化する——`fixManual` が先に取れば `addPage` はその COMMIT（status='fixed'）
+ * を待ってから読み直し `assertEditable` で正しく弾かれ、`addPage` が先に取れば
+ * `fixManual` はその COMMIT（新しいページの INSERT）を待ってから読み直し、
+ * ページ集合の不一致を正しく検出する（`acquireManualLock`/`deletePage` と同じ
+ * 「重要な不変条件は行ロックで守る」考え方）。
+ */
+async function getManualLockRowForUpdate(tx: TxClient, manualId: string): Promise<Row | undefined> {
+  return tx.queryOne(
+    `SELECT m.id, m.status, m.locked_by, m.locked_at, m.lock_requested_by, m.lock_requested_at,
+            lu.name AS locked_by_name, ru.name AS lock_requested_by_name
+     FROM qsheet_manuals m
+     LEFT JOIN users lu ON m.locked_by = lu.id
+     LEFT JOIN users ru ON m.lock_requested_by = ru.id
+     WHERE m.id = ? AND m.deleted_at IS NULL
+     FOR UPDATE OF m`,
     [manualId],
   );
 }
@@ -335,23 +365,33 @@ const MAX_CHAPTER = 200;
 const MAX_BLOCKS_JSON_LENGTH = 300_000;
 
 export async function addPage(manualId: string, userId: string, input: PageInput): Promise<Row> {
-  const manual = await getManualLockRow(manualId);
-  if (!manual) throw new NotFoundError('冊子が見つかりません');
-  assertEditable(manual, userId);
-
-  const max = await queryOne(
-    'SELECT COALESCE(MAX(sort_order), -1)::int AS m FROM qsheet_manual_pages WHERE manual_id = $1',
-    [manualId],
-  );
-  const sortOrder = ((max?.m as number) ?? -1) + 1;
   const id = uuid();
+  // ⚠️⚠️ 外部レビュー再指摘（P1）: 冊子行を `FOR UPDATE` でロックしてから
+  // `assertEditable` を判定し、そのまま同じトランザクション内で INSERT する——
+  // `fixManual()` の確定処理と同じ行ロックを取り合うことで、確定の最中にページを
+  // 追加できてしまう（追加されたページが凍結されないまま「確定済み」になる）
+  // 競合を閉じる（`getManualLockRowForUpdate` のコメント参照）。
+  const row = await withTransaction(async (tx) => {
+    const manual = await getManualLockRowForUpdate(tx, manualId);
+    if (!manual) throw new NotFoundError('冊子が見つかりません');
+    assertEditable(manual, userId);
 
-  await execute(
-    `INSERT INTO qsheet_manual_pages (id, manual_id, sort_order, chapter, title, blocks)
-     VALUES ($1, $2, $3, $4, $5, '[]'::jsonb)`,
-    [id, manualId, sortOrder, input.chapter?.slice(0, MAX_CHAPTER) || null, (input.title || '').slice(0, MAX_PAGE_TITLE)],
-  );
-  const row = await queryOne('SELECT id, manual_id, sort_order, chapter, title, blocks, created_at, updated_at FROM qsheet_manual_pages WHERE id = $1', [id]);
+    const max = await tx.queryOne(
+      'SELECT COALESCE(MAX(sort_order), -1)::int AS m FROM qsheet_manual_pages WHERE manual_id = ?',
+      [manualId],
+    );
+    const sortOrder = ((max?.m as number) ?? -1) + 1;
+
+    await tx.execute(
+      `INSERT INTO qsheet_manual_pages (id, manual_id, sort_order, chapter, title, blocks)
+       VALUES (?, ?, ?, ?, ?, '[]'::jsonb)`,
+      [id, manualId, sortOrder, input.chapter?.slice(0, MAX_CHAPTER) || null, (input.title || '').slice(0, MAX_PAGE_TITLE)],
+    );
+    return tx.queryOne(
+      'SELECT id, manual_id, sort_order, chapter, title, blocks, created_at, updated_at FROM qsheet_manual_pages WHERE id = ?',
+      [id],
+    );
+  });
   if (!row) throw new Error('addPage: INSERT 直後の SELECT が空でした');
   return row;
 }
@@ -434,6 +474,9 @@ export async function updatePage(manualId: string, pageId: string, userId: strin
 
 /** ページを消す。冊子最後の1ページは消せない（空の冊子を作れると編集画面が壊れるため） */
 export async function deletePage(manualId: string, pageId: string, userId: string): Promise<void> {
+  // 速い失敗（存在しない冊子ID等）のための事前チェック。⚠️ これだけでは TOCTOU を
+  // 防げない——下のトランザクション内で FOR UPDATE 取得後にもう一度検査する
+  // （次のコメント参照。`addPage()` と同じ理由）。
   const manual = await getManualLockRow(manualId);
   if (!manual) throw new NotFoundError('冊子が見つかりません');
   assertEditable(manual, userId);
@@ -450,8 +493,17 @@ export async function deletePage(manualId: string, pageId: string, userId: strin
   // 冊子行を `FOR UPDATE` でロックしてから数える——同じ冊子への deletePage を直列化し、
   // 2つ目は1つ目の COMMIT を待ってから正しい件数を見る（`acquireManualLock` と同じ
   // 「重要な不変条件は行ロックで守る」考え方）。
+  //
+  // ⚠️⚠️ 自分の検証で見つけた別件（`addPage()` への外部レビュー再指摘と同じ形）:
+  // 上のロック取得前の `assertEditable` だけでは、この事前チェックの直後に
+  // `fixManual()` が確定を終えても検出できない——確定済みの冊子から平然とページが
+  // 消えてしまう。`getManualLockRowForUpdate` で FOR UPDATE 取得後にもう一度
+  // 読み直し、fixManual と同じ行ロックを取り合ったうえで再検査する。
   await withTransaction(async (tx) => {
-    await tx.execute('SELECT id FROM qsheet_manuals WHERE id = ? FOR UPDATE', [manualId]);
+    const locked = await getManualLockRowForUpdate(tx, manualId);
+    if (!locked) throw new NotFoundError('冊子が見つかりません');
+    assertEditable(locked, userId);
+
     const count = await tx.queryOne('SELECT COUNT(*)::int AS c FROM qsheet_manual_pages WHERE manual_id = ?', [manualId]);
     if (((count?.c as number) ?? 0) <= 1) {
       throw new ValidationError('最後の1ページは削除できません');
@@ -691,6 +743,16 @@ export async function fixManual(manualId: string, user: AccessUser): Promise<Row
   // ロールバックする（`withTransaction` は throw で ROLLBACK する）。呼び出し元
   // （manager）は「もう一度確定をやり直してください」を見てやり直すだけでよい。
   await withTransaction(async (tx) => {
+    // ⚠️⚠️ 外部レビュー再指摘（P1・2回目）: 直前の修正（ページ集合の再チェック）だけでは
+    // 閉じない——その再チェック自体がロックを取らない `SELECT` のままだと、
+    // `addPage()` 側の「編集可能か」チェックとこの `SELECT` のどちらが先に走るかは
+    // 保証されず、両者の間に挟まって INSERT されたページを見逃しうる（TOCTOU）。
+    // トランザクションの最初に冊子行を `FOR UPDATE` でロックし（`addPage()` も同じ
+    // ロックを取り合う——`getManualLockRowForUpdate` のコメント参照）、
+    // `addPage()` と確定処理を直列化する。戻り値は使わない（status の再検査は
+    // 最初の読み取り時点のもので十分——ここでの目的はロックの取り合いだけ）。
+    await getManualLockRowForUpdate(tx, manualId);
+
     // ⚠️⚠️ 外部レビュー再指摘（P1）: ①（resolve ループ）のあいだにロック保持者が
     // 新しいページを追加すると、`addPage()` は `qsheet_manuals.updated_at` を進めない
     // ため、ページ側・冊子側どちらの CAS ガードもこの追加を検出できない——追加された
@@ -698,7 +760,9 @@ export async function fixManual(manualId: string, user: AccessUser): Promise<Row
     // （その新しいページに差し込みブロックがあっても凍結されないまま「確定済み」になる）。
     // 確定の直前にもう一度ページ集合を数え、①で読んだ集合と完全に一致することを確認する
     // （追加だけでなく、この間の削除も同じ形でここが拾う——ページ側ループの
-    // 「消えていたら 0 件 RETURNING」より前に、まとめて検出できる）。
+    // 「消えていたら 0 件 RETURNING」より前に、まとめて検出できる）。上の行ロックにより、
+    // このSELECTの時点で `addPage()` の INSERT は必ず「まだ起きていない」か「もう
+    // COMMIT済み」のどちらかになっている（中途半端に挟まることはない）。
     const currentPageRows = await tx.queryAll('SELECT id FROM qsheet_manual_pages WHERE manual_id = ?', [manualId]);
     const currentIds = new Set(currentPageRows.map((r) => r.id as string));
     const snapshotIds = new Set(pages.map((p) => p.id as string));

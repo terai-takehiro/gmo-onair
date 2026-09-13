@@ -54,7 +54,14 @@ export function useManualPageAutosave(
   const [saving, setSaving] = useState(false);
   const mountedRef = useRef(true);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingRef = useRef<Pending | null>(null);
+  // ⚠️⚠️ 外部レビュー再指摘（P1）: 以前は単一スロット（`Pending | null`）だった。
+  // A保存中→B編集（pendingRef=B）→（Aがまだ終わらないうちに）C編集、という切替では
+  // `runSave`（Cのタイマー発火 or 切替時のflush）が `savingRef.current` を見て
+  // 何もしないため pendingRef=B は残るが、直後の C の commitBlocks が
+  // `pendingRef.current = {C}` と単純代入するため **B の分がそのまま消える**
+  // （一度もサーバーへ送られないまま失われる）。ページ id をキーにした Map にし、
+  // 複数ページ分の「まだ送っていない最新の編集」を同時に保持できるようにする。
+  const pendingRef = useRef<Map<string, Pending>>(new Map());
   // ⚠️ レビュー指摘（P1）: 以前は単一の ref（コミット時点の page.updated_at）を
   // expected_updated_at として使っていた。①コミット時点で固定すると、送信中に
   // 応答が届いて updated_at が進んでも次の送信がそれを知らないまま古い値を使う
@@ -100,9 +107,11 @@ export function useManualPageAutosave(
     // 拾って続けて送る——2本を同時に送って両方に古い expected_updated_at を
     // 持たせない（送信の直列化）。
     if (savingRef.current) return;
-    const pending = pendingRef.current;
-    pendingRef.current = null;
-    if (!pending) return;
+    // 待っている中から1件取り出す（挿入順＝古い方から。Mapは挿入順を保つ）
+    const nextEntry = pendingRef.current.entries().next();
+    if (nextEntry.done) return;
+    const [pendingPageId, pending] = nextEntry.value;
+    pendingRef.current.delete(pendingPageId);
     savingRef.current = true;
     if (mountedRef.current) setSaving(true);
     savingPromiseRef.current = manualApi
@@ -131,9 +140,10 @@ export function useManualPageAutosave(
         savingRef.current = false;
         savingPromiseRef.current = null;
         if (mountedRef.current) setSaving(false);
-        // 送信中に積まれた新しい編集（他ページ分もありうる）があれば、いま確定した
-        // そのページの revision で続けて送る
-        if (pendingRef.current) runSave();
+        // 送信中に積まれた新しい編集（他ページ分もありうる）があれば続けて送る
+        // （1件ずつ直列に処理——同時に複数を送って個々の expected_updated_at を
+        // 混乱させない）
+        if (pendingRef.current.size > 0) runSave();
       });
   }, []);
 
@@ -141,7 +151,7 @@ export function useManualPageAutosave(
     (next: ManualBlock[]) => {
       setBlocks(next);
       if (!page) return;
-      pendingRef.current = { manualId: page.manual_id, pageId: page.id, next };
+      pendingRef.current.set(page.id, { manualId: page.manual_id, pageId: page.id, next });
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(runSave, SAVE_DEBOUNCE_MS);
     },
@@ -181,16 +191,22 @@ export function useManualPageAutosave(
     () => () => {
       mountedRef.current = false;
       if (timerRef.current) clearTimeout(timerRef.current);
-      const pending = pendingRef.current;
-      pendingRef.current = null;
-      if (!pending) return;
-      const sendFinal = () =>
-        manualApi
-          .updatePage(pending.manualId, pending.pageId, {
-            blocks: pending.next,
-            expected_updated_at: revisionsRef.current.get(pending.pageId),
-          })
-          .catch(() => {});
+      // Map化に伴い、複数ページぶんの未送信が残っていることがある——全件を
+      // best-effort で送る（各ページの行は互いに独立しており、同時に送っても
+      // 競合しない。同じページが2件並ぶことは無い——Mapはページidで一意）
+      const pendingEntries = Array.from(pendingRef.current.values());
+      pendingRef.current.clear();
+      if (pendingEntries.length === 0) return;
+      const sendFinal = () => {
+        for (const pending of pendingEntries) {
+          manualApi
+            .updatePage(pending.manualId, pending.pageId, {
+              blocks: pending.next,
+              expected_updated_at: revisionsRef.current.get(pending.pageId),
+            })
+            .catch(() => {});
+        }
+      };
       const inFlight = savingPromiseRef.current;
       if (inFlight) inFlight.then(sendFinal, sendFinal);
       else sendFinal();

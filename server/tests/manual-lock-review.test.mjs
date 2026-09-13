@@ -469,3 +469,42 @@ test('fixManual: ①（resolveループ）の間に新しいページが追加�
     (err) => err.code === 'CONFLICT' && /追加\/削除/.test(err.message),
   );
 });
+
+test('fixManual: トランザクションの最初に冊子行を FOR UPDATE でロックしてから、ページ集合を数える（外部レビュー再指摘・2回目——addPage()と同じロックを取り合う）', async () => {
+  const calls = [];
+  const deps = baseDeps({
+    '../../../shared/db/connection': {
+      queryAll: async (sql) => (sql.includes('FROM qsheet_manual_pages')
+        ? [{ id: 'page-1', manual_id: 'm1', sort_order: 0, chapter: null, title: '', blocks: [], created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z' }]
+        : []),
+      queryOne: async (sql) => (sql.includes('FROM qsheet_manuals WHERE id')
+        ? { id: 'm1', status: 'draft', project_id: 'p1', program_id: null, service_date: null, updated_at: '2026-09-01T09:00:00.000Z' }
+        : undefined),
+      execute: async () => {},
+      withTransaction: async (fn) => fn({
+        execute: async () => {},
+        queryOne: async (sql) => {
+          if (sql.includes('lock_requested_by')) {
+            calls.push('lock');
+            return { id: 'm1', status: 'draft' };
+          }
+          return undefined;
+        },
+        queryAll: async (sql) => {
+          if (!sql.includes('SELECT id FROM qsheet_manual_pages')) return [];
+          calls.push('page-set-check');
+          // ⚠️ FOR UPDATE より前にページ集合を数えていたら退行（TOCTOUが再発）
+          assert.deepEqual(calls, ['lock', 'page-set-check'], '冊子行のロック取得はページ集合の再チェックより前でなければならない');
+          return [{ id: 'page-1' }];
+        },
+      }),
+    },
+    './manual-resolve.service': { resolveLinkedBlock: async () => ({ data: null, updatedAt: null }) },
+  });
+  const { fixManual } = await loadTs('server/src/contexts/qsheet/services/manual.service.ts', deps);
+
+  // ページ側・冊子側のCAS UPDATEはこのモックでは常にundefined（未対応）を返すため
+  // 確定処理自体はConflictErrorで終わる——ここで固定したいのは呼び出し順序だけ。
+  await assert.rejects(() => fixManual('m1', { id: 'manager-1', role: 'manager' }));
+  assert.deepEqual(calls, ['lock', 'page-set-check']);
+});

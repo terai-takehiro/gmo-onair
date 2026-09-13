@@ -13,7 +13,7 @@
 // 「`env(safe-area-inset-bottom)` をここで持たない理由」と同じ話）。
 //
 // 「一覧に戻る」の行き先は /techops/manuals（冊子の文脈を保つ。/techops/top へは逃がさない・§6⑥）。
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { BookOpenText, ChevronLeft, ChevronRight, Download } from "lucide-react";
@@ -66,7 +66,7 @@ export default function ManualMobileViewPage() {
   });
   const resolved = resolveQuery.data ?? {};
 
-  const sortedPages = manual ? pagesSorted(manual.pages) : [];
+  const sortedPages = useMemo(() => (manual ? pagesSorted(manual.pages) : []), [manual]);
 
   // 冊子を開き直したら先頭ページへ（編集画面の既定と同じ・段B）
   useEffect(() => setIndex(0), [manual?.id]);
@@ -103,6 +103,20 @@ export default function ManualMobileViewPage() {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // ⚠️⚠️ 外部レビュー再指摘（P1）: `ManualPreviewPage.tsx`（PC の仕上がり画面）は
+  // 差し込みブロックが1つでもある下書きで `/resolve` が届く前に書き出しボタンを
+  // disabled にする `resolveReady` ガードを持つが、この画面（スマホの閲覧＝別の
+  // 書き出し経路）には同じガードが無かった——`detailQuery` が `/resolve` より先に
+  // 届く競合が起きると、ボタンはページの有無だけで押せてしまい、その瞬間の空の
+  // `resolved`（`{}`）を1回限りの印刷用windowへ渡してしまうため、あとから
+  // `/resolve` が届いても反映されず「読み込み中…」のままのPDFが出来ていた。
+  // 判定はPC側と同じにする（確定済みは`link.frozen`を使うため無関係）。
+  const hasLinkedBlocks = useMemo(
+    () => sortedPages.some((page) => page.blocks.some((b) => b.kind === "linked")),
+    [sortedPages],
+  );
+  const resolveReady = manual?.status !== "draft" || !hasLinkedBlocks || resolveQuery.isSuccess;
 
   const handleExport = () => {
     if (!manual) return;
@@ -149,9 +163,13 @@ export default function ManualMobileViewPage() {
               </span>
             }
             primaryAction={
-              <Button onClick={handleExport} disabled={sortedPages.length === 0}>
+              <Button
+                onClick={handleExport}
+                disabled={sortedPages.length === 0 || !resolveReady}
+                title={!resolveReady ? "差し込みブロックの内容を読み込み中です" : undefined}
+              >
                 <Download className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                PDFを開く
+                {resolveReady ? "PDFを開く" : "読み込み中…"}
               </Button>
             }
           />
