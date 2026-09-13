@@ -7,13 +7,13 @@
  *   - `server/src/contexts/qsheet/services/device-settings.service.ts` の `getRecording(owner)`
  *   - `server/src/contexts/qsheet/device-settings-owner.ts` の `Owner`/`ownerWhere`
  *     （`resolveOwner()` は `:ownerKey` という**文字列**から `Owner` を引く関数だが、
- *      ここでは冊子が既に `project_id`/`program_id` を持っているので、その2つから
+ *      ここではマニュアルが既に `project_id`/`program_id` を持っているので、その2つから
  *      直接 `Owner` を組み立てるだけでよい——`resolveOwner()` は使わない）
  *
  * ── 共通ポリシー（呼び出し元＝ `GET /techops/manuals/:id/resolve` 側の実装） ─────────
  * resolve はサーバーの実行権限で読む。呼び出しユーザーが `qsheet` モジュール権限を個別に
- * 持っているかはここでは再チェックしない——**冊子自体が `canAccessManual` を通っていること
- * だけ**をゲートにする（一度差し込んだ情報は、冊子を見られる人になら見える、という設計判断）。
+ * 持っているかはここでは再チェックしない——**マニュアル自体が `canAccessManual` を通っていること
+ * だけ**をゲートにする（一度差し込んだ情報は、マニュアルを見られる人になら見える、という設計判断）。
  * この resolver は `resolve` 経由専用で、単体で外部公開しない。
  *
  * ── どの日の収録設定を返すか（v1 の割り切り） ────────────────────────────────
@@ -21,13 +21,13 @@
  * 設定を返す（`device-settings.service.ts` の `resolveDate`。非公開関数なのでここでは再現しない）。
  * 差し込みブロックには日付を選ぶ UI が無く（`link-sources` は `sheet.*` の3種にしか候補を
  * 出さない）、収録設定は「1 owner に対して直近の設定が1つ」という運用が実態に近いため、
- * `schedule.day` のような「冊子の予定日と一致する行を優先」という仕分けはせず、
+ * `schedule.day` のような「マニュアルの予定日と一致する行を優先」という仕分けはせず、
  * 素直に「いちばん新しい」に委ねる。
  *
  * ── data の形（client-linked-ui 担当向け） ───────────────────────────────────
  * `RecordingSettings | null`（`device-settings-types.ts` の型そのまま。`decks[]` は
  * 秘密を持たないため伏せ字化しない）。owner が無い（project/program どちらの id も
- * 持たない冊子）か、その owner に収録設定が1件も無ければ `null`。
+ * 持たないマニュアル）か、その owner に収録設定が1件も無ければ `null`。
  */
 import { queryOne, type Row } from '../../../../shared/db/connection';
 import { getRecording } from '../device-settings.service';

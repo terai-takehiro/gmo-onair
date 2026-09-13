@@ -1,9 +1,9 @@
 /**
- * 「動いている案件」(v4 ① の主役)
+ * 「更新のあった案件」(v4 ① の主役)
  *
  * ── なぜ「自分の案件」ではないのか ────────────────────────
  *
- * モックの見出しは**「動いている案件」／「動きがあった順。案件は全員で見ます」**です。
+ * モックの見出しは**「更新のあった案件」／「動きがあった順。案件は全員で見ます」**です。
  * v4 は主担当（`assigned_to`）を持つが、**実務の割り当てはタスク単位**
  * (client/CLAUDE.md「v4 の設計判断」) なので、ここを「自分の案件」（主担当で絞る）
  * にすると実務の実態と食い違います。誰がやるかは**次のアクションの担当**として
@@ -44,7 +44,7 @@ export function MovingPanel() {
   const rows = data?.data ?? [];
 
   return (
-    <Panel title="動いている案件" note="動きがあった順。案件は全員で見ます" to="/sales/projects" toLabel="一覧をひらく">
+    <Panel title="更新のあった案件" note="動きがあった順。案件は全員で見ます" to="/sales/projects" toLabel="一覧を開く">
       {isLoading ? (
         <Delayed><SkeletonRows rows={ROWS} /></Delayed>
       ) : rows.length === 0 ? (

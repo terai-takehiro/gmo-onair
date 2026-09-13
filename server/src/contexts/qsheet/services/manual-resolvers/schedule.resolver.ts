@@ -6,28 +6,28 @@
  *
  * ── 共通ポリシー（resolver 全員が守る決めごと。呼び出し元＝ `GET /techops/manuals/:id/resolve` 側の実装） ──
  * resolve はサーバーの実行権限で読む。呼び出しユーザーが `qsheet` モジュール権限を個別に
- * 持っているかはここでは再チェックしない——**冊子自体が `canAccessManual` を通っていること**
- * だけをゲートにする（一度差し込んだ情報は、冊子を見られる人になら見える、という設計判断）。
+ * 持っているかはここでは再チェックしない——**マニュアル自体が `canAccessManual` を通っていること**
+ * だけをゲートにする（一度差し込んだ情報は、マニュアルを見られる人になら見える、という設計判断）。
  * この resolver は `resolve` 経由専用で、単体で外部公開しない。
  *
  * ⚠️⚠️ 外部レビュー再指摘（P1）: ただし例外が1つある——`canAccessSchedule` だけは
  * 呼ぶ（`sheet.resolver.ts` の `canAccessDoc` と同じ理由）。project 紐づけの表は
- * `canAccessSchedule` も案件メンバー全員に自動で見えるため冊子側の可視性と一致するが、
+ * `canAccessSchedule` も案件メンバー全員に自動で見えるためマニュアル側の可視性と一致するが、
  * **program 紐づけの表は `canAccessSchedule` が作成者本人／個別共有／管理者にしか
  * 許さない**（`qsheet_programs` 自体は「行単位の権限を持たない」ため誰でも新しい番組
  * マニュアルを作れてしまう——`programs.routes.ts` 冒頭のコメント参照）。案件メンバー
- * 自動可視ではなく創作者限定という**より狭い**表を、冊子の可視性（program 紐づけの
- * 冊子も本来は作成者/管理者限定だが、program_id 自体は誰でも詐称できるため無力）
+ * 自動可視ではなく創作者限定という**より狭い**表を、マニュアルの可視性（program 紐づけの
+ * マニュアルも本来は作成者/管理者限定だが、program_id 自体は誰でも詐称できるため無力）
  * だけをゲートにして読めてしまうと、他人の番組の表（項目・担当・メモ）を丸ごと
  * 覗ける経路になる。
  *
  * ── どの `qsheet_schedules` 行を選ぶか（v1 の割り切り） ────────────────────────
- * 冊子は project_id/program_id は持つが「どの日のスケジュール表か」は持たない。
+ * マニュアルは project_id/program_id は持つが「どの日のスケジュール表か」は持たない。
  * MCP の `get_day_schedule`（`production/schedule-read.service.ts`）は `date` 入力で
  * 曖昧さを解いているが、差し込みブロックには日付を選ぶ UI が無い
  * （`link-sources` は sheet.* の3種にしか候補を出さない＝§4-3 の設計どおり）。
  * そこで、同じ project/program に複数のスケジュール表があるときは
- *   ① 冊子自身の予定日（`ctx.manualServiceDate`）と `service_date` が一致する表を優先
+ *   ① マニュアル自身の予定日（`ctx.manualServiceDate`）と `service_date` が一致する表を優先
  *   ② 一致が無ければ、いちばん日付が早い表（`service_date ASC`。無ければ作成が早い順）
  * の順で並べ、**`canAccessSchedule` を通る最初の1件**を選ぶ（呼び出し本人が読めない
  * 表は候補から外れるだけで、他の候補があればそちらを試す）。**表そのものが1つも

@@ -26,7 +26,7 @@
  * 一覧の形は `LedgerList` が幅で分けます（PC は表・スマホはカード）。
  * この画面が幅を見るのは**3つだけ**: Excel の道具・合計帯の場所・
  * ダイアログの「消す」。**販管費は案件に紐づかない**ので `onProject` は
- * 渡しません（詳細シートに「案件をひらく」が出ない＝行き止まりを作らない）。
+ * 渡しません（詳細シートに「案件を開く」が出ない＝行き止まりを作らない）。
  */
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -333,7 +333,7 @@ export default function SgaListPage() {
               canEdit={canEdit}
               onRefresh={crud.refetch}
               /* `onProject` は渡さない — 販管費は案件を持たないので、
-                 詳細シートに「案件をひらく」を出すと行き止まりになる */
+                 詳細シートに「案件を開く」を出すと行き止まりになる */
               onOpen={(row) => {
                 const full = items.find((i) => i.id === row.id);
                 if (full && canEdit) openFor(full);
@@ -355,7 +355,7 @@ export default function SgaListPage() {
             hideTotals={isMobile}
             note={`販管費は案件に紐づきません。ダッシュボードで案件を絞り込むと集計から外れます。「仮」は金額が確定していない見込みで、精算番号が入ると「申請済」になります。${
               isMobile
-                ? '行を押すと勘定科目・支払期日が読め、申請URLのある行は「精算ページをひらく」が出ます。'
+                ? '行を押すと勘定科目・支払期日が読め、申請URLのある行は「精算ページを開く」が出ます。'
                 : '申請URLを入れてある行は外部リンクのボタンから精算ページを開けます。'
             }`}
           />

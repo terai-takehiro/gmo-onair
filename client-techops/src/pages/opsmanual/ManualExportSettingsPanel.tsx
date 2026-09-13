@@ -42,7 +42,7 @@ const NUM_INPUT = "w-16 rounded border border-input bg-background px-2 py-1 text
 interface Props {
   settings: ManualExportSettings;
   onChange: (next: ManualExportSettings) => void;
-  /** 冊子の総ページ数（表紙・目次を含まない、紙面そのものの枚数） */
+  /** マニュアルの総ページ数（表紙・目次を含まない、キャンバスそのものの枚数） */
   pageCount: number;
 }
 
@@ -118,13 +118,13 @@ export default function ManualExportSettingsPanel({ settings, onChange, pageCoun
         />
         <ToggleRow
           label="ページ番号"
-          description="柱に「5 / 12」のように出します。"
+          description="ヘッダーに「5 / 12」のように出します。"
           checked={settings.pageNumbers}
           onChange={(v) => patch({ pageNumbers: v })}
         />
         <ToggleRow
           label="時点の表示"
-          description="柱に書き出した日時を出します。"
+          description="ヘッダーに書き出した日時を出します。"
           checked={settings.showAsOf}
           onChange={(v) => patch({ showAsOf: v })}
         />

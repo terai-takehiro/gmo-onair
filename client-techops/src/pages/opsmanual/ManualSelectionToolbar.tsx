@@ -1,6 +1,6 @@
-// 複数選択したブロックの整列・等間隔・重なり操作（production-manual.md §6-2
-// 「複数選択｜ドラッグで囲む・Shift で足す。整列・等間隔・重なり」）。
-// ManualCanvas が2つ以上選んでいるときだけ紙面の左上に浮かせて出す。
+// 複数選択したブロックの整列・等間隔・重ね順操作（production-manual.md §6-2
+// 「複数選択｜ドラッグで囲む・Shift で足す。整列・等間隔・重ね順」）。
+// ManualCanvas が2つ以上選んでいるときだけキャンバスの左上に浮かせて出す。
 import {
   AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical,
   AlignStartHorizontal, AlignStartVertical, BringToFront, SendToBack,

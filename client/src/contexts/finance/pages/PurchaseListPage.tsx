@@ -317,7 +317,7 @@ export default function PurchaseListPage() {
               stateLabel="申請"
               canEdit={canEdit}
               onRefresh={crud.refetch}
-              // 詳細シートの「案件をひらく」。**固定原価には案件が無い**ので、
+              // 詳細シートの「案件を開く」。**固定原価には案件が無い**ので、
               // `project_id` を持たない行では部品側が出さない
               onProject={(row) => { if (row.project_id) navigate(`/sales/projects/${row.project_id}`); }}
               onOpen={(row) => {

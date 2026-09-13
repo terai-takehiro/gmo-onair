@@ -187,8 +187,8 @@ export function LedgerRows({
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); navigate(`/sales/projects/${r.project_id}`); }}
-                  title="案件概要をひらく"
-                  aria-label={`案件概要をひらく（${r.code || 'コードなし'}）`}
+                  title="案件概要を開く"
+                  aria-label={`案件概要を開く（${r.code || 'コードなし'}）`}
                   className="v4-tap truncate text-left font-number text-sub-sm text-primary underline decoration-dotted underline-offset-2 hover:decoration-solid"
                 >
                   {r.code || '—'}

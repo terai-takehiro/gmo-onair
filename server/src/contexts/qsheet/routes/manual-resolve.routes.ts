@@ -1,14 +1,14 @@
 /**
  * 運営マニュアル 段C — 差し込みブロックの解決 API（production-manual.md §5-4）。
  *
- * `resolve`（冊子の全ページを走査して kind:'linked' の全ブロックをまとめて解決）・
- * `link-catalog`（この冊子に実在する差し込みブロック種別）・
+ * `resolve`（マニュアルの全ページを走査して kind:'linked' の全ブロックをまとめて解決）・
+ * `link-catalog`（このマニュアルに実在する差し込みブロック種別）・
  * `link-sources`（sourceId が要る種別だけの候補一覧）の3本。
  *
- * 冊子自体のアクセス確認は `manuals.routes.ts` の `requireAccessible(req)` と同じパターン
+ * マニュアル自体のアクセス確認は `manuals.routes.ts` の `requireAccessible(req)` と同じパターン
  * （`getManualRaw` → `canAccessManual` → 無ければ NotFoundError＝存在秘匿）。
  * 中身（差し込み元）の権限は再チェックしない — 「共通ポリシー」節（SHARED_CONTEXT）どおり、
- * 冊子自体が見えていれば差し込みも見せる、という設計判断。sheet.* の3種だけは
+ * マニュアル自体が見えていれば差し込みも見せる、という設計判断。sheet.* の3種だけは
  * resolver 側（`sheet.resolver.ts`）が sourceId の project_id/program_id 一致を別途検査する。
  */
 import { Router, Request, Response } from 'express';
@@ -29,9 +29,9 @@ router.use(requireAuth, requirePermission('qsheet'));
 
 async function requireAccessible(req: Request) {
   const raw = await getManualRaw(p1(req.params.id));
-  if (!raw) throw new NotFoundError('冊子が見つかりません');
+  if (!raw) throw new NotFoundError('マニュアルが見つかりません');
   const ok = await canAccessManual(req.user!, raw.id as string, (raw.created_by as string) ?? null);
-  if (!ok) throw new NotFoundError('冊子が見つかりません'); // 存在秘匿
+  if (!ok) throw new NotFoundError('マニュアルが見つかりません'); // 存在秘匿
   return raw;
 }
 
@@ -53,7 +53,7 @@ interface LinkedBlockRef {
   revealFields: string[];
 }
 
-/** 冊子の全ページを走査し、kind:'linked' の全ブロックを集める */
+/** マニュアルの全ページを走査し、kind:'linked' の全ブロックを集める */
 async function collectLinkedBlocks(manualId: string): Promise<LinkedBlockRef[]> {
   const pages = await getManualPages(manualId);
   const refs: LinkedBlockRef[] = [];

@@ -34,7 +34,7 @@ export function EventTable({
   onOpen: (e: CalEvent) => void;
   /**
    * 空のときの補足文。**既定は① 予定（3層を出す画面）向け**。
-   * 1層しか持たない画面（旧スタジオ・パートナー・マイ）は「出すもの」の
+   * 1層しか持たない画面（旧スタジオ・パートナー・マイ）は「表示する項目」の
    * トグル自体が無いので、そこだけ違う文を渡す
    */
   emptyHint?: string;
@@ -46,7 +46,7 @@ export function EventTable({
       <div className="rounded-card border border-border bg-card p-6">
         <EmptyState
           title="この期間に予定はありません"
-          description={emptyHint ?? "上の「出すもの」で外しているものがないか確かめてください。月を送ると別の期間を見られます。"}
+          description={emptyHint ?? "上の「表示する項目」で外しているものがないか確かめてください。月を送ると別の期間を見られます。"}
         />
       </div>
     );

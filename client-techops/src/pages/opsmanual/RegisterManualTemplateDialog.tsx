@@ -1,4 +1,4 @@
-// 冊子を「組織共通のひな形」として登録する小さいダイアログ（段E・production-manual.md
+// マニュアルを「組織共通のテンプレート」として登録する小さいダイアログ（段E・production-manual.md
 // §10-5「組織共通」）。名前を1つ訊くだけで、全ページ（blocksそのまま）をコピーして
 // `qsheet_manual_templates` の行を1件作る（実際のコピーはサーバー側 `POST /manual-templates`）。
 import { useEffect, useState } from "react";
@@ -29,11 +29,11 @@ export default function RegisterManualTemplateDialog({ open, onOpenChange, sourc
     mutationFn: () => manualApi.createManualTemplate({ name: name.trim() || defaultName, source_manual_id: sourceManualId }),
     onSuccess: () => {
       onOpenChange(false);
-      notifySuccess("ひな形として登録しました。");
+      notifySuccess("テンプレートとして登録しました。");
       onRegistered?.();
     },
     onError: () => {
-      notifyError("ひな形として登録できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
+      notifyError("テンプレートとして登録できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
     },
   });
 
@@ -41,7 +41,7 @@ export default function RegisterManualTemplateDialog({ open, onOpenChange, sourc
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="組織共通のひな形として登録"
+      title="組織共通のテンプレートとして登録"
       size="sm"
       onSubmit={(e) => { e.preventDefault(); registerMutation.mutate(); }}
       footer={
@@ -55,10 +55,10 @@ export default function RegisterManualTemplateDialog({ open, onOpenChange, sourc
     >
       <div className="space-y-4">
         <p className="text-sub text-muted-foreground">
-          いまのページ構成をひな形として保存します。組織の全員が、新しい冊子を作るときに選べるようになります。
+          いまのページ構成をテンプレートとして保存します。組織の全員が、新しいマニュアルを作るときに選べるようになります。
         </p>
         <div>
-          <Label htmlFor="manual-template-name">ひな形の名前</Label>
+          <Label htmlFor="manual-template-name">テンプレートの名前</Label>
           <BufferedInput
             id="manual-template-name"
             value={name}

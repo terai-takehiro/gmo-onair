@@ -61,7 +61,7 @@ export default function MeetingRecordPage() {
     return () => clearTimeout(t);
   }, [q]);
 
-  // **動いている案件から出す。** 終わった案件の打合せを録ることは無い
+  // **更新のあった案件から出す。** 終わった案件の打合せを録ることは無い
   const list = useQuery({
     queryKey: ['projects', 'for-record', debounced],
     queryFn: async () => (await api.get('/projects', {

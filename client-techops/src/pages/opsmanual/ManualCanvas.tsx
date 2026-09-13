@@ -1,15 +1,15 @@
-// 紙面（A4横）の汎用メカニクス(段B)。
+// キャンバス（A4横）の汎用メカニクス(段B)。
 //
 // ブロックの中身（文字・図形・画像・表・QR）は一切知らない — 描画は `renderBlockContent`
 // （呼び出し側の render prop）に完全に委ねる。ここが持つのは「選ぶ・つかんで動かす・
-// 8方向で伸縮・回転・複製・削除・矢印キー移動・すいつき・元に戻す/やり直す・複数選択・
-// 整列・等間隔・重なり・スペース+ドラッグのパン・Ctrl+ホイールのズーム」という紙面の
+// 8方向で伸縮・回転・複製・削除・矢印キー移動・スナップ・元に戻す/やり直す・複数選択・
+// 整列・等間隔・重ね順・スペース+ドラッグのパン・Ctrl+ホイールのズーム」というキャンバスの
 // 操作だけ（production-manual.md §6 ②の操作表・段Bのスコープ）。
 //
-// 差し込みブロック（linked・段C）の位置・大きさ・選択・ドラッグ等の紙面操作はここが
+// 差し込みブロック（linked・段C）の位置・大きさ・選択・ドラッグ等のキャンバス操作はここが
 // 他のブロックと同じに面倒を見る（中身の描画だけ `renderBlockContent` に委譲。onContentCommit
 // は呼ばない設計 — kind:'linked' は中身編集を持たないため）。
-// ひな形（master）・確定/rev・PDF書き出しは実装しない（段D/E以降）。
+// テンプレート（master）・確定/rev・PDF書き出しは実装しない（段D/E以降）。
 //
 // ⚠️ **undo履歴（`useManualHistory`）はページ単位。** 呼び出し側（`ManualDetailPage`）は
 // ページを切り替えるたびに `key={ページID}` でこのコンポーネントごと再マウントすること
@@ -50,7 +50,7 @@ export interface ManualCanvasProps {
   /** 表示するブロック（親から渡される。真実の源は親側） */
   blocks: ManualBlock[];
   /** 1つの操作（ドラッグ終了・伸縮終了・回転終了・削除・複製・矢印キー移動・中身の編集・
-   *  整列・等間隔・重なり）が完了するたびに呼ぶ。親はこれを undo履歴の1手・自動保存の
+   *  整列・等間隔・重ね順）が完了するたびに呼ぶ。親はこれを undo履歴の1手・自動保存の
    *  トリガーとして扱う */
   onCommit: (nextBlocks: ManualBlock[]) => void;
   /** 選択が変わるたびに親へ通知（右パネルの表示用。複数選択のときは null） */
@@ -211,7 +211,7 @@ const ManualCanvas = forwardRef<ManualCanvasHandle, ManualCanvasProps>(function 
     history.commit(next);
   }
 
-  // ── 複数選択: 整列・等間隔・重なり（production-manual.md §6-2） ──────────
+  // ── 複数選択: 整列・等間隔・重ね順（production-manual.md §6-2） ──────────
   function handleAlign(mode: AlignMode) {
     history.commit(alignBlocks(blocks, selectedIds, mode));
   }

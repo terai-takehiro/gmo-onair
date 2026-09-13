@@ -3,7 +3,7 @@
 // 出す前の検査（4種）を見せたうえで PDF を書き出す画面。**止めない**——検査に何件
 // 引っかかっても「PDFで書き出す」は常に押せる（§6⑤「止めはしない」）。
 //
-// 紙面のプレビューは新しく静止画/HTML変換を書かず、印刷にも使う `ManualPrintDocument`
+// キャンバスのプレビューは新しく静止画/HTML変換を書かず、印刷にも使う `ManualPrintDocument`
 // （print-document 担当が作った本体。中では既に段Cで完成している `renderManualBlockContent`
 // を selected:false で呼び出し、編集画面と印刷結果が常に一致するようにしてある）をそのまま
 // 画面にも表示する。縮小は `zoom` ではなく `transform: scale()`（`ManualCanvas.tsx` と同じ
@@ -36,7 +36,7 @@ import ManualExportSettingsPanel, {
   selectPagesInRange,
   type ManualExportSettings,
 } from "./ManualExportSettingsPanel";
-// 印刷にも使う紙面ツリー本体・PDF書き出し本体（print-document 担当が作った実装）
+// 印刷にも使うキャンバスツリー本体・PDF書き出し本体（print-document 担当が作った実装）
 import ManualPrintDocument from "./ManualPrintDocument";
 import { exportManualToPdf } from "./manualPrintExport";
 
@@ -61,7 +61,7 @@ export default function ManualPreviewPage() {
   const manual = detailQuery.data;
 
   // 確定・確定を解く（段E・§6⑤「確定と版」）。どちらも応答の中身は使わず、
-  // 冊子（status/rev）・一覧（バッジ）を引き直して画面へ反映する
+  // マニュアル（status/rev）・一覧（バッジ）を引き直して画面へ反映する
   const afterFixChange = () => {
     detailQuery.refetch();
     queryClient.invalidateQueries({ queryKey: ["manuals", "list"] });
@@ -96,7 +96,7 @@ export default function ManualPreviewPage() {
     const nextRev = (manual?.rev ?? 0) + 1;
     const ok = await confirmAction({
       title: "確定を解きますか",
-      description: `冊子が下書きに戻り、また直せるようになります。次に確定すると版が上がります（rev.${nextRev}）。`,
+      description: `マニュアルが下書きに戻り、また直せるようになります。次に確定すると版が上がります（rev.${nextRev}）。`,
       confirmLabel: "確定を解く",
     });
     if (ok) unfixMutation.mutate();
@@ -118,7 +118,7 @@ export default function ManualPreviewPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manual?.id]);
 
-  // 範囲設定に従って、実際に書き出す紙面だけを取り出す。プレビュー・検査・インクの
+  // 範囲設定に従って、実際に書き出すキャンバスだけを取り出す。プレビュー・検査・インクの
   // 目安をこの並びに揃える（設計判断4「書き出し設定」・設計判断5・6の対象は常にこの範囲）
   const exportedPages = useMemo(
     () => (settings ? selectPagesInRange(sortedPages, settings.range) : sortedPages),
@@ -207,7 +207,7 @@ export default function ManualPreviewPage() {
         className="inline-flex min-h-tap w-fit items-center gap-1.5 text-sub text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-        冊子の編集に戻る
+        マニュアルの編集に戻る
       </button>
 
       {detailQuery.isLoading && (
@@ -217,7 +217,7 @@ export default function ManualPreviewPage() {
       )}
 
       {detailQuery.isError && (
-        <ErrorPanel title="冊子を読み込めませんでした" error={detailQuery.error} onRetry={() => detailQuery.refetch()} />
+        <ErrorPanel title="マニュアルを読み込めませんでした" error={detailQuery.error} onRetry={() => detailQuery.refetch()} />
       )}
 
       {manual && (
@@ -256,7 +256,7 @@ export default function ManualPreviewPage() {
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sub-sm text-muted-foreground">紙面のプレビュー（実物大の縮小表示）</span>
+                <span className="text-sub-sm text-muted-foreground">キャンバスのプレビュー（実物大の縮小表示）</span>
                 <div className="flex items-center gap-1">
                   <Button type="button" variant="outline" size="icon-sm" onClick={() => zoom(-ZOOM_STEP)} aria-label="縮小">
                     <Minus className="h-3.5 w-3.5" aria-hidden="true" />
@@ -318,7 +318,7 @@ export default function ManualPreviewPage() {
                 </div>
                 {inkAverage > INK_WARN_THRESHOLD ? (
                   <p className="text-sub-sm text-warning">
-                    紙面の塗り面積が多めです。社内のプリンタでは時間とインクを多く使いますが、このまま書き出せます。
+                    キャンバスの塗り面積が多めです。社内のプリンタでは時間とインクを多く使いますが、このまま書き出せます。
                   </p>
                 ) : (
                   <p className="text-sub-sm text-muted-foreground">紙に刷る前提の目安です。{Math.round(INK_WARN_THRESHOLD * 100)}%を超えたときだけ知らせます。</p>

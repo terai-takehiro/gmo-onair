@@ -1,9 +1,16 @@
 // 運営マニュアル — 出す前の検査（段D・production-manual.md §6⑤「出す前の検査」）。
 //
-// 書き出しボタンを押す前に4種の検査結果を画面に出す。**止めない**——
+// 書き出しボタンを押す前に6種の検査結果を画面に出す（4種＝§6⑤の表。残る2種は
+// 体制図ブロック向けに足した「名前の無い階層・人」（production-manual-orgchart.md §7）と
+// 「中身が入りきらないかもしれない体制図」）。**止めない**——
 // 呼び出し側はこの結果を見せた上で「このまま書き出す」を必ず押せるようにする
 // （§6⑤「止めはしない」）。DOM を一切測定しない純粋関数。
-import type { ManualBlock, ManualFreeBlock, ManualPage } from "@gmo-onair/shared/src/opsmanual/types";
+import type {
+  ManualBlock,
+  ManualFreeBlock,
+  ManualOrgChartContent,
+  ManualPage,
+} from "@gmo-onair/shared/src/opsmanual/types";
 import { PAGE_HEIGHT_MM, PAGE_WIDTH_MM } from "@gmo-onair/shared/src/opsmanual/types";
 import type { ManualResolveEntry } from "@/lib/manualResolveApi";
 
@@ -24,6 +31,12 @@ export interface ManualPreExportChecks {
    *  段Dでは `frozen` が常に null のためこの配列は常に空になる ——
    *  それが正しい挙動。段Eで `frozen` が入るようになった瞬間に効き始める） */
   staleSource: ManualPreExportIssue[];
+  /** 名前の無い階層・名前の無い人が残っている体制図ブロック
+   *  （production-manual-orgchart.md §7。**人が0人のチームは対象外**） */
+  unnamedOrgEntries: ManualPreExportIssue[];
+  /** 中身がブロックの高さに入りきらない**かもしれない**体制図ブロック。
+   *  粗い見積り（`estimateOrgChartHeightMm`）なので「必ず切れる」とは言わない */
+  orgChartMayOverflow: ManualPreExportIssue[];
 }
 
 /**
@@ -55,9 +68,143 @@ function isFreeBlockEmpty(block: ManualFreeBlock): boolean {
       return block.free.content.value.trim() === "";
     case "shape":
       return false;
+    case "orgchart":
+      return isOrgChartEmpty(block.free.content);
     default:
       return false;
   }
+}
+
+/** 前後の空白を除いて中身が無いか（体制図は任意の欄が多いので `undefined` も空として扱う） */
+function isBlankText(value: string | undefined): boolean {
+  return (value ?? "").trim() === "";
+}
+
+/**
+ * 体制図の「空」判定（production-manual-orgchart.md §3）。表ブロックの「全セルが空文字なら空」と
+ * 同じ考え方で、**紙に出る文字が1つも無ければ空**とする（階層の名前・チーム名・チームの所属・
+ * 人のどの欄も空）。置いた直後の「名前の無い階層が1つだけ」（§5-1）はこれに当たる。
+ */
+function isOrgChartEmpty(content: ManualOrgChartContent): boolean {
+  return content.tiers.every(
+    (tier) =>
+      isBlankText(tier.label) &&
+      tier.boxes.every(
+        (box) =>
+          isBlankText(box.label) &&
+          isBlankText(box.org) &&
+          box.people.every(
+            (person) =>
+              isBlankText(person.name) &&
+              isBlankText(person.role) &&
+              isBlankText(person.org) &&
+              isBlankText(person.phone) &&
+              isBlankText(person.email) &&
+              isBlankText(person.badge),
+          ),
+      ),
+  );
+}
+
+/**
+ * 体制図に「名前の無い階層」「名前の無い人」が残っているか（production-manual-orgchart.md §7）。
+ *
+ * ⚠️ **人が0人のチームは対象外**。「音声 ── 調整中」のように人が決まっていないチームを
+ * 意図して紙に出せる、というのが体制図の設計（§3-1）なので、空のチームを不備として数えない。
+ * チーム名が空なだけのチームも数えない（§7 が挙げているのは階層と人の2つだけ）。
+ */
+function hasUnnamedOrgEntry(content: ManualOrgChartContent): boolean {
+  return content.tiers.some(
+    (tier) => isBlankText(tier.label) || tier.boxes.some((box) => box.people.some((person) => isBlankText(person.name))),
+  );
+}
+
+// ── 体制図が入りきらないかもしれない（外部レビュー・P2） ──────────────────────
+//
+// キャンバス側（`blocks/OrgChartBlockContent.tsx` の根）は `overflow-auto`、印刷側
+// （`ManualPrintDocument.tsx` の `PrintBlock`）は `overflow: hidden`。人を足していくと
+// **キャンバスではスクロールで見えるのに、紙では下の人が黙って消える**。`isOverflowingManualBlock`
+// はブロックの外形（x/y/w/h）と紙しか見ないので、この事故は検査にも出てこなかった。
+//
+// **DOM を測らない方針は保ったまま**、実装の文字サイズから逆算した粗い容量の見積りを足し、
+// 「紙からはみ出すブロック」と同じ並び（＝出す前の検査の一覧）に別の1本として合流させる。
+// ⚠️ 既存の `overflowing` に混ぜないのは、①こちらは「必ず切れる」ではなく「かもしれない」で
+// 確度が違う ②`ManualPrintDocument.tsx` の赤い斜線は `isOverflowingManualBlock` と
+// 1対1（混ぜるとハッチの出ない行が一覧に並ぶ）——の2点。
+
+/** CSS の mm ⇄ px（96px/inch。`ManualPreviewPage.tsx` の `MM_TO_PX` と同じ換算・§8-3） */
+const PX_PER_MM = 96 / 25.4;
+
+/**
+ * 行の高さの係数。`--line-height-jp`（`shared/src/client/tokens.css`）の 1.75。
+ * 体制図の文字は `text-[10px]` のような Tailwind の任意値＝**font-size しか指定しない**ので、
+ * 行間は body から継承する。スマホ幅の 1.6 上書き（`tokens-v4.css` の
+ * `@media (max-width: 1023px)`）は A4横（297mm ≒ 1122px）には当たらない。
+ */
+const LINE_HEIGHT_JP = 1.75;
+
+/**
+ * 階層の見出し1本ぶん（px）。`OrgChartBlockContent.tsx` の
+ * `text-[10.5px] font-extrabold` の1行 ＋ `mb-1`(4px)。
+ */
+const TIER_HEADER_PX = 10.5 * LINE_HEIGHT_JP + 4;
+
+/** 階層のあいだの縦罫 `h-4`(16px)。縦罫を切ってあるときは詰め物の `h-2`(8px) */
+const TIER_GAP_PX = 16;
+const TIER_GAP_NO_CONNECTOR_PX = 8;
+
+/**
+ * チーム1枚の「人の行以外」ぶん（px）。`orgchart/OrgChartTeamBox.tsx` の
+ * 枠 `border`(1+1) ＋ 見出し（`text-[10px]` の1行 ＋ `py-0.5`(2+2) ＋ `border-b`(1)）
+ * ＋ 中身の `pt-0.5`(2) と `pb-1`(4)。
+ */
+const TEAM_CHROME_PX = 1 + 1 + (10 * LINE_HEIGHT_JP + 2 + 2 + 1) + 2 + 4;
+
+/** 人1行（px）。`text-[10px]` の1行 ＋ `py-px`(1+1) */
+const PERSON_ROW_PX = 10 * LINE_HEIGHT_JP + 1 + 1;
+
+/**
+ * 人が0人のチームに出る「まだ決まっていません」（px）。
+ * `text-[9px]` の1行 ＋ `py-0.5`(2+2) ＋ 破線の枠(1+1)。
+ */
+const EMPTY_TEAM_NOTE_PX = 9 * LINE_HEIGHT_JP + 2 + 2 + 1 + 1;
+
+/**
+ * 体制図の中身の高さの**粗い見積り**（mm）。DOM は測らない（純粋関数）。
+ *
+ * 数えるのは**未選択＝紙に出る側の描画だけ**。選択中しか出ないもの（＋階層 / ＋チーム /
+ * ＋人のボタン・人数・「まだチームがありません」）は紙に出ないので数えない。
+ * 同じ階層のチームは横に並ぶ（`flex items-start`）ので、その階層の高さは
+ * **いちばん高い1枚**で決まる（人数の合計ではない）。
+ *
+ * ⚠️ **粗い見積り**。①文字の折り返し（長い氏名、チームが多くて1枚が細くなる場合）
+ * ②`block.style` の `font-size` 上書き ③`show` を増やしたときの折り返し——は見ていない。
+ * どれも実際の高さを**増やす**方向なので、この見積りは**少なめに出る**（＝見逃す側に倒れる）。
+ * だから呼び出し側の文言も「入りきらないかもしれない」で、「必ず切れる」とは言わない。
+ */
+export function estimateOrgChartHeightMm(content: ManualOrgChartContent): number {
+  const tiers = content.tiers ?? [];
+  if (tiers.length === 0) return 0;
+  const gapPx = (content.connectors ?? true) ? TIER_GAP_PX : TIER_GAP_NO_CONNECTOR_PX;
+
+  let px = 0;
+  tiers.forEach((tier, i) => {
+    if (i > 0) px += gapPx;
+    px += TIER_HEADER_PX;
+    const boxes = tier.boxes ?? [];
+    // チームが0枚の階層は見出しだけ（紙には何も出ない）＝ 0 のまま
+    px += boxes.reduce((tallest, box) => {
+      const people = box.people?.length ?? 0;
+      const bodyPx = people > 0 ? people * PERSON_ROW_PX : EMPTY_TEAM_NOTE_PX;
+      return Math.max(tallest, TEAM_CHROME_PX + bodyPx);
+    }, 0);
+  });
+  return px / PX_PER_MM;
+}
+
+/** 中身がブロックの高さに入りきらない**かもしれない**か（粗い見積り。断定しない） */
+function mayOverflowOrgChart(content: ManualOrgChartContent, blockHeightMm: number): boolean {
+  return estimateOrgChartHeightMm(content) > blockHeightMm;
 }
 
 /**
@@ -132,8 +279,12 @@ function isResolvedDataEmpty(blockKey: string, data: unknown): boolean {
 }
 
 /**
- * 出す前の検査（4種・production-manual.md §6⑤）。呼び出し側はこの結果を
+ * 出す前の検査（6種・production-manual.md §6⑤ の4種 ＋ 体制図の
+ * production-manual-orgchart.md §7 と「入りきらないかもしれない」）。呼び出し側はこの結果を
  * 見せるだけで、書き出しボタン自体は常に押せる状態のままにする。
+ *
+ * 検査どうしは独立していて、1つのブロックが複数の配列に入ってよい
+ * （はみ出しかつ空、置いた直後の体制図なら空かつ名前の無い階層あり、など）。
  */
 export function runManualPreExportChecks(
   pages: ManualPage[],
@@ -143,6 +294,8 @@ export function runManualPreExportChecks(
   const emptyBlocks: ManualPreExportIssue[] = [];
   const missingSource: ManualPreExportIssue[] = [];
   const staleSource: ManualPreExportIssue[] = [];
+  const unnamedOrgEntries: ManualPreExportIssue[] = [];
+  const orgChartMayOverflow: ManualPreExportIssue[] = [];
 
   for (const page of pages) {
     for (const block of page.blocks) {
@@ -152,6 +305,10 @@ export function runManualPreExportChecks(
 
       if (block.kind === "free") {
         if (isFreeBlockEmpty(block)) emptyBlocks.push(issue);
+        if (block.free.type === "orgchart") {
+          if (hasUnnamedOrgEntry(block.free.content)) unnamedOrgEntries.push(issue);
+          if (mayOverflowOrgChart(block.free.content, block.h)) orgChartMayOverflow.push(issue);
+        }
         continue;
       }
 
@@ -177,5 +334,5 @@ export function runManualPreExportChecks(
     }
   }
 
-  return { overflowing, emptyBlocks, missingSource, staleSource };
+  return { overflowing, emptyBlocks, missingSource, staleSource, unnamedOrgEntries, orgChartMayOverflow };
 }

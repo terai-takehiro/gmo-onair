@@ -40,9 +40,9 @@
     </button>
   </header>
 
-  <!-- 冊子の帯 -->
+  <!-- マニュアルの帯 -->
   <div style="display: flex; height: 52px; flex-shrink: 0; align-items: center; gap: 12px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 16px 0 12px;">
-    <button class="tap ghost" style="display: flex; align-items: center; gap: 3px; height: 32px; border-radius: 8px; padding: 0 9px 0 5px; color: #005bac;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg><span style="font-size: 12.5px; font-weight: 700;">冊子一覧</span></button>
+    <button class="tap ghost" style="display: flex; align-items: center; gap: 3px; height: 32px; border-radius: 8px; padding: 0 9px 0 5px; color: #005bac;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg><span style="font-size: 12.5px; font-weight: 700;">マニュアル一覧</span></button>
     <span style="height: 20px; width: 1px; background: #e6e9ed;"></span>
     <span class="num" style="font-size: 11.5px; font-weight: 700; color: #9aa1ab;">OM-0006</span>
     <span style="font-size: 15px; font-weight: 800;">リハーサル進行マニュアル</span>
@@ -133,7 +133,7 @@
 
         <!-- 下段の情報（差し込み） -->
         <div style="position: absolute; left: 7%; top: 55%; width: 50%;">
-          <div style="font-size: 11px; font-weight: 800; color: #5d6470;">この冊子について</div>
+          <div style="font-size: 11px; font-weight: 800; color: #5d6470;">このマニュアルについて</div>
           <div style="margin-top: 5px; font-size: 11.5px; line-height: 1.7; color: #1a1d24;">当日の流れ・体制・技術のしくみを1冊にまとめたものです。<br>差し込んだ内容は元の資料と同じものが出ます。数字が違うと思ったら、元の資料を直してください。</div>
         </div>
         <div style="position: absolute; right: 7%; top: 55%; width: 30%; border-radius: 3px; border: 1px solid #e6e9ed; padding: 9px 11px;">
@@ -278,7 +278,7 @@
           </div>
         </div>
 
-        <!-- ひな形に登録 -->
+        <!-- テンプレートに登録 -->
         <div style="margin-top: 13px; padding-top: 12px; border-top: 1px dashed #e6e9ed;">
           <div style="font-size: 11px; font-weight: 800; color: #5d6470;">よく使う見た目</div>
           <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 5px;">
@@ -286,7 +286,7 @@
               <button class="tap" onClick="{{p.pick}}" style="height: 28px; display: flex; align-items: center; border-radius: 8px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 10px; font-size: {{p.size}}; font-weight: {{p.weight}}; color: {{p.color}};">{{p.label}}</button>
             </sc-for>
           </div>
-          <button class="tap" style="margin-top: 8px; width: 100%; height: 32px; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 9px; border: 1px solid #cfe4f4; background: #f4faff; font-size: 12px; font-weight: 800; color: #005bac;">この見た目をひな形に登録</button>
+          <button class="tap" style="margin-top: 8px; width: 100%; height: 32px; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 9px; border: 1px solid #cfe4f4; background: #f4faff; font-size: 12px; font-weight: 800; color: #005bac;">この見た目をテンプレートに登録</button>
         </div>
       </div>
     </aside>

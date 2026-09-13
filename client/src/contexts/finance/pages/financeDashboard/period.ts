@@ -101,7 +101,7 @@ export function ledgerPeriodParams(period: Period): Record<string, string> {
 }
 
 /**
- * 「台帳をひらく」導線が引き継ぐクエリパラメータ（仕様変更 #4）。
+ * 「台帳を開く」導線が引き継ぐクエリパラメータ（仕様変更 #4）。
  *
  * **台帳側の API パラメータ名（`recognition_from`/`recognition_to`）をそのまま URL の
  * クエリキーにも使う。** 台帳ページ（`RevenueListPage` 等）は受け取った値を

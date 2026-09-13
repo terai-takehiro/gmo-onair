@@ -36,7 +36,7 @@ export interface LedgerListProps {
    * 「この◯◯を直す」から呼ばれる（**PC の `onOpen` と同じもの**）
    */
   onOpen: (row: LedgerRow) => void;
-  /** 「案件をひらく」。渡さなければ出さない（販管費は案件を持たない） */
+  /** 「案件を開く」。渡さなければ出さない（販管費は案件を持たない） */
   onProject?: (row: LedgerRow) => void;
   canEdit: boolean;
   /**

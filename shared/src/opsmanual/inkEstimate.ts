@@ -1,9 +1,9 @@
-// 運営マニュアル — 紙面の「インクの目安」（段D・production-manual.md §6-6・§8-3）。
+// 運営マニュアル — キャンバスの「インクの目安」（段D・production-manual.md §6-6・§8-3）。
 //
 // 「描いた絵を測るのではなく、ブロックの値から計算する」（§6-5-1と同じ理由 ——
 // 測って書き戻す処理を入れない）。DOM を一切測定しない純粋関数。
 //
-// ページ1枚ぶんの塗り面積を、ブロックの `w × h × 塗り係数` の合計 ÷ 紙面の面積
+// ページ1枚ぶんの塗り面積を、ブロックの `w × h × 塗り係数` の合計 ÷ キャンバスの面積
 // （PAGE_WIDTH_MM × PAGE_HEIGHT_MM）で見積もる。書き出し画面（⑤）はこれが 40% を
 // 超えたら知らせるが、**止めない**（「このまま書き出す」を必ず押せる）。
 //
@@ -85,6 +85,15 @@ function inkCoefficient(block: ManualBlock): number {
     case "qr":
       // QRは黒が多いが小さく置かれることが多い、という目安
       return 0.3;
+    case "orgchart": {
+      // 体制図は枠線と文字だけ ＝ ほぼ0（production-manual-orgchart.md §4「チームは枠線だけ。
+      // 塗らない」・§7）。表・差し込みと同じ罫ベースの扱いにし、背景を敷いたときだけ
+      // 塗り面として数える。
+      // ⚠️ `default: return 0` に任せず明示の case を置く ——
+      // 「意図して0」と「書き忘れて0」がコード上で区別できなくなるため。
+      const bg = readStyleString(block.style, BACKGROUND_KEYS);
+      return isFilledColor(bg) ? 1 : 0;
+    }
     default:
       return 0;
   }
@@ -92,8 +101,8 @@ function inkCoefficient(block: ManualBlock): number {
 
 /**
  * 1ページぶんの塗り面積の見当（0〜1）。ブロックの `w × h × 塗り係数` の合計を
- * 紙面の面積（PAGE_WIDTH_MM × PAGE_HEIGHT_MM）で割る。DOM を測定しない純粋関数。
- * 重なるブロックの合計が紙面の面積を超えても構わない（見当なので）が、
+ * キャンバスの面積（PAGE_WIDTH_MM × PAGE_HEIGHT_MM）で割る。DOM を測定しない純粋関数。
+ * 重なるブロックの合計がキャンバスの面積を超えても構わない（見当なので）が、
  * 返り値自体は 0〜1 に丸める。
  */
 export function estimatePageInkCoverage(blocks: ManualBlock[]): number {

@@ -5,8 +5,8 @@
  *
  * ── 共通ポリシー（resolver 全員が守る決めごと。呼び出し元＝ `GET /techops/manuals/:id/resolve` 側の実装） ──
  * resolve はサーバーの実行権限で読む。呼び出しユーザーが `sales` モジュール権限を個別に
- * 持っているかはここでは再チェックしない——**冊子自体が `canAccessManual` を通っていること
- * だけ**をゲートにする（一度差し込んだ情報は、冊子を見られる人になら見える、という設計判断）。
+ * 持っているかはここでは再チェックしない——**マニュアル自体が `canAccessManual` を通っていること
+ * だけ**をゲートにする（一度差し込んだ情報は、マニュアルを見られる人になら見える、という設計判断）。
  * この resolver は `resolve` 経由専用で、単体で外部公開しない。
  *
  * ── なぜ `projectService.getById()` をそのまま使わないか ──────────────────────
@@ -23,10 +23,10 @@
  * ── data の形（client-linked-ui 担当向け。無い項目はキーごと省く。空文字/null のラベルを出さない） ──
  *
  * `project.heading` → `ProjectHeadingData | null`
- *   - `projectId` が無い（programId 由来の冊子）ときは常に `null`
- *     （案件管理はプロジェクト専用——programId の冊子に対応する project は無い）
+ *   - `projectId` が無い（programId 由来のマニュアル）ときは常に `null`
+ *     （案件管理はプロジェクト専用——programId のマニュアルに対応する project は無い）
  *   - `projects` に「回」「会場」に相当する列が無いため、この2つは仕様上出せない（キーごと無い）
- *   - `serviceDateHint` は **project 由来ではなく冊子自身の `qsheet_manuals.service_date`**
+ *   - `serviceDateHint` は **project 由来ではなくマニュアル自身の `qsheet_manuals.service_date`**
  *     （呼び出し元が `ctx.manualServiceDate` として渡す）。「その日」を示すのに使う
  *
  * `project.team` → `ProjectTeamMemberData[]`
@@ -40,16 +40,16 @@ import type { AccessUser } from '../../access';
 /** resolver 全員が受け取る引数の形（各 resolver ファイルが自己完結するようここに複製する。
  *  `schedule.service.ts` / `manual.service.ts` が `AccessUser` をそれぞれ複製しているのと同じ作法） */
 export interface ManualResolverCtx {
-  /** 冊子が案件に紐づくときの案件 id。program 紐づけの冊子では null */
+  /** マニュアルが案件に紐づくときの案件 id。program 紐づけのマニュアルでは null */
   projectId: string | null;
-  /** 冊子が番組に紐づくときの番組 id。project 紐づけの冊子では null */
+  /** マニュアルが番組に紐づくときの番組 id。project 紐づけのマニュアルでは null */
   programId: string | null;
   /** ブロックが指す差し込み元の id（`sheet.rundown`/`sheet.excerpt`/`sheet.micAssignment` の3種だけ必須）。
    *  この2つの resolver では使わない（project.heading/team は project_id 単位で一意なため） */
   sourceId: string | null;
   /** `link.reveal?.fields`。秘密の伏せ字解除に使うのは streaming.* だけ。この2つの resolver では使わない */
   revealFields: string[];
-  /** 冊子自身の予定日（`qsheet_manuals.service_date`、YYYY-MM-DD）。project 由来ではない */
+  /** マニュアル自身の予定日（`qsheet_manuals.service_date`、YYYY-MM-DD）。project 由来ではない */
   manualServiceDate: string | null;
   /** 呼び出し本人。`schedule.resolver.ts` が `canAccessSchedule` の判定に使う（レビュー指摘）。
    *  この2つの resolver では使わない */
@@ -71,7 +71,7 @@ export interface ProjectHeadingData {
   eventStart?: string;
   /** YYYY-MM-DD。event_start と異なるときだけ持つ（単日開催で同じ日付を二重に出さない） */
   eventEnd?: string;
-  /** YYYY-MM-DD。冊子自身の service_date（ctx.manualServiceDate） */
+  /** YYYY-MM-DD。マニュアル自身の service_date（ctx.manualServiceDate） */
   serviceDateHint?: string;
 }
 

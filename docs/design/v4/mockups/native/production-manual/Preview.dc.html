@@ -38,7 +38,7 @@
     </button>
   </header>
 
-  <!-- 冊子の帯 -->
+  <!-- マニュアルの帯 -->
   <div style="display: flex; height: 52px; flex-shrink: 0; align-items: center; gap: 12px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 16px 0 12px;">
     <button class="tap ghost" style="display: flex; align-items: center; gap: 3px; height: 32px; border-radius: 8px; padding: 0 9px 0 5px; color: #005bac;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg><span style="font-size: 12.5px; font-weight: 700;">編集に戻る</span></button>
     <span style="height: 20px; width: 1px; background: #e6e9ed;"></span>
@@ -69,7 +69,7 @@
       </div>
     </aside>
 
-    <!-- 中央: 紙面 -->
+    <!-- 中央: キャンバス -->
     <main style="flex: 1; min-width: 0; background: #eef0f3; overflow: hidden; padding: 18px 22px;">
       <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
         <sc-for list="{{sheets}}" as="s" hint-placeholder-count="4">
@@ -117,7 +117,7 @@
                 </div>
               </sc-if>
 
-              <!-- 柱 -->
+              <!-- ヘッダー -->
               <div style="position: absolute; left: 5%; right: 5%; bottom: 4%; display: flex; align-items: center; border-top: 1px solid #e6e9ed; padding-top: 3px;">
                 <span class="num" style="font-size: 6px; color: #9aa1ab;">GMO グローバルスタジオ ／ 社外秘</span>
                 <span style="flex: 1;"></span>
@@ -213,7 +213,7 @@
         <p style="margin: 8px 0 0; font-size: 11px; line-height: 1.6; color: #5d6470;">印刷の画面が開きます。送信先を<strong>「PDF に保存」</strong>にして保存してください（用紙・余白はこちらで合わせてあります）。</p>
 
         <div style="margin-top: 12px; padding-top: 11px; border-top: 1px dashed #e6e9ed; display: flex; gap: 7px;">
-          <button class="tap" style="flex: 1; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; font-size: 12px; font-weight: 700;">ひな形にする</button>
+          <button class="tap" style="flex: 1; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; font-size: 12px; font-weight: 700;">テンプレートにする</button>
           <button class="tap" style="flex: 1; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid #cfe4f4; background: #f4faff; color: #005bac; font-size: 12px; font-weight: 800;">確定を解く</button>
         </div>
       </div>
@@ -231,9 +231,9 @@ class Component extends DCLogic {
     const st = this.state;
 
     const tocDefs = [
-      { label: '第1章 ／ この冊子について', page: '1', lv: 1 },
+      { label: '第1章 ／ このマニュアルについて', page: '1', lv: 1 },
       { label: '表紙', page: '1', lv: 2 },
-      { label: 'この冊子について', page: '2', lv: 2 },
+      { label: 'このマニュアルについて', page: '2', lv: 2 },
       { label: '体制と連絡網', page: '3', lv: 2 },
       { label: '第2章 ／ 当日', page: '4', lv: 1 },
       { label: '8/22（土）リハーサル', page: '4', lv: 2 },

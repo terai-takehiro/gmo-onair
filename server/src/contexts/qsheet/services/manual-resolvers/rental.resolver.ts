@@ -5,7 +5,7 @@
  *
  * ── 実際に読んだ既存サービス ─────────────────────────────────────────
  *   - `server/src/contexts/qsheet/services/rental.service.ts` の `getReservationGroups(owner)`
- *     （品目・数量・会社・受渡し日を会社ごとにグループ化して返す。他 owner との重なり警告
+ *     （品目・数量・会社・受渡し日を会社ごとにグループ化して返す。他 owner との重ね順警告
  *     `conflict` も含む——差し込みブロックでも「他の案件/番組と被っている」が分かるほうが
  *     有用なため、絞り込まずそのまま渡す）
  *   - `server/src/contexts/qsheet/device-settings-owner.ts` の `Owner`/`ownerWhere`
@@ -14,12 +14,12 @@
  *
  * ── 共通ポリシー ──────────────────────────────────────────────────────
  * resolve はサーバーの実行権限で読む。呼び出しユーザーが `qsheet` モジュール権限を個別に
- * 持っているかはここでは再チェックしない——**冊子自体が `canAccessManual` を通っていること
+ * 持っているかはここでは再チェックしない——**マニュアル自体が `canAccessManual` を通っていること
  * だけ**をゲートにする。この resolver は `resolve` 経由専用で、単体で外部公開しない。
  *
  * ── data の形（client-linked-ui 担当向け） ───────────────────────────────────
  * `{ groups: ReservationGroup[] } | null`（`rental.service.ts` の型そのまま）。
- *   - owner が無い（project/program どちらの id も持たない冊子）ときは `null`
+ *   - owner が無い（project/program どちらの id も持たないマニュアル）ときは `null`
  *   - owner はあるが予約行が1件も無いときは `{ groups: [] }`（`project.team` が
  *     projectId はあるがメンバー0件のとき `[]` を返すのと同じ考え方——「その案件/番組に
  *     レンタル機材の枠自体が無い」ではなく「まだ何も予約していない」ので空配列で表す）

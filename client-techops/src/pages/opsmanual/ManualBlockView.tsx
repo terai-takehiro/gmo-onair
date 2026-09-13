@@ -1,10 +1,10 @@
-// 紙面（ManualCanvas）— ブロック1個の表示・選択枠・8方向のリサイズハンドル・回転つまみ・
+// キャンバス（ManualCanvas）— ブロック1個の表示・選択枠・8方向のリサイズハンドル・回転つまみ・
 // つかんで動かす操作。中身（文字・図形・画像・表・QR の描画）は一切知らず、
 // `renderContent` で呼び出し側が描いたものをそのまま矩形の中に置くだけ（段Bのスコープ）。
 //
 // ライブドラッグ中は見た目だけを更新し（`dragRef` に持つ値＋`liveRect` state）、
 // pointerup/pointercancel で初めて `onPatchCommit`（＝親の undo 履歴の1手）を呼ぶ。
-import { useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { PAGE_HEIGHT_MM, PAGE_WIDTH_MM, type ManualBlock, type ManualFreeBlockContent } from "@gmo-onair/shared/src/opsmanual/types";
 import {
   RESIZE_HANDLES,
@@ -44,7 +44,24 @@ interface DragState {
   handle?: ResizeHandle;
   resizeStart?: ResizeStartInfo;
   rotateCenter?: { x: number; y: number };
+  /** 本体ドラッグがしきい値を超えて実際に動き始めたか（`move` のみ） */
+  started?: boolean;
 }
+
+/**
+ * 本体を「動かし始めた」と見なす距離（px）。これ未満の動きは押しただけと見なす。
+ *
+ * ⚠️ **本体の pointerdown で `setPointerCapture` してはいけない。** 捕まえると、そのあとの
+ * `click` / `dblclick` の宛先がこの要素に移り、**中身（文字ブロックなど）の `onDoubleClick`
+ * が二度と発火しない**（実際に「ダブルクリックで文字を入力」が効かなくなっていた）。
+ *
+ * 代わりに本体のドラッグ中は **window で pointermove / pointerup を追う**。捕まえないので、
+ * ポインタがブロックの外へ出てもそのまま追える（レビュー指摘: しきい値を超える前にブロックの
+ * 外へ出ると、要素の上でしか発火しない React の pointermove / pointerup が二度と来ず、
+ * ドラッグが黙って死んで `dragRef` が残っていた）。伸縮・回転はつまみの上で完結するので
+ * 従来どおり `setPointerCapture` のままでよい。
+ */
+const DRAG_START_PX = 3;
 
 const HANDLE_STYLE: Record<ResizeHandle, CSSProperties> = {
   nw: { left: 0, top: 0, cursor: "nwse-resize" },
@@ -60,7 +77,7 @@ const HANDLE_STYLE: Record<ResizeHandle, CSSProperties> = {
 export interface ManualBlockViewProps {
   block: ManualBlock;
   selected: boolean;
-  /** すいつき（他ブロックの端）の対象。自分自身が含まれていてよい（id で除外する） */
+  /** スナップ（他ブロックの端）の対象。自分自身が含まれていてよい（id で除外する） */
   allBlocks: ManualBlock[];
   pageRef: React.RefObject<HTMLDivElement>;
   /** 選ぶ・複数選択に足す/外す。Shift+クリックなら true（親が単一選択か足し引きかを判断） */
@@ -85,9 +102,14 @@ export default function ManualBlockView({
 }: ManualBlockViewProps) {
   const blockRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
+  /** 本体ドラッグで window に足した3本を、足したそのままの関数で外すための閉包 */
+  const bodyDragCleanupRef = useRef<(() => void) | null>(null);
   const [liveRect, setLiveRect] = useState<Rect | null>(null);
 
   const rect: Rect = liveRect ?? { x: block.x, y: block.y, w: block.w, h: block.h, rotation: block.rotation ?? 0 };
+
+  // ドラッグ中にこのブロックが消えても購読が残らないようにする（並べ替え・削除・ページ送り）
+  useEffect(() => () => bodyDragCleanupRef.current?.(), []);
 
   function pxPerMm(): number | null {
     const r = pageRef.current?.getBoundingClientRect();
@@ -124,13 +146,45 @@ export default function ManualBlockView({
     onSelect(e.shiftKey);
     const ppm = pxPerMm();
     if (!ppm) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
+    // ⚠️ ここでは捕まえない（DRAG_START_PX のコメント参照）。window で追う
     const orig: Rect = { x: block.x, y: block.y, w: block.w, h: block.h, rotation: block.rotation ?? 0 };
-    dragRef.current = { mode: "move", pointerId: e.pointerId, pxPerMm: ppm, startClientX: e.clientX, startClientY: e.clientY, orig, live: orig };
+    dragRef.current = { mode: "move", pointerId: e.pointerId, pxPerMm: ppm, startClientX: e.clientX, startClientY: e.clientY, orig, live: orig, started: false };
+    subscribeBodyDrag();
   }
-  function handleBodyPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
+  /**
+   * 本体ドラッグのあいだだけ window を購読する（ブロックの外へ出ても追えるように）。
+   *
+   * ⚠️ **外し方に注意**（レビュー指摘）: ここで渡す関数は毎レンダー別物なので、
+   * 「外す側」を後から組み立て直すと**登録したのと違う関数を外そうとして外れない**。
+   * 登録したその場で「まさにこの3本を外す」閉包を作り、ref に置いて使う。
+   */
+  function subscribeBodyDrag() {
+    bodyDragCleanupRef.current?.();
+    const onMove = (e: PointerEvent) => handleBodyPointerMove(e);
+    const onEnd = () => { bodyDragCleanupRef.current?.(); endDrag(); };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onEnd);
+    window.addEventListener("pointercancel", onEnd);
+    bodyDragCleanupRef.current = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onEnd);
+      window.removeEventListener("pointercancel", onEnd);
+      bodyDragCleanupRef.current = null;
+    };
+  }
+  function handleBodyPointerMove(e: PointerEvent) {
     const drag = dragRef.current;
-    if (!drag || drag.mode !== "move") return;
+    if (!drag || drag.mode !== "move" || e.pointerId !== drag.pointerId) return;
+    if (!drag.started) {
+      // 指・マウスの小さな揺れでドラッグを始めない
+      const movedPx = Math.hypot(e.clientX - drag.startClientX, e.clientY - drag.startClientY);
+      if (movedPx < DRAG_START_PX) return;
+      drag.started = true;
+      // ⚠️ **動き始めてから**捕まえる（レビュー指摘）。ここまで来ればクリック／ダブルクリックは
+      // もう起きないので中身の編集を邪魔しない。捕まえておくと、ブラウザの外でボタンを離しても
+      // pointerup が必ずこの要素へ届き、ドラッグが宙に浮いたまま残らない
+      try { blockRef.current?.setPointerCapture(drag.pointerId); } catch { /* 既に離された等は無視 */ }
+    }
     const dxMm = (e.clientX - drag.startClientX) / drag.pxPerMm;
     const dyMm = (e.clientY - drag.startClientY) / drag.pxPerMm;
     const targets = collectSnapTargets(allBlocks, block.id);
@@ -210,9 +264,6 @@ export default function ManualBlockView({
       style={style}
       className="cursor-move touch-none select-none"
       onPointerDown={handleBodyPointerDown}
-      onPointerMove={handleBodyPointerMove}
-      onPointerUp={endDrag}
-      onPointerCancel={endDrag}
     >
       <div className="absolute inset-0 overflow-hidden">{renderContent({ selected, onContentCommit })}</div>
 

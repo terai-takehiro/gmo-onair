@@ -11,8 +11,8 @@
  *
  * ⚠️⚠️ 外部レビュー再指摘（P1・Security Review）: 以前はここで `canAccessDoc` を意図的に
  * 使わず、`sourceId` で引いた `qsheet_documents` の `project_id`/`program_id` が呼び出し元
- * （冊子）のものと一致することだけを検査していた（`resolveAccessibleDoc`）。しかし
- * `canAccessManual`（冊子）は**案件メンバー全員に自動で見える**設計（§7-1）なのに対し、
+ * （マニュアル）のものと一致することだけを検査していた（`resolveAccessibleDoc`）。しかし
+ * `canAccessManual`（マニュアル）は**案件メンバー全員に自動で見える**設計（§7-1）なのに対し、
  * `qsheet_documents`（進行台本）は**案件メンバー自動可視を持たない**（作成者／個別共有／
  * `system_admin` だけ・`documents.routes.ts`）——資料の方があえて狭い。プロジェクト一致
  * だけをゲートにすると、案件メンバーなら誰でも「差し込みブロックの `sourceId` に他人の
@@ -43,7 +43,7 @@ type Json = Record<string, unknown>;
 /** `fetchDocForRead` の戻り値の型を、公開されていない内部 `DocRow` から名前無しで借りる */
 type SheetDoc = NonNullable<Awaited<ReturnType<typeof fetchDocForRead>>>;
 
-/** resolver へ渡す文脈。冊子（`qsheet_manuals`）の `project_id`/`program_id` をそのまま渡す */
+/** resolver へ渡す文脈。マニュアル（`qsheet_manuals`）の `project_id`/`program_id` をそのまま渡す */
 export interface ManualLinkResolveScope {
   projectId: string | null;
   programId: string | null;
@@ -84,7 +84,7 @@ async function fetchDocOwner(sourceId: string): Promise<DocOwner | null> {
   };
 }
 
-/** 冊子と同じ project_id、または同じ program_id を持つ資料だけを true にする（null 同士は一致させない） */
+/** マニュアルと同じ project_id、または同じ program_id を持つ資料だけを true にする（null 同士は一致させない） */
 function ownerMatchesCtx(ctx: ManualLinkResolveScope, owner: DocOwner): boolean {
   if (ctx.projectId && owner.projectId === ctx.projectId) return true;
   if (ctx.programId && owner.programId === ctx.programId) return true;
@@ -112,7 +112,7 @@ async function resolveAccessibleDoc(ctx: ManualLinkResolveCtx): Promise<Accessib
     return { ok: false, result: { data: null, updatedAt: null, error: 'access_denied' } };
   }
   // ⚠️ レビュー指摘（P1）: 案件一致だけでは不十分——資料自体の権限（作成者/個別共有/管理者）
-  // も通す。冊子の案件メンバーというだけでは他人の非共有台本は読めない。
+  // も通す。マニュアルの案件メンバーというだけでは他人の非共有台本は読めない。
   if (!(await canAccessDoc(ctx.user, ctx.sourceId, owner.createdBy))) {
     return { ok: false, result: { data: null, updatedAt: null, error: 'access_denied' } };
   }
@@ -200,7 +200,7 @@ interface MicAssignmentEntry {
  * `audio_mic` 型の列だけを見て、行ごとの割り当てを生のまま集める。
  * `formatCell()` の `type === 'audio_mic'` 分岐と同じフィールド（`cell.assignments[].{ch, person,
  * micType, state}`）を読むが、こちらは表示用に文字列へ畳まず構造化データのまま返す
- * （紙面側でどう並べるかを決めるため）。
+ * （キャンバス側でどう並べるかを決めるため）。
  */
 function extractMicAssignments(doc: SheetDoc): MicAssignmentEntry[] {
   const data = doc.data;
@@ -251,7 +251,7 @@ export async function resolveSheetMicAssignment(ctx: ManualLinkResolveCtx): Prom
       // 定義済みのCh一覧（{ ch, label? }）。台本にマイク割りの列が無ければ空配列
       channels: outline.masters.micChannels,
       micTypes: outline.masters.micTypes,
-      // 行ごとの生の割り当て（セクション/行の文脈つき）。「出演者 × Ch」の組み方は紙面側で決める
+      // 行ごとの生の割り当て（セクション/行の文脈つき）。「出演者 × Ch」の組み方はキャンバス側で決める
       assignments,
     },
     updatedAt,
@@ -267,7 +267,7 @@ export interface SheetSourceOption {
 }
 
 /**
- * `doc-list.service.ts` の `fetchSheets` に近いクエリ（冊子と同じ project_id/program_id を
+ * `doc-list.service.ts` の `fetchSheets` に近いクエリ（マニュアルと同じ project_id/program_id を
  * 持つ資料に絞る点は resolve と同じポリシーだが、レビュー指摘を受けて**資料自体の権限
  * （`canAccessDoc` と同じ条件: 作成者／個別共有／管理者）も追加で絞る**——ここを絞らないと
  * 「差し込む」の候補一覧が本人の読めない台本のタイトルを見せてしまう（resolve 本体は
