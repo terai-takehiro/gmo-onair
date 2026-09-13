@@ -1,0 +1,361 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@100;400;700;800&family=Noto+Sans+JP:wght@100;200;300;400;500;600;700;800;900&family=Noto+Serif+JP:wght@400;700;900&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    svg text { font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; }
+  </style>
+</helmet>
+
+<div style="width: 1200px; height: 880px; position: relative; overflow: hidden; background: #f7f8fa; color: #1a1d24; padding: 26px 30px 24px;">
+
+  <!-- 見出し -->
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 24px;">
+    <h1 style="margin: 0; font-size: 23px; line-height: 1.3; font-weight: 800; letter-spacing: -.01em; white-space: nowrap;">会場図面 ── 考え方の地図</h1>
+    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 10px;">
+      <span class="num" style="font-size: 11.5px; color: #9aa1ab;">/techops/venue-layouts ・ 資料番号 VL-202609-0001</span>
+      <span style="display: inline-flex; align-items: center; height: 24px; border-radius: 8px; background: #eaf4fb; color: #005bac; font-size: 11.5px; font-weight: 800; padding: 0 10px; white-space: nowrap;">制作技術支援 ／ 新しいミニアプリ</span>
+    </div>
+  </div>
+  <p style="margin: 7px 0 0; font-size: 13.5px; line-height: 1.65; color: #3c424c;">用賀の図面の上に、<strong>PowerPoint と同じ手つき</strong>で椅子・机・人・カメラを<strong>実寸</strong>で置き、運営マニュアルの紙面に縮尺つきで載せる道具。<br>縮尺は利用者の仕事ではなく、<strong>階の下敷きと備品カタログが持つ</strong>。新しく覚える操作は「並べる」1つだけ。</p>
+
+  <!-- ── 上段: 3つの動詞 ／ 画面5枚の関係図 ／ 見せる語 ───────────────── -->
+  <div style="margin-top: 14px; display: grid; grid-template-columns: 262px 1fr 284px; gap: 16px; align-items: stretch; height: 280px;">
+
+    <!-- 3つの動詞 -->
+    <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; overflow: hidden; padding: 13px 14px;">
+      <div style="display: flex; align-items: baseline; gap: 8px;">
+        <span style="font-size: 15px; font-weight: 800; line-height: 20px; white-space: nowrap;">動詞は3つ</span>
+        <span style="font-size: 11.5px; color: #9aa1ab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">ほかは共通の動詞</span>
+      </div>
+      <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 5px;">
+        <div style="display: flex; align-items: flex-start; gap: 8px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 7px 9px;">
+          <span class="num" style="width: 22px; height: 22px; border-radius: 7px; background: #eaf4fb; color: #005bac; font-size: 11.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">1</span>
+          <div style="min-width: 0; flex: 1;">
+            <div style="font-size: 13.5px; font-weight: 800; line-height: 18px;">置く</div>
+            <div style="margin-top: 2px; font-size: 11px; line-height: 16px; color: #5d6470;">品目を押すと表示範囲の中央に実寸で出る。ドラッグでも同じ。</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 8px; border-radius: 10px; border: 1px solid #cfe4f4; background: #ffffff; padding: 7px 9px;">
+          <span class="num" style="width: 22px; height: 22px; border-radius: 7px; background: #005bac; color: #ffffff; font-size: 11.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">2</span>
+          <div style="min-width: 0; flex: 1;">
+            <div style="font-size: 13.5px; font-weight: 800; line-height: 18px;">並べる</div>
+            <div style="margin-top: 2px; font-size: 11px; line-height: 16px; color: #5d6470;">入力→プレビュー→置くの3手。劇場・スクール・島・円卓など7つ。</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 8px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 7px 9px;">
+          <span class="num" style="width: 22px; height: 22px; border-radius: 7px; background: #eaf4fb; color: #005bac; font-size: 11.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">3</span>
+          <div style="min-width: 0; flex: 1;">
+            <div style="font-size: 13.5px; font-weight: 800; line-height: 18px;">載せる（差し込む）</div>
+            <div style="margin-top: 2px; font-size: 11px; line-height: 16px; color: #5d6470;">冊子のブロック「会場図面」に線画＋1m バーで載る。確定で凍る。</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 画面5枚の関係図 -->
+    <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; overflow: hidden; padding: 13px 14px;">
+      <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+        <span style="font-size: 15px; font-weight: 800; line-height: 20px; white-space: nowrap;">画面は5枚 ── 入口はハブのタイル</span>
+        <span style="font-size: 11.5px; color: #9aa1ab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">①②は両方の端末・③④⑤は PC専用</span>
+      </div>
+      <div style="position: relative; margin-top: 8px; width: 532px; height: 220px;">
+        <div style="position: absolute; left: 0px; top: 8px; width: 52px; height: 60px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 6px 7px; display: flex; flex-direction: column; justify-content: center; gap: 1px; border-color: #cfe4f4; background: #f4faff; padding: 4px;"><div style="display: flex; flex-direction: column; align-items: center; gap: 3px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 12h9M12 3v9M12 15v6M12 15h9"/></svg><span style="font-size: 10.5px; font-weight: 800; line-height: 12px;">ハブ</span></div></div>
+        <div style="position: absolute; left: 66px; top: 8px; width: 148px; height: 60px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 6px 7px; display: flex; flex-direction: column; justify-content: center; gap: 1px; "><div style="font-size: 12.5px; font-weight: 800; line-height: 16px; white-space: nowrap;">① 一覧</div><div class="num clip1" style="font-size: 10.5px; line-height: 14px; color: #005bac; letter-spacing: -.01em;">/techops/venue-layouts</div><div class="clip1" style="font-size: 10.5px; line-height: 14px; color: #5d6470;">両方の端末・作成は3手</div></div>
+        <div style="position: absolute; left: 230px; top: 8px; width: 170px; height: 60px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 6px 7px; display: flex; flex-direction: column; justify-content: center; gap: 1px; border-color: #005bac; box-shadow: 0 0 0 2px #eaf4fb;"><div style="font-size: 12.5px; font-weight: 800; line-height: 16px; white-space: nowrap;">② 編集</div><div class="num clip1" style="font-size: 10.5px; line-height: 14px; color: #005bac; letter-spacing: -.01em;">/techops/venue-layouts/:id</div><div class="clip1" style="font-size: 10.5px; line-height: 14px; color: #5d6470;">PC＝編集・スマホ＝閲覧</div></div>
+        <div style="position: absolute; left: 416px; top: 8px; width: 116px; height: 60px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 6px 7px; display: flex; flex-direction: column; justify-content: center; gap: 1px; padding: 6px 6px;"><div style="font-size: 12.5px; font-weight: 800; line-height: 16px; white-space: nowrap;">③ 仕上がり</div><div class="num clip1" style="font-size: 10.5px; line-height: 14px; color: #005bac; letter-spacing: -.01em;">:id/preview</div><div class="clip1" style="font-size: 10.5px; line-height: 14px; color: #5d6470;">PC専用・PDF/PNG</div></div>
+        <div style="position: absolute; left: 204px; top: 142px; width: 196px; height: 76px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 6px 7px; display: flex; flex-direction: column; justify-content: center; gap: 1px; border-color: #197a4b; background: #f1faf5;"><div style="font-size: 12.5px; font-weight: 800; line-height: 16px; white-space: nowrap;">運営マニュアル</div><div class="num clip1" style="font-size: 10.5px; line-height: 14px; color: #005bac; letter-spacing: -.01em;">冊子 OM-202609-0007</div><div class="clip1" style="font-size: 10.5px; line-height: 14px; color: #5d6470;">差し込みブロック「会場図面」</div><div class="clip1" style="font-size: 10.5px; line-height: 14px; color: #5d6470;">線画＋1m バー＋凡例・確定で凍る</div></div>
+        <div style="position: absolute; left: 410px; top: 150px; width: 122px; height: 64px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 6px 7px; display: flex; flex-direction: column; justify-content: center; gap: 1px; border-style: dashed; background: #f7f8fa; padding: 4px 7px; gap: 0;"><div style="font-size: 10.5px; line-height: 14px; color: #5d6470;">段F（v1 のあと）</div><div style="font-size: 10.5px; font-weight: 800; line-height: 14px;">④ 会場と階</div><div style="font-size: 10.5px; font-weight: 800; line-height: 14px;">⑤ 備品カタログ</div><div style="font-size: 10.5px; line-height: 14px; color: #5d6470;">manager・PC専用</div></div>
+      <svg style="position: absolute; inset: 0; pointer-events: none;" width="532" height="220" viewBox="0 0 532 220">
+        <defs><marker id="vl-map-ah-005bac" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 8 4 L 0 8 z" fill="#005bac"/></marker><marker id="vl-map-ah-197a4b" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 8 4 L 0 8 z" fill="#197a4b"/></marker><marker id="vl-map-ah-5d6470" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 8 4 L 0 8 z" fill="#5d6470"/></marker></defs>
+        <path d="M 52 38 L 65 38" stroke="#005bac" stroke-width="1.6" fill="none" marker-end="url(#vl-map-ah-005bac)" />
+        <path d="M 214 38 L 229 38" stroke="#005bac" stroke-width="1.6" fill="none" marker-end="url(#vl-map-ah-005bac)" />
+        <path d="M 400 38 L 415 38" stroke="#005bac" stroke-width="1.6" fill="none" marker-end="url(#vl-map-ah-005bac)" />
+        <path d="M 296 68 L 296 141" stroke="#197a4b" stroke-width="1.6" fill="none" marker-end="url(#vl-map-ah-197a4b)" />
+        <path d="M 336 142 L 336 69" stroke="#5d6470" stroke-width="1.6" fill="none" marker-end="url(#vl-map-ah-5d6470)" />
+        <text x="288" y="100" text-anchor="end" font-size="10.5" font-weight="800" fill="#197a4b">差し込む</text>
+        <text x="288" y="114" text-anchor="end" font-size="10" fill="#5d6470">線画で紙面に載る</text>
+        <text x="344" y="100" font-size="10.5" font-weight="800" fill="#5d6470">「会場図面を編集」</text>
+        <text x="344" y="114" font-size="10" fill="#5d6470">?return= で ② へ戻る</text>
+        <text x="66" y="86" font-size="10" fill="#5d6470">名前・階・エリア・ひな形（前の図面の複製も可）</text>
+        <text x="416" y="86" font-size="10" fill="#5d6470">印刷から PDF に保存</text>
+      </svg>
+      </div>
+    </section>
+
+    <!-- 見せる語と隠す語 -->
+    <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; overflow: hidden; padding: 13px 14px;">
+      <div style="display: flex; align-items: baseline; gap: 8px;">
+        <span style="font-size: 15px; font-weight: 800; line-height: 20px; white-space: nowrap;">見せる語は5つ</span>
+        <span style="font-size: 11.5px; color: #9aa1ab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">ラベルは12文字以内</span>
+      </div>
+      <table style="margin-top: 4px; width: 100%; border-collapse: collapse; table-layout: fixed;">
+        <tbody>
+        <tr><td style="width: 70px; padding: 0; height: 21px; font-size: 12.5px; font-weight: 800; vertical-align: middle; white-space: nowrap;">会場図面</td><td class="clip1" style="padding: 0; height: 21px; font-size: 11px; color: #3c424c; vertical-align: middle; max-width: 0;">図面1件。資料番号 VL-…</td></tr>
+        <tr><td style="width: 70px; padding: 0; height: 21px; font-size: 12.5px; font-weight: 800; vertical-align: middle; white-space: nowrap;">階・エリア</td><td class="clip1" style="padding: 0; height: 21px; font-size: 11px; color: #3c424c; vertical-align: middle; max-width: 0;">26F／27F と WORLD STUDIO</td></tr>
+        <tr><td style="width: 70px; padding: 0; height: 21px; font-size: 12.5px; font-weight: 800; vertical-align: middle; white-space: nowrap;">品目</td><td class="clip1" style="padding: 0; height: 21px; font-size: 11px; color: #3c424c; vertical-align: middle; max-width: 0;">備品24・カメラ4・人3・図形5</td></tr>
+        <tr><td style="width: 70px; padding: 0; height: 21px; font-size: 12.5px; font-weight: 800; vertical-align: middle; white-space: nowrap;">並べ方</td><td class="clip1" style="padding: 0; height: 21px; font-size: 11px; color: #3c424c; vertical-align: middle; max-width: 0;">劇場・スクール・島・円卓ほか7つ</td></tr>
+        <tr><td style="width: 70px; padding: 0; height: 21px; font-size: 12.5px; font-weight: 800; vertical-align: middle; white-space: nowrap;">下敷き</td><td class="clip1" style="padding: 0; height: 21px; font-size: 11px; color: #3c424c; vertical-align: middle; max-width: 0;">縮尺を合わせた図面。動かせない</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #e6e9ed; display: flex; align-items: baseline; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 800; line-height: 16px;">隠す語 → 見せる語</span>
+        <span style="font-size: 11.5px; color: #9aa1ab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">抜粋 6組</span>
+      </div>
+      <div style="margin-top: 3px; display: flex; flex-direction: column; gap: 0;">
+        <div style="display: flex; align-items: center; gap: 6px; height: 14px; font-size: 11px; line-height: 14px;"><span style="color: #9aa1ab;">シミュレーター</span><span style="color: #c7243a; font-weight: 800;">→</span><span style="font-weight: 800;">会場図面</span></div>
+        <div style="display: flex; align-items: center; gap: 6px; height: 14px; font-size: 11px; line-height: 14px;"><span style="color: #9aa1ab;">キャンバス</span><span style="color: #c7243a; font-weight: 800;">→</span><span style="font-weight: 800;">図面</span></div>
+        <div style="display: flex; align-items: center; gap: 6px; height: 14px; font-size: 11px; line-height: 14px;"><span style="color: #9aa1ab;">オブジェクト／ブロック</span><span style="color: #c7243a; font-weight: 800;">→</span><span style="font-weight: 800;">品目</span></div>
+        <div style="display: flex; align-items: center; gap: 6px; height: 14px; font-size: 11px; line-height: 14px;"><span style="color: #9aa1ab;">レイヤー</span><span style="color: #c7243a; font-weight: 800;">→</span><span style="font-weight: 800;">重なり</span></div>
+        <div style="display: flex; align-items: center; gap: 6px; height: 14px; font-size: 11px; line-height: 14px;"><span style="color: #9aa1ab;">スナップ／ガイド</span><span style="color: #c7243a; font-weight: 800;">→</span><span style="font-weight: 800;">すいつき</span></div>
+        <div style="display: flex; align-items: center; gap: 6px; height: 14px; font-size: 11px; line-height: 14px;"><span style="color: #9aa1ab;">プリセット／テンプレート</span><span style="color: #c7243a; font-weight: 800;">→</span><span style="font-weight: 800;">並べ方／ひな形</span></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ── 中段: 縮尺 ／ 置けるものの型 ／ 一気に並べる ────────────────── -->
+  <div style="margin-top: 14px; display: grid; grid-template-columns: 442px 440px 226px; gap: 16px; align-items: stretch; height: 312px;">
+
+    <!-- 縮尺の担保 -->
+    <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; overflow: hidden; padding: 13px 14px;">
+      <div style="display: flex; align-items: baseline; gap: 8px;">
+        <span style="font-size: 15px; font-weight: 800; line-height: 20px; white-space: nowrap;">縮尺は利用者の仕事にしない ── 2軸で合わせる</span>
+      </div>
+      <div style="margin-top: 8px; display: flex; gap: 8px; align-items: flex-start;">
+        <div style="width: 228px; flex-shrink: 0; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 2px 0 0;">
+          <svg width="228" height="158" viewBox="0 0 228 158" style="display: block;">
+            <rect x="26" y="14" width="119.00" height="124.15" fill="#f2f4f7" stroke="#cbd2da" stroke-width="1"/>
+            <path d="M 26.00 14 V 138.15" stroke="#c7243a" stroke-opacity=".45" stroke-width=".7" stroke-dasharray="5 1.5 1 1.5"/>
+            <path d="M 26 14.00 H 145.00" stroke="#c7243a" stroke-opacity=".45" stroke-width=".7" stroke-dasharray="5 1.5 1 1.5"/>
+            <path d="M 43.00 14 V 138.15" stroke="#c7243a" stroke-opacity=".45" stroke-width=".7" stroke-dasharray="5 1.5 1 1.5"/>
+            <path d="M 26 31.74 H 145.00" stroke="#c7243a" stroke-opacity=".45" stroke-width=".7" stroke-dasharray="5 1.5 1 1.5"/>
+            <path d="M 60.00 14 V 138.15" stroke="#c7243a" stroke-opacity=".45" stroke-width=".7" stroke-dasharray="5 1.5 1 1.5"/>
+            <path d="M 26 49.47 H 145.00" stroke="#c7243a" stroke-opacity=".45" stroke-width=".7" stroke-dasharray="5 1.5 1 1.5"/>
+            <path d="M 77.00 14 V 138.15" stroke="#c7243a" stroke-opacity=".45" stroke-width=".7" stroke-dasharray="5 1.5 1 1.5"/>
+            <path d="M 26 67.21 H 145.00" stroke="#c7243a" stroke-opacity=".45" stroke-width=".7" stroke-dasharray="5 1.5 1 1.5"/>
+            <path d="M 94.00 14 V 138.15" stroke="#c7243a" stroke-opacity=".45" stroke-width=".7" stroke-dasharray="5 1.5 1 1.5"/>
+            <path d="M 26 84.94 H 145.00" stroke="#c7243a" stroke-opacity=".45" stroke-width=".7" stroke-dasharray="5 1.5 1 1.5"/>
+            <path d="M 111.00 14 V 138.15" stroke="#c7243a" stroke-opacity=".45" stroke-width=".7" stroke-dasharray="5 1.5 1 1.5"/>
+            <path d="M 26 102.68 H 145.00" stroke="#c7243a" stroke-opacity=".45" stroke-width=".7" stroke-dasharray="5 1.5 1 1.5"/>
+            <path d="M 128.00 14 V 138.15" stroke="#c7243a" stroke-opacity=".45" stroke-width=".7" stroke-dasharray="5 1.5 1 1.5"/>
+            <path d="M 26 120.41 H 145.00" stroke="#c7243a" stroke-opacity=".45" stroke-width=".7" stroke-dasharray="5 1.5 1 1.5"/>
+            <path d="M 145.00 14 V 138.15" stroke="#c7243a" stroke-opacity=".45" stroke-width=".7" stroke-dasharray="5 1.5 1 1.5"/>
+            <path d="M 26 138.15 H 145.00" stroke="#c7243a" stroke-opacity=".45" stroke-width=".7" stroke-dasharray="5 1.5 1 1.5"/>
+            <rect x="62.34" y="46.98" width="46.33" height="51.21" fill="#eaf4fb" fill-opacity=".9" stroke="#005bac" stroke-width=".9"/>
+            <text x="85.5" y="61.0" text-anchor="middle" font-size="5.6" font-weight="800" fill="#005bac">WORLD STUDIO</text>
+            <text x="85.5" y="70.0" text-anchor="middle" font-size="5.2" fill="#005bac" class="num">17,440×18,480</text>
+            <path d="M 74.17 97.97 H 96.83" stroke="#1a1d24" stroke-width="2.2"/>
+            <text x="85.5" y="106.0" text-anchor="middle" font-size="5.5" fill="#1a1d24" class="num">LED 8,530</text>
+            <text x="26" y="9" font-size="7" font-weight="800" fill="#5d6470" text-anchor="middle">X16</text>
+            <text x="145.0" y="9" font-size="7" font-weight="800" fill="#5d6470" text-anchor="middle">X9</text>
+            <text x="20" y="16.5" font-size="7" font-weight="800" fill="#5d6470" text-anchor="end">Y16</text>
+            <text x="20" y="140.7" font-size="7" font-weight="800" fill="#5d6470" text-anchor="end">Y9</text>
+            <!-- 寸法線: 下（X）と右（Y）。線で測る。ラベルの円で測らない -->
+            <path d="M 26 146.2 H 145.0 M 26 143.2 v 6 M 145.0 143.2 v 6" stroke="#1a1d24" stroke-width=".8" fill="none"/>
+            <text x="85.5" y="155.2" text-anchor="middle" font-size="7.5" font-weight="800" fill="#1a1d24" class="num">44,800（7×6,400）</text>
+            <path d="M 153.0 14 V 138.2 M 150.0 14 h 6 M 150.0 138.2 h 6" stroke="#1a1d24" stroke-width=".8" fill="none"/>
+            <text transform="translate(161.0 76.1) rotate(-90)" text-anchor="middle" font-size="7.5" font-weight="800" fill="#1a1d24" class="num">44,800</text>
+            <!-- 縮尺の値 -->
+            <text x="166" y="24" font-size="6.5" font-weight="800" fill="#1a1d24" class="num">X 63.199 mm/pt</text>
+            <text x="166" y="34" font-size="6.5" font-weight="800" fill="#1a1d24" class="num">Y 60.577 mm/pt</text>
+            <text x="166" y="52" font-size="8" font-weight="800" fill="#c2410e" class="num">差 4.3%</text>
+            <text x="166" y="63" font-size="6.5" fill="#c2410e">1軸なら</text>
+            <text x="166" y="73" font-size="6.5" fill="#c2410e" class="num">10m で 43cm</text>
+            <text x="166" y="92" font-size="6.5" fill="#5d6470">原点 X16×Y16</text>
+            <text x="166" y="106" font-size="6.5" fill="#5d6470">26F・27F は</text>
+            <text x="166" y="116" font-size="6.5" fill="#5d6470">同じ原点</text>
+            <text x="166" y="132" font-size="6.5" fill="#5d6470">線で測る。</text>
+            <text x="166" y="142" font-size="6.5" fill="#5d6470">円で測らない</text>
+          </svg>
+          <div style="margin: 2px 6px 0; border-top: 1px dashed #e6e9ed;"></div>
+          <svg width="228" height="82" viewBox="0 0 228 82" style="display: block;">
+            <rect x="6" y="9" width="40" height="40" fill="#f7f8fa" stroke="#9aa1ab" stroke-width=".8" stroke-dasharray="2 2"/>
+            <rect x="15.3" y="19.2" width="21.4" height="19.6" rx="3" fill="#1a1d24" fill-opacity=".08" stroke="#1a1d24" stroke-width=".9"/>
+            <path d="M 18 36 Q 26 39 34 36" fill="none" stroke="#1a1d24" stroke-width="1.6" stroke-linecap="round"/>
+            <text x="26" y="7" text-anchor="middle" font-size="6" fill="#5d6470">方眼 1m</text>
+            <text x="26" y="46.5" text-anchor="middle" font-size="5.5" fill="#5d6470" class="num">535×490</text>
+            <rect x="6" y="56" width="20" height="4" fill="#1a1d24"/><rect x="26" y="56" width="20" height="4" fill="#ffffff" stroke="#1a1d24" stroke-width=".8"/>
+            <text x="26" y="69" text-anchor="middle" font-size="7" font-weight="800" fill="#1a1d24">1m</text>
+            <text x="26" y="78" text-anchor="middle" font-size="6" fill="#5d6470">右下の 1m バー</text>
+            <text x="58" y="15" font-size="8.5" font-weight="800" fill="#1a1d24">下敷きだけを X/Y 別に伸縮</text>
+            <text x="58" y="28" font-size="7.5" fill="#3c424c" class="num">幅 ＝ px ÷ 0.039216（pxPerMmX）</text>
+            <text x="58" y="39" font-size="7.5" fill="#3c424c" class="num">高さ ＝ px ÷ 0.040913（pxPerMmY）</text>
+            <text x="58" y="57" font-size="8.5" font-weight="800" fill="#1a1d24">品目は等方の mm で描く</text>
+            <text x="58" y="70" font-size="7.5" fill="#3c424c" class="num">535×490 mm → 21.0×20.0 px（100%）</text>
+            <text x="58" y="80" font-size="6.5" fill="#5d6470">歪みは下敷きの中で消える</text>
+          </svg>
+        </div>
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; font-size: 11px; line-height: 16px; color: #3c424c;">
+          <div><strong style="color: #1a1d24;">2軸で合わせる</strong> ── X 63.199／Y 60.577 mm/pt、原点は X16×Y16。<span class="num">4.3%</span> 違うので、1軸だと 10m で 43cm ずれる。</div>
+          <div><strong style="color: #1a1d24;">下敷きだけ伸縮</strong> ── 品目は等方の mm。535×490 は縦横とも正しく、歪みは下敷きの中で消える。</div>
+          <div><strong style="color: #1a1d24;">1m バー</strong> ── 右下でズームに追従。書き出しに必ず載る。</div>
+          <div><strong style="color: #1a1d24;">実寸検証 4点（±60mm）</strong> ── <span class="num">44,800／LED 8,530／MEETING ROOM 3,775／ELV13 1,850×2,010</span>。合えば階に「縮尺確認済み」、外れれば帯に<span style="color: #c2410e; font-weight: 700;">縮尺が未確認</span>。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 置けるものの型 -->
+    <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; overflow: hidden; padding: 13px 14px;">
+      <div style="display: flex; align-items: baseline; gap: 8px;">
+        <span style="font-size: 15px; font-weight: 800; line-height: 20px; white-space: nowrap;">置けるものの型（線画・正面は −y）</span>
+        <span style="font-size: 11.5px; color: #9aa1ab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">伸ばせるのは図形だけ</span>
+      </div>
+      <div style="margin-top: 8px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+        <div style="min-width: 0; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 6px 7px 5px; display: flex; flex-direction: column; align-items: center; color: #1a1d24;">
+          <div style="width: 54px; height: 54px; display: flex; align-items: center; justify-content: center;"><svg viewBox="-1150 -600 2300 1200" width="54" height="54"><rect x="-1100" y="-500" width="1000" height="1000" fill="currentColor" fill-opacity=".08" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke="currentColor" stroke-linejoin="round" stroke-linecap="round"/><circle cx="600" cy="0" r="500" fill="currentColor" fill-opacity=".08" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke="currentColor" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
+          <div class="clip1" style="margin-top: 4px; width: 100%; text-align: center; font-size: 12px; font-weight: 800; line-height: 16px;">四角と丸</div>
+          <div class="clip1" style="width: 100%; text-align: center; font-size: 10.5px; line-height: 14px; color: #5d6470;">図形・唯一伸ばせる</div>
+          <span class="num clip1" style="margin-top: 3px; max-width: 100%; display: inline-flex; align-items: center; height: 18px; border-radius: 6px; padding: 0 7px; font-size: 10.5px; font-weight: 800; background: #f2f4f7; color: #3c424c;">1,000角・Ø1,000</span>
+        </div>
+        <div style="min-width: 0; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 6px 7px 5px; display: flex; flex-direction: column; align-items: center; color: #1a1d24;">
+          <div style="width: 54px; height: 54px; display: flex; align-items: center; justify-content: center;"><svg viewBox="-260 -190 520 380" width="54" height="54"><ellipse cx="0" cy="0" rx="225" ry="150" fill="currentColor" fill-opacity=".08" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke="currentColor" stroke-linejoin="round" stroke-linecap="round"/><circle cx="0" cy="-20" r="90" fill="currentColor" fill-opacity=".2" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke="currentColor" stroke-linejoin="round" stroke-linecap="round"/><path d="M -60 -190 L 0 -240 L 60 -190" fill="none" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke="currentColor" stroke-linejoin="round" stroke-linecap="round" stroke-opacity=".5"/></svg></div>
+          <div class="clip1" style="margin-top: 4px; width: 100%; text-align: center; font-size: 12px; font-weight: 800; line-height: 16px;">人（立位）</div>
+          <div class="clip1" style="width: 100%; text-align: center; font-size: 10.5px; line-height: 14px; color: #5d6470;">頭 Ø180・正面は −y</div>
+          <span class="num clip1" style="margin-top: 3px; max-width: 100%; display: inline-flex; align-items: center; height: 18px; border-radius: 6px; padding: 0 7px; font-size: 10.5px; font-weight: 800; background: #f2f4f7; color: #3c424c;">450×300</span>
+        </div>
+        <div style="min-width: 0; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 6px 7px 5px; display: flex; flex-direction: column; align-items: center; color: #1a1d24;">
+          <div style="width: 54px; height: 54px; display: flex; align-items: center; justify-content: center;"><svg viewBox="-300 -280 600 560" width="54" height="54"><rect x="-268" y="-245" width="535" height="490" rx="80" fill="currentColor" fill-opacity=".08" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke="currentColor" stroke-linejoin="round" stroke-linecap="round"/><path d="M -220 200 Q 0 260 220 200" fill="none" stroke-width="3" vector-effect="non-scaling-stroke" stroke="currentColor" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
+          <div class="clip1" style="margin-top: 4px; width: 100%; text-align: center; font-size: 12px; font-weight: 800; line-height: 16px;">ルベックチェア</div>
+          <div class="clip1" style="width: 100%; text-align: center; font-size: 10.5px; line-height: 14px; color: #5d6470;">01-2・保有 80 脚</div>
+          <span class="num clip1" style="margin-top: 3px; max-width: 100%; display: inline-flex; align-items: center; height: 18px; border-radius: 6px; padding: 0 7px; font-size: 10.5px; font-weight: 800; background: #f2f4f7; color: #3c424c;">535×490</span>
+        </div>
+        <div style="min-width: 0; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 6px 7px 5px; display: flex; flex-direction: column; align-items: center; color: #1a1d24;">
+          <div style="width: 54px; height: 54px; display: flex; align-items: center; justify-content: center;"><svg viewBox="-960 -360 1920 720" width="54" height="54"><rect x="-900" y="-300" width="1800" height="600" rx="20" fill="currentColor" fill-opacity=".08" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke="currentColor" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
+          <div class="clip1" style="margin-top: 4px; width: 100%; text-align: center; font-size: 12px; font-weight: 800; line-height: 16px;">長机（白）</div>
+          <div class="clip1" style="width: 100%; text-align: center; font-size: 10.5px; line-height: 14px; color: #5d6470;">01-1・保有 20 点</div>
+          <span class="num clip1" style="margin-top: 3px; max-width: 100%; display: inline-flex; align-items: center; height: 18px; border-radius: 6px; padding: 0 7px; font-size: 10.5px; font-weight: 800; background: #f2f4f7; color: #3c424c;">1,800×600</span>
+        </div>
+        <div style="min-width: 0; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 6px 7px 5px; display: flex; flex-direction: column; align-items: center; color: #1a1d24;">
+          <div style="width: 54px; height: 54px; display: flex; align-items: center; justify-content: center;"><svg viewBox="-500 -920 1000 1640" width="54" height="54"><circle cx="0" cy="0" r="450" fill="currentColor" fill-opacity=".08" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke="currentColor" stroke-linejoin="round" stroke-linecap="round"/><circle cx="0" cy="-380" r="30" fill="currentColor"/><circle cx="329" cy="190" r="30" fill="currentColor"/><circle cx="-329" cy="190" r="30" fill="currentColor"/><rect x="-175" y="-700" width="350" height="1100" rx="30" fill="currentColor" fill-opacity=".08" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke="currentColor" stroke-linejoin="round" stroke-linecap="round"/><path d="M -120 -700 L 120 -700 L 0 -860 Z" fill="currentColor"/><rect x="-100" y="300" width="200" height="100" fill="none" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke="currentColor" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
+          <div class="clip1" style="margin-top: 4px; width: 100%; text-align: center; font-size: 12px; font-weight: 800; line-height: 16px;">ペデスタル（昭特）</div>
+          <div class="clip1" style="width: 100%; text-align: center; font-size: 10.5px; line-height: 14px; color: #5d6470;">TP-90B・空圧 3段</div>
+          <span class="num clip1" style="margin-top: 3px; max-width: 100%; display: inline-flex; align-items: center; height: 18px; border-radius: 6px; padding: 0 7px; font-size: 10.5px; font-weight: 800; background: #fff7ed; color: #c2410e;">Ø900・寸法は推定</span>
+        </div>
+        <div style="min-width: 0; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 6px 7px 5px; display: flex; flex-direction: column; align-items: center; color: #1a1d24;">
+          <div style="width: 54px; height: 54px; display: flex; align-items: center; justify-content: center;"><svg viewBox="-3300 -3300 6600 6600" width="54" height="54"><circle cx="0" cy="0" r="3100" fill="none" stroke-width="1.1" stroke-dasharray="4 3" vector-effect="non-scaling-stroke" stroke="currentColor" stroke-linejoin="round" stroke-linecap="round"/><circle cx="0" cy="0" r="1100" fill="none" stroke-width="1.1" stroke-dasharray="4 3" vector-effect="non-scaling-stroke" stroke="currentColor" stroke-linejoin="round" stroke-linecap="round" stroke-opacity=".4"/><rect x="-450" y="-600" width="900" height="1200" rx="40" fill="currentColor" fill-opacity=".08" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke="currentColor" stroke-linejoin="round" stroke-linecap="round"/><path d="M 0 1100 L 0 -2500" fill="none" stroke-width="2.4" vector-effect="non-scaling-stroke" stroke="currentColor" stroke-linejoin="round" stroke-linecap="round"/><rect x="-200" y="900" width="400" height="200" fill="currentColor" fill-opacity=".08" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke="currentColor" stroke-linejoin="round" stroke-linecap="round"/><rect x="-175" y="-2900" width="350" height="800" rx="30" fill="currentColor" fill-opacity=".08" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke="currentColor" stroke-linejoin="round" stroke-linecap="round"/><path d="M -120 -2900 L 120 -2900 L 0 -3060 Z" fill="currentColor"/><circle cx="0" cy="0" r="40" fill="currentColor"/></svg></div>
+          <div class="clip1" style="margin-top: 4px; width: 100%; text-align: center; font-size: 12px; font-weight: 800; line-height: 16px;">クレーン（昭特）</div>
+          <div class="clip1" style="width: 100%; text-align: center; font-size: 10.5px; line-height: 14px; color: #5d6470;">TK-53A・寸法は推定</div>
+          <span class="num clip1" style="margin-top: 3px; max-width: 100%; display: inline-flex; align-items: center; height: 18px; border-radius: 6px; padding: 0 7px; font-size: 10.5px; font-weight: 800; background: #fff7ed; color: #c2410e;">届く範囲 3,100</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 一気に並べる -->
+    <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; overflow: hidden; padding: 13px 14px;">
+      <div style="display: flex; align-items: baseline; gap: 8px;">
+        <span style="font-size: 15px; font-weight: 800; line-height: 20px; white-space: nowrap;">一気に並べる</span>
+        <span style="font-size: 11.5px; color: #9aa1ab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">3手</span>
+      </div>
+      <div style="margin-top: 6px; display: flex; align-items: center; gap: 4px; white-space: nowrap;">
+        <span style="display: inline-flex; align-items: center; height: 20px; border-radius: 6px; background: #f2f4f7; padding: 0 7px; font-size: 11px; font-weight: 800; color: #3c424c; flex-shrink: 0;">入力</span>
+        <span style="font-size: 11px; color: #9aa1ab;">→</span>
+        <span style="display: inline-flex; align-items: center; height: 20px; border-radius: 6px; background: #f2f4f7; padding: 0 7px; font-size: 11px; font-weight: 800; color: #3c424c; flex-shrink: 0;">プレビュー</span>
+        <span style="font-size: 11px; color: #9aa1ab;">→</span>
+        <span style="display: inline-flex; align-items: center; height: 20px; border-radius: 6px; background: #005bac; padding: 0 7px; font-size: 11px; font-weight: 800; color: #ffffff; flex-shrink: 0;">置く</span>
+      </div>
+      <div style="margin-top: 6px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff;">
+        <svg width="200" height="154" viewBox="0 0 200 154" style="display: block;">
+          <rect x="77.8" y="4" width="44.4" height="22.2" fill="#1a1d24" fill-opacity=".05" stroke="#1a1d24" stroke-width=".8"/>
+          <path d="M 77.8 4 L 122.2 26.2 M 122.2 4 L 77.8 26.2" stroke="#1a1d24" stroke-opacity=".35" stroke-width=".5"/>
+          <text x="100" y="17.6" text-anchor="middle" font-size="7" font-weight="800" fill="#1a1d24">ステージ</text>
+          <text x="128.2" y="42.6" font-size="6.5" fill="#5d6470" class="num">前の空き 1,500</text>
+          <rect x="35.2" y="51.0" width="129.7" height="81.7" fill="#005bac" fill-opacity=".03" stroke="#005bac" stroke-width=".8" stroke-dasharray="3 2"/>
+          <rect x="38.2" y="54.0" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 40.2 61.0 H 46.1" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="48.3" y="54.0" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 50.3 61.0 H 56.2" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="58.5" y="54.0" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 60.5 61.0 H 66.4" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="68.7" y="54.0" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 70.7 61.0 H 76.6" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="78.9" y="54.0" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 80.9 61.0 H 86.8" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="111.2" y="54.0" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 113.2 61.0 H 119.1" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="121.4" y="54.0" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 123.4 61.0 H 129.3" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="131.6" y="54.0" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 133.6 61.0 H 139.5" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="141.8" y="54.0" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 143.8 61.0 H 149.7" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="151.9" y="54.0" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 153.9 61.0 H 159.8" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="38.2" y="70.6" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 40.2 77.7 H 46.1" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="48.3" y="70.6" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 50.3 77.7 H 56.2" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="58.5" y="70.6" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 60.5 77.7 H 66.4" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="68.7" y="70.6" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 70.7 77.7 H 76.6" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="78.9" y="70.6" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 80.9 77.7 H 86.8" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="111.2" y="70.6" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 113.2 77.7 H 119.1" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="121.4" y="70.6" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 123.4 77.7 H 129.3" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="131.6" y="70.6" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 133.6 77.7 H 139.5" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="141.8" y="70.6" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 143.8 77.7 H 149.7" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="151.9" y="70.6" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 153.9 77.7 H 159.8" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="38.2" y="87.3" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 40.2 94.3 H 46.1" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="48.3" y="87.3" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 50.3 94.3 H 56.2" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="58.5" y="87.3" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 60.5 94.3 H 66.4" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="68.7" y="87.3" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 70.7 94.3 H 76.6" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="78.9" y="87.3" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 80.9 94.3 H 86.8" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="111.2" y="87.3" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 113.2 94.3 H 119.1" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="121.4" y="87.3" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 123.4 94.3 H 129.3" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="131.6" y="87.3" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 133.6 94.3 H 139.5" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="141.8" y="87.3" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 143.8 94.3 H 149.7" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="151.9" y="87.3" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 153.9 94.3 H 159.8" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="38.2" y="103.9" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 40.2 111.0 H 46.1" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="48.3" y="103.9" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 50.3 111.0 H 56.2" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="58.5" y="103.9" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 60.5 111.0 H 66.4" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="68.7" y="103.9" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 70.7 111.0 H 76.6" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="78.9" y="103.9" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 80.9 111.0 H 86.8" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="111.2" y="103.9" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 113.2 111.0 H 119.1" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="121.4" y="103.9" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 123.4 111.0 H 129.3" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="131.6" y="103.9" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 133.6 111.0 H 139.5" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="141.8" y="103.9" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 143.8 111.0 H 149.7" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="151.9" y="103.9" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 153.9 111.0 H 159.8" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="38.2" y="120.5" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 40.2 127.6 H 46.1" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="48.3" y="120.5" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 50.3 127.6 H 56.2" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="58.5" y="120.5" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 60.5 127.6 H 66.4" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="68.7" y="120.5" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 70.7 127.6 H 76.6" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="78.9" y="120.5" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 80.9 127.6 H 86.8" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="111.2" y="120.5" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 113.2 127.6 H 119.1" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="121.4" y="120.5" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 123.4 127.6 H 129.3" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="131.6" y="120.5" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 133.6 127.6 H 139.5" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="141.8" y="120.5" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 143.8 127.6 H 149.7" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <rect x="151.9" y="120.5" width="9.9" height="9.1" rx="1.6" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width=".7"/><path d="M 153.9 127.6 H 159.8" stroke="#005bac" stroke-width="1.1" stroke-linecap="round"/>
+          <text transform="translate(100.1 91.8) rotate(-90)" text-anchor="middle" font-size="6.5" fill="#5d6470" class="num">通路 1,200</text>
+          <path d="M 38.2 138.6 H 161.8 M 38.2 135.6 v 6 M 161.8 135.6 v 6" stroke="#1a1d24" stroke-width=".8" fill="none"/>
+          <text x="100" y="148.6" text-anchor="middle" font-size="7.5" font-weight="800" fill="#1a1d24" class="num">6,685</text>
+          <path d="M 169.8 54.0 V 129.6 M 166.8 54.0 h 6 M 166.8 129.6 h 6" stroke="#1a1d24" stroke-width=".8" fill="none"/>
+          <text transform="translate(178.8 91.8) rotate(-90)" text-anchor="middle" font-size="7.5" font-weight="800" fill="#1a1d24" class="num">4,090</text>
+        </svg>
+      </div>
+      <div style="margin-top: 6px; font-size: 11px; line-height: 16px; color: #3c424c;">
+        <div class="num clip1" style="font-weight: 800; color: #1a1d24;">劇場形式 50脚</div>
+        <div class="num clip1" style="font-weight: 800; color: #1a1d24;">横550×縦900・中央通路1,200</div>
+        <div class="clip1"><span class="num">50／80 脚・はみ出し 0</span> を見て置く。</div>
+        <div class="clip1">結果は<strong>グループ</strong>。並べ直す／解除。</div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ── 下段: 決めていただきたいこと ───────────────────────────────── -->
+  <section style="margin-top: 14px; border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; overflow: hidden; padding: 12px 14px; height: 106px;">
+    <div style="display: flex; align-items: baseline; gap: 8px;">
+      <span style="font-size: 15px; font-weight: 800; line-height: 20px; white-space: nowrap; line-height: 18px;">決めていただきたいこと（8件）</span>
+      <span style="font-size: 11.5px; color: #9aa1ab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">見出しだけ。本文は設計書 §11。1 は後から変えられない</span>
+    </div>
+    <div style="margin-top: 8px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px 10px;">
+        <div style="display: flex; align-items: center; gap: 7px; height: 24px; min-width: 0;"><span class="num" style="width: 20px; height: 20px; border-radius: 6px; background: #eaf4fb; color: #005bac; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">1</span><span class="clip1" style="font-size: 12px; font-weight: 800; min-width: 0;">名前「会場図面」・接頭辞 VL</span></div>
+        <div style="display: flex; align-items: center; gap: 7px; height: 24px; min-width: 0;"><span class="num" style="width: 20px; height: 20px; border-radius: 6px; background: #eaf4fb; color: #005bac; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">2</span><span class="clip1" style="font-size: 12px; font-weight: 800; min-width: 0;">備品・人・カメラは実寸固定</span></div>
+        <div style="display: flex; align-items: center; gap: 7px; height: 24px; min-width: 0;"><span class="num" style="width: 20px; height: 20px; border-radius: 6px; background: #eaf4fb; color: #005bac; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">3</span><span class="clip1" style="font-size: 12px; font-weight: 800; min-width: 0;">「並べる」の結果はグループ</span></div>
+        <div style="display: flex; align-items: center; gap: 7px; height: 24px; min-width: 0;"><span class="num" style="width: 20px; height: 20px; border-radius: 6px; background: #eaf4fb; color: #005bac; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">4</span><span class="clip1" style="font-size: 12px; font-weight: 800; min-width: 0;">複数案は複製して A案・B案</span></div>
+        <div style="display: flex; align-items: center; gap: 7px; height: 24px; min-width: 0;"><span class="num" style="width: 20px; height: 20px; border-radius: 6px; background: #eaf4fb; color: #005bac; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">5</span><span class="clip1" style="font-size: 12px; font-weight: 800; min-width: 0;">スマホは閲覧のみ</span></div>
+        <div style="display: flex; align-items: center; gap: 7px; height: 24px; min-width: 0;"><span class="num" style="width: 20px; height: 20px; border-radius: 6px; background: #eaf4fb; color: #005bac; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">6</span><span class="clip1" style="font-size: 12px; font-weight: 800; min-width: 0;">昭特の寸法を誰がいつまでに確定</span></div>
+        <div style="display: flex; align-items: center; gap: 7px; height: 24px; min-width: 0;"><span class="num" style="width: 20px; height: 20px; border-radius: 6px; background: #eaf4fb; color: #005bac; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">7</span><span class="clip1" style="font-size: 12px; font-weight: 800; min-width: 0;">冊子に載せるのは線画だけ</span></div>
+        <div style="display: flex; align-items: center; gap: 7px; height: 24px; min-width: 0;"><span class="num" style="width: 20px; height: 20px; border-radius: 6px; background: #eaf4fb; color: #005bac; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">8</span><span class="clip1" style="font-size: 12px; font-weight: 800; min-width: 0;">図面にも確定と版を持たせるか</span></div>
+    </div>
+  </section>
+
+</div>
+</x-dc>
+</body>
+</html>

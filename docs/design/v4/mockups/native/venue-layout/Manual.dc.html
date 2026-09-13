@@ -1,0 +1,804 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@100;400;700;800&family=Noto+Sans+JP:wght@100;200;300;400;500;600;700;800;900&family=Noto+Serif+JP:wght@400;700;900&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    button { font-family: inherit; }
+    .tap { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .ghost:hover { background: #f2f4f7; }
+    .btn-primary { transition: background-color .12s ease; } .btn-primary:hover { background: #004d91; }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .blk { transition: box-shadow .12s ease; }
+    .blk:hover { box-shadow: 0 0 0 1.5px #a6ceeb; }
+    /* 紙面の線画（座標は会場の mm。線幅も mm で持ち、縮尺と一緒に縮む） */
+    .fp { fill: currentColor; fill-opacity: .08; stroke: currentColor; stroke-width: 40; stroke-linejoin: round; }
+    .ln { fill: none; stroke: currentColor; stroke-width: 40; stroke-linecap: round; stroke-linejoin: round; }
+    .dash { fill: none; stroke: currentColor; stroke-width: 25; stroke-dasharray: 150 100; }
+    .wall { fill: none; stroke: currentColor; stroke-width: 90; stroke-linejoin: miter; }
+    .room { fill: none; stroke: currentColor; stroke-width: 50; stroke-opacity: .55; }
+    .axis { fill: none; stroke: currentColor; stroke-width: 22; stroke-opacity: .55; stroke-dasharray: 700 250 120 250; }
+    .axlbl { font-weight: 700; fill: currentColor; }
+    .axlbl circle { fill: #ffffff; stroke: currentColor; stroke-width: 22; }
+    .roomlbl { fill: currentColor; font-weight: 700; fill-opacity: .8; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 1076px; position: relative; overflow: hidden; background: #f7f8fa; display: flex; flex-direction: column; color: #1a1d24;">
+
+  <!-- ── 上辺バー（共通シェル。左メニューは畳んだ状態が既定） ────────── -->
+  <header style="display: flex; height: 64px; flex-shrink: 0; align-items: center; gap: 14px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 24px;">
+    <button class="tap ghost" style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #e6e9ed;" title="左メニューを出す（編集中は畳んだ状態が既定）"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg></button>
+    <div style="display: flex; align-items: center; gap: 9px;">
+      <div style="width: 28px; height: 28px; border-radius: 9px; background: #005bac; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M7.8 7.8a6 6 0 0 0 0 8.4"></path><path d="M16.2 16.2a6 6 0 0 0 0-8.4"></path><path d="M4.9 4.9a10 10 0 0 0 0 14.2"></path><path d="M19.1 19.1a10 10 0 0 0 0-14.2"></path></svg></div>
+      <span style="font-size: 15px; font-weight: 800;">ONAiR</span>
+    </div>
+    <span style="height: 22px; width: 1px; background: #e6e9ed;"></span>
+    <span class="clip1" style="font-size: 12.5px; color: #5d6470; max-width: 420px;">制作技術支援 ／ サイエンス・フロンティア ／ 運営マニュアル</span>
+    <span style="flex: 1;"></span>
+    <button class="tap" style="display: flex; align-items: center; gap: 10px; height: 44px;">
+      <span style="width: 32px; height: 32px; border-radius: 9999px; background: #eaf4fb; color: #005bac; font-size: 13.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;">寺</span>
+      <span style="font-size: 12.5px; white-space: nowrap;">寺井 岳宏</span>
+    </button>
+  </header>
+
+  <!-- ── 冊子の帯 ──────────────────────────────────────────── -->
+  <div style="display: flex; height: 52px; flex-shrink: 0; align-items: center; gap: 12px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 16px 0 12px;">
+    <button class="tap ghost" onClick="{{goList}}" style="display: flex; align-items: center; gap: 3px; height: 32px; border-radius: 8px; padding: 0 9px 0 5px; color: #005bac;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg><span style="font-size: 12.5px; font-weight: 700;">冊子一覧</span></button>
+    <span style="height: 20px; width: 1px; background: #e6e9ed;"></span>
+    <span class="num" style="font-size: 11.5px; font-weight: 700; color: #9aa1ab;">OM-202609-0007</span>
+    <span style="font-size: 15px; font-weight: 800;">第7回 運営マニュアル</span>
+    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 56px; height: 21px; border-radius: 6px; background: #fff7ed; color: #c2410e; font-size: 11px; font-weight: 800;">下書き</span>
+    <span class="num" style="display: inline-flex; align-items: center; height: 21px; border-radius: 6px; border: 1px solid #e6e9ed; font-size: 11px; font-weight: 800; padding: 0 8px; color: #5d6470;" title="確定した回数。確定するたびに +1 され、柱に rev.N と出ます">rev.1</span>
+    <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: #197a4b;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#197a4b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>保存しました</span>
+    <span style="display: inline-flex; align-items: center; gap: 5px; height: 21px; border-radius: 6px; border: 1px solid #cfe4f4; background: #f4faff; color: #005bac; font-size: 11px; font-weight: 700; padding: 0 8px;" title="編集中は他の人からは読むだけになります。10分手が止まると自動で解けます"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>あなたが編集中</span>
+    <span style="flex: 1;"></span>
+    <sc-if value="{{staleShown}}" hint-placeholder-val="{{ true }}">
+      <button class="tap" onClick="{{pickLayout}}" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; border: 1px solid #fdba74; background: #fff7ed; padding: 0 11px; font-size: 12.5px; font-weight: 800; color: #c2410e;"><span style="width: 6px; height: 6px; border-radius: 9999px; background: #c2410e;"></span>元が変わりました <span class="num">1</span></button>
+    </sc-if>
+    <button class="tap" onClick="{{goPreview}}" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12.5px; font-weight: 700;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="2.6"></circle></svg>仕上がりを見る</button>
+    <button class="tap" onClick="{{goPdf}}" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12.5px; font-weight: 700;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"></path><path d="M8 11l4 4 4-4"></path><path d="M4 19h16"></path></svg>PDF</button>
+    <button class="tap btn-primary" onClick="{{goFix}}" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; background: #005bac; color: #ffffff; padding: 0 14px; font-size: 12.5px; font-weight: 800;" title="全ブロックを凍らせて rev.2 にします（manager）">確定する</button>
+  </div>
+
+  <!-- ── 道具の帯 ──────────────────────────────────────────── -->
+  <div style="display: flex; height: 44px; flex-shrink: 0; align-items: center; gap: 5px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px;">
+    <button class="tap" onClick="{{openInsert}}" style="display: flex; align-items: center; gap: 6px; height: 32px; border-radius: 9px; border: 1px solid {{insertBorder}}; background: {{insertBg}}; padding: 0 12px; font-size: 12.5px; font-weight: 800; color: {{insertFg}};"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{insertFg}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>差し込む</button>
+    <span style="height: 20px; width: 1px; background: #e6e9ed; margin: 0 4px;"></span>
+    <sc-for list="{{tools}}" as="t" hint-placeholder-count="5">
+      <button class="tap ghost" onClick="{{t.pick}}" style="display: flex; align-items: center; gap: 6px; height: 32px; border-radius: 9px; padding: 0 10px; font-size: 12.5px; font-weight: 700; color: #3c424c;" title="{{t.hint}}">
+        <span style="width: 16px; height: 16px; border-radius: 4px; border: 1.6px solid #5d6470; background: {{t.fill}};"></span>{{t.label}}
+      </button>
+    </sc-for>
+    <span style="height: 20px; width: 1px; background: #e6e9ed; margin: 0 4px;"></span>
+    <span style="font-size: 11.5px; color: #9aa1ab;">整列</span>
+    <sc-for list="{{aligns}}" as="a" hint-placeholder-count="6">
+      <button class="tap ghost" onClick="{{a.pick}}" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 8px;" title="{{a.hint}}">
+        <span style="width: 14px; height: 14px; border-left: {{a.l}}; border-top: {{a.t}}; border-right: {{a.r}}; border-bottom: {{a.b}}; background: #cbd2da;"></span>
+      </button>
+    </sc-for>
+    <span style="height: 20px; width: 1px; background: #e6e9ed; margin: 0 4px;"></span>
+    <button class="tap ghost" onClick="{{goStack}}" style="display: flex; align-items: center; gap: 5px; height: 30px; border-radius: 8px; padding: 0 9px; font-size: 12px; font-weight: 700; color: #3c424c;" title="前面へ・背面へ">重なり</button>
+    <button class="tap ghost" onClick="{{goUndo}}" style="display: flex; align-items: center; gap: 5px; height: 30px; border-radius: 8px; padding: 0 9px; font-size: 12px; font-weight: 700; color: #3c424c;" title="Ctrl+Z / Ctrl+Shift+Z">元に戻す</button>
+    <span style="flex: 1;"></span>
+    <button class="tap ghost" style="display: flex; align-items: center; gap: 6px; height: 30px; border-radius: 8px; padding: 0 10px; font-size: 12px; font-weight: 700; color: #3c424c;" title="ブロックの端と余白に吸い付く"><span style="width: 8px; height: 8px; border-radius: 2px; background: #005bac;"></span>すいつき</button>
+    <button class="tap ghost" style="display: flex; align-items: center; gap: 6px; height: 30px; border-radius: 8px; padding: 0 10px; font-size: 12px; font-weight: 700; color: #3c424c;">方眼</button>
+    <span style="height: 20px; width: 1px; background: #e6e9ed; margin: 0 4px;"></span>
+    <div style="display: flex; align-items: center; gap: 2px;">
+      <button class="tap ghost" onClick="{{zoomOut}}" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 7px; font-size: 15px; font-weight: 700; color: #3c424c;">−</button>
+      <span class="num" style="width: 46px; text-align: center; font-size: 12px; font-weight: 700;">{{zoomLabel}}</span>
+      <button class="tap ghost" onClick="{{zoomIn}}" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 7px; font-size: 15px; font-weight: 700; color: #3c424c;">＋</button>
+    </div>
+  </div>
+
+  <div style="display: flex; flex: 1; min-height: 0;">
+
+    <!-- ── 左: ページ一覧（12 ページ。6 ページ目「会場レイアウト」を選択中） ── -->
+    <aside style="width: 176px; flex-shrink: 0; border-right: 1px solid #e6e9ed; background: #ffffff; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 6px; height: 38px; flex-shrink: 0; padding: 0 12px; border-bottom: 1px solid #e6e9ed;">
+        <span style="font-size: 12px; font-weight: 800;">ページ</span>
+        <span class="num" style="font-size: 11.5px; color: #9aa1ab;">12枚</span>
+        <span style="flex: 1;"></span>
+        <button class="tap ghost" onClick="{{goAddPage}}" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 6px;" title="ページを追加"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></button>
+      </div>
+      <div style="flex: 1; overflow-y: auto; overflow-x: hidden; padding: 10px 10px 12px; display: flex; flex-direction: column; gap: 7px;">
+        <sc-for list="{{pages}}" as="p" hint-placeholder-count="12">
+          <div>
+            <sc-if value="{{p.isChapter}}" hint-placeholder-val="{{ true }}">
+              <div style="display: flex; align-items: center; gap: 6px; padding: 5px 2px 3px;">
+                <span style="width: 3px; height: 11px; border-radius: 2px; background: #005bac;"></span>
+                <span style="font-size: 11px; font-weight: 800; color: #005bac;">{{p.chapter}}</span>
+              </div>
+            </sc-if>
+            <button class="tap" onClick="{{p.pick}}" style="display: flex; align-items: flex-start; gap: 7px; width: 100%;">
+              <span class="num" style="width: 13px; padding-top: 14px; font-size: 10.5px; font-weight: 700; color: {{p.noFg}}; text-align: right; flex-shrink: 0;">{{p.no}}</span>
+              <span style="flex: 1; min-width: 0; aspect-ratio: 297 / 210; border-radius: 4px; border: 2px solid {{p.border}}; background: #ffffff; padding: 5px 6px; display: flex; flex-direction: column; gap: 3px; overflow: hidden;">
+                <span style="height: 3px; width: 60%; border-radius: 2px; background: {{p.accent}};"></span>
+                <span style="font-size: 7px; font-weight: 800; line-height: 1.25; color: #1a1d24;">{{p.title}}</span>
+                <span style="flex: 1; border-radius: 2px; background: #f2f4f7;"></span>
+              </span>
+            </button>
+          </div>
+        </sc-for>
+      </div>
+    </aside>
+
+    <!-- ── 中央: 紙面（A4横 297×210 mm ＝ 1123×794 px。production-manual/Editor と同じ 880px 幅に縮めて表示） ── -->
+    <main style="flex: 1; min-width: 0; background: #eef0f3; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 22px; position: relative;">
+      <div style="position: relative; width: {{paper.dispW}}px; height: {{paper.dispH}}px; flex-shrink: 0;">
+        <div style="position: absolute; left: 0; top: 0; width: {{paper.w}}px; height: {{paper.h}}px; transform: scale({{paper.fit}}); transform-origin: 0 0; background: #ffffff; box-shadow: 0 8px 28px rgba(26,29,36,.14); border: 1px solid #cbd2da; color: #1a1d24;">
+
+          <!-- 版面のガイド（印刷される余白） -->
+          <div style="position: absolute; inset: 3.4% 3.4%; border: 1px dashed #e6e9ed; pointer-events: none;"></div>
+
+          <!-- ブロック（位置・大きさは mm → px を renderVals() で計算） -->
+          <sc-for list="{{blocks}}" as="b" hint-placeholder-count="5">
+            <div class="blk" onClick="{{b.pick}}" style="position: absolute; left: {{b.x}}px; top: {{b.y}}px; width: {{b.w}}px; height: {{b.h}}px; cursor: pointer; box-shadow: {{b.ring}};">
+              <div style="width: 100%; height: 100%; overflow: hidden; background: {{b.bg}}; border: 1px solid transparent; border-radius: 2px; padding: {{b.pad}}; display: flex; flex-direction: column;">
+
+                <!-- 見出し（自由・文字） -->
+                <sc-if value="{{b.isHeader}}" hint-placeholder-val="{{ false }}">
+                  <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; height: 100%;">
+                    <div>
+                      <div style="font-size: 11.5px; font-weight: 700; color: #5d6470; letter-spacing: .04em;">第3章 ／ 会場</div>
+                      <div style="margin-top: 2px; font-size: 24px; font-weight: 800; line-height: 1.2;">会場レイアウト（WORLD STUDIO）</div>
+                    </div>
+                    <div class="num" style="text-align: right; flex-shrink: 0;">
+                      <div style="font-size: 15px; font-weight: 800;">26F WORLD STUDIO ・ 劇場形式</div>
+                      <div style="margin-top: 2px; font-size: 12px; color: #5d6470;">東都TV 特番収録「サイエンス・フロンティア」第7回 ・ GLS-A002</div>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <!-- 会場図面（差し込み venue.layout）: 札 → 線画 → 凡例と 1m バー -->
+                <sc-if value="{{b.isLayout}}" hint-placeholder-val="{{ true }}">
+                  <div class="num" style="display: flex; align-items: center; gap: 6px; height: 19px; flex-shrink: 0;">
+                    <span style="font-size: 9px; font-weight: 800; white-space: nowrap;">{{fig.stamp}}</span>
+                    <sc-if value="{{fig.isDraft}}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; align-items: center; height: 13px; border-radius: 3px; border: 1px solid #c2410e; color: #c2410e; font-size: 7.5px; font-weight: 800; padding: 0 4px; line-height: 1;">下書き</span></sc-if>
+                    <span style="flex: 1;"></span>
+                    <span style="font-size: 8px; color: #9aa1ab; white-space: nowrap;">会場図面 ・ 線画（下敷きは載せない）</span>
+                  </div>
+                  <div style="flex: 1; min-height: 0; margin-top: 5px; display: flex; align-items: center; justify-content: center;">
+                    <div style="position: relative; width: {{fig.w}}px; height: {{fig.h}}px; color: #1a1d24;">
+                      <svg viewBox="{{fig.vb}}" width="{{fig.w}}" height="{{fig.h}}" preserveAspectRatio="xMidYMid meet" style="display: block; overflow: visible;">
+                        <!-- 通り芯（6,400 ピッチ） -->
+                        <sc-if value="{{fig.axesOn}}" hint-placeholder-val="{{ true }}">
+                          <sc-for list="{{fig.axesX}}" as="ax" hint-placeholder-count="3"><path class="axis" d="{{ax.d}}"></path></sc-for>
+                          <sc-for list="{{fig.axesY}}" as="ay" hint-placeholder-count="3"><path class="axis" d="{{ay.d}}"></path></sc-for>
+                        </sc-if>
+                        <!-- 階全体のときだけ: ほかの部屋の内法 -->
+                        <sc-for list="{{fig.rooms}}" as="rm" hint-placeholder-count="0"><rect class="room" x="{{rm.x}}" y="{{rm.y}}" width="{{rm.w}}" height="{{rm.h}}"></rect></sc-for>
+                        <!-- エリアの内法（WORLD STUDIO） -->
+                        <rect class="wall" x="{{fig.area.x}}" y="{{fig.area.y}}" width="{{fig.area.w}}" height="{{fig.area.h}}"></rect>
+                        <!-- 固定物: トラス外形（点線）・脚 10 本（450角）・LED ウォール（太線） -->
+                        <rect class="dash" x="{{fig.truss.x}}" y="{{fig.truss.y}}" width="{{fig.truss.w}}" height="{{fig.truss.h}}" stroke-opacity=".45"></rect>
+                        <sc-for list="{{fig.legs}}" as="k" hint-placeholder-count="10"><rect x="{{k.x}}" y="{{k.y}}" width="450" height="450" fill="currentColor"></rect></sc-for>
+                        <rect x="{{fig.led.x}}" y="{{fig.led.y}}" width="{{fig.led.w}}" height="{{fig.led.h}}" fill="currentColor"></rect>
+                        <!-- 品目（symbols.svg.md の線画。mm 座標・正面は −y・外側で translate と rotate） -->
+                        <sc-for list="{{fig.items}}" as="i" hint-placeholder-count="59">
+                          <g transform="{{i.tf}}">
+                            <sc-if value="{{i.isChair}}" hint-placeholder-val="{{ true }}">
+                              <rect class="fp" x="-268" y="-245" width="535" height="490" rx="80"></rect>
+                              <path d="M -220 200 Q 0 260 220 200" fill="none" stroke="currentColor" stroke-width="70" stroke-linecap="round"></path>
+                            </sc-if>
+                            <sc-if value="{{i.isTable}}" hint-placeholder-val="{{ false }}">
+                              <rect class="fp" x="-900" y="-300" width="1800" height="600" rx="20"></rect>
+                            </sc-if>
+                            <sc-if value="{{i.isLectern}}" hint-placeholder-val="{{ false }}">
+                              <rect class="fp" x="-350" y="-245" width="700" height="490"></rect>
+                              <path d="M -300 -245 L 300 -245" fill="none" stroke="currentColor" stroke-width="90"></path>
+                            </sc-if>
+                            <sc-if value="{{i.isPerson}}" hint-placeholder-val="{{ false }}">
+                              <ellipse class="fp" cx="0" cy="0" rx="225" ry="150"></ellipse>
+                              <circle cx="0" cy="-20" r="90" fill="currentColor" fill-opacity=".2" stroke="currentColor" stroke-width="40"></circle>
+                            </sc-if>
+                            <sc-if value="{{i.isPedestal}}" hint-placeholder-val="{{ false }}">
+                              <circle class="fp" cx="0" cy="0" r="450"></circle>
+                              <circle cx="0" cy="-380" r="35" fill="currentColor"></circle><circle cx="329" cy="190" r="35" fill="currentColor"></circle><circle cx="-329" cy="190" r="35" fill="currentColor"></circle>
+                              <rect class="fp" x="-175" y="-700" width="350" height="1100" rx="30"></rect>
+                              <path d="M -120 -700 L 120 -700 L 0 -860 Z" fill="currentColor"></path>
+                              <rect class="ln" x="-100" y="300" width="200" height="100"></rect>
+                            </sc-if>
+                            <sc-if value="{{i.isCrane}}" hint-placeholder-val="{{ false }}">
+                              <circle class="dash" cx="0" cy="0" r="3100"></circle>
+                              <circle class="dash" cx="0" cy="0" r="1100" stroke-opacity=".4"></circle>
+                              <rect class="fp" x="-450" y="-600" width="900" height="1200" rx="40"></rect>
+                              <circle cx="-380" cy="-520" r="35" fill="currentColor"></circle><circle cx="380" cy="-520" r="35" fill="currentColor"></circle><circle cx="-380" cy="520" r="35" fill="currentColor"></circle><circle cx="380" cy="520" r="35" fill="currentColor"></circle>
+                              <path d="M 0 1100 L 0 -2500" fill="none" stroke="currentColor" stroke-width="80" stroke-linecap="round"></path>
+                              <rect class="fp" x="-200" y="900" width="400" height="200"></rect>
+                              <rect class="fp" x="-175" y="-2900" width="350" height="800" rx="30"></rect>
+                              <path d="M -120 -2900 L 120 -2900 L 0 -3060 Z" fill="currentColor"></path>
+                              <circle cx="0" cy="0" r="50" fill="currentColor"></circle>
+                            </sc-if>
+                          </g>
+                        </sc-for>
+                      </svg>
+
+                      <!-- 文字は HTML で重ねる（SVG の text に {{ }} は置けない） -->
+                      <sc-if value="{{fig.axesOn}}" hint-placeholder-val="{{ true }}">
+                        <sc-for list="{{fig.axesX}}" as="ax" hint-placeholder-count="3">
+                          <div class="num" style="position: absolute; left: {{ax.px}}px; top: {{ax.py}}px; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 9999px; border: 1px solid #1a1d24; background: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 6.5px; font-weight: 800; line-height: 1;">{{ax.label}}</div>
+                        </sc-for>
+                        <sc-for list="{{fig.axesY}}" as="ay" hint-placeholder-count="3">
+                          <div class="num" style="position: absolute; left: {{ay.px}}px; top: {{ay.py}}px; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 9999px; border: 1px solid #1a1d24; background: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 6.5px; font-weight: 800; line-height: 1;">{{ay.label}}</div>
+                        </sc-for>
+                      </sc-if>
+                      <sc-for list="{{fig.roomLabels}}" as="rl" hint-placeholder-count="0">
+                        <div style="position: absolute; left: {{rl.px}}px; top: {{rl.py}}px; font-size: 5px; font-weight: 700; color: #5d6470; white-space: nowrap; line-height: 1.2;">{{rl.label}}</div>
+                      </sc-for>
+                      <div style="position: absolute; left: {{fig.lbl.px}}px; top: {{fig.lbl.py}}px; white-space: nowrap; line-height: 1.25;">
+                        <div style="font-size: {{fig.lbl.font}}px; font-weight: 800;">{{fig.lbl.title}}</div>
+                        <div class="num" style="font-size: {{fig.lbl.subFont}}px; color: #5d6470;">{{fig.lbl.sub}}</div>
+                      </div>
+                      <div class="num" style="position: absolute; left: {{fig.ledLbl.px}}px; top: {{fig.ledLbl.py}}px; width: 90px; margin-left: -45px; text-align: center; font-size: {{fig.ledLbl.font}}px; font-weight: 800; color: #1a1d24; white-space: nowrap; line-height: 1;">LEDウォール 8,530</div>
+                    </div>
+                  </div>
+                  <div style="display: flex; align-items: flex-end; gap: 9px; height: 16px; margin-top: 5px; flex-shrink: 0;">
+                    <sc-if value="{{fig.legendOn}}" hint-placeholder-val="{{ true }}">
+                      <sc-for list="{{fig.legend}}" as="l" hint-placeholder-count="5">
+                        <span style="display: inline-flex; align-items: center; gap: 3px; font-size: 8.5px; white-space: nowrap; color: #1a1d24;">
+                          <span style="width: 16px; height: 13px; display: inline-flex; align-items: center; justify-content: center;">
+                            <sc-if value="{{l.isChair}}" hint-placeholder-val="{{ true }}"><svg width="12" height="11" viewBox="-300 -280 600 560"><rect x="-268" y="-245" width="535" height="490" rx="80" fill="currentColor" fill-opacity=".08" stroke="currentColor" stroke-width="30"></rect><path d="M -220 200 Q 0 260 220 200" fill="none" stroke="currentColor" stroke-width="60"></path></svg></sc-if>
+                            <sc-if value="{{l.isTable}}" hint-placeholder-val="{{ false }}"><svg width="16" height="7" viewBox="-920 -320 1840 640"><rect x="-900" y="-300" width="1800" height="600" rx="20" fill="currentColor" fill-opacity=".08" stroke="currentColor" stroke-width="40"></rect></svg></sc-if>
+                            <sc-if value="{{l.isLectern}}" hint-placeholder-val="{{ false }}"><svg width="12" height="9" viewBox="-370 -270 740 540"><rect x="-350" y="-245" width="700" height="490" fill="currentColor" fill-opacity=".08" stroke="currentColor" stroke-width="30"></rect><path d="M -300 -245 L 300 -245" stroke="currentColor" stroke-width="80"></path></svg></sc-if>
+                            <sc-if value="{{l.isPedestal}}" hint-placeholder-val="{{ false }}"><svg width="11" height="11" viewBox="-480 -900 960 1400"><circle cx="0" cy="0" r="450" fill="currentColor" fill-opacity=".08" stroke="currentColor" stroke-width="35"></circle><rect x="-175" y="-700" width="350" height="1100" rx="30" fill="currentColor" fill-opacity=".08" stroke="currentColor" stroke-width="35"></rect><path d="M -120 -700 L 120 -700 L 0 -860 Z" fill="currentColor"></path></svg></sc-if>
+                            <sc-if value="{{l.isCrane}}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="-3200 -3200 6400 6400"><circle cx="0" cy="0" r="3100" fill="none" stroke="currentColor" stroke-width="120" stroke-dasharray="360 240"></circle><rect x="-450" y="-600" width="900" height="1200" rx="40" fill="currentColor" fill-opacity=".08" stroke="currentColor" stroke-width="150"></rect><path d="M 0 1100 L 0 -2500" stroke="currentColor" stroke-width="220"></path><rect x="-175" y="-2900" width="350" height="800" fill="currentColor" stroke="currentColor" stroke-width="120"></rect></svg></sc-if>
+                          </span>{{l.label}} <span class="num" style="font-weight: 800;">{{l.n}}</span>
+                        </span>
+                      </sc-for>
+                    </sc-if>
+                    <span style="flex: 1;"></span>
+                    <div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
+                      <span class="num" style="font-size: 8.5px; font-weight: 800; line-height: 1;">S={{fig.scaleLabel}}</span>
+                      <span class="num" style="font-size: 6.5px; color: #5d6470;">0</span>
+                      <div style="width: {{fig.barW}}px; height: 6px; border: 1px solid #1a1d24; background: linear-gradient(90deg, #1a1d24 50%, #ffffff 50%);"></div>
+                      <span class="num" style="font-size: 6.5px; color: #5d6470;">{{fig.barLabel}}</span>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <!-- 数量表（差し込み venue.items） -->
+                <sc-if value="{{b.isItems}}" hint-placeholder-val="{{ false }}">
+                  <div style="height: 100%; display: flex; flex-direction: column;">
+                    <div style="display: flex; align-items: baseline; gap: 6px; padding-bottom: 5px; border-bottom: 1.5px solid #1a1d24;">
+                      <span style="font-size: 14px; font-weight: 800;">数量表</span>
+                      <span class="num clip1" style="font-size: 8.5px; color: #5d6470; min-width: 0;">{{tbl.sub}}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 5px; height: 17px; margin-top: 3px; font-size: 8.5px; font-weight: 800; color: #5d6470;">
+                      <sc-if value="{{tbl.cName}}" hint-placeholder-val="{{ true }}"><span style="flex: 1; min-width: 0;">品目</span></sc-if>
+                      <sc-if value="{{tbl.cPlaced}}" hint-placeholder-val="{{ true }}"><span style="width: 36px; text-align: right; flex-shrink: 0;">置いた数</span></sc-if>
+                      <sc-if value="{{tbl.cQty}}" hint-placeholder-val="{{ true }}"><span style="width: 30px; text-align: right; flex-shrink: 0;">保有数</span></sc-if>
+                      <sc-if value="{{tbl.cStorage}}" hint-placeholder-val="{{ true }}"><span style="width: 72px; padding-left: 6px; flex-shrink: 0;">保管場所</span></sc-if>
+                    </div>
+                    <sc-for list="{{tbl.rows}}" as="r" hint-placeholder-count="5">
+                      <div style="display: flex; align-items: center; gap: 5px; height: 19px; border-top: 1px solid #e6e9ed; font-size: 10px;">
+                        <sc-if value="{{tbl.cName}}" hint-placeholder-val="{{ true }}"><span class="clip1" style="flex: 1; min-width: 0; font-weight: 700;">{{r.label}} <sc-if value="{{r.est}}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; align-items: center; height: 11px; border-radius: 2px; border: 1px solid #c2410e; color: #c2410e; font-size: 6.5px; font-weight: 800; padding: 0 3px; line-height: 1; vertical-align: middle;">寸法は推定</span></sc-if></span></sc-if>
+                        <sc-if value="{{tbl.cPlaced}}" hint-placeholder-val="{{ true }}"><span class="num" style="width: 36px; text-align: right; font-weight: 800; flex-shrink: 0;">{{r.placed}}</span></sc-if>
+                        <sc-if value="{{tbl.cQty}}" hint-placeholder-val="{{ true }}"><span class="num" style="width: 30px; text-align: right; color: #5d6470; flex-shrink: 0;">{{r.qty}}</span></sc-if>
+                        <sc-if value="{{tbl.cStorage}}" hint-placeholder-val="{{ true }}"><span class="clip1" style="width: 72px; padding-left: 6px; color: #3c424c; flex-shrink: 0;">{{r.storage}}</span></sc-if>
+                      </div>
+                    </sc-for>
+                    <div style="margin-top: 4px; font-size: 8px; line-height: 1.5; color: #5d6470;">保有数は会場の総数です。ご利用状況により確保できない場合があります。</div>
+                  </div>
+                </sc-if>
+
+                <!-- 会場でのきまり（自由・文字） -->
+                <sc-if value="{{b.isNote}}" hint-placeholder-val="{{ false }}">
+                  <div style="height: 100%; border-left: 3px solid #c2410e; padding-left: 9px; display: flex; flex-direction: column; justify-content: center;">
+                    <div style="font-size: 13px; font-weight: 800; color: #c2410e;">会場でのきまり</div>
+                    <div class="num" style="margin-top: 4px; font-size: 10px; line-height: 1.6; color: #1a1d24;">・ LEDウォールの前 1,500 は空ける（安全のため）<br>・ クレーンが届く範囲（点線の円）に入らない<br>・ 椅子 50 脚は<strong>前日 18:00</strong> に倉庫から出す</div>
+                  </div>
+                </sc-if>
+
+                <!-- 柱（ひな形・全ページ共通） -->
+                <sc-if value="{{b.isFooter}}" hint-placeholder-val="{{ false }}">
+                  <div style="height: 100%; display: flex; align-items: center; gap: 8px; border-top: 1px solid #e6e9ed; padding-top: 5px;">
+                    <span class="num" style="font-size: 9.5px; color: #9aa1ab;">GMO グローバルスタジオ ／ 社外秘</span>
+                    <span style="flex: 1;"></span>
+                    <span class="num" style="font-size: 9.5px; color: #9aa1ab;">{{foot.right}}</span>
+                  </div>
+                </sc-if>
+              </div>
+
+              <!-- 選択のつまみ -->
+              <sc-if value="{{b.selected}}" hint-placeholder-val="{{ true }}">
+                <span style="position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+                <span style="position: absolute; right: -5px; top: -5px; width: 10px; height: 10px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+                <span style="position: absolute; left: -5px; bottom: -5px; width: 10px; height: 10px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+                <span style="position: absolute; right: -5px; bottom: -5px; width: 10px; height: 10px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+                <span style="position: absolute; left: 50%; top: -5px; margin-left: -5px; width: 10px; height: 10px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+                <span style="position: absolute; left: 50%; bottom: -5px; margin-left: -5px; width: 10px; height: 10px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+                <span style="position: absolute; left: -5px; top: 50%; margin-top: -5px; width: 10px; height: 10px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+                <span style="position: absolute; right: -5px; top: 50%; margin-top: -5px; width: 10px; height: 10px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+                <span style="position: absolute; left: 50%; top: -36px; margin-left: -9px; width: 18px; height: 18px; border-radius: 9999px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+                <span style="position: absolute; left: 0; top: -28px; display: inline-flex; align-items: center; gap: 5px; height: 22px; border-radius: 6px; background: #005bac; color: #ffffff; font-size: 12px; font-weight: 800; padding: 0 9px; white-space: nowrap;">{{b.tag}}</span>
+              </sc-if>
+            </div>
+          </sc-for>
+
+          <!-- すいつきの線（選択中のブロックの上端） -->
+          <sc-if value="{{guide.on}}" hint-placeholder-val="{{ true }}">
+            <div style="position: absolute; left: 0; right: 0; top: {{guide.y}}px; border-top: 1px dashed #c7243a; pointer-events: none;"></div>
+          </sc-if>
+        </div>
+      </div>
+
+      <!-- 薄い帯（未実装の操作・画面遷移の行き先） -->
+      <sc-if value="{{notice.on}}" hint-placeholder-val="{{ false }}">
+        <div style="position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; height: 36px; max-width: 900px; border-radius: 9px; border: 1px solid #cfe4f4; background: #ffffff; box-shadow: 0 6px 18px rgba(26,29,36,.12); padding: 0 6px 0 14px; white-space: nowrap;">
+          <span style="font-size: 12px; font-weight: 800; color: #005bac; flex-shrink: 0;">{{notice.title}}</span>
+          <span class="clip1 num" style="font-size: 11.5px; color: #5d6470; min-width: 0;">{{notice.text}}</span>
+          <button class="tap ghost" onClick="{{notice.close}}" style="width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: 7px; flex-shrink: 0;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+        </div>
+      </sc-if>
+    </main>
+
+    <!-- ── 右: パネル（差し込み ／ 書式 ／ ページ） ─────────────────── -->
+    <aside style="width: 296px; flex-shrink: 0; border-left: 1px solid #e6e9ed; background: #ffffff; display: flex; flex-direction: column;">
+      <div style="display: flex; height: 38px; flex-shrink: 0; border-bottom: 1px solid #e6e9ed;">
+        <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+          <button class="tap" onClick="{{t.pick}}" style="flex: 1; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: {{t.weight}}; color: {{t.fg}}; border-bottom: 2px solid {{t.line}};">{{t.label}}</button>
+        </sc-for>
+      </div>
+
+      <div style="flex: 1; overflow: hidden; padding: 13px 14px 16px;">
+        <!-- 選択中のブロック -->
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="width: 22px; height: 22px; border-radius: 6px; background: {{sel.iconBg}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><span style="width: 9px; height: 9px; border-radius: 2px; background: {{sel.iconFg}};"></span></span>
+          <span class="clip1" style="font-size: 13.5px; font-weight: 800; min-width: 0;">{{sel.name}}</span>
+          <span style="flex: 1;"></span>
+          <span style="display: inline-flex; align-items: center; height: 20px; border-radius: 6px; background: {{sel.kindBg}}; color: {{sel.kindFg}}; font-size: 10.5px; font-weight: 800; padding: 0 7px; flex-shrink: 0;">{{sel.kind}}</span>
+        </div>
+
+        <!-- 会場図面の差し込み（図・数量表に共通） -->
+        <sc-if value="{{sel.isVenue}}" hint-placeholder-val="{{ true }}">
+          <div style="margin-top: 12px; border-radius: 10px; border: 1px solid #cfe4f4; background: #f4faff; padding: 10px 11px;">
+            <div style="font-size: 11px; font-weight: 800; color: #005bac;">図面</div>
+            <div class="clip1 num" style="margin-top: 5px; font-size: 12.5px; font-weight: 700;">{{src.title}}</div>
+            <div class="num" style="margin-top: 3px; font-size: 11px; line-height: 1.5; color: #5d6470;">{{src.meta}}</div>
+            <div style="margin-top: 8px; display: flex; gap: 5px;">
+              <sc-for list="{{plans}}" as="p" hint-placeholder-count="2">
+                <button class="tap" onClick="{{p.pick}}" style="flex: 1; height: 30px; display: flex; align-items: center; justify-content: center; gap: 5px; border-radius: 8px; border: 1px solid {{p.border}}; background: {{p.bg}}; color: {{p.fg}}; font-size: 11.5px; font-weight: 700;">{{p.label}}<span class="num" style="font-size: 10px; font-weight: 400; color: #9aa1ab;">{{p.no}}</span></button>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- 図のとき: 範囲・縮尺・載せるもの -->
+          <sc-if value="{{sel.isLayout}}" hint-placeholder-val="{{ true }}">
+            <div style="margin-top: 11px; display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 11px; font-weight: 800; color: #5d6470; width: 60px; flex-shrink: 0;">範囲</span>
+              <div style="flex: 1; display: flex; gap: 5px;">
+                <sc-for list="{{ranges}}" as="r" hint-placeholder-count="2">
+                  <button class="tap" onClick="{{r.pick}}" style="flex: 1; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid {{r.border}}; background: {{r.bg}}; color: {{r.fg}}; font-size: 11.5px; font-weight: 700;">{{r.label}}</button>
+                </sc-for>
+              </div>
+            </div>
+            <div style="margin-top: 9px; display: flex; align-items: flex-start; gap: 8px;">
+              <span style="font-size: 11px; font-weight: 800; color: #5d6470; width: 60px; flex-shrink: 0; padding-top: 8px;">縮尺</span>
+              <div style="flex: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px;">
+                <sc-for list="{{scales}}" as="s" hint-placeholder-count="6">
+                  <button class="tap num" onClick="{{s.pick}}" style="height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid {{s.border}}; background: {{s.bg}}; color: {{s.fg}}; font-size: 11.5px; font-weight: 700; grid-column: span {{s.span}};">{{s.label}}</button>
+                </sc-for>
+              </div>
+            </div>
+            <div class="num" style="margin: 5px 0 0 68px; font-size: 11px; line-height: 1.5; color: {{scaleHint.fg}};">{{scaleHint.text}}</div>
+            <div style="margin-top: 11px; display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 11px; font-weight: 800; color: #5d6470; width: 60px; flex-shrink: 0;">載せるもの</span>
+              <div style="flex: 1; display: flex; flex-wrap: wrap; gap: 5px;">
+                <sc-for list="{{opts}}" as="o" hint-placeholder-count="2">
+                  <button class="tap" onClick="{{o.toggle}}" style="display: flex; align-items: center; gap: 5px; height: 27px; border-radius: 8px; border: 1px solid {{o.border}}; background: {{o.bg}}; padding: 0 9px; font-size: 11.5px; font-weight: 700; color: {{o.fg}};">
+                    <span style="width: 12px; height: 12px; border-radius: 3px; border: 1.5px solid {{o.box}}; background: {{o.boxBg}};"></span>{{o.label}}
+                  </button>
+                </sc-for>
+                              </div>
+            </div>
+          </sc-if>
+
+          <!-- 数量表のとき: 出す列 -->
+          <sc-if value="{{sel.isItems}}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top: 13px; font-size: 11px; font-weight: 800; color: #5d6470;">出す列</div>
+            <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 5px;">
+              <sc-for list="{{cols}}" as="c" hint-placeholder-count="4">
+                <button class="tap" onClick="{{c.toggle}}" style="display: flex; align-items: center; gap: 5px; height: 27px; border-radius: 8px; border: 1px solid {{c.border}}; background: {{c.bg}}; padding: 0 9px; font-size: 11.5px; font-weight: 700; color: {{c.fg}};">
+                  <span style="width: 12px; height: 12px; border-radius: 3px; border: 1.5px solid {{c.box}}; background: {{c.boxBg}};"></span>{{c.label}}
+                </button>
+              </sc-for>
+            </div>
+            <p style="margin: 8px 0 0; font-size: 11px; line-height: 1.55; color: #9aa1ab;">数は図面から数えます。人は備品ではないので数えません。家電は図面に出しません。</p>
+          </sc-if>
+
+          <!-- 元が変わったら -->
+          <div style="margin-top: 11px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 9px 11px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="min-width: 0;">
+                <div style="font-size: 12px; font-weight: 800;">元が変わったら</div>
+                <div style="margin-top: 2px; font-size: 11px; line-height: 1.5; color: #5d6470;">{{freeze.desc}}</div>
+              </div>
+              <span style="flex: 1;"></span>
+              <button class="tap" onClick="{{freeze.toggle}}" style="width: 36px; height: 20px; border-radius: 9999px; background: {{freeze.bg}}; position: relative; flex-shrink: 0;">
+                <span style="position: absolute; top: 2px; left: {{freeze.knob}}; width: 16px; height: 16px; border-radius: 9999px; background: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: left .15s ease;"></span>
+              </button>
+            </div>
+          </div>
+
+          <sc-if value="{{src.stale}}" hint-placeholder-val="{{ true }}">
+            <div style="margin-top: 10px; border-radius: 10px; border: 1px solid #fed7aa; background: #fff7ed; padding: 10px 11px;">
+              <div class="num" style="font-size: 11.5px; font-weight: 800; color: #c2410e;">元が変わりました（14:20）</div>
+              <div class="num" style="margin-top: 3px; font-size: 11px; line-height: 1.5; color: #7c2d12;">{{src.staleText}}</div>
+              <div style="margin-top: 8px; display: flex; gap: 6px;">
+                <button class="tap" onClick="{{src.importNow}}" style="flex: 1; height: 29px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: #c2410e; color: #ffffff; font-size: 11.5px; font-weight: 800;">取り込む</button>
+                <button class="tap" onClick="{{src.diff}}" style="height: 29px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #fdba74; background: #ffffff; color: #c2410e; padding: 0 10px; font-size: 11.5px; font-weight: 700;">違いを見る</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- 図面へ往復（?return= で戻ってくる） -->
+          <button class="tap" onClick="{{src.edit}}" style="margin-top: 11px; width: 100%; height: 34px; display: flex; align-items: center; justify-content: center; gap: 7px; border-radius: 9px; border: 1px solid #cfe4f4; background: #f4faff; font-size: 12.5px; font-weight: 800; color: #005bac;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"></path></svg>会場図面を編集</button>
+          <p class="num" style="margin: 6px 0 0; font-size: 11px; line-height: 1.55; color: #9aa1ab;">図面の画面に移り、帯の「運営マニュアルに戻る」でこのページに戻ります。</p>
+
+          <div style="margin-top: 10px; border-radius: 10px; border: 1px solid #e6e9ed; background: #f7f8fa; padding: 9px 11px;">
+            <div style="font-size: 12px; font-weight: 800;">確定すると凍ります</div>
+            <div class="num" style="margin-top: 3px; font-size: 11px; line-height: 1.55; color: #5d6470;">確定（rev.2）で図はその時の線画のまま凍り、直しても配った紙は変わりません。1m のバーは消せません。</div>
+          </div>
+        </sc-if>
+
+        <!-- 自由ブロックのとき -->
+        <sc-if value="{{sel.isFree}}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top: 12px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 11px;">
+            <div style="font-size: 11.5px; line-height: 1.6; color: #5d6470;">{{sel.freeHint}}</div>
+          </div>
+          <div style="margin-top: 12px; font-size: 11px; font-weight: 800; color: #5d6470;">よく使う書式</div>
+          <div style="margin-top: 6px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px;">
+            <sc-for list="{{quickStyles}}" as="q" hint-placeholder-count="8">
+              <button class="tap" onClick="{{q.pick}}" style="height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #e6e9ed; background: #ffffff; font-size: {{q.size}}; font-weight: {{q.weight}}; color: {{q.color}};">{{q.label}}</button>
+            </sc-for>
+          </div>
+          <p style="margin: 12px 0 0; font-size: 11.5px; line-height: 1.6; color: #9aa1ab;">書体・字間・行間・縁取り・影・背景・回転は「書式」タブで1つずつ変えられます。</p>
+        </sc-if>
+
+        <!-- ひな形のブロックのとき（全ページ共通） -->
+        <sc-if value="{{sel.isMaster}}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top: 12px; border-radius: 10px; border: 1px solid #e6e9ed; background: #f7f8fa; padding: 11px;">
+            <div style="font-size: 11.5px; line-height: 1.6; color: #5d6470;">{{sel.freeHint}}</div>
+          </div>
+          <button class="tap" onClick="{{editMaster}}" style="margin-top: 11px; width: 100%; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid #cfe4f4; background: #f4faff; font-size: 12.5px; font-weight: 800; color: #005bac;">ひな形を編集する</button>
+          <p style="margin: 9px 0 0; font-size: 11.5px; line-height: 1.6; color: #9aa1ab;">このページだけ柱を消したいときは「このページでは出さない」を選びます。</p>
+        </sc-if>
+
+        <!-- 位置と大きさ -->
+        <div style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed #e6e9ed;">
+          <div style="font-size: 11px; font-weight: 800; color: #5d6470;">位置と大きさ（mm）</div>
+          <div style="margin-top: 6px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px;">
+            <sc-for list="{{geom}}" as="g" hint-placeholder-count="4">
+              <div style="border-radius: 8px; border: 1px solid #e6e9ed; padding: 5px 7px;">
+                <div style="font-size: 9.5px; color: #9aa1ab;">{{g.label}}</div>
+                <div class="num" style="font-size: 12px; font-weight: 700;">{{g.value}}</div>
+              </div>
+            </sc-for>
+          </div>
+          <sc-if value="{{sel.hasSizeNote}}" hint-placeholder-val="{{ true }}">
+            <div class="num" style="margin-top: 6px; font-size: 11px; line-height: 1.5; color: #9aa1ab;">{{sel.sizeNote}}</div>
+          </sc-if>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"manualNo":"OM-202609-0007","manualTitle":"第7回 運営マニュアル","manualRev":"rev.1","pageNo":"6 / 12","returnPath":"/techops/manuals/OM-202609-0007"}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    // sel: 選択中のブロック ／ plan: 差し込む図面（A案・B案）／ range: エリア・階全体 ／ scale: 自動か固定
+    // show: 図に載せるもの ／ cols: 数量表の列 ／ follow: 元が変わったら追従 ／ imported: 14:20 の変更を取り込んだか
+    this.state = { page: 6, sel: 'layout', tab: 'link', zoom: 100, plan: 'a', range: 'area', scale: 'auto', show: ['legend', 'axes'], cols: ['name', 'placed', 'qty', 'storage'], follow: true, imported: false, insert: false, notice: null };
+  }
+
+  // ── 会場（venue-data.json の 26F。mm・X16×Y16 が原点・右＋x・下＋y） ──
+  venue() {
+    return {
+      area: { key: 'world-studio', label: 'WORLD STUDIO', x: 13680, y: 11900, w: 17440, h: 18480, m2: '322.3' },
+      others: [
+        { label: 'SKY STUDIO', x: 13680, y: 3070, w: 17440, h: 8696 },
+        { label: '第1調整室', x: 10960, y: 11826, w: 2560, h: 8936 },
+        { label: '第2調整室', x: 10960, y: 20913, w: 2560, h: 2423 },
+        { label: 'マシンルーム', x: 10960, y: 23488, w: 2560, h: 4785 },
+        { label: 'ネットワークルーム', x: 10960, y: 28273, w: 2560, h: 2575 },
+        { label: '制作/技術倉庫', x: 31280, y: 11826, w: 3823, h: 21051 },
+        { label: 'ELVホール', x: 25313, y: 36760, w: 3768, h: 8040 },
+      ],
+      led: { x: 18135, y: 30150, w: 8530, h: 150 },
+      truss: { x: 17495, y: 17248, w: 9810, h: 13250, legs: [[17720, 17473], [27080, 17473], [17720, 20673], [27080, 20673], [17720, 23873], [27080, 23873], [17720, 27073], [27080, 27073], [17720, 30273], [27080, 30273]] },
+      gridPitch: 6400,
+    };
+  }
+
+  // ── 品目（catalog.json の寸法。ペデスタル・クレーンは「寸法は推定」） ──
+  catalog() {
+    return {
+      chair: { label: 'ルベックチェア', short: '椅子', w: 535, d: 490, qty: 80, storage: '倉庫', est: false },
+      table: { label: '長机（白）', short: '長机', w: 1800, d: 600, qty: 20, storage: 'SKY STUDIO', est: false },
+      lectern: { label: '司会台', short: '司会台', w: 700, d: 490, qty: 1, storage: '倉庫', est: false },
+      pedestal: { label: 'ペデスタル TP-90B', short: 'ペデスタル', w: 900, d: 900, qty: null, storage: '—', est: true },
+      crane: { label: 'クレーン TK-53A', short: 'クレーン', w: 900, d: 1200, qty: null, storage: '—', est: true },
+      person: { label: '人（立位）', short: '人', w: 450, d: 300, qty: null, storage: '', est: false },
+    };
+  }
+
+  // ── 差し込める図面。A案は 14:02 に確定（rev.1）、その後 14:20 に大野さんがペデスタルを動かして下書きに戻っている ──
+  plans() {
+    return {
+      a: {
+        no: 'VL-202609-0003', label: 'WORLD STUDIO A案', rows: 5, cols: 10, x0: 19325, aisleAfter: 5,
+        held: { rev: 'rev.1', status: '確定', at: '2026/09/13 14:02 時点', ped: [[20500, 22300], [24300, 22300]], crane: [28000, 22500] },
+        latest: { rev: 'rev.1', status: '下書き', at: '2026/09/13 14:20 時点', ped: [[18600, 25500], [26200, 25500]], crane: [28000, 22500] },
+        stale: true, staleText: '大野 健 さんが 14:20 に保存。ペデスタル 2 台を客席の脇へ移しました。',
+      },
+      b: {
+        no: 'VL-202609-0004', label: 'WORLD STUDIO B案', rows: 6, cols: 8, x0: 19875, aisleAfter: 4,
+        held: { rev: 'rev.—', status: '下書き', at: '2026/09/13 11:40 時点', ped: [[19800, 21400], [25000, 21400]], crane: [28600, 24200] },
+        latest: null, stale: false, staleText: '',
+      },
+    };
+  }
+
+  // 図面 1 件ぶんの品目（劇場形式 rows×cols・横 550・縦 900・中央通路 1,200。正面（−y）を南の LED ウォールへ向ける＝180°）
+  placed(plan, ver) {
+    const out = [];
+    for (let r = 0; r < plan.rows; r++) for (let c = 0; c < plan.cols; c++) out.push({ t: 'chair', x: plan.x0 + c * 550 + (c >= plan.aisleAfter ? 1200 : 0), y: 27405 - r * 900, rot: 180 });
+    out.push({ t: 'table', x: 21450, y: 29000, rot: 0 }, { t: 'table', x: 23350, y: 29000, rot: 0 });
+    out.push({ t: 'lectern', x: 19500, y: 29000, rot: 0 });
+    out.push({ t: 'person', x: 21000, y: 29650, rot: 0 }, { t: 'person', x: 22400, y: 29650, rot: 0 }, { t: 'person', x: 23800, y: 29650, rot: 0 });
+    ver.ped.forEach((p) => out.push({ t: 'pedestal', x: p[0], y: p[1], rot: 180 }));
+    out.push({ t: 'crane', x: ver.crane[0], y: ver.crane[1], rot: 180 });
+    return out;
+  }
+
+  // ブロックの位置と大きさ（紙の mm）。会場図面は既定 180×120 から高さを 154 に伸ばしてある（1:100 は 184.8mm 要るので入らず、自動が 1:150 になる）
+  blockDefs() {
+    return [
+      { id: 'hdr', kind: 'free', tag: '文字', name: '見出し（会場レイアウト）', x: 14.9, y: 8.5, w: 267.3, h: 12, pad: '0', freeHint: '文字ブロック。ダブルクリックで直接打てます。選んだ範囲だけ書体・色を変えられます。' },
+      { id: 'layout', kind: 'venue', tag: '差し込み ／ 会場図面', name: '会場図面', x: 14.9, y: 28, w: 180, h: 154, pad: '11px 11px 10px' },
+      { id: 'items', kind: 'venue', tag: '差し込み ／ 数量表', name: '数量表（会場図面）', x: 200, y: 28, w: 82.2, h: 60, pad: '10px 11px' },
+      { id: 'note', kind: 'free', tag: '文字', name: '会場でのきまり', x: 200, y: 93, w: 82.2, h: 46, pad: '8px 11px', freeHint: '文字ブロック。ダブルクリックで直接打てます。図面と連動しないので、数を変えたら手で直します。' },
+      { id: 'foot', kind: 'master', tag: 'ひな形（全ページ共通）', name: '柱（社外秘・版・ページ番号）', x: 14.9, y: 184.8, w: 267.3, h: 12.6, pad: '0', freeHint: 'ひな形のブロック。全ページに同じものが出ます。直すとすべてのページに効きます。' },
+    ];
+  }
+
+  renderVals() {
+    const self = this;
+    const st = this.state;
+    const pr = this.props || {};
+    const V = this.venue();
+    const CAT = this.catalog();
+    const PLANS = this.plans();
+    const PX = 96 / 25.4;                       // 紙の mm → px（96dpi）
+    const R = (v) => Math.round(v * 100) / 100;
+    const P = (mm) => R(mm * PX);
+    const fmt = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const has = (k) => st.show.indexOf(k) >= 0;
+    const say = (title, text) => () => self.setState({ notice: { title: title, text: text } });
+    const soon = (text) => say('これから作ります', text);
+    const manualNo = pr.manualNo || 'OM-202609-0007';
+    const returnPath = pr.returnPath || '/techops/manuals/OM-202609-0007';
+
+    // ── 差し込んでいる図面（A案は 14:20 の変更を取り込むと latest に切り替わる） ──
+    const plan = PLANS[st.plan] || PLANS.a;
+    const ver = st.plan === 'a' && st.imported ? plan.latest : plan.held;
+    const stale = st.plan === 'a' && plan.stale && !st.imported;
+    const placed = this.placed(plan, ver);
+    const count = (t) => placed.filter((p) => p.t === t).length;
+
+    // ── 紙とブロック（A4横 297×210 mm ＝ 1123×794 px。880px 幅に縮めて表示・ズームで拡縮） ──
+    const paperW = Math.round(297 * PX), paperH = Math.round(210 * PX);
+    const fit = Math.round(880 / paperW * (st.zoom / 100) * 1000) / 1000;
+    const paper = { w: paperW, h: paperH, fit: fit, dispW: Math.round(paperW * fit), dispH: Math.round(paperH * fit) };
+    const defs = this.blockDefs();
+    const blocks = defs.map((d) => {
+      const on = st.sel === d.id;
+      return {
+        x: P(d.x), y: P(d.y), w: P(d.w), h: P(d.h), pad: d.pad, tag: d.tag, selected: on,
+        ring: on ? '0 0 0 1.5px #005bac' : 'none',
+        bg: d.kind === 'master' ? 'transparent' : '#ffffff',
+        isHeader: d.id === 'hdr', isLayout: d.id === 'layout', isItems: d.id === 'items', isNote: d.id === 'note', isFooter: d.id === 'foot',
+        pick: () => self.setState({ sel: d.id, tab: d.kind === 'venue' ? 'link' : 'style', notice: null }),
+      };
+    });
+
+    // ── 図（会場の mm → 紙の mm → px）。ブロックの内側から札の行と凡例の行を引いた場所に収める ──
+    const lay = defs[1];
+    const figW = R(P(lay.w) - 22), figH = R(P(lay.h) - 21 - 24 - 21);
+    const floor = st.range === 'floor';
+    const A = V.area;
+    const pad = floor ? { l: 2200, t: 2200, r: 800, b: 800 } : { l: 1300, t: 1300, r: 400, b: 400 };
+    const ext = floor
+      ? { x: -pad.l, y: -pad.t, w: 44800 + pad.l + pad.r, h: 44800 + pad.t + pad.b }
+      : { x: A.x - pad.l, y: A.y - pad.t, w: A.w + pad.l + pad.r, h: A.h + pad.t + pad.b };
+    const fits = (s) => ext.w / s * PX <= figW && ext.h / s * PX <= figH;
+    const CANDIDATES = [100, 120, 150, 200, 250, 300, 400, 500];
+    const auto = CANDIDATES.filter(fits)[0] || 500;
+    const wanted = st.scale === 'auto' ? auto : st.scale;
+    const scale = fits(wanted) ? wanted : auto;
+    const k = PX / scale;                       // 会場の mm → 紙の px
+    const X = (mm) => R((mm - ext.x) * k);
+    const Y = (mm) => R((mm - ext.y) * k);
+    const onPaperAt = (mm, s) => (Math.round(mm / s * 10) / 10).toFixed(1);
+    const onPaper = (mm) => onPaperAt(mm, scale);
+
+    const axesX = [], axesY = [];
+    for (let i = 0; i < 8; i++) {
+      const mm = i * V.gridPitch;
+      if (mm > ext.x && mm < ext.x + ext.w) axesX.push({ label: 'X' + (16 - i), d: 'M ' + mm + ' ' + ext.y + ' L ' + mm + ' ' + (ext.y + ext.h), px: X(mm), py: Y(ext.y + pad.t / 2) });
+      if (mm > ext.y && mm < ext.y + ext.h) axesY.push({ label: 'Y' + (16 - i), d: 'M ' + ext.x + ' ' + mm + ' L ' + (ext.x + ext.w) + ' ' + mm, px: X(ext.x + pad.l / 2), py: Y(mm) });
+    }
+    const rooms = floor ? V.others.map((o) => ({ x: o.x, y: o.y, w: o.w, h: o.h })) : [];
+    const roomLabels = floor ? V.others.map((o) => ({ label: o.label, px: R(X(o.x) + 2), py: R(Y(o.y) + 2) })) : [];
+    const items = placed.map((p) => ({
+      tf: 'translate(' + p.x + ' ' + p.y + ') rotate(' + p.rot + ')',
+      isChair: p.t === 'chair', isTable: p.t === 'table', isLectern: p.t === 'lectern', isPerson: p.t === 'person', isPedestal: p.t === 'pedestal', isCrane: p.t === 'crane',
+    }));
+    const barMm = scale >= 200 ? 5000 : 1000;
+    const isDraft = ver.status !== '確定';
+    const fig = {
+      w: R(ext.w * k), h: R(ext.h * k), vb: ext.x + ' ' + ext.y + ' ' + ext.w + ' ' + ext.h,
+      axesOn: has('axes'), axesX: axesX, axesY: axesY, rooms: rooms, roomLabels: roomLabels,
+      area: { x: A.x, y: A.y, w: A.w, h: A.h },
+      truss: { x: V.truss.x, y: V.truss.y, w: V.truss.w, h: V.truss.h },
+      legs: V.truss.legs.map((c) => ({ x: c[0] - 225, y: c[1] - 225 })),
+      led: V.led, items: items,
+      lbl: { px: R(X(A.x) + 5), py: R(Y(A.y) + 4), font: floor ? 6 : 9.5, subFont: floor ? 4.5 : 7, title: '26F ' + A.label, sub: '内法 ' + fmt(A.w) + ' × ' + fmt(A.h) + ' mm ・ ' + A.m2 + '㎡' },
+      ledLbl: { px: X(V.led.x + V.led.w / 2), py: R(Y(V.led.y + V.led.h) + 2), font: floor ? 4.5 : 7 },
+      stamp: plan.no + ' ' + (isDraft ? '下書き' : ver.rev) + ' ・ 1:' + scale + ' ・ 26F ' + (floor ? '階全体' : A.label) + ' ・ ' + ver.at,
+      isDraft: isDraft,
+      legendOn: has('legend'),
+      legend: ['chair', 'table', 'lectern', 'pedestal', 'crane'].map((t) => ({
+        label: CAT[t].short, n: String(count(t)),
+        isChair: t === 'chair', isTable: t === 'table', isLectern: t === 'lectern', isPedestal: t === 'pedestal', isCrane: t === 'crane',
+      })),
+      scaleLabel: '1:' + scale, barW: P(barMm / scale), barLabel: (barMm / 1000) + 'm',
+    };
+
+    // ── 数量表（図面から数える） ──
+    const col = (key) => st.cols.indexOf(key) >= 0;
+    const tbl = {
+      sub: plan.no + ' ・ 置いた数 ／ 保有数',
+      cName: col('name'), cPlaced: col('placed'), cQty: col('qty'), cStorage: col('storage'),
+      rows: ['chair', 'table', 'lectern', 'pedestal', 'crane'].map((t) => ({ label: CAT[t].label, placed: String(count(t)), qty: CAT[t].qty == null ? '—' : String(CAT[t].qty), storage: CAT[t].storage, est: CAT[t].est })),
+    };
+
+    // ── 右パネル ──
+    const d = defs.find((x) => x.id === st.sel) || defs[1];
+    const venue = d.kind === 'venue';
+    const sel = {
+      name: d.name, isVenue: venue, isLayout: d.id === 'layout', isItems: d.id === 'items',
+      isFree: d.kind === 'free', isMaster: d.kind === 'master', freeHint: d.freeHint || '',
+      kind: venue ? '差し込み' : (d.kind === 'master' ? 'ひな形' : '自由'),
+      kindBg: venue ? '#eaf4fb' : (d.kind === 'master' ? '#f2f4f7' : '#f1faf5'),
+      kindFg: venue ? '#005bac' : (d.kind === 'master' ? '#5d6470' : '#197a4b'),
+      iconBg: venue ? '#eaf4fb' : '#f2f4f7', iconFg: venue ? '#005bac' : '#5d6470',
+      hasSizeNote: d.id === 'layout' || d.id === 'items',
+      sizeNote: d.id === 'layout' ? '既定は 180 × 120。1:100（高さ 184.8 mm）は入らないので 154 まで伸ばし、自動で 1:150 になっています。' : '既定は 180 × 60。右の欄に合わせて幅を 82.2 にしています。',
+    };
+    const editUrl = '/techops/venue-layouts/' + plan.no + '?return=' + returnPath;
+    const src = {
+      title: plan.no + ' ' + plan.label,
+      meta: (isDraft ? '下書き' : ver.rev + ' 確定') + ' ・ ' + ver.at.slice(11).replace(' 時点', '') + ' の中身を載せています',
+      stale: stale, staleText: plan.staleText,
+      importNow: () => self.setState({ imported: true, notice: { title: '取り込みました', text: '14:20 の線画に差し替えました。図面は下書きなので、紙の札に「下書き」と出ます' } }),
+      diff: soon('違いを見る ＝ 14:02 と 14:20 の線画を左右に並べ、動いた品目を色で示します'),
+      edit: say('会場図面を開きます', editUrl + ' へ移動します。図面側の帯に「運営マニュアルに戻る」が出ます'),
+    };
+    const pick = (on) => ({ border: on ? '#005bac' : '#e6e9ed', bg: on ? '#f4faff' : '#ffffff', fg: on ? '#005bac' : '#3c424c' });
+    const plans = ['a', 'b'].map((key) => Object.assign({
+      label: key === 'a' ? 'A案' : 'B案', no: PLANS[key].no.slice(-4),
+      pick: () => self.setState({ plan: key, notice: null }),
+    }, pick(st.plan === key)));
+    const ranges = [{ key: 'area', label: 'エリア' }, { key: 'floor', label: '階全体' }].map((r) => Object.assign({ label: r.label, pick: () => self.setState({ range: r.key, notice: null }) }, pick(st.range === r.key)));
+    const scaleDefs = [{ key: 'auto', label: '自動 1:' + auto, span: 3 }].concat([100, 150, 200].map((s) => ({ key: s, label: '1:' + s, span: 1 })));
+    const scales = scaleDefs.map((o) => {
+      const can = o.key === 'auto' || fits(o.key);
+      const s = pick(st.scale === o.key);
+      return {
+        label: o.label, span: o.span, border: s.border, bg: s.bg, fg: can ? s.fg : '#9aa1ab',
+        pick: () => (can
+          ? self.setState({ scale: o.key, notice: null })
+          : self.setState({ notice: { title: '収まりません', text: o.label + ' だと' + (floor ? '階全体 44,800 mm が紙の上で ' + onPaperAt(44800, o.key) + ' mm' : '内法 ' + fmt(A.w) + ' × ' + fmt(A.h) + ' mm が紙の上で ' + onPaperAt(A.w, o.key) + ' × ' + onPaperAt(A.h, o.key) + ' mm') + ' になり、ブロック（180 × 154 mm）に入りません。自動 1:' + auto + ' のままにしています' } })),
+      };
+    });
+    const scaleHint = st.scale !== 'auto' && scale !== st.scale
+      ? { fg: '#c2410e', text: '1:' + st.scale + ' では収まらないので、自動（1:' + auto + '）で出します' }
+      : { fg: '#9aa1ab', text: '自動 ＝ 収まる最大の切りのよい縮尺。紙の上で ' + onPaper(A.w) + ' × ' + onPaper(A.h) + ' mm' };
+    const opts = [{ key: 'legend', label: '凡例' }, { key: 'axes', label: '通り芯' }].map((o) => {
+      const on = has(o.key);
+      return {
+        label: o.label, border: on ? '#005bac' : '#e6e9ed', bg: on ? '#f4faff' : '#ffffff', fg: on ? '#005bac' : '#3c424c',
+        box: on ? '#005bac' : '#cbd2da', boxBg: on ? '#005bac' : '#ffffff',
+        toggle: () => self.setState({ show: on ? st.show.filter((x) => x !== o.key) : st.show.concat([o.key]) }),
+      };
+    });
+    const cols = [{ key: 'name', label: '品目' }, { key: 'placed', label: '置いた数' }, { key: 'qty', label: '保有数' }, { key: 'storage', label: '保管場所' }].map((c) => {
+      const on = col(c.key);
+      return {
+        label: c.label, border: on ? '#005bac' : '#e6e9ed', bg: on ? '#f4faff' : '#ffffff', fg: on ? '#005bac' : '#3c424c',
+        box: on ? '#005bac' : '#cbd2da', boxBg: on ? '#005bac' : '#ffffff',
+        toggle: () => self.setState({ cols: on ? st.cols.filter((x) => x !== c.key) : st.cols.concat([c.key]) }),
+      };
+    });
+    const freeze = {
+      desc: st.follow ? '追従する（元を直すと冊子も直る）' : 'この版で凍らせる（配った紙と食い違わない）',
+      bg: st.follow ? '#cbd2da' : '#005bac', knob: st.follow ? '2px' : '18px',
+      toggle: () => self.setState({ follow: !st.follow }),
+    };
+    const tabs = [{ key: 'link', label: '差し込み' }, { key: 'style', label: '書式' }, { key: 'page', label: 'ページ' }].map((t) => ({
+      label: t.label, weight: st.tab === t.key ? 800 : 700, fg: st.tab === t.key ? '#005bac' : '#5d6470', line: st.tab === t.key ? '#005bac' : 'transparent',
+      pick: () => self.setState({ tab: t.key }),
+    }));
+    const quickStyles = [
+      { label: '見出し', size: '12px', weight: 800, color: '#1a1d24' }, { label: '本文', size: '11px', weight: 400, color: '#1a1d24' },
+      { label: '注意', size: '11px', weight: 800, color: '#c2410e' }, { label: '補足', size: '10.5px', weight: 400, color: '#5d6470' },
+      { label: '明朝', size: '11px', weight: 700, color: '#1a1d24' }, { label: '白抜き', size: '11px', weight: 800, color: '#005bac' },
+      { label: '縦書き', size: '11px', weight: 700, color: '#1a1d24' }, { label: '番号', size: '11px', weight: 700, color: '#1a1d24' },
+    ].map((q) => Object.assign({ pick: soon('書式「' + q.label + '」を選んだ範囲にかけます') }, q));
+    const geom = [{ label: 'X', value: d.x.toFixed(1) }, { label: 'Y', value: d.y.toFixed(1) }, { label: '幅', value: d.w.toFixed(1) }, { label: '高さ', value: d.h.toFixed(1) }];
+
+    // ── 帯・道具・ページ一覧 ──
+    const tools = [
+      { label: '文字', fill: 'transparent', hint: 'T' }, { label: '図形', fill: '#e6e9ed', hint: '矩形・円・線・矢印・吹き出し' },
+      { label: '画像', fill: '#eaf4fb', hint: '手元から上げる' }, { label: '表', fill: '#ffffff', hint: '自分で打つ表' }, { label: 'QR', fill: '#1a1d24', hint: 'この冊子から画面へ飛ばす' },
+    ].map((t) => Object.assign({ pick: soon(t.label + 'ブロックを置く（' + t.hint + '）') }, t));
+    const aligns = [
+      { hint: '左そろえ', l: '3px solid #005bac', t: '0', r: '0', b: '0' }, { hint: '左右中央', l: '0', t: '0', r: '0', b: '0' }, { hint: '右そろえ', l: '0', t: '0', r: '3px solid #005bac', b: '0' },
+      { hint: '上そろえ', l: '0', t: '3px solid #005bac', r: '0', b: '0' }, { hint: '上下中央', l: '0', t: '0', r: '0', b: '0' }, { hint: '下そろえ', l: '0', t: '0', r: '0', b: '3px solid #005bac' },
+    ].map((a) => Object.assign({ pick: soon('整列（' + a.hint + '）＝ 選んだブロックをそろえます') }, a));
+    const pageDefs = [
+      { no: 1, title: '表紙', accent: '#005bac', chapter: '第1章 ／ この冊子について' }, { no: 2, title: '体制と連絡網', accent: '#005bac', chapter: '' },
+      { no: 3, title: '当日の流れ', accent: '#c2410e', chapter: '第2章 ／ 当日' }, { no: 4, title: 'タイムテーブル', accent: '#c2410e', chapter: '' },
+      { no: 5, title: '会場と搬入', accent: '#197a4b', chapter: '第3章 ／ 会場' }, { no: 6, title: '会場レイアウト', accent: '#197a4b', chapter: '' }, { no: 7, title: '客席と導線', accent: '#197a4b', chapter: '' },
+      { no: 8, title: '収録・配信のしくみ', accent: '#005bac', chapter: '第4章 ／ 技術' }, { no: 9, title: 'カメラ配置', accent: '#005bac', chapter: '' }, { no: 10, title: '機材リスト', accent: '#005bac', chapter: '' },
+      { no: 11, title: '緊急時の連絡', accent: '#c2410e', chapter: '第5章 ／ 備え' }, { no: 12, title: 'チェックリスト', accent: '#c2410e', chapter: '' },
+    ];
+    const pages = pageDefs.map((p) => ({
+      no: p.no, title: p.title, accent: p.accent, isChapter: !!p.chapter, chapter: p.chapter,
+      border: p.no === st.page ? '#005bac' : '#e6e9ed', noFg: p.no === st.page ? '#005bac' : '#9aa1ab',
+      pick: p.no === 6 ? () => self.setState({ page: 6, notice: null }) : say('この試作は 6 ページ目だけ', 'ページ ' + p.no + '「' + p.title + '」は入っていません'),
+    }));
+    const notice = st.notice
+      ? { on: true, title: st.notice.title, text: st.notice.text, close: () => self.setState({ notice: null }) }
+      : { on: false, title: '', text: '', close: () => {} };
+
+    return {
+      paper: paper, blocks: blocks, fig: fig, tbl: tbl, guide: { on: st.sel === 'layout', y: P(lay.y) },
+      foot: { right: manualNo + ' ' + (pr.manualRev || 'rev.1') + ' ・ 2026/09/13 時点 ・ ' + (pr.pageNo || '6 / 12') },
+      tabs: tabs, sel: sel, src: src, plans: plans, ranges: ranges, scales: scales, scaleHint: scaleHint, opts: opts, cols: cols, freeze: freeze,
+      quickStyles: quickStyles, geom: geom, tools: tools, aligns: aligns, pages: pages, notice: notice,
+      staleShown: stale,
+      pickLayout: () => self.setState({ sel: 'layout', tab: 'link', notice: null }),
+      editMaster: soon('ひな形を編集する ＝ 全ページ共通の柱を直します'),
+      zoomLabel: st.zoom + '%',
+      zoomIn: () => self.setState({ zoom: Math.min(200, st.zoom + 25) }),
+      zoomOut: () => self.setState({ zoom: Math.max(50, st.zoom - 25) }),
+      insertBg: st.insert ? '#005bac' : '#ffffff', insertFg: st.insert ? '#ffffff' : '#005bac', insertBorder: st.insert ? '#005bac' : '#cfe4f4',
+      openInsert: () => self.setState({ insert: !st.insert, notice: { title: 'これから作ります', text: '差し込むの一覧（レゴのカタログ）に「会場図面」「数量表」の 2 種が足されます。図面は案件の会場図面から選びます' } }),
+      goList: say('冊子一覧へ', '/techops/manuals?project=GLS-A002 へ移動します'),
+      goPreview: say('仕上がりを見る', returnPath + '/preview へ移動します（範囲・つけるもの・出す前の検査）'),
+      goPdf: soon('PDF ＝ ブラウザの印刷画面を開き、送信先を「PDF に保存」にします（A4横・12 ページ）'),
+      goFix: soon('確定する ＝ 全ブロックをその時の中身のまま凍らせて rev.2 にします（manager）。会場図面の線画も一緒に凍ります'),
+      goStack: soon('重なり ＝ 前面へ・背面へ'),
+      goUndo: soon('元に戻す（Ctrl+Z ／ Ctrl+Shift+Z）。冊子単位で 50 手'),
+      goAddPage: soon('ページを追加 ＝ 12 ページ目の後ろに白紙を足します'),
+    };
+  }
+}
+</script>
+</body>
+</html>
