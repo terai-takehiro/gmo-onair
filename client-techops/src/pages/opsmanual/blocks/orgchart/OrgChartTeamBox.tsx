@@ -15,7 +15,7 @@
 // 同じ理由で `ManualPrintHeader.tsx` の罫も `0.25mm solid #1f2937`）。モックも全チーム
 // `1px solid #1a1d24`（`docs/design/v4/mockups/native/production-manual/OrgChart.dc.html`）。
 // **見出しの下の区切りは別** — あちらはモックが `#e6e9ed` なので `border-border` のまま。
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Minus, Plus, User } from "lucide-react";
 import BufferedInput from "@/components/editor/BufferedInput";
 import { cn } from "@/lib/utils";
@@ -200,17 +200,32 @@ function PersonPhoto({ url }: { url?: string }) {
 function PersonPhotoButton({ url, onChange }: { url?: string; onChange: (url: string) => void }) {
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // ⚠️ レビュー指摘（P1）: `onChange` は毎レンダー作り直される（`patchPerson` が
+  // その時点の `box`/`people` を丸ごと閉じ込めるため）。通信中に他の欄が編集されても、
+  // 待っている間の古い `onChange` をそのまま呼ぶと、通信が終わった時点で古い中身へ
+  // 丸ごと巻き戻ってしまう。ref に最新の `onChange` を持たせ、**通信が終わった時点の
+  // 最新**を呼ぶ（`OrgChartInspectorSection.tsx` の取り込みと同じ考え方）。
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  // 通信中にこの人・チームごと削除された（＝アンマウントされた）場合の受け皿。
+  // 上の ref だけでは防げない——アンマウント後は ref も更新が止まり、削除される
+  // **直前**の（まだこの人がいた頃の）`onChange` を呼んでしまい、削除した人・チームを
+  // 復活させることになる（レビュー指摘・P1）。setup 側で true に戻す
+  // （React.StrictMode の setup→cleanup→setup を生き延びる・#679 と同じ理由）。
+  const aliveRef = useRef(true);
+  useEffect(() => { aliveRef.current = true; return () => { aliveRef.current = false; }; }, []);
 
   const upload = async (file: File) => {
     const error = manualImageUploadError(file);
     if (error) { notifyError(error); return; }
     setUploading(true);
     try {
-      onChange(await uploadManualImage(file));
+      const uploadedUrl = await uploadManualImage(file);
+      if (aliveRef.current) onChangeRef.current(uploadedUrl);
     } catch {
       notifyError("写真を取り込めませんでした。", { description: "少し待ってから、もう一度選び直してください。" });
     } finally {
-      setUploading(false);
+      if (aliveRef.current) setUploading(false);
     }
   };
 

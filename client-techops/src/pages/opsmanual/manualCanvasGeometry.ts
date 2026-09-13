@@ -32,9 +32,14 @@ export function isEditableTarget(target: EventTarget | null): boolean {
  * アイコン等の子要素をクリックしても拾う）。**乗っていないとき**（行間・チームどうしの隙間
  * など中身の「地」）はブロックの pointerdown を止めない — 止めると、選択済みの表・体制図を
  * つかんで動かす手段が無くなる（レビュー指摘: 枠は `pointer-events-none` なので掴めない）。
+ *
+ * ⚠️ **`HTMLElement` ではなく `Element` で見る**（レビュー指摘・P2）。ボタンの中の
+ * lucide アイコン（`Plus`/`Minus`/`User`）は `<svg>`/`<path>` で、`SVGElement` は
+ * `HTMLElement` を継承しない。`HTMLElement` で絞ると、アイコンのちょうど上を押したときだけ
+ * ここが false を返し、押している最中にわずかでも動くとブロックごとドラッグが始まってしまう。
  */
 export function isInteractiveClickTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
+  if (!(target instanceof Element)) return false;
   return !!target.closest("input, textarea, button, select, [contenteditable='true']");
 }
 
