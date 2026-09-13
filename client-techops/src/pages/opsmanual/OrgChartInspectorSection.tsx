@@ -9,12 +9,17 @@
 //
 // `BlockInspector.tsx` に直接書かないのは、あちらが 219 行で 400 行のラチェットに近いのと、
 // 通信・キャッシュの話を書式パネルに持ち込まないため。
+//
+// ⚠️ **いまの「出す項目」（`resolveOrgChartShow`）を流し込みへ渡す。** 切れている項目は
+// キャンバスに出ず入力欄も出ないので、そのまま保存すると押した人に見えない
+// （電話・メールは個人の連絡先なので特に）。判断は `orgChartSeed.ts` の `toPerson`。
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ManualOrgChartContent } from "@gmo-onair/shared/src/opsmanual/types";
 import { getManualOrgSeed } from "@/lib/manualApi";
 import { notifyInfo, notifyError } from "@/lib/notify";
 import OrgChartInspector, { type ManualOrgSeedKind } from "./OrgChartInspector";
+import { resolveOrgChartShow } from "./blocks/orgchart/orgChartUi";
 import { countSeedPeople, mergeGpmTiers, mergeProjectMembers } from "./orgChartSeed";
 
 interface Props {
@@ -46,18 +51,23 @@ export default function OrgChartInspectorSection({ manualId, content, onCommit }
         notifyError("取り込み元を読み込めませんでした。", { description: "少し待ってから、もう一度お試しください。" });
         return;
       }
-      const next =
+      const show = resolveOrgChartShow(content);
+      const result =
         kind === "project"
-          ? mergeProjectMembers(content, targetTierId, data.projectMembers)
-          : mergeGpmTiers(content, data.gpmTiers);
-      // 足すものが1つも無いとき（同じ名前の人ばかり・元が空）は commit しない——
-      // 何も変わっていない1手を undo 履歴と自動保存に積まないため。黙って終わると
-      // 「押したのに何も起きない」ので、そのことだけは知らせる
-      if (next === content) {
+          ? mergeProjectMembers(content, targetTierId, data.projectMembers, show)
+          : mergeGpmTiers(content, data.gpmTiers, show);
+      // 足すものが1つも無いときは commit しない——何も変わっていない1手を undo 履歴と
+      // 自動保存に積まないため。黙って終わると「押したのに何も起きない」ので、
+      // **なぜ入らなかったのか**まで知らせる（入れる先が無いのと重複は理由が違う）
+      if (result.status === "no-tier") {
+        notifyInfo("まだ階層がありません。", { description: "先に「階層を足す」で階層を1つ作ってください。" });
+        return;
+      }
+      if (result.status === "none") {
         notifyInfo("足す人はいませんでした。", { description: "同じ名前の人はもう入っています。" });
         return;
       }
-      onCommit(next);
+      onCommit(result.content);
     } catch {
       notifyError("取り込めませんでした。", { description: "少し待ってから、もう一度お試しください。" });
     } finally {

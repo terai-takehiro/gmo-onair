@@ -13,9 +13,16 @@
  * そもそも `gpm_members` には `updated_at` 列が無い（migration 161/169/179）。
  *
  * ── 権限 ────────────────────────────────────────────────
- * ⚠️ ここでは権限の再チェックをしない。**マニュアル自体が `canAccessManual` を
+ * ⚠️ ここでは権限の判定をしない。**呼び出し元のルートが判定して `scope` で渡す**。
+ * 「案件のメンバーから」（`project_members`）は**マニュアル自体が `canAccessManual` を
  * 通っていることだけ**をゲートにする（`manual-resolvers/project.resolver.ts` 冒頭の
- * 「共通ポリシー」と同じ設計判断）。呼び出し元のルートが先に確認していることが前提。
+ * 「共通ポリシー」と同じ設計判断）。
+ *
+ * ⚠️ 「プロジェクト管理の体制から」（`gpm_members`）は**別扱い**（レビュー指摘 P1）。
+ * この表は担当者のメール・所属を持ち、既存のサーバー側の読み口（`contexts/gpm/index.ts` の
+ * `canRead`）は `sales: reader` を要求している。ここだけ qsheet の権限で読めてしまうと、
+ * `sales` を1つも持たない人にプロジェクト管理の連絡先が全件渡る。満たさないときは
+ * `gpmTiers` を**空で返す**（404 にはしない＝画面は取り込みボタンを畳む・§5-5）。
  *
  * ⚠️ 引数の `projectId` は**マニュアル自身の `qsheet_manuals.project_id`** を渡すこと。
  * クエリ・ボディから受け取った案件 id を渡してはいけない（`POST /manuals` の
@@ -203,19 +210,38 @@ async function readGpmTiers(projectId: string): Promise<ManualOrgSeedTier[]> {
 }
 
 /**
+ * 取り込み元ごとの「読んでよいか」。判定はルートが行い、ここは受け取るだけ（上の「権限」）。
+ * **省略できる形にしない** — 既定値を持たせると、渡し忘れたときに緩いほうへ倒れる。
+ */
+export interface ManualOrgSeedScope {
+  /**
+   * 「プロジェクト管理の体制から」（`gpm_members`）を読んでよいか
+   * ＝ 呼び出し本人が `sales: reader` を満たすか。
+   * false のときは `gpmTiers` を空で返し、SQL も投げない。
+   */
+  canReadGpm: boolean;
+}
+
+/**
  * 体制図の取り込み元を読む。
  *
  * `projectId` が null（`program_id` 紐づけのマニュアル）のときは**両方とも空**で返す
  * ＝ 画面は取り込みボタンを出さない（§5-5）。`qsheet_manuals` は
  * `CHECK (num_nonnulls(project_id, program_id) = 1)` なので、null なら必ず番組由来。
  * 404 にはしない（マニュアル自体は存在する）。
+ *
+ * `scope.canReadGpm` が false のときも同じ作法で `gpmTiers` だけ空にする
+ * （403 にはしない＝「案件のメンバーから」は今までどおり使える）。
  */
-export async function getManualOrgSeed(projectId: string | null): Promise<ManualOrgSeed> {
+export async function getManualOrgSeed(
+  projectId: string | null,
+  scope: ManualOrgSeedScope,
+): Promise<ManualOrgSeed> {
   if (!projectId) return { projectMembers: [], gpmTiers: [] };
 
   const [projectMembers, gpmTiers] = await Promise.all([
     readProjectMembers(projectId),
-    readGpmTiers(projectId),
+    scope.canReadGpm ? readGpmTiers(projectId) : Promise.resolve<ManualOrgSeedTier[]>([]),
   ]);
   return { projectMembers, gpmTiers };
 }

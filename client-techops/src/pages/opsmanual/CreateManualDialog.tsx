@@ -1,7 +1,18 @@
-// 運営マニュアルの新規作成（段A: 空のマニュアル／段E: 組織共通のテンプレート・前回のマニュアルから複製）。
-// `CreateScheduleDialog.tsx` と同じ作法。§10-5 の割り切りどおり、「テンプレート」と「前回のマニュアルから」は
-// 別経路（前者は `templateId`＝`qsheet_manual_templates` 経由、後者は `copyFromManualId`＝
-// 実在する `qsheet_manuals` を直接複製）だが、利用者からは1つの3択に見せる。
+// 運営マニュアルの新規作成。**案件／番組が決まっているときはここを通らない**
+// （一覧の「マニュアルを作る」が訊かずに作る・`ManualListPage.tsx`）。
+// このダイアログが出るのは次の2つだけ:
+//   ① 一覧を絞り込まずに開いていて、どの案件のものか決まっていないとき
+//   ② 「前回・テンプレートから」を選んだとき
+//
+// ⚠️ タイトルと本番の予定日は**訊かない**。マニュアルは必ず案件か番組にぶら下がるので、
+// どちらも作る前から分かっている（`GET /lookup/:id/context`）。あとから直すのは詳細画面の
+// その場編集（タイトル）と `ManualServiceDateField`（予定日）で足りる。
+// 先に同じ直しをしたのがスケジュール表（`CreateScheduleDialog.tsx`・codex 棚卸し #325
+// 「案件から引けるのに手入力」）。
+//
+// §10-5 の割り切りどおり、「テンプレート」と「前回のマニュアルから」は別経路（前者は
+// `templateId`＝`qsheet_manual_templates` 経由、後者は `copyFromManualId`＝実在する
+// `qsheet_manuals` を直接複製）だが、利用者からは1つの2択に見せる。
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { FormDialog, FormDialogFooter } from "@gmo-onair/shared/src/client-v4/formDialog";
@@ -10,16 +21,19 @@ import type { ManualListItem } from "@gmo-onair/shared/src/opsmanual/types";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import BufferedInput from "@/components/editor/BufferedInput";
 import ManualOwnerFields, { type ManualOwnerValue } from "@/components/opsmanual/ManualOwnerFields";
 import { notifyError } from "@/lib/notify";
 import * as manualApi from "@/lib/manualApi";
+import * as programsApi from "@/lib/programsApi";
+import * as scheduleApi from "@/lib/scheduleApi";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** `?project=`/`?program=` で絞り込まれているとき。案件/番組の選び直しはさせない */
   lockedOwner?: { projectId?: string | null; programId?: string | null; label: string };
+  /** 「前回・テンプレートから」から開いたときの初期選択 */
+  initialSource?: ManualSource;
   onCreated: (manual: ManualListItem) => void;
 }
 
@@ -30,20 +44,16 @@ function initialOwner(lockedOwner?: Props["lockedOwner"]): ManualOwnerValue {
   return { ownerType: "project", projectId: lockedOwner?.projectId ?? null, programId: null };
 }
 
-export default function CreateManualDialog({ open, onOpenChange, lockedOwner, onCreated }: Props) {
-  const [title, setTitle] = useState("");
-  const [serviceDate, setServiceDate] = useState("");
+export default function CreateManualDialog({ open, onOpenChange, lockedOwner, initialSource, onCreated }: Props) {
   const [owner, setOwner] = useState<ManualOwnerValue>(() => initialOwner(lockedOwner));
-  const [source, setSource] = useState<ManualSource>("blank");
+  const [source, setSource] = useState<ManualSource>(initialSource ?? "blank");
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [copyFromManualId, setCopyFromManualId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    setTitle("");
-    setServiceDate("");
     setOwner(initialOwner(lockedOwner));
-    setSource("blank");
+    setSource(initialSource ?? "blank");
     setTemplateId(null);
     setCopyFromManualId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -80,12 +90,28 @@ export default function CreateManualDialog({ open, onOpenChange, lockedOwner, on
 
   const sourceReady = source === "blank" ? true : source === "template" ? !!templateId : !!copyFromManualId;
 
+  // タイトルと本番の予定日は、選ばれた案件／番組から引く（手で打たせない・冒頭コメント参照）
+  const projectCtxQuery = useQuery({
+    queryKey: ["lookup", "project-context", owner.projectId],
+    queryFn: () => scheduleApi.getProjectContext(owner.projectId as string),
+    enabled: open && owner.ownerType === "project" && !!owner.projectId,
+  });
+  const programQuery = useQuery({
+    queryKey: ["techops", "program", owner.programId],
+    queryFn: () => programsApi.getProgram(owner.programId as string),
+    enabled: open && owner.ownerType === "program" && !!owner.programId,
+  });
+  const ownerName = projectCtxQuery.data?.name ?? programQuery.data?.name ?? lockedOwner?.label ?? null;
+  const serviceDate = owner.ownerType === "project"
+    ? projectCtxQuery.data?.performanceDates[0] ?? projectCtxQuery.data?.eventStart ?? null
+    : programQuery.data?.event_date ?? null;
+
   const createMutation = useMutation({
     mutationFn: () => manualApi.createManual({
-      title: title.trim() || "無題の運営マニュアル",
+      title: ownerName ?? "運営マニュアル",
       project_id: owner.ownerType === "project" ? owner.projectId : null,
       program_id: owner.ownerType === "program" ? owner.programId : null,
-      service_date: serviceDate || null,
+      service_date: serviceDate,
       template_id: source === "template" ? templateId ?? undefined : undefined,
       copy_from_manual_id: source === "copy" ? copyFromManualId ?? undefined : undefined,
     }),
@@ -110,28 +136,6 @@ export default function CreateManualDialog({ open, onOpenChange, lockedOwner, on
       }
     >
       <div className="space-y-4">
-        <div>
-          <Label htmlFor="new-manual-title">タイトル</Label>
-          <BufferedInput
-            id="new-manual-title"
-            value={title}
-            onCommit={setTitle}
-            className="mt-1 flex h-10 w-full rounded-control-lg border border-input bg-background px-3 py-2 text-sm"
-            placeholder="例: 本番当日の運営マニュアル"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="new-manual-service-date">本番/開催の予定日（任意）</Label>
-          <input
-            id="new-manual-service-date"
-            type="date"
-            value={serviceDate}
-            onChange={(e) => setServiceDate(e.target.value)}
-            className="mt-1 flex h-10 w-full rounded-control-lg border border-input bg-background px-3 py-2 text-sm"
-          />
-        </div>
-
         <ManualOwnerFields
           value={owner}
           onChange={setOwner}
@@ -141,6 +145,9 @@ export default function CreateManualDialog({ open, onOpenChange, lockedOwner, on
 
         <div>
           <Label>作り方</Label>
+          <p className="mt-1 text-sub-sm text-muted-foreground">
+            タイトルと本番の予定日は案件から入ります（あとで直せます）。
+          </p>
           <div className="mt-1">
             <ToggleButtonGroup
               options={[

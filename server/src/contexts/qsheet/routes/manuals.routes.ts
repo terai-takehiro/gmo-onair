@@ -3,7 +3,7 @@
  * 実装パターンは schedules.routes.ts をそのまま踏襲する。
  */
 import { Router, Request, Response } from 'express';
-import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
+import { requireAuth, requirePermission, meetsPermissionLevel } from '../../../shared/middleware/auth';
 import { canAccessManual, canAssignManualProject } from '../access';
 import { wrap, p1 } from './wrap';
 import { NotFoundError } from '../services/httpErrors';
@@ -78,17 +78,28 @@ router.patch('/manuals/:id', requirePermission('qsheet', 'editor'), wrap(async (
 
 /**
  * 体制図ブロック（自由ブロック）の「取り込み」元（production-manual-orgchart.md §5-5）。
- * 読むだけなので reader のまま（router 全体の `requirePermission('qsheet')` の既定）。
- * 行単位のゲートは `requireAccessible`（= `canAccessManual`・存在秘匿の 404）だけで、
- * 案件側の権限は改めて見ない（`manual-resolvers/` の共通ポリシーと同じ設計判断）。
+ * 行単位のゲートは `requireAccessible`（= `canAccessManual`・存在秘匿の 404）。
+ *
+ * ⚠️ **editor を要求する**（レビュー指摘 P1）。読むだけの口だが、取り込みは編集操作の材料で、
+ * 流し込んだ結果を保存するにはどのみち `qsheet: editor` が要る ＝ reader に返す意味が無い。
+ *
+ * ⚠️ **`gpm_members`（プロジェクト管理の体制）だけは `sales: reader` も要る**（同 P1）。
+ * この表は担当者のメールを持ち、既存の読み口（`contexts/gpm/index.ts` の `canRead`）は
+ * `sales: reader` を要求している。ここだけ qsheet の権限で読めると、`sales` を1つも
+ * 持たない人にプロジェクト管理の連絡先が全件渡る。満たさないときは **`gpmTiers` を空で返す**
+ * （403 にはしない — 「案件のメンバーから」は今までどおり使え、画面は数が 0 のボタンを畳む）。
+ * 判定は HTTP の `requirePermission` と**同じ `meetsPermissionLevel`** を通す（写すと片方だけ緩くなる）。
+ * 見るのは `sales` — migration 210 で `gpm` モジュールは `sales` に統合済み（`permissions.gpm` は常に undefined）。
  *
  * ⚠️ 案件 id は**クエリ・ボディから受け取らない**。マニュアル自身の `project_id` だけを読む
  * （受け取ると `POST /manuals` のレビュー指摘（P1）と同型の穴になる）。
  * `program_id` のマニュアル（project_id が null）は両方とも空で返す＝画面は取り込みボタンを出さない。
  */
-router.get('/manuals/:id/org-seed', wrap(async (req: Request, res: Response) => {
+router.get('/manuals/:id/org-seed', requirePermission('qsheet', 'editor'), wrap(async (req: Request, res: Response) => {
   const raw = await requireAccessible(req);
-  const data = await getManualOrgSeed((raw.project_id as string | null) ?? null);
+  const data = await getManualOrgSeed((raw.project_id as string | null) ?? null, {
+    canReadGpm: meetsPermissionLevel(req.user!.role, req.user!.permissions?.sales, 'reader'),
+  });
   res.json({ success: true, data });
 }));
 
