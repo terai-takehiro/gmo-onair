@@ -2,7 +2,7 @@
 // が export する純粋関数を固定する。本体は client-techops 側にあり、client-techops には
 // .test.ts の置き場所が無いため、`opsmanualPreExportChecks.test.ts` と同じ考え方でここに置く。
 //
-// 画面を見ても間違いに気づけない計算（範囲の絞り込み・取扱注意の判定・柱の文言）だけを
+// 画面を見ても間違いに気づけない計算（範囲の絞り込み・取扱注意の判定・ヘッダーの文言）だけを
 // 固定する（shared/CLAUDE.md「テスト」の方針）。
 import { describe, it, expect } from 'vitest';
 import {

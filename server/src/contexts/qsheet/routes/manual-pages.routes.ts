@@ -1,5 +1,5 @@
 /**
- * 運営マニュアルのページ — 追加・編集・削除・並べ替え（段A）＋紙面（blocks）の保存（段B）。
+ * 運営マニュアルのページ — 追加・編集・削除・並べ替え（段A）＋キャンバス（blocks）の保存（段B）。
  * production-manual.md §6。
  */
 import { Router, Request, Response } from 'express';
@@ -15,9 +15,9 @@ router.use(requireAuth, requirePermission('qsheet'));
 
 async function requireAccessible(req: Request) {
   const raw = await getManualRaw(p1(req.params.id));
-  if (!raw) throw new NotFoundError('冊子が見つかりません');
+  if (!raw) throw new NotFoundError('マニュアルが見つかりません');
   if (!(await canAccessManual(req.user!, raw.id as string, (raw.created_by as string) ?? null))) {
-    throw new NotFoundError('冊子が見つかりません');
+    throw new NotFoundError('マニュアルが見つかりません');
   }
 }
 

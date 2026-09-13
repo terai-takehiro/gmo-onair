@@ -5,9 +5,9 @@ import { loadTs } from './helpers/load-ts.mjs';
 // 運営マニュアル 段C — 外部レビュー再指摘（P1・Security Review）。
 //
 // sheet.resolver.ts は「sourceId で引いた qsheet_documents の project_id/program_id が
-// 冊子と一致するか」だけをゲートにしており、qsheet_documents 自体のアクセス制御
+// マニュアルと一致するか」だけをゲートにしており、qsheet_documents 自体のアクセス制御
 // （canAccessDoc: 作成者/個別共有/system_admin。案件メンバー自動可視は持たない）を
-// 経由しなかった。canAccessManual（冊子）は案件メンバー全員に自動で見える設計なので、
+// 経由しなかった。canAccessManual（マニュアル）は案件メンバー全員に自動で見える設計なので、
 // このままだと案件メンバーなら誰でも「差し込みブロックの sourceId に他人の非共有台本の
 // id を指定する」だけでその台本の全文を読めてしまう。resolveAccessibleDoc が
 // canAccessDoc も追加でゲートすること・listSheetSources の一覧も同じ条件で絞ることを固定する。

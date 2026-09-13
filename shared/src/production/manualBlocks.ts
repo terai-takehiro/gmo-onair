@@ -63,7 +63,7 @@ export interface ManualLinkedBlockDef {
   label: string;
   /** カタログのカードに出す説明（§4-3「中身」列） */
   description: string;
-  /** true のとき紙面に出る値は既定で伏せ字。差し込むときのチェックを外すと解除できる（§7-2） */
+  /** true のときキャンバスに出る値は既定で伏せ字。差し込むときのチェックを外すと解除できる（§7-2） */
   hasSecrets: boolean;
   /** 置いたときの既定サイズ（mm） */
   defaultSize: { w: number; h: number };

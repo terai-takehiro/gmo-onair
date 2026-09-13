@@ -38,7 +38,7 @@ export function LedgerDetailSheet({
   itemLabel: string;
   canEdit: boolean;
   onEdit: (row: LedgerRow) => void;
-  /** 「案件をひらく」。渡さなければ出さない（販管費は案件を持たない） */
+  /** 「案件を開く」。渡さなければ出さない（販管費は案件を持たない） */
   onProject?: (row: LedgerRow) => void;
   onClose: () => void;
 }) {
@@ -64,7 +64,7 @@ export function LedgerDetailSheet({
             <Button className="w-full" onClick={() => onEdit(row)}>この{itemLabel}を編集</Button>
           )}
           {onProject && row.project_id && (
-            <Button variant="outline" className="w-full" onClick={() => onProject(row)}>案件をひらく</Button>
+            <Button variant="outline" className="w-full" onClick={() => onProject(row)}>案件を開く</Button>
           )}
           {row.settlement_url && (
             // 外部サイトなので新しいタブで開く（`LedgerRows` の申請URLと同じ扱い）

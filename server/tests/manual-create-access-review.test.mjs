@@ -6,7 +6,7 @@ import { loadTs } from './helpers/load-ts.mjs';
 //
 // `POST /manuals` は project_id を無検査で受け取っていた——指定した本人が created_by に
 // なるため、`canAccessManual`（作成者本人 / 案件メンバー / 管理者）をそのまま通ってしまう。
-// つまり editor 権限さえあれば他案件になりすまして冊子を作成でき、`resolve`（差し込み・
+// つまり editor 権限さえあれば他案件になりすましてマニュアルを作成でき、`resolve`（差し込み・
 // 段C）経由でその案件のスケジュール表・収録/配信設定（配信の鍵・WEB会議のパスコード）・
 // レンタル機材・機材貸出まで読めてしまう。`canAssignManualProject`（`access.ts`）は
 // 新規作成の project_id を「呼び出し本人がその案件のメンバーか」で先に検査するための

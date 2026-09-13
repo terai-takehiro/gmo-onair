@@ -1,7 +1,7 @@
 // 運営マニュアル — `filterSectionsByTitle`（`client-techops/src/pages/opsmanual/linked/
 // SheetLinkedContent.tsx`）を固定する。外部レビュー再指摘（P1）: `sheet.excerpt` の
 // 「セクション」欄（`options.sectionTitle`）が実際には一切効いておらず、著者が絞り込んだ
-// つもりでも常に全セクションがそのまま紙面・PDFへ出ていた（`options` を分割代入すら
+// つもりでも常に全セクションがそのままキャンバス・PDFへ出ていた（`options` を分割代入すら
 // していなかった）——気づきにくい欠陥（画面を見ても差分が分からない）なので固定する。
 // 本体は client-techops 側にあるため、`opsmanualBlockStyle.test.ts` と同じ考え方でここに置く。
 import { describe, it, expect } from 'vitest';

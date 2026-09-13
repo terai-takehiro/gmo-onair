@@ -13,17 +13,17 @@
  *     （マジック文字列 `'lent'` を直書きしない）
  *
  * ⚠️ **`equipment_lendings` は `project_id` しか持たない（`program_id` 列が無い）。**
- * 番組（program）に紐づく冊子では対応する貸出データが存在し得ないため、
+ * 番組（program）に紐づくマニュアルでは対応する貸出データが存在し得ないため、
  * `ctx.projectId` が無ければ**必ず** `data: []` を返す（エラーにしない。§「equipment.lending」
  * の実在チェックが「project_id が無ければ false 固定」としているのと同じ理由）。
  *
  * ── 共通ポリシー ──────────────────────────────────────────────────────
  * resolve はサーバーの実行権限で読む。呼び出しユーザーが `equipment` モジュール権限を
- * 個別に持っているかはここでは再チェックしない——**冊子自体が `canAccessManual` を
+ * 個別に持っているかはここでは再チェックしない——**マニュアル自体が `canAccessManual` を
  * 通っていることだけ**をゲートにする。この resolver は `resolve` 経由専用で、単体で外部公開しない。
  *
  * ── data の形（client-linked-ui 担当向け） ───────────────────────────────────
- * `EquipmentLendingItem[]`（`programId` 由来の冊子、または貸出中が1件も無ければ `[]`）。
+ * `EquipmentLendingItem[]`（`programId` 由来のマニュアル、または貸出中が1件も無ければ `[]`）。
  * 無い項目はキーごと省く（空文字/null のラベルを出さない——`project.resolver.ts` と同じ作法）。
  */
 import { lendingService } from '../../../equipment/services/lending.service';

@@ -84,7 +84,7 @@ test('resolveProjectHeading: event_start と event_end が同じ（単日開催�
   assert.equal('eventEnd' in result.data, false);
 });
 
-test('resolveProjectHeading: projectId が無ければ常にnull（programId由来の冊子）', async () => {
+test('resolveProjectHeading: projectId が無ければ常にnull（programId由来のマニュアル）', async () => {
   const { resolveProjectHeading } = await loadProjectResolver({ projectRow: undefined });
 
   const result = await resolveProjectHeading(baseCtx({ projectId: null }));

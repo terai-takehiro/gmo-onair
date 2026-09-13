@@ -45,7 +45,7 @@ export function CalSidebarExtras({
   onToggleLayer?: (k: CalLayer) => void;
   /** その層を読む権限がある人にだけチェックを出す（押しても効かない項目を並べない） */
   visible?: Record<CalLayer, boolean>;
-  /** 「出すもの」の節が無いときに、代わりにミニカレンダーの下へ出す説明文 */
+  /** 「表示する項目」の節が無いときに、代わりにミニカレンダーの下へ出す説明文 */
   emptyNote?: string;
 }) {
   const weeks = monthWeeks(`${miniAnchor}-01`);

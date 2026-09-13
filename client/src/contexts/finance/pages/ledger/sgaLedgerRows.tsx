@@ -61,7 +61,7 @@ export function sgaLedgerRows(items: SgaLedgerItem[]): LedgerRow[] {
      */
     state: settlementState(item.is_provisional, item.settlement_number),
     // **販管費は案件に紐づかない**（この画面が案件で絞れないのと同じ理由）。
-    // `null` なので詳細シートに「案件をひらく」は出ない＝行き止まりを作らない
+    // `null` なので詳細シートに「案件を開く」は出ない＝行き止まりを作らない
     project_id: null,
     settlement_url: item.settlement_url,
     // スマホの詳細シートに出す項目（PC の表は読まない）

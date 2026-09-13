@@ -1,7 +1,7 @@
 /**
  * 運営マニュアル（`qsheet_manuals` / `qsheet_manual_pages`）— 段A：一覧・詳細・CRUD・ページ管理
- * ＋段B：紙面（`blocks`）の保存・楽観ロック ＋ 段E：編集ロック（冊子まるごと）・確定/版。
- * 設計: docs/design/v4/production-manual.md §5〜§6（秘密の伏せ字解除・差し込み・ひな形・AI は
+ * ＋段B：キャンバス（`blocks`）の保存・楽観ロック ＋ 段E：編集ロック（マニュアルまるごと）・確定/版。
+ * 設計: docs/design/v4/production-manual.md §5〜§6（秘密の伏せ字解除・差し込み・テンプレート・AI は
  * 段C・段E以降で順次実装。今回は編集ロックと確定/版のみ）。
  * 実装パターンは schedule.service.ts / schedule-column.service.ts をそのまま踏襲する。
  */
@@ -117,7 +117,7 @@ async function getManualLockRow(manualId: string): Promise<Row | undefined> {
 }
 
 /**
- * `getManualLockRow` のトランザクション版。**`FOR UPDATE OF m` で冊子行そのものを
+ * `getManualLockRow` のトランザクション版。**`FOR UPDATE OF m` でマニュアル行そのものを
  * 行ロック**してから読む（LEFT JOIN の null 側は `FOR UPDATE` の対象にできないため
  * `OF m` で本体だけに絞る）。
  *
@@ -126,7 +126,7 @@ async function getManualLockRow(manualId: string): Promise<Row | undefined> {
  * 足しただけでは閉じない——その再チェック自体がロックを取らない `SELECT` のままだと、
  * `addPage()` 側の「編集可能か」チェックとこの `SELECT` のどちらが先に走るかは
  * 保証されず、両者の間に挟まって INSERT されたページを見逃しうる（TOCTOU）。
- * `addPage()` にもこの関数を使わせ、**同じ冊子行のロックを両者が取り合う**ことで
+ * `addPage()` にもこの関数を使わせ、**同じマニュアル行のロックを両者が取り合う**ことで
  * 直列化する——`fixManual` が先に取れば `addPage` はその COMMIT（status='fixed'）
  * を待ってから読み直し `assertEditable` で正しく弾かれ、`addPage` が先に取れば
  * `fixManual` はその COMMIT（新しいページの INSERT）を待ってから読み直し、
@@ -180,13 +180,13 @@ export function assertEditable(manual: Row, userId: string): void {
 
 /**
  * `assertEditable` と同じ条件（ロック所有者 / 確定していないこと）をSQLで再検査する
- * WHERE 句の断片。`?` を2つ要求する（冊子id・呼び出し本人のuserId、この順）。
+ * WHERE 句の断片。`?` を2つ要求する（マニュアルid・呼び出し本人のuserId、この順）。
  *
  * ⚠️⚠️ 外部レビュー再指摘（P1）: `updatePage`/`updateManual` は事前に一度
  * `assertEditable` を判定してから、楽観ロック（`updated_at` の一致）だけを畳み込んだ
  * 条件付き UPDATE を投げていた。だが `takeoverManualLock()`/`fixManual()` は
  * `updated_at` を変えない（前者は `locked_by` だけ、後者は先にページを凍らせてから
- * 冊子行を更新する）ため、事前チェックの直後・UPDATE実行前に管理者が引き継ぐと、
+ * マニュアル行を更新する）ため、事前チェックの直後・UPDATE実行前に管理者が引き継ぐと、
  * 権限を失ったはずの前保持者の保存が検出されずそのまま成功してしまう
  * （新しい保持者に権限が移ったのに、まだ古い保持者が上書きできる）。
  * `updated_at` の CAS に加えてこの EXISTS も同じ WHERE 句に畳み込み、書き込みの
@@ -209,9 +209,9 @@ export interface CreateManualInput {
   createdBy: string;
   /** 呼び出し本人。`copyFromManualId` 指定時の `canAccessManual` 判定に使う（レビュー指摘） */
   user: AccessUser;
-  /** ひな形（`qsheet_manual_templates`。scope="org"）から起こす。段E */
+  /** テンプレート（`qsheet_manual_templates`。scope="org"）から起こす。段E */
   templateId?: string | null;
-  /** 同じ案件/番組の前回の冊子から複製する。段E */
+  /** 同じ案件/番組の前回のマニュアルから複製する。段E */
   copyFromManualId?: string | null;
 }
 
@@ -227,14 +227,14 @@ function sanitizeServiceDate(value: string | null | undefined): string | null {
 }
 
 /**
- * 冊子を1件・ページ（複数もあり得る）と一緒に作る。project_id / program_id はどちらか片方だけ
+ * マニュアルを1件・ページ（複数もあり得る）と一緒に作る。project_id / program_id はどちらか片方だけ
  * （migration の `qsheet_manuals_owner_ck` と同じ検証をアプリ側でも行う）。
- * 冊子は**必ず**発番する（§5-1・レンタル予約と違い条件分岐なし）。
+ * マニュアルは**必ず**発番する（§5-1・レンタル予約と違い条件分岐なし）。
  *
  * ページの中身は `templateId`／`copyFromManualId` のどちらかがあればそこから複製し
  * （`buildPagesForNewManual`。ブロック id は発番し直し、`link.frozen`/`link.reveal` は
  * null に戻す・段E）、どちらも無ければ今までどおり空ページ1枚。
- * `buildPagesForNewManual` は発番の前に呼ぶ——無効な指定（ひな形が無い等）で
+ * `buildPagesForNewManual` は発番の前に呼ぶ——無効な指定（テンプレートが無い等）で
  * `issueDocNo()`（アトミックな採番。副作用あり）を無駄に消費しないため。
  */
 export async function createManual(input: CreateManualInput): Promise<Row> {
@@ -295,7 +295,7 @@ export async function updateManual(id: string, userId: string, input: UpdateManu
      WHERE m.id = $1 AND m.deleted_at IS NULL`,
     [id],
   );
-  if (!existing) throw new NotFoundError('冊子が見つかりません');
+  if (!existing) throw new NotFoundError('マニュアルが見つかりません');
   assertEditable(existing, userId);
   // ⚠️ 事前の検査だけでは TOCTOU を防げない（`updatePage` と同じ理由）——下の UPDATE
   // 自体にも同じ比較を畳み込む。
@@ -303,7 +303,7 @@ export async function updateManual(id: string, userId: string, input: UpdateManu
     input.expectedUpdatedAt,
     { updated_at: existing.updated_at, updated_by: existing.updated_by, updater_name: existing.updater_name },
     userId,
-    'この冊子',
+    'このマニュアル',
   );
 
   const sets: string[] = ['updated_by = ?', 'updated_at = NOW()'];
@@ -324,7 +324,7 @@ export async function updateManual(id: string, userId: string, input: UpdateManu
   const updated = await queryOne(`${updateSql} RETURNING id`, updateParams);
   if (!updated) {
     const freshManual = await getManualLockRow(id);
-    if (!freshManual) throw new NotFoundError('冊子が見つかりません');
+    if (!freshManual) throw new NotFoundError('マニュアルが見つかりません');
     assertEditable(freshManual, userId);
     const fresh = await queryOne(
       `SELECT m.updated_at, m.updated_by, u.name AS updater_name
@@ -332,14 +332,14 @@ export async function updateManual(id: string, userId: string, input: UpdateManu
        WHERE m.id = $1 AND m.deleted_at IS NULL`,
       [id],
     );
-    if (!fresh) throw new NotFoundError('冊子が見つかりません');
+    if (!fresh) throw new NotFoundError('マニュアルが見つかりません');
     checkOptimisticLock(
       input.expectedUpdatedAt,
       { updated_at: fresh.updated_at, updated_by: fresh.updated_by, updater_name: fresh.updater_name },
       userId,
-      'この冊子',
+      'このマニュアル',
     );
-    throw new ConflictError('この冊子はほかの人が先に更新しました。', fresh.updated_at as string, (fresh.updater_name as string) ?? null);
+    throw new ConflictError('このマニュアルはほかの人が先に更新しました。', fresh.updated_at as string, (fresh.updater_name as string) ?? null);
   }
   const row = await getManualWithMeta(id);
   if (!row) throw new Error('updateManual: UPDATE 直後の SELECT が空でした');
@@ -347,17 +347,17 @@ export async function updateManual(id: string, userId: string, input: UpdateManu
 }
 
 /**
- * 冊子まるごとの削除。**最も破壊的な操作**なので、他の更新系5関数と同じ
+ * マニュアルまるごとの削除。**最も破壊的な操作**なので、他の更新系5関数と同じ
  * `assertEditable`（他人が新しく持っているロック／確定済みなら拒否）を必ず通す
  * （レビュー指摘: ここだけ検査が抜けていた）。
  */
 export async function deleteManual(id: string, userId: string): Promise<void> {
   const existing = await getManualLockRow(id);
-  if (!existing) throw new NotFoundError('冊子が見つかりません');
+  if (!existing) throw new NotFoundError('マニュアルが見つかりません');
   assertEditable(existing, userId); // 事前の検査（速い失敗・分かりやすいメッセージ）
   // ⚠️ レビュー指摘（P1）: 事前チェックの直後に、別の manager が takeover でロックを
   // 奪う／確定するかもしれない——その直後にこの無条件 UPDATE（従来は WHERE id のみ）が
-  // 走ると、新しい保持者の作業中や確定直後の冊子でも構わず消えてしまう。
+  // 走ると、新しい保持者の作業中や確定直後のマニュアルでも構わず消えてしまう。
   // `assertEditable` と同じ条件（未削除・確定していない・ロックが未取得/自分/stale）を
   // UPDATE 自身の WHERE 句に畳み込む（`acquireManualLock` と同じ考え方）。
   const deleted = await queryOne(
@@ -371,7 +371,7 @@ export async function deleteManual(id: string, userId: string): Promise<void> {
   if (!deleted) {
     // 実際の食い違い（ロック／確定状態）を報告する
     const fresh = await getManualLockRow(id);
-    if (!fresh) throw new NotFoundError('冊子が見つかりません');
+    if (!fresh) throw new NotFoundError('マニュアルが見つかりません');
     assertEditable(fresh, userId);
     throw new Error('deleteManual: assertEditable を通ったのに UPDATE が0件でした（想定外）');
   }
@@ -380,26 +380,26 @@ export async function deleteManual(id: string, userId: string): Promise<void> {
 export interface PageInput {
   title?: string;
   chapter?: string | null;
-  /** 紙面の中身（ManualBlock[]）。段B。配列でなければ更新しない（型はここでは検証しない — クライアントの契約を信じる） */
+  /** キャンバスの中身（ManualBlock[]）。段B。配列でなければ更新しない（型はここでは検証しない — クライアントの契約を信じる） */
   blocks?: unknown[];
   expectedUpdatedAt?: unknown;
 }
 
 const MAX_PAGE_TITLE = 200;
 const MAX_CHAPTER = 200;
-/** 紙面の中身（JSON化した文字列長）の上限。段B（1ページに詰め込みすぎた自由ブロックを弾く） */
+/** キャンバスの中身（JSON化した文字列長）の上限。段B（1ページに詰め込みすぎた自由ブロックを弾く） */
 const MAX_BLOCKS_JSON_LENGTH = 300_000;
 
 export async function addPage(manualId: string, userId: string, input: PageInput): Promise<Row> {
   const id = uuid();
-  // ⚠️⚠️ 外部レビュー再指摘（P1）: 冊子行を `FOR UPDATE` でロックしてから
+  // ⚠️⚠️ 外部レビュー再指摘（P1）: マニュアル行を `FOR UPDATE` でロックしてから
   // `assertEditable` を判定し、そのまま同じトランザクション内で INSERT する——
   // `fixManual()` の確定処理と同じ行ロックを取り合うことで、確定の最中にページを
   // 追加できてしまう（追加されたページが凍結されないまま「確定済み」になる）
   // 競合を閉じる（`getManualLockRowForUpdate` のコメント参照）。
   const row = await withTransaction(async (tx) => {
     const manual = await getManualLockRowForUpdate(tx, manualId);
-    if (!manual) throw new NotFoundError('冊子が見つかりません');
+    if (!manual) throw new NotFoundError('マニュアルが見つかりません');
     assertEditable(manual, userId);
 
     const max = await tx.queryOne(
@@ -423,13 +423,13 @@ export async function addPage(manualId: string, userId: string, input: PageInput
 }
 
 /**
- * ページを更新する。段Bで楽観ロック（`updateManual()` と同じ形）と紙面（`blocks`）の
- * 保存を足した。`blocks` はページ単位（冊子まるごとではない）— 紙面は1ページずつ独立して
+ * ページを更新する。段Bで楽観ロック（`updateManual()` と同じ形）とキャンバス（`blocks`）の
+ * 保存を足した。`blocks` はページ単位（マニュアルまるごとではない）— キャンバスは1ページずつ独立して
  * 自動保存するため（ManualDetailPage.tsx）。
  */
 export async function updatePage(manualId: string, pageId: string, userId: string, input: PageInput): Promise<Row> {
   const manual = await getManualLockRow(manualId);
-  if (!manual) throw new NotFoundError('冊子が見つかりません');
+  if (!manual) throw new NotFoundError('マニュアルが見つかりません');
   assertEditable(manual, userId);
 
   const existing = await queryOne(
@@ -455,7 +455,7 @@ export async function updatePage(manualId: string, pageId: string, userId: strin
   if (Array.isArray(input.blocks)) {
     const serialized = JSON.stringify(input.blocks);
     if (serialized.length > MAX_BLOCKS_JSON_LENGTH) {
-      throw new ValidationError('紙面の中身が大きすぎます');
+      throw new ValidationError('キャンバスの中身が大きすぎます');
     }
     sets.push('blocks = ?');
     params.push(serialized);
@@ -486,7 +486,7 @@ export async function updatePage(manualId: string, pageId: string, userId: strin
     // 0件の原因を切り分ける: まずロック/確定状態が原因なら、ここで LockError/
     // ValidationError を投げる（assertEditable と同じ判定を、いまの状態で改めて行う）
     const freshManual = await getManualLockRow(manualId);
-    if (!freshManual) throw new NotFoundError('冊子が見つかりません');
+    if (!freshManual) throw new NotFoundError('マニュアルが見つかりません');
     assertEditable(freshManual, userId);
     const fresh = await queryOne(
       `SELECT p.updated_at, p.updated_by, u.name AS updater_name
@@ -508,13 +508,13 @@ export async function updatePage(manualId: string, pageId: string, userId: strin
   return row;
 }
 
-/** ページを消す。冊子最後の1ページは消せない（空の冊子を作れると編集画面が壊れるため） */
+/** ページを消す。マニュアル最後の1ページは消せない（空のマニュアルを作れると編集画面が壊れるため） */
 export async function deletePage(manualId: string, pageId: string, userId: string): Promise<void> {
-  // 速い失敗（存在しない冊子ID等）のための事前チェック。⚠️ これだけでは TOCTOU を
+  // 速い失敗（存在しないマニュアルID等）のための事前チェック。⚠️ これだけでは TOCTOU を
   // 防げない——下のトランザクション内で FOR UPDATE 取得後にもう一度検査する
   // （次のコメント参照。`addPage()` と同じ理由）。
   const manual = await getManualLockRow(manualId);
-  if (!manual) throw new NotFoundError('冊子が見つかりません');
+  if (!manual) throw new NotFoundError('マニュアルが見つかりません');
   assertEditable(manual, userId);
 
   const existing = await queryOne(
@@ -523,21 +523,21 @@ export async function deletePage(manualId: string, pageId: string, userId: strin
   );
   if (!existing) throw new NotFoundError('ページが見つかりません');
 
-  // ⚠️ レビュー指摘（P2）: 「SELECT COUNT→JS判定→DELETE」の3段だと、同じ冊子の
+  // ⚠️ レビュー指摘（P2）: 「SELECT COUNT→JS判定→DELETE」の3段だと、同じマニュアルの
   // 別々のページをほぼ同時に消す2つのリクエストが両方 count=2 を見て両方 DELETE でき、
-  // 「最後の1ページは消せない」という不変条件が破れる（0ページの冊子ができてしまう）。
-  // 冊子行を `FOR UPDATE` でロックしてから数える——同じ冊子への deletePage を直列化し、
+  // 「最後の1ページは消せない」という不変条件が破れる（0ページのマニュアルができてしまう）。
+  // マニュアル行を `FOR UPDATE` でロックしてから数える——同じマニュアルへの deletePage を直列化し、
   // 2つ目は1つ目の COMMIT を待ってから正しい件数を見る（`acquireManualLock` と同じ
   // 「重要な不変条件は行ロックで守る」考え方）。
   //
   // ⚠️⚠️ 自分の検証で見つけた別件（`addPage()` への外部レビュー再指摘と同じ形）:
   // 上のロック取得前の `assertEditable` だけでは、この事前チェックの直後に
-  // `fixManual()` が確定を終えても検出できない——確定済みの冊子から平然とページが
+  // `fixManual()` が確定を終えても検出できない——確定済みのマニュアルから平然とページが
   // 消えてしまう。`getManualLockRowForUpdate` で FOR UPDATE 取得後にもう一度
   // 読み直し、fixManual と同じ行ロックを取り合ったうえで再検査する。
   await withTransaction(async (tx) => {
     const locked = await getManualLockRowForUpdate(tx, manualId);
-    if (!locked) throw new NotFoundError('冊子が見つかりません');
+    if (!locked) throw new NotFoundError('マニュアルが見つかりません');
     assertEditable(locked, userId);
 
     const count = await tx.queryOne('SELECT COUNT(*)::int AS c FROM qsheet_manual_pages WHERE manual_id = ?', [manualId]);
@@ -553,7 +553,7 @@ interface ReorderEntry { id: string; sort_order: number }
 /** 並べ替え。schedule-column.service.ts の reorderColumns() と同じ形 */
 export async function reorderPages(manualId: string, userId: string, order: ReorderEntry[]): Promise<Row[]> {
   const manual = await getManualLockRow(manualId);
-  if (!manual) throw new NotFoundError('冊子が見つかりません');
+  if (!manual) throw new NotFoundError('マニュアルが見つかりません');
   assertEditable(manual, userId);
 
   if (!Array.isArray(order) || order.length === 0) throw new ValidationError('order を指定してください');
@@ -572,13 +572,13 @@ export async function reorderPages(manualId: string, userId: string, order: Reor
 
   // ⚠️⚠️ 外部レビュー再指摘（P1）: 冒頭の assertEditable は事前チェックに過ぎず、
   // その直後・このトランザクション実行前に管理者が確定を終えると、ここの
-  // UPDATE群は無条件のまま確定済みの冊子に対して実行されてしまう——印刷は
+  // UPDATE群は無条件のまま確定済みのマニュアルに対して実行されてしまう——印刷は
   // 生の sort_order で並べるため、すでに配布済みの rev.N の並びが無音で変わりうる。
-  // `addPage()`/`fixManual()` と同じ冊子行ロック（`FOR UPDATE OF m`）を取り合って
+  // `addPage()`/`fixManual()` と同じマニュアル行ロック（`FOR UPDATE OF m`）を取り合って
   // から改めて editable を判定する。
   await withTransaction(async (tx) => {
     const locked = await getManualLockRowForUpdate(tx, manualId);
-    if (!locked) throw new NotFoundError('冊子が見つかりません');
+    if (!locked) throw new NotFoundError('マニュアルが見つかりません');
     assertEditable(locked, userId);
 
     for (const e of order) {
@@ -591,7 +591,7 @@ export async function reorderPages(manualId: string, userId: string, order: Reor
 }
 
 // ============================================================
-// 段E — 編集ロック（冊子まるごと・§6-2-1）
+// 段E — 編集ロック（マニュアルまるごと・§6-2-1）
 // ============================================================
 
 export interface LockAcquireResult {
@@ -637,16 +637,16 @@ export async function acquireManualLock(manualId: string, userId: string): Promi
     return { acquired: true, manual };
   }
 
-  // 取れなかった: 冊子が無い（削除済み含む）か、他人が新しく（stale でなく）持っている
+  // 取れなかった: マニュアルが無い（削除済み含む）か、他人が新しく（stale でなく）持っている
   const existing = await getManualLockRow(manualId);
-  if (!existing) throw new NotFoundError('冊子が見つかりません');
+  if (!existing) throw new NotFoundError('マニュアルが見つかりません');
   return { acquired: false, manual: existing };
 }
 
 /** ロックを放す。**自分が保持者のときだけ**——他人の呼び出しは何もしない */
 export async function releaseManualLock(manualId: string, userId: string): Promise<Row> {
   const existing = await getManualLockRow(manualId);
-  if (!existing) throw new NotFoundError('冊子が見つかりません');
+  if (!existing) throw new NotFoundError('マニュアルが見つかりません');
 
   // ⚠️ レビュー指摘（P2）: 「JSで比較→UPDATE」の2段だと、比較の直後に manager が
   // takeover でロックを奪うと、この UPDATE（従来は WHERE id のみ）がその新しいロックまで
@@ -665,7 +665,7 @@ export async function releaseManualLock(manualId: string, userId: string): Promi
  */
 export async function takeoverManualLock(manualId: string, userId: string): Promise<Row> {
   const existing = await getManualLockRow(manualId);
-  if (!existing) throw new NotFoundError('冊子が見つかりません');
+  if (!existing) throw new NotFoundError('マニュアルが見つかりません');
 
   await execute(
     `UPDATE qsheet_manuals
@@ -681,7 +681,7 @@ export async function takeoverManualLock(manualId: string, userId: string): Prom
 /** 交代を申し出る。**自分が保持者でないときだけ**書き込む */
 export async function requestManualLockHandoff(manualId: string, userId: string): Promise<Row> {
   const existing = await getManualLockRow(manualId);
-  if (!existing) throw new NotFoundError('冊子が見つかりません');
+  if (!existing) throw new NotFoundError('マニュアルが見つかりません');
 
   if (existing.locked_by !== userId) {
     await execute(
@@ -710,7 +710,7 @@ interface LinkedBlockLike {
 }
 
 /**
- * 確定する（manager・status==='draft' のときだけ）。冊子の全ページの全 kind:'linked' ブロックを
+ * 確定する（manager・status==='draft' のときだけ）。マニュアルの全ページの全 kind:'linked' ブロックを
  * `resolveLinkedBlock` でいま解決し、その結果を `link.frozen = { at, data }` として書き込む
  * （`free`・`options`・`reveal` など他の項目は変えない）。全ページ保存後、
  * `status='fixed'`・`rev=rev+1`・`fixed_at`・`fixed_by` を1トランザクションで書く。
@@ -727,7 +727,7 @@ export async function fixManual(manualId: string, user: AccessUser): Promise<Row
     'SELECT id, status, project_id, program_id, service_date, updated_at FROM qsheet_manuals WHERE id = $1 AND deleted_at IS NULL',
     [manualId],
   );
-  if (!manual) throw new NotFoundError('冊子が見つかりません');
+  if (!manual) throw new NotFoundError('マニュアルが見つかりません');
   if (manual.status !== 'draft') {
     throw new ValidationError('先に確定を解いてください');
   }
@@ -801,7 +801,7 @@ export async function fixManual(manualId: string, user: AccessUser): Promise<Row
     // 閉じない——その再チェック自体がロックを取らない `SELECT` のままだと、
     // `addPage()` 側の「編集可能か」チェックとこの `SELECT` のどちらが先に走るかは
     // 保証されず、両者の間に挟まって INSERT されたページを見逃しうる（TOCTOU）。
-    // トランザクションの最初に冊子行を `FOR UPDATE` でロックし（`addPage()` も同じ
+    // トランザクションの最初にマニュアル行を `FOR UPDATE` でロックし（`addPage()` も同じ
     // ロックを取り合う——`getManualLockRowForUpdate` のコメント参照）、
     // `addPage()` と確定処理を直列化する。戻り値は使わない（status の再検査は
     // 最初の読み取り時点のもので十分——ここでの目的はロックの取り合いだけ）。
@@ -809,7 +809,7 @@ export async function fixManual(manualId: string, user: AccessUser): Promise<Row
 
     // ⚠️⚠️ 外部レビュー再指摘（P1）: ①（resolve ループ）のあいだにロック保持者が
     // 新しいページを追加すると、`addPage()` は `qsheet_manuals.updated_at` を進めない
-    // ため、ページ側・冊子側どちらの CAS ガードもこの追加を検出できない——追加された
+    // ため、ページ側・マニュアル側どちらの CAS ガードもこの追加を検出できない——追加された
     // ページは①のスナップショット（`pages`）に含まれず素通りし、確定は成功してしまう
     // （その新しいページに差し込みブロックがあっても凍結されないまま「確定済み」になる）。
     // 確定の直前にもう一度ページ集合を数え、①で読んだ集合と完全に一致することを確認する
@@ -823,7 +823,7 @@ export async function fixManual(manualId: string, user: AccessUser): Promise<Row
     const pageSetChanged = currentIds.size !== snapshotIds.size || [...snapshotIds].some((id) => !currentIds.has(id));
     if (pageSetChanged) {
       throw new ConflictError(
-        'この冊子は確定の処理中にページが追加/削除されました。もう一度確定をやり直してください。',
+        'このマニュアルは確定の処理中にページが追加/削除されました。もう一度確定をやり直してください。',
         fixedAtIso,
         null,
       );
@@ -852,7 +852,7 @@ export async function fixManual(manualId: string, user: AccessUser): Promise<Row
     // ⚠️⚠️ 外部レビュー再指摘（P1）: ページ側のガードはページの updated_at しか見ないため、
     // ロック保持者が①のあいだに「ページに触れない」変更（service_date・タイトル）を保存すると
     // すり抜ける——古い service_date で解決した中身のまま確定してしまい、表紙の日付と
-    // 中身が食い違う。冊子行そのものにも同じ CAS ガードを掛ける。
+    // 中身が食い違う。マニュアル行そのものにも同じ CAS ガードを掛ける。
     const manualUpdated = await tx.queryOne(
       `UPDATE qsheet_manuals
        SET status = 'fixed', rev = rev + 1, fixed_at = ?, fixed_by = ?, updated_by = ?, updated_at = NOW()
@@ -864,7 +864,7 @@ export async function fixManual(manualId: string, user: AccessUser): Promise<Row
     if (!manualUpdated) {
       const fresh = await tx.queryOne('SELECT updated_at FROM qsheet_manuals WHERE id = ?', [manualId]);
       throw new ConflictError(
-        'この冊子は確定の処理中に更新されました（タイトル・予定日など）。もう一度確定をやり直してください。',
+        'このマニュアルは確定の処理中に更新されました（タイトル・予定日など）。もう一度確定をやり直してください。',
         (fresh?.updated_at as string) ?? fixedAtIso,
         null,
       );
@@ -883,7 +883,7 @@ export async function fixManual(manualId: string, user: AccessUser): Promise<Row
  */
 export async function unfixManual(manualId: string, userId: string): Promise<Row> {
   const manual = await queryOne('SELECT id, status FROM qsheet_manuals WHERE id = $1 AND deleted_at IS NULL', [manualId]);
-  if (!manual) throw new NotFoundError('冊子が見つかりません');
+  if (!manual) throw new NotFoundError('マニュアルが見つかりません');
   if (manual.status !== 'fixed') {
     throw new ValidationError('まだ確定していません');
   }

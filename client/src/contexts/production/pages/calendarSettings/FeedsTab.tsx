@@ -122,7 +122,7 @@ export function FeedsTab({ onManage }: { onManage: () => void }) {
           <EmptyState
             icon={<CalendarSync className="h-6 w-6" aria-hidden="true" />}
             title="まだ取り込むカレンダーがありません"
-            description="公開されている URL を登録すると、その予定が「出すもの」の『自分』に出ます。"
+            description="公開されている URL を登録すると、その予定が「表示する項目」の『自分』に出ます。"
           />
         ) : (
           <>

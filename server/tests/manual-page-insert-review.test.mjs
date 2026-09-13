@@ -7,7 +7,7 @@ import { loadTs } from './helpers/load-ts.mjs';
 // （前巡の修正）だけでは閉じない——その再チェック自体がロックを取らない SELECT のまま
 // だと、addPage() の「編集可能か」チェックとこの SELECT のどちらが先に走るかは保証
 // されず、両者の間に挟まって INSERT されたページを見逃しうる（TOCTOU）。
-// addPage() を1トランザクションにし、fixManual() と同じ冊子行ロック（FOR UPDATE OF m）
+// addPage() を1トランザクションにし、fixManual() と同じマニュアル行ロック（FOR UPDATE OF m）
 // を取り合ってから「編集可能か」を判定するようにした——ロックを取った後に読み直した
 // 状態で assertEditable() を判定することを固定する（`getManualLockRowForUpdate`）。
 
@@ -56,7 +56,7 @@ function loadForAddPage({ lockedManual = lockRow(), maxSortOrder = -1 } = {}) {
           if (sql.includes('MAX(sort_order)')) {
             // ⚠️ FOR UPDATE より前に呼ばれたら、まだロックを取らずに編集可否を
             // 判定せず先へ進んでいる＝退行
-            assert.equal(forUpdateCalls.length, 1, 'MAX(sort_order) の前に冊子行を FOR UPDATE でロックし、editableを判定すること');
+            assert.equal(forUpdateCalls.length, 1, 'MAX(sort_order) の前にマニュアル行を FOR UPDATE でロックし、editableを判定すること');
             return { m: maxSortOrder };
           }
           if (sql.includes('SELECT id, manual_id, sort_order')) {
@@ -73,7 +73,7 @@ function loadForAddPage({ lockedManual = lockRow(), maxSortOrder = -1 } = {}) {
   })).then((mod) => ({ ...mod, forUpdateCalls, inserted }));
 }
 
-test('addPage: 冊子行を FOR UPDATE でロックしてから編集可否を判定し、挿入する', async () => {
+test('addPage: マニュアル行を FOR UPDATE でロックしてから編集可否を判定し、挿入する', async () => {
   const { addPage, forUpdateCalls, inserted } = await loadForAddPage({ lockedManual: lockRow(), maxSortOrder: 2 });
 
   const row = await addPage('m1', 'me', { title: '新しいページ' });
@@ -100,7 +100,7 @@ test('addPage: FOR UPDATE取得後に読み直した状態が他人のロック�
   assert.equal(inserted.length, 0);
 });
 
-test('addPage: 冊子が見つからなければ NotFoundError（削除済み等）', async () => {
+test('addPage: マニュアルが見つからなければ NotFoundError（削除済み等）', async () => {
   // ⚠️ デフォルト引数は値が `undefined` のときに発動する——「未指定」を装うつもりで
   // `lockedManual: undefined` を渡すと既定の `lockRow()` に化けてしまうため、
   // ここでは区別できる `null` を渡す。
@@ -113,7 +113,7 @@ test('addPage: 冊子が見つからなければ NotFoundError（削除済み等
 // ============================================================
 // reorderPages() も同じ形のTOCTOU: 冒頭のassertEditableは事前チェックに過ぎず、
 // その直後・トランザクション実行前にfixManual()が確定を終えても、並べ替えの
-// UPDATE群は無条件のまま確定済みの冊子に対して実行されていた（外部レビュー再指摘・P1）。
+// UPDATE群は無条件のまま確定済みのマニュアルに対して実行されていた（外部レビュー再指摘・P1）。
 // ============================================================
 
 /** `preCheckManual` は冒頭の（トランザクション外の）事前チェック用、`lockedManual` は
@@ -139,7 +139,7 @@ function loadForReorder({ preCheckManual = lockRow(), lockedManual = lockRow(), 
         queryAll: async () => [],
         execute: async (sql, params = []) => {
           if (sql.startsWith('UPDATE qsheet_manual_pages')) {
-            assert.equal(forUpdateCalls.length, 1, 'ページのUPDATEの前に冊子行をFOR UPDATEでロックし、editableを判定すること');
+            assert.equal(forUpdateCalls.length, 1, 'ページのUPDATEの前にマニュアル行をFOR UPDATEでロックし、editableを判定すること');
             updated.push(params);
           }
         },
@@ -148,7 +148,7 @@ function loadForReorder({ preCheckManual = lockRow(), lockedManual = lockRow(), 
   })).then((mod) => ({ ...mod, forUpdateCalls, updated }));
 }
 
-test('reorderPages: 冊子行をFOR UPDATEでロックしてから編集可否を判定し、並べ替える', async () => {
+test('reorderPages: マニュアル行をFOR UPDATEでロックしてから編集可否を判定し、並べ替える', async () => {
   const { reorderPages, forUpdateCalls, updated } = await loadForReorder();
 
   await reorderPages('m1', 'me', [{ id: 'page-1', sort_order: 1 }, { id: 'page-2', sort_order: 0 }]);

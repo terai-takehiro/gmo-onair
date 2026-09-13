@@ -1,5 +1,5 @@
-// 紙面（ManualCanvas）の操作で使う純粋関数。React に依存しない
-// （ManualCanvas.tsx・ManualBlockView.tsx から使う。段Bのスコープ = 汎用の紙面メカニクスのみ）。
+// キャンバス（ManualCanvas）の操作で使う純粋関数。React に依存しない
+// （ManualCanvas.tsx・ManualBlockView.tsx から使う。段Bのスコープ = 汎用のキャンバスメカニクスのみ）。
 import { PAGE_HEIGHT_MM, PAGE_MARGIN_MM, PAGE_WIDTH_MM } from "@gmo-onair/shared/src/opsmanual/types";
 
 export const MIN_BLOCK_MM = 5;
@@ -20,7 +20,7 @@ export function genBlockId(): string {
   return `blk_${Date.now().toString(36)}_${blockIdSeq}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** 入力欄など、紙面のショートカット（矢印キー・Delete・Ctrl+Z 等）を奪ってはいけない相手か */
+/** 入力欄など、キャンバスのショートカット（矢印キー・Delete・Ctrl+Z 等）を奪ってはいけない相手か */
 export function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName;
@@ -35,7 +35,7 @@ export function rectsIntersect(
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
-// ── 複数選択: 整列・等間隔・重なり（production-manual.md §6-2「複数選択」） ──────
+// ── 複数選択: 整列・等間隔・重ね順（production-manual.md §6-2「複数選択」） ──────
 
 export type AlignMode = "left" | "h-center" | "right" | "top" | "v-middle" | "bottom";
 
@@ -112,7 +112,7 @@ export function reorderZ<T extends { id: string; z: number }>(blocks: T[], ids: 
   return blocks.map((b) => ({ ...b, z: zById.get(b.id) ?? b.z }));
 }
 
-// ── すいつき（スナップ）: 他のブロックの端・紙面の中心・版面の余白の3種類だけ ──
+// ── スナップ（スナップ）: 他のブロックの端・キャンバスの中心・版面の余白の3種類だけ ──
 export interface SnapTargets {
   vertical: number[];
   horizontal: number[];
@@ -149,7 +149,7 @@ export interface SnapResult {
   guideY: number | null;
 }
 
-/** ブロックの左上 (x,y) を、大きさ (w,h) を保ったまますいつき先へ吸着させる（移動用） */
+/** ブロックの左上 (x,y) を、大きさ (w,h) を保ったままスナップ先へ吸着させる（移動用） */
 export function snapPosition(x: number, y: number, w: number, h: number, targets: SnapTargets, threshold = SNAP_THRESHOLD_MM): SnapResult {
   const vBest = bestSnap([x, x + w / 2, x + w], targets.vertical, threshold);
   const hBest = bestSnap([y, y + h / 2, y + h], targets.horizontal, threshold);
@@ -177,7 +177,7 @@ export function normalizeAngle(deg: number): number {
 // ── リサイズ（8方向・回転を考慮） ──────────────────────────
 //
 // 回転していても「つまんでいない側の辺・角」が画面上で動かないようにするため、
-// つまんだハンドルの対角（アンカー）の紙面座標を掴んだ瞬間に1回だけ求め、
+// つまんだハンドルの対角（アンカー）のキャンバス座標を掴んだ瞬間に1回だけ求め、
 // ドラッグ中はそのグローバル座標を固定点として新しい x/y/w/h を逆算する。
 // rotation = 0 のときはこの式がそのまま普通の軸並行リサイズに一致する。
 export type ResizeHandle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
@@ -215,7 +215,7 @@ export interface ResizeStartInfo {
   origW: number;
   origH: number;
   rotationDeg: number;
-  /** つまんだ瞬間の、対角（動かない側）の紙面座標（mm） */
+  /** つまんだ瞬間の、対角（動かない側）のキャンバス座標（mm） */
   anchorGlobal: { x: number; y: number };
 }
 
@@ -242,8 +242,8 @@ function clampSigned(value: number, min: number, fallbackSign: number): number {
 }
 
 /**
- * `dxGlobalMm`/`dyGlobalMm` は掴んだ瞬間からの紙面座標系（回転していない紙面全体の座標系）
- * でのポインタの移動量。返り値は新しい x/y/w/h（すべて紙面座標系・mm）。
+ * `dxGlobalMm`/`dyGlobalMm` は掴んだ瞬間からのキャンバス座標系（回転していないキャンバス全体の座標系）
+ * でのポインタの移動量。返り値は新しい x/y/w/h（すべてキャンバス座標系・mm）。
  *
  * `aspectLock`（Shift）が true のときは `start.origW / start.origH` の縦横比を保つ。
  * 角のつまみ（両軸自由）は動かした量が大きい側の軸に合わせて拡縮する。辺のつまみ
@@ -283,7 +283,7 @@ export function applyResize(
     newH = Math.max(minSize, start.origH * scale);
   }
 
-  // 新しい左上を「アンカーから見た相対位置」で求め、アンカーの回転を戻して紙面座標に変換する
+  // 新しい左上を「アンカーから見た相対位置」で求め、アンカーの回転を戻してキャンバス座標に変換する
   const topLeftRelAnchor = { x: -meta.anchorFrac[0] * newW, y: -meta.anchorFrac[1] * newH };
   const offset = rotateVec(topLeftRelAnchor.x, topLeftRelAnchor.y, rad);
 

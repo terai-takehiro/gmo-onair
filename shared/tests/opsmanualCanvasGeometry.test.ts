@@ -1,7 +1,7 @@
-// 運営マニュアルの紙面（ManualCanvas）が使う座標変換の純粋関数を固定する。
+// 運営マニュアルのキャンバス（ManualCanvas）が使う座標変換の純粋関数を固定する。
 //
 // 何が起きていたか（レビュー指摘）:
-//   `manualCanvasGeometry.ts` は「すいつき・8方向リサイズ・回転・整列・等間隔・重なり」
+//   `manualCanvasGeometry.ts` は「スナップ・8方向リサイズ・回転・整列・等間隔・重ね順」
 //   という、画面を見ても間違いに気づけない座標計算だけを行う純粋関数の集まりなのに、
 //   段A・段Bを通じてテストが1件も無かった。実際、レビューで見つかった最重要のバグ
 //   （ページ切替後に Ctrl+Z が別ページのブロックを上書きする）も、2〜3行のテストで
@@ -9,7 +9,7 @@
 //   渡して切替のたびに再マウントする形で直した — React のライフサイクルに依存する
 //   修正のため、DOM 描画を伴わないこのテストファイルでは検証しない。
 //   `shared/CLAUDE.md`「画面を見ても間違いに気づけない計算だけを固定する」の方針どおり、
-//   ここでは紙面の計算だけを見る）。
+//   ここではキャンバスの計算だけを見る）。
 import { describe, it, expect } from 'vitest';
 import {
   alignBlocks,
@@ -48,7 +48,7 @@ describe('rectsIntersect（マーキー選択の当たり判定）', () => {
     expect(rectsIntersect(a, { x: 20, y: 20, w: 5, h: 5 })).toBe(false);
   });
 
-  it('辺がぴったり接するだけ（重なり無し）は false', () => {
+  it('辺がぴったり接するだけ（重ね順無し）は false', () => {
     expect(rectsIntersect(a, { x: 10, y: 0, w: 10, h: 10 })).toBe(false);
   });
 });
@@ -136,7 +136,7 @@ describe('distributeBlocks（等間隔。両端は動かさない）', () => {
   });
 });
 
-describe('reorderZ（重なり: 最前面/最背面。相対順は保つ）', () => {
+describe('reorderZ（重ね順: 最前面/最背面。相対順は保つ）', () => {
   const blocks = [
     { id: 'a', z: 0 },
     { id: 'b', z: 1 },
@@ -167,8 +167,8 @@ describe('reorderZ（重なり: 最前面/最背面。相対順は保つ）', ()
   });
 });
 
-describe('collectSnapTargets / snapPosition（すいつき）', () => {
-  it('紙面中心・版面の余白・他ブロックの端に吸着する', () => {
+describe('collectSnapTargets / snapPosition（スナップ）', () => {
+  it('キャンバス中心・版面の余白・他ブロックの端に吸着する', () => {
     const others = [{ id: 'other', x: 40, y: 20, w: 10, h: 6 }];
     const targets = collectSnapTargets(others, 'self');
     // 動かしている本人のブロック(x=41,y=19)は other の端(40,20)に極めて近い
@@ -188,7 +188,7 @@ describe('collectSnapTargets / snapPosition（すいつき）', () => {
     expect(result.guideY).toBeNull();
   });
 
-  it('自分自身（excludeId）はすいつき先から除く', () => {
+  it('自分自身（excludeId）はスナップ先から除く', () => {
     const self = [{ id: 'self', x: 41, y: 19, w: 10, h: 6 }];
     const targets = collectSnapTargets(self, 'self');
     // 自分の端 40/47/50 が候補に入っていないこと（版面・中心にも掛からない位置で確認）

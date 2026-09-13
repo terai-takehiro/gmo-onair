@@ -6,8 +6,8 @@ import { loadTs } from './helpers/load-ts.mjs';
 //
 // 1) deleteManual() は他の更新系5関数（updateManual/addPage/updatePage/deletePage/
 //    reorderPages）と同じ `assertEditable()` を通す（§6-2-1「誰かが編集している間、
-//    その冊子は他の人からは読むだけになる」・確定済みは編集不可）。ここだけ検査が
-//    抜けていると、ロック保持者の作業中や確定・配布済みの冊子でも editor 権限だけで
+//    そのマニュアルは他の人からは読むだけになる」・確定済みは編集不可）。ここだけ検査が
+//    抜けていると、ロック保持者の作業中や確定・配布済みのマニュアルでも editor 権限だけで
 //    まるごと消せてしまう。
 // 2) acquireManualLock() は「SELECT→JS判定→UPDATE」の2段ではなく、条件を WHERE 句に
 //    入れた1文の UPDATE（CAS）でなければならない——2段だと、ロックが空/stale の
@@ -128,7 +128,7 @@ test('deleteManual: ロックが10分より古い（stale）なら他人でも�
   assert.equal(executed.length, 1);
 });
 
-test('deleteManual: 事前チェックの直後に別の manager が takeover していたら、その冊子は消えない（外部レビュー再指摘）', async () => {
+test('deleteManual: 事前チェックの直後に別の manager が takeover していたら、そのマニュアルは消えない（外部レビュー再指摘）', async () => {
   // 呼び出し時点（assertEditable の事前チェック）では自分がまだ保持者だが、その直後に
   // takeover が割り込んで保持者が変わった、というレースを再現する。事前チェック用の
   // 1回目の読み取りだけ「自分が保持者」を返し、以後（＝実際の DB の状態）は
@@ -240,7 +240,7 @@ test('acquireManualLock: stale なロックは他人でも取れる', async () =
   assert.equal(result.acquired, true);
 });
 
-test('acquireManualLock: 確定済みになった冊子は、保持者本人のハートビートでも取れない（外部レビュー再指摘・P1）', async () => {
+test('acquireManualLock: 確定済みになったマニュアルは、保持者本人のハートビートでも取れない（外部レビュー再指摘・P1）', async () => {
   // fixManual() は locked_by を変えないため、保持者が編集画面を開いたままだと
   // 以前はこのハートビートがずっと acquired:true を返し続け、確定に気づけなかった。
   const lockedAt = new Date(Date.now() - 30_000).toISOString();
@@ -350,7 +350,7 @@ function makeFixDb({ manual, page }) {
         // ここでその WHERE 句と同じ判定を行い、一致するときだけ実際に反映して行を返す。
         // 不一致（＝競合）のときは undefined を返し、fixManual 側の後続 SELECT（フォールバック）
         // が「いまの updated_at」を返せるよう state.page.updated_at をそのまま見せる。
-        // ページ側だけでなく冊子行そのもの（外部レビュー再指摘: service_date 等の
+        // ページ側だけでなくマニュアル行そのもの（外部レビュー再指摘: service_date 等の
         // メタデータ変更もfixの巻き添え検出対象）も同じ CAS 形で判定する。
         queryOne: async (sql, params = []) => {
           if (sql.includes('UPDATE qsheet_manual_pages') && sql.includes('SET blocks') && sql.includes('RETURNING')) {
@@ -450,7 +450,7 @@ test('fixManual: 何も競合しなければ差し込みブロックを凍らせ
 });
 
 test('fixManual: ①（resolveループ）の間に新しいページが追加されると、確定処理をロールバックする（外部レビュー再指摘）', async () => {
-  // addPage() は qsheet_manuals.updated_at を進めないため、ページ側・冊子側どちらの
+  // addPage() は qsheet_manuals.updated_at を進めないため、ページ側・マニュアル側どちらの
   // CAS ガードも新しいページの出現を検出できない——確定の直前にもう一度ページ集合を
   // 数え、①で読んだ集合と完全に一致することを別途確認する仕組みを固定する。
   let pageAppeared = false;
@@ -488,7 +488,7 @@ test('fixManual: ①（resolveループ）の間に新しいページが追加�
   );
 });
 
-test('fixManual: トランザクションの最初に冊子行を FOR UPDATE でロックしてから、ページ集合を数える（外部レビュー再指摘・2回目——addPage()と同じロックを取り合う）', async () => {
+test('fixManual: トランザクションの最初にマニュアル行を FOR UPDATE でロックしてから、ページ集合を数える（外部レビュー再指摘・2回目——addPage()と同じロックを取り合う）', async () => {
   const calls = [];
   const deps = baseDeps({
     '../../../shared/db/connection': {
@@ -512,7 +512,7 @@ test('fixManual: トランザクションの最初に冊子行を FOR UPDATE で
           if (!sql.includes('SELECT id FROM qsheet_manual_pages')) return [];
           calls.push('page-set-check');
           // ⚠️ FOR UPDATE より前にページ集合を数えていたら退行（TOCTOUが再発）
-          assert.deepEqual(calls, ['lock', 'page-set-check'], '冊子行のロック取得はページ集合の再チェックより前でなければならない');
+          assert.deepEqual(calls, ['lock', 'page-set-check'], 'マニュアル行のロック取得はページ集合の再チェックより前でなければならない');
           return [{ id: 'page-1' }];
         },
       }),
@@ -521,7 +521,7 @@ test('fixManual: トランザクションの最初に冊子行を FOR UPDATE で
   });
   const { fixManual } = await loadTs('server/src/contexts/qsheet/services/manual.service.ts', deps);
 
-  // ページ側・冊子側のCAS UPDATEはこのモックでは常にundefined（未対応）を返すため
+  // ページ側・マニュアル側のCAS UPDATEはこのモックでは常にundefined（未対応）を返すため
   // 確定処理自体はConflictErrorで終わる——ここで固定したいのは呼び出し順序だけ。
   await assert.rejects(() => fixManual('m1', { id: 'manager-1', role: 'manager' }));
   assert.deepEqual(calls, ['lock', 'page-set-check']);

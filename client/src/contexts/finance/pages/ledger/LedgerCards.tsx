@@ -86,7 +86,7 @@ export function LedgerCards({
                 </span>
                 {r.settlement_url && (
                   // **押せる印ではありません**（入れ子のリンクになる）。
-                  // 遷移は詳細シートの「精算ページをひらく」から
+                  // 遷移は詳細シートの「精算ページを開く」から
                   <Link2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                 )}
                 {stateLabel && r.state && (

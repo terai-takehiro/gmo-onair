@@ -87,7 +87,7 @@ export default function MiniAppTiles({ scope, id, days }: MiniAppTilesProps) {
     {
       key: "manual",
       label: MINI_APP_BY_KEY.manual.label,
-      description: "各ミニアプリの情報をA4横のページに差し込んで冊子にする",
+      description: "各ミニアプリの情報をA4横のページに差し込んでマニュアルにする",
       icon: BookOpenText,
       to: `/techops/manuals?${filterKey}=${encodeURIComponent(id)}`,
       count: manualCount,

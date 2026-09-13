@@ -66,7 +66,7 @@ type TabKey = (typeof TABS)[number]['key'];
 
 const LEAD: Record<TabKey, string> = {
   rooms: '拠点・部屋・略称・色。予定の帯と「部屋の空き」の並びはここから作られます',
-  feed: 'Google / Outlook のカレンダー購読。取り込んだ予定は「出すもの」の『自分』に出ます',
+  feed: 'Google / Outlook のカレンダー購読。取り込んだ予定は「表示する項目」の『自分』に出ます',
   sign: '部屋の前に置く表示機の URL。**URL を知っていれば誰でも開けます**',
 };
 

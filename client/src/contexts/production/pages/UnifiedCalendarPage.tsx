@@ -224,7 +224,7 @@ function DesktopCalendar() {
     return `${anchor.slice(0, 4)}年${Number(anchor.slice(5, 7))}月`;
   }, [view, anchor, selected]);
 
-  /** 「出すもの」のチェックは、その層を読む権限がある人にだけ出す（押しても効かない項目を並べない） */
+  /** 「表示する項目」のチェックは、その層を読む権限がある人にだけ出す（押しても効かない項目を並べない） */
   const layerVisible: Record<CalLayer, boolean> = {
     studio: cal.can.studio, partner: cal.can.partner, my: cal.can.personal, tasks: cal.can.tasks,
   };

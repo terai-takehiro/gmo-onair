@@ -6,7 +6,7 @@
 //   document.close() → 中身は ReactDOM (react-dom/client) で描く → 少し待って print()。
 //
 // ⚠️ previewExport.ts はプレーンな読み取り専用 HTML の文字列組み立て（DOM を素通しで
-// コピーするだけ）で足りたが、運営マニュアルの紙面は本物の React ツリー
+// コピーするだけ）で足りたが、運営マニュアルのキャンバスは本物の React ツリー
 // （`ManualPrintDocument` → `renderManualBlockContent`）を描く。この中身コンポーネント
 // （TextBlockContent 等）は Tailwind のユーティリティクラス（h-full/w-full/overflow-hidden
 // 等）に依存しているため、フォントの <link> だけでは「編集画面と印刷結果が常に一致する」
@@ -18,7 +18,7 @@
 // 印刷ウィンドウ内の inline script が動かない」制約には掛からない・§8-2）。
 // ManualPrintDocument.tsx・ManualPrintHeader.tsx・ManualPrintCover.tsx・
 // ManualPrintToc.tsx はこの複製に依存しない素の style で組んであるので、
-// 万一複製が効かない環境でも柱・表紙・目次だけは崩れない。
+// 万一複製が効かない環境でもヘッダー・表紙・目次だけは崩れない。
 import { createElement } from "react";
 import { createRoot } from "react-dom/client";
 import lineSeedFontsCssUrl from "@gmo-onair/shared/src/client/fonts/lineseedjp.css?url"; // previewExport.ts と同じ書き方（?url インポート）
@@ -30,7 +30,7 @@ import ManualPrintDocument, { MANUAL_PRINT_SHEET_CLASS, type ManualExportSetting
 const PRINT_FONTS_HREF = new URL(lineSeedFontsCssUrl, window.location.origin).toString();
 const PRINT_FONT_STACK = "'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif";
 
-// 印刷ウィンドウへ document.write する HTML に埋めるユーザー入力（冊子のタイトル）用。
+// 印刷ウィンドウへ document.write する HTML に埋めるユーザー入力（マニュアルのタイトル）用。
 // 素通しすると </title> でタグを閉じてマークアップを注入できてしまう（previewExport.ts と同じ関数）
 const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
 
@@ -40,7 +40,7 @@ export interface ExportManualToPdfArgs {
   settings: ManualExportSettings;
 }
 
-/** 「PDF で書き出す」ボタンの実処理。冊子1件を新しいウィンドウへ印刷用に描き、印刷ダイアログを開く */
+/** 「PDF で書き出す」ボタンの実処理。マニュアル1件を新しいウィンドウへ印刷用に描き、印刷ダイアログを開く */
 export function exportManualToPdf({ manual, resolved, settings }: ExportManualToPdfArgs): void {
   const printWindow = window.open("", "_blank");
   if (!printWindow) {
@@ -50,7 +50,7 @@ export function exportManualToPdf({ manual, resolved, settings }: ExportManualTo
     return;
   }
 
-  // 書き出した瞬間の日時を1回だけ捕まえる（柱の「時点」表示。§6⑤・設計判断3。
+  // 書き出した瞬間の日時を1回だけ捕まえる（ヘッダーの「時点」表示。§6⑤・設計判断3。
   // 描画中に何度参照しても同じ値になるよう、ここで確定させて ManualPrintDocument へ渡す）
   const exportedAt = new Date();
   const docTitle = manual.title || "運営マニュアル";

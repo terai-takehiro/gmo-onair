@@ -1,12 +1,12 @@
 /**
- * 運営マニュアル 段E — ひな形（`qsheet_manual_templates`）・前回の冊子からの複製。
+ * 運営マニュアル 段E — テンプレート（`qsheet_manual_templates`）・前回のマニュアルからの複製。
  * 設計: docs/design/v4/production-manual.md §6①・§5-4・段Eの設計判断3。
  *
- * 今回実装するのは `scope = 'org'`（組織共通）だけ。「この案件の前の冊子から」複製する
+ * 今回実装するのは `scope = 'org'`（組織共通）だけ。「この案件の前のマニュアルから」複製する
  * 経路は、このテーブルを経由せず実在する `qsheet_manuals` を直接複製する別物
  * （`buildPagesForNewManual` の `copyFromManualId`）——設計が明言する2系統のうち
- * 「組織共通」はこのテーブル、「前の案件の前の冊子から」はテーブルを経由しないので、
- * `scope = 'project'`（列は残っている）というひな形は今回作らない。
+ * 「組織共通」はこのテーブル、「前の案件の前のマニュアルから」はテーブルを経由しないので、
+ * `scope = 'project'`（列は残っている）というテンプレートは今回作らない。
  *
  * ⚠️ `manual.service.ts` からは呼ばれるが、ここから `manual.service.ts` は呼ばない
  * （循環 import を避ける）。ページ読み取りは queryAll を直接使う。
@@ -19,7 +19,7 @@ import { canAccessManual, canAccessDoc, type AccessUser } from '../access';
 const MAX_NAME = 200;
 const MAX_PAGE_TITLE = 200;
 const MAX_CHAPTER = 200;
-/** `manual.service.ts` の `updatePage` と同じ上限（§ 紙面の中身の大きさ） */
+/** `manual.service.ts` の `updatePage` と同じ上限（§ キャンバスの中身の大きさ） */
 const MAX_BLOCKS_JSON_LENGTH = 300_000;
 
 const TEMPLATE_SELECT = `
@@ -30,12 +30,12 @@ const TEMPLATE_SELECT = `
   LEFT JOIN users u ON t.created_by = u.id
 `;
 
-/** 組織共通ひな形の一覧（§6①「ひな形は『組織共通』と『前の冊子から』の2系統」の前者） */
+/** 組織共通テンプレートの一覧（§6①「テンプレートは『組織共通』と『前のマニュアルから』の2系統」の前者） */
 export async function listOrgTemplates(): Promise<Row[]> {
   return queryAll(`${TEMPLATE_SELECT} WHERE t.scope = 'org' ORDER BY t.created_at DESC`);
 }
 
-/** 新しい冊子の1ページぶんの種。`id` を持たない——`createManual` が INSERT のたびに新しく発番する */
+/** 新しいマニュアルの1ページぶんの種。`id` を持たない——`createManual` が INSERT のたびに新しく発番する */
 export interface NewManualPageSeed {
   chapter: string | null;
   title: string;
@@ -62,22 +62,22 @@ interface ReissueOwner {
  * 発番し直す（自由ブロックは `id` だけ発番し直し、中身はそのまま）。
  *
  * ⚠️ 確定済みの中身（frozen）や秘密の解除記録（reveal）をそのまま複製先へ持ち越すと、
- * 新しい冊子で「まだ誰も確認していないのに秘密（配信の鍵・WEB会議のパスコード）が
+ * 新しいマニュアルで「まだ誰も確認していないのに秘密（配信の鍵・WEB会議のパスコード）が
  * 出たまま」という事故になる（段Eの設計判断3）。ここは省略しない。
  *
  * ⚠️⚠️ 外部レビュー再指摘（P2）: `sheet.*` の3種は `sourceId` が特定の
- * `qsheet_documents` 行を指す。**組織共通ひな形**は案件/番組を問わず適用できるため、
- * ひな形に焼き込まれた `sourceId` が新しい冊子の案件/番組には存在しない資料を
+ * `qsheet_documents` 行を指す。**組織共通テンプレート**は案件/番組を問わず適用できるため、
+ * テンプレートに焼き込まれた `sourceId` が新しいマニュアルの案件/番組には存在しない資料を
  * 指したままになりうる——resolver は案件不一致で常に `access_denied` を返し、
  * UI 側に既存ブロックの `sourceId` を選び直す手段が無いため、直せない壊れたブロックが
- * 紙面に残ってしまう。複製先の案件/番組にまだ属している資料かを確認し、属していなければ
+ * キャンバスに残ってしまう。複製先の案件/番組にまだ属している資料かを確認し、属していなければ
  * `sourceId: null` に戻す（`link-catalog`/`InsertPanel` から選び直せる状態にする——
  * §4-3「押すと空になる項目を作らない」と同じ考え方で、壊れたままより「未設定」の方がよい）。
  *
  * ⚠️⚠️ 外部レビュー再指摘（2回目・P2）: 上の確認は「資料が複製先の案件/番組に属して
  * いるか」だけで、`sheet.resolver.ts`が課している**資料自体のアクセス制御**
  * （`canAccessDoc`: 作成者本人/個別共有/管理者）を素通りしていた。同じ案件/番組であっても、
- * ひな形を適用する本人がその資料の作成者でも共有先でもなければ`resolveAccessibleDoc`は
+ * テンプレートを適用する本人がその資料の作成者でも共有先でもなければ`resolveAccessibleDoc`は
  * `access_denied`を返す——所有者が一致するというだけでは、適用した本人が読めるとは
  * 限らない。`canAccessDoc`も合わせて判定し、通らなければ同じく`sourceId: null`に戻す。
  */
@@ -109,7 +109,7 @@ async function reissuePages(seeds: NewManualPageSeed[], owner: ReissueOwner, use
   return Promise.all(seeds.map(async (p) => {
     const blocks = await Promise.all(p.blocks.map((b) => reissueBlock(b, owner, user)));
     if (JSON.stringify(blocks).length > MAX_BLOCKS_JSON_LENGTH) {
-      throw new ValidationError('紙面の中身が大きすぎます');
+      throw new ValidationError('キャンバスの中身が大きすぎます');
     }
     return { chapter: p.chapter, title: p.title, blocks };
   }));
@@ -125,18 +125,18 @@ export interface BuildPagesInput {
 }
 
 /**
- * 新しい冊子の初期ページを組み立てる。`templateId` を優先し、無ければ `copyFromManualId`、
+ * 新しいマニュアルの初期ページを組み立てる。`templateId` を優先し、無ければ `copyFromManualId`、
  * どちらも無ければ空ページ1枚（今までどおり）。
  *
- * `copyFromManualId` は**同じ project_id（または program_id）の冊子のときだけ**許可する
- * （他案件の冊子を勝手に複製できないように——`sheet.resolver.ts` の
+ * `copyFromManualId` は**同じ project_id（または program_id）のマニュアルのときだけ**許可する
+ * （他案件のマニュアルを勝手に複製できないように——`sheet.resolver.ts` の
  * 「同じ案件/番組か」の検査と同じ考え方。必須のガード）。
  *
  * ⚠️⚠️ 外部レビュー再指摘（P1）: 案件一致（`sameProject`）だけならメンバーなら誰でも
- * 見える冊子どうしの複製なので元から安全だが、**番組一致（`sameProgram`）だけでは
- * 不十分**——`canAccessManual` は番組紐づけの冊子を「作成者本人か管理者にしか見せない」
- * と明言しているのに、複製元IDと同じ program_id を送るだけで他人の番組冊子の全ページを
- * 読めてしまっていた（本人はその冊子を開けないのに複製はできる、という矛盾）。
+ * 見えるマニュアルどうしの複製なので元から安全だが、**番組一致（`sameProgram`）だけでは
+ * 不十分**——`canAccessManual` は番組紐づけのマニュアルを「作成者本人か管理者にしか見せない」
+ * と明言しているのに、複製元IDと同じ program_id を送るだけで他人の番組マニュアルの全ページを
+ * 読めてしまっていた（本人はそのマニュアルを開けないのに複製はできる、という矛盾）。
  * 案件/番組の一致に加えて `canAccessManual` も必ず通す。
  */
 export async function buildPagesForNewManual(input: BuildPagesInput): Promise<NewManualPageSeed[]> {
@@ -147,7 +147,7 @@ export async function buildPagesForNewManual(input: BuildPagesInput): Promise<Ne
       `SELECT pages FROM qsheet_manual_templates WHERE id = $1 AND scope = 'org'`,
       [input.templateId],
     );
-    if (!tpl) throw new NotFoundError('ひな形が見つかりません');
+    if (!tpl) throw new NotFoundError('テンプレートが見つかりません');
     const pages = Array.isArray(tpl.pages) ? (tpl.pages as Row[]) : [];
     return reissuePages(pages.map(toSeed), owner, input.user);
   }
@@ -157,15 +157,15 @@ export async function buildPagesForNewManual(input: BuildPagesInput): Promise<Ne
       'SELECT project_id, program_id, created_by FROM qsheet_manuals WHERE id = $1 AND deleted_at IS NULL',
       [input.copyFromManualId],
     );
-    if (!source) throw new NotFoundError('複製元の冊子が見つかりません');
+    if (!source) throw new NotFoundError('複製元のマニュアルが見つかりません');
     const sameProject = !!input.projectId && source.project_id === input.projectId;
     const sameProgram = !!input.programId && source.program_id === input.programId;
     if (!sameProject && !sameProgram) {
-      throw new ValidationError('複製元は同じ案件/番組の冊子だけ指定できます');
+      throw new ValidationError('複製元は同じ案件/番組のマニュアルだけ指定できます');
     }
     const canAccess = await canAccessManual(input.user, input.copyFromManualId, (source.created_by as string) ?? null);
     if (!canAccess) {
-      throw new NotFoundError('複製元の冊子が見つかりません'); // 存在秘匿
+      throw new NotFoundError('複製元のマニュアルが見つかりません'); // 存在秘匿
     }
     const pages = await queryAll(
       'SELECT chapter, title, blocks FROM qsheet_manual_pages WHERE manual_id = $1 ORDER BY sort_order',
@@ -179,8 +179,8 @@ export async function buildPagesForNewManual(input: BuildPagesInput): Promise<Ne
 
 /**
  * `sourceManualId` の全ページを読み、`pages` 列（jsonb 配列）としてテンプレート行を1件作る
- * ＝「この冊子をひな形として登録」。中身（`frozen`・`reveal` 含む）はそのまま持つ——
- * 持ち越しを断つのは「テンプレートから新しい冊子を作るとき」（`buildPagesForNewManual`）の
+ * ＝「このマニュアルをテンプレートとして登録」。中身（`frozen`・`reveal` 含む）はそのまま持つ——
+ * 持ち越しを断つのは「テンプレートから新しいマニュアルを作るとき」（`buildPagesForNewManual`）の
  * 役目にする（このテーブル自体は「ある時点の写し」を持つだけ・下書き/確定の区別を持たない）。
  *
  * ⚠️ 呼び出し元（route）が先に「呼んだ本人がこの `sourceManualId` にアクセスできるか」
@@ -189,10 +189,10 @@ export async function buildPagesForNewManual(input: BuildPagesInput): Promise<Ne
  */
 export async function createTemplateFromManual(name: string, sourceManualId: string, userId: string): Promise<Row> {
   const trimmedName = (name || '').trim().slice(0, MAX_NAME);
-  if (!trimmedName) throw new ValidationError('ひな形の名前を入力してください');
+  if (!trimmedName) throw new ValidationError('テンプレートの名前を入力してください');
 
   const source = await queryOne('SELECT id FROM qsheet_manuals WHERE id = $1 AND deleted_at IS NULL', [sourceManualId]);
-  if (!source) throw new NotFoundError('複製元の冊子が見つかりません');
+  if (!source) throw new NotFoundError('複製元のマニュアルが見つかりません');
 
   const pages = await queryAll(
     'SELECT chapter, title, blocks FROM qsheet_manual_pages WHERE manual_id = $1 ORDER BY sort_order',

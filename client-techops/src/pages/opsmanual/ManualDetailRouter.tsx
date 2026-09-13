@@ -1,4 +1,4 @@
-// 冊子1件の画面（"/techops/manuals/:id"）— PC は編集（`ManualDetailPage.tsx`）、
+// マニュアル1件の画面（"/techops/manuals/:id"）— PC は編集（`ManualDetailPage.tsx`）、
 // スマホは閲覧専用（`ManualMobileViewPage.tsx`）を**丸ごと入れ替える**だけの薄い親
 // （段E・production-manual.md §6⑥。`shared/CLAUDE.md`「`useIsMobile()` で早期returnしない —
 // 薄い親で部品ごと入れ替える」）。判定はここで1回だけ行い、`ManualDetailPage.tsx` 自体の

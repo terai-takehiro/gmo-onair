@@ -268,7 +268,7 @@ export function FilterBar(p: FilterBarProps) {
           w={96}
           active={p.tidyOnly}
           onClick={() => p.onTidyOnly(!p.tidyOnly)}
-          title="停滞している案件だけを出して、その場で片づける"
+          title="停滞中の案件だけを表示して、その場で対応する"
         >
           <Filter className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />要整理
         </BarButton>
@@ -353,7 +353,7 @@ export function TermHint({ onClose }: { onClose: () => void }) {
       <p><span className="font-bold text-foreground">ネタ</span> … まだ提案していない案件のタネ。表示形式「ネタ」で見ます。</p>
       <p><span className="font-bold text-foreground">ヨミ</span> … GLS 発番前の見込み案件すべて。受注の確度を読む段階です。</p>
       <p><span className="font-bold text-foreground">管理番号</span> … 受注が固まった案件に振る正式な番号です。</p>
-      <p><span className="font-bold text-foreground">おすすめ順</span> … 停滞している案件が先。その中は期限が近い順です。</p>
+      <p><span className="font-bold text-foreground">おすすめ順</span> … 停滞中の案件が先。その中は期限が近い順です。</p>
       <p><span className="font-bold text-foreground">期限超過</span> … 次のアクションの期日が過ぎているもの。最優先で浮上します。</p>
       <p><span className="font-bold text-foreground">停滞</span> … 次のアクションが無いまま、ステージごとの日数を超えて動いていないもの。</p>
       <p><span className="font-bold text-foreground">スヌーズ</span> … 再開日を決めて寝かせること。期日が来たら普通の判定に戻ります。</p>

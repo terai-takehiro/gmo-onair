@@ -120,7 +120,7 @@ class Component extends DCLogic {
   pages() {
     return {
       1: { chapter: '第1章', title: '表紙', sub: '' },
-      2: { chapter: '第1章', title: 'この冊子について', sub: '' },
+      2: { chapter: '第1章', title: 'このマニュアルについて', sub: '' },
       3: { chapter: '第1章', title: '体制と連絡網', sub: '8人' },
       4: { chapter: '第2章 ／ 当日', title: '8月22日（土）リハーサル', sub: '入り 09:00' },
       5: { chapter: '第2章 ／ 当日', title: '8月23日（日）本番', sub: '入り 10:00 ／ 本番 13:00' },
@@ -139,7 +139,7 @@ class Component extends DCLogic {
     const st = this.state;
 
     const chapterDefs = [
-      { key: 'about', label: 'この冊子', first: 1, items: [{ label: '表紙', page: '1', accent: '#005bac' }, { label: 'この冊子について', page: '2', accent: '#005bac' }, { label: '体制と連絡網', page: '3', accent: '#005bac' }] },
+      { key: 'about', label: 'このマニュアル', first: 1, items: [{ label: '表紙', page: '1', accent: '#005bac' }, { label: 'このマニュアルについて', page: '2', accent: '#005bac' }, { label: '体制と連絡網', page: '3', accent: '#005bac' }] },
       { key: 'day', label: '当日', first: 4, items: [{ label: '8/22（土）リハーサル', page: '4', accent: '#c2410e' }, { label: '8/23（日）本番', page: '5', accent: '#c2410e' }, { label: '進行表（決定稿）', page: '6', accent: '#c2410e' }] },
       { key: 'tech', label: '技術', first: 9, items: [{ label: '収録・配信のしくみ', page: '9', accent: '#197a4b' }, { label: '機材と搬入出', page: '11', accent: '#197a4b' }] },
     ];

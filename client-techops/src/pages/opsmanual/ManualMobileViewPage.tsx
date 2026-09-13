@@ -2,9 +2,9 @@
 // 「閲覧（スマホ・同じURL）」）。"/techops/manuals/:id" はスマホのときだけこの画面に
 // 入れ替わる（薄い親 `ManualDetailRouter.tsx`）。
 //
-// 1画面1目的:「いまのページを見る」に絞る——章の帯 → いまのページの紙面 → 前後にめくる、
-// だけ。編集操作は一切出さない。紙面は `ManualPrintDocument`（段D・print-document 担当の
-// 実装）を「範囲＝いまの1ページだけ・柱の時点/ページ番号/表紙/目次は出さない」設定で
+// 1画面1目的:「いまのページを見る」に絞る——章の帯 → いまのページのキャンバス → 前後にめくる、
+// だけ。編集操作は一切出さない。キャンバスは `ManualPrintDocument`（段D・print-document 担当の
+// 実装）を「範囲＝いまの1ページだけ・ヘッダーの時点/ページ番号/表紙/目次は出さない」設定で
 // 呼び出すだけで、中身コンポーネント（`renderManualBlockContent` の selected:false 経路）を
 // 作り直さない——編集画面と閲覧画面がここで食い違うことがない。
 //
@@ -12,7 +12,7 @@
 // 画面下端に固定して置く。ここで `position: fixed` を自分で書かない——`pageShell.tsx` の
 // 「`env(safe-area-inset-bottom)` をここで持たない理由」と同じ話）。
 //
-// 「一覧に戻る」の行き先は /techops/manuals（冊子の文脈を保つ。/techops/top へは逃がさない・§6⑥）。
+// 「一覧に戻る」の行き先は /techops/manuals（マニュアルの文脈を保つ。/techops/top へは逃がさない・§6⑥）。
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
@@ -68,13 +68,13 @@ export default function ManualMobileViewPage() {
 
   const sortedPages = useMemo(() => (manual ? pagesSorted(manual.pages) : []), [manual]);
 
-  // 冊子を開き直したら先頭ページへ（編集画面の既定と同じ・段B）
+  // マニュアルを開き直したら先頭ページへ（編集画面の既定と同じ・段B）
   useEffect(() => setIndex(0), [manual?.id]);
 
   const safeIndex = Math.min(index, Math.max(0, sortedPages.length - 1));
   const currentPage = sortedPages[safeIndex];
 
-  // ManualPrintDocument を「いまの1ページだけ」の範囲に絞って呼ぶ。表紙・目次・柱の
+  // ManualPrintDocument を「いまの1ページだけ」の範囲に絞って呼ぶ。表紙・目次・ヘッダーの
   // 時点/ページ番号はここでは出さない——一覧に戻れば章立て全体（TOC）は仕上がり画面・
   // PDF側で分かるので、この画面は「いま」だけに絞る
   const pageSettings: ManualExportSettings = {
@@ -86,7 +86,7 @@ export default function ManualMobileViewPage() {
     grayscale: false,
   };
 
-  // 紙面の縮小表示（`transform: scale()`。ManualPreviewPage.tsx と同じ手口——ズーム操作は
+  // キャンバスの縮小表示（`transform: scale()`。ManualPreviewPage.tsx と同じ手口——ズーム操作は
   // 持たない。1画面1目的のため常に幅に合わせる）
   const viewportRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.4);
@@ -147,7 +147,7 @@ export default function ManualMobileViewPage() {
       )}
 
       {detailQuery.isError && (
-        <ErrorPanel title="冊子を読み込めませんでした" error={detailQuery.error} onRetry={() => detailQuery.refetch()} />
+        <ErrorPanel title="マニュアルを読み込めませんでした" error={detailQuery.error} onRetry={() => detailQuery.refetch()} />
       )}
 
       {manual && (

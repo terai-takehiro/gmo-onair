@@ -5,7 +5,7 @@ import { loadTs } from './helpers/load-ts.mjs';
 // 運営マニュアル 段C — streaming.resolver.ts は12種の差し込みブロックのうち唯一「秘密」
 // （配信のストリームキー・WEB会議のパスコード）を扱う。`link.reveal?.fields` に対応する
 // field 名が無ければ必ず伏せ字で返し、field 名があるときだけ平文を返す——ここが崩れると
-// 配信の鍵・会議のパスコードが紙面（PDF・配布物）に漏れる（レビュー指摘: この分岐に
+// 配信の鍵・会議のパスコードがキャンバス（PDF・配布物）に漏れる（レビュー指摘: この分岐に
 // 固定するテストが1件も無かった）。
 async function loadStreamingResolver({ queryOneImpl, getStreamingImpl, ownerWhereImpl, decryptImpl, maskImpl }) {
   return loadTs('server/src/contexts/qsheet/services/manual-resolvers/streaming.resolver.ts', {

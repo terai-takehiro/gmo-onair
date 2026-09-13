@@ -24,8 +24,8 @@
  *
  * ① 予定と同じく、ミニカレンダーを共通の左メニューへ常設した
  * （`calendar/CalSidebarExtras.tsx` を `shared/.../shell/sideMenuSlot.ts` の
- * 差し込み口へ portal する）。**この画面は「出すもの」という概念を持たない**ので
- * 「マイカレンダー」のチェックは出さず、代わりに「「出すもの」の絞り込みは
+ * 差し込み口へ portal する）。**この画面は「表示する項目」という概念を持たない**ので
+ * 「マイカレンダー」のチェックは出さず、代わりに「「表示する項目」の絞り込みは
  * 持ちません」という説明文を出す（`emptyNote`）。ツールバーは
  * 今日／前後（日単位）／日付の見出し／拠点の絞り込み だけの1段
  * （`rooms/RoomAvailabilityToolbar.tsx`）。
@@ -214,7 +214,7 @@ export default function RoomAvailabilityPage() {
         <CalSidebarExtras
           miniAnchor={miniAnchor} onMiniAnchor={setMiniAnchor}
           today={today} selected={day} onPick={pickDay}
-          emptyNote="この画面は部屋の空きだけを見るので、「出すもの」（スタジオ/パートナー/自分）の絞り込みは持ちません。"
+          emptyNote="この画面は部屋の空きだけを見るので、「表示する項目」（スタジオ/パートナー/自分）の絞り込みは持ちません。"
         />,
         sideMenuTopSlot,
       )}

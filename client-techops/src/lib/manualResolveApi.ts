@@ -20,7 +20,7 @@ export interface ManualResolveEntry {
 }
 
 /**
- * その冊子の全ページを走査し、`kind:'linked'` の全ブロックを解決してまとめて返す
+ * そのマニュアルの全ページを走査し、`kind:'linked'` の全ブロックを解決してまとめて返す
  * （キーは `ManualBlock.id`）。同じ差し込み元が複数ブロックにあっても、サーバー側で
  * 1回だけ解決してから全 blockId にマップし直して返す（呼び出し側の1回で足りる）。
  */
@@ -32,7 +32,7 @@ export async function getManualResolve(manualId: string): Promise<Record<string,
 }
 
 /**
- * この冊子の project_id/program_id に対して「実在する」差し込みブロック種別だけを返す
+ * このマニュアルの project_id/program_id に対して「実在する」差し込みブロック種別だけを返す
  * （§4-3「押すと空になる項目を作らない」）。載っていない種別は `InsertPanel` でグレーアウトする。
  */
 export async function getLinkCatalog(manualId: string): Promise<ManualLinkedBlockKey[]> {

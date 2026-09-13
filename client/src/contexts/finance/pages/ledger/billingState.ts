@@ -29,7 +29,7 @@ export interface BillingStateSource {
 
 /**
  * スマホの詳細シートで `to` へ移るボタンに書く文字。**行き先と一緒に持たせる**
- * （`types.ts` の `toLabel` の説明）。既定の文言「状態の画面をひらく」は
+ * （`types.ts` の `toLabel` の説明）。既定の文言「状態の画面を開く」は
  * どこへ行くのか分からないので、行き先の名前をそのまま出す。
  */
 const TO_LABEL = '請求・入金を開く';

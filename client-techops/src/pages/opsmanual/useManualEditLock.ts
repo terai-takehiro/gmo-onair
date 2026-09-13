@@ -1,4 +1,4 @@
-// 運営マニュアル — 冊子まるごとの編集ロック（段E・production-manual.md §6-2-1）。
+// 運営マニュアル — マニュアルまるごとの編集ロック（段E・production-manual.md §6-2-1）。
 //
 // マウント時（`enabled` が true の間）に `lockManual()`（＝ `POST …/lock`）を呼ぶ。
 // **このAPIは「取る」と「60秒ごとに延ばす」を兼ねる契約**——取れた（`acquired:true`）ら
@@ -64,8 +64,8 @@ export function useManualEditLock(
   enabled: boolean,
   /**
    * 自分が保持者のまま、他の誰か（manager とは限らない——確定に編集ロックの保持は
-   * 不要）が冊子を確定したとハートビートで気づいたときに呼ぶ（外部レビュー再指摘・
-   * P1）。呼び出し側は冊子の詳細を引き直す（`isFixed`/`lockEnabled` を最新化する）。
+   * 不要）がマニュアルを確定したとハートビートで気づいたときに呼ぶ（外部レビュー再指摘・
+   * P1）。呼び出し側はマニュアルの詳細を引き直す（`isFixed`/`lockEnabled` を最新化する）。
    */
   onFixed?: () => void,
 ): ManualEditLockState {
@@ -134,7 +134,7 @@ export function useManualEditLock(
           // 失敗するまで気づけなかった）。「引き継がれた」と紛らわしいため、確定は
           // 別文言にし、呼び出し側に詳細の再取得を促す。
           if (manual.status === "fixed") {
-            notifyWarning("この冊子は確定されました。", {
+            notifyWarning("このマニュアルは確定されました。", {
               description: "保存していない変更は下書きとして手元に残っています。",
             });
             onFixedRef.current?.();

@@ -1,4 +1,4 @@
-// 運営マニュアル — 紙面の「インクの目安」（estimatePageInkCoverage）を固定する。
+// 運営マニュアル — キャンバスの「インクの目安」（estimatePageInkCoverage）を固定する。
 //
 // production-manual.md §6-6・§8-3「6. インクの目安」の塗り係数のとおりに
 // 数えること（画面を見ても間違いに気づけない計算のため、既存の
@@ -42,6 +42,23 @@ function tableBlock(w: number, h: number, style: Record<string, string | number>
 
 function qrBlock(w: number, h: number): ManualBlock {
   return { id: nextId(), kind: 'free', x: 0, y: 0, w, h, z: 0, style: {}, free: { type: 'qr', content: { value: 'https://example.com' } } };
+}
+
+function orgChartBlock(w: number, h: number, style: Record<string, string | number> = {}): ManualBlock {
+  return {
+    id: nextId(),
+    kind: 'free',
+    x: 0,
+    y: 0,
+    w,
+    h,
+    z: 0,
+    style,
+    free: {
+      type: 'orgchart',
+      content: { tiers: [{ id: 'tier-1', label: '統括', boxes: [{ id: 'box-1', label: '技術', people: [] }] }] },
+    },
+  };
 }
 
 function linkedBlock(w: number, h: number, style: Record<string, string | number> = {}): ManualBlock {
@@ -119,17 +136,27 @@ describe('estimatePageInkCoverage', () => {
     expect(bare).toBe(0);
   });
 
+  it('体制図は枠線と文字だけ＝背景がなければ0（塗らない決まり・orgchart §4）', () => {
+    const blocks = [orgChartBlock(PAGE_WIDTH_MM, PAGE_HEIGHT_MM)];
+    expect(estimatePageInkCoverage(blocks)).toBe(0);
+  });
+
+  it('体制図に背景を敷けば表・差し込みと同じ罫ベースで係数1', () => {
+    const blocks = [orgChartBlock(PAGE_WIDTH_MM, PAGE_HEIGHT_MM, { 'background-color': '#eeeeee' })];
+    expect(estimatePageInkCoverage(blocks)).toBeCloseTo(1);
+  });
+
   it('QRは係数0.3', () => {
     const blocks = [qrBlock(PAGE_WIDTH_MM, PAGE_HEIGHT_MM)];
     expect(estimatePageInkCoverage(blocks)).toBeCloseTo(0.3);
   });
 
-  it('部分的な塗りは紙面に対する面積比どおりに出る', () => {
+  it('部分的な塗りはキャンバスに対する面積比どおりに出る', () => {
     const blocks = [shapeBlock(PAGE_WIDTH_MM, PAGE_HEIGHT_MM * 0.4, 'rect', { 'background-color': '#000000' })];
     expect(estimatePageInkCoverage(blocks)).toBeCloseTo(0.4);
   });
 
-  it('複数ブロックは合算する。紙面の面積を超える塗りは1で頭打ち（返り値は常に0〜1）', () => {
+  it('複数ブロックは合算する。キャンバスの面積を超える塗りは1で頭打ち（返り値は常に0〜1）', () => {
     const blocks = [
       shapeBlock(PAGE_WIDTH_MM, PAGE_HEIGHT_MM, 'rect', { 'background-color': '#000000' }),
       shapeBlock(PAGE_WIDTH_MM, PAGE_HEIGHT_MM, 'ellipse', { 'background-color': '#000000' }),

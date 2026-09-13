@@ -4,9 +4,9 @@ import { loadTs } from './helpers/load-ts.mjs';
 
 // 運営マニュアル 段A/E — 外部レビュー再指摘（P2）: deletePage() の「最後の1ページは
 // 削除できない」という不変条件が「SELECT COUNT→JS判定→DELETE」の3段のままだった。
-// 同じ冊子の別々のページをほぼ同時に消す2つのリクエストが両方 count=2 を見て両方
-// DELETE でき、0ページの冊子ができてしまう。冊子行を `FOR UPDATE` でロックしてから
-// 数える1トランザクションに直し、同じ冊子への deletePage を直列化した
+// 同じマニュアルの別々のページをほぼ同時に消す2つのリクエストが両方 count=2 を見て両方
+// DELETE でき、0ページのマニュアルができてしまう。マニュアル行を `FOR UPDATE` でロックしてから
+// 数える1トランザクションに直し、同じマニュアルへの deletePage を直列化した
 // （`acquireManualLock` と同じ「不変条件は行ロックで守る」考え方）。
 
 class NotFoundError extends Error { constructor(m) { super(m); this.code = 'NOT_FOUND'; this.status = 404; } }
@@ -70,7 +70,7 @@ function loadForDeletePage(manual, pageIds, lockedManual = manual) {
             return lockedManual;
           }
           if (sql.includes('COUNT(*)')) {
-            assert.equal(forUpdateCalls.length, 1, 'COUNT の前に冊子行を FOR UPDATE でロックすること');
+            assert.equal(forUpdateCalls.length, 1, 'COUNT の前にマニュアル行を FOR UPDATE でロックすること');
             return { c: pageIds.length };
           }
           return undefined;
@@ -81,7 +81,7 @@ function loadForDeletePage(manual, pageIds, lockedManual = manual) {
   })).then((mod) => ({ ...mod, forUpdateCalls, deleted, pageIds }));
 }
 
-test('deletePage: 冊子行を FOR UPDATE でロックしてから件数を数え、削除する', async () => {
+test('deletePage: マニュアル行を FOR UPDATE でロックしてから件数を数え、削除する', async () => {
   const { deletePage, forUpdateCalls, deleted, pageIds } = await loadForDeletePage(lockRow(), ['page-1', 'page-2']);
 
   await deletePage('m1', 'page-1', 'me');

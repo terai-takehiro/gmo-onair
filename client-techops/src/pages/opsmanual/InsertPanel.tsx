@@ -1,6 +1,6 @@
 // 「差し込む」カタログ（段C・production-manual.md §4-3・§6③）。
 //
-// ミニアプリごとに束ねて出し（`manualLinkedBlocksByGroup()`）、この冊子に実在する種別だけを
+// ミニアプリごとに束ねて出し（`manualLinkedBlocksByGroup()`）、このマニュアルに実在する種別だけを
 // 押せるようにする（`getLinkCatalog`。押すと空になる項目を作らない＝§4-3）。
 // `sourceId` が要る種別（進行台本の3種）は、資料が2件以上あるときだけ選ばせる
 // （1件なら選ばせずそのまま置く）。置いたあとの設定（出す項目・秘密の解除）は
@@ -30,7 +30,7 @@ function nextZ(blocks: ManualBlock[]): number {
   return blocks.reduce((max, b) => Math.max(max, b.z), 0) + 1;
 }
 
-/** 紙面の中央に置いたときの x/y（mm・左上原点） */
+/** キャンバスの中央に置いたときの x/y（mm・左上原点） */
 function centered(w: number, h: number): { x: number; y: number } {
   return { x: Math.max(0, (PAGE_WIDTH_MM - w) / 2), y: Math.max(0, (PAGE_HEIGHT_MM - h) / 2) };
 }
@@ -59,7 +59,7 @@ interface Props {
   manualId: string;
   blocks: ManualBlock[];
   onAdd: (block: ManualBlock) => void;
-  /** この冊子が番組（`qsheet_programs`）に紐づくか（true）・案件に紐づくか（false/未指定）。
+  /** このマニュアルが番組（`qsheet_programs`）に紐づくか（true）・案件に紐づくか（false/未指定）。
    *  資料が無いときの案内文の呼び分けにだけ使う（`ManualListPage.tsx` 等と同じ呼び分け） */
   isProgram?: boolean;
 }
@@ -97,7 +97,7 @@ export default function InsertPanel({ manualId, blocks, onAdd, isProgram = false
       // 「案件には資料があるが本人が読めるものが1つも無い（`listSheetSources` の ACL
       // フィルタ・レビュー指摘）」場合の両方がありうる。どちらにせよ `sourceId: null` の
       // まま置くと resolver は常に `source_id_required` を返し、二度と直せない壊れた
-      // ブロックが紙面に残ってしまう。この3種だけ、0件は「置かずに知らせる」、
+      // ブロックがキャンバスに残ってしまう。この3種だけ、0件は「置かずに知らせる」、
       // 1件のときだけ自動で置く、2件以上のときだけ選ばせる、の3分岐にする。
       if (requiresSource && sources.length === 0) {
         notifyError("差し込める資料がありません。", { description: "自分が読める進行台本がまだ無いか、共有されていません。" });

@@ -1,7 +1,7 @@
-// 紙面をスペース＋ドラッグでつかんで動かす（production-manual.md §6-2
-// 「スペース＋ドラッグ｜紙面をつかんで動かす」）。`viewportRef` が指す要素
+// キャンバスをスペース＋ドラッグでつかんで動かす（production-manual.md §6-2
+// 「スペース＋ドラッグ｜キャンバスをつかんで動かす」）。`viewportRef` が指す要素
 // （overflow-auto のスクロールコンテナ）を直接スクロールさせるだけで、
-// 紙面自体の座標系（mm）には触れない。
+// キャンバス自体の座標系（mm）には触れない。
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { isEditableTarget } from "./manualCanvasGeometry";
 
@@ -28,7 +28,7 @@ export function useManualPan(viewportRef: RefObject<HTMLDivElement>): ManualPanH
   const [isPanning, setPanning] = useState(false);
   const sessionRef = useRef<PanSession | null>(null);
 
-  // スペースキーはウィンドウ全体で見る（紙面にフォーカスが無くても押せてよい。
+  // スペースキーはウィンドウ全体で見る（キャンバスにフォーカスが無くても押せてよい。
   // 入力欄で押したときはテキスト入力として素通しする）
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
