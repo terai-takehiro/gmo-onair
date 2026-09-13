@@ -80,6 +80,7 @@ v4 UI/UX 刷新の design handoff（8ファイル・51画面のハイファイ�
 | [`graphics-redesign.md`](graphics-redesign.md) | テロップCG 再設計（UI の正・段A〜F） | 実装済み（記録） |
 | [`graphics-design-specs.md`](graphics-design-specs.md) | テロップCG の数値（組版・セーフエリア） | 現役の決めごと |
 | [`graphics-awards-migration-plan.md`](graphics-awards-migration-plan.md) | 段6 アワード・クイズの移植 | 実装済み（記録） |
+| [`production-manual.md`](production-manual.md) | **運営マニュアル**（制作技術支援の新ミニアプリ）。各ミニアプリの情報を A4横の冊子に差し込み PDF で配る | **設計（未実装）**。§10 の7件の判断待ち |
 | [`keep-report.md`](keep-report.md) | 隔週キープの数字・資料ビルダー | 現役の決めごと（段1〜4 実装済み） |
 | [`regular-series.md`](regular-series.md) | レギュラー案件のロジック | 現役の決めごと（実装済み） |
 | [`ios-native-mobile-mockups.md`](ios-native-mobile-mockups.md) | iOS ネイティブ風の見た目探索 | 参考（当時の記録） |
@@ -92,6 +93,7 @@ v4 UI/UX 刷新の design handoff（8ファイル・51画面のハイファイ�
 | [`mockups/DESIGN_POLICY.md`](mockups/DESIGN_POLICY.md) | 設計方針の原文 | 現役の決めごと（原文） |
 | [`mockups/github.md`](mockups/github.md) | 2026-08-02 の同期記録 | 参考（当時の記録）。現状はコードが正 |
 | [`mockups/keep-report/`](mockups/keep-report/README.md)・[`mockups/regular/`](mockups/regular/README.md)・[`mockups/native/telop-cg/`](mockups/native/telop-cg/README.md)・[`mockups/tasks-redesign/`](mockups/tasks-redesign/README.md)・[`mockups/weekly-redesign/`](mockups/weekly-redesign/README.md) | 2026-09 に足した再設計モックの説明 | 実装済み（記録） |
+| [`mockups/native/production-manual/`](mockups/native/production-manual/README.md) | 運営マニュアルのモック（PC 4・スマホ 1・A4横の実寸 1・地図 1） | 設計（未実装） |
 
 ### モックの元ファイル（`.dc.html`。ブラウザで開く）
 
@@ -99,6 +101,7 @@ v4 UI/UX 刷新の design handoff（8ファイル・51画面のハイファイ�
 | --- | --- |
 | [`mockups/`](mockups/) | ハンドオフの本体。`v4-live*.dc.html`（新しい世代）・`v4-mockup-*.dc.html`・共通シェル・[`gpm-format-alignment.html`](mockups/gpm-format-alignment.html)（プロジェクト管理のフォーマット統一案） |
 | `mockups/native/qsheet-top/` | 制作技術支援トップの Claude Design 作業ファイル（説明は [`production-v4-native-mockups.md`](production-v4-native-mockups.md)） |
+| [`mockups/native/production-manual/`](mockups/native/production-manual/README.md) | 運営マニュアル（新ミニアプリ）の Claude Design 作業ファイル（設計は [`production-manual.md`](production-manual.md)） |
 | `qsheet-v4-coding/mockups/live/`・`qsheet-v4-coding/mockups/tech-settings/` | 計時の表示画面・収録／配信設定のモック（説明は [`qsheet-v4-coding/impl/08-recording-streaming-impl.md`](qsheet-v4-coding/impl/08-recording-streaming-impl.md) ほか） |
 | [`rental-search/`](rental-search/README.md) | レンタル機材検索 |
 | [`../qsheet-recording-streaming/mockups/`](../qsheet-recording-streaming/mockups/README.md) | 収録・配信設定の初版モック |

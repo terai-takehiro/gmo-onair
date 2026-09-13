@@ -15,12 +15,13 @@
 import { Link } from "react-router-dom";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { FileText, CalendarDays, Settings2, Package, Timer, Type, ChevronRight } from "lucide-react";
+import { FileText, CalendarDays, BookOpenText, Settings2, Package, Timer, Type, ChevronRight } from "lucide-react";
 import type { ElementType } from "react";
 import { cn } from "@/lib/utils";
 import { MINI_APP_BY_KEY, panelPathOf } from "@gmo-onair/shared/src/production/miniapps";
 import type { JourneyDay } from "@gmo-onair/shared/src/production/journey";
 import { getRentalReservations } from "@/lib/rentalApi";
+import * as manualApi from "@/lib/manualApi";
 
 interface MiniAppTilesProps {
   scope: "project" | "program";
@@ -60,6 +61,12 @@ export default function MiniAppTiles({ scope, id, days }: MiniAppTilesProps) {
     ? rentalQuery.data.groups.flatMap((g) => g.lines).length
     : null;
 
+  const manualsQuery = useQuery({
+    queryKey: ["manuals", "list", scope, id],
+    queryFn: () => manualApi.listManuals(scope === "project" ? { project_id: id } : { program_id: id }),
+  });
+  const manualCount = manualsQuery.isSuccess ? manualsQuery.data.length : null;
+
   const tiles: { key: string; label: string; description: string; icon: ElementType; to: string; count: number | null }[] = [
     {
       key: "sheet",
@@ -76,6 +83,14 @@ export default function MiniAppTiles({ scope, id, days }: MiniAppTilesProps) {
       icon: CalendarDays,
       to: `/techops/schedules?${filterKey}=${encodeURIComponent(id)}`,
       count: scheduleCount,
+    },
+    {
+      key: "manual",
+      label: MINI_APP_BY_KEY.manual.label,
+      description: "各ミニアプリの情報をA4横のページに差し込んで冊子にする",
+      icon: BookOpenText,
+      to: `/techops/manuals?${filterKey}=${encodeURIComponent(id)}`,
+      count: manualCount,
     },
     {
       key: "recording",

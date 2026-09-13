@@ -7,9 +7,19 @@ import crypto from 'crypto';
 const router = Router();
 
 // ⚠️ **パスを付けずに `router.use(...)` を書かないこと**（理由は audio-share.routes.ts の
-// 同じ注記）。`/qsheet` に丸ごと載せているので、パスなしだと `editor` 要求が
+// 同じ注記）。`/qsheet` に丸ごと載せているので、パスなしだと要求が
 // あとから載せた router 全部に効いてしまう。
-router.use(['/upload-image', '/images'], requireAuth, requirePermission('qsheet', 'editor'));
+//
+// ⚠️⚠️ レビュー指摘（P1）: 以前は両方とも editor を要求していた。運営マニュアルの
+// 画像ブロック（段B・自由ブロック）が導入されたことで、この画像URLを reader（qsheet
+// の閲覧のみ・案件メンバー全員に自動で見える`canAccessManual`経由）が開く経路が
+// 新たにできたが、閲覧だけの reader には editor 権限が無く、埋め込み画像だけ壊れて
+// 見える（PDFでも同様）。アップロード（`/upload-image`）は従来どおり editor 限定のまま、
+// 閲覧（`/images`）だけ reader（`requirePermission` 第2引数省略の既定）に緩める——
+// ファイル名は乱数ハッシュのみで案件データを含まないため、reader へ広げても
+// 個別案件の情報が漏れることはない。
+router.use('/upload-image', requireAuth, requirePermission('qsheet', 'editor'));
+router.use('/images', requireAuth, requirePermission('qsheet'));
 
 // Max file size: 5MB
 const MAX_SIZE = 5 * 1024 * 1024;

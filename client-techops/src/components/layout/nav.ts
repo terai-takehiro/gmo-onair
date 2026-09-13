@@ -53,7 +53,7 @@
  * 実装（3本前提の決め打ちレイアウトは無い）ので、1本・3本のどちらでも崩れない
  * ことを確認した上でこの形にしている。
  */
-import { LayoutDashboard, LayoutGrid, CalendarDays, Settings2, Package, Timer, Type, Radio, BookOpenCheck } from 'lucide-react';
+import { LayoutDashboard, LayoutGrid, CalendarDays, Settings2, Package, Timer, Type, Radio, BookOpenCheck, BookOpenText } from 'lucide-react';
 import type { ShellMobileTab, ShellNavSection } from '@gmo-onair/shared/src/client/shell';
 import { MINI_APP_BY_KEY, panelPathOf } from '@gmo-onair/shared/src/production/miniapps';
 import type { ProductionNavContext } from '@/lib/productionNavContext';
@@ -76,6 +76,7 @@ const LIVE_RE = /^\/techops\/live\/([^/?#]+)(?:\/(?:timers(?:\/[^/?#]+\/layout)?
 const GRAPHICS_RE = /^\/techops\/graphics\/([^/?#]+)(?:\/(?:live|settings|templates|request))?\/?$/;
 const EDITOR_RE = /^\/techops\/editor\/[^/?#]+\/?$/;
 const SCHEDULE_DETAIL_RE = /^\/techops\/schedules\/[^/?#]+\/?$/;
+const MANUAL_DETAIL_RE = /^\/techops\/manuals\/[^/?#]+\/?$/;
 const DOCS_RE = /^\/techops\/docs\/[^/?#]+\/?$/;
 
 function safeDecode(v: string): string {
@@ -99,12 +100,13 @@ function matchOwnerKeyPanel(pathname: string): string | null {
  *
  * 1. `/techops/projects/<id>` → `{scope:'project', id}`
  * 2. `/techops/programs/<id>` → `{scope:'program', id}`
- * 3. `/techops/sheets` または `/techops/schedules`（絞り込み一覧）で `?project=`/`?program=`
- *    があれば、その scope/id
+ * 3. `/techops/sheets`・`/techops/schedules`・`/techops/manuals`（絞り込み一覧）で
+ *    `?project=`/`?program=` があれば、その scope/id
  * 4. `/techops/recording|streaming|rental|live/<ownerKey>`（配下の `/list`・`/mail/:company`・
  *    `/timers`・`/settings` 含む）:
  *    ストアの値があり、かつ `id` が一致すればそれを使う。一致しなければ「未解決」
- * 5. `/techops/editor/<id>`・`/techops/schedules/<id>`（個別）・`/techops/docs/<id>`:
+ * 5. `/techops/editor/<id>`・`/techops/schedules/<id>`（個別）・`/techops/manuals/<id>`（個別）・
+ *    `/techops/docs/<id>`:
  *    ストアの値があればそのまま使う（doc id は project/program の id では**ない**ため、
  *    id の突き合わせはしない）
  * 6. それ以外 → 文脈なし（`null`）
@@ -126,7 +128,7 @@ function resolveContext(
     return { scope: 'program', id, label: storeCtx?.id === id ? storeCtx.label : null };
   }
 
-  if (pathname === '/techops/sheets' || pathname === '/techops/schedules') {
+  if (pathname === '/techops/sheets' || pathname === '/techops/schedules' || pathname === '/techops/manuals') {
     const projectId = searchParams.get('project');
     if (projectId) return { scope: 'project', id: projectId, label: storeCtx?.id === projectId ? storeCtx.label : null };
     const programId = searchParams.get('program');
@@ -139,7 +141,7 @@ function resolveContext(
     return storeCtx && storeCtx.id === panelOwnerKey ? storeCtx : null;
   }
 
-  if (EDITOR_RE.test(pathname) || SCHEDULE_DETAIL_RE.test(pathname) || DOCS_RE.test(pathname)) {
+  if (EDITOR_RE.test(pathname) || SCHEDULE_DETAIL_RE.test(pathname) || MANUAL_DETAIL_RE.test(pathname) || DOCS_RE.test(pathname)) {
     return storeCtx ?? null;
   }
 
@@ -151,8 +153,8 @@ function hubPathOf(ctx: ProductionNavContext): string {
   return ctx.scope === 'project' ? `/techops/projects/${id}` : `/techops/programs/${id}`;
 }
 
-function listPathOf(app: 'sheet' | 'schedule', ctx: ProductionNavContext): string {
-  const listPath = app === 'sheet' ? '/techops/sheets' : '/techops/schedules';
+function listPathOf(app: 'sheet' | 'schedule' | 'manual', ctx: ProductionNavContext): string {
+  const listPath = app === 'sheet' ? '/techops/sheets' : app === 'schedule' ? '/techops/schedules' : '/techops/manuals';
   return `${listPath}?${ctx.scope}=${encodeURIComponent(ctx.id)}`;
 }
 
@@ -240,6 +242,7 @@ function buildResolvedSections(ctx: ProductionNavContext, inGraphics: boolean): 
   const miniAppItems = [
     { label: MINI_APP_BY_KEY.sheet.label, to: listPathOf('sheet', ctx), icon: LayoutDashboard },
     { label: MINI_APP_BY_KEY.schedule.label, to: listPathOf('schedule', ctx), icon: CalendarDays },
+    { label: MINI_APP_BY_KEY.manual.label, to: listPathOf('manual', ctx), icon: BookOpenText },
     { label: MINI_APP_BY_KEY.recording.label, to: panelPathOf('recording', ctx.id), icon: Settings2 },
     { label: MINI_APP_BY_KEY.streaming.label, to: panelPathOf('streaming', ctx.id), icon: Settings2 },
     { label: MINI_APP_BY_KEY.rental.label, to: panelPathOf('rental', ctx.id), icon: Package },

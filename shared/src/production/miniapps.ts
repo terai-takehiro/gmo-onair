@@ -49,7 +49,7 @@
 import type { JourneyStage } from './journey';
 
 /** ミニアプリのキー。URL・API・集計キーに出る安定キー。**あとから変えない** */
-export type MiniAppKey = 'sheet' | 'schedule' | 'recording' | 'streaming' | 'rental' | 'liveops' | 'graphics';
+export type MiniAppKey = 'sheet' | 'schedule' | 'manual' | 'recording' | 'streaming' | 'rental' | 'liveops' | 'graphics';
 
 export type MiniAppKind = 'document' | 'panel';
 
@@ -94,6 +94,11 @@ export type MiniAppDef = MiniAppDocumentDef | MiniAppPanelDef;
  *
  * `schedule` は段4（`02-schedule.md` の実装）で `true` にした。`qsheet_schedules` と
  * `/techops/schedules` が存在するようになったため、左メニュー・「＋新しく作る」に出してよい。
+ *
+ * `manual`（運営マニュアル）は段A（`production-manual.md` §9）で `true` にした。
+ * 資料番号は `OM`、表は `qsheet_manuals`（migration 297）。§10 の決まったことに沿い、
+ * `docPrefix`/`docNoSeq` はあとから変えない。段Aは器（一覧・空の冊子・ページ追加/並べ替え）
+ * だけで、紙面のブロック編集（`kind: 'document'` の外側の話）は段B/Cで作る。
  */
 export const MINI_APPS: MiniAppDef[] = [
   {
@@ -117,6 +122,18 @@ export const MINI_APPS: MiniAppDef[] = [
     table: 'qsheet_schedules',
     listPath: '/techops/schedules',
     docPath: '/techops/schedules/:id',
+    stages: ['day'],
+    enabled: true,
+  },
+  {
+    kind: 'document',
+    key: 'manual',
+    label: '運営マニュアル',
+    docPrefix: 'OM',
+    docNoSeq: 'prod_doc_om',
+    table: 'qsheet_manuals',
+    listPath: '/techops/manuals',
+    docPath: '/techops/manuals/:id',
     stages: ['day'],
     enabled: true,
   },

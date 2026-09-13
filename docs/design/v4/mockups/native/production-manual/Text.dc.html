@@ -1,0 +1,475 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@100;400;700;800&family=Noto+Sans+JP:wght@100;200;300;400;500;600;700;800;900&family=Noto+Serif+JP:wght@400;700;900&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    button { font-family: inherit; }
+    .tap { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .ghost:hover { background: #f2f4f7; }
+    .btn-primary { transition: background-color .12s ease; } .btn-primary:hover { background: #004d91; }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .serif { font-family: 'Noto Serif JP', 'Noto Sans JP', serif; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 1040px; position: relative; overflow: hidden; background: #f7f8fa; display: flex; flex-direction: column; color: #1a1d24;">
+
+  <!-- 上辺バー -->
+  <header style="display: flex; height: 64px; flex-shrink: 0; align-items: center; gap: 14px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 24px;">
+    <button class="tap ghost" style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #e6e9ed;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg></button>
+    <div style="display: flex; align-items: center; gap: 9px;">
+      <div style="width: 28px; height: 28px; border-radius: 9px; background: #005bac; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M7.8 7.8a6 6 0 0 0 0 8.4"></path><path d="M16.2 16.2a6 6 0 0 0 0-8.4"></path><path d="M4.9 4.9a10 10 0 0 0 0 14.2"></path><path d="M19.1 19.1a10 10 0 0 0 0-14.2"></path></svg></div>
+      <span style="font-size: 15px; font-weight: 800;">ONAiR</span>
+    </div>
+    <span style="height: 22px; width: 1px; background: #e6e9ed;"></span>
+    <span class="clip1" style="font-size: 12.5px; color: #5d6470;">制作技術支援 ／ サイエンス・フロンティア ／ 運営マニュアル</span>
+    <span style="flex: 1;"></span>
+    <button class="tap" style="display: flex; align-items: center; gap: 10px; height: 44px;">
+      <span style="width: 32px; height: 32px; border-radius: 9999px; background: #eaf4fb; color: #005bac; font-size: 13.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;">川</span>
+      <span style="font-size: 12.5px; white-space: nowrap;">川口 早苗</span>
+    </button>
+  </header>
+
+  <!-- 冊子の帯 -->
+  <div style="display: flex; height: 52px; flex-shrink: 0; align-items: center; gap: 12px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 16px 0 12px;">
+    <button class="tap ghost" style="display: flex; align-items: center; gap: 3px; height: 32px; border-radius: 8px; padding: 0 9px 0 5px; color: #005bac;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg><span style="font-size: 12.5px; font-weight: 700;">冊子一覧</span></button>
+    <span style="height: 20px; width: 1px; background: #e6e9ed;"></span>
+    <span class="num" style="font-size: 11.5px; font-weight: 700; color: #9aa1ab;">OM-0006</span>
+    <span style="font-size: 15px; font-weight: 800;">リハーサル進行マニュアル</span>
+    <span class="num" style="font-size: 11.5px; color: #9aa1ab;">1ページ目（表紙）</span>
+    <span style="flex: 1;"></span>
+    <button class="tap" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12.5px; font-weight: 700;">仕上がりを見る</button>
+    <button class="tap btn-primary" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; background: #005bac; color: #ffffff; padding: 0 14px; font-size: 12.5px; font-weight: 800;">確定する</button>
+  </div>
+
+  <!-- 道具の帯 -->
+  <div style="display: flex; height: 44px; flex-shrink: 0; align-items: center; gap: 5px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px;">
+    <button class="tap" style="display: flex; align-items: center; gap: 6px; height: 32px; border-radius: 9px; border: 1px solid #cfe4f4; background: #ffffff; padding: 0 12px; font-size: 12.5px; font-weight: 800; color: #005bac;">＋ 差し込む</button>
+    <span style="height: 20px; width: 1px; background: #e6e9ed; margin: 0 4px;"></span>
+    <button class="tap" style="display: flex; align-items: center; gap: 6px; height: 32px; border-radius: 9px; border: 1px solid #005bac; background: #f4faff; padding: 0 11px; font-size: 12.5px; font-weight: 800; color: #005bac;">文字</button>
+    <button class="tap ghost" style="display: flex; align-items: center; gap: 6px; height: 32px; border-radius: 9px; padding: 0 10px; font-size: 12.5px; font-weight: 700; color: #3c424c;">図形</button>
+    <button class="tap ghost" style="display: flex; align-items: center; gap: 6px; height: 32px; border-radius: 9px; padding: 0 10px; font-size: 12.5px; font-weight: 700; color: #3c424c;">画像</button>
+    <button class="tap ghost" style="display: flex; align-items: center; gap: 6px; height: 32px; border-radius: 9px; padding: 0 10px; font-size: 12.5px; font-weight: 700; color: #3c424c;">表</button>
+    <button class="tap ghost" style="display: flex; align-items: center; gap: 6px; height: 32px; border-radius: 9px; padding: 0 10px; font-size: 12.5px; font-weight: 700; color: #3c424c;">QR</button>
+    <span style="flex: 1;"></span>
+    <span style="font-size: 11.5px; color: #9aa1ab;">選んだ文字だけに効きます ・ 取り消しは Ctrl+Z</span>
+  </div>
+
+  <div style="display: flex; flex: 1; min-height: 0;">
+
+    <!-- 左: ページ -->
+    <aside style="width: 176px; flex-shrink: 0; border-right: 1px solid #e6e9ed; background: #ffffff; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 6px; height: 38px; flex-shrink: 0; padding: 0 12px; border-bottom: 1px solid #e6e9ed;">
+        <span style="font-size: 12px; font-weight: 800;">ページ</span><span class="num" style="font-size: 11.5px; color: #9aa1ab;">6枚</span>
+      </div>
+      <div style="flex: 1; overflow: hidden; padding: 10px 10px 12px; display: flex; flex-direction: column; gap: 7px;">
+        <sc-for list="{{pages}}" as="p" hint-placeholder-count="5">
+          <div style="display: flex; align-items: flex-start; gap: 7px;">
+            <span class="num" style="width: 13px; padding-top: 14px; font-size: 10.5px; font-weight: 700; color: {{p.noFg}}; text-align: right; flex-shrink: 0;">{{p.no}}</span>
+            <span style="flex: 1; min-width: 0; aspect-ratio: 297 / 210; border-radius: 4px; border: 2px solid {{p.border}}; background: {{p.bg}}; padding: 5px 6px; display: flex; flex-direction: column; gap: 3px; overflow: hidden;">
+              <span style="height: 3px; width: 60%; border-radius: 2px; background: {{p.accent}};"></span>
+              <span style="font-size: 7px; font-weight: 800; line-height: 1.25; color: {{p.fg}};">{{p.title}}</span>
+              <span style="flex: 1; border-radius: 2px; background: {{p.fill}};"></span>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+    </aside>
+
+    <!-- 中央: 表紙のキャンバス -->
+    <main style="flex: 1; min-width: 0; background: #eef0f3; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 20px;">
+      <div style="width: 860px; aspect-ratio: 297 / 210; position: relative; background: #ffffff; box-shadow: 0 8px 28px rgba(26,29,36,.14); border: 1px solid #cbd2da; overflow: hidden;">
+
+        <!-- 地は白のまま。ベタ面もグラデーションも置かない（紙に刷るとインクを食う） -->
+        <div style="position: absolute; left: 7%; right: 7%; top: 9%; height: 2px; background: #005bac;"></div>
+        <div style="position: absolute; left: 7%; right: 7%; top: 10.1%; height: 1px; background: #c9a227;"></div>
+        <div style="position: absolute; left: 7%; right: 7%; top: 46%; height: 1px; background: #e6e9ed;"></div>
+
+        <!-- 選択中の文字ブロック -->
+        <div style="position: absolute; left: 7%; top: 12%; width: 62%; box-shadow: 0 0 0 1.5px #005bac;">
+          <div style="padding: 8px 10px;">
+            <div style="font-size: 13px; font-weight: 700; color: #9aa1ab; letter-spacing: .16em;">OPERATION MANUAL</div>
+            <div style="margin-top: 6px; font-family: {{t.family}}; font-size: {{t.size}}; font-weight: {{t.weight}}; line-height: {{t.leading}}; letter-spacing: {{t.tracking}}; color: {{t.color}}; -webkit-text-stroke: {{t.stroke}}; text-shadow: {{t.shadow}}; background: {{t.bg}}; -webkit-background-clip: {{t.clip}}; background-clip: {{t.clip}}; transform: scaleX({{t.scaleX}}); transform-origin: left center; writing-mode: {{t.writing}}; font-feature-settings: {{t.feature}}; font-variant-numeric: {{t.numeric}};">リハーサル進行マニュアル</div>
+            <div style="margin-top: 8px; font-family: {{t.family}}; font-size: 15px; font-weight: 700; color: #3c424c; font-feature-settings: {{t.feature}}; font-variant-numeric: {{t.numeric}};">東都TV 特番収録「サイエンス・フロンティア」第7回</div>
+            <div style="margin-top: 4px; font-family: {{t.family}}; font-size: 15px; font-weight: 400; color: #5d6470; font-feature-settings: {{t.feature}}; font-variant-numeric: {{t.numeric}};">2026/08/22（土）09:00 ／ 第2スタジオ ／ 11 名</div>
+          </div>
+          <!-- つまみ -->
+          <span style="position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+          <span style="position: absolute; right: -4px; top: -4px; width: 8px; height: 8px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+          <span style="position: absolute; left: -4px; bottom: -4px; width: 8px; height: 8px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+          <span style="position: absolute; right: -4px; bottom: -4px; width: 8px; height: 8px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+          <span style="position: absolute; left: 50%; top: -4px; margin-left: -4px; width: 8px; height: 8px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+          <span style="position: absolute; left: 50%; bottom: -4px; margin-left: -4px; width: 8px; height: 8px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+          <span style="position: absolute; left: -4px; top: 50%; margin-top: -4px; width: 8px; height: 8px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+          <span style="position: absolute; right: -4px; top: 50%; margin-top: -4px; width: 8px; height: 8px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+          <!-- 回すつまみ -->
+          <span style="position: absolute; left: 50%; top: -26px; margin-left: -7px; width: 14px; height: 14px; border-radius: 9999px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+
+          <!-- 浮かぶ小さな道具（選択した文字の上） -->
+          <div style="position: absolute; left: 0; bottom: -46px; display: flex; align-items: center; gap: 3px; height: 36px; border-radius: 10px; background: #ffffff; border: 1px solid #e6e9ed; box-shadow: 0 6px 18px rgba(26,29,36,.14); padding: 0 7px;">
+            <span class="clip1" style="max-width: 104px; font-size: 11.5px; font-weight: 700;">{{t.familyLabel}}</span>
+            <span style="height: 16px; width: 1px; background: #e6e9ed; margin: 0 3px;"></span>
+            <span class="num" style="font-size: 11.5px; font-weight: 700;">{{t.sizePt}}</span>
+            <span style="height: 16px; width: 1px; background: #e6e9ed; margin: 0 3px;"></span>
+            <span style="width: 16px; height: 16px; border-radius: 4px; background: {{t.swatch}}; border: 1px solid #cbd2da;"></span>
+            <span style="height: 16px; width: 1px; background: #e6e9ed; margin: 0 3px;"></span>
+            <span style="font-size: 12px; font-weight: 800;">B</span>
+            <span style="font-size: 12px; font-style: italic; color: #5d6470;">I</span>
+            <span style="font-size: 12px; text-decoration: underline; color: #5d6470;">U</span>
+            <span style="height: 16px; width: 1px; background: #e6e9ed; margin: 0 3px;"></span>
+            <span style="font-size: 11.5px; font-weight: 700; color: #5d6470;">縦書き</span>
+          </div>
+        </div>
+
+        <!-- 下段の情報（差し込み） -->
+        <div style="position: absolute; left: 7%; top: 55%; width: 50%;">
+          <div style="font-size: 11px; font-weight: 800; color: #5d6470;">この冊子について</div>
+          <div style="margin-top: 5px; font-size: 11.5px; line-height: 1.7; color: #1a1d24;">当日の流れ・体制・技術のしくみを1冊にまとめたものです。<br>差し込んだ内容は元の資料と同じものが出ます。数字が違うと思ったら、元の資料を直してください。</div>
+        </div>
+        <div style="position: absolute; right: 7%; top: 55%; width: 30%; border-radius: 3px; border: 1px solid #e6e9ed; padding: 9px 11px;">
+          <div class="num" style="font-size: 10px; color: #5d6470;">本番</div>
+          <div class="num" style="margin-top: 2px; font-size: 17px; font-weight: 800;">2026/08/23（日）13:00</div>
+          <div class="num" style="margin-top: 5px; font-size: 10px; color: #5d6470;">会場</div>
+          <div style="margin-top: 2px; font-size: 13px; font-weight: 700;">GMO グローバルスタジオ 第2スタジオ</div>
+        </div>
+        <div style="position: absolute; left: 7%; bottom: 5%; right: 7%; display: flex; align-items: center; border-top: 1px solid #e6e9ed; padding-top: 5px;">
+          <span class="num" style="font-size: 8.5px; color: #9aa1ab;">GMO グローバルスタジオ ／ 社外秘</span>
+          <span style="flex: 1;"></span>
+          <span class="num" style="font-size: 8.5px; color: #9aa1ab;">2026/08/21 時点 ・ 1 / 6</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- 右: 書式 -->
+    <aside style="width: 320px; flex-shrink: 0; border-left: 1px solid #e6e9ed; background: #ffffff; display: flex; flex-direction: column;">
+      <div style="display: flex; height: 38px; flex-shrink: 0; border-bottom: 1px solid #e6e9ed;">
+        <span style="flex: 1; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #5d6470;">差し込み</span>
+        <span style="flex: 1; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #005bac; border-bottom: 2px solid #005bac;">書式</span>
+        <span style="flex: 1; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #5d6470;">ページ</span>
+      </div>
+
+      <div style="flex: 1; overflow: hidden; padding: 12px 14px 14px;">
+
+        <!-- 書体（基本は2つ。3つ目は題字用の明朝） -->
+        <div style="display: flex; align-items: center; gap: 7px;">
+          <span style="font-size: 11px; font-weight: 800; color: #5d6470;">書体</span>
+          <span style="font-size: 10.5px; color: #9aa1ab;">同梱しているものだけ</span>
+        </div>
+        <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px;">
+          <sc-for list="{{fonts}}" as="f" hint-placeholder-count="3">
+            <button class="tap" onClick="{{f.pick}}" style="display: flex; align-items: center; gap: 8px; height: 36px; border-radius: 9px; border: 1px solid {{f.border}}; background: {{f.bg}}; padding: 0 10px;">
+              <span style="font-family: {{f.family}}; font-size: 14px; font-weight: 700; flex: 1; min-width: 0;">{{f.sample}}</span>
+              <span style="font-size: 11px; font-weight: 700; color: {{f.fg}};">{{f.label}}</span>
+              <span class="num" style="flex-shrink: 0; display: inline-flex; align-items: center; height: 18px; border-radius: 5px; background: {{f.countBg}}; color: {{f.countFg}}; font-size: 10px; font-weight: 700; padding: 0 6px;">{{f.count}}</span>
+            </button>
+          </sc-for>
+        </div>
+
+        <!-- 大きさ -->
+        <div style="margin-top: 12px; display: flex; align-items: center; gap: 8px;">
+          <span style="width: 44px; flex-shrink: 0; font-size: 11px; font-weight: 800; color: #5d6470;">大きさ</span>
+          <div style="flex: 1; display: flex; align-items: center; gap: 3px; height: 32px; border-radius: 9px; border: 1px solid #e6e9ed; padding: 0 4px;">
+            <button class="tap ghost" onClick="{{sizeDown}}" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 14px; font-weight: 700;">−</button>
+            <span class="num" style="flex: 1; text-align: center; font-size: 12.5px; font-weight: 700;">{{t.sizePt}}</span>
+            <button class="tap ghost" onClick="{{sizeUp}}" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 14px; font-weight: 700;">＋</button>
+          </div>
+        </div>
+
+        <!-- ウェイト: その書体が持っている段を全部出す -->
+        <div style="margin-top: 11px; display: flex; align-items: center; gap: 7px;">
+          <span style="font-size: 11px; font-weight: 800; color: #5d6470;">ウェイト</span>
+          <span class="clip1" style="flex: 1; min-width: 0; font-size: 10.5px; color: #9aa1ab;">{{weightNote}}</span>
+        </div>
+        <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px;">
+          <sc-for list="{{weights}}" as="w" hint-placeholder-count="9">
+            <button class="tap" onClick="{{w.pick}}" style="width: {{w.width}}; height: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border-radius: 9px; border: 1px solid {{w.border}}; background: {{w.bg}};">
+              <span style="font-family: {{w.family}}; font-size: 15px; font-weight: {{w.v}}; line-height: 1; color: {{w.fg}};">あ</span>
+              <span class="num" style="font-size: 9px; font-weight: 700; color: {{w.metaFg}};">{{w.v}}</span>
+            </button>
+          </sc-for>
+        </div>
+
+        <!-- 数字と仮名の送り -->
+        <div style="margin-top: 11px; display: flex; align-items: center; gap: 8px;">
+          <span style="width: 44px; flex-shrink: 0; font-size: 11px; font-weight: 800; color: #5d6470;">送り</span>
+          <div style="flex: 1; display: flex; gap: 4px;">
+            <sc-for list="{{spacings}}" as="s" hint-placeholder-count="2">
+              <button class="tap" onClick="{{s.pick}}" style="flex: 1; height: 34px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid {{s.border}}; background: {{s.bg}};">
+                <span style="font-size: 11.5px; font-weight: 800; color: {{s.fg}};">{{s.label}}</span>
+                <span style="font-size: 9.5px; color: {{s.subFg}};">{{s.sub}}</span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- 行間・字間・長体 -->
+        <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 7px;">
+          <sc-for list="{{sliders}}" as="s" hint-placeholder-count="3">
+            <div style="display: flex; align-items: center; gap: 9px;">
+              <span style="width: 44px; flex-shrink: 0; font-size: 11px; font-weight: 800; color: #5d6470;">{{s.label}}</span>
+              <button class="tap" onClick="{{s.step}}" style="flex: 1; height: 20px; display: flex; align-items: center;">
+                <span style="flex: 1; height: 4px; border-radius: 2px; background: #e6e9ed; position: relative;">
+                  <span style="position: absolute; left: 0; top: 0; height: 4px; width: {{s.pct}}; border-radius: 2px; background: #005bac;"></span>
+                  <span style="position: absolute; left: {{s.pct}}; top: -4px; margin-left: -6px; width: 12px; height: 12px; border-radius: 9999px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+                </span>
+              </button>
+              <span class="num" style="width: 42px; flex-shrink: 0; text-align: right; font-size: 11.5px; font-weight: 700;">{{s.value}}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <!-- 1行に収める（長体を自動で決める。欄からあふれた分だけ詰める） -->
+        <div style="margin-top: 10px; display: flex; align-items: center; gap: 8px; border-radius: 9px; border: 1px solid {{fit.border}}; background: {{fit.bg}}; padding: 8px 10px;">
+          <span style="min-width: 0;">
+            <span style="display: block; font-size: 12px; font-weight: 800; color: {{fit.fg}};">1行に収める</span>
+            <span style="display: block; margin-top: 2px; font-size: 11px; line-height: 1.5; color: #5d6470;">{{fit.desc}}</span>
+          </span>
+          <span style="flex: 1;"></span>
+          <button class="tap" onClick="{{fit.toggle}}" style="width: 36px; height: 20px; border-radius: 9999px; background: {{fit.sw}}; position: relative; flex-shrink: 0;">
+            <span style="position: absolute; top: 2px; left: {{fit.knob}}; width: 16px; height: 16px; border-radius: 9999px; background: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: left .15s ease;"></span>
+          </button>
+        </div>
+
+        <!-- 色 -->
+        <div style="margin-top: 12px; font-size: 11px; font-weight: 800; color: #5d6470;">色</div>
+        <div style="margin-top: 6px; display: flex; gap: 5px;">
+          <sc-for list="{{colors}}" as="c" hint-placeholder-count="7">
+            <button class="tap" onClick="{{c.pick}}" style="width: 30px; height: 30px; border-radius: 8px; background: {{c.bg}}; border: 2px solid {{c.border}};" title="{{c.name}}"></button>
+          </sc-for>
+          <button class="tap" style="flex: 1; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #e6e9ed; font-size: 11px; font-weight: 700; color: #3c424c;">自由に</button>
+        </div>
+
+        <!-- 見た目の効果 -->
+        <div style="margin-top: 12px; display: flex; align-items: center; gap: 7px;">
+          <span style="font-size: 11px; font-weight: 800; color: #5d6470;">効果</span>
+          <span class="clip1" style="flex: 1; min-width: 0; font-size: 10.5px; color: #9aa1ab;">グラデーションは文字だけ。面には使いません（§6-6）</span>
+        </div>
+        <div style="margin-top: 6px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px;">
+          <sc-for list="{{effects}}" as="e" hint-placeholder-count="4">
+            <button class="tap" onClick="{{e.toggle}}" style="display: flex; align-items: center; gap: 7px; height: 32px; border-radius: 9px; border: 1px solid {{e.border}}; background: {{e.bg}}; padding: 0 9px; font-size: 11.5px; font-weight: 700; color: {{e.fg}};">
+              <span style="width: 12px; height: 12px; border-radius: 3px; border: 1.5px solid {{e.box}}; background: {{e.boxBg}}; flex-shrink: 0;"></span>{{e.label}}
+            </button>
+          </sc-for>
+        </div>
+
+        <!-- そろえ・組み -->
+        <div style="margin-top: 12px; display: flex; align-items: center; gap: 8px;">
+          <span style="width: 44px; flex-shrink: 0; font-size: 11px; font-weight: 800; color: #5d6470;">そろえ</span>
+          <div style="flex: 1; display: flex; gap: 4px;">
+            <sc-for list="{{aligns}}" as="a" hint-placeholder-count="4">
+              <button class="tap" onClick="{{a.pick}}" style="flex: 1; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid {{a.border}}; background: {{a.bg}}; gap: 2px;">
+                <span style="width: 13px; display: flex; flex-direction: column; gap: 2px; align-items: {{a.items}};">
+                  <span style="width: 100%; height: 2px; border-radius: 1px; background: {{a.fg}};"></span>
+                  <span style="width: 62%; height: 2px; border-radius: 1px; background: {{a.fg}};"></span>
+                  <span style="width: 100%; height: 2px; border-radius: 1px; background: {{a.fg}};"></span>
+                </span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- ひな形に登録 -->
+        <div style="margin-top: 13px; padding-top: 12px; border-top: 1px dashed #e6e9ed;">
+          <div style="font-size: 11px; font-weight: 800; color: #5d6470;">よく使う見た目</div>
+          <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 5px;">
+            <sc-for list="{{presets}}" as="p" hint-placeholder-count="5">
+              <button class="tap" onClick="{{p.pick}}" style="height: 28px; display: flex; align-items: center; border-radius: 8px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 10px; font-size: {{p.size}}; font-weight: {{p.weight}}; color: {{p.color}};">{{p.label}}</button>
+            </sc-for>
+          </div>
+          <button class="tap" style="margin-top: 8px; width: 100%; height: 32px; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 9px; border: 1px solid #cfe4f4; background: #f4faff; font-size: 12px; font-weight: 800; color: #005bac;">この見た目をひな形に登録</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { font: 'seed', size: 40, weight: 800, color: '#1a1d24', lead: 1.2, track: 0, scaleX: 1, fit: false, outline: false, shadow: false, gradient: false, vertical: false, align: 'left', spacing: 'palt' };
+  }
+
+  /**
+   * 書体は LINE Seed JP と Noto Sans JP が基本。3つ目の明朝は題字・引用のとき用。
+   * ウェイトは**その書体が実際に持っている段だけ**を出す（押しても変わらない段を作らない）。
+   * LINE Seed JP は 100/400/700/800 の4段しか無い（200/300/500/600/900 は存在しない）。
+   */
+  fontDefs() {
+    return [
+      { key: 'seed', label: 'LINE Seed JP', sample: '本番運営マニュアル 2026', family: "'LINE Seed JP', 'Noto Sans JP', sans-serif", weights: [100, 400, 700, 800] },
+      { key: 'noto', label: 'Noto Sans JP', sample: '本番運営マニュアル 2026', family: "'Noto Sans JP', sans-serif", weights: [100, 200, 300, 400, 500, 600, 700, 800, 900] },
+      { key: 'serif', label: 'Noto Serif JP', sample: '本番運営マニュアル 2026', family: "'Noto Serif JP', serif", weights: [400, 700, 900] },
+    ];
+  }
+
+  renderVals() {
+    const self = this;
+    const st = this.state;
+
+    const fdef = this.fontDefs().find((f) => f.key === st.font) || this.fontDefs()[0];
+    const fonts = this.fontDefs().map((f) => ({
+      label: f.label, sample: f.sample, family: f.family,
+      count: f.weights.length + '段',
+      countBg: st.font === f.key ? '#eaf4fb' : '#f2f4f7',
+      countFg: st.font === f.key ? '#005bac' : '#5d6470',
+      border: st.font === f.key ? '#005bac' : '#e6e9ed',
+      bg: st.font === f.key ? '#f4faff' : '#ffffff',
+      fg: st.font === f.key ? '#005bac' : '#9aa1ab',
+      // 書体を変えたとき、その書体に無い段を選んだままにしない（いちばん近い段へ寄せる）
+      pick: () => {
+        const near = f.weights.reduce((a, b) => (Math.abs(b - st.weight) < Math.abs(a - st.weight) ? b : a), f.weights[0]);
+        self.setState({ font: f.key, weight: near });
+      },
+    }));
+
+    // その書体が持っている段だけを出す。5段までは横一列、それ以上は2列に折り返す
+    const wide = fdef.weights.length <= 5;
+    const weights = fdef.weights.map((v) => ({
+      v: v, family: fdef.family,
+      width: wide ? 'calc(20% - 4px)' : 'calc(20% - 4px)',
+      border: st.weight === v ? '#005bac' : '#e6e9ed',
+      bg: st.weight === v ? '#f4faff' : '#ffffff',
+      fg: st.weight === v ? '#005bac' : '#1a1d24',
+      metaFg: st.weight === v ? '#005bac' : '#9aa1ab',
+      pick: () => self.setState({ weight: v }),
+    }));
+    const weightNote = fdef.key === 'seed'
+      ? 'LINE Seed JP はこの4段だけ（200・300・500・600・900 は無い）'
+      : (fdef.key === 'noto' ? '100 から 900 まで全9段' : '題字・引用向け。3段');
+
+    const spacingDefs = [
+      { key: 'palt', label: 'プロポーショナル', sub: '本文・見出し' },
+      { key: 'tnum', label: '等幅', sub: '時刻・番号・金額' },
+    ];
+    const spacings = spacingDefs.map((s) => ({
+      label: s.label, sub: s.sub,
+      border: st.spacing === s.key ? '#005bac' : '#e6e9ed',
+      bg: st.spacing === s.key ? '#f4faff' : '#ffffff',
+      fg: st.spacing === s.key ? '#005bac' : '#3c424c',
+      subFg: st.spacing === s.key ? '#4a90c8' : '#9aa1ab',
+      pick: () => self.setState({ spacing: s.key }),
+    }));
+
+    // 「1行に収める」が入っているときの長体。実装では欄の幅と文字の幅から1回だけ計算して
+    // ブロックに書き込む（描くたびに測らない — mockups/DESIGN_POLICY.md「測って書き戻す処理を入れない」）
+    const AUTO_SCALE = 0.88;
+    const effScale = st.fit ? AUTO_SCALE : st.scaleX;
+    const leadPct = Math.round(((st.lead - 1) / 1.2) * 100);
+    const trackPct = Math.round(((st.track + 0.05) / 0.25) * 100);
+    const scalePct = Math.round(((effScale - 0.7) / 0.6) * 100);
+    const sliders = [
+      { label: '行間', value: st.lead.toFixed(2), pct: leadPct + '%', step: () => self.setState({ lead: st.lead >= 2.1 ? 1.0 : Math.round((st.lead + 0.2) * 100) / 100 }) },
+      { label: '字間', value: (st.track * 100).toFixed(0) + '%', pct: trackPct + '%', step: () => self.setState({ track: st.track >= 0.19 ? -0.05 : Math.round((st.track + 0.04) * 100) / 100 }) },
+      { label: st.fit ? '長体（自動）' : '長体', value: (effScale * 100).toFixed(0) + '%', pct: scalePct + '%', step: () => self.setState({ fit: false, scaleX: effScale >= 1.29 ? 0.7 : Math.round((effScale + 0.1) * 100) / 100 }) },
+    ];
+
+    const colorDefs = [
+      { v: '#ffffff', name: '白' }, { v: '#1a1d24', name: '黒' }, { v: '#005bac', name: 'ブランド青' },
+      { v: '#c9a227', name: '金' }, { v: '#c2410e', name: '注意' }, { v: '#197a4b', name: '完了' }, { v: '#cfe4f4', name: '淡い青' },
+    ];
+    const colors = colorDefs.map((c) => ({
+      bg: c.v, name: c.name,
+      border: st.color === c.v ? '#005bac' : '#e6e9ed',
+      pick: () => self.setState({ color: c.v, gradient: false }),
+    }));
+
+    const effectDefs = [
+      { key: 'outline', label: '袋文字' }, { key: 'shadow', label: '影' },
+      { key: 'gradient', label: 'グラデーション' }, { key: 'vertical', label: '縦書き' },
+    ];
+    const effects = effectDefs.map((e) => {
+      const on = !!st[e.key];
+      return {
+        label: e.label,
+        border: on ? '#005bac' : '#e6e9ed',
+        bg: on ? '#f4faff' : '#ffffff',
+        fg: on ? '#005bac' : '#3c424c',
+        box: on ? '#005bac' : '#cbd2da',
+        boxBg: on ? '#005bac' : '#ffffff',
+        toggle: () => { const p = {}; p[e.key] = !on; self.setState(p); },
+      };
+    });
+
+    const alignDefs = [
+      { key: 'left', items: 'flex-start' }, { key: 'center', items: 'center' },
+      { key: 'right', items: 'flex-end' }, { key: 'justify', items: 'stretch' },
+    ];
+    const aligns = alignDefs.map((a) => ({
+      items: a.items,
+      border: st.align === a.key ? '#005bac' : '#e6e9ed',
+      bg: st.align === a.key ? '#f4faff' : '#ffffff',
+      fg: st.align === a.key ? '#005bac' : '#9aa1ab',
+      pick: () => self.setState({ align: a.key }),
+    }));
+
+    const presetDefs = [
+      { key: 'h1', label: '大見出し', size: '13px', weight: 800, color: '#1a1d24', s: { size: 40, weight: 800, font: 'seed' } },
+      { key: 'h2', label: '中見出し', size: '12px', weight: 800, color: '#1a1d24', s: { size: 24, weight: 800, font: 'seed' } },
+      { key: 'body', label: '本文', size: '11.5px', weight: 400, color: '#1a1d24', s: { size: 14, weight: 400, font: 'noto' } },
+      { key: 'warn', label: '注意', size: '11.5px', weight: 800, color: '#c2410e', s: { size: 16, weight: 800, font: 'seed', color: '#c2410e' } },
+      { key: 'title', label: '題字（明朝）', size: '11.5px', weight: 700, color: '#1a1d24', s: { size: 44, weight: 700, font: 'serif' } },
+    ];
+    const presets = presetDefs.map((p) => ({
+      label: p.label, size: p.size, weight: p.weight, color: p.color,
+      pick: () => self.setState(p.s),
+    }));
+
+    const pages = [
+      { no: 1, title: '表紙', accent: '#005bac', border: '#005bac', bg: '#ffffff', fg: '#1a1d24', fill: '#f7f8fa', noFg: '#005bac' },
+      { no: 2, title: '体制と連絡網', accent: '#005bac', border: '#e6e9ed', bg: '#ffffff', fg: '#1a1d24', fill: '#f2f4f7', noFg: '#9aa1ab' },
+      { no: 3, title: '8/22（土）リハーサル', accent: '#c2410e', border: '#e6e9ed', bg: '#ffffff', fg: '#1a1d24', fill: '#f2f4f7', noFg: '#9aa1ab' },
+      { no: 4, title: 'リハの進行表', accent: '#c2410e', border: '#e6e9ed', bg: '#ffffff', fg: '#1a1d24', fill: '#f2f4f7', noFg: '#9aa1ab' },
+      { no: 5, title: '収録・配信のしくみ', accent: '#197a4b', border: '#e6e9ed', bg: '#ffffff', fg: '#1a1d24', fill: '#f2f4f7', noFg: '#9aa1ab' },
+    ];
+
+    const grad = 'linear-gradient(92deg, #ffffff 0%, #cfe4f4 42%, #c9a227 100%)';
+    return {
+      fonts: fonts, weights: weights, weightNote: weightNote, spacings: spacings,
+      sliders: sliders, colors: colors,
+      effects: effects, aligns: aligns, presets: presets, pages: pages,
+      t: {
+        family: fdef.family, familyLabel: fdef.label,
+        size: st.size + 'px', sizePt: st.size + ' pt',
+        weight: st.weight, leading: st.lead, tracking: st.track + 'em',
+        color: st.gradient ? 'transparent' : st.color,
+        swatch: st.gradient ? grad : st.color,
+        bg: st.gradient ? grad : 'transparent',
+        clip: st.gradient ? 'text' : 'border-box',
+        stroke: st.outline ? '1.4px #c9a227' : '0',
+        shadow: st.shadow ? '0 3px 10px rgba(0,0,0,.38)' : 'none',
+        scaleX: effScale,
+        writing: st.vertical ? 'vertical-rl' : 'horizontal-tb',
+        // プロポーショナルが基本（palt）。等幅にしたところだけ tnum ＋ palt を切る
+        feature: st.spacing === 'tnum' ? '"tnum" 1, "palt" 0, "kern" 1' : '"palt" 1, "kern" 1',
+        numeric: st.spacing === 'tnum' ? 'tabular-nums' : 'proportional-nums',
+        spacingLabel: st.spacing === 'tnum' ? '等幅' : 'プロポーショナル',
+      },
+      fit: {
+        desc: st.fit ? '欄の幅に合わせて ' + Math.round(AUTO_SCALE * 100) + '% に詰めています' : '折り返さずに1行へ。足りない分だけ長体にします',
+        border: st.fit ? '#005bac' : '#e6e9ed',
+        bg: st.fit ? '#f4faff' : '#ffffff',
+        fg: st.fit ? '#005bac' : '#1a1d24',
+        sw: st.fit ? '#005bac' : '#cbd2da',
+        knob: st.fit ? '18px' : '2px',
+        toggle: () => self.setState({ fit: !st.fit }),
+      },
+      sizeUp: () => self.setState({ size: Math.min(96, st.size + 4) }),
+      sizeDown: () => self.setState({ size: Math.max(8, st.size - 4) }),
+    };
+  }
+}
+</script>
+</body>
+</html>

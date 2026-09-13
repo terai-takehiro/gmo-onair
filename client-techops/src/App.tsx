@@ -15,6 +15,11 @@ import JourneyPage from "@/pages/JourneyPage";
 import ScheduleListPage from "@/pages/schedule/ScheduleListPage";
 import SchedulePage from "@/pages/schedule/SchedulePage";
 import ScheduleTemplateSettingsPage from "@/pages/schedule/ScheduleTemplateSettingsPage";
+// 運営マニュアル（段A・docs/design/v4/production-manual.md）
+import ManualListPage from "@/pages/opsmanual/ManualListPage";
+// 段E: "/techops/manuals/:id" は PC・スマホで別画面に入れ替わる（薄い親。ManualDetailRouter.tsx）
+import ManualDetailRouter from "@/pages/opsmanual/ManualDetailRouter";
+import ManualPreviewPage from "@/pages/opsmanual/ManualPreviewPage";
 import { TECHOPS_ROOT_PATH } from "@/routeSwitch";
 import RecordingPage from "@/pages/recording/RecordingPage";
 import StreamingPage from "@/pages/streaming/StreamingPage";
@@ -185,6 +190,13 @@ export default function App() {
         <Route path="/techops/schedules" element={<ScheduleListPage />} />
         <Route path="/techops/schedules/:id" element={<SchedulePage />} />
         <Route path="/techops/settings/schedule-templates" element={<ScheduleTemplateSettingsPage />} />
+
+        {/* 運営マニュアル（段A・docs/design/v4/production-manual.md §9） */}
+        <Route path="/techops/manuals" element={<ManualListPage />} />
+        {/* 冊子1件。PC＝編集・スマホ＝閲覧専用（段E・§6⑥。ManualDetailRouter.tsx が入れ替える） */}
+        <Route path="/techops/manuals/:id" element={<ManualDetailRouter />} />
+        {/* 仕上がりと PDF（段D・production-manual.md §6⑤）。引き続き PC 専用 */}
+        <Route path="/techops/manuals/:id/preview" element={<ManualPreviewPage />} />
 
         {/* 制作のジャーニー（段3・03-app-structure-impl.md §3-2・§8 PR F）。案件の入口／資料単体の入口 */}
         <Route path="/techops/projects/:id" element={<JourneyPage scope="project" />} />

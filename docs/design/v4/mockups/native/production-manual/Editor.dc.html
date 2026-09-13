@@ -1,0 +1,560 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@100;400;700;800&family=Noto+Sans+JP:wght@100;200;300;400;500;600;700;800;900&family=Noto+Serif+JP:wght@400;700;900&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    button { font-family: inherit; }
+    .tap { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .ghost:hover { background: #f2f4f7; }
+    .btn-primary { transition: background-color .12s ease; } .btn-primary:hover { background: #004d91; }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .blk { transition: box-shadow .12s ease; }
+    .blk:hover { box-shadow: 0 0 0 1.5px #a6ceeb; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 1076px; position: relative; overflow: hidden; background: #f7f8fa; display: flex; flex-direction: column; color: #1a1d24;">
+
+  <!-- ── 上辺バー（共通シェル。左メニューは畳んだ状態が既定） ────────── -->
+  <header style="display: flex; height: 64px; flex-shrink: 0; align-items: center; gap: 14px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 24px;">
+    <button class="tap ghost" style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #e6e9ed;" title="左メニューを出す（編集中は畳んだ状態が既定）"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg></button>
+    <div style="display: flex; align-items: center; gap: 9px;">
+      <div style="width: 28px; height: 28px; border-radius: 9px; background: #005bac; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M7.8 7.8a6 6 0 0 0 0 8.4"></path><path d="M16.2 16.2a6 6 0 0 0 0-8.4"></path><path d="M4.9 4.9a10 10 0 0 0 0 14.2"></path><path d="M19.1 19.1a10 10 0 0 0 0-14.2"></path></svg></div>
+      <span style="font-size: 15px; font-weight: 800;">ONAiR</span>
+    </div>
+    <span style="height: 22px; width: 1px; background: #e6e9ed;"></span>
+    <span class="clip1" style="font-size: 12.5px; color: #5d6470; max-width: 420px;">制作技術支援 ／ サイエンス・フロンティア ／ 運営マニュアル</span>
+    <span style="flex: 1;"></span>
+    <button class="tap" style="display: flex; align-items: center; gap: 10px; height: 44px;">
+      <span style="width: 32px; height: 32px; border-radius: 9999px; background: #eaf4fb; color: #005bac; font-size: 13.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;">川</span>
+      <span style="font-size: 12.5px; white-space: nowrap;">川口 早苗</span>
+    </button>
+  </header>
+
+  <!-- ── 冊子の帯 ──────────────────────────────────────────── -->
+  <div style="display: flex; height: 52px; flex-shrink: 0; align-items: center; gap: 12px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 16px 0 12px;">
+    <button class="tap ghost" style="display: flex; align-items: center; gap: 3px; height: 32px; border-radius: 8px; padding: 0 9px 0 5px; color: #005bac;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg><span style="font-size: 12.5px; font-weight: 700;">冊子一覧</span></button>
+    <span style="height: 20px; width: 1px; background: #e6e9ed;"></span>
+    <span class="num" style="font-size: 11.5px; font-weight: 700; color: #9aa1ab;">OM-0006</span>
+    <span style="font-size: 15px; font-weight: 800;">リハーサル進行マニュアル</span>
+    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 56px; height: 21px; border-radius: 6px; background: #fff7ed; color: #c2410e; font-size: 11px; font-weight: 800;">下書き</span>
+    <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: #197a4b;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#197a4b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>保存しました</span>
+    <span style="display: inline-flex; align-items: center; gap: 5px; height: 21px; border-radius: 6px; border: 1px solid #cfe4f4; background: #f4faff; color: #005bac; font-size: 11px; font-weight: 700; padding: 0 8px;" title="編集中は他の人からは読むだけになります。10分手が止まると自動で解けます"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>あなたが編集中</span>
+    <span style="flex: 1;"></span>
+    <button class="tap" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; border: 1px solid #fdba74; background: #fff7ed; padding: 0 11px; font-size: 12.5px; font-weight: 800; color: #c2410e;"><span style="width: 6px; height: 6px; border-radius: 9999px; background: #c2410e;"></span>元が変わりました <span class="num">1</span></button>
+    <button class="tap" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12.5px; font-weight: 700;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="2.6"></circle></svg>仕上がりを見る</button>
+    <button class="tap" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12.5px; font-weight: 700;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"></path><path d="M8 11l4 4 4-4"></path><path d="M4 19h16"></path></svg>PDF</button>
+    <button class="tap btn-primary" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; background: #005bac; color: #ffffff; padding: 0 14px; font-size: 12.5px; font-weight: 800;">確定する</button>
+  </div>
+
+  <!-- ── 交代の申し出（読むだけの人が押すと、持っている人にこれが出る） ── -->
+  <div style="display: flex; height: 36px; flex-shrink: 0; align-items: center; gap: 9px; border-bottom: 1px solid #cfe4f4; background: #f4faff; padding: 0 16px;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"></path><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><path d="M7 22l-4-4 4-4"></path><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+    <span style="font-size: 12.5px; font-weight: 700; color: #005bac;">大野 健 さんが「編集を代わってほしい」と申し出ています</span>
+    <span style="flex: 1;"></span>
+    <button class="tap" style="display: flex; align-items: center; height: 28px; border-radius: 8px; background: #005bac; color: #ffffff; padding: 0 12px; font-size: 12px; font-weight: 800;">渡す</button>
+    <button class="tap" style="display: flex; align-items: center; height: 28px; border-radius: 8px; border: 1px solid #cfe4f4; background: #ffffff; color: #005bac; padding: 0 11px; font-size: 12px; font-weight: 700;">あとで</button>
+  </div>
+
+  <!-- ── 道具の帯 ──────────────────────────────────────────── -->
+  <div style="display: flex; height: 44px; flex-shrink: 0; align-items: center; gap: 5px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px;">
+    <button class="tap" onClick="{{openInsert}}" style="display: flex; align-items: center; gap: 6px; height: 32px; border-radius: 9px; border: 1px solid {{insertBorder}}; background: {{insertBg}}; padding: 0 12px; font-size: 12.5px; font-weight: 800; color: {{insertFg}};"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{insertFg}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>差し込む</button>
+    <span style="height: 20px; width: 1px; background: #e6e9ed; margin: 0 4px;"></span>
+    <sc-for list="{{tools}}" as="t" hint-placeholder-count="5">
+      <button class="tap ghost" style="display: flex; align-items: center; gap: 6px; height: 32px; border-radius: 9px; padding: 0 10px; font-size: 12.5px; font-weight: 700; color: #3c424c;" title="{{t.hint}}">
+        <span style="width: 16px; height: 16px; border-radius: 4px; border: 1.6px solid #5d6470; background: {{t.fill}};"></span>{{t.label}}
+      </button>
+    </sc-for>
+    <span style="height: 20px; width: 1px; background: #e6e9ed; margin: 0 4px;"></span>
+    <span style="font-size: 11.5px; color: #9aa1ab;">整列</span>
+    <sc-for list="{{aligns}}" as="a" hint-placeholder-count="6">
+      <button class="tap ghost" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 8px;" title="{{a.hint}}">
+        <span style="width: 14px; height: 14px; border-left: {{a.l}}; border-top: {{a.t}}; border-right: {{a.r}}; border-bottom: {{a.b}}; background: #cbd2da;"></span>
+      </button>
+    </sc-for>
+    <span style="height: 20px; width: 1px; background: #e6e9ed; margin: 0 4px;"></span>
+    <button class="tap ghost" style="display: flex; align-items: center; gap: 5px; height: 30px; border-radius: 8px; padding: 0 9px; font-size: 12px; font-weight: 700; color: #3c424c;" title="前面へ・背面へ">重なり</button>
+    <button class="tap ghost" style="display: flex; align-items: center; gap: 5px; height: 30px; border-radius: 8px; padding: 0 9px; font-size: 12px; font-weight: 700; color: #3c424c;" title="Ctrl+Z / Ctrl+Shift+Z">元に戻す</button>
+    <span style="flex: 1;"></span>
+    <button class="tap ghost" style="display: flex; align-items: center; gap: 6px; height: 30px; border-radius: 8px; padding: 0 10px; font-size: 12px; font-weight: 700; color: #3c424c;" title="ブロックの端と余白に吸い付く"><span style="width: 8px; height: 8px; border-radius: 2px; background: #005bac;"></span>すいつき</button>
+    <button class="tap ghost" style="display: flex; align-items: center; gap: 6px; height: 30px; border-radius: 8px; padding: 0 10px; font-size: 12px; font-weight: 700; color: #3c424c;">方眼</button>
+    <span style="height: 20px; width: 1px; background: #e6e9ed; margin: 0 4px;"></span>
+    <div style="display: flex; align-items: center; gap: 2px;">
+      <button class="tap ghost" onClick="{{zoomOut}}" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 7px; font-size: 15px; font-weight: 700; color: #3c424c;">−</button>
+      <span class="num" style="width: 46px; text-align: center; font-size: 12px; font-weight: 700;">{{zoomLabel}}</span>
+      <button class="tap ghost" onClick="{{zoomIn}}" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 7px; font-size: 15px; font-weight: 700; color: #3c424c;">＋</button>
+    </div>
+  </div>
+
+  <div style="display: flex; flex: 1; min-height: 0;">
+
+    <!-- ── 左: ページ一覧 ─────────────────────────────────── -->
+    <aside style="width: 176px; flex-shrink: 0; border-right: 1px solid #e6e9ed; background: #ffffff; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 6px; height: 38px; flex-shrink: 0; padding: 0 12px; border-bottom: 1px solid #e6e9ed;">
+        <span style="font-size: 12px; font-weight: 800;">ページ</span>
+        <span class="num" style="font-size: 11.5px; color: #9aa1ab;">6枚</span>
+        <span style="flex: 1;"></span>
+        <button class="tap ghost" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 6px;" title="ページを追加"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></button>
+      </div>
+      <div style="flex: 1; overflow: hidden; padding: 10px 10px 12px; display: flex; flex-direction: column; gap: 7px;">
+        <sc-for list="{{pages}}" as="p" hint-placeholder-count="6">
+          <div>
+            <sc-if value="{{p.isChapter}}" hint-placeholder-val="{{ true }}">
+              <div style="display: flex; align-items: center; gap: 6px; padding: 5px 2px 3px;">
+                <span style="width: 3px; height: 11px; border-radius: 2px; background: #005bac;"></span>
+                <span style="font-size: 11px; font-weight: 800; color: #005bac;">{{p.chapter}}</span>
+              </div>
+            </sc-if>
+            <button class="tap" onClick="{{p.pick}}" style="display: flex; align-items: flex-start; gap: 7px; width: 100%;">
+              <span class="num" style="width: 13px; padding-top: 14px; font-size: 10.5px; font-weight: 700; color: {{p.noFg}}; text-align: right; flex-shrink: 0;">{{p.no}}</span>
+              <span style="flex: 1; min-width: 0; aspect-ratio: 297 / 210; border-radius: 4px; border: 2px solid {{p.border}}; background: #ffffff; padding: 5px 6px; display: flex; flex-direction: column; gap: 3px; overflow: hidden;">
+                <span style="height: 3px; width: 60%; border-radius: 2px; background: {{p.accent}};"></span>
+                <span style="font-size: 7px; font-weight: 800; line-height: 1.25; color: #1a1d24;">{{p.title}}</span>
+                <span style="flex: 1; border-radius: 2px; background: #f2f4f7;"></span>
+              </span>
+            </button>
+          </div>
+        </sc-for>
+      </div>
+    </aside>
+
+    <!-- ── 中央: キャンバス ──────────────────────────────── -->
+    <main style="flex: 1; min-width: 0; background: #eef0f3; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 22px;">
+      <div style="width: 880px; aspect-ratio: 297 / 210; position: relative; background: #ffffff; box-shadow: 0 8px 28px rgba(26,29,36,.14); border: 1px solid #cbd2da;">
+
+        <!-- 版面のガイド（印刷される余白） -->
+        <div style="position: absolute; inset: 3.4% 3.4%; border: 1px dashed #e6e9ed; pointer-events: none;"></div>
+
+        <!-- ブロック -->
+        <sc-for list="{{blocks}}" as="b" hint-placeholder-count="6">
+          <div class="blk" onClick="{{b.pick}}" style="position: absolute; left: {{b.x}}; top: {{b.y}}; width: {{b.w}}; height: {{b.h}}; cursor: pointer; box-shadow: {{b.ring}};">
+            <div style="width: 100%; height: 100%; overflow: hidden; background: {{b.bg}}; border: {{b.border}}; border-radius: {{b.radius}}; padding: {{b.pad}};">
+
+              <!-- 見出し（差し込み） -->
+              <sc-if value="{{b.isHeader}}" hint-placeholder-val="{{ true }}">
+                <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; height: 100%;">
+                  <div>
+                    <div style="font-size: 9px; font-weight: 700; color: #5d6470; letter-spacing: .04em;">リハーサル進行マニュアル</div>
+                    <div style="margin-top: 2px; font-size: 19px; font-weight: 800; line-height: 1.2;">東都TV 特番収録「サイエンス・フロンティア」</div>
+                  </div>
+                  <div class="num" style="text-align: right; flex-shrink: 0;">
+                    <div style="font-size: 12px; font-weight: 800;">第7回 ／ 2026年8月22日（土）</div>
+                    <div style="margin-top: 2px; font-size: 9.5px; color: #5d6470;">GLS-A002 ・ 第2スタジオ ・ 入り 09:00</div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- 香盤（差し込み） -->
+              <sc-if value="{{b.isSchedule}}" hint-placeholder-val="{{ true }}">
+                <div style="height: 100%; display: flex; flex-direction: column;">
+                  <div style="display: flex; align-items: center; gap: 6px; padding-bottom: 5px; border-bottom: 1.5px solid #1a1d24;">
+                    <span style="font-size: 11px; font-weight: 800;">当日の流れ</span>
+                    <span class="num" style="font-size: 8.5px; color: #5d6470;">8/22（土）09:00 − 21:00</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 6px; height: 15px; margin-top: 4px; font-size: 7.5px; font-weight: 800; color: #5d6470;">
+                    <span class="num" style="width: 62px; flex-shrink: 0;">時刻</span>
+                    <span style="flex: 1;">内容</span>
+                    <span style="width: 74px; flex-shrink: 0;">担当</span>
+                    <span style="width: 54px; flex-shrink: 0;">場所</span>
+                  </div>
+                  <sc-for list="{{rows}}" as="r" hint-placeholder-count="9">
+                    <div style="display: flex; align-items: center; gap: 6px; height: 19px; border-top: 1px solid #e6e9ed; font-size: 8.5px;">
+                      <span class="num" style="width: 62px; flex-shrink: 0; font-weight: 700; color: {{r.timeFg}};">{{r.time}}</span>
+                      <span style="flex: 1; min-width: 0; font-weight: {{r.weight}};">{{r.title}}</span>
+                      <span style="width: 74px; flex-shrink: 0; color: #5d6470;">{{r.who}}</span>
+                      <span style="width: 54px; flex-shrink: 0; color: #5d6470;">{{r.where}}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <!-- 体制（差し込み） -->
+              <sc-if value="{{b.isCrew}}" hint-placeholder-val="{{ true }}">
+                <div style="height: 100%; display: flex; flex-direction: column;">
+                  <div style="font-size: 11px; font-weight: 800; padding-bottom: 5px; border-bottom: 1.5px solid #1a1d24;">体制・連絡先</div>
+                  <sc-for list="{{crew}}" as="c" hint-placeholder-count="6">
+                    <div style="display: flex; align-items: center; gap: 6px; height: 19px; border-bottom: 1px solid #e6e9ed; font-size: 8.5px;">
+                      <span style="width: 54px; flex-shrink: 0; color: #5d6470;">{{c.role}}</span>
+                      <span style="flex: 1; min-width: 0; font-weight: 700;">{{c.name}}</span>
+                      <span class="num" style="flex-shrink: 0; color: #5d6470;">{{c.tel}}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <!-- 注意書き（自由・文字） -->
+              <sc-if value="{{b.isNote}}" hint-placeholder-val="{{ true }}">
+                <div style="height: 100%; border-left: 3px solid #c2410e; padding-left: 8px; display: flex; flex-direction: column; justify-content: center;">
+                  <div style="font-size: 10.5px; font-weight: 800; color: #c2410e;">リハ中の約束ごと</div>
+                  <div style="margin-top: 3px; font-size: 8.5px; line-height: 1.55; color: #1a1d24;">・ スタジオ内は私物の持ち込み禁止。貴重品は 副調の棚へ<br>・ 12:30 の通しリハは<strong>止めずに最後まで</strong>。気づきは終了後にまとめて</div>
+                </div>
+              </sc-if>
+
+              <!-- QR（自由） -->
+              <sc-if value="{{b.isQr}}" hint-placeholder-val="{{ true }}">
+                <div style="height: 100%; display: flex; align-items: center; gap: 9px;">
+                  <div style="width: 46px; height: 46px; flex-shrink: 0; background: #1a1d24; border-radius: 2px; padding: 4px;">
+                    <div style="width: 100%; height: 100%; background: #ffffff; display: grid; grid-template-columns: repeat(5, 1fr); grid-template-rows: repeat(5, 1fr);">
+                      <span style="background: #1a1d24;"></span><span></span><span style="background: #1a1d24;"></span><span></span><span style="background: #1a1d24;"></span>
+                      <span></span><span style="background: #1a1d24;"></span><span></span><span style="background: #1a1d24;"></span><span></span>
+                      <span style="background: #1a1d24;"></span><span></span><span style="background: #1a1d24;"></span><span style="background: #1a1d24;"></span><span></span>
+                      <span></span><span style="background: #1a1d24;"></span><span></span><span></span><span style="background: #1a1d24;"></span>
+                      <span style="background: #1a1d24;"></span><span></span><span style="background: #1a1d24;"></span><span></span><span style="background: #1a1d24;"></span>
+                    </div>
+                  </div>
+                  <div style="min-width: 0;">
+                    <div style="font-size: 9.5px; font-weight: 800;">音声サポート（スマホ）</div>
+                    <div style="margin-top: 2px; font-size: 8px; line-height: 1.5; color: #5d6470;">マイクの割り当てをその場で見る画面。<br>読み取ると当日の台本が開きます</div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- 柱（マスター） -->
+              <sc-if value="{{b.isFooter}}" hint-placeholder-val="{{ true }}">
+                <div style="height: 100%; display: flex; align-items: center; gap: 8px; border-top: 1px solid #e6e9ed; padding-top: 4px;">
+                  <span class="num" style="font-size: 7.5px; color: #9aa1ab;">GMO グローバルスタジオ ／ 社外秘</span>
+                  <span style="flex: 1;"></span>
+                  <span class="num" style="font-size: 7.5px; color: #9aa1ab;">2026/08/21 時点 ・ 3 / 6</span>
+                </div>
+              </sc-if>
+            </div>
+
+            <!-- 選択のつまみ -->
+            <sc-if value="{{b.selected}}" hint-placeholder-val="{{ true }}">
+              <span style="position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+              <span style="position: absolute; right: -4px; top: -4px; width: 8px; height: 8px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+              <span style="position: absolute; left: -4px; bottom: -4px; width: 8px; height: 8px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+              <span style="position: absolute; right: -4px; bottom: -4px; width: 8px; height: 8px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+              <span style="position: absolute; left: 50%; top: -4px; margin-left: -4px; width: 8px; height: 8px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+              <span style="position: absolute; left: 50%; bottom: -4px; margin-left: -4px; width: 8px; height: 8px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+              <span style="position: absolute; left: -4px; top: 50%; margin-top: -4px; width: 8px; height: 8px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+              <span style="position: absolute; right: -4px; top: 50%; margin-top: -4px; width: 8px; height: 8px; border-radius: 2px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+              <span style="position: absolute; left: 50%; top: -30px; margin-left: -7px; width: 14px; height: 14px; border-radius: 9999px; background: #ffffff; border: 1.5px solid #005bac;"></span>
+              <span style="position: absolute; left: 0; top: -22px; display: inline-flex; align-items: center; gap: 5px; height: 17px; border-radius: 5px; background: #005bac; color: #ffffff; font-size: 9.5px; font-weight: 800; padding: 0 7px; white-space: nowrap;">{{b.tag}}</span>
+            </sc-if>
+          </div>
+        </sc-for>
+
+        <!-- すいつきの線（選択中のブロックの上端） -->
+        <sc-if value="{{guide.on}}" hint-placeholder-val="{{ true }}">
+          <div style="position: absolute; left: 0; right: 0; top: {{guide.y}}; border-top: 1px dashed #c7243a; pointer-events: none;"></div>
+        </sc-if>
+      </div>
+    </main>
+
+    <!-- ── 右: パネル ──────────────────────────────────── -->
+    <aside style="width: 296px; flex-shrink: 0; border-left: 1px solid #e6e9ed; background: #ffffff; display: flex; flex-direction: column;">
+      <div style="display: flex; height: 38px; flex-shrink: 0; border-bottom: 1px solid #e6e9ed;">
+        <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+          <button class="tap" onClick="{{t.pick}}" style="flex: 1; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: {{t.weight}}; color: {{t.fg}}; border-bottom: 2px solid {{t.line}};">{{t.label}}</button>
+        </sc-for>
+      </div>
+
+      <div style="flex: 1; overflow: hidden; padding: 13px 14px 16px;">
+        <!-- 選択中のブロック -->
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="width: 22px; height: 22px; border-radius: 6px; background: {{sel.iconBg}}; display: flex; align-items: center; justify-content: center;"><span style="width: 9px; height: 9px; border-radius: 2px; background: {{sel.iconFg}};"></span></span>
+          <span class="clip1" style="font-size: 13.5px; font-weight: 800; min-width: 0;">{{sel.name}}</span>
+          <span style="flex: 1;"></span>
+          <span style="display: inline-flex; align-items: center; height: 20px; border-radius: 6px; background: {{sel.kindBg}}; color: {{sel.kindFg}}; font-size: 10.5px; font-weight: 800; padding: 0 7px;">{{sel.kind}}</span>
+        </div>
+
+        <!-- 差し込み元（差し込みブロックのとき） -->
+        <sc-if value="{{sel.isLinked}}" hint-placeholder-val="{{ true }}">
+          <div style="margin-top: 12px; border-radius: 10px; border: 1px solid #cfe4f4; background: #f4faff; padding: 10px 11px;">
+            <div style="font-size: 11px; font-weight: 800; color: #005bac;">差し込み元</div>
+            <div style="margin-top: 5px; display: flex; align-items: center; gap: 7px;">
+              <span class="clip1" style="font-size: 12.5px; font-weight: 700; min-width: 0;">{{sel.source}}</span>
+              <button class="tap" style="flex-shrink: 0; font-size: 11.5px; font-weight: 700; color: #005bac;">開く</button>
+            </div>
+            <div class="num" style="margin-top: 3px; font-size: 11px; color: #5d6470;">{{sel.sourceMeta}}</div>
+          </div>
+
+          <div style="margin-top: 13px; font-size: 11px; font-weight: 800; color: #5d6470;">見せ方</div>
+          <div style="margin-top: 6px; display: flex; gap: 5px;">
+            <sc-for list="{{views}}" as="v" hint-placeholder-count="3">
+              <button class="tap" onClick="{{v.pick}}" style="flex: 1; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid {{v.border}}; background: {{v.bg}}; color: {{v.fg}}; font-size: 11.5px; font-weight: 700;">{{v.label}}</button>
+            </sc-for>
+          </div>
+
+          <div style="margin-top: 13px; font-size: 11px; font-weight: 800; color: #5d6470;">出す列</div>
+          <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 5px;">
+            <sc-for list="{{cols}}" as="c" hint-placeholder-count="4">
+              <button class="tap" onClick="{{c.toggle}}" style="display: flex; align-items: center; gap: 5px; height: 27px; border-radius: 8px; border: 1px solid {{c.border}}; background: {{c.bg}}; padding: 0 9px; font-size: 11.5px; font-weight: 700; color: {{c.fg}};">
+                <span style="width: 12px; height: 12px; border-radius: 3px; border: 1.5px solid {{c.box}}; background: {{c.boxBg}};"></span>{{c.label}}
+              </button>
+            </sc-for>
+          </div>
+
+          <div style="margin-top: 13px; display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 11px; font-weight: 800; color: #5d6470; width: 74px;">時間帯</span>
+            <span class="num" style="flex: 1; height: 30px; display: flex; align-items: center; border-radius: 8px; border: 1px solid #e6e9ed; padding: 0 9px; font-size: 12px;">09:00 − 21:00</span>
+          </div>
+          <div style="margin-top: 7px; display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 11px; font-weight: 800; color: #5d6470; width: 74px;">文字の大きさ</span>
+            <span class="num" style="flex: 1; height: 30px; display: flex; align-items: center; border-radius: 8px; border: 1px solid #e6e9ed; padding: 0 9px; font-size: 12px;">8.5 pt（自動で詰める）</span>
+          </div>
+
+          <div style="margin-top: 13px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 10px 11px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="min-width: 0;">
+                <div style="font-size: 12px; font-weight: 800;">元が変わったら</div>
+                <div style="margin-top: 2px; font-size: 11px; line-height: 1.5; color: #5d6470;">{{freeze.desc}}</div>
+              </div>
+              <span style="flex: 1;"></span>
+              <button class="tap" onClick="{{freeze.toggle}}" style="width: 36px; height: 20px; border-radius: 9999px; background: {{freeze.bg}}; position: relative; flex-shrink: 0;">
+                <span style="position: absolute; top: 2px; left: {{freeze.knob}}; width: 16px; height: 16px; border-radius: 9999px; background: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: left .15s ease;"></span>
+              </button>
+            </div>
+          </div>
+
+          <sc-if value="{{sel.stale}}" hint-placeholder-val="{{ true }}">
+            <div style="margin-top: 10px; border-radius: 10px; border: 1px solid #fed7aa; background: #fff7ed; padding: 10px 11px;">
+              <div style="font-size: 11.5px; font-weight: 800; color: #c2410e;">元が変わりました</div>
+              <div style="margin-top: 3px; font-size: 11px; line-height: 1.5; color: #7c2d12;">12:30「通しリハ」の終わりが 14:00 → 14:20 に。2行増えています。</div>
+              <div style="margin-top: 8px; display: flex; gap: 6px;">
+                <button class="tap" style="flex: 1; height: 29px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: #c2410e; color: #ffffff; font-size: 11.5px; font-weight: 800;">取り込む</button>
+                <button class="tap" style="height: 29px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #fdba74; background: #ffffff; color: #c2410e; padding: 0 10px; font-size: 11.5px; font-weight: 700;">違いを見る</button>
+              </div>
+            </div>
+          </sc-if>
+        </sc-if>
+
+        <!-- 自由ブロックのとき -->
+        <sc-if value="{{sel.isFree}}" hint-placeholder-val="{{ true }}">
+          <div style="margin-top: 12px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 11px;">
+            <div style="font-size: 11.5px; line-height: 1.6; color: #5d6470;">{{sel.freeHint}}</div>
+          </div>
+          <div style="margin-top: 12px; font-size: 11px; font-weight: 800; color: #5d6470;">よく使う書式</div>
+          <div style="margin-top: 6px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px;">
+            <sc-for list="{{quickStyles}}" as="q" hint-placeholder-count="8">
+              <button class="tap" style="height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #e6e9ed; background: #ffffff; font-size: {{q.size}}; font-weight: {{q.weight}}; color: {{q.color}};">{{q.label}}</button>
+            </sc-for>
+          </div>
+          <p style="margin: 12px 0 0; font-size: 11.5px; line-height: 1.6; color: #9aa1ab;">書体・字間・行間・縁取り・影・背景・回転は「書式」タブで1つずつ変えられます。</p>
+        </sc-if>
+
+        <!-- ひな形のブロックのとき（全ページ共通） -->
+        <sc-if value="{{sel.isMaster}}" hint-placeholder-val="{{ true }}">
+          <div style="margin-top: 12px; border-radius: 10px; border: 1px solid #e6e9ed; background: #f7f8fa; padding: 11px;">
+            <div style="font-size: 11.5px; line-height: 1.6; color: #5d6470;">{{sel.freeHint}}</div>
+          </div>
+          <button class="tap" style="margin-top: 11px; width: 100%; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid #cfe4f4; background: #f4faff; font-size: 12.5px; font-weight: 800; color: #005bac;">ひな形を編集する</button>
+          <p style="margin: 9px 0 0; font-size: 11.5px; line-height: 1.6; color: #9aa1ab;">このページだけ柱を消したいときは「このページでは出さない」を選びます。</p>
+        </sc-if>
+
+        <!-- 位置と大きさ -->
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed #e6e9ed;">
+          <div style="font-size: 11px; font-weight: 800; color: #5d6470;">位置と大きさ（mm）</div>
+          <div style="margin-top: 6px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px;">
+            <sc-for list="{{geom}}" as="g" hint-placeholder-count="4">
+              <div style="border-radius: 8px; border: 1px solid #e6e9ed; padding: 5px 7px;">
+                <div style="font-size: 9.5px; color: #9aa1ab;">{{g.label}}</div>
+                <div class="num" style="font-size: 12px; font-weight: 700;">{{g.value}}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { page: 3, sel: 'sched', tab: 'link', view: 'list', zoom: 100, freeze: false, cols: ['reh', 'tech'], insert: false };
+  }
+
+  blockDefs() {
+    return [
+      { id: 'hdr',  tag: '差し込み ／ 見出し',   kind: 'linked', name: '見出し（案件・回・日付・会場）', x: '5%',  y: '5%',  w: '90%', h: '10%', source: '案件管理 ・ GLS-A002', sourceMeta: '第7回 ／ 2026-08-22 ／ 第2スタジオ' },
+      { id: 'sched',tag: '差し込み ／ 当日の流れ', kind: 'linked', name: '当日の流れ（香盤）', x: '5%',  y: '18%', w: '55%', h: '62%', source: 'スケジュール表 SD-0031', sourceMeta: '8/22（土）・ 今日 10:48 更新', stale: true },
+      { id: 'crew', tag: '差し込み ／ 体制',     kind: 'linked', name: '体制・連絡先', x: '63%', y: '18%', w: '32%', h: '30%', source: '案件のメンバー', sourceMeta: '8人 ・ 8/19 更新' },
+      { id: 'note', tag: '文字',                 kind: 'free',   name: 'リハ中の約束ごと', x: '63%', y: '51%', w: '32%', h: '15%', freeHint: '文字ブロック。ダブルクリックで直接打てます。選んだ範囲だけ書体・色を変えられます。' },
+      { id: 'qr',   tag: 'QR',                   kind: 'free',   name: 'QR（音声サポート）', x: '63%', y: '69%', w: '32%', h: '11%', freeHint: 'QR ブロック。行き先は制作技術支援の画面から選びます（音声サポート・進行台本・スケジュール表）。' },
+      { id: 'foot', tag: 'ひな形（全ページ共通）', kind: 'master', name: '柱（社外秘・日付・ページ番号）', x: '5%',  y: '88%', w: '90%', h: '6%', freeHint: 'ひな形のブロック。全ページに同じものが出ます。直すとすべてのページに効きます。' },
+    ];
+  }
+
+  renderVals() {
+    const self = this;
+    const st = this.state;
+
+    const defs = this.blockDefs();
+    const blocks = defs.map((d) => {
+      const on = st.sel === d.id;
+      const isMaster = d.kind === 'master';
+      return {
+        x: d.x, y: d.y, w: d.w, h: d.h, tag: d.tag, selected: on,
+        ring: on ? '0 0 0 1.5px #005bac' : 'none',
+        bg: isMaster ? 'transparent' : '#ffffff',
+        border: '1px solid transparent',
+        radius: '2px',
+        pad: d.id === 'hdr' ? '0' : (isMaster ? '0' : '6px 8px'),
+        isHeader: d.id === 'hdr', isSchedule: d.id === 'sched', isCrew: d.id === 'crew',
+        isNote: d.id === 'note', isQr: d.id === 'qr', isFooter: d.id === 'foot',
+        pick: () => self.setState({ sel: d.id, tab: d.kind === 'linked' ? 'link' : 'style' }),
+      };
+    });
+
+    const d = defs.find((x) => x.id === st.sel) || defs[1];
+    const linked = d.kind === 'linked';
+    const sel = {
+      name: d.name, source: d.source || '', sourceMeta: d.sourceMeta || '',
+      isLinked: linked, isFree: d.kind === 'free', isMaster: d.kind === 'master', freeHint: d.freeHint || '',
+      stale: !!d.stale,
+      kind: linked ? '差し込み' : (d.kind === 'master' ? 'ひな形' : '自由'),
+      kindBg: linked ? '#eaf4fb' : (d.kind === 'master' ? '#f2f4f7' : '#f1faf5'),
+      kindFg: linked ? '#005bac' : (d.kind === 'master' ? '#5d6470' : '#197a4b'),
+      iconBg: linked ? '#eaf4fb' : '#f2f4f7',
+      iconFg: linked ? '#005bac' : '#5d6470',
+    };
+
+    const tabDefs = [{ key: 'link', label: '差し込み' }, { key: 'style', label: '書式' }, { key: 'page', label: 'ページ' }];
+    const tabs = tabDefs.map((t) => ({
+      label: t.label,
+      weight: st.tab === t.key ? 800 : 700,
+      fg: st.tab === t.key ? '#005bac' : '#5d6470',
+      line: st.tab === t.key ? '#005bac' : 'transparent',
+      pick: () => self.setState({ tab: t.key }),
+    }));
+
+    const viewDefs = [{ key: 'list', label: '時系列' }, { key: 'grid', label: '列×時間' }, { key: 'part', label: '抜粋' }];
+    const views = viewDefs.map((v) => ({
+      label: v.label,
+      border: st.view === v.key ? '#005bac' : '#e6e9ed',
+      bg: st.view === v.key ? '#f4faff' : '#ffffff',
+      fg: st.view === v.key ? '#005bac' : '#3c424c',
+      pick: () => self.setState({ view: v.key }),
+    }));
+
+    const colDefs = [{ key: 'reh', label: 'リハ' }, { key: 'main', label: '本番' }, { key: 'tech', label: '技術' }, { key: 'live', label: '配信' }];
+    const cols = colDefs.map((c) => {
+      const on = st.cols.indexOf(c.key) >= 0;
+      return {
+        label: c.label,
+        border: on ? '#005bac' : '#e6e9ed',
+        bg: on ? '#f4faff' : '#ffffff',
+        fg: on ? '#005bac' : '#3c424c',
+        box: on ? '#005bac' : '#cbd2da',
+        boxBg: on ? '#005bac' : '#ffffff',
+        toggle: () => self.setState({ cols: on ? st.cols.filter((k) => k !== c.key) : st.cols.concat([c.key]) }),
+      };
+    });
+
+    const rows = [
+      { time: '09:00', title: 'スタジオ入り・機材搬入', who: '技術 全員', where: 'St.2', weight: 700, timeFg: '#1a1d24' },
+      { time: '09:30', title: 'セットアップ（カメラ・音声）', who: '大野 / 藤原', where: 'St.2', weight: 400, timeFg: '#5d6470' },
+      { time: '10:30', title: '配信チェック（本線・予備）', who: '藤原', where: '副調', weight: 400, timeFg: '#5d6470' },
+      { time: '11:00', title: 'キャスト入り・衣装合わせ', who: '制作', where: '控室A', weight: 400, timeFg: '#5d6470' },
+      { time: '11:30', title: '照明・カメラリハ', who: '全員', where: 'St.2', weight: 400, timeFg: '#5d6470' },
+      { time: '12:30', title: '通しリハーサル', who: '全員', where: 'St.2', weight: 700, timeFg: '#c2410e' },
+      { time: '14:00', title: '返し・直し', who: '演出', where: 'St.2', weight: 400, timeFg: '#5d6470' },
+      { time: '15:30', title: '転換・小道具チェック', who: '美術', where: 'St.2', weight: 400, timeFg: '#5d6470' },
+      { time: '16:00', title: '解散（翌日 10:00 入り・本番 13:00）', who: '—', where: '—', weight: 400, timeFg: '#5d6470' },
+    ];
+
+    const crew = [
+      { role: 'プロデューサー', name: '寺井 岳宏', tel: '090-0000-0001' },
+      { role: '演出', name: '川口 早苗', tel: '090-0000-0002' },
+      { role: '技術', name: '大野 健', tel: '090-0000-0003' },
+      { role: '音声', name: '藤原 直', tel: '090-0000-0004' },
+      { role: 'テロップCG', name: '小島 亮', tel: '090-0000-0005' },
+      { role: '美術', name: '林 美和', tel: '090-0000-0006' },
+    ];
+
+    const tools = [
+      { label: '文字', fill: 'transparent', hint: 'T' },
+      { label: '図形', fill: '#e6e9ed', hint: '矩形・円・線・矢印・吹き出し' },
+      { label: '画像', fill: '#eaf4fb', hint: '手元から上げる' },
+      { label: '表', fill: '#ffffff', hint: '自分で打つ表' },
+      { label: 'QR', fill: '#1a1d24', hint: 'この冊子から画面へ飛ばす' },
+    ];
+
+    const aligns = [
+      { hint: '左そろえ', l: '3px solid #005bac', t: '0', r: '0', b: '0' },
+      { hint: '左右中央', l: '0', t: '0', r: '0', b: '0' },
+      { hint: '右そろえ', l: '0', t: '0', r: '3px solid #005bac', b: '0' },
+      { hint: '上そろえ', l: '0', t: '3px solid #005bac', r: '0', b: '0' },
+      { hint: '上下中央', l: '0', t: '0', r: '0', b: '0' },
+      { hint: '下そろえ', l: '0', t: '0', r: '0', b: '3px solid #005bac' },
+    ];
+
+    const pageDefs = [
+      { no: 1, title: '表紙', accent: '#005bac', chapter: '第1章 ／ この冊子について' },
+      { no: 2, title: '体制と連絡網', accent: '#005bac', chapter: '' },
+      { no: 3, title: '8/22（土）リハーサル', accent: '#c2410e', chapter: '第2章 ／ 当日' },
+      { no: 4, title: 'リハの進行表', accent: '#c2410e', chapter: '' },
+      { no: 5, title: '収録・配信のしくみ', accent: '#197a4b', chapter: '第3章 ／ 技術' },
+      { no: 6, title: '機材と搬入出', accent: '#197a4b', chapter: '' },
+    ];
+    const pages = pageDefs.map((p) => ({
+      no: p.no, title: p.title, accent: p.accent,
+      isChapter: !!p.chapter, chapter: p.chapter,
+      border: p.no === st.page ? '#005bac' : '#e6e9ed',
+      noFg: p.no === st.page ? '#005bac' : '#9aa1ab',
+      pick: () => self.setState({ page: p.no }),
+    }));
+
+    const quickStyles = [
+      { label: '見出し', size: '12px', weight: 800, color: '#1a1d24' },
+      { label: '本文', size: '11px', weight: 400, color: '#1a1d24' },
+      { label: '注意', size: '11px', weight: 800, color: '#c2410e' },
+      { label: '補足', size: '10.5px', weight: 400, color: '#5d6470' },
+      { label: '明朝', size: '11px', weight: 700, color: '#1a1d24' },
+      { label: '白抜き', size: '11px', weight: 800, color: '#005bac' },
+      { label: '縦書き', size: '11px', weight: 700, color: '#1a1d24' },
+      { label: '番号', size: '11px', weight: 700, color: '#1a1d24' },
+    ];
+
+    const geomBy = {
+      hdr: ['14.9', '10.5', '267.3', '21.0'],
+      sched: ['14.9', '37.8', '163.4', '130.2'],
+      crew: ['187.1', '37.8', '95.0', '63.0'],
+      note: ['187.1', '107.1', '95.0', '31.5'],
+      qr: ['187.1', '144.9', '95.0', '23.1'],
+      foot: ['14.9', '184.8', '267.3', '12.6'],
+    };
+    const g = geomBy[st.sel] || geomBy.sched;
+    const geom = [
+      { label: 'X', value: g[0] }, { label: 'Y', value: g[1] },
+      { label: '幅', value: g[2] }, { label: '高さ', value: g[3] },
+    ];
+
+    return {
+      blocks: blocks, rows: rows, crew: crew, pages: pages,
+      tools: tools, aligns: aligns, tabs: tabs, sel: sel,
+      views: views, cols: cols, quickStyles: quickStyles, geom: geom,
+      guide: { on: st.sel === 'sched', y: '18%' },
+      freeze: {
+        desc: st.freeze ? 'この版で凍らせる（配った紙と食い違わない）' : '追従する（元を直すと冊子も直る）',
+        bg: st.freeze ? '#005bac' : '#cbd2da',
+        knob: st.freeze ? '18px' : '2px',
+        toggle: () => self.setState({ freeze: !st.freeze }),
+      },
+      zoomLabel: st.zoom + '%',
+      zoomIn: () => self.setState({ zoom: Math.min(400, st.zoom + 25) }),
+      zoomOut: () => self.setState({ zoom: Math.max(25, st.zoom - 25) }),
+      insertBg: st.insert ? '#005bac' : '#ffffff',
+      insertFg: st.insert ? '#ffffff' : '#005bac',
+      insertBorder: st.insert ? '#005bac' : '#cfe4f4',
+      openInsert: () => self.setState({ insert: !st.insert }),
+    };
+  }
+}
+</script>
+</body>
+</html>
