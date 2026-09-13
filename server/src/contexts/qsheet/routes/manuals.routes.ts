@@ -47,6 +47,7 @@ router.post('/manuals', requirePermission('qsheet', 'editor'), wrap(async (req, 
     programId,
     serviceDate: typeof b.service_date === 'string' ? b.service_date : null,
     createdBy: req.user!.id,
+    user: req.user!,
     // ひな形／前回の冊子からの複製（段E）。どちらも省略可（今までどおり空ページ1枚）
     templateId: typeof b.template_id === 'string' ? b.template_id : null,
     copyFromManualId: typeof b.copy_from_manual_id === 'string' ? b.copy_from_manual_id : null,

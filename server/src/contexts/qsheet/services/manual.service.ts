@@ -147,6 +147,8 @@ export interface CreateManualInput {
    *  設定する経路が無く常に null だった） */
   serviceDate?: string | null;
   createdBy: string;
+  /** 呼び出し本人。`copyFromManualId` 指定時の `canAccessManual` 判定に使う（レビュー指摘） */
+  user: AccessUser;
   /** ひな形（`qsheet_manual_templates`。scope="org"）から起こす。段E */
   templateId?: string | null;
   /** 同じ案件/番組の前回の冊子から複製する。段E */
@@ -187,6 +189,7 @@ export async function createManual(input: CreateManualInput): Promise<Row> {
     copyFromManualId: input.copyFromManualId ?? null,
     projectId: input.projectId ?? null,
     programId: input.programId ?? null,
+    user: input.user,
   });
 
   const id = uuid();
@@ -354,12 +357,20 @@ export async function deletePage(manualId: string, pageId: string, userId: strin
   );
   if (!existing) throw new NotFoundError('ページが見つかりません');
 
-  const count = await queryOne('SELECT COUNT(*)::int AS c FROM qsheet_manual_pages WHERE manual_id = $1', [manualId]);
-  if (((count?.c as number) ?? 0) <= 1) {
-    throw new ValidationError('最後の1ページは削除できません');
-  }
-
-  await execute('DELETE FROM qsheet_manual_pages WHERE id = $1', [pageId]);
+  // ⚠️ レビュー指摘（P2）: 「SELECT COUNT→JS判定→DELETE」の3段だと、同じ冊子の
+  // 別々のページをほぼ同時に消す2つのリクエストが両方 count=2 を見て両方 DELETE でき、
+  // 「最後の1ページは消せない」という不変条件が破れる（0ページの冊子ができてしまう）。
+  // 冊子行を `FOR UPDATE` でロックしてから数える——同じ冊子への deletePage を直列化し、
+  // 2つ目は1つ目の COMMIT を待ってから正しい件数を見る（`acquireManualLock` と同じ
+  // 「重要な不変条件は行ロックで守る」考え方）。
+  await withTransaction(async (tx) => {
+    await tx.execute('SELECT id FROM qsheet_manuals WHERE id = ? FOR UPDATE', [manualId]);
+    const count = await tx.queryOne('SELECT COUNT(*)::int AS c FROM qsheet_manual_pages WHERE manual_id = ?', [manualId]);
+    if (((count?.c as number) ?? 0) <= 1) {
+      throw new ValidationError('最後の1ページは削除できません');
+    }
+    await tx.execute('DELETE FROM qsheet_manual_pages WHERE id = ?', [pageId]);
+  });
 }
 
 interface ReorderEntry { id: string; sort_order: number }

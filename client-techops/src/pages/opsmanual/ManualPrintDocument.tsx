@@ -160,7 +160,12 @@ export default function ManualPrintDocument({ manual, resolved, settings, export
           {unit.kind === "cover" && <ManualPrintCover manual={manual} hasSecrets={hasSecrets} />}
           {unit.kind === "toc" && <ManualPrintToc entries={tocEntries} />}
           {unit.kind === "content" && (
-            <ManualPrintPageBody page={unit.page} resolved={resolved} highlightOverflow={highlightOverflow} />
+            <ManualPrintPageBody
+              page={unit.page}
+              resolved={resolved}
+              highlightOverflow={highlightOverflow}
+              useFrozen={manual.status !== "draft"}
+            />
           )}
         </PrintSheet>
       ))}
@@ -189,6 +194,27 @@ function PrintSheet({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * ⚠️⚠️ 外部レビュー再指摘（P1）: 確定済み（fixed/archived）の冊子は、ライブの
+ * `/resolve` 結果ではなく確定時に凍らせた `link.frozen` を使う——さもないと、
+ * 確定後に元データ（スケジュール表・収録設定等）が変わるたびに `rev.N` のはずの
+ * PDFが黙って変わってしまい、「確定すると版が固定される」という保証が崩れる
+ * （§6⑤・fixManual() のコメント参照）。free ブロック・frozen が無い linked ブロックは
+ * undefined を返し、`renderManualBlockContent` の「resolve 未着」表示に委ねる。
+ */
+function frozenResolveEntry(block: ManualBlock): ManualResolveEntry | undefined {
+  if (block.kind !== "linked" || !block.link.frozen) return undefined;
+  return { data: block.link.frozen.data, updatedAt: block.link.frozen.at };
+}
+
+function effectiveResolved(
+  block: ManualBlock,
+  resolved: Record<string, ManualResolveEntry>,
+  useFrozen: boolean,
+): ManualResolveEntry | undefined {
+  return useFrozen ? frozenResolveEntry(block) : resolved[block.id];
+}
+
 /** 紙面ページ本体。ManualCanvas の読み取り専用版——つかむ・伸縮・すいつき等の操作は
  *  一切持たず、`block.{x,y,w,h,z,rotation,style}` をそのまま静的に置くだけ
  *  （ManualBlockView.tsx の style 計算と同じ考え方。操作用の枠・つまみは出さない） */
@@ -196,16 +222,24 @@ function ManualPrintPageBody({
   page,
   resolved,
   highlightOverflow,
+  useFrozen,
 }: {
   page: ManualPage;
   resolved: Record<string, ManualResolveEntry>;
   highlightOverflow?: boolean;
+  /** 確定済み（status !== 'draft'）の冊子か。true なら各ブロックの `link.frozen` を使う */
+  useFrozen: boolean;
 }) {
   const sorted = [...page.blocks].sort((a, b) => a.z - b.z);
   return (
     <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
       {sorted.map((block) => (
-        <PrintBlock key={block.id} block={block} resolved={resolved[block.id]} highlightOverflow={highlightOverflow} />
+        <PrintBlock
+          key={block.id}
+          block={block}
+          resolved={effectiveResolved(block, resolved, useFrozen)}
+          highlightOverflow={highlightOverflow}
+        />
       ))}
     </div>
   );

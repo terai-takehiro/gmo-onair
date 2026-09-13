@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import BufferedInput from "@/components/editor/BufferedInput";
 import { cn } from "@/lib/utils";
 import { Badge } from "@gmo-onair/shared/src/client/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { PageShell } from "@gmo-onair/shared/src/client/ui/pageShell";
 import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { Delayed, SkeletonRows, ErrorPanel } from "@gmo-onair/shared/src/client/states";
@@ -35,6 +34,7 @@ import { useManualPageAutosave } from "./useManualPageAutosave";
 import { useManualEditLock } from "./useManualEditLock";
 import ManualLockBanner from "./ManualLockBanner";
 import ManualServiceDateField from "./ManualServiceDateField";
+import DeleteManualDialog from "./DeleteManualDialog";
 import { getManualResolve } from "@/lib/manualResolveApi";
 
 export default function ManualDetailPage() {
@@ -115,7 +115,7 @@ export default function ManualDetailPage() {
 
   const handleBlocksConflict = useCallback(() => { invalidate(); }, [invalidate]);
 
-  const { blocks, commitBlocks, saving: blocksSaving, flush: flushBlocks } = useManualPageAutosave(
+  const { blocks, commitBlocks, saving: blocksSaving, flush: flushBlocks, syncPageRevision } = useManualPageAutosave(
     currentPage,
     handleBlocksSaved,
     handleBlocksConflict,
@@ -191,7 +191,10 @@ export default function ManualDetailPage() {
   const updatePageMutation = useMutation({
     mutationFn: ({ pageId, patch }: { pageId: string; patch: { title?: string; chapter?: string | null } }) =>
       manualApi.updatePage(id, pageId, patch),
-    onSuccess: invalidate,
+    // ⚠️ レビュー指摘: 題/章名の保存もそのページの updated_at を進める。自動保存側の
+    // revision（syncPageRevision）を合わせて進めないと、次の紙面編集が古い revision で
+    // 送られ偽の衝突になる。
+    onSuccess: (row) => { syncPageRevision(row.id, row.updated_at); invalidate(); },
     onError: () => notifyError("ページを保存できませんでした。", { description: "少し待ってから、もう一度お試しください。" }),
   });
 
@@ -208,7 +211,8 @@ export default function ManualDetailPage() {
 
   const reorderMutation = useMutation({
     mutationFn: (order: { id: string; sort_order: number }[]) => manualApi.reorderPages(id, order),
-    onSuccess: invalidate,
+    // 並べ替えも触った全ページの updated_at を進める（同じ理由で syncPageRevision）
+    onSuccess: (rows) => { rows.forEach((r) => syncPageRevision(r.id, r.updated_at)); invalidate(); },
     onError: () => notifyError("並べ替えを保存できませんでした。", { description: "少し待ってから、もう一度お試しください。" }),
   });
 
@@ -380,20 +384,12 @@ export default function ManualDetailPage() {
         </>
       )}
 
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent size="sm">
-          <DialogHeader>
-            <DialogTitle>この冊子を削除しますか？</DialogTitle>
-            <DialogDescription>この操作は取り消せません。冊子とすべてのページが削除されます。</DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-2">
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>キャンセル</Button>
-            <Button variant="destructive" onClick={() => deleteManualMutation.mutate()} disabled={deleteManualMutation.isPending}>
-              {deleteManualMutation.isPending ? "削除中…" : "削除する"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteManualDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        onConfirm={() => deleteManualMutation.mutate()}
+        pending={deleteManualMutation.isPending}
+      />
     </PageShell>
   );
 }

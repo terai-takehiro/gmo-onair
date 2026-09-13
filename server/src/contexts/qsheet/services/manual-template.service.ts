@@ -14,6 +14,7 @@
 import { v4 as uuid } from 'uuid';
 import { queryAll, queryOne, execute, type Row } from '../../../shared/db/connection';
 import { NotFoundError, ValidationError } from './httpErrors';
+import { canAccessManual, type AccessUser } from '../access';
 
 const MAX_NAME = 200;
 const MAX_PAGE_TITLE = 200;
@@ -88,6 +89,8 @@ export interface BuildPagesInput {
   copyFromManualId?: string | null;
   projectId?: string | null;
   programId?: string | null;
+  /** 呼び出し本人。`copyFromManualId` 指定時の `canAccessManual` 判定に使う（レビュー指摘） */
+  user: AccessUser;
 }
 
 /**
@@ -97,6 +100,13 @@ export interface BuildPagesInput {
  * `copyFromManualId` は**同じ project_id（または program_id）の冊子のときだけ**許可する
  * （他案件の冊子を勝手に複製できないように——`sheet.resolver.ts` の
  * 「同じ案件/番組か」の検査と同じ考え方。必須のガード）。
+ *
+ * ⚠️⚠️ 外部レビュー再指摘（P1）: 案件一致（`sameProject`）だけならメンバーなら誰でも
+ * 見える冊子どうしの複製なので元から安全だが、**番組一致（`sameProgram`）だけでは
+ * 不十分**——`canAccessManual` は番組紐づけの冊子を「作成者本人か管理者にしか見せない」
+ * と明言しているのに、複製元IDと同じ program_id を送るだけで他人の番組冊子の全ページを
+ * 読めてしまっていた（本人はその冊子を開けないのに複製はできる、という矛盾）。
+ * 案件/番組の一致に加えて `canAccessManual` も必ず通す。
  */
 export async function buildPagesForNewManual(input: BuildPagesInput): Promise<NewManualPageSeed[]> {
   if (input.templateId) {
@@ -111,7 +121,7 @@ export async function buildPagesForNewManual(input: BuildPagesInput): Promise<Ne
 
   if (input.copyFromManualId) {
     const source = await queryOne(
-      'SELECT project_id, program_id FROM qsheet_manuals WHERE id = $1 AND deleted_at IS NULL',
+      'SELECT project_id, program_id, created_by FROM qsheet_manuals WHERE id = $1 AND deleted_at IS NULL',
       [input.copyFromManualId],
     );
     if (!source) throw new NotFoundError('複製元の冊子が見つかりません');
@@ -119,6 +129,10 @@ export async function buildPagesForNewManual(input: BuildPagesInput): Promise<Ne
     const sameProgram = !!input.programId && source.program_id === input.programId;
     if (!sameProject && !sameProgram) {
       throw new ValidationError('複製元は同じ案件/番組の冊子だけ指定できます');
+    }
+    const canAccess = await canAccessManual(input.user, input.copyFromManualId, (source.created_by as string) ?? null);
+    if (!canAccess) {
+      throw new NotFoundError('複製元の冊子が見つかりません'); // 存在秘匿
     }
     const pages = await queryAll(
       'SELECT chapter, title, blocks FROM qsheet_manual_pages WHERE manual_id = $1 ORDER BY sort_order',

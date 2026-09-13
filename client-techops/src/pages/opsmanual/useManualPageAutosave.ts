@@ -23,6 +23,12 @@ export interface UseManualPageAutosaveResult {
   saving: boolean;
   /** ページを切り替える直前に呼ぶ（未保存分があれば即座に送る） */
   flush: () => void;
+  /**
+   * 紙面（blocks）以外の経路でそのページの updated_at が進んだとき（題/章名の編集・
+   * 並べ替え）に呼ぶ。呼ばないと、次の紙面編集の自動保存が古い revision を使って
+   * 送られ、サーバーの楽観ロックに偽の衝突と判定される（レビュー指摘）。
+   */
+  syncPageRevision: (pageId: string, updatedAt: string) => void;
 }
 
 /**
@@ -40,16 +46,14 @@ export function useManualPageAutosave(
   const mountedRef = useRef(true);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingRef = useRef<Pending | null>(null);
-  // ⚠️ レビュー指摘（P1）: 以前は commitBlocks 呼び出し時点の `page.updated_at`（props。
-  // 自分自身の保存成功では resync しないため、送信中に来たもう1回の編集はこれが
-  // 古いまま）を expected_updated_at として使っていた——1回目の PUT が「デバウンス中に」
-  // 応答して updated_at が進んでも、すでに積んである2回目の PUT はその進んだ値を
-  // 知らないまま古い値で送られ、サーバーの checkOptimisticLock に本物ではない衝突と
-  // 判定される（isConflict → invalidate() で、まだサーバーに届いていない2回目の
-  // 編集内容を無音で失う）。「いま確実に正しい updated_at」を持つのはこの ref だけにし、
-  // 送信の**直前**（デバウンス発火時 or 保存直後の再送時）に読む——commit した時点の
-  // 値を Pending に固定して持ち越さない。
-  const lastKnownUpdatedAtRef = useRef<string | undefined>(page?.updated_at);
+  // ⚠️ レビュー指摘（P1）: 以前は単一の ref（コミット時点の page.updated_at）を
+  // expected_updated_at として使っていた。①コミット時点で固定すると、送信中に
+  // 応答が届いて updated_at が進んでも次の送信がそれを知らないまま古い値を使う
+  // （1つ目の指摘）。②単一 ref のまま「送信直前に読む」形にしただけでは、ページA→B
+  // へ切り替えた直後にAへの保存応答が遅れて届くと、Bの ref をAの値で上書きしてしまう
+  // （2つ目の指摘）。どちらも、ページごとに別々の「いま確実に正しい updated_at」を
+  // 持ち（Map）、送信直前にその該当ページの値だけを読む形にすれば両方防げる。
+  const revisionsRef = useRef<Map<string, string | undefined>>(new Map());
   const savingRef = useRef(false);
   const onSavedRef = useRef(onSaved);
   const onConflictRef = useRef(onConflict);
@@ -62,9 +66,13 @@ export function useManualPageAutosave(
   // ManualCanvas 側の undo 履歴を不要に揺らさないため id だけを見る）。
   useEffect(() => {
     setBlocks(page?.blocks ?? []);
-    lastKnownUpdatedAtRef.current = page?.updated_at;
+    if (page) revisionsRef.current.set(page.id, page.updated_at);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page?.id]);
+
+  const syncPageRevision = useCallback((pageId: string, updatedAt: string) => {
+    revisionsRef.current.set(pageId, updatedAt);
+  }, []);
 
   const runSave = useCallback(() => {
     if (timerRef.current) {
@@ -84,10 +92,10 @@ export function useManualPageAutosave(
     manualApi
       .updatePage(pending.manualId, pending.pageId, {
         blocks: pending.next,
-        expected_updated_at: lastKnownUpdatedAtRef.current,
+        expected_updated_at: revisionsRef.current.get(pending.pageId),
       })
       .then((row) => {
-        lastKnownUpdatedAtRef.current = row.updated_at;
+        revisionsRef.current.set(pending.pageId, row.updated_at);
         if (mountedRef.current) onSavedRef.current(row);
       })
       .catch((err: unknown) => {
@@ -106,7 +114,8 @@ export function useManualPageAutosave(
       .finally(() => {
         savingRef.current = false;
         if (mountedRef.current) setSaving(false);
-        // 送信中に積まれた新しい編集があれば、いま確定した expected_updated_at で続けて送る
+        // 送信中に積まれた新しい編集（他ページ分もありうる）があれば、いま確定した
+        // そのページの revision で続けて送る
         if (pendingRef.current) runSave();
       });
   }, []);
@@ -134,7 +143,7 @@ export function useManualPageAutosave(
         manualApi
           .updatePage(pending.manualId, pending.pageId, {
             blocks: pending.next,
-            expected_updated_at: lastKnownUpdatedAtRef.current,
+            expected_updated_at: revisionsRef.current.get(pending.pageId),
           })
           .catch(() => {});
       }
@@ -142,5 +151,5 @@ export function useManualPageAutosave(
     [],
   );
 
-  return { blocks, commitBlocks, saving, flush: runSave };
+  return { blocks, commitBlocks, saving, flush: runSave, syncPageRevision };
 }

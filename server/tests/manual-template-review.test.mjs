@@ -7,7 +7,9 @@ import { loadTs } from './helpers/load-ts.mjs';
 // 必ず null に戻す」という約束を持つ（段Eの設計判断3「reveal…を省略しないこと」）。
 // ここが崩れると、複製した新しい冊子で「まだ誰も確認していないのに秘密（配信の鍵・
 // WEB会議のパスコード）が出たまま」という事故になる——固定するテストを置く。
-// あわせて「同じ案件/番組の冊子だけ複製を許す」ガードも固定する。
+// あわせて「同じ案件/番組の冊子だけ複製を許す」ガードと、外部レビュー再指摘（P1）
+// 「案件/番組が一致するだけでなく `canAccessManual` も通ること」（番組紐づけの冊子は
+// 作成者本人/管理者にしか見えないため、番組一致だけでは他人の冊子を複製できてしまう）も固定する。
 
 class NotFoundError extends Error {
   constructor(message) { super(message); this.code = 'NOT_FOUND'; this.status = 404; }
@@ -33,7 +35,9 @@ function freeBlock(id) {
   return { id, kind: 'free', x: 0, y: 0, w: 10, h: 10, z: 1, style: {}, free: { type: 'text', content: { text: 'hi' } } };
 }
 
-async function loadService({ manuals = {}, templates = {}, pagesByManual = {}, onExecute } = {}) {
+const DEFAULT_USER = { id: 'user-1', role: 'user' };
+
+async function loadService({ manuals = {}, templates = {}, pagesByManual = {}, onExecute, canAccessManualImpl } = {}) {
   let nextId = 0;
   return loadTs('server/src/contexts/qsheet/services/manual-template.service.ts', {
     uuid: { v4: () => `new-id-${++nextId}` },
@@ -43,9 +47,9 @@ async function loadService({ manuals = {}, templates = {}, pagesByManual = {}, o
           const tpl = templates[params[0]];
           return tpl ? { pages: tpl.pages } : undefined;
         }
-        if (sql.includes('SELECT project_id, program_id FROM qsheet_manuals')) {
+        if (sql.includes('SELECT project_id, program_id, created_by FROM qsheet_manuals')) {
           const m = manuals[params[0]];
-          return m ? { project_id: m.projectId ?? null, program_id: m.programId ?? null } : undefined;
+          return m ? { project_id: m.projectId ?? null, program_id: m.programId ?? null, created_by: m.createdBy ?? null } : undefined;
         }
         if (sql.includes('SELECT id FROM qsheet_manuals')) {
           return manuals[params[0]] ? { id: params[0] } : undefined;
@@ -62,19 +66,20 @@ async function loadService({ manuals = {}, templates = {}, pagesByManual = {}, o
       },
       async execute(sql, params = []) { if (onExecute) onExecute(sql, params); },
     },
+    '../access': { canAccessManual: canAccessManualImpl ?? (async () => true), isQsheetAdmin: () => false },
     './httpErrors': { NotFoundError, ValidationError },
   });
 }
 
 test('buildPagesForNewManual strips frozen/reveal and reissues block ids when copying from a manual', async () => {
   const { buildPagesForNewManual } = await loadService({
-    manuals: { 'manual-1': { projectId: 'proj-1' } },
+    manuals: { 'manual-1': { projectId: 'proj-1', createdBy: 'user-1' } },
     pagesByManual: {
       'manual-1': [{ chapter: '1章', title: 'ページ1', blocks: [linkedBlock('blk-1'), freeBlock('blk-2')] }],
     },
   });
 
-  const pages = await buildPagesForNewManual({ copyFromManualId: 'manual-1', projectId: 'proj-1', programId: null });
+  const pages = await buildPagesForNewManual({ copyFromManualId: 'manual-1', projectId: 'proj-1', programId: null, user: DEFAULT_USER });
 
   assert.equal(pages.length, 1);
   const [linked, free] = pages[0].blocks;
@@ -87,13 +92,27 @@ test('buildPagesForNewManual strips frozen/reveal and reissues block ids when co
 
 test('buildPagesForNewManual rejects copying from a manual under a different project/program', async () => {
   const { buildPagesForNewManual } = await loadService({
-    manuals: { 'manual-1': { projectId: 'proj-other' } },
+    manuals: { 'manual-1': { projectId: 'proj-other', createdBy: 'user-1' } },
     pagesByManual: { 'manual-1': [{ chapter: null, title: '', blocks: [] }] },
   });
 
   await assert.rejects(
-    buildPagesForNewManual({ copyFromManualId: 'manual-1', projectId: 'proj-1', programId: null }),
+    buildPagesForNewManual({ copyFromManualId: 'manual-1', projectId: 'proj-1', programId: null, user: DEFAULT_USER }),
     ValidationError,
+  );
+});
+
+test('buildPagesForNewManual rejects copying a manual the requester cannot access, even when project/program matches (レビュー指摘・番組紐づけの冊子は作成者/管理者にしか見えない)', async () => {
+  const { buildPagesForNewManual } = await loadService({
+    manuals: { 'manual-1': { programId: 'prog-1', createdBy: 'other-user' } },
+    pagesByManual: { 'manual-1': [{ chapter: null, title: '', blocks: [] }] },
+    canAccessManualImpl: async () => false,
+  });
+
+  await assert.rejects(
+    buildPagesForNewManual({ copyFromManualId: 'manual-1', projectId: null, programId: 'prog-1', user: DEFAULT_USER }),
+    NotFoundError,
+    '番組が一致するだけでは複製できない——canAccessManual も通す必要がある',
   );
 });
 
@@ -113,7 +132,7 @@ test('buildPagesForNewManual strips frozen/reveal when applying an org template,
 test('buildPagesForNewManual raises NotFoundError for an unknown template or source manual', async () => {
   const { buildPagesForNewManual } = await loadService({});
   await assert.rejects(buildPagesForNewManual({ templateId: 'missing' }), NotFoundError);
-  await assert.rejects(buildPagesForNewManual({ copyFromManualId: 'missing', projectId: 'proj-1' }), NotFoundError);
+  await assert.rejects(buildPagesForNewManual({ copyFromManualId: 'missing', projectId: 'proj-1', user: DEFAULT_USER }), NotFoundError);
 });
 
 test('createTemplateFromManual requires a name and an existing source manual', async () => {
