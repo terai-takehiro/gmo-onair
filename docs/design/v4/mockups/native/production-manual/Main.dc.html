@@ -79,8 +79,8 @@
             </div>
           </div>
           <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px;">
-            <button class="tap" style="display: flex; align-items: center; gap: 6px; height: 38px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 13px; font-size: 13px; font-weight: 700;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.2"></rect><path d="M3 9h18"></path><path d="M9 9v11"></path></svg>ひな形から作る</button>
-            <button class="tap btn-primary" style="display: flex; align-items: center; gap: 7px; height: 38px; border-radius: 10px; background: #005bac; color: #ffffff; padding: 0 16px; font-size: 13px; font-weight: 800;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>冊子を作る</button>
+            <button class="tap" style="display: flex; align-items: center; gap: 6px; height: 38px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 13px; font-size: 13px; font-weight: 700;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.2"></rect><path d="M3 9h18"></path><path d="M9 9v11"></path></svg>テンプレートから作る</button>
+            <button class="tap btn-primary" style="display: flex; align-items: center; gap: 7px; height: 38px; border-radius: 10px; background: #005bac; color: #ffffff; padding: 0 16px; font-size: 13px; font-weight: 800;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>マニュアルを作る</button>
           </div>
         </div>
 
@@ -98,13 +98,13 @@
         <!-- 元が変わりました の帯 -->
         <div style="margin-top: 10px; display: flex; align-items: center; gap: 10px; height: 42px; border-radius: 12px; border: 1px solid #fed7aa; background: #fff7ed; padding: 0 12px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c2410e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 3.9L2.6 17.4A2 2 0 0 0 4.3 20.4h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg>
-          <span style="font-size: 12.5px; font-weight: 700; color: #7c2d12;">差し込み元が変わった冊子が 1件あります</span>
+          <span style="font-size: 12.5px; font-weight: 700; color: #7c2d12;">差し込み元が変わったマニュアルが 1件あります</span>
           <span style="font-size: 12px; color: #9a5228;">スケジュール表 SD-0031（8/22）が更新されました</span>
           <span style="flex: 1;"></span>
           <button class="tap" style="display: flex; align-items: center; height: 30px; border-radius: 8px; border: 1px solid #fdba74; background: #ffffff; padding: 0 11px; font-size: 12px; font-weight: 700; color: #c2410e;">違いを見る</button>
         </div>
 
-        <!-- 冊子カード -->
+        <!-- マニュアルカード -->
         <div style="margin-top: 16px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px;">
           <sc-for list="{{books}}" as="b" hint-placeholder-count="3">
             <section class="card-tap" style="border-radius: 14px; border: 1px solid {{b.border}}; background: #ffffff; overflow: hidden;">
@@ -150,13 +150,13 @@
           </sc-for>
         </div>
 
-        <!-- ひな形 -->
+        <!-- テンプレート -->
         <section style="margin-top: 18px; border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; padding: 14px 16px 16px;">
           <div style="display: flex; align-items: center; gap: 9px;">
-            <span style="font-size: 15px; font-weight: 800;">ひな形</span>
-            <span class="num" style="font-size: 11.5px; color: #9aa1ab;">冊子まるごとの型。前の案件の冊子からも作れます</span>
+            <span style="font-size: 15px; font-weight: 800;">テンプレート</span>
+            <span class="num" style="font-size: 11.5px; color: #9aa1ab;">マニュアルまるごとの型。前の案件のマニュアルからも作れます</span>
             <span style="flex: 1;"></span>
-            <button class="tap" style="display: flex; align-items: center; gap: 5px; height: 30px; border-radius: 8px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 11px; font-size: 12px; font-weight: 700;">ひな形を管理</button>
+            <button class="tap" style="display: flex; align-items: center; gap: 5px; height: 30px; border-radius: 8px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 11px; font-size: 12px; font-weight: 700;">テンプレートを管理</button>
           </div>
           <div style="margin-top: 11px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;">
             <sc-for list="{{templates}}" as="t" hint-placeholder-count="4">
@@ -215,7 +215,7 @@ class Component extends DCLogic {
       {
         id: 'om3', state: 'past', docNo: 'OM-0003', title: '本番運営マニュアル 第6回',
         coverTitle: '本番運営マニュアル', coverSub: '第6回 ・ 2026/07/26（日） ・ 第2スタジオ',
-        accent: '#5d6470', pages: '12ページ', meta: '7/24 確定 ・ この冊子からひな形を作れます',
+        accent: '#5d6470', pages: '12ページ', meta: '7/24 確定 ・ このマニュアルからテンプレートを作れます',
         badge: '過去の版', badgeBg: '#f2f4f7', badgeFg: '#5d6470', border: '#e6e9ed',
         stale: '', primaryLabel: '開く',
       },
@@ -268,7 +268,7 @@ class Component extends DCLogic {
         { name: '本番運営マニュアル（標準）', meta: '12ページ ・ 組織共通' },
         { name: 'リハーサル進行マニュアル', meta: '6ページ ・ 組織共通' },
         { name: '配信のみ（無観客）', meta: '8ページ ・ 組織共通' },
-        { name: '第6回の冊子から作る', meta: '12ページ ・ この案件' },
+        { name: '第6回のマニュアルから作る', meta: '12ページ ・ この案件' },
       ],
     };
   }

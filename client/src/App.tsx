@@ -340,7 +340,7 @@ function AppRoutes() {
         <Route path="/settings/hours" element={<PermissionRoute module="sales"><HoursPage /></PermissionRoute>} />
         {/* ⑧ 会社と切替（2026年10月の事業再編・P0）。読むのは `sales` の reader。直せるのは system_admin だけで、画面とサーバーの両方で見ている。PC 専用（pcOnlyScreens.ts・hidden） */}
         <Route path="/settings/reorg" element={<PermissionRoute module="sales"><ReorgPage /></PermissionRoute>} />
-        {/* ⑦ 知らせと文面（旧「通知とテンプレート」）。読むのは `admin` の reader（文面をコピーして使う人が来る）。直せるのは system_admin だけ */}
+        {/* ⑦ 通知とテンプレート（旧「通知とテンプレート」）。読むのは `admin` の reader（文面をコピーして使う人が来る）。直せるのは system_admin だけ */}
         <Route path="/settings/notify" element={<PermissionRoute module="admin"><NotifyPage /></PermissionRoute>} />
         {/* AI の活動（Phase 2 ②）。読むのは `sales` の reader。「確認した」だけ manager（画面とサーバーの両方で見ている）。URL は月次レビュー通知の link と対 — 変えない */}
         <Route path="/settings/ai-activity" element={<PermissionRoute module="sales"><AiActivityPage /></PermissionRoute>} />

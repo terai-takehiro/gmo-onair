@@ -1,7 +1,7 @@
 // 選択中のブロックの基本的な書式パネル（段B・右パネル）。
 // 文字（大きさ・太さ・色・そろえ）と図形（種類・線の色/太さ）だけを持つ
 // （長体の自動フィット・袋文字・影・グラデーション・縦書きは段Bのスコープ外）。
-// 画像・表・QR の中身編集は紙面上のブロック自体（`blocks/*.tsx`）で完結するので、
+// 画像・表・QR の中身編集はキャンバス上のブロック自体（`blocks/*.tsx`）で完結するので、
 // ここでは案内文だけを出す。
 //
 // `onCommit` は呼び出し側（`ManualDetailPage`）が `ManualCanvas` の
@@ -211,9 +211,9 @@ export default function BlockInspector({ blocks, selectedBlockId, onCommit }: Pr
         </div>
       )}
 
-      {block.free.type === "image" && <p className="text-sub-sm text-muted-foreground">差し替えは紙面上の画像ブロックから行えます。</p>}
-      {block.free.type === "table" && <p className="text-sub-sm text-muted-foreground">セル・行列の編集は紙面上の表ブロックから行えます。</p>}
-      {block.free.type === "qr" && <p className="text-sub-sm text-muted-foreground">宛先・ラベルの編集は紙面上のQRブロックから行えます。</p>}
+      {block.free.type === "image" && <p className="text-sub-sm text-muted-foreground">差し替えはキャンバス上の画像ブロックから行えます。</p>}
+      {block.free.type === "table" && <p className="text-sub-sm text-muted-foreground">セル・行列の編集はキャンバス上の表ブロックから行えます。</p>}
+      {block.free.type === "qr" && <p className="text-sub-sm text-muted-foreground">宛先・ラベルの編集はキャンバス上のQRブロックから行えます。</p>}
     </div>
   );
 }

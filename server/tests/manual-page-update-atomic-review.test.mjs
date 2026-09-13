@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { loadTs } from './helpers/load-ts.mjs';
 
 // 運営マニュアル 段B — 外部レビュー再指摘（P1）: updatePage()（および同じ形の
-// updateManual()）の楽観ロックが「読む→JSで比較→UPDATE」のままだった。冊子の
+// updateManual()）の楽観ロックが「読む→JSで比較→UPDATE」のままだった。マニュアルの
 // 編集ロックは**利用者単位**（`assertEditable` は locked_by !== userId だけを見る）
 // なので、同じ利用者の2つのタブは両方ロックを通る——ほぼ同時に保存すると両方が
 // 同じ updated_at を読んで両方 JS 側のチェックを通過し、後着の無条件 UPDATE が

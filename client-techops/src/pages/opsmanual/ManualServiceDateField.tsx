@@ -1,4 +1,4 @@
-// 冊子の本番/開催の予定日（`service_date`）の表示・編集。`ManualDetailPage.tsx` のタイトルの
+// マニュアルの本番/開催の予定日（`service_date`）の表示・編集。`ManualDetailPage.tsx` のタイトルの
 // 隣（sub 行）に置く小さな部品として切り出した（1ファイル400行のラチェットに触れたため）。
 //
 // レビュー指摘（P2）: 段Cまで `service_date` を設定する経路が無く、常に null のまま

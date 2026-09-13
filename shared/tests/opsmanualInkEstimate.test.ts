@@ -1,4 +1,4 @@
-// 運営マニュアル — 紙面の「インクの目安」（estimatePageInkCoverage）を固定する。
+// 運営マニュアル — キャンバスの「インクの目安」（estimatePageInkCoverage）を固定する。
 //
 // production-manual.md §6-6・§8-3「6. インクの目安」の塗り係数のとおりに
 // 数えること（画面を見ても間違いに気づけない計算のため、既存の
@@ -124,12 +124,12 @@ describe('estimatePageInkCoverage', () => {
     expect(estimatePageInkCoverage(blocks)).toBeCloseTo(0.3);
   });
 
-  it('部分的な塗りは紙面に対する面積比どおりに出る', () => {
+  it('部分的な塗りはキャンバスに対する面積比どおりに出る', () => {
     const blocks = [shapeBlock(PAGE_WIDTH_MM, PAGE_HEIGHT_MM * 0.4, 'rect', { 'background-color': '#000000' })];
     expect(estimatePageInkCoverage(blocks)).toBeCloseTo(0.4);
   });
 
-  it('複数ブロックは合算する。紙面の面積を超える塗りは1で頭打ち（返り値は常に0〜1）', () => {
+  it('複数ブロックは合算する。キャンバスの面積を超える塗りは1で頭打ち（返り値は常に0〜1）', () => {
     const blocks = [
       shapeBlock(PAGE_WIDTH_MM, PAGE_HEIGHT_MM, 'rect', { 'background-color': '#000000' }),
       shapeBlock(PAGE_WIDTH_MM, PAGE_HEIGHT_MM, 'ellipse', { 'background-color': '#000000' }),

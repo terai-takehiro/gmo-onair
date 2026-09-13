@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { loadTs } from './helpers/load-ts.mjs';
 
 // 運営マニュアル — 外部レビュー再指摘（P2）: enforceRevealAuthorship() が「reveal が
-// ある全ブロックへ無条件で by=いま保存している本人」を書いていた。紙面は毎回ページ
+// ある全ブロックへ無条件で by=いま保存している本人」を書いていた。キャンバスは毎回ページ
 // 全体（触っていない他のブロックも含む）を送るため、editor A が秘密を解除した直後に
 // editor B が別のブロックを動かしただけでも、Aの reveal.by が B に書き換わって
 // しまい（at はAのまま）、監査証跡（§7-2）が誰の操作かを取り違える。

@@ -1,7 +1,7 @@
 // `ManualCanvas` の `renderBlockContent` にそのまま渡す関数。ブロックの「中身」の
 // 描画は kind:'free' なら type ごとに `blocks/*.tsx` の専用コンポーネントへ、
 // kind:'linked'（段C・差し込みブロック）なら `LinkedBlockContent.tsx` へ振り分けるだけで、
-// 紙面の操作（つかむ・伸縮・回転・すいつき・undo/redo）は一切知らない（段Bのスコープ分担）。
+// キャンバスの操作（つかむ・伸縮・回転・スナップ・undo/redo）は一切知らない（段Bのスコープ分担）。
 import type { ReactNode } from "react";
 import type { ManualBlock, ManualFreeBlockContent } from "@gmo-onair/shared/src/opsmanual/types";
 import type { ManualResolveEntry } from "@/lib/manualResolveApi";

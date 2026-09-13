@@ -75,10 +75,10 @@ export interface CreateManualPayload {
   program_id?: string | null;
   /** 本番/開催の予定日（YYYY-MM-DD）。省略可 */
   service_date?: string | null;
-  /** 組織共通のひな形から作るとき（段E・§10-5「組織共通」）。`copy_from_manual_id` とは同時に渡さない */
+  /** 組織共通のテンプレートから作るとき（段E・§10-5「組織共通」）。`copy_from_manual_id` とは同時に渡さない */
   template_id?: string;
-  /** この案件／番組の前回の冊子から複製して作るとき（段E・§10-5「前の案件の前の冊子から」）。
-   *  サーバー側は同じ project_id/program_id の冊子だけを許可する */
+  /** この案件／番組の前回のマニュアルから複製して作るとき（段E・§10-5「前の案件の前のマニュアルから」）。
+   *  サーバー側は同じ project_id/program_id のマニュアルだけを許可する */
   copy_from_manual_id?: string;
 }
 export async function createManual(payload: CreateManualPayload): Promise<ManualListItem> {
@@ -96,7 +96,7 @@ export async function deleteManual(id: string): Promise<void> {
 }
 
 // ── ページ ──────────────────────────────────────────────────
-// `blocks`・`expected_updated_at` は段B（紙面の自動保存・楽観ロック）。
+// `blocks`・`expected_updated_at` は段B（キャンバスの自動保存・楽観ロック）。
 // サーバーは `expected_updated_at` が省略されたときは検査をせず素通しする
 // （`checkOptimisticLock`）ので、渡さなくても壊れない。
 export interface PagePayload {
@@ -123,7 +123,7 @@ export async function reorderPages(manualId: string, order: { id: string; sort_o
 }
 
 // ── 編集ロック（段E・production-manual.md §6-2-1）─────────────────────
-// 冊子まるごとの1本のロック。4本とも「取れた／取れなかった」を 200 のまま返す契約
+// マニュアルまるごとの1本のロック。4本とも「取れた／取れなかった」を 200 のまま返す契約
 // （エラーにしない）— 呼び出し側（`useManualEditLock.ts`）が応答を見て読み取り専用に
 // 切り替える。書き込み系エンドポイントが返す 409 LockError とは別物（あちらは
 // `isConflict`/`ConflictError` と同じ「取り合いの事故」の系統として扱う）。
@@ -173,13 +173,13 @@ export async function unfixManual(manualId: string): Promise<void> {
   await api.post(`/techops/manuals/${manualId}/unfix`);
 }
 
-// ── ひな形（段E・production-manual.md §5-1・§10-5）───────────────────────
-// v1 で作るのは scope="org"（組織共通）だけ。「前回の冊子から」は
+// ── テンプレート（段E・production-manual.md §5-1・§10-5）───────────────────────
+// v1 で作るのは scope="org"（組織共通）だけ。「前回のマニュアルから」は
 // このAPIを経由せず `createManual` の `copyFromManualId` を使う別経路。
 
 export interface CreateManualTemplatePayload {
   name: string;
-  /** ひな形の元にする冊子（この冊子のページをそのままコピーする） */
+  /** テンプレートの元にするマニュアル（このマニュアルのページをそのままコピーする） */
   source_manual_id: string;
 }
 
@@ -188,7 +188,7 @@ export async function listManualTemplates(): Promise<ManualTemplateListItem[]> {
   return res.data.data;
 }
 
-/** manager 限定。「この冊子をひな形として登録」の実装そのもの */
+/** manager 限定。「このマニュアルをテンプレートとして登録」の実装そのもの */
 export async function createManualTemplate(payload: CreateManualTemplatePayload): Promise<ManualTemplateListItem> {
   const res = await api.post<Envelope<ManualTemplateListItem>>("/techops/manual-templates", payload);
   return res.data.data;

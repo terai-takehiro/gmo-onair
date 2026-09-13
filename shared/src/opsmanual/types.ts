@@ -4,15 +4,15 @@
 // （04-schedule-impl.md §3-7）— サーバーは Express の req.body を自前で検証するので、
 // 型を共有しても検査が増えない。
 //
-// 段A（器だけ）: 冊子の一覧・作成・削除、ページの一覧・追加・削除・並べ替え・
-// タイトル/章名の編集。段B: 紙面の自由ブロック（`ManualFreeBlock`）。
+// 段A（器だけ）: マニュアルの一覧・作成・削除、ページの一覧・追加・削除・並べ替え・
+// タイトル/章名の編集。段B: キャンバスの自由ブロック（`ManualFreeBlock`）。
 // 段C: 差し込みブロック（`ManualLinkedBlock`。レジストリは
-// `shared/src/production/manualBlocks.ts`）。ひな形ブロック（`kind: 'master'`）は段E以降。
+// `shared/src/production/manualBlocks.ts`）。テンプレートブロック（`kind: 'master'`）は段E以降。
 
 export type ManualStatus = "draft" | "fixed" | "archived";
 
 /**
- * 編集ロックの状態（段E・production-manual.md §6-2-1）。冊子まるごとの1本のロックで、
+ * 編集ロックの状態（段E・production-manual.md §6-2-1）。マニュアルまるごとの1本のロックで、
  * `GET /manuals`・`GET /manuals/:id`（どちらも同じ SELECT）にも、ロック操作4本
  * （`POST/DELETE …/lock`・`…/lock/takeover`・`…/lock/request`）の応答にも同じ形で乗る。
  */
@@ -31,7 +31,7 @@ export interface ManualLockState extends ManualLockFields {
   status: ManualStatus;
 }
 
-/** 一覧の1行・冊子1件（ページを含まない形） */
+/** 一覧の1行・マニュアル1件（ページを含まない形） */
 export interface ManualListItem extends ManualLockFields {
   id: string;
   doc_no: string | null;
@@ -53,10 +53,10 @@ export interface ManualListItem extends ManualLockFields {
 }
 
 /**
- * 紙面の中身（ManualBlock）。段B（production-manual.md §4-3・§5-2）で確定。
+ * キャンバスの中身（ManualBlock）。段B（production-manual.md §4-3・§5-2）で確定。
  *
  * 段Bで作るのは `kind: 'free'` だけ（文字・図形・画像・表・QR の5種）。
- * `kind: 'linked'`（差し込み・段C）・`kind: 'master'`（ひな形のブロック・段E）は
+ * `kind: 'linked'`（差し込み・段C）・`kind: 'master'`（テンプレートのブロック・段E）は
  * まだ無い — 型を足すときは判別可能な union を広げるだけで、段Bが保存した
  * JSON との互換は保たれる（既存の free ブロックは変わらず読める）。
  *
@@ -114,7 +114,7 @@ interface ManualBlockBase {
   y: number;
   w: number;
   h: number;
-  /** 重なりの順（大きいほど手前） */
+  /** 重ね順（大きいほど手前） */
   z: number;
   /** 度。既定 0 */
   rotation?: number;
@@ -151,7 +151,7 @@ export interface ManualLinkedBlockLink {
 export type ManualLinkedBlock = ManualBlockBase & { kind: "linked"; link: ManualLinkedBlockLink };
 
 /**
- * 段E で `kind: 'master'`（ひな形のブロック・全ページ共通）を足すときは、この union に
+ * 段E で `kind: 'master'`（テンプレートのブロック・全ページ共通）を足すときは、この union に
  * 1行足すだけでよい（既存の free/linked ブロックの JSON との互換は保たれる）。
  */
 export type ManualBlock = ManualFreeBlock | ManualLinkedBlock;
@@ -159,7 +159,7 @@ export type ManualBlock = ManualFreeBlock | ManualLinkedBlock;
 /** A4横の実寸（mm）。§8-3 */
 export const PAGE_WIDTH_MM = 297;
 export const PAGE_HEIGHT_MM = 210;
-/** 版面の余白（mm）。§8-3。すいつき（スナップ）先の1つ */
+/** 版面の余白（mm）。§8-3。スナップ（スナップ）先の1つ */
 export const PAGE_MARGIN_MM = { top: 12, bottom: 12, left: 15, right: 15 };
 
 export interface ManualPage {
@@ -173,7 +173,7 @@ export interface ManualPage {
   updated_at: string;
 }
 
-/** 冊子1件の画面（`GET /techops/manuals/:id`）が返す形 */
+/** マニュアル1件の画面（`GET /techops/manuals/:id`）が返す形 */
 export interface ManualDetail extends ManualListItem {
   pages: ManualPage[];
 }
@@ -187,9 +187,9 @@ export interface ConflictError {
 }
 
 /**
- * ひな形の一覧の1件（段E・production-manual.md §5-1・§10-5）。
+ * テンプレートの一覧の1件（段E・production-manual.md §5-1・§10-5）。
  *
- * v1 で作るのは `scope: "org"`（組織共通）だけ——「この案件の前回の冊子から」は
+ * v1 で作るのは `scope: "org"`（組織共通）だけ——「この案件の前回のマニュアルから」は
  * このテーブルを経由せず `qsheet_manuals` を直接複製する別経路（`CreateManualPayload.copyFromManualId`）
  * なので、`scope: "project"` はクライアントからは到達しない（GET は常に scope=org を返す）。
  * ページの中身（`pages`）は一覧に持たない——選ぶ画面（`CreateManualDialog`）が必要とするのは

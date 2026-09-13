@@ -7,7 +7,7 @@
  * 数ミリ角になるため）。**v4 は自分で描くので、その制約が無くなりました**。
  * モック（承認済み）は **数字＋点だけの月マス**（文字を入れない）で崩れず、
  * PC の①予定と**同じ3層**（スタジオ・パートナー・自分）を重ねます。
- * 置き方の計算・「出すもの」の記憶（`layerPrefs.ts`）は PC と共有します
+ * 置き方の計算・「表示する項目」の記憶（`layerPrefs.ts`）は PC と共有します
  * （分けると「PCで外したはずのものがスマホでは出たまま」になる）。
  *
  * ── 月/週の切替を足した ──────────────────────────────────────
@@ -164,7 +164,7 @@ export function MobileToday() {
   const partnerPreset = useMemo(() => ({ start: selected, end: selected }), [selected]);
   const personalPreset = useMemo(() => ({ start: selected, end: selected, allDay: false }), [selected]);
 
-  /** その層を読む権限があるか（「出すもの」のダイアログも件数の脚注も同じ表を見る） */
+  /** その層を読む権限があるか（「表示する項目」のダイアログも件数の脚注も同じ表を見る） */
   const layerVisible: Record<CalLayer, boolean> = {
     studio: cal.can.studio, partner: cal.can.partner, my: cal.can.personal, tasks: cal.can.tasks,
   };
@@ -262,7 +262,7 @@ export function MobileToday() {
       {cal.isLoading && cal.events.length === 0 ? (
         <Delayed><SkeletonRows rows={3} /></Delayed>
       ) : dayList.length === 0 ? (
-        <EmptyState title="この日の予定はありません" description="上の「今日」で今日に戻れます。上のアイコンから「出すもの」を選べます。" />
+        <EmptyState title="この日の予定はありません" description="上の「今日」で今日に戻れます。上のアイコンから「表示する項目」を選べます。" />
       ) : (
         <ul className="v4-card-in flex flex-col gap-2">
           {dayList.map((e) => (

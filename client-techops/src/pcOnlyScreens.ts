@@ -114,11 +114,11 @@ export const TECHOPS_PC_ONLY: PcOnlyEntry[] = [
   },
   {
     // 運営マニュアル・仕上がりと PDF（段D・production-manual.md §6⑤）。書き出し設定・
-    // インクの目安・出す前の検査を見ながら紙面の縮小プレビューと見比べる画面で、
+    // インクの目安・出す前の検査を見ながらキャンバスの縮小プレビューと見比べる画面で、
     // 編集画面（`/techops/manuals/:id`）と同じくPC操作前提のため
     path: '/techops/manuals/:id/preview',
-    what: '運営マニュアル（冊子）の仕上がりと書き出し',
-    why: '書き出し設定・出す前の検査を紙面の縮小プレビューと見比べながら組む画面で、狭い幅では組めません。',
+    what: '運営マニュアル（マニュアル）の仕上がりと書き出し',
+    why: '書き出し設定・出す前の検査をキャンバスの縮小プレビューと見比べながら組む画面で、狭い幅では組めません。',
     instead: { label: '運営マニュアルの一覧を開く', to: '/techops/manuals' },
   },
   {
@@ -160,7 +160,7 @@ export const TECHOPS_MOBILE_OK: string[] = [
   '/techops/schedules',      // スケジュール表の一覧
   '/techops/schedules/:id',  // スケジュール表の詳細（375px は縦積みカードに畳む）
   '/techops/manuals',        // 運営マニュアルの一覧（閲覧のみなのでスマホでも開ける・段A）
-  '/techops/manuals/:id',    // 運営マニュアル・冊子1件。スマホは閲覧専用画面に丸ごと入れ替わる（PCは引き続き編集・段E・§6⑥）
+  '/techops/manuals/:id',    // 運営マニュアル・マニュアル1件。スマホは閲覧専用画面に丸ごと入れ替わる（PCは引き続き編集・段E・§6⑥）
 
   // 収録設定・配信設定の簡易入口（旧 `/techops/device-settings`）は2026-08-22 に廃止（`App.tsx` にルート無し）
   '/techops/recording/:ownerKey', // 収録設定（PC表＋スマホは下シートに畳む）

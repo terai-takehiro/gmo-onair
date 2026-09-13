@@ -2,14 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadTs } from './helpers/load-ts.mjs';
 
-// 運営マニュアル 段E — `buildPagesForNewManual` は「ひな形／前回の冊子から複製した
+// 運営マニュアル 段E — `buildPagesForNewManual` は「テンプレート／前回のマニュアルから複製した
 // kind:'linked' ブロックの frozen（確定済みの中身）と reveal（秘密の解除記録）を
 // 必ず null に戻す」という約束を持つ（段Eの設計判断3「reveal…を省略しないこと」）。
-// ここが崩れると、複製した新しい冊子で「まだ誰も確認していないのに秘密（配信の鍵・
+// ここが崩れると、複製した新しいマニュアルで「まだ誰も確認していないのに秘密（配信の鍵・
 // WEB会議のパスコード）が出たまま」という事故になる——固定するテストを置く。
-// あわせて「同じ案件/番組の冊子だけ複製を許す」ガードと、外部レビュー再指摘（P1）
-// 「案件/番組が一致するだけでなく `canAccessManual` も通ること」（番組紐づけの冊子は
-// 作成者本人/管理者にしか見えないため、番組一致だけでは他人の冊子を複製できてしまう）も固定する。
+// あわせて「同じ案件/番組のマニュアルだけ複製を許す」ガードと、外部レビュー再指摘（P1）
+// 「案件/番組が一致するだけでなく `canAccessManual` も通ること」（番組紐づけのマニュアルは
+// 作成者本人/管理者にしか見えないため、番組一致だけでは他人のマニュアルを複製できてしまう）も固定する。
 
 class NotFoundError extends Error {
   constructor(message) { super(message); this.code = 'NOT_FOUND'; this.status = 404; }
@@ -123,7 +123,7 @@ test('buildPagesForNewManual rejects copying from a manual under a different pro
   );
 });
 
-test('buildPagesForNewManual rejects copying a manual the requester cannot access, even when project/program matches (レビュー指摘・番組紐づけの冊子は作成者/管理者にしか見えない)', async () => {
+test('buildPagesForNewManual rejects copying a manual the requester cannot access, even when project/program matches (レビュー指摘・番組紐づけのマニュアルは作成者/管理者にしか見えない)', async () => {
   const { buildPagesForNewManual } = await loadService({
     manuals: { 'manual-1': { programId: 'prog-1', createdBy: 'other-user' } },
     pagesByManual: { 'manual-1': [{ chapter: null, title: '', blocks: [] }] },
@@ -139,7 +139,7 @@ test('buildPagesForNewManual rejects copying a manual the requester cannot acces
 
 test('buildPagesForNewManual strips frozen/reveal when applying an org template, and falls back to one blank page otherwise', async () => {
   const { buildPagesForNewManual } = await loadService({
-    templates: { 'tpl-1': { pages: [{ chapter: null, title: '柱', blocks: [linkedBlock('blk-9')] }] } },
+    templates: { 'tpl-1': { pages: [{ chapter: null, title: 'ヘッダー', blocks: [linkedBlock('blk-9')] }] } },
   });
 
   const fromTemplate = await buildPagesForNewManual({ templateId: 'tpl-1' });
@@ -210,18 +210,18 @@ test('buildPagesForNewManual keeps a sheet.* block\'s sourceId when the document
 
 test('buildPagesForNewManual nulls out a sheet.* block\'s sourceId when applying an org template to a project the source document does not belong to', async () => {
   const { buildPagesForNewManual } = await loadService({
-    templates: { 'tpl-1': { pages: [{ chapter: null, title: '柱', blocks: [sheetBlock('blk-9', 'doc-9')] }] } },
+    templates: { 'tpl-1': { pages: [{ chapter: null, title: 'ヘッダー', blocks: [sheetBlock('blk-9', 'doc-9')] }] } },
     documents: { 'doc-9': { projectId: 'proj-1' } },
   });
 
   const pages = await buildPagesForNewManual({ templateId: 'tpl-1', projectId: 'proj-2', programId: null, user: DEFAULT_USER });
 
-  assert.equal(pages[0].blocks[0].link.sourceId, null, '組織共通ひな形は案件を問わず適用できるため、資料が別案件のものなら落とす');
+  assert.equal(pages[0].blocks[0].link.sourceId, null, '組織共通テンプレートは案件を問わず適用できるため、資料が別案件のものなら落とす');
 });
 
-test('buildPagesForNewManual nulls out a sheet.* block\'s sourceId when neither projectId nor programId is given (新規冊子で所属先が無い場合)', async () => {
+test('buildPagesForNewManual nulls out a sheet.* block\'s sourceId when neither projectId nor programId is given (新規マニュアルで所属先が無い場合)', async () => {
   const { buildPagesForNewManual } = await loadService({
-    templates: { 'tpl-1': { pages: [{ chapter: null, title: '柱', blocks: [sheetBlock('blk-9', 'doc-9')] }] } },
+    templates: { 'tpl-1': { pages: [{ chapter: null, title: 'ヘッダー', blocks: [sheetBlock('blk-9', 'doc-9')] }] } },
     documents: { 'doc-9': { projectId: 'proj-1' } },
   });
 
@@ -250,11 +250,11 @@ test('createTemplateFromManual copies the source pages as-is (frozen/reveal unto
     onExecute: (sql, params) => { if (sql.includes('INSERT INTO qsheet_manual_templates')) insertedArgs = params; },
   });
 
-  await createTemplateFromManual('見本ひな形', 'manual-1', 'user-1');
+  await createTemplateFromManual('見本テンプレート', 'manual-1', 'user-1');
 
   assert.ok(insertedArgs, 'INSERT INTO qsheet_manual_templates が呼ばれる');
   const [, name, pagesJson, createdBy] = insertedArgs;
-  assert.equal(name, '見本ひな形');
+  assert.equal(name, '見本テンプレート');
   assert.equal(createdBy, 'user-1');
   const pages = JSON.parse(pagesJson);
   assert.equal(pages.length, 1);

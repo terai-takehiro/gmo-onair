@@ -1,4 +1,4 @@
-// 選択中ページの紙面（blocks）をローカルに持ち、打つ/動かすのを止めて1.5秒で
+// 選択中ページのキャンバス（blocks）をローカルに持ち、打つ/動かすのを止めて1.5秒で
 // サーバーへ自動保存する（production-manual.md §6②「保存は打つのを止めて1.5秒」）。
 // 新しい変更が来るたびにデバウンスをリセットする。ページを切り替えるときは
 // `flush()` を先に呼んで、切替前の未保存分を即座に送ってから離れる。
@@ -24,33 +24,33 @@ export interface UseManualPageAutosaveResult {
   /** ページを切り替える直前に呼ぶ（未保存分があれば即座に送る） */
   flush: () => void;
   /**
-   * 紙面（blocks）以外の経路でそのページの updated_at が進んだとき（並べ替え等。
-   * `commitMetadata` を通さない書き込みがあれば）に呼ぶ。呼ばないと、次の紙面編集の
+   * キャンバス（blocks）以外の経路でそのページの updated_at が進んだとき（並べ替え等。
+   * `commitMetadata` を通さない書き込みがあれば）に呼ぶ。呼ばないと、次のキャンバス編集の
    * 自動保存が古い revision を使って送られ、サーバーの楽観ロックに偽の衝突と
    * 判定される（レビュー指摘）。
    */
   syncPageRevision: (pageId: string, updatedAt: string) => void;
   /**
-   * ページのタイトル・章名を保存する（`PageRail` の行内編集）。対象が「いま紙面に開いている
-   * ページ」と同じときは、紙面の自動保存（保留中/進行中）が終わるのを待ってから送る
+   * ページのタイトル・章名を保存する（`PageRail` の行内編集）。対象が「いまキャンバスに開いている
+   * ページ」と同じときは、キャンバスの自動保存（保留中/進行中）が終わるのを待ってから送る
    * ——別経路の独立した PUT のまま同時に送ると、どちらかが偽の衝突として弾かれ、
-   * 紙面側の未保存分を失いうる（外部レビュー再指摘・P1）。別のページが対象のときは
+   * キャンバス側の未保存分を失いうる（外部レビュー再指摘・P1）。別のページが対象のときは
    * 競合する自動保存が無いのでそのまま送る。
    */
   commitMetadata: (pageId: string, manualId: string, patch: { title?: string; chapter?: string | null }) => Promise<ManualPage>;
   /**
-   * いま紙面に開いているページの保留中/進行中の自動保存があれば、それを終わらせて
-   * から返る（無ければ即座に返る）。並べ替え（`reorderPages`）のように**冊子内の
+   * いまキャンバスに開いているページの保留中/進行中の自動保存があれば、それを終わらせて
+   * から返る（無ければ即座に返る）。並べ替え（`reorderPages`）のように**マニュアル内の
    * 全ページの `updated_at` を進める別経路の書き込み**を送る直前に呼ぶ——呼ばずに
    * 送ると、いま開いているページの自動保存が古い revision のまま同時に飛び、
-   * 偽の衝突として弾かれて紙面側の未保存分を失いうる（外部レビュー再指摘・P1。
+   * 偽の衝突として弾かれてキャンバス側の未保存分を失いうる（外部レビュー再指摘・P1。
    * `commitMetadata` と同じ理由・同じ仕組み）。
    */
   waitForCurrentPageSave: () => Promise<void>;
 }
 
 /**
- * @param page 紙面を表示中のページ（未選択なら undefined）
+ * @param page キャンバスを表示中のページ（未選択なら undefined）
  * @param onSaved 保存が成功するたびに、サーバーが返した最新行を渡す（呼び出し側はキャッシュを差し替える）
  * @param onConflict 楽観ロック衝突（409）のとき（呼び出し側は再取得する）
  */
@@ -87,7 +87,7 @@ export function useManualPageAutosave(
   const onConflictRef = useRef(onConflict);
   onSavedRef.current = onSaved;
   onConflictRef.current = onConflict;
-  // `commitMetadata` が「いま紙面に開いているページと同じか」を判定するための参照
+  // `commitMetadata` が「いまキャンバスに開いているページと同じか」を判定するための参照
   // （レンダーのたびに最新化。effect を待たず常に最新の page?.id を見る）
   const currentPageIdRef = useRef<string | undefined>(page?.id);
   currentPageIdRef.current = page?.id;
@@ -143,7 +143,7 @@ export function useManualPageAutosave(
           if (mountedRef.current) onConflictRef.current();
           return;
         }
-        notifyError("紙面を保存できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
+        notifyError("キャンバスを保存できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
       })
       .finally(() => {
         savingRef.current = false;
@@ -167,8 +167,8 @@ export function useManualPageAutosave(
     [page, runSave],
   );
 
-  // いま紙面に開いているページの保留中/進行中の保存を終わらせてから返る
-  // （`commitMetadata`・`waitForCurrentPageSave` 共通の中身）。保留中の紙面編集が
+  // いまキャンバスに開いているページの保留中/進行中の保存を終わらせてから返る
+  // （`commitMetadata`・`waitForCurrentPageSave` 共通の中身）。保留中のキャンバス編集が
   // あれば即座に送信を始め、進行中の保存（連鎖しているぶんも含めて）がすべて
   // 終わるまで待つ。
   const flushAndWait = useCallback(async () => {
@@ -180,8 +180,8 @@ export function useManualPageAutosave(
 
   const commitMetadata = useCallback(
     async (pageId: string, manualId: string, patch: { title?: string; chapter?: string | null }): Promise<ManualPage> => {
-      // 対象がいま紙面に開いているページと同じときだけ待つ——これをしないと、
-      // このメタデータ PUT が紙面の自動保存と同時に飛び、どちらかが偽の衝突
+      // 対象がいまキャンバスに開いているページと同じときだけ待つ——これをしないと、
+      // このメタデータ PUT がキャンバスの自動保存と同時に飛び、どちらかが偽の衝突
       // （409）として弾かれてしまう（外部レビュー再指摘）。別のページが対象の
       // ときは競合する自動保存が無いのでそのまま送る。
       if (pageId === currentPageIdRef.current) await flushAndWait();

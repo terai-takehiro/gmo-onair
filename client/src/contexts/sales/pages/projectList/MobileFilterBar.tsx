@@ -247,7 +247,7 @@ export function MobileFilterBar(p: MobileFilterBarProps) {
               className="v4-tap h-5 w-5 shrink-0 accent-primary"
             />
             <Filter className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
-            <span className="text-list">要整理（停滞している案件だけ）</span>
+            <span className="text-list">要整理（停滞中の案件だけ）</span>
           </label>
           <label className="flex min-h-tap items-center gap-2.5">
             <input

@@ -193,7 +193,7 @@ export default function App() {
 
         {/* 運営マニュアル（段A・docs/design/v4/production-manual.md §9） */}
         <Route path="/techops/manuals" element={<ManualListPage />} />
-        {/* 冊子1件。PC＝編集・スマホ＝閲覧専用（段E・§6⑥。ManualDetailRouter.tsx が入れ替える） */}
+        {/* マニュアル1件。PC＝編集・スマホ＝閲覧専用（段E・§6⑥。ManualDetailRouter.tsx が入れ替える） */}
         <Route path="/techops/manuals/:id" element={<ManualDetailRouter />} />
         {/* 仕上がりと PDF（段D・production-manual.md §6⑤）。引き続き PC 専用 */}
         <Route path="/techops/manuals/:id/preview" element={<ManualPreviewPage />} />

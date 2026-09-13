@@ -1,5 +1,5 @@
 // マーキー選択（複数選択をドラッグで囲む・Shift で足す。production-manual.md §6-2
-// 「複数選択｜ドラッグで囲む・Shift で足す」）。紙面の背景（`pageRef` が指す要素そのもの）
+// 「複数選択｜ドラッグで囲む・Shift で足す」）。キャンバスの背景（`pageRef` が指す要素そのもの）
 // でのポインタ操作だけを見る。ブロックの上でのポインタ操作は ManualBlockView 側が
 // `e.stopPropagation()` するのでここには来ない。
 import { useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from "react";

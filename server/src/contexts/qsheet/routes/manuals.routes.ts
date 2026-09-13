@@ -16,9 +16,9 @@ router.use(requireAuth, requirePermission('qsheet'));
 
 async function requireAccessible(req: Request) {
   const raw = await getManualRaw(p1(req.params.id));
-  if (!raw) throw new NotFoundError('冊子が見つかりません');
+  if (!raw) throw new NotFoundError('マニュアルが見つかりません');
   const ok = await canAccessManual(req.user!, raw.id as string, (raw.created_by as string) ?? null);
-  if (!ok) throw new NotFoundError('冊子が見つかりません'); // 存在秘匿
+  if (!ok) throw new NotFoundError('マニュアルが見つかりません'); // 存在秘匿
   return raw;
 }
 
@@ -48,7 +48,7 @@ router.post('/manuals', requirePermission('qsheet', 'editor'), wrap(async (req, 
     serviceDate: typeof b.service_date === 'string' ? b.service_date : null,
     createdBy: req.user!.id,
     user: req.user!,
-    // ひな形／前回の冊子からの複製（段E）。どちらも省略可（今までどおり空ページ1枚）
+    // テンプレート／前回のマニュアルからの複製（段E）。どちらも省略可（今までどおり空ページ1枚）
     templateId: typeof b.template_id === 'string' ? b.template_id : null,
     copyFromManualId: typeof b.copy_from_manual_id === 'string' ? b.copy_from_manual_id : null,
   });
@@ -58,7 +58,7 @@ router.post('/manuals', requirePermission('qsheet', 'editor'), wrap(async (req, 
 router.get('/manuals/:id', wrap(async (req: Request, res: Response) => {
   await requireAccessible(req);
   const manual = await getManualWithMeta(p1(req.params.id));
-  if (!manual) throw new NotFoundError('冊子が見つかりません');
+  if (!manual) throw new NotFoundError('マニュアルが見つかりません');
   const pages = await getManualPages(p1(req.params.id));
   res.json({ success: true, data: { ...manual, pages } });
 }));

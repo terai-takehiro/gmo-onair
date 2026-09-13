@@ -1,9 +1,9 @@
-// 冊子1件の画面（`/techops/manuals/:id`・段A＋段B＋段C＋段E）。ページの一覧・追加・削除・
-// 並べ替え・章名/タイトルの編集（段A）、選択中ページの紙面（自由ブロック5種）の編集・自動保存
+// マニュアル1件の画面（`/techops/manuals/:id`・段A＋段B＋段C＋段E）。ページの一覧・追加・削除・
+// 並べ替え・章名/タイトルの編集（段A）、選択中ページのキャンバス（自由ブロック5種）の編集・自動保存
 // （段B）に加え、他ミニアプリの情報を置く「差し込みブロック」の追加（`insertTab`/`InsertPanel`）・
 // 解決結果の表示（`getManualResolve`/`renderBlockContent`）・秘密の伏せ字解除
-// （`LinkedBlockInspector` 経由）を持つ（段C）。冊子まるごとの編集ロック（`useManualEditLock`・
-// §6-2-1）と確定済み（status==='fixed'）のときの読み取り専用化を段Eで追加。ひな形は今回も
+// （`LinkedBlockInspector` 経由）を持つ（段C）。マニュアルまるごとの編集ロック（`useManualEditLock`・
+// §6-2-1）と確定済み（status==='fixed'）のときの読み取り専用化を段Eで追加。テンプレートは今回も
 // 実装しない。PDF書き出し・仕上がり画面は段D（`/techops/manuals/:id/preview`・
 // `ManualPreviewPage.tsx`）で、ここからは見出し脇の「仕上がり」で遷移するだけ。
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -43,7 +43,7 @@ export default function ManualDetailPage() {
   const queryClient = useQueryClient();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletingPageId, setDeletingPageId] = useState<string | null>(null);
-  // どのページを紙面（ManualCanvas）に表示するか（段B）。既定は先頭ページ
+  // どのページをキャンバス（ManualCanvas）に表示するか（段B）。既定は先頭ページ
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   // ManualCanvas の undo 履歴（ページ単位）に、右パネル・追加ツールバーからの変更も
@@ -60,7 +60,7 @@ export default function ManualDetailPage() {
   });
   const manual = detailQuery.data;
 
-  // 冊子まるごとの編集ロック（段E・§6-2-1）。qsheet editor 権限が無い（reader）・
+  // マニュアルまるごとの編集ロック（段E・§6-2-1）。qsheet editor 権限が無い（reader）・
   // 確定済み（status==='fixed'）のときはそもそも取りに行かない——読み取り専用の理由が
   // 別にあるので、ロックの取り合いに参加させる必要が無い。`manual` を読み込むまでは
   // status が分からないので `!!manual` も条件に入れる。
@@ -74,10 +74,10 @@ export default function ManualDetailPage() {
     [queryClient, id],
   );
   // `onFixed`: 保持者がハートビートで初めて確定に気づいたとき（外部レビュー再指摘・
-  // P1）に呼ぶ——冊子の詳細を引き直してstatus='fixed'を画面に反映する
+  // P1）に呼ぶ——マニュアルの詳細を引き直してstatus='fixed'を画面に反映する
   // （`lockEnabled`/`isFixed`は次のレンダーで自動的に読み取り専用側へ倒れる）。
   const lock = useManualEditLock(id, currentUser?.id, lockEnabled, invalidate);
-  // 実際に書き込んでよいか。この1つの値だけを見て、紙面・ページ操作・タイトルの編集を
+  // 実際に書き込んでよいか。この1つの値だけを見て、キャンバス・ページ操作・タイトルの編集を
   // まとめて読み取り専用に切り替える（`guardedCommitBlocks`・`<fieldset disabled>`・
   // タイトルの `disabled` の3か所がこれを参照する）。
   const editable = lockEnabled && lock.held;
@@ -92,7 +92,7 @@ export default function ManualDetailPage() {
   });
   const resolveResults = resolveQuery.data;
 
-  // 選択中ページが無い・削除された・冊子を開いた直後は先頭ページを選ぶ
+  // 選択中ページが無い・削除された・マニュアルを開いた直後は先頭ページを選ぶ
   useEffect(() => {
     if (!manual) return;
     const sorted = pagesSorted(manual.pages);
@@ -105,7 +105,7 @@ export default function ManualDetailPage() {
 
   const currentPage = manual?.pages.find((p) => p.id === selectedPageId);
 
-  // 紙面の自動保存が成功したら、キャッシュ側の該当ページも差し替える（"detail" は
+  // キャンバスの自動保存が成功したら、キャッシュ側の該当ページも差し替える（"detail" は
   // invalidate せず setQueryData で差し替える — 再取得するとローカルの編集途中を
   // 巻き戻してしまうため）。⚠️ レビュー指摘: 差し込みブロックの追加・秘密の解除も
   // ここを通るが "resolve"（別クエリ・staleTime 30秒）は触れておらず、新しいブロックが
@@ -145,7 +145,7 @@ export default function ManualDetailPage() {
     setSelectedBlockId(null);
   };
 
-  // 紙面の undo 履歴（ManualCanvas 側の useManualHistory）にも1手として積む。
+  // キャンバスの undo 履歴（ManualCanvas 側の useManualHistory）にも1手として積む。
   // 未マウント（ページ未選択）のときだけ commitBlocks に直接フォールバックする
   const commitViaHistory = useCallback(
     (next: ManualBlock[]) => {
@@ -190,7 +190,7 @@ export default function ManualDetailPage() {
   });
 
   const updatePageMutation = useMutation({
-    // 独立PUTだと紙面の自動保存と同時に飛び偽の衝突になりうるため`commitMetadata`に通す
+    // 独立PUTだとキャンバスの自動保存と同時に飛び偽の衝突になりうるため`commitMetadata`に通す
     mutationFn: ({ pageId, patch }: { pageId: string; patch: { title?: string; chapter?: string | null } }) =>
       commitMetadata(pageId, id, patch),
     onSuccess: invalidate,
@@ -227,7 +227,7 @@ export default function ManualDetailPage() {
     },
     onError: () => {
       setDeleteOpen(false);
-      notifyError("冊子を削除できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
+      notifyError("マニュアルを削除できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
     },
   });
 
@@ -254,7 +254,7 @@ export default function ManualDetailPage() {
       )}
 
       {detailQuery.isError && (
-        <ErrorPanel title="冊子を読み込めませんでした" error={detailQuery.error} onRetry={() => detailQuery.refetch()} />
+        <ErrorPanel title="マニュアルを読み込めませんでした" error={detailQuery.error} onRetry={() => detailQuery.refetch()} />
       )}
 
       {manual && (
@@ -274,7 +274,7 @@ export default function ManualDetailPage() {
                   "aria-[invalid=true]:border-destructive aria-[invalid=true]:focus-visible:ring-destructive",
                   "h-11 max-w-xl border-transparent bg-transparent px-0 text-h1 shadow-none focus-visible:border-input focus-visible:bg-background focus-visible:px-3"
                 )}
-                aria-label="冊子のタイトル"
+                aria-label="マニュアルのタイトル"
               />
             }
             sub={
@@ -304,7 +304,7 @@ export default function ManualDetailPage() {
                   disabled={!editable}
                   title={!editable ? "編集ロックを持っている間だけ削除できます" : undefined}
                 >
-                  <Trash2 className="mr-1 h-4 w-4" aria-hidden="true" />冊子を削除
+                  <Trash2 className="mr-1 h-4 w-4" aria-hidden="true" />マニュアルを削除
                 </Button>
               </div>
             }
@@ -316,7 +316,7 @@ export default function ManualDetailPage() {
             {/* 読み取り専用の間は中の入力欄・ボタンがまとめて disabled になる
                 （`className="contents"` なのでグリッドの列組みは変わらない。
                 `client-techops` 既存の `RecordingPage.tsx` 等と同じ手当て）。
-                紙面のドラッグ等（フォーム部品を経由しない操作）は `guardedCommitBlocks` 側で止める */}
+                キャンバスのドラッグ等（フォーム部品を経由しない操作）は `guardedCommitBlocks` 側で止める */}
             <fieldset disabled={!editable} className="contents">
               <PageRail
                 pages={manual.pages}

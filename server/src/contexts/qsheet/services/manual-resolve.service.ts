@@ -7,7 +7,7 @@
  * streaming./rental./equipment.）で振り分けるだけの薄い層。ルート（`manual-resolve.routes.ts`）
  * はここだけを呼び、個々の resolver ファイルを直接 import しない。
  *
- * ⚠️ ここでは権限の再チェックをしない（「共通ポリシー」節どおり、冊子自体が
+ * ⚠️ ここでは権限の再チェックをしない（「共通ポリシー」節どおり、マニュアル自体が
  * `canAccessManual` を通っていることだけをゲートにする）。呼び出し元のルートが
  * 必ず先に `canAccessManual` を確認していることが前提。
  */
@@ -38,7 +38,7 @@ export interface ResolveCtx {
   sourceId: string | null;
   /** `link.reveal?.fields`。streaming.* の2種だけ見る */
   revealFields: string[];
-  /** 冊子自身の `service_date`（YYYY-MM-DD） */
+  /** マニュアル自身の `service_date`（YYYY-MM-DD） */
   manualServiceDate: string | null;
   /** 呼び出し本人。sheet.* の3種だけが使う（`canAccessDoc` の判定・レビュー指摘 P1） */
   user: AccessUser;
@@ -103,17 +103,17 @@ export interface AvailabilityCtx {
 }
 
 /**
- * この冊子の project_id/program_id に対して「実在する」差し込みブロック種別だけを返す
+ * このマニュアルの project_id/program_id に対して「実在する」差し込みブロック種別だけを返す
  * （§4-3「押すと空になる項目を作らない」）。SHARED_CONTEXT「共通ポリシー」節の
  * 実在チェック SQL を12種ぶん実行する。
  */
 export async function listAvailableLinkedBlocks(ctx: AvailabilityCtx): Promise<ManualLinkedBlockKey[]> {
   const ownerId = ctx.projectId ?? ctx.programId;
   const available: ManualLinkedBlockKey[] = [];
-  if (!ownerId) return available; // project/program どちらも無い冊子は差し込み元を持たない
+  if (!ownerId) return available; // project/program どちらも無いマニュアルは差し込み元を持たない
 
   const checks: { key: ManualLinkedBlockKey | ManualLinkedBlockKey[]; sql: string; params: unknown[] }[] = [
-    // project.heading: プロジェクト専用（program 紐づけの冊子には対応する project が無い）
+    // project.heading: プロジェクト専用（program 紐づけのマニュアルには対応する project が無い）
     ...(ctx.projectId
       ? [{ key: 'project.heading' as ManualLinkedBlockKey, sql: 'SELECT 1 FROM projects WHERE id = $1 AND deleted_at IS NULL', params: [ctx.projectId] }]
       : []),
@@ -153,7 +153,7 @@ export async function listAvailableLinkedBlocks(ctx: AvailabilityCtx): Promise<M
       sql: 'SELECT 1 FROM qsheet_rental_reservations WHERE (project_id = $1 OR program_id = $1) AND deleted_at IS NULL LIMIT 1',
       params: [ownerId],
     },
-    // equipment.lending: project_id しか持たないため、programId 由来の冊子では常に不在
+    // equipment.lending: project_id しか持たないため、programId 由来のマニュアルでは常に不在
     ...(ctx.projectId
       ? [{
           key: 'equipment.lending' as ManualLinkedBlockKey,

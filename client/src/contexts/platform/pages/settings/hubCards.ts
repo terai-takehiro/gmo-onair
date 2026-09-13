@@ -3,7 +3,7 @@
  *
  * ── 7枚すべて開くようになりました ──────────────────────────
  *
- * 着手時は3枚（お金のルール / 休日・営業時間 / 知らせと文面）が
+ * 着手時は3枚（お金のルール / 休日・営業時間 / 通知とテンプレート）が
  * 画面を持たず、`to: null` と `todo` で「これから作ります」と出していました。
  * **いまは 7 枚とも押せます。**
  *
@@ -110,7 +110,7 @@ export const HUB_GROUPS: HubGroup[] = [
         to: '/settings/users', module: 'admin', who: 'システム管理者',
       },
       {
-        key: 'notify', title: '知らせと文面', desc: '社外に出す文面と、社内のベルの送り先',
+        key: 'notify', title: '通知とテンプレート', desc: '社外に出す文面と、社内のベルの送り先',
         icon: Mail, tone: 'bg-primary-surface text-primary',
         to: '/settings/notify', module: 'admin', who: 'システム管理者',
       },

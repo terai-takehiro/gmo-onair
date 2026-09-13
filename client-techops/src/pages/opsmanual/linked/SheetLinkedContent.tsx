@@ -36,7 +36,7 @@ function cellText(row: Record<string, unknown>): string {
  * ⚠️⚠️ 外部レビュー再指摘（P1）: `sheet.excerpt` は「セクション」欄（`options.sectionTitle`。
  * `LinkedBlockInspector.tsx` の自由入力）で見せる範囲を絞れる設計だったが、この関数が
  * `options` を受け取っておらず（そもそも分割代入していなかった）、常に全セクションを
- * そのまま出していた——著者が意図的に外した節まで紙面・PDFへそのまま配ってしまう。
+ * そのまま出していた——著者が意図的に外した節までキャンバス・PDFへそのまま配ってしまう。
  * `sectionTitle` が指定されているときは、そのラベルを含むセクションだけに絞ってから渡す。
  */
 export function filterSectionsByTitle(data: unknown, sectionTitle: string): unknown {

@@ -41,9 +41,9 @@
     </button>
   </header>
 
-  <!-- ── 冊子の帯 ──────────────────────────────────────────── -->
+  <!-- ── マニュアルの帯 ──────────────────────────────────────────── -->
   <div style="display: flex; height: 52px; flex-shrink: 0; align-items: center; gap: 12px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 16px 0 12px;">
-    <button class="tap ghost" style="display: flex; align-items: center; gap: 3px; height: 32px; border-radius: 8px; padding: 0 9px 0 5px; color: #005bac;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg><span style="font-size: 12.5px; font-weight: 700;">冊子一覧</span></button>
+    <button class="tap ghost" style="display: flex; align-items: center; gap: 3px; height: 32px; border-radius: 8px; padding: 0 9px 0 5px; color: #005bac;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg><span style="font-size: 12.5px; font-weight: 700;">マニュアル一覧</span></button>
     <span style="height: 20px; width: 1px; background: #e6e9ed;"></span>
     <span class="num" style="font-size: 11.5px; font-weight: 700; color: #9aa1ab;">OM-0006</span>
     <span style="font-size: 15px; font-weight: 800;">リハーサル進行マニュアル</span>
@@ -83,10 +83,10 @@
       </button>
     </sc-for>
     <span style="height: 20px; width: 1px; background: #e6e9ed; margin: 0 4px;"></span>
-    <button class="tap ghost" style="display: flex; align-items: center; gap: 5px; height: 30px; border-radius: 8px; padding: 0 9px; font-size: 12px; font-weight: 700; color: #3c424c;" title="前面へ・背面へ">重なり</button>
+    <button class="tap ghost" style="display: flex; align-items: center; gap: 5px; height: 30px; border-radius: 8px; padding: 0 9px; font-size: 12px; font-weight: 700; color: #3c424c;" title="前面へ・背面へ">重ね順</button>
     <button class="tap ghost" style="display: flex; align-items: center; gap: 5px; height: 30px; border-radius: 8px; padding: 0 9px; font-size: 12px; font-weight: 700; color: #3c424c;" title="Ctrl+Z / Ctrl+Shift+Z">元に戻す</button>
     <span style="flex: 1;"></span>
-    <button class="tap ghost" style="display: flex; align-items: center; gap: 6px; height: 30px; border-radius: 8px; padding: 0 10px; font-size: 12px; font-weight: 700; color: #3c424c;" title="ブロックの端と余白に吸い付く"><span style="width: 8px; height: 8px; border-radius: 2px; background: #005bac;"></span>すいつき</button>
+    <button class="tap ghost" style="display: flex; align-items: center; gap: 6px; height: 30px; border-radius: 8px; padding: 0 10px; font-size: 12px; font-weight: 700; color: #3c424c;" title="ブロックの端と余白に吸い付く"><span style="width: 8px; height: 8px; border-radius: 2px; background: #005bac;"></span>スナップ</button>
     <button class="tap ghost" style="display: flex; align-items: center; gap: 6px; height: 30px; border-radius: 8px; padding: 0 10px; font-size: 12px; font-weight: 700; color: #3c424c;">方眼</button>
     <span style="height: 20px; width: 1px; background: #e6e9ed; margin: 0 4px;"></span>
     <div style="display: flex; align-items: center; gap: 2px;">
@@ -219,7 +219,7 @@
                 </div>
               </sc-if>
 
-              <!-- 柱（マスター） -->
+              <!-- ヘッダー（マスター） -->
               <sc-if value="{{b.isFooter}}" hint-placeholder-val="{{ true }}">
                 <div style="height: 100%; display: flex; align-items: center; gap: 8px; border-top: 1px solid #e6e9ed; padding-top: 4px;">
                   <span class="num" style="font-size: 7.5px; color: #9aa1ab;">GMO グローバルスタジオ ／ 社外秘</span>
@@ -245,7 +245,7 @@
           </div>
         </sc-for>
 
-        <!-- すいつきの線（選択中のブロックの上端） -->
+        <!-- スナップの線（選択中のブロックの上端） -->
         <sc-if value="{{guide.on}}" hint-placeholder-val="{{ true }}">
           <div style="position: absolute; left: 0; right: 0; top: {{guide.y}}; border-top: 1px dashed #c7243a; pointer-events: none;"></div>
         </sc-if>
@@ -344,13 +344,13 @@
           <p style="margin: 12px 0 0; font-size: 11.5px; line-height: 1.6; color: #9aa1ab;">書体・字間・行間・縁取り・影・背景・回転は「書式」タブで1つずつ変えられます。</p>
         </sc-if>
 
-        <!-- ひな形のブロックのとき（全ページ共通） -->
+        <!-- 全ページ共通のブロックのとき（全ページ共通） -->
         <sc-if value="{{sel.isMaster}}" hint-placeholder-val="{{ true }}">
           <div style="margin-top: 12px; border-radius: 10px; border: 1px solid #e6e9ed; background: #f7f8fa; padding: 11px;">
             <div style="font-size: 11.5px; line-height: 1.6; color: #5d6470;">{{sel.freeHint}}</div>
           </div>
-          <button class="tap" style="margin-top: 11px; width: 100%; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid #cfe4f4; background: #f4faff; font-size: 12.5px; font-weight: 800; color: #005bac;">ひな形を編集する</button>
-          <p style="margin: 9px 0 0; font-size: 11.5px; line-height: 1.6; color: #9aa1ab;">このページだけ柱を消したいときは「このページでは出さない」を選びます。</p>
+          <button class="tap" style="margin-top: 11px; width: 100%; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid #cfe4f4; background: #f4faff; font-size: 12.5px; font-weight: 800; color: #005bac;">テンプレートを編集する</button>
+          <p style="margin: 9px 0 0; font-size: 11.5px; line-height: 1.6; color: #9aa1ab;">このページだけヘッダーを消したいときは「このページでは出さない」を選びます。</p>
         </sc-if>
 
         <!-- 位置と大きさ -->
@@ -385,7 +385,7 @@ class Component extends DCLogic {
       { id: 'crew', tag: '差し込み ／ 体制',     kind: 'linked', name: '体制・連絡先', x: '63%', y: '18%', w: '32%', h: '30%', source: '案件のメンバー', sourceMeta: '8人 ・ 8/19 更新' },
       { id: 'note', tag: '文字',                 kind: 'free',   name: 'リハ中の約束ごと', x: '63%', y: '51%', w: '32%', h: '15%', freeHint: '文字ブロック。ダブルクリックで直接打てます。選んだ範囲だけ書体・色を変えられます。' },
       { id: 'qr',   tag: 'QR',                   kind: 'free',   name: 'QR（音声サポート）', x: '63%', y: '69%', w: '32%', h: '11%', freeHint: 'QR ブロック。行き先は制作技術支援の画面から選びます（音声サポート・進行台本・スケジュール表）。' },
-      { id: 'foot', tag: 'ひな形（全ページ共通）', kind: 'master', name: '柱（社外秘・日付・ページ番号）', x: '5%',  y: '88%', w: '90%', h: '6%', freeHint: 'ひな形のブロック。全ページに同じものが出ます。直すとすべてのページに効きます。' },
+      { id: 'foot', tag: '全ページ共通のブロック', kind: 'master', name: 'ヘッダー（社外秘・日付・ページ番号）', x: '5%',  y: '88%', w: '90%', h: '6%', freeHint: '全ページ共通のブロック。全ページに同じものが出ます。直すとすべてのページに効きます。' },
     ];
   }
 
@@ -416,7 +416,7 @@ class Component extends DCLogic {
       name: d.name, source: d.source || '', sourceMeta: d.sourceMeta || '',
       isLinked: linked, isFree: d.kind === 'free', isMaster: d.kind === 'master', freeHint: d.freeHint || '',
       stale: !!d.stale,
-      kind: linked ? '差し込み' : (d.kind === 'master' ? 'ひな形' : '自由'),
+      kind: linked ? '差し込み' : (d.kind === 'master' ? 'テンプレート' : '自由'),
       kindBg: linked ? '#eaf4fb' : (d.kind === 'master' ? '#f2f4f7' : '#f1faf5'),
       kindFg: linked ? '#005bac' : (d.kind === 'master' ? '#5d6470' : '#197a4b'),
       iconBg: linked ? '#eaf4fb' : '#f2f4f7',
@@ -481,7 +481,7 @@ class Component extends DCLogic {
       { label: '図形', fill: '#e6e9ed', hint: '矩形・円・線・矢印・吹き出し' },
       { label: '画像', fill: '#eaf4fb', hint: '手元から上げる' },
       { label: '表', fill: '#ffffff', hint: '自分で打つ表' },
-      { label: 'QR', fill: '#1a1d24', hint: 'この冊子から画面へ飛ばす' },
+      { label: 'QR', fill: '#1a1d24', hint: 'このマニュアルから画面へ飛ばす' },
     ];
 
     const aligns = [
@@ -494,7 +494,7 @@ class Component extends DCLogic {
     ];
 
     const pageDefs = [
-      { no: 1, title: '表紙', accent: '#005bac', chapter: '第1章 ／ この冊子について' },
+      { no: 1, title: '表紙', accent: '#005bac', chapter: '第1章 ／ このマニュアルについて' },
       { no: 2, title: '体制と連絡網', accent: '#005bac', chapter: '' },
       { no: 3, title: '8/22（土）リハーサル', accent: '#c2410e', chapter: '第2章 ／ 当日' },
       { no: 4, title: 'リハの進行表', accent: '#c2410e', chapter: '' },
@@ -540,7 +540,7 @@ class Component extends DCLogic {
       views: views, cols: cols, quickStyles: quickStyles, geom: geom,
       guide: { on: st.sel === 'sched', y: '18%' },
       freeze: {
-        desc: st.freeze ? 'この版で凍らせる（配った紙と食い違わない）' : '追従する（元を直すと冊子も直る）',
+        desc: st.freeze ? 'この版で凍らせる（配った紙と食い違わない）' : '追従する（元を直すとマニュアルも直る）',
         bg: st.freeze ? '#005bac' : '#cbd2da',
         knob: st.freeze ? '18px' : '2px',
         toggle: () => self.setState({ freeze: !st.freeze }),

@@ -1,5 +1,5 @@
 /**
- * ⑦ 知らせと文面（v4 設定・モックの7枚目。旧「通知とテンプレート」）
+ * ⑦ 通知とテンプレート（v4 設定・モックの7枚目。旧「通知とテンプレート」）
  *
  * ── 社外メールは送らない（ご判断）──────────────────────────
  *
@@ -111,7 +111,7 @@ export default function NotifyPage() {
       notifySuccess('定時実行を流しました', {
         description: n > 0
           ? `新しく ${n} 件のお知らせを出しました。`
-          : '新しく出すものはありませんでした（同じお知らせは二重に出ません）。',
+          : '新しく出す通知はありませんでした（同じお知らせは二重に出ません）。',
       });
     },
     onError: (e) => notifyApiError('流せませんでした', e),
@@ -157,7 +157,7 @@ export default function NotifyPage() {
   return (
     <div className="flex flex-col gap-3.5 p-3 lg:gap-4 lg:p-6">
       <PageHeader
-        title="知らせと文面"
+        title="通知とテンプレート"
         sub="いつ・誰に・どんな文面で知らせるかをここで持ちます。"
         primaryAction={canEdit ? (
           <Button variant="outline" disabled={run.isPending} onClick={() => run.mutate()}>

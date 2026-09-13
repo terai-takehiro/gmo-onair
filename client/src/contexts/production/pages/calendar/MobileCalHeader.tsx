@@ -83,7 +83,7 @@ export function MobileCalHeader({
       <div className="flex items-center gap-2">
         <h2 className="text-h1 min-w-0 flex-1 [overflow-wrap:anywhere]">{title}</h2>
         <Button
-          variant="outline" size="icon" aria-label="出すものを選ぶ"
+          variant="outline" size="icon" aria-label="表示する項目を選ぶ"
           onClick={onLayers}
         >
           <Layers className="h-4 w-4" aria-hidden="true" />

@@ -92,7 +92,7 @@ export default function ManualPreExportChecksPanel({ pages, checks }: Props) {
     <div className="flex flex-col gap-2">
       <h2 className="text-sub-sm font-medium text-foreground">出す前の検査</h2>
 
-      <Row tone="bad" title="紙からはみ出すブロック" meaning="紙面の外にはみ出ています" count={checks.overflowing.length}>
+      <Row tone="bad" title="紙からはみ出すブロック" meaning="キャンバスの外にはみ出ています" count={checks.overflowing.length}>
         {checks.overflowing.length > 0 && <IssueList pages={pages} issues={checks.overflowing} />}
       </Row>
 

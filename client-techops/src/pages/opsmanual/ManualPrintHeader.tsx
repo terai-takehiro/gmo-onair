@@ -1,6 +1,6 @@
-// 運営マニュアル — 柱（ランニングヘッダー・段D）。
-// production-manual.md §6⑤「柱には `OM-0007 rev.2 ・ 2026/08/22 14:00 時点 ・ 5 / 12` と出る」
-// のとおり、全ての物理ページ（表紙・目次・紙面。ManualPrintDocument.tsx が呼ぶ）の最上部に
+// 運営マニュアル — ヘッダー（ランニングヘッダー・段D）。
+// production-manual.md §6⑤「ヘッダーには `OM-0007 rev.2 ・ 2026/08/22 14:00 時点 ・ 5 / 12` と出る」
+// のとおり、全ての物理ページ（表紙・目次・キャンバス。ManualPrintDocument.tsx が呼ぶ）の最上部に
 // 重ねて出す。OFF にできないのは「資料番号・状態・取扱注意」の3つで、「時点」（showAsOf）と
 // 「ページ番号」（pageNumbers）だけ書き出し設定で OFF にできる（§6⑤の6項目のうち2つ）。
 // 中身の文言（下書き/rev.N の出し分け・時点の文字列）は ManualPrintDocument.tsx 側で作り、
@@ -8,7 +8,7 @@
 //
 // ⚠️ 印刷専用の別ウィンドウ（別 document）に描かれるため、Tailwind のユーティリティクラスは
 // 使わず素の `style` で組む（`manualPrintExport.ts` がアプリの <link>/<style> を複製するので
-// 実際には動くが、この複製に依存しない書き方にしておく——複製が万一失敗しても柱だけは崩れない）。
+// 実際には動くが、この複製に依存しない書き方にしておく——複製が万一失敗してもヘッダーだけは崩れない）。
 import type { CSSProperties } from "react";
 
 export interface ManualPrintHeaderProps {
@@ -38,12 +38,12 @@ const BAR_STYLE: CSSProperties = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: "4mm",
-  background: "#fff", // 地は白（§6-6）。下に紙面のブロックがあっても柱の帯が覆う
+  background: "#fff", // 地は白（§6-6）。下にキャンバスのブロックがあってもヘッダーの帯が覆う
   borderBottom: "0.25mm solid #1f2937", // 罫は0.25mm以上（§6-6）。帯を塗らず線で示す
-  fontSize: "8pt", // 柱は8pt（§8-3）
+  fontSize: "8pt", // ヘッダーは8pt（§8-3）
   lineHeight: 1,
   color: "#1f2937",
-  zIndex: 1000, // 紙面のどのブロックより必ず手前
+  zIndex: 1000, // キャンバスのどのブロックより必ず手前
   overflow: "hidden",
   whiteSpace: "nowrap",
 };

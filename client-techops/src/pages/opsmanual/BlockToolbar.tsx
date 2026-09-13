@@ -1,5 +1,5 @@
-// 紙面に自由ブロックを置く「＋」ツールバー（段B・production-manual.md §4-3）。
-// 文字・図形・画像・表・QR の5つを押すと、紙面の中央付近に既定サイズ・既定中身の
+// キャンバスに自由ブロックを置く「＋」ツールバー（段B・production-manual.md §4-3）。
+// 文字・図形・画像・表・QR の5つを押すと、キャンバスの中央付近に既定サイズ・既定中身の
 // ブロックを1つ追加する（id・z の決定はここで行う。並べ方・伸縮・回転は
 // ManualCanvas 側の仕事）。
 import { useRef, useState } from "react";
@@ -13,7 +13,7 @@ import {
   type ManualBlock,
   type ManualFreeBlockType,
 } from "@gmo-onair/shared/src/opsmanual/types";
-// id の発番は紙面の複製（Ctrl+D）と同じ関数を使う（`manualCanvasGeometry.ts` が唯一の正）。
+// id の発番はキャンバスの複製（Ctrl+D）と同じ関数を使う（`manualCanvasGeometry.ts` が唯一の正）。
 import { genBlockId } from "./manualCanvasGeometry";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -22,7 +22,7 @@ function nextZ(blocks: ManualBlock[]): number {
   return blocks.reduce((max, b) => Math.max(max, b.z), 0) + 1;
 }
 
-/** 紙面の中央に置いたときの x/y（mm・左上原点） */
+/** キャンバスの中央に置いたときの x/y（mm・左上原点） */
 function centered(w: number, h: number): { x: number; y: number } {
   return { x: Math.max(0, (PAGE_WIDTH_MM - w) / 2), y: Math.max(0, (PAGE_HEIGHT_MM - h) / 2) };
 }

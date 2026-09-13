@@ -6,10 +6,10 @@ import { loadTs } from './helpers/load-ts.mjs';
 //
 // schedule.resolver.ts は「同じ案件/番組のスケジュール表から1つ選ぶ」だけをゲートに
 // しており、`canAccessSchedule` を経由しなかった。project 紐づけの表は
-// canAccessSchedule も案件メンバー全員に自動で見えるため冊子側の可視性と一致するが、
+// canAccessSchedule も案件メンバー全員に自動で見えるためマニュアル側の可視性と一致するが、
 // program 紐づけの表は canAccessSchedule が作成者本人/個別共有/管理者にしか許さない
 // （qsheet_programs 自体は行単位の権限を持たないため誰でも新しい番組マニュアルを
-// 作れる）。案件メンバー自動可視ではなく創作者限定というより狭い表を、冊子の可視性
+// 作れる）。案件メンバー自動可視ではなく創作者限定というより狭い表を、マニュアルの可視性
 // だけをゲートにして読めてしまうと、他人の番組の表を丸ごと覗ける経路になる。
 // pickScheduleId が canAccessSchedule を通る最初の候補を選ぶことを固定する。
 

@@ -59,7 +59,7 @@ function ManualRow({
           <span>更新 {formatUpdatedAt(manual.updated_at)}</span>
         </div>
       </button>
-      {/* ひな形として登録（段E・§10-5「組織共通」）。manager だけに出す */}
+      {/* テンプレートとして登録（段E・§10-5「組織共通」）。manager だけに出す */}
       {canManage && (
         <Button
           type="button"
@@ -67,8 +67,8 @@ function ManualRow({
           size="icon-sm"
           className="min-h-tap min-w-tap shrink-0"
           onClick={() => onRegisterTemplate(manual)}
-          title="ひな形として登録"
-          aria-label="ひな形として登録"
+          title="テンプレートとして登録"
+          aria-label="テンプレートとして登録"
         >
           <BookmarkPlus className="h-4 w-4" aria-hidden="true" />
         </Button>
@@ -118,10 +118,10 @@ export default function ManualListPage() {
     <PageShell>
       <PageHeader
         title="運営マニュアル"
-        sub="当日の運営に要る情報をA4横のページに差し込んで、1冊の冊子にまとめます。"
+        sub="当日の運営に要る情報をA4横のページに差し込んで、1冊のマニュアルにまとめます。"
         primaryAction={
           <Button className="min-h-tap" onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />冊子を作る
+            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />マニュアルを作る
           </Button>
         }
       />
@@ -158,8 +158,8 @@ export default function ManualListPage() {
       {!listQuery.isLoading && rows.length === 0 && (
         <EmptyState
           icon={<BookOpenText />}
-          title="この条件に合う冊子はありません"
-          description={debouncedSearch ? "絞り込みを変えるか、「冊子を作る」から最初の1冊を作れます。" : "「冊子を作る」から最初の1冊を作れます。"}
+          title="この条件に合うマニュアルはありません"
+          description={debouncedSearch ? "絞り込みを変えるか、「マニュアルを作る」から最初の1冊を作れます。" : "「マニュアルを作る」から最初の1冊を作れます。"}
         />
       )}
 

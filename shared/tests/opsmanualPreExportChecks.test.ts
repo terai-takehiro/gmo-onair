@@ -135,7 +135,7 @@ describe('runManualPreExportChecks — 紙からはみ出すブロック', () =>
     expect(result.overflowing.map((i) => i.blockId)).toEqual([b.id]);
   });
 
-  it('紙面ぴったりに収まる（境界そのもの）は検出しない', () => {
+  it('キャンバスぴったりに収まる（境界そのもの）は検出しない', () => {
     const b = textBlock({ x: 0, y: 0, w: PAGE_WIDTH_MM, h: PAGE_HEIGHT_MM });
     const p = page([b]);
     const result = runManualPreExportChecks([p], {});

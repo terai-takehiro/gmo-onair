@@ -152,8 +152,8 @@ function BreakdownRow({ it, onOpenProject }: { it: BreakdownItem; onOpenProject?
         <button
           type="button"
           onClick={() => onOpenProject!(it.project_id!)}
-          title="案件概要をひらく"
-          aria-label={`案件概要をひらく（${it.code}）`}
+          title="案件概要を開く"
+          aria-label={`案件概要を開く（${it.code}）`}
           className="v4-tap max-w-24 shrink-0 self-start truncate font-number text-sub text-primary underline decoration-dotted underline-offset-2 hover:decoration-solid"
         >
           {it.code}

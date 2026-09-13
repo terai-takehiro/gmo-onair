@@ -1,5 +1,5 @@
 /**
- * 運営マニュアル 段E — 編集ロック（冊子まるごと・§6-2-1）＋ 確定・版（§6⑤・§10-3）。
+ * 運営マニュアル 段E — 編集ロック（マニュアルまるごと・§6-2-1）＋ 確定・版（§6⑤・§10-3）。
  *
  * ロック4本（取る／放す／強制引き継ぎ／交代の申し出）は「プッシュ通知は作らない」
  * （設計判断・段Eの範囲外）——保持者側は次の60秒ハートビート（`POST …/lock` の応答）で
@@ -27,9 +27,9 @@ router.use(requireAuth, requirePermission('qsheet'));
 
 async function requireAccessible(req: Request) {
   const raw = await getManualRaw(p1(req.params.id));
-  if (!raw) throw new NotFoundError('冊子が見つかりません');
+  if (!raw) throw new NotFoundError('マニュアルが見つかりません');
   if (!(await canAccessManual(req.user!, raw.id as string, (raw.created_by as string) ?? null))) {
-    throw new NotFoundError('冊子が見つかりません'); // 存在秘匿
+    throw new NotFoundError('マニュアルが見つかりません'); // 存在秘匿
   }
 }
 

@@ -1,4 +1,4 @@
-// 紙面（ManualCanvas）— ブロック1個の表示・選択枠・8方向のリサイズハンドル・回転つまみ・
+// キャンバス（ManualCanvas）— ブロック1個の表示・選択枠・8方向のリサイズハンドル・回転つまみ・
 // つかんで動かす操作。中身（文字・図形・画像・表・QR の描画）は一切知らず、
 // `renderContent` で呼び出し側が描いたものをそのまま矩形の中に置くだけ（段Bのスコープ）。
 //
@@ -60,7 +60,7 @@ const HANDLE_STYLE: Record<ResizeHandle, CSSProperties> = {
 export interface ManualBlockViewProps {
   block: ManualBlock;
   selected: boolean;
-  /** すいつき（他ブロックの端）の対象。自分自身が含まれていてよい（id で除外する） */
+  /** スナップ（他ブロックの端）の対象。自分自身が含まれていてよい（id で除外する） */
   allBlocks: ManualBlock[];
   pageRef: React.RefObject<HTMLDivElement>;
   /** 選ぶ・複数選択に足す/外す。Shift+クリックなら true（親が単一選択か足し引きかを判断） */
