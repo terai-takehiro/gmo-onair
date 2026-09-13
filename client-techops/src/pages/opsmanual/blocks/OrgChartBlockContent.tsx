@@ -15,10 +15,12 @@ import { Minus, Plus } from "lucide-react";
 import BufferedInput from "@/components/editor/BufferedInput";
 import { cn } from "@/lib/utils";
 import { genId } from "@/lib/stableIds";
+import { isInteractiveClickTarget } from "../manualCanvasGeometry";
 import type {
   ManualOrgBox, ManualOrgChartContent, ManualOrgTier,
 } from "@gmo-onair/shared/src/opsmanual/types";
-import OrgChartTeamBox from "./orgchart/OrgChartTeamBox";
+import OrgChartBoxTree from "./orgchart/OrgChartBoxTree";
+import type { ParentOption } from "./orgchart/OrgChartTeamBox";
 import { ORG_INPUT, ORG_MINUS, ORG_PLUS, resolveOrgChartShow } from "./orgchart/orgChartUi";
 
 interface Props {
@@ -46,6 +48,37 @@ export default function OrgChartBlockContent({ content, selected, onCommit }: Pr
     setTiers(tiers.map((t) => (t.id === id ? fn(t) : t)));
   const setBoxes = (id: string, next: ManualOrgBox[]) => patchTier(id, (t) => ({ ...t, boxes: next }));
 
+  // 分岐（木構造）: 箱の実データは今までどおり「どの階層に属するか」で `tiers[i].boxes` に
+  // 入ったままだが、描く場所は `parentId` が決める（`OrgChartBoxTree.tsx`）。id から
+  // 「実際にどの階層の配列に入っているか」を引ければ、木のどこにいる箱でも
+  // 同じ2関数（`updateBox`/`removeBox`）で読み書きできる。
+  const allBoxes: ManualOrgBox[] = tiers.flatMap((t) => t.boxes ?? []);
+  const boxIds = new Set(allBoxes.map((b) => b.id));
+  const tierIndexOfBox = new Map<string, number>();
+  tiers.forEach((t, i) => (t.boxes ?? []).forEach((b) => tierIndexOfBox.set(b.id, i)));
+  /** 親を持たない（未設定・削除済みの親を指す）箱か = その箱が属する階層の行に独立して並ぶ */
+  const isRootBox = (b: ManualOrgBox) => !b.parentId || !boxIds.has(b.parentId);
+  /** 選べる親の候補 = 自分より**手前の階層**の箱だけ（この前後関係だけで循環を防ぐ） */
+  const parentOptionsOf = (boxId: string): ParentOption[] => {
+    const ti = tierIndexOfBox.get(boxId);
+    if (ti == null || ti === 0) return [];
+    return tiers.slice(0, ti).flatMap((t) => (t.boxes ?? []).map((b): ParentOption => ({ id: b.id, label: b.label })));
+  };
+  const updateBox = (boxId: string, next: ManualOrgBox) => {
+    const ti = tierIndexOfBox.get(boxId);
+    if (ti == null) return;
+    const t = tiers[ti];
+    setBoxes(t.id, (t.boxes ?? []).map((b) => (b.id === boxId ? next : b)));
+  };
+  // 削除は子を道連れにしない——親を失った子は「親を指せなくなった箱」として自分の
+  // 階層の行に独立して戻る（isRootBox が boxIds に無い parentId を根として扱うため）
+  const removeBox = (boxId: string) => {
+    const ti = tierIndexOfBox.get(boxId);
+    if (ti == null) return;
+    const t = tiers[ti];
+    setBoxes(t.id, (t.boxes ?? []).filter((b) => b.id !== boxId));
+  };
+
   return (
     <div
       // ⚠️ **ブロックの地は塗らない（透明のまま）**（§4・production-manual.md §6-6
@@ -54,11 +87,11 @@ export default function OrgChartBlockContent({ content, selected, onCommit }: Pr
       // 灰色で刷られる。しかも `inkEstimate` は `block.style` の背景しか数えないので、
       // インクの目安にも出てこない。白いのはチーム（`bg-card`）だけでよい
       className="flex h-full w-full flex-col overflow-auto"
-      // 選択中は体制図の中で編集操作が完結する（ドラッグでブロックが動かないよう
-      // pointerdown をここで止める。`ManualBlockView` の「つかんで動かす」は pointerdown
-      // 起点なので mousedown ではなく pointerdown で止める必要がある。動かすときは
-      // 選択を外して枠から掴む）。**未選択のときは止めない** — 止めると選べなくなる
-      onPointerDown={(e) => { if (selected) e.stopPropagation(); }}
+      // 入力欄・ボタンの上のクリックだけ止める（触ると focus が奪われる）。チームどうしの
+      // 隙間・階層の見出し行の余白など「地」の上のクリックは止めない——止めると選択済みの
+      // 体制図をつかんで動かす手段が無くなる（枠は pointer-events-none で掴めないため。
+      // レビュー指摘）。**未選択のときは止めない** — 止めると選べなくなる
+      onPointerDown={(e) => { if (selected && isInteractiveClickTarget(e.target)) e.stopPropagation(); }}
       // ＋/− を押した直後はフォーカスがそのボタンに残る。キャンバスの Delete / Backspace と
       // **矢印キーの移動**は入力欄（INPUT / TEXTAREA / contentEditable）しか避けない
       // （`manualCanvasGeometry.ts` の `isEditableTarget`）ので、そのまま押すと
@@ -73,6 +106,10 @@ export default function OrgChartBlockContent({ content, selected, onCommit }: Pr
       {tiers.map((tier, i) => {
         const boxes = tier.boxes ?? [];
         const count = boxes.reduce((n, b) => n + (b.people?.length ?? 0), 0);
+        // この階層の行に**独立して**並ぶ箱だけ（親を持つ箱はその親の下に木として描かれる。
+        // §本文の「木構造の分岐」）。`boxes` 自体（＝この階層のデータ全体）は
+        // ＋チーム・人数カウントに引き続き使う
+        const rootBoxes = boxes.filter(isRootBox);
         return (
           <div key={tier.id}>
             {/* 階層のあいだのつながり。上下の関係だけを示す細い縦罫（切ることもできる）。
@@ -127,26 +164,33 @@ export default function OrgChartBlockContent({ content, selected, onCommit }: Pr
               )}
             </div>
 
-            {boxes.length > 0 ? (
-              <div className="flex items-start gap-1.5">
-                {boxes.map((box) => (
-                  <OrgChartTeamBox
-                    key={box.id}
-                    box={box}
-                    show={show}
-                    selected={selected}
-                    onChange={(next) => setBoxes(tier.id, boxes.map((b) => (b.id === box.id ? next : b)))}
-                    onRemove={() => setBoxes(tier.id, boxes.filter((b) => b.id !== box.id))}
-                  />
-                ))}
-              </div>
-            ) : (
+            {boxes.length === 0 ? (
               /* 置いた直後（§10-1）は階層が1つあるだけなので、既定の 180×90mm が
                  まるごと空欄に見える。**選択中だけ**破線の手がかりを出す（モックと同じ文言）。
                  紙には出さない — 出すと「塗らない・線だけ」の紙に、中身の無い枠が残る */
               selected && (
                 <div className="rounded-badge-xs border border-dashed border-border px-1.5 py-0.5 text-[9px] text-muted-foreground">
                   まだチームがありません
+                </div>
+              )
+            ) : (
+              // rootBoxes が0件（この階層の箱が全部どこかの親にぶら下がっている）ときは
+              // ここには何も描かない——箱そのものは親の下に木として出ている
+              rootBoxes.length > 0 && (
+                <div className="flex items-start gap-1.5">
+                  {rootBoxes.map((box) => (
+                    <OrgChartBoxTree
+                      key={box.id}
+                      box={box}
+                      allBoxes={allBoxes}
+                      show={show}
+                      connectors={connectors}
+                      selected={selected}
+                      onChange={updateBox}
+                      onRemove={removeBox}
+                      parentOptionsOf={parentOptionsOf}
+                    />
+                  ))}
                 </div>
               )
             )}

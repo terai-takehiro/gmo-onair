@@ -17,6 +17,8 @@ export interface OrgChartShow {
   org: boolean;
   phone: boolean;
   email: boolean;
+  /** 顔写真。既定 false（インクを使うため・§6-6。role 等と違い「無いのが既定」） */
+  photo: boolean;
 }
 
 export function resolveOrgChartShow(content: ManualOrgChartContent): OrgChartShow {
@@ -26,6 +28,7 @@ export function resolveOrgChartShow(content: ManualOrgChartContent): OrgChartSho
     org: s?.org ?? false,
     phone: s?.phone ?? false,
     email: s?.email ?? false,
+    photo: s?.photo ?? false,
   };
 }
 

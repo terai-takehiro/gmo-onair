@@ -112,8 +112,9 @@ export interface ManualOrgChartContent {
   tiers: ManualOrgTier[];
   /** 階層のあいだに縦罫を引くか（既定 true） */
   connectors?: boolean;
-  /** キャンバスに出す項目。密度を下げるため既定は役割だけ */
-  show?: { role?: boolean; org?: boolean; phone?: boolean; email?: boolean };
+  /** キャンバスに出す項目。密度を下げるため既定は役割だけ（`photo` も既定 false —
+   *  顔写真はインクを使う・§6-6。出す場合だけ選ぶ） */
+  show?: { role?: boolean; org?: boolean; phone?: boolean; email?: boolean; photo?: boolean };
 }
 
 /** 階層。3階層固定にしない — 案件ごとに切り方が違うので増減・改名・並べ替えできる（§3-2） */
@@ -135,6 +136,14 @@ export interface ManualOrgBox {
   org?: string;
   /** 空でよい（人が決まっていないチームを紙に出せる） */
   people: ManualOrgPerson[];
+  /**
+   * 木構造の分岐（2026-09-13 の利用者判断: 「上下だけでなく分岐にも対応」）。
+   * 別の `ManualOrgBox.id` を指すと、その箱の「下」に線でぶら下がる子として描く
+   * （必ず**より手前の階層**の箱を指す——`tiers` の並びの前後関係だけで循環を防ぐ）。
+   * 未設定・存在しない id を指すときは、その箱が属する階層の行に独立して並ぶ
+   * （既存データはこの項目を持たないため、これまでどおりの見た目のまま）。
+   */
+  parentId?: string | null;
 }
 
 export interface ManualOrgPerson {
@@ -146,6 +155,9 @@ export interface ManualOrgPerson {
   email?: string;
   /** 決裁 / 進行 / 議事録 など（枠線の小さな角丸で出す。塗らない・§4） */
   badge?: string;
+  /** 顔写真（`/techops/upload-image` でアップロードした URL）。`show.photo` が
+   *  true のときだけ画面にも紙にも出る（既定は出さない——インクを使うため） */
+  photoUrl?: string;
 }
 
 /**

@@ -7,7 +7,7 @@
 // 実装しない。PDF書き出し・仕上がり画面は段D（`/techops/manuals/:id/preview`・
 // `ManualPreviewPage.tsx`）で、ここからは見出し脇の「仕上がり」で遷移するだけ。
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { ChevronLeft, Printer, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,6 @@ import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { Delayed, SkeletonRows, ErrorPanel } from "@gmo-onair/shared/src/client/states";
 import type { ManualBlock, ManualDetail, ManualPage } from "@gmo-onair/shared/src/opsmanual/types";
 import * as manualApi from "@/lib/manualApi";
-import { isConflict, isLockError } from "@/lib/manualApi";
-import { notifyError } from "@/lib/notify";
 import { useAuth } from "@/hooks/useAuth";
 import { MANUAL_STATUS_LABEL, MANUAL_STATUS_BADGE_VARIANT } from "@/components/opsmanual/manualStatus";
 import { movePage, pagesSorted } from "@/components/opsmanual/pageOrder";
@@ -29,8 +27,10 @@ import BlockToolbar from "./BlockToolbar";
 import BlockInspector from "./BlockInspector";
 import InsertPanel from "./InsertPanel";
 import ManualCanvas, { type ManualCanvasHandle } from "./ManualCanvas";
+import ManualCanvasHeaderOverlay from "./ManualCanvasHeaderOverlay";
 import renderManualBlockContent from "./ManualBlockContent";
 import { useManualPageAutosave } from "./useManualPageAutosave";
+import { useManualDetailMutations } from "./useManualDetailMutations";
 import { useManualEditLock } from "./useManualEditLock";
 import ManualLockBanner from "./ManualLockBanner";
 import ManualServiceDateField from "./ManualServiceDateField";
@@ -119,12 +119,10 @@ export default function ManualDetailPage() {
     queryClient.invalidateQueries({ queryKey: ["manuals", "resolve", id] });
   }, [queryClient, id]);
 
-  const handleBlocksConflict = useCallback(() => { invalidate(); }, [invalidate]);
-
   const { blocks, commitBlocks, saving: blocksSaving, flush: flushBlocks, syncPageRevision, commitMetadata, waitForCurrentPageSave } = useManualPageAutosave(
     currentPage,
     handleBlocksSaved,
-    handleBlocksConflict,
+    invalidate,
   );
 
   // 保存系の操作（onCommit系）の唯一の関所——`ManualCanvas`・`commitViaHistory`
@@ -155,7 +153,8 @@ export default function ManualDetailPage() {
     [guardedCommitBlocks],
   );
 
-  const handleAddBlock = (block: ManualBlock) => commitViaHistory([...blocks, block]);
+  // 置いた直後に選択状態にする（Ctrl+D の複製と同じ扱い。空の文字ブロックは枠も背景も持たず、選択しないと置けているのに気づけない・利用者指摘）
+  const handleAddBlock = (block: ManualBlock) => { commitViaHistory([...blocks, block]); canvasRef.current?.select(block.id); };
 
   // `ManualCanvas` は `resolve` の結果を知らない（段Bのスコープのまま）ので、
   // ここで renderManualBlockContent をクロージャで包んで、いま引いている resolve 結果を渡す
@@ -165,70 +164,13 @@ export default function ManualDetailPage() {
     [resolveResults],
   );
 
-  const titleMutation = useMutation({
-    mutationFn: (value: string) => manualApi.updateManual(id, { title: value, expected_updated_at: manual?.updated_at }),
-    onSuccess: invalidate,
-    onError: (err: unknown) => {
-      if (isLockError(err)) {
-        notifyError("編集ロックが他の人に移っているか、確定されました。", { description: "画面を読み込み直します。" });
-        invalidate();
-        return;
-      }
-      if (isConflict(err)) {
-        notifyError("ほかの人が先に保存していました。", { description: "最新の内容を読み込み直します。" });
-        invalidate();
-        return;
-      }
-      notifyError("タイトルを保存できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
-    },
-  });
-
-  const addPageMutation = useMutation({
-    mutationFn: () => manualApi.addPage(id, {}),
-    onSuccess: invalidate,
-    onError: () => notifyError("ページを追加できませんでした。", { description: "少し待ってから、もう一度お試しください。" }),
-  });
-
-  const updatePageMutation = useMutation({
-    // 独立PUTだとキャンバスの自動保存と同時に飛び偽の衝突になりうるため`commitMetadata`に通す
-    mutationFn: ({ pageId, patch }: { pageId: string; patch: { title?: string; chapter?: string | null } }) =>
-      commitMetadata(pageId, id, patch),
-    onSuccess: invalidate,
-    onError: () => notifyError("ページを保存できませんでした。", { description: "少し待ってから、もう一度お試しください。" }),
-  });
-
-  const deletePageMutation = useMutation({
-    mutationFn: (pageId: string) => manualApi.deletePage(id, pageId),
-    onMutate: (pageId: string) => setDeletingPageId(pageId),
-    onSuccess: invalidate,
-    onError: (err: unknown) => {
-      const message = (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message;
-      notifyError(message || "このページは削除できませんでした。", { description: message ? undefined : "少し待ってから、もう一度お試しください。" });
-    },
-    onSettled: () => setDeletingPageId(null),
-  });
-
-  const reorderMutation = useMutation({
-    // 並べ替えは全ページのupdated_atを進めるため、開いているページの保留中/
-    // 進行中の自動保存を先に終わらせてから送る（外部レビュー再指摘・P1）
-    mutationFn: async (order: { id: string; sort_order: number }[]) => {
-      await waitForCurrentPageSave();
-      return manualApi.reorderPages(id, order);
-    },
-    onSuccess: (rows) => { rows.forEach((r) => syncPageRevision(r.id, r.updated_at)); invalidate(); },
-    onError: () => notifyError("並べ替えを保存できませんでした。", { description: "少し待ってから、もう一度お試しください。" }),
-  });
-
-  const deleteManualMutation = useMutation({
-    mutationFn: () => manualApi.deleteManual(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["manuals", "list"] });
-      navigate("/techops/manuals");
-    },
-    onError: () => {
-      setDeleteOpen(false);
-      notifyError("マニュアルを削除できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
-    },
+  // タイトル・ページ追加/更新/削除/並べ替え・マニュアル削除の通信処理は1つの hook にまとめてある
+  // （役割で分ける・400行の壁。中身は `useManualDetailMutations.ts`）
+  const {
+    titleMutation, addPageMutation, updatePageMutation, deletePageMutation, reorderMutation, deleteManualMutation,
+  } = useManualDetailMutations({
+    id, manualUpdatedAt: manual?.updated_at, queryClient, invalidate, commitMetadata, waitForCurrentPageSave,
+    syncPageRevision, navigate, setDeleteOpen, setDeletingPageId,
   });
 
   const handleMove = (page: ManualPage, direction: -1 | 1) => {
@@ -373,6 +315,7 @@ export default function ManualDetailPage() {
                     onCommit={guardedCommitBlocks}
                     onSelectionChange={setSelectedBlockId}
                     renderBlockContent={renderBlockContent}
+                    headerOverlay={<ManualCanvasHeaderOverlay manual={manual} pageId={currentPage.id} />}
                   />
                 ) : (
                   <div className="flex min-h-[400px] items-center justify-center rounded-card border border-dashed border-border bg-muted/20 p-8 text-center text-sub text-muted-foreground">

@@ -8,6 +8,7 @@
 import type {
   ManualBlock,
   ManualFreeBlock,
+  ManualOrgBox,
   ManualOrgChartContent,
   ManualPage,
 } from "@gmo-onair/shared/src/opsmanual/types";
@@ -187,17 +188,37 @@ export function estimateOrgChartHeightMm(content: ManualOrgChartContent): number
   if (tiers.length === 0) return 0;
   const gapPx = (content.connectors ?? true) ? TIER_GAP_PX : TIER_GAP_NO_CONNECTOR_PX;
 
+  // 分岐（§10-3）: 親を持つ箱は自分の階層の行には並ばず、親の下に縦積みで描かれる
+  // （`OrgChartBoxTree.tsx`）。ここも同じ考え方で「その階層で独立している箱」だけを
+  // 数え、親を持つ箱は自分の親の高さに積み増す（粗い見積りなので、分岐の連結罫も
+  // 階層どうしの縦罫と同じ太さとして流用する）。
+  const allBoxes = tiers.flatMap((t) => t.boxes ?? []);
+  const boxIds = new Set(allBoxes.map((b) => b.id));
+  const childrenOf = new Map<string, ManualOrgBox[]>();
+  for (const b of allBoxes) {
+    if (b.parentId && boxIds.has(b.parentId)) {
+      const list = childrenOf.get(b.parentId);
+      if (list) list.push(b); else childrenOf.set(b.parentId, [b]);
+    }
+  }
+  const isRootBox = (b: ManualOrgBox) => !b.parentId || !boxIds.has(b.parentId);
+  const boxOwnHeightPx = (box: ManualOrgBox): number => {
+    const people = box.people?.length ?? 0;
+    return TEAM_CHROME_PX + (people > 0 ? people * PERSON_ROW_PX : EMPTY_TEAM_NOTE_PX);
+  };
+  const subtreeHeightPx = (box: ManualOrgBox): number => {
+    const children = childrenOf.get(box.id);
+    if (!children?.length) return boxOwnHeightPx(box);
+    return boxOwnHeightPx(box) + gapPx + Math.max(...children.map(subtreeHeightPx));
+  };
+
   let px = 0;
   tiers.forEach((tier, i) => {
     if (i > 0) px += gapPx;
     px += TIER_HEADER_PX;
-    const boxes = tier.boxes ?? [];
-    // チームが0枚の階層は見出しだけ（紙には何も出ない）＝ 0 のまま
-    px += boxes.reduce((tallest, box) => {
-      const people = box.people?.length ?? 0;
-      const bodyPx = people > 0 ? people * PERSON_ROW_PX : EMPTY_TEAM_NOTE_PX;
-      return Math.max(tallest, TEAM_CHROME_PX + bodyPx);
-    }, 0);
+    const rootBoxes = (tier.boxes ?? []).filter(isRootBox);
+    // チームが0枚（または全部どこかの親にぶら下がっている）階層は見出しだけ＝ 0 のまま
+    px += rootBoxes.reduce((tallest, box) => Math.max(tallest, subtreeHeightPx(box)), 0);
   });
   return px / PX_PER_MM;
 }

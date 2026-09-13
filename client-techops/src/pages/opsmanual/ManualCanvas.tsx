@@ -65,11 +65,16 @@ export interface ManualCanvasProps {
   ) => ReactNode;
   /** 既定 1（100%）。あとは Ctrl+ホイールで内部的に変わる（このコンポーネントの初期値としてだけ使う） */
   zoom?: number;
+  /** ページの最上部に重ねる見た目専用の要素（実際に刷るヘッダーの WYSIWYG・利用者指摘）。
+   *  版面の余白ガイドと同じ層に置くだけで、キャンバスの操作は一切知らない（段Bのスコープのまま） */
+  headerOverlay?: ReactNode;
 }
 
 /** 親（ツールバー・右パネル）からも undo 履歴の1手として積みたいときに使う */
 export interface ManualCanvasHandle {
   commit: (next: ManualBlock[]) => void;
+  /** 追加ブロックを選択状態にする（`duplicateSelected` と同じ扱い。詳細は呼び出し側のコメント） */
+  select: (id: string) => void;
 }
 
 const ARROW_KEYS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
@@ -80,7 +85,7 @@ const ZOOM_MAX = 4;
 const ZOOM_STEP = 0.1;
 
 const ManualCanvas = forwardRef<ManualCanvasHandle, ManualCanvasProps>(function ManualCanvas(
-  { blocks, onCommit, onSelectionChange, renderBlockContent, zoom = 1 },
+  { blocks, onCommit, onSelectionChange, renderBlockContent, zoom = 1, headerOverlay },
   ref
 ) {
   const pageRef = useRef<HTMLDivElement>(null);
@@ -100,7 +105,7 @@ const ManualCanvas = forwardRef<ManualCanvasHandle, ManualCanvasProps>(function 
   const marquee = useManualMarqueeSelect(pageRef, blocks, selectedIds, setSelectedIds, selectOnly);
 
   // 右パネル・ツールバー（BlockInspector・BlockToolbar）からも同じ undo 履歴に積めるようにする
-  useImperativeHandle(ref, () => ({ commit: history.commit }), [history]);
+  useImperativeHandle(ref, () => ({ commit: history.commit, select: selectOnly }), [history]);
 
   // 外部から blocks が変わって選択中のブロックが消えたものは選択から外す（undo で消えた等）
   useEffect(() => {
@@ -314,6 +319,8 @@ const ManualCanvas = forwardRef<ManualCanvasHandle, ManualCanvasProps>(function 
                 bottom: `${PAGE_MARGIN_MM.bottom}mm`,
               }}
             />
+
+            {headerOverlay}
 
             {sorted.map((block) => (
               <ManualBlockView

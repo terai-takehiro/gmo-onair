@@ -55,6 +55,7 @@ const SHOW_FIELDS: { key: ShowKey; label: string }[] = [
   { key: "org", label: "所属" },
   { key: "phone", label: "電話" },
   { key: "email", label: "メール" },
+  { key: "photo", label: "顔写真" },
 ];
 
 // `BlockInspector.tsx` / `LinkedBlockInspector.tsx` と同じ見た目の作法（あえて複製する —
@@ -171,6 +172,7 @@ export default function OrgChartInspector({ content, onCommit, onSeed, seedCount
         ))}
         <p className="text-sub-sm text-muted-foreground">
           名前は必ず出ます。増やすほど枠が詰まるので、紙に要るものだけを選んでください。
+          顔写真だけは他と違いインクを使います。
         </p>
       </div>
 

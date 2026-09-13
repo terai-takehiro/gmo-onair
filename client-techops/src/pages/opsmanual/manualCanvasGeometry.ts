@@ -27,6 +27,17 @@ export function isEditableTarget(target: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable;
 }
 
+/**
+ * 選択中の表・体制図の中で、クリックが入力欄・ボタンに乗っているか（`.closest()` なので
+ * アイコン等の子要素をクリックしても拾う）。**乗っていないとき**（行間・チームどうしの隙間
+ * など中身の「地」）はブロックの pointerdown を止めない — 止めると、選択済みの表・体制図を
+ * つかんで動かす手段が無くなる（レビュー指摘: 枠は `pointer-events-none` なので掴めない）。
+ */
+export function isInteractiveClickTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return !!target.closest("input, textarea, button, select, [contenteditable='true']");
+}
+
 /** 矩形どうしが重なっているか（マーキー選択の当たり判定。回転は無視して外接矩形で見る） */
 export function rectsIntersect(
   a: { x: number; y: number; w: number; h: number },

@@ -578,6 +578,35 @@ describe('estimateOrgChartHeightMm — 体制図の粗い容量の見積り（�
   it('既定サイズ 180×90mm に、ふつうの体制図（2階層・最大3人）は収まる', () => {
     expect(estimateOrgChartHeightMm(orgChart([[1], [3, 3]]))).toBeLessThan(90);
   });
+
+  // 分岐（木構造・2026-09-13 の利用者判断「上下だけでなく分岐にも対応」）。親を持つ箱は
+  // 自分の階層の行には並ばず、親の下に縦積みで描かれる（`OrgChartBoxTree.tsx`）ので、
+  // 見積りもその積み増しぶんを数えないと「入りきらないかもしれない」が過少に出る。
+  it('親を持つ箱の高さは消えず、親の下に積み増される', () => {
+    const tier0Only = orgChart([[1]]); // 階層1枚だけ（比較の基準）
+    const branched = orgChart([[1], [1]]);
+    branched.tiers[1].boxes[0].parentId = 't0b0'; // t1b0 を t0b0 の子にする
+    expect(estimateOrgChartHeightMm(branched)).toBeGreaterThan(estimateOrgChartHeightMm(tier0Only));
+  });
+
+  it('存在しない箱を親に指すと、独立した箱として扱う（親を削除したときのフォールバック）', () => {
+    const withOrphanParent = orgChart([[1], [1]]);
+    withOrphanParent.tiers[1].boxes[0].parentId = 'no-such-box';
+    expect(estimateOrgChartHeightMm(withOrphanParent)).toBe(estimateOrgChartHeightMm(orgChart([[1], [1]])));
+  });
+
+  it('同じ親に複数の子がぶら下がると、いちばん高い子ぶんだけ積み増す（子どうしの人数を合計しない）', () => {
+    // 短い子（1人）を1枚だけ増やしても、いちばん高い子（5人）だけのときと変わらない
+    // ——子は横並びで描かれるので、複数足しても「いちばん高い1枚」で決まる
+    const onlyTallChild = orgChart([[1], [5]]);
+    onlyTallChild.tiers[1].boxes[0].parentId = 't0b0';
+
+    const twoChildren = orgChart([[1], [1, 5]]);
+    twoChildren.tiers[1].boxes[0].parentId = 't0b0';
+    twoChildren.tiers[1].boxes[1].parentId = 't0b0';
+
+    expect(estimateOrgChartHeightMm(twoChildren)).toBe(estimateOrgChartHeightMm(onlyTallChild));
+  });
 });
 
 describe('runManualPreExportChecks — 中身が入りきらないかもしれない体制図（外部レビュー・P2）', () => {
