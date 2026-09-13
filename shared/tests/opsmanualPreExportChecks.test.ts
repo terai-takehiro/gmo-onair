@@ -5,7 +5,7 @@
 // 考え方で、client-techops 向けのテストの置き場所が無いためここに置く
 // （client-techops には .test.ts が1件も無い）。
 import { describe, it, expect } from 'vitest';
-import { runManualPreExportChecks } from '../../client-techops/src/pages/opsmanual/manualPreExportChecks';
+import { estimateOrgChartHeightMm, runManualPreExportChecks } from '../../client-techops/src/pages/opsmanual/manualPreExportChecks';
 import type { ManualResolveEntry } from '../../client-techops/src/lib/manualResolveApi';
 import { PAGE_HEIGHT_MM, PAGE_WIDTH_MM } from '../src/opsmanual/types';
 import type { ManualBlock, ManualOrgChartContent, ManualPage } from '../src/opsmanual/types';
@@ -100,17 +100,41 @@ function shapeBlock(): ManualBlock {
   };
 }
 
-function orgChartBlock(content: ManualOrgChartContent): ManualBlock {
+/** 既定サイズは production-manual-orgchart.md §4 の 180×90mm */
+function orgChartBlock(
+  content: ManualOrgChartContent,
+  overrides: { x?: number; y?: number; h?: number } = {},
+): ManualBlock {
   return {
     id: nextId('blk'),
     kind: 'free',
-    x: 0,
-    y: 0,
+    x: overrides.x ?? 0,
+    y: overrides.y ?? 0,
     w: 180,
-    h: 90,
+    h: overrides.h ?? 90,
     z: 0,
     style: {},
     free: { type: 'orgchart', content },
+  };
+}
+
+/**
+ * 人数の並びから体制図の中身を作る。`[[1], [3, 3]]` =
+ * 1階層目にチーム1枚（1人）・2階層目にチーム2枚（各3人）。
+ * 階層・チーム・人の名前はすべて埋めてある（`unnamedOrgEntries` と混ざらないように）。
+ */
+function orgChart(tiers: number[][], connectors?: boolean): ManualOrgChartContent {
+  return {
+    tiers: tiers.map((boxes, ti) => ({
+      id: `t${ti}`,
+      label: `階層${ti + 1}`,
+      boxes: boxes.map((people, bi) => ({
+        id: `t${ti}b${bi}`,
+        label: `チーム${bi + 1}`,
+        people: Array.from({ length: people }, (_, pi) => ({ id: `t${ti}b${bi}p${pi}`, name: `担当${pi + 1}` })),
+      })),
+    })),
+    ...(connectors === undefined ? {} : { connectors }),
   };
 }
 
@@ -516,6 +540,92 @@ describe('runManualPreExportChecks — 名前の無い階層・名前の無い�
   });
 });
 
+describe('estimateOrgChartHeightMm — 体制図の粗い容量の見積り（外部レビュー・P2）', () => {
+  // キャンバスは `overflow-auto`・印刷は `overflow: hidden` なので、人を足していくと
+  // 画面ではスクロールで見えるのに紙では下の人が黙って消える。DOM を測らない方針のまま
+  // 実装の文字サイズから逆算した見積りで気づけるようにした。係数の根拠は本体のコメント。
+
+  it('階層が1つも無ければ 0mm', () => {
+    expect(estimateOrgChartHeightMm({ tiers: [] })).toBe(0);
+  });
+
+  it('人を足すほど高くなる', () => {
+    expect(estimateOrgChartHeightMm(orgChart([[5]]))).toBeGreaterThan(estimateOrgChartHeightMm(orgChart([[1]])));
+  });
+
+  it('同じ階層のチームは横に並ぶので、高さはいちばん人数の多い1枚で決まる（人数の合計ではない）', () => {
+    expect(estimateOrgChartHeightMm(orgChart([[5, 5, 5, 5]]))).toBe(estimateOrgChartHeightMm(orgChart([[5]])));
+    expect(estimateOrgChartHeightMm(orgChart([[1, 5]]))).toBe(estimateOrgChartHeightMm(orgChart([[5]])));
+  });
+
+  it('階層を積むと高くなる', () => {
+    expect(estimateOrgChartHeightMm(orgChart([[2], [2], [2]]))).toBeGreaterThan(estimateOrgChartHeightMm(orgChart([[2]])));
+  });
+
+  it('階層のあいだの縦罫を切ると、そのぶんだけ縮む', () => {
+    const withLine = estimateOrgChartHeightMm(orgChart([[1], [1], [1]], true));
+    const withoutLine = estimateOrgChartHeightMm(orgChart([[1], [1], [1]], false));
+    expect(withoutLine).toBeLessThan(withLine);
+    expect(withoutLine).toBeGreaterThan(0);
+  });
+
+  it('人が0人のチームも「まだ決まっていません」の1行ぶんの高さを持つ（紙に出るため）', () => {
+    const emptyTeam = estimateOrgChartHeightMm(orgChart([[0]]));
+    const noTeam = estimateOrgChartHeightMm({ tiers: [{ id: 't1', label: '統括', boxes: [] }] });
+    expect(emptyTeam).toBeGreaterThan(noTeam);
+  });
+
+  it('既定サイズ 180×90mm に、ふつうの体制図（2階層・最大3人）は収まる', () => {
+    expect(estimateOrgChartHeightMm(orgChart([[1], [3, 3]]))).toBeLessThan(90);
+  });
+});
+
+describe('runManualPreExportChecks — 中身が入りきらないかもしれない体制図（外部レビュー・P2）', () => {
+  it('既定サイズ 180×90mm にふつうの体制図なら0件', () => {
+    const b = orgChartBlock(orgChart([[1], [3, 3]]));
+    const result = runManualPreExportChecks([page([b])], {});
+    expect(result.orgChartMayOverflow).toEqual([]);
+  });
+
+  it('人を足していくと検出する（ブロック自体は紙の中にあるので「紙からはみ出す」には入らない）', () => {
+    const b = orgChartBlock(orgChart([[20]]));
+    const p = page([b], { title: '体制' });
+    const result = runManualPreExportChecks([p], {});
+    expect(result.orgChartMayOverflow).toEqual([{ pageId: p.id, pageTitle: '体制', blockId: b.id }]);
+    expect(result.overflowing).toEqual([]);
+  });
+
+  it('階層を積んでも検出する', () => {
+    const b = orgChartBlock(orgChart([[2], [2], [2], [2], [2], [2]]));
+    const result = runManualPreExportChecks([page([b])], {});
+    expect(result.orgChartMayOverflow.map((i) => i.blockId)).toEqual([b.id]);
+  });
+
+  it('ブロックを高くすれば、同じ中身でも検出しない', () => {
+    const b = orgChartBlock(orgChart([[20]]), { h: 200 });
+    const result = runManualPreExportChecks([page([b])], {});
+    expect(result.orgChartMayOverflow).toEqual([]);
+  });
+
+  it('置いた直後の体制図（名前の無い階層が1つ・チーム0）は対象外', () => {
+    const b = orgChartBlock({ tiers: [{ id: 't1', label: '', boxes: [] }] });
+    const result = runManualPreExportChecks([page([b])], {});
+    expect(result.orgChartMayOverflow).toEqual([]);
+  });
+
+  it('体制図以外のブロックは対象外（表・文字・差し込みは見ない）', () => {
+    const result = runManualPreExportChecks([page([textBlock({ h: 5 }), tableBlock([['あ'], ['い']]), linkedBlock()])], {});
+    expect(result.orgChartMayOverflow).toEqual([]);
+  });
+
+  it('紙からはみ出していて、かつ入りきらない体制図は両方の検査に独立して入る', () => {
+    const b = orgChartBlock(orgChart([[20]]), { x: -10 });
+    const result = runManualPreExportChecks([page([b])], {});
+    expect(result.overflowing.map((i) => i.blockId)).toEqual([b.id]);
+    expect(result.orgChartMayOverflow.map((i) => i.blockId)).toEqual([b.id]);
+  });
+});
+
 describe('runManualPreExportChecks — 複数ページ・複合', () => {
   it('複数ページのブロックをまとめて数え、pageId/pageTitle/blockId を正しく持つ', () => {
     const b1 = textBlock({ text: '' });
@@ -545,6 +655,7 @@ describe('runManualPreExportChecks — 複数ページ・複合', () => {
       missingSource: [],
       staleSource: [],
       unnamedOrgEntries: [],
+      orgChartMayOverflow: [],
     });
   });
 });

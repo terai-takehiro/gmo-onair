@@ -8,6 +8,13 @@
 // ⚠️ **枠線はどのチームも同じ細い実線で、塗らない**（§4・§10-2）。立場
 // （自社／発注者／PM会社／業者）の区分は持たないので、線の色・太さで描き分けない。
 // どこの会社かは見出しの所属の文字で読む。
+//
+// ⚠️ **チームの枠は `border-foreground`（#1a1d24）。`border-border`（#e6e9ed）にしない。**
+// 体制図は塗らずに枠線と縦罫だけで構造を示す道具なので、白地に刷ってこの線が消えると
+// 紙の上に何も残らない（production-manual.md §6-6「罫は 0.25mm 以上」「白黒で読めること」。
+// 同じ理由で `ManualPrintHeader.tsx` の罫も `0.25mm solid #1f2937`）。モックも全チーム
+// `1px solid #1a1d24`（`docs/design/v4/mockups/native/production-manual/OrgChart.dc.html`）。
+// **見出しの下の区切りは別** — あちらはモックが `#e6e9ed` なので `border-border` のまま。
 import { Minus, Plus } from "lucide-react";
 import BufferedInput from "@/components/editor/BufferedInput";
 import { cn } from "@/lib/utils";
@@ -30,7 +37,7 @@ export default function OrgChartTeamBox({ box, show, selected, onChange, onRemov
     onChange({ ...box, people: people.map((p) => (p.id === id ? { ...p, ...patch } : p)) });
 
   return (
-    <div className="min-w-0 flex-1 rounded-badge-xs border border-border bg-card">
+    <div className="min-w-0 flex-1 rounded-badge-xs border border-foreground bg-card">
       <div className="flex items-center gap-1 border-b border-border px-1.5 py-0.5">
         {selected ? (
           <BufferedInput

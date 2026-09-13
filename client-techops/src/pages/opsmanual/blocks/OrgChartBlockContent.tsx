@@ -48,19 +48,26 @@ export default function OrgChartBlockContent({ content, selected, onCommit }: Pr
 
   return (
     <div
-      className="flex h-full w-full flex-col overflow-auto bg-background"
+      // ⚠️ **ブロックの地は塗らない（透明のまま）**（§4・production-manual.md §6-6
+      // 「地は白」「ベタ塗りの面を置かない」）。既定サイズ 180×90mm は A4横のおよそ
+      // 1/4を占めるので、ここに `bg-background`（#f7f8fa）を敷くとその面ぜんぶが
+      // 灰色で刷られる。しかも `inkEstimate` は `block.style` の背景しか数えないので、
+      // インクの目安にも出てこない。白いのはチーム（`bg-card`）だけでよい
+      className="flex h-full w-full flex-col overflow-auto"
       // 選択中は体制図の中で編集操作が完結する（ドラッグでブロックが動かないよう
       // pointerdown をここで止める。`ManualBlockView` の「つかんで動かす」は pointerdown
       // 起点なので mousedown ではなく pointerdown で止める必要がある。動かすときは
       // 選択を外して枠から掴む）。**未選択のときは止めない** — 止めると選べなくなる
       onPointerDown={(e) => { if (selected) e.stopPropagation(); }}
-      // ＋/− を押した直後はフォーカスがそのボタンに残る。キャンバスの Delete / Backspace は
-      // 入力欄（INPUT / TEXTAREA）しか避けないので、そのまま押すとブロックごと消える。
-      // 体制図はボタンの数が桁違いに多いので、ここで止める
+      // ＋/− を押した直後はフォーカスがそのボタンに残る。キャンバスの Delete / Backspace と
+      // **矢印キーの移動**は入力欄（INPUT / TEXTAREA / contentEditable）しか避けない
+      // （`manualCanvasGeometry.ts` の `isEditableTarget`）ので、そのまま押すと
+      // ブロックごと消える・黙ってずれる。体制図はボタンの数が桁違いに多いので、ここで止める
       onKeyDown={(e) => {
         if (!selected) return;
         const onButton = (e.target as HTMLElement).tagName === "BUTTON";
-        if (onButton && (e.key === "Backspace" || e.key === "Delete")) e.stopPropagation();
+        const stealsKey = e.key === "Backspace" || e.key === "Delete" || e.key.startsWith("Arrow");
+        if (onButton && stealsKey) e.stopPropagation();
       }}
     >
       {tiers.map((tier, i) => {
@@ -68,10 +75,14 @@ export default function OrgChartBlockContent({ content, selected, onCommit }: Pr
         const count = boxes.reduce((n, b) => n + (b.people?.length ?? 0), 0);
         return (
           <div key={tier.id}>
-            {/* 階層のあいだのつながり。上下の関係だけを示す細い縦罫（切ることもできる） */}
+            {/* 階層のあいだのつながり。上下の関係だけを示す細い縦罫（切ることもできる）。
+                ⚠️ **色は `fg-disabled`（#9aa1ab）。`border`（#e6e9ed）では白地に刷ると消える**
+                （§4「階層のつながりは縦の細罫 0.25mm」・§6-6「白黒で読めること」。
+                モックも `background: #9aa1ab`）。**読ませる文字ではなく罫**なので、
+                `fg-disabled` を使ってよい数少ない場所（`tailwind.preset.ts` の注記） */}
             {i > 0 && (
               connectors
-                ? <div className="mx-auto h-4 w-px bg-border" aria-hidden="true" />
+                ? <div className="mx-auto h-4 w-px bg-fg-disabled" aria-hidden="true" />
                 : <div className="h-2" aria-hidden="true" />
             )}
 
@@ -88,7 +99,11 @@ export default function OrgChartBlockContent({ content, selected, onCommit }: Pr
                   <span className="block truncate text-[10.5px] font-extrabold">{tier.label}</span>
                 )}
               </div>
-              {count > 0 && <span className="shrink-0 text-[9.5px] text-muted-foreground">{count}名</span>}
+              {/* 人数は**選択中だけ**。紙に出すとは §4 が決めていない追加なので、
+                  刷ったものに勝手に足さない。単位は右パネルと同じ「人」にそろえる */}
+              {selected && count > 0 && (
+                <span className="shrink-0 text-[9.5px] text-muted-foreground">{count}人</span>
+              )}
               <span className="h-px flex-1 bg-border" aria-hidden="true" />
               {selected && (
                 <>
@@ -112,7 +127,7 @@ export default function OrgChartBlockContent({ content, selected, onCommit }: Pr
               )}
             </div>
 
-            {boxes.length > 0 && (
+            {boxes.length > 0 ? (
               <div className="flex items-start gap-1.5">
                 {boxes.map((box) => (
                   <OrgChartTeamBox
@@ -125,6 +140,15 @@ export default function OrgChartBlockContent({ content, selected, onCommit }: Pr
                   />
                 ))}
               </div>
+            ) : (
+              /* 置いた直後（§10-1）は階層が1つあるだけなので、既定の 180×90mm が
+                 まるごと空欄に見える。**選択中だけ**破線の手がかりを出す（モックと同じ文言）。
+                 紙には出さない — 出すと「塗らない・線だけ」の紙に、中身の無い枠が残る */
+              selected && (
+                <div className="rounded-badge-xs border border-dashed border-border px-1.5 py-0.5 text-[9px] text-muted-foreground">
+                  まだチームがありません
+                </div>
+              )
             )}
           </div>
         );

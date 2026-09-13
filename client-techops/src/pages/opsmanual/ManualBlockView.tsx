@@ -44,7 +44,19 @@ interface DragState {
   handle?: ResizeHandle;
   resizeStart?: ResizeStartInfo;
   rotateCenter?: { x: number; y: number };
+  /** 本体ドラッグでポインタを捕まえたか（`move` のみ。§つかんで動かす のコメント参照） */
+  captured?: boolean;
 }
+
+/**
+ * 本体を「動かし始めた」と見なす距離（px）。これ未満の動きは押しただけと見なす。
+ *
+ * ⚠️ **本体の pointerdown で `setPointerCapture` してはいけない。** 捕まえると、そのあとの
+ * `click` / `dblclick` の宛先がこの要素に移り、**中身（文字ブロックなど）の `onDoubleClick`
+ * が二度と発火しない**（実際に「ダブルクリックで文字を入力」が効かなくなっていた）。
+ * 動き始めてから捕まえれば、クリックは中身に届き、ドラッグ中にブロックの外へ出ても追える。
+ */
+const DRAG_START_PX = 3;
 
 const HANDLE_STYLE: Record<ResizeHandle, CSSProperties> = {
   nw: { left: 0, top: 0, cursor: "nwse-resize" },
@@ -124,13 +136,20 @@ export default function ManualBlockView({
     onSelect(e.shiftKey);
     const ppm = pxPerMm();
     if (!ppm) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
+    // ⚠️ ここでは捕まえない（DRAG_START_PX のコメント参照）。動き始めてから捕まえる
     const orig: Rect = { x: block.x, y: block.y, w: block.w, h: block.h, rotation: block.rotation ?? 0 };
-    dragRef.current = { mode: "move", pointerId: e.pointerId, pxPerMm: ppm, startClientX: e.clientX, startClientY: e.clientY, orig, live: orig };
+    dragRef.current = { mode: "move", pointerId: e.pointerId, pxPerMm: ppm, startClientX: e.clientX, startClientY: e.clientY, orig, live: orig, captured: false };
   }
   function handleBodyPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
     const drag = dragRef.current;
     if (!drag || drag.mode !== "move") return;
+    if (!drag.captured) {
+      // 指・マウスの小さな揺れでドラッグを始めない。越えて初めて捕まえる
+      const movedPx = Math.hypot(e.clientX - drag.startClientX, e.clientY - drag.startClientY);
+      if (movedPx < DRAG_START_PX) return;
+      e.currentTarget.setPointerCapture(drag.pointerId);
+      drag.captured = true;
+    }
     const dxMm = (e.clientX - drag.startClientX) / drag.pxPerMm;
     const dyMm = (e.clientY - drag.startClientY) / drag.pxPerMm;
     const targets = collectSnapTargets(allBlocks, block.id);

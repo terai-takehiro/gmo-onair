@@ -21,6 +21,7 @@
 // `BufferedInput`（確定・blur で1回だけ出す。IME も壊さない）を使う。
 import { useState } from "react";
 import { ArrowDown, ArrowUp, Download, Plus, Trash2 } from "lucide-react";
+import { Checkbox } from "@gmo-onair/shared/src/client/ui/checkbox";
 import { Switch } from "@gmo-onair/shared/src/client/ui/switch";
 import { Button } from "@/components/ui/button";
 import BufferedInput from "@/components/editor/BufferedInput";
@@ -63,6 +64,15 @@ const SECTION_TITLE = "text-sub-sm font-bold text-foreground";
 const SECTION = "flex flex-col gap-2 border-t border-border pt-3";
 const TEXT_INPUT = "min-w-0 flex-1 rounded border border-input bg-background px-2 py-1 text-sub-sm text-foreground";
 
+/**
+ * 中身が空・壊れているときの受け皿。**キャンバス（`blocks/OrgChartBlockContent.tsx`）と同じ形**にする。
+ * ブロックの中身は検証なしの JSONB（`manual.service.ts` の `updatePage`）なので、`tiers` が無い・
+ * `boxes` が無い中身が実際に届きうる。ここだけ素で読むと、**同じ中身でキャンバスは描けて
+ * 右パネルだけ白くなる**切れ方をする。あちらは別の担当が触るファイルなので export で結び付けず、
+ * 同じ形をここにも置く（すぐ上の見た目の定数と同じ理由）。
+ */
+const FALLBACK_TIERS: ManualOrgTier[] = [{ id: "tier_1", label: "", boxes: [] }];
+
 interface Props {
   /** 選択中の体制図ブロックの中身（`block.free.content`） */
   content: ManualOrgChartContent;
@@ -87,7 +97,7 @@ interface Props {
 }
 
 export default function OrgChartInspector({ content, onCommit, onSeed, seedCounts, seeding }: Props) {
-  const tiers = content.tiers;
+  const tiers = content.tiers?.length ? content.tiers : FALLBACK_TIERS;
   const [pickedTierId, setPickedTierId] = useState<string | null>(null);
   // 消された階層を指したままにならないよう、毎回いまの配列で確かめ直す
   const targetTierId = tiers.some((t) => t.id === pickedTierId) ? pickedTierId : tiers[0]?.id ?? null;
@@ -151,15 +161,12 @@ export default function OrgChartInspector({ content, onCommit, onSeed, seedCount
       {/* ② 紙に出す項目 */}
       <div className={SECTION}>
         <span className={SECTION_TITLE}>紙に出す項目</span>
+        {/* チェックは共通部品（20px）。20px 単体は指に小さいので、行そのものを 44px の当たりにして
+            ラベルの文字ごと押せるようにする（ルート CLAUDE.md「タップ領域は最低 44px」） */}
         {SHOW_FIELDS.map((f) => (
-          <label key={f.key} className={FIELD_LABEL}>
+          <label key={f.key} className={cn(FIELD_LABEL, "min-h-tap cursor-pointer py-1")}>
             {f.label}
-            <input
-              type="checkbox"
-              checked={show[f.key]}
-              onChange={(e) => setShow(f.key, e.target.checked)}
-              className="h-4 w-4"
-            />
+            <Checkbox checked={show[f.key]} onCheckedChange={(v) => setShow(f.key, v === true)} />
           </label>
         ))}
         <p className="text-sub-sm text-muted-foreground">
@@ -217,7 +224,8 @@ function TierRow({
   onMove: (delta: number) => void;
   onRemove: () => void;
 }) {
-  const people = tier.boxes.reduce((n, b) => n + b.people.length, 0);
+  // `boxes` / `people` も検証なしの JSONB（FALLBACK_TIERS のコメント）。素で読むと右パネルだけ落ちる
+  const people = tier.boxes?.reduce((n, b) => n + (b.people?.length ?? 0), 0) ?? 0;
   return (
     <div className="flex items-center gap-1 rounded-control border border-border bg-background px-2 py-1">
       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-badge-xs bg-muted text-sub-sm text-muted-foreground">
@@ -270,7 +278,7 @@ function SeedSection({
     return (
       <div className={SECTION}>
         <span className={SECTION_TITLE}>取り込む</span>
-        <p className="text-sub-sm text-muted-foreground">この文書から取り込める体制はありません。</p>
+        <p className="text-sub-sm text-muted-foreground">このマニュアルから取り込める体制はありません。</p>
       </div>
     );
   }
