@@ -100,7 +100,7 @@ function shapeBlock(): ManualBlock {
   };
 }
 
-function linkedBlock(overrides: { frozen?: { at: string; data: unknown } | null } = {}): ManualBlock {
+function linkedBlock(overrides: { frozen?: { at: string; data: unknown } | null; block?: string } = {}): ManualBlock {
   return {
     id: nextId('blk'),
     kind: 'linked',
@@ -110,7 +110,7 @@ function linkedBlock(overrides: { frozen?: { at: string; data: unknown } | null 
     h: 20,
     z: 0,
     style: {},
-    link: { block: 'project.heading', sourceId: null, options: {}, frozen: overrides.frozen ?? null },
+    link: { block: overrides.block ?? 'project.heading', sourceId: null, options: {}, frozen: overrides.frozen ?? null },
   };
 }
 
@@ -279,6 +279,110 @@ describe('runManualPreExportChecks — 差し込みブロック（空・消え�
     };
     const result = runManualPreExportChecks([page([b])], resolved);
     expect(result.staleSource).toEqual([]);
+  });
+});
+
+describe('runManualPreExportChecks — 差し込みブロックの種類ごとの「空」判定（外部レビュー再指摘・P1）', () => {
+  // 以前は resolved.data が持つキーの**個数**だけを見ていた。ほとんどの resolver は
+  // 行の配列を1個のキーに包んで返す（`{ destinations: [] }` 等）ため、中身（配列）が
+  // 空でも外側のオブジェクトは1キー持っており「空でない」と誤判定していた。
+  // ブロック種別ごとに resolver の戻り値の形を理解し、包んだ配列そのものの長さを見る。
+  it('streaming.list: destinations が空配列なら空、中身があれば空でない', () => {
+    const empty = linkedBlock({ block: 'streaming.list' });
+    const filled = linkedBlock({ block: 'streaming.list' });
+    const resolved: Record<string, ManualResolveEntry> = {
+      [empty.id]: { data: { destinations: [] }, updatedAt: null },
+      [filled.id]: { data: { destinations: [{ id: 'd1' }] }, updatedAt: null },
+    };
+    const result = runManualPreExportChecks([page([empty, filled])], resolved);
+    expect(result.emptyBlocks.map((i) => i.blockId)).toEqual([empty.id]);
+  });
+
+  it('schedule.day / schedule.loadInOut: items が空配列なら空', () => {
+    const day = linkedBlock({ block: 'schedule.day' });
+    const loadInOut = linkedBlock({ block: 'schedule.loadInOut' });
+    const resolved: Record<string, ManualResolveEntry> = {
+      [day.id]: { data: { items: [] }, updatedAt: null },
+      [loadInOut.id]: { data: { items: [] }, updatedAt: null },
+    };
+    const result = runManualPreExportChecks([page([day, loadInOut])], resolved);
+    expect(result.emptyBlocks.map((i) => i.blockId).sort()).toEqual([day.id, loadInOut.id].sort());
+  });
+
+  it('sheet.excerpt: sections[].rows が全部空なら空、1件でも行があれば空でない', () => {
+    const empty = linkedBlock({ block: 'sheet.excerpt' });
+    const filled = linkedBlock({ block: 'sheet.excerpt' });
+    const resolved: Record<string, ManualResolveEntry> = {
+      [empty.id]: { data: { sections: [{ rows: [] }, { rows: [] }] }, updatedAt: null },
+      [filled.id]: { data: { sections: [{ rows: [] }, { rows: [{ id: 'r1' }] }] }, updatedAt: null },
+    };
+    const result = runManualPreExportChecks([page([empty, filled])], resolved);
+    expect(result.emptyBlocks.map((i) => i.blockId)).toEqual([empty.id]);
+  });
+
+  it('sheet.rundown: 素の配列（rows/sections を持たない旧形）でも行数で判定する', () => {
+    const empty = linkedBlock({ block: 'sheet.rundown' });
+    const filled = linkedBlock({ block: 'sheet.rundown' });
+    const resolved: Record<string, ManualResolveEntry> = {
+      [empty.id]: { data: [], updatedAt: null },
+      [filled.id]: { data: [{ id: 'r1' }], updatedAt: null },
+    };
+    const result = runManualPreExportChecks([page([empty, filled])], resolved);
+    expect(result.emptyBlocks.map((i) => i.blockId)).toEqual([empty.id]);
+  });
+
+  it('sheet.micAssignment: assignments が空配列なら空', () => {
+    const b = linkedBlock({ block: 'sheet.micAssignment' });
+    const resolved: Record<string, ManualResolveEntry> = { [b.id]: { data: { assignments: [] }, updatedAt: null } };
+    const result = runManualPreExportChecks([page([b])], resolved);
+    expect(result.emptyBlocks.map((i) => i.blockId)).toEqual([b.id]);
+  });
+
+  it('recording.list: decks が空配列なら空', () => {
+    const b = linkedBlock({ block: 'recording.list' });
+    const resolved: Record<string, ManualResolveEntry> = { [b.id]: { data: { decks: [] }, updatedAt: null } };
+    const result = runManualPreExportChecks([page([b])], resolved);
+    expect(result.emptyBlocks.map((i) => i.blockId)).toEqual([b.id]);
+  });
+
+  it('streaming.webMeeting: meetings が空配列なら空', () => {
+    const b = linkedBlock({ block: 'streaming.webMeeting' });
+    const resolved: Record<string, ManualResolveEntry> = { [b.id]: { data: { meetings: [] }, updatedAt: null } };
+    const result = runManualPreExportChecks([page([b])], resolved);
+    expect(result.emptyBlocks.map((i) => i.blockId)).toEqual([b.id]);
+  });
+
+  it('rental.list: groups があっても全グループの lines が空なら空、1本でも行があれば空でない', () => {
+    const empty = linkedBlock({ block: 'rental.list' });
+    const filled = linkedBlock({ block: 'rental.list' });
+    const resolved: Record<string, ManualResolveEntry> = {
+      [empty.id]: { data: { groups: [{ lines: [] }, { lines: [] }] }, updatedAt: null },
+      [filled.id]: { data: { groups: [{ lines: [] }, { lines: [{ id: 'l1' }] }] }, updatedAt: null },
+    };
+    const result = runManualPreExportChecks([page([empty, filled])], resolved);
+    expect(result.emptyBlocks.map((i) => i.blockId)).toEqual([empty.id]);
+  });
+
+  it('equipment.lending: rows または lendings のどちらでも読む（resolver の版差）', () => {
+    const viaRows = linkedBlock({ block: 'equipment.lending' });
+    const viaLendings = linkedBlock({ block: 'equipment.lending' });
+    const resolved: Record<string, ManualResolveEntry> = {
+      [viaRows.id]: { data: { rows: [] }, updatedAt: null },
+      [viaLendings.id]: { data: { lendings: [{ id: 'e1' }] }, updatedAt: null },
+    };
+    const result = runManualPreExportChecks([page([viaRows, viaLendings])], resolved);
+    expect(result.emptyBlocks.map((i) => i.blockId)).toEqual([viaRows.id]);
+  });
+
+  it('project.heading・未知の種別は従来どおりフィールド0個で判定する', () => {
+    const empty = linkedBlock({ block: 'project.heading' });
+    const filled = linkedBlock({ block: 'project.heading' });
+    const resolved: Record<string, ManualResolveEntry> = {
+      [empty.id]: { data: {}, updatedAt: null },
+      [filled.id]: { data: { title: '本番案件' }, updatedAt: null },
+    };
+    const result = runManualPreExportChecks([page([empty, filled])], resolved);
+    expect(result.emptyBlocks.map((i) => i.blockId)).toEqual([empty.id]);
   });
 });
 

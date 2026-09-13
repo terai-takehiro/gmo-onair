@@ -52,6 +52,11 @@ function toSeed(page: Row): NewManualPageSeed {
   };
 }
 
+interface ReissueOwner {
+  projectId: string | null;
+  programId: string | null;
+}
+
 /**
  * `kind: 'linked'` ブロックの `link.frozen` / `link.reveal` を落とし、ブロック `id` を
  * 発番し直す（自由ブロックは `id` だけ発番し直し、中身はそのまま）。
@@ -59,8 +64,17 @@ function toSeed(page: Row): NewManualPageSeed {
  * ⚠️ 確定済みの中身（frozen）や秘密の解除記録（reveal）をそのまま複製先へ持ち越すと、
  * 新しい冊子で「まだ誰も確認していないのに秘密（配信の鍵・WEB会議のパスコード）が
  * 出たまま」という事故になる（段Eの設計判断3）。ここは省略しない。
+ *
+ * ⚠️⚠️ 外部レビュー再指摘（P2）: `sheet.*` の3種は `sourceId` が特定の
+ * `qsheet_documents` 行を指す。**組織共通ひな形**は案件/番組を問わず適用できるため、
+ * ひな形に焼き込まれた `sourceId` が新しい冊子の案件/番組には存在しない資料を
+ * 指したままになりうる——resolver は案件不一致で常に `access_denied` を返し、
+ * UI 側に既存ブロックの `sourceId` を選び直す手段が無いため、直せない壊れたブロックが
+ * 紙面に残ってしまう。複製先の案件/番組にまだ属している資料かを確認し、属していなければ
+ * `sourceId: null` に戻す（`link-catalog`/`InsertPanel` から選び直せる状態にする——
+ * §4-3「押すと空になる項目を作らない」と同じ考え方で、壊れたままより「未設定」の方がよい）。
  */
-function reissueBlock(raw: unknown): unknown {
+async function reissueBlock(raw: unknown, owner: ReissueOwner): Promise<unknown> {
   if (!raw || typeof raw !== 'object') return raw;
   const block = raw as Record<string, unknown>;
   const next: Record<string, unknown> = { ...block, id: uuid() };
@@ -68,20 +82,29 @@ function reissueBlock(raw: unknown): unknown {
     const link = { ...(block.link as Record<string, unknown>) };
     link.frozen = null;
     delete link.reveal;
+    if (typeof link.block === 'string' && link.block.startsWith('sheet.') && typeof link.sourceId === 'string') {
+      let sql = 'SELECT 1 FROM qsheet_documents WHERE id = $1 AND deleted_at IS NULL';
+      const params: unknown[] = [link.sourceId];
+      if (owner.projectId) { sql += ' AND project_id = $2'; params.push(owner.projectId); }
+      else if (owner.programId) { sql += ' AND program_id = $2'; params.push(owner.programId); }
+      else { sql += ' AND FALSE'; }
+      const stillValid = await queryOne(sql, params);
+      if (!stillValid) link.sourceId = null;
+    }
     next.link = link;
   }
   return next;
 }
 
-function reissuePages(seeds: NewManualPageSeed[]): NewManualPageSeed[] {
+async function reissuePages(seeds: NewManualPageSeed[], owner: ReissueOwner): Promise<NewManualPageSeed[]> {
   if (seeds.length === 0) return [{ chapter: null, title: '', blocks: [] }];
-  return seeds.map((p) => {
-    const blocks = p.blocks.map(reissueBlock);
+  return Promise.all(seeds.map(async (p) => {
+    const blocks = await Promise.all(p.blocks.map((b) => reissueBlock(b, owner)));
     if (JSON.stringify(blocks).length > MAX_BLOCKS_JSON_LENGTH) {
       throw new ValidationError('紙面の中身が大きすぎます');
     }
     return { chapter: p.chapter, title: p.title, blocks };
-  });
+  }));
 }
 
 export interface BuildPagesInput {
@@ -109,6 +132,8 @@ export interface BuildPagesInput {
  * 案件/番組の一致に加えて `canAccessManual` も必ず通す。
  */
 export async function buildPagesForNewManual(input: BuildPagesInput): Promise<NewManualPageSeed[]> {
+  const owner: ReissueOwner = { projectId: input.projectId ?? null, programId: input.programId ?? null };
+
   if (input.templateId) {
     const tpl = await queryOne(
       `SELECT pages FROM qsheet_manual_templates WHERE id = $1 AND scope = 'org'`,
@@ -116,7 +141,7 @@ export async function buildPagesForNewManual(input: BuildPagesInput): Promise<Ne
     );
     if (!tpl) throw new NotFoundError('ひな形が見つかりません');
     const pages = Array.isArray(tpl.pages) ? (tpl.pages as Row[]) : [];
-    return reissuePages(pages.map(toSeed));
+    return reissuePages(pages.map(toSeed), owner);
   }
 
   if (input.copyFromManualId) {
@@ -138,7 +163,7 @@ export async function buildPagesForNewManual(input: BuildPagesInput): Promise<Ne
       'SELECT chapter, title, blocks FROM qsheet_manual_pages WHERE manual_id = $1 ORDER BY sort_order',
       [input.copyFromManualId],
     );
-    return reissuePages(pages.map(toSeed));
+    return reissuePages(pages.map(toSeed), owner);
   }
 
   return [{ chapter: null, title: '', blocks: [] }];

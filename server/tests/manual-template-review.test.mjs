@@ -31,13 +31,20 @@ function linkedBlock(id) {
   };
 }
 
+function sheetBlock(id, sourceId) {
+  return {
+    id, kind: 'linked', x: 0, y: 0, w: 10, h: 10, z: 1, style: {},
+    link: { block: 'sheet.excerpt', sourceId, options: {}, frozen: null },
+  };
+}
+
 function freeBlock(id) {
   return { id, kind: 'free', x: 0, y: 0, w: 10, h: 10, z: 1, style: {}, free: { type: 'text', content: { text: 'hi' } } };
 }
 
 const DEFAULT_USER = { id: 'user-1', role: 'user' };
 
-async function loadService({ manuals = {}, templates = {}, pagesByManual = {}, onExecute, canAccessManualImpl } = {}) {
+async function loadService({ manuals = {}, templates = {}, pagesByManual = {}, documents = {}, onExecute, canAccessManualImpl } = {}) {
   let nextId = 0;
   return loadTs('server/src/contexts/qsheet/services/manual-template.service.ts', {
     uuid: { v4: () => `new-id-${++nextId}` },
@@ -53,6 +60,15 @@ async function loadService({ manuals = {}, templates = {}, pagesByManual = {}, o
         }
         if (sql.includes('SELECT id FROM qsheet_manuals')) {
           return manuals[params[0]] ? { id: params[0] } : undefined;
+        }
+        if (sql.includes('SELECT 1 FROM qsheet_documents')) {
+          // reissueBlock: sheet.* ブロックの sourceId が複製先の案件/番組にまだ属しているか
+          const doc = documents[params[0]];
+          if (!doc) return undefined;
+          const ownerId = params[1];
+          if (sql.includes('project_id = $2')) return doc.projectId === ownerId ? { '?column?': 1 } : undefined;
+          if (sql.includes('program_id = $2')) return doc.programId === ownerId ? { '?column?': 1 } : undefined;
+          return undefined; // `AND FALSE`（複製先に案件も番組も無い）
         }
         if (sql.includes('SELECT t.id')) {
           // createTemplateFromManual の INSERT 直後の SELECT
@@ -127,6 +143,56 @@ test('buildPagesForNewManual strips frozen/reveal when applying an org template,
 
   const blank = await buildPagesForNewManual({});
   assert.deepEqual(blank, [{ chapter: null, title: '', blocks: [] }]);
+});
+
+test('buildPagesForNewManual nulls out a sheet.* block\'s sourceId when the copy target project does not own that document (外部レビュー再指摘・P2)', async () => {
+  const { buildPagesForNewManual } = await loadService({
+    manuals: { 'manual-1': { projectId: 'proj-1', createdBy: 'user-1' } },
+    pagesByManual: {
+      'manual-1': [{ chapter: null, title: 'ページ1', blocks: [sheetBlock('blk-1', 'doc-1')] }],
+    },
+    documents: { 'doc-1': { projectId: 'proj-other' } },
+  });
+
+  const pages = await buildPagesForNewManual({ copyFromManualId: 'manual-1', projectId: 'proj-1', programId: null, user: DEFAULT_USER });
+
+  assert.equal(pages[0].blocks[0].link.sourceId, null, '複製先の案件には属さない資料は sourceId を落とす');
+});
+
+test('buildPagesForNewManual keeps a sheet.* block\'s sourceId when the copy target project still owns that document', async () => {
+  const { buildPagesForNewManual } = await loadService({
+    manuals: { 'manual-1': { projectId: 'proj-1', createdBy: 'user-1' } },
+    pagesByManual: {
+      'manual-1': [{ chapter: null, title: 'ページ1', blocks: [sheetBlock('blk-1', 'doc-1')] }],
+    },
+    documents: { 'doc-1': { projectId: 'proj-1' } },
+  });
+
+  const pages = await buildPagesForNewManual({ copyFromManualId: 'manual-1', projectId: 'proj-1', programId: null, user: DEFAULT_USER });
+
+  assert.equal(pages[0].blocks[0].link.sourceId, 'doc-1', '複製先の案件にまだ属している資料は sourceId を持ち越す');
+});
+
+test('buildPagesForNewManual nulls out a sheet.* block\'s sourceId when applying an org template to a project the source document does not belong to', async () => {
+  const { buildPagesForNewManual } = await loadService({
+    templates: { 'tpl-1': { pages: [{ chapter: null, title: '柱', blocks: [sheetBlock('blk-9', 'doc-9')] }] } },
+    documents: { 'doc-9': { projectId: 'proj-1' } },
+  });
+
+  const pages = await buildPagesForNewManual({ templateId: 'tpl-1', projectId: 'proj-2', programId: null, user: DEFAULT_USER });
+
+  assert.equal(pages[0].blocks[0].link.sourceId, null, '組織共通ひな形は案件を問わず適用できるため、資料が別案件のものなら落とす');
+});
+
+test('buildPagesForNewManual nulls out a sheet.* block\'s sourceId when neither projectId nor programId is given (新規冊子で所属先が無い場合)', async () => {
+  const { buildPagesForNewManual } = await loadService({
+    templates: { 'tpl-1': { pages: [{ chapter: null, title: '柱', blocks: [sheetBlock('blk-9', 'doc-9')] }] } },
+    documents: { 'doc-9': { projectId: 'proj-1' } },
+  });
+
+  const pages = await buildPagesForNewManual({ templateId: 'tpl-1', user: DEFAULT_USER });
+
+  assert.equal(pages[0].blocks[0].link.sourceId, null);
 });
 
 test('buildPagesForNewManual raises NotFoundError for an unknown template or source manual', async () => {

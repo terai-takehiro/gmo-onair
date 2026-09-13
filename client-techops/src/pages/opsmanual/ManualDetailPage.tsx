@@ -119,7 +119,7 @@ export default function ManualDetailPage() {
 
   const handleBlocksConflict = useCallback(() => { invalidate(); }, [invalidate]);
 
-  const { blocks, commitBlocks, saving: blocksSaving, flush: flushBlocks, syncPageRevision } = useManualPageAutosave(
+  const { blocks, commitBlocks, saving: blocksSaving, flush: flushBlocks, syncPageRevision, commitMetadata } = useManualPageAutosave(
     currentPage,
     handleBlocksSaved,
     handleBlocksConflict,
@@ -193,12 +193,12 @@ export default function ManualDetailPage() {
   });
 
   const updatePageMutation = useMutation({
+    // 独立したPUTのまま送ると紙面の自動保存と同時に飛び偽の衝突になりうるため、
+    // `commitMetadata`（自動保存フック）に通す——同じページなら保留中/進行中の保存を
+    // 先に終わらせてから送る（レビュー指摘）。
     mutationFn: ({ pageId, patch }: { pageId: string; patch: { title?: string; chapter?: string | null } }) =>
-      manualApi.updatePage(id, pageId, patch),
-    // ⚠️ レビュー指摘: 題/章名の保存もそのページの updated_at を進める。自動保存側の
-    // revision（syncPageRevision）を合わせて進めないと、次の紙面編集が古い revision で
-    // 送られ偽の衝突になる。
-    onSuccess: (row) => { syncPageRevision(row.id, row.updated_at); invalidate(); },
+      commitMetadata(pageId, id, patch),
+    onSuccess: invalidate,
     onError: () => notifyError("ページを保存できませんでした。", { description: "少し待ってから、もう一度お試しください。" }),
   });
 

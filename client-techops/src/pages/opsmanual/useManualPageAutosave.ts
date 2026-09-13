@@ -24,11 +24,20 @@ export interface UseManualPageAutosaveResult {
   /** ページを切り替える直前に呼ぶ（未保存分があれば即座に送る） */
   flush: () => void;
   /**
-   * 紙面（blocks）以外の経路でそのページの updated_at が進んだとき（題/章名の編集・
-   * 並べ替え）に呼ぶ。呼ばないと、次の紙面編集の自動保存が古い revision を使って
-   * 送られ、サーバーの楽観ロックに偽の衝突と判定される（レビュー指摘）。
+   * 紙面（blocks）以外の経路でそのページの updated_at が進んだとき（並べ替え等。
+   * `commitMetadata` を通さない書き込みがあれば）に呼ぶ。呼ばないと、次の紙面編集の
+   * 自動保存が古い revision を使って送られ、サーバーの楽観ロックに偽の衝突と
+   * 判定される（レビュー指摘）。
    */
   syncPageRevision: (pageId: string, updatedAt: string) => void;
+  /**
+   * ページの題・章名を保存する（`PageRail` の行内編集）。対象が「いま紙面に開いている
+   * ページ」と同じときは、紙面の自動保存（保留中/進行中）が終わるのを待ってから送る
+   * ——別経路の独立した PUT のまま同時に送ると、どちらかが偽の衝突として弾かれ、
+   * 紙面側の未保存分を失いうる（外部レビュー再指摘・P1）。別のページが対象のときは
+   * 競合する自動保存が無いのでそのまま送る。
+   */
+  commitMetadata: (pageId: string, manualId: string, patch: { title?: string; chapter?: string | null }) => Promise<ManualPage>;
 }
 
 /**
@@ -62,6 +71,10 @@ export function useManualPageAutosave(
   const onConflictRef = useRef(onConflict);
   onSavedRef.current = onSaved;
   onConflictRef.current = onConflict;
+  // `commitMetadata` が「いま紙面に開いているページと同じか」を判定するための参照
+  // （レンダーのたびに最新化。effect を待たず常に最新の page?.id を見る）
+  const currentPageIdRef = useRef<string | undefined>(page?.id);
+  currentPageIdRef.current = page?.id;
 
   // ページ切替・楽観ロック衝突からの再取得のときだけローカルを同期する。
   // 自分自身の自動保存の成功では page.updated_at が変わっても resync しない
@@ -135,6 +148,28 @@ export function useManualPageAutosave(
     [page, runSave],
   );
 
+  const commitMetadata = useCallback(
+    async (pageId: string, manualId: string, patch: { title?: string; chapter?: string | null }): Promise<ManualPage> => {
+      if (pageId === currentPageIdRef.current) {
+        // いま紙面に開いているページ——保留中の紙面編集があれば即座に送信を始め、
+        // 進行中の保存（連鎖しているぶんも含めて）がすべて終わるまで待つ。
+        // これをしないと、このメタデータ PUT が紙面の自動保存と同時に飛び、
+        // どちらかが偽の衝突（409）として弾かれてしまう（外部レビュー再指摘）。
+        runSave();
+        while (savingRef.current) {
+          await savingPromiseRef.current?.catch(() => {});
+        }
+      }
+      const row = await manualApi.updatePage(manualId, pageId, {
+        ...patch,
+        expected_updated_at: revisionsRef.current.get(pageId),
+      });
+      revisionsRef.current.set(pageId, row.updated_at);
+      return row;
+    },
+    [runSave],
+  );
+
   // アンマウント時: タイマーは止め、未送信分があれば best-effort で1回だけ送る
   // （結果を state に反映する相手がもう居ないので、成功/失敗のハンドリングはしない）。
   // ⚠️ レビュー指摘（P1）: 保存が進行中のときに即座に送ると、進行中の保存とこの送信が
@@ -163,5 +198,5 @@ export function useManualPageAutosave(
     [],
   );
 
-  return { blocks, commitBlocks, saving, flush: runSave, syncPageRevision };
+  return { blocks, commitBlocks, saving, flush: runSave, syncPageRevision, commitMetadata };
 }
