@@ -4,6 +4,7 @@
 // 「最後の1つは消せない」規律を表にも適用）。
 import { Minus, Plus } from "lucide-react";
 import BufferedInput from "@/components/editor/BufferedInput";
+import { isInteractiveClickTarget } from "../manualCanvasGeometry";
 import type { ManualTableContent } from "@gmo-onair/shared/src/opsmanual/types";
 
 interface Props {
@@ -34,11 +35,10 @@ export default function TableBlockContent({ content, selected, onCommit }: Props
   return (
     <div
       className="flex h-full w-full flex-col overflow-auto bg-background"
-      // 選択中は表の中で編集操作が完結する（ドラッグでブロックが動かないよう
-      // pointerdown をここで止める。ManualBlockView の「つかんで動かす」は
-      // pointerdown 起点なので mousedown ではなく pointerdown で止める必要がある。
-      // 動かすときは選択を外して枠から掴む）
-      onPointerDown={(e) => { if (selected) e.stopPropagation(); }}
+      // セル・ボタンの上のクリックだけ止める（入力の focus 争いを避ける）。セルの間の
+      // 罫線やパディングなど「地」の上のクリックは止めない——止めると選択済みの表を
+      // つかんで動かす手段が無くなる（枠は pointer-events-none で掴めないため。レビュー指摘）
+      onPointerDown={(e) => { if (selected && isInteractiveClickTarget(e.target)) e.stopPropagation(); }}
     >
       <table className="w-full flex-1 border-collapse text-[10px] leading-tight">
         <tbody>

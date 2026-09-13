@@ -3,11 +3,9 @@
 // （`EntryImageButton.tsx` のアップロード処理をこの用途向けに書き直したもの）。
 import { useRef, useState } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
-import api from "@/lib/api";
+import { manualImageUploadError, uploadManualImage } from "@/lib/manualImageUpload";
 import { notifyError } from "@/lib/notify";
 import type { ManualImageContent } from "@gmo-onair/shared/src/opsmanual/types";
-
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 interface Props {
   content: ManualImageContent;
@@ -20,26 +18,11 @@ export default function ImageBlockContent({ content, selected, onCommit }: Props
   const inputRef = useRef<HTMLInputElement>(null);
 
   const replace = async (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      notifyError("画像ファイルを選んでください。");
-      return;
-    }
-    if (file.size > MAX_IMAGE_BYTES) {
-      notifyError("画像が大きすぎます。", { description: "5MB までの画像を選び直してください。" });
-      return;
-    }
+    const error = manualImageUploadError(file);
+    if (error) { notifyError(error); return; }
     setUploading(true);
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(file);
-      });
-      const res = await api.post("/techops/upload-image", { data: dataUrl, filename: file.name, mimeType: file.type });
-      const url = res.data?.data?.url as string | undefined;
-      if (!url) throw new Error("upload-image: url が返りませんでした");
-      onCommit({ ...content, url });
+      onCommit({ ...content, url: await uploadManualImage(file) });
     } catch {
       notifyError("画像を取り込めませんでした。", { description: "少し待ってから、もう一度選び直してください。" });
     } finally {

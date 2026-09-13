@@ -15,12 +15,21 @@
 // 同じ理由で `ManualPrintHeader.tsx` の罫も `0.25mm solid #1f2937`）。モックも全チーム
 // `1px solid #1a1d24`（`docs/design/v4/mockups/native/production-manual/OrgChart.dc.html`）。
 // **見出しの下の区切りは別** — あちらはモックが `#e6e9ed` なので `border-border` のまま。
-import { Minus, Plus } from "lucide-react";
+import { useRef, useState } from "react";
+import { Minus, Plus, User } from "lucide-react";
 import BufferedInput from "@/components/editor/BufferedInput";
 import { cn } from "@/lib/utils";
 import { genId } from "@/lib/stableIds";
+import { manualImageUploadError, uploadManualImage } from "@/lib/manualImageUpload";
+import { notifyError } from "@/lib/notify";
 import type { ManualOrgBox, ManualOrgPerson } from "@gmo-onair/shared/src/opsmanual/types";
 import { ORG_INPUT, ORG_MINUS, ORG_PLUS, type OrgChartShow } from "./orgChartUi";
+
+/** 親の候補（自分より手前の階層の箱）1件。`OrgChartBlockContent.tsx` が組み立てる */
+export interface ParentOption {
+  id: string;
+  label: string;
+}
 
 interface Props {
   box: ManualOrgBox;
@@ -29,15 +38,24 @@ interface Props {
   /** 変えたチームを丸ごと返す（親が階層の中で差し替える。破壊的に書き換えない＝undo が壊れる） */
   onChange: (next: ManualOrgBox) => void;
   onRemove: () => void;
+  /** 親として選べる箱（自分より手前の階層のものだけ。無ければ「親」欄自体を出さない） */
+  parentOptions?: ParentOption[];
+  parentId?: string | null;
+  /** 「親」欄で選び直したとき（`null` = 親を外して独立させる） */
+  onChangeParent?: (parentId: string | null) => void;
+  /** 顔写真アップロードが終わった時点で呼ぶ（id を頼りに最新の中身へ差し込む・レビュー指摘） */
+  onPersonPhotoUploaded: (personId: string, photoUrl: string) => void;
 }
 
-export default function OrgChartTeamBox({ box, show, selected, onChange, onRemove }: Props) {
+export default function OrgChartTeamBox({
+  box, show, selected, onChange, onRemove, parentOptions, parentId, onChangeParent, onPersonPhotoUploaded,
+}: Props) {
   const people = box.people ?? [];
   const patchPerson = (id: string, patch: Partial<ManualOrgPerson>) =>
     onChange({ ...box, people: people.map((p) => (p.id === id ? { ...p, ...patch } : p)) });
 
   return (
-    <div className="min-w-0 flex-1 rounded-badge-xs border border-foreground bg-card">
+    <div className="min-w-0 w-full rounded-badge-xs border border-foreground bg-card">
       <div className="flex items-center gap-1 border-b border-border px-1.5 py-0.5">
         {selected ? (
           <BufferedInput
@@ -67,6 +85,26 @@ export default function OrgChartTeamBox({ box, show, selected, onChange, onRemov
         )}
       </div>
 
+      {/* 分岐（木構造）。手前の階層の箱を選ぶとその下へ線でぶら下がる（2026-09-13 の利用者判断）。
+          選べる新しい相手が無くても（先頭の階層に来た等）、**いま親が付いているなら欄は出す**
+          ——「なし（独立）」で外す手段を必ず残す（レビュー指摘・P2: 階層の並べ替えは parentId を
+          書き換えないため、並べ替え後に手前の階層になった箱が親を持ったまま外せなくなっていた） */}
+      {selected && onChangeParent && (parentId || (parentOptions && parentOptions.length > 0)) && (
+        <div className="flex items-center gap-1 border-b border-border px-1.5 py-0.5">
+          <span className="shrink-0 text-[8.5px] text-muted-foreground">親</span>
+          <select
+            value={parentId ?? ""}
+            onChange={(e) => onChangeParent(e.target.value || null)}
+            className="min-w-0 flex-1 rounded border border-input bg-background px-1 py-0.5 text-[9px] text-foreground"
+          >
+            <option value="">なし（独立）</option>
+            {(parentOptions ?? []).map((p) => (
+              <option key={p.id} value={p.id}>{p.label || "（無題）"}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="px-1.5 pb-1 pt-0.5">
         {people.map((p) => (
           <PersonRow
@@ -76,6 +114,7 @@ export default function OrgChartTeamBox({ box, show, selected, onChange, onRemov
             selected={selected}
             onPatch={(patch) => patchPerson(p.id, patch)}
             onRemove={() => onChange({ ...box, people: people.filter((x) => x.id !== p.id) })}
+            onPhotoUploaded={onPersonPhotoUploaded}
           />
         ))}
         {people.length === 0 && (
@@ -105,13 +144,14 @@ export default function OrgChartTeamBox({ box, show, selected, onChange, onRemov
  * 階層の名前・チーム名・所属・氏名・役割の5つで、バッジは取り込みで入ってくる印。
  */
 function PersonRow({
-  person, show, selected, onPatch, onRemove,
+  person, show, selected, onPatch, onRemove, onPhotoUploaded,
 }: {
   person: ManualOrgPerson;
   show: OrgChartShow;
   selected: boolean;
   onPatch: (patch: Partial<ManualOrgPerson>) => void;
   onRemove: () => void;
+  onPhotoUploaded: (personId: string, photoUrl: string) => void;
 }) {
   const badge = person.badge && (
     <span className="shrink-0 rounded-badge-xs border border-warning px-1 text-[8px] font-extrabold text-warning">
@@ -123,6 +163,7 @@ function PersonRow({
     const sub = [show.role ? person.role : "", show.org ? person.org : ""].filter(Boolean).join(" ・ ");
     return (
       <div className="flex flex-wrap items-baseline gap-x-1 py-px">
+        {show.photo && <PersonPhoto url={person.photoUrl} />}
         <span className="min-w-0 max-w-full truncate text-[10px] font-bold">{person.name}</span>
         {badge}
         {sub && <span className="min-w-0 flex-1 truncate text-[9px] text-muted-foreground">{sub}</span>}
@@ -134,6 +175,7 @@ function PersonRow({
 
   return (
     <div className="flex flex-wrap items-baseline gap-x-1 py-px">
+      {show.photo && <PersonPhotoButton personId={person.id} url={person.photoUrl} onUploaded={onPhotoUploaded} />}
       <BufferedInput
         value={person.name}
         onCommit={(v) => onPatch({ name: v })}
@@ -149,6 +191,74 @@ function PersonRow({
         <Minus className="h-3 w-3" aria-hidden="true" />
       </button>
     </div>
+  );
+}
+
+/** 顔写真の丸い小さな表示（紙・閲覧側）。写真が無ければ何も描かない */
+function PersonPhoto({ url }: { url?: string }) {
+  if (!url) return null;
+  return <img src={url} alt="" className="h-4 w-4 shrink-0 rounded-full border border-foreground object-cover" />;
+}
+
+/**
+ * 顔写真の表示＋差し替え（編集側）。`ImageBlockContent.tsx` の「差し替え」と同じ
+ * アップロード処理（`manualImageUpload.ts`）を使う。写真が無いときはアイコンだけの
+ * 丸いボタンにする（押せる場所だと分かるように）。
+ *
+ * ⚠️ レビュー指摘（P1→P2 で再指摘）: アップロードは通信を伴う。**結果の反映は
+ * `personId` を頼りに「通信が終わった時点の最新の中身」へ差し込む**
+ * （`onPersonPhotoUploaded` の実体は `OrgChartBlockContent.tsx` の `commitPersonPhoto`）。
+ * このボタン自身がアンマウントされたかどうかは判断に使わない——「顔写真を出す」設定を
+ * 切る・チームを組み替える等でも人自体は消えていないことがあり、アンマウント＝削除
+ * ではないため（アンマウントを理由に結果を捨てると、届いていた写真を黙って失う）。
+ * 本当にその人が消えていたときだけ何もしないのは呼び出し先の役目。
+ */
+function PersonPhotoButton({
+  personId, url, onUploaded,
+}: {
+  personId: string;
+  url?: string;
+  onUploaded: (personId: string, photoUrl: string) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const upload = async (file: File) => {
+    const error = manualImageUploadError(file);
+    if (error) { notifyError(error); return; }
+    setUploading(true);
+    try {
+      onUploaded(personId, await uploadManualImage(file));
+    } catch {
+      notifyError("写真を取り込めませんでした。", { description: "少し待ってから、もう一度選び直してください。" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+        title="顔写真を選ぶ"
+        className="flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded-full border border-foreground bg-card text-muted-foreground hover:bg-accent"
+      >
+        {url ? <img src={url} alt="" className="h-full w-full object-cover" /> : <User className="h-2.5 w-2.5" aria-hidden="true" />}
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) upload(file);
+          e.target.value = "";
+        }}
+      />
+    </>
   );
 }
 

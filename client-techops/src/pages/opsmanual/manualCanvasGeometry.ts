@@ -20,11 +20,34 @@ export function genBlockId(): string {
   return `blk_${Date.now().toString(36)}_${blockIdSeq}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** 入力欄など、キャンバスのショートカット（矢印キー・Delete・Ctrl+Z 等）を奪ってはいけない相手か */
+/**
+ * 入力欄など、キャンバスのショートカット（矢印キー・Delete・Ctrl+Z 等）を奪ってはいけない相手か。
+ *
+ * ⚠️ **`SELECT` も含める**（レビュー指摘・P2）。体制図の「親」欄（`OrgChartTeamBox.tsx`）は
+ * `<select>` で、矢印キーは選択肢を選ぶためのもの。ここに含めないと、キャンバスの
+ * `handleKeyDown` が同じ矢印キーを「選択中のブロックを動かす」と解釈して奪ってしまい、
+ * 選択肢を選ぼうとするたびにブロックごと動く。
+ */
 export function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
+}
+
+/**
+ * 選択中の表・体制図の中で、クリックが入力欄・ボタンに乗っているか（`.closest()` なので
+ * アイコン等の子要素をクリックしても拾う）。**乗っていないとき**（行間・チームどうしの隙間
+ * など中身の「地」）はブロックの pointerdown を止めない — 止めると、選択済みの表・体制図を
+ * つかんで動かす手段が無くなる（レビュー指摘: 枠は `pointer-events-none` なので掴めない）。
+ *
+ * ⚠️ **`HTMLElement` ではなく `Element` で見る**（レビュー指摘・P2）。ボタンの中の
+ * lucide アイコン（`Plus`/`Minus`/`User`）は `<svg>`/`<path>` で、`SVGElement` は
+ * `HTMLElement` を継承しない。`HTMLElement` で絞ると、アイコンのちょうど上を押したときだけ
+ * ここが false を返し、押している最中にわずかでも動くとブロックごとドラッグが始まってしまう。
+ */
+export function isInteractiveClickTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return !!target.closest("input, textarea, button, select, [contenteditable='true']");
 }
 
 /** 矩形どうしが重なっているか（マーキー選択の当たり判定。回転は無視して外接矩形で見る） */
