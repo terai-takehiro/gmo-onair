@@ -178,6 +178,26 @@ export function assertEditable(manual: Row, userId: string): void {
   }
 }
 
+/**
+ * `assertEditable` と同じ条件（ロック所有者 / 確定していないこと）をSQLで再検査する
+ * WHERE 句の断片。`?` を2つ要求する（冊子id・呼び出し本人のuserId、この順）。
+ *
+ * ⚠️⚠️ 外部レビュー再指摘（P1）: `updatePage`/`updateManual` は事前に一度
+ * `assertEditable` を判定してから、楽観ロック（`updated_at` の一致）だけを畳み込んだ
+ * 条件付き UPDATE を投げていた。だが `takeoverManualLock()`/`fixManual()` は
+ * `updated_at` を変えない（前者は `locked_by` だけ、後者は先にページを凍らせてから
+ * 冊子行を更新する）ため、事前チェックの直後・UPDATE実行前に管理者が引き継ぐと、
+ * 権限を失ったはずの前保持者の保存が検出されずそのまま成功してしまう
+ * （新しい保持者に権限が移ったのに、まだ古い保持者が上書きできる）。
+ * `updated_at` の CAS に加えてこの EXISTS も同じ WHERE 句に畳み込み、書き込みの
+ * 瞬間に改めてロック所有者/確定状態を検査する。
+ */
+const EDITABLE_GUARD_SQL = `EXISTS (
+    SELECT 1 FROM qsheet_manuals m
+    WHERE m.id = ? AND m.deleted_at IS NULL AND m.status != 'fixed'
+      AND (m.locked_by IS NULL OR m.locked_by = ? OR m.locked_at < NOW() - INTERVAL '10 minutes')
+  )`;
+
 export interface CreateManualInput {
   title: string;
   projectId?: string | null;
@@ -291,15 +311,21 @@ export async function updateManual(id: string, userId: string, input: UpdateManu
   if (typeof input.title === 'string') { sets.push('title = ?'); params.push(input.title.slice(0, MAX_TITLE)); }
   if ('serviceDate' in input) { sets.push('service_date = ?'); params.push(sanitizeServiceDate(input.serviceDate)); }
 
+  // ⚠️⚠️ 外部レビュー再指摘（P1）: `updatePage` と同じ欠陥——`updated_at` の CAS
+  // だけでは、冒頭の assertEditable 判定の直後・この UPDATE 実行前に管理者が
+  // 引き継いでも検出できない（`EDITABLE_GUARD_SQL` のコメント参照）。
   const hasExpected = typeof input.expectedUpdatedAt === 'string' && !!input.expectedUpdatedAt;
-  let updateSql = `UPDATE qsheet_manuals SET ${sets.join(', ')} WHERE id = ?`;
-  const updateParams: unknown[] = [...params, id];
+  let updateSql = `UPDATE qsheet_manuals SET ${sets.join(', ')} WHERE id = ? AND ${EDITABLE_GUARD_SQL}`;
+  const updateParams: unknown[] = [...params, id, id, userId];
   if (hasExpected) {
     updateSql += ` AND date_trunc('milliseconds', updated_at) = date_trunc('milliseconds', ?::timestamptz)`;
     updateParams.push(input.expectedUpdatedAt);
   }
   const updated = await queryOne(`${updateSql} RETURNING id`, updateParams);
   if (!updated) {
+    const freshManual = await getManualLockRow(id);
+    if (!freshManual) throw new NotFoundError('冊子が見つかりません');
+    assertEditable(freshManual, userId);
     const fresh = await queryOne(
       `SELECT m.updated_at, m.updated_by, u.name AS updater_name
        FROM qsheet_manuals m LEFT JOIN users u ON m.updated_by = u.id
@@ -443,15 +469,25 @@ export async function updatePage(manualId: string, pageId: string, userId: strin
   // `acquireManualLock` と同じ考え方。`date_trunc('milliseconds', ...)` は pg の
   // マイクロ秒切り捨てによる誤検出を避けるため）。expected が無効/省略なら従来どおり
   // 検査なし（`checkOptimisticLock` と同じ契約）。
+  //
+  // ⚠️⚠️ 外部レビュー再指摘（P1）: 上の updated_at の CAS だけでは、冒頭の
+  // assertEditable 判定の直後・この UPDATE 実行前に管理者が引き継いでも検出できない
+  // （`EDITABLE_GUARD_SQL` のコメント参照）。同じ WHERE 句に EDITABLE_GUARD_SQL も
+  // 畳み込み、書き込みの瞬間に改めてロック所有者/確定状態を検査する。
   const hasExpected = typeof input.expectedUpdatedAt === 'string' && !!input.expectedUpdatedAt;
-  let updateSql = `UPDATE qsheet_manual_pages SET ${sets.join(', ')} WHERE id = ?`;
-  const updateParams: unknown[] = [...params, pageId];
+  let updateSql = `UPDATE qsheet_manual_pages SET ${sets.join(', ')} WHERE id = ? AND ${EDITABLE_GUARD_SQL}`;
+  const updateParams: unknown[] = [...params, pageId, manualId, userId];
   if (hasExpected) {
     updateSql += ` AND date_trunc('milliseconds', updated_at) = date_trunc('milliseconds', ?::timestamptz)`;
     updateParams.push(input.expectedUpdatedAt);
   }
   const updated = await queryOne(`${updateSql} RETURNING id`, updateParams);
   if (!updated) {
+    // 0件の原因を切り分ける: まずロック/確定状態が原因なら、ここで LockError/
+    // ValidationError を投げる（assertEditable と同じ判定を、いまの状態で改めて行う）
+    const freshManual = await getManualLockRow(manualId);
+    if (!freshManual) throw new NotFoundError('冊子が見つかりません');
+    assertEditable(freshManual, userId);
     const fresh = await queryOne(
       `SELECT p.updated_at, p.updated_by, u.name AS updater_name
        FROM qsheet_manual_pages p LEFT JOIN users u ON p.updated_by = u.id

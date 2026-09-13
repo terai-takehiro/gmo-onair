@@ -38,6 +38,15 @@ export interface UseManualPageAutosaveResult {
    * 競合する自動保存が無いのでそのまま送る。
    */
   commitMetadata: (pageId: string, manualId: string, patch: { title?: string; chapter?: string | null }) => Promise<ManualPage>;
+  /**
+   * いま紙面に開いているページの保留中/進行中の自動保存があれば、それを終わらせて
+   * から返る（無ければ即座に返る）。並べ替え（`reorderPages`）のように**冊子内の
+   * 全ページの `updated_at` を進める別経路の書き込み**を送る直前に呼ぶ——呼ばずに
+   * 送ると、いま開いているページの自動保存が古い revision のまま同時に飛び、
+   * 偽の衝突として弾かれて紙面側の未保存分を失いうる（外部レビュー再指摘・P1。
+   * `commitMetadata` と同じ理由・同じ仕組み）。
+   */
+  waitForCurrentPageSave: () => Promise<void>;
 }
 
 /**
@@ -158,18 +167,24 @@ export function useManualPageAutosave(
     [page, runSave],
   );
 
+  // いま紙面に開いているページの保留中/進行中の保存を終わらせてから返る
+  // （`commitMetadata`・`waitForCurrentPageSave` 共通の中身）。保留中の紙面編集が
+  // あれば即座に送信を始め、進行中の保存（連鎖しているぶんも含めて）がすべて
+  // 終わるまで待つ。
+  const flushAndWait = useCallback(async () => {
+    runSave();
+    while (savingRef.current) {
+      await savingPromiseRef.current?.catch(() => {});
+    }
+  }, [runSave]);
+
   const commitMetadata = useCallback(
     async (pageId: string, manualId: string, patch: { title?: string; chapter?: string | null }): Promise<ManualPage> => {
-      if (pageId === currentPageIdRef.current) {
-        // いま紙面に開いているページ——保留中の紙面編集があれば即座に送信を始め、
-        // 進行中の保存（連鎖しているぶんも含めて）がすべて終わるまで待つ。
-        // これをしないと、このメタデータ PUT が紙面の自動保存と同時に飛び、
-        // どちらかが偽の衝突（409）として弾かれてしまう（外部レビュー再指摘）。
-        runSave();
-        while (savingRef.current) {
-          await savingPromiseRef.current?.catch(() => {});
-        }
-      }
+      // 対象がいま紙面に開いているページと同じときだけ待つ——これをしないと、
+      // このメタデータ PUT が紙面の自動保存と同時に飛び、どちらかが偽の衝突
+      // （409）として弾かれてしまう（外部レビュー再指摘）。別のページが対象の
+      // ときは競合する自動保存が無いのでそのまま送る。
+      if (pageId === currentPageIdRef.current) await flushAndWait();
       const row = await manualApi.updatePage(manualId, pageId, {
         ...patch,
         expected_updated_at: revisionsRef.current.get(pageId),
@@ -177,8 +192,12 @@ export function useManualPageAutosave(
       revisionsRef.current.set(pageId, row.updated_at);
       return row;
     },
-    [runSave],
+    [flushAndWait],
   );
+
+  const waitForCurrentPageSave = useCallback(async () => {
+    if (currentPageIdRef.current) await flushAndWait();
+  }, [flushAndWait]);
 
   // アンマウント時: タイマーは止め、未送信分があれば best-effort で1回だけ送る
   // （結果を state に反映する相手がもう居ないので、成功/失敗のハンドリングはしない）。
@@ -214,5 +233,5 @@ export function useManualPageAutosave(
     [],
   );
 
-  return { blocks, commitBlocks, saving, flush: runSave, syncPageRevision, commitMetadata };
+  return { blocks, commitBlocks, saving, flush: runSave, syncPageRevision, commitMetadata, waitForCurrentPageSave };
 }

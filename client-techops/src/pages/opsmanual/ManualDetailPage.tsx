@@ -119,20 +119,15 @@ export default function ManualDetailPage() {
 
   const handleBlocksConflict = useCallback(() => { invalidate(); }, [invalidate]);
 
-  const { blocks, commitBlocks, saving: blocksSaving, flush: flushBlocks, syncPageRevision, commitMetadata } = useManualPageAutosave(
+  const { blocks, commitBlocks, saving: blocksSaving, flush: flushBlocks, syncPageRevision, commitMetadata, waitForCurrentPageSave } = useManualPageAutosave(
     currentPage,
     handleBlocksSaved,
     handleBlocksConflict,
   );
 
-  // 保存系の操作（onCommit系）の唯一の関所。`ManualCanvas` へは直接これを渡し、
-  // `commitViaHistory`（右パネル・追加ツールバー）もページ未選択時のフォールバックで
-  // これへ落ちる——`canvasRef.current.commit()` 経由の分は `useManualHistory` の
-  // `onCommit` がこの関数そのものなので、紙面のドラッグ・伸縮・回転・削除・複製・
-  // 矢印キー移動・整列・等間隔・重なり・右パネルの書式変更・差し込みの秘密解除の
-  // どれもここを通る。読み取り専用の間は黙って何もしない（`blocks` state が動かないので、
-  // 紙面上でドラッグを試みても離した瞬間に元の位置へ戻る——完全に触れなくする必要は
-  // 無いが、保存されないことだけは保証する）。
+  // 保存系の操作（onCommit系）の唯一の関所——`ManualCanvas`・`commitViaHistory`
+  // （右パネル・追加ツールバー）ともここを通る。読み取り専用の間は黙って何もしない
+  // （`blocks` state が動かないだけで、保存されないことだけを保証する）。
   const guardedCommitBlocks = useCallback(
     (next: ManualBlock[]) => {
       if (!editable) return;
@@ -193,9 +188,7 @@ export default function ManualDetailPage() {
   });
 
   const updatePageMutation = useMutation({
-    // 独立したPUTのまま送ると紙面の自動保存と同時に飛び偽の衝突になりうるため、
-    // `commitMetadata`（自動保存フック）に通す——同じページなら保留中/進行中の保存を
-    // 先に終わらせてから送る（レビュー指摘）。
+    // 独立PUTだと紙面の自動保存と同時に飛び偽の衝突になりうるため`commitMetadata`に通す
     mutationFn: ({ pageId, patch }: { pageId: string; patch: { title?: string; chapter?: string | null } }) =>
       commitMetadata(pageId, id, patch),
     onSuccess: invalidate,
@@ -214,8 +207,12 @@ export default function ManualDetailPage() {
   });
 
   const reorderMutation = useMutation({
-    mutationFn: (order: { id: string; sort_order: number }[]) => manualApi.reorderPages(id, order),
-    // 並べ替えも触った全ページの updated_at を進める（同じ理由で syncPageRevision）
+    // 並べ替えは全ページのupdated_atを進めるため、開いているページの保留中/
+    // 進行中の自動保存を先に終わらせてから送る（外部レビュー再指摘・P1）
+    mutationFn: async (order: { id: string; sort_order: number }[]) => {
+      await waitForCurrentPageSave();
+      return manualApi.reorderPages(id, order);
+    },
     onSuccess: (rows) => { rows.forEach((r) => syncPageRevision(r.id, r.updated_at)); invalidate(); },
     onError: () => notifyError("並べ替えを保存できませんでした。", { description: "少し待ってから、もう一度お試しください。" }),
   });
