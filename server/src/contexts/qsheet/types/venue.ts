@@ -200,3 +200,13 @@ export interface VenueLayoutSummary {
 export interface VenueLayoutDetail extends VenueLayoutSummary {
   items: VenueItem[];
 }
+
+/** 編集ロックの応答（`POST/DELETE .../lock` 系）。§5-6 */
+export interface VenueLockState {
+  lockedBy: string | null;
+  lockedByName: string | null;
+  lockedAt: string | null;
+  lockRequestedBy: string | null;
+  lockRequestedByName: string | null;
+  lockRequestedAt: string | null;
+}

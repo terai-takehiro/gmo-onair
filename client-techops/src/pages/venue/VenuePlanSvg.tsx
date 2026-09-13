@@ -43,6 +43,16 @@ interface Props {
   scaleBarMm?: number;
   showLegend?: boolean;
   className?: string;
+  /**
+   * 指定した縮尺で印刷したときの実寸（紙面上の mm）。渡すと `<svg>` の width/height を
+   * この値に固定する（`bounds` の mm を `1/縮尺` に縮めて描く＝本当の縮尺表示）。
+   * 省略時は親要素いっぱいに広げる（運営マニュアルへの差し込みなど、紙の実寸を
+   * 気にしない使い方向け）。レビュー指摘（P1）: これが無いと `VenuePrintSheet.tsx` が
+   * 縮尺の値に関わらず常に版面いっぱいに引き伸ばして描いてしまい、「1:50」も「1:400」も
+   * 同じ大きさの図が出て、印刷物から実寸を測ると必ず食い違う。
+   */
+  renderWidthMm?: number;
+  renderHeightMm?: number;
 }
 
 function ItemShape({ item, unit }: { item: VenueItem; unit: number }) {
@@ -115,17 +125,22 @@ function ScaleBar({ bounds, lengthMm, unit }: { bounds: VenueBounds; lengthMm: n
   );
 }
 
-export default function VenuePlanSvg({ bounds, polygonMm, fixtures = [], items, axisLinesMm, scaleBarMm = 1000, showLegend = true, className }: Props) {
+export default function VenuePlanSvg({
+  bounds, polygonMm, fixtures = [], items, axisLinesMm, scaleBarMm = 1000, showLegend = true, className,
+  renderWidthMm, renderHeightMm,
+}: Props) {
   const clipId = useId();
   const unit = Math.max(1, Math.max(bounds.w, bounds.h) / 100);
 
   const usedKinds = useMemo(() => Array.from(new Set(items.map((i) => i.kind))).filter((k) => k !== "group"), [items]);
+  const fixedSize = typeof renderWidthMm === "number" && typeof renderHeightMm === "number";
 
   return (
     <svg
       viewBox={`${bounds.x} ${bounds.y} ${bounds.w} ${bounds.h}`}
       preserveAspectRatio="xMidYMid meet"
-      className={className}
+      className={fixedSize ? undefined : className}
+      style={fixedSize ? { width: `${renderWidthMm}mm`, height: `${renderHeightMm}mm`, flexShrink: 0 } : undefined}
       role="img"
       aria-label="会場図面"
     >

@@ -160,13 +160,18 @@ export default function VenueBoard({
           viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
           tabIndex={0}
           onKeyDown={handleKeyDown}
-          onPointerDown={marquee.onPointerDown}
           onPointerMove={marquee.onPointerMove}
           onPointerUp={marquee.onPointerUp}
           onPointerCancel={marquee.onPointerUp}
           className="block bg-white outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <rect x={viewBox.x} y={viewBox.y} width={viewBox.w} height={viewBox.h} fill="#ffffff" onClick={() => selectOnly(null)} />
+          {/* レビュー指摘（P2）: `onPointerDown` を `<svg>` に付けていたため、実際に
+              指が触れるのは常にこの背景 `<rect>`（`e.target`）で `<svg>`（`e.currentTarget`）
+              とは一致せず、フックの `e.target !== e.currentTarget` ガードで毎回弾かれて
+              マーキー選択が一度も始まらなかった。品目はこの `<rect>` の兄弟要素で
+              バブリングしないため、ハンドラをこの `<rect>` 自身に付ければ「背景を掴んだ
+              ときだけ」が素直に成立する（Move/Up は `setPointerCapture` 先の `<svg>` のまま） */}
+          <rect x={viewBox.x} y={viewBox.y} width={viewBox.w} height={viewBox.h} fill="#ffffff" onPointerDown={marquee.onPointerDown} onClick={() => selectOnly(null)} />
           <VenueUnderlay floor={floor} area={area} viewBox={viewBox} showWholeFloor={showWholeFloor} showGrid={showGrid} strokeMm={strokeMm} />
 
           {sorted.map((item) => (

@@ -65,6 +65,13 @@ export function useVenueAutosave(
     pendingRef.current = null;
     savingRef.current = true;
     if (mountedRef.current) setSaving(true);
+    // レビュー指摘（P1）: 通信エラー・5xx など「取り合い（ロック／楽観ロック）ではない」
+    // 失敗のとき、以前はここで `pendingRef` を空にしたまま戻していた。次に手を動かせば
+    // 上書きされて気づけないが、動かさず離れる／固まると、その分は二度と送られない
+    // （画面には反映済みに見えるのに保存されていない）。取り合いで正しく discard する
+    // 2ケース（ロック・楽観ロック衝突）以外は、まだ誰も上書きしていなければ `pending` を
+    // 差し戻し、通常の1.5秒デバウンスで再送する。
+    let retryScheduled = false;
     savingPromiseRef.current = updateVenueItems(id, pending, revisionRef.current ?? "")
       .then((row) => {
         revisionRef.current = row.updatedAt;
@@ -81,13 +88,22 @@ export function useVenueAutosave(
           if (mountedRef.current) onConflictRef.current();
           return;
         }
-        notifyError("図面を保存できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
+        notifyError("図面を保存できませんでした。", { description: "少し待ってからもう一度お試しください。自動でもう一度送ります。" });
+        if (!pendingRef.current) {
+          // まだ新しい編集で上書きされていなければ、失敗した分をそのまま積み直す
+          pendingRef.current = pending;
+          retryScheduled = true;
+          if (timerRef.current) clearTimeout(timerRef.current);
+          timerRef.current = setTimeout(runSave, SAVE_DEBOUNCE_MS);
+        }
       })
       .finally(() => {
         savingRef.current = false;
         savingPromiseRef.current = null;
         if (mountedRef.current) setSaving(false);
-        if (pendingRef.current) runSave();
+        // `retryScheduled` のときは上でタイマーを立てた分だけに任せる
+        // （ここでも runSave すると同じ pending を二重に送ってしまう）。
+        if (pendingRef.current && !retryScheduled) runSave();
       });
   }, []);
 

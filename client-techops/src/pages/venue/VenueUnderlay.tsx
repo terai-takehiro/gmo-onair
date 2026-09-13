@@ -30,7 +30,15 @@ export default function VenueUnderlay({ floor, area, viewBox, showWholeFloor, sh
     <>
       {underlay && (
         <image
-          href={`/venue/${underlay.file}`}
+          // レビュー指摘（P1）: `underlay.file`（`/venue/floor-26f.png` のようなアプリ内
+          // 相対パス。migration 299）に、ここでさらに `/venue/` を足していたため
+          // `/venue//venue/floor-26f.png` になり常に404だった。加えて、この画像は
+          // Vite の `public/`（`client-techops/public/venue/…`）に置くため、実際に
+          // 配信されるURLは `vite.config.ts` の `base: '/techops/'` を経由する
+          // （サーバーは client-techops/dist を `/techops` と `/qsheet` の二重マウント。
+          // `server/src/app.ts`）。素の絶対パスのままだとどちらのマウントからも外れるので
+          // `import.meta.env.BASE_URL` を必ず経由する。
+          href={`${import.meta.env.BASE_URL}${underlay.file.replace(/^\//, '')}`}
           x={underlay.originMm.x}
           y={underlay.originMm.y}
           width={underlay.widthPx / underlay.pxPerMmX}

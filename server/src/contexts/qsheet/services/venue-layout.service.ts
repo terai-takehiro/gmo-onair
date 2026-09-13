@@ -20,9 +20,64 @@ import { queryAll, queryOne, execute, type Row } from '../../../shared/db/connec
 import { isQsheetAdmin } from '../access';
 import { issueDocNo } from './docNo.service';
 import { NotFoundError, ValidationError, ConflictError, LockError, checkOptimisticLock } from './httpErrors';
-import type { VenueLayoutStatus } from '../types/venue';
+import type { VenueLayoutStatus, VenueLayoutSummary, VenueLayoutDetail, VenueLockState } from '../types/venue';
 
 interface AccessUser { id: string; role: string; permissions?: Record<string, string> }
+
+/**
+ * DB の行（snake_case・JOIN の別名）を、クライアントが期待する camelCase の形
+ * （`shared/src/venue/types.ts` の `VenueLayoutSummary`）へ変換する。
+ * ⚠️ レビュー指摘（P1）: これを欠くと `floorId`/`updatedAt` 等が全部 `undefined` になり、
+ * 編集画面・仕上がり・自動保存のすべてが動かない（`venue-floor.service.ts` の
+ * `mapFloorRow` と同じ理由で必須）。
+ */
+export function mapSummaryRow(row: Row): VenueLayoutSummary {
+  return {
+    id: row.id as string,
+    docNo: (row.doc_no as string | null) ?? null,
+    title: (row.title as string) ?? '',
+    projectId: (row.project_id as string | null) ?? null,
+    programId: (row.program_id as string | null) ?? null,
+    projectName: (row.project_name as string | null) ?? null,
+    glsNumber: (row.gls_number as string | null) ?? null,
+    programName: (row.program_name as string | null) ?? null,
+    floorId: row.floor_id as string,
+    floorLabel: (row.floor_label as string | null) ?? null,
+    areaId: (row.area_id as string | null) ?? null,
+    areaLabel: (row.area_label as string | null) ?? null,
+    planLabel: (row.plan_label as string | null) ?? null,
+    copiedFrom: (row.copied_from as string | null) ?? null,
+    status: row.status as VenueLayoutStatus,
+    rev: Number(row.rev ?? 0),
+    createdBy: (row.created_by as string | null) ?? null,
+    creatorName: (row.creator_name as string | null) ?? null,
+    updatedBy: (row.updated_by as string | null) ?? null,
+    updaterName: (row.updater_name as string | null) ?? null,
+    updatedAt: row.updated_at as string,
+    createdAt: row.created_at as string,
+    lockedBy: (row.locked_by as string | null) ?? null,
+    lockedByName: (row.locked_by_name as string | null) ?? null,
+    lockedAt: (row.locked_at as string | null) ?? null,
+    lockRequestedBy: (row.lock_requested_by as string | null) ?? null,
+    lockRequestedByName: (row.lock_requested_by_name as string | null) ?? null,
+    lockRequestedAt: (row.lock_requested_at as string | null) ?? null,
+  };
+}
+
+export function mapDetailRow(row: Row): VenueLayoutDetail {
+  return { ...mapSummaryRow(row), items: Array.isArray(row.items) ? (row.items as VenueLayoutDetail['items']) : [] };
+}
+
+function mapLockRow(row: Row): VenueLockState {
+  return {
+    lockedBy: (row.locked_by as string | null) ?? null,
+    lockedByName: (row.locked_by_name as string | null) ?? null,
+    lockedAt: (row.locked_at as string | null) ?? null,
+    lockRequestedBy: (row.lock_requested_by as string | null) ?? null,
+    lockRequestedByName: (row.lock_requested_by_name as string | null) ?? null,
+    lockRequestedAt: (row.lock_requested_at as string | null) ?? null,
+  };
+}
 
 /** 一覧・PATCH 応答が使う列（`items` は含めない——一覧は最大200件、`items` は1行最大
  *  300,000字にもなり得るため、詳細取得（`getVenueLayoutDetail`）でだけ別に読む） */
@@ -80,7 +135,7 @@ export const VENUE_LAYOUT_STATUSES = ['draft', 'fixed', 'archived'] as const;
  * 一覧。可視性は `canAccessVenueLayout`（作成者 / 案件メンバー / assigned_to / 管理者）と
  * 同じ理屈を1本の SQL に展開したもの（`manual.service.ts` の `listManuals` と同じ形。§5-5）。
  */
-export async function listVenueLayouts(user: AccessUser, filter: ListFilter): Promise<Row[]> {
+export async function listVenueLayouts(user: AccessUser, filter: ListFilter): Promise<VenueLayoutSummary[]> {
   let sql = `${SELECT_BASE} WHERE v.deleted_at IS NULL`;
   const params: unknown[] = [];
   let i = 1;
@@ -97,7 +152,8 @@ export async function listVenueLayouts(user: AccessUser, filter: ListFilter): Pr
   if (filter.program_id) { sql += ` AND v.program_id = $${i++}`; params.push(filter.program_id); }
   sql += ' ORDER BY v.updated_at DESC LIMIT 200';
 
-  return queryAll(sql, params);
+  const rows = await queryAll(sql, params);
+  return rows.map(mapSummaryRow);
 }
 
 /** 行そのもの（access 判定・存在確認に使う最小情報。`manuals.routes.ts` の `requireAccessible` と同じ形） */
@@ -230,7 +286,7 @@ const MAX_ITEMS_JSON_LENGTH = 300_000;
  * （§5-3「図面は冊子と同じ『必ず発番』」——運営マニュアルから `sourceId` で指すため）。
  * `copyFromLayoutId` があれば、その図面の `items` を丸ごと複製する（§6①）。
  */
-export async function createVenueLayout(input: CreateVenueLayoutInput): Promise<Row> {
+export async function createVenueLayout(input: CreateVenueLayoutInput): Promise<VenueLayoutDetail> {
   const hasProject = !!input.projectId;
   const hasProgram = !!input.programId;
   if (hasProject === hasProgram) {
@@ -266,7 +322,7 @@ export async function createVenueLayout(input: CreateVenueLayoutInput): Promise<
 
   const row = await getVenueLayoutDetail(id);
   if (!row) throw new Error('createVenueLayout: INSERT 直後の SELECT が空でした');
-  return row;
+  return mapDetailRow(row);
 }
 
 export interface CopyVenueLayoutInput {
@@ -278,7 +334,7 @@ export interface CopyVenueLayoutInput {
 
 /** `POST /venue-layouts/:id/copy`。既存の1件を丸ごと複製する——`createVenueLayout` の
  *  `copyFromLayoutId` 経路を、既存図面を起点にした呼び出しに畳んだだけ（§5-4・§6①「複製」）。 */
-export async function copyVenueLayout(sourceId: string, userId: string, input: CopyVenueLayoutInput): Promise<Row> {
+export async function copyVenueLayout(sourceId: string, userId: string, input: CopyVenueLayoutInput): Promise<VenueLayoutDetail> {
   const source = await queryOne(
     'SELECT project_id, program_id, floor_id, area_id, title, plan_label FROM qsheet_venue_layouts WHERE id = $1 AND deleted_at IS NULL',
     [sourceId],
@@ -308,7 +364,7 @@ export interface UpdateVenueLayoutInput {
 }
 
 /** 名前・案・エリア・状態（`archived` への出し入れ）を直す。§5-4 PATCH */
-export async function updateVenueLayout(id: string, userId: string, input: UpdateVenueLayoutInput): Promise<Row> {
+export async function updateVenueLayout(id: string, userId: string, input: UpdateVenueLayoutInput): Promise<VenueLayoutSummary> {
   const existing = await queryOne(
     `SELECT v.id, v.created_by, v.updated_at, v.updated_by, v.status, v.locked_by, v.locked_at,
             u.name AS updater_name, lu.name AS locked_by_name
@@ -374,7 +430,7 @@ export async function updateVenueLayout(id: string, userId: string, input: Updat
   }
   const row = await getVenueLayoutWithMeta(id);
   if (!row) throw new Error('updateVenueLayout: UPDATE 直後の SELECT が空でした');
-  return row;
+  return mapSummaryRow(row);
 }
 
 export interface UpdateVenueItemsInput {
@@ -389,7 +445,7 @@ export interface UpdateVenueItemsInput {
  * 2つのタブ／自動保存の取りこぼしからは守らないため（`manual.service.ts` の `updatePage` と
  * 同じ理由）。
  */
-export async function updateVenueItems(id: string, userId: string, input: UpdateVenueItemsInput): Promise<Row> {
+export async function updateVenueItems(id: string, userId: string, input: UpdateVenueItemsInput): Promise<VenueLayoutDetail> {
   if (!Array.isArray(input.items)) throw new ValidationError('items を指定してください');
   if (typeof input.expectedUpdatedAt !== 'string' || !input.expectedUpdatedAt) {
     throw new ValidationError('expected_updated_at を指定してください');
@@ -445,7 +501,7 @@ export async function updateVenueItems(id: string, userId: string, input: Update
   }
   const row = await getVenueLayoutDetail(id);
   if (!row) throw new Error('updateVenueItems: UPDATE 直後の SELECT が空でした');
-  return row;
+  return mapDetailRow(row);
 }
 
 /** 図面まるごとの削除（論理削除）。`manual.service.ts` の `deleteManual` と同じ形——
@@ -480,7 +536,7 @@ export async function deleteVenueLayout(id: string, userId: string): Promise<voi
  * `status='fixed'`・`rev=rev+1`・`fixed_at`・`fixed_by` を書くだけでよい——冊子側の
  * `fixManual` にある「全ページの linked ブロックを解決して凍らせる」手順は不要。
  */
-export async function fixVenueLayout(id: string, userId: string): Promise<Row> {
+export async function fixVenueLayout(id: string, userId: string): Promise<VenueLayoutSummary> {
   const layout = await queryOne(
     'SELECT id, status, updated_at FROM qsheet_venue_layouts WHERE id = $1 AND deleted_at IS NULL',
     [id],
@@ -511,11 +567,11 @@ export async function fixVenueLayout(id: string, userId: string): Promise<Row> {
   }
   const row = await getVenueLayoutWithMeta(id);
   if (!row) throw new Error('fixVenueLayout: UPDATE 直後の SELECT が空でした');
-  return row;
+  return mapSummaryRow(row);
 }
 
 /** 確定を解く（manager・status==='fixed' のときだけ）。`rev`・`fixed_at`・`fixed_by` は変えない。 */
-export async function unfixVenueLayout(id: string, userId: string): Promise<Row> {
+export async function unfixVenueLayout(id: string, userId: string): Promise<VenueLayoutSummary> {
   const layout = await queryOne('SELECT id, status FROM qsheet_venue_layouts WHERE id = $1 AND deleted_at IS NULL', [id]);
   if (!layout) throw new NotFoundError('図面が見つかりません');
   if (layout.status !== 'fixed') {
@@ -527,7 +583,7 @@ export async function unfixVenueLayout(id: string, userId: string): Promise<Row>
   );
   const row = await getVenueLayoutWithMeta(id);
   if (!row) throw new Error('unfixVenueLayout: UPDATE 直後の SELECT が空でした');
-  return row;
+  return mapSummaryRow(row);
 }
 
 // ============================================================
@@ -538,7 +594,7 @@ export interface LockAcquireResult {
   /** 取れた（＝これで自分が保持者になった）か。取れなくても例外にはしない —
    *  呼び出し元（クライアント）がこれを見て読み取り専用に切り替える */
   acquired: boolean;
-  layout: Row;
+  layout: VenueLockState;
 }
 
 /**
@@ -561,27 +617,27 @@ export async function acquireVenueLayoutLock(id: string, userId: string): Promis
   if (acquired) {
     const layout = await getVenueLayoutLockRow(id);
     if (!layout) throw new Error('acquireVenueLayoutLock: UPDATE 直後の SELECT が空でした');
-    return { acquired: true, layout };
+    return { acquired: true, layout: mapLockRow(layout) };
   }
 
   const existing = await getVenueLayoutLockRow(id);
   if (!existing) throw new NotFoundError('図面が見つかりません');
-  return { acquired: false, layout: existing };
+  return { acquired: false, layout: mapLockRow(existing) };
 }
 
 /** ロックを放す。**自分が保持者のときだけ**——他人の呼び出しは何もしない */
-export async function releaseVenueLayoutLock(id: string, userId: string): Promise<Row> {
+export async function releaseVenueLayoutLock(id: string, userId: string): Promise<VenueLockState> {
   const existing = await getVenueLayoutLockRow(id);
   if (!existing) throw new NotFoundError('図面が見つかりません');
   await execute('UPDATE qsheet_venue_layouts SET locked_by = NULL, locked_at = NULL WHERE id = ? AND locked_by = ?', [id, userId]);
   const layout = await getVenueLayoutLockRow(id);
   if (!layout) throw new Error('releaseVenueLayoutLock: UPDATE 直後の SELECT が空でした');
-  return layout;
+  return mapLockRow(layout);
 }
 
 /** 強制的に引き継ぐ。**呼び出し元で manager 権限を確認済みという前提**——ここでは検査しない。
  *  元の保持者は次の 60 秒ハートビート（`acquireVenueLayoutLock` の応答）で気づく。 */
-export async function takeoverVenueLayoutLock(id: string, userId: string): Promise<Row> {
+export async function takeoverVenueLayoutLock(id: string, userId: string): Promise<VenueLockState> {
   const existing = await getVenueLayoutLockRow(id);
   if (!existing) throw new NotFoundError('図面が見つかりません');
   await execute(
@@ -592,11 +648,11 @@ export async function takeoverVenueLayoutLock(id: string, userId: string): Promi
   );
   const layout = await getVenueLayoutLockRow(id);
   if (!layout) throw new Error('takeoverVenueLayoutLock: UPDATE 直後の SELECT が空でした');
-  return layout;
+  return mapLockRow(layout);
 }
 
 /** 交代を申し出る。**自分が保持者でないときだけ**書き込む */
-export async function requestVenueLayoutLockHandoff(id: string, userId: string): Promise<Row> {
+export async function requestVenueLayoutLockHandoff(id: string, userId: string): Promise<VenueLockState> {
   const existing = await getVenueLayoutLockRow(id);
   if (!existing) throw new NotFoundError('図面が見つかりません');
   if (existing.locked_by !== userId) {
@@ -604,5 +660,5 @@ export async function requestVenueLayoutLockHandoff(id: string, userId: string):
   }
   const layout = await getVenueLayoutLockRow(id);
   if (!layout) throw new Error('requestVenueLayoutLockHandoff: UPDATE 直後の SELECT が空でした');
-  return layout;
+  return mapLockRow(layout);
 }

@@ -97,11 +97,15 @@ export default function VenueItemView({
     if (changed && editable) {
       if (drag.mode === "move") {
         const next = fromTopLeftRect(item, { x: drag.live.x, y: drag.live.y, w: drag.live.w, h: drag.live.h });
-        // 並べたグループの1つを個別に動かすと、そのグループから外れる（§7「動かした1つはグループから外れる」）
-        onPatchCommit({ x: next.x, y: next.y, groupId: undefined });
+        // レビュー指摘（P2）: line/dimension/ベルトパーテーション（`points` を持つ品目）は
+        // 描画も当たり判定も `points` の絶対座標を見る（`x`/`y` は使わない）。`points` を
+        // 送らないと、ドラッグ中は見た目が動いても保存されず、指を離すと元の位置へ
+        // 戻って見えていた。並べたグループの1つを個別に動かすと、そのグループから外れる
+        // （§7「動かした1つはグループから外れる」）
+        onPatchCommit({ x: next.x, y: next.y, points: next.points, groupId: undefined });
       } else if (drag.mode === "resize") {
         const next = fromTopLeftRect(item, { x: drag.live.x, y: drag.live.y, w: drag.live.w, h: drag.live.h });
-        onPatchCommit({ x: next.x, y: next.y, w: next.w, d: next.d, diameter: next.diameter });
+        onPatchCommit({ x: next.x, y: next.y, w: next.w, d: next.d, diameter: next.diameter, points: next.points });
       } else if (drag.mode === "rotate") {
         onPatchCommit({ rotation: drag.live.rotation });
       } else if (drag.mode === "arm") {

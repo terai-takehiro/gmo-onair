@@ -94,7 +94,16 @@ export default function VenuePrintSheet({
         {status === "draft" && <Field>下書き</Field>}
       </div>
 
-      <div style={{ width: `${innerWidth}mm`, height: `${planHeight}mm`, border: "0.3mm solid #e6e9ed", flexShrink: 0 }}>
+      <div
+        style={{
+          width: `${innerWidth}mm`, height: `${planHeight}mm`, border: "0.3mm solid #e6e9ed", flexShrink: 0,
+          overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center",
+        }}
+      >
+        {/* レビュー指摘（P1）: 縮尺を選んでも図の見た目の大きさが変わらず、印刷物から
+            実寸を測ると縮尺の表記と食い違っていた。`bounds`（mm）を選んだ縮尺で割った
+            「紙の上の実寸」を `<svg>` に固定で渡す（版面より大きければこの枠がはみ出し分を
+            切る＝プレビューでも実際の印刷でも同じ範囲だけが見える）。 */}
         <VenuePlanSvg
           bounds={bounds}
           polygonMm={polygonMm}
@@ -102,7 +111,8 @@ export default function VenuePrintSheet({
           items={items}
           axisLinesMm={axisLinesMm}
           showLegend={showLegend}
-          className="h-full w-full"
+          renderWidthMm={bounds.w / scale}
+          renderHeightMm={bounds.h / scale}
         />
       </div>
 
