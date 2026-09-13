@@ -87,6 +87,8 @@ export default function ManualListPage() {
   const canManage = hasPermission("qsheet", "manager");
   const [searchParams, setSearchParams] = useSearchParams();
   const [createOpen, setCreateOpen] = useState(false);
+  /** ダイアログを「前回のマニュアルから」で開くか（案件が決まっているときの副ボタン） */
+  const [createSource, setCreateSource] = useState<"blank" | "copy">("blank");
   const [templateSource, setTemplateSource] = useState<ManualListItem | null>(null);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounced(search, 300);
@@ -167,7 +169,11 @@ export default function ManualListPage() {
           ownerKnown ? (
             // 案件／番組が決まっているなら1押しで作る。タイトルと予定日は案件から入るので訊かない
             <div className="flex items-center gap-2">
-              <Button variant="outline" className="min-h-tap" onClick={() => setCreateOpen(true)}>
+              <Button
+                variant="outline"
+                className="min-h-tap"
+                onClick={() => { setCreateSource("copy"); setCreateOpen(true); }}
+              >
                 前回・テンプレートから
               </Button>
               <Button className="min-h-tap" onClick={() => quickCreate.mutate()} disabled={quickCreate.isPending}>
@@ -176,7 +182,7 @@ export default function ManualListPage() {
             </div>
           ) : (
             // どの案件のものか決まっていないときだけ訊く（一覧を絞り込まずに開いたとき）
-            <Button className="min-h-tap" onClick={() => setCreateOpen(true)}>
+            <Button className="min-h-tap" onClick={() => { setCreateSource("blank"); setCreateOpen(true); }}>
               <Plus className="mr-1 h-4 w-4" aria-hidden="true" />マニュアルを作る
             </Button>
           )
@@ -236,6 +242,7 @@ export default function ManualListPage() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         lockedOwner={lockedOwner}
+        initialSource={createSource}
         onCreated={(row) => {
           queryClient.invalidateQueries({ queryKey: ["manuals", "list"] });
           navigate(`/techops/manuals/${row.id}`);

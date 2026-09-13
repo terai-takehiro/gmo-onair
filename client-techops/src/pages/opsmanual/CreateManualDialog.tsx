@@ -101,6 +101,11 @@ export default function CreateManualDialog({ open, onOpenChange, lockedOwner, in
     queryFn: () => programsApi.getProgram(owner.programId as string),
     enabled: open && owner.ownerType === "program" && !!owner.programId,
   });
+  // ⚠️ タイトル・予定日を訊かない作りなので、**事実を読み終わる前に作らせない**。
+  // 読み込み中に押せると、既定の「運営マニュアル」と日付なしで作られ、しかも直す欄がここに無い
+  // （レビュー指摘）。読み終わるか、失敗したときだけ押せるようにする（失敗時は既定値で作れる）。
+  const ownerCtxQuery = owner.ownerType === "project" ? projectCtxQuery : programQuery;
+  const ownerCtxReady = !ownerReady || ownerCtxQuery.isSuccess || ownerCtxQuery.isError;
   const ownerName = projectCtxQuery.data?.name ?? programQuery.data?.name ?? lockedOwner?.label ?? null;
   const serviceDate = owner.ownerType === "project"
     ? projectCtxQuery.data?.performanceDates[0] ?? projectCtxQuery.data?.eventStart ?? null
@@ -127,11 +132,11 @@ export default function CreateManualDialog({ open, onOpenChange, lockedOwner, in
       onOpenChange={onOpenChange}
       title="運営マニュアルを新しく作る"
       size="md"
-      onSubmit={(e) => { e.preventDefault(); if (ownerReady && sourceReady) createMutation.mutate(); }}
+      onSubmit={(e) => { e.preventDefault(); if (ownerReady && sourceReady && ownerCtxReady) createMutation.mutate(); }}
       footer={
         <FormDialogFooter>
           <Button type="button" variant="outline" className="min-h-tap" onClick={() => onOpenChange(false)} disabled={createMutation.isPending}>閉じる</Button>
-          <Button type="submit" className="min-h-tap" disabled={createMutation.isPending || !ownerReady || !sourceReady}>作る</Button>
+          <Button type="submit" className="min-h-tap" disabled={createMutation.isPending || !ownerReady || !sourceReady || !ownerCtxReady}>作る</Button>
         </FormDialogFooter>
       }
     >
