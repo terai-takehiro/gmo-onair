@@ -186,7 +186,18 @@ export default function ManualPreviewPage() {
   };
 
   const printPageCount = (settings ? (settings.cover ? 1 : 0) + (settings.toc ? 1 : 0) : 0) + exportedPages.length;
-  const canExport = !!settings && printPageCount > 0;
+  // ⚠️ レビュー指摘（P1）: 確定済み（fixed/archived）は`link.frozen`を使うので無関係だが、
+  // 下書きは`/resolve`（ライブ）の結果を使う。差し込みブロックがあるのに`/resolve`が
+  // まだ届く前にクリックすると、PDFは書き出しボタンを押した瞬間の`printedResolved`
+  // （空の{}）を固定して開く別ウィンドウへ渡すため、あとから届いても反映されず
+  // 「読み込み中…」のままのPDFが出来てしまう。差し込みブロックが1つでもある下書きは
+  // resolveQuery が届くまで書き出しボタンを disabled にする。
+  const hasLinkedBlocks = useMemo(
+    () => sortedPages.some((page) => page.blocks.some((b) => b.kind === "linked")),
+    [sortedPages],
+  );
+  const resolveReady = manual?.status !== "draft" || !hasLinkedBlocks || resolveQuery.isSuccess;
+  const canExport = !!settings && printPageCount > 0 && resolveReady;
 
   return (
     <PageShell>
@@ -234,9 +245,9 @@ export default function ManualPreviewPage() {
                     {unfixMutation.isPending ? "解除中…" : "確定を解く"}
                   </Button>
                 )}
-                <Button onClick={handleExport} disabled={!canExport}>
+                <Button onClick={handleExport} disabled={!canExport} title={!resolveReady ? "差し込みブロックの内容を読み込み中です" : undefined}>
                   <Download className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                  PDFで書き出す
+                  {resolveReady ? "PDFで書き出す" : "読み込み中…"}
                 </Button>
               </div>
             }

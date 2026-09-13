@@ -55,6 +55,9 @@ export function useManualPageAutosave(
   // 持ち（Map）、送信直前にその該当ページの値だけを読む形にすれば両方防げる。
   const revisionsRef = useRef<Map<string, string | undefined>>(new Map());
   const savingRef = useRef(false);
+  // 進行中の保存の Promise（常に fulfill——内部で catch 済みなので reject しない）。
+  // アンマウント時に「進行中の保存を待ってから最後の1回を送る」ため（レビュー指摘）
+  const savingPromiseRef = useRef<Promise<void> | null>(null);
   const onSavedRef = useRef(onSaved);
   const onConflictRef = useRef(onConflict);
   onSavedRef.current = onSaved;
@@ -89,7 +92,7 @@ export function useManualPageAutosave(
     if (!pending) return;
     savingRef.current = true;
     if (mountedRef.current) setSaving(true);
-    manualApi
+    savingPromiseRef.current = manualApi
       .updatePage(pending.manualId, pending.pageId, {
         blocks: pending.next,
         expected_updated_at: revisionsRef.current.get(pending.pageId),
@@ -113,6 +116,7 @@ export function useManualPageAutosave(
       })
       .finally(() => {
         savingRef.current = false;
+        savingPromiseRef.current = null;
         if (mountedRef.current) setSaving(false);
         // 送信中に積まれた新しい編集（他ページ分もありうる）があれば、いま確定した
         // そのページの revision で続けて送る
@@ -133,20 +137,28 @@ export function useManualPageAutosave(
 
   // アンマウント時: タイマーは止め、未送信分があれば best-effort で1回だけ送る
   // （結果を state に反映する相手がもう居ないので、成功/失敗のハンドリングはしない）。
+  // ⚠️ レビュー指摘（P1）: 保存が進行中のときに即座に送ると、進行中の保存とこの送信が
+  // 同時に飛び、どちらも同じ古い revision を掴んだまま——アトミックな guard のもとでは
+  // 後発（この送信）が409になり中身が失われる（catchが握りつぶす）か、進行中の方が
+  // 後着になってこちらを無音上書きしてしまう。進行中の保存（`savingPromiseRef`）が
+  // あれば、それが finally で revision を更新し終えるのを待ってから送る。
   useEffect(
     () => () => {
       mountedRef.current = false;
       if (timerRef.current) clearTimeout(timerRef.current);
       const pending = pendingRef.current;
       pendingRef.current = null;
-      if (pending) {
+      if (!pending) return;
+      const sendFinal = () =>
         manualApi
           .updatePage(pending.manualId, pending.pageId, {
             blocks: pending.next,
             expected_updated_at: revisionsRef.current.get(pending.pageId),
           })
           .catch(() => {});
-      }
+      const inFlight = savingPromiseRef.current;
+      if (inFlight) inFlight.then(sendFinal, sendFinal);
+      else sendFinal();
     },
     [],
   );

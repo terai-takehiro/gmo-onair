@@ -88,9 +88,21 @@ export default function InsertPanel({ manualId, blocks, onAdd, isProgram = false
     }
     setLoadingKey(def.key);
     try {
-      // `sourceId` が要らない種別も同じ道で呼ぶ（その場合サーバーは空配列を返す契約・§5-4）。
-      // 1件も無ければ `sourceId: null` のまま置く。2件以上のときだけ選ばせる。
+      // `sourceId` が要らない種別（`sourceGroup !== 'sheet'`）はサーバーが常に空配列を
+      // 返す契約（§5-4）——その場合は 0件のまま `sourceId: null` で置いてよい。
       const sources = await getLinkSources(manualId, def.key);
+      const requiresSource = def.sourceGroup === "sheet";
+      // ⚠️ レビュー指摘（P2）: 進行台本の3種（`sourceId` が要る）で候補が0件のときだけ、
+      // 「1件も無いのでそのまま置く」を誤って適用していた——資料が本当に無い場合と
+      // 「案件には資料があるが本人が読めるものが1つも無い（`listSheetSources` の ACL
+      // フィルタ・レビュー指摘）」場合の両方がありうる。どちらにせよ `sourceId: null` の
+      // まま置くと resolver は常に `source_id_required` を返し、二度と直せない壊れた
+      // ブロックが紙面に残ってしまう。この3種だけ、0件は「置かずに知らせる」、
+      // 1件のときだけ自動で置く、2件以上のときだけ選ばせる、の3分岐にする。
+      if (requiresSource && sources.length === 0) {
+        notifyError("差し込める資料がありません。", { description: "自分が読める進行台本がまだ無いか、共有されていません。" });
+        return;
+      }
       if (sources.length <= 1) {
         addBlock(def, sources[0]?.id ?? null);
       } else {

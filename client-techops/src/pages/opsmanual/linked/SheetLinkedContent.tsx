@@ -32,6 +32,25 @@ function cellText(row: Record<string, unknown>): string {
     .join(" ／ ");
 }
 
+/**
+ * ⚠️⚠️ 外部レビュー再指摘（P1）: `sheet.excerpt` は「セクション」欄（`options.sectionTitle`。
+ * `LinkedBlockInspector.tsx` の自由入力）で見せる範囲を絞れる設計だったが、この関数が
+ * `options` を受け取っておらず（そもそも分割代入していなかった）、常に全セクションを
+ * そのまま出していた——著者が意図的に外した節まで紙面・PDFへそのまま配ってしまう。
+ * `sectionTitle` が指定されているときは、そのラベルを含むセクションだけに絞ってから渡す。
+ */
+export function filterSectionsByTitle(data: unknown, sectionTitle: string): unknown {
+  const obj = asRecord(data);
+  if (!Array.isArray(obj.sections)) return data;
+  const needle = sectionTitle.trim();
+  if (!needle) return data;
+  const filtered = (obj.sections as unknown[]).filter((s) => {
+    const sec = asRecord(s);
+    return typeof sec.label === "string" && sec.label.includes(needle);
+  });
+  return { ...obj, sections: filtered };
+}
+
 /** `{ rows: [...] }` / `{ sections: [{ rows: [...] }] }` / 素の配列、のどれでも読む */
 function normalizeRows(data: unknown): NormalizedRow[] {
   let raw: unknown[] = [];
@@ -90,8 +109,10 @@ const COLUMNS: Record<Props["blockKey"], string[]> = {
   "sheet.micAssignment": ["出演者", "マイク割り"],
 };
 
-export default function SheetLinkedContent({ blockKey, data }: Props) {
-  const rows = blockKey === "sheet.micAssignment" ? normalizeMicAssignments(data) : normalizeRows(data);
+export default function SheetLinkedContent({ blockKey, data, options }: Props) {
+  const sectionTitle = blockKey === "sheet.excerpt" && typeof options.sectionTitle === "string" ? options.sectionTitle : "";
+  const effectiveData = sectionTitle ? filterSectionsByTitle(data, sectionTitle) : data;
+  const rows = blockKey === "sheet.micAssignment" ? normalizeMicAssignments(data) : normalizeRows(effectiveData);
   if (rows.length === 0) return <LinkedEmpty text={EMPTY_TEXT[blockKey]} />;
 
   const hasDurationColumn = blockKey === "sheet.rundown";
