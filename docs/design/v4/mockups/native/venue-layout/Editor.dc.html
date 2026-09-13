@@ -588,7 +588,7 @@ class Component extends DCLogic {
     AXES_X.forEach((a) => { const p = X(a[1]), s = sX(a[1]); if (s > 8 && s < VW - 8) { axes.push({ x1: r2(p), y1: -PAD, x2: r2(p), y2: VH + PAD }); axisTags.push({ label: a[0], left: px(s - 13), top: '3px' }); } });
     AXES_Y.forEach((a) => { const p = Y(a[1]), s = sY(a[1]); if (s > 24 && s < VH - 8) { axes.push({ x1: -PAD, y1: r2(p), x2: VW + PAD, y2: r2(p) }); axisTags.push({ label: a[0], left: '3px', top: px(s - 8) }); } });
     const area = rectPx(A.x, A.y, A.w, A.h);
-    const fixtures = F.fixtures.map((k) => rectPx(k.x, k.y, k.w, k.h));
+    const fixtures = [];  // 固定物（トラス脚・自動ドアなど）は描かない（2026-09-13 のご判断）。F.fixtures ははみ出し検査にだけ使う
     const led = F.led ? Object.assign(rectPx(F.led.x, F.led.y, F.led.w, F.led.h), { on: true }) : { on: false };
     const group = hasGroup ? Object.assign(rectPx(fr.x, fr.y, fr.w, fr.d), { on: true, fo: selGroup ? '.08' : '.03', sw: selGroup ? '1.5' : '.8', pick: () => self.setState({ sel: 'g1', menu: false }) }) : { on: false };
 

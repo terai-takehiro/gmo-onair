@@ -81,7 +81,7 @@ v4 UI/UX 刷新の design handoff（8ファイル・51画面のハイファイ�
 | [`graphics-design-specs.md`](graphics-design-specs.md) | テロップCG の数値（組版・セーフエリア） | 現役の決めごと |
 | [`graphics-awards-migration-plan.md`](graphics-awards-migration-plan.md) | 段6 アワード・クイズの移植 | 実装済み（記録） |
 | [`production-manual.md`](production-manual.md) | **運営マニュアル**（制作技術支援の新ミニアプリ）。各ミニアプリの情報を A4横の冊子に差し込み PDF で配る | **設計（未実装）**。§10 の7件の判断待ち |
-| [`venue-layout.md`](venue-layout.md) | **会場図面**（制作技術支援の新ミニアプリ・会場図面シミュレーター）。用賀の図面を2軸で縮尺合わせして取り込み、備品・人・カメラを実寸で置いて一気に並べ、運営マニュアルに差し込む | **設計（未実装）**。§14 の8件の判断待ち |
+| [`venue-layout.md`](venue-layout.md) | **会場図面**（制作技術支援の新ミニアプリ・会場図面シミュレーター）。用賀の図面を2軸で縮尺合わせして取り込み、備品・人・カメラを実寸で置いて一気に並べ、運営マニュアルに差し込む | **設計（未実装）**。§14 の8件は判断済み（2026-09-13）・着手できる |
 | [`keep-report.md`](keep-report.md) | 隔週キープの数字・資料ビルダー | 現役の決めごと（段1〜4 実装済み） |
 | [`regular-series.md`](regular-series.md) | レギュラー案件のロジック | 現役の決めごと（実装済み） |
 | [`ios-native-mobile-mockups.md`](ios-native-mobile-mockups.md) | iOS ネイティブ風の見た目探索 | 参考（当時の記録） |

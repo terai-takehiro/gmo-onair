@@ -654,7 +654,7 @@ class Component extends DCLogic {
       axesOn: has('axes'), axesX: axesX, axesY: axesY, rooms: rooms, roomLabels: roomLabels,
       area: { x: A.x, y: A.y, w: A.w, h: A.h },
       truss: { x: V.truss.x, y: V.truss.y, w: V.truss.w, h: V.truss.h },
-      legs: V.truss.legs.map((c) => ({ x: c[0] - 225, y: c[1] - 225 })),
+      legs: [],  // トラス脚は描かない（2026-09-13 のご判断）
       led: V.led, items: items,
       lbl: { px: R(X(A.x) + 5), py: R(Y(A.y) + 4), font: floor ? 6 : 9.5, subFont: floor ? 4.5 : 7, title: '26F ' + A.label, sub: '内法 ' + fmt(A.w) + ' × ' + fmt(A.h) + ' mm ・ ' + A.m2 + '㎡' },
       ledLbl: { px: X(V.led.x + V.led.w / 2), py: R(Y(V.led.y + V.led.h) + 2), font: floor ? 4.5 : 7 },

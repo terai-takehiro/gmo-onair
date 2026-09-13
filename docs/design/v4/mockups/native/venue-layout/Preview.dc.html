@@ -477,7 +477,7 @@ class Component extends DCLogic {
     const fixtures = [];
     fixtures.push({ left: X(V.truss.x), top: Y(V.truss.y), w: P(V.truss.w), h: P(V.truss.h), bg: 'transparent', border: '1px dashed rgba(26,29,36,.4)', label: '' });
     fixtures.push({ left: X(V.led.x), top: Y(V.led.y), w: P(V.led.w), h: P(V.led.h), bg: '#1a1d24', border: '0', label: '' });
-    V.truss.legs.forEach((c) => fixtures.push({ left: X(c[0] - 225), top: Y(c[1] - 225), w: P(450), h: P(450), bg: '#1a1d24', border: '0', label: '' }));
+    // トラス脚は描かない（2026-09-13 のご判断）。検査の fixRects には残す
     if (floor) fixtures.push({ left: X(V.elv13.x), top: Y(V.elv13.y), w: P(V.elv13.w), h: P(V.elv13.h), bg: 'rgba(26,29,36,.08)', border: '1px solid rgba(26,29,36,.7)', label: 'ELV13' });
 
     // ── 品目の絵（symbols.svg.md の線画を mm で組み、縮尺で px に） ──
@@ -546,7 +546,6 @@ class Component extends DCLogic {
       isChair: t === 'chair', isTable: t === 'table', isLectern: t === 'lectern', isPerson: t === 'person', isPedestal: t === 'pedestal', isCrane: t === 'crane', isLed: false, isLeg: false,
     })).concat([
       { label: 'LEDウォール', n: '', isLed: true, isLeg: false, isChair: false, isTable: false, isLectern: false, isPerson: false, isPedestal: false, isCrane: false },
-      { label: 'トラス脚（450角）', n: String(V.truss.legs.length), isLed: false, isLeg: true, isChair: false, isTable: false, isLectern: false, isPerson: false, isPedestal: false, isCrane: false },
     ]);
 
     // ── 縮尺記号・札 ──

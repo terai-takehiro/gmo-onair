@@ -596,7 +596,7 @@ class Component extends DCLogic {
     const sideOn = P.hasAisle && st.side > 0;
     const side = { left1: px(X(fr.x - st.side)), left2: px(X(fr.x + fr.w + st.side)), top: px(Y(fr.y)), h: px(fr.d * sy), label: fmt(st.side) };
     const dim = { left: px(X(fr.x + fr.w) + 10), top: px(Y(fr.y + fr.d)), h: px(Math.max(0, LED.y - (fr.y + fr.d)) * sy), label: fmt(st.front) };
-    const legs = LEGS.map((l) => rect(l[0] - 225, l[1] - 225, 450, 450));
+    const legs = [];  // トラス脚は描かない（2026-09-13 のご判断）。LEGS ははみ出し検査（fixtures）にだけ使う
     const ped = Object.assign(rect(PEDESTAL.x - PEDESTAL.w / 2, PEDESTAL.y - PEDESTAL.d / 2, PEDESTAL.w, PEDESTAL.d), { labelLeft: px(X(PEDESTAL.x + 600)), labelTop: px(Y(PEDESTAL.y) - 7) });
 
     // ── ものさし・方眼（エリア左上を 0 とした 1m 目盛）・通り芯

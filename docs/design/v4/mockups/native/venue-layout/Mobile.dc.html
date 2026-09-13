@@ -310,7 +310,7 @@ class Component extends DCLogic {
     // ── エリア・固定物・並べたかたまり
     const area = { x: r2(px(A.x)), y: r2(py(A.y)), w: r2(A.w * S), h: r2(A.h * S) };
     const led = { x: r2(px(F.led.x)), y: r2(py(F.led.y)), w: r2(F.led.w * S), h: r2(Math.max(F.led.h * S, 2)) };
-    const legs = F.legs.map((c) => ({ x: r2(px(c[0] - F.legSize / 2)), y: r2(py(c[1] - F.legSize / 2)), w: r2(F.legSize * S), h: r2(F.legSize * S) }));
+    const legs = []; const _legsUnused = F.legs.map((c) => ({ x: r2(px(c[0] - F.legSize / 2)), y: r2(py(c[1] - F.legSize / 2)), w: r2(F.legSize * S), h: r2(F.legSize * S) }));
     const chairs = items.filter((it) => it.kind === 'chair');
     const gx1 = Math.min.apply(null, chairs.map((c) => c.x)) - 268 - 120, gx2 = Math.max.apply(null, chairs.map((c) => c.x)) + 268 + 120;
     const gy1 = Math.min.apply(null, chairs.map((c) => c.y)) - 245 - 120, gy2 = Math.max.apply(null, chairs.map((c) => c.y)) + 245 + 120;
