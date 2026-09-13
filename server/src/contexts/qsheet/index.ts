@@ -17,6 +17,8 @@ import manualPagesRoutes from './routes/manual-pages.routes';
 import manualResolveRoutes from './routes/manual-resolve.routes';
 import manualLockRoutes from './routes/manual-lock.routes';
 import manualTemplatesRoutes from './routes/manual-templates.routes';
+import venueLayoutsRoutes from './routes/venue-layouts.routes';
+import venueFloorsRoutes from './routes/venue-floors.routes';
 import schedulesRoutes from './routes/schedules.routes';
 import scheduleColumnsRoutes from './routes/schedule-columns.routes';
 import scheduleItemsRoutes from './routes/schedule-items.routes';
@@ -64,6 +66,10 @@ export function createQsheetRoutes(prefix: string): Router {
   router.use(prefix, manualResolveRoutes);
   router.use(prefix, manualLockRoutes);
   router.use(prefix, manualTemplatesRoutes);
+
+  // 会場図面（段A〜B・venue-layout.md）。会場・階・エリア・備品カタログは読み取り専用（段Fで書き込みを足す）
+  router.use(prefix, venueLayoutsRoutes);
+  router.use(prefix, venueFloorsRoutes);
 
   // スケジュール表（段4・04-schedule-impl.md §4）
   router.use(prefix, schedulesRoutes);

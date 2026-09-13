@@ -49,11 +49,13 @@ interface Props {
   blocks: ManualBlock[];
   selectedBlockId: string | null;
   onCommit: (nextBlocks: ManualBlock[]) => void;
-  /** 体制図の取り込み（`GET /techops/manuals/:id/org-seed`）に要る。ほかの種類では使わない */
+  /** 体制図の取り込み（`GET /techops/manuals/:id/org-seed`）・会場図面の「編集へ戻る」に要る */
   manualId: string;
+  /** true なら venue.* の右パネルに「先に確定を解いてから」を添える（venue-layout.md §9-4） */
+  isManualFixed?: boolean;
 }
 
-export default function BlockInspector({ blocks, selectedBlockId, onCommit, manualId }: Props) {
+export default function BlockInspector({ blocks, selectedBlockId, onCommit, manualId, isManualFixed }: Props) {
   const block = blocks.find((b) => b.id === selectedBlockId);
 
   if (!block) {

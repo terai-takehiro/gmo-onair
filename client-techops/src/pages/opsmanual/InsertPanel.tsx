@@ -91,7 +91,8 @@ export default function InsertPanel({ manualId, blocks, onAdd, isProgram = false
       // `sourceId` が要らない種別（`sourceGroup !== 'sheet'`）はサーバーが常に空配列を
       // 返す契約（§5-4）——その場合は 0件のまま `sourceId: null` で置いてよい。
       const sources = await getLinkSources(manualId, def.key);
-      const requiresSource = def.sourceGroup === "sheet";
+      // venue.*（会場図面）も1案件/番組に複数ありうるため sourceId 必須（venue-layout.md §9-1）
+      const requiresSource = def.sourceGroup === "sheet" || def.sourceGroup === "venue";
       // ⚠️ レビュー指摘（P2）: 進行台本の3種（`sourceId` が要る）で候補が0件のときだけ、
       // 「1件も無いのでそのまま置く」を誤って適用していた——資料が本当に無い場合と
       // 「案件には資料があるが本人が読めるものが1つも無い（`listSheetSources` の ACL

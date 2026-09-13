@@ -49,7 +49,7 @@
 import type { JourneyStage } from './journey';
 
 /** ミニアプリのキー。URL・API・集計キーに出る安定キー。**あとから変えない** */
-export type MiniAppKey = 'sheet' | 'schedule' | 'manual' | 'recording' | 'streaming' | 'rental' | 'liveops' | 'graphics';
+export type MiniAppKey = 'sheet' | 'schedule' | 'manual' | 'recording' | 'streaming' | 'rental' | 'liveops' | 'graphics' | 'venue';
 
 export type MiniAppKind = 'document' | 'panel';
 
@@ -195,6 +195,18 @@ export const MINI_APPS: MiniAppDef[] = [
     // 単独アプリとしては再登場させない — 導線はハブ（JourneyPage）のタイルだけ。
     label: 'テロップCG',
     path: '/techops/graphics/:ownerKey',
+    enabled: true,
+  },
+  {
+    kind: 'document',
+    key: 'venue',
+    label: '会場図面',
+    docPrefix: 'VL',
+    docNoSeq: 'prod_doc_vl',
+    table: 'qsheet_venue_layouts',
+    listPath: '/techops/venue-layouts',
+    docPath: '/techops/venue-layouts/:id',
+    stages: ['day'],
     enabled: true,
   },
 ];

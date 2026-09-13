@@ -113,6 +113,51 @@ export async function canAssignManualProject(user: AccessUser, projectId: string
 }
 
 /**
+ * 会場図面（`qsheet_venue_layouts`）に対して user がアクセス可能か（作成者 / **案件メンバー** / 管理者）を判定。
+ * `canAccessManual` と完全に同じ形（venue-layout.md §5-5「行の可視性は canAccessManual を写した
+ * canAccessVenueLayout」）。
+ *
+ * ⚠️ 明示共有は無い（運営マニュアルと同じ）。番組（`program_id`）の図面は project_id を持たない
+ * ため案件メンバー判定の対象外 —— 作成者本人 または `system_admin` にしか見えない
+ * （`canAccessManual` の番組と同じ制約。冊子の resolver が `sourceId` の図面を読むときも
+ * この関数で再検査する——`manual-resolvers/venue.resolver.ts` 参照）。
+ */
+export async function canAccessVenueLayout(
+  user: AccessUser,
+  layoutId: string,
+  createdBy: string | null
+): Promise<boolean> {
+  if (isQsheetAdmin(user)) return true;
+  if (createdBy && createdBy === user.id) return true;
+  const member = await queryOne(
+    `SELECT 1 FROM qsheet_venue_layouts v WHERE v.id = $1 AND v.project_id IS NOT NULL AND (
+       EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = v.project_id AND pm.user_id = $2 AND pm.deleted_at IS NULL)
+       OR EXISTS (SELECT 1 FROM projects p WHERE p.id = v.project_id AND p.assigned_to = $2)
+     )`,
+    [layoutId, user.id],
+  );
+  return !!member;
+}
+
+/**
+ * 会場図面の**新規作成**で project_id に指定してよいか（案件メンバー / assigned_to / 管理者）。
+ * `canAssignManualProject` と完全に同じ形——まだ存在しない図面の project_id を検査するので
+ * layoutId を取らない（POST /manuals のレビュー指摘と同型の「project_id のなりすまし」を
+ * 防ぐ関所。§5-5・§12-1）。
+ */
+export async function canAssignVenueLayoutProject(user: AccessUser, projectId: string): Promise<boolean> {
+  if (isQsheetAdmin(user)) return true;
+  const member = await queryOne(
+    `SELECT 1 FROM projects p WHERE p.id = $1 AND (
+       EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = $2 AND pm.deleted_at IS NULL)
+       OR p.assigned_to = $2
+     )`,
+    [projectId, user.id],
+  );
+  return !!member;
+}
+
+/**
  * AI 提案（`qsheet_ai_proposals`）に対して user がアクセス可能か。
  * 提案そのものは共有先を持たないので、**対象の台本 / スケジュール表のアクセス権限**に委ねる
  * （段7・07-ai-proposals-impl.md §1）。どちらも見つからない・アクセス不可なら false
