@@ -134,15 +134,22 @@ export default function ManualListPage() {
     enabled: !!programFilter,
   });
 
+  // ⚠️ **絞り込みそのものが「どの案件のものか」の答え**（レビュー指摘）。名前を読んでいる途中でも
+  // 案件は決まっているので、その間に案件を選び直させる一般のダイアログを開かせない
+  // （開けると、一覧は絞り込んだままなのに別の案件のマニュアルを作れてしまう）。
+  const hasOwnerFilter = !!(projectFilter || programFilter);
+  const ownerCtxQuery = projectFilter ? projectCtxQuery : programQuery;
+  const ownerCtxSettled = !hasOwnerFilter || ownerCtxQuery.isSuccess || ownerCtxQuery.isError;
   const ownerName = projectCtxQuery.data?.name ?? programQuery.data?.name ?? null;
-  const ownerKnown = !!(projectFilter || programFilter) && !!ownerName;
+  const ownerKnown = hasOwnerFilter && !!ownerName;
   // 本番日の候補 → 開催の初日。番組は `event_date` の1つだけ。無ければ空のままでよい（詳細画面で入れられる）
   const ownerServiceDate = projectCtxQuery.data
     ? projectCtxQuery.data.performanceDates[0] ?? projectCtxQuery.data.eventStart ?? null
     : programQuery.data?.event_date ?? null;
 
-  const lockedOwner = ownerKnown
-    ? { projectId: projectFilter, programId: programFilter, label: ownerName as string }
+  // 名前がまだ読めていなくても、案件そのものは絞り込みで決まっている（label は読めしだい入る）
+  const lockedOwner = hasOwnerFilter
+    ? { projectId: projectFilter, programId: programFilter, label: ownerName ?? "" }
     : undefined;
 
   /** 案件／番組が決まっているときの「作る」。訊かずに作って、そのまま編集画面へ */
@@ -166,17 +173,22 @@ export default function ManualListPage() {
         title="運営マニュアル"
         sub="当日の運営に要る情報をA4横のページに差し込んで、1冊のマニュアルにまとめます。"
         primaryAction={
-          ownerKnown ? (
+          hasOwnerFilter ? (
             // 案件／番組が決まっているなら1押しで作る。タイトルと予定日は案件から入るので訊かない
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 className="min-h-tap"
                 onClick={() => { setCreateSource("copy"); setCreateOpen(true); }}
+                disabled={!ownerCtxSettled}
               >
                 前回・テンプレートから
               </Button>
-              <Button className="min-h-tap" onClick={() => quickCreate.mutate()} disabled={quickCreate.isPending}>
+              <Button
+                className="min-h-tap"
+                onClick={() => quickCreate.mutate()}
+                disabled={quickCreate.isPending || !ownerCtxSettled}
+              >
                 <Plus className="mr-1 h-4 w-4" aria-hidden="true" />マニュアルを作る
               </Button>
             </div>

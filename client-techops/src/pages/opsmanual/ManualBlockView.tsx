@@ -102,13 +102,14 @@ export default function ManualBlockView({
 }: ManualBlockViewProps) {
   const blockRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
-  const bodyDragSubscribedRef = useRef(false);
+  /** 本体ドラッグで window に足した3本を、足したそのままの関数で外すための閉包 */
+  const bodyDragCleanupRef = useRef<(() => void) | null>(null);
   const [liveRect, setLiveRect] = useState<Rect | null>(null);
 
   const rect: Rect = liveRect ?? { x: block.x, y: block.y, w: block.w, h: block.h, rotation: block.rotation ?? 0 };
 
   // ドラッグ中にこのブロックが消えても購読が残らないようにする（並べ替え・削除・ページ送り）
-  useEffect(() => () => unsubscribeBodyDrag(), []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => bodyDragCleanupRef.current?.(), []);
 
   function pxPerMm(): number | null {
     const r = pageRef.current?.getBoundingClientRect();
@@ -150,24 +151,26 @@ export default function ManualBlockView({
     dragRef.current = { mode: "move", pointerId: e.pointerId, pxPerMm: ppm, startClientX: e.clientX, startClientY: e.clientY, orig, live: orig, started: false };
     subscribeBodyDrag();
   }
-  /** 本体ドラッグのあいだだけ window を購読する（ブロックの外へ出ても追えるように） */
+  /**
+   * 本体ドラッグのあいだだけ window を購読する（ブロックの外へ出ても追えるように）。
+   *
+   * ⚠️ **外し方に注意**（レビュー指摘）: ここで渡す関数は毎レンダー別物なので、
+   * 「外す側」を後から組み立て直すと**登録したのと違う関数を外そうとして外れない**。
+   * 登録したその場で「まさにこの3本を外す」閉包を作り、ref に置いて使う。
+   */
   function subscribeBodyDrag() {
-    unsubscribeBodyDrag();
-    window.addEventListener("pointermove", handleBodyPointerMove);
-    window.addEventListener("pointerup", handleBodyPointerEnd);
-    window.addEventListener("pointercancel", handleBodyPointerEnd);
-    bodyDragSubscribedRef.current = true;
-  }
-  function unsubscribeBodyDrag() {
-    if (!bodyDragSubscribedRef.current) return;
-    window.removeEventListener("pointermove", handleBodyPointerMove);
-    window.removeEventListener("pointerup", handleBodyPointerEnd);
-    window.removeEventListener("pointercancel", handleBodyPointerEnd);
-    bodyDragSubscribedRef.current = false;
-  }
-  function handleBodyPointerEnd() {
-    unsubscribeBodyDrag();
-    endDrag();
+    bodyDragCleanupRef.current?.();
+    const onMove = (e: PointerEvent) => handleBodyPointerMove(e);
+    const onEnd = () => { bodyDragCleanupRef.current?.(); endDrag(); };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onEnd);
+    window.addEventListener("pointercancel", onEnd);
+    bodyDragCleanupRef.current = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onEnd);
+      window.removeEventListener("pointercancel", onEnd);
+      bodyDragCleanupRef.current = null;
+    };
   }
   function handleBodyPointerMove(e: PointerEvent) {
     const drag = dragRef.current;
@@ -177,6 +180,10 @@ export default function ManualBlockView({
       const movedPx = Math.hypot(e.clientX - drag.startClientX, e.clientY - drag.startClientY);
       if (movedPx < DRAG_START_PX) return;
       drag.started = true;
+      // ⚠️ **動き始めてから**捕まえる（レビュー指摘）。ここまで来ればクリック／ダブルクリックは
+      // もう起きないので中身の編集を邪魔しない。捕まえておくと、ブラウザの外でボタンを離しても
+      // pointerup が必ずこの要素へ届き、ドラッグが宙に浮いたまま残らない
+      try { blockRef.current?.setPointerCapture(drag.pointerId); } catch { /* 既に離された等は無視 */ }
     }
     const dxMm = (e.clientX - drag.startClientX) / drag.pxPerMm;
     const dyMm = (e.clientY - drag.startClientY) / drag.pxPerMm;
