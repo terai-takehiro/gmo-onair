@@ -262,7 +262,7 @@
 
         <!-- 固定物: トラス脚 10 本（450角）と LED ウォール（幅 8,530） -->
         <sc-for list="{{legs}}" as="k" hint-placeholder-count="10">
-          <div style="position: absolute; left: {{k.left}}; top: {{k.top}}; width: {{k.w}}; height: {{k.h}}; background: rgba(26,29,36,.28); border: 1px solid rgba(26,29,36,.55); pointer-events: none;"></div>
+          <div style="position: absolute; left: {{k.left}}; top: {{k.top}}; width: {{k.w}}; height: {{k.h}}; background: rgba(255,255,255,.6); border: 1px solid rgba(26,29,36,.7); pointer-events: none;"></div>
         </sc-for>
         <div style="position: absolute; left: {{led.left}}; top: {{led.top}}; width: {{led.w}}; height: {{led.h}}; background: #1a1d24; pointer-events: none;">
           <span class="num" style="position: absolute; left: 50%; top: 100%; margin-left: -46px; margin-top: 3px; width: 92px; text-align: center; font-size: 9.5px; font-weight: 800; color: #1a1d24; background: rgba(255,255,255,.85); border-radius: 3px; white-space: nowrap;">LEDウォール 8,530</span>
@@ -596,7 +596,7 @@ class Component extends DCLogic {
     const sideOn = P.hasAisle && st.side > 0;
     const side = { left1: px(X(fr.x - st.side)), left2: px(X(fr.x + fr.w + st.side)), top: px(Y(fr.y)), h: px(fr.d * sy), label: fmt(st.side) };
     const dim = { left: px(X(fr.x + fr.w) + 10), top: px(Y(fr.y + fr.d)), h: px(Math.max(0, LED.y - (fr.y + fr.d)) * sy), label: fmt(st.front) };
-    const legs = [];  // トラス脚は描かない（2026-09-13 のご判断）。LEGS ははみ出し検査（fixtures）にだけ使う
+    const legs = LEGS.map((l) => rect(l[0] - 225, l[1] - 225, 450, 450));  // 白抜きの柱記号（2026-09-13 のご判断: 脚は残す）
     const ped = Object.assign(rect(PEDESTAL.x - PEDESTAL.w / 2, PEDESTAL.y - PEDESTAL.d / 2, PEDESTAL.w, PEDESTAL.d), { labelLeft: px(X(PEDESTAL.x + 600)), labelTop: px(Y(PEDESTAL.y) - 7) });
 
     // ── ものさし・方眼（エリア左上を 0 とした 1m 目盛）・通り芯

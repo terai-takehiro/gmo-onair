@@ -181,7 +181,7 @@
                         <rect class="wall" x="{{fig.area.x}}" y="{{fig.area.y}}" width="{{fig.area.w}}" height="{{fig.area.h}}"></rect>
                         <!-- 固定物: トラス外形（点線）・脚 10 本（450角）・LED ウォール（太線） -->
                         <rect class="dash" x="{{fig.truss.x}}" y="{{fig.truss.y}}" width="{{fig.truss.w}}" height="{{fig.truss.h}}" stroke-opacity=".45"></rect>
-                        <sc-for list="{{fig.legs}}" as="k" hint-placeholder-count="10"><rect x="{{k.x}}" y="{{k.y}}" width="450" height="450" fill="currentColor"></rect></sc-for>
+                        <sc-for list="{{fig.legs}}" as="k" hint-placeholder-count="10"><rect x="{{k.x}}" y="{{k.y}}" width="450" height="450" fill="none" stroke="currentColor" stroke-width="40"></rect></sc-for>
                         <rect x="{{fig.led.x}}" y="{{fig.led.y}}" width="{{fig.led.w}}" height="{{fig.led.h}}" fill="currentColor"></rect>
                         <!-- 品目（symbols.svg.md の線画。mm 座標・正面は −y・外側で translate と rotate） -->
                         <sc-for list="{{fig.items}}" as="i" hint-placeholder-count="59">
@@ -209,7 +209,7 @@
                               <rect class="ln" x="-100" y="300" width="200" height="100"></rect>
                             </sc-if>
                             <sc-if value="{{i.isCrane}}" hint-placeholder-val="{{ false }}">
-                              <circle class="dash" cx="0" cy="0" r="3100"></circle>
+                              <circle class="dash" cx="0" cy="0" r="3800"></circle>
                               <circle class="dash" cx="0" cy="0" r="1100" stroke-opacity=".4"></circle>
                               <rect class="fp" x="-450" y="-600" width="900" height="1200" rx="40"></rect>
                               <circle cx="-380" cy="-520" r="35" fill="currentColor"></circle><circle cx="380" cy="-520" r="35" fill="currentColor"></circle><circle cx="-380" cy="520" r="35" fill="currentColor"></circle><circle cx="380" cy="520" r="35" fill="currentColor"></circle>
@@ -251,7 +251,7 @@
                             <sc-if value="{{l.isTable}}" hint-placeholder-val="{{ false }}"><svg width="16" height="7" viewBox="-920 -320 1840 640"><rect x="-900" y="-300" width="1800" height="600" rx="20" fill="currentColor" fill-opacity=".08" stroke="currentColor" stroke-width="40"></rect></svg></sc-if>
                             <sc-if value="{{l.isLectern}}" hint-placeholder-val="{{ false }}"><svg width="12" height="9" viewBox="-370 -270 740 540"><rect x="-350" y="-245" width="700" height="490" fill="currentColor" fill-opacity=".08" stroke="currentColor" stroke-width="30"></rect><path d="M -300 -245 L 300 -245" stroke="currentColor" stroke-width="80"></path></svg></sc-if>
                             <sc-if value="{{l.isPedestal}}" hint-placeholder-val="{{ false }}"><svg width="11" height="11" viewBox="-480 -900 960 1400"><circle cx="0" cy="0" r="450" fill="currentColor" fill-opacity=".08" stroke="currentColor" stroke-width="35"></circle><rect x="-175" y="-700" width="350" height="1100" rx="30" fill="currentColor" fill-opacity=".08" stroke="currentColor" stroke-width="35"></rect><path d="M -120 -700 L 120 -700 L 0 -860 Z" fill="currentColor"></path></svg></sc-if>
-                            <sc-if value="{{l.isCrane}}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="-3200 -3200 6400 6400"><circle cx="0" cy="0" r="3100" fill="none" stroke="currentColor" stroke-width="120" stroke-dasharray="360 240"></circle><rect x="-450" y="-600" width="900" height="1200" rx="40" fill="currentColor" fill-opacity=".08" stroke="currentColor" stroke-width="150"></rect><path d="M 0 1100 L 0 -2500" stroke="currentColor" stroke-width="220"></path><rect x="-175" y="-2900" width="350" height="800" fill="currentColor" stroke="currentColor" stroke-width="120"></rect></svg></sc-if>
+                            <sc-if value="{{l.isCrane}}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="-3900 -3900 7800 7800"><circle cx="0" cy="0" r="3800" fill="none" stroke="currentColor" stroke-width="120" stroke-dasharray="360 240"></circle><rect x="-450" y="-600" width="900" height="1200" rx="40" fill="currentColor" fill-opacity=".08" stroke="currentColor" stroke-width="150"></rect><path d="M 0 1100 L 0 -2500" stroke="currentColor" stroke-width="220"></path><rect x="-175" y="-2900" width="350" height="800" fill="currentColor" stroke="currentColor" stroke-width="120"></rect></svg></sc-if>
                           </span>{{l.label}} <span class="num" style="font-weight: 800;">{{l.n}}</span>
                         </span>
                       </sc-for>
@@ -530,7 +530,7 @@ class Component extends DCLogic {
       table: { label: '長机（白）', short: '長机', w: 1800, d: 600, qty: 20, storage: 'SKY STUDIO', est: false },
       lectern: { label: '司会台', short: '司会台', w: 700, d: 490, qty: 1, storage: '倉庫', est: false },
       pedestal: { label: 'ペデスタル TP-90B', short: 'ペデスタル', w: 900, d: 900, qty: null, storage: '—', est: true },
-      crane: { label: 'クレーン TK-53A', short: 'クレーン', w: 900, d: 1200, qty: null, storage: '—', est: true },
+      crane: { label: 'クレーン TK-53L', short: 'クレーン', w: 900, d: 1200, qty: null, storage: '—', est: true },
       person: { label: '人（立位）', short: '人', w: 450, d: 300, qty: null, storage: '', est: false },
     };
   }
@@ -654,7 +654,7 @@ class Component extends DCLogic {
       axesOn: has('axes'), axesX: axesX, axesY: axesY, rooms: rooms, roomLabels: roomLabels,
       area: { x: A.x, y: A.y, w: A.w, h: A.h },
       truss: { x: V.truss.x, y: V.truss.y, w: V.truss.w, h: V.truss.h },
-      legs: [],  // トラス脚は描かない（2026-09-13 のご判断）
+      legs: V.truss.legs.map((c) => ({ x: c[0] - 225, y: c[1] - 225 })),  // 白抜きの柱記号
       led: V.led, items: items,
       lbl: { px: R(X(A.x) + 5), py: R(Y(A.y) + 4), font: floor ? 6 : 9.5, subFont: floor ? 4.5 : 7, title: '26F ' + A.label, sub: '内法 ' + fmt(A.w) + ' × ' + fmt(A.h) + ' mm ・ ' + A.m2 + '㎡' },
       ledLbl: { px: X(V.led.x + V.led.w / 2), py: R(Y(V.led.y + V.led.h) + 2), font: floor ? 4.5 : 7 },

@@ -283,7 +283,7 @@
             <rect x="{{area.x}}" y="{{area.y}}" width="{{area.w}}" height="{{area.h}}" fill="#005bac" fill-opacity=".035" stroke="#005bac" stroke-opacity=".55" stroke-width="1.5" onClick="{{view.clear}}"></rect>
             <!-- 固定物: トラス脚 10 本（450角）・自動ドアなど -->
             <sc-for list="{{fixtures}}" as="k" hint-placeholder-count="10">
-              <rect x="{{k.x}}" y="{{k.y}}" width="{{k.w}}" height="{{k.h}}" fill="#1a1d24" fill-opacity=".28" stroke="#1a1d24" stroke-opacity=".55" stroke-width="1" pointer-events="none"></rect>
+              <rect x="{{k.x}}" y="{{k.y}}" width="{{k.w}}" height="{{k.h}}" fill="#ffffff" fill-opacity=".6" stroke="#1a1d24" stroke-opacity=".7" stroke-width="1" pointer-events="none"></rect>
             </sc-for>
             <!-- LED ウォール（幅 8,530・中心 X12b） -->
             <sc-if value="{{led.on}}" hint-placeholder-val="{{ true }}">
@@ -479,8 +479,8 @@ const CAT = {
   mirror: { l: '姿見', g: 'f', w: 350, d: 360, q: 2, u: '台', s: '倉庫' },
   cart: { l: '台車', g: 'f', w: 480, d: 750, q: 2, u: '台', s: '倉庫' },
   ped: { l: 'ペデスタル TP-90B', g: 'c', dia: 900, s: '昭特', sym: 'ped', est: true, size: 'Ø900 ・ カメラ 350 × 1,100', extra: '最高レンズ軸高 1,550（推定）・ストローク 945' },
-  crane: { l: 'クレーン TK-53A', g: 'c', w: 900, d: 1200, s: '昭特', sym: 'dolly', crane: true, arm: 2500, tail: 1100, sweep: 3100, est: true, size: '台車 900 × 1,200 ・ アーム 2,500', extra: '最高レンズ軸高 3,099 ・ 台車 TI-04B' },
-  'crane-l': { l: 'クレーン TK-53AL', g: 'c', w: 900, d: 1200, s: '昭特', sym: 'dolly', crane: true, arm: 3200, tail: 1300, sweep: 3800, est: true, size: '台車 900 × 1,200 ・ アーム 3,200', extra: '最高レンズ軸高 3,850 ・ 台車 TI-04B' },
+  crane: { l: 'クレーン TK-53L', g: 'c', w: 900, d: 1200, s: '昭特', sym: 'dolly', crane: true, arm: 3200, tail: 1300, sweep: 3800, est: true, size: '台車 900 × 1,200 ・ アーム 3,200', extra: '最高レンズ軸高 3,850 ・ 台車 TI-04B' },
+  'crane-l': { l: 'クレーン TK-53A', g: 'c', w: 900, d: 1200, s: '昭特', sym: 'dolly', crane: true, arm: 2500, tail: 1100, sweep: 3100, est: true, size: '台車 900 × 1,200 ・ アーム 2,500', extra: '最高レンズ軸高 3,099 ・ 台車 TI-04B' },
   dolly: { l: 'クレーン台車 TI-04B', g: 'c', w: 900, d: 1200, s: '昭特', sym: 'dolly', est: true },
   stand: { l: '人（立位）', g: 'p', w: 450, d: 300, sym: 'stand', size: '450 × 300 ・ 頭 Ø180' },
   seat: { l: '人（着席）', g: 'p', w: 500, d: 800, sym: 'seat' },
@@ -588,7 +588,7 @@ class Component extends DCLogic {
     AXES_X.forEach((a) => { const p = X(a[1]), s = sX(a[1]); if (s > 8 && s < VW - 8) { axes.push({ x1: r2(p), y1: -PAD, x2: r2(p), y2: VH + PAD }); axisTags.push({ label: a[0], left: px(s - 13), top: '3px' }); } });
     AXES_Y.forEach((a) => { const p = Y(a[1]), s = sY(a[1]); if (s > 24 && s < VH - 8) { axes.push({ x1: -PAD, y1: r2(p), x2: VW + PAD, y2: r2(p) }); axisTags.push({ label: a[0], left: '3px', top: px(s - 8) }); } });
     const area = rectPx(A.x, A.y, A.w, A.h);
-    const fixtures = [];  // 固定物（トラス脚・自動ドアなど）は描かない（2026-09-13 のご判断）。F.fixtures ははみ出し検査にだけ使う
+    const fixtures = F.fixtures.map((k) => rectPx(k.x, k.y, k.w, k.h));  // トラス脚などは白抜きの柱記号で描く（2026-09-13 のご判断: 脚は残し、横の黒い矩形だけ消す）
     const led = F.led ? Object.assign(rectPx(F.led.x, F.led.y, F.led.w, F.led.h), { on: true }) : { on: false };
     const group = hasGroup ? Object.assign(rectPx(fr.x, fr.y, fr.w, fr.d), { on: true, fo: selGroup ? '.08' : '.03', sw: selGroup ? '1.5' : '.8', pick: () => self.setState({ sel: 'g1', menu: false }) }) : { on: false };
 

@@ -220,7 +220,7 @@
                     <sc-if value="{{l.isLectern}}" hint-placeholder-val="{{ false }}"><svg width="12" height="9" viewBox="-370 -270 740 540"><rect x="-350" y="-245" width="700" height="490" fill="currentColor" fill-opacity=".08" stroke="currentColor" stroke-width="30"></rect><path d="M -300 -245 L 300 -245" stroke="currentColor" stroke-width="80"></path></svg></sc-if>
                     <sc-if value="{{l.isPerson}}" hint-placeholder-val="{{ false }}"><svg width="12" height="8" viewBox="-240 -160 480 320"><ellipse cx="0" cy="0" rx="225" ry="150" fill="currentColor" fill-opacity=".08" stroke="currentColor" stroke-width="25"></ellipse><circle cx="0" cy="-20" r="90" fill="currentColor" fill-opacity=".2" stroke="currentColor" stroke-width="25"></circle></svg></sc-if>
                     <sc-if value="{{l.isPedestal}}" hint-placeholder-val="{{ false }}"><svg width="11" height="11" viewBox="-480 -900 960 1400"><circle cx="0" cy="0" r="450" fill="currentColor" fill-opacity=".08" stroke="currentColor" stroke-width="35"></circle><rect x="-175" y="-700" width="350" height="1100" rx="30" fill="currentColor" fill-opacity=".08" stroke="currentColor" stroke-width="35"></rect><path d="M -120 -700 L 120 -700 L 0 -860 Z" fill="currentColor"></path></svg></sc-if>
-                    <sc-if value="{{l.isCrane}}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="-3200 -3200 6400 6400"><circle cx="0" cy="0" r="3100" fill="none" stroke="currentColor" stroke-width="120" stroke-dasharray="360 240"></circle><rect x="-450" y="-600" width="900" height="1200" rx="40" fill="currentColor" fill-opacity=".08" stroke="currentColor" stroke-width="150"></rect><path d="M 0 1100 L 0 -2500" stroke="currentColor" stroke-width="220"></path><rect x="-175" y="-2900" width="350" height="800" fill="currentColor" stroke="currentColor" stroke-width="120"></rect></svg></sc-if>
+                    <sc-if value="{{l.isCrane}}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="-3900 -3900 7800 7800"><circle cx="0" cy="0" r="3800" fill="none" stroke="currentColor" stroke-width="120" stroke-dasharray="360 240"></circle><rect x="-450" y="-600" width="900" height="1200" rx="40" fill="currentColor" fill-opacity=".08" stroke="currentColor" stroke-width="150"></rect><path d="M 0 1100 L 0 -2500" stroke="currentColor" stroke-width="220"></path><rect x="-175" y="-2900" width="350" height="800" fill="currentColor" stroke="currentColor" stroke-width="120"></rect></svg></sc-if>
                     <sc-if value="{{l.isLed}}" hint-placeholder-val="{{ false }}"><span style="width: 18px; height: 2.5px; background: currentColor;"></span></sc-if>
                     <sc-if value="{{l.isLeg}}" hint-placeholder-val="{{ false }}"><span style="width: 6px; height: 6px; background: currentColor;"></span></sc-if>
                   </span>
@@ -372,7 +372,7 @@ class Component extends DCLogic {
       table: { label: '長机（白）', w: 1800, d: 600, rx: 20, qty: 20, storage: 'SKY STUDIO', est: false, inTable: true },
       lectern: { label: '司会台', w: 700, d: 490, rx: 0, qty: 1, storage: '倉庫', est: false, inTable: true },
       pedestal: { label: 'ペデスタル TP-90B', w: 900, d: 900, rx: 0, qty: null, storage: '—', est: true, inTable: true, short: 'TP-90B' },
-      crane: { label: 'クレーン TK-53A', w: 900, d: 1200, rx: 40, qty: null, storage: '—', est: true, inTable: true, short: 'TK-53A' },
+      crane: { label: 'クレーン TK-53L', w: 900, d: 1200, rx: 40, qty: null, storage: '—', est: true, inTable: true, short: 'TK-53L' },
       person: { label: '人（立位）', w: 450, d: 300, rx: 0, qty: null, storage: '', est: false, inTable: false },
     };
   }
@@ -477,7 +477,7 @@ class Component extends DCLogic {
     const fixtures = [];
     fixtures.push({ left: X(V.truss.x), top: Y(V.truss.y), w: P(V.truss.w), h: P(V.truss.h), bg: 'transparent', border: '1px dashed rgba(26,29,36,.4)', label: '' });
     fixtures.push({ left: X(V.led.x), top: Y(V.led.y), w: P(V.led.w), h: P(V.led.h), bg: '#1a1d24', border: '0', label: '' });
-    // トラス脚は描かない（2026-09-13 のご判断）。検査の fixRects には残す
+    V.truss.legs.forEach((c) => fixtures.push({ left: X(c[0] - 225), top: Y(c[1] - 225), w: P(450), h: P(450), bg: 'transparent', border: '1px solid #1a1d24' }));  // 白抜きの柱記号
     if (floor) fixtures.push({ left: X(V.elv13.x), top: Y(V.elv13.y), w: P(V.elv13.w), h: P(V.elv13.h), bg: 'rgba(26,29,36,.08)', border: '1px solid rgba(26,29,36,.7)', label: 'ELV13' });
 
     // ── 品目の絵（symbols.svg.md の線画を mm で組み、縮尺で px に） ──
@@ -487,7 +487,7 @@ class Component extends DCLogic {
     g.pedestal.cam = { ml: -P(175), top: -P(250), w: P(350), h: P(1100), rx: P(30) };
     g.pedestal.lens = { ml: -P(120), top: -P(410), side: P(120), h: P(160) };
     g.pedestal.vf = { ml: -P(100), top: P(750), w: P(200), h: P(100) };
-    g.crane.sweep = { size: P(6200), m: -P(3100) };
+    g.crane.sweep = { size: P(7600), m: -P(3800) };
     g.crane.tail = { size: P(2200), m: -P(1100) };
     g.crane.arm = { ml: -P(30), top: -P(1900), w: P(60), h: P(3600) };
     g.crane.cw = { ml: -P(200), top: P(1500), w: P(400), h: P(200) };
@@ -546,6 +546,7 @@ class Component extends DCLogic {
       isChair: t === 'chair', isTable: t === 'table', isLectern: t === 'lectern', isPerson: t === 'person', isPedestal: t === 'pedestal', isCrane: t === 'crane', isLed: false, isLeg: false,
     })).concat([
       { label: 'LEDウォール', n: '', isLed: true, isLeg: false, isChair: false, isTable: false, isLectern: false, isPerson: false, isPedestal: false, isCrane: false },
+      { label: 'トラス脚（450角）', n: String(V.truss.legs.length), isLed: false, isLeg: true, isChair: false, isTable: false, isLectern: false, isPerson: false, isPedestal: false, isCrane: false },
     ]);
 
     // ── 縮尺記号・札 ──

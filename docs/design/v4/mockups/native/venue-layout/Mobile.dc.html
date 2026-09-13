@@ -73,10 +73,10 @@
           <path fill="currentColor" d="M -120 -700 L 120 -700 L 0 -860 Z"></path>
           <rect class="ln" x="-100" y="300" width="200" height="100"></rect>
         </symbol>
-        <!-- クレーン TK-53A: 台車 900×1200 ＋ アーム 2500 ＋ カメラが届く範囲（点線円 r3100）＋ テール 1100 -->
-        <symbol id="sym-crane" viewBox="-3100 -3100 6200 6200">
-          <circle class="dash" cx="0" cy="0" r="3100"></circle>
-          <circle class="dash" style="stroke-opacity: .4;" cx="0" cy="0" r="1100"></circle>
+        <!-- クレーン TK-53L: 台車 900×1200 ＋ アーム 3200 ＋ カメラが届く範囲（点線円 r3800）＋ テール 1300 -->
+        <symbol id="sym-crane" viewBox="-3800 -3800 7600 7600">
+          <circle class="dash" cx="0" cy="0" r="3800"></circle>
+          <circle class="dash" style="stroke-opacity: .4;" cx="0" cy="0" r="1300"></circle>
           <rect class="fp" x="-450" y="-600" width="900" height="1200" rx="40"></rect>
           <circle fill="currentColor" cx="-380" cy="-520" r="45"></circle><circle fill="currentColor" cx="380" cy="-520" r="45"></circle>
           <circle fill="currentColor" cx="-380" cy="520" r="45"></circle><circle fill="currentColor" cx="380" cy="520" r="45"></circle>
@@ -254,7 +254,7 @@ class Component extends DCLogic {
       table:   { name: '長机（白）',        size: '1,800 × 600 mm',                    unit: '点', stock: 20,   storage: 'SKY STUDIO', est: false, fp: { w: 1800, d: 600 }, sym: 'sym-table',   vb: [-900, -300, 1800, 600],    ring: [-900, -300, 1800, 600] },
       lectern: { name: '司会台',            size: '700 × 490 mm',                      unit: '台', stock: 1,    storage: '倉庫',       est: false, fp: { w: 700, d: 490 },  sym: 'sym-lectern', vb: [-350, -245, 700, 490],     ring: [-350, -245, 700, 490] },
       ped:     { name: 'ペデスタル TP-90B', size: 'ベース Ø900 ・ カメラ 350 × 1,100 mm', unit: '台', stock: null, storage: '昭特',       est: true,  fp: { w: 900, d: 900 },  sym: 'sym-ped',     vb: [-450, -870, 900, 1570],    ring: [-450, -870, 900, 1570], extra: '積載 60kg ・ ストローク 945 ・ 3段 空圧' },
-      crane:   { name: 'クレーン TK-53A',   size: '台車 900 × 1,200 ・ アーム 2,500 mm',  unit: '台', stock: null, storage: '昭特',       est: true,  fp: { w: 900, d: 1200 }, sym: 'sym-crane',   vb: [-3100, -3100, 6200, 6200], ring: [-450, -600, 900, 1200], extra: '届く範囲 半径 3,100 ・ 最高レンズ軸高 3,099' },
+      crane:   { name: 'クレーン TK-53L',   size: '台車 900 × 1,200 ・ アーム 3,200 mm',  unit: '台', stock: null, storage: '昭特',       est: true,  fp: { w: 900, d: 1200 }, sym: 'sym-crane',   vb: [-3800, -3800, 7600, 7600], ring: [-450, -600, 900, 1200], extra: '届く範囲 半径 3,100 ・ 最高レンズ軸高 3,099' },
       stand:   { name: '人（立位）',        size: '450 × 300 mm',                      unit: '人', stock: null, storage: '',           est: false, fp: { w: 450, d: 300 },  sym: 'sym-stand',   vb: [-225, -150, 450, 300],     ring: [-225, -150, 450, 300] },
       seat:    { name: '人（着席）',        size: '500 × 800 mm',                      unit: '人', stock: null, storage: '',           est: false, fp: { w: 500, d: 800 },  sym: 'sym-seat',    vb: [-250, -400, 500, 800],     ring: [-250, -400, 500, 800] },
     };
@@ -310,7 +310,7 @@ class Component extends DCLogic {
     // ── エリア・固定物・並べたかたまり
     const area = { x: r2(px(A.x)), y: r2(py(A.y)), w: r2(A.w * S), h: r2(A.h * S) };
     const led = { x: r2(px(F.led.x)), y: r2(py(F.led.y)), w: r2(F.led.w * S), h: r2(Math.max(F.led.h * S, 2)) };
-    const legs = []; const _legsUnused = F.legs.map((c) => ({ x: r2(px(c[0] - F.legSize / 2)), y: r2(py(c[1] - F.legSize / 2)), w: r2(F.legSize * S), h: r2(F.legSize * S) }));
+    const legs = F.legs.map((c) => ({ x: r2(px(c[0] - F.legSize / 2)), y: r2(py(c[1] - F.legSize / 2)), w: r2(F.legSize * S), h: r2(F.legSize * S) }));
     const chairs = items.filter((it) => it.kind === 'chair');
     const gx1 = Math.min.apply(null, chairs.map((c) => c.x)) - 268 - 120, gx2 = Math.max.apply(null, chairs.map((c) => c.x)) + 268 + 120;
     const gy1 = Math.min.apply(null, chairs.map((c) => c.y)) - 245 - 120, gy2 = Math.max.apply(null, chairs.map((c) => c.y)) + 245 + 120;
