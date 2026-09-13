@@ -2452,6 +2452,44 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#686**（`release: v4.6.14`・2026-09-13）— `npm run release:notes -- 4.6.14` による
+  版上げ（14ファイル・+10/−51・2コミット）。`docs/changelog.d/` の9件の下書き（運営
+  マニュアル・会場図面の2ミニアプリ新設、PR #676〜681のレビュー棚卸し）を集約。
+  **Code Review は完走**（`60784069`）し、**1件（P2）**の指摘が付いた——
+  `CLAUDE.md` の要約が「会場図面は設計・モックまで（実装はまだ）」と書いていたが、
+  同じ版に含まれる **#684 で実装まで完了**しており `docs/version-history.md` の全文とも
+  矛盾していた。実装済みである旨に直して返信・スレッド解決まで完了（`a2329907`）。
+  **表に移す未対応の指摘は無い**。Security Review も完走（`60784069`）し findings 無し。
+  ⚠️ ただし修正コミット `a2329907` にはどちらのレビューも再実行されていない
+  （#651/#677/#679/#681/#685 と同型）が、要約文の記述訂正のみで実害は無い。
+  検証: `npm run lint`（0 errors）・`npm run test`（94/94）・`npm run check:version`・
+  `node scripts/check-md-links.mjs`・`node scripts/generate-version-history.mjs`。
+
+- **#684**（`feat(techops): 会場図面ミニアプリを新設（設計・モック・実装）`・2026-09-13）——
+  制作技術支援に新ミニアプリ「**会場図面**」を追加（GMOサムライスタジオ用賀 26F/27F の
+  会場図面を実寸で下敷きにし、備品・カメラ・人を配置、7プリセットの一気並べ、運営
+  マニュアルへの線画差し込み。82ファイル・+13439/−24・12コミット）。作成 15:06:35Z〜
+  マージ 16:35:44Z（#683 のわずか9秒後）。**Code Review は1巡のみ**（`10f3edd9`・
+  15:11 完走）で**全8件（P1×6・P2×2）**の指摘が付いた——**P1**: ①サーバーがDB行を
+  そのまま返し`floorId`等のcamelCaseが全滅、編集盤・仕上がりが描画不能 ②`copy_from`が
+  複製元図面への`canAccessVenueLayout`検査を経ない IDOR ③自動保存の通信失敗時に
+  保留中の変更を握りつぶしたまま戻らない ④下敷き画像URLが`/venue//venue/...`に
+  二重結合され常に404（Viteの`base`未考慮とも複合） ⑤migrationが参照する下敷き4枚が
+  実際には配置されていない／**P2**: ⑥マーキー選択のハンドラが`<svg>`に付いており
+  背景`<rect>`との target 不一致で一度も始動しない ⑦line/dimension品目のドラッグが
+  `points`をcommitに含めず指を離すと戻る。**全8件とも本PR内で修正・返信・スレッド
+  解決まで完了**（`e61b9b93`。自動保存の差し戻しはP1指摘と表裏一体で自主追加修正）。
+  **表に移す未対応の指摘は無い**。⚠️ **修正コミット `e61b9b93` の直後（15:29:25Z）に
+  Codex が usage limits を返し、Code Review・Security Review とも最初のコミット
+  `10f3edd9` の読み込みに固定されたまま以後66分間・一度も再実行されずマージ**——
+  P1×6件を含む修正そのものがレビューされていない（#651/#677/#679/#683 と同型で、
+  今回は最も規模が大きい変更に対して起きた）。
+  検証: `npx tsc -b client-techops`・`npx tsc -b server`・`npm run lint`（0 errors）・
+  `npm run test`（shared 2457件・server 94件）・`npm run build:changed`・
+  `npm run verify:up`（実Postgres保存確認）・`node scripts/check-migration-numbers.mjs`。
+  実ブラウザでの画面確認・`npm run verify:ui`・権限のない利用者での403確認は
+  この環境（Docker/PostgreSQL不可）では未実施のままマージ（PR本文に明記）。
+
 - **#685**（`docs(reviews): PR #683のレビュー状況を棚卸しに記録した`・2026-09-13）——
   #683 の棚卸しを本文書に記録したドキュメントのみの変更（2ファイル・+32・2コミット）。
   **Code Review は完走**（`3b493084`）し、**1件（P2）**の指摘が付いた——**棚卸し自身の
