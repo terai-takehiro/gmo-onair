@@ -2445,7 +2445,7 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   マージは 10:05Z 前後・terai-takehiro 本人。表に移す指摘はない。
   ⚠️ この PR 自体が #676・#677 の棚卸し記録（`docs/reviews/` と `docs/changelog.d/` の2ファイル・
   +47行のドキュメントのみ）で、コード・画面・DB は一切触っていない。Code Review が走らなかった
-  影響は小さいが、**usage limits による Code Review の不発は #663 以降これで6本目**（#665・#667・
+  影響は小さいが、**usage limits による Code Review の不発は #663 以降これで7本目**（#665・#667・
   #669・#670・#671・#677・#678）——「指摘なし」と区別できるよう記録しておく。
 
 ---
