@@ -34,6 +34,7 @@ import renderManualBlockContent from "./ManualBlockContent";
 import { useManualPageAutosave } from "./useManualPageAutosave";
 import { useManualEditLock } from "./useManualEditLock";
 import ManualLockBanner from "./ManualLockBanner";
+import ManualServiceDateField from "./ManualServiceDateField";
 import { getManualResolve } from "@/lib/manualResolveApi";
 
 export default function ManualDetailPage() {
@@ -275,6 +276,13 @@ export default function ManualDetailPage() {
                 <Badge variant={MANUAL_STATUS_BADGE_VARIANT[manual.status]}>{MANUAL_STATUS_LABEL[manual.status]}</Badge>
                 {manual.project_name && <span>{manual.gls_number ? `${manual.gls_number} ・ ` : ""}{manual.project_name}</span>}
                 {manual.program_name && <span>{manual.program_name}</span>}
+                <ManualServiceDateField
+                  manualId={id}
+                  serviceDate={manual.service_date}
+                  updatedAt={manual.updated_at}
+                  editable={editable}
+                  onInvalidate={invalidate}
+                />
               </span>
             }
             primaryAction={

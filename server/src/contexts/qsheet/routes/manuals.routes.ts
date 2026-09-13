@@ -4,7 +4,7 @@
  */
 import { Router, Request, Response } from 'express';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
-import { canAccessManual } from '../access';
+import { canAccessManual, canAssignManualProject } from '../access';
 import { wrap, p1 } from './wrap';
 import { NotFoundError } from '../services/httpErrors';
 import {
@@ -32,10 +32,20 @@ router.get('/manuals', wrap(async (req, res) => {
 
 router.post('/manuals', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
   const b = req.body as Record<string, unknown>;
+  const projectId = typeof b.project_id === 'string' ? b.project_id : null;
+  const programId = typeof b.program_id === 'string' ? b.program_id : null;
+  // ⚠️ レビュー指摘（P1）: project_id を無検査で受けると、指定した本人が created_by になり
+  // canAccessManual をそのまま通ってしまう——他案件になりすまして作成すれば resolve
+  // （差し込み・段C）経由でその案件の配信の鍵・収録設定・レンタル機材等まで読めてしまう。
+  // 存在秘匿のため 404（`requireAccessible` と同じ作法）。
+  if (projectId && !(await canAssignManualProject(req.user!, projectId))) {
+    throw new NotFoundError('案件が見つかりません');
+  }
   const row = await createManual({
     title: typeof b.title === 'string' ? b.title : '',
-    projectId: typeof b.project_id === 'string' ? b.project_id : null,
-    programId: typeof b.program_id === 'string' ? b.program_id : null,
+    projectId,
+    programId,
+    serviceDate: typeof b.service_date === 'string' ? b.service_date : null,
     createdBy: req.user!.id,
     // ひな形／前回の冊子からの複製（段E）。どちらも省略可（今までどおり空ページ1枚）
     templateId: typeof b.template_id === 'string' ? b.template_id : null,
@@ -57,6 +67,8 @@ router.patch('/manuals/:id', requirePermission('qsheet', 'editor'), wrap(async (
   const b = req.body as Record<string, unknown>;
   const row = await updateManual(p1(req.params.id), req.user!.id, {
     ...(typeof b.title === 'string' ? { title: b.title } : {}),
+    // service_date は明示的に null を渡して消せる（未指定=変更なし・null=クリア）
+    ...('service_date' in b ? { serviceDate: typeof b.service_date === 'string' ? b.service_date : null } : {}),
     expectedUpdatedAt: b.expected_updated_at,
   });
   res.json({ success: true, data: row });

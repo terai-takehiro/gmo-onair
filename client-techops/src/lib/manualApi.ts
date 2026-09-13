@@ -73,6 +73,8 @@ export interface CreateManualPayload {
   /** どちらか一方のみ（qsheet_manuals_owner_ck） */
   project_id?: string | null;
   program_id?: string | null;
+  /** 本番/開催の予定日（YYYY-MM-DD）。省略可 */
+  service_date?: string | null;
   /** 組織共通のひな形から作るとき（段E・§10-5「組織共通」）。`copy_from_manual_id` とは同時に渡さない */
   template_id?: string;
   /** この案件／番組の前回の冊子から複製して作るとき（段E・§10-5「前の案件の前の冊子から」）。

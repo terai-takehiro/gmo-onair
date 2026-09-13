@@ -89,6 +89,30 @@ export async function canAccessManual(
 }
 
 /**
+ * 冊子の**新規作成**で project_id に指定してよいか（案件メンバー / assigned_to / 管理者）。
+ * `canAccessManual` と違い、まだ存在しない冊子の project_id を検査するので manualId を取らない
+ * （レビュー指摘: `POST /manuals` が project_id を無検査で受けていた — 指定した本人が
+ * `created_by` になり `canAccessManual` を通ってしまうため、他案件になりすまして作成すると
+ * `resolve`（差し込み・段C）経由でその案件の配信の鍵・収録設定・レンタル機材等が読めてしまう）。
+ *
+ * program_id は対象外——`qsheet_programs` は「行単位の権限を持たない」設計
+ * （`programs.routes.ts` 冒頭のコメント）で、qsheet の reader/editor なら誰でも全件に
+ * 到達できるため、manual 作成時点で追加の制限を課す理由が無い（既存の到達可能性を
+ * 超えて漏れるものが無い）。
+ */
+export async function canAssignManualProject(user: AccessUser, projectId: string): Promise<boolean> {
+  if (isQsheetAdmin(user)) return true;
+  const member = await queryOne(
+    `SELECT 1 FROM projects p WHERE p.id = $1 AND (
+       EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = $2 AND pm.deleted_at IS NULL)
+       OR p.assigned_to = $2
+     )`,
+    [projectId, user.id],
+  );
+  return !!member;
+}
+
+/**
  * AI 提案（`qsheet_ai_proposals`）に対して user がアクセス可能か。
  * 提案そのものは共有先を持たないので、**対象の台本 / スケジュール表のアクセス権限**に委ねる
  * （段7・07-ai-proposals-impl.md §1）。どちらも見つからない・アクセス不可なら false

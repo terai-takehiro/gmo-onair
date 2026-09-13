@@ -222,16 +222,27 @@ function makeFixDb({ manual, page }) {
       const pendingPages = new Map();
       let pendingStatus = false;
       const tx = {
-        queryOne: async (sql) => {
+        // fixManual() は「SELECT→JS比較→UPDATE」の2段ではなく、比較を WHERE 句に畳み込んだ
+        // 1文の条件付き UPDATE（RETURNING id）を1回だけ投げる（acquireManualLock と同じ CAS）。
+        // ここでその WHERE 句と同じ判定を行い、一致するときだけ実際に反映して行を返す。
+        // 不一致（＝競合）のときは undefined を返し、fixManual 側の後続 SELECT（フォールバック）
+        // が「いまの updated_at」を返せるよう state.page.updated_at をそのまま見せる。
+        queryOne: async (sql, params = []) => {
+          if (sql.includes('UPDATE qsheet_manual_pages') && sql.includes('SET blocks') && sql.includes('RETURNING')) {
+            const [blocksJson, pageId, expectedUpdatedAt] = params;
+            const matches = pageId === state.page.id
+              && new Date(expectedUpdatedAt).getTime() === new Date(state.page.updated_at).getTime();
+            if (!matches) return undefined;
+            pendingPages.set(pageId, blocksJson);
+            return { id: pageId };
+          }
           if (sql.startsWith('SELECT updated_at FROM qsheet_manual_pages')) {
             return { updated_at: state.page.updated_at };
           }
           return undefined;
         },
-        execute: async (sql, params = []) => {
-          if (sql.includes('UPDATE qsheet_manual_pages SET blocks')) {
-            pendingPages.set(params[1], params[0]);
-          } else if (sql.includes("SET status = 'fixed'")) {
+        execute: async (sql) => {
+          if (sql.includes("SET status = 'fixed'")) {
             pendingStatus = true;
           }
         },

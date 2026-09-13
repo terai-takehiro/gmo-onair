@@ -32,6 +32,7 @@ function initialOwner(lockedOwner?: Props["lockedOwner"]): ManualOwnerValue {
 
 export default function CreateManualDialog({ open, onOpenChange, lockedOwner, onCreated }: Props) {
   const [title, setTitle] = useState("");
+  const [serviceDate, setServiceDate] = useState("");
   const [owner, setOwner] = useState<ManualOwnerValue>(() => initialOwner(lockedOwner));
   const [source, setSource] = useState<ManualSource>("blank");
   const [templateId, setTemplateId] = useState<string | null>(null);
@@ -40,6 +41,7 @@ export default function CreateManualDialog({ open, onOpenChange, lockedOwner, on
   useEffect(() => {
     if (!open) return;
     setTitle("");
+    setServiceDate("");
     setOwner(initialOwner(lockedOwner));
     setSource("blank");
     setTemplateId(null);
@@ -83,6 +85,7 @@ export default function CreateManualDialog({ open, onOpenChange, lockedOwner, on
       title: title.trim() || "無題の運営マニュアル",
       project_id: owner.ownerType === "project" ? owner.projectId : null,
       program_id: owner.ownerType === "program" ? owner.programId : null,
+      service_date: serviceDate || null,
       template_id: source === "template" ? templateId ?? undefined : undefined,
       copy_from_manual_id: source === "copy" ? copyFromManualId ?? undefined : undefined,
     }),
@@ -115,6 +118,17 @@ export default function CreateManualDialog({ open, onOpenChange, lockedOwner, on
             onCommit={setTitle}
             className="mt-1 flex h-10 w-full rounded-control-lg border border-input bg-background px-3 py-2 text-sm"
             placeholder="例: 本番当日の運営マニュアル"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="new-manual-service-date">本番/開催の予定日（任意）</Label>
+          <input
+            id="new-manual-service-date"
+            type="date"
+            value={serviceDate}
+            onChange={(e) => setServiceDate(e.target.value)}
+            className="mt-1 flex h-10 w-full rounded-control-lg border border-input bg-background px-3 py-2 text-sm"
           />
         </div>
 

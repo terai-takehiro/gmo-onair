@@ -142,6 +142,10 @@ export interface CreateManualInput {
   title: string;
   projectId?: string | null;
   programId?: string | null;
+  /** 本番/開催の予定日（YYYY-MM-DD）。省略可——未指定なら null のまま
+   *  （表紙の日付表示・スケジュール表resolverの日付一致に使う。§4-3・レビュー指摘: 段Cまで
+   *  設定する経路が無く常に null だった） */
+  serviceDate?: string | null;
   createdBy: string;
   /** ひな形（`qsheet_manual_templates`。scope="org"）から起こす。段E */
   templateId?: string | null;
@@ -150,6 +154,15 @@ export interface CreateManualInput {
 }
 
 const MAX_TITLE = 500;
+const SERVICE_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function sanitizeServiceDate(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null;
+  if (!SERVICE_DATE_RE.test(value)) {
+    throw new ValidationError('service_date は YYYY-MM-DD 形式で指定してください');
+  }
+  return value;
+}
 
 /**
  * 冊子を1件・ページ（複数もあり得る）と一緒に作る。project_id / program_id はどちらか片方だけ
@@ -179,12 +192,13 @@ export async function createManual(input: CreateManualInput): Promise<Row> {
   const id = uuid();
   const docNo = await issueDocNo('manual');
   const title = (input.title || '').slice(0, MAX_TITLE);
+  const serviceDate = sanitizeServiceDate(input.serviceDate);
 
   await withTransaction(async (tx) => {
     await tx.execute(
-      `INSERT INTO qsheet_manuals (id, doc_no, title, project_id, program_id, created_by, updated_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [id, docNo, title, input.projectId || null, input.programId || null, input.createdBy, input.createdBy],
+      `INSERT INTO qsheet_manuals (id, doc_no, title, project_id, program_id, service_date, created_by, updated_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, docNo, title, input.projectId || null, input.programId || null, serviceDate, input.createdBy, input.createdBy],
     );
     for (let i = 0; i < pages.length; i++) {
       const page = pages[i];
@@ -203,6 +217,8 @@ export async function createManual(input: CreateManualInput): Promise<Row> {
 
 export interface UpdateManualInput {
   title?: string;
+  /** `null` で明示的にクリア。省略（undefined）なら変更しない */
+  serviceDate?: string | null;
   expectedUpdatedAt?: unknown;
 }
 
@@ -228,6 +244,7 @@ export async function updateManual(id: string, userId: string, input: UpdateManu
   const sets: string[] = ['updated_by = ?', 'updated_at = NOW()'];
   const params: unknown[] = [userId];
   if (typeof input.title === 'string') { sets.push('title = ?'); params.push(input.title.slice(0, MAX_TITLE)); }
+  if ('serviceDate' in input) { sets.push('service_date = ?'); params.push(sanitizeServiceDate(input.serviceDate)); }
 
   await execute(`UPDATE qsheet_manuals SET ${sets.join(', ')} WHERE id = ?`, [...params, id]);
   const row = await getManualWithMeta(id);
@@ -544,29 +561,40 @@ export async function fixManual(manualId: string, userId: string): Promise<Row> 
   // ロック保持者の editor が普通に autosave（updatePage）を成功させることがある
   // （確定は manager 権限だけでよく、ロック保持者である必要は無い設計のため）。
   // ここで「①で読んだ古い blocks をそのまま書き戻す」と、その保存を無音で消してしまう
-  // （レビュー指摘）。書く直前にもう一度そのページの updated_at を読み、①で読んだときの
-  // 値と比較する（`checkOptimisticLock` と同じ「JSで比較してから書く」考え方。
-  // ⚠️ SQL 側で `WHERE updated_at = ?` という等号比較はしない —— `pg` はミリ秒未満を
-  // 切り捨てて JS の `Date` にするため、往復させた値は DB の実値と一致しないことがあり、
-  // 何も競合していなくても常に不一致＝常に確定失敗、という壊れ方をしうる）。
-  // 一致していなければ 0 行のまま扱い ConflictError でトランザクション全体をロールバック
-  // する（`withTransaction` は throw で ROLLBACK する）。呼び出し元（manager）は
-  // 「もう一度確定をやり直してください」を見てやり直すだけでよい。
+  // （レビュー指摘）。
+  //
+  // ⚠️⚠️ 外部レビュー再指摘: 最初の修正は「SELECT で読む→JSで比較→UPDATE」の2段構えで、
+  // 同じトランザクション内でも SELECT は行ロックを取らない（READ COMMITTED）ため、
+  // その2文の間に autosave が割り込んでも検出できない——`acquireManualLock` で直した
+  // のと同じ形の TOCTOU が残っていた。比較を UPDATE 自身の WHERE 句に畳み込み、
+  // 1文の条件付き UPDATE にする（`acquireManualLock` と同じ考え方）。
+  // ⚠️ SQL 側の等号比較は `date_trunc('milliseconds', ...)` を両辺に掛ける —— `pg` は
+  // ミリ秒未満を切り捨てて JS の `Date` にするため、素の等号だと往復させた値が DB の
+  // 実値（マイクロ秒）と一致せず、何も競合していなくても常に不一致＝常に確定失敗、
+  // という壊れ方をしうる（ミリ秒に丸めてから比べれば両辺が揃う）。
+  // 0 行（RETURNING が空）なら競合とみなし ConflictError でトランザクション全体を
+  // ロールバックする（`withTransaction` は throw で ROLLBACK する）。呼び出し元
+  // （manager）は「もう一度確定をやり直してください」を見てやり直すだけでよい。
   await withTransaction(async (tx) => {
     for (const page of pages) {
       const blocks = frozenBlocksByPage.get(page.id as string);
       if (!blocks) continue; // 起こり得ないが念のため
-      const fresh = await tx.queryOne('SELECT updated_at FROM qsheet_manual_pages WHERE id = ?', [page.id]);
-      const freshMs = fresh ? new Date(fresh.updated_at as string).getTime() : NaN;
-      const snapshotMs = new Date(page.updated_at as string).getTime();
-      if (!fresh || freshMs !== snapshotMs) {
+      const updated = await tx.queryOne(
+        `UPDATE qsheet_manual_pages
+         SET blocks = ?, updated_at = NOW()
+         WHERE id = ?
+           AND date_trunc('milliseconds', updated_at) = date_trunc('milliseconds', ?::timestamptz)
+         RETURNING id`,
+        [JSON.stringify(blocks), page.id, page.updated_at],
+      );
+      if (!updated) {
+        const fresh = await tx.queryOne('SELECT updated_at FROM qsheet_manual_pages WHERE id = ?', [page.id]);
         throw new ConflictError(
           'このページは確定の処理中に更新されました。もう一度確定をやり直してください。',
           (fresh?.updated_at as string) ?? fixedAtIso,
           null,
         );
       }
-      await tx.execute('UPDATE qsheet_manual_pages SET blocks = ?, updated_at = NOW() WHERE id = ?', [JSON.stringify(blocks), page.id]);
     }
     await tx.execute(
       `UPDATE qsheet_manuals
