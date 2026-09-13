@@ -101,6 +101,15 @@ const ManualCanvas = forwardRef<ManualCanvasHandle, ManualCanvasProps>(function 
 
   const history = useManualHistory({ blocks, onCommit, limit: 50 });
   const displayBlocks = liveBlocks ?? blocks;
+  // ⚠️ レビュー指摘（P1）: 体制図の顔写真アップロードのように、ブロックの中身の編集が
+  // 通信をまたぐ場合、通信が終わるまでにブロックそのものが削除されうる。そのとき
+  // `onContentCommit` は削除される直前の（まだブロックが存在した頃の）閉包のまま
+  // 呼ばれる——`blocks` を直接閉じ込めた `handleBlockContentCommit` がそのまま
+  // 古い配列を使うと、削除したブロックを丸ごと復活させてしまう。ref で常に最新の
+  // `blocks` を指し、**呼ばれた時点でそのブロックがまだ存在するかを確かめてから**
+  // 書き込む（存在しなければ何もしない）。
+  const blocksRef = useRef(blocks);
+  blocksRef.current = blocks;
   // `selectOnly` はこの下で定義される関数宣言（巻き上げにより参照可能）
   const marquee = useManualMarqueeSelect(pageRef, blocks, selectedIds, setSelectedIds, selectOnly);
 
@@ -208,9 +217,13 @@ const ManualCanvas = forwardRef<ManualCanvasHandle, ManualCanvasProps>(function 
   }
 
   function handleBlockContentCommit(id: string, content: ManualFreeBlockContent) {
+    // ここは通信をまたいだ古い閉包から呼ばれうる（上の blocksRef の注記）ので、
+    // 呼ばれた「いま」の最新を ref から読み、そのブロックがもう無いなら何もしない
+    const current = blocksRef.current;
+    if (!current.some((b) => b.id === id)) return;
     // kind:'linked'（段C）のブロックは中身編集を持たないため onContentCommit を呼ばない設計だが、
     // 型として安全にするため、ここでも free ブロック以外は書き込まない
-    const next = blocks.map((b) =>
+    const next = current.map((b) =>
       b.id === id && b.kind === "free" ? ({ ...b, free: { ...b.free, content } } as unknown as ManualBlock) : b
     );
     history.commit(next);

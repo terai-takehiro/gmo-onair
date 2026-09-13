@@ -20,11 +20,18 @@ export function genBlockId(): string {
   return `blk_${Date.now().toString(36)}_${blockIdSeq}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** 入力欄など、キャンバスのショートカット（矢印キー・Delete・Ctrl+Z 等）を奪ってはいけない相手か */
+/**
+ * 入力欄など、キャンバスのショートカット（矢印キー・Delete・Ctrl+Z 等）を奪ってはいけない相手か。
+ *
+ * ⚠️ **`SELECT` も含める**（レビュー指摘・P2）。体制図の「親」欄（`OrgChartTeamBox.tsx`）は
+ * `<select>` で、矢印キーは選択肢を選ぶためのもの。ここに含めないと、キャンバスの
+ * `handleKeyDown` が同じ矢印キーを「選択中のブロックを動かす」と解釈して奪ってしまい、
+ * 選択肢を選ぼうとするたびにブロックごと動く。
+ */
 export function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
 }
 
 /**

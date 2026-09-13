@@ -86,8 +86,10 @@ export default function OrgChartTeamBox({
       </div>
 
       {/* 分岐（木構造）。手前の階層の箱を選ぶとその下へ線でぶら下がる（2026-09-13 の利用者判断）。
-          選べる相手が無い（先頭の階層・まだ他の階層に箱が無い）ときは欄ごと出さない */}
-      {selected && onChangeParent && parentOptions && parentOptions.length > 0 && (
+          選べる新しい相手が無くても（先頭の階層に来た等）、**いま親が付いているなら欄は出す**
+          ——「なし（独立）」で外す手段を必ず残す（レビュー指摘・P2: 階層の並べ替えは parentId を
+          書き換えないため、並べ替え後に手前の階層になった箱が親を持ったまま外せなくなっていた） */}
+      {selected && onChangeParent && (parentId || (parentOptions && parentOptions.length > 0)) && (
         <div className="flex items-center gap-1 border-b border-border px-1.5 py-0.5">
           <span className="shrink-0 text-[8.5px] text-muted-foreground">親</span>
           <select
@@ -96,7 +98,7 @@ export default function OrgChartTeamBox({
             className="min-w-0 flex-1 rounded border border-input bg-background px-1 py-0.5 text-[9px] text-foreground"
           >
             <option value="">なし（独立）</option>
-            {parentOptions.map((p) => (
+            {(parentOptions ?? []).map((p) => (
               <option key={p.id} value={p.id}>{p.label || "（無題）"}</option>
             ))}
           </select>
