@@ -40,7 +40,13 @@ export default function OrgChartInspectorSection({ manualId, blockId, content, o
   const aliveRef = useRef(true);
   const blockIdRef = useRef(blockId);
   blockIdRef.current = blockId;
-  useEffect(() => () => { aliveRef.current = false; }, []);
+  // ⚠️ setup 側でも true に戻す（レビュー指摘）。`main.tsx` は `React.StrictMode` で包んでいて、
+  // 開発時の初回マウントは setup → cleanup → setup と走る。cleanup で false にしたまま
+  // 戻さないと、**開発中は取り込みが毎回ここで捨てられる**（読めているのに何も起きない）
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => { aliveRef.current = false; };
+  }, []);
 
   // ⚠️ **待っている間に打たれた字を巻き戻さない**（レビュー指摘）。押した時点の `content` に
   // 流し込むと、通信中の編集やもう一方の取り込みが入った後で commit したときに、
