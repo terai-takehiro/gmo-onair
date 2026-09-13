@@ -1,0 +1,159 @@
+// 会場図面 — 品目配列に対する操作（整列・等間隔・重なり・複製・削除・グループ化）。
+// `manualCanvasGeometry.ts` の汎用の純粋関数（`alignBlocks`/`distributeBlocks`/
+// `reorderZ`）は中心基準の `VenueItem` をそのまま渡せない（左上基準の `{x,y,w,h}` を
+// 要求する）ので、ここで `toTopLeftRect`/`fromTopLeftRect`（`shared/src/venue/geometry.ts`）
+// を介してから呼ぶ。VenueBoard・VenueToolbar・VenueInspector・各パネルはこのファイルの
+// 関数だけを使い、`manualCanvasGeometry.ts` を直接は呼ばない（変換を1か所に閉じる）。
+import type { VenueCatalogItem, VenueItem, VenueItemKind } from "@gmo-onair/shared/src/venue/types";
+import { fromTopLeftRect, toTopLeftRect } from "@gmo-onair/shared/src/venue/geometry";
+import {
+  alignBlocks,
+  distributeBlocks,
+  reorderZ,
+  type AlignMode,
+  type DistributeAxis,
+  type ZOrderMode,
+} from "@/pages/opsmanual/manualCanvasGeometry";
+
+export type { AlignMode, DistributeAxis, ZOrderMode };
+
+let seq = 0;
+/** 品目の新しい id を発番する（サーバーの id 発番とは無関係。保存前の仮 id） */
+export function genVenueItemId(prefix = "vi"): string {
+  seq += 1;
+  return `${prefix}_${Date.now().toString(36)}_${seq}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
+export function nextZ(items: VenueItem[]): number {
+  return items.reduce((max, it) => Math.max(max, it.z), 0) + 1;
+}
+
+export function alignItems(items: VenueItem[], ids: string[], mode: AlignMode): VenueItem[] {
+  const rects = items.map(toTopLeftRect);
+  const aligned = alignBlocks(rects, ids, mode);
+  const byId = new Map(aligned.map((r) => [r.id, r]));
+  return items.map((it) => {
+    const r = byId.get(it.id);
+    return r && ids.includes(it.id) ? fromTopLeftRect(it, r) : it;
+  });
+}
+
+export function distributeItems(items: VenueItem[], ids: string[], axis: DistributeAxis): VenueItem[] {
+  const rects = items.map(toTopLeftRect);
+  const distributed = distributeBlocks(rects, ids, axis);
+  const byId = new Map(distributed.map((r) => [r.id, r]));
+  return items.map((it) => {
+    const r = byId.get(it.id);
+    return r && ids.includes(it.id) ? fromTopLeftRect(it, r) : it;
+  });
+}
+
+export function reorderZItems(items: VenueItem[], ids: string[], mode: ZOrderMode): VenueItem[] {
+  const zRows = items.map((it) => ({ id: it.id, z: it.z }));
+  const reordered = reorderZ(zRows, ids, mode);
+  const zById = new Map(reordered.map((r) => [r.id, r.z]));
+  return items.map((it) => ({ ...it, z: zById.get(it.id) ?? it.z }));
+}
+
+const DUPLICATE_OFFSET_MM = 50;
+
+export function duplicateItems(items: VenueItem[], ids: string[]): { items: VenueItem[]; newIds: string[] } {
+  const srcs = items.filter((it) => ids.includes(it.id));
+  if (srcs.length === 0) return { items, newIds: [] };
+  let z = nextZ(items);
+  const dups: VenueItem[] = srcs.map((src) => {
+    z += 1;
+    const points = src.points ? src.points.map(([x, y]) => [x + DUPLICATE_OFFSET_MM, y] as [number, number]) : undefined;
+    return { ...src, id: genVenueItemId(), x: src.x + DUPLICATE_OFFSET_MM, points, z, groupId: undefined, locked: false };
+  });
+  return { items: [...items, ...dups], newIds: dups.map((d) => d.id) };
+}
+
+export function deleteItems(items: VenueItem[], ids: string[]): VenueItem[] {
+  return items.filter((it) => !ids.includes(it.id));
+}
+
+const ARROW_MOVE_MM = 10;
+const ARROW_MOVE_FINE_MM = 1;
+const ARROW_MOVE_LARGE_MM = 100;
+
+export function arrowStepMm(shiftKey: boolean, ctrlKey: boolean): number {
+  if (ctrlKey) return ARROW_MOVE_FINE_MM;
+  if (shiftKey) return ARROW_MOVE_LARGE_MM;
+  return ARROW_MOVE_MM;
+}
+
+export function moveItemsBy(items: VenueItem[], ids: string[], dx: number, dy: number): VenueItem[] {
+  return items.map((it) => {
+    if (!ids.includes(it.id)) return it;
+    if (it.points) return { ...it, points: it.points.map(([x, y]) => [x + dx, y + dy] as [number, number]) };
+    return { ...it, x: it.x + dx, y: it.y + dy };
+  });
+}
+
+/** Ctrl+G。選んだ品目を1つのグループにまとめる（既存のグループには入れない・§4-6） */
+export function groupItems(items: VenueItem[], ids: string[]): VenueItem[] {
+  if (ids.length < 2) return items;
+  const groupId = genVenueItemId("grp");
+  return items.map((it) => (ids.includes(it.id) ? { ...it, groupId } : it));
+}
+
+/** グループ解除。並べたグループの `arrange` も外す（§7「グループ解除」） */
+export function ungroupItems(items: VenueItem[], groupId: string): VenueItem[] {
+  return items.map((it) => (it.groupId === groupId ? { ...it, groupId: undefined, arrange: undefined } : it));
+}
+
+export function groupMembers(items: VenueItem[], groupId: string): VenueItem[] {
+  return items.filter((it) => it.groupId === groupId);
+}
+
+// ── 「置く」タブ・道具の帯の図形ボタン（§4-3・§11-4） ───────────────
+
+/** 図形5種の既定値（`shared/src/venue/arrange.ts` と同じく、DBには持たずコードで持つ・§11-4） */
+export const SHAPE_DEFAULTS = {
+  rect: { w: 1000, d: 1000 },
+  circle: { diameter: 1000 },
+  line: { length: 2000 },
+  text: { w: 1200, d: 200 },
+  dimension: { length: 2000 },
+} as const;
+export type ShapeKey = keyof typeof SHAPE_DEFAULTS;
+
+/** 図形を表示範囲の中央（`center`）に既定サイズで置く */
+export function buildShapeItem(shapeKey: ShapeKey, center: { x: number; y: number }, z: number): VenueItem {
+  const id = genVenueItemId("shape");
+  if (shapeKey === "line" || shapeKey === "dimension") {
+    const len = SHAPE_DEFAULTS[shapeKey].length;
+    return {
+      id, kind: shapeKey, x: center.x, y: center.y, rotation: 0, z,
+      points: [[center.x - len / 2, center.y], [center.x + len / 2, center.y]],
+    };
+  }
+  if (shapeKey === "circle") return { id, kind: "shape", x: center.x, y: center.y, rotation: 0, z, diameter: SHAPE_DEFAULTS.circle.diameter };
+  if (shapeKey === "text") return { id, kind: "text", x: center.x, y: center.y, rotation: 0, z, w: SHAPE_DEFAULTS.text.w, d: SHAPE_DEFAULTS.text.d, label: "" };
+  return { id, kind: "shape", x: center.x, y: center.y, rotation: 0, z, w: SHAPE_DEFAULTS.rect.w, d: SHAPE_DEFAULTS.rect.d };
+}
+
+/** カタログ品目（備品・カメラ・人）の1個を寸法どおりに置く（§6②「押すと表示範囲の中央に実寸で置く」） */
+export function catalogItemKind(cat: VenueCatalogItem): VenueItemKind {
+  if (cat.category === "camera") return "camera";
+  if (cat.category === "people") return "person";
+  return "catalog";
+}
+
+export function buildCatalogItem(cat: VenueCatalogItem, center: { x: number; y: number }, z: number, jitterIndex = 0): VenueItem {
+  const id = genVenueItemId(cat.key);
+  const kind = catalogItemKind(cat);
+  const jitter = jitterIndex * 60;
+  if (cat.footprint.shape === "line") {
+    const len = cat.footprint.length;
+    const cy = center.y + jitter;
+    return { id, kind, key: cat.key, x: center.x, y: cy, rotation: 0, z, points: [[center.x - len / 2, cy], [center.x + len / 2, cy]] };
+  }
+  const base = { id, kind, key: cat.key, x: center.x + jitter, y: center.y + jitter, rotation: 0, z };
+  if (cat.footprint.shape === "circle") return { ...base, diameter: cat.footprint.diameter };
+  if (cat.footprint.shape === "rect") return { ...base, w: cat.footprint.w, d: cat.footprint.d };
+  const w = typeof cat.sizeMm.w === "number" ? cat.sizeMm.w : 500;
+  const d = typeof cat.sizeMm.d === "number" ? cat.sizeMm.d : 500;
+  return { ...base, w, d };
+}

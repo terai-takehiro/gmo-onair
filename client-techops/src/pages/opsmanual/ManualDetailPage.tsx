@@ -324,7 +324,7 @@ export default function ManualDetailPage() {
                 )}
               </div>
 
-              <BlockInspector manualId={id} blocks={blocks} selectedBlockId={selectedBlockId} onCommit={commitViaHistory} />
+              <BlockInspector manualId={id} blocks={blocks} selectedBlockId={selectedBlockId} onCommit={commitViaHistory} isManualFixed={isFixed} />
             </fieldset>
           </div>
         </>

@@ -1,0 +1,708 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@100;400;700;800&family=Noto+Sans+JP:wght@100;200;300;400;500;600;700;800;900&family=Noto+Serif+JP:wght@400;700;900&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    button { font-family: inherit; }
+    input { font-family: inherit; }
+    .tap { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .ghost:hover { background: #f2f4f7; }
+    .btn-primary { transition: background-color .12s ease; } .btn-primary:hover { background: #004d91; }
+    .card-tap { transition: border-color .14s ease, box-shadow .14s ease; } .card-tap:hover { border-color: #a6ceeb; box-shadow: 0 4px 14px rgba(26,29,36,.07); }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .field:focus { outline: none; border-color: #005bac; box-shadow: 0 0 0 3px rgba(0,91,172,.14); }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 1000px; position: relative; overflow: hidden; background: #f7f8fa; display: flex; flex-direction: column; color: #1a1d24;">
+
+  <!-- ── 上辺バー（共通シェル・高さ64） ─────────────────────────── -->
+  <header style="display: flex; height: 64px; flex-shrink: 0; align-items: center; gap: 14px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 24px;">
+    <div style="display: flex; align-items: center; gap: 9px;">
+      <div style="width: 28px; height: 28px; border-radius: 9px; background: #005bac; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M7.8 7.8a6 6 0 0 0 0 8.4"></path><path d="M16.2 16.2a6 6 0 0 0 0-8.4"></path><path d="M4.9 4.9a10 10 0 0 0 0 14.2"></path><path d="M19.1 19.1a10 10 0 0 0 0-14.2"></path></svg></div>
+      <span style="font-size: 15px; font-weight: 800; letter-spacing: .01em;">ONAiR</span>
+    </div>
+    <span style="height: 22px; width: 1px; background: #e6e9ed;"></span>
+    <button class="tap" style="display: flex; height: 40px; align-items: center; gap: 10px; border-radius: 10px; border: 1px solid #cfe4f4; background: #f4faff; padding: 0 12px; color: #005bac;">
+      <span style="width: 22px; height: 22px; border-radius: 7px; background: #eaf4fb; display: flex; align-items: center; justify-content: center;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.6"></rect><rect x="14" y="3" width="7" height="7" rx="1.6"></rect><rect x="3" y="14" width="7" height="7" rx="1.6"></rect><rect x="14" y="14" width="7" height="7" rx="1.6"></rect></svg></span>
+      <span style="font-size: 13.5px; font-weight: 700; white-space: nowrap;">制作技術支援</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+    <span class="clip1" style="font-size: 12.5px; color: #5d6470; max-width: 520px;">／ 東都TV 特番収録「サイエンス・フロンティア」 ／ 会場図面</span>
+    <span style="flex: 1;"></span>
+    <button class="tap" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 7px; color: #5d6470;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 4.6 1.8 5.6 1.8 5.6H4.2S6 13.6 6 9z"></path><path d="M10.2 18.4a2 2 0 0 0 3.6 0"></path></svg></button>
+    <button class="tap" style="display: flex; align-items: center; gap: 10px; height: 44px;">
+      <span style="width: 32px; height: 32px; border-radius: 9999px; background: #eaf4fb; color: #005bac; font-size: 13.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;">寺</span>
+      <span style="font-size: 12.5px; white-space: nowrap;">寺井 岳宏</span>
+    </button>
+  </header>
+
+  <div style="display: flex; flex: 1; min-height: 0;">
+
+    <!-- ── 左メニュー（共通シェル・幅248。「ミニアプリ」節の末尾に会場図面） ── -->
+    <aside style="width: 248px; flex-shrink: 0; border-right: 1px solid #e6e9ed; background: #ffffff; padding: 14px 12px 20px; display: flex; flex-direction: column; gap: 2px;">
+      <sc-for list="{{nav}}" as="n" hint-placeholder-count="11">
+        <div style="display: flex; align-items: center; gap: 10px; height: 38px; border-radius: 10px; padding: 0 10px; background: {{n.bg}}; color: {{n.fg}};">
+          <span style="width: 18px; height: 18px; border-radius: 5px; background: {{n.dot}}; flex-shrink: 0;"></span>
+          <span style="font-size: 13.5px; font-weight: {{n.weight}};">{{n.label}}</span>
+        </div>
+      </sc-for>
+      <span style="flex: 1;"></span>
+      <p style="margin: 0; padding: 0 10px; font-size: 11.5px; line-height: 1.6; color: #9aa1ab;">東都TV 特番収録<br>「サイエンス・フロンティア」</p>
+    </aside>
+
+    <!-- ── 本文 ────────────────────────────────────────────── -->
+    <main style="flex: 1; min-width: 0; background: #f7f8fa; overflow: hidden;">
+      <div style="padding: 20px 28px 32px;">
+
+        <button class="tap ghost" style="display: flex; align-items: center; gap: 3px; height: 32px; margin-left: -8px; border-radius: 8px; padding: 0 9px 0 5px; color: #005bac;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg><span style="font-size: 12.5px; font-weight: 700;">案件ホーム</span>
+        </button>
+
+        <!-- 見出し行（PageHeader ＋ 案件の帯） -->
+        <div style="margin-top: 6px; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px;">
+          <div style="min-width: 0;">
+            <h1 style="margin: 0; font-size: 23px; line-height: 1.3; font-weight: 800; letter-spacing: -.01em;">会場図面</h1>
+            <p style="margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; color: #5d6470;">用賀の図面に品目を実寸で置き、運営マニュアルに載せる</p>
+            <div style="margin-top: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span style="font-size: 13.5px; font-weight: 700; color: #3c424c;">東都TV 特番収録「サイエンス・フロンティア」</span>
+              <span class="num" style="display: inline-flex; align-items: center; height: 22px; border-radius: 7px; background: #eaf4fb; color: #005bac; font-size: 11px; font-weight: 700; padding: 0 8px;">GLS-A002</span>
+              <span style="width: 3px; height: 3px; border-radius: 9999px; background: #cbd2da;"></span>
+              <span class="num" style="font-size: 12.5px; color: #5d6470;">第7回 ・ 9/26（土）13:00 ・ GMOサムライスタジオ 用賀</span>
+            </div>
+          </div>
+          <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding-top: 2px;">
+            <button class="tap btn-primary" onClick="{{dlg.show}}" style="display: flex; align-items: center; gap: 7px; height: 38px; border-radius: 10px; background: #005bac; color: #ffffff; padding: 0 16px; font-size: 13px; font-weight: 800;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>会場図面を作る</button>
+          </div>
+        </div>
+
+        <!-- 状態帯（絞り込みが動く） -->
+        <div style="margin-top: 16px; display: flex; align-items: center; gap: 6px; height: 44px; border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 8px;">
+          <sc-for list="{{chips}}" as="c" hint-placeholder-count="3">
+            <button class="tap" onClick="{{c.pick}}" style="display: flex; align-items: center; gap: 7px; height: 32px; border-radius: 9px; padding: 0 11px; background: {{c.bg}}; color: {{c.fg}}; font-size: 12.5px; font-weight: 700;">
+              <span style="width: 7px; height: 7px; border-radius: 9999px; background: {{c.dot}};"></span>{{c.label}}<span class="num" style="font-weight: 800;">{{c.n}}</span>
+            </button>
+          </sc-for>
+          <span style="flex: 1;"></span>
+          <span class="num" style="font-size: 11.5px; color: #9aa1ab; padding-right: 6px;">次の資料番号 {{nextNo}} ・ 自動で振られます</span>
+        </div>
+
+        <div style="margin-top: 16px; display: flex; gap: 16px; align-items: flex-start;">
+
+          <!-- 図面カード（2列） -->
+          <div style="width: 802px; flex-shrink: 0; display: grid; grid-template-columns: repeat(2, 394px); gap: 14px;">
+            <sc-for list="{{cards}}" as="c" hint-placeholder-count="4">
+              <section class="card-tap" style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; overflow: hidden;">
+                <!-- サムネ: 下敷き（floor-26f.png / floor-27f.png）を X/Y 別に伸ばし、品目は mm×k で等方に描く -->
+                <div style="position: relative; width: 392px; height: 148px; background: #eef1f4; border-bottom: 1px solid #e6e9ed; overflow: hidden;">
+                  <img src="{{c.thumb.img.src}}" alt="" style="position: absolute; left: {{c.thumb.img.l}}; top: {{c.thumb.img.t}}; width: {{c.thumb.img.w}}; height: {{c.thumb.img.h}}; max-width: none; opacity: .92;">
+                  <sc-if value="{{c.thumb.hasTint}}" hint-placeholder-val="{{ true }}">
+                    <span style="position: absolute; left: {{c.thumb.tint.l}}; top: {{c.thumb.tint.t}}; width: {{c.thumb.tint.w}}; height: {{c.thumb.tint.h}}; background: rgba(0,91,172,.07); border: 1px solid rgba(0,91,172,.5);"></span>
+                  </sc-if>
+                  <sc-for list="{{c.thumb.items}}" as="i" hint-placeholder-count="12">
+                    <span style="position: absolute; left: {{i.l}}; top: {{i.t}}; width: {{i.w}}; height: {{i.h}}; background: {{i.bg}}; border: {{i.bd}}; border-radius: {{i.r}};"></span>
+                  </sc-for>
+                  <sc-for list="{{c.thumb.segs}}" as="g" hint-placeholder-count="6">
+                    <span style="position: absolute; left: {{g.l}}; top: {{g.t}}; width: {{g.w}}; height: {{g.h}}; border-top: {{g.bt}}; border-left: {{g.bl}};"></span>
+                  </sc-for>
+                  <span style="position: absolute; left: 8px; top: 8px; display: inline-flex; align-items: center; height: 20px; border-radius: 6px; background: rgba(255,255,255,.94); border: 1px solid #cfe4f4; color: #005bac; font-size: 11px; font-weight: 800; padding: 0 7px;">{{c.areaTag}}</span>
+                  <span style="position: absolute; right: 6px; bottom: 5px; display: flex; align-items: flex-end; gap: 5px; border-radius: 5px; background: rgba(255,255,255,.88); padding: 3px 6px 3px;">
+                    <span style="width: {{c.thumb.bar}}; height: 5px; border-left: 1.5px solid #1a1d24; border-right: 1.5px solid #1a1d24; border-bottom: 1.5px solid #1a1d24;"></span>
+                    <span class="num" style="font-size: 10px; font-weight: 700; color: #1a1d24; line-height: 1;">{{c.thumb.barLabel}}</span>
+                  </span>
+                </div>
+
+                <div style="padding: 10px 14px 10px;">
+                  <div style="display: flex; align-items: center; gap: 7px; height: 21px;">
+                    <span class="num" style="font-size: 11px; font-weight: 700; color: #9aa1ab;">{{c.docNo}}</span>
+                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 56px; height: 21px; border-radius: 6px; background: {{c.badgeBg}}; color: {{c.badgeFg}}; font-size: 11px; font-weight: 800;">{{c.badge}}</span>
+                    <span class="num" style="font-size: 11px; font-weight: 700; color: #197a4b;">{{c.rev}}</span>
+                    <span style="flex: 1;"></span>
+                    <span class="num" style="display: inline-flex; align-items: center; justify-content: center; min-width: 40px; height: 21px; border-radius: 6px; background: {{c.planBg}}; color: #3c424c; font-size: 11px; font-weight: 800;">{{c.plan}}</span>
+                  </div>
+                  <div class="clip1" style="margin-top: 6px; font-size: 15px; line-height: 1.35; font-weight: 800;">{{c.title}}</div>
+                  <div class="clip1" style="margin-top: 3px; font-size: 12px; line-height: 1.4; color: #5d6470;">{{c.place}}</div>
+
+                  <div style="margin-top: 6px; display: flex; align-items: center; gap: 6px; height: 24px; border-radius: 7px; background: {{c.note.bg}}; padding: 0 8px;">
+                    <sc-if value="{{c.note.isBook}}" hint-placeholder-val="{{ true }}">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#197a4b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path></svg>
+                    </sc-if>
+                    <sc-if value="{{c.note.isOk}}" hint-placeholder-val="{{ true }}">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#197a4b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>
+                    </sc-if>
+                    <span class="clip1 num" style="font-size: 11.5px; font-weight: 700; color: {{c.note.fg}};">{{c.note.text}}</span>
+                  </div>
+
+                  <div class="clip1 num" style="margin-top: 5px; font-size: 12px; line-height: 1.4; color: #5d6470;">{{c.meta}}</div>
+
+                  <div style="margin-top: 8px; display: flex; align-items: center; gap: 7px;">
+                    <button class="tap" onClick="{{c.open}}" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; height: 32px; border-radius: 9px; border: 1px solid {{c.primaryBorder}}; background: {{c.primaryBg}}; color: {{c.primaryFg}}; font-size: 12.5px; font-weight: 800;">{{c.primaryLabel}}</button>
+                    <button class="tap ghost" onClick="{{c.dup}}" style="display: flex; align-items: center; justify-content: center; gap: 5px; height: 32px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 11px; font-size: 12.5px; font-weight: 700;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>複製</button>
+                    <button class="tap ghost" onClick="{{c.more}}" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5.5" r="1.2"></circle><circle cx="12" cy="12" r="1.2"></circle><circle cx="12" cy="18.5" r="1.2"></circle></svg></button>
+                  </div>
+                </div>
+              </section>
+            </sc-for>
+          </div>
+
+          <!-- 用賀の階と縮尺 -->
+          <aside style="width: 318px; flex-shrink: 0; border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; padding: 14px 14px 12px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="width: 26px; height: 26px; border-radius: 8px; background: #eaf4fb; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0z"></path><path d="M14.5 12.5l2-2"></path><path d="M11.5 9.5l2-2"></path><path d="M8.5 6.5l2-2"></path><path d="M17.5 15.5l2-2"></path></svg></span>
+              <span style="font-size: 15px; font-weight: 800;">用賀の階と縮尺</span>
+            </div>
+            <p style="margin: 5px 0 0; font-size: 11.5px; line-height: 1.5; color: #9aa1ab;">GMOサムライスタジオ 用賀 ・ 縮尺は階の下敷きが持ちます</p>
+
+            <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+              <sc-for list="{{floorRows}}" as="f" hint-placeholder-count="2">
+                <div style="display: flex; gap: 10px; border-radius: 10px; border: 1px solid #e6e9ed; padding: 8px 10px 8px 8px;">
+                  <span style="width: 44px; height: 60px; flex-shrink: 0; border-radius: 4px; border: 1px solid #cbd2da; background: #ffffff; overflow: hidden; display: flex; align-items: center; justify-content: center;"><img src="{{f.file}}" alt="" style="width: 42px; height: 58px; display: block;"></span>
+                  <div style="min-width: 0; flex: 1;">
+                    <div style="display: flex; align-items: center; gap: 7px;">
+                      <span style="font-size: 13.5px; font-weight: 800;">{{f.label}}</span>
+                      <span style="display: inline-flex; align-items: center; gap: 4px; height: 20px; border-radius: 6px; background: #e7f6ee; color: #197a4b; font-size: 11px; font-weight: 800; padding: 0 7px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#197a4b" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>縮尺確認済み</span>
+                    </div>
+                    <div class="num" style="margin-top: 3px; font-size: 11.5px; color: #3c424c;">{{f.verified}}</div>
+                    <div style="margin-top: 2px; font-size: 11px; line-height: 1.45; color: #9aa1ab;">{{f.rooms}}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="margin-top: 12px; display: flex; align-items: baseline; gap: 6px;">
+              <span style="font-size: 12.5px; font-weight: 800;">4点検算</span>
+              <span class="num" style="font-size: 11px; color: #9aa1ab;">差 ±60mm 以内で確認済みになる</span>
+            </div>
+            <div style="margin-top: 6px; border-top: 1px solid #e6e9ed;">
+              <div style="display: grid; grid-template-columns: 86px 68px 68px 68px; height: 22px; align-items: center; font-size: 10.5px; font-weight: 800; color: #9aa1ab; border-bottom: 1px solid #e6e9ed;">
+                <span>測る線</span><span class="num" style="text-align: right;">図の値</span><span class="num" style="text-align: right;">26F</span><span class="num" style="text-align: right;">27F</span>
+              </div>
+              <sc-for list="{{checks}}" as="k" hint-placeholder-count="4">
+                <div style="display: grid; grid-template-columns: 86px 68px 68px 68px; height: 24px; align-items: center; font-size: 11px; border-bottom: 1px solid #f2f4f7;">
+                  <span class="clip1" style="font-weight: 700; color: #3c424c;">{{k.label}}</span>
+                  <span class="num" style="text-align: right; color: #5d6470;">{{k.plan}}</span>
+                  <span class="num" style="text-align: right; font-weight: 700;">{{k.f26}}</span>
+                  <span class="num" style="text-align: right; font-weight: 700;">{{k.f27}}</span>
+                </div>
+              </sc-for>
+            </div>
+            <p style="margin: 8px 0 0; font-size: 11px; line-height: 1.5; color: #5d6470;">単位 mm。線で測る。ラベルの円で測らない。最後は書き出した 1m バーに定規を当てる。</p>
+
+            <div style="margin-top: 10px; display: flex; gap: 6px;">
+              <button class="tap ghost" onClick="{{manage.floors}}" style="display: flex; align-items: center; gap: 5px; height: 30px; border-radius: 8px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 10px; font-size: 12px; font-weight: 700;">会場と階を管理</button>
+              <button class="tap ghost" onClick="{{manage.catalog}}" style="display: flex; align-items: center; gap: 5px; height: 30px; border-radius: 8px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 10px; font-size: 12px; font-weight: 700;">備品カタログ</button>
+            </div>
+          </aside>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ── 薄い帯（未実装の操作 ／ 作った・複製した の知らせ） ─────────── -->
+  <sc-if value="{{notice.on}}" hint-placeholder-val="{{ true }}">
+    <div style="position: absolute; left: 276px; bottom: 22px; z-index: 10; display: flex; align-items: center; gap: 9px; height: 40px; border-radius: 11px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 6px 0 13px; box-shadow: 0 8px 24px rgba(26,29,36,.14);">
+      <sc-if value="{{notice.isTodo}}" hint-placeholder-val="{{ true }}">
+        <span style="width: 7px; height: 7px; border-radius: 9999px; background: #c2410e; flex-shrink: 0;"></span>
+      </sc-if>
+      <sc-if value="{{notice.isOk}}" hint-placeholder-val="{{ true }}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#197a4b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>
+      </sc-if>
+      <span class="num" style="font-size: 12.5px; font-weight: 800; color: #1a1d24;">{{notice.title}}</span>
+      <span class="num" style="font-size: 12px; color: #5d6470;">{{notice.text}}</span>
+      <button class="tap ghost" onClick="{{notice.close}}" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 7px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg></button>
+    </div>
+  </sc-if>
+
+  <!-- ── 作成ダイアログ（名前 ／ 階とエリア ／ 始め方 の3手） ─────────── -->
+  <sc-if value="{{dlg.open}}" hint-placeholder-val="{{ true }}">
+    <div onClick="{{dlg.close}}" style="position: absolute; inset: 0; z-index: 20; background: rgba(26,29,36,.34); display: flex; align-items: center; justify-content: center;">
+      <div onClick="{{dlg.stop}}" role="dialog" style="width: 660px; max-height: 900px; overflow: auto; border-radius: 16px; background: #ffffff; box-shadow: 0 20px 60px rgba(26,29,36,.28); display: flex; flex-direction: column;">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 18px 22px 0;">
+          <h2 style="margin: 0; font-size: 19px; font-weight: 800;">会場図面を作る</h2>
+          <span class="num" style="font-size: 11.5px; color: #9aa1ab;">資料番号 {{dlg.nextNo}}</span>
+          <span style="flex: 1;"></span>
+          <button class="tap ghost" onClick="{{dlg.close}}" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg></button>
+        </div>
+        <p style="margin: 4px 22px 0; font-size: 12.5px; line-height: 1.5; color: #5d6470;">名前・階とエリア・始め方の3つで作れます。縮尺は階の下敷きが持っているので、決めることはありません。</p>
+
+        <div style="padding: 14px 22px 0; display: flex; flex-direction: column; gap: 16px;">
+
+          <!-- ① 名前 -->
+          <div>
+            <div style="display: flex; align-items: center; gap: 7px;">
+              <span class="num" style="width: 20px; height: 20px; border-radius: 9999px; background: #005bac; color: #ffffff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center;">1</span>
+              <span style="font-size: 13px; font-weight: 800;">名前</span>
+            </div>
+            <input class="field num" type="text" placeholder="例: WORLD STUDIO C案" onInput="{{dlg.setName}}" style="margin-top: 7px; width: 100%; height: 40px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 13.5px; color: #1a1d24;">
+          </div>
+
+          <!-- ② 階とエリア -->
+          <div>
+            <div style="display: flex; align-items: center; gap: 7px;">
+              <span class="num" style="width: 20px; height: 20px; border-radius: 9999px; background: #005bac; color: #ffffff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center;">2</span>
+              <span style="font-size: 13px; font-weight: 800;">階とエリア</span>
+              <span style="font-size: 11.5px; color: #9aa1ab;">1枚の図面は1エリア。動線は「階全体」で</span>
+            </div>
+            <div style="margin-top: 7px; display: flex; gap: 12px; align-items: flex-start;">
+              <div style="flex: 1; min-width: 0;">
+                <div style="display: inline-flex; gap: 4px; border-radius: 10px; border: 1px solid #e6e9ed; background: #f7f8fa; padding: 3px;">
+                  <sc-for list="{{dlg.floors}}" as="f" hint-placeholder-count="2">
+                    <button class="tap" onClick="{{f.pick}}" style="display: flex; align-items: center; justify-content: center; width: 64px; height: 30px; border-radius: 8px; background: {{f.bg}}; color: {{f.fg}}; font-size: 12.5px; font-weight: 800; box-shadow: {{f.shadow}};">{{f.label}}</button>
+                  </sc-for>
+                </div>
+                <div style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px;">
+                  <sc-for list="{{dlg.areas}}" as="a" hint-placeholder-count="7">
+                    <button class="tap" onClick="{{a.pick}}" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; height: 42px; border-radius: 10px; border: 1px solid {{a.border}}; background: {{a.bg}}; padding: 0 11px;">
+                      <span style="font-size: 12.5px; font-weight: 800; color: {{a.fg}}; white-space: nowrap;">{{a.label}}</span>
+                      <span class="num" style="font-size: 10.5px; color: #9aa1ab; white-space: nowrap;">{{a.size}}</span>
+                    </button>
+                  </sc-for>
+                </div>
+                <p style="margin: 7px 0 0; font-size: 11px; line-height: 1.5; color: #9aa1ab;">㎡は内法（壁の内側）。図の表記（壁芯）より小さく出ます。</p>
+              </div>
+              <!-- 選んだ階・エリアの見え方（同じ縮尺の仕組みで描く） -->
+              <div style="width: 200px; flex-shrink: 0;">
+                <div style="position: relative; width: 200px; height: 120px; border-radius: 10px; border: 1px solid #e6e9ed; background: #eef1f4; overflow: hidden;">
+                  <img src="{{dlg.preview.img.src}}" alt="" style="position: absolute; left: {{dlg.preview.img.l}}; top: {{dlg.preview.img.t}}; width: {{dlg.preview.img.w}}; height: {{dlg.preview.img.h}}; max-width: none; opacity: .92;">
+                  <sc-if value="{{dlg.preview.hasTint}}" hint-placeholder-val="{{ true }}">
+                    <span style="position: absolute; left: {{dlg.preview.tint.l}}; top: {{dlg.preview.tint.t}}; width: {{dlg.preview.tint.w}}; height: {{dlg.preview.tint.h}}; background: rgba(0,91,172,.07); border: 1px solid rgba(0,91,172,.5);"></span>
+                  </sc-if>
+                  <span style="position: absolute; right: 5px; bottom: 4px; display: flex; align-items: flex-end; gap: 4px; border-radius: 5px; background: rgba(255,255,255,.88); padding: 3px 5px 3px;">
+                    <span style="width: {{dlg.preview.bar}}; height: 5px; border-left: 1.5px solid #1a1d24; border-right: 1.5px solid #1a1d24; border-bottom: 1.5px solid #1a1d24;"></span>
+                    <span class="num" style="font-size: 10px; font-weight: 700; color: #1a1d24; line-height: 1;">{{dlg.preview.barLabel}}</span>
+                  </span>
+                </div>
+                <div class="clip1 num" style="margin-top: 5px; font-size: 11px; color: #5d6470; text-align: center;">{{dlg.previewTag}}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ③ 始め方 -->
+          <div>
+            <div style="display: flex; align-items: center; gap: 7px;">
+              <span class="num" style="width: 20px; height: 20px; border-radius: 9999px; background: #005bac; color: #ffffff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center;">3</span>
+              <span style="font-size: 13px; font-weight: 800;">始め方</span>
+            </div>
+            <div style="margin-top: 7px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+              <sc-for list="{{dlg.starts}}" as="s" hint-placeholder-count="3">
+                <button class="tap" onClick="{{s.pick}}" style="display: flex; align-items: center; gap: 10px; height: 60px; border-radius: 11px; border: 1px solid {{s.border}}; background: {{s.bg}}; padding: 0 12px;">
+                  <span style="width: 30px; height: 30px; border-radius: 8px; background: {{s.iconBg}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <sc-if value="{{s.isBlank}}" hint-placeholder-val="{{ true }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{s.fg}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path></svg></sc-if>
+                    <sc-if value="{{s.isTpl}}" hint-placeholder-val="{{ true }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{s.fg}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="7" rx="1"></rect><rect x="3" y="14" width="9" height="7" rx="1"></rect><rect x="16" y="14" width="5" height="7" rx="1"></rect></svg></sc-if>
+                    <sc-if value="{{s.isCopy}}" hint-placeholder-val="{{ true }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{s.fg}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></sc-if>
+                  </span>
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+                    <span style="font-size: 12.5px; font-weight: 800; color: {{s.fg}}; white-space: nowrap;">{{s.label}}</span>
+                    <span class="clip1" style="font-size: 11px; color: #9aa1ab;">{{s.desc}}</span>
+                  </span>
+                </button>
+              </sc-for>
+            </div>
+            <sc-if value="{{dlg.isTpl}}" hint-placeholder-val="{{ true }}">
+              <div style="margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; border-radius: 10px; background: #f7f8fa; padding: 8px 10px;">
+                <span style="font-size: 11.5px; font-weight: 700; color: #5d6470; margin-right: 2px;">ひな形</span>
+                <sc-for list="{{dlg.tpls}}" as="t" hint-placeholder-count="4">
+                  <button class="tap num" onClick="{{t.pick}}" style="display: flex; align-items: center; height: 30px; border-radius: 8px; border: 1px solid {{t.border}}; background: {{t.bg}}; color: {{t.fg}}; padding: 0 11px; font-size: 12px; font-weight: 700; white-space: nowrap;">{{t.label}}</button>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{dlg.isCopy}}" hint-placeholder-val="{{ true }}">
+              <div style="margin-top: 8px; border-radius: 10px; border: 1px solid #e6e9ed; overflow: hidden;">
+                <sc-for list="{{dlg.copies}}" as="p" hint-placeholder-count="4">
+                  <button class="tap ghost" onClick="{{p.pick}}" style="display: flex; align-items: center; gap: 9px; width: 100%; height: 34px; padding: 0 12px; background: {{p.bg}}; border-bottom: 1px solid #f2f4f7;">
+                    <span style="width: 14px; height: 14px; border-radius: 9999px; border: 1.5px solid {{p.ring}}; background: {{p.dot}}; box-shadow: inset 0 0 0 2.5px #ffffff; flex-shrink: 0;"></span>
+                    <span class="num" style="width: 112px; font-size: 11px; font-weight: 700; color: #9aa1ab; flex-shrink: 0;">{{p.docNo}}</span>
+                    <span class="clip1" style="font-size: 12.5px; font-weight: 700; color: {{p.fg}}; min-width: 0;">{{p.title}}</span>
+                    <span style="flex: 1;"></span>
+                    <span class="num clip1" style="font-size: 11px; color: #9aa1ab;">{{p.place}}</span>
+                  </button>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 18px 22px 20px;">
+          <button class="tap ghost" onClick="{{dlg.close}}" style="display: flex; align-items: center; height: 38px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 16px; font-size: 13px; font-weight: 700;">キャンセル</button>
+          <button class="tap btn-primary" onClick="{{dlg.create}}" style="display: flex; align-items: center; height: 38px; border-radius: 10px; background: #005bac; color: #ffffff; padding: 0 18px; font-size: 13px; font-weight: 800;">作る</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+
+<script data-dc-script>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filter: 'all', dlg: false, name: '', floor: '26f', area: 'world-studio', start: 'blank', tpl: 'theater', copyFrom: 'vl3', notice: null, added: [] };
+  }
+
+  nav() {
+    return [
+      { label: 'トップ', dot: '#e6e9ed', on: false },
+      { label: '案件ホーム', dot: '#e6e9ed', on: false },
+      { label: '進行台本', dot: '#005bac', on: false },
+      { label: 'スケジュール表', dot: '#197a4b', on: false },
+      { label: '収録設定', dot: '#c2410e', on: false },
+      { label: '配信設定', dot: '#c2410e', on: false },
+      { label: 'レンタル機材検索', dot: '#4338ca', on: false },
+      { label: '計時・視聴者', dot: '#8b5cf6', on: false },
+      { label: 'テロップCG', dot: '#8b5cf6', on: false },
+      { label: '運営マニュアル', dot: '#005bac', on: false },
+      { label: '会場図面', dot: '#005bac', on: true },
+    ];
+  }
+
+  // 下敷き（venue-data.json の underlays: floor-26f.png / floor-27f.png）。X と Y で pxPerMm が違う（4.3%）
+  underlay() { return { pxPerMmX: 0.011667, pxPerMmY: 0.012172, originMm: { x: 4493, y: -1525 }, widthPx: 420, heightPx: 584 }; }
+
+  floors() {
+    return [
+      { key: '26f', label: '26F', file: 'floor-26f.png', areas: ['world-studio', 'sky-studio', 'whole'], rooms: 'WORLD STUDIO ・ SKY STUDIO ・ 第1/第2調整室 ・ マシンルーム' },
+      { key: '27f', label: '27F', file: 'floor-27f.png', areas: ['lounge-studio', 'meeting-room', 'room-a', 'room-b', 'room-c', 'vip-lounge', 'whole'], rooms: 'LOUNGE STUDIO ・ MEETING ROOM ・ ROOM A/B/C ・ VIP LOUNGE' },
+    ];
+  }
+
+  // エリアの内法 bbox（venue-data.json の areas）。単位 mm・原点は X16×Y16
+  areas() {
+    return {
+      'world-studio': { floor: '26f', label: 'WORLD STUDIO', x: 13680, y: 11900, w: 17440, h: 18480, m2: 322 },
+      'sky-studio':   { floor: '26f', label: 'SKY STUDIO',   x: 13680, y: 3070,  w: 17440, h: 8696,  m2: 152 },
+      'lounge-studio':{ floor: '27f', label: 'LOUNGE STUDIO',x: 28480, y: 12980, w: 9910,  h: 15690, m2: 156 },
+      'meeting-room': { floor: '27f', label: 'MEETING ROOM', x: 6380,  y: 11990, w: 7080,  h: 3775,  m2: 27 },
+      'room-a':       { floor: '27f', label: 'ROOM A',       x: 6380,  y: 16130, w: 7080,  h: 2935,  m2: 21 },
+      'room-b':       { floor: '27f', label: 'ROOM B',       x: 6380,  y: 19340, w: 7080,  h: 2935,  m2: 21 },
+      'room-c':       { floor: '27f', label: 'ROOM C',       x: 6380,  y: 22520, w: 7080,  h: 2980,  m2: 21 },
+      'vip-lounge':   { floor: '27f', label: 'VIP LOUNGE',   x: 6380,  y: 25730, w: 7080,  h: 4530,  m2: 32 },
+    };
+  }
+
+  // ── 品目（catalog.json の寸法。mm・左上基準） ──
+  chair(x, y) { return { x: x, y: y, w: 535, h: 490, bg: '#005bac', r: '1px' }; }                      // ルベックチェア 535×490
+  desk(x, y) { return { x: x, y: y, w: 1800, h: 600, bg: '#ffffff', bd: '1px solid #3c424c' }; }      // 長机 1,800×600
+
+  // 劇場形式: 椅子 5列×(5＋通路 1,200＋5)・横 550・縦 900・LED ウォールの手前 1,500 を空ける
+  theater(a) {
+    const rows = Math.max(1, Math.min(5, Math.floor((a.h - 2200) / 900)));
+    const blockW = 10 * 550 + 1200 - 15;
+    const left = a.x + a.w / 2 - blockW / 2;
+    const front = a.y + a.h - 230 - 1500 - 490;
+    const out = [];
+    for (let r = 0; r < rows; r++) for (let s = 0; s < 2; s++) for (let c = 0; c < 5; c++) out.push(this.chair(left + s * (5 * 550 + 1200) + c * 550, front - r * 900));
+    return { items: out, text: '劇場形式 ' + out.length + '脚 ・ ルベックチェア ' + out.length + '/80' };
+  }
+
+  // スクール形式: 長机 3列×4行（行ピッチ 1,500）・椅子は机の後ろに2脚
+  school(a) {
+    const rows = Math.max(1, Math.min(4, Math.floor((a.h - 1200) / 1500)));
+    const left = a.x + a.w / 2 - 3300;
+    const front = a.y + a.h - 230 - 1500 - 600;
+    const out = [];
+    for (let r = 0; r < rows; r++) for (let c = 0; c < 3; c++) {
+      const dx = left + c * 2400, dy = front - r * 1500;
+      out.push(this.desk(dx, dy));
+      out.push(this.chair(dx + 250, dy - 550));
+      out.push(this.chair(dx + 1015, dy - 550));
+    }
+    return { items: out, text: 'スクール形式 ・ 長机 ' + (rows * 3) + '/20 ・ 椅子 ' + (rows * 6) + '/80' };
+  }
+
+  // 円卓: ハイテーブル Ø600 ×6（3×2・ピッチ 2,400）・椅子4脚（半径 550）
+  round(a) {
+    const out = [];
+    const cx0 = a.x + a.w / 2 - 2400, cy0 = a.y + a.h / 2 - 1200;
+    for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++) {
+      const cx = cx0 + c * 2400, cy = cy0 + r * 2400;
+      out.push({ x: cx - 300, y: cy - 300, w: 600, h: 600, bg: '#ffffff', bd: '1px solid #3c424c', r: '9999px' });
+      out.push(this.chair(cx - 267, cy - 550 - 245));
+      out.push(this.chair(cx - 267, cy + 550 - 245));
+      out.push(this.chair(cx - 550 - 267, cy - 245));
+      out.push(this.chair(cx + 550 - 267, cy - 245));
+    }
+    return { items: out, text: '円卓 6卓 ・ 椅子 24/80' };
+  }
+
+  // 受付: 入口側（北）に長机2・後ろに椅子4・ベルトパーテーション3本（1本＝支柱1本・ベルト 2,000）・ハンガーラック2
+  reception(a) {
+    const cx = a.x + a.w / 2, top = a.y + 1200;
+    const out = [this.desk(cx - 1850, top), this.desk(cx + 50, top)];
+    [cx - 1850, cx + 50].forEach((dx) => { out.push(this.chair(dx + 250, top + 660)); out.push(this.chair(dx + 1015, top + 660)); });
+    out.push({ x: cx - 4300, y: a.y + 880, w: 2000, h: 40, bg: '#3c424c' });
+    for (let i = 0; i < 3; i++) out.push({ x: cx - 4300 - 175 + i * 1000, y: a.y + 900 - 175, w: 350, h: 350, bg: '#ffffff', bd: '1.5px solid #3c424c', r: '9999px' });
+    out.push({ x: cx + 2600, y: a.y + 700, w: 1230, h: 500, bg: '#ffffff', bd: '1px solid #3c424c' });
+    out.push({ x: cx + 2600, y: a.y + 1400, w: 1230, h: 500, bg: '#ffffff', bd: '1px solid #3c424c' });
+    return { items: out, text: '受付 ・ 長机 2/20 ・ ベルトパーテーション 3/10' };
+  }
+
+  tplItems(key, a) {
+    if (key === 'theater') return this.theater(a);
+    if (key === 'school') return this.school(a);
+    if (key === 'round') return this.round(a);
+    return this.reception(a);
+  }
+
+  // 固定物（venue-data.json の fixtures）: 26F WORLD STUDIO の LED ウォール・搬入用 ELV13
+  fixtures(d) {
+    if (d.floor === '26f' && d.area === 'world-studio') return [{ x: 18135, y: 30150, w: 8530, h: 150, bg: '#1a1d24' }];
+    if (d.floor === '26f' && d.area === 'whole') return [{ x: 9995, y: 37700, w: 1850, h: 2010, bg: 'rgba(25,122,75,.18)', bd: '1px solid #197a4b' }];
+    return [];
+  }
+
+  base() {
+    const A = this.areas();
+    const th = this.theater(A['world-studio']);
+    const sc = this.school(A['world-studio']);
+    const rc = this.reception(A['lounge-studio']);
+    return [
+      { id: 'vl3', docNo: 'VL-202609-0003', title: 'WORLD STUDIO A案', plan: 'A案', floor: '26f', area: 'world-studio', anchor: 'south', state: 'draft', rev: '', updated: '2026/09/13 14:02 更新', by: '寺井 岳宏', note: { kind: 'plain', text: th.text }, items: th.items },
+      { id: 'vl4', docNo: 'VL-202609-0004', title: 'WORLD STUDIO B案', plan: 'B案', floor: '26f', area: 'world-studio', anchor: 'south', state: 'draft', rev: '', updated: '2026/09/12 18:35 更新', by: '佐藤 美咲', note: { kind: 'plain', text: sc.text }, items: sc.items },
+      { id: 'vl1', docNo: 'VL-202609-0001', title: '27F LOUNGE STUDIO 受付', plan: '', floor: '27f', area: 'lounge-studio', anchor: 'north', state: 'fixed', rev: 'rev.1', updated: '2026/09/10 11:20 確定', by: '寺井 岳宏', note: { kind: 'book', text: '冊子 OM-202609-0007 に載っています（確定済）' }, items: rc.items },
+      { id: 'vl2', docNo: 'VL-202609-0002', title: '26F 階全体 動線', plan: '', floor: '26f', area: 'whole', anchor: 'north', state: 'draft', rev: '', updated: '2026/09/09 16:30 更新', by: '佐藤 美咲', note: { kind: 'ok', text: '縮尺確認済み 2026/09/13（寺井）' }, items: [],
+        route: [[10920, 38680], [8790, 38680], [8790, 36630], [10300, 36630], [10300, 33200], [16200, 33200], [16200, 30380]] },
+    ];
+  }
+
+  allDrawings() { return this.state.added.slice().reverse().concat(this.base()); }
+
+  // サムネ: 下敷きを等方の mm 空間に X/Y 別に伸ばして貼り、品目は mm × k で描く（concept-final §5-2）
+  thumbFor(d, tw, th) {
+    const U = this.underlay();
+    const A = this.areas();
+    const fl = this.floors().find((f) => f.key === d.floor);
+    const area = d.area && d.area !== 'whole' ? A[d.area] : null;
+    const uw = U.widthPx / U.pxPerMmX;   // 下敷きが覆う幅 mm（≈36,000）
+    const uh = U.heightPx / U.pxPerMmY;  // 下敷きが覆う高さ mm（≈48,000）
+    let k, x0, y0;
+    if (!area) {
+      k = th / uh;
+      x0 = U.originMm.x - (tw - uw * k) / 2 / k;
+      y0 = U.originMm.y;
+    } else {
+      k = Math.min(0.02, Math.max(tw / uw, (th - 20) / (area.h + 400)));  // 下敷きが幅いっぱいになる k を下限に
+      const cx = area.x + area.w / 2;
+      if (uw * k >= tw) x0 = Math.max(U.originMm.x, Math.min(cx - tw / 2 / k, U.originMm.x + uw - tw / k));
+      else x0 = U.originMm.x - (tw - uw * k) / 2 / k;
+      const visH = th / k;
+      if (area.h + 600 <= visH) y0 = area.y - (visH - area.h) / 2;
+      else y0 = d.anchor === 'south' ? area.y + area.h + 300 - visH : area.y - 300;
+    }
+    const px = (n) => (Math.round(n * 10) / 10) + 'px';
+    const X = (mm) => (mm - x0) * k;
+    const Y = (mm) => (mm - y0) * k;
+    const rect = (it) => ({ l: px(X(it.x)), t: px(Y(it.y)), w: px(Math.max(1.5, it.w * k)), h: px(Math.max(1.5, it.h * k)), bg: it.bg, bd: it.bd || 'none', r: it.r || '0' });
+    const items = this.fixtures(d).concat(d.items || []).map(rect);
+    const segs = [];  // 動線: 縦横の線分だけ（点線の span で描く）
+    const pts = d.route || [];
+    for (let i = 1; i < pts.length; i++) {
+      const ax = X(pts[i - 1][0]), ay = Y(pts[i - 1][1]), bx = X(pts[i][0]), by = Y(pts[i][1]);
+      if (Math.abs(by - ay) < Math.abs(bx - ax)) segs.push({ l: px(Math.min(ax, bx)), t: px(ay - 1), w: px(Math.abs(bx - ax)), h: '0px', bt: '2px dashed #c2410e', bl: 'none' });
+      else segs.push({ l: px(ax - 1), t: px(Math.min(ay, by)), w: '0px', h: px(Math.abs(by - ay)), bt: 'none', bl: '2px dashed #c2410e' });
+    }
+    const barMm = [10000, 5000, 2000, 1000].find((mm) => mm * k <= tw / 4) || 1000;  // 縮尺の目安（ズームに追従）
+    return {
+      img: { src: fl.file, l: px(X(U.originMm.x)), t: px(Y(U.originMm.y)), w: px(uw * k), h: px(uh * k) },
+      hasTint: !!area,
+      tint: area ? rect({ x: area.x, y: area.y, w: area.w, h: area.h }) : { l: '0', t: '0', w: '0', h: '0' },
+      items: items,
+      segs: segs,
+      bar: px(barMm * k),
+      barLabel: (barMm / 1000) + 'm',
+    };
+  }
+
+  nextNo() { return 'VL-202609-' + String(5 + this.state.added.length).padStart(4, '0'); }
+  nowLabel() { const t = new Date(); return '今日 ' + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0') + ' 更新'; }
+  notify(tone, title, text) { this.setState({ notice: { tone: tone, title: title, text: text } }); }
+
+  duplicate(d) {
+    const st = this.state;
+    const n = { ...d, id: 'new' + (st.added.length + 1), docNo: this.nextNo(), title: d.title + '（複製）', state: 'draft', rev: '', updated: this.nowLabel(), by: '寺井 岳宏', note: { kind: 'plain', text: '複製元 ' + d.docNo } };
+    this.setState({ added: st.added.concat([n]), notice: { tone: 'ok', title: n.docNo + ' を作りました', text: d.docNo + ' の複製。続けて編集画面が開きます' } });
+  }
+
+  create() {
+    const st = this.state;
+    const A = this.areas();
+    const src = st.start === 'copy' ? this.allDrawings().find((d) => d.id === st.copyFrom) : null;
+    const floorKey = src ? src.floor : st.floor;
+    const areaKey = src ? src.area : st.area;
+    const fl = this.floors().find((f) => f.key === floorKey);
+    const area = areaKey === 'whole' ? null : A[areaKey];
+    const areaLabel = area ? area.label : '階全体';
+    let items = [], route = null, noteText = '空の図面 ・ まだ品目を置いていません';
+    if (src) { items = src.items || []; route = src.route || null; noteText = '複製元 ' + src.docNo; }
+    else if (st.start === 'tpl' && area) { const t = this.tplItems(st.tpl, area); items = t.items; noteText = t.text; }
+    const name = (st.name || '').trim() || (area ? area.label : fl.label + ' 階全体');
+    const d = { id: 'new' + (st.added.length + 1), docNo: this.nextNo(), title: name, plan: '', floor: floorKey, area: areaKey, anchor: 'north', state: 'draft', rev: '', updated: this.nowLabel(), by: '寺井 岳宏', note: { kind: 'plain', text: noteText }, items: items, route: route };
+    this.setState({ added: st.added.concat([d]), dlg: false, name: '', notice: { tone: 'ok', title: d.docNo + ' を作りました', text: fl.label + ' ' + areaLabel + ' ・ 続けて編集画面が開きます' } });
+  }
+
+  renderVals() {
+    const self = this;
+    const st = this.state;
+    const A = this.areas();
+    const floors = this.floors();
+    const fmt = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const all = this.allDrawings();
+
+    const counts = { all: all.length, draft: 0, fixed: 0 };
+    all.forEach((d) => { counts[d.state] += 1; });
+    const chipDefs = [
+      { key: 'all', label: 'すべて', dot: '#5d6470' },
+      { key: 'draft', label: '下書き', dot: '#c2410e' },
+      { key: 'fixed', label: '確定', dot: '#197a4b' },
+    ];
+    const chips = chipDefs.map((c) => ({
+      label: c.label, dot: c.dot, n: counts[c.key],
+      bg: st.filter === c.key ? '#eaf4fb' : 'transparent',
+      fg: st.filter === c.key ? '#005bac' : '#3c424c',
+      pick: () => self.setState({ filter: c.key }),
+    }));
+
+    const cards = all
+      .filter((d) => (st.filter === 'all' ? true : d.state === st.filter))
+      .map((d) => {
+        const fl = floors.find((f) => f.key === d.floor);
+        const areaLabel = d.area === 'whole' ? '階全体' : A[d.area].label;
+        const draft = d.state === 'draft';
+        const noteBg = d.note.kind === 'plain' ? '#f7f8fa' : '#e7f6ee';
+        const noteFg = d.note.kind === 'plain' ? '#3c424c' : '#197a4b';
+        return {
+          docNo: d.docNo, title: d.title,
+          plan: d.plan, planBg: d.plan ? '#f2f4f7' : 'transparent',
+          badge: draft ? '下書き' : '確定', badgeBg: draft ? '#fff7ed' : '#e7f6ee', badgeFg: draft ? '#c2410e' : '#197a4b', rev: d.rev,
+          areaTag: fl.label + ' ・ ' + areaLabel,
+          place: 'GMOサムライスタジオ 用賀 ・ ' + fl.label + ' ・ ' + areaLabel,
+          note: { text: d.note.text, bg: noteBg, fg: noteFg, isBook: d.note.kind === 'book', isOk: d.note.kind === 'ok' },
+          meta: d.updated + ' ・ ' + d.by,
+          primaryLabel: draft ? '編集' : '開く',
+          primaryBorder: draft ? '#005bac' : '#e6e9ed', primaryBg: draft ? '#005bac' : '#ffffff', primaryFg: draft ? '#ffffff' : '#1a1d24',
+          thumb: self.thumbFor(d, 392, 148),
+          open: () => self.notify('todo', 'これから作ります', (draft ? '編集' : '開く') + '（' + d.docNo + '）は別のアートボードに描いています'),
+          dup: () => self.duplicate(d),
+          more: () => self.notify('todo', 'これから作ります', 'その他の操作（削除・名前の変更・確定を解く）'),
+        };
+      });
+
+    const nav = this.nav().map((n) => ({
+      label: n.label, dot: n.dot,
+      bg: n.on ? '#f4faff' : 'transparent',
+      fg: n.on ? '#005bac' : '#3c424c',
+      weight: n.on ? 800 : 700,
+    }));
+
+    // 用賀の階と縮尺（4点検算は venue-data.json の値。差 ±60mm＝144dpi の 2px）
+    const floorRows = floors.map((f) => ({ label: f.label, file: f.file, verified: '2026/09/13 確認 ・ 寺井 岳宏', rooms: f.rooms }));
+    const checks = [
+      { label: '通り芯 X16→X9', plan: '44,800', f26: '44,790', f27: '44,810' },
+      { label: 'LEDウォール幅', plan: '8,530', f26: '8,532', f27: '8,532' },
+      { label: 'MEETING 奥行', plan: '3,775', f26: '3,760', f27: '3,780' },
+      { label: 'ELV13 かご', plan: '1,850×2,010', f26: '1,840×2,000', f27: '1,860×2,020' },
+    ];
+
+    // 作成ダイアログ
+    const curFloor = floors.find((f) => f.key === st.floor);
+    const dlgFloors = floors.map((f) => {
+      const on = st.floor === f.key;
+      return { label: f.label, bg: on ? '#ffffff' : 'transparent', fg: on ? '#005bac' : '#5d6470', shadow: on ? '0 1px 3px rgba(26,29,36,.12)' : 'none', pick: () => self.setState({ floor: f.key, area: f.areas[0] }) };
+    });
+    const dlgAreas = curFloor.areas.map((key) => {
+      const on = st.area === key;
+      const a = A[key];
+      return {
+        label: a ? a.label : '階全体',
+        size: a ? '内法 ' + fmt(a.w) + '×' + fmt(a.h) + ' ・ ' + a.m2 + '㎡' : '通り芯 44,800×44,800',
+        border: on ? '#005bac' : '#e6e9ed', bg: on ? '#f4faff' : '#ffffff', fg: on ? '#005bac' : '#1a1d24',
+        pick: () => self.setState({ area: key }),
+      };
+    });
+    const startDefs = [
+      { key: 'blank', label: '空の図面', desc: '下敷きと方眼だけ' },
+      { key: 'tpl', label: 'ひな形から', desc: '並べ方の入った型から' },
+      { key: 'copy', label: '前の図面を複製', desc: 'この案件の図面をもとに' },
+    ];
+    const starts = startDefs.map((s) => {
+      const on = st.start === s.key;
+      return {
+        label: s.label, desc: s.desc,
+        isBlank: s.key === 'blank', isTpl: s.key === 'tpl', isCopy: s.key === 'copy',
+        border: on ? '#005bac' : '#e6e9ed', bg: on ? '#f4faff' : '#ffffff', fg: on ? '#005bac' : '#1a1d24', iconBg: on ? '#eaf4fb' : '#f2f4f7',
+        pick: () => self.setState({ start: s.key }),
+      };
+    });
+    const tplDefs = [
+      { key: 'theater', label: '劇場形式 50脚' },
+      { key: 'school', label: 'スクール形式 24席' },
+      { key: 'round', label: '円卓 6卓' },
+      { key: 'reception', label: '受付' },
+    ];
+    const tpls = tplDefs.map((t) => {
+      const on = st.tpl === t.key;
+      return { label: t.label, border: on ? '#005bac' : '#e6e9ed', bg: on ? '#ffffff' : '#ffffff', fg: on ? '#005bac' : '#3c424c', pick: () => self.setState({ tpl: t.key }) };
+    });
+    const copies = all.map((d) => {
+      const on = st.copyFrom === d.id;
+      const fl = floors.find((f) => f.key === d.floor);
+      return {
+        docNo: d.docNo, title: d.title, place: fl.label + ' ・ ' + (d.area === 'whole' ? '階全体' : A[d.area].label),
+        bg: on ? '#f4faff' : '#ffffff', fg: on ? '#005bac' : '#1a1d24', ring: on ? '#005bac' : '#cbd2da', dot: on ? '#005bac' : '#ffffff',
+        pick: () => self.setState({ copyFrom: d.id }),
+      };
+    });
+    const previewArea = st.area === 'whole' ? '階全体' : A[st.area].label;
+    const dlg = {
+      open: st.dlg,
+      nextNo: this.nextNo(),
+      show: () => self.setState({ dlg: true, notice: null }),
+      close: () => self.setState({ dlg: false }),
+      stop: (e) => { if (e && e.stopPropagation) e.stopPropagation(); },
+      setName: (e) => self.setState({ name: e && e.target ? e.target.value : '' }),
+      floors: dlgFloors, areas: dlgAreas, starts: starts,
+      isTpl: st.start === 'tpl', tpls: tpls,
+      isCopy: st.start === 'copy', copies: copies,
+      preview: this.thumbFor({ floor: st.floor, area: st.area, anchor: 'north', items: [] }, 200, 120),
+      previewTag: curFloor.label + ' ・ ' + previewArea,
+      create: () => self.create(),
+    };
+
+    const nt = st.notice;
+    const notice = {
+      on: !!nt,
+      isTodo: !!nt && nt.tone === 'todo',
+      isOk: !!nt && nt.tone === 'ok',
+      title: nt ? nt.title : '', text: nt ? nt.text : '',
+      close: () => self.setState({ notice: null }),
+    };
+
+    return {
+      nav: nav,
+      chips: chips,
+      nextNo: this.nextNo(),
+      cards: cards,
+      floorRows: floorRows,
+      checks: checks,
+      manage: {
+        floors: () => self.notify('todo', 'これから作ります', '会場と階の管理（取り込み・縮尺合わせ・エリア・固定物）は段F'),
+        catalog: () => self.notify('todo', 'これから作ります', '備品カタログ（寸法・保有数・「推定」の消し込み）は段F'),
+      },
+      notice: notice,
+      dlg: dlg,
+    };
+  }
+}
+</script>
+</body>
+</html>

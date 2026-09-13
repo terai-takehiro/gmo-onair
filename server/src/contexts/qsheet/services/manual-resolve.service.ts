@@ -29,6 +29,12 @@ import { resolveRecordingList } from './manual-resolvers/recording.resolver';
 import { resolveStreamingList, resolveStreamingWebMeeting } from './manual-resolvers/streaming.resolver';
 import { resolveRentalList } from './manual-resolvers/rental.resolver';
 import { resolveEquipmentLending } from './manual-resolvers/equipment.resolver';
+import {
+  resolveVenueLayout,
+  resolveVenueItems,
+  listVenueSources,
+  type ManualVenueResolveCtx,
+} from './manual-resolvers/venue.resolver';
 
 /** ディスパッチャが受け取る文脈。個々の resolver が要る分だけをそれぞれの ctx へ詰め替える */
 export interface ResolveCtx {
@@ -66,6 +72,13 @@ export async function resolveLinkedBlock(key: string, ctx: ResolveCtx): Promise<
     sourceId: ctx.sourceId,
     user: ctx.user,
   };
+  // venue.* の2種も sourceId 必須（venue-layout.md §9-1）。sheet.* と同じ理由で別 ctx を使う
+  const venueCtx: ManualVenueResolveCtx = {
+    projectId: ctx.projectId,
+    programId: ctx.programId,
+    sourceId: ctx.sourceId,
+    user: ctx.user,
+  };
 
   switch (key as ManualLinkedBlockKey) {
     case 'project.heading':
@@ -92,6 +105,10 @@ export async function resolveLinkedBlock(key: string, ctx: ResolveCtx): Promise<
       return resolveRentalList(rctx);
     case 'equipment.lending':
       return resolveEquipmentLending(rctx);
+    case 'venue.layout':
+      return resolveVenueLayout(venueCtx);
+    case 'venue.items':
+      return resolveVenueItems(venueCtx);
     default:
       return { data: null, updatedAt: null, error: 'unknown_block' };
   }
@@ -161,6 +178,12 @@ export async function listAvailableLinkedBlocks(ctx: AvailabilityCtx): Promise<M
           params: [ctx.projectId, EQUIPMENT_LENDING_STATUS.LENT],
         }]
       : []),
+    // venue.layout / venue.items: 会場図面が1件でもあれば両方 available（venue-layout.md §9-2 #7）
+    {
+      key: ['venue.layout', 'venue.items'],
+      sql: 'SELECT 1 FROM qsheet_venue_layouts WHERE (project_id = $1 OR program_id = $1) AND deleted_at IS NULL LIMIT 1',
+      params: [ownerId],
+    },
   ];
 
   const results = await Promise.all(checks.map((c) => queryOne(c.sql, c.params)));
@@ -184,6 +207,9 @@ export async function listLinkSourcesFor(
 ): Promise<{ id: string; label: string }[]> {
   if (key === 'sheet.rundown' || key === 'sheet.excerpt' || key === 'sheet.micAssignment') {
     return listSheetSources({ projectId: ctx.projectId, programId: ctx.programId }, user);
+  }
+  if (key === 'venue.layout' || key === 'venue.items') {
+    return listVenueSources({ projectId: ctx.projectId, programId: ctx.programId }, user);
   }
   return [];
 }

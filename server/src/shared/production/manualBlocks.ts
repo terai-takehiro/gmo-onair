@@ -15,7 +15,9 @@ export type ManualLinkedBlockKey =
   | "streaming.list"
   | "streaming.webMeeting"
   | "rental.list"
-  | "equipment.lending";
+  | "equipment.lending"
+  | "venue.layout"
+  | "venue.items";
 
 /** カタログ画面での束ね方（§4-3「ミニアプリごとに束ね」）。`MiniAppKey` とは意図的に別物
  *  （`project`/`equipment` は `miniapps.ts` の対象外 = 案件管理・機材管理は techops のミニアプリではない） */
@@ -26,7 +28,8 @@ export type ManualLinkedSourceGroup =
   | "recording"
   | "streaming"
   | "rental"
-  | "equipment";
+  | "equipment"
+  | "venue";
 
 export const MANUAL_LINKED_SOURCE_LABEL: Record<ManualLinkedSourceGroup, string> = {
   project: "案件管理",
@@ -36,6 +39,7 @@ export const MANUAL_LINKED_SOURCE_LABEL: Record<ManualLinkedSourceGroup, string>
   streaming: "配信設定",
   rental: "レンタル機材検索",
   equipment: "機材管理",
+  venue: "会場図面",
 };
 
 export interface ManualLinkedBlockDef {
@@ -159,6 +163,23 @@ export const MANUAL_LINKED_BLOCKS: ManualLinkedBlockDef[] = [
     defaultSize: { w: 160, h: 60 },
     defaultTabular: true,
   },
+  {
+    key: "venue.layout",
+    sourceGroup: "venue",
+    label: "会場図面",
+    description: "エリアの内法・固定物・品目の線画（1mバー・凡例つき）",
+    hasSecrets: false,
+    defaultSize: { w: 180, h: 120 },
+  },
+  {
+    key: "venue.items",
+    sourceGroup: "venue",
+    label: "数量表",
+    description: "品目・数・保有数・保管場所",
+    hasSecrets: false,
+    defaultSize: { w: 180, h: 60 },
+    defaultTabular: true,
+  },
 ];
 
 export function manualLinkedBlockDef(key: string): ManualLinkedBlockDef | undefined {
@@ -167,7 +188,7 @@ export function manualLinkedBlockDef(key: string): ManualLinkedBlockDef | undefi
 
 /** カタログ画面用: ミニアプリごとに束ねる（§4-3「ミニアプリごとに束ね」）。空の群は含めない */
 export function manualLinkedBlocksByGroup(): { group: ManualLinkedSourceGroup; label: string; blocks: ManualLinkedBlockDef[] }[] {
-  const groups: ManualLinkedSourceGroup[] = ["project", "schedule", "sheet", "recording", "streaming", "rental", "equipment"];
+  const groups: ManualLinkedSourceGroup[] = ["project", "schedule", "sheet", "recording", "streaming", "rental", "equipment", "venue"];
   return groups
     .map((group) => ({
       group,

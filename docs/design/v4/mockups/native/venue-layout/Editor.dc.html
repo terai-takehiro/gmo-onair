@@ -1,0 +1,742 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@100;400;700;800&family=Noto+Sans+JP:wght@100;200;300;400;500;600;700;800;900&family=Noto+Serif+JP:wght@400;700;900&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    button { font-family: inherit; }
+    input { font-family: inherit; }
+    .tap { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .ghost:hover { background: #f2f4f7; }
+    .btn-primary { transition: background-color .12s ease; } .btn-primary:hover { background: #004d91; }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .card:hover { background: #f7f8fa; }
+    /* 図面の線画（symbols.svg.md の規律。座標は mm・線幅は mm で固定＝拡縮しても太らない。26mm ≒ 1px @100%） */
+    .fp { fill: currentColor; fill-opacity: .08; stroke: currentColor; stroke-width: 26; stroke-linejoin: round; }
+    .ln { fill: none; stroke: currentColor; stroke-width: 26; stroke-linecap: round; stroke-linejoin: round; }
+    .dash { fill: none; stroke: currentColor; stroke-width: 15; stroke-dasharray: 120 80; }
+    .soft { fill: currentColor; fill-opacity: .04; stroke: currentColor; stroke-width: 10; stroke-opacity: .5; }
+      .band > * { white-space: nowrap; flex-shrink: 0; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 1080px; position: relative; overflow: hidden; background: #f7f8fa; display: flex; flex-direction: column; color: #1a1d24;">
+
+  <!-- ── 上辺バー（共通シェル。編集画面は左メニューを畳んだ状態が既定） ── -->
+  <header style="display: flex; height: 64px; flex-shrink: 0; align-items: center; gap: 14px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 24px;">
+    <button class="tap ghost" style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #e6e9ed;" title="左メニューを出す（編集中は畳んだ状態が既定）"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg></button>
+    <div style="display: flex; align-items: center; gap: 9px;">
+      <div style="width: 28px; height: 28px; border-radius: 9px; background: #005bac; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M7.8 7.8a6 6 0 0 0 0 8.4"></path><path d="M16.2 16.2a6 6 0 0 0 0-8.4"></path><path d="M4.9 4.9a10 10 0 0 0 0 14.2"></path><path d="M19.1 19.1a10 10 0 0 0 0-14.2"></path></svg></div>
+      <span style="font-size: 15px; font-weight: 800; letter-spacing: .01em;">ONAiR</span>
+    </div>
+    <span style="height: 22px; width: 1px; background: #e6e9ed;"></span>
+    <button class="tap" style="display: flex; height: 40px; align-items: center; gap: 10px; border-radius: 10px; border: 1px solid #cfe4f4; background: #f4faff; padding: 0 12px; color: #005bac;">
+      <span style="width: 22px; height: 22px; border-radius: 7px; background: #eaf4fb; display: flex; align-items: center; justify-content: center;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.6"></rect><rect x="14" y="3" width="7" height="7" rx="1.6"></rect><rect x="3" y="14" width="7" height="7" rx="1.6"></rect><rect x="14" y="14" width="7" height="7" rx="1.6"></rect></svg></span>
+      <span style="font-size: 13.5px; font-weight: 700; white-space: nowrap;">制作技術支援</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+    <span class="clip1" style="font-size: 12.5px; color: #5d6470; max-width: 520px;">／ 東都TV 特番収録「サイエンス・フロンティア」 ／ 会場図面</span>
+    <span style="flex: 1;"></span>
+    <button class="tap" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 7px; color: #5d6470;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 4.6 1.8 5.6 1.8 5.6H4.2S6 13.6 6 9z"></path><path d="M10.2 18.4a2 2 0 0 0 3.6 0"></path></svg></button>
+    <button class="tap" style="display: flex; align-items: center; gap: 10px; height: 44px;">
+      <span style="width: 32px; height: 32px; border-radius: 9999px; background: #eaf4fb; color: #005bac; font-size: 13.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;">寺</span>
+      <span style="font-size: 12.5px; white-space: nowrap;">寺井 岳宏</span>
+    </button>
+  </header>
+
+  <!-- ── 資料の帯 ──────────────────────────────────────────── -->
+  <div class="band" style="display: flex; height: 52px; flex-shrink: 0; align-items: center; gap: 10px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 16px 0 12px;">
+    <button class="tap ghost" style="display: flex; align-items: center; gap: 3px; height: 32px; border-radius: 8px; padding: 0 9px 0 5px; color: #005bac;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg><span style="font-size: 12.5px; font-weight: 700;">図面一覧</span></button>
+    <span style="height: 20px; width: 1px; background: #e6e9ed;"></span>
+    <span class="num" style="font-size: 11.5px; font-weight: 700; color: #9aa1ab;">{{docNo}}</span>
+    <span class="clip1" style="font-size: 15px; font-weight: 800; max-width: 260px;">{{title}}</span>
+    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 56px; height: 21px; border-radius: 6px; background: #fff7ed; color: #c2410e; font-size: 11px; font-weight: 800;">下書き</span>
+    <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: #197a4b;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#197a4b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>保存しました <span class="num">{{savedAt}}</span></span>
+    <span style="display: inline-flex; align-items: center; gap: 5px; height: 21px; border-radius: 6px; border: 1px solid #cfe4f4; background: #f4faff; color: #005bac; font-size: 11px; font-weight: 700; padding: 0 8px;" title="編集中は他の人からは読むだけになります。10分手が止まると自動で解けます"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>あなたが編集中</span>
+    <span style="flex: 1;"></span>
+    <button class="tap" onClick="{{todo.preview}}" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12.5px; font-weight: 700;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="2.6"></circle></svg>仕上がり・書き出し</button>
+    <button class="tap btn-primary" onClick="{{todo.manual}}" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; background: #005bac; color: #ffffff; padding: 0 14px; font-size: 12.5px; font-weight: 800;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>運営マニュアルに載せる</button>
+  </div>
+
+  <!-- ── 道具の帯 ──────────────────────────────────────────── -->
+  <div class="band" style="display: flex; height: 44px; flex-shrink: 0; align-items: center; gap: 3px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 10px;">
+    <sc-for list="{{modes}}" as="m" hint-placeholder-count="2">
+      <button class="tap" onClick="{{m.pick}}" style="display: flex; align-items: center; gap: 6px; height: 32px; border-radius: 9px; border: 1px solid {{m.border}}; background: {{m.bg}}; padding: 0 11px; font-size: 12.5px; font-weight: 800; color: {{m.fg}};"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{m.fg}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{m.icon}}"></path></svg>{{m.label}}</button>
+    </sc-for>
+    <span style="height: 20px; width: 1px; background: #e6e9ed; margin: 0 4px;"></span>
+    <sc-for list="{{shapes}}" as="s" hint-placeholder-count="5">
+      <button class="tap ghost" onClick="{{s.pick}}" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: #3c424c;" title="{{s.hint}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="{{s.icon}}"></path></svg></button>
+    </sc-for>
+    <span style="height: 20px; width: 1px; background: #e6e9ed; margin: 0 4px;"></span>
+    <span style="font-size: 11.5px; color: #9aa1ab;">整列</span>
+    <sc-for list="{{aligns}}" as="a" hint-placeholder-count="6">
+      <button class="tap ghost" onClick="{{a.pick}}" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 8px;" title="{{a.hint}}">
+        <span style="width: 14px; height: 14px; border-left: {{a.l}}; border-top: {{a.t}}; border-right: {{a.r}}; border-bottom: {{a.b}}; background: #cbd2da;"></span>
+      </button>
+    </sc-for>
+    <button class="tap ghost" onClick="{{todo.distribute}}" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 8px;" title="等間隔に並べる"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5v14"></path><path d="M12 5v14"></path><path d="M19 5v14"></path></svg></button>
+    <span style="height: 20px; width: 1px; background: #e6e9ed; margin: 0 4px;"></span>
+    <span style="font-size: 11.5px; color: #9aa1ab;">重なり</span>
+    <button class="tap ghost" onClick="{{todo.front}}" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 8px;" title="前面へ"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15V5a1 1 0 0 1 1-1h10"></path><rect x="9" y="9" width="11" height="11" rx="1.5" fill="#ffffff"></rect></svg></button>
+    <button class="tap ghost" onClick="{{todo.back}}" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 8px;" title="背面へ"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="11" height="11" rx="1.5"></rect><path d="M20 9v10a1 1 0 0 1-1 1H9"></path></svg></button>
+    <span style="height: 20px; width: 1px; background: #e6e9ed; margin: 0 4px;"></span>
+    <button class="tap ghost" onClick="{{todo.undo}}" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 8px;" title="元に戻す（Ctrl+Z）"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 0 0-15-6.7L3 13"></path></svg></button>
+    <button class="tap ghost" onClick="{{todo.redo}}" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 8px;" title="やり直す（Ctrl+Shift+Z）"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"></path><path d="M3 17a9 9 0 0 1 15-6.7L21 13"></path></svg></button>
+    <span style="flex: 1;"></span>
+    <sc-for list="{{toggles}}" as="t" hint-placeholder-count="3">
+      <button class="tap ghost" onClick="{{t.pick}}" style="display: flex; align-items: center; gap: 6px; height: 30px; border-radius: 8px; padding: 0 9px; font-size: 12px; font-weight: 700; color: {{t.fg}};" title="{{t.hint}}"><span style="width: 8px; height: 8px; border-radius: 2px; background: {{t.dot}};"></span>{{t.label}}</button>
+    </sc-for>
+    <span style="height: 20px; width: 1px; background: #e6e9ed; margin: 0 4px;"></span>
+    <div style="display: flex; align-items: center; gap: 2px;">
+      <button class="tap ghost" onClick="{{zoom.out}}" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 7px; font-size: 15px; font-weight: 700; color: #3c424c; opacity: {{zoom.outOpacity}};" title="縮小">−</button>
+      <span class="num" style="width: 44px; text-align: center; font-size: 12px; font-weight: 700;">{{zoom.label}}</span>
+      <button class="tap ghost" onClick="{{zoom.in}}" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 7px; font-size: 15px; font-weight: 700; color: #3c424c; opacity: {{zoom.inOpacity}};" title="拡大">＋</button>
+    </div>
+    <span style="height: 20px; width: 1px; background: #e6e9ed; margin: 0 4px;"></span>
+    <div style="position: relative;">
+      <button class="tap" onClick="{{floorMenu.toggle}}" style="display: flex; align-items: center; gap: 7px; height: 32px; border-radius: 9px; border: 1px solid {{floorMenu.border}}; background: #ffffff; padding: 0 10px; font-size: 12.5px; font-weight: 700;" title="階とエリアを切り替える"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"></rect><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2"></path><path d="M10 21v-3h4v3"></path></svg>{{floor.label}}<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <sc-if value="{{floorMenu.open}}" hint-placeholder-val="{{ false }}">
+        <div style="position: absolute; top: 36px; right: 0; z-index: 30; width: 236px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; box-shadow: 0 10px 28px rgba(26,29,36,.14); padding: 6px;">
+          <sc-for list="{{floorMenu.items}}" as="f" hint-placeholder-count="2">
+            <button class="tap ghost" onClick="{{f.pick}}" style="display: flex; align-items: center; gap: 8px; width: 100%; height: 36px; border-radius: 8px; padding: 0 8px; background: {{f.bg}};">
+              <span style="width: 34px; text-align: center; font-size: 11px; font-weight: 800; color: {{f.fg}}; border-radius: 6px; background: {{f.chip}}; height: 20px; line-height: 20px; flex-shrink: 0;">{{f.floor}}</span>
+              <span style="font-size: 12.5px; font-weight: {{f.weight}}; color: {{f.fg}};">{{f.area}}</span>
+              <span style="flex: 1;"></span>
+              <span class="num" style="font-size: 11px; color: #9aa1ab;">{{f.m2}}</span>
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+    <button class="tap ghost" onClick="{{whole.toggle}}" style="display: flex; align-items: center; gap: 5px; height: 30px; border-radius: 8px; border: 1px solid {{whole.border}}; background: {{whole.bg}}; padding: 0 9px; font-size: 12px; font-weight: 700; color: {{whole.fg}};" title="エリアではなく階全体を下敷きにする（もう一度押すとエリアに戻る）"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{whole.fg}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path></svg>階全体</button>
+  </div>
+
+  <div style="display: flex; flex: 1; min-height: 0;">
+
+    <!-- ── 左: 置く／並べる／数量 ──────────────────────────── -->
+    <aside style="width: 280px; flex-shrink: 0; border-right: 1px solid #e6e9ed; background: #ffffff; display: flex; flex-direction: column;">
+      <div style="display: flex; height: 38px; flex-shrink: 0; border-bottom: 1px solid #e6e9ed;">
+        <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+          <button class="tap" onClick="{{t.pick}}" style="flex: 1; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: {{t.weight}}; color: {{t.fg}}; border-bottom: 2px solid {{t.line}};">{{t.label}}</button>
+        </sc-for>
+      </div>
+
+      <!-- 置く: 検索 → 4群 → 品目の札（名前・寸法 mm・置いた数／保有数） -->
+      <sc-if value="{{place.on}}" hint-placeholder-val="{{ true }}">
+        <div style="flex: 1; min-height: 0; overflow: hidden; padding: 11px 12px 12px; display: flex; flex-direction: column;">
+          <div style="display: flex; align-items: center; gap: 7px; height: 32px; flex-shrink: 0; border-radius: 8px; border: 1px solid #e6e9ed; padding: 0 9px; color: #9aa1ab;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><input onInput="{{place.search}}" placeholder="品目を探す" style="flex: 1; min-width: 0; height: 28px; border: 0; outline: none; background: transparent; font-size: 12px; color: #1a1d24;"></div>
+          <div style="margin-top: 9px; display: flex; gap: 5px; flex-shrink: 0;">
+            <sc-for list="{{place.groups}}" as="pg" hint-placeholder-count="4">
+              <button class="tap" onClick="{{pg.pick}}" style="height: 27px; border-radius: 8px; border: 1px solid {{pg.border}}; background: {{pg.bg}}; color: {{pg.fg}}; padding: 0 9px; font-size: 11.5px; font-weight: 700;">{{pg.label}}</button>
+            </sc-for>
+          </div>
+          <div style="margin-top: 10px; flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; padding-right: 2px;">
+            <sc-for list="{{place.items}}" as="p" hint-placeholder-count="19">
+              <button class="tap card" onClick="{{p.pick}}" style="display: flex; flex-direction: column; justify-content: center; gap: 2px; height: 42px; flex-shrink: 0; border-radius: 8px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 9px;" title="{{p.hint}}">
+                <span style="display: flex; align-items: center; gap: 6px; width: 100%;"><span class="clip1" style="flex: 1; min-width: 0; font-size: 12px; font-weight: 700;">{{p.name}}</span><span class="num" style="font-size: 10.5px; font-weight: 700; color: {{p.countFg}}; white-space: nowrap;">{{p.count}}</span></span>
+                <span style="display: flex; align-items: center; gap: 6px; width: 100%;"><span class="num" style="font-size: 10.5px; color: #5d6470; white-space: nowrap;">{{p.size}}</span><sc-if value="{{p.est}}" hint-placeholder-val="{{ false }}"><span style="font-size: 9px; font-weight: 800; color: #c2410e; border: 1px solid #f0c9b4; border-radius: 4px; padding: 0 3px; line-height: 13px; white-space: nowrap;" title="寸法は推定（メーカー寸法図で確定）">寸法は推定</span></sc-if></span>
+              </button>
+            </sc-for>
+          </div>
+          <p style="margin: 10px 0 0; flex-shrink: 0; font-size: 10.5px; line-height: 1.5; color: #9aa1ab;">押すと表示範囲の中央に実寸で置きます。図面へドラッグしても置けます。数字は 置いた数／保有数。</p>
+        </div>
+      </sc-if>
+
+      <!-- 並べる: 入力欄（プレビューと「置く」の様子は「並べる」のアートボード） -->
+      <sc-if value="{{arrange.on}}" hint-placeholder-val="{{ false }}">
+        <div style="flex: 1; min-height: 0; overflow: hidden; padding: 11px 12px 12px; display: flex; flex-direction: column;">
+          <div style="font-size: 11px; font-weight: 800; color: #5d6470;">並べ方</div>
+          <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 5px;">
+            <sc-for list="{{arrange.presets}}" as="c" hint-placeholder-count="7">
+              <button class="tap" onClick="{{c.pick}}" style="height: 28px; border-radius: 8px; border: 1px solid {{c.border}}; background: {{c.bg}}; color: {{c.fg}}; padding: 0 10px; font-size: 11.5px; font-weight: 700;">{{c.label}}</button>
+            </sc-for>
+          </div>
+          <div style="margin-top: 10px; font-size: 11px; font-weight: 800; color: #5d6470;">品目</div>
+          <div style="margin-top: 5px; display: flex; align-items: center; gap: 7px; height: 32px; border-radius: 8px; border: 1px solid #e6e9ed; padding: 0 8px;">
+            <span style="width: 16px; height: 14px; border-radius: 4px; border: 1.6px solid #5d6470; flex-shrink: 0;"></span>
+            <span class="clip1" style="flex: 1; min-width: 0; font-size: 12.5px; font-weight: 700;">ルベックチェア</span>
+            <span class="num" style="font-size: 11px; color: #5d6470; white-space: nowrap;">535 × 490</span>
+            <span class="num" style="font-size: 10.5px; color: #9aa1ab; white-space: nowrap;">保有 80</span>
+          </div>
+          <sc-for list="{{arrange.fields}}" as="g" hint-placeholder-count="4">
+            <div style="margin-top: 9px;">
+              <div style="font-size: 11px; font-weight: 800; color: #5d6470;">{{g.title}}</div>
+              <div style="margin-top: 4px; display: flex; gap: 8px;">
+                <sc-for list="{{g.items}}" as="s" hint-placeholder-count="2">
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 10px; color: #9aa1ab; white-space: nowrap;">{{s.label}}</div>
+                    <div style="margin-top: 2px; display: flex; align-items: center; height: 30px; border-radius: 8px; border: 1px solid #e6e9ed; overflow: hidden;">
+                      <button class="tap ghost" onClick="{{s.dec}}" style="width: 28px; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #3c424c;">−</button>
+                      <span class="num" style="flex: 1; text-align: center; font-size: 12.5px; font-weight: 800;">{{s.value}}</span>
+                      <button class="tap ghost" onClick="{{s.inc}}" style="width: 28px; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #3c424c;">＋</button>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+          <div style="margin-top: 9px;">
+            <div style="font-size: 11px; font-weight: 800; color: #5d6470;">向き先</div>
+            <div style="margin-top: 4px; display: flex; gap: 5px;">
+              <sc-for list="{{arrange.facing}}" as="f" hint-placeholder-count="3">
+                <button class="tap" onClick="{{f.pick}}" style="flex: 1; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid {{f.border}}; background: {{f.bg}}; color: {{f.fg}}; font-size: 11.5px; font-weight: 700; white-space: nowrap;">{{f.label}}</button>
+              </sc-for>
+            </div>
+          </div>
+          <div class="num" style="margin-top: 8px; font-size: 10.5px; line-height: 1.5; color: {{arrange.noteFg}};">{{arrange.note}}</div>
+          <div style="margin-top: auto; padding-top: 10px; border-top: 1px dashed #e6e9ed; display: flex; flex-direction: column; gap: 6px;">
+            <button class="tap btn-primary" onClick="{{arrange.place}}" style="width: 100%; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 9px; background: #005bac; color: #ffffff; font-size: 13.5px; font-weight: 800;">置く</button>
+            <button class="tap ghost" onClick="{{arrange.cancel}}" style="width: 100%; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; font-size: 12.5px; font-weight: 700; color: #3c424c;">キャンセル</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- 数量: 品目・置いた数・保有数・保管場所 -->
+      <sc-if value="{{qty.on}}" hint-placeholder-val="{{ false }}">
+        <div style="flex: 1; min-height: 0; overflow: hidden; padding: 11px 12px 12px;">
+          <div style="display: flex; align-items: center; gap: 6px; height: 22px; font-size: 10px; font-weight: 800; color: #5d6470; border-bottom: 1px solid #e6e9ed;">
+            <span style="flex: 1;">品目</span><span class="num" style="width: 44px; text-align: right;">置いた数</span><span class="num" style="width: 40px; text-align: right;">保有数</span><span style="width: 66px; text-align: right;">保管場所</span>
+          </div>
+          <sc-for list="{{qty.rows}}" as="q" hint-placeholder-count="8">
+            <div style="display: flex; align-items: center; gap: 6px; height: 30px; font-size: 11.5px; border-bottom: 1px solid #e6e9ed;">
+              <span class="clip1" style="flex: 1; min-width: 0; font-weight: 700;">{{q.item}}</span><span class="num" style="width: 44px; text-align: right; font-weight: 700; color: {{q.fg}};">{{q.placed}}</span><span class="num" style="width: 40px; text-align: right; color: #5d6470;">{{q.qty}}</span><span class="clip1" style="width: 66px; text-align: right; color: #5d6470; font-size: 10.5px;">{{q.where}}</span>
+            </div>
+          </sc-for>
+          <div class="num" style="margin-top: 8px; font-size: 11px; font-weight: 700; color: #5d6470;">{{qty.total}}</div>
+          <p style="margin: 10px 0 0; font-size: 10.5px; line-height: 1.5; color: #9aa1ab;">保有数を超えても置けます（赤字で知らせるだけ）。同じ日の別の図面との合算はしません。家電4件は動かせないので図面には出しません。</p>
+        </div>
+      </sc-if>
+    </aside>
+
+    <!-- ── 中央: 図面（下敷き → 方眼・通り芯 → エリアの内法 → 固定物 → 品目 → 選択枠と札） ── -->
+    <main style="flex: 1; min-width: 0; position: relative; background: #eef0f3; overflow: hidden;">
+
+      <!-- ものさし（上・左。エリア左上を 0 とする 1m／5m 目盛。ズームに追従） -->
+      <sc-if value="{{ruler.on}}" hint-placeholder-val="{{ true }}">
+        <div style="position: absolute; left: 0; top: 0; width: 22px; height: 22px; background: #ffffff; border-right: 1px solid #e6e9ed; border-bottom: 1px solid #e6e9ed; z-index: 2;"></div>
+        <div style="position: absolute; left: 22px; top: 0; right: 0; height: 22px; background: #ffffff; border-bottom: 1px solid #e6e9ed; overflow: hidden;">
+          <sc-for list="{{ruler.x}}" as="t" hint-placeholder-count="24">
+            <div class="num" style="position: absolute; left: {{t.pos}}; top: {{t.top}}; bottom: 0; border-left: 1px solid {{t.line}}; padding-left: 3px; font-size: 9px; line-height: 20px; color: #9aa1ab; white-space: nowrap;">{{t.label}}</div>
+          </sc-for>
+        </div>
+        <div style="position: absolute; left: 0; top: 22px; bottom: 0; width: 22px; background: #ffffff; border-right: 1px solid #e6e9ed; overflow: hidden;">
+          <sc-for list="{{ruler.y}}" as="t" hint-placeholder-count="24">
+            <div class="num" style="position: absolute; top: {{t.pos}}; left: {{t.top}}; right: 0; border-top: 1px solid {{t.line}}; padding-left: 2px; font-size: 8.5px; line-height: 11px; color: #9aa1ab; white-space: nowrap;">{{t.label}}</div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <!-- 図面の表示範囲（878×898）。ズームは transform: scale で全体を拡縮 -->
+      <div style="position: absolute; left: 22px; top: 22px; width: 878px; height: 898px; overflow: hidden; background: #ffffff;">
+        <div style="position: absolute; left: 0; top: 0; width: 878px; height: 898px; transform: scale({{view.z}}); transform-origin: 439px 449px;">
+
+          <!-- 下敷き: そのままの px で置く（ズーム 100% ＝ 実ピクセル。X/Y で縮尺が 4.3% 違うのは下敷きの中で吸収） -->
+          <sc-if value="{{u.isWorld}}" hint-placeholder-val="{{ true }}"><img src="world-26f.png" alt="26F 平面図（下敷き）" style="position: absolute; left: {{u.left}}; top: {{u.top}}; width: {{u.w}}; height: {{u.h}}; max-width: none; opacity: .58; pointer-events: none; user-select: none;"></sc-if>
+          <sc-if value="{{u.isLounge}}" hint-placeholder-val="{{ false }}"><img src="lounge-27f.png" alt="27F 平面図（下敷き）" style="position: absolute; left: {{u.left}}; top: {{u.top}}; width: {{u.w}}; height: {{u.h}}; max-width: none; opacity: .58; pointer-events: none; user-select: none;"></sc-if>
+          <sc-if value="{{u.isFloor26}}" hint-placeholder-val="{{ false }}"><img src="floor-26f.png" alt="26F 平面図・階全体（下敷き）" style="position: absolute; left: {{u.left}}; top: {{u.top}}; width: {{u.w}}; height: {{u.h}}; max-width: none; opacity: .58; pointer-events: none; user-select: none;"></sc-if>
+          <sc-if value="{{u.isFloor27}}" hint-placeholder-val="{{ false }}"><img src="floor-27f.png" alt="27F 平面図・階全体（下敷き）" style="position: absolute; left: {{u.left}}; top: {{u.top}}; width: {{u.w}}; height: {{u.h}}; max-width: none; opacity: .58; pointer-events: none; user-select: none;"></sc-if>
+
+          <!-- 品目の層（px。品目の絵は mm で描き、translate(px) scale(pxPerMmX pxPerMmY) rotate(deg) で置く） -->
+          <svg width="878" height="898" viewBox="0 0 878 898" style="position: absolute; left: 0; top: 0; display: block; overflow: visible;">
+            <defs>
+              <pattern id="vl-grid-1m" patternUnits="userSpaceOnUse" x="{{grid.x}}" y="{{grid.y}}" width="{{grid.w}}" height="{{grid.h}}"><path d="{{grid.d}}" fill="none" stroke="#005bac" stroke-opacity=".12" stroke-width="1"></path></pattern>
+              <pattern id="vl-grid-5m" patternUnits="userSpaceOnUse" x="{{grid.x}}" y="{{grid.y}}" width="{{grid.w5}}" height="{{grid.h5}}"><path d="{{grid.d5}}" fill="none" stroke="#005bac" stroke-opacity=".2" stroke-width="1"></path></pattern>
+              <!-- 絵記号（symbols.svg.md の線画。座標は mm・正面は −y。線幅は mm で固定） -->
+              <g id="sym-chair"><rect class="fp" x="-268" y="-245" width="535" height="490" rx="80"></rect><path class="ln" style="stroke-width: 50;" d="M -220 200 Q 0 260 220 200"></path></g>
+              <g id="sym-chair-cafe"><rect class="fp" x="-250" y="-215" width="500" height="430" rx="80"></rect><path class="ln" style="stroke-width: 50;" d="M -200 170 Q 0 230 200 170"></path></g>
+              <g id="sym-table"><rect class="fp" x="-900" y="-300" width="1800" height="600" rx="20"></rect></g>
+              <g id="sym-round"><circle class="fp" cx="0" cy="0" r="300"></circle><circle fill="currentColor" cx="0" cy="0" r="25"></circle></g>
+              <g id="sym-stool"><rect class="soft" x="-200" y="-200" width="400" height="400" rx="60"></rect><circle class="fp" cx="0" cy="0" r="170"></circle></g>
+              <g id="sym-stage"><rect class="fp" x="-1200" y="-600" width="2400" height="1200"></rect><path class="ln" style="stroke-width: 10; stroke-opacity: .5;" d="M -1200 -600 L 1200 600 M 1200 -600 L -1200 600"></path></g>
+              <g id="sym-monitor75"><rect class="soft" x="-850" y="-350" width="1700" height="700" rx="40"></rect><rect class="fp" x="-830" y="-120" width="1660" height="80"></rect><path fill="currentColor" d="M -120 -140 L 120 -140 L 0 -300 Z"></path></g>
+              <g id="sym-lectern"><rect class="fp" x="-350" y="-245" width="700" height="490"></rect><path class="ln" style="stroke-width: 60;" d="M -300 -245 L 300 -245"></path></g>
+              <g id="sym-belt"><circle class="fp" cx="-1000" cy="0" r="175"></circle><circle class="fp" cx="1000" cy="0" r="175"></circle><path class="ln" style="stroke-width: 30;" d="M -1000 0 L 1000 0"></path></g>
+              <g id="sym-partition"><rect class="soft" x="-600" y="-200" width="1200" height="400"></rect><path class="ln" style="stroke-width: 60;" d="M -600 0 L 600 0"></path></g>
+              <g id="sym-ped"><circle class="fp" cx="0" cy="0" r="450"></circle><circle fill="currentColor" cx="0" cy="-380" r="35"></circle><circle fill="currentColor" cx="329" cy="190" r="35"></circle><circle fill="currentColor" cx="-329" cy="190" r="35"></circle><rect class="fp" x="-175" y="-700" width="350" height="1100" rx="30"></rect><path fill="currentColor" d="M -120 -700 L 120 -700 L 0 -860 Z"></path><rect class="ln" x="-100" y="300" width="200" height="100"></rect></g>
+              <g id="sym-dolly"><rect class="fp" x="-450" y="-600" width="900" height="1200" rx="40"></rect><circle fill="currentColor" cx="-380" cy="-520" r="35"></circle><circle fill="currentColor" cx="380" cy="-520" r="35"></circle><circle fill="currentColor" cx="-380" cy="520" r="35"></circle><circle fill="currentColor" cx="380" cy="520" r="35"></circle><circle fill="currentColor" cx="0" cy="0" r="45"></circle></g>
+              <g id="sym-stand"><ellipse class="fp" cx="0" cy="0" rx="225" ry="150"></ellipse><circle class="fp" style="fill-opacity: .2;" cx="0" cy="-20" r="90"></circle></g>
+              <g id="sym-seat"><rect class="soft" x="-250" y="-400" width="500" height="800" rx="120"></rect><ellipse class="fp" cx="0" cy="200" rx="225" ry="150"></ellipse><circle class="fp" style="fill-opacity: .2;" cx="0" cy="180" r="90"></circle><path class="ln" d="M -120 200 L -120 -300 M 120 200 L 120 -300"></path></g>
+              <g id="sym-wheel"><rect class="soft" x="-350" y="-600" width="700" height="1200" rx="120"></rect><path class="ln" style="stroke-width: 60;" d="M -330 -100 L -330 500 M 330 -100 L 330 500"></path><ellipse class="fp" cx="0" cy="250" rx="200" ry="130"></ellipse><circle class="fp" style="fill-opacity: .2;" cx="0" cy="230" r="90"></circle></g>
+            </defs>
+
+            <!-- 余白を押すと選択を解除 -->
+            <rect x="0" y="0" width="878" height="898" fill="#ffffff" fill-opacity="0" onClick="{{view.clear}}"></rect>
+            <!-- 1m 方眼（5m は少し濃く） -->
+            <sc-if value="{{grid.on}}" hint-placeholder-val="{{ true }}">
+              <rect x="0" y="0" width="878" height="898" fill="url(#vl-grid-1m)" pointer-events="none"></rect>
+              <rect x="0" y="0" width="878" height="898" fill="url(#vl-grid-5m)" pointer-events="none"></rect>
+            </sc-if>
+            <!-- 通り芯（6,400 ピッチ・X12b は中間の通り芯） -->
+            <sc-for list="{{axes}}" as="a" hint-placeholder-count="8">
+              <line x1="{{a.x1}}" y1="{{a.y1}}" x2="{{a.x2}}" y2="{{a.y2}}" stroke="#c7243a" stroke-opacity=".4" stroke-width="1" stroke-dasharray="6 3" pointer-events="none"></line>
+            </sc-for>
+            <!-- エリアの内法（薄い塗り） -->
+            <rect x="{{area.x}}" y="{{area.y}}" width="{{area.w}}" height="{{area.h}}" fill="#005bac" fill-opacity=".035" stroke="#005bac" stroke-opacity=".55" stroke-width="1.5" onClick="{{view.clear}}"></rect>
+            <!-- 固定物: トラス脚 10 本（450角）・自動ドアなど -->
+            <sc-for list="{{fixtures}}" as="k" hint-placeholder-count="10">
+              <rect x="{{k.x}}" y="{{k.y}}" width="{{k.w}}" height="{{k.h}}" fill="#ffffff" fill-opacity=".6" stroke="#1a1d24" stroke-opacity=".7" stroke-width="1" pointer-events="none"></rect>
+            </sc-for>
+            <!-- LED ウォール（幅 8,530・中心 X12b） -->
+            <sc-if value="{{led.on}}" hint-placeholder-val="{{ true }}">
+              <rect x="{{led.x}}" y="{{led.y}}" width="{{led.w}}" height="{{led.h}}" fill="#1a1d24" pointer-events="none"></rect>
+            </sc-if>
+            <!-- 並べたかたまり（外接の薄い枠を1つだけ） -->
+            <sc-if value="{{group.on}}" hint-placeholder-val="{{ true }}">
+              <rect x="{{group.x}}" y="{{group.y}}" width="{{group.w}}" height="{{group.h}}" fill="#005bac" fill-opacity="{{group.fo}}" stroke="#005bac" stroke-opacity=".6" stroke-width="{{group.sw}}" stroke-dasharray="4 3" onClick="{{group.pick}}" style="cursor: pointer;"></rect>
+            </sc-if>
+            <!-- 品目（押すと選択枠と札が出て右パネルが変わる） -->
+            <sc-for list="{{items}}" as="i" hint-placeholder-count="59">
+              <g onClick="{{i.pick}}" style="cursor: pointer; color: {{i.color}};">
+                <rect x="{{i.hx}}" y="{{i.hy}}" width="{{i.hw}}" height="{{i.hh}}" fill="#ffffff" fill-opacity="0"></rect>
+                <sc-if value="{{i.hasSym}}" hint-placeholder-val="{{ true }}">
+                  <use href="#{{i.sym}}" transform="translate({{i.px}} {{i.py}}) scale({{i.sx}} {{i.sy}}) rotate({{i.rot}})"></use>
+                </sc-if>
+                <sc-if value="{{i.isRect}}" hint-placeholder-val="{{ false }}">
+                  <rect class="fp" x="{{i.rx}}" y="{{i.ry}}" width="{{i.rw}}" height="{{i.rh}}" rx="20" transform="translate({{i.px}} {{i.py}}) scale({{i.sx}} {{i.sy}}) rotate({{i.rot}})"></rect>
+                </sc-if>
+                <sc-if value="{{i.isCircle}}" hint-placeholder-val="{{ false }}">
+                  <circle class="fp" cx="0" cy="0" r="{{i.r}}" transform="translate({{i.px}} {{i.py}}) scale({{i.sx}} {{i.sy}})"></circle>
+                </sc-if>
+                <sc-if value="{{i.isLine}}" hint-placeholder-val="{{ false }}">
+                  <path class="ln" style="stroke-width: 40;" d="{{i.lineD}}" transform="translate({{i.px}} {{i.py}}) scale({{i.sx}} {{i.sy}}) rotate({{i.rot}})"></path>
+                </sc-if>
+                <sc-if value="{{i.isCrane}}" hint-placeholder-val="{{ false }}">
+                  <g transform="translate({{i.px}} {{i.py}}) scale({{i.sx}} {{i.sy}})">
+                    <circle class="dash" cx="0" cy="0" r="{{i.sweep}}"></circle>
+                    <circle class="dash" style="stroke-opacity: .4;" cx="0" cy="0" r="{{i.tail}}"></circle>
+                    <g transform="rotate({{i.armRot}})">
+                      <path class="ln" style="stroke-width: 70;" d="{{i.armD}}"></path>
+                      <rect class="fp" x="-200" y="{{i.cwY}}" width="400" height="200"></rect>
+                      <rect class="fp" x="-175" y="{{i.camY}}" width="350" height="800" rx="30"></rect>
+                      <path fill="currentColor" d="{{i.lensD}}"></path>
+                    </g>
+                  </g>
+                </sc-if>
+                <sc-if value="{{i.selected}}" hint-placeholder-val="{{ false }}">
+                  <rect x="{{i.bx}}" y="{{i.by}}" width="{{i.bw}}" height="{{i.bh}}" fill="#005bac" fill-opacity=".08" stroke="#005bac" stroke-width="30" stroke-dasharray="120 70" transform="translate({{i.px}} {{i.py}}) scale({{i.sx}} {{i.sy}}) rotate({{i.rot}})"></rect>
+                </sc-if>
+              </g>
+            </sc-for>
+          </svg>
+        </div>
+
+        <!-- 重ねる札（拡縮しない層。SVG の text には差し込めないので HTML で置く） -->
+        <sc-for list="{{axisTags}}" as="a" hint-placeholder-count="8">
+          <span class="num" style="position: absolute; left: {{a.left}}; top: {{a.top}}; width: 26px; height: 15px; border-radius: 9999px; border: 1px solid #c7243a; background: #ffffff; color: #c7243a; font-size: 8px; font-weight: 800; line-height: 13px; text-align: center; pointer-events: none;">{{a.label}}</span>
+        </sc-for>
+        <span class="num" style="position: absolute; left: {{areaTag.left}}; top: {{areaTag.top}}; font-size: 10px; font-weight: 800; color: #005bac; background: rgba(255,255,255,.85); padding: 1px 5px; border-radius: 4px; white-space: nowrap; pointer-events: none;">{{areaTag.text}}</span>
+        <sc-for list="{{tags}}" as="g" hint-placeholder-count="5">
+          <span class="num" style="position: absolute; left: {{g.left}}; top: {{g.top}}; font-size: 9px; font-weight: 700; color: {{g.fg}}; background: rgba(255,255,255,.88); padding: 0 4px; border-radius: 3px; white-space: nowrap; pointer-events: none;">{{g.text}}</span>
+        </sc-for>
+        <!-- 寸法線（前の空き: 椅子の前端 → LED ウォール） -->
+        <sc-if value="{{dim.on}}" hint-placeholder-val="{{ true }}">
+          <div style="position: absolute; left: {{dim.left}}; top: {{dim.top}}; height: {{dim.h}}; border-left: 1px solid #005bac; pointer-events: none;">
+            <span style="position: absolute; left: -4px; top: 0; width: 9px; border-top: 1px solid #005bac;"></span>
+            <span style="position: absolute; left: -4px; bottom: 0; width: 9px; border-top: 1px solid #005bac;"></span>
+            <span class="num" style="position: absolute; left: 7px; top: 50%; margin-top: -8px; font-size: 9.5px; font-weight: 700; color: #005bac; background: rgba(255,255,255,.85); padding: 0 4px; border-radius: 3px; white-space: nowrap;">前の空き {{dim.label}}</span>
+          </div>
+        </sc-if>
+        <!-- 選んだ品目の札 -->
+        <sc-if value="{{selTag.on}}" hint-placeholder-val="{{ false }}">
+          <div class="num" style="position: absolute; left: {{selTag.left}}; top: {{selTag.top}}; display: inline-flex; align-items: center; gap: 6px; height: 20px; border-radius: 5px; background: #ffffff; border: 1px solid #005bac; padding: 0 7px; font-size: 10.5px; font-weight: 800; color: #005bac; white-space: nowrap; pointer-events: none; box-shadow: 0 2px 6px rgba(26,29,36,.12);">{{selTag.text}}</div>
+        </sc-if>
+
+        <!-- 1m バーと縮尺（ズームに追従。書き出しにも必ず載る） -->
+        <div style="position: absolute; right: 14px; bottom: 12px; display: flex; align-items: center; gap: 8px; height: 26px; border-radius: 6px; border: 1px solid #e6e9ed; background: rgba(255,255,255,.94); padding: 0 9px;">
+          <span style="display: block; width: {{bar.w}}; height: 7px; border-left: 1.5px solid #1a1d24; border-right: 1.5px solid #1a1d24; border-bottom: 1.5px solid #1a1d24;"></span>
+          <span class="num" style="font-size: 10.5px; font-weight: 800;">1 m</span>
+          <span class="num" style="font-size: 10.5px; color: #5d6470;">{{bar.scale}}</span>
+        </div>
+        <div class="num" style="position: absolute; left: 12px; bottom: 12px; display: flex; align-items: center; gap: 6px; height: 22px; border-radius: 6px; border: 1px solid #e6e9ed; background: rgba(255,255,255,.94); padding: 0 8px; font-size: 10.5px; color: #5d6470;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#197a4b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>{{bar.note}}</div>
+      </div>
+
+      <!-- これから作る操作を押したときの帯 -->
+      <sc-if value="{{toastOn}}" hint-placeholder-val="{{ false }}">
+        <div style="position: absolute; left: 0; right: 0; top: 0; z-index: 5; display: flex; align-items: center; gap: 9px; height: 36px; border-bottom: 1px solid #cfe4f4; background: #f4faff; padding: 0 16px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01"></path><path d="M11 12h1v4h1"></path></svg>
+          <span style="font-size: 12.5px; font-weight: 700; color: #005bac;">{{toast}}</span>
+          <span style="flex: 1;"></span>
+          <button class="tap" onClick="{{closeToast}}" style="display: flex; align-items: center; height: 26px; border-radius: 7px; border: 1px solid #cfe4f4; background: #ffffff; color: #005bac; padding: 0 10px; font-size: 11.5px; font-weight: 700;">閉じる</button>
+        </div>
+      </sc-if>
+    </main>
+
+    <!-- ── 右: 選んだ品目の設定（何も選んでいないときは図面の情報） ─────────── -->
+    <aside style="width: 260px; flex-shrink: 0; border-left: 1px solid #e6e9ed; background: #ffffff; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 8px; height: 38px; flex-shrink: 0; padding: 0 14px; border-bottom: 1px solid #e6e9ed;">
+        <span style="width: 22px; height: 22px; border-radius: 6px; background: {{panel.iconBg}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{panel.iconFg}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{panel.icon}}"></path></svg></span>
+        <span class="clip1" style="font-size: 12px; font-weight: 800; min-width: 0;">{{panel.title}}</span>
+        <span style="flex: 1;"></span>
+        <span style="display: inline-flex; align-items: center; height: 20px; border-radius: 6px; background: {{panel.badgeBg}}; color: {{panel.badgeFg}}; font-size: 10.5px; font-weight: 800; padding: 0 7px; white-space: nowrap;">{{panel.badge}}</span>
+      </div>
+      <div style="flex: 1; overflow: hidden; padding: 10px 14px 16px;">
+        <sc-for list="{{panel.rows}}" as="s" hint-placeholder-count="8">
+          <div style="display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f2f4f7;">
+            <span style="width: 64px; flex-shrink: 0; font-size: 11px; color: #5d6470; padding-top: 1px;">{{s.label}}</span>
+            <span class="num" style="flex: 1; min-width: 0; font-size: 12.5px; font-weight: 700; line-height: 1.4; color: {{s.fg}};">{{s.value}}</span>
+          </div>
+        </sc-for>
+
+        <sc-for list="{{panel.chipGroups}}" as="cg" hint-placeholder-count="2">
+          <div style="margin-top: 10px;">
+            <div style="font-size: 11px; font-weight: 800; color: #5d6470;">{{cg.title}}</div>
+            <div style="margin-top: 4px; display: flex; flex-wrap: wrap; gap: 5px;">
+              <sc-for list="{{cg.chips}}" as="c" hint-placeholder-count="3">
+                <button class="tap" onClick="{{c.pick}}" style="height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid {{c.border}}; background: {{c.bg}}; color: {{c.fg}}; padding: 0 10px; font-size: 11.5px; font-weight: 700; white-space: nowrap;">{{c.label}}</button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+
+        <sc-if value="{{panel.hasSteppers}}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top: 10px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+            <sc-for list="{{panel.steppers}}" as="s" hint-placeholder-count="6">
+              <div style="min-width: 0;">
+                <div style="font-size: 10px; color: #9aa1ab; white-space: nowrap;">{{s.label}}</div>
+                <div style="margin-top: 2px; display: flex; align-items: center; height: 30px; border-radius: 8px; border: 1px solid #e6e9ed; overflow: hidden;">
+                  <button class="tap ghost" onClick="{{s.dec}}" style="width: 28px; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #3c424c;">−</button>
+                  <span class="num" style="flex: 1; text-align: center; font-size: 12.5px; font-weight: 800;">{{s.value}}</span>
+                  <button class="tap ghost" onClick="{{s.inc}}" style="width: 28px; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #3c424c;">＋</button>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{panel.hasButtons}}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px;">
+            <sc-for list="{{panel.buttons}}" as="b" hint-placeholder-count="6">
+              <button class="tap ghost" onClick="{{b.pick}}" style="height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid {{b.border}}; background: {{b.bg}}; color: {{b.fg}}; padding: 0 10px; font-size: 11.5px; font-weight: 700; white-space: nowrap;">{{b.label}}</button>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{panel.warnOn}}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top: 11px; border-radius: 10px; border: 1px solid #f5b8c2; background: #fff5f6; padding: 10px 11px;">
+            <div style="font-size: 11.5px; font-weight: 800; color: #c7243a;">{{panel.warnTitle}}</div>
+            <div style="margin-top: 3px; font-size: 11px; line-height: 1.5; color: #8a1a2b;">{{panel.warnBody}}</div>
+          </div>
+        </sc-if>
+
+        <div style="margin-top: 12px; border-radius: 10px; border: 1px solid #cfe4f4; background: #f4faff; padding: 10px 11px;">
+          <div style="font-size: 11.5px; font-weight: 800; color: #005bac;">{{panel.noteTitle}}</div>
+          <div style="margin-top: 4px; font-size: 11px; line-height: 1.55; color: #1a1d24;">{{panel.noteBody}}</div>
+        </div>
+
+        <p style="margin: 12px 0 0; font-size: 10.5px; line-height: 1.6; color: #9aa1ab;">寸法は mm。位置は品目の中心で、エリア左上からの距離か通り芯からの距離。px は出しません。</p>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"docNo":{"editor":"text","default":"VL-202609-0003","section":"資料"},"title":{"editor":"text","default":"WORLD STUDIO A案","section":"資料"},"savedAt":{"editor":"text","default":"14:02","section":"資料"},"$preview":{"width":1440,"height":1080}}'>
+// 数値の正: venue-data.json（下敷き・エリア・固定物）と catalog.json（品目）。手元で計算し直さない。
+// 縮尺: px = (mm − originMm) × pxPerMm（X と Y で別。下敷きは実ピクセルで置き、品目は mm × pxPerMm で描く）
+const VW = 878, VH = 898, CX = 439, CY = 449, PAD = 300, ZOOMS = [75, 100, 150], LED_Y = 30150;
+const UNDERLAYS = {
+  world: { file: 'world-26f.png', sx: 0.039216, sy: 0.040913, ox: 12193, oy: 10995, w: 800, h: 966, cx: 22400, cy: 21970, note: '26F 平面図（8/7 版）' },
+  lounge: { file: 'lounge-27f.png', sx: 0.048387, sy: 0.050481, ox: 27296, oy: 10402, w: 600, h: 1232, cx: 33435, cy: 20825, note: '27F 平面図（8/7 版）' },
+  floor26: { file: 'floor-26f.png', sx: 0.011667, sy: 0.012172, ox: 4493, oy: -1525, w: 420, h: 584, cx: 22400, cy: 22400, note: '26F 平面図・階全体' },
+  floor27: { file: 'floor-27f.png', sx: 0.011667, sy: 0.012172, ox: 4493, oy: -1525, w: 420, h: 584, cx: 22400, cy: 22400, note: '27F 平面図・階全体' },
+};
+const LEGS = [[17720, 17473], [27080, 17473], [17720, 20673], [27080, 20673], [17720, 23873], [27080, 23873], [17720, 27073], [27080, 27073], [17720, 30273], [27080, 30273]];
+const FLOORS = {
+  world: { floor: '26F', area: 'WORLD STUDIO', m2: '322㎡', bbox: { x: 13680, y: 11900, w: 17440, h: 18480 }, underlay: 'world', whole: 'floor26', led: { x: 18135, y: 30150, w: 8530, h: 150 }, fixtures: LEGS.map((l) => ({ x: l[0] - 225, y: l[1] - 225, w: 450, h: 450 })) },
+  lounge: { floor: '27F', area: 'LOUNGE STUDIO', m2: '155㎡', bbox: { x: 28480, y: 12980, w: 9910, h: 15690 }, underlay: 'lounge', whole: 'floor27', led: null, fixtures: [{ x: 29000, y: 12900, w: 2100, h: 160 }, { x: 35000, y: 12000, w: 900, h: 980 }] },
+};
+const AXES_X = [['X16', 0], ['X15', 6400], ['X14', 12800], ['X13', 19200], ['X12b', 22400], ['X12', 25600], ['X11', 32000], ['X10', 38400], ['X9', 44800]];
+const AXES_Y = [['Y16', 0], ['Y15', 6400], ['Y14', 12800], ['Y13', 19200], ['Y12', 25600], ['Y11', 32000], ['Y10', 38400], ['Y9', 44800]];
+// 品目（catalog.json の写し。l=名前 g=群 w×d／dia=足元 q=保有数 u=単位 s=保管場所 sym=絵記号 est=寸法は推定）
+const GROUPS = { f: '備品', c: 'カメラ', p: '人', s: '図形' };
+const CAT = {
+  'long-table': { l: '長机（白）', g: 'f', w: 1800, d: 600, q: 20, u: '点', s: 'SKY STUDIO', sym: 'table' },
+  rubeck: { l: 'ルベックチェア', g: 'f', w: 535, d: 490, q: 80, u: '脚', s: '倉庫', sym: 'chair' },
+  cafe: { l: 'カフェチェア', g: 'f', w: 500, d: 430, q: 40, u: '脚', s: '倉庫', sym: 'chair-cafe' },
+  'high-table': { l: 'ハイテーブル', g: 'f', dia: 600, q: 1, u: '台', s: '倉庫', sym: 'round' },
+  'high-chair': { l: 'ハイチェア', g: 'f', w: 400, d: 400, q: 5, u: '脚', s: '倉庫', sym: 'stool' },
+  stage: { l: 'ステージ', g: 'f', w: 2400, d: 1200, q: 1, u: '台', s: '倉庫', sym: 'stage', variants: ['H200', 'H400'] },
+  mon75: { l: 'ハイモニター 75型', g: 'f', w: 1700, d: 700, q: 2, u: '台', s: 'WORLD STUDIO', sym: 'monitor75', est: true },
+  mon55: { l: 'ハイモニター 55型', g: 'f', w: 1250, d: 600, q: 1, u: '台', s: '倉庫', est: true },
+  mon43: { l: 'ローモニター 43型', g: 'f', w: 1000, d: 500, q: 3, u: '台', s: 'WORLD STUDIO', est: true },
+  lectern: { l: '司会台', g: 'f', w: 700, d: 490, q: 1, u: '台', s: '倉庫', sym: 'lectern' },
+  sign: { l: '立て看板', g: 'f', w: 600, d: 450, q: 1, u: '台', s: '倉庫', est: true },
+  easel: { l: 'イーゼル', g: 'f', w: 600, d: 600, q: 4, u: '台', s: '倉庫', est: true },
+  lstand: { l: 'L字 フロアスタンド', g: 'f', w: 300, d: 300, q: 9, u: '台', s: '倉庫', est: true },
+  belt: { l: 'ベルトパーテーション', g: 'f', w: 2350, d: 350, q: 10, u: '台', s: 'SKY STUDIO', sym: 'belt', est: true, size: '線 2,000' },
+  partition: { l: 'パーテーション', g: 'f', w: 1200, d: 400, q: 6, u: '台', s: 'SKY STUDIO', sym: 'partition', est: true },
+  umbrella: { l: '傘立て', g: 'f', w: 500, d: 350, q: 3, u: '台', s: 'RECEPTION' },
+  hanger: { l: '可動式ハンガーラック', g: 'f', w: 1230, d: 500, q: 3, u: '台', s: '倉庫', est: true },
+  mirror: { l: '姿見', g: 'f', w: 350, d: 360, q: 2, u: '台', s: '倉庫' },
+  cart: { l: '台車', g: 'f', w: 480, d: 750, q: 2, u: '台', s: '倉庫' },
+  ped: { l: 'ペデスタル TP-90B', g: 'c', dia: 900, s: '昭特', sym: 'ped', est: true, size: 'Ø900 ・ カメラ 350 × 1,100', extra: '最高レンズ軸高 1,550（推定）・ストローク 945' },
+  crane: { l: 'クレーン TK-53L', g: 'c', w: 900, d: 1200, s: '昭特', sym: 'dolly', crane: true, arm: 3200, tail: 1300, sweep: 3800, est: true, size: '台車 900 × 1,200 ・ アーム 3,200', extra: '最高レンズ軸高 3,850 ・ 台車 TI-04B' },
+  'crane-l': { l: 'クレーン TK-53A', g: 'c', w: 900, d: 1200, s: '昭特', sym: 'dolly', crane: true, arm: 2500, tail: 1100, sweep: 3100, est: true, size: '台車 900 × 1,200 ・ アーム 2,500', extra: '最高レンズ軸高 3,099 ・ 台車 TI-04B' },
+  dolly: { l: 'クレーン台車 TI-04B', g: 'c', w: 900, d: 1200, s: '昭特', sym: 'dolly', est: true },
+  stand: { l: '人（立位）', g: 'p', w: 450, d: 300, sym: 'stand', size: '450 × 300 ・ 頭 Ø180' },
+  seat: { l: '人（着席）', g: 'p', w: 500, d: 800, sym: 'seat' },
+  wheel: { l: '車椅子', g: 'p', w: 700, d: 1200, sym: 'wheel', extra: '回転に Ø1,500 の余白が要ります' },
+  rect: { l: '四角', g: 's', w: 1000, d: 1000, shape: true },
+  circle: { l: '丸', g: 's', dia: 1000, shape: true },
+  line: { l: '線', g: 's', w: 2000, d: 60, line: true, shape: true },
+  text: { l: '文字', g: 's', w: 1200, d: 200, shape: true, todo: true, size: '高さ 200' },
+  dim: { l: '寸法線', g: 's', w: 2000, d: 60, shape: true, todo: true, size: '2 点間の mm' },
+};
+const ARR0 = { rows: 5, cols: 10, px: 550, py: 900, aisle: 1200, side: 600, front: 1500 };
+const LECTERN = { x: 19800, y: 29300 };
+function mk(id, key, x, y, rot, extra) { const c = CAT[key]; return Object.assign({ id, key, fl: 'world', x, y, rot, w: c.w || c.dia, d: c.d || c.dia }, extra || {}); }
+// A案の品目（mm・階の絶対座標・足元の中心・正面は −y。椅子は LED ウォール側＝画面の下を向くので 180°）
+const BASE = [
+  mk('t1', 'long-table', 21500, 29300, 0), mk('t2', 'long-table', 23300, 29300, 0),
+  mk('lec', 'lectern', LECTERN.x, LECTERN.y, 0), mk('p1', 'stand', 19800, 29800, 0),
+  mk('ped1', 'ped', 20300, 23000, 180), mk('ped2', 'ped', 24500, 23000, 180), mk('p2', 'stand', 20300, 22250, 180),
+  mk('cr1', 'crane', 28450, 26300, 270, { arm: -30 }), mk('p3', 'stand', 18400, 26400, 90),
+];
+// 劇場形式: 椅子だけを格子に。実装では shared/src/venue/arrange.ts の純粋関数
+function frameOf(a) { const A = a.cols >= 2 ? a.aisle : 0, fw = a.cols * a.px + A; return { x: 22400 - fw / 2, y: LED_Y - a.front - a.rows * a.py, w: fw, d: a.rows * a.py, aisle: A, k: Math.floor(a.cols / 2) }; }
+function theater(a, facing) {
+  const f = frameOf(a), y1 = f.y + f.d, out = [];
+  const rotTo = (x, y) => Math.round(Math.atan2(LECTERN.x - x, -(LECTERN.y - y)) * 180 / Math.PI / 15) * 15;
+  for (let r = 0; r < a.rows; r++) for (let c = 0; c < a.cols; c++) {
+    const x = f.x + a.px / 2 + c * a.px + (c >= f.k ? f.aisle : 0), y = y1 - a.py / 2 - r * a.py;
+    out.push(mk('c' + r + '-' + c, 'rubeck', x, y, facing === 'lectern' ? rotTo(x, y) : 180, { gid: 'g1', row: r + 1, col: c + 1 }));
+  }
+  return out;
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tab: 'place', pg: 'f', q: '', floor: 'world', whole: false, zi: 1, grid: true, snap: true, ruler: true, menu: false, sel: null, posMode: 'area', ungrouped: false, arr: Object.assign({}, ARR0), facing: 'led', items: BASE.concat(theater(ARR0, 'led')), seq: 1, toast: '' };
+  }
+  flash(msg) { this.setState({ toast: msg }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: '' }), 2600); }
+  fmt(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  px(v) { return (Math.round(v * 10) / 10) + 'px'; }
+  sizeText(c, it) { return c.line ? '長さ ' + this.fmt(it.w) : c.size ? c.size : c.dia ? 'Ø' + this.fmt(it.w) : this.fmt(it.w) + ' × ' + this.fmt(it.d); }
+  // 品目を置く: 表示範囲の中央に実寸で（同じ点に重ならないよう少しずらす）
+  place(key) {
+    const st = this.state, c = CAT[key];
+    if (c.todo) { this.flash('「' + c.l + '」を置く操作はこれから作ります'); return; }
+    const F = FLOORS[st.floor], U = UNDERLAYS[st.whole ? F.whole : F.underlay], n = st.seq, w = c.w || c.dia, d = c.d || c.dia;
+    const it = Object.assign(mk('n' + n, key, U.cx + ((n % 4) - 1.5) * (w + 200), U.cy + ((Math.floor(n / 4) % 3) - 1) * (d + 200), 0), { fl: st.floor });
+    if (c.crane) it.arm = 0;
+    if (c.variants) it.variant = c.variants[0];
+    this.setState({ items: st.items.concat([it]), seq: n + 1, sel: it.id, menu: false });
+  }
+  relayout(arr, facing) {
+    const st = this.state;
+    this.setState({ items: st.items.filter((it) => it.gid !== 'g1').concat(theater(arr, facing)), arr, facing, ungrouped: false, sel: 'g1' });
+  }
+
+  renderVals() {
+    const self = this, st = this.state, fmt = (n) => self.fmt(n), px = (v) => self.px(v), r2 = (v) => Math.round(v * 100) / 100;
+    const soon = (label) => () => self.flash('「' + label + '」はこれから作ります');
+    const ink = '#1a1d24', blue = '#005bac', red = '#c7243a', gray = '#5d6470', orange = '#c2410e';
+    const F = FLOORS[st.floor], U = UNDERLAYS[st.whole ? F.whole : F.underlay], A = F.bbox, z = ZOOMS[st.zi] / 100;
+
+    // ── 縮尺: mm → px（100%）。X と Y で係数が違う。画面座標（ズーム込み）は中央を軸に拡縮
+    const imgL = CX - (U.cx - U.ox) * U.sx, imgT = CY - (U.cy - U.oy) * U.sy;
+    const X = (mm) => imgL + (mm - U.ox) * U.sx, Y = (mm) => imgT + (mm - U.oy) * U.sy;
+    const sX = (mm) => CX + (X(mm) - CX) * z, sY = (mm) => CY + (Y(mm) - CY) * z;
+    const mmX = (p) => U.ox + (CX + (p - CX) / z - imgL) / U.sx, mmY = (p) => U.oy + (CY + (p - CY) / z - imgT) / U.sy;
+    const rectPx = (x, y, w, d) => ({ x: r2(X(x)), y: r2(Y(y)), w: r2(w * U.sx), h: r2(d * U.sy) });
+
+    // ── 品目（この階のもの）・はみ出し・グループ
+    const items = st.items.filter((it) => it.fl === st.floor);
+    const count = (key) => items.filter((it) => it.key === key).length;
+    const inside = (it) => {
+      const a = it.rot * Math.PI / 180, cs = Math.cos(a), sn = Math.sin(a);
+      return [[-it.w / 2, -it.d / 2], [it.w / 2, -it.d / 2], [it.w / 2, it.d / 2], [-it.w / 2, it.d / 2]].every((p) => {
+        const x = it.x + p[0] * cs - p[1] * sn, y = it.y + p[0] * sn + p[1] * cs;
+        return x >= A.x && x <= A.x + A.w && y >= A.y && y <= A.y + A.h;
+      });
+    };
+    const chairs = items.filter((it) => it.gid === 'g1'), hasGroup = !st.ungrouped && chairs.length > 0, fr = frameOf(st.arr);
+    const selItem = st.sel && st.sel !== 'g1' ? items.find((it) => it.id === st.sel) || null : null;
+    const selGroup = st.sel === 'g1' && hasGroup;
+    let overCount = 0;
+    const drawn = items.map((it) => {
+      const c = CAT[it.key], over = !inside(it), sel = selItem === it || (selGroup && it.gid === 'g1');
+      if (over) overCount++;
+      const swap = it.rot % 180 !== 0, hw = Math.max((swap ? it.d : it.w) * U.sx, 12), hh = Math.max((swap ? it.w : it.d) * U.sy, 12);
+      const o = {
+        pick: () => self.setState({ sel: it.gid && !st.ungrouped ? 'g1' : it.id, menu: false }),
+        color: over ? red : sel ? blue : ink, px: r2(X(it.x)), py: r2(Y(it.y)), sx: U.sx, sy: U.sy, rot: it.rot,
+        hx: r2(X(it.x) - hw / 2), hy: r2(Y(it.y) - hh / 2), hw: r2(hw), hh: r2(hh),
+        hasSym: !!c.sym, sym: 'sym-' + (c.sym || ''), isRect: !c.sym && !c.dia && !c.line, rx: -it.w / 2, ry: -it.d / 2, rw: it.w, rh: it.d,
+        isCircle: !c.sym && !!c.dia, r: it.w / 2, isLine: !!c.line, lineD: 'M ' + (-it.w / 2) + ' 0 L ' + (it.w / 2) + ' 0',
+        isCrane: !!c.crane, selected: sel, bx: -it.w / 2 - 80, by: -it.d / 2 - 80, bw: it.w + 160, bh: it.d + 160,
+      };
+      if (c.crane) Object.assign(o, { sweep: c.sweep, tail: c.tail, armRot: it.rot + (it.arm || 0), armD: 'M 0 ' + c.tail + ' L 0 ' + (-c.arm), cwY: c.tail - 200, camY: -(c.arm + 400), lensD: 'M -120 ' + (-(c.arm + 400)) + ' L 120 ' + (-(c.arm + 400)) + ' L 0 ' + (-(c.arm + 560)) + ' Z' });
+      return o;
+    });
+
+    // ── 下敷き・方眼・通り芯・エリア・固定物（100% の px。外側の div が transform: scale で拡縮）
+    const u = { left: px(imgL), top: px(imgT), w: px(U.w), h: px(U.h), isWorld: U === UNDERLAYS.world, isLounge: U === UNDERLAYS.lounge, isFloor26: U === UNDERLAYS.floor26, isFloor27: U === UNDERLAYS.floor27 };
+    const gw = r2(1000 * U.sx), gh = r2(1000 * U.sy);
+    const grid = { on: st.grid, x: r2(X(A.x)), y: r2(Y(A.y)), w: gw, h: gh, d: 'M ' + gw + ' 0 L 0 0 L 0 ' + gh, w5: r2(gw * 5), h5: r2(gh * 5), d5: 'M ' + r2(gw * 5) + ' 0 L 0 0 L 0 ' + r2(gh * 5) };
+    const axes = [], axisTags = [];
+    AXES_X.forEach((a) => { const p = X(a[1]), s = sX(a[1]); if (s > 8 && s < VW - 8) { axes.push({ x1: r2(p), y1: -PAD, x2: r2(p), y2: VH + PAD }); axisTags.push({ label: a[0], left: px(s - 13), top: '3px' }); } });
+    AXES_Y.forEach((a) => { const p = Y(a[1]), s = sY(a[1]); if (s > 24 && s < VH - 8) { axes.push({ x1: -PAD, y1: r2(p), x2: VW + PAD, y2: r2(p) }); axisTags.push({ label: a[0], left: '3px', top: px(s - 8) }); } });
+    const area = rectPx(A.x, A.y, A.w, A.h);
+    const fixtures = F.fixtures.map((k) => rectPx(k.x, k.y, k.w, k.h));  // トラス脚などは白抜きの柱記号で描く（2026-09-13 のご判断: 脚は残し、横の黒い矩形だけ消す）
+    const led = F.led ? Object.assign(rectPx(F.led.x, F.led.y, F.led.w, F.led.h), { on: true }) : { on: false };
+    const group = hasGroup ? Object.assign(rectPx(fr.x, fr.y, fr.w, fr.d), { on: true, fo: selGroup ? '.08' : '.03', sw: selGroup ? '1.5' : '.8', pick: () => self.setState({ sel: 'g1', menu: false }) }) : { on: false };
+
+    // ── 重ねる札（画面座標）
+    const tags = [];
+    if (F.led) tags.push({ left: px(sX(22400) - 46), top: px(sY(30300) + 3), text: 'LEDウォール 8,530', fg: ink });
+    if (hasGroup && !selGroup) tags.push({ left: px(sX(fr.x)), top: px(sY(fr.y) - 17), text: '劇場形式 ' + st.arr.rows + '×' + st.arr.cols + ' ・ ' + chairs.length + ' 脚', fg: blue });
+    items.filter((it) => CAT[it.key].g === 'c').forEach((it) => tags.push({ left: px(sX(it.x + it.w / 2 + 150)), top: px(sY(it.y) - 7), text: CAT[it.key].l.split(' ')[1] + ' ・ 寸法は推定', fg: gray }));
+    const areaTag = { left: px(sX(A.x) + 6), top: px(sY(A.y) + 5), text: F.area + ' ・ ' + fmt(A.w) + ' × ' + fmt(A.h) + ' ・ ' + F.m2 + '（内法）' };
+    const front = LED_Y - (fr.y + fr.d);
+    const dim = hasGroup && st.floor === 'world' && front > 0 ? { on: true, left: px(sX(fr.x + fr.w + 400)), top: px(sY(fr.y + fr.d)), h: px(sY(LED_Y) - sY(fr.y + fr.d)), label: fmt(front) } : { on: false };
+    let selTag = { on: false };
+    if (selItem) {
+      const c = CAT[selItem.key];
+      selTag = { on: true, left: px(sX(selItem.x) - 70), top: px(sY(selItem.y - selItem.d / 2) - 30), text: c.l + ' ・ ' + self.sizeText(c, selItem) + (c.q ? ' ・ ' + count(selItem.key) + '/' + c.q + ' ' + c.u : '') + (selItem.variant ? ' ・ ' + selItem.variant : '') + (c.est ? ' ・ 寸法は推定' : '') + (selItem.locked ? ' ・ 固定' : '') };
+    } else if (selGroup) {
+      selTag = { on: true, left: px(sX(fr.x)), top: px(sY(fr.y) - 30), text: '劇場形式 ・ ' + st.arr.rows + '×' + st.arr.cols + ' ・ ' + chairs.length + ' 脚（保有 80' + (chairs.length > 80 ? '・' + (chairs.length - 80) + ' 脚超過' : '') + '）' };
+    }
+
+    // ── ものさし（エリア左上を 0 とした 1m／5m 目盛。詰まるときは 5m だけ）
+    const ruler = { on: st.ruler, x: [], y: [] };
+    if (st.ruler) {
+      const step = U.sx * z * 1000 >= 12 ? 1 : 5, tick = (m, pos) => ({ pos: px(pos), top: m % 5 === 0 ? '0' : '15px', label: m % 5 === 0 ? (m === 0 ? '0' : m + 'm') : '', line: m % 5 === 0 ? '#9aa1ab' : '#cbd2da' });
+      for (let m = Math.ceil((mmX(0) - A.x) / 1000 / step) * step; m <= (mmX(VW) - A.x) / 1000; m += step) ruler.x.push(tick(m, sX(A.x + m * 1000)));
+      for (let m = Math.ceil((mmY(0) - A.y) / 1000 / step) * step; m <= (mmY(VH) - A.y) / 1000; m += step) ruler.y.push(tick(m, sY(A.y + m * 1000)));
+    }
+    const bar = { w: px(1000 * U.sx * z), scale: 'S=1:' + Math.round(96 / (25.4 * U.sx * z)) + '（画面）', note: '下敷き ' + U.note + ' ・ 縮尺確認済み 9/13 寺井' };
+
+    // ── 左: タブ・置く・並べる・数量
+    const tabDefs = [{ key: 'place', label: '置く' }, { key: 'arrange', label: '並べる' }, { key: 'qty', label: '数量' }];
+    const tabs = tabDefs.map((t) => ({ label: t.label, weight: st.tab === t.key ? 800 : 700, fg: st.tab === t.key ? blue : gray, line: st.tab === t.key ? blue : 'transparent', pick: () => self.setState({ tab: t.key }) }));
+    const q = st.q.trim();
+    const placeItems = Object.keys(CAT).filter((k) => q ? CAT[k].l.indexOf(q) >= 0 : CAT[k].g === st.pg).map((k) => {
+      const c = CAT[k], n = count(k), over = c.q != null && n > c.q;
+      return { name: c.l, size: self.sizeText(c, { w: c.w || c.dia, d: c.d }), est: !!c.est, count: c.q != null ? n + ' / ' + c.q : n + ' / —', countFg: over ? red : gray, hint: c.todo ? 'これから作ります' : '押すと表示範囲の中央に実寸で置きます', pick: () => self.place(k) };
+    });
+    const place = {
+      on: st.tab === 'place', search: (e) => self.setState({ q: (e && e.target && e.target.value) || '' }),
+      groups: Object.keys(GROUPS).map((g) => { const on = !q && st.pg === g; return { label: GROUPS[g], border: on ? blue : '#e6e9ed', bg: on ? '#f4faff' : '#ffffff', fg: on ? blue : '#3c424c', pick: () => self.setState({ pg: g, q: '' }) }; }),
+      items: placeItems,
+    };
+    const stepper = (obj, key, label, step, min, max, apply) => ({ label, value: fmt(obj[key]), dec: () => apply(key, Math.max(min, obj[key] - step)), inc: () => apply(key, Math.min(max, obj[key] + step)) });
+    const setArr = (key, v) => self.setState({ arr: Object.assign({}, st.arr, { [key]: v }) });
+    const nChairs = st.arr.rows * st.arr.cols, overStock = nChairs > 80;
+    const facingDefs = [{ key: 'led', label: 'LEDウォール' }, { key: 'lectern', label: '司会台' }, { key: 'point', label: '任意の点' }];
+    const facingChips = (pick) => facingDefs.map((f) => { const on = st.facing === f.key; return { label: f.label, border: on ? blue : '#e6e9ed', bg: on ? '#f4faff' : '#ffffff', fg: on ? blue : '#3c424c', pick: () => pick(f.key) }; });
+    const pickFacing = (key) => { if (key === 'point') self.flash('「任意の点」（図面の点を押して決める）はこれから作ります'); else self.setState({ facing: key }); };
+    const arrange = {
+      on: st.tab === 'arrange',
+      presets: ['格子', '劇場形式', 'スクール形式', '島形式', '円卓', 'コの字', 'ロの字'].map((l) => { const on = l === '劇場形式'; return { label: l, border: on ? blue : '#e6e9ed', bg: on ? '#f4faff' : '#ffffff', fg: on ? blue : '#3c424c', pick: on ? () => {} : soon(l) }; }),
+      fields: [
+        { title: '行 × 列', items: [stepper(st.arr, 'rows', '行', 1, 1, 12, setArr), stepper(st.arr, 'cols', '列', 1, 1, 16, setArr)] },
+        { title: '間隔（mm）', items: [stepper(st.arr, 'px', '横', 50, 400, 2000, setArr), stepper(st.arr, 'py', '縦', 50, 400, 3000, setArr)] },
+        { title: '通路（mm）', items: [stepper(st.arr, 'aisle', '中央', 100, 0, 3000, setArr), stepper(st.arr, 'side', '脇', 100, 0, 3000, setArr)] },
+        { title: '起点', items: [stepper(st.arr, 'front', '前の空き', 100, 0, 10000, setArr)] },
+      ],
+      facing: facingChips(pickFacing),
+      note: nChairs + ' 脚（保有 80・' + (overStock ? (nChairs - 80) + ' 脚超過。置くのは止めません' : '残り ' + (80 - nChairs)) + '）・ 外接 ' + fmt(fr.w) + ' × ' + fmt(fr.d) + ' mm',
+      noteFg: overStock ? red : '#9aa1ab',
+      place: () => { if (st.floor !== 'world') self.flash('この階には「並べる」の起点（LEDウォール）がありません'); else self.relayout(st.arr, st.facing); },
+      cancel: () => self.setState({ arr: Object.assign({}, ARR0), facing: 'led' }),
+    };
+    const qtyRows = Object.keys(CAT).filter((k) => count(k) > 0).map((k) => { const c = CAT[k], n = count(k); return { item: c.l, placed: String(n), qty: c.q != null ? String(c.q) : '—', where: c.s || '—', fg: c.q != null && n > c.q ? red : ink }; });
+    const qty = { on: st.tab === 'qty', rows: qtyRows, total: '品目 ' + items.length + ' 点 ・ はみ出し ' + overCount + ' 件' };
+
+    // ── 右パネル
+    const chip = (label, on, pick) => ({ label, border: on ? blue : '#e6e9ed', bg: on ? '#f4faff' : '#ffffff', fg: on ? blue : '#3c424c', pick });
+    const btn = (label, pick, danger) => ({ label, pick, border: danger ? '#f5b8c2' : '#e6e9ed', bg: '#ffffff', fg: danger ? red : '#3c424c' });
+    const update = (id, patch) => self.setState({ items: st.items.map((it) => it.id === id ? Object.assign({}, it, patch) : it) });
+    const posOf = (x, y) => {
+      if (st.posMode === 'axis') {
+        const near = (list, v) => list.reduce((b, a) => Math.abs(a[1] - v) < Math.abs(b[1] - v) ? a : b);
+        const ax = near(AXES_X, x), ay = near(AXES_Y, y), sgn = (d) => (d >= 0 ? '+' : '−') + fmt(Math.abs(d));
+        return [ax[0] + ' ' + sgn(x - ax[1]), ay[0] + ' ' + sgn(y - ay[1])];
+      }
+      return [fmt(x - A.x), fmt(y - A.y)];
+    };
+    const posChips = { title: '位置の基準', chips: [chip('エリア左上から', st.posMode === 'area', () => self.setState({ posMode: 'area' })), chip('通り芯から', st.posMode === 'axis', () => self.setState({ posMode: 'axis' }))] };
+    let panel;
+    if (selItem) {
+      const it = selItem, c = CAT[it.key], n = count(it.key), pos = posOf(it.x, it.y), over = !inside(it);
+      const rows = [{ label: '寸法', value: self.sizeText(c, it) + (c.size ? '' : ' mm'), fg: ink }, { label: '位置 X', value: pos[0], fg: ink }, { label: '位置 Y', value: pos[1], fg: ink }, { label: '向き', value: it.rot + '°', fg: ink }];
+      if (c.crane) rows.push({ label: 'アーム', value: (it.arm || 0) + '°', fg: ink });
+      rows.push({ label: '保有', value: c.q != null ? n + ' / ' + c.q + ' ' + c.u + ' ・ ' + c.s : (c.s || '—'), fg: c.q != null && n > c.q ? red : ink });
+      if (c.extra) rows.push({ label: '備考', value: c.extra, fg: gray });
+      if (c.est) rows.push({ label: '寸法の根拠', value: '推定（メーカー寸法図で確定）', fg: orange });
+      if (over) rows.push({ label: 'はみ出し', value: 'エリアの外に出ています', fg: red });
+      const setIt = (key, v) => update(it.id, c.dia ? { w: v, d: v } : { [key]: v });
+      const steppers = [stepper(it, 'rot', '向き（度）', 15, -360, 360, (k, v) => update(it.id, { rot: ((v % 360) + 360) % 360 }))];
+      if (c.shape && !c.todo) { if (c.dia) steppers.push(stepper(it, 'w', '直径', 100, 100, 20000, setIt)); else if (c.line) steppers.push(stepper(it, 'w', '長さ', 100, 100, 40000, setIt)); else { steppers.push(stepper(it, 'w', '幅', 100, 100, 20000, setIt)); steppers.push(stepper(it, 'd', '奥行', 100, 100, 20000, setIt)); } }
+      if (c.crane) steppers.push(stepper({ arm: it.arm || 0 }, 'arm', 'アームの角度', 15, -180, 180, (k, v) => update(it.id, { arm: v })));
+      const chipGroups = [posChips];
+      if (c.variants) chipGroups.push({ title: '高さ', chips: c.variants.map((v) => chip(v, (it.variant || c.variants[0]) === v, () => update(it.id, { variant: v }))) });
+      const idx = st.items.indexOf(it), others = st.items.filter((x) => x !== it);
+      panel = {
+        title: c.l, badge: GROUPS[c.g], badgeBg: c.g === 'c' ? '#fff7ed' : '#eaf4fb', badgeFg: c.g === 'c' ? orange : blue, iconBg: '#eaf4fb', iconFg: blue,
+        icon: c.g === 'p' ? 'M12 12a4 4 0 1 0 0-8a4 4 0 0 0 0 8zM4 20a8 8 0 0 1 16 0' : c.g === 'c' ? 'M3 7h13v10H3zM16 10l5-3v10l-5-3z' : c.g === 's' ? 'M4 4h16v16H4z' : 'M4 7h16v10H4zM8 17v3M16 17v3',
+        rows, chipGroups, steppers, hasSteppers: true,
+        buttons: [btn('反転', () => update(it.id, { rot: (it.rot + 180) % 360 })), btn('前面へ', () => self.setState({ items: others.concat([it]) })), btn('背面へ', () => self.setState({ items: [it].concat(others) })), btn(it.locked ? '固定を解除' : '固定', () => update(it.id, { locked: !it.locked })), btn('複製', () => { const cp = Object.assign({}, it, { id: 'n' + st.seq, x: it.x + it.w + 50, locked: false }); self.setState({ items: st.items.slice(0, idx + 1).concat([cp], st.items.slice(idx + 1)), seq: st.seq + 1, sel: cp.id }); }), btn('削除', () => self.setState({ items: others, sel: null }), true)],
+        hasButtons: true, warnOn: c.q != null && n > c.q, warnTitle: '保有数を超えています', warnBody: '保有数 ' + c.q + ' ' + c.u + ' に対して ' + n + ' ' + c.u + ' 置いています。置くのは止めません（確保できない場合があります）。',
+        noteTitle: c.shape ? 'この図形は寸法を変えられます' : '実寸固定（伸ばせません）', noteBody: c.shape ? '角と辺のつまみでも伸ばせます（Shift で縦横比）。名前を付けると札に出ます。' : '伸ばしたいものは「四角」で置きます。矢印キーで 10mm（Shift 100mm・Ctrl 1mm）動き、Ctrl+D で右隣に複製、Delete で削除。',
+      };
+    } else if (selGroup) {
+      const pos = posOf(fr.x, fr.y), n = chairs.length, over = chairs.filter((it) => !inside(it)).length;
+      panel = {
+        title: '劇場形式（並べたグループ）', badge: 'グループ', badgeBg: '#eaf4fb', badgeFg: blue, iconBg: '#eaf4fb', iconFg: blue, icon: 'M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z',
+        rows: [{ label: '並べ方', value: '劇場形式', fg: ink }, { label: '品目', value: 'ルベックチェア 535 × 490', fg: ink }, { label: '脚数', value: n + ' 脚（保有 80・' + (n > 80 ? (n - 80) + ' 脚超過' : '残り ' + (80 - n)) + '）', fg: n > 80 ? red : ink }, { label: '外接寸法', value: fmt(fr.w) + ' × ' + fmt(fr.d) + ' mm', fg: ink }, { label: '位置 X', value: pos[0], fg: ink }, { label: '位置 Y', value: pos[1], fg: ink }, { label: 'はみ出し', value: over + ' 脚', fg: over ? red : ink }],
+        chipGroups: [{ title: '向き先', chips: facingChips(pickFacing) }, posChips],
+        steppers: [stepper(st.arr, 'rows', '行', 1, 1, 12, setArr), stepper(st.arr, 'cols', '列', 1, 1, 16, setArr), stepper(st.arr, 'px', '横（mm）', 50, 400, 2000, setArr), stepper(st.arr, 'py', '縦（mm）', 50, 400, 3000, setArr), stepper(st.arr, 'aisle', '中央通路（mm）', 100, 0, 3000, setArr), stepper(st.arr, 'front', '前の空き（mm）', 100, 0, 10000, setArr)], hasSteppers: true,
+        buttons: [Object.assign(btn('並べ直す', () => self.relayout(st.arr, st.facing)), { border: blue, bg: blue, fg: '#ffffff' }), btn('グループ解除', () => self.setState({ ungrouped: true, sel: null })), btn('削除', () => self.setState({ items: st.items.filter((it) => it.gid !== 'g1'), sel: null }), true)], hasButtons: true,
+        warnOn: n > 80, warnTitle: '保有数を超えています', warnBody: 'ルベックチェアの保有数 80 脚に対して ' + n + ' 脚。置くのは止めません（確保できない場合があります）。',
+        noteTitle: 'このグループの直し方', noteBody: '① 数値を変えて「並べ直す」（1手で戻せます）② 中の1つはダブルクリックで動かす・削除（グループから外れる）③「グループ解除」で全部を個別に。',
+      };
+    } else {
+      const vis = (list, f) => list.filter((a) => f(a[1]));
+      const vx = vis(AXES_X, (v) => { const s = sX(v); return s > 0 && s < VW; }), vy = vis(AXES_Y, (v) => { const s = sY(v); return s > 0 && s < VH; });
+      const span = (l) => l.length ? l[0][0] + '〜' + l[l.length - 1][0] : '—';
+      panel = {
+        title: '図面の情報', badge: F.floor, badgeBg: '#f2f4f7', badgeFg: gray, iconBg: '#f2f4f7', iconFg: gray, icon: 'M4 4h16v16H4zM4 12h16M12 4v16',
+        rows: [{ label: '会場', value: 'GMOサムライスタジオ 用賀', fg: ink }, { label: '階', value: F.floor, fg: ink }, { label: 'エリア', value: F.area, fg: ink }, { label: '内法', value: fmt(A.w) + ' × ' + fmt(A.h) + ' mm ・ ' + F.m2, fg: ink }, { label: '下敷き', value: U.note, fg: ink }, { label: '縮尺', value: '確認済み 2026/09/13 寺井', fg: '#197a4b' }, { label: '通り芯', value: span(vx) + ' ・ ' + span(vy), fg: ink }, { label: '品目', value: items.length + ' 点 ・ はみ出し ' + overCount + ' 件', fg: overCount ? red : ink }],
+        chipGroups: [], steppers: [], hasSteppers: false, buttons: [], hasButtons: false, warnOn: false, warnTitle: '', warnBody: '',
+        noteTitle: '品目を押すと選べます', noteBody: '備品・人・カメラは実寸固定（伸ばせません）。伸ばしたいものは「四角」で置きます。ズームは −／＋、階とエリアは帯の右で切り替えます。',
+      };
+    }
+
+    // ── 帯（道具）
+    const modes = [{ key: 'place', label: '置く', icon: 'M12 5v14M5 12h14' }, { key: 'arrange', label: '並べる', icon: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z' }].map((m) => { const on = st.tab === m.key; return { label: m.label, icon: m.icon, border: on ? blue : '#cfe4f4', bg: on ? blue : '#ffffff', fg: on ? '#ffffff' : blue, pick: () => self.setState({ tab: m.key }) }; });
+    const shapes = [{ hint: '四角（既定 1,000×1,000）', icon: 'M4 5h16v14H4z', key: 'rect' }, { hint: '丸（既定 Ø1,000）', icon: 'M12 4a8 8 0 1 0 0 16a8 8 0 1 0 0-16', key: 'circle' }, { hint: '線（実線／点線）', icon: 'M4 19L20 5', key: 'line' }, { hint: '文字（高さは mm）', icon: 'M5 6h14M12 6v13', key: 'text' }, { hint: '寸法線（2点間の mm を出す）', icon: 'M4 12h16M4 8v8M20 8v8', key: 'dim' }].map((s) => ({ hint: s.hint, icon: s.icon, pick: () => self.place(s.key) }));
+    const toggles = [{ key: 'snap', label: 'すいつき', hint: '壁・通り芯・ほかの品目の端と中心に吸い付く（閾値 8px）' }, { key: 'grid', label: '方眼', hint: '1m の方眼を出す／消す（通り芯は常に出ます）' }, { key: 'ruler', label: 'ものさし', hint: '上と左のものさし（1m／5m 目盛）' }].map((t) => { const on = !!st[t.key]; return { label: t.label, hint: t.hint + (on ? '（いま: 入）' : '（いま: 切）'), fg: on ? blue : '#3c424c', dot: on ? blue : '#cbd2da', pick: () => self.setState({ [t.key]: !on }) }; });
+    const needSel = () => self.flash('先に品目を選んでください');
+    const reorder = (toFront) => { if (!selItem) return needSel(); const others = st.items.filter((x) => x !== selItem); self.setState({ items: toFront ? others.concat([selItem]) : [selItem].concat(others) }); };
+
+    return {
+      docNo: this.props.docNo || 'VL-202609-0003', title: this.props.title || 'WORLD STUDIO A案', savedAt: this.props.savedAt || '14:02',
+      floor: { label: F.floor + ' ' + F.area, summary: F.floor + ' ' + F.area + ' ・ 内法 ' + F.m2 + ' ・ 縮尺確認済み 2026/09/13' },
+      floorMenu: { open: st.menu, toggle: () => self.setState({ menu: !st.menu }), border: st.menu ? blue : '#e6e9ed', items: ['world', 'lounge'].map((k) => { const f = FLOORS[k], on = k === st.floor; return { floor: f.floor, area: f.area, m2: f.m2, bg: on ? '#f4faff' : 'transparent', fg: on ? blue : ink, chip: on ? '#eaf4fb' : '#f2f4f7', weight: on ? 800 : 700, pick: () => self.setState({ floor: k, menu: false, sel: null, whole: false }) }; }) },
+      whole: { toggle: () => self.setState({ whole: !st.whole, menu: false }), border: st.whole ? blue : 'transparent', bg: st.whole ? '#f4faff' : 'transparent', fg: st.whole ? blue : '#3c424c' },
+      modes, shapes, toggles,
+      aligns: [{ hint: '左そろえ', l: '3px solid #005bac', t: '0', r: '0', b: '0' }, { hint: '左右中央', l: '0', t: '0', r: '0', b: '0' }, { hint: '右そろえ', l: '0', t: '0', r: '3px solid #005bac', b: '0' }, { hint: '上そろえ', l: '0', t: '3px solid #005bac', r: '0', b: '0' }, { hint: '上下中央', l: '0', t: '0', r: '0', b: '0' }, { hint: '下そろえ', l: '0', t: '0', r: '0', b: '3px solid #005bac' }].map((a) => Object.assign(a, { pick: soon(a.hint) })),
+      zoom: { label: ZOOMS[st.zi] + '%', in: () => self.setState({ zi: Math.min(ZOOMS.length - 1, st.zi + 1) }), out: () => self.setState({ zi: Math.max(0, st.zi - 1) }), inOpacity: st.zi === ZOOMS.length - 1 ? '.35' : '1', outOpacity: st.zi === 0 ? '.35' : '1' },
+      todo: { preview: soon('仕上がり・書き出し'), manual: soon('運営マニュアルに載せる'), distribute: soon('等間隔'), front: () => reorder(true), back: () => reorder(false), undo: soon('元に戻す'), redo: soon('やり直す') },
+      tabs, place, arrange, qty,
+      ruler, view: { z: String(z), clear: () => self.setState({ sel: null, menu: false }) }, u, grid, axes, area, fixtures, led, group, items: drawn,
+      axisTags, areaTag, tags, dim, selTag, bar, panel,
+      toast: st.toast, toastOn: !!st.toast, closeToast: () => self.setState({ toast: '' }),
+    };
+  }
+}
+</script>
+</body>
+</html>

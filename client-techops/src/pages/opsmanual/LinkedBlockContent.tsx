@@ -13,6 +13,7 @@ import ProjectLinkedContent from "./linked/ProjectLinkedContent";
 import ScheduleLinkedContent from "./linked/ScheduleLinkedContent";
 import SheetLinkedContent from "./linked/SheetLinkedContent";
 import DeviceLinkedContent from "./linked/DeviceLinkedContent";
+import VenueLinkedContent from "./linked/VenueLinkedContent";
 import { LinkedEmpty } from "./linked/sharedLinkedContent";
 
 interface Props {
@@ -46,6 +47,9 @@ export default function LinkedBlockContent({ block, resolved }: Props) {
     case "rental.list":
     case "equipment.lending":
       return <DeviceLinkedContent blockKey={key} data={resolved.data} />;
+    case "venue.layout":
+    case "venue.items":
+      return <VenueLinkedContent blockKey={key} data={resolved.data} options={options} />;
     default:
       return <LinkedEmpty text="このブロックには対応していません" />;
   }

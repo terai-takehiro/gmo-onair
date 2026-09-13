@@ -1,0 +1,417 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@100;400;700;800&family=Noto+Sans+JP:wght@100;200;300;400;500;600;700;800;900&family=Noto+Serif+JP:wght@400;700;900&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    button { font-family: inherit; }
+    .tap { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* 品目の絵（symbols.svg.md の線画・単色・薄い塗り）。座標は mm。
+       線幅の規律は 20mm だが、この閲覧画面は 1mm ≒ 0.019px なので 0.4px になって消える。ここだけ 36mm（≒0.7px）にしている */
+    .fp { fill: currentColor; fill-opacity: .08; stroke: currentColor; stroke-width: 36; stroke-linejoin: round; }
+    .ln { fill: none; stroke: currentColor; stroke-width: 36; stroke-linecap: round; stroke-linejoin: round; }
+    .dash { fill: none; stroke: currentColor; stroke-width: 30; stroke-dasharray: 220 160; }
+    .soft { fill: currentColor; fill-opacity: .04; stroke: currentColor; stroke-width: 24; stroke-opacity: .5; }
+    .axis { position: absolute; height: 14px; line-height: 14px; padding: 0 4px; border-radius: 3px; background: rgba(255,255,255,.88); font-size: 9px; font-weight: 800; color: #005bac; pointer-events: none; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #f7f8fa; color: #1a1d24; display: flex; flex-direction: column;">
+
+  <!-- ── 上の帯（戻る先は図面一覧。/techops/top には逃がさない） ─────────── -->
+  <header style="flex-shrink: 0; background: #ffffff; border-bottom: 1px solid #e6e9ed; padding: 6px 14px 8px;">
+    <div style="display: flex; align-items: center; gap: 8px; height: 44px;">
+      <button class="tap" onClick="{{nav.back}}" style="height: 44px; display: flex; align-items: center; gap: 2px; margin-left: -6px; padding-right: 8px; color: #005bac; font-size: 14px; font-weight: 700;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>図面一覧</button>
+      <span style="flex: 1;"></span>
+      <span style="flex-shrink: 0; display: inline-flex; align-items: center; height: 22px; border-radius: 6px; background: #f2f4f7; color: #5d6470; font-size: 11.5px; font-weight: 800; padding: 0 8px;">下書き</span>
+    </div>
+    <div class="clip1" style="font-size: 17px; font-weight: 800; line-height: 1.25;">WORLD STUDIO A案</div>
+    <div class="clip1" style="margin-top: 2px; font-size: 12.5px; color: #5d6470;">東都TV 特番収録「サイエンス・フロンティア」第7回</div>
+    <div class="num clip1" style="margin-top: 2px; font-size: 11.5px; color: #9aa1ab;">VL-202609-0003 ・ 26F ・ 更新 09/13 14:02</div>
+  </header>
+
+  <!-- ── 図面（下敷き 0.4875 倍 ＋ mm で置いた品目の SVG。見るだけ） ─────── -->
+  <div style="flex-shrink: 0; position: relative; width: 390px; height: 416px; overflow: hidden; background: #ffffff; border-bottom: 1px solid #e6e9ed;">
+    <!-- 下敷き: 幅 390px。高さだけ Y の pxPerMm で伸縮して、品目の mm 空間を等方にする -->
+    <img src="world-26f.png" alt="" style="position: absolute; left: 0; top: 0; width: {{fig.imgW}}px; height: {{fig.imgH}}px; display: block; opacity: .92;">
+    <svg width="{{fig.imgW}}" height="{{fig.imgH}}" style="position: absolute; left: 0; top: 0; display: block; color: #1a1d24;">
+      <defs>
+        <pattern id="vl-grid-1m" patternUnits="userSpaceOnUse" x="{{fig.grid.x}}" y="{{fig.grid.y}}" width="{{fig.grid.step}}" height="{{fig.grid.step}}">
+          <path d="M {{fig.grid.step}} 0 L 0 0 L 0 {{fig.grid.step}}" fill="none" stroke="#005bac" stroke-opacity=".16" stroke-width=".5"></path>
+        </pattern>
+        <!-- ルベックチェア 535×490（正面 −y。背もたれの弧は +y 側） -->
+        <symbol id="sym-chair" viewBox="-268 -245 535 490">
+          <rect class="fp" x="-268" y="-245" width="535" height="490" rx="80"></rect>
+          <path class="ln" style="stroke-width: 60;" d="M -220 200 Q 0 260 220 200"></path>
+        </symbol>
+        <!-- 長机（白）1800×600 -->
+        <symbol id="sym-table" viewBox="-900 -300 1800 600">
+          <rect class="fp" x="-900" y="-300" width="1800" height="600" rx="20"></rect>
+        </symbol>
+        <!-- 司会台 700×490（客席側 −y に太線） -->
+        <symbol id="sym-lectern" viewBox="-350 -245 700 490">
+          <rect class="fp" x="-350" y="-245" width="700" height="490"></rect>
+          <path class="ln" style="stroke-width: 70;" d="M -300 -245 L 300 -245"></path>
+        </symbol>
+        <!-- ペデスタル TP-90B: ベース Ø900 ＋ カメラ 350×1100 ＋ レンズの向き -->
+        <symbol id="sym-ped" viewBox="-450 -870 900 1570">
+          <circle class="fp" cx="0" cy="0" r="450"></circle>
+          <circle fill="currentColor" cx="0" cy="-380" r="45"></circle>
+          <circle fill="currentColor" cx="329" cy="190" r="45"></circle>
+          <circle fill="currentColor" cx="-329" cy="190" r="45"></circle>
+          <rect class="fp" x="-175" y="-700" width="350" height="1100" rx="30"></rect>
+          <path fill="currentColor" d="M -120 -700 L 120 -700 L 0 -860 Z"></path>
+          <rect class="ln" x="-100" y="300" width="200" height="100"></rect>
+        </symbol>
+        <!-- クレーン TK-53L: 台車 900×1200 ＋ アーム 3200 ＋ カメラが届く範囲（点線円 r3800）＋ テール 1300 -->
+        <symbol id="sym-crane" viewBox="-3800 -3800 7600 7600">
+          <circle class="dash" cx="0" cy="0" r="3800"></circle>
+          <circle class="dash" style="stroke-opacity: .4;" cx="0" cy="0" r="1300"></circle>
+          <rect class="fp" x="-450" y="-600" width="900" height="1200" rx="40"></rect>
+          <circle fill="currentColor" cx="-380" cy="-520" r="45"></circle><circle fill="currentColor" cx="380" cy="-520" r="45"></circle>
+          <circle fill="currentColor" cx="-380" cy="520" r="45"></circle><circle fill="currentColor" cx="380" cy="520" r="45"></circle>
+          <path class="ln" style="stroke-width: 80;" d="M 0 1100 L 0 -2500"></path>
+          <rect class="fp" x="-200" y="900" width="400" height="200"></rect>
+          <rect class="fp" x="-175" y="-2900" width="350" height="800" rx="30"></rect>
+          <path fill="currentColor" d="M -120 -2900 L 120 -2900 L 0 -3060 Z"></path>
+          <circle fill="currentColor" cx="0" cy="0" r="55"></circle>
+        </symbol>
+        <!-- 人（立位）450×300 ／ 人（着席）500×800 -->
+        <symbol id="sym-stand" viewBox="-225 -150 450 300">
+          <ellipse class="fp" cx="0" cy="0" rx="225" ry="150"></ellipse>
+          <circle class="fp" style="fill-opacity: .2;" cx="0" cy="-20" r="90"></circle>
+        </symbol>
+        <symbol id="sym-seat" viewBox="-250 -400 500 800">
+          <rect class="soft" x="-250" y="-400" width="500" height="800" rx="120"></rect>
+          <ellipse class="fp" cx="0" cy="200" rx="225" ry="150"></ellipse>
+          <circle class="fp" style="fill-opacity: .2;" cx="0" cy="180" r="90"></circle>
+          <path class="ln" d="M -120 200 L -120 -300 M 120 200 L 120 -300"></path>
+        </symbol>
+      </defs>
+
+      <!-- 余白を押すと札を閉じる -->
+      <rect x="0" y="0" width="{{fig.imgW}}" height="{{fig.imgH}}" fill="#ffffff" fill-opacity="0" onClick="{{card.close}}"></rect>
+      <!-- エリアの内法（薄い塗り） -->
+      <rect x="{{fig.area.x}}" y="{{fig.area.y}}" width="{{fig.area.w}}" height="{{fig.area.h}}" fill="#eaf4fb" fill-opacity=".5" stroke="#005bac" stroke-opacity=".55" stroke-width=".8" onClick="{{card.close}}"></rect>
+      <!-- 1m 方眼（薄く） -->
+      <sc-if value="{{fig.grid.on}}" hint-placeholder-val="{{ true }}">
+        <rect x="{{fig.area.x}}" y="{{fig.area.y}}" width="{{fig.area.w}}" height="{{fig.area.h}}" fill="url(#vl-grid-1m)" onClick="{{card.close}}"></rect>
+      </sc-if>
+      <!-- 通り芯（6,400 ピッチ。X14〜X11・Y14〜Y11） -->
+      <sc-for list="{{fig.axes}}" as="a" hint-placeholder-count="8">
+        <line x1="{{a.x1}}" y1="{{a.y1}}" x2="{{a.x2}}" y2="{{a.y2}}" stroke="#005bac" stroke-opacity=".32" stroke-width=".7" stroke-dasharray="5 3"></line>
+      </sc-for>
+      <!-- 固定物: LED ウォール（幅 8,530）・450角パワートラスの脚 10本 -->
+      <rect x="{{fig.led.x}}" y="{{fig.led.y}}" width="{{fig.led.w}}" height="{{fig.led.h}}" fill="#1a1d24" fill-opacity=".62"></rect>
+      <sc-for list="{{fig.legs}}" as="l" hint-placeholder-count="10">
+        <rect x="{{l.x}}" y="{{l.y}}" width="{{l.w}}" height="{{l.h}}" fill="#005bac" fill-opacity=".22"></rect>
+      </sc-for>
+      <!-- 並べた椅子のかたまり（外接の薄い枠を1つだけ） -->
+      <rect x="{{fig.group.x}}" y="{{fig.group.y}}" width="{{fig.group.w}}" height="{{fig.group.h}}" fill="#005bac" fill-opacity=".04" stroke="#005bac" stroke-opacity=".35" stroke-width=".6" stroke-dasharray="3 2"></rect>
+      <!-- 品目（押すと札） -->
+      <sc-for list="{{fig.items}}" as="i" hint-placeholder-count="12">
+        <g onClick="{{i.pick}}" style="cursor: pointer;">
+          <rect x="{{i.hx}}" y="{{i.hy}}" width="{{i.hw}}" height="{{i.hh}}" fill="#ffffff" fill-opacity="0"></rect>
+          <use href="#{{i.sym}}" x="{{i.ux}}" y="{{i.uy}}" width="{{i.uw}}" height="{{i.uh}}" transform="rotate({{i.rot}} {{i.cx}} {{i.cy}})"></use>
+          <sc-if value="{{i.selected}}" hint-placeholder-val="{{ false }}">
+            <rect x="{{i.rx}}" y="{{i.ry}}" width="{{i.rw}}" height="{{i.rh}}" fill="#005bac" fill-opacity=".14" stroke="#005bac" stroke-width="1.2" transform="rotate({{i.rot}} {{i.cx}} {{i.cy}})"></rect>
+          </sc-if>
+        </g>
+      </sc-for>
+    </svg>
+
+    <!-- 通り芯のラベル（SVG の text には差し込めないので HTML で重ねる） -->
+    <sc-for list="{{fig.axes}}" as="a" hint-placeholder-count="8">
+      <sc-if value="{{a.label}}" hint-placeholder-val="{{ true }}">
+        <span class="axis num" style="left: {{a.lx}}px; top: {{a.ly}}px; transform: {{a.tf}};">{{a.label}}</span>
+      </sc-if>
+    </sc-for>
+
+    <!-- 右下: 1m バー（縮尺の印） -->
+    <div style="position: absolute; right: 8px; bottom: 8px; display: flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 6px; background: rgba(255,255,255,.94); border: 1px solid #e6e9ed;">
+      <span style="display: block; width: {{fig.bar.px}}px; height: 6px; border-left: 1.5px solid #1a1d24; border-right: 1.5px solid #1a1d24; border-bottom: 2px solid #1a1d24;"></span>
+      <span class="num" style="font-size: 10.5px; font-weight: 800; color: #1a1d24;">1 m</span>
+      <span class="num" style="font-size: 10px; color: #9aa1ab;">S=1:{{fig.bar.scale}}</span>
+    </div>
+    <!-- 左下: 見方の案内 -->
+    <div style="position: absolute; left: 8px; bottom: 8px; display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: 6px; background: rgba(255,255,255,.94); border: 1px solid #e6e9ed; font-size: 11px; color: #5d6470;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path><path d="M11 8v6"></path><path d="M8 11h6"></path></svg>ピンチで拡大
+    </div>
+
+    <!-- 札（品目を押すと出る。名前・寸法・推定の印）。上に出すのは、押した品目（客席・机・カメラは図の下 2/3）と 1m バーを隠さないため -->
+    <sc-if value="{{card.on}}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; left: 8px; right: 8px; top: 8px; background: #ffffff; border: 1px solid #e6e9ed; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,.14); padding: 10px 12px 10px;">
+        <div style="display: flex; align-items: flex-start; gap: 6px;">
+          <div style="flex: 1; min-width: 0;">
+            <div class="clip1" style="font-size: 14px; font-weight: 800; line-height: 1.25;">{{card.name}}</div>
+            <div class="num clip1" style="margin-top: 3px; font-size: 12px; color: #1a1d24;">{{card.size}}</div>
+            <div class="num clip1" style="margin-top: 2px; font-size: 11.5px; color: #5d6470;">{{card.meta1}}</div>
+            <div class="num clip1" style="margin-top: 1px; font-size: 11.5px; color: #5d6470;">{{card.meta2}}</div>
+          </div>
+          <button class="tap" onClick="{{card.close}}" style="width: 32px; height: 32px; margin: -6px -8px 0 0; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: #5d6470;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+        </div>
+        <sc-if value="{{card.est}}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top: 7px; display: flex; align-items: center; gap: 6px;">
+            <span style="display: inline-flex; align-items: center; height: 20px; border-radius: 6px; border: 1px solid #c2410e; color: #c2410e; font-size: 11px; font-weight: 800; padding: 0 7px;">寸法は推定</span>
+            <span class="clip1" style="min-width: 0; font-size: 11px; color: #5d6470;">昭特の寸法図で確定するまで</span>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+  </div>
+
+  <!-- ── 図面の下: 数量／検査 ───────────────────────────────────────── -->
+  <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;">
+    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 6px; height: 42px; padding: 0 14px; background: #ffffff; border-bottom: 1px solid #e6e9ed;">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="2">
+        <button class="tap" onClick="{{t.pick}}" style="height: 32px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 9px; background: {{t.bg}}; color: {{t.fg}}; font-size: 13px; font-weight: {{t.weight}};">{{t.label}}<span class="num" style="display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: {{t.countBg}}; color: {{t.countFg}}; font-size: 11px; font-weight: 800;">{{t.count}}</span></button>
+      </sc-for>
+      <span style="flex: 1;"></span>
+      <span class="num" style="font-size: 11px; color: #9aa1ab;">{{caption}}</span>
+    </div>
+
+    <div style="flex: 1; min-height: 0; overflow-y: auto; background: #ffffff;">
+      <!-- 数量: 品目・置いた数・保有数（保有数を超えたら赤字。止めはしない） -->
+      <sc-if value="{{qty.on}}" hint-placeholder-val="{{ true }}">
+        <sc-for list="{{qty.rows}}" as="r" hint-placeholder-count="6">
+          <div style="display: flex; align-items: center; gap: 8px; height: 25px; padding: 0 14px; border-bottom: 1px solid #e6e9ed; font-size: 13px;">
+            <span class="clip1" style="flex: 1; min-width: 0; font-weight: 700;">{{r.name}}</span>
+            <span class="clip1" style="flex-shrink: 0; max-width: 110px; font-size: 11px; color: #9aa1ab;">{{r.storage}}</span>
+            <span class="num" style="width: 30px; flex-shrink: 0; text-align: right; font-weight: 800; color: {{r.fg}};">{{r.placed}}</span>
+            <span style="width: 8px; flex-shrink: 0; text-align: center; color: #9aa1ab;">/</span>
+            <span class="num" style="width: 30px; flex-shrink: 0; text-align: right; color: #5d6470;">{{r.stock}}</span>
+          </div>
+        </sc-for>
+      </sc-if>
+      <!-- 検査: v1 は3つだけ（はみ出し・保有数の超過・寸法が推定） -->
+      <sc-if value="{{chk.on}}" hint-placeholder-val="{{ false }}">
+        <sc-for list="{{chk.rows}}" as="r" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 8px; height: 25px; padding: 0 14px; border-bottom: 1px solid #e6e9ed; font-size: 13px;">
+            <span style="width: 8px; height: 8px; flex-shrink: 0; border-radius: 9999px; background: {{r.dot}};"></span>
+            <span class="clip1" style="flex: 1; min-width: 0; font-weight: 700;">{{r.label}}</span>
+            <span class="clip1" style="flex-shrink: 0; max-width: 170px; font-size: 11px; color: #9aa1ab;">{{r.detail}}</span>
+            <span class="num" style="width: 30px; flex-shrink: 0; text-align: right; font-weight: 800; color: {{r.fg}};">{{r.n}}</span>
+          </div>
+        </sc-for>
+        <p style="margin: 8px 14px 0; font-size: 11.5px; line-height: 1.6; color: #5d6470;">推定の寸法は、昭特の寸法図で確定するまで札に「寸法は推定」と出ます。</p>
+      </sc-if>
+      <p style="margin: 8px 14px 0; font-size: 12px; line-height: 1.6; color: #5d6470;">編集は PC で行います。並べ直しや数の変更も PC から。</p>
+    </div>
+  </div>
+
+  <!-- ── 下端固定（各 52px） ─────────────────────────────────────────── -->
+  <div style="flex-shrink: 0; border-top: 1px solid #e6e9ed; background: #ffffff; padding: 10px 14px 22px; display: flex; gap: 8px;">
+    <button class="tap" onClick="{{nav.manual}}" style="flex: 1; min-width: 0; height: 52px; display: flex; align-items: center; gap: 9px; padding: 0 12px; border-radius: 12px; background: #005bac; color: #ffffff;">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"></path><path d="M4 20.5V5.5"></path><path d="M9 7h7"></path></svg>
+      <span style="display: flex; flex-direction: column; min-width: 0; text-align: left;">
+        <span style="font-size: 14px; font-weight: 800; line-height: 1.2;">運営マニュアルで見る</span>
+        <span class="num clip1" style="font-size: 10.5px; opacity: .85; line-height: 1.3;">OM-202609-0007 ・ 会場図と導線</span>
+      </span>
+    </button>
+    <button class="tap" onClick="{{nav.pdf}}" style="width: 88px; flex-shrink: 0; height: 52px; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; color: #005bac; font-size: 14px; font-weight: 800;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"></path><path d="M8 11l4 4 4-4"></path><path d="M4 19h16"></path></svg>PDF
+    </button>
+  </div>
+
+  <!-- 未実装の操作を押したときの薄い帯 -->
+  <sc-if value="{{toast.on}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; left: 14px; right: 14px; bottom: 96px; display: flex; align-items: center; justify-content: center; height: 40px; border-radius: 10px; background: #ffffff; border: 1px solid #e6e9ed; box-shadow: 0 4px 14px rgba(0,0,0,.14); font-size: 13px; font-weight: 700; color: #3c424c;">{{toast.text}}</div>
+  </sc-if>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"showGrid":{"editor":"boolean","default":true,"section":"図面"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { sel: null, tab: 'qty', toast: '' }; }
+
+  /** 下敷きの数値。venue-data.json の underlays[world-26f.png] をそのまま写す（手元で計算し直さない） */
+  underlay() { return { file: 'world-26f.png', widthPx: 800, heightPx: 966, pxPerMmX: 0.039216, pxPerMmY: 0.040913, originMm: { x: 12193, y: 10995 } }; }
+  /** WORLD STUDIO の内法 bbox（venue-data.json areas[world-studio]・mm） */
+  area() { return { x: 13680, y: 11900, w: 17440, h: 18480 }; }
+  /** 固定物（venue-data.json fixtures）: LED ウォールの平面位置・トラス脚 10本 */
+  fixtures() {
+    return {
+      led: { x: 18135, y: 30150, w: 8530, h: 150 },
+      legSize: 450,
+      legs: [[17720, 17473], [27080, 17473], [17720, 20673], [27080, 20673], [17720, 23873], [27080, 23873], [17720, 27073], [27080, 27073], [17720, 30273], [27080, 30273]],
+    };
+  }
+
+  /** 品目ごとの絵と寸法。catalog.json の sizeMm・qty・storage・estimated を写す */
+  kinds() {
+    return {
+      chair:   { name: 'ルベックチェア',    size: '535 × 490 mm',                      unit: '脚', stock: 80,   storage: '倉庫',       est: false, fp: { w: 535, d: 490 },  sym: 'sym-chair',   vb: [-268, -245, 535, 490],     ring: [-268, -245, 535, 490] },
+      table:   { name: '長机（白）',        size: '1,800 × 600 mm',                    unit: '点', stock: 20,   storage: 'SKY STUDIO', est: false, fp: { w: 1800, d: 600 }, sym: 'sym-table',   vb: [-900, -300, 1800, 600],    ring: [-900, -300, 1800, 600] },
+      lectern: { name: '司会台',            size: '700 × 490 mm',                      unit: '台', stock: 1,    storage: '倉庫',       est: false, fp: { w: 700, d: 490 },  sym: 'sym-lectern', vb: [-350, -245, 700, 490],     ring: [-350, -245, 700, 490] },
+      ped:     { name: 'ペデスタル TP-90B', size: 'ベース Ø900 ・ カメラ 350 × 1,100 mm', unit: '台', stock: null, storage: '昭特',       est: true,  fp: { w: 900, d: 900 },  sym: 'sym-ped',     vb: [-450, -870, 900, 1570],    ring: [-450, -870, 900, 1570], extra: '積載 60kg ・ ストローク 945 ・ 3段 空圧' },
+      crane:   { name: 'クレーン TK-53L',   size: '台車 900 × 1,200 ・ アーム 3,200 mm',  unit: '台', stock: null, storage: '昭特',       est: true,  fp: { w: 900, d: 1200 }, sym: 'sym-crane',   vb: [-3800, -3800, 7600, 7600], ring: [-450, -600, 900, 1200], extra: '届く範囲 半径 3,100 ・ 最高レンズ軸高 3,099' },
+      stand:   { name: '人（立位）',        size: '450 × 300 mm',                      unit: '人', stock: null, storage: '',           est: false, fp: { w: 450, d: 300 },  sym: 'sym-stand',   vb: [-225, -150, 450, 300],     ring: [-225, -150, 450, 300] },
+      seat:    { name: '人（着席）',        size: '500 × 800 mm',                      unit: '人', stock: null, storage: '',           est: false, fp: { w: 500, d: 800 },  sym: 'sym-seat',    vb: [-250, -400, 500, 800],     ring: [-250, -400, 500, 800] },
+    };
+  }
+
+  /**
+   * 置いた品目（mm・階の絶対座標・足元の中心・rot は時計回りの度）。
+   * 劇場形式 5×10: 横 550・縦 900・中央通路 1,200。正面は −y なので客席（LED ウォールを向く）は 180°。
+   * 描く順＝重なりの順（クレーンの届く範囲の円を一番下に）
+   */
+  items() {
+    const list = [];
+    list.push({ id: 'cr', kind: 'crane', x: 22400, y: 17300, rot: 180, label: 'カメラ3（引き）' });
+    const rowsY = [24700, 23800, 22900, 22000, 21100];
+    const colsX = [19325, 19875, 20425, 20975, 21525, 23275, 23825, 24375, 24925, 25475];
+    rowsY.forEach((y, r) => colsX.forEach((x, c) => list.push({ id: 'c' + r + '-' + c, kind: 'chair', x: x, y: y, rot: 180, row: r + 1, col: c + 1 })));
+    list.push({ id: 't1', kind: 'table', x: 23000, y: 28600, rot: 0 }, { id: 't2', kind: 'table', x: 24800, y: 28600, rot: 0 });
+    list.push({ id: 'lec', kind: 'lectern', x: 19800, y: 28500, rot: 0 });
+    list.push({ id: 'p1', kind: 'ped', x: 16800, y: 25800, rot: 150, label: 'カメラ1（MC）' }, { id: 'p2', kind: 'ped', x: 28000, y: 25800, rot: 210, label: 'カメラ2（ゲスト）' });
+    list.push({ id: 'h1', kind: 'stand', x: 19800, y: 29050, rot: 0, label: 'MC' }, { id: 'h2', kind: 'seat', x: 23000, y: 28950, rot: 0, label: 'ゲスト1' }, { id: 'h3', kind: 'seat', x: 24800, y: 28950, rot: 0, label: 'ゲスト2' });
+    return list;
+  }
+
+  renderVals() {
+    const self = this;
+    const st = this.state;
+    const U = this.underlay(), A = this.area(), F = this.fixtures(), K = this.kinds();
+    const items = this.items();
+
+    // ── 縮尺: 幅 390px に縮小（0.4875 倍）。品目は等方に描くので X の pxPerMm を採り、下敷きの高さだけ Y で伸縮する
+    const Z = 390 / U.widthPx;                       // 0.4875
+    const S = U.pxPerMmX * Z;                        // 1mm ≒ 0.01912px（例: 椅子 535mm → 10.2px）
+    const imgW = U.widthPx * Z;                      // 390
+    const imgH = (U.heightPx / U.pxPerMmY) * S;      // 966px ぶんの mm を同じ S で描く → 451.4px
+    const px = (mm) => (mm - U.originMm.x) * S;
+    const py = (mm) => (mm - U.originMm.y) * S;
+    const r2 = (v) => Math.round(v * 100) / 100;
+    const fmt = (n) => n.toLocaleString('en-US');
+
+    // ── 方眼 1m・通り芯 6,400（X16×Y16 が mm の原点）
+    const step = 1000 * S;
+    const grid = { on: this.props.showGrid !== false, step: r2(step), x: r2(px(Math.ceil(U.originMm.x / 1000) * 1000)), y: r2(py(Math.ceil(U.originMm.y / 1000) * 1000)) };
+    const axes = [];
+    [['X14', 12800], ['X13', 19200], ['X12', 25600], ['X11', 32000]].forEach((d) => {
+      const x = r2(px(d[1]));
+      axes.push({ x1: x, y1: 0, x2: x, y2: r2(imgH), label: d[0], lx: x, ly: 3, tf: 'translateX(-50%)' });
+    });
+    [['Y14', 12800], ['Y13', 19200], ['Y12', 25600], ['Y11', 32000]].forEach((d) => {
+      const y = r2(py(d[1]));
+      axes.push({ x1: 0, y1: y, x2: r2(imgW), y2: y, label: y < 380 ? d[0] : '', lx: 3, ly: r2(y - 16), tf: 'none' });
+    });
+
+    // ── エリア・固定物・並べたかたまり
+    const area = { x: r2(px(A.x)), y: r2(py(A.y)), w: r2(A.w * S), h: r2(A.h * S) };
+    const led = { x: r2(px(F.led.x)), y: r2(py(F.led.y)), w: r2(F.led.w * S), h: r2(Math.max(F.led.h * S, 2)) };
+    const legs = F.legs.map((c) => ({ x: r2(px(c[0] - F.legSize / 2)), y: r2(py(c[1] - F.legSize / 2)), w: r2(F.legSize * S), h: r2(F.legSize * S) }));
+    const chairs = items.filter((it) => it.kind === 'chair');
+    const gx1 = Math.min.apply(null, chairs.map((c) => c.x)) - 268 - 120, gx2 = Math.max.apply(null, chairs.map((c) => c.x)) + 268 + 120;
+    const gy1 = Math.min.apply(null, chairs.map((c) => c.y)) - 245 - 120, gy2 = Math.max.apply(null, chairs.map((c) => c.y)) + 245 + 120;
+    const group = { x: r2(px(gx1)), y: r2(py(gy1)), w: r2((gx2 - gx1) * S), h: r2((gy2 - gy1) * S) };
+
+    // ── 品目 → px（use の位置＝中心 + viewBox の左上×S。回転は中心まわり）
+    const figItems = items.map((it) => {
+      const k = K[it.kind];
+      const cx = px(it.x), cy = py(it.y);
+      const hw = Math.max(k.ring[2] * S, 14), hh = Math.max(k.ring[3] * S, 14);
+      return {
+        sym: k.sym, cx: r2(cx), cy: r2(cy), rot: it.rot,
+        ux: r2(cx + k.vb[0] * S), uy: r2(cy + k.vb[1] * S), uw: r2(k.vb[2] * S), uh: r2(k.vb[3] * S),
+        rx: r2(cx + k.ring[0] * S - 1), ry: r2(cy + k.ring[1] * S - 1), rw: r2(k.ring[2] * S + 2), rh: r2(k.ring[3] * S + 2),
+        hx: r2(cx - hw / 2), hy: r2(cy - hh / 2), hw: r2(hw), hh: r2(hh),
+        selected: st.sel === it.id,
+        pick: () => self.setState({ sel: st.sel === it.id ? null : it.id }),
+      };
+    });
+
+    // ── 検査（v1 の3つ）: はみ出し＝足元の4隅がエリアの内法の外／保有数の超過／寸法が推定
+    const inside = (it) => {
+      const fp = K[it.kind].fp, a = it.rot * Math.PI / 180, cs = Math.cos(a), sn = Math.sin(a);
+      return [[-fp.w / 2, -fp.d / 2], [fp.w / 2, -fp.d / 2], [fp.w / 2, fp.d / 2], [-fp.w / 2, fp.d / 2]].every((p) => {
+        const x = it.x + p[0] * cs - p[1] * sn, y = it.y + p[0] * sn + p[1] * cs;
+        return x >= A.x && x <= A.x + A.w && y >= A.y && y <= A.y + A.h;
+      });
+    };
+    const count = (kind) => items.filter((it) => it.kind === kind).length;
+    const qtyRows = ['chair', 'table', 'lectern', 'ped', 'crane'].map((kind) => {
+      const k = K[kind], n = count(kind), over = k.stock != null && n > k.stock;
+      return { name: k.name, storage: k.storage, placed: String(n), stock: k.stock == null ? '—' : String(k.stock), fg: over ? '#c7243a' : '#1a1d24', over: over };
+    });
+    qtyRows.push({ name: '人', storage: '立位 ' + count('stand') + ' ・ 着席 ' + count('seat'), placed: String(count('stand') + count('seat')), stock: '—', fg: '#1a1d24', over: false });
+    const overhang = items.filter((it) => !inside(it)).length;
+    const overrun = qtyRows.filter((r) => r.over).length;
+    const estimated = items.filter((it) => K[it.kind].est).length;
+    const chkRows = [
+      { label: 'はみ出し', n: overhang, detail: overhang ? '赤いハッチの品目' : '内法に収まっています' },
+      { label: '保有数の超過', n: overrun, detail: overrun ? '赤字の品目' : 'すべて保有数の範囲内' },
+      { label: '寸法が推定', n: estimated, detail: 'ペデスタル ×' + count('ped') + ' ・ クレーン ×' + count('crane') },
+    ].map((r) => ({ label: r.label, n: String(r.n), detail: r.detail, dot: r.n ? '#c2410e' : '#197a4b', fg: r.n ? '#c2410e' : '#197a4b' }));
+    const placed = items.length;
+
+    // ── タブ
+    const tabDefs = [{ key: 'qty', label: '数量', count: String(placed), warn: false }, { key: 'chk', label: '検査', count: String(overhang + overrun + estimated), warn: overhang + overrun + estimated > 0 }];
+    const tabs = tabDefs.map((t) => {
+      const on = st.tab === t.key;
+      return {
+        label: t.label, count: t.count,
+        bg: on ? '#eaf4fb' : 'transparent', fg: on ? '#005bac' : '#5d6470', weight: on ? 800 : 700,
+        countBg: t.warn ? '#fdf1ec' : (on ? '#ffffff' : '#f2f4f7'), countFg: t.warn ? '#c2410e' : (on ? '#005bac' : '#5d6470'),
+        pick: () => self.setState({ tab: t.key }),
+      };
+    });
+
+    // ── 札
+    const selIt = items.find((it) => it.id === st.sel) || null;
+    const card = { on: !!selIt, name: '', size: '', meta1: '', meta2: '', est: false, close: () => self.setState({ sel: null }) };
+    if (selIt) {
+      const k = K[selIt.kind];
+      card.name = k.name;
+      card.size = k.size;
+      card.est = k.est;
+      if (selIt.kind === 'chair') {
+        card.meta1 = '劇場形式 5×10 ・ ' + selIt.row + '列目 ' + selIt.col + '番';
+        card.meta2 = '置いた数 ' + count('chair') + ' ／ 保有数 ' + fmt(k.stock) + ' ' + k.unit + ' ・ ' + k.storage;
+      } else if (k.stock != null) {
+        card.meta1 = '置いた数 ' + count(selIt.kind) + ' ／ 保有数 ' + fmt(k.stock) + ' ' + k.unit + ' ・ ' + k.storage;
+        card.meta2 = '向き ' + selIt.rot + '°';
+      } else if (k.extra) {
+        card.meta1 = k.extra;
+        card.meta2 = (selIt.label || '') + ' ・ 向き ' + selIt.rot + '°';
+      } else {
+        card.meta1 = selIt.label || '';
+        card.meta2 = '向き ' + selIt.rot + '°';
+      }
+    }
+
+    // ── 未実装の操作
+    const show = (msg) => { self.setState({ toast: msg }); clearTimeout(self._t); self._t = setTimeout(() => self.setState({ toast: '' }), 1800); };
+
+    return {
+      fig: {
+        imgW: r2(imgW), imgH: r2(imgH), grid: grid, axes: axes, area: area, led: led, legs: legs, group: group, items: figItems,
+        bar: { px: r2(1000 * S), scale: Math.round(1 / (S * 25.4 / 96)) },
+      },
+      card: card,
+      tabs: tabs,
+      caption: st.tab === 'qty' ? '置いた数 / 保有数' : '件',
+      qty: { on: st.tab === 'qty', rows: qtyRows },
+      chk: { on: st.tab === 'chk', rows: chkRows },
+      toast: { on: !!st.toast, text: st.toast },
+      nav: {
+        back: () => show('これから作ります（図面一覧へ戻る）'),
+        manual: () => show('これから作ります（運営マニュアル OM-202609-0007）'),
+        pdf: () => show('これから作ります（PDF）'),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>
