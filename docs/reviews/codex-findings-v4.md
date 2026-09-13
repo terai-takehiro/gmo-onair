@@ -2474,10 +2474,14 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   ⚠️ ただし**実際にマージされたコミット `024858e9` には Code Review が一度も
   走っていない** — 要約表の Commit 列は5巡目の `e1c9a75d` のまま止まっており、
   最後の修正（StrictMode の `aliveRef`）は未レビューのまま約70分後にマージされた。
-  ⚠️ **Security Review も PR 最初のコミット `2c8a34df` に読み込みが固定されたまま**
-  完走（11:37:38Z）し、以後12コミットぶんの push（`gpm_members` の担当者メールを
-  返す `/org-seed` の新設を含む）には一度も再実行されていない（#651・#677 と同型 —
-  「✅ Completed」はマージされたコードが読まれたことを意味しない）。
+  ⚠️ **Security Review も `2c8a34df`（PR 8コミット目・Code Review 1巡目と同じ
+  コミット）に読み込みが固定されたまま**完走（11:37:38Z）し、以後の5コミット
+  （レビュー指摘の修正5巡ぶん）には一度も再実行されていない（#651・#677 と同型 —
+  「✅ Completed」はマージされたコードが読まれたことを意味しない）。なお
+  `gpm_members` の担当者メールを返す `/org-seed` の新設は `2c8a34df` の祖先
+  `b16daaae` で入っており、**Security Review の読み込み範囲には含まれていた**
+  （本PR #681 のレビューでの指摘・P2。当初「以後12コミット」「`/org-seed` の新設を
+  含む」と書いてレビューの穴を過大に見積もっていたのを直した）。
   検証: `npx tsc -b client-techops client server`・`npm run lint`（0 errors・
   warning 54件＝着手前と同じ）・`npm run test`（shared 2419件・server review 94件、
   全pass）。実ブラウザでの動作確認・実DBでの保存確認・`npm run verify:ui` は
