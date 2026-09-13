@@ -68,15 +68,15 @@ export default function VenueToolbar({
       ))}
       <button type="button" disabled={selectedIds.length < 3 || !editable} title="等間隔（横）"
         onClick={() => onCommit(distributeItems(items, selectedIds, "horizontal" as DistributeAxis))}
-        className="h-7 shrink-0 rounded-control px-1.5 text-[10.5px] font-bold hover:bg-muted/40 disabled:opacity-30">等間隔</button>
+        className="h-8 shrink-0 rounded-control px-1.5 text-[10.5px] font-bold hover:bg-muted/40 disabled:opacity-30">等間隔</button>
       <Sep />
       <span className="shrink-0 text-[11px] text-muted-foreground">重なり</span>
       <button type="button" disabled={selectedIds.length === 0 || !editable} title="前面へ"
         onClick={() => onCommit(reorderZItems(items, selectedIds, "front"))}
-        className="h-7 shrink-0 rounded-control px-1.5 text-[10.5px] font-bold hover:bg-muted/40 disabled:opacity-30">前面</button>
+        className="h-8 shrink-0 rounded-control px-1.5 text-[10.5px] font-bold hover:bg-muted/40 disabled:opacity-30">前面</button>
       <button type="button" disabled={selectedIds.length === 0 || !editable} title="背面へ"
         onClick={() => onCommit(reorderZItems(items, selectedIds, "back"))}
-        className="h-7 shrink-0 rounded-control px-1.5 text-[10.5px] font-bold hover:bg-muted/40 disabled:opacity-30">背面</button>
+        className="h-8 shrink-0 rounded-control px-1.5 text-[10.5px] font-bold hover:bg-muted/40 disabled:opacity-30">背面</button>
       <Sep />
       <button type="button" title="元に戻す（Ctrl+Z）" disabled={!canUndo} onClick={onUndo} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control hover:bg-muted/40 disabled:opacity-30">
         <Undo2 className="h-4 w-4" aria-hidden="true" />
@@ -96,7 +96,7 @@ export default function VenueToolbar({
       </div>
       <Sep />
       <div className="relative shrink-0">
-        <button type="button" onClick={() => setFloorMenuOpen((v) => !v)} className="flex h-7 items-center gap-1.5 rounded-control border border-border px-2 text-[11.5px] font-bold">
+        <button type="button" onClick={() => setFloorMenuOpen((v) => !v)} className="flex h-8 items-center gap-1.5 rounded-control border border-border px-2 text-[11.5px] font-bold">
           {floor.floorLabel} {area.label}
         </button>
         {floorMenuOpen && currentFloorRow && (
@@ -121,7 +121,7 @@ function Sep() {
 
 function Toggle({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className={`flex h-7 shrink-0 items-center gap-1.5 rounded-control px-2 text-[11px] font-bold ${on ? "text-primary" : "text-foreground"}`}>
+    <button type="button" onClick={onClick} className={`flex h-8 shrink-0 items-center gap-1.5 rounded-control px-2 text-[11px] font-bold ${on ? "text-primary" : "text-foreground"}`}>
       <span className={`h-2 w-2 rounded-sm ${on ? "bg-primary" : "bg-border"}`} />
       {label}
     </button>

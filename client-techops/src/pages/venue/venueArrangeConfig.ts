@@ -85,3 +85,21 @@ export function summarizeArrangeResult(result: VenueArrangeResult, catalogByKey:
 export function groupOf(items: VenueItem[], groupId: string): VenueItem[] {
   return items.filter((it) => it.groupId === groupId);
 }
+
+/**
+ * `VenueItem.arrange.params` は保存用に `Record<string, string|number|null>`
+ * （`shared/src/venue/types.ts`）という広い型で持つ一方、入力欄が組み立てるのは
+ * 名前付きの `VenueArrangeParams`（`shared/src/venue/arrange.ts`）。どちらも
+ * 触らない前提のため、書くとき・読むときの変換をここに1つだけ置く。
+ */
+export function serializeArrangeParams(params: VenueArrangeParams): Record<string, string | number | null> {
+  const out: Record<string, string | number | null> = {};
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined) out[k] = v as string | number | null;
+  }
+  return out;
+}
+
+export function deserializeArrangeParams(params: Record<string, string | number | null> | undefined): VenueArrangeParams {
+  return (params ?? {}) as unknown as VenueArrangeParams;
+}

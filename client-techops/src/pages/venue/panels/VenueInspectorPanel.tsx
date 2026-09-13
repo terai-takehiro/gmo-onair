@@ -78,7 +78,7 @@ export default function VenueInspectorPanel({ data }: { data: InspectorPanelData
       {data.warning && (
         <div className="mt-2.5 rounded-note border border-destructive/40 bg-destructive/5 p-2.5">
           <div className="text-[11.5px] font-extrabold text-destructive">{data.warning.title}</div>
-          <div className="mt-0.5 text-[11px] leading-[1.5] text-destructive/90">{data.warning.body}</div>
+          <div className="mt-0.5 text-[11px] leading-[1.5] text-destructive">{data.warning.body}</div>
         </div>
       )}
 

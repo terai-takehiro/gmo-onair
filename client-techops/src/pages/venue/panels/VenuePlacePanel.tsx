@@ -106,7 +106,7 @@ export default function VenuePlacePanel({ catalog, items, editable, onPlace, onP
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="num text-[10.5px] text-muted-foreground">{sizeText(c)}</span>
-                  {c.estimated && <span className="rounded border border-warning-border px-1 text-[9px] font-bold leading-[13px] text-warning-foreground">寸法は推定</span>}
+                  {c.estimated && <span className="rounded border border-warning-border px-1 text-[9px] font-bold leading-[13px] text-warning">寸法は推定</span>}
                 </span>
               </button>
             );

@@ -72,8 +72,6 @@ export function toTopLeftRect(item: VenueItem): { id: string; x: number; y: numb
 export function fromTopLeftRect(item: VenueItem, rect: { x: number; y: number; w: number; h: number }): VenueItem {
   if (item.points && item.points.length >= 2) {
     const orig = toTopLeftRect(item);
-    const dx = rect.x - orig.x;
-    const dy = rect.y - orig.y;
     const scaleX = orig.w > 0 ? rect.w / orig.w : 1;
     const scaleY = orig.h > 0 ? rect.h / orig.h : 1;
     const points: [number, number][] = item.points.map(([px, py]) => [

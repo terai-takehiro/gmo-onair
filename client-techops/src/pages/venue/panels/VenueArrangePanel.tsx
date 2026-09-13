@@ -8,7 +8,7 @@ import type { VenueCatalogItem, VenueItem } from "@gmo-onair/shared/src/venue/ty
 import { translateArrangeResult, type VenueArrangeParams, type VenueArrangePreset } from "@gmo-onair/shared/src/venue/arrange";
 import { renderVenueSymbolBody } from "../venueSymbols";
 import { genVenueItemId } from "../venueItemOps";
-import { ARRANGE_FIELDS, ARRANGE_USED_ITEMS, PRESET_LABEL, computeArrangeResult, summarizeArrangeResult } from "../venueArrangeConfig";
+import { ARRANGE_FIELDS, ARRANGE_USED_ITEMS, PRESET_LABEL, computeArrangeResult, serializeArrangeParams, summarizeArrangeResult } from "../venueArrangeConfig";
 
 interface Props {
   catalog: VenueCatalogItem[];
@@ -39,7 +39,7 @@ export default function VenueArrangePanel({ catalog, areaBboxMm, editable, onPla
     const groupId = genVenueItemId("grp");
     // grid は品目の選択がステートに別枠（`gridKey`）で持っているため、並べ直す
     // ときに引けるよう `arrange.params.itemKey` として一緒に持たせておく
-    const savedParams = preset === "grid" ? { ...params, itemKey: gridKey } : params;
+    const savedParams = serializeArrangeParams(preset === "grid" ? { ...params, itemKey: gridKey } : params);
     const withGroup = { ...result, items: result.items.map((it) => ({ ...it, groupId, arrange: { preset, params: savedParams } })) };
     onPlace(translateArrangeResult(withGroup, dx, dy));
     setParams({});

@@ -20,10 +20,10 @@ import ManualListPage from "@/pages/opsmanual/ManualListPage";
 // 段E: "/techops/manuals/:id" は PC・スマホで別画面に入れ替わる（薄い親。ManualDetailRouter.tsx）
 import ManualDetailRouter from "@/pages/opsmanual/ManualDetailRouter";
 import ManualPreviewPage from "@/pages/opsmanual/ManualPreviewPage";
-// 会場図面（新ミニアプリ・docs/design/v4/venue-layout.md）。①一覧・③仕上がりはこのタスクの
-// 担当。②編集（VenueEditorPage）は別担当が実装中——import パスだけ先に合わせてある
+// 会場図面（新ミニアプリ・docs/design/v4/venue-layout.md）。②編集は PC・スマホで
+// 別画面に入れ替わる薄い親（ManualDetailRouter.tsx と同じ形。§14-5「スマホは閲覧のみ」）
 import VenueListPage from "@/pages/venue/VenueListPage";
-import VenueEditorPage from "@/pages/venue/VenueEditorPage";
+import VenueEditorRouter from "@/pages/venue/VenueEditorRouter";
 import VenuePreviewPage from "@/pages/venue/VenuePreviewPage";
 import { TECHOPS_ROOT_PATH } from "@/routeSwitch";
 import RecordingPage from "@/pages/recording/RecordingPage";
@@ -204,9 +204,9 @@ export default function App() {
         <Route path="/techops/manuals/:id/preview" element={<ManualPreviewPage />} />
 
         {/* 会場図面（新ミニアプリ・docs/design/v4/venue-layout.md §1）。①一覧は両端末、
-            ②編集はPC＝編集・スマホ＝閲覧（VenueEditorPage.tsx が入れ替える）、③仕上がりはPC専用 */}
+            ②編集はPC＝編集・スマホ＝閲覧（VenueEditorRouter.tsx が入れ替える）、③仕上がりはPC専用 */}
         <Route path="/techops/venue-layouts" element={<VenueListPage />} />
-        <Route path="/techops/venue-layouts/:id" element={<VenueEditorPage />} />
+        <Route path="/techops/venue-layouts/:id" element={<VenueEditorRouter />} />
         <Route path="/techops/venue-layouts/:id/preview" element={<VenuePreviewPage />} />
 
         {/* 制作のジャーニー（段3・03-app-structure-impl.md §3-2・§8 PR F）。案件の入口／資料単体の入口 */}

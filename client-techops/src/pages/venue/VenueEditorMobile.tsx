@@ -6,6 +6,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft } from "lucide-react";
 import { PageShell } from "@gmo-onair/shared/src/client/ui/pageShell";
+import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { Delayed, ErrorPanel, SkeletonRows } from "@gmo-onair/shared/src/client/states";
 import { getVenueLayout, listVenueCatalog, listVenueFloors } from "@/lib/venueApi";
 import { computeViewBox } from "./venueBoardMath";
@@ -38,10 +39,7 @@ export default function VenueEditorMobile() {
 
       {layout && (
         <>
-          <div>
-            <h1 className="text-h1">{layout.title}</h1>
-            <p className="text-note text-muted-foreground">{layout.docNo} ・ {floor?.floorLabel} {area?.label}</p>
-          </div>
+          <PageHeader title={layout.title} sub={`${layout.docNo ?? ""} ・ ${floor?.floorLabel ?? ""} ${area?.label ?? ""}`} />
 
           <div className="flex h-9 rounded-control border border-border bg-muted/20 p-0.5">
             <button type="button" onClick={() => setTab("drawing")} className={`flex-1 rounded-control text-sub-sm font-bold ${tab === "drawing" ? "bg-background shadow-sm" : "text-muted-foreground"}`}>図面</button>

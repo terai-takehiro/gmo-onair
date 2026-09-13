@@ -50,19 +50,19 @@ export default function VenueResourceBand({ docNo, title, status, saving, canEdi
         className="h-9 w-56 min-w-0 shrink border-0 bg-transparent px-1 text-h2 font-extrabold shadow-none outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-70"
       />
       <Badge variant={status === "fixed" ? "success" : status === "draft" ? "warning" : "secondary"}>{STATUS_LABEL[status]}</Badge>
-      {canManage && status === "draft" && <Button variant="outline" size="sm" className="h-7" onClick={onFix}>確定する</Button>}
-      {canManage && status === "fixed" && <Button variant="outline" size="sm" className="h-7" onClick={onUnfix}>確定を解く</Button>}
+      {canManage && status === "draft" && <Button variant="outline" size="sm" className="h-8" onClick={onFix}>確定する</Button>}
+      {canManage && status === "fixed" && <Button variant="outline" size="sm" className="h-8" onClick={onUnfix}>確定を解く</Button>}
       {saving && <span className="shrink-0 text-sub-sm text-muted-foreground">保存中…</span>}
       {!canEdit && <span className="shrink-0 text-sub-sm text-muted-foreground">閲覧権限のため読むだけです</span>}
       {canEdit && !lock.checking && lock.held && <span className="shrink-0 rounded-badge border border-primary/30 bg-primary/5 px-2 py-0.5 text-[11px] font-bold text-primary">あなたが編集中</span>}
       {canEdit && !lock.checking && !lock.held && (
         <span className="flex shrink-0 items-center gap-2 rounded-badge border border-warning-border bg-warning-surface px-2 py-0.5 text-[11px] font-bold">
           {lock.heldByName || "他のユーザー"}さんが編集中
-          <Button variant="outline" size="sm" className="h-6 px-2 text-[11px]" onClick={lock.requestHandoff} disabled={lock.requesting || lock.handoffRequested}>
+          <Button variant="outline" size="sm" className="h-8 px-2 text-[11px]" onClick={lock.requestHandoff} disabled={lock.requesting || lock.handoffRequested}>
             {lock.handoffRequested ? "申し出ました" : "代わってほしい"}
           </Button>
           {canManage && (
-            <Button variant="outline" size="sm" className="h-6 px-2 text-[11px]" onClick={lock.takeover} disabled={lock.takingOver}>
+            <Button variant="outline" size="sm" className="h-8 px-2 text-[11px]" onClick={lock.takeover} disabled={lock.takingOver}>
               {lock.takingOver ? "引き継ぎ中…" : "強制的に引き継ぐ"}
             </Button>
           )}
@@ -71,7 +71,7 @@ export default function VenueResourceBand({ docNo, title, status, saving, canEdi
       {lock.held && lock.requestedByName && (
         <span className="flex shrink-0 items-center gap-2 rounded-badge border border-info-border bg-info-surface px-2 py-0.5 text-[11px] font-bold">
           {lock.requestedByName}さんが代わってほしいと言っています
-          <Button variant="outline" size="sm" className="h-6 px-2 text-[11px]" onClick={lock.release}>渡す</Button>
+          <Button variant="outline" size="sm" className="h-8 px-2 text-[11px]" onClick={lock.release}>渡す</Button>
         </span>
       )}
       <span className="flex-1" />

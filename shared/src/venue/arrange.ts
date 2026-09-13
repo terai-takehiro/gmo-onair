@@ -263,7 +263,9 @@ export function arrangeOShape(params: VenueArrangeParams, groupId = nextId('grp'
 
 /** 並べ方キー → 実装。`grid` だけ品目・寸法が呼び出し側指定のため別シグネチャ（`arrangeGrid` を直接呼ぶ） */
 export const ARRANGE_PRESETS: Record<Exclude<VenueArrangePreset, 'grid'>, (params: VenueArrangeParams, groupId?: string) => VenueArrangeResult> = {
-  theater: arrangeTheater,
+  // `arrangeTheater` は椅子の寸法（chairW/chairD）を差し込めるよう引数を1つ多く持つため、
+  // このマップの共通シグネチャ（params, groupId）に合わせてラップする（既定値 535×490 のまま・挙動は変えない）
+  theater: (params, groupId) => arrangeTheater(params, undefined, undefined, groupId),
   classroom: arrangeClassroom,
   island: arrangeIsland,
   round: arrangeRound,

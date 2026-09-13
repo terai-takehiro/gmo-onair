@@ -8,7 +8,7 @@ import { computeBBox, isItemOverflowing, itemFootprintSize } from "@gmo-onair/sh
 import { translateArrangeResult, type VenueArrangeParams } from "@gmo-onair/shared/src/venue/arrange";
 import { normalizeAngle } from "@/pages/opsmanual/manualCanvasGeometry";
 import { deleteItems, duplicateItems, groupMembers, reorderZItems, ungroupItems } from "../venueItemOps";
-import { ARRANGE_FIELDS, ARRANGE_USED_ITEMS, PRESET_LABEL, computeArrangeResult, summarizeArrangeResult } from "../venueArrangeConfig";
+import { ARRANGE_FIELDS, ARRANGE_USED_ITEMS, PRESET_LABEL, computeArrangeResult, deserializeArrangeParams, serializeArrangeParams, summarizeArrangeResult } from "../venueArrangeConfig";
 import VenueInspectorPanel, { type InspectorButton, type InspectorPanelData, type InspectorStepper } from "./VenueInspectorPanel";
 
 interface Props {
@@ -43,7 +43,7 @@ export default function VenueInspector({ floor, area, catalog, items, selectedId
   useEffect(() => {
     if (wholeGroupSelected && groupId) {
       const members = groupMembers(items, groupId);
-      setDraftParams((members[0]?.arrange?.params as VenueArrangeParams) ?? {});
+      setDraftParams(deserializeArrangeParams(members[0]?.arrange?.params));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId, wholeGroupSelected]);
@@ -111,8 +111,9 @@ export default function VenueInspector({ floor, area, catalog, items, selectedId
 
     const relayout = () => {
       const anchor = computeBBox(members) ?? bbox;
+      const savedParams = serializeArrangeParams(draftParams);
       const next = translateArrangeResult(
-        { ...preview, items: preview.items.map((it) => ({ ...it, groupId, arrange: { preset, params: draftParams } })) },
+        { ...preview, items: preview.items.map((it) => ({ ...it, groupId, arrange: { preset, params: savedParams } })) },
         anchor.x, anchor.y,
       );
       onCommit([...items.filter((it) => it.groupId !== groupId), ...next]);

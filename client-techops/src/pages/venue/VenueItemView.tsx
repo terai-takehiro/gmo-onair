@@ -265,7 +265,7 @@ export default function VenueItemView({
         <rect x={-rect.w / 2} y={-rect.h / 2} width={rect.w} height={rect.h} fill="#fff" fillOpacity={0} />
         {renderVenueSymbolBody(catalog?.symbol ?? (item.diameter != null ? "generic-circle" : "generic-rect"), rect.w, rect.h)}
         {isCrane && (
-          <CraneOverlay item={item} armAngle={armAngle} catalog={catalog} onArmStart={handleArmStart} onArmMove={handleArmMove} onArmEnd={endDrag} strokeMm={strokeMm} rotateMm={rotateMm} />
+          <CraneOverlay armAngle={armAngle} catalog={catalog} onArmStart={handleArmStart} onArmMove={handleArmMove} onArmEnd={endDrag} strokeMm={strokeMm} rotateMm={rotateMm} />
         )}
         {selected && (
           <rect x={-rect.w / 2 - handleMm} y={-rect.h / 2 - handleMm} width={rect.w + handleMm * 2} height={rect.h + handleMm * 2}
@@ -313,9 +313,8 @@ const HANDLE_FRAC: Record<ResizeHandle, { x: number; y: number }> = {
 
 /** クレーン（TK-53L 等）のアーム・届く範囲・テールの重ね描き（§11-2） */
 function CraneOverlay({
-  item, armAngle, catalog, onArmStart, onArmMove, onArmEnd, strokeMm, rotateMm,
+  armAngle, catalog, onArmStart, onArmMove, onArmEnd, strokeMm, rotateMm,
 }: {
-  item: VenueItem;
   armAngle: number;
   catalog?: VenueCatalogItem;
   onArmStart: (e: ReactPointerEvent<SVGCircleElement>) => void;
