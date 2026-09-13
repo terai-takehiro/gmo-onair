@@ -151,7 +151,15 @@ function mergeBoxes(
     const at = label ? boxes.findIndex((b) => b.label.trim() === label) : -1;
     if (at >= 0) {
       if (people.length === 0) continue;
-      boxes = boxes.map((b, i) => (i === at ? { ...b, people: [...(b.people ?? []), ...people] } : b));
+      boxes = boxes.map((b, i) => {
+        if (i !== at) return b;
+        const merged: ManualOrgBox = { ...b, people: [...(b.people ?? []), ...people] };
+        // 取り込み元の所属（`gpm_members.side` を日本語にしたもの）は、**空のときだけ**入れる。
+        // 入れないと、同じ名前のチームへ足したときだけ所属が落ちて紙から消える（レビュー指摘）。
+        // すでに手で入っている所属は上書きしない（利用者が書いたものが勝つ）
+        if (!merged.org?.trim() && sb.org) merged.org = sb.org;
+        return merged;
+      });
       added += people.length;
       continue;
     }

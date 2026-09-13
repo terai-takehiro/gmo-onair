@@ -42,6 +42,12 @@ export default function OrgChartInspectorSection({ manualId, blockId, content, o
   blockIdRef.current = blockId;
   useEffect(() => () => { aliveRef.current = false; }, []);
 
+  // ⚠️ **待っている間に打たれた字を巻き戻さない**（レビュー指摘）。押した時点の `content` に
+  // 流し込むと、通信中の編集やもう一方の取り込みが入った後で commit したときに、
+  // その編集ごと古い中身で上書きされる。流し込みは**戻ってきた時点の最新**に対して行う。
+  const contentRef = useRef(content);
+  contentRef.current = content;
+
   // 取り込み元の件数をボタンの脇に出すため、体制図を選んだ時点で引いておく
   // （どちらも 0 なら区画ごと畳む ＝ 番組のマニュアル・§5-5）。
   // 元は他の人の操作でも変わるが、開くたびに毎回引き直すほどではない（resolve と同じ扱い）
@@ -65,11 +71,12 @@ export default function OrgChartInspectorSection({ manualId, blockId, content, o
         notifyError("取り込み元を読み込めませんでした。", { description: "少し待ってから、もう一度お試しください。" });
         return;
       }
-      const show = resolveOrgChartShow(content);
+      const latest = contentRef.current;
+      const show = resolveOrgChartShow(latest);
       const result =
         kind === "project"
-          ? mergeProjectMembers(content, targetTierId, data.projectMembers, show)
-          : mergeGpmTiers(content, data.gpmTiers, show);
+          ? mergeProjectMembers(latest, targetTierId, data.projectMembers, show)
+          : mergeGpmTiers(latest, data.gpmTiers, show);
       // 足すものが1つも無いときは commit しない——何も変わっていない1手を undo 履歴と
       // 自動保存に積まないため。黙って終わると「押したのに何も起きない」ので、
       // **なぜ入らなかったのか**まで知らせる（入れる先が無いのと重複は理由が違う）

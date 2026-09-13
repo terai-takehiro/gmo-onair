@@ -208,6 +208,29 @@ describe('取り込みの基本の形', () => {
     expect(res.content.tiers[0].boxes[0].people.map((p) => p.name)).toEqual(['鈴木', '田中']);
   });
 
+  it('同じ名前のチームへ足すとき、取り込み元の所属が落ちない', () => {
+    const base = content([tier('t1', '実務層', [{ label: '技術', people: ['鈴木'] }])]);
+    const res = mergeGpmTiers(
+      base,
+      [{ label: '実務層', boxes: [{ label: '技術', org: '東洋中継サービス', people: [{ name: '田中' }] }] }],
+      SHOW_DEFAULT,
+    );
+
+    expect(res.content.tiers[0].boxes[0].org).toBe('東洋中継サービス');
+  });
+
+  it('すでに入っている所属は、取り込みで上書きしない', () => {
+    const base = content([tier('t1', '実務層', [{ label: '技術', people: ['鈴木'] }])]);
+    base.tiers[0].boxes[0].org = '自社';
+    const res = mergeGpmTiers(
+      base,
+      [{ label: '実務層', boxes: [{ label: '技術', org: '東洋中継サービス', people: [{ name: '田中' }] }] }],
+      SHOW_DEFAULT,
+    );
+
+    expect(res.content.tiers[0].boxes[0].org).toBe('自社');
+  });
+
   it('countSeedPeople は階層をまたいだ人数を数える', () => {
     expect(countSeedPeople(GPM_SEED)).toBe(2);
     expect(countSeedPeople([])).toBe(0);
