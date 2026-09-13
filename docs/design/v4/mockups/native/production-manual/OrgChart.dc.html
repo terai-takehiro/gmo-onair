@@ -1,0 +1,415 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@100;400;700;800&family=Noto+Sans+JP:wght@100;200;300;400;500;600;700;800;900&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    button { font-family: inherit; }
+    .tap { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .ghost:hover { background: #f2f4f7; }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .btn-primary:hover { background: #004d91; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 1040px; position: relative; overflow: hidden; background: #f7f8fa; display: flex; flex-direction: column; color: #1a1d24;">
+
+  <!-- ── 上辺バー（共通シェル） ─────────────────────────────── -->
+  <header style="display: flex; height: 64px; flex-shrink: 0; align-items: center; gap: 14px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 24px;">
+    <button class="tap ghost" style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #e6e9ed;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.9" stroke-linecap="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg></button>
+    <div style="display: flex; align-items: center; gap: 9px;">
+      <div style="width: 28px; height: 28px; border-radius: 9px; background: #005bac; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="2"></circle><path d="M7.8 7.8a6 6 0 0 0 0 8.4"></path><path d="M16.2 16.2a6 6 0 0 0 0-8.4"></path></svg></div>
+      <span style="font-size: 15px; font-weight: 800;">ONAiR</span>
+    </div>
+    <span style="height: 22px; width: 1px; background: #e6e9ed;"></span>
+    <span class="clip1" style="font-size: 12.5px; color: #5d6470; max-width: 460px;">制作技術支援 ／ サイエンス・フロンティア ／ 運営マニュアル</span>
+    <span style="flex: 1;"></span>
+    <button class="tap" style="display: flex; align-items: center; gap: 10px; height: 44px;">
+      <span style="width: 32px; height: 32px; border-radius: 9999px; background: #eaf4fb; color: #005bac; font-size: 13.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;">川</span>
+      <span style="font-size: 12.5px; white-space: nowrap;">川口 早苗</span>
+    </button>
+  </header>
+
+  <!-- ── 冊子の帯 ──────────────────────────────────────────── -->
+  <div style="display: flex; height: 52px; flex-shrink: 0; align-items: center; gap: 12px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 16px 0 12px;">
+    <button class="tap ghost" style="display: flex; align-items: center; gap: 3px; height: 32px; border-radius: 8px; padding: 0 9px 0 5px; color: #005bac;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"></path></svg><span style="font-size: 12.5px; font-weight: 700;">冊子一覧</span></button>
+    <span style="height: 20px; width: 1px; background: #e6e9ed;"></span>
+    <span class="num" style="font-size: 11.5px; font-weight: 700; color: #9aa1ab;">OM-0006</span>
+    <span style="font-size: 15px; font-weight: 800;">リハーサル進行マニュアル</span>
+    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 56px; height: 21px; border-radius: 6px; background: #fff7ed; color: #c2410e; font-size: 11px; font-weight: 800;">下書き</span>
+    <span style="font-size: 11.5px; color: #5d6470;">2ページ目 ／ 体制図</span>
+    <span style="flex: 1;"></span>
+    <button class="tap" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12.5px; font-weight: 700;">仕上がりを見る</button>
+    <button class="tap btn-primary" style="display: flex; align-items: center; height: 34px; border-radius: 9px; background: #005bac; color: #ffffff; padding: 0 14px; font-size: 12.5px; font-weight: 800;">確定する</button>
+  </div>
+
+  <div style="flex: 1; display: flex; min-height: 0;">
+
+    <!-- ── 左パネル「置く」（自由ブロックのカタログ） ───────────── -->
+    <aside style="width: 252px; flex-shrink: 0; border-right: 1px solid #e6e9ed; background: #ffffff; display: flex; flex-direction: column; min-height: 0;">
+      <div style="display: flex; align-items: center; gap: 8px; height: 46px; flex-shrink: 0; border-bottom: 1px solid #e6e9ed; padding: 0 14px;">
+        <span style="font-size: 13px; font-weight: 800;">置く</span>
+        <span style="font-size: 11px; color: #9aa1ab;">自分で作るブロック</span>
+      </div>
+      <div style="padding: 12px; display: flex; flex-direction: column; gap: 7px;">
+        <sc-for list="{{tools}}" as="t" hint-placeholder-count="6">
+          <button class="tap ghost" style="display: flex; align-items: center; gap: 10px; width: 100%; border-radius: 10px; border: 1px solid {{t.border}}; background: {{t.bg}}; padding: 9px 10px;">
+            <span style="width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; border: 1px solid {{t.iconBorder}}; background: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: {{t.fg}};">{{t.icon}}</span>
+            <span style="min-width: 0;">
+              <span style="display: block; font-size: 12.5px; font-weight: {{t.weight}}; color: {{t.fg}};">{{t.label}}</span>
+              <span class="clip1" style="display: block; font-size: 11px; color: #9aa1ab;">{{t.hint}}</span>
+            </span>
+          </button>
+        </sc-for>
+      </div>
+      <div style="margin: 2px 12px 0; border-radius: 10px; border: 1px solid #cfe4f4; background: #f4faff; padding: 10px 11px;">
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 800; color: #005bac;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 16v-5"></path><path d="M12 8h.01"></path></svg>
+          体制図は「差し込み」ではありません
+        </div>
+        <p style="margin: 6px 0 0; font-size: 11px; line-height: 1.55; color: #3c424c;">
+          当日の現場の体制は案件のメンバー一覧とは違うので、<strong style="font-weight: 800;">冊子の中で作って冊子が持ちます</strong>。
+          打ち直さずに済むよう、右のパネルから<strong style="font-weight: 800;">1回だけ流し込め</strong>ます。
+        </p>
+      </div>
+    </aside>
+
+    <!-- ── 紙面（A4横） ─────────────────────────────────────── -->
+    <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: #eef0f4; padding: 16px;">
+      <div style="width: 100%; max-width: 792px; display: flex; align-items: center; gap: 8px;">
+        <span class="num" style="font-size: 11px; font-weight: 700; color: #5d6470;">A4 横 ・ 297 × 210 mm</span>
+        <span style="font-size: 11px; color: #9aa1ab;">体制図ブロック 180 × 90 mm</span>
+        <span style="flex: 1;"></span>
+        <span style="display: inline-flex; align-items: center; gap: 5px; height: 22px; border-radius: 6px; border: 1px solid #cfe4f4; background: #f4faff; color: #005bac; font-size: 11px; font-weight: 700; padding: 0 8px;">選択中 ── 紙面の上でそのまま打てます</span>
+      </div>
+
+      <!-- 紙 -->
+      <div style="width: 792px; height: 560px; flex-shrink: 0; background: #ffffff; border: 1px solid #dfe3e8; position: relative; padding: 26px 32px 22px;">
+
+        <!-- 見出し（差し込み・案件管理） -->
+        <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding-bottom: 7px; border-bottom: 1.6px solid #005bac;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="display: inline-flex; align-items: center; height: 17px; border-radius: 3px; border: 1px solid #005bac; color: #005bac; font-size: 9.5px; font-weight: 800; padding: 0 6px;">第1章 ／ この冊子について</span>
+              <span class="num" style="font-size: 9.5px; font-weight: 700; color: #5d6470;">SCS-0007 ・ 第7回</span>
+            </div>
+            <div style="margin-top: 5px; font-size: 22px; font-weight: 800; line-height: 1.15;">体制図</div>
+          </div>
+          <div class="num" style="text-align: right; font-size: 9.5px; color: #5d6470; line-height: 1.5;">
+            サイエンス・フロンティア<br>8月23日（日）・ 第2スタジオ
+          </div>
+        </div>
+
+        <!-- 体制図ブロック（選択中） -->
+        <div style="position: relative; margin-top: 14px; outline: 1.5px solid #005bac; outline-offset: 5px;">
+
+          <sc-for list="{{tiers}}" as="t" hint-placeholder-count="3">
+            <div>
+              <!-- 段のつながり（縦罫）。SVG で座標を計算しない -->
+              <sc-if value="{{t.showLine}}" hint-placeholder-val="{{ true }}">
+                <div style="width: 1px; height: 16px; margin: 0 auto; background: #9aa1ab;"></div>
+              </sc-if>
+
+              <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 5px;">
+                <span style="font-size: 10.5px; font-weight: 800; color: #1a1d24;">{{t.label}}</span>
+                <span class="num" style="font-size: 9.5px; color: #9aa1ab;">{{t.count}}名</span>
+                <span style="flex: 1; height: 1px; background: #e6e9ed;"></span>
+                <button class="tap" style="font-size: 9.5px; font-weight: 700; color: #005bac;">＋ 箱</button>
+              </div>
+
+              <div style="display: flex; align-items: flex-start; gap: 7px;">
+                <sc-for list="{{t.boxes}}" as="b" hint-placeholder-count="3">
+                  <div style="flex: {{b.grow}}; min-width: 0; border: {{b.border}}; border-radius: 3px; background: #ffffff;">
+                    <div style="display: flex; align-items: center; gap: 5px; border-bottom: 1px solid #e6e9ed; padding: 3px 6px;">
+                      <span class="clip1" style="flex: 1; min-width: 0; font-size: 10px; font-weight: 800;">{{b.label}}</span>
+                      <span style="flex-shrink: 0; display: inline-flex; align-items: center; height: 13px; border-radius: 2px; border: {{b.tagBorder}}; color: {{b.tagFg}}; font-size: 8.5px; font-weight: 700; padding: 0 4px;">{{b.sideLabel}}</span>
+                    </div>
+                    <div style="padding: 3px 6px 4px;">
+                      <sc-for list="{{b.people}}" as="p" hint-placeholder-count="2">
+                        <div style="display: flex; align-items: baseline; gap: 5px; padding: 1.5px 0;">
+                          <span class="clip1" style="font-size: 10px; font-weight: 700; min-width: 0;">{{p.name}}</span>
+                          <sc-if value="{{p.hasBadge}}" hint-placeholder-val="{{ true }}">
+                            <span style="flex-shrink: 0; display: inline-flex; align-items: center; height: 12px; border-radius: 2px; border: 1px solid #c2410e; color: #c2410e; font-size: 8px; font-weight: 800; padding: 0 3px;">{{p.badge}}</span>
+                          </sc-if>
+                          <span class="clip1" style="flex: 1; min-width: 0; font-size: 9px; color: #5d6470;">{{p.sub}}</span>
+                          <sc-if value="{{p.hasPhone}}" hint-placeholder-val="{{ true }}">
+                            <span class="num" style="flex-shrink: 0; font-size: 9px; color: #3c424c;">{{p.phone}}</span>
+                          </sc-if>
+                        </div>
+                      </sc-for>
+                      <sc-if value="{{b.isEmpty}}" hint-placeholder-val="{{ true }}">
+                        <div style="border: 1px dashed #cfd4da; border-radius: 2px; padding: 3px 5px; font-size: 9px; color: #9aa1ab;">まだ決まっていません</div>
+                      </sc-if>
+                      <button class="tap" style="margin-top: 2px; font-size: 9px; color: #9aa1ab;">＋ 人</button>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+
+          <!-- 選択のつまみ（4隅） -->
+          <span style="position: absolute; left: -8px; top: -8px; width: 6px; height: 6px; background: #ffffff; border: 1.4px solid #005bac;"></span>
+          <span style="position: absolute; right: -8px; top: -8px; width: 6px; height: 6px; background: #ffffff; border: 1.4px solid #005bac;"></span>
+          <span style="position: absolute; left: -8px; bottom: -8px; width: 6px; height: 6px; background: #ffffff; border: 1.4px solid #005bac;"></span>
+          <span style="position: absolute; right: -8px; bottom: -8px; width: 6px; height: 6px; background: #ffffff; border: 1.4px solid #005bac;"></span>
+        </div>
+
+        <!-- 柱（ひな形のブロック） -->
+        <div style="position: absolute; left: 32px; right: 32px; bottom: 14px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #e6e9ed; padding-top: 5px; font-size: 9px; color: #9aa1ab;">
+          <span style="font-weight: 800; color: #c2410e;">社外秘</span>
+          <span class="num">2026-08-23</span>
+          <span style="flex: 1;"></span>
+          <span class="num">rev.0 ／ 2 / 6</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- ── 右パネル「体制図」 ───────────────────────────────── -->
+    <aside style="width: 316px; flex-shrink: 0; border-left: 1px solid #e6e9ed; background: #ffffff; display: flex; flex-direction: column; min-height: 0;">
+      <div style="display: flex; align-items: center; gap: 8px; height: 46px; flex-shrink: 0; border-bottom: 1px solid #e6e9ed; padding: 0 14px;">
+        <span style="font-size: 13px; font-weight: 800;">体制図</span>
+        <span style="font-size: 11px; color: #9aa1ab;">選んでいるブロック</span>
+      </div>
+
+      <div style="flex: 1; overflow: hidden; padding: 12px 14px; display: flex; flex-direction: column; gap: 14px;">
+
+        <!-- 段 -->
+        <section>
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+            <span style="font-size: 11.5px; font-weight: 800;">段</span>
+            <span style="flex: 1;"></span>
+            <button class="tap" style="font-size: 11px; font-weight: 700; color: #005bac;">＋ 段を足す</button>
+          </div>
+          <sc-for list="{{tierRows}}" as="r" hint-placeholder-count="3">
+            <div style="display: flex; align-items: center; gap: 6px; border: 1px solid #e6e9ed; border-radius: 8px; padding: 6px 8px; margin-bottom: 5px;">
+              <span style="width: 15px; height: 15px; flex-shrink: 0; border-radius: 4px; background: #f2f4f7; color: #5d6470; font-size: 9px; font-weight: 800; display: flex; align-items: center; justify-content: center;">{{r.no}}</span>
+              <span class="clip1" style="flex: 1; min-width: 0; font-size: 12px; font-weight: 700;">{{r.label}}</span>
+              <span class="num" style="font-size: 10.5px; color: #9aa1ab;">{{r.count}}名</span>
+              <button class="tap ghost" style="width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2.4" stroke-linecap="round"><path d="M6 15l6-6 6 6"></path></svg></button>
+              <button class="tap ghost" style="width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"></path></svg></button>
+            </div>
+          </sc-for>
+        </section>
+
+        <!-- 出す項目 -->
+        <section>
+          <div style="font-size: 11.5px; font-weight: 800; margin-bottom: 6px;">紙に出す項目</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+            <sc-for list="{{fields}}" as="f" hint-placeholder-count="4">
+              <button class="tap" onClick="{{f.toggle}}" style="display: flex; align-items: center; gap: 5px; height: 28px; border-radius: 8px; border: 1px solid {{f.border}}; background: {{f.bg}}; padding: 0 10px; font-size: 11.5px; font-weight: 700; color: {{f.fg}};">
+                <span style="width: 12px; height: 12px; border-radius: 3px; border: 1px solid {{f.boxBorder}}; background: {{f.boxBg}}; display: flex; align-items: center; justify-content: center;"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="{{f.check}}" stroke-width="3.4" stroke-linecap="round"><path d="M20 6L9 17l-5-5"></path></svg></span>
+                {{f.label}}
+              </button>
+            </sc-for>
+          </div>
+        </section>
+
+        <!-- 線 -->
+        <section>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 11.5px; font-weight: 800;">段のつながりの線</span>
+            <span style="flex: 1;"></span>
+            <button class="tap" onClick="{{line.toggle}}" style="width: 36px; height: 20px; border-radius: 9999px; background: {{line.bg}}; position: relative; flex-shrink: 0;">
+              <span style="position: absolute; top: 2px; left: {{line.knob}}; width: 16px; height: 16px; border-radius: 9999px; background: #ffffff;"></span>
+            </button>
+          </div>
+          <p style="margin: 5px 0 0; font-size: 10.5px; line-height: 1.5; color: #9aa1ab;">上下のつながりだけを細い縦罫で示します（横の並びは「同じ段にある」ことで表す）。</p>
+        </section>
+
+        <!-- 立場の見分け方 -->
+        <section>
+          <div style="font-size: 11.5px; font-weight: 800; margin-bottom: 6px;">立場（枠の線で見分ける）</div>
+          <sc-for list="{{legend}}" as="l" hint-placeholder-count="4">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 3px 0;">
+              <span style="width: 34px; height: 15px; flex-shrink: 0; border: {{l.border}}; border-radius: 2px;"></span>
+              <span style="font-size: 11.5px; font-weight: 700;">{{l.label}}</span>
+              <span style="flex: 1;"></span>
+              <span style="font-size: 10.5px; color: #9aa1ab;">{{l.note}}</span>
+            </div>
+          </sc-for>
+          <p style="margin: 5px 0 0; font-size: 10.5px; line-height: 1.5; color: #9aa1ab;">白黒で刷っても読めるよう、色ではなく<strong style="font-weight: 800;">線種</strong>で分けます。</p>
+        </section>
+
+        <!-- 取り込み -->
+        <section style="border-top: 1px solid #e6e9ed; padding-top: 11px;">
+          <div style="font-size: 11.5px; font-weight: 800; margin-bottom: 6px;">取り込む（1回かぎり）</div>
+          <button class="tap" style="display: flex; align-items: center; gap: 7px; width: 100%; height: 32px; border-radius: 8px; border: 1px solid #cfe4f4; background: #f4faff; padding: 0 10px; font-size: 11.5px; font-weight: 700; color: #005bac; margin-bottom: 5px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round"><path d="M12 3v12"></path><path d="M8 11l4 4 4-4"></path><path d="M4 19h16"></path></svg>
+            案件のメンバーから <span class="num" style="color: #5d6470; font-weight: 700;">8人</span>
+          </button>
+          <button class="tap ghost" style="display: flex; align-items: center; gap: 7px; width: 100%; height: 32px; border-radius: 8px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 10px; font-size: 11.5px; font-weight: 700; color: #5d6470;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round"><path d="M12 3v12"></path><path d="M8 11l4 4 4-4"></path><path d="M4 19h16"></path></svg>
+            プロジェクト管理の体制から <span style="color: #9aa1ab; font-weight: 400;">この案件には無し</span>
+          </button>
+          <p style="margin: 6px 0 0; font-size: 10.5px; line-height: 1.55; color: #9aa1ab;">
+            入れたあとは<strong style="font-weight: 800;">冊子のもの</strong>です。元（案件のメンバー）を直してもここは変わりません
+            ── だから「元が変わりました」も出ません。
+          </p>
+        </section>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ── 決めごとの帯 ──────────────────────────────────────── -->
+  <div style="display: flex; height: 38px; flex-shrink: 0; align-items: center; gap: 18px; border-top: 1px solid #e6e9ed; background: #ffffff; padding: 0 20px; font-size: 11px; color: #5d6470;">
+    <span><strong style="font-weight: 800; color: #1a1d24;">箱は枠線だけ</strong>（塗らない・紙のインク規律 §6-6）</span>
+    <span><strong style="font-weight: 800; color: #1a1d24;">空の箱を置ける</strong>（「照明 ── まだ決まっていません」）</span>
+    <span><strong style="font-weight: 800; color: #1a1d24;">線は CSS の縦罫</strong>（SVG で座標を計算しない ── 箱の高さは人数で変わる）</span>
+    <span style="flex: 1;"></span>
+    <span class="num" style="color: #9aa1ab;">production-manual-orgchart.md</span>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    // 紙に出す項目（既定は役割だけ）と、段のつながりの線
+    this.state = { role: true, org: false, phone: true, email: false, line: true };
+  }
+
+  tierDefs() {
+    return [
+      { label: '統括', boxes: [
+        { label: '制作統括', side: 'internal', grow: 1, people: [
+          { name: '寺井 岳宏', role: 'プロデューサー', org: '自社', phone: '090-0000-0001', email: 'terai@example.jp', badge: '決裁' },
+          { name: '川口 早苗', role: '演出', org: '自社', phone: '090-0000-0002', email: 'kawaguchi@example.jp', badge: '進行' },
+        ] },
+      ] },
+      { label: '各パート', boxes: [
+        { label: '技術', side: 'internal', grow: 1, people: [
+          { name: '大野 健', role: 'TD', org: '自社', phone: '090-0000-0003', email: 'ono@example.jp' },
+          { name: '佐藤 亮', role: 'カメラ', org: '自社', phone: '', email: '' },
+        ] },
+        { label: '音声', side: 'internal', grow: 1, people: [
+          { name: '藤原 直', role: 'ミキサー', org: '自社', phone: '090-0000-0004', email: 'fujiwara@example.jp' },
+        ] },
+        { label: 'テロップCG', side: 'internal', grow: 1, people: [
+          { name: '小島 亮', role: 'オペレーター', org: '自社', phone: '', email: '' },
+        ] },
+        { label: '美術', side: 'vendor', grow: 1, people: [
+          { name: '林 美和', role: '装飾', org: 'スタジオ美創', phone: '090-0000-0006', email: '' },
+        ] },
+      ] },
+      { label: '外部・応援', boxes: [
+        { label: '中継', side: 'vendor', grow: 1, people: [
+          { name: '三田 亘', role: '中継車', org: '東洋中継サービス', phone: '090-0000-0007', email: '' },
+        ] },
+        { label: '照明', side: 'vendor', grow: 1, people: [] },
+        { label: '東都TV 編成', side: 'client', grow: 1.4, people: [
+          { name: '宮下 圭', role: 'プロデューサー', org: '東都TV', phone: '090-0000-0008', email: 'miyashita@example.jp' },
+        ] },
+      ] },
+    ];
+  }
+
+  // 立場ごとの枠。**色ではなく線種**で分ける（白黒で刷っても読める）
+  sideStyle() {
+    return {
+      internal: { label: '自社',   border: '1px solid #005bac',  tagFg: '#005bac', note: '実線・細' },
+      client:   { label: '発注者', border: '2px solid #1a1d24',  tagFg: '#1a1d24', note: '実線・太' },
+      pm:       { label: 'PM会社', border: '1px dashed #5d6470', tagFg: '#5d6470', note: '破線' },
+      vendor:   { label: '業者',   border: '1px dotted #9aa1ab', tagFg: '#5d6470', note: '点線' },
+    };
+  }
+
+  renderVals() {
+    const self = this;
+    const st = this.state;
+    const sides = this.sideStyle();
+
+    const tiers = this.tierDefs().map((t, i) => ({
+      label: t.label,
+      count: t.boxes.reduce((n, b) => n + b.people.length, 0),
+      showLine: i > 0 && st.line,
+      boxes: t.boxes.map((b) => {
+        const s = sides[b.side];
+        return {
+          label: b.label,
+          grow: b.grow,
+          border: s.border,
+          sideLabel: s.label,
+          tagBorder: '1px solid ' + s.tagFg,
+          tagFg: s.tagFg,
+          isEmpty: b.people.length === 0,
+          people: b.people.map((p) => {
+            const sub = [st.role ? p.role : '', st.org ? p.org : '', st.email ? p.email : '']
+              .filter(Boolean).join(' ・ ');
+            return {
+              name: p.name,
+              sub: sub,
+              phone: p.phone,
+              hasPhone: !!(st.phone && p.phone),
+              badge: p.badge || '',
+              hasBadge: !!p.badge,
+            };
+          }),
+        };
+      }),
+    }));
+
+    const tools = [
+      { key: 'text',  label: '文字',   icon: 'T',  hint: '打つ・貼る' },
+      { key: 'shape', label: '図形',   icon: '□',  hint: '矩形・円・線・矢印' },
+      { key: 'image', label: '画像',   icon: '▣',  hint: '手元から上げる' },
+      { key: 'table', label: '表',     icon: '▦',  hint: '自分で打つ表' },
+      { key: 'qr',    label: 'QR',     icon: '▩',  hint: 'この冊子から画面へ飛ばす' },
+      { key: 'org',   label: '体制図', icon: '⑃',  hint: '段と箱で組む・取り込める', on: true },
+    ].map((t) => ({
+      label: t.label, icon: t.icon, hint: t.hint,
+      border: t.on ? '#005bac' : '#e6e9ed',
+      bg: t.on ? '#f4faff' : '#ffffff',
+      iconBorder: t.on ? '#005bac' : '#e6e9ed',
+      fg: t.on ? '#005bac' : '#1a1d24',
+      weight: t.on ? 800 : 700,
+    }));
+
+    const tierRows = tiers.map((t, i) => ({ no: i + 1, label: t.label, count: t.count }));
+
+    const fieldDefs = [
+      { key: 'role',  label: '役割' },
+      { key: 'org',   label: '所属' },
+      { key: 'phone', label: '電話' },
+      { key: 'email', label: 'メール' },
+    ];
+    const fields = fieldDefs.map((f) => {
+      const on = !!st[f.key];
+      return {
+        label: f.label,
+        border: on ? '#005bac' : '#e6e9ed',
+        bg: on ? '#f4faff' : '#ffffff',
+        fg: on ? '#005bac' : '#5d6470',
+        boxBorder: on ? '#005bac' : '#cfd4da',
+        boxBg: on ? '#005bac' : '#ffffff',
+        check: on ? '#ffffff' : 'transparent',
+        toggle: () => { const next = {}; next[f.key] = !on; self.setState(next); },
+      };
+    });
+
+    const legend = ['internal', 'client', 'pm', 'vendor'].map((k) => ({
+      label: sides[k].label, border: sides[k].border, note: sides[k].note,
+    }));
+
+    return {
+      tiers, tools, tierRows, fields, legend,
+      line: {
+        bg: st.line ? '#005bac' : '#cfd4da',
+        knob: st.line ? '18px' : '2px',
+        toggle: () => self.setState({ line: !st.line }),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>
