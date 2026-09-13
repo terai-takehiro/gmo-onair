@@ -2467,7 +2467,8 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   指摘は無い**。Security Review は初回コミットで完走（16:44:06Z）し findings 無し。
   ⚠️ ただし修正コミット `a232990` にはどちらのレビューも再実行されないままマージされた
   （マージまで約16分と短く、再トリガー前にマージされた形）。
-  検証: `npm run lint`（0 errors・warning 54件＝着手前と同じ）・`npm run test`（94/94 pass）・
+  検証: `npm run lint`（0 errors・warning 54件＝着手前と同じ）・
+  `npm run test`（shared 174ファイル・2468件／server 94件、すべて成功）・
   `npm run check:version`（3か所一致）・`node scripts/check-md-links.mjs`・
   `node scripts/generate-version-history.mjs`。
 
