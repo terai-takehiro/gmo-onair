@@ -2452,6 +2452,36 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#684**（`feat(techops): 会場図面ミニアプリを新設（設計・モック・実装）`・
+  2026-09-13）— 制作技術支援に新しいミニアプリ「会場図面」を新設した（設計書
+  `docs/design/v4/venue-layout.md`。マルチエージェントで並行実装。82ファイル・
+  +13439/−24・12コミット）。作成 15:06:35Z〜マージ 16:35:44Z の約1時間29分。
+  **Code Review は1巡**（`10f3edd`・作成直後）で完走し、**全8件（P1×6・P2×2）**の
+  指摘が付いた——①`venue-layout.service.ts` がDBの行をそのまま返し `floorId`等
+  camelCaseが全滅していた（編集画面が一切描画できない）②作成時の`copy_from`が
+  複製元への`canAccessVenueLayout`検査を経ないIDOR（他人の図面のitemsを盗み見て
+  複製できる）③自動保存の通信エラー・5xx失敗時に保留中の変更を握りつぶし二度と
+  送らない④印刷の縮尺（1:50〜1:400）を変えても図の大きさが変わらず紙面から実寸を
+  測ると表記と食い違う⑤⑥下敷き画像のURLが`/venue//venue/...`に二重結合される上、
+  画像自体が`client-techops/public`に存在しない⑦マーキー選択の`onPointerDown`が
+  `<svg>`に付いており実際に触れる背景`<rect>`と`e.currentTarget`が一致せず
+  一度も発火しない⑧線分/寸法線品目をドラッグしても`points`をcommitに含めておらず
+  指を離すと元の位置に戻る。**8件とも本PR内で修正・返信・スレッド解決まで完了**
+  （追加コミット`e61b9b9`）。実Postgres+実サーバーを起動し、camelCase応答・
+  IDOR拒否（非管理者が他人の番組紐づき図面を`copy_from`できず404）・正規操作
+  （同一ユーザーの複製）が通ることを確認した。**表に移す未対応の指摘は無い**
+  （全8件が本PR内で解決済み）。⚠️ ただし**修正コミット`e61b9b9`にはCode Review・
+  Security Reviewとも一度も再実行されていない**——要約表のCommit列は初回の
+  `10f3edd`のまま止まり、Code Reviewは「usage limitsに達した」旨の1行コメントの
+  みでSecurity Reviewは無反応だった（#679〜#681と同型の「最後のコミットが
+  未レビュー」）。Security Reviewは初回コミット（`10f3edd`）では完走し、上記8件と
+  別枠の指摘は無かった。検証: `npx tsc -b client-techops`・`npx tsc -b server`
+  （エラー0）・`npm run lint`（0 errors）・`npm run test`（shared 173ファイル/2457件・
+  server 94件、全pass）・`node scripts/check-collab-parity.mjs`・
+  `npm run build:changed`・`npm run verify:up`実DBでの保存/読み直し確認。実ブラウザ
+  でのPC/スマホ目視・`npm run verify:ui`・権限のない利用者での403/非表示確認は、
+  この環境（ブラウザ操作不可）では未実施のままマージされた（PR本文に明記）。
+
 - **#681**（`docs(reviews): PR #679・#680のレビュー状況を棚卸しに記録した`・
   2026-09-13）— #679・#680 の棚卸しを本文書に記録したドキュメントのみの変更
   （2ファイル・+48・2コミット）。**Code Review は2巡とも数分以内に反応**
