@@ -2483,6 +2483,87 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#708**（`fix(techops): 会場図面の「並べ直す」で数値を変えずに押すだけでグループが動く不具合を直した`・
+  2026-09-14）—— #707 で付いたP1指摘（下記）の修正（3ファイル・+38/−13・1コミット）。
+  `VenueInspector.tsx`の「並べ直す」は`translateArrangeResult(preview, anchor.x, anchor.y)`で
+  `anchor`（盤に見えている外接の左上）を素の生座標にそのまま加えており、劇場形式の既定
+  （`sideAisleMm`600mm・`frontClearanceMm`1500mm）の分だけ原点からずれた生のずれ
+  （332.5mm・1255mm）が毎回上乗せされ、数値を1つも変えずに「並べ直す」を押すだけでグループが
+  動く不具合になっていた。直前の値で同じ並べ方を作り直し、その生座標の左上が今の見た目の位置に
+  一致する原点の写り先（dx/dy）を逆算してから新しい入力値の並びに使うよう修正。**Code Review・
+  Security Reviewとも初回コミット（`5d4f312`）で完走し、findingsは無かった**（レビュースレッド
+  0件）。**表に移す未対応の指摘は無い**。検証: `npx tsc -b client-techops`・`npm run test`
+  （shared 2468件・server 94件）・`npm run lint`（0 errors）・実ブラウザ（Playwright・
+  検証用Postgres）。
+
+- **#707**（`fix(techops): 会場図面の盤への配置ずれ修正がv4.6.17に取り込まれていなかったのを直した`・
+  2026-09-14）—— #706 で付いたP1指摘（下記）の修正（4ファイル・+29/−15・1コミット。
+  TypeScript3ファイル＋`docs/changelog.d/claude-venue-diagram-bugs-jxkbih.md`）だが、
+  **本PR自身にも新たなP1指摘が1件付いた**——「並べ直す」（`VenueInspector.tsx:127`）は
+  `anchor.x/y`（いま盤に見えている外接の左上）を素の生座標にそのまま加えており、`preview.items`
+  は原点(0,0)から始まらないため、数値を1つも変えずに「並べ直す」を押すだけで劇場形式の既定なら
+  右へ332.5mm・下へ1,255mm動く（他のプリセットもそれぞれの生のずれの分だけ動く）というもの。
+  ⚠️ **本PRはこの指摘が届く前にマージされ、修正は追加PR #708 に持ち越した**（他は
+  Code Review・Security Reviewとも完走しfindings無し）。**状態: ⭕️ #708で対応**。検証:
+  `npx tsc -b client-techops`・`npm run test`（shared 2468件）・`npm run lint`（0 errors）・
+  実ブラウザ（Playwright・検証用Postgres）。
+
+- **#706**（`release: v4.6.17`・2026-09-14）—— `npm run release:notes -- 4.6.17`で下書き2件
+  （会場図面WORLD STUDIOの下敷き画像差し替え漏れ・「並べ方」プレビュー下端切れと配置ずれ）を
+  まとめたリリースPR（8ファイル・+41/−16・2コミット）。**Code Review完走で1件（P1）**の
+  指摘が付いた——「並べ方」プレビューの下端切れを直すために足した`boundsOfArrangeItems`を
+  「追加」の配置（`VenueArrangePanel.tsx:36`のdx/dy）にも使っていたが、劇場形式の
+  `sideAisleMm`・`frontClearanceMm`は品目の全生成座標を丸ごと同じ量だけ平行移動する値
+  （＝`bounds.minX/minY`にそのまま乗る値）のため、ここで`bounds`を差し引くと2つの値を
+  丸ごと打ち消してしまい、「脇」「前の空き」の入力欄を変えてもプレビュー・盤への配置の
+  どちらも変わらなくなる（`VenueInspector.relayout`の同型の減算も同様に無効化される）という
+  もの。⚠️ **本PRもこの指摘が届く前にマージされ、修正は追加PR #707 に持ち越した**（Security
+  Reviewは完走しfindings無し）。**状態: ⭕️ #707で対応**。検証: `npx tsc -b client-techops`・
+  `npm run test`（shared 2468件）・`npm run check:version`（3か所ともv4.6.17で一致）・
+  `node scripts/generate-version-history.mjs`・`RELEASE=1 npm run lint`（0 errors）・
+  実ブラウザ（Playwright・検証用Postgres）。
+
+- **#705**（`fix(docs): Codexレビュー指摘1件（v4.6.16の本文が長すぎる）を直した`・2026-09-14）——
+  #704（release: v4.6.16）に付いた3件のP2指摘のうち**1件だけ**（CLAUDE.mdの本文が長すぎる）を
+  直したPR（9ファイル・+38/−7・2コミット）。**Code Review・Security Reviewとも完走し、本PR
+  自身へのfindingsは無かった**。**表に移す未対応の指摘は無い**——ただし#704で付いた残り2件
+  （`scripts/collect-changelog.mjs`のCRLF未対応・同一版の要約挿入順）は本PRの対象外で、
+  下の#704の行に❌未対応として記録した。検証: `node scripts/check-md-links.mjs`・
+  `npm run check:version`（3か所ともv4.6.16で一致）・`node scripts/generate-version-history.mjs`・
+  `RELEASE=1 npm run lint`（0 errors）。
+
+- **#704**（`release: v4.6.16`・2026-09-14）—— `npm run release:notes -- 4.6.16`で下書き9件
+  （会場図面タブ切替の高さ修正・26F/27F下敷き画像差し替え・PR #692〜#699の棚卸し記録）を
+  まとめたリリースPR（14ファイル・+50/−50・2コミット。最初 #703 として作成したが
+  `claude/release-…`の枝名規則に合わず作り直した）。**Code Review完走で3件（P2×3）**の指摘が
+  付いた。**①**（⭕️ #705で対応）`npm run release:notes`が集めた9件連結・約11KBの本文が
+  CLAUDE.md「現在のバージョン」に残り、同文書自身の「1件＝見出し＋2〜3文」の規律に反していた。
+  **②③**（❌ **未対応**・下の表）`scripts/collect-changelog.mjs`のアーカイブ挿入ロジックの穴2件。
+  Security Reviewは完走（新規コミット時点）しfindings無し。検証: `npm run check:version`
+  （3か所ともv4.6.16で一致）・`node scripts/generate-version-history.mjs`・`RELEASE=1 npm run lint`
+  （0 errors）。
+
+| PR | 重み | どこ | 何が起きるか | 状態 |
+| --- | --- | --- | --- | --- |
+| #704 | P2 | `scripts/collect-changelog.mjs`（`entryRe`・266行目付近） | `entryRe = /\n\n\(v(\d+\.\d+\.\d+) — /g` が素の `\n\n` のみで、`core.autocrlf=true` のチェックアウト（CRLF＝`\r\n\r\n`）では既存エントリに一件も一致しない。その場合 `insertAt` が常に `h.length` になり、新しい版より古い版が末尾へ追加されて新しい順が崩れる | ❌ **未対応**（実害は「Windowsでの手元チェックアウト」限定。CIはLFで動くため `npm run release:notes` 自体は今のところ影響を受けていない）。**何が変われば直すか**: `\r?\n\r?\n\(v` のように改行をCRLF許容にする（`generate-version-history.mjs` の `headingIndex` と同じ対応） |
+| #704 | P2 | `scripts/collect-changelog.mjs`（`cmpSemver` の比較・272行目付近） | 12KB超で分割された版が3件目に押し出されるとき、その版の全文は作成時点で既にアーカイブにあり、新しく足す `archived` は人が付けた要約。しかし `cmpSemver(existing, ver) < 0` は等しい版（0）では止まらず、同一版の既存エントリを飛び越して**その後ろ**に挿む。`generate-version-history.mjs` の重複統合は最初に現れたエントリのタイトルを残すため、要約のタイトルが先頭の下書きタイトルへ戻ってしまう | ❌ **未対応**（発生条件は「12,000バイト超の分割が起きた版で、かつ複数回に分けて `release:notes` を回す」という組み合わせのみ。v4.6.16はこの分割しきい値に届かず未発生）。**何が変われば直すか**: 同一版（`cmpSemver`が0）を見つけたら、その位置（既存の前）に挿むよう `<=0` にする、または等号のケースだけ別に処理する |
+
+- **#702**（`fix(docs): Codexレビュー指摘2件（#699棚卸しの件数の数え違い）を直した`・2026-09-14）——
+  #700（PR #699のレビュー棚卸し記録）に付いた2件のP2指摘の修正（3ファイル・+7/−3・1コミット）。
+  ①「push のたびに3回完走」の数え違い（実際は`4f4fb6a`・`da29fee`・`2d746a1`・`f799abe`の
+  4コミット時点で完走）②マージ後のファイル数の数え違い（実際は11ファイル・最終コミット
+  `8616a15`の設計書2件を数え忘れ）。**Code Review・Security Reviewとも完走し、本PR自身への
+  findingsは無かった**。**表に移す未対応の指摘は無い**。検証: `node scripts/check-md-links.mjs`・
+  `node scripts/check-changelog.mjs`・`node scripts/check-migration-numbers.mjs`。
+
+- **#700**（`docs(reviews): PR #699のレビュー状況を棚卸しに記録した`・2026-09-14）—— #699の
+  棚卸しを記録したドキュメントのみのPR（2ファイル・+34・1コミット）。**Code Review完走で
+  2件（P2×2）**の指摘が付いた——①「push のたびに3回完走」という記述が実際の完走回数
+  （4回）と食い違う②マージ後のファイル数を「9ファイル」と書いていたが実際は11ファイル。
+  ⚠️ **本PRはこの指摘が届く前にマージされ、修正は追加PR #702 に持ち越した**（Security Review
+  は完走しfindings無し）。**状態: ⭕️ #702で対応**。検証: `node scripts/check-md-links.mjs`・
+  `node scripts/check-changelog.mjs`。
+
 - **#699**（`docs(reviews): PR #693・#696・#697の棚卸し記録＋会場図面タブ切替の不具合修正`・
   2026-09-14）—— 当初は #693・#696・#697 のレビュー棚卸し記録だけのPRだったが、利用者から
   「#694で直したはずのタブ切替でレイアウトが揺れる不具合が直っていない」との再報告を受けて
