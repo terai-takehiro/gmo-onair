@@ -73,6 +73,26 @@ export function computeArrangeResult(
   return ARRANGE_PRESETS[preset](params, groupId);
 }
 
+/**
+ * `arrange.ts` の `VenueArrangeResult.bbox` は幅・高さだけ（`shared/src/venue/arrange.ts`
+ * の `bboxOf`。触らない）で、左上の位置（min）は持たない。劇場形式は既定で
+ * `frontClearanceMm`(1500)・`sideAisleMm`(600) の分だけ原点からずれた場所に品目を
+ * 置くため、bbox の幅・高さだけを前提に「原点から始まる」と決め打つ計算はどれも
+ * このずれの分だけ位置がずれる（プレビューは下端が切れる・盤に置く位置もずれる）。
+ * `computeArrangeResult` が返す品目の実座標から左上を測って呼び出し側の補正に使う
+ */
+export function boundsOfArrangeItems(items: VenueItem[]): { minX: number; minY: number } {
+  let minX = Infinity;
+  let minY = Infinity;
+  for (const it of items) {
+    const w = it.w ?? it.diameter ?? 0;
+    const d = it.d ?? it.diameter ?? 0;
+    minX = Math.min(minX, it.x - w / 2);
+    minY = Math.min(minY, it.y - d / 2);
+  }
+  return { minX: Number.isFinite(minX) ? minX : 0, minY: Number.isFinite(minY) ? minY : 0 };
+}
+
 /** グループの外接寸法・脚数・保有数との差（`isOverStock`）をまとめて出す */
 export function summarizeArrangeResult(result: VenueArrangeResult, catalogByKey: Map<string, VenueCatalogItem>) {
   const isOverStock = Object.entries(result.counts).some(([key, n]) => {
