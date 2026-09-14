@@ -3,7 +3,7 @@
 // 仕上がりを見るボタン。`VenueEditorDesktop.tsx` から見た目だけを切り出したもの
 // （1ファイル400行のラチェット対策）。
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, FileOutput } from "lucide-react";
+import { ChevronLeft, FileOutput, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@gmo-onair/shared/src/client/ui/badge";
 import BufferedInput from "@/components/editor/BufferedInput";
@@ -26,9 +26,10 @@ interface Props {
   onPreview: () => void;
   onFix: () => void;
   onUnfix: () => void;
+  onDelete: () => void;
 }
 
-export default function VenueResourceBand({ docNo, title, status, saving, canEdit, canManage, editable, lock, returnTo, onTitleCommit, onPreview, onFix, onUnfix }: Props) {
+export default function VenueResourceBand({ docNo, title, status, saving, canEdit, canManage, editable, lock, returnTo, onTitleCommit, onPreview, onFix, onUnfix, onDelete }: Props) {
   const navigate = useNavigate();
   return (
     <div className="flex flex-wrap items-center gap-2.5">
@@ -78,6 +79,17 @@ export default function VenueResourceBand({ docNo, title, status, saving, canEdi
       <Button variant="outline" onClick={onPreview} className="h-8">
         <FileOutput className="mr-1 h-3.5 w-3.5" aria-hidden="true" />仕上がり・書き出し
       </Button>
+      {canEdit && (
+        <Button
+          variant="outline"
+          className="h-8 text-destructive hover:text-destructive"
+          onClick={onDelete}
+          disabled={!editable}
+          title={status === "fixed" ? "確定済みは削除できません。先に「確定を解く」を押してください" : !editable ? "編集ロックを持っている間だけ削除できます" : undefined}
+        >
+          <Trash2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" />削除
+        </Button>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-// 会場図面 — 「並べる」の入力欄の構成（設計: docs/design/v4/venue-layout.md §7・§11-5）。
+// 会場図面 — 「並べ方」の入力欄の構成（設計: docs/design/v4/venue-layout.md §7・§11-5）。
 // `VenueArrangePanel`（新しく並べる）と `VenueInspector`（グループの「並べ直す」）の
 // 両方が同じ入力欄の定義を使うため、ここに1つだけ置く。
 //
@@ -15,7 +15,7 @@ import {
 } from "@gmo-onair/shared/src/venue/arrange";
 
 export const PRESET_LABEL: Record<VenueArrangePreset, string> = {
-  grid: "格子に並べる", theater: "劇場形式", classroom: "スクール形式", island: "島形式",
+  grid: "格子形式", theater: "劇場形式", classroom: "スクール形式", island: "島形式",
   round: "円卓", "u-shape": "コの字", "o-shape": "ロの字",
 };
 

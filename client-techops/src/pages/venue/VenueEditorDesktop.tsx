@@ -1,5 +1,5 @@
 // 会場図面 — PC の編集画面本体（設計: docs/design/v4/venue-layout.md §6②）。
-// 資料の帯 → 道具の帯 → 3列（左=置く/並べる/数量・中央=盤・右=品目の設定）。
+// 資料の帯 → 道具の帯 → 3列（左=追加/並べ方/数量・中央=盤・右=品目の設定）。
 // `<fieldset disabled={!editable}>` と `guardedCommit` の2か所に編集可否を寄せる
 // （`ManualDetailPage.tsx` と同じ関所の作り方）。
 import { useCallback, useMemo, useState } from "react";
@@ -9,7 +9,7 @@ import { PageShell } from "@gmo-onair/shared/src/client/ui/pageShell";
 import { Delayed, ErrorPanel, SkeletonRows } from "@gmo-onair/shared/src/client/states";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  fixVenueLayout, getVenueLayout, isConflict, isLockError, listVenueCatalog, listVenueFloors, unfixVenueLayout, updateVenueLayout,
+  deleteVenueLayout, fixVenueLayout, getVenueLayout, isConflict, isLockError, listVenueCatalog, listVenueFloors, unfixVenueLayout, updateVenueLayout,
 } from "@/lib/venueApi";
 import { notifyError } from "@/lib/notify";
 import type { VenueCatalogItem, VenueItem } from "@gmo-onair/shared/src/venue/types";
@@ -25,6 +25,7 @@ import VenuePlacePanel from "./panels/VenuePlacePanel";
 import VenueArrangePanel from "./panels/VenueArrangePanel";
 import VenueQuantityPanel from "./panels/VenueQuantityPanel";
 import VenueInspector from "./panels/VenueInspector";
+import DeleteVenueLayoutDialog from "./DeleteVenueLayoutDialog";
 
 type LeftTab = "place" | "arrange" | "quantity";
 
@@ -42,6 +43,7 @@ export default function VenueEditorDesktop() {
   const returnTo = safeReturnTo(searchParams.get("return"));
 
   const [tab, setTab] = useState<LeftTab>("place");
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [zoom, setZoom] = useState(1);
   const [showGrid, setShowGrid] = useState(true);
@@ -90,6 +92,32 @@ export default function VenueEditorDesktop() {
   });
   const fixMutation = useMutation({ mutationFn: () => fixVenueLayout(id), onSuccess: invalidate, onError: () => notifyError("確定できませんでした。") });
   const unfixMutation = useMutation({ mutationFn: () => unfixVenueLayout(id), onSuccess: invalidate, onError: () => notifyError("確定を解けませんでした。") });
+  // 一覧側（`VenueListPage.tsx`）の「削除…は編集画面から」の案内どおり、削除はここに置く
+  // （`ManualDetailPage.tsx`・`deleteManualMutation` と同じ形）。削除の前に自動保存の
+  // 保留分・進行中の送信を待ち切る（レビュー指摘・P1: 待たずに削除すると、進行中の
+  // 保存があとから失敗し、自動再送タイマーが unmount を越えて生き残ってしまう）
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      const discarded = await autosave.flushAndWait();
+      try {
+        await deleteVenueLayout(id);
+      } catch (err) {
+        // 削除自体が失敗したら、待っている間に止めた再送を積み直す——ここで
+        // 諦めたままだと、画面には残っているのに二度と保存されない編集ができて
+        // しまう（Codex 指摘・P2）
+        autosave.restorePending(discarded);
+        throw err;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["venue-layouts", "list"] });
+      navigate("/techops/venue-layouts");
+    },
+    onError: () => {
+      setDeleteOpen(false);
+      notifyError("会場図面を削除できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
+    },
+  });
 
   const placeCenter = () => (area ? { x: area.bboxMm.x + area.bboxMm.w / 2, y: area.bboxMm.y + area.bboxMm.h / 2 } : { x: 0, y: 0 });
 
@@ -124,6 +152,7 @@ export default function VenueEditorDesktop() {
             onTitleCommit={(v) => titleMutation.mutate(v)}
             onPreview={() => navigate(`/techops/venue-layouts/${id}/preview`)}
             onFix={() => fixMutation.mutate()} onUnfix={() => unfixMutation.mutate()}
+            onDelete={() => setDeleteOpen(true)}
           />
 
           <VenueToolbar
@@ -140,12 +169,16 @@ export default function VenueEditorDesktop() {
 
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[280px_1fr_260px]">
             <fieldset disabled={!editable} className="contents">
-              <aside className="flex min-h-0 flex-col rounded-card border border-border bg-card">
+              {/* `min-w-0` が無いと、グリッド項目の自動最小幅は中身の min-content になる
+                  （固定 280px を指定していても効かない）。タブの中身（並べ方の品目名・
+                  数量タブの列見出しなど）が280pxより広い最小幅を持つと、そのタブを開いた
+                  瞬間だけ列が広がり、盤（中央 `1fr`）を含む3列レイアウト全体が動いて見えた */}
+              <aside className="flex min-w-0 min-h-0 flex-col rounded-card border border-border bg-card">
                 <div className="flex h-9 flex-shrink-0 border-b border-border">
                   {(["place", "arrange", "quantity"] as LeftTab[]).map((t) => (
                     <button key={t} type="button" onClick={() => setTab(t)}
                       className={`flex-1 border-b-2 text-[12px] font-bold ${tab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}>
-                      {t === "place" ? "置く" : t === "arrange" ? "並べる" : "数量"}
+                      {t === "place" ? "追加" : t === "arrange" ? "並べ方" : "数量"}
                     </button>
                   ))}
                 </div>
@@ -162,11 +195,18 @@ export default function VenueEditorDesktop() {
                 zoom={zoom} onZoomChange={setZoom}
               />
 
-              <aside className="min-h-0 rounded-card border border-border bg-card">
+              <aside className="min-h-0 min-w-0 rounded-card border border-border bg-card">
                 <VenueInspector floor={floor} area={area} catalog={catalog} items={autosave.items} selectedIds={selectedIds} editable={editable} onCommit={history.commit} onSelectionChange={setSelectedIds} />
               </aside>
             </fieldset>
           </div>
+
+          <DeleteVenueLayoutDialog
+            open={deleteOpen}
+            onOpenChange={setDeleteOpen}
+            onConfirm={() => deleteMutation.mutate()}
+            pending={deleteMutation.isPending}
+          />
         </div>
       )}
     </PageShell>

@@ -1,6 +1,6 @@
-// 会場図面 — 左パネル「置く」タブ（設計: docs/design/v4/venue-layout.md §6②）。
-// 備品・カメラ・人・図形の4群。検索欄が先頭。品目カードに寸法と「置いた数／保有数」。
-// 押すと表示範囲の中央に実寸で置く（`onPlace`/`onPlaceShape` は呼び出し側 —
+// 会場図面 — 左パネル「追加」タブ（設計: docs/design/v4/venue-layout.md §6②）。
+// 備品・カメラ・人・図形の4群。検索欄が先頭。品目カードに寸法と「追加した数／保有数」。
+// 押すと表示範囲の中央に実寸で追加する（`onPlace`/`onPlaceShape` は呼び出し側 —
 // `VenueEditorPage` — が history.commit へつなぐ）。
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
@@ -28,8 +28,14 @@ function sizeText(cat: VenueCatalogItem): string {
   return typeof w === "number" && typeof d === "number" ? `${w.toLocaleString("ja-JP")} × ${d.toLocaleString("ja-JP")}` : "寸法未定";
 }
 
+// クレーンは TK-53AL だけを残す（2026-09-14 のご判断）。TK-53A と、その専用台車
+// TI-04B（「53A 台車」）はメニューから外す。カタログの行自体は残す
+// （既存の図面に置いてあれば表示・書き出しは今までどおり）
+const HIDDEN_CATALOG_KEYS = new Set(["crane-tk53a", "crane-dolly-ti04b"]);
+
 function categoryGroup(cat: VenueCatalogItem): Group | null {
-  if (cat.fixed) return null; // 家電4件は「置く」タブに出さない（§11-1）
+  if (cat.fixed) return null; // 家電4件は「追加」タブに出さない（§11-1）
+  if (HIDDEN_CATALOG_KEYS.has(cat.key)) return null;
   if (cat.category === "camera") return "camera";
   if (cat.category === "people") return "people";
   if (cat.category === "generic") return null; // 図形は catalog ではなくクライアント側の5種を使う
@@ -97,7 +103,7 @@ export default function VenuePlacePanel({ catalog, items, editable, onPlace, onP
             const over = c.qty != null && n > c.qty;
             return (
               <button
-                key={c.key} type="button" disabled={!editable} onClick={() => onPlace(c)} title="押すと表示範囲の中央に実寸で置きます"
+                key={c.key} type="button" disabled={!editable} onClick={() => onPlace(c)} title="押すと表示範囲の中央に実寸で追加します"
                 className="flex h-[42px] flex-col justify-center gap-0.5 rounded-control border border-border bg-background px-2.5 text-left hover:bg-muted/40 disabled:opacity-50"
               >
                 <span className="flex items-center gap-1.5">
@@ -118,7 +124,7 @@ export default function VenuePlacePanel({ catalog, items, editable, onPlace, onP
       </div>
 
       <p className="text-[10.5px] leading-[1.5] text-muted-foreground">
-        押すと表示範囲の中央に実寸で置きます。数字は 置いた数／保有数。
+        押すと表示範囲の中央に実寸で追加します。数字は 追加した数／保有数。
       </p>
     </div>
   );

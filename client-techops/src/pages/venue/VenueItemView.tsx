@@ -21,6 +21,7 @@ import {
   type ResizeStartInfo,
 } from "@/pages/opsmanual/manualCanvasGeometry";
 import { renderVenueSymbolBody } from "./venueSymbols";
+import VenueCraneOverlay from "./VenueCraneOverlay";
 
 const HANDLE_TARGET_PX = 9;
 const ROTATE_TARGET_PX = 11;
@@ -41,6 +42,10 @@ interface DragState {
   resizeStart?: ResizeStartInfo;
   rotateCenter?: { x: number; y: number };
   started?: boolean;
+  /** グループの1つを（ダブルクリックでなく）そのままつかんだ移動——グループ全体を
+   *  同じ量だけ動かす（§4-6「グループは全体でつかんで動かせる」）。個別移動＝グループから
+   *  外れる（既存の§7）とは別の経路 */
+  groupMove?: boolean;
 }
 
 export interface VenueItemViewProps {
@@ -58,7 +63,25 @@ export interface VenueItemViewProps {
   snapEnabled: boolean;
   onSelect: (shiftKey: boolean, dblClick: boolean) => void;
   onPatchCommit: (patch: Partial<VenueItem>) => void;
+  /** 個別移動（ダブルクリックで抜き出した1つ・Shift+ドラッグ）専用の commit。
+   *  グループから外し、外れた元のグループの残りも後始末する（`releaseFromGroup`） */
+  onDetachMoveCommit: (patch: Partial<VenueItem>) => void;
   onSnapGuides: (guides: { x: number[]; y: number[] } | null) => void;
+  /** グループ移動の途中経過（このグループの他のメンバーの見た目をこの分だけずらす）。
+   *  自分自身の描画は `liveRect` を優先するのでここには影響しない */
+  groupDragOffset: { dx: number; dy: number } | null;
+  onGroupDragPreview: (offset: { dx: number; dy: number } | null) => void;
+  /** グループ全メンバーへ同じ dx/dy を適用して確定する（グループには残す） */
+  onGroupMoveCommit: (dx: number, dy: number) => void;
+  /** グループ丸ごとが選択中（このメンバーだけの回転・伸ばすつまみは出さない——
+   *  50脚のグループを選ぶと50個のつまみが重なって出ていた。個別に触るには
+   *  ダブルクリックで1つだけを選び直す・§4-6） */
+  hideOwnHandles: boolean;
+  /** いま選ばれているのはこの1個だけ（ダブルクリックで個別に選び直した直後など）。
+   *  グループの1つでもこの状態なら、次の単発クリック＆ドラッグは個別移動を続ける
+   *  ——これが無いと、ダブルクリックで選び直した直後にもう一度普通に1クリックした
+   *  だけで `e.detail` が1に戻り、グループ移動へ引き戻されてしまう（Codex 指摘・P2） */
+  soloSelected: boolean;
 }
 
 /** 図形（伸ばせる品目）だけ8方向のつまみを出す（§8-7「品目は伸ばせない」） */
@@ -68,7 +91,7 @@ function isResizable(item: VenueItem): boolean {
 
 export default function VenueItemView({
   item, catalog, selected, overflowing, editable, pxPerMm, mmToClient, allItems, areaBboxMm, axisLinesMm, snapEnabled,
-  onSelect, onPatchCommit, onSnapGuides,
+  onSelect, onPatchCommit, onDetachMoveCommit, onSnapGuides, groupDragOffset, onGroupDragPreview, onGroupMoveCommit, hideOwnHandles, soloSelected,
 }: VenueItemViewProps) {
   const dragRef = useRef<DragState | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
@@ -78,7 +101,19 @@ export default function VenueItemView({
   useEffect(() => () => cleanupRef.current?.(), []);
 
   const baseRect = toTopLeftRect(item);
-  const rect: Rect = liveRect ?? { x: baseRect.x, y: baseRect.y, w: baseRect.w, h: baseRect.h, rotation: item.rotation };
+  // グループ移動中は、実際につかんでいる品目（`liveRect` を持つ）以外のメンバーも
+  // 同じ dx/dy だけずらして見せる（グループ全体が一緒に動いて見えるように）
+  const previewRect: Rect = groupDragOffset
+    ? { x: baseRect.x + groupDragOffset.dx, y: baseRect.y + groupDragOffset.dy, w: baseRect.w, h: baseRect.h, rotation: item.rotation }
+    : { x: baseRect.x, y: baseRect.y, w: baseRect.w, h: baseRect.h, rotation: item.rotation };
+  const rect: Rect = liveRect ?? previewRect;
+  // line/dimension/ベルトパーテーション（`points` を持つ品目）は下の早期 return で
+  // `item.points` を直接描くため、`rect` の x/y だけでは動かない。移動中（自分の
+  // ドラッグでもグループ移動でも、w/h は変わらない純粋な平行移動）は同じ dx/dy を
+  // 2点にも足す（Codex 指摘・P2: グループの他のメンバーは動いて見えるのに、点で
+  // 置く品目だけ指を離すまで止まって見えていた）
+  const pointsDx = rect.x - baseRect.x;
+  const pointsDy = rect.y - baseRect.y;
   const cx = rect.x + rect.w / 2;
   const cy = rect.y + rect.h / 2;
   const armAngle = liveArm ?? item.armAngle ?? 0;
@@ -95,14 +130,20 @@ export default function VenueItemView({
       drag.live.x !== drag.orig.x || drag.live.y !== drag.orig.y || drag.live.w !== drag.orig.w ||
       drag.live.h !== drag.orig.h || drag.live.rotation !== drag.orig.rotation || (drag.mode === "arm" && liveArm !== drag.origArm);
     if (changed && editable) {
-      if (drag.mode === "move") {
+      if (drag.mode === "move" && drag.groupMove) {
+        // グループをそのままつかんだ移動——グループ全体へ同じ dx/dy を適用し、
+        // グループには残す（§4-6「グループは全体でつかんで動かせる」）
+        onGroupMoveCommit(drag.live.x - drag.orig.x, drag.live.y - drag.orig.y);
+      } else if (drag.mode === "move") {
         const next = fromTopLeftRect(item, { x: drag.live.x, y: drag.live.y, w: drag.live.w, h: drag.live.h });
         // レビュー指摘（P2）: line/dimension/ベルトパーテーション（`points` を持つ品目）は
         // 描画も当たり判定も `points` の絶対座標を見る（`x`/`y` は使わない）。`points` を
         // 送らないと、ドラッグ中は見た目が動いても保存されず、指を離すと元の位置へ
         // 戻って見えていた。並べたグループの1つを個別に動かすと、そのグループから外れる
-        // （§7「動かした1つはグループから外れる」）
-        onPatchCommit({ x: next.x, y: next.y, points: next.points, groupId: undefined });
+        // （§7「動かした1つはグループから外れる」）。`onDetachMoveCommit` が groupId・
+        // arrange を外し、外れた元のグループの残りも後始末する（Codex 指摘・P2:
+        // 抜ける側だけ処理すると、元のグループの残りが古い並べ方情報のまま残っていた）
+        onDetachMoveCommit({ x: next.x, y: next.y, points: next.points });
       } else if (drag.mode === "resize") {
         const next = fromTopLeftRect(item, { x: drag.live.x, y: drag.live.y, w: drag.live.w, h: drag.live.h });
         onPatchCommit({ x: next.x, y: next.y, w: next.w, d: next.d, diameter: next.diameter, points: next.points });
@@ -116,6 +157,7 @@ export default function VenueItemView({
     setLiveRect(null);
     setLiveArm(null);
     onSnapGuides(null);
+    onGroupDragPreview(null);
   }
 
   function subscribeWindowDrag(onMove: (e: PointerEvent) => void) {
@@ -135,10 +177,24 @@ export default function VenueItemView({
   // ── つかんで動かす ──────────────────────────────────
   function handleBodyPointerDown(e: ReactPointerEvent<SVGGElement>) {
     e.stopPropagation();
-    onSelect(e.shiftKey, e.detail >= 2);
+    const dblClick = e.detail >= 2;
+    // 直前にダブルクリックで選び直した1個（`soloSelected`）は、そのあとの普通の
+    // クリック＆ドラッグでも個別選択・個別移動のまま扱う——`e.detail` は時間が経てば
+    // 1に戻るので、選択（`onSelect`）と移動モード（`groupMove`）の両方をダブルクリック
+    // 相当として扱わないと、選択だけグループ全体へ引き戻り、動かした1個だけ抜けたのに
+    // `selectedIds` は元のグループ全員のまま残ってしまう（Codex 指摘・P2）
+    const asIndividual = dblClick || soloSelected;
+    onSelect(e.shiftKey, asIndividual);
     if (!editable || item.locked) return;
     const orig: Rect = { x: baseRect.x, y: baseRect.y, w: baseRect.w, h: baseRect.h, rotation: item.rotation };
-    dragRef.current = { mode: "move", pointerId: e.pointerId, startClientX: e.clientX, startClientY: e.clientY, orig, live: orig, started: false };
+    // ダブルクリックでなく、グループの1つをそのままつかんだときはグループ全体を動かす
+    // （§4-6）。ダブルクリックはこの1つだけを選び、動かせばグループから外れる（既存の§7）。
+    // Shift+ドラッグも個別移動として扱う——Shift は「この1個だけを選択に足し引きする」
+    // 操作（`selectItem` のトグル）で、グループ全体を選ぶ操作ではないので、動きも
+    // 選択に合わせて個別にする（Codex 指摘・P2: 選択は1個だけなのに動きはグループ
+    // 全体、という食い違いがあった）
+    const groupMove = !!item.groupId && !asIndividual && !e.shiftKey;
+    dragRef.current = { mode: "move", pointerId: e.pointerId, startClientX: e.clientX, startClientY: e.clientY, orig, live: orig, started: false, groupMove };
     subscribeWindowDrag(handleBodyPointerMove);
   }
   function handleBodyPointerMove(e: PointerEvent) {
@@ -156,7 +212,13 @@ export default function VenueItemView({
     let guideX: number | null = null;
     let guideY: number | null = null;
     if (snapEnabled) {
-      const targets = collectVenueSnapTargets(allItems, [item.id], areaBboxMm, axisLinesMm, true);
+      // グループ移動中は、一緒に動いているグループの他のメンバーもすいつき先の候補から
+      // 外す——外さないと、プレビューでは動いて見えるメンバーの「動く前の位置」に
+      // つかんだ品目が引っ張られてしまう（Codex 指摘・P2）
+      const excludeIds = drag.groupMove
+        ? allItems.filter((it) => it.groupId === item.groupId).map((it) => it.id)
+        : [item.id];
+      const targets = collectVenueSnapTargets(allItems, excludeIds, areaBboxMm, axisLinesMm, true);
       const snapped = snapPosition(nx, ny, drag.orig.w, drag.orig.h, targets);
       nx = snapped.x;
       ny = snapped.y;
@@ -166,6 +228,7 @@ export default function VenueItemView({
     const next: Rect = { x: nx, y: ny, w: drag.orig.w, h: drag.orig.h, rotation: drag.orig.rotation };
     drag.live = next;
     setLiveRect(next);
+    if (drag.groupMove) onGroupDragPreview({ dx: nx - drag.orig.x, dy: ny - drag.orig.y });
     onSnapGuides(guideX != null || guideY != null ? { x: guideX != null ? [guideX] : [], y: guideY != null ? [guideY] : [] } : null);
   }
 
@@ -237,7 +300,8 @@ export default function VenueItemView({
   // 2点で置く品目（線・寸法線・ベルトパーテーション）は絶対座標をそのまま使う——
   // 中心基準の translate/rotate には乗せない
   if (item.points && item.points.length >= 2) {
-    const [p1, p2] = item.points;
+    const p1: [number, number] = [item.points[0][0] + pointsDx, item.points[0][1] + pointsDy];
+    const p2: [number, number] = [item.points[1][0] + pointsDx, item.points[1][1] + pointsDy];
     return (
       <g style={{ color, cursor: editable && !item.locked ? "move" : "default" }} onPointerDown={handleBodyPointerDown}>
         <line x1={p1[0]} y1={p1[1]} x2={p2[0]} y2={p2[1]} stroke="currentColor" strokeWidth={16} strokeLinecap="round"
@@ -269,7 +333,7 @@ export default function VenueItemView({
         <rect x={-rect.w / 2} y={-rect.h / 2} width={rect.w} height={rect.h} fill="#fff" fillOpacity={0} />
         {renderVenueSymbolBody(catalog?.symbol ?? (item.diameter != null ? "generic-circle" : "generic-rect"), rect.w, rect.h)}
         {isCrane && (
-          <CraneOverlay armAngle={armAngle} catalog={catalog} onArmStart={handleArmStart} onArmMove={handleArmMove} onArmEnd={endDrag} strokeMm={strokeMm} rotateMm={rotateMm} />
+          <VenueCraneOverlay armAngle={armAngle} catalog={catalog} onArmStart={handleArmStart} onArmMove={handleArmMove} onArmEnd={endDrag} strokeMm={strokeMm} rotateMm={rotateMm} />
         )}
         {selected && (
           <rect x={-rect.w / 2 - handleMm} y={-rect.h / 2 - handleMm} width={rect.w + handleMm * 2} height={rect.h + handleMm * 2}
@@ -277,7 +341,7 @@ export default function VenueItemView({
         )}
       </g>
 
-      {selected && editable && !item.locked && (
+      {selected && editable && !item.locked && !hideOwnHandles && (
         <g transform={`translate(${cx} ${cy}) rotate(${rect.rotation})`}>
           <line x1={0} y1={-rect.h / 2 - handleMm} x2={0} y2={-rect.h / 2 - handleMm - rotateGapMm} stroke={color} strokeWidth={strokeMm} />
           <circle
@@ -314,35 +378,4 @@ const HANDLE_FRAC: Record<ResizeHandle, { x: number; y: number }> = {
   w: { x: 0, y: 0.5 }, e: { x: 1, y: 0.5 },
   sw: { x: 0, y: 1 }, s: { x: 0.5, y: 1 }, se: { x: 1, y: 1 },
 };
-
-/** クレーン（TK-53L 等）のアーム・届く範囲・テールの重ね描き（§11-2） */
-function CraneOverlay({
-  armAngle, catalog, onArmStart, onArmMove, onArmEnd, strokeMm, rotateMm,
-}: {
-  armAngle: number;
-  catalog?: VenueCatalogItem;
-  onArmStart: (e: ReactPointerEvent<SVGCircleElement>) => void;
-  onArmMove: (e: ReactPointerEvent<SVGCircleElement>) => void;
-  onArmEnd: () => void;
-  strokeMm: number;
-  rotateMm: number;
-}) {
-  const extra = catalog?.extra ?? {};
-  const arm = Number(extra.armMm ?? extra.arm) || 3200;
-  const tail = Number(extra.tailMm ?? extra.tail) || 1300;
-  const sweep = Number(extra.sweepRadiusMm ?? catalog?.sizeMm?.sweepRadiusMm) || arm + 600;
-  const camD = Number(extra.cameraDepthMm) || 800;
-  return (
-    <g transform={`rotate(${armAngle})`}>
-      <circle cx={0} cy={0} r={sweep} fill="none" stroke="currentColor" strokeOpacity={0.5} strokeDasharray="140 90" strokeWidth={strokeMm} />
-      <circle cx={0} cy={0} r={tail} fill="none" stroke="currentColor" strokeOpacity={0.3} strokeDasharray="140 90" strokeWidth={strokeMm} />
-      <line x1={0} y1={tail * 0.4} x2={0} y2={-arm} stroke="currentColor" strokeWidth={strokeMm * 26} strokeLinecap="round" />
-      <rect x={-camD * 0.22} y={-arm - camD} width={camD * 0.44} height={camD} fill="currentColor" fillOpacity={0.08} stroke="currentColor" strokeWidth={strokeMm * 10} rx={20} />
-      <circle
-        cx={0} cy={-arm} r={rotateMm * 0.8} fill="#ffffff" stroke="currentColor" strokeWidth={strokeMm * 1.4} style={{ cursor: "grab" }}
-        onPointerDown={onArmStart} onPointerMove={onArmMove} onPointerUp={onArmEnd} onPointerCancel={onArmEnd}
-      />
-    </g>
-  );
-}
 
