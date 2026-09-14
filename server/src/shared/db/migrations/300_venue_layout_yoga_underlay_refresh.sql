@@ -9,12 +9,18 @@
 -- fixtures（LEDウォール・トラス・ELV等）の bboxMm を新画像に重ねて位置が
 -- 一致することを確認済み。ON CONFLICT ではなく UPDATE（299 は
 -- ON CONFLICT DO NOTHING のため、既に流れた環境には効かない）。
+--
+-- ⚠️ Codex レビュー指摘（P1）: ファイル名を floor-26f.png のまま差し替えると、
+--    `server/src/app.ts` の静的配信が `Cache-Control: public, max-age=31536000,
+--    immutable`（1年キャッシュ）を返すため、この画像を既に開いたブラウザは
+--    このマイグレーションが入っても古い 420×584 の画像をキャッシュから
+--    使い続けてしまう。ファイル名を -v2 にして URL 自体を変える（キャッシュバスト）。
 -- ============================================================
 
 UPDATE qsheet_venue_floors
-SET underlay = '{"file": "/venue/floor-26f.png", "originMm": {"x": 4493, "y": -1525}, "pxPerMmX": 0.032973, "pxPerMmY": 0.03439, "widthPx": 1187, "heightPx": 1650}'::jsonb
+SET underlay = '{"file": "/venue/floor-26f-v2.png", "originMm": {"x": 4493, "y": -1525}, "pxPerMmX": 0.032973, "pxPerMmY": 0.03439, "widthPx": 1187, "heightPx": 1650}'::jsonb
 WHERE id = 'venue-yoga-26f';
 
 UPDATE qsheet_venue_floors
-SET underlay = '{"file": "/venue/floor-27f.png", "originMm": {"x": 4493, "y": -1525}, "pxPerMmX": 0.032973, "pxPerMmY": 0.03439, "widthPx": 1187, "heightPx": 1650}'::jsonb
+SET underlay = '{"file": "/venue/floor-27f-v2.png", "originMm": {"x": 4493, "y": -1525}, "pxPerMmX": 0.032973, "pxPerMmY": 0.03439, "widthPx": 1187, "heightPx": 1650}'::jsonb
 WHERE id = 'venue-yoga-27f';
