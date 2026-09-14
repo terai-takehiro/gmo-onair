@@ -122,8 +122,19 @@ export function groupItems(items: VenueItem[], ids: string[]): VenueItem[] {
   // グループ全部の `arrange` を外す（groupId 自体はそのまま——「残り」も互いには
   // まだグループとしてつかんで動かせる。並べ方の情報だけが実物と合わなくなる）
   const sourceGroupIds = new Set(items.filter((it) => idSet.has(it.id) && it.groupId).map((it) => it.groupId as string));
+  // 元のグループが2人だけで、その1人だけを引き抜くと「残り」が1人になる。1人だけの
+  // 「グループ」は体をなさず、右パネルが個別の品目ではなくグループとして扱ってしまい
+  // 固定・複製など通常の操作が消える——1人しか残らないときは groupId も外して解散する
+  // （同じ指摘の続き・P2）
+  const remainingCountByGroup = new Map<string, number>();
+  for (const it of items) {
+    if (it.groupId && !idSet.has(it.id)) remainingCountByGroup.set(it.groupId, (remainingCountByGroup.get(it.groupId) ?? 0) + 1);
+  }
   return items.map((it) => {
     if (idSet.has(it.id)) return { ...it, groupId, arrange: undefined };
+    if (it.groupId && sourceGroupIds.has(it.groupId) && (remainingCountByGroup.get(it.groupId) ?? 0) < 2) {
+      return { ...it, groupId: undefined, arrange: undefined };
+    }
     if (it.groupId && sourceGroupIds.has(it.groupId)) return { ...it, arrange: undefined };
     return it;
   });
