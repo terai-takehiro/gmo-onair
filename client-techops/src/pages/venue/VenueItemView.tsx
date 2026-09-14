@@ -175,15 +175,18 @@ export default function VenueItemView({
   function handleBodyPointerDown(e: ReactPointerEvent<SVGGElement>) {
     e.stopPropagation();
     const dblClick = e.detail >= 2;
-    onSelect(e.shiftKey, dblClick);
+    // 直前にダブルクリックで選び直した1個（`soloSelected`）は、そのあとの普通の
+    // クリック＆ドラッグでも個別選択・個別移動のまま扱う——`e.detail` は時間が経てば
+    // 1に戻るので、選択（`onSelect`）と移動モード（`groupMove`）の両方をダブルクリック
+    // 相当として扱わないと、選択だけグループ全体へ引き戻り、動かした1個だけ抜けたのに
+    // `selectedIds` は元のグループ全員のまま残ってしまう（Codex 指摘・P2）
+    const asIndividual = dblClick || soloSelected;
+    onSelect(e.shiftKey, asIndividual);
     if (!editable || item.locked) return;
     const orig: Rect = { x: baseRect.x, y: baseRect.y, w: baseRect.w, h: baseRect.h, rotation: item.rotation };
     // ダブルクリックでなく、グループの1つをそのままつかんだときはグループ全体を動かす
-    // （§4-6）。ダブルクリックはこの1つだけを選び、動かせばグループから外れる（既存の§7）。
-    // 直前にダブルクリックで選び直した1個（`soloSelected`）は、そのあとの普通の
-    // クリック＆ドラッグでも個別移動のまま——`e.detail` は時間が経てば1に戻るので、
-    // これが無いと選び直した直後の1クリックでグループ移動へ引き戻されてしまう
-    const groupMove = !!item.groupId && !dblClick && !soloSelected;
+    // （§4-6）。ダブルクリックはこの1つだけを選び、動かせばグループから外れる（既存の§7）
+    const groupMove = !!item.groupId && !asIndividual;
     dragRef.current = { mode: "move", pointerId: e.pointerId, startClientX: e.clientX, startClientY: e.clientY, orig, live: orig, started: false, groupMove };
     subscribeWindowDrag(handleBodyPointerMove);
   }
