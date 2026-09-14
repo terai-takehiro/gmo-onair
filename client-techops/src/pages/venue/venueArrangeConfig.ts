@@ -77,9 +77,15 @@ export function computeArrangeResult(
  * `arrange.ts` の `VenueArrangeResult.bbox` は幅・高さだけ（`shared/src/venue/arrange.ts`
  * の `bboxOf`。触らない）で、左上の位置（min）は持たない。劇場形式は既定で
  * `frontClearanceMm`(1500)・`sideAisleMm`(600) の分だけ原点からずれた場所に品目を
- * 置くため、bbox の幅・高さだけを前提に「原点から始まる」と決め打つ計算はどれも
- * このずれの分だけ位置がずれる（プレビューは下端が切れる・盤に置く位置もずれる）。
- * `computeArrangeResult` が返す品目の実座標から左上を測って呼び出し側の補正に使う
+ * 置くため、bbox の幅・高さだけを前提に「原点から始まる」と決め打つ計算は、
+ * このずれの分だけプレビューの下端が切れて見える。`computeArrangeResult` が返す
+ * 品目の実座標から左上を測り、**プレビューを中心に収めるためだけ**に使う。
+ *
+ * ⚠️ **盤に置く位置（`VenueArrangePanel` の dx/dy・`VenueInspector` の「並べ直す」）
+ * には使わない。** `frontClearanceMm`・`sideAisleMm` は §7「起点はエリアの正面から
+ * 前の空きを取った中央」の通り、盤に置いたときの位置に効くのが仕様（Codexレビュー
+ * 指摘・P1）——ここで補正すると2つの入力欄の値を変えても盤上の位置が変わらなくなる。
+ * プレビューは壁の基準線を描かない単なる形の確認なので、そちらだけ中心に収めてよい
  */
 export function boundsOfArrangeItems(items: VenueItem[]): { minX: number; minY: number } {
   let minX = Infinity;
