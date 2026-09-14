@@ -8,7 +8,7 @@ import type { VenueCatalogItem, VenueItem } from "@gmo-onair/shared/src/venue/ty
 import { translateArrangeResult, type VenueArrangeParams, type VenueArrangePreset } from "@gmo-onair/shared/src/venue/arrange";
 import { renderVenueSymbolBody } from "../venueSymbols";
 import { genVenueItemId } from "../venueItemOps";
-import { ARRANGE_FIELDS, ARRANGE_USED_ITEMS, PRESET_LABEL, computeArrangeResult, serializeArrangeParams, summarizeArrangeResult } from "../venueArrangeConfig";
+import { ARRANGE_FIELDS, ARRANGE_USED_ITEMS, PRESET_LABEL, boundsOfArrangeItems, computeArrangeResult, serializeArrangeParams, summarizeArrangeResult } from "../venueArrangeConfig";
 
 interface Props {
   catalog: VenueCatalogItem[];
@@ -27,9 +27,13 @@ export default function VenueArrangePanel({ catalog, areaBboxMm, editable, onPla
 
   const result = useMemo(() => computeArrangeResult(preset, params, gridItem, "preview"), [preset, params, gridItem]);
   const summary = summarizeArrangeResult(result, catalogByKey);
+  // 劇場形式は既定で frontClearanceMm(1500)・sideAisleMm(600) の分だけ原点からずれた
+  // 場所に品目を置く（`boundsOfArrangeItems` のコメント参照）。プレビューの中心合わせと
+  // 「追加」で盤に置く位置合わせの両方で、このずれの補正に使う
+  const bounds = useMemo(() => boundsOfArrangeItems(result.items), [result.items]);
   const center = { x: areaBboxMm.x + areaBboxMm.w / 2, y: areaBboxMm.y + areaBboxMm.h / 2 };
-  const dx = center.x - result.bbox.w / 2;
-  const dy = center.y - result.bbox.h / 2;
+  const dx = center.x - result.bbox.w / 2 - bounds.minX;
+  const dy = center.y - result.bbox.h / 2 - bounds.minY;
 
   function setField(key: keyof VenueArrangeParams, value: number) {
     setParams((p) => ({ ...p, [key]: value }));
@@ -88,7 +92,7 @@ export default function VenueArrangePanel({ catalog, areaBboxMm, editable, onPla
 
       <div className="rounded-card border border-border bg-muted/20 p-2">
         <svg width="100%" height={previewHeight} viewBox={`0 0 220 ${previewHeight}`} className="block">
-          <g transform={`translate(${110 - (result.bbox.w * scale) / 2} ${previewHeight / 2 - (result.bbox.h * scale) / 2}) scale(${scale})`} color="#005bac">
+          <g transform={`translate(${110 - (result.bbox.w * scale) / 2 - bounds.minX * scale} ${previewHeight / 2 - (result.bbox.h * scale) / 2 - bounds.minY * scale}) scale(${scale})`} color="#005bac">
             {result.items.map((it) => (
               <g key={it.id} transform={`translate(${it.x} ${it.y}) rotate(${it.rotation})`}>
                 {renderVenueSymbolBody(it.key ? catalogByKey.get(it.key)?.symbol : undefined, it.w ?? it.diameter ?? 100, it.d ?? it.diameter ?? 100)}

@@ -8,7 +8,7 @@ import { computeBBox, isItemOverflowing, itemFootprintSize } from "@gmo-onair/sh
 import { translateArrangeResult, type VenueArrangeParams } from "@gmo-onair/shared/src/venue/arrange";
 import { normalizeAngle } from "@/pages/opsmanual/manualCanvasGeometry";
 import { deleteItems, duplicateItems, groupItems, groupMembers, isWholeGroupSelected, reorderZItems, ungroupItems } from "../venueItemOps";
-import { ARRANGE_FIELDS, ARRANGE_USED_ITEMS, PRESET_LABEL, computeArrangeResult, deserializeArrangeParams, serializeArrangeParams, summarizeArrangeResult } from "../venueArrangeConfig";
+import { ARRANGE_FIELDS, ARRANGE_USED_ITEMS, PRESET_LABEL, boundsOfArrangeItems, computeArrangeResult, deserializeArrangeParams, serializeArrangeParams, summarizeArrangeResult } from "../venueArrangeConfig";
 import VenueInspectorPanel, { type InspectorButton, type InspectorPanelData, type InspectorStepper } from "./VenueInspectorPanel";
 
 interface Props {
@@ -117,10 +117,15 @@ export default function VenueInspector({ floor, area, catalog, items, selectedId
 
       const relayout = () => {
         const anchor = computeBBox(members) ?? bbox;
+        // `preview.items` は `computeArrangeResult` の生の座標（劇場形式なら原点から
+        // frontClearanceMm・sideAisleMm 分ずれた位置）を持つ。`anchor.x/y` は
+        // `computeBBox` が測った「そこへ置きたい左上」なので、そのまま足すと
+        // ずれた分だけ余計に動く（`boundsOfArrangeItems` のコメント参照）
+        const previewBounds = boundsOfArrangeItems(preview.items);
         const savedParams = serializeArrangeParams(draftParams);
         const next = translateArrangeResult(
           { ...preview, items: preview.items.map((it) => ({ ...it, groupId, arrange: { preset, params: savedParams } })) },
-          anchor.x, anchor.y,
+          anchor.x - previewBounds.minX, anchor.y - previewBounds.minY,
         );
         onCommit([...items.filter((it) => it.groupId !== groupId), ...next]);
       };
