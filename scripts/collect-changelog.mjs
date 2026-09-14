@@ -227,20 +227,57 @@ const toArchive = [];
 if (split) toArchive.push(fullLine);
 if (archived) toArchive.push(archived);
 
+/**
+ * `vX.Y.Z` を `[X, Y, Z]`（数値）に。比較できない形は `null`（新しい順の対象外にする）。
+ */
+function parseSemver(v) {
+  const m = /^v?(\d+)\.(\d+)\.(\d+)/.exec(v ?? '');
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+
+/** `a` が `b` より新しければ正、同じなら 0、古ければ負（配列の辞書式比較）。 */
+function cmpSemver(a, b) {
+  for (let i = 0; i < 3; i += 1) if (a[i] !== b[i]) return a[i] - b[i];
+  return 0;
+}
+
 if (toArchive.length) {
   const hp = join(ROOT, 'docs', 'version-history.md');
-  const h = readFileSync(hp, 'utf8');
+  let h = readFileSync(hp, 'utf8');
   /*
    * ⚠️ **見出しは行頭で探す**（`generate-version-history.mjs` の `headingIndex` と同じ理由）。
    * 素の `indexOf` だと**前置きの中の引用**に当たり、版を見出しより前に置いてしまいます。
    * そうなると**その版は画面から消えます**（生成側は見出しより後だけを読む）。
    */
-  const m = /^## 過去のバージョン$/m.exec(h);
-  if (!m) throw new Error('docs/version-history.md に「## 過去のバージョン」がありません');
-  const at = m.index + m[0].length;
-  const block = toArchive.map((l) => `\n\n(${l})`).join('');
-  if (!dry) writeFileSync(hp, `${h.slice(0, at)}${block}${h.slice(at)}`);
-  for (const l of toArchive) console.log(`[release:notes] ${l.slice(0, 24)}… をアーカイブへ入れました`);
+  const headingRe = /^## 過去のバージョン$/m;
+  const headingMatch = headingRe.exec(h);
+  if (!headingMatch) throw new Error('docs/version-history.md に「## 過去のバージョン」がありません');
+  // 見出しの直後の位置。挿む先は常にここより後ろなので、挿入のたびにずれない
+  const headIdx = headingMatch.index + headingMatch[0].length;
+
+  /*
+   * ⚠️ **常に見出し直下に挿む固定位置だと、新しい版より古い版を先頭に置いてしまう**
+   * （Codex レビュー指摘・P2）。既存のエントリの版番号と比べて、**自分より新しい
+   * エントリの直後・自分より古いエントリの直前**（＝新しい順を保つ位置）に挿む。
+   * 比較できない既存エントリ（書式が崩れている等）はまたいで先へ進む。
+   */
+  for (const line of toArchive) {
+    const ver = parseSemver(line);
+    const entryRe = /\n\n\(v(\d+\.\d+\.\d+) — /g;
+    entryRe.lastIndex = headIdx;
+    let insertAt = h.length; // 比較できるエントリが1つも無ければ末尾
+    let m;
+    while ((m = entryRe.exec(h))) {
+      const existing = parseSemver(m[1]);
+      if (!ver || !existing || cmpSemver(existing, ver) < 0) {
+        insertAt = m.index;
+        break;
+      }
+    }
+    if (!dry) h = `${h.slice(0, insertAt)}\n\n(${line})${h.slice(insertAt)}`;
+    console.log(`[release:notes] ${line.slice(0, 24)}… をアーカイブへ入れました`);
+  }
+  if (!dry) writeFileSync(hp, h);
 }
 
 // ── README.md ────────────────────────────────────────────────
