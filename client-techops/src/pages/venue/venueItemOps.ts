@@ -1,4 +1,4 @@
-// 会場図面 — 品目配列に対する操作（整列・等間隔・重なり・複製・削除・グループ化）。
+// 会場図面 — 品目配列に対する操作（整列・等間隔・重ね順・複製・削除・グループ化）。
 // `manualCanvasGeometry.ts` の汎用の純粋関数（`alignBlocks`/`distributeBlocks`/
 // `reorderZ`）は中心基準の `VenueItem` をそのまま渡せない（左上基準の `{x,y,w,h}` を
 // 要求する）ので、ここで `toTopLeftRect`/`fromTopLeftRect`（`shared/src/venue/geometry.ts`）

@@ -8,7 +8,7 @@
  * `normalizeAngle`・`beginResize`・`applyResize`・`clamp`・`isEditableTarget` は完全に汎用の
  * 純粋関数で書き換えが要らない。§6 ②の操作表のとおり）。ここに置くのは、それらの関数へ
  * 渡す前に `VenueItem`（中心 x/y）を `{x,y,w,h}`（左上基準）へ変換するアダプタと、
- * 会場図面だけに要る計算（2軸縮尺・すいつき先・はみ出し判定・仕上がりの自動縮尺）。
+ * 会場図面だけに要る計算（2軸縮尺・スナップ先・はみ出し判定・仕上がりの自動縮尺）。
  */
 import type { VenueFixture, VenueItem, VenueUnderlay } from './types';
 
@@ -89,7 +89,7 @@ export function fromTopLeftRect(item: VenueItem, rect: { x: number; y: number; w
   return next;
 }
 
-// ── すいつき先（§6 ②「すいつき先は壁・通り芯・他の品目の端と中心・1m方眼」） ─────
+// ── スナップ先（§6 ②「スナップ先は壁・通り芯・他の品目の端と中心・1mグリッド」） ─────
 
 export interface VenueSnapTargets {
   vertical: number[];
@@ -97,8 +97,8 @@ export interface VenueSnapTargets {
 }
 
 /**
- * すいつき先を集める。壁（エリアの bbox の辺と中心）・通り芯（`axisLinesMm`）・
- * 他の品目の端と中心・1m方眼（`gridOn` のときだけ）。`SNAP_THRESHOLD_MM` の判定自体は
+ * スナップ先を集める。壁（エリアの bbox の辺と中心）・通り芯（`axisLinesMm`）・
+ * 他の品目の端と中心・1mグリッド（`gridOn` のときだけ）。`SNAP_THRESHOLD_MM` の判定自体は
  * 呼び出し側（`manualCanvasGeometry.ts` の `snapPosition`）が行う——ここは候補の列挙だけ。
  */
 export function collectVenueSnapTargets(

@@ -154,7 +154,7 @@ describe('collectVenueSnapTargets', () => {
     expect(targets.vertical).not.toContain(850);
   });
 
-  it('gridOn のとき 1m 方眼を足す', () => {
+  it('gridOn のとき 1m グリッドを足す', () => {
     const targets = collectVenueSnapTargets([], [], { x: 0, y: 0, w: 2500, h: 1000 }, { x: [], y: [] }, true);
     expect(targets.vertical).toEqual(expect.arrayContaining([0, 1000, 2000, 3000]));
   });
