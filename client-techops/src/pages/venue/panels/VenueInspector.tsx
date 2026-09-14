@@ -8,7 +8,7 @@ import { computeBBox, isItemOverflowing, itemFootprintSize } from "@gmo-onair/sh
 import { translateArrangeResult, type VenueArrangeParams } from "@gmo-onair/shared/src/venue/arrange";
 import { normalizeAngle } from "@/pages/opsmanual/manualCanvasGeometry";
 import { deleteItems, duplicateItems, groupItems, groupMembers, isWholeGroupSelected, reorderZItems, ungroupItems } from "../venueItemOps";
-import { ARRANGE_FIELDS, ARRANGE_USED_ITEMS, PRESET_LABEL, computeArrangeResult, deserializeArrangeParams, serializeArrangeParams, summarizeArrangeResult } from "../venueArrangeConfig";
+import { ARRANGE_FIELDS, ARRANGE_USED_ITEMS, PRESET_LABEL, boundsOfArrangeItems, computeArrangeResult, deserializeArrangeParams, serializeArrangeParams, summarizeArrangeResult } from "../venueArrangeConfig";
 import VenueInspectorPanel, { type InspectorButton, type InspectorPanelData, type InspectorStepper } from "./VenueInspectorPanel";
 
 interface Props {
@@ -116,15 +116,30 @@ export default function VenueInspector({ floor, area, catalog, items, selectedId
       const summary = summarizeArrangeResult(preview, catalogByKey);
 
       const relayout = () => {
+        // `anchor` はいま盤に置いてある品目の外接（見える位置）。`preview` は
+        // 新しい入力値で作った素の並び（原点(0,0)を基準にした生座標）で、
+        // 原点が盤上のどこに写るか（＝このグループを最初に置いた・前回並べ直した
+        // ときの基準点）は覚えていない。ここで素の生座標をそのまま anchor へ
+        // 加えると、原点から品目までの生のずれ（劇場形式の既定で 332.5mm・
+        // 1255mm）が毎回上乗せされ、数値を1つも変えずに「並べ直す」を押すだけで
+        // グループがそのぶん動いてしまう（Codexレビュー指摘・P1）。
+        // 直前まで入っていた値（`members[0].arrange.params`）で同じ並べ方を
+        // 作り直し、その生座標の左上（`boundsOfArrangeItems`）が anchor に
+        // 一致するような原点の写り先（dx/dy）を逆算してから、新しい並びに
+        // 同じ dx/dy を使う——`frontClearanceMm`・`sideAisleMm` を変えたときは
+        // その分だけ品目が原点から離れる／近づくという実害のある効き方は保ったまま、
+        // 値を変えていないときは完全に元の位置のままになる
         const anchor = computeBBox(members) ?? bbox;
-        // `anchor.x/y` をそのまま使う。劇場形式の frontClearanceMm・sideAisleMm は
-        // §7「起点はエリアの正面から前の空きを取った中央」の通り、盤に置く位置に
-        // 効くのが仕様（`VenueArrangePanel.tsx` の同じ注記を参照。ここを
-        // `boundsOfArrangeItems` で補正すると2つの入力欄の値が盤上の位置に効かなくなる）
+        const prevParams = deserializeArrangeParams(members[0]?.arrange?.params);
+        const prevGridItem = prevParams.itemKey ? catalogByKey.get(String(prevParams.itemKey)) : undefined;
+        const prevPreview = computeArrangeResult(preset, prevParams, prevGridItem, groupId);
+        const prevBounds = boundsOfArrangeItems(prevPreview.items);
+        const dx = anchor.x - prevBounds.minX;
+        const dy = anchor.y - prevBounds.minY;
         const savedParams = serializeArrangeParams(draftParams);
         const next = translateArrangeResult(
           { ...preview, items: preview.items.map((it) => ({ ...it, groupId, arrange: { preset, params: savedParams } })) },
-          anchor.x, anchor.y,
+          dx, dy,
         );
         onCommit([...items.filter((it) => it.groupId !== groupId), ...next]);
       };

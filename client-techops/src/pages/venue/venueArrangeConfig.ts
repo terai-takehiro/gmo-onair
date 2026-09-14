@@ -78,14 +78,20 @@ export function computeArrangeResult(
  * の `bboxOf`。触らない）で、左上の位置（min）は持たない。劇場形式は既定で
  * `frontClearanceMm`(1500)・`sideAisleMm`(600) の分だけ原点からずれた場所に品目を
  * 置くため、bbox の幅・高さだけを前提に「原点から始まる」と決め打つ計算は、
- * このずれの分だけプレビューの下端が切れて見える。`computeArrangeResult` が返す
- * 品目の実座標から左上を測り、**プレビューを中心に収めるためだけ**に使う。
+ * このずれの分だけ位置がずれる。品目の実座標から左上を測るこの関数で補う。
  *
- * ⚠️ **盤に置く位置（`VenueArrangePanel` の dx/dy・`VenueInspector` の「並べ直す」）
- * には使わない。** `frontClearanceMm`・`sideAisleMm` は §7「起点はエリアの正面から
- * 前の空きを取った中央」の通り、盤に置いたときの位置に効くのが仕様（Codexレビュー
- * 指摘・P1）——ここで補正すると2つの入力欄の値を変えても盤上の位置が変わらなくなる。
- * プレビューは壁の基準線を描かない単なる形の確認なので、そちらだけ中心に収めてよい
+ * 使い方は2つだけ:
+ * ① **プレビューを中心に収める**（`VenueArrangePanel` のプレビュー `<svg>`）。
+ * ② **`VenueInspector` の「並べ直す」で、原点の盤上の写り先（dx/dy）を逆算する**
+ *   （直前の入力値で同じ並べ方を作り直し、その左上が今の見た目の位置に一致する
+ *   dx/dyを求めてから、新しい入力値の並びに同じ dx/dy を使う）。
+ *
+ * ⚠️ **①②のどちらも、生座標をそのまま盤の座標として使うことには変わらない。
+ * 「追加」の新規配置（`VenueArrangePanel` の dx/dy）にだけは使わない。**
+ * `frontClearanceMm`・`sideAisleMm` は §7「起点はエリアの正面から前の空きを取った
+ * 中央」の通り、新規に置いたときの位置に効くのが仕様（Codexレビュー指摘・P1）——
+ * 新規配置でここを使って生座標の左上を盤の原点に揃えてしまうと、2つの入力欄の値を
+ * 変えても盤上の位置が変わらなくなる
  */
 export function boundsOfArrangeItems(items: VenueItem[]): { minX: number; minY: number } {
   let minX = Infinity;
