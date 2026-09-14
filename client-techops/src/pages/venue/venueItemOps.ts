@@ -60,20 +60,30 @@ const DUPLICATE_OFFSET_MM = 50;
 export function duplicateItems(items: VenueItem[], ids: string[]): { items: VenueItem[]; newIds: string[] } {
   const srcs = items.filter((it) => ids.includes(it.id));
   if (srcs.length === 0) return { items, newIds: [] };
-  // グループを丸ごと複製したときはグループのまま複製する（Ctrl+D は元のグループを
-  // 崩さないので群を選び直せば複製したほうも動かせる）。1つだけの複製（ダブルクリックで
-  // 抜き出した1脚など）はこれまでどおり単体にする——2つ以上そろって初めて元のグループを写す
-  const groupCounts = new Map<string, number>();
-  for (const src of srcs) if (src.groupId) groupCounts.set(src.groupId, (groupCounts.get(src.groupId) ?? 0) + 1);
+  // グループを**丸ごと**複製したときだけ、複製後もグループのまま複製する。元のグループの
+  // 一部だけを複製すると、その一部がまるで元の並べ方の完成形であるかのように右パネルへ
+  // 出てしまい、「並べ直す」を押すと足りない分まで元の並べ方の既定レイアウトへ膨らんでしまう
+  // ところだった（Codex 指摘・P2）。1つだけの複製（ダブルクリックで抜き出した1脚など）は
+  // これまでどおり単体にする
+  const totalByGroup = new Map<string, number>();
+  for (const it of items) if (it.groupId) totalByGroup.set(it.groupId, (totalByGroup.get(it.groupId) ?? 0) + 1);
+  const selectedByGroup = new Map<string, number>();
+  for (const src of srcs) if (src.groupId) selectedByGroup.set(src.groupId, (selectedByGroup.get(src.groupId) ?? 0) + 1);
   const newGroupIds = new Map<string, string>();
-  for (const [groupId, count] of groupCounts) if (count >= 2) newGroupIds.set(groupId, genVenueItemId("grp"));
+  for (const [groupId, count] of selectedByGroup) {
+    if (count >= 2 && count === totalByGroup.get(groupId)) newGroupIds.set(groupId, genVenueItemId("grp"));
+  }
 
   let z = nextZ(items);
   const dups: VenueItem[] = srcs.map((src) => {
     z += 1;
     const points = src.points ? src.points.map(([x, y]) => [x + DUPLICATE_OFFSET_MM, y] as [number, number]) : undefined;
     const groupId = src.groupId ? newGroupIds.get(src.groupId) : undefined;
-    return { ...src, id: genVenueItemId(), x: src.x + DUPLICATE_OFFSET_MM, points, z, groupId, locked: false };
+    // グループとして写せない複製（単体・グループの一部だけ）は並べ方の入力値も持ち出さない
+    // ——単体に残った `arrange` だけが後で別のグループへ紛れ込むと、そのグループ全体が
+    // 並べ方グループと誤認されてしまう（同じ指摘の作り込み）
+    const arrange = groupId ? src.arrange : undefined;
+    return { ...src, id: genVenueItemId(), x: src.x + DUPLICATE_OFFSET_MM, points, z, groupId, arrange, locked: false };
   });
   return { items: [...items, ...dups], newIds: dups.map((d) => d.id) };
 }
@@ -104,7 +114,11 @@ export function moveItemsBy(items: VenueItem[], ids: string[], dx: number, dy: n
 export function groupItems(items: VenueItem[], ids: string[]): VenueItem[] {
   if (ids.length < 2) return items;
   const groupId = genVenueItemId("grp");
-  return items.map((it) => (ids.includes(it.id) ? { ...it, groupId } : it));
+  // 並べ方から外れた品目（ダブルクリックで個別に動かした1脚など）が古い `arrange` を
+  // 引きずったままだと、Ctrl+G で新しく作ったグループがそれを継いで「並べ方グループ」に
+  // 誤認され、「並べ直す」がこの寄せ集めを元の並べ方の既定レイアウトへ置き換えてしまう
+  // ——Ctrl+G で作るグループは常に手作りのグループなので、必ず外す（Codex 指摘・P2）
+  return items.map((it) => (ids.includes(it.id) ? { ...it, groupId, arrange: undefined } : it));
 }
 
 /** グループ解除。並べたグループの `arrange` も外す（§7「グループ解除」） */

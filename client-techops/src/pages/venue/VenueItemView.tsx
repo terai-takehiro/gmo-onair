@@ -98,6 +98,13 @@ export default function VenueItemView({
     ? { x: baseRect.x + groupDragOffset.dx, y: baseRect.y + groupDragOffset.dy, w: baseRect.w, h: baseRect.h, rotation: item.rotation }
     : { x: baseRect.x, y: baseRect.y, w: baseRect.w, h: baseRect.h, rotation: item.rotation };
   const rect: Rect = liveRect ?? previewRect;
+  // line/dimension/ベルトパーテーション（`points` を持つ品目）は下の早期 return で
+  // `item.points` を直接描くため、`rect` の x/y だけでは動かない。移動中（自分の
+  // ドラッグでもグループ移動でも、w/h は変わらない純粋な平行移動）は同じ dx/dy を
+  // 2点にも足す（Codex 指摘・P2: グループの他のメンバーは動いて見えるのに、点で
+  // 置く品目だけ指を離すまで止まって見えていた）
+  const pointsDx = rect.x - baseRect.x;
+  const pointsDy = rect.y - baseRect.y;
   const cx = rect.x + rect.w / 2;
   const cy = rect.y + rect.h / 2;
   const armAngle = liveArm ?? item.armAngle ?? 0;
@@ -124,8 +131,10 @@ export default function VenueItemView({
         // 描画も当たり判定も `points` の絶対座標を見る（`x`/`y` は使わない）。`points` を
         // 送らないと、ドラッグ中は見た目が動いても保存されず、指を離すと元の位置へ
         // 戻って見えていた。並べたグループの1つを個別に動かすと、そのグループから外れる
-        // （§7「動かした1つはグループから外れる」）
-        onPatchCommit({ x: next.x, y: next.y, points: next.points, groupId: undefined });
+        // （§7「動かした1つはグループから外れる」）。`arrange` も一緒に外す——持ち越すと
+        // この1個だけを後で誰かと Ctrl+G した際に、その寄せ集めが並べ方グループと
+        // 誤認されてしまう（Codex 指摘・P2。`groupItems` 側でも外すが、ここでも外しておく）
+        onPatchCommit({ x: next.x, y: next.y, points: next.points, groupId: undefined, arrange: undefined });
       } else if (drag.mode === "resize") {
         const next = fromTopLeftRect(item, { x: drag.live.x, y: drag.live.y, w: drag.live.w, h: drag.live.h });
         onPatchCommit({ x: next.x, y: next.y, w: next.w, d: next.d, diameter: next.diameter, points: next.points });
@@ -266,7 +275,8 @@ export default function VenueItemView({
   // 2点で置く品目（線・寸法線・ベルトパーテーション）は絶対座標をそのまま使う——
   // 中心基準の translate/rotate には乗せない
   if (item.points && item.points.length >= 2) {
-    const [p1, p2] = item.points;
+    const p1: [number, number] = [item.points[0][0] + pointsDx, item.points[0][1] + pointsDy];
+    const p2: [number, number] = [item.points[1][0] + pointsDx, item.points[1][1] + pointsDy];
     return (
       <g style={{ color, cursor: editable && !item.locked ? "move" : "default" }} onPointerDown={handleBodyPointerDown}>
         <line x1={p1[0]} y1={p1[1]} x2={p2[0]} y2={p2[1]} stroke="currentColor" strokeWidth={16} strokeLinecap="round"
