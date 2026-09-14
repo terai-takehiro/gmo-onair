@@ -20,8 +20,12 @@ export interface UseVenueAutosaveResult {
   /** 削除の直前に呼ぶ。保留中の分を送り切り、進行中の保存が終わるまで待ち、
    *  自動再送のタイマーが残っていれば止める（レビュー指摘・P1: 削除と保存が
    *  競合すると、保存の失敗（ロック／衝突以外）が自動で積む再送タイマーが
-   *  削除後の unmount を越えて生き残り、消えた図面への PUT を延々と繰り返した） */
-  flushAndWait: () => Promise<void>;
+   *  削除後の unmount を越えて生き残り、消えた図面への PUT を延々と繰り返した）。
+   *  止めた再送があれば、その中身（`VenueItem[]`）を返す——削除自体が失敗した
+   *  ときに `restorePending` へ渡して積み直せるように（レビュー指摘・P2） */
+  flushAndWait: () => Promise<VenueItem[] | null>;
+  /** `flushAndWait` が止めた再送を積み直す（削除が失敗したときに使う） */
+  restorePending: (pending: VenueItem[] | null) => void;
 }
 
 /**
@@ -148,18 +152,33 @@ export function useVenueAutosave(
   // あれば即座に送り、進行中の保存（連鎖しているぶんも含めて）が終わるまで待つ。
   // 会場図面はこれに加えて、失敗時の自動再送タイマー（§上の runSave のコメント）を
   // 待ったあとに止める。削除の直前に呼ぶ想定で、これから消える図面へ再送タイマーが
-  // 後から飛んでも意味が無い（`updateVenueItems` が対象なしで失敗し続けるだけ）
-  const flushAndWait = useCallback(async (): Promise<void> => {
+  // 後から飛んでも意味が無い（`updateVenueItems` が対象なしで失敗し続けるだけ）。
+  // 止めた分（再送待ちだった編集）は戻り値で返す——削除自体も失敗したときに
+  // `restorePending` で積み直せるようにするため（Codex 指摘・P2: 待っている間に
+  // 保存が失敗して再送が積まれ、それをここで無条件に捨てたあと削除も失敗すると、
+  // 画面には残っているのに二度と送られない編集ができてしまう）
+  const flushAndWait = useCallback(async (): Promise<VenueItem[] | null> => {
     if (timerRef.current || pendingRef.current) runSave();
     while (savingRef.current) {
       await savingPromiseRef.current?.catch(() => {});
     }
+    let discarded: VenueItem[] | null = null;
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
+      discarded = pendingRef.current;
+      pendingRef.current = null;
     }
-    pendingRef.current = null;
+    return discarded;
   }, [runSave]);
 
-  return { items, commitItems, saving, flush: runSave, flushAndWait };
+  /** `flushAndWait` が止めた再送を積み直す（削除自体が失敗したときに使う） */
+  const restorePending = useCallback((pending: VenueItem[] | null) => {
+    if (!pending) return;
+    pendingRef.current = pending;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(runSave, SAVE_DEBOUNCE_MS);
+  }, [runSave]);
+
+  return { items, commitItems, saving, flush: runSave, flushAndWait, restorePending };
 }

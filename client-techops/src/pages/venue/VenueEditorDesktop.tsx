@@ -98,8 +98,16 @@ export default function VenueEditorDesktop() {
   // 保存があとから失敗し、自動再送タイマーが unmount を越えて生き残ってしまう）
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      await autosave.flushAndWait();
-      await deleteVenueLayout(id);
+      const discarded = await autosave.flushAndWait();
+      try {
+        await deleteVenueLayout(id);
+      } catch (err) {
+        // 削除自体が失敗したら、待っている間に止めた再送を積み直す——ここで
+        // 諦めたままだと、画面には残っているのに二度と保存されない編集ができて
+        // しまう（Codex 指摘・P2）
+        autosave.restorePending(discarded);
+        throw err;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["venue-layouts", "list"] });
