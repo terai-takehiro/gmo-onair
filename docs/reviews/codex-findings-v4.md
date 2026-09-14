@@ -2452,6 +2452,32 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#693**（`docs(reviews): PR #692のレビュー状況を棚卸しに記録した`・2026-09-14）——
+  #692 の棚卸しを本文書に記録したドキュメントのみの変更（2ファイル・+20・4コミット。
+  作成〜マージの間に #694・#695 が先にマージされ、base の同じ挿入位置で本PRの #692
+  エントリと衝突した）。**Code Review は初回コミット（`7ee88ed`）で完走**し、
+  **1件（P2）**の指摘が付いた——`docs/changelog.d/claude-optimistic-hypatia-p583d4.md`
+  は #692 自身の未リリースのリリースノート下書きだったが、本PRのコミットがこれを
+  レビュー棚卸しメモで**上書き**してしまい、次のリリースで #692 の本文が版の履歴から
+  消えるところだった。元の下書きを復元し、棚卸しメモは
+  `docs/changelog.d/claude-review-debt-tally-692.md` として別ファイルに分離して
+  修正・返信・スレッド解決まで完了（`1ff4496`）。**表に移す未対応の指摘は無い**。
+  ⚠️ この上書きの根っこは**同じ枝名を2つの別PRで再利用したこと**——#692がマージ済みの
+  枝を「main から再構築」する際、`docs/changelog.d/<枝の名前>.md` という1PR=1ファイルの
+  命名規約がすでにmainにある同名ファイルと衝突することに気づかなかった。次に同じ枝を
+  再利用するときは、先に`docs/changelog.d/`に同名ファイルが無いか確認する、という
+  学びを記録する。⚠️ また、mainの取り込み（`git merge origin/main`）を2回行う過程で
+  1回目のマージをコミットし忘れたまま作業を続け、`check-changelog.mjs`の比較対象
+  （merge-base）が古いままになっていたことにも気づかず時間を使った——マージ後は
+  必ず`git status`で「Merge made by」ではなく「still merging」が出ていないか確認する。
+  **Code Review は以後2回の push（`2213c54`のリモート側マージ・`1ff4496`の最終修正）
+  ともCodexのusage limitsで実行されなかった**（#651/#677/#679/#681/#683/#684/#685/#686/
+  #688/#690/#694と同型の「最終コミットに再実行されない」問題に加え、今回は明示的に
+  usage limitsのメッセージが2回付いた）。**Security Reviewは初回コミット（`7ee88ed`）
+  でのみ完走し findings 無し**、以後再実行されていない。CIは最終コミット（`1ff4496`）で
+  `checks`・`build`とも成功、mergeableもclean。検証: `node scripts/check-md-links.mjs`・
+  `npm run lint`（0 errors）・`CI=true GITHUB_BASE_REF=main node scripts/check-changelog.mjs`。
+
 - **#695**（`docs(reviews): PR #694のレビュー状況を棚卸しに記録した`・2026-09-14）——
   #694 の棚卸しを本文書に記録したドキュメントのみの変更（2ファイル・+27・1コミット）。
   **Code Review は Codex の usage limits で一度も実行されず**、Security Review は
