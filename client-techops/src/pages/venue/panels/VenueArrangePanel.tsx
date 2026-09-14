@@ -27,13 +27,17 @@ export default function VenueArrangePanel({ catalog, areaBboxMm, editable, onPla
 
   const result = useMemo(() => computeArrangeResult(preset, params, gridItem, "preview"), [preset, params, gridItem]);
   const summary = summarizeArrangeResult(result, catalogByKey);
-  // 劇場形式は既定で frontClearanceMm(1500)・sideAisleMm(600) の分だけ原点からずれた
-  // 場所に品目を置く（`boundsOfArrangeItems` のコメント参照）。プレビューの中心合わせと
-  // 「追加」で盤に置く位置合わせの両方で、このずれの補正に使う
+  // プレビューを中心に収めるためだけの補正（`boundsOfArrangeItems` のコメント参照）。
+  // ⚠️ 「追加」で盤に置く位置（dx/dy）にはこの `bounds` を使わない。劇場形式の
+  // frontClearanceMm（前の空き）・sideAisleMm（脇）は §7「起点はエリアの正面から
+  // 前の空きを取った中央」の通り、盤に置いたときの位置に効くのが仕様（Codexレビュー
+  // 指摘・P1）——bounds で補正すると2つの入力欄の値を変えても盤上の位置が
+  // 変わらなくなってしまう。プレビューは壁の基準線を描かない単なる形の確認なので、
+  // ここだけ中心に収めてよい
   const bounds = useMemo(() => boundsOfArrangeItems(result.items), [result.items]);
   const center = { x: areaBboxMm.x + areaBboxMm.w / 2, y: areaBboxMm.y + areaBboxMm.h / 2 };
-  const dx = center.x - result.bbox.w / 2 - bounds.minX;
-  const dy = center.y - result.bbox.h / 2 - bounds.minY;
+  const dx = center.x - result.bbox.w / 2;
+  const dy = center.y - result.bbox.h / 2;
 
   function setField(key: keyof VenueArrangeParams, value: number) {
     setParams((p) => ({ ...p, [key]: value }));
