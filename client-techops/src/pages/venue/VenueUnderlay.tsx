@@ -1,4 +1,4 @@
-// 会場図面 — 盤の下敷き・方眼・通り芯・エリアの内法・固定物（重なりは下から
+// 会場図面 — 盤の下敷き・グリッド・通り芯・エリアの内法・固定物（重ね順は下から
 // この順。設計: docs/design/v4/venue-layout.md §6②・§4-7）。
 // `VenueBoard.tsx` の `<svg viewBox="mm">` の中にそのまま置ける SVG 断片を返す
 // だけの純粋な描画コンポーネント（1ファイル400行のラチェット対策の分割）。
@@ -24,7 +24,7 @@ const AXIS_COLOR = "#c7243a";
 export default function VenueUnderlay({ floor, area, viewBox, showWholeFloor, showGrid, strokeMm }: Props) {
   const underlay = area.underlay ?? floor.underlay;
   const fixtures = showWholeFloor ? floor.fixtures : floor.fixtures.filter((f) => !f.area || f.area === area.key);
-  const gridStep = 1000; // 1m 方眼（§6②「方眼と通り芯」）
+  const gridStep = 1000; // 1m グリッド（§6②「グリッドと通り芯」）
 
   return (
     <>

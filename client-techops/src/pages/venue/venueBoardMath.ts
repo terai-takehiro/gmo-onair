@@ -43,7 +43,7 @@ export function computeViewBox(
   };
 }
 
-/** 階全体の表示範囲（下敷きの実寸から。無ければ方眼の総延長を正方形として使う） */
+/** 階全体の表示範囲（下敷きの実寸から。無ければグリッドの総延長を正方形として使う） */
 function computeFloorExtentMm(floor: Pick<VenueFloor, "grid" | "underlay">): ViewBoxMm | null {
   const u = floor.underlay;
   if (u) {
@@ -64,7 +64,7 @@ export function pxPerMmFromRect(rectWidthPx: number, viewBox: ViewBoxMm): number
   return viewBox.w > 0 ? rectWidthPx / viewBox.w : BASE_PX_PER_MM;
 }
 
-/** mm → 盤の画面座標（px。ものさし・1mバー・札などのHTMLオーバーレイの位置決めに使う） */
+/** mm → 盤の画面座標（px。ルーラー・1mバー・札などのHTMLオーバーレイの位置決めに使う） */
 export function mmToBoardPx(mm: { x: number; y: number }, viewBox: ViewBoxMm, pxPerMm: number): { x: number; y: number } {
   return { x: (mm.x - viewBox.x) * pxPerMm, y: (mm.y - viewBox.y) * pxPerMm };
 }
@@ -81,7 +81,7 @@ export interface RulerTick {
   major: boolean;
 }
 
-/** ものさしの目盛。込み合うときは 5m 間隔だけにする（§6②「ものさし」） */
+/** ルーラーの目盛。込み合うときは 5m 間隔だけにする（§6②「ルーラー」） */
 export function computeRulerTicks(viewBox: ViewBoxMm, pxPerMm: number, axis: "x" | "y"): RulerTick[] {
   const originMm = axis === "x" ? viewBox.x : viewBox.y;
   const lengthMm = axis === "x" ? viewBox.w : viewBox.h;

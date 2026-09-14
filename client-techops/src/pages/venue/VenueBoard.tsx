@@ -1,6 +1,6 @@
 // 会場図面 — mm 空間の盤（設計: docs/design/v4/venue-layout.md §6②）。
-// 重なりは 下敷き → 方眼・通り芯 → エリアの内法 → 固定物（`VenueUnderlay`）→
-// 品目（`VenueItemView`）→ 選択枠と札 の順。上と左にものさし、右下に1mバー。
+// 重ね順は 下敷き → グリッド・通り芯 → エリアの内法 → 固定物（`VenueUnderlay`）→
+// 品目（`VenueItemView`）→ 選択枠と札 の順。上と左にルーラー、右下に1mバー。
 //
 // ⚠️ `ManualCanvas` は使わない（A4横の定数 `PAGE_WIDTH_MM`/`PAGE_HEIGHT_MM` を
 // 前提にしていて 44.8m 四方の階には使えない・§12-6）。ここは設計だけを写した
