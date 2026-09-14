@@ -21,6 +21,7 @@ import {
   type ResizeStartInfo,
 } from "@/pages/opsmanual/manualCanvasGeometry";
 import { renderVenueSymbolBody } from "./venueSymbols";
+import VenueCraneOverlay from "./VenueCraneOverlay";
 
 const HANDLE_TARGET_PX = 9;
 const ROTATE_TARGET_PX = 11;
@@ -73,6 +74,11 @@ export interface VenueItemViewProps {
    *  50脚のグループを選ぶと50個のつまみが重なって出ていた。個別に触るには
    *  ダブルクリックで1つだけを選び直す・§4-6） */
   hideOwnHandles: boolean;
+  /** いま選ばれているのはこの1個だけ（ダブルクリックで個別に選び直した直後など）。
+   *  グループの1つでもこの状態なら、次の単発クリック＆ドラッグは個別移動を続ける
+   *  ——これが無いと、ダブルクリックで選び直した直後にもう一度普通に1クリックした
+   *  だけで `e.detail` が1に戻り、グループ移動へ引き戻されてしまう（Codex 指摘・P2） */
+  soloSelected: boolean;
 }
 
 /** 図形（伸ばせる品目）だけ8方向のつまみを出す（§8-7「品目は伸ばせない」） */
@@ -82,7 +88,7 @@ function isResizable(item: VenueItem): boolean {
 
 export default function VenueItemView({
   item, catalog, selected, overflowing, editable, pxPerMm, mmToClient, allItems, areaBboxMm, axisLinesMm, snapEnabled,
-  onSelect, onPatchCommit, onSnapGuides, groupDragOffset, onGroupDragPreview, onGroupMoveCommit, hideOwnHandles,
+  onSelect, onPatchCommit, onSnapGuides, groupDragOffset, onGroupDragPreview, onGroupMoveCommit, hideOwnHandles, soloSelected,
 }: VenueItemViewProps) {
   const dragRef = useRef<DragState | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
@@ -173,8 +179,11 @@ export default function VenueItemView({
     if (!editable || item.locked) return;
     const orig: Rect = { x: baseRect.x, y: baseRect.y, w: baseRect.w, h: baseRect.h, rotation: item.rotation };
     // ダブルクリックでなく、グループの1つをそのままつかんだときはグループ全体を動かす
-    // （§4-6）。ダブルクリックはこの1つだけを選び、動かせばグループから外れる（既存の§7）
-    const groupMove = !!item.groupId && !dblClick;
+    // （§4-6）。ダブルクリックはこの1つだけを選び、動かせばグループから外れる（既存の§7）。
+    // 直前にダブルクリックで選び直した1個（`soloSelected`）は、そのあとの普通の
+    // クリック＆ドラッグでも個別移動のまま——`e.detail` は時間が経てば1に戻るので、
+    // これが無いと選び直した直後の1クリックでグループ移動へ引き戻されてしまう
+    const groupMove = !!item.groupId && !dblClick && !soloSelected;
     dragRef.current = { mode: "move", pointerId: e.pointerId, startClientX: e.clientX, startClientY: e.clientY, orig, live: orig, started: false, groupMove };
     subscribeWindowDrag(handleBodyPointerMove);
   }
@@ -314,7 +323,7 @@ export default function VenueItemView({
         <rect x={-rect.w / 2} y={-rect.h / 2} width={rect.w} height={rect.h} fill="#fff" fillOpacity={0} />
         {renderVenueSymbolBody(catalog?.symbol ?? (item.diameter != null ? "generic-circle" : "generic-rect"), rect.w, rect.h)}
         {isCrane && (
-          <CraneOverlay armAngle={armAngle} catalog={catalog} onArmStart={handleArmStart} onArmMove={handleArmMove} onArmEnd={endDrag} strokeMm={strokeMm} rotateMm={rotateMm} />
+          <VenueCraneOverlay armAngle={armAngle} catalog={catalog} onArmStart={handleArmStart} onArmMove={handleArmMove} onArmEnd={endDrag} strokeMm={strokeMm} rotateMm={rotateMm} />
         )}
         {selected && (
           <rect x={-rect.w / 2 - handleMm} y={-rect.h / 2 - handleMm} width={rect.w + handleMm * 2} height={rect.h + handleMm * 2}
@@ -359,35 +368,4 @@ const HANDLE_FRAC: Record<ResizeHandle, { x: number; y: number }> = {
   w: { x: 0, y: 0.5 }, e: { x: 1, y: 0.5 },
   sw: { x: 0, y: 1 }, s: { x: 0.5, y: 1 }, se: { x: 1, y: 1 },
 };
-
-/** クレーン（TK-53L 等）のアーム・届く範囲・テールの重ね描き（§11-2） */
-function CraneOverlay({
-  armAngle, catalog, onArmStart, onArmMove, onArmEnd, strokeMm, rotateMm,
-}: {
-  armAngle: number;
-  catalog?: VenueCatalogItem;
-  onArmStart: (e: ReactPointerEvent<SVGCircleElement>) => void;
-  onArmMove: (e: ReactPointerEvent<SVGCircleElement>) => void;
-  onArmEnd: () => void;
-  strokeMm: number;
-  rotateMm: number;
-}) {
-  const extra = catalog?.extra ?? {};
-  const arm = Number(extra.armMm ?? extra.arm) || 3200;
-  const tail = Number(extra.tailMm ?? extra.tail) || 1300;
-  const sweep = Number(extra.sweepRadiusMm ?? catalog?.sizeMm?.sweepRadiusMm) || arm + 600;
-  const camD = Number(extra.cameraDepthMm) || 800;
-  return (
-    <g transform={`rotate(${armAngle})`}>
-      <circle cx={0} cy={0} r={sweep} fill="none" stroke="currentColor" strokeOpacity={0.5} strokeDasharray="140 90" strokeWidth={strokeMm} />
-      <circle cx={0} cy={0} r={tail} fill="none" stroke="currentColor" strokeOpacity={0.3} strokeDasharray="140 90" strokeWidth={strokeMm} />
-      <line x1={0} y1={tail * 0.4} x2={0} y2={-arm} stroke="currentColor" strokeWidth={strokeMm * 26} strokeLinecap="round" />
-      <rect x={-camD * 0.22} y={-arm - camD} width={camD * 0.44} height={camD} fill="currentColor" fillOpacity={0.08} stroke="currentColor" strokeWidth={strokeMm * 10} rx={20} />
-      <circle
-        cx={0} cy={-arm} r={rotateMm * 0.8} fill="#ffffff" stroke="currentColor" strokeWidth={strokeMm * 1.4} style={{ cursor: "grab" }}
-        onPointerDown={onArmStart} onPointerMove={onArmMove} onPointerUp={onArmEnd} onPointerCancel={onArmEnd}
-      />
-    </g>
-  );
-}
 

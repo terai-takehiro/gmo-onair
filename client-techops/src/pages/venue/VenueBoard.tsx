@@ -212,6 +212,7 @@ export default function VenueBoard({
                 onCommit(moveItemsBy(items, ids, dx, dy));
               }}
               hideOwnHandles={!!item.groupId && selectedIds.length > 1}
+              soloSelected={selectedIds.length === 1 && selectedIds[0] === item.id}
             />
           ))}
 

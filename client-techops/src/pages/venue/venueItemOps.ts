@@ -114,11 +114,19 @@ export function moveItemsBy(items: VenueItem[], ids: string[], dx: number, dy: n
 export function groupItems(items: VenueItem[], ids: string[]): VenueItem[] {
   if (ids.length < 2) return items;
   const groupId = genVenueItemId("grp");
-  // 並べ方から外れた品目（ダブルクリックで個別に動かした1脚など）が古い `arrange` を
-  // 引きずったままだと、Ctrl+G で新しく作ったグループがそれを継いで「並べ方グループ」に
-  // 誤認され、「並べ直す」がこの寄せ集めを元の並べ方の既定レイアウトへ置き換えてしまう
-  // ——Ctrl+G で作るグループは常に手作りのグループなので、必ず外す（Codex 指摘・P2）
-  return items.map((it) => (ids.includes(it.id) ? { ...it, groupId, arrange: undefined } : it));
+  const idSet = new Set(ids);
+  // 並べ方グループの一部だけを Ctrl+G で新しいグループへ引き抜くと、元のグループに
+  // 残ったほう（人数が減った「残り」）は `arrange`（並べ方の入力値）が実物と合わなく
+  // なる。残したまま「並べ直す」を出すと、抜けた分まで元の並べ方の既定レイアウトへ
+  // 勝手に復元して新しいグループと重なってしまう（Codex 指摘・P2）。引き抜いた元の
+  // グループ全部の `arrange` を外す（groupId 自体はそのまま——「残り」も互いには
+  // まだグループとしてつかんで動かせる。並べ方の情報だけが実物と合わなくなる）
+  const sourceGroupIds = new Set(items.filter((it) => idSet.has(it.id) && it.groupId).map((it) => it.groupId as string));
+  return items.map((it) => {
+    if (idSet.has(it.id)) return { ...it, groupId, arrange: undefined };
+    if (it.groupId && sourceGroupIds.has(it.groupId)) return { ...it, arrange: undefined };
+    return it;
+  });
 }
 
 /** グループ解除。並べたグループの `arrange` も外す（§7「グループ解除」） */
