@@ -1,4 +1,0 @@
-**会場図面のグループの「並べ直す」で、数値を1つも変えずに押すだけでグループが動いてしまう不具合を直した**（Codexレビュー指摘・P1・PR #707）。
-①`translateArrangeResult(preview, anchor.x, anchor.y)`は`anchor`（いま盤に見えている外接の左上）を、素の生座標（`arrange.ts`の各プリセット関数が原点(0,0)を基準に作る座標）にそのまま加えていた。劇場形式は既定で`sideAisleMm`（600mm）・`frontClearanceMm`（1500mm）の分だけ原点からずれた場所に品目を置くため、この生のずれ（既定で332.5mm・1255mm）が毎回上乗せされ、「並べ直す」を押すだけでグループがそのぶん動いていた。
-②直前まで入っていた値（`members[0].arrange.params`）で同じ並べ方を作り直し、その生座標の左上（`boundsOfArrangeItems`）がいまの見た目の位置（anchor）に一致するような、原点の盤上への写り先（dx/dy）を逆算してから、新しい入力値の並びに同じdx/dyを使うようにした。値を変えていないときは完全に元の位置のまま、`frontClearanceMm`・`sideAisleMm`を変えたときはその分だけ品目が動く（`docs/design/v4/venue-layout.md`§7の仕様どおり）という、両方が同時に成り立つようになった。
-検証: `npx tsc -b client-techops`・`npm run test`（shared 2468件）・実ブラウザ（Playwright・検証用Postgres）で、劇場形式50脚のグループに対して①数値を変えずに「並べ直す」を押しても盤上の実座標（DB保存値）が完全に変わらないこと、②`frontClearanceMm`を+100してから「並べ直す」を押すと外接の上端がちょうど100mm動くことを確認。
