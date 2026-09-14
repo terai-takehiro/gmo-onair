@@ -2462,8 +2462,9 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   **表に移す未対応の指摘は無い**。Security Review も完走（`60784069`）し findings 無し。
   ⚠️ ただし修正コミット `a2329907` にはどちらのレビューも再実行されていない
   （#651/#677/#679/#681/#685 と同型）が、要約文の記述訂正のみで実害は無い。
-  検証: `npm run lint`（0 errors）・`npm run test`（94/94）・`npm run check:version`・
-  `node scripts/check-md-links.mjs`・`node scripts/generate-version-history.mjs`。
+  検証: `npm run lint`（0 errors）・`npm run test`（shared 174ファイル・2468件／server 94件、
+  すべて成功）・`npm run check:version`・`node scripts/check-md-links.mjs`・
+  `node scripts/generate-version-history.mjs`。
 
 - **#684**（`feat(techops): 会場図面ミニアプリを新設（設計・モック・実装）`・2026-09-13）——
   制作技術支援に新ミニアプリ「**会場図面**」を追加（GMOサムライスタジオ用賀 26F/27F の
