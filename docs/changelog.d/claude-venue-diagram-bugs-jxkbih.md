@@ -1,0 +1,3 @@
+**v4.6.16のCLAUDE.md本文が長すぎた（Codexレビュー指摘）のを直した**（`docs/branching.md`）。
+リリースPR #704がマージ後に届いたCodexレビュー指摘（P2）で、`npm run release:notes`が集めた9件の下書きを連結した約11KBの本文がCLAUDE.md「現在のバージョン」に残っており、同文書自身が定める「1件＝見出し＋2〜3文まで」の規律に反していた（12,000バイトの自動分割しきい値には届かなかったため機械では止まらなかった）。見出し＋3文の要約に置き換え、全文は`docs/version-history.md`のアーカイブへ移した。あわせて`scripts/collect-changelog.mjs`のアーカイブ挿入位置（既存エントリの版番号と比較して新しい順を保つ）の修正と、それに伴う`docs/version-history.md`の並び直しも本PR（#704）に含めていたが、マージが本修正のpushより先に成立したため、この1件だけを取り込む追加PRとした。
+検証: `node scripts/check-md-links.mjs`・`npm run check:version`・`node scripts/generate-version-history.mjs`・`RELEASE=1 npm run lint`（0 errors）。
