@@ -88,8 +88,19 @@ export function duplicateItems(items: VenueItem[], ids: string[]): { items: Venu
   return { items: [...items, ...dups], newIds: dups.map((d) => d.id) };
 }
 
+/** 品目を削除する。削除で人数が減ったグループが残っていれば
+ *  `normalizeGroupAfterRemoval` で後始末する（Codex 指摘・P2: グループ丸ごとの
+ *  削除以外——ダブルクリックで抜いた1個の削除・多重選択での一部削除——は、
+ *  移動や Ctrl+G と同じ「人数が減った」状況なのに後始末が抜けていた） */
 export function deleteItems(items: VenueItem[], ids: string[]): VenueItem[] {
-  return items.filter((it) => !ids.includes(it.id));
+  const idSet = new Set(ids);
+  const affectedGroupIds = new Set(items.filter((it) => idSet.has(it.id) && it.groupId).map((it) => it.groupId as string));
+  let result = items.filter((it) => !idSet.has(it.id));
+  for (const groupId of affectedGroupIds) {
+    const remainingCount = result.filter((it) => it.groupId === groupId).length;
+    result = normalizeGroupAfterRemoval(result, groupId, remainingCount);
+  }
+  return result;
 }
 
 const ARROW_MOVE_MM = 10;
