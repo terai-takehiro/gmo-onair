@@ -93,9 +93,14 @@ export default function VenueEditorDesktop() {
   const fixMutation = useMutation({ mutationFn: () => fixVenueLayout(id), onSuccess: invalidate, onError: () => notifyError("確定できませんでした。") });
   const unfixMutation = useMutation({ mutationFn: () => unfixVenueLayout(id), onSuccess: invalidate, onError: () => notifyError("確定を解けませんでした。") });
   // 一覧側（`VenueListPage.tsx`）の「削除…は編集画面から」の案内どおり、削除はここに置く
-  // （`ManualDetailPage.tsx`・`deleteManualMutation` と同じ形）
+  // （`ManualDetailPage.tsx`・`deleteManualMutation` と同じ形）。削除の前に自動保存の
+  // 保留分・進行中の送信を待ち切る（レビュー指摘・P1: 待たずに削除すると、進行中の
+  // 保存があとから失敗し、自動再送タイマーが unmount を越えて生き残ってしまう）
   const deleteMutation = useMutation({
-    mutationFn: () => deleteVenueLayout(id),
+    mutationFn: async () => {
+      await autosave.flushAndWait();
+      await deleteVenueLayout(id);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["venue-layouts", "list"] });
       navigate("/techops/venue-layouts");
