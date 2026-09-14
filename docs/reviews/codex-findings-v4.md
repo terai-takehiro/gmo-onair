@@ -2452,6 +2452,21 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#692**（`fix(techops): 会場図面の道具の帯をわかりやすい用語とアイコンに直した`・
+  2026-09-14）—— 会場図面（`/techops/venue-layouts/:id`）の道具の帯の用語・見た目を、
+  利用者からのご指摘（「わかりずらい」「すいつきなど一般的でない語」）に沿って直した
+  PR（9ファイル・+92/−58・1コミット）。①「すいつき」「方眼」「ものさし」→
+  「スナップ」「グリッド」「ルーラー」、「重なり」→「重ね順」に、`docs/wording.md`
+  ルール10（2026-09-13）で運営マニュアル側は既に統一済みだったのを会場図面の設計書
+  （`docs/design/v4/venue-layout.md`）だけが見落としていたのを直した。②図形ボタン
+  （四角・丸・線・文字・寸法線）の漢字1文字ラベルと、整列ボタンの「中央」（横用・
+  縦用）重複を、運営マニュアルの `ManualSelectionToolbar`・`BlockToolbar` と同じ
+  アイコン（lucide-react）に揃えた。**Code Review・Security Review とも初回コミット
+  （`36ec63ae`）で完走し、findings は無かった**（レビュースレッド0件）。表に移す
+  未対応の指摘は無い。検証: `npx tsc -b client-techops`・`npm run typecheck:all`・
+  `npm run test`（shared 174ファイル・2468件／server 94件）・`npm run lint`
+  （0 errors）・`npm run build -w client-techops`。
+
 - **#690**（`docs(reviews): PR #688のレビュー状況を棚卸しに記録した`・2026-09-14）——
   #688 の棚卸しを本文書に記録したドキュメントのみの変更（2ファイル・+25・2コミット）。
   **Code Review は完走**（`1408f541`）し、**1件（P2）**の指摘が付いた——**棚卸し自身の
