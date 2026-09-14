@@ -7,7 +7,7 @@ import type { VenueArea, VenueCatalogItem, VenueFloor, VenueItem } from "@gmo-on
 import { computeBBox, isItemOverflowing, itemFootprintSize } from "@gmo-onair/shared/src/venue/geometry";
 import { translateArrangeResult, type VenueArrangeParams } from "@gmo-onair/shared/src/venue/arrange";
 import { normalizeAngle } from "@/pages/opsmanual/manualCanvasGeometry";
-import { deleteItems, duplicateItems, groupItems, groupMembers, reorderZItems, ungroupItems } from "../venueItemOps";
+import { deleteItems, duplicateItems, groupItems, groupMembers, isWholeGroupSelected, reorderZItems, ungroupItems } from "../venueItemOps";
 import { ARRANGE_FIELDS, ARRANGE_USED_ITEMS, PRESET_LABEL, computeArrangeResult, deserializeArrangeParams, serializeArrangeParams, summarizeArrangeResult } from "../venueArrangeConfig";
 import VenueInspectorPanel, { type InspectorButton, type InspectorPanelData, type InspectorStepper } from "./VenueInspectorPanel";
 
@@ -36,7 +36,7 @@ function itemSizeText(item: VenueItem, catalog?: VenueCatalogItem): string {
 export default function VenueInspector({ floor, area, catalog, items, selectedIds, editable, onCommit, onSelectionChange }: Props) {
   const catalogByKey = new Map(catalog.map((c) => [c.key, c]));
   const groupId = selectedIds.length > 0 ? items.find((it) => it.id === selectedIds[0])?.groupId : undefined;
-  const wholeGroupSelected = !!groupId && groupMembers(items, groupId).every((m) => selectedIds.includes(m.id)) && groupMembers(items, groupId).length === selectedIds.length;
+  const wholeGroupSelected = isWholeGroupSelected(items, selectedIds);
   const singleItem = selectedIds.length === 1 ? items.find((it) => it.id === selectedIds[0]) : undefined;
 
   const [draftParams, setDraftParams] = useState<VenueArrangeParams>({});

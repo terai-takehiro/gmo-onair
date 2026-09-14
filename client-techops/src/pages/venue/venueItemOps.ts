@@ -163,6 +163,19 @@ export function groupMembers(items: VenueItem[], groupId: string): VenueItem[] {
   return items.filter((it) => it.groupId === groupId);
 }
 
+/** 選択がどこかの1つのグループとちょうど一致しているか（§7「グループの他のメンバー」・
+ *  `VenueInspector.tsx` の `wholeGroupSelected` と同じ判定をここへまとめた）。
+ *  Ctrl+G が既存の完成したグループへ効くと、`groupItems` が新しい groupId を発行して
+ *  `arrange`（並べ方の入力値）を消してしまう——何も変わっていないのに「並べ直す」が
+ *  消える壊し方だった（Codex 指摘・P2） */
+export function isWholeGroupSelected(items: VenueItem[], selectedIds: string[]): boolean {
+  if (selectedIds.length === 0) return false;
+  const groupId = items.find((it) => it.id === selectedIds[0])?.groupId;
+  if (!groupId) return false;
+  const members = groupMembers(items, groupId);
+  return members.length === selectedIds.length && members.every((m) => selectedIds.includes(m.id));
+}
+
 // ── 「追加」タブ・道具の帯の図形ボタン（§4-3・§11-4） ───────────────
 
 /** 図形5種の既定値（`shared/src/venue/arrange.ts` と同じく、DBには持たずコードで持つ・§11-4） */

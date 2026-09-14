@@ -13,7 +13,7 @@ import { isEditableTarget } from "@/pages/opsmanual/manualCanvasGeometry";
 import { useVenuePan } from "./hooks/useVenuePan";
 import { useVenueMarqueeSelect } from "./hooks/useVenueMarqueeSelect";
 import { BASE_PX_PER_MM, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, computeRulerTicks, computeViewBox, mmToBoardPx } from "./venueBoardMath";
-import { arrowStepMm, deleteItems, duplicateItems, groupItems, groupMembers, moveItemsBy, releaseFromGroup } from "./venueItemOps";
+import { arrowStepMm, deleteItems, duplicateItems, groupItems, groupMembers, isWholeGroupSelected, moveItemsBy, releaseFromGroup } from "./venueItemOps";
 import VenueUnderlay from "./VenueUnderlay";
 import VenueItemView from "./VenueItemView";
 
@@ -101,10 +101,14 @@ export default function VenueBoard({
       return;
     }
     // Ctrl+G — 並べた結果と同じく、任意の複数選択もグループにできる（§4-6・§6②操作表）。
-    // これまでキー割り当てが無く、`groupItems`（純関数）が使われないまま残っていた
+    // これまでキー割り当てが無く、`groupItems`（純関数）が使われないまま残っていた。
+    // 選択がすでにどこかのグループとちょうど一致しているとき（普通に選んだグループへ
+    // うっかり Ctrl+G を押した等）は何もしない——`groupItems` を通すと新しい groupId が
+    // 発行され `arrange` が消え、何も変えていないのに「並べ直す」が消えてしまう
+    // （Codex 指摘・P2）
     if (meta && e.key.toLowerCase() === "g") {
       e.preventDefault();
-      if (selectedIds.length >= 2) onCommit(groupItems(items, selectedIds));
+      if (selectedIds.length >= 2 && !isWholeGroupSelected(items, selectedIds)) onCommit(groupItems(items, selectedIds));
       return;
     }
     if (e.key === "Delete" || e.key === "Backspace") {
