@@ -7,7 +7,7 @@ import type { VenueArea, VenueCatalogItem, VenueFloor, VenueItem } from "@gmo-on
 import { computeBBox, isItemOverflowing, itemFootprintSize } from "@gmo-onair/shared/src/venue/geometry";
 import { translateArrangeResult, type VenueArrangeParams } from "@gmo-onair/shared/src/venue/arrange";
 import { normalizeAngle } from "@/pages/opsmanual/manualCanvasGeometry";
-import { deleteItems, duplicateItems, groupMembers, reorderZItems, ungroupItems } from "../venueItemOps";
+import { deleteItems, duplicateItems, groupItems, groupMembers, isWholeGroupSelected, reorderZItems, ungroupItems } from "../venueItemOps";
 import { ARRANGE_FIELDS, ARRANGE_USED_ITEMS, PRESET_LABEL, computeArrangeResult, deserializeArrangeParams, serializeArrangeParams, summarizeArrangeResult } from "../venueArrangeConfig";
 import VenueInspectorPanel, { type InspectorButton, type InspectorPanelData, type InspectorStepper } from "./VenueInspectorPanel";
 
@@ -36,7 +36,7 @@ function itemSizeText(item: VenueItem, catalog?: VenueCatalogItem): string {
 export default function VenueInspector({ floor, area, catalog, items, selectedIds, editable, onCommit, onSelectionChange }: Props) {
   const catalogByKey = new Map(catalog.map((c) => [c.key, c]));
   const groupId = selectedIds.length > 0 ? items.find((it) => it.id === selectedIds[0])?.groupId : undefined;
-  const wholeGroupSelected = !!groupId && groupMembers(items, groupId).every((m) => selectedIds.includes(m.id)) && groupMembers(items, groupId).length === selectedIds.length;
+  const wholeGroupSelected = isWholeGroupSelected(items, selectedIds);
   const singleItem = selectedIds.length === 1 ? items.find((it) => it.id === selectedIds[0]) : undefined;
 
   const [draftParams, setDraftParams] = useState<VenueArrangeParams>({});
@@ -95,61 +95,85 @@ export default function VenueInspector({ floor, area, catalog, items, selectedId
       ],
       steppers: editable && !it.locked ? steppers : [],
       buttons: editable ? buttons : [],
-      warning: overStock ? { title: "保有数を超えています", body: `保有数 ${cat!.qty}${cat!.unit ?? ""} に対して ${n}${cat!.unit ?? ""} 置いています。置くのは止めません。` } : null,
+      warning: overStock ? { title: "保有数を超えています", body: `保有数 ${cat!.qty}${cat!.unit ?? ""} に対して ${n}${cat!.unit ?? ""} 追加しています。追加は止めません。` } : null,
       note: isShape
         ? { title: "この図形は寸法を変えられます", body: "右の欄で数値を変えられます（つまみでも伸ばせます）。名前を付けると札に出ます。" }
-        : { title: "実寸固定（伸ばせません）", body: "伸ばしたいものは「四角」で置きます。矢印キーで10mm（Shift 100mm・Ctrl 1mm）動き、Ctrl+Dで複製、Deleteで削除。" },
+        : { title: "実寸固定（伸ばせません）", body: "伸ばしたいものは「四角」で追加します。矢印キーで10mm（Shift 100mm・Ctrl 1mm）動き、Ctrl+Dで複製、Deleteで削除。" },
     };
   } else if (wholeGroupSelected && groupId) {
     const members = groupMembers(items, groupId);
-    const preset = (members[0]?.arrange?.preset as keyof typeof PRESET_LABEL) ?? "theater";
-    const gridItem = draftParams.itemKey ? catalogByKey.get(String(draftParams.itemKey)) : undefined;
-    const preview = computeArrangeResult(preset, draftParams, gridItem, groupId);
-    const summary = summarizeArrangeResult(preview, catalogByKey);
     const overCount = members.filter((m) => isItemOverflowing(m, area, floor.fixtures)).length;
     const bbox = computeBBox(members) ?? { x: area.bboxMm.x, y: area.bboxMm.y, w: 0, h: 0 };
+    // 「並べ方」で作ったグループだけが `arrange`（プリセット・入力値）を持つ。Ctrl+G で
+    // 好きな品目を手でまとめたグループにはこれが無いので、ここで分ける——無いのに
+    // 「並べ直す」を出すと、いま入っている品目（机や看板かもしれない）を丸ごと
+    // どこかの並べ方の既定レイアウト（既定は劇場形式）へ置き換えてしまうところだった
+    const preset = members[0]?.arrange?.preset as keyof typeof PRESET_LABEL | undefined;
 
-    const relayout = () => {
-      const anchor = computeBBox(members) ?? bbox;
-      const savedParams = serializeArrangeParams(draftParams);
-      const next = translateArrangeResult(
-        { ...preview, items: preview.items.map((it) => ({ ...it, groupId, arrange: { preset, params: savedParams } })) },
-        anchor.x, anchor.y,
-      );
-      onCommit([...items.filter((it) => it.groupId !== groupId), ...next]);
-    };
+    if (preset && PRESET_LABEL[preset]) {
+      const gridItem = draftParams.itemKey ? catalogByKey.get(String(draftParams.itemKey)) : undefined;
+      const preview = computeArrangeResult(preset, draftParams, gridItem, groupId);
+      const summary = summarizeArrangeResult(preview, catalogByKey);
 
-    data = {
-      title: `${PRESET_LABEL[preset]}（並べたグループ）`, badge: "グループ",
-      rows: [
-        { label: "並べ方", value: PRESET_LABEL[preset] },
-        { label: "品目", value: ARRANGE_USED_ITEMS[preset] },
-        { label: "点数", value: `${members.length} 点`, danger: summary.isOverStock },
-        { label: "外接寸法", value: `${fmt(bbox.w)} × ${fmt(bbox.h)} mm` },
-        { label: "はみ出し", value: `${overCount} 点`, danger: overCount > 0 },
-      ],
-      steppers: editable
-        ? (ARRANGE_FIELDS[preset] ?? []).map((f) => ({
-            label: f.label, value: String(Number(draftParams[f.key] ?? "") || "既定"),
-            onDec: () => setDraftParams((p) => ({ ...p, [f.key]: Math.max(f.min, Number(p[f.key] ?? 0) - f.step) })),
-            onInc: () => setDraftParams((p) => ({ ...p, [f.key]: Math.min(f.max, Number(p[f.key] ?? 0) + f.step) })),
-          }))
-        : [],
-      buttons: editable
-        ? [
-            { label: "並べ直す", primary: true, onClick: relayout },
-            { label: "グループ解除", onClick: () => onCommit(ungroupItems(items, groupId)) },
-            { label: "削除", danger: true, onClick: () => { onCommit(deleteItems(items, members.map((m) => m.id))); onSelectionChange([]); } },
-          ]
-        : [],
-      warning: summary.isOverStock ? { title: "保有数を超えています", body: "置くのは止めません（確保できない場合があります）。" } : null,
-      note: { title: "このグループの直し方", body: "① 数値を変えて「並べ直す」（1手で戻せます）② 中の1つはダブルクリックで動かす・削除（グループから外れます）③「グループ解除」で全部を個別に。" },
-    };
+      const relayout = () => {
+        const anchor = computeBBox(members) ?? bbox;
+        const savedParams = serializeArrangeParams(draftParams);
+        const next = translateArrangeResult(
+          { ...preview, items: preview.items.map((it) => ({ ...it, groupId, arrange: { preset, params: savedParams } })) },
+          anchor.x, anchor.y,
+        );
+        onCommit([...items.filter((it) => it.groupId !== groupId), ...next]);
+      };
+
+      data = {
+        title: PRESET_LABEL[preset], badge: "グループ",
+        rows: [
+          { label: "並べ方", value: PRESET_LABEL[preset] },
+          { label: "品目", value: ARRANGE_USED_ITEMS[preset] },
+          { label: "点数", value: `${members.length} 点`, danger: summary.isOverStock },
+          { label: "外接寸法", value: `${fmt(bbox.w)} × ${fmt(bbox.h)} mm` },
+          { label: "はみ出し", value: `${overCount} 点`, danger: overCount > 0 },
+        ],
+        steppers: editable
+          ? (ARRANGE_FIELDS[preset] ?? []).map((f) => ({
+              label: f.label, value: String(Number(draftParams[f.key] ?? "") || "既定"),
+              onDec: () => setDraftParams((p) => ({ ...p, [f.key]: Math.max(f.min, Number(p[f.key] ?? 0) - f.step) })),
+              onInc: () => setDraftParams((p) => ({ ...p, [f.key]: Math.min(f.max, Number(p[f.key] ?? 0) + f.step) })),
+            }))
+          : [],
+        buttons: editable
+          ? [
+              { label: "並べ直す", primary: true, onClick: relayout },
+              { label: "グループ解除", onClick: () => onCommit(ungroupItems(items, groupId)) },
+              { label: "削除", danger: true, onClick: () => { onCommit(deleteItems(items, members.map((m) => m.id))); onSelectionChange([]); } },
+            ]
+          : [],
+        warning: summary.isOverStock ? { title: "保有数を超えています", body: "追加は止めません（確保できない場合があります）。" } : null,
+        note: { title: "このグループの直し方", body: "① 数値を変えて「並べ直す」（1手で戻せます）② 中の1つはダブルクリックで動かす・削除（グループから外れます）③「グループ解除」で全部を個別に。" },
+      };
+    } else {
+      data = {
+        title: "グループ", badge: `${members.length}点`,
+        rows: [
+          { label: "点数", value: `${members.length} 点` },
+          { label: "外接寸法", value: `${fmt(bbox.w)} × ${fmt(bbox.h)} mm` },
+          { label: "はみ出し", value: `${overCount} 点`, danger: overCount > 0 },
+        ],
+        buttons: editable
+          ? [
+              { label: "グループ解除", onClick: () => onCommit(ungroupItems(items, groupId)) },
+              { label: "削除", danger: true, onClick: () => { onCommit(deleteItems(items, members.map((m) => m.id))); onSelectionChange([]); } },
+            ]
+          : [],
+        note: { title: "このグループの直し方", body: "全体をつかむと一緒に動きます。中の1つはダブルクリックで動かす・削除（グループから外れます）。「グループ解除」で全部を個別に。" },
+      };
+    }
   } else if (selectedIds.length > 1) {
     data = {
       title: `${selectedIds.length}点を選択中`,
       rows: [{ label: "操作", value: "道具の帯の整列・等間隔・重なりが使えます" }],
-      note: { title: "複数選択", body: "Shiftを押しながら押すと足し引きできます。ドラッグで囲んでも選べます。" },
+      buttons: editable ? [{ label: "グループ化", onClick: () => onCommit(groupItems(items, selectedIds)) }] : [],
+      note: { title: "複数選択", body: "Shiftを押しながら押すと足し引きできます。ドラッグで囲んでも選べます。「グループ化」（Ctrl+G）でまとめて動かせます。" },
     };
   } else {
     const overCount = items.filter((it) => isItemOverflowing(it, area, floor.fixtures)).length;
@@ -163,7 +187,7 @@ export default function VenueInspector({ floor, area, catalog, items, selectedId
         { label: "縮尺", value: floor.verifiedAt ? `確認済み ${floor.verifiedAt.slice(0, 10)}${floor.verifiedByName ? " " + floor.verifiedByName : ""}` : "未確認", danger: !floor.verifiedAt },
         { label: "品目", value: `${items.length} 点 ・ はみ出し ${overCount} 件`, danger: overCount > 0 },
       ],
-      note: { title: "品目を押すと選べます", body: "備品・人・カメラは実寸固定（伸ばせません）。伸ばしたいものは「四角」で置きます。ズームは道具の帯の −／＋、階とエリアの切替も帯の右にあります。" },
+      note: { title: "品目を押すと選べます", body: "備品・人・カメラは実寸固定（伸ばせません）。伸ばしたいものは「四角」で追加します。ズームは道具の帯の −／＋、階とエリアの切替も帯の右にあります。" },
     };
   }
 
