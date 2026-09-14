@@ -2448,9 +2448,12 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   影響は小さいが、**usage limits による Code Review の不発は #663 以降これで7本目**（#665・#667・
   #669・#670・#671・#677・#678）——「指摘なし」と区別できるよう記録しておく。
 
----
-
-## 一覧（PR の新しい順）
+- **#695**（`docs(reviews): PR #694のレビュー状況を棚卸しに記録した`・2026-09-14）——
+  #694 の棚卸しを本文書に記録したドキュメントのみの変更（2ファイル・+27・1コミット）。
+  **Code Review は Codex の usage limits で一度も実行されず**、Security Review は
+  完走（`50180e2`）し findings 無し。レビュースレッドは0件。**表に移す未対応の指摘は無い**
+  （レビュー自体が届いていないため、指摘なしと区別できるようここに記録する）。
+  検証: `node scripts/check-md-links.mjs`・`npm run lint`（0 errors・warning 54件）。
 
 - **#697**（`docs(reviews): PR #695のレビュー状況を棚卸しに記録した`・2026-09-14）——
   #695 の棚卸しを本文書に記録したドキュメントのみの変更（2ファイル・+8・1コミット）。
@@ -2473,6 +2476,12 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   検証: `npm run check:version`・`RELEASE=1 npm run lint`（0 errors）・`npm run test`
   （shared 2468件・server 94件）・`node scripts/check-md-links.mjs`・
   `node scripts/check-migration-numbers.mjs`。
+  ⚠️ **usage limits による Code Review の不発は #663 以降これで10本目**
+  （#665・#667・#669・#670・#671・#677・#678・#695・#697・#696）。
+
+---
+
+## 一覧（PR の新しい順）
 
 - **#693**（`docs(reviews): PR #692のレビュー状況を棚卸しに記録した`・2026-09-14）——
   #692 の棚卸しを別セッションが記録しようとしたPR（2ファイル・+20・4コミット）。
@@ -2490,13 +2499,6 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   どちらのレビューも再実行されていない（既知の同型パターン）。
   検証: `node scripts/check-md-links.mjs`・`node scripts/check-changelog.mjs`・
   `npm run lint`（0 errors）。
-
-- **#695**（`docs(reviews): PR #694のレビュー状況を棚卸しに記録した`・2026-09-14）——
-  #694 の棚卸しを本文書に記録したドキュメントのみの変更（2ファイル・+27・1コミット）。
-  **Code Review は Codex の usage limits で一度も実行されず**、Security Review は
-  完走（`50180e2`）し findings 無し。レビュースレッドは0件。**表に移す未対応の指摘は無い**
-  （レビュー自体が届いていないため、指摘なしと区別できるようここに記録する）。
-  検証: `node scripts/check-md-links.mjs`・`npm run lint`（0 errors・warning 54件）。
 
 - **#694**（`fix(techops): 会場図面の不具合9件を直した（用語・レイアウト揺れ・グループ操作ほか）`・
   2026-09-14）— 利用者から報告のあった会場図面の不具合6件（用語・タブ切替時のレイアウト揺れ・
