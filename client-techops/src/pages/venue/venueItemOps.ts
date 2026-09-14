@@ -107,7 +107,7 @@ export function groupMembers(items: VenueItem[], groupId: string): VenueItem[] {
   return items.filter((it) => it.groupId === groupId);
 }
 
-// ── 「置く」タブ・道具の帯の図形ボタン（§4-3・§11-4） ───────────────
+// ── 「追加」タブ・道具の帯の図形ボタン（§4-3・§11-4） ───────────────
 
 /** 図形5種の既定値（`shared/src/venue/arrange.ts` と同じく、DBには持たずコードで持つ・§11-4） */
 export const SHAPE_DEFAULTS = {

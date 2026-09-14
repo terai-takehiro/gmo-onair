@@ -41,6 +41,10 @@ interface DragState {
   resizeStart?: ResizeStartInfo;
   rotateCenter?: { x: number; y: number };
   started?: boolean;
+  /** グループの1つを（ダブルクリックでなく）そのままつかんだ移動——グループ全体を
+   *  同じ量だけ動かす（§4-6「グループは全体でつかんで動かせる」）。個別移動＝グループから
+   *  外れる（既存の§7）とは別の経路 */
+  groupMove?: boolean;
 }
 
 export interface VenueItemViewProps {
@@ -59,6 +63,12 @@ export interface VenueItemViewProps {
   onSelect: (shiftKey: boolean, dblClick: boolean) => void;
   onPatchCommit: (patch: Partial<VenueItem>) => void;
   onSnapGuides: (guides: { x: number[]; y: number[] } | null) => void;
+  /** グループ移動の途中経過（このグループの他のメンバーの見た目をこの分だけずらす）。
+   *  自分自身の描画は `liveRect` を優先するのでここには影響しない */
+  groupDragOffset: { dx: number; dy: number } | null;
+  onGroupDragPreview: (offset: { dx: number; dy: number } | null) => void;
+  /** グループ全メンバーへ同じ dx/dy を適用して確定する（グループには残す） */
+  onGroupMoveCommit: (dx: number, dy: number) => void;
 }
 
 /** 図形（伸ばせる品目）だけ8方向のつまみを出す（§8-7「品目は伸ばせない」） */
@@ -68,7 +78,7 @@ function isResizable(item: VenueItem): boolean {
 
 export default function VenueItemView({
   item, catalog, selected, overflowing, editable, pxPerMm, mmToClient, allItems, areaBboxMm, axisLinesMm, snapEnabled,
-  onSelect, onPatchCommit, onSnapGuides,
+  onSelect, onPatchCommit, onSnapGuides, groupDragOffset, onGroupDragPreview, onGroupMoveCommit,
 }: VenueItemViewProps) {
   const dragRef = useRef<DragState | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
@@ -78,7 +88,12 @@ export default function VenueItemView({
   useEffect(() => () => cleanupRef.current?.(), []);
 
   const baseRect = toTopLeftRect(item);
-  const rect: Rect = liveRect ?? { x: baseRect.x, y: baseRect.y, w: baseRect.w, h: baseRect.h, rotation: item.rotation };
+  // グループ移動中は、実際につかんでいる品目（`liveRect` を持つ）以外のメンバーも
+  // 同じ dx/dy だけずらして見せる（グループ全体が一緒に動いて見えるように）
+  const previewRect: Rect = groupDragOffset
+    ? { x: baseRect.x + groupDragOffset.dx, y: baseRect.y + groupDragOffset.dy, w: baseRect.w, h: baseRect.h, rotation: item.rotation }
+    : { x: baseRect.x, y: baseRect.y, w: baseRect.w, h: baseRect.h, rotation: item.rotation };
+  const rect: Rect = liveRect ?? previewRect;
   const cx = rect.x + rect.w / 2;
   const cy = rect.y + rect.h / 2;
   const armAngle = liveArm ?? item.armAngle ?? 0;
@@ -95,7 +110,11 @@ export default function VenueItemView({
       drag.live.x !== drag.orig.x || drag.live.y !== drag.orig.y || drag.live.w !== drag.orig.w ||
       drag.live.h !== drag.orig.h || drag.live.rotation !== drag.orig.rotation || (drag.mode === "arm" && liveArm !== drag.origArm);
     if (changed && editable) {
-      if (drag.mode === "move") {
+      if (drag.mode === "move" && drag.groupMove) {
+        // グループをそのままつかんだ移動——グループ全体へ同じ dx/dy を適用し、
+        // グループには残す（§4-6「グループは全体でつかんで動かせる」）
+        onGroupMoveCommit(drag.live.x - drag.orig.x, drag.live.y - drag.orig.y);
+      } else if (drag.mode === "move") {
         const next = fromTopLeftRect(item, { x: drag.live.x, y: drag.live.y, w: drag.live.w, h: drag.live.h });
         // レビュー指摘（P2）: line/dimension/ベルトパーテーション（`points` を持つ品目）は
         // 描画も当たり判定も `points` の絶対座標を見る（`x`/`y` は使わない）。`points` を
@@ -116,6 +135,7 @@ export default function VenueItemView({
     setLiveRect(null);
     setLiveArm(null);
     onSnapGuides(null);
+    onGroupDragPreview(null);
   }
 
   function subscribeWindowDrag(onMove: (e: PointerEvent) => void) {
@@ -135,10 +155,14 @@ export default function VenueItemView({
   // ── つかんで動かす ──────────────────────────────────
   function handleBodyPointerDown(e: ReactPointerEvent<SVGGElement>) {
     e.stopPropagation();
-    onSelect(e.shiftKey, e.detail >= 2);
+    const dblClick = e.detail >= 2;
+    onSelect(e.shiftKey, dblClick);
     if (!editable || item.locked) return;
     const orig: Rect = { x: baseRect.x, y: baseRect.y, w: baseRect.w, h: baseRect.h, rotation: item.rotation };
-    dragRef.current = { mode: "move", pointerId: e.pointerId, startClientX: e.clientX, startClientY: e.clientY, orig, live: orig, started: false };
+    // ダブルクリックでなく、グループの1つをそのままつかんだときはグループ全体を動かす
+    // （§4-6）。ダブルクリックはこの1つだけを選び、動かせばグループから外れる（既存の§7）
+    const groupMove = !!item.groupId && !dblClick;
+    dragRef.current = { mode: "move", pointerId: e.pointerId, startClientX: e.clientX, startClientY: e.clientY, orig, live: orig, started: false, groupMove };
     subscribeWindowDrag(handleBodyPointerMove);
   }
   function handleBodyPointerMove(e: PointerEvent) {
@@ -166,6 +190,7 @@ export default function VenueItemView({
     const next: Rect = { x: nx, y: ny, w: drag.orig.w, h: drag.orig.h, rotation: drag.orig.rotation };
     drag.live = next;
     setLiveRect(next);
+    if (drag.groupMove) onGroupDragPreview({ dx: nx - drag.orig.x, dy: ny - drag.orig.y });
     onSnapGuides(guideX != null || guideY != null ? { x: guideX != null ? [guideX] : [], y: guideY != null ? [guideY] : [] } : null);
   }
 

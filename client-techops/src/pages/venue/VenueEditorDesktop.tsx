@@ -1,5 +1,5 @@
 // 会場図面 — PC の編集画面本体（設計: docs/design/v4/venue-layout.md §6②）。
-// 資料の帯 → 道具の帯 → 3列（左=置く/並べる/数量・中央=盤・右=品目の設定）。
+// 資料の帯 → 道具の帯 → 3列（左=追加/並べ方/数量・中央=盤・右=品目の設定）。
 // `<fieldset disabled={!editable}>` と `guardedCommit` の2か所に編集可否を寄せる
 // （`ManualDetailPage.tsx` と同じ関所の作り方）。
 import { useCallback, useMemo, useState } from "react";
@@ -140,12 +140,16 @@ export default function VenueEditorDesktop() {
 
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[280px_1fr_260px]">
             <fieldset disabled={!editable} className="contents">
-              <aside className="flex min-h-0 flex-col rounded-card border border-border bg-card">
+              {/* `min-w-0` が無いと、グリッド項目の自動最小幅は中身の min-content になる
+                  （固定 280px を指定していても効かない）。タブの中身（並べ方の品目名・
+                  数量タブの列見出しなど）が280pxより広い最小幅を持つと、そのタブを開いた
+                  瞬間だけ列が広がり、盤（中央 `1fr`）を含む3列レイアウト全体が動いて見えた */}
+              <aside className="flex min-w-0 min-h-0 flex-col rounded-card border border-border bg-card">
                 <div className="flex h-9 flex-shrink-0 border-b border-border">
                   {(["place", "arrange", "quantity"] as LeftTab[]).map((t) => (
                     <button key={t} type="button" onClick={() => setTab(t)}
                       className={`flex-1 border-b-2 text-[12px] font-bold ${tab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}>
-                      {t === "place" ? "置く" : t === "arrange" ? "並べる" : "数量"}
+                      {t === "place" ? "追加" : t === "arrange" ? "並べ方" : "数量"}
                     </button>
                   ))}
                 </div>
@@ -162,7 +166,7 @@ export default function VenueEditorDesktop() {
                 zoom={zoom} onZoomChange={setZoom}
               />
 
-              <aside className="min-h-0 rounded-card border border-border bg-card">
+              <aside className="min-h-0 min-w-0 rounded-card border border-border bg-card">
                 <VenueInspector floor={floor} area={area} catalog={catalog} items={autosave.items} selectedIds={selectedIds} editable={editable} onCommit={history.commit} onSelectionChange={setSelectedIds} />
               </aside>
             </fieldset>

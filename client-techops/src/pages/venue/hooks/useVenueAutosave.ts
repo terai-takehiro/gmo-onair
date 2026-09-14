@@ -12,7 +12,7 @@ const SAVE_DEBOUNCE_MS = 1500;
 
 export interface UseVenueAutosaveResult {
   items: VenueItem[];
-  /** VenueBoard・置く／並べる／右パネルの commit の唯一の入口 */
+  /** VenueBoard・追加／並べ方／右パネルの commit の唯一の入口 */
   commitItems: (next: VenueItem[]) => void;
   saving: boolean;
   /** 画面を離れる・仕上がりへ移る直前に呼ぶ（未保存分があれば即座に送る） */

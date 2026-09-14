@@ -43,6 +43,9 @@ export default function VenueBoard({
   const viewportRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [snapGuides, setSnapGuides] = useState<{ x: number[]; y: number[] } | null>(null);
+  // グループをそのままつかんだ移動の途中経過（このグループの他のメンバーの見た目を
+  // 一緒にずらす。確定は `moveItemsBy` でメンバー全員へ・§4-6）
+  const [groupDrag, setGroupDrag] = useState<{ groupId: string; dx: number; dy: number } | null>(null);
   const pan = useVenuePan(viewportRef);
 
   const viewBox = useMemo(() => computeViewBox(area.bboxMm, floor, showWholeFloor), [area.bboxMm, floor, showWholeFloor]);
@@ -191,6 +194,13 @@ export default function VenueBoard({
               onSelect={(shiftKey, dblClick) => selectItem(item, shiftKey, dblClick)}
               onPatchCommit={(patch) => onCommit(items.map((it) => (it.id === item.id ? { ...it, ...patch } : it)))}
               onSnapGuides={setSnapGuides}
+              groupDragOffset={item.groupId && groupDrag?.groupId === item.groupId ? { dx: groupDrag.dx, dy: groupDrag.dy } : null}
+              onGroupDragPreview={(offset) => setGroupDrag(offset && item.groupId ? { groupId: item.groupId, ...offset } : null)}
+              onGroupMoveCommit={(dx, dy) => {
+                if (!item.groupId) return;
+                const ids = groupMembers(items, item.groupId).map((m) => m.id);
+                onCommit(moveItemsBy(items, ids, dx, dy));
+              }}
             />
           ))}
 

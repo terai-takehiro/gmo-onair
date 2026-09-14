@@ -95,10 +95,10 @@ export default function VenueInspector({ floor, area, catalog, items, selectedId
       ],
       steppers: editable && !it.locked ? steppers : [],
       buttons: editable ? buttons : [],
-      warning: overStock ? { title: "保有数を超えています", body: `保有数 ${cat!.qty}${cat!.unit ?? ""} に対して ${n}${cat!.unit ?? ""} 置いています。置くのは止めません。` } : null,
+      warning: overStock ? { title: "保有数を超えています", body: `保有数 ${cat!.qty}${cat!.unit ?? ""} に対して ${n}${cat!.unit ?? ""} 追加しています。追加は止めません。` } : null,
       note: isShape
         ? { title: "この図形は寸法を変えられます", body: "右の欄で数値を変えられます（つまみでも伸ばせます）。名前を付けると札に出ます。" }
-        : { title: "実寸固定（伸ばせません）", body: "伸ばしたいものは「四角」で置きます。矢印キーで10mm（Shift 100mm・Ctrl 1mm）動き、Ctrl+Dで複製、Deleteで削除。" },
+        : { title: "実寸固定（伸ばせません）", body: "伸ばしたいものは「四角」で追加します。矢印キーで10mm（Shift 100mm・Ctrl 1mm）動き、Ctrl+Dで複製、Deleteで削除。" },
     };
   } else if (wholeGroupSelected && groupId) {
     const members = groupMembers(items, groupId);
@@ -120,7 +120,7 @@ export default function VenueInspector({ floor, area, catalog, items, selectedId
     };
 
     data = {
-      title: `${PRESET_LABEL[preset]}（並べたグループ）`, badge: "グループ",
+      title: PRESET_LABEL[preset], badge: "グループ",
       rows: [
         { label: "並べ方", value: PRESET_LABEL[preset] },
         { label: "品目", value: ARRANGE_USED_ITEMS[preset] },
@@ -142,7 +142,7 @@ export default function VenueInspector({ floor, area, catalog, items, selectedId
             { label: "削除", danger: true, onClick: () => { onCommit(deleteItems(items, members.map((m) => m.id))); onSelectionChange([]); } },
           ]
         : [],
-      warning: summary.isOverStock ? { title: "保有数を超えています", body: "置くのは止めません（確保できない場合があります）。" } : null,
+      warning: summary.isOverStock ? { title: "保有数を超えています", body: "追加は止めません（確保できない場合があります）。" } : null,
       note: { title: "このグループの直し方", body: "① 数値を変えて「並べ直す」（1手で戻せます）② 中の1つはダブルクリックで動かす・削除（グループから外れます）③「グループ解除」で全部を個別に。" },
     };
   } else if (selectedIds.length > 1) {
@@ -163,7 +163,7 @@ export default function VenueInspector({ floor, area, catalog, items, selectedId
         { label: "縮尺", value: floor.verifiedAt ? `確認済み ${floor.verifiedAt.slice(0, 10)}${floor.verifiedByName ? " " + floor.verifiedByName : ""}` : "未確認", danger: !floor.verifiedAt },
         { label: "品目", value: `${items.length} 点 ・ はみ出し ${overCount} 件`, danger: overCount > 0 },
       ],
-      note: { title: "品目を押すと選べます", body: "備品・人・カメラは実寸固定（伸ばせません）。伸ばしたいものは「四角」で置きます。ズームは道具の帯の −／＋、階とエリアの切替も帯の右にあります。" },
+      note: { title: "品目を押すと選べます", body: "備品・人・カメラは実寸固定（伸ばせません）。伸ばしたいものは「四角」で追加します。ズームは道具の帯の −／＋、階とエリアの切替も帯の右にあります。" },
     };
   }
 
