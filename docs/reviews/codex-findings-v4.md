@@ -2497,7 +2497,8 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   検証用Postgres）。
 
 - **#707**（`fix(techops): 会場図面の盤への配置ずれ修正がv4.6.17に取り込まれていなかったのを直した`・
-  2026-09-14）—— #706 で付いたP1指摘（下記）の修正（3ファイル・+29/−15・1コミット）だが、
+  2026-09-14）—— #706 で付いたP1指摘（下記）の修正（4ファイル・+29/−15・1コミット。
+  TypeScript3ファイル＋`docs/changelog.d/claude-venue-diagram-bugs-jxkbih.md`）だが、
   **本PR自身にも新たなP1指摘が1件付いた**——「並べ直す」（`VenueInspector.tsx:127`）は
   `anchor.x/y`（いま盤に見えている外接の左上）を素の生座標にそのまま加えており、`preview.items`
   は原点(0,0)から始まらないため、数値を1つも変えずに「並べ直す」を押すだけで劇場形式の既定なら
@@ -2537,16 +2538,15 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   `claude/release-…`の枝名規則に合わず作り直した）。**Code Review完走で3件（P2×3）**の指摘が
   付いた。**①**（⭕️ #705で対応）`npm run release:notes`が集めた9件連結・約11KBの本文が
   CLAUDE.md「現在のバージョン」に残り、同文書自身の「1件＝見出し＋2〜3文」の規律に反していた。
-  **②③**（❌ **未対応**）`scripts/collect-changelog.mjs`のアーカイブ挿入ロジックの穴2件——
-
-  | # | 指摘 | 状態 | 何が変われば直すか |
-  | --- | --- | --- | --- |
-  | ② | `entryRe = /\n\n\(v(\d+\.\d+\.\d+) — /g`（266行目付近）が素の`\n\n`のみで、`core.autocrlf=true`のチェックアウト（CRLF＝`\r\n\r\n`）では既存エントリに一件も一致しない。その場合`insertAt`が常に`h.length`になり、新しい版より古い版が末尾へ追加されて新しい順が崩れる | ❌ 未対応（実害は「Windowsでの手元チェックアウト」限定。CIはLFで動くため`npm run release:notes`自体は今のところ影響を受けていない） | `\r?\n\r?\n\(v` のように改行をCRLF許容にする（`generate-version-history.mjs`の`headingIndex`と同じ対応） |
-  | ③ | 12KB超で分割された版が3件目に押し出されるとき、その版の全文は作成時点で既にアーカイブにあり、新しく足す`archived`は人が付けた要約。しかし`cmpSemver(existing, ver) < 0`は等しい版（0）では止まらず、同一版の既存エントリを飛び越して**その後ろ**に挿む。`generate-version-history.mjs`の重複統合は最初に現れたエントリのタイトルを残すため、要約のタイトルが先頭の下書きタイトルへ戻ってしまう | ❌ 未対応（発生条件は「12,000バイト超の分割が起きた版で、かつ複数回に分けて`release:notes`を回す」という組み合わせのみ。v4.6.16はこの分割しきい値に届かず未発生） | 同一版（`cmpSemver`が0）を見つけたら、その位置（既存の前）に挿むよう`<=0`にする、または等号のケースだけ別に処理する |
-
+  **②③**（❌ **未対応**・下の表）`scripts/collect-changelog.mjs`のアーカイブ挿入ロジックの穴2件。
   Security Reviewは完走（新規コミット時点）しfindings無し。検証: `npm run check:version`
   （3か所ともv4.6.16で一致）・`node scripts/generate-version-history.mjs`・`RELEASE=1 npm run lint`
   （0 errors）。
+
+| PR | 重み | どこ | 何が起きるか | 状態 |
+| --- | --- | --- | --- | --- |
+| #704 | P2 | `scripts/collect-changelog.mjs`（`entryRe`・266行目付近） | `entryRe = /\n\n\(v(\d+\.\d+\.\d+) — /g` が素の `\n\n` のみで、`core.autocrlf=true` のチェックアウト（CRLF＝`\r\n\r\n`）では既存エントリに一件も一致しない。その場合 `insertAt` が常に `h.length` になり、新しい版より古い版が末尾へ追加されて新しい順が崩れる | ❌ **未対応**（実害は「Windowsでの手元チェックアウト」限定。CIはLFで動くため `npm run release:notes` 自体は今のところ影響を受けていない）。**何が変われば直すか**: `\r?\n\r?\n\(v` のように改行をCRLF許容にする（`generate-version-history.mjs` の `headingIndex` と同じ対応） |
+| #704 | P2 | `scripts/collect-changelog.mjs`（`cmpSemver` の比較・272行目付近） | 12KB超で分割された版が3件目に押し出されるとき、その版の全文は作成時点で既にアーカイブにあり、新しく足す `archived` は人が付けた要約。しかし `cmpSemver(existing, ver) < 0` は等しい版（0）では止まらず、同一版の既存エントリを飛び越して**その後ろ**に挿む。`generate-version-history.mjs` の重複統合は最初に現れたエントリのタイトルを残すため、要約のタイトルが先頭の下書きタイトルへ戻ってしまう | ❌ **未対応**（発生条件は「12,000バイト超の分割が起きた版で、かつ複数回に分けて `release:notes` を回す」という組み合わせのみ。v4.6.16はこの分割しきい値に届かず未発生）。**何が変われば直すか**: 同一版（`cmpSemver`が0）を見つけたら、その位置（既存の前）に挿むよう `<=0` にする、または等号のケースだけ別に処理する |
 
 - **#702**（`fix(docs): Codexレビュー指摘2件（#699棚卸しの件数の数え違い）を直した`・2026-09-14）——
   #700（PR #699のレビュー棚卸し記録）に付いた2件のP2指摘の修正（3ファイル・+7/−3・1コミット）。
