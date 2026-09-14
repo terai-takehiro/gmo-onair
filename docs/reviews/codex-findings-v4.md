@@ -2510,6 +2510,13 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   `node scripts/check-md-links.mjs`。実ブラウザ（Playwright・検証用Postgres・実サーバー）で
   タブ切替の盤サイズ固定・新下敷き画像の表示・fixturesとの位置一致を確認済み。
 
+- **#698**（`docs(reviews): PR #693のレビュー状況を棚卸しに記録した`・2026-09-14）——
+  #693 の棚卸しを本文書に記録したドキュメントのみの変更（2ファイル・+33・1コミット）。
+  **Code Review・Security Review とも初回コミット（`449c93e`）で完走し、findings は
+  無かった**（レビュースレッド0件）。terai-takehiro 本人によりマージ。**表に移す
+  未対応の指摘は無い**。検証: `node scripts/check-md-links.mjs`・`npm run lint`
+  （0 errors）・`CI=true GITHUB_BASE_REF=main node scripts/check-changelog.mjs`。
+
 - **#693**（`docs(reviews): PR #692のレビュー状況を棚卸しに記録した`・2026-09-14）——
   #692 の棚卸しを別セッションが記録しようとしたPR（2ファイル・+20・4コミット）。
   **Code Review は初回コミット（`7ee88ed`）で完走し、1件（P2）**の指摘が付いた——
