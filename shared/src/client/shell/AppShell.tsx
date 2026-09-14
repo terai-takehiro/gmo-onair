@@ -216,7 +216,7 @@ export function AppShell({
             can={can}
           />
         )}
-        <main className="min-w-0 flex-1 overflow-y-auto">
+        <main className="flex min-w-0 flex-1 flex-col overflow-y-auto">
           {/* お知らせ帯はスクロール領域の中の上端 (sticky)。ヘッダーの外に出すと
               下にスクロールしているときに気づけない */}
           <NoticeBar />
@@ -224,7 +224,7 @@ export function AppShell({
             <SideMenuTopSlotContext.Provider value={sideMenuTopSlot}>
               {/* **鍵は「画面」までで、クエリは含めない。** `?tab=` や `?page=`
                   まで鍵にすると、絞り込みを押すたびに画面全体が動いて酔う */}
-              {/* `h-full` が無いと、`<PageShell className="h-full">` で全高を使う画面
+              {/* `flex-1 min-h-0` が無いと、`<PageShell className="h-full">` で全高を使う画面
                   （会場図面編集・レンタル機材検索など）の `h-full` が `main`（スクロール
                   領域・実寸は確定している）まで届かず、この div の高さが「今映っている
                   タブの中身の自然な高さ」で決まってしまう。会場図面編集で「追加／並べ方／
@@ -232,10 +232,16 @@ export function AppShell({
                   可視範囲が切れて見えた（利用者からのご指摘）のはこれが原因——`min-w-0`
                   の対応（幅方向）だけでは直らない、高さ方向の同型の穴だった。
                   中身の自然な高さで足りる（全高を使わない）画面は、box-sizing 上ここが
-                  `main` と同じ高さになっても背景色などが無いため見た目は変わらず、
+                  `main` の残り高さいっぱいになっても背景色などが無いため見た目は変わらず、
                   内容が短ければ余白が増えるだけ・長ければ従来どおり `main` 側で
-                  スクロールする（`overflow-y-auto` はここではなく `main` が持つ）。 */}
-              <div key={pathname} className="h-full v4-screen-in">
+                  スクロールする（`overflow-y-auto` はここではなく `main` が持つ）。
+                  ⚠️ **`h-full`（`main` の全高）ではなく `flex-1 min-h-0`にすること**
+                  （レビューでの指摘・P2）——`main` を `flex flex-col` にして `<NoticeBar />`
+                  と縦に並べ、お知らせ帯が実際に表示されているぶんだけこちらが縮むように
+                  する。`h-full` のままだと、お知らせ帯の高さぶん `main` の中身の合計が
+                  実寸を超え、`sticky` のお知らせ帯の下に全高ページの下端が隠れて見えなく
+                  なるところだった。 */}
+              <div key={pathname} className="min-h-0 flex-1 v4-screen-in">
                 {children}
               </div>
             </SideMenuTopSlotContext.Provider>
