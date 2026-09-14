@@ -193,7 +193,13 @@ export default function VenueItemView({
     let guideX: number | null = null;
     let guideY: number | null = null;
     if (snapEnabled) {
-      const targets = collectVenueSnapTargets(allItems, [item.id], areaBboxMm, axisLinesMm, true);
+      // グループ移動中は、一緒に動いているグループの他のメンバーもすいつき先の候補から
+      // 外す——外さないと、プレビューでは動いて見えるメンバーの「動く前の位置」に
+      // つかんだ品目が引っ張られてしまう（Codex 指摘・P2）
+      const excludeIds = drag.groupMove
+        ? allItems.filter((it) => it.groupId === item.groupId).map((it) => it.id)
+        : [item.id];
+      const targets = collectVenueSnapTargets(allItems, excludeIds, areaBboxMm, axisLinesMm, true);
       const snapped = snapPosition(nx, ny, drag.orig.w, drag.orig.h, targets);
       nx = snapped.x;
       ny = snapped.y;

@@ -201,11 +201,14 @@ export default function VenueBoard({
               onSelect={(shiftKey, dblClick) => selectItem(item, shiftKey, dblClick)}
               onPatchCommit={(patch) => onCommit(items.map((it) => (it.id === item.id ? { ...it, ...patch } : it)))}
               onSnapGuides={setSnapGuides}
-              groupDragOffset={item.groupId && groupDrag?.groupId === item.groupId ? { dx: groupDrag.dx, dy: groupDrag.dy } : null}
+              groupDragOffset={item.groupId && !item.locked && groupDrag?.groupId === item.groupId ? { dx: groupDrag.dx, dy: groupDrag.dy } : null}
               onGroupDragPreview={(offset) => setGroupDrag(offset && item.groupId ? { groupId: item.groupId, ...offset } : null)}
               onGroupMoveCommit={(dx, dy) => {
                 if (!item.groupId) return;
-                const ids = groupMembers(items, item.groupId).map((m) => m.id);
+                // グループの中の「固定」した品目は、他のメンバーをつかんで動かしても
+                // 一緒には動かさない（個別につかむときの `item.locked` ガードと同じ約束を
+                // グループ移動でも守る・Codex 指摘 P2）
+                const ids = groupMembers(items, item.groupId).filter((m) => !m.locked).map((m) => m.id);
                 onCommit(moveItemsBy(items, ids, dx, dy));
               }}
               hideOwnHandles={!!item.groupId && selectedIds.length > 1}
