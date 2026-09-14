@@ -1,1 +1,0 @@
-**PR #695のレビュー状況を棚卸しに記録した**（`docs/branching.md`「マージしたら、その PR のレビューを棚卸しに移す」）。#695（#694のレビュー棚卸し記録）はCode ReviewがCodexのusage limitsで一度も実行されず、Security Reviewは完走しfindingsは無かった（レビュースレッドも0件）。表に移す未対応の指摘は無いが、レビューが1件も届いていないため「指摘なし」と区別できるよう記録した。検証: `node scripts/check-md-links.mjs`・`npm run lint`。
