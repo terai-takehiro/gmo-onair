@@ -1,0 +1,6 @@
+**会場図面で「追加／並べ方／数量」タブを切り替えるたびに盤（図面）が縮んで見える不具合を直した**（利用者からのご指摘。v4.6.15 で対応したはずの「タブ切替でレイアウトが揺れる」不具合が残っていた）。
+①原因は共通シェル（`shared/src/client/shell/AppShell.tsx`）の画面切替アニメーション用の包み `<div className="v4-screen-in">` に高さの指定が無かったこと。`<main>` はスクロール領域として確定した高さを持つが、その直下の `v4-screen-in` が `height:auto`（中身に合わせる）のままだったため、`<PageShell className="h-full">` の `h-full`（100%）がここで「定まった高さ」を失い `auto` に落ち、盤を含む3列グリッドの高さが**いま開いているタブの中身の自然な高さ**で決まってしまっていた。「追加」タブ（品目の一覧が長い）では高さが伸びて盤全体が見え、「並べ方」「数量」（中身が短い）に切り替えると盤ごと縮み、SVG自体の寸法（ズームで決まる・コンテナの大きさとは無関係）は変わらないため、縮んだ表示領域からはみ出した右側・下側が見えなくなっていた。
+②以前の対応（`min-w-0`）は**幅方向**の同型の穴（列の中身が固定幅より広い最小幅を持つと列自体が広がる）を塞いだだけで、この**高さ方向**の穴は別物だったため直っていなかった。
+③`v4-screen-in` に `h-full` を足し、`main` の確定した高さをそのまま下流へ渡すようにした。この div には見た目（背景色・枠線）が無いため、全高を使わない他の画面（多くの一覧・フォーム画面）の見え方は変わらない——中身が短ければ余白が増えるだけ、長ければ従来どおり `main` 側でスクロールする。
+④`shared/` の変更のため、レンタル機材検索の3画面（`RentalSearchPage`・`RentalReservationsPage`・`RentalMailPage`。同じ `PageShell className="h-full"` パターンを使用）にも同じ穴があったはずで、副次的に直った。
+検証: 実ブラウザ（Playwright・検証用 Postgres・実サーバー）で会場図面編集画面を開き、「追加」「並べ方」「数量」を行き来しながら盤・左右パネルの `getBoundingClientRect` を測定——修正前は 1098.5px → 893.2px → 438.1px と縮み、修正後は全タブで 684px に固定されることを確認。`npx tsc -b client`・`npx tsc -b client-equipment`・`npx tsc -b client-techops`・`npx tsc -b client-live`・`npx tsc -b client-daily`・`npx tsc --noEmit -w server`・`npm run lint`。

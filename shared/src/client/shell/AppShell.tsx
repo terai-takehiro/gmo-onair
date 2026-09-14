@@ -224,7 +224,18 @@ export function AppShell({
             <SideMenuTopSlotContext.Provider value={sideMenuTopSlot}>
               {/* **鍵は「画面」までで、クエリは含めない。** `?tab=` や `?page=`
                   まで鍵にすると、絞り込みを押すたびに画面全体が動いて酔う */}
-              <div key={pathname} className="v4-screen-in">
+              {/* `h-full` が無いと、`<PageShell className="h-full">` で全高を使う画面
+                  （会場図面編集・レンタル機材検索など）の `h-full` が `main`（スクロール
+                  領域・実寸は確定している）まで届かず、この div の高さが「今映っている
+                  タブの中身の自然な高さ」で決まってしまう。会場図面編集で「追加／並べ方／
+                  数量」タブを切り替えるたびに盤を含む3列の高さ自体が伸び縮みし、盤の
+                  可視範囲が切れて見えた（利用者からのご指摘）のはこれが原因——`min-w-0`
+                  の対応（幅方向）だけでは直らない、高さ方向の同型の穴だった。
+                  中身の自然な高さで足りる（全高を使わない）画面は、box-sizing 上ここが
+                  `main` と同じ高さになっても背景色などが無いため見た目は変わらず、
+                  内容が短ければ余白が増えるだけ・長ければ従来どおり `main` 側で
+                  スクロールする（`overflow-y-auto` はここではなく `main` が持つ）。 */}
+              <div key={pathname} className="h-full v4-screen-in">
                 {children}
               </div>
             </SideMenuTopSlotContext.Provider>
