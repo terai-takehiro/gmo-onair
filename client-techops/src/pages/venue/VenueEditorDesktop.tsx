@@ -9,7 +9,7 @@ import { PageShell } from "@gmo-onair/shared/src/client/ui/pageShell";
 import { Delayed, ErrorPanel, SkeletonRows } from "@gmo-onair/shared/src/client/states";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  fixVenueLayout, getVenueLayout, isConflict, isLockError, listVenueCatalog, listVenueFloors, unfixVenueLayout, updateVenueLayout,
+  deleteVenueLayout, fixVenueLayout, getVenueLayout, isConflict, isLockError, listVenueCatalog, listVenueFloors, unfixVenueLayout, updateVenueLayout,
 } from "@/lib/venueApi";
 import { notifyError } from "@/lib/notify";
 import type { VenueCatalogItem, VenueItem } from "@gmo-onair/shared/src/venue/types";
@@ -25,6 +25,7 @@ import VenuePlacePanel from "./panels/VenuePlacePanel";
 import VenueArrangePanel from "./panels/VenueArrangePanel";
 import VenueQuantityPanel from "./panels/VenueQuantityPanel";
 import VenueInspector from "./panels/VenueInspector";
+import DeleteVenueLayoutDialog from "./DeleteVenueLayoutDialog";
 
 type LeftTab = "place" | "arrange" | "quantity";
 
@@ -42,6 +43,7 @@ export default function VenueEditorDesktop() {
   const returnTo = safeReturnTo(searchParams.get("return"));
 
   const [tab, setTab] = useState<LeftTab>("place");
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [zoom, setZoom] = useState(1);
   const [showGrid, setShowGrid] = useState(true);
@@ -90,6 +92,19 @@ export default function VenueEditorDesktop() {
   });
   const fixMutation = useMutation({ mutationFn: () => fixVenueLayout(id), onSuccess: invalidate, onError: () => notifyError("確定できませんでした。") });
   const unfixMutation = useMutation({ mutationFn: () => unfixVenueLayout(id), onSuccess: invalidate, onError: () => notifyError("確定を解けませんでした。") });
+  // 一覧側（`VenueListPage.tsx`）の「削除…は編集画面から」の案内どおり、削除はここに置く
+  // （`ManualDetailPage.tsx`・`deleteManualMutation` と同じ形）
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteVenueLayout(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["venue-layouts", "list"] });
+      navigate("/techops/venue-layouts");
+    },
+    onError: () => {
+      setDeleteOpen(false);
+      notifyError("会場図面を削除できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
+    },
+  });
 
   const placeCenter = () => (area ? { x: area.bboxMm.x + area.bboxMm.w / 2, y: area.bboxMm.y + area.bboxMm.h / 2 } : { x: 0, y: 0 });
 
@@ -124,6 +139,7 @@ export default function VenueEditorDesktop() {
             onTitleCommit={(v) => titleMutation.mutate(v)}
             onPreview={() => navigate(`/techops/venue-layouts/${id}/preview`)}
             onFix={() => fixMutation.mutate()} onUnfix={() => unfixMutation.mutate()}
+            onDelete={() => setDeleteOpen(true)}
           />
 
           <VenueToolbar
@@ -171,6 +187,13 @@ export default function VenueEditorDesktop() {
               </aside>
             </fieldset>
           </div>
+
+          <DeleteVenueLayoutDialog
+            open={deleteOpen}
+            onOpenChange={setDeleteOpen}
+            onConfirm={() => deleteMutation.mutate()}
+            pending={deleteMutation.isPending}
+          />
         </div>
       )}
     </PageShell>
