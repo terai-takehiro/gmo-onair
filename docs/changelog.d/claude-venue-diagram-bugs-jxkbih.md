@@ -1,0 +1,9 @@
+**会場図面で「追加／並べ方／数量」タブを切り替えるたびに盤（図面）が縮んで見える不具合を直した**（利用者からのご指摘。v4.6.15 で対応したはずの「タブ切替でレイアウトが揺れる」不具合が残っていた）。
+①原因は共通シェル（`shared/src/client/shell/AppShell.tsx`）の画面切替アニメーション用の包み `<div className="v4-screen-in">` に高さの指定が無かったこと。`<main>` はスクロール領域として確定した高さを持つが、その直下の `v4-screen-in` が `height:auto`（中身に合わせる）のままだったため、`<PageShell className="h-full">` の `h-full`（100%）がここで「定まった高さ」を失い `auto` に落ち、盤を含む3列グリッドの高さが**いま開いているタブの中身の自然な高さ**で決まってしまっていた。「追加」タブ（品目の一覧が長い）では高さが伸びて盤全体が見え、「並べ方」「数量」（中身が短い）に切り替えると盤ごと縮み、SVG自体の寸法（ズームで決まる・コンテナの大きさとは無関係）は変わらないため、縮んだ表示領域からはみ出した右側・下側が見えなくなっていた。
+②以前の対応（`min-w-0`）は**幅方向**の同型の穴（列の中身が固定幅より広い最小幅を持つと列自体が広がる）を塞いだだけで、この**高さ方向**の穴は別物だったため直っていなかった。
+③`v4-screen-in` に `h-full` を足し、`main` の確定した高さをそのまま下流へ渡すようにした。この div には見た目（背景色・枠線）が無いため、全高を使わない他の画面（多くの一覧・フォーム画面）の見え方は変わらない——中身が短ければ余白が増えるだけ、長ければ従来どおり `main` 側でスクロールする。
+④`shared/` の変更のため、レンタル機材検索の3画面（`RentalSearchPage`・`RentalReservationsPage`・`RentalMailPage`。同じ `PageShell className="h-full"` パターンを使用）にも同じ穴があったはずで、副次的に直った。
+検証: 実ブラウザ（Playwright・検証用 Postgres・実サーバー）で会場図面編集画面を開き、「追加」「並べ方」「数量」を行き来しながら盤・左右パネルの `getBoundingClientRect` を測定——修正前は 1098.5px → 893.2px → 438.1px と縮み、修正後は全タブで 684px に固定されることを確認。`npx tsc -b client`・`npx tsc -b client-equipment`・`npx tsc -b client-techops`・`npx tsc -b client-live`・`npx tsc -b client-daily`・`npx tsc --noEmit -w server`・`npm run lint`。
+
+**用賀 26F/27F の会場図面の下敷き画像を、利用者が用意した清書版に差し替えた**（文字が判読できない旧画像からの差し替え依頼）。
+①`client-techops/public/venue/floor-26f.png`・`floor-27f.png` を 420×584 → 1187×1650 に更新。原図（新PDF）のグリッド線の PDF 座標を旧画像と突き合わせたところ、既存の校正（`qsheet_venue_floors.calibration`）と一致したため校正値は変更せず、旧下敷きと同じ mm 窓（`originMm`）のまま高解像度で再切り出しした。②解像度が変わったため `underlay`（`widthPx`/`heightPx`/`pxPerMmX`/`pxPerMmY`）を migration 300 で更新（299 は `ON CONFLICT DO NOTHING` のため、既に流れた環境には効かない＝ UPDATE 文にした）。③LEDウォール・トラス脚10本・ELV13・らせん階段など既存の固定物（fixtures）の bboxMm を新画像に重ねて位置が一致することを確認（Playwright・検証用 Postgres で会場図面編集画面を実際に開いて確認）。

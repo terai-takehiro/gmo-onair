@@ -2448,42 +2448,57 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   影響は小さいが、**usage limits による Code Review の不発は #663 以降これで7本目**（#665・#667・
   #669・#670・#671・#677・#678）——「指摘なし」と区別できるよう記録しておく。
 
----
-
-## 一覧（PR の新しい順）
-
-- **#693**（`docs(reviews): PR #692のレビュー状況を棚卸しに記録した`・2026-09-14）——
-  #692 の棚卸しを本文書に記録したドキュメントのみの変更（2ファイル・+20・4コミット。
-  作成〜マージの間に #694・#695 が先にマージされ、base の同じ挿入位置で本PRの #692
-  エントリと衝突した）。**Code Review は初回コミット（`7ee88ed`）で完走**し、
-  **1件（P2）**の指摘が付いた——`docs/changelog.d/claude-optimistic-hypatia-p583d4.md`
-  は #692 自身の未リリースのリリースノート下書きだったが、本PRのコミットがこれを
-  レビュー棚卸しメモで**上書き**してしまい、次のリリースで #692 の本文が版の履歴から
-  消えるところだった。元の下書きを復元し、棚卸しメモは
-  `docs/changelog.d/claude-review-debt-tally-692.md` として別ファイルに分離して
-  修正・返信・スレッド解決まで完了（`1ff4496`）。**表に移す未対応の指摘は無い**。
-  ⚠️ この上書きの根っこは**同じ枝名を2つの別PRで再利用したこと**——#692がマージ済みの
-  枝を「main から再構築」する際、`docs/changelog.d/<枝の名前>.md` という1PR=1ファイルの
-  命名規約がすでにmainにある同名ファイルと衝突することに気づかなかった。次に同じ枝を
-  再利用するときは、先に`docs/changelog.d/`に同名ファイルが無いか確認する、という
-  学びを記録する。⚠️ また、mainの取り込み（`git merge origin/main`）を2回行う過程で
-  1回目のマージをコミットし忘れたまま作業を続け、`check-changelog.mjs`の比較対象
-  （merge-base）が古いままになっていたことにも気づかず時間を使った——マージ後は
-  必ず`git status`で「Merge made by」ではなく「still merging」が出ていないか確認する。
-  **Code Review は以後2回の push（`2213c54`のリモート側マージ・`1ff4496`の最終修正）
-  ともCodexのusage limitsで実行されなかった**（#651/#677/#679/#681/#683/#684/#685/#686/
-  #688/#690/#694と同型の「最終コミットに再実行されない」問題に加え、今回は明示的に
-  usage limitsのメッセージが2回付いた）。**Security Reviewは初回コミット（`7ee88ed`）
-  でのみ完走し findings 無し**、以後再実行されていない。CIは最終コミット（`1ff4496`）で
-  `checks`・`build`とも成功、mergeableもclean。検証: `node scripts/check-md-links.mjs`・
-  `npm run lint`（0 errors）・`CI=true GITHUB_BASE_REF=main node scripts/check-changelog.mjs`。
-
 - **#695**（`docs(reviews): PR #694のレビュー状況を棚卸しに記録した`・2026-09-14）——
   #694 の棚卸しを本文書に記録したドキュメントのみの変更（2ファイル・+27・1コミット）。
   **Code Review は Codex の usage limits で一度も実行されず**、Security Review は
   完走（`50180e2`）し findings 無し。レビュースレッドは0件。**表に移す未対応の指摘は無い**
   （レビュー自体が届いていないため、指摘なしと区別できるようここに記録する）。
   検証: `node scripts/check-md-links.mjs`・`npm run lint`（0 errors・warning 54件）。
+
+- **#697**（`docs(reviews): PR #695のレビュー状況を棚卸しに記録した`・2026-09-14）——
+  #695 の棚卸しを本文書に記録したドキュメントのみの変更（2ファイル・+8・1コミット）。
+  作成直後（05:16頃）は GitHub Actions 側のインフラ障害（`checks`・`build` とも実行時間0msで
+  即時失敗。同時刻に他PRやmain自体でも再現を確認済み）で CI が赤くなったが、インフラ復旧後の
+  再実行で自然に緑になった（コード側の修正は不要）。**Code Review は Codex の usage limits で
+  一度も実行されず**、Security Review は完走（`881b32d`）し findings 無し。レビュースレッドは
+  0件。**表に移す未対応の指摘は無い**。
+  検証: `node scripts/check-md-links.mjs`・`npm run lint`（0 errors・warning 54件）。
+
+- **#696**（`release: v4.6.15`・2026-09-14）— `npm run release:notes -- 4.6.15` による版上げ
+  （11ファイル・+8/−56・2コミット）。集約したのは会場図面の道具の帯の用語修正・会場図面の
+  不具合10件の修正・PR #683〜#690 のレビュー棚卸し記録の7件の下書き。作成直後は #697 と同じ
+  GitHub Actions のインフラ障害で CI が2回連続で即時失敗した（実行時間0ms。切り分けのため
+  `main` で `workflow_dispatch` から手動起動しても同じく即時失敗することを確認し、このPRの
+  差分が原因ではないと判断してその旨を1件コメント）。インフラ復旧を待って `main`
+  （#695 マージ後）を取り込み、CIを再実行して緑を確認した。**Code Review は Codex の
+  usage limits で一度も実行されず**、Security Review は完走（`fbb9620`）し findings 無し。
+  レビュースレッドは0件。**表に移す未対応の指摘は無い**。
+  検証: `npm run check:version`・`RELEASE=1 npm run lint`（0 errors）・`npm run test`
+  （shared 2468件・server 94件）・`node scripts/check-md-links.mjs`・
+  `node scripts/check-migration-numbers.mjs`。
+  ⚠️ **usage limits による Code Review の不発は #663 以降これで10本目**
+  （#665・#667・#669・#670・#671・#677・#678・#695・#697・#696）。
+
+---
+
+## 一覧（PR の新しい順）
+
+- **#693**（`docs(reviews): PR #692のレビュー状況を棚卸しに記録した`・2026-09-14）——
+  #692 の棚卸しを別セッションが記録しようとしたPR（2ファイル・+20・4コミット）。
+  **Code Review は初回コミット（`7ee88ed`）で完走し、1件（P2）**の指摘が付いた——
+  #692自身の未リリースのリリースノート下書き（`docs/changelog.d/claude-optimistic-hypatia-p583d4.md`）
+  を、本PRのレビュー棚卸しメモで**上書き**してしまっており、次のリリースでその内容が
+  失われるところだった。⚠️ **本PRの base が #694・#695 のマージで進んだことで、
+  本文書「一覧」の同じ挿入位置で #694 の記録（別PR #695 で先にマージ済み）と本PRの #692 の
+  記録が競合し、mainとのコンフリクトも発生していた**（別セッションが長時間放置していたPR）。
+  本セッションが `main` をマージしてコンフリクトを解消し（PR番号の降順で両エントリを残す）、
+  あわせて上記のCode Review指摘も同じコミットで対応した——下書きは元の内容に復元し、
+  棚卸しメモは `docs/changelog.d/claude-review-debt-tally-692.md` として新規ファイルに分離
+  （返信・スレッド解決まで完了）。**表に移す未対応の指摘は無い**。Security Review も
+  初回コミットで完走し findings 無し。以後のコミット（コンフリクト解消含む）には
+  どちらのレビューも再実行されていない（既知の同型パターン）。
+  検証: `node scripts/check-md-links.mjs`・`node scripts/check-changelog.mjs`・
+  `npm run lint`（0 errors）。
 
 - **#694**（`fix(techops): 会場図面の不具合9件を直した（用語・レイアウト揺れ・グループ操作ほか）`・
   2026-09-14）— 利用者から報告のあった会場図面の不具合6件（用語・タブ切替時のレイアウト揺れ・
