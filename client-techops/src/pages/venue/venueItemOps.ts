@@ -110,34 +110,48 @@ export function moveItemsBy(items: VenueItem[], ids: string[], dx: number, dy: n
   });
 }
 
+/**
+ * 品目がグループ `groupId` から抜けたあとの後始末（`groupItems` の一部引き抜き・
+ * `releaseFromGroup` の個別移動での離脱、両方が使う共通の処理）。残った側の
+ * `arrange`（並べ方の入力値）は人数が変わって実物と合わなくなるので必ず外す
+ * ——残したまま「並べ直す」を出すと、抜けた分まで元の並べ方の既定レイアウトへ
+ * 勝手に復元してしまう（Codex 指摘・P2）。1人以下しか残らないときは、その
+ * 「グループ」は体をなさないので groupId も外して解散する（右パネルが個別の
+ * 品目ではなくグループとして扱ってしまい、固定・複製などが消えるため・同じ指摘の続き）
+ */
+function normalizeGroupAfterRemoval(items: VenueItem[], groupId: string, remainingCount: number): VenueItem[] {
+  const dissolve = remainingCount < 2;
+  return items.map((it) => {
+    if (it.groupId !== groupId) return it;
+    return dissolve ? { ...it, groupId: undefined, arrange: undefined } : { ...it, arrange: undefined };
+  });
+}
+
 /** Ctrl+G。選んだ品目を1つのグループにまとめる（既存のグループには入れない・§4-6） */
 export function groupItems(items: VenueItem[], ids: string[]): VenueItem[] {
   if (ids.length < 2) return items;
   const groupId = genVenueItemId("grp");
   const idSet = new Set(ids);
-  // 並べ方グループの一部だけを Ctrl+G で新しいグループへ引き抜くと、元のグループに
-  // 残ったほう（人数が減った「残り」）は `arrange`（並べ方の入力値）が実物と合わなく
-  // なる。残したまま「並べ直す」を出すと、抜けた分まで元の並べ方の既定レイアウトへ
-  // 勝手に復元して新しいグループと重なってしまう（Codex 指摘・P2）。引き抜いた元の
-  // グループ全部の `arrange` を外す（groupId 自体はそのまま——「残り」も互いには
-  // まだグループとしてつかんで動かせる。並べ方の情報だけが実物と合わなくなる）
   const sourceGroupIds = new Set(items.filter((it) => idSet.has(it.id) && it.groupId).map((it) => it.groupId as string));
-  // 元のグループが2人だけで、その1人だけを引き抜くと「残り」が1人になる。1人だけの
-  // 「グループ」は体をなさず、右パネルが個別の品目ではなくグループとして扱ってしまい
-  // 固定・複製など通常の操作が消える——1人しか残らないときは groupId も外して解散する
-  // （同じ指摘の続き・P2）
-  const remainingCountByGroup = new Map<string, number>();
-  for (const it of items) {
-    if (it.groupId && !idSet.has(it.id)) remainingCountByGroup.set(it.groupId, (remainingCountByGroup.get(it.groupId) ?? 0) + 1);
+  let result = items.map((it) => (idSet.has(it.id) ? { ...it, groupId, arrange: undefined } : it));
+  for (const sourceGroupId of sourceGroupIds) {
+    const remainingCount = result.filter((it) => it.groupId === sourceGroupId).length;
+    result = normalizeGroupAfterRemoval(result, sourceGroupId, remainingCount);
   }
-  return items.map((it) => {
-    if (idSet.has(it.id)) return { ...it, groupId, arrange: undefined };
-    if (it.groupId && sourceGroupIds.has(it.groupId) && (remainingCountByGroup.get(it.groupId) ?? 0) < 2) {
-      return { ...it, groupId: undefined, arrange: undefined };
-    }
-    if (it.groupId && sourceGroupIds.has(it.groupId)) return { ...it, arrange: undefined };
-    return it;
-  });
+  return result;
+}
+
+/** 品目を1つだけグループから外し、同時に位置などの patch を当てる
+ *  （ダブルクリック等での「動かした1つはグループから外れる」・§7）。外れた元の
+ *  グループの残りも `normalizeGroupAfterRemoval` で後始末する（Codex 指摘・P2:
+ *  外れる側だけ処理して残りを放置すると、そちらが古いグループのまま残っていた） */
+export function releaseFromGroup(items: VenueItem[], id: string, patch: Partial<VenueItem>): VenueItem[] {
+  const target = items.find((it) => it.id === id);
+  const groupId = target?.groupId;
+  if (!groupId) return items.map((it) => (it.id === id ? { ...it, ...patch } : it));
+  const remainingCount = items.filter((it) => it.groupId === groupId && it.id !== id).length;
+  const withPatch = items.map((it) => (it.id === id ? { ...it, ...patch, groupId: undefined, arrange: undefined } : it));
+  return normalizeGroupAfterRemoval(withPatch, groupId, remainingCount);
 }
 
 /** グループ解除。並べたグループの `arrange` も外す（§7「グループ解除」） */

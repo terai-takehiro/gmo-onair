@@ -13,7 +13,7 @@ import { isEditableTarget } from "@/pages/opsmanual/manualCanvasGeometry";
 import { useVenuePan } from "./hooks/useVenuePan";
 import { useVenueMarqueeSelect } from "./hooks/useVenueMarqueeSelect";
 import { BASE_PX_PER_MM, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, computeRulerTicks, computeViewBox, mmToBoardPx } from "./venueBoardMath";
-import { arrowStepMm, deleteItems, duplicateItems, groupItems, groupMembers, moveItemsBy } from "./venueItemOps";
+import { arrowStepMm, deleteItems, duplicateItems, groupItems, groupMembers, moveItemsBy, releaseFromGroup } from "./venueItemOps";
 import VenueUnderlay from "./VenueUnderlay";
 import VenueItemView from "./VenueItemView";
 
@@ -200,6 +200,7 @@ export default function VenueBoard({
               snapEnabled={snapEnabled}
               onSelect={(shiftKey, dblClick) => selectItem(item, shiftKey, dblClick)}
               onPatchCommit={(patch) => onCommit(items.map((it) => (it.id === item.id ? { ...it, ...patch } : it)))}
+              onDetachMoveCommit={(patch) => onCommit(releaseFromGroup(items, item.id, patch))}
               onSnapGuides={setSnapGuides}
               groupDragOffset={item.groupId && !item.locked && groupDrag?.groupId === item.groupId ? { dx: groupDrag.dx, dy: groupDrag.dy } : null}
               onGroupDragPreview={(offset) => setGroupDrag(offset && item.groupId ? { groupId: item.groupId, ...offset } : null)}

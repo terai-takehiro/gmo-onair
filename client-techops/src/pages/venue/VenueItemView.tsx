@@ -63,6 +63,9 @@ export interface VenueItemViewProps {
   snapEnabled: boolean;
   onSelect: (shiftKey: boolean, dblClick: boolean) => void;
   onPatchCommit: (patch: Partial<VenueItem>) => void;
+  /** 個別移動（ダブルクリックで抜き出した1つ・Shift+ドラッグ）専用の commit。
+   *  グループから外し、外れた元のグループの残りも後始末する（`releaseFromGroup`） */
+  onDetachMoveCommit: (patch: Partial<VenueItem>) => void;
   onSnapGuides: (guides: { x: number[]; y: number[] } | null) => void;
   /** グループ移動の途中経過（このグループの他のメンバーの見た目をこの分だけずらす）。
    *  自分自身の描画は `liveRect` を優先するのでここには影響しない */
@@ -88,7 +91,7 @@ function isResizable(item: VenueItem): boolean {
 
 export default function VenueItemView({
   item, catalog, selected, overflowing, editable, pxPerMm, mmToClient, allItems, areaBboxMm, axisLinesMm, snapEnabled,
-  onSelect, onPatchCommit, onSnapGuides, groupDragOffset, onGroupDragPreview, onGroupMoveCommit, hideOwnHandles, soloSelected,
+  onSelect, onPatchCommit, onDetachMoveCommit, onSnapGuides, groupDragOffset, onGroupDragPreview, onGroupMoveCommit, hideOwnHandles, soloSelected,
 }: VenueItemViewProps) {
   const dragRef = useRef<DragState | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
@@ -137,10 +140,10 @@ export default function VenueItemView({
         // 描画も当たり判定も `points` の絶対座標を見る（`x`/`y` は使わない）。`points` を
         // 送らないと、ドラッグ中は見た目が動いても保存されず、指を離すと元の位置へ
         // 戻って見えていた。並べたグループの1つを個別に動かすと、そのグループから外れる
-        // （§7「動かした1つはグループから外れる」）。`arrange` も一緒に外す——持ち越すと
-        // この1個だけを後で誰かと Ctrl+G した際に、その寄せ集めが並べ方グループと
-        // 誤認されてしまう（Codex 指摘・P2。`groupItems` 側でも外すが、ここでも外しておく）
-        onPatchCommit({ x: next.x, y: next.y, points: next.points, groupId: undefined, arrange: undefined });
+        // （§7「動かした1つはグループから外れる」）。`onDetachMoveCommit` が groupId・
+        // arrange を外し、外れた元のグループの残りも後始末する（Codex 指摘・P2:
+        // 抜ける側だけ処理すると、元のグループの残りが古い並べ方情報のまま残っていた）
+        onDetachMoveCommit({ x: next.x, y: next.y, points: next.points });
       } else if (drag.mode === "resize") {
         const next = fromTopLeftRect(item, { x: drag.live.x, y: drag.live.y, w: drag.live.w, h: drag.live.h });
         onPatchCommit({ x: next.x, y: next.y, w: next.w, d: next.d, diameter: next.diameter, points: next.points });
@@ -185,8 +188,12 @@ export default function VenueItemView({
     if (!editable || item.locked) return;
     const orig: Rect = { x: baseRect.x, y: baseRect.y, w: baseRect.w, h: baseRect.h, rotation: item.rotation };
     // ダブルクリックでなく、グループの1つをそのままつかんだときはグループ全体を動かす
-    // （§4-6）。ダブルクリックはこの1つだけを選び、動かせばグループから外れる（既存の§7）
-    const groupMove = !!item.groupId && !asIndividual;
+    // （§4-6）。ダブルクリックはこの1つだけを選び、動かせばグループから外れる（既存の§7）。
+    // Shift+ドラッグも個別移動として扱う——Shift は「この1個だけを選択に足し引きする」
+    // 操作（`selectItem` のトグル）で、グループ全体を選ぶ操作ではないので、動きも
+    // 選択に合わせて個別にする（Codex 指摘・P2: 選択は1個だけなのに動きはグループ
+    // 全体、という食い違いがあった）
+    const groupMove = !!item.groupId && !asIndividual && !e.shiftKey;
     dragRef.current = { mode: "move", pointerId: e.pointerId, startClientX: e.clientX, startClientY: e.clientY, orig, live: orig, started: false, groupMove };
     subscribeWindowDrag(handleBodyPointerMove);
   }
