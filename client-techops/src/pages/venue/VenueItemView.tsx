@@ -69,6 +69,10 @@ export interface VenueItemViewProps {
   onGroupDragPreview: (offset: { dx: number; dy: number } | null) => void;
   /** グループ全メンバーへ同じ dx/dy を適用して確定する（グループには残す） */
   onGroupMoveCommit: (dx: number, dy: number) => void;
+  /** グループ丸ごとが選択中（このメンバーだけの回転・伸ばすつまみは出さない——
+   *  50脚のグループを選ぶと50個のつまみが重なって出ていた。個別に触るには
+   *  ダブルクリックで1つだけを選び直す・§4-6） */
+  hideOwnHandles: boolean;
 }
 
 /** 図形（伸ばせる品目）だけ8方向のつまみを出す（§8-7「品目は伸ばせない」） */
@@ -78,7 +82,7 @@ function isResizable(item: VenueItem): boolean {
 
 export default function VenueItemView({
   item, catalog, selected, overflowing, editable, pxPerMm, mmToClient, allItems, areaBboxMm, axisLinesMm, snapEnabled,
-  onSelect, onPatchCommit, onSnapGuides, groupDragOffset, onGroupDragPreview, onGroupMoveCommit,
+  onSelect, onPatchCommit, onSnapGuides, groupDragOffset, onGroupDragPreview, onGroupMoveCommit, hideOwnHandles,
 }: VenueItemViewProps) {
   const dragRef = useRef<DragState | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
@@ -302,7 +306,7 @@ export default function VenueItemView({
         )}
       </g>
 
-      {selected && editable && !item.locked && (
+      {selected && editable && !item.locked && !hideOwnHandles && (
         <g transform={`translate(${cx} ${cy}) rotate(${rect.rotation})`}>
           <line x1={0} y1={-rect.h / 2 - handleMm} x2={0} y2={-rect.h / 2 - handleMm - rotateGapMm} stroke={color} strokeWidth={strokeMm} />
           <circle

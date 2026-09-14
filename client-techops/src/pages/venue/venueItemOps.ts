@@ -60,11 +60,20 @@ const DUPLICATE_OFFSET_MM = 50;
 export function duplicateItems(items: VenueItem[], ids: string[]): { items: VenueItem[]; newIds: string[] } {
   const srcs = items.filter((it) => ids.includes(it.id));
   if (srcs.length === 0) return { items, newIds: [] };
+  // グループを丸ごと複製したときはグループのまま複製する（Ctrl+D は元のグループを
+  // 崩さないので群を選び直せば複製したほうも動かせる）。1つだけの複製（ダブルクリックで
+  // 抜き出した1脚など）はこれまでどおり単体にする——2つ以上そろって初めて元のグループを写す
+  const groupCounts = new Map<string, number>();
+  for (const src of srcs) if (src.groupId) groupCounts.set(src.groupId, (groupCounts.get(src.groupId) ?? 0) + 1);
+  const newGroupIds = new Map<string, string>();
+  for (const [groupId, count] of groupCounts) if (count >= 2) newGroupIds.set(groupId, genVenueItemId("grp"));
+
   let z = nextZ(items);
   const dups: VenueItem[] = srcs.map((src) => {
     z += 1;
     const points = src.points ? src.points.map(([x, y]) => [x + DUPLICATE_OFFSET_MM, y] as [number, number]) : undefined;
-    return { ...src, id: genVenueItemId(), x: src.x + DUPLICATE_OFFSET_MM, points, z, groupId: undefined, locked: false };
+    const groupId = src.groupId ? newGroupIds.get(src.groupId) : undefined;
+    return { ...src, id: genVenueItemId(), x: src.x + DUPLICATE_OFFSET_MM, points, z, groupId, locked: false };
   });
   return { items: [...items, ...dups], newIds: dups.map((d) => d.id) };
 }

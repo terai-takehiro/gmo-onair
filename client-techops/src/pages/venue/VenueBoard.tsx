@@ -13,7 +13,7 @@ import { isEditableTarget } from "@/pages/opsmanual/manualCanvasGeometry";
 import { useVenuePan } from "./hooks/useVenuePan";
 import { useVenueMarqueeSelect } from "./hooks/useVenueMarqueeSelect";
 import { BASE_PX_PER_MM, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, computeRulerTicks, computeViewBox, mmToBoardPx } from "./venueBoardMath";
-import { arrowStepMm, deleteItems, duplicateItems, groupMembers, moveItemsBy } from "./venueItemOps";
+import { arrowStepMm, deleteItems, duplicateItems, groupItems, groupMembers, moveItemsBy } from "./venueItemOps";
 import VenueUnderlay from "./VenueUnderlay";
 import VenueItemView from "./VenueItemView";
 
@@ -98,6 +98,13 @@ export default function VenueBoard({
       const res = duplicateItems(items, selectedIds);
       onCommit(res.items);
       onSelectionChange(res.newIds);
+      return;
+    }
+    // Ctrl+G — 並べた結果と同じく、任意の複数選択もグループにできる（§4-6・§6②操作表）。
+    // これまでキー割り当てが無く、`groupItems`（純関数）が使われないまま残っていた
+    if (meta && e.key.toLowerCase() === "g") {
+      e.preventDefault();
+      if (selectedIds.length >= 2) onCommit(groupItems(items, selectedIds));
       return;
     }
     if (e.key === "Delete" || e.key === "Backspace") {
@@ -201,6 +208,7 @@ export default function VenueBoard({
                 const ids = groupMembers(items, item.groupId).map((m) => m.id);
                 onCommit(moveItemsBy(items, ids, dx, dy));
               }}
+              hideOwnHandles={!!item.groupId && selectedIds.length > 1}
             />
           ))}
 
