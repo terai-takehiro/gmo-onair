@@ -54,6 +54,13 @@ export const BOOKING_AFFECTED_KEYS = [
   ['project'],
   /** 案件一覧・案件台帳の実施日と並び順 */
   ['projects'],
+  /**
+   * 活動記録の案件プルダウン（`activity-log-projects`。`sales/projectQueries.ts` の
+   * `PROJECT_LIST_KEYS` と同じ鍵）。この一覧は案件日 (`event_start`) が近い順に
+   * 並ぶので、予約が実施日を書き戻す (`syncProjectEventDates`) たびに並び順が
+   * 古くなる（Codex レビュー指摘・P2）
+   */
+  ['activity-log-projects'],
   /** ③ 仮押さえ一覧・①予定サイドレールの「仮押さえ」ウィジェット (`holdLogic.ts` の HOLD_KEY と同一) */
   HOLD_KEY,
   /** ⑤ 重複疑い一覧 (`duplicateLogic.ts` の DUPLICATE_KEY と同一) */
