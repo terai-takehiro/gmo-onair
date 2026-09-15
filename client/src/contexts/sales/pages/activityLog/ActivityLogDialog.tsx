@@ -52,9 +52,13 @@ export function ActivityLogDialog({
   // 遅延初期化 — mount のたびに評価し、新規の活動日を「開いた日」のローカル日付にする
   const [form, setForm] = useState<FormData>(() => (editing ? formFromRow(editing) : emptyForm()));
 
+  // `/projects?limit=200` はやめた。①200件を超える分がそもそも選べない
+  // （この一覧に検索欄は無い）②終了（完了・失注）案件まで並んでゴミに見える
+  // ③ステージ順で案件日と無関係、の3点を専用口 `activity-log-projects`
+  // （終了を除く全件・案件日が近い順）で直した（利用者指摘・2026-09）
   const { data: projectsData } = useQuery({
-    queryKey: ['projects-dropdown'],
-    queryFn: async () => (await api.get('/projects?limit=200')).data,
+    queryKey: ['activity-log-projects'],
+    queryFn: async () => (await api.get('/projects/activity-log-projects')).data,
   });
   const projectOptions: ProjectOption[] = projectsData?.data ?? [];
 

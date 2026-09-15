@@ -125,6 +125,11 @@ router.get('/registerable-projects', async (_req, res) => {
   res.json({ success: true, data: await projectService.getRegisterableProjects() });
 });
 
+// 営業活動記録の案件プルダウン用（終了 (完了・失注) を除く全案件・案件日が近い順）
+router.get('/activity-log-projects', async (_req, res) => {
+  res.json({ success: true, data: await projectService.getActivityLogProjects() });
+});
+
 /**
  * 整合性チェックの件数（案件台帳の「確かめる」）。
  *
