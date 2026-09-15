@@ -43,6 +43,21 @@ export function ActivityFormDialog({
   const [nextAction, setNextAction] = useState('');
   const [nextActionDate, setNextActionDate] = useState('');
 
+  /**
+   * この案件プルダウンは `ProjectsSection`（この顧客の案件履歴）と同じ `projects` を
+   * 受け取るが、履歴は完了・失注も含めて見せるのが正しい一方、**これから記録する
+   * やり取りの相手はゴミ案件（終了）を出したくない**（`ActivityLogDialog.tsx` と同じ
+   * 2026-09 利用者指摘）。サーバー側の一覧はそのまま（履歴の並び「進行中優先→実施日降順」
+   * を保つ）にし、この場だけ終了2ステージを除いて案件日が近い順に並べ替える
+   */
+  const pickableProjects = [...projects]
+    .filter((p) => p.stage !== 's_completed' && p.stage !== 'e_lost')
+    .sort((a, b) => {
+      if (!a.event_start) return b.event_start ? 1 : 0;
+      if (!b.event_start) return -1;
+      return a.event_start.localeCompare(b.event_start);
+    });
+
   const reset = () => {
     setType('call'); setProjectId('none'); setSubject(''); setDescription('');
     setNextAction(''); setNextActionDate('');
@@ -105,7 +120,7 @@ export function ActivityFormDialog({
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">案件に紐づけない</SelectItem>
-                {projects.map((p) => (
+                {pickableProjects.map((p) => (
                   <SelectItem key={p.id} value={p.id}>{p.gls_number || p.code || ''} {p.name}</SelectItem>
                 ))}
               </SelectContent>
