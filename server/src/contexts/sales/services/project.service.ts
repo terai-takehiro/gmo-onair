@@ -2688,6 +2688,33 @@ export class ProjectService {
   }
 
   /**
+   * 営業活動記録の案件プルダウン用（2026-09 利用者指摘）。
+   *
+   * 元は `GET /projects?limit=200` を使っていたが、①200件を超えると
+   * それより後ろの案件がプルダウンにそもそも出せない（この一覧は検索欄が無く
+   * 全件から選ぶ作りのため）、②終了した案件（完了・失注＝`TERMINAL_STAGES`。
+   * `projectList/stages.ts` と同じ2ステージ）まで並び、ゴミ案件に見える、
+   * ③並び順が「ステージ順」で案件日と無関係、の3点が問題だった。
+   * ここは `getRegisterableProjects` 等と同じ「絞ってから全件返す」専用口にし、
+   * 終了ステージだけ除いて（活動中の案件なら受注前でも記録したいので `stage` は
+   * 広く許す）、**案件日（`event_start`）が近い順**に並べる
+   * （`event_start ASC NULLS LAST` は `DEFAULT_SORT_SQL` と同じ書き方）。
+   *
+   * ⚠️ **`NULLIF(p.event_start, '')` を通す**（Codex レビュー指摘・P2）。決算インポート由来の
+   * 旧 GLS 案件は `event_start` が空文字のことがあり（migration 110 の注記どおり）、
+   * 生の列のままだと `''` は `NULL` と違って `NULLS LAST` の対象にならず、あらゆる日付より
+   * 先頭（`''` < `'2026-...'`）に来てしまう — 未定の案件を最後にまとめる意図と逆になる
+   */
+  async getActivityLogProjects() {
+    return await queryAll(
+      `SELECT p.id, p.gls_number, p.code, p.name, c.name as customer_name
+       FROM projects p LEFT JOIN companies c ON c.id = p.customer_id
+       WHERE p.stage NOT IN ('s_completed', 'e_lost') AND p.deleted_at IS NULL
+       ORDER BY NULLIF(p.event_start, '') ASC NULLS LAST, p.created_at DESC`
+    );
+  }
+
+  /**
    * 概算見積→確定売上に変換（billing_key再生成＋ステータス変更）
    *
    * ⚠️ **受注済み（`WON_STAGES`）の案件でしか変換しない**（2026-09-02）。

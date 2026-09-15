@@ -22,9 +22,10 @@ import { invalidateProjectQueries } from '../../client/src/contexts/sales/projec
 /** 案件の一覧・候補・集計を持つ鍵（`projectQueries.ts` の `PROJECT_LIST_KEYS` と同じ） */
 const LIST_KEYS = [
   'projects', 'project-ledger', 'project-integrity', 'dashboard',
-  'projects-search', 'projects-dropdown', 'projects-with-activity', 'projects-booking-search',
+  'projects-search', 'activity-log-projects', 'projects-with-activity', 'projects-booking-search',
   'gls-projects', 'gls-projects-for-groups',
   'won-projects-for-purchase', 'won-projects-for-handoff', 'won-projects-for-budget-dashboard',
+  'registerable-projects-for-purchase',
 ];
 
 /** 案件1件ごとに持つ鍵（`projectQueries.ts` の `PROJECT_DETAIL_KEYS` と同じ） */

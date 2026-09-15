@@ -30,7 +30,7 @@ const PROJECT_LIST_KEYS = [
   'project-integrity',                 // 台帳いちばん上の整合性チェック
   'dashboard',                         // 受付カード・売上サマリ（`alerts` / `sales-overview` の両方）
   'projects-search',                   // 売上ダイアログの案件検索
-  'projects-dropdown',                 // やり取りダイアログの案件選択
+  'activity-log-projects',             // 活動記録の案件選択（旧 `projects-dropdown`。2026-09）
   'projects-with-activity',            // 活動のある案件
   'projects-booking-search',           // スタジオ予約の案件検索
   'gls-projects',                      // 「いまある案件に追加」の候補

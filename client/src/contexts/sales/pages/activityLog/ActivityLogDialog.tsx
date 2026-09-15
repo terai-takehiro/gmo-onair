@@ -23,7 +23,7 @@ import { FormDialog } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { ACTIVITY_TYPES } from './kinds';
 import { emptyForm, type ActivityLogRow, type FormData } from './types';
 
-interface ProjectOption { id: string; gls_number?: string; code?: string; name: string }
+interface ProjectOption { id: string; gls_number?: string | null; code?: string | null; name: string }
 interface CustomerOption { id: string; name: string }
 
 function formFromRow(log: ActivityLogRow): FormData {
@@ -52,11 +52,32 @@ export function ActivityLogDialog({
   // 遅延初期化 — mount のたびに評価し、新規の活動日を「開いた日」のローカル日付にする
   const [form, setForm] = useState<FormData>(() => (editing ? formFromRow(editing) : emptyForm()));
 
+  // `/projects?limit=200` はやめた。①200件を超える分がそもそも選べない
+  // （この一覧に検索欄は無い）②終了（完了・失注）案件まで並んでゴミに見える
+  // ③ステージ順で案件日と無関係、の3点を専用口 `activity-log-projects`
+  // （終了を除く全件・案件日が近い順）で直した（利用者指摘・2026-09）
   const { data: projectsData } = useQuery({
-    queryKey: ['projects-dropdown'],
-    queryFn: async () => (await api.get('/projects?limit=200')).data,
+    queryKey: ['activity-log-projects'],
+    queryFn: async () => (await api.get('/projects/activity-log-projects')).data,
   });
-  const projectOptions: ProjectOption[] = projectsData?.data ?? [];
+  const fetchedProjectOptions: ProjectOption[] = projectsData?.data ?? [];
+
+  /**
+   * 編集中の記録がすでに終了（完了・失注）した案件に紐づいていると、一覧は終了案件を
+   * 返さないので `<Select>` の値に一致する項目が無くなり、空欄に見えて選び直せなくなる
+   * （Codex レビュー指摘・P2）。編集時だけ、いま付いている案件を `editing` が持つ
+   * 埋め込み情報（`project_name`/`project_gls`/`project_code`）から補い、
+   * 一覧の先頭に足す（新規選択の候補には出さない — 終了案件を隠す方針は保つ）
+   */
+  const projectOptions: ProjectOption[] = (() => {
+    if (!editing?.project_id || fetchedProjectOptions.some((o) => o.id === editing.project_id)) {
+      return fetchedProjectOptions;
+    }
+    return [
+      { id: editing.project_id, gls_number: editing.project_gls, code: editing.project_code, name: editing.project_name || '' },
+      ...fetchedProjectOptions,
+    ];
+  })();
 
   const { data: custData } = useQuery({
     queryKey: ['customers-dropdown'],
