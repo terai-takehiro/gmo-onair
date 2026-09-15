@@ -2699,13 +2699,18 @@ export class ProjectService {
    * 終了ステージだけ除いて（活動中の案件なら受注前でも記録したいので `stage` は
    * 広く許す）、**案件日（`event_start`）が近い順**に並べる
    * （`event_start ASC NULLS LAST` は `DEFAULT_SORT_SQL` と同じ書き方）。
+   *
+   * ⚠️ **`NULLIF(p.event_start, '')` を通す**（Codex レビュー指摘・P2）。決算インポート由来の
+   * 旧 GLS 案件は `event_start` が空文字のことがあり（migration 110 の注記どおり）、
+   * 生の列のままだと `''` は `NULL` と違って `NULLS LAST` の対象にならず、あらゆる日付より
+   * 先頭（`''` < `'2026-...'`）に来てしまう — 未定の案件を最後にまとめる意図と逆になる
    */
   async getActivityLogProjects() {
     return await queryAll(
       `SELECT p.id, p.gls_number, p.code, p.name, c.name as customer_name
        FROM projects p LEFT JOIN companies c ON c.id = p.customer_id
        WHERE p.stage NOT IN ('s_completed', 'e_lost') AND p.deleted_at IS NULL
-       ORDER BY p.event_start ASC NULLS LAST, p.created_at DESC`
+       ORDER BY NULLIF(p.event_start, '') ASC NULLS LAST, p.created_at DESC`
     );
   }
 
