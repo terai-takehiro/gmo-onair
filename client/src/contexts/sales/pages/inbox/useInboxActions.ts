@@ -29,6 +29,7 @@ import api from '@/lib/api';
 import { queryKeys } from '@gmo-onair/shared/src/client/hooks/queryKeys';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
+import { invalidateProjectQueries } from '../../projectQueries';
 
 /**
  * 失注理由マスタ（`lost_reason_categories`）の名前と**一字一句同じ**にすること。
@@ -49,15 +50,18 @@ export function useDismissAiProject() {
     onSuccess: (_res, projectId) => {
       /*
        * ⚠️ **invalidate の対**（client/CLAUDE.md の「react-query の鍵」）。
-       * `['projects']`（一覧）は `['project', id]`（1件）に**前方一致しない**ので
-       * 両方落とす。受信箱（ホーム・レール・バッジ）と旧 ai-inbox、
-       * ダッシュボードの帯（sales-overview がネタ件数を数える）も同じ行を持つ。
+       * 一覧・台帳・プルダウン候補は `invalidateProjectQueries` に一元化してある
+       * （`sales/projectQueries.ts`）。以前は `projects`/`project` の2つだけを手で
+       * 落としており、`e_lost`（終了）へ動かしても `activity-log-projects` 等
+       * 「終了案件を除く」プルダウン系の鍵が落ちなかった（Codex レビュー指摘・P2の
+       * 横展開。`ProjectDetailPage.tsx`・`TidyActions.tsx` と同じ穴）。
+       * 受信箱（ホーム・レール・バッジ）と旧 ai-inbox、ダッシュボードの帯
+       * （sales-overview がネタ件数を数える）はこの hook 固有の鍵なので個別に落とす。
        */
       qc.invalidateQueries({ queryKey: queryKeys.dashboard.inbox() });
       qc.invalidateQueries({ queryKey: queryKeys.dashboard.aiInbox() });
       qc.invalidateQueries({ queryKey: ['dashboard', 'sales-overview'] });
-      qc.invalidateQueries({ queryKey: ['projects'] });
-      qc.invalidateQueries({ queryKey: ['project', projectId] });
+      invalidateProjectQueries(qc, projectId);
       notifySuccess('失注にしました', {
         description: '理由「見送り（案件化せず）」で記録し、AI の学習データにも残しました。',
       });

@@ -28,6 +28,7 @@ import { Delayed, SkeletonRows, ErrorPanel, NotFoundPanel } from '@gmo-onair/sha
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { ProjectStageLabels, type ProjectStage } from '@/types';
+import { invalidateProjectQueries } from '../projectQueries';
 import { ENTITY_BADGE_LABEL } from './projectList/stages';
 import { DetailHeader } from './projectDetail/DetailHeader';
 import { LostDialog, type LostPayload } from './projectDetail/LostDialog';
@@ -101,19 +102,15 @@ export default function ProjectDetailPage() {
     mutationFn: (v: { stage: ProjectStage } & Partial<LostPayload>) =>
       api.patch(`/projects/${id}/stage`, v),
     onSuccess: (res, v) => {
-      qc.invalidateQueries({ queryKey: ['project', id] });
-      qc.invalidateQueries({ queryKey: ['projects'] });
       /**
-       * **案件台帳（`ProjectLedgerPage`）は `stage` 列を別の鍵（`project-ledger`）で
-       * 持っている。** 落とし忘れると、ここでステージ（受注・失注・見送り等）を
-       * 変えても台帳は古いステージのまま＝リロードしないと反映されない
-       * （`useProjectForm.ts` の保存漏れと同じ形。`projectList/TidyActions.tsx` の
-       * 失注・見送りは既に3点セットで落としている）。
-       * `project-integrity` も、受注（`a_won`）に上げた瞬間に「GLS番号が無い」
-       * 「実施日が無い」の対象に出入りするので合わせて落とす。
+       * **一覧・台帳・プルダウン候補は `invalidateProjectQueries` に一元化してある**
+       * （`sales/projectQueries.ts`）。以前はここで `project`/`projects`/`project-ledger`/
+       * `project-integrity` だけを手で並べており、ステージを終了（`s_completed`/`e_lost`）
+       * や逆方向へ動かしても `activity-log-projects` 等の「終了案件を除く」プルダウン系の
+       * 鍵が落ちず、開き直しても古い候補のままだった（Codex レビュー指摘・P2。
+       * `projectList/TidyActions.tsx` の失注・見送りも同じ穴を持っていたので合わせて直した）
        */
-      qc.invalidateQueries({ queryKey: ['project-ledger'] });
-      qc.invalidateQueries({ queryKey: ['project-integrity'] });
+      invalidateProjectQueries(qc, id);
       // 受注（a_won）はサーバーが第1回の回と標準工程テンプレートを自動生成する
       // （project.service.ts changeStage → ensureFirstEpisode + applyToEpisode）ので、
       // 「標準工程を案件に入れたら4つ落とす」（CLAUDE.md）に従いタスク側の鍵も落とす

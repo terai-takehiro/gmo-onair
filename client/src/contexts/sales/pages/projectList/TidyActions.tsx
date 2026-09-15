@@ -24,6 +24,7 @@ import { ArrowRight, AlarmClock, Archive, XCircle } from 'lucide-react';
 import api from '@/lib/api';
 import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/notify';
 import { useAuth } from '@/contexts/platform/AuthContext';
+import { invalidateProjectQueries } from '../../projectQueries';
 import { LostDialog, type LostPayload } from '../projectDetail/LostDialog';
 import { SnoozeDialog } from './snooze';
 import type { ProjectListRow } from './types';
@@ -62,16 +63,17 @@ export function TidyActions({ p }: { p: ProjectListRow }) {
 
   /**
    * 見送り・失注はどちらも `e_lost` ＋理由（`LostDialog` の `mode` 参照）。
-   * invalidate は3点セット（一覧・詳細・台帳）— 片方だけ欠けると
-   * 「閉じたのに台帳では生きている」になる（client/CLAUDE.md の実例）。
+   * invalidate は `invalidateProjectQueries` に一元化してある（`sales/projectQueries.ts`）。
+   * 以前は `projects`/`project`/`project-ledger` の3点だけを手で並べており、
+   * `e_lost`（終了）へ動かしても `activity-log-projects` 等「終了案件を除く」
+   * プルダウン系の鍵が落ちず、開き直すと古い候補のままだった
+   * （Codex レビュー指摘・P2。`ProjectDetailPage.tsx` の `changeStage` も同じ穴だった）。
    */
   const closeStage = useMutation({
     mutationFn: (payload: LostPayload) =>
       api.patch(`/projects/${p.id}/stage`, { stage: 'e_lost', ...payload }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['projects'] });
-      qc.invalidateQueries({ queryKey: ['project', p.id] });
-      qc.invalidateQueries({ queryKey: ['project-ledger'] });
+      invalidateProjectQueries(qc, p.id);
       notifySuccess(dialog === 'pass' ? '失注にしました（案件化せず。ステージ帯からいつでも戻せます）' : '失注にしました');
       setDialog(null);
     },
