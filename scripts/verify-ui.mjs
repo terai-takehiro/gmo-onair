@@ -310,7 +310,15 @@ function measure() {
      * 赤くなり、新しい崩れが埋もれる)。
      */
     if (el.clientWidth < 24 && el.scrollWidth > el.clientWidth) {
-      crushed.push(`${el.clientWidth}px "${txt.slice(0, 12)}"`);
+      /*
+       * ⚠️ **読み上げ専用の文字 (`sr-only`) は潰れではない。**
+       * Tailwind の `sr-only` は 1px の箱に押し込んで `clip` で隠す作りなので、
+       * 上の条件に**必ず当たります**。数えると、絵柄のボタンに名前を付けた画面が
+       * 全部「崩れている」と出て、**本物の崩れがその中に埋もれます**
+       * (この検査を 0件必須に格上げできない理由になっていた)。
+       */
+      const srOnly = s.clip === 'rect(0px, 0px, 0px, 0px)' || s.clipPath === 'inset(50%)';
+      if (!srOnly) crushed.push(`${el.clientWidth}px "${txt.slice(0, 12)}"`);
     }
     let node = el; let bg = s.backgroundColor; let measurable = true;
     while (node) {

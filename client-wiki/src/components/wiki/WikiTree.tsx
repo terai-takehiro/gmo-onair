@@ -183,12 +183,18 @@ export default function WikiTree({
                 )}
               </button>
 
+              {/*
+                ⚠️ **PC の高さは 36px（`lg:h-9`）。** 寸法表の段は 32/36/40/44/48 で、
+                `npm run verify:ui` が実ブラウザで測って段から外れた押しボタンを落とします。
+                以前は 34px で、ツリーの行だけが段から外れて検査が赤くなっていました。
+                詰めたいときは**段の中で**（32px へ）下げること。
+              */}
               <button
                 type="button"
                 onClick={() => navigate(`/p/${t.id}`)}
                 aria-current={t.id === currentId ? 'page' : undefined}
                 className={cn(
-                  'flex min-h-tap flex-1 items-center gap-1.5 rounded-control px-2 text-left lg:min-h-0 lg:h-[34px]',
+                  'flex min-h-tap flex-1 items-center gap-1.5 rounded-control px-2 text-left lg:min-h-0 lg:h-9',
                   t.id === currentId
                     ? 'bg-primary-surface-weak text-primary'
                     : 'text-secondary-foreground hover:bg-background',
