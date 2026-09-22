@@ -18,7 +18,7 @@ import type { McpActor } from './helpers';
 //
 // 各ツールの module / level は対応する HTTP ルートの requirePermission に揃えてある。
 
-type ToolPermission = { module: string | string[]; level: 'reader' | 'editor' | 'manager' };
+export type ToolPermission = { module: string | string[]; level: 'reader' | 'editor' | 'manager' };
 
 const WRITE_TOOL_PERMISSIONS: Record<string, ToolPermission> = {
   // sales (案件・顧客・営業活動・タスク・見積・keep-report[イベント報告/議事録/月次予算])
@@ -273,7 +273,7 @@ const LEVEL_ORDER: Record<string, number> = { reader: 1, exporter: 1, editor: 2,
  * HTTP 側の `requireAnyPermission` と同じ考え方で、v4 で
  * 「受領書類は経理も日常業務も開ける」にしたのに合わせてある。
  */
-async function actorHasPermission(
+export async function actorHasPermission(
   userId: string,
   module: string | string[],
   minLevel: ToolPermission['level'],

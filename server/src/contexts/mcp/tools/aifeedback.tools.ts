@@ -11,6 +11,7 @@ import { FINANCE_DOC_INTAKE_KIND, INQUIRY_INTAKE_KIND } from '../../dailyops/ser
 import { GPM_PROJECT_DRAFT_KIND, GPM_TASK_DRAFT_KIND } from '../../gpm/services/gpm-ai-feedback.service';
 import { QSHEET_AI_KINDS, isQsheetAiKind } from '../../qsheet/ai/kinds';
 import { ok, runTool, actorContext } from '../helpers';
+import { actorHasPermission, type ToolPermission } from '../gate';
 
 // AI フィードバックの還流 (ai-feedback-loop Phase 4) — 読み取り専用。
 //
@@ -52,6 +53,68 @@ const KNOWN_KINDS = [
   GPM_TASK_DRAFT_KIND,
   ...QSHEET_AI_KINDS,
 ] as const;
+
+/**
+ * **kind ごとに要る権限**（Codex のセキュリティレビュー指摘・P1・PR #717）。
+ *
+ * ── なぜツール名の表（`gate.ts`）では足りないか ──────────────────
+ *
+ * `get_ai_feedback_digest` は**意図して権限ゲートに載せていません** —
+ * 取込スキルが実行前に必ず読む契約だからです（`docs/mcp-server.md`）。
+ * ところが digest は `recent_examples` に**人の修正の before / after をそのまま**
+ * 返します。`activity_intake` はその before / after が
+ * **取引先から届いたメールの本文まるごと**（最大 20,000 字）です。
+ *
+ * つまりツール名だけで見ていると、**権限ゼロの OAuth アカウントでも
+ * 顧客とのやり取り・連絡先・取引条件が読めます**。ゲートはツール名で効くので、
+ * **`kind` を見る判定はツールの中に置くしかありません**。
+ *
+ * ── 割り当ての根拠 ────────────────────────────────────────────
+ *
+ * **その kind を書く側のツールと同じモジュール**に揃えます（読める人＝書ける人）。
+ * 取込スキルは `create_activity_log`（`sales` の editor）を呼べる actor で動くので、
+ * ここで `sales` の reader を求めても**取込の実行は壊れません**。
+ *
+ * ここに**載っていない kind は今までどおり素通り**です（`task_intake` のような
+ * 個人スコープ、`ops_news_item` のような社内周知）。**黙って全部を塞がない** —
+ * 本番のメール取込スキルが最短1時間おきに叩いており、
+ * 塞ぎすぎると次の実行から落ちます。
+ */
+const KIND_PERMISSION: Record<string, ToolPermission> = {
+  // 中身が取引先とのやり取りそのもの（本文・件名・次にやること）
+  [ACTIVITY_INTAKE_KIND]: { module: 'sales', level: 'reader' },
+  [ACTIVITY_FORMAT_KIND]: { module: 'sales', level: 'reader' },
+  [NEXT_ACTION_SHORT_KIND]: { module: 'sales', level: 'reader' },
+  // 打合せの文字起こしと議事録（取引先との合意の記録）
+  [MINUTES_KIND]: { module: 'sales', level: 'reader' },
+  // 案件・見積・KPT（金額と取引条件）
+  estimate_draft: { module: 'sales', level: 'reader' },
+  [PROJECT_DRAFT_KIND]: { module: 'sales', level: 'reader' },
+  [KPT_DRAFT_KIND]: { module: 'sales', level: 'reader' },
+  [GPM_PROJECT_DRAFT_KIND]: { module: 'sales', level: 'reader' },
+  [GPM_TASK_DRAFT_KIND]: { module: 'sales', level: 'reader' },
+  // 取り込んだ情報・受領書類。**書く側の表（`gate.ts`）と同じモジュールにする**
+  [INQUIRY_INTAKE_KIND]: { module: 'dailyops', level: 'reader' },
+  [FINANCE_DOC_INTAKE_KIND]: { module: ['dailyops', 'sales'], level: 'reader' },
+};
+
+/**
+ * その kind を読んでよい actor か。足りなければ**理由を言って断る**
+ * （黙って空を返すと、AI は「傾向が無い」と読んで学習をやめます）。
+ *
+ * 静的 API キーは運用鍵として素通り（`gate.ts` の `enforceToolPermissions` と同じ扱い）。
+ */
+async function assertKindReadable(kind: string): Promise<void> {
+  const need = KIND_PERMISSION[kind];
+  if (!need) return;
+  const actor = actorContext.getStore();
+  if (!actor?.isOAuth) return;
+  if (await actorHasPermission(actor.actorId, need.module, need.level)) return;
+  const label = Array.isArray(need.module) ? need.module.join(' か ') : need.module;
+  throw new Error(
+    `権限が不足しています: kind='${kind}' の傾向を読むには「${label}」モジュールの ${need.level} 以上の権限が必要です`,
+  );
+}
 
 /**
  * qsheet 系 kind の `recent_examples` を落とす degrade（07-ai-proposals-impl.md §7-2 案B）。
@@ -156,6 +219,8 @@ export function registerAiFeedbackTools(server: McpServer): void {
     async (args) =>
       runTool(async () => {
         const kind = args.kind ?? 'estimate_draft';
+        // **kind を見てから断る**（ツール名だけのゲートでは足りない。上の注意書き）
+        await assertKindReadable(kind);
         const digest = await getFeedbackDigest(kind, args.window_days ?? 90, {
           segmentKey: args.segment_key, source: args.source,
         });
