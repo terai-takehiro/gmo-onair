@@ -22,15 +22,23 @@
  * ── 段B で足したもの ────────────────────────────────────────
  *
  * ページを追加する入口はここに**1つだけ**置く（見出しの右の `+`）。行の `+` は
- * その行を親にした追加で、どちらも同じ「ページを追加」を開く。
+ * その行を親にした追加で、どちらも同じ入口を開く。
  * **2つ目のナビの列も、2つ目の `☰` も作らない**（上のご指摘と同じ理由）。
+ *
+ * ── 段C で足したもの ────────────────────────────────────────
+ *
+ * `+` は「ページを追加」と「データベースを追加」の2つを出す（設計 §4-4 で
+ * データベースは `kind='database'` のページ＝ツリーの一員なので、入口も同じ `+`）。
+ * 絵柄を3つ並べず、1つの `+` から選ばせる。
  */
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus } from 'lucide-react';
-import type { WikiTreeNode } from '@gmo-onair/shared/src/wiki/types';
+import { FileText, Plus, Table2 } from 'lucide-react';
+import type { WikiPageKind, WikiTreeNode } from '@gmo-onair/shared/src/wiki/types';
 import WikiTree from '@/components/wiki/WikiTree';
 import PageCreateSheet from '@/components/page/PageCreateSheet';
+import WikiMoreMenu from '@/components/page/WikiMoreMenu';
+import DatabaseCreateSheet from '@/components/items/DatabaseCreateSheet';
 import { usePermissions } from '@/hooks/usePermissions';
 
 export interface WikiSpaceTreePanelProps {
@@ -50,13 +58,35 @@ export default function WikiSpaceTreePanel({
   currentId,
 }: WikiSpaceTreePanelProps) {
   const { canEdit } = usePermissions();
-  const [addOpen, setAddOpen] = useState(false);
-  const [addParentId, setAddParentId] = useState<string | null>(null);
+  /**
+   * 追加のシートは2つ（ページ／データベース）。**同時には開きません** —
+   * どちらを開いているかを `add.kind` で持ち、閉じたら両方が閉じます。
+   */
+  const [add, setAdd] = useState<{ kind: WikiPageKind | null; parentId: string | null }>({
+    kind: null,
+    parentId: null,
+  });
 
-  const openAdd = (parentId: string | null) => {
-    setAddParentId(parentId);
-    setAddOpen(true);
+  const openAdd = (parentId: string | null, kind: WikiPageKind) => {
+    setAdd({ kind, parentId });
   };
+  const closeAdd = () => setAdd((prev) => ({ ...prev, kind: null }));
+
+  /** 見出しの「＋」とツリーの行の「＋」で同じ2つを出す */
+  const addItems = (parentId: string | null) => [
+    {
+      key: 'add-page',
+      label: 'ページを追加',
+      icon: FileText,
+      onSelect: () => openAdd(parentId, 'page'),
+    },
+    {
+      key: 'add-database',
+      label: 'データベースを追加',
+      icon: Table2,
+      onSelect: () => openAdd(parentId, 'database'),
+    },
+  ];
 
   return (
     <div className="flex min-w-0 flex-col">
@@ -70,15 +100,13 @@ export default function WikiSpaceTreePanel({
           <span className="min-w-0 flex-1 truncate">{spaceName}</span>
         </Link>
         {canEdit && (
-          <button
-            type="button"
-            aria-label={`${spaceName} にページを追加`}
-            title="ページを追加"
-            onClick={() => openAdd(null)}
-            className="flex min-h-tap min-w-tap shrink-0 items-center justify-center rounded-control text-muted-foreground hover:bg-muted hover:text-foreground lg:h-7 lg:min-h-0 lg:w-7 lg:min-w-0"
-          >
-            <Plus className="h-4 w-4" aria-hidden />
-          </button>
+          <WikiMoreMenu
+            label={spaceName}
+            icon={Plus}
+            triggerLabel={`${spaceName} に追加`}
+            items={addItems(null)}
+            className="lg:h-7 lg:w-7"
+          />
         )}
       </div>
 
@@ -94,15 +122,21 @@ export default function WikiSpaceTreePanel({
           spaceKey={spaceKey}
           spaceName={spaceName}
           canEdit={canEdit}
-          onAddChild={(parentId) => openAdd(parentId)}
+          onAddChild={(parentId, kind) => openAdd(parentId, kind)}
         />
       </div>
 
       <PageCreateSheet
-        open={addOpen}
-        onOpenChange={setAddOpen}
+        open={add.kind === 'page'}
+        onOpenChange={(v) => { if (!v) closeAdd(); }}
         defaultSpaceKey={spaceKey}
-        defaultParentId={addParentId}
+        defaultParentId={add.parentId}
+      />
+      <DatabaseCreateSheet
+        open={add.kind === 'database'}
+        onOpenChange={(v) => { if (!v) closeAdd(); }}
+        defaultSpaceKey={spaceKey}
+        defaultParentId={add.parentId}
       />
     </div>
   );

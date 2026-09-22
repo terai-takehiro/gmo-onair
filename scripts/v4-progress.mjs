@@ -333,6 +333,44 @@ const TREE = [
       '保存する口だけ GPM 側に向けていて、サーバーは**プロジェクトの見積しか受け付けません**' +
       '（`gpm` だけの人に案件の金額を書かせない）'],
   ]],
+
+  // ── Wiki（新規・2026-09）──────────────────────────────────
+  //
+  // ⚠️ **既定の目印（`ui/pageHeader`）が使えない画面がある。** ページ・スペース・履歴・
+  //    データベースは3列を画面の端まで使うため `PageShell`/`PageHeader` を**意図して
+  //    使っていない**（`client-wiki/CLAUDE.md`「`PageShell` を使っていない画面がある」）。
+  //    そのままだと作ってあるのに ⬜ と誤判定されるので、行ごとに
+  //    **その画面にしかない部品**を目印に指定してある。
+  ['Wiki (新規)', [
+    ['① ホーム', '/wiki', 'client-wiki/src/pages/home/HomePage.tsx'],
+    ['② スペース', '/wiki/s/:key', 'client-wiki/src/pages/page/SpacePage.tsx', 'WikiSpaceTreePanel'],
+    ['③ ページ', '/wiki/p/:id', 'client-wiki/src/pages/page/PageViewPage.tsx', 'WikiMarkdown',
+      '**ナビの列は1本だけ**（利用者のご指摘「サイドタブが増えすぎて窮屈」）。スペースのツリーは' +
+      '共通の左メニューの中に差し込み（予定のミニカレンダーと同じ仕組み）、右の情報パネルは' +
+      '開閉式で既定は閉じ。閉じている間は目次と情報を本文の下に続けるので、どちらの状態でも' +
+      '情報に辿り着ける。本文の幅は 1440px で 860px（4列だった頃は 608px）'],
+    ['④ 編集', '/wiki/p/:id/edit', 'client-wiki/src/pages/editor/WikiEditorPage.tsx', 'WikiEditorToolbar',
+      '**素の textarea ＋ 右プレビュー**（設計の「Milkdown 第一候補」から変更）。' +
+      'ご指示「手入力の使いやすさを最優先」に対し、WYSIWYG は打つ端から構造を強いるうえ、' +
+      '本文の正が Markdown の文字列なので往復変換で黙って本文が変わる危険がある。' +
+      'ツールバーは6つだけで、打つのを止めて 1.5 秒で保存する'],
+    ['⑤ 履歴', '/wiki/p/:id/history', 'client-wiki/src/pages/history/HistoryPage.tsx', 'VersionDiff',
+      '2つの版を行単位で比べる画面なので **PC の画面**（`client-wiki/src/pcOnlyScreens.ts`）。' +
+      'スマホでは案内を出す'],
+    ['⑥ テンプレート', '/wiki/templates', 'client-wiki/src/pages/templates/TemplatesPage.tsx'],
+    ['⑦ データベース', '/wiki/p/:id（データベースのページ）',
+      'client-wiki/src/pages/database/DatabasePage.tsx', 'DatabaseViewArea',
+      '**行＝ページ**（Notion 型）。値は `wiki_pages.props`、項目とビューの定義は親ページ。' +
+      'ビューは表・ボード・カレンダーの3つ。スマホでは表を縦のカードにする'],
+    ['⑧ 検索', '/wiki/search', 'client-wiki/src/pages/search/SearchPage.tsx', undefined,
+      '**段D で作る。** 検索が弱いと AI の出典も弱いので、AI（段E）より先に作る（設計 §9）'],
+    ['⑨ AI に聞く', '/wiki/ask', 'client-wiki/src/pages/ask/AskPage.tsx', undefined,
+      '**段E で作る。** 出典が出せない質問には答えず「足りないページ」に登録する（判断8）'],
+    ['⑩ 見直し', '/wiki/review', 'client-wiki/src/pages/review/ReviewPage.tsx', undefined,
+      '**段F で作る。** 月1回の場（見直し予定／足りないページ／AI の直され方）。' +
+      '⚠️ 画面に「期限切れ」とは書かない — ページは予定日を過ぎても中身が無効にならない' +
+      '（利用者のご指摘）。バッジは「要見直し」'],
+  ]],
 ];
 
 /**

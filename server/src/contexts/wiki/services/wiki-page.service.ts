@@ -22,6 +22,7 @@ import { headingsText, extractPageLinks } from '../wiki-markdown';
 import { assertReadablePage, readableSpaceIds, type WikiUser } from './wiki-access.service';
 import { assertPageEditable } from './wiki-lock.service';
 import { breadcrumbOf } from './wiki-path.service';
+import { checkedRowProps } from './wiki-row-props';
 
 /** 閲覧の記録の入口（`wiki_page_views.via` の CHECK と同じ5つ） */
 export const WIKI_VIEW_VIA = ['tree', 'search', 'answer', 'link', 'favorite'] as const;
@@ -229,11 +230,13 @@ function pick<T>(given: T | undefined, current: T): T {
  *
  * 5. 編集ロック（§6-③）の確認。**本文・題を変える保存だけ**が対象です —
  *    担当・見直し予定・タグ（§6-② の情報の欄）は、他の人が編集中でも直せます
+ * 6. データベースの行なら、値（`props`）を親の項目定義で検査する（§5-3-6・段C）。
+ *    検査は `wiki-row-props.ts`（純関数の部分は `../wiki-props.ts` ＝画面との複製）。
+ *    ⚠️ **`props` を送ってきた保存だけ**が対象です — 本文だけを直した保存で
+ *    既にある値を検査し直すと、項目の型を変えた日に**本文を保存しただけで値が消えます**
  *
  * ⚠️ **まだやっていないこと**（段が来たら足す）:
  * - `ai_corrections` への差分（§5-3-4・§7-3）… 段E
- * - データベースの行の値の検査（§5-3-6。`shared/src/wiki/markdown.ts` の
- *   `sanitizeProps` と同じものをサーバー側にも写す）… 段C
  */
 export async function savePageInternal(
   pageId: string,
@@ -246,6 +249,15 @@ export async function savePageInternal(
   if (input.review_by != null && !/^\d{4}-\d{2}-\d{2}$/.test(input.review_by)) {
     throw new ValidationError('見直し期限は YYYY-MM-DD の形で入れてください');
   }
+
+  /*
+   * ⑥ データベースの行の値の検査（§5-3-6）。**トランザクションの外で先に**行います —
+   *    ONAiR リンクの相手を引く問い合わせが増えるので、行の錠を掴んだまま待たせません。
+   *    行でなければ渡された値がそのまま返ります（段A・段B の振る舞いを変えない）。
+   */
+  const checkedProps = input.props === undefined
+    ? undefined
+    : await checkedRowProps(pageId, input.props);
 
   await withTransaction(async (tx) => {
     // 同じページへの同時保存を直列にする（FOR UPDATE）。突き合わせだけでは、
@@ -282,7 +294,7 @@ export async function savePageInternal(
     const title = String(pick(input.title, cur.title)).trim();
     const body = String(pick(input.body_md, cur.body_md) ?? '');
     const status = String(pick(input.status, cur.status));
-    const props = pick(input.props, cur.props as Record<string, unknown>) ?? {};
+    const props = pick(checkedProps, cur.props as Record<string, unknown>) ?? {};
     const tags = pick(input.tags, cur.tags as string[]) ?? [];
     const rev = Number(cur.rev) + 1;
 

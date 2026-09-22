@@ -17,7 +17,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, FileText, Plus, Table2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import type { WikiTreeNode } from '@gmo-onair/shared/src/wiki/types';
+import type { WikiPageKind, WikiTreeNode } from '@gmo-onair/shared/src/wiki/types';
 import { Delayed, EmptyState, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { ancestorIdsOf, buildWikiTree, flattenWikiTree, type WikiTreeItem } from '@/lib/wikiTree';
 import WikiMoreMenu, { type WikiMenuItem } from '@/components/page/WikiMoreMenu';
@@ -44,7 +44,7 @@ export interface WikiTreeProps {
   /** 並べ替えと追加を出すか（editor 以上） */
   canEdit?: boolean;
   /** 行の `+`。押した行の id を親にしてページを追加する */
-  onAddChild?: (parentId: string) => void;
+  onAddChild?: (parentId: string, kind: WikiPageKind) => void;
 }
 
 interface DragState {
@@ -248,7 +248,7 @@ function RowActions({
   /** 端まで来ている行では「上へ」「下へ」を出さない（押しても何も起きないため） */
   ability: { up: boolean; down: boolean } | undefined;
   moving: boolean;
-  onAddChild?: (parentId: string) => void;
+  onAddChild?: (parentId: string, kind: WikiPageKind) => void;
   onStep: (dir: 'up' | 'down') => void;
   onOpenMove: () => void;
 }) {
@@ -259,17 +259,32 @@ function RowActions({
 
   return (
     <span className="flex shrink-0 items-center">
-      {onAddChild && (
-        <button
-          type="button"
-          aria-label={`${node.title} の下にページを追加`}
-          title="子ページを追加"
-          disabled={moving}
-          onClick={() => onAddChild(node.id)}
-          className="flex min-h-tap min-w-tap items-center justify-center rounded-control text-muted-foreground hover:bg-muted hover:text-foreground lg:h-7 lg:min-h-0 lg:w-7 lg:min-w-0"
-        >
-          <Plus className="h-3.5 w-3.5" aria-hidden />
-        </button>
+      {onAddChild && !moving && (
+        /*
+          「＋」は**2つの追加**を出す（設計 §4-4「データベースはページの一種」）。
+          ふつうのページとデータベースで入口を分けると、ツリーの行に小さな絵柄が
+          3つ並ぶので、1つの「＋」から選ばせる。
+        */
+        <WikiMoreMenu
+          label={node.title}
+          icon={Plus}
+          triggerLabel={`${node.title} の下に追加`}
+          compact
+          items={[
+            {
+              key: 'add-page',
+              label: 'ページを追加',
+              icon: FileText,
+              onSelect: () => onAddChild(node.id, 'page'),
+            },
+            {
+              key: 'add-database',
+              label: 'データベースを追加',
+              icon: Table2,
+              onSelect: () => onAddChild(node.id, 'database'),
+            },
+          ]}
+        />
       )}
       <WikiMoreMenu label={node.title} items={items} compact />
     </span>

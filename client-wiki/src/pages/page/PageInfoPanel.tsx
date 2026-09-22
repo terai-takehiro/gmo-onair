@@ -12,6 +12,7 @@ import { Link } from 'react-router-dom';
 import type { WikiPage } from '@gmo-onair/shared/src/wiki/types';
 import { usePermissions } from '@/hooks/usePermissions';
 import { OwnerField, ReviewByField, TagsField } from '@/components/page/PageInfoFields';
+import RowPropsFields from '@/components/items/RowPropsFields';
 import { stampLabel, revLabel } from '@/lib/wikiFormat';
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -32,6 +33,13 @@ export default function PageInfoPanel({ page }: { page: WikiPage }) {
       <Field label="担当"><OwnerField page={page} canEdit={canEdit} /></Field>
       <Field label="見直し予定"><ReviewByField page={page} canEdit={canEdit} /></Field>
       <Field label="タグ"><TagsField page={page} canEdit={canEdit} /></Field>
+
+      {/*
+        データベースの行（`kind='database'` のページの子）のときだけ、親で決めた
+        項目の値がここに並ぶ（§6-⑩「行を押すとその行ページ」）。
+        ふつうのページでは何も出ない（通信も起きない）
+      */}
+      <RowPropsFields page={page} canEdit={canEdit} />
 
       <Field label="スペース">{trail.join(' ／ ')}</Field>
       <Field label="作成">{stampLabel(page.created_at)} ・ {page.creator_name ?? '—'}</Field>
