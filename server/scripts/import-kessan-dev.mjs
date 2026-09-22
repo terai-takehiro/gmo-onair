@@ -450,12 +450,17 @@ async function main() {
             // 案件番号の履歴 (kessan-import.service.ts と同一ロジック)。ここで1行も
             // 残さないと、後でこの案件が改番される (renumberProject) とき「退役させる
             // 現役の番号」が project_numbers に見つからず、旧GLS番号が失われる
-            // (Codex レビュー指摘)。
+            // (Codex レビュー指摘)。scheme/entity_code は番号の見た目から判定する —
+            // 元帳の摘要は旧方式 (GLS137) に加え改番後の新方式 (SCS-0001 等) もそのまま
+            // 拾えるため、新方式まで一律 scheme='gls' にすると listRenumberCandidates()
+            // が「まだ改番していない」候補として誤って拾ってしまう (Codex レビュー指摘)。
+            const newSchemeMatch = key.match(/^(SCS|GSS|GMO)-\d+$/);
+            const numberEntityCode = newSchemeMatch ? newSchemeMatch[1] : null;
             await client.query(
               `INSERT INTO project_numbers (id, project_id, number, entity_code, scheme, assigned_at, assigned_by)
-               VALUES ($1,$2,$3,NULL,'gls',NOW(),$4)
+               VALUES ($1,$2,$3,$4,$5,NOW(),$6)
                ON CONFLICT (number) DO NOTHING`,
-              [randomUUID(), id, key, userId]
+              [randomUUID(), id, key, numberEntityCode, numberEntityCode ? 'entity' : 'gls', userId]
             );
           }
           p = { id, customer_id: cid };
