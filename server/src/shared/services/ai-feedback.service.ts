@@ -998,6 +998,31 @@ function newsAdvice(d: FeedbackDigest): string[] {
   return out;
 }
 
+/**
+ * **人が「書き足している」ことを AI に返す**（網羅不足の信号）。
+ *
+ * 人の直しには2種類あります — **書き換え**（AI が取り違えた）と
+ * **書き足し**（AI が落とした）。後者が多いなら、直すべきは正確さではなく
+ * **網羅**です。`fix` に混ぜていると、AI は「間違えないように」ばかりを
+ * 強め、**ますます短く安全な出力**になります（実際そうなっていました。
+ * 利用者からのご指摘「きわめて短いテキストでしか残らない」・2026-09）。
+ *
+ * 判定は**書き足しが書き換えより多い**ことだけを見ます。件数が少ないうちは
+ * 言わない（既存の「10件未満は断定しない」作法と同じ）。
+ */
+function thinAdvice(d: FeedbackDigest): string[] {
+  const out: string[] = [];
+  for (const f of d.top_corrected_field_types.slice(0, 3)) {
+    if (f.enrich < SMALL_SAMPLE_THRESHOLD) continue;
+    if (f.enrich <= f.fix) continue;
+    out.push(`${f.field_path} は「直された」より「人が書き足された」ほうが多い`
+      + `（書き足し${f.enrich}件 / 書き換え${f.fix}件）。**まとめが短すぎて、`
+      + `材料にあることを落としている**という信号です。`
+      + `正確さを落とさずに、拾う範囲を広げること（話題・条件・数字・依頼を数え上げる）。`);
+  }
+  return out;
+}
+
 function buildAdvice(d: FeedbackDigest): string[] {
   const out: string[] = [];
   // **行き先は「人が直したか」とは別の信号**なので、修正が1件も無くても出す。
@@ -1025,6 +1050,9 @@ function buildAdvice(d: FeedbackDigest): string[] {
   // 出力件数で割ると 400% のような読めない数字になる。下書き件数で割る。
   const denom = d.intake?.drafts_total || d.reviewed_outputs;
   const denomLabel = d.intake?.drafts_total ? '下書き件数比' : 'レビュー件数比';
+  // **網羅不足の信号を、個別のフィールドの話より先に出す。**
+  // 「短い」が原因のときは、フィールドごとの直し方より先にこちらを読ませたい
+  out.push(...thinAdvice(d));
   for (const f of d.top_corrected_field_types.slice(0, 3)) {
     const share = denom > 0 ? Math.min(100, Math.round((f.corrections / denom) * 100)) : 0;
     const kinds: string[] = [];

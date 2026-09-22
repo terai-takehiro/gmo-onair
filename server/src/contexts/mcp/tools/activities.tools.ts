@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { activityLogService } from '../../sales/services/activity-log.service';
+import {
+  activityLogService, ACTIVITY_INTAKE_KIND, ACTIVITY_INTAKE_PROMPT_VERSION,
+} from '../../sales/services/activity-log.service';
+import { recordAiOutput } from '../../../shared/services/ai-output.service';
+import { MAX_ACTIVITY_CHARS } from '../../sales/services/activity-ai.service';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { ok, runTool, clampLimit, pagination, audit, REQUESTED_BY } from '../helpers';
 /**
@@ -145,7 +149,11 @@ export function registerActivityTools(server: McpServer): void {
         '次のアクションが決まっている場合は next_action / next_action_date を必ず記録する。' +
         '**メール自動取込では idempotency_key を必ず渡すこと** — 同じキーの記録が既にあれば再作成せず既存を返す (無人バッチの二重登録防止)。' +
         'message_id (由来メールの Message-ID) / source_channel (info@ 等) も分かれば渡す。同じメールから案件と活動記録を両方起票するときは ' +
-        'idempotency_key を意図別に (例 "email:<Message-ID>:project" と "email:<Message-ID>:activity") 分けること。',
+        'idempotency_key を意図別に (例 "email:<Message-ID>:project" と "email:<Message-ID>:activity") 分けること。' +
+        '**長い本文を複数の記録に分けるときは、キーにも通し番号を付けること** ' +
+        '(例 ":activity:1" / ":activity:2") — 同じキーのままだと2件目以降が既存扱いで黙って捨てられる。' +
+        '**description は要約せず本文をそのまま渡すこと** — 読める形に整えるのはサーバー側の整形器で、' +
+        'ここで縮めると二重に縮んで画面に数行しか残らない (subject だけは短い言い切りでよい)。',
       inputSchema: {
         user_id: z.string().min(1).describe('活動した担当者の users.id (必須)'),
         activity_type: z.enum(ACTIVITY_TYPES),
@@ -153,11 +161,38 @@ export function registerActivityTools(server: McpServer): void {
         subject: z.string().min(1).describe('件名'),
         project_id: z.string().optional().describe('関連する案件 ID (任意)'),
         customer_id: z.string().optional().describe('関連する顧客 ID (任意)'),
-        description: z.string().optional().describe('活動内容の詳細'),
+        /*
+         * ⚠️ **上限は describe に書くだけでなく、ここで止めます**（Codex レビューでの指摘）。
+         *
+         * 止めないと、長すぎる本文でも**記録は作られてしまい**、あとから整形器が
+         * `MAX_ACTIVITY_CHARS` で断って `format_error` を立てます。
+         * つまり**整わない記録が静かに1件増えるだけ**で、呼んだ側は
+         * 「分けて記録する」という正しい動きを取れません。
+         *
+         * **数字を書き写さない** — 整形器の上限（`MAX_ACTIVITY_CHARS`）そのものを使います。
+         * 書き写すと、片方を動かした日にもう片方が黙って食い違います。
+         */
+        description: z.string().max(
+          MAX_ACTIVITY_CHARS,
+          `本文が長すぎます（上限 ${MAX_ACTIVITY_CHARS.toLocaleString()} 字）。要約せず、記録を分けてください`,
+        ).optional().describe(
+          '活動内容の本文。**要約しないこと。** メール取込なら、署名・引用返信・'
+          + '定型文・フッターを除いた本文を**そのまま**入れる（往復があるなら往復のまま）。'
+          + '読める形（状態・事実・誰の発言か）に分けるのは**サーバー側の整形器の仕事**で、'
+          + 'ここで縮めると**縮んだものをさらに縮める**ことになり、画面には数行しか残らない。'
+          + `上限 ${MAX_ACTIVITY_CHARS.toLocaleString()} 字（超えるとエラーになります。要約せず、記録を分けること。`
+          + '**分けるときは idempotency_key にも通し番号を付ける** — 同じキーだと2件目が捨てられます）',
+        ),
         next_action: z.string().optional().describe('次回アクション'),
         next_action_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('次回アクション予定日'),
         idempotency_key: z.string().max(200).optional()
-          .describe('冪等キー (メール取込は必須推奨。意図単位で一意に。例 "email:<Message-ID>:activity")。同じキーが既存なら再作成しない'),
+          .describe(
+            '冪等キー (メール取込は必須推奨。意図単位で一意に。例 "email:<Message-ID>:activity")。'
+            + '同じキーが既存なら再作成しない。'
+            + '⚠️ **長い本文を分けて記録するときは、キーにも通し番号を付けること** '
+            + '(例 "email:<Message-ID>:activity:1" / ":2")。'
+            + '同じキーのままだと**2件目以降が既存扱いで黙って捨てられます**',
+          ),
         message_id: z.string().max(500).optional().describe('由来メールの Message-ID (紐付け・検索用)'),
         source_channel: z.string().max(100).optional().describe('流入チャネル (info@ / sales@cc / phone 等)'),
         ...REQUESTED_BY,
@@ -201,6 +236,42 @@ export function registerActivityTools(server: McpServer): void {
           [args.idempotency_key ?? null, args.message_id ?? null, args.source_channel ?? null, row.id],
         );
       }
+      /*
+       * **外の AI が書いたものを全文で残す**（会社方針「AIを使い捨てにしない」条件1）。
+       *
+       * ⚠️ **`mcp_audit_log` では代わりになりません。** あちらは args を 1,000 字で
+       * 切り詰めるので、**長い本文ほど中身が消えます**（`ai-output.service` の冒頭）。
+       * 取込の失敗はまさに「本文が短い／落ちている」なので、切り詰めた記録では
+       * **確かめたいことがちょうど見えません**。
+       *
+       * `model` は入れられません（どの Claude がこのスキルを動かしたかはサーバーから
+       * 分からない）。代わりに **contract の版**（`.describe()` の版）を持ちます —
+       * 直した効果は `prompt_version` ごとの無修正採用率で比べます。
+       *
+       * **best-effort。** 記録に失敗しても取込そのものは成功させる。
+       */
+      await recordAiOutput({
+        kind: ACTIVITY_INTAKE_KIND,
+        targetTable: 'activity_logs',
+        targetId: row.id,
+        payload: {
+          subject: args.subject,
+          description: args.description ?? null,
+          next_action: args.next_action ?? null,
+          next_action_date: args.next_action_date ?? null,
+          activity_type: args.activity_type,
+          activity_date: args.activity_date,
+          // **本文の長さを添える**。整形側の `coverage.inputChars` と突き合わせると、
+          // 「短いのは取り込んだ本文か、整えた結果か」がその場で分かる
+          description_chars: typeof args.description === 'string' ? args.description.length : 0,
+        },
+        toolName: 'create_activity_log',
+        promptVersion: ACTIVITY_INTAKE_PROMPT_VERSION,
+        requestedBy: args.requested_by,
+        messageId: args.message_id ?? null,
+        sourceChannel: args.source_channel ?? null,
+      });
+
       audit('create_activity_log', args, { created_id: row.id, subject: args.subject }, args.requested_by);
       return ok({ created: true, activity_log: { ...row, idempotency_key: args.idempotency_key ?? null, message_id: args.message_id ?? null, source_channel: args.source_channel ?? null } });
     }),
@@ -218,7 +289,13 @@ export function registerActivityTools(server: McpServer): void {
         subject: z.string().min(1).optional(),
         project_id: z.string().nullable().optional(),
         customer_id: z.string().nullable().optional(),
-        description: z.string().nullable().optional(),
+        description: z.string().nullable().optional()
+          .describe('本文。**原文を縮めて上書きしないこと** — ここは「打った文をみる」で'
+            + '読み返される元の記録。縮めると元に戻せない。'
+            + 'ここを差し替えると**整形結果（body_struct）は捨てられ、待ち行列で作り直されます**'
+            + '（作り直しは裏で走るので、直後は原文のまま見えます）。'
+            + 'ただし人が書いた本文の行（body_html があり AI の印が無い）は、'
+            + '待ち行列の対象外なので整形結果を残します'),
         next_action: z.string().nullable().optional().describe('null で「次回アクション完了 (解除)」'),
         next_action_date: z.string().nullable().optional(),
         ...REQUESTED_BY,

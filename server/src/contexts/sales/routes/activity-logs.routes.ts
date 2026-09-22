@@ -143,8 +143,12 @@ router.post('/', requirePermission('sales', 'editor'), async (req, res) => {
 router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
   res.json({
     success: true,
-    // 直した人を渡す。**AI が整えた行を人が直した差分**の「誰が」に入る（条件2）
-    data: await activityLogService.update(req.params.id as string, req.body, req.user!.id),
+    // 直した人を渡す。**AI が整えた行を人が直した差分**の「誰が」に入る（条件2）。
+    // `humanReview` は**この経路だけ**が渡す — MCP の `update_activity_log` は
+    // 機械の更新なので、渡すと無修正採用率が嘘になる（service 側の注意書き）
+    data: await activityLogService.update(
+      req.params.id as string, req.body, req.user!.id, { humanReview: true },
+    ),
   });
 });
 
