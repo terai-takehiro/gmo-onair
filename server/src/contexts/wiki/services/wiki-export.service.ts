@@ -154,9 +154,21 @@ export async function exportSpaceZip(user: WikiUser, spaceKey: string): Promise<
     );
   }
 
+  /*
+   * ⚠️ **親が書き出しに入っていないページは、根に置きます。**
+   *
+   * 下書きの親の下に公開のページがあると（親を下書きのまま作って、子だけ公開した形）、
+   * 親は `status <> 'draft'` で落ちるので、子の `parent_id` はどこにも無い id になります。
+   * 「親と同じ名前のフォルダ」を作る相手が居ないため、**そのページは zip に1本も
+   * 書かれないのに README の件数には入っている**（＝黙って消える）状態でした。
+   * 根に上げれば中身は落ちません（親子の形は戻せませんが、親そのものを
+   * 書き出さない以上ほかに置き場がありません）。検証用 Postgres で実測して見つけました。
+   */
+  const exported = new Set(pages.map((p) => String(p.id)));
   const byParent = new Map<string, Row[]>();
   for (const page of pages) {
-    const key = page.parent_id ? String(page.parent_id) : '';
+    const parent = page.parent_id ? String(page.parent_id) : '';
+    const key = parent && exported.has(parent) ? parent : '';
     const list = byParent.get(key) ?? [];
     list.push(page);
     byParent.set(key, list);

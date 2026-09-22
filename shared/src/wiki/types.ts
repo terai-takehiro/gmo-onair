@@ -260,6 +260,24 @@ export interface WikiSearchHit {
   score: number;
 }
 
+/** スペースごとの当たりの数（絞り込みの列に添える） */
+export interface WikiSearchSpaceCount {
+  space_id: string;
+  count: number;
+}
+
+/**
+ * 検索の返り。
+ *
+ * ⚠️ **件数（`counts`）は上限で切る前の数**です。`hits` だけを数えると、
+ * 当たりが上限を超えたときに**下位のスペースが 0件に見えて**絞り込みの列から
+ * 消えます（Codex の指摘・P2）。
+ */
+export interface WikiSearchResult {
+  hits: WikiSearchHit[];
+  counts: WikiSearchSpaceCount[];
+}
+
 export interface WikiSearchQuery {
   q: string;
   spaceId?: string;

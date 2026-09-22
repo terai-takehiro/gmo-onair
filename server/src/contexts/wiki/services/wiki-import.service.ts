@@ -26,7 +26,7 @@ import { getSpaceByKey } from './wiki-space.service';
 import { createPage } from './wiki-write.service';
 import { setPageKind, putDatabase } from './wiki-database.service';
 import { defaultTableView } from './wiki-database-schema';
-import { saveWikiFile } from './wiki-file.service';
+import { saveWikiFile, attachWikiFileToPage } from './wiki-file.service';
 import { DATABASE_NOTE_MARKER } from './wiki-export.service';
 import {
   buildImportPlan,
@@ -35,6 +35,7 @@ import {
   parseCsv,
   baseName,
   type ImportNode,
+  type CsvDatabase,
 } from './wiki-import-parse';
 import { collectAssetRefs, rewriteAssetLinks } from './wiki-import-assets';
 
@@ -147,7 +148,25 @@ export async function importZip(
   if (paths.length === 0) throw new ValidationError('zip の中にファイルがありません。');
 
   const plan = buildImportPlan(paths);
-  const planned = countNodes(plan);
+
+  /*
+   * ⚠️ **CSV の行も上限に数えます。**
+   * `countNodes` は zip の中のフォルダとファイルを数えるだけなので、
+   * CSV は「1件」にしかなりません。ところが**行はあとで1行＝1ページ**になるため、
+   * 10万行の CSV を1枚入れた小さな zip が上限（${MAX_IMPORT_PAGES}）をすり抜け、
+   * **取り込みは途中で止められない**まま DB に大量の書き込みを流していました
+   * （Codex の指摘・P1）。数えるために CSV を先に読み、その結果は使い回します
+   * （同じ zip を2度読まない）。
+   */
+  const csvByPath = new Map<string, CsvDatabase>();
+  for (const csvPath of collectCsvPaths(plan)) {
+    const entry = zip.file(csvPath);
+    if (!entry) continue;
+    csvByPath.set(csvPath, csvToDatabase(parseCsv(await entry.async('string'))));
+  }
+  const csvRows = [...csvByPath.values()].reduce((n, db) => n + db.rows.length, 0);
+
+  const planned = countNodes(plan) + csvRows;
   if (planned > MAX_IMPORT_PAGES) {
     throw new ValidationError(
       `ページが ${MAX_IMPORT_PAGES} 件を超えています。フォルダを分けてからお試しください。`,
@@ -181,24 +200,42 @@ export async function importZip(
   for (const md of mdByPath.values()) {
     for (const ref of collectAssetRefs(md.body, md.dir, has, byBase)) wanted.add(ref);
   }
-  const urlByPath = new Map<string, string>();
+  const savedByPath = new Map<string, { id: string; url: string }>();
   for (const p of wanted) {
     try {
       const buf = await zip.file(p)!.async('nodebuffer');
       const saved = await saveWikiFile(user.id, { originalname: baseName(p), buffer: buf }, null);
-      urlByPath.set(p, String(saved.url));
+      savedByPath.set(p, { id: String(saved.id), url: String(saved.url) });
     } catch {
       // 形式が違う・壊れている画像で取り込みごと止めない（本文のリンクはそのまま残る）
     }
   }
-  const urlOf = (p: string) => urlByPath.get(p) ?? null;
+  const urlOf = (p: string) => savedByPath.get(p)?.url ?? null;
+
+  /*
+   * ⚠️ **上げた画像は、その本文のページに必ず付け直します。**
+   * `page_id` が空のままだと `GET /wiki/files/:id` の読む権限の判定が効かず、
+   * 限定のスペースへ取り込んだ画像を**誰でも取れて**しまいます（Codex の指摘・P1）。
+   * 1枚の画像を複数のページが指しているときは**最初に作ったページ**の持ち物にします
+   * （読めるかどうかは同じスペースなので、どちらに付けても判定は変わりません）。
+   */
+  const attachedPaths = new Set<string>();
+  const attachAssets = async (md: LoadedMd | undefined, pageId: string): Promise<void> => {
+    if (!md) return;
+    for (const ref of collectAssetRefs(md.body, md.dir, has, byBase)) {
+      const saved = savedByPath.get(ref);
+      if (!saved || attachedPaths.has(ref)) continue;
+      attachedPaths.add(ref);
+      await attachWikiFileToPage(saved.id, pageId);
+    }
+  };
 
   const result: WikiImportResult = {
     space_key: String(space.key),
     pages: 0,
     databases: 0,
     rows: 0,
-    files: urlByPath.size,
+    files: savedByPath.size,
   };
 
   const bodyFor = (md: LoadedMd | undefined): string => (
@@ -223,6 +260,8 @@ export async function importZip(
     });
     result.pages += 1;
     const pageId = String(page.id);
+    await attachAssets(md, pageId);
+    await attachAssets(dbMd, pageId);
 
     if (!isDatabase) {
       for (const child of node.children) await create(child, pageId);
@@ -231,9 +270,8 @@ export async function importZip(
 
     // データベース: 項目とビューを入れてから行（子ページ）を作る
     const fromJson = dbMd ? readDatabaseJson(dbMd.body) : null;
-    const fromCsv = node.csvPath
-      ? csvToDatabase(parseCsv(await zip.file(node.csvPath)!.async('string')))
-      : null;
+    // 上限を数えるときに読んで持っています（同じ zip を2度読まない）
+    const fromCsv = node.csvPath ? csvByPath.get(node.csvPath) ?? null : null;
     const items = fromJson?.items ?? fromCsv?.items ?? [];
     const views = fromJson?.views ?? [];
     await setPageKind(user, pageId, 'database');
@@ -245,28 +283,35 @@ export async function importZip(
 
     /*
      * 行の本文は同じ題の `.md` から採ります（Notion は CSV と行の `.md` の両方を出す）。
-     * ⚠️ **使った `.md` は「その節を覚える」形で外します**（題では外しません）——
-     * 同じ題の行が2つあると、題を鍵にすると片方が丸ごと落ちます。
+     * ⚠️ **題ごとに「待ち行列」を持ち、1行につき1枚ずつ取り出します。**
+     * 題を鍵に1枚だけ覚える作りだと、同じ題の行が2つあるときに
+     * ①2行目が1行目の本文を**そのまま写し**、②使われなかった `.md` が下の
+     * 取りこぼしの輪で**余分な3行目**になっていました（Codex の指摘・P1）。
      */
-    const mdByName = new Map<string, ImportNode>();
+    const mdQueueByName = new Map<string, ImportNode[]>();
     for (const child of node.children) {
-      if (child.mdPath && !mdByName.has(child.name)) mdByName.set(child.name, child);
+      if (!child.mdPath) continue;
+      const queue = mdQueueByName.get(child.name);
+      if (queue) queue.push(child);
+      else mdQueueByName.set(child.name, [child]);
     }
     const consumed = new Set<ImportNode>();
 
     if (fromCsv) {
       for (const row of fromCsv.rows) {
-        const child = mdByName.get(row.title);
+        const child = mdQueueByName.get(row.title)?.shift();
         if (child) consumed.add(child);
-        await createPage(user, {
+        const childMd = child?.mdPath ? mdByPath.get(child.mdPath) : undefined;
+        const rowPage = await createPage(user, {
           space_id: String(space.id),
           parent_id: pageId,
           title: row.title || '無題の行',
-          body_md: bodyFor(child?.mdPath ? mdByPath.get(child.mdPath) : undefined),
+          body_md: bodyFor(childMd),
           status,
           props: row.props,
           note: '取り込みで追加',
         });
+        await attachAssets(childMd, String(rowPage.id));
         result.rows += 1;
         result.pages += 1;
       }
@@ -275,7 +320,7 @@ export async function importZip(
     for (const child of node.children) {
       if (!child.mdPath || consumed.has(child)) continue;
       const childMd = mdByPath.get(child.mdPath);
-      await createPage(user, {
+      const leftover = await createPage(user, {
         space_id: String(space.id),
         parent_id: pageId,
         title: childMd?.title ?? child.name,
@@ -285,6 +330,7 @@ export async function importZip(
         tags: tagsOf(childMd?.data ?? {}),
         note: '取り込みで追加',
       });
+      await attachAssets(childMd, String(leftover.id));
       result.rows += 1;
       result.pages += 1;
     }
@@ -294,9 +340,19 @@ export async function importZip(
   return result;
 }
 
-/** 作る枚数を数える（上限の判定に使う。行は数えきれないので目安） */
+/** 作る枚数を数える（上限の判定に使う。**CSV の行は呼ぶ側が足す**） */
 function countNodes(nodes: ImportNode[]): number {
   let n = 0;
   for (const node of nodes) n += 1 + countNodes(node.children);
   return n;
+}
+
+/** 計画の中の CSV の道（上限を数えるために先に読む） */
+function collectCsvPaths(nodes: ImportNode[]): string[] {
+  const out: string[] = [];
+  for (const node of nodes) {
+    if (node.csvPath) out.push(node.csvPath);
+    out.push(...collectCsvPaths(node.children));
+  }
+  return out;
 }

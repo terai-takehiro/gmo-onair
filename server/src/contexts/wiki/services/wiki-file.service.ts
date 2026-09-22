@@ -107,6 +107,21 @@ export async function saveWikiFile(
   };
 }
 
+/**
+ * 上げ終わった画像を、あとから決まったページに付ける（取り込みで使う）。
+ *
+ * ⚠️ **`page_id` が空のままだと、読む権限の判定が効きません**（`files.routes.ts` は
+ * ページが決まっている画像だけ `canReadPage` を通す）。取り込みは本文が指している
+ * 画像を、その本文のページに付け直してから URL を配ります。
+ * **すでに付いている画像は動かしません**（先に書いたページの持ち物のまま）。
+ */
+export async function attachWikiFileToPage(fileId: string, pageId: string): Promise<void> {
+  await execute(
+    'UPDATE wiki_files SET page_id = ? WHERE id = ? AND page_id IS NULL',
+    [pageId, fileId],
+  );
+}
+
 /** 本文に書く URL。**画面はこれを組み立て直さないこと**（1か所で決める） */
 export function wikiFileUrl(id: string): string {
   return `/api/v1/internal/wiki/files/${id}`;

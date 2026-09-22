@@ -37,7 +37,7 @@ function numParam(raw: unknown): number | undefined {
 }
 
 router.get('/search', ...canRead, wrap(async (req, res) => {
-  const hits = await searchPages(req.user!, {
+  const result = await searchPages(req.user!, {
     q: p1(req.query.q as string | string[] | undefined),
     spaceId: p1(req.query.spaceId as string | string[] | undefined) || undefined,
     tags: listParam(req.query.tags),
@@ -45,7 +45,8 @@ router.get('/search', ...canRead, wrap(async (req, res) => {
     updatedWithinDays: numParam(req.query.updatedWithinDays),
     limit: numParam(req.query.limit),
   });
-  res.json({ success: true, data: hits });
+  // `{ hits, counts }` で返します（件数は上限で切る前の数・`wiki-search.service.ts`）
+  res.json({ success: true, data: result });
 }));
 
 router.post('/pages/:id/favorite', ...canRead, wrap(async (req, res) => {

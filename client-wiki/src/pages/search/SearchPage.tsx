@@ -33,8 +33,6 @@ import WikiRecentPages from '@/components/search/WikiRecentPages';
 import {
   EMPTY_FILTERS,
   activeFilterLabels,
-  applySpaceFilter,
-  countBySpace,
   type WikiSearchFilters,
 } from '@/components/search/searchFilters';
 
@@ -76,8 +74,15 @@ export default function SearchPage() {
 
   const spacesQ = useWikiSpaces();
   const usersQ = useOnairUsers();
+  /*
+   * ⚠️ **スペースもサーバーに渡します。** 画面で当て直していたころは、当たりが
+   * 上限（`LIMIT`）を超えると**下位のスペースのページがそもそも届かず**、
+   * 絞り込んでも出ない・件数が 0件 に見えていました（Codex の指摘・P2）。
+   * 件数（`counts`）はサーバーが**スペースの絞り込みを外して・上限で切る前に**数えます。
+   */
   const searchQ = useWikiSearch({
     q,
+    spaceId: filters.spaceId || undefined,
     tags: tag ? [tag] : undefined,
     ownerId: filters.ownerId || undefined,
     updatedWithinDays: filters.withinDays || undefined,
@@ -85,9 +90,15 @@ export default function SearchPage() {
   });
 
   const terms = useMemo(() => splitTerms(q), [q]);
-  const all = useMemo(() => searchQ.data ?? [], [searchQ.data]);
-  const counts = useMemo(() => countBySpace(all), [all]);
-  const hits = useMemo(() => applySpaceFilter(all, filters.spaceId), [all, filters.spaceId]);
+  const hits = useMemo(() => searchQ.data?.hits ?? [], [searchQ.data]);
+  const counts = useMemo(
+    () => new Map((searchQ.data?.counts ?? []).map((c) => [c.space_id, c.count])),
+    [searchQ.data],
+  );
+  const total = useMemo(
+    () => (searchQ.data?.counts ?? []).reduce((n, c) => n + c.count, 0),
+    [searchQ.data],
+  );
   const labels = activeFilterLabels(filters, spacesQ.data, usersQ.data);
 
   const clearFilters = () => setFilters(EMPTY_FILTERS);
@@ -123,15 +134,15 @@ export default function SearchPage() {
         spaces={spacesQ.data}
         users={usersQ.data}
         counts={counts}
-        total={all.length}
+        total={total}
         showCounts={hasResult}
       />
 
       {hasResult && (
         <p className="max-w-4xl text-sub text-secondary-foreground">
-          <strong className="font-number font-bold">{hits.length}件</strong>
+          <strong className="font-number font-bold">{filters.spaceId ? hits.length : total}件</strong>
           {terms.length >= 2 ? ` ・ ${terms.length}語すべてを含むページ` : ''}
-          {all.length >= LIMIT ? ` ・ 上位${LIMIT}件まで` : ''}
+          {hits.length >= LIMIT ? ` ・ 上位${LIMIT}件まで` : ''}
           {' ・ 公開されているページだけが出ます（下書きは出ません）'}
           {searching ? ' ・ 検索中…' : ''}
         </p>
@@ -146,7 +157,7 @@ export default function SearchPage() {
             spaces={spacesQ.data}
             users={usersQ.data}
             counts={counts}
-            total={all.length}
+            total={total}
           />
         )}
 

@@ -15,12 +15,18 @@
  * 変わらない絞り込みになります（「状態」を画面に置いていないのも同じ理由。
  * 下書きはそもそも検索に出ません・§7-5）。
  *
- * **スペースの絞り込みはここから渡しません。** 絞り込みの列にスペースごとの
- * 件数を出すには、スペースで絞る前の結果が要るためです（モック `Search.dc.html`
- * も同じで、件数は結果から数えています）。画面側で選んだスペースだけを残します。
+ * ⚠️ **スペースの絞り込みもここから渡します。** 以前は渡さずに画面側で当て直して
+ * いましたが、当たりが上限（50件）を超えると**下位のスペースのページがそもそも
+ * 届かず**、絞り込んでも出ない・件数が 0件 に見える、という穴がありました
+ * （Codex の指摘・P2）。いまはサーバーが**上限で切る前に**絞り込み、
+ * 絞り込みの列に出す件数（`counts`）は**スペースの絞り込みを外して**別に数えます。
  */
 import { useQuery, keepPreviousData, type UseQueryOptions } from '@tanstack/react-query';
-import type { WikiSearchHit } from '@gmo-onair/shared/src/wiki/types';
+import type {
+  WikiSearchHit,
+  WikiSearchResult,
+  WikiSearchSpaceCount,
+} from '@gmo-onair/shared/src/wiki/types';
 import api from '@/lib/api';
 
 export const WIKI_SEARCH_URL = {
@@ -31,6 +37,8 @@ export const WIKI_SEARCH_URL = {
 /** 画面から渡せる絞り込み（`WikiSearchQuery` のうち、この画面が使うもの） */
 export interface WikiSearchInput {
   q: string;
+  /** スペース（`wiki_spaces.id`）。**サーバーが上限で切る前に絞ります** */
+  spaceId?: string;
   /** タグ名がそのまま一致するページだけ */
   tags?: string[];
   /** 担当（`users.id`） */
@@ -43,31 +51,41 @@ export interface WikiSearchInput {
 
 export const wikiSearchKeys = {
   search: (v: WikiSearchInput) =>
-    ['wiki', 'search', v.q, (v.tags ?? []).join(','), v.ownerId ?? '', v.updatedWithinDays ?? 0, v.limit ?? 0] as const,
+    [
+      'wiki', 'search', v.q, v.spaceId ?? '', (v.tags ?? []).join(','),
+      v.ownerId ?? '', v.updatedWithinDays ?? 0, v.limit ?? 0,
+    ] as const,
 };
 
-async function fetchHits(v: WikiSearchInput, signal?: AbortSignal): Promise<WikiSearchHit[]> {
-  const res = await api.get<{ success: boolean; data: WikiSearchHit[] | { hits?: WikiSearchHit[] } }>(
-    WIKI_SEARCH_URL.search,
-    {
-      signal,
-      params: {
-        q: v.q,
-        tags: v.tags && v.tags.length > 0 ? v.tags.join(',') : undefined,
-        ownerId: v.ownerId || undefined,
-        updatedWithinDays: v.updatedWithinDays || undefined,
-        limit: v.limit || undefined,
-      },
+const EMPTY: WikiSearchResult = { hits: [], counts: [] };
+
+async function fetchSearch(v: WikiSearchInput, signal?: AbortSignal): Promise<WikiSearchResult> {
+  const res = await api.get<{
+    success: boolean;
+    data: WikiSearchHit[] | { hits?: WikiSearchHit[]; counts?: WikiSearchSpaceCount[] };
+  }>(WIKI_SEARCH_URL.search, {
+    signal,
+    params: {
+      q: v.q,
+      spaceId: v.spaceId || undefined,
+      tags: v.tags && v.tags.length > 0 ? v.tags.join(',') : undefined,
+      ownerId: v.ownerId || undefined,
+      updatedWithinDays: v.updatedWithinDays || undefined,
+      limit: v.limit || undefined,
     },
-  );
+  });
   const data = res.data?.data;
-  // 配列で返る形が正。包まれて返っても一覧を描く手前で落とさない
-  if (Array.isArray(data)) return data;
-  return Array.isArray(data?.hits) ? data.hits : [];
+  // `{ hits, counts }` が正。配列で返っても一覧を描く手前で落とさない
+  if (Array.isArray(data)) return { hits: data, counts: [] };
+  if (!data) return EMPTY;
+  return {
+    hits: Array.isArray(data.hits) ? data.hits : [],
+    counts: Array.isArray(data.counts) ? data.counts : [],
+  };
 }
 
 type Opts = Omit<
-  UseQueryOptions<WikiSearchHit[], Error, WikiSearchHit[], readonly unknown[]>,
+  UseQueryOptions<WikiSearchResult, Error, WikiSearchResult, readonly unknown[]>,
   'queryKey' | 'queryFn'
 >;
 
@@ -83,7 +101,7 @@ export function useWikiSearch(v: WikiSearchInput, opts?: Opts) {
   return useQuery({
     queryKey: wikiSearchKeys.search({ ...v, q }),
     enabled: q.length > 0,
-    queryFn: ({ signal }) => fetchHits({ ...v, q }, signal),
+    queryFn: ({ signal }) => fetchSearch({ ...v, q }, signal),
     placeholderData: keepPreviousData,
     staleTime: 30_000,
     ...opts,

@@ -63,14 +63,3 @@ export function activeFilterLabels(
   return out;
 }
 
-/** スペースごとの件数（絞り込む前の結果から数える。モックと同じ） */
-export function countBySpace(hits: WikiSearchHit[]): Map<string, number> {
-  const m = new Map<string, number>();
-  for (const h of hits) m.set(h.space_id, (m.get(h.space_id) ?? 0) + 1);
-  return m;
-}
-
-/** スペースの絞り込みだけは画面で当てる（件数を出すため。`searchApi.ts` の冒頭） */
-export function applySpaceFilter(hits: WikiSearchHit[], spaceId: string): WikiSearchHit[] {
-  return spaceId ? hits.filter((h) => h.space_id === spaceId) : hits;
-}

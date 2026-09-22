@@ -45,6 +45,15 @@ const CASES: Array<{ fm: WikiFrontMatter; body: string }> = [
     body: '行の本文',
   },
   { fm: { title: '項目が空', props: {} }, body: '本文' },
+  // ⚠️ コンマを含む値（Codex の指摘・P2）。往復でタグが割れていた
+  { fm: { title: 'コンマ入りのタグ', tags: ['R&D, Japan', '通常'] }, body: '本文' },
+  {
+    fm: {
+      title: 'コンマ入りの項目',
+      props: { it_text: 'あ, い', it_multi: ['甲, 乙', '丙'] },
+    },
+    body: '本文',
+  },
 ];
 
 /** 取り込みで受ける形（書き出したもの・Obsidian・Notion・壊れたもの） */
@@ -61,6 +70,10 @@ const MD_INPUTS: string[] = [
   '---\ntitle: 数字と真偽\nreview_by: 2026-12-31\nstatus: published\n---\n本文',
   '---\n---\n本文だけ（見出しが空）',
   '本文の途中に\n---\ntitle: これは見出しではない\n---\nがある',
+  // 引用符の中のコンマで割らない（Codex の指摘・P2）
+  '---\ntitle: コンマ\ntags: ["R&D, Japan", 通常]\n---\n本文',
+  '---\ntitle: コンマ（単引用）\ntags: [\'A, B\', C]\n---\n本文',
+  '---\nprops:\n  it_text: "x, y"\n  it_multi: ["甲, 乙", 丙]\n  it_link: { kind: project, id: prj_1, label: "GLS-0001, 追加" }\ntitle: 行\n---\n本文',
 ];
 
 describe('サーバーと画面で同じ答えを出す（Wiki の YAML の見出し）', () => {
@@ -90,6 +103,19 @@ describe('サーバーと画面で同じ答えを出す（Wiki の YAML の見�
       if (fm.owner) expect(back.data.owner).toBe(fm.owner);
       if (fm.title) expect(back.data.title).toBe(fm.title);
     }
+  });
+
+  it('引用符の中のコンマで配列を割らない（往復でタグが増えない）', () => {
+    const md = '---\ntitle: コンマ\ntags: ["R&D, Japan", 通常]\n---\n本文';
+    const { data } = client.parseFrontMatter(md);
+    expect(data.tags).toEqual(['R&D, Japan', '通常']);
+    expect(server.parseFrontMatter(md).data.tags).toEqual(data.tags);
+
+    // 書き出して読み直しても増えない（書き出しも同じインラインの形）
+    const round = client.parseFrontMatter(
+      client.serializeFrontMatter({ title: 'コンマ', tags: ['R&D, Japan', '通常'] }, '本文'),
+    );
+    expect(round.data.tags).toEqual(['R&D, Japan', '通常']);
   });
 
   it('サーバー側に余分な関数を置いていない（どちらが正か分からなくなる）', () => {

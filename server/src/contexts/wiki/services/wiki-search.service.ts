@@ -74,13 +74,40 @@ const SEARCH_SELECT = `
  * 2語以上は AND で、SQL でも Node の点数でも同じように AND にしています
  * （SQL 側で先に落とすのは、本文を読む行を減らすためです）。
  */
-export async function searchPages(user: WikiUser, input: WikiSearchInput): Promise<WikiSearchHit[]> {
+/**
+ * スペースごとの当たりの数。**上限で切る前**の数です。
+ *
+ * ⚠️ 画面の `shared/src/wiki/types.ts` の同名の型とそろえること
+ * （サーバーは `shared/` を import できないので、この型だけ写しています）。
+ */
+export interface WikiSearchSpaceCount {
+  space_id: string;
+  count: number;
+}
+
+export interface WikiSearchResult {
+  hits: WikiSearchHit[];
+  counts: WikiSearchSpaceCount[];
+}
+
+export async function searchPages(
+  user: WikiUser,
+  input: WikiSearchInput,
+): Promise<WikiSearchResult> {
+  const empty: WikiSearchResult = { hits: [], counts: [] };
   const terms = splitTerms(String(input.q ?? ''));
-  if (terms.length === 0) return [];
+  if (terms.length === 0) return empty;
 
   const spaceIds = await readableSpaceIds(user);
-  if (spaceIds.length === 0) return [];
+  if (spaceIds.length === 0) return empty;
 
+  /*
+   * ⚠️ **スペースの絞り込みは SQL で当てます**（上限で切る前）。
+   * 画面で当て直していたころは、当たりが上限（50件）を超えると
+   * 下位のスペースのページが**そもそも届かず**、絞り込んでも出ませんでした。
+   * 件数は下の別の問い合わせで**スペースの絞り込みを外して**数えます
+   * （絞り込みの列に「0件」と出すためではなく、選べるようにするため）。
+   */
   const where: string[] = [
     'p.deleted_at IS NULL',
     // 下書きは検索に出さない（§7-5）。archived も一覧には出さない
@@ -89,10 +116,6 @@ export async function searchPages(user: WikiUser, input: WikiSearchInput): Promi
   ];
   const params: unknown[] = [spaceIds];
 
-  if (input.spaceId) {
-    where.push('p.space_id = ?');
-    params.push(input.spaceId);
-  }
   if (input.tags && input.tags.length > 0) {
     // ⚠️ `@>`（選んだタグを**すべて**持つ）。絞り込みは「絞る」向きに揃える
     where.push('p.tags @> ?::text[]');
@@ -114,11 +137,35 @@ export async function searchPages(user: WikiUser, input: WikiSearchInput): Promi
     params.push(like, like, like);
   }
 
+  /*
+   * 件数はスペースの絞り込みを**外した**条件で数えます（本文は取らないので軽い）。
+   * SQL の当たり（`ILIKE` の AND）と点数 > 0 は同じ集合なので、この数がそのまま
+   * 絞り込みの列に出せます。**上限で切る前の数**です。
+   */
+  const countRows = await queryAll(
+    `SELECT p.space_id, COUNT(*)::int AS n
+       FROM wiki_pages p
+      WHERE ${where.join(' AND ')}
+      GROUP BY p.space_id`,
+    params,
+  );
+  const counts = countRows.map((r) => ({
+    space_id: String(r.space_id),
+    count: Number(r.n) || 0,
+  }));
+
+  const hitWhere = [...where];
+  const hitParams = [...params];
+  if (input.spaceId) {
+    hitWhere.push('p.space_id = ?');
+    hitParams.push(input.spaceId);
+  }
+
   const rows = await queryAll(
-    `${SEARCH_SELECT} WHERE ${where.join(' AND ')}
+    `${SEARCH_SELECT} WHERE ${hitWhere.join(' AND ')}
       ORDER BY p.updated_at DESC
       LIMIT ${CANDIDATE_LIMIT}`,
-    params,
+    hitParams,
   );
 
   const limit = Math.min(Math.max(Number(input.limit) || DEFAULT_LIMIT, 1), MAX_LIMIT);
@@ -153,5 +200,8 @@ export async function searchPages(user: WikiUser, input: WikiSearchInput): Promi
 
   // 道（スペース ＞ 親 ＞ …）は**画面に出す分だけ**引く（1行ずつ引くと N+1 になる）
   const paths = await pathLabels(scored.map((h) => h.id));
-  return scored.map((h) => ({ ...h, path: paths.get(h.id) ?? h.space_name }));
+  return {
+    hits: scored.map((h) => ({ ...h, path: paths.get(h.id) ?? h.space_name })),
+    counts,
+  };
 }

@@ -12,8 +12,14 @@ function yamlScalar(v: unknown): string {
   if (v === null || v === undefined) return '';
   if (typeof v === 'boolean' || typeof v === 'number') return String(v);
   const s = String(v);
-  // 記号で始まる・コロンを含む・空 のときだけ引用する
-  if (s === '' || /^[-?:,[\]{}#&*!|>'"%@`]/.test(s) || /:\s/.test(s) || /\s$/.test(s)) {
+  /*
+   * 記号で始まる・コロンを含む・末尾が空白・空 のときは引用する。
+   * ⚠️ **コンマを含むときも必ず引用します。** インラインの配列・表
+   * （`tags: [a, b]`・`{ kind: …, id: … }`）では、引用しないと読み直すときに
+   * **そのコンマで値が割れます** — 書き出し→取り込みの往復で
+   * `R&D, Japan` の1つのタグが2つに増えていました（Codex の指摘・P2）。
+   */
+  if (s === '' || /^[-?:,[\]{}#&*!|>'"%@`]/.test(s) || /:\s/.test(s) || /\s$/.test(s) || s.includes(',')) {
     return `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
   }
   return s;
@@ -99,17 +105,46 @@ export function parseFrontMatter(md: string): { data: Record<string, unknown>; b
   return { data, body: md.slice(m[0].length) };
 }
 
+/**
+ * 引用符の中のコンマでは切らずに、インラインの配列・表を区切る。
+ *
+ * ⚠️ **素の `split(',')` にしないこと。** `tags: ["R&D, Japan"]` が
+ * 「R&D」と「Japan」の2つに割れ、書き出し→取り込みの往復で**タグが増えます**
+ * （書き出しも同じインラインの形で書くため。Codex の指摘・P2）。
+ * `\` で打ち消した引用符は中身として数えます。
+ */
+function splitTopLevel(inner: string): string[] {
+  const out: string[] = [];
+  let cur = '';
+  let quote: '"' | "'" | null = null;
+  let escaped = false;
+  for (const ch of inner) {
+    if (escaped) { cur += ch; escaped = false; continue; }
+    if (ch === '\\' && quote) { cur += ch; escaped = true; continue; }
+    if (quote) {
+      cur += ch;
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") { quote = ch; cur += ch; continue; }
+    if (ch === ',') { out.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
 function parseYamlValue(raw: string): unknown {
   const s = raw.trim();
   if (s === '') return '';
   if (s.startsWith('[') && s.endsWith(']')) {
     const inner = s.slice(1, -1).trim();
     if (!inner) return [];
-    return inner.split(',').map((x) => unquote(x.trim()));
+    return splitTopLevel(inner).map((x) => unquote(x.trim())).filter((x) => x !== '');
   }
   if (s.startsWith('{') && s.endsWith('}')) {
     const obj: Record<string, unknown> = {};
-    for (const part of s.slice(1, -1).split(',')) {
+    for (const part of splitTopLevel(s.slice(1, -1))) {
       const kv = part.trim().match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
       if (kv) obj[kv[1]] = unquote(kv[2].trim());
     }

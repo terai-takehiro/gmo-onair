@@ -78,7 +78,8 @@ export default function WikiSearchPalette() {
     // ⚠️ **いま打っている語の結果だけを並べる。** 打ち替えている間、react-query は
     // 前の語の結果を持ったままにします（一覧が消えてちらつかないため）。それを
     // そのまま並べると、**Enter で打った語と関係のないページが開きます**
-    const out: Row[] = (searchQ.isPlaceholderData ? [] : (searchQ.data ?? [])).map((h) => ({
+    const found = searchQ.isPlaceholderData ? [] : (searchQ.data?.hits ?? []);
+    const out: Row[] = found.map((h) => ({
       key: `p:${h.id}`,
       group: 'ページ',
       label: h.title,
