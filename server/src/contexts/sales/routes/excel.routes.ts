@@ -438,6 +438,26 @@ const PROJECTS_CONFIG: ResourceConfig = {
        d.event_start, d.event_end, d.broadcast_type, d.media_platform,
        d.assigned_to, userId, userId],
     );
+    // 案件番号の履歴 (§4.3)。ここで1行も残さないと、後でこの案件が改番される
+    // (renumberProject) とき「退役させる現役の番号」が project_numbers に見つからず、
+    // 旧番号が history にも projects.gls_number にも残らず完全に失われる
+    // （決算取込の同型バグを直した #716 と同じ理由。この取込のテンプレート例示行
+    // 「旧案件サンプル（過去データ取り込み例）」は旧GLS番号付きの取込を明示的に
+    // 案内しており、実際に使われる経路のため他人事ではない）。
+    if (d.gls_number) {
+      // scheme/entity_code は番号の見た目から判定する（#716 と同じ理由）。改番後の
+      // 新方式表記 (SCS-0001 等) がそのまま貼られても旧方式 (scheme='gls') 扱いの
+      // まま記録すると、listRenumberCandidates() (移行センター) が「まだ改番して
+      // いない」候補として誤って拾ってしまう。
+      const newSchemeMatch = (d.gls_number as string).match(/^(SCS|GSS|GMO)-\d+$/);
+      const numberEntityCode = newSchemeMatch ? newSchemeMatch[1] : null;
+      await client.query(
+        `INSERT INTO project_numbers (id, project_id, number, entity_code, scheme, assigned_at, assigned_by)
+         VALUES ($1,$2,$3,$4,$5,NOW(),$6)
+         ON CONFLICT (number) DO NOTHING`,
+        [newId(), id, d.gls_number, numberEntityCode, numberEntityCode ? 'entity' : 'gls', userId],
+      );
+    }
     await upsertProjectMemo(client, id, d.customer_id as string | null, d.notes as string, userId);
   },
   update: async (client, id, d, userId) => {
