@@ -80,3 +80,62 @@ export function onairRefOf(href: string, label: string): WikiOnairRef | null {
   const hit = extractOnairRefs(`[x](${href})`)[0];
   return hit ? { ...hit, label } : null;
 }
+
+/* ── 折りたたみ（`<details><summary>`。設計 §4-2）────────────────
+ *
+ * ⚠️ **`rehype-raw` は入れない**（本文に `<script>` が混ざっても素通しにしない）。
+ * そのため生の HTML は描かれずに落ちる。設計書の表にある「折りたたみ」だけは
+ * **元の文字列から形を見つけて**、自前の部品で描く（注意書きと同じ作法）。
+ * 本文の形は変えないので、書き出した `.md` を GitHub で開いても折りたたみのまま。
+ */
+
+export interface WikiFoldSegment { kind: 'fold'; summary: string; body: string }
+export interface WikiTextSegment { kind: 'md'; text: string }
+export type WikiSegment = WikiTextSegment | WikiFoldSegment;
+
+const OPEN_RE = /^\s*<details>\s*(?:<summary>([\s\S]*?)<\/summary>)?\s*$/;
+const SUMMARY_RE = /^\s*<summary>([\s\S]*?)<\/summary>\s*$/;
+const CLOSE_RE = /^\s*<\/details>\s*$/;
+
+/**
+ * 本文を「ふつうの Markdown」と「折りたたみ」に切り分ける。
+ * 閉じ（`</details>`）が無い開きは**ただの文字**として扱う（書きかけで本文が消えない）。
+ */
+export function splitFolds(md: string): WikiSegment[] {
+  const lines = md.split('\n');
+  const out: WikiSegment[] = [];
+  let buf: string[] = [];
+  const flush = () => {
+    if (buf.join('\n').trim() !== '') out.push({ kind: 'md', text: buf.join('\n') });
+    buf = [];
+  };
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const open = OPEN_RE.exec(lines[i]);
+    if (!open) { buf.push(lines[i]); continue; }
+
+    let close = -1;
+    for (let j = i + 1; j < lines.length; j += 1) {
+      if (CLOSE_RE.test(lines[j])) { close = j; break; }
+    }
+    if (close === -1) { buf.push(lines[i]); continue; }
+
+    let summary = open[1] ?? '';
+    let bodyStart = i + 1;
+    if (!open[1]) {
+      const sm = SUMMARY_RE.exec(lines[bodyStart] ?? '');
+      if (sm) { summary = sm[1]; bodyStart += 1; }
+    }
+
+    flush();
+    out.push({
+      kind: 'fold',
+      summary: summary.trim(),
+      body: lines.slice(bodyStart, close).join('\n').trim(),
+    });
+    i = close;
+  }
+
+  flush();
+  return out;
+}

@@ -19,12 +19,14 @@ import { Link } from 'react-router-dom';
 import { extractHeadings } from '@gmo-onair/shared/src/wiki/markdown';
 import { cn } from '@/lib/utils';
 import WikiAlert from './WikiAlert';
+import WikiFold from './WikiFold';
 import WikiOnairCard from './WikiOnairCard';
 import {
   alertBodySource,
   alertKindOf,
   onairRefOf,
   soleLinkOf,
+  splitFolds,
   startLineOf,
   type MdNodeLike,
 } from './markdownSource';
@@ -99,11 +101,20 @@ function makeComponents({ md, slugByLine, nested }: Opts): Components {
 export interface WikiMarkdownProps {
   /** `wiki_pages.body_md` そのもの */
   body: string;
+  /** 注意書きの中。入れ子の注意書きと見出しの id は付けない */
   nested?: boolean;
+  /** 折りたたみの中・切り分けた断片。`.wiki-doc` を二重に当てないためだけの印 */
+  bare?: boolean;
   className?: string;
 }
 
-export default function WikiMarkdown({ body, nested, className }: WikiMarkdownProps) {
+export default function WikiMarkdown({ body, nested, bare, className }: WikiMarkdownProps) {
+  // 折りたたみ（`<details>`）だけは元の文字列から切り分けて自前で描く。
+  // `rehype-raw` を入れない以上、生の HTML は描かれずに落ちるため（`markdownSource.ts`）。
+  // 注意書きの中では切り分けない（入れ子の折りたたみは作らない）
+  const segments = useMemo(() => (nested ? [] : splitFolds(body)), [body, nested]);
+  const hasFold = segments.some((seg) => seg.kind === 'fold');
+
   const slugByLine = useMemo(
     () => new Map(extractHeadings(body).map((h) => [h.line, h.slug])),
     [body],
@@ -113,12 +124,21 @@ export default function WikiMarkdown({ body, nested, className }: WikiMarkdownPr
     [body, slugByLine, nested],
   );
 
-  // 入れ子（注意書きの中）では `.wiki-doc` を二重に当てない。当てると余白が倍になる
-  const content = (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-      {body}
-    </ReactMarkdown>
-  );
-  if (nested) return content;
+  const content = hasFold
+    ? segments.map((seg, i) => (seg.kind === 'fold'
+      ? (
+        <WikiFold key={`f${i}`} summary={seg.summary}>
+          <WikiMarkdown body={seg.body} bare />
+        </WikiFold>
+      )
+      : <WikiMarkdown key={`m${i}`} body={seg.text} bare />))
+    : (
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+        {body}
+      </ReactMarkdown>
+    );
+
+  // 入れ子（注意書き・折りたたみの中）では `.wiki-doc` を二重に当てない。当てると余白が倍になる
+  if (nested || bare) return <>{content}</>;
   return <div className={cn('wiki-doc', className)}>{content}</div>;
 }
