@@ -218,13 +218,27 @@ export async function exportSpaceZip(user: WikiUser, spaceKey: string): Promise<
   for (const job of databaseJobs) {
     const { items, views } = await loadDefinition(String(job.page.id));
     zip.file(`${job.dir}_database.md`, databaseToMarkdown(job.page, items, views));
-    const rows = job.rows.map((r) => ({
+    /*
+     * ⚠️ **データベースの下のデータベースは「行」ではありません。**
+     * ツリーの `+` からデータベースの下にデータベースを足せます。全部を行として
+     * 1枚の `.md` に書いていたころは、**項目とビューの定義（`wiki_databases`）が
+     * 1行も書かれず**、取り込み直すとただのページに化けていました
+     *（Codex の指摘・P1）。フォルダとして書き直します。
+     */
+    const nestedDatabases = job.rows.filter((r) => r.kind === 'database');
+    const plainRows = job.rows.filter((r) => r.kind !== 'database');
+
+    const rows = plainRows.map((r) => ({
       title: String(r.title ?? ''),
       props: ((r.props as Record<string, WikiPropValue> | null) ?? {}),
     }));
     zip.file(`${job.dir}_index.csv`, buildRowsCsv(items, rows));
     const used = new Set<string>(['_database', '_index']);
-    for (const row of job.rows) {
+
+    // 入れ子のデータベースは `writePage` に任せる（新しい仕事が下の輪に積まれる）
+    for (const nested of nestedDatabases) writePage(nested, job.dir, used, 1);
+
+    for (const row of plainRows) {
       collectFiles(row);
       const name = uniqueName(used, safeSegment(String(row.title ?? '')) || String(row.id), String(row.id));
       zip.file(`${job.dir}${name}.md`, pageToMarkdown(row));

@@ -58,23 +58,46 @@ export class ZipReader {
     }
 
     // ② 実際に流れてきた分を数えながら読む（申告が嘘でも止まる）
-    const chunks: Buffer[] = [];
+    let chunks: Buffer[] = [];
     let got = 0;
     await new Promise<void>((resolve, reject) => {
       // `nodeStream` は jszip の公開 API（解きながら少しずつ流してくれる）
       const stream = entry.nodeStream('nodebuffer');
+      let settled = false;
+
+      /*
+       * ⚠️ **止めると決めたら、解くのも溜めるのも本当に止めること。**
+       * `reject` を呼んだだけでは jszip は解き続け、`data` が来るたびに
+       * `chunks` へ積み増します。**上限を超えたと判で押したあとも山が伸び続ける**
+       * ので、守ったつもりで守れていませんでした（Codex の指摘・P1）。
+       * 溜めた分を捨て、流れを止め、以後の `data` も無視します。
+       */
+      const fail = (e: unknown) => {
+        if (settled) return;
+        settled = true;
+        chunks = [];
+        try { stream.pause(); } catch { /* 止められなくても以後は捨てる */ }
+        try { (stream as { destroy?: () => void }).destroy?.(); } catch { /* 同上 */ }
+        reject(e);
+      };
+
       stream.on('data', (chunk: Buffer) => {
+        if (settled) return;              // 止めたあとに来た分は捨てる
         got += chunk.length;
         try {
           this.assertFits(got);
         } catch (e) {
-          reject(e);
+          fail(e);
           return;
         }
         chunks.push(chunk);
       });
-      stream.on('error', reject);
-      stream.on('end', () => resolve());
+      stream.on('error', fail);
+      stream.on('end', () => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      });
       stream.resume();
     });
 

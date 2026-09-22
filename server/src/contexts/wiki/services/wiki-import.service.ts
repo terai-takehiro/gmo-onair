@@ -333,7 +333,19 @@ export async function importZip(
     }
 
     for (const child of node.children) {
-      if (!child.mdPath || consumed.has(child)) continue;
+      if (consumed.has(child)) continue;
+      /*
+       * ⚠️ **フォルダだけの子も取りこぼさないこと。**
+       * データベースの下のデータベースは `_database.md` を持つフォルダで、
+       * **兄弟の `.md` はありません**。`mdPath` が無いという理由で飛ばしていたころは、
+       * 入れ子のデータベースとその下が丸ごと消えていました（Codex の指摘・P1）。
+       * データベースの子は `create` に渡せば、定義も行もそのまま作れます。
+       */
+      if (child.csvPath || child.dbPath) {
+        await create(child, pageId);
+        continue;
+      }
+      if (!child.mdPath) continue;
       const childMd = mdByPath.get(child.mdPath);
       const leftover = await createPage(user, {
         space_id: String(space.id),
@@ -388,6 +400,11 @@ function countPlanned(nodes: ImportNode[], csvByPath: Map<string, CsvDatabase>):
     const queue = new Map<string, number>();
     let mdChildren = 0;
     for (const child of node.children) {
+      // 入れ子のデータベースは `create` に渡すので、まるごと同じ手順で数える
+      if (child.csvPath || child.dbPath) {
+        n += countPlanned([child], csvByPath);
+        continue;
+      }
       if (!child.mdPath) continue;
       mdChildren += 1;
       queue.set(child.name, (queue.get(child.name) ?? 0) + 1);

@@ -75,10 +75,18 @@ export default function WikiSearchPalette() {
         icon: Clock,
       }));
     }
-    // ⚠️ **いま打っている語の結果だけを並べる。** 打ち替えている間、react-query は
-    // 前の語の結果を持ったままにします（一覧が消えてちらつかないため）。それを
-    // そのまま並べると、**Enter で打った語と関係のないページが開きます**
-    const found = searchQ.isPlaceholderData ? [] : (searchQ.data?.hits ?? []);
+    /*
+     * ⚠️ **いま打っている語の結果だけを並べる。** 打ち替えている間、react-query は
+     * 前の語の結果を持ったままにします（一覧が消えてちらつかないため）。それを
+     * そのまま並べると、**Enter で打った語と関係のないページが開きます**。
+     *
+     * ⚠️ **待っている間（`typed !== q`）も並べません。** 250ms の待ちの中では
+     * `q` がまだ動いていないので react-query は「置き換え中」になりません。
+     * 打ち替えてすぐ Enter を押すと、**前の語の1件目が開いて**いました
+     *（Codex の指摘・P2）。入力欄の字と投げた語がそろうまでは0件にします。
+     */
+    const pending = typed !== q || searchQ.isPlaceholderData;
+    const found = pending ? [] : (searchQ.data?.hits ?? []);
     const out: Row[] = found.map((h) => ({
       key: `p:${h.id}`,
       group: 'ページ',
@@ -99,7 +107,7 @@ export default function WikiSearchPalette() {
       });
     }
     return out;
-  }, [q, recent, searchQ.data, searchQ.isPlaceholderData]);
+  }, [q, typed, recent, searchQ.data, searchQ.isPlaceholderData]);
 
   // 並びが変わったら先頭に戻す（前の位置に残ると別のものを開く）
   useEffect(() => setCursor(0), [rows.length, q]);
