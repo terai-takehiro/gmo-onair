@@ -370,11 +370,31 @@ async function main() {
       // 返ってしまい、いつまでも新規作成・復活の対象にならない)。
       const cached = masterCache.projects.get(cacheKey);
       if (cached) return cached;
-      const col = isFixed ? 'code' : 'gls_number';
-      const r = await client.query(`SELECT id, customer_id FROM projects WHERE ${col}=$1 AND deleted_at IS NULL LIMIT 1`, [key]);
+      // アクティブな案件も project_numbers 経由で退役番号を解決する
+      // (kessan-import.service.ts の ensureProject と同一条件)。ここを gls_number
+      // だけにすると、改番済みだが現役の案件の退役番号が元帳にあったとき、
+      // 下の削除済み検索にもヒットしないため重複案件を作ってしまう
+      // (Codex レビュー指摘・PR #713)。
+      const r = isFixed
+        ? await client.query(`SELECT id, customer_id FROM projects WHERE code=$1 AND deleted_at IS NULL LIMIT 1`, [key])
+        : await client.query(
+            `SELECT id, customer_id FROM projects
+               WHERE deleted_at IS NULL
+                 AND (gls_number=$1 OR id = (SELECT project_id FROM project_numbers WHERE number=$1))
+               LIMIT 1`,
+            [key],
+          );
       let p = r.rows[0] || null;
       if (!p) {
         if (!CREATE_MASTERS) { masterCache.projects.set(cacheKey, null); return null; }
+
+        // projects.customer_id は NOT NULL。仕入専用 GLS など呼び出し元が customerId
+        // に null を渡すケースでは、フォールバック顧客「(顧客不明)」を割り当てる
+        // (kessan-import.service.ts の ensureProject と同一。これが無いと未登録GLSの
+        // 仕入で customer_id=NULL のまま INSERT しようとして NOT NULL 制約違反になる
+        // — Codex レビュー指摘・PR #713)。
+        const cid = customerId || (await ensureCustomer('(顧客不明)'));
+        if (!cid) { masterCache.projects.set(cacheKey, null); return null; }
 
         // 失注・放置ネタの自動整理 (project-purge.service.ts) で論理削除された案件が、
         // 決算データ上はこの code/gls_number の実績を持っていた、というケースがある。
@@ -408,9 +428,9 @@ async function main() {
           await client.query(
             `INSERT INTO projects (id, code, gls_number, name, customer_id, stage, assigned_to, notes, created_by)
              VALUES ($1,$2,$3,$4,$5,'a_won',$6,$7,$8)`,
-            [id, key, isFixed ? null : key, name || key, customerId, userId, MARKER, userId]
+            [id, key, isFixed ? null : key, name || key, cid, userId, MARKER, userId]
           );
-          p = { id, customer_id: customerId };
+          p = { id, customer_id: cid };
           counts.projCreated++;
         }
       }
