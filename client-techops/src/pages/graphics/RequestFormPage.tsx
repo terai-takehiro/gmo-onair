@@ -50,7 +50,7 @@ export default function RequestFormPage() {
     return (
       <PageShell>
         <EmptyState
-          title="開けませんでした"
+          title="テロップCGを開けませんでした"
           description={state.status === 'error' ? state.message : '管理番号が合っているか確かめてください。'}
         />
       </PageShell>
@@ -99,19 +99,19 @@ function FormContent({ ownerKey, ownerName, owner, projectId }: {
       setTitle('');
       setDesiredTiming('');
       setDesiredPartKey(NO_PART);
-      notifySuccess('発注を送りました');
+      notifySuccess('依頼を送りました');
       void queryClient.invalidateQueries({ queryKey: listKey });
     },
-    onError: () => notifyError('発注を送れませんでした'),
+    onError: () => notifyError('依頼を送れませんでした'),
   });
 
   const removeMutation = useMutation({
     mutationFn: (id: string) => deleteGraphicsRequest(id),
     onSuccess: () => {
-      notifySuccess('取り消しました');
+      notifySuccess('依頼を取り消しました');
       void queryClient.invalidateQueries({ queryKey: listKey });
     },
-    onError: () => notifyError('取り消せませんでした'),
+    onError: () => notifyError('依頼を取り消せませんでした'),
   });
 
   const submit = (e: React.FormEvent) => {
@@ -122,8 +122,8 @@ function FormContent({ ownerKey, ownerName, owner, projectId }: {
 
   const withdraw = async (req: GraphicsRequestRow) => {
     if (!(await confirmAction({
-      title: `発注「${req.title}」を取り消しますか？`,
-      description: 'この発注は削除され、一覧から消えます。',
+      title: `依頼「${req.title}」を取り消しますか？`,
+      description: 'この依頼は取り消され、一覧から消えます。',
       confirmLabel: '取り消す',
       tone: 'danger',
     }))) return;
@@ -137,15 +137,15 @@ function FormContent({ ownerKey, ownerName, owner, projectId }: {
         className="inline-flex min-h-tap w-fit items-center gap-1 rounded-control-md px-1.5 text-sub font-bold text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-        テロップCGへ戻る
+        テロップ一覧
       </Link>
 
-      <PageHeader title="テロップの発注（テロ原）" sub={ownerName} />
-      <p className="text-note text-muted-foreground">文言・出すタイミング・種類だけ書けば大丈夫です。</p>
+      <PageHeader title="テロップを依頼する" sub={ownerName} />
+      <p className="text-note text-muted-foreground">文言と、出すタイミングだけ書けば足ります。作画と確認は技術が行います。</p>
 
       <form onSubmit={submit} className="space-y-4 rounded-card border border-border bg-card p-4">
         <div>
-          <Label htmlFor="request-title">出したい文言・要旨 <span className="text-destructive">*</span></Label>
+          <Label htmlFor="request-title">文言 <span className="text-destructive">*</span></Label>
           <Input
             id="request-title"
             className="mt-1 min-h-[44px]"
@@ -157,7 +157,7 @@ function FormContent({ ownerKey, ownerName, owner, projectId }: {
         </div>
 
         <div>
-          <Label htmlFor="request-timing">出したいタイミング</Label>
+          <Label htmlFor="request-timing">出すタイミング</Label>
           <div className="mt-1 flex flex-col gap-2 sm:flex-row">
             <Input
               id="request-timing"
@@ -178,11 +178,11 @@ function FormContent({ ownerKey, ownerName, owner, projectId }: {
         </div>
 
         <div>
-          <Label>希望する部品（任意）</Label>
+          <Label>種類（任意）</Label>
           <Select value={desiredPartKey} onValueChange={setDesiredPartKey}>
             <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value={NO_PART}>指定しない</SelectItem>
+              <SelectItem value={NO_PART}>おまかせ</SelectItem>
               {(Object.entries(PART_LABELS) as [GraphicsPartKey, string][]).map(([key, label]) => (
                 <SelectItem key={key} value={key}>{label}</SelectItem>
               ))}
@@ -197,12 +197,12 @@ function FormContent({ ownerKey, ownerName, owner, projectId }: {
         >
           {createMutation.isPending
             ? <Loader2 className="h-4 w-4 animate-spin" />
-            : <><Send className="mr-1 h-4 w-4" aria-hidden="true" />送る</>}
+            : <><Send className="mr-1 h-4 w-4" aria-hidden="true" />依頼を送る</>}
         </Button>
       </form>
 
       <section>
-        <h2 className="text-th font-bold text-muted-foreground">自分が出した発注</h2>
+        <h2 className="text-th font-bold text-muted-foreground">自分の依頼</h2>
         <div className="mt-2 overflow-hidden rounded-card border border-border bg-card">
           {listQuery.isLoading ? (
             <div className="flex items-center justify-center py-8">
@@ -210,8 +210,8 @@ function FormContent({ ownerKey, ownerName, owner, projectId }: {
             </div>
           ) : requests.length === 0 ? (
             <EmptyState
-              title="発注がまだありません"
-              description="上のフォームから送ると、ここに並びます。"
+              title="まだ依頼がありません"
+              description="上のフォームから送ると、ここに出ます。"
             />
           ) : requests.map((req) => (
             <div key={req.id} className="flex items-start gap-3 border-b border-border-faint px-4 py-3 last:border-b-0">
@@ -225,16 +225,19 @@ function FormContent({ ownerKey, ownerName, owner, projectId }: {
                 )}
               </div>
               <RequestStatusBadge status={req.status} />
-              {req.status === 'requested' && (
+              {/* 取り消せない行も同じ幅の空きを置く（値の有無で状態バッジの右端がずれない・_rules.md 1） */}
+              {req.status === 'requested' ? (
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  aria-label={`発注「${req.title}」を取り消し`}
+                  aria-label={`依頼「${req.title}」を取り消し`}
                   onClick={() => void withdraw(req)}
                 >
                   <Trash2 className="h-4 w-4 text-destructive" aria-hidden="true" />
                 </Button>
+              ) : (
+                <span className="h-10 w-10 shrink-0" aria-hidden="true" />
               )}
             </div>
           ))}

@@ -78,7 +78,10 @@ const PAGES = [
   ['案件管理 見積請求', '/sales/billing'],
   ['案件管理 請求タブ', '/sales/billing?tab=invoice'],
   ['案件管理 案件グループ', '/sales/project-groups'],
-  ['案件管理 活動履歴', '/sales/activity-logs'],
+  // 営業活動記録。**案件別（既定）と時系列の2本立て**なので両方測る
+  // （PC 専用をやめた画面なので、375px の実測対象に入れておく）
+  ['案件管理 営業活動記録 案件別', '/sales/activity-logs'],
+  ['案件管理 営業活動記録 時系列', '/sales/activity-logs?view=timeline'],
   ['案件管理 GLS取込', '/sales/gls-import'],
   // 取引先マスターの顧客絞り込み (旧 /sales/customers はここへ転送される)。
   // 絞り込みは `?role=customer` のクエリで持つので、そのまま付けて測る

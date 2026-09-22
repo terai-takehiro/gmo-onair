@@ -21,7 +21,7 @@ const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<u
 router.get('/projects/:id/interactive-link', wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const project = id && !isNaN(id) ? await fetchProject(id) : null;
-  if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
+  if (!project) throw new AppError(404, 'NOT_FOUND', 'テロップCGが見つかりません');
 
   const link = await fetchProjectInteractiveLinkFull(id);
   const view = toInteractiveLinkView(link);
@@ -32,7 +32,7 @@ router.get('/projects/:id/interactive-link', wrap(async (req, res) => {
 router.put('/projects/:id/interactive-link', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const project = id && !isNaN(id) ? await fetchProject(id) : null;
-  if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
+  if (!project) throw new AppError(404, 'NOT_FOUND', 'テロップCGが見つかりません');
 
   const body = (req.body ?? {}) as {
     baseUrl?: unknown; apiKeySecret?: unknown; interactiveEventId?: unknown;
@@ -92,7 +92,7 @@ router.put('/projects/:id/interactive-link', requirePermission('qsheet', 'editor
 router.delete('/projects/:id/interactive-link', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const project = id && !isNaN(id) ? await fetchProject(id) : null;
-  if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
+  if (!project) throw new AppError(404, 'NOT_FOUND', 'テロップCGが見つかりません');
 
   await execute(`UPDATE graphics_projects SET interactive_link = NULL, updated_at = NOW() WHERE id = ?`, [id]);
   res.json({ success: true });

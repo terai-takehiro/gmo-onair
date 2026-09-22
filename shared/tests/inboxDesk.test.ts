@@ -81,11 +81,11 @@ describe('見直す日の既定（1か月後）', () => {
 });
 
 describe('行に出す一言（色だけに頼らない）', () => {
-  it('過ぎているものは「◯日過ぎています」まで書く', () => {
+  it('期限を越えたものは「◯日超過」まで書く', () => {
     // 「見直し 8/29」だけだと、それが過去か未来かを読む人が毎回引き算する
     const n = stockReviewNote('2026-08-29', '2026-08-31');
     expect(n.tone).toBe('due');
-    expect(n.text).toContain('2日過ぎています');
+    expect(n.text).toContain('2日超過');
     expect(n.days).toBe(-2);
   });
 

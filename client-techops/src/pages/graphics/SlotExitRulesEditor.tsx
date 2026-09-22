@@ -56,7 +56,7 @@ export default function SlotExitRulesEditor({ projectId, rules, onSaved }: {
       await updateGraphicsProject(projectId, { slotExitRules: pairsToRules(nextPairs) });
       await onSaved();
     } catch {
-      notifyError('自動退出ルールを保存できませんでした');
+      notifyError('「同時に出せないもの」を保存できませんでした');
     } finally {
       setSaving(false);
     }
@@ -64,7 +64,7 @@ export default function SlotExitRulesEditor({ projectId, rules, onSaved }: {
 
   const addRule = async () => {
     if (whenSlot === outSlot) {
-      notifyError('同じスロット同士は選べません');
+      notifyError('同じ位置どうしは選べません');
       return;
     }
     if (pairs.some((p) => p.whenSlot === whenSlot && p.outSlot === outSlot)) {
@@ -72,7 +72,7 @@ export default function SlotExitRulesEditor({ projectId, rules, onSaved }: {
       return;
     }
     await save([...pairs, { whenSlot, outSlot }]);
-    notifySuccess(`「${SLOT_LABELS[whenSlot]}」が出たら「${SLOT_LABELS[outSlot]}」を自動OUTにしました`);
+    notifySuccess(`「${SLOT_LABELS[whenSlot]}」が出たら「${SLOT_LABELS[outSlot]}」も自動で消すようにしました`);
   };
 
   const removeRule = async (target: Pair) => {
@@ -83,11 +83,12 @@ export default function SlotExitRulesEditor({ projectId, rules, onSaved }: {
     <section className="mt-4 overflow-hidden rounded-card border border-border bg-card">
       <div className="flex items-center gap-1.5 border-b border-border-faint bg-surface-subtle px-4 py-2 text-th text-muted-foreground">
         <Zap className="h-3.5 w-3.5" aria-hidden="true" />
-        スロット間の自動退出ルール
+        同時に出せないもの
       </div>
       <div className="p-4">
         <p className="text-sub text-muted-foreground">
-          あるスロットが TAKE されたとき、別のスロットを自動で OUT にします（例: フルスクリーンが出たら下部テロップを自動退出）。
+          同じ位置には1枚しか出ません（自動）。ここに書くのは、ある位置に出したとき別の位置のものも
+          一緒に消すルールだけです（例: フルスクリーンが出たら下部テロップも消す）。
           何も設定していなければ、これまでどおり自動では何も起きません。
         </p>
 
@@ -101,7 +102,7 @@ export default function SlotExitRulesEditor({ projectId, rules, onSaved }: {
                 <span className="font-bold">{SLOT_LABELS[p.whenSlot]}</span>
                 <span className="text-muted-foreground">が出たら</span>
                 <span className="font-bold">{SLOT_LABELS[p.outSlot]}</span>
-                <span className="text-muted-foreground">を自動OUT</span>
+                <span className="text-muted-foreground">も自動で消す</span>
                 <span className="flex-1" />
                 <Button
                   type="button"
@@ -119,10 +120,10 @@ export default function SlotExitRulesEditor({ projectId, rules, onSaved }: {
         )}
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <SlotSelect value={whenSlot} onChange={setWhenSlot} ariaLabel="対象スロット（出たら）" disabled={saving} />
+          <SlotSelect value={whenSlot} onChange={setWhenSlot} ariaLabel="出たら消す元の位置" disabled={saving} />
           <span className="text-sub text-muted-foreground">が出たら</span>
-          <SlotSelect value={outSlot} onChange={setOutSlot} ariaLabel="自動退出させるスロット" disabled={saving} />
-          <span className="text-sub text-muted-foreground">を自動OUT</span>
+          <SlotSelect value={outSlot} onChange={setOutSlot} ariaLabel="自動で消す位置" disabled={saving} />
+          <span className="text-sub text-muted-foreground">も自動で消す</span>
           <Button type="button" variant="outline" size="sm" disabled={saving} onClick={() => { void addRule(); }}>
             <Plus className="mr-1 h-4 w-4" aria-hidden="true" />追加
           </Button>

@@ -31,7 +31,8 @@
  *   整えた   = `body_struct IS NOT NULL`
  *   失敗した = `body_struct IS NULL AND format_error IS NOT NULL`
  *   まだ     = `body_struct IS NULL AND format_error IS NULL`
- *              （かつ人が入れた本文ではない = `body_html IS NULL OR ai_formatted`）
+ *              （かつ人が入れた本文ではない = `body_html IS NULL OR ai_formatted`
+ *                かつ人が手で編集していない = `body_edited_at IS NULL`・migration 304）
  *
  * **失敗の印は `format_error` に寄せています**（migration 188）。v1 は
  * `format_attempted_at` を印にしていましたが、**成功時にも立てている**ため
@@ -92,9 +93,17 @@ const NO_WINDOW_DAYS = 36_500;
  *
  * **人が入れた本文は対象にしません**（`body_html` があって `ai_formatted` が false）。
  * 人が書いたものを AI の構造で置き換えることになるためです。
+ *
+ * ⚠️ **`body_edited_at IS NULL` も必ず含めること**（migration 304）。
+ * 案件別の画面から**本文を手で編集できる**ようになりました（利用者からのご指摘④）。
+ * 手動編集は `body_html` を書いて `body_struct` を捨てる形なので、
+ * この条件が無いと**毎晩 3:00 の自動整形が人の編集を拾って上書きします**
+ * （`ai_formatted` は TRUE のままなので `(body_html IS NULL OR ai_formatted)` を素通りする）。
+ * 直した労力が翌朝消える、といういちばん質の悪い壊れ方です。
  */
 const PENDING_SQL = `body_struct IS NULL
         AND format_error IS NULL
+        AND body_edited_at IS NULL
         AND (body_html IS NULL OR ai_formatted)`;
 
 export interface FormatQueueStats {
@@ -105,8 +114,10 @@ export interface FormatQueueStats {
   /** 整え終わっている件数 */
   formatted: number;
   /**
-   * **人が入れた本文があるので触らない件数**（`body_html` があり `ai_formatted` が false）。
-   * この3つのどれにも入らないので、**持っていないと合計が合わなくなります**
+   * **触らない件数**。2種類あり、どちらも pending / failed / formatted のどれにも入りません:
+   *   ① 人が入れた本文（`body_html` があり `ai_formatted` が false）
+   *   ② 人が手で編集した本文（`body_edited_at` が入っている・migration 304）
+   * **持っていないと合計が合わなくなります**
    * （「残り 12・済み 30・失敗 1 なのに全部で 44 件」の理由が誰にも説明できない）。
    */
   skipped: number;
@@ -141,8 +152,13 @@ export async function formatQueueStats(): Promise<FormatQueueStats> {
        COUNT(*) FILTER (WHERE ${PENDING_SQL}) AS pending,
        COUNT(*) FILTER (WHERE body_struct IS NULL AND format_error IS NOT NULL) AS failed,
        COUNT(*) FILTER (WHERE body_struct IS NOT NULL) AS formatted,
+       -- **「pending でも failed でも formatted でもない残り」として数える。**
+       -- 条件を書き並べると、手で編集した行（ai_formatted は TRUE のまま・
+       -- body_struct は NULL）のようにどの FILTER にも入らない行が出るたびに
+       -- pending + failed + formatted + skipped = total が静かに崩れます
+       -- （このファイルが明文で守ると宣言している不変条件）
        COUNT(*) FILTER (WHERE body_struct IS NULL AND format_error IS NULL
-                          AND body_html IS NOT NULL AND NOT ai_formatted) AS skipped,
+                          AND NOT (${PENDING_SQL})) AS skipped,
        COUNT(*) AS total
      FROM activity_logs
      WHERE deleted_at IS NULL
@@ -350,10 +366,11 @@ export async function runFormatPass(
  */
 export async function redoFormat(id: string, actorId: string | null): Promise<void> {
   const row = await queryOne(
-    `SELECT id, description, body_struct, body_html, ai_formatted
+    `SELECT id, description, body_struct, body_html, ai_formatted, body_edited_at
        FROM activity_logs WHERE id = ? AND deleted_at IS NULL`, [id],
   ) as { id: string; description: string | null; body_struct: unknown;
-         body_html: string | null; ai_formatted: boolean } | undefined;
+         body_html: string | null; ai_formatted: boolean;
+         body_edited_at: Date | null } | undefined;
   if (!row) throw new AppError(404, 'NOT_FOUND', '活動記録が見つかりません');
   // **原文が無ければ整え直せない。** 戻したうえで整えられないと、いま出ているものまで消える
   if (!String(row.description ?? '').trim()) {
@@ -373,6 +390,21 @@ export async function redoFormat(id: string, actorId: string | null): Promise<vo
   if (row.body_html && !row.ai_formatted) {
     throw new AppError(400, 'NOT_AI_FORMATTED',
       'この記録の本文は AI が整えたものではないので、整え直せません');
+  }
+
+  /**
+   * ⚠️ **人が手で編集した本文も整え直せない**（migration 304・`NOT_AI_FORMATTED` と同じ門）。
+   *
+   * 待ち行列は `body_edited_at IS NULL` を要求するので、戻しても**永久に対象になりません**。
+   * ここを通すと、押しても何も起きず理由も出ない画面ができます（上と同じ穴）。
+   *
+   * **画面で隠すだけにしないこと** — 古いタブ・直接叩きから通ります。
+   * 整え直したいときは、先に本文を空にして手動編集の印を消してもらいます
+   * （`activity-log.service` の `update()` が空文字で印を落とす）。
+   */
+  if (row.body_edited_at) {
+    throw new AppError(400, 'BODY_MANUALLY_EDITED',
+      'この記録の本文は手動で編集されているので、整え直せません（本文を空にすると AI の整形に戻せます）');
   }
 
   /**

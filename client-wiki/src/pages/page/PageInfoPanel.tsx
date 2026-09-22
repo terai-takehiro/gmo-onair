@@ -1,12 +1,19 @@
 /**
  * 右パネルの「情報」（§6-②）
  *
- * 段A は**読むだけ**。担当・見直し予定・タグをその場で編集できるようにするのは
- * 段B（本文の編集ロックとは別の口として作る）。
+ * 担当・見直し予定・タグは**その場で直せます**（`components/page/PageInfoFields.tsx`）。
+ * **本文の編集ロックとは別**なので、誰かが本文を書いている最中でも直せます。
+ * 直す権限（editor）が無い人には、同じ場所に読むだけの表示が出ます。
+ *
+ * ⚠️ **「期限切れ」とは書きません。** 見直し予定日を過ぎても中身が無効になる
+ * わけではないので、項目名は「見直し予定」、印は「要見直し」です（ご指摘）。
  */
 import { Link } from 'react-router-dom';
 import type { WikiPage } from '@gmo-onair/shared/src/wiki/types';
-import { reviewByLabel, reviewRemainLabel, stampLabel, revLabel } from '@/lib/wikiFormat';
+import { usePermissions } from '@/hooks/usePermissions';
+import { OwnerField, ReviewByField, TagsField } from '@/components/page/PageInfoFields';
+import RowPropsFields from '@/components/items/RowPropsFields';
+import { stampLabel, revLabel } from '@/lib/wikiFormat';
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -18,38 +25,21 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export default function PageInfoPanel({ page }: { page: WikiPage }) {
+  const { canEdit } = usePermissions();
   const trail = [page.space_name, ...(page.breadcrumb ?? []).map((b) => b.title)].filter(Boolean);
 
   return (
     <div className="flex flex-col gap-1">
-      <Field label="担当">{page.owner_name ?? '—'}</Field>
+      <Field label="担当"><OwnerField page={page} canEdit={canEdit} /></Field>
+      <Field label="見直し予定"><ReviewByField page={page} canEdit={canEdit} /></Field>
+      <Field label="タグ"><TagsField page={page} canEdit={canEdit} /></Field>
 
-      <Field label="見直し予定">
-        {page.review_by ? (
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex h-6 items-center rounded-control border border-border px-2 text-sub text-foreground">
-              {reviewByLabel(page.review_by)}
-            </span>
-            <span className="text-sub-sm text-muted-foreground">{reviewRemainLabel(page.review_by)}</span>
-          </span>
-        ) : (
-          '—'
-        )}
-      </Field>
-
-      <Field label="タグ">
-        {page.tags.length === 0 ? (
-          '—'
-        ) : (
-          <span className="flex flex-wrap gap-1.5">
-            {page.tags.map((t) => (
-              <span key={t} className="inline-flex h-6 items-center rounded-control bg-muted px-2 text-sub-sm text-foreground">
-                {t}
-              </span>
-            ))}
-          </span>
-        )}
-      </Field>
+      {/*
+        データベースの行（`kind='database'` のページの子）のときだけ、親で決めた
+        項目の値がここに並ぶ（§6-⑩「行を押すとその行ページ」）。
+        ふつうのページでは何も出ない（通信も起きない）
+      */}
+      <RowPropsFields page={page} canEdit={canEdit} />
 
       <Field label="スペース">{trail.join(' ／ ')}</Field>
       <Field label="作成">{stampLabel(page.created_at)} ・ {page.creator_name ?? '—'}</Field>

@@ -25,7 +25,7 @@ const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<u
 router.post('/projects/:id/requests', wrap(async (req, res) => {
   const projectId = parseInt(req.params.id as string);
   const project = projectId && !isNaN(projectId) ? await fetchProject(projectId) : null;
-  if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
+  if (!project) throw new AppError(404, 'NOT_FOUND', 'テロップCGが見つかりません');
 
   const body = (req.body ?? {}) as {
     title?: string; detail?: string; desiredSlot?: string; desiredPartKey?: string; desiredTiming?: string;
@@ -68,7 +68,7 @@ router.post('/projects/:id/requests', wrap(async (req, res) => {
 router.get('/projects/:id/requests', wrap(async (req, res) => {
   const projectId = parseInt(req.params.id as string);
   const project = projectId && !isNaN(projectId) ? await fetchProject(projectId) : null;
-  if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
+  if (!project) throw new AppError(404, 'NOT_FOUND', 'テロップCGが見つかりません');
 
   const statusParam = req.query.status as string | undefined;
   // 'all' はスマホの発注フォームが「自分が出した発注」（却下・ページ化済みも含む履歴）を
@@ -109,7 +109,7 @@ router.put('/requests/:id', requirePermission('qsheet', 'editor'), wrap(async (r
         `SELECT id FROM graphics_pages WHERE id = ? AND project_id = ?`,
         [body.convertedPageId, existing.project_id]
       );
-      if (!page) throw new AppError(404, 'NOT_FOUND', 'ページが見つかりません');
+      if (!page) throw new AppError(404, 'NOT_FOUND', 'テロップが見つかりません');
     }
     sets.push('converted_page_id = ?'); params.push(body.convertedPageId);
   }

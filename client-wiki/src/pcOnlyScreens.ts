@@ -15,6 +15,13 @@ export const WIKI_PC_ONLY: PcOnlyEntry[] = [
     // 版の一覧（いつ・誰が・何を変えたか）はページの右の「履歴」で読める
     instead: { label: 'ページを開いて履歴を見る', to: '/' },
   },
+  {
+    path: '/templates',
+    what: 'テンプレート管理',
+    why: '一覧と本文を左右に並べて見比べる画面です。この幅では本文が1行ずつ折り返して、どのテンプレートを選んでいるのかが分からなくなります。',
+    // テンプレートから作ること自体は「ページを追加」でスマホでもできる
+    instead: { label: 'ページを追加する', to: '/' },
+  },
 ];
 
 /**
@@ -28,7 +35,8 @@ export const WIKI_MOBILE_HIDDEN = WIKI_PC_ONLY.filter((e) => e.hidden).map((e) =
  * ルートがあると `npm run lint` が止まります（決めないまま出さないため）。
  */
 export const WIKI_MOBILE_OK: string[] = [
-  '/',          // ホーム
-  '/s/:key',    // スペースのツリー
-  '/p/:id',     // ページ（読む）
+  '/',            // ホーム
+  '/s/:key',      // スペースのツリー
+  '/p/:id',       // ページ（読む）
+  '/p/:id/edit',  // ページの編集 — スマホでも使える（設計 §6-⑨）。下のツールバーは5つに絞る
 ];

@@ -81,7 +81,7 @@ export default function PageLivePreview({
     callNo: callNo ?? 0,
     slot,
     partKey,
-    name: name.trim() || '（ページ名未入力）',
+    name: name.trim() || '（テロップ名未入力）',
     fields,
     proofState: 'draft',
     sortOrder: 0,
@@ -139,7 +139,7 @@ export default function PageLivePreview({
         {!rendered && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/70 px-6 text-center">
             <p className="text-sub text-muted-foreground">
-              この部品はまだプレビューに対応していません
+              この種類はまだプレビューに対応していません
             </p>
           </div>
         )}

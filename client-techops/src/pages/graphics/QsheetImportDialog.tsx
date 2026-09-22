@@ -135,7 +135,7 @@ export default function QsheetImportDialog({
       onImported();
       close();
     } catch {
-      notifyError('取り込めませんでした。', { description: '少し待ってから、もう一度お試しください。' });
+      notifyError('テロップを取り込めませんでした。', { description: '少し待ってから、もう一度お試しください。' });
       setPhase('review');
     } finally {
       setCommitting(false);

@@ -5,6 +5,7 @@
  * 画面側で使う項目だけをここに1つ書き、各部品はこれを見る。
  */
 import { localDateStr } from '@gmo-onair/shared/src/client/format';
+import { eventDateLabel } from './eventDate';
 
 export interface ActivityLogRow {
   id: string;
@@ -28,6 +29,15 @@ export interface ActivityLogRow {
   project_code: string | null;
   customer_id: string | null;
   customer_name: string | null;
+  /**
+   * 案件の実施日（任意）。**時系列の行に「どの案件の話か」を1行で出す**ために使う。
+   * ⚠️ いまのサーバーの `GET /activity-logs` は返していないので `?` にしてある —
+   * 来ていないときは実施日を出さないだけで、行の他の部分は今までどおり描ける
+   * （サーバーに追加を申し送り済み）。
+   */
+  event_start?: string | null;
+  /** 実施日の総数（0 = 未定）。`eventDateLabel` にそのまま渡す */
+  event_day_count?: number | null;
   user_name: string | null;
   is_ai_created: boolean;
   ai_requested_by: string | null;
@@ -59,6 +69,23 @@ export function emptyForm(): FormData {
     duration_minutes: '', subject: '', description: '',
     next_action: '', next_action_date: '',
   };
+}
+
+/**
+ * 時系列の行に出す1行（**案件名 ・ クライアント ・ 実施日**）。
+ *
+ * 利用者のご指摘「案件別に見られないと分からない」は案件別の並びで解きましたが、
+ * **時系列のほうでも「どの案件の話か」が1行で分かる**必要があります
+ * （旧実装は案件名か顧客名のどちらか片方だけでした）。
+ * 実施日はサーバーが返してきたときだけ添える（`event_start` の説明を参照）。
+ */
+export function relatedLine(log: Pick<ActivityLogRow,
+  'project_name' | 'customer_name' | 'event_start' | 'event_day_count'>): string {
+  const parts = [log.project_name, log.customer_name].filter(Boolean) as string[];
+  if (log.project_name && log.event_start) {
+    parts.push(eventDateLabel(log.event_start, log.event_day_count));
+  }
+  return parts.length > 0 ? parts.join(' ・ ') : '案件・顧客のひも付けなし';
 }
 
 /** 活動の紐づけ先（案件名 > 顧客名）— 内部コードではなく人が読める名前を出す */

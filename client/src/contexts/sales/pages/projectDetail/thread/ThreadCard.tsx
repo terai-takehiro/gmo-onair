@@ -1,185 +1,85 @@
 /**
- * やり取りの1件（v4 ⑥ 案件記録）— 会話の形で描く
+ * やり取りの1件（v4 ⑥ 案件記録）— 会話の形で描き、その場で編集する
  *
  * ── なぜ表の行をやめたのか ──────────────────────────────────
  *
- * 着手前は `Row` に件名・本文・要点チップ・次にやることを詰めていました。
+ * 着手前は `Row` に件名・本文・要点チップ・次のアクションを詰めていました。
  * 取り込んだメールは**先方の依頼と当社の回答が交互に並ぶやり取り**なのに、
  * 本文が1本の HTML だったので**どちらの発言かは文の中にしか残らず**、
  * 読む人が毎回頭で分解していました（利用者から「読みづらい」と2度）。
  *
  * いまは AI が**意味の単位**を返し（`server/src/shared/services/activity-struct.ts`）、
- * ここが見せ方を決めます。**AI に HTML を書かせない**という取込側の決めごと
- * （`richContent.tsx` の冒頭）と、やり取り側の作りが揃いました。
+ * `ThreadBody.tsx` が見せ方を決めます。**AI に HTML を書かせない**という取込側の
+ * 決めごと（`richContent.tsx` の冒頭）と、やり取り側の作りが揃いました。
  *
- * ── 3段に落ちる ────────────────────────────────────────────
+ * ── この回で足したこと（利用者のご指摘3・4）────────────────
  *
- *   ① `body_struct` がある … この形（会話・状態・事実）
- *   ② `body_html` がある   … v1 で整えた行。**そのまま HTML で描く**
- *   ③ どちらも無い         … 原文を `parseNoteText` で読める形にする
- *
- * **②を捨てないこと。** v1 で整えた行を作り直すには1件ずつ AI を呼ぶので、
- * 作り直す前でも読める状態を保ちます。
- *
- * ── 整えた本文を HTML で描く（②の道）────────────────────────
- *
- * `body_html` は **サーバーが保存する前にサニタイズ済み**です
- * （`server/src/shared/services/html-sanitize.ts`）。許可タグは9つ、
- * **属性は1つも通していない**ので `dangerouslySetInnerHTML` で描けます。
- * ⚠️ **画面側でサニタイズし直しません** — 2か所で削ると、片方だけ直したときに
- * 「保存はできるのに表示だけ消える」という追いにくい壊れ方をします。
+ *   ・**次のアクションを片づけられる**（完了 / 延期 / 編集 / 削除）
+ *     → `NextActionActions.tsx`。前は読むだけで、不要になった行が永久に残った
+ *   ・**本文を手動で編集できる**（Notion のように、その場で）
+ *     → `ThreadCardEdit.tsx`。AI が整えたあとでも自分の言葉に直せる
  *
  * ── 原文に戻せるようにする ──────────────────────────────────
  *
  * AI の整形が的外れなときのために、**原文（`description`）を開けます**。
  * 開けないと「AI が変なことを書いた」で終わってしまい、直しようがありません。
+ * 言い方は**「原文を表示」**（`docs/wording.md` ルール8・9。「打った文をみる」は口語）。
+ *
+ * ── ファイルを分けた理由 ────────────────────────────────────
+ *
+ * 本文の描き方は `ThreadBody.tsx`、編集の枠は `ThreadCardEdit.tsx` に出しました。
+ * **1ファイル 400 行の上限**（`scripts/check-file-size.mjs`）があり、
+ * 1か所直すのに 400 行読む形をやめるためです。中身の決めごとは動かしていません。
  */
 import { useState } from 'react';
-import {
-  Sparkles, ChevronDown, ChevronRight, RotateCcw,
-  CalendarDays, Users, Lightbulb, ReceiptText, MapPin, FileText,
-} from 'lucide-react';
-import { RichContent, InlineText } from '@gmo-onair/shared/src/client-v4/richContent';
-import { parseNoteText } from '@gmo-onair/shared/src/client-v4/noteText';
+import { Sparkles, ChevronDown, ChevronRight, RotateCcw, Pencil, FileText } from 'lucide-react';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import type { ActivityLog } from '../types';
 import { kindOf } from './kinds';
 import { NextAction } from './NextActionNote';
-import {
-  readActivityStruct, initialOf,
-  type ActivityStruct, type ActivityStatusTone, type ActivityFactIcon, type ActivityTurn,
-} from './struct';
+import { NextActionActions } from './NextActionActions';
+import { ThreadBody, Statuses, Facts } from './ThreadBody';
+import { ThreadCardEdit } from './ThreadCardEdit';
+import { readActivityStruct } from './struct';
+import type { ThreadEdit } from './useThreadEdit';
 
 /**
- * 状態の色。**塗りピルにしない** — 2つ並べると色の塊が件名より目立ちます。
- * 6px の点と文字だけにすると、色は伝わって面積は 1/8 で済みます。
+ * 本文の出どころの札（1行に1枚だけ）。
+ *
+ * **面を塗るのは AI の札だけ**にしてあります。手動編集は「誰かが直した」という
+ * 事実の注記で、目で追う必要が無いからです（色は文字にだけ使う・今回の設計方針）。
  */
-const TONE_CLASS: Record<ActivityStatusTone, string> = {
-  decided: 'text-success',
-  waiting: 'text-warning',
-  risk: 'text-destructive',
-  info: 'text-muted-foreground',
-};
-
-/** 事実に添える絵。**AI は種類の名前だけを返す**（絵を決めるのはここ） */
-const FACT_ICON: Record<ActivityFactIcon, typeof CalendarDays> = {
-  date: CalendarDays,
-  people: Users,
-  gear: Lightbulb,
-  money: ReceiptText,
-  place: MapPin,
-  doc: FileText,
-};
-
-function Statuses({ items }: { items: ActivityStruct['statuses'] }) {
+function EditedBadge({ manual }: { manual: boolean }) {
+  if (manual) {
+    return (
+      <span className="text-badge inline-flex shrink-0 items-center gap-1 font-bold text-muted-foreground">
+        <Pencil className="h-3 w-3" aria-hidden="true" />手動で編集
+      </span>
+    );
+  }
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-      {items.map((s) => (
-        <span key={s.label} className={cn('text-sub inline-flex items-center gap-1.5 font-bold', TONE_CLASS[s.tone])}>
-          {/* 点は文字の色を継ぐ（色を2か所に書かない） */}
-          <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-chip bg-current" />
-          {s.label}
-        </span>
-      ))}
-    </div>
+    <span className="text-badge inline-flex shrink-0 items-center gap-1 rounded-badge bg-ai-surface px-1.5 py-0.5 font-bold text-ai">
+      <Sparkles className="h-3 w-3" aria-hidden="true" />AI が整えました
+    </span>
   );
 }
 
-function Facts({ items }: { items: ActivityStruct['facts'] }) {
-  return (
-    // **区切り文字を使わない。** `・` や `|` を並べると、4つ出したときに
-    // 記号のほうが行の中で数が多くなる。余白とアイコンで足りる
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
-      {items.map((f) => {
-        const Icon = FACT_ICON[f.icon];
-        return (
-          <span key={`${f.icon}-${f.value}`} className="text-sub inline-flex items-center gap-1.5 text-secondary-foreground">
-            <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-            {f.value}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
-function Turn({ t }: { t: ActivityTurn }) {
-  const us = t.side === 'us';
-  const initial = initialOf(t.name);
-  return (
-    <div className="flex gap-2.5">
-      {/* 頭文字のアバター。**丸にしない** — 完全な円は SNS の人物写真の記号で、
-          業務の記録には強すぎる。角丸の四角なら話者の区別だけが伝わる */}
-      <div className="flex shrink-0 flex-col items-center gap-1">
-        <span
-          aria-hidden="true"
-          className={cn(
-            'text-badge flex h-6 w-6 items-center justify-center rounded-control-md border',
-            us ? 'border-primary-border bg-primary-surface text-primary'
-               : 'border-border-subtle bg-muted text-muted-foreground',
-          )}
-        >
-          {initial ?? (us ? '当' : '先')}
-        </span>
-        {/* 発言をつなぐ線。次の発言まで伸ばす（`flex-1`）*/}
-        <span aria-hidden="true" className="w-px flex-1 bg-border-faint" />
-      </div>
-
-      <div className="min-w-0 flex-1 pb-3">
-        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          {t.name && <span className="text-list">{t.name}</span>}
-          {t.org && <span className="text-sub text-muted-foreground">{t.org}</span>}
-          {t.at && <span className="text-sub-sm font-number ml-auto text-muted-foreground">{t.at}</span>}
-        </div>
-
-        {t.quote && (
-          <p className="text-sub mt-1 whitespace-pre-line text-secondary-foreground">
-            <InlineText text={t.quote} />
-          </p>
-        )}
-        {t.note && (
-          <p className="text-sub mt-1 whitespace-pre-line text-muted-foreground">
-            <InlineText text={t.note} />
-          </p>
-        )}
-
-        {t.fields.length > 0 && (
-          // **当社の回答は薄い面に載せる。** 誰の言葉かを色で1回だけ言う
-          // （長い発言では上端のアバターが画面の外に出るため）
-          <dl className={cn(
-            'rounded-note mt-1.5 flex flex-col gap-1.5 px-3 py-2.5',
-            us ? 'bg-surface-subtle' : 'border border-border-subtle',
-          )}>
-            {t.fields.map((f) => (
-              <div key={f.label} className="flex flex-col gap-0.5 sm:flex-row sm:gap-3">
-                <dt className="text-sub w-20 shrink-0 text-muted-foreground sm:text-right">{f.label}</dt>
-                <dd className="text-sub min-w-0 flex-1 break-words text-secondary-foreground">
-                  <InlineText text={f.value} />
-                </dd>
-              </div>
-            ))}
-          </dl>
-        )}
-      </div>
-    </div>
-  );
-}
-
-
-export function ThreadCard({ a, today, canEdit, onRedo, redoing }: {
+export function ThreadCard({ a, today, canEdit, edit, onRedo, redoing }: {
   a: ActivityLog;
   today: string;
   canEdit?: boolean;
+  /** 保存・完了・延期・削除の口（`useThreadEdit`）。読むだけの画面では渡さない */
+  edit?: ThreadEdit;
   /** 「この整形は違う」。待ち行列に戻し、`ai_corrections` に `reject` を残す */
   onRedo?: (id: string) => void;
   redoing?: boolean;
 }) {
   const [showOriginal, setShowOriginal] = useState(false);
+  /** 編集中の欄（閉じているときは `null`）。最初のフォーカスの位置も兼ねる */
+  const [editing, setEditing] = useState<null | 'body' | 'next_action'>(null);
   const k = kindOf(a.activity_type);
   const KindIcon = k.icon;
   const s = readActivityStruct(a.body_struct);
-  const overdue = a.next_action && !a.next_action_done_at
-    && !!a.next_action_date && a.next_action_date < today;
   // 要点チップは v1 の欄。**構造がある行では出さない**（`facts` が同じ役割を担う）
   const points = s ? [] : (a.key_points ?? []);
   // **AI が整えたと言えるのは、整えた中身があるときだけ。** 「整え直す」を押した直後は
@@ -189,20 +89,26 @@ export function ThreadCard({ a, today, canEdit, onRedo, redoing }: {
    * ⚠️ **「整った本文がある」と「AI が整えた」は別物**（レビューでの指摘 #93）。
    *
    * 前の版はどちらも `!!s || !!a.body_html` で判定していました。ところが
-   * **`body_html` は人が書いた本文にも入ります**（AI を通していない古い記録）。
-   * その行では:
+   * **`body_html` は人が書いた本文にも入ります**（AI を通していない古い記録・
+   * **この回から増える手動編集の行**）。その行では:
    *
    * ・**「AI 整形」の札が出ます** — AI は一度も触っていないのに
    * ・**「整え直す」が出て、押しても何も起きません**。サーバーの待ち行列は
    *   `body_html IS NULL OR ai_formatted` を要求するので、
-   *   **人が書いた本文の行は永久に対象になりません**（`PENDING_SQL`）。
-   *   押すと `format_attempted_at` が消えるだけで、画面は1ドットも変わらず、
-   *   「待っています」も出ません（それも `ai_formatted` を見ているため）
+   *   **人が書いた本文の行は永久に対象になりません**（`PENDING_SQL`）
    *
    * **AI の印がある行だけ**を AI 扱いにします。
    */
   const aiFormatted = !!a.ai_formatted && hasBody;
   const waitingRedo = !!a.ai_formatted && !hasBody;
+  /**
+   * 手動で編集した行（migration 304）。**AI の札より優先して出す** —
+   * 中身はもう人の文章なので、「AI が整えました」は嘘になります。
+   * この行は `PENDING_SQL` の `body_edited_at IS NULL` から外れるので
+   * 自動整形されず、「整え直す」もサーバーが 400 で止めます
+   * （**押しても何も起きない導線を作らない**ので、画面からも出しません）。
+   */
+  const manuallyEdited = !!a.body_edited_at;
 
   return (
     <article className="rounded-card border border-border bg-card p-4 shadow-sm lg:p-5">
@@ -213,10 +119,19 @@ export function ThreadCard({ a, today, canEdit, onRedo, redoing }: {
             <KindIcon className="h-3.5 w-3.5" aria-hidden="true" />{k.label}
           </span>
         </div>
+        {/*
+          札は1枚だけ。**手動で編集した行では「AI が整えました」を出さない** —
+          中身はもう人の文章なので嘘になる（ご指摘4への対応）。
+          ⚠️ **`{aiFormatted && (` の形を崩さないこと** —
+          `shared/tests/redoFormat.test.ts` がこの判定の形を固定している
+          （`body_html` があるだけで AI 扱いにした前の版への戻りを止めるため）。
+        */}
         {aiFormatted && (
-          <span className="text-badge inline-flex shrink-0 items-center gap-1 rounded-badge bg-ai-surface px-1.5 py-0.5 font-bold text-ai">
-            <Sparkles className="h-3 w-3" aria-hidden="true" />AI が整えました
-          </span>
+          <EditedBadge manual={manuallyEdited} />
+        )}
+        {/* AI を一度も通していない行を手で編集したとき（`ai_formatted` は偽のまま） */}
+        {manuallyEdited && !aiFormatted && (
+          <EditedBadge manual />
         )}
       </div>
 
@@ -232,89 +147,106 @@ export function ThreadCard({ a, today, canEdit, onRedo, redoing }: {
         </div>
       )}
 
-      {s ? (
+      {/*
+        編集中は本文と次のアクションを**欄に差し替える**（二重に出さない）。
+        両方出すと、どちらが保存される値なのか読み取れません
+      */}
+      {editing && edit ? (
+        <ThreadCardEdit a={a} edit={edit} focus={editing} onClose={() => setEditing(null)} />
+      ) : (
         <>
-          {s.lead && (
-            <p className="text-sub mt-3 whitespace-pre-line text-secondary-foreground">
-              <InlineText text={s.lead} />
-            </p>
+          <ThreadBody a={a} s={s} />
+
+          {points.length > 0 && (
+            <div className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1.5">
+              {points.map((p, i) => (
+                <span key={i} className="text-sub inline-flex items-center gap-1.5 text-secondary-foreground">
+                  <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />{p}
+                </span>
+              ))}
+            </div>
           )}
-          {s.turns.length > 0 && (
-            <>
-              {/* 節見出しは `v4-eyebrow`（12px/800・字間 .1em）。トップの節見出しと同じ段 */}
-              <p className="v4-eyebrow mt-3.5 text-muted-foreground">やり取り</p>
-              <div className="mt-1.5">
-                {s.turns.map((t, i) => <Turn key={`${t.side}-${i}`} t={t} />)}
-              </div>
-            </>
+
+          {a.next_action && (
+            <NextAction a={a} today={today}>
+              {canEdit && edit && (
+                <NextActionActions a={a} edit={edit} onEdit={() => setEditing('next_action')} />
+              )}
+            </NextAction>
           )}
         </>
-      ) : a.body_html ? (
-        <div
-          className="thread-body text-sub mt-3 text-secondary-foreground"
-          // 保存時にサニタイズ済み（このファイルの冒頭を参照）
-          dangerouslySetInnerHTML={{ __html: a.body_html }}
-        />
-      ) : a.description ? (
-        // **整形前の本文も「読める形」で描く。** メール取込は素のテキストしか
-        // 入れられない（MCP の `create_activity_log` は `description` だけ）ので、
-        // ここは**まだ整えていない取込ぶんが必ず通る道**
-        <div className="mt-3">
-          <RichContent blocks={parseNoteText(a.description)} fallback={a.description} />
-        </div>
-      ) : null}
-
-      {points.length > 0 && (
-        <div className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1.5">
-          {points.map((p, i) => (
-            <span key={i} className="text-sub inline-flex items-center gap-1.5 text-secondary-foreground">
-              <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />{p}
-            </span>
-          ))}
-        </div>
       )}
-
-      {a.next_action && <NextAction a={a} overdue={!!overdue} />}
 
       {waitingRedo && (
         <p className="text-sub mt-3 text-muted-foreground">
-          AI が整える順番に入っています（毎晩 3:00 に自動で整えます）。それまでは打った文のまま出ます。
+          AI が整える順番に入っています（毎晩 3:00 に自動で整えます）。それまでは原文のまま表示します。
         </p>
       )}
 
       {/* **整形の元になった文に戻れる。** 直しようがない状態にしない */}
-      {a.ai_formatted && a.description && (
+      {!editing && (
         <div className="mt-3 flex flex-wrap items-center gap-x-4 border-t border-border-faint pt-2">
-          <button
-            type="button"
-            onClick={() => setShowOriginal((v) => !v)}
-            aria-expanded={showOriginal}
-            className="text-sub min-h-tap inline-flex items-center gap-1 text-muted-foreground hover:text-foreground lg:min-h-[28px]"
-          >
-            打った文をみる
-            {showOriginal
-              ? <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-              : <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />}
-          </button>
+          {a.description && (
+            <button
+              type="button"
+              onClick={() => setShowOriginal((v) => !v)}
+              aria-expanded={showOriginal}
+              className="text-sub min-h-tap inline-flex items-center gap-1 text-muted-foreground hover:text-foreground lg:min-h-[28px]"
+            >
+              原文を表示
+              {showOriginal
+                ? <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                : <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />}
+            </button>
+          )}
+          {/*
+            **本文を手動で編集する**（ご指摘4）。AI が整えたあとでも、
+            自分の言葉に直せる道を必ず1本置く（「整え直す」だけだと、
+            直す手段が「AI にもう一度賭ける」しか無い）
+          */}
+          {canEdit && edit && (
+            <button
+              type="button"
+              onClick={() => setEditing('body')}
+              className="text-sub min-h-tap inline-flex items-center gap-1 text-muted-foreground hover:text-foreground lg:min-h-[28px]"
+            >
+              <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+              編集
+            </button>
+          )}
           {/*
             **「この整形は違う」を押せるようにする。** v2 は AI が「誰の発言か」まで
             決めるので、取り違えると**当社が答えたことが取引先の発言として残ります**。
             押すと待ち行列に戻り、押した事実は `ai_corrections` に `reject` で残る
             （会社方針「AI を使い捨てにしない」の条件2）
           */}
-          {canEdit && aiFormatted && onRedo && (
-            <button
-              type="button"
-              onClick={() => onRedo(a.id)}
-              disabled={redoing}
-              className="text-sub min-h-tap inline-flex items-center gap-1 text-muted-foreground hover:text-foreground disabled:opacity-50 lg:min-h-[28px]"
-            >
-              <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-              整え直す
-            </button>
+          {/*
+            ⚠️ **手動で編集した行では出さない。** サーバーの `redoFormat` が
+            `body_edited_at IS NOT NULL` の行を 400 で止めるので、出すと
+            **押しても何も起きないボタン**になる（`NOT_AI_FORMATTED` と同じ門）。
+            外側で外すのは、内側の `{canEdit && aiFormatted && onRedo && (` の形を
+            `shared/tests/redoFormat.test.ts` が固定しているため。
+          */}
+          {!manuallyEdited && (
+            <>
+              {canEdit && aiFormatted && onRedo && (
+                <button
+                  type="button"
+                  onClick={() => onRedo(a.id)}
+                  disabled={redoing}
+                  className="text-sub min-h-tap inline-flex items-center gap-1 text-muted-foreground hover:text-foreground disabled:opacity-50 lg:min-h-[28px]"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                  整え直す
+                </button>
+              )}
+            </>
           )}
-          {showOriginal && (
-            <p className="text-note rounded-note mt-1 whitespace-pre-line border border-border-subtle bg-surface-subtle px-3 py-2 text-muted-foreground">
+          {showOriginal && a.description && (
+            <p className={cn(
+              'text-note rounded-note mt-1 w-full whitespace-pre-line border border-border-subtle',
+              'bg-surface-subtle px-3 py-2 text-muted-foreground',
+            )}>
               {a.description}
             </p>
           )}

@@ -4,6 +4,21 @@
  * 計算は旧実装のまま（`sales-analytics.service.ts` の `getFunnelAnalysis`）。
  * 変えたのは並べ方だけ: KPI は帯（`Strip`）に、ステージ別の棒は
  * `platform/pages/salesDashboard/StagePanel.tsx` と同じ色使い（状態の色トークン、生のパレットは使わない）。
+ *
+ * ── スマホ対応（2026-09・利用者からのご指摘）──────────────────
+ *
+ * この画面は PC 専用ではなくなった（`pcOnlyScreens.ts`）ので 375px で組み直した。
+ * ステージ別の行は **ラベル 112px ＋ 件数 40px ＋ 金額 96px ＋ 隙間 36px = 284px** の
+ * 固定分があり、375px（左右の余白・カードの内側を引くと実効 311px）では
+ * 棒に 27px しか残らず、棒がほぼ潰れて読めなかった。
+ *
+ * **狭い幅では2行に落とす**（`flex-wrap` ＋ 棒だけ `w-full`・`order-last`）:
+ *
+ *   1行目  ラベル … 件数 金額
+ *   2行目  ───────棒───────
+ *
+ * 640px 以上は今までどおりの1行（`sm:w-auto sm:flex-1` で棒が横に戻る）。
+ * **横スクロールは出さない**（`overflow-x-auto` を足して逃げない）。
  */
 import { Link } from 'react-router-dom';
 import { BarChart3, TrendingUp, TrendingDown, Target, ArrowRight } from 'lucide-react';
@@ -61,22 +76,31 @@ export function FunnelPanel({ funnel, year }: { funnel: FunnelData; year: number
             <div key={r.stage}>
               <Link
                 to={r.stage === 'neta' ? '/sales/projects?view=seed' : `/sales/projects?stage=${r.stage}`}
-                className="rounded-note flex min-h-tap items-center gap-3 px-1 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:min-h-[34px]"
+                className="rounded-note flex min-h-tap flex-wrap items-center gap-x-3 gap-y-1.5 px-1 py-1.5 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:flex-nowrap sm:py-0 lg:min-h-[34px]"
               >
-                <span className="text-list w-28 shrink-0 truncate">{ProjectStageLabels[r.stage]}</span>
-                <span className="h-6 min-w-0 flex-1 overflow-hidden rounded bg-muted">
+                {/* ラベル: スマホは残りを全部使う（右の数字を押し出さないよう `min-w-0`）*/}
+                <span className="text-list min-w-0 flex-1 truncate sm:w-28 sm:flex-none">
+                  {ProjectStageLabels[r.stage]}
+                </span>
+                {/*
+                  棒。**スマホでは `order-last` で2行目に落とす**（`w-full` なので
+                  `flex-wrap` の行を1つ占める）。640px 以上は DOM の順どおり
+                  ラベルと件数の間に戻る
+                */}
+                <span className="order-last h-5 w-full overflow-hidden rounded bg-muted sm:order-none sm:h-6 sm:w-auto sm:min-w-0 sm:flex-1">
                   <span
                     className={`v4-bar block h-full rounded ${BAR[r.stage]}`}
                     style={{ width: `${Math.max((r.count / maxCount) * 100, r.count > 0 ? 3 : 0)}%` }}
                   />
                 </span>
                 <span className="font-number text-list w-10 shrink-0 text-right"><Num value={r.count} /></span>
-                <span className="font-number text-sub w-24 shrink-0 text-right text-muted-foreground">
+                <span className="font-number text-sub w-20 shrink-0 whitespace-nowrap text-right text-muted-foreground sm:w-24">
                   {r.amount > 0 ? manYen(r.amount) : '—'}
                 </span>
               </Link>
+              {/* 遷移率。`ml-28` はラベル幅に合わせた下げ幅なので、ラベルが伸びるスマホでは当てない */}
               {r.conversion && (
-                <div className="ml-28 flex items-center gap-1.5 py-0.5 pl-4">
+                <div className="flex items-center gap-1.5 py-0.5 pl-1 sm:ml-28 sm:pl-4">
                   <ArrowRight className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
                   <span className="text-note text-muted-foreground">
                     → {ProjectStageLabels[r.conversion.to]}への遷移率:{' '}
@@ -100,17 +124,21 @@ export function FunnelPanel({ funnel, year }: { funnel: FunnelData; year: number
               const wonW = (won / maxTrend) * 100;
               const lostW = (lost / maxTrend) * 100;
               return (
-                <div key={m} className="flex items-center gap-3">
+                // 月次推移もステージ別と同じ組み方: スマホは棒を2行目に落とす。
+                // 受注・失注の件数（`w-28`）は文字が入る最小幅なので狭めず、
+                // 代わりに棒の側を全幅にする
+                <div key={m} className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:flex-nowrap">
                   <span className="text-note w-8 shrink-0 text-right">{m}月</span>
-                  <span className="flex h-4 min-w-0 flex-1 overflow-hidden rounded bg-muted">
+                  <span className="order-last flex h-3.5 w-full overflow-hidden rounded bg-muted sm:order-none sm:h-4 sm:w-auto sm:min-w-0 sm:flex-1">
                     {wonW > 0 && <span className="h-full bg-success" style={{ width: `${wonW}%` }} />}
                     {lostW > 0 && <span className="h-full bg-destructive/70" style={{ width: `${lostW}%` }} />}
                   </span>
-                  <span className="text-note w-28 shrink-0 text-right text-muted-foreground">
+                  <span className="text-note min-w-0 flex-1 text-right text-muted-foreground sm:w-28 sm:flex-none">
                     <span className="font-number font-bold text-success">{won}</span>受注{' '}
                     <span className="font-number text-destructive">{lost}</span>失注
                   </span>
-                  <span className="font-number text-note hidden w-20 shrink-0 text-right text-muted-foreground sm:block">
+                  {/* 金額は `w-20`(80px)＋`whitespace-nowrap`。64px だと ¥123,457万 が折り返す（実測）*/}
+                  <span className="font-number text-note w-20 shrink-0 whitespace-nowrap text-right text-muted-foreground">
                     {wonAmount > 0 ? manYen(wonAmount) : '—'}
                   </span>
                 </div>

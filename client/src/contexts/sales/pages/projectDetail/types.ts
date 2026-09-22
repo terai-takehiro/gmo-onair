@@ -123,6 +123,15 @@ export interface StudioBooking {
 /** `GET /activity-logs?project_id=` の1行 */
 export interface ActivityLog {
   id: string;
+  /**
+   * ⚠️ **`PUT /activity-logs/:id` は全項目を置き換えます**（サーバーの `update()`）。
+   * 送らなかった項目は `null` に落ちるので、**この画面から保存するときは
+   * いま表示している行の全項目を送り直します**。そのために
+   * `project_id` / `customer_id` を型に持ちます（`SELECT a.*` で既に返ってきており、
+   * 宣言が無かっただけ）。**落とすと、編集のたびに案件とお客様の紐づけが消えます。**
+   */
+  project_id?: string | null;
+  customer_id?: string | null;
   activity_date: string;
   subject: string;
   next_action: string | null;
@@ -162,5 +171,37 @@ export interface ActivityLog {
   body_struct?: unknown;
   /** AI が整形したか（紫のバッジ） */
   ai_formatted?: boolean;
+  /**
+   * AI の出力（`ai_outputs.id`）に紐づく行の印。**取込・整形のどちらで入っても立つ**。
+   *
+   * **「AI が立てたやること」かを見分けるのに使います**（`isAiAuthored`）。
+   * 見分けが付かないと、人が手で書いた行を削除したときに差分が1行も残らないのに
+   * 「AI の間違いを直した」と読まれます（会社方針の条件2が空振りする）。
+   */
+  ai_output_id?: string | null;
+  /**
+   * **AI が「次のアクション」を立てた行か**（サーバーが `ai_outputs` から数えた真偽値）。
+   *
+   * `GET /activity-logs` と `GET /activity-logs/by-project` が**同じ1本の判定**で返します
+   * （整形 or 取込の出力に `next_action` が入っているか）。
+   * `ai_output_id` / `ai_formatted` だけでは、**MCP の取込で入っただけの行**に
+   * 印が出ず、画面とサーバーで「印が付いている行」の集合が食い違っていました。
+   * 古い口が返さないこともあるので `?` — **来ていなければ印を出しません**（嘘の印を出さない）。
+   */
+  ai_generated?: boolean;
+  /**
+   * **人が本文を手動で編集した時刻**（migration 304）。立っている行は
+   *
+   *   ・毎晩 3:00 の自動整形の対象から外れる（`PENDING_SQL` の `body_edited_at IS NULL`）
+   *   ・「整え直す」をサーバーが 400 で止める（押しても何も起きない導線を作らない）
+   *   ・札が「AI が整えました」ではなく **「手動で編集」** になる
+   *
+   * ⚠️ **この列を「差分」の代わりにしないこと。** 何がどう間違っていたかは
+   * 1バイトも入っていません（`projects.ai_reviewed_at` と同じ「人が触った」印）。
+   * 中身の差分は同じ保存で `ai_corrections` に `body_struct` の `reject` として
+   * 積まれます（サーバー側 `activity-log.service.ts`）。
+   */
+  body_edited_at?: string | null;
+  body_edited_by?: string | null;
   user_name?: string | null;
 }

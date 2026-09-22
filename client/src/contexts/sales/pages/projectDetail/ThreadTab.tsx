@@ -12,13 +12,20 @@
  * 書けないので、結局みんな別の画面へ移っていました。
  *
  * 書く枠は**件名を訊きません**（`thread/ComposeBox.tsx`）。打ちっぱなしで送ると、
- * 保存時に AI が 見出し・整えた本文・要点・次にやること を起こします。
+ * 保存時に AI が 見出し・整えた本文・要点・次のアクション を起こします。
  * **原文は必ず残る**ので、整形が的外れなときは戻せます。
  *
  * **打合せの録音から議事録を起こせます**。録音 → Whisper で文字起こし →
  * AI が決定事項と持ち帰りを下書き → 人が直して確定、の順です。
  * 確定するときに**どこを直したかがサーバーで自動記録され**、次の下書きに効きます
  * (会社方針「AI を使い捨てにしない」の条件2と4)。
+ *
+ * ── この回で足したこと（利用者のご指摘3・4）────────────────
+ *
+ * 1件ごとに**次のアクションを片づけられ**（完了 / 延期 / 編集 / 削除）、
+ * **本文を手動で編集できる**ようになりました（`thread/useThreadEdit.ts`）。
+ * 前は読むだけだったので、関係なくなったやることが永久に残り、
+ * AI の整形が少し違っていても「整え直す」で賭け直すしかありませんでした。
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -32,6 +39,7 @@ import { RecordDialog } from './thread/RecordDialog';
 import { MinutesCard } from './thread/MinutesCard';
 import { ComposeBox, type ComposeKind } from './thread/ComposeBox';
 import { ThreadCard } from './thread/ThreadCard';
+import { useThreadEdit } from './thread/useThreadEdit';
 import type { MinutesResponse, MinutesPatch } from './thread/types';
 import { EmptyState, Delayed, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { localDateStr } from '@/lib/format';
@@ -88,9 +96,18 @@ export function ThreadTab({ projectId }: { projectId: string }) {
 
   const remove = useMutation({
     mutationFn: (id: string) => api.delete(`/projects/${projectId}/minutes/${id}`),
-    onSuccess: () => { invalidate(); notifySuccess('消しました'); },
+    onSuccess: () => { invalidate(); notifySuccess('削除しました'); },
     onError: (e) => notifyApiError('削除できませんでした', e),
   });
+
+  /**
+   * やり取りの1件を直す口（保存・完了・延期・次のアクションの削除）。
+   *
+   * **カードごとに `api.put` を書かないこと。** `PUT /activity-logs/:id` は
+   * 全項目の置き換えなので、送り忘れた項目が黙って消えます
+   * （`thread/useThreadEdit.ts` の冒頭）。
+   */
+  const edit = useThreadEdit(projectId);
 
   /**
    * 「この整形は違う」— 待ち行列に戻す。
@@ -110,11 +127,11 @@ export function ThreadTab({ projectId }: { projectId: string }) {
 
   const onRedo = async (id: string) => {
     const ok = await confirmAction({
-      title: 'この整形をやめますか',
-      description: 'いま出ている整形を消して、AI が整える順番に戻します。'
-        + '**打った文（原文）はそのまま残ります。**\n\n'
+      title: 'この整形を取り消しますか',
+      description: 'いま表示している整形を破棄し、AI が整える順番に戻します。'
+        + '**原文はそのまま残ります。**\n\n'
         + 'AI が整えるのは毎晩 3:00 の自動処理なので、すぐには変わりません。'
-        + 'それまでは打った文のまま出ます。\n\n'
+        + 'それまでは原文のまま表示します。\n\n'
         + '「違う」と押したことは記録され、整形の精度を上げる材料になります。',
       confirmLabel: '整え直す',
       tone: 'default',
@@ -210,6 +227,7 @@ export function ThreadTab({ projectId }: { projectId: string }) {
               a={a}
               today={today}
               canEdit={canEdit}
+              edit={edit}
               onRedo={onRedo}
               redoing={redo.isPending}
             />
@@ -240,7 +258,7 @@ export function ThreadTab({ projectId }: { projectId: string }) {
               onDelete={async () => {
                 const ok = await confirmAction({
                   title: '議事録を削除しますか',
-                  description: '文字起こしも一緒に消えます。元の音声は残していないので、戻せません。',
+                  description: '文字起こしも一緒に削除されます。元の音声は保存していないため、元に戻せません。',
                   confirmLabel: '削除',
                   tone: 'danger',
                 });

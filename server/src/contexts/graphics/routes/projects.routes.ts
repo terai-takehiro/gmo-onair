@@ -134,7 +134,7 @@ router.get('/projects', wrap(async (req, res) => {
 router.get('/projects/:id', wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const bundle = id && !isNaN(id) ? await fetchBundle(id) : null;
-  if (!bundle) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
+  if (!bundle) throw new AppError(404, 'NOT_FOUND', 'テロップCGが見つかりません');
   res.json({ success: true, data: bundle });
 }));
 
@@ -142,7 +142,7 @@ router.get('/projects/:id', wrap(async (req, res) => {
 router.put('/projects/:id', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const project = id && !isNaN(id) ? await fetchProject(id) : null;
-  if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
+  if (!project) throw new AppError(404, 'NOT_FOUND', 'テロップCGが見つかりません');
 
   const body = (req.body ?? {}) as {
     theme?: string; name?: string; slotExitRules?: unknown; followScript?: boolean;
@@ -197,7 +197,7 @@ router.put('/projects/:id', requirePermission('qsheet', 'editor'), wrap(async (r
 router.post('/projects/:id/cue', requirePermission('qsheet', 'manager'), wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const project = id && !isNaN(id) ? await fetchProject(id) : null;
-  if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
+  if (!project) throw new AppError(404, 'NOT_FOUND', 'テロップCGが見つかりません');
 
   const { slot, pageId } = (req.body ?? {}) as { slot?: string; pageId?: number | null };
   if (!SLOTS.includes(slot as Slot)) {
@@ -209,7 +209,7 @@ router.post('/projects/:id/cue', requirePermission('qsheet', 'manager'), wrap(as
       `SELECT id FROM graphics_pages WHERE id = ? AND project_id = ?`,
       [targetPageId, id]
     );
-    if (!page) throw new AppError(404, 'NOT_FOUND', 'ページが見つかりません');
+    if (!page) throw new AppError(404, 'NOT_FOUND', 'テロップが見つかりません');
   }
 
   // 段6-4: TAKE 時はスロット間自動退出ルール（slot_exit_rules）も同じトランザクションで
@@ -231,7 +231,7 @@ router.post('/projects/:id/cue', requirePermission('qsheet', 'manager'), wrap(as
 router.post('/projects/:id/cue/continue', requirePermission('qsheet', 'manager'), wrap(async (req, res) => {
   const id = parseInt(req.params.id as string);
   const project = id && !isNaN(id) ? await fetchProject(id) : null;
-  if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
+  if (!project) throw new AppError(404, 'NOT_FOUND', 'テロップCGが見つかりません');
 
   const { slot } = (req.body ?? {}) as { slot?: string };
   if (!SLOTS.includes(slot as Slot)) {

@@ -69,6 +69,33 @@ export const OPEN_NEXT_ACTION_SQL = `${NEXT_ACTION_OPEN_SQL}
      AND ${PROJECT_NOT_TERMINAL_SQL}`;
 
 /**
+ * **期限が決まっていない未対応の次回アクション**（区分「期限未設定」）。
+ *
+ * ⚠️ **`OPEN_NEXT_ACTION_SQL` の代わりに使わないこと。** あちらは
+ * `next_action_date IS NOT NULL` を必須にしていて、それは正しい —
+ * 期限の無いやることを「今日までのもの」として数えると件数だけが増え、
+ * 画面から辿れなくなります（顧客360°の `open_actions` が実際にそうでした）。
+ *
+ * ただし**期限の無いやることが存在しないわけではありません**。整形器も取込も、
+ * **本文に期日が書かれていないときは期限を置かずに `next_action` を立てます**
+ * （推測で日付を置かせないほうが正しいので、これは意図した挙動）。
+ * その結果、`OPEN_NEXT_ACTION_SQL` しか読まない画面では
+ * **「AI が期限を置けなかった分」だけが誰の目にも触れず、直されず、
+ * 差分（`ai_corrections`）も取れません**。
+ *
+ * そこで**案件別の一覧（`GET /activity-logs/by-project`）の「期限未設定」区分だけ**が
+ * こちらを読みます。**既存の7つの呼び出し口は1件も集合を変えません**
+ * （migration 245 が式を1本に寄せた意味が消えるため）。
+ *
+ * 別名は `a` = `activity_logs` / `p` = `projects` 固定（上の2本と同じ）。
+ */
+export const OPEN_NEXT_ACTION_NO_DATE_SQL = `a.deleted_at IS NULL
+     AND a.next_action IS NOT NULL
+     AND a.next_action_date IS NULL
+     AND a.next_action_done_at IS NULL
+     AND ${PROJECT_NOT_TERMINAL_SQL}`;
+
+/**
  * `projects` を JOIN していない SQL 用の同じ条件（`EXISTS` 版）。
  *
  * 夜間の短文生成（`next-action-short.service.ts`）は `FROM activity_logs` を

@@ -57,7 +57,7 @@ export default function GraphicsHubPage() {
   if (state.status === 'not-found') {
     return (
       <PageShell>
-        <EmptyState icon={<Type />} title="見つかりませんでした" description="管理番号が合っているか確かめてください。" />
+        <EmptyState icon={<Type />} title="案件・番組が見つかりません" description="管理番号が合っているか確かめてください。" />
       </PageShell>
     );
   }
@@ -65,7 +65,7 @@ export default function GraphicsHubPage() {
   if (state.status === 'error') {
     return (
       <PageShell>
-        <EmptyState icon={<AlertCircle />} title="開けませんでした" description={state.message} />
+        <EmptyState icon={<AlertCircle />} title="テロップCGを開けませんでした" description={state.message} />
       </PageShell>
     );
   }
@@ -354,7 +354,7 @@ function HubContent({ ownerKey, owner, bundle, reload }: {
         <div className="w-full shrink-0 lg:w-[420px]">
           {panel.mode === 'closed' ? (
             <div className="rounded-card border border-dashed border-border bg-card p-6 text-center">
-              <p className="text-sub text-muted-foreground">テロップを選ぶと、ここで直せます。</p>
+              <p className="text-sub text-muted-foreground">テロップを選ぶと、ここで編集できます。</p>
             </div>
           ) : (
             <TelopEditorPanel

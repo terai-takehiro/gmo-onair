@@ -57,7 +57,7 @@ export default function TelopKindOrTemplateStep({
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />読み込み中…
           </p>
         ) : templates.length === 0 ? (
-          <p className="text-sub text-muted-foreground">このプロジェクトにテンプレートはまだありません。</p>
+          <p className="text-sub text-muted-foreground">この番組にテンプレートはまだありません。</p>
         ) : (
           <div className="flex flex-col gap-1.5">
             {templates.map((t) => (

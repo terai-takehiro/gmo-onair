@@ -173,7 +173,7 @@ export async function previewAwardsMigration(eventId: number): Promise<AwardsMig
 
   const eventWarnings: string[] = [];
   if (categories.length === 0) {
-    eventWarnings.push('カテゴリがありません（ページは1件も作成されません）');
+    eventWarnings.push('カテゴリがありません（テロップは1件も作成されません）');
   }
 
   const pages: AwardsMigrationPagePreview[] = [];

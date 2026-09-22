@@ -77,7 +77,7 @@ export function dueLabel(due: string | null | undefined, today: string): { text:
   const d = due.slice(0, 10);
   if (d < today) {
     const days = Math.round((Date.parse(`${today}T00:00`) - Date.parse(`${d}T00:00`)) / 86400000);
-    return { text: `${days}日 過ぎています`, tone: 'over' };
+    return { text: `${days}日超過`, tone: 'over' };
   }
   if (d === today) return { text: '今日まで', tone: 'today' };
   const days = Math.round((Date.parse(`${d}T00:00`) - Date.parse(`${today}T00:00`)) / 86400000);

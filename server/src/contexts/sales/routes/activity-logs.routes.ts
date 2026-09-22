@@ -9,6 +9,7 @@ import {
 import {
   shortQueueStats, runShortPass, resetShortFailed, redoShort,
 } from '../services/next-action-short.service';
+import { listByProject, parseDueBucket } from '../services/activity-by-project.service';
 
 const router = Router();
 
@@ -29,6 +30,32 @@ router.get('/', async (req, res) => {
   };
   const result = await activityLogService.list(filter, page, limit, offset);
   res.json(paginatedResponse(result.rows, result.total, result.page, result.limit));
+});
+
+/*
+ * 案件別のまとまり（営業活動記録の主画面・利用者からのご指摘②）
+ *
+ * ⚠️ **`/:id` より前に置くこと。** 後ろに置くと `/by-project` が `/:id` に食われ、
+ * 「by-project という id の活動記録」を探して 404 になります
+ * （`/upcoming` `/format-status` が前にあるのと同じ理由）。
+ *
+ * `due` は期限の4区分（`overdue` / `today` / `week` / `none`）＋ `all`（既定）。
+ * **本日+8 以降のやることはどの区分にも入りません** — 先の予定まで色で急かすと、
+ * 本当に急ぐものが埋もれます。`all` には出ます。
+ */
+router.get('/by-project', async (req, res, next) => {
+  try {
+    const { page, limit, offset, search } = extractPagination(req);
+    const result = await listByProject(
+      {
+        due: parseDueBucket(req.query.due),
+        search,
+        userId: (req.query.user_id as string) || undefined,
+      },
+      page, limit, offset,
+    );
+    res.json(paginatedResponse(result.rows, result.total, result.page, result.limit));
+  } catch (e) { next(e); }
 });
 
 router.get('/upcoming', async (req, res) => {
@@ -147,7 +174,17 @@ router.put('/:id', requirePermission('sales', 'editor'), async (req, res) => {
     // `humanReview` は**この経路だけ**が渡す — MCP の `update_activity_log` は
     // 機械の更新なので、渡すと無修正採用率が嘘になる（service 側の注意書き）
     data: await activityLogService.update(
-      req.params.id as string, req.body, req.user!.id, { humanReview: true },
+      req.params.id as string, req.body, req.user!.id, {
+        humanReview: true,
+        /*
+         * 次のアクションを**削除**したときの理由（任意・3択＋自由記入）。
+         * **必須にしません** — 人に差分の入力を強いると運用が続かない、というのが
+         * この製品の決めごとで、理由が無くても `reject` は必ず1行積まれます。
+         * 「もう完了した」「案件が停止した」は正常な業務の終わりなので、
+         * プロンプト改善の分母からは外せるようにコードで残します。
+         */
+        nextActionDeleteReason: (req.body?.next_action_delete_reason as string) ?? null,
+      },
     ),
   });
 });
@@ -194,7 +231,14 @@ router.post('/:id/complete-next-action', requirePermission('sales', 'editor'), a
 
 // 次回アクションを延期 (body: { date: 'YYYY-MM-DD' })
 router.post('/:id/postpone-next-action', requirePermission('sales', 'editor'), async (req, res) => {
-  res.json({ success: true, data: await activityLogService.postponeNextAction(req.params.id as string, req.body?.date) });
+  // **誰が延ばしたか**まで残す（`ai_corrections.corrected_by`）。
+  // 「AI が置いた期限が近すぎた」という差分は、誰が言ったか込みで初めて材料になる
+  res.json({
+    success: true,
+    data: await activityLogService.postponeNextAction(
+      req.params.id as string, req.body?.date, req.user!.id,
+    ),
+  });
 });
 
 router.delete('/:id', requirePermission('sales', 'manager'), async (req, res) => {

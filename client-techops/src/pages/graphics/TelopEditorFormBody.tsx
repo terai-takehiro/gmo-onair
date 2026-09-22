@@ -66,7 +66,7 @@ export default function TelopEditorFormBody({
 
       <div className="space-y-4">
         <div>
-          <Label htmlFor="telop-name">ページ名（一覧に出す見出し） <span className="text-destructive">*</span></Label>
+          <Label htmlFor="telop-name">テロップ名 <span className="text-destructive">*</span></Label>
           <Input
             id="telop-name"
             className="mt-1 min-h-[44px]"
@@ -79,7 +79,7 @@ export default function TelopEditorFormBody({
 
         {!useTemplateMode && !page && (
           <div>
-            <Label>出る場所</Label>
+            <Label>出る位置</Label>
             <Select value={slot} onValueChange={(v) => onSlotChange(v as GraphicsSlot)}>
               <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue /></SelectTrigger>
               <SelectContent>

@@ -75,8 +75,8 @@ export function ConsolePageList({ pages, cues, pvwPageId, onSelectPvw, sendConti
       </div>
       {pages.length === 0 ? (
         <EmptyState
-          title="ページがまだありません"
-          description="ハブ画面（ページと送出リスト）で本番前にページを作っておきます。"
+          title="テロップがまだありません"
+          description="本番の前に、テロップ一覧で作っておきます。"
         />
       ) : groupPagesBySection(pages).map((group) => (
         <Fragment key={group.pages[0].id}>
@@ -103,7 +103,7 @@ export function ConsolePageList({ pages, cues, pvwPageId, onSelectPvw, sendConti
 
 function ConsoleRow({ page, onAir, isNext, onSelectPvw, sendContinue }: {
   page: GraphicsPageRow;
-  /** cues[page.slot]?.pageId === page.id（このページがそのスロットで送出中＝OA） */
+  /** cues[page.slot]?.pageId === page.id（このテロップがその位置で送出中＝OA） */
   onAir: boolean;
   isNext: boolean;
   onSelectPvw: (pageId: string | null) => void;

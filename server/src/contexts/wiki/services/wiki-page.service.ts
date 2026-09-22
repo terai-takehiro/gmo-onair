@@ -20,7 +20,9 @@ import {
 } from '../../qsheet/services/httpErrors';
 import { headingsText, extractPageLinks } from '../wiki-markdown';
 import { assertReadablePage, readableSpaceIds, type WikiUser } from './wiki-access.service';
+import { assertPageEditable } from './wiki-lock.service';
 import { breadcrumbOf } from './wiki-path.service';
+import { checkedRowProps } from './wiki-row-props';
 
 /** 閲覧の記録の入口（`wiki_page_views.via` の CHECK と同じ5つ） */
 export const WIKI_VIEW_VIA = ['tree', 'search', 'answer', 'link', 'favorite'] as const;
@@ -48,6 +50,41 @@ const PAGE_SELECT = `
     LEFT JOIN users cu ON cu.id = p.created_by
     LEFT JOIN users uu ON uu.id = p.updated_by
 `;
+
+/**
+ * ページ1行（`getPage` と同じ列。パンくず・バックリンクは付きません）。
+ *
+ * ⚠️ **閲覧の可否を見ません。** 呼ぶ側が `assertReadablePage` を通してから使うこと
+ * （作成・保存のあとに「いま保存したページ」を返すための口で、
+ * そこでは可否をすでに確かめています）。
+ */
+export async function selectPageRow(pageId: string): Promise<Row> {
+  const row = await queryOne(`${PAGE_SELECT} WHERE p.id = ? AND p.deleted_at IS NULL`, [pageId]);
+  if (!row) throw new NotFoundError('ページが見つかりません');
+  return row;
+}
+
+/**
+ * 本文からページのリンクを抜いて `wiki_links` を作り直す（§5-3-2）。
+ *
+ * ⚠️ **実在するページだけ**入れます — 消えたページ・打ち間違いの id を
+ * そのまま入れると外部キー違反で保存ごと失敗します。
+ */
+export async function rebuildPageLinks(
+  tx: { execute(sql: string, params?: unknown[]): Promise<void> },
+  pageId: string,
+  body: string,
+): Promise<void> {
+  await tx.execute('DELETE FROM wiki_links WHERE from_page_id = ?', [pageId]);
+  const linked = extractPageLinks(body).filter((id) => id !== pageId);
+  if (linked.length === 0) return;
+  await tx.execute(
+    `INSERT INTO wiki_links (from_page_id, to_page_id)
+     SELECT ?, p.id FROM wiki_pages p WHERE p.id = ANY(?) AND p.deleted_at IS NULL
+     ON CONFLICT DO NOTHING`,
+    [pageId, linked],
+  );
+}
 
 /**
  * ページ1件（パンくず・バックリンク・お気に入り・30日の閲覧数つき）。
@@ -191,11 +228,15 @@ function pick<T>(given: T | undefined, current: T): T {
  * ⚠️ **1〜4 は1つのトランザクションで行います。** 途中で落ちると
  * 「本文は新しいのに履歴が無い」「リンクだけ古い」が残り、後から直せません。
  *
+ * 5. 編集ロック（§6-③）の確認。**本文・題を変える保存だけ**が対象です —
+ *    担当・見直し予定・タグ（§6-② の情報の欄）は、他の人が編集中でも直せます
+ * 6. データベースの行なら、値（`props`）を親の項目定義で検査する（§5-3-6・段C）。
+ *    検査は `wiki-row-props.ts`（純関数の部分は `../wiki-props.ts` ＝画面との複製）。
+ *    ⚠️ **`props` を送ってきた保存だけ**が対象です — 本文だけを直した保存で
+ *    既にある値を検査し直すと、項目の型を変えた日に**本文を保存しただけで値が消えます**
+ *
  * ⚠️ **まだやっていないこと**（段が来たら足す）:
  * - `ai_corrections` への差分（§5-3-4・§7-3）… 段E
- * - データベースの行の値の検査（§5-3-6。`shared/src/wiki/markdown.ts` の
- *   `sanitizeProps` と同じものをサーバー側にも写す）… 段C
- * - 編集ロック（§6-③）の確認 … 段B。`updated_at` の突き合わせはロックがあっても外しません
  */
 export async function savePageInternal(
   pageId: string,
@@ -209,6 +250,15 @@ export async function savePageInternal(
     throw new ValidationError('見直し期限は YYYY-MM-DD の形で入れてください');
   }
 
+  /*
+   * ⑥ データベースの行の値の検査（§5-3-6）。**トランザクションの外で先に**行います —
+   *    ONAiR リンクの相手を引く問い合わせが増えるので、行の錠を掴んだまま待たせません。
+   *    行でなければ渡された値がそのまま返ります（段A・段B の振る舞いを変えない）。
+   */
+  const checkedProps = input.props === undefined
+    ? undefined
+    : await checkedRowProps(pageId, input.props);
+
   await withTransaction(async (tx) => {
     // 同じページへの同時保存を直列にする（FOR UPDATE）。突き合わせだけでは、
     // 2人が同じ `updated_at` を持って同時に来たときに両方が通ってしまう
@@ -216,13 +266,24 @@ export async function savePageInternal(
       `SELECT p.id, p.rev, p.title, p.body_md, p.icon, p.status, p.parent_id, p.sort_order,
               p.props, p.tags, p.owner_user_id, p.review_by::text AS review_by,
               p.published_at, p.updated_at, p.updated_by,
-              (SELECT u.name FROM users u WHERE u.id = p.updated_by) AS updater_name
+              p.locked_by, p.locked_at,
+              (SELECT u.name FROM users u WHERE u.id = p.updated_by) AS updater_name,
+              (SELECT u.name FROM users u WHERE u.id = p.locked_by) AS locked_by_name
          FROM wiki_pages p
         WHERE p.id = ? AND p.deleted_at IS NULL
         FOR UPDATE`,
       [pageId],
     );
     if (!cur) throw new NotFoundError('ページが見つかりません');
+
+    // 編集ロック（§6-③）。**本文・題を変えるときだけ**見る —
+    //    情報の欄（担当・見直し予定・タグ・アイコン）は編集中の人が居ても直せる（§6-②）。
+    //    `cur` は上で `FOR UPDATE` を取っているので、引き継ぎ（`takeoverWikiLock`）と
+    //    この保存は同じ行ロックを取り合い、必ずどちらかが先に確定する
+    if (input.body_md !== undefined || input.title !== undefined) {
+      assertPageEditable(cur, user.id);
+    }
+
     checkOptimisticLock(
       input.expected_updated_at,
       { updated_at: cur.updated_at, updated_by: cur.updated_by, updater_name: cur.updater_name },
@@ -233,7 +294,7 @@ export async function savePageInternal(
     const title = String(pick(input.title, cur.title)).trim();
     const body = String(pick(input.body_md, cur.body_md) ?? '');
     const status = String(pick(input.status, cur.status));
-    const props = pick(input.props, cur.props as Record<string, unknown>) ?? {};
+    const props = pick(checkedProps, cur.props as Record<string, unknown>) ?? {};
     const tags = pick(input.tags, cur.tags as string[]) ?? [];
     const rev = Number(cur.rev) + 1;
 
@@ -273,21 +334,9 @@ export async function savePageInternal(
       ],
     );
 
-    // ④ バックリンクを作り直す。**実在するページだけ**入れる —
-    //    消えたページ・打ち間違いの id をそのまま入れると外部キー違反で保存ごと失敗する
-    await tx.execute('DELETE FROM wiki_links WHERE from_page_id = ?', [pageId]);
-    const linked = extractPageLinks(body).filter((id) => id !== pageId);
-    if (linked.length > 0) {
-      await tx.execute(
-        `INSERT INTO wiki_links (from_page_id, to_page_id)
-         SELECT ?, p.id FROM wiki_pages p WHERE p.id = ANY(?) AND p.deleted_at IS NULL
-         ON CONFLICT DO NOTHING`,
-        [pageId, linked],
-      );
-    }
+    // ④ バックリンクを作り直す（作成のときと同じ `rebuildPageLinks` を通す）
+    await rebuildPageLinks(tx, pageId, body);
   });
 
-  const saved = await queryOne(`${PAGE_SELECT} WHERE p.id = ? AND p.deleted_at IS NULL`, [pageId]);
-  if (!saved) throw new NotFoundError('ページが見つかりません');
-  return saved;
+  return selectPageRow(pageId);
 }

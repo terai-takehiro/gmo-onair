@@ -87,7 +87,7 @@ function validateLayers(raw: unknown): { partKey: string; baseFields: Record<str
 router.post('/projects/:id/templates', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
   const projectId = parseInt(req.params.id as string);
   const project = projectId && !isNaN(projectId) ? await fetchProject(projectId) : null;
-  if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
+  if (!project) throw new AppError(404, 'NOT_FOUND', 'テロップCGが見つかりません');
 
   const body = (req.body ?? {}) as {
     partKey?: string; slot?: string; name?: string; description?: string;
@@ -140,7 +140,7 @@ router.post('/projects/:id/templates', requirePermission('qsheet', 'editor'), wr
 router.get('/projects/:id/templates', wrap(async (req, res) => {
   const projectId = parseInt(req.params.id as string);
   const project = projectId && !isNaN(projectId) ? await fetchProject(projectId) : null;
-  if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
+  if (!project) throw new AppError(404, 'NOT_FOUND', 'テロップCGが見つかりません');
 
   const templates = await fetchTemplates(projectId);
   res.json({ success: true, data: templates });
@@ -155,7 +155,7 @@ router.get('/projects/:id/templates', wrap(async (req, res) => {
 router.post('/projects/:id/templates/copy-from', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
   const projectId = parseInt(req.params.id as string);
   const project = projectId && !isNaN(projectId) ? await fetchProject(projectId) : null;
-  if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
+  if (!project) throw new AppError(404, 'NOT_FOUND', 'テロップCGが見つかりません');
 
   const { sourceProjectId } = (req.body ?? {}) as { sourceProjectId?: number };
   if (typeof sourceProjectId !== 'number' || !Number.isFinite(sourceProjectId)) {
@@ -166,7 +166,7 @@ router.post('/projects/:id/templates/copy-from', requirePermission('qsheet', 'ed
     throw new AppError(400, 'VALIDATION_ERROR', '自分自身のプロジェクトからはコピーできません');
   }
   const sourceProject = await fetchProject(sourceProjectId);
-  if (!sourceProject) throw new AppError(404, 'NOT_FOUND', 'コピー元のCGプロジェクトが見つかりません');
+  if (!sourceProject) throw new AppError(404, 'NOT_FOUND', 'コピー元のテロップCGが見つかりません');
 
   const sourceTemplates = await fetchTemplates(sourceProjectId);
   if (sourceTemplates.length === 0) {
