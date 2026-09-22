@@ -9,7 +9,9 @@
  * サーバーに渡せる絞り込み（`WikiSearchQuery`）にも状態はありません。
  * 押しても結果が変わらない操作を並べないための判断です。
  */
-import type { WikiSearchHit, WikiSpace } from '@gmo-onair/shared/src/wiki/types';
+// スペースごとの件数は**サーバーが数えて返す**ようになったので（`counts`）、
+// ここで当たり（`WikiSearchHit`）を数え直すことはありません。
+import type { WikiSpace } from '@gmo-onair/shared/src/wiki/types';
 import type { WikiUserBrief } from '@/components/page/pageOpsApi';
 
 export interface WikiSearchFilters {
