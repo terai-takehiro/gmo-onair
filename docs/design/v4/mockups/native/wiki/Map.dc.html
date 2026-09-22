@@ -28,13 +28,13 @@
       <p style="margin: 7px 0 0; font-size: 13.5px; line-height: 1.65; color: #3c424c;"><strong>Markdown で書いた文章を、ツリーに並べて、検索できて、AI が読める</strong>アプリ。Notion の全部は作らない。<br>「社内ルール」を期限切れにしない形で置き、AI が答えられなかった質問を<strong>ページの候補</strong>に変える。</p>
     </div>
     <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
-      <span style="display: inline-flex; align-items: center; height: 24px; border-radius: 8px; background: #eaf4fb; color: #005bac; font-size: 11.5px; font-weight: 800; padding: 0 10px;">新しいブロックアプリ ／ 設計（判断待ち）</span>
+      <span style="display: inline-flex; align-items: center; height: 24px; border-radius: 8px; background: #e7f6ee; color: #197a4b; font-size: 11.5px; font-weight: 800; padding: 0 10px;">新しいブロックアプリ ／ 設計（判断済み・着手できる）</span>
       <span class="num" style="font-size: 11.5px; color: #9aa1ab;">/wiki ・ 権限の区画 wiki ・ docs/design/v4/wiki.md</span>
     </div>
   </div>
 
   <!-- ── 3つの動き: 書く → 探す → 育てる ─────────────────────── -->
-  <div style="margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; height: 372px;">
+  <div style="margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; height: 352px;">
 
     <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; padding: 14px; display: flex; flex-direction: column;">
       <div style="display: flex; align-items: center; gap: 8px;">
@@ -49,7 +49,7 @@
         <div style="display: flex; align-items: center; gap: 8px; height: 30px;"><span class="mono" style="width: 40px; font-size: 11px; font-weight: 700; color: #5d6470; text-align: center; border: 1px solid #e6e9ed; border-radius: 6px; padding: 2px 0;">&gt; [!]</span><span style="font-size: 12.5px; font-weight: 700;">注意書き</span><span style="font-size: 11.5px; color: #9aa1ab;">GitHub と同じ書き方</span></div>
         <div style="display: flex; align-items: center; gap: 8px; height: 30px;"><span class="mono" style="width: 40px; font-size: 11px; font-weight: 700; color: #5d6470; text-align: center; border: 1px solid #e6e9ed; border-radius: 6px; padding: 2px 0;">[ ]( )</span><span style="font-size: 12.5px; font-weight: 700;">ONAiR カード</span><span style="font-size: 11.5px; color: #9aa1ab;">案件・機材へのただのリンク</span></div>
       </div>
-      <p style="margin: 10px 0 0; font-size: 11.5px; line-height: 1.6; color: #5d6470;"><strong>まず手入力。</strong> 記号や `/` を覚えなくても書け、「AI で整える」で手順書の形の Markdown になる（いま／整えたあと を並べて見せる）。Markdown で書けないブロックは作らない。</p>
+      <p style="margin: 10px 0 0; font-size: 11.5px; line-height: 1.6; color: #5d6470;"><strong>まず手入力。</strong> 記号や `/` を覚えなくても書け、「AI で整える」で手順書の形の Markdown になる。</p>
     </section>
 
     <section style="border-radius: 14px; border: 1px solid #cfe4f4; background: #ffffff; padding: 14px; display: flex; flex-direction: column;">
@@ -61,9 +61,9 @@
       <div style="margin-top: 10px; flex: 1; display: flex; flex-direction: column; gap: 8px;">
         <div style="border-radius: 10px; border: 1px solid #e6e9ed; padding: 9px 11px;"><div style="font-size: 12.5px; font-weight: 800;">検索</div><div style="margin-top: 2px; font-size: 11.5px; line-height: 1.6; color: #5d6470;">タイトル×3・見出し×2・本文×1 で点数。拡張なしで始め、遅くなったら pg_trgm。</div></div>
         <div style="border-radius: 10px; border: 1px solid #cfe4f4; background: #f4faff; padding: 9px 11px;"><div style="font-size: 12.5px; font-weight: 800; color: #005bac;">AI に聞く</div><div style="margin-top: 2px; font-size: 11.5px; line-height: 1.6; color: #1e3a5f;">読めるスペースの公開ページを根拠に、<strong>出典つき</strong>で答える。出典が無ければ答えず「足りないページ」に登録する。評価は3値（役に立った／言い直して／的外れ）。</div></div>
-        <div style="border-radius: 10px; border: 1px solid #e6e9ed; padding: 9px 11px;"><div style="font-size: 12.5px; font-weight: 800;">外から読む・書く</div><div style="margin-top: 2px; font-size: 11.5px; line-height: 1.6; color: #5d6470;">REST <span class="mono">GET …/pages/:id.md</span> ・ AI 連携のツール 5本（検索・取得・一覧・作成・更新）・ スペースまるごと .md の zip。書き込みは必ず下書き。</div></div>
+        <div style="border-radius: 10px; border: 1px solid #e6e9ed; padding: 9px 11px;"><div style="font-size: 12.5px; font-weight: 800;">外から読む・書く</div><div style="margin-top: 2px; font-size: 11.5px; line-height: 1.6; color: #5d6470;">REST <span class="mono">GET …/pages/:id.md</span> ・ AI 連携のツール 6本（検索・取得・一覧・作成・更新・データベースの絞り込み）・ スペースまるごと .md の zip。書き込みは必ず下書き。</div></div>
       </div>
-      <p style="margin: 10px 0 0; font-size: 11.5px; line-height: 1.6; color: #5d6470;">スマホでも<strong>編集できる</strong>。手入力してから「AI で整える」で Markdown の形に（ツールバーは5つ）。</p>
+      <p style="margin: 10px 0 0; font-size: 11.5px; line-height: 1.6; color: #5d6470;">スマホでも<strong>編集できる</strong>。手入力してから「AI で整える」で Markdown の形に。</p>
     </section>
 
     <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; padding: 14px; display: flex; flex-direction: column;">
@@ -73,23 +73,25 @@
         <span style="font-size: 11.5px; color: #9aa1ab;">月1回 ・ スペースの担当</span>
       </div>
       <div style="margin-top: 10px; flex: 1; display: flex; flex-direction: column; gap: 8px;">
-        <div style="border-radius: 10px; border: 1px solid #f6cdd2; background: #fef6f7; padding: 9px 11px;"><div style="font-size: 12.5px; font-weight: 800; color: #c7243a;">見直し期限</div><div style="margin-top: 2px; font-size: 11.5px; line-height: 1.6; color: #7f1d2b;">公開から 12か月（既定）。過ぎると「期限切れ」と表示され、担当に通知。「見直した」で伸びる。Notion に無い、このアプリの中核。</div></div>
+        <div style="border-radius: 10px; border: 1px solid #f6cdd2; background: #fef6f7; padding: 9px 11px;"><div style="font-size: 12.5px; font-weight: 800; color: #c7243a;">見直し期限</div><div style="margin-top: 2px; font-size: 11.5px; line-height: 1.6; color: #7f1d2b;">担当が入れた日（任意）。過ぎると「期限切れ」と表示され、担当に通知。「見直した」で次の期限を入れ直す。Notion に無い、このアプリの中核。</div></div>
         <div style="border-radius: 10px; border: 1px solid #fed7aa; background: #fff7ed; padding: 9px 11px;"><div style="font-size: 12.5px; font-weight: 800; color: #c2410e;">足りないページ</div><div style="margin-top: 2px; font-size: 11.5px; line-height: 1.6; color: #7c2d12;">AI が答えられなかった質問（回数順）。「ページを作成」→ AI が会話と ONAiR のデータから下書き → 人が編集して公開 → 次からは答えられる。</div></div>
         <div style="border-radius: 10px; border: 1px solid #e6e9ed; padding: 9px 11px;"><div style="font-size: 12.5px; font-weight: 800;">AI の修正状況</div><div style="margin-top: 2px; font-size: 11.5px; line-height: 1.6; color: #5d6470;">下書きの無修正率・よく修正される点・回答の評価。AI の記録と閲覧の記録から導出。助言として次の下書きに反映。</div></div>
       </div>
-      <p style="margin: 10px 0 0; font-size: 11.5px; line-height: 1.6; color: #5d6470;">「AIを使い捨てにしない」5条件は設計書 §7-3 の表。使うほど賢くなるのは<strong>足りないページを作成する</strong>経路。</p>
+      <p style="margin: 10px 0 0; font-size: 11.5px; line-height: 1.6; color: #5d6470;">使うほど賢くなるのは<strong>足りないページを作成する</strong>経路（5条件は設計書 §7-3）。</p>
     </section>
   </div>
 
   <!-- ── 6つの語・3つの約束・画面7枚 ─────────────────────────── -->
   <div style="margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
     <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; padding: 13px 14px;">
-      <div style="font-size: 15px; font-weight: 800;">利用者に見せる語は6つ</div>
+      <div style="font-size: 15px; font-weight: 800;">利用者に見せる語は8つ</div>
       <table style="margin-top: 8px; width: 100%; border-collapse: collapse;">
         <tbody>
           <tr><td style="width: 82px; padding: 4px 0; font-size: 12.5px; font-weight: 800; vertical-align: top;">スペース</td><td style="padding: 4px 0; font-size: 12px; line-height: 1.5; color: #3c424c;">分野ごとの区分。閲覧範囲の単位（全員／指定メンバー）</td></tr>
           <tr><td style="padding: 4px 0; font-size: 12.5px; font-weight: 800; vertical-align: top;">ページ</td><td style="padding: 4px 0; font-size: 12px; line-height: 1.5; color: #3c424c;">Markdown 1本。ツリーに並ぶ</td></tr>
           <tr><td style="padding: 4px 0; font-size: 12.5px; font-weight: 800; vertical-align: top;">ブロック</td><td style="padding: 4px 0; font-size: 12px; line-height: 1.5; color: #3c424c;">段落・見出し・表・画像・注意書き。`/` で追加</td></tr>
+          <tr><td style="padding: 4px 0; font-size: 12.5px; font-weight: 800; vertical-align: top;">データベース</td><td style="padding: 4px 0; font-size: 12px; line-height: 1.5; color: #3c424c;">行＝ページの集まり。項目（列）を定義した親ページ</td></tr>
+          <tr><td style="padding: 4px 0; font-size: 12.5px; font-weight: 800; vertical-align: top;">ビュー</td><td style="padding: 4px 0; font-size: 12px; line-height: 1.5; color: #3c424c;">表／ボード／カレンダー。保存してタブで切替</td></tr>
           <tr><td style="padding: 4px 0; font-size: 12.5px; font-weight: 800; vertical-align: top;">テンプレート</td><td style="padding: 4px 0; font-size: 12px; line-height: 1.5; color: #3c424c;">手順書・議事メモ・障害報告・機材の使い方 の型</td></tr>
           <tr><td style="padding: 4px 0; font-size: 12.5px; font-weight: 800; vertical-align: top;">履歴</td><td style="padding: 4px 0; font-size: 12px; line-height: 1.5; color: #3c424c;">保存のたびに残る版。2つの版の違い・戻す</td></tr>
           <tr><td style="padding: 4px 0; font-size: 12.5px; font-weight: 800; vertical-align: top;">見直し期限</td><td style="padding: 4px 0; font-size: 12px; line-height: 1.5; color: #3c424c;">担当が次に見直す日。過ぎたら「期限切れ」の表示と通知</td></tr>
@@ -102,14 +104,14 @@
       <div style="font-size: 15px; font-weight: 800;">Markdown ネイティブ ── 3つの約束</div>
       <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 7px;">
         <div style="display: flex; gap: 9px;"><span style="width: 20px; height: 20px; flex-shrink: 0; border-radius: 6px; background: #005bac; color: #ffffff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center;">1</span><div style="font-size: 12px; line-height: 1.55; color: #3c424c;"><strong>本文の正は Markdown の文字列</strong>（DB の列 <span class="mono">body_md</span>）。画面はそれを描いて書き戻すだけ。HTML や独自 JSON を正にしない</div></div>
-        <div style="display: flex; gap: 9px;"><span style="width: 20px; height: 20px; flex-shrink: 0; border-radius: 6px; background: #005bac; color: #ffffff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center;">2</span><div style="font-size: 12px; line-height: 1.55; color: #3c424c;"><strong>Markdown で書けないブロックは作らない。</strong> GFM ＋ 注意書き・折りたたみ・ONAiR カード（ただのリンク）だけ。データベースは作らない</div></div>
-        <div style="display: flex; gap: 9px;"><span style="width: 20px; height: 20px; flex-shrink: 0; border-radius: 6px; background: #005bac; color: #ffffff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center;">3</span><div style="font-size: 12px; line-height: 1.55; color: #3c424c;"><strong>外から同じものを読める・編集できる。</strong> REST の .md・AI 連携のツール 5本・スペースまるごとの書き出し（.md のフォルダ構成＋YAML の見出し）と取り込み</div></div>
+        <div style="display: flex; gap: 9px;"><span style="width: 20px; height: 20px; flex-shrink: 0; border-radius: 6px; background: #005bac; color: #ffffff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center;">2</span><div style="font-size: 12px; line-height: 1.55; color: #3c424c;"><strong>Markdown で書けないブロックは作らない。</strong> GFM ＋ 注意書き・折りたたみ・ONAiR カード（ただのリンク）だけ。データベースは「行＝ページ・値＝YAML の見出し」で Markdown の側に収める</div></div>
+        <div style="display: flex; gap: 9px;"><span style="width: 20px; height: 20px; flex-shrink: 0; border-radius: 6px; background: #005bac; color: #ffffff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center;">3</span><div style="font-size: 12px; line-height: 1.55; color: #3c424c;"><strong>外から同じものを読める・編集できる。</strong> REST の .md・AI 連携のツール 6本・スペースまるごとの書き出し（.md のフォルダ構成＋YAML の見出し）と取り込み</div></div>
       </div>
       <p style="margin: 8px 0 0; padding-top: 8px; border-top: 1px dashed #e6e9ed; font-size: 11.5px; line-height: 1.6; color: #5d6470;">「ファイルを正にする」は採らない ── 権限・検索・履歴・バックアップ・同時編集を自前で作ることになる（設計書 §5-2）。</p>
     </section>
 
     <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; padding: 13px 14px;">
-      <div style="font-size: 15px; font-weight: 800;">画面は8枚（PC 6・スマホ 2）</div>
+      <div style="font-size: 15px; font-weight: 800;">画面は9枚（PC 7・スマホ 2）</div>
       <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 3px;">
         <div style="display: flex; align-items: center; gap: 8px; height: 26px;"><span class="num" style="width: 18px; font-size: 11.5px; font-weight: 800; color: #005bac;">①</span><span style="font-size: 12.5px; font-weight: 700; width: 82px; flex-shrink: 0;">ホーム</span><span class="num clip1 mono" style="font-size: 11px; color: #5d6470; flex: 1; min-width: 0;">/wiki</span></div>
         <div style="display: flex; align-items: center; gap: 8px; height: 26px;"><span class="num" style="width: 18px; font-size: 11.5px; font-weight: 800; color: #005bac;">②</span><span style="font-size: 12.5px; font-weight: 700; width: 82px; flex-shrink: 0;">ページ</span><span class="num clip1 mono" style="font-size: 11px; color: #5d6470; flex: 1; min-width: 0;">/wiki/p/:id</span></div>
@@ -118,10 +120,11 @@
         <div style="display: flex; align-items: center; gap: 8px; height: 26px;"><span class="num" style="width: 18px; font-size: 11.5px; font-weight: 800; color: #005bac;">⑤</span><span style="font-size: 12.5px; font-weight: 700; width: 82px; flex-shrink: 0;">AI に聞く</span><span class="num clip1 mono" style="font-size: 11px; color: #5d6470; flex: 1; min-width: 0;">/wiki/ask</span></div>
         <div style="display: flex; align-items: center; gap: 8px; height: 26px;"><span class="num" style="width: 18px; font-size: 11.5px; font-weight: 800; color: #005bac;">⑥</span><span style="font-size: 12.5px; font-weight: 700; width: 82px; flex-shrink: 0;">履歴</span><span class="num clip1 mono" style="font-size: 11px; color: #5d6470; flex: 1; min-width: 0;">/wiki/p/:id/history　②の右パネルと同じ</span></div>
         <div style="display: flex; align-items: center; gap: 8px; height: 26px;"><span class="num" style="width: 18px; font-size: 11.5px; font-weight: 800; color: #005bac;">⑦</span><span style="font-size: 12.5px; font-weight: 700; width: 82px; flex-shrink: 0;">見直し</span><span class="num clip1 mono" style="font-size: 11px; color: #5d6470; flex: 1; min-width: 0;">/wiki/review　月1回の場</span></div>
+        <div style="display: flex; align-items: center; gap: 8px; height: 26px;"><span class="num" style="width: 18px; font-size: 11.5px; font-weight: 800; color: #005bac;">⑩</span><span style="font-size: 12.5px; font-weight: 700; width: 82px; flex-shrink: 0;">データベース</span><span class="num clip1 mono" style="font-size: 11px; color: #5d6470; flex: 1; min-width: 0;">/wiki/p/:id　表／ボード／カレンダー</span></div>
         <div style="display: flex; align-items: center; gap: 8px; height: 26px;"><span class="num" style="width: 18px; font-size: 11.5px; font-weight: 800; color: #005bac;">⑧</span><span style="font-size: 12.5px; font-weight: 700; width: 82px; flex-shrink: 0;">スマホ 閲覧</span><span class="num clip1 mono" style="font-size: 11px; color: #5d6470; flex: 1; min-width: 0;">/wiki/p/:id　同じURL・読む</span></div>
         <div style="display: flex; align-items: center; gap: 8px; height: 26px;"><span class="num" style="width: 18px; font-size: 11.5px; font-weight: 800; color: #005bac;">⑨</span><span style="font-size: 12.5px; font-weight: 700; width: 82px; flex-shrink: 0;">スマホ 編集</span><span class="num clip1 mono" style="font-size: 11px; color: #5d6470; flex: 1; min-width: 0;">/wiki/p/:id/edit　手入力＋AI で整える</span></div>
       </div>
-      <p style="margin: 8px 0 0; padding-top: 8px; border-top: 1px dashed #e6e9ed; font-size: 11.5px; line-height: 1.6; color: #5d6470;">入口はトップページのタイル「Wiki」から入る。案件・機材の詳細からのリンクは段E。</p>
+      <p style="margin: 8px 0 0; padding-top: 8px; border-top: 1px dashed #e6e9ed; font-size: 11.5px; line-height: 1.6; color: #5d6470;">入口はトップページのタイル「Wiki」から入る。案件・機材の詳細からのリンクは段F。</p>
     </section>
   </div>
 
