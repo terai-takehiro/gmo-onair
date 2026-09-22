@@ -41,7 +41,12 @@ description: 受信メールを読んで種類ごとに仕分け、GMO ONAiR の
 ```
 get_ai_feedback_digest(kind='inquiry_intake')
 get_ai_feedback_digest(kind='finance_doc_intake')
+get_ai_feedback_digest(kind='activity_intake')
 ```
+
+`activity_intake` は**あなたが `create_activity_log` に書いた中身を、人がどう直したか**です。
+`description` に「人が書き足された（enrich）」が並んでいたら、**本文を要約して渡している**
+という意味なので、次からは**本文をそのまま**入れてください（手順3の注意書き）。
 
 ⚠️ **助言をそのまま信じないこと。** いまの母数は5件で、
 「見送り率100% ＝ 拾いすぎ」という助言が出ますが、**実態は拾えていない**ほうです。

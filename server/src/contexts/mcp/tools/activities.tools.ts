@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { activityLogService } from '../../sales/services/activity-log.service';
+import {
+  activityLogService, ACTIVITY_INTAKE_KIND, ACTIVITY_INTAKE_PROMPT_VERSION,
+} from '../../sales/services/activity-log.service';
+import { recordAiOutput } from '../../../shared/services/ai-output.service';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { ok, runTool, clampLimit, pagination, audit, REQUESTED_BY } from '../helpers';
 /**
@@ -209,6 +212,42 @@ export function registerActivityTools(server: McpServer): void {
           [args.idempotency_key ?? null, args.message_id ?? null, args.source_channel ?? null, row.id],
         );
       }
+      /*
+       * **外の AI が書いたものを全文で残す**（会社方針「AIを使い捨てにしない」条件1）。
+       *
+       * ⚠️ **`mcp_audit_log` では代わりになりません。** あちらは args を 1,000 字で
+       * 切り詰めるので、**長い本文ほど中身が消えます**（`ai-output.service` の冒頭）。
+       * 取込の失敗はまさに「本文が短い／落ちている」なので、切り詰めた記録では
+       * **確かめたいことがちょうど見えません**。
+       *
+       * `model` は入れられません（どの Claude がこのスキルを動かしたかはサーバーから
+       * 分からない）。代わりに **contract の版**（`.describe()` の版）を持ちます —
+       * 直した効果は `prompt_version` ごとの無修正採用率で比べます。
+       *
+       * **best-effort。** 記録に失敗しても取込そのものは成功させる。
+       */
+      await recordAiOutput({
+        kind: ACTIVITY_INTAKE_KIND,
+        targetTable: 'activity_logs',
+        targetId: row.id,
+        payload: {
+          subject: args.subject,
+          description: args.description ?? null,
+          next_action: args.next_action ?? null,
+          next_action_date: args.next_action_date ?? null,
+          activity_type: args.activity_type,
+          activity_date: args.activity_date,
+          // **本文の長さを添える**。整形側の `coverage.inputChars` と突き合わせると、
+          // 「短いのは取り込んだ本文か、整えた結果か」がその場で分かる
+          description_chars: typeof args.description === 'string' ? args.description.length : 0,
+        },
+        toolName: 'create_activity_log',
+        promptVersion: ACTIVITY_INTAKE_PROMPT_VERSION,
+        requestedBy: args.requested_by,
+        messageId: args.message_id ?? null,
+        sourceChannel: args.source_channel ?? null,
+      });
+
       audit('create_activity_log', args, { created_id: row.id, subject: args.subject }, args.requested_by);
       return ok({ created: true, activity_log: { ...row, idempotency_key: args.idempotency_key ?? null, message_id: args.message_id ?? null, source_channel: args.source_channel ?? null } });
     }),

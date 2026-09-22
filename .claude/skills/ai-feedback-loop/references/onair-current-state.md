@@ -77,9 +77,9 @@ AI バッジ・AI 起票インボックス・AI 活動履歴ページ（`/sales/
 |---|---|
 | 1 | **レビュー運用（条件5）の仕組み化。** 頻度と担当は決まった（**月1回・営業のマネージャー**）。あとは `ops_reports.kind='ai_review'` に月次で digest を貼り、承認したものをスキル/プロンプトに反映する導線を作る |
 | 2 | **ONAiR 外の生成物**（Slack の返信案・概算見積、Gmail、Box）が未記録。`ai_outputs` に登録して ID を発行し、リアクション/送信済みメールと突合する |
-| 3 | **`prompt_version` は一部だけ埋まっている**（実測）。議事録（`minutes-ai.service` の `MINUTES_PROMPT_VERSION`）と**画面から**の投入（`dailyops/routes/tasks.routes.ts`）は入っている。**入っていないのは MCP 経由の `create_task_intake` と `create_project` / `set_project_simulation`** |
+| 3 | **`prompt_version` は一部だけ埋まっている**（実測）。議事録（`minutes-ai.service` の `MINUTES_PROMPT_VERSION`）と**画面から**の投入（`dailyops/routes/tasks.routes.ts`）、取込の活動記録（`ACTIVITY_INTAKE_PROMPT_VERSION`）は入っている。**入っていないのは MCP 経由の `create_task_intake` と `create_project` / `set_project_simulation`** |
 | 4 | 財務系（仕入・販管費）の AI 由来レコードに `recordCorrections` が入っていない |
-| 5 | **メール取込のうち `create_activity_log` と `register_inview_attendee` はまだ `recordAiOutput` を呼んでいない**（条件1から欠落）。`record_inquiry` / `record_finance_doc` は v4 で入れた |
+| 5 | **メール取込のうち `register_inview_attendee` はまだ `recordAiOutput` を呼んでいない**（条件1から欠落）。`record_inquiry` / `record_finance_doc` は v4 で、`create_activity_log` は 2026-09 に入れた（`activity_intake`・下記） |
 | 6 | **`create_project` に構造化引数（`details`）を足していない。** 本番のメール取込スキルが毎日叩いているので、`record_inquiry` / `record_finance_doc` で形が固まってから任意引数として足す。**スキル（`/root/.claude/skills/sales-mail-gmoonair/`）は Git 管理外なので、足しても人が直さないと埋まらない** |
 
 **新しい AI 機能を足すときは、上の「機能ごと」の表に行を1つ足せる状態にしてから出すこと。**
@@ -133,6 +133,30 @@ AI 側は項目を読み分けているのに、渡す入れ物が1本しか無�
 
 **残っている穴**: 条件3（成果）。持ち帰りからタスクを作る導線がまだ無いので、
 「議事録から生まれたタスクが期限内に閉じたか」を導出できない。導線を作るときに閉じる。
+
+## 外の AI が書いたものを記録する（実装済み・2026-09・`activity_intake`）
+
+メール取込（MCP `create_activity_log`）が書いた**本文・件名・次にやること**を
+`ai_outputs`(kind=`activity_intake`) に全文で残すようにしました。
+
+他の AI 機能でも同じ判断をすること:
+
+- **`mcp_audit_log` は条件1の代わりになりません。** args を 1,000 字で切り詰めるので、
+  **長い本文ほど中身が消えます**。しかも失敗の中身がまさに「短い／落ちている」なので、
+  **確かめたいことがちょうど見えません**
+- **書き手ごとに `kind` を分ける。** 取込（外の Claude が本文を写す）と
+  整形（サーバーの整形器が意味の単位に分ける）は別の仕事です。混ぜると
+  **「短いのは取り込んだ側か、整えた側か」が分かりません**
+- **MCP ツールの `.describe()` は、外の AI にとってのプロンプトです。**
+  だから版（`ACTIVITY_INTAKE_PROMPT_VERSION`）を持ち、describe を直したら上げる。
+  持たないと**contract を直した効果を後から数字で言えません**
+- **`model` が入れられないことを理由に記録を諦めない。** どの Claude が動かしたかは
+  サーバーから分かりませんが、**全文と contract の版があれば比較はできます**
+- **差分の取得に「整形済みか」を条件にしない。** 取込の本文は整形される前から
+  人に直されます。条件を付けると**いちばん早く直された回＝いちばん強い信号**が落ちます
+
+**残っている穴**: `register_inview_attendee`（来場予約）は未記録。
+こちらは AI が要約するのではなくフォームの項目を写す仕事なので、優先度を下げています。
 
 ## まとめの「網羅量」を制御する（実装済み・2026-09・`ai-coverage.ts`）
 

@@ -3,7 +3,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { getFeedbackDigest, OPS_NEWS_ITEM_KIND, type FeedbackDigest } from '../../../shared/services/ai-feedback.service';
 import { queryOne } from '../../../shared/db/connection';
 import { PROJECT_DRAFT_KIND } from '../../sales/services/project-ai-feedback.service';
-import { ACTIVITY_FORMAT_KIND } from '../../sales/services/activity-log.service';
+import { ACTIVITY_FORMAT_KIND, ACTIVITY_INTAKE_KIND } from '../../sales/services/activity-log.service';
 import { NEXT_ACTION_SHORT_KIND } from '../../sales/services/next-action-short.service';
 import { KPT_DRAFT_KIND } from '../../sales/services/kpt.service';
 import { MINUTES_KIND } from '../../sales/services/minutes.service';
@@ -37,6 +37,9 @@ const KNOWN_KINDS = [
   INQUIRY_INTAKE_KIND,
   FINANCE_DOC_INTAKE_KIND,
   ACTIVITY_FORMAT_KIND,
+  // メール取込が書いた活動記録の本文（2026-09）。**整形（activity_format）とは別**で、
+  // ここが「取り込んだ本文が短い／落ちている」を映す。取込スキルが手順0で読む
+  ACTIVITY_INTAKE_KIND,
   NEXT_ACTION_SHORT_KIND,
   KPT_DRAFT_KIND,
   MINUTES_KIND,

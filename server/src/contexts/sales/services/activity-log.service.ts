@@ -3,7 +3,7 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { classifyTextCorrection } from '../../../shared/services/ai-coverage';
 import {
-  recordAiOutput, recordCorrections, findLatestAiOutput, type CorrectionInput,
+  recordAiOutput, recordCorrections, findLatestAiOutput, hasCorrections, type CorrectionInput,
 } from '../../../shared/services/ai-output.service';
 import { getFeedbackDigest } from '../../../shared/services/ai-feedback.service';
 import { formatActivity, isActivityAiConfigured } from './activity-ai.service';
@@ -19,6 +19,30 @@ import { OPEN_NEXT_ACTION_SQL } from '../../../shared/services/next-action-state
 
 /** `ai_outputs.kind`。**議事録とは別にする** — 直され方の傾向が別物なので混ぜない */
 export const ACTIVITY_FORMAT_KIND = 'activity_format';
+
+/**
+ * `ai_outputs.kind`。**取込（MCP `create_activity_log`）で外の AI が書いた中身**。
+ *
+ * ⚠️ **`activity_format` と混ぜないこと。** 書き手が違います:
+ *
+ *   `activity_intake` … メール取込のスキルを動かしている Claude（本文を写す仕事）
+ *   `activity_format` … サーバーの整形器（写された本文を意味の単位に分ける仕事）
+ *
+ * 混ぜると「短いのは取り込んだ人のせいか、整えた側のせいか」が分かりません。
+ * 実際、着手前は**取込側が1行も記録されておらず**、
+ * 「きわめて短いテキストでしか残らない」というご指摘に対して
+ * **上流を数字で確かめる手段がありませんでした**（条件1の穴）。
+ */
+export const ACTIVITY_INTAKE_KIND = 'activity_intake';
+
+/**
+ * 取込の「プロンプト版」。**MCP ツールの `.describe()` が、外の AI にとってのプロンプト**です
+ * （`mcp/tools/activities.tools.ts`）。だから describe を書き換えたらここを上げます。
+ *
+ * 上げないと、**contract を直した効果を後から数字で言えません**
+ * （`ai_outputs.prompt_version` ごとの無修正採用率で比べる）。
+ */
+export const ACTIVITY_INTAKE_PROMPT_VERSION = 'mcp-intake-v1';
 
 /** 種類の集合。**DB の CHECK（migration 184）と同じにすること** */
 export const ACTIVITY_TYPES = [
@@ -395,6 +419,8 @@ export class ActivityLogService {
     );
     const after = await this.getById(id) as Record<string, unknown>;
     if (existing.ai_formatted) await recordActivityCorrections(id, after, userId ?? null);
+    // **取込（MCP）で AI が書いた本文の差分は、整形の有無と関係なく残す**（上の注意書き）
+    await recordIntakeCorrections(id, after, userId ?? null);
     // **AI が作った一文を人が直した**ときだけ差分を残す（材料を変えて消えた回は誤りではない）
     if (shortEdited) {
       await recordShortCorrections(id, (after.next_action_short as string | null) ?? null, userId ?? null)
@@ -512,6 +538,77 @@ function structGrew(before: unknown, after: unknown): boolean {
   const b = activityStructLength(normalizeActivityStruct(before));
   const a = activityStructLength(normalizeActivityStruct(after));
   return b > 0 && a >= b * 1.2;
+}
+
+/**
+ * 取込（MCP）で AI が書いたものを、人がどう直したかの差分を作る。**純関数**。
+ *
+ * ── なぜ `description` を数えるのが要るか ──────────────────────
+ *
+ * 整形側（`ACTIVITY_FORMAT_KIND`）の差分は `body_struct` などを見ていて、
+ * **`description`（元の本文）を1度も見ていません**。ところが取込メールでは
+ * **その本文を書いたのが AI**（取込スキルの Claude）です。
+ * ここを数えないと、「本文が短い」という**上流の失敗だけが計測の外**に残ります。
+ *
+ * ── 整形側と二重に数えないための線引き ────────────────────────
+ *
+ * 数えるのは**取込 AI が書いた4つだけ**です。`body_struct` / `body_html` は
+ * 整形器の仕事なので、こちらでは触りません（`kind` が別なので集計は混ざりませんが、
+ * 同じ失敗を2つの kind で数えると、どちらを直せばよいか分からなくなる）。
+ *
+ * ネットワークにも DB にも触らないので素で試せます
+ * （`shared/tests/activityIntakeDiff.test.ts`）。
+ */
+export function intakeDiffs(
+  ai: Record<string, unknown>, after: Record<string, unknown>,
+): CorrectionInput[] {
+  const norm = (v: unknown): string => (v === null || v === undefined ? '' : String(v).trim());
+  const FIELDS = ['subject', 'description', 'next_action', 'next_action_date'] as const;
+  const diffs: CorrectionInput[] = [];
+
+  for (const col of FIELDS) {
+    const b = norm(ai[col]);
+    const a = norm(after[col]);
+    if (b === a) continue;
+    diffs.push({
+      fieldPath: col,
+      before: ai[col] ?? null,
+      after: after[col] ?? null,
+      /*
+       * 値 → 空 は丸ごと捨てられた = 不採用。それ以外は
+       * **書き足し（AI が落とした）と書き換え（AI が取り違えた）**を分ける。
+       * `description` がよく書き足されるなら、直すのは整形器ではなく
+       * **取込の contract（本文を要約するな）**のほうです。
+       */
+      type: a === '' ? 'reject' : classifyTextCorrection(ai[col], after[col]),
+    });
+  }
+
+  // **1つも直っていない = 正解ラベル。** 無いと「無修正採用率」の分母が壊れる
+  if (diffs.length === 0) return [{ fieldPath: '(全体)', type: 'none' }];
+  // 直さなかった項目も残す（分母）
+  for (const col of FIELDS) {
+    if (diffs.some((d) => d.fieldPath === col)) continue;
+    diffs.push({ fieldPath: col, type: 'none' });
+  }
+  return diffs;
+}
+
+/**
+ * 取込の差分を記録する（条件2）。**best-effort** — 記録に失敗しても保存は壊さない。
+ *
+ * ⚠️ **`ai_formatted` を条件にしません。** 整形の差分（`recordActivityCorrections`）は
+ * 整えた行だけが対象ですが、**取込の本文は整形される前から人に直されます**
+ * （待ち行列に入ったまま案件詳細で直す）。条件を付けると、
+ * **いちばん早く直された回＝いちばん強い信号**が落ちます。
+ */
+async function recordIntakeCorrections(
+  id: string, after: Record<string, unknown>, userId: string | null,
+): Promise<void> {
+  const out = await findLatestAiOutput('activity_logs', id, ACTIVITY_INTAKE_KIND);
+  if (!out) return;
+  if (await hasCorrections(out.id)) return;   // 同じ出力に二度積まない
+  await recordCorrections(out.id, intakeDiffs((out.payload ?? {}) as Record<string, unknown>, after), userId);
 }
 
 async function recordActivityCorrections(
