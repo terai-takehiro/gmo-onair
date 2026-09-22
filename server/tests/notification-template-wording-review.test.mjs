@@ -4,10 +4,10 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-// migration 305（通知のひな形に残っていた「過ぎています」系の言い方を揃える）を固定する。
+// migration 306（通知のひな形に残っていた「過ぎています」系の言い方を揃える）を固定する。
 //
 // ── なぜ DB を使わずに文字列で確かめるか ─────────────────────────
-// 305 の UPDATE は「本文が migration 177 で入れた元の文字列と**完全に一致する**行だけ」を書き換える
+// 306 の UPDATE は「本文が migration 177 で入れた元の文字列と**完全に一致する**行だけ」を書き換える
 // （人が「知らせと文面」で直した文面を上書きしないため）。この形の弱点は、
 // **条件側の文字列を1文字でも写し間違えると、エラーにならずに0行更新で黙って終わる**こと。
 // 本番で「流したのに何も変わっていない」に気づくのは、利用者がまた「過ぎています」を見つけたときになる。
@@ -18,7 +18,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const migrations = path.join(here, '../src/shared/db/migrations');
 const read = (name) => readFileSync(path.join(migrations, name), 'utf8');
 const m177 = read('177_notifications.sql');
-const m305 = read('305_notification_template_overdue_wording.sql');
+const m306 = read('306_notification_template_overdue_wording.sql');
 
 /** `E'...'` の中身を取り出す（ひな形の本文に `'` は入っていないので、次の `'` までで足りる） */
 function eLiteralAfter(sql, from) {
@@ -35,12 +35,12 @@ function body177(id) {
   return eLiteralAfter(m177, at);
 }
 
-/** 305 のその id の UPDATE から、新しい本文（SET 側）と元の本文（WHERE 側）を取り出す */
-function update305(id) {
-  const where = m305.indexOf(`WHERE id = '${id}'\n   AND body = `);
-  assert.notEqual(where, -1, `305 に ${id} の本文の UPDATE がありません`);
-  const set = m305.lastIndexOf('SET body = ', where);
-  return { next: eLiteralAfter(m305, set), prev: eLiteralAfter(m305, where) };
+/** 306 のその id の UPDATE から、新しい本文（SET 側）と元の本文（WHERE 側）を取り出す */
+function update306(id) {
+  const where = m306.indexOf(`WHERE id = '${id}'\n   AND body = `);
+  assert.notEqual(where, -1, `306 に ${id} の本文の UPDATE がありません`);
+  const set = m306.lastIndexOf('SET body = ', where);
+  return { next: eLiteralAfter(m306, set), prev: eLiteralAfter(m306, where) };
 }
 
 const IDS = ['inv_late', 'eq_return', 'inv_send_todo'];
@@ -50,19 +50,19 @@ const IDS = ['inv_late', 'eq_return', 'inv_send_todo'];
 const OVERDUE_COLLOQUIAL = /過ぎ|期限ぎれ|あと[ \u3000]*(?:\{[^}]*\}|[0-9０-９]+)[ \u3000]*日|今日が期限|今日まで|今日期限|明日が期限|本日返却|日[ \u3000]+超過/;
 
 for (const id of IDS) {
-  test(`305 ${id}: 条件の文字列が 177 で入れた本文と完全に一致する（写し間違いで0行更新にならない）`, () => {
-    assert.equal(update305(id).prev, body177(id));
+  test(`306 ${id}: 条件の文字列が 177 で入れた本文と完全に一致する（写し間違いで0行更新にならない）`, () => {
+    assert.equal(update306(id).prev, body177(id));
   });
 
-  test(`305 ${id}: 新しい本文に口語の期限表現が無い（docs/wording.md ルール8）`, () => {
-    const { next } = update305(id);
+  test(`306 ${id}: 新しい本文に口語の期限表現が無い（docs/wording.md ルール8）`, () => {
+    const { next } = update306(id);
     assert.doesNotMatch(next, OVERDUE_COLLOQUIAL);
     assert.notEqual(next, body177(id), '本文が変わっていない');
   });
 }
 
-test('305: 部分一致・置換で書き換えない（人が直した文の中の語まで機械が触らないため）', () => {
-  const code = m305.split('\n').filter((l) => !l.trimStart().startsWith('--')).join('\n');
+test('306: 部分一致・置換で書き換えない（人が直した文の中の語まで機械が触らないため）', () => {
+  const code = m306.split('\n').filter((l) => !l.trimStart().startsWith('--')).join('\n');
   assert.doesNotMatch(code, /\bLIKE\b|\breplace\s*\(|regexp_replace/i);
   // 本文の UPDATE はどれも「元の文字列と一致」を条件に持つ
   const bodyUpdates = code.match(/SET body = /g) ?? [];
@@ -71,14 +71,14 @@ test('305: 部分一致・置換で書き換えない（人が直した文の中
   assert.equal(guarded.length, IDS.length);
 });
 
-test('305 eq_return: 新しい本文が使う {遅延日数} を vars に足し、足す条件で2回目を0行にしている', () => {
-  assert.match(update305('eq_return').next, /\{遅延日数\}/);
-  assert.match(m305, /SET vars = vars \|\| '\["\{遅延日数\}"\]'::jsonb\n WHERE id = 'eq_return'\n {3}AND NOT \(vars @> '\["\{遅延日数\}"\]'::jsonb\);/);
+test('306 eq_return: 新しい本文が使う {遅延日数} を vars に足し、足す条件で2回目を0行にしている', () => {
+  assert.match(update306('eq_return').next, /\{遅延日数\}/);
+  assert.match(m306, /SET vars = vars \|\| '\["\{遅延日数\}"\]'::jsonb\n WHERE id = 'eq_return'\n {3}AND NOT \(vars @> '\["\{遅延日数\}"\]'::jsonb\);/);
 });
 
-test('305 eq_return: 実際に届く通知（scheduler.service.ts）と同じ言い方「N 日超過しています」', () => {
+test('306 eq_return: 実際に届く通知（scheduler.service.ts）と同じ言い方「N 日超過しています」', () => {
   const scheduler = readFileSync(
     path.join(here, '../src/contexts/platform/services/scheduler.service.ts'), 'utf8');
   assert.match(scheduler, /\{遅延日数\} 日超過しています/);
-  assert.match(update305('eq_return').next, /\{遅延日数\} 日超過しています/);
+  assert.match(update306('eq_return').next, /\{遅延日数\} 日超過しています/);
 });
