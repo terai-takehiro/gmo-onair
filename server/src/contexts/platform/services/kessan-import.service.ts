@@ -809,10 +809,6 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       let p = r.rows[0] || null;
       if (!p) {
         if (!createMasters) { cache.projects.set(cacheKey, null); return null; }
-        // projects.customer_id は NOT NULL。仕入専用 GLS など顧客不明の場合は
-        // フォールバック顧客「(顧客不明)」を割り当てて作成する。
-        const cid = customerId || (await ensureCustomer('(顧客不明)'));
-        if (!cid) { cache.projects.set(cacheKey, null); return null; }
 
         // 失注・放置ネタの自動整理 (project-purge.service.ts) で論理削除された案件が、
         // 決算データ上はこの code/gls_number の実績を持っていた、というケースがある。
@@ -846,6 +842,15 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
           p = { id: rid, customer_id: dead.rows[0].customer_id };
           report.masters.revivedProjects.push(key);
         } else {
+          // projects.customer_id は NOT NULL。仕入専用 GLS など顧客不明の場合は
+          // フォールバック顧客「(顧客不明)」を割り当てて作成する。
+          // ⚠️ 削除済み案件が復活できないと分かってから解決する — dead クエリより前に
+          // 解決すると、復活パス（既存の customer_id をそのまま使い cid は使わない）
+          // でも呼ばれてしまい、使われない「(顧客不明)」だけが作られる
+          // (Codex レビュー指摘・PR #715)。
+          const cid = customerId || (await ensureCustomer('(顧客不明)'));
+          if (!cid) { cache.projects.set(cacheKey, null); return null; }
+
           const id = randomUUID();
           await client.query(
             // 印は **`kessan_marker` の列**に入れる (migration 184)。
