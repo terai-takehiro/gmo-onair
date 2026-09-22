@@ -13,6 +13,7 @@ import { createDailyopsRoutes } from '../contexts/dailyops';
 import { createScheduleRoutes } from '../contexts/schedule';
 import { createGraphicsRoutes } from '../contexts/graphics';
 import { createAwardsImageRoutes } from '../contexts/awards';
+import { createWikiRoutes } from '../contexts/wiki';
 
 export function createRoutes(): Router {
   const router = Router();
@@ -41,6 +42,7 @@ export function createRoutes(): Router {
   router.use(createTasksRoutes());
   router.use(createDailyopsRoutes());
   router.use(createScheduleRoutes());
+  router.use(createWikiRoutes());   // Wiki (新しいブロックアプリ・docs/design/v4/wiki.md)
 
   return router;
 }
