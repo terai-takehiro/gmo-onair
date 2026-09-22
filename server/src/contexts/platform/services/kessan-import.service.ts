@@ -829,7 +829,13 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
         );
         if (dead.rows[0]) {
           const rid = dead.rows[0].id as string;
-          await client.query(`UPDATE projects SET deleted_at = NULL, updated_at = NOW() WHERE id = $1`, [rid]);
+          // stage も新規作成パスと同じ 'a_won' に戻す。削除時点の stage
+          // (e_lost・放置 neta) のままだと project-purge.service.ts の
+          // PURGE_JUNK_STAGE_SQL に該当し続ける。決算取込で入る revenues は
+          // invoice_issued を立てないため PURGE_HAS_MONEY_SQL の対象にもならず、
+          // deleted_at だけ戻すと次回の自動整理でこの案件と今入れた売上が
+          // また一緒に削除される (Codex レビュー指摘・PR #713)。
+          await client.query(`UPDATE projects SET deleted_at = NULL, stage = 'a_won', updated_at = NOW() WHERE id = $1`, [rid]);
           p = { id: rid, customer_id: dead.rows[0].customer_id };
           report.masters.revivedProjects.push(key);
         } else {

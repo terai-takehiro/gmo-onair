@@ -389,7 +389,12 @@ async function main() {
         );
         if (dead.rows[0]) {
           const rid = dead.rows[0].id;
-          await client.query(`UPDATE projects SET deleted_at = NULL, updated_at = NOW() WHERE id = $1`, [rid]);
+          // stage も新規作成パスと同じ 'a_won' に戻す (Codex レビュー指摘・PR #713)。
+          // 削除時点の stage (e_lost・放置 neta) のままだと project-purge.service.ts の
+          // PURGE_JUNK_STAGE_SQL に該当し続け、決算取込で入る revenues は invoice_issued
+          // を立てないため PURGE_HAS_MONEY_SQL の対象にもならず、次回の自動整理で
+          // この案件と今入れた売上がまた一緒に削除されてしまう。
+          await client.query(`UPDATE projects SET deleted_at = NULL, stage = 'a_won', updated_at = NOW() WHERE id = $1`, [rid]);
           p = { id: rid, customer_id: dead.rows[0].customer_id };
           counts.projRevived = (counts.projRevived || 0) + 1;
         } else {
