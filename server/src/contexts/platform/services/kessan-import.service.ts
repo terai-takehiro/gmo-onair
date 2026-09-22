@@ -861,6 +861,28 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
              VALUES ($1,$2,$3,$4,$5,$6,'a_won',$7,$8,$9)`,
             [id, key, CURRENT_ENTITY_CODE, isFixed ? null : key, name || key, cid, fallbackUser, period, fallbackUser]
           );
+          if (!isFixed) {
+            // 案件番号の履歴 (§4.3)。ここで1行も残さないと、後でこの案件が改番される
+            // (renumberProject) とき「退役させる現役の番号」が project_numbers に
+            // 見つからず、旧GLS番号が history にもprojects.gls_numberにも残らず
+            // 完全に失われる (Codex レビュー指摘)。
+            //
+            // scheme/entity_code は番号の見た目から判定する — 元帳の摘要は
+            // GLS137 のような旧方式に加えて SCS-0001/GSS-0001/GMO-0001 のような
+            // 改番後の新方式もそのまま拾える (GLS_TOKEN_RE 参照) ため、新方式の
+            // 番号まで一律 scheme='gls' で記録すると、listRenumberCandidates() が
+            // 「まだ改番していない」候補として誤って拾ってしまう
+            // (Codex レビュー指摘・org_transition が 'off' の間の issueGls() は
+            // 旧方式しか発番しないので、そちらは一律 scheme='gls' のままでよい)。
+            const newSchemeMatch = key.match(/^(SCS|GSS|GMO)-\d+$/);
+            const numberEntityCode = newSchemeMatch ? newSchemeMatch[1] : null;
+            await client.query(
+              `INSERT INTO project_numbers (id, project_id, number, entity_code, scheme, assigned_at, assigned_by)
+               VALUES ($1,$2,$3,$4,$5,NOW(),$6)
+               ON CONFLICT (number) DO NOTHING`,
+              [randomUUID(), id, key, numberEntityCode, numberEntityCode ? 'entity' : 'gls', fallbackUser]
+            );
+          }
           p = { id, customer_id: cid };
           report.masters.created.projects++;
         }
