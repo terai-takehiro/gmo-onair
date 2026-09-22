@@ -732,6 +732,14 @@ server/src/contexts/mcp/
   `get_my_task_summary` / `list_task_intakes` / `get_task_intake` — 「自分のタスクを読む」に
   モジュール権限を要求しない設計）と、担当者名 → users.id の解決に全カテゴリが前提として使う
   `list_users`、取込スキルが実行前に必ず読む契約の `get_ai_feedback_digest`
+- ⚠️ **`get_ai_feedback_digest` はツール名では素通りだが、`kind` ごとに権限を見る**
+  （2026-09・Codex のセキュリティレビュー P1）。digest の `recent_examples` は
+  人の修正の before / after を**そのまま**返し、`activity_intake` ではそれが
+  **取引先から届いたメールの本文まるごと**になる。ツール名の表はツールの中身を見ないので、
+  `kind` の判定は**ツールの中**（`mcp/tools/aifeedback.tools.ts` の `KIND_PERMISSION`）に置く。
+  割り当ては**その kind を書く側のツールと同じモジュール**（読める人＝書ける人）なので、
+  取込スキルの実行は壊れない。表に無い kind（個人スコープの `task_intake`、
+  社内周知の `ops_news_item`）は今までどおり素通り
 - **制作技術支援の read 7種**は従来どおり `production.access.ts` の `requireProductionActor()`
   （静的キーの拒否＋文書ごとのアクセス判定〔作成者／共有先／管理者〕）を全ツールの先頭で呼ぶ。
   加えて `gate.ts` の READ 表でも `qsheet` の reader を要求する（書き込みツールと同じ二重の防御）

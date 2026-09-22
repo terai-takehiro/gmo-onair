@@ -283,6 +283,8 @@ export async function runFormatPass(
           original,
           subject: ai.subject, body_struct: ai.struct,
           next_action: ai.nextAction, next_action_date: ai.nextActionDate,
+          // **網羅量を残す**（条件1）。「短い」という指摘を後から数字で確かめられる
+          coverage: ai.coverage,
           // 実際に行へ書いた値。**出したものと書いたものが違う**ので両方残す
           applied: merged,
         },

@@ -198,12 +198,12 @@ function InfoBar({ pack, frozen, live, frozenExists, meetingFrozen, previous, ne
           <>
             この会議日は凍結済みですが、いま選んでいる絞り込みの凍結版が無いので、
             いま ONAiR にある数字（<span className="font-number">{timeLabel(pack.generated_at)}</span> 時点）を出しています。
-            <span className="hidden lg:inline">確定した週報の数字とは限りません。この週の報告をもう一度<strong className="font-bold">確定</strong>すると、絞り込みも一緒に凍ります</span>
+            <span className="hidden lg:inline">確定した週報の数字とは限りません。この週の報告をもう一度<strong className="font-bold">確定</strong>すると、絞り込みも一緒に固定されます</span>
           </>
         ) : (
           <>
             いま ONAiR にある数字です（<span className="font-number">{timeLabel(pack.generated_at)}</span> 時点）。
-            <span className="hidden lg:inline">この週の報告を<strong className="font-bold">確定</strong>すると、この画面の数字も一緒に凍り、資料と Slack の元データになります</span>
+            <span className="hidden lg:inline">この週の報告を<strong className="font-bold">確定</strong>すると、この画面の数字も一緒に固定され、資料と Slack の元データになります</span>
           </>
         )}
       </span>

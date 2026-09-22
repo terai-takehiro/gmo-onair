@@ -84,7 +84,7 @@ export type TaxCategory = (typeof TaxCategory)[keyof typeof TaxCategory];
 
 // 非課税と不課税は別物 (非課税 = 消費税の対象だが法令で課税しない /
 // 不課税 = そもそも対象外)。税額はどちらも 0 円だが帳簿と申告では区別する。
-// DB の CHECK 制約 (migration 156) と同じ集合にすること。
+// DB の CHECK 制約 (migration 302) と同じ集合にすること。
 export const TaxCategoryLabels: Record<TaxCategory, string> = {
   tax10: '10%課税',
   tax8: '8%課税(軽減)',

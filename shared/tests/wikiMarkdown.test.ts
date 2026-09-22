@@ -1,5 +1,5 @@
 /**
- * Wiki — Markdown を扱う純関数の試験（`shared/src/wiki/markdown.ts`）
+ * Wiki — Markdown を扱う純関数の試験（`shared/src/wiki/` の markdown・frontMatter・search）
  *
  * ── なぜ試験にするのか ──────────────────────────────────────
  *
@@ -26,15 +26,19 @@ import {
   extractPageLinks,
   extractOnairRefs,
   normalizeQuestion,
+} from '../src/wiki/markdown';
+import {
   serializeFrontMatter,
   parseFrontMatter,
   isValidPropValue,
   sanitizeProps,
+} from '../src/wiki/frontMatter';
+import {
   splitTerms,
   scorePage,
   makeExcerpt,
   matchedHeading,
-} from '../src/wiki/markdown';
+} from '../src/wiki/search';
 import type { WikiItem } from '../src/wiki/types';
 
 describe('見出しの抜き出し', () => {

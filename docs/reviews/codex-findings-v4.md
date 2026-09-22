@@ -2483,6 +2483,106 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#716**（`fix(server): 決算取込で新規作成した案件の番号履歴をproject_numbersに残した`・
+  2026-09-22）—— #714 のフォローアップ（#714 は先にマージされていたため追加PR）。決算取込
+  （CLI版・本体とも）が新規作成する案件は`projects.gls_number`に番号を書くだけで
+  `project_numbers`には何も残しておらず、後日その案件を改番（`renumberProject`）すると
+  「退役させる現役の番号」が見つからず旧番号が完全に失われる不具合を直した。新規作成の直後に
+  `entity_code=NULL`・`scheme='gls'`（`org_transition`が'off'の間の`issueGls()`と同じ表記）で
+  1行残すようにした。**Code Reviewで2件（P1×1・P2×1）**付き、**いずれも同PR内で対応・返信・
+  スレッド解決済み**。P1: 元帳の摘要は旧方式（`GLS137`）に加え改番後の新方式（`SCS-0001`等）も
+  そのまま拾えるが、新方式の番号まで一律`scheme='gls'`で記録しており、改番移行の残数を数える
+  `listRenumberCandidates()`が「まだ改番していない」候補として誤って拾ってしまう恐れがあった
+  →番号の見た目（`SCS-`/`GSS-`/`GMO-`で始まるか）から`scheme`/`entity_code`を導出するよう修正。
+  P2: バックフィルは新規作成した案件だけが対象で、`ensureProject`が既存案件を見つけて返すだけの
+  経路・削除済みから復活させる経路はバックフィルされないままだった→どの経路で解決しても
+  バックフィルされるよう修正（特に「見つかった」経路は事前照合フェーズが先にキャッシュへ
+  入れる値のせいで関数冒頭の早期returnを素通りできず、本体まで到達していなかった）。**表に
+  移す未対応の指摘は無い**。⚠️ **この2件の修正コミットも、スレッド解決の返信を投稿した直後に
+  pushしたが#716はその直前にマージされており取り込まれていなかった**（#713・#714・#715でも
+  繰り返し起きたのと同じ形。ユーザーがレビュー往復の完了を待たずマージする運用のため）。同じ
+  内容を追加PR #721 でmainへ反映した。加えて、この修正はあくまで「決算取込が今後触れた案件」を
+  バックフィルするものであり、既にこの穴を踏んで（＝一度もproject_numbersを持たないまま改番
+  され）旧番号そのものが失われてしまった案件が過去に無いかは別途データ監査が必要と判断し、
+  spawn_taskで別タスクに切り出した（コードの修正だけでは救えないデータの話のため）。
+  検証: `npm run typecheck`・`npm run lint`（0 errors）・`npm run test`（shared 2469件・
+  server 94件）・検証用Postgresで新方式番号（`SCS-0555`）を含む売上の取込・
+  「旧バージョンが作った体裁の案件」（通常・削除済みそれぞれ）を直接作ってから決算取込を
+  実行するケースをそれぞれ確認し、いずれも正しく記録されること、同じ取込を繰り返しても
+  重複行ができないこと（冪等性）を確認した。
+
+- **#715**（`fix(finance): 決算取込CLI版の残り2件のレビュー指摘対応をマージし直した`・2026-09-22）——
+  #713 のマージ直前にpushしたコミット（cf58402。CLI版のアクティブ検索`project_numbers`対応・仕入
+  専用未登録GLSの顧客不明フォールバック）が取り込まれておらず、Codexへの返信内容と実コードが
+  食い違っていたのをmainへ反映し直したPR。あわせて#713の棚卸し記録を追加。**Code Reviewで
+  さらに3件（P2×3）**が付き、**いずれも同PR内で対応・返信・スレッド解決済み**。①仕入専用の
+  未登録GLSで「顧客不明」フォールバックを削除済み案件の復活判定より前に解決しており、復活パス
+  （既存customer_idを使い回す）でも呼ばれ使われない会社が作られる→判定後に解決するよう順序変更
+  （b288a30。本体`kessan-import.service.ts`側の同型バグも同時に修正）。②CLI版のdry-run事前照合
+  `findProject`が`project_numbers`未対応で、改番済み現役案件の旧番号を「未登録」と誤検知
+  （f08f0a2）。③ `docs/changelog.d/`の下書き不足でCI自体が失敗（3256bdc）。**表に移す未対応の
+  指摘は無い**。⚠️ **さらに、これらのコミットをpushした後、並行して動いていた別セッションの
+  #714（CLI版のentity_code対応。#713で切り出したタスクへの対応）がひと足先にマージされ、
+  同じファイル（`server/scripts/import-kessan-dev.mjs`の`ensureProject`まわり）に対して
+  ほぼ同じ内容（`project_numbers`解決・顧客不明フォールバックの順序）を含む、より広範な
+  修正（entity_code対応・`notes`列→`kessan_marker`修正込み）が入っていたためマージ
+  コンフリクトが発生した。**内容を比較し、#714の実装（entity_code対応を含みより完全）を
+  採用しつつ、コメント文言の統合のみ行う形で解決（コード面での実質的な差分は無かった）。
+  検証: `npm run typecheck`・`npm run lint`（0 errors）・`npm run test`（shared 2469件・
+  server 94件）・検証用Postgresで各指摘のシナリオを個別に再現・修正確認したのに加え、
+  マージ後に「新規未登録GLSの仕入（顧客不明フォールバック）／失注+削除済み案件の復活／
+  改番済み現役案件の旧番号解決」の3パターンを1回のCSVで`--scope=all --create-masters
+  --commit`し、`entity_code`・`stage`・`customer_id`・`kessan_marker`がすべて意図通り
+  DBに入ることを確認した。
+
+- **#714**（`fix(server): 決算取込CLI版がentity_code未設定で失敗するのを直した`・2026-09-22）——
+  #713 の対応中に見つかりspawn_taskで切り出されたタスクへの対応（並行セッション）。2026年10月の
+  事業再編（migration 285/286）で`projects`/`revenues`/`purchases`/`sga_expenses`の
+  `entity_code`列がNOT NULLになったが、CLI版（`server/scripts/import-kessan-dev.mjs`）は
+  追従できておらず`--commit`が必ず失敗していたのを直した。本体の`CURRENT_ENTITY_CODE`
+  （`.ts`）をCLIから直接importできないため、ビルド成果物`server/dist/shared/constants/
+  entity-default.js`を動的importして参照する形にし、4テーブルすべてのINSERTに反映。あわせて
+  `projects`への INSERT が migration 184 で削除済みの`notes`列をまだ指定していたのを
+  `kessan_marker`列に修正。**Code Reviewで4件（P1×1・P2×3）**付き、**いずれも同PR内で
+  対応・返信・解決済み**。P1: purchases専用GLS(顧客不明)で`customer_id=NULL`のままINSERTし
+  NOT NULL制約違反→本体と同じ「(顧客不明)」フォールバックを追加。P2×2: `ensureProject`の
+  「生きている」側の検索が`project_numbers`未対応で改番済み現役案件を重複作成しうる／
+  新規作成した案件の`kessan_marker`に角括弧付き表記(`[kessan:2026-06]`)を入れ本体の素の
+  `period`表記と食い違っていた→どちらも修正。P2: `CURRENT_ENTITY_CODE`をファイル先頭で
+  static importしていたため、ビルド前の素のcheckoutでは`--no-db`（DB不要のパース検証専用
+  モード）まで`ERR_MODULE_NOT_FOUND`で落ちていた→実際にDBへ書き込む直前まで dynamic import
+  を遅延。**表に移す未対応の指摘は無い**。検証: 検証用Postgres上で`--scope=all
+  --create-masters --commit`を実行し新規案件・固定原価案件・売上・仕入・販管費すべてが
+  `entity_code`付きで正しく投入されること、`server/dist`退避時は`--no-db`のみ動作し
+  `--commit`は明確に失敗することを確認。
+
+- **#713**（`fix(finance): 決算取込で失注等により削除済みの案件と重複して失敗するのを直した`・
+  2026-09-22）—— 利用者報告「総勘定元帳を取り込めませんでした」（`duplicate key value
+  violates unique constraint "projects_code_key"`）の修正（3コミット・6ファイル・+102/−21）。
+  失注・放置ネタの自動整理（`project-purge.service.ts`）で論理削除された案件のGLS番号を含む
+  取引を決算取込すると、削除済み行を除外しないDBのUNIQUE制約に阻まれ取込全体が失敗する不具合を、
+  新規作成前に削除済みの同一code/gls_numberを探して復活させる形で修正。**Code Reviewで4件
+  （P1×2・P2×2）**が付き、**いずれも同PR内で対応・返信・スレッド解決済み**。①②（P1・本体
+  `kessan-import.service.ts`）復活時に`deleted_at`だけクリアすると`stage`が`e_lost`のままで
+  次回の自動整理で再削除される→`stage='a_won'`に戻した（012d4d8）／削除済み案件の検索が
+  改番済み旧番号（`project_numbers`）を見ておらず重複案件を作りうる→同じ解決を追加
+  （aa22b5d）。③④（P2×2・CLI版`import-kessan-dev.mjs`）仕入専用の未登録GLSで
+  `customer_id=NULL`のままINSERTしようとする／アクティブ検索が`project_numbers`未対応で
+  重複案件を作りうる→本体と同じロジックに揃えた。⚠️ **この2件の修正コミット（cf58402）は
+  スレッド解決の返信を投稿した直後にpushしたが、#713はその直前にマージされており取り込まれて
+  いなかった**（マージ後に`git log`で発覚）。同じ内容を追加PR #715 でmainへ反映し、Codexへの
+  返信内容と実際のコードを一致させた。**表に移す未対応の指摘は無い**。加えて③④の対応中、
+  CLI版が別の理由（`projects.notes`という既に削除された列を参照・`entity_code`未対応など、
+  本体から長期間乖離）で現状`--commit`がそもそも失敗する状態と判明。③④のコードは本体と
+  同一条件に揃えたが実機検証はできていない。CLI版全体の復旧はスコープ外として別タスクに
+  切り出し、並行して #714 で対応された（詳細は#714の行）。Security Reviewは完走
+  （初回コミット時点）しfindings無し。
+  検証: `npm run typecheck`・`npm run lint`（0 errors）・`npm run test`（shared 2469件・
+  server 94件）・`npm run build:changed`・検証用Postgresで「失注+論理削除→決算取込で復活」
+  「改番済み+論理削除→旧番号で復活・重複作成なし」を実機確認（修正前コードでは報告と同一の
+  エラーを再現）。PC/スマホでの実ブラウザ確認は未実施（バックエンドロジック修正が主で、
+  UI変更は取込結果表示への1行追加のみのため）。
+
 - **#708**（`fix(techops): 会場図面の「並べ直す」で数値を変えずに押すだけでグループが動く不具合を直した`・
   2026-09-14）—— #707 で付いたP1指摘（下記）の修正（3ファイル・+38/−13・1コミット）。
   `VenueInspector.tsx`の「並べ直す」は`translateArrangeResult(preview, anchor.x, anchor.y)`で
