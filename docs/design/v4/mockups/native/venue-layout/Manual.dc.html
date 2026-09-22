@@ -70,7 +70,7 @@
     <button class="tap btn-primary" onClick="{{goFix}}" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; background: #005bac; color: #ffffff; padding: 0 14px; font-size: 12.5px; font-weight: 800;" title="全ブロックを凍らせて rev.2 にします（manager）">確定する</button>
   </div>
 
-  <!-- ── 道具の帯 ──────────────────────────────────────────── -->
+  <!-- ── ツールバー ──────────────────────────────────────────── -->
   <div style="display: flex; height: 44px; flex-shrink: 0; align-items: center; gap: 5px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px;">
     <button class="tap" onClick="{{openInsert}}" style="display: flex; align-items: center; gap: 6px; height: 32px; border-radius: 9px; border: 1px solid {{insertBorder}}; background: {{insertBg}}; padding: 0 12px; font-size: 12.5px; font-weight: 800; color: {{insertFg}};"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{insertFg}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>差し込む</button>
     <span style="height: 20px; width: 1px; background: #e6e9ed; margin: 0 4px;"></span>
@@ -696,7 +696,7 @@ class Component extends DCLogic {
       stale: stale, staleText: plan.staleText,
       importNow: () => self.setState({ imported: true, notice: { title: '取り込みました', text: '14:20 の線画に差し替えました。図面は下書きなので、紙の札に「下書き」と出ます' } }),
       diff: soon('違いを見る ＝ 14:02 と 14:20 の線画を左右に並べ、動いた品目を色で示します'),
-      edit: say('会場図面を開きます', editUrl + ' へ移動します。図面側の帯に「運営マニュアルに戻る」が出ます'),
+      edit: say('会場図面を開きます', editUrl + ' へ移動します。図面側の上部に「運営マニュアルに戻る」が出ます'),
     };
     const pick = (on) => ({ border: on ? '#005bac' : '#e6e9ed', bg: on ? '#f4faff' : '#ffffff', fg: on ? '#005bac' : '#3c424c' });
     const plans = ['a', 'b'].map((key) => Object.assign({
@@ -751,7 +751,7 @@ class Component extends DCLogic {
     ].map((q) => Object.assign({ pick: soon('書式「' + q.label + '」を選んだ範囲にかけます') }, q));
     const geom = [{ label: 'X', value: d.x.toFixed(1) }, { label: 'Y', value: d.y.toFixed(1) }, { label: '幅', value: d.w.toFixed(1) }, { label: '高さ', value: d.h.toFixed(1) }];
 
-    // ── 帯・道具・ページ一覧 ──
+    // ── ヘッダー・ツールバー・ページ一覧 ──
     const tools = [
       { label: '文字', fill: 'transparent', hint: 'T' }, { label: '図形', fill: '#e6e9ed', hint: '矩形・円・線・矢印・吹き出し' },
       { label: '画像', fill: '#eaf4fb', hint: '手元から上げる' }, { label: '表', fill: '#ffffff', hint: '自分で打つ表' }, { label: 'QR', fill: '#1a1d24', hint: 'この冊子から画面へ飛ばす' },
