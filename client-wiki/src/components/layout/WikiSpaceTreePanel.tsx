@@ -18,10 +18,20 @@
  * ⚠️ 共通メニューは利用者が畳める（`data-side-collapsed`）。畳むとツリーも一緒に
  * 消えるが、それは利用者が自分で選んだ状態なので戻す手当てはしない
  * （上辺バーのパンくずとページ内のリンクで移れる）。
+ *
+ * ── 段B で足したもの ────────────────────────────────────────
+ *
+ * ページを追加する入口はここに**1つだけ**置く（見出しの右の `+`）。行の `+` は
+ * その行を親にした追加で、どちらも同じ「ページを追加」を開く。
+ * **2つ目のナビの列も、2つ目の `☰` も作らない**（上のご指摘と同じ理由）。
  */
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 import type { WikiTreeNode } from '@gmo-onair/shared/src/wiki/types';
 import WikiTree from '@/components/wiki/WikiTree';
+import PageCreateSheet from '@/components/page/PageCreateSheet';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export interface WikiSpaceTreePanelProps {
   spaceKey: string;
@@ -39,24 +49,61 @@ export default function WikiSpaceTreePanel({
   loading,
   currentId,
 }: WikiSpaceTreePanelProps) {
+  const { canEdit } = usePermissions();
+  const [addOpen, setAddOpen] = useState(false);
+  const [addParentId, setAddParentId] = useState<string | null>(null);
+
+  const openAdd = (parentId: string | null) => {
+    setAddParentId(parentId);
+    setAddOpen(true);
+  };
+
   return (
     <div className="flex min-w-0 flex-col">
-      {/* スペースの名前は押せる（そのスペースの目次へ戻る） */}
-      <Link
-        to={`/s/${spaceKey}`}
-        className="flex min-h-tap items-center gap-2 rounded-control px-2 text-list text-foreground hover:bg-primary-surface-weak lg:min-h-[34px]"
-      >
-        <span className="h-2.5 w-2.5 shrink-0 rounded-badge-xs bg-primary" aria-hidden />
-        <span className="min-w-0 flex-1 truncate">{spaceName}</span>
-      </Link>
+      <div className="flex items-center gap-1">
+        {/* スペースの名前は押せる（そのスペースの目次へ戻る） */}
+        <Link
+          to={`/s/${spaceKey}`}
+          className="flex min-h-tap min-w-0 flex-1 items-center gap-2 rounded-control px-2 text-list text-foreground hover:bg-primary-surface-weak lg:min-h-[34px]"
+        >
+          <span className="h-2.5 w-2.5 shrink-0 rounded-badge-xs bg-primary" aria-hidden />
+          <span className="min-w-0 flex-1 truncate">{spaceName}</span>
+        </Link>
+        {canEdit && (
+          <button
+            type="button"
+            aria-label={`${spaceName} にページを追加`}
+            title="ページを追加"
+            onClick={() => openAdd(null)}
+            className="flex min-h-tap min-w-tap shrink-0 items-center justify-center rounded-control text-muted-foreground hover:bg-muted hover:text-foreground lg:h-7 lg:min-h-0 lg:w-7 lg:min-w-0"
+          >
+            <Plus className="h-4 w-4" aria-hidden />
+          </button>
+        )}
+      </div>
 
       {/*
         ツリーが長いスペースでも、下の「ホーム／スペース」が画面の外へ押し出されない
         ように高さを止める。止めないとスペースを移れなくなる。
       */}
       <div className="max-h-[44vh] min-w-0 overflow-y-auto">
-        <WikiTree nodes={nodes} loading={loading} currentId={currentId} />
+        <WikiTree
+          nodes={nodes}
+          loading={loading}
+          currentId={currentId}
+          spaceKey={spaceKey}
+          spaceName={spaceName}
+          canEdit={canEdit}
+          onAddChild={(parentId) => openAdd(parentId)}
+        />
       </div>
+
+      <PageCreateSheet
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        defaultSpaceKey={spaceKey}
+        defaultParentId={addParentId}
+      />
     </div>
   );
 }

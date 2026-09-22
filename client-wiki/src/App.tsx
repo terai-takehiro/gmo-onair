@@ -7,7 +7,9 @@ import LoginPage from './pages/LoginPage';
 import HomePage from './pages/home/HomePage';
 import SpacePage from './pages/page/SpacePage';
 import PageViewPage from './pages/page/PageViewPage';
+import WikiEditorPage from './pages/editor/WikiEditorPage';
 import HistoryPage from './pages/history/HistoryPage';
+import TemplatesPage from './pages/templates/TemplatesPage';
 
 /** 知らない URL。白紙を出さず、何を開こうとしたかと戻り先を出す */
 function WikiNotFound() {
@@ -45,7 +47,9 @@ export default function App() {
             <Route index element={<HomePage />} />
             <Route path="/s/:key" element={<SpacePage />} />
             <Route path="/p/:id" element={<PageViewPage />} />
+            <Route path="/p/:id/edit" element={<WikiEditorPage />} />
             <Route path="/p/:id/history" element={<HistoryPage />} />
+            <Route path="/templates" element={<TemplatesPage />} />
             <Route path="*" element={<WikiNotFound />} />
           </Route>
         ) : (
