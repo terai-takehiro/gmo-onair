@@ -24,6 +24,7 @@
 | VPS の構成と日常運用 | [ops/vps-setup.md](ops/vps-setup.md) |
 | DB のバックアップと復元 | [ops/db-backup-restore.md](ops/db-backup-restore.md) |
 | GitHub 側の設定（ruleset・環境・ラベル） | [ops/github-repo-settings.md](ops/github-repo-settings.md) |
+| 技術人員の初期取り込み（メンバー表 PDF → 技術資料の台帳。一度きり） | [ops/tech-persons-import.md](ops/tech-persons-import.md) |
 | URL・id・データの持ち方・壊してはいけない契約 | [ia.md](ia.md) |
 | 画面に出す言葉のルール | [wording.md](wording.md) |
 | どの仕事にどのモデルを使うか | [ai-models.md](ai-models.md) |
