@@ -115,11 +115,13 @@ export default function TechPersonsPage() {
             ]}
           />
 
-          <div className="overflow-hidden rounded-card border border-border bg-card">
-            <RowHeader>
-              <RowMain>名前</RowMain>
-              <RowSlot w={160} hideOnMobile>主な役職</RowSlot>
-              <RowSlot w={72} align="right">参加回数</RowSlot>
+          {/* 固定列の合計が器より広く、名前だけが数pxまで潰れていた（実ブラウザで踏んだ）。
+              幅を詰めたうえで、それでも足りないときは横へ送る */}
+          <div className="overflow-x-auto rounded-card border border-border bg-card">
+            <RowHeader className="gap-2">
+              <RowMain className="min-w-[96px]">名前</RowMain>
+              <RowSlot w={128} hideOnMobile>主な役職</RowSlot>
+              <RowSlot w={56} align="right">参加回数</RowSlot>
               <RowSlot w={96} align="right" hideOnMobile>最近の作業日</RowSlot>
               <RowSlot w={56}>状態</RowSlot>
               {canEdit && <RowSlot w={56} align="right" placeholder={null} />}
@@ -132,8 +134,8 @@ export default function TechPersonsPage() {
                   person={p}
                   onCancel={() => setEditId(null)}
                   onSave={async (patch) => {
-                    await masters.updatePerson(p.id, patch);
-                    setEditId(null);
+                    // 送れたときだけ閉じる（失敗は `useTechMasters` が知らせる）
+                    if (await masters.updatePerson(p.id, patch)) setEditId(null);
                   }}
                 />
               ) : (
@@ -210,12 +212,12 @@ function PersonRow({
   onDelete: () => void;
 }) {
   return (
-    <Row divider align="start">
-      <RowMain>
+    <Row divider align="start" className="gap-2">
+      <RowMain className="min-w-[96px]">
         <div className="truncate text-list text-foreground">{person.name}</div>
         {person.kana && <div className="truncate text-sub-sm text-muted-foreground">{person.kana}</div>}
       </RowMain>
-      <RowSlot w={160} hideOnMobile>
+      <RowSlot w={128} hideOnMobile>
         <span className="flex flex-wrap gap-1">
           {person.main_roles.map((r) => (
             <span key={r} className="rounded-badge-xs bg-muted px-1.5 py-0.5 font-number text-badge text-muted-foreground">
@@ -224,7 +226,7 @@ function PersonRow({
           ))}
         </span>
       </RowSlot>
-      <RowSlot w={72} align="right">
+      <RowSlot w={56} align="right">
         <span className="font-number text-list text-foreground">{person.participation_count}回</span>
       </RowSlot>
       <RowSlot w={96} align="right" hideOnMobile>

@@ -10,7 +10,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, Download, LayoutTemplate, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@gmo-onair/shared/src/client/ui/badge";
+import { badgeVariants } from "@gmo-onair/shared/src/client/ui/badge";
 import { PageShell } from "@gmo-onair/shared/src/client/ui/pageShell";
 import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { Delayed, ErrorPanel, SkeletonRows } from "@gmo-onair/shared/src/client/states";
@@ -155,7 +155,12 @@ export default function TechDocPrintPage() {
         sub={
           <span className="num flex flex-wrap items-center gap-2">
             {d.doc_no && <span>{d.doc_no}</span>}
-            <Badge variant={d.status === "fixed" ? "success" : "warning"}>{d.status === "fixed" ? "確定" : "下書き"}</Badge>
+            {/* ⚠️ `PageHeader` の `sub` は `<p>` の中。`<Badge>` は `<div>` なので入れられない
+                （React が「div cannot appear as a descendant of p」と警告する）。
+                見た目は同じまま、要素だけ `<span>` にする */}
+            <span className={badgeVariants({ variant: d.status === "fixed" ? "success" : "warning" })}>
+              {d.status === "fixed" ? "確定" : "下書き"}
+            </span>
             <span>{d.title}</span>
           </span>
         }
@@ -190,7 +195,7 @@ export default function TechDocPrintPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-sub-sm text-muted-foreground">紙面のプレビュー（{PAPER.label}）</span>
+            <span className="text-sub-sm text-muted-foreground">用紙のプレビュー（{PAPER.label}）</span>
             <div className="flex items-center gap-1">
               <Button type="button" variant="outline" size="icon-sm" onClick={() => zoomBy(-ZOOM_STEP)} aria-label="縮小">
                 <Minus className="h-3.5 w-3.5" aria-hidden="true" />

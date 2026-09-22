@@ -83,7 +83,7 @@ v4 UI/UX 刷新の design handoff（8ファイル・51画面のハイファイ�
 | [`production-manual.md`](production-manual.md) | **運営マニュアル**（制作技術支援の新ミニアプリ）。各ミニアプリの情報を A4横の冊子に差し込み PDF で配る | **設計（未実装）**。§10 の7件の判断待ち |
 | [`venue-layout.md`](venue-layout.md) | **会場図面**（制作技術支援の新ミニアプリ・会場図面シミュレーター）。用賀の図面を2軸で縮尺合わせして取り込み、備品・人・カメラを実寸で置いて一気に並べ、運営マニュアルに差し込む | **設計（未実装）**。§14 の8件は判断済み（2026-09-13）・着手できる |
 | [`wiki.md`](wiki.md) | **Wiki**（新しいブロックアプリ）。Markdown で書いた文章を木に並べ、探せて、AI が読める。手入力を「AI で整える」で Markdown に。見直し期限と「足りないページ」で古びない | **設計（未実装）**。§10 の全件 12 件は判断済み（2026-09-22）・着手できる |
-| [`tech-docs.md`](tech-docs.md) | **技術資料**（制作技術支援の新ミニアプリ）。パッチ盤に立ち上がっている機材から映像パッチを組み、技術スタッフを会社ごとの技術人員から引く。紙と運営マニュアルに出す | **設計（未実装・モック先行）**。§13 の9件は判断待ち |
+| [`tech-docs.md`](tech-docs.md) | **技術資料**（制作技術支援の新ミニアプリ）。パッチ盤に立ち上がっている機材から映像パッチを組み、技術スタッフを会社ごとの技術人員から引く。紙と運営マニュアルに出す | **実装済み（段A〜D・2026-09-22）**。§13 の9件は推奨案で実装 |
 | [`keep-report.md`](keep-report.md) | 隔週キープの数字・資料ビルダー | 現役の決めごと（段1〜4 実装済み） |
 | [`regular-series.md`](regular-series.md) | レギュラー案件のロジック | 現役の決めごと（実装済み） |
 | [`ios-native-mobile-mockups.md`](ios-native-mobile-mockups.md) | iOS ネイティブ風の見た目探索 | 参考（当時の記録） |
@@ -99,7 +99,7 @@ v4 UI/UX 刷新の design handoff（8ファイル・51画面のハイファイ�
 | [`mockups/native/production-manual/`](mockups/native/production-manual/README.md) | 運営マニュアルのモック（PC 4・スマホ 1・A4横の実寸 1・地図 1） | 設計（未実装） |
 | [`mockups/native/venue-layout/`](mockups/native/venue-layout/README.md) | 会場図面のモック（PC 5・スマホ 1・地図 1） | 設計（未実装） |
 | [`mockups/native/wiki/`](mockups/native/wiki/README.md) | Wiki のモック（PC 7・スマホ 2・地図 1） | 設計（未実装・判断済み） |
-| [`mockups/native/tech-docs/`](mockups/native/tech-docs/README.md) | 技術資料のモック（PC 6・スマホ 1・地図 1） | 設計（未実装・判断待ち） |
+| [`mockups/native/tech-docs/`](mockups/native/tech-docs/README.md) | 技術資料のモック（PC 6・スマホ 1・地図 1） | 実装済み（記録） |
 
 ### モックの元ファイル（`.dc.html`。ブラウザで開く）
 

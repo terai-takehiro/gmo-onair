@@ -50,7 +50,7 @@ export function DevicePicker({
         <button
           type="button"
           disabled={disabled}
-          aria-label="機材を選び直す"
+          aria-label="機材を選択し直す"
           onClick={() => setOpen((v) => !v)}
           className="flex h-9 w-6 shrink-0 items-center justify-center rounded-control text-muted-foreground hover:bg-muted/30 disabled:opacity-50"
         >
@@ -125,7 +125,7 @@ function DeviceList({
       <div className="max-h-64 overflow-y-auto">
         {groups.length === 0 && (
           <p className="px-3 py-3 text-sub text-muted-foreground">
-            この名前の機材はパッチ盤にありません。下の「増設機材として手入力」で入れてください。
+            この名前の機材はパッチ盤にありません。下の「増設機材として手入力」で入力してください。
           </p>
         )}
         {groups.map((g) => (

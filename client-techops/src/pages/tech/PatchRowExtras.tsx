@@ -46,7 +46,7 @@ export function PatchRowExtras({ rows, jackIndex }: Props) {
       <Card title="この資料の増設機材" count={extras.length}>
         {extras.length === 0 ? (
           <p className="mt-2 text-sub text-muted-foreground">
-            まだありません。機材の候補の末尾にある「増設機材として手入力」で入れてください。
+            まだありません。機材の候補の末尾にある「増設機材として手入力」で入力してください。
           </p>
         ) : (
           <ul className="mt-1">

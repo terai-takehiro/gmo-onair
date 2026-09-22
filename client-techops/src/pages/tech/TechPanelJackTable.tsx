@@ -1,7 +1,7 @@
 // ⑤ パッチ盤の「番号の表」（担当 C4）。8番（TRK盤は8番＝8行、それ以外は8番＝16行）ずつ
 // ページ送りし、1行をその場で編集する（`BufferedInput`）。設計: docs/design/v4/tech-docs.md
 // §6 ⑤・モック `mockups/native/tech-docs/Panel.dc.html`。
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BufferedInput from "@/components/editor/BufferedInput";
@@ -36,14 +36,23 @@ export function TechPanelJackTable({
   selected: TechPanelBoardSelection | null;
   onSelectRow: (selection: TechPanelBoardSelection) => void;
   canEdit: boolean;
-  onSave: (jackId: string, patch: Partial<Draft>) => Promise<void>;
+  /** 送れたら `true`。`false` のときはその場編集を閉じない（入力が消えるため） */
+  onSave: (jackId: string, patch: Partial<Draft>) => Promise<boolean>;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
+  /** いま編集している番号の位置。**選び直しで閉じるかどうかの判断にだけ使う** */
+  const editingPosRef = useRef<TechPanelBoardSelection | null>(null);
 
-  // 別の番号を選んだ（盤の絵をクリックした等）ら、その場編集は閉じる
+  // 別の番号を選んだ（盤の絵をクリックした等）ら、その場編集は閉じる。
+  // ⚠️ **いま開いた番号そのものが選ばれた場合は閉じない。** 表の機材を押すと
+  // 「その行を選ぶ」→「編集を開く」の順で起きるので、無条件に閉じると開いた
+  // 直後に閉じてしまい、1回目のクリックでは編集欄が出なかった（実ブラウザで踏んだ）。
   useEffect(() => {
+    const pos = editingPosRef.current;
+    if (pos && selected && pos.jackNo === selected.jackNo && pos.jackRow === selected.jackRow) return;
+    editingPosRef.current = null;
     setEditingId(null);
     setDraft(null);
   }, [selected?.jackNo, selected?.jackRow]);
@@ -58,10 +67,12 @@ export function TechPanelJackTable({
 
   const startEdit = (jack: PatchJack) => {
     if (!canEdit) return;
+    editingPosRef.current = { jackNo: jack.jack_no, jackRow: jack.jack_row };
     setEditingId(jack.id);
     setDraft(draftOf(jack));
   };
   const cancelEdit = () => {
+    editingPosRef.current = null;
     setEditingId(null);
     setDraft(null);
   };
@@ -69,24 +80,28 @@ export function TechPanelJackTable({
     if (!editingId || !draft) return;
     setSaving(true);
     try {
-      await onSave(editingId, draft);
-      setEditingId(null);
-      setDraft(null);
+      if (await onSave(editingId, draft)) {
+        editingPosRef.current = null;
+        setEditingId(null);
+        setDraft(null);
+      }
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="overflow-hidden rounded-card border border-border bg-card">
-      <RowHeader className="text-th">
-        <RowSlot w={72}>番号</RowSlot>
+    // 列が7つあり、盤の絵に合わせた幅（596px）では「名称」だけが数pxまで潰れていた
+    // （実ブラウザで踏んだ）。潰さずに横へ送るため、表そのものを横スクロールにする。
+    <div className="overflow-x-auto rounded-card border border-border bg-card">
+      <RowHeader className="gap-2 text-th">
+        <RowSlot w={56}>番号</RowSlot>
         <RowSlot w={56}>段</RowSlot>
-        <RowSlot w={160}>機材</RowSlot>
-        <RowMain>名称</RowMain>
+        <RowSlot w={128}>機材</RowSlot>
+        <RowMain className="min-w-[96px]">名称</RowMain>
         <RowSlot w={72}>信号</RowSlot>
-        <RowSlot w={96}>エリア</RowSlot>
-        <RowSlot w={96}>備考</RowSlot>
+        <RowSlot w={72}>エリア</RowSlot>
+        <RowSlot w={72}>備考</RowSlot>
       </RowHeader>
 
       <div>
@@ -104,9 +119,9 @@ export function TechPanelJackTable({
                 key={jack.id}
                 density="table"
                 divider
-                className={cn(isEditing ? "bg-primary/5" : isSel ? "bg-primary/5" : undefined)}
+                className={cn("gap-2", isEditing ? "bg-primary/5" : isSel ? "bg-primary/5" : undefined)}
               >
-                <RowSlot w={72}>
+                <RowSlot w={56}>
                   <span
                     className={cn(
                       "font-number inline-flex h-5 items-center justify-center rounded-badge-xs text-badge font-bold",
@@ -125,7 +140,7 @@ export function TechPanelJackTable({
 
                 {isEditing && draft ? (
                   <>
-                    <RowSlot w={160}>
+                    <RowSlot w={128}>
                       <BufferedInput
                         value={draft.device_name}
                         onCommit={(v) => setDraft((d) => (d ? { ...d, device_name: v } : d))}
@@ -133,7 +148,7 @@ export function TechPanelJackTable({
                         className="h-8 w-full min-w-0 rounded-control border border-border bg-background px-2 text-sub"
                       />
                     </RowSlot>
-                    <RowMain>
+                    <RowMain className="min-w-[96px]">
                       <BufferedInput
                         value={draft.label}
                         onCommit={(v) => setDraft((d) => (d ? { ...d, label: v } : d))}
@@ -149,7 +164,7 @@ export function TechPanelJackTable({
                         className="h-8 w-full min-w-0 rounded-control border border-border bg-background px-2 text-sub"
                       />
                     </RowSlot>
-                    <RowSlot w={96}>
+                    <RowSlot w={72}>
                       <BufferedInput
                         value={draft.area}
                         onCommit={(v) => setDraft((d) => (d ? { ...d, area: v } : d))}
@@ -157,7 +172,7 @@ export function TechPanelJackTable({
                         className="h-8 w-full min-w-0 rounded-control border border-border bg-background px-2 text-sub"
                       />
                     </RowSlot>
-                    <RowSlot w={96}>
+                    <RowSlot w={72}>
                       <BufferedInput
                         value={draft.note}
                         onCommit={(v) => setDraft((d) => (d ? { ...d, note: v } : d))}
@@ -168,7 +183,7 @@ export function TechPanelJackTable({
                   </>
                 ) : (
                   <>
-                    <RowSlot w={160}>
+                    <RowSlot w={128}>
                       <button
                         type="button"
                         onClick={() => {
@@ -185,7 +200,7 @@ export function TechPanelJackTable({
                         {hasDevice ? jack.device_name : "（空き）"}
                       </button>
                     </RowSlot>
-                    <RowMain>
+                    <RowMain className="min-w-[96px]">
                       <span className="font-number truncate text-sub text-foreground">{jack.label}</span>
                     </RowMain>
                     <RowSlot w={72}>
@@ -195,10 +210,10 @@ export function TechPanelJackTable({
                         </span>
                       ) : null}
                     </RowSlot>
-                    <RowSlot w={96}>
+                    <RowSlot w={72}>
                       <span className="truncate text-sub-sm text-muted-foreground">{jack.area}</span>
                     </RowSlot>
-                    <RowSlot w={96}>
+                    <RowSlot w={72}>
                       <span className="truncate text-sub-sm text-muted-foreground">{jack.note}</span>
                     </RowSlot>
                   </>

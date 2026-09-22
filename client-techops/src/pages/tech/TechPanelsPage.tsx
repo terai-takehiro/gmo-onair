@@ -59,13 +59,16 @@ export default function TechPanelsPage() {
     if (!selected && detail) setSelected({ jackNo: 1, jackRow: "A" });
   }, [detail, selected]);
 
+  // ⚠️ `updateJack` は失敗を投げずに `false` で返す（知らせは `useTechMasters` が出す）。
+  // 返り値を見ずに「保存しました」を出すと、保存できていないのに成功したように見える。
   const saveJack = async (
     jackId: string,
     patch: Partial<Record<"device_name" | "label" | "signal" | "area" | "note", string>>,
-  ) => {
-    if (!selectedPanelId) return;
-    await masters.updateJack(selectedPanelId, jackId, patch);
-    notifySuccess("保存しました");
+  ): Promise<boolean> => {
+    if (!selectedPanelId) return false;
+    const ok = await masters.updateJack(selectedPanelId, jackId, patch);
+    if (ok) notifySuccess("保存しました");
+    return ok;
   };
 
   const selectAndPage = (sel: TechPanelBoardSelection) => {

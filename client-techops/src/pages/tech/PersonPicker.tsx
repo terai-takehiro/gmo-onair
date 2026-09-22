@@ -107,10 +107,13 @@ export function PersonPicker({
         ))}
       </div>
 
+      {/* ⚠️ 検索欄が空のまま押すと、名前を空で入れ直して候補が閉じるだけだった
+          （押せたのに何も起きないように見える）。名前を入れるまで押せなくする */}
       <button
         type="button"
+        disabled={q.trim() === ""}
         onClick={() => onManual(q.trim())}
-        className="flex min-h-tap w-full items-center gap-2 bg-surface-subtle px-3 py-2 text-left hover:bg-accent"
+        className="flex min-h-tap w-full items-center gap-2 bg-surface-subtle px-3 py-2 text-left hover:bg-accent disabled:cursor-default disabled:hover:bg-surface-subtle"
       >
         <Plus className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
         <span className="shrink-0 text-sub text-primary">

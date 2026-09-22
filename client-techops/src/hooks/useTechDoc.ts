@@ -23,21 +23,27 @@ export interface UseTechDocResult {
   loading: boolean;
   error: unknown;
   reload: () => Promise<void>;
-  updateDoc: (patch: techApi.UpdateTechDocPayload) => Promise<void>;
-  createPatchRow: (payload: techApi.PatchRowPayload) => Promise<void>;
-  updatePatchRow: (rowId: string, patch: techApi.PatchRowPayload) => Promise<void>;
-  deletePatchRow: (rowId: string) => Promise<void>;
-  reorderPatchRows: (ids: string[]) => Promise<void>;
-  createStaffRow: (payload: techApi.StaffRowPayload) => Promise<void>;
-  updateStaffRow: (rowId: string, patch: techApi.StaffRowPayload) => Promise<void>;
-  deleteStaffRow: (rowId: string) => Promise<void>;
-  reorderStaffRows: (ids: string[]) => Promise<void>;
-  lock: () => Promise<void>;
-  unlock: () => Promise<void>;
-  requestLock: () => Promise<void>;
-  takeoverLock: () => Promise<void>;
-  fix: () => Promise<void>;
-  unfix: () => Promise<void>;
+  /**
+   * 書き込みは**送れたかどうかを `true` / `false` で返す**。
+   * 画面は返り値が `true` のときだけ「保存しました」を出す
+   * （`void` のままだと失敗も成功として見え、消えた変更に気づけない）。
+   * 失敗の知らせ（トースト）はこのフックが1回だけ出すので、呼ぶ側は出さない。
+   */
+  updateDoc: (patch: techApi.UpdateTechDocPayload) => Promise<boolean>;
+  createPatchRow: (payload: techApi.PatchRowPayload) => Promise<boolean>;
+  updatePatchRow: (rowId: string, patch: techApi.PatchRowPayload) => Promise<boolean>;
+  deletePatchRow: (rowId: string) => Promise<boolean>;
+  reorderPatchRows: (ids: string[]) => Promise<boolean>;
+  createStaffRow: (payload: techApi.StaffRowPayload) => Promise<boolean>;
+  updateStaffRow: (rowId: string, patch: techApi.StaffRowPayload) => Promise<boolean>;
+  deleteStaffRow: (rowId: string) => Promise<boolean>;
+  reorderStaffRows: (ids: string[]) => Promise<boolean>;
+  lock: () => Promise<boolean>;
+  unlock: () => Promise<boolean>;
+  requestLock: () => Promise<boolean>;
+  takeoverLock: () => Promise<boolean>;
+  fix: () => Promise<boolean>;
+  unfix: () => Promise<boolean>;
 }
 
 export function useTechDoc(id: string | undefined): UseTechDocResult {
@@ -46,7 +52,13 @@ export function useTechDoc(id: string | undefined): UseTechDocResult {
   const [error, setError] = useState<unknown>(null);
   const mountedRef = useRef(true);
 
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  // ⚠️ 外した印を**付け直す**。React.StrictMode は開発時に「付ける→外す→付け直す」を
+  // 1回多く回すので、戻り値だけで false にすると 2 度目のマウントで false のままになり、
+  // 取得が届いても setState されない（＝骨組みのまま止まる。実ブラウザで踏んだ）。
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const reload = useCallback(async () => {
     if (!id) {
@@ -83,20 +95,27 @@ export function useTechDoc(id: string | undefined): UseTechDocResult {
       optimistic: ((prev: TechDocDetail) => TechDocDetail) | null,
       send: (docId: string) => Promise<((prev: TechDocDetail) => TechDocDetail) | null>,
       message: string,
-    ): Promise<void> => {
-      if (!id) return;
+      /** ロックが他の人に取られているだけのときは知らせない（帯が同じことを言うため） */
+      quietWhenLocked = false,
+    ): Promise<boolean> => {
+      if (!id) return false;
       if (optimistic) setDetail((prev) => (prev ? optimistic(prev) : prev));
       try {
         const settle = await send(id);
-        if (!mountedRef.current) return;
+        if (!mountedRef.current) return true;
         if (settle) setDetail((prev) => (prev ? settle(prev) : prev));
+        return true;
       } catch (err) {
-        notifyError(message, {
-          description: techApi.isLockError(err)
-            ? "編集は他の人が開いています。最新の内容を読み込み直します。"
-            : "少し待ってから、もう一度お試しください。最新の内容を読み込み直します。",
-        });
+        const locked = techApi.isLockError(err);
+        if (!(locked && quietWhenLocked)) {
+          notifyError(message, {
+            description: locked
+              ? "編集は他の人が開いています。最新の内容を読み込み直します。"
+              : "少し待ってから、もう一度お試しください。最新の内容を読み込み直します。",
+          });
+        }
         await reload();
+        return false;
       }
     },
     [id, reload],
@@ -234,7 +253,7 @@ export function useTechDoc(id: string | undefined): UseTechDocResult {
   // 手元だけで組み立てず読み直して揃える。
 
   const doThenReload = useCallback(
-    (send: (docId: string) => Promise<unknown>, message: string) =>
+    (send: (docId: string) => Promise<unknown>, message: string, quietWhenLocked = false) =>
       run(
         null,
         async (docId) => {
@@ -243,12 +262,15 @@ export function useTechDoc(id: string | undefined): UseTechDocResult {
           return null;
         },
         message,
+        quietWhenLocked,
       ),
     [run, reload],
   );
 
+  // ⚠️ 他の人が開いているのは**普通に起きること**。帯（「〇〇さんが編集中です」）が
+  // 同じことを言うので、ここでトーストまで出すと開くたびに赤い知らせが1枚出る（実ブラウザで踏んだ）。
   const lock = useCallback(
-    () => doThenReload((docId) => techApi.lockTechDoc(docId), "編集を始められませんでした。"),
+    () => doThenReload((docId) => techApi.lockTechDoc(docId), "編集を始められませんでした。", true),
     [doThenReload],
   );
   const unlock = useCallback(

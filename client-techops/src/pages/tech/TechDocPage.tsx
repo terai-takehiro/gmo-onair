@@ -13,7 +13,7 @@ import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { PageShell } from "@gmo-onair/shared/src/client/ui/pageShell";
 import { confirmAction } from "@gmo-onair/shared/src/client/ui/confirm";
 import BufferedInput from "@/components/editor/BufferedInput";
-import { notifyError, notifyInfo } from "@/lib/notify";
+import { notifyError } from "@/lib/notify";
 import { useAuth } from "@/hooks/useAuth";
 import { useTechDoc } from "@/hooks/useTechDoc";
 import { useTechMasters } from "@/hooks/useTechMasters";
@@ -54,15 +54,21 @@ export default function TechDocPage() {
    * 書き込みを1か所で包んで「保存中…／保存しました」を出す。
    * **失敗の知らせは出さない** — `useTechDoc` が自分で notifyError して読み直すため
    * （二重に出ると同じ失敗が2回見える）。
+   *
+   * ⚠️ `useTechDoc` は失敗を投げずに `false` で返す。**返り値を見ずに「保存しました」を
+   * 出すと、保存できていないのに成功したように見える**（実ブラウザで踏んだ）ので、
+   * `true` のときだけ出す。返り値はそのまま呼び出し側（③技術スタッフの表）へ渡す。
    */
-  const run = useCallback(async (fn: () => Promise<void>): Promise<void> => {
+  const run = useCallback(async (fn: () => Promise<boolean>): Promise<boolean> => {
     setStatus("saving");
     try {
-      await fn();
-      setStatus("saved");
-      window.setTimeout(() => setStatus((s) => (s === "saved" ? "idle" : s)), 2000);
+      const ok = await fn();
+      setStatus(ok ? "saved" : "idle");
+      if (ok) window.setTimeout(() => setStatus((s) => (s === "saved" ? "idle" : s)), 2000);
+      return ok;
     } catch {
       setStatus("idle");
+      return false;
     }
   }, []);
 
@@ -72,6 +78,8 @@ export default function TechDocPage() {
   const lockEnabled = !!detail && canEditPerm && !isFixed && !isMobile;
   const heldByMe = !!detail && !!currentUser && detail.doc.locked_by === currentUser.id;
   const canEdit = lockEnabled && heldByMe;
+  const requestedByMe = !!detail && !!currentUser && detail.doc.lock_requested_by === currentUser.id;
+  const requestedByOther = !!detail && !!detail.doc.lock_requested_by && !requestedByMe;
 
   const apiRef = useRef(doc);
   useEffect(() => { apiRef.current = doc; });
@@ -101,10 +109,6 @@ export default function TechDocPage() {
       void apiRef.current.unlock();
     };
   }, [id, lockEnabled]);
-
-  const onExport = () => notifyInfo("書き出す", {
-    description: "A4 横1枚に映像パッチと技術スタッフを並べて書き出します。この画面は今後の対応予定です。",
-  });
 
   const onDuplicate = async () => {
     if (!detail) return;
@@ -175,7 +179,9 @@ export default function TechDocPage() {
         }
         sub={
           <span className="num flex flex-wrap items-center gap-2">
-            {d.rev > 0 && <span>第{d.rev}版</span>}
+            {/* ⚠️ 版の数え方は①一覧（`第{rev + 1}版`）に合わせる。ここだけ `rev` のままだと、
+                同じ資料が一覧では「第1版」・この画面では版が出ない、という食い違いになる */}
+            <span>第{d.rev + 1}版</span>
             <span>{savedAt(d.updated_at)}</span>
             {status === "saving" && <span className="text-primary">保存中…</span>}
             {status === "saved" && <span className="text-success">保存しました</span>}
@@ -183,8 +189,11 @@ export default function TechDocPage() {
           </span>
         }
         primaryAction={
-          <Button variant="outline" className="h-10" onClick={onExport}>
-            <FileOutput className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />書き出す
+          // ④書き出し（`/techops/tech-docs/:id/print`・PC専用・tech-docs.md §8）
+          <Button asChild variant="outline" className="h-10">
+            <Link to={`/techops/tech-docs/${id}/print`}>
+              <FileOutput className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />書き出す
+            </Link>
           </Button>
         }
       >
@@ -210,12 +219,26 @@ export default function TechDocPage() {
             <strong>{detail.locked_by_name || "他のユーザー"}さんが編集中です。</strong>閲覧のみになっています。
           </span>
           <span className="flex shrink-0 items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => void run(() => doc.requestLock())}>編集を要求</Button>
+            {/* ⚠️ 要求したことが画面に出ないと、押せたのかどうかが分からず何度も押される。
+                送れたら同じ場所を「編集を要求しました」に入れ替える（運営マニュアルと同じ形） */}
+            {requestedByMe ? (
+              <span className="text-note text-muted-foreground">編集を要求しました</span>
+            ) : (
+              <Button variant="outline" size="sm" onClick={() => void run(() => doc.requestLock())}>編集を要求</Button>
+            )}
             {canManage && (
               <Button variant="outline" size="sm" onClick={() => void run(() => doc.takeoverLock())}>引き継ぐ</Button>
             )}
           </span>
         </div>
+      )}
+
+      {/* 編集している本人に「待っている人がいる」ことを伝える（`lock_requested_by_name` の出口） */}
+      {!isMobile && heldByMe && requestedByOther && (
+        <p className="rounded-note border border-primary-border bg-primary-surface px-3 py-2 text-note text-foreground">
+          <strong>{detail.lock_requested_by_name}さんが編集を求めています。</strong>
+          区切りのよいところでこの画面を閉じると、編集を渡せます。
+        </p>
       )}
 
       {!isMobile && isFixed && (

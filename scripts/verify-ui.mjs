@@ -161,6 +161,15 @@ const PAGES = [
   ['制作技術支援 計時 既存セッション', '/techops/live-legacy'],
   ['制作技術支援 計時 表示テンプレート', '/techops/live-display-templates'],
   ['制作技術支援 過去実績の移行', '/techops/graphics/awards-migration'],
+  /*
+    技術資料（ミニアプリ tech・docs/design/v4/tech-docs.md）。
+    **資料1件の画面（`/techops/tech-docs/:id`）は並べられない** — 資料の id は
+    作成時に uuid で発番されるので、固定の URL が無い（会場図面・顧客360 と同じ理由）。
+    一覧と、組織共通のマスタ2枚（PC専用）はどの環境でも同じ URL で開ける。
+  */
+  ['技術資料 一覧', '/techops/tech-docs'],
+  ['技術資料 パッチ盤', '/techops/tech-panels', { slow: true }],
+  ['技術資料 技術人員', '/techops/tech-persons', { slow: true }],
 
   // ── 計時LIVE (v4 対象・共通シェルへ載せ替え済み) ──────────────
   // 番組配下の画面 (ダッシュボード・タイマー管理・番組設定) は種のデータが要る

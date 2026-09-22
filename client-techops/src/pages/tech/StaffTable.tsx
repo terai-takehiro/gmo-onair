@@ -11,7 +11,6 @@ import type { TechDoc, TechPerson, TechStaffRow } from "@gmo-onair/shared/src/te
 import { Button } from "@/components/ui/button";
 import BufferedInput from "@/components/editor/BufferedInput";
 import { formatDateJp, todayStr } from "@/lib/dateFmt";
-import { notifyError } from "@/lib/notify";
 import { PersonPicker } from "./PersonPicker";
 import { RowMenu, RowMenuItem } from "./staffMenu";
 import {
@@ -29,11 +28,15 @@ export interface StaffTableProps {
   doc: TechDoc;
   rows: TechStaffRow[];
   canEdit: boolean;
-  onCreate(row: NewStaffRow): Promise<void>;
-  onUpdate(id: string, patch: Partial<TechStaffRow>): Promise<void>;
-  onDelete(id: string): Promise<void>;
+  /**
+   * 書き込みは**送れたら `true`**（`useTechDoc` の契約）。失敗の知らせは
+   * `useTechDoc` が1回だけ出すので、この表からは出さない（二重に出さない）。
+   */
+  onCreate(row: NewStaffRow): Promise<boolean>;
+  onUpdate(id: string, patch: Partial<TechStaffRow>): Promise<boolean>;
+  onDelete(id: string): Promise<boolean>;
   /** 作業日の中での並び */
-  onReorder(ids: string[]): Promise<void>;
+  onReorder(ids: string[]): Promise<boolean>;
 }
 
 export function StaffTable({ doc, rows, canEdit, onCreate, onUpdate, onDelete, onReorder }: StaffTableProps) {
@@ -52,14 +55,6 @@ export function StaffTable({ doc, rows, canEdit, onCreate, onUpdate, onDelete, o
   const dayRows = useMemo(() => (current === "" ? [] : rowsOfDay(rows, current)), [rows, current]);
   const counts = useMemo(() => companyCountsOf(dayRows), [dayRows]);
 
-  const run = async (label: string, task: () => Promise<void>) => {
-    try {
-      await task();
-    } catch {
-      notifyError(`${label}できませんでした。`, { description: "少し待ってから、もう一度お試しください。" });
-    }
-  };
-
   const addDay = (value: string) => {
     setAddingDay(false);
     if (!value) return;
@@ -68,23 +63,21 @@ export function StaffTable({ doc, rows, canEdit, onCreate, onUpdate, onDelete, o
   };
 
   const addRow = () =>
-    run("追加", () =>
-      onCreate({
-        work_date: current,
-        role: "",
-        person_id: null,
-        person_name: "",
-        company_id: null,
-        company_name: "",
-        note: "",
-        sort_order: nextSortOrder(rows, current),
-      }),
-    );
+    onCreate({
+      work_date: current,
+      role: "",
+      person_id: null,
+      person_name: "",
+      company_id: null,
+      company_name: "",
+      note: "",
+      sort_order: nextSortOrder(rows, current),
+    });
 
   const move = (id: string, delta: -1 | 1) => {
     const order = movedOrder(dayRows, id, delta);
     if (!order) return;
-    void run("並べ替え", () => onReorder(order));
+    void onReorder(order);
   };
 
   return (
@@ -138,28 +131,26 @@ export function StaffTable({ doc, rows, canEdit, onCreate, onUpdate, onDelete, o
             canEdit={canEdit}
             open={openRowId === r.id}
             onOpenChange={(open) => setOpenRowId(open ? r.id : null)}
-            onUpdate={(patch) => run("保存", () => onUpdate(r.id, patch))}
-            onDuplicate={() =>
-              run("複製", () =>
-                onCreate({
-                  work_date: r.work_date,
-                  role: r.role,
-                  person_id: r.person_id,
-                  person_name: r.person_name,
-                  company_id: r.company_id,
-                  company_name: r.company_name,
-                  note: r.note,
-                  sort_order: nextSortOrder(rows, r.work_date),
-                }),
-              )
-            }
+            onUpdate={(patch) => { void onUpdate(r.id, patch); }}
+            onDuplicate={() => {
+              void onCreate({
+                work_date: r.work_date,
+                role: r.role,
+                person_id: r.person_id,
+                person_name: r.person_name,
+                company_id: r.company_id,
+                company_name: r.company_name,
+                note: r.note,
+                sort_order: nextSortOrder(rows, r.work_date),
+              });
+            }}
             onDelete={async () => {
               const ok = await confirmAction({
                 title: `「${r.person_name || "（名前なし）"}」の行を削除しますか？`,
                 confirmLabel: "削除する",
                 tone: "danger",
               });
-              if (ok) await run("削除", () => onDelete(r.id));
+              if (ok) await onDelete(r.id);
             }}
             onMove={(delta) => move(r.id, delta)}
           />

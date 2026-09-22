@@ -33,14 +33,20 @@ export interface UseTechMastersResult {
   /** 条件に合う人。初回は空配列を返し、届いたら再描画される */
   persons: (params?: techApi.ListTechPersonsParams) => TechPerson[];
   reloadPersons: () => Promise<void>;
-  createPerson: (payload: techApi.TechPersonPayload) => Promise<void>;
-  updatePerson: (id: string, patch: techApi.TechPersonPayload) => Promise<void>;
-  deletePerson: (id: string) => Promise<void>;
-  createCompany: (payload: techApi.TechCompanyPayload) => Promise<void>;
-  updateCompany: (id: string, patch: techApi.TechCompanyPayload) => Promise<void>;
-  createPanel: (payload: techApi.CreatePatchPanelPayload) => Promise<void>;
-  updatePanel: (id: string, patch: techApi.UpdatePatchPanelPayload) => Promise<void>;
-  updateJack: (panelId: string, jackId: string, patch: techApi.UpdatePatchJackPayload) => Promise<void>;
+  /**
+   * 台帳の書き込みは**送れたら `true`**。画面は返り値が `true` のときだけ
+   * 「保存しました」を出し、ダイアログや編集欄を閉じる
+   * （`void` のままだと失敗も成功として見え、消えた入力に気づけない）。
+   * 失敗の知らせはこのフックが1回だけ出すので、呼ぶ側は出さない。
+   */
+  createPerson: (payload: techApi.TechPersonPayload) => Promise<boolean>;
+  updatePerson: (id: string, patch: techApi.TechPersonPayload) => Promise<boolean>;
+  deletePerson: (id: string) => Promise<boolean>;
+  createCompany: (payload: techApi.TechCompanyPayload) => Promise<boolean>;
+  updateCompany: (id: string, patch: techApi.TechCompanyPayload) => Promise<boolean>;
+  createPanel: (payload: techApi.CreatePatchPanelPayload) => Promise<boolean>;
+  updatePanel: (id: string, patch: techApi.UpdatePatchPanelPayload) => Promise<boolean>;
+  updateJack: (panelId: string, jackId: string, patch: techApi.UpdatePatchJackPayload) => Promise<boolean>;
 }
 
 export function useTechMasters(): UseTechMastersResult {
@@ -56,7 +62,13 @@ export function useTechMasters(): UseTechMastersResult {
   const wantedPersonsRef = useRef<Map<string, techApi.ListTechPersonsParams>>(new Map());
   const inFlightRef = useRef<Set<string>>(new Set());
 
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  // ⚠️ 外した印を**付け直す**。React.StrictMode は開発時に「付ける→外す→付け直す」を
+  // 1回多く回すので、戻り値だけで false にすると 2 度目のマウントで false のままになり、
+  // 取得が届いても setState されない（＝骨組みのまま止まる。実ブラウザで踏んだ）。
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const reloadPanels = useCallback(async () => {
     setPanelsLoading(true);
@@ -155,13 +167,16 @@ export function useTechMasters(): UseTechMastersResult {
 
   /** 台帳を書き換えたあとの共通の後始末（失敗は知らせて、読み直して揃える） */
   const runMaster = useCallback(
-    async (send: () => Promise<unknown>, after: () => Promise<void>, message: string): Promise<void> => {
+    async (send: () => Promise<unknown>, after: () => Promise<void>, message: string): Promise<boolean> => {
+      let ok = true;
       try {
         await send();
       } catch {
+        ok = false;
         notifyError(message, { description: "少し待ってから、もう一度お試しください。" });
       }
       await after();
+      return ok;
     },
     [],
   );
@@ -213,7 +228,7 @@ export function useTechMasters(): UseTechMastersResult {
   );
 
   const updateJack = useCallback(
-    async (panelId: string, jackId: string, patch: techApi.UpdatePatchJackPayload): Promise<void> => {
+    async (panelId: string, jackId: string, patch: techApi.UpdatePatchJackPayload): Promise<boolean> => {
       // 手元の1行だけ先に書き換える（表のセルを打つたびに盤全体を読み直さない）
       setPanelCache((prev) => {
         const detail = prev[panelId];
@@ -228,7 +243,7 @@ export function useTechMasters(): UseTechMastersResult {
       });
       try {
         const jack = await techApi.updatePatchJack(panelId, jackId, patch);
-        if (!mountedRef.current) return;
+        if (!mountedRef.current) return true;
         setPanelCache((prev) => {
           const detail = prev[panelId];
           if (!detail) return prev;
@@ -236,6 +251,7 @@ export function useTechMasters(): UseTechMastersResult {
         });
         // 転記の進み（一覧の件数）と機材の候補が変わる
         await Promise.all([reloadPanels(), reloadDevices()]);
+        return true;
       } catch {
         notifyError("パッチ番号を保存できませんでした。", { description: "少し待ってから、もう一度お試しください。最新の内容を読み込み直します。" });
         try {
@@ -244,6 +260,7 @@ export function useTechMasters(): UseTechMastersResult {
         } catch {
           /* 読み直しも失敗したときは、上の知らせだけで止める */
         }
+        return false;
       }
     },
     [reloadPanels, reloadDevices],

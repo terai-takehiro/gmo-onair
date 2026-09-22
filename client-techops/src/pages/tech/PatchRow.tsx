@@ -38,10 +38,10 @@ export function PatchRow({ row, no, rows, devices, kinds, canEdit, onPatch, onDu
   };
 
   return (
-    <Row density="table" divider className="hover:bg-surface-subtle">
-      <div className="num w-10 shrink-0 text-sub text-muted-foreground">{no}</div>
+    <Row density="table" divider className="gap-2 hover:bg-surface-subtle">
+      <div className="num w-8 shrink-0 text-sub text-muted-foreground">{no}</div>
 
-      <RowSlot w={160}>
+      <RowSlot w={128}>
         <DevicePicker
           deviceName={row.from_device_text} isExtra={row.from_is_extra} devices={devices} kinds={kinds}
           disabled={disabled} side="from"
@@ -65,7 +65,7 @@ export function PatchRow({ row, no, rows, devices, kinds, canEdit, onPatch, onDu
         <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
       </div>
 
-      <RowSlot w={160}>
+      <RowSlot w={128}>
         <DevicePicker
           deviceName={row.to_device_text} isExtra={row.to_is_extra} devices={devices} kinds={kinds}
           disabled={disabled} side="to"
@@ -85,7 +85,7 @@ export function PatchRow({ row, no, rows, devices, kinds, canEdit, onPatch, onDu
         />
       </RowSlot>
 
-      <RowMain>
+      <RowMain className="min-w-[128px]">
         <BufferedInput
           value={row.label} onCommit={(v) => onPatch({ label: v })} disabled={disabled}
           aria-label="名称" placeholder="名称を入力"
@@ -93,7 +93,7 @@ export function PatchRow({ row, no, rows, devices, kinds, canEdit, onPatch, onDu
         />
       </RowMain>
 
-      <RowSlot w={128}>
+      <RowSlot w={96}>
         <BufferedInput
           value={row.note} onCommit={(v) => onPatch({ note: v })} disabled={disabled}
           aria-label="備考" placeholder="備考"

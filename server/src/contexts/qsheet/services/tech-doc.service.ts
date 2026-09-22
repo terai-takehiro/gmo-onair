@@ -403,9 +403,16 @@ export async function unfixTechDoc(id: string, userId: string): Promise<Row> {
 
 /** 取る／延長する（60秒ハートビート）。取れなければ 409（`LockError`） */
 export async function acquireTechDocLock(id: string, userId: string): Promise<Row> {
+  // ⚠️ 引き継ぎの申し出（lock_requested_by）は**持ち主が変わったときだけ**消す。
+  //    この UPDATE は 60 秒ごとの延長でも走るので、無条件に NULL にすると
+  //    「編集を要求」を押しても次の延長（最大60秒後・保持者が開き直せば即座）に
+  //    消えてしまい、保持者には一度も伝わらなかった（実ブラウザで踏んだ）。
+  //    `locked_by` は SET の右辺では**更新前の値**なので、これで持ち主の交代だけを見分けられる。
   const acquired = await queryOne(
     `UPDATE qsheet_tech_docs
-     SET locked_by = $2, locked_at = NOW(), lock_requested_by = NULL, lock_requested_at = NULL
+     SET locked_by = $2, locked_at = NOW(),
+         lock_requested_by = CASE WHEN locked_by IS DISTINCT FROM $2 THEN NULL ELSE lock_requested_by END,
+         lock_requested_at = CASE WHEN locked_by IS DISTINCT FROM $2 THEN NULL ELSE lock_requested_at END
      WHERE id = $1 AND deleted_at IS NULL AND status != 'fixed'
        AND (locked_by IS NULL OR locked_by = $2 OR locked_at < NOW() - INTERVAL '10 minutes')
      RETURNING id`,

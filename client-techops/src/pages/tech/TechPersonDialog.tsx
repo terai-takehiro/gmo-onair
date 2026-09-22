@@ -66,7 +66,8 @@ export function TechPersonDialog({
   onOpenChange: (open: boolean) => void;
   companies: TechCompany[];
   defaultCompanyId: string;
-  onSubmit: (input: TechPersonPayload) => Promise<void>;
+  /** 送れたら `true`（`useTechMasters` の契約）。`false` のときはダイアログを閉じない */
+  onSubmit: (input: TechPersonPayload) => Promise<boolean>;
 }) {
   const [name, setName] = useState("");
   const [kana, setKana] = useState("");
@@ -94,8 +95,10 @@ export function TechPersonDialog({
     }
     setSaving(true);
     try {
-      await onSubmit({ tech_company_id: companyId, name: name.trim(), kana: kana.trim(), main_roles: roles });
-      onOpenChange(false);
+      // ⚠️ 失敗は投げずに `false` で返る。閉じてしまうと入力が消えるので、送れたときだけ閉じる
+      if (await onSubmit({ tech_company_id: companyId, name: name.trim(), kana: kana.trim(), main_roles: roles })) {
+        onOpenChange(false);
+      }
     } catch {
       notifyError("追加できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
     } finally {
@@ -161,7 +164,8 @@ export function TechCompanyDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (input: TechCompanyPayload) => Promise<void>;
+  /** 送れたら `true`（`useTechMasters` の契約）。`false` のときはダイアログを閉じない */
+  onSubmit: (input: TechCompanyPayload) => Promise<boolean>;
 }) {
   const [name, setName] = useState("");
   const [shortName, setShortName] = useState("");
@@ -181,8 +185,9 @@ export function TechCompanyDialog({
     }
     setSaving(true);
     try {
-      await onSubmit({ name: name.trim(), short_name: shortName.trim() });
-      onOpenChange(false);
+      if (await onSubmit({ name: name.trim(), short_name: shortName.trim() })) {
+        onOpenChange(false);
+      }
     } catch {
       notifyError("追加できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
     } finally {
