@@ -18,7 +18,7 @@
 | `Arrange.dc.html` | PC ② の左タブ「並べる」。並べ方7つ・行×列・間隔・通路・向き先・起点 → 薄いプレビュー（外接寸法・脚数・保有数との差・はみ出し）→ 置く。数値を変えると並びが変わる |
 | `Preview.dc.html` | PC ③ 仕上がり・書き出し `/techops/venue-layouts/:id/preview`。用紙・縮尺（自動＝収まる最大の切りのよい縮尺）・載せるもの・範囲が動く。紙は線画だけ、右下に 1m バーと S=1:100。出す前の検査3つ |
 | `Manual.dc.html` | 運営マニュアル側。A4横の紙面に差し込みブロック「会場図面」（線画＋1m バー＋凡例＋札）と数量表が載った状態。ブロックを押すと右パネルが変わり、「会場図面を編集」で `?return=` 付きの遷移先が出る |
-| `Mobile.dc.html` | スマホ 閲覧（同じ URL・見るだけ）。ピンチで見る・品目を押して札・数量／検査のタブ・下端に「運営マニュアルで見る」「PDF」 |
+| `Mobile.dc.html` | スマホ 閲覧（同じ URL・閲覧のみ）。ピンチで見る・品目を押して札・数量／検査のタブ・下端に「運営マニュアルで見る」「PDF」 |
 | `canvas.json` | 並べ方と付箋（なぜ要るか・縮尺の担保・各画面の決めごと・運営マニュアル連携・決めていただきたいこと8件） |
 
 サンプルの案件は `native/production-manual/` と同じ **東都TV 特番収録「サイエンス・フロンティア」GLS-A002 第7回**（人名は架空）。
@@ -63,3 +63,5 @@ v4.6.16 で `floor-26f-v2.png`／`floor-27f-v2.png`（1187×1650）に、`world-
 
 Claude Design のシード補助で `.dc.html`＋`canvas.json`＋下敷き4枚を1つの html に組み上げて公開する（組み上げた html は `.gitignore`）。
 実ブラウザでの確認は `scripts/verify-ui.mjs` と同じ Playwright＋Google Fonts の取り置き（`scripts/lib/google-fonts-cache.mjs`）で行った。
+
+⚠️ 公開先は**旧形式の単一ページ**（`project/` を持つ Design 型のキャンバスではない）ので、Design 型の作法で `project/canvas.json` と `.dc.html` を送っても反映されない。文言だけ直すときは、公開済みページの `<script id="appifact-doc">` に埋め込まれた `.dc.html`／`canvas.json` に手元と同じ置き換えを施して同じ URL へ公開し直せる（2026-09-22 の `docs/wording.md` ルール11対応はこの方法で公開し直した）。

@@ -279,8 +279,8 @@ export function MinutesCard({
 
           <div>
             <Label>まとめ</Label>
-            <Textarea rows={4} value={val('summary', m.summary ?? '') ?? ''} disabled={!canEdit}
-              onChange={(e) => set({ summary: e.target.value })} />
+            {/* まとめは話題ごとに1行で返る（`minutes-ai.service`）。4行の枠だと3話題目から見えない */}
+            <Textarea rows={12} value={val('summary', m.summary ?? '') ?? ''} disabled={!canEdit} onChange={(e) => set({ summary: e.target.value })} />
           </div>
 
           <div>

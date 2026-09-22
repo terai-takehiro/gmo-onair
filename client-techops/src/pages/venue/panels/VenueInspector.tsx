@@ -190,7 +190,7 @@ export default function VenueInspector({ floor, area, catalog, items, selectedId
   } else if (selectedIds.length > 1) {
     data = {
       title: `${selectedIds.length}点を選択中`,
-      rows: [{ label: "操作", value: "道具の帯の整列・等間隔・重なりが使えます" }],
+      rows: [{ label: "操作", value: "ツールバーの整列・等間隔・重なりが使えます" }],
       buttons: editable ? [{ label: "グループ化", onClick: () => onCommit(groupItems(items, selectedIds)) }] : [],
       note: { title: "複数選択", body: "Shiftを押しながら押すと足し引きできます。ドラッグで囲んでも選べます。「グループ化」（Ctrl+G）でまとめて動かせます。" },
     };
@@ -206,7 +206,7 @@ export default function VenueInspector({ floor, area, catalog, items, selectedId
         { label: "縮尺", value: floor.verifiedAt ? `確認済み ${floor.verifiedAt.slice(0, 10)}${floor.verifiedByName ? " " + floor.verifiedByName : ""}` : "未確認", danger: !floor.verifiedAt },
         { label: "品目", value: `${items.length} 点 ・ はみ出し ${overCount} 件`, danger: overCount > 0 },
       ],
-      note: { title: "品目を押すと選べます", body: "備品・人・カメラは実寸固定（伸ばせません）。伸ばしたいものは「四角」で追加します。ズームは道具の帯の −／＋、階とエリアの切替も帯の右にあります。" },
+      note: { title: "品目を押すと選べます", body: "備品・人・カメラは実寸固定（伸ばせません）。伸ばしたいものは「四角」で追加します。ズームはツールバーの −／＋、階とエリアの切替もツールバーの右にあります。" },
     };
   }
 

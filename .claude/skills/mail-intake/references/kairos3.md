@@ -99,7 +99,7 @@ create_project(
 )
 create_activity_log(
   project_id  = 上で作った案件,
-  ...お問い合わせ内容を整形...,
+  description = お問い合わせ本文**そのまま**（要約しない。整形はサーバーがやる）,
   idempotency_key = 'email:<msgid>:activity',
 )
 ```

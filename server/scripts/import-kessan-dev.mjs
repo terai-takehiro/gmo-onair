@@ -2,43 +2,54 @@
 /**
  * import-kessan-dev.mjs
  *
- * 決算データ (freee 総勘定元帳 CSV / ローカルファイル) を ONAiR の予算管理・案件管理
- * テーブルへ取り込む【検証(dev)専用】ワンオフ インポータ。
+ * 決算データ (freee 総勘定元帳/仕訳帳 CSV、MoneyForward xlsx) を ONAiR の
+ * 予算管理・案件管理テーブルへ取り込む【検証(dev)専用】CLI。
  *
- *   - 販管費 (sga_expenses)  : 7xxx 勘定科目 → そのまま (project 不要)
- *   - 売上   (revenues)      : 5000 売上高   → GLS(案件) + 顧客 に紐付け
- *   - 仕入   (purchases)     : 6xxx 売上原価 → GLS(案件) + 取引先 に紐付け (複数GLSは均等按分)
+ * 抽出・マスタ突合・投入のロジックは一切持たない薄いラッパー。実体は
+ * Web UI (管理画面「決算インポート」) からも呼ばれる
+ * server/src/contexts/platform/services/kessan-import.service.ts の
+ * runKessanImport() 一本 (ビルド済みの server/dist を読む)。
  *
- * 二重計上防止: 総勘定元帳は複式簿記のため「勘定科目」列が P/L 科目 (5/6/7xxx)
- *               の行(=各科目の元帳行)のみを採用する。貸借科目(現預金/売掛/未払
- *               /消費税)の行は相手科目に P/L が出ても採用しない。
- *
- * 冪等性: commit 時はまず当月マーカー `[kessan:<period>]` の既存行を削除してから
- *         挿入し直す (dev のみ・手入力データには触れない)。
+ * ⚠️ 以前はここに CSV 抽出・税区分判定・GLS 番号抽出などのロジックを丸ごと
+ *    複製していたが、本体側の改修 (MoneyForward 対応・仕訳帳対応・重複検出・
+ *    表記ゆれ吸収した名寄せ・entity_code 対応 等) に追従できず長期間メンテが
+ *    分岐し、`--commit` が `column "notes" of relation "projects" does not
+ *    exist` 等で必ず失敗する状態になっていた。二重管理をやめて本体を直接呼ぶ
+ *    構成にすることで、今後は本体の改修がそのまま CLI にも反映される。
  *
  * SAFETY:
- *   - DB 名が prod っぽい場合は実行拒否
- *   - 既定は dry-run (--commit で実書き込み)
- *   - 売上/仕入で案件/顧客/取引先が未登録の場合、--create-masters 指定時のみ新規作成
+ *   - DATABASE_URL が prod っぽい場合は実行拒否 (本番は Web UI から system_admin
+ *     が実行する運用。このツールは検証専用)
+ *   - 既定は dry-run (--commit で実書き込み)。dry-run でも DB 接続してマスタ照合・
+ *     重複候補チェックまで行うため、--no-db (旧・DB非接続のパース確認専用モード)
+ *     より確認内容が濃い。そのため --no-db は廃止した
  *
- * Usage (VPS / app_dev コンテナ内):
- *   # まず dry-run で内容確認 (既定 scope=sga)
- *   docker exec -it gmo-onair-app_dev-1 node /app/server/scripts/import-kessan-dev.mjs --file=/path/to/gl.csv
- *   # 販管費を投入
- *   docker exec -it gmo-onair-app_dev-1 node /app/server/scripts/import-kessan-dev.mjs --file=/path/to/gl.csv --scope=sga --commit
- *   # 全部 (案件/顧客/取引先も新規作成しつつ) 投入
- *   docker exec -it gmo-onair-app_dev-1 node /app/server/scripts/import-kessan-dev.mjs --file=/path/to/gl.csv --scope=all --create-masters --commit
+ * Usage (VPS / app_dev コンテナ内。server/dist を含むビルド済みイメージが前提):
+ *   docker exec -it gmo-onair-app_dev-1 node server/scripts/import-kessan-dev.mjs --file=/path/to/gl.csv
+ *   docker exec -it gmo-onair-app_dev-1 node server/scripts/import-kessan-dev.mjs --file=/path/to/gl.csv --scope=sga --commit
+ *   docker exec -it gmo-onair-app_dev-1 node server/scripts/import-kessan-dev.mjs --file=/path/to/gl.csv --scope=all --create-masters --skip-duplicates --commit
  *
- * 必須 env: (DATABASE_URL | DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME)
- * 必須 flag: --file=<path> (freee 総勘定元帳 CSV)
- * 任意 flag: --period=YYYY-MM (既定: GL の最頻取引月)
+ * 必須 env: DATABASE_URL (本体の shared/db/connection.ts と同じ唯一の接続元。
+ *           VPS の app_dev コンテナには docker-compose.yml で設定済み)
+ * 必須 flag: --file=<path> (freee 総勘定元帳/仕訳帳 CSV、または MoneyForward xlsx)
+ * 任意 flag:
+ *   --scope=sga|revenues|purchases|all  (既定 sga)
+ *   --period=YYYY-MM                    (既定: GL の取引月から自動判定)
+ *   --create-masters                    (未登録の案件・顧客・取引先を作成)
+ *   --exclude-fixed-cogs                (GLS無し原価を固定原価Pjへ計上せず除外)
+ *   --skip-duplicates                   (手入力と同一と判定した重複候補行を投入しない)
+ *   --commit                            (実書き込み。既定は dry-run)
+ *
+ * ローカルで試す場合は先に `npm run build --workspace=server` で server/dist を
+ * 作ってから実行する (このスクリプトが読むのは常に dist。VPS の実行環境と揃えるため
+ * `npm run dev` のように tsx で src/ を直接読むことはしない)。
  */
+import { readFileSync, existsSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import pg from 'pg';
-import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-
-const { Client } = pg;
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const DIST_DIR = join(__dirname, '..', 'dist');
 
 // ============================================================
 // 引数
@@ -51,517 +62,132 @@ const getOpt = (n, d) => {
 };
 const COMMIT = hasFlag('--commit');
 const CREATE_MASTERS = hasFlag('--create-masters');
-const EXCLUDE_FIXED = hasFlag('--exclude-fixed-cogs'); // 既定: GLS無しの固定原価は固定原価プロジェクトへ計上
-const FIXED_CODE = 'FIXED-COGS';
-const FIXED_NAME = '固定原価（スタジオ償却負担額等）';
-const FIXED_CUSTOMER = '（固定費・社内）';
-const SCOPE = getOpt('--scope', 'sga'); // sga | revenues | purchases | all
+const EXCLUDE_FIXED = hasFlag('--exclude-fixed-cogs');
+const SKIP_DUPLICATES = hasFlag('--skip-duplicates');
+const SCOPE = getOpt('--scope', 'sga');
 const FILE_PATH = getOpt('--file', '');
+const PERIOD = getOpt('--period', '');
+
 if (!FILE_PATH) {
-  console.error('[kessan] --file=<path> でCSVファイルを指定してください。');
+  console.error('[kessan] --file=<path> でCSV(freee)またはxlsx(MoneyForward)ファイルを指定してください。');
   process.exit(2);
 }
-const NO_DB = hasFlag('--no-db'); // DB に接続せず抽出サマリのみ表示 (パース検証用)
-let PERIOD = getOpt('--period', ''); // YYYY-MM (空なら自動判定)
-const SCOPES = SCOPE === 'all' ? ['sga', 'revenues', 'purchases'] : [SCOPE];
+if (!['sga', 'revenues', 'purchases', 'all'].includes(SCOPE)) {
+  console.error(`[kessan] --scope は sga|revenues|purchases|all のいずれか (指定値: ${SCOPE})`);
+  process.exit(2);
+}
+if (PERIOD && !/^\d{4}-\d{2}$/.test(PERIOD)) {
+  console.error(`[kessan] --period は YYYY-MM 形式で指定してください (指定値: ${PERIOD})`);
+  process.exit(2);
+}
 
 // ============================================================
-// DB 設定 + prod ガード
+// prod ガード (本体 runKessanImport は本番でも実行できる設計 — Web UI 側で
+// targetDb/isProd を画面表示した上で system_admin が判断する運用のため。
+// このスクリプトには確認画面が無いので、従来通り prod らしき接続先は拒否する)
 // ============================================================
-function parseDbConfig() {
-  if (process.env.DATABASE_URL) return { connectionString: process.env.DATABASE_URL };
-  return {
-    host: process.env.DB_HOST || 'localhost',
-    port: Number(process.env.DB_PORT || 5432),
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'onair_dev',
-  };
+function maskDbUrl(url) {
+  return url.replace(/\/\/([^:/@]+):([^:@]*)@/, '//$1:***@');
 }
-const dbCfg = parseDbConfig();
-const dbLabel = String(dbCfg.database || dbCfg.connectionString || '').toLowerCase();
+// initDb() (shared/db/connection.ts) も DATABASE_URL 単独で接続先を決める。ここで
+// 未設定時に既定値へフォールバックすると、この prod ガード自体は通過してしまい
+// (既定値は "prod" を含まない)、initDb() 側も同じ既定へ静かにつながる。「必須 env」
+// と明記している以上、未設定は安全側 (fail closed) で拒否する (Codex レビュー指摘)。
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.error('[kessan] REFUSING: 環境変数 DATABASE_URL が未設定です。既定値へは倒さず拒否します。');
+  process.exit(2);
+}
+const dbLabel = DATABASE_URL.toLowerCase();
 if (dbLabel.includes('prod') || dbLabel.includes('production')) {
-  console.error(`[kessan] REFUSING: database "${dbLabel}" looks like production. 本スクリプトは検証(dev)専用です。`);
+  console.error(`[kessan] REFUSING: DATABASE_URL "${maskDbUrl(DATABASE_URL)}" は prod らしき接続先です。本スクリプトは検証(dev)専用です。`);
   process.exit(2);
 }
 
-// ============================================================
-// CSV パーサ (引用符・セル内改行・"" エスケープ・CRLF 対応)
-// ============================================================
-function parseCsv(text) {
-  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1); // BOM
-  const rows = [];
-  let row = [], field = '', inQ = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inQ) {
-      if (c === '"') {
-        if (text[i + 1] === '"') { field += '"'; i++; } else inQ = false;
-      } else field += c;
-    } else if (c === '"') inQ = true;
-    else if (c === ',') { row.push(field); field = ''; }
-    else if (c === '\r') { /* skip */ }
-    else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
-    else field += c;
-  }
-  if (field.length || row.length) { row.push(field); rows.push(row); }
-  return rows;
-}
-
-// ============================================================
-// 変換ヘルパ
-// ============================================================
-const toInt = (s) => {
-  const n = parseInt(String(s ?? '').replace(/[^0-9-]/g, ''), 10);
-  return Number.isFinite(n) ? n : 0;
-};
-const normDate = (s) => String(s ?? '').trim().replace(/\//g, '-').slice(0, 10);
-const acct = (s) => {
-  const m = String(s ?? '').trim().match(/^(\d+)\s+(.*)$/);
-  return m ? { code: parseInt(m[1], 10), name: m[2].trim() } : { code: NaN, name: String(s ?? '').trim() };
-};
-const firstNonEmpty = (...xs) => xs.map((x) => String(x ?? '').trim()).find((x) => x.length > 0) || '';
-function parseGls(memo) {
-  const out = [];
-  const re = /GLS(\d+(?:,\d+)*)/g;
-  let m;
-  while ((m = re.exec(String(memo ?? '')))) for (const n of m[1].split(',')) out.push('GLS' + n.trim());
-  return [...new Set(out)];
-}
-function stripGlsName(memo) {
-  const nm = String(memo ?? '')
-    .replace(/(仕入|売上)?GLS\d+(?:,\d+)*/g, '')
-    .replace(/XP\d+/g, '')
-    .replace(/^[\s/、,]+/, '')
-    .trim();
-  return (nm || String(memo ?? '').trim()).slice(0, 80);
-}
-function mapTax(z) {
-  const s = String(z ?? '');
-  if (s.includes('8%') || s.includes('軽')) return 'tax8';
-  if (s.includes('対象外') || s.includes('非課税') || s.includes('不課税')) return 'exempt';
-  if (s.includes('10%') || s.includes('課')) return 'tax10';
-  return 'tax10';
-}
-const invQualified = (...xs) => {
-  const s = xs.map((x) => String(x ?? '')).join(' ');
-  if (s.includes('80%') || s.includes('非適格') || s.includes('50%')) return 0;
-  return 1; // 既定は適格 (適格表記/空)
-};
 const yen = (n) => '¥' + Number(n).toLocaleString();
 
-// ============================================================
-// メイン
-// ============================================================
-async function main() {
-  console.log(`[kessan] mode=${COMMIT ? 'COMMIT' : 'DRY-RUN'} scope=${SCOPES.join(',')} createMasters=${CREATE_MASTERS} db=${dbLabel}`);
-
-  // --- GL 取得 + パース ---
-  console.log(`[kessan] ${FILE_PATH} を読み込み中...`);
-  const csv = readFileSync(FILE_PATH, 'utf8');
-  const rows = parseCsv(csv);
-  const header = rows[0];
-  const idx = (name) => header.indexOf(name);
-  const C = {
-    no: idx('取引No'), date: idx('取引日'), acct: idx('勘定科目'), sub: idx('補助科目'),
-    partner: idx('取引先'), tax: idx('税区分'), inv: idx('インボイス'),
-    cacct: idx('相手勘定科目'), csub: idx('相手補助科目'),
-    cpartner: idx('相手取引先'), ctax: idx('相手税区分'), cinv: idx('相手インボイス'),
-    memo: idx('摘要'), debit: idx('借方金額'), credit: idx('貸方金額'),
-  };
-  // freee は取引先名を「相手補助科目」(先頭にコード) に持つことが多い。コードを除去して名称化。
-  const stripCode = (s) => String(s ?? '').trim().replace(/^\d+\s+/, '').trim();
-  const party = (r) => stripCode(firstNonEmpty(r[C.csub], r[C.cpartner], r[C.partner]));
-  const data = rows.slice(1).filter((r) => r.length > C.credit && String(r[C.no] ?? '').trim());
-  console.log(`[kessan] データ行 ${data.length} 件`);
-
-  // period 自動判定 (取引月の最頻値)
-  if (!PERIOD) {
-    const counts = {};
-    for (const r of data) {
-      const ym = normDate(r[C.date]).slice(0, 7);
-      if (/^\d{4}-\d{2}$/.test(ym)) counts[ym] = (counts[ym] || 0) + 1;
-    }
-    PERIOD = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || '0000-00';
-  }
-  const MARKER = `[kessan:${PERIOD}]`;
-  console.log(`[kessan] 対象期間 period=${PERIOD}  マーカー=${MARKER}`);
-
-  // --- 抽出 (勘定科目列が P/L 科目の行のみ) ---
-  const sga = [], rev = [], pur = [];
-  const unassignedPur = [];
-  for (const r of data) {
-    const a = acct(r[C.acct]);
-    if (!Number.isFinite(a.code)) continue;
-    const debit = toInt(r[C.debit]);
-    const credit = toInt(r[C.credit]);
-    const memo = r[C.memo] ?? '';
-    const sub = r[C.sub] ?? '';
-    const date = normDate(r[C.date]);
-    const tax = mapTax(r[C.tax]);
-    const no = String(r[C.no] ?? '').trim();
-
-    if (a.code >= 7000 && a.code <= 7999) {
-      const amount = debit - credit; // 費用は借方+、戻しは-
-      if (amount === 0) continue;
-      sga.push({
-        no, date, amount, tax_category: tax,
-        invoice_qualified: invQualified(r[C.inv], r[C.cinv]),
-        vendor_name: party(r) || `（${a.name}）`,
-        description: [a.name, sub, memo].map((x) => String(x ?? '').trim()).filter(Boolean).join(' / ').slice(0, 240),
-      });
-    } else if (a.code === 5000) {
-      const amount = credit - debit; // 売上は貸方+
-      if (amount === 0) continue;
-      const gls = parseGls(memo);
-      rev.push({
-        no, date, amount, tax_category: tax,
-        customer_name: party(r) || '(顧客不明)',
-        gls: gls[0] || null,
-        project_name: stripGlsName(memo),
-        memo: String(memo).trim(),
-      });
-    } else if (a.code >= 6000 && a.code <= 6999) {
-      const amount = debit - credit; // 原価は借方+
-      if (amount === 0) continue;
-      const gls = parseGls(memo);
-      const base = {
-        no, date, tax_category: tax,
-        invoice_qualified: invQualified(r[C.inv], r[C.cinv]),
-        vendor_name: party(r) || `（${a.name}）`,
-        description: [a.name, sub, memo].map((x) => String(x ?? '').trim()).filter(Boolean).join(' / ').slice(0, 240),
-      };
-      if (gls.length === 0) {
-        unassignedPur.push({ ...base, amount, reason: 'GLSなし' });
-      } else {
-        // 複数GLSは均等按分 (端数は先頭に寄せる)
-        const per = Math.floor(amount / gls.length);
-        const rem = amount - per * gls.length;
-        gls.forEach((g, i) => pur.push({ ...base, gls: g, amount: per + (i === 0 ? rem : 0), split: gls.length }));
-      }
-    }
+function printReport(report) {
+  console.log(`[kessan] 対象期間 period=${report.period}  範囲=${report.dateRange.from || '?'}〜${report.dateRange.to || '?'}`);
+  console.log(`[kessan] 取込元=${report.sourceFile}  db=${report.targetDb}${report.isProd ? ' ⚠️PROD' : ''}`);
+  if (report.warnings.length) {
+    console.log('\n========== 警告 ==========');
+    report.warnings.forEach((w) => console.log(`  ⚠ ${w}`));
   }
 
-  const sum = (arr) => arr.reduce((s, x) => s + x.amount, 0);
   console.log('\n========== 抽出サマリ ==========');
-  console.log(`販管費(7xxx): ${sga.length} 件 / 合計 ${yen(sum(sga))}`);
-  console.log(`売上(5000)  : ${rev.length} 件 / 合計 ${yen(sum(rev))}`);
-  console.log(`仕入(6xxx)  : ${pur.length} 件 / 合計 ${yen(sum(pur))}` +
-              (unassignedPur.length
-                ? `  ＋GLS無し固定原価 ${unassignedPur.length} 件 ${yen(sum(unassignedPur))} → ${EXCLUDE_FIXED ? '除外' : `「${FIXED_NAME}」(${FIXED_CODE}) へ計上`}`
-                : ''));
+  console.log(`販管費(7xxx): ${report.summary.sga.count} 件 / 合計 ${yen(report.summary.sga.amount)}`);
+  console.log(`売上(5000)  : ${report.summary.revenues.count} 件 / 合計 ${yen(report.summary.revenues.amount)}`);
+  console.log(`仕入(6xxx)  : ${report.summary.purchases.count} 件 / 合計 ${yen(report.summary.purchases.amount)}` +
+    (report.summary.fixedCogs.count
+      ? `  ＋GLS無し固定原価 ${report.summary.fixedCogs.count} 件 ${yen(report.summary.fixedCogs.amount)} → ${report.summary.fixedCogs.routed}`
+      : ''));
 
-  if (NO_DB) {
-    console.log('\n[kessan] --no-db: DB 接続せず抽出サマリのみ。サンプル:');
-    sga.slice(0, 8).forEach((x) => console.log(`  [販管費] ${x.date} ${yen(x.amount)} ${x.tax_category} ${x.vendor_name} | ${x.description.slice(0, 80)}`));
-    rev.forEach((x) => console.log(`  [売上] ${x.date} ${yen(x.amount)} ${x.tax_category} ${x.gls || 'GLS?'} ${x.customer_name} | ${x.project_name}`));
-    pur.slice(0, 10).forEach((x) => console.log(`  [仕入] ${x.date} ${yen(x.amount)} ${x.tax_category} ${x.gls}${x.split > 1 ? `(1/${x.split})` : ''} ${x.vendor_name}`));
-    if (unassignedPur.length) {
-      console.log(`  -- GLS無し固定原価 (${EXCLUDE_FIXED ? '除外' : `${FIXED_CODE} へ計上`}) --`);
-      unassignedPur.slice(0, 10).forEach((x) => console.log(`  [固定原価] ${x.date} ${yen(x.amount)} ${x.vendor_name} | ${x.description.slice(0, 80)}`));
-    }
+  const m = report.masters;
+  if (m.missingProjects.length || m.missingCustomers.length || m.missingVendors.length) {
+    console.log('\n========== マスタ照合 ==========');
+    if (m.missingProjects.length) console.log(`未登録案件(GLS) ${m.missingProjects.length}: ${m.missingProjects.join(', ')}`);
+    if (m.missingCustomers.length) console.log(`未登録顧客 ${m.missingCustomers.length}: ${m.missingCustomers.slice(0, 20).join(', ')}`);
+    if (m.missingVendors.length) console.log(`未登録取引先 ${m.missingVendors.length}: ${m.missingVendors.slice(0, 20).join(', ')}`);
+    if (!CREATE_MASTERS) console.log('  → --create-masters を付けると自動作成します (dev)。');
+  }
+
+  const dupTotal = report.duplicates.sga + report.duplicates.revenues + report.duplicates.purchases;
+  if (dupTotal > 0) {
+    console.log('\n========== 重複候補 (既存の手入力分と同一 金額+内容+年月) ==========');
+    console.log(`販管費 ${report.duplicates.sga} / 売上 ${report.duplicates.revenues} / 仕入 ${report.duplicates.purchases}`);
+    report.duplicates.samples.forEach((s) => console.log(`  ${s}`));
+  }
+
+  if (report.dryRun) {
+    console.log('\n[kessan] DRY-RUN のため DB 書き込みは行いません。サンプルを表示します。');
+    report.samples.sga.forEach((s) => console.log(`  [販管費] ${s}`));
+    report.samples.revenues.forEach((s) => console.log(`  [売上] ${s}`));
+    report.samples.purchases.forEach((s) => console.log(`  [仕入] ${s}`));
+    console.log('\n[kessan] DRY-RUN 完了。実投入は --commit を付けて再実行してください。');
     return;
   }
 
-  // server/src/shared/constants/entity-default.ts の実体。このスクリプトは .mjs のまま
-  // 直接 node 実行するため .ts を import できず、コンテナには src/ が無く dist/ だけが
-  // あるので、ビルド成果物を import するのが「リテラルを書かず定数を参照する」唯一の道。
-  // ただし --no-db (パース検証用。上の return で抜ける) はビルド前のまっさらな checkout
-  // でも動く独立したCLIであるべきなので、DB へ実際に書き込むこの先でだけ遅延 import する
-  // (Codex レビュー指摘: 先頭で static import すると --no-db まで dist/ 依存になっていた)。
-  const { CURRENT_ENTITY_CODE } = await import('../dist/shared/constants/entity-default.js');
+  const c = report.committed;
+  console.log('\n========== 投入結果 (COMMIT) ==========');
+  console.log(`販管費 ${c.sga} / 売上 ${c.revenues} / 仕入 ${c.purchases}`);
+  console.log(`新規作成: 案件 ${m.created.projects} / 顧客 ${m.created.customers} / 取引先 ${m.created.vendors}`);
+  if (m.revivedProjects.length) console.log(`復活: 失注等で削除済みだったが決算データに実績があった案件 ${m.revivedProjects.length} 件 (${m.revivedProjects.join('、')})`);
+  if (c.skipped) console.log(`スキップ ${c.skipped} 件 (マスタ未作成 / GLS未抽出 / 表記の衝突で名寄せ不可)`);
+  if (c.dupSkipped) console.log(`重複スキップ ${c.dupSkipped} 件 (--skip-duplicates)`);
+  console.log('[kessan] 完了。');
+}
 
-  // --- DB 接続 ---
-  const client = new Client(dbCfg);
-  await client.connect();
+async function main() {
+  if (!existsSync(DIST_DIR)) {
+    throw new Error(
+      `${DIST_DIR} が見つかりません。先に \`npm run build --workspace=server\` を実行してください` +
+      ` (VPS の Docker イメージには server/dist が同梱済みです)。`
+    );
+  }
+  const { initDb, closeDb } = await import(join(DIST_DIR, 'shared', 'db', 'connection.js'));
+  const { runKessanImport } = await import(join(DIST_DIR, 'contexts', 'platform', 'services', 'kessan-import.service.js'));
+
+  const fileName = basename(FILE_PATH);
+  const buffer = readFileSync(FILE_PATH);
+  const opts = {
+    scope: SCOPE,
+    commit: COMMIT,
+    createMasters: CREATE_MASTERS,
+    excludeFixed: EXCLUDE_FIXED,
+    skipDuplicates: SKIP_DUPLICATES,
+    period: PERIOD || undefined,
+    file: { buffer, name: fileName },
+  };
+  console.log(`[kessan] mode=${COMMIT ? 'COMMIT' : 'DRY-RUN'} scope=${SCOPE} createMasters=${CREATE_MASTERS} skipDuplicates=${SKIP_DUPLICATES} file=${fileName}`);
+
+  await initDb();
   try {
-    // 案件作成に使う担当ユーザー
-    let userId = null;
-    const u = await client.query('SELECT id FROM users WHERE deleted_at IS NULL ORDER BY created_at LIMIT 1');
-    userId = u.rows[0]?.id || null;
-
-    // projects.customer_id / purchases.vendor_id は companies.id を直接指す。
-    // Phase 3-3-9（`customers`/`vendors` テーブル削除）以降、この dev 専用
-    // インポータも companies だけを見る（company-directory.service.ts の
-    // createCustomerRecord/createVendorRecord と同じ形）。
-    const masterCache = { customers: new Map(), vendors: new Map(), projects: new Map() };
-    async function findCustomer(name) {
-      if (masterCache.customers.has(name)) return masterCache.customers.get(name);
-      const r = await client.query('SELECT id FROM companies WHERE is_customer = TRUE AND name=$1 AND deleted_at IS NULL LIMIT 1', [name]);
-      const id = r.rows[0]?.id || null;
-      masterCache.customers.set(name, id);
-      return id;
-    }
-    async function findVendor(name) {
-      if (masterCache.vendors.has(name)) return masterCache.vendors.get(name);
-      const r = await client.query('SELECT id FROM companies WHERE is_vendor = TRUE AND name=$1 AND deleted_at IS NULL LIMIT 1', [name]);
-      const id = r.rows[0]?.id || null;
-      masterCache.vendors.set(name, id);
-      return id;
-    }
-    async function findProject(gls) {
-      if (masterCache.projects.has(gls)) return masterCache.projects.get(gls);
-      // 事前照合（dry-run のレポート・マスタ照合）も commit 時の ensureProject と同じ
-      // project_numbers 解決を使う。ここだけ gls_number のみだと、改番済みで現役の
-      // 案件の退役番号を dry-run では「未登録」と誤って報告し、--create-masters を
-      // 不要に勧めてしまう (commit時の実際の解決結果と食い違う。Codex レビュー指摘)。
-      const r = await client.query(
-        `SELECT id, customer_id FROM projects
-           WHERE deleted_at IS NULL
-             AND (gls_number=$1 OR id = (SELECT project_id FROM project_numbers WHERE number=$1))
-           LIMIT 1`,
-        [gls],
-      );
-      const v = r.rows[0] || null;
-      masterCache.projects.set(gls, v);
-      return v;
-    }
-
-    // ---- 事前照合レポート (dry-run/commit 共通) ----
-    if (SCOPES.includes('revenues') || SCOPES.includes('purchases')) {
-      const glsNeeded = new Set([...rev.filter((x) => x.gls).map((x) => x.gls), ...pur.map((x) => x.gls)]);
-      const missingProj = [];
-      for (const g of glsNeeded) if (!(await findProject(g))) missingProj.push(g);
-      const custNeeded = new Set(rev.map((x) => x.customer_name));
-      const missingCust = [];
-      for (const c of custNeeded) if (!(await findCustomer(c))) missingCust.push(c);
-      console.log('\n========== マスタ照合 ==========');
-      console.log(`必要案件(GLS) ${glsNeeded.size} 件中 未登録 ${missingProj.length}: ${missingProj.join(', ') || '—'}`);
-      console.log(`必要顧客 ${custNeeded.size} 件中 未登録 ${missingCust.length}: ${missingCust.slice(0, 20).join(', ') || '—'}`);
-      if ((missingProj.length || missingCust.length) && !CREATE_MASTERS) {
-        console.log('  → 未登録マスタがあります。--create-masters を付けると自動作成します (dev)。');
-      }
-      const revNoGls = rev.filter((x) => !x.gls);
-      if (revNoGls.length) console.log(`  ⚠ 売上で GLS 未抽出 ${revNoGls.length} 件 (案件紐付け不可)`);
-    }
-
-    if (!COMMIT) {
-      console.log('\n[kessan] DRY-RUN のため DB 書き込みは行いません。サンプルを表示します。');
-      if (SCOPES.includes('sga')) sga.slice(0, 8).forEach((x) => console.log(`  [販管費] ${x.date} ${yen(x.amount)} ${x.tax_category} ${x.vendor_name} | ${x.description}`));
-      if (SCOPES.includes('revenues')) rev.slice(0, 12).forEach((x) => console.log(`  [売上] ${x.date} ${yen(x.amount)} ${x.tax_category} ${x.gls || 'GLS?'} ${x.customer_name} | ${x.project_name}`));
-      if (SCOPES.includes('purchases')) pur.slice(0, 10).forEach((x) => console.log(`  [仕入] ${x.date} ${yen(x.amount)} ${x.tax_category} ${x.gls}${x.split > 1 ? `(1/${x.split}按分)` : ''} ${x.vendor_name}`));
-      await client.end();
-      console.log('\n[kessan] DRY-RUN 完了。実投入は --commit を付けて再実行してください。');
-      return;
-    }
-
-    if (!userId && (SCOPES.includes('revenues') || SCOPES.includes('purchases'))) {
-      throw new Error('案件作成に必要な users が見つかりません。先に dev をシードしてください。');
-    }
-
-    await client.query('BEGIN');
-    const counts = { sga: 0, rev: 0, pur: 0, projCreated: 0, projRevived: 0, custCreated: 0, vendCreated: 0, skipped: 0 };
-
-    // Phase 3-3-9（`customers`/`vendors` テーブル削除）以降、`companies` に
-    // 行を作るだけでよい（返すのは companies.id — customer_id/vendor_id 系の
-    // FKはそちらを直接指す）。
-    async function ensureCustomer(name) {
-      let id = await findCustomer(name);
-      if (id) return id;
-      if (!CREATE_MASTERS) return null;
-      const companyId = randomUUID();
-      await client.query(
-        'INSERT INTO companies (id, name, notes, is_customer, is_gmo_group, created_by) VALUES ($1,$2,$3,TRUE,FALSE,$4)',
-        [companyId, name, MARKER, userId]
-      );
-      masterCache.customers.set(name, companyId); counts.custCreated++;
-      return companyId;
-    }
-    async function ensureVendor(name) {
-      let id = await findVendor(name);
-      if (id) return id;
-      if (!CREATE_MASTERS) return null;
-      const companyId = randomUUID();
-      await client.query(
-        'INSERT INTO companies (id, name, notes, is_vendor, is_gmo_group, created_by) VALUES ($1,$2,$3,TRUE,FALSE,$4)',
-        [companyId, name, MARKER, userId]
-      );
-      masterCache.vendors.set(name, companyId); counts.vendCreated++;
-      return companyId;
-    }
-    async function ensureProject(key, name, customerId, isFixed = false) {
-      const cacheKey = isFixed ? `__fixed__${key}` : key;
-      // キャッシュ命中でも null (= 事前照合レポートで「未登録」と記録された値) の場合は
-      // ここで作成/復活を試みる必要があるため early-return しない
-      // (kessan-import.service.ts の ensureProject と同じ挙動。ここを .has() にすると
-      // --create-masters を指定しても事前照合でキャッシュされた null がそのまま
-      // 返ってしまい、いつまでも新規作成・復活の対象にならない)。
-      const cached = masterCache.projects.get(cacheKey);
-      if (cached) return cached;
-      // アクティブな案件も project_numbers 経由で退役番号を解決する
-      // (kessan-import.service.ts の ensureProject と同一条件)。ここを gls_number
-      // だけにすると、改番済みだが現役の案件の退役番号が元帳にあったとき、
-      // 下の削除済み検索にもヒットしないため重複案件を作ってしまう (Codex レビュー指摘)。
-      const r = isFixed
-        ? await client.query(`SELECT id, customer_id FROM projects WHERE code=$1 AND deleted_at IS NULL LIMIT 1`, [key])
-        : await client.query(
-            `SELECT id, customer_id FROM projects
-               WHERE deleted_at IS NULL
-                 AND (gls_number=$1 OR id = (SELECT project_id FROM project_numbers WHERE number=$1))
-               LIMIT 1`,
-            [key],
-          );
-      let p = r.rows[0] || null;
-      if (!p) {
-        if (!CREATE_MASTERS) { masterCache.projects.set(cacheKey, null); return null; }
-
-        // 失注・放置ネタの自動整理 (project-purge.service.ts) で論理削除された案件が、
-        // 決算データ上はこの code/gls_number の実績を持っていた、というケースがある。
-        // projects.code / gls_number は deleted_at を見ない素の UNIQUE 制約のため、
-        // 削除済み行を無視してこのまま INSERT すると duplicate key で失敗する
-        // (kessan-import.service.ts と同一ロジック)。復活させて使う。
-        // 改番済み（旧GLS番号→SCS-/GSS-/GMO-）の案件がその後パージされている場合、
-        // 元帳には退役した旧番号のまま残っていることがある。project_numbers
-        // 経由でも引けるようにしないと、旧番号を永続的に持つはずの削除済み案件を
-        // 見逃して重複案件を作ってしまう (Codex レビュー指摘・PR #713)。
-        const dead = await client.query(
-          isFixed
-            ? `SELECT id, customer_id FROM projects WHERE code=$1 AND deleted_at IS NOT NULL LIMIT 1`
-            : `SELECT id, customer_id FROM projects
-                 WHERE (code=$1 OR gls_number=$1 OR id = (SELECT project_id FROM project_numbers WHERE number=$1))
-                   AND deleted_at IS NOT NULL LIMIT 1`,
-          [key],
-        );
-        if (dead.rows[0]) {
-          const rid = dead.rows[0].id;
-          // stage も新規作成パスと同じ 'a_won' に戻す (Codex レビュー指摘・PR #713)。
-          // 削除時点の stage (e_lost・放置 neta) のままだと project-purge.service.ts の
-          // PURGE_JUNK_STAGE_SQL に該当し続け、決算取込で入る revenues は invoice_issued
-          // を立てないため PURGE_HAS_MONEY_SQL の対象にもならず、次回の自動整理で
-          // この案件と今入れた売上がまた一緒に削除されてしまう。
-          await client.query(`UPDATE projects SET deleted_at = NULL, stage = 'a_won', updated_at = NOW() WHERE id = $1`, [rid]);
-          p = { id: rid, customer_id: dead.rows[0].customer_id };
-          counts.projRevived = (counts.projRevived || 0) + 1;
-        } else {
-          // projects.customer_id は NOT NULL。仕入専用GLSなど顧客不明の場合は
-          // フォールバック顧客「(顧客不明)」を割り当てて作成する
-          // (kessan-import.service.ts の ensureProject と同一ロジック)。
-          // ⚠️ 削除済み案件が復活できないと分かってから解決する — dead クエリより前に
-          // 解決すると、復活パス（既存の customer_id をそのまま使い cid は使わない）
-          // でも呼ばれてしまい、使われない「(顧客不明)」だけが作られる (Codex レビュー指摘)。
-          const cid = customerId || (await ensureCustomer('(顧客不明)'));
-          if (!cid) { masterCache.projects.set(cacheKey, null); return null; }
-          const id = randomUUID();
-          await client.query(
-            `INSERT INTO projects (id, code, entity_code, gls_number, name, customer_id, stage, assigned_to, kessan_marker, created_by)
-             VALUES ($1,$2,$3,$4,$5,$6,'a_won',$7,$8,$9)`,
-            // kessan_marker には period の素の値 (例 "2026-03") を入れる。角括弧付きの
-            // MARKER (例 "[kessan:2026-03]") を入れると、この列だけ表記が web 版
-            // (kessan-import.service.ts) と食い違い、getKessanMarkers() の絞り込みが
-            // 割れる (Codex レビュー指摘)。
-            [id, key, CURRENT_ENTITY_CODE, isFixed ? null : key, name || key, cid, userId, PERIOD, userId]
-          );
-          if (!isFixed) {
-            // 案件番号の履歴 (kessan-import.service.ts と同一ロジック)。ここで1行も
-            // 残さないと、後でこの案件が改番される (renumberProject) とき「退役させる
-            // 現役の番号」が project_numbers に見つからず、旧GLS番号が失われる
-            // (Codex レビュー指摘)。scheme/entity_code は番号の見た目から判定する —
-            // 元帳の摘要は旧方式 (GLS137) に加え改番後の新方式 (SCS-0001 等) もそのまま
-            // 拾えるため、新方式まで一律 scheme='gls' にすると listRenumberCandidates()
-            // が「まだ改番していない」候補として誤って拾ってしまう (Codex レビュー指摘)。
-            const newSchemeMatch = key.match(/^(SCS|GSS|GMO)-\d+$/);
-            const numberEntityCode = newSchemeMatch ? newSchemeMatch[1] : null;
-            await client.query(
-              `INSERT INTO project_numbers (id, project_id, number, entity_code, scheme, assigned_at, assigned_by)
-               VALUES ($1,$2,$3,$4,$5,NOW(),$6)
-               ON CONFLICT (number) DO NOTHING`,
-              [randomUUID(), id, key, numberEntityCode, numberEntityCode ? 'entity' : 'gls', userId]
-            );
-          }
-          p = { id, customer_id: cid };
-          counts.projCreated++;
-        }
-      }
-      masterCache.projects.set(cacheKey, p);
-      return p;
-    }
-
-    // 冪等性: 当月マーカーの既存行を削除して入れ直す (dev のみ)
-    if (SCOPES.includes('sga')) {
-      await client.query(`DELETE FROM sga_expenses WHERE notes LIKE $1`, [`${MARKER}%`]);
-      for (const x of sga) {
-        await client.query(
-          `INSERT INTO sga_expenses (id, entity_code, billing_key, vendor_name, description, amount, tax_category,
-             invoice_qualified, expense_type, source, recognition_date, notes, created_by)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'spot','accounting',$9,$10,$11)`,
-          [randomUUID(), CURRENT_ENTITY_CODE, `KESSAN-${PERIOD}-${x.no}`, x.vendor_name, x.description, x.amount,
-           x.tax_category, x.invoice_qualified, x.date, `${MARKER} ${x.no}`, userId]
-        );
-        counts.sga++;
-      }
-    }
-
-    if (SCOPES.includes('revenues')) {
-      await client.query(`DELETE FROM revenues WHERE notes LIKE $1`, [`${MARKER}%`]);
-      for (const x of rev) {
-        if (!x.gls) { counts.skipped++; continue; }
-        const customerId = await ensureCustomer(x.customer_name);
-        if (!customerId) { counts.skipped++; continue; }
-        const proj = await ensureProject(x.gls, x.project_name, customerId);
-        if (!proj) { counts.skipped++; continue; }
-        await client.query(
-          `INSERT INTO revenues (id, billing_key, project_id, entity_code, customer_id, tax_category, amount,
-             recognition_date, status, notes, created_by)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'confirmed',$9,$10)`,
-          [randomUUID(), `KESSAN-${PERIOD}-REV-${x.no}`, proj.id, CURRENT_ENTITY_CODE, proj.customer_id || customerId,
-           x.tax_category, x.amount, x.date, `${MARKER} ${x.no} ${x.memo}`.slice(0, 240), userId]
-        );
-        counts.rev++;
-      }
-    }
-
-    if (SCOPES.includes('purchases')) {
-      await client.query(`DELETE FROM purchases WHERE notes LIKE $1`, [`${MARKER}%`]);
-      for (const x of pur) {
-        const proj = await ensureProject(x.gls, x.gls, null);
-        if (!proj) { counts.skipped++; continue; }
-        const vendorId = await ensureVendor(x.vendor_name);
-        if (!vendorId) { counts.skipped++; continue; }
-        await client.query(
-          `INSERT INTO purchases (id, project_id, entity_code, vendor_id, tax_category, invoice_qualified, amount,
-             description, recognition_date, notes, created_by)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-          [randomUUID(), proj.id, CURRENT_ENTITY_CODE, vendorId, x.tax_category, x.invoice_qualified, x.amount,
-           x.description, x.date, `${MARKER} ${x.no}${x.split > 1 ? ` (1/${x.split}按分)` : ''}`.slice(0, 240), userId]
-        );
-        counts.pur++;
-      }
-      // GLS無しの固定原価 → 固定原価プロジェクトへ計上 (既定)
-      if (!EXCLUDE_FIXED && unassignedPur.length) {
-        const fixedCust = await ensureCustomer(FIXED_CUSTOMER);
-        const fixedProj = fixedCust ? await ensureProject(FIXED_CODE, FIXED_NAME, fixedCust, true) : null;
-        if (!fixedProj) {
-          console.log(`  ⚠ 固定原価プロジェクトを作成できません (--create-masters 未指定?) → ${unassignedPur.length} 件スキップ`);
-          counts.skipped += unassignedPur.length;
-        } else {
-          for (const x of unassignedPur) {
-            const vendorId = await ensureVendor(x.vendor_name);
-            if (!vendorId) { counts.skipped++; continue; }
-            await client.query(
-              `INSERT INTO purchases (id, project_id, entity_code, vendor_id, tax_category, invoice_qualified, amount,
-                 description, recognition_date, notes, created_by)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-              [randomUUID(), fixedProj.id, CURRENT_ENTITY_CODE, vendorId, x.tax_category, x.invoice_qualified, x.amount,
-               x.description, x.date, `${MARKER} ${x.no} [固定原価]`.slice(0, 240), userId]
-            );
-            counts.pur++;
-          }
-        }
-      }
-    }
-
-    await client.query('COMMIT');
-    console.log('\n========== 投入結果 (COMMIT) ==========');
-    console.log(`販管費 ${counts.sga} / 売上 ${counts.rev} / 仕入 ${counts.pur}`);
-    console.log(`新規作成: 案件 ${counts.projCreated} / 顧客 ${counts.custCreated} / 取引先 ${counts.vendCreated}`);
-    if (counts.projRevived) console.log(`復活: 失注等で削除済みだったが決算データに実績があった案件 ${counts.projRevived} 件`);
-    if (counts.skipped) console.log(`スキップ ${counts.skipped} 件 (マスタ未作成 / GLS未抽出)`);
-    console.log('[kessan] 完了。');
-  } catch (err) {
-    try { await client.query('ROLLBACK'); } catch { /* noop */ }
-    throw err;
+    // CLI には認証ユーザーが無いため null を渡す。runKessanImport 側が
+    // (ユーザー未指定時と同じく) 最古の生存ユーザーへ自動フォールバックする。
+    const report = await runKessanImport(opts, null);
+    printReport(report);
   } finally {
-    await client.end();
+    await closeDb();
   }
 }
 

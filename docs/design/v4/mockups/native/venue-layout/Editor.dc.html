@@ -67,7 +67,7 @@
     <button class="tap btn-primary" onClick="{{todo.manual}}" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; background: #005bac; color: #ffffff; padding: 0 14px; font-size: 12.5px; font-weight: 800;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>運営マニュアルに載せる</button>
   </div>
 
-  <!-- ── 道具の帯 ──────────────────────────────────────────── -->
+  <!-- ── ツールバー ──────────────────────────────────────────── -->
   <div class="band" style="display: flex; height: 44px; flex-shrink: 0; align-items: center; gap: 3px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 10px;">
     <sc-for list="{{modes}}" as="m" hint-placeholder-count="2">
       <button class="tap" onClick="{{m.pick}}" style="display: flex; align-items: center; gap: 6px; height: 32px; border-radius: 9px; border: 1px solid {{m.border}}; background: {{m.bg}}; padding: 0 11px; font-size: 12.5px; font-weight: 800; color: {{m.fg}};"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{m.fg}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{m.icon}}"></path></svg>{{m.label}}</button>
@@ -714,7 +714,7 @@ class Component extends DCLogic {
       };
     }
 
-    // ── 帯（道具）
+    // ── ツールバー
     const modes = [{ key: 'place', label: '置く', icon: 'M12 5v14M5 12h14' }, { key: 'arrange', label: '並べる', icon: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z' }].map((m) => { const on = st.tab === m.key; return { label: m.label, icon: m.icon, border: on ? blue : '#cfe4f4', bg: on ? blue : '#ffffff', fg: on ? '#ffffff' : blue, pick: () => self.setState({ tab: m.key }) }; });
     const shapes = [{ hint: '四角（既定 1,000×1,000）', icon: 'M4 5h16v14H4z', key: 'rect' }, { hint: '丸（既定 Ø1,000）', icon: 'M12 4a8 8 0 1 0 0 16a8 8 0 1 0 0-16', key: 'circle' }, { hint: '線（実線／点線）', icon: 'M4 19L20 5', key: 'line' }, { hint: '文字（高さは mm）', icon: 'M5 6h14M12 6v13', key: 'text' }, { hint: '寸法線（2点間の mm を出す）', icon: 'M4 12h16M4 8v8M20 8v8', key: 'dim' }].map((s) => ({ hint: s.hint, icon: s.icon, pick: () => self.place(s.key) }));
     const toggles = [{ key: 'snap', label: 'すいつき', hint: '壁・通り芯・ほかの品目の端と中心に吸い付く（閾値 8px）' }, { key: 'grid', label: '方眼', hint: '1m の方眼を出す／消す（通り芯は常に出ます）' }, { key: 'ruler', label: 'ものさし', hint: '上と左のものさし（1m／5m 目盛）' }].map((t) => { const on = !!st[t.key]; return { label: t.label, hint: t.hint + (on ? '（いま: 入）' : '（いま: 切）'), fg: on ? blue : '#3c424c', dot: on ? blue : '#cbd2da', pick: () => self.setState({ [t.key]: !on }) }; });

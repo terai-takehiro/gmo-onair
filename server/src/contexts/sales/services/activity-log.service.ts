@@ -1,8 +1,9 @@
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { classifyTextCorrection } from '../../../shared/services/ai-coverage';
 import {
-  recordAiOutput, recordCorrections, findLatestAiOutput, type CorrectionInput,
+  recordAiOutput, recordCorrections, findLatestAiOutput, hasCorrections, type CorrectionInput,
 } from '../../../shared/services/ai-output.service';
 import { getFeedbackDigest } from '../../../shared/services/ai-feedback.service';
 import { formatActivity, isActivityAiConfigured } from './activity-ai.service';
@@ -10,12 +11,38 @@ import {
   needsShort, shortenNextAction, recordShortCorrections, NEXT_ACTION_SHORT_KIND,
 } from './next-action-short.service';
 import { sanitizeBodyHtml, sanitizeKeyPoints } from '../../../shared/services/html-sanitize';
-import { normalizeActivityStruct, type ActivityStruct } from '../../../shared/services/activity-struct';
+import {
+  normalizeActivityStruct, activityStructLength, type ActivityStruct,
+} from '../../../shared/services/activity-struct';
 import { assertCustomerCompanyId } from '../../../shared/services/company-directory.service';
 import { OPEN_NEXT_ACTION_SQL } from '../../../shared/services/next-action-state';
 
 /** `ai_outputs.kind`。**議事録とは別にする** — 直され方の傾向が別物なので混ぜない */
 export const ACTIVITY_FORMAT_KIND = 'activity_format';
+
+/**
+ * `ai_outputs.kind`。**取込（MCP `create_activity_log`）で外の AI が書いた中身**。
+ *
+ * ⚠️ **`activity_format` と混ぜないこと。** 書き手が違います:
+ *
+ *   `activity_intake` … メール取込のスキルを動かしている Claude（本文を写す仕事）
+ *   `activity_format` … サーバーの整形器（写された本文を意味の単位に分ける仕事）
+ *
+ * 混ぜると「短いのは取り込んだ人のせいか、整えた側のせいか」が分かりません。
+ * 実際、着手前は**取込側が1行も記録されておらず**、
+ * 「きわめて短いテキストでしか残らない」というご指摘に対して
+ * **上流を数字で確かめる手段がありませんでした**（条件1の穴）。
+ */
+export const ACTIVITY_INTAKE_KIND = 'activity_intake';
+
+/**
+ * 取込の「プロンプト版」。**MCP ツールの `.describe()` が、外の AI にとってのプロンプト**です
+ * （`mcp/tools/activities.tools.ts`）。だから describe を書き換えたらここを上げます。
+ *
+ * 上げないと、**contract を直した効果を後から数字で言えません**
+ * （`ai_outputs.prompt_version` ごとの無修正採用率で比べる）。
+ */
+export const ACTIVITY_INTAKE_PROMPT_VERSION = 'mcp-intake-v1';
 
 /** 種類の集合。**DB の CHECK（migration 184）と同じにすること** */
 export const ACTIVITY_TYPES = [
@@ -188,7 +215,10 @@ export class ActivityLogService {
             advice = (await getFeedbackDigest(ACTIVITY_FORMAT_KIND, 90)).advice ?? [];
           } catch { /* 助言が取れなくても続ける */ }
 
+          // **人がリクエストの中で待っている経路**。総予算で見張り、拾い直しは
+          // 残り時間があるときだけ走る（`activity-ai.service` の `REQUEST_BUDGET_MS`）
           const s = await formatActivity(original, {
+            requestBound: true,
             activityDate: activity_date as string,
             kindLabel: KIND_LABEL[String(activity_type)] ?? null,
             advice,
@@ -213,6 +243,8 @@ export class ActivityLogService {
               original,
               subject: s.subject, body_struct: s.struct,
               next_action: s.nextAction, next_action_date: s.nextActionDate,
+              // **網羅量を残す**（条件1）。「短い」という指摘を後から数字で確かめられる
+              coverage: s.coverage,
             },
             toolName: 'activity.format',
             model: s.model,
@@ -299,13 +331,33 @@ export class ActivityLogService {
    * AI が整えた行を人が直したときは、**サーバーが自動で before/after を比べ**、
    * `ai_corrections` に入れます（条件2）。**人には何も入力させません。**
    */
-  async update(id: string, data: Record<string, unknown>, userId?: string | null) {
+  /**
+   * 直して保存する。
+   *
+   * ⚠️ **`humanReview` を渡すのは画面（`activity-logs.routes.ts` の PUT）だけ**です。
+   *
+   * ここは MCP の `update_activity_log` からも呼ばれます（案件の紐付けを足すだけ、等）。
+   * **機械の更新を「人がレビューした」として数えると、無修正採用率が嘘になります** —
+   * しかも `ai_corrections` に一度でも行が積まれると、あとから来た
+   * **本物の人の修正が記録されなくなります**（同じ出力に二度積まないため。
+   * Codex レビューでの指摘・PR #717）。
+   *
+   * **`userId` の有無で代用しないこと。** いまは MCP が渡していないだけで、
+   * `create_activity_log` は `user_id` を必須で受け取っています。
+   * 将来 `update_activity_log` にも足された日に、**この判定は黙って壊れます**。
+   */
+  async update(
+    id: string, data: Record<string, unknown>, userId?: string | null,
+    opts: { humanReview?: boolean } = {},
+  ) {
     const existing = await queryOne(
-      `SELECT id, customer_id, ai_output_id, ai_formatted, next_action, next_action_date, next_action_short
+      `SELECT id, customer_id, ai_output_id, ai_formatted, next_action, next_action_date, next_action_short,
+              description, body_html, (body_struct IS NOT NULL) AS has_struct
          FROM activity_logs WHERE id = ? AND deleted_at IS NULL`, [id],
     ) as {
       id: string; customer_id: string | null; ai_output_id: string | null; ai_formatted: boolean;
       next_action: string | null; next_action_date: string | null; next_action_short: string | null;
+      description: string | null; body_html: string | null; has_struct: boolean;
     } | undefined;
     if (!existing) throw new AppError(404, 'NOT_FOUND', '活動記録が見つかりません');
 
@@ -384,12 +436,44 @@ export class ActivityLogService {
       params.push(null, null);
     }
 
+    /*
+     * **原文を差し替えたら、そこから作った整形結果は捨てる**（Codex レビューでの指摘・PR #717）。
+     *
+     * 画面（`ThreadCard`）は `body_struct` があればそちらを出し、待ち行列は
+     * **`body_struct IS NULL` の行しか拾いません**（`activity-format.service` の `PENDING_SQL`）。
+     * つまり本文だけ差し替えると、**新しい本文はどこにも出ず、古いまとめが残り続けます**。
+     * 直したのに画面が変わらないので、直した人には理由が分かりません。
+     *
+     * ⚠️ **戻してよいのは「もう一度拾ってもらえる行」だけ**です。
+     * `body_html` があって AI の印が無い行（人が書いた本文）は待ち行列の条件から外れるので、
+     * ここで消すと**いま出ているものまで消えて、二度と戻りません**
+     * （`redoFormat` が同じ理由で 400 を返しているのと同じ穴）。
+     */
+    const descriptionChanged = description !== undefined
+      && String(description ?? '').trim() !== String(existing.description ?? '').trim();
+    const canRequeue = !existing.body_html || existing.ai_formatted;
+    if (descriptionChanged && existing.has_struct && canRequeue) {
+      sets.push('body_struct=NULL', 'format_attempted_at=NULL', 'format_error=NULL');
+    }
+
     await execute(
       `UPDATE activity_logs SET ${sets.join(', ')}, updated_at=NOW() WHERE id=?`,
       [...params, id],
     );
     const after = await this.getById(id) as Record<string, unknown>;
-    if (existing.ai_formatted) await recordActivityCorrections(id, after, userId ?? null);
+    /*
+     * **人が画面で直したときだけ差分を残す**（上の `humanReview` の注意書き）。
+     *
+     * 整形側（`recordActivityCorrections`）にも同じ門を付けています — こちらは
+     * 着手前から機械の更新で `(全体) none` を積んでいて、**無修正採用率を
+     * 実際より高く見せていました**（Codex の指摘は取込側に対するものですが、
+     * 根は同じで、門を1つだけ付けると片方だけ正しい数字になります）。
+     */
+    if (opts.humanReview) {
+      if (existing.ai_formatted) await recordActivityCorrections(id, after, userId ?? null);
+      // **取込（MCP）で AI が書いた本文の差分は、整形の有無と関係なく残す**（上の注意書き）
+      await recordIntakeCorrections(id, after, userId ?? null);
+    }
     // **AI が作った一文を人が直した**ときだけ差分を残す（材料を変えて消えた回は誤りではない）
     if (shortEdited) {
       await recordShortCorrections(id, (after.next_action_short as string | null) ?? null, userId ?? null)
@@ -493,6 +577,114 @@ export function stableJson(v: unknown): string {
   return JSON.stringify(walk(v));
 }
 
+/**
+ * 人が整えた本文を**膨らませたか**（書き足したか）。
+ *
+ * 構造（`body_struct`）は行ごとの対応が取れない（並びも件数も変わる）ので、
+ * **画面に出る文字量**で見ます。2割以上増えていれば「AI が落としたものを
+ * 人が足した」= 追記、それ以外は取り違えの直し。
+ *
+ * 判定が外れても失われるのは**分類の細かさだけ**（件数は必ず残る）なので、
+ * 読めない値では `false`（＝今までどおり `fix`）に倒します。
+ */
+function structGrew(before: unknown, after: unknown): boolean {
+  const b = activityStructLength(normalizeActivityStruct(before));
+  const a = activityStructLength(normalizeActivityStruct(after));
+  return b > 0 && a >= b * 1.2;
+}
+
+/**
+ * 取込（MCP）で AI が書いたものを、人がどう直したかの差分を作る。**純関数**。
+ *
+ * ── なぜ `description` を数えるのが要るか ──────────────────────
+ *
+ * 整形側（`ACTIVITY_FORMAT_KIND`）の差分は `body_struct` などを見ていて、
+ * **`description`（元の本文）を1度も見ていません**。ところが取込メールでは
+ * **その本文を書いたのが AI**（取込スキルの Claude）です。
+ * ここを数えないと、「本文が短い」という**上流の失敗だけが計測の外**に残ります。
+ *
+ * ── 整形側と二重に数えないための線引き ────────────────────────
+ *
+ * 数えるのは**取込 AI が書いた4つだけ**です。`body_struct` / `body_html` は
+ * 整形器の仕事なので、こちらでは触りません（`kind` が別なので集計は混ざりませんが、
+ * 同じ失敗を2つの kind で数えると、どちらを直せばよいか分からなくなる）。
+ *
+ * ネットワークにも DB にも触らないので素で試せます
+ * （`shared/tests/activityIntakeDiff.test.ts`）。
+ */
+export function intakeDiffs(
+  ai: Record<string, unknown>, after: Record<string, unknown>,
+): CorrectionInput[] {
+  const norm = (v: unknown): string => (v === null || v === undefined ? '' : String(v).trim());
+  const FIELDS = ['subject', 'description', 'next_action', 'next_action_date'] as const;
+  const diffs: CorrectionInput[] = [];
+
+  /*
+   * ⚠️ **整形器が埋めた値を、取込 AI の成績に数えない**（Codex レビューでの指摘・PR #717）。
+   *
+   * `mergeFormatted` は**行の `next_action` が空のときだけ**、本文から読み取った
+   * 「次にやること」とその期限を埋めます（`activity-format.service`）。つまり
+   * 取込が空で出したあとに値が入っていても、**それは整形器が書いたもの**です。
+   *
+   * ここを数えると、人が件名だけ直した最初の保存で、**機械が足した値まで
+   * 「人が書き足した」として積まれます**。しかも一度積むと
+   * `hasCorrections` が真になるので、**あとの本物の修正が永久に記録されません**。
+   *
+   * だから「次にやること」系は**取込 AI が値を出していたときだけ**比べます。
+   * 取込が空だったぶんの取りこぼし（人があとから足した分）は数えられなくなりますが、
+   * **整形器の仕事を取込のせいにするより、数えないほうがまし**です。
+   *
+   * `subject` / `description` は整形器が触らない（件名は上書きしない・本文は
+   * 1バイトも触らない）ので、空から埋まったぶんも取込の取りこぼしとして数えます。
+   */
+  const FORMATTER_FILLS = new Set<string>(['next_action', 'next_action_date']);
+
+  for (const col of FIELDS) {
+    const b = norm(ai[col]);
+    const a = norm(after[col]);
+    if (b === a) continue;
+    if (b === '' && FORMATTER_FILLS.has(col)) continue;   // 整形器が埋めた（上の注意書き）
+    diffs.push({
+      fieldPath: col,
+      before: ai[col] ?? null,
+      after: after[col] ?? null,
+      /*
+       * 値 → 空 は丸ごと捨てられた = 不採用。それ以外は
+       * **書き足し（AI が落とした）と書き換え（AI が取り違えた）**を分ける。
+       * `description` がよく書き足されるなら、直すのは整形器ではなく
+       * **取込の contract（本文を要約するな）**のほうです。
+       */
+      type: a === '' ? 'reject' : classifyTextCorrection(ai[col], after[col]),
+    });
+  }
+
+  // **1つも直っていない = 正解ラベル。** 無いと「無修正採用率」の分母が壊れる
+  if (diffs.length === 0) return [{ fieldPath: '(全体)', type: 'none' }];
+  // 直さなかった項目も残す（分母）
+  for (const col of FIELDS) {
+    if (diffs.some((d) => d.fieldPath === col)) continue;
+    diffs.push({ fieldPath: col, type: 'none' });
+  }
+  return diffs;
+}
+
+/**
+ * 取込の差分を記録する（条件2）。**best-effort** — 記録に失敗しても保存は壊さない。
+ *
+ * ⚠️ **`ai_formatted` を条件にしません。** 整形の差分（`recordActivityCorrections`）は
+ * 整えた行だけが対象ですが、**取込の本文は整形される前から人に直されます**
+ * （待ち行列に入ったまま案件詳細で直す）。条件を付けると、
+ * **いちばん早く直された回＝いちばん強い信号**が落ちます。
+ */
+async function recordIntakeCorrections(
+  id: string, after: Record<string, unknown>, userId: string | null,
+): Promise<void> {
+  const out = await findLatestAiOutput('activity_logs', id, ACTIVITY_INTAKE_KIND);
+  if (!out) return;
+  if (await hasCorrections(out.id)) return;   // 同じ出力に二度積まない
+  await recordCorrections(out.id, intakeDiffs((out.payload ?? {}) as Record<string, unknown>, after), userId);
+}
+
 async function recordActivityCorrections(
   id: string, after: Record<string, unknown>, userId: string | null,
 ): Promise<void> {
@@ -516,9 +708,16 @@ async function recordActivityCorrections(
       fieldPath: rowKey,
       before: ai[aiKey] ?? null,
       after: after[rowKey] ?? null,
-      // 空 → 値 は「AI が拾えなかったものを人が足した」= 追記。
-      // 値 → 別の値 は取り違え = 誤り。**混ぜると直す先が分からない**
-      type: b === '' ? 'enrich' : a === '' ? 'reject' : 'fix',
+      /*
+       * 空 → 値 は「AI が拾えなかったものを人が足した」= 追記。
+       * 値 → 空 は丸ごと捨てられた = 不採用。
+       * 値 → 別の値 は取り違え = 誤り。**混ぜると直す先が分からない**。
+       *
+       * ⚠️ **AI の文を残したまま人が書き足した場合も追記です**
+       * （`classifyTextCorrection`）。ここを全部 `fix` にしていたので、
+       * 「整形が短くて人が足している」が**どの数字にも出ませんでした**。
+       */
+      type: a === '' ? 'reject' : classifyTextCorrection(ai[aiKey], after[rowKey]),
     });
   }
   // 要点は行ごとの対応が取れない（並びが変わる）ので、丸ごと1項目として扱う
@@ -547,7 +746,15 @@ async function recordActivityCorrections(
       fieldPath: 'body_struct',
       before: ai.body_struct ?? null,
       after: after.body_struct ?? null,
-      type: beforeStruct === 'null' ? 'enrich' : afterStruct === 'null' ? 'reject' : 'fix',
+      /*
+       * **人が書き足したのか、直したのかを分ける**（上の本文と同じ理由）。
+       * 構造は行ごとの対応が取れないので、**画面に出る文字量**で見ます
+       * （`activityStructLength`）。2割以上増えていれば、AI が
+       * **落としたものを人が足した**＝整形が短すぎたという信号です。
+       */
+      type: beforeStruct === 'null' ? 'enrich'
+        : afterStruct === 'null' ? 'reject'
+          : structGrew(ai.body_struct, after.body_struct) ? 'enrich' : 'fix',
     });
   }
 

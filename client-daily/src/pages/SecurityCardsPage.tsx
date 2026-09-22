@@ -143,7 +143,7 @@ export default function SecurityCardsPage() {
           </MobileFilterField>
           <MobileFilterField
             label="開けられる範囲"
-            hint="探すための入口です。渡すときに確かめる名前は一覧の小見出しとシートに6レベルで出ます。"
+            hint="探すための分類です。渡すときに確かめる名前は一覧の小見出しとシートに6レベルで出ます。"
           >
             <FilterChips
               label="開けられる範囲で絞り込む"

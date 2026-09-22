@@ -44,7 +44,7 @@ export interface ActivityTurn {
   at: string | null;
   /** 原文の引用。AI が話を補っていないことを読む人がその場で確かめられる */
   quote: string | null;
-  /** 引用に収まらない補足の1〜2文 */
+  /** 引用に収まらない補足の1〜3文 */
   note: string | null;
   /** 「搬入」「申込」のような項目。**当社の回答でよく使う** */
   fields: { label: string; value: string }[];
@@ -57,7 +57,7 @@ export interface ActivityStruct {
   subtitle: string | null;
   statuses: { label: string; tone: ActivityStatusTone }[];
   facts: { icon: ActivityFactIcon; value: string }[];
-  /** 全体の1〜2文。`**強調**` を書いてよい（画面が `<strong>` にする） */
+  /** 全体の1〜3文。`**強調**` を書いてよい（画面が `<strong>` にする） */
   lead: string | null;
   turns: ActivityTurn[];
 }
@@ -70,23 +70,37 @@ const ICONS = new Set<string>(['date', 'people', 'gear', 'money', 'place', 'doc'
  *
  * `turns` を 12 にしているのは、1件のやり取りの記録に 12 往復入っていたら
  * それは「1件の記録」ではなく議事録だからです（そちらは `project_minutes`）。
+ *
+ * ⚠️ **ここは「暴走を止める柵」で、「この長さに収めろ」ではありません。**
+ * 上限を絞ると、**長いメールほど静かに中身が落ちます**（捨てた事実は
+ * どこにも出ないので、画面を見ても「短い」としか分かりません）。
+ * 実際、利用者から「きわめて短いテキストでしか残らない」とご指摘があったとき、
+ * プロンプト側の件数の上限（`turns` 6件・`facts` 4件）とここの両方が効いていました。
+ *
+ * **絞るのはプロンプトの役目**（原文にあるものだけを、重複なく置かせる）で、
+ * ここは**壊れた値・画面何枚分もの塊**を止めるためだけに持ちます。
+ * だから上限はプロンプトが求める件数より**ひと回り大きく**取ってあります。
  */
 const LIMITS = {
   subtitle: 120,
-  statuses: 4,
+  // プロンプトは「多くて6件」。柵はそのひと回り外側
+  statuses: 8,
   statusLabel: 24,
-  facts: 6,
-  factValue: 60,
-  lead: 400,
+  // プロンプトは「多くて8件」
+  facts: 10,
+  // 「8/10 5:00–20:00 サムライスタジオ」程度は1件に収まるように
+  factValue: 80,
+  lead: 700,
   turns: 12,
   name: 40,
   org: 40,
   at: 24,
-  quote: 800,
+  quote: 1_200,
   note: 800,
-  fields: 8,
+  // プロンプトは「多くて10件」
+  fields: 12,
   fieldLabel: 16,
-  fieldValue: 300,
+  fieldValue: 400,
 };
 
 const str = (v: unknown, max: number): string | null => {
