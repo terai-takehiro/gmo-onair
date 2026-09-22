@@ -301,9 +301,10 @@ async function main() {
     }
     async function findProject(gls) {
       if (masterCache.projects.has(gls)) return masterCache.projects.get(gls);
-      // 改番済みの旧番号でも project_numbers 経由で引けるようにする (ensureProject と
-      // 同じ根拠。ここが引けないと、実際は改番済みで存在する案件を「未登録」と誤って
-      // 事前照合レポートに出してしまう)。
+      // 事前照合（dry-run のレポート・マスタ照合）も commit 時の ensureProject と同じ
+      // project_numbers 解決を使う。ここだけ gls_number のみだと、改番済みで現役の
+      // 案件の退役番号を dry-run では「未登録」と誤って報告し、--create-masters を
+      // 不要に勧めてしまう (commit時の実際の解決結果と食い違う。Codex レビュー指摘)。
       const r = await client.query(
         `SELECT id, customer_id FROM projects
            WHERE deleted_at IS NULL
@@ -387,9 +388,10 @@ async function main() {
       // 返ってしまい、いつまでも新規作成・復活の対象にならない)。
       const cached = masterCache.projects.get(cacheKey);
       if (cached) return cached;
-      // 改番済みの旧GLS番号でも project_numbers 経由で引けるようにする (Codex レビュー
-      // 指摘。下の「削除済み」側の検索は既に対応済みだったが、こちら「生きている」側の
-      // 検索が対応漏れだと、改番済み案件がここでは見つからず後段の duplicate key で落ちる)。
+      // アクティブな案件も project_numbers 経由で退役番号を解決する
+      // (kessan-import.service.ts の ensureProject と同一条件)。ここを gls_number
+      // だけにすると、改番済みだが現役の案件の退役番号が元帳にあったとき、
+      // 下の削除済み検索にもヒットしないため重複案件を作ってしまう (Codex レビュー指摘)。
       const r = isFixed
         ? await client.query(`SELECT id, customer_id FROM projects WHERE code=$1 AND deleted_at IS NULL LIMIT 1`, [key])
         : await client.query(
@@ -434,6 +436,9 @@ async function main() {
           // projects.customer_id は NOT NULL。仕入専用GLSなど顧客不明の場合は
           // フォールバック顧客「(顧客不明)」を割り当てて作成する
           // (kessan-import.service.ts の ensureProject と同一ロジック)。
+          // ⚠️ 削除済み案件が復活できないと分かってから解決する — dead クエリより前に
+          // 解決すると、復活パス（既存の customer_id をそのまま使い cid は使わない）
+          // でも呼ばれてしまい、使われない「(顧客不明)」だけが作られる (Codex レビュー指摘)。
           const cid = customerId || (await ensureCustomer('(顧客不明)'));
           if (!cid) { masterCache.projects.set(cacheKey, null); return null; }
           const id = randomUUID();
