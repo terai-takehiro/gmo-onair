@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>Wiki 検索</title>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&family=Noto+Sans+JP:wght@400;700;800&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    button { font-family: inherit; }
+    .tap { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .ghost:hover { background: #f2f4f7; }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .hit { transition: border-color .14s ease, box-shadow .14s ease; } .hit:hover { border-color: #a6ceeb; box-shadow: 0 4px 14px rgba(26,29,36,.07); }
+    mark { background: #fff1c2; color: inherit; border-radius: 3px; padding: 0 1px; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 1000px; position: relative; overflow: hidden; background: #f7f8fa; display: flex; flex-direction: column; color: #1a1d24;">
+
+  <header style="display: flex; height: 64px; flex-shrink: 0; align-items: center; gap: 14px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 24px;">
+    <div style="display: flex; align-items: center; gap: 9px;">
+      <div style="width: 28px; height: 28px; border-radius: 9px; background: #005bac; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M7.8 7.8a6 6 0 0 0 0 8.4"></path><path d="M16.2 16.2a6 6 0 0 0 0-8.4"></path><path d="M4.9 4.9a10 10 0 0 0 0 14.2"></path><path d="M19.1 19.1a10 10 0 0 0 0-14.2"></path></svg></div>
+      <span style="font-size: 15px; font-weight: 800;">ONAiR</span>
+    </div>
+    <span style="height: 22px; width: 1px; background: #e6e9ed;"></span>
+    <button class="tap" style="display: flex; height: 40px; align-items: center; gap: 10px; border-radius: 10px; border: 1px solid #cfe4f4; background: #f4faff; padding: 0 12px; color: #005bac;">
+      <span style="width: 22px; height: 22px; border-radius: 7px; background: #eaf4fb; display: flex; align-items: center; justify-content: center;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg></span>
+      <span style="font-size: 13.5px; font-weight: 700;">Wiki</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+    <span class="clip1" style="font-size: 12.5px; color: #5d6470;">／ 検索</span>
+    <span style="flex: 1;"></span>
+    <button class="tap" style="display: flex; align-items: center; gap: 10px; height: 44px;">
+      <span style="width: 32px; height: 32px; border-radius: 9999px; background: #eaf4fb; color: #005bac; font-size: 13.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;">寺</span>
+      <span style="font-size: 12.5px; white-space: nowrap;">寺井 岳宏</span>
+    </button>
+  </header>
+
+  <div style="display: flex; flex: 1; min-height: 0;">
+    <aside style="width: 248px; flex-shrink: 0; border-right: 1px solid #e6e9ed; background: #ffffff; padding: 14px 12px 20px; display: flex; flex-direction: column; gap: 2px; overflow: hidden;">
+      <sc-for list="{{nav}}" as="n" hint-placeholder-count="12">
+        <div>
+          <sc-if value="{{n.isTitle}}" hint-placeholder-val="{{ false }}"><div style="padding: 12px 10px 4px; font-size: 11px; font-weight: 800; color: #9aa1ab;">{{n.label}}</div></sc-if>
+          <sc-if value="{{n.isItem}}" hint-placeholder-val="{{ true }}">
+            <div style="display: flex; align-items: center; gap: 10px; height: 38px; border-radius: 10px; padding: 0 10px; background: {{n.bg}}; color: {{n.fg}};">
+              <span style="width: 18px; height: 18px; border-radius: 5px; background: {{n.dot}}; flex-shrink: 0;"></span>
+              <span class="clip1" style="flex: 1; min-width: 0; font-size: 13.5px; font-weight: {{n.weight}};">{{n.label}}</span>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </aside>
+
+    <main style="flex: 1; min-width: 0; background: #f7f8fa; overflow: hidden;">
+      <div style="padding: 22px 28px 0; height: 100%; display: flex; flex-direction: column; gap: 14px;">
+
+        <!-- 検索欄 -->
+        <label style="position: relative; display: block; max-width: 900px;">
+          <span style="position: absolute; left: 16px; top: 17px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg></span>
+          <input type="text" value="配信 音が出ない" aria-label="Wiki を検索" style="width: 100%; height: 54px; border-radius: 14px; border: 1px solid #cfe4f4; background: #ffffff; padding: 0 16px 0 46px; font-family: inherit; font-size: 15px; font-weight: 700; color: #1a1d24; box-shadow: 0 6px 18px rgba(0,91,172,.07);">
+        </label>
+
+        <!-- 件数と AI へ -->
+        <div style="display: flex; align-items: center; gap: 12px; max-width: 900px;">
+          <span class="num" style="font-size: 13px; color: #3c424c;"><strong>{{count}}件</strong> ・ 2語とも含むページ ・ 公開ページのみ（下書きは出ません）</span>
+          <span style="flex: 1;"></span>
+          <a href="Ask.dc.html" style="display: flex; align-items: center; gap: 8px; height: 40px; border-radius: 11px; border: 1px solid #cfe4f4; background: #f4faff; padding: 0 14px; font-size: 13px; font-weight: 800; color: #005bac;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path><path d="M19 17l.8 2.2L22 20l-2.2.8L19 23l-.8-2.2L16 20l2.2-.8z"></path></svg>この質問を AI に聞く<span style="font-size: 11.5px; font-weight: 700; color: #3c424c;">「配信中に音が出なくなったら？」</span></a>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 220px 1fr; gap: 16px; flex: 1; min-height: 0;">
+          <!-- 絞り込み -->
+          <aside style="display: flex; flex-direction: column; gap: 14px;">
+            <section style="border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; padding: 10px 6px;">
+              <div style="padding: 0 8px 6px; font-size: 11px; font-weight: 800; color: #9aa1ab;">スペース</div>
+              <sc-for list="{{spaces}}" as="s" hint-placeholder-count="6">
+                <button class="tap" onClick="{{s.pick}}" style="display: flex; align-items: center; gap: 8px; width: 100%; height: 34px; border-radius: 8px; padding: 0 8px; background: {{s.bg}}; color: {{s.fg}};">
+                  <span style="width: 8px; height: 8px; border-radius: 2px; background: {{s.color}}; flex-shrink: 0;"></span>
+                  <span class="clip1" style="flex: 1; min-width: 0; font-size: 12.5px; font-weight: {{s.weight}};">{{s.name}}</span>
+                  <span class="num" style="font-size: 11.5px; color: #9aa1ab;">{{s.n}}</span>
+                </button>
+              </sc-for>
+            </section>
+            <section style="border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; padding: 10px 14px; display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-size: 11px; font-weight: 800; color: #9aa1ab;">タグ</div>
+              <div style="display: flex; flex-wrap: wrap; gap: 5px;"><span style="display: inline-flex; align-items: center; height: 26px; border-radius: 7px; background: #eaf4fb; color: #005bac; padding: 0 8px; font-size: 11.5px; font-weight: 700;">配信</span><span style="display: inline-flex; align-items: center; height: 26px; border-radius: 7px; background: #f2f4f7; padding: 0 8px; font-size: 11.5px; font-weight: 700;">トラブル対応</span><span style="display: inline-flex; align-items: center; height: 26px; border-radius: 7px; background: #f2f4f7; padding: 0 8px; font-size: 11.5px; font-weight: 700;">音声</span><span style="display: inline-flex; align-items: center; height: 26px; border-radius: 7px; background: #f2f4f7; padding: 0 8px; font-size: 11.5px; font-weight: 700;">第2スタジオ</span></div>
+              <div style="font-size: 11px; font-weight: 800; color: #9aa1ab; margin-top: 4px;">更新日</div>
+              <div style="display: flex; gap: 5px;"><span style="display: inline-flex; align-items: center; height: 26px; border-radius: 7px; background: #f2f4f7; padding: 0 8px; font-size: 11.5px; font-weight: 700;">30日</span><span style="display: inline-flex; align-items: center; height: 26px; border-radius: 7px; background: #f2f4f7; padding: 0 8px; font-size: 11.5px; font-weight: 700;">1年</span><span style="display: inline-flex; align-items: center; height: 26px; border-radius: 7px; background: #eaf4fb; color: #005bac; padding: 0 8px; font-size: 11.5px; font-weight: 700;">全部</span></div>
+              <div style="font-size: 11px; font-weight: 800; color: #9aa1ab; margin-top: 4px;">担当</div>
+              <div style="display: flex; align-items: center; height: 32px; border-radius: 8px; border: 1px solid #e6e9ed; padding: 0 9px; font-size: 12.5px; color: #9aa1ab;">指定なし</div>
+            </section>
+            <p style="margin: 0; padding: 0 4px; font-size: 11.5px; line-height: 1.6; color: #9aa1ab;">タイトル・見出し・本文の順に重く見て並べます。</p>
+          </aside>
+
+          <!-- 結果 -->
+          <div style="display: flex; flex-direction: column; gap: 10px; overflow: hidden;">
+            <sc-for list="{{hits}}" as="h" hint-placeholder-count="4">
+              <a href="Page.dc.html" class="hit" style="display: block; border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; padding: 12px 16px; color: #1a1d24;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="width: 8px; height: 8px; border-radius: 2px; background: {{h.color}}; flex-shrink: 0;"></span>
+                  <span class="clip1" style="font-size: 12px; color: #5d6470;">{{h.path}}</span>
+                  <span style="flex: 1;"></span>
+                  <span class="num" style="font-size: 11.5px; color: #9aa1ab;">{{h.updated}} ・ {{h.owner}}</span>
+                </div>
+                <div style="margin-top: 4px; font-size: 15px; font-weight: 800;">{{h.title}}</div>
+                <div style="margin-top: 5px; display: flex; align-items: center; gap: 6px;"><span style="display: inline-flex; align-items: center; height: 20px; border-radius: 6px; background: #f2f4f7; color: #3c424c; padding: 0 7px; font-size: 11px; font-weight: 800;">見出し</span><span style="font-size: 12.5px; font-weight: 700; color: #3c424c;">{{h.heading}}</span></div>
+                <p style="margin: 6px 0 0; font-size: 13px; line-height: 1.7; color: #3c424c;">{{h.pre}}<mark>{{h.k1}}</mark>{{h.mid}}<mark>{{h.k2}}</mark>{{h.post}}</p>
+              </a>
+            </sc-for>
+            <div style="border-radius: 12px; border: 1px dashed #cbd2da; padding: 12px 16px; font-size: 12.5px; line-height: 1.7; color: #5d6470;">見つからないときは上の「この質問を AI に聞く」。AI も出典を出せなければ、その質問は<strong>「足りないページ」</strong>に積まれ、担当が月1回の見直しで書きます。</div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { space: 'all' }; }
+
+  hits() {
+    return [
+      { space: 'prod', color: '#c2410e', path: '制作・技術 ／ 配信', title: '配信トラブル時の切り分け手順', heading: '2. 症状ごとの確認と対処 › 音が出ない', updated: '9/18', owner: '川口',
+        pre: '', k1: '音が出ない', mid: 'ときは、ミキサーの MAIN フェーダーとエンコーダーの音声レベルを見る。ミュートの解除を最初に（過去の障害の 6 割）。', k2: '配信', post: 'は続けたまま原因を追う。' },
+      { space: 'prod', color: '#c2410e', path: '制作・技術 ／ スタジオ運用', title: '第2スタジオ 収録前チェックリスト', heading: 'ミキサー', updated: '9/19', owner: '川口',
+        pre: 'MAIN・AUX1・AUX2 のミュートを解除し、トーンで ', k1: '配信', mid: 'エンコーダーまで', k2: '音', post: 'が届くことを確かめる。' },
+      { space: 'prod', color: '#c2410e', path: '制作・技術 ／ 配信', title: 'YouTube Live の設定手順', heading: '5. 音声の設定', updated: '8/28', owner: '大野',
+        pre: 'YouTube 側の「', k1: '音', mid: 'が出ない」表示は、エンコーダーの音声コーデックが AAC 以外のときに出る。', k2: '配信', post: '設定の音声を AAC 128kbps にする。' },
+      { space: 'equip', color: '#197a4b', path: '機材', title: 'Blackmagic ATEM 2 M/E の起動と終了', heading: '音声のルーティング', updated: '9/12', owner: '大野',
+        pre: 'ATEM の Audio ページで ', k1: '配信', mid: '出力（PGM）に載る入力を確かめる。入力が OFF だと', k2: '音が出ない', post: '。' },
+    ];
+  }
+
+  renderVals() {
+    const self = this;
+    const st = this.state;
+    const all = this.hits();
+    const spaceDefs = [
+      { key: 'all',   name: 'すべて',        color: '#5d6470' },
+      { key: 'prod',  name: '制作・技術',    color: '#c2410e' },
+      { key: 'equip', name: '機材',          color: '#197a4b' },
+      { key: 'sales', name: '営業',          color: '#4338ca' },
+      { key: 'ga',    name: '総務・経理',    color: '#6d28d9' },
+      { key: 'co',    name: '全社',          color: '#005bac' },
+    ];
+    const spaces = spaceDefs.map((s) => {
+      const n = s.key === 'all' ? all.length : all.filter((h) => h.space === s.key).length;
+      return {
+        name: s.name, color: s.color, n: String(n),
+        bg: st.space === s.key ? '#f4faff' : 'transparent', fg: st.space === s.key ? '#005bac' : '#1a1d24',
+        weight: st.space === s.key ? 800 : 700,
+        pick: () => self.setState({ space: s.key }),
+      };
+    });
+    const hits = all.filter((h) => (st.space === 'all' ? true : h.space === st.space));
+
+    const navDefs = [
+      { label: 'ホーム', on: false, dot: '#e6e9ed' }, { label: '検索', on: true, dot: '#005bac' }, { label: 'AI に聞く', on: false, dot: '#e6e9ed' }, { label: '見直し', on: false, dot: '#c7243a' },
+      { title: 'スペース' },
+      { label: '全社', dot: '#005bac' }, { label: '営業', dot: '#4338ca' }, { label: '制作・技術', dot: '#c2410e' }, { label: '機材', dot: '#197a4b' }, { label: '総務・経理', dot: '#6d28d9' }, { label: 'ONAiR の使い方', dot: '#5d6470' },
+      { title: '管理' }, { label: 'テンプレート', dot: '#e6e9ed' }, { label: 'スペース管理', dot: '#e6e9ed' },
+    ];
+    const nav = navDefs.map((n) => (n.title
+      ? { isTitle: true, isItem: false, label: n.title }
+      : { isTitle: false, isItem: true, label: n.label, dot: n.dot, bg: n.on ? '#f4faff' : 'transparent', fg: n.on ? '#005bac' : '#3c424c', weight: n.on ? 800 : 700 }));
+
+    return { nav, spaces, hits, count: String(hits.length) };
+  }
+}
+</script>
+</body>
+</html>

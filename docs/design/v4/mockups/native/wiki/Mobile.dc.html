@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>Wiki スマホ（閲覧）</title>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&family=Noto+Sans+JP:wght@400;700;800&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    button { font-family: inherit; }
+    .tap { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .doc p { margin: 0 0 10px; font-size: 14px; line-height: 1.8; }
+    .doc h2 { margin: 18px 0 8px; font-size: 17px; font-weight: 800; padding-bottom: 5px; border-bottom: 1px solid #eef0f3; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #f7f8fa; color: #1a1d24; display: flex; flex-direction: column;">
+
+  <!-- 見出し -->
+  <header style="flex-shrink: 0; background: #ffffff; border-bottom: 1px solid #e6e9ed; padding: 10px 12px 10px;">
+    <div style="display: flex; align-items: center; gap: 6px; height: 44px;">
+      <button class="tap" onClick="{{openTree}}" aria-label="スペースの木を開く" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #005bac;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg></button>
+      <span style="flex: 1; min-width: 0;">
+        <span class="clip1" style="display: block; font-size: 11.5px; color: #5d6470;">制作・技術 ／ 配信</span>
+        <span class="clip1" style="display: block; font-size: 15px; font-weight: 800;">配信トラブル時の切り分け手順</span>
+      </span>
+      <a href="MobileEdit.dc.html" aria-label="編集" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 9px; background: #005bac; color: #ffffff; flex-shrink: 0;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"></path></svg></a>
+      <button class="tap" onClick="{{openToc}}" aria-label="目次" style="height: 40px; display: flex; align-items: center; gap: 5px; border-radius: 9px; border: 1px solid #e6e9ed; padding: 0 10px; font-size: 12.5px; font-weight: 700; flex-shrink: 0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"></path><path d="M8 12h13"></path><path d="M8 18h13"></path><path d="M3 6h.01"></path><path d="M3 12h.01"></path><path d="M3 18h.01"></path></svg>目次</button>
+    </div>
+    <div style="display: flex; align-items: center; gap: 6px; padding-left: 44px;">
+      <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 48px; height: 20px; border-radius: 6px; background: #e7f6ee; color: #197a4b; font-size: 11px; font-weight: 800;">公開</span>
+      <span class="num" style="font-size: 12px; color: #5d6470;">9/18 ・ 川口 早苗 ・ 見直し 2027/03/31</span>
+    </div>
+  </header>
+
+  <!-- 本文（縦1列。表は横スクロール） -->
+  <div class="doc" style="flex: 1; min-height: 0; overflow: hidden; padding: 14px 16px 0; background: #ffffff;">
+    <div style="display: flex; gap: 9px; border-radius: 12px; border: 1px solid #fed7aa; background: #fff7ed; padding: 10px 12px; margin: 0 0 14px;">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#c2410e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 3.9L2.6 17.4A2 2 0 0 0 4.3 20.4h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg>
+      <div style="font-size: 13.5px; line-height: 1.65; color: #7c2d12;"><strong>本番中は原因探しより先に「予備の経路」に切り替える。</strong></div>
+    </div>
+
+    <h2>1. まず確かめる3つ</h2>
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <sc-for list="{{checks}}" as="c" hint-placeholder-count="3">
+        <button class="tap" onClick="{{c.toggle}}" style="display: flex; align-items: flex-start; gap: 10px; width: 100%; min-height: 48px; padding: 6px 0;">
+          <span style="width: 24px; height: 24px; flex-shrink: 0; border-radius: 7px; border: 1.6px solid {{c.border}}; background: {{c.bg}}; display: flex; align-items: center; justify-content: center; margin-top: 1px;"><sc-if value="{{c.done}}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg></sc-if></span>
+          <span style="font-size: 14px; line-height: 1.65; color: {{c.fg}}; text-decoration: {{c.deco}};">{{c.label}}</span>
+        </button>
+      </sc-for>
+    </div>
+
+    <h2>2. 症状ごとの確認と対処</h2>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div style="border-radius: 10px; border: 1px solid #e6e9ed; padding: 9px 11px;"><div style="font-size: 13.5px; font-weight: 800;">映像が出ない</div><div style="margin-top: 3px; font-size: 13px; line-height: 1.6; color: #3c424c;">PGM を「カラーバー」に切り替えて経路を確かめる。出れば ATEM より前、出なければ後ろ。</div></div>
+      <div style="border-radius: 10px; border: 1px solid #e6e9ed; padding: 9px 11px;"><div style="font-size: 13.5px; font-weight: 800;">音が出ない</div><div style="margin-top: 3px; font-size: 13px; line-height: 1.6; color: #3c424c;"><strong>ミュートの解除を最初に</strong>（過去の障害の 6 割）。トーンを流して段ごとに追う。</div></div>
+    </div>
+    <p style="margin: 8px 0 0; font-size: 11.5px; color: #9aa1ab;">表はスマホでは縦のカードにして出します（PC の表と同じ本文）。</p>
+  </div>
+
+  <!-- コメント（現場の「ここ違う」を残す） -->
+  <div style="flex-shrink: 0; border-top: 1px solid #e6e9ed; background: #ffffff; padding: 8px 12px 6px;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <input type="text" placeholder="コメントを書く" aria-label="コメント" style="flex: 1; min-width: 0; height: 44px; border-radius: 11px; border: 1px solid #e6e9ed; padding: 0 12px; font-family: inherit; font-size: 13.5px;">
+      <button class="tap" style="height: 44px; border-radius: 11px; border: 1px solid #cfe4f4; background: #f4faff; color: #005bac; padding: 0 12px; font-size: 13px; font-weight: 800;">送信</button>
+    </div>
+    <p style="margin: 5px 0 0; font-size: 11px; color: #9aa1ab;">担当（川口）にコメントが届きます。</p>
+  </div>
+
+  <!-- 下タブ（共通シェル: ホーム／やること／検索） -->
+  <nav style="flex-shrink: 0; display: flex; height: 76px; border-top: 1px solid #e6e9ed; background: #ffffff; padding: 6px 8px 18px;">
+    <a href="Main.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 10px; color: #5d6470;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"></path><path d="M5 10v10h14V10"></path></svg><span style="font-size: 11px; font-weight: 700;">ホーム</span></a>
+    <a href="Main.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 10px; color: #5d6470;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"></path><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"></path></svg><span style="font-size: 11px; font-weight: 700;">やること</span></a>
+    <a href="Search.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 10px; color: #005bac; background: #f4faff;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><span style="font-size: 11px; font-weight: 800;">検索</span></a>
+  </nav>
+
+  <!-- 下シート: 目次 -->
+  <sc-if value="{{tocOpen}}" hint-placeholder-val="{{ false }}">
+    <button class="tap" onClick="{{closeSheet}}" aria-label="閉じる" style="position: absolute; inset: 0; background: rgba(26,29,36,.35);"></button>
+    <div style="position: absolute; left: 0; right: 0; bottom: 0; border-radius: 18px 18px 0 0; background: #ffffff; padding: 10px 16px 28px; box-shadow: 0 -12px 40px rgba(26,29,36,.2);">
+      <span style="display: block; width: 40px; height: 4px; border-radius: 2px; background: #cbd2da; margin: 0 auto 12px;"></span>
+      <div style="font-size: 15px; font-weight: 800; margin-bottom: 8px;">目次</div>
+      <a href="#" onClick="{{closeSheet}}" style="display: flex; align-items: center; height: 48px; font-size: 14px; font-weight: 700; color: #005bac; border-bottom: 1px solid #f2f4f7;">1. まず確かめる3つ</a>
+      <a href="#" onClick="{{closeSheet}}" style="display: flex; align-items: center; height: 48px; font-size: 14px; font-weight: 700; color: #1a1d24; border-bottom: 1px solid #f2f4f7;">2. 症状ごとの確認と対処</a>
+      <a href="#" onClick="{{closeSheet}}" style="display: flex; align-items: center; height: 48px; font-size: 14px; font-weight: 700; color: #1a1d24; border-bottom: 1px solid #f2f4f7;">3. 予備の経路に切り替える</a>
+      <a href="#" onClick="{{closeSheet}}" style="display: flex; align-items: center; height: 48px; font-size: 14px; font-weight: 700; color: #1a1d24;">4. 終わったら書くこと</a>
+    </div>
+  </sc-if>
+
+  <!-- 下シート: スペースの木 -->
+  <sc-if value="{{treeOpen}}" hint-placeholder-val="{{ false }}">
+    <button class="tap" onClick="{{closeSheet}}" aria-label="閉じる" style="position: absolute; inset: 0; background: rgba(26,29,36,.35);"></button>
+    <div style="position: absolute; left: 0; right: 0; bottom: 0; border-radius: 18px 18px 0 0; background: #ffffff; padding: 10px 16px 28px; box-shadow: 0 -12px 40px rgba(26,29,36,.2);">
+      <span style="display: block; width: 40px; height: 4px; border-radius: 2px; background: #cbd2da; margin: 0 auto 12px;"></span>
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;"><span style="width: 10px; height: 10px; border-radius: 3px; background: #c2410e;"></span><span style="font-size: 15px; font-weight: 800;">制作・技術</span><span class="num" style="font-size: 12px; color: #9aa1ab;">58</span></div>
+      <sc-for list="{{tree}}" as="t" hint-placeholder-count="6">
+        <a href="#" onClick="{{closeSheet}}" style="display: flex; align-items: center; gap: 8px; height: 48px; padding-left: {{t.pad}}; font-size: 14px; font-weight: {{t.weight}}; color: {{t.fg}}; border-bottom: 1px solid #f2f4f7;"><span style="width: 6px; height: 6px; border-radius: 9999px; background: {{t.dot}};"></span><span class="clip1">{{t.label}}</span></a>
+      </sc-for>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { sheet: null, done: { a: true, b: false, c: false } }; }
+
+  renderVals() {
+    const self = this;
+    const st = this.state;
+    const checkDefs = [
+      { key: 'a', label: '配信は続いているか' },
+      { key: 'b', label: 'ミュートになっていないか（3か所）' },
+      { key: 'c', label: '回線は生きているか（上り 6 Mbps）' },
+    ];
+    const checks = checkDefs.map((c) => ({
+      label: c.label, done: !!st.done[c.key],
+      border: st.done[c.key] ? '#005bac' : '#cbd2da', bg: st.done[c.key] ? '#005bac' : '#ffffff',
+      fg: st.done[c.key] ? '#9aa1ab' : '#1a1d24', deco: st.done[c.key] ? 'line-through' : 'none',
+      toggle: () => self.setState({ done: { ...st.done, [c.key]: !st.done[c.key] } }),
+    }));
+    const tree = [
+      { label: 'スタジオ運用', pad: '0px', weight: 800, fg: '#1a1d24', dot: '#cbd2da' },
+      { label: '配信', pad: '0px', weight: 800, fg: '#1a1d24', dot: '#cbd2da' },
+      { label: '配信トラブル時の切り分け手順', pad: '18px', weight: 800, fg: '#005bac', dot: '#005bac' },
+      { label: '配信設定の鍵の扱い', pad: '18px', weight: 700, fg: '#1a1d24', dot: '#c7243a' },
+      { label: 'YouTube Live の設定手順', pad: '18px', weight: 700, fg: '#1a1d24', dot: '#cbd2da' },
+      { label: '収録', pad: '0px', weight: 800, fg: '#1a1d24', dot: '#cbd2da' },
+    ];
+    return {
+      checks, tree,
+      tocOpen: st.sheet === 'toc', treeOpen: st.sheet === 'tree',
+      openToc: () => self.setState({ sheet: 'toc' }),
+      openTree: () => self.setState({ sheet: 'tree' }),
+      closeSheet: () => self.setState({ sheet: null }),
+    };
+  }
+}
+</script>
+</body>
+</html>

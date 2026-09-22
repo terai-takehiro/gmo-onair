@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>Wiki AI に聞く</title>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&family=Noto+Sans+JP:wght@400;700;800&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    button { font-family: inherit; }
+    .tap { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .ghost:hover { background: #f2f4f7; }
+    .btn-primary { transition: background-color .12s ease; } .btn-primary:hover { background: #004d91; }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ans p { margin: 0 0 8px; font-size: 14px; line-height: 1.8; }
+    .ans ol { margin: 0 0 8px; padding-left: 22px; font-size: 14px; line-height: 1.8; }
+    .cite:hover { border-color: #a6ceeb; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 1000px; position: relative; overflow: hidden; background: #f7f8fa; display: flex; flex-direction: column; color: #1a1d24;">
+
+  <header style="display: flex; height: 64px; flex-shrink: 0; align-items: center; gap: 14px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 24px;">
+    <div style="display: flex; align-items: center; gap: 9px;">
+      <div style="width: 28px; height: 28px; border-radius: 9px; background: #005bac; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M7.8 7.8a6 6 0 0 0 0 8.4"></path><path d="M16.2 16.2a6 6 0 0 0 0-8.4"></path><path d="M4.9 4.9a10 10 0 0 0 0 14.2"></path><path d="M19.1 19.1a10 10 0 0 0 0-14.2"></path></svg></div>
+      <span style="font-size: 15px; font-weight: 800;">ONAiR</span>
+    </div>
+    <span style="height: 22px; width: 1px; background: #e6e9ed;"></span>
+    <button class="tap" style="display: flex; height: 40px; align-items: center; gap: 10px; border-radius: 10px; border: 1px solid #cfe4f4; background: #f4faff; padding: 0 12px; color: #005bac;">
+      <span style="width: 22px; height: 22px; border-radius: 7px; background: #eaf4fb; display: flex; align-items: center; justify-content: center;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg></span>
+      <span style="font-size: 13.5px; font-weight: 700;">Wiki</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+    <span class="clip1" style="font-size: 12.5px; color: #5d6470;">／ AI に聞く</span>
+    <span style="flex: 1;"></span>
+    <button class="tap" style="display: flex; align-items: center; gap: 10px; height: 44px;">
+      <span style="width: 32px; height: 32px; border-radius: 9999px; background: #eaf4fb; color: #005bac; font-size: 13.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;">寺</span>
+      <span style="font-size: 12.5px; white-space: nowrap;">寺井 岳宏</span>
+    </button>
+  </header>
+
+  <div style="display: flex; flex: 1; min-height: 0;">
+
+    <!-- ── 左: スレッド（本人のみ） ─────────────────────────── -->
+    <aside style="width: 264px; flex-shrink: 0; border-right: 1px solid #e6e9ed; background: #ffffff; display: flex; flex-direction: column; overflow: hidden;">
+      <div style="display: flex; align-items: center; gap: 8px; height: 46px; flex-shrink: 0; padding: 0 12px 0 14px; border-bottom: 1px solid #e6e9ed;">
+        <span style="font-size: 13.5px; font-weight: 800;">スレッド</span>
+        <span style="font-size: 11px; color: #9aa1ab;">自分だけに見えます</span>
+        <span style="flex: 1;"></span>
+        <button class="tap ghost" aria-label="新しいスレッド" style="width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></button>
+      </div>
+      <div style="flex: 1; min-height: 0; overflow: hidden; padding: 8px;">
+        <sc-for list="{{threads}}" as="t" hint-placeholder-count="4">
+          <button class="tap" onClick="{{t.pick}}" style="display: flex; flex-direction: column; gap: 3px; width: 100%; min-height: 54px; border-radius: 9px; padding: 8px 10px; background: {{t.bg}};">
+            <span class="clip1" style="width: 100%; font-size: 13px; font-weight: {{t.weight}}; color: {{t.fg}};">{{t.title}}</span>
+            <span class="num" style="font-size: 11px; color: #9aa1ab;">{{t.meta}}</span>
+          </button>
+        </sc-for>
+      </div>
+      <div style="flex-shrink: 0; padding: 10px 14px 14px; border-top: 1px solid #f2f4f7; font-size: 11.5px; line-height: 1.6; color: #9aa1ab;">1スレッド 40往復まで。ページから開くと、そのページと子ページを先に読みます。</div>
+    </aside>
+
+    <!-- ── 中央: 会話 ──────────────────────────────────────── -->
+    <main style="flex: 1; min-width: 0; background: #ffffff; display: flex; flex-direction: column; overflow: hidden;">
+      <div style="flex: 1; min-height: 0; overflow: hidden; padding: 22px 32px 0; display: flex; flex-direction: column; gap: 16px; max-width: 900px;">
+
+        <!-- Q1 -->
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <div style="max-width: 560px; border-radius: 14px 14px 4px 14px; background: #f4faff; border: 1px solid #cfe4f4; padding: 10px 14px; font-size: 14px; line-height: 1.7;">配信中に音が出なくなったとき、最初に何を確認する？</div>
+          <span style="width: 30px; height: 30px; border-radius: 9999px; background: #eaf4fb; color: #005bac; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">寺</span>
+        </div>
+
+        <!-- A1（出典あり） -->
+        <div style="display: flex; gap: 10px;">
+          <span style="width: 30px; height: 30px; border-radius: 9px; background: #005bac; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg></span>
+          <div style="flex: 1; min-width: 0; max-width: 720px;">
+            <div class="ans" style="border-radius: 4px 14px 14px 14px; border: 1px solid #e6e9ed; padding: 12px 16px;">
+              <p><strong>最初に「ミュートの解除」を確かめます。</strong> 過去の障害の 6 割がミュートでした。見る場所は3か所です。</p>
+              <ol>
+                <li>ミキサーの MAIN フェーダー（MAIN・AUX1・AUX2 のミュート）</li>
+                <li>エンコーダーの音声レベル</li>
+                <li>配信先の画面の音量</li>
+              </ol>
+              <p>直らなければ、トーンを流して段ごとに追います。<strong>配信は止めずに</strong>、先に予備の経路へ切り替えてから原因を調べるのが決めごとです。</p>
+              <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e6e9ed;">
+                <div style="font-size: 11px; font-weight: 800; color: #9aa1ab; margin-bottom: 6px;">出典（押すとその見出しへ）</div>
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                  <a href="Page.dc.html" class="cite" style="display: flex; align-items: center; gap: 8px; min-height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #fbfcfd; padding: 5px 10px; color: #1a1d24;"><span style="width: 7px; height: 7px; border-radius: 2px; background: #c2410e; flex-shrink: 0;"></span><span class="clip1" style="font-size: 12.5px; font-weight: 700;">配信トラブル時の切り分け手順 › 2. 症状ごとの確認と対処</span><span class="clip1" style="flex: 1; min-width: 0; font-size: 11.5px; color: #5d6470;">「ミュートの解除を最初に（過去の障害の 6 割）」</span></a>
+                  <a href="Page.dc.html" class="cite" style="display: flex; align-items: center; gap: 8px; min-height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #fbfcfd; padding: 5px 10px; color: #1a1d24;"><span style="width: 7px; height: 7px; border-radius: 2px; background: #c2410e; flex-shrink: 0;"></span><span class="clip1" style="font-size: 12.5px; font-weight: 700;">第2スタジオ 収録前チェックリスト › ミキサー</span><span class="clip1" style="flex: 1; min-width: 0; font-size: 11.5px; color: #5d6470;">「MAIN・AUX1・AUX2 のミュートを解除し…」</span></a>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px; margin-top: 6px;">
+              <sc-for list="{{fb1}}" as="f" hint-placeholder-count="3">
+                <button class="tap" onClick="{{f.pick}}" style="display: flex; align-items: center; gap: 5px; height: 28px; border-radius: 8px; border: 1px solid {{f.border}}; background: {{f.bg}}; color: {{f.fg}}; padding: 0 9px; font-size: 11.5px; font-weight: 700;">{{f.label}}</button>
+              </sc-for>
+              <span style="width: 1px; height: 16px; background: #e6e9ed; margin: 0 4px;"></span>
+              <button class="tap" style="display: flex; align-items: center; gap: 5px; height: 28px; border-radius: 8px; border: 1px solid #e6e9ed; padding: 0 9px; font-size: 11.5px; font-weight: 700;">ページを作成</button>
+              <span class="num" style="font-size: 11px; color: #9aa1ab; margin-left: 4px;">読んだ 8 ページ ・ 出典 2 ・ {{fb1Note}}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Q2 -->
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <div style="max-width: 560px; border-radius: 14px 14px 4px 14px; background: #f4faff; border: 1px solid #cfe4f4; padding: 10px 14px; font-size: 14px; line-height: 1.7;">Zoom ウェビナーで同時通訳を入れるときの設定は？</div>
+          <span style="width: 30px; height: 30px; border-radius: 9999px; background: #eaf4fb; color: #005bac; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">寺</span>
+        </div>
+
+        <!-- A2（出典なし → 足りないページ） -->
+        <div style="display: flex; gap: 10px;">
+          <span style="width: 30px; height: 30px; border-radius: 9px; background: #005bac; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg></span>
+          <div style="flex: 1; min-width: 0; max-width: 720px;">
+            <div class="ans" style="border-radius: 4px 14px 14px 14px; border: 1px solid #fed7aa; background: #fffaf3; padding: 12px 16px;">
+              <p><strong>Wiki にはまだ書かれていません。</strong> 「同時通訳」「Zoom ウェビナー」に触れている公開ページが無いため、答えを作りません（出典の無いことは答えない決めごとです）。</p>
+              <p style="color: #7c2d12;">近いページ: <a href="Page.dc.html">YouTube Live の設定手順</a>（配信先の音声の設定）。Zoom の通訳機能そのものは載っていません。</p>
+              <div style="margin-top: 10px; display: flex; align-items: center; gap: 10px; border-radius: 10px; border: 1px solid #fed7aa; background: #ffffff; padding: 9px 12px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c2410e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path><path d="M12 7v6"></path><path d="M9 10h6"></path></svg>
+                <span style="font-size: 12.5px; font-weight: 700; color: #7c2d12;">足りないページに登録しました</span>
+                <span class="num" style="font-size: 12px; color: #9a5228;">同じ質問は 3回目 ・ 制作・技術 の担当（川口）に月1回の見直しで届きます</span>
+                <span style="flex: 1;"></span>
+                <a href="Editor.dc.html" style="flex-shrink: 0; white-space: nowrap; display: flex; align-items: center; height: 30px; border-radius: 8px; background: #c2410e; color: #ffffff; padding: 0 11px; font-size: 12px; font-weight: 800;">ページを作成</a>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px; margin-top: 6px;">
+              <sc-for list="{{fb2}}" as="f" hint-placeholder-count="3">
+                <button class="tap" onClick="{{f.pick}}" style="display: flex; align-items: center; gap: 5px; height: 28px; border-radius: 8px; border: 1px solid {{f.border}}; background: {{f.bg}}; color: {{f.fg}}; padding: 0 9px; font-size: 11.5px; font-weight: 700;">{{f.label}}</button>
+              </sc-for>
+              <span class="num" style="font-size: 11px; color: #9aa1ab; margin-left: 4px;">読んだ 8 ページ ・ 出典 0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 入力 -->
+      <div style="flex-shrink: 0; padding: 12px 32px 18px; border-top: 1px solid #f2f4f7; background: #ffffff;">
+        <div style="display: flex; align-items: flex-end; gap: 8px; max-width: 900px; border-radius: 14px; border: 1px solid #cfe4f4; background: #ffffff; padding: 8px 8px 8px 14px; box-shadow: 0 6px 18px rgba(0,91,172,.07);">
+          <textarea placeholder="Wiki に聞く（例: 内覧会の受付で名刺が無い人が来たら？）" aria-label="質問" style="flex: 1; min-width: 0; height: 44px; border: 0; outline: none; resize: none; font-family: inherit; font-size: 14px; line-height: 1.6; padding: 10px 0;"></textarea>
+          <button class="tap btn-primary" style="height: 38px; border-radius: 10px; background: #005bac; color: #ffffff; padding: 0 14px; font-size: 13px; font-weight: 800;">送信</button>
+        </div>
+        <p class="num" style="margin: 8px 0 0; font-size: 11.5px; color: #9aa1ab;">読むのは、あなたが読めるスペースの<strong>公開ページ</strong>だけ。回答と読んだページは記録され、評価は次の回答に生かされます。</p>
+      </div>
+    </main>
+
+    <!-- ── 右: AI が読んだページ ────────────────────────────── -->
+    <aside style="width: 300px; flex-shrink: 0; border-left: 1px solid #e6e9ed; background: #fbfcfd; display: flex; flex-direction: column; overflow: hidden;">
+      <div style="display: flex; align-items: center; gap: 8px; height: 46px; flex-shrink: 0; padding: 0 14px; border-bottom: 1px solid #e6e9ed; background: #ffffff;">
+        <span style="font-size: 13.5px; font-weight: 800;">AI が読んだページ</span>
+        <span class="num" style="font-size: 11.5px; color: #9aa1ab;">8 ／ 出典 2</span>
+      </div>
+      <div style="flex: 1; min-height: 0; overflow: hidden; padding: 10px 10px;">
+        <sc-for list="{{read}}" as="r" hint-placeholder-count="8">
+          <a href="Page.dc.html" style="display: flex; align-items: center; gap: 8px; min-height: 40px; border-radius: 9px; padding: 4px 8px; color: #1a1d24;">
+            <span style="width: 18px; height: 18px; flex-shrink: 0; border-radius: 5px; background: {{r.markBg}}; display: flex; align-items: center; justify-content: center;"><sc-if value="{{r.cited}}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#197a4b" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg></sc-if></span>
+            <span style="flex: 1; min-width: 0;">
+              <span class="clip1" style="display: block; font-size: 12.5px; font-weight: {{r.weight}};">{{r.title}}</span>
+              <span class="clip1 num" style="display: block; font-size: 11px; color: #9aa1ab;">{{r.meta}}</span>
+            </span>
+          </a>
+        </sc-for>
+      </div>
+      <div style="flex-shrink: 0; padding: 10px 14px 14px; border-top: 1px solid #e6e9ed; background: #ffffff;">
+        <div style="font-size: 11.5px; font-weight: 800; color: #3c424c; margin-bottom: 4px;">この道具の決めごと</div>
+        <ul style="margin: 0; padding-left: 16px; font-size: 11.5px; line-height: 1.65; color: #5d6470;">
+          <li>Wiki の記載だけを根拠にし、出典を必ず付ける</li>
+          <li>出典が無い質問には答えず、足りないページに登録する</li>
+          <li>下書き・非表示・読めないスペースは材料にしない</li>
+        </ul>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { thread: 't1', fb1: null, fb2: null }; }
+
+  fbButtons(key) {
+    const self = this;
+    const cur = this.state[key];
+    const defs = [
+      { v: 'good',     label: '役に立った', on: { border: '#bfe3ce', bg: '#e7f6ee', fg: '#197a4b' } },
+      { v: 'rephrase', label: '言い直して', on: { border: '#fed7aa', bg: '#fff7ed', fg: '#c2410e' } },
+      { v: 'reject',   label: '的外れ',     on: { border: '#f6cdd2', bg: '#fef6f7', fg: '#c7243a' } },
+    ];
+    return defs.map((d) => ({
+      label: d.label,
+      border: cur === d.v ? d.on.border : '#e6e9ed', bg: cur === d.v ? d.on.bg : '#ffffff', fg: cur === d.v ? d.on.fg : '#3c424c',
+      pick: () => self.setState({ [key]: cur === d.v ? null : d.v }),
+    }));
+  }
+
+  renderVals() {
+    const self = this;
+    const st = this.state;
+    const threadDefs = [
+      { id: 't1', title: '配信中に音が出なくなったとき', meta: '今日 14:10 ・ 2往復' },
+      { id: 't2', title: 'セキュリティカードを紛失したら', meta: '9/19 ・ 1往復 ・ 出典 1' },
+      { id: 't3', title: '見積の値引きは誰の承認？', meta: '9/12 ・ 3往復 ・ ページを作成' },
+      { id: 't4', title: '内覧会の受付で名刺が無い人', meta: '9/05 ・ 1往復' },
+    ];
+    const threads = threadDefs.map((t) => ({
+      title: t.title, meta: t.meta,
+      bg: st.thread === t.id ? '#f4faff' : 'transparent', fg: st.thread === t.id ? '#005bac' : '#1a1d24', weight: st.thread === t.id ? 800 : 700,
+      pick: () => self.setState({ thread: t.id }),
+    }));
+    const read = [
+      { title: '配信トラブル時の切り分け手順', meta: '制作・技術 ・ 9/18', cited: true },
+      { title: '第2スタジオ 収録前チェックリスト', meta: '制作・技術 ・ 9/19', cited: true },
+      { title: 'YouTube Live の設定手順', meta: '制作・技術 ・ 8/28', cited: false },
+      { title: 'Blackmagic ATEM 2 M/E の起動と終了', meta: '機材 ・ 9/12', cited: false },
+      { title: '配信設定の鍵の扱い', meta: '制作・技術 ・ 6/10', cited: false },
+      { title: '音声サポートの使い方', meta: '制作・技術 ・ 7/02', cited: false },
+      { title: '収録データの保存先と命名', meta: '制作・技術 ・ 5/21', cited: false },
+      { title: '用賀スタジオ 入退室', meta: '制作・技術 ・ 4/11', cited: false },
+    ].map((r) => ({ ...r, markBg: r.cited ? '#e7f6ee' : '#f2f4f7', weight: r.cited ? 800 : 700 }));
+    const noteOf = { good: '評価: 役に立った', rephrase: '評価: 言い直して', reject: '評価: 的外れ' };
+    return {
+      threads, read,
+      fb1: this.fbButtons('fb1'), fb2: this.fbButtons('fb2'),
+      fb1Note: st.fb1 ? noteOf[st.fb1] : '評価は押すだけ',
+    };
+  }
+}
+</script>
+</body>
+</html>
