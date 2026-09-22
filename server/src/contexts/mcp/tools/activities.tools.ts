@@ -145,7 +145,9 @@ export function registerActivityTools(server: McpServer): void {
         '次のアクションが決まっている場合は next_action / next_action_date を必ず記録する。' +
         '**メール自動取込では idempotency_key を必ず渡すこと** — 同じキーの記録が既にあれば再作成せず既存を返す (無人バッチの二重登録防止)。' +
         'message_id (由来メールの Message-ID) / source_channel (info@ 等) も分かれば渡す。同じメールから案件と活動記録を両方起票するときは ' +
-        'idempotency_key を意図別に (例 "email:<Message-ID>:project" と "email:<Message-ID>:activity") 分けること。',
+        'idempotency_key を意図別に (例 "email:<Message-ID>:project" と "email:<Message-ID>:activity") 分けること。' +
+        '**description は要約せず本文をそのまま渡すこと** — 読める形に整えるのはサーバー側の整形器で、' +
+        'ここで縮めると二重に縮んで画面に数行しか残らない (subject だけは短い言い切りでよい)。',
       inputSchema: {
         user_id: z.string().min(1).describe('活動した担当者の users.id (必須)'),
         activity_type: z.enum(ACTIVITY_TYPES),
@@ -153,7 +155,13 @@ export function registerActivityTools(server: McpServer): void {
         subject: z.string().min(1).describe('件名'),
         project_id: z.string().optional().describe('関連する案件 ID (任意)'),
         customer_id: z.string().optional().describe('関連する顧客 ID (任意)'),
-        description: z.string().optional().describe('活動内容の詳細'),
+        description: z.string().optional().describe(
+          '活動内容の本文。**要約しないこと。** メール取込なら、署名・引用返信・'
+          + '定型文・フッターを除いた本文を**そのまま**入れる（往復があるなら往復のまま）。'
+          + '読める形（状態・事実・誰の発言か）に分けるのは**サーバー側の整形器の仕事**で、'
+          + 'ここで縮めると**縮んだものをさらに縮める**ことになり、画面には数行しか残らない。'
+          + '上限 20,000 字（超えるときは要約せず、記録を分けること）',
+        ),
         next_action: z.string().optional().describe('次回アクション'),
         next_action_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('次回アクション予定日'),
         idempotency_key: z.string().max(200).optional()
@@ -218,7 +226,10 @@ export function registerActivityTools(server: McpServer): void {
         subject: z.string().min(1).optional(),
         project_id: z.string().nullable().optional(),
         customer_id: z.string().nullable().optional(),
-        description: z.string().nullable().optional(),
+        description: z.string().nullable().optional()
+          .describe('本文。**原文を縮めて上書きしないこと** — ここは「打った文をみる」で'
+            + '読み返される元の記録で、整形結果（body_struct）はここから作り直される。'
+            + '縮めると元に戻せない'),
         next_action: z.string().nullable().optional().describe('null で「次回アクション完了 (解除)」'),
         next_action_date: z.string().nullable().optional(),
         ...REQUESTED_BY,
