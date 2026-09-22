@@ -27,7 +27,7 @@ export default function PageBriefRow({ page }: { page: WikiPageBrief }) {
           </RowSub>
         </RowMain>
         <RowSlot w={96} align="center" placeholder="">
-          {page.status !== 'published' ? <WikiStatusBadge status={page.status} /> : null}
+          {page.status !== 'published' ? <WikiStatusBadge status={page.status} column /> : null}
         </RowSlot>
         <RowSlot w={96} hideOnMobile>
           <span className="truncate text-sub text-muted-foreground">{page.space_name}</span>

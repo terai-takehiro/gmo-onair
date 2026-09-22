@@ -157,7 +157,7 @@ export function normalizeQuestion(q: string): string {
   return q
     .trim()
     .toLowerCase()
-    .replace(/[、。．，！？!?・：:；;（）()「」『』【】\[\]"'`]/g, '')
+    .replace(/[、。．，！？!?・：:；;（）()「」『』【】[\]"'`]/g, '')
     .replace(/(ですか|でしょうか|ますか|かな|かね)$/u, '')
     .replace(/\s+/g, '')
     .slice(0, 200);

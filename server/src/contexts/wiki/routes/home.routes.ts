@@ -1,7 +1,7 @@
 /**
  * Wiki — ホーム（`/wiki`）の API（段A）。設計: `docs/design/v4/wiki.md` §6-①。
  *
- * - `GET /wiki/home` スペースの一覧 ＋ 最近更新10件 ＋ お気に入り ＋ 自分の期限切れ
+ * - `GET /wiki/home` スペースの一覧 ＋ 最近更新10件 ＋ お気に入り ＋ 自分の要見直し
  */
 import { Router } from 'express';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';

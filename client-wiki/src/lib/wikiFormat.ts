@@ -1,7 +1,7 @@
 /**
  * Wiki だけで使う表示整形。
  * 日付そのものは `@gmo-onair/shared/src/client/format` を使い、ここには
- * 「第N版」「見直し期限が切れているか」のような Wiki 固有のものだけを置く。
+ * 「第N版」「見直し予定日を過ぎているか」のような Wiki 固有のものだけを置く。
  */
 import { localDateStr } from '@gmo-onair/shared/src/client/format';
 
@@ -37,8 +37,8 @@ export function stampLabel(value: string | null | undefined): string {
 }
 
 /**
- * 見直し期限までの残り日数。過ぎていれば負の数を返す。
- * 期限は日付（時刻を持たない）なので、**端末の時刻で日をまたがせない**ように
+ * 見直し予定日までの残り日数。過ぎていれば負の数を返す。
+ * 予定日は日付（時刻を持たない）なので、**端末の時刻で日をまたがせない**ように
  * `localDateStr` で日付の文字列にしてから比べる（`toISOString` を使うと UTC に寄る）。
  */
 export function daysUntil(reviewBy: string | null | undefined, now = new Date()): number | null {
@@ -52,22 +52,26 @@ export function daysUntil(reviewBy: string | null | undefined, now = new Date())
   return Math.round((b - a) / 86_400_000);
 }
 
-/** 期限切れか（当日はまだ切れていない） */
+/**
+ * 見直し予定日を過ぎているか（当日はまだ過ぎていない）。
+ * ⚠️ 名前は `overdue` のままだが、**画面では「期限切れ」と言わない** — Wiki の
+ * ページは予定日を過ぎても中身が無効になるわけではない（2026-09-22 のご指摘）。
+ */
 export function isOverdue(reviewBy: string | null | undefined, now = new Date()): boolean {
   const n = daysUntil(reviewBy, now);
   return n !== null && n < 0;
 }
 
-/** 情報欄に添える「あと 190日」「3日 超過」 */
+/** 情報欄に添える「あと 190日」「10日前」（予定日からの遠さ） */
 export function reviewRemainLabel(reviewBy: string | null | undefined, now = new Date()): string {
   const n = daysUntil(reviewBy, now);
   if (n === null) return '';
-  if (n < 0) return `${-n}日 超過`;
-  if (n === 0) return '今日まで';
+  if (n < 0) return `${-n}日前`;
+  if (n === 0) return '今日';
   return `あと ${n}日`;
 }
 
-/** 見直し期限の表示（`2027/03/31`）。入っていなければ空 */
+/** 見直し予定日の表示（`2027/03/31`）。入っていなければ空 */
 export function reviewByLabel(reviewBy: string | null | undefined): string {
   if (!reviewBy) return '';
   const m = reviewBy.match(/^(\d{4})-(\d{2})-(\d{2})/);

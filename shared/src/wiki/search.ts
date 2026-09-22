@@ -20,7 +20,8 @@ export interface WikiScoreInput {
 export function splitTerms(q: string): string[] {
   return q
     .trim()
-    .split(/[\s　]+/)
+    // 全角スペース（U+3000）は JS の `\s` に含まれるので、正規表現に直に書かない
+    .split(/\s+/)
     .map((t) => t.trim())
     .filter(Boolean)
     .slice(0, 8);

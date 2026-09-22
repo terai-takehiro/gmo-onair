@@ -1,7 +1,7 @@
 /**
  * 右パネルの「情報」（§6-②）
  *
- * 段A は**読むだけ**。担当・見直し期限・タグをその場で編集できるようにするのは
+ * 段A は**読むだけ**。担当・見直し予定・タグをその場で編集できるようにするのは
  * 段B（本文の編集ロックとは別の口として作る）。
  */
 import { Link } from 'react-router-dom';
@@ -24,7 +24,7 @@ export default function PageInfoPanel({ page }: { page: WikiPage }) {
     <div className="flex flex-col gap-1">
       <Field label="担当">{page.owner_name ?? '—'}</Field>
 
-      <Field label="見直し期限">
+      <Field label="見直し予定">
         {page.review_by ? (
           <span className="flex flex-wrap items-center gap-2">
             <span className="inline-flex h-6 items-center rounded-control border border-border px-2 text-sub text-foreground">

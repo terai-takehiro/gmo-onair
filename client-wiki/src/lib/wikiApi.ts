@@ -27,7 +27,7 @@ import api from './api';
 /* ── URL（サーバーと突き合わせる唯一の場所） ─────────────────── */
 
 export const WIKI_URL = {
-  /** ホームに出すものを1本にまとめたもの（スペース・最近更新・お気に入り・期限切れ） */
+  /** ホームに出すものを1本にまとめたもの（スペース・最近更新・お気に入り・要見直し） */
   home: '/wiki/home',
   /** スペースの一覧（左メニュー用。ホームは `home` に入っているほうを使う） */
   spaces: '/wiki/spaces',
@@ -85,7 +85,7 @@ export interface WikiHome {
   spaces: WikiSpace[];
   recent: WikiPageBrief[];
   favorites: WikiPageBrief[];
-  /** 自分が担当で見直し期限が切れている公開ページ。0件なら画面に出さない */
+  /** 自分が担当で見直し予定日を過ぎている公開ページ。0件なら画面に出さない */
   overdue: WikiReviewRow[];
 }
 

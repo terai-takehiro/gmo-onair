@@ -26,7 +26,7 @@ export interface WikiHome {
   spaces: Row[];
   recent: Row[];
   favorites: Row[];
-  /** 自分が担当で見直し期限が切れている公開ページ。0件なら画面に出さない（§6-①） */
+  /** 自分が担当で見直し予定日を過ぎている公開ページ。0件なら画面に出さない（§6-①） */
   overdue: Row[];
 }
 

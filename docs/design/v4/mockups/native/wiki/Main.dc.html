@@ -105,10 +105,10 @@
           </a>
         </div>
 
-        <!-- 自分の見直し期限（0件なら出さない） -->
+        <!-- 自分の要見直し（0件なら出さない） -->
         <div style="display: flex; align-items: center; gap: 10px; height: 42px; border-radius: 12px; border: 1px solid #f6cdd2; background: #fef6f7; padding: 0 12px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c7243a" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
-          <span style="font-size: 12.5px; font-weight: 700; color: #7f1d2b;">あなたが担当のページで、見直し期限が切れているものが 2件あります</span>
+          <span style="font-size: 12.5px; font-weight: 700; color: #7f1d2b;">あなたが担当のページで、見直し予定日を過ぎているものが 2件あります</span>
           <span class="num" style="font-size: 12px; color: #9a3a48;">セキュリティカードの貸出ルール（9/1）・配信設定の鍵の扱い（8/31）</span>
           <span style="flex: 1;"></span>
           <a href="Review.dc.html" style="display: flex; align-items: center; height: 30px; border-radius: 8px; border: 1px solid #f6cdd2; background: #ffffff; padding: 0 11px; font-size: 12px; font-weight: 700; color: #c7243a;">見直しを開く</a>
@@ -213,7 +213,7 @@ class Component extends DCLogic {
       { title: '配信トラブル時の切り分け手順',      space: '制作・技術', spaceKey: 'prod',  updated: '9/18 16:22', owner: '川口',  badge: '',       badgeBg: '',        badgeFg: '',        mine: false, fav: true },
       { title: 'Blackmagic ATEM 2 M/E の起動と終了', space: '機材',      spaceKey: 'equip', updated: '9/12 10:05', owner: '大野',  badge: '',       badgeBg: '',        badgeFg: '',        mine: false, fav: false },
       { title: '内覧会 当日の受付手順',              space: '営業',       spaceKey: 'sales', updated: '9/05 13:30', owner: '佐藤',  badge: '下書き', badgeBg: '#fff7ed', badgeFg: '#c2410e', mine: false, fav: false },
-      { title: 'セキュリティカードの貸出ルール',    space: '全社',       spaceKey: 'all',   updated: '8/30 11:48', owner: '寺井',  badge: '期限切れ', badgeBg: '#fef6f7', badgeFg: '#c7243a', mine: true, fav: true },
+      { title: 'セキュリティカードの貸出ルール',    space: '全社',       spaceKey: 'all',   updated: '8/30 11:48', owner: '寺井',  badge: '要見直し', badgeBg: '#eef2ff', badgeFg: '#4338ca', mine: true, fav: true },
       { title: '経費精算の締め日と提出先',          space: '総務・経理', spaceKey: 'ga',    updated: '7/14 15:00', owner: '中村',  badge: '',       badgeBg: '',        badgeFg: '',        mine: false, fav: true },
     ];
   }

@@ -8,7 +8,7 @@ import pagesRoutes from './routes/pages.routes';
  * 検索できて、AI が読める場所。設計の正は `docs/design/v4/wiki.md`。
  *
  * 段A（器）で出しているのは**読み取りだけ**です:
- *   GET  /wiki/home                     ホーム（スペース・最近更新・お気に入り・期限切れ）
+ *   GET  /wiki/home                     ホーム（スペース・最近更新・お気に入り・要見直し）
  *   GET  /wiki/spaces                   スペースの一覧
  *   GET  /wiki/spaces/:key              スペース1件
  *   GET  /wiki/spaces/:key/tree         そのスペースのツリー

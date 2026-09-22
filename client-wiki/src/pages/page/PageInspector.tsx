@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom';
 import type { WikiPage } from '@gmo-onair/shared/src/wiki/types';
 import { extractHeadings } from '@gmo-onair/shared/src/wiki/markdown';
 import { useWikiVersions } from '@/lib/wikiApi';
+import { bodyForDisplay } from '@/lib/wikiBody';
 import WikiToc from '@/components/wiki/WikiToc';
 import { cn } from '@/lib/utils';
 import PageInfoPanel from './PageInfoPanel';
@@ -21,7 +22,9 @@ export default function PageInspector({ page }: { page: WikiPage }) {
   const [tab, setTab] = useState<Tab>('info');
   // 履歴タブを開いたときだけ読む（ページを開くたびに版を全部取らない）
   const versionsQ = useWikiVersions(page.id, { enabled: tab === 'history' });
-  const headingCount = extractHeadings(page.body_md).length;
+  // 本文と同じ文字列から作る（`bodyForDisplay` の注記）
+  const body = bodyForDisplay(page.body_md, page.title);
+  const headingCount = extractHeadings(body).length;
 
   const tabs: Array<{ key: Tab; label: string; n?: number }> = [
     { key: 'info', label: '情報' },
@@ -51,7 +54,7 @@ export default function PageInspector({ page }: { page: WikiPage }) {
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3.5">
         {tab === 'info' && <PageInfoPanel page={page} />}
-        {tab === 'toc' && <WikiToc body={page.body_md} />}
+        {tab === 'toc' && <WikiToc body={body} />}
         {tab === 'history' && (
           <>
             <PageVersionList

@@ -70,7 +70,10 @@ export interface WikiPage {
   tags: string[];
   owner_user_id: string | null;
   owner_name?: string | null;
-  /** 見直し期限。任意・既定なし（§10 #10）。"YYYY-MM-DD" */
+  /**
+   * 見直し予定日。任意・既定なし（§10 #10）。"YYYY-MM-DD"
+   * ⚠️ 画面では「期限切れ」と言わない（過ぎても中身は無効にならない）。バッジは「要見直し」
+   */
   review_by: string | null;
   /** 保存のたびに +1。画面では「第N版」 */
   rev: number;
@@ -331,7 +334,7 @@ export interface WikiReviewRow {
   owner_name: string | null;
   review_by: string | null;
   updated_at: string;
-  /** overdue = 期限切れ / soon = 14日以内 / no_owner = 担当なし */
+  /** overdue = 予定日を過ぎた（画面の表示は「要見直し」） / soon = 14日以内 / no_owner = 担当なし */
   bucket: 'overdue' | 'soon' | 'no_owner';
 }
 

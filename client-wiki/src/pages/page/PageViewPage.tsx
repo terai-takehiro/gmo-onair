@@ -16,6 +16,7 @@ import { useParams } from 'react-router-dom';
 import { Delayed, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { Sheet } from '@gmo-onair/shared/src/client-v4/sheet';
 import { useRecordView, useWikiPage, useWikiTree } from '@/lib/wikiApi';
+import { bodyForDisplay } from '@/lib/wikiBody';
 import WikiMarkdown from '@/components/wiki/WikiMarkdown';
 import WikiTree from '@/components/wiki/WikiTree';
 import WikiToc from '@/components/wiki/WikiToc';
@@ -59,6 +60,12 @@ export default function PageViewPage() {
   const tree = (
     <WikiTree nodes={treeQ.data} loading={treeQ.isLoading} currentId={page.id} />
   );
+  // 題は上に大きく出すので、本文の先頭が同じ題ならそこだけ描かない。
+  // **目次も同じ文字列から作る**（別々に作ると見出しの id と目次のリンク先がずれる）
+  const body = bodyForDisplay(page.body_md, page.title);
+  // サーバーは `space_color` も返すが、共有の型（`shared/src/wiki/types.ts` の `WikiPage`）に
+  // まだ列が無い。shared は別の担当の持ち物なので、ここでは安全に読むだけにする
+  const spaceColor = (page as { space_color?: string | null }).space_color ?? null;
 
   return (
     <div className="flex h-full min-h-0">
@@ -67,6 +74,7 @@ export default function PageViewPage() {
         <div className="flex h-[46px] shrink-0 items-center gap-2 border-b border-border px-3">
           <span
             className="h-2.5 w-2.5 shrink-0 rounded-badge-xs bg-primary"
+            style={spaceColor ? { backgroundColor: spaceColor } : undefined}
             aria-hidden
           />
           <span className="min-w-0 flex-1 truncate text-list text-foreground">{page.space_name}</span>
@@ -82,16 +90,16 @@ export default function PageViewPage() {
             <h1 className="text-h1 text-foreground">{page.title}</h1>
             <p className="mb-4 mt-1.5 text-sub text-muted-foreground">
               {page.owner_name ? `担当: ${page.owner_name}` : '担当なし'}
-              {page.review_by && ` ・ 見直し期限 ${page.review_by.replace(/-/g, '/')}`}
+              {page.review_by && ` ・ 見直し予定 ${page.review_by.replace(/-/g, '/')}`}
             </p>
 
-            <WikiMarkdown body={page.body_md} />
+            <WikiMarkdown body={body} />
 
             {/* スマホでは右パネルを本文の下に続ける（列を作れないので縦に積む） */}
             <div className="mt-8 flex flex-col gap-6 border-t border-border pt-6 xl:hidden">
               <section>
                 <h2 className="mb-2 text-cardtitle text-foreground">目次</h2>
-                <WikiToc body={page.body_md} />
+                <WikiToc body={body} />
               </section>
               <section>
                 <h2 className="mb-2 text-cardtitle text-foreground">情報</h2>
