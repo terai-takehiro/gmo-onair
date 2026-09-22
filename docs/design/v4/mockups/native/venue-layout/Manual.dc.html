@@ -67,7 +67,7 @@
     </sc-if>
     <button class="tap" onClick="{{goPreview}}" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12.5px; font-weight: 700;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="2.6"></circle></svg>仕上がりを見る</button>
     <button class="tap" onClick="{{goPdf}}" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12.5px; font-weight: 700;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"></path><path d="M8 11l4 4 4-4"></path><path d="M4 19h16"></path></svg>PDF</button>
-    <button class="tap btn-primary" onClick="{{goFix}}" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; background: #005bac; color: #ffffff; padding: 0 14px; font-size: 12.5px; font-weight: 800;" title="全ブロックを凍らせて rev.2 にします（manager）">確定する</button>
+    <button class="tap btn-primary" onClick="{{goFix}}" style="display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; background: #005bac; color: #ffffff; padding: 0 14px; font-size: 12.5px; font-weight: 800;" title="全ブロックを固定して rev.2 にします（manager）">確定する</button>
   </div>
 
   <!-- ── ツールバー ──────────────────────────────────────────── -->
@@ -446,8 +446,8 @@
           <p class="num" style="margin: 6px 0 0; font-size: 11px; line-height: 1.55; color: #9aa1ab;">図面の画面に移り、帯の「運営マニュアルに戻る」でこのページに戻ります。</p>
 
           <div style="margin-top: 10px; border-radius: 10px; border: 1px solid #e6e9ed; background: #f7f8fa; padding: 9px 11px;">
-            <div style="font-size: 12px; font-weight: 800;">確定すると凍ります</div>
-            <div class="num" style="margin-top: 3px; font-size: 11px; line-height: 1.55; color: #5d6470;">確定（rev.2）で図はその時の線画のまま凍り、直しても配った紙は変わりません。1m のバーは消せません。</div>
+            <div style="font-size: 12px; font-weight: 800;">確定すると固定されます</div>
+            <div class="num" style="margin-top: 3px; font-size: 11px; line-height: 1.55; color: #5d6470;">確定（rev.2）で図はその時の線画のまま固定され、直しても配った紙は変わりません。1m のバーは消せません。</div>
           </div>
         </sc-if>
 
@@ -735,7 +735,7 @@ class Component extends DCLogic {
       };
     });
     const freeze = {
-      desc: st.follow ? '追従する（元を直すと冊子も直る）' : 'この版で凍らせる（配った紙と食い違わない）',
+      desc: st.follow ? '追従する（元を直すと冊子も直る）' : 'この版で固定する（配った紙と食い違わない）',
       bg: st.follow ? '#cbd2da' : '#005bac', knob: st.follow ? '2px' : '18px',
       toggle: () => self.setState({ follow: !st.follow }),
     };
@@ -792,7 +792,7 @@ class Component extends DCLogic {
       goList: say('冊子一覧へ', '/techops/manuals?project=GLS-A002 へ移動します'),
       goPreview: say('仕上がりを見る', returnPath + '/preview へ移動します（範囲・つけるもの・出す前の検査）'),
       goPdf: soon('PDF ＝ ブラウザの印刷画面を開き、送信先を「PDF に保存」にします（A4横・12 ページ）'),
-      goFix: soon('確定する ＝ 全ブロックをその時の中身のまま凍らせて rev.2 にします（manager）。会場図面の線画も一緒に凍ります'),
+      goFix: soon('確定する ＝ 全ブロックをその時の中身のまま固定して rev.2 にします（manager）。会場図面の線画も一緒に固定されます'),
       goStack: soon('重なり ＝ 前面へ・背面へ'),
       goUndo: soon('元に戻す（Ctrl+Z ／ Ctrl+Shift+Z）。冊子単位で 50 手'),
       goAddPage: soon('ページを追加 ＝ 12 ページ目の後ろに白紙を足します'),

@@ -540,7 +540,7 @@ class Component extends DCLogic {
       views: views, cols: cols, quickStyles: quickStyles, geom: geom,
       guide: { on: st.sel === 'sched', y: '18%' },
       freeze: {
-        desc: st.freeze ? 'この版で凍らせる（配った紙と食い違わない）' : '追従する（元を直すとマニュアルも直る）',
+        desc: st.freeze ? 'この版で固定する（配った紙と食い違わない）' : '追従する（元を直すとマニュアルも直る）',
         bg: st.freeze ? '#005bac' : '#cbd2da',
         knob: st.freeze ? '18px' : '2px',
         toggle: () => self.setState({ freeze: !st.freeze }),
