@@ -31,11 +31,14 @@ import * as z from 'zod/v4';
 import { resolveProvider, type IntakeAiProvider } from '../../tasks/services/intake-ai.service';
 import { recordAiUsage } from '../../../shared/services/ai-usage.service';
 import { modelFor, tierFor } from '../../../shared/services/ai-model';
+import {
+  coverageTarget, coverageBrief, coverageRetryNote, isTooThin,
+} from '../../../shared/services/ai-coverage';
 
 /** プロンプトを変えたら必ず上げる。`ai_outputs.prompt_version` に入り、改善効果の比較単位になる */
-export const MINUTES_PROMPT_VERSION = 'minutes-v1';
+export const MINUTES_PROMPT_VERSION = 'minutes-v2';
 /** 過去の修正傾向を載せた版。**混ぜない** — 載せた効果を後から数字で言えなくなる */
-export const MINUTES_PROMPT_VERSION_WITH_FEEDBACK = 'minutes-v1+fb';
+export const MINUTES_PROMPT_VERSION_WITH_FEEDBACK = 'minutes-v2+fb';
 
 /** 文字起こしのモデル。差し替えたいときのために環境変数で上書きできる */
 const WHISPER_MODEL = process.env.MINUTES_STT_MODEL || 'whisper-1';
@@ -201,9 +204,21 @@ const DecisionSchema = z.object({
 
 export const MinutesSchema = z.object({
   title: z.string().describe('打合せの表題。30字以内。例「記念式典 配信の内容確認」'),
-  summary: z.string().describe('何の打合せで何が話されたかを3〜5行で。**評価や推測を書かない**'),
-  decisions: z.array(DecisionSchema).describe('決まったこと。決まっていないことは入れない'),
-  open_items: z.array(OpenItemSchema).describe('持ち帰り・未確認になったこと'),
+  summary: z.string().describe(
+    '打合せの本文。**話題ごとに1行**にして、行頭に `■ ` と話題名を付ける'
+    + '（例: `■ 配信構成` / `■ 見積` / `■ 当日の進行`）。'
+    + '1つの話題につき、何が話され・何が問題で・どう落ち着いたかを1〜3文で書く。'
+    + '**話された話題を1つも落とさない**（落とすと、ここにしか残らない話が消える）。'
+    + '長さは渡された「分量の目安」に従う。**評価や推測は書かない**',
+  ),
+  decisions: z.array(DecisionSchema).describe(
+    '決まったこと。決まっていないことは入れない。**件数の上限は無い** — '
+    + '決まったものは全部入れる',
+  ),
+  open_items: z.array(OpenItemSchema).describe(
+    '持ち帰り・未確認になったこと。**件数の上限は無い** — 宿題・確認待ち・'
+    + '相手の返事待ちを全部入れる',
+  ),
   next_meeting: z.string().describe('次回の日程。"YYYY-MM-DD"。言っていなければ空文字'),
   attendees: z.string().describe('出席者。文字起こしから読み取れる範囲で。読み取れなければ空文字'),
 });
@@ -234,7 +249,27 @@ const SYSTEM_PROMPT = `あなたは制作会社の議事録係です。
 
 6. summary に「良い打合せでした」「前向きです」のような評価を書かない。
 
-何も読み取れない場合は、decisions と open_items を空配列にしてください。無理に作らないこと。`;
+## 網羅すること（いちばんよく失敗するところ）
+
+**短くまとめるのはあなたの仕事ではありません。** 読む人は文字起こしを開き直しません。
+議事録に書かれていないことは、**その打合せで起きなかったことになります**。
+
+- **summary は話題ごとに1行**にして、行頭に \`■ \` と話題名を付けてください
+  （\`■ 配信構成\` \`■ 見積\` \`■ 搬入\` \`■ 当日の進行\`）。
+  1つの話題につき1〜3文で、**何が話され・何が問題で・どう落ち着いたか**を書きます
+- **話題を1つも落とさないこと。** 触れただけ・結論が出なかった話題も1行で残します
+  （「〜については保留」「〜は次回に持ち越し」）
+- **決定事項と持ち帰りに件数の上限はありません。** 3件で止めないでください
+- **数字・日付・金額・固有名詞・条件は、出てきたものを全部残す。**
+  「調整中」「複数案」のように丸めないこと
+- **迷ったら書く。** ただし書けるのは**文字起こしにあることだけ**です
+
+逆に、**同じことを2か所に書かないでください**。summary に書いた決定を
+decisions にも書くのは重複ではありません（役割が違う）が、
+summary の中で同じ話題を2行に分けて繰り返すのは誤りです。
+
+何も読み取れない場合は、decisions と open_items を空配列にしてください。無理に作らないこと。
+**ただし「読み取れない」と「短くまとめた」は別です。** 話されているのに書かないのは誤りです。`;
 
 export interface StructuredMinutes {
   title: string;
@@ -249,6 +284,33 @@ export interface StructureResult extends StructuredMinutes {
   provider: IntakeAiProvider;
   model: string;
   promptVersion: string;
+  /** 網羅量の実測。**記録に残す**（`ai_outputs.payload_snapshot`）ので、後から数字で言える */
+  coverage: {
+    /** 文字起こしの文字数 */
+    inputChars: number;
+    /** 引用を除いたまとめの文字数 */
+    outputChars: number;
+    /** 下回ったらやり直させる値 */
+    minChars: number;
+    /** 短すぎてやり直させたか */
+    retried: boolean;
+    /** やり直してもなお足りなかったか（＝短いまま保存した） */
+    thin: boolean;
+  };
+}
+
+/**
+ * 網羅量として数える文字数。**引用（quote）は数えません** —
+ * 引用は文字起こしの写しなので、数に入れると**引用を長くするだけで
+ * 下限を満たせて**しまい、測る意味が無くなります。
+ *
+ * ネットワークに触らないので素で試せます。
+ */
+export function minutesCoverageChars(m: StructuredMinutes): number {
+  let n = m.summary.length;
+  for (const d of m.decisions) n += d.text.length;
+  for (const o of m.open_items) n += o.text.length + o.owner.length;
+  return n;
 }
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
@@ -318,30 +380,81 @@ export async function structureMinutes(
 ${lessons.map((l) => `- ${l}`).join('\n')}\n`
     : '';
 
-  const userPrompt = `打合せの日: ${opts.metOn || '（不明）'}
-${lessonBlock}
+  /*
+   * **分量の目安は文字起こしの長さから計算します**（`shared/services/ai-coverage.ts`）。
+   * 着手前は「3〜5行で」と固定で書いてあり、**1時間の打合せでも3行**しか
+   * 返ってきませんでした（利用者からのご指摘）。
+   */
+  const target = coverageTarget('minutes', transcript.length);
+  const brief = coverageBrief(target, '今回の文字起こし', '引用を除いたまとめ');
+
+  const prompt = (extra: string) => `打合せの日: ${opts.metOn || '（不明）'}
+${lessonBlock}${brief ? `\n${brief}\n` : ''}${extra ? `\n${extra}\n` : ''}
 ## 文字起こし
 """
 ${transcript}
 """`;
 
-  const out = provider === 'openai'
-    ? await callOpenAi(model, userPrompt)
-    : await callAnthropic(model, userPrompt);
+  const call = (extra: string) => (provider === 'openai'
+    ? callOpenAi(model, prompt(extra), transcript.length)
+    : callAnthropic(model, prompt(extra), transcript.length));
 
-  // 費用を見るために残す（`ai_outputs` は「出力」の器なので、ここでは足りない）
+  const out = await call('');
+  let minutes = normalizeMinutes(out.raw);
+  let chars = minutesCoverageChars(minutes);
+  let retried = false;
+
+  const usage = { input: out.usage.inputTokens, cached: out.usage.cachedInputTokens, output: out.usage.outputTokens };
+
+  /*
+   * **短すぎたら1回だけ拾い直させます。**
+   *
+   * やり直しの指示は「長く書け」ではなく「落とした論点を拾え」です
+   * （`coverageRetryNote`）。長さを直接求めると**水増しで満たされ**、
+   * この製品がいちばん避けたい「言っていないことが書かれた議事録」になります。
+   *
+   * **やり直しても足りなければ、長いほうを採って先に進みます。**
+   * 網羅が足りないことを理由に、録音まるごとを失わせない。
+   */
+  if (isTooThin(chars, target)) {
+    retried = true;
+    console.warn(`[minutes] まとめが短すぎます（${chars}字 / 下限 ${target.minChars}字）。拾い直させます`);
+    try {
+      const retry = await call(coverageRetryNote(chars, target, '引用を除いたまとめ'));
+      usage.input += retry.usage.inputTokens;
+      usage.cached += retry.usage.cachedInputTokens;
+      usage.output += retry.usage.outputTokens;
+      const second = normalizeMinutes(retry.raw);
+      const secondChars = minutesCoverageChars(second);
+      // **長いほうを採ります。** 拾い直したのに減っているなら1回目のほうが網羅していた
+      if (secondChars > chars) { minutes = second; chars = secondChars; }
+    } catch (e) {
+      // **やり直しの失敗で1回目を捨てない。** 短くても残っているほうがまし
+      console.warn('[minutes] 拾い直しに失敗しました（1回目の結果を使います）:', (e as Error).message);
+    }
+  }
+
+  // 費用を見るために残す（`ai_outputs` は「出力」の器なので、ここでは足りない）。
+  // **やり直した回のぶんも足して1件にします** — 分けると「1件あたりいくら」が合わない
   await recordAiUsage({
     kind: 'minutes', provider, model,
-    inputTokens: out.usage.inputTokens,
-    cachedInputTokens: out.usage.cachedInputTokens,
-    outputTokens: out.usage.outputTokens,
+    inputTokens: usage.input,
+    cachedInputTokens: usage.cached,
+    outputTokens: usage.output,
   });
 
   return {
-    ...normalizeMinutes(out.raw),
+    ...minutes,
     provider,
     model,
     promptVersion: lessons.length ? MINUTES_PROMPT_VERSION_WITH_FEEDBACK : MINUTES_PROMPT_VERSION,
+    coverage: {
+      inputChars: target.inputChars,
+      outputChars: chars,
+      minChars: target.minChars,
+      retried,
+      thin: isTooThin(chars, target),
+    },
   };
 }
 
@@ -359,12 +472,26 @@ function readUsage(raw: unknown): StructureCall['usage'] {
   };
 }
 
-async function callOpenAi(model: string, userPrompt: string): Promise<StructureCall> {
+/**
+ * 出力の上限。**材料の長さで決めます。**
+ *
+ * 固定値にすると、長い打合せで**途中で切られた議事録**が出ます
+ * （OpenAI は `status=incomplete`、Anthropic は `stop_reason=max_tokens`）。
+ * 日本語は 1 トークン ≒ 1 文字弱なので、目安の3倍を取って余裕を持たせます。
+ */
+function outputTokenBudget(inputChars: number): number {
+  const guide = coverageTarget('minutes', inputChars).guideChars;
+  return Math.min(24_000, Math.max(8_000, guide * 3));
+}
+
+async function callOpenAi(model: string, userPrompt: string, inputChars: number): Promise<StructureCall> {
   const client = new OpenAI({ timeout: STRUCTURE_TIMEOUT_MS, maxRetries: 1 });
   const response = await client.responses.parse({
     model,
     instructions: SYSTEM_PROMPT,
     input: userPrompt,
+    // **切られないだけの枠を取る。** 足りないと `incomplete` で全部失われる
+    max_output_tokens: outputTokenBudget(inputChars),
     text: { format: zodTextFormat(MinutesSchema, 'meeting_minutes') },
   });
   if (response.status === 'incomplete') {
@@ -375,13 +502,21 @@ async function callOpenAi(model: string, userPrompt: string): Promise<StructureC
   return { raw: parsed, usage: readUsage(response.usage) };
 }
 
-async function callAnthropic(model: string, userPrompt: string): Promise<StructureCall> {
+async function callAnthropic(model: string, userPrompt: string, inputChars: number): Promise<StructureCall> {
   const client = new Anthropic({ timeout: STRUCTURE_TIMEOUT_MS, maxRetries: 1 });
   const response = await client.messages.parse({
     model,
-    max_tokens: 8000,
+    max_tokens: outputTokenBudget(inputChars),
     thinking: { type: 'adaptive' },
-    output_config: { effort: 'low', format: zodOutputFormat(MinutesSchema) },
+    /*
+     * **長い打合せは `medium`。** `low` のまま長い文字起こしを渡すと、
+     * 話題を数え上げずに冒頭の印象だけでまとめが出ます
+     * （短すぎる議事録の直接の原因のひとつ）。
+     */
+    output_config: {
+      effort: inputChars >= 4_000 ? 'medium' : 'low',
+      format: zodOutputFormat(MinutesSchema),
+    },
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: userPrompt }],
   });

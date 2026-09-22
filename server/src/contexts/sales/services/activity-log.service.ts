@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
+import { classifyTextCorrection } from '../../../shared/services/ai-coverage';
 import {
   recordAiOutput, recordCorrections, findLatestAiOutput, type CorrectionInput,
 } from '../../../shared/services/ai-output.service';
@@ -10,7 +11,9 @@ import {
   needsShort, shortenNextAction, recordShortCorrections, NEXT_ACTION_SHORT_KIND,
 } from './next-action-short.service';
 import { sanitizeBodyHtml, sanitizeKeyPoints } from '../../../shared/services/html-sanitize';
-import { normalizeActivityStruct, type ActivityStruct } from '../../../shared/services/activity-struct';
+import {
+  normalizeActivityStruct, activityStructLength, type ActivityStruct,
+} from '../../../shared/services/activity-struct';
 import { assertCustomerCompanyId } from '../../../shared/services/company-directory.service';
 import { OPEN_NEXT_ACTION_SQL } from '../../../shared/services/next-action-state';
 
@@ -213,6 +216,8 @@ export class ActivityLogService {
               original,
               subject: s.subject, body_struct: s.struct,
               next_action: s.nextAction, next_action_date: s.nextActionDate,
+              // **網羅量を残す**（条件1）。「短い」という指摘を後から数字で確かめられる
+              coverage: s.coverage,
             },
             toolName: 'activity.format',
             model: s.model,
@@ -493,6 +498,22 @@ export function stableJson(v: unknown): string {
   return JSON.stringify(walk(v));
 }
 
+/**
+ * 人が整えた本文を**膨らませたか**（書き足したか）。
+ *
+ * 構造（`body_struct`）は行ごとの対応が取れない（並びも件数も変わる）ので、
+ * **画面に出る文字量**で見ます。2割以上増えていれば「AI が落としたものを
+ * 人が足した」= 追記、それ以外は取り違えの直し。
+ *
+ * 判定が外れても失われるのは**分類の細かさだけ**（件数は必ず残る）なので、
+ * 読めない値では `false`（＝今までどおり `fix`）に倒します。
+ */
+function structGrew(before: unknown, after: unknown): boolean {
+  const b = activityStructLength(normalizeActivityStruct(before));
+  const a = activityStructLength(normalizeActivityStruct(after));
+  return b > 0 && a >= b * 1.2;
+}
+
 async function recordActivityCorrections(
   id: string, after: Record<string, unknown>, userId: string | null,
 ): Promise<void> {
@@ -516,9 +537,16 @@ async function recordActivityCorrections(
       fieldPath: rowKey,
       before: ai[aiKey] ?? null,
       after: after[rowKey] ?? null,
-      // 空 → 値 は「AI が拾えなかったものを人が足した」= 追記。
-      // 値 → 別の値 は取り違え = 誤り。**混ぜると直す先が分からない**
-      type: b === '' ? 'enrich' : a === '' ? 'reject' : 'fix',
+      /*
+       * 空 → 値 は「AI が拾えなかったものを人が足した」= 追記。
+       * 値 → 空 は丸ごと捨てられた = 不採用。
+       * 値 → 別の値 は取り違え = 誤り。**混ぜると直す先が分からない**。
+       *
+       * ⚠️ **AI の文を残したまま人が書き足した場合も追記です**
+       * （`classifyTextCorrection`）。ここを全部 `fix` にしていたので、
+       * 「整形が短くて人が足している」が**どの数字にも出ませんでした**。
+       */
+      type: a === '' ? 'reject' : classifyTextCorrection(ai[aiKey], after[rowKey]),
     });
   }
   // 要点は行ごとの対応が取れない（並びが変わる）ので、丸ごと1項目として扱う
@@ -547,7 +575,15 @@ async function recordActivityCorrections(
       fieldPath: 'body_struct',
       before: ai.body_struct ?? null,
       after: after.body_struct ?? null,
-      type: beforeStruct === 'null' ? 'enrich' : afterStruct === 'null' ? 'reject' : 'fix',
+      /*
+       * **人が書き足したのか、直したのかを分ける**（上の本文と同じ理由）。
+       * 構造は行ごとの対応が取れないので、**画面に出る文字量**で見ます
+       * （`activityStructLength`）。2割以上増えていれば、AI が
+       * **落としたものを人が足した**＝整形が短すぎたという信号です。
+       */
+      type: beforeStruct === 'null' ? 'enrich'
+        : afterStruct === 'null' ? 'reject'
+          : structGrew(ai.body_struct, after.body_struct) ? 'enrich' : 'fix',
     });
   }
 
