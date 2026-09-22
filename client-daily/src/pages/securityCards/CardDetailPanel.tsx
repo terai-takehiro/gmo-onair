@@ -106,7 +106,7 @@ function CardDetail({
             {card.borrower_contact && <p className="text-sub text-muted-foreground">{card.borrower_contact}</p>}
             <p className="text-sub mt-1 flex flex-wrap items-center gap-1.5 text-muted-foreground">
               <DateRange start={card.lent_on} end={card.due_on} className="text-sub" />
-              {card.overdue ? <span className="text-destructive">返却の日を過ぎています</span> : null}
+              {card.overdue ? <span className="text-destructive">返却期限超過</span> : null}
             </p>
             {card.lent_by_name && <p className="text-sub text-muted-foreground">渡した人: {card.lent_by_name}</p>}
             {card.purpose && <p className="text-sub text-muted-foreground">用途: {card.purpose}</p>}

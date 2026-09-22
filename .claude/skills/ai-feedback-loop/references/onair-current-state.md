@@ -16,8 +16,9 @@ ONAiR で AI 機能を設計するとき、この調査をやり直さずに済�
 | タスクの投入欄 | `task_intake` | ○ | ○ (commit / discard) | ○ (期限内完了率) | ○ |
 | **案件の起票 (`create_project`)** | `project_draft` | ○ | ○ (受付/案件編集の保存時・7日窓) | ○ (stage から導出) | ○ |
 | **打合せの議事録 (Whisper + LLM)** | `minutes_draft` | ○ (文字起こし全文 + 下書き) | ○ (確定時・**AI 出力と比較**) | ○ (**持ち帰りの追跡率**を読み取り時に導出) | ○ (advice を整形プロンプトに載せる) |
-| **やり取りの整形 (画面 / バックフィル)** | `activity_format` | ○ (原文 + 整形結果) | ○ (保存時に自動比較 / 「整え直す」= reject) | ○ (無修正採用率・期限内完了) | ○ (advice をプロンプトに載せる) |
-| **「次にやること」を1行に (migration 190)** | `next_action_short` | ○ (材料の全文 + 出力) | ○ (人が直すと自動比較 = fix / 「違う」= reject) | ○ (無修正採用率 ＋ 期限内完了) | ○ (advice を次のプロンプトに載せる) |
+| **やり取りの整形 (画面 / バックフィル)** | `activity_format` | ○ (原文 + 整形結果) | ○ (保存時に自動比較 / 「整え直す」・**次のアクションの削除**・**本文の手動編集** = reject〈時効なし〉/ **延期** = `next_action_date` の fix) | ○ (無修正採用率 ＋ `digest.activity`＝完了・期限内完了率・削除率・延期率。2026-09 追加) | ○ (advice をプロンプトに載せる。削除率・延期率の助言を含む) |
+| **取込で外の AI が書いた中身 (`create_activity_log`)** | `activity_intake` | ○ (件名・本文・次のアクション) | ○ (保存時に自動比較 / 削除は時効なしで reject) | ○ (`digest.activity`。上と同じ導出) | ○ (2026-09 に `SALES_REVIEW_KINDS` へ追加。それまで API からも月次レビューからも読めなかった) |
+| **「次にやること」を1行に (migration 190)** | `next_action_short` | ○ (材料の全文 + 出力) | ○ (人が直すと自動比較 = fix / 「違う」= reject。**やることの削除は積まない** — 短縮の出来と無関係なため) | ○ (無修正採用率 ＋ `digest.activity`) | ○ (advice を次のプロンプトに載せる) |
 | **プロジェクトの起票 (`create_gpm_project`・2026-08)** | `gpm_project_draft` | ○ (全文 payload + prompt_version) | ○ (gpm.service の update 時・7日窓・AI 自身は除外) | ○ (stage×確定売上。案件と同じ導出) | ○ (digest + 月次営業 AI レビュー) |
 | **プロジェクトタスクの起票 (`create_gpm_task`・2026-08)** | `gpm_task_draft` | ○ (全文 payload + prompt_version) | ○ (gpm.service **と** project-tasks.service の update 時 — GLS-B はガント/`update_task` も通るため両方に入れてある) | ○ (期限内完了率 `gpm_tasks`) | ○ (同上) |
 | **ウィークリー活動報告の下書き（「AI下書きを作る」ボタン・2026-09）** | `weekly_report_draft` | ○ (全文 payload + prompt_version。画面のボタン経由 `weekly-report-draft.service` と MCP `submit_ops_report` の両方が同じ kind に記録) | ○ (`ops-report.service.publishReport` が**確定時**に自動比較。編集入口 `PUT /dailyops/reports/:id` を新設 — 無いと差分が永久に「無修正」になる) | △ (`get_ai_feedback_digest` の汎用集計（無修正確定率）は効くが、週報固有の成果指標は未定義) | ○ (advice を次の下書きに載せる) |
@@ -210,6 +211,33 @@ AI 側は項目を読み分けているのに、渡す入れ物が1本しか無�
 - **無人の取込では待たせない。** 画面の「整えて記録する」の中だけ同じ待ち時間で作り、
   取込ぶんは毎晩 3:10 の定時実行が拾う（取込に AI の待ちを足すと、落ちた日に
   **記録そのものが入らなくなる**）
+
+## 営業活動記録の案件別ビュー・本文の手動編集・次のアクションの編集／削除（実装済み・2026-09）
+
+対象の kind: `activity_format`（サーバーの整形器）／ `activity_intake`（メール取込の AI が書いた本文）／
+`next_action_short`（28字の一文）。設計監査が出した**5条件の充足表**と、この回で何を塞いだか。
+
+| # | 条件 | 既存の作りで満たしていたもの | 着手前に開いていた穴 | この回でどう塞いだか | 判定 |
+|---|---|---|---|---|---|
+| 1 | AI出力を記録・保存 | `ai_outputs.payload_snapshot` に**切り詰めずに全文**（整形は `{original, subject, body_struct, next_action, next_action_date, coverage}`、短文は `{next_action, next_action_short}`、取込は本文・件名・次のアクション） | 整形の payload に **`body_html` キーが無い**ため、人が HTML で本文を書き直すと「AI は空 → 人が書いた」に見えた。migration 304 の `body_edited_at` / `body_edited_by` は "誰がいつ触ったか" しか持たず、**単体では確認フラグでしかない**（スキルが名指しで禁じている形） | 本文の手動編集は **`body_struct` の `reject`**（before に AI が出した構造の全文）として積む。`body_html` どうしの比較は**やめた**（AI 側が持たない欄を比べると全回が「人が直した」になる）。`body_edited_at` は**印ではなく上書き防止の鍵**として使う（毎晩の整形が手動編集した行を触らない） | **○** |
+| 2 | 人間の修正を差分として残す | `recordActivityCorrections` / `recordIntakeCorrections` が**サーバーで自動比較**（人に入力させない）。`classifyTextCorrection` が fix / enrich を分け、`(全体) none` で無修正採用率の分母を守る | ①削除の `reject` は `findLatestAiOutput` の**7日窓**の外に落ちる（この画面の主役＝期限超過は、AI が立ててから7日以上経った行なので**構造的にほぼ全部**が捨てられる）②`hasCorrections()` で同じ出力に二度積まないため、一度保存済みの行の削除は残らない ③完了・延期は `ai_corrections` に**1行も書いていなかった** ④専用の削除口を作ると `update()` を通らず記録ゼロ ⑤重複除けが無く、自動保存で同じ出力に `none` / `reject` が何十回も積まれる ⑥期限なしの `next_action` は `OPEN_NEXT_ACTION_SQL` に拾われず画面に出ないので永久に直されない | ①②**削除と本文の書き直しは時効なし**（`NO_WINDOW_DAYS`）で整形・取込の両方に `reject` を積む ③**延期は `next_action_date` の `fix`**（AI が置いた期限が近すぎたという信号）、**完了は積まない** ④削除口は作らず `update()` が「元の値 vs 来た値」を自分で判定する（呼び出し側の自己申告にすると、機械の更新から時効なしの経路へ入れてしまえる） ⑤差分は **`output_id × field_path` で置き換え**（3回保存しても field ごとに1行） ⑥`OPEN_NEXT_ACTION_NO_DATE_SQL` を足して `none` 区分として画面に出す | **○** |
+| 3 | 顧客反応と成果指標を紐づける | `getFeedbackDigest` が**読み取り時に導出**（`ai_outcomes` に焼かない方針） | **この3つの kind には成果の節が1つも無かった**。`digest.outcomes` は案件系、`on_time_rate` は `task_intake` / `gpm_task_draft` だけで、実際には**無修正採用率しか無かった**（この文書の旧記載「期限内完了」は実装と食い違っていたので直した） | **`digest.activity`** を新設（`next_actions_total` / `completed` / `on_time_rate` / `rejected` / `reject_rate` / `postponed` / `postpone_rate`）。分母は「AI が `next_action` を出した記録」だけ、**機械が閉じた行（`next_action_auto_closed_reason`）は完了に数えない**、削除率の分母から**正常な業務の終わり**（「対応済み」「案件が停止」）を外す | **○** |
+| 4 | 貯めたデータをAI改善に戻す | `getFeedbackDigest(...).advice` を整形・短文のプロンプトに載せる | **`activity_intake` が `SALES_REVIEW_KINDS` に入っておらず**、`GET /ai-activity/digest` の `ALLOWED_KINDS` からも月次レビューからも外れていた（取込 AI の差分は貯まるだけで誰も読まない）。削除・延期に対応する助言の文も `buildAdvice` に無かった | `activity_intake` を `SALES_REVIEW_KINDS` に追加。`buildAdvice` に**削除率・延期率の助言**を足した（件数が10未満のうちは断定しない作法は維持） | **○** |
+| 5 | レビュー頻度と担当 | **月1回・営業のマネージャー**。`buildSalesReviewDraft` が `ops_reports(kind='ai_review_sales')` に下書きを作り、scheduler が回す。`kindSection` が fix / enrich / reject の内訳を出す | `activity_intake` が対象外で、削除・延期に対応する論点がレビュー本文に無かった | 上の `SALES_REVIEW_KINDS` 追加でレビュー本文に載る。削除率・延期率は `digest.activity` から `advice` 経由で下書きに出る | **○** |
+
+**いちばん踏みやすい計測バグ（次に同じ画面を作る人へ）**: **「完了」を AI の誤りとして数えないこと。**
+完了は AI が正しかった証拠で、削除・延期とは**逆向きの信号**。同じ画面の隣り合ったボタンなので、
+まとめて `reject` にすると「**当たっているほど無修正採用率が下がる**」逆さまの数字になる。
+
+**7日窓の例外をどこに置くか**: 既定は7日のまま（`ONAiR 固有の注意`）。時効なしにするのは
+**人が明示的に「違う」と言った操作**だけ — 「整え直す」・次のアクションの削除・本文の手動編集の3つ。
+ふつうの業務更新（3か月後に次のアクションを書き換える）は7日窓で落とす。
+
+**削除の理由は任意**（3択「対応済み」「案件が停止」「AI の見当違い」＋自由記入）。
+**必須にしない** — 人に差分の入力を強いると運用が続かず、削除ごと使われなくなるほうが損。
+理由が無くても `reject` は必ず1行積まれ、理由は分母の出し分けにだけ効く。
+画面の表示文とサーバーのコードの対応表は `activity-corrections.service.ts` の
+`DELETE_REASON_LABEL_TO_CODE`。**画面の文言を変えるときは同時に直すこと**。
 
 ## ONAiR 固有の注意
 

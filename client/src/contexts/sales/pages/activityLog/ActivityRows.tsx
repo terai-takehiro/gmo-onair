@@ -27,7 +27,8 @@ import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
 import { Button } from '@/components/ui/button';
 import { getActivityType } from './kinds';
 import { AiCreatedBadge, ProvenanceChips } from './Badges';
-import { relatedName, shortDate, isOverdue, autoClosedLabel, type ActivityLogRow } from './types';
+import { relatedLine, shortDate, isOverdue, autoClosedLabel, type ActivityLogRow } from './types';
+import { dueLabel, todayStr } from './dueState';
 import type { useNextActionActions } from './useNextActionActions';
 
 type Actions = ReturnType<typeof useNextActionActions>;
@@ -70,8 +71,13 @@ export function NextActionInline({
         <>
           <span className={`inline-flex min-w-0 items-center gap-1.5 ${overdue ? 'text-destructive' : 'text-foreground'}`}>
             <Clock className={`h-3.5 w-3.5 shrink-0 ${overdue ? 'text-destructive' : 'text-warning'}`} aria-hidden="true" />
+            {/*
+              ✕「次回 9/18（期限超過）」→ ○「期限 9/18（4日超過）」
+              （`docs/wording.md` ルール8・9／文字は `dueState.ts` の1本から作る。
+               何日超過しているかまで書かないと、急ぐ順に並べ替えられない）
+            */}
             <span className={`shrink-0 text-sub-sm font-bold ${overdue ? 'text-destructive' : 'text-warning'}`}>
-              次回{row.next_action_date ? ` ${shortDate(row.next_action_date)}` : ''}{overdue ? '（期限超過）' : ''}
+              期限 {dueLabel(row.next_action_date, todayStr())}
             </span>
             <span className="truncate">{row.next_action}</span>
           </span>
@@ -101,21 +107,29 @@ export function NextActionInline({
 }
 
 export function ActivityRows({
-  rows, actions, onOpen,
+  rows, actions, onOpen, showHeader = true,
 }: {
   rows: ActivityLogRow[];
   actions: Actions;
   /** 編集導線。**未指定なら行を開けない**（`sales` の editor 権限が無い一覧から渡す） */
   onOpen?: (row: ActivityLogRow) => void;
+  /**
+   * 列見出しを出すか（既定は出す）。
+   * **日付の見出しで束ねる時系列**（`TimelineGroups.tsx`）は、束ごとに呼ぶと
+   * 列見出しが何度も出るので、束の外に1つだけ置いて `false` を渡す。
+   */
+  showHeader?: boolean;
 }) {
   return (
     <>
-      <RowHeader className="hidden sm:flex">
-        <RowSlot w={96}>活動日</RowSlot>
-        <RowSlot w={72}>種別</RowSlot>
-        <RowMain>件名</RowMain>
-        <RowSlot w={96}>担当</RowSlot>
-      </RowHeader>
+      {showHeader && (
+        <RowHeader className="hidden sm:flex">
+          <RowSlot w={96}>活動日</RowSlot>
+          <RowSlot w={72}>種別</RowSlot>
+          <RowMain>件名</RowMain>
+          <RowSlot w={96}>担当</RowSlot>
+        </RowHeader>
+      )}
 
       {rows.map((row) => {
         const at = getActivityType(row.activity_type);
@@ -142,8 +156,9 @@ export function ActivityRows({
                 <RowTitle className="flex-1">{row.subject}</RowTitle>
                 {row.is_ai_created && <AiCreatedBadge requestedBy={row.ai_requested_by} />}
               </div>
+              {/* **どの案件の話か**を1行で（案件名 ・ クライアント ・ 実施日） */}
               <RowSub>
-                {relatedName(row) ?? '案件・顧客のひも付けなし'}
+                {relatedLine(row)}
                 <span className="sm:hidden">{row.user_name ? ` ・ ${row.user_name}` : ''}</span>
               </RowSub>
               {(row.source_channel || row.message_id || row.ai_requested_by) && (

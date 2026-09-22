@@ -29,7 +29,7 @@ import {
   type DocStatus, type FinanceDoc, type FinanceDocGroup,
 } from './types';
 
-/** 支払期日の色。**色だけに頼らない**（文字にも「2日過ぎています」と出る） */
+/** 支払期日の色。**色だけに頼らない**（文字にも「2日超過」と出る） */
 const DUE_TONE: Record<DueTone, string> = {
   overdue: 'bg-destructive-surface text-destructive',
   today: 'bg-warning-surface text-warning',

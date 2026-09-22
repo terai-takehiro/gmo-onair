@@ -88,7 +88,7 @@ router.patch('/:programId', ...canWrite, async (req, res) => {
     if (!until) return res.status(400).json({ success: false, message: 'until required' });
     const untilDate = new Date(until);
     if (isNaN(untilDate.getTime())) return res.status(400).json({ success: false, message: '終了時刻の形式が不正です。' });
-    if (untilDate.getTime() <= Date.now()) return res.status(400).json({ success: false, message: '終了時刻が過ぎています。' });
+    if (untilDate.getTime() <= Date.now()) return res.status(400).json({ success: false, message: '終了時刻が過去です。' });
 
     const row = await queryOne(
       `UPDATE liveops_programs

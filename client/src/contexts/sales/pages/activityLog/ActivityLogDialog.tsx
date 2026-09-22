@@ -8,7 +8,7 @@
  * `requirePermission('sales', 'manager')` なので、**押せるのに 403** だった）。
  * ④ 入れ物を `Dialog` から `FormDialog` に載せ替えた（スマホは下シート）。
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Trash2 } from 'lucide-react';
 import api from '@/lib/api';
@@ -21,6 +21,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FormDialog } from '@gmo-onair/shared/src/client-v4/formDialog';
 import { ACTIVITY_TYPES } from './kinds';
+import { NextActionDeleteReason } from './NextActionDeleteReason';
 import { emptyForm, type ActivityLogRow, type FormData } from './types';
 
 interface ProjectOption { id: string; gls_number?: string | null; code?: string | null; name: string }
@@ -51,6 +52,10 @@ export function ActivityLogDialog({
   const qc = useQueryClient();
   // 遅延初期化 — mount のたびに評価し、新規の活動日を「開いた日」のローカル日付にする
   const [form, setForm] = useState<FormData>(() => (editing ? formFromRow(editing) : emptyForm()));
+  /** 削除の理由（任意）。欄を空にしたときだけ聞く */
+  const [deleteReason, setDeleteReason] = useState('');
+  /** もともと次のアクションがあり、欄を空にした ＝ 削除 */
+  const nextActionDeleted = !!editing?.next_action && form.next_action.trim() === '';
 
   // `/projects?limit=200` はやめた。①200件を超える分がそもそも選べない
   // （この一覧に検索欄は無い）②終了（完了・失注）案件まで並んでゴミに見える
@@ -85,21 +90,40 @@ export function ActivityLogDialog({
   });
   const customers: CustomerOption[] = custData?.data ?? [];
 
+  /**
+   * ⚠️ **案件別の一覧とチップの件数も落とす。** 落とさないと、次のアクションを
+   * 消したのに「期限超過 3」が 3 のまま残る（片方だけ落とすと
+   * 「直したのに古いまま」になる・`client/CLAUDE.md`「invalidate の対」）
+   */
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['activity-logs'] });
     qc.invalidateQueries({ queryKey: ['activity-upcoming'] });
+    qc.invalidateQueries({ queryKey: ['activity-by-project'] });
+    qc.invalidateQueries({ queryKey: ['activity-by-project-counts'] });
   };
 
   const saveMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      const payload = {
+      const payload: Record<string, unknown> = {
         ...data,
         duration_minutes: data.duration_minutes ? Number(data.duration_minutes) : null,
         project_id: data.project_id || null,
         customer_id: data.customer_id || null,
-        next_action: data.next_action || null,
+        /*
+          **消す操作だけは明示の空値**（`client/CLAUDE.md`「サーバーの部分更新」）。
+          編集で欄を空にしたときは `''` を送る — サーバーはこれを
+          「次のアクションの削除」と受け取り、AI が立てたやることへの
+          **否定の差分**（`ai_corrections` の `reject`）を1行積む。
+          `null` に丸めて送ると、ただの未設定と区別できず信号が消える。
+          新規は欄が空＝最初から無いだけなので `null` のまま
+        */
+        next_action: editing ? data.next_action : (data.next_action || null),
         next_action_date: data.next_action_date || null,
       };
+      // 削除の理由は**任意**。選ばれたときだけ足す（空文字を送らない）
+      if (editing && nextActionDeleted && deleteReason.trim()) {
+        payload.next_action_delete_reason = deleteReason.trim();
+      }
       return editing
         ? (await api.put(`/activity-logs/${editing.id}`, payload)).data
         : (await api.post('/activity-logs', payload)).data;
@@ -241,8 +265,47 @@ export function ActivityLogDialog({
               <Input type="date" value={form.next_action_date} onChange={(e) => setForm((f) => ({ ...f, next_action_date: e.target.value }))} />
             </div>
           </div>
+          {nextActionDeleted && (
+            <NextActionDeleteReason value={deleteReason} onChange={setDeleteReason} />
+          )}
         </div>
       </div>
     </FormDialog>
   );
+}
+
+/**
+ * **id だけで編集ダイアログを開く**（案件別の並びの「編集」から使う）。
+ *
+ * 案件別の口（`GET /activity-logs/by-project`）が返すのは、まとまりの中に並べる
+ * ための**やることの抜粋**（件名・期限・本文）で、ダイアログが必要とする
+ * 顧客・案件・詳細・所要時間は持っていません。抜粋の型をダイアログに合わせて
+ * 太らせると、**一覧の1リクエストが重くなる**（20案件 × 最大5件ぶん）ので、
+ * 押したときに1件だけ読み直します。
+ *
+ * 読み込み中は**何も描きません**。骨組みのダイアログを先に出すと、
+ * 値が届いた瞬間に欄が入れ替わり、押し間違いのもとになります。
+ */
+export function ActivityLogDialogById({
+  id, canDelete, onClose,
+}: {
+  id: string;
+  canDelete: boolean;
+  onClose: () => void;
+}) {
+  const { data, isError } = useQuery({
+    queryKey: ['activity-log', id],
+    queryFn: async () => (await api.get(`/activity-logs/${id}`)).data,
+  });
+
+  useEffect(() => {
+    if (isError) {
+      notifyApiError('活動記録を読み込めませんでした', null, '時間をおいて、もう一度お試しください。');
+      onClose();
+    }
+  }, [isError, onClose]);
+
+  const row: ActivityLogRow | undefined = data?.data;
+  if (!row) return null;
+  return <ActivityLogDialog editing={row} canDelete={canDelete} onClose={onClose} />;
 }

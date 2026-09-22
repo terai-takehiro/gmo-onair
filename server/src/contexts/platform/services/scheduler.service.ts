@@ -316,7 +316,7 @@ async function equipmentOverdue(today: string): Promise<NotifyInput[]> {
         body: fill(
           // ベルは素のテキストで出す（`whitespace-pre-line`）。**強調の記号を書かない** —
           // そのまま「**」が見える
-          '借用者：{借用者名} ／ 返却予定日 {返却予定日} を {遅延日数} 日過ぎています。\n'
+          '借用者：{借用者名} ／ 返却予定日 {返却予定日} から {遅延日数} 日超過しています。\n'
           + '借用者本人のベルには出ません（貸出に利用者の紐づけが無いため）。声を掛けるか、'
           + '返却済みなら貸出一覧で返却を記録してください。\n'
           + `（この督促は${REMINDER_CADENCE_TEXT}）`, vars),

@@ -10,6 +10,15 @@
  *
  * 「目標件数」欄も削除した。`sales_targets` に列が無く、サーバーも受け取らないため
  * 旧画面の入力はどこにも保存されていなかった（黙って捨てられる欄を残さない）。
+ *
+ * ── スマホでの高さ（2026-09 に確認した）────────────────────────
+ *
+ * 決めごと「ダイアログは `max-h-[90vh] overflow-y-auto`」は**ここには書かない**。
+ * `FormDialog` → `shared/src/client-v4/sheet.tsx` が既に
+ * **`max-h-[85vh]` ＋ 中身だけ `overflow-y-auto`**（フッターは下端固定）を持っており、
+ * 画面側で高さを足すと**入れ子の二重スクロール**になる。85vh は下シートの決めごと
+ * （90vh より手前で止めて、下敷きが見えるようにする）なので、こちらに合わせる。
+ * 375px で欄は 担当者 / 年度・月 / 目標金額 の3つだけなので、そもそも溢れない。
  */
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -80,6 +89,11 @@ export function TargetDialog({
             </SelectContent>
           </Select>
         </div>
+        {/*
+          年度と月は**対で読む欄**なので 375px でも2列のまま。ダイアログの実効幅
+          343px に対して1列 163px あり、「2026年」「9月」は潰れない
+          （`formGrid2` のように1列へ落とすと、月を選ぶのに縦へ流れて読みにくい）
+        */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label>年度</Label>

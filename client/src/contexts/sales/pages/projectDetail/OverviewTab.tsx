@@ -39,6 +39,8 @@ import { ENTITY_BADGE_LABEL } from '../projectList/stages';
 import { AiReviewBanner } from './AiReviewBanner';
 import { ThreadDigest } from './ThreadDigest';
 import { nextActionLine, parseNextAction } from './thread/nextAction';
+/** 期限の書き方は**やり取りタブ・概要のダイジェストと同じ1本**（`dueText`） */
+import { dueText } from './thread/NextActionNote';
 import { venueSummary, venuesOf, venueLine } from './venue';
 import { Fact, Section, Field } from './overviewParts';
 import type { ProjectDetail, StudioBooking, ActivityLog } from './types';
@@ -73,7 +75,7 @@ export function OverviewTab({
   const expected = Number(project.expected_amount) || 0;
   const amount = estimate > 0 ? estimate : expected > 0 ? expected : null;
   const isEstimate = estimate > 0;
-  // 期限切れの判定に使う。やり取りタブと同じ作り方にそろえる
+  // 期限超過の判定に使う。やり取りタブと同じ作り方にそろえる
   const today = localDateStr(new Date());
 
   // 未完了で期限がいちばん近い次回アクション。**無いことも出す** (空欄にしない)
@@ -87,6 +89,11 @@ export function OverviewTab({
    * 書き写すと、同じ記録が画面によって違う件数になる。
    */
   const subTasks = nextAction ? parseNextAction(nextAction.next_action).items.length : 0;
+  /**
+   * 期限超過かどうか。**色を付けるのは文字だけ**（今回の設計方針で面は塗らない）。
+   * 判定はやり取りタブと同じ（`next_action_date < 本日`）。
+   */
+  const nextActionOverdue = !!nextAction?.next_action_date && nextAction.next_action_date < today;
 
   /*
    * 会場。**予約が持っているのは `rooms[]`（部屋マスター）と `location_note`（外現場）**の
@@ -211,12 +218,32 @@ export function OverviewTab({
                     ほか <span className="font-number">{subTasks}</span> 件（すべて表示）
                   </Link>
                 )}
-                {nextAction.next_action_date && (
-                  <p className="text-sub-sm font-number text-muted-foreground">{nextAction.next_action_date}</p>
-                )}
+                {/*
+                  ⚠️ **期限は `YYYY-MM-DD` のまま出さない**（利用者のご指摘・`docs/wording.md`）。
+                  **「期限 9/18（4日超過）」**の形にそろえる（やり取りタブ・概要の
+                  ダイジェストと同じ1本 = `dueText`）。日付だけだと、**それが
+                  期限超過なのか来週なのかが読み取れません**。
+                */}
+                <p className={cn(
+                  'text-sub-sm font-number',
+                  nextActionOverdue ? 'font-bold text-destructive' : 'text-muted-foreground',
+                )}>
+                  {dueText(nextAction, today)}
+                </p>
+                {/*
+                  **直す道をここから1本出す**（ご指摘3）。
+                  完了・延期・編集・削除はやり取りタブの行の中にあります。
+                  概要から辿れないと、関係なくなった行がここに出続けたまま片づきません
+                */}
+                <Link
+                  to={`/sales/projects/${project.id}/thread`}
+                  className="text-sub-sm min-h-tap inline-flex items-center text-primary hover:underline lg:min-h-0"
+                >
+                  完了・延期・編集
+                </Link>
               </>
             ) : (
-              <span className="text-sub text-warning">決まっていません</span>
+              <span className="text-sub text-muted-foreground">次のアクションは未設定</span>
             )}
           </Fact>
         </div>

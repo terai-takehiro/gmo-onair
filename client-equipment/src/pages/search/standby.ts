@@ -24,7 +24,7 @@ export function buildStandbyRows(stats: Record<string, number> | undefined): Sta
     rows.push({
       key: 'lent', icon: ArrowRightLeft, tone: 'bg-primary-surface text-primary',
       title: `貸出中 ${stats.lent_out} 点`,
-      sub: stats.overdue ? `うち ${stats.overdue} 点が返却予定日を過ぎています` : '返却予定日を過ぎたものはありません',
+      sub: stats.overdue ? `うち ${stats.overdue} 点が返却期限超過` : '返却期限を超過したものはありません',
       to: '/equipment/lendings',
     });
   }

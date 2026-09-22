@@ -89,14 +89,14 @@ export interface StockReviewNote {
 /**
  * ストックの行に出す一言。
  *
- * **色だけに頼らない**（文字でも同じことを言う）。過ぎているものは
- * 「◯日過ぎています」まで書きます — 「見直し 7/1」だけだと、
+ * **色だけに頼らない**（文字でも同じことを言う）。期限を越えたものは
+ * 「◯日超過」まで書きます — 「見直し 7/1」だけだと、
  * それが過去か未来かを読む人が毎回引き算することになります。
  */
 export function stockReviewNote(reviewOn: string | null | undefined, today: string): StockReviewNote {
   if (!reviewOn) return { tone: 'undecided', text: '見直し日が未設定です', days: null };
   const days = daysBetweenIso(today, reviewOn);
-  if (days < 0) return { tone: 'due', text: `見直し ${jaMd(reviewOn)}（${-days}日過ぎています）`, days };
+  if (days < 0) return { tone: 'due', text: `見直し ${jaMd(reviewOn)}（${-days}日超過）`, days };
   if (days === 0) return { tone: 'due', text: '本日が見直し日です', days };
   if (days <= 7) return { tone: 'soon', text: `見直し ${jaMd(reviewOn)}（あと${days}日）`, days };
   return { tone: 'later', text: `見直し ${jaMd(reviewOn)}（あと${days}日）`, days };

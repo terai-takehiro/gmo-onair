@@ -33,7 +33,7 @@ const IMP_TONE: Record<Importance, string> = {
   low: 'border-transparent bg-muted text-muted-foreground',
 };
 
-/** 見直す日の色。**色だけに頼らない**（文字にも「◯日過ぎています」と出る） */
+/** 見直す日の色。**色だけに頼らない**（文字にも「◯日超過」と出る） */
 const REVIEW_TONE = {
   due: 'bg-warning-surface text-warning',
   soon: 'bg-primary-surface text-primary',

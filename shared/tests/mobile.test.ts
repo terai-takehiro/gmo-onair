@@ -53,11 +53,11 @@ describe('dueLabel — 期限の見え方', () => {
   });
 
   it('**過ぎたものを「あと -2日」と出さない**', () => {
-    expect(dueLabel('2026-08-05', today)).toEqual({ text: '2日 過ぎています', tone: 'over' });
+    expect(dueLabel('2026-08-05', today)).toEqual({ text: '2日超過', tone: 'over' });
   });
 
   it('1日だけ過ぎた', () => {
-    expect(dueLabel('2026-08-06', today).text).toBe('1日 過ぎています');
+    expect(dueLabel('2026-08-06', today).text).toBe('1日超過');
   });
 
   it('7日以内は「あと N日」', () => {
@@ -75,7 +75,7 @@ describe('dueLabel — 期限の見え方', () => {
   });
 
   it('月をまたいだ超過も日数で数える', () => {
-    expect(dueLabel('2026-07-31', '2026-08-02').text).toBe('2日 過ぎています');
+    expect(dueLabel('2026-07-31', '2026-08-02').text).toBe('2日超過');
   });
 });
 

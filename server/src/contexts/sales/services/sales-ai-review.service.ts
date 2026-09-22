@@ -25,7 +25,7 @@ import { usersWithPermission } from '../../platform/services/notification.servic
 // kind は各サービスの定数を import する（文字列を書き写すと、kind を変えた日に
 // 集計だけが黙って 0 件になる — `ai-feedback.service.ts` の MINUTES_KIND と同じ理由）
 import { PROJECT_DRAFT_KIND } from './project-ai-feedback.service';
-import { ACTIVITY_FORMAT_KIND } from './activity-log.service';
+import { ACTIVITY_FORMAT_KIND, ACTIVITY_INTAKE_KIND } from './activity-log.service';
 import { NEXT_ACTION_SHORT_KIND } from './next-action-short.service';
 import { KPT_DRAFT_KIND } from './kpt.service';
 import { MINUTES_KIND } from './minutes.service';
@@ -43,7 +43,7 @@ export const SALES_AI_REVIEW_NOTIFY_TEMPLATE_ID = 'sales_ai_review_draft';
 export const AI_ACTIVITY_LINK = '/settings/ai-activity';
 
 /**
- * レビュー対象の営業系 kind（Phase 2 ②で決めた9種 ＋ プロジェクト管理の2種）。
+ * レビュー対象の営業系 kind（Phase 2 ②で決めた9種 ＋ 取込1種 ＋ プロジェクト管理の2種）。
  * `estimate_draft` / `task_intake` には専用の定数が無い（`aifeedback.tools.ts` の
  * KNOWN_KINDS と同じ理由でリテラルのまま）。**この一覧は
  * `shared/tests/salesAiReview.test.ts` が固定している** — 増減はテストごと直すこと。
@@ -53,6 +53,16 @@ export const AI_ACTIVITY_LINK = '/settings/ai-activity';
 export const SALES_REVIEW_KINDS = [
   'task_intake',
   ACTIVITY_FORMAT_KIND,
+  /*
+   * ⚠️ **取込（`activity_intake`）を外さないこと。**
+   *
+   * 着手前はこの一覧に入っておらず、`ai-activity.routes.ts` の `ALLOWED_KINDS` が
+   * これを流用しているため、**取込 AI の差分は貯まるだけで API からも
+   * 月次レビューからも読めませんでした**（会社方針の条件4・5が閉じていない）。
+   * 案件別の一覧は**取込で入った記録のやることを削除する主戦場**なので、
+   * ここを開けないと集めた信号の行き先がありません。
+   */
+  ACTIVITY_INTAKE_KIND,
   NEXT_ACTION_SHORT_KIND,
   MINUTES_KIND,
   KPT_DRAFT_KIND,

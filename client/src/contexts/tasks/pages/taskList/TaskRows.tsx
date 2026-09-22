@@ -40,7 +40,7 @@ function due(dueDate: string | null, today: string, done: boolean) {
   if (!dueDate) return null;
   const text = dueDate.slice(5).replace('-', '/');
   if (done) return { text, sub: null, tone: 'text-muted-foreground' };
-  if (dueDate < today) return { text, sub: '過ぎています', tone: 'text-destructive' };
+  if (dueDate < today) return { text, sub: '期限超過', tone: 'text-destructive' };
   if (dueDate === today) return { text, sub: '今日が期限', tone: 'text-warning' };
   return { text, sub: null, tone: 'text-secondary-foreground' };
 }
