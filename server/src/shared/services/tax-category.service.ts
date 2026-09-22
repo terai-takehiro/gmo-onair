@@ -18,7 +18,7 @@
  *
  * どちらも税額は 0 円なので**金額の計算は同じ**だが、帳簿と申告では区別する。
  * 片方に寄せて保存すると後から分けられないので、列の値としても分けている
- * (CHECK 制約は migration 156 で `nontax` を許可した)。
+ * (CHECK 制約は migration 302 で `nontax` を許可した)。
  *
  * 画面側の写しは `shared/src/enums.ts` と `client/src/types/index.ts`
  * (この製品は server が shared を import しない構成)。**3か所の値を揃えること**。

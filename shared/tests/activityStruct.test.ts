@@ -97,8 +97,8 @@ describe('normalizeActivityStruct', () => {
 
   it('長すぎるものは切る（1件が画面何枚分にもならないように）', () => {
     const s = normalizeActivityStruct({ lead: 'あ'.repeat(1000), turns: [{ side: 'us', quote: 'い'.repeat(2000) }] })!;
-    expect(s.lead!.length).toBe(400);
-    expect(s.turns[0].quote!.length).toBe(800);
+    expect(s.lead!.length).toBe(700);
+    expect(s.turns[0].quote!.length).toBe(1_200);
   });
 
   it('件数の上限を超えたぶんは捨てる', () => {
@@ -109,8 +109,10 @@ describe('normalizeActivityStruct', () => {
       statuses: Array.from({ length: 9 }, (_, i) => ({ label: `状態${i}`, tone: 'info' })),
       turns: Array.from({ length: 30 }, () => ({ side: 'us', note: 'あり' })),
     })!;
-    expect(s.facts).toHaveLength(6);
-    expect(s.statuses).toHaveLength(4);
+    // **柵はプロンプトが求める件数よりひと回り大きい**（プロンプトは facts 8件・statuses 6件）。
+    // ここを絞ると、長いメールほど静かに中身が落ちる（`activity-struct.ts` の LIMITS のコメント）
+    expect(s.facts).toHaveLength(10);
+    expect(s.statuses).toHaveLength(8);
     expect(s.turns).toHaveLength(12);
   });
 

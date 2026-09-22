@@ -68,6 +68,8 @@ export interface KessanReport {
     /** 仕入・固定原価の取引先で、既存マスタと紐付けられなかったもの（未登録／表記の衝突で一意に決められない） */
     missingVendors: string[];
     created: { projects: number; customers: number; vendors: number };
+    /** 失注・放置ネタの自動整理で論理削除されていたが、決算データに実績があったため復活させた案件（GLS番号／固定原価コード） */
+    revivedProjects: string[];
   };
   /** 既存データ (非決算インポート行) に同一金額+内容が見つかった重複候補 */
   duplicates: { sga: number; revenues: number; purchases: number; samples: string[] };
@@ -499,7 +501,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       purchases: { count: pur.length, amount: sum(pur) },
       fixedCogs: { count: fixed.length, amount: sum(fixed), routed: excludeFixed ? '除外' : `${FIXED_NAME} (${FIXED_CODE})` },
     },
-    masters: { missingProjects: [], missingCustomers: [], missingVendors: [], created: { projects: 0, customers: 0, vendors: 0 } },
+    masters: { missingProjects: [], missingCustomers: [], missingVendors: [], created: { projects: 0, customers: 0, vendors: 0 }, revivedProjects: [] },
     duplicates: { sga: 0, revenues: 0, purchases: 0, samples: [] },
     samples: {
       sga: sga.slice(0, 6).map((x) => `${x.date} ${yen(x.amount)} ${x.tax_category} ${x.vendor_name} | ${x.description.slice(0, 60)}`),
@@ -783,12 +785,51 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       cache.vendors.set(name, { id, ambiguous: false });
       return id;
     }
+    /**
+     * `project_numbers` に `number` の現役行が無ければ1行足す (§4.3)。
+     *
+     * `ensureProject` が案件を解決する3つの経路 (a.見つかった b.削除済みから復活
+     * c.新規作成) のどれでも、この関数が導入される前に作られた案件は `project_numbers`
+     * に1行も残っていない可能性がある。1行も無いまま放置すると、後でこの案件が改番
+     * (`renumberProject`) されたとき「退役させる現役の番号」が見つからず、旧番号が
+     * `projects.gls_number`（上書きされる）からも `project_numbers` からも消え、
+     * 以後どこからも引けなくなる (Codex レビュー指摘)。
+     *
+     * 既に (現役・退役いずれかの) 行がある `number` には触らない — `ON CONFLICT DO
+     * NOTHING` に加えて事前の存在チェックも入れているのは、退役済みの旧番号を
+     * うっかり「現役」として書き戻さないため (退役行がある = 既に別の番号へ改番済み)。
+     */
+    async function ensureNumberHistory(projectId: string, number: string): Promise<void> {
+      const existing = await client.query(`SELECT 1 FROM project_numbers WHERE number=$1 LIMIT 1`, [number]);
+      if (existing.rows[0]) return;
+      // scheme/entity_code は番号の見た目から判定する — 元帳の摘要は GLS137 のような
+      // 旧方式に加え改番後の新方式 (SCS-0001 等) もそのまま拾えるため、新方式まで
+      // 一律 scheme='gls' にすると listRenumberCandidates() が「まだ改番していない」
+      // 候補として誤って拾ってしまう (Codex レビュー指摘・org_transition が 'off' の
+      // 間の issueGls() は旧方式しか発番しないので、そちらは一律 scheme='gls' のままでよい)。
+      const newSchemeMatch = number.match(/^(SCS|GSS|GMO)-\d+$/);
+      const numberEntityCode = newSchemeMatch ? newSchemeMatch[1] : null;
+      await client.query(
+        `INSERT INTO project_numbers (id, project_id, number, entity_code, scheme, assigned_at, assigned_by)
+         VALUES ($1,$2,$3,$4,$5,NOW(),$6)
+         ON CONFLICT (number) DO NOTHING`,
+        [randomUUID(), projectId, number, numberEntityCode, numberEntityCode ? 'entity' : 'gls', fallbackUser],
+      );
+    }
     async function ensureProject(key: string, name: string, customerId: string | null, isFixed = false): Promise<{ id: string; customer_id: string | null } | null> {
       const cacheKey = isFixed ? `__fixed__${key}` : key;
       // キャッシュ命中でも null (= マスタ照合フェーズで「未登録」と記録された値) の場合は
       // ここで作成を試みる必要があるため early-return しない (ensureCustomer/ensureVendor と同じ挙動)。
       const cached = cache.projects.get(cacheKey);
-      if (cached) return cached;
+      if (cached) {
+        // キャッシュ命中でもバックフィルは毎回試みる。マスタ照合フェーズの
+        // findProjectByGls が先にキャッシュへ入れた「見つかった案件」はここで即returnして
+        // しまうため、下の本体 (見つかった／復活／新規作成のどの経路でも通る箇所) まで
+        // 一度も辿り着けない (Codex レビュー指摘: この関数が入る前に作られた案件の
+        // バックフィルが効かない穴)。
+        if (!isFixed) await ensureNumberHistory(cached.id, key);
+        return cached;
+      }
       // 固定原価の疑似案件は code で引く（GLS/案件番号の概念を持たない）。
       // それ以外は gls_number に加え、改番済みの旧番号も `project_numbers` 経由で引く
       // （でないと同じ案件が新番号側で二重に作られてしまう。§4.10）
@@ -807,23 +848,65 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       let p = r.rows[0] || null;
       if (!p) {
         if (!createMasters) { cache.projects.set(cacheKey, null); return null; }
-        // projects.customer_id は NOT NULL。仕入専用 GLS など顧客不明の場合は
-        // フォールバック顧客「(顧客不明)」を割り当てて作成する。
-        const cid = customerId || (await ensureCustomer('(顧客不明)'));
-        if (!cid) { cache.projects.set(cacheKey, null); return null; }
-        const id = randomUUID();
-        await client.query(
-          // 印は **`kessan_marker` の列**に入れる (migration 184)。
-          // 以前は `notes` の先頭に `[kessan:2026-03]` と書いていたが、
-          // メモをやり取りへ畳んだので `notes` の列そのものが無い。
-          // 列に持つと、人が書いたメモと印を取り違えなくなる
-          `INSERT INTO projects (id, code, entity_code, gls_number, name, customer_id, stage, assigned_to, kessan_marker, created_by)
-           VALUES ($1,$2,$3,$4,$5,$6,'a_won',$7,$8,$9)`,
-          [id, key, CURRENT_ENTITY_CODE, isFixed ? null : key, name || key, cid, fallbackUser, period, fallbackUser]
+
+        // 失注・放置ネタの自動整理 (project-purge.service.ts) で論理削除された案件が、
+        // 決算データ上はこの code/gls_number の実績を持っていた、というケースがある。
+        // projects.code / gls_number は deleted_at を見ない素の UNIQUE 制約 (001b) のため、
+        // 削除済み行を無視してこのまま INSERT すると "duplicate key value violates unique
+        // constraint" で取込全体が失敗する。決算実績があるなら本来消すべきではなかった
+        // 案件なので、新規作成ではなく復活させる (project-purge 自身も「動いたお金がある
+        // 案件は残す」方針)。
+        // 改番済み（旧GLS番号→SCS-/GSS-/GMO-）の案件がその後パージされている場合、
+        // 元帳には退役した旧番号のまま残っていることがある。アクティブ検索
+        // (このすぐ上の r クエリ・findProjectByGls) と同じく project_numbers
+        // 経由でも引けるようにしないと、旧番号を永続的に持つはずの削除済み案件を
+        // 見逃して重複案件を作ってしまう (Codex レビュー指摘・PR #713)。
+        const dead = await client.query(
+          isFixed
+            ? `SELECT id, customer_id FROM projects WHERE code=$1 AND deleted_at IS NOT NULL LIMIT 1`
+            : `SELECT id, customer_id FROM projects
+                 WHERE (code=$1 OR gls_number=$1 OR id = (SELECT project_id FROM project_numbers WHERE number=$1))
+                   AND deleted_at IS NOT NULL LIMIT 1`,
+          [key],
         );
-        p = { id, customer_id: cid };
-        report.masters.created.projects++;
+        if (dead.rows[0]) {
+          const rid = dead.rows[0].id as string;
+          // stage も新規作成パスと同じ 'a_won' に戻す。削除時点の stage
+          // (e_lost・放置 neta) のままだと project-purge.service.ts の
+          // PURGE_JUNK_STAGE_SQL に該当し続ける。決算取込で入る revenues は
+          // invoice_issued を立てないため PURGE_HAS_MONEY_SQL の対象にもならず、
+          // deleted_at だけ戻すと次回の自動整理でこの案件と今入れた売上が
+          // また一緒に削除される (Codex レビュー指摘・PR #713)。
+          await client.query(`UPDATE projects SET deleted_at = NULL, stage = 'a_won', updated_at = NOW() WHERE id = $1`, [rid]);
+          p = { id: rid, customer_id: dead.rows[0].customer_id };
+          report.masters.revivedProjects.push(key);
+        } else {
+          // projects.customer_id は NOT NULL。仕入専用 GLS など顧客不明の場合は
+          // フォールバック顧客「(顧客不明)」を割り当てて作成する。
+          // ⚠️ 削除済み案件が復活できないと分かってから解決する — dead クエリより前に
+          // 解決すると、復活パス（既存の customer_id をそのまま使い cid は使わない）
+          // でも呼ばれてしまい、使われない「(顧客不明)」だけが作られる
+          // (Codex レビュー指摘・PR #715)。
+          const cid = customerId || (await ensureCustomer('(顧客不明)'));
+          if (!cid) { cache.projects.set(cacheKey, null); return null; }
+
+          const id = randomUUID();
+          await client.query(
+            // 印は **`kessan_marker` の列**に入れる (migration 184)。
+            // 以前は `notes` の先頭に `[kessan:2026-03]` と書いていたが、
+            // メモをやり取りへ畳んだので `notes` の列そのものが無い。
+            // 列に持つと、人が書いたメモと印を取り違えなくなる
+            `INSERT INTO projects (id, code, entity_code, gls_number, name, customer_id, stage, assigned_to, kessan_marker, created_by)
+             VALUES ($1,$2,$3,$4,$5,$6,'a_won',$7,$8,$9)`,
+            [id, key, CURRENT_ENTITY_CODE, isFixed ? null : key, name || key, cid, fallbackUser, period, fallbackUser]
+          );
+          p = { id, customer_id: cid };
+          report.masters.created.projects++;
+        }
       }
+      // p が解決した経路 (見つかった／復活／新規作成) のどれでも、この案件の現在の
+      // 番号 (key) が project_numbers に残っているとは限らない (ensureNumberHistory 参照)。
+      if (p && !isFixed) await ensureNumberHistory(p.id, key);
       cache.projects.set(cacheKey, p); return p;
     }
 
@@ -937,6 +1020,9 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       throw e;
     }
     report.committed = { sga: counts.sga, revenues: counts.rev, purchases: counts.pur, skipped: counts.skipped, dupSkipped: counts.dupSkipped };
+    if (report.masters.revivedProjects.length) {
+      warnings.push(`失注等で削除されていましたが決算データに実績があったため ${report.masters.revivedProjects.length} 件の案件を復活させました（${report.masters.revivedProjects.join('、')}）。内容をご確認ください。`);
+    }
     return report;
   } finally {
     client.release();

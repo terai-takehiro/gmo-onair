@@ -27,6 +27,7 @@ import {
 } from '../../../shared/services/ai-output.service';
 import { getFeedbackDigest } from '../../../shared/services/ai-feedback.service';
 import { transcribeAudio, structureMinutes } from './minutes-ai.service';
+import { classifyTextCorrection } from '../../../shared/services/ai-coverage';
 import { recordAiUsage } from '../../../shared/services/ai-usage.service';
 
 export const MINUTES_KIND = 'minutes_draft';
@@ -166,6 +167,12 @@ async function runTranscription(
         title: s.title, summary: s.summary,
         decisions: s.decisions, open_items: s.open_items,
         next_meeting: s.next_meeting, attendees: s.attendees,
+        /*
+         * **網羅量を残す**（条件1）。これが無いと「まとめが短い」という
+         * 利用者のご指摘を、後から**数字で確かめる手段がありません**
+         * （画面には「短い」としか出ず、文字起こしの長さとの比も取れない）。
+         */
+        coverage: s.coverage,
       },
       toolName: 'minutes.transcribe',
       model: s.model,
@@ -311,9 +318,16 @@ async function recordMinutesCorrections(outputId: string, after: MinutesRow, use
       fieldPath: col,
       before: ai[col] ?? null,
       after: (after as unknown as Record<string, unknown>)[col] ?? null,
-      // 空 → 値 は「AI が拾えなかったものを人が足した」= 追記。
-      // 値 → 別の値 は取り違え = 誤り。**混ぜると直す先が分からない**
-      type: b === '' ? 'enrich' : 'fix',
+      /*
+       * 空 → 値 は「AI が拾えなかったものを人が足した」= 追記。
+       * 値 → 別の値 は取り違え = 誤り。**混ぜると直す先が分からない**。
+       *
+       * ⚠️ **AI の文を残したまま人が書き足した場合も追記です**
+       * （`classifyTextCorrection`）。ここを全部 `fix` にしていたので、
+       * 「まとめが短くて人が足している」が**どの数字にも出ませんでした** —
+       * 利用者からのご指摘（2026-09）を、集計からは言い当てられなかった理由。
+       */
+      type: classifyTextCorrection(ai[col], (after as unknown as Record<string, unknown>)[col]),
     });
   }
   for (const col of ['decisions', 'open_items'] as const) {

@@ -41,7 +41,12 @@ description: 受信メールを読んで種類ごとに仕分け、GMO ONAiR の
 ```
 get_ai_feedback_digest(kind='inquiry_intake')
 get_ai_feedback_digest(kind='finance_doc_intake')
+get_ai_feedback_digest(kind='activity_intake')
 ```
+
+`activity_intake` は**あなたが `create_activity_log` に書いた中身を、人がどう直したか**です。
+`description` に「人が書き足された（enrich）」が並んでいたら、**本文を要約して渡している**
+という意味なので、次からは**本文をそのまま**入れてください（手順3の注意書き）。
 
 ⚠️ **助言をそのまま信じないこと。** いまの母数は5件で、
 「見送り率100% ＝ 拾いすぎ」という助言が出ますが、**実態は拾えていない**ほうです。
@@ -114,6 +119,30 @@ Gmail はスレッド単位で当てるので、**3か月前に始まったス�
 | 受領書類（見積・発注・請求） | `record_finance_doc` | [references/finance-docs.md](references/finance-docs.md) |
 | 入ってきた情報 | `record_inquiry` | [references/inquiries.md](references/inquiries.md) |
 | 捨てる | （何も呼ばない） | — |
+
+⚠️ **活動記録の `description` は要約しないでください。**
+
+署名・引用返信・定型フッターを外した**本文をそのまま**入れます（往復があるなら往復のまま）。
+読める形（状態・事実・誰の発言か）に分けるのは**サーバー側の整形器の仕事**です
+（`activity-format.service` が後から `body_struct` を埋める）。
+
+ここで縮めると**縮んだものをさらに縮める**ことになり、画面には数行しか残りません
+（利用者からのご指摘「きわめて短いテキストでしか残らず、議事録の意味をなしていない」の
+**上流側の原因**。サーバー側の整形は 2026-09 に直しましたが、
+**元の本文に書かれていないことは、どんな整形器でも取り戻せません**）。
+
+短く言い切ってよいのは `subject` だけです。`next_action` も原文にあるものだけを書きます。
+
+⚠️ **本文が 20,000 字を超えるときだけ、記録を分けます**（要約はしません。超えると
+`create_activity_log` がエラーを返します）。**分けたら `idempotency_key` にも通し番号を付けてください** —
+
+```
+email:<Message-ID>:activity:1
+email:<Message-ID>:activity:2
+```
+
+同じキーのままだと、**2件目以降は「既に取り込み済み」と判断されて黙って捨てられます**
+（冪等ガードは `created: false` を返すだけで、取りこぼしはどこにも出ません）。
 
 ### 4. ラベルを付ける
 

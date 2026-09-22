@@ -49,6 +49,8 @@
 `/design` スキルの `seed-canvas.mjs` で `keep-report-screens.html` を組み直し、同じ URL へ公開し直す。
 組み上げたファイルは 2.5MB（大半がエディタのコード）なのでリポジトリには入れていない（`.gitignore`）。
 
+⚠️ 公開先は**旧形式の単一ページ**（`project/` を持つ Design 型のキャンバスではない）ので、Design 型の作法で `project/canvas.json` と `.dc.html` を送っても反映されない。文言だけ直すときは、公開済みページの `<script id="appifact-doc">` に埋め込まれた `.dc.html`／`canvas.json` に手元と同じ置き換えを施して同じ URL へ公開し直せる（2026-09-22 の `docs/wording.md` ルール11対応はこの方法で公開し直した）。
+
 ## この階層を分けた理由
 
 `v4-mockup-dailyops.dc.html`（131KB）に足すと、`DESIGN_POLICY.md` の上限（1ファイル 25万文字）に

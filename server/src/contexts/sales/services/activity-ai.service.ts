@@ -57,16 +57,40 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import * as z from 'zod/v4';
 import { resolveProvider, type IntakeAiProvider } from '../../tasks/services/intake-ai.service';
 import { recordAiUsage } from '../../../shared/services/ai-usage.service';
-import { normalizeActivityStruct, type ActivityStruct } from '../../../shared/services/activity-struct';
+import {
+  normalizeActivityStruct, activityStructLength, type ActivityStruct,
+} from '../../../shared/services/activity-struct';
+import {
+  coverageTarget, coverageBrief, coverageRetryNote, isTooThin,
+} from '../../../shared/services/ai-coverage';
 import { modelFor, tierFor } from '../../../shared/services/ai-model';
 
 /** プロンプトを変えたら必ず上げる。`ai_outputs.prompt_version` に入り、改善効果の比較単位になる */
-export const ACTIVITY_PROMPT_VERSION = 'activity-v3';
+export const ACTIVITY_PROMPT_VERSION = 'activity-v4';
 /** 過去の修正傾向を載せた版。**混ぜない** — 載せた効果を後から数字で言えなくなる */
-export const ACTIVITY_PROMPT_VERSION_WITH_FEEDBACK = 'activity-v3+fb';
+export const ACTIVITY_PROMPT_VERSION_WITH_FEEDBACK = 'activity-v4+fb';
 
 
 const TIMEOUT_MS = 60_000;
+
+/**
+ * **人が待っている経路の総予算**（`activity-log.service` の `create` に `format: true`）。
+ *
+ * nginx は `/api/` を **65 秒**で切ります（`nginx/gmo-onair.conf`）。切られると
+ * 画面には理由の出ない失敗が出るのに、**サーバーは走り続けて行を作ります** —
+ * 押した人はもう一度押すので、**同じ記録が2件できます**（Codex レビューでの指摘・PR #717）。
+ *
+ * だから「1回あたり」ではなく**総量**で見張ります。ここを超えそうなら
+ * 拾い直しをやめ、**1回目の結果で返します**（短くても、504 と二重登録よりまし）。
+ *
+ * ⚠️ **SDK のやり直し（`maxRetries`）も総量に入ります。** 予算つきの呼び出しでは
+ * 0 にしてあります — `maxRetries: 1` は「上限 60 秒」を**上限 120 秒**に変えるので、
+ * 予算を書いた本人が気づけません（`minutes-ai.service` の同じ注意書きと同じ罠）。
+ */
+const REQUEST_BUDGET_MS = 45_000;
+
+/** 拾い直しに要る最低の残り時間。これを割ったら**やらない**（始めて途中で切られるのが最悪） */
+const RETRY_MIN_REMAINING_MS = 15_000;
 
 /**
  * 整形に渡す文字数の上限。**超えたら切らずに断る**
@@ -84,14 +108,18 @@ const TurnSchema = z.object({
   org: z.string().describe('その人の所属。取引先名か「当社」。無ければ空文字'),
   at: z.string().describe('発言の日時。原文に書かれているものだけ（「7/30 21:54」など）。**推測しない**。無ければ空文字'),
   quote: z.string().describe(
-    '原文の言葉をそのまま引く。**長くても2文**。言い換え・要約・敬語の直しをしない。'
-    + '引ける言葉が無ければ空文字',
+    '原文の言葉をそのまま引く。言い換え・要約・敬語の直しをしない。'
+    + '**その発言の要点が伝わるところまで引く**（1文で足りれば1文、'
+    + '条件が並んでいるなら4文まで）。引ける言葉が無ければ空文字',
   ),
-  note: z.string().describe('引用に収まらない補足。**1〜2文**。無ければ空文字'),
+  note: z.string().describe('引用に収まらない補足。**1〜3文**。無ければ空文字'),
   fields: z.array(z.object({
     label: z.string().describe('項目名。**6字以内**（「搬入」「申込」「掲載ロゴ」）'),
-    value: z.string().describe('その中身。1〜2文'),
-  })).describe('話が複数の項目に分かれているときだけ使う。分かれていなければ空配列'),
+    value: z.string().describe('その中身。1〜3文。**条件・期限・数量を落とさない**'),
+  })).describe(
+    '話が複数の項目に分かれているときだけ使う。分かれていなければ空配列。'
+    + '**分かれているなら項目を省かない**（多くて10件）',
+  ),
 });
 
 const ActivitySchema = z.object({
@@ -101,18 +129,26 @@ const ActivitySchema = z.object({
     label: z.string().describe('状態の名前。**8字以内**（「撮影決定」「昇格の判断待ち」）'),
     tone: z.enum(['decided', 'waiting', 'risk', 'info'])
       .describe('decided = 決まった / waiting = 相手か社内の返事を待っている / risk = 危ない・条件付き / info = そのほか'),
-  })).describe('この記録で決まったこと・待っていること。多くて3件。**原文がそう言っているものだけ**。無ければ空配列'),
+  })).describe(
+    'この記録で決まったこと・待っていること。**原文がそう言っているものは全部**（多くて6件）。'
+    + '件数を減らすために丸めないこと。無ければ空配列',
+  ),
   facts: z.array(z.object({
     icon: z.enum(['date', 'people', 'gear', 'money', 'place', 'doc'])
       .describe('date = 日付・時間 / people = 人数・体制 / gear = 機材 / money = 金額・見積 / place = 場所 / doc = 書類そのほか'),
-    value: z.string().describe('値だけを書く。**項目名を書かない**（「日時: 8/10」ではなく「8/10 5:00–20:00」）。20字程度'),
-  })).describe('日時・体制・機材・見積などの事実。多くて4件。**原文に書かれている数字と固有名詞だけ**。無ければ空配列'),
+    value: z.string().describe('値だけを書く。**項目名を書かない**（「日時: 8/10」ではなく「8/10 5:00–20:00」）。30字程度'),
+  })).describe(
+    '日時・体制・機材・見積などの事実。**原文に書かれている数字と固有名詞は落とさない**'
+    + '（多くて8件）。無ければ空配列',
+  ),
   lead: z.string().describe(
-    'この記録全体の要約。**1〜2文**。いちばん大事な条件だけ `**` で囲んで強調してよい。'
+    'この記録全体の要約。**1〜3文**（話が複数に分かれているなら3文）。'
+    + 'いちばん大事な条件だけ `**` で囲んで強調してよい。'
     + '**発言の中身を繰り返さない**（続きに発言が並ぶので二度読ませることになる）',
   ),
   turns: z.array(TurnSchema).describe(
-    'やり取りを時間の順に並べる。多くて6件。**やり取りが1回しか無ければ1件**。'
+    'やり取りを時間の順に並べる。**原文にある往復は省かない**（多くて12件）。'
+    + 'やり取りが1回しか無ければ1件。'
     + '相手と当社の発言が読み取れないときは空配列（lead だけで足りる）',
   ),
   next_action: z.string().describe(
@@ -153,12 +189,27 @@ const SYSTEM_PROMPT = `あなたは制作会社の営業事務です。
 5. **評価を書かない。** 「良い打合せでした」「前向きです」のような感想は入れないこと。
    ただし**取引先が言った評価は引用として残します**（「感動しました」と言われたのは事実）。
 
-## 短く書くこと（いちばんよく失敗するところ）
+## 落とさないこと（いちばんよく失敗するところ）
 
-読む人は1件を数秒で読みます。**同じことを2か所に書かないでください。**
+**原文は残りますが、読まれるのは整えたほうです。** ここに書かなかったことは、
+一覧にも概要にも出ません。**短くまとめるのはあなたの仕事ではありません。**
 
-- \`lead\` は全体の1〜2文。**発言の中身を繰り返さない**
-- \`quote\` は長くても2文。段落まるごと引かない
+落としてはいけないもの:
+
+- **依頼・宿題・条件**（「〜までに」「〜が必要」「〜なら可」）は1つ残らず
+- **数字・日付・金額・数量・固有名詞**（人名・会社名・機材名・場所）
+- **先方が示した懸念・NG・保留**（後から「言った / 言わない」になる）
+- **往復のやり取り**。メールが3往復なら \`turns\` も3件以上です
+
+**件数の上限は「そこで止めろ」ではありません。** 上限まで使ってよく、
+原文に4件あるのに3件で切るのは誤りです。
+
+## それでも重ねて書かないこと
+
+落とさないことと、同じことを2度書くことは別です。
+
+- \`lead\` は全体の1〜3文。**発言の中身を繰り返さない**（続きに発言が並ぶ）
+- \`quote\` は**その発言の要点が伝わるところまで**。挨拶・署名・引用返信は引かない
 - \`facts\` は値だけ（「8/10 5:00–20:00」）。**「日時：」のような項目名を書かない**
 - \`statuses\` は名前だけ（「撮影決定」）。文にしない
 
@@ -174,7 +225,10 @@ const SYSTEM_PROMPT = `あなたは制作会社の営業事務です。
 - 当社の回答が「搬入は〜」「申込は〜」と項目に分かれているときは \`fields\` を使う
 
 やり取りが1回しか無い記録（社内メモ・短い電話）では \`turns\` を1件、
-または空配列にして \`lead\` だけで済ませてください。**無理に膨らませないこと。**`;
+または空配列にして \`lead\` だけで済ませてください。**無理に膨らませないこと。**
+
+⚠️ **「膨らませない」は「削ってよい」ではありません。** 足すのは禁止、
+削るのも誤りです。原文にある話を**全部・一度ずつ**置いてください。`;
 
 export interface StructuredActivity {
   subject: string;
@@ -188,6 +242,19 @@ export interface ActivityFormatResult extends StructuredActivity {
   provider: IntakeAiProvider;
   model: string;
   promptVersion: string;
+  /** 網羅量の実測。**記録に残す**（`ai_outputs.payload_snapshot`）ので、後から数字で言える */
+  coverage: {
+    /** 原文の文字数 */
+    inputChars: number;
+    /** 画面に出る本文の文字数（`activityStructLength`） */
+    outputChars: number;
+    /** 下回ったらやり直させる値 */
+    minChars: number;
+    /** 短すぎて拾い直させたか */
+    retried: boolean;
+    /** 拾い直してもなお足りなかったか（＝短いまま保存した） */
+    thin: boolean;
+  };
 }
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
@@ -241,7 +308,17 @@ export function normalizeActivity(raw: unknown, original: string): StructuredAct
 
 export async function formatActivity(
   text: string,
-  opts: { activityDate?: string | null; kindLabel?: string | null; advice?: string[] } = {},
+  opts: {
+    activityDate?: string | null; kindLabel?: string | null; advice?: string[];
+    /**
+     * **人がリクエストの中で待っている**（画面から「整えて記録する」を押した）。
+     *
+     * 立てると総予算（`REQUEST_BUDGET_MS`）で見張り、SDK のやり直しを 0 にし、
+     * 残り時間が足りなければ**拾い直しをやめます**。
+     * 裏で走るバックフィル（`activity-format.service`）では立てません。
+     */
+    requestBound?: boolean;
+  } = {},
 ): Promise<ActivityFormatResult> {
   const provider = resolveProvider();
   if (!provider) throw new Error('OPENAI_API_KEY / ANTHROPIC_API_KEY のどちらも未設定です');
@@ -265,7 +342,17 @@ ${lessons.map((l) => `- ${l}`).join('\n')}\n`
    * 毎回変わるもの（日付・本文）を後ろに置きます
    * （投入口の `buildUserPrompt` で測って決めた並べ方と同じ）。
    */
-  const userPrompt = `${lessonBlock}やり取りの種類: ${opts.kindLabel || '（指定なし）'}
+  /*
+   * **分量の目安は原文の長さから計算します**（`shared/services/ai-coverage.ts`）。
+   *
+   * 着手前は件数の上限（`turns` 6件・`facts` 4件・`quote` 2文）だけがあり、
+   * **材料が長いほど落ちる情報が増える**形でした。利用者からのご指摘は
+   * 「きわめて短いテキストでしか残らず、議事録の意味をなしていない」。
+   */
+  const target = coverageTarget('activity', text.length);
+  const brief = coverageBrief(target, '今回の原文', '整えた本文（要約・事実・発言をあわせて）');
+
+  const prompt = (extra: string) => `${lessonBlock}${brief ? `${brief}\n\n` : ''}${extra ? `${extra}\n\n` : ''}やり取りの種類: ${opts.kindLabel || '（指定なし）'}
 やり取りの日: ${opts.activityDate || '（不明）'}
 
 ## 担当者が書いたもの
@@ -273,9 +360,22 @@ ${lessons.map((l) => `- ${l}`).join('\n')}\n`
 ${text}
 """`;
 
-  const call = (m: string) => (provider === 'openai'
-    ? callOpenAi(m, userPrompt)
-    : callAnthropic(m, userPrompt));
+  /*
+   * **人が待っている経路は総量で見張る**（上の `REQUEST_BUDGET_MS`）。
+   * 裏で走るときは `null` = 見張らない（1件に時間がかかっても誰も待っていない）。
+   */
+  const deadline = opts.requestBound ? Date.now() + REQUEST_BUDGET_MS : null;
+  const remainingMs = () => (deadline === null ? null : deadline - Date.now());
+
+  const call = (m: string, extra = '') => {
+    const left = remainingMs();
+    // 予算つきのときは**残り時間そのもの**が1回の上限。やり直しは 0（上の注意書き）
+    const timeoutMs = left === null ? TIMEOUT_MS : Math.max(5_000, Math.min(TIMEOUT_MS, left));
+    const maxRetries = left === null ? 1 : 0;
+    return provider === 'openai'
+      ? callOpenAi(m, prompt(extra), text.length, timeoutMs, maxRetries)
+      : callAnthropic(m, prompt(extra), text.length, timeoutMs, maxRetries);
+  };
 
   /*
    * **軽いモデルで落ちたら、上位モデルで1回だけやり直す**（投入口と同じ決めごと）。
@@ -300,6 +400,17 @@ ${text}
     out = await call(heavy);
   }
 
+  /*
+   * **呼び出し1回につき `ai_usage` 1行**（その約束を破らない・Codex レビューでの指摘）。
+   *
+   * 拾い直しは**上位モデル**で走るので、1回目（軽い）と2回目（重い）の
+   * トークンを足して1行にすると、**全部が片方の単価で値付けされます**
+   * （`costOf` は行のモデル名で引く）。総額が嘘になるほうが、
+   * 「1件あたり」の割り算がずれるより高くつきます。
+   *
+   * ⚠️ `perRowCost` は行数ではなく**呼び出し回数**で割るので、拾い直した回の
+   * 「1件あたり」はそのぶん低めに出ます。**総額は正しい**ほうを取っています。
+   */
   await recordAiUsage({
     kind: 'activity', provider, model: used,
     inputTokens: out.usage.inputTokens,
@@ -307,11 +418,70 @@ ${text}
     outputTokens: out.usage.outputTokens,
   });
 
+  let formatted = normalizeActivity(out.raw, text);
+  let chars = activityStructLength(formatted.struct);
+  let retried = false;
+
+  /*
+   * **短すぎたら1回だけ拾い直させます**（`shared/services/ai-coverage.ts`）。
+   *
+   * ⚠️ 上の「落ちたときのやり直し」とは別ものです。あちらは**失敗**の救済で、
+   * こちらは**中身が足りない**ときの拾い直し。やり直しの指示は
+   * 「長く書け」ではなく「落とした話を拾え」です（`coverageRetryNote`） —
+   * 長さを直接求めると水増しで満たされ、**この製品がいちばん避けたい
+   * 「書かれていないことが書かれた記録」**になります。
+   *
+   * **拾い直しても足りなければ、長いほうを採って先に進みます。**
+   * 網羅が足りないことを理由に、記録そのものを `format_error` にしない。
+   *
+   * **やり直しは上位モデルで行います。** 短すぎる出力は軽いモデルの得意でない
+   * 「長い材料から数え上げる」仕事で起きるので、同じモデルに投げ直しても
+   * 同じ長さが返ります（`ai-model.ts` の「迷ったら heavy に倒す」と同じ判断）。
+   */
+  const left = remainingMs();
+  /*
+   * ⚠️ **残り時間が足りなければ拾い直さない。** 始めて途中で nginx に切られるのが
+   * いちばん悪い結果です（画面は理由の出ない失敗、サーバーは行を作る、人はもう一度押す）。
+   * **短いまま残すほうがまし** — `coverage.thin` に残るので、人は「整え直す」を押せます。
+   */
+  const canRetry = left === null || left >= RETRY_MIN_REMAINING_MS;
+  if (isTooThin(chars, target) && !canRetry) {
+    console.warn(`[activity] 整形が短すぎます（${chars}字）が、残り ${left}ms では拾い直せないので1回目で返します`);
+  }
+  if (isTooThin(chars, target) && canRetry) {
+    retried = true;
+    console.warn(`[activity] 整形が短すぎます（${chars}字 / 下限 ${target.minChars}字）。${heavy} で拾い直させます`);
+    try {
+      const retry = await call(heavy, coverageRetryNote(chars, target, '整えた本文'));
+      // **拾い直した回はそれ自身のモデルで残す**（上の注意書き）
+      await recordAiUsage({
+        kind: 'activity', provider, model: heavy,
+        inputTokens: retry.usage.inputTokens,
+        cachedInputTokens: retry.usage.cachedInputTokens,
+        outputTokens: retry.usage.outputTokens,
+      });
+      const second = normalizeActivity(retry.raw, text);
+      const secondChars = activityStructLength(second.struct);
+      // **長いほうを採ります。** 拾い直したのに減っているなら1回目のほうが網羅していた
+      if (secondChars > chars) { formatted = second; chars = secondChars; used = heavy; }
+    } catch (e) {
+      // **拾い直しの失敗で1回目を捨てない。** 短くても整っているほうがまし
+      console.warn('[activity] 拾い直しに失敗しました（1回目の結果を使います）:', (e as Error).message);
+    }
+  }
+
   return {
-    ...normalizeActivity(out.raw, text),
+    ...formatted,
     provider,
     model: used,
     promptVersion: lessons.length ? ACTIVITY_PROMPT_VERSION_WITH_FEEDBACK : ACTIVITY_PROMPT_VERSION,
+    coverage: {
+      inputChars: target.inputChars,
+      outputChars: chars,
+      minChars: target.minChars,
+      retried,
+      thin: isTooThin(chars, target),
+    },
   };
 }
 
@@ -329,12 +499,29 @@ function readUsage(raw: unknown): FormatCall['usage'] {
   };
 }
 
-async function callOpenAi(model: string, userPrompt: string): Promise<FormatCall> {
-  const client = new OpenAI({ timeout: TIMEOUT_MS, maxRetries: 1 });
+/**
+ * 出力の上限。**材料の長さで決めます。**
+ *
+ * 固定値にすると、長いメールで**途中で切られた整形**が出ます
+ * （OpenAI は `status=incomplete` で、そのまま `format_error` になる）。
+ * 日本語は 1 トークン ≒ 1 文字弱なので、目安の3倍を取って余裕を持たせます。
+ */
+function outputTokenBudget(inputChars: number): number {
+  const guide = coverageTarget('activity', inputChars).guideChars;
+  return Math.min(12_000, Math.max(4_000, guide * 3));
+}
+
+async function callOpenAi(
+  model: string, userPrompt: string, inputChars: number,
+  timeoutMs = TIMEOUT_MS, maxRetries = 1,
+): Promise<FormatCall> {
+  const client = new OpenAI({ timeout: timeoutMs, maxRetries });
   const response = await client.responses.parse({
     model,
     instructions: SYSTEM_PROMPT,
     input: userPrompt,
+    // **切られないだけの枠を取る。** 足りないと `incomplete` で全部失われる
+    max_output_tokens: outputTokenBudget(inputChars),
     text: { format: zodTextFormat(ActivitySchema, 'activity_log') },
   });
   if (response.status === 'incomplete') {
@@ -345,13 +532,24 @@ async function callOpenAi(model: string, userPrompt: string): Promise<FormatCall
   return { raw: parsed, usage: readUsage(response.usage) };
 }
 
-async function callAnthropic(model: string, userPrompt: string): Promise<FormatCall> {
-  const client = new Anthropic({ timeout: TIMEOUT_MS, maxRetries: 1 });
+async function callAnthropic(
+  model: string, userPrompt: string, inputChars: number,
+  timeoutMs = TIMEOUT_MS, maxRetries = 1,
+): Promise<FormatCall> {
+  const client = new Anthropic({ timeout: timeoutMs, maxRetries });
   const response = await client.messages.parse({
     model,
-    max_tokens: 4000,
+    max_tokens: outputTokenBudget(inputChars),
     thinking: { type: 'adaptive' },
-    output_config: { effort: 'low', format: zodOutputFormat(ActivitySchema) },
+    /*
+     * **長い記録は `medium`。** `low` のまま長いメールを渡すと、
+     * 往復を数え上げずに冒頭だけで整形が出ます（短すぎる原因のひとつ）。
+     * しきい値は段が heavy に上がる値（`ai-model.ts` の 4,000 字）に合わせる。
+     */
+    output_config: {
+      effort: inputChars >= 4_000 ? 'medium' : 'low',
+      format: zodOutputFormat(ActivitySchema),
+    },
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: userPrompt }],
   });

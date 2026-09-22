@@ -143,7 +143,10 @@ export function buildSourceText(s: KptSources): string {
     const open = Array.isArray(m.open_items)
       ? (m.open_items as { text?: string }[]).map((d) => d?.text).filter(Boolean).join(' / ') : '';
     const line = `- ${str(m.met_on) || '日付不明'} ${str(m.title)}`
-      + `${str(m.summary) ? ` / ${str(m.summary).replace(/\s+/g, ' ').slice(0, 400)}` : ''}`
+      // 議事録の「まとめ」は**話題ごとに1行**になった（`minutes-ai.service` の summary）。
+      // 400字のままだと3話題目から落ちるので広げる。**全部は入れない** —
+      // 1件の議事録が材料の枠（MAX_SOURCE_CHARS）を食うと、古い回が丸ごと落ちる
+      + `${str(m.summary) ? ` / ${str(m.summary).replace(/\s+/g, ' ').slice(0, 800)}` : ''}`
       + `${decisions ? ` / 決定: ${decisions.slice(0, 300)}` : ''}`
       + `${open ? ` / 持ち帰り: ${open.slice(0, 300)}` : ''}`;
     if (!push(line)) break;

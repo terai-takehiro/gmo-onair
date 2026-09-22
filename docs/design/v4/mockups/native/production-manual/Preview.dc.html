@@ -322,7 +322,7 @@ class Component extends DCLogic {
       { label: '元の資料が消えたブロック', n: 0, dot: '#197a4b', dotBg: '#e7f6ee', fg: '#197a4b' },
     ];
 
-    // 紙に刷る前提の道具なので、出す前にインクの目安を出す（40% を超えたら知らせる）
+    // 紙に刷る前提のアプリなので、出す前にインクの目安を出す（40% を超えたら知らせる）
     const mono = st.opts.indexOf('mono') >= 0;
     const pct = mono ? 6 : 11;
     const ink = {
