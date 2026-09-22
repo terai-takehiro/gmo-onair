@@ -73,6 +73,7 @@ export function GlReport({ report }: { report: KessanReport }) {
           {report.committed.skipped ? ` / その他で飛ばした ${report.committed.skipped}` : ''}
           {' ｜ '}新しく作った：案件 {report.masters.created.projects}
           {' / '}顧客 {report.masters.created.customers} / 取引先 {report.masters.created.vendors}
+          {report.masters.revivedProjects.length > 0 ? ` ｜ 復活させた案件 ${report.masters.revivedProjects.length}` : ''}
         </p>
       )}
 
