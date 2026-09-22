@@ -30,7 +30,7 @@ export interface WikiHeading {
   line: number;
 }
 
-/** コードの柵（``` … ```）の中の行を false にした表を返す */
+/** コードの柵（``` … ```）の中の行を true にした表を返す */
 function codeFenceMask(lines: string[]): boolean[] {
   const mask: boolean[] = [];
   let inFence = false;

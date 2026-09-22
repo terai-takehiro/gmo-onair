@@ -1,32 +1,67 @@
 /**
  * ② ページ `/wiki/p/:id`（docs/design/v4/wiki.md §6-②）
  *
- * PC は3列（左＝ツリー／中央＝本文／右＝情報・目次・履歴）。
- * スマホは**1画面1目的＝読む**（§6-⑧）ので、ツリーは左上のボタンから下シート、
- * 情報と目次は本文の下に続ける。
+ * ── 列の持ち方（2026-09-22 に作り直した）──────────────────────
+ *
+ * 最初は「共通の左メニュー ＋ Wiki のツリー ＋ 本文 ＋ 情報」の**4列**だった。
+ * 1440px で本文に残るのは 608px しかなく、利用者から「サイドタブが増えすぎて
+ * すごく窮屈」とご指摘をいただいた。2つ直した:
+ *
+ *  1. **ツリーを共通の左メニューの中へ移した**（`WikiSpaceTreePanel`）。ナビの列が
+ *     1本になり、共通メニューの「スペース」一覧とツリーの見出しで**同じものを2回
+ *     出していた**のも解消した
+ *  2. **右の情報パネルを開閉式にし、既定を閉じにした**。閉じている間は目次と情報を
+ *     本文の下に続ける（読むのに要る情報ではないので、既定では本文に幅を譲る）
+ *
+ * 結果、1440px の本文は 608px → **860px**（最大幅）になる。
+ *
+ * スマホは**1画面1目的＝読む**（§6-⑧）。ツリーは上辺バーの `☰`（共通メニューの
+ * 引き出し）から開く — **画面の中にもう1つ `☰` を置かない**。
  *
  * ⚠️ `useIsMobile()` で早い段階で `return` しない（幅が変わるとフックの数が変わって
- *    落ちる）。列の出し分けは CSS（`hidden lg:flex`）でやる。
+ *    落ちる）。列の出し分けは CSS（`hidden xl:flex`）でやる。
  *
- * ⚠️ ここは `PageShell` を使っていない。3列を画面の端まで使う画面で、
+ * ⚠️ ここは `PageShell` を使っていない。列を画面の端まで使う画面で、
  *    `PageShell` の余白を入れるとモック（`Page.dc.html`）の寸法と合わなくなるため。
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams } from 'react-router-dom';
 import { Delayed, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
-import { Sheet } from '@gmo-onair/shared/src/client-v4/sheet';
+import { useSideMenuTopSlot } from '@gmo-onair/shared/src/client/shell/sideMenuSlot';
 import { useRecordView, useWikiPage, useWikiTree } from '@/lib/wikiApi';
 import { bodyForDisplay } from '@/lib/wikiBody';
 import WikiMarkdown from '@/components/wiki/WikiMarkdown';
-import WikiTree from '@/components/wiki/WikiTree';
 import WikiToc from '@/components/wiki/WikiToc';
+import WikiSpaceTreePanel from '@/components/layout/WikiSpaceTreePanel';
 import PageHeaderBar from './PageHeaderBar';
 import PageInfoPanel from './PageInfoPanel';
 import PageInspector from './PageInspector';
 
+/** 情報パネルを開いているか。端末の中だけに覚える（他の端末には持って行かない） */
+const INFO_OPEN_KEY = 'gmo_onair_wiki_info_open';
+
+function readInfoOpen(): boolean {
+  try {
+    return localStorage.getItem(INFO_OPEN_KEY) === '1';
+  } catch {
+    // 個人用ウィンドウ・保存を止めている端末では読めない。既定（閉じ）で描く
+    return false;
+  }
+}
+
 export default function PageViewPage() {
   const { id } = useParams<{ id: string }>();
-  const [treeOpen, setTreeOpen] = useState(false);
+  const sideMenuTopSlot = useSideMenuTopSlot();
+  const [infoOpen, setInfoOpen] = useState(readInfoOpen);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(INFO_OPEN_KEY, infoOpen ? '1' : '0');
+    } catch {
+      // 保存できなくても画面は動く
+    }
+  }, [infoOpen]);
 
   const pageQ = useWikiPage(id);
   const page = pageQ.data;
@@ -57,34 +92,33 @@ export default function PageViewPage() {
     );
   }
 
-  const tree = (
-    <WikiTree nodes={treeQ.data} loading={treeQ.isLoading} currentId={page.id} />
-  );
   // 題は上に大きく出すので、本文の先頭が同じ題ならそこだけ描かない。
   // **目次も同じ文字列から作る**（別々に作ると見出しの id と目次のリンク先がずれる）
   const body = bodyForDisplay(page.body_md, page.title);
-  // サーバーは `space_color` も返すが、共有の型（`shared/src/wiki/types.ts` の `WikiPage`）に
-  // まだ列が無い。shared は別の担当の持ち物なので、ここでは安全に読むだけにする
-  const spaceColor = (page as { space_color?: string | null }).space_color ?? null;
 
   return (
     <div className="flex h-full min-h-0">
-      {/* 左＝ツリー（PC） */}
-      <aside className="hidden w-[264px] shrink-0 flex-col border-r border-border bg-card lg:flex">
-        <div className="flex h-[46px] shrink-0 items-center gap-2 border-b border-border px-3">
-          <span
-            className="h-2.5 w-2.5 shrink-0 rounded-badge-xs bg-primary"
-            style={spaceColor ? { backgroundColor: spaceColor } : undefined}
-            aria-hidden
-          />
-          <span className="min-w-0 flex-1 truncate text-list text-foreground">{page.space_name}</span>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-2">{tree}</div>
-      </aside>
+      {/*
+        ツリーは共通の左メニューの上に差し込む（`sideMenuSlot.ts`。予定の
+        ミニカレンダーと同じやり方）。差し込み口がまだ無い（シェルの外・初回描画）
+        ときは何も描かない
+      */}
+      {sideMenuTopSlot
+        && page.space_key
+        && createPortal(
+          <WikiSpaceTreePanel
+            spaceKey={page.space_key}
+            spaceName={page.space_name ?? ''}
+            nodes={treeQ.data}
+            loading={treeQ.isLoading}
+            currentId={page.id}
+          />,
+          sideMenuTopSlot,
+        )}
 
       {/* 中央＝本文 */}
       <main className="flex min-w-0 flex-1 flex-col bg-card">
-        <PageHeaderBar page={page} onOpenTree={() => setTreeOpen(true)} />
+        <PageHeaderBar page={page} infoOpen={infoOpen} onToggleInfo={() => setInfoOpen((v) => !v)} />
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 lg:px-10">
           <div className="mx-auto w-full max-w-[860px]">
             <h1 className="text-h1 text-foreground">{page.title}</h1>
@@ -95,8 +129,18 @@ export default function PageViewPage() {
 
             <WikiMarkdown body={body} />
 
-            {/* スマホでは右パネルを本文の下に続ける（列を作れないので縦に積む） */}
-            <div className="mt-8 flex flex-col gap-6 border-t border-border pt-6 xl:hidden">
+            {/*
+              目次と情報は、右パネルを閉じている間（既定）と、そもそも右パネルを
+              出せない幅では本文の下に続ける。**どちらか一方だけが必ず出る**ので、
+              情報に辿り着けない状態は作らない
+            */}
+            <div
+              className={
+                infoOpen
+                  ? 'mt-8 flex flex-col gap-6 border-t border-border pt-6 xl:hidden'
+                  : 'mt-8 flex flex-col gap-6 border-t border-border pt-6'
+              }
+            >
               <section>
                 <h2 className="mb-2 text-cardtitle text-foreground">目次</h2>
                 <WikiToc body={body} />
@@ -110,19 +154,12 @@ export default function PageViewPage() {
         </div>
       </main>
 
-      {/* 右＝情報・目次・履歴（PC） */}
-      <aside className="hidden w-[320px] shrink-0 flex-col border-l border-border bg-card xl:flex">
-        <PageInspector page={page} />
-      </aside>
-
-      <Sheet
-        open={treeOpen}
-        onOpenChange={setTreeOpen}
-        title={page.space_name ?? 'ページの一覧'}
-        sub="このスペースのページ"
-      >
-        {tree}
-      </Sheet>
+      {/* 右＝情報・目次・履歴（PC で、開いているときだけ） */}
+      {infoOpen && (
+        <aside className="hidden w-[320px] shrink-0 flex-col border-l border-border bg-card xl:flex">
+          <PageInspector page={page} />
+        </aside>
+      )}
     </div>
   );
 }

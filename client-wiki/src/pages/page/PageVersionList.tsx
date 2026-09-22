@@ -6,13 +6,14 @@
  */
 import { Delayed, EmptyState, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { History } from 'lucide-react';
-import type { WikiPageVersion } from '@gmo-onair/shared/src/wiki/types';
+import type { WikiPageVersionBrief } from '@gmo-onair/shared/src/wiki/types';
 import { WikiAiBadge } from '@/components/wiki/WikiStatusBadge';
 import { revLabel, updatedLabel } from '@/lib/wikiFormat';
 import { cn } from '@/lib/utils';
 
 export interface PageVersionListProps {
-  versions: WikiPageVersion[] | undefined;
+  /** 一覧は本文を持たない（`GET /versions` は `body_md` を返さない） */
+  versions: WikiPageVersionBrief[] | undefined;
   loading: boolean;
   error: unknown;
   onRetry: () => void;

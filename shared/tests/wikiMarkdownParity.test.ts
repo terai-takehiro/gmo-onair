@@ -35,6 +35,16 @@ const BODIES: string[] = [
   '# 記号と空白  \t \n\n##   前に空白がある見出し',
   '# 日本語の見出し（かっこ・記号 & 数字 123）',
   '---\n\n# 区切り線のあと',
+  // ここから追記（2026-09-22 の突き合わせで足した分）
+  '# 同じ見出し\n\n## 手順\n\n## 手順\n\n## 手順',            // -2 / -3 が付く
+  '# 行末の井桁 #\n\n## 行末に3つ ###',                         // 閉じの # を落とす
+  '#\n\n#   \n\n# 中身あり',                                    // 空の見出しは作らない
+  '# 題\r\n\r\n## 改行が CRLF\r\n',                           // .md の取り込みで来る
+  '```\n# 中\n~~~\n## まだ中\n```\n\n## 柵の外',              // 柵の種類が違うと閉じない
+  '見て → [あ](/wiki/p/wp-11111111) と [い](/wiki/p/wp-22222222)', // 1行に複数
+  '[題つき](/wiki/p/wp-abc12345 "ヒント")',                        // title 属性つき
+  '括弧が無い /wiki/p/wp-33333333 は拾わない',
+  '# 🔑 絵文字つきの見出し\n\n## 返却が遅れたとき',
 ];
 
 describe('サーバーと画面で同じ答えを出す（Wiki の導出値）', () => {
@@ -57,10 +67,25 @@ describe('サーバーと画面で同じ答えを出す（Wiki の導出値）',
   });
 
   it('見出しの id（headingSlug）', () => {
-    const TEXTS = ['借りる前に', 'Heading With Spaces', '記号 & 数字 123', '（かっこ）', 'a  b', '', '---'];
+    const TEXTS = ['借りる前に', 'Heading With Spaces', '記号 & 数字 123', '（かっこ）', 'a  b', '', '---',
+      '  前後に空白  ', 'Mixed CASE Text', '`コード` と **強調**', '[リンク](/wiki/p/wp-aaaaaaaa)', '#井桁# <タグ> |縦棒| !感嘆'];
     for (const t of TEXTS) {
       expect(server.headingSlug(t)).toBe(client.headingSlug(t));
     }
+  });
+
+  it('検証データの実物（コードの柵つき）で見出しとリンクが同じ', () => {
+    // `wp-rules001` の本文そのもの。柵の中の `#` を見出しに数えないことを実値で固定する
+    const md = [
+      '# 社内ルール', '', '会社の決まりをここにまとめます。', '',
+      '## 経費', '', '手順は [経費の申請手順](/wiki/p/wp-keihi002) を見てください。', '',
+      '```', '# これは見出しではない（コードの中）', '```', '',
+      '## 問い合わせ先', '', '総務まで。',
+    ].join('\n');
+    expect(server.headingsText(md)).toBe(client.headingsText(md));
+    expect(client.headingsText(md)).toBe('社内ルール\n経費\n問い合わせ先');
+    expect(server.extractPageLinks(md)).toEqual(client.extractPageLinks(md));
+    expect(client.extractPageLinks(md)).toEqual(['wp-keihi002']);
   });
 
   it('サーバー側に余分な関数を置いていない（どちらが正か分からなくなる）', () => {

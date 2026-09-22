@@ -2,18 +2,24 @@
  * スペースのツリー `/wiki/s/:key`
  *
  * ホームのタイルと左メニューのスペースから来る画面（§6-①「押すとそのスペースの
- * 目次」）。ページ②と同じ左のツリーを出し、中央は**直下のページの一覧**にする。
- * ページを1本選ぶと ② に移る。
+ * 目次」）。中央は**直下のページの一覧**で、ページを1本選ぶと ② に移る。
+ *
+ * ツリーはページ②と同じく**共通の左メニューの中**に出す（画面の中に2本目のナビの
+ * 列を作らない。2026-09-22 のご指摘「サイドタブが増えすぎて窮屈」）。
  */
+import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
 import { Delayed, EmptyState, ErrorPanel, NotFoundPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { Row, RowMain, RowSlot, RowTitle } from '@gmo-onair/shared/src/client/ui/row';
 import { FileText, Table2 } from 'lucide-react';
 import { useWikiSpace, useWikiTree } from '@/lib/wikiApi';
-import WikiTree from '@/components/wiki/WikiTree';
+import { useSideMenuTopSlot } from '@gmo-onair/shared/src/client/shell/sideMenuSlot';
+import WikiSpaceTreePanel from '@/components/layout/WikiSpaceTreePanel';
 
 export default function SpacePage() {
   const { key } = useParams<{ key: string }>();
+  // **フックは早期 return より前に置く**（返る枝が増えるとフックの数が変わって落ちる）
+  const sideMenuTopSlot = useSideMenuTopSlot();
   // スペースもツリーも **key で引く**（サーバーの道が key で切ってある）
   const spaceQ = useWikiSpace(key);
   const space = spaceQ.data;
@@ -40,19 +46,20 @@ export default function SpacePage() {
 
   return (
     <div className="flex h-full min-h-0">
-      <aside className="hidden w-[264px] shrink-0 flex-col border-r border-border bg-card lg:flex">
-        <div className="flex h-[46px] shrink-0 items-center gap-2 border-b border-border px-3">
-          <span
-            className="h-2.5 w-2.5 shrink-0 rounded-badge-xs bg-primary"
-            style={space.color ? { backgroundColor: space.color } : undefined}
-            aria-hidden
-          />
-          <span className="min-w-0 flex-1 truncate text-list text-foreground">{space.name}</span>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-2">
-          <WikiTree nodes={treeQ.data} loading={treeQ.isLoading} />
-        </div>
-      </aside>
+      {/*
+        ツリーは共通の左メニューの上に差し込む（`sideMenuSlot.ts`）。画面の中に
+        2本目のナビの列を作らない（2026-09-22 のご指摘「サイドタブが増えすぎて窮屈」）
+      */}
+      {sideMenuTopSlot
+        && createPortal(
+          <WikiSpaceTreePanel
+            spaceKey={space.key}
+            spaceName={space.name}
+            nodes={treeQ.data}
+            loading={treeQ.isLoading}
+          />,
+          sideMenuTopSlot,
+        )}
 
       <main className="min-w-0 flex-1 overflow-y-auto bg-card px-4 py-6 lg:px-10">
         <div className="mx-auto w-full max-w-[860px]">

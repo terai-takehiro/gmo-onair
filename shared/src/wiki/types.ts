@@ -56,6 +56,8 @@ export interface WikiPage {
   space_id: string;
   space_key?: string;
   space_name?: string;
+  /** スペースの色（パンくず・印に使う）。サーバーは `GET /wiki/pages/:id` で返す */
+  space_color?: string | null;
   parent_id: string | null;
   sort_order: number;
   title: string;
@@ -103,19 +105,32 @@ export interface WikiPage {
   view_from_answer_30d?: number;
 }
 
-export interface WikiPageVersion {
+/**
+ * 履歴の一覧の1行。**本文を持たない。**
+ *
+ * ⚠️ `GET /wiki/pages/:id/versions` は一覧を軽くするため `body_md` を返しません。
+ * 本文が要るとき（版の中身を出す・差分を取る・この版に戻す）は
+ * `GET /wiki/pages/:id/versions/:rev` を引いて `WikiPageVersion` で受けてください。
+ * ここを `WikiPageVersion` で受けると、型は通るのに `body_md` が `undefined` になります。
+ */
+export interface WikiPageVersionBrief {
   id: string;
   page_id: string;
   rev: number;
   title: string;
-  body_md: string;
   tags: string[];
   saved_by: string | null;
   saver_name?: string | null;
   saved_at: string;
   note: string | null;
-  /** AI が書いた版か（画面の「AI作成」の札） */
+  /** AI が書いた版か（画面の「AI作成」の札）。段E で入る */
   by_ai?: boolean;
+}
+
+/** 版1本（本文つき）。`GET /wiki/pages/:id/versions/:rev` の返り */
+export interface WikiPageVersion extends WikiPageVersionBrief {
+  /** ★ その版の本文。一覧（`WikiPageVersionBrief`）には入らない */
+  body_md: string;
 }
 
 export interface WikiComment {

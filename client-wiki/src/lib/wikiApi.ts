@@ -11,13 +11,14 @@
  * ⚠️ **返りは `{ success, data }` で包まれている**（この製品の作法）。
  *    包みを外すのは `pick()` の1か所だけにして、画面には中身だけを渡す。
  */
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
 import type {
   WikiPage,
   WikiPageStatus,
   WikiPageKind,
   WikiPageVersion,
+  WikiPageVersionBrief,
   WikiReviewRow,
   WikiSpace,
   WikiTreeNode,
@@ -143,11 +144,11 @@ export function useWikiPage(id: string | undefined, opts?: Opts<WikiPage>) {
   });
 }
 
-export function useWikiVersions(id: string | undefined, opts?: Opts<WikiPageVersion[]>) {
+export function useWikiVersions(id: string | undefined, opts?: Opts<WikiPageVersionBrief[]>) {
   return useQuery({
     queryKey: wikiKeys.versions(id ?? ''),
     enabled: !!id,
-    queryFn: ({ signal }) => pick<WikiPageVersion[]>(WIKI_URL.versions(id!), signal),
+    queryFn: ({ signal }) => pick<WikiPageVersionBrief[]>(WIKI_URL.versions(id!), signal),
     ...opts,
   });
 }
@@ -185,11 +186,4 @@ export function useRecordView(pageId: string | undefined, via: 'tree' | 'link' |
     // 読むのを妨げないので、失敗は黙って捨てる（帯を出すほどのことではない）
     void api.post(WIKI_URL.view(pageId), { via }).catch(() => undefined);
   }, [pageId, via]);
-}
-
-/* ── 小物 ─────────────────────────────────────────────────── */
-
-/** ページの一覧を「読んでいるページのスペース」で絞るときに使う */
-export function useSpaceByKey(spaces: WikiSpace[] | undefined, key: string | undefined) {
-  return useMemo(() => spaces?.find((s) => s.key === key), [spaces, key]);
 }
