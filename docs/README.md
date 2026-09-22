@@ -47,6 +47,7 @@
 | [design/v4/qsheet-v4-coding/README.md](design/v4/qsheet-v4-coding/README.md) | 制作技術支援（Qシート）作り直しのコーディング設計（段 00〜14）と実装設計 [impl/](design/v4/qsheet-v4-coding/impl/README.md) |
 | [design/qsheet-recording-streaming.md](design/qsheet-recording-streaming.md) | 収録設定・配信設定の設計 |
 | [design/v4/wiki.md](design/v4/wiki.md) | 新しいブロックアプリ「Wiki」（Markdown ネイティブのマニュアル置き場＋AI）の設計。§10 の全件 12 件は判断済み（2026-09-22）・着手できる |
+| [design/v4/tech-docs.md](design/v4/tech-docs.md) | 制作技術支援の新ミニアプリ「技術資料」（映像パッチ＋技術スタッフ／パッチ盤・技術人員の台帳）の設計。§13 の9件は判断待ち |
 | [reviews/qsheet-techops-migration-plan.md](reviews/qsheet-techops-migration-plan.md) | `qsheet` → `techops` 改名の移行計画（残りは旧 URL の撤去判断） |
 | [reviews/techops-ui-unification-plan.md](reviews/techops-ui-unification-plan.md) | 制作技術支援の UI 統一計画 |
 | [reviews/permission-model-simplification-plan.md](reviews/permission-model-simplification-plan.md) | 権限モデルの単純化（実装済み。決めごとの根拠として残す） |
