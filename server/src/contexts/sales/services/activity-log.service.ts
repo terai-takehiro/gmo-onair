@@ -215,7 +215,10 @@ export class ActivityLogService {
             advice = (await getFeedbackDigest(ACTIVITY_FORMAT_KIND, 90)).advice ?? [];
           } catch { /* 助言が取れなくても続ける */ }
 
+          // **人がリクエストの中で待っている経路**。総予算で見張り、拾い直しは
+          // 残り時間があるときだけ走る（`activity-ai.service` の `REQUEST_BUDGET_MS`）
           const s = await formatActivity(original, {
+            requestBound: true,
             activityDate: activity_date as string,
             kindLabel: KIND_LABEL[String(activity_type)] ?? null,
             advice,
@@ -594,10 +597,31 @@ export function intakeDiffs(
   const FIELDS = ['subject', 'description', 'next_action', 'next_action_date'] as const;
   const diffs: CorrectionInput[] = [];
 
+  /*
+   * ⚠️ **整形器が埋めた値を、取込 AI の成績に数えない**（Codex レビューでの指摘・PR #717）。
+   *
+   * `mergeFormatted` は**行の `next_action` が空のときだけ**、本文から読み取った
+   * 「次にやること」とその期限を埋めます（`activity-format.service`）。つまり
+   * 取込が空で出したあとに値が入っていても、**それは整形器が書いたもの**です。
+   *
+   * ここを数えると、人が件名だけ直した最初の保存で、**機械が足した値まで
+   * 「人が書き足した」として積まれます**。しかも一度積むと
+   * `hasCorrections` が真になるので、**あとの本物の修正が永久に記録されません**。
+   *
+   * だから「次にやること」系は**取込 AI が値を出していたときだけ**比べます。
+   * 取込が空だったぶんの取りこぼし（人があとから足した分）は数えられなくなりますが、
+   * **整形器の仕事を取込のせいにするより、数えないほうがまし**です。
+   *
+   * `subject` / `description` は整形器が触らない（件名は上書きしない・本文は
+   * 1バイトも触らない）ので、空から埋まったぶんも取込の取りこぼしとして数えます。
+   */
+  const FORMATTER_FILLS = new Set<string>(['next_action', 'next_action_date']);
+
   for (const col of FIELDS) {
     const b = norm(ai[col]);
     const a = norm(after[col]);
     if (b === a) continue;
+    if (b === '' && FORMATTER_FILLS.has(col)) continue;   // 整形器が埋めた（上の注意書き）
     diffs.push({
       fieldPath: col,
       before: ai[col] ?? null,

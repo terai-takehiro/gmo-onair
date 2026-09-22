@@ -74,6 +74,25 @@ export const ACTIVITY_PROMPT_VERSION_WITH_FEEDBACK = 'activity-v4+fb';
 const TIMEOUT_MS = 60_000;
 
 /**
+ * **人が待っている経路の総予算**（`activity-log.service` の `create` に `format: true`）。
+ *
+ * nginx は `/api/` を **65 秒**で切ります（`nginx/gmo-onair.conf`）。切られると
+ * 画面には理由の出ない失敗が出るのに、**サーバーは走り続けて行を作ります** —
+ * 押した人はもう一度押すので、**同じ記録が2件できます**（Codex レビューでの指摘・PR #717）。
+ *
+ * だから「1回あたり」ではなく**総量**で見張ります。ここを超えそうなら
+ * 拾い直しをやめ、**1回目の結果で返します**（短くても、504 と二重登録よりまし）。
+ *
+ * ⚠️ **SDK のやり直し（`maxRetries`）も総量に入ります。** 予算つきの呼び出しでは
+ * 0 にしてあります — `maxRetries: 1` は「上限 60 秒」を**上限 120 秒**に変えるので、
+ * 予算を書いた本人が気づけません（`minutes-ai.service` の同じ注意書きと同じ罠）。
+ */
+const REQUEST_BUDGET_MS = 45_000;
+
+/** 拾い直しに要る最低の残り時間。これを割ったら**やらない**（始めて途中で切られるのが最悪） */
+const RETRY_MIN_REMAINING_MS = 15_000;
+
+/**
  * 整形に渡す文字数の上限。**超えたら切らずに断る**
  * （黙って切ると、後半に書いた「次にやること」が消えたことに気づけない）。
  */
@@ -289,7 +308,17 @@ export function normalizeActivity(raw: unknown, original: string): StructuredAct
 
 export async function formatActivity(
   text: string,
-  opts: { activityDate?: string | null; kindLabel?: string | null; advice?: string[] } = {},
+  opts: {
+    activityDate?: string | null; kindLabel?: string | null; advice?: string[];
+    /**
+     * **人がリクエストの中で待っている**（画面から「整えて記録する」を押した）。
+     *
+     * 立てると総予算（`REQUEST_BUDGET_MS`）で見張り、SDK のやり直しを 0 にし、
+     * 残り時間が足りなければ**拾い直しをやめます**。
+     * 裏で走るバックフィル（`activity-format.service`）では立てません。
+     */
+    requestBound?: boolean;
+  } = {},
 ): Promise<ActivityFormatResult> {
   const provider = resolveProvider();
   if (!provider) throw new Error('OPENAI_API_KEY / ANTHROPIC_API_KEY のどちらも未設定です');
@@ -331,9 +360,22 @@ ${lessons.map((l) => `- ${l}`).join('\n')}\n`
 ${text}
 """`;
 
-  const call = (m: string, extra = '') => (provider === 'openai'
-    ? callOpenAi(m, prompt(extra), text.length)
-    : callAnthropic(m, prompt(extra), text.length));
+  /*
+   * **人が待っている経路は総量で見張る**（上の `REQUEST_BUDGET_MS`）。
+   * 裏で走るときは `null` = 見張らない（1件に時間がかかっても誰も待っていない）。
+   */
+  const deadline = opts.requestBound ? Date.now() + REQUEST_BUDGET_MS : null;
+  const remainingMs = () => (deadline === null ? null : deadline - Date.now());
+
+  const call = (m: string, extra = '') => {
+    const left = remainingMs();
+    // 予算つきのときは**残り時間そのもの**が1回の上限。やり直しは 0（上の注意書き）
+    const timeoutMs = left === null ? TIMEOUT_MS : Math.max(5_000, Math.min(TIMEOUT_MS, left));
+    const maxRetries = left === null ? 1 : 0;
+    return provider === 'openai'
+      ? callOpenAi(m, prompt(extra), text.length, timeoutMs, maxRetries)
+      : callAnthropic(m, prompt(extra), text.length, timeoutMs, maxRetries);
+  };
 
   /*
    * **軽いモデルで落ちたら、上位モデルで1回だけやり直す**（投入口と同じ決めごと）。
@@ -396,7 +438,17 @@ ${text}
    * 「長い材料から数え上げる」仕事で起きるので、同じモデルに投げ直しても
    * 同じ長さが返ります（`ai-model.ts` の「迷ったら heavy に倒す」と同じ判断）。
    */
-  if (isTooThin(chars, target)) {
+  const left = remainingMs();
+  /*
+   * ⚠️ **残り時間が足りなければ拾い直さない。** 始めて途中で nginx に切られるのが
+   * いちばん悪い結果です（画面は理由の出ない失敗、サーバーは行を作る、人はもう一度押す）。
+   * **短いまま残すほうがまし** — `coverage.thin` に残るので、人は「整え直す」を押せます。
+   */
+  const canRetry = left === null || left >= RETRY_MIN_REMAINING_MS;
+  if (isTooThin(chars, target) && !canRetry) {
+    console.warn(`[activity] 整形が短すぎます（${chars}字）が、残り ${left}ms では拾い直せないので1回目で返します`);
+  }
+  if (isTooThin(chars, target) && canRetry) {
     retried = true;
     console.warn(`[activity] 整形が短すぎます（${chars}字 / 下限 ${target.minChars}字）。${heavy} で拾い直させます`);
     try {
@@ -459,8 +511,11 @@ function outputTokenBudget(inputChars: number): number {
   return Math.min(12_000, Math.max(4_000, guide * 3));
 }
 
-async function callOpenAi(model: string, userPrompt: string, inputChars: number): Promise<FormatCall> {
-  const client = new OpenAI({ timeout: TIMEOUT_MS, maxRetries: 1 });
+async function callOpenAi(
+  model: string, userPrompt: string, inputChars: number,
+  timeoutMs = TIMEOUT_MS, maxRetries = 1,
+): Promise<FormatCall> {
+  const client = new OpenAI({ timeout: timeoutMs, maxRetries });
   const response = await client.responses.parse({
     model,
     instructions: SYSTEM_PROMPT,
@@ -477,8 +532,11 @@ async function callOpenAi(model: string, userPrompt: string, inputChars: number)
   return { raw: parsed, usage: readUsage(response.usage) };
 }
 
-async function callAnthropic(model: string, userPrompt: string, inputChars: number): Promise<FormatCall> {
-  const client = new Anthropic({ timeout: TIMEOUT_MS, maxRetries: 1 });
+async function callAnthropic(
+  model: string, userPrompt: string, inputChars: number,
+  timeoutMs = TIMEOUT_MS, maxRetries = 1,
+): Promise<FormatCall> {
+  const client = new Anthropic({ timeout: timeoutMs, maxRetries });
   const response = await client.messages.parse({
     model,
     max_tokens: outputTokenBudget(inputChars),

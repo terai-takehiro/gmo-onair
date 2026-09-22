@@ -150,6 +150,8 @@ export function registerActivityTools(server: McpServer): void {
         '**メール自動取込では idempotency_key を必ず渡すこと** — 同じキーの記録が既にあれば再作成せず既存を返す (無人バッチの二重登録防止)。' +
         'message_id (由来メールの Message-ID) / source_channel (info@ 等) も分かれば渡す。同じメールから案件と活動記録を両方起票するときは ' +
         'idempotency_key を意図別に (例 "email:<Message-ID>:project" と "email:<Message-ID>:activity") 分けること。' +
+        '**長い本文を複数の記録に分けるときは、キーにも通し番号を付けること** ' +
+        '(例 ":activity:1" / ":activity:2") — 同じキーのままだと2件目以降が既存扱いで黙って捨てられる。' +
         '**description は要約せず本文をそのまま渡すこと** — 読める形に整えるのはサーバー側の整形器で、' +
         'ここで縮めると二重に縮んで画面に数行しか残らない (subject だけは短い言い切りでよい)。',
       inputSchema: {
@@ -178,12 +180,19 @@ export function registerActivityTools(server: McpServer): void {
           + '定型文・フッターを除いた本文を**そのまま**入れる（往復があるなら往復のまま）。'
           + '読める形（状態・事実・誰の発言か）に分けるのは**サーバー側の整形器の仕事**で、'
           + 'ここで縮めると**縮んだものをさらに縮める**ことになり、画面には数行しか残らない。'
-          + `上限 ${MAX_ACTIVITY_CHARS.toLocaleString()} 字（超えるとエラーになります。要約せず、記録を分けること）`,
+          + `上限 ${MAX_ACTIVITY_CHARS.toLocaleString()} 字（超えるとエラーになります。要約せず、記録を分けること。`
+          + '**分けるときは idempotency_key にも通し番号を付ける** — 同じキーだと2件目が捨てられます）',
         ),
         next_action: z.string().optional().describe('次回アクション'),
         next_action_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('次回アクション予定日'),
         idempotency_key: z.string().max(200).optional()
-          .describe('冪等キー (メール取込は必須推奨。意図単位で一意に。例 "email:<Message-ID>:activity")。同じキーが既存なら再作成しない'),
+          .describe(
+            '冪等キー (メール取込は必須推奨。意図単位で一意に。例 "email:<Message-ID>:activity")。'
+            + '同じキーが既存なら再作成しない。'
+            + '⚠️ **長い本文を分けて記録するときは、キーにも通し番号を付けること** '
+            + '(例 "email:<Message-ID>:activity:1" / ":2")。'
+            + '同じキーのままだと**2件目以降が既存扱いで黙って捨てられます**',
+          ),
         message_id: z.string().max(500).optional().describe('由来メールの Message-ID (紐付け・検索用)'),
         source_channel: z.string().max(100).optional().describe('流入チャネル (info@ / sales@cc / phone 等)'),
         ...REQUESTED_BY,

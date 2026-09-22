@@ -61,11 +61,27 @@ describe('intakeDiffs', () => {
     expect(d.find((x) => x.fieldPath === 'next_action')!.type).toBe('reject');
   });
 
-  it('AI が空だったところを人が埋めたら enrich（拾えなかった）', () => {
+  it('件名・本文が空から埋まったら enrich（整形器が触らない欄なので取込の取りこぼし）', () => {
+    const blank = { ...ai, description: '' };
+    const d = intakeDiffs(blank, same());
+    expect(d.find((x) => x.fieldPath === 'description')!.type).toBe('enrich');
+  });
+
+  it('取込が空だった「次にやること」は数えない（整形器が埋めた値を人のせいにしない）', () => {
+    /*
+     * `mergeFormatted` は行の next_action が空のときだけ本文から埋める。
+     * ここを数えると、人が件名だけ直した最初の保存で**機械が足した値まで**
+     * 「人が書き足した」として積まれ、以後 hasCorrections が真になって
+     * **本物の修正が永久に記録されなくなる**（Codex レビュー指摘・PR #717）。
+     */
     const blank = { ...ai, next_action: '', next_action_date: '' };
     const d = intakeDiffs(blank, same());
-    expect(d.find((x) => x.fieldPath === 'next_action')!.type).toBe('enrich');
-    expect(d.find((x) => x.fieldPath === 'next_action_date')!.type).toBe('enrich');
+    expect(d).toEqual([{ fieldPath: '(全体)', type: 'none' }]);
+  });
+
+  it('取込が値を出していた「次にやること」は今までどおり数える', () => {
+    const d = intakeDiffs(ai, same({ next_action: '8/1 までに技術仕様書を返送する。' }));
+    expect(d.find((x) => x.fieldPath === 'next_action')!.type).toBe('fix');
   });
 
   it('整形器の持ち場（body_struct / body_html）は数えない（同じ失敗を2つの kind で数えない）', () => {
