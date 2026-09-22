@@ -17,7 +17,7 @@
  * スペースは件数も名前も DB にあるので、ここには固定の項目だけを置き、
  * スペースの区画は `buildWikiSections()` が受け取って組む（呼ぶのは AppShell）。
  */
-import { LayoutDashboard, LayoutTemplate, ListChecks, Search, Settings2, Sparkles } from 'lucide-react';
+import { ArrowDownUp, LayoutDashboard, LayoutTemplate, ListChecks, Search, Settings2, Sparkles } from 'lucide-react';
 import type { ShellMobileTab, ShellNavItem, ShellNavSection } from '@gmo-onair/shared/src/client/shell';
 import type { WikiSpace } from '@gmo-onair/shared/src/wiki/types';
 
@@ -37,6 +37,7 @@ const TOP: PlannedNavItem[] = [
 /** 下のかたまり（管理） */
 const ADMIN: PlannedNavItem[] = [
   { label: 'テンプレート',  to: '/templates', icon: LayoutTemplate, ready: true },  // 段B で作った
+  { label: '書き出しと取り込み', to: '/transfer', icon: ArrowDownUp, wrap: true, ready: true }, // 段D で作った
   { label: 'スペース管理',  to: '/spaces',    icon: Settings2,      ready: false }, // 段F
 ];
 

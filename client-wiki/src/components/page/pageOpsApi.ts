@@ -14,7 +14,12 @@
  *   GET    /wiki/templates                   テンプレートの一覧（editor）
  *   POST   /wiki/pages/:id/make-template     テンプレートにする／やめる（manager）
  *
- * 応答はこの製品の作法どおり `{ success: true, data: … }` で包まれています。
+ * 段D で足した1本（`routes/search.routes.ts`）:
+ *   POST   /wiki/pages/:id/favorite          お気に入りに入れる（reader）
+ *   DELETE /wiki/pages/:id/favorite          お気に入りから外す（reader）
+ *
+ * 応答はこの製品の作法どおり `{ success: true, data: … }` で包まれています
+ * （`.md` と zip だけは中身そのものなので `lib/wikiExportApi.ts` に分けてあります）。
  */
 import { useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -28,6 +33,8 @@ export const WIKI_OPS_URL = {
   move: (id: string) => `/wiki/pages/${id}/move`,
   templates: '/wiki/templates',
   makeTemplate: (id: string) => `/wiki/pages/${id}/make-template`,
+  /** お気に入り（`POST` で入れる・`DELETE` で外す。人ごとの印） */
+  favorite: (id: string) => `/wiki/pages/${id}/favorite`,
   /** 担当に選べる人（`server/src/contexts/platform/routes/auth.routes.ts`） */
   users: '/users',
 } as const;
@@ -130,6 +137,24 @@ export async function deleteWikiPage(id: string): Promise<DeleteWikiPageResult> 
 
 export async function setWikiTemplate(id: string, isTemplate: boolean): Promise<WikiPage> {
   return unwrap<WikiPage>(await api.post(WIKI_OPS_URL.makeTemplate(id), { is_template: isTemplate }));
+}
+
+/* ── お気に入り（段D・§6-①②） ────────────────────────────── */
+
+export interface WikiFavoriteResult {
+  page_id: string;
+  favorited: boolean;
+}
+
+/**
+ * お気に入りに入れる／外す。**人ごとの印**なので、他の人の画面は変わりません。
+ *
+ * ⚠️ **同じ操作を2回送っても同じ結果になります**（サーバーが入れ直し・外し直しを
+ * 受け付ける）。電波の悪いところで送り直されても失敗として出ません。
+ */
+export async function setWikiFavorite(id: string, favorited: boolean): Promise<WikiFavoriteResult> {
+  const url = WIKI_OPS_URL.favorite(id);
+  return unwrap<WikiFavoriteResult>(favorited ? await api.post(url) : await api.delete(url));
 }
 
 /** テンプレートの一覧の1行（`listTemplates` が返す列。**本文は入っていない**） */

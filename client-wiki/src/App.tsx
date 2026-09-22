@@ -11,6 +11,7 @@ import WikiEditorPage from './pages/editor/WikiEditorPage';
 import HistoryPage from './pages/history/HistoryPage';
 import TemplatesPage from './pages/templates/TemplatesPage';
 import SearchPage from './pages/search/SearchPage';
+import TransferPage from './pages/importexport/TransferPage';
 import WikiSearchGlobal from './components/search/WikiSearchGlobal';
 
 /** 知らない URL。白紙を出さず、何を開こうとしたかと戻り先を出す */
@@ -56,6 +57,7 @@ export default function App() {
             <Route path="/p/:id/history" element={<HistoryPage />} />
             <Route path="/templates" element={<TemplatesPage />} />
             <Route path="/search" element={<SearchPage />} />
+            <Route path="/transfer" element={<TransferPage />} />
             <Route path="*" element={<WikiNotFound />} />
           </Route>
         ) : (

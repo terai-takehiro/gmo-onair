@@ -50,6 +50,17 @@ const BODIES: string[] = [
   '  改行と\n空白\tが\r\n混ざる 機材 の前後  ',
   '先頭に機材がある本文。あとはずっと続く。'.repeat(10),
   '機材'.repeat(100),
+  // ⚠️ ここから下は**抜粋に印がそのまま出ていた**形（実ブラウザで見つけた）
+  '# 機材の貸出ルール\n\n機材を借りるときは台帳に書きます。\n\n![配置図](/api/v1/internal/wiki/files/wf-ba3a21bb)',
+  '## 借りる前に\n\n- [ ] 機材台帳で空き状況を確かめる\n- [x] 返却予定日を入れて貸出登録する',
+  '> [!CAUTION]\n> 機材を黙って持ち出さないこと。\n\n**太字**と`行内のコード`と~~取り消し~~。',
+  '| 機材 | 台数 |\n| --- | --- |\n| カメラ | 3 |',
+  '機材 | 台数\n--- | ---\nカメラ | 3',
+  '引き算は 3 - 2 で、機材の数は変わらない。',
+  '1. 機材を出す\n2. 数える\n\n---\n\n<details><summary>畳んだ中</summary>\n\n機材の続き\n\n</details>',
+  '本文に [貸出ルール](/wiki/p/wp-11111111) を貼る。機材の話。',
+  '```\n# 柵の中の機材\n```\n\n# 柵の外の機材',
+  'snake_case や wiki_pages の下線は消さない。機材。',
 ];
 
 const MARKDOWNS: string[] = [
@@ -88,6 +99,45 @@ describe('サーバーと画面で同じ答えを出す（Wiki の検索）', ()
         expect(server.makeExcerpt(body, terms, 40)).toBe(client.makeExcerpt(body, terms, 40));
       }
     }
+  });
+
+  it('Markdown の印を落とす（toPlainText。文字は消さない）', () => {
+    for (const body of BODIES) {
+      expect(server.toPlainText(body)).toBe(client.toPlainText(body));
+    }
+  });
+
+  it('抜粋に Markdown の印が残らない（画像の URL・注意書きの印・表の縦棒）', () => {
+    const md = [
+      '# 機材の貸出ルール',
+      '',
+      '![配置図](/api/v1/internal/wiki/files/wf-ba3a21bb)',
+      '',
+      '> [!CAUTION]',
+      '> **機材**を黙って持ち出さないこと。',
+      '',
+      '- [ ] 機材台帳で空き状況を確かめる',
+      '',
+      '| 機材 | 台数 |',
+      '| --- | --- |',
+      '| カメラ | 3 |',
+    ].join('\n');
+    const out = client.makeExcerpt(md, ['機材'], 200);
+    expect(out).toBe(server.makeExcerpt(md, ['機材'], 200));
+    // 印は出ない
+    for (const mark of ['![', '](', '/api/v1/', '[!CAUTION]', '**', '- [ ]', '|', '#', '---']) {
+      expect(out, `${mark} が抜粋に残っている: ${out}`).not.toContain(mark);
+    }
+    // 文字は消えない（代替文・引用の中身・箇条書きの中身）
+    for (const word of ['配置図', '貸出ルール', '黙って持ち出さないこと', '空き状況', '台数']) {
+      expect(out, `${word} が抜粋から消えた: ${out}`).toContain(word);
+    }
+  });
+
+  it('下線（snake_case）は消さない', () => {
+    const md = 'wiki_pages の props に入れる。機材。';
+    expect(client.toPlainText(md)).toContain('wiki_pages');
+    expect(server.toPlainText(md)).toBe(client.toPlainText(md));
   });
 
   it('一致した見出し（matchedHeading。柵の中は見出しにしない）', () => {
@@ -131,7 +181,7 @@ describe('サーバーと画面で同じ答えを出す（Wiki の検索）', ()
   it('サーバー側に余分な関数を置いていない（どちらが正か分からなくなる）', () => {
     // 写したのは検索が使う5つだけ。ここが増えたら、増やしたものの突き合わせも上に足すこと。
     expect(Object.keys(server).sort()).toEqual([
-      'compareHits', 'makeExcerpt', 'matchedHeading', 'scorePage', 'splitTerms',
+      'compareHits', 'makeExcerpt', 'matchedHeading', 'scorePage', 'splitTerms', 'toPlainText',
     ]);
   });
 });

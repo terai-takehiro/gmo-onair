@@ -8,10 +8,10 @@
  * ⚠️ **「期限切れ」とは書きません。** 見直し予定日を過ぎても中身が無効になる
  * わけではないので、項目名は「見直し予定」、印は「要見直し」です（ご指摘）。
  */
-import { Link } from 'react-router-dom';
 import type { WikiPage } from '@gmo-onair/shared/src/wiki/types';
 import { usePermissions } from '@/hooks/usePermissions';
 import { OwnerField, ReviewByField, TagsField } from '@/components/page/PageInfoFields';
+import PageBacklinks from '@/components/page/PageBacklinks';
 import RowPropsFields from '@/components/items/RowPropsFields';
 import { stampLabel, revLabel } from '@/lib/wikiFormat';
 
@@ -53,31 +53,7 @@ export default function PageInfoPanel({ page }: { page: WikiPage }) {
         </Field>
       )}
 
-      <div className="mt-2 border-t border-border-faint pt-3">
-        <div className="mb-2 text-th text-muted-foreground">このページへのリンク元</div>
-        {!page.backlinks || page.backlinks.length === 0 ? (
-          <p className="text-sub-sm text-muted-foreground">
-            このページを指しているページはまだありません。
-          </p>
-        ) : (
-          <div className="flex flex-col gap-0.5">
-            {page.backlinks.map((b) => (
-              <Link
-                key={b.id}
-                to={`/p/${b.id}`}
-                className="flex min-h-tap items-center gap-2 rounded-control px-1 text-sub text-foreground no-underline hover:bg-muted lg:min-h-0 lg:h-8"
-              >
-                <span
-                  className="h-1.5 w-1.5 shrink-0 rounded-badge-xs bg-primary"
-                  style={b.color ? { backgroundColor: b.color } : undefined}
-                  aria-hidden
-                />
-                <span className="truncate">{b.title}</span>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
+      <PageBacklinks backlinks={page.backlinks} spaceName={page.space_name} />
     </div>
   );
 }

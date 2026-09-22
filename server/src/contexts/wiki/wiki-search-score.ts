@@ -93,18 +93,60 @@ export function scorePage(page: WikiScoreInput, terms: string[]): number {
   return total;
 }
 
+/**
+ * 抜粋に出す前に、Markdown の印を落として素の文にする。
+ *
+ * ⚠️ **抜粋に `![配置図](/api/v1/internal/wiki/files/wf-…)` や `> [!CAUTION]` が
+ * そのまま出ていました**（実ブラウザで見つけた）。URL は1行の半分を食べるので、
+ * 当たった語の前後が読めません。**落とすのは印だけ**で、文字は消しません
+ * （画像は代替文を残し、リンクは文字を残す）。
+ *
+ * ⚠️ これは**抜粋のためだけ**の処理です。本文の正は `body_md` のままで、
+ * ここを通した文字を保存に使わないこと。
+ */
+export function toPlainText(md: string): string {
+  return md
+    // コードの柵（``` ~~~ の行）は落とし、中の文字は残す
+    .replace(/^[ \t]*(?:```|~~~).*$/gm, ' ')
+    // 画像は代替文だけ（URL は読めないうえ長い）
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    // リンクは文字だけ
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    // 生の HTML（折りたたみの <details> など）
+    .replace(/<[^>]+>/g, ' ')
+    // 注意書きの印（`> [!NOTE]` ほか）
+    .replace(/\[![A-Za-z]+\]/g, '')
+    // 見出し・引用
+    .replace(/^[ \t]*#{1,6}[ \t]+/gm, '')
+    .replace(/^[ \t]*>[ \t]?/gm, '')
+    // 箇条書き（チェックの印を含む）・番号
+    .replace(/^[ \t]*[-*+][ \t]+(?:\[[ xX]\][ \t]+)?/gm, '')
+    .replace(/^[ \t]*\d+\.[ \t]+/gm, '')
+    // 区切り線
+    .replace(/^[ \t]*(?:-{3,}|\*{3,}|_{3,})[ \t]*$/gm, ' ')
+    // 表の区切りの行（`| --- | --- |`）は、縦棒を落とす**前に**消す
+    .replace(/^[ \t]*\|?[ \t]*:?-{2,}:?[ \t]*(?:\|[ \t]*:?-{2,}:?[ \t]*)*\|?[ \t]*$/gm, ' ')
+    // 表の縦棒
+    .replace(/\|/g, ' ')
+    // 強調・取り消し・行内のコード
+    .replace(/\*|__|~~|`/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /** 当たった語の前後を切り出す。画面は当たった語を太くする */
 export function makeExcerpt(body: string, terms: string[], width = 120): string {
-  const lower = body.toLowerCase();
+  const text = toPlainText(body);
+  const lower = text.toLowerCase();
   let at = -1;
   for (const t of terms) {
     const i = lower.indexOf(t.toLowerCase());
     if (i !== -1 && (at === -1 || i < at)) at = i;
   }
-  if (at === -1) return body.slice(0, width).replace(/\s+/g, ' ').trim();
+  if (at === -1) return text.slice(0, width).trim();
   const start = Math.max(0, at - Math.floor(width / 3));
-  const cut = body.slice(start, start + width).replace(/\s+/g, ' ').trim();
-  return (start > 0 ? '…' : '') + cut + (start + width < body.length ? '…' : '');
+  const cut = text.slice(start, start + width).trim();
+  return (start > 0 ? '…' : '') + cut + (start + width < text.length ? '…' : '');
 }
 
 /** 一致した見出しのうち、いちばん上のもの。無ければ null */

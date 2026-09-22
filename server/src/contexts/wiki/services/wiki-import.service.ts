@@ -243,16 +243,21 @@ export async function importZip(
     });
     result.databases += 1;
 
-    // 行の本文は同じ題の `.md` から採る（Notion は CSV と行の .md の両方を出す）
+    /*
+     * 行の本文は同じ題の `.md` から採ります（Notion は CSV と行の `.md` の両方を出す）。
+     * ⚠️ **使った `.md` は「その節を覚える」形で外します**（題では外しません）——
+     * 同じ題の行が2つあると、題を鍵にすると片方が丸ごと落ちます。
+     */
     const mdByName = new Map<string, ImportNode>();
     for (const child of node.children) {
-      if (child.mdPath) mdByName.set(child.name, child);
+      if (child.mdPath && !mdByName.has(child.name)) mdByName.set(child.name, child);
     }
+    const consumed = new Set<ImportNode>();
 
     if (fromCsv) {
       for (const row of fromCsv.rows) {
         const child = mdByName.get(row.title);
-        mdByName.delete(row.title);
+        if (child) consumed.add(child);
         await createPage(user, {
           space_id: String(space.id),
           parent_id: pageId,
@@ -268,8 +273,8 @@ export async function importZip(
     }
 
     for (const child of node.children) {
-      if (!mdByName.has(child.name)) continue;
-      const childMd = child.mdPath ? mdByPath.get(child.mdPath) : undefined;
+      if (!child.mdPath || consumed.has(child)) continue;
+      const childMd = mdByPath.get(child.mdPath);
       await createPage(user, {
         space_id: String(space.id),
         parent_id: pageId,

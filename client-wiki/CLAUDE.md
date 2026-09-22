@@ -11,7 +11,7 @@ Markdown で書いた文章をツリーに並べ、検索できて、AI が読�
 | 権限の区分 | `wiki`（`usePermissions.ts`。閲覧は全員の既定） |
 | `apps.ts` の key | `wiki` |
 
-## いまどこまで作ってあるか（段A〜段C）
+## いまどこまで作ってあるか（段A〜段D）
 
 | 画面 | ルート | 中身 |
 | --- | --- | --- |
@@ -22,14 +22,16 @@ Markdown で書いた文章をツリーに並べ、検索できて、AI が読�
 | 編集 | `/p/:id/edit` | 素の `<textarea>` ＋ 右にプレビュー。自動保存・編集ロック |
 | 履歴 | `/p/:id/history` | 版の一覧と2つの版の違い（**PC の画面**） |
 | テンプレート | `/templates` | テンプレートの一覧と本文（**PC の画面**） |
+| **検索** | `/search` | 左＝絞り込み（スペース・タグ・担当・更新日）／右＝当たり。当たった語を太くする |
+| **書き出しと取り込み** | `/transfer` | スペースまるごとの zip 書き出しと、Obsidian・Notion・ONAiR の zip の取り込み（**PC の画面**・`pages/importexport/`） |
 
-**まだ無いもの**: 検索（段D）・AI に聞く（段E）・見直しとコメント（段F）。
+**まだ無いもの**: AI に聞く（段E）・見直しとコメント（段F）。
 
 ### 作っていない画面への入口は出さない
 
 左メニュー（`components/layout/nav.ts`）には §6-① の項目が**全部データとして書いてある**が、
 画面がまだ無いものには `ready: false` が立っていて、シェルに渡す前に外している。
-ホームの検索欄と「AI に聞く」も同じ理由で出していない。
+ホームの「AI に聞く」も同じ理由で出していない（**検索欄は段D で出した**）。
 
 > 押せるのに何も出ない項目は、利用者には「壊れている」としか見えない。
 > 設計書も「段E までは『準備中』ではなく**出さない**」と決めている（§6-①）。
@@ -114,6 +116,26 @@ Markdown で書いた文章をツリーに並べ、検索できて、AI が読�
 - ツリーの `+` は「ページを追加」と「データベースを追加」の**2つ**を出す
   （`components/layout/WikiSpaceTreePanel.tsx`）。データベースもツリーの一員なので入口を分けない
 
+### 検索（段D）
+
+- **拡張を1本も入れずに始めた**（設計 §10 の判断6）。`title`／`headings`／`body_md` に
+  `ILIKE` を当て、**点数付けは Node 側**（`wiki-search-score.ts`）。重みを直すたびに
+  migration を書かずに済む。遅くなったら `pg_trgm` の GIN 索引を足す
+- **点数と抜粋は `shared/src/wiki/search.ts` が正**で、サーバーは同じ答えを出す複製を持つ
+  （`server/src/contexts/wiki/wiki-search-score.ts`）。**片方だけ直さない**
+  （一致は `shared/tests/wikiSearchParity.test.ts` が固定）
+- ⚠️ **読めないスペースのページも、下書きも検索に出さない**（§8「存在ごと見えない」・§7-5）。
+  出すのは `status='published'` だけ
+- **抜粋は `toPlainText` を通してから切り出す。** 生の本文をそのまま切ると
+  `![配置図](/api/v1/internal/wiki/files/wf-…)` や `> [!CAUTION]`・`| --- |` が抜粋に出て、
+  URL だけで1行の半分が埋まる（実ブラウザで見つけた）。**落とすのは印だけ**で、
+  画像の代替文・リンクの文字・引用の中身は残す。⚠️ **これは抜粋のためだけ**の処理で、
+  本文の正は `body_md` のまま
+- **語を消したときは待たない。** 打ち込みは 300ms 待ってから投げるが、空にしたときだけは
+  即座に案内へ戻す（待つと、消したのに前の語の結果が残って見える）
+- **件数と絞り込みの列は、結果が届いてから出す。** 0件と「まだ届いていない」は別のことで、
+  全部 0件 の絞り込みが先に立つと壊れて見える
+
 ### API の URL は `lib/` に集める
 
 サーバーと突き合わせる場所を1つにしてある。画面のあちこちに URL の文字列を撒かない。
@@ -123,6 +145,7 @@ Markdown で書いた文章をツリーに並べ、検索できて、AI が読�
 | `lib/wikiApi.ts`（`WIKI_URL`） | 読み取り（スペース・ツリー・ページ・ホーム） |
 | `components/page/pageOpsApi.ts`（`WIKI_OPS_URL`） | ページの書き込みと編集ロック（段B） |
 | `lib/wikiDatabaseApi.ts`（`WIKI_DB_URL`） | データベースの項目・ビュー・行（段C） |
+| `components/search/searchApi.ts` | 検索・お気に入り・書き出しと取り込み（段D） |
 
 **同じ口を2つのファイルに持たない。** 段C は3人で同時に書いた間だけ `components/database/databaseApi.ts`
 と `lib/wikiDatabaseApi.ts` に分かれていたが、問い合わせの鍵（`wikiDbKeys`）を2か所に持つと
@@ -142,9 +165,10 @@ Markdown で書いた文章をツリーに並べ、検索できて、AI が読�
 | `components/database/` | データベースの画面（ビューのタブ・表・ボード・カレンダー・セル・項目とビューのシート） |
 | `components/items/` | 行ページ側（「情報」に並ぶ項目の値・データベースの追加） |
 | `components/editor/` | 編集画面の部品（段B） |
+| `components/search/` | 検索の画面と小窓（`Ctrl`／`⌘`＋`K`）・お気に入り・最近見たもの（段D） |
 | `components/ui/` | shared の再エクスポート1行だけ（実体を2つ作らない） |
 | `lib/` | `wikiApi`（URL と react-query）`wikiFormat`（第N版・見直し予定）`wikiTree`（ツリーの組み立て）`lineDiff`（版の差分） |
-| `pages/` | 画面。`home/` `page/` `database/` `editor/` `history/` `templates/` |
+| `pages/` | 画面。`home/` `page/` `database/` `editor/` `history/` `templates/` `search/` `importexport/` |
 
 画面に使う共通部品・トークン・シェルの正は [`shared/CLAUDE.md`](../shared/CLAUDE.md)。
 

@@ -38,7 +38,9 @@ export default function SearchFilterSheet({
         activeCount={activeFilterCount(filters)}
         onClearAll={onClear}
         sub="スペース・タグ・担当・更新日で絞れます"
-        note="公開されているページだけが出ます（下書きは出ません）。"
+        // ⚠️ ここに「公開されているページだけが出ます」を添えない。
+        // 同じ一文が、検索する前は下の案内に、検索したあとは件数の行に出るので、
+        // スマホでは**同じ文が2つ縦に並んで**見えていた（実機の幅で見つけた）。
       >
         <MobileFilterField label="スペース">
           <select
