@@ -91,14 +91,21 @@ function childrenOf(dir: string, paths: string[], depth: number): ImportNode[] {
     const dbPath = here.find((p) => p === `${dir}${sub}/_database.md`) ?? null;
     if (md) used.add(md);
     if (csv) used.add(csv);
-    nodes.push({
+    const node: ImportNode = {
       name,
       mdPath: md,
       csvPath: csv,
       dbPath,
       // データベースのフォルダの中は「行」なので、行の .md をそのまま子にする
       children: childrenOf(`${dir}${sub}/`, paths, depth + 1),
-    });
+    };
+    /*
+     * ⚠️ **中身の無いフォルダはページにしません。** 画像だけを入れた `files/`
+     * （ONAiR の書き出しが必ず作る）がそのまま「files」という空のページになり、
+     * 取り込むたびに1枚ずつ増えていました（検証で見つけて直した）。
+     */
+    if (!md && !csv && !dbPath && node.children.length === 0) continue;
+    nodes.push(node);
   }
 
   for (const p of direct) {
