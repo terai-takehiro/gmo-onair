@@ -17,7 +17,9 @@ export type ManualLinkedBlockKey =
   | "rental.list"
   | "equipment.lending"
   | "venue.layout"
-  | "venue.items";
+  | "venue.items"
+  | "tech.patch"
+  | "tech.staff";
 
 /** カタログ画面での束ね方（§4-3「ミニアプリごとに束ね」）。`MiniAppKey` とは意図的に別物
  *  （`project`/`equipment` は `miniapps.ts` の対象外 = 案件管理・機材管理は techops のミニアプリではない） */
@@ -29,7 +31,8 @@ export type ManualLinkedSourceGroup =
   | "streaming"
   | "rental"
   | "equipment"
-  | "venue";
+  | "venue"
+  | "tech";
 
 export const MANUAL_LINKED_SOURCE_LABEL: Record<ManualLinkedSourceGroup, string> = {
   project: "案件管理",
@@ -40,6 +43,7 @@ export const MANUAL_LINKED_SOURCE_LABEL: Record<ManualLinkedSourceGroup, string>
   rental: "レンタル機材検索",
   equipment: "機材管理",
   venue: "会場図面",
+  tech: "技術資料",
 };
 
 export interface ManualLinkedBlockDef {
@@ -180,6 +184,24 @@ export const MANUAL_LINKED_BLOCKS: ManualLinkedBlockDef[] = [
     defaultSize: { w: 180, h: 60 },
     defaultTabular: true,
   },
+  {
+    key: "tech.patch",
+    sourceGroup: "tech",
+    label: "映像パッチ",
+    description: "系統ごとの「送り → 受け」。パッチ番号つき",
+    hasSecrets: false,
+    defaultSize: { w: 180, h: 100 },
+    defaultTabular: true,
+  },
+  {
+    key: "tech.staff",
+    sourceGroup: "tech",
+    label: "技術スタッフ",
+    description: "作業日ごとの役職・名前・会社",
+    hasSecrets: false,
+    defaultSize: { w: 180, h: 80 },
+    defaultTabular: true,
+  },
 ];
 
 export function manualLinkedBlockDef(key: string): ManualLinkedBlockDef | undefined {
@@ -188,7 +210,7 @@ export function manualLinkedBlockDef(key: string): ManualLinkedBlockDef | undefi
 
 /** カタログ画面用: ミニアプリごとに束ねる（§4-3「ミニアプリごとに束ね」）。空の群は含めない */
 export function manualLinkedBlocksByGroup(): { group: ManualLinkedSourceGroup; label: string; blocks: ManualLinkedBlockDef[] }[] {
-  const groups: ManualLinkedSourceGroup[] = ["project", "schedule", "sheet", "recording", "streaming", "rental", "equipment", "venue"];
+  const groups: ManualLinkedSourceGroup[] = ["project", "schedule", "sheet", "recording", "streaming", "rental", "equipment", "venue", "tech"];
   return groups
     .map((group) => ({
       group,

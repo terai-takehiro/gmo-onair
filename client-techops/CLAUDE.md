@@ -52,6 +52,7 @@
 | | `…/parts`・`…/sounds`・`…/interactive-link` | 転送のみ | 旧独立画面 → ハブ／設定 `?tab=link` |
 | 技術資料 | `/techops/tech-docs` | `pages/tech/TechDocListPage.tsx` | 一覧（`?project=`/`?program=`）。設計は [tech-docs.md](../docs/design/v4/tech-docs.md) |
 | | `/techops/tech-docs/:id`（`/staff`） | `pages/tech/TechDocPage.tsx`・`pages/tech/*` | ②映像パッチ・③技術スタッフのタブ切替。PC＝編集・スマホ＝閲覧 |
+| | `/techops/tech-docs/:id/print` | `pages/tech/TechDocPrintPage.tsx`・`TechDocPrintSheet.tsx` | ④書き出し（A4横1枚・PDF・運営マニュアルへ差し込む）。PC専用 |
 | | `/techops/tech-panels`・`/tech-persons` | `pages/tech/TechPanelsPage.tsx`・`TechPersonsPage.tsx` | パッチ盤・技術人員の台帳。manager・PC専用 |
 | AI | `/techops/ai-knowledge` | `pages/ai-knowledge/*` | `qsheet_ai_knowledge` の承認（閲覧 reader・操作 manager） |
 

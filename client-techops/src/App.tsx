@@ -30,6 +30,7 @@ import VenuePreviewPage from "@/pages/venue/VenuePreviewPage";
 // ⑤パッチ盤・⑥技術人員は manager 向けの台帳（PC専用）
 import TechDocListPage from "@/pages/tech/TechDocListPage";
 import TechDocPage from "@/pages/tech/TechDocPage";
+import TechDocPrintPage from "@/pages/tech/TechDocPrintPage";
 import TechPanelsPage from "@/pages/tech/TechPanelsPage";
 import TechPersonsPage from "@/pages/tech/TechPersonsPage";
 import { TECHOPS_ROOT_PATH } from "@/routeSwitch";
@@ -222,6 +223,8 @@ export default function App() {
         <Route path="/techops/tech-docs" element={<TechDocListPage />} />
         <Route path="/techops/tech-docs/:id" element={<TechDocPage />} />
         <Route path="/techops/tech-docs/:id/staff" element={<TechDocPage />} />
+        {/* ④書き出し（PC専用・tech-docs.md §8）。A4 横1枚に映像パッチと技術スタッフを並べる */}
+        <Route path="/techops/tech-docs/:id/print" element={<TechDocPrintPage />} />
         <Route path="/techops/tech-panels" element={<TechPanelsPage />} />
         <Route path="/techops/tech-persons" element={<TechPersonsPage />} />
 

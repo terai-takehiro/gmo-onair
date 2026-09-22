@@ -35,6 +35,12 @@ import {
   listVenueSources,
   type ManualVenueResolveCtx,
 } from './manual-resolvers/venue.resolver';
+import {
+  resolveTechPatch,
+  resolveTechStaff,
+  listTechSources,
+  type ManualTechResolveCtx,
+} from './manual-resolvers/tech.resolver';
 
 /** ディスパッチャが受け取る文脈。個々の resolver が要る分だけをそれぞれの ctx へ詰め替える */
 export interface ResolveCtx {
@@ -79,6 +85,13 @@ export async function resolveLinkedBlock(key: string, ctx: ResolveCtx): Promise<
     sourceId: ctx.sourceId,
     user: ctx.user,
   };
+  // tech.* の2種も sourceId 必須（1案件に資料が複数ある。tech-docs.md §8-2）
+  const techCtx: ManualTechResolveCtx = {
+    projectId: ctx.projectId,
+    programId: ctx.programId,
+    sourceId: ctx.sourceId,
+    user: ctx.user,
+  };
 
   switch (key as ManualLinkedBlockKey) {
     case 'project.heading':
@@ -109,6 +122,10 @@ export async function resolveLinkedBlock(key: string, ctx: ResolveCtx): Promise<
       return resolveVenueLayout(venueCtx);
     case 'venue.items':
       return resolveVenueItems(venueCtx);
+    case 'tech.patch':
+      return resolveTechPatch(techCtx);
+    case 'tech.staff':
+      return resolveTechStaff(techCtx);
     default:
       return { data: null, updatedAt: null, error: 'unknown_block' };
   }
@@ -184,6 +201,12 @@ export async function listAvailableLinkedBlocks(ctx: AvailabilityCtx): Promise<M
       sql: 'SELECT 1 FROM qsheet_venue_layouts WHERE (project_id = $1 OR program_id = $1) AND deleted_at IS NULL LIMIT 1',
       params: [ownerId],
     },
+    // tech.patch / tech.staff: 技術資料が1件でもあれば両方 available（tech-docs.md §8-3 #7）
+    {
+      key: ['tech.patch', 'tech.staff'],
+      sql: 'SELECT 1 FROM qsheet_tech_docs WHERE (project_id = $1 OR program_id = $1) AND deleted_at IS NULL LIMIT 1',
+      params: [ownerId],
+    },
   ];
 
   const results = await Promise.all(checks.map((c) => queryOne(c.sql, c.params)));
@@ -210,6 +233,9 @@ export async function listLinkSourcesFor(
   }
   if (key === 'venue.layout' || key === 'venue.items') {
     return listVenueSources({ projectId: ctx.projectId, programId: ctx.programId }, user);
+  }
+  if (key === 'tech.patch' || key === 'tech.staff') {
+    return listTechSources({ projectId: ctx.projectId, programId: ctx.programId }, user);
   }
   return [];
 }

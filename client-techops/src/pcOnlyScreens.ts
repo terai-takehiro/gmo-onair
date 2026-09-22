@@ -147,6 +147,14 @@ export const TECHOPS_PC_ONLY: PcOnlyEntry[] = [
     instead: { label: '技術資料の一覧を開く', to: '/techops/tech-docs' },
   },
   {
+    // 技術資料・書き出し（tech-docs.md §8）。用紙・出す内容を選びながら紙面の縮小プレビューと
+    // 見比べる画面で、会場図面の仕上がり画面（`/techops/venue-layouts/:id/preview`）と同じ理由
+    path: '/techops/tech-docs/:id/print',
+    what: '技術資料の書き出し',
+    why: '用紙と出す内容の設定を紙面の縮小プレビューと見比べながら組む画面で、狭い幅では組めません。',
+    instead: { label: '技術資料の一覧を開く', to: '/techops/tech-docs' },
+  },
+  {
     // 表示レイアウトエディタ（13-live-display-layout-editor.md §6-3）。要素カードの
     // ドラッグ・リサイズ操作が前提のため、375px幅での対応は本設計のスコープ外にした
     // （§9-3で利用者に確認済み）。テンプレートライブラリ（閲覧・適用）はスマホ対応の対象
