@@ -62,11 +62,17 @@ export function isImagePath(p: string): boolean {
 /**
  * ファイルの道の一覧から組み立て図を作る。
  *
- * ⚠️ **根の `README.md` は飛ばします。** ONAiR の書き出しが必ず置くもので、
- * そのまま取り込むと「README」というページが毎回1枚増えます。
+ * ⚠️ **飛ばすのは「ONAiR の書き出しが置いた README」だけです**（`skip`）。
+ * 名前が `README.md` というだけで捨てると、Obsidian や Notion の zip に入っている
+ * **ふつうのページとしての README が黙って消えます**（Codex の指摘・P1）。
+ * 見分けは中身の印（`EXPORT_README_MARKER`）で、呼ぶ側が渡します。
  */
-export function buildImportPlan(paths: string[], depth = 0): ImportNode[] {
-  return childrenOf('', paths.filter((p) => p !== 'README.md'), depth);
+export function buildImportPlan(
+  paths: string[],
+  skip: (path: string) => boolean = () => false,
+  depth = 0,
+): ImportNode[] {
+  return childrenOf('', paths.filter((p) => !skip(p)), depth);
 }
 
 /** 1階層ぶんを組み立てる（`dir` は `''` か `a/` の形） */

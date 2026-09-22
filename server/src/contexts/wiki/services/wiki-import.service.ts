@@ -27,13 +27,14 @@ import { createPage } from './wiki-write.service';
 import { setPageKind, putDatabase } from './wiki-database.service';
 import { defaultTableView } from './wiki-database-schema';
 import { saveWikiFile, attachWikiFileToPage } from './wiki-file.service';
-import { DATABASE_NOTE_MARKER } from './wiki-export.service';
+import { DATABASE_NOTE_MARKER, EXPORT_README_MARKER } from './wiki-export.service';
 import {
   buildImportPlan,
   csvToDatabase,
   isImagePath,
   parseCsv,
   baseName,
+  displayName,
   type ImportNode,
   type CsvDatabase,
 } from './wiki-import-parse';
@@ -148,7 +149,21 @@ export async function importZip(
   });
   if (paths.length === 0) throw new ValidationError('zip の中にファイルがありません。');
 
-  const plan = buildImportPlan(paths);
+  /*
+   * ⚠️ **飛ばすのは「私たちの書き出しが置いた README」だけ。**
+   * 名前だけで捨てると、Obsidian・Notion の zip に入っている**ふつうのページ
+   * としての README が黙って消えます**（Codex の指摘・P1）。印で見分けます。
+   * 中身を読むのはこの1枚だけなので、`ZipReader` の勘定にもほとんど響きません。
+   */
+  const reader = new ZipReader(zip);
+  const rootReadme = paths.includes('README.md')
+    ? (await reader.text('README.md')) ?? ''
+    : null;
+  const skipPath = (p: string) => (
+    p === 'README.md' && rootReadme !== null && rootReadme.includes(EXPORT_README_MARKER)
+  );
+
+  const plan = buildImportPlan(paths, skipPath);
 
   /*
    * ⚠️ **CSV の行も上限に数えます。**
@@ -165,20 +180,50 @@ export async function importZip(
    * （Codex の指摘・P2）。`countPlanned` は `create` と同じ手順で数えます。
    */
   /*
-   * ⚠️ **zip の中身は `ZipReader` を通して読みます。** multer の 50MB は
-   * 圧縮したあとの大きさにしか効かないので、解いた大きさを数えながら読みます
-   * （数十 MB の zip が解くと数 GB になる zip 爆弾を、上限を見る前に止める。
-   * Codex の指摘・P1）。**1回の取り込みで1つ**作って使い回します。
+   * zip の中身は `ZipReader`（上で1つだけ作ったもの）を通して読みます。
+   * multer の 50MB は圧縮したあとの大きさにしか効かないので、解いた大きさを
+   * 数えながら読みます（zip 爆弾を、上限を見る前に止める）。
    */
-  const reader = new ZipReader(zip);
-
   const csvByPath = new Map<string, CsvDatabase>();
   for (const csvPath of collectCsvPaths(plan)) {
     const text = await reader.text(csvPath);
     if (text === null) continue;
     csvByPath.set(csvPath, csvToDatabase(parseCsv(text)));
   }
-  const planned = countPlanned(plan, csvByPath);
+  /*
+   * ① `.md` を先に全部読む（画像は「本文が指しているもの」だけ取り込むため）。
+   *
+   * ⚠️ **上限を数えるより先に読みます。** 行の `.md` と CSV の行を突き合わせる鍵が
+   * 「見出しに書いてある題」なので、数える側が同じものを見ないと数がずれます
+   *（ずれると、作れるはずの zip を止めるか、止めるはずの zip を通します）。
+   * 読む量は `ZipReader` が見張っているので、ここで山が尽きることはありません。
+   */
+  const mdByPath = new Map<string, LoadedMd>();
+  for (const p of paths) {
+    if (!p.endsWith('.md')) continue;
+    // 根の README は印を見るために読んである。二度読むと解いた量を二重に数える
+    const text = (p === 'README.md' ? rootReadme : await reader.text(p)) ?? '';
+    const { data, body } = parseFrontMatter(text);
+    mdByPath.set(p, {
+      dir: dirOf(p),
+      /*
+       * ⚠️ **落とし先は `displayName`（Notion の id を落とした名前）です。**
+       * 素のファイル名に落とすと、見出しを持たない Notion の `.md` の題が
+       * `行の題 32桁の英数字` になり、①画面にその id が出て、②`_index.csv` の
+       * 題と噛み合わずに行が二重にできます（`titleOfNode` の鍵と同じ形に揃える）。
+       */
+      title: titleOf(data, body, displayName(p)),
+      body,
+      data,
+    });
+  }
+
+  /** 行を突き合わせる鍵。**見出しの題**が正で、読めないときだけ名前（id は落ちている） */
+  const titleOfNode = (child: ImportNode): string => (
+    (child.mdPath ? mdByPath.get(child.mdPath)?.title : undefined) || child.name
+  );
+
+  const planned = countPlanned(plan, csvByPath, titleOfNode);
   if (planned > MAX_IMPORT_PAGES) {
     throw new ValidationError(
       `ページが ${MAX_IMPORT_PAGES} 件を超えています。フォルダを分けてからお試しください。`,
@@ -186,20 +231,6 @@ export async function importZip(
   }
   if (planned === 0) {
     throw new ValidationError('取り込めるページ（.md）が zip の中にありません。');
-  }
-
-  // ① `.md` を先に全部読む（画像は「本文が指しているもの」だけ取り込むため）
-  const mdByPath = new Map<string, LoadedMd>();
-  for (const p of paths) {
-    if (!p.endsWith('.md')) continue;
-    const text = (await reader.text(p)) ?? '';
-    const { data, body } = parseFrontMatter(text);
-    mdByPath.set(p, {
-      dir: dirOf(p),
-      title: titleOf(data, body, baseName(p).replace(/\.md$/i, '')),
-      body,
-      data,
-    });
   }
 
   // ② 画像を取り込む（指されているものだけ・page_id は作ったページに後で付ける）
@@ -309,12 +340,21 @@ export async function importZip(
      * ①2行目が1行目の本文を**そのまま写し**、②使われなかった `.md` が下の
      * 取りこぼしの輪で**余分な3行目**になっていました（Codex の指摘・P1）。
      */
+    /*
+     * ⚠️ **鍵は「`.md` の見出しに書いてある題」です。ファイル名ではありません。**
+     * 書き出しはファイル名を `safeSegment` で丸めます（60字で切る・`/` を落とす）が、
+     * `_index.csv` には**元の題がそのまま**入ります。ファイル名を鍵にしていたころは、
+     * 長い題や `A/B` のような題で**両者が噛み合わず**、①CSV の行が本文・タグ・
+     * 見直し予定なしで作られ、②使われなかった `.md` が余分な行になっていました
+     *（Codex の指摘・P1）。見出しが読めないときだけファイル名に落とします。
+     */
     const mdQueueByName = new Map<string, ImportNode[]>();
     for (const child of node.children) {
       if (!child.mdPath) continue;
-      const queue = mdQueueByName.get(child.name);
+      const key = titleOfNode(child);
+      const queue = mdQueueByName.get(key);
       if (queue) queue.push(child);
-      else mdQueueByName.set(child.name, [child]);
+      else mdQueueByName.set(key, [child]);
     }
     const consumed = new Set<ImportNode>();
 
@@ -404,13 +444,17 @@ export async function importZip(
  * 「①データベース1枚 ②CSV の行の数 ③どの行にも使われなかった `.md` の数」で、
  * ③は題ごとの待ち行列で1行に1枚ずつ取り出したあとの残りです（`create` と同じ）。
  */
-function countPlanned(nodes: ImportNode[], csvByPath: Map<string, CsvDatabase>): number {
+function countPlanned(
+  nodes: ImportNode[],
+  csvByPath: Map<string, CsvDatabase>,
+  titleOfNode: (child: ImportNode) => string,
+): number {
   let n = 0;
   for (const node of nodes) {
     n += 1;
     const isDatabase = !!node.csvPath || !!node.dbPath;
     if (!isDatabase) {
-      n += countPlanned(node.children, csvByPath);
+      n += countPlanned(node.children, csvByPath, titleOfNode);
       continue;
     }
     const rows = (node.csvPath ? csvByPath.get(node.csvPath)?.rows : undefined) ?? [];
@@ -419,14 +463,16 @@ function countPlanned(nodes: ImportNode[], csvByPath: Map<string, CsvDatabase>):
     for (const child of node.children) {
       // 入れ子のデータベースは `create` に渡すので、まるごと同じ手順で数える
       if (child.csvPath || child.dbPath) {
-        n += countPlanned([child], csvByPath);
+        n += countPlanned([child], csvByPath, titleOfNode);
         continue;
       }
       if (!child.mdPath) continue;
       mdChildren += 1;
-      queue.set(child.name, (queue.get(child.name) ?? 0) + 1);
+      // ⚠️ 鍵は `create` と同じ「`.md` の見出しの題」（ファイル名ではない）
+      const key = titleOfNode(child);
+      queue.set(key, (queue.get(key) ?? 0) + 1);
       // 行の下のページも作るので数に入れる（`createChildren`）
-      n += countPlanned(child.children, csvByPath);
+      n += countPlanned(child.children, csvByPath, titleOfNode);
     }
     let consumed = 0;
     for (const row of rows) {

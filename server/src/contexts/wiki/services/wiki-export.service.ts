@@ -101,9 +101,21 @@ export function databaseToMarkdown(page: Row, items: WikiItem[], views: unknown[
   return serializeFrontMatter(frontMatterOf(page), lines.join('\n'));
 }
 
+/**
+ * 書き出しが置く README だと分かる印。
+ *
+ * ⚠️ **取り込みは「名前が README」ではなく、この印で飛ばします。**
+ * Obsidian も Notion も `README.md` を**ふつうのページ**として書き出します。
+ * 名前だけで捨てていたころは、そういう zip を取り込むと**そのページが黙って消え**、
+ * README しか無い zip は「取り込めるページがありません」になりました
+ *（Codex の指摘・P1）。印は HTML のコメントなので画面には出ません。
+ */
+export const EXPORT_README_MARKER = '<!-- gmo-onair-wiki-export -->';
+
 /** README（何が入っているか）。展開した人が最初に開く */
 function readmeOf(space: Row, pageCount: number, fileCount: number): string {
   return [
+    EXPORT_README_MARKER,
     `# ${String(space.name)} の書き出し`,
     '',
     `- スペース: ${String(space.name)}（\`${String(space.key)}\`）`,
