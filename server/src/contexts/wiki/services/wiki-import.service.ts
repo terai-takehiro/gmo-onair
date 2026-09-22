@@ -219,8 +219,16 @@ export async function importZip(
       if (!buf) continue;
       const saved = await saveWikiFile(user.id, { originalname: baseName(p), buffer: buf }, null);
       savedByPath.set(p, { id: String(saved.id), url: String(saved.url) });
-    } catch {
-      // 形式が違う・壊れている画像で取り込みごと止めない（本文のリンクはそのまま残る）
+    } catch (e) {
+      /*
+       * ⚠️ **大きすぎて止めた（`ValidationError`）ときは、握りつぶさず投げ直します。**
+       * ここで飲み込んでいたころは、申告を偽った画像を何枚も並べるだけで
+       * **1枚あたり上限いっぱいまで解かせ続けられ**、zip 全体の budget を
+       * すり抜けられました（Codex の指摘・P1）。
+       * 形式が違う・壊れている画像だけは今までどおり飛ばします
+       *（本文のリンクはそのまま残り、開けば 404 になります）。
+       */
+      if (e instanceof ValidationError) throw e;
     }
   }
   const urlOf = (p: string) => savedByPath.get(p)?.url ?? null;
@@ -322,6 +330,9 @@ export async function importZip(
           body_md: bodyFor(childMd),
           status,
           props: row.props,
+          // ⚠️ 行にも見直し予定を戻す（ふつうのページと同じ。往復で消していた）
+          review_by: reviewByOf(childMd?.data ?? {}),
+          tags: tagsOf(childMd?.data ?? {}),
           note: '取り込みで追加',
         });
         await attachAssets(childMd, String(rowPage.id));
@@ -355,6 +366,12 @@ export async function importZip(
         status,
         props: propsOf(childMd?.data ?? {}),
         tags: tagsOf(childMd?.data ?? {}),
+        /*
+         * ⚠️ **行にも見直し予定を戻します。** `.md` の見出しには `review_by` が
+         * 書いてあるのに、ここで渡していなかったため、**書き出して取り込み直すと
+         * データベースの行の見直し予定だけが消えて**いました（Codex の指摘・P1）。
+         */
+        review_by: reviewByOf(childMd?.data ?? {}),
         note: '取り込みで追加',
       });
       await attachAssets(childMd, String(leftover.id));

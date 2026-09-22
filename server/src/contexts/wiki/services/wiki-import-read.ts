@@ -75,6 +75,13 @@ export class ZipReader {
       const fail = (e: unknown) => {
         if (settled) return;
         settled = true;
+        /*
+         * ⚠️ **解いた分は、失敗しても全体の勘定に入れます。**
+         * 入れないと、申告を偽った画像を何枚も並べるだけで
+         * **1枚あたり上限いっぱいまで解かせ続けられ**、zip 全体の budget を
+         * すり抜けられます（Codex の指摘・P1）。やった仕事は数えます。
+         */
+        this.total += got;
         chunks = [];
         try { stream.pause(); } catch { /* 止められなくても以後は捨てる */ }
         try { (stream as { destroy?: () => void }).destroy?.(); } catch { /* 同上 */ }

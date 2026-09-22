@@ -86,8 +86,23 @@ function childrenOf(dir: string, paths: string[], depth: number): ImportNode[] {
 
   for (const sub of subDirs) {
     const name = stripNotionId(sub);
-    const md = direct.find((p) => p.endsWith('.md') && displayName(p) === name) ?? null;
-    const csv = direct.find((p) => p.endsWith('.csv') && displayName(p) === name) ?? null;
+    /*
+     * ⚠️ **フォルダと `.md` は「id を落とす前の名前」で組ませます。**
+     * Notion は同じ題のページを `カメラ aaa…/` と `カメラ bbb….md` のように
+     * **32桁の id で区別**します。id を落とした題（`name`）で探していたころは、
+     * 2つのフォルダが**どちらも1つめの `.md` を掴み**、余った `.md` が
+     * 別のページとして増えていました（2つの元から3ページ。Codex の指摘・P1）。
+     * まず全体の名前で探し、見つからないときだけ題で探します（手で作った zip や
+     * 書き出した zip は id を持たないので、そちらは題で当たります）。
+     * 掴んだ `.md` は `used` に入るので、**同じものを2つのフォルダが使うことはありません**。
+     */
+    const pick = (ext: string) => (
+      direct.find((p) => p.endsWith(ext) && !used.has(p) && fileStem(baseName(p)) === sub)
+      ?? direct.find((p) => p.endsWith(ext) && !used.has(p) && displayName(p) === name)
+      ?? null
+    );
+    const md = pick('.md');
+    const csv = pick('.csv');
     const dbPath = here.find((p) => p === `${dir}${sub}/_database.md`) ?? null;
     if (md) used.add(md);
     if (csv) used.add(csv);
