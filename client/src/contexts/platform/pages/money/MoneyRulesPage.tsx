@@ -188,7 +188,7 @@ export default function MoneyRulesPage() {
     <div className="flex flex-col gap-3.5 p-3 lg:gap-4 lg:p-6">
       <PageHeader
         title="お金のルール"
-        sub="見積・請求の計算のもとになる決めごとです。案件ごとに書き換えず、例外は取引先ごとの設定で持ちます。"
+        sub="見積・請求の計算のもとになるルールです。案件ごとに書き換えず、例外は取引先ごとの設定で持ちます。"
         primaryAction={canEdit ? (
           <Button disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
             {save.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}

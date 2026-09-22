@@ -217,7 +217,7 @@ export const EQUIPMENT_MANUAL: ManualContent = {
         {
           type: "callout",
           tone: "warning",
-          text: "返す予定の日を過ぎたものは「返却遅延」の札が付き、ダッシュボードの「返却待ち」にも出ます。",
+          text: "返す予定の日を過ぎたものは「返却遅延」と表示され、ダッシュボードの「返却待ち」にも出ます。",
         },
       ],
     },

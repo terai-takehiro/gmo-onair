@@ -278,7 +278,7 @@ export const CLIENT_NAV: Record<string, ShellNavSection[]> = {
     {
       title: "データベース",
       collapsible: true,
-      note: "中身を直接見る道具です。毎日は使いません",
+      note: "データベースの中身を直接見る画面です。毎日は使いません",
       items: [
         // **`module` を書かないと権限が無い人にも出る。** 旧メニューは
         // 3項目とも無指定で、`admin` が無い人が押すと 403 になっていた

@@ -105,7 +105,7 @@ function SettingsContent({ ownerKey, owner, bundle, reload }: {
         title="設定"
         sub={(
           <>
-            <span className="font-bold text-foreground">{owner.name}</span> ・ この番組のテロップCGの決めごと。テロップの中身はここでは触りません。
+            <span className="font-bold text-foreground">{owner.name}</span> ・ この番組のテロップCGの設定。テロップの中身はここでは触りません。
           </>
         )}
       />
