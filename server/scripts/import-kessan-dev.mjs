@@ -89,7 +89,15 @@ if (PERIOD && !/^\d{4}-\d{2}$/.test(PERIOD)) {
 function maskDbUrl(url) {
   return url.replace(/\/\/([^:/@]+):([^:@]*)@/, '//$1:***@');
 }
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/onair_db';
+// initDb() (shared/db/connection.ts) も DATABASE_URL 単独で接続先を決める。ここで
+// 未設定時に既定値へフォールバックすると、この prod ガード自体は通過してしまい
+// (既定値は "prod" を含まない)、initDb() 側も同じ既定へ静かにつながる。「必須 env」
+// と明記している以上、未設定は安全側 (fail closed) で拒否する (Codex レビュー指摘)。
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.error('[kessan] REFUSING: 環境変数 DATABASE_URL が未設定です。既定値へは倒さず拒否します。');
+  process.exit(2);
+}
 const dbLabel = DATABASE_URL.toLowerCase();
 if (dbLabel.includes('prod') || dbLabel.includes('production')) {
   console.error(`[kessan] REFUSING: DATABASE_URL "${maskDbUrl(DATABASE_URL)}" は prod らしき接続先です。本スクリプトは検証(dev)専用です。`);
