@@ -332,7 +332,7 @@ async function main() {
     }
 
     await client.query('BEGIN');
-    const counts = { sga: 0, rev: 0, pur: 0, projCreated: 0, custCreated: 0, vendCreated: 0, skipped: 0 };
+    const counts = { sga: 0, rev: 0, pur: 0, projCreated: 0, projRevived: 0, custCreated: 0, vendCreated: 0, skipped: 0 };
 
     // Phase 3-3-9（`customers`/`vendors` テーブル削除）以降、`companies` に
     // 行を作るだけでよい（返すのは companies.id — customer_id/vendor_id 系の
@@ -363,20 +363,45 @@ async function main() {
     }
     async function ensureProject(key, name, customerId, isFixed = false) {
       const cacheKey = isFixed ? `__fixed__${key}` : key;
-      if (masterCache.projects.has(cacheKey)) return masterCache.projects.get(cacheKey);
+      // キャッシュ命中でも null (= 事前照合レポートで「未登録」と記録された値) の場合は
+      // ここで作成/復活を試みる必要があるため early-return しない
+      // (kessan-import.service.ts の ensureProject と同じ挙動。ここを .has() にすると
+      // --create-masters を指定しても事前照合でキャッシュされた null がそのまま
+      // 返ってしまい、いつまでも新規作成・復活の対象にならない)。
+      const cached = masterCache.projects.get(cacheKey);
+      if (cached) return cached;
       const col = isFixed ? 'code' : 'gls_number';
       const r = await client.query(`SELECT id, customer_id FROM projects WHERE ${col}=$1 AND deleted_at IS NULL LIMIT 1`, [key]);
       let p = r.rows[0] || null;
       if (!p) {
         if (!CREATE_MASTERS) { masterCache.projects.set(cacheKey, null); return null; }
-        const id = randomUUID();
-        await client.query(
-          `INSERT INTO projects (id, code, gls_number, name, customer_id, stage, assigned_to, notes, created_by)
-           VALUES ($1,$2,$3,$4,$5,'a_won',$6,$7,$8)`,
-          [id, key, isFixed ? null : key, name || key, customerId, userId, MARKER, userId]
+
+        // 失注・放置ネタの自動整理 (project-purge.service.ts) で論理削除された案件が、
+        // 決算データ上はこの code/gls_number の実績を持っていた、というケースがある。
+        // projects.code / gls_number は deleted_at を見ない素の UNIQUE 制約のため、
+        // 削除済み行を無視してこのまま INSERT すると duplicate key で失敗する
+        // (kessan-import.service.ts と同一ロジック)。復活させて使う。
+        const dead = await client.query(
+          isFixed
+            ? `SELECT id, customer_id FROM projects WHERE code=$1 AND deleted_at IS NOT NULL LIMIT 1`
+            : `SELECT id, customer_id FROM projects WHERE (code=$1 OR gls_number=$1) AND deleted_at IS NOT NULL LIMIT 1`,
+          [key],
         );
-        p = { id, customer_id: customerId };
-        counts.projCreated++;
+        if (dead.rows[0]) {
+          const rid = dead.rows[0].id;
+          await client.query(`UPDATE projects SET deleted_at = NULL, updated_at = NOW() WHERE id = $1`, [rid]);
+          p = { id: rid, customer_id: dead.rows[0].customer_id };
+          counts.projRevived = (counts.projRevived || 0) + 1;
+        } else {
+          const id = randomUUID();
+          await client.query(
+            `INSERT INTO projects (id, code, gls_number, name, customer_id, stage, assigned_to, notes, created_by)
+             VALUES ($1,$2,$3,$4,$5,'a_won',$6,$7,$8)`,
+            [id, key, isFixed ? null : key, name || key, customerId, userId, MARKER, userId]
+          );
+          p = { id, customer_id: customerId };
+          counts.projCreated++;
+        }
       }
       masterCache.projects.set(cacheKey, p);
       return p;
@@ -460,6 +485,7 @@ async function main() {
     console.log('\n========== 投入結果 (COMMIT) ==========');
     console.log(`販管費 ${counts.sga} / 売上 ${counts.rev} / 仕入 ${counts.pur}`);
     console.log(`新規作成: 案件 ${counts.projCreated} / 顧客 ${counts.custCreated} / 取引先 ${counts.vendCreated}`);
+    if (counts.projRevived) console.log(`復活: 失注等で削除済みだったが決算データに実績があった案件 ${counts.projRevived} 件`);
     if (counts.skipped) console.log(`スキップ ${counts.skipped} 件 (マスタ未作成 / GLS未抽出)`);
     console.log('[kessan] 完了。');
   } catch (err) {

@@ -68,6 +68,8 @@ export interface KessanReport {
     /** 仕入・固定原価の取引先で、既存マスタと紐付けられなかったもの（未登録／表記の衝突で一意に決められない） */
     missingVendors: string[];
     created: { projects: number; customers: number; vendors: number };
+    /** 失注・放置ネタの自動整理で論理削除されていたが、決算データに実績があったため復活させた案件（GLS番号／固定原価コード） */
+    revivedProjects: string[];
   };
   /** 既存データ (非決算インポート行) に同一金額+内容が見つかった重複候補 */
   duplicates: { sga: number; revenues: number; purchases: number; samples: string[] };
@@ -499,7 +501,7 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       purchases: { count: pur.length, amount: sum(pur) },
       fixedCogs: { count: fixed.length, amount: sum(fixed), routed: excludeFixed ? '除外' : `${FIXED_NAME} (${FIXED_CODE})` },
     },
-    masters: { missingProjects: [], missingCustomers: [], missingVendors: [], created: { projects: 0, customers: 0, vendors: 0 } },
+    masters: { missingProjects: [], missingCustomers: [], missingVendors: [], created: { projects: 0, customers: 0, vendors: 0 }, revivedProjects: [] },
     duplicates: { sga: 0, revenues: 0, purchases: 0, samples: [] },
     samples: {
       sga: sga.slice(0, 6).map((x) => `${x.date} ${yen(x.amount)} ${x.tax_category} ${x.vendor_name} | ${x.description.slice(0, 60)}`),
@@ -811,18 +813,39 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
         // フォールバック顧客「(顧客不明)」を割り当てて作成する。
         const cid = customerId || (await ensureCustomer('(顧客不明)'));
         if (!cid) { cache.projects.set(cacheKey, null); return null; }
-        const id = randomUUID();
-        await client.query(
-          // 印は **`kessan_marker` の列**に入れる (migration 184)。
-          // 以前は `notes` の先頭に `[kessan:2026-03]` と書いていたが、
-          // メモをやり取りへ畳んだので `notes` の列そのものが無い。
-          // 列に持つと、人が書いたメモと印を取り違えなくなる
-          `INSERT INTO projects (id, code, entity_code, gls_number, name, customer_id, stage, assigned_to, kessan_marker, created_by)
-           VALUES ($1,$2,$3,$4,$5,$6,'a_won',$7,$8,$9)`,
-          [id, key, CURRENT_ENTITY_CODE, isFixed ? null : key, name || key, cid, fallbackUser, period, fallbackUser]
+
+        // 失注・放置ネタの自動整理 (project-purge.service.ts) で論理削除された案件が、
+        // 決算データ上はこの code/gls_number の実績を持っていた、というケースがある。
+        // projects.code / gls_number は deleted_at を見ない素の UNIQUE 制約 (001b) のため、
+        // 削除済み行を無視してこのまま INSERT すると "duplicate key value violates unique
+        // constraint" で取込全体が失敗する。決算実績があるなら本来消すべきではなかった
+        // 案件なので、新規作成ではなく復活させる (project-purge 自身も「動いたお金がある
+        // 案件は残す」方針)。
+        const dead = await client.query(
+          isFixed
+            ? `SELECT id, customer_id FROM projects WHERE code=$1 AND deleted_at IS NOT NULL LIMIT 1`
+            : `SELECT id, customer_id FROM projects WHERE (code=$1 OR gls_number=$1) AND deleted_at IS NOT NULL LIMIT 1`,
+          [key],
         );
-        p = { id, customer_id: cid };
-        report.masters.created.projects++;
+        if (dead.rows[0]) {
+          const rid = dead.rows[0].id as string;
+          await client.query(`UPDATE projects SET deleted_at = NULL, updated_at = NOW() WHERE id = $1`, [rid]);
+          p = { id: rid, customer_id: dead.rows[0].customer_id };
+          report.masters.revivedProjects.push(key);
+        } else {
+          const id = randomUUID();
+          await client.query(
+            // 印は **`kessan_marker` の列**に入れる (migration 184)。
+            // 以前は `notes` の先頭に `[kessan:2026-03]` と書いていたが、
+            // メモをやり取りへ畳んだので `notes` の列そのものが無い。
+            // 列に持つと、人が書いたメモと印を取り違えなくなる
+            `INSERT INTO projects (id, code, entity_code, gls_number, name, customer_id, stage, assigned_to, kessan_marker, created_by)
+             VALUES ($1,$2,$3,$4,$5,$6,'a_won',$7,$8,$9)`,
+            [id, key, CURRENT_ENTITY_CODE, isFixed ? null : key, name || key, cid, fallbackUser, period, fallbackUser]
+          );
+          p = { id, customer_id: cid };
+          report.masters.created.projects++;
+        }
       }
       cache.projects.set(cacheKey, p); return p;
     }
@@ -937,6 +960,9 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       throw e;
     }
     report.committed = { sga: counts.sga, revenues: counts.rev, purchases: counts.pur, skipped: counts.skipped, dupSkipped: counts.dupSkipped };
+    if (report.masters.revivedProjects.length) {
+      warnings.push(`失注等で削除されていましたが決算データに実績があったため ${report.masters.revivedProjects.length} 件の案件を復活させました（${report.masters.revivedProjects.join('、')}）。内容をご確認ください。`);
+    }
     return report;
   } finally {
     client.release();

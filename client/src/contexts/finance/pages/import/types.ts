@@ -181,6 +181,8 @@ export interface KessanReport {
     /** 仕入・固定原価の取引先で、既存マスタと紐付けられなかったもの（未登録／表記の衝突で一意に決められない） */
     missingVendors: string[];
     created: { projects: number; customers: number; vendors: number };
+    /** 失注・放置ネタの自動整理で論理削除されていたが、決算データに実績があったため復活させた案件（GLS番号／固定原価コード） */
+    revivedProjects: string[];
   };
   duplicates: { sga: number; revenues: number; purchases: number; samples: string[] };
   samples: { sga: string[]; revenues: string[]; purchases: string[] };
