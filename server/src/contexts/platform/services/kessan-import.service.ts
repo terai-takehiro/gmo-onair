@@ -809,10 +809,6 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
       let p = r.rows[0] || null;
       if (!p) {
         if (!createMasters) { cache.projects.set(cacheKey, null); return null; }
-        // projects.customer_id は NOT NULL。仕入専用 GLS など顧客不明の場合は
-        // フォールバック顧客「(顧客不明)」を割り当てて作成する。
-        const cid = customerId || (await ensureCustomer('(顧客不明)'));
-        if (!cid) { cache.projects.set(cacheKey, null); return null; }
 
         // 失注・放置ネタの自動整理 (project-purge.service.ts) で論理削除された案件が、
         // 決算データ上はこの code/gls_number の実績を持っていた、というケースがある。
@@ -846,6 +842,15 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
           p = { id: rid, customer_id: dead.rows[0].customer_id };
           report.masters.revivedProjects.push(key);
         } else {
+          // projects.customer_id は NOT NULL。仕入専用 GLS など顧客不明の場合は
+          // フォールバック顧客「(顧客不明)」を割り当てて作成する。
+          // ⚠️ 削除済み案件が復活できないと分かってから解決する — dead クエリより前に
+          // 解決すると、復活パス（既存の customer_id をそのまま使い cid は使わない）
+          // でも呼ばれてしまい、使われない「(顧客不明)」だけが作られる
+          // (Codex レビュー指摘・PR #715)。
+          const cid = customerId || (await ensureCustomer('(顧客不明)'));
+          if (!cid) { cache.projects.set(cacheKey, null); return null; }
+
           const id = randomUUID();
           await client.query(
             // 印は **`kessan_marker` の列**に入れる (migration 184)。
@@ -856,6 +861,28 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
              VALUES ($1,$2,$3,$4,$5,$6,'a_won',$7,$8,$9)`,
             [id, key, CURRENT_ENTITY_CODE, isFixed ? null : key, name || key, cid, fallbackUser, period, fallbackUser]
           );
+          if (!isFixed) {
+            // 案件番号の履歴 (§4.3)。ここで1行も残さないと、後でこの案件が改番される
+            // (renumberProject) とき「退役させる現役の番号」が project_numbers に
+            // 見つからず、旧GLS番号が history にもprojects.gls_numberにも残らず
+            // 完全に失われる (Codex レビュー指摘)。
+            //
+            // scheme/entity_code は番号の見た目から判定する — 元帳の摘要は
+            // GLS137 のような旧方式に加えて SCS-0001/GSS-0001/GMO-0001 のような
+            // 改番後の新方式もそのまま拾える (GLS_TOKEN_RE 参照) ため、新方式の
+            // 番号まで一律 scheme='gls' で記録すると、listRenumberCandidates() が
+            // 「まだ改番していない」候補として誤って拾ってしまう
+            // (Codex レビュー指摘・org_transition が 'off' の間の issueGls() は
+            // 旧方式しか発番しないので、そちらは一律 scheme='gls' のままでよい)。
+            const newSchemeMatch = key.match(/^(SCS|GSS|GMO)-\d+$/);
+            const numberEntityCode = newSchemeMatch ? newSchemeMatch[1] : null;
+            await client.query(
+              `INSERT INTO project_numbers (id, project_id, number, entity_code, scheme, assigned_at, assigned_by)
+               VALUES ($1,$2,$3,$4,$5,NOW(),$6)
+               ON CONFLICT (number) DO NOTHING`,
+              [randomUUID(), id, key, numberEntityCode, numberEntityCode ? 'entity' : 'gls', fallbackUser]
+            );
+          }
           p = { id, customer_id: cid };
           report.masters.created.projects++;
         }
