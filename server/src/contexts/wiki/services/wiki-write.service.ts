@@ -27,6 +27,9 @@ import {
 } from './wiki-access.service';
 import { assertPageEditable } from './wiki-lock.service';
 import { newWikiPageId, selectPageRow, rebuildPageLinks } from './wiki-page.service';
+import { parentDatabaseItems } from './wiki-row-props';
+import { sanitizeProps } from '../wiki-props';
+import type { WikiPropValue } from '../wiki-props';
 
 /** 親をたどる深さの上限（`wiki-path.service.ts` と同じ 20）。取り違えで無限に回るのを DB 側で止める */
 const MAX_DEPTH = 20;
@@ -149,6 +152,18 @@ export async function createPage(user: WikiUser, input: CreatePageInput): Promis
     props = (tpl.props as Record<string, unknown>) ?? {};
     tags = (tpl.tags as string[]) ?? [];
     note = 'テンプレートから追加';
+  }
+
+  /*
+   * データベースの行として作るなら、写した値を親の項目定義で絞る（§5-3-6・段C）。
+   *
+   * ⚠️ ここは**黙って落とします**（保存のときのように止めません）。値を打ったのは
+   * 利用者ではなくテンプレートで、「テンプレートの3つめの項目が合いません」と言われても
+   * 作った人には直しようがないからです。打った値の検査は `savePageInternal` が行います。
+   */
+  const parentItems = parentId ? await parentDatabaseItems(parentId) : null;
+  if (parentItems) {
+    props = sanitizeProps(parentItems, props as Record<string, WikiPropValue>);
   }
 
   const title = String(input.title ?? '').trim() || UNTITLED;

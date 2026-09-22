@@ -9,6 +9,9 @@
  * - `GET    /wiki/templates`               テンプレートの一覧
  * - `POST   /wiki/pages/:id/make-template` テンプレートにする／やめる
  *
+ * `PATCH /wiki/pages/:id` の `kind` で、ふつうのページとデータベース（§4-4）を
+ * 行き来します。項目とビューそのものは `databases.routes.ts`（段C）です。
+ *
  * 権限（§8）: 追加・保存・並べ替えは editor、削除とテンプレートの登録は manager。
  * **読めないページは 403 ではなく 404**（存在ごと隠す）——`assertReadablePage` が投げます。
  */
@@ -16,7 +19,8 @@ import { Router } from 'express';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { ValidationError } from '../../qsheet/services/httpErrors';
 import { assertReadablePage } from '../services/wiki-access.service';
-import { savePageInternal, type SavePageInput } from '../services/wiki-page.service';
+import { setPageKind } from '../services/wiki-database.service';
+import { savePageInternal, selectPageRow, type SavePageInput } from '../services/wiki-page.service';
 import {
   createPage,
   deletePage,
@@ -51,6 +55,12 @@ function asText(v: unknown, what: string): string {
 function asTextOrNull(v: unknown, what: string): string | null {
   if (v === null || v === '') return null;
   return asText(v, what);
+}
+
+/** ページの種類は2つだけ（§4-4）。`database` の親だけが項目とビューを持てる */
+function readKind(v: unknown): 'page' | 'database' {
+  if (v === 'page' || v === 'database') return v;
+  throw new ValidationError('ページの種類はふつうのページかデータベースのいずれかです。');
 }
 
 /**
@@ -133,10 +143,23 @@ router.get('/templates', ...canEdit, wrap(async (req, res) => {
 router.patch('/pages/:id', ...canEdit, wrap(async (req, res) => {
   const pageId = p1(req.params.id);
   await assertReadablePage(req.user!, pageId);
-  const input = readSaveInput(body(req));
+  const b = body(req);
+  const input = readSaveInput(b);
   if (input.owner_user_id) await assertUserExists(input.owner_user_id);
   if (input.parent_id !== undefined) await assertParentForSave(pageId, input.parent_id);
-  const page = await savePageInternal(pageId, input, req.user!);
+
+  /*
+   * ページの種類（ふつうのページ ⇄ データベース・§4-4）。
+   * **版も `updated_at` も増やしません**（並べ替え・テンプレートの登録と同じ扱い）。
+   * だから `savePageInternal` ではなく専用の口を通します。
+   */
+  if (has(b, 'kind')) await setPageKind(req.user!, pageId, readKind(b.kind));
+
+  // 種類だけを送ってきた保存で、中身の変わらない版を1つ足さない
+  const changed = Object.keys(input).some((k) => k !== 'expected_updated_at');
+  const page = changed
+    ? await savePageInternal(pageId, input, req.user!)
+    : await selectPageRow(pageId);
   res.json({ success: true, data: page });
 }));
 

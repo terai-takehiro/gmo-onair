@@ -5,6 +5,7 @@ import pagesRoutes from './routes/pages.routes';
 import pagesWriteRoutes from './routes/pages-write.routes';
 import lockRoutes from './routes/lock.routes';
 import filesRoutes from './routes/files.routes';
+import databasesRoutes from './routes/databases.routes';
 
 /**
  * Wiki（新しいブロックアプリ）— Markdown で書いた文章をツリーに並べ、
@@ -34,7 +35,15 @@ import filesRoutes from './routes/files.routes';
  *   POST   /wiki/files                       画像を上げる（editor）
  *   GET    /wiki/files/:id                   画像を配る（reader）
  *
- * データベースは段C、検索は段D、AI は段E、見直しは段F（§9）。
+ * 段C（データベース・§4-4）:
+ *   GET  /wiki/databases/:pageId           項目とビューの定義
+ *   PUT  /wiki/databases/:pageId           項目とビューをまとめて保存（editor）
+ *   GET  /wiki/databases/:pageId/rows      行の一覧（`?view=` で絞り込み・並べ替え）
+ *   POST /wiki/databases/:pageId/rows      行を1本足す（題だけでよい・editor）
+ *   GET  /wiki/databases/:pageId/rows.csv  書き出し（Notion と同じ形）
+ *   （ページを `kind='database'` にする／戻すのは `PATCH /wiki/pages/:id` の `kind`）
+ *
+ * 検索は段D、AI は段E、見直しは段F（§9）。
  *
  * ⚠️ **並べる順に意味があります。** `/pages/:id/versions` は `/pages/:id` より
  * 先に書いてありますが、Express は**より具体的な道から順に**照合するわけではなく
@@ -46,6 +55,7 @@ export function createWikiRoutes(): Router {
   router.use('/wiki', homeRoutes);
   router.use('/wiki', spacesRoutes);
   router.use('/wiki', filesRoutes);
+  router.use('/wiki', databasesRoutes);
   router.use('/wiki', lockRoutes);
   router.use('/wiki', pagesWriteRoutes);
   router.use('/wiki', pagesRoutes);
