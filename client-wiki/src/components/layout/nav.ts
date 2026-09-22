@@ -35,7 +35,7 @@ const TOP: PlannedNavItem[] = [
 
 /** 下のかたまり（管理） */
 const ADMIN: PlannedNavItem[] = [
-  { label: 'テンプレート',  to: '/templates', icon: LayoutTemplate, ready: false }, // 段B
+  { label: 'テンプレート',  to: '/templates', icon: LayoutTemplate, ready: true },  // 段B で作った
   { label: 'スペース管理',  to: '/spaces',    icon: Settings2,      ready: false }, // 段F
 ];
 

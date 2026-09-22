@@ -1,8 +1,10 @@
 /**
  * ページの上の1行（パンくず・状態・更新・操作）
  *
- * 段A に出せる操作は「履歴」と「情報」の開閉だけ。編集・AI に聞く・「…」
- * （お気に入り・複製・Markdown で書き出す）は段B 以降なので**置かない**。
+ * 段A に出せる操作は「履歴」と「情報」の開閉だけだった。段B で「…」
+ * （複製・テンプレートにする・`.md` で書き出す・一覧から隠す・削除）を足した。
+ * お気に入りと「AI に聞く」は、まだ呼ぶ先が無いので置かない
+ * （`components/page/PageActionsMenu.tsx` の冒頭に理由を書いてある）。
  *
  * ⚠️ **ここに `☰` を置かない。** ツリーは共通の左メニューの中にあり、スマホでは
  *    上辺バーの `☰`（引き出し）から開く。画面の中にもう1つ `☰` があると、
@@ -13,6 +15,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@gmo-onair/shared/src/client/ui/button';
 import type { WikiPage } from '@gmo-onair/shared/src/wiki/types';
 import WikiStatusBadge from '@/components/wiki/WikiStatusBadge';
+import PageActionsMenu from '@/components/page/PageActionsMenu';
 import { revLabel, updatedLabel } from '@/lib/wikiFormat';
 
 export default function PageHeaderBar({
@@ -64,6 +67,10 @@ export default function PageHeaderBar({
         <PanelRight className="mr-1.5 h-4 w-4" aria-hidden />
         情報
       </Button>
+
+      {/* 複製・テンプレート・書き出し・一覧から隠す・削除。**スマホでも出す**
+          （この5つは読む画面からしか辿れない） */}
+      <PageActionsMenu page={page} />
     </div>
   );
 }
