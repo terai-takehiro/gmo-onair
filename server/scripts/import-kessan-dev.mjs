@@ -293,7 +293,17 @@ async function main() {
     }
     async function findProject(gls) {
       if (masterCache.projects.has(gls)) return masterCache.projects.get(gls);
-      const r = await client.query('SELECT id, customer_id FROM projects WHERE gls_number=$1 AND deleted_at IS NULL LIMIT 1', [gls]);
+      // 事前照合（dry-run のレポート・マスタ照合）も commit 時の ensureProject と同じ
+      // project_numbers 解決を使う。ここだけ gls_number のみだと、改番済みで現役の
+      // 案件の退役番号を dry-run では「未登録」と誤って報告し、--create-masters を
+      // 不要に勧めてしまう (commit時の実際の解決結果と食い違う。Codex レビュー指摘・PR #715)。
+      const r = await client.query(
+        `SELECT id, customer_id FROM projects
+           WHERE deleted_at IS NULL
+             AND (gls_number=$1 OR id = (SELECT project_id FROM project_numbers WHERE number=$1))
+           LIMIT 1`,
+        [gls],
+      );
       const v = r.rows[0] || null;
       masterCache.projects.set(gls, v);
       return v;
