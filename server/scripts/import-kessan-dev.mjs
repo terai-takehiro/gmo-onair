@@ -37,10 +37,6 @@
 import pg from 'pg';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-// server/src/shared/constants/entity-default.ts の実体 (このスクリプトは .mjs のまま
-// 直接 node 実行するため .ts を import できない。コンテナには src/ が無く dist/ だけが
-// あるので、ビルド成果物を import するのが「リテラルを書かず定数を参照する」唯一の道)。
-import { CURRENT_ENTITY_CODE } from '../dist/shared/constants/entity-default.js';
 
 const { Client } = pg;
 
@@ -266,6 +262,14 @@ async function main() {
     }
     return;
   }
+
+  // server/src/shared/constants/entity-default.ts の実体。このスクリプトは .mjs のまま
+  // 直接 node 実行するため .ts を import できず、コンテナには src/ が無く dist/ だけが
+  // あるので、ビルド成果物を import するのが「リテラルを書かず定数を参照する」唯一の道。
+  // ただし --no-db (パース検証用。上の return で抜ける) はビルド前のまっさらな checkout
+  // でも動く独立したCLIであるべきなので、DB へ実際に書き込むこの先でだけ遅延 import する
+  // (Codex レビュー指摘: 先頭で static import すると --no-db まで dist/ 依存になっていた)。
+  const { CURRENT_ENTITY_CODE } = await import('../dist/shared/constants/entity-default.js');
 
   // --- DB 接続 ---
   const client = new Client(dbCfg);
