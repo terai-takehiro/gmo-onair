@@ -34,7 +34,7 @@ import DatabaseRulesSheet from '@/components/database/DatabaseRulesSheet';
 import DatabaseToolbar from '@/components/database/DatabaseToolbar';
 import DatabaseViewArea from '@/components/database/DatabaseViewArea';
 import DatabaseViewSheet from '@/components/database/DatabaseViewSheet';
-import { downloadRowsCsv, useWikiDatabase, useWikiDbRefresh, useWikiRows } from '@/components/database/databaseApi';
+import { downloadRowsCsv, useWikiDatabase, useWikiDbRefresh, useWikiRows } from '@/lib/wikiDatabaseApi';
 import { ensureViews, viewItems } from '@/components/database/dbView';
 import { useDatabaseEdit, useRowCreate, useRowValueSave } from '@/components/database/useDatabaseEdit';
 

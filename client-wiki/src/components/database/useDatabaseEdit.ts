@@ -16,7 +16,7 @@ import {
   saveWikiDatabase,
   saveWikiRowProps,
   type WikiDatabaseDef,
-} from './databaseApi';
+} from '@/lib/wikiDatabaseApi';
 
 interface Refresh {
   database: () => void;

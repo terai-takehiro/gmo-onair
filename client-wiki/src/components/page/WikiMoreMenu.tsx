@@ -35,12 +35,27 @@ export interface WikiMoreMenuProps {
   items: WikiMenuItem[];
   /** ボタンの見た目を小さくする（ツリーの行）。既定は普通の大きさ */
   compact?: boolean;
+  /**
+   * ボタンの絵柄。既定は「…」。
+   * ツリーの「＋」（ページ／データベースのどちらを追加するか選ぶ）で差し替えます。
+   */
+  icon?: LucideIcon;
+  /** 読み上げと吹き出しの文。既定は「○○ の操作」 */
+  triggerLabel?: string;
   className?: string;
 }
 
 const MENU_WIDTH = 224;
 
-export default function WikiMoreMenu({ label, items, compact, className }: WikiMoreMenuProps) {
+export default function WikiMoreMenu({
+  label,
+  items,
+  compact,
+  icon: TriggerIcon = MoreHorizontal,
+  triggerLabel,
+  className,
+}: WikiMoreMenuProps) {
+  const buttonLabel = triggerLabel ?? `${label} の操作`;
   const btnRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
@@ -90,7 +105,8 @@ export default function WikiMoreMenu({ label, items, compact, className }: WikiM
       <button
         ref={btnRef}
         type="button"
-        aria-label={`${label} の操作`}
+        aria-label={buttonLabel}
+        title={buttonLabel}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={(e) => {
@@ -105,7 +121,7 @@ export default function WikiMoreMenu({ label, items, compact, className }: WikiM
           className,
         )}
       >
-        <MoreHorizontal className="h-4 w-4" aria-hidden />
+        <TriggerIcon className="h-4 w-4" aria-hidden />
       </button>
 
       {open && pos
@@ -113,7 +129,7 @@ export default function WikiMoreMenu({ label, items, compact, className }: WikiM
           <div
             ref={menuRef}
             role="menu"
-            aria-label={`${label} の操作`}
+            aria-label={buttonLabel}
             style={{ top: pos.top, left: pos.left, width: MENU_WIDTH }}
             className="fixed z-[9999] rounded-card border border-border bg-card p-1.5 shadow-2xl shadow-black/10"
           >

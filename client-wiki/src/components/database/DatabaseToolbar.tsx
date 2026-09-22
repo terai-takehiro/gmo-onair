@@ -75,6 +75,7 @@ export default function DatabaseToolbar({
 
         {canEdit && (
           <Button
+            type="button"
             variant="ghost"
             size="sm"
             className="ml-1 hidden shrink-0 lg:inline-flex"
@@ -88,7 +89,7 @@ export default function DatabaseToolbar({
 
       {/* 2段目: 絞り込み・並べ替え・書き出し・行の追加 */}
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="outline" size="sm" className="hidden lg:inline-flex" onClick={onOpenRules}>
+        <Button type="button" variant="outline" size="sm" className="hidden lg:inline-flex" onClick={onOpenRules}>
           <Filter className="mr-1.5 h-4 w-4" aria-hidden />
           絞り込みと並べ替え
           {ruleCount > 0 && <span className="ml-1 tabular-nums text-primary">{ruleCount}</span>}
@@ -96,6 +97,7 @@ export default function DatabaseToolbar({
 
         {canEdit && (
           <Button
+            type="button"
             variant="outline"
             size="sm"
             className="hidden lg:inline-flex"
@@ -106,7 +108,7 @@ export default function DatabaseToolbar({
           </Button>
         )}
 
-        <Button variant="outline" size="sm" disabled={exporting} onClick={onExportCsv}>
+        <Button type="button" variant="outline" size="sm" disabled={exporting} onClick={onExportCsv}>
           <Download className="mr-1.5 h-4 w-4" aria-hidden />
           CSV で書き出す
         </Button>
