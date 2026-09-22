@@ -404,7 +404,7 @@ router.get('/:id/excel', async (req, res, next) => {
     const tc = row.tax_category as string;
     // 税率は tax-category.service に一本化する。
     // 以前はここで三項演算子を連ねており、**知らない区分は 10% に落ちていた**。
-    // migration 156 で足した不課税 (nontax) がまさにそれに当たり、
+    // migration 302 で足した不課税 (nontax) がまさにそれに当たり、
     // 税額 0 円であるべき請求書・見積書が 10% 課税で出てしまう。
     const rateLabel = TAX_RATE_LABELS[normalizeTaxCategory(tc)];
     // 端数の丸め方は**お金のルール ⑤** が持つ (既定 = 切り捨て)。
