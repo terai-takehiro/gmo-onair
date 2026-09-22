@@ -2532,6 +2532,23 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#731**（`feat(techops): 新ミニアプリ「技術資料」（映像パッチ・技術スタッフ・パッチ盤・技術人員）を作った`・
+  2026-09-22）—— 制作技術支援の10個目のミニアプリ。Codex の Code Review が2回（`5e388d2`・`4257629`）付き、
+  **指摘は8件（P1 1件・P2 7件）**。1回目の5件はこの PR の中で直して返信・解決済み（`4257629`）。
+  **2回目の3件は付いた直後にマージされた**ため、同じ枝を main から作り直して直した（後続の PR）。
+  Security Review は指摘0件。
+
+| PR | 重み | 場所 | 指摘 | 状態 |
+| --- | --- | --- | --- | --- |
+| #731 | P1 | `server/src/contexts/qsheet/services/tech-doc.service.ts`（行の書き込み） | 確定・ロック引き継ぎの直後に、確かめ終えた行の書き込みが割り込んで通る（確定した版が変わる・引き継がれた人が書ける） | ⭕️ #731 内の `4257629`（資料行を `FOR UPDATE` で押さえた1トランザクションで確かめ直してから書く。確定・引き継ぎも同じ行を押さえる） |
+| #731 | P2 | `server/src/contexts/qsheet/services/tech-master.service.ts`（盤の追加） | パッチ番号の id を盤の名前の英数字から作るため、日本語だけの名前などで衝突し、2枚目の盤にパッチ番号が1件も作られない | ⭕️ #731 内の `4257629`（盤の id から作る・1トランザクション） |
+| #731 | P2 | `client-techops/src/pages/tech/TechDocPrintSheet.tsx` | 2列の 58%／42% に 8mm の余白が足され、A4 の文字の範囲からはみ出す | ⭕️ #731 内の `4257629`（flex で余白込みに割り振る） |
+| #731 | P2 | `client-techops/src/pages/tech/TechDocListPage.tsx`（版） | 一覧は第{rev+1}版、書き出し・運営マニュアルは第{rev}版で食い違う | ⭕️ #731 内の `4257629`（`revLabel` 1本に統一） |
+| #731 | P2 | `client-techops/src/hooks/useTechDoc.ts` | 行の書き込みで資料の `updated_at` が進むのに手元が古いままで、直後の名前変更が 409 で捨てられる | ⭕️ #731 内の `4257629`（応答に `doc_updated_at` を返して合わせる） |
+| #731 | P2 | `server/src/contexts/qsheet/services/tech-doc.service.ts`（複製） | 複製で資料本体を先に確定してから行を写すため、途中で失敗すると一部の行だけの資料が残る | ⭕️ 後続の PR（同じ枝 `claude/trusting-johnson-peuf0d` を main から作り直し。本体と行の複製を1トランザクションに） |
+| #731 | P2 | `client-techops/src/pages/tech/TechPanelsPage.tsx` | 「盤を追加」がお知らせを出すだけで、盤を作る処理を呼ばない | ⭕️ 後続の PR（`CreatePanelDialog.tsx` で盤の名前・ch数・種類・場所・型番を入れて作成） |
+| #731 | P2 | `client-techops/src/pages/tech/TechDocListPage.tsx`（権限） | 閲覧だけの人にも作成・複製・削除が出て、押すと必ず 403 | ⭕️ 後続の PR（`qsheet` editor で出し分け。資料画面のメニューも同じ） |
+
 - **#730**（`feat(wiki): 段D（検索）— 検索・お気に入り・リンク元・\`.md\` の出入口`・
   2026-09-22）—— Wiki の段D。検索の API と画面（`/search`）、どの画面からでも開く小窓
   （`Ctrl`／`⌘`＋`K`）、お気に入り、リンク元、`.md` の出入口（1枚ずつ・スペースまるごとの zip・

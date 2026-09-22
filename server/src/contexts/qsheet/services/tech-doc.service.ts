@@ -247,29 +247,43 @@ export async function createTechDoc(input: CreateTechDocInput): Promise<Row> {
   }
 
   const id = uuid();
+  // 発番だけは独自のシーケンス（`issueDocNo`）を使うので、資料行・行コピーのトランザクション
+  // の外で採ってよい（失敗してもロールバックする対象が無い）
   const docNo = await issueDocNo('tech');
-  await execute(
-    `INSERT INTO qsheet_tech_docs (id, doc_no, title, project_id, program_id, copied_from, created_by, updated_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $7)`,
-    [id, docNo, (input.title || '').slice(0, MAX_TITLE), input.projectId || null, input.programId || null,
-      input.copyFrom || null, input.createdBy],
-  );
 
-  if (input.copyFrom) {
-    await copyRowsInto(id, input.copyFrom);
-  }
+  // ⚠️ 資料行の INSERT と複製元の行コピーは**1つのトランザクション**で行う。別々の
+  //    自動コミットの文に分けると、行コピーの途中で失敗したときに資料行だけが残る
+  //    （中身の無い資料が一覧に出る）。`mutateRows` と同じ `withTransaction` を使う。
+  await withTransaction(async (tx) => {
+    await tx.execute(
+      `INSERT INTO qsheet_tech_docs (id, doc_no, title, project_id, program_id, copied_from, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $7)`,
+      [id, docNo, (input.title || '').slice(0, MAX_TITLE), input.projectId || null, input.programId || null,
+        input.copyFrom || null, input.createdBy],
+    );
+    if (input.copyFrom) {
+      await copyRowsInto(tx, id, input.copyFrom);
+    }
+  });
 
   const row = await getTechDoc(id);
   if (!row) throw new Error('createTechDoc: INSERT 直後の SELECT が空でした');
   return row;
 }
 
-/** 複製元の映像パッチ行・技術スタッフ行を丸ごと写す（id だけ採り直す） */
-async function copyRowsInto(newId: string, sourceId: string): Promise<void> {
-  const patchRows = await listPatchRows(sourceId);
-  const staffRows = await listStaffRows(sourceId);
+/** 複製元の映像パッチ行・技術スタッフ行を丸ごと写す（id だけ採り直す）。
+ *  資料行の INSERT と同じトランザクション（`tx`）の中で読み書きする */
+async function copyRowsInto(tx: TxClient, newId: string, sourceId: string): Promise<void> {
+  const patchRows = await tx.queryAll(
+    `SELECT ${PATCH_ROW_COLUMNS} FROM qsheet_tech_patch_rows WHERE tech_doc_id = $1 ORDER BY sort_order, created_at`,
+    [sourceId],
+  );
+  const staffRows = await tx.queryAll(
+    `SELECT ${STAFF_ROW_COLUMNS} FROM qsheet_tech_staff_rows WHERE tech_doc_id = $1 ORDER BY work_date, sort_order, created_at`,
+    [sourceId],
+  );
   for (const r of patchRows) {
-    await execute(
+    await tx.execute(
       `INSERT INTO qsheet_tech_patch_rows
          (id, tech_doc_id, group_label, sort_order, from_device_text, from_jack_id, from_jack_text, from_is_extra,
           to_device_text, to_jack_id, to_jack_text, to_is_extra, label, signal, note)
@@ -279,7 +293,7 @@ async function copyRowsInto(newId: string, sourceId: string): Promise<void> {
     );
   }
   for (const r of staffRows) {
-    await execute(
+    await tx.execute(
       `INSERT INTO qsheet_tech_staff_rows
          (id, tech_doc_id, work_date, role, person_id, person_name, company_id, company_name, note, sort_order)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,

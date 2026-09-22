@@ -21,6 +21,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { notifyInfo, notifySuccess } from "@/lib/notify";
 import { TechPanelBoard, type TechPanelBoardSelection } from "./TechPanelBoard";
 import { TechPanelJackTable } from "./TechPanelJackTable";
+import { CreatePanelDialog } from "./CreatePanelDialog";
 
 function formatUpdatedAt(iso: string): string {
   return new Date(iso).toLocaleDateString("ja-JP", { year: "numeric", month: "numeric", day: "numeric" });
@@ -40,11 +41,24 @@ export default function TechPanelsPage() {
   const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null);
   const [selected, setSelected] = useState<TechPanelBoardSelection | null>(null);
   const [page, setPage] = useState(0);
+  const [createOpen, setCreateOpen] = useState(false);
+  // 追加した直後、一覧の読み直しが届いたらこの名前の盤を選ぶ（盤の名前は重複を許さないので、
+  // 名前で見つければ確実に新しい盤に当たる）
+  const [pendingSelectName, setPendingSelectName] = useState<string | null>(null);
 
   // 一覧が届いたら最初の盤を開く
   useEffect(() => {
     if (!selectedPanelId && panels.length > 0) setSelectedPanelId(panels[0].id);
   }, [panels, selectedPanelId]);
+
+  useEffect(() => {
+    if (!pendingSelectName) return;
+    const found = panels.find((p) => p.name === pendingSelectName);
+    if (found) {
+      setSelectedPanelId(found.id);
+      setPendingSelectName(null);
+    }
+  }, [panels, pendingSelectName]);
 
   // `panelDetail` は同期。要求していなければここで控えが積まれ、届くと再描画される
   const detail = selectedPanelId ? masters.panelDetail(selectedPanelId) : undefined;
@@ -89,10 +103,7 @@ export default function TechPanelsPage() {
         sub="VJP100〜VJP1800 のパッチ番号ごとの機材と名称。完成図書から転記して編集します。"
         primaryAction={
           canEdit ? (
-            <Button
-              className="min-h-tap"
-              onClick={() => notifyInfo("盤を追加", { description: "盤の名前・ch数・型番・場所を入れて追加します。" })}
-            >
+            <Button className="min-h-tap" onClick={() => setCreateOpen(true)}>
               <Plus className="mr-1 h-4 w-4" aria-hidden="true" />盤を追加
             </Button>
           ) : undefined
@@ -257,6 +268,15 @@ export default function TechPanelsPage() {
             )}
           </div>
         </div>
+      )}
+
+      {canEdit && (
+        <CreatePanelDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          onSubmit={masters.createPanel}
+          onCreated={setPendingSelectName}
+        />
       )}
     </PageShell>
   );
