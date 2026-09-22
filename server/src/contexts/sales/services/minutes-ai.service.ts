@@ -404,7 +404,15 @@ ${transcript}
   let chars = minutesCoverageChars(minutes);
   let retried = false;
 
-  const usage = { input: out.usage.inputTokens, cached: out.usage.cachedInputTokens, output: out.usage.outputTokens };
+  // **呼び出し1回につき `ai_usage` 1行**（やり取り側と同じ約束。Codex レビューでの指摘）。
+  // 議事録は拾い直しも同じモデルなので単価は変わりませんが、**何回呼んだか**が
+  // 合わなくなるので足し込みません（`ai_usage` は呼び出しの記録）
+  await recordAiUsage({
+    kind: 'minutes', provider, model,
+    inputTokens: out.usage.inputTokens,
+    cachedInputTokens: out.usage.cachedInputTokens,
+    outputTokens: out.usage.outputTokens,
+  });
 
   /*
    * **短すぎたら1回だけ拾い直させます。**
@@ -421,9 +429,12 @@ ${transcript}
     console.warn(`[minutes] まとめが短すぎます（${chars}字 / 下限 ${target.minChars}字）。拾い直させます`);
     try {
       const retry = await call(coverageRetryNote(chars, target, '引用を除いたまとめ'));
-      usage.input += retry.usage.inputTokens;
-      usage.cached += retry.usage.cachedInputTokens;
-      usage.output += retry.usage.outputTokens;
+      await recordAiUsage({
+        kind: 'minutes', provider, model,
+        inputTokens: retry.usage.inputTokens,
+        cachedInputTokens: retry.usage.cachedInputTokens,
+        outputTokens: retry.usage.outputTokens,
+      });
       const second = normalizeMinutes(retry.raw);
       const secondChars = minutesCoverageChars(second);
       // **長いほうを採ります。** 拾い直したのに減っているなら1回目のほうが網羅していた
@@ -433,15 +444,6 @@ ${transcript}
       console.warn('[minutes] 拾い直しに失敗しました（1回目の結果を使います）:', (e as Error).message);
     }
   }
-
-  // 費用を見るために残す（`ai_outputs` は「出力」の器なので、ここでは足りない）。
-  // **やり直した回のぶんも足して1件にします** — 分けると「1件あたりいくら」が合わない
-  await recordAiUsage({
-    kind: 'minutes', provider, model,
-    inputTokens: usage.input,
-    cachedInputTokens: usage.cached,
-    outputTokens: usage.output,
-  });
 
   return {
     ...minutes,

@@ -328,7 +328,25 @@ export class ActivityLogService {
    * AI が整えた行を人が直したときは、**サーバーが自動で before/after を比べ**、
    * `ai_corrections` に入れます（条件2）。**人には何も入力させません。**
    */
-  async update(id: string, data: Record<string, unknown>, userId?: string | null) {
+  /**
+   * 直して保存する。
+   *
+   * ⚠️ **`humanReview` を渡すのは画面（`activity-logs.routes.ts` の PUT）だけ**です。
+   *
+   * ここは MCP の `update_activity_log` からも呼ばれます（案件の紐付けを足すだけ、等）。
+   * **機械の更新を「人がレビューした」として数えると、無修正採用率が嘘になります** —
+   * しかも `ai_corrections` に一度でも行が積まれると、あとから来た
+   * **本物の人の修正が記録されなくなります**（同じ出力に二度積まないため。
+   * Codex レビューでの指摘・PR #717）。
+   *
+   * **`userId` の有無で代用しないこと。** いまは MCP が渡していないだけで、
+   * `create_activity_log` は `user_id` を必須で受け取っています。
+   * 将来 `update_activity_log` にも足された日に、**この判定は黙って壊れます**。
+   */
+  async update(
+    id: string, data: Record<string, unknown>, userId?: string | null,
+    opts: { humanReview?: boolean } = {},
+  ) {
     const existing = await queryOne(
       `SELECT id, customer_id, ai_output_id, ai_formatted, next_action, next_action_date, next_action_short
          FROM activity_logs WHERE id = ? AND deleted_at IS NULL`, [id],
@@ -418,9 +436,19 @@ export class ActivityLogService {
       [...params, id],
     );
     const after = await this.getById(id) as Record<string, unknown>;
-    if (existing.ai_formatted) await recordActivityCorrections(id, after, userId ?? null);
-    // **取込（MCP）で AI が書いた本文の差分は、整形の有無と関係なく残す**（上の注意書き）
-    await recordIntakeCorrections(id, after, userId ?? null);
+    /*
+     * **人が画面で直したときだけ差分を残す**（上の `humanReview` の注意書き）。
+     *
+     * 整形側（`recordActivityCorrections`）にも同じ門を付けています — こちらは
+     * 着手前から機械の更新で `(全体) none` を積んでいて、**無修正採用率を
+     * 実際より高く見せていました**（Codex の指摘は取込側に対するものですが、
+     * 根は同じで、門を1つだけ付けると片方だけ正しい数字になります）。
+     */
+    if (opts.humanReview) {
+      if (existing.ai_formatted) await recordActivityCorrections(id, after, userId ?? null);
+      // **取込（MCP）で AI が書いた本文の差分は、整形の有無と関係なく残す**（上の注意書き）
+      await recordIntakeCorrections(id, after, userId ?? null);
+    }
     // **AI が作った一文を人が直した**ときだけ差分を残す（材料を変えて消えた回は誤りではない）
     if (shortEdited) {
       await recordShortCorrections(id, (after.next_action_short as string | null) ?? null, userId ?? null)

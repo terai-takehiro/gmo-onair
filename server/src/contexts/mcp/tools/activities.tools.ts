@@ -4,6 +4,7 @@ import {
   activityLogService, ACTIVITY_INTAKE_KIND, ACTIVITY_INTAKE_PROMPT_VERSION,
 } from '../../sales/services/activity-log.service';
 import { recordAiOutput } from '../../../shared/services/ai-output.service';
+import { MAX_ACTIVITY_CHARS } from '../../sales/services/activity-ai.service';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { ok, runTool, clampLimit, pagination, audit, REQUESTED_BY } from '../helpers';
 /**
@@ -158,12 +159,26 @@ export function registerActivityTools(server: McpServer): void {
         subject: z.string().min(1).describe('件名'),
         project_id: z.string().optional().describe('関連する案件 ID (任意)'),
         customer_id: z.string().optional().describe('関連する顧客 ID (任意)'),
-        description: z.string().optional().describe(
+        /*
+         * ⚠️ **上限は describe に書くだけでなく、ここで止めます**（Codex レビューでの指摘）。
+         *
+         * 止めないと、長すぎる本文でも**記録は作られてしまい**、あとから整形器が
+         * `MAX_ACTIVITY_CHARS` で断って `format_error` を立てます。
+         * つまり**整わない記録が静かに1件増えるだけ**で、呼んだ側は
+         * 「分けて記録する」という正しい動きを取れません。
+         *
+         * **数字を書き写さない** — 整形器の上限（`MAX_ACTIVITY_CHARS`）そのものを使います。
+         * 書き写すと、片方を動かした日にもう片方が黙って食い違います。
+         */
+        description: z.string().max(
+          MAX_ACTIVITY_CHARS,
+          `本文が長すぎます（上限 ${MAX_ACTIVITY_CHARS.toLocaleString()} 字）。要約せず、記録を分けてください`,
+        ).optional().describe(
           '活動内容の本文。**要約しないこと。** メール取込なら、署名・引用返信・'
           + '定型文・フッターを除いた本文を**そのまま**入れる（往復があるなら往復のまま）。'
           + '読める形（状態・事実・誰の発言か）に分けるのは**サーバー側の整形器の仕事**で、'
           + 'ここで縮めると**縮んだものをさらに縮める**ことになり、画面には数行しか残らない。'
-          + '上限 20,000 字（超えるときは要約せず、記録を分けること）',
+          + `上限 ${MAX_ACTIVITY_CHARS.toLocaleString()} 字（超えるとエラーになります。要約せず、記録を分けること）`,
         ),
         next_action: z.string().optional().describe('次回アクション'),
         next_action_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('次回アクション予定日'),

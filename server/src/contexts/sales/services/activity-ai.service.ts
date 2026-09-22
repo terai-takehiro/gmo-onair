@@ -358,10 +358,27 @@ ${text}
     out = await call(heavy);
   }
 
+  /*
+   * **呼び出し1回につき `ai_usage` 1行**（その約束を破らない・Codex レビューでの指摘）。
+   *
+   * 拾い直しは**上位モデル**で走るので、1回目（軽い）と2回目（重い）の
+   * トークンを足して1行にすると、**全部が片方の単価で値付けされます**
+   * （`costOf` は行のモデル名で引く）。総額が嘘になるほうが、
+   * 「1件あたり」の割り算がずれるより高くつきます。
+   *
+   * ⚠️ `perRowCost` は行数ではなく**呼び出し回数**で割るので、拾い直した回の
+   * 「1件あたり」はそのぶん低めに出ます。**総額は正しい**ほうを取っています。
+   */
+  await recordAiUsage({
+    kind: 'activity', provider, model: used,
+    inputTokens: out.usage.inputTokens,
+    cachedInputTokens: out.usage.cachedInputTokens,
+    outputTokens: out.usage.outputTokens,
+  });
+
   let formatted = normalizeActivity(out.raw, text);
   let chars = activityStructLength(formatted.struct);
   let retried = false;
-  const usage = { input: out.usage.inputTokens, cached: out.usage.cachedInputTokens, output: out.usage.outputTokens };
 
   /*
    * **短すぎたら1回だけ拾い直させます**（`shared/services/ai-coverage.ts`）。
@@ -384,9 +401,13 @@ ${text}
     console.warn(`[activity] 整形が短すぎます（${chars}字 / 下限 ${target.minChars}字）。${heavy} で拾い直させます`);
     try {
       const retry = await call(heavy, coverageRetryNote(chars, target, '整えた本文'));
-      usage.input += retry.usage.inputTokens;
-      usage.cached += retry.usage.cachedInputTokens;
-      usage.output += retry.usage.outputTokens;
+      // **拾い直した回はそれ自身のモデルで残す**（上の注意書き）
+      await recordAiUsage({
+        kind: 'activity', provider, model: heavy,
+        inputTokens: retry.usage.inputTokens,
+        cachedInputTokens: retry.usage.cachedInputTokens,
+        outputTokens: retry.usage.outputTokens,
+      });
       const second = normalizeActivity(retry.raw, text);
       const secondChars = activityStructLength(second.struct);
       // **長いほうを採ります。** 拾い直したのに減っているなら1回目のほうが網羅していた
@@ -396,14 +417,6 @@ ${text}
       console.warn('[activity] 拾い直しに失敗しました（1回目の結果を使います）:', (e as Error).message);
     }
   }
-
-  // **やり直した回のぶんも足して1件にします** — 分けると「1件あたりいくら」が合わない
-  await recordAiUsage({
-    kind: 'activity', provider, model: used,
-    inputTokens: usage.input,
-    cachedInputTokens: usage.cached,
-    outputTokens: usage.output,
-  });
 
   return {
     ...formatted,
