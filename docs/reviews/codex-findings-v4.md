@@ -2483,6 +2483,20 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#725**（`feat(wiki): 段B（書く）— 手入力優先の編集画面・自動保存・編集ロック・画像・テンプレート`・
+  2026-09-22）—— Wiki の段B。段A は読むだけだったので、サーバーの書き込み口（作成・保存・公開・
+  移動・削除・テンプレート・編集ロック4本・画像）と、手入力優先の編集画面（素の `textarea` ＋
+  右プレビュー・自動保存1.5秒・他人のロック中は読み取り専用）、ツリーからの操作を足した。
+  **設計 §6-③ の「Milkdown 第一候補」から変えた**理由（手入力最優先のご指示・本文の正が
+  Markdown の文字列・スマホの日本語入力・重い依存を増やさない）は PR 本文に書いた。
+  **Code Review は Codex の usage limits で実行されず**（#663 以降くり返し起きている既知の状況）、
+  **Security Review は完了して指摘0件**。**レビュースレッドは0件。表に移す未対応の指摘は無い**。
+  検証: `npm run typecheck:all`（0 errors）・`npm run lint`（0 errors / 54 warnings＝着手前と同じ）・
+  `npm run test`（94件）・`npx vitest run --root shared`（2,548件）・`npm run build -w client-wiki`・
+  検証用 Postgres に実際に叩いて ロック中の他人の PATCH が 409 LOCKED・古い `updated_at` で
+  409 CONFLICT・循環する移動が 400・削除後 404 を確認。実ブラウザで日本語を打って自動保存され、
+  読み直して残ること・別の利用者では読み取り専用になることを確認。
+
 - **#724**（`feat(wiki): 段A の残り（サーバーの読み取り口8本・client-wiki の4画面・配線）と、画面のご指摘2件`・
   2026-09-22）—— 新ブロックアプリ Wiki の段A（器）の残り。#719 が `f9bca40`（migration 303・
   `shared/src/wiki/`・設計書とモック）の時点でマージされたため、サーバーの読み取り口・`client-wiki`・
