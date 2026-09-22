@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>Wiki 見直し</title>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&family=Noto+Sans+JP:wght@400;700;800&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    button { font-family: inherit; }
+    .tap { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .ghost:hover { background: #f2f4f7; }
+    .btn-primary { transition: background-color .12s ease; } .btn-primary:hover { background: #004d91; }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .row-tap:hover { background: #fbfcfd; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 1000px; position: relative; overflow: hidden; background: #f7f8fa; display: flex; flex-direction: column; color: #1a1d24;">
+
+  <header style="display: flex; height: 64px; flex-shrink: 0; align-items: center; gap: 14px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 24px;">
+    <div style="display: flex; align-items: center; gap: 9px;">
+      <div style="width: 28px; height: 28px; border-radius: 9px; background: #005bac; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M7.8 7.8a6 6 0 0 0 0 8.4"></path><path d="M16.2 16.2a6 6 0 0 0 0-8.4"></path><path d="M4.9 4.9a10 10 0 0 0 0 14.2"></path><path d="M19.1 19.1a10 10 0 0 0 0-14.2"></path></svg></div>
+      <span style="font-size: 15px; font-weight: 800;">ONAiR</span>
+    </div>
+    <span style="height: 22px; width: 1px; background: #e6e9ed;"></span>
+    <button class="tap" style="display: flex; height: 40px; align-items: center; gap: 10px; border-radius: 10px; border: 1px solid #cfe4f4; background: #f4faff; padding: 0 12px; color: #005bac;">
+      <span style="width: 22px; height: 22px; border-radius: 7px; background: #eaf4fb; display: flex; align-items: center; justify-content: center;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg></span>
+      <span style="font-size: 13.5px; font-weight: 700;">Wiki</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+    <span class="clip1" style="font-size: 12.5px; color: #5d6470;">／ 見直し</span>
+    <span style="flex: 1;"></span>
+    <button class="tap" style="display: flex; align-items: center; gap: 10px; height: 44px;">
+      <span style="width: 32px; height: 32px; border-radius: 9999px; background: #fff7ed; color: #c2410e; font-size: 13.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;">川</span>
+      <span style="font-size: 12.5px; white-space: nowrap;">川口 早苗</span>
+    </button>
+  </header>
+
+  <div style="display: flex; flex: 1; min-height: 0;">
+    <aside style="width: 248px; flex-shrink: 0; border-right: 1px solid #e6e9ed; background: #ffffff; padding: 14px 12px 20px; display: flex; flex-direction: column; gap: 2px; overflow: hidden;">
+      <sc-for list="{{nav}}" as="n" hint-placeholder-count="12">
+        <div>
+          <sc-if value="{{n.isTitle}}" hint-placeholder-val="{{ false }}"><div style="padding: 12px 10px 4px; font-size: 11px; font-weight: 800; color: #9aa1ab;">{{n.label}}</div></sc-if>
+          <sc-if value="{{n.isItem}}" hint-placeholder-val="{{ true }}">
+            <div style="display: flex; align-items: center; gap: 10px; height: 38px; border-radius: 10px; padding: 0 10px; background: {{n.bg}}; color: {{n.fg}};">
+              <span style="width: 18px; height: 18px; border-radius: 5px; background: {{n.dot}}; flex-shrink: 0;"></span>
+              <span class="clip1" style="flex: 1; min-width: 0; font-size: 13.5px; font-weight: {{n.weight}};">{{n.label}}</span>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </aside>
+
+    <main style="flex: 1; min-width: 0; background: #f7f8fa; overflow: hidden;">
+      <div style="padding: 22px 28px 0; height: 100%; display: flex; flex-direction: column; gap: 14px;">
+
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 24px;">
+          <div style="min-width: 0;">
+            <h1 style="margin: 0; font-size: 23px; line-height: 1.3; font-weight: 800; letter-spacing: -.01em;">見直し</h1>
+            <p style="margin: 6px 0 0; font-size: 13.5px; color: #3c424c;">月1回、スペースの担当が確認します。期限切れのページを編集し、AI が答えられなかった質問からページを作成し、AI の修正状況を確認します。</p>
+          </div>
+          <div style="flex-shrink: 0; display: flex; align-items: center; gap: 10px;">
+            <span style="display: flex; align-items: center; gap: 8px; height: 38px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12.5px;"><span style="color: #9aa1ab; font-weight: 800; font-size: 11px;">スペース</span><span style="width: 8px; height: 8px; border-radius: 2px; background: #c2410e;"></span><span style="font-weight: 800;">制作・技術</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></span>
+            <span class="num" style="display: flex; align-items: center; gap: 6px; height: 38px; border-radius: 10px; border: 1px solid #bfe3ce; background: #e7f6ee; padding: 0 12px; font-size: 12.5px; font-weight: 700; color: #197a4b;">9月の見直し ・ 担当 川口 早苗 ・ 期限 9/30</span>
+          </div>
+        </div>
+
+        <!-- タブ -->
+        <div style="display: flex; align-items: center; gap: 6px; height: 46px; border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 8px;">
+          <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+            <button class="tap" onClick="{{t.pick}}" style="display: flex; align-items: center; gap: 7px; height: 34px; border-radius: 9px; padding: 0 12px; background: {{t.bg}}; color: {{t.fg}}; font-size: 13px; font-weight: {{t.weight}};">{{t.label}}<span class="num" style="display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 20px; border-radius: 6px; background: {{t.nBg}}; color: {{t.nFg}}; font-size: 11px; font-weight: 800; padding: 0 5px;">{{t.n}}</span></button>
+          </sc-for>
+          <span style="flex: 1;"></span>
+          <span class="num" style="font-size: 11.5px; color: #9aa1ab; padding-right: 6px;">{{tabHint}}</span>
+        </div>
+
+        <!-- ① 見直し期限 -->
+        <sc-if value="{{isDue}}" hint-placeholder-val="{{ true }}">
+          <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; overflow: hidden; flex: 1; min-height: 0; display: flex; flex-direction: column;">
+            <div style="display: flex; align-items: center; gap: 12px; height: 40px; flex-shrink: 0; padding: 0 16px; border-bottom: 1px solid #e6e9ed; font-size: 11.5px; font-weight: 800; color: #9aa1ab;">
+              <span style="width: 96px; flex-shrink: 0;">状態</span><span style="flex: 1; min-width: 0;">ページ</span><span style="width: 96px; flex-shrink: 0;">担当</span><span style="width: 96px; flex-shrink: 0;">見直し期限</span><span style="width: 96px; flex-shrink: 0;">最終更新</span><span style="width: 200px; flex-shrink: 0;"></span>
+            </div>
+            <div style="flex: 1; min-height: 0; overflow: hidden;">
+              <sc-for list="{{due}}" as="d" hint-placeholder-count="7">
+                <div class="row-tap" style="display: flex; align-items: center; gap: 12px; height: 50px; padding: 0 16px; border-bottom: 1px solid #f2f4f7;">
+                  <span style="width: 96px; flex-shrink: 0; display: flex;"><span style="display: inline-flex; align-items: center; justify-content: center; min-width: 72px; height: 22px; border-radius: 6px; background: {{d.badgeBg}}; color: {{d.badgeFg}}; font-size: 11px; font-weight: 800;">{{d.badge}}</span></span>
+                  <a href="Page.dc.html" style="flex: 1; min-width: 0; color: #1a1d24;"><span class="clip1" style="display: block; font-size: 13.5px; font-weight: 700;">{{d.title}}</span><span class="clip1" style="display: block; font-size: 11.5px; color: #9aa1ab;">{{d.path}}</span></a>
+                  <span class="clip1" style="width: 96px; flex-shrink: 0; font-size: 12.5px; color: {{d.ownerFg}};">{{d.owner}}</span>
+                  <span class="num" style="width: 96px; flex-shrink: 0; font-size: 12.5px; color: {{d.dueFg}}; font-weight: 700;">{{d.due}}</span>
+                  <span class="num" style="width: 96px; flex-shrink: 0; font-size: 12.5px; color: #5d6470;">{{d.updated}}</span>
+                  <span style="width: 200px; flex-shrink: 0; display: flex; gap: 6px; justify-content: flex-end;">
+                    <a href="Editor.dc.html" style="display: flex; align-items: center; height: 30px; border-radius: 8px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 10px; font-size: 12px; font-weight: 700; color: #1a1d24;">編集</a>
+                    <button class="tap" style="display: flex; align-items: center; height: 30px; border-radius: 8px; border: 1px solid #bfe3ce; background: #e7f6ee; color: #197a4b; padding: 0 10px; font-size: 12px; font-weight: 700;" title="そのままで正しい。期限を 12か月伸ばす">見直した</button>
+                  </span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="flex-shrink: 0; padding: 10px 16px 12px; border-top: 1px solid #f2f4f7; font-size: 11.5px; line-height: 1.6; color: #5d6470;">「見直した」は本文を変えずに次の期限を入れ直します（履歴に「見直し」として残る）。期限は任意で、入れたページだけここに出ます。担当が空のページは、スペースの担当が引き受けるか誰かに割り当てます。</div>
+          </section>
+        </sc-if>
+
+        <!-- ② 足りないページ -->
+        <sc-if value="{{isGaps}}" hint-placeholder-val="{{ false }}">
+          <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; overflow: hidden; flex: 1; min-height: 0; display: flex; flex-direction: column;">
+            <div style="display: flex; align-items: center; gap: 12px; height: 40px; flex-shrink: 0; padding: 0 16px; border-bottom: 1px solid #e6e9ed; font-size: 11.5px; font-weight: 800; color: #9aa1ab;">
+              <span style="width: 56px; flex-shrink: 0; text-align: right;">回数</span><span style="flex: 1; min-width: 0;">AI が答えられなかった質問</span><span style="width: 96px; flex-shrink: 0;">スペース（推定）</span><span style="width: 96px; flex-shrink: 0;">最後に聞かれた</span><span style="width: 220px; flex-shrink: 0;"></span>
+            </div>
+            <div style="flex: 1; min-height: 0; overflow: hidden;">
+              <sc-for list="{{gaps}}" as="g" hint-placeholder-count="6">
+                <div class="row-tap" style="display: flex; align-items: center; gap: 12px; height: 50px; padding: 0 16px; border-bottom: 1px solid #f2f4f7;">
+                  <span class="num" style="width: 56px; flex-shrink: 0; text-align: right; font-size: 15px; font-weight: 800; color: {{g.nFg}};">{{g.n}}</span>
+                  <span style="flex: 1; min-width: 0;"><span class="clip1" style="display: block; font-size: 13.5px; font-weight: 700;">{{g.q}}</span><span class="clip1" style="display: block; font-size: 11.5px; color: #9aa1ab;">{{g.who}}</span></span>
+                  <span class="clip1" style="width: 96px; flex-shrink: 0; font-size: 12.5px; color: #5d6470;">{{g.space}}</span>
+                  <span class="num" style="width: 96px; flex-shrink: 0; font-size: 12.5px; color: #5d6470;">{{g.last}}</span>
+                  <span style="width: 220px; flex-shrink: 0; display: flex; gap: 6px; justify-content: flex-end;">
+                    <a href="Editor.dc.html" class="btn-primary" style="display: flex; align-items: center; gap: 5px; height: 30px; border-radius: 8px; background: #005bac; color: #ffffff; padding: 0 10px; font-size: 12px; font-weight: 800;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg>AI で下書きを作成</a>
+                    <a href="Editor.dc.html" style="display: flex; align-items: center; height: 30px; border-radius: 8px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 10px; font-size: 12px; font-weight: 700; color: #1a1d24;">ページを作成</a>
+                    <button class="tap ghost" style="display: flex; align-items: center; height: 30px; border-radius: 8px; padding: 0 8px; font-size: 12px; font-weight: 700; color: #5d6470;">却下</button>
+                  </span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="flex-shrink: 0; padding: 10px 16px 12px; border-top: 1px solid #f2f4f7; font-size: 11.5px; line-height: 1.6; color: #5d6470;">同じ質問は空白と記号を落として1件にまとめ、回数を数えます。「AI で下書きを作成」は会話と ONAiR のデータを材料に<strong>下書き</strong>を作成し、人が編集して公開します（公開したら次からは出典つきで答えます）。</div>
+          </section>
+        </sc-if>
+
+        <!-- ③ AI の直され方 -->
+        <sc-if value="{{isAi}}" hint-placeholder-val="{{ false }}">
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+            <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; padding: 14px 16px;">
+              <div style="font-size: 11.5px; font-weight: 800; color: #9aa1ab;">AI に聞く（9月）</div>
+              <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 6px;"><span class="num" style="font-size: 27px; font-weight: 800;">126</span><span style="font-size: 12.5px; color: #5d6470;">回答</span></div>
+              <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 10px; font-size: 12.5px;">
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="width: 96px; color: #5d6470;">出典あり</span><span class="num" style="width: 44px; text-align: right; font-weight: 800;">71%</span><span style="flex: 1; height: 6px; border-radius: 3px; background: #f2f4f7; overflow: hidden;"><span style="display: block; width: 71%; height: 100%; background: #197a4b;"></span></span></div>
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="width: 96px; color: #5d6470;">出典が開かれた</span><span class="num" style="width: 44px; text-align: right; font-weight: 800;">58%</span><span style="flex: 1; height: 6px; border-radius: 3px; background: #f2f4f7; overflow: hidden;"><span style="display: block; width: 58%; height: 100%; background: #005bac;"></span></span></div>
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="width: 96px; color: #5d6470;">役に立った</span><span class="num" style="width: 44px; text-align: right; font-weight: 800;">44%</span><span style="flex: 1; height: 6px; border-radius: 3px; background: #f2f4f7; overflow: hidden;"><span style="display: block; width: 44%; height: 100%; background: #197a4b;"></span></span></div>
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="width: 96px; color: #5d6470;">的外れ</span><span class="num" style="width: 44px; text-align: right; font-weight: 800;">6%</span><span style="flex: 1; height: 6px; border-radius: 3px; background: #f2f4f7; overflow: hidden;"><span style="display: block; width: 6%; height: 100%; background: #c7243a;"></span></span></div>
+              </div>
+              <p style="margin: 10px 0 0; font-size: 11.5px; line-height: 1.6; color: #5d6470;">評価は本人の申告。「出典が開かれた」は閲覧の記録から導出（読み取り時に計算・表に焼かない）。</p>
+            </section>
+            <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; padding: 14px 16px;">
+              <div style="font-size: 11.5px; font-weight: 800; color: #9aa1ab;">AI で下書きを作成（9月）</div>
+              <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 6px;"><span class="num" style="font-size: 27px; font-weight: 800;">9</span><span style="font-size: 12.5px; color: #5d6470;">下書き ・ 公開 7 ・ 削除 1 ・ 下書きのまま 1</span></div>
+              <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 10px; font-size: 12.5px;">
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="width: 96px; color: #5d6470;">無修正で公開</span><span class="num" style="width: 44px; text-align: right; font-weight: 800;">2</span><span style="font-size: 11.5px; color: #9aa1ab;">そのまま公開</span></div>
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="width: 96px; color: #5d6470;">言い回しだけ</span><span class="num" style="width: 44px; text-align: right; font-weight: 800;">3</span><span style="font-size: 11.5px; color: #9aa1ab;">一致 85% 以上</span></div>
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="width: 96px; color: #5d6470;">内容を修正</span><span class="num" style="width: 44px; text-align: right; font-weight: 800;">2</span><span style="font-size: 11.5px; color: #9aa1ab;">一致 85% 未満</span></div>
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="width: 96px; color: #5d6470;">削除</span><span class="num" style="width: 44px; text-align: right; font-weight: 800;">1</span><span style="font-size: 11.5px; color: #9aa1ab;">公開せずに削除</span></div>
+              </div>
+              <div style="margin-top: 10px; border-radius: 10px; background: #f7f8fa; padding: 9px 11px; font-size: 12px; line-height: 1.6;"><strong>よく修正される点</strong>: 見出しが深すぎる（#### を使う）・「GLS番号」と書く（→ 管理番号）・手順の前に前提条件が無い</div>
+            </section>
+            <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; padding: 14px 16px; display: flex; flex-direction: column;">
+              <div style="font-size: 11.5px; font-weight: 800; color: #9aa1ab;">今月の見直し（担当の記録）</div>
+              <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px;">
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="width: 18px; height: 18px; border-radius: 5px; background: #e7f6ee; display: flex; align-items: center; justify-content: center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#197a4b" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg></span><span>見直し期限切れ 3件を処理した</span></div>
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="width: 18px; height: 18px; border-radius: 5px; background: #f2f4f7;"></span><span>足りないページ 上位 3件からページを作成した</span></div>
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="width: 18px; height: 18px; border-radius: 5px; background: #f2f4f7;"></span><span>「よく修正される点」を読み、テンプレートを編集した</span></div>
+              </div>
+              <span style="flex: 1;"></span>
+              <p style="margin: 10px 0 0; font-size: 11.5px; line-height: 1.6; color: #5d6470;">毎月1日に担当へ通知（ONAiR の通知テンプレート）。3つ済むと「見直しを完了」を押せ、記録が残ります。</p>
+              <button class="tap btn-primary" style="height: 36px; margin-top: 8px; border-radius: 9px; background: #005bac; color: #ffffff; font-size: 12.5px; font-weight: 800;">9月の見直しを完了</button>
+            </section>
+          </div>
+          <p style="margin: 0; font-size: 11.5px; line-height: 1.6; color: #9aa1ab;">数字は例です。出どころは AI の記録と閲覧の記録。「よく修正される点」は次の下書きに助言として反映されます。</p>
+        </sc-if>
+
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { tab: 'due' }; }
+
+  renderVals() {
+    const self = this;
+    const st = this.state;
+    const tabDefs = [
+      { key: 'due',  label: '見直し期限',   n: '7', hint: '期限切れ 3 ・ 14日以内 2 ・ 担当なし 2' },
+      { key: 'gaps', label: '足りないページ', n: '6', hint: 'AI が答えられなかった質問（回数順）' },
+      { key: 'ai',   label: 'AI の修正状況', n: '', hint: '9月 ・ 回答 126 ・ 下書き 9' },
+    ];
+    const tabs = tabDefs.map((t) => ({
+      label: t.label, n: t.n || '–',
+      bg: st.tab === t.key ? '#f4faff' : 'transparent', fg: st.tab === t.key ? '#005bac' : '#3c424c', weight: st.tab === t.key ? 800 : 700,
+      nBg: st.tab === t.key ? '#005bac' : '#f2f4f7', nFg: st.tab === t.key ? '#ffffff' : '#5d6470',
+      pick: () => self.setState({ tab: t.key }),
+    }));
+    const hint = tabDefs.find((t) => t.key === st.tab).hint;
+
+    const due = [
+      { badge: '期限切れ', badgeBg: '#fef6f7', badgeFg: '#c7243a', title: '配信設定の鍵の扱い', path: '制作・技術 ／ 配信', owner: '川口 早苗', ownerFg: '#1a1d24', due: '2026/08/31', dueFg: '#c7243a', updated: '6/10' },
+      { badge: '期限切れ', badgeBg: '#fef6f7', badgeFg: '#c7243a', title: '収録データの保存先と命名', path: '制作・技術 ／ 収録', owner: '大野 健', ownerFg: '#1a1d24', due: '2026/09/15', dueFg: '#c7243a', updated: '5/21' },
+      { badge: '期限切れ', badgeBg: '#fef6f7', badgeFg: '#c7243a', title: '用賀スタジオ 入退室', path: '制作・技術 ／ スタジオ運用', owner: '（なし）', ownerFg: '#c7243a', due: '2026/09/01', dueFg: '#c7243a', updated: '4/11' },
+      { badge: 'まもなく', badgeBg: '#fff7ed', badgeFg: '#c2410e', title: '音声サポートの使い方', path: '制作・技術', owner: '川口 早苗', ownerFg: '#1a1d24', due: '2026/10/02', dueFg: '#c2410e', updated: '7/02' },
+      { badge: 'まもなく', badgeBg: '#fff7ed', badgeFg: '#c2410e', title: 'YouTube Live の設定手順', path: '制作・技術 ／ 配信', owner: '大野 健', ownerFg: '#1a1d24', due: '2026/10/05', dueFg: '#c2410e', updated: '8/28' },
+      { badge: '担当なし', badgeBg: '#f2f4f7', badgeFg: '#5d6470', title: '第2スタジオ 照明の基本セット', path: '制作・技術 ／ スタジオ運用', owner: '（なし）', ownerFg: '#c7243a', due: '2027/01/20', dueFg: '#5d6470', updated: '1/20' },
+      { badge: '担当なし', badgeBg: '#f2f4f7', badgeFg: '#5d6470', title: '副調整室の電源の入れ方', path: '制作・技術 ／ スタジオ運用', owner: '（なし）', ownerFg: '#c7243a', due: '2027/02/03', dueFg: '#5d6470', updated: '2/03' },
+    ];
+
+    const gaps = [
+      { n: '5', nFg: '#c7243a', q: 'Zoom ウェビナーで同時通訳を入れるときの設定は？', who: '直近: 寺井（今日）・佐藤・大野', space: '制作・技術', last: '今日' },
+      { n: '4', nFg: '#c7243a', q: '収録した素材を BOX のどこに置く？ 共有リンクの期限は？', who: '直近: 佐藤（9/19）', space: '制作・技術', last: '9/19' },
+      { n: '3', nFg: '#c2410e', q: '副調整室の電源を落とす順番', who: '直近: 新人 2名', space: '制作・技術', last: '9/17' },
+      { n: '2', nFg: '#5d6470', q: 'スタジオの Wi-Fi をお客様に貸すときのルール', who: '直近: 中村（9/10）', space: '全社', last: '9/10' },
+      { n: '2', nFg: '#5d6470', q: '配信のアーカイブを何日残す？', who: '直近: 大野（9/08）', space: '制作・技術', last: '9/08' },
+      { n: '1', nFg: '#5d6470', q: 'レンタル機材の返却が遅れたときの連絡先', who: '直近: 佐藤（9/03）', space: '機材', last: '9/03' },
+    ];
+
+    const navDefs = [
+      { label: 'ホーム', dot: '#e6e9ed' }, { label: '検索', dot: '#e6e9ed' }, { label: 'AI に聞く', dot: '#e6e9ed' }, { label: '見直し', on: true, dot: '#c7243a' },
+      { title: 'スペース' },
+      { label: '全社', dot: '#005bac' }, { label: '営業', dot: '#4338ca' }, { label: '制作・技術', dot: '#c2410e' }, { label: '機材', dot: '#197a4b' }, { label: '総務・経理', dot: '#6d28d9' }, { label: 'ONAiR の使い方', dot: '#5d6470' },
+      { title: '管理' }, { label: 'テンプレート', dot: '#e6e9ed' }, { label: 'スペース管理', dot: '#e6e9ed' },
+    ];
+    const nav = navDefs.map((n) => (n.title
+      ? { isTitle: true, isItem: false, label: n.title }
+      : { isTitle: false, isItem: true, label: n.label, dot: n.dot, bg: n.on ? '#f4faff' : 'transparent', fg: n.on ? '#005bac' : '#3c424c', weight: n.on ? 800 : 700 }));
+
+    return { nav, tabs, tabHint: hint, due, gaps, isDue: st.tab === 'due', isGaps: st.tab === 'gaps', isAi: st.tab === 'ai' };
+  }
+}
+</script>
+</body>
+</html>

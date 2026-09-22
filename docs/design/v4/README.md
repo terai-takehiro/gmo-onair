@@ -82,6 +82,7 @@ v4 UI/UX 刷新の design handoff（8ファイル・51画面のハイファイ�
 | [`graphics-awards-migration-plan.md`](graphics-awards-migration-plan.md) | 段6 アワード・クイズの移植 | 実装済み（記録） |
 | [`production-manual.md`](production-manual.md) | **運営マニュアル**（制作技術支援の新ミニアプリ）。各ミニアプリの情報を A4横の冊子に差し込み PDF で配る | **設計（未実装）**。§10 の7件の判断待ち |
 | [`venue-layout.md`](venue-layout.md) | **会場図面**（制作技術支援の新ミニアプリ・会場図面シミュレーター）。用賀の図面を2軸で縮尺合わせして取り込み、備品・人・カメラを実寸で置いて一気に並べ、運営マニュアルに差し込む | **設計（未実装）**。§14 の8件は判断済み（2026-09-13）・着手できる |
+| [`wiki.md`](wiki.md) | **Wiki**（新しいブロックアプリ）。Markdown で書いた文章を木に並べ、探せて、AI が読める。手入力を「AI で整える」で Markdown に。見直し期限と「足りないページ」で古びない | **設計（未実装）**。§10 の全件 12 件は判断済み（2026-09-22）・着手できる |
 | [`keep-report.md`](keep-report.md) | 隔週キープの数字・資料ビルダー | 現役の決めごと（段1〜4 実装済み） |
 | [`regular-series.md`](regular-series.md) | レギュラー案件のロジック | 現役の決めごと（実装済み） |
 | [`ios-native-mobile-mockups.md`](ios-native-mobile-mockups.md) | iOS ネイティブ風の見た目探索 | 参考（当時の記録） |
@@ -96,6 +97,7 @@ v4 UI/UX 刷新の design handoff（8ファイル・51画面のハイファイ�
 | [`mockups/keep-report/`](mockups/keep-report/README.md)・[`mockups/regular/`](mockups/regular/README.md)・[`mockups/native/telop-cg/`](mockups/native/telop-cg/README.md)・[`mockups/tasks-redesign/`](mockups/tasks-redesign/README.md)・[`mockups/weekly-redesign/`](mockups/weekly-redesign/README.md) | 2026-09 に足した再設計モックの説明 | 実装済み（記録） |
 | [`mockups/native/production-manual/`](mockups/native/production-manual/README.md) | 運営マニュアルのモック（PC 4・スマホ 1・A4横の実寸 1・地図 1） | 設計（未実装） |
 | [`mockups/native/venue-layout/`](mockups/native/venue-layout/README.md) | 会場図面のモック（PC 5・スマホ 1・地図 1） | 設計（未実装） |
+| [`mockups/native/wiki/`](mockups/native/wiki/README.md) | Wiki のモック（PC 7・スマホ 2・地図 1） | 設計（未実装・判断済み） |
 
 ### モックの元ファイル（`.dc.html`。ブラウザで開く）
 
@@ -105,6 +107,7 @@ v4 UI/UX 刷新の design handoff（8ファイル・51画面のハイファイ�
 | `mockups/native/qsheet-top/` | 制作技術支援トップの Claude Design 作業ファイル（説明は [`production-v4-native-mockups.md`](production-v4-native-mockups.md)） |
 | [`mockups/native/production-manual/`](mockups/native/production-manual/README.md) | 運営マニュアル（新ミニアプリ）の Claude Design 作業ファイル（設計は [`production-manual.md`](production-manual.md)） |
 | [`mockups/native/venue-layout/`](mockups/native/venue-layout/README.md) | 会場図面（新ミニアプリ）の Claude Design 作業ファイル（設計は [`venue-layout.md`](venue-layout.md)） |
+| [`mockups/native/wiki/`](mockups/native/wiki/README.md) | Wiki（新しいブロックアプリ）の Claude Design 作業ファイル（設計は [`wiki.md`](wiki.md)） |
 | `qsheet-v4-coding/mockups/live/`・`qsheet-v4-coding/mockups/tech-settings/` | 計時の表示画面・収録／配信設定のモック（説明は [`qsheet-v4-coding/impl/08-recording-streaming-impl.md`](qsheet-v4-coding/impl/08-recording-streaming-impl.md) ほか） |
 | [`rental-search/`](rental-search/README.md) | レンタル機材検索 |
 | [`../qsheet-recording-streaming/mockups/`](../qsheet-recording-streaming/mockups/README.md) | 収録・配信設定の初版モック |

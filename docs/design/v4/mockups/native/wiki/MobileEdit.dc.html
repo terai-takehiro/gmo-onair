@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>Wiki スマホ（編集）</title>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&family=Noto+Sans+JP:wght@400;700;800&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    button { font-family: inherit; }
+    .tap { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .prev h3 { margin: 0 0 6px; font-size: 15px; font-weight: 800; }
+    .prev ul { margin: 0 0 8px; padding-left: 18px; font-size: 13.5px; line-height: 1.7; }
+    .prev code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: #f2f4f7; border-radius: 4px; padding: 0 5px; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #ffffff; color: #1a1d24; display: flex; flex-direction: column;">
+
+  <!-- 見出し -->
+  <header style="flex-shrink: 0; background: #ffffff; border-bottom: 1px solid #e6e9ed; padding: 8px 12px 8px;">
+    <div style="display: flex; align-items: center; gap: 6px; height: 44px;">
+      <a href="Mobile.dc.html" aria-label="ページに戻る" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #005bac; flex-shrink: 0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg></a>
+      <span class="clip1" style="flex: 1; min-width: 0; font-size: 15px; font-weight: 800;">新人が初日にやること</span>
+      <button class="tap" style="flex-shrink: 0; height: 40px; border-radius: 10px; background: #005bac; color: #ffffff; padding: 0 14px; font-size: 13.5px; font-weight: 800;">公開する</button>
+    </div>
+    <div style="display: flex; align-items: center; gap: 6px; padding-left: 44px; flex-wrap: wrap;">
+      <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 48px; height: 20px; border-radius: 6px; background: #fff7ed; color: #c2410e; font-size: 11px; font-weight: 800;">下書き</span>
+      <span class="num" style="font-size: 12px; color: #197a4b;">保存しました 14:02</span>
+      <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: #005bac;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>あなたが編集中</span>
+    </div>
+  </header>
+
+  <!-- 本文（メモ帳と同じ手つきで打てる） -->
+  <div style="flex: 1; min-height: 0; overflow: hidden; padding: 14px 16px 0;">
+    <h2 style="margin: 0 0 8px; font-size: 17px; font-weight: 800; padding-bottom: 5px; border-bottom: 1px solid #eef0f3;">午前: アカウントと入退室</h2>
+    <ul style="margin: 0 0 12px; padding-left: 20px; font-size: 14px; line-height: 1.8;">
+      <li>ONAiR のアカウントを受け取る</li>
+      <li>セキュリティカードを受け取る</li>
+    </ul>
+    <div style="display: flex; align-items: center; gap: 6px; margin: 0 0 4px;">
+      <span style="display: inline-flex; align-items: center; height: 20px; border-radius: 6px; background: #eaf4fb; color: #005bac; font-size: 11px; font-weight: 800; padding: 0 7px;">手入力のまま 5行</span>
+    </div>
+    <div style="border-radius: 10px; background: #f4faff; padding: 8px 12px; font-size: 15px; line-height: 1.75;">
+      <p style="margin: 0;">午後は先輩とスタジオ見学</p>
+      <p style="margin: 0;">第2スタジオの副調整室でチェックリストを一緒に通す</p>
+      <p style="margin: 0;">終わったら日報をslackのstudio-opsに書く</p>
+      <p style="margin: 0;">わからないことはwikiで検索、なければAIに聞く</p>
+      <p style="margin: 0;">帰る前にカードを受付に返す（初日だけ）<span style="display: inline-block; width: 2px; height: 18px; background: #005bac; vertical-align: -3px; margin-left: 1px;"></span></p>
+    </div>
+    <p style="margin: 10px 0 0; font-size: 12px; line-height: 1.6; color: #9aa1ab;">そのまま打てます。下の「AI で整える」で手順書の形になります。保存は自動です。</p>
+  </div>
+
+  <!-- 道具の帯（キーボードのすぐ上に固定・5つ） -->
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 6px; height: 60px; border-top: 1px solid #e6e9ed; background: #ffffff; padding: 0 10px;">
+    <button class="tap" aria-label="見出し" style="width: 48px; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 10px; border: 1px solid #e6e9ed;"><span style="font-family: ui-monospace, Menlo, monospace; font-size: 15px; font-weight: 800;">H</span><span style="font-size: 9.5px; font-weight: 700; color: #5d6470;">見出し</span></button>
+    <button class="tap" aria-label="箇条書き" style="width: 48px; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 10px; border: 1px solid #e6e9ed;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#1a1d24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h12"></path><path d="M9 12h12"></path><path d="M9 18h12"></path><circle cx="4" cy="6" r="1"></circle><circle cx="4" cy="12" r="1"></circle><circle cx="4" cy="18" r="1"></circle></svg><span style="font-size: 9.5px; font-weight: 700; color: #5d6470;">箇条書き</span></button>
+    <button class="tap" aria-label="チェック" style="width: 48px; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 10px; border: 1px solid #e6e9ed;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#1a1d24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="16" height="16" rx="3"></rect><path d="M7 12l3 3 6-6"></path></svg><span style="font-size: 9.5px; font-weight: 700; color: #5d6470;">チェック</span></button>
+    <button class="tap" aria-label="写真" style="width: 48px; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 10px; border: 1px solid #e6e9ed;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#1a1d24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.2"></circle></svg><span style="font-size: 9.5px; font-weight: 700; color: #5d6470;">写真</span></button>
+    <button class="tap" onClick="{{openAi}}" style="flex: 1; height: 48px; display: flex; align-items: center; justify-content: center; gap: 7px; border-radius: 10px; background: #005bac; color: #ffffff; font-size: 14px; font-weight: 800;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg>AI で整える</button>
+  </div>
+
+  <!-- 下シート: AI で整える -->
+  <sc-if value="{{aiOpen}}" hint-placeholder-val="{{ true }}">
+    <button class="tap" onClick="{{closeAi}}" aria-label="閉じる" style="position: absolute; inset: 0; background: rgba(26,29,36,.35);"></button>
+    <div style="position: absolute; left: 0; right: 0; bottom: 0; border-radius: 18px 18px 0 0; background: #ffffff; padding: 10px 16px 24px; box-shadow: 0 -12px 40px rgba(26,29,36,.2); display: flex; flex-direction: column; gap: 10px;">
+      <span style="display: block; width: 40px; height: 4px; border-radius: 2px; background: #cbd2da; margin: 0 auto 2px;"></span>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg>
+        <span style="font-size: 16px; font-weight: 800;">AI で整える</span>
+        <span style="font-size: 12px; color: #9aa1ab;">いま書いた 5行</span>
+      </div>
+      <div style="display: flex; gap: 6px; overflow: hidden;">
+        <sc-for list="{{modes}}" as="m" hint-placeholder-count="3">
+          <button class="tap" onClick="{{m.pick}}" style="height: 40px; border-radius: 10px; border: 1px solid {{m.border}}; background: {{m.bg}}; color: {{m.fg}}; padding: 0 12px; font-size: 13px; font-weight: {{m.weight}}; white-space: nowrap;">{{m.label}}</button>
+        </sc-for>
+      </div>
+      <div class="prev" style="border-radius: 12px; border: 1px solid #bfe3ce; background: #f6fcf8; padding: 12px 14px;">
+        <div style="font-size: 11px; font-weight: 800; color: #197a4b; margin-bottom: 6px;">整えたあと（{{modeLabel}}）</div>
+        <h3>午後: スタジオを見る</h3>
+        <ul>
+          <li>先輩と第2スタジオの副調整室へ行き、<a href="Mobile.dc.html">第2スタジオ 収録前チェックリスト</a> を一緒に通す</li>
+          <li>終わったら、日報を Slack の <code>#studio-ops</code> に書く</li>
+          <li>分からないことは Wiki で検索し、無ければ「AI に聞く」</li>
+        </ul>
+        <div style="display: flex; gap: 8px; border-radius: 9px; border: 1px solid #a6ceeb; background: #f4faff; padding: 8px 10px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5"></path><path d="M12 8h.01"></path></svg>
+          <div style="font-size: 13px; line-height: 1.6; color: #1e3a5f;"><strong>初日だけ</strong>、帰る前にセキュリティカードを受付に返す。</div>
+        </div>
+      </div>
+      <p style="margin: 0; font-size: 12px; line-height: 1.6; color: #5d6470;">揃えた語: カード → セキュリティカード ／ slack → Slack ／ wiki → Wiki</p>
+      <button class="tap" onClick="{{closeAi}}" style="height: 52px; border-radius: 12px; background: #005bac; color: #ffffff; font-size: 15px; font-weight: 800;">置き換える</button>
+      <button class="tap" onClick="{{closeAi}}" style="height: 44px; border-radius: 12px; border: 1px solid #e6e9ed; font-size: 14px; font-weight: 700; color: #3c424c;">キャンセル</button>
+      <p style="margin: 0; text-align: center; font-size: 11.5px; color: #9aa1ab;">置き換えても元の文は履歴に残ります</p>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { ai: true, mode: 'structure' }; }
+
+  renderVals() {
+    const self = this;
+    const st = this.state;
+    const modeDefs = [
+      { key: 'structure', label: '手順書の形に' },
+      { key: 'bullets',   label: '箇条書きに' },
+      { key: 'terms',     label: '用語を揃える' },
+    ];
+    const modes = modeDefs.map((m) => ({
+      label: m.label,
+      border: st.mode === m.key ? '#005bac' : '#e6e9ed', bg: st.mode === m.key ? '#f4faff' : '#ffffff', fg: st.mode === m.key ? '#005bac' : '#3c424c',
+      weight: st.mode === m.key ? 800 : 700,
+      pick: () => self.setState({ mode: m.key }),
+    }));
+    return {
+      modes, modeLabel: modeDefs.find((m) => m.key === st.mode).label,
+      aiOpen: st.ai,
+      openAi: () => self.setState({ ai: true }),
+      closeAi: () => self.setState({ ai: false }),
+    };
+  }
+}
+</script>
+</body>
+</html>
