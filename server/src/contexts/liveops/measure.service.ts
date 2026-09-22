@@ -97,7 +97,7 @@ export async function startMeasurement(opts: StartOpts): Promise<StartResult> {
   if (opts.until) {
     until = new Date(opts.until);
     if (isNaN(until.getTime())) return { ok: false, status: 400, message: '終了時刻の形式が不正です。' };
-    if (until.getTime() <= Date.now()) return { ok: false, status: 400, message: '終了時刻が過ぎています。' };
+    if (until.getTime() <= Date.now()) return { ok: false, status: 400, message: '終了時刻が過去です。' };
     untilKind = 'manual';
   } else {
     until = defaultMeasureUntil();

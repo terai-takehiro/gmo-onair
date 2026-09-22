@@ -11,7 +11,8 @@
 import { AlertCircle, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TableBadge } from '@gmo-onair/shared/src/client/ui/tableBadge';
-import { relatedName, shortDate, isOverdue, type ActivityLogRow } from './types';
+import { relatedName, isOverdue, type ActivityLogRow } from './types';
+import { dueLabel, todayStr } from './dueState';
 import type { useNextActionActions } from './useNextActionActions';
 
 export function UpcomingPanel({
@@ -51,14 +52,16 @@ export function UpcomingPanel({
           const overdue = a.next_action_date ? isOverdue(a.next_action_date) : false;
           return (
             <li key={a.id} className="flex flex-wrap items-center gap-2 text-sub">
+              {/* ✕「超過 9/18(金)」→ ○「9/18（4日超過）」（文字は `dueState.ts` の1本から） */}
               <TableBadge
-                label={overdue ? `超過 ${shortDate(a.next_action_date!)}` : shortDate(a.next_action_date!)}
+                label={dueLabel(a.next_action_date, todayStr())}
                 w={null}
                 className={overdue ? 'border-transparent bg-destructive-surface text-destructive' : 'border-transparent bg-card text-secondary-foreground'}
               />
               <span className="min-w-0 flex-1 truncate font-bold">{a.next_action}</span>
+              {/* 案件名はスマホでは落とす（残すと本文が数文字に潰れて何のやることか読めない） */}
               {relatedName(a) && (
-                <span className="shrink-0 truncate text-muted-foreground">— {relatedName(a)}</span>
+                <span className="hidden shrink-0 truncate text-muted-foreground sm:inline">— {relatedName(a)}</span>
               )}
               <Button
                 size="sm" variant="outline" className="shrink-0 px-2 text-xs"

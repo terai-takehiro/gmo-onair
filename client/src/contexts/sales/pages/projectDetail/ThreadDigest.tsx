@@ -7,8 +7,12 @@
 import { CalendarClock } from 'lucide-react';
 import { cn } from '@gmo-onair/shared/src/client/utils';
 import { KIND } from './thread/kinds';
-import { shortYmd } from './thread/format';
 import { parseNextAction, nextActionLine } from './thread/nextAction';
+/**
+ * 期限の書き方は**やり取りタブと同じ1本**（`dueText`）。
+ * 書き写すと、同じ期限が画面によって違う形で出ます（`kinds.ts` と同じ理由）。
+ */
+import { dueText } from './thread/NextActionNote';
 import type { ActivityLog } from './types';
 /** 「済み」の理由の言い方は営業活動記録と同じ1本（`ThreadCard` と同じ理由） */
 import { autoClosedLabel } from '../activityLog/types';
@@ -28,8 +32,8 @@ import { autoClosedLabel } from '../activityLog/types';
  *   無かったので、どの経路の話か分からなかった
  * - **日付は `MM/DD` に詰め、年は変わったときだけ**出す。`2026-08-13` を毎行に
  *   出すと 10 文字が縦に並ぶだけで、同じ年の中では読む情報が2文字しかない
- * - **期限切れの「次にやること」は赤くする**（やり取りタブと同じ判定）。
- *   ここだけ灰色のままだと、概要では手遅れに気づけない
+ * - **期限超過の「次のアクション」は赤くする**（やり取りタブと同じ判定）。
+ *   ここだけ灰色のままだと、概要では対応の遅れに気づけない
  *
  * **行の区切り線は消さないこと。** 件名が2行になるので、線が無いと
  * 「どこまでが1件か」が読み取れません（元は1行だったので線が無くても読めた）。
@@ -98,8 +102,8 @@ export function ThreadDigest({ items, today }: { items: ActivityLog[]; today: st
                   overdue ? 'font-bold text-destructive' : 'text-muted-foreground',
                 )}>
                   <CalendarClock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                  {/* 期限の書き方は**やり取りタブと同じ関数**（`thread/format.ts`）。
-                      書き写すと、同じ期限が画面によって違う形で出る */}
+                  {/* 期限の書き方は**やり取りタブと同じ関数**（`thread/NextActionNote.tsx` の
+                      `dueText`）。書き写すと、同じ期限が画面によって違う形で出る */}
                   <span className="min-w-0 flex-1 line-clamp-2">
                     {/*
                       **言い切りの1文だけを出す**（`thread/nextAction.ts`）。
@@ -115,11 +119,15 @@ export function ThreadDigest({ items, today }: { items: ActivityLog[]; today: st
                     */}
                     {nextActionLine(a)}
                     {nextAction.items.length > 0 && ` ほか${nextAction.items.length}件`}
-                    {a.next_action_date
-                      && `（${shortYmd(a.next_action_date, a.activity_date)} まで${overdue ? '・過ぎています' : ''}）`}
+                    {/*
+                      ⚠️ **「過ぎています」と書かない**（`docs/wording.md` ルール8・9）。
+                      利用者から「過ぎてますとかそういう表現やめろ」と明示のご指摘があった。
+                      **「期限 9/18（4日超過）」**の形に統一する（和語・口語・比喩は使わない）。
+                    */}
+                    {` ${dueText(a, today)}`}
                     {/* 機械が閉じたものは理由を書く（`ThreadCard` と同じ1本・migration 245） */}
                     {a.next_action_done_at
-                      && `（${autoClosedLabel(a.next_action_auto_closed_reason) ?? '済み'}）`}
+                      && `（${autoClosedLabel(a.next_action_auto_closed_reason) ?? '完了'}）`}
                   </span>
                 </span>
               )}

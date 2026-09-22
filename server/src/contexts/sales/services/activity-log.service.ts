@@ -1,48 +1,32 @@
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../../../shared/db/connection';
 import { AppError } from '../../../shared/middleware/errorHandler';
-import { classifyTextCorrection } from '../../../shared/services/ai-coverage';
-import {
-  recordAiOutput, recordCorrections, findLatestAiOutput, hasCorrections, type CorrectionInput,
-} from '../../../shared/services/ai-output.service';
+import { recordAiOutput } from '../../../shared/services/ai-output.service';
 import { getFeedbackDigest } from '../../../shared/services/ai-feedback.service';
 import { formatActivity, isActivityAiConfigured } from './activity-ai.service';
 import {
   needsShort, shortenNextAction, recordShortCorrections, NEXT_ACTION_SHORT_KIND,
 } from './next-action-short.service';
 import { sanitizeBodyHtml, sanitizeKeyPoints } from '../../../shared/services/html-sanitize';
-import {
-  normalizeActivityStruct, activityStructLength, type ActivityStruct,
-} from '../../../shared/services/activity-struct';
+import { normalizeActivityStruct, type ActivityStruct } from '../../../shared/services/activity-struct';
 import { assertCustomerCompanyId } from '../../../shared/services/company-directory.service';
 import { OPEN_NEXT_ACTION_SQL } from '../../../shared/services/next-action-state';
+import {
+  ACTIVITY_FORMAT_KIND, ACTIVITY_INTAKE_KIND,
+  normalizeDeleteReason, recordActivityCorrections, recordIntakeCorrections,
+  recordExplicitReject, recordPostponeCorrection,
+} from './activity-corrections.service';
 
-/** `ai_outputs.kind`。**議事録とは別にする** — 直され方の傾向が別物なので混ぜない */
-export const ACTIVITY_FORMAT_KIND = 'activity_format';
-
-/**
- * `ai_outputs.kind`。**取込（MCP `create_activity_log`）で外の AI が書いた中身**。
- *
- * ⚠️ **`activity_format` と混ぜないこと。** 書き手が違います:
- *
- *   `activity_intake` … メール取込のスキルを動かしている Claude（本文を写す仕事）
- *   `activity_format` … サーバーの整形器（写された本文を意味の単位に分ける仕事）
- *
- * 混ぜると「短いのは取り込んだ人のせいか、整えた側のせいか」が分かりません。
- * 実際、着手前は**取込側が1行も記録されておらず**、
- * 「きわめて短いテキストでしか残らない」というご指摘に対して
- * **上流を数字で確かめる手段がありませんでした**（条件1の穴）。
+/*
+ * **既存の import 元を1つも書き換えないための再輸出。**
+ * 正は `activity-corrections.service.ts`（差分を積む側）で、ここは業務の口。
+ * MCP・整形・案件別の一覧・月次レビューは今までどおりここから読めます。
  */
-export const ACTIVITY_INTAKE_KIND = 'activity_intake';
-
-/**
- * 取込の「プロンプト版」。**MCP ツールの `.describe()` が、外の AI にとってのプロンプト**です
- * （`mcp/tools/activities.tools.ts`）。だから describe を書き換えたらここを上げます。
- *
- * 上げないと、**contract を直した効果を後から数字で言えません**
- * （`ai_outputs.prompt_version` ごとの無修正採用率で比べる）。
- */
-export const ACTIVITY_INTAKE_PROMPT_VERSION = 'mcp-intake-v1';
+export {
+  ACTIVITY_FORMAT_KIND, ACTIVITY_INTAKE_KIND, ACTIVITY_INTAKE_PROMPT_VERSION,
+  NEXT_ACTION_DELETE_REASONS, normalizeDeleteReason, intakeDiffs, stableJson,
+  type NextActionDeleteReason,
+} from './activity-corrections.service';
 
 /** 種類の集合。**DB の CHECK（migration 184）と同じにすること** */
 export const ACTIVITY_TYPES = [
@@ -55,6 +39,20 @@ const KIND_LABEL: Record<string, string> = {
   proposal: '提案', demo: 'デモ', followup: '追いかけ', follow_up: '追いかけ',
   memo: '社内のメモ', other: 'その他',
 };
+
+/** `update()` の追加の引数 */
+export interface ActivityUpdateOpts {
+  /**
+   * **画面（`activity-logs.routes.ts` の PUT）だけ**が渡す。
+   * 機械の更新を「人がレビューした」と数えると無修正採用率が嘘になる（下の注意書き）。
+   */
+  humanReview?: boolean;
+  /**
+   * 次のアクションを削除したときの理由（任意）。`NEXT_ACTION_DELETE_REASONS` の
+   * コード、またはコード ` / ` 自由記入。**削除でない保存では無視される**。
+   */
+  nextActionDeleteReason?: string | null;
+}
 
 export interface ActivityLogFilter {
   projectId?: string;
@@ -106,16 +104,54 @@ export class ActivityLogService {
        ${where}`, params)) as any).c;
     // v2.9.178+: AI 起票 (MCP create_activity_log) を mcp_audit_log から逆引きして
     // is_ai_created / ai_requested_by (指示者) を付与 (migration 117 の expression index が効く)
+    /*
+     * 実施日（`event_start` / `event_day_count`）も返す（統合時に追加）。
+     * 時系列の行にも案件別と同じ「10/24 ほか2日」を出すためで、
+     * **数え方は activity-by-project.service.ts と同じ**
+     * （project_dates ＋ projects.event_start / event_end の**重複を除いた数**）。
+     * 2か所で違う数え方をすると、同じ案件が案件別では「ほか2日」・
+     * 時系列では「ほか3日」と出て、どちらが正しいか誰にも言えなくなる。
+     *
+     * あわせて `ai_generated`（AI が「次のアクション」を立てた行か）も返す。
+     * **判定は by-project と同じ1本**（整形 or 取込の出力に `next_action` が入っているか）。
+     * 画面はこの値で AI の印を出し、**印が付いている行の削除だけ**が
+     * 「時効なし」の否定の経路を通る（設計監査の要件16）。
+     * `ai_formatted` / `ai_output_id` では、取込 AI が立てただけの行に印が出なかった。
+     *
+     * ⚠️ SQL は**テンプレートリテラル**なので、この中にバッククォートを書かないこと
+     * （文字列がそこで終わり、eslint が Parsing error を出す）。説明はここに書く。
+     */
     const rows = await queryAll(
       `SELECT a.*, u.name as user_name,
               p.code as project_code, p.name as project_name, p.gls_number as project_gls,
               c.name as customer_name,
+              -- 実施日（下の ed。数え方は activity-by-project.service.ts と同じ）
+              COALESCE(ed.day_count, 0) AS event_day_count,
+              COALESCE(ed.first_day, NULLIF(btrim(p.event_start), '')) AS event_start,
+              -- AI が「次のアクション」を立てた行か（判定は by-project と同じ1本）
+              EXISTS (
+                SELECT 1 FROM ai_outputs o
+                 WHERE o.target_table = 'activity_logs' AND o.target_id = a.id
+                   AND o.kind IN ('${ACTIVITY_FORMAT_KIND}', '${ACTIVITY_INTAKE_KIND}')
+                   AND COALESCE(o.payload_snapshot->>'next_action', '') <> ''
+              ) AS ai_generated,
               (ai.audit_id IS NOT NULL) as is_ai_created,
               ai.requested_by as ai_requested_by
        FROM activity_logs a
        LEFT JOIN users u ON u.id = a.user_id
        LEFT JOIN projects p ON p.id = a.project_id
        LEFT JOIN companies c ON c.id = a.customer_id
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*)::int AS day_count, MIN(d) AS first_day
+           FROM (
+             SELECT pd.date AS d FROM project_dates pd
+              WHERE pd.project_id = p.id AND NULLIF(btrim(pd.date), '') IS NOT NULL
+             UNION
+             SELECT btrim(p.event_start) WHERE NULLIF(btrim(p.event_start), '') IS NOT NULL
+             UNION
+             SELECT btrim(p.event_end)   WHERE NULLIF(btrim(p.event_end), '') IS NOT NULL
+           ) days
+       ) ed ON TRUE
        LEFT JOIN LATERAL (
          SELECT m.id AS audit_id, m.requested_by FROM mcp_audit_log m
          WHERE m.tool_name = 'create_activity_log' AND m.result_summary->>'created_id' = a.id
@@ -348,16 +384,17 @@ export class ActivityLogService {
    */
   async update(
     id: string, data: Record<string, unknown>, userId?: string | null,
-    opts: { humanReview?: boolean } = {},
+    opts: ActivityUpdateOpts = {},
   ) {
     const existing = await queryOne(
       `SELECT id, customer_id, ai_output_id, ai_formatted, next_action, next_action_date, next_action_short,
-              description, body_html, (body_struct IS NOT NULL) AS has_struct
+              description, body_html, body_edited_at, (body_struct IS NOT NULL) AS has_struct
          FROM activity_logs WHERE id = ? AND deleted_at IS NULL`, [id],
     ) as {
       id: string; customer_id: string | null; ai_output_id: string | null; ai_formatted: boolean;
       next_action: string | null; next_action_date: string | null; next_action_short: string | null;
-      description: string | null; body_html: string | null; has_struct: boolean;
+      description: string | null; body_html: string | null; body_edited_at: Date | null;
+      has_struct: boolean;
     } | undefined;
     if (!existing) throw new AppError(404, 'NOT_FOUND', '活動記録が見つかりません');
 
@@ -385,6 +422,36 @@ export class ActivityLogService {
       subject, description || null, next_action || null, next_action_date || null,
     ];
     if (data.body_html !== undefined) { sets.push('body_html=?'); params.push(sanitizeBodyHtml(data.body_html)); }
+    /*
+     * ── 手動で編集した本文を、毎晩の自動整形に消させない（migration 304）──
+     *
+     * 待ち行列（`activity-format.service` の `PENDING_SQL`）は
+     * `body_struct IS NULL AND format_error IS NULL AND (body_html IS NULL OR ai_formatted)`
+     * で拾います。画面の手動編集は **`body_html` を書いて `body_struct` を捨てる**
+     * 形（AI の構造をやめて人の文章にする）なので、印を立てないと
+     * **翌朝 3:00 に AI の構造で上書きされ、人が直した労力がそのまま消えます**。
+     *
+     * ⚠️ **印を立てるのは画面からの保存（`humanReview`）だけ**です。MCP の
+     * `update_activity_log` は機械の更新で、これで止めると**取込の行が
+     * 二度と整形されなくなります**（`humanReview` を付ける門と同じ理由）。
+     *
+     * **空文字が来たら印を消します** — 手で書いた本文を消すのは
+     * 「AI の整形に戻す」という意思表示で、待ち行列に戻す道がこれしかありません。
+     *
+     * ⚠️ **この2列を『差分』の代わりにしないこと。** 何がどう間違っていたかは
+     * 1バイトも入っていません。手動編集の中身は必ず下の
+     * `recordBodyStructRejection` が `body_struct` の `reject` として積みます
+     * （before に AI が作った構造の全文）。
+     */
+    const bodyManuallyEdited = data.body_html !== undefined && !!opts.humanReview;
+    if (bodyManuallyEdited) {
+      if (String(data.body_html ?? '').trim()) {
+        sets.push('body_edited_at=NOW()', 'body_edited_by=?');
+        params.push(userId ?? null);
+      } else {
+        sets.push('body_edited_at=NULL', 'body_edited_by=NULL');
+      }
+    }
     if (data.key_points !== undefined) { sets.push('key_points=?::jsonb'); params.push(JSON.stringify(sanitizeKeyPoints(data.key_points))); }
     if (data.body_struct !== undefined) {
       const s = normalizeActivityStruct(data.body_struct);
@@ -452,7 +519,16 @@ export class ActivityLogService {
     const descriptionChanged = description !== undefined
       && String(description ?? '').trim() !== String(existing.description ?? '').trim();
     const canRequeue = !existing.body_html || existing.ai_formatted;
-    if (descriptionChanged && existing.has_struct && canRequeue) {
+    /*
+     * ⚠️ **`body_struct` を明示的に渡されたときは、ここで2本目を積まないこと。**
+     * 積むと `UPDATE ... SET body_struct=?, ..., body_struct=NULL` になり、
+     * PostgreSQL が `multiple assignments to same column` で **500 を返します**
+     * （実 DB に当てて確かめた）。本文の手動編集は
+     * 「`body_html` を書く ＋ `body_struct: null` を送る」形なので、
+     * **原文も一緒に直した回がちょうどこの組み合わせ**になります。
+     * 渡された値のほうが新しい意思なので、そちらを優先します。
+     */
+    if (descriptionChanged && existing.has_struct && canRequeue && data.body_struct === undefined) {
       sets.push('body_struct=NULL', 'format_attempted_at=NULL', 'format_error=NULL');
     }
 
@@ -469,12 +545,64 @@ export class ActivityLogService {
      * 実際より高く見せていました**（Codex の指摘は取込側に対するものですが、
      * 根は同じで、門を1つだけ付けると片方だけ正しい数字になります）。
      */
+    /*
+     * **次のアクションを消したか**（`next_action: ''` が来て、元は値があった）。
+     *
+     * ⚠️ **これは呼び出し側に自己申告させません。** `opts` に「削除です」と
+     * 書かせると、機械の更新から時効なしの経路に入れてしまえます。
+     * **元の値と来た値を突き合わせてサーバーが決める**（`humanReview` と同じ作法）。
+     */
+    const nextActionDeleted = next_action !== undefined
+      && String(next_action ?? '').trim() === ''
+      && String(existing.next_action ?? '').trim() !== '';
+
     if (opts.humanReview) {
+      /*
+       * 差分を積む順番に意味があります。**時効なしの否定を最後に積む** —
+       * `replaceCorrections` は同じ `output_id` × `field_path` を置き換えるので、
+       * 先に積んだ7日窓ぶんの行を、理由（`note`）を持つ最終的な `reject` が上書きします。
+       */
       if (existing.ai_formatted) await recordActivityCorrections(id, after, userId ?? null);
       // **取込（MCP）で AI が書いた本文の差分は、整形の有無と関係なく残す**（上の注意書き）
-      await recordIntakeCorrections(id, after, userId ?? null);
+      await recordIntakeCorrections(id, after, userId ?? null, nextActionDeleted);
+
+      /*
+       * ① 次のアクションの削除 = **この製品で回収できるいちばん強い否定信号**。
+       *    「AI が立てたやることが不要だった」が空のままだと、整形プロンプトは
+       *    『やることを拾いすぎる』のを永久に直せません。
+       *
+       *    上の2本では取りこぼします — `recordActivityCorrections` は
+       *    `ai_formatted` が真の行しか通さず（取込だけの行で落ちる）、
+       *    どちらも7日窓なので**期限超過の行ではほぼ確実に落ちます**。
+       *    だから**整形・取込の両方を時効なしで引き直して**必ず1行積みます。
+       */
+      if (nextActionDeleted) {
+        await recordExplicitReject(
+          id, 'next_action', [ACTIVITY_FORMAT_KIND, ACTIVITY_INTAKE_KIND],
+          userId ?? null, normalizeDeleteReason(opts.nextActionDeleteReason),
+        );
+      }
+      /*
+       * ② 本文を手で書き直して AI の構造を捨てた = 構造そのものの否定。
+       *    `redoFormat`（「整え直す」）が時効なしで `body_struct` の `reject` を
+       *    積むのと**まったく同じ操作**なので、同じ扱いにします
+       *    （人が押した「違う」に時効は無い）。
+       *    これが無いと migration 304 の2列は「人が触った」フラグだけになり、
+       *    **何がどう間違っていたかを1バイトも残さない**未達パターンに落ちます。
+       */
+      if (bodyManuallyEdited && existing.has_struct
+          && data.body_struct !== undefined && normalizeActivityStruct(data.body_struct) === null) {
+        await recordExplicitReject(id, 'body_struct', [ACTIVITY_FORMAT_KIND], userId ?? null, null);
+      }
     }
     // **AI が作った一文を人が直した**ときだけ差分を残す（材料を変えて消えた回は誤りではない）
+    //
+    // ⚠️ **次のアクションを削除したときは、ここに `reject` を積まないこと**（意図的）。
+    // 削除は「やること自体が不要だった」という整形器・取込への否定であって、
+    // 「28字への短縮が下手だった」という否定ではありません。一緒に数えると
+    // `next_action_short` の無修正採用率が**短縮の出来と無関係に下がり**、
+    // 直す先を取り違えます。いまのコードは `nextActionChanged` で短い一文を
+    // NULL に落とすだけ（`shortEdited` が偽なので呼ばれない）— **この挙動が正解**なので変えない。
     if (shortEdited) {
       await recordShortCorrections(id, (after.next_action_short as string | null) ?? null, userId ?? null)
         .catch(() => { /* 記録の失敗で保存を止めない */ });
@@ -486,7 +614,23 @@ export class ActivityLogService {
     await execute(`UPDATE activity_logs SET deleted_at=NOW() WHERE id=? AND deleted_at IS NULL`, [id]);
   }
 
-  /** 次回アクションを完了にする (営業ダッシュボードのワンタップ操作用) */
+  /**
+   * 次回アクションを完了にする (営業ダッシュボードのワンタップ操作用)。
+   *
+   * ⚠️ **ここでは `ai_corrections` に1行も積みません。これは意図的な判断です。**
+   *
+   * 完了は「AI が立てたやることが正しかった」証拠で、削除・延期とは**逆向きの信号**です。
+   * 案件別の一覧では削除ボタンの隣に並ぶので、まとめて `reject` にしたくなりますが、
+   * そうすると **AI が当たるほど無修正採用率が下がる**という逆さまの数字になります
+   * （会社方針スキルの「正常な業務更新を誤りと数える」の変種）。
+   *
+   * 完了は**成果（条件3）の側**で数えます —
+   * `ai-feedback.service.ts` が `next_action_done_at` と `next_action_date` を
+   * 読み取り時に突き合わせ、「片づいた件数」「期限内に片づいた割合」を出します
+   * （`ai_outcomes` に行は足しません。書き忘れた日から数字が嘘になるため）。
+   *
+   * **あとから誰かが「完了も記録しよう」と足さないこと。**
+   */
   async completeNextAction(id: string) {
     const existing = await queryOne('SELECT id, next_action FROM activity_logs WHERE id = ? AND deleted_at IS NULL', [id]);
     if (!existing) throw new AppError(404, 'NOT_FOUND', '活動記録が見つかりません');
@@ -501,14 +645,30 @@ export class ActivityLogService {
     return this.getById(id);
   }
 
-  /** 次回アクションの期限を延期する (営業ダッシュボードのワンタップ操作用) */
-  async postponeNextAction(id: string, date: string) {
+  /**
+   * 次回アクションの期限を延期する (営業ダッシュボードのワンタップ操作用)。
+   *
+   * ── 延期は「期限の読み取り」固有の誤りの信号（条件2）────────────
+   *
+   * 延期されたということは、AI が置いた期限が**近すぎた／根拠が無かった**ということです。
+   * これは本文の良し悪しとは**直す場所が違います**（整形プロンプトの
+   * 「期限の読み取り」の部分）。だから `next_action_date` の `fix` として積み、
+   * 本文の `fix` と混ぜません。
+   *
+   * ⚠️ **時効なしで引きます。** 延期が押されるのはたいてい期限が近づいた／過ぎた
+   * あとで、7日窓では**まず引っかかりません**（削除と同じ理由）。
+   * ⚠️ **同じ行が何度も延期される**ので、`output_id` × `field_path` × 種別の
+   * 重複は `replaceCorrections` が潰します（最後の1回だけが残る）。
+   */
+  async postponeNextAction(id: string, date: string, actorId: string | null = null) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       throw new AppError(400, 'VALIDATION_ERROR', '延期先の日付 (YYYY-MM-DD) を指定してください');
     }
-    const existing = await queryOne('SELECT id, next_action FROM activity_logs WHERE id = ? AND deleted_at IS NULL', [id]);
+    const existing = await queryOne(
+      'SELECT id, next_action, next_action_date FROM activity_logs WHERE id = ? AND deleted_at IS NULL', [id],
+    ) as { id: string; next_action: string | null; next_action_date: string | null } | undefined;
     if (!existing) throw new AppError(404, 'NOT_FOUND', '活動記録が見つかりません');
-    if (!(existing as any).next_action) throw new AppError(400, 'VALIDATION_ERROR', '次回アクションが設定されていません');
+    if (!existing.next_action) throw new AppError(400, 'VALIDATION_ERROR', '次回アクションが設定されていません');
     // 機械が閉じた理由も落とす — 人が期限を入れ直した以上、その行は
     // 「失注により終了」ではなく**その人が抱えているやること**になる
     await execute(
@@ -516,6 +676,9 @@ export class ActivityLogService {
               next_action_auto_closed_reason=NULL, updated_at=NOW() WHERE id=?`,
       [date, id],
     );
+    // **記録の失敗で業務を止めない**（この製品の他の後処理と同じ）
+    await recordPostponeCorrection(id, existing.next_action_date, date, actorId)
+      .catch(() => { /* noop */ });
     return this.getById(id);
   }
 
@@ -539,238 +702,6 @@ export class ActivityLogService {
       [userId, daysAhead]
     );
   }
-}
-
-/**
- * 人がどこを直したかを残す（条件2）。
- *
- * ── before は「**AI が出したもの**」。直前の行の状態ではない ──────
- *
- * 議事録で実測して分かったのと同じ落とし穴です。「保存する直前の行」と比べると、
- * **一度保存してからもう一度直した分がすべて『無修正』になります**。
- * 比べる相手は `ai_outputs.payload_snapshot` = AI が出した中身そのもの。
- *
- * ── 7日窓 ────────────────────────────────────────────────────
- *
- * `findLatestAiOutput` の既定（7日）に乗ります。3か月後に次のアクションを
- * 書き換えたのは AI の誤りではなく、ふつうの業務更新です。
- */
-/**
- * 鍵の並びを揃えて JSON 文字列にする（比較のためだけに使う）。
- *
- * **JSONB は鍵を並べ替えて保存します**（書いた並びと読み出す並びが違う）。
- * いまは比べる両側とも JSONB 経由なので並びは揃いますが、
- * **そこに寄りかかった比較は、片側が JS のオブジェクトのまま来た日に黙って壊れます**
- * — 中身が同じでも別物と判定され、差分が全部「人が直した」になります。
- */
-export function stableJson(v: unknown): string {
-  const walk = (x: unknown): unknown => {
-    if (Array.isArray(x)) return x.map(walk);
-    if (x && typeof x === 'object') {
-      const o = x as Record<string, unknown>;
-      const out: Record<string, unknown> = {};
-      for (const k of Object.keys(o).sort()) out[k] = walk(o[k]);
-      return out;
-    }
-    return x;
-  };
-  return JSON.stringify(walk(v));
-}
-
-/**
- * 人が整えた本文を**膨らませたか**（書き足したか）。
- *
- * 構造（`body_struct`）は行ごとの対応が取れない（並びも件数も変わる）ので、
- * **画面に出る文字量**で見ます。2割以上増えていれば「AI が落としたものを
- * 人が足した」= 追記、それ以外は取り違えの直し。
- *
- * 判定が外れても失われるのは**分類の細かさだけ**（件数は必ず残る）なので、
- * 読めない値では `false`（＝今までどおり `fix`）に倒します。
- */
-function structGrew(before: unknown, after: unknown): boolean {
-  const b = activityStructLength(normalizeActivityStruct(before));
-  const a = activityStructLength(normalizeActivityStruct(after));
-  return b > 0 && a >= b * 1.2;
-}
-
-/**
- * 取込（MCP）で AI が書いたものを、人がどう直したかの差分を作る。**純関数**。
- *
- * ── なぜ `description` を数えるのが要るか ──────────────────────
- *
- * 整形側（`ACTIVITY_FORMAT_KIND`）の差分は `body_struct` などを見ていて、
- * **`description`（元の本文）を1度も見ていません**。ところが取込メールでは
- * **その本文を書いたのが AI**（取込スキルの Claude）です。
- * ここを数えないと、「本文が短い」という**上流の失敗だけが計測の外**に残ります。
- *
- * ── 整形側と二重に数えないための線引き ────────────────────────
- *
- * 数えるのは**取込 AI が書いた4つだけ**です。`body_struct` / `body_html` は
- * 整形器の仕事なので、こちらでは触りません（`kind` が別なので集計は混ざりませんが、
- * 同じ失敗を2つの kind で数えると、どちらを直せばよいか分からなくなる）。
- *
- * ネットワークにも DB にも触らないので素で試せます
- * （`shared/tests/activityIntakeDiff.test.ts`）。
- */
-export function intakeDiffs(
-  ai: Record<string, unknown>, after: Record<string, unknown>,
-): CorrectionInput[] {
-  const norm = (v: unknown): string => (v === null || v === undefined ? '' : String(v).trim());
-  const FIELDS = ['subject', 'description', 'next_action', 'next_action_date'] as const;
-  const diffs: CorrectionInput[] = [];
-
-  /*
-   * ⚠️ **整形器が埋めた値を、取込 AI の成績に数えない**（Codex レビューでの指摘・PR #717）。
-   *
-   * `mergeFormatted` は**行の `next_action` が空のときだけ**、本文から読み取った
-   * 「次にやること」とその期限を埋めます（`activity-format.service`）。つまり
-   * 取込が空で出したあとに値が入っていても、**それは整形器が書いたもの**です。
-   *
-   * ここを数えると、人が件名だけ直した最初の保存で、**機械が足した値まで
-   * 「人が書き足した」として積まれます**。しかも一度積むと
-   * `hasCorrections` が真になるので、**あとの本物の修正が永久に記録されません**。
-   *
-   * だから「次にやること」系は**取込 AI が値を出していたときだけ**比べます。
-   * 取込が空だったぶんの取りこぼし（人があとから足した分）は数えられなくなりますが、
-   * **整形器の仕事を取込のせいにするより、数えないほうがまし**です。
-   *
-   * `subject` / `description` は整形器が触らない（件名は上書きしない・本文は
-   * 1バイトも触らない）ので、空から埋まったぶんも取込の取りこぼしとして数えます。
-   */
-  const FORMATTER_FILLS = new Set<string>(['next_action', 'next_action_date']);
-
-  for (const col of FIELDS) {
-    const b = norm(ai[col]);
-    const a = norm(after[col]);
-    if (b === a) continue;
-    if (b === '' && FORMATTER_FILLS.has(col)) continue;   // 整形器が埋めた（上の注意書き）
-    diffs.push({
-      fieldPath: col,
-      before: ai[col] ?? null,
-      after: after[col] ?? null,
-      /*
-       * 値 → 空 は丸ごと捨てられた = 不採用。それ以外は
-       * **書き足し（AI が落とした）と書き換え（AI が取り違えた）**を分ける。
-       * `description` がよく書き足されるなら、直すのは整形器ではなく
-       * **取込の contract（本文を要約するな）**のほうです。
-       */
-      type: a === '' ? 'reject' : classifyTextCorrection(ai[col], after[col]),
-    });
-  }
-
-  // **1つも直っていない = 正解ラベル。** 無いと「無修正採用率」の分母が壊れる
-  if (diffs.length === 0) return [{ fieldPath: '(全体)', type: 'none' }];
-  // 直さなかった項目も残す（分母）
-  for (const col of FIELDS) {
-    if (diffs.some((d) => d.fieldPath === col)) continue;
-    diffs.push({ fieldPath: col, type: 'none' });
-  }
-  return diffs;
-}
-
-/**
- * 取込の差分を記録する（条件2）。**best-effort** — 記録に失敗しても保存は壊さない。
- *
- * ⚠️ **`ai_formatted` を条件にしません。** 整形の差分（`recordActivityCorrections`）は
- * 整えた行だけが対象ですが、**取込の本文は整形される前から人に直されます**
- * （待ち行列に入ったまま案件詳細で直す）。条件を付けると、
- * **いちばん早く直された回＝いちばん強い信号**が落ちます。
- */
-async function recordIntakeCorrections(
-  id: string, after: Record<string, unknown>, userId: string | null,
-): Promise<void> {
-  const out = await findLatestAiOutput('activity_logs', id, ACTIVITY_INTAKE_KIND);
-  if (!out) return;
-  if (await hasCorrections(out.id)) return;   // 同じ出力に二度積まない
-  await recordCorrections(out.id, intakeDiffs((out.payload ?? {}) as Record<string, unknown>, after), userId);
-}
-
-async function recordActivityCorrections(
-  id: string, after: Record<string, unknown>, userId: string | null,
-): Promise<void> {
-  const out = await findLatestAiOutput('activity_logs', id, ACTIVITY_FORMAT_KIND);
-  if (!out) return;
-  const ai = (out.payload ?? {}) as Record<string, unknown>;
-
-  const norm = (v: unknown): string => (v === null || v === undefined ? '' : String(v).trim());
-  const diffs: CorrectionInput[] = [];
-  const fields: [string, string][] = [
-    ['subject', 'subject'],
-    ['body_html', 'body_html'],
-    ['next_action', 'next_action'],
-    ['next_action_date', 'next_action_date'],
-  ];
-  for (const [aiKey, rowKey] of fields) {
-    const b = norm(ai[aiKey]);
-    const a = norm(after[rowKey]);
-    if (b === a) continue;
-    diffs.push({
-      fieldPath: rowKey,
-      before: ai[aiKey] ?? null,
-      after: after[rowKey] ?? null,
-      /*
-       * 空 → 値 は「AI が拾えなかったものを人が足した」= 追記。
-       * 値 → 空 は丸ごと捨てられた = 不採用。
-       * 値 → 別の値 は取り違え = 誤り。**混ぜると直す先が分からない**。
-       *
-       * ⚠️ **AI の文を残したまま人が書き足した場合も追記です**
-       * （`classifyTextCorrection`）。ここを全部 `fix` にしていたので、
-       * 「整形が短くて人が足している」が**どの数字にも出ませんでした**。
-       */
-      type: a === '' ? 'reject' : classifyTextCorrection(ai[aiKey], after[rowKey]),
-    });
-  }
-  // 要点は行ごとの対応が取れない（並びが変わる）ので、丸ごと1項目として扱う
-  const beforePoints = JSON.stringify(ai.key_points ?? []);
-  const afterPoints = JSON.stringify(after.key_points ?? []);
-  if (beforePoints !== afterPoints) {
-    diffs.push({
-      fieldPath: 'key_points',
-      before: ai.key_points ?? null,
-      after: after.key_points ?? null,
-      type: beforePoints === '[]' ? 'enrich' : 'fix',
-    });
-  }
-  // 本文の構造（migration 188）も丸ごと1項目。**鍵の並びを揃えてから比べる**。
-  //
-  // いまは両側とも JSONB を読んだもので、**JSONB は鍵を並べ替えて保存する**
-  // （`{v, subtitle, turns, lead}` → `{v, lead, turns, subtitle}`。実測）ため
-  // 並びは揃っています。ただし**それに寄りかかると、片側を JS の
-  // オブジェクトのまま渡す経路が1つ増えた日に、1文字も直していない行が
-  // 全部「直した」に数えられます**（無修正採用率が意味を失う）。
-  // 並びに依存しない比較にしておくこと。
-  const beforeStruct = stableJson(ai.body_struct ?? null);
-  const afterStruct = stableJson(after.body_struct ?? null);
-  if (beforeStruct !== afterStruct) {
-    diffs.push({
-      fieldPath: 'body_struct',
-      before: ai.body_struct ?? null,
-      after: after.body_struct ?? null,
-      /*
-       * **人が書き足したのか、直したのかを分ける**（上の本文と同じ理由）。
-       * 構造は行ごとの対応が取れないので、**画面に出る文字量**で見ます
-       * （`activityStructLength`）。2割以上増えていれば、AI が
-       * **落としたものを人が足した**＝整形が短すぎたという信号です。
-       */
-      type: beforeStruct === 'null' ? 'enrich'
-        : afterStruct === 'null' ? 'reject'
-          : structGrew(ai.body_struct, after.body_struct) ? 'enrich' : 'fix',
-    });
-  }
-
-  const all = ['subject', 'body_html', 'body_struct', 'next_action', 'next_action_date', 'key_points'];
-  if (diffs.length === 0) {
-    // **無修正で通した**ことを残す。これが正解ラベルで、
-    // 無いと「無修正採用率」の分母が壊れる
-    await recordCorrections(out.id, [{ fieldPath: '(全体)', type: 'none' }], userId);
-    return;
-  }
-  // 直さなかった項目も残す（分母）
-  for (const col of all) {
-    if (diffs.some((d) => d.fieldPath === col)) continue;
-    diffs.push({ fieldPath: col, type: 'none' });
-  }
-  await recordCorrections(out.id, diffs, userId);
 }
 
 export const activityLogService = new ActivityLogService();

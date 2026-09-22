@@ -26,6 +26,16 @@ import {
   SCRIPT_OUTLINE_KIND, SCRIPT_LINE_KIND, PRODUCTION_CHAT_KIND, QSHEET_AI_KINDS, AI_REVIEW_PRODUCTION_KIND,
 } from '../../contexts/qsheet/ai/kinds';
 import { parseDur } from '../schedule/time';
+/*
+ * 営業活動記録の3つの kind。**文字列を書き写さない**（このファイルの決めごと）。
+ * `activity-corrections.service` は `ai-feedback.service` を読まないので循環しない。
+ * `next-action-short.service` は読むが、比較は**呼ばれたとき**に行うので
+ * 読み込み順に依存しない（`MINUTES_KIND` と同じ扱い）。
+ */
+import {
+  ACTIVITY_FORMAT_KIND, ACTIVITY_INTAKE_KIND,
+} from '../../contexts/sales/services/activity-corrections.service';
+import { NEXT_ACTION_SHORT_KIND } from '../../contexts/sales/services/next-action-short.service';
 
 /**
  * デイリーニュース1行の kind（Phase 2 ③・docs/core-redesign-plan.md §3-6）。
@@ -259,6 +269,44 @@ export interface FeedbackDigest {
     still_open: number;
     /** 完了した中で期限内だった割合 (0〜1)。期限つきで完了した行が無ければ null */
     on_time_rate: number | null;
+  };
+  /**
+   * **AI が立てた「次のアクション」のその後**
+   * （kind=activity_format / activity_intake / next_action_short のときのみ）。
+   *
+   * ── なぜ要るか（設計監査での指摘）────────────────────────
+   *
+   * 着手前、この3つの kind には**成果（条件3）の節が1つもありませんでした**
+   * （`outcomes` は案件系、`on_time_rate` は `task_intake` / `gpm_task_draft` だけ）。
+   * スキルの `references/onair-current-state.md` が「無修正採用率 ＋ 期限内完了」と
+   * 書いているのは**実装と食い違っていた**ので、同ファイルも直します。
+   *
+   * 案件別の一覧で**完了・削除・延期が一級の操作**になり、
+   * 「AI が立てたやることが実際に片づいたか」が初めて導出できるようになりました。
+   *
+   * ⚠️ **`ai_outcomes` に行は足しません**（既存方針。書き忘れた日から数字が嘘になる）。
+   * すべて `ai_outputs` × `activity_logs` × `ai_corrections` の読み取り時の導出です。
+   */
+  activity?: {
+    /** AI が「次のアクション」を出した記録の数（分母） */
+    next_actions_total: number;
+    /** **人が**片づけた数（機械が閉じた分＝失注・完了は除く） */
+    completed: number;
+    /** そのうち期限内 / 期限後 */
+    completed_on_time: number;
+    completed_late: number;
+    /** 期限内完了率 (0〜1)。期限つきで完了した行が無ければ null */
+    on_time_rate: number | null;
+    /** 人が**削除**した数（`next_action` の `reject`）。いちばん強い否定信号 */
+    rejected: number;
+    /** そのうち「もう完了した」「案件が停止した」＝**正常な業務の終わり** */
+    rejected_business_end: number;
+    /** 削除率 (0〜1)。**業務の終わりを分母から外して**数える */
+    reject_rate: number | null;
+    /** **延期**された数（`next_action_date` の `fix`）。期限の読み取り固有の信号 */
+    postponed: number;
+    /** 延期率 (0〜1) */
+    postpone_rate: number | null;
   };
   /** AI への助言 (集計から機械的に組み立てた文。プロンプト更新を待たず効かせる) */
   advice: string[];
@@ -687,6 +735,12 @@ export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90
     };
   }
 
+  /*
+   * 営業活動記録の「次のアクション」のその後（条件3）。**読み取り時に導出する** —
+   * `ai_outcomes` に行を足すと、書き忘れた日から数字が静かに嘘になります。
+   */
+  if (isActivityDigestKind(kind)) digest.activity = await computeActivityStat(kind, w);
+
   // qsheet 系 kind の分岐（段9・04-ai.md §6-1）。他の9か所の kind は素通り
   if (kind === SCRIPT_OUTLINE_KIND) digest.outline = await computeOutlineStat(windowDays, opts);
   if (kind === SCRIPT_LINE_KIND) digest.line = await computeLineStat(windowDays, opts);
@@ -697,6 +751,97 @@ export async function getFeedbackDigest(kind = 'estimate_draft', windowDays = 90
   // 「AI が読む場所に出すのがいちばん確実」）。qsheet 系 digest のときだけ
   if (isQsheetDigestKind(kind)) digest.advice = [...(await qsheetReviewAdvice()), ...digest.advice];
   return digest;
+}
+
+/**
+ * 営業活動記録の3つの kind か。**呼ばれたときに比べる**（読み込み順に依存させない）。
+ */
+function isActivityDigestKind(kind: string): boolean {
+  return kind === ACTIVITY_FORMAT_KIND
+    || kind === ACTIVITY_INTAKE_KIND
+    || kind === NEXT_ACTION_SHORT_KIND;
+}
+
+/**
+ * AI が立てた「次のアクション」のその後を、既存データから数える。
+ *
+ * ⚠️ **分母は「AI が `next_action` を出した記録」だけ**です（`payload_snapshot` に
+ * 値が入っているもの）。空で出した回まで分母に入れると、**期限を置かない
+ * という正しい振る舞いをした分だけ成績が下がります**。
+ *
+ * ⚠️ **`next_action_auto_closed_reason IS NOT NULL` を完了に数えないこと。**
+ * それは案件が失注・完了したので**機械が閉じた**行で、人が片づけた証拠ではありません
+ * （migration 245）。混ぜると、失注が多い月ほど AI の成績が上がります。
+ *
+ * ⚠️ **削除の分母から「正常な業務の終わり」を外します。** 削除の理由（任意）が
+ * 「もう完了した」「案件が停止した」なら、それは AI の誤りではありません。
+ * プロンプトを直す対象は「AI の見当違い」と理由なしの分だけです。
+ */
+async function computeActivityStat(kind: string, w: string): Promise<NonNullable<FeedbackDigest['activity']>> {
+  const r = await queryOne(
+    `WITH o AS (
+       SELECT ao.id, ao.target_id
+         FROM ai_outputs ao
+        WHERE ao.kind = ? AND ao.target_table = 'activity_logs'
+          AND ao.created_at >= NOW() - (? || ' days')::interval
+          AND COALESCE(ao.payload_snapshot->>'next_action', '') <> ''
+     ),
+     acts AS (
+       SELECT DISTINCT ON (a.id)
+              a.id, a.next_action_done_at, a.next_action_auto_closed_reason,
+              NULLIF(btrim(a.next_action_date), '') AS due
+         FROM o JOIN activity_logs a ON a.id = o.target_id AND a.deleted_at IS NULL
+     ),
+     corr AS (
+       SELECT o.target_id, c.field_path, c.correction_type, c.note
+         FROM o JOIN ai_corrections c ON c.output_id = o.id
+     )
+     SELECT
+       (SELECT COUNT(DISTINCT target_id) FROM o) AS next_actions_total,
+       (SELECT COUNT(*) FROM acts
+         WHERE next_action_done_at IS NOT NULL
+           AND next_action_auto_closed_reason IS NULL) AS completed,
+       (SELECT COUNT(*) FROM acts
+         WHERE next_action_done_at IS NOT NULL AND next_action_auto_closed_reason IS NULL
+           AND due IS NOT NULL AND next_action_done_at::date <= due::date) AS completed_on_time,
+       (SELECT COUNT(*) FROM acts
+         WHERE next_action_done_at IS NOT NULL AND next_action_auto_closed_reason IS NULL
+           AND due IS NOT NULL AND next_action_done_at::date > due::date) AS completed_late,
+       (SELECT COUNT(DISTINCT target_id) FROM corr
+         WHERE field_path = 'next_action' AND correction_type = 'reject') AS rejected,
+       (SELECT COUNT(DISTINCT target_id) FROM corr
+         WHERE field_path = 'next_action' AND correction_type = 'reject'
+           AND (note LIKE 'reason:done%' OR note LIKE 'reason:project_stopped%')) AS rejected_business_end,
+       (SELECT COUNT(DISTINCT target_id) FROM corr
+         WHERE field_path = 'next_action_date' AND correction_type = 'fix'
+           AND note = 'postponed') AS postponed`,
+    [kind, w],
+  ) as any;
+
+  const total = num(r?.next_actions_total);
+  const onTime = num(r?.completed_on_time);
+  const late = num(r?.completed_late);
+  const finished = onTime + late;
+  const rejected = num(r?.rejected);
+  const businessEnd = num(r?.rejected_business_end);
+  // AI の誤りとして数える削除だけを残す（業務の終わりは分子からも分母からも外す）
+  const aiWrong = Math.max(0, rejected - businessEnd);
+  const rejectDenom = Math.max(0, total - businessEnd);
+  const postponed = num(r?.postponed);
+  const round2 = (v: number) => Math.round(v * 100) / 100;
+
+  return {
+    next_actions_total: total,
+    completed: num(r?.completed),
+    completed_on_time: onTime,
+    completed_late: late,
+    on_time_rate: finished > 0 ? round2(onTime / finished) : null,
+    rejected,
+    rejected_business_end: businessEnd,
+    reject_rate: rejectDenom > 0 ? round2(aiWrong / rejectDenom) : null,
+    postponed,
+    postpone_rate: total > 0 ? round2(postponed / total) : null,
+  };
 }
 
 const QSHEET_DIGEST_KINDS: readonly string[] = [...QSHEET_AI_KINDS, PRODUCTION_CHAT_KIND];
@@ -1023,6 +1168,48 @@ function thinAdvice(d: FeedbackDigest): string[] {
   return out;
 }
 
+/**
+ * **AI が立てた「次のアクション」の否定を、プロンプトに返す**（条件4）。
+ *
+ * ⚠️ **ここが無いと差分を積んでも1文字も戻りません。** プロンプトが読むのは
+ * `digest.advice` だけ（`activity-log.service` / `activity-format.service` /
+ * `next-action-short.service` の3か所）。集めて終わりでは条件4が閉じません。
+ *
+ * 出す文は2本。**直す場所が違う**ので必ず分けます:
+ *   削除が多い … やることを拾いすぎ → **立てる基準**を直す
+ *   延期が多い … 期限が近すぎ／根拠なし → **期限の読み取り**を直す
+ *
+ * 件数が少ないうちは断定しない（このファイルの「10件未満は断定しない」作法）。
+ */
+function activityAdvice(d: FeedbackDigest): string[] {
+  const a = d.activity;
+  if (!a || a.next_actions_total === 0) return [];
+  const out: string[] = [];
+  out.push(`AI が立てた次のアクション ${a.next_actions_total}件のうち、`
+    + `人が完了にしたのは ${a.completed}件`
+    + (a.on_time_rate == null ? '' : `（期限内 ${Math.round(a.on_time_rate * 100)}%）`)
+    + `、削除は ${a.rejected}件`
+    + (a.rejected_business_end > 0 ? `（うち ${a.rejected_business_end}件は業務の終わりによるもので誤りではない）` : '')
+    + `、延期は ${a.postponed}件。`);
+
+  if (a.reject_rate != null && a.next_actions_total >= SMALL_SAMPLE_THRESHOLD && a.reject_rate >= 0.3) {
+    out.push(`立てた次のアクションの ${Math.round(a.reject_rate * 100)}% が不要として削除されている。`
+      + '**確度の低い次のアクションを立てないこと。** 本文に期日と主体（誰が何をするか）が'
+      + '書かれていないときは、無理に作らず next_action を空で返すこと。');
+  }
+  if (a.postpone_rate != null && a.next_actions_total >= SMALL_SAMPLE_THRESHOLD && a.postpone_rate >= 0.3) {
+    out.push(`立てた次のアクションの ${Math.round(a.postpone_rate * 100)}% が延期されている。`
+      + '**期限は本文に書かれているときだけ入れること。** 推測で日付を置かない'
+      + '（期限を空で返すほうが、近すぎる期限を置くより正しい）。');
+  }
+  if (a.on_time_rate != null && a.completed_on_time + a.completed_late >= SMALL_SAMPLE_THRESHOLD
+      && a.on_time_rate < 0.5) {
+    out.push('期限内に片づいた割合が半分を切っている。置いた期限が実態に対して短すぎる疑いがある。'
+      + 'ただし期限を安易に延ばさず、原文に書かれた期限を尊重すること。');
+  }
+  return out;
+}
+
 function buildAdvice(d: FeedbackDigest): string[] {
   const out: string[] = [];
   // **行き先は「人が直したか」とは別の信号**なので、修正が1件も無くても出す。
@@ -1034,6 +1221,9 @@ function buildAdvice(d: FeedbackDigest): string[] {
   // outline も「直されたか」とは別の信号（実尺の取得率）を含むので、reviewed_outputs=0 の
   // 早期return より前に出す（inquiryAdvice と同じ理由）
   out.push(...outlineAdvice(d));
+  // **やることのその後（完了・削除・延期）も「直されたか」とは別の信号**なので、
+  // レビュー済みの出力が0件でも出す（削除は保存を伴わずに起きうる）
+  out.push(...activityAdvice(d));
   if (d.reviewed_outputs === 0) {
     out.push('まだレビュー済みの出力がないため、直され方の傾向は不明。通常どおり作成してよい。');
     return out;
