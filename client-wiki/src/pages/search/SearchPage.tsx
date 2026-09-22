@@ -49,8 +49,14 @@ export default function SearchPage() {
   /** URL と入力欄の**最後に合わせた値**。どちらが書いたかを見分けるために持つ */
   const synced = useRef(urlQ);
 
-  const q = useDebounced(text.trim(), 300);
-  const tag = useDebounced(filters.tag.trim(), 300);
+  // 打つのが止まってから投げる。ただし**消したときは待たない** — 空にした瞬間に
+  // 案内へ戻らないと、消したのに前の語の結果が 300ms 残って見えます
+  const typed = text.trim();
+  const slowQ = useDebounced(typed, 300);
+  const q = typed ? slowQ : '';
+  const typedTag = filters.tag.trim();
+  const slowTag = useDebounced(typedTag, 300);
+  const tag = typedTag ? slowTag : '';
 
   // 打ち込みが止まったら URL に写す。**履歴は増やさない**（`replace`）—
   // 1文字ずつ戻るボタンに積まれると、前の画面に戻れなくなる
@@ -86,6 +92,8 @@ export default function SearchPage() {
 
   const clearFilters = () => setFilters(EMPTY_FILTERS);
   const searching = q !== '' && searchQ.isFetching;
+  /** 件数と絞り込みは**結果が届いてから**出す。0件と「まだ届いていない」は別のこと */
+  const hasResult = q !== '' && !searchQ.isError && searchQ.data !== undefined;
 
   return (
     <PageShell>
@@ -116,9 +124,10 @@ export default function SearchPage() {
         users={usersQ.data}
         counts={counts}
         total={all.length}
+        showCounts={hasResult}
       />
 
-      {q !== '' && (
+      {hasResult && (
         <p className="max-w-4xl text-sub text-secondary-foreground">
           <strong className="font-number font-bold">{hits.length}件</strong>
           {terms.length >= 2 ? ` ・ ${terms.length}語すべてを含むページ` : ''}
@@ -129,14 +138,17 @@ export default function SearchPage() {
       )}
 
       <div className="flex min-h-0 flex-1 gap-4">
-        <SearchFilterPanel
-          filters={filters}
-          onChange={setFilters}
-          spaces={spacesQ.data}
-          users={usersQ.data}
-          counts={counts}
-          total={all.length}
-        />
+        {/* 絞り込む相手が無いうちは列ごと出さない（0件の並びだけが立つと壊れて見える） */}
+        {hasResult && (
+          <SearchFilterPanel
+            filters={filters}
+            onChange={setFilters}
+            spaces={spacesQ.data}
+            users={usersQ.data}
+            counts={counts}
+            total={all.length}
+          />
+        )}
 
         <div className="flex min-w-0 flex-1 flex-col gap-2.5">
           {q === '' ? (

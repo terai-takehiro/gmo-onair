@@ -49,7 +49,10 @@ export default function WikiSearchPalette() {
   const [recent, setRecent] = useState(() => readWikiRecent(uid));
   const listRef = useRef<HTMLDivElement>(null);
 
-  const q = useDebounced(text.trim(), 250);
+  // 消したときは待たずに「最近見たもの」へ戻す（窓を開け直したときも同じ）
+  const typed = text.trim();
+  const slowQ = useDebounced(typed, 250);
+  const q = typed ? slowQ : '';
   const searchQ = useWikiSearch({ q, limit: TOP });
   const terms = useMemo(() => splitTerms(q), [q]);
 
@@ -72,7 +75,10 @@ export default function WikiSearchPalette() {
         icon: Clock,
       }));
     }
-    const out: Row[] = (searchQ.data ?? []).map((h) => ({
+    // ⚠️ **いま打っている語の結果だけを並べる。** 打ち替えている間、react-query は
+    // 前の語の結果を持ったままにします（一覧が消えてちらつかないため）。それを
+    // そのまま並べると、**Enter で打った語と関係のないページが開きます**
+    const out: Row[] = (searchQ.isPlaceholderData ? [] : (searchQ.data ?? [])).map((h) => ({
       key: `p:${h.id}`,
       group: 'ページ',
       label: h.title,
@@ -81,15 +87,18 @@ export default function WikiSearchPalette() {
       to: `/p/${h.id}`,
       icon: FileText,
     }));
-    out.push({
-      key: 'all',
-      group: 'すべて',
-      label: `「${q}」の結果をすべて見る`,
-      to: `/search?q=${encodeURIComponent(q)}`,
-      icon: Search,
-    });
+    // 0件のときは「すべての結果を見る」も出さない（着いた先も0件なので）
+    if (out.length > 0) {
+      out.push({
+        key: 'all',
+        group: 'すべて',
+        label: `「${q}」の結果をすべて見る`,
+        to: `/search?q=${encodeURIComponent(q)}`,
+        icon: Search,
+      });
+    }
     return out;
-  }, [q, recent, searchQ.data]);
+  }, [q, recent, searchQ.data, searchQ.isPlaceholderData]);
 
   // 並びが変わったら先頭に戻す（前の位置に残ると別のものを開く）
   useEffect(() => setCursor(0), [rows.length, q]);

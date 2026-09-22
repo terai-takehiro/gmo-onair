@@ -17,7 +17,7 @@ const CONTROL =
   'min-h-tap w-full rounded-control border border-border bg-card px-2 text-sub text-foreground';
 
 export default function SearchFilterSheet({
-  text, onText, filters, onChange, onClear, spaces, users, counts, total,
+  text, onText, filters, onChange, onClear, spaces, users, counts, total, showCounts,
 }: {
   text: string;
   onText: (v: string) => void;
@@ -28,6 +28,8 @@ export default function SearchFilterSheet({
   users: WikiUserBrief[] | undefined;
   counts: Map<string, number>;
   total: number;
+  /** 件数を添えるか。**まだ検索していないうちは添えない**（全部 0件 と並ぶため） */
+  showCounts: boolean;
 }) {
   return (
     <div className="lg:hidden">
@@ -44,10 +46,10 @@ export default function SearchFilterSheet({
             value={filters.spaceId}
             onChange={(e) => onChange({ ...filters, spaceId: e.target.value })}
           >
-            <option value="">すべて（{total}件）</option>
+            <option value="">{showCounts ? `すべて（${total}件）` : 'すべて'}</option>
             {(spaces ?? []).map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name}（{counts.get(s.id) ?? 0}件）
+                {showCounts ? `${s.name}（${counts.get(s.id) ?? 0}件）` : s.name}
               </option>
             ))}
           </select>
