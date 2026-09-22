@@ -46,6 +46,8 @@ export default function AppShell() {
     // 「AIナレッジの承認」メニューは manager 以上にだけ出す。共通シェルの `module` 指定では
     // レベル（manager）まで見られないため、ここで判定して渡す（`nav.ts` のコメント参照）
     canManageAiKnowledge: hasPermission('qsheet', 'manager'),
+    // 技術資料の台帳2つ（パッチ盤・技術人員）も manager 以上にだけ出す（同じ理由）
+    canManageTechMasters: hasPermission('qsheet', 'manager'),
     // 「スケジュール表の工程テンプレート」は role が system_admin の人にだけ出す（`nav.ts` のコメント参照。
     // 編集系 REST もレベルではなく role を直接見ているため揃えてある）
     isSystemAdmin: currentUser?.role === 'system_admin',

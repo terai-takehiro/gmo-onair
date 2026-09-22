@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>技術資料 書き出し</title>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@100;400;700;800&family=Noto+Sans+JP:wght@100;200;300;400;500;600;700;800;900&family=Noto+Serif+JP:wght@400;700;900&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    button { font-family: inherit; }
+    .tap { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .ghost:hover { background: #f2f4f7; }
+    .btn-primary { transition: background-color .12s ease; } .btn-primary:hover { background: #004d91; }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .row-tap:hover { background: #fbfcfd; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 1000px; position: relative; overflow: hidden; background: #f7f8fa; display: flex; flex-direction: column; color: #1a1d24;">
+
+  <!-- ── 上辺バー（共通シェル・高さ64） ─────────────────────────── -->
+  <header style="display: flex; height: 64px; flex-shrink: 0; align-items: center; gap: 14px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 24px;">
+    <div style="display: flex; align-items: center; gap: 9px;">
+      <div style="width: 28px; height: 28px; border-radius: 9px; background: #005bac; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M7.8 7.8a6 6 0 0 0 0 8.4"></path><path d="M16.2 16.2a6 6 0 0 0 0-8.4"></path><path d="M4.9 4.9a10 10 0 0 0 0 14.2"></path><path d="M19.1 19.1a10 10 0 0 0 0-14.2"></path></svg></div>
+      <span style="font-size: 15px; font-weight: 800; letter-spacing: .01em;">ONAiR</span>
+    </div>
+    <span style="height: 22px; width: 1px; background: #e6e9ed;"></span>
+    <button class="tap" style="display: flex; height: 40px; align-items: center; gap: 10px; border-radius: 10px; border: 1px solid #cfe4f4; background: #f4faff; padding: 0 12px; color: #005bac;">
+      <span style="width: 22px; height: 22px; border-radius: 7px; background: #eaf4fb; display: flex; align-items: center; justify-content: center;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.6"></rect><rect x="14" y="3" width="7" height="7" rx="1.6"></rect><rect x="3" y="14" width="7" height="7" rx="1.6"></rect><rect x="14" y="14" width="7" height="7" rx="1.6"></rect></svg></span>
+      <span style="font-size: 13.5px; font-weight: 700; white-space: nowrap;">制作技術支援</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+    <span class="clip1" style="font-size: 12.5px; color: #5d6470; max-width: 520px;">／ 東都TV 特番収録「サイエンス・フロンティア」 ／ 技術資料 ／ 書き出し</span>
+    <span style="flex: 1;"></span>
+    <button class="tap" aria-label="通知" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 7px; color: #5d6470;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 4.6 1.8 5.6 1.8 5.6H4.2S6 13.6 6 9z"></path><path d="M10.2 18.4a2 2 0 0 0 3.6 0"></path></svg></button>
+    <button class="tap" style="display: flex; align-items: center; gap: 10px; height: 44px;">
+      <span style="width: 32px; height: 32px; border-radius: 9999px; background: #eaf4fb; color: #005bac; font-size: 13.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;">寺</span>
+      <span style="font-size: 12.5px; white-space: nowrap;">寺井 岳宏</span>
+    </button>
+  </header>
+
+  <div style="display: flex; flex: 1; min-height: 0;">
+
+    <!-- ── 左メニュー（共通シェル・幅248） ──────────────────────── -->
+    <aside style="width: 248px; flex-shrink: 0; border-right: 1px solid #e6e9ed; background: #ffffff; padding: 14px 12px 20px; display: flex; flex-direction: column; gap: 2px;">
+      <sc-for list="{{nav}}" as="n" hint-placeholder-count="15">
+        <sc-if value="{{n.isTitle}}" hint-placeholder-val="{{ false }}">
+          <p style="margin: 14px 0 4px; padding: 0 10px; font-size: 11px; font-weight: 800; letter-spacing: .04em; color: #9aa1ab;">{{n.label}}</p>
+        </sc-if>
+        <sc-if value="{{n.isItem}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; align-items: center; gap: 10px; height: 38px; border-radius: 10px; padding: 0 10px; background: {{n.bg}}; color: {{n.fg}};">
+            <span style="width: 18px; height: 18px; border-radius: 5px; background: {{n.dot}}; flex-shrink: 0;"></span>
+            <span style="font-size: 13.5px; font-weight: {{n.weight}};">{{n.label}}</span>
+          </div>
+        </sc-if>
+      </sc-for>
+      <span style="flex: 1;"></span>
+      <p style="margin: 0; padding: 0 10px; font-size: 11.5px; line-height: 1.6; color: #9aa1ab;">東都TV 特番収録<br>「サイエンス・フロンティア」</p>
+    </aside>
+
+    <!-- ── 本文 ────────────────────────────────────────────── -->
+    <main style="flex: 1; min-width: 0; background: #f7f8fa; overflow: hidden;">
+      <div style="padding: 20px 28px 32px;">
+
+        <a href="Patch.dc.html" class="ghost" style="display: inline-flex; align-items: center; gap: 3px; height: 32px; margin-left: -8px; border-radius: 8px; padding: 0 9px 0 5px; color: #005bac;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg><span style="font-size: 12.5px; font-weight: 700;">技術資料</span>
+        </a>
+
+        <!-- 資料の見出し行（②③④で共通） -->
+        <div style="margin-top: 6px; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px;">
+          <div style="min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <h1 style="margin: 0; font-size: 23px; line-height: 1.3; font-weight: 800; letter-spacing: -.01em;">本番用 映像プラン</h1>
+              <span class="num" style="display: inline-flex; align-items: center; height: 22px; border-radius: 7px; background: #eaf4fb; color: #005bac; font-size: 11px; font-weight: 700; padding: 0 8px;">TD-202610-0001</span>
+              <span style="display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 22px; border-radius: 7px; background: #fff3ea; color: #c2410e; font-size: 11px; font-weight: 800;">下書き</span>
+            </div>
+            <div style="margin-top: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span style="font-size: 13.5px; font-weight: 700; color: #3c424c;">東都TV 特番収録「サイエンス・フロンティア」</span>
+              <span class="num" style="display: inline-flex; align-items: center; height: 22px; border-radius: 7px; background: #eaf4fb; color: #005bac; font-size: 11px; font-weight: 700; padding: 0 8px;">SCS-0007</span>
+              <span style="width: 3px; height: 3px; border-radius: 9999px; background: #cbd2da;"></span>
+              <span class="num" style="font-size: 12.5px; color: #5d6470;">第7回 ・ 10/15（木）本番 ・ WORLD STUDIO ・ 第2版</span>
+            </div>
+          </div>
+          <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding-top: 2px;">
+            <a href="Patch.dc.html" class="ghost" style="display: flex; align-items: center; gap: 7px; height: 38px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 14px; font-size: 13px; font-weight: 700; color: #3c424c;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"></path><path d="M14.5 5.5l4 4L8 20H4v-4z"></path></svg>映像パッチを編集</a>
+            <button class="tap ghost" onClick="{{actions.more}}" aria-label="その他の操作" style="width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; color: #3c424c;"><svg width="16" height="16" viewBox="0 0 24 24" fill="#3c424c"><circle cx="5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle></svg></button>
+          </div>
+        </div>
+
+        <!-- 書き出しのツールバー（②③のタブの位置に置く） -->
+        <div style="margin-top: 14px; display: flex; align-items: center; gap: 10px; height: 44px; border-bottom: 1px solid #e6e9ed;">
+          <span style="font-size: 12.5px; font-weight: 700; color: #5d6470;">用紙</span>
+          <button class="tap" onClick="{{actions.paper}}" style="display: flex; align-items: center; gap: 10px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px;">
+            <span class="num" style="font-size: 12.5px; font-weight: 700;">A4 横（297 × 210 mm）</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+          </button>
+          <span class="num" style="font-size: 12px; color: #9aa1ab;">{{paper.meta}}</span>
+          <span style="flex: 1;"></span>
+          <button class="tap ghost" onClick="{{actions.insert}}" style="display: flex; align-items: center; gap: 7px; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 13px; font-size: 12.5px; font-weight: 700; color: #3c424c;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 10h18"></path><path d="M9 20V10"></path></svg>運営マニュアルに差し込む</button>
+          <button class="tap btn-primary" onClick="{{actions.pdf}}" style="display: flex; align-items: center; gap: 7px; height: 34px; border-radius: 9px; background: #005bac; color: #ffffff; padding: 0 15px; font-size: 12.5px; font-weight: 800;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"></path><path d="M7 10l5 5 5-5"></path><path d="M5 21h14"></path></svg>PDF で書き出す</button>
+        </div>
+
+        <!-- ここから画面ごとの中身 ─ 用紙（A4横）＋ 右の欄（260） -->
+        <div style="margin-top: 14px; display: flex; align-items: flex-start; gap: 16px;">
+
+          <!-- ── 机の上に置いた用紙 ─────────────────────────────── -->
+          <div style="width: 860px; flex-shrink: 0; border-radius: 12px; background: #eef0f3; border: 1px solid #e6e9ed; padding: 16px 20px 14px; display: flex; flex-direction: column; align-items: center;">
+            <div style="width: 820px; height: 580px; overflow: hidden; box-shadow: 0 6px 22px rgba(26,29,36,.14);">
+
+              <!-- A4 横 ＝ 297 × 210 mm ＝ 1123 × 794 px（96 px/inch）。0.73 倍で机の上に置いている -->
+              <div style="width: 1123px; height: 794px; transform: scale(.73); transform-origin: top left; background: #ffffff; color: #1a1d24; padding: 44px 56px 36px; position: relative;">
+
+                <!-- 見出し -->
+                <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding-bottom: 12px; border-bottom: 2px solid #005bac;">
+                  <div style="min-width: 0;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                      <span style="display: inline-flex; align-items: center; height: 24px; border: 1.2px solid #005bac; color: #005bac; font-size: 13px; font-weight: 800; padding: 0 9px;">技術資料</span>
+                      <span class="num" style="font-size: 13px; font-weight: 700; color: #3c424c;">TD-202610-0001 ・ 第2版</span>
+                    </div>
+                    <div style="margin-top: 8px; font-size: 30px; font-weight: 800; line-height: 1.15; letter-spacing: -.01em;">本番用 映像プラン</div>
+                  </div>
+                  <div class="num" style="flex-shrink: 0; text-align: right;">
+                    <div style="font-size: 15px; font-weight: 800;">東都TV 特番収録「サイエンス・フロンティア」 第7回</div>
+                    <div style="margin-top: 4px; font-size: 14px; color: #3c424c;">10/15（木）本番 ・ WORLD STUDIO</div>
+                    <div style="margin-top: 3px; font-size: 13px; color: #5d6470;">発行 2026/10/10 ・ GMOグローバルスタジオ</div>
+                  </div>
+                </div>
+
+                <!-- 本文 2段 -->
+                <div style="margin-top: 16px; display: flex; gap: 24px; height: 596px;">
+
+                  <!-- 左: 映像パッチ -->
+                  <sc-if value="{{paper.showPatch}}" hint-placeholder-val="{{ true }}">
+                    <section style="width: {{paper.patchW}}; flex-shrink: 0;">
+                      <div style="display: flex; align-items: baseline; gap: 10px;">
+                        <span style="font-size: 20px; font-weight: 800;">映像パッチ</span>
+                        <span class="num" style="font-size: 13px; color: #5d6470;">10 行 ・ 増設機材 3</span>
+                      </div>
+                      <sc-for list="{{paper.patch}}" as="pg" hint-placeholder-count="3">
+                        <div style="margin-top: 10px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #1a1d24; padding-bottom: 3px;">
+                          <span style="font-size: 14px; font-weight: 800;">{{pg.name}}</span>
+                          <span class="num" style="font-size: 12px; color: #5d6470;">{{pg.n}}</span>
+                        </div>
+                        <sc-for list="{{pg.lines}}" as="ln" hint-placeholder-count="5">
+                          <div class="num" style="display: flex; align-items: center; gap: 8px; height: 34px; border-bottom: 1px solid #e6e9ed;">
+                            <span style="width: 16px; flex-shrink: 0; font-size: 12px; color: #9aa1ab; text-align: right;">{{ln.no}}</span>
+                            <span class="clip1" style="flex: 1; min-width: 0; font-size: 15px; line-height: 1.4;">{{ln.text}}</span>
+                          </div>
+                        </sc-for>
+                      </sc-for>
+                      <div style="margin-top: 10px; font-size: 12px; line-height: 1.6; color: #5d6470;">［ ］の中がパッチ番号。A段＝送り出し・B段＝受け。増設機材に番号はありません。</div>
+                    </section>
+                  </sc-if>
+
+                  <!-- 右: 技術スタッフ -->
+                  <sc-if value="{{paper.showStaff}}" hint-placeholder-val="{{ true }}">
+                    <section style="width: {{paper.staffW}}; flex-shrink: 0;">
+                      <div style="display: flex; align-items: baseline; gap: 10px;">
+                        <span style="font-size: 20px; font-weight: 800;">技術スタッフ</span>
+                        <span class="num" style="font-size: 13px; color: #5d6470;">17 人 ・ メンバー表より</span>
+                      </div>
+                      <div style="margin-top: 10px; display: flex; gap: {{paper.dayGap}};">
+                        <sc-for list="{{paper.days}}" as="d" hint-placeholder-count="2">
+                          <div style="width: {{paper.dayW}}; flex-shrink: 0;">
+                            <div style="display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #1a1d24; padding-bottom: 3px;">
+                              <span class="num" style="font-size: 14px; font-weight: 800;">{{d.day}}</span>
+                              <span style="flex: 1;"></span>
+                              <span class="num" style="font-size: 12px; color: #5d6470;">{{d.n}}</span>
+                            </div>
+                            <sc-for list="{{d.roles}}" as="ro" hint-placeholder-count="5">
+                              <div class="num" style="margin-top: 7px; font-size: 14px; font-weight: 800; color: #005bac; line-height: 20px;">{{ro.role}}</div>
+                              <sc-for list="{{ro.people}}" as="pe" hint-placeholder-count="1">
+                                <div style="display: flex; align-items: baseline; gap: 8px; height: 24px; border-bottom: 1px solid #f2f4f7; padding-left: 10px;">
+                                  <span class="clip1" style="flex: 1; min-width: 0; font-size: 16px; font-weight: 700;">{{pe.name}}</span>
+                                  <span class="clip1" style="flex-shrink: 0; font-size: 12.5px; color: #5d6470;">{{pe.company}}</span>
+                                </div>
+                              </sc-for>
+                            </sc-for>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </section>
+                  </sc-if>
+
+                  <sc-if value="{{paper.empty}}" hint-placeholder-val="{{ false }}">
+                    <section style="flex: 1; display: flex; align-items: center; justify-content: center;">
+                      <span style="font-size: 16px; color: #9aa1ab;">差し込むブロックを選ぶと、ここに表示されます</span>
+                    </section>
+                  </sc-if>
+                </div>
+
+                <!-- 用紙の下端 -->
+                <div style="position: absolute; left: 56px; right: 56px; bottom: 22px; display: flex; align-items: center; border-top: 1px solid #e6e9ed; padding-top: 7px;">
+                  <span class="num" style="font-size: 12px; color: #9aa1ab;">東都TV 特番収録「サイエンス・フロンティア」 第7回 ・ SCS-0007</span>
+                  <span style="flex: 1;"></span>
+                  <span class="num" style="font-size: 12px; color: #9aa1ab;">GMO ONAiR ・ 技術資料 ・ 1/1</span>
+                </div>
+              </div>
+            </div>
+            <div class="num" style="margin-top: 8px; font-size: 11.5px; color: #5d6470;">{{paper.caption}}</div>
+          </div>
+
+          <!-- ── 右の欄（260） ─────────────────────────────── -->
+          <div style="width: 260px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px;">
+
+            <div style="border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; padding: 12px 14px 12px;">
+              <div style="font-size: 15px; font-weight: 800;">差し込めるブロック</div>
+              <div style="margin-top: 2px; font-size: 11.5px; color: #9aa1ab;">チェックを外すと PDF から外れます</div>
+              <sc-for list="{{blocks}}" as="b" hint-placeholder-count="2">
+                <button class="tap row-tap" onClick="{{b.toggle}}" style="display: flex; align-items: center; gap: 10px; width: 100%; height: 48px; margin-top: 6px; border-radius: 10px; border: 1px solid {{b.bd}}; background: {{b.bg}}; padding: 0 10px;">
+                  <span style="width: 18px; height: 18px; flex-shrink: 0; border-radius: 5px; border: 1.6px solid {{b.boxBd}}; background: {{b.boxBg}}; display: flex; align-items: center; justify-content: center;">
+                    <sc-if value="{{b.on}}" hint-placeholder-val="{{ true }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg></sc-if>
+                  </span>
+                  <span style="flex: 1; min-width: 0;">
+                    <span class="clip1" style="display: block; font-size: 13px; font-weight: 700; line-height: 17px;">{{b.name}}</span>
+                    <span class="clip1 num" style="display: block; font-size: 11.5px; line-height: 14px; color: #9aa1ab;">{{b.sub}}</span>
+                  </span>
+                </button>
+              </sc-for>
+              <button class="tap ghost" onClick="{{actions.insert}}" style="display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; height: 38px; margin-top: 10px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; font-size: 12px; font-weight: 700; color: #3c424c; line-height: 1.3;">運営マニュアル OM-202610-0003 に差し込む</button>
+            </div>
+
+            <div style="border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; padding: 12px 14px 10px;">
+              <div style="font-size: 15px; font-weight: 800;">PDF に出る内容</div>
+              <sc-for list="{{summary}}" as="s" hint-placeholder-count="4">
+                <div style="display: flex; align-items: center; gap: 10px; height: 32px; border-bottom: 1px solid #f7f8fa;">
+                  <span style="flex: 1; min-width: 0; font-size: 12px; color: #5d6470;">{{s.k}}</span>
+                  <span class="num" style="flex-shrink: 0; font-size: 12.5px; font-weight: 700;">{{s.v}}</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; padding: 12px 14px 12px;">
+              <div style="font-size: 15px; font-weight: 800;">書き出しのルール</div>
+              <p style="margin: 7px 0 0; font-size: 11.5px; line-height: 1.7; color: #5d6470;">映像パッチは現場のパッチ表と同じ矢印の書式で書き出します。技術スタッフはメンバー表と同じ、日ごとに役職の見出しと名前を並べた形です。</p>
+            </div>
+
+            <div style="border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; padding: 12px 14px 8px;">
+              <div style="font-size: 15px; font-weight: 800;">最近の書き出し</div>
+              <sc-for list="{{recent}}" as="h" hint-placeholder-count="2">
+                <div style="display: flex; align-items: center; gap: 8px; height: 38px; border-bottom: 1px solid #f7f8fa;">
+                  <span style="width: 20px; height: 20px; border-radius: 6px; background: #f7f8fa; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></span>
+                  <span style="flex: 1; min-width: 0;">
+                    <span class="clip1" style="display: block; font-size: 12px; font-weight: 700; line-height: 15px;">{{h.what}}</span>
+                    <span class="clip1 num" style="display: block; font-size: 10.5px; line-height: 13px; color: #9aa1ab;">{{h.when}}</span>
+                  </span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- 通知（押した操作の説明。画面下中央） -->
+  <sc-if value="{{notice.show}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; max-width: 720px; border-radius: 12px; background: #1a1d24; color: #ffffff; padding: 12px 16px; box-shadow: 0 8px 24px rgba(26,29,36,.24); z-index: 40;">
+      <span style="font-size: 13px; font-weight: 800; white-space: nowrap;">{{notice.title}}</span>
+      <span style="font-size: 12.5px; color: #cbd2da;">{{notice.body}}</span>
+      <button class="tap" onClick="{{notice.close}}" aria-label="閉じる" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; color: #cbd2da;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { notice: null, patch: true, staff: true };
+  }
+
+  nav() {
+    return [
+      { label: 'トップ', dot: '#e6e9ed', on: false },
+      { label: '案件ホーム', dot: '#e6e9ed', on: false },
+      { label: '進行台本', dot: '#005bac', on: false },
+      { label: 'スケジュール表', dot: '#197a4b', on: false },
+      { label: '収録設定', dot: '#c2410e', on: false },
+      { label: '配信設定', dot: '#c2410e', on: false },
+      { label: 'レンタル機材検索', dot: '#4338ca', on: false },
+      { label: '計時・視聴者', dot: '#8b5cf6', on: false },
+      { label: 'テロップCG', dot: '#8b5cf6', on: false },
+      { label: '運営マニュアル', dot: '#005bac', on: false },
+      { label: '会場図面', dot: '#005bac', on: false },
+      { label: '技術資料', dot: '#005bac', on: true },
+      { label: '管理', title: true },
+      { label: 'パッチ盤', dot: '#5d6470', on: false },
+      { label: '技術人員', dot: '#5d6470', on: false },
+    ];
+  }
+
+  // 現場のパッチ表と同じ「機材 out [番号] → 機材 in [番号]」の矢印表記（§6-1・§6-3）
+  patchGroups() {
+    return [
+      { name: '〈増設スイッチャー〉', lines: [
+        'CCU1 out [101A] → ATEM 2 M/E in1（増設）',
+        'CCU2 out [102A] → ATEM 2 M/E in2（増設）',
+        'PTZ1 out [106A] → ATEM 2 M/E in3（増設）',
+        'ATEM 2 M/E PGM out（増設）→ 入力ルーター in36 [136B]',
+        'ATEM 2 M/E AUX out（増設）→ 入力ルーター in37 [137B]',
+      ] },
+      { name: '〈客席モニター〉', lines: [
+        '出力ルーター R5 out [205A] → TRK AV-3 FOH下手 in [TRK12]',
+        '出力ルーター R6 out [206A] → TRK AV-4 FOH上手 in [TRK13]',
+        '出力ルーター R7 out [207A] → 客席用 LED モニター in（増設）',
+      ] },
+      { name: '〈配信〉', lines: [
+        '出力ルーター R10 out [210A] → 配信ENC 1 in [1301B]',
+        'vMix 3 out [113A] → サブ配信PC SDI in（増設）',
+      ] },
+    ];
+  }
+
+  // メンバー表と同じ形（役職を見出しにして、その下に名前を1人1行）
+  staffDays() {
+    return [
+      { day: '10/14（水）仕込み・リハ', roles: [
+        { role: 'SW', people: [['新田 楓', 'ヌーベルバーグ']] },
+        { role: 'CAM', people: [['矢吹 遼', 'ヌーベルバーグ'], ['九条 悠真', 'ヌーベルバーグ']] },
+        { role: 'MIX', people: [['東雲 美月', 'ヌーベルバーグ']] },
+        { role: 'VE', people: [['早乙女 蓮', 'ヌーベルバーグ']] },
+        { role: '配信管理', people: [['朝比奈 蒼太', 'ヌーベルバーグ']] },
+      ] },
+      { day: '10/15（木）本番', roles: [
+        { role: 'SW', people: [['新田 楓', 'ヌーベルバーグ']] },
+        { role: 'CAM', people: [['矢吹 遼', 'ヌーベルバーグ'], ['九条 悠真', 'ヌーベルバーグ']] },
+        { role: 'CAM-A', people: [['神楽坂 結衣', 'ヌーベルバーグ']] },
+        { role: 'MIX', people: [['東雲 美月', 'ヌーベルバーグ']] },
+        { role: 'AUD', people: [['桜庭 奏', 'ヌーベルバーグ']] },
+        { role: 'VE', people: [['早乙女 蓮', 'ヌーベルバーグ']] },
+        { role: 'LD', people: [['葉山 美咲', 'サウンドクラフト']] },
+        { role: 'PA', people: [['天海 陽菜', 'ヌーベルバーグ']] },
+        { role: '配信管理', people: [['朝比奈 蒼太', 'ヌーベルバーグ']] },
+        { role: 'TP', people: [['道下 蓮', 'GMOグローバルスタジオ']] },
+      ] },
+    ];
+  }
+
+  notify(title, body) { this.setState({ notice: { title: title, body: body } }); }
+
+  renderVals() {
+    const self = this;
+    const st = this.state;
+    const both = st.patch && st.staff;
+
+    let no = 0;
+    const patch = this.patchGroups().map((g) => ({
+      name: g.name,
+      n: g.lines.length + ' 行',
+      lines: g.lines.map((t) => { no = no + 1; return { no: String(no), text: t }; }),
+    }));
+
+    const days = this.staffDays().map((d) => {
+      let n = 0;
+      d.roles.forEach((r) => { n = n + r.people.length; });
+      return {
+        day: d.day, n: n + ' 人',
+        roles: d.roles.map((r) => ({ role: r.role, people: r.people.map((p) => ({ name: p[0], company: p[1] })) })),
+      };
+    });
+
+    const notice = this.state.notice
+      ? { show: true, title: this.state.notice.title, body: this.state.notice.body, close: () => self.setState({ notice: null }) }
+      : { show: false, title: '', body: '', close: () => {} };
+
+    const nav = this.nav().map((n) => ({
+      label: n.label, dot: n.dot || '#e6e9ed', isTitle: !!n.title, isItem: !n.title,
+      bg: n.on ? '#f4faff' : 'transparent',
+      fg: n.on ? '#005bac' : '#3c424c',
+      weight: n.on ? 800 : 700,
+    }));
+
+    const mkBlock = (key, name, sub, on) => ({
+      name: name, sub: sub, on: on,
+      bd: on ? '#cfe4f4' : '#e6e9ed',
+      bg: on ? '#f4faff' : '#ffffff',
+      boxBd: on ? '#005bac' : '#cbd2da',
+      boxBg: on ? '#005bac' : '#ffffff',
+      toggle: () => {
+        const next = { patch: st.patch, staff: st.staff };
+        next[key] = !next[key];
+        self.setState(next);
+      },
+    });
+
+    return {
+      nav: nav,
+      notice: notice,
+      paper: {
+        showPatch: st.patch,
+        showStaff: st.staff,
+        empty: !st.patch && !st.staff,
+        patchW: both ? '505px' : '1011px',
+        staffW: both ? '482px' : '1011px',
+        dayW: both ? '231px' : '490px',
+        dayGap: both ? '20px' : '31px',
+        patch: patch,
+        days: days,
+        meta: st.patch && st.staff ? '2 ブロック ・ 1 ページ' : (st.patch || st.staff ? '1 ブロック ・ 1 ページ' : 'ブロックなし'),
+        caption: 'A4 横 ・ 297 × 210 mm ・ 73% で表示',
+      },
+      blocks: [
+        mkBlock('patch', '映像パッチ表', '10 行 ・ 3 系統', st.patch),
+        mkBlock('staff', '技術スタッフリスト', '17 人 ・ 2 日分', st.staff),
+      ],
+      summary: [
+        { k: '映像パッチ', v: st.patch ? '10 行' : '出さない' },
+        { k: '技術スタッフ', v: st.staff ? '17 人' : '出さない' },
+        { k: '用紙', v: 'A4 横 1 ページ' },
+        { k: '版', v: '第2版 ・ 2026/10/10' },
+      ],
+      recent: [
+        { what: '本番用 映像プラン 第1版', when: '2026/10/08 17:12 ・ 寺井 岳宏' },
+        { what: 'リハ用 TD-202610-0002', when: '2026/10/03 10:26 ・ 大野 誠' },
+      ],
+      actions: {
+        paper: () => self.notify('用紙', 'A4 横・A4 縦・A3 横 から選びます。現在は A4 横です'),
+        pdf: () => self.notify('PDF で書き出す', 'この内容のまま PDF にします。BOX の案件フォルダにも保存されます'),
+        insert: () => self.notify('運営マニュアルに差し込む', '運営マニュアル OM-202610-0003 のページに、この2つのブロックを差し込みます'),
+        more: () => self.notify('その他の操作', '複製する・確定する・削除がこのメニューにあります'),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

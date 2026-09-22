@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>技術人員</title>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@100;400;700;800&family=Noto+Sans+JP:wght@100;200;300;400;500;600;700;800;900&family=Noto+Serif+JP:wght@400;700;900&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    button { font-family: inherit; }
+    input { font-family: inherit; }
+    .tap { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .ghost:hover { background: #f2f4f7; }
+    .btn-primary { transition: background-color .12s ease; } .btn-primary:hover { background: #004d91; }
+    .row-tap:hover { background: #fbfcfd; }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .field:focus { outline: none; border-color: #005bac; box-shadow: 0 0 0 3px rgba(0,91,172,.14); }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 1000px; position: relative; overflow: hidden; background: #f7f8fa; display: flex; flex-direction: column; color: #1a1d24;">
+
+  <!-- ── 上辺バー（共通シェル・高さ64） ─────────────────────────── -->
+  <header style="display: flex; height: 64px; flex-shrink: 0; align-items: center; gap: 14px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 24px;">
+    <div style="display: flex; align-items: center; gap: 9px;">
+      <div style="width: 28px; height: 28px; border-radius: 9px; background: #005bac; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M7.8 7.8a6 6 0 0 0 0 8.4"></path><path d="M16.2 16.2a6 6 0 0 0 0-8.4"></path><path d="M4.9 4.9a10 10 0 0 0 0 14.2"></path><path d="M19.1 19.1a10 10 0 0 0 0-14.2"></path></svg></div>
+      <span style="font-size: 15px; font-weight: 800; letter-spacing: .01em;">ONAiR</span>
+    </div>
+    <span style="height: 22px; width: 1px; background: #e6e9ed;"></span>
+    <button class="tap" onClick="{{actions.switchApp}}" style="display: flex; height: 40px; align-items: center; gap: 10px; border-radius: 10px; border: 1px solid #cfe4f4; background: #f4faff; padding: 0 12px; color: #005bac;">
+      <span style="width: 22px; height: 22px; border-radius: 7px; background: #eaf4fb; display: flex; align-items: center; justify-content: center;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.6"></rect><rect x="14" y="3" width="7" height="7" rx="1.6"></rect><rect x="3" y="14" width="7" height="7" rx="1.6"></rect><rect x="14" y="14" width="7" height="7" rx="1.6"></rect></svg></span>
+      <span style="font-size: 13.5px; font-weight: 700; white-space: nowrap;">制作技術支援</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+    <span class="clip1" style="font-size: 12.5px; color: #5d6470; max-width: 520px;">／ 管理 ／ 技術人員</span>
+    <span style="flex: 1;"></span>
+    <button class="tap" onClick="{{actions.bell}}" aria-label="お知らせ" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 7px; color: #5d6470;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 4.6 1.8 5.6 1.8 5.6H4.2S6 13.6 6 9z"></path><path d="M10.2 18.4a2 2 0 0 0 3.6 0"></path></svg></button>
+    <button class="tap" onClick="{{actions.me}}" style="display: flex; align-items: center; gap: 10px; height: 44px;">
+      <span style="width: 32px; height: 32px; border-radius: 9999px; background: #eaf4fb; color: #005bac; font-size: 13.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;">寺</span>
+      <span style="font-size: 12.5px; white-space: nowrap;">寺井 岳宏</span>
+    </button>
+  </header>
+
+  <div style="display: flex; flex: 1; min-height: 0;">
+
+    <!-- ── 左メニュー（共通シェル・幅248。管理の技術人員が on） ───── -->
+    <aside style="width: 248px; flex-shrink: 0; border-right: 1px solid #e6e9ed; background: #ffffff; padding: 14px 12px 20px; display: flex; flex-direction: column; gap: 2px;">
+      <sc-for list="{{nav}}" as="n" hint-placeholder-count="15">
+        <sc-if value="{{n.isTitle}}" hint-placeholder-val="{{ false }}">
+          <p style="margin: 14px 0 4px; padding: 0 10px; font-size: 11px; font-weight: 800; letter-spacing: .04em; color: #9aa1ab;">{{n.label}}</p>
+        </sc-if>
+        <sc-if value="{{n.isItem}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; align-items: center; gap: 10px; height: 38px; border-radius: 10px; padding: 0 10px; background: {{n.bg}}; color: {{n.fg}};">
+            <span style="width: 18px; height: 18px; border-radius: 5px; background: {{n.dot}}; flex-shrink: 0;"></span>
+            <span style="font-size: 13.5px; font-weight: {{n.weight}};">{{n.label}}</span>
+          </div>
+        </sc-if>
+      </sc-for>
+      <span style="flex: 1;"></span>
+      <p style="margin: 0; padding: 0 10px; font-size: 11.5px; line-height: 1.6; color: #9aa1ab;">東都TV 特番収録<br>「サイエンス・フロンティア」</p>
+    </aside>
+
+    <!-- ── 本文 ────────────────────────────────────────────── -->
+    <main style="flex: 1; min-width: 0; background: #f7f8fa; overflow: hidden; display: flex; flex-direction: column;">
+
+      <!-- 見出し行（PageHeader） -->
+      <div style="flex-shrink: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; background: #ffffff; border-bottom: 1px solid #e6e9ed; padding: 16px 24px 14px;">
+        <div style="min-width: 0;">
+          <h1 style="margin: 0; font-size: 23px; line-height: 1.3; font-weight: 800; letter-spacing: -.01em;">技術人員</h1>
+          <p style="margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; color: #5d6470;">会社ごとの技術スタッフ。技術資料の候補に表示されます</p>
+        </div>
+        <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding-top: 2px;">
+          <button class="tap" onClick="{{actions.importList}}" aria-disabled="true" style="display: flex; align-items: center; gap: 7px; height: 38px; border-radius: 10px; border: 1px solid #e6e9ed; background: #f7f8fa; padding: 0 14px; font-size: 13px; font-weight: 700; color: #9aa1ab;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cbd2da" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"></path><path d="M7 8l5-5 5 5"></path><path d="M5 21h14"></path></svg>メンバー表から取り込む</button>
+          <button class="tap btn-primary" onClick="{{actions.add}}" style="display: flex; align-items: center; gap: 7px; height: 38px; border-radius: 10px; background: #005bac; color: #ffffff; padding: 0 16px; font-size: 13px; font-weight: 800;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>追加</button>
+        </div>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex;">
+
+        <!-- 左: 会社 -->
+        <aside style="width: 260px; flex-shrink: 0; border-right: 1px solid #e6e9ed; background: #ffffff; padding: 12px 10px; display: flex; flex-direction: column; gap: 2px;">
+          <p style="margin: 2px 0 6px; padding: 0 8px; font-size: 11px; font-weight: 800; letter-spacing: .04em; color: #9aa1ab;">会社</p>
+          <sc-for list="{{cos}}" as="c" hint-placeholder-count="3">
+            <button class="tap ghost" onClick="{{c.pick}}" style="display: flex; align-items: center; gap: 9px; width: 100%; height: 42px; border-radius: 10px; padding: 0 10px; background: {{c.bg}};">
+              <span style="width: 8px; height: 8px; border-radius: 9999px; background: {{c.dot}}; flex-shrink: 0;"></span>
+              <span class="clip1" style="flex: 1; min-width: 0; font-size: 13px; font-weight: {{c.weight}}; color: {{c.fg}};">{{c.label}}</span>
+              <span class="num" style="width: 32px; flex-shrink: 0; text-align: right; font-size: 12px; font-weight: 700; color: {{c.nFg}};">{{c.n}}</span>
+            </button>
+          </sc-for>
+          <button class="tap ghost" onClick="{{actions.addCo}}" style="margin-top: 4px; display: flex; align-items: center; gap: 8px; width: 100%; height: 38px; border-radius: 10px; padding: 0 10px; color: #005bac;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+            <span style="font-size: 12.5px; font-weight: 700;">会社を追加</span>
+          </button>
+          <span style="flex: 1;"></span>
+          <p style="margin: 0; padding: 0 10px; font-size: 11.5px; line-height: 1.6; color: #9aa1ab;">GMOグローバルスタジオは社内の人。ほかは協力会社です。</p>
+        </aside>
+
+        <!-- 中央: 人の表 -->
+        <section style="flex: 1; min-width: 0; padding: 14px 16px; display: flex; flex-direction: column; min-height: 0;">
+
+          <div style="display: flex; align-items: center; gap: 8px; height: 36px; flex-shrink: 0;">
+            <span style="flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 36px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.6-3.6"></path></svg>
+              <input class="field" type="text" value="{{q}}" onInput="{{setQ}}" placeholder="名前・役職で検索" style="flex: 1; min-width: 0; height: 22px; border: 0; background: none; padding: 0; font-size: 13px; color: #1a1d24;">
+            </span>
+            <button class="tap ghost" onClick="{{actions.sort}}" style="flex-shrink: 0; display: flex; align-items: center; gap: 6px; height: 36px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 11px; font-size: 12.5px; font-weight: 700; color: #3c424c;">参加回数
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M6 13l6 6 6-6"></path></svg>
+            </button>
+          </div>
+
+          <div style="margin-top: 10px; display: flex; align-items: center; gap: 5px; height: 32px; flex-shrink: 0;">
+            <span style="flex-shrink: 0; font-size: 11.5px; font-weight: 800; color: #9aa1ab; padding-right: 3px;">役職</span>
+            <sc-for list="{{roleChips}}" as="c" hint-placeholder-count="7">
+              <button class="tap" onClick="{{c.pick}}" style="display: flex; align-items: center; justify-content: center; height: 28px; border-radius: 8px; border: 1px solid {{c.bd}}; background: {{c.bg}}; color: {{c.fg}}; padding: 0 9px; font-size: 11.5px; font-weight: 700; white-space: nowrap;">{{c.label}}</button>
+            </sc-for>
+          </div>
+
+          <div style="margin-top: 12px; flex: 1; min-height: 0; border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; overflow: hidden;">
+
+            <div style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 8px; border-bottom: 1px solid #e6e9ed; font-size: 11.5px; font-weight: 800; color: #9aa1ab;">
+              <span style="flex: 1; min-width: 0;">名前</span>
+              <span style="width: 160px; flex-shrink: 0;">主な役職</span>
+              <span style="width: 72px; flex-shrink: 0; text-align: right;">参加回数</span>
+              <span style="width: 96px; flex-shrink: 0; text-align: right;">最近の作業日</span>
+              <span style="width: 56px; flex-shrink: 0;">状態</span>
+              <span style="width: 32px; flex-shrink: 0;"></span>
+            </div>
+
+            <sc-for list="{{rows}}" as="r" hint-placeholder-count="12">
+
+              <!-- ふだんの行 -->
+              <sc-if value="{{r.isRow}}" hint-placeholder-val="{{ true }}">
+                <div class="row-tap" style="display: flex; align-items: center; gap: 8px; height: 50px; padding: 0 8px; border-bottom: 1px solid #f2f4f7;">
+                  <span style="flex: 1; min-width: 0;">
+                    <span class="clip1" style="display: block; font-size: 13px; font-weight: 700;">{{r.name}}</span>
+                    <span class="clip1" style="display: block; font-size: 11.5px; color: #9aa1ab;">{{r.kana}}</span>
+                  </span>
+                  <span style="width: 160px; flex-shrink: 0; display: flex; gap: 4px;">
+                    <sc-for list="{{r.roles}}" as="rr" hint-placeholder-count="2">
+                      <span class="num" style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 22px; border-radius: 6px; background: #f2f4f7; color: #5d6470; font-size: 11px; font-weight: 800;">{{rr}}</span>
+                    </sc-for>
+                  </span>
+                  <span class="num" style="width: 72px; flex-shrink: 0; text-align: right; font-size: 13px; font-weight: 700;">{{r.n}}</span>
+                  <span class="num" style="width: 96px; flex-shrink: 0; text-align: right; font-size: 12px; color: #5d6470;">{{r.last}}</span>
+                  <span style="width: 56px; flex-shrink: 0; display: flex;">
+                    <span style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 22px; border-radius: 6px; background: #e7f6ee; color: #197a4b; font-size: 11px; font-weight: 800;">有効</span>
+                  </span>
+                  <span style="width: 32px; flex-shrink: 0; display: flex; justify-content: flex-end;">
+                    <button class="tap ghost" onClick="{{r.more}}" aria-label="この人の操作" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 7px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="#9aa1ab"><circle cx="5" cy="12" r="1.7"></circle><circle cx="12" cy="12" r="1.7"></circle><circle cx="19" cy="12" r="1.7"></circle></svg></button>
+                  </span>
+                </div>
+              </sc-if>
+
+              <!-- 編集中の行 -->
+              <sc-if value="{{r.isEdit}}" hint-placeholder-val="{{ false }}">
+                <div style="display: flex; flex-direction: column; gap: 8px; height: 96px; padding: 12px 8px; border-bottom: 1px solid #f2f4f7; background: #f4faff;">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <input class="field" type="text" value="{{r.name}}" onInput="{{r.setName}}" aria-label="名前" style="flex: 1; min-width: 0; height: 34px; border-radius: 9px; border: 1px solid #005bac; background: #ffffff; padding: 0 10px; font-size: 13px; font-weight: 700; color: #1a1d24; box-shadow: 0 0 0 3px rgba(0,91,172,.14);">
+                    <input class="field" type="text" value="{{r.kana}}" onInput="{{r.setKana}}" aria-label="ふりがな" style="width: 120px; flex-shrink: 0; height: 34px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 10px; font-size: 12px; color: #5d6470;">
+                    <span class="num" style="width: 72px; flex-shrink: 0; text-align: right; font-size: 13px; font-weight: 700;">{{r.n}}</span>
+                    <span class="num" style="width: 96px; flex-shrink: 0; text-align: right; font-size: 12px; color: #5d6470;">{{r.last}}</span>
+                    <span style="width: 56px; flex-shrink: 0; display: flex;">
+                      <span style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 22px; border-radius: 6px; background: #e7f6ee; color: #197a4b; font-size: 11px; font-weight: 800;">有効</span>
+                    </span>
+                    <span style="width: 32px; flex-shrink: 0;"></span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <sc-for list="{{r.editRoles}}" as="er" hint-placeholder-count="2">
+                      <span class="num" style="display: inline-flex; align-items: center; gap: 4px; height: 26px; border-radius: 7px; border: 1px solid #cfe4f4; background: #ffffff; color: #005bac; font-size: 11px; font-weight: 800; padding: 0 4px 0 8px;">{{er.label}}
+                        <button class="tap" onClick="{{er.drop}}" aria-label="この役職を削除" style="width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 5px; color: #9aa1ab;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+                      </span>
+                    </sc-for>
+                    <button class="tap ghost" onClick="{{r.addRole}}" style="display: flex; align-items: center; gap: 5px; height: 26px; border-radius: 7px; border: 1px dashed #cbd2da; background: #ffffff; padding: 0 9px; font-size: 11px; font-weight: 700; color: #5d6470;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>役職を追加</button>
+                    <span style="flex: 1;"></span>
+                    <button class="tap ghost" onClick="{{r.cancel}}" style="display: flex; align-items: center; height: 30px; border-radius: 8px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12.5px; font-weight: 700; color: #3c424c;">キャンセル</button>
+                    <button class="tap btn-primary" onClick="{{r.save}}" style="display: flex; align-items: center; height: 30px; border-radius: 8px; background: #005bac; padding: 0 14px; font-size: 12.5px; font-weight: 800; color: #ffffff;">保存</button>
+                  </div>
+                </div>
+              </sc-if>
+
+            </sc-for>
+
+            <div style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px;">
+              <span class="num" style="font-size: 12px; color: #9aa1ab;">{{foot}}</span>
+              <span style="flex: 1;"></span>
+              <sc-if value="{{hasMore}}" hint-placeholder-val="{{ true }}">
+                <button class="tap ghost" onClick="{{actions.more}}" style="display: flex; align-items: center; height: 30px; border-radius: 8px; padding: 0 10px; font-size: 12.5px; font-weight: 700; color: #005bac;">もっと見る</button>
+              </sc-if>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- 右: 役職の一覧 -->
+        <aside style="width: 300px; flex-shrink: 0; border-left: 1px solid #e6e9ed; background: #ffffff; display: flex; flex-direction: column; overflow: hidden;">
+          <div style="display: flex; align-items: center; gap: 8px; height: 46px; flex-shrink: 0; padding: 0 14px; border-bottom: 1px solid #e6e9ed;">
+            <span style="font-size: 15px; font-weight: 800;">役職の一覧</span>
+            <span class="num" style="font-size: 11.5px; color: #9aa1ab;">16</span>
+          </div>
+          <div style="padding: 10px 14px 12px;">
+            <p style="margin: 0 0 8px; font-size: 11.5px; line-height: 1.5; color: #9aa1ab;">数字はその役職で担当したことのある人数</p>
+            <div style="display: flex; gap: 12px;">
+              <sc-for list="{{roleCols}}" as="col" hint-placeholder-count="2">
+                <div style="flex: 1; min-width: 0;">
+                  <sc-for list="{{col.items}}" as="it" hint-placeholder-count="8">
+                    <div style="display: flex; align-items: center; gap: 8px; height: 30px; border-bottom: 1px solid #f2f4f7;">
+                      <span class="num" style="display: inline-flex; align-items: center; justify-content: center; width: 56px; flex-shrink: 0; height: 22px; border-radius: 6px; background: #f2f4f7; color: #5d6470; font-size: 11px; font-weight: 800;">{{it.label}}</span>
+                      <span style="flex: 1;"></span>
+                      <span class="num" style="flex-shrink: 0; font-size: 12px; font-weight: 700; color: #3c424c;">{{it.n}}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="margin: 2px 14px 0; border-radius: 10px; border: 1px solid #e6e9ed; background: #fbfcfd; padding: 11px 12px;">
+            <p style="margin: 0; font-size: 12.5px; line-height: 1.6; color: #3c424c;">メンバー表の役職をそのまま使います。CA の正式名称は確認中</p>
+          </div>
+          <span style="flex: 1;"></span>
+          <p style="margin: 0; padding: 12px 14px 14px; border-top: 1px solid #f2f4f7; font-size: 11.5px; line-height: 1.6; color: #9aa1ab;">役職は回ごとの割り当てです。同じ人が SW のときも CAM のときもあります。</p>
+        </aside>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- 通知（押した操作の説明。画面下中央） -->
+  <sc-if value="{{notice.show}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 40; display: flex; align-items: center; gap: 10px; max-width: 760px; border-radius: 12px; background: #1a1d24; color: #ffffff; padding: 12px 16px; box-shadow: 0 8px 24px rgba(26,29,36,.24);">
+      <span style="font-size: 13px; font-weight: 800; white-space: nowrap;">{{notice.title}}</span>
+      <span style="font-size: 12.5px; color: #cbd2da;">{{notice.body}}</span>
+      <button class="tap" onClick="{{notice.close}}" aria-label="閉じる" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; color: #cbd2da;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { co: 'nb', role: 'all', q: '', edit: '神楽坂 結衣', editRoles: ['CA', 'AUD'], notice: null };
+  }
+
+  // 左メニュー。管理の技術人員が on
+  nav() {
+    return [
+      { label: 'トップ', dot: '#e6e9ed', on: false },
+      { label: '案件ホーム', dot: '#e6e9ed', on: false },
+      { label: '進行台本', dot: '#005bac', on: false },
+      { label: 'スケジュール表', dot: '#197a4b', on: false },
+      { label: '収録設定', dot: '#c2410e', on: false },
+      { label: '配信設定', dot: '#c2410e', on: false },
+      { label: 'レンタル機材検索', dot: '#4338ca', on: false },
+      { label: '計時・視聴者', dot: '#8b5cf6', on: false },
+      { label: 'テロップCG', dot: '#8b5cf6', on: false },
+      { label: '運営マニュアル', dot: '#005bac', on: false },
+      { label: '会場図面', dot: '#005bac', on: false },
+      { label: '技術資料', dot: '#005bac', on: false },
+      { label: '管理', title: true },
+      { label: 'パッチ盤', dot: '#5d6470', on: false },
+      { label: '技術人員', dot: '#5d6470', on: true },
+    ];
+  }
+
+  companies() {
+    return [
+      { key: 'nb', label: '株式会社ヌーベルバーグ', n: 90, dot: '#005bac' },
+      { key: 'sc', label: '有限会社サウンドクラフト', n: 3, dot: '#6d28d9' },
+      { key: 'gmo', label: 'GMOグローバルスタジオ', n: 12, dot: '#197a4b' },
+    ];
+  }
+
+  peopleOf(co) {
+    if (co === 'sc') {
+      return [
+        { name: '葉山 美咲', kana: 'はやま みさき', roles: ['LD', 'LD-A'], n: '3回', last: '2026/08/14' },
+        { name: '柊 大地', kana: 'ひいらぎ だいち', roles: ['VE', 'CAM'], n: '2回', last: '2026/06/18' },
+        { name: '水無月 陸', kana: 'みなづき りく', roles: ['MIX', '配信管理'], n: '1回', last: '2026/02/20' },
+      ];
+    }
+    if (co === 'gmo') {
+      return [
+        { name: '宇佐美 弘樹', kana: 'うさみ ひろき', roles: ['配信管理'], n: '6回', last: '2026/08/14' },
+        { name: '道下 蓮', kana: 'みちした れん', roles: ['TP', '3Play'], n: '4回', last: '2026/08/14' },
+        { name: '真壁 ひかり', kana: 'まかべ ひかり', roles: ['CAM'], n: '3回', last: '2026/07/29' },
+        { name: '砂川 結衣', kana: 'すなかわ ゆい', roles: ['SW', 'CAM'], n: '2回', last: '2026/05/21' },
+        { name: '志水 拓真', kana: 'しみず たくま', roles: ['MIX'], n: '1回', last: '2026/03/12' },
+      ];
+    }
+    return [
+      { name: '新田 楓', kana: 'にった かえで', roles: ['SW', 'CAM'], n: '31回', last: '2026/08/14' },
+      { name: '矢吹 遼', kana: 'やぶき りょう', roles: ['CAM', 'CAM-A'], n: '15回', last: '2026/08/14' },
+      { name: '東雲 美月', kana: 'しののめ みづき', roles: ['MIX'], n: '13回', last: '2026/08/02' },
+      { name: '九条 悠真', kana: 'くじょう ゆうま', roles: ['CAM-A', 'CAM'], n: '12回', last: '2026/08/14' },
+      { name: '早乙女 蓮', kana: 'さおとめ れん', roles: ['VE', 'CA'], n: '12回', last: '2026/07/29' },
+      { name: '神楽坂 結衣', kana: 'かぐらざか ゆい', roles: ['CA', 'AUD'], n: '12回', last: '2026/08/14' },
+      { name: '桜庭 奏', kana: 'さくらば かなで', roles: ['AUD', 'MIX'], n: '9回', last: '2026/07/29' },
+      { name: '天海 陽菜', kana: 'あまみ ひな', roles: ['PA', 'PA MIX'], n: '8回', last: '2026/06/18' },
+      { name: '朝比奈 蒼太', kana: 'あさひな そうた', roles: ['配信管理'], n: '7回', last: '2026/08/14' },
+      { name: '久我 千尋', kana: 'くが ちひろ', roles: ['CAM'], n: '5回', last: '2026/05/21' },
+      { name: '橘 光洋', kana: 'たちばな みつひろ', roles: ['VE', 'CA-A'], n: '4回', last: '2026/04/09' },
+      { name: '二宮 紗季', kana: 'にのみや さき', roles: ['AUD'], n: '2回', last: '2026/03/12' },
+    ];
+  }
+
+  // 役職（メンバー表の16語。社内業務は技術の配置ではないので入れない）
+  roleCounts() {
+    return [
+      { label: 'SW', n: 6 }, { label: 'CAM', n: 24 }, { label: 'CAM-A', n: 9 }, { label: 'MIX', n: 7 },
+      { label: 'AUD', n: 8 }, { label: 'CA', n: 11 }, { label: 'CA-A', n: 2 }, { label: 'VE', n: 9 },
+      { label: 'LD', n: 3 }, { label: 'LD-A', n: 1 }, { label: 'PA', n: 8 }, { label: 'PA MIX', n: 3 },
+      { label: '配信管理', n: 5 }, { label: '3Play', n: 1 }, { label: 'TP', n: 2 }, { label: 'Dv', n: 1 },
+    ];
+  }
+
+  notify(title, body) {
+    this.setState({ notice: { title: title, body: body } });
+  }
+
+  renderVals() {
+    const self = this;
+    const st = this.state;
+
+    const nav = this.nav().map((n) => ({
+      label: n.label, dot: n.dot || '#e6e9ed', isTitle: !!n.title, isItem: !n.title,
+      bg: n.on ? '#f4faff' : 'transparent',
+      fg: n.on ? '#005bac' : '#3c424c',
+      weight: n.on ? 800 : 700,
+    }));
+
+    const cos = this.companies().map((c) => {
+      const on = st.co === c.key;
+      return {
+        label: c.label, n: c.n, dot: c.dot,
+        bg: on ? '#f4faff' : 'transparent',
+        fg: on ? '#005bac' : '#3c424c',
+        nFg: on ? '#005bac' : '#9aa1ab',
+        weight: on ? 800 : 700,
+        pick: () => self.setState({ co: c.key }),
+      };
+    });
+
+    const chipDefs = ['すべて', 'SW', 'CAM', 'MIX', 'AUD', 'VE', '配信管理'];
+    const roleChips = chipDefs.map((label, i) => {
+      const key = i === 0 ? 'all' : label;
+      const on = st.role === key;
+      return {
+        label: label,
+        bd: on ? '#cfe4f4' : '#e6e9ed',
+        bg: on ? '#eaf4fb' : '#ffffff',
+        fg: on ? '#005bac' : '#3c424c',
+        pick: () => self.setState({ role: key }),
+      };
+    });
+
+    const all = this.peopleOf(st.co);
+    const list = all
+      .filter((p) => (st.role === 'all' ? true : p.roles.indexOf(st.role) >= 0))
+      .filter((p) => (st.q === '' ? true : (p.name + ' ' + p.kana + ' ' + p.roles.join(' ')).indexOf(st.q) >= 0));
+
+    const rows = list.map((p) => {
+      const editing = st.edit === p.name;
+      return {
+        isRow: !editing,
+        isEdit: editing,
+        name: p.name, kana: p.kana, roles: p.roles.slice(0, 3), n: p.n, last: p.last,
+        editRoles: st.editRoles.map((r) => ({
+          label: r,
+          drop: () => self.setState({ editRoles: st.editRoles.filter((x) => x !== r) }),
+        })),
+        setName: () => {},
+        setKana: () => {},
+        addRole: () => self.notify('役職を追加', 'メンバー表の16の役職から選びます'),
+        cancel: () => self.setState({ edit: null, editRoles: ['CA', 'AUD'], notice: { title: 'キャンセル', body: '編集前の役職に戻しました' } }),
+        save: () => self.setState({ edit: null, notice: { title: '保存しました', body: p.name + ' の役職を ' + st.editRoles.join('・') + ' にしました' } }),
+        more: () => self.notify('この人の操作', '編集・無効にする・作業日の履歴'),
+      };
+    });
+
+    const total = this.companies().filter((c) => c.key === st.co)[0].n;
+    const rc = this.roleCounts();
+    const roleCols = [{ items: rc.slice(0, 8) }, { items: rc.slice(8) }];
+
+    const notice = st.notice
+      ? { show: true, title: st.notice.title, body: st.notice.body, close: () => self.setState({ notice: null }) }
+      : { show: false, title: '', body: '', close: () => {} };
+
+    return {
+      nav: nav,
+      cos: cos,
+      roleChips: roleChips,
+      rows: rows,
+      q: st.q,
+      setQ: (e) => self.setState({ q: e.target.value }),
+      foot: '参加回数の多い順に ' + list.length + '人 ／ 全' + total + '人',
+      hasMore: list.length < total,
+      roleCols: roleCols,
+      notice: notice,
+      actions: {
+        switchApp: () => self.notify('アプリを切り替え', '制作技術支援のほかのミニアプリに移ります'),
+        bell: () => self.notify('お知らせ', '自分あての連絡が表示されます'),
+        me: () => self.notify('寺井 岳宏', '利用者の設定とログアウト'),
+        add: () => self.notify('追加', '名前・ふりがな・会社・役職を入力して1人追加します'),
+        importList: () => self.notify('メンバー表から取り込む', '今後の対応予定です。現在は手入力のみです'),
+        addCo: () => self.notify('会社を追加', '協力会社を1社追加します'),
+        sort: () => self.notify('並べ替え', '参加回数・名前・最近の作業日で並べ替えます'),
+        more: () => self.notify('もっと見る', '続きを表示します'),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

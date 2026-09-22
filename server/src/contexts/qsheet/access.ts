@@ -158,6 +158,49 @@ export async function canAssignVenueLayoutProject(user: AccessUser, projectId: s
 }
 
 /**
+ * 技術資料（`qsheet_tech_docs`）に対して user がアクセス可能か（作成者 / **案件メンバー** /
+ * `projects.assigned_to` / 管理者）を判定。`canAccessVenueLayout` を写したもの
+ * （tech-docs.md §5-4「行の可視性」）。
+ *
+ * ⚠️ 明示共有は無い（運営マニュアル・会場図面と同じ）。番組（`program_id`）の資料は
+ * project_id を持たないため案件メンバー判定の対象外 —— 作成者本人 または `system_admin`
+ * にしか見えない。**見えないときは 404**（存在秘匿。ルート側の `requireAccessible`）。
+ */
+export async function canAccessTechDoc(
+  user: AccessUser,
+  techDocId: string,
+  createdBy: string | null
+): Promise<boolean> {
+  if (isQsheetAdmin(user)) return true;
+  if (createdBy && createdBy === user.id) return true;
+  const member = await queryOne(
+    `SELECT 1 FROM qsheet_tech_docs t WHERE t.id = $1 AND t.project_id IS NOT NULL AND (
+       EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = t.project_id AND pm.user_id = $2 AND pm.deleted_at IS NULL)
+       OR EXISTS (SELECT 1 FROM projects p WHERE p.id = t.project_id AND p.assigned_to = $2)
+     )`,
+    [techDocId, user.id],
+  );
+  return !!member;
+}
+
+/**
+ * 技術資料の**新規作成**で project_id に指定してよいか（案件メンバー / assigned_to / 管理者）。
+ * `canAssignVenueLayoutProject` と完全に同じ形——まだ存在しない資料の project_id を検査する
+ * ので techDocId を取らない（「project_id のなりすまし」を防ぐ関所。§5-4）。
+ */
+export async function canAssignTechDocProject(user: AccessUser, projectId: string): Promise<boolean> {
+  if (isQsheetAdmin(user)) return true;
+  const member = await queryOne(
+    `SELECT 1 FROM projects p WHERE p.id = $1 AND (
+       EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = $2 AND pm.deleted_at IS NULL)
+       OR p.assigned_to = $2
+     )`,
+    [projectId, user.id],
+  );
+  return !!member;
+}
+
+/**
  * AI 提案（`qsheet_ai_proposals`）に対して user がアクセス可能か。
  * 提案そのものは共有先を持たないので、**対象の台本 / スケジュール表のアクセス権限**に委ねる
  * （段7・07-ai-proposals-impl.md §1）。どちらも見つからない・アクセス不可なら false

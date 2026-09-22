@@ -15,7 +15,7 @@
 import { Link } from "react-router-dom";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { FileText, CalendarDays, BookOpenText, Settings2, Package, Timer, Type, MapPin, ChevronRight } from "lucide-react";
+import { FileText, CalendarDays, BookOpenText, Settings2, Package, Timer, Type, MapPin, Cable, ChevronRight } from "lucide-react";
 import type { ElementType } from "react";
 import { cn } from "@/lib/utils";
 import { MINI_APP_BY_KEY, panelPathOf } from "@gmo-onair/shared/src/production/miniapps";
@@ -23,6 +23,7 @@ import type { JourneyDay } from "@gmo-onair/shared/src/production/journey";
 import { getRentalReservations } from "@/lib/rentalApi";
 import * as manualApi from "@/lib/manualApi";
 import * as venueApi from "@/lib/venueApi";
+import * as techApi from "@/lib/techApi";
 
 interface MiniAppTilesProps {
   scope: "project" | "program";
@@ -74,6 +75,14 @@ export default function MiniAppTiles({ scope, id, days }: MiniAppTilesProps) {
   });
   const venueCount = venueLayoutsQuery.isSuccess ? venueLayoutsQuery.data.length : null;
 
+  // 技術資料（tech-docs.md §7-5）。`days[].docs` には出ない（`doc-list.service.ts` が
+  // 読むのは進行台本とスケジュール表だけ）ので、会場図面と同じく別クエリで数える
+  const techDocsQuery = useQuery({
+    queryKey: ["tech-docs", "list", scope, id],
+    queryFn: () => techApi.listTechDocs(scope === "project" ? { project: id } : { program: id }),
+  });
+  const techCount = techDocsQuery.isSuccess ? techDocsQuery.data.length : null;
+
   const tiles: { key: string; label: string; description: string; icon: ElementType; to: string; count: number | null }[] = [
     {
       key: "sheet",
@@ -106,6 +115,14 @@ export default function MiniAppTiles({ scope, id, days }: MiniAppTilesProps) {
       icon: MapPin,
       to: `/techops/venue-layouts?${filterKey}=${encodeURIComponent(id)}`,
       count: venueCount,
+    },
+    {
+      key: "tech",
+      label: MINI_APP_BY_KEY.tech.label,
+      description: "映像パッチと技術スタッフをまとめて書き出す",
+      icon: Cable,
+      to: `/techops/tech-docs?${filterKey}=${encodeURIComponent(id)}`,
+      count: techCount,
     },
     {
       key: "recording",

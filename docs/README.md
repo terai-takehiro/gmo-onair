@@ -24,6 +24,7 @@
 | VPS の構成と日常運用 | [ops/vps-setup.md](ops/vps-setup.md) |
 | DB のバックアップと復元 | [ops/db-backup-restore.md](ops/db-backup-restore.md) |
 | GitHub 側の設定（ruleset・環境・ラベル） | [ops/github-repo-settings.md](ops/github-repo-settings.md) |
+| 技術人員の初期取り込み（メンバー表 PDF → 技術資料の台帳。一度きり） | [ops/tech-persons-import.md](ops/tech-persons-import.md) |
 | URL・id・データの持ち方・壊してはいけない契約 | [ia.md](ia.md) |
 | 画面に出す言葉のルール | [wording.md](wording.md) |
 | どの仕事にどのモデルを使うか | [ai-models.md](ai-models.md) |
@@ -47,6 +48,7 @@
 | [design/v4/qsheet-v4-coding/README.md](design/v4/qsheet-v4-coding/README.md) | 制作技術支援（Qシート）作り直しのコーディング設計（段 00〜14）と実装設計 [impl/](design/v4/qsheet-v4-coding/impl/README.md) |
 | [design/qsheet-recording-streaming.md](design/qsheet-recording-streaming.md) | 収録設定・配信設定の設計 |
 | [design/v4/wiki.md](design/v4/wiki.md) | 新しいブロックアプリ「Wiki」（Markdown ネイティブのマニュアル置き場＋AI）の設計。§10 の全件 12 件は判断済み（2026-09-22）・着手できる |
+| [design/v4/tech-docs.md](design/v4/tech-docs.md) | 制作技術支援の新ミニアプリ「技術資料」（映像パッチ＋技術スタッフ／パッチ盤・技術人員の台帳）の設計。§13 の9件は推奨案で実装済み（段A〜D） |
 | [reviews/qsheet-techops-migration-plan.md](reviews/qsheet-techops-migration-plan.md) | `qsheet` → `techops` 改名の移行計画（残りは旧 URL の撤去判断） |
 | [reviews/techops-ui-unification-plan.md](reviews/techops-ui-unification-plan.md) | 制作技術支援の UI 統一計画 |
 | [reviews/permission-model-simplification-plan.md](reviews/permission-model-simplification-plan.md) | 権限モデルの単純化（実装済み。決めごとの根拠として残す） |

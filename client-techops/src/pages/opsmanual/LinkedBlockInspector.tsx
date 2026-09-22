@@ -54,6 +54,16 @@ const OPTION_FIELDS: Record<string, OptionField[]> = {
     { kind: "checkbox", key: "showQty", label: "保有数を出す", defaultValue: true },
     { kind: "checkbox", key: "showStorage", label: "保管場所を出す", defaultValue: true },
   ],
+  // 技術資料（tech-docs.md §8-2 の options 欄「系統で絞る／備考を出すか」「作業日で絞る／会社を出すか」）。
+  // どちらも届いた `data` を絞り込むだけなので、クライアント側（`TechLinkedContent.tsx`）で効かせる。
+  "tech.patch": [
+    { kind: "text", key: "group", label: "系統", placeholder: "系統名を入力" },
+    { kind: "checkbox", key: "showNote", label: "備考も出す", defaultValue: false },
+  ],
+  "tech.staff": [
+    { kind: "text", key: "workDate", label: "作業日", placeholder: "2026-10-15" },
+    { kind: "checkbox", key: "showCompany", label: "会社も出す", defaultValue: true },
+  ],
 };
 
 const FIELD_LABEL = "flex items-center justify-between gap-2 text-sub-sm text-muted-foreground";
