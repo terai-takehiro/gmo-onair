@@ -62,7 +62,7 @@ export function useConsoleContinue({
       const next = await continueGraphicsCue(projectId, page.slot as GraphicsSlot);
       setCuesFromRows(next);
     } catch {
-      notifyError('「続き」の指示を送れませんでした', { description: 'サーバーとの接続を確認してください。' });
+      notifyError('「進める」の指示を送れませんでした', { description: 'サーバーとの接続を確認してください。' });
     }
   };
 

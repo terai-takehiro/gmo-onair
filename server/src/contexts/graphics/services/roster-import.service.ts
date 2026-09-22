@@ -232,7 +232,7 @@ function parseRosterRows(
       : String(fields[repField] ?? '').trim();
 
     if (!name) {
-      errors.push({ row: excelRowNo, message: 'ページ名になる列が空です' });
+      errors.push({ row: excelRowNo, message: 'テロップ名になる列が空です' });
       continue;
     }
 

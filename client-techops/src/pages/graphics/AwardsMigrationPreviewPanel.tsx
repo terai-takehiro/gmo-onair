@@ -40,13 +40,13 @@ export default function AwardsMigrationPreviewPanel({
     <section className="space-y-3 rounded-card border border-border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-list font-bold">作成されるCGプロジェクト</p>
+          <p className="text-list font-bold">作成されるテロップCG</p>
           <p className="text-sub text-muted-foreground">
-            {preview.project.name}（テーマ: 式典（金）・owner: <code className="rounded bg-surface-subtle px-1">{preview.project.ownerId}</code>）
+            {preview.project.name}（見た目: 式典（金））
           </p>
         </div>
         <Button type="button" onClick={onCommit} disabled={!canCommit || committing}>
-          {committing ? '移行中…' : preview.alreadyMigrated ? '移行済みです' : `移行する（ページ${preview.pages.length}件・エントリー${totalEntries}件）`}
+          {committing ? '移行中…' : preview.alreadyMigrated ? '移行済みです' : `移行する（テロップ${preview.pages.length}件・エントリー${totalEntries}件）`}
         </Button>
       </div>
 

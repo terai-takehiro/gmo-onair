@@ -67,14 +67,14 @@ export default function RankingSoundsPanel() {
   if (state.status === 'not-found') {
     return (
       <PageShell>
-        <EmptyState icon={<Music />} title="見つかりませんでした" description="管理番号が合っているか確かめてください。" />
+        <EmptyState icon={<Music />} title="案件・番組が見つかりません" description="管理番号が合っているか確かめてください。" />
       </PageShell>
     );
   }
   if (state.status === 'error') {
     return (
       <PageShell>
-        <EmptyState icon={<AlertCircle />} title="開けませんでした" description={state.message} />
+        <EmptyState icon={<AlertCircle />} title="テロップCGを開けませんでした" description={state.message} />
       </PageShell>
     );
   }
@@ -126,10 +126,10 @@ export function RankingSoundsContent({ ownerKey, owner, projectId, embedded = fa
         rankStart: step === 'ranks52' ? Number(rankStart) : null,
         file,
       });
-      notifySuccess('演出SEをアップロードしました');
+      notifySuccess('効果音をアップロードしました');
       invalidate();
     } catch {
-      notifyError('音を取り込めませんでした。', { description: 'MP3 / WAV の 10MB までのファイルを選び直してください。' });
+      notifyError('効果音を取り込めませんでした。', { description: 'MP3 / WAV の 10MB までのファイルを選び直してください。' });
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -144,17 +144,17 @@ export function RankingSoundsContent({ ownerKey, owner, projectId, embedded = fa
   const enabledMutation = useMutation({
     mutationFn: ({ id, enabled }: { id: number; enabled: boolean }) => updateRankingSound(id, { enabled }),
     onSuccess: invalidate,
-    onError: () => notifyError('切り替えできませんでした'),
+    onError: () => notifyError('鳴らす・鳴らさないを切り替えられませんでした'),
   });
   const deleteMutation = useMutation({
     mutationFn: (id: number) => deleteRankingSound(id),
-    onSuccess: () => { notifySuccess('演出SEを削除しました'); invalidate(); },
-    onError: () => notifyError('削除できませんでした'),
+    onSuccess: () => { notifySuccess('効果音を削除しました'); invalidate(); },
+    onError: () => notifyError('効果音を削除できませんでした'),
   });
 
   const removeSound = async (s: RankingSoundRow) => {
     if (!(await confirmAction({
-      title: `「${STEP_LABEL.get(s.step as RankingStep) ?? s.step}」の演出SEを削除しますか？`,
+      title: `「${STEP_LABEL.get(s.step as RankingStep) ?? s.step}」の効果音を削除しますか？`,
       description: '削除すると、このステップに切り替わっても音が鳴らなくなります（無音のまま進行）。',
       confirmLabel: '削除する',
       tone: 'danger',
@@ -166,17 +166,17 @@ export function RankingSoundsContent({ ownerKey, owner, projectId, embedded = fa
     <>
       {!embedded && (
         <PageHeader
-          title={`演出SE ／ ${owner.name}`}
+          title={`効果音（ランキング発表） ／ ${owner.name}`}
           sub={(
             <>
-              ランキング発表（<strong className="font-bold text-foreground">ranking</strong> パーツ）のステップ切替時に鳴らす効果音。旧リアルタイムCGの演出SEの移植です — 出力URLに <code className="rounded bg-surface-subtle px-1">?audio=1</code> を付けたときだけ鳴ります。
+              ランキング発表のステップが切り替わるときに鳴らす効果音。出力URLに <code className="rounded bg-surface-subtle px-1">?audio=1</code> を付けた1台だけで鳴ります（2台以上に付けると二重に鳴ります）。
             </>
           )}
         />
       )}
       {embedded && (
         <p className="text-sub text-muted-foreground">
-          ランキング発表のステップ切替時に鳴らす効果音。出力URLに <code className="rounded bg-surface-subtle px-1">?audio=1</code> を付けたときだけ鳴ります。
+          ランキング発表のステップが切り替わるときに鳴らす効果音。出力URLに <code className="rounded bg-surface-subtle px-1">?audio=1</code> を付けた1台だけで鳴ります（2台以上に付けると二重に鳴ります）。
         </p>
       )}
 
@@ -240,7 +240,7 @@ export function RankingSoundsContent({ ownerKey, owner, projectId, embedded = fa
         <div className="mt-4 rounded-card border border-border bg-card">
           <EmptyState
             icon={<Music />}
-            title="演出SEがまだありません"
+            title="効果音がまだありません"
             description="上のフォームからステップを選び、音声ファイルをアップロードしてください。"
           />
         </div>
@@ -283,7 +283,7 @@ export function RankingSoundsContent({ ownerKey, owner, projectId, embedded = fa
                 <span className="text-sub text-muted-foreground">{s.enabled ? '有効' : '無効'}</span>
               </div>
 
-              <Button type="button" variant="ghost" size="icon" aria-label="演出SEを削除" onClick={() => void removeSound(s)}>
+              <Button type="button" variant="ghost" size="icon" aria-label="効果音を削除" onClick={() => void removeSound(s)}>
                 <Trash2 className="h-4 w-4 text-destructive" aria-hidden="true" />
               </Button>
             </div>

@@ -85,7 +85,7 @@ export type GraphicsProofState = 'draft' | 'unproofed' | 'proofed';
 export const PROOF_LABELS: Record<GraphicsProofState, string> = {
   draft: '未完成',
   unproofed: '未確認',
-  proofed: '確認済',
+  proofed: '確認済み',
 };
 
 /**
@@ -321,7 +321,7 @@ export type GraphicsRequestStatus = 'requested' | 'converted' | 'dismissed';
 
 export const REQUEST_STATUS_LABELS: Record<GraphicsRequestStatus, string> = {
   requested: '未対応',
-  converted: 'ページ化済み',
+  converted: 'テロップ化済み',
   dismissed: '却下',
 };
 

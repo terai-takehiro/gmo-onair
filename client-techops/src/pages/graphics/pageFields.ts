@@ -150,7 +150,7 @@ export const PART_FIELDS: Record<GraphicsPartKey, PartFieldDef[]> = {
   ticker: [{ key: 'text', label: '流す文言', limit: 60, bilingual: true }],
   countdown: [
     // 枕詞: 左上に大きな数字と並ぶ短い前置き文言。暫定値
-    { key: 'prefix', label: '枕詞（例: 開演まであと）', limit: 12 },
+    { key: 'prefix', label: '前に出す文言（例: 開演まであと）', limit: 12 },
     { key: 'targetAt', label: '目標時刻（空なら現在時刻の時計）', type: 'datetime-local' },
   ],
   // スコア: 対戦者/エントリーの可変長配列（構造化・graphics-design-specs.md §9.8）。

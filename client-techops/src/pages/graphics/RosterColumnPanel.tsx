@@ -40,7 +40,7 @@ export default function RosterColumnPanel({
     <div className="space-y-2">
       <p className="flex items-center gap-1.5 text-th font-bold text-muted-foreground">
         列ごとの内容（自動判定）
-        {loading && <span className="text-note font-normal">推奨マッピングを再計算中…</span>}
+        {loading && <span className="text-note font-normal">割り当ての候補を作り直しています…</span>}
       </p>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {columns.map((col) => {

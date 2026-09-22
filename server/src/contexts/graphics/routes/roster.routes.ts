@@ -20,7 +20,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 
 async function requireProject(idParam: string) {
   const projectId = parseInt(idParam);
   const project = projectId && !isNaN(projectId) ? await fetchProject(projectId) : null;
-  if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
+  if (!project) throw new AppError(404, 'NOT_FOUND', 'テロップCGが見つかりません');
   return projectId;
 }
 

@@ -63,7 +63,7 @@ export function ImageFieldEditor({
 
       {!pageId ? (
         <p className="mt-1 rounded-note border border-dashed border-border bg-surface-subtle px-3 py-2 text-sub text-muted-foreground">
-          ページを保存すると写真を追加できます。まずは他の項目を入力して保存してください。
+          テロップを保存すると写真を追加できます。まずは他の項目を入力して保存してください。
         </p>
       ) : value ? (
         <div className="mt-1 flex items-center gap-3 rounded-control-md border border-border bg-surface-subtle p-2">

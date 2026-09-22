@@ -121,7 +121,7 @@ export function ScoreEntriesEditor({
         <Plus className="mr-1 h-3.5 w-3.5" aria-hidden="true" />対戦者・エントリーを追加
       </Button>
       <p className="mt-1 text-note text-muted-foreground">
-        送出中は送出コンソールの±で得点を直接動かせます（保存操作は不要・即時反映）。
+        送出中は本番モードの±で得点を直接動かせます（保存操作は不要・即時反映）。
       </p>
     </div>
   );

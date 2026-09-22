@@ -17,7 +17,7 @@ const wrap = (fn: (req: Request, res: Response, next: NextFunction) => Promise<u
 
 async function loadVotePage(id: number) {
   const existing = id && !isNaN(id) ? await queryOne(`SELECT * FROM graphics_pages WHERE id = ?`, [id]) : undefined;
-  if (!existing) throw new AppError(404, 'NOT_FOUND', 'ページが見つかりません');
+  if (!existing) throw new AppError(404, 'NOT_FOUND', 'テロップが見つかりません');
   if (existing.part_key !== 'vote') {
     throw new AppError(400, 'VALIDATION_ERROR', 'このページは投票・クイズ部品（vote）ではありません');
   }

@@ -51,14 +51,14 @@ export default function InteractiveLinkSettingsPanel() {
   if (state.status === 'not-found') {
     return (
       <PageShell>
-        <EmptyState icon={<Link2 />} title="見つかりませんでした" description="管理番号が合っているか確かめてください。" />
+        <EmptyState icon={<Link2 />} title="案件・番組が見つかりません" description="管理番号が合っているか確かめてください。" />
       </PageShell>
     );
   }
   if (state.status === 'error') {
     return (
       <PageShell>
-        <EmptyState icon={<AlertCircle />} title="開けませんでした" description={state.message} />
+        <EmptyState icon={<AlertCircle />} title="テロップCGを開けませんでした" description={state.message} />
       </PageShell>
     );
   }
@@ -122,7 +122,7 @@ export function InteractiveLinkContent({ ownerKey, owner, projectId, embedded = 
       invalidate();
     },
     onError: () => notifyError('連携設定を保存できませんでした', {
-      description: '接続先URL・APIキー・イベントIDを確認してください',
+      description: '接続先URL・鍵・イベントIDを確認してください',
     }),
   });
 
@@ -159,7 +159,7 @@ export function InteractiveLinkContent({ ownerKey, owner, projectId, embedded = 
   const removeLink = async () => {
     if (!(await confirmAction({
       title: '外部インタラクティブ連携を解除しますか？',
-      description: 'このプロジェクトの投票・クイズページは、接続先・APIキーの登録が無い状態に戻ります。個々のページの外部連携（同期済みの設問）は別途「外部連携を解除」してください。',
+      description: 'この番組の投票・クイズのテロップは、接続先・鍵の登録が無い状態に戻ります。テロップごとの外部連携（同期済みの設問）は、そのテロップの編集画面で「外部連携を解除」してください。',
       confirmLabel: '解除する',
       tone: 'danger',
     }))) return;
@@ -173,9 +173,8 @@ export function InteractiveLinkContent({ ownerKey, owner, projectId, embedded = 
           title={`外部インタラクティブ連携 ／ ${owner.name}`}
           sub={(
             <>
-              別VPS（<code className="rounded bg-surface-subtle px-1">interactive.gmo-onair.jp</code>）の
-              投票・クイズと連動させるための接続先です。プロジェクト単位の設定で、投票（
-              <strong className="font-bold text-foreground">vote</strong> パーツ）のページ編集フォームから
+              投票・クイズの種類が票を受け取る先です（<code className="rounded bg-surface-subtle px-1">interactive.gmo-onair.jp</code>）。
+              この番組全体の設定で、投票・クイズのテロップの編集画面から
               個別に「外部インタラクティブと同期」できるようになります。
             </>
           )}
@@ -183,8 +182,8 @@ export function InteractiveLinkContent({ ownerKey, owner, projectId, embedded = 
       )}
       {embedded && (
         <p className="text-sub text-muted-foreground">
-          別VPS（<code className="rounded bg-surface-subtle px-1">interactive.gmo-onair.jp</code>）の
-          投票・クイズと連動させる接続先です。投票（<strong className="font-bold text-foreground">vote</strong>）のページ編集フォームから個別に「外部インタラクティブと同期」できます。
+          投票・クイズの種類が票を受け取る先です（<code className="rounded bg-surface-subtle px-1">interactive.gmo-onair.jp</code>）。
+          投票・クイズのテロップの編集画面から個別に「外部インタラクティブと同期」できます。
         </p>
       )}
 
@@ -214,7 +213,7 @@ export function InteractiveLinkContent({ ownerKey, owner, projectId, embedded = 
           </div>
 
           <div>
-            <Label htmlFor="interactive-api-key">APIキー</Label>
+            <Label htmlFor="interactive-api-key">鍵</Label>
             <div className="mt-1 flex items-center gap-2">
               <Input
                 id="interactive-api-key"
@@ -225,7 +224,7 @@ export function InteractiveLinkContent({ ownerKey, owner, projectId, embedded = 
                 placeholder={configured ? '設定済み（変更する場合のみ入力）' : '未設定'}
                 autoComplete="off"
               />
-              <Button type="button" variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => setShowKey((v) => !v)} aria-label={showKey ? 'APIキーを隠す' : 'APIキーを表示'}>
+              <Button type="button" variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => setShowKey((v) => !v)} aria-label={showKey ? '鍵を隠す' : '鍵を表示'}>
                 {showKey ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
               </Button>
             </div>
@@ -259,7 +258,7 @@ export function InteractiveLinkContent({ ownerKey, owner, projectId, embedded = 
               onChange={(e) => setCloseBufferSeconds(e.target.value)}
             />
             <p className="mt-1 text-note text-muted-foreground">
-              カウントダウン終了後、外部の回答受付を締め切るまでに足す配信ディレイです。
+              カウントダウンが終わってから、外部の回答受付を締め切るまでに待つ秒数です（配信の遅れの分）。
             </p>
             {!bufferValid && (
               <p className="mt-1 text-note font-bold text-destructive">0〜120の範囲で入力してください</p>

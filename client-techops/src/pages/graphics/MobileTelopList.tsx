@@ -38,7 +38,7 @@ export default function MobileTelopList({ projectName, projectId, pages, cues, r
     return () => clearInterval(id);
   }, [reload]);
 
-  // 「消す」ボタンの二重押し防止用。押している間はそのスロットのボタンだけ disabled にする
+  // 「消す」ボタンの二重押し防止用。押している間はその位置のボタンだけ disabled にする
   const [clearingSlot, setClearingSlot] = useState<GraphicsSlot | null>(null);
 
   // 緊急CLEAR（§12-4）。**確認ダイアログを一切経由しない**——押した瞬間に OUT する
@@ -48,7 +48,7 @@ export default function MobileTelopList({ projectName, projectId, pages, cues, r
       await setGraphicsCue(projectId, slot, null);
       await reload();
     } catch {
-      notifyError('消せませんでした');
+      notifyError('テロップを消せませんでした');
     } finally {
       setClearingSlot(null);
     }
@@ -56,7 +56,7 @@ export default function MobileTelopList({ projectName, projectId, pages, cues, r
 
   const pageById = new Map(pages.map((p) => [p.id, p] as const));
   // 「いま出ているもの」＝ pageId を持つ cue を、対応するページと突き合わせたもの。
-  // ページが見つからない（削除済み等）cue は表示しない — 消せないものを見せても事故のもと
+  // テロップが見つからない（削除済み等）cue は表示しない — 消せないものを見せても事故のもと
   const onAirRows = cues
     .filter((c): c is GraphicsCueRow & { pageId: string } => !!c.pageId)
     .map((cue) => ({ cue, page: pageById.get(cue.pageId) }))
@@ -66,7 +66,7 @@ export default function MobileTelopList({ projectName, projectId, pages, cues, r
     <PageShell>
       <PageHeader title={projectName} />
       <p className="text-note text-muted-foreground">
-        編集・並べ替えはPCのテロップ一覧で行ってください。「いま出ているもの」だけ、緊急時はここから消せます。
+        閲覧専用の画面です。編集・並べ替えは PC のテロップ一覧から。「いま出ているもの」だけ、緊急時はここからも消せます。
       </p>
 
       <div className="space-y-4">

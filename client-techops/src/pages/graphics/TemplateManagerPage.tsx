@@ -47,7 +47,7 @@ export default function TemplateManagerPage() {
   if (state.status === 'not-found') {
     return (
       <PageShell>
-        <EmptyState icon={<Blocks />} title="見つかりませんでした" description="管理番号が合っているか確かめてください。" />
+        <EmptyState icon={<Blocks />} title="案件・番組が見つかりません" description="管理番号が合っているか確かめてください。" />
       </PageShell>
     );
   }
@@ -55,7 +55,7 @@ export default function TemplateManagerPage() {
   if (state.status === 'error') {
     return (
       <PageShell>
-        <EmptyState icon={<AlertCircle />} title="開けませんでした" description={state.message} />
+        <EmptyState icon={<AlertCircle />} title="テロップCGを開けませんでした" description={state.message} />
       </PageShell>
     );
   }
@@ -69,8 +69,8 @@ export default function TemplateManagerPage() {
   );
 }
 
-function partsPath(ownerKey: string): string {
-  return `/techops/graphics/${encodeURIComponent(ownerKey)}/parts`;
+function telopListPath(ownerKey: string): string {
+  return `/techops/graphics/${encodeURIComponent(ownerKey)}`;
 }
 function soundsPath(ownerKey: string): string {
   return `/techops/graphics/${encodeURIComponent(ownerKey)}/sounds`;
@@ -107,7 +107,7 @@ function TemplateManagerContent({ ownerKey, owner, projectId }: {
   const removeTemplate = async (t: GraphicsTemplateRow) => {
     if (!(await confirmAction({
       title: `テンプレート「${t.name}」を削除しますか？`,
-      description: 'このテンプレートから作られた既存のページは、削除後も通常のページとしてそのまま残ります。',
+      description: 'このテンプレートから作ったテロップは、削除後もそのまま残ります。',
       confirmLabel: '削除する',
       tone: 'danger',
     }))) return;
@@ -119,24 +119,24 @@ function TemplateManagerContent({ ownerKey, owner, projectId }: {
   return (
     <PageShell>
       <Link
-        to={partsPath(ownerKey)}
+        to={telopListPath(ownerKey)}
         className="inline-flex min-h-tap w-fit items-center gap-1 rounded-control-md px-1.5 text-sub font-bold text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-        部品ライブラリへ戻る
+        テロップ一覧
       </Link>
 
       <PageHeader
         title={`テンプレート ／ ${owner.name}`}
         sub={(
           <>
-            部品を選んで初期値を入れ、<strong className="font-bold text-foreground">オペレーターが編集できる欄だけ</strong>を絞り込みます。ゼロから描く場所ではありません。
+            種類を選んで初期値を入れ、<strong className="font-bold text-foreground">オペレーターが編集できる欄だけ</strong>を絞り込みます。ゼロから描く場所ではありません。
           </>
         )}
       >
         <Button variant="outline" asChild>
           <Link to={soundsPath(ownerKey)}>
-            <Music className="mr-1 h-4 w-4" aria-hidden="true" />演出SE（ranking）
+            <Music className="mr-1 h-4 w-4" aria-hidden="true" />効果音（ランキング発表）
           </Link>
         </Button>
         <Button variant="outline" asChild>
@@ -158,7 +158,7 @@ function TemplateManagerContent({ ownerKey, owner, projectId }: {
           <EmptyState
             icon={<Blocks />}
             title="テンプレートがまだありません"
-            description="「テンプレートを作成」から、部品を選んで最初のテンプレートを作れます。"
+            description="「テンプレートを作成」から、種類を選んで最初のテンプレートを作れます。"
           />
         </div>
       ) : (
@@ -200,7 +200,7 @@ function TemplateCard({ template, onEdit, onDelete }: {
       {template.layers && template.layers.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="inline-flex h-5 items-center whitespace-nowrap rounded-control bg-info-surface px-1.5 text-badge text-info">
-            複数部品（{template.layers.length}個）
+            複数の種類（{template.layers.length}個）
           </span>
           <span className="min-w-0 truncate text-note text-muted-foreground">
             {template.layers.map((l) => PART_LABELS[l.partKey]).join('・')}

@@ -66,7 +66,7 @@ router.post(
     const existing = id && !isNaN(id)
       ? await queryOne(`SELECT * FROM graphics_pages WHERE id = ?`, [id])
       : undefined;
-    if (!existing) throw new AppError(404, 'NOT_FOUND', 'ページが見つかりません');
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'テロップが見つかりません');
     if (!req.file) throw new AppError(400, 'BAD_REQUEST', 'photo ファイルを添付してください');
 
     const ext = detectExt(req.file.buffer);

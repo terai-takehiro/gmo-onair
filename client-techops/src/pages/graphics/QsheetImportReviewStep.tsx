@@ -43,7 +43,7 @@ export default function QsheetImportReviewStep({
     <div className="space-y-3 p-4 sm:p-6">
       <p className="text-note text-muted-foreground">
         「{docTitle}」・チェックが付いている行を取り込みます（既定は全部オン）。
-        並びはそのままコーナー・出す順になります。種類は取り込んだあとも直せます。
+        並びはそのままコーナー・出す順になります。種類は取り込んだあとも編集できます。
       </p>
       <div className="max-h-[55vh] space-y-2 overflow-y-auto">
         {rows.map((row, index) => (

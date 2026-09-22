@@ -43,7 +43,7 @@ export default function AwardsMigrationPage() {
       >
         <ChevronLeft className="h-5 w-5" />
       </button>
-      <PageHeader className="min-w-0 flex-1" title="テロップCG — 過去実績の移行ツール（旧リアルタイムCG）" />
+      <PageHeader className="min-w-0 flex-1" title="旧リアルタイムCGから移す" />
     </div>
   );
 
@@ -63,9 +63,8 @@ export default function AwardsMigrationPage() {
     <PageShell width="narrow">
       {header}
       <p className="text-sub text-muted-foreground">
-        旧リアルタイムCG（<code className="rounded bg-surface-subtle px-1">client-awards</code>）の
-        イベント・カテゴリ・エントリーを、新しいテロップCG（ランキング発表部品）へコピーします。
-        元データは変更しません——複製して新規作成するだけです。
+        旧リアルタイムCGのイベント・賞（カテゴリ）・エントリーを、いまのテロップCG（ランキング発表）へ
+        コピーします。旧データは読むだけで書き換えません——複製して新しく作るだけです。
       </p>
       <MigrationBody />
     </PageShell>
@@ -91,7 +90,7 @@ function MigrationBody() {
     mutationFn: (eventId: number) => commitAwardsMigration(eventId),
     onSuccess: (result) => {
       notifySuccess('移行が完了しました', {
-        description: `テロップCG に ${result.pageIds.length}件のページを作りました`,
+        description: `テロップCG に ${result.pageIds.length}件のテロップを作りました`,
       });
       void queryClient.invalidateQueries({ queryKey: ['awards-migration-preview', selectedEventId] });
     },
@@ -123,7 +122,7 @@ function MigrationBody() {
       <EmptyState
         icon={<ArrowRightLeft />}
         title="移行元のイベントがありません"
-        description="旧リアルタイムCG（awards_events）にイベントが1件もありません。"
+        description="旧リアルタイムCGにイベントが1件もありません。"
       />
     );
   }

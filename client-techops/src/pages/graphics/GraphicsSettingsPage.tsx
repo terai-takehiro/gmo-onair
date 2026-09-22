@@ -47,14 +47,14 @@ export default function GraphicsSettingsPage() {
   if (state.status === 'not-found') {
     return (
       <PageShell>
-        <EmptyState icon={<Type />} title="見つかりませんでした" description="管理番号が合っているか確かめてください。" />
+        <EmptyState icon={<Type />} title="案件・番組が見つかりません" description="管理番号が合っているか確かめてください。" />
       </PageShell>
     );
   }
   if (state.status === 'error') {
     return (
       <PageShell>
-        <EmptyState icon={<AlertCircle />} title="開けませんでした" description={state.message} />
+        <EmptyState icon={<AlertCircle />} title="テロップCGを開けませんでした" description={state.message} />
       </PageShell>
     );
   }
@@ -124,14 +124,14 @@ function SettingsContent({ ownerKey, owner, bundle, reload }: {
 
         <TabsContent value="look" className="mt-4">
           <section className="rounded-card border border-border bg-card p-4">
-            <h2 className="text-cardtitle">見た目（テーマ）</h2>
-            <p className="mt-1 text-note text-muted-foreground">色・書体・罫はテーマがまとめて持ちます。テロップごとに色は選びません。</p>
+            <h2 className="text-cardtitle">見た目</h2>
+            <p className="mt-1 text-note text-muted-foreground">色・書体・罫線は見た目がまとめて持ちます。テロップごとに色は選びません。</p>
             <div className="mt-3">
               <ThemePicker projectId={bundle.project.id} theme={bundle.project.theme} onSaved={reload} />
             </div>
           </section>
           <p className="mt-3 text-note text-muted-foreground">
-            テンプレート（部品の初期値・公開フィールド）の管理は
+            テンプレート（種類の初期値・公開フィールド）の管理は
             {' '}
             <Link to={`/techops/graphics/${encodeURIComponent(ownerKey)}/templates`} className="font-bold text-primary hover:underline">
               テンプレート管理（上級者向け）
@@ -141,7 +141,7 @@ function SettingsContent({ ownerKey, owner, bundle, reload }: {
           <section className="mt-3 rounded-card border border-border bg-card p-4">
             <h2 className="text-cardtitle">前の番組からコピー</h2>
             <p className="mt-1 text-note text-muted-foreground">
-              別の番組・案件のテロップCGから、テンプレート一式をこのプロジェクトへコピーします。このプロジェクトの既存テンプレートは残ったまま追加されます。
+              別の番組・案件のテロップCGから、見た目・ロゴ・同時に出せないもの・各種類の初期値だけを写します。テロップの中身（文言）は写しません。いまあるテンプレートは残ったまま追加されます。
             </p>
             <button
               type="button"
@@ -174,7 +174,7 @@ function SettingsContent({ ownerKey, owner, bundle, reload }: {
             <section className="rounded-card border border-border bg-card p-4">
               <h2 className="text-cardtitle">旧リアルタイムCGから移す</h2>
               <p className="mt-1 text-note text-muted-foreground">
-                過去のアワード（awards）の実績を、この仕組みのランキング発表へ変換します。旧データは読むだけで書き換えません。
+                旧リアルタイムCGの過去の実績を、いまのランキング発表へ変換します。旧データは読むだけで書き換えません。
               </p>
               <Link
                 to="/techops/graphics/awards-migration"
