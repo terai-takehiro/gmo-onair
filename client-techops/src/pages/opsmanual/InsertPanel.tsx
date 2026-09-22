@@ -20,6 +20,7 @@ import {
 } from "@gmo-onair/shared/src/opsmanual/types";
 import {
   manualLinkedBlocksByGroup,
+  MANUAL_LINKED_SOURCE_LABEL,
   type ManualLinkedBlockDef,
   type ManualLinkedBlockKey,
 } from "@gmo-onair/shared/src/production/manualBlocks";
@@ -92,7 +93,8 @@ export default function InsertPanel({ manualId, blocks, onAdd, isProgram = false
       // 返す契約（§5-4）——その場合は 0件のまま `sourceId: null` で置いてよい。
       const sources = await getLinkSources(manualId, def.key);
       // venue.*（会場図面）も1案件/番組に複数ありうるため sourceId 必須（venue-layout.md §9-1）
-      const requiresSource = def.sourceGroup === "sheet" || def.sourceGroup === "venue";
+      // 技術資料（tech.*）も1案件に資料が複数ありうるため sourceId 必須（tech-docs.md §8-2）
+      const requiresSource = def.sourceGroup === "sheet" || def.sourceGroup === "venue" || def.sourceGroup === "tech";
       // ⚠️ レビュー指摘（P2）: 進行台本の3種（`sourceId` が要る）で候補が0件のときだけ、
       // 「1件も無いのでそのまま置く」を誤って適用していた——資料が本当に無い場合と
       // 「案件には資料があるが本人が読めるものが1つも無い（`listSheetSources` の ACL
@@ -101,7 +103,11 @@ export default function InsertPanel({ manualId, blocks, onAdd, isProgram = false
       // ブロックがキャンバスに残ってしまう。この3種だけ、0件は「置かずに知らせる」、
       // 1件のときだけ自動で置く、2件以上のときだけ選ばせる、の3分岐にする。
       if (requiresSource && sources.length === 0) {
-        notifyError("差し込める資料がありません。", { description: "自分が読める進行台本がまだ無いか、共有されていません。" });
+        // 差し込み元は進行台本だけではない（会場図面・技術資料も sourceId 必須）ので、
+        // 群の名前をそのまま出す（`MANUAL_LINKED_SOURCE_LABEL`）
+        notifyError("差し込める資料がありません。", {
+          description: `自分が読める${MANUAL_LINKED_SOURCE_LABEL[def.sourceGroup]}がまだ無いか、共有されていません。`,
+        });
         return;
       }
       if (sources.length <= 1) {

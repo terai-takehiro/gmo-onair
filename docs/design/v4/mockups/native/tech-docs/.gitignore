@@ -1,0 +1,5 @@
+# 親フォルダからの複製（生で開くときだけ要る）。正は docs/design/v4/mockups/support.js
+support.js
+logo-onair.svg
+# 実ブラウザで描いた確認用の画像
+*.png

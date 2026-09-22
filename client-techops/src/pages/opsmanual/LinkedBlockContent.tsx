@@ -14,6 +14,7 @@ import ScheduleLinkedContent from "./linked/ScheduleLinkedContent";
 import SheetLinkedContent from "./linked/SheetLinkedContent";
 import DeviceLinkedContent from "./linked/DeviceLinkedContent";
 import VenueLinkedContent from "./linked/VenueLinkedContent";
+import TechLinkedContent from "./linked/TechLinkedContent";
 import { LinkedEmpty } from "./linked/sharedLinkedContent";
 
 interface Props {
@@ -50,6 +51,9 @@ export default function LinkedBlockContent({ block, resolved }: Props) {
     case "venue.layout":
     case "venue.items":
       return <VenueLinkedContent blockKey={key} data={resolved.data} options={options} />;
+    case "tech.patch":
+    case "tech.staff":
+      return <TechLinkedContent blockKey={key} data={resolved.data} options={options} />;
     default:
       return <LinkedEmpty text="このブロックには対応していません" />;
   }

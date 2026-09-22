@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>技術資料 映像パッチ</title>
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@100;400;700;800&family=Noto+Sans+JP:wght@100;200;300;400;500;600;700;800;900&family=Noto+Serif+JP:wght@400;700;900&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'LINE Seed JP', 'Noto Sans JP', -apple-system, 'Hiragino Sans', 'BIZ UDPGothic', 'Meiryo', sans-serif; -webkit-font-smoothing: antialiased; font-feature-settings: "palt" 1, "kern" 1; }
+    a { color: #005bac; text-decoration: none; } a:hover { color: #004d91; }
+    button { font-family: inherit; }
+    input { font-family: inherit; }
+    .tap { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "palt" 0; }
+    .ghost:hover { background: #f2f4f7; }
+    .btn-primary { transition: background-color .12s ease; } .btn-primary:hover { background: #004d91; }
+    .card-tap { transition: border-color .14s ease, box-shadow .14s ease; } .card-tap:hover { border-color: #a6ceeb; box-shadow: 0 4px 14px rgba(26,29,36,.07); }
+    .clip1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .field:focus { outline: none; border-color: #005bac; box-shadow: 0 0 0 3px rgba(0,91,172,.14); }
+    .row-tap:hover { background: #fbfcfd; }
+    .cell { transition: border-color .12s ease, background-color .12s ease; }
+    .cell:hover { border-color: #a6ceeb; background: #ffffff; }
+    .edit { transition: border-color .12s ease, background-color .12s ease; }
+    .edit:hover { border-color: #cfe4f4; background: #ffffff; }
+    .opt:hover { background: #f4faff; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 1000px; position: relative; overflow: hidden; background: #f7f8fa; display: flex; flex-direction: column; color: #1a1d24;">
+
+  <!-- ── 上辺バー（共通シェル・高さ64） ─────────────────────────── -->
+  <header style="display: flex; height: 64px; flex-shrink: 0; align-items: center; gap: 14px; border-bottom: 1px solid #e6e9ed; background: #ffffff; padding: 0 24px;">
+    <div style="display: flex; align-items: center; gap: 9px;">
+      <div style="width: 28px; height: 28px; border-radius: 9px; background: #005bac; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M7.8 7.8a6 6 0 0 0 0 8.4"></path><path d="M16.2 16.2a6 6 0 0 0 0-8.4"></path><path d="M4.9 4.9a10 10 0 0 0 0 14.2"></path><path d="M19.1 19.1a10 10 0 0 0 0-14.2"></path></svg></div>
+      <span style="font-size: 15px; font-weight: 800; letter-spacing: .01em;">ONAiR</span>
+    </div>
+    <span style="height: 22px; width: 1px; background: #e6e9ed;"></span>
+    <button class="tap" style="display: flex; height: 40px; align-items: center; gap: 10px; border-radius: 10px; border: 1px solid #cfe4f4; background: #f4faff; padding: 0 12px; color: #005bac;">
+      <span style="width: 22px; height: 22px; border-radius: 7px; background: #eaf4fb; display: flex; align-items: center; justify-content: center;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.6"></rect><rect x="14" y="3" width="7" height="7" rx="1.6"></rect><rect x="3" y="14" width="7" height="7" rx="1.6"></rect><rect x="14" y="14" width="7" height="7" rx="1.6"></rect></svg></span>
+      <span style="font-size: 13.5px; font-weight: 700; white-space: nowrap;">制作技術支援</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+    <span class="clip1" style="font-size: 12.5px; color: #5d6470; max-width: 520px;">／ 東都TV 特番収録「サイエンス・フロンティア」 ／ 技術資料 ／ 本番用 映像プラン</span>
+    <span style="flex: 1;"></span>
+    <button class="tap" aria-label="通知" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 7px; color: #5d6470;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 4.6 1.8 5.6 1.8 5.6H4.2S6 13.6 6 9z"></path><path d="M10.2 18.4a2 2 0 0 0 3.6 0"></path></svg></button>
+    <button class="tap" style="display: flex; align-items: center; gap: 10px; height: 44px;">
+      <span style="width: 32px; height: 32px; border-radius: 9999px; background: #eaf4fb; color: #005bac; font-size: 13.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;">寺</span>
+      <span style="font-size: 12.5px; white-space: nowrap;">寺井 岳宏</span>
+    </button>
+  </header>
+
+  <div style="display: flex; flex: 1; min-height: 0;">
+
+    <!-- ── 左メニュー（共通シェル・幅248） ──────────────────────── -->
+    <aside style="width: 248px; flex-shrink: 0; border-right: 1px solid #e6e9ed; background: #ffffff; padding: 14px 12px 20px; display: flex; flex-direction: column; gap: 2px;">
+      <sc-for list="{{nav}}" as="n" hint-placeholder-count="15">
+        <sc-if value="{{n.isTitle}}" hint-placeholder-val="{{ false }}">
+          <p style="margin: 14px 0 4px; padding: 0 10px; font-size: 11px; font-weight: 800; letter-spacing: .04em; color: #9aa1ab;">{{n.label}}</p>
+        </sc-if>
+        <sc-if value="{{n.isItem}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; align-items: center; gap: 10px; height: 38px; border-radius: 10px; padding: 0 10px; background: {{n.bg}}; color: {{n.fg}};">
+            <span style="width: 18px; height: 18px; border-radius: 5px; background: {{n.dot}}; flex-shrink: 0;"></span>
+            <span style="font-size: 13.5px; font-weight: {{n.weight}};">{{n.label}}</span>
+          </div>
+        </sc-if>
+      </sc-for>
+      <span style="flex: 1;"></span>
+      <p style="margin: 0; padding: 0 10px; font-size: 11.5px; line-height: 1.6; color: #9aa1ab;">東都TV 特番収録<br>「サイエンス・フロンティア」</p>
+    </aside>
+
+    <!-- ── 本文 ────────────────────────────────────────────── -->
+    <main style="flex: 1; min-width: 0; background: #f7f8fa; overflow: hidden;">
+      <div style="padding: 20px 28px 32px;">
+
+        <button class="tap ghost" onClick="{{actions.back}}" style="display: flex; align-items: center; gap: 3px; height: 32px; margin-left: -8px; border-radius: 8px; padding: 0 9px 0 5px; color: #005bac;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg><span style="font-size: 12.5px; font-weight: 700;">技術資料</span>
+        </button>
+
+        <!-- 資料の見出し行（②③④で共通） -->
+        <div style="margin-top: 6px; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px;">
+          <div style="min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <h1 style="margin: 0; font-size: 23px; line-height: 1.3; font-weight: 800; letter-spacing: -.01em;">本番用 映像プラン</h1>
+              <span class="num" style="display: inline-flex; align-items: center; height: 22px; border-radius: 7px; background: #eaf4fb; color: #005bac; font-size: 11px; font-weight: 700; padding: 0 8px;">TD-202610-0001</span>
+              <span style="display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 22px; border-radius: 7px; background: #fff3ea; color: #c2410e; font-size: 11px; font-weight: 800;">下書き</span>
+            </div>
+            <div style="margin-top: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span style="font-size: 13.5px; font-weight: 700; color: #3c424c;">東都TV 特番収録「サイエンス・フロンティア」</span>
+              <span class="num" style="display: inline-flex; align-items: center; height: 22px; border-radius: 7px; background: #eaf4fb; color: #005bac; font-size: 11px; font-weight: 700; padding: 0 8px;">SCS-0007</span>
+              <span style="width: 3px; height: 3px; border-radius: 9999px; background: #cbd2da;"></span>
+              <span class="num" style="font-size: 12.5px; color: #5d6470;">第7回 ・ 10/15（木）本番 ・ WORLD STUDIO</span>
+              <span style="width: 3px; height: 3px; border-radius: 9999px; background: #cbd2da;"></span>
+              <span class="num" style="font-size: 12.5px; color: #5d6470;">第2版 ・ 10/10 16:40 保存</span>
+            </div>
+          </div>
+          <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding-top: 2px;">
+            <button class="tap ghost" onClick="{{actions.export}}" style="display: flex; align-items: center; gap: 7px; height: 38px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 14px; font-size: 13px; font-weight: 700; color: #3c424c;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"></path><path d="M7 10l5 5 5-5"></path><path d="M5 21h14"></path></svg>書き出す</button>
+            <button class="tap ghost" onClick="{{actions.more}}" aria-label="その他の操作" style="width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; color: #3c424c;"><svg width="16" height="16" viewBox="0 0 24 24" fill="#3c424c"><circle cx="5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle></svg></button>
+            <button class="tap btn-primary" onClick="{{actions.save}}" style="display: flex; align-items: center; gap: 7px; height: 38px; border-radius: 10px; background: #005bac; color: #ffffff; padding: 0 16px; font-size: 13px; font-weight: 800;">保存</button>
+          </div>
+        </div>
+
+        <!-- タブ（映像パッチ ｜ 技術スタッフ） -->
+        <div style="margin-top: 14px; display: flex; align-items: flex-end; gap: 4px; border-bottom: 1px solid #e6e9ed;">
+          <a href="Patch.dc.html" style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-bottom: 2px solid #005bac; margin-bottom: -1px; font-size: 13.5px; font-weight: 800; color: #005bac;">映像パッチ<span class="num" style="display: inline-flex; align-items: center; height: 20px; border-radius: 6px; background: #eaf4fb; padding: 0 7px; font-size: 11px; font-weight: 800;">{{count}}</span></a>
+          <a href="Staff.dc.html" style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-bottom: 2px solid transparent; margin-bottom: -1px; font-size: 13.5px; font-weight: 700; color: #5d6470;">技術スタッフ<span class="num" style="display: inline-flex; align-items: center; height: 20px; border-radius: 6px; background: #f2f4f7; padding: 0 7px; font-size: 11px; font-weight: 800; color: #5d6470;">17</span></a>
+        </div>
+
+        <!-- ここから画面ごとの中身 ─ 表（820）＋ 右の欄（300） -->
+        <div style="margin-top: 14px; display: flex; align-items: flex-start; gap: 16px;">
+
+          <!-- ── 映像パッチの表 ───────────────────────────────── -->
+          <div style="width: 820px; flex-shrink: 0; position: relative;">
+            <div style="border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; overflow: hidden;">
+
+              <!-- 見出し（2段: 送り／受け の帯 → 列の名前） -->
+              <div style="display: flex; align-items: center; height: 18px; padding: 0 10px; background: #fbfcfd; font-size: 10.5px; font-weight: 800; color: #9aa1ab; letter-spacing: .04em;">
+                <span style="width: 26px; flex-shrink: 0;"></span>
+                <span style="width: 228px; flex-shrink: 0; color: #005bac;">送り（出力側）</span>
+                <span style="width: 18px; flex-shrink: 0;"></span>
+                <span style="width: 228px; flex-shrink: 0; color: #197a4b;">受け（入力側）</span>
+                <span style="flex: 1;"></span>
+              </div>
+              <div style="display: flex; align-items: center; height: 26px; padding: 0 10px; border-bottom: 1px solid #e6e9ed; font-size: 11px; font-weight: 800; color: #9aa1ab; white-space: nowrap;">
+                <span class="num" style="width: 26px; flex-shrink: 0;">#</span>
+                <span style="width: 166px; flex-shrink: 0; padding-right: 8px;">機材</span>
+                <span style="width: 62px; flex-shrink: 0; padding-right: 8px;">パッチ番号</span>
+                <span style="width: 18px; flex-shrink: 0;"></span>
+                <span style="width: 166px; flex-shrink: 0; padding-right: 8px;">機材</span>
+                <span style="width: 62px; flex-shrink: 0; padding-right: 8px;">パッチ番号</span>
+                <span style="flex: 1; min-width: 0; padding-right: 8px;">名称</span>
+                <span style="width: 108px; flex-shrink: 0; padding-right: 8px;">備考</span>
+                <span style="width: 30px; flex-shrink: 0;"></span>
+              </div>
+
+              <!-- 系統ごとの行 -->
+              <sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+                <div style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; background: #f7f8fa; border-bottom: 1px solid #e6e9ed;">
+                  <span style="width: 3px; height: 14px; border-radius: 2px; background: {{g.color}}; flex-shrink: 0;"></span>
+                  <span style="font-size: 12px; font-weight: 800; color: #3c424c;">{{g.name}}</span>
+                  <span class="num" style="display: inline-flex; align-items: center; justify-content: center; min-width: 34px; height: 17px; border-radius: 5px; background: #ffffff; border: 1px solid #e6e9ed; font-size: 10.5px; font-weight: 800; color: #9aa1ab;">{{g.n}}</span>
+                </div>
+
+                <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="4">
+                  <div class="row-tap" style="display: flex; align-items: center; height: 44px; padding: 0 10px; border-bottom: 1px solid #f2f4f7; background: {{r.bg}};">
+                    <span class="num" style="width: 26px; flex-shrink: 0; font-size: 12px; color: #9aa1ab;">{{r.no}}</span>
+
+                    <!-- 送り 機材 -->
+                    <span style="width: 166px; flex-shrink: 0; padding-right: 8px;">
+                      <button class="tap cell" onClick="{{r.openDev}}" style="display: flex; align-items: center; gap: 5px; width: 100%; height: 34px; border-radius: 8px; border: 1px solid {{r.fromBorder}}; background: {{r.fromBg}}; padding: 0 8px;">
+                        <span class="clip1" style="flex: 1; min-width: 0; font-size: 13px; font-weight: 700; color: {{r.fromFg}};">{{r.fromDev}}</span>
+                        <sc-if value="{{r.fromExt}}" hint-placeholder-val="{{ false }}"><span style="flex-shrink: 0; display: inline-flex; align-items: center; height: 16px; border-radius: 4px; background: #fff3ea; color: #c2410e; font-size: 10px; font-weight: 800; padding: 0 5px;">増設</span></sc-if>
+                      </button>
+                    </span>
+                    <!-- 送り パッチ番号 -->
+                    <span style="width: 62px; flex-shrink: 0; padding-right: 8px;">
+                      <sc-if value="{{r.fromHasJack}}" hint-placeholder-val="{{ true }}">
+                        <span class="num" style="display: inline-flex; align-items: center; justify-content: center; width: 54px; height: 22px; border-radius: 6px; background: #eef2f7; font-size: 11.5px; font-weight: 800; color: #1a1d24;">{{r.fromJack}}</span>
+                      </sc-if>
+                      <sc-if value="{{r.fromNoJack}}" hint-placeholder-val="{{ false }}">
+                        <span class="num" style="display: inline-flex; align-items: center; justify-content: center; width: 54px; height: 22px; font-size: 12px; color: #9aa1ab;">—</span>
+                      </sc-if>
+                    </span>
+
+                    <span style="width: 18px; flex-shrink: 0; display: flex; justify-content: center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9aa1ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h14"></path><path d="M13 7l5 5-5 5"></path></svg></span>
+
+                    <!-- 受け 機材 -->
+                    <span style="width: 166px; flex-shrink: 0; padding-right: 8px;">
+                      <button class="tap cell" onClick="{{r.openToDev}}" style="display: flex; align-items: center; gap: 5px; width: 100%; height: 34px; border-radius: 8px; border: 1px solid #f2f4f7; background: #fbfcfd; padding: 0 8px;">
+                        <span class="clip1" style="flex: 1; min-width: 0; font-size: 13px; font-weight: 700;">{{r.toDev}}</span>
+                        <sc-if value="{{r.toExt}}" hint-placeholder-val="{{ false }}"><span style="flex-shrink: 0; display: inline-flex; align-items: center; height: 16px; border-radius: 4px; background: #fff3ea; color: #c2410e; font-size: 10px; font-weight: 800; padding: 0 5px;">増設</span></sc-if>
+                      </button>
+                    </span>
+                    <!-- 受け パッチ番号 -->
+                    <span style="width: 62px; flex-shrink: 0; padding-right: 8px;">
+                      <sc-if value="{{r.toHasJack}}" hint-placeholder-val="{{ true }}">
+                        <button class="tap cell" onClick="{{r.openJack}}" style="display: flex; align-items: center; justify-content: center; width: 54px; height: 24px; border-radius: 6px; border: 1px solid {{r.jackBorder}}; background: {{r.jackBg}};">
+                          <span class="num" style="font-size: 11.5px; font-weight: 800; color: #1a1d24;">{{r.toJack}}</span>
+                        </button>
+                      </sc-if>
+                      <sc-if value="{{r.toNoJack}}" hint-placeholder-val="{{ false }}">
+                        <span class="num" style="display: inline-flex; align-items: center; justify-content: center; width: 54px; height: 22px; font-size: 12px; color: #9aa1ab;">—</span>
+                      </sc-if>
+                    </span>
+
+                    <!-- 名称（行ごとに書き換えられる） -->
+                    <span style="flex: 1; min-width: 0; padding-right: 8px;">
+                      <span class="edit" style="display: flex; align-items: center; width: 100%; height: 32px; border-radius: 8px; border: 1px solid transparent; padding: 0 7px;">
+                        <span class="clip1" style="flex: 1; min-width: 0; font-size: 13px; color: {{r.nameFg}};">{{r.name}}</span>
+                      </span>
+                    </span>
+
+                    <span class="clip1" style="width: 108px; flex-shrink: 0; padding-right: 8px; font-size: 12px; color: #5d6470;">{{r.note}}</span>
+                    <span style="width: 30px; flex-shrink: 0; display: flex; justify-content: flex-end;">
+                      <button class="tap ghost" onClick="{{r.more}}" aria-label="この行の操作" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 7px; color: #9aa1ab;"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="19" cy="12" r="1.6"></circle></svg></button>
+                    </span>
+                  </div>
+                </sc-for>
+              </sc-for>
+
+              <!-- 追加の行 -->
+              <div style="display: flex; align-items: center; gap: 8px; height: 46px; padding: 0 10px; background: #fbfcfd;">
+                <span style="flex: 1;"></span>
+                <span style="font-size: 12.5px; color: #9aa1ab;">名称は行ごとに編集できます</span>
+                <button class="tap ghost" onClick="{{addRow}}" style="display: flex; align-items: center; gap: 6px; height: 32px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12.5px; font-weight: 700; color: #3c424c;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>行を追加</button>
+                <button class="tap ghost" onClick="{{addGroup}}" style="display: flex; align-items: center; gap: 6px; height: 32px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12.5px; font-weight: 700; color: #3c424c;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>系統を追加</button>
+              </div>
+            </div>
+
+            <!-- ── 機材のプルダウン（4行目の「送り 機材」の下に開いた状態） ───── -->
+            <sc-if value="{{devPop.show}}" hint-placeholder-val="{{ true }}">
+              <div style="position: absolute; left: 36px; top: {{devPop.top}}; width: 340px; border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; box-shadow: 0 14px 38px rgba(26,29,36,.18); z-index: 20; overflow: hidden;">
+                <div style="padding: 8px 8px 0;">
+                  <div style="display: flex; align-items: center; gap: 7px; height: 34px; border-radius: 9px; border: 1px solid #cfe4f4; background: #f4faff; padding: 0 10px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.6-3.6"></path></svg>
+                    <input class="field" type="text" value="{{devPop.q}}" onInput="{{devPop.setQ}}" placeholder="機材名で検索" style="flex: 1; min-width: 0; height: 26px; border: 0; outline: none; background: transparent; font-size: 13px; color: #1a1d24;">
+                  </div>
+                </div>
+                <div style="margin-top: 6px;">
+                  <sc-for list="{{devPop.groups}}" as="dg" hint-placeholder-count="5">
+                    <div style="display: flex; align-items: center; height: 19px; padding: 6px 12px 0; font-size: 10.5px; font-weight: 800; letter-spacing: .04em; color: #9aa1ab;">{{dg.area}}</div>
+                    <sc-for list="{{dg.items}}" as="d" hint-placeholder-count="2">
+                      <button class="tap opt" onClick="{{d.pick}}" style="display: flex; align-items: center; gap: 8px; width: 100%; height: 32px; padding: 0 12px; background: {{d.bg}};">
+                        <span style="flex: 1; min-width: 0;">
+                          <span class="clip1" style="display: block; font-size: 13px; font-weight: 700; line-height: 16px;">{{d.name}}</span>
+                          <span class="clip1 num" style="display: block; font-size: 11.5px; line-height: 13px; color: #9aa1ab;">{{d.sub}}</span>
+                        </span>
+                        <sc-if value="{{d.on}}" hint-placeholder-val="{{ false }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg></sc-if>
+                      </button>
+                    </sc-for>
+                  </sc-for>
+                </div>
+                <button class="tap opt" onClick="{{devPop.manual}}" style="display: flex; align-items: center; gap: 8px; width: 100%; height: 42px; padding: 0 12px; border-top: 1px solid #e6e9ed; background: #ffffff;">
+                  <span style="width: 20px; height: 20px; border-radius: 6px; background: #fff3ea; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#c2410e" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></span>
+                  <span class="clip1" style="flex: 1; min-width: 0; font-size: 12.5px; font-weight: 700; color: #c2410e;">増設機材として手入力: {{devPop.typed}}</span>
+                </button>
+              </div>
+            </sc-if>
+
+            <!-- ── パッチ番号のプルダウン（5行目の「受け パッチ番号」の下に開いた状態） ── -->
+            <sc-if value="{{jackPop.show}}" hint-placeholder-val="{{ true }}">
+              <div style="position: absolute; left: 448px; top: {{jackPop.top}}; width: 320px; border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; box-shadow: 0 14px 38px rgba(26,29,36,.18); z-index: 20; overflow: hidden;">
+                <div style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; background: #fbfcfd; border-bottom: 1px solid #f2f4f7;">
+                  <span class="clip1" style="flex: 1; min-width: 0; font-size: 11.5px; font-weight: 800; color: #3c424c;">{{jackPop.device}}</span>
+                  <span class="num" style="flex-shrink: 0; font-size: 11px; color: #9aa1ab;">{{jackPop.meta}}</span>
+                </div>
+                <sc-for list="{{jackPop.items}}" as="j" hint-placeholder-count="5">
+                  <button class="tap opt" onClick="{{j.pick}}" style="display: flex; align-items: center; gap: 9px; width: 100%; height: 42px; padding: 0 12px; background: {{j.bg}}; border-bottom: 1px solid #f7f8fa;">
+                    <span class="num" style="flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 54px; height: 22px; border-radius: 6px; background: {{j.numBg}}; font-size: 11.5px; font-weight: 800; color: {{j.numFg}};">{{j.no}}</span>
+                    <span class="num" style="flex-shrink: 0; width: 44px; font-size: 12.5px; font-weight: 700; color: {{j.fg}};">{{j.port}}</span>
+                    <span class="clip1" style="flex: 1; min-width: 0; font-size: 11.5px; color: #9aa1ab;">{{j.who}}</span>
+                    <sc-if value="{{j.busy}}" hint-placeholder-val="{{ false }}"><span style="flex-shrink: 0; display: inline-flex; align-items: center; height: 17px; border-radius: 5px; background: #f2f4f7; color: #9aa1ab; font-size: 10.5px; font-weight: 800; padding: 0 6px;">使用中</span></sc-if>
+                    <sc-if value="{{j.on}}" hint-placeholder-val="{{ false }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg></sc-if>
+                  </button>
+                </sc-for>
+                <div style="display: flex; align-items: center; height: 30px; padding: 0 12px; font-size: 11px; color: #9aa1ab;">空いているパッチ番号を先に表示しています</div>
+              </div>
+            </sc-if>
+          </div>
+
+          <!-- ── 右の欄（300） ──────────────────────────────── -->
+          <div style="width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px;">
+
+            <!-- この資料の増設機材 -->
+            <div style="border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; padding: 12px 14px 10px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 15px; font-weight: 800;">この資料の増設機材</span>
+                <span class="num" style="display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 20px; border-radius: 6px; background: #fff3ea; color: #c2410e; font-size: 11px; font-weight: 800; padding: 0 6px;">3</span>
+              </div>
+              <sc-for list="{{extras}}" as="e" hint-placeholder-count="3">
+                <div style="display: flex; align-items: center; gap: 8px; height: 44px; border-bottom: 1px solid #f2f4f7;">
+                  <span style="width: 22px; height: 22px; border-radius: 6px; background: #fff3ea; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#c2410e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"></rect><path d="M7 18v2"></path><path d="M17 18v2"></path></svg></span>
+                  <span style="flex: 1; min-width: 0;">
+                    <span class="clip1" style="display: block; font-size: 13px; font-weight: 700;">{{e.name}}</span>
+                    <span class="clip1" style="display: block; font-size: 11.5px; color: #9aa1ab;">{{e.sub}}</span>
+                  </span>
+                  <span class="num" style="flex-shrink: 0; font-size: 11.5px; color: #5d6470;">{{e.ports}}</span>
+                </div>
+              </sc-for>
+              <button class="tap ghost" onClick="{{addExtra}}" style="display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; height: 36px; margin-top: 8px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; font-size: 12.5px; font-weight: 700; color: #3c424c;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>追加</button>
+            </div>
+
+            <!-- この資料で使うパッチ番号 -->
+            <div style="border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; padding: 12px 14px 14px;">
+              <div style="font-size: 15px; font-weight: 800;">この資料で使うパッチ番号</div>
+              <div style="margin-top: 8px; display: flex; align-items: flex-end; gap: 16px;">
+                <span>
+                  <span class="num" style="display: block; font-size: 28px; font-weight: 800; line-height: 1.1;">12</span>
+                  <span style="display: block; margin-top: 2px; font-size: 11.5px; color: #9aa1ab;">パッチ盤のパッチ番号</span>
+                </span>
+                <span>
+                  <span class="num" style="display: block; font-size: 28px; font-weight: 800; line-height: 1.1; color: #c2410e;">5</span>
+                  <span style="display: block; margin-top: 2px; font-size: 11.5px; color: #9aa1ab;">うち増設機材へ</span>
+                </span>
+              </div>
+              <div style="margin-top: 10px; display: flex; height: 8px; border-radius: 9999px; background: #f2f4f7; overflow: hidden;">
+                <span style="width: 58.4%; background: #005bac;"></span>
+                <span style="width: 41.6%; background: #f0a468;"></span>
+              </div>
+              <div style="margin-top: 8px; font-size: 11.5px; line-height: 1.6; color: #5d6470;">VJP100 が 7ch ・ VJP200 が 3ch ・ VJP1700 が 2ch</div>
+            </div>
+
+            <!-- 書き出しの書式 -->
+            <div style="border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; padding: 12px 14px 14px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 15px; font-weight: 800;">書き出しの書式</span>
+                <span style="flex: 1;"></span>
+                <button class="tap ghost" onClick="{{actions.export}}" aria-label="書き出しを見る" style="width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: 7px; color: #5d6470;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
+              </div>
+              <div class="num" style="margin-top: 8px; border-radius: 9px; background: #f7f8fa; border: 1px solid #f2f4f7; padding: 9px 10px; letter-spacing: .01em;">
+                <div style="font-size: 12px; line-height: 1.6; color: #1a1d24;">ATEM 2 M/E out</div>
+                <div style="font-size: 12px; line-height: 1.6; color: #1a1d24;">→ 入力ルーター in36 [136B]</div>
+              </div>
+              <div style="margin-top: 8px; font-size: 11.5px; line-height: 1.6; color: #5d6470;">現場のパッチ表と同じ矢印の書式で書き出します。</div>
+            </div>
+
+            <!-- 系統のまとめ -->
+            <div style="border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; padding: 12px 14px 12px;">
+              <div style="font-size: 15px; font-weight: 800;">系統</div>
+              <sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+                <div style="display: flex; align-items: center; gap: 8px; height: 30px;">
+                  <span style="width: 3px; height: 14px; border-radius: 2px; background: {{g.color}}; flex-shrink: 0;"></span>
+                  <span class="clip1" style="flex: 1; min-width: 0; font-size: 12.5px; font-weight: 700;">{{g.name}}</span>
+                  <span class="num" style="flex-shrink: 0; font-size: 12px; color: #5d6470;">{{g.n}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- 通知（押した操作の説明。画面下中央） -->
+  <sc-if value="{{notice.show}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; max-width: 720px; border-radius: 12px; background: #1a1d24; color: #ffffff; padding: 12px 16px; box-shadow: 0 8px 24px rgba(26,29,36,.24); z-index: 40;">
+      <span style="font-size: 13px; font-weight: 800; white-space: nowrap;">{{notice.title}}</span>
+      <span style="font-size: 12.5px; color: #cbd2da;">{{notice.body}}</span>
+      <button class="tap" onClick="{{notice.close}}" aria-label="閉じる" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; color: #cbd2da;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      notice: null,
+      openDev: 4,      // 機材のプルダウンを開いている行
+      openJack: 5,     // パッチ番号のプルダウンを開いている行
+      q: '',
+      dev4: 'ATEM 2 M/E',
+      jack5: '137B',
+      added: 0,
+    };
+  }
+
+  // 左メニュー。開いている画面だけ on: true
+  nav() {
+    return [
+      { label: 'トップ', dot: '#e6e9ed', on: false },
+      { label: '案件ホーム', dot: '#e6e9ed', on: false },
+      { label: '進行台本', dot: '#005bac', on: false },
+      { label: 'スケジュール表', dot: '#197a4b', on: false },
+      { label: '収録設定', dot: '#c2410e', on: false },
+      { label: '配信設定', dot: '#c2410e', on: false },
+      { label: 'レンタル機材検索', dot: '#4338ca', on: false },
+      { label: '計時・視聴者', dot: '#8b5cf6', on: false },
+      { label: 'テロップCG', dot: '#8b5cf6', on: false },
+      { label: '運営マニュアル', dot: '#005bac', on: false },
+      { label: '会場図面', dot: '#005bac', on: false },
+      { label: '技術資料', dot: '#005bac', on: true },
+      { label: '管理', title: true },
+      { label: 'パッチ盤', dot: '#5d6470', on: false },
+      { label: '技術人員', dot: '#5d6470', on: false },
+    ];
+  }
+
+  // 映像パッチの行（scratchpad/spec の §6-3。増設機材の側はパッチ番号を持たない）
+  base() {
+    return [
+      { g: 0, fd: 'CCU1', fj: '101A', td: 'ATEM 2 M/E', tx: true, name: 'CAM1 3G-SDI', note: 'IN1 ・ 直結' },
+      { g: 0, fd: 'CCU2', fj: '102A', td: 'ATEM 2 M/E', tx: true, name: 'CAM2 3G-SDI', note: 'IN2' },
+      { g: 0, fd: 'PTZ1', fj: '106A', td: 'ATEM 2 M/E', tx: true, name: 'PTZ1', note: 'IN3' },
+      { g: 0, fd: null, fx: true, td: '入力ルーター', tj: '136B', name: 'ATEM PGM → in36', note: 'PGM OUT' },
+      { g: 0, fd: 'ATEM 2 M/E', fx: true, td: '入力ルーター', tj: null, name: 'ATEM AUX → in37', note: 'AUX OUT' },
+      { g: 1, fd: '出力ルーター', fj: '205A', td: 'TRK AV-3 FOH下手', tj: 'TRK12', name: 'R5 → 客席 LED 下手', note: 'VJP1700' },
+      { g: 1, fd: '出力ルーター', fj: '206A', td: 'TRK AV-4 FOH上手', tj: 'TRK13', name: 'R6 → 客席 LED 上手', note: 'VJP1700' },
+      { g: 1, fd: '出力ルーター', fj: '207A', td: '客席用 LED モニター', tx: true, name: 'R7 → 前方モニター', note: 'HDMI IN ・ 変換' },
+      { g: 2, fd: '出力ルーター', fj: '210A', td: '配信ENC 1', tj: '1301B', name: 'R10 → 配信', note: '' },
+      { g: 2, fd: 'vMix 3', fj: '113A', td: 'サブ配信PC', tx: true, name: 'vM3 → サブ配信', note: 'SDI IN' },
+    ];
+  }
+
+  // プルダウンに出す機材（§6-2。名前＝型番＋役割・エリア・ch数）
+  devices() {
+    return [
+      { area: 'この資料の増設機材', items: [
+        { name: 'ATEM 2 M/E', sub: 'レンタル ・ PGM／AUX OUT 2ch' },
+      ] },
+      { area: 'マシンルーム', items: [
+        { name: 'CCU1', sub: 'HDCU-5500 ・ OUT 1ch 101A' },
+        { name: 'vMix 3', sub: 'OUT 1ch 113A' },
+        { name: 'disguise VX4+ 1', sub: 'd3XR1 ・ OUT 1ch 124A' },
+      ] },
+      { area: 'スタジオ', items: [
+        { name: 'PTZ1', sub: 'AW-UE160K ・ OUT 1ch 106A' },
+        { name: 'PTZ2', sub: 'AW-UE160K ・ OUT 1ch 107A' },
+      ] },
+      { area: '第1調整室', items: [
+        { name: '入力ルーター', sub: 'UHSM-220220 ・ IN 61ch 101B〜' },
+        { name: '出力ルーター', sub: 'UHSM-220220 ・ OUT 28ch 201A〜' },
+      ] },
+      { area: '配信卓', items: [
+        { name: '配信ENC 1', sub: 'IN 1ch 1301B' },
+      ] },
+    ];
+  }
+
+  // 入力ルーターのパッチ番号（空きが先・使用中は薄く）
+  jacks() {
+    return [
+      { no: '136B', port: 'in36', busy: false, who: '空き' },
+      { no: '137B', port: 'in37', busy: false, who: '空き' },
+      { no: '138B', port: 'in38', busy: false, who: '空き' },
+      { no: '101B', port: 'in1', busy: true, who: 'CCU1' },
+      { no: '102B', port: 'in2', busy: true, who: 'CCU2' },
+    ];
+  }
+
+  notify(title, body) { this.setState({ notice: { title: title, body: body } }); }
+
+  renderVals() {
+    const self = this;
+    const st = this.state;
+    const GN = [
+      { name: '増設スイッチャー', color: '#005bac' },
+      { name: '客席モニター', color: '#c2410e' },
+      { name: '配信', color: '#6d28d9' },
+    ];
+    const HEAD = 44, GH = 30, RH = 44;   // 見出し2段・系統の行・1行の高さ
+
+    // 行を組み立てる（4行目の送り機材と5行目の受けパッチ番号は state から）
+    const rows = this.base().map((b, i) => {
+      const no = i + 1;
+      const fd = no === 4 ? st.dev4 : b.fd;
+      const tj = no === 5 ? st.jack5 : b.tj;
+      return { no: no, g: b.g, fd: fd, fj: b.fj, fx: !!b.fx, td: b.td, tj: tj, tx: !!b.tx, name: b.name, note: b.note };
+    });
+    for (let k = 0; k < st.added; k++) {
+      rows.push({ no: rows.length + 1, g: 2, fd: '', fj: null, fx: false, td: '', tj: null, tx: false, name: '', note: '' });
+    }
+
+    const mkRow = (r) => ({
+      no: String(r.no),
+      bg: (st.openDev === r.no || st.openJack === r.no) ? '#f4faff' : 'transparent',
+      fromDev: r.fd || '機材を選ぶ',
+      fromFg: r.fd ? '#1a1d24' : '#9aa1ab',
+      fromExt: !!r.fx && !!r.fd,
+      fromBorder: st.openDev === r.no ? '#005bac' : '#f2f4f7',
+      fromBg: st.openDev === r.no ? '#ffffff' : '#fbfcfd',
+      fromHasJack: !!r.fj,
+      fromNoJack: !r.fj && !!r.fd,
+      fromJack: r.fj || '',
+      toDev: r.td || '機材を選ぶ',
+      toExt: !!r.tx && !!r.td,
+      toHasJack: !!r.tj,
+      toNoJack: !r.tj && !!r.td,
+      toJack: r.tj || '',
+      jackBorder: st.openJack === r.no ? '#005bac' : '#e6e9ed',
+      jackBg: st.openJack === r.no ? '#ffffff' : '#eef2f7',
+      name: r.name || '名称を入力',
+      nameFg: r.name ? '#1a1d24' : '#9aa1ab',
+      note: r.note,
+      openDev: () => self.setState({ openDev: r.no, openJack: null }),
+      openToDev: () => self.notify('受けの機材', '送りと同じ選び方です。選んだ機材のパッチ番号だけが候補に表示されます'),
+      openJack: () => self.setState({ openJack: r.no, openDev: null }),
+      more: () => self.notify('行の操作', '複製する・削除・上下の入れ替えがこのメニューにあります'),
+    });
+
+    const groups = GN.map((g, gi) => {
+      const list = rows.filter((r) => r.g === gi);
+      return { name: g.name, color: g.color, n: list.length + ' 行', rows: list.map(mkRow) };
+    });
+
+    // プルダウンの位置（行の下端＋4px。系統の見出しの高さも加える）
+    const topOf = (no) => {
+      let y = HEAD;
+      for (let gi = 0; gi < GN.length; gi++) {
+        const list = rows.filter((r) => r.g === gi);
+        y += GH;
+        for (let k = 0; k < list.length; k++) {
+          y += RH;
+          if (list[k].no === no) return y + 4;
+        }
+      }
+      return y + 4;
+    };
+
+    const typed = st.q || 'ATEM 2 M/E';
+    const devGroups = this.devices().map((g) => ({
+      area: g.area,
+      items: g.items
+        .filter((d) => !st.q || d.name.toLowerCase().indexOf(st.q.toLowerCase()) >= 0)
+        .map((d) => ({
+          name: d.name, sub: d.sub,
+          on: d.name === st.dev4,
+          bg: d.name === st.dev4 ? '#f4faff' : '#ffffff',
+          pick: () => self.setState({ dev4: d.name, openDev: null, q: '' }),
+        })),
+    })).filter((g) => g.items.length > 0);
+
+    const jackItems = this.jacks().map((j) => ({
+      no: j.no, port: j.port, busy: j.busy,
+      who: j.busy ? '使用中 ・ ' + j.who : j.who,
+      on: j.no === st.jack5,
+      bg: j.no === st.jack5 ? '#f4faff' : '#ffffff',
+      fg: j.busy ? '#9aa1ab' : '#1a1d24',
+      numBg: j.busy ? '#f7f8fa' : '#eef2f7',
+      numFg: j.busy ? '#9aa1ab' : '#1a1d24',
+      pick: () => (j.busy
+        ? self.notify('使用中のパッチ番号', j.no + ' は ' + j.who + ' が使っています。先に解除してから選びます')
+        : self.setState({ jack5: j.no, openJack: null })),
+    }));
+
+    const notice = this.state.notice
+      ? { show: true, title: this.state.notice.title, body: this.state.notice.body, close: () => self.setState({ notice: null }) }
+      : { show: false, title: '', body: '', close: () => {} };
+
+    const nav = this.nav().map((n) => ({
+      label: n.label, dot: n.dot || '#e6e9ed', isTitle: !!n.title, isItem: !n.title,
+      bg: n.on ? '#f4faff' : 'transparent',
+      fg: n.on ? '#005bac' : '#3c424c',
+      weight: n.on ? 800 : 700,
+    }));
+
+    return {
+      nav: nav,
+      notice: notice,
+      count: String(rows.length),
+      groups: groups,
+      extras: [
+        { name: 'ATEM 2 M/E', sub: 'レンタル ・ 増設スイッチャー', ports: 'OUT 2' },
+        { name: '客席用 LED モニター', sub: 'レンタル ・ 客席モニター', ports: 'IN 1' },
+        { name: 'サブ配信PC', sub: '社内 ・ 配信', ports: 'IN 1' },
+      ],
+      devPop: {
+        show: st.openDev !== null,
+        top: topOf(st.openDev === null ? 4 : st.openDev) + 'px',
+        q: st.q, typed: typed,
+        setQ: (e) => self.setState({ q: (e && e.target ? e.target.value : '') }),
+        groups: devGroups,
+        manual: () => self.setState({ dev4: typed, openDev: null, q: '' }),
+      },
+      jackPop: {
+        show: st.openJack !== null,
+        top: topOf(st.openJack === null ? 5 : st.openJack) + 'px',
+        device: '入力ルーター（UHSM-220220）',
+        meta: 'IN 61ch',
+        items: jackItems,
+      },
+      addRow: () => self.setState({ added: st.added + 1, openDev: null, openJack: null }),
+      addGroup: () => self.notify('系統を追加', '系統の名前を入力すると、その区切りに行を追加できます'),
+      addExtra: () => self.notify('増設機材を追加', '機材名とch数を入力すると、送り・受けのどちらにも選べます'),
+      actions: {
+        back: () => self.notify('技術資料', 'この案件の技術資料の一覧に戻ります'),
+        export: () => self.notify('書き出す', 'A4 横1枚に映像パッチと技術スタッフを並べて書き出します'),
+        more: () => self.notify('その他の操作', '複製する・確定する・削除がこのメニューにあります'),
+        save: () => self.notify('保存', '第3版として保存し、確定するまでは下書きのままです'),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

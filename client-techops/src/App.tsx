@@ -25,6 +25,14 @@ import ManualPreviewPage from "@/pages/opsmanual/ManualPreviewPage";
 import VenueListPage from "@/pages/venue/VenueListPage";
 import VenueEditorRouter from "@/pages/venue/VenueEditorRouter";
 import VenuePreviewPage from "@/pages/venue/VenuePreviewPage";
+// 技術資料（新ミニアプリ・docs/design/v4/tech-docs.md）。①一覧は両端末、
+// ②映像パッチ・③技術スタッフは同じ資料のタブ切替（PC＝編集・スマホ＝閲覧）、
+// ⑤パッチ盤・⑥技術人員は manager 向けの台帳（PC専用）
+import TechDocListPage from "@/pages/tech/TechDocListPage";
+import TechDocPage from "@/pages/tech/TechDocPage";
+import TechDocPrintPage from "@/pages/tech/TechDocPrintPage";
+import TechPanelsPage from "@/pages/tech/TechPanelsPage";
+import TechPersonsPage from "@/pages/tech/TechPersonsPage";
 import { TECHOPS_ROOT_PATH } from "@/routeSwitch";
 import RecordingPage from "@/pages/recording/RecordingPage";
 import StreamingPage from "@/pages/streaming/StreamingPage";
@@ -208,6 +216,17 @@ export default function App() {
         <Route path="/techops/venue-layouts" element={<VenueListPage />} />
         <Route path="/techops/venue-layouts/:id" element={<VenueEditorRouter />} />
         <Route path="/techops/venue-layouts/:id/preview" element={<VenuePreviewPage />} />
+
+        {/* 技術資料（新ミニアプリ・docs/design/v4/tech-docs.md §1-1）。②③は同じ資料の
+            タブ切替なので同じ部品で受ける（`/staff` かどうかは画面側が pathname で見る）。
+            ④書き出し（`/print`）は段D。⑤⑥は manager 向けの台帳で PC 専用 */}
+        <Route path="/techops/tech-docs" element={<TechDocListPage />} />
+        <Route path="/techops/tech-docs/:id" element={<TechDocPage />} />
+        <Route path="/techops/tech-docs/:id/staff" element={<TechDocPage />} />
+        {/* ④書き出し（PC専用・tech-docs.md §8）。A4 横1枚に映像パッチと技術スタッフを並べる */}
+        <Route path="/techops/tech-docs/:id/print" element={<TechDocPrintPage />} />
+        <Route path="/techops/tech-panels" element={<TechPanelsPage />} />
+        <Route path="/techops/tech-persons" element={<TechPersonsPage />} />
 
         {/* 制作のジャーニー（段3・03-app-structure-impl.md §3-2・§8 PR F）。案件の入口／資料単体の入口 */}
         <Route path="/techops/projects/:id" element={<JourneyPage scope="project" />} />
