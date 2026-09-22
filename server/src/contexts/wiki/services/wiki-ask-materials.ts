@@ -20,6 +20,40 @@ import {
   WIKI_MATERIAL_CHARS_PER_PAGE, WIKI_MATERIAL_CHARS_TOTAL,
 } from './wiki-ai.constants';
 
+/**
+ * 質問から**検索の語**を取り出す（§7-1 ①）。
+ *
+ * ⚠️ **質問文をそのまま検索にかけてはいけません。** 検索（§5-4）は語ごとに
+ * `ILIKE` を **AND** で当てる作りなので、「機材の貸出は」のように助詞が
+ * 混ざった1語として渡すと**本文のどこにもその並びが無く、必ず 0 件**になります。
+ * 材料が 0 件だと呼ぶ側は「書かれていません」に落とし、**答えられるはずの質問まで
+ * 「足りないページ」に積まれます** — 使うほど賢くなる経路の入口が、
+ * 嘘の行で埋まることになります（検証用 Postgres で実測: `機材の貸出は` → 0 件 ／
+ * `機材` → 6 件）。
+ *
+ * ⚠️ **形態素解析は入れません**（辞書を抱えると配れなくなる）。日本語は
+ * **漢字・カタカナ・英数字のつながり＝内容の語／ひらがなのつながり＝助詞と語尾**、
+ * という粗い見立てで切ります。外れても困らないのは、呼ぶ側が**語を減らしながら
+ * 何度か試す**うえ、最後は出典が出せなければ答えないためです。
+ *
+ * ⚠️ **1文字の語は捨てます**（「の」「に」だけでなく「音」も）。1文字は当たりすぎて
+ * 上位8ページが関係ない話で埋まり、かえって答えが出なくなります。
+ */
+export function questionTerms(question: string): string[] {
+  const cleaned = String(question ?? '')
+    .replace(/[、。．，！？!?・：:；;（）()「」『』【】[\]"'`]/g, ' ')
+    .replace(/(ですか|でしょうか|ますか|したい|ください|かな|かね)/gu, ' ');
+  const out: string[] = [];
+  // 漢字（々〆ヵヶ を含む）／カタカナ（ー を含む）／英数字 のつながりだけ拾う
+  for (const m of cleaned.matchAll(/[一-龠々〆ヵヶ]+|[ァ-ヴー]+|[A-Za-z0-9_]+/gu)) {
+    const t = m[0];
+    if (t.length < 2) continue;
+    if (!out.includes(t)) out.push(t);
+  }
+  // AND なので多すぎると 0 件になる。長い語ほど中身が濃いので前に出す
+  return out.sort((a, b) => b.length - a.length).slice(0, 4);
+}
+
 export interface WikiMaterial {
   page_id: string;
   title: string;
@@ -121,15 +155,38 @@ export async function gatherMaterials(user: WikiUser, input: GatherInput): Promi
     }
   }
 
-  // ② 検索（読めるスペースの公開ページだけを返す口をそのまま使う・§5-4）
-  //    ⚠️ `searchPages` が返すのは `{ hits, counts }` です（絞り込みの件数つき）。
-  //       当たりそのものは `hits` のほうにあります。
-  const found = await searchPages(user, {
-    q: input.question,
-    spaceId: input.spaceId ?? undefined,
-    limit: WIKI_ANSWER_TOP_N * 2,
-  });
-  const wanted = found.hits.map((h) => h.id).filter((id) => !seen.has(id)).slice(0, WIKI_ANSWER_TOP_N);
+  /*
+   * ② 検索（読めるスペースの公開ページだけを返す口をそのまま使う・§5-4）。
+   *    ⚠️ `searchPages` が返すのは `{ hits, counts }` です（絞り込みの件数つき）。
+   *       当たりそのものは `hits` のほうにあります。
+   *
+   * ⚠️ **語を減らしながら何度か試します。** 検索は語ごとの `ILIKE` を **AND** で
+   * 当てるので、質問から取った語を全部渡すと絞られすぎて 0 件になります
+   *（「スタジオ 収録 前 準備」の4語すべてを含むページは、たいてい有りません）。
+   * **濃い語から順に、当たるまで数を減らす** — 検索の口そのものは段D のままで、
+   * ここだけが「質問を検索に変える」責任を持ちます。
+   */
+  const terms = questionTerms(input.question);
+  const attempts: string[][] = [];
+  for (let n = terms.length; n >= 1; n -= 1) attempts.push(terms.slice(0, n));
+  // 語が1つも取れない質問（ひらがなだけ など）は、質問そのものを最後の頼みにする
+  if (attempts.length === 0) attempts.push([String(input.question ?? '').trim()]);
+
+  let hits: { id: string }[] = [];
+  for (const attempt of attempts) {
+    const q = attempt.join(' ').trim();
+    if (!q) continue;
+    const found = await searchPages(user, {
+      q,
+      spaceId: input.spaceId ?? undefined,
+      limit: WIKI_ANSWER_TOP_N * 2,
+    });
+    if (found.hits.length > 0) {
+      hits = found.hits;
+      break;
+    }
+  }
+  const wanted = hits.map((h) => h.id).filter((id) => !seen.has(id)).slice(0, WIKI_ANSWER_TOP_N);
   if (wanted.length > 0) {
     const rows = await queryAll(
       `${MATERIAL_SELECT} WHERE ${PUBLISHED_AND_READABLE} AND p.id = ANY(?)`,
