@@ -217,15 +217,15 @@ mm を打つ欄も、盤の物理配置を覚える必要も作らない（会�
 
 ## 5. データの持ち方
 
-### 5-1. 表7本（migration **304**）
+### 5-1. 表7本（migration **305**）
 
-いまの最新は `303_wiki.sql`（ほかに `302_tax_category_nontax.sql`・`301_venue_layout_yoga_world_studio_underlay_refresh.sql`）なので、**次に取るのは 304**。
+設計時点（2026-09-22）の最新は `303_wiki.sql` だったので 304 を取ったが、並行 PR が `304_activity_body_edited.sql` を先にマージしたため **305 に取り直した**。
 `scripts/check-migration-numbers.mjs:27-59` は番号の重複だけを見るので、**並行 PR とぶつかったら番号を取り直す**。
 書き方（`TEXT PRIMARY KEY`・`TIMESTAMPTZ`・`deleted_at`・owner の CHECK・部分インデックス）は `297_qsheet_manuals.sql`／`298_venue_layout.sql:1-21` をそのまま写す。
 接頭辞は techops の前例どおり **`qsheet_*`**（`client-techops/CLAUDE.md:16`）。
 
 ```sql
--- 304: 制作技術支援 — 技術資料（ミニアプリ）段A。設計: docs/design/v4/tech-docs.md §5
+-- 305: 制作技術支援 — 技術資料（ミニアプリ）段A。設計: docs/design/v4/tech-docs.md §5
 
 -- ── 資料（1件 = 1行） ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS qsheet_tech_docs (
@@ -674,7 +674,7 @@ techops の利用者が `sales` 区画を持つとは限らない。**`qsheet_te
 
 | 決めごと | 中身 |
 | --- | --- |
-| **段Aで空のパッチ番号を作っておく** | migration 304 で `qsheet_patch_panels` 18行（VJP100〜1800・ch数 48／32・`kind`・`model`）と `qsheet_patch_jacks` の**全行を空の `device_name` で作る**（48×2×12 ＋ 32×2×6 ＝ **1,536 行**）。番号と段の存在だけは資料から確実に読み取れているので、ここは機械で入れてよい |
+| **段Aで空のパッチ番号を作っておく** | migration 305 で `qsheet_patch_panels` 18行（VJP100〜1800・ch数 48／32・`kind`・`model`）と `qsheet_patch_jacks` の**全行を空の `device_name` で作る**（48×2×12 ＋ 32×2×6 ＝ **1,536 行**）。番号と段の存在だけは資料から確実に読み取れているので、ここは機械で入れてよい |
 | **転記の進みを出す** | ⑤の見出しに「**転記の進み 35／48**」（機材名が入っている**番号**の数／`jack_count`。§5-1）。盤の一覧にも同じ数を出す。**進みがゼロの盤でも②の候補には出さない**（空の候補を選ばせない） |
 | **あとで画像が読める AI に任せられる形にしておく** | 転記の入力は1ch ずつの PATCH（`/techops/tech-panels/:id/jacks/:jackId`）なので、将来「外観図から転記する」機能を足すときは**同じ API を呼ぶ**だけでよい。ただし AI を足すなら §10 の5条件を先に満たす |
 
@@ -728,7 +728,7 @@ GMO 社員（社内）と、他の協力会社は**手で足す**（⑥の「追
 
 | 段 | 何を | 終わったときに何ができるか | 門 |
 | --- | --- | --- | --- |
-| **A 器** | レジストリ `tech`／`TD`／`prod_doc_td`（§5-3・server 複製も）・migration 304（表7本＋盤18枚と空のパッチ番号1,536行）・①一覧と作成ダイアログ（名前／空から・複製）・資料番号の発番・ハブのタイル（件数は別クエリ）・左メニュー・`pcOnlyScreens` の宣言 | 技術資料が案件から辿れ、`TD-202610-0001` が採れる | `npx tsc -b client-techops`・`npm run typecheck -w server`・`npm run lint`・`npm run test`・`node scripts/check-collab-parity.mjs` |
+| **A 器** | レジストリ `tech`／`TD`／`prod_doc_td`（§5-3・server 複製も）・migration 305（表7本＋盤18枚と空のパッチ番号1,536行）・①一覧と作成ダイアログ（名前／空から・複製）・資料番号の発番・ハブのタイル（件数は別クエリ）・左メニュー・`pcOnlyScreens` の宣言 | 技術資料が案件から辿れ、`TD-202610-0001` が採れる | `npx tsc -b client-techops`・`npm run typecheck -w server`・`npm run lint`・`npm run test`・`node scripts/check-collab-parity.mjs` |
 | **B 映像パッチ＋パッチ盤** | ②の表・系統・行の追加／並べ替え／削除・機材の候補・パッチ番号の候補（機材で絞る・空きが先・使用中の印）・増設機材の手入力・名称の初期値と上書き・右パネル・⑤の盤の画面と転記（VJP100／VJP200 を人が入れる）・`shared/src/tech/patchNo.ts` | **ここで道具になる。** 増設機材の映像プランが画面で組める | 上に加え `npm run verify:ui techops`・`npm run verify:ime`・`shared/src/tech/` の Vitest |
 | **C 技術スタッフ＋技術人員** | ③の表・作業日のチップ・人の候補（会社の絞り込み・手入力）・⑥の会社と人・参加回数・§9-2 の一度きりの取り込み | 当日の技術スタッフが名前を打ち直さずに組める | 上に加え `server/tests/*-review.test.mjs`（行の可視性） |
 | **D 書き出しと冊子とスマホ** | ④の A4横（矢印表記・`shared/src/tech/patchExport.ts`）・`tech.patch`／`tech.staff` の差し込み（§8-3 の11か所）・resolver と凍結・`?return=`・確定と版・スマホ閲覧 | 紙と冊子に出て、現場のスマホで読める | 上に加え parity・resolver の review 試験（他案件の `sourceId` を拒む）・④の PC専用宣言 |
@@ -764,7 +764,7 @@ GMO 社員（社内）と、他の協力会社は**手で足す**（⑥の「追
 | 18 | `server/src/routes/index.ts:32-33` | **触らない**（`/qsheet` と `/techops` の二重マウントが自動で効く） |
 | 19 | `server/src/contexts/qsheet/access.ts:125-140` / `:148` | `canAccessTechDoc`／`canAssignTechDocProject`（`canAccessVenueLayout` の写し） |
 | 20 | `server/src/contexts/qsheet/services/docNo.service.ts:14-20` | **触らない**（`MINI_APP_BY_KEY` から読むので登録だけで効く） |
-| 21 | `server/src/shared/db/migrations/304_qsheet_tech_docs.sql` | 表7本＋盤18枚と空のパッチ番号1,536行（§5-1・§9-1） |
+| 21 | `server/src/shared/db/migrations/305_tech_docs.sql` | 表7本＋盤18枚と空のパッチ番号1,536行（§5-1・§9-1） |
 | 22 | `shared/src/production/manualBlocks.ts:25-38,42-61,78-201,207-217` ＋ `server/src/shared/production/manualBlocks.ts` | 段D の差し込み（§8-3 の #1〜#5） |
 | 23 | `server/src/contexts/qsheet/services/manual-resolve.service.ts:84-111` / `:181-184` | 段D の resolver（§8-3 の #6〜#8） |
 | 24 | `shared/tests/miniapps.test.ts:23-48` | 触らないが、重複があるとここで落ちる |

@@ -1,6 +1,6 @@
 /**
  * 技術資料（制作技術支援のミニアプリ）— サーバーと画面で共有する形。
- * 設計: docs/design/v4/tech-docs.md §5。列名は migration 304 の snake_case をそのまま使う
+ * 設計: docs/design/v4/tech-docs.md §5。列名は migration 305 の snake_case をそのまま使う
  * （サーバーは `pg` の行をそのまま返し、画面側で読み替えない）。
  * サーバーは `server/src` の外を import できないため、`server/src/shared/tech/types.ts` に複製がある
  * （`scripts/check-collab-parity.mjs` の PAIRS で一致を検査）。

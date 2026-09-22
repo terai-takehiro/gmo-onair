@@ -1,7 +1,7 @@
 # 技術人員の初期取り込み（一度きり）
 
 **最終確認: 2026-09-22。** 一次情報は `scripts/tech-persons-import.mjs`・
-`docs/design/v4/tech-docs.md` §9-2（決めごとの正）・`server/src/shared/db/migrations/304_tech_docs.sql`
+`docs/design/v4/tech-docs.md` §9-2（決めごとの正）・`server/src/shared/db/migrations/305_tech_docs.sql`
 （`qsheet_tech_companies`・`qsheet_tech_persons`）。
 
 ## これは何か

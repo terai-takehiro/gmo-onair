@@ -124,7 +124,7 @@ export async function createPanel(input: CreatePanelInput, userId: string): Prom
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
     [id, name, jackCount, kind, (input.location || '').slice(0, 200), (input.model || '').slice(0, 200), Number(next?.n ?? 1), userId],
   );
-  // 空のパッチ番号（id の付け方は migration 304 と同じ: pj_vjp100_01a）
+  // 空のパッチ番号（id の付け方は migration 305 と同じ: pj_vjp100_01a）
   const slug = name.toLowerCase().replace(/[^a-z0-9]/g, '');
   for (let n = 1; n <= jackCount; n++) {
     for (const jrow of ['A', 'B']) {
