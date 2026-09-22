@@ -140,7 +140,14 @@ export default function SearchPage() {
 
       {hasResult && (
         <p className="max-w-4xl text-sub text-secondary-foreground">
-          <strong className="font-number font-bold">{filters.spaceId ? hits.length : total}件</strong>
+          {/*
+            ⚠️ **件数はサーバーが数えた数を出します**（`counts`）。`hits.length` は
+            上限（`LIMIT`）で切ったあとの数なので、当たりが多いスペースを選ぶと
+            いつも「50件」と出ていました（Codex の指摘・P2）。
+          */}
+          <strong className="font-number font-bold">
+            {filters.spaceId ? counts.get(filters.spaceId) ?? hits.length : total}件
+          </strong>
           {terms.length >= 2 ? ` ・ ${terms.length}語すべてを含むページ` : ''}
           {hits.length >= LIMIT ? ` ・ 上位${LIMIT}件まで` : ''}
           {' ・ 公開されているページだけが出ます（下書きは出ません）'}

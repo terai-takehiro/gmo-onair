@@ -204,7 +204,14 @@ export async function exportSpaceZip(user: WikiUser, spaceKey: string): Promise<
     for (const child of children) writePage(child, `${dir}${name}/`, childUsed, depth + 1);
   };
 
-  const rootUsed = new Set<string>();
+  /*
+   * ⚠️ **`README` は先に押さえておきます。** 根に「README」という題のページが
+   * あると `README.md` に書かれ、そのあと下で書く**案内の README が同じ名前で
+   * 上書き**します（JSZip は後勝ち）。件数には入っているのに中身が消えるので、
+   * 取り込み直すとそのページの本文が（子が無ければページごと）失われていました
+   * （Codex の指摘・P1）。押さえておけば `README (wp-xxxx)` になって逃げます。
+   */
+  const rootUsed = new Set<string>(['README']);
   for (const page of byParent.get('') ?? []) writePage(page, '', rootUsed, 0);
 
   // データベース（項目とビューは別の表にあるので、ここで1件ずつ引く）

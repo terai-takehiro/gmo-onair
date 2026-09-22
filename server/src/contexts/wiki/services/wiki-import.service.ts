@@ -327,6 +327,8 @@ export async function importZip(
         await attachAssets(childMd, String(rowPage.id));
         result.rows += 1;
         result.pages += 1;
+        // 行の下のページも作る（書き出しは `行の名前/` の下に書いている）
+        if (child) await createChildren(child, String(rowPage.id));
       }
     }
 
@@ -346,7 +348,19 @@ export async function importZip(
       await attachAssets(childMd, String(leftover.id));
       result.rows += 1;
       result.pages += 1;
+      await createChildren(child, String(leftover.id));
     }
+  };
+
+  /*
+   * ⚠️ **行の下のページも作ります。**
+   * 行はページなので子を持てます。書き出しは `行の名前/` の下に書くのに、
+   * 取り込みが行を1枚作って終わりにしていたため、**書き出して取り込み直すと
+   * 行の下が丸ごと消えて**いました（Codex の指摘・P1。書き出し側を直した
+   * ことで表に出た穴です）。数え方（`countPlanned`）も合わせてあります。
+   */
+  const createChildren = async (row: ImportNode, rowPageId: string): Promise<void> => {
+    for (const grandChild of row.children) await create(grandChild, rowPageId);
   };
 
   for (const node of plan) await create(node, parentId);
@@ -377,6 +391,8 @@ function countPlanned(nodes: ImportNode[], csvByPath: Map<string, CsvDatabase>):
       if (!child.mdPath) continue;
       mdChildren += 1;
       queue.set(child.name, (queue.get(child.name) ?? 0) + 1);
+      // 行の下のページも作るので数に入れる（`createChildren`）
+      n += countPlanned(child.children, csvByPath);
     }
     let consumed = 0;
     for (const row of rows) {
