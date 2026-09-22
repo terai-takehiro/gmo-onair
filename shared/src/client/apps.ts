@@ -121,6 +121,7 @@ import {
   Timer,
   Tv,
   ClipboardList,
+  BookOpen,
   Languages,
   Truck,
   Settings,
@@ -144,6 +145,7 @@ export type AppKey =
   | 'liveops'
   | 'awards'
   | 'dailyops'
+  | 'wiki'
   | 'admin'
   | 'interactive'
   | 'translate'
@@ -200,6 +202,14 @@ export const APPS: AppDef[] = [
   { key: 'budget',      label: '財務管理',           description: '売上・仕入・販管費・損益',              icon: PiggyBank,     color: '#059669', path: '/budget',     permissionModule: 'sales' },
   { key: 'calendar',    label: 'カレンダー',         description: 'スタジオカレンダー・ブッキング',        icon: Calendar,      color: '#7c3aed', path: '/calendar',   permissionModule: 'sales' },
   { key: 'dailyops',    label: '日常業務',           description: '週報・ニュース・内覧会・受領書類',        icon: ClipboardList, color: '#0d9488', path: '/daily',      permissionModule: 'dailyops' },
+  /**
+   * Wiki（新しいブロックアプリ・2026-09-22）。**トップの「日々の業務」側に置く**
+   * （`docs/design/v4/wiki.md` §10-1 の決定）。手順書・マニュアル・社内ルールを
+   * Markdown で置く場所で、日常業務の隣が最も近い。
+   * ⚠️ 区分キーも `wiki`（`ROLE_MODULES` と同じ）。`key` と `permissionModule` が
+   * 同じなので、ここを直したら `permission-role.service.ts` 側も一緒に直すこと。
+   */
+  { key: 'wiki',        label: 'Wiki',               description: '手順書・マニュアル・社内ルール',        icon: BookOpen,      color: '#0891b2', path: '/wiki',       permissionModule: 'wiki' },
   { key: 'equipment',   label: '機材管理',           description: '機材台帳・貸出・メンテナンス',          icon: Package,       color: '#d97706', path: '/equipment',  permissionModule: 'equipment' },
   { key: 'admin',       label: '設定',               description: '権限・ユーザー・データ・バックアップ',  icon: Settings,      color: '#475569', path: '/settings',   permissionModule: 'sales' },
 

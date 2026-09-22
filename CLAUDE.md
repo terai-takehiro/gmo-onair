@@ -16,6 +16,7 @@ GMO ONAiR = GMOグローバルスタジオの制作管理プラットフォー�
 | 案件管理・財務管理・カレンダー・設定・プロジェクト管理 | [`client/`](client/CLAUDE.md) | `/` | 5173 | v4 対象 | 案件・見積・売上・仕入・損益・予定・権限。プロジェクト管理（GLS-B）は `/gpm` |
 | 日常業務 | [`client-daily/`](client-daily/CLAUDE.md) | `/daily/` | 5180 | v4 対象 | 週報・ニュース・内覧会・受領書類・セキュリティカード・タスク |
 | 機材管理 | [`client-equipment/`](client-equipment/CLAUDE.md) | `/equipment/` | 5175 | v4 対象 | 機材台帳・ラック図・貸出・棚卸し・メンテナンス |
+| Wiki | [`client-wiki/`](client-wiki/CLAUDE.md) | `/wiki/` | 5181 | v4 対象 | 手順書・マニュアル・決めごと。Markdown ネイティブ＋AI |
 | 制作技術支援（中に Qシート） | [`client-techops/`](client-techops/CLAUDE.md) | `/techops/`（旧 `/qsheet/` は転送で生存） | 5174 | **凍結解除中** | 台本作成・本番進行（進行／ランダウン／プロンプター／音声サポート）・計時・視聴者・テロップCG・レンタル機材検索。`permissionModule`・DB・サーバーの contexts は `qsheet` のまま |
 | 計時・視聴者 | [`client-live/`](client-live/CLAUDE.md) | `/live/` | 5178 | v4 対象 | 制作技術支援のミニアプリ。アプリ一覧には出ない。**表示画面 `/live/display/` だけは見た目を変えない例外** |
 | リアルタイムCG | [`client-awards/`](client-awards/CLAUDE.md) | `/awards/`（到達不可） | — | **廃止** | 2026-09-06 に廃止。後継は制作技術支援＞テロップCG（`client-techops/src/pages/graphics/`）。コードは参照用に残すだけで、配信・API・ビルド対象から外してある |
@@ -31,23 +32,23 @@ GMO ONAiR = GMOグローバルスタジオの制作管理プラットフォー�
 
 ## 技術構成
 - **フロントエンド**: React 18 + Vite 6 + TypeScript + TailwindCSS 3 + shadcn/ui
-- **バックエンド**: Express + PostgreSQL 16（`pg`）。**1つのサーバーが配信中5アプリの静的ファイルを配信する単一イメージ構成**
-- **モノレポ**: npm workspaces（client, client-daily, client-equipment, client-techops, client-live, client-awards, server, shared）
+- **バックエンド**: Express + PostgreSQL 16（`pg`）。**1つのサーバーが配信中6アプリの静的ファイルを配信する単一イメージ構成**
+- **モノレポ**: npm workspaces（client, client-daily, client-equipment, client-techops, client-live, client-awards, client-wiki, server, shared）
 - **リアルタイム**: Socket.IO（`/techops` 名前空間で OnAir↔ランダウン同期。旧 `/qsheet` はブリッジで生存。ほか graphics / quiz / liveops）
 - **デプロイ先**: CoNoHa VPS（Docker Compose + PostgreSQL + Nginx）。本番と検証を同じ VPS で並走
 
 ### よく使うコマンド
 ```bash
 npm run verify:up      # 検証用 Postgres を立てる（約4秒・ポート5433・本番とは完全分離）
-npm run dev            # 既定3アプリ + server（全アプリは dev:all）
-npm run typecheck      # 既定3アプリ + server（CI は typecheck:all = 廃止アプリを除く全ワークスペース）
+npm run dev            # 既定4アプリ + server（全アプリは dev:all）
+npm run typecheck      # 既定4アプリ + server（CI は typecheck:all = 廃止アプリを除く全ワークスペース）
 npm run lint           # eslint ＋ 各種検査（changelog / トークン / リンク / migration 番号 ほか）
 npm run test           # shared の Vitest ＋ server のレビュー試験（CI が回す。手元の gate にも必ず入れる）
 npm run build:changed  # 変更したワークスペースだけビルド（全部だと約2分）
 npm run verify:ui      # 実ブラウザで書体・桁揃い・横はみ出しを実測
 npm run check:version  # バージョン表記の整合（3か所）
 ```
-`build` / `typecheck` / `dev` の既定が3アプリなのは**手元の速さのため**。本番は Dockerfile が廃止アプリを除く全アプリをビルドする。
+`build` / `typecheck` / `dev` の既定が4アプリ（案件管理・日常業務・機材管理・Wiki）なのは**手元の速さのため**。本番は Dockerfile が廃止アプリを除く全アプリをビルドする。
 
 ### どこに何が書いてあるか
 | 知りたいこと | 読む場所 |

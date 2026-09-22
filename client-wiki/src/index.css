@@ -1,0 +1,109 @@
+/* GMO ONAiR Wiki — 土台は shared/src/client/base.css (高さ・書体・印刷)。
+   このファイルにはアプリ固有の CSS だけを書く。土台を上書きしないこと。 */
+@import '@gmo-onair/shared/src/client/base.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── ページ本文の書式 ──────────────────────────────────────────
+   モック `docs/design/v4/mockups/native/wiki/Page.dc.html` の `.doc` の実測値。
+   本文 14px / 行間 1.85 は一覧の 13.5px より一段大きい — Wiki は「読む」ための
+   アプリで、長文を最後まで追えることを一覧の情報密度より優先するため。
+
+   ここを Tailwind のクラスではなく素の CSS で書いているのは、本文を描くのが
+   react-markdown で、生成される <p> <h2> <ul> に className を付けられないため。
+   色はすべて共通トークンを参照する (生のカラーコードを書かない)。 */
+.wiki-doc {
+  font-size: 14px;
+  line-height: 1.85;
+  color: rgb(var(--foreground));
+}
+.wiki-doc > :first-child { margin-top: 0; }
+.wiki-doc p { margin: 0 0 12px; }
+.wiki-doc h1 { margin: 24px 0 10px; font-size: 23px; line-height: 1.3; font-weight: 800; letter-spacing: -0.01em; }
+.wiki-doc h2 {
+  margin: 26px 0 10px;
+  font-size: 19px;
+  line-height: 1.35;
+  font-weight: 800;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgb(var(--border-subtle));
+}
+.wiki-doc h3 { margin: 18px 0 8px; font-size: 15px; line-height: 1.4; font-weight: 800; }
+.wiki-doc ul, .wiki-doc ol { margin: 0 0 12px; padding-left: 22px; }
+.wiki-doc ul { list-style: disc; }
+.wiki-doc ol { list-style: decimal; }
+.wiki-doc li { margin: 2px 0; }
+.wiki-doc li > p { margin: 0; }
+.wiki-doc strong { font-weight: 800; }
+.wiki-doc a { color: rgb(var(--primary)); text-decoration: underline; text-underline-offset: 2px; }
+.wiki-doc a:hover { color: rgb(var(--primary) / 0.8); }
+.wiki-doc code {
+  font-family: var(--font-mono-ui, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12.5px;
+  background: rgb(var(--muted));
+  border-radius: 5px;
+  padding: 1px 6px;
+}
+.wiki-doc pre {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgb(var(--muted));
+  overflow-x: auto;
+}
+.wiki-doc pre code { background: transparent; padding: 0; font-size: 12.5px; line-height: 1.7; }
+.wiki-doc blockquote {
+  margin: 0 0 12px;
+  padding: 2px 0 2px 14px;
+  border-left: 3px solid rgb(var(--border));
+  color: rgb(var(--muted-foreground));
+}
+.wiki-doc blockquote > :last-child { margin-bottom: 0; }
+.wiki-doc hr { border: none; border-top: 1px solid rgb(var(--border)); margin: 20px 0; }
+.wiki-doc img { max-width: 100%; height: auto; border-radius: 12px; }
+
+/* 表は GFM (remark-gfm)。横に溢れるときは包みの側でスクロールさせる */
+.wiki-doc table { border-collapse: collapse; width: 100%; margin: 6px 0 14px; font-size: 13px; }
+.wiki-doc th {
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: rgb(var(--fg-disabled));
+  padding: 8px 10px;
+  border-bottom: 1px solid rgb(var(--border));
+  white-space: nowrap;
+}
+.wiki-doc td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgb(var(--border-faint));
+  vertical-align: top;
+  line-height: 1.6;
+}
+.wiki-doc .wiki-table-scroll { overflow-x: auto; margin: 0 0 14px; }
+.wiki-doc .wiki-table-scroll > table { margin: 6px 0 0; }
+
+/* 注意書き (> [!NOTE] …) の中身。最後の段落の下余白を殺して箱の高さを詰める */
+.wiki-alert-body > :last-child { margin-bottom: 0; }
+.wiki-alert-body p { margin: 0 0 8px; }
+.wiki-alert-body ul, .wiki-alert-body ol { margin: 0 0 8px; }
+
+/* チェックリスト (`- [ ]`)。class は remark-gfm が付ける `task-list-item`。
+   段A は読むだけなので押せない印にしておく (書き換えは段B の編集で入れる)。
+   既定の行頭記号と左余白を消して、ふつうの段落と行頭を揃える */
+.wiki-doc li.task-list-item { list-style: none; margin-left: -22px; padding-left: 0; }
+.wiki-doc li.task-list-item input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  vertical-align: -2px;
+  accent-color: rgb(var(--primary));
+}
+
+/* スマホでは本文の行間だけ base.css の日本語行間に合わせる (13px までは下げない
+   — 読むためのアプリなので本文は 14px を保つ) */
+@media (max-width: 1023px) {
+  .wiki-doc { line-height: 1.75; }
+  .wiki-doc h1 { font-size: 20px; }
+  .wiki-doc h2 { font-size: 17px; }
+}

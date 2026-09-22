@@ -163,7 +163,11 @@ export function createApp(): express.Express {
       // '/awards' (旧リアルタイムCG) は段F で「廃止」にした (2026-09-06)。後継の
       // テロップCG (client-techops) へ移行済み。詳細は client-awards/CLAUDE.md 参照。
       serveApp('/daily', path.join(__dirname, '../../client-daily/dist'));
+      serveApp('/wiki', path.join(__dirname, '../../client-wiki/dist'));
 
+      // ⚠️ アプリごとの serveApp は**必ずこの行より前**に置くこと。
+      // 下の express.static / app.get('*') は案件管理の SPA を返す受け皿なので、
+      // 後ろに置いたブロックアプリは丸ごと案件管理に食われて白画面になる。
       app.use(express.static(clientDistPath, staticOptions));
       app.get('*', (_req, res) => {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');

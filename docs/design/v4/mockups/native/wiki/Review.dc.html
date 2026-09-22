@@ -65,7 +65,7 @@
         <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 24px;">
           <div style="min-width: 0;">
             <h1 style="margin: 0; font-size: 23px; line-height: 1.3; font-weight: 800; letter-spacing: -.01em;">見直し</h1>
-            <p style="margin: 6px 0 0; font-size: 13.5px; color: #3c424c;">月1回、スペースの担当が確認します。期限切れのページを編集し、AI が答えられなかった質問からページを作成し、AI の修正状況を確認します。</p>
+            <p style="margin: 6px 0 0; font-size: 13.5px; color: #3c424c;">月1回、スペースの担当が確認します。見直し予定日を過ぎたページを編集し、AI が答えられなかった質問からページを作成し、AI の修正状況を確認します。</p>
           </div>
           <div style="flex-shrink: 0; display: flex; align-items: center; gap: 10px;">
             <span style="display: flex; align-items: center; gap: 8px; height: 38px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12.5px;"><span style="color: #9aa1ab; font-weight: 800; font-size: 11px;">スペース</span><span style="width: 8px; height: 8px; border-radius: 2px; background: #c2410e;"></span><span style="font-weight: 800;">制作・技術</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></span>
@@ -82,11 +82,11 @@
           <span class="num" style="font-size: 11.5px; color: #9aa1ab; padding-right: 6px;">{{tabHint}}</span>
         </div>
 
-        <!-- ① 見直し期限 -->
+        <!-- ① 見直し予定 -->
         <sc-if value="{{isDue}}" hint-placeholder-val="{{ true }}">
           <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; overflow: hidden; flex: 1; min-height: 0; display: flex; flex-direction: column;">
             <div style="display: flex; align-items: center; gap: 12px; height: 40px; flex-shrink: 0; padding: 0 16px; border-bottom: 1px solid #e6e9ed; font-size: 11.5px; font-weight: 800; color: #9aa1ab;">
-              <span style="width: 96px; flex-shrink: 0;">状態</span><span style="flex: 1; min-width: 0;">ページ</span><span style="width: 96px; flex-shrink: 0;">担当</span><span style="width: 96px; flex-shrink: 0;">見直し期限</span><span style="width: 96px; flex-shrink: 0;">最終更新</span><span style="width: 200px; flex-shrink: 0;"></span>
+              <span style="width: 96px; flex-shrink: 0;">状態</span><span style="flex: 1; min-width: 0;">ページ</span><span style="width: 96px; flex-shrink: 0;">担当</span><span style="width: 96px; flex-shrink: 0;">見直し予定</span><span style="width: 96px; flex-shrink: 0;">最終更新</span><span style="width: 200px; flex-shrink: 0;"></span>
             </div>
             <div style="flex: 1; min-height: 0; overflow: hidden;">
               <sc-for list="{{due}}" as="d" hint-placeholder-count="7">
@@ -160,7 +160,7 @@
             <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; padding: 14px 16px; display: flex; flex-direction: column;">
               <div style="font-size: 11.5px; font-weight: 800; color: #9aa1ab;">今月の見直し（担当の記録）</div>
               <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px;">
-                <div style="display: flex; align-items: center; gap: 8px;"><span style="width: 18px; height: 18px; border-radius: 5px; background: #e7f6ee; display: flex; align-items: center; justify-content: center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#197a4b" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg></span><span>見直し期限切れ 3件を処理した</span></div>
+                <div style="display: flex; align-items: center; gap: 8px;"><span style="width: 18px; height: 18px; border-radius: 5px; background: #e7f6ee; display: flex; align-items: center; justify-content: center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#197a4b" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg></span><span>要見直し 3件を処理した</span></div>
                 <div style="display: flex; align-items: center; gap: 8px;"><span style="width: 18px; height: 18px; border-radius: 5px; background: #f2f4f7;"></span><span>足りないページ 上位 3件からページを作成した</span></div>
                 <div style="display: flex; align-items: center; gap: 8px;"><span style="width: 18px; height: 18px; border-radius: 5px; background: #f2f4f7;"></span><span>「よく修正される点」を読み、テンプレートを編集した</span></div>
               </div>
@@ -186,7 +186,7 @@ class Component extends DCLogic {
     const self = this;
     const st = this.state;
     const tabDefs = [
-      { key: 'due',  label: '見直し期限',   n: '7', hint: '期限切れ 3 ・ 14日以内 2 ・ 担当なし 2' },
+      { key: 'due',  label: '見直し予定',   n: '7', hint: '要見直し 3 ・ 14日以内 2 ・ 担当なし 2' },
       { key: 'gaps', label: '足りないページ', n: '6', hint: 'AI が答えられなかった質問（回数順）' },
       { key: 'ai',   label: 'AI の修正状況', n: '', hint: '9月 ・ 回答 126 ・ 下書き 9' },
     ];
@@ -199,9 +199,9 @@ class Component extends DCLogic {
     const hint = tabDefs.find((t) => t.key === st.tab).hint;
 
     const due = [
-      { badge: '期限切れ', badgeBg: '#fef6f7', badgeFg: '#c7243a', title: '配信設定の鍵の扱い', path: '制作・技術 ／ 配信', owner: '川口 早苗', ownerFg: '#1a1d24', due: '2026/08/31', dueFg: '#c7243a', updated: '6/10' },
-      { badge: '期限切れ', badgeBg: '#fef6f7', badgeFg: '#c7243a', title: '収録データの保存先と命名', path: '制作・技術 ／ 収録', owner: '大野 健', ownerFg: '#1a1d24', due: '2026/09/15', dueFg: '#c7243a', updated: '5/21' },
-      { badge: '期限切れ', badgeBg: '#fef6f7', badgeFg: '#c7243a', title: '用賀スタジオ 入退室', path: '制作・技術 ／ スタジオ運用', owner: '（なし）', ownerFg: '#c7243a', due: '2026/09/01', dueFg: '#c7243a', updated: '4/11' },
+      { badge: '要見直し', badgeBg: '#eef2ff', badgeFg: '#4338ca', title: '配信設定の鍵の扱い', path: '制作・技術 ／ 配信', owner: '川口 早苗', ownerFg: '#1a1d24', due: '2026/08/31', dueFg: '#4338ca', updated: '6/10' },
+      { badge: '要見直し', badgeBg: '#eef2ff', badgeFg: '#4338ca', title: '収録データの保存先と命名', path: '制作・技術 ／ 収録', owner: '大野 健', ownerFg: '#1a1d24', due: '2026/09/15', dueFg: '#4338ca', updated: '5/21' },
+      { badge: '要見直し', badgeBg: '#eef2ff', badgeFg: '#4338ca', title: '用賀スタジオ 入退室', path: '制作・技術 ／ スタジオ運用', owner: '（なし）', ownerFg: '#c7243a', due: '2026/09/01', dueFg: '#4338ca', updated: '4/11' },
       { badge: 'まもなく', badgeBg: '#fff7ed', badgeFg: '#c2410e', title: '音声サポートの使い方', path: '制作・技術', owner: '川口 早苗', ownerFg: '#1a1d24', due: '2026/10/02', dueFg: '#c2410e', updated: '7/02' },
       { badge: 'まもなく', badgeBg: '#fff7ed', badgeFg: '#c2410e', title: 'YouTube Live の設定手順', path: '制作・技術 ／ 配信', owner: '大野 健', ownerFg: '#1a1d24', due: '2026/10/05', dueFg: '#c2410e', updated: '8/28' },
       { badge: '担当なし', badgeBg: '#f2f4f7', badgeFg: '#5d6470', title: '第2スタジオ 照明の基本セット', path: '制作・技術 ／ スタジオ運用', owner: '（なし）', ownerFg: '#c7243a', due: '2027/01/20', dueFg: '#5d6470', updated: '1/20' },

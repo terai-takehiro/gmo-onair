@@ -48,7 +48,7 @@ import { useAuth } from '@/contexts/platform/AuthContext';
 import { CountUp } from './Reveal';
 
 /** 別バンドル = フルリロードが要るアプリ */
-const SEPARATE_BUNDLE = ['dailyops', 'equipment', 'techops', 'liveops'];
+const SEPARATE_BUNDLE = ['dailyops', 'equipment', 'techops', 'liveops', 'wiki'];
 
 /**
  * 「イベントで使うもの」に回すアプリ。**本番の日にだけ開くもの**

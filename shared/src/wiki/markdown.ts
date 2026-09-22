@@ -30,7 +30,7 @@ export interface WikiHeading {
   line: number;
 }
 
-/** コードの柵（``` … ```）の中の行を false にした表を返す */
+/** コードの柵（``` … ```）の中の行を true にした表を返す */
 function codeFenceMask(lines: string[]): boolean[] {
   const mask: boolean[] = [];
   let inFence = false;
@@ -157,7 +157,7 @@ export function normalizeQuestion(q: string): string {
   return q
     .trim()
     .toLowerCase()
-    .replace(/[、。．，！？!?・：:；;（）()「」『』【】\[\]"'`]/g, '')
+    .replace(/[、。．，！？!?・：:；;（）()「」『』【】[\]"'`]/g, '')
     .replace(/(ですか|でしょうか|ますか|かな|かね)$/u, '')
     .replace(/\s+/g, '')
     .slice(0, 200);

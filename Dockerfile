@@ -49,12 +49,13 @@ COPY client-techops/package.json client-techops/
 COPY client-live/package.json client-live/
 COPY client-awards/package.json client-awards/
 COPY client-daily/package.json client-daily/
+COPY client-wiki/package.json client-wiki/
 COPY server/package.json server/
 COPY shared/package.json shared/
 # 同梱した tarball の依存 (vendor/。pptxgenjs を image-size 抜きで固めたもの・vendor/README.md)。
 # server/package.json が file:../vendor/… を指すので、npm ci の前に無いと解決できずに落ちる。
 COPY vendor/ vendor/
-RUN node -e "const f=require('fs'),W=['package.json','client/package.json','client-equipment/package.json','client-techops/package.json','client-live/package.json','client-awards/package.json','client-daily/package.json','server/package.json','shared/package.json'],V='0.0.0-build';for(const p of W){const j=JSON.parse(f.readFileSync(p,'utf8'));j.version=V;f.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}const l=JSON.parse(f.readFileSync('package-lock.json','utf8'));l.version=V;for(const[k,v]of Object.entries(l.packages||{}))if(v&&v.version&&(k===''||W.includes(k+'/package.json')))v.version=V;f.writeFileSync('package-lock.json',JSON.stringify(l,null,2)+'\n')"
+RUN node -e "const f=require('fs'),W=['package.json','client/package.json','client-equipment/package.json','client-techops/package.json','client-live/package.json','client-awards/package.json','client-daily/package.json','client-wiki/package.json','server/package.json','shared/package.json'],V='0.0.0-build';for(const p of W){const j=JSON.parse(f.readFileSync(p,'utf8'));j.version=V;f.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}const l=JSON.parse(f.readFileSync('package-lock.json','utf8'));l.version=V;for(const[k,v]of Object.entries(l.packages||{}))if(v&&v.version&&(k===''||W.includes(k+'/package.json')))v.version=V;f.writeFileSync('package-lock.json',JSON.stringify(l,null,2)+'\n')"
 
 # ── Stage: deps (依存インストール) ─────────────
 # npm ci を使う (npm install ではなく):
@@ -128,6 +129,12 @@ COPY shared/ shared/
 COPY client-daily/ client-daily/
 RUN npm run build --workspace=client-daily
 
+# ── Stage: build-client-wiki (Wiki) ───────────
+FROM deps AS build-client-wiki
+COPY shared/ shared/
+COPY client-wiki/ client-wiki/
+RUN npm run build --workspace=client-wiki
+
 # ── Stage: build-server ───────────────────────
 # server は現状 shared workspace を import していないが、将来の参照に備えて
 # クライアントと同じく shared/ を含める (並列ビルドなので wall-clock への影響なし)
@@ -178,9 +185,10 @@ COPY --from=build-client-equipment /app/client-equipment/dist client-equipment/d
 COPY --from=build-client-techops /app/client-techops/dist client-techops/dist
 COPY --from=build-client-live /app/client-live/dist client-live/dist
 COPY --from=build-client-daily /app/client-daily/dist client-daily/dist
+COPY --from=build-client-wiki /app/client-wiki/dist client-wiki/dist
 
 # Runtime
-RUN mkdir -p /app/uploads/qsheet /app/uploads/awards
+RUN mkdir -p /app/uploads/qsheet /app/uploads/awards /app/uploads/wiki
 ENV NODE_ENV=production
 ENV PORT=3000
 EXPOSE 3000

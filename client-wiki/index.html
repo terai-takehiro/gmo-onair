@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/wiki/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/wiki/favicon_32x32.png" />
+    <link rel="apple-touch-icon" sizes="144x144" href="/wiki/favicon_144x144.png" />
+    <!-- viewport-fit=cover: ノッチの帯まで背景を敷く (色は base.css の html 側で決める) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
+    <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
+    <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet" />
+    <!-- LINE Seed JP は **リポジトリに同梱**しています (shared/src/client/fonts/)。
+         Google Fonts を読みません — 外に出られない開発コンテナでは代替書体になり、
+         本番も先方が届かない日に全画面が崩れるためです。
+         400 / 700 / 800 だけ入れてあります (LINE Seed JP はこの3つしか無く、
+         font-medium / font-semibold は黙って 400 / 700 に落ちます)。
+         入れ直しは `node scripts/vendor-fonts.mjs`。 -->
+    <title>Wiki - GMO ONAiR</title>
+  </head>
+  <!-- min-h-screen は付けない。base.css が html/body/#root に height:100% を配っており、
+       min-height:100vh と食い違うとスマホで下端が切れる。 -->
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

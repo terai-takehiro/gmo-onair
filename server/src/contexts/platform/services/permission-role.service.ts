@@ -35,9 +35,12 @@ import { queryAll, queryOne, execute } from '../../../shared/db/connection';
  * 技術資料アプリの削除（migration 211）で `techsheet` を外した。
  * 計時・視聴者のミニアプリ化フェーズ2（migration 232）で `liveops` を `qsheet` へ
  * 統合したので外した — 計時・視聴者の権限は `qsheet` 区画が面倒を見る。
+ * Wiki（2026-09-22・`docs/design/v4/wiki.md` §8）で `wiki` を足して6つ。
+ * 日常業務の隣に置いたのは、トップのタイルでも日常業務の隣に並ぶため
+ * （`shared/src/client/apps.ts`）。**`auth.routes.ts` の `MODULES` と同じ並びにすること。**
  */
 export const ROLE_MODULES = [
-  'sales', 'equipment', 'dailyops', 'qsheet', 'awards',
+  'sales', 'equipment', 'dailyops', 'wiki', 'qsheet', 'awards',
 ] as const;
 
 export type RoleLevel = 'reader' | 'editor' | 'manager';

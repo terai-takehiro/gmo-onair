@@ -60,8 +60,11 @@
 
   <div style="display: flex; flex: 1; min-height: 0;">
 
-    <!-- ── 左: スペースの木 ─────────────────────────────────── -->
-    <aside style="width: 264px; flex-shrink: 0; border-right: 1px solid #e6e9ed; background: #ffffff; display: flex; flex-direction: column; overflow: hidden;">
+    <!-- ── 左: 共通の左メニュー（この中にスペースのツリーを出す） ──────
+         ナビの列は1本だけ（2026-09-22 のご指摘「サイドタブが増えすぎて窮屈」）。
+         最初は共通メニューとは別にツリーの列を置いていて、本文に 608px しか
+         残らなかった。ツリーをこの中へ移して本文を 860px にした。 -->
+    <aside style="width: 248px; flex-shrink: 0; border-right: 1px solid #e6e9ed; background: #ffffff; display: flex; flex-direction: column; overflow: hidden;">
       <div style="display: flex; align-items: center; gap: 8px; height: 46px; flex-shrink: 0; padding: 0 12px; border-bottom: 1px solid #e6e9ed;">
         <a href="Main.dc.html" class="tap ghost" aria-label="ホームへ" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 7px; color: #5d6470;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"></path><path d="M5 10v10h14V10"></path></svg></a>
         <span style="width: 10px; height: 10px; border-radius: 3px; background: #c2410e; flex-shrink: 0;"></span>
@@ -82,7 +85,15 @@
           </button>
         </sc-for>
       </div>
-      <div style="flex-shrink: 0; padding: 10px 14px 14px; border-top: 1px solid #f2f4f7; font-size: 11.5px; line-height: 1.6; color: #9aa1ab;">ドラッグで並べ替えできます。</div>
+      <!-- ここから下は共通の左メニューが元から持っている項目（アプリ共通） -->
+      <div style="flex-shrink: 0; border-top: 1px solid #f2f4f7; padding: 6px 8px 10px;">
+        <a href="Main.dc.html" class="tap" style="display: flex; align-items: center; gap: 8px; height: 34px; border-radius: 8px; padding: 0 8px; font-size: 13px; color: #3c424c;"><span style="width: 7px; height: 7px; border-radius: 9999px; background: #cbd2da;"></span>ホーム</a>
+        <a href="Search.dc.html" class="tap" style="display: flex; align-items: center; gap: 8px; height: 34px; border-radius: 8px; padding: 0 8px; font-size: 13px; color: #3c424c;"><span style="width: 7px; height: 7px; border-radius: 9999px; background: #cbd2da;"></span>検索</a>
+        <div style="padding: 8px 8px 2px; font-size: 11px; font-weight: 800; letter-spacing: .06em; color: #9aa1ab;">スペース</div>
+        <a href="Main.dc.html" class="tap" style="display: flex; align-items: center; gap: 8px; height: 32px; border-radius: 8px; padding: 0 8px; font-size: 13px; color: #3c424c;"><span style="width: 7px; height: 7px; border-radius: 9999px; background: #cbd2da;"></span>全社<span style="flex: 1;"></span><span class="num" style="font-size: 11.5px; color: #9aa1ab;">24</span></a>
+        <a href="Main.dc.html" class="tap" style="display: flex; align-items: center; gap: 8px; height: 32px; border-radius: 8px; padding: 0 8px; font-size: 13px; color: #3c424c;"><span style="width: 7px; height: 7px; border-radius: 9999px; background: #cbd2da;"></span>営業<span style="flex: 1;"></span><span class="num" style="font-size: 11.5px; color: #9aa1ab;">31</span></a>
+        <div style="padding: 8px 8px 2px; font-size: 11.5px; line-height: 1.6; color: #9aa1ab;">ツリーはドラッグで並べ替えできます。</div>
+      </div>
     </aside>
 
     <!-- ── 中央: 本文 ──────────────────────────────────────── -->
@@ -95,12 +106,13 @@
         <span style="flex: 1;"></span>
         <a href="Ask.dc.html" style="flex-shrink: 0; white-space: nowrap; display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; border: 1px solid #cfe4f4; background: #f4faff; padding: 0 12px; font-size: 12.5px; font-weight: 700; color: #005bac;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg>このページについて AI に聞く</a>
         <a href="Editor.dc.html" class="btn-primary" style="flex-shrink: 0; white-space: nowrap; display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; background: #005bac; color: #ffffff; padding: 0 14px; font-size: 12.5px; font-weight: 800;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"></path></svg>編集</a>
+        <button class="tap" aria-pressed="true" title="右の情報パネルを開く／閉じる（既定は閉じ。閉じている間は目次と情報が本文の下に出ます）" style="flex-shrink: 0; white-space: nowrap; display: flex; align-items: center; gap: 6px; height: 34px; border-radius: 9px; border: 1px solid #cfe4f4; background: #f4faff; padding: 0 12px; font-size: 12.5px; font-weight: 700; color: #005bac;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M15 4v16"></path></svg>情報</button>
         <button class="tap ghost" aria-label="その他（お気に入り・複製・テンプレートとして保存・Markdown で書き出す・一覧から隠す）" title="お気に入り・複製・テンプレートとして保存・Markdown で書き出す・一覧から隠す" style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5.5" r="1.2"></circle><circle cx="12" cy="12" r="1.2"></circle><circle cx="12" cy="18.5" r="1.2"></circle></svg></button>
       </div>
 
       <div class="doc" style="flex: 1; min-height: 0; overflow: hidden; padding: 24px 40px 0 40px; max-width: 860px;">
         <h1 style="margin: 0 0 6px; font-size: 27px; line-height: 1.3; font-weight: 800; letter-spacing: -.01em;">配信トラブル時の切り分け手順</h1>
-        <p style="margin: 0 0 18px; font-size: 12.5px; color: #5d6470;">配信中に「映像が出ない・音が出ない・配信先に届かない」が起きたときの、最初の 10 分の手順。担当: 川口 早苗 ・ 見直し期限 2027/03/31</p>
+        <p style="margin: 0 0 18px; font-size: 12.5px; color: #5d6470;">配信中に「映像が出ない・音が出ない・配信先に届かない」が起きたときの、最初の 10 分の手順。担当: 川口 早苗 ・ 見直し予定 2027/03/31</p>
 
         <!-- 注意書き（> [!WARNING]） -->
         <div style="display: flex; gap: 10px; border-radius: 12px; border: 1px solid #fed7aa; background: #fff7ed; padding: 11px 14px; margin: 0 0 16px;">
@@ -156,7 +168,7 @@
         <sc-if value="{{isInfo}}" hint-placeholder-val="{{ true }}">
           <div style="display: flex; flex-direction: column; gap: 10px;">
             <div style="display: flex; align-items: center; gap: 10px; min-height: 34px;"><span style="width: 84px; flex-shrink: 0; font-size: 11.5px; font-weight: 800; color: #9aa1ab;">担当</span><span style="display: flex; align-items: center; gap: 7px;"><span style="width: 24px; height: 24px; border-radius: 9999px; background: #fff7ed; color: #c2410e; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center;">川</span><span style="font-size: 13px; font-weight: 700;">川口 早苗</span></span></div>
-            <div style="display: flex; align-items: center; gap: 10px; min-height: 34px;"><span style="width: 84px; flex-shrink: 0; font-size: 11.5px; font-weight: 800; color: #9aa1ab;">見直し期限</span><span class="num" style="display: inline-flex; align-items: center; height: 26px; border-radius: 7px; border: 1px solid #e6e9ed; padding: 0 9px; font-size: 12.5px; font-weight: 700;">2027/03/31</span><span style="font-size: 11px; color: #9aa1ab;">あと 190日</span></div>
+            <div style="display: flex; align-items: center; gap: 10px; min-height: 34px;"><span style="width: 84px; flex-shrink: 0; font-size: 11.5px; font-weight: 800; color: #9aa1ab;">見直し予定</span><span class="num" style="display: inline-flex; align-items: center; height: 26px; border-radius: 7px; border: 1px solid #e6e9ed; padding: 0 9px; font-size: 12.5px; font-weight: 700;">2027/03/31</span><span style="font-size: 11px; color: #9aa1ab;">あと 190日</span></div>
             <div style="display: flex; align-items: flex-start; gap: 10px; min-height: 34px;"><span style="width: 84px; flex-shrink: 0; font-size: 11.5px; font-weight: 800; color: #9aa1ab; padding-top: 6px;">タグ</span><span style="display: flex; flex-wrap: wrap; gap: 5px;"><span style="display: inline-flex; align-items: center; height: 24px; border-radius: 7px; background: #f2f4f7; padding: 0 8px; font-size: 11.5px; font-weight: 700;">配信</span><span style="display: inline-flex; align-items: center; height: 24px; border-radius: 7px; background: #f2f4f7; padding: 0 8px; font-size: 11.5px; font-weight: 700;">トラブル対応</span><span style="display: inline-flex; align-items: center; height: 24px; border-radius: 7px; background: #f2f4f7; padding: 0 8px; font-size: 11.5px; font-weight: 700;">第2スタジオ</span></span></div>
             <div style="display: flex; align-items: center; gap: 10px; min-height: 34px;"><span style="width: 84px; flex-shrink: 0; font-size: 11.5px; font-weight: 800; color: #9aa1ab;">スペース</span><span style="font-size: 13px; font-weight: 700;">制作・技術 ／ 配信</span></div>
             <div style="display: flex; align-items: center; gap: 10px; min-height: 34px;"><span style="width: 84px; flex-shrink: 0; font-size: 11.5px; font-weight: 800; color: #9aa1ab;">作成</span><span class="num" style="font-size: 12.5px; color: #3c424c;">2026/02/14 ・ 大野 健</span></div>
@@ -170,7 +182,7 @@
                 <a href="Page.dc.html" style="display: flex; align-items: center; gap: 8px; height: 30px; font-size: 12.5px; font-weight: 700; color: #1a1d24;"><span style="width: 6px; height: 6px; border-radius: 2px; background: #005bac;"></span><span class="clip1">新人が初日にやること</span></a>
               </div>
             </div>
-            <p style="margin: 6px 0 0; font-size: 11.5px; line-height: 1.6; color: #9aa1ab;">担当・見直し期限・タグは閲覧中でも編集できます（本文の編集ロックとは別）。</p>
+            <p style="margin: 6px 0 0; font-size: 11.5px; line-height: 1.6; color: #9aa1ab;">担当・見直し予定・タグは閲覧中でも編集できます（本文の編集ロックとは別）。</p>
           </div>
         </sc-if>
 

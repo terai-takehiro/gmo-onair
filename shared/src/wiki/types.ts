@@ -56,6 +56,8 @@ export interface WikiPage {
   space_id: string;
   space_key?: string;
   space_name?: string;
+  /** スペースの色（パンくず・印に使う）。サーバーは `GET /wiki/pages/:id` で返す */
+  space_color?: string | null;
   parent_id: string | null;
   sort_order: number;
   title: string;
@@ -70,7 +72,10 @@ export interface WikiPage {
   tags: string[];
   owner_user_id: string | null;
   owner_name?: string | null;
-  /** 見直し期限。任意・既定なし（§10 #10）。"YYYY-MM-DD" */
+  /**
+   * 見直し予定日。任意・既定なし（§10 #10）。"YYYY-MM-DD"
+   * ⚠️ 画面では「期限切れ」と言わない（過ぎても中身は無効にならない）。バッジは「要見直し」
+   */
   review_by: string | null;
   /** 保存のたびに +1。画面では「第N版」 */
   rev: number;
@@ -100,19 +105,32 @@ export interface WikiPage {
   view_from_answer_30d?: number;
 }
 
-export interface WikiPageVersion {
+/**
+ * 履歴の一覧の1行。**本文を持たない。**
+ *
+ * ⚠️ `GET /wiki/pages/:id/versions` は一覧を軽くするため `body_md` を返しません。
+ * 本文が要るとき（版の中身を出す・差分を取る・この版に戻す）は
+ * `GET /wiki/pages/:id/versions/:rev` を引いて `WikiPageVersion` で受けてください。
+ * ここを `WikiPageVersion` で受けると、型は通るのに `body_md` が `undefined` になります。
+ */
+export interface WikiPageVersionBrief {
   id: string;
   page_id: string;
   rev: number;
   title: string;
-  body_md: string;
   tags: string[];
   saved_by: string | null;
   saver_name?: string | null;
   saved_at: string;
   note: string | null;
-  /** AI が書いた版か（画面の「AI作成」の札） */
+  /** AI が書いた版か（画面の「AI作成」の札）。段E で入る */
   by_ai?: boolean;
+}
+
+/** 版1本（本文つき）。`GET /wiki/pages/:id/versions/:rev` の返り */
+export interface WikiPageVersion extends WikiPageVersionBrief {
+  /** ★ その版の本文。一覧（`WikiPageVersionBrief`）には入らない */
+  body_md: string;
 }
 
 export interface WikiComment {
@@ -331,7 +349,7 @@ export interface WikiReviewRow {
   owner_name: string | null;
   review_by: string | null;
   updated_at: string;
-  /** overdue = 期限切れ / soon = 14日以内 / no_owner = 担当なし */
+  /** overdue = 予定日を過ぎた（画面の表示は「要見直し」） / soon = 14日以内 / no_owner = 担当なし */
   bucket: 'overdue' | 'soon' | 'no_owner';
 }
 
