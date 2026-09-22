@@ -2483,6 +2483,32 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#713**（`fix(finance): 決算取込で失注等により削除済みの案件と重複して失敗するのを直した`・
+  2026-09-22）—— 利用者報告「総勘定元帳を取り込めませんでした」（`duplicate key value
+  violates unique constraint "projects_code_key"`）の修正（3コミット・6ファイル・+102/−21）。
+  失注・放置ネタの自動整理（`project-purge.service.ts`）で論理削除された案件のGLS番号を含む
+  取引を決算取込すると、削除済み行を除外しないDBのUNIQUE制約に阻まれ取込全体が失敗する不具合を、
+  新規作成前に削除済みの同一code/gls_numberを探して復活させる形で修正。**Code Reviewで4件
+  （P1×2・P2×2）**が付き、**いずれも同PR内で対応・返信・スレッド解決済み**。①②（P1・本体
+  `kessan-import.service.ts`）復活時に`deleted_at`だけクリアすると`stage`が`e_lost`のままで
+  次回の自動整理で再削除される→`stage='a_won'`に戻した（012d4d8）／削除済み案件の検索が
+  改番済み旧番号（`project_numbers`）を見ておらず重複案件を作りうる→同じ解決を追加
+  （aa22b5d）。③④（P2×2・CLI版`import-kessan-dev.mjs`）仕入専用の未登録GLSで
+  `customer_id=NULL`のままINSERTしようとする／アクティブ検索が`project_numbers`未対応で
+  重複案件を作りうる→本体と同じロジックに揃えた。⚠️ **この2件の修正コミット（cf58402）は
+  スレッド解決の返信を投稿した直後にpushしたが、#713はその直前にマージされており取り込まれて
+  いなかった**（マージ後に`git log`で発覚）。同じ内容を追加PR #714 でmainへ反映し、Codexへの
+  返信内容と実際のコードを一致させた。**表に移す未対応の指摘は無い**。加えて③④の対応中、
+  CLI版が別の理由（`projects.notes`という既に削除された列を参照・`entity_code`未対応など、
+  本体から長期間乖離）で現状`--commit`がそもそも失敗する状態と判明。③④のコードは本体と
+  同一条件に揃えたが実機検証はできていない。CLI版全体の復旧はスコープ外として別タスクに
+  切り出した。Security Reviewは完走（初回コミット時点）しfindings無し。
+  検証: `npm run typecheck`・`npm run lint`（0 errors）・`npm run test`（shared 2469件・
+  server 94件）・`npm run build:changed`・検証用Postgresで「失注+論理削除→決算取込で復活」
+  「改番済み+論理削除→旧番号で復活・重複作成なし」を実機確認（修正前コードでは報告と同一の
+  エラーを再現）。PC/スマホでの実ブラウザ確認は未実施（バックエンドロジック修正が主で、
+  UI変更は取込結果表示への1行追加のみのため）。
+
 - **#708**（`fix(techops): 会場図面の「並べ直す」で数値を変えずに押すだけでグループが動く不具合を直した`・
   2026-09-14）—— #707 で付いたP1指摘（下記）の修正（3ファイル・+38/−13・1コミット）。
   `VenueInspector.tsx`の「並べ直す」は`translateArrangeResult(preview, anchor.x, anchor.y)`で
