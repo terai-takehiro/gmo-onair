@@ -49,7 +49,7 @@
 import type { JourneyStage } from './journey';
 
 /** ミニアプリのキー。URL・API・集計キーに出る安定キー。**あとから変えない** */
-export type MiniAppKey = 'sheet' | 'schedule' | 'manual' | 'recording' | 'streaming' | 'rental' | 'liveops' | 'graphics' | 'venue';
+export type MiniAppKey = 'sheet' | 'schedule' | 'manual' | 'recording' | 'streaming' | 'rental' | 'liveops' | 'graphics' | 'venue' | 'tech';
 
 export type MiniAppKind = 'document' | 'panel';
 
@@ -206,6 +206,18 @@ export const MINI_APPS: MiniAppDef[] = [
     table: 'qsheet_venue_layouts',
     listPath: '/techops/venue-layouts',
     docPath: '/techops/venue-layouts/:id',
+    stages: ['day'],
+    enabled: true,
+  },
+  {
+    kind: 'document',
+    key: 'tech',
+    label: '技術資料',
+    docPrefix: 'TD',
+    docNoSeq: 'prod_doc_td',
+    table: 'qsheet_tech_docs',
+    listPath: '/techops/tech-docs',
+    docPath: '/techops/tech-docs/:id',
     stages: ['day'],
     enabled: true,
   },

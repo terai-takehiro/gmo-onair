@@ -131,6 +131,22 @@ export const TECHOPS_PC_ONLY: PcOnlyEntry[] = [
     instead: { label: '会場図面の一覧を開く', to: '/techops/venue-layouts' },
   },
   {
+    // 技術資料・パッチ盤（tech-docs.md §6⑤）。18枚の盤の絵と 48ch × 2段の番号の表を
+    // 並べて転記する manager 向けの台帳で、狭い幅では組めません
+    path: '/techops/tech-panels',
+    what: '技術資料のパッチ盤',
+    why: '盤の絵とパッチ番号の表を見比べながら機材名・名称を転記する画面で、狭い幅では組めません。',
+    instead: { label: '技術資料の一覧を開く', to: '/techops/tech-docs' },
+  },
+  {
+    // 技術資料・技術人員（tech-docs.md §6⑥）。会社の並び・役職・参加回数を見ながら
+    // 人を足す・直す manager 向けの台帳で、パッチ盤と同じ理由
+    path: '/techops/tech-persons',
+    what: '技術資料の技術人員',
+    why: '会社ごとの人と役職をまとめて登録・編集する画面で、狭い幅では組めません。',
+    instead: { label: '技術資料の一覧を開く', to: '/techops/tech-docs' },
+  },
+  {
     // 表示レイアウトエディタ（13-live-display-layout-editor.md §6-3）。要素カードの
     // ドラッグ・リサイズ操作が前提のため、375px幅での対応は本設計のスコープ外にした
     // （§9-3で利用者に確認済み）。テンプレートライブラリ（閲覧・適用）はスマホ対応の対象
@@ -172,6 +188,9 @@ export const TECHOPS_MOBILE_OK: string[] = [
   '/techops/manuals/:id',    // 運営マニュアル・マニュアル1件。スマホは閲覧専用画面に丸ごと入れ替わる（PCは引き続き編集・段E・§6⑥）
   '/techops/venue-layouts',      // 会場図面の一覧（venue-layout.md §1「①一覧は両端末」）
   '/techops/venue-layouts/:id',  // 会場図面1件。スマホは閲覧専用に丸ごと入れ替わる（PCは編集・§1「②編集（スマホは閲覧）」）
+  '/techops/tech-docs',          // 技術資料の一覧（tech-docs.md §1-1「①一覧は両方の端末」）
+  '/techops/tech-docs/:id',      // 技術資料・映像パッチ。スマホは閲覧（PCは編集・§1-1）
+  '/techops/tech-docs/:id/staff',// 技術資料・技術スタッフ。同じ資料のタブ切替（同上）
 
   // 収録設定・配信設定の簡易入口（旧 `/techops/device-settings`）は2026-08-22 に廃止（`App.tsx` にルート無し）
   '/techops/recording/:ownerKey', // 収録設定（PC表＋スマホは下シートに畳む）

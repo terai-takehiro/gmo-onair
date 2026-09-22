@@ -53,7 +53,7 @@
  * 実装（3本前提の決め打ちレイアウトは無い）ので、1本・3本のどちらでも崩れない
  * ことを確認した上でこの形にしている。
  */
-import { LayoutDashboard, LayoutGrid, CalendarDays, Settings2, Package, Timer, Type, Radio, BookOpenCheck, BookOpenText, MapPin } from 'lucide-react';
+import { LayoutDashboard, LayoutGrid, CalendarDays, Settings2, Package, Timer, Type, Radio, BookOpenCheck, BookOpenText, MapPin, Cable, Users } from 'lucide-react';
 import type { ShellMobileTab, ShellNavSection } from '@gmo-onair/shared/src/client/shell';
 import { MINI_APP_BY_KEY, panelPathOf } from '@gmo-onair/shared/src/production/miniapps';
 import type { ProductionNavContext } from '@/lib/productionNavContext';
@@ -81,6 +81,9 @@ const DOCS_RE = /^\/techops\/docs\/[^/?#]+\/?$/;
 // 会場図面1件（②編集・スマホは閲覧）。仕上がり（`/preview`）はここに含めない
 // （運営マニュアルの仕上がりも案件文脈の解決対象に入れていない前例と同じ）
 const VENUE_DETAIL_RE = /^\/techops\/venue-layouts\/[^/?#]+\/?$/;
+// 技術資料1件（②映像パッチ・③技術スタッフ。同じ資料のタブ切替なので1本で受ける）。
+// 書き出し（`/print`）はここに含めない（会場図面の仕上がりと同じ扱い・tech-docs.md §12 #5）
+const TECH_DOC_DETAIL_RE = /^\/techops\/tech-docs\/[^/?#]+(?:\/staff)?\/?$/;
 
 function safeDecode(v: string): string {
   try {
@@ -131,7 +134,7 @@ function resolveContext(
     return { scope: 'program', id, label: storeCtx?.id === id ? storeCtx.label : null };
   }
 
-  if (pathname === '/techops/sheets' || pathname === '/techops/schedules' || pathname === '/techops/manuals' || pathname === '/techops/venue-layouts') {
+  if (pathname === '/techops/sheets' || pathname === '/techops/schedules' || pathname === '/techops/manuals' || pathname === '/techops/venue-layouts' || pathname === '/techops/tech-docs') {
     const projectId = searchParams.get('project');
     if (projectId) return { scope: 'project', id: projectId, label: storeCtx?.id === projectId ? storeCtx.label : null };
     const programId = searchParams.get('program');
@@ -144,7 +147,7 @@ function resolveContext(
     return storeCtx && storeCtx.id === panelOwnerKey ? storeCtx : null;
   }
 
-  if (EDITOR_RE.test(pathname) || SCHEDULE_DETAIL_RE.test(pathname) || MANUAL_DETAIL_RE.test(pathname) || DOCS_RE.test(pathname) || VENUE_DETAIL_RE.test(pathname)) {
+  if (EDITOR_RE.test(pathname) || SCHEDULE_DETAIL_RE.test(pathname) || MANUAL_DETAIL_RE.test(pathname) || DOCS_RE.test(pathname) || VENUE_DETAIL_RE.test(pathname) || TECH_DOC_DETAIL_RE.test(pathname)) {
     return storeCtx ?? null;
   }
 
@@ -156,11 +159,12 @@ function hubPathOf(ctx: ProductionNavContext): string {
   return ctx.scope === 'project' ? `/techops/projects/${id}` : `/techops/programs/${id}`;
 }
 
-function listPathOf(app: 'sheet' | 'schedule' | 'manual' | 'venue', ctx: ProductionNavContext): string {
+function listPathOf(app: 'sheet' | 'schedule' | 'manual' | 'venue' | 'tech', ctx: ProductionNavContext): string {
   const listPath = app === 'sheet' ? '/techops/sheets'
     : app === 'schedule' ? '/techops/schedules'
     : app === 'manual' ? '/techops/manuals'
-    : '/techops/venue-layouts';
+    : app === 'venue' ? '/techops/venue-layouts'
+    : '/techops/tech-docs';
   return `${listPath}?${ctx.scope}=${encodeURIComponent(ctx.id)}`;
 }
 
@@ -193,9 +197,16 @@ function hubLabelOf(ctx: ProductionNavContext): string {
  * 最後に足す（スマホ下タブには足さない — 3本ルールの枠を日常業務でない管理メニューで
  * 潰さないため。スマホでは左メニューから開ける）。
  */
-function adminSection(opts?: { canManageAiKnowledge?: boolean; isSystemAdmin?: boolean }): ShellNavSection | null {
+function adminSection(opts?: { canManageAiKnowledge?: boolean; canManageTechMasters?: boolean; isSystemAdmin?: boolean }): ShellNavSection | null {
   const items = [];
   if (opts?.canManageAiKnowledge) items.push({ label: 'AIナレッジの承認', to: '/techops/ai-knowledge', icon: BookOpenCheck });
+  // 技術資料の台帳2つ（パッチ盤・技術人員）。どちらも案件に紐づかない組織共通のもので、
+  // 編集できるのは manager だけ（tech-docs.md §5-4）。reader も直URLでは読めるが、
+  // 転記・台帳の手入れが仕事であるこのメニューは manager にだけ見せる
+  if (opts?.canManageTechMasters) {
+    items.push({ label: 'パッチ盤', to: '/techops/tech-panels', icon: Cable });
+    items.push({ label: '技術人員', to: '/techops/tech-persons', icon: Users });
+  }
   if (opts?.isSystemAdmin) {
     items.push({ label: 'スケジュール表の工程テンプレート', to: '/techops/settings/schedule-templates', icon: CalendarDays });
   }
@@ -250,6 +261,7 @@ function buildResolvedSections(ctx: ProductionNavContext, inGraphics: boolean): 
     { label: MINI_APP_BY_KEY.schedule.label, to: listPathOf('schedule', ctx), icon: CalendarDays },
     { label: MINI_APP_BY_KEY.manual.label, to: listPathOf('manual', ctx), icon: BookOpenText },
     { label: MINI_APP_BY_KEY.venue.label, to: listPathOf('venue', ctx), icon: MapPin },
+    { label: MINI_APP_BY_KEY.tech.label, to: listPathOf('tech', ctx), icon: Cable },
     { label: MINI_APP_BY_KEY.recording.label, to: panelPathOf('recording', ctx.id), icon: Settings2 },
     { label: MINI_APP_BY_KEY.streaming.label, to: panelPathOf('streaming', ctx.id), icon: Settings2 },
     { label: MINI_APP_BY_KEY.rental.label, to: panelPathOf('rental', ctx.id), icon: Package },
@@ -291,7 +303,7 @@ export function buildQsheetNav(
   pathname: string,
   searchParams: URLSearchParams,
   storeCtx: ProductionNavContext | null,
-  opts?: { canManageAiKnowledge?: boolean; isSystemAdmin?: boolean },
+  opts?: { canManageAiKnowledge?: boolean; canManageTechMasters?: boolean; isSystemAdmin?: boolean },
 ): { sections: ShellNavSection[]; mobileTabs: ShellMobileTab[] } {
   const ctx = resolveContext(pathname, searchParams, storeCtx);
   const inGraphics = !!ctx && GRAPHICS_RE.test(pathname);
