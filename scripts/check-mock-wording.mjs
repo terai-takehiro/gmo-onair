@@ -47,18 +47,29 @@ const RULES = [
   {
     id: 'metaphor-wording',
     // 開発文書の比喩語（`docs/wording.md` ルール11）。1文字の語は普通の語と衝突するので比喩の形だけを見る。
-    // 「小道具」「大道具」「棚卸」は業務語なので除く。
-    re: /決めごと|きめごと|(?<![小大])道具|手つき|作法|手入れ|棚(?!卸)|札(?=[がをに]付)|(?<=の)帯(?=[をがに]|$)|(?<=の)木(?![曜材])|(?<=の)種(?![類別])|(?<=の)器(?=[にをが]|$)/g,
-    why: '開発文書の比喩語は画面に出しません（`docs/wording.md` ルール11: 道具→アプリ／機能・決めごと→ルール・棚→区分・札→表示・帯→バナー／ツールバー・木→ツリー・種→候補・手つき／作法→操作）',
+    // 「小道具」「大道具」「棚卸」「穴埋め」は業務語なので除く。「口」は `の口を` の形だけ
+    // （窓口・人口・口座と衝突するため）。`入口`/`出口` はそのまま見る。
+    re: /決めごと|きめごと|(?<![小大])道具|手つき|作法|手入れ|棚(?!卸)|札(?=[がをに]付)|入口|出口|(?<=の)口(?=[をがには]|$)|生きて(?:いる|る)|凍(?=[るっり])|古び|穴(?!埋)|(?<=の)帯(?=[をがに]|$)|(?<=の)木(?![曜材])|(?<=の)種(?![類別])|(?<=の)器(?=[にをが]|$)/g,
+    why: '開発文書の比喩語は画面に出しません（`docs/wording.md` ルール11: 道具→アプリ／機能・決めごと→ルール・棚→区分・札→表示・帯→バナー／ツールバー・木→ツリー・種→候補・手つき／作法→操作・入口／出口／口→メニュー／リンク／入力欄／連携・生きている／凍る／古びる→有効／固定／期限切れ・穴→不足／未対応）',
   },
 ];
 
-/** 画面に出る文字だけを残す（HTML コメント・JS コメント・タグを落とす） */
+/** タグの中でも**画面に出る**属性。ここだけはタグを落とすときに拾う */
+const TEXT_ATTRS = /\b(?:placeholder|title|aria-label|aria-description|aria-placeholder|alt|value)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
+
+/** 画面に出る文字だけを残す（HTML コメント・JS コメント・タグを落とし、画面に出る属性は残す） */
 function visibleText(html) {
   let t = html.replace(/<!--[\s\S]*?-->/g, ' ');
   t = t.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gi, (_, js) => ' ' + js.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"`])\/\/[^\n]*/g, '$1') + ' ');
   t = t.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ');
-  t = t.replace(/<[^>]+>/g, ' ');
+  // タグは落とすが、**画面に出る属性の文字は残す**（placeholder・title・aria-label・alt・value）。
+  // 丸ごと落としていたため `aria-label="…木を開く"` のような文言が検査を素通りしていた
+  // （2026-09-22 Codex 指摘 P2）。
+  t = t.replace(/<[^>]+>/g, (tag) => {
+    let keep = ' ';
+    for (const m of tag.matchAll(TEXT_ATTRS)) keep += (m[1] ?? m[2] ?? '') + ' ';
+    return keep;
+  });
   return t;
 }
 
@@ -88,15 +99,15 @@ for (const file of files) {
 /** ファイル別の記録（2026-09-22 の実測。減らしたら --update で下げる） */
 const BASELINE = {
   "docs/design/v4/mockups/keep-report/Flow.dc.html": { "forbidden-wording": 1 },
+  "docs/design/v4/mockups/keep-report/Main.dc.html": { "metaphor-wording": 1 },
   "docs/design/v4/mockups/native/production-manual/Editor.dc.html": { "metaphor-wording": 1 },
-  "docs/design/v4/mockups/native/production-manual/Map.dc.html": { "forbidden-wording": 1, "metaphor-wording": 1 },
-  "docs/design/v4/mockups/native/production-manual/Preview.dc.html": { "metaphor-wording": 1 },
+  "docs/design/v4/mockups/native/production-manual/Insert.dc.html": { "metaphor-wording": 1 },
+  "docs/design/v4/mockups/native/production-manual/Map.dc.html": { "forbidden-wording": 1, "metaphor-wording": 5 },
   "docs/design/v4/mockups/native/telop-cg/Map.dc.html": { "forbidden-wording": 1, "metaphor-wording": 1 },
   "docs/design/v4/mockups/native/telop-cg/MobileList.dc.html": { "forbidden-wording": 1 },
   "docs/design/v4/mockups/native/telop-cg/Settings.dc.html": { "metaphor-wording": 2 },
-  "docs/design/v4/mockups/native/venue-layout/Editor.dc.html": { "metaphor-wording": 1 },
-  "docs/design/v4/mockups/native/venue-layout/Manual.dc.html": { "metaphor-wording": 2 },
-  "docs/design/v4/mockups/native/venue-layout/Map.dc.html": { "metaphor-wording": 2 },
+  "docs/design/v4/mockups/native/venue-layout/Manual.dc.html": { "metaphor-wording": 4 },
+  "docs/design/v4/mockups/native/venue-layout/Map.dc.html": { "metaphor-wording": 5 },
   "docs/design/v4/mockups/native/venue-layout/Preview.dc.html": { "metaphor-wording": 1 }
 };
 
