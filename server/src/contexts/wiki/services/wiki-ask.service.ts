@@ -31,7 +31,7 @@ import { WikiAnswerSchema, WIKI_ANSWER_SYSTEM, buildAnswerPrompt } from './wiki-
 import { wikiAdviceFor } from './wiki-ai-digest.service';
 import { registerGap } from './wiki-ai-gap.service';
 import {
-  createThread, assertOwnThread, assertOwnMessage, listMessages, nextSeq, transcriptOf,
+  createThread, assertOwnThread, assertOwnMessage, listMessages, transcriptOf,
   titleThreadIfEmpty, newMessageId, selectMessage,
 } from './wiki-ai-thread.service';
 import {
@@ -60,9 +60,22 @@ export interface AskResult {
 }
 
 /** 会話の1行を積む。`seq` は `UNIQUE (thread_id, seq)` なので取り合いにならない */
+/**
+ * 発言を1つ足す。**番号（`seq`）は入れる瞬間に DB 側で採ります。**
+ *
+ * ⚠️ **先に採った番号を持ち回らないこと。** `MAX(seq) + 1` を JS 側で採ってから
+ * 入れていたころは、同じスレッドに2つの質問がほぼ同時に来ると**後の回が
+ * 先の回と同じ番号を取り**、先の回は**長い AI の呼び出しを終えたあとで**
+ * `UNIQUE (thread_id, seq)` に弾かれていました（質問だけが残り、答えが落ちる。
+ * Codex の指摘・P2）。`INSERT ... SELECT` なら1文の中で採って入れるので、
+ * 採ってから入れるまでの隙間がありません。
+ *
+ * ⚠️ **それでも稀に衝突します**（2つの `INSERT` が同じ瞬間に同じ `MAX` を読む）。
+ * そのときは一意制約が弾くので、**数回だけ採り直します**。諦めるより、
+ * 番号が1つ飛ぶほうがましです。
+ */
 async function addMessage(
   threadId: string,
-  seq: number,
   role: 'user' | 'assistant',
   contentMd: string,
   extra: {
@@ -74,19 +87,31 @@ async function addMessage(
   } = {},
 ): Promise<string> {
   const id = newMessageId();
-  await execute(
-    `INSERT INTO wiki_ai_messages
-       (id, thread_id, seq, role, content_md, citations, confidence,
-        ai_output_id, model, prompt_version)
-     VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?)`,
-    [
-      id, threadId, seq, role, contentMd,
-      extra.citations ? JSON.stringify(extra.citations) : null,
-      extra.confidence ?? null,
-      extra.outputId ?? null, extra.model ?? null, extra.promptVersion ?? null,
-    ],
-  );
-  return id;
+  // 並びは SQL の `?` と1対1。最後の1つは `WHERE thread_id`（番号を数える先）
+  const params = [
+    id, threadId, role, contentMd,
+    extra.citations ? JSON.stringify(extra.citations) : null,
+    extra.confidence ?? null,
+    extra.outputId ?? null, extra.model ?? null, extra.promptVersion ?? null,
+    threadId,
+  ];
+  for (let tries = 0; ; tries += 1) {
+    try {
+      await execute(
+        `INSERT INTO wiki_ai_messages
+           (id, thread_id, seq, role, content_md, citations, confidence,
+            ai_output_id, model, prompt_version)
+         SELECT ?, ?, COALESCE(MAX(seq), 0) + 1, ?, ?, ?::jsonb, ?, ?, ?, ?
+           FROM wiki_ai_messages WHERE thread_id = ?`,
+        params,
+      );
+      return id;
+    } catch (e) {
+      // 一意制約（23505）だけ採り直す。ほかの失敗はそのまま上へ
+      const code = (e as { code?: string }).code;
+      if (code !== '23505' || tries >= 4) throw e;
+    }
+  }
 }
 
 /** 右の欄に出す形（**本文は返しません** — 読める人でも1画面に全文を出す意味が無い） */
@@ -129,8 +154,7 @@ export async function ask(user: WikiUser, input: AskInput): Promise<AskResult> {
 
   const materials = await gatherMaterials(user, { question, pageId: contextPageId, spaceId });
 
-  const seq = await nextSeq(threadId);
-  await addMessage(threadId, seq, 'user', question);
+  await addMessage(threadId, 'user', question);
   await titleThreadIfEmpty(threadId, question);
 
   const normalized = normalizeQuestion(question);
@@ -144,6 +168,12 @@ export async function ask(user: WikiUser, input: AskInput): Promise<AskResult> {
   let dropped: ReturnType<typeof verifyCitations>['dropped'] = [];
   let model: string | null = null;
   let rawCitationCount = 0;
+  /*
+   * AI 自身が申告した確からしさ。⚠️ **材料が無くて呼ばなかった回と区別が要る**ので
+   * `null` を初期値にします（`'none'` にすると「AI が書かれていないと言った」と
+   * 記録が読めてしまい、材料が集まらなかっただけの回と混ざります）。
+   */
+  let rawConfidence: 'cited' | 'none' | null = null;
 
   if (materials.length > 0) {
     const userPrompt = buildAnswerPrompt({
@@ -162,6 +192,7 @@ export async function ask(user: WikiUser, input: AskInput): Promise<AskResult> {
     }, user.id);
     model = out.model;
     rawCitationCount = (out.raw.citations ?? []).length;
+    rawConfidence = out.raw.confidence === 'cited' ? 'cited' : 'none';
     const checked = verifyCitations(out.raw.citations ?? [], materials);
     citations = checked.citations;
     dropped = checked.dropped;
@@ -175,7 +206,16 @@ export async function ask(user: WikiUser, input: AskInput): Promise<AskResult> {
    *   - 残った出典が0件（材料に無いページを指していた＝作文）
    *   - 答えの本文が空
    */
-  const cited = citations.length > 0 && answerMd.length > 0;
+  /*
+   * ⚠️ **AI が `none` と言った回は、出典が残っていても落とします。**
+   * スキーマは「`confidence='none'` なのに本文と出典がある」という
+   * **中で食い違った答え**も通してしまいます（`z.enum` は組み合わせを縛れない）。
+   * 上の約束を書いておきながら `confidence` を見ていなかったため、
+   * **AI が自分で「書かれていない」と言った回を「出典つきの答え」として出し**、
+   * 足りないページにも登録しない状態でした（Codex の指摘・P1）。
+   * 申告と中身が食い違うときは、**安全な側（答えない）**を採ります。
+   */
+  const cited = rawConfidence === 'cited' && citations.length > 0 && answerMd.length > 0;
   const confidence: 'cited' | 'none' = cited ? 'cited' : 'none';
   const contentMd = cited ? answerMd : WIKI_NO_ANSWER_MD;
 
@@ -212,7 +252,7 @@ export async function ask(user: WikiUser, input: AskInput): Promise<AskResult> {
     actorId: user.id,
   });
 
-  const messageId = await addMessage(threadId, seq + 1, 'assistant', contentMd, {
+  const messageId = await addMessage(threadId, 'assistant', contentMd, {
     citations, confidence, outputId, model, promptVersion,
   });
   if (outputId) {

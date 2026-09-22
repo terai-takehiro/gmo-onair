@@ -110,10 +110,14 @@ export async function listMessages(threadId: string): Promise<Record<string, unk
   return queryAll(`${MESSAGE_SELECT} WHERE m.thread_id = ? ORDER BY m.seq`, [threadId]);
 }
 
-export async function nextSeq(threadId: string): Promise<number> {
-  const row = await queryOne('SELECT COALESCE(MAX(seq), 0) AS n FROM wiki_ai_messages WHERE thread_id = ?', [threadId]);
-  return Number(row?.n ?? 0) + 1;
-}
+/*
+ * ⚠️ **`nextSeq`（`MAX(seq) + 1` を先に採る）は置きません。**
+ * 採ってから入れるまでの間に別の質問が同じ番号を取り、**先の回が長い AI の
+ * 呼び出しを終えたあとで `UNIQUE (thread_id, seq)` に弾かれて**いました
+ *（質問だけが残り、答えが落ちる。Codex の指摘・P2）。番号は
+ * `wiki-ask.service.ts` の `addMessage` が **入れる瞬間に DB 側で**採ります。
+ * ここに同じ形の関数を戻さないでください。
+ */
 
 /** 直前の往復をプロンプトに載せる形にする（「言い直して」への追従） */
 export function transcriptOf(messages: Record<string, unknown>[], turns: number): string {

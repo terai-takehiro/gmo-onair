@@ -23,7 +23,7 @@ import { findView } from '../../wiki/services/wiki-database.service';
 import { applyView } from '../../wiki/services/wiki-view-apply';
 import type { WikiView, WikiViewFilter } from '../../wiki/services/wiki-database-schema';
 import { clampLimit, ok, type ToolResult } from '../helpers';
-import { requireWikiActor, resolveSpaceId } from './wiki.access';
+import { requireWikiActor, resolveSpaceId, assertPublishedForStaticKey } from './wiki.access';
 
 /** ツリーで一度に返す行の上限（超えたら `truncated` を付けて知らせる） */
 const MAX_TREE = 500;
@@ -109,6 +109,8 @@ export async function searchWiki(args: SearchWikiArgs): Promise<ToolResult> {
 /** `get_wiki_page` の中身 */
 export async function getWikiPage(args: { page_id: string }): Promise<ToolResult> {
   const user = await requireWikiActor();
+  // 静的キーでは公開ページだけ（`assertPublishedForStaticKey` の注記）
+  await assertPublishedForStaticKey(user, args.page_id);
   const md = await getPageMarkdown(user, args.page_id);
   return ok({
     id: args.page_id,
@@ -172,6 +174,13 @@ export interface QueryWikiDatabaseArgs {
 /** `query_wiki_database` の中身 */
 export async function queryWikiDatabase(args: QueryWikiDatabaseArgs): Promise<ToolResult> {
   const user = await requireWikiActor();
+  /*
+   * ⚠️ **データベースの口も同じ**（`get_wiki_page` の注記）。`listRows` は
+   * `assertDatabasePage` → `canReadPage` を通るだけなので、静的キーでも
+   * **一覧から隠した（`archived`）台帳の行**が id さえ分かれば取れてしまいます。
+   * Codex の指摘は `get_wiki_page` の1本だけでしたが、**同じ穴が2つ**ありました。
+   */
+  await assertPublishedForStaticKey(user, args.page_id);
   const { items, views, view_id, rows, truncated } = await listRows(user, args.page_id, args.view);
   let hits = rows;
   if (args.filters && args.filters.length > 0) {

@@ -95,6 +95,34 @@ export async function requireWikiActor(minLevel: 'reader' | 'editor' = 'reader')
  * スペースを**短い英数字（`key`）でも id でも**受ける。
  * 読めないスペースは「無い」と返します（§8。存在ごと隠す）。
  */
+/**
+ * 静的 API キー（誰でもない鍵）のとき、**公開ページ以外は「無い」として止める**。
+ *
+ * ⚠️ **`canReadPage` は下書き以外をすべて通します**（`archived` も含む）。
+ * 上の表は静的キーを「`visibility='all'` のスペースの**公開ページ**だけ」と
+ * 決めているのに、`get_wiki_page` は `assertReadablePage` に任せていたので、
+ * **鍵を持っている人が id さえ知っていれば、一覧にも検索にも出ない
+ * `archived` のページの全文を取れて**いました（Codex の指摘・P2）。
+ * 隠したページを「探せないから安全」で済ませない、というのがここの要点です。
+ *
+ * ⚠️ **OAuth のときは何もしません。** そちらは画面と同じ範囲が正しく、
+ * 自分の下書きや一覧から隠したページを MCP から読めてよいためです。
+ */
+export async function assertPublishedForStaticKey(
+  actor: WikiMcpActor,
+  pageId: string,
+): Promise<void> {
+  if (actor.isOAuth) return;
+  const row = await queryOne(
+    "SELECT status FROM wiki_pages WHERE id = ? AND deleted_at IS NULL",
+    [pageId],
+  );
+  if (!row || String(row.status) !== 'published') {
+    // 画面と同じく **404**（存在ごと隠す・設計 §8）
+    throw new AppError(404, 'NOT_FOUND', 'ページが見つかりません');
+  }
+}
+
 export async function resolveSpaceId(user: WikiUser, space: string): Promise<string> {
   const row = await queryOne(
     'SELECT id FROM wiki_spaces WHERE (key = ? OR id = ?) AND deleted_at IS NULL LIMIT 1',

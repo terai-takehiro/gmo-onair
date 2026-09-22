@@ -119,9 +119,18 @@ export async function replaceWikiCorrections(
   outputId: string,
   diffs: CorrectionInput[],
   userId: string | null,
+  /*
+   * ⚠️ **入れ直す行のほかに、消しておきたい項目**。
+   * 自動保存は1.5秒ごとに走るので、「直した → 元に戻した」が普通に起きます。
+   * 戻したときに入れるのは `(全体) none` の1行だけで、**前に積んだ
+   * `title` / `body_md` の行はそのまま残って**いました。同じ出力が
+   * 「無修正で採用」と「直された」の両方に数えられ、**digest の無修正率が壊れます**
+   *（Codex の指摘・P2）。戻した回は、消す先も渡してもらいます。
+   */
+  alsoClear: readonly string[] = [],
 ): Promise<void> {
   if (!diffs.length) return;
-  const paths = [...new Set(diffs.map((d) => d.fieldPath))];
+  const paths = [...new Set([...diffs.map((d) => d.fieldPath), ...alsoClear])];
   if (diffs.some((d) => d.type !== 'none')) paths.push(AS_IS_FIELD);
   try {
     await execute(
@@ -184,7 +193,10 @@ export async function recordWikiDraftCorrections(
 
   if (diffs.length === 0) {
     // **無修正で通した**ことを残す。これが正解ラベルで、無いと分母が壊れる
-    await replaceWikiCorrections(out.id, [{ fieldPath: AS_IS_FIELD, type: 'none', note }], userId);
+    // ⚠️ 前の保存で積んだ項目ごとの行も**消してから**入れる（上の `alsoClear` の注記）
+    await replaceWikiCorrections(
+      out.id, [{ fieldPath: AS_IS_FIELD, type: 'none', note }], userId, DRAFT_FIELDS,
+    );
     return;
   }
   // 直さなかった項目も残す（分母）
