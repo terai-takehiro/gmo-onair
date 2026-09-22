@@ -37,6 +37,12 @@ const PAIRS = [
   // 「回を足す」の入力パーサー（"1-2" 等）。画面側のプレビューとサーバー側の検証が
   // 同じ読み取り結果を返す必要がある（episode-batch-text-input）
   ['server/src/shared/production/episodeSpec.ts', 'shared/src/production/episodeSpec.ts'],
+  // 技術資料（tech-docs.md §5）: 型・パッチ番号の組み立て・役職の並び・矢印表記。
+  // サーバーは pg の行をそのまま返すので、型が食い違うと画面が静かに空欄になる
+  ['server/src/shared/tech/types.ts', 'shared/src/tech/types.ts'],
+  ['server/src/shared/tech/patchNo.ts', 'shared/src/tech/patchNo.ts'],
+  ['server/src/shared/tech/roles.ts', 'shared/src/tech/roles.ts'],
+  ['server/src/shared/tech/patchExport.ts', 'shared/src/tech/patchExport.ts'],
 ];
 
 /** 行コメント・ブロックコメント・空行を落として「実装だけ」を取り出す */

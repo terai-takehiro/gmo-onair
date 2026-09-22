@@ -19,6 +19,8 @@ import manualLockRoutes from './routes/manual-lock.routes';
 import manualTemplatesRoutes from './routes/manual-templates.routes';
 import venueLayoutsRoutes from './routes/venue-layouts.routes';
 import venueFloorsRoutes from './routes/venue-floors.routes';
+import techDocsRoutes from './routes/tech-docs.routes';
+import techMastersRoutes from './routes/tech-masters.routes';
 import schedulesRoutes from './routes/schedules.routes';
 import scheduleColumnsRoutes from './routes/schedule-columns.routes';
 import scheduleItemsRoutes from './routes/schedule-items.routes';
@@ -70,6 +72,11 @@ export function createQsheetRoutes(prefix: string): Router {
   // 会場図面（段A〜B・venue-layout.md）。会場・階・エリア・備品カタログは読み取り専用（段Fで書き込みを足す）
   router.use(prefix, venueLayoutsRoutes);
   router.use(prefix, venueFloorsRoutes);
+
+  // 技術資料（段A・tech-docs.md）。映像パッチ・技術スタッフと、組織共通のマスタ
+  // （パッチ盤・会社・技術人員）。`/qsheet` と `/techops` の二重マウントで両方に出る
+  router.use(prefix, techDocsRoutes);
+  router.use(prefix, techMastersRoutes);
 
   // スケジュール表（段4・04-schedule-impl.md §4）
   router.use(prefix, schedulesRoutes);
