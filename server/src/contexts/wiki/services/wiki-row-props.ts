@@ -20,6 +20,7 @@
 import { queryAll, queryOne } from '../../../shared/db/connection';
 import { ValidationError } from '../../qsheet/services/httpErrors';
 import {
+  WIKI_ONAIR_KINDS,
   isValidPropValue,
   sanitizeProps,
   type WikiItem,
@@ -91,6 +92,14 @@ export async function assertOnairTargetsExist(
     const value = props[item.id];
     if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
     const link = value as { kind: WikiOnairKind; id: string };
+    /*
+     * ⚠️ **相手の種類は必ずここで確かめる。** 下で `ONAIR_TARGETS[kind].table` を
+     * SQL に差し込むので、知らない種類をそのまま通すと表の名前を外から決められます。
+     * 呼ぶ側は検査済みの値を渡す決まりですが、**差し込む直前にもう一度見ます**。
+     */
+    if (!WIKI_ONAIR_KINDS.includes(link.kind)) {
+      throw new ValidationError(`「${item.name}」は一覧から選んでください。`);
+    }
     if (item.onairKinds && !item.onairKinds.includes(link.kind)) {
       throw new ValidationError(`「${item.name}」にはこの種類のものを入れられません。選び直してください。`);
     }

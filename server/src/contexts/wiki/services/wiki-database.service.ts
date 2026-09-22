@@ -11,11 +11,14 @@
  * だから「項目を消す」ときだけ、値も一緒に落とすかを `dropValues` で受けます。
  * 既定は**落とさない**——消したのが間違いだったとき、項目を同じ id で足し直せば戻るからです。
  *
+ * ⚠️ **残した値が残り続けるのは「その行を保存し直すまで」です。** 画面は知らない項目を
+ * 送らず、保存のたびに `sanitizeProps` が定義に無い値を落とします（§5-3-6）。
+ * 消したのが間違いだったと気づいたら、**その行を触る前に**同じ id で足し直してください。
+ *
  * ⚠️ **ビューの設定は保存され、開いた人全員に同じに見えます**（§6-⑩）。
  * 個人ごとの絞り込みは残しません（人によって行数が違う表は、電話で話が通じなくなる）。
  */
 import {
-  queryAll,
   queryOne,
   withTransaction,
   type Row,
@@ -230,8 +233,7 @@ export function findView(views: WikiView[], viewId: string | undefined): WikiVie
 
 /** そのデータベースの項目とビュー（行の一覧・CSV が使う。読めるかは呼ぶ側で確かめ済み） */
 export async function loadDefinition(pageId: string): Promise<{ items: WikiItem[]; views: WikiView[] }> {
-  const rows = await queryAll('SELECT items, views FROM wiki_databases WHERE page_id = ?', [pageId]);
-  const row = rows[0];
+  const row = await queryOne('SELECT items, views FROM wiki_databases WHERE page_id = ?', [pageId]);
   return {
     items: Array.isArray(row?.items) ? (row.items as WikiItem[]) : [],
     views: Array.isArray(row?.views) ? (row.views as WikiView[]) : [],

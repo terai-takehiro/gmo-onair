@@ -38,10 +38,15 @@ export function csvCell(value: unknown): string {
  * - ONAiR リンク … 貼った時点の表示名。無ければ id（相手が消えても列が空にならない）
  */
 export function csvValue(item: WikiItem, value: WikiPropValue | undefined): string {
+  /*
+   * ⚠️ **チェックだけは「入れていない」も `No` にします。** Notion と同じで、
+   * チェックに「未入力」はありません（付いているか、いないかの2つだけ）。
+   * 絞り込みも同じ見方をします（`wiki-view-apply.ts` の `matchesIs`）ので、
+   * ここだけ空にすると**画面で「チェックなし」に出た行が CSV では空**になります。
+   */
+  if (item.type === 'checkbox') return value === true ? 'Yes' : 'No';
   if (value === null || value === undefined) return '';
   switch (item.type) {
-    case 'checkbox':
-      return value === true ? 'Yes' : 'No';
     case 'multi_select':
       return Array.isArray(value) ? value.join(', ') : String(value);
     case 'onair_link': {

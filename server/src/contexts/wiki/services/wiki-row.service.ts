@@ -22,6 +22,7 @@ import {
   loadDefinition,
 } from './wiki-database.service';
 import type { WikiView } from './wiki-database-schema';
+import { assertOnairTargetsExist, databaseItems, validateRowProps } from './wiki-row-props';
 import { savePageInternal } from './wiki-page.service';
 import { createPage } from './wiki-write.service';
 import { applyView } from './wiki-view-apply';
@@ -117,7 +118,13 @@ export async function listRows(
   };
 }
 
-/** CSV の書き出しに使う一式（一覧と同じ絞り込みを通す） */
+/**
+ * CSV の書き出しに使う一式（一覧と同じ絞り込みを通す）。
+ *
+ * ⚠️ **上限に達したら書き出さずに止めます。** 一覧は画面に「切りました」と出せますが、
+ * 落としたファイルには何も書いてありません。**足りない CSV を渡すほうが、
+ * 書き出せないと言われるより悪い**（数えた数が合わないことに誰も気づかない）。
+ */
 export async function rowsForCsv(
   user: WikiUser,
   pageId: string,
@@ -126,18 +133,18 @@ export async function rowsForCsv(
   const page = await assertDatabasePage(user, pageId);
   const { items, views } = await loadDefinition(pageId);
   const all = await rawRows(user, pageId);
+  if (all.length > MAX_ROWS) {
+    throw new ValidationError(
+      `行が ${MAX_ROWS} 件を超えているため書き出せません。ビューで絞り込んでから書き出してください。`,
+    );
+  }
   const view = findView(views, viewId);
-  return {
-    title: String(page.title),
-    items,
-    view,
-    rows: applyView(all.slice(0, MAX_ROWS), view, items),
-  };
+  return { title: String(page.title), items, view, rows: applyView(all, view, items) };
 }
 
 export interface CreateRowInput {
   title?: string;
-  /** 最初から値を入れて作る（任意）。検査は `savePageInternal` が親の項目定義で行う */
+  /** 最初から値を入れて作る（任意）。**ページを作る前に**項目定義で検査する */
   props?: Record<string, unknown>;
 }
 
@@ -147,6 +154,7 @@ export interface CreateRowInput {
  * **題を打つだけで作れます**（§6-⑩）。作られるのは子ページなので、ツリーにも出ます。
  * `props` を添えると、作ったあとに続けて値を入れます（版が2つになりますが、
  * 「作った」と「値を入れた」が履歴で分かれるのはむしろ読みやすい）。
+ * 値が項目の型に合わないときは**1行も作らずに止めます**（下の注意書き）。
  */
 export async function createRow(
   user: WikiUser,
@@ -157,6 +165,18 @@ export async function createRow(
   const title = String(input.title ?? '').trim();
   if (title.length > 200) throw new ValidationError('題は 200 文字までです。');
 
+  /*
+   * ⚠️ **値の検査はページを作る前に。** あとから検査すると、「数字で入れてください」と
+   * 言いながら**空の行だけが表に残ります**（作成と値の保存が別の処理なので、
+   * 片方だけ成功する）。実際にそうなっていたのを検証で見つけて直しました。
+   */
+  let props: Record<string, WikiPropValue> | null = null;
+  if (input.props && Object.keys(input.props).length > 0) {
+    const items = await databaseItems(pageId);
+    props = validateRowProps(items, input.props as Record<string, WikiPropValue>);
+    await assertOnairTargetsExist(items, props);
+  }
+
   const created = await createPage(user, {
     space_id: String(page.space_id),
     parent_id: pageId,
@@ -164,12 +184,8 @@ export async function createRow(
     status: 'published',
   });
 
-  if (input.props && Object.keys(input.props).length > 0) {
-    return savePageInternal(
-      String(created.id),
-      { props: input.props, note: '行の値を入れた' },
-      user,
-    );
+  if (props && Object.keys(props).length > 0) {
+    return savePageInternal(String(created.id), { props, note: '行の値を入れた' }, user);
   }
   return created;
 }

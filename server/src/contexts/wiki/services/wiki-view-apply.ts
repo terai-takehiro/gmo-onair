@@ -52,7 +52,14 @@ function matchesIs(cell: WikiPropValue | undefined, want: WikiPropValue | undefi
   // 複数選択は「その値を含む」。表の絞り込みで「分類が A」と言えば A の付いた行を指す
   if (Array.isArray(cell)) return cell.some((x) => String(x) === String(want));
   if (typeof cell === 'number' || typeof want === 'number') return Number(cell) === Number(want);
-  if (typeof cell === 'boolean' || typeof want === 'boolean') return Boolean(cell) === Boolean(want);
+  if (typeof cell === 'boolean' || typeof want === 'boolean') {
+    /*
+     * ⚠️ `Boolean('false')` は **true** です。絞り込みの値が文字で来ても
+     * （URL・取り込んだ定義）「チェックなし」が「チェックあり」に化けないようにします。
+     */
+    const asBool = (v: unknown) => (typeof v === 'string' ? v !== 'false' && v !== '' : Boolean(v));
+    return asBool(cell) === asBool(want);
+  }
   return keyOf(cell) === keyOf(want as WikiPropValue);
 }
 
@@ -108,16 +115,17 @@ function matchesFilter(row: WikiRowLike, filter: WikiViewFilter): boolean {
   }
 }
 
-/** 並べ替えの比較。型ごとに見方を変える（数は数として、日付は文字のまま） */
+/**
+ * 並べ替えの比較（**値のある行どうし**）。型ごとに見方を変える
+ * （数は数として、日付は文字のまま）。
+ *
+ * ⚠️ **空の行はここで扱いません。** ここで「空は後ろ」と返すと、降順のときに
+ * 呼ぶ側が符号を反転させるので**空が先頭に並びます**（実際にそうなっていた）。
+ * 空かどうかは `applyView` が向きを当てる前に決めます。
+ */
 function compareByItem(a: WikiRowLike, b: WikiRowLike, item: WikiItem | undefined, itemId: string): number {
   const av = a.props?.[itemId];
   const bv = b.props?.[itemId];
-  // 空は向きに関わらず必ず後ろ（「空が先頭に並ぶ表」は探しものが見つからない）
-  const ae = isEmptyValue(av);
-  const be = isEmptyValue(bv);
-  if (ae && be) return 0;
-  if (ae) return 1;
-  if (be) return -1;
 
   if (item?.type === 'number') {
     const an = Number(av);
@@ -163,6 +171,14 @@ export function applyView<T extends WikiRowLike>(rows: T[], view: WikiView | nul
   }
   out.sort((a, b) => {
     for (const s of sorts) {
+      /*
+       * 空は**向きに関わらず必ず後ろ**（「空が先頭に並ぶ表」は探しものが見つからない）。
+       * だから符号を反転させる前に決めます（`compareByItem` の注意書き）。
+       */
+      const ae = isEmptyValue(a.props?.[s.itemId]);
+      const be = isEmptyValue(b.props?.[s.itemId]);
+      if (ae !== be) return ae ? 1 : -1;
+      if (ae) continue;
       const c = compareByItem(a, b, byId.get(s.itemId), s.itemId);
       if (c !== 0) return s.dir === 'desc' ? -c : c;
     }

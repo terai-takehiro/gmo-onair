@@ -97,10 +97,14 @@ function newId(prefix: string, taken: Set<string>): string {
 
 function readId(raw: unknown, prefix: string, taken: Set<string>, what: string): string {
   if (raw === undefined || raw === null || raw === '') return newId(prefix, taken);
-  if (typeof raw !== 'string' || !ID_RE.test(raw)) {
+  /*
+   * ⚠️ id が壊れている・重なっているのは**画面の作りの問題**で、利用者には直せません
+   * （名前と違って画面に出ていない）。だから「名前を分けてください」とは言わず、
+   * 読み込み直しを案内します（wording.md ルール2: 次にやることを先に書く）。
+   */
+  if (typeof raw !== 'string' || !ID_RE.test(raw) || taken.has(raw)) {
     throw new ValidationError(`${what}を保存できませんでした。画面を読み込み直してください。`);
   }
-  if (taken.has(raw)) throw new ValidationError(`${what}が重複しています。名前を分けてください。`);
   return raw;
 }
 

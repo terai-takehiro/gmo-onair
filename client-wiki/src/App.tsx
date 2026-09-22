@@ -6,7 +6,7 @@ import AppShell from './components/layout/AppShell';
 import LoginPage from './pages/LoginPage';
 import HomePage from './pages/home/HomePage';
 import SpacePage from './pages/page/SpacePage';
-import PageViewPage from './pages/page/PageViewPage';
+import PageRoute from './pages/database/PageRoute';
 import WikiEditorPage from './pages/editor/WikiEditorPage';
 import HistoryPage from './pages/history/HistoryPage';
 import TemplatesPage from './pages/templates/TemplatesPage';
@@ -46,7 +46,7 @@ export default function App() {
           <Route element={<AppShell />}>
             <Route index element={<HomePage />} />
             <Route path="/s/:key" element={<SpacePage />} />
-            <Route path="/p/:id" element={<PageViewPage />} />
+            <Route path="/p/:id" element={<PageRoute />} />
             <Route path="/p/:id/edit" element={<WikiEditorPage />} />
             <Route path="/p/:id/history" element={<HistoryPage />} />
             <Route path="/templates" element={<TemplatesPage />} />
