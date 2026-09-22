@@ -821,10 +821,17 @@ export async function runKessanImport(opts: KessanOptions, userId: string | null
         // constraint" で取込全体が失敗する。決算実績があるなら本来消すべきではなかった
         // 案件なので、新規作成ではなく復活させる (project-purge 自身も「動いたお金がある
         // 案件は残す」方針)。
+        // 改番済み（旧GLS番号→SCS-/GSS-/GMO-）の案件がその後パージされている場合、
+        // 元帳には退役した旧番号のまま残っていることがある。アクティブ検索
+        // (このすぐ上の r クエリ・findProjectByGls) と同じく project_numbers
+        // 経由でも引けるようにしないと、旧番号を永続的に持つはずの削除済み案件を
+        // 見逃して重複案件を作ってしまう (Codex レビュー指摘・PR #713)。
         const dead = await client.query(
           isFixed
             ? `SELECT id, customer_id FROM projects WHERE code=$1 AND deleted_at IS NOT NULL LIMIT 1`
-            : `SELECT id, customer_id FROM projects WHERE (code=$1 OR gls_number=$1) AND deleted_at IS NOT NULL LIMIT 1`,
+            : `SELECT id, customer_id FROM projects
+                 WHERE (code=$1 OR gls_number=$1 OR id = (SELECT project_id FROM project_numbers WHERE number=$1))
+                   AND deleted_at IS NOT NULL LIMIT 1`,
           [key],
         );
         if (dead.rows[0]) {
