@@ -446,6 +446,18 @@ async function main() {
             // 割れる (Codex レビュー指摘)。
             [id, key, CURRENT_ENTITY_CODE, isFixed ? null : key, name || key, cid, userId, PERIOD, userId]
           );
+          if (!isFixed) {
+            // 案件番号の履歴 (kessan-import.service.ts と同一ロジック)。ここで1行も
+            // 残さないと、後でこの案件が改番される (renumberProject) とき「退役させる
+            // 現役の番号」が project_numbers に見つからず、旧GLS番号が失われる
+            // (Codex レビュー指摘)。
+            await client.query(
+              `INSERT INTO project_numbers (id, project_id, number, entity_code, scheme, assigned_at, assigned_by)
+               VALUES ($1,$2,$3,NULL,'gls',NOW(),$4)
+               ON CONFLICT (number) DO NOTHING`,
+              [randomUUID(), id, key, userId]
+            );
+          }
           p = { id, customer_id: cid };
           counts.projCreated++;
         }
