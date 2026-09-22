@@ -2483,6 +2483,51 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#715**（`fix(finance): 決算取込CLI版の残り2件のレビュー指摘対応をマージし直した`・2026-09-22）——
+  #713 のマージ直前にpushしたコミット（cf58402。CLI版のアクティブ検索`project_numbers`対応・仕入
+  専用未登録GLSの顧客不明フォールバック）が取り込まれておらず、Codexへの返信内容と実コードが
+  食い違っていたのをmainへ反映し直したPR。あわせて#713の棚卸し記録を追加。**Code Reviewで
+  さらに3件（P2×3）**が付き、**いずれも同PR内で対応・返信・スレッド解決済み**。①仕入専用の
+  未登録GLSで「顧客不明」フォールバックを削除済み案件の復活判定より前に解決しており、復活パス
+  （既存customer_idを使い回す）でも呼ばれ使われない会社が作られる→判定後に解決するよう順序変更
+  （b288a30。本体`kessan-import.service.ts`側の同型バグも同時に修正）。②CLI版のdry-run事前照合
+  `findProject`が`project_numbers`未対応で、改番済み現役案件の旧番号を「未登録」と誤検知
+  （f08f0a2）。③ `docs/changelog.d/`の下書き不足でCI自体が失敗（3256bdc）。**表に移す未対応の
+  指摘は無い**。⚠️ **さらに、これらのコミットをpushした後、並行して動いていた別セッションの
+  #714（CLI版のentity_code対応。#713で切り出したタスクへの対応）がひと足先にマージされ、
+  同じファイル（`server/scripts/import-kessan-dev.mjs`の`ensureProject`まわり）に対して
+  ほぼ同じ内容（`project_numbers`解決・顧客不明フォールバックの順序）を含む、より広範な
+  修正（entity_code対応・`notes`列→`kessan_marker`修正込み）が入っていたためマージ
+  コンフリクトが発生した。**内容を比較し、#714の実装（entity_code対応を含みより完全）を
+  採用しつつ、コメント文言の統合のみ行う形で解決（コード面での実質的な差分は無かった）。
+  検証: `npm run typecheck`・`npm run lint`（0 errors）・`npm run test`（shared 2469件・
+  server 94件）・検証用Postgresで各指摘のシナリオを個別に再現・修正確認したのに加え、
+  マージ後に「新規未登録GLSの仕入（顧客不明フォールバック）／失注+削除済み案件の復活／
+  改番済み現役案件の旧番号解決」の3パターンを1回のCSVで`--scope=all --create-masters
+  --commit`し、`entity_code`・`stage`・`customer_id`・`kessan_marker`がすべて意図通り
+  DBに入ることを確認した。
+
+- **#714**（`fix(server): 決算取込CLI版がentity_code未設定で失敗するのを直した`・2026-09-22）——
+  #713 の対応中に見つかりspawn_taskで切り出されたタスクへの対応（並行セッション）。2026年10月の
+  事業再編（migration 285/286）で`projects`/`revenues`/`purchases`/`sga_expenses`の
+  `entity_code`列がNOT NULLになったが、CLI版（`server/scripts/import-kessan-dev.mjs`）は
+  追従できておらず`--commit`が必ず失敗していたのを直した。本体の`CURRENT_ENTITY_CODE`
+  （`.ts`）をCLIから直接importできないため、ビルド成果物`server/dist/shared/constants/
+  entity-default.js`を動的importして参照する形にし、4テーブルすべてのINSERTに反映。あわせて
+  `projects`への INSERT が migration 184 で削除済みの`notes`列をまだ指定していたのを
+  `kessan_marker`列に修正。**Code Reviewで4件（P1×1・P2×3）**付き、**いずれも同PR内で
+  対応・返信・解決済み**。P1: purchases専用GLS(顧客不明)で`customer_id=NULL`のままINSERTし
+  NOT NULL制約違反→本体と同じ「(顧客不明)」フォールバックを追加。P2×2: `ensureProject`の
+  「生きている」側の検索が`project_numbers`未対応で改番済み現役案件を重複作成しうる／
+  新規作成した案件の`kessan_marker`に角括弧付き表記(`[kessan:2026-06]`)を入れ本体の素の
+  `period`表記と食い違っていた→どちらも修正。P2: `CURRENT_ENTITY_CODE`をファイル先頭で
+  static importしていたため、ビルド前の素のcheckoutでは`--no-db`（DB不要のパース検証専用
+  モード）まで`ERR_MODULE_NOT_FOUND`で落ちていた→実際にDBへ書き込む直前まで dynamic import
+  を遅延。**表に移す未対応の指摘は無い**。検証: 検証用Postgres上で`--scope=all
+  --create-masters --commit`を実行し新規案件・固定原価案件・売上・仕入・販管費すべてが
+  `entity_code`付きで正しく投入されること、`server/dist`退避時は`--no-db`のみ動作し
+  `--commit`は明確に失敗することを確認。
+
 - **#713**（`fix(finance): 決算取込で失注等により削除済みの案件と重複して失敗するのを直した`・
   2026-09-22）—— 利用者報告「総勘定元帳を取り込めませんでした」（`duplicate key value
   violates unique constraint "projects_code_key"`）の修正（3コミット・6ファイル・+102/−21）。
@@ -2502,7 +2547,8 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   CLI版が別の理由（`projects.notes`という既に削除された列を参照・`entity_code`未対応など、
   本体から長期間乖離）で現状`--commit`がそもそも失敗する状態と判明。③④のコードは本体と
   同一条件に揃えたが実機検証はできていない。CLI版全体の復旧はスコープ外として別タスクに
-  切り出した。Security Reviewは完走（初回コミット時点）しfindings無し。
+  切り出し、並行して #714 で対応された（詳細は#714の行）。Security Reviewは完走
+  （初回コミット時点）しfindings無し。
   検証: `npm run typecheck`・`npm run lint`（0 errors）・`npm run test`（shared 2469件・
   server 94件）・`npm run build:changed`・検証用Postgresで「失注+論理削除→決算取込で復活」
   「改番済み+論理削除→旧番号で復活・重複作成なし」を実機確認（修正前コードでは報告と同一の
