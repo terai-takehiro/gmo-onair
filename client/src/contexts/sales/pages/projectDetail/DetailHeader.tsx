@@ -125,6 +125,9 @@ export interface DetailHeaderProps {
   snoozeUntil?: string | null;
 }
 
+/** 閲覧（reader）の人がステージの帯に触れたときの説明。押せない理由を必ず言う */
+const STAGE_LOCKED_HINT = 'ステージの変更には営業の編集権限が必要です';
+
 export function DetailHeader({
   id, name, customerName, glsNumber, code, entityLabel, stage, tab, counts,
   onChangeStage, mobile, phase, updatedAt, series, health, snoozeUntil,
@@ -236,6 +239,12 @@ export function DetailHeader({
         style={rail.style}
         className="v4-rail flex min-h-[52px] items-center gap-2 overflow-x-auto px-4 lg:min-h-0 lg:h-[42px] lg:px-6"
       >
+        {/*
+          ⚠️ ステージの帯は**今のステージを見せる表示も兼ねる**ので、閲覧（reader）の人にも出す。
+          ただし押せるのは `sales` の editor だけ（`PATCH /projects/:id/stage` が editor を要求する）。
+          以前は reader にも押せる状態で出ていて、確認ダイアログまで進んでから 403 になっていた
+          （#727 の宿題⑤の確認で実ブラウザで発見・統合時に修正）。押せない理由は `title` で添える
+        */}
         <span className="text-note shrink-0 font-bold text-muted-foreground">ステージ</span>
         <div className="inline-flex shrink-0 overflow-hidden rounded-control border border-border" role="group" aria-label="ステージを変える">
           {STAGE_STEPS.map((st, i) => {
@@ -244,11 +253,13 @@ export function DetailHeader({
               <button
                 key={st.key}
                 type="button"
-                onClick={() => { if (!on) onChangeStage(st.stage); }}
+                onClick={() => { if (!on && canEdit) onChangeStage(st.stage); }}
+                disabled={!canEdit}
                 aria-pressed={on}
+                title={canEdit ? undefined : STAGE_LOCKED_HINT}
                 className={`text-sub inline-flex h-11 lg:h-8 ${STAGE_W} shrink-0 items-center justify-center gap-1.5 ${
                   i > 0 ? 'border-l border-border' : ''
-                } ${on ? 'bg-primary font-bold text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+                } ${on ? 'bg-primary font-bold text-primary-foreground' : `text-muted-foreground ${canEdit ? 'hover:bg-muted' : ''}`}`}
               >
                 <span className="font-number">{st.key}</span>
                 {STAGE_SHORT[st.stage]}
@@ -265,9 +276,10 @@ export function DetailHeader({
               <button
                 key={st.stage}
                 type="button"
-                onClick={() => { if (!on) onChangeStage(st.stage); }}
+                onClick={() => { if (!on && canEdit) onChangeStage(st.stage); }}
+                disabled={!canEdit}
                 aria-pressed={on}
-                title={ProjectStageLabels[st.stage]}
+                title={canEdit ? ProjectStageLabels[st.stage] : `${ProjectStageLabels[st.stage]}（${STAGE_LOCKED_HINT}）`}
                 className={`text-sub inline-flex h-11 lg:h-8 ${END_W} shrink-0 items-center justify-center ${
                   i > 0 ? 'border-l border-border' : ''
                 } ${
@@ -275,7 +287,7 @@ export function DetailHeader({
                     ? lost
                       ? 'bg-destructive font-bold text-destructive-foreground'
                       : 'bg-secondary font-bold text-secondary-foreground'
-                    : 'text-muted-foreground hover:bg-muted'
+                    : `text-muted-foreground ${canEdit ? 'hover:bg-muted' : ''}`
                 }`}
               >
                 {st.label}

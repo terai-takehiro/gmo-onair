@@ -97,7 +97,7 @@ export function GpmProjectBoard({
                   </div>
                   {overdue && (
                     <p className={`text-sub-sm mt-1.5 font-bold ${dueTone(due, today)}`}>
-                      期限を過ぎたタスクがあります（{dueLabel(due, today)}）
+                      期限超過のタスクがあります（{dueLabel(due, today)}）
                     </p>
                   )}
                 </button>

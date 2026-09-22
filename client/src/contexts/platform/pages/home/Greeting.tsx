@@ -64,7 +64,7 @@ export function Greeting({
         {canCount && (
           waitingTotal === 0 && myOverdue === 0 ? (
             <p className="text-sub mt-1 text-secondary-foreground">
-              受信箱は空です。期限を過ぎたものもありません。
+              受信箱は空です。期限超過もありません。
             </p>
           ) : mobile ? (
             /**
@@ -100,7 +100,7 @@ export function Greeting({
               {waitingTotal > 0 && myOverdue > 0 && '、'}
               {myOverdue > 0 && (
                 <>
-                  自分の期限を過ぎたものが{' '}
+                  自分の期限超過が{' '}
                   <CountLink n={myOverdue} onClick={onOverdue} />
                 </>
               )}

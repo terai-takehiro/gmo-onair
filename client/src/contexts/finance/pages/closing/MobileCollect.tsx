@@ -152,7 +152,7 @@ export function MobileCollect() {
         title="入金の確認"
         /* **月で切っていないことを書く。** 「今月ぶんだけ」と読まれると、
            出ていない古い未入金があると気づけない */
-        sub={`入金待ち ${count}件（月をまたいで全部）${overdue > 0 ? ` ・ 期日を過ぎたもの ${overdue}件` : ''}`}
+        sub={`入金待ち ${count}件（月をまたいで全部）${overdue > 0 ? ` ・ 期日超過 ${overdue}件` : ''}`}
       />
 
       {rows.length > 0 && (

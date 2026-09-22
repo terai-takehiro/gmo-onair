@@ -311,7 +311,7 @@ export function LendingDialog({ open, saving, error, onClose, onSubmit }: {
             </div>
           </div>
           <p className="text-note text-muted-foreground">
-            返す予定の日は空でも登録できます。入れておくと、過ぎたときにダッシュボードに出ます。
+            返す予定の日は空でも登録できます。入れておくと、超過したときにダッシュボードに出ます。
           </p>
 
           {/* 用途は任意。必須（貸出先・案件）と日付のあいだに挟むと

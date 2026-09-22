@@ -201,21 +201,35 @@ export function ThreadTab({ projectId }: { projectId: string }) {
 
   return (
     <div className="flex flex-col gap-3.5 p-4 lg:p-6">
-      <ComposeBox
-        busy={write.isPending}
-        canEdit={canEdit}
-        aiAvailable={aiAvailable}
-        sttAvailable={sttAvailable}
-        onSubmit={(kind, text) => write.mutate({ kind, text })}
-        onRecord={() => setRecOpen(true)}
-      />
+      {/*
+        ⚠️ **書く枠は `sales` の editor にだけ出す**（#727 の宿題⑤・実ブラウザで確認）。
+        以前は閲覧（reader）の人にも枠ごと出し、入力欄・「記録する」「録音から起こす」を
+        押せない状態（disabled）で並べていた。押せないだけで理由は書かれていないので、
+        **「壊れている」と見分けがつかない**うえ、`POST /activity-logs`・
+        `POST /projects/:id/minutes` はどちらも editor を要求するので、reader が記録する手段はそもそも無い。
+        営業活動記録の「活動を記録」を reader に出さないのと同じ扱いにそろえる
+        （`shared/tests/clickable403.test.ts` がこの形を見ている）
+      */}
+      {canEdit && (
+        <ComposeBox
+          busy={write.isPending}
+          canEdit={canEdit}
+          aiAvailable={aiAvailable}
+          sttAvailable={sttAvailable}
+          onSubmit={(kind, text) => write.mutate({ kind, text })}
+          onRecord={() => setRecOpen(true)}
+        />
+      )}
 
       {isLoading ? (
         <Delayed><SkeletonRows rows={5} /></Delayed>
       ) : items.length === 0 ? (
         <EmptyState
           title="やり取りの記録はまだありません"
-          description="上の欄に打って「記録する」を押してください。メールは AI が自動で取り込みます。"
+          // 書く枠を出さない人（reader）に「上の欄に打って」と案内しない（枠が無い）
+          description={canEdit
+            ? '上の欄に打って「記録する」を押してください。メールは AI が自動で取り込みます。'
+            : 'メールは AI が自動で取り込みます。記録するには営業の編集権限が必要です。'}
         />
       ) : (
         // **1つの枠に行を詰めるのをやめた。** 1件ずつが会話の形を持つので、

@@ -185,7 +185,8 @@ function MineTab() {
 
   const chips = [
     { label: '期限超過', n: s?.overdue ?? 0, tone: 'border-destructive-border bg-destructive-surface text-destructive' },
-    { label: '今日まで', n: s?.due_today ?? 0, tone: 'border-warning-border bg-warning-surface text-warning' },
+    // 期限の言い方は `activityLog/dueState.ts` の `duePartsOf` と揃える（✕「今日まで」→ ○「本日」）
+    { label: '本日', n: s?.due_today ?? 0, tone: 'border-warning-border bg-warning-surface text-warning' },
     { label: '返事待ちの依頼', n: s?.unanswered_delegations ?? 0, tone: 'border-border bg-surface-subtle text-secondary-foreground' },
   ];
 

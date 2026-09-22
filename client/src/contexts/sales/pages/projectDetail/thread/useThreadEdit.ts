@@ -80,13 +80,13 @@ export function useThreadEdit(projectId: string) {
     qc.invalidateQueries({ queryKey: ['project-activities', projectId] });
     qc.invalidateQueries({ queryKey: ['project', projectId] });
     // 営業活動記録（案件別・一覧）も同じ行を並べている。
-    // **案件別（`activity-by-project`）とそのチップの件数も必ず落とす** —
-    // 落とさないと、やり取りタブで削除したやることが案件別の一覧に残り、
-    // チップの数字だけが減らない（統合時に追加）
+    // **案件別（`activity-by-project`）も必ず落とす** — 落とさないと、やり取りタブで
+    // 削除したやることが案件別の一覧に残る。チップの件数は一覧と同じ返り（`summary`）に
+    // 乗っているので、この鍵1つで一覧とチップの両方が新しくなる
+    // （旧 `activity-by-project-counts` は #727 の宿題①で廃止・`activityLog/byProject.ts` の末尾）
     qc.invalidateQueries({ queryKey: ['activity-logs'] });
     qc.invalidateQueries({ queryKey: ['activity-upcoming'] });
     qc.invalidateQueries({ queryKey: ['activity-by-project'] });
-    qc.invalidateQueries({ queryKey: ['activity-by-project-counts'] });
   };
 
   const save = useMutation({

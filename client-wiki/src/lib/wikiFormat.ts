@@ -62,13 +62,20 @@ export function isOverdue(reviewBy: string | null | undefined, now = new Date())
   return n !== null && n < 0;
 }
 
-/** 情報欄に添える「あと 190日」「10日前」（予定日からの遠さ） */
+/**
+ * 情報欄に添える「残り190日」「10日超過」「本日」（見直し予定日からの遠さ）。
+ *
+ * 言い方は営業活動記録の期限（`activityLog/dueState.ts` の `duePartsOf`）と揃える
+ * （`docs/wording.md` ルール8・9）。✕「あと 190日」「今日」は口語、
+ * ✕「10日前」は「10日前に見直した」とも読めて、予定日を越えていることが伝わらない。
+ * 「期限切れ」とは言わない（`isOverdue` の注記どおり、ページが無効になるわけではない）。
+ */
 export function reviewRemainLabel(reviewBy: string | null | undefined, now = new Date()): string {
   const n = daysUntil(reviewBy, now);
   if (n === null) return '';
-  if (n < 0) return `${-n}日前`;
-  if (n === 0) return '今日';
-  return `あと ${n}日`;
+  if (n < 0) return `${-n}日超過`;
+  if (n === 0) return '本日';
+  return `残り${n}日`;
 }
 
 /** 見直し予定日の表示（`2027/03/31`）。入っていなければ空 */

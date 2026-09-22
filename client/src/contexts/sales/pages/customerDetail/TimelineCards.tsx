@@ -26,7 +26,8 @@ export function TimelineCards({
   items, actions, onOpenProject,
 }: {
   items: CustomerActivity[];
-  actions: Actions;
+  /** 完了・延期の口。**未指定ならボタンを出さない**（`sales` の editor が無い人・`NextActionInline` と同じ約束） */
+  actions?: Actions;
   onOpenProject: (projectId: string) => void;
 }) {
   return (

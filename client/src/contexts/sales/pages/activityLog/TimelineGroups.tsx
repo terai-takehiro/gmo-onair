@@ -38,7 +38,8 @@ export function TimelineGroups({
   rows, actions, onOpen,
 }: {
   rows: ActivityLogRow[];
-  actions: ReturnType<typeof useNextActionActions>;
+  /** 完了・延期の口。**未指定なら出さない**（`sales` の editor が無い人・`LogTab.tsx`） */
+  actions?: ReturnType<typeof useNextActionActions>;
   onOpen?: (row: ActivityLogRow) => void;
 }) {
   const groups = groupByDate(rows);

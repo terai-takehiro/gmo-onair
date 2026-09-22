@@ -20,7 +20,7 @@ export default function OverdueNotice({ rows }: { rows: WikiReviewRow[] | undefi
     <div className="flex flex-col gap-2 rounded-note border border-warning-border bg-warning-surface px-3 py-2.5 sm:flex-row sm:items-center">
       <span className="flex items-center gap-2 text-list text-warning">
         <Clock className="h-4 w-4 shrink-0" aria-hidden />
-        あなたが担当のページで、見直し予定日を過ぎているものが {rows.length}件あります
+        あなたが担当のページで、見直し予定日を超過しているものが {rows.length}件あります
       </span>
       <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
         {rows.slice(0, 3).map((p) => (

@@ -55,7 +55,43 @@ export function parseDueBucket(v: unknown): DueBucket {
 export interface ByProjectFilter {
   due: DueBucket;
   search?: string;
+  /**
+   * **活動を記録した人**（`activity_logs.user_id`）。時系列の一覧・MCP と同じ意味。
+   * 理由は `OWNER_SQL` の頭注。
+   */
   userId?: string;
+}
+
+/** 区分ごとの件数。`all` は「未完了の次のアクションすべて」（本日+8 以降の `later` も含む） */
+export interface DueCounts {
+  overdue: number;
+  today: number;
+  week: number;
+  none: number;
+  all: number;
+}
+
+/**
+ * 絞り込みチップに出す件数（`GET /activity-logs/by-project` の `summary`）。
+ *
+ * ── なぜ2種類返すか ──────────────────────────────────────────
+ *
+ * 以前の画面は `due` ごとに `limit=1` で5回問い合わせ、`pagination.total`
+ * （**区分のやることを持つ案件の数**）をチップに出していました。ところが
+ * チップの横に書いてあるのは「期限超過 3」のような**やることの件数**の読み方で、
+ * 1案件に期限超過が3件あっても「1」と出ていました（#727 の宿題①）。
+ *
+ * - `actions`  … 未完了の次のアクションの件数（**チップに出すのはこちら**）
+ * - `projects` … その区分のやることを1件以上持つ案件の数
+ *               （`due` で絞ったときの `pagination.total` と同じ数。画面の「N案件」用）
+ *
+ * ⚠️ **`projects.all` は `due=all` の `pagination.total` と一致しません。**
+ * `due=all` の一覧は「未完了のやることが1件も無い案件」（記録だけある案件）も
+ * まとまりとして出すためです。`projects.all` は「やることを持つ案件」だけを数えます。
+ */
+export interface ByProjectSummary {
+  actions: DueCounts;
+  projects: DueCounts;
 }
 
 /** 1案件のまとまりにぶら下げる、未完了の次のアクション（最大5件） */
@@ -124,13 +160,35 @@ const DUE_FILTER_SQL: Record<Exclude<DueBucket, 'all'>, string> = {
 };
 
 /**
+ * 担当者の絞り込み。**活動を記録した人**（`activity_logs.user_id`）で絞る。
+ *
+ * ── なぜ「案件の担当者」（`projects.assigned_to`）ではないか（統合時の判断）──
+ *
+ * 案件別のまとまりは見出しに案件の担当者を出すので、そちらで絞る案もありました。
+ * しかし同じ `?user=` を受ける**時系列（`GET /activity-logs`）**、「今後の予定」の帯
+ * （`/activity-logs/upcoming`）、MCP の `list_activity_logs` の `user_id` は、
+ * どれも**記録した人**を「担当者」と呼んでいます。案件別だけ意味を変えると、
+ * **並びを切り替えた瞬間に同じ絞り込みで違う行の集まりが出る**ことになり、
+ * どちらが「自分の分」なのか画面から見分けが付きません。
+ * 画面のシートにも「活動を記録した人で絞り込みます」と書いてあるので、そちらに揃えます。
+ *
+ * 案件の担当者で絞りたいという要望が出たら、**別の引数名**（例 `owner_id`）で足すこと
+ * （`user_id` の意味を口ごとに変えない）。
+ */
+const OWNER_SQL = 'a.user_id';
+
+/**
  * 共通の CTE。**件数を数えるのと1ページ取ってくるのは必ず同じ式**にする
  * （別々に書くと「全12件」と言いながら 8 件しか出ない、という追いにくいずれ方をする）。
+ *
+ * 効かせるのは `search` と `userId` だけ。**`due` はここに入れません** —
+ * `summary` は選んでいる区分にかかわらず全区分の件数を出すので、
+ * `due` の絞り込みは一覧を取る側（`grouped` の外）で掛けます。
  */
 function baseCte(filter: ByProjectFilter): { sql: string; params: unknown[] } {
   const params: unknown[] = [];
   let where = 'WHERE a.deleted_at IS NULL';
-  if (filter.userId) { where += ' AND a.user_id = ?'; params.push(filter.userId); }
+  if (filter.userId) { where += ` AND ${OWNER_SQL} = ?`; params.push(filter.userId); }
   // 検索の範囲は既存の一覧（`list()`）と同じ — 案件名・クライアント名・件名・本文
   if (filter.search) {
     where += ' AND (p.name ILIKE ? OR c.name ILIKE ? OR a.subject ILIKE ? OR a.description ILIKE ?)';
@@ -160,6 +218,8 @@ function baseCte(filter: ByProjectFilter): { sql: string; params: unknown[] } {
              COUNT(*) FILTER (WHERE due_bucket = 'today')::int   AS today_count,
              COUNT(*) FILTER (WHERE due_bucket = 'week')::int    AS week_count,
              COUNT(*) FILTER (WHERE due_bucket = 'none')::int    AS none_count,
+             -- 未完了の次のアクションすべて（later も含む）。summary の all が読む
+             COUNT(*) FILTER (WHERE due_bucket IS NOT NULL)::int AS open_count,
              -- 並べ替え用の最短期限。**期限未設定は入れない**（NULLS LAST で最後に回る）
              MIN(next_action_date) FILTER (
                WHERE due_bucket IN ('overdue', 'today', 'week', 'later')
@@ -184,11 +244,40 @@ export async function listByProject(
   filter: ByProjectFilter, page: number, limit: number, offset: number,
 ) {
   const { sql: cte, params } = baseCte(filter);
-  const dueWhere = filter.due === 'all' ? '' : `WHERE ${DUE_FILTER_SQL[filter.due]}`;
+  const dueCond = filter.due === 'all' ? '' : DUE_FILTER_SQL[filter.due];
+  const dueWhere = dueCond ? `WHERE ${dueCond}` : '';
 
-  const totalRow = await queryOne(
-    `${cte} SELECT COUNT(*)::int AS c FROM grouped g ${dueWhere}`, params,
-  ) as { c: number } | undefined;
+  /*
+   * 総数と `summary` を**同じ1本の集計**で出す。
+   *
+   * - 総数（`pagination.total`）だけが `due` を効かせる（`FILTER (WHERE …)`）
+   * - `summary` は `due` を無視し、`search` / `userId` だけを効かせる（CTE の WHERE）
+   *
+   * 区分ごとに問い合わせ直すと、区分の数だけ同じ CTE を回すうえ、
+   * 問い合わせの合間に記録が増えると**チップ同士の数が食い違います**。
+   * 1本にしておけば、チップの数と一覧の総数は必ず同じ瞬間の値になります。
+   *
+   * ⚠️ `SUM` は `bigint` を返し、`pg` は `bigint` を**文字列**で渡します。
+   * 画面が `"3" + 1 = "31"` を踏まないよう、必ず `::int` に落とします。
+   */
+  const agg = await queryOne(
+    `${cte}
+     SELECT COUNT(*) ${dueCond ? `FILTER (WHERE ${dueCond})` : ''}::int AS total,
+            COALESCE(SUM(g.overdue_count), 0)::int AS a_overdue,
+            COALESCE(SUM(g.today_count), 0)::int   AS a_today,
+            COALESCE(SUM(g.week_count), 0)::int    AS a_week,
+            COALESCE(SUM(g.none_count), 0)::int    AS a_none,
+            COALESCE(SUM(g.open_count), 0)::int    AS a_all,
+            -- 案件数は grouped の行を数える。GROUP BY project_id は NULL を1つにまとめるので、
+            -- 案件にひも付かない記録は**まとめて1件**になる（一覧のまとまりと同じ数え方）
+            COUNT(*) FILTER (WHERE ${DUE_FILTER_SQL.overdue})::int AS p_overdue,
+            COUNT(*) FILTER (WHERE ${DUE_FILTER_SQL.today})::int   AS p_today,
+            COUNT(*) FILTER (WHERE ${DUE_FILTER_SQL.week})::int    AS p_week,
+            COUNT(*) FILTER (WHERE ${DUE_FILTER_SQL.none})::int    AS p_none,
+            COUNT(*) FILTER (WHERE g.open_count > 0)::int          AS p_all
+       FROM grouped g`,
+    params,
+  ) as Record<string, unknown> | undefined;
 
   const rows = await queryAll(
     `${cte}
@@ -253,5 +342,26 @@ export async function listByProject(
     [...params, limit, offset],
   );
 
-  return { rows, total: totalRow?.c ?? 0, page, limit };
+  return { rows, total: toCount(agg?.total), summary: summaryFromRow(agg), page, limit };
+}
+
+/** 集計の1値を件数に読む。行が無い・値が欠けたときは 0（チップを空欄にしない） */
+function toCount(v: unknown): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * 集計の1行（`a_*` = やること件数 / `p_*` = 案件数）を `summary` の形に読み替える。
+ * 列名の対応をここ1か所に閉じておく（画面の型 `ByProjectSummary` と必ず一致させるため）。
+ */
+export function summaryFromRow(row: Record<string, unknown> | undefined): ByProjectSummary {
+  const pick = (prefix: 'a' | 'p'): DueCounts => ({
+    overdue: toCount(row?.[`${prefix}_overdue`]),
+    today: toCount(row?.[`${prefix}_today`]),
+    week: toCount(row?.[`${prefix}_week`]),
+    none: toCount(row?.[`${prefix}_none`]),
+    all: toCount(row?.[`${prefix}_all`]),
+  });
+  return { actions: pick('a'), projects: pick('p') };
 }

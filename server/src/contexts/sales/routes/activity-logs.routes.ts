@@ -42,6 +42,16 @@ router.get('/', async (req, res) => {
  * `due` は期限の4区分（`overdue` / `today` / `week` / `none`）＋ `all`（既定）。
  * **本日+8 以降のやることはどの区分にも入りません** — 先の予定まで色で急かすと、
  * 本当に急ぐものが埋もれます。`all` には出ます。
+ *
+ * `user_id` は**活動を記録した人**（`activity_logs.user_id`）で絞ります。
+ * `GET /activity-logs`（1件＝1行の一覧）・MCP の `list_activity_logs` と**同じ意味**です
+ * — 画面は案件別と時系列で同じ `?user=` を持ち回るので、口ごとに意味を変えると
+ * 並びを切り替えた瞬間に別の集まりが出ます（理由は service の `OWNER_SQL` の頭注）。
+ *
+ * 返りは `paginatedResponse` の形（`success` / `data` / `pagination`）に、
+ * **同じ階層で `summary`** を足します（絞り込みチップの件数・#727 の宿題①）。
+ * `summary` は `due` を無視し、`search` と `user_id` だけを効かせます —
+ * チップはどの区分を選んでいても全区分の件数を出すためです。
  */
 router.get('/by-project', async (req, res, next) => {
   try {
@@ -54,7 +64,10 @@ router.get('/by-project', async (req, res, next) => {
       },
       page, limit, offset,
     );
-    res.json(paginatedResponse(result.rows, result.total, result.page, result.limit));
+    res.json({
+      ...paginatedResponse(result.rows, result.total, result.page, result.limit),
+      summary: result.summary,
+    });
   } catch (e) { next(e); }
 });
 
