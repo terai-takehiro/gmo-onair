@@ -11,14 +11,15 @@
  * Wiki のナビは共通の左メニュー1本だけです（利用者からのご指摘。`CLAUDE.md`）。
  * 絞り込みは**本文の中の列**（PC）と**結果の上に畳んだ1行**（スマホ）に置きます。
  *
- * ── 「この質問を AI に聞く」はまだ出しません ────────────────
+ * ── 結果の上に「この質問を AI に聞く」を置く（段E で足した） ──
  *
- * 設計（§6-④）とモックには結果の上に AI への案内がありますが、AI の画面は段E です。
- * 押せるのに何も出ない案内は「壊れている」としか見えないので、段E で足します。
+ * 見つからないときの次の一手を、同じ画面に置きます（§6-④）。**語は URL で渡すだけ**で、
+ * 開いた先では送らずに入力欄へ入れておきます — 検索の語（「配信 音 出ない」）は
+ * そのままでは質問の形になっていないことが多く、直してから送れたほうがよいためです。
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Search, Sparkles } from 'lucide-react';
 import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
 import { Delayed, ErrorPanel, NoSearchResults, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { splitTerms } from '@gmo-onair/shared/src/wiki/search';
@@ -139,20 +140,31 @@ export default function SearchPage() {
       />
 
       {hasResult && (
-        <p className="max-w-4xl text-sub text-secondary-foreground">
-          {/*
-            ⚠️ **件数はサーバーが数えた数を出します**（`counts`）。`hits.length` は
-            上限（`LIMIT`）で切ったあとの数なので、当たりが多いスペースを選ぶと
-            いつも「50件」と出ていました（Codex の指摘・P2）。
-          */}
-          <strong className="font-number font-bold">
-            {filters.spaceId ? counts.get(filters.spaceId) ?? hits.length : total}件
-          </strong>
-          {terms.length >= 2 ? ` ・ ${terms.length}語すべてを含むページ` : ''}
-          {hits.length >= LIMIT ? ` ・ 上位${LIMIT}件まで` : ''}
-          {' ・ 公開されているページだけが出ます（下書きは出ません）'}
-          {searching ? ' ・ 検索中…' : ''}
-        </p>
+        <div className="flex max-w-4xl flex-wrap items-center gap-2">
+          <p className="min-w-0 flex-1 text-sub text-secondary-foreground">
+            {/*
+              ⚠️ **件数はサーバーが数えた数を出します**（`counts`）。`hits.length` は
+              上限（`LIMIT`）で切ったあとの数なので、当たりが多いスペースを選ぶと
+              いつも「50件」と出ていました（Codex の指摘・P2）。
+            */}
+            <strong className="font-number font-bold">
+              {filters.spaceId ? counts.get(filters.spaceId) ?? hits.length : total}件
+            </strong>
+            {terms.length >= 2 ? ` ・ ${terms.length}語すべてを含むページ` : ''}
+            {hits.length >= LIMIT ? ` ・ 上位${LIMIT}件まで` : ''}
+            {' ・ 公開されているページだけが出ます（下書きは出ません）'}
+            {searching ? ' ・ 検索中…' : ''}
+          </p>
+
+          {/* 見つからないときの次の一手（§6-④）。語はそのまま渡す */}
+          <Link
+            to={`/ask?q=${encodeURIComponent(q)}`}
+            className="flex min-h-tap shrink-0 items-center gap-1.5 rounded-control border border-primary-border bg-primary-surface-weak px-3 text-sub text-primary no-underline hover:border-primary-border-strong lg:h-10 lg:min-h-0"
+          >
+            <Sparkles className="h-4 w-4" aria-hidden />
+            この質問を AI に聞く
+          </Link>
+        </div>
       )}
 
       <div className="flex min-h-0 flex-1 gap-4">
@@ -191,7 +203,14 @@ export default function SearchPage() {
           ) : hits.length === 0 ? (
             <NoSearchResults keyword={q} activeFilters={labels} onClearFilters={clearFilters} />
           ) : (
-            hits.map((hit) => <SearchHitCard key={hit.id} hit={hit} terms={terms} />)
+            <>
+              {hits.map((hit) => <SearchHitCard key={hit.id} hit={hit} terms={terms} />)}
+              <p className="rounded-card border border-dashed border-border px-4 py-3 text-sub leading-relaxed text-secondary-foreground">
+                目当てのものが無いときは、上の「この質問を AI に聞く」。AI も出典を出せなければ、
+                その質問は<strong className="font-bold">「足りないページ」</strong>に残り、
+                担当が月1回の見直しで書き起こします。
+              </p>
+            </>
           )}
         </div>
       </div>

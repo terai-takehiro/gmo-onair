@@ -290,70 +290,20 @@ export interface WikiSearchQuery {
 
 /* ── AI（§7） ─────────────────────────────────────────────── */
 
-export interface WikiCitation {
-  pageId: string;
-  title?: string;
-  heading: string | null;
-  quote: string;
-}
-
-export type WikiAiFeedback = 'good' | 'rephrase' | 'reject';
-
-export interface WikiAiThread {
-  id: string;
-  title: string;
-  page_id: string | null;
-  space_id: string | null;
-  created_at: string;
-  updated_at: string;
-  message_count?: number;
-  /** ページを作った発言があるか（採用の印） */
-  spawned_page?: boolean;
-}
-
-export interface WikiAiMessage {
-  id: string;
-  thread_id: string;
-  seq: number;
-  role: 'user' | 'assistant';
-  content_md: string;
-  citations: WikiCitation[] | null;
-  /** cited = 出典つきで答えた / none = 書かれていないと返した（§10 #8） */
-  confidence: 'cited' | 'none' | null;
-  model: string | null;
-  feedback: WikiAiFeedback | null;
-  feedback_note: string | null;
-  spawned_page_id: string | null;
-  created_at: string;
-  /** AI が読んだページ（右パネルに出す） */
-  read_pages?: Array<{ id: string; title: string; space_name: string; cited: boolean }>;
-}
-
-export type WikiGapStatus = 'open' | 'written' | 'dismissed';
-
-export interface WikiGap {
-  id: string;
-  question: string;
-  count: number;
-  last_asked_at: string;
-  space_id: string | null;
-  space_name?: string | null;
-  status: WikiGapStatus;
-  page_id: string | null;
-  /** 直近で聞いた人（画面の副題） */
-  askers?: string[];
-}
-
-/** 「AI で整える」のやり方。主な使い方は structure（手入力のメモ→手順書の形） */
-export type WikiTidyMode = 'structure' | 'heading' | 'bullets' | 'terms' | 'shorten';
-
-export interface WikiTidyResult {
-  /** 整えたあとの Markdown */
-  result_md: string;
-  /** 揃えた語（画面に出す。例: "カード → セキュリティカード"） */
-  changed_terms: string[];
-  ai_output_id: string;
-}
+/*
+ * 中身は `aiTypes.ts` にある（1ファイル 400 行の決まりで切り出した）。
+ * **ここから再輸出しているので、画面の import 先はこれまでどおり `types` のまま**。
+ */
+export type {
+  WikiCitation,
+  WikiAiFeedback,
+  WikiAiThread,
+  WikiAiMessage,
+  WikiGapStatus,
+  WikiGap,
+  WikiTidyMode,
+  WikiTidyResult,
+} from './aiTypes';
 
 /* ── 見直し（§6-⑦） ──────────────────────────────────────── */
 

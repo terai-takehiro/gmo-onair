@@ -10,7 +10,7 @@
  *    上辺バーの `☰`（引き出し）から開く。画面の中にもう1つ `☰` があると、
  *    同じものを開くボタンが横に2つ並ぶ（2026-09-22 に作り直した）。
  */
-import { History, PanelRight } from 'lucide-react';
+import { History, PanelRight, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@gmo-onair/shared/src/client/ui/button';
 import type { WikiPage } from '@gmo-onair/shared/src/wiki/types';
@@ -44,6 +44,22 @@ export default function PageHeaderBar({
       </span>
 
       <span className="flex-1" />
+
+      {/*
+        このページについて AI に聞く（設計 §6-② の右上・§6-⑤）。
+        `?page=` を付けると、聞く画面が**そのページと子ページを先に読みます**。
+        ⚠️ **下書きには出しません** — まだ人が確かめていない文を出典に答えると、
+        「Wiki に書いてある」と読める回答が確かめる前の文から作られます（§7-5）。
+        スマホでも出します（現場で読んでいて分からない、が一番多い場面のため）。
+      */}
+      {page.status === 'published' && (
+        <Button asChild variant="outline" size="sm">
+          <Link to={`/ask?page=${encodeURIComponent(page.id)}`}>
+            <Sparkles className="mr-1.5 h-4 w-4 text-ai" aria-hidden />
+            AI に聞く
+          </Link>
+        </Button>
+      )}
 
       {/* 履歴は PC の画面（`pcOnlyScreens.ts`）。スマホでは出さない */}
       <Button asChild variant="outline" size="sm" className="hidden lg:inline-flex">

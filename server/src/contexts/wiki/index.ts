@@ -8,6 +8,7 @@ import filesRoutes from './routes/files.routes';
 import databasesRoutes from './routes/databases.routes';
 import searchRoutes from './routes/search.routes';
 import mdRoutes from './routes/md.routes';
+import aiRoutes from './routes/ai.routes';
 
 /**
  * Wiki（新しいブロックアプリ）— Markdown で書いた文章をツリーに並べ、
@@ -53,7 +54,21 @@ import mdRoutes from './routes/md.routes';
  *   GET    /wiki/export?space=<key>        スペースまるごとを zip で
  *   POST   /wiki/import                    Obsidian・Notion・ONAiR の書き出し（zip）を取り込む（editor）
  *
- * AI は段E、見直しは段F（§9）。
+ * 段E（AI・§7）:
+ *   POST   /wiki/ask                          出典つきで答える（出せなければ答えない）
+ *   GET    /wiki/ai/threads                   スレッドの一覧（**本人のみ**）
+ *   GET    /wiki/ai/threads/:id               会話1本（本人のみ）
+ *   DELETE /wiki/ai/threads/:id               会話を消す（本人のみ）
+ *   POST   /wiki/ai/messages/:id/feedback     3値の評価（条件2）
+ *   POST   /wiki/pages/:id/draft              そのページに AI で下書きを書く（editor）
+ *   POST   /wiki/ai/draft                     新しい下書きページを AI で作る（editor）
+ *   POST   /wiki/rewrite                      手入力のメモを手順書の形に（**保存しない**・editor）
+ *   POST   /wiki/rewrite/:outputId/decision   置き換えた／やめた（条件2・editor）
+ *   GET    /wiki/ai/gaps                      足りないページ（manager）
+ *   POST   /wiki/ai/gaps/:id/resolve          ページにした／書かない（manager）
+ *   GET    /wiki/ai/digest                    AI の直され方と成果（条件4・manager）
+ *
+ * 見直しは段F（§9）。
  *
  * ⚠️ **並べる順に意味があります。** `/pages/:id/versions` は `/pages/:id` より
  * 先に書いてありますが、Express は**より具体的な道から順に**照合するわけではなく
@@ -71,6 +86,9 @@ export function createWikiRoutes(): Router {
   // ⚠️ `mdRoutes` の `/pages/:id.md` は `pagesRoutes` の `/pages/:id` より**先**に置くこと
   //    （Express は登録順に照合するので、後ろだと `:id` が `wp-xxxx.md` まで食べる）
   router.use('/wiki', mdRoutes);
+  // ⚠️ `aiRoutes` の `/pages/:id/draft` は `pagesWriteRoutes` より**先**に置きます
+  //    （後ろでも道は別ですが、ページの書き込みの道が広がったときに巻き込まれないため）
+  router.use('/wiki', aiRoutes);
   router.use('/wiki', pagesWriteRoutes);
   router.use('/wiki', pagesRoutes);
   return router;

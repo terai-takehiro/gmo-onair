@@ -145,6 +145,32 @@ export const TABLE_SNIPPET = '| 項目 | 内容 |\n| --- | --- |\n|  |  |';
 /** 表を差し込み、最初のセルを選んだ状態にする */
 export const insertTable: Edit = insertBlock(TABLE_SNIPPET, '項目');
 
+/* ── 置き換え（「AI で整える」の結果を入れる・段E）─────────── */
+
+/**
+ * `from`〜`to` を丸ごと置き換える。**入れた文字を選んだ状態**で返すので、
+ * 置き換えた範囲がそのまま目で分かります。
+ *
+ * ⚠️ 位置は**呼ぶ側が決めた値**をそのまま使います（いま選んでいる範囲ではない）。
+ * AI を待っている間に選択が外れても、開いたときに見ていた場所へ入ります。
+ */
+export function replaceRange(from: number, to: number, next: string): Edit {
+  return ({ text }) => {
+    const start = Math.max(0, Math.min(from, text.length));
+    const end = Math.max(start, Math.min(to, text.length));
+    return {
+      text: text.slice(0, start) + next + text.slice(end),
+      start,
+      end: start + next.length,
+    };
+  };
+}
+
+/** 本文を丸ごと置き換える（何も選ばずに「AI で整える」を押したとき） */
+export function replaceAll(next: string): Edit {
+  return () => ({ text: next, start: next.length, end: next.length });
+}
+
 /* ── `/` で開く一覧のための小物 ───────────────────────────── */
 
 /**

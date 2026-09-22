@@ -28,6 +28,7 @@ import {
 import { assertPageEditable } from './wiki-lock.service';
 import { newWikiPageId, selectPageRow, rebuildPageLinks } from './wiki-page.service';
 import { parentDatabaseItems } from './wiki-row-props';
+import { recordWikiDraftReject } from './wiki-ai-corrections.service';
 import { sanitizeProps } from '../wiki-props';
 import type { WikiPropValue } from '../wiki-props';
 
@@ -245,9 +246,19 @@ export async function deletePage(user: WikiUser, pageId: string): Promise<Delete
       UPDATE wiki_pages
          SET deleted_at = NOW(), updated_by = ?, updated_at = NOW()
        WHERE id IN (SELECT id FROM sub) AND deleted_at IS NULL
-      RETURNING id`,
+      RETURNING id, status`,
     [pageId, user.id],
   );
+
+  /*
+   * 条件2（§7-3）: **公開せずに消した AI の下書きは「丸ごと不採用」**です。
+   * 押した人が「これは使えない」と言った唯一の操作なので、必ず1行残します。
+   * 公開してから消したものと、7日を過ぎたものは数えません（業務の整理であって
+   * AI の誤りではない）— 判定は `recordWikiDraftReject` の中。
+   */
+  for (const r of rows) {
+    await recordWikiDraftReject(String(r.id), String(r.status ?? ''), user.id);
+  }
   return { id: pageId, deleted_ids: rows.map((r) => String(r.id)) };
 }
 

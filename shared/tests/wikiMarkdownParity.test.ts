@@ -88,12 +88,37 @@ describe('サーバーと画面で同じ答えを出す（Wiki の導出値）',
     expect(client.extractPageLinks(md)).toEqual(['wp-keihi002']);
   });
 
+  it('足りないページの鍵（normalizeQuestion）が同じ', () => {
+    /*
+     * 段E で写した3つめ（`wiki_ai_gaps.normalized` は UNIQUE）。
+     * 片方だけ直すと、**画面が「同じ質問」と見せているものがサーバーでは別の行**になり、
+     * 何回聞かれたかが数えられなくなります（`docs/design/v4/wiki.md` §7-2）。
+     */
+    const QUESTIONS = [
+      'スタジオ収録の前にやることは？',
+      '  スタジオ収録の前にやること は ？  ',
+      '機材を借りるにはどうすればいいですか',
+      '機材を借りるにはどうすればいいでしょうか',
+      '（至急）LED ウォールの電源は・どこ「ですか」',
+      'How Do I Book A Studio?',
+      '',
+      '手順'.repeat(150),
+    ];
+    for (const q of QUESTIONS) {
+      expect(server.normalizeQuestion(q)).toBe(client.normalizeQuestion(q));
+    }
+    // 丸めすぎない（別の質問が1件に潰れると回数が嘘になる）
+    expect(client.normalizeQuestion('配信の設定は？'))
+      .not.toBe(client.normalizeQuestion('収録の設定は？'));
+  });
+
   it('サーバー側に余分な関数を置いていない（どちらが正か分からなくなる）', () => {
-    // 写したのは保存のたびに走る分だけ（wiki-markdown.ts の冒頭の注意書き）。
-    // 検索の点数付けは段D・YAML の見出しは段E で、必要になったときに写す。
+    // 写したのは保存のたびに走る分と、段E の足りないページの鍵だけ
+    // （wiki-markdown.ts の冒頭の注意書き）。検索の点数付けは `wiki-search-score.ts`、
+    // YAML の見出しは `wiki-md.service.ts` が持つ。
     // ここが増えたら、増やした関数の突き合わせも上に足すこと。
     expect(Object.keys(server).sort()).toEqual([
-      'extractHeadings', 'extractPageLinks', 'headingSlug', 'headingsText',
+      'extractHeadings', 'extractPageLinks', 'headingSlug', 'headingsText', 'normalizeQuestion',
     ]);
   });
 });
