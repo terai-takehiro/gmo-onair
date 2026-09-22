@@ -281,7 +281,7 @@
                   <span style="flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.5; color: #3c424c;">{{d.text}}</span>
                 </div>
               </sc-for>
-              <button class="tap ghost" onClick="{{actions.diffMore}}" style="margin-top: 4px; display: flex; align-items: center; height: 28px; border-radius: 8px; padding: 0 8px; margin-left: -8px; color: #005bac; font-size: 12.5px; font-weight: 700;">前の版と見くらべる</button>
+              <button class="tap ghost" onClick="{{actions.diffMore}}" style="margin-top: 4px; display: flex; align-items: center; height: 28px; border-radius: 8px; padding: 0 8px; margin-left: -8px; color: #005bac; font-size: 12.5px; font-weight: 700;">前の版と比較する</button>
             </div>
 
             <div style="border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; padding: 14px;">
@@ -289,8 +289,8 @@
                 <span style="width: 26px; height: 26px; border-radius: 8px; background: #eaf4fb; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"></path><path d="M6 18H4v-6h16v6h-2"></path><rect x="8" y="15" width="8" height="6" rx="1"></rect></svg></span>
                 <span style="font-size: 15px; font-weight: 800;">書き出す</span>
               </div>
-              <p style="margin: 8px 0 10px; font-size: 12.5px; line-height: 1.6; color: #5d6470;">A4 1枚に映像パッチと合わせて出せます</p>
-              <button class="tap ghost" onClick="{{actions.export}}" style="display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; height: 36px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; font-size: 12.5px; font-weight: 700; color: #3c424c;">A4横で見る</button>
+              <p style="margin: 8px 0 10px; font-size: 12.5px; line-height: 1.6; color: #5d6470;">A4 1枚に映像パッチと合わせて書き出せます</p>
+              <button class="tap ghost" onClick="{{actions.export}}" style="display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; height: 36px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; font-size: 12.5px; font-weight: 700; color: #3c424c;">A4横で表示</button>
             </div>
 
           </div>
@@ -478,7 +478,7 @@ class Component extends DCLogic {
         pickRole: () => self.notify('役職を選ぶ', 'メンバー表と同じ16の役職から選びます（' + r.role + '）'),
         openPick: () => self.setState({ open: true, ca: null }),
         closePick: () => self.setState({ open: false }),
-        drag: () => self.notify('並べ替え', 'つかんで動かすと役職の並びを変えられます'),
+        drag: () => self.notify('並べ替え', 'ドラッグすると役職の並びを変えられます'),
         more: () => self.notify('この行の操作', '複製・削除・手入力に切り替え'),
       };
     });
@@ -486,7 +486,7 @@ class Component extends DCLogic {
     const cands = this.candidates().map((p) => ({
       name: p.name, roles: p.roles, n: p.n, co: p.co,
       bg: '#ffffff',
-      choose: () => self.setState({ ca: { name: p.name, co: p.co }, open: false, notice: { title: 'CA が決まりました', body: p.name + '（' + p.co + '）を CA に入れました。保存するまで下書きのままです' } }),
+      choose: () => self.setState({ ca: { name: p.name, co: p.co }, open: false, notice: { title: 'CA が決まりました', body: p.name + '（' + p.co + '）を CA に設定しました。保存するまで下書きのままです' } }),
     }));
 
     const coDefs = [{ key: 'all', label: 'すべて' }].concat(Object.keys(CO).map((k) => ({ key: k, label: k })));
@@ -504,8 +504,8 @@ class Component extends DCLogic {
       cos: cos,
       cands: cands,
       manualLabel: st.q === '' ? '手入力で追加' : '手入力で追加: ' + st.q,
-      manualHint: st.q === '' ? '名前を打つとそのまま入ります' : '',
-      manual: () => self.notify('手入力で追加', st.q === '' ? '名前を打つと、その名前のまま1行に入ります' : '「' + st.q + '」をこの行の名前に入れます'),
+      manualHint: st.q === '' ? '名前を入力するとそのまま入ります' : '',
+      manual: () => self.notify('手入力で追加', st.q === '' ? '名前を入力すると、その名前のまま1行に入ります' : '「' + st.q + '」をこの行の名前として入力します'),
     };
 
     // この日の人数（会社ごと）
@@ -542,21 +542,21 @@ class Component extends DCLogic {
       sum: sum,
       diffs: diffList,
       notice: notice,
-      addDay: () => self.notify('日を追加', '作業日を1日足します。1日ごとに1枚の表になります'),
+      addDay: () => self.notify('日を追加', '作業日を1日追加します。1日ごとに1枚の表になります'),
       addRow: () => {
         const a = Object.assign({}, st.added);
         a[st.day] = (a[st.day] || 0) + 1;
-        self.setState({ added: a, notice: { title: '行を追加', body: 'この日の表に1行足しました。役職と名前を入れると人数に入ります' } });
+        self.setState({ added: a, notice: { title: '行を追加', body: 'この日の表に1行追加しました。役職と名前を入力すると人数に含まれます' } });
       },
       actions: {
         back: () => self.notify('技術資料', 'この案件の技術資料の一覧に戻ります'),
         switchApp: () => self.notify('アプリを切り替え', '制作技術支援のほかのミニアプリに移ります'),
-        bell: () => self.notify('お知らせ', '自分あての連絡が出ます'),
+        bell: () => self.notify('お知らせ', '自分あての連絡が表示されます'),
         me: () => self.notify('寺井 岳宏', '利用者の設定とログアウト'),
-        export: () => self.notify('書き出す', 'A4横1枚に映像パッチと技術スタッフを並べて出します'),
+        export: () => self.notify('書き出す', 'A4横1枚に映像パッチと技術スタッフを並べて書き出します'),
         more: () => self.notify('その他の操作', '複製する・確定する・削除'),
         save: () => self.notify('保存', '下書きのまま保存します。確定はその他の操作から'),
-        diffMore: () => self.notify('前の版と見くらべる', '10/08 に受領したメンバー表と並べて差を出します'),
+        diffMore: () => self.notify('前の版と比較する', '10/08 に受領したメンバー表と並べて差分を表示します'),
       },
     };
   }

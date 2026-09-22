@@ -121,9 +121,9 @@
               <!-- 見出し（2段: 送り／受け の帯 → 列の名前） -->
               <div style="display: flex; align-items: center; height: 18px; padding: 0 10px; background: #fbfcfd; font-size: 10.5px; font-weight: 800; color: #9aa1ab; letter-spacing: .04em;">
                 <span style="width: 26px; flex-shrink: 0;"></span>
-                <span style="width: 228px; flex-shrink: 0; color: #005bac;">送り（信号を出す側）</span>
+                <span style="width: 228px; flex-shrink: 0; color: #005bac;">送り（出力側）</span>
                 <span style="width: 18px; flex-shrink: 0;"></span>
-                <span style="width: 228px; flex-shrink: 0; color: #197a4b;">受け（信号を入れる側）</span>
+                <span style="width: 228px; flex-shrink: 0; color: #197a4b;">受け（入力側）</span>
                 <span style="flex: 1;"></span>
               </div>
               <div style="display: flex; align-items: center; height: 26px; padding: 0 10px; border-bottom: 1px solid #e6e9ed; font-size: 11px; font-weight: 800; color: #9aa1ab; white-space: nowrap;">
@@ -206,7 +206,7 @@
               <!-- 追加の行 -->
               <div style="display: flex; align-items: center; gap: 8px; height: 46px; padding: 0 10px; background: #fbfcfd;">
                 <span style="flex: 1;"></span>
-                <span style="font-size: 12.5px; color: #9aa1ab;">名称は行ごとに書き換えられます</span>
+                <span style="font-size: 12.5px; color: #9aa1ab;">名称は行ごとに編集できます</span>
                 <button class="tap ghost" onClick="{{addRow}}" style="display: flex; align-items: center; gap: 6px; height: 32px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12.5px; font-weight: 700; color: #3c424c;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>行を追加</button>
                 <button class="tap ghost" onClick="{{addGroup}}" style="display: flex; align-items: center; gap: 6px; height: 32px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 12px; font-size: 12.5px; font-weight: 700; color: #3c424c;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>系統を追加</button>
               </div>
@@ -258,7 +258,7 @@
                     <sc-if value="{{j.on}}" hint-placeholder-val="{{ false }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg></sc-if>
                   </button>
                 </sc-for>
-                <div style="display: flex; align-items: center; height: 30px; padding: 0 12px; font-size: 11px; color: #9aa1ab;">空いている口を先に出しています</div>
+                <div style="display: flex; align-items: center; height: 30px; padding: 0 12px; font-size: 11px; color: #9aa1ab;">空いているパッチ番号を先に表示しています</div>
               </div>
             </sc-if>
           </div>
@@ -285,13 +285,13 @@
               <button class="tap ghost" onClick="{{addExtra}}" style="display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; height: 36px; margin-top: 8px; border-radius: 9px; border: 1px solid #e6e9ed; background: #ffffff; font-size: 12.5px; font-weight: 700; color: #3c424c;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3c424c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>追加</button>
             </div>
 
-            <!-- この資料で使う口 -->
+            <!-- この資料で使うパッチ番号 -->
             <div style="border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; padding: 12px 14px 14px;">
-              <div style="font-size: 15px; font-weight: 800;">この資料で使う口</div>
+              <div style="font-size: 15px; font-weight: 800;">この資料で使うパッチ番号</div>
               <div style="margin-top: 8px; display: flex; align-items: flex-end; gap: 16px;">
                 <span>
                   <span class="num" style="display: block; font-size: 28px; font-weight: 800; line-height: 1.1;">12</span>
-                  <span style="display: block; margin-top: 2px; font-size: 11.5px; color: #9aa1ab;">パッチ盤の口</span>
+                  <span style="display: block; margin-top: 2px; font-size: 11.5px; color: #9aa1ab;">パッチ盤のパッチ番号</span>
                 </span>
                 <span>
                   <span class="num" style="display: block; font-size: 28px; font-weight: 800; line-height: 1.1; color: #c2410e;">5</span>
@@ -302,13 +302,13 @@
                 <span style="width: 58.4%; background: #005bac;"></span>
                 <span style="width: 41.6%; background: #f0a468;"></span>
               </div>
-              <div style="margin-top: 8px; font-size: 11.5px; line-height: 1.6; color: #5d6470;">VJP100 が 7 口 ・ VJP200 が 3 口 ・ VJP1700 が 2 口</div>
+              <div style="margin-top: 8px; font-size: 11.5px; line-height: 1.6; color: #5d6470;">VJP100 が 7ch ・ VJP200 が 3ch ・ VJP1700 が 2ch</div>
             </div>
 
-            <!-- 書き出しの形 -->
+            <!-- 書き出しの書式 -->
             <div style="border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; padding: 12px 14px 14px;">
               <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 15px; font-weight: 800;">書き出しの形</span>
+                <span style="font-size: 15px; font-weight: 800;">書き出しの書式</span>
                 <span style="flex: 1;"></span>
                 <button class="tap ghost" onClick="{{actions.export}}" aria-label="書き出しを見る" style="width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: 7px; color: #5d6470;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
               </div>
@@ -316,7 +316,7 @@
                 <div style="font-size: 12px; line-height: 1.6; color: #1a1d24;">ATEM 2 M/E out</div>
                 <div style="font-size: 12px; line-height: 1.6; color: #1a1d24;">→ 入力ルーター in36 [136B]</div>
               </div>
-              <div style="margin-top: 8px; font-size: 11.5px; line-height: 1.6; color: #5d6470;">現場のパッチ表と同じ矢印の書き方で出します。</div>
+              <div style="margin-top: 8px; font-size: 11.5px; line-height: 1.6; color: #5d6470;">現場のパッチ表と同じ矢印の書式で書き出します。</div>
             </div>
 
             <!-- 系統のまとめ -->
@@ -399,32 +399,32 @@ class Component extends DCLogic {
     ];
   }
 
-  // プルダウンに出す機材（§6-2。名前＝型番＋役割・エリア・口の数）
+  // プルダウンに出す機材（§6-2。名前＝型番＋役割・エリア・ch数）
   devices() {
     return [
       { area: 'この資料の増設機材', items: [
-        { name: 'ATEM 2 M/E', sub: 'レンタル ・ PGM／AUX OUT 2口' },
+        { name: 'ATEM 2 M/E', sub: 'レンタル ・ PGM／AUX OUT 2ch' },
       ] },
       { area: 'マシンルーム', items: [
-        { name: 'CCU1', sub: 'HDCU-5500 ・ OUT 1口 101A' },
-        { name: 'vMix 3', sub: 'OUT 1口 113A' },
-        { name: 'disguise VX4+ 1', sub: 'd3XR1 ・ OUT 1口 124A' },
+        { name: 'CCU1', sub: 'HDCU-5500 ・ OUT 1ch 101A' },
+        { name: 'vMix 3', sub: 'OUT 1ch 113A' },
+        { name: 'disguise VX4+ 1', sub: 'd3XR1 ・ OUT 1ch 124A' },
       ] },
       { area: 'スタジオ', items: [
-        { name: 'PTZ1', sub: 'AW-UE160K ・ OUT 1口 106A' },
-        { name: 'PTZ2', sub: 'AW-UE160K ・ OUT 1口 107A' },
+        { name: 'PTZ1', sub: 'AW-UE160K ・ OUT 1ch 106A' },
+        { name: 'PTZ2', sub: 'AW-UE160K ・ OUT 1ch 107A' },
       ] },
       { area: '第1調整室', items: [
-        { name: '入力ルーター', sub: 'UHSM-220220 ・ IN 61口 101B〜' },
-        { name: '出力ルーター', sub: 'UHSM-220220 ・ OUT 28口 201A〜' },
+        { name: '入力ルーター', sub: 'UHSM-220220 ・ IN 61ch 101B〜' },
+        { name: '出力ルーター', sub: 'UHSM-220220 ・ OUT 28ch 201A〜' },
       ] },
       { area: '配信卓', items: [
-        { name: '配信ENC 1', sub: 'IN 1口 1301B' },
+        { name: '配信ENC 1', sub: 'IN 1ch 1301B' },
       ] },
     ];
   }
 
-  // 入力ルーターの口（空きが先・使用中は薄く）
+  // 入力ルーターのパッチ番号（空きが先・使用中は薄く）
   jacks() {
     return [
       { no: '136B', port: 'in36', busy: false, who: '空き' },
@@ -476,13 +476,13 @@ class Component extends DCLogic {
       toJack: r.tj || '',
       jackBorder: st.openJack === r.no ? '#005bac' : '#e6e9ed',
       jackBg: st.openJack === r.no ? '#ffffff' : '#eef2f7',
-      name: r.name || '名称を入れる',
+      name: r.name || '名称を入力',
       nameFg: r.name ? '#1a1d24' : '#9aa1ab',
       note: r.note,
       openDev: () => self.setState({ openDev: r.no, openJack: null }),
-      openToDev: () => self.notify('受けの機材', '送りと同じ選び方です。選んだ機材の口だけがパッチ番号に出ます'),
+      openToDev: () => self.notify('受けの機材', '送りと同じ選び方です。選んだ機材のパッチ番号だけが候補に表示されます'),
       openJack: () => self.setState({ openJack: r.no, openDev: null }),
-      more: () => self.notify('行の操作', '複製する・削除・上下の入れ替えがこの中に入ります'),
+      more: () => self.notify('行の操作', '複製する・削除・上下の入れ替えがこのメニューにあります'),
     });
 
     const groups = GN.map((g, gi) => {
@@ -526,7 +526,7 @@ class Component extends DCLogic {
       numBg: j.busy ? '#f7f8fa' : '#eef2f7',
       numFg: j.busy ? '#9aa1ab' : '#1a1d24',
       pick: () => (j.busy
-        ? self.notify('使用中の口', j.no + ' は ' + j.who + ' が使っています。先に外してから選びます')
+        ? self.notify('使用中のパッチ番号', j.no + ' は ' + j.who + ' が使っています。先に解除してから選びます')
         : self.setState({ jack5: j.no, openJack: null })),
     }));
 
@@ -563,16 +563,16 @@ class Component extends DCLogic {
         show: st.openJack !== null,
         top: topOf(st.openJack === null ? 5 : st.openJack) + 'px',
         device: '入力ルーター（UHSM-220220）',
-        meta: 'IN 61口',
+        meta: 'IN 61ch',
         items: jackItems,
       },
       addRow: () => self.setState({ added: st.added + 1, openDev: null, openJack: null }),
-      addGroup: () => self.notify('系統を追加', '系統の名前を入れると、その区切りに行を追加できます'),
-      addExtra: () => self.notify('増設機材を追加', '機材名と口の数を入れると、送り・受けのどちらにも選べます'),
+      addGroup: () => self.notify('系統を追加', '系統の名前を入力すると、その区切りに行を追加できます'),
+      addExtra: () => self.notify('増設機材を追加', '機材名とch数を入力すると、送り・受けのどちらにも選べます'),
       actions: {
         back: () => self.notify('技術資料', 'この案件の技術資料の一覧に戻ります'),
         export: () => self.notify('書き出す', 'A4 横1枚に映像パッチと技術スタッフを並べて書き出します'),
-        more: () => self.notify('その他の操作', '複製する・確定する・削除がこの中に入ります'),
+        more: () => self.notify('その他の操作', '複製する・確定する・削除がこのメニューにあります'),
         save: () => self.notify('保存', '第3版として保存し、確定するまでは下書きのままです'),
       },
     };

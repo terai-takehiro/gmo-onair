@@ -81,7 +81,7 @@
         <div style="margin-top: 6px; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px;">
           <div style="min-width: 0;">
             <h1 style="margin: 0; font-size: 23px; line-height: 1.3; font-weight: 800; letter-spacing: -.01em;">技術資料</h1>
-            <p style="margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; color: #5d6470;">映像パッチと技術スタッフを案件ごとにまとめ、書き出して配る</p>
+            <p style="margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; color: #5d6470;">映像パッチと技術スタッフを案件ごとにまとめ、書き出して配布する</p>
             <div style="margin-top: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
               <span style="font-size: 13.5px; font-weight: 700; color: #3c424c;">東都TV 特番収録「サイエンス・フロンティア」</span>
               <span class="num" style="display: inline-flex; align-items: center; height: 22px; border-radius: 7px; background: #eaf4fb; color: #005bac; font-size: 11px; font-weight: 700; padding: 0 8px;">SCS-0007</span>
@@ -102,7 +102,7 @@
             </button>
           </sc-for>
           <span style="flex: 1;"></span>
-          <span class="num" style="font-size: 11.5px; color: #9aa1ab; padding-right: 6px;">次の資料番号 TD-202610-0003 ・ 自動で振られます</span>
+          <span class="num" style="font-size: 11.5px; color: #9aa1ab; padding-right: 6px;">次の資料番号 TD-202610-0003 ・ 自動で採番されます</span>
         </div>
 
         <div style="margin-top: 16px; display: flex; gap: 16px; align-items: flex-start;">
@@ -173,17 +173,17 @@
             <button class="tap ghost" onClick="{{dlg.show}}" style="height: 152px; border-radius: 14px; border: 1.5px dashed #cbd2da; background: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;">
               <span style="width: 30px; height: 30px; border-radius: 9px; background: #eaf4fb; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></span>
               <span style="font-size: 13px; font-weight: 800; color: #005bac;">技術資料を作成</span>
-              <span class="num" style="font-size: 11.5px; color: #9aa1ab;">空から作る ／ 前の資料を複製する</span>
+              <span class="num" style="font-size: 11.5px; color: #9aa1ab;">新規作成 ／ 前の資料を複製する</span>
             </button>
           </div>
 
-          <!-- ── 右の列（作成のしかた ／ 管理） ───────────────────── -->
+          <!-- ── 右の列（作成の手順 ／ 管理） ───────────────────── -->
           <aside style="width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 14px;">
 
             <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; padding: 14px 14px 12px;">
               <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="width: 26px; height: 26px; border-radius: 8px; background: #eaf4fb; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#005bac" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M9 14h6"></path><path d="M9 18h6"></path></svg></span>
-                <span style="font-size: 15px; font-weight: 800;">作成のしかた</span>
+                <span style="font-size: 15px; font-weight: 800;">作成の手順</span>
               </div>
 
               <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 9px;">
@@ -193,15 +193,15 @@
                 </div>
                 <div style="display: flex; gap: 9px;">
                   <span class="num" style="width: 20px; height: 20px; flex-shrink: 0; border-radius: 9999px; background: #005bac; color: #ffffff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center;">2</span>
-                  <div style="min-width: 0;"><div style="font-size: 13px; font-weight: 800;">空から作るか前の資料を複製する</div><div style="margin-top: 2px; font-size: 11.5px; line-height: 1.55; color: #5d6470;">複製すると映像パッチの行と技術スタッフをそのまま引き継ぐ</div></div>
+                  <div style="min-width: 0;"><div style="font-size: 13px; font-weight: 800;">新規作成か前の資料の複製</div><div style="margin-top: 2px; font-size: 11.5px; line-height: 1.55; color: #5d6470;">複製すると映像パッチの行と技術スタッフをそのまま引き継ぐ</div></div>
                 </div>
                 <div style="display: flex; gap: 9px;">
                   <span class="num" style="width: 20px; height: 20px; flex-shrink: 0; border-radius: 9999px; background: #005bac; color: #ffffff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center;">3</span>
-                  <div style="min-width: 0;"><div style="font-size: 13px; font-weight: 800;">映像パッチ・技術スタッフを入れる</div><div style="margin-top: 2px; font-size: 11.5px; line-height: 1.55; color: #5d6470;">機材を選ぶとパッチ番号の候補が絞られる。人は技術人員から引く</div></div>
+                  <div style="min-width: 0;"><div style="font-size: 13px; font-weight: 800;">映像パッチ・技術スタッフを入力する</div><div style="margin-top: 2px; font-size: 11.5px; line-height: 1.55; color: #5d6470;">機材を選ぶとパッチ番号の候補が絞られる。人は技術人員から選ぶ</div></div>
                 </div>
               </div>
 
-              <p class="num" style="margin: 10px 0 0; padding-top: 9px; border-top: 1px dashed #e6e9ed; font-size: 11.5px; line-height: 1.55; color: #9aa1ab;">資料番号 TD-202610-0003 は作成したときに振られます。番号は後から変わりません。</p>
+              <p class="num" style="margin: 10px 0 0; padding-top: 9px; border-top: 1px dashed #e6e9ed; font-size: 11.5px; line-height: 1.55; color: #9aa1ab;">資料番号 TD-202610-0003 は作成したときに採番されます。番号は後から変わりません。</p>
             </section>
 
             <section style="border-radius: 14px; border: 1px solid #e6e9ed; background: #ffffff; padding: 14px 14px 12px;">
@@ -247,7 +247,7 @@
     </div>
   </sc-if>
 
-  <!-- ── 作成ダイアログ（名前 ／ 空から作る・前の資料を複製する） ───────── -->
+  <!-- ── 作成ダイアログ（名前 ／ 新規作成・前の資料を複製する） ───────── -->
   <sc-if value="{{dlg.open}}" hint-placeholder-val="{{ true }}">
     <div onClick="{{dlg.close}}" style="position: absolute; inset: 0; z-index: 20; background: rgba(26,29,36,.34); display: flex; align-items: center; justify-content: center;">
       <div onClick="{{dlg.stop}}" role="dialog" style="width: 520px; border-radius: 16px; background: #ffffff; box-shadow: 0 20px 60px rgba(26,29,36,.28); padding: 18px 22px 18px;">
@@ -265,7 +265,7 @@
         </div>
 
         <div style="margin-top: 14px;">
-          <div style="font-size: 13px; font-weight: 800;">始め方</div>
+          <div style="font-size: 13px; font-weight: 800;">作成方法</div>
           <div style="margin-top: 7px; display: flex; flex-direction: column; gap: 8px;">
             <sc-for list="{{dlg.modes}}" as="m" hint-placeholder-count="2">
               <button class="tap" onClick="{{m.pick}}" style="display: flex; align-items: flex-start; gap: 10px; min-height: 52px; border-radius: 11px; border: 1.5px solid {{m.border}}; background: {{m.bg}}; padding: 10px 12px;">
@@ -415,13 +415,13 @@ class Component extends DCLogic {
           bg: d.note.kind === 'link' ? '#e7f6ee' : '#fdf1e7',
           fg: d.note.kind === 'link' ? '#197a4b' : '#c2410e',
         },
-        dup: () => self.notify('複製する', d.docNo + ' の映像パッチと技術スタッフをそのまま引き継いだ資料を作ります'),
+        dup: () => self.notify('複製する', d.docNo + ' の映像パッチと技術スタッフをそのまま引き継いだ資料を作成します'),
         more2: () => self.notify('ほかの操作', '名前の編集 ・ 確定する ・ 運営マニュアルに差し込む ・ 削除'),
       }));
 
     const modeDefs = [
-      { key: 'empty', label: '空から作る', sub: '映像パッチ・技術スタッフを 0 行から入れる' },
-      { key: 'copy', label: '前の資料を複製する', sub: '行と人をそのまま引き継いでから直す' },
+      { key: 'empty', label: '新規作成', sub: '映像パッチ・技術スタッフを 0 行から入力する' },
+      { key: 'copy', label: '前の資料を複製する', sub: '行と人をそのまま引き継いでから編集する' },
     ];
     const modes = modeDefs.map((m) => ({
       label: m.label, sub: m.sub, on: st.mode === m.key,
@@ -456,7 +456,7 @@ class Component extends DCLogic {
         close: () => self.setState({ dlg: false }),
         stop: (e) => { if (e && e.stopPropagation) e.stopPropagation(); },
         pickSrc: (e) => self.setState({ src: e.target.value }),
-        create: () => self.setState({ dlg: false, notice: { title: '技術資料を作成', body: 'TD-202610-0003 を作り、映像パッチの画面を開きます' } }),
+        create: () => self.setState({ dlg: false, notice: { title: '技術資料を作成', body: 'TD-202610-0003 を作成し、映像パッチの画面を開きます' } }),
       },
     };
   }

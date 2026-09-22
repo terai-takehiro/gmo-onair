@@ -107,10 +107,10 @@
           <button class="tap btn-primary" onClick="{{actions.pdf}}" style="display: flex; align-items: center; gap: 7px; height: 34px; border-radius: 9px; background: #005bac; color: #ffffff; padding: 0 15px; font-size: 12.5px; font-weight: 800;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"></path><path d="M7 10l5 5 5-5"></path><path d="M5 21h14"></path></svg>PDF で書き出す</button>
         </div>
 
-        <!-- ここから画面ごとの中身 ─ 紙（A4横）＋ 右の欄（260） -->
+        <!-- ここから画面ごとの中身 ─ 用紙（A4横）＋ 右の欄（260） -->
         <div style="margin-top: 14px; display: flex; align-items: flex-start; gap: 16px;">
 
-          <!-- ── 机の上に置いた紙 ─────────────────────────────── -->
+          <!-- ── 机の上に置いた用紙 ─────────────────────────────── -->
           <div style="width: 860px; flex-shrink: 0; border-radius: 12px; background: #eef0f3; border: 1px solid #e6e9ed; padding: 16px 20px 14px; display: flex; flex-direction: column; align-items: center;">
             <div style="width: 820px; height: 580px; overflow: hidden; box-shadow: 0 6px 22px rgba(26,29,36,.14);">
 
@@ -191,12 +191,12 @@
 
                   <sc-if value="{{paper.empty}}" hint-placeholder-val="{{ false }}">
                     <section style="flex: 1; display: flex; align-items: center; justify-content: center;">
-                      <span style="font-size: 16px; color: #9aa1ab;">差し込むブロックを選ぶと、ここに出ます</span>
+                      <span style="font-size: 16px; color: #9aa1ab;">差し込むブロックを選ぶと、ここに表示されます</span>
                     </section>
                   </sc-if>
                 </div>
 
-                <!-- 紙の足もと -->
+                <!-- 用紙の下端 -->
                 <div style="position: absolute; left: 56px; right: 56px; bottom: 22px; display: flex; align-items: center; border-top: 1px solid #e6e9ed; padding-top: 7px;">
                   <span class="num" style="font-size: 12px; color: #9aa1ab;">東都TV 特番収録「サイエンス・フロンティア」 第7回 ・ SCS-0007</span>
                   <span style="flex: 1;"></span>
@@ -212,7 +212,7 @@
 
             <div style="border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; padding: 12px 14px 12px;">
               <div style="font-size: 15px; font-weight: 800;">差し込めるブロック</div>
-              <div style="margin-top: 2px; font-size: 11.5px; color: #9aa1ab;">押すと紙の上から出し入れできます</div>
+              <div style="margin-top: 2px; font-size: 11.5px; color: #9aa1ab;">チェックを外すと PDF から外れます</div>
               <sc-for list="{{blocks}}" as="b" hint-placeholder-count="2">
                 <button class="tap row-tap" onClick="{{b.toggle}}" style="display: flex; align-items: center; gap: 10px; width: 100%; height: 48px; margin-top: 6px; border-radius: 10px; border: 1px solid {{b.bd}}; background: {{b.bg}}; padding: 0 10px;">
                   <span style="width: 18px; height: 18px; flex-shrink: 0; border-radius: 5px; border: 1.6px solid {{b.boxBd}}; background: {{b.boxBg}}; display: flex; align-items: center; justify-content: center;">
@@ -228,7 +228,7 @@
             </div>
 
             <div style="border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; padding: 12px 14px 10px;">
-              <div style="font-size: 15px; font-weight: 800;">この紙に出る内容</div>
+              <div style="font-size: 15px; font-weight: 800;">PDF に出る内容</div>
               <sc-for list="{{summary}}" as="s" hint-placeholder-count="4">
                 <div style="display: flex; align-items: center; gap: 10px; height: 32px; border-bottom: 1px solid #f7f8fa;">
                   <span style="flex: 1; min-width: 0; font-size: 12px; color: #5d6470;">{{s.k}}</span>
@@ -239,7 +239,7 @@
 
             <div style="border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; padding: 12px 14px 12px;">
               <div style="font-size: 15px; font-weight: 800;">書き出しのルール</div>
-              <p style="margin: 7px 0 0; font-size: 11.5px; line-height: 1.7; color: #5d6470;">映像パッチは現場のパッチ表と同じ矢印の書き方で出します。技術スタッフはメンバー表と同じ、日ごとに役職の見出しと名前を並べた形です。</p>
+              <p style="margin: 7px 0 0; font-size: 11.5px; line-height: 1.7; color: #5d6470;">映像パッチは現場のパッチ表と同じ矢印の書式で書き出します。技術スタッフはメンバー表と同じ、日ごとに役職の見出しと名前を並べた形です。</p>
             </div>
 
             <div style="border-radius: 12px; border: 1px solid #e6e9ed; background: #ffffff; padding: 12px 14px 8px;">
@@ -410,7 +410,7 @@ class Component extends DCLogic {
       },
       blocks: [
         mkBlock('patch', '映像パッチ表', '10 行 ・ 3 系統', st.patch),
-        mkBlock('staff', '技術スタッフリスト', '17 人 ・ 2 日ぶん', st.staff),
+        mkBlock('staff', '技術スタッフリスト', '17 人 ・ 2 日分', st.staff),
       ],
       summary: [
         { k: '映像パッチ', v: st.patch ? '10 行' : '出さない' },
@@ -423,10 +423,10 @@ class Component extends DCLogic {
         { what: 'リハ用 TD-202610-0002', when: '2026/10/03 10:26 ・ 大野 誠' },
       ],
       actions: {
-        paper: () => self.notify('用紙', 'A4 横・A4 縦・A3 横 から選びます。いまは A4 横です'),
-        pdf: () => self.notify('PDF で書き出す', 'この紙のまま PDF にします。BOX の案件フォルダにも残ります'),
+        paper: () => self.notify('用紙', 'A4 横・A4 縦・A3 横 から選びます。現在は A4 横です'),
+        pdf: () => self.notify('PDF で書き出す', 'この内容のまま PDF にします。BOX の案件フォルダにも保存されます'),
         insert: () => self.notify('運営マニュアルに差し込む', '運営マニュアル OM-202610-0003 のページに、この2つのブロックを差し込みます'),
-        more: () => self.notify('その他の操作', '複製する・確定する・削除がこの中に入ります'),
+        more: () => self.notify('その他の操作', '複製する・確定する・削除がこのメニューにあります'),
       },
     };
   }
