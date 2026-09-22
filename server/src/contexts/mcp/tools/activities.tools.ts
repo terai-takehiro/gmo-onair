@@ -291,8 +291,11 @@ export function registerActivityTools(server: McpServer): void {
         customer_id: z.string().nullable().optional(),
         description: z.string().nullable().optional()
           .describe('本文。**原文を縮めて上書きしないこと** — ここは「打った文をみる」で'
-            + '読み返される元の記録で、整形結果（body_struct）はここから作り直される。'
-            + '縮めると元に戻せない'),
+            + '読み返される元の記録。縮めると元に戻せない。'
+            + 'ここを差し替えると**整形結果（body_struct）は捨てられ、待ち行列で作り直されます**'
+            + '（作り直しは裏で走るので、直後は原文のまま見えます）。'
+            + 'ただし人が書いた本文の行（body_html があり AI の印が無い）は、'
+            + '待ち行列の対象外なので整形結果を残します'),
         next_action: z.string().nullable().optional().describe('null で「次回アクション完了 (解除)」'),
         next_action_date: z.string().nullable().optional(),
         ...REQUESTED_BY,

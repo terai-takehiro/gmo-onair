@@ -351,11 +351,13 @@ export class ActivityLogService {
     opts: { humanReview?: boolean } = {},
   ) {
     const existing = await queryOne(
-      `SELECT id, customer_id, ai_output_id, ai_formatted, next_action, next_action_date, next_action_short
+      `SELECT id, customer_id, ai_output_id, ai_formatted, next_action, next_action_date, next_action_short,
+              description, body_html, (body_struct IS NOT NULL) AS has_struct
          FROM activity_logs WHERE id = ? AND deleted_at IS NULL`, [id],
     ) as {
       id: string; customer_id: string | null; ai_output_id: string | null; ai_formatted: boolean;
       next_action: string | null; next_action_date: string | null; next_action_short: string | null;
+      description: string | null; body_html: string | null; has_struct: boolean;
     } | undefined;
     if (!existing) throw new AppError(404, 'NOT_FOUND', '活動記録が見つかりません');
 
@@ -432,6 +434,26 @@ export class ActivityLogService {
     if (nextActionChanged || nextActionDateChanged) {
       sets.push('next_action_done_at=?', 'next_action_auto_closed_reason=?');
       params.push(null, null);
+    }
+
+    /*
+     * **原文を差し替えたら、そこから作った整形結果は捨てる**（Codex レビューでの指摘・PR #717）。
+     *
+     * 画面（`ThreadCard`）は `body_struct` があればそちらを出し、待ち行列は
+     * **`body_struct IS NULL` の行しか拾いません**（`activity-format.service` の `PENDING_SQL`）。
+     * つまり本文だけ差し替えると、**新しい本文はどこにも出ず、古いまとめが残り続けます**。
+     * 直したのに画面が変わらないので、直した人には理由が分かりません。
+     *
+     * ⚠️ **戻してよいのは「もう一度拾ってもらえる行」だけ**です。
+     * `body_html` があって AI の印が無い行（人が書いた本文）は待ち行列の条件から外れるので、
+     * ここで消すと**いま出ているものまで消えて、二度と戻りません**
+     * （`redoFormat` が同じ理由で 400 を返しているのと同じ穴）。
+     */
+    const descriptionChanged = description !== undefined
+      && String(description ?? '').trim() !== String(existing.description ?? '').trim();
+    const canRequeue = !existing.body_html || existing.ai_formatted;
+    if (descriptionChanged && existing.has_struct && canRequeue) {
+      sets.push('body_struct=NULL', 'format_attempted_at=NULL', 'format_error=NULL');
     }
 
     await execute(
