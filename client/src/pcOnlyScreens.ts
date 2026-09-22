@@ -178,7 +178,7 @@ export const CLIENT_PC_ONLY: PcOnlyEntry[] = [
   //   案内板とパスワード変更は全員が使い、畳んでも読める
   //   **拠点・部屋 / 権限とメンバー / お金のルール / 休日・営業時間 / 通知とテンプレートは
   //   M11 で `CLIENT_MOBILE_OK` へ移した。** 理由は下の `CLIENT_MOBILE_OK` を参照
-  { path: '/settings/data-viewer', what: 'データビューア', why: 'データベースの中身をそのまま出す道具です。', hidden: true },
+  { path: '/settings/data-viewer', what: 'データビューア', why: 'データベースの中身をそのまま表示する画面です。', hidden: true },
   { path: '/settings/db-backups', what: 'DBバックアップ', why: '復元は取り消せない操作なので、手元が広い場所で行います。', hidden: true },
   // 2026年10月の事業再編（社名変更・計上会社の2社化・案件番号の改番）の下準備。
   // 案件の仕事に出てこないシステム管理者向けの道具なので、決算の取込・DB バックアップと

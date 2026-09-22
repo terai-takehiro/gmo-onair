@@ -81,7 +81,7 @@
         <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 24px;">
           <div style="min-width: 0;">
             <h1 style="margin: 0; font-size: 23px; line-height: 1.3; font-weight: 800; letter-spacing: -.01em;">Wiki</h1>
-            <p style="margin: 6px 0 0; font-size: 13.5px; color: #3c424c;">マニュアル・手順書・社内の決めごと。検索するか、AI に聞く。</p>
+            <p style="margin: 6px 0 0; font-size: 13.5px; color: #3c424c;">マニュアル・手順書・社内ルール。検索するか、AI に聞く。</p>
           </div>
           <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px;">
             <button class="tap" style="display: flex; align-items: center; gap: 6px; height: 38px; border-radius: 10px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 13px; font-size: 13px; font-weight: 700;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5d6470" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.2"></rect><path d="M3 9h18"></path><path d="M9 9v11"></path></svg>テンプレートから作成</button>
@@ -118,7 +118,7 @@
         <section>
           <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 10px;">
             <span style="font-size: 15px; font-weight: 800;">スペース</span>
-            <span class="num" style="font-size: 11.5px; color: #9aa1ab;">分野ごとの棚。閲覧範囲の単位</span>
+            <span class="num" style="font-size: 11.5px; color: #9aa1ab;">分野ごとの区分。閲覧範囲の単位</span>
             <span style="flex: 1;"></span>
             <button class="tap" style="display: flex; align-items: center; gap: 5px; height: 30px; border-radius: 8px; border: 1px solid #e6e9ed; background: #ffffff; padding: 0 11px; font-size: 12px; font-weight: 700;">スペースを管理</button>
           </div>
@@ -196,12 +196,12 @@ class Component extends DCLogic {
 
   spaces() {
     return [
-      { key: 'all',    name: '全社',          desc: '会社の決めごと・総務・経理',       color: '#005bac', tint: '#eaf4fb', pages: '42ページ', updated: '今日 11:02' },
-      { key: 'sales',  name: '営業',          desc: '案件管理の運用・見積の決めごと',   color: '#4338ca', tint: '#eef2ff', pages: '31ページ', updated: '9/20' },
+      { key: 'all',    name: '全社',          desc: '社内ルール・総務・経理',       color: '#005bac', tint: '#eaf4fb', pages: '42ページ', updated: '今日 11:02' },
+      { key: 'sales',  name: '営業',          desc: '案件管理の運用・見積のルール',   color: '#4338ca', tint: '#eef2ff', pages: '31ページ', updated: '9/20' },
       { key: 'prod',   name: '制作・技術',    desc: 'スタジオ運用・収録・配信の手順',   color: '#c2410e', tint: '#fff7ed', pages: '58ページ', updated: '9/19' },
       { key: 'equip',  name: '機材',          desc: '機材ごとの使い方・注意',           color: '#197a4b', tint: '#e7f6ee', pages: '24ページ', updated: '9/12' },
       { key: 'ga',     name: '総務・経理',    desc: '経費・勤怠・申請の手順',           color: '#6d28d9', tint: '#f5f3ff', pages: '9ページ',  updated: '7/14' },
-      { key: 'onair',  name: 'ONAiR の使い方', desc: '各アプリの操作と決めごと',        color: '#5d6470', tint: '#f2f4f7', pages: '4ページ',  updated: '8/02' },
+      { key: 'onair',  name: 'ONAiR の使い方', desc: '各アプリの操作とルール',        color: '#5d6470', tint: '#f2f4f7', pages: '4ページ',  updated: '8/02' },
     ];
   }
 

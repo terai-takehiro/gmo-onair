@@ -280,7 +280,7 @@ class Component extends DCLogic {
     const checkDefs = [
       { key: 'a', label: '配信は続いているか（配信先の画面で確かめる。止まっていれば先に予備の経路へ）' },
       { key: 'b', label: 'ミュートになっていないか（ミキサー MAIN・エンコーダー・配信先の3か所）' },
-      { key: 'c', label: '回線は生きているか（上り 6 Mbps 以上。切れていれば LTE へ）' },
+      { key: 'c', label: '回線はつながっているか（上り 6 Mbps 以上。切れていれば LTE へ）' },
     ];
     const checks = checkDefs.map((c) => ({
       label: c.label, done: !!st.done[c.key],

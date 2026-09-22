@@ -164,7 +164,7 @@ export default function DestinationInspector({
            欄にはしない — 機器から変えられない設定を欄として置くと
            「打てるのに反映されない欄」になる（#279 の判断） */
         <details className="rounded-note bg-muted px-3 py-2">
-          <summary className="cursor-pointer text-list">YouTube 配信の決めごと（推奨設定と Studio 側の項目）</summary>
+          <summary className="cursor-pointer text-list">YouTube 配信の推奨設定（Studio 側の項目）</summary>
           <div className="mt-2 space-y-2 text-note text-muted-foreground">
             <div>
               <p className="font-bold text-foreground">エンコーダの推奨設定（公式の推奨値）</p>

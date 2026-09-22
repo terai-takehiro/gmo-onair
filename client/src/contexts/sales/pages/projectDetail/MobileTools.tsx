@@ -65,7 +65,7 @@ export function MobileTools({ project }: { project: ProjectDetail }) {
   return (
     <div className="flex flex-col gap-3.5 p-3 pt-0">
       <section className="flex flex-col gap-2">
-        <h2 className="text-cardtitle">道具</h2>
+        <h2 className="text-cardtitle">関連リンク</h2>
         <div className="grid grid-cols-2 gap-2">
           {tools.map((t) => (
             <button

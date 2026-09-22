@@ -6,4 +6,5 @@
 ⑤AI 3機能（AI に聞く・AI で下書きを作成・AI で整える＝手入力のメモを手順書の形の Markdown にするのが主）と「AIを使い捨てにしない」5条件の充足表・出典の無い質問を「足りないページ」に登録する経路
 ⑥作る順（段A〜E）⑦判断をいただきたいこと 10件と決まったこと 1件（スマホでも編集） を `docs/design/v4/wiki.md` にまとめ、
 押せる試作（`docs/design/v4/mockups/native/wiki/`・Claude Design のキャンバス）を添えた。同日の追加のご指示4点（編集は手入力の使いやすさ優先／手入力を AI で Markdown に整える／スマホでも書ける／UI の語は取り決めを徹底）を反映済み。
-検証: `node scripts/check-md-links.mjs`・`node scripts/check-changelog.mjs`・手元の Chromium で9枚を描画して操作を確認。
+**あわせて「この道具の決めごと」のような開発文書の比喩語が画面に漏れる件をルール化した**（同日のご指摘「謎表現が相も変わらず続いています。抹殺を。ちゃんとルール化してください」）。`docs/wording.md` にルール11（道具・決めごと・棚・札・帯・木・種・口・手つき・作法 → アプリ／ルール／区分／表示／バナー／ツリー／候補／リンク／操作）を足し、`scripts/check-ui-tokens.mjs` に `metaphor-wording`（画面のコード・記録なし＝1件で止まる）、新しい `scripts/check-mock-wording.mjs`（Claude が作るモックの画面文字。既存分は記録し増えたら止める）を `npm run lint` に足した。画面の実装に残っていた9件（案件詳細スマホの見出し「道具」・設定「データベース」の説明・請求と支払のルールの副題・機材の使い方の「札が付き」・テロップCG 設定・配信先の推奨設定・会場図面の「道具の帯」）も直した。
+検証: `node scripts/check-md-links.mjs`・`node scripts/check-changelog.mjs`・`node scripts/check-ui-tokens.mjs`・`node scripts/check-mock-wording.mjs`・手元の Chromium で9枚を描画して操作を確認。
