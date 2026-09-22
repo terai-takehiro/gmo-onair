@@ -58,7 +58,7 @@ export function useGraphicsProject(ownerKey: string | undefined): {
         const err = e as { response?: { data?: { error?: { message?: string }; message?: string } } };
         const message = err?.response?.data?.error?.message
           || err?.response?.data?.message
-          || 'テロップCGのプロジェクトを開けませんでした';
+          || 'テロップCGを開けませんでした';
         setState({ status: 'error', owner, message });
       }
     })();

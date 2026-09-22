@@ -131,7 +131,7 @@ export default function RosterImportDialog({
       setDryRunResult(r);
       setPhase('dryrun');
     } catch {
-      notifyError('内容を確認できませんでした。', { description: '少し待ってから、もう一度お試しください。' });
+      notifyError('取り込む内容を確認できませんでした。', { description: '少し待ってから、もう一度お試しください。' });
     } finally {
       setCreating(false);
     }
@@ -148,7 +148,7 @@ export default function RosterImportDialog({
       setPhase('done');
       if (r.createdCount > 0) onImported();
     } catch {
-      notifyError('まとめて作れませんでした。', { description: '少し待ってから、もう一度お試しください。' });
+      notifyError('テロップをまとめて作れませんでした。', { description: '少し待ってから、もう一度お試しください。' });
       setPhase('dryrun');
     } finally {
       setCreating(false);
@@ -161,18 +161,18 @@ export default function RosterImportDialog({
         <DialogHeader className="border-b border-border-faint px-4 py-3 sm:px-6">
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-            名簿から一括生成
+            名簿から作る
           </DialogTitle>
         </DialogHeader>
 
         {phase === 'select' && (
           <div className="flex flex-col items-center gap-4 p-8 sm:p-12">
             <p className="text-list text-muted-foreground">
-              受賞者名簿などの Excel（.xlsx / .xls）から、同じ部品のページをまとめて作ります。
+              受賞者名簿などの Excel（.xlsx / .xls）から、同じ種類のテロップをまとめて作ります。
             </p>
             <label className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-control-md bg-primary px-4 py-2.5 text-sub font-bold text-primary-foreground hover:opacity-90">
               <Upload className="h-4 w-4" aria-hidden="true" />
-              {loadingPreview ? '解析中…' : 'Excel ファイルを選択'}
+              {loadingPreview ? '読み込み中…' : 'Excel ファイルを選択'}
               <input
                 type="file"
                 accept=".xlsx,.xls"
@@ -266,8 +266,8 @@ export default function RosterImportDialog({
                 {creating
                   ? '作成中…'
                   : dryRunResult.createdCount > 0
-                  ? `投入する（${dryRunResult.createdCount}件作成）`
-                  : '投入する行がありません'}
+                  ? `${dryRunResult.createdCount}件を作成する`
+                  : '作成できる行がありません'}
               </Button>
             </>
           )}
@@ -314,13 +314,13 @@ function PreviewTable({
   return (
     <div className="space-y-3 p-4 sm:p-6">
       <p className="text-note text-muted-foreground">
-        先頭 {rows.length} 行のプレビューです（全{preview.totalRows}行のうち）。ページ名が空の行は作成されません。
+        先頭 {rows.length} 行のプレビューです（全{preview.totalRows}行のうち）。テロップ名が空の行は作成されません。
       </p>
       <div className="overflow-x-auto rounded-card border border-border">
         <table className="w-full min-w-[480px] text-sub">
           <thead className="bg-surface-subtle text-th text-muted-foreground">
             <tr>
-              <th className="px-3 py-2 text-left">ページ名</th>
+              <th className="px-3 py-2 text-left">テロップ名</th>
               {fieldDefs.map((def) => (
                 <th key={def.key} className="px-3 py-2 text-left">{def.label}</th>
               ))}

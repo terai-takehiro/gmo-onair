@@ -89,7 +89,7 @@ export function TemplateLayerBlock({
       </div>
       {!layer.isNew && (
         <p className="mb-3 text-note text-muted-foreground">
-          部品は追加後は変更できません。変えたい場合はこのレイヤーを削除して作り直してください。
+          種類は追加後は変更できません。変えたい場合はこのレイヤーを削除して作り直してください。
         </p>
       )}
       <div>

@@ -35,7 +35,7 @@ async function assertCallNoFree(projectId: number, callNo: number, excludePageId
 router.post('/projects/:id/pages', requirePermission('qsheet', 'editor'), wrap(async (req, res) => {
   const projectId = parseInt(req.params.id as string);
   const project = projectId && !isNaN(projectId) ? await fetchProject(projectId) : null;
-  if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
+  if (!project) throw new AppError(404, 'NOT_FOUND', 'テロップCGが見つかりません');
 
   const body = (req.body ?? {}) as {
     slot?: string; partKey?: string; name?: string; fields?: Record<string, unknown>;
@@ -134,7 +134,7 @@ router.put('/pages/:id', requirePermission('qsheet', 'editor'), wrap(async (req,
   const existing = id && !isNaN(id)
     ? await queryOne(`SELECT * FROM graphics_pages WHERE id = ?`, [id])
     : undefined;
-  if (!existing) throw new AppError(404, 'NOT_FOUND', 'ページが見つかりません');
+  if (!existing) throw new AppError(404, 'NOT_FOUND', 'テロップが見つかりません');
   const projectId = existing.project_id as number;
 
   const body = (req.body ?? {}) as {
@@ -212,7 +212,7 @@ router.put('/pages/:id', requirePermission('qsheet', 'editor'), wrap(async (req,
     // 「template_id なしは自由編集」と同じ扱い）。
     const existingLayers = normalizePageLayers(existing.layers);
     if (!existingLayers) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'このページは複数部品の組み合わせページではありません（layerFields は使えません）');
+      throw new AppError(400, 'VALIDATION_ERROR', 'このテロップは複数の種類を組み合わせたものではありません（layerFields は使えません）');
     }
     const template = existing.template_id != null ? await fetchTemplate(existing.template_id as number) : null;
     const templateLayers = template?.layers ?? null;
@@ -284,7 +284,7 @@ router.delete('/pages/:id', requirePermission('qsheet', 'editor'), wrap(async (r
   const existing = id && !isNaN(id)
     ? await queryOne(`SELECT id, project_id FROM graphics_pages WHERE id = ?`, [id])
     : undefined;
-  if (!existing) throw new AppError(404, 'NOT_FOUND', 'ページが見つかりません');
+  if (!existing) throw new AppError(404, 'NOT_FOUND', 'テロップが見つかりません');
   const projectId = existing.project_id as number;
 
   // FK の ON DELETE SET NULL に任せると「live のまま絵だけ消える」cue が残るため、

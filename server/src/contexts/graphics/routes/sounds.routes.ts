@@ -116,7 +116,7 @@ router.post(
   wrap(async (req, res) => {
     const projectId = parseInt(req.params.id as string);
     const project = projectId && !isNaN(projectId) ? await fetchProject(projectId) : null;
-    if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
+    if (!project) throw new AppError(404, 'NOT_FOUND', 'テロップCGが見つかりません');
     if (!req.file) throw new AppError(400, 'BAD_REQUEST', 'sound ファイルを添付してください');
 
     const step = String((req.body as { step?: unknown })?.step ?? '').trim();
@@ -179,7 +179,7 @@ router.get(
   wrap(async (req, res) => {
     const projectId = parseInt(req.params.id as string);
     const project = projectId && !isNaN(projectId) ? await fetchProject(projectId) : null;
-    if (!project) throw new AppError(404, 'NOT_FOUND', 'CGプロジェクトが見つかりません');
+    if (!project) throw new AppError(404, 'NOT_FOUND', 'テロップCGが見つかりません');
 
     const rows = await queryAll(
       `SELECT * FROM graphics_ranking_sounds WHERE project_id = ? ORDER BY step, COALESCE(rank_start, 0) DESC`,

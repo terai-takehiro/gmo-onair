@@ -38,7 +38,7 @@ export function RankingControlPanel({ page }: { page: GraphicsPageRow }) {
     try {
       await updateGraphicsPage(page.id, { fields: withRankingSubPhase(page.fields, phase) });
     } catch {
-      notifyError('ピック対象を切り替えられませんでした');
+      notifyError('表示を切り替えられませんでした');
     } finally {
       setPending(false);
     }
@@ -68,7 +68,7 @@ export function RankingControlPanel({ page }: { page: GraphicsPageRow }) {
             type="button" variant={subPhase === phase ? 'default' : 'outline'} size="sm"
             className="min-h-[44px]" disabled={pending} onClick={() => void pushSubPhase(phase)}
           >
-            {PICK_LABELS[phase - 1]}をピック
+            {PICK_LABELS[phase - 1]}だけにする
           </Button>
         ))}
         <Button

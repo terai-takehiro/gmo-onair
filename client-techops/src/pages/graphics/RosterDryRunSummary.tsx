@@ -11,7 +11,7 @@ export default function RosterDryRunSummary({ result }: { result: RosterCommitRe
         <div>
           <p className="text-list font-bold">確認（まだ作成していません）</p>
           <p className="text-sub text-muted-foreground">
-            下の件数でよければ「投入する」を押してください。全{result.createdCount + result.skippedBlank + result.errors.length}行を読みました。
+            下の件数でよければ「作成する」を押してください。全{result.createdCount + result.skippedBlank + result.errors.length}行を読みました。
           </p>
         </div>
       </div>
@@ -22,7 +22,7 @@ export default function RosterDryRunSummary({ result }: { result: RosterCommitRe
           <Stat label="空行スキップ" value={result.skippedBlank} cls="border-border bg-surface-subtle text-muted-foreground" />
         )}
         {result.errors.length > 0 && (
-          <Stat label="ページ名が空" value={result.errors.length} cls="border-warning-border bg-warning-surface text-warning" />
+          <Stat label="テロップ名が空" value={result.errors.length} cls="border-warning-border bg-warning-surface text-warning" />
         )}
       </div>
 
@@ -30,7 +30,7 @@ export default function RosterDryRunSummary({ result }: { result: RosterCommitRe
         <div className="rounded-card border border-warning-border bg-warning-surface p-3">
           <p className="mb-1 flex items-center gap-1.5 text-sub font-bold">
             <AlertCircle className="h-4 w-4" aria-hidden="true" />
-            作成されない行（ページ名になる列が空）
+            作成されない行（テロップ名になる列が空）
           </p>
           <ul className="max-h-40 space-y-0.5 overflow-y-auto text-note text-muted-foreground">
             {result.errors.map((e, i) => (

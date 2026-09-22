@@ -71,7 +71,7 @@ export default function GraphicsConsolePage() {
   if (state.status === 'not-found') {
     return (
       <PageShell>
-        <EmptyState icon={<Type />} title="見つかりませんでした" description="管理番号が合っているか確かめてください。" />
+        <EmptyState icon={<Type />} title="案件・番組が見つかりません" description="管理番号が合っているか確かめてください。" />
       </PageShell>
     );
   }
@@ -79,7 +79,7 @@ export default function GraphicsConsolePage() {
   if (state.status === 'error') {
     return (
       <PageShell>
-        <EmptyState icon={<AlertCircle />} title="開けませんでした" description={state.message} />
+        <EmptyState icon={<AlertCircle />} title="テロップCGを開けませんでした" description={state.message} />
       </PageShell>
     );
   }
@@ -204,16 +204,16 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
     projectId, livePages, socketRef, setCuesFromRows: (rows) => setCues(cuesToMap(rows)),
   });
 
-  /** 校正の防衛線: 未完成はブロック・未確認は確認してから（TAKE 時に毎回通す。useConsoleTake.ts の take() から呼ぶ） */
+  /** 確認の防衛線: 未完成はブロック・未確認は確認してから（TAKE 時に毎回通す。useConsoleTake.ts の take() から呼ぶ） */
   const guardTake = async (page: GraphicsPageRow): Promise<boolean> => {
     if (page.proofState === 'draft') {
-      notifyError('未完成のページは TAKE できません', { description: `「${page.name}」の中身を仕上げて校正に回してください。` });
+      notifyError('未完成のテロップは TAKE できません', { description: `「${page.name}」に文言を入れてから、確認済みにしてください。` });
       return false;
     }
     if (page.proofState === 'unproofed') {
       return await confirmAction({
-        title: `校正が「${PROOF_LABELS.unproofed}」のページを出しますか？`,
-        description: `「${page.name}」はまだ表記チェックが済んでいません。`,
+        title: `${PROOF_LABELS.unproofed}のテロップを出しますか？`,
+        description: `「${page.name}」はまだ表記の確認が済んでいません。`,
         confirmLabel: 'TAKE する',
         tone: 'danger',
       });
@@ -242,28 +242,28 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
     const no = Number(buf);
     const page = callOrder.find((p) => p.callNo === no);
     if (!page) {
-      notifyError(`番号 ${no} のページはありません`, { description: '一覧の「番号」列で呼出番号を確認してください。' });
+      notifyError(`番号 ${no} のテロップはありません`, { description: '出す順の「番号」列で確認してください。' });
       return;
     }
     if (isPageContentEmpty(page.partKey, page.fields)) {
-      notifyError(`「${page.name}」は文言が未入力です`, { description: '文言を入力してから番号呼出してください。' });
+      notifyError(`「${page.name}」は文言が未入力です`, { description: '文言を入れてから、もう一度番号を押してください。' });
       return;
     }
     setPvwPageId(page.id);
   };
 
   /**
-   * 全部消す（旧オールクリア）。トリガーボタンを「全部消す」に改名したのに合わせて、
-   * 確認ダイアログの実行ボタンの文言も揃えた——トリガーだけ改名すると、押した本人の
-   * 目に「全部消す」を押したのに見慣れない「オールクリア」が出るという新しい不整合に
-   * なるため（レビュー指摘対応）。ロジック（対象スロット・確認の要否）自体は変えていない。
+   * 全部消す（旧オールクリア）。トリガーボタン・確認ダイアログの見出し・実行ボタンの
+   * 3つを「全部消す」で揃える——どれか1つだけ改名すると、押した本人の目に見慣れない
+   * 語（オールクリア・スロット）が出るという新しい不整合になるため（レビュー指摘対応）。
+   * ロジック（対象の位置・確認の要否）自体は変えていない。
    * 全部消したら CLEAR の対象（lastTaken）もクリアする——消した後は canClear が自然に
    * false になるが、念のため明示的に外しておく。
    */
   const allClear = async () => {
     if (!(await confirmAction({
-      title: 'すべてのスロットをクリアしますか？',
-      description: 'いま出ているテロップ・CGが全部下ります（放送に出ます）。',
+      title: 'いま出ているテロップを全部消しますか？',
+      description: 'どの位置のテロップも全部下ります（放送に出ます）。',
       confirmLabel: '全部消す',
       tone: 'danger',
     }))) return;
@@ -305,15 +305,15 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
         to={`/techops/graphics/${encodeURIComponent(ownerKey)}`}
         className="inline-flex min-h-tap w-fit items-center gap-1 rounded-control-md px-1.5 text-sub font-bold text-muted-foreground hover:text-foreground"
       >
-        <ChevronLeft className="h-4 w-4" aria-hidden="true" />ページと送出リスト
+        <ChevronLeft className="h-4 w-4" aria-hidden="true" />テロップ一覧
       </Link>
 
       <PageHeader
-        title={`送出コンソール ／ ${bundle.project.name}`}
+        title={`本番モード ／ ${bundle.project.name}`}
         sub={(<>
           行を押す（またはテンキー→Enter）で <strong>NEXT</strong> に立ち、TAKE で <strong>OA</strong> に出します。
-          TAKE すると NEXT は出す順の次の行へ自動で進みます。スロットは<strong>1枠1枚</strong>で、
-          同じスロットに TAKE すると前のページは自動で下ります。
+          TAKE すると NEXT は出す順の次の行へ自動で進みます。同じ位置には<strong>1枚だけ</strong>出せるので、
+          同じ位置に TAKE すると前のテロップは自動で下ります。
         </>)}
       >
         <span className={`inline-flex items-center gap-2 rounded-control-md border px-3 py-1.5 text-sub font-bold ${
@@ -334,10 +334,10 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
       <div className="flex flex-col items-stretch gap-3 lg:flex-row">
         <ConsolePreview
           tone="pgm"
-          title="いま出ている絵（合成後）"
+          title="いま出ている（合成後）"
           right={<span className="font-number shrink-0 text-sub-sm text-muted-foreground">1920×1080</span>}
           items={livePages.map((page) => ({ page, revealPhase: cues[page.slot]?.revealPhase }))}
-          emptyText="オンエアなし"
+          emptyText="何も出ていません（透過）"
           serverNowMs={serverNowMs}
           ctx={{
             theme: resolveTelopTheme(bundle.project.theme),
@@ -348,11 +348,11 @@ function ConsoleContent({ ownerKey, bundle }: { ownerKey: string; bundle: Graphi
         <ConsolePreview
           tone="pvw"
           title={pvwPage ? (
-            <>次に出す ・ <span className="font-number">{pvwPage.callNo}</span> {pvwPage.name}</>
-          ) : '次に出す絵（未設定）'}
+            <><span className="font-number">{pvwPage.callNo}</span> {pvwPage.name}</>
+          ) : '次に出す'}
           right={pvwPage ? <NextProofStatus page={pvwPage} /> : undefined}
           items={pvwPage ? [...pvwContext.map((page) => ({ page, dim: true })), { page: pvwPage }] : []}
-          emptyText="番号呼出か、一覧の行を押すと選べます"
+          emptyText="出す順から行を押すと、ここに立ちます（テンキー→Enter でも）"
           serverNowMs={serverNowMs}
           ctx={{ theme: resolveTelopTheme(bundle.project.theme) }}
         />

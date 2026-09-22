@@ -78,7 +78,7 @@ export function ConsoleControls({
   onTake: () => void;
   /** CLEAR を押せる状態か（＝消せる何かが残っているか。何を指すかの判定は呼び出し側に委ねる） */
   canClear: boolean;
-  /** 最後に TAKE したものを消す */
+  /** 最後に出したものを消す */
   onClear: () => void;
   /** OA の投票・クイズページ（段6-6・残り時間表示用）。無ければ null のまま渡す */
   votePage?: GraphicsPageRow | null;
@@ -113,7 +113,7 @@ export function ConsoleControls({
         className="min-h-[48px] w-full border-warning-border bg-warning-surface text-warning hover:bg-warning-surface"
         disabled={!canClear}
         onClick={onClear}
-        title={canClear ? undefined : '消すものがありません'}
+        title={canClear ? undefined : 'まだ何も出していません'}
       >
         <Eraser className="mr-2 h-4 w-4" aria-hidden="true" />CLEAR 消す
       </Button>

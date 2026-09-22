@@ -1,18 +1,18 @@
-// テロップCG — 送出コンソールの「いま出ているもの」帯（モック②の上段）。
+// テロップCG — 本番モードの「いま出ているもの」（モック②の上段）。
 //
-// 全6スロットを常設で並べていた旧実装をやめ、**いま実際に何か出ているスロットだけ**を
+// 全6か所を常設で並べていた旧実装をやめ、**いま実際に何か出ている位置だけ**を
 // 横に並べる（docs/design/v4/graphics-redesign.md §8）。0件になれば帯ごと非表示にする
 // （このコンポーネント内部で `return null` する — 呼び出し側は条件を見ずに毎回描いてよい）。
-// 自動退出ルール（段6-4）で直後に空になったスロットは、`autoOutHighlight` の間だけ
+// 「同時に出せないもの」（段6-4）で直後に空になった位置は、`autoOutHighlight` の間だけ
 // 「消えたこと」に気づけるよう一時的に表示を残す（消えた瞬間に帯からいきなり無くなると
 // 何が起きたか分からないため——「衝突の解決をオペレーターの注意力に任せない」の実装）。
 //
-// ページ名に加えて**経過時間**（cue.takenAt からの mm:ss・等幅数字）を出す — 「出しっぱなし」に
+// テロップ名に加えて**経過時間**（cue.takenAt からの mm:ss・等幅数字）を出す — 「出しっぱなし」に
 // 気づくための数字なので、時刻はサーバー基準（親から渡る skew 補正済みの
 // serverNowMs）で計算し、クライアントの時計でフリーランさせない。
 //
 // 個別の「消す」ボタン（旧「OUT」・見た目と操作対象は変えずラベルだけ変更——画面に
-// 「OUT」という語を出さない方針のため）はスロット単位でそのスロットのオンエアを下ろす。
+// 「OUT」という語を出さない方針のため）は、その位置に出ているものを1枚だけ下ろす。
 // 全部消す（旧オールクリア）は別ボタン（呼び出し側 GraphicsConsolePage.tsx の担当・
 // このコンポーネントの外）。
 import { Button } from '@/components/ui/button';
@@ -79,7 +79,7 @@ export function ConsoleSlotLanes({ cues, pageById, serverNowMs, onOut, autoOutHi
               <span className="min-w-0 flex-1 truncate text-th text-muted-foreground">{SLOT_LABELS[slot]}</span>
               {justAutoOut && (
                 <span className="shrink-0 rounded-control bg-warning px-1.5 py-0.5 text-note font-bold text-warning-foreground">
-                  自動で消去
+                  自動で消しました
                 </span>
               )}
               {live && cue?.takenAt && (
@@ -90,7 +90,7 @@ export function ConsoleSlotLanes({ cues, pageById, serverNowMs, onOut, autoOutHi
             </div>
             <div className="flex min-h-[28px] items-center gap-1.5">
               <span className={`min-w-0 flex-1 truncate text-sub ${live ? 'font-bold' : 'text-muted-foreground'}`}>
-                {page ? `${page.callNo} ${page.name}` : live ? '（不明なページ）' : 'オンエアなし'}
+                {page ? `${page.callNo} ${page.name}` : live ? '（不明なテロップ）' : '何も出ていません'}
               </span>
               {live && (
                 <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => onOut(slot)}>

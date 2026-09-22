@@ -47,8 +47,8 @@ export default function CopyTemplatesDialog({ projectId, open, onOpenChange, onC
   const pick = async (source: GraphicsProjectSummary) => {
     if (copyingId) return; // 二重クリック防止（連続で別の行を押した場合を含む）
     if (!(await confirmAction({
-      title: `「${source.name}」からテンプレートをコピーしますか？`,
-      description: 'このプロジェクトの既存テンプレートは残ったまま、コピー元のテンプレートが追加されます。',
+      title: `「${source.name}」から見た目と種類の初期値をコピーしますか？`,
+      description: 'テロップの中身（文言）は写しません。いまあるテンプレートは残ったまま追加されます。',
       confirmLabel: 'コピーする',
     }))) return;
     setCopyingId(source.id);
@@ -76,7 +76,7 @@ export default function CopyTemplatesDialog({ projectId, open, onOpenChange, onC
 
         <div className="p-4 sm:p-6">
           <p className="mb-3 text-sub text-muted-foreground">
-            コピー元にする番組・案件を選んでください。このプロジェクトの既存テンプレートは残ります。
+            コピー元にする番組・案件を選んでください。いまあるテンプレートは残ります。
           </p>
 
           {listQuery.isLoading ? (

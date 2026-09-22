@@ -50,7 +50,7 @@ export default function RosterMappingStep({
     <div className="space-y-4 p-4 sm:p-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <Label>部品</Label>
+          <Label>種類</Label>
           <Select value={partKey} onValueChange={(v) => onPartKeyChange(v as GraphicsPartKey)}>
             <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -61,7 +61,7 @@ export default function RosterMappingStep({
           </Select>
         </div>
         <div>
-          <Label>スロット（出る場所）</Label>
+          <Label>出る位置</Label>
           <Select value={slot} onValueChange={(v) => onSlotChange(v as GraphicsSlot)}>
             <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -107,21 +107,21 @@ export default function RosterMappingStep({
       </div>
 
       <div>
-        <Label>ページ名に使う列</Label>
+        <Label>テロップ名に使う列</Label>
         <Select
           value={nameColumn === '' ? AUTO : nameColumn}
           onValueChange={(v) => onNameColumnChange(v === AUTO ? '' : v)}
         >
           <SelectTrigger className="mt-1 min-h-[44px]"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value={AUTO}>自動（上のマッピングの代表欄を使う）</SelectItem>
+            <SelectItem value={AUTO}>自動（上で割り当てた代表の欄を使う）</SelectItem>
             {headers.map((h) => (
               <SelectItem key={h} value={h}>{h}</SelectItem>
             ))}
           </SelectContent>
         </Select>
         <p className="mt-1 text-note text-muted-foreground">
-          一覧画面に出るページ名です。空欄になる行は作成されません（他の行は続けて作成します）。
+          一覧に出るテロップ名です。空欄になる行は作成されません（他の行は続けて作成します）。
         </p>
       </div>
     </div>

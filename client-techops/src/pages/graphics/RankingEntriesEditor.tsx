@@ -87,7 +87,7 @@ export function RankingEntriesEditor({
           </button>
         </div>
         <p className="mt-1 text-note text-muted-foreground">
-          直接発表＝No.1をそのまま発表します。投票で決定＝TOP3提示のあと、送出コンソールでNo.1を選びます。
+          直接発表＝No.1をそのまま発表します。投票で決定＝TOP3提示のあと、本番モードでNo.1を選びます。
         </p>
       </div>
 

@@ -251,14 +251,14 @@ export default function TemplateFormDialog({
                 className={`min-h-tap flex-1 rounded-control px-3 text-sub font-bold transition-colors ${!multiMode ? 'bg-card shadow-sm' : 'text-muted-foreground'}`}
                 onClick={() => switchMultiMode(false)}
               >
-                単一部品
+                1つの種類
               </button>
               <button
                 type="button"
                 className={`min-h-tap flex-1 rounded-control px-3 text-sub font-bold transition-colors ${multiMode ? 'bg-card shadow-sm' : 'text-muted-foreground'}`}
                 onClick={() => switchMultiMode(true)}
               >
-                複数部品を組み合わせる
+                複数の種類を組み合わせる
               </button>
             </div>
           )}
@@ -290,11 +290,11 @@ export default function TemplateFormDialog({
                 disabled={layers.length >= MAX_GRAPHICS_TEMPLATE_LAYERS}
                 onClick={addLayer}
               >
-                <Plus className="mr-1 h-4 w-4" aria-hidden="true" />部品を追加
+                <Plus className="mr-1 h-4 w-4" aria-hidden="true" />種類を追加
               </Button>
               {layers.length >= MAX_GRAPHICS_TEMPLATE_LAYERS && (
                 <p className="text-note text-muted-foreground">
-                  部品は最大 {MAX_GRAPHICS_TEMPLATE_LAYERS} 個までです。
+                  種類は最大 {MAX_GRAPHICS_TEMPLATE_LAYERS} 個までです。
                 </p>
               )}
             </div>
@@ -302,7 +302,7 @@ export default function TemplateFormDialog({
             <>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <Label>部品</Label>
+                  <Label>種類</Label>
                   {template ? (
                     <p className="mt-1 flex min-h-[44px] items-center text-list font-bold">{PART_LABELS[partKey]}</p>
                   ) : (
@@ -317,7 +317,7 @@ export default function TemplateFormDialog({
                   )}
                 </div>
                 <div>
-                  <Label>スロット（出る場所）</Label>
+                  <Label>出る位置</Label>
                   {template ? (
                     <div className="mt-1 flex min-h-[44px] items-center"><SlotBadge slot={slot} /></div>
                   ) : (
@@ -334,15 +334,15 @@ export default function TemplateFormDialog({
               </div>
               {template && (
                 <p className="text-note text-muted-foreground">
-                  部品・スロットは作成後は変更できません。変えたい場合は削除して作り直してください（この
-                  テンプレートで作られた既存のページには影響しません）。
+                  種類・出る位置は作成後は変更できません。変えたい場合は削除して作り直してください（この
+                  テンプレートから作ったテロップには影響しません）。
                 </p>
               )}
 
               <div>
                 <p className="mb-1 text-th font-bold text-muted-foreground">初期値と公開フィールド</p>
                 <p className="mb-2 text-note text-muted-foreground">
-                  チェックを入れた欄だけ、ページ作成時にオペレーターが書き換えられます。チェックが無い欄は
+                  チェックを入れた欄だけ、テロップを作るときにオペレーターが書き換えられます。チェックが無い欄は
                   下に入れた初期値のまま固定されます。
                 </p>
                 <TemplateFieldsEditor

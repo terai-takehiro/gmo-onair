@@ -23,10 +23,10 @@ export default function ThemePicker({ projectId, theme, onSaved }: {
     try {
       await updateGraphicsProject(projectId, { theme: next as GraphicsThemeKey });
       const label = GRAPHICS_THEMES.find((t) => t.key === next)?.label ?? next;
-      notifySuccess(`テーマを「${label}」にしました`, { description: '出力画面の見た目が切り替わります。' });
+      notifySuccess(`見た目を「${label}」にしました`, { description: '出力画面の見た目が切り替わります。' });
       await onSaved();
     } catch {
-      notifyError('テーマを変更できませんでした');
+      notifyError('見た目を変更できませんでした');
     } finally {
       setSaving(false);
     }
@@ -36,12 +36,12 @@ export default function ThemePicker({ projectId, theme, onSaved }: {
     <label className="flex items-center gap-2">
       <span className="flex items-center gap-1 text-sub font-bold text-muted-foreground">
         <Palette className="h-4 w-4" aria-hidden="true" />
-        テーマ
+        見た目
       </span>
       <Select value={theme} onValueChange={(v) => { void change(v); }} disabled={saving}>
         {/* 表の列幅ではなくドロップダウンの幅なので col-width-by-hand の対象外 */}
-        <SelectTrigger className="min-h-tap w-[168px]" aria-label="テーマ"> {/* ui-tokens-ok */}
-          <SelectValue placeholder="テーマを選ぶ" />
+        <SelectTrigger className="min-h-tap w-[168px]" aria-label="見た目"> {/* ui-tokens-ok */}
+          <SelectValue placeholder="見た目を選ぶ" />
         </SelectTrigger>
         <SelectContent>
           {GRAPHICS_THEMES.map((t) => (

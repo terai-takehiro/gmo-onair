@@ -65,7 +65,7 @@ export function VoteInteractiveSection({
       notifySuccess('外部インタラクティブと同期しました');
     } catch {
       notifyError('外部インタラクティブと同期できませんでした', {
-        description: 'プロジェクトの連携設定（接続先URL・APIキー・イベントID）を確認してください',
+        description: '設定の「連携」タブ（接続先URL・鍵・イベントID）を確認してください',
       });
     } finally {
       setSyncing(false);
@@ -108,11 +108,11 @@ export function VoteInteractiveSection({
         />
         {countdownLocked ? (
           <p className="mt-1 text-note text-muted-foreground">
-            テンプレートから作るページでは、この欄はテンプレートの公開フィールドではないため保存できません。
+            テンプレートから作るテロップでは、この欄はテンプレートの公開フィールドではないため保存できません。
           </p>
         ) : (
           <p className="mt-1 text-note text-muted-foreground">
-            「続き」で投票を開始してからこの秒数後、自動で締切（開票）します。
+            「進める」で投票を開始してからこの秒数後、自動で締切（開票）します。
           </p>
         )}
       </div>
@@ -134,7 +134,7 @@ export function VoteInteractiveSection({
 
       {!pageId ? (
         <p className="rounded-note border border-dashed border-border bg-surface-subtle px-3 py-2 text-sub text-muted-foreground">
-          ページを保存すると外部インタラクティブと同期できます。まずは他の項目を入力して保存してください。
+          テロップを保存すると外部インタラクティブと同期できます。まずは他の項目を入力して保存してください。
         </p>
       ) : (
         <div className="flex flex-wrap gap-2">

@@ -113,9 +113,9 @@ export function TemplateFieldsSection({
     <div className="space-y-4">
       {heading && <p className="text-list font-bold">{heading}</p>}
       <div className="flex flex-wrap items-center gap-2 rounded-note border border-border bg-surface-subtle px-3 py-2 text-sub">
-        <span className="text-muted-foreground">部品</span>
+        <span className="text-muted-foreground">種類</span>
         <span className="font-bold">{PART_LABELS[partKey]}</span>
-        <span className="text-muted-foreground">／出る場所</span>
+        <span className="text-muted-foreground">／出る位置</span>
         <span className="font-bold">{SLOT_LABELS[slot]}</span>
         <span className="text-note text-muted-foreground">（テンプレート「{templateName}」で固定）</span>
       </div>
