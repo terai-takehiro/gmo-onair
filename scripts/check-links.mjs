@@ -42,7 +42,7 @@ const SRC = path.join(ROOT, 'client/src');
  * signage は別バンドルではなく client 自身のルート (/signage/:roomId) なので
  * 素通しせずルート表と突き合わせる。
  */
-const OTHER_BUNDLE = /^\/(qsheet|techops|live|equipment|daily|api)(\/|$)/;
+const OTHER_BUNDLE = /^\/(qsheet|techops|live|equipment|daily|wiki|api)(\/|$)/;
 
 /** 行き先がまだ無いと**分かったうえで**置いてあるもの（理由を必ず書く） */
 const ALLOW = new Map([

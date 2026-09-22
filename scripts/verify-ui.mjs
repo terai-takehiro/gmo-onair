@@ -206,6 +206,13 @@ const PAGES = [
   ['日常業務 問い合わせ', '/daily/inquiries'],
   ['日常業務 やること', '/daily/tasks'],
   ['日常業務 カード', '/daily/security-cards'],
+
+  // ── Wiki (v4 対象・2026-09-22 段A) ───────────────────────
+  // ページ (`/wiki/p/:id`) はシードの id が固定でないので並べていない。
+  // スペースは migration 302 が `key` 固定で入れるので URL が動かない。
+  ['Wiki ホーム', '/wiki/'],
+  ['Wiki スペース 全社', '/wiki/s/all'],
+  ['Wiki スペース ONAiR の使い方', '/wiki/s/onair'],
   // リアルタイムCG (`/awards/*`) は廃止済み。サーバーが配信しないので検査対象からも外した
   // (`client-awards/CLAUDE.md` 参照)。
 ];

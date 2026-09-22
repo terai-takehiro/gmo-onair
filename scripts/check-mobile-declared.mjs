@@ -64,6 +64,15 @@ const APPS = [
     pcConst: 'LIVE_PC_ONLY',
     okConst: 'LIVE_MOBILE_OK',
   },
+  {
+    // Wiki（2026-09-22・段A）。**現場でスマホで読むのが主な使い方**
+    // （docs/design/v4/wiki.md §6-⑧）なので、最初からここで宣言を強制する。
+    app: 'Wiki (client-wiki)',
+    routes: 'client-wiki/src/App.tsx',
+    decl: 'client-wiki/src/pcOnlyScreens.ts',
+    pcConst: 'WIKI_PC_ONLY',
+    okConst: 'WIKI_MOBILE_OK',
+  },
 ];
 
 /** 画面として数えないパス */

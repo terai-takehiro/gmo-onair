@@ -60,6 +60,9 @@ export async function seed() {
   // `sales` が旧 `budget`/`gpm`/`studio`/`partner_schedule` をまとめて持つ
   // （案件管理・財務管理・カレンダー・設定・プロジェクト管理）。
   // `qsheet` が計時・視聴者（旧 `liveops`）の権限も面倒を見る（migration 232）。
+  // Wiki（`docs/design/v4/wiki.md` §8・2026-09-22）の区分 `wiki` を足して6つ。
+  // 設計の決定「閲覧を全員の既定に」に合わせ、5人全員に最低でも reader を入れている
+  // （どのスペースまで見えるかは `wiki_space_members` の側で決まる）。
   const perms: [string, string, string][] = [
     // staff1 — 佐藤（フルアクセス寄り）
     [USERS.staff1, 'sales',       'manager'],
@@ -67,6 +70,7 @@ export async function seed() {
     [USERS.staff1, 'qsheet',      'editor'],
     [USERS.staff1, 'awards',      'editor'],
     [USERS.staff1, 'dailyops',    'editor'],
+    [USERS.staff1, 'wiki',        'editor'],
 
     // staff2 — 鈴木（フルアクセス寄り・機材と凍結アプリは管理者）
     [USERS.staff2, 'sales',       'manager'],
@@ -74,6 +78,7 @@ export async function seed() {
     [USERS.staff2, 'qsheet',      'manager'],
     [USERS.staff2, 'awards',      'manager'],
     [USERS.staff2, 'dailyops',    'manager'],
+    [USERS.staff2, 'wiki',        'manager'],
 
     // staff3 — 高橋（制作スタッフ・sales は見るだけ）
     [USERS.staff3, 'sales',       'editor'],
@@ -81,6 +86,7 @@ export async function seed() {
     [USERS.staff3, 'qsheet',      'editor'],
     [USERS.staff3, 'awards',      'editor'],
     [USERS.staff3, 'dailyops',    'editor'],
+    [USERS.staff3, 'wiki',        'editor'],
 
     // staff4 — 田中（経営層・主に閲覧）
     [USERS.staff4, 'sales',       'reader'],
@@ -88,11 +94,13 @@ export async function seed() {
     [USERS.staff4, 'qsheet',      'reader'],
     [USERS.staff4, 'awards',      'reader'],
     [USERS.staff4, 'dailyops',    'reader'],
+    [USERS.staff4, 'wiki',        'reader'],
 
     // staff5 — 山田（限定アクセス。equipment/dailyops は持たない例）
     [USERS.staff5, 'sales',       'editor'],
     [USERS.staff5, 'qsheet',      'reader'],
     [USERS.staff5, 'awards',      'reader'],
+    [USERS.staff5, 'wiki',        'reader'],
   ];
 
   for (const [userId, mod, level] of perms) {

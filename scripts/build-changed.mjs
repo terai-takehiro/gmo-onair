@@ -13,7 +13,7 @@ import { execSync } from 'node:child_process';
 
 const APPS = [
   'client', 'client-techops', 'client-equipment',
-  'client-live', 'client-awards', 'client-daily', 'server',
+  'client-live', 'client-awards', 'client-daily', 'client-wiki', 'server',
 ];
 
 const baseArg = process.argv.indexOf('--base');

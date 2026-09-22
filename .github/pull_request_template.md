@@ -69,6 +69,7 @@ Closes #
 - [ ] 案件管理・財務管理・カレンダー・設定 (`client/`)
 - [ ] 日常業務 (`client-daily/`)
 - [ ] 機材管理 (`client-equipment/`)
+- [ ] Wiki (`client-wiki/`)
 - [ ] 制作技術支援 (`client-techops/`) — 凍結解除中。表本体・`EditorSidebar`・本番系画面の残作業は `client-techops/CLAUDE.md`
 - [ ] 計時・視聴者 (`client-live/`) — **表示画面 (`/live/display/`) だけ見た目を変えない例外** (`client-live/CLAUDE.md`)
 - [ ] リアルタイムCG (`client-awards/`) — **廃止**。コードは参照用に残るだけ (後継は制作技術支援＞テロップCG)

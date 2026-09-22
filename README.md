@@ -26,6 +26,7 @@ ONAiR は1つの巨大なアプリではなく、役割ごとに分かれた「�
 | 案件管理・財務管理・カレンダー・設定・プロジェクト管理 | [`client/`](client/CLAUDE.md) | `/` | 稼働（v4） | 案件・見積・売上・仕入・損益・スタジオ予定・権限。プロジェクト管理（GLS-B）は `/gpm` |
 | 日常業務 | [`client-daily/`](client-daily/CLAUDE.md) | `/daily/` | 稼働（v4） | 週報・ニュース・内覧会・受領書類・セキュリティカード・タスク |
 | 機材管理 | [`client-equipment/`](client-equipment/CLAUDE.md) | `/equipment/` | 稼働（v4） | 機材台帳・ラック図・貸出・棚卸し・メンテナンス |
+| Wiki | [`client-wiki/`](client-wiki/CLAUDE.md) | `/wiki/` | 作成中（v4） | 手順書・マニュアル・社内ルールを Markdown で置く。検索と AI から読める |
 | 制作技術支援（Qシート） | [`client-techops/`](client-techops/CLAUDE.md) | `/techops/`（旧 `/qsheet/` も転送で生存） | 稼働（作り直し進行中） | 台本作成・本番進行（進行／ランダウン／プロンプター／音声サポート）・テロップCG・レンタル機材検索 |
 | 計時・視聴者 | [`client-live/`](client-live/CLAUDE.md) | `/live/` | 稼働（制作技術支援から開く） | 本番の残り時間と同時視聴者数の大画面表示 |
 | リアルタイムCG | [`client-awards/`](client-awards/CLAUDE.md) | `/awards/`（到達不可） | **廃止** | 後継は制作技術支援＞テロップCG。コードは参照用に残すだけ |

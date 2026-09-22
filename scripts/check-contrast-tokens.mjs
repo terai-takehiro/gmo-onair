@@ -106,7 +106,7 @@ if (WHITE_FG.length < 4) {
 }
 
 /* ── 走査するファイル ────────────────────────────────────── */
-const APPS = ['client', 'client-daily', 'client-equipment', 'client-techops', 'client-live'];
+const APPS = ['client', 'client-daily', 'client-equipment', 'client-techops', 'client-live', 'client-wiki'];
 
 /**
  * 引数でディレクトリを渡すと**そこだけ**を見る（既定は下の APPS ＋ shared）。

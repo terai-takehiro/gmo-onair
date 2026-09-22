@@ -37,11 +37,18 @@
  * あたり `qsheet` に統合した（migration 232・12-live-timer-decision.md §9 の
  * 未決事項に対する決定）。`MODULE_WHAT.qsheet` に計時・視聴者を含める旨を足し、
  * `MODULE_WHAT.liveops` は削除した。
+ *
+ * ── Wiki を足した（2026-09-22）─────────────────────────────
+ *
+ * 新しいブロックアプリ Wiki（`docs/design/v4/wiki.md` §8）の区分 `wiki` を
+ * `ROLE_MODULE_ORDER` に足した。見出しは `MODULE_TITLE` に書かない —
+ * `MODULE_LABELS`（= `apps.ts` の `APP_LABELS`）が「Wiki」を返すので、
+ * ここに書くと同じ名前が2か所になり、改名したときに片方だけ古くなる。
  */
 
 /** 役割の表に出す区画。**サーバーの `ROLE_MODULES` と同じ並び** */
 export const ROLE_MODULE_ORDER = [
-  'sales', 'equipment', 'dailyops', 'qsheet', 'awards',
+  'sales', 'equipment', 'dailyops', 'wiki', 'qsheet', 'awards',
 ] as const;
 
 /** 個人の例外編集は廃止したので、いまは役割の表と同じ */
@@ -69,6 +76,7 @@ export const MODULE_WHAT: Record<string, string> = {
   sales: '案件・お金・予定のすべて',
   equipment: '機材の台帳と貸出',
   dailyops: '週報・ニュース・内覧会・受領書類',
+  wiki: '手順書・マニュアル・社内ルール',
   qsheet: '制作技術支援（Qシート・計時・視聴者）',
   awards: 'リアルタイムCG',
 };

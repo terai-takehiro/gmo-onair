@@ -356,7 +356,8 @@ router.get('/permission-test', requireAuth, wrap(async (req, res) => {
   // 技術資料アプリの削除（migration 211）で `techsheet` を外し、計時・視聴者の
   // ミニアプリ化フェーズ2（migration 232）で `liveops` を `qsheet` へ統合し、いまは5つ。
   // `permission-role.service.ts` の `ROLE_MODULES` と同じ並びにすること
-  const MODULES = ['sales', 'equipment', 'dailyops', 'qsheet', 'awards'];
+  // （Wiki を足して6つ・2026-09-22）
+  const MODULES = ['sales', 'equipment', 'dailyops', 'wiki', 'qsheet', 'awards'];
 
   // DB から直接クエリして最新値を取得
   const dbRows = await queryAll(

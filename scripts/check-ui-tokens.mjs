@@ -110,7 +110,7 @@ function buildUnknownColorRe() {
 /** 見るディレクトリ (画面のコード) */
 const TARGET_DIRS = [
   'client/src', 'client-techops/src', 'client-equipment/src',
-  'client-live/src', 'client-awards/src', 'client-daily/src',
+  'client-live/src', 'client-awards/src', 'client-daily/src', 'client-wiki/src',
   // v3.1.0 で追加。**共通部品も画面に出る** —
   // ここを見ていなかったので、`shared/src/client/finance/FinanceDocOriginal.tsx` に
   // 禁止した `window.confirm` が残り、生パレットも 16 か所あるのに
@@ -730,7 +730,8 @@ function checkAppFoundation() {
   // **v4.0.0 の対象3アプリだけ。** 凍結4アプリ (Qシート / 技術資料 / 計時LIVE /
   // リアルタイムCG) は「今日と同じ見た目を保つ」のが決定事項で、`tokens.css` を
   // 直接読むままが正しい。base.css は高さ・書体・印刷を変えるので当ててはいけない。
-  const apps = ['client', 'client-daily', 'client-equipment'];
+  // Wiki は新規アプリなので最初から共通の土台（base.css・shared の content）に載せる
+  const apps = ['client', 'client-daily', 'client-equipment', 'client-wiki'];
   const out = [];
   for (const app of apps) {
     const cssPath = join(ROOT, app, 'src/index.css');
