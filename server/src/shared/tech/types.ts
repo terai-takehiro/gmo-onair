@@ -82,6 +82,17 @@ export interface TechDocDetail {
   lock_requested_by_name: string | null;
 }
 
+/**
+ * 行（映像パッチ・技術スタッフ）の作成・更新・削除・並べ替えの応答（`{ success, data, doc_updated_at }`）。
+ * 行を触るとサーバーが親の資料の `updated_at` を進めるので、画面はこの値で `detail.doc.updated_at` を
+ * 合わせる（合わせないと次の名前の保存が古い `expected_updated_at` を送って 409 になる）。削除の `data` は `{ id }`。
+ */
+export interface TechRowMutationResponse<T> {
+  success: boolean;
+  data: T;
+  doc_updated_at: string;
+}
+
 export type PatchPanelKind = 'jack' | 'trunk';
 export type PatchJackRow = 'A' | 'B';
 

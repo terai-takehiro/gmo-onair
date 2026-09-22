@@ -11,6 +11,7 @@
 import { groupPatchRows } from "@gmo-onair/shared/src/tech/patchExport";
 import { roleOrder } from "@gmo-onair/shared/src/tech/roles";
 import type { TechPatchRow, TechStaffRow } from "@gmo-onair/shared/src/tech/types";
+import { revLabel } from "./techStatus";
 
 const PAD_X_MM = 15;
 const PAD_Y_MM = 12;
@@ -107,6 +108,8 @@ export default function TechDocPrintSheet({
   const extraCount = patchRows.filter((r) => r.from_is_extra || r.to_is_extra).length;
   const staffCount = days.reduce((n, d) => n + d.count, 0);
   const both = showPatch && showStaff;
+  // 版は `revLabel` の規則（画面と同じ）。一度も確定していない下書きだけ「下書き」と添える
+  const versionTag = revLabel({ status, rev }) || (status === "draft" ? "下書き" : "");
 
   return (
     <div
@@ -129,8 +132,7 @@ export default function TechDocPrintSheet({
             <span style={{ border: `0.3mm solid ${PRIMARY}`, color: PRIMARY, fontSize: "9pt", fontWeight: 800, padding: "0.4mm 2mm" }}>技術資料</span>
             <span style={{ fontSize: "9pt", fontWeight: 700, color: SUB }}>
               {docNo ?? "（資料番号なし）"}
-              {rev > 0 && ` ・ 第${rev}版`}
-              {status === "draft" && " ・ 下書き"}
+              {versionTag && ` ・ ${versionTag}`}
             </span>
           </div>
           <div style={{ marginTop: "2mm", fontSize: "20pt", fontWeight: 800, lineHeight: 1.15 }}>{title || "（無題）"}</div>
@@ -143,9 +145,11 @@ export default function TechDocPrintSheet({
       </div>
 
       {/* 本文2段（左＝映像パッチ・右＝技術スタッフ） */}
+      {/* ⚠️ 幅は % で固定しない（58% + 42% + 間の 8mm が本文幅を 8mm はみ出していた）。
+          flex-basis 0 で「間を引いた残り」を 58:42 に分ける。片方だけのときはそれが全幅を取る */}
       <div style={{ marginTop: "4mm", display: "flex", alignItems: "flex-start", gap: "8mm", flex: 1 }}>
         {showPatch && (
-          <section style={{ width: both ? "58%" : "100%", flexShrink: 0 }}>
+          <section style={{ flex: both ? "58 1 0" : "1 1 0", minWidth: 0 }}>
             <SectionHead title="映像パッチ" note={`${patchRows.length}行${extraCount > 0 ? ` ・ 増設機材 ${extraCount}` : ""}`} />
             {groups.length === 0 && <EmptyLine text="行がありません" />}
             {groups.map((g, gi) => (
@@ -168,7 +172,7 @@ export default function TechDocPrintSheet({
         )}
 
         {showStaff && (
-          <section style={{ width: both ? "42%" : "100%", flexShrink: 0 }}>
+          <section style={{ flex: both ? "42 1 0" : "1 1 0", minWidth: 0 }}>
             <SectionHead title="技術スタッフ" note={`${staffCount}人 ・ メンバー表より`} />
             {days.length === 0 && <EmptyLine text="行がありません" />}
             <div style={{ display: "flex", flexWrap: "wrap", gap: "2mm 6mm" }}>

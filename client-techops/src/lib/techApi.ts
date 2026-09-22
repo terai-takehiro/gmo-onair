@@ -14,6 +14,7 @@ import type {
   TechDocListItem,
   TechPatchRow,
   TechPerson,
+  TechRowMutationResponse,
   TechStaffRow,
 } from "@gmo-onair/shared/src/tech/types";
 
@@ -108,51 +109,59 @@ export async function deleteTechDoc(id: string): Promise<void> {
 }
 
 // ── 映像パッチの行 ───────────────────────────────────────
+// 行の書き込みはサーバーが親の資料の `updated_at` も進める。その値（`doc_updated_at`）を
+// 一緒に返すので、呼ぶ側（`useTechDoc`）は `detail.doc.updated_at` を合わせること
+// （古いままだと次の名前の保存が `expected_updated_at` 違いで 409 になる）。
+
+export interface RowResult<T> {
+  data: T;
+  /** 書き込みで進んだ親の資料の `updated_at` */
+  doc_updated_at: string;
+}
+
+async function rowResult<T>(req: Promise<{ data: TechRowMutationResponse<T> }>): Promise<RowResult<T>> {
+  const res = await req;
+  return { data: res.data.data, doc_updated_at: res.data.doc_updated_at };
+}
 
 export type PatchRowPayload = Partial<Omit<TechPatchRow, "id" | "tech_doc_id" | "created_at" | "updated_at">>;
 
-export async function createPatchRow(docId: string, payload: PatchRowPayload): Promise<TechPatchRow> {
-  const res = await api.post<Envelope<TechPatchRow>>(`/techops/tech-docs/${docId}/patch-rows`, payload);
-  return res.data.data;
+export function createPatchRow(docId: string, payload: PatchRowPayload): Promise<RowResult<TechPatchRow>> {
+  return rowResult(api.post<TechRowMutationResponse<TechPatchRow>>(`/techops/tech-docs/${docId}/patch-rows`, payload));
 }
 
-export async function updatePatchRow(docId: string, rowId: string, patch: PatchRowPayload): Promise<TechPatchRow> {
-  const res = await api.patch<Envelope<TechPatchRow>>(`/techops/tech-docs/${docId}/patch-rows/${rowId}`, patch);
-  return res.data.data;
+export function updatePatchRow(docId: string, rowId: string, patch: PatchRowPayload): Promise<RowResult<TechPatchRow>> {
+  return rowResult(api.patch<TechRowMutationResponse<TechPatchRow>>(`/techops/tech-docs/${docId}/patch-rows/${rowId}`, patch));
 }
 
-export async function deletePatchRow(docId: string, rowId: string): Promise<void> {
-  await api.delete(`/techops/tech-docs/${docId}/patch-rows/${rowId}`);
+export function deletePatchRow(docId: string, rowId: string): Promise<RowResult<{ id: string }>> {
+  return rowResult(api.delete<TechRowMutationResponse<{ id: string }>>(`/techops/tech-docs/${docId}/patch-rows/${rowId}`));
 }
 
 /** id の配列順に `sort_order` を振り直す */
-export async function reorderPatchRows(docId: string, order: string[]): Promise<TechPatchRow[]> {
-  const res = await api.patch<Envelope<TechPatchRow[]>>(`/techops/tech-docs/${docId}/patch-rows`, { order });
-  return res.data.data;
+export function reorderPatchRows(docId: string, order: string[]): Promise<RowResult<TechPatchRow[]>> {
+  return rowResult(api.patch<TechRowMutationResponse<TechPatchRow[]>>(`/techops/tech-docs/${docId}/patch-rows`, { order }));
 }
 
 // ── 技術スタッフの行 ─────────────────────────────────────
 
 export type StaffRowPayload = Partial<Omit<TechStaffRow, "id" | "tech_doc_id" | "created_at" | "updated_at">>;
 
-export async function createStaffRow(docId: string, payload: StaffRowPayload): Promise<TechStaffRow> {
-  const res = await api.post<Envelope<TechStaffRow>>(`/techops/tech-docs/${docId}/staff-rows`, payload);
-  return res.data.data;
+export function createStaffRow(docId: string, payload: StaffRowPayload): Promise<RowResult<TechStaffRow>> {
+  return rowResult(api.post<TechRowMutationResponse<TechStaffRow>>(`/techops/tech-docs/${docId}/staff-rows`, payload));
 }
 
-export async function updateStaffRow(docId: string, rowId: string, patch: StaffRowPayload): Promise<TechStaffRow> {
-  const res = await api.patch<Envelope<TechStaffRow>>(`/techops/tech-docs/${docId}/staff-rows/${rowId}`, patch);
-  return res.data.data;
+export function updateStaffRow(docId: string, rowId: string, patch: StaffRowPayload): Promise<RowResult<TechStaffRow>> {
+  return rowResult(api.patch<TechRowMutationResponse<TechStaffRow>>(`/techops/tech-docs/${docId}/staff-rows/${rowId}`, patch));
 }
 
-export async function deleteStaffRow(docId: string, rowId: string): Promise<void> {
-  await api.delete(`/techops/tech-docs/${docId}/staff-rows/${rowId}`);
+export function deleteStaffRow(docId: string, rowId: string): Promise<RowResult<{ id: string }>> {
+  return rowResult(api.delete<TechRowMutationResponse<{ id: string }>>(`/techops/tech-docs/${docId}/staff-rows/${rowId}`));
 }
 
 /** 作業日の中での並び（id の配列順に `sort_order` を振り直す） */
-export async function reorderStaffRows(docId: string, order: string[]): Promise<TechStaffRow[]> {
-  const res = await api.patch<Envelope<TechStaffRow[]>>(`/techops/tech-docs/${docId}/staff-rows`, { order });
-  return res.data.data;
+export function reorderStaffRows(docId: string, order: string[]): Promise<RowResult<TechStaffRow[]>> {
+  return rowResult(api.patch<TechRowMutationResponse<TechStaffRow[]>>(`/techops/tech-docs/${docId}/staff-rows`, { order }));
 }
 
 // ── 確定・編集ロック（manager／editor） ────────────────────

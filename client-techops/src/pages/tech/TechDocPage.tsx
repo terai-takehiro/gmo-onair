@@ -26,6 +26,7 @@ import { PatchTable } from "./PatchTable";
 import { PatchRowExtras } from "./PatchRowExtras";
 import { usePopoverDismiss } from "./patchPopover";
 import { TechDocMobileView } from "./TechDocMobileView";
+import { revLabel } from "./techStatus";
 
 /** `2026-10-10T16:40:00Z` → `10/10 16:40 保存` */
 function savedAt(iso: string): string {
@@ -179,9 +180,8 @@ export default function TechDocPage() {
         }
         sub={
           <span className="num flex flex-wrap items-center gap-2">
-            {/* ⚠️ 版の数え方は①一覧（`第{rev + 1}版`）に合わせる。ここだけ `rev` のままだと、
-                同じ資料が一覧では「第1版」・この画面では版が出ない、という食い違いになる */}
-            <span>第{d.rev + 1}版</span>
+            {/* ⚠️ 版の数え方は `revLabel`（techStatus.ts）の1本だけ。一覧・書き出し・札と同じ規則 */}
+            {revLabel(d) && <span>{revLabel(d)}</span>}
             <span>{savedAt(d.updated_at)}</span>
             {status === "saving" && <span className="text-primary">保存中…</span>}
             {status === "saved" && <span className="text-success">保存しました</span>}

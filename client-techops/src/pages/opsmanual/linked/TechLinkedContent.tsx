@@ -17,6 +17,7 @@
 // - `tech.staff`: `workDate`（作業日で絞る・空なら全部）・`showCompany`（会社も出す）
 //   どちらもクライアント側だけで効かせられる範囲に留める（`VenueLinkedContent.tsx` と同じ考え方）。
 import { asRecord, asRecordArray, LinkedEmpty } from "./sharedLinkedContent";
+import { revLabel } from "../../tech/techStatus";
 
 interface Props {
   blockKey: "tech.patch" | "tech.staff";
@@ -35,7 +36,7 @@ function num(v: unknown, fallback = 0): number {
 function TagLine({ obj, tail }: { obj: Record<string, unknown>; tail: string }) {
   const docNo = str(obj.docNo);
   const rev = num(obj.rev);
-  const head = [docNo || str(obj.title), rev > 0 ? `第${rev}版` : ""].filter(Boolean).join(" ");
+  const head = [docNo || str(obj.title), revLabel({ status: str(obj.status), rev })].filter(Boolean).join(" ");
   return <div className="font-number shrink-0 truncate text-[8px] font-medium text-foreground">{[head, tail].filter(Boolean).join(" ・ ")}</div>;
 }
 

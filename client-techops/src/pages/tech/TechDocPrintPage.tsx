@@ -21,6 +21,7 @@ import * as programsApi from "@/lib/programsApi";
 import * as scheduleApi from "@/lib/scheduleApi";
 import TechDocPrintSheet, { buildStaffPrintDays, techDayLabel, type TechDocPrintSheetProps } from "./TechDocPrintSheet";
 import { exportTechDocToPdf } from "./techDocPrintExport";
+import { revLabel } from "./techStatus";
 
 /** CSS の mm は 96px/inch 換算（`VenuePreviewPage.tsx` と同じ） */
 const MM_TO_PX = 96 / 25.4;
@@ -233,7 +234,7 @@ export default function TechDocPrintPage() {
           <section className="flex flex-col gap-1 rounded-card border border-border bg-card p-3">
             <span className="text-sub font-medium text-foreground">PDF に出る内容</span>
             <SummaryRow k="資料番号" v={d.doc_no ?? "—"} />
-            <SummaryRow k="版" v={d.rev > 0 ? `第${d.rev}版` : "—"} />
+            <SummaryRow k="版" v={revLabel(d) || "—"} />
             <SummaryRow k="映像パッチ" v={`${detail.patch_rows.length}行`} />
             <SummaryRow k="技術スタッフ" v={`${staffCount}人`} />
             <SummaryRow k="作業日" v={`${days.length}日`} />

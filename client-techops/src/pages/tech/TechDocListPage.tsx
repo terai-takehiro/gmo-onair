@@ -23,7 +23,7 @@ import * as programsApi from "@/lib/programsApi";
 import * as scheduleApi from "@/lib/scheduleApi";
 import { useAuth } from "@/hooks/useAuth";
 import { notifyError, notifySuccess } from "@/lib/notify";
-import { TECH_STATUS_LABEL, TECH_STATUS_BADGE_VARIANT } from "./techStatus";
+import { TECH_STATUS_LABEL, TECH_STATUS_BADGE_VARIANT, revLabel } from "./techStatus";
 import CreateTechDocDialog from "./CreateTechDocDialog";
 
 function formatUpdatedAt(iso: string): string {
@@ -60,7 +60,7 @@ function TechDocCard({
       <div className="flex items-center gap-2">
         {doc.doc_no && <span className="font-number text-sub-sm text-muted-foreground">{doc.doc_no}</span>}
         <Badge variant={TECH_STATUS_BADGE_VARIANT[doc.status]}>{TECH_STATUS_LABEL[doc.status]}</Badge>
-        <span className="font-number ml-auto text-sub-sm text-muted-foreground">第{doc.rev + 1}版</span>
+        {revLabel(doc) && <span className="font-number ml-auto text-sub-sm text-muted-foreground">{revLabel(doc)}</span>}
       </div>
 
       <button
@@ -73,7 +73,7 @@ function TechDocCard({
       </button>
 
       <div className="font-number mt-2 text-sub-sm text-muted-foreground">
-        第{doc.rev + 1}版 ・ {formatUpdatedAt(doc.updated_at)}
+        {[revLabel(doc), formatUpdatedAt(doc.updated_at)].filter(Boolean).join(" ・ ")}
         {doc.updated_by_name ? ` ・ ${doc.updated_by_name}` : ""}
       </div>
 

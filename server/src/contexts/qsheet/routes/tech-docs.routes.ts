@@ -116,56 +116,58 @@ router.delete('/tech-docs/:id', editor, wrap(async (req: Request, res: Response)
 }));
 
 // ── 映像パッチの行 ───────────────────────────────────────
+// 行の書き込みは親の資料の updated_at も進めるので、応答に `doc_updated_at` を添える
+// （`TechRowMutationResponse`。削除も 204 ではなく `{ data: { id } }` を返す）
 
 router.post('/tech-docs/:id/patch-rows', editor, wrap(async (req: Request, res: Response) => {
   await requireAccessible(req);
-  const row = await createPatchRow(p1(req.params.id), req.user!.id, req.body as Record<string, unknown>);
-  res.status(201).json({ success: true, data: row });
+  const r = await createPatchRow(p1(req.params.id), req.user!.id, req.body as Record<string, unknown>);
+  res.status(201).json({ success: true, data: r.data, doc_updated_at: r.doc_updated_at });
 }));
 
 /** 並べ替え（`{ order: string[] }`）。`/:rowId` とは別の道なので取り合いにならない */
 router.patch('/tech-docs/:id/patch-rows', editor, wrap(async (req: Request, res: Response) => {
   await requireAccessible(req);
-  const rows = await reorderPatchRows(p1(req.params.id), req.user!.id, orderOf(req.body));
-  res.json({ success: true, data: rows });
+  const r = await reorderPatchRows(p1(req.params.id), req.user!.id, orderOf(req.body));
+  res.json({ success: true, data: r.data, doc_updated_at: r.doc_updated_at });
 }));
 
 router.patch('/tech-docs/:id/patch-rows/:rowId', editor, wrap(async (req: Request, res: Response) => {
   await requireAccessible(req);
-  const row = await updatePatchRow(p1(req.params.id), p1(req.params.rowId), req.user!.id, req.body as Record<string, unknown>);
-  res.json({ success: true, data: row });
+  const r = await updatePatchRow(p1(req.params.id), p1(req.params.rowId), req.user!.id, req.body as Record<string, unknown>);
+  res.json({ success: true, data: r.data, doc_updated_at: r.doc_updated_at });
 }));
 
 router.delete('/tech-docs/:id/patch-rows/:rowId', editor, wrap(async (req: Request, res: Response) => {
   await requireAccessible(req);
-  await deletePatchRow(p1(req.params.id), p1(req.params.rowId), req.user!.id);
-  res.status(204).end();
+  const r = await deletePatchRow(p1(req.params.id), p1(req.params.rowId), req.user!.id);
+  res.json({ success: true, data: r.data, doc_updated_at: r.doc_updated_at });
 }));
 
 // ── 技術スタッフの行 ─────────────────────────────────────
 
 router.post('/tech-docs/:id/staff-rows', editor, wrap(async (req: Request, res: Response) => {
   await requireAccessible(req);
-  const row = await createStaffRow(p1(req.params.id), req.user!.id, req.body as Record<string, unknown>);
-  res.status(201).json({ success: true, data: row });
+  const r = await createStaffRow(p1(req.params.id), req.user!.id, req.body as Record<string, unknown>);
+  res.status(201).json({ success: true, data: r.data, doc_updated_at: r.doc_updated_at });
 }));
 
 router.patch('/tech-docs/:id/staff-rows', editor, wrap(async (req: Request, res: Response) => {
   await requireAccessible(req);
-  const rows = await reorderStaffRows(p1(req.params.id), req.user!.id, orderOf(req.body));
-  res.json({ success: true, data: rows });
+  const r = await reorderStaffRows(p1(req.params.id), req.user!.id, orderOf(req.body));
+  res.json({ success: true, data: r.data, doc_updated_at: r.doc_updated_at });
 }));
 
 router.patch('/tech-docs/:id/staff-rows/:rowId', editor, wrap(async (req: Request, res: Response) => {
   await requireAccessible(req);
-  const row = await updateStaffRow(p1(req.params.id), p1(req.params.rowId), req.user!.id, req.body as Record<string, unknown>);
-  res.json({ success: true, data: row });
+  const r = await updateStaffRow(p1(req.params.id), p1(req.params.rowId), req.user!.id, req.body as Record<string, unknown>);
+  res.json({ success: true, data: r.data, doc_updated_at: r.doc_updated_at });
 }));
 
 router.delete('/tech-docs/:id/staff-rows/:rowId', editor, wrap(async (req: Request, res: Response) => {
   await requireAccessible(req);
-  await deleteStaffRow(p1(req.params.id), p1(req.params.rowId), req.user!.id);
-  res.status(204).end();
+  const r = await deleteStaffRow(p1(req.params.id), p1(req.params.rowId), req.user!.id);
+  res.json({ success: true, data: r.data, doc_updated_at: r.doc_updated_at });
 }));
 
 // ── 確定・版（manager） ──────────────────────────────────

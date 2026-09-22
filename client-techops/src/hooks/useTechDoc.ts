@@ -18,6 +18,15 @@ function reorderLocal<T extends { id: string; sort_order: number }>(rows: T[], o
     .sort((a, b) => a.sort_order - b.sort_order);
 }
 
+/**
+ * 行の書き込みで進んだ親の資料の `updated_at` を手元にも写す。
+ * ⚠️ これを忘れると、行を直したあとの名前の保存が古い `expected_updated_at` を送って 409 になり、
+ * 名前の変更が読み直しで消える（レビューで指摘された穴）。
+ */
+function withDocUpdatedAt(next: TechDocDetail, res: { doc_updated_at: string }): TechDocDetail {
+  return res.doc_updated_at ? { ...next, doc: { ...next.doc, updated_at: res.doc_updated_at } } : next;
+}
+
 export interface UseTechDocResult {
   detail: TechDocDetail | undefined;
   loading: boolean;
@@ -141,8 +150,8 @@ export function useTechDoc(id: string | undefined): UseTechDocResult {
       run(
         null,
         async (docId) => {
-          const row = await techApi.createPatchRow(docId, payload);
-          return (prev) => ({ ...prev, patch_rows: [...prev.patch_rows, row] });
+          const res = await techApi.createPatchRow(docId, payload);
+          return (prev) => withDocUpdatedAt({ ...prev, patch_rows: [...prev.patch_rows, res.data] }, res);
         },
         "行を追加できませんでした。",
       ),
@@ -157,8 +166,8 @@ export function useTechDoc(id: string | undefined): UseTechDocResult {
           patch_rows: prev.patch_rows.map((r) => (r.id === rowId ? { ...r, ...patch } as TechPatchRow : r)),
         }),
         async (docId) => {
-          const row = await techApi.updatePatchRow(docId, rowId, patch);
-          return (prev) => ({ ...prev, patch_rows: prev.patch_rows.map((r) => (r.id === rowId ? row : r)) });
+          const res = await techApi.updatePatchRow(docId, rowId, patch);
+          return (prev) => withDocUpdatedAt({ ...prev, patch_rows: prev.patch_rows.map((r) => (r.id === rowId ? res.data : r)) }, res);
         },
         "行を保存できませんでした。",
       ),
@@ -170,8 +179,8 @@ export function useTechDoc(id: string | undefined): UseTechDocResult {
       run(
         (prev) => ({ ...prev, patch_rows: prev.patch_rows.filter((r) => r.id !== rowId) }),
         async (docId) => {
-          await techApi.deletePatchRow(docId, rowId);
-          return null;
+          const res = await techApi.deletePatchRow(docId, rowId);
+          return (prev) => withDocUpdatedAt(prev, res);
         },
         "行を削除できませんでした。",
       ),
@@ -183,8 +192,8 @@ export function useTechDoc(id: string | undefined): UseTechDocResult {
       run(
         (prev) => ({ ...prev, patch_rows: reorderLocal(prev.patch_rows, ids) }),
         async (docId) => {
-          const rows = await techApi.reorderPatchRows(docId, ids);
-          return (prev) => ({ ...prev, patch_rows: rows });
+          const res = await techApi.reorderPatchRows(docId, ids);
+          return (prev) => withDocUpdatedAt({ ...prev, patch_rows: res.data }, res);
         },
         "並べ替えを保存できませんでした。",
       ),
@@ -198,8 +207,8 @@ export function useTechDoc(id: string | undefined): UseTechDocResult {
       run(
         null,
         async (docId) => {
-          const row = await techApi.createStaffRow(docId, payload);
-          return (prev) => ({ ...prev, staff_rows: [...prev.staff_rows, row] });
+          const res = await techApi.createStaffRow(docId, payload);
+          return (prev) => withDocUpdatedAt({ ...prev, staff_rows: [...prev.staff_rows, res.data] }, res);
         },
         "行を追加できませんでした。",
       ),
@@ -214,8 +223,8 @@ export function useTechDoc(id: string | undefined): UseTechDocResult {
           staff_rows: prev.staff_rows.map((r) => (r.id === rowId ? { ...r, ...patch } as TechStaffRow : r)),
         }),
         async (docId) => {
-          const row = await techApi.updateStaffRow(docId, rowId, patch);
-          return (prev) => ({ ...prev, staff_rows: prev.staff_rows.map((r) => (r.id === rowId ? row : r)) });
+          const res = await techApi.updateStaffRow(docId, rowId, patch);
+          return (prev) => withDocUpdatedAt({ ...prev, staff_rows: prev.staff_rows.map((r) => (r.id === rowId ? res.data : r)) }, res);
         },
         "行を保存できませんでした。",
       ),
@@ -227,8 +236,8 @@ export function useTechDoc(id: string | undefined): UseTechDocResult {
       run(
         (prev) => ({ ...prev, staff_rows: prev.staff_rows.filter((r) => r.id !== rowId) }),
         async (docId) => {
-          await techApi.deleteStaffRow(docId, rowId);
-          return null;
+          const res = await techApi.deleteStaffRow(docId, rowId);
+          return (prev) => withDocUpdatedAt(prev, res);
         },
         "行を削除できませんでした。",
       ),
@@ -240,8 +249,8 @@ export function useTechDoc(id: string | undefined): UseTechDocResult {
       run(
         (prev) => ({ ...prev, staff_rows: reorderLocal(prev.staff_rows, ids) }),
         async (docId) => {
-          const rows = await techApi.reorderStaffRows(docId, ids);
-          return (prev) => ({ ...prev, staff_rows: rows });
+          const res = await techApi.reorderStaffRows(docId, ids);
+          return (prev) => withDocUpdatedAt({ ...prev, staff_rows: res.data }, res);
         },
         "並べ替えを保存できませんでした。",
       ),

@@ -14,7 +14,7 @@
  * `shared/src/tech/types.ts` の型でそのまま読む（camelCase へ写し替えない）。
  */
 import { v4 as uuid } from 'uuid';
-import { queryAll, queryOne, execute, type Row } from '../../../shared/db/connection';
+import { queryAll, queryOne, execute, withTransaction, type Row, type TxClient } from '../../../shared/db/connection';
 import { isQsheetAdmin } from '../access';
 import { issueDocNo } from './docNo.service';
 import { NotFoundError, ValidationError, ConflictError, LockError, checkOptimisticLock } from './httpErrors';
@@ -219,11 +219,6 @@ function editableGuard(idIdx: number, userIdx: number): string {
   return EDITABLE_GUARD_SQL.replace('$ID', `$${idIdx}`).replace('$USER', `$${userIdx}`);
 }
 
-/** 資料の `updated_at` / `updated_by` を今にする（行を足す・直す・消すたびに呼ぶ） */
-async function touchDoc(id: string, userId: string): Promise<void> {
-  await execute('UPDATE qsheet_tech_docs SET updated_at = NOW(), updated_by = $1 WHERE id = $2', [userId, id]);
-}
-
 // ============================================================
 // 資料の CRUD
 // ============================================================
@@ -359,39 +354,39 @@ export async function deleteTechDoc(id: string, userId: string): Promise<void> {
 // 確定・版（§5-4）
 // ============================================================
 
+/**
+ * 確定する。⚠️ 資料行を `FOR UPDATE` で押さえてから状態を見る。行の書き込み（`mutateRows`）も
+ * 同じ行を押さえるので、「行の書き込みが検査を通った → ここで確定 → 確定済みの資料に行が書かれる」
+ * の割り込みが起きない（どちらかが相手の COMMIT を待つ）。
+ */
 export async function fixTechDoc(id: string, userId: string): Promise<Row> {
-  const doc = await queryOne('SELECT id, status, updated_at FROM qsheet_tech_docs WHERE id = $1 AND deleted_at IS NULL', [id]);
-  if (!doc) throw new NotFoundError('技術資料が見つかりません');
-  if (doc.status !== 'draft') throw new ValidationError('先に確定を解いてください');
-
-  const updated = await queryOne(
-    `UPDATE qsheet_tech_docs
-     SET status = 'fixed', rev = rev + 1, fixed_at = NOW(), fixed_by = $2, updated_by = $2, updated_at = NOW()
-     WHERE id = $1 AND status = 'draft'
-       AND date_trunc('milliseconds', updated_at) = date_trunc('milliseconds', $3::timestamptz)
-     RETURNING id`,
-    [id, userId, doc.updated_at],
-  );
-  if (!updated) {
-    const fresh = await queryOne('SELECT status, updated_at FROM qsheet_tech_docs WHERE id = $1', [id]);
-    if (!fresh) throw new NotFoundError('技術資料が見つかりません');
-    if (fresh.status !== 'draft') throw new ValidationError('先に確定を解いてください');
-    throw new ConflictError('この技術資料は確定の処理中に更新されました。もう一度確定をやり直してください。', fresh.updated_at as string, null);
-  }
+  await withTransaction(async (tx) => {
+    const doc = await tx.queryOne('SELECT id, status FROM qsheet_tech_docs WHERE id = $1 AND deleted_at IS NULL FOR UPDATE', [id]);
+    if (!doc) throw new NotFoundError('技術資料が見つかりません');
+    if (doc.status !== 'draft') throw new ValidationError('先に確定を解いてください');
+    await tx.execute(
+      `UPDATE qsheet_tech_docs
+       SET status = 'fixed', rev = rev + 1, fixed_at = NOW(), fixed_by = $2, updated_by = $2, updated_at = NOW()
+       WHERE id = $1`,
+      [id, userId],
+    );
+  });
   const row = await getTechDoc(id);
   if (!row) throw new Error('fixTechDoc: UPDATE 直後の SELECT が空でした');
   return row;
 }
 
-/** 確定を解く。`rev`・`fixed_at`・`fixed_by` は変えない */
+/** 確定を解く。`rev`・`fixed_at`・`fixed_by` は変えない（資料行の押さえ方は `fixTechDoc` と同じ） */
 export async function unfixTechDoc(id: string, userId: string): Promise<Row> {
-  const doc = await queryOne('SELECT id, status FROM qsheet_tech_docs WHERE id = $1 AND deleted_at IS NULL', [id]);
-  if (!doc) throw new NotFoundError('技術資料が見つかりません');
-  if (doc.status !== 'fixed') throw new ValidationError('まだ確定していません');
-  await execute(
-    `UPDATE qsheet_tech_docs SET status = 'draft', updated_by = $2, updated_at = NOW() WHERE id = $1`,
-    [id, userId],
-  );
+  await withTransaction(async (tx) => {
+    const doc = await tx.queryOne('SELECT id, status FROM qsheet_tech_docs WHERE id = $1 AND deleted_at IS NULL FOR UPDATE', [id]);
+    if (!doc) throw new NotFoundError('技術資料が見つかりません');
+    if (doc.status !== 'fixed') throw new ValidationError('まだ確定していません');
+    await tx.execute(
+      `UPDATE qsheet_tech_docs SET status = 'draft', updated_by = $2, updated_at = NOW() WHERE id = $1`,
+      [id, userId],
+    );
+  });
   const row = await getTechDoc(id);
   if (!row) throw new Error('unfixTechDoc: UPDATE 直後の SELECT が空でした');
   return row;
@@ -450,14 +445,20 @@ export async function requestTechDocLockHandoff(id: string, userId: string): Pro
   return doc;
 }
 
-/** 強制的に引き継ぐ（manager。呼び出し元で権限を確認済みという前提） */
+/**
+ * 強制的に引き継ぐ（manager。呼び出し元で権限を確認済みという前提）。
+ * 資料行を `FOR UPDATE` で押さえる——前の持ち主の行の書き込み（`mutateRows`）が検査を通って
+ * 書いている最中なら、その COMMIT を待ってから持ち主を替える（替えた後に前の持ち主が書けない）。
+ */
 export async function takeoverTechDocLock(id: string, userId: string): Promise<Row> {
-  const existing = await getLockRow(id);
-  if (!existing) throw new NotFoundError('技術資料が見つかりません');
-  await execute(
-    `UPDATE qsheet_tech_docs SET locked_by = $2, locked_at = NOW(), lock_requested_by = NULL, lock_requested_at = NULL WHERE id = $1`,
-    [id, userId],
-  );
+  await withTransaction(async (tx) => {
+    const existing = await tx.queryOne('SELECT id FROM qsheet_tech_docs WHERE id = $1 AND deleted_at IS NULL FOR UPDATE', [id]);
+    if (!existing) throw new NotFoundError('技術資料が見つかりません');
+    await tx.execute(
+      `UPDATE qsheet_tech_docs SET locked_by = $2, locked_at = NOW(), lock_requested_by = NULL, lock_requested_at = NULL WHERE id = $1`,
+      [id, userId],
+    );
+  });
   const doc = await getLockRow(id);
   if (!doc) throw new Error('takeoverTechDocLock: UPDATE 直後の SELECT が空でした');
   return doc;
@@ -481,35 +482,68 @@ function bool(v: unknown): boolean {
 const PATCH_TEXT_FIELDS = ['group_label', 'from_device_text', 'from_jack_text', 'to_device_text', 'to_jack_text', 'label', 'signal', 'note'] as const;
 const STAFF_TEXT_FIELDS = ['role', 'person_name', 'company_name', 'note'] as const;
 
-async function nextSortOrder(table: string, techDocId: string, extraWhere = '', extraParams: unknown[] = []): Promise<number> {
-  const row = await queryOne(
+async function nextSortOrder(tx: TxClient, table: string, techDocId: string, extraWhere = '', extraParams: unknown[] = []): Promise<number> {
+  const row = await tx.queryOne(
     `SELECT COALESCE(MAX(sort_order), -1) + 1 AS n FROM ${table} WHERE tech_doc_id = $1${extraWhere}`,
     [techDocId, ...extraParams],
   );
   return Number(row?.n ?? 0);
 }
 
-export async function createPatchRow(techDocId: string, userId: string, body: Record<string, unknown>): Promise<Row> {
-  await assertEditableById(techDocId, userId);
-  const id = uuid();
-  const sortOrder = typeof body.sort_order === 'number' ? body.sort_order : await nextSortOrder('qsheet_tech_patch_rows', techDocId);
-  await execute(
-    `INSERT INTO qsheet_tech_patch_rows
-       (id, tech_doc_id, group_label, sort_order, from_device_text, from_jack_id, from_jack_text, from_is_extra,
-        to_device_text, to_jack_id, to_jack_text, to_is_extra, label, signal, note)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
-    [id, techDocId, text(body.group_label), sortOrder, text(body.from_device_text), nullableId(body.from_jack_id),
-      text(body.from_jack_text), bool(body.from_is_extra), text(body.to_device_text), nullableId(body.to_jack_id),
-      text(body.to_jack_text), bool(body.to_is_extra), text(body.label), text(body.signal), text(body.note, 2000)],
-  );
-  await touchDoc(techDocId, userId);
-  const row = await queryOne(`SELECT ${PATCH_ROW_COLUMNS} FROM qsheet_tech_patch_rows WHERE id = $1`, [id]);
-  if (!row) throw new Error('createPatchRow: INSERT 直後の SELECT が空でした');
-  return row;
+/** 行の書き込みの返り値。`doc_updated_at` は書き込みで進んだ親の資料の `updated_at` */
+export interface RowMutation<T> { data: T; doc_updated_at: unknown }
+
+/**
+ * 行の書き込み（作る・直す・消す・並べ替え）を**1つのトランザクション**で行う。
+ *   1. 親の資料行を `FOR UPDATE` で押さえ、確定していないこと・他人の生きたロックが無いことを
+ *      見直す（`assertTechDocEditable` と同じ規則）。確定（`fixTechDoc`）・確定を解く・
+ *      強制引き継ぎ（`takeoverTechDocLock`）も同じ行を押さえるので、検査と書き込みの間に
+ *      割り込めない（以前は検査と書き込みが別の文で、その間に確定・引き継ぎが入り得た）
+ *   2. `fn` で行を書く
+ *   3. 親の `updated_at` / `updated_by` を進め、その値を返す（画面は名前の保存の
+ *      `expected_updated_at` をこれで合わせる。合わせないと次の名前の保存が 409 になる）
+ */
+async function mutateRows<T>(techDocId: string, userId: string, fn: (tx: TxClient) => Promise<T>): Promise<RowMutation<T>> {
+  return withTransaction(async (tx) => {
+    const doc = await tx.queryOne(
+      `SELECT t.id, t.status, t.locked_by, t.locked_at, lu.name AS locked_by_name
+       FROM qsheet_tech_docs t
+       LEFT JOIN users lu ON t.locked_by = lu.id
+       WHERE t.id = $1 AND t.deleted_at IS NULL
+       FOR UPDATE OF t`,
+      [techDocId],
+    );
+    if (!doc) throw new NotFoundError('技術資料が見つかりません');
+    assertTechDocEditable(doc, userId);
+    const data = await fn(tx);
+    const touched = await tx.queryOne(
+      'UPDATE qsheet_tech_docs SET updated_at = NOW(), updated_by = $1 WHERE id = $2 RETURNING updated_at',
+      [userId, techDocId],
+    );
+    return { data, doc_updated_at: touched?.updated_at ?? null };
+  });
 }
 
-export async function updatePatchRow(techDocId: string, rowId: string, userId: string, body: Record<string, unknown>): Promise<Row> {
-  await assertEditableById(techDocId, userId);
+export async function createPatchRow(techDocId: string, userId: string, body: Record<string, unknown>): Promise<RowMutation<Row>> {
+  return mutateRows(techDocId, userId, async (tx) => {
+    const id = uuid();
+    const sortOrder = typeof body.sort_order === 'number' ? body.sort_order : await nextSortOrder(tx, 'qsheet_tech_patch_rows', techDocId);
+    await tx.execute(
+      `INSERT INTO qsheet_tech_patch_rows
+         (id, tech_doc_id, group_label, sort_order, from_device_text, from_jack_id, from_jack_text, from_is_extra,
+          to_device_text, to_jack_id, to_jack_text, to_is_extra, label, signal, note)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+      [id, techDocId, text(body.group_label), sortOrder, text(body.from_device_text), nullableId(body.from_jack_id),
+        text(body.from_jack_text), bool(body.from_is_extra), text(body.to_device_text), nullableId(body.to_jack_id),
+        text(body.to_jack_text), bool(body.to_is_extra), text(body.label), text(body.signal), text(body.note, 2000)],
+    );
+    const row = await tx.queryOne(`SELECT ${PATCH_ROW_COLUMNS} FROM qsheet_tech_patch_rows WHERE id = $1`, [id]);
+    if (!row) throw new Error('createPatchRow: INSERT 直後の SELECT が空でした');
+    return row;
+  });
+}
+
+export async function updatePatchRow(techDocId: string, rowId: string, userId: string, body: Record<string, unknown>): Promise<RowMutation<Row>> {
   const sets: string[] = ['updated_at = NOW()'];
   const params: unknown[] = [];
   let i = 1;
@@ -523,57 +557,61 @@ export async function updatePatchRow(techDocId: string, rowId: string, userId: s
   for (const f of ['from_is_extra', 'to_is_extra'] as const) {
     if (f in body) { sets.push(`${f} = $${i++}`); params.push(bool(body[f])); }
   }
-  const updated = await queryOne(
-    `UPDATE qsheet_tech_patch_rows SET ${sets.join(', ')} WHERE id = $${i++} AND tech_doc_id = $${i++} RETURNING id`,
-    [...params, rowId, techDocId],
-  );
-  if (!updated) throw new NotFoundError('行が見つかりません');
-  await touchDoc(techDocId, userId);
-  const row = await queryOne(`SELECT ${PATCH_ROW_COLUMNS} FROM qsheet_tech_patch_rows WHERE id = $1`, [rowId]);
-  if (!row) throw new Error('updatePatchRow: UPDATE 直後の SELECT が空でした');
-  return row;
+  return mutateRows(techDocId, userId, async (tx) => {
+    const updated = await tx.queryOne(
+      `UPDATE qsheet_tech_patch_rows SET ${sets.join(', ')} WHERE id = $${i} AND tech_doc_id = $${i + 1} RETURNING id`,
+      [...params, rowId, techDocId],
+    );
+    if (!updated) throw new NotFoundError('行が見つかりません');
+    const row = await tx.queryOne(`SELECT ${PATCH_ROW_COLUMNS} FROM qsheet_tech_patch_rows WHERE id = $1`, [rowId]);
+    if (!row) throw new Error('updatePatchRow: UPDATE 直後の SELECT が空でした');
+    return row;
+  });
 }
 
-export async function deletePatchRow(techDocId: string, rowId: string, userId: string): Promise<void> {
-  await assertEditableById(techDocId, userId);
-  const deleted = await queryOne('DELETE FROM qsheet_tech_patch_rows WHERE id = $1 AND tech_doc_id = $2 RETURNING id', [rowId, techDocId]);
-  if (!deleted) throw new NotFoundError('行が見つかりません');
-  await touchDoc(techDocId, userId);
+export async function deletePatchRow(techDocId: string, rowId: string, userId: string): Promise<RowMutation<{ id: string }>> {
+  return mutateRows(techDocId, userId, async (tx) => {
+    const deleted = await tx.queryOne('DELETE FROM qsheet_tech_patch_rows WHERE id = $1 AND tech_doc_id = $2 RETURNING id', [rowId, techDocId]);
+    if (!deleted) throw new NotFoundError('行が見つかりません');
+    return { id: rowId };
+  });
 }
 
 /** 並べ替え（`{ order: string[] }` の順に sort_order を振り直す） */
-export async function reorderPatchRows(techDocId: string, userId: string, order: string[]): Promise<Row[]> {
-  await assertEditableById(techDocId, userId);
-  for (let n = 0; n < order.length; n++) {
-    await execute('UPDATE qsheet_tech_patch_rows SET sort_order = $1, updated_at = NOW() WHERE id = $2 AND tech_doc_id = $3', [n, order[n], techDocId]);
-  }
-  await touchDoc(techDocId, userId);
-  return listPatchRows(techDocId);
+export async function reorderPatchRows(techDocId: string, userId: string, order: string[]): Promise<RowMutation<Row[]>> {
+  return mutateRows(techDocId, userId, async (tx) => {
+    for (let n = 0; n < order.length; n++) {
+      await tx.execute('UPDATE qsheet_tech_patch_rows SET sort_order = $1, updated_at = NOW() WHERE id = $2 AND tech_doc_id = $3', [n, order[n], techDocId]);
+    }
+    return tx.queryAll(
+      `SELECT ${PATCH_ROW_COLUMNS} FROM qsheet_tech_patch_rows WHERE tech_doc_id = $1 ORDER BY sort_order, created_at`,
+      [techDocId],
+    );
+  });
 }
 
-export async function createStaffRow(techDocId: string, userId: string, body: Record<string, unknown>): Promise<Row> {
-  await assertEditableById(techDocId, userId);
+export async function createStaffRow(techDocId: string, userId: string, body: Record<string, unknown>): Promise<RowMutation<Row>> {
   const workDate = typeof body.work_date === 'string' ? body.work_date.slice(0, 10) : '';
   if (!/^\d{4}-\d{2}-\d{2}$/.test(workDate)) throw new ValidationError('作業日を指定してください');
-  const id = uuid();
-  const sortOrder = typeof body.sort_order === 'number'
-    ? body.sort_order
-    : await nextSortOrder('qsheet_tech_staff_rows', techDocId, ' AND work_date = $2', [workDate]);
-  await execute(
-    `INSERT INTO qsheet_tech_staff_rows
-       (id, tech_doc_id, work_date, role, person_id, person_name, company_id, company_name, note, sort_order)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-    [id, techDocId, workDate, text(body.role, 100), nullableId(body.person_id), text(body.person_name, 200),
-      nullableId(body.company_id), text(body.company_name, 200), text(body.note, 2000), sortOrder],
-  );
-  await touchDoc(techDocId, userId);
-  const row = await queryOne(`SELECT ${STAFF_ROW_COLUMNS} FROM qsheet_tech_staff_rows WHERE id = $1`, [id]);
-  if (!row) throw new Error('createStaffRow: INSERT 直後の SELECT が空でした');
-  return row;
+  return mutateRows(techDocId, userId, async (tx) => {
+    const id = uuid();
+    const sortOrder = typeof body.sort_order === 'number'
+      ? body.sort_order
+      : await nextSortOrder(tx, 'qsheet_tech_staff_rows', techDocId, ' AND work_date = $2', [workDate]);
+    await tx.execute(
+      `INSERT INTO qsheet_tech_staff_rows
+         (id, tech_doc_id, work_date, role, person_id, person_name, company_id, company_name, note, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [id, techDocId, workDate, text(body.role, 100), nullableId(body.person_id), text(body.person_name, 200),
+        nullableId(body.company_id), text(body.company_name, 200), text(body.note, 2000), sortOrder],
+    );
+    const row = await tx.queryOne(`SELECT ${STAFF_ROW_COLUMNS} FROM qsheet_tech_staff_rows WHERE id = $1`, [id]);
+    if (!row) throw new Error('createStaffRow: INSERT 直後の SELECT が空でした');
+    return row;
+  });
 }
 
-export async function updateStaffRow(techDocId: string, rowId: string, userId: string, body: Record<string, unknown>): Promise<Row> {
-  await assertEditableById(techDocId, userId);
+export async function updateStaffRow(techDocId: string, rowId: string, userId: string, body: Record<string, unknown>): Promise<RowMutation<Row>> {
   const sets: string[] = ['updated_at = NOW()'];
   const params: unknown[] = [];
   let i = 1;
@@ -590,30 +628,35 @@ export async function updateStaffRow(techDocId: string, rowId: string, userId: s
     if (f in body) { sets.push(`${f} = $${i++}`); params.push(nullableId(body[f])); }
   }
   if ('sort_order' in body) { sets.push(`sort_order = $${i++}`); params.push(Number(body.sort_order) || 0); }
-  const updated = await queryOne(
-    `UPDATE qsheet_tech_staff_rows SET ${sets.join(', ')} WHERE id = $${i++} AND tech_doc_id = $${i++} RETURNING id`,
-    [...params, rowId, techDocId],
-  );
-  if (!updated) throw new NotFoundError('行が見つかりません');
-  await touchDoc(techDocId, userId);
-  const row = await queryOne(`SELECT ${STAFF_ROW_COLUMNS} FROM qsheet_tech_staff_rows WHERE id = $1`, [rowId]);
-  if (!row) throw new Error('updateStaffRow: UPDATE 直後の SELECT が空でした');
-  return row;
+  return mutateRows(techDocId, userId, async (tx) => {
+    const updated = await tx.queryOne(
+      `UPDATE qsheet_tech_staff_rows SET ${sets.join(', ')} WHERE id = $${i} AND tech_doc_id = $${i + 1} RETURNING id`,
+      [...params, rowId, techDocId],
+    );
+    if (!updated) throw new NotFoundError('行が見つかりません');
+    const row = await tx.queryOne(`SELECT ${STAFF_ROW_COLUMNS} FROM qsheet_tech_staff_rows WHERE id = $1`, [rowId]);
+    if (!row) throw new Error('updateStaffRow: UPDATE 直後の SELECT が空でした');
+    return row;
+  });
 }
 
-export async function deleteStaffRow(techDocId: string, rowId: string, userId: string): Promise<void> {
-  await assertEditableById(techDocId, userId);
-  const deleted = await queryOne('DELETE FROM qsheet_tech_staff_rows WHERE id = $1 AND tech_doc_id = $2 RETURNING id', [rowId, techDocId]);
-  if (!deleted) throw new NotFoundError('行が見つかりません');
-  await touchDoc(techDocId, userId);
+export async function deleteStaffRow(techDocId: string, rowId: string, userId: string): Promise<RowMutation<{ id: string }>> {
+  return mutateRows(techDocId, userId, async (tx) => {
+    const deleted = await tx.queryOne('DELETE FROM qsheet_tech_staff_rows WHERE id = $1 AND tech_doc_id = $2 RETURNING id', [rowId, techDocId]);
+    if (!deleted) throw new NotFoundError('行が見つかりません');
+    return { id: rowId };
+  });
 }
 
 /** 並べ替え（作業日の中での並び。`{ order: string[] }` の順に sort_order を振り直す） */
-export async function reorderStaffRows(techDocId: string, userId: string, order: string[]): Promise<Row[]> {
-  await assertEditableById(techDocId, userId);
-  for (let n = 0; n < order.length; n++) {
-    await execute('UPDATE qsheet_tech_staff_rows SET sort_order = $1, updated_at = NOW() WHERE id = $2 AND tech_doc_id = $3', [n, order[n], techDocId]);
-  }
-  await touchDoc(techDocId, userId);
-  return listStaffRows(techDocId);
+export async function reorderStaffRows(techDocId: string, userId: string, order: string[]): Promise<RowMutation<Row[]>> {
+  return mutateRows(techDocId, userId, async (tx) => {
+    for (let n = 0; n < order.length; n++) {
+      await tx.execute('UPDATE qsheet_tech_staff_rows SET sort_order = $1, updated_at = NOW() WHERE id = $2 AND tech_doc_id = $3', [n, order[n], techDocId]);
+    }
+    return tx.queryAll(
+      `SELECT ${STAFF_ROW_COLUMNS} FROM qsheet_tech_staff_rows WHERE tech_doc_id = $1 ORDER BY work_date, sort_order, created_at`,
+      [techDocId],
+    );
+  });
 }

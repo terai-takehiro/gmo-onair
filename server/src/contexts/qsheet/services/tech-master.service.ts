@@ -13,7 +13,7 @@
  * ⚠️ 返り値は `pg` の行のまま（snake_case）。`shared/src/tech/types.ts` がその形。
  */
 import { v4 as uuid } from 'uuid';
-import { queryAll, queryOne, execute, type Row } from '../../../shared/db/connection';
+import { queryAll, queryOne, execute, withTransaction, type Row } from '../../../shared/db/connection';
 import { NotFoundError, ValidationError } from './httpErrors';
 
 const PANEL_COLUMNS = `
@@ -106,6 +106,17 @@ export interface CreatePanelInput {
   model: string;
 }
 
+/**
+ * 画面から足した盤のパッチ番号の id。**盤の id（uuid）から作る**。
+ * ⚠️ 盤の名前から作ってはいけない——以前は名前を英数字だけに削った slug を使っていたため、
+ *    日本語だけの名前（slug が空）や `A-B` と `AB` が同じ id になり、2枚目の盤は
+ *    `ON CONFLICT DO NOTHING` で番号が1つも作られなかった（レビュー指摘）。
+ *    migration 305 が入れた盤（`pj_vjp100_01a` の形）はそのまま。
+ */
+export function patchJackId(panelId: string, jackNo: number, jackRow: 'A' | 'B'): string {
+  return `pj_${panelId}_${String(jackNo).padStart(2, '0')}${jackRow.toLowerCase()}`;
+}
+
 /** 盤を1枚足す（manager）。空のパッチ番号（ch数 × A/B の2段）も一緒に作る */
 export async function createPanel(input: CreatePanelInput, userId: string): Promise<Row> {
   const name = (input.name || '').trim();
@@ -118,22 +129,24 @@ export async function createPanel(input: CreatePanelInput, userId: string): Prom
   if (existing) throw new ValidationError('同じ名前の盤があります');
 
   const id = uuid();
-  const next = await queryOne('SELECT COALESCE(MAX(sort_order), 0) + 1 AS n FROM qsheet_patch_panels');
-  await execute(
-    `INSERT INTO qsheet_patch_panels (id, name, jack_count, kind, location, model, sort_order, updated_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [id, name, jackCount, kind, (input.location || '').slice(0, 200), (input.model || '').slice(0, 200), Number(next?.n ?? 1), userId],
-  );
-  // 空のパッチ番号（id の付け方は migration 305 と同じ: pj_vjp100_01a）
-  const slug = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-  for (let n = 1; n <= jackCount; n++) {
-    for (const jrow of ['A', 'B']) {
-      await execute(
-        'INSERT INTO qsheet_patch_jacks (id, panel_id, jack_no, jack_row) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING',
-        [`pj_${slug}_${String(n).padStart(2, '0')}${jrow.toLowerCase()}`, id, n, jrow],
-      );
+  // 盤と空のパッチ番号を1つのトランザクションで作る（途中で落ちて番号が欠けた盤を残さない）
+  await withTransaction(async (tx) => {
+    const next = await tx.queryOne('SELECT COALESCE(MAX(sort_order), 0) + 1 AS n FROM qsheet_patch_panels');
+    await tx.execute(
+      `INSERT INTO qsheet_patch_panels (id, name, jack_count, kind, location, model, sort_order, updated_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [id, name, jackCount, kind, (input.location || '').slice(0, 200), (input.model || '').slice(0, 200), Number(next?.n ?? 1), userId],
+    );
+    for (let n = 1; n <= jackCount; n++) {
+      for (const jrow of ['A', 'B'] as const) {
+        // ⚠️ ON CONFLICT DO NOTHING を付けない。ぶつかったら黙って番号の無い盤を残すより、失敗させて巻き戻す
+        await tx.execute(
+          'INSERT INTO qsheet_patch_jacks (id, panel_id, jack_no, jack_row) VALUES ($1, $2, $3, $4)',
+          [patchJackId(id, n, jrow), id, n, jrow],
+        );
+      }
     }
-  }
+  });
   const row = await getPanel(id);
   if (!row) throw new Error('createPanel: INSERT 直後の SELECT が空でした');
   return row;
