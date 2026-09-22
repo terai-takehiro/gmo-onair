@@ -38,6 +38,7 @@ import {
   type CsvDatabase,
 } from './wiki-import-parse';
 import { collectAssetRefs, rewriteAssetLinks } from './wiki-import-assets';
+import { ZipReader } from './wiki-import-read';
 
 /** 1回に取り込めるページ数。超えたら**1枚も作らずに**止めます */
 const MAX_IMPORT_PAGES = 1000;
@@ -157,16 +158,27 @@ export async function importZip(
    * **取り込みは途中で止められない**まま DB に大量の書き込みを流していました
    * （Codex の指摘・P1）。数えるために CSV を先に読み、その結果は使い回します
    * （同じ zip を2度読まない）。
+   *
+   * ⚠️ **行の `.md` を二重に数えないこと。** Notion は CSV と行の `.md` の
+   * **両方**を書き出すので、`countNodes` の数に CSV の行数をそのまま足すと
+   * 600行の台帳が 1,201件 と数えられ、実際に作るのは 601件 なのに止まります
+   * （Codex の指摘・P2）。`countPlanned` は `create` と同じ手順で数えます。
    */
+  /*
+   * ⚠️ **zip の中身は `ZipReader` を通して読みます。** multer の 50MB は
+   * 圧縮したあとの大きさにしか効かないので、解いた大きさを数えながら読みます
+   * （数十 MB の zip が解くと数 GB になる zip 爆弾を、上限を見る前に止める。
+   * Codex の指摘・P1）。**1回の取り込みで1つ**作って使い回します。
+   */
+  const reader = new ZipReader(zip);
+
   const csvByPath = new Map<string, CsvDatabase>();
   for (const csvPath of collectCsvPaths(plan)) {
-    const entry = zip.file(csvPath);
-    if (!entry) continue;
-    csvByPath.set(csvPath, csvToDatabase(parseCsv(await entry.async('string'))));
+    const text = await reader.text(csvPath);
+    if (text === null) continue;
+    csvByPath.set(csvPath, csvToDatabase(parseCsv(text)));
   }
-  const csvRows = [...csvByPath.values()].reduce((n, db) => n + db.rows.length, 0);
-
-  const planned = countNodes(plan) + csvRows;
+  const planned = countPlanned(plan, csvByPath);
   if (planned > MAX_IMPORT_PAGES) {
     throw new ValidationError(
       `ページが ${MAX_IMPORT_PAGES} 件を超えています。フォルダを分けてからお試しください。`,
@@ -180,7 +192,7 @@ export async function importZip(
   const mdByPath = new Map<string, LoadedMd>();
   for (const p of paths) {
     if (!p.endsWith('.md')) continue;
-    const text = await zip.file(p)!.async('string');
+    const text = (await reader.text(p)) ?? '';
     const { data, body } = parseFrontMatter(text);
     mdByPath.set(p, {
       dir: dirOf(p),
@@ -203,7 +215,8 @@ export async function importZip(
   const savedByPath = new Map<string, { id: string; url: string }>();
   for (const p of wanted) {
     try {
-      const buf = await zip.file(p)!.async('nodebuffer');
+      const buf = await reader.buffer(p);
+      if (!buf) continue;
       const saved = await saveWikiFile(user.id, { originalname: baseName(p), buffer: buf }, null);
       savedByPath.set(p, { id: String(saved.id), url: String(saved.url) });
     } catch {
@@ -340,10 +353,40 @@ export async function importZip(
   return result;
 }
 
-/** 作る枚数を数える（上限の判定に使う。**CSV の行は呼ぶ側が足す**） */
-function countNodes(nodes: ImportNode[]): number {
+/**
+ * 作る枚数を数える（上限の判定に使う）。
+ *
+ * ⚠️ **`create` と同じ手順で数えること。** ずれると、作れるはずの zip を止めるか、
+ * 止めるはずの zip を通します。データベースの節は
+ * 「①データベース1枚 ②CSV の行の数 ③どの行にも使われなかった `.md` の数」で、
+ * ③は題ごとの待ち行列で1行に1枚ずつ取り出したあとの残りです（`create` と同じ）。
+ */
+function countPlanned(nodes: ImportNode[], csvByPath: Map<string, CsvDatabase>): number {
   let n = 0;
-  for (const node of nodes) n += 1 + countNodes(node.children);
+  for (const node of nodes) {
+    n += 1;
+    const isDatabase = !!node.csvPath || !!node.dbPath;
+    if (!isDatabase) {
+      n += countPlanned(node.children, csvByPath);
+      continue;
+    }
+    const rows = (node.csvPath ? csvByPath.get(node.csvPath)?.rows : undefined) ?? [];
+    const queue = new Map<string, number>();
+    let mdChildren = 0;
+    for (const child of node.children) {
+      if (!child.mdPath) continue;
+      mdChildren += 1;
+      queue.set(child.name, (queue.get(child.name) ?? 0) + 1);
+    }
+    let consumed = 0;
+    for (const row of rows) {
+      const left = queue.get(row.title) ?? 0;
+      if (left <= 0) continue;
+      queue.set(row.title, left - 1);
+      consumed += 1;
+    }
+    n += rows.length + (mdChildren - consumed);
+  }
   return n;
 }
 

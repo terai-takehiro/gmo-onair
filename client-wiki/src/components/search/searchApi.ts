@@ -68,7 +68,9 @@ async function fetchSearch(v: WikiSearchInput, signal?: AbortSignal): Promise<Wi
     params: {
       q: v.q,
       spaceId: v.spaceId || undefined,
-      tags: v.tags && v.tags.length > 0 ? v.tags.join(',') : undefined,
+      // ⚠️ **コンマで連ねない。** タグにコンマが入っていると、サーバー側で
+      // 2つに割れて当たらなくなります（`search.routes.ts` の `listParam`）
+      tags: v.tags && v.tags.length > 0 ? v.tags : undefined,
       ownerId: v.ownerId || undefined,
       updatedWithinDays: v.updatedWithinDays || undefined,
       limit: v.limit || undefined,

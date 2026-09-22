@@ -32,7 +32,7 @@ import { buildRowsCsv } from './wiki-row-csv';
 import { pageToMarkdown, frontMatterOf, safeSegment } from './wiki-md.service';
 import { serializeFrontMatter } from '../wiki-front-matter';
 import type { WikiItem, WikiPropValue } from '../wiki-props';
-import type { WikiUser } from './wiki-access.service';
+import { canReadPage, type WikiUser } from './wiki-access.service';
 
 /** 1回に書き出せるページ数。超えたら**書き出さずに止めます**（足りない zip を渡さない） */
 const MAX_EXPORT_PAGES = 2000;
@@ -221,6 +221,18 @@ export async function exportSpaceZip(user: WikiUser, spaceKey: string): Promise<
       collectFiles(row);
       const name = uniqueName(used, safeSegment(String(row.title ?? '')) || String(row.id), String(row.id));
       zip.file(`${job.dir}${name}.md`, pageToMarkdown(row));
+      /*
+       * ⚠️ **行の下のページも書きます。** 行はページなので子を持てます
+       *（ツリーの `+` から足せます）。ここで止めていたころは、孫から下が
+       * **zip に1本も書かれないのに README の件数には入って**いました
+       *（＝足りないことに気づけない。Codex の指摘・P1）。
+       */
+      const grandChildren = byParent.get(String(row.id)) ?? [];
+      if (grandChildren.length === 0) continue;
+      const rowUsed = new Set<string>();
+      for (const child of grandChildren) {
+        writePage(child, `${job.dir}${name}/`, rowUsed, 1);
+      }
     }
   }
 
@@ -230,6 +242,20 @@ export async function exportSpaceZip(user: WikiUser, spaceKey: string): Promise<
   for (const id of fileIds) {
     try {
       const { row, absolutePath } = await getWikiFile(id);
+      /*
+       * ⚠️ **口（`GET /wiki/files/:id`）と同じ権限をここでも通します。**
+       * 本文のリンクは誰でも書けるので、**読めるスペースの本文に、読めない
+       * スペースの画像の URL を貼れば**、書き出しでその中身を取り出せて
+       * いました（Codex の指摘・P1）。判定は口と同じ:
+       * ページに付いていれば `canReadPage`、付いていなければ上げた本人だけ。
+       * 通らない画像は**黙って飛ばします**（本文のリンクはそのまま残るので、
+       * 開けば 404 になります。書き出しごと失敗させる理由はありません）。
+       */
+      const filePageId = row.page_id ? String(row.page_id) : null;
+      const allowed = filePageId
+        ? await canReadPage(user, filePageId)
+        : String(row.created_by ?? '') === user.id;
+      if (!allowed) continue;
       const stat = fs.statSync(absolutePath);
       fileBytes += stat.size;
       if (fileBytes > MAX_EXPORT_FILE_BYTES) {

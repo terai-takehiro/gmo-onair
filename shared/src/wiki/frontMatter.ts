@@ -18,8 +18,17 @@ function yamlScalar(v: unknown): string {
    * （`tags: [a, b]`・`{ kind: …, id: … }`）では、引用しないと読み直すときに
    * **そのコンマで値が割れます** — 書き出し→取り込みの往復で
    * `R&D, Japan` の1つのタグが2つに増えていました（Codex の指摘・P2）。
+   *
+   * ⚠️ **`true` `false` や数字に見える文字も必ず引用します。** 引用しないと
+   * `parseYamlValue` が真偽値・数値に読み替えてしまい、文字の項目
+   * （文字・URL・担当・選択）は `sanitizeProps` が型違いとして**黙って落とします**。
+   * 往復すると値が消えるのに、消えたことが画面に出ません（Codex の指摘・P1）。
    */
-  if (s === '' || /^[-?:,[\]{}#&*!|>'"%@`]/.test(s) || /:\s/.test(s) || /\s$/.test(s) || s.includes(',')) {
+  const looksTyped = /^(true|false)$/.test(s) || /^-?\d+(\.\d+)?$/.test(s);
+  if (
+    s === '' || looksTyped || /^[-?:,[\]{}#&*!|>'"%@`]/.test(s)
+    || /:\s/.test(s) || /\s$/.test(s) || s.includes(',')
+  ) {
     return `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
   }
   return s;

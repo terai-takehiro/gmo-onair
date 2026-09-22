@@ -21,11 +21,18 @@ import { wrap, p1 } from './wrap';
 const router = Router();
 const canRead = [requireAuth, requirePermission('wiki', 'reader')] as const;
 
-/** `?x=1&x=2` でも `?x=1,2` でも同じ配列にする（画面の作りに縛られないため） */
+/**
+ * `?x=1&x=2` を配列にする。
+ *
+ * ⚠️ **コンマでは切りません。** タグは `p.tags @>` の完全一致で当てるので、
+ * `R&D, Japan` のような**コンマを含むタグ**を切ってしまうと、そのタグを持つ
+ * ページが1件も当たらなくなります（Codex の指摘・P2）。画面は同じ名前の
+ * 引数を並べて送ります（`?tags=a&tags=b`）。
+ */
 function listParam(raw: unknown): string[] {
   const parts = Array.isArray(raw) ? raw : [raw];
   return parts
-    .flatMap((v) => (typeof v === 'string' ? v.split(',') : []))
+    .filter((v): v is string => typeof v === 'string')
     .map((v) => v.trim())
     .filter(Boolean)
     .slice(0, 10);
