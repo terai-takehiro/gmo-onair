@@ -5,8 +5,9 @@
  *   ホーム ／ 検索 ／ AI に聞く ／ 見直し
  *   ＋「スペース」の見出しの下にスペース（API から来る）
  *   ＋「管理」の見出しの下にテンプレート・スペース管理
- * の3かたまり。**その全部をここに書いてある**が、段A（読むだけ）の時点では
- * 画面が無い項目に `ready: false` を立てて外している。
+ * の3かたまり。**その全部をここに書いてある**が、画面がまだ無い項目には
+ * `ready: false` を立てて外している（いま外れているのは AI に聞く＝段E と
+ * 見直し＝段F）。
  *
  * ⚠️ **押せるのに何も出ない項目を出さない。** ルートの無い行き先を左メニューに
  *    並べると、押した人には「壊れている」としか見えない（ホームの「AI に聞く」を
@@ -21,14 +22,14 @@ import type { ShellMobileTab, ShellNavItem, ShellNavSection } from '@gmo-onair/s
 import type { WikiSpace } from '@gmo-onair/shared/src/wiki/types';
 
 interface PlannedNavItem extends ShellNavItem {
-  /** その画面が既にあるか。段A は「ホーム」だけ */
+  /** その画面が既にあるか。段D まででできているのは ホーム／検索／テンプレート */
   ready: boolean;
 }
 
 /** 上のかたまり（§6-① の4項目） */
 const TOP: PlannedNavItem[] = [
   { label: 'ホーム',    to: '/',       icon: LayoutDashboard, end: true, ready: true },
-  { label: '検索',      to: '/search', icon: Search,                     ready: false }, // 段D
+  { label: '検索',      to: '/search', icon: Search,                     ready: true  }, // 段D で作った
   { label: 'AI に聞く', to: '/ask',    icon: Sparkles,                   ready: false }, // 段E
   { label: '見直し',    to: '/review', icon: ListChecks,                 ready: false }, // 段F
 ];
@@ -66,14 +67,14 @@ export function buildWikiSections(spaces: WikiSpace[] | undefined): ShellNavSect
 
 /**
  * スマホ下タブ（共通の決まりで **3つ**: ホーム／やること／検索）。
- * 「やること」は Wiki では見直し（§6-⑦）、「検索」は §6-④ で、どちらも段A には
- * まだ無い。**2つに満たないときはタブそのものを出さない**（1つだけのタブは
- * 行き先が1つしかない棒になって場所を取るだけ）。
+ * 「やること」は Wiki では見直し（§6-⑦）でまだ無く、「検索」は §6-④ を段D で作った。
+ * **2つに満たないときはタブそのものを出さない**（1つだけのタブは行き先が1つしか
+ * ない棒になって場所を取るだけ）。
  */
 const TABS: Array<ShellMobileTab & { ready: boolean }> = [
   { label: 'ホーム',   to: '/',       icon: LayoutDashboard, end: true, ready: true },
   { label: 'やること', to: '/review', icon: ListChecks,                 ready: false }, // 段F
-  { label: '検索',     to: '/search', icon: Search,                     ready: false }, // 段D
+  { label: '検索',     to: '/search', icon: Search,                     ready: true  }, // 段D で作った
 ];
 
 export const WIKI_MOBILE_TABS: ShellMobileTab[] = TABS

@@ -47,6 +47,14 @@ export interface CreatePageInput {
   body_md?: string;
   icon?: string | null;
   status?: 'draft' | 'published';
+  /** タグ（取り込み用）。テンプレートから写した分より優先する */
+  tags?: string[];
+  /** 項目の値（取り込み・データベースの行）。親の項目定義に合わない値は黙って落とす */
+  props?: Record<string, WikiPropValue>;
+  /** 見直し予定日（`YYYY-MM-DD` か null）。任意・既定なし（§10 #10） */
+  review_by?: string | null;
+  /** 履歴の1行に残す「何をしたか」（既定は「ページを追加」） */
+  note?: string;
 }
 
 /** 題を入れずに作れる（あとから直せる）。ツリーに出る仮の題 */
@@ -155,6 +163,17 @@ export async function createPage(user: WikiUser, input: CreatePageInput): Promis
   }
 
   /*
+   * 呼ぶ側（取り込み）が渡した値は**テンプレートより優先**します。
+   * ⚠️ `undefined` は「渡していない」で、`[]` や `{}` は「空にする」です。
+   */
+  if (input.tags !== undefined) tags = input.tags;
+  if (input.props !== undefined) props = input.props;
+  if (input.note) note = input.note;
+  if (input.review_by != null && !/^\d{4}-\d{2}-\d{2}$/.test(input.review_by)) {
+    throw new ValidationError('見直し期限は YYYY-MM-DD の形で入れてください');
+  }
+
+  /*
    * データベースの行として作るなら、写した値を親の項目定義で絞る（§5-3-6・段C）。
    *
    * ⚠️ ここは**黙って落とします**（保存のときのように止めません）。値を打ったのは
@@ -175,12 +194,12 @@ export async function createPage(user: WikiUser, input: CreatePageInput): Promis
     await tx.execute(
       `INSERT INTO wiki_pages
          (id, space_id, parent_id, sort_order, title, body_md, headings, icon, status,
-          props, tags, rev, owner_user_id, created_by, updated_by, published_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, 1, ?, ?, ?,
+          props, tags, review_by, rev, owner_user_id, created_by, updated_by, published_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?::date, 1, ?, ?, ?,
                CASE WHEN ? = 'published' THEN NOW() ELSE NULL END)`,
       [
         pageId, spaceId, parentId, sortOrder, title, body, headingsText(body), icon, status,
-        JSON.stringify(props), tags, user.id, user.id, user.id, status,
+        JSON.stringify(props), tags, input.review_by ?? null, user.id, user.id, user.id, status,
       ],
     );
     await tx.execute(

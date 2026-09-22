@@ -6,6 +6,8 @@ import pagesWriteRoutes from './routes/pages-write.routes';
 import lockRoutes from './routes/lock.routes';
 import filesRoutes from './routes/files.routes';
 import databasesRoutes from './routes/databases.routes';
+import searchRoutes from './routes/search.routes';
+import mdRoutes from './routes/md.routes';
 
 /**
  * Wiki（新しいブロックアプリ）— Markdown で書いた文章をツリーに並べ、
@@ -43,7 +45,15 @@ import databasesRoutes from './routes/databases.routes';
  *   GET  /wiki/databases/:pageId/rows.csv  書き出し（Notion と同じ形）
  *   （ページを `kind='database'` にする／戻すのは `PATCH /wiki/pages/:id` の `kind`）
  *
- * 検索は段D、AI は段E、見直しは段F（§9）。
+ * 段D（検索・お気に入り・`.md`・§5-4・§5-2 の約束3）:
+ *   GET    /wiki/search                    検索（語・スペース・タグ・担当・更新日）
+ *   POST   /wiki/pages/:id/favorite        お気に入りに入れる
+ *   DELETE /wiki/pages/:id/favorite        お気に入りから外す
+ *   GET    /wiki/pages/:id.md              ページ1枚を text/markdown で（YAML の見出しつき）
+ *   GET    /wiki/export?space=<key>        スペースまるごとを zip で
+ *   POST   /wiki/import                    Obsidian・Notion・ONAiR の書き出し（zip）を取り込む（editor）
+ *
+ * AI は段E、見直しは段F（§9）。
  *
  * ⚠️ **並べる順に意味があります。** `/pages/:id/versions` は `/pages/:id` より
  * 先に書いてありますが、Express は**より具体的な道から順に**照合するわけではなく
@@ -57,6 +67,10 @@ export function createWikiRoutes(): Router {
   router.use('/wiki', filesRoutes);
   router.use('/wiki', databasesRoutes);
   router.use('/wiki', lockRoutes);
+  router.use('/wiki', searchRoutes);
+  // ⚠️ `mdRoutes` の `/pages/:id.md` は `pagesRoutes` の `/pages/:id` より**先**に置くこと
+  //    （Express は登録順に照合するので、後ろだと `:id` が `wp-xxxx.md` まで食べる）
+  router.use('/wiki', mdRoutes);
   router.use('/wiki', pagesWriteRoutes);
   router.use('/wiki', pagesRoutes);
   return router;

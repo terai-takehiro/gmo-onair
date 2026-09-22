@@ -1,21 +1,24 @@
 /**
  * ① ホーム `/wiki`（docs/design/v4/wiki.md §6-①）
  *
- * 段A は**読む**だけなので、ここに出すのは
- *   自分が担当で見直し予定日を過ぎているページ ／ スペースのタイル ／ 最近更新 ／ お気に入り
- * の4つ。**サーバーは `GET /wiki/home` の1本でこの4つを返す**ので、画面も1本で読む
- * （開くたびに4往復させない）。
+ * ここに出すのは
+ *   検索欄 ／ 最近見たもの ／ 自分が担当で見直し予定日を過ぎているページ ／
+ *   スペースのタイル ／ 最近更新 ／ お気に入り
+ * の6つ。**サーバーは `GET /wiki/home` の1本で後ろの4つを返す**ので、画面も1本で読む
+ * （開くたびに4往復させない）。検索欄は窓を開くだけ・最近見たものは端末の中だけなので、
+ * どちらもサーバーに訊かない。
  *
- * ⚠️ **検索欄と「AI に聞く」の入口はまだ出さない。** 画面（§6-④・§6-⑤）が
- *    段D・段E なので、置くと打てるのに何も起きない入力欄になる。
- *    設計書が「段E までは『準備中』ではなく**出さない**」と決めているのと同じ扱いで、
- *    左メニュー（`nav.ts`）の `ready` と考え方をそろえてある。
+ * ⚠️ **「AI に聞く」の案内はまだ出さない。** 画面（§6-⑤）が段E なので、置くと
+ *    押せるのに何も起きない。設計書が「段E までは『準備中』ではなく**出さない**」と
+ *    決めているのと同じ扱いで、左メニュー（`nav.ts`）の `ready` と考え方をそろえてある。
  */
 import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
 import { PageHeader } from '@gmo-onair/shared/src/client/ui/pageHeader';
 import { BookText, Star } from 'lucide-react';
 import { useWikiHome } from '@/lib/wikiApi';
 import WikiSection from '@/components/wiki/WikiSection';
+import WikiHomeSearch from '@/components/search/WikiHomeSearch';
+import WikiRecentPages from '@/components/search/WikiRecentPages';
 import OverdueNotice from './OverdueNotice';
 import PageBriefList from './PageBriefList';
 import SpaceTiles from './SpaceTiles';
@@ -32,6 +35,10 @@ export default function HomePage() {
         sub="マニュアル・手順書・社内ルールを置く場所です。"
         icon={<BookText />}
       />
+
+      <WikiHomeSearch />
+
+      <WikiRecentPages />
 
       <OverdueNotice rows={home?.overdue} />
 
