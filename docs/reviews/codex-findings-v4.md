@@ -2483,6 +2483,26 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#722**（`fix(sales): 案件Excel一括登録の過去データ取込で番号履歴が残らないのを直した`・
+  2026-09-22）—— #716（下記）の実データ監査（terai-takehiro氏の依頼でspawn_taskから切り出した
+  別タスク）の過程で、`grep -rn "INSERT INTO projects" server/src` により決算取込以外の経路を
+  洗い出したところ発見した、同型の穴の修正。案件Excel一括登録（`excel.routes.ts` の
+  `PROJECTS_CONFIG.insert`）はテンプレートの「旧案件サンプル（過去データ取り込み例）」が案内する
+  通りGLS番号付きで新規案件を作れるが、`project_numbers`に履歴を残しておらず、後日その案件を
+  改番すると旧番号が消える恐れがあった。#716の`kessan-import.service.ts`と同じ形（番号の見た目
+  から`scheme`/`entity_code`を判定し`project_numbers`へ1行記録）で揃えた。**Code Reviewは
+  Codexのusage limitsで実行されず**（#663以降くり返し起きている既知の状況。
+  `docs/reviews/codex-findings-v4.md`冒頭「いま分かっている優先順位」参照）、Security Reviewは
+  `Running`のまま更新されず完走を確認できなかった。**レビュースレッドは0件**。**表に移す
+  未対応の指摘は無い**。
+  検証: `npx tsc -b server`・`npm run typecheck`・`RELEASE=1 npm run lint`（0 errors）・
+  `npm run test`（shared・server review試験とも全件成功）・`npm run build -w server`・
+  検証用Postgres（`npm run verify:up`）で旧方式番号・新方式番号（`SCS-9999`）・番号なしの
+  3パターンを実際にINSERTし、`project_numbers`が意図通り作られる（または作られない）ことを
+  確認。マージ直後にmainとの間で`docs/reviews/codex-findings-v4.md`（本ファイル）にコンフリクト
+  が発生（#716の棚卸し記録をこのPRと並行してPR #721も書き込んでいたため）、両者の内容を統合して
+  解決した。
+
 - **#716**（`fix(server): 決算取込で新規作成した案件の番号履歴をproject_numbersに残した`・
   2026-09-22）—— #714 のフォローアップ（#714 は先にマージされていたため追加PR）。決算取込
   （CLI版・本体とも）が新規作成する案件は`projects.gls_number`に番号を書くだけで
@@ -2501,15 +2521,25 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   移す未対応の指摘は無い**。⚠️ **この2件の修正コミットも、スレッド解決の返信を投稿した直後に
   pushしたが#716はその直前にマージされており取り込まれていなかった**（#713・#714・#715でも
   繰り返し起きたのと同じ形。ユーザーがレビュー往復の完了を待たずマージする運用のため）。同じ
-  内容を追加PR #721 でmainへ反映した。加えて、この修正はあくまで「決算取込が今後触れた案件」を
-  バックフィルするものであり、既にこの穴を踏んで（＝一度もproject_numbersを持たないまま改番
-  され）旧番号そのものが失われてしまった案件が過去に無いかは別途データ監査が必要と判断し、
-  spawn_taskで別タスクに切り出した（コードの修正だけでは救えないデータの話のため）。
-  検証: `npm run typecheck`・`npm run lint`（0 errors）・`npm run test`（shared 2469件・
+  内容を追加PR #721 でmainへ反映した。
+  検証（#721）: `npm run typecheck`・`npm run lint`（0 errors）・`npm run test`（shared 2469件・
   server 94件）・検証用Postgresで新方式番号（`SCS-0555`）を含む売上の取込・
   「旧バージョンが作った体裁の案件」（通常・削除済みそれぞれ）を直接作ってから決算取込を
   実行するケースをそれぞれ確認し、いずれも正しく記録されること、同じ取込を繰り返しても
   重複行ができないこと（冪等性）を確認した。
+  ⚠️ **P2の返信で保留した「過去にこの穴を踏んで旧番号が失われた案件が無いか」の実データ監査**
+  （spawn_taskで切り出した別タスク）——2026-09-22、terai-takehiro氏の依頼で本番DB
+  （`onair_prod`）を実機確認した。①決算取込(`kessan_marker`)起因でまだ改番されておらず
+  要バックフィルな案件: 0件。②実際に改番され（`entity_source='manual'`）、かつ
+  `project_numbers`の行数が2未満＝旧番号の退役記録が無い（＝旧番号が失われた確度が高い）案件:
+  **0件**。**本番で実害は確認されなかった。** 調査に使った読み取り専用クエリ／スクリプトは
+  `server/scripts/check-project-number-history-gaps.mjs`（ブランチ
+  `claude/great-einstein-0r2q8l`）。
+  ⚠️ **同じ調査で、決算取込以外にも同型の穴を1件新規発見**: `excel.routes.ts`（案件Excel一括
+  登録・`PROJECTS_CONFIG.insert`）は旧GLS番号付きの過去データ取込を許しながら（テンプレート
+  例示行`gls_number: 'GLS001'`が明示的に案内している）、`project_numbers`への記録を一切して
+  いなかった。#714/#716はどちらも決算取込しか直しておらず対象外だったため、同じ形の修正を
+  別PR #722 で行い、2026-09-22にマージ済み（⭕️。詳細は#722の行）。
 
 - **#715**（`fix(finance): 決算取込CLI版の残り2件のレビュー指摘対応をマージし直した`・2026-09-22）——
   #713 のマージ直前にpushしたコミット（cf58402。CLI版のアクティブ検索`project_numbers`対応・仕入
