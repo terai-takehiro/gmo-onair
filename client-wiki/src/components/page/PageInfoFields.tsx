@@ -205,7 +205,7 @@ export function TagsField({ page, canEdit }: PageInfoEditProps) {
           type="button"
           onClick={() => setAdding(true)}
           disabled={save.isPending}
-          className="flex min-h-tap w-fit items-center gap-1 rounded-control px-1.5 text-sub text-primary hover:bg-primary-surface-weak lg:h-7 lg:min-h-0"
+          className="flex min-h-tap w-fit items-center gap-1 rounded-control px-1.5 text-sub text-primary hover:bg-primary-surface-weak lg:h-8 lg:min-h-0"
         >
           <Plus className="h-3.5 w-3.5" aria-hidden />
           タグを追加

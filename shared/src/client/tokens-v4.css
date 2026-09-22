@@ -400,9 +400,16 @@
    *
    * **`overflow: hidden` の中では効きません**（はみ出した分が切られる）。
    * その場合は素直に大きさを変えてください。
+   *
+   * ⚠️ **すでに位置を決めてある要素には `position` を当てません。**
+   * `:root .v4-tap` は Tailwind の `.absolute` より強いので、`v4-tap absolute` と
+   * 並べると `absolute` が負けて**その部品が本来の場所から流れ出します**
+   * （`MobileFilterBar` の「検索語を消去」が入力欄の外・左下に出ていた。
+   * 375px で実測して見つけた）。`absolute` でも `::after` の基準にはなるので、
+   * ここで `relative` を当て直す必要はありません。
    */
   :root [data-ui='switch'],
-  :root .v4-tap {
+  :root .v4-tap:not(.absolute):not(.fixed):not(.sticky) {
     position: relative;
   }
   :root [data-ui='switch']::after,

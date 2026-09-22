@@ -116,7 +116,7 @@ export default function WikiMoreMenu({
         }}
         className={cn(
           'flex shrink-0 items-center justify-center rounded-control text-muted-foreground hover:bg-muted hover:text-foreground',
-          compact ? 'h-8 w-8 lg:h-7 lg:w-7' : 'min-h-tap min-w-tap lg:h-9 lg:min-h-0 lg:w-9 lg:min-w-0',
+          compact ? 'h-8 w-8' : 'min-h-tap min-w-tap lg:h-9 lg:min-h-0 lg:w-9 lg:min-w-0',
           open && 'bg-muted text-foreground',
           className,
         )}

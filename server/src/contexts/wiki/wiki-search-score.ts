@@ -1,11 +1,22 @@
-// Wiki — 検索の点数付けと抜粋（§5-4）
-//
-// 点数は **Node 側**で付ける。重みを直すたびに migration が要らないようにするため
-// （`similar.ts` と同じ作法）。React も DOM も持ち込まない。
-// 元は markdown.ts にあり、1ファイル 400 行の上限で役割ごとに分けた。
-
-import type { WikiSearchHit } from './types';
-import { extractHeadings } from './markdown';
+/**
+ * Wiki — 検索の点数付けと抜粋（`docs/design/v4/wiki.md` §5-4・段D）。
+ *
+ * ⚠️ **`shared/src/wiki/search.ts` の意図的な複製です。**
+ * サーバーはルートの `shared/`（`@gmo-onair/shared`）を import できません
+ * （`server/tsconfig.json` の `rootDir: ./src`）。`wiki-markdown.ts`・`wiki-props.ts` と
+ * まったく同じ理由で、**同じ答えが要るものだけ**をここに写しています。
+ *
+ * ⚠️ **なぜ `wiki-markdown.ts` に足さず別ファイルにしたか。**
+ * あちらは「保存のたびにサーバーが走らせる導出値」の置き場で、
+ * `shared/tests/wikiMarkdownParity.test.ts` が**その4つしか無いこと**を固定しています
+ * （増やすと「どちらが正か分からなくなる」）。検索の点数付けは役目が違う（読むときだけ走る）ので、
+ * 同じ作法のまま**ファイルを分けて**写し、突き合わせも別に置きました
+ * （`shared/tests/wikiSearchParity.test.ts`）。1ファイル 400 行の上限にも効きます。
+ *
+ * ⚠️ **画面と答えが食い違うと、同じ語で検索しても並び順と抜粋が変わります。**
+ * しかも「そういうものか」と読まれるので、**誰も間違いとして報告しません**。片方だけ直さないこと。
+ */
+import { extractHeadings } from './wiki-markdown';
 
 /* ── 検索の点数（§5-4。重みを直すたびに migration が要らないよう Node で） ── */
 
@@ -14,6 +25,27 @@ export interface WikiScoreInput {
   headings: string;
   body_md: string;
   updated_at: string;
+}
+
+/**
+ * 検索結果の1件（`shared/src/wiki/types.ts` の `WikiSearchHit` と同じ形）。
+ * 並べ替え（`compareHits`）が見るのは `score` と `updated_at` の2つだけです。
+ */
+export interface WikiSearchHit {
+  id: string;
+  title: string;
+  space_id: string;
+  space_name: string;
+  space_color: string | null;
+  /** スペース ＞ 親 ＞ … の道 */
+  path: string;
+  /** 一致した見出し（無ければ null） */
+  heading: string | null;
+  /** 本文からの抜粋。当たった語の前後 */
+  excerpt: string;
+  updated_at: string;
+  owner_name: string | null;
+  score: number;
 }
 
 /** 検索語を分ける。全角の空白も区切りに使う */

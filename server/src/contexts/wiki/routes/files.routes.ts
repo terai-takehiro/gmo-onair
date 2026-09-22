@@ -71,7 +71,16 @@ router.post('/files', ...canEdit, uploadOne, wrap(async (req, res) => {
 router.get('/files/:id', ...canRead, wrap(async (req, res) => {
   const { row, absolutePath, contentType } = await getWikiFile(p1(req.params.id));
   const pageId = row.page_id ? String(row.page_id) : null;
-  if (pageId && !(await canReadPage(req.user!, pageId))) {
+  if (pageId) {
+    if (!(await canReadPage(req.user!, pageId))) throw new NotFoundError('画像が見つかりません');
+  } else if (String(row.created_by ?? '') !== req.user!.id) {
+    /*
+     * ⚠️ **ページに付いていない画像は、上げた本人にしか出しません。**
+     * `page_id` が空のときに素通しにしていたため、限定のスペースへ取り込んだ画像の
+     * URL を知っていれば**誰でも中身を取れて**いました（Codex の指摘・P1）。
+     * 取り込みは本文が指している画像をそのページに付け直すので（`wiki-import.service.ts`）、
+     * ここに落ちてくるのは付け先が決まる前の1枚か、本文から外れた孤児だけです。
+     */
     throw new NotFoundError('画像が見つかりません');
   }
 

@@ -5,30 +5,29 @@
  * 「お気に入り・複製・テンプレートにする・.md で書き出す・一覧から隠す」で、
  * これに manager だけの「削除」を足しています。
  *
- * ⚠️ **お気に入りはまだ出しません。** 入れ直す口（`POST /wiki/pages/:id/favorite`）が
- *    サーバーにありません（`wiki_favorites` は読むだけで、書き込みは段D の担当）。
- *    押しても何も起きない項目を先に出さない、というこのアプリの決まりに従います
- *    （`client-wiki/CLAUDE.md`「作っていない画面への入口は出さない」）。
- *    段D で口ができたら、ここに1項目足すだけで済みます。
- *
  * 権限（§8）: 複製・書き出し・一覧から隠すは editor、
  * テンプレートの登録と削除は manager。持っていない人にはその項目を**出しません**
  * （押してから断られるより、何ができるかが見て分かります）。
+ * **お気に入りだけは読める人全員**に出します（人ごとの印で、他の人の画面は変わりません）。
+ *
+ * ⚠️ **押した結果は帯（`notify`）で伝えます。** お気に入りはページの見た目が
+ *    変わらない操作なので、何も出さないと「押せたのかどうか」が分かりません。
  */
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
-import { Copy, Download, EyeOff, FileStack, Trash2, Undo2 } from 'lucide-react';
+import { Copy, Download, EyeOff, FileStack, Star, StarOff, Trash2, Undo2 } from 'lucide-react';
 import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifyApiError, notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import type { WikiPage } from '@gmo-onair/shared/src/wiki/types';
 import { usePermissions } from '@/hooks/usePermissions';
+import { downloadPageAsMarkdown } from '@/lib/wikiExportApi';
 import WikiMoreMenu, { type WikiMenuItem } from './WikiMoreMenu';
-import { downloadPageAsMarkdown } from './pageExportMd';
 import {
   createWikiPage,
   deleteWikiPage,
   patchWikiPageInfo,
   patchWikiPageStatus,
+  setWikiFavorite,
   setWikiTemplate,
   useWikiRefresh,
 } from './pageOpsApi';
@@ -37,6 +36,37 @@ export default function PageActionsMenu({ page }: { page: WikiPage }) {
   const navigate = useNavigate();
   const refresh = useWikiRefresh();
   const { canEdit, canManage } = usePermissions();
+
+  /**
+   * お気に入りに入れる／外す（§6-①②）。
+   *
+   * ホームの「お気に入り」（`GET /wiki/home`）とこのページの `favorited` が
+   * 同じ印を読むので、**両方を読み直します**（片方だけだと、ホームに戻ったときに
+   * 入れたはずのページが並んでいません）。
+   */
+  const favorite = useMutation({
+    mutationFn: () => setWikiFavorite(page.id, !page.favorited),
+    onSuccess: (result) => {
+      refresh.page(page.id);
+      refresh.home();
+      notifySuccess(result.favorited ? 'お気に入りに入れました' : 'お気に入りから外しました', {
+        description: result.favorited ? 'Wiki のホームの「お気に入り」に出ます。' : undefined,
+      });
+    },
+    onError: (err) => notifyApiError('お気に入りを変えられませんでした', err),
+  });
+
+  /**
+   * `.md` で書き出す（§5-2 の約束3-1）。
+   *
+   * ⚠️ **組み立てはサーバー（`GET /wiki/pages/:id.md`）に任せます。** 段B の間は
+   * この画面で YAML の見出しを組んでいましたが、同じ書式が2か所にあると
+   * 片方だけが古くなります（MCP・zip と1文字も違わない `.md` が要るため）。
+   */
+  const exportMd = useMutation({
+    mutationFn: () => downloadPageAsMarkdown(page),
+    onError: (err) => notifyApiError('ページを書き出せませんでした', err),
+  });
 
   /**
    * 複製。**タグは作ったあとに付け直します** — `POST /wiki/pages` がタグを写すのは
@@ -133,7 +163,16 @@ export default function PageActionsMenu({ page }: { page: WikiPage }) {
     if (ok) remove.mutate();
   };
 
-  const items: WikiMenuItem[] = [];
+  const items: WikiMenuItem[] = [
+    {
+      key: 'favorite',
+      label: page.favorited ? 'お気に入りから外す' : 'お気に入りに入れる',
+      icon: page.favorited ? StarOff : Star,
+      separatorAfter: true,
+      disabled: favorite.isPending,
+      onSelect: () => favorite.mutate(),
+    },
+  ];
 
   if (canEdit) {
     items.push({
@@ -159,7 +198,8 @@ export default function PageActionsMenu({ page }: { page: WikiPage }) {
       label: '.md で書き出す',
       icon: Download,
       separatorAfter: true,
-      onSelect: () => downloadPageAsMarkdown(page),
+      disabled: exportMd.isPending,
+      onSelect: () => exportMd.mutate(),
     });
     items.push({
       key: 'archive',

@@ -8,7 +8,7 @@
  */
 import { queryAll, type Row } from '../../../shared/db/connection';
 import { jstDate } from '../../../shared/utils/jst';
-import { readableSpaceIds, type WikiUser } from './wiki-access.service';
+import { readableSpaceIds, isWikiManager, type WikiUser } from './wiki-access.service';
 import { listSpaces } from './wiki-space.service';
 import { pathLabels } from './wiki-path.service';
 
@@ -46,13 +46,21 @@ export async function getHome(user: WikiUser): Promise<WikiHome> {
         LIMIT 10`,
       [spaceIds],
     ),
+    /*
+     * ⚠️ **お気に入りにも下書きの決まりを当てます**（`canReadPage` と同じ）。
+     * 入れた時点では読めた下書きでも、担当が変わる・区分が下がると読めなくなります。
+     * スペースの所属だけで出していたころは、**開くと 404 になるページの題と担当が
+     * ホームに並び続けて**いました（Codex の指摘・P1）。
+     * 下書きは「書いた本人・担当・管理者」だけに出します。
+     */
     queryAll(
       `${CARD_SELECT}
         JOIN wiki_favorites f ON f.page_id = p.id AND f.user_id = ?
         WHERE p.deleted_at IS NULL AND p.space_id = ANY(?) AND p.status <> 'archived'
+          AND (p.status <> 'draft' OR p.created_by = ? OR p.owner_user_id = ? OR ?::boolean)
         ORDER BY f.created_at DESC
         LIMIT 20`,
-      [user.id, spaceIds],
+      [user.id, spaceIds, user.id, user.id, isWikiManager(user)],
     ),
     queryAll(
       `SELECT p.id, p.title, p.space_id, s.name AS space_name,

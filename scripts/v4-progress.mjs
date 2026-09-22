@@ -362,14 +362,22 @@ const TREE = [
       'client-wiki/src/pages/database/DatabasePage.tsx', 'DatabaseViewArea',
       '**行＝ページ**（Notion 型）。値は `wiki_pages.props`、項目とビューの定義は親ページ。' +
       'ビューは表・ボード・カレンダーの3つ。スマホでは表を縦のカードにする'],
-    ['⑧ 検索', '/wiki/search', 'client-wiki/src/pages/search/SearchPage.tsx', undefined,
-      '**段D で作る。** 検索が弱いと AI の出典も弱いので、AI（段E）より先に作る（設計 §9）'],
+    // ⚠️ 検索は `ui/pageShell` を使うので、既定の目印（`ui/pageHeader`）では拾えない
+    ['⑧ 検索', '/wiki/search', 'client-wiki/src/pages/search/SearchPage.tsx', 'SearchFilterPanel',
+      '検索が弱いと AI の出典も弱いので、AI（段E）より先に作った（設計 §9）。' +
+      '拡張は1本も入れず `ILIKE` ＋ Node 側の点数付けで始める（判断6）。' +
+      '⚠️ **読めないスペースのページも下書きも出さない**。`Ctrl`／`⌘`＋`K` の小窓はどの画面からでも開く'],
     ['⑨ AI に聞く', '/wiki/ask', 'client-wiki/src/pages/ask/AskPage.tsx', undefined,
       '**段E で作る。** 出典が出せない質問には答えず「足りないページ」に登録する（判断8）'],
     ['⑩ 見直し', '/wiki/review', 'client-wiki/src/pages/review/ReviewPage.tsx', undefined,
       '**段F で作る。** 月1回の場（見直し予定／足りないページ／AI の直され方）。' +
       '⚠️ 画面に「期限切れ」とは書かない — ページは予定日を過ぎても中身が無効にならない' +
       '（利用者のご指摘）。バッジは「要見直し」'],
+    // 設計 §6 の番号は①〜⑩まで。この画面は番号の外なので最後に置く
+    ['書き出しと取り込み', '/wiki/transfer',
+      'client-wiki/src/pages/importexport/TransferPage.tsx', undefined,
+      'スペースまるごとの zip 書き出しと、Obsidian・Notion・ONAiR の zip の取り込み。' +
+      '設計 §5-2 の約束3「外から読めて書ける」の画面側。**PC の画面**'],
   ]],
 ];
 

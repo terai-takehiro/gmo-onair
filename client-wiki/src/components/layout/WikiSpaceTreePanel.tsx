@@ -94,7 +94,7 @@ export default function WikiSpaceTreePanel({
         {/* スペースの名前は押せる（そのスペースの目次へ戻る） */}
         <Link
           to={`/s/${spaceKey}`}
-          className="flex min-h-tap min-w-0 flex-1 items-center gap-2 rounded-control px-2 text-list text-foreground hover:bg-primary-surface-weak lg:min-h-[34px]"
+          className="flex min-h-tap min-w-0 flex-1 items-center gap-2 rounded-control px-2 text-list text-foreground hover:bg-primary-surface-weak lg:min-h-9"
         >
           <span className="h-2.5 w-2.5 shrink-0 rounded-badge-xs bg-primary" aria-hidden />
           <span className="min-w-0 flex-1 truncate">{spaceName}</span>
@@ -105,7 +105,7 @@ export default function WikiSpaceTreePanel({
             icon={Plus}
             triggerLabel={`${spaceName} に追加`}
             items={addItems(null)}
-            className="lg:h-7 lg:w-7"
+            className="lg:h-8 lg:w-8"
           />
         )}
       </div>

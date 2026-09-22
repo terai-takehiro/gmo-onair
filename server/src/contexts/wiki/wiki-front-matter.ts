@@ -1,12 +1,40 @@
-// Wiki — `.md` の先頭に置く YAML の見出しと、データベースの項目の値（§5-2 の約束3・§4-4）
-//
-// 書き出した `.md` を取り込み直したときに担当・期限・タグが落ちないことが要（本文は
-// 合っているので、落ちても取り込んだ人は気づかない）。React も DOM も持ち込まない。
-// 元は markdown.ts にあり、1ファイル 400 行の上限で役割ごとに分けた。
+/**
+ * Wiki — `.md` の先頭に置く YAML の見出しの書き出しと読み取り
+ * （`docs/design/v4/wiki.md` §5-2 の約束3・段D）。
+ *
+ * ⚠️ **`shared/src/wiki/frontMatter.ts` の意図的な複製です。**
+ * サーバーはルートの `shared/`（`@gmo-onair/shared`）を import できません
+ * （`server/tsconfig.json` の `rootDir: ./src`）。`wiki-markdown.ts`・`wiki-props.ts` と
+ * 同じ理由で、**同じ答えが要るものだけ**をここに写しています。
+ *
+ * 写したのは2つです:
+ *   - `serializeFrontMatter` … `.md` の REST（`GET /wiki/pages/:id.md`）と
+ *     スペースまるごとの書き出し（zip）が同じ形を出すため
+ *   - `parseFrontMatter`     … 取り込み（`POST /wiki/import`）が、書き出した `.md` を
+ *     読み直したときに担当・期限・タグを落とさないため
+ * 値の検査（`isValidPropValue` / `sanitizeProps`）は `wiki-props.ts` にあります。
+ * **同じものを2か所に写さないこと。**
+ *
+ * ⚠️ **画面と答えが食い違うと、書き出した `.md` を取り込み直したときに
+ * 担当・期限・タグが黙って落ちます。** 本文は合っているので、取り込んだ人は気づきません。
+ * 一致は `shared/tests/wikiFrontMatterParity.test.ts` が固定しています。
+ */
+import type { WikiPropValue } from './wiki-props';
 
-import type { WikiFrontMatter, WikiItem, WikiPropValue } from './types';
-
-/* ── YAML の見出し（書き出し・取り込み・MCP の .md） ─────────── */
+/** `.md` の先頭に置く見出し（`shared/src/wiki/types.ts` の `WikiFrontMatter` と同じ形） */
+export interface WikiFrontMatter {
+  id?: string;
+  title: string;
+  space?: string;
+  parent?: string;
+  tags?: string[];
+  owner?: string;
+  review_by?: string;
+  status?: 'draft' | 'published' | 'archived';
+  updated?: string;
+  /** データベースの行のときの項目の値 */
+  props?: Record<string, WikiPropValue>;
+}
 
 function yamlScalar(v: unknown): string {
   if (v === null || v === undefined) return '';
@@ -173,68 +201,4 @@ function unquote(s: string): string {
     return s.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
   }
   return s;
-}
-
-/* ── データベースの項目の値（§4-4） ───────────────────────── */
-
-/**
- * 値が項目の型に合っているか。**サーバーが保存の前に必ず通す**
- * （知らない項目・型違いを保存すると、画面のセルが描けずに落ちる）。
- */
-export function isValidPropValue(item: WikiItem, value: WikiPropValue): boolean {
-  if (value === null || value === '') return !item.required;
-  switch (item.type) {
-    case 'text':
-    case 'url':
-      return typeof value === 'string';
-    case 'number':
-      return typeof value === 'number' && Number.isFinite(value);
-    case 'checkbox':
-      return typeof value === 'boolean';
-    case 'date':
-      return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
-    case 'person':
-      return typeof value === 'string';
-    case 'select':
-      return (
-        typeof value === 'string' &&
-        (!item.options || item.options.some((o) => o.value === value))
-      );
-    case 'multi_select':
-      return (
-        Array.isArray(value) &&
-        value.every(
-          (v) =>
-            typeof v === 'string' &&
-            (!item.options || item.options.some((o) => o.value === v)),
-        )
-      );
-    case 'onair_link': {
-      if (typeof value !== 'object' || Array.isArray(value)) return false;
-      const link = value as { kind?: unknown; id?: unknown };
-      return (
-        typeof link.kind === 'string' &&
-        ['project', 'equipment', 'room', 'page'].includes(link.kind) &&
-        typeof link.id === 'string' &&
-        link.id.length > 0
-      );
-    }
-    default:
-      return false;
-  }
-}
-
-/** 知らない項目を落とし、型の合う値だけを残す。保存の前に必ず通す */
-export function sanitizeProps(
-  items: WikiItem[],
-  props: Record<string, WikiPropValue> | null | undefined,
-): Record<string, WikiPropValue> {
-  const out: Record<string, WikiPropValue> = {};
-  if (!props) return out;
-  for (const item of items) {
-    const v = props[item.id];
-    if (v === undefined) continue;
-    if (isValidPropValue(item, v)) out[item.id] = v;
-  }
-  return out;
 }
