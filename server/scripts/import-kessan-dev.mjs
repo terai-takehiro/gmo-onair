@@ -263,6 +263,14 @@ async function main() {
     return;
   }
 
+  // server/src/shared/constants/entity-default.ts の実体。このスクリプトは .mjs のまま
+  // 直接 node 実行するため .ts を import できず、コンテナには src/ が無く dist/ だけが
+  // あるので、ビルド成果物を import するのが「リテラルを書かず定数を参照する」唯一の道。
+  // ただし --no-db (パース検証用。上の return で抜ける) はビルド前のまっさらな checkout
+  // でも動く独立したCLIであるべきなので、DB へ実際に書き込むこの先でだけ遅延 import する
+  // (Codex レビュー指摘: 先頭で static import すると --no-db まで dist/ 依存になっていた)。
+  const { CURRENT_ENTITY_CODE } = await import('../dist/shared/constants/entity-default.js');
+
   // --- DB 接続 ---
   const client = new Client(dbCfg);
   await client.connect();
@@ -293,7 +301,16 @@ async function main() {
     }
     async function findProject(gls) {
       if (masterCache.projects.has(gls)) return masterCache.projects.get(gls);
-      const r = await client.query('SELECT id, customer_id FROM projects WHERE gls_number=$1 AND deleted_at IS NULL LIMIT 1', [gls]);
+      // 改番済みの旧番号でも project_numbers 経由で引けるようにする (ensureProject と
+      // 同じ根拠。ここが引けないと、実際は改番済みで存在する案件を「未登録」と誤って
+      // 事前照合レポートに出してしまう)。
+      const r = await client.query(
+        `SELECT id, customer_id FROM projects
+           WHERE deleted_at IS NULL
+             AND (gls_number=$1 OR id = (SELECT project_id FROM project_numbers WHERE number=$1))
+           LIMIT 1`,
+        [gls],
+      );
       const v = r.rows[0] || null;
       masterCache.projects.set(gls, v);
       return v;
@@ -370,8 +387,18 @@ async function main() {
       // 返ってしまい、いつまでも新規作成・復活の対象にならない)。
       const cached = masterCache.projects.get(cacheKey);
       if (cached) return cached;
-      const col = isFixed ? 'code' : 'gls_number';
-      const r = await client.query(`SELECT id, customer_id FROM projects WHERE ${col}=$1 AND deleted_at IS NULL LIMIT 1`, [key]);
+      // 改番済みの旧GLS番号でも project_numbers 経由で引けるようにする (Codex レビュー
+      // 指摘。下の「削除済み」側の検索は既に対応済みだったが、こちら「生きている」側の
+      // 検索が対応漏れだと、改番済み案件がここでは見つからず後段の duplicate key で落ちる)。
+      const r = isFixed
+        ? await client.query(`SELECT id, customer_id FROM projects WHERE code=$1 AND deleted_at IS NULL LIMIT 1`, [key])
+        : await client.query(
+            `SELECT id, customer_id FROM projects
+               WHERE deleted_at IS NULL
+                 AND (gls_number=$1 OR id = (SELECT project_id FROM project_numbers WHERE number=$1))
+               LIMIT 1`,
+            [key],
+          );
       let p = r.rows[0] || null;
       if (!p) {
         if (!CREATE_MASTERS) { masterCache.projects.set(cacheKey, null); return null; }
@@ -404,13 +431,22 @@ async function main() {
           p = { id: rid, customer_id: dead.rows[0].customer_id };
           counts.projRevived = (counts.projRevived || 0) + 1;
         } else {
+          // projects.customer_id は NOT NULL。仕入専用GLSなど顧客不明の場合は
+          // フォールバック顧客「(顧客不明)」を割り当てて作成する
+          // (kessan-import.service.ts の ensureProject と同一ロジック)。
+          const cid = customerId || (await ensureCustomer('(顧客不明)'));
+          if (!cid) { masterCache.projects.set(cacheKey, null); return null; }
           const id = randomUUID();
           await client.query(
-            `INSERT INTO projects (id, code, gls_number, name, customer_id, stage, assigned_to, notes, created_by)
-             VALUES ($1,$2,$3,$4,$5,'a_won',$6,$7,$8)`,
-            [id, key, isFixed ? null : key, name || key, customerId, userId, MARKER, userId]
+            `INSERT INTO projects (id, code, entity_code, gls_number, name, customer_id, stage, assigned_to, kessan_marker, created_by)
+             VALUES ($1,$2,$3,$4,$5,$6,'a_won',$7,$8,$9)`,
+            // kessan_marker には period の素の値 (例 "2026-03") を入れる。角括弧付きの
+            // MARKER (例 "[kessan:2026-03]") を入れると、この列だけ表記が web 版
+            // (kessan-import.service.ts) と食い違い、getKessanMarkers() の絞り込みが
+            // 割れる (Codex レビュー指摘)。
+            [id, key, CURRENT_ENTITY_CODE, isFixed ? null : key, name || key, cid, userId, PERIOD, userId]
           );
-          p = { id, customer_id: customerId };
+          p = { id, customer_id: cid };
           counts.projCreated++;
         }
       }
@@ -423,10 +459,10 @@ async function main() {
       await client.query(`DELETE FROM sga_expenses WHERE notes LIKE $1`, [`${MARKER}%`]);
       for (const x of sga) {
         await client.query(
-          `INSERT INTO sga_expenses (id, billing_key, vendor_name, description, amount, tax_category,
+          `INSERT INTO sga_expenses (id, entity_code, billing_key, vendor_name, description, amount, tax_category,
              invoice_qualified, expense_type, source, recognition_date, notes, created_by)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,'spot','accounting',$8,$9,$10)`,
-          [randomUUID(), `KESSAN-${PERIOD}-${x.no}`, x.vendor_name, x.description, x.amount,
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'spot','accounting',$9,$10,$11)`,
+          [randomUUID(), CURRENT_ENTITY_CODE, `KESSAN-${PERIOD}-${x.no}`, x.vendor_name, x.description, x.amount,
            x.tax_category, x.invoice_qualified, x.date, `${MARKER} ${x.no}`, userId]
         );
         counts.sga++;
@@ -442,10 +478,10 @@ async function main() {
         const proj = await ensureProject(x.gls, x.project_name, customerId);
         if (!proj) { counts.skipped++; continue; }
         await client.query(
-          `INSERT INTO revenues (id, billing_key, project_id, customer_id, tax_category, amount,
+          `INSERT INTO revenues (id, billing_key, project_id, entity_code, customer_id, tax_category, amount,
              recognition_date, status, notes, created_by)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,'confirmed',$8,$9)`,
-          [randomUUID(), `KESSAN-${PERIOD}-REV-${x.no}`, proj.id, proj.customer_id || customerId,
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'confirmed',$9,$10)`,
+          [randomUUID(), `KESSAN-${PERIOD}-REV-${x.no}`, proj.id, CURRENT_ENTITY_CODE, proj.customer_id || customerId,
            x.tax_category, x.amount, x.date, `${MARKER} ${x.no} ${x.memo}`.slice(0, 240), userId]
         );
         counts.rev++;
@@ -460,10 +496,10 @@ async function main() {
         const vendorId = await ensureVendor(x.vendor_name);
         if (!vendorId) { counts.skipped++; continue; }
         await client.query(
-          `INSERT INTO purchases (id, project_id, vendor_id, tax_category, invoice_qualified, amount,
+          `INSERT INTO purchases (id, project_id, entity_code, vendor_id, tax_category, invoice_qualified, amount,
              description, recognition_date, notes, created_by)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-          [randomUUID(), proj.id, vendorId, x.tax_category, x.invoice_qualified, x.amount,
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+          [randomUUID(), proj.id, CURRENT_ENTITY_CODE, vendorId, x.tax_category, x.invoice_qualified, x.amount,
            x.description, x.date, `${MARKER} ${x.no}${x.split > 1 ? ` (1/${x.split}按分)` : ''}`.slice(0, 240), userId]
         );
         counts.pur++;
@@ -480,10 +516,10 @@ async function main() {
             const vendorId = await ensureVendor(x.vendor_name);
             if (!vendorId) { counts.skipped++; continue; }
             await client.query(
-              `INSERT INTO purchases (id, project_id, vendor_id, tax_category, invoice_qualified, amount,
+              `INSERT INTO purchases (id, project_id, entity_code, vendor_id, tax_category, invoice_qualified, amount,
                  description, recognition_date, notes, created_by)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-              [randomUUID(), fixedProj.id, vendorId, x.tax_category, x.invoice_qualified, x.amount,
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+              [randomUUID(), fixedProj.id, CURRENT_ENTITY_CODE, vendorId, x.tax_category, x.invoice_qualified, x.amount,
                x.description, x.date, `${MARKER} ${x.no} [固定原価]`.slice(0, 240), userId]
             );
             counts.pur++;
