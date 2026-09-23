@@ -75,7 +75,7 @@ export function CreatePanelDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="盤を追加"
-      sub="名前・ch数・種類・場所・型番を入れて追加します。"
+      sub="名前・ch数・種類・場所・型番を入力して追加します。"
       onSubmit={(e) => { e.preventDefault(); void save(); }}
       footer={
         <FormDialogFooter>

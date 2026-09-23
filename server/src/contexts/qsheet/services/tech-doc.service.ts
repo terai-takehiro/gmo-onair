@@ -190,7 +190,7 @@ function isLockStale(lockedAt: unknown): boolean {
 /** 確定していないこと＋ロックを他人が新しく持っていないことの両方を見る */
 export function assertTechDocEditable(doc: Row, userId: string): void {
   if (doc.status === 'fixed') {
-    throw new ValidationError('確定済みです。編集するには確定を解いてください');
+    throw new ValidationError('確定済みです。編集するには確定を解除してください');
   }
   const lockedBy = (doc.locked_by as string | null) ?? null;
   if (lockedBy && lockedBy !== userId && !isLockStale(doc.locked_at)) {
@@ -236,7 +236,7 @@ export async function createTechDoc(input: CreateTechDocInput): Promise<Row> {
   const hasProject = !!input.projectId;
   const hasProgram = !!input.programId;
   if (hasProject === hasProgram) {
-    throw new ValidationError('project_id と program_id はどちらか一方だけ指定してください');
+    throw new ValidationError('案件か番組のどちらか一方を選んでください');
   }
 
   // 存在しない番組 id をそのまま INSERT すると FK 違反で 500 になるので、先に見る
@@ -377,7 +377,7 @@ export async function fixTechDoc(id: string, userId: string): Promise<Row> {
   await withTransaction(async (tx) => {
     const doc = await tx.queryOne('SELECT id, status FROM qsheet_tech_docs WHERE id = $1 AND deleted_at IS NULL FOR UPDATE', [id]);
     if (!doc) throw new NotFoundError('技術資料が見つかりません');
-    if (doc.status !== 'draft') throw new ValidationError('先に確定を解いてください');
+    if (doc.status !== 'draft') throw new ValidationError('先に確定を解除してください');
     await tx.execute(
       `UPDATE qsheet_tech_docs
        SET status = 'fixed', rev = rev + 1, fixed_at = NOW(), fixed_by = $2, updated_by = $2, updated_at = NOW()
@@ -430,7 +430,7 @@ export async function acquireTechDocLock(id: string, userId: string): Promise<Ro
   const doc = await getLockRow(id);
   if (!doc) throw new NotFoundError('技術資料が見つかりません');
   if (!acquired) {
-    if (doc.status === 'fixed') throw new ValidationError('確定済みです。編集するには確定を解いてください');
+    if (doc.status === 'fixed') throw new ValidationError('確定済みです。編集するには確定を解除してください');
     const name = (doc.locked_by_name as string | null) ?? null;
     throw new LockError(`${name || '他のユーザー'} さんが編集中です`, (doc.locked_by as string | null) ?? null, name);
   }

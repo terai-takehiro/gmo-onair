@@ -124,7 +124,7 @@ export default function TechDocPrintPage() {
       });
       if (manuals.length === 0) {
         notifyInfo("差し込む先の運営マニュアルがありません。", {
-          description: "先に運営マニュアルを作ってから、キャンバスの「差し込む」＞技術資料を選んでください。",
+          description: "先に運営マニュアルを作成してから、キャンバスの「差し込む」＞技術資料を選んでください。",
         });
         return;
       }
@@ -224,7 +224,7 @@ export default function TechDocPrintPage() {
         <div className="flex flex-col gap-4">
           <section className="flex flex-col gap-2 rounded-card border border-border bg-card p-3">
             <div className="flex flex-col gap-0.5">
-              <span className="text-sub font-medium text-foreground">出す内容</span>
+              <span className="text-sub font-medium text-foreground">書き出す内容</span>
               <span className="text-sub-sm text-muted-foreground">チェックを外すと PDF から外れます</span>
             </div>
             <ToggleRow label="映像パッチ" note={`${detail.patch_rows.length}行`} checked={showPatch} onChange={setShowPatch} />

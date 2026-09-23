@@ -50,7 +50,7 @@ export function DevicePicker({
         <button
           type="button"
           disabled={disabled}
-          aria-label="機材を選択し直す"
+          aria-label="機材を変更"
           onClick={() => setOpen((v) => !v)}
           className="flex h-9 w-6 shrink-0 items-center justify-center rounded-control text-muted-foreground hover:bg-muted/30 disabled:opacity-50"
         >

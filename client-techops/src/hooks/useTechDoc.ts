@@ -119,8 +119,8 @@ export function useTechDoc(id: string | undefined): UseTechDocResult {
         if (!(locked && quietWhenLocked)) {
           notifyError(message, {
             description: locked
-              ? "編集は他の人が開いています。最新の内容を読み込み直します。"
-              : "少し待ってから、もう一度お試しください。最新の内容を読み込み直します。",
+              ? "他の人が編集中です。最新の内容を再読み込みします。"
+              : "少し待ってから、もう一度お試しください。最新の内容を再読み込みします。",
           });
         }
         await reload();
