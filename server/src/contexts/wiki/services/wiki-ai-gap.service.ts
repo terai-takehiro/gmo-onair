@@ -14,7 +14,7 @@
  * `wiki-markdown.ts` に一字一句そろえた写しを持っています。
  */
 import { v4 as uuid } from 'uuid';
-import { queryAll, queryOne, execute } from '../../../shared/db/connection';
+import { queryAll, queryOne, execute, type TxClient } from '../../../shared/db/connection';
 import { NotFoundError, ValidationError } from '../../qsheet/services/httpErrors';
 import { normalizeQuestion } from '../wiki-markdown';
 import { isWikiManager, readableSpaceIds, type WikiUser } from './wiki-access.service';
@@ -154,12 +154,32 @@ export async function resolveGap(
 
 /** ページを作った側から結びつける（「ページにする」を押したとき） */
 export async function markGapWritten(gapId: string, pageId: string, userId: string): Promise<void> {
-  await execute(
-    `UPDATE wiki_ai_gaps
-        SET status = 'written', page_id = ?, resolved_by = ?, resolved_at = NOW()
-      WHERE id = ?`,
-    [pageId, userId, gapId],
-  ).catch((e: unknown) => {
+  await execute(MARK_GAP_WRITTEN_SQL, [pageId, userId, gapId]).catch((e: unknown) => {
     console.warn('[wiki-ai] 足りないページの結びつけに失敗:', (e as Error).message);
   });
+}
+
+const MARK_GAP_WRITTEN_SQL = `
+  UPDATE wiki_ai_gaps
+     SET status = 'written', page_id = ?, resolved_by = ?, resolved_at = NOW()
+   WHERE id = ?`;
+
+/**
+ * 同じ結びつけを、**ページを作る取引の中で**行う（Codex レビュー指摘・#735）。
+ *
+ * ⚠️ **ここでは握りつぶしません。** 結びつけに失敗したらページごと巻き戻すのが
+ * 狙いです。片方だけ成功すると、**下書きは残ったのに質問は `open` のまま**になり、
+ * 画面にはその下書きを結びつけ直す手立てが無いので、押し直した人が下書きを
+ * 2本作ります。両方まとめて失敗すれば、押し直しはきれいなやり直しになります。
+ */
+export async function markGapWrittenTx(
+  tx: TxClient,
+  gapId: string,
+  pageId: string,
+  userId: string,
+): Promise<void> {
+  // ⚠️ `RETURNING` で**当たったか**を見る。当たらない（消えた・id が違う）ときに
+  //    黙って通すと、ページだけできて質問は結びつかないまま＝直したい状態に戻る
+  const row = await tx.queryOne(`${MARK_GAP_WRITTEN_SQL} RETURNING id`, [pageId, userId, gapId]);
+  if (!row) throw new NotFoundError('足りないページの質問が見つかりません');
 }

@@ -105,3 +105,33 @@ export async function assertReadablePage(user: WikiUser, pageId: string): Promis
     throw new NotFoundError('ページが見つかりません');
   }
 }
+
+/**
+ * **通知を出す相手が、いまそのページを読めるか**を見るための `WikiUser` を作る
+ * （Codex レビュー指摘・#735）。
+ *
+ * ⚠️ **知らせる先は「送る時点で読める人」だけ**です。担当やコメントを書いた人は
+ * `wiki_pages` / `wiki_comments` に id が残り続けるので、**棚から外れたあと**や
+ * **入っていない棚の担当に据えられた**ときに、そのまま送ると題と本文の一部が
+ * 届いてしまいます（押しても 404 になるページの中身が、ベルの中だけで読める）。
+ *
+ * 退職・停止した人（`deleted_at` / `status`）もここで落ちます。
+ * 返り値が `null` なら**送らない**でください。
+ */
+export async function wikiUserById(userId: string): Promise<WikiUser | null> {
+  const row = await queryOne(
+    "SELECT id, role FROM users WHERE id = ? AND deleted_at IS NULL AND status = 'active'",
+    [userId],
+  );
+  if (!row) return null;
+  const user: WikiUser = { id: String(row.id), role: row.role ? String(row.role) : undefined };
+  if (user.role !== 'system_admin') {
+    const perms = await queryAll(
+      "SELECT module, access_level FROM user_permissions WHERE user_id = ? AND module = 'wiki'",
+      [userId],
+    );
+    user.permissions = {};
+    for (const p of perms) user.permissions[String(p.module)] = String(p.access_level);
+  }
+  return user;
+}

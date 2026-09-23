@@ -30,7 +30,8 @@ import { queryAll, queryOne, execute, type Row } from '../../../shared/db/connec
 import { ForbiddenError, NotFoundError, ValidationError } from '../../qsheet/services/httpErrors';
 import { notify, template as notificationTemplate, fill } from '../../platform/services/notification.service';
 import {
-  assertReadablePage, isWikiManager, readableSpaceIds, type WikiUser,
+  assertReadablePage, canReadPage, isWikiManager, readableSpaceIds, wikiUserById,
+  type WikiUser,
 } from './wiki-access.service';
 
 /** 通知のひな形（migration 306）。設定 ⑦ の画面から止められる */
@@ -205,6 +206,13 @@ export async function addComment(
  * ⚠️ `refDate` にコメントの id を入れます。一意索引（人 × ひな形 × 対象 × 日）は
  * ここを変えないと**2通目以降が消えます** — コメントは同じページに何度も付くので、
  * 1件ごとに届かないと会話になりません（`dg_comment` と同じ判断）。
+ *
+ * ⚠️ **送る相手は1人ずつ「いま読めるか」を見ます**（Codex レビュー指摘・#735）。
+ * 担当（`owner_user_id`）とコメントを書いた人の id は表に残り続けるので、
+ * **棚（`members` のスペース）から外れたあと**や、**入っていない棚の担当に
+ * 据えられた**ときに、そのまま送ると**題と本文の先頭120字**が届きます。
+ * ページを開けば 404 なのに、ベルの中だけ中身が読める状態です（§8 に反する）。
+ * 退職・停止した人もここで落ちます。
  */
 async function notifyComment(
   user: WikiUser,
@@ -233,6 +241,14 @@ async function notifyComment(
     to.delete(user.id);
     if (to.size === 0) return;
 
+    // いま読める人だけに絞る（読めない人に題と本文を届けない・§8）
+    const readers: string[] = [];
+    for (const userId of to) {
+      const recipient = await wikiUserById(userId);
+      if (recipient && (await canReadPage(recipient, pageId))) readers.push(userId);
+    }
+    if (readers.length === 0) return;
+
     const author = await queryOne('SELECT name FROM users WHERE id = ?', [user.id]);
     const vars = {
       '投稿者名': author?.name ? String(author.name) : '（不明）',
@@ -240,7 +256,7 @@ async function notifyComment(
       // 通知は一言で分かればよい。長文はページで読む
       '本文': body.length > 120 ? `${body.slice(0, 120)}…` : body,
     };
-    for (const userId of to) {
+    for (const userId of readers) {
       await notify({
         userId,
         templateId: WIKI_COMMENT_TEMPLATE_ID,
