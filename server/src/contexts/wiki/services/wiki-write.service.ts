@@ -23,6 +23,7 @@ import {
   canReadSpace,
   assertReadablePage,
   readableSpaceIds,
+  WIKI_ELIGIBLE,
   type WikiUser,
 } from './wiki-access.service';
 import { assertPageEditable } from './wiki-lock.service';
@@ -394,11 +395,12 @@ export async function setPageTemplate(
  */
 export async function assertUserExists(userId: string, currentOwnerId: string | null = null): Promise<void> {
   if (currentOwnerId && userId === currentOwnerId) return;
-  const row = await queryOne(
-    "SELECT 1 AS ok FROM users WHERE id = ? AND deleted_at IS NULL AND status = 'active'",
-    [userId],
-  );
-  if (!row) throw new ValidationError('担当に選んだ人が見つからないか、利用が止まっています。選び直してください。');
+  // 在籍中で Wiki を使える人だけ（`WIKI_ELIGIBLE`。Wiki の権限が無い人を担当にすると、
+  // 開いても 403・コメントの通知も届かない＝#740 の Codex 指摘・P2）
+  const row = await queryOne(`SELECT 1 AS ok FROM users u WHERE u.id = ? AND ${WIKI_ELIGIBLE}`, [userId]);
+  if (!row) {
+    throw new ValidationError('担当に選んだ人が見つからないか、利用が止まっているか、Wiki を使える権限がありません。選び直してください。');
+  }
 }
 
 /** `PATCH /wiki/pages/:id` で親を変えるときも、作成・移動と同じ検査を通す */

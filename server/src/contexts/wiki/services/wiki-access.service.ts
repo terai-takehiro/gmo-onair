@@ -22,6 +22,20 @@ export interface WikiUser {
   permissions?: Record<string, string>;
 }
 
+/**
+ * Wiki を使える在籍中の利用者だけを通す SQL の条件（`u` は users）。
+ *
+ * ⚠️ **区画 `wiki` の権限（reader 以上）か system_admin の人だけ**です。在籍中かだけを
+ * 見ていたころは、Wiki の権限が無い人も担当・メンバーに選べてしまい、通知から
+ * リンクを開くと全部 403 になっていました（#740 の Codex 指摘・P2）。
+ * **担当・メンバー・人の項目で「新しく選べる人」はすべてこの条件です**（スペースの担当と
+ * メンバー＝`wiki-space-admin.service.ts`、ページの担当＝`wiki-write.service.ts` の
+ * `assertUserExists`、候補の一覧＝`GET /wiki/users` の `active`）。
+ */
+export const WIKI_ELIGIBLE = `u.deleted_at IS NULL AND u.status = 'active'
+  AND (u.role = 'system_admin'
+       OR EXISTS (SELECT 1 FROM user_permissions up WHERE up.user_id = u.id AND up.module = 'wiki'))`;
+
 /** 区画 `wiki` の manager（スペースの設定・編集の引き継ぎ。段B 以降で使う） */
 export function isWikiManager(user: WikiUser): boolean {
   return meetsPermissionLevel(user.role, user.permissions?.wiki, 'manager');

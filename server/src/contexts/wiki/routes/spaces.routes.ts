@@ -12,6 +12,7 @@
  */
 import { Router } from 'express';
 import { queryAll } from '../../../shared/db/connection';
+import { WIKI_ELIGIBLE } from '../services/wiki-access.service';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { listSpaces, getSpaceByKey, getSpaceTree } from '../services/wiki-space.service';
 import { wrap, p1 } from './wrap';
@@ -27,13 +28,16 @@ const canRead = [requireAuth, requirePermission('wiki', 'reader')] as const;
  * 引けませんでした**（#730 の Codex 指摘・P2）。停止・招待中の人も返すのは、
  * 既に入っている担当の名前を id のまま見せないためです（削除した人だけ除きます）。
  *
- * ⚠️ **その代わり `active` を付けて返し、画面は選ぶ候補からは外します**（#740 の Codex 指摘・P2）。
- * 付けずに返していたころは、ログインできない人・通知の届かない人を担当に選べました。
+ * ⚠️ **その代わり `active`（＝新しく選べる人か）を付けて返し、画面は選ぶ候補からは外します**
+ * （#740 の Codex 指摘・P2 ×2）。`active` は「在籍中」かつ「Wiki を使える」（`WIKI_ELIGIBLE`）です。
+ * 付けずに返していたころは、ログインできない人・Wiki を開けない人を担当に選べました。
  * 選べるのは在籍中の人と、いま入っている値だけです（`pickableUsers`）。
  */
 router.get('/users', ...canRead, wrap(async (_req, res) => {
   const rows = await queryAll(
-    "SELECT id, name, (status = 'active') AS active FROM users WHERE deleted_at IS NULL ORDER BY name, id",
+    `SELECT u.id, u.name,
+            EXISTS (SELECT 1 FROM users u2 WHERE u2.id = u.id AND ${WIKI_ELIGIBLE.replace(/\bu\./g, 'u2.')}) AS active
+       FROM users u WHERE u.deleted_at IS NULL ORDER BY u.name, u.id`,
   );
   res.json({ success: true, data: rows });
 }));

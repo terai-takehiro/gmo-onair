@@ -24,7 +24,7 @@
 import { v4 as uuid } from 'uuid';
 import { queryAll, queryOne, withTransaction, type Row, type TxClient } from '../../../shared/db/connection';
 import { NotFoundError, ValidationError, checkOptimisticLock } from '../../qsheet/services/httpErrors';
-import { canReadSpace, readableSpaceIds, type WikiUser } from './wiki-access.service';
+import { WIKI_ELIGIBLE, canReadSpace, readableSpaceIds, type WikiUser } from './wiki-access.service';
 
 export const WIKI_SPACE_VISIBILITIES = ['all', 'members'] as const;
 export type WikiSpaceVisibility = (typeof WIKI_SPACE_VISIBILITIES)[number];
@@ -122,18 +122,6 @@ function cleanVisibility(v: unknown): WikiSpaceVisibility {
   }
   return s as WikiSpaceVisibility;
 }
-
-/**
- * Wiki を使える在籍中の利用者だけを通す条件（`u` は users）。
- *
- * ⚠️ **区画 `wiki` の権限（reader 以上）か system_admin の人だけ**です。在籍中かだけを
- * 見ていたころは、Wiki の権限が無い人も担当・メンバーに選べてしまい、見直しの通知から
- * リンクを開くと全部 403 になっていました（#740 の Codex 指摘・P2）。
- * 候補の一覧（`listAssignableUsers`）と、選んだ値の検査（`cleanActiveUser`）は同じ条件を使います。
- */
-const WIKI_ELIGIBLE = `u.deleted_at IS NULL AND u.status = 'active'
-  AND (u.role = 'system_admin'
-       OR EXISTS (SELECT 1 FROM user_permissions up WHERE up.user_id = u.id AND up.module = 'wiki'))`;
 
 /**
  * 担当・メンバーに選べる人の一覧（名前の順・**上限なし**）。
